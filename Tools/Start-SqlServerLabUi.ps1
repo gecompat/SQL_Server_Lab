@@ -4,8 +4,9 @@
     Startet die lokale SQL_Server_Lab-Workflow-Oberflaeche.
 .DESCRIPTION
     Stellt ausschliesslich auf 127.0.0.1 eine kleine Browser-Oberflaeche bereit.
-    Aktionen laufen als Thread-Jobs im selben erhöhten Prozess; Geheimnisse
-    werden nicht geloggt oder persistiert.
+    Aktionen ohne flüchtige Geheimnisse laufen als persistente Batchvorgänge;
+    übrige Aktionen laufen als Thread-Jobs. Die Anzeige liest beide Quellen.
+    Annahme bestätigt keinen Start; Statuspolling startet keinen OperationHost.
 .PARAMETER Port
     Lauscht auf diesem TCP-Port (Standard: 8484).
 .PARAMETER JobStopTimeoutSeconds
@@ -122,6 +123,7 @@ function Import-UiSqlServerLabModule {
     Import-Module $ModulePath 6>$null
 }
 Import-UiSqlServerLabModule -ModulePath $modulePath
+. (Join-Path $PSScriptRoot 'WorkflowUiJobStatus.ps1')
 
 function Write-UiResponse {
     param(
@@ -604,6 +606,7 @@ $url = "http://127.0.0.1:$Port/"
 $listener.Prefixes.Add($url)
 $listener.Start()
 $jobs = @{}
+$persistentJobs = @{}
 
 Write-Host "SQL_Server_Lab Workflow UI: $url" -ForegroundColor Green
 Write-Host 'Zum Beenden Strg+C druecken.' -ForegroundColor DarkGray
@@ -814,7 +817,7 @@ try {
                 continue
             }
             if ($path -eq '/api/jobs' -and $context.Request.HttpMethod -eq 'GET') {
-                $snapshot = @($jobs.Values | ForEach-Object { Get-UiJobSnapshot -Record $_ } | Sort-Object StartedAt -Descending)
+                $snapshot = @(@($jobs.Values | ForEach-Object { Get-UiJobSnapshot -Record $_ }) + @($persistentJobs.Values | ForEach-Object { Get-UiPersistentJobSnapshot -Record $_ }) | Sort-Object StartedAt -Descending)
                 Write-UiResponse -Context $context -Body (ConvertTo-Json -InputObject $snapshot -Depth 8) -ContentType 'application/json; charset=utf-8'
                 continue
             }
@@ -871,7 +874,10 @@ try {
                     'SubmitBatch' { & (Get-Module SqlServerLab) { param($Id) Submit-SqlServerLabBatch -BatchId $Id } ([string]$request.batchId) }
                     default { throw "Unbekanntes Operation-Kommando '$($request.command)'." }
                 }
-                try { & (Get-Module SqlServerLab) { Start-SqlServerLabOperationHost } } catch { }
+                if ((Invoke-UiOperationHostStart) -eq 'Failed') {
+                    Write-UiResponse -Context $context -Body 'OPERATION_HOST_START_FAILED: Änderung angenommen; Hoststart fehlgeschlagen. Status prüfen, nicht automatisch wiederholen.' -StatusCode 503
+                    continue
+                }
                 Write-UiResponse -Context $context -Body ($result | ConvertTo-Json -Depth 20) -ContentType 'application/json; charset=utf-8'
                 continue
             }
@@ -917,9 +923,12 @@ try {
                 $hasTransientSecret = $parameters.ContainsKey('GuestPassword') -or $parameters.ContainsKey('SaPassword')
                 # A confirmed power plan is a one-shot request: never replay it through batch recovery.
                 if (-not $hasTransientSecret -and $action -notin @('Refresh','StartTestGroupPower','StopTestGroupPower')) {
+                    # Retain terminal cards for this server session; bound reads without evicting results.
+                    if ($persistentJobs.Count -ge 256) { throw 'UI_JOB_STATUS_CAPACITY_REACHED' }
+                    $batchStateRoot = & (Get-Module SqlServerLab) { Get-LabStateRoot }
                     $resourceClass = if ($action -match 'WindowsBuild|SqlBuild|HyperVLab|HyperVImage') { 'HyperVHeavy' } elseif ($action -match 'MediaRoot|DataRoot|Storage') { 'ExclusiveStorage' } else { 'LifecycleLight' }
                     $targetId = if ($parameters.ContainsKey('BuildId')) { [string]$parameters.BuildId } elseif ($parameters.ContainsKey('ArtifactId')) { [string]$parameters.ArtifactId } elseif ($parameters.ContainsKey('LabName')) { [string]$parameters.LabName } else { $action }
-                    $batch = New-SqlServerLabBatch -Name "Browser: $action" -Items @([pscustomobject]@{
+                    $batch = New-SqlServerLabBatch -StateRoot $batchStateRoot -Name "Browser: $action" -Items @([pscustomobject]@{
                         id = ("ui-$action-" + [guid]::NewGuid().ToString('n').Substring(0, 6)).ToLowerInvariant()
                         kind = 'Action'
                         count = 1
@@ -931,8 +940,13 @@ try {
                             ProviderPreference = 'Auto'
                         }
                     })
-                    try { & (Get-Module SqlServerLab) { Start-SqlServerLabOperationHost } } catch { }
-                    Write-UiResponse -Context $context -Body (@{ id = $batch.batchId; action = $action; persistent = $true; operationIds = $batch.operationIds } | ConvertTo-Json -Depth 8 -Compress) -ContentType 'application/json; charset=utf-8' -StatusCode 202
+                    $persistentJobs[$batch.batchId] = [pscustomobject]@{
+                        Id = $batch.batchId; Action = $action; StateRoot = $batchStateRoot; OperationIds = @($batch.operationIds)
+                        StartedAt = [DateTime]::UtcNow.ToString('o'); HostStart = 'Requested'; TerminalSnapshot = $null
+                    }
+                    $hostStart = Invoke-UiOperationHostStart -StateRoot $batchStateRoot
+                    $persistentJobs[$batch.batchId].HostStart = $hostStart
+                    Write-UiResponse -Context $context -Body (@{ id = $batch.batchId; action = $action; persistent = $true; state = 'Accepted'; hostStart = $hostStart } | ConvertTo-Json -Depth 8 -Compress) -ContentType 'application/json; charset=utf-8' -StatusCode 202
                     continue
                 }
                 # Geheimnisse werden niemals im persistenten Batch abgelegt.
@@ -983,7 +997,8 @@ try {
             Write-UiResponse -Context $context -Body (Get-Content -LiteralPath $filePath -Raw -Encoding utf8) -ContentType $contentType
         }
         catch {
-            try { Write-UiResponse -Context $context -Body ("Fehler: " + $_.Exception.Message) -StatusCode 500 } catch { }
+            $errorBody = if ($path -in @('/api/actions','/api/commands','/api/jobs','/api/operations')) { 'UI_REQUEST_UNCONFIRMED: Annahme oder Ergebnis nicht bestätigt. Status prüfen; keine automatische Wiederholung.' } else { "Fehler: " + $_.Exception.Message }
+            try { Write-UiResponse -Context $context -Body $errorBody -StatusCode 500 } catch { }
         }
     }
 }

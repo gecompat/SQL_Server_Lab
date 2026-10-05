@@ -75,7 +75,7 @@ Add-CheckResult -Name 'GUI stellt den vollständigen öffentlichen Befehlsvertra
     $htmlText -match 'id="command-center"' -and
     $htmlText -match 'id="command-search"' -and
     $htmlText -match 'id="command-parameter-set"' -and
-    $scriptText -match "fetch\('/api/commands'" -and
+    $scriptText -match "'/api/commands'" -and
     $scriptText -match 'renderPublicCommandCatalog' -and
     $scriptText -match 'collectPublicCommandParameters' -and
     $scriptText -match "'__PublicCommand'" -and
@@ -625,7 +625,8 @@ Add-CheckResult -Name 'Hyper-V-Switches und sofortige Browser-Rückmeldung sind 
     $scriptText -match 'renderHyperVSwitchOptions' -and
     $htmlText -match 'id="action-feedback"' -and
     $scriptText -match '\[ANFORDERUNG\]' -and
-    $scriptText -match '\[HEARTBEAT\]' -and
+    $scriptText -notmatch '\[HEARTBEAT\]' -and
+    $scriptText -match 'Start unbestätigt' -and
     $serverText -notmatch 'Eine Hintergrundaktion läuft bereits'
 )
 Add-CheckResult -Name 'Browser aktiviert Hyper-V capability-basiert statt per Administrator-Rollenbit' -Success (
@@ -670,11 +671,11 @@ Add-CheckResult -Name 'UI-Jobs unterdrücken Modul-Ladeausgaben und zeigen Laufz
     $serverText -match 'ElapsedSeconds' -and
     $serverText -match 'DateTimeOffset\]::Parse' -and
     $serverText -match 'RoundtripKind' -and
-    $scriptText -match 'job-progress' -and
+    $scriptText -match 'Serverstatus' -and
     $scriptText -match 'Array\.isArray\(payload\)' -and
     $serverText -match 'ConvertTo-Json -InputObject \$snapshot -Depth 8' -and
     $scriptText -match 'optimisticJobIds' -and
-    $scriptText -match 'isOptimisticOnly \? incomingLines'
+    $scriptText -match "job.Source === 'PersistentBatch'"
 )
 Add-CheckResult -Name 'UI-Jobs leiten Labmeldungen ins Live-Log statt ins Terminal' -Success (
     $serverText -match 'SqlServerLabUiCaptureOutput' -and
@@ -727,7 +728,7 @@ else {
     finally { $process.Dispose() }
 }
 
-foreach ($fixture in @('ContainerPortPreviewHttpChecks.ps1','ContainerPortPreviewUiChecks.cjs','ContainerAutoStartPreviewHttpChecks.ps1','ContainerAutoStartPreviewUiChecks.cjs','ContainerAutoStartPreviewBrowserWorkflowChecks.ps1')) {
+foreach ($fixture in @('ContainerPortPreviewHttpChecks.ps1','ContainerPortPreviewUiChecks.cjs','ContainerAutoStartPreviewHttpChecks.ps1','ContainerAutoStartPreviewUiChecks.cjs','ContainerAutoStartPreviewBrowserWorkflowChecks.ps1','WorkflowJobStatusChecks.ps1','WorkflowJobStatusChecks.cjs')) {
     $start = [Diagnostics.ProcessStartInfo]::new()
     $start.FileName = if ($fixture.EndsWith('.ps1')) { (Get-Process -Id $PID).Path } elseif ($node) { $node.Source } else { '' }
     if (-not $start.FileName) { Add-CheckResult -Name $fixture -Success $false -Message 'NOT_EXECUTED: Node.js fehlt.'; continue }

@@ -219,9 +219,48 @@ Annahme weiterer Anfragen vorübergehend verzögern.
 
 Die Workflow-Inventur (ISO-, Image- und Runtime-Erkennung) läuft getrennt von
 der HTTP-Annahme eines Klicks. Nach einer Aktion schließt der Dialog daher
-sofort; Live-Log, Auftragsbestätigung, Laufzeit und Herzschlag erscheinen
+sofort; Auftragsbestätigung und belegte Statusmeldungen erscheinen
 unmittelbar. Die möglicherweise langsamere vollständige Inventur wird danach
 im Hintergrund aktualisiert.
+
+### Angenommene Aktionen und belegter Status
+
+„Angenommen · Start unbestätigt“ bestätigt nur die Übergabe. `/api/jobs` führt
+Thread-Jobs und die in dieser Serversitzung angenommenen persistenten Batches
+zusammen. Jeder Batch bleibt an den beim Annehmen verwendeten StateRoot
+gebunden, auch wenn `SetDataRoot` danach den Default verändert. Der Poll liest
+höchstens 64 gebundene Kindvorgänge je Batch, ohne Storeinitialisierung,
+Scheduler, Recovery oder Hoststart. Kindstatus unterscheiden Wartend,
+Blockiert, servergemeldetes Running, Erfolgreich, Fehlgeschlagen und Abgebrochen.
+Ein Running-Status beweist weder CPU-Arbeit noch SQL-Bereitschaft. Ein
+Batch-Summarystatus allein ist kein Laufnachweis; es gibt keinen künstlichen
+HEARTBEAT und keine simulierte Fortschrittsanimation. Persistente Karten zeigen
+keine aus ihrer Annahmezeit oder Queuewartezeit abgeleitete Ausführungslaufzeit.
+
+Fehlende, widersprüchliche oder unlesbare Statusdaten werden als Unbekannt
+angezeigt. Eine fehlgeschlagene oder länger als fünf Sekunden ausbleibende
+Statusantwort zeigt „Verbindung verloren · Status unbekannt“; eine verspätete
+Antwort überschreibt keinen neueren Stand. Bereits bestätigte Terminalkarten
+bleiben in Browser und Serversitzung erhalten. Der Server hält höchstens 256
+eigene Batchzuordnungen und lehnt weitere vor dem Enqueue ab, statt Ergebnisse
+zu verdrängen. Nach Serverneustart werden keine beliebigen alten Batches gesucht.
+
+Ein Fehler beim OperationHoststart erscheint getrennt; er schreibt einen
+angenommenen Queuevorgang nicht auf Failed um. Bei POST-Ausfall oder Timeout
+nach 15 Sekunden bleibt die Annahme unbekannt: keine automatische Wiederholung.
+Noch offene oder unbestätigte Action-/PublicCommand-Übermittlungen an dasselbe
+nicht sensible Ziel
+werden im Browser gegen Doppelclick und erneutes Rendering geschützt; nach
+bestätigtem Terminalstatus ist eine bewusste Wiederholung möglich. Der Schutz
+gilt innerhalb der Browserseite, nicht als globale Idempotenzgarantie über
+Server-/Browserneustarts. Parameter, Secrets und Logs werden dafür nicht in
+Browserstorage geschrieben. Vor dem Hashing tragen ausschließlich fest
+erlaubte nicht sensible Ziel-/Rootmerkmale zur Identität bei; unbekannte und
+verschachtelte Eingaben werden weggelassen. Bei generischen Befehlen muss auch
+die Parametermetadatenprojektion den skalaren String als nicht sensibel
+bestätigen. Kennwort- oder Credentialänderungen erzeugen keinen neuen Dedupekey;
+Hashkeys sind keine kennwortabgeleiteten Verifier. Andere Eingabeänderungen
+am selben Ziel können daher ebenfalls bis zum bestätigten Abschluss blockieren.
 
 ## Start
 

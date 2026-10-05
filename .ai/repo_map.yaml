@@ -657,6 +657,8 @@ sources_of_truth:
   windows_server_template_validation_matrix: Documentation/Quality/WINDOWS_SERVER_TEMPLATE_VALIDATION_MATRIX.md
   workflow_ui: Documentation/HowTo/WORKFLOW_UI.md
   workflow_ui_server: Tools/Start-SqlServerLabUi.ps1
+  workflow_ui_job_status: Tools/WorkflowUiJobStatus.ps1 # bounded UI-owned batch reader; no store initialization or scheduling
+  workflow_ui_job_status_validation: Tests/Static/Fixtures/WorkflowJobStatusChecks.ps1, Tests/Static/Fixtures/WorkflowJobStatusChecks.cjs
   workflow_ui_assets: Ui/index.html, Ui/app.js, Ui/app.css
   workflow_ui_command_catalog: Private/PublicCommandConsole.ps1
   workflow_ui_validation: Tests/Static/Invoke-WorkflowUiChecks.ps1, Tests/Static/Invoke-PublicCommandConsoleChecks.ps1

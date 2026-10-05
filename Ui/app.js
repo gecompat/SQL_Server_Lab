@@ -2,6 +2,11 @@ let workflow = null;
 let activeJobCount = 0;
 let optimisticJobs = [];
 const jobLineCache = {};
+const observedJobs = new Map();
+const actionSubmissions = new Map();
+let jobsPolling = false;
+let submissionSequence = 0;
+const terminalJobStates = new Set(['Completed', 'Failed', 'Stopped', 'Cancelled']);
 let uiConfig = { jobLogBurstLimit: 300, aiSharedGatewayServiceSecret: { available: false, reason: 'Capability wurde noch nicht geprüft.' } };
 let workflowRefreshTimer = null;
 let pendingPersistentStorageRemoval = null;
@@ -136,22 +141,7 @@ function collectPublicCommandParameters() {
 }
 
 async function startPublicCommand(command, parameterSet, parameters, confirmed) {
-  const response = await fetch('/api/commands', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ commandName: command.Name, parameterSetName: parameterSet.Name, parameters, confirmed })
-  });
-  if (!response.ok) throw new Error(await response.text());
-  const accepted = await response.json();
-  const optimistic = { Id: accepted.id, Action: accepted.action || ('Command: ' + command.Name), State: 'Running', StartedAt: new Date().toISOString(), Lines: ['[AKZEPTIERT] ' + command.Name + ' wurde gestartet.'] };
-  jobLineCache[String(optimistic.Id)] = optimistic.Lines;
-  optimisticJobs.push(optimistic);
-  renderJobs([]);
-  $('#action-feedback-text').textContent = command.Name + ' läuft. Fortschritt und Ergebnis erscheinen im Live-Log.';
-  $('#action-feedback').hidden = false;
-  showWorkspaceArea('messages');
-  $('#jobs').closest('.panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  refreshJobs().catch(() => {});
+  return submitUiAction('Command: ' + command.Name, '/api/commands', { commandName: command.Name, parameterSetName: parameterSet.Name, parameters, confirmed }, parameterSet.Parameters || []);
 }
 
 function formatOperatingSystem(value) {
@@ -994,30 +984,34 @@ function migrationInventoryResult(lines) {
 
 function renderJobs(serverJobs) {
   const jobsByServer = serverJobs || [];
+  jobsByServer.forEach((job) => observedJobs.set(String(job.Id), job));
   const known = new Set(jobsByServer.map((job) => String(job.Id)));
   const optimisticJobIds = new Set(optimisticJobs.map((job) => String(job.Id)));
   optimisticJobs = optimisticJobs.filter((job) => !known.has(String(job.Id)));
-  const jobs = [...optimisticJobs, ...jobsByServer];
-  activeJobCount = jobs.filter((job) => ['Running', 'NotStarted', 'Submitting'].includes(job.State)).length;
+  const jobs = [...optimisticJobs, ...observedJobs.values()];
+  actionSubmissions.forEach((record, key) => {
+    if (terminalJobStates.has(observedJobs.get(String(record.Id))?.State)) actionSubmissions.delete(key);
+  });
+  activeJobCount = jobs.filter((job) => !terminalJobStates.has(job.State)).length;
   const anyRunning = activeJobCount > 0;
   $('#job-count').textContent = jobs.length + ' Aktion(en)';
   $('#jobs').innerHTML = jobs.length ? jobs.map((job) => {
-    const running = ['Running', 'NotStarted', 'Submitting'].includes(job.State);
+    const running = job.State === 'Running';
     const configuredLimit = Number(uiConfig.jobLogBurstLimit);
     const burstLimit = Number.isFinite(configuredLimit) ? Math.max(1, Math.floor(configuredLimit)) : 300;
     const elapsed = Number(job.ElapsedSeconds || Math.max(0, Math.floor((Date.now() - Date.parse(job.StartedAt || new Date().toISOString())) / 1000)) || 0);
-    const runtime = running ? ' · läuft seit ' + elapsed + ' s' : '';
-    const activityAge = job.LastActivityAt ? Math.max(0, Math.floor((Date.now() - Date.parse(job.LastActivityAt)) / 1000)) : null;
-    const heartbeat = running ? '[HEARTBEAT] Job aktiv · Laufzeit ' + elapsed + ' s' + (activityAge === null ? ' · Auftrag wird an den lokalen Server übergeben.' : ' · letzte Servermeldung vor ' + activityAge + ' s.') : '';
+    const runtime = running && job.Source !== 'PersistentBatch' ? ' · läuft seit ' + elapsed + ' s' : '';
     const jobId = String(job.Id);
     const previousLines = Array.isArray(jobLineCache[jobId]) ? jobLineCache[jobId] : [];
     const incomingLines = Array.isArray(job.Lines) ? job.Lines : [];
     const isOptimisticOnly = optimisticJobIds.has(jobId) && !known.has(jobId);
-    const mergedLines = (isOptimisticOnly ? incomingLines : [...previousLines, ...incomingLines]).slice(-burstLimit);
+    const mergedLines = (isOptimisticOnly || job.Source === 'PersistentBatch' ? incomingLines : [...previousLines, ...incomingLines]).slice(-burstLimit);
     jobLineCache[jobId] = mergedLines;
-    const lines = [...mergedLines, ...(heartbeat ? [heartbeat] : [])].join('\n') || 'Aktion läuft …';
+    if (!isOptimisticOnly && job.Source !== 'PersistentBatch') observedJobs.set(jobId, { ...job, Lines: [] });
+    const lines = mergedLines.join('\n') || 'Keine bestätigte Statusmeldung.';
+    const labels = { Accepted: 'Angenommen · Start unbestätigt', Waiting: 'Wartend', Blocked: 'Blockiert', Unknown: 'Unbekannt', ConnectionLost: 'Verbindung verloren · Status unbekannt', NotStarted: 'Wartend', Submitting: 'Übermittlung', Running: 'Running · Serverstatus', Completed: 'Erfolgreich', Failed: 'Fehlgeschlagen', Cancelled: 'Abgebrochen', Stopped: 'Gestoppt' };
     const inventory = job.Action === 'InspectContainerDatabaseMigrationDependencies' ? migrationInventoryResult(mergedLines) : ['StartTestGroupPower', 'StopTestGroupPower'].includes(job.Action) ? testGroupResult(mergedLines) : '';
-    return '<article class="job"><div class="job-header"><strong>' + escapeHtml(job.Action + runtime) + '</strong><span class="status ' + (job.State === 'Failed' ? 'failed' : job.State === 'Completed' ? 'done' : 'pending') + '">' + escapeHtml(job.State) + '</span></div>' + (running ? '<div class="job-progress" aria-label="Aktion läuft"></div>' : '') + inventory + '<pre class="log">' + escapeHtml(lines) + '</pre></article>';
+    return '<article class="job"><div class="job-header"><strong>' + escapeHtml(job.Action + runtime) + '</strong><span class="status ' + (job.State === 'Failed' ? 'failed' : job.State === 'Completed' ? 'done' : 'pending') + '">' + escapeHtml(labels[job.State] || 'Unbekannt') + '</span></div>' + inventory + '<pre class="log">' + escapeHtml(lines) + '</pre></article>';
   }).join('') : empty('Noch keine Aktion wurde aus der Oberfläche gestartet.');
   const feedback = $('#action-feedback');
   const presentJobIds = new Set(jobs.map((job) => String(job.Id)));
@@ -1028,32 +1022,87 @@ function renderJobs(serverJobs) {
 }
 
 async function refreshJobs() {
-  const response = await fetch('/api/jobs');
-  if (!response.ok) return;
-  const payload = await response.json();
-  renderJobs(Array.isArray(payload) ? payload : (payload ? [payload] : []));
+  if (jobsPolling) return;
+  jobsPolling = true;
+  try {
+    const payload = await readUiJobResponse('/api/jobs', {}, 5000);
+    if (!Array.isArray(payload) || payload.some((job) => !job || typeof job.Id !== 'string' || typeof job.State !== 'string' || typeof job.Action !== 'string')) throw new Error('STATUS_SOURCE_INVALID');
+    const present = new Set(payload.map((job) => job.Id));
+    observedJobs.forEach((job, id) => {
+      if (!present.has(id) && !terminalJobStates.has(job.State)) observedJobs.set(id, { ...job, State: 'Unknown', Lines: ['[STATUS] STATUS_SOURCE_MISSING'] });
+    });
+    optimisticJobs.forEach((job) => { if (job.State !== 'Submitting' && !present.has(String(job.Id))) { job.State = 'Unknown'; job.Lines = ['[STATUS] STATUS_SOURCE_MISSING · Annahme oder Ergebnis unbestätigt.']; } });
+    renderJobs(payload);
+  } catch {
+    observedJobs.forEach((job, id) => { if (!terminalJobStates.has(job.State)) observedJobs.set(id, { ...job, State: 'ConnectionLost', Lines: ['[STATUS] Verbindung verloren; aktueller Status unbekannt.'] }); });
+    optimisticJobs.forEach((job) => { if (job.State !== 'Submitting') { job.State = 'ConnectionLost'; job.Lines = ['[STATUS] Verbindung verloren; Annahme oder Ergebnis unbestätigt.']; } });
+    renderJobs([]);
+  } finally { jobsPolling = false; }
+}
+
+async function readUiJobResponse(endpoint, options, timeoutMs) {
+  const controller = new AbortController();
+  let timer;
+  try {
+    return await Promise.race([
+      (async () => {
+        const response = await fetch(endpoint, { ...options, signal: controller.signal });
+        if (!response.ok) throw new Error('UI_REQUEST_UNCONFIRMED');
+        return response.json();
+      })(),
+      new Promise((resolve, reject) => { timer = window.setTimeout(() => { controller.abort(); reject(new Error('UI_REQUEST_TIMEOUT')); }, timeoutMs); })
+    ]);
+  } finally { window.clearTimeout(timer); }
 }
 
 async function startAction(action, parameters) {
-  const optimistic = { Id: 'pending-' + Date.now(), Action: action, State: 'Submitting', StartedAt: new Date().toISOString(), Lines: ['[ANFORDERUNG] ' + action + ' wurde im Browser ausgelöst.', '[WARTEN] Auftrag wird an den lokalen Workflow-Server übergeben.'] };
+  return submitUiAction(action, '/api/actions', { action, parameters });
+}
+
+function canonicalSubmission(value) {
+  if (Array.isArray(value)) return value.map(canonicalSubmission);
+  if (value && typeof value === 'object') return Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonicalSubmission(value[key])]));
+  return value;
+}
+
+function nonSecretSubmissionIdentity(action, endpoint, payload, descriptors) {
+  // Only explicit logical target/configuration coordinates contribute. Unknown,
+  // nested and sensitive values are omitted BEFORE hashing, never password verifiers.
+  const allowed = new Set(['runid', 'instanceid', 'buildid', 'artifactid', 'labname', 'provider', 'stateroot', 'dataroot', 'mediaroot', 'testdataroot']);
+  const targets = {};
+  Object.entries(payload.parameters || {}).forEach(([name, value]) => {
+    const normalized = name.toLowerCase();
+    if (!allowed.has(normalized) || typeof value !== 'string') return;
+    const descriptor = descriptors.find((item) => item.Name?.toLowerCase() === normalized);
+    if (endpoint === '/api/commands' && (!descriptor || descriptor.Sensitive !== false || descriptor.IsCredential !== false || !/^System\.String$/.test(descriptor.TypeName))) return;
+    targets[normalized] = value;
+  });
+  return { action, endpoint, parameterSet: endpoint === '/api/commands' ? payload.parameterSetName : '', targets };
+}
+
+async function submitUiAction(action, endpoint, payload, descriptors = []) {
+  const identity = nonSecretSubmissionIdentity(action, endpoint, payload, descriptors);
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(canonicalSubmission(identity))));
+  const key = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+  if (actionSubmissions.has(key)) throw new Error('Dieser Auftrag ist bereits übermittelt; Status prüfen, nicht erneut senden.');
+  const optimistic = { Id: 'pending-' + (++submissionSequence), Action: action, State: 'Submitting', StartedAt: new Date().toISOString(), Lines: ['[ANFORDERUNG] ' + action + ' wurde im Browser ausgelöst.', '[WARTEN] Auftrag wird an den lokalen Workflow-Server übergeben.'] };
+  actionSubmissions.set(key, optimistic);
   jobLineCache[String(optimistic.Id)] = Array.isArray(optimistic.Lines) ? optimistic.Lines : [];
   optimisticJobs.push(optimistic);
   renderJobs([]);
   const feedback = $('#action-feedback');
-  $('#action-feedback-text').textContent = 'Auftrag wird angenommen: ' + action + ' – Live-Log und Herzschlag sind sofort sichtbar.';
+  $('#action-feedback-text').textContent = 'Auftrag wird übermittelt: ' + action + ' – Annahme und Start werden getrennt angezeigt.';
   feedback.hidden = false;
   showWorkspaceArea('messages');
   $('#jobs').closest('.panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  let response;
   try {
-    response = await fetch('/api/actions', {
+    const accepted = await readUiJobResponse(endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action, parameters })
-    });
-    if (!response.ok) throw new Error(await response.text());
-    const accepted = await response.json();
-    const acceptedId = accepted.id || optimistic.Id;
+    body: JSON.stringify(payload)
+    }, 15000);
+    if (typeof accepted.id !== 'string' || !accepted.id) throw new Error('SUBMISSION_UNCONFIRMED');
+    const acceptedId = accepted.id;
     if (acceptedId && acceptedId !== optimistic.Id) {
       const previousId = String(optimistic.Id);
       const nextId = String(acceptedId);
@@ -1066,8 +1115,9 @@ async function startAction(action, parameters) {
     else {
       optimistic.Id = acceptedId;
     }
-    optimistic.State = 'Running';
-    optimistic.Lines.push('[AKZEPTIERT] Hintergrundjob ' + optimistic.Id + ' wurde gestartet.');
+    optimistic.State = 'Accepted';
+    optimistic.Lines.push('[AKZEPTIERT] Auftrag angenommen; Ausführungsstart noch nicht bestätigt.');
+    if (accepted.hostStart === 'Failed') optimistic.Lines.push('[HOSTSTART] OPERATION_HOST_START_FAILED · Keine automatische Wiederholung.');
     renderJobs([]);
     refreshJobs().catch(() => {});
     // Die komplette Workflow-Inventur kann ISO-Metadaten prüfen und ist
@@ -1075,9 +1125,10 @@ async function startAction(action, parameters) {
     // Sekunde sichtbar; nach kurzer Zeit wird die fachliche Ansicht erneuert.
     if (!['StartTestGroupPower', 'StopTestGroupPower'].includes(action)) window.setTimeout(() => refresh().catch(showError), 3500);
   } catch (error) {
-    optimisticJobs = optimisticJobs.filter((job) => job !== optimistic);
+    optimistic.State = 'Unknown';
+    optimistic.Lines = ['[STATUS] Übermittlung oder Annahme unbestätigt; Status prüfen, keine automatische Wiederholung.'];
     renderJobs([]);
-    throw error;
+    throw new Error('Annahme unbekannt oder fehlgeschlagen; Auftrag nicht automatisch wiederholen.');
   }
 }
 

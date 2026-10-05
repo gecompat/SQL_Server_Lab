@@ -58,8 +58,9 @@ const document = {
   addEventListener(type, callback) { documentEvents.set(type, [...(documentEvents.get(type) || []), callback]); }
 };
 const context = vm.createContext({ document, console, URLSearchParams,
+  crypto: require('node:crypto').webcrypto, TextEncoder, AbortController,
   window: { setInterval() {}, setTimeout() {}, clearTimeout() {}, alert() {} },
-  fetch: (...args) => { fetchRequests.push(args); return new Promise(() => {}); }, setTimeout() {}, clearTimeout() {}, queued: [] });
+  fetch: (...args) => { fetchRequests.push(args); return args[0] === '/api/jobs' ? Promise.resolve({ ok: true, json: async () => [] }) : new Promise(() => {}); }, setTimeout() {}, clearTimeout() {}, queued: [] });
 const fetchRequests = [];
 const run = (code) => vm.runInContext(code, context, { timeout: 5000 });
 run(source);
@@ -321,20 +322,24 @@ async function main() {
     return Promise.resolve({ ok: true, json: async () => [{ Id: 'synthetic-job', Action: 'ExecuteContainerScript', State: 'Completed', Lines: ['SYNTHETIC_RESULT'] }] });
   };
   await node('container-operation-form').events.get('submit')[0]({ submitter: { value: 'default' }, preventDefault() {} });
+  // The real queue is intentionally fire-and-forget. Wait for its asynchronous
+  // nonsecret identity digest and actual POST boundary, not server acceptance.
+  for (let attempt = 0; !acceptAction && attempt < 100; attempt++) await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(typeof acceptAction, 'function', 'Real queued action must reach the POST boundary');
   check('Real form/queue/startAction chain exposes live log before server acceptance', () => {
     assert.equal(run('workspaceArea'), 'messages');
     assert.ok(!node('jobs').closest('.panel').hidden);
     assert.ok(node('jobs').closest('.panel').scrolled);
-    assert.ok(node('jobs').innerHTML.includes('Submitting'));
+    assert.ok(node('jobs').innerHTML.includes('Übermittlung'));
     assert.equal(node('container-operation-dialog').open, false);
     assert.equal(actionRequests[0].url, '/api/actions');
     assert.equal(JSON.parse(actionRequests[0].options.body).action, 'ExecuteContainerScript');
   });
   acceptAction({ ok: true, json: async () => ({ id: 'synthetic-job' }) });
-  await new Promise((resolve) => setImmediate(resolve));
+  for (let attempt = 0; !node('jobs').innerHTML.includes('SYNTHETIC_RESULT') && attempt < 100; attempt++) await new Promise((resolve) => setImmediate(resolve));
   check('Completed normal action keeps its actual result visible after feedback disappears', () => {
     assert.equal(actionRequests[1].url, '/api/jobs');
-    assert.ok(node('jobs').innerHTML.includes('Completed'));
+    assert.ok(node('jobs').innerHTML.includes('Erfolgreich'));
     assert.ok(node('jobs').innerHTML.includes('SYNTHETIC_RESULT'));
     assert.equal(node('action-feedback').hidden, true);
     assert.ok(!node('jobs').closest('.panel').hidden);
