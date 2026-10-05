@@ -53,6 +53,57 @@ function Invoke-PortPreviewFixtureCleanupChecks {
         Remove-PortPreviewFixtureTempRoot $outside $base 'port-custody-fixture-'
     }
 }
+function Invoke-PortPreviewAcceptanceTopologyPredicateChecks {
+    param([string]$RepositoryRoot)
+    $predicates=@(Get-PortPreviewAcceptanceTopologyPredicates $RepositoryRoot)
+    $valid=[pscustomobject]@{ContainerName='synthetic';ContainerId=('a'*64);Inspect=[pscustomobject]@{
+        Config=[pscustomobject]@{ExposedPorts=[pscustomobject]@{'1433/tcp'=[pscustomobject]@{}}};
+        HostConfig=[pscustomobject]@{NetworkMode='synthetic';Dns=@();ExtraHosts=@();Links=@();PublishAllPorts=$false;
+            PortBindings=[pscustomobject]@{'1433/tcp'=@([pscustomobject]@{HostIp='127.0.0.1';HostPort='14333'})}};
+        NetworkSettings=[pscustomobject]@{Ports=[pscustomobject]@{'1433/tcp'=@([pscustomobject]@{HostIp='127.0.0.1';HostPort='14333'})};
+            Networks=[pscustomobject]@{synthetic=[pscustomobject]@{Aliases=@();IPAMConfig=$null}}}}}
+    $baseline=Get-PortPreviewAcceptanceTopologyFlags $valid $predicates
+    Check ($predicates.Count -eq 26 -and $baseline.Status -ceq 'OBSERVED' -and @($baseline.Predicates.PSObject.Properties|Where-Object {$_.Value.Veto -or -not $_.Value.Evaluated}).Count -eq 0) 'Both actual planner topology clauses classify all 26 valid predicates'
+    $cases=[ordered]@{
+        PublishedObject={param($c)$c.Inspect.NetworkSettings.Ports=@{}}
+        ConfiguredObject={param($c)$c.Inspect.HostConfig.PortBindings=@{}}
+        NetworksObject={param($c)$c.Inspect.NetworkSettings.Networks=@{}}
+        PublishedArray={param($c)$c.Inspect.NetworkSettings.Ports.'1433/tcp'=$c.Inspect.NetworkSettings.Ports.'1433/tcp'[0]}
+        ConfiguredArray={param($c)$c.Inspect.HostConfig.PortBindings.'1433/tcp'=$c.Inspect.HostConfig.PortBindings.'1433/tcp'[0]}
+        PublishedKeys={param($c)$c.Inspect.NetworkSettings.Ports|Add-Member extra @()}
+        ConfiguredKeys={param($c)$c.Inspect.HostConfig.PortBindings|Add-Member extra @()}
+        NetworkKeys={param($c)$c.Inspect.NetworkSettings.Networks|Add-Member extra ([pscustomobject]@{})}
+        PublishedCount={param($c)$c.Inspect.NetworkSettings.Ports.'1433/tcp'=@()}
+        ConfiguredCount={param($c)$c.Inspect.HostConfig.PortBindings.'1433/tcp'=@()}
+        PublishedLoopback={param($c)$c.Inspect.NetworkSettings.Ports.'1433/tcp'[0].HostIp='0.0.0.0'}
+        ConfiguredLoopback={param($c)$c.Inspect.HostConfig.PortBindings.'1433/tcp'[0].HostIp='0.0.0.0'}
+        PortString={param($c)$c.Inspect.NetworkSettings.Ports.'1433/tcp'[0].HostPort=14333}
+        PortSyntax={param($c)$c.Inspect.NetworkSettings.Ports.'1433/tcp'[0].HostPort='invalid'}
+        PortMatch={param($c)$c.Inspect.HostConfig.PortBindings.'1433/tcp'[0].HostPort='14334'}
+        PortRange={param($c)$c.Inspect.NetworkSettings.Ports.'1433/tcp'[0].HostPort='65536'}
+        NetworkModeMissing={param($c)$c.Inspect.HostConfig.NetworkMode=''}
+        NetworkModeHostOrNone={param($c)$c.Inspect.HostConfig.NetworkMode='none'}
+        NetworkModeContainer={param($c)$c.Inspect.HostConfig.NetworkMode='container:synthetic'}
+        CustomDns={param($c)$c.Inspect.HostConfig.Dns=@('synthetic.invalid')}
+        ExtraHosts={param($c)$c.Inspect.HostConfig.ExtraHosts=@('synthetic:192.0.2.1')}
+        Links={param($c)$c.Inspect.HostConfig.Links=@('synthetic')}
+        PublishAll={param($c)$c.Inspect.HostConfig.PublishAllPorts=$true}
+        ExtraExposedPorts={param($c)$c.Inspect.Config.ExposedPorts|Add-Member '1444/tcp' ([pscustomobject]@{})}
+        ExtraAliases={param($c)$c.Inspect.NetworkSettings.Networks.synthetic.Aliases=@('synthetic-extra')}
+        IpamRequest={param($c)$c.Inspect.NetworkSettings.Networks.synthetic.IPAMConfig=[pscustomobject]@{IPv4Address='192.0.2.2'}}
+    }
+    foreach($case in $cases.GetEnumerator()){
+        $changed=$valid|ConvertTo-Json -Depth 12|ConvertFrom-Json
+        & $case.Value $changed
+        $flags=Get-PortPreviewAcceptanceTopologyFlags $changed $predicates
+        Check ($flags.Predicates.($case.Key).Evaluated -and $flags.Predicates.($case.Key).Veto) ('Actual topology predicate captures '+$case.Key)
+    }
+    $partial=$valid|ConvertTo-Json -Depth 12|ConvertFrom-Json
+    $partial.Inspect.NetworkSettings.Ports.'1433/tcp'[0].HostPort='invalid'
+    $flags=Get-PortPreviewAcceptanceTopologyFlags $partial $predicates
+    Check ($flags.Status -ceq 'PARTIAL' -and -not $flags.Predicates.PortRange.Evaluated -and -not $flags.Predicates.PortRange.Veto) 'Expression exception becomes explicit unknown, not a guessed veto'
+}
+
 function Invoke-PortPreviewAcceptanceObservationEvidenceChecks {
     param([string]$RepositoryRoot,[string]$Sandbox)
     $module=Import-Module (Join-Path $RepositoryRoot SqlServerLab.psd1) -Force -PassThru
@@ -69,16 +120,17 @@ function Invoke-PortPreviewAcceptanceObservationEvidenceChecks {
         $stored=$text|ConvertFrom-Json
         Check ($stored.Status -ceq 'BLOCKED' -and $stored.Reason -ceq 'PORT_PREVIEW_BINDING_UNAVAILABLE' -and $stored.PublicCallOrdinal -eq 1) 'Actual fixed unavailable DTO persists as ordinal category evidence'
         Check ($text -notmatch 'ObservationKey|15433|RunId|ScopeId|StateRoot|HostPort|synthetic-secret' -and $record.Bytes -le 4096) 'Private evidence excludes ports, IDs, keys and host values'
-        foreach($case in @('unknown-reason','raw-extra','inside-runtime','existing-file')){
+        foreach($case in @('unknown-reason','raw-extra','inside-runtime','existing-file','raw-topology')){
             $bad=$plan|ConvertTo-Json -Depth 8|ConvertFrom-Json
-            $target=$evidence;$ordinal=2;$badScope=$scope
+            $target=$evidence;$ordinal=2;$badScope=$scope;$topology=[pscustomobject]@{Status='NOT_OBSERVED';Predicates=$null}
             switch($case){
                 'unknown-reason' {$bad.Reason='synthetic-secret'}
                 'raw-extra' {$bad|Add-Member RawSecret synthetic-secret}
                 'inside-runtime' {$badScope=[pscustomobject]@{DataRoot=$repo}}
                 'existing-file' {$ordinal=1}
+                'raw-topology' {$topology|Add-Member Raw 'synthetic-secret'}
             }
-            $thrown=$false;try{Write-PortPreviewAcceptancePublicObservation $module $badScope $repo $target $bad docker $ordinal|Out-Null}catch{$thrown=$true}
+            $thrown=$false;try{Write-PortPreviewAcceptancePublicObservation $module $badScope $repo $target $bad docker $ordinal -Topology $topology|Out-Null}catch{$thrown=$true}
             Check ($thrown -and (Get-Content -LiteralPath $file -Raw) -ceq $text -and -not (Test-Path (Join-Path $evidence public-preview-02.private.json))) "$case veto before evidence overwrite or outside write"
         }
         if($IsWindows){
@@ -196,6 +248,7 @@ try {
     Invoke-PortPreviewFixtureCleanupChecks -RepositoryRoot $repo
     Invoke-PortPreviewAcceptanceCustodyChecks -RepositoryRoot $repo
     Invoke-PortPreviewAcceptanceObservationEvidenceChecks -RepositoryRoot $repo -Sandbox $sandbox
+    Invoke-PortPreviewAcceptanceTopologyPredicateChecks -RepositoryRoot $repo
     $valid=Join-Path $sandbox ('sql-lab-port-preview-'+[guid]::NewGuid().ToString('N'))
     Check ((Assert-PortPreviewAcceptanceLayout $valid $repo) -ceq $valid) 'Fresh full-GUID external root'
     foreach($bad in @('relative','sql-lab-port-preview-short',(Join-Path $repo ('sql-lab-port-preview-'+[guid]::NewGuid().ToString('N'))))){
@@ -338,8 +391,8 @@ try {
             } $data $state $provider
             $global:portAcceptanceSyntheticReads=0
             $global:portAcceptanceSyntheticInspect=[pscustomobject]@{Id=('a'*64);Name='/synthetic';Image=('sha256:'+('b'*64));State=[pscustomobject]@{Running=$true};
-                Config=[pscustomobject]@{Labels=[pscustomobject]@{'sql-server-lab.run-id'=$run.RunId;'sql-server-lab.scope-id'=$run.ScopeId;'sql-server-lab.instance-id'='primary'};Env=@('MSSQL_SA_PASSWORD=SYNTHETIC_PRIVATE')};
-                HostConfig=[pscustomobject]@{NanoCpus=1000000000L;Memory=2560MB;NetworkMode='synthetic';RestartPolicy=[pscustomobject]@{Name='no'};PortBindings=[pscustomobject]@{'1433/tcp'=@([pscustomobject]@{HostIp='127.0.0.1';HostPort='14333'})}};
+                Config=[pscustomobject]@{Labels=[pscustomobject]@{'sql-server-lab.run-id'=$run.RunId;'sql-server-lab.scope-id'=$run.ScopeId;'sql-server-lab.instance-id'='primary'};Env=@('MSSQL_SA_PASSWORD=SYNTHETIC_PRIVATE');ExposedPorts=[pscustomobject]@{'1433/tcp'=[pscustomobject]@{}}};
+                HostConfig=[pscustomobject]@{NanoCpus=1000000000L;Memory=2560MB;NetworkMode='synthetic';Dns=@();ExtraHosts=@();Links=@();PublishAllPorts=$false;RestartPolicy=[pscustomobject]@{Name='no'};PortBindings=[pscustomobject]@{'1433/tcp'=@([pscustomobject]@{HostIp='127.0.0.1';HostPort='14333'})}};
                 NetworkSettings=[pscustomobject]@{Ports=[pscustomobject]@{'1433/tcp'=@([pscustomobject]@{HostIp='127.0.0.1';HostPort='14333'})};Networks=[pscustomobject]@{synthetic=[pscustomobject]@{Aliases=@();IPAMConfig=$null}}};Mounts=@()}
             if($IsWindows){
                 & $actual {
@@ -353,29 +406,32 @@ try {
             }
             $scope=[pscustomobject]@{DataRoot=$data;StateRoot=$state}
             $bindings=Get-PortPreviewAcceptanceFileBinding $data
-            $original=& $actual {@(${function:Get-SqlServerLabReconcilePlan}.ToString(),${function:Invoke-LabOwnedHostNativeProcess}.ToString(),${function:Get-LabSecret}.ToString()) -join '|'}
+            $original=& $actual {@(${function:Get-SqlServerLabReconcilePlan}.ToString(),${function:Invoke-LabOwnedHostNativeProcess}.ToString(),${function:Get-LabSecret}.ToString(),${function:Get-LabContainerReconcileContext}.ToString()) -join '|'}
             $observationEvidence=Join-Path $repo ('.artifacts/test-runs/port-preview-'+[guid]::NewGuid().ToString('N'))
             $null=New-Item -ItemType Directory -Path $observationEvidence -Force
             $outcome=Invoke-PortPreviewAcceptanceObservations $actual $scope $run.RunId $provider $repo -EvidenceRoot $observationEvidence
             Check ($outcome.PublicPreviewCalls -eq 5 -and $outcome.Http -ceq 'ACTUAL_INPROCESS_SERVER_ROUTE_PASSED' -and $outcome.RenderedBrowser -ceq 'NOT_EXECUTED') "$provider actual public/core/menu/HTTP orchestration"
             Check ($outcome.PublicObservationEvidence.Count -eq 5 -and @($outcome.PublicObservationEvidence|Where-Object {$p=Join-Path $observationEvidence $_.RelativeEvidencePath;(Get-FileHash $p).Hash -cne $_.Sha256 -or (Get-Item $p).Length -ne $_.Bytes}).Count -eq 0) 'Five completed actual public calls retain fixed evidence without extra calls'
+            $topologyRecords=@($outcome.PublicObservationEvidence|ForEach-Object {Get-Content (Join-Path $observationEvidence $_.RelativeEvidencePath) -Raw|ConvertFrom-Json})
+            Check ($outcome.PublicContextCaptures -eq 5 -and @($topologyRecords|Where-Object {$_.Topology.Status -cne 'OBSERVED' -or @($_.Topology.Predicates.PSObject.Properties|Where-Object {$_.Value.Veto -or -not $_.Value.Evaluated}).Count}).Count -eq 0) 'One returned actual context per public call classifies both clauses without new context reads'
             if($IsWindows){Check ($outcome.PinnedReadCalls -gt $outcome.PublicPreviewCalls) 'Actual pinned ownership reads are retained and counted separately'}
             Check (($bindings|ConvertTo-Json -Depth 5 -Compress) -ceq ((Get-PortPreviewAcceptanceFileBinding $data)|ConvertTo-Json -Depth 5 -Compress)) 'All actual preview routes preserve state bytes'
-            Check ($original -ceq (& $actual {@(${function:Get-SqlServerLabReconcilePlan}.ToString(),${function:Invoke-LabOwnedHostNativeProcess}.ToString(),${function:Get-LabSecret}.ToString()) -join '|'})) 'Instrumentation restored on success'
+            Check ($original -ceq (& $actual {@(${function:Get-SqlServerLabReconcilePlan}.ToString(),${function:Invoke-LabOwnedHostNativeProcess}.ToString(),${function:Get-LabSecret}.ToString(),${function:Get-LabContainerReconcileContext}.ToString()) -join '|'})) 'Instrumentation restored on success'
             # Initial context stays readable; core vetoes topology after the
             # transparent instrumentation has been installed.
             $global:portAcceptanceSyntheticInspect.NetworkSettings.Networks|Add-Member other ([pscustomobject]@{})
             $failureEvidence=Join-Path $repo ('.artifacts/test-runs/port-preview-'+[guid]::NewGuid().ToString('N'))
             $null=New-Item -ItemType Directory -Path $failureEvidence
             $thrown=$false;try{Invoke-PortPreviewAcceptanceObservations $actual $scope $run.RunId $provider $repo -EvidenceRoot $failureEvidence|Out-Null}catch{$thrown=$true}
-            Check ($thrown -and $original -ceq (& $actual {@(${function:Get-SqlServerLabReconcilePlan}.ToString(),${function:Invoke-LabOwnedHostNativeProcess}.ToString(),${function:Get-LabSecret}.ToString()) -join '|'})) 'Instrumentation restored after actual core failure'
+            Check ($thrown -and $original -ceq (& $actual {@(${function:Get-SqlServerLabReconcilePlan}.ToString(),${function:Invoke-LabOwnedHostNativeProcess}.ToString(),${function:Get-LabSecret}.ToString(),${function:Get-LabContainerReconcileContext}.ToString()) -join '|'})) 'Instrumentation restored after actual core failure'
             $failedRecords=@(Get-ChildItem $failureEvidence -Filter public-preview-*.private.json|ForEach-Object {Get-Content $_.FullName -Raw|ConvertFrom-Json})
             Check ($failedRecords.Count -eq 3 -and @($failedRecords|Where-Object {$_.Status -cne 'UNSUPPORTED' -or $_.Reason -cne 'PORT_PREVIEW_TOPOLOGY_UNSUPPORTED'}).Count -eq 0) 'Actual failure categories survive before original status veto'
+            Check (@($failedRecords|Where-Object {-not $_.Topology.Predicates.NetworkKeys.Evaluated -or -not $_.Topology.Predicates.NetworkKeys.Veto}).Count -eq 0) 'Native-style topology veto retains its exact evaluated predicate without raw inspect'
             $writeFailureEvidence=Join-Path $repo ('.artifacts/test-runs/port-preview-'+[guid]::NewGuid().ToString('N'))
             $null=New-Item -ItemType Directory -Path $writeFailureEvidence
             [IO.File]::WriteAllText((Join-Path $writeFailureEvidence public-preview-01.private.json),'sentinel')
             $thrown=$false;try{Invoke-PortPreviewAcceptanceObservations $actual $scope $run.RunId $provider $repo -EvidenceRoot $writeFailureEvidence|Out-Null}catch{$thrown=$true}
-            Check ($thrown -and (Get-Content (Join-Path $writeFailureEvidence public-preview-01.private.json) -Raw) -ceq 'sentinel' -and (& $actual {$script:portAcceptanceCalls}) -eq 1 -and $original -ceq (& $actual {@(${function:Get-SqlServerLabReconcilePlan}.ToString(),${function:Invoke-LabOwnedHostNativeProcess}.ToString(),${function:Get-LabSecret}.ToString()) -join '|'})) 'Exclusive evidence write failure preserves original data and restores functions after one public call'
+            Check ($thrown -and (Get-Content (Join-Path $writeFailureEvidence public-preview-01.private.json) -Raw) -ceq 'sentinel' -and (& $actual {$script:portAcceptanceCalls}) -eq 1 -and $original -ceq (& $actual {@(${function:Get-SqlServerLabReconcilePlan}.ToString(),${function:Invoke-LabOwnedHostNativeProcess}.ToString(),${function:Get-LabSecret}.ToString(),${function:Get-LabContainerReconcileContext}.ToString()) -join '|'})) 'Exclusive evidence write failure preserves original data and restores functions after one public call'
             Check (($bindings|ConvertTo-Json -Depth 5 -Compress) -ceq ((Get-PortPreviewAcceptanceFileBinding $data)|ConvertTo-Json -Depth 5 -Compress)) 'Failure diagnostics never write runtime state'
             foreach($ownedEvidence in @($observationEvidence,$failureEvidence,$writeFailureEvidence)){
                 if([IO.Path]::GetDirectoryName([IO.Path]::GetFullPath($ownedEvidence)) -ine [IO.Path]::GetFullPath((Join-Path $repo '.artifacts/test-runs')) -or

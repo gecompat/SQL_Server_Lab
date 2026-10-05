@@ -53,8 +53,50 @@ function Get-PortPreviewAcceptanceFileBinding {
     })
 }
 
+function Get-PortPreviewAcceptanceTopologyPredicates {
+    param([string]$RepositoryRoot)
+    $tokens=$null;$errors=$null
+    $ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $RepositoryRoot Private/ContainerReconcile.ps1),[ref]$tokens,[ref]$errors)
+    $functions=@($ast.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -ceq 'New-LabContainerPortPreview'},$true))
+    if($errors.Count -or $functions.Count -ne 1){throw 'PORT_ACCEPTANCE_TOPOLOGY_SOURCE'}
+    $conditions=@($functions[0].FindAll({param($n)$n -is [Management.Automation.Language.IfStatementAst] -and $n.Clauses.Count -eq 1 -and $n.Clauses[0].Item2.Extent.Text -match 'PORT_PREVIEW_TOPOLOGY_UNSUPPORTED'},$true))
+    if($conditions.Count -ne 2){throw 'PORT_ACCEPTANCE_TOPOLOGY_SOURCE'}
+    function Get-PredicateLeaf($Node){
+        if($Node -is [Management.Automation.Language.BinaryExpressionAst] -and $Node.Operator -eq [Management.Automation.Language.TokenKind]::Or){Get-PredicateLeaf $Node.Left;Get-PredicateLeaf $Node.Right}
+        else{$Node}
+    }
+    $names=@('PublishedObject','ConfiguredObject','NetworksObject','PublishedArray','ConfiguredArray','PublishedKeys','ConfiguredKeys','NetworkKeys',
+        'PublishedCount','ConfiguredCount','PublishedLoopback','ConfiguredLoopback','PortString','PortSyntax','PortMatch','PortRange',
+        'NetworkModeMissing','NetworkModeHostOrNone','NetworkModeContainer','CustomDns','ExtraHosts','Links','PublishAll','ExtraExposedPorts','ExtraAliases','IpamRequest')
+    $leaves=@(foreach($condition in $conditions){Get-PredicateLeaf $condition.Clauses[0].Item1.PipelineElements[0].Expression})
+    if($leaves.Count -ne $names.Count -or @(Get-PredicateLeaf $conditions[0].Clauses[0].Item1.PipelineElements[0].Expression).Count -ne 16){throw 'PORT_ACCEPTANCE_TOPOLOGY_SOURCE'}
+    # Execute the actual source expressions, not a second copy of the rules.
+    for($i=0;$i -lt $names.Count;$i++){[pscustomobject]@{Name=$names[$i];Expression=[scriptblock]::Create($leaves[$i].Extent.Text)}}
+}
+
+function Get-PortPreviewAcceptanceTopologyFlags {
+    param($Context,[object[]]$Predicates)
+    $inspect=$Context.Inspect;$context=$Context
+    $ports=$inspect.NetworkSettings.Ports;$configuredPorts=$inspect.HostConfig.PortBindings;$networks=$inspect.NetworkSettings.Networks
+    $sqlPorts=@($ports.'1433/tcp');$configuredSql=@($configuredPorts.'1433/tcp')
+    $network=if(@($networks.PSObject.Properties).Count){@($networks.PSObject.Properties)[0].Value}else{$null}
+    $flags=[ordered]@{};$known=0
+    foreach($predicate in $Predicates){
+        $evaluated=$false;$veto=$false
+        try{
+            $value=& $predicate.Expression
+            $countPredicate=$predicate.Name -cin @('CustomDns','ExtraHosts','Links','ExtraExposedPorts','ExtraAliases')
+            if($value -isnot [bool] -and -not ($countPredicate -and ($value -is [int] -or $value -is [long]) -and $value -ge 0)){throw 'PORT_ACCEPTANCE_TOPOLOGY_TYPE'}
+            $veto=[bool]$value;$evaluated=$true;$known++
+        }catch{ }
+        $flags[$predicate.Name]=[pscustomobject]@{Evaluated=$evaluated;Veto=$veto}
+    }
+    [pscustomobject]@{Status=$(if($known -eq 26){'OBSERVED'}else{'PARTIAL'});Predicates=[pscustomobject]$flags}
+}
+
 function Write-PortPreviewAcceptancePublicObservation {
-    param($Module,$Scope,[string]$RepositoryRoot,[string]$EvidenceRoot,$Plan,[string]$Provider,[int]$Ordinal)
+    param($Module,$Scope,[string]$RepositoryRoot,[string]$EvidenceRoot,$Plan,[string]$Provider,[int]$Ordinal,
+        $Topology=[pscustomobject]@{Status='NOT_OBSERVED';Predicates=$null})
     # Reuse the strict product projection, then retain only fixed categories.
     # No port, identity, observation digest or arbitrary response field is written.
     $projected=& $Module {param($Plan,$Provider) ConvertTo-LabContainerPortBrowserPlan -Plan $Plan -Provider $Provider} $Plan $Provider
@@ -62,6 +104,23 @@ function Write-PortPreviewAcceptancePublicObservation {
         'PORT_PREVIEW_RUNNING_REQUIRED','PORT_PREVIEW_JOURNAL_BLOCKED','PORT_PREVIEW_TOPOLOGY_UNSUPPORTED',
         'PORT_PREVIEW_LIMITS_UNKNOWN','PORT_PREVIEW_MOUNTS_UNSUPPORTED','PORT_PREVIEW_APPLY_NOT_IMPLEMENTED')
     if($projected.Reason -isnot [string] -or $projected.Reason -cnotin $reasons -or $Ordinal -lt 1 -or $Ordinal -gt 5){throw 'PORT_ACCEPTANCE_OBSERVATION_INVALID'}
+    $topologyNames=@('PublishedObject','ConfiguredObject','NetworksObject','PublishedArray','ConfiguredArray','PublishedKeys','ConfiguredKeys','NetworkKeys',
+        'PublishedCount','ConfiguredCount','PublishedLoopback','ConfiguredLoopback','PortString','PortSyntax','PortMatch','PortRange',
+        'NetworkModeMissing','NetworkModeHostOrNone','NetworkModeContainer','CustomDns','ExtraHosts','Links','PublishAll','ExtraExposedPorts','ExtraAliases','IpamRequest')
+    if($Topology -isnot [pscustomobject] -or @($Topology.PSObject.Properties).Count -ne 2 -or
+        @($Topology.PSObject.Properties.Name|Where-Object {$_ -cnotin @('Status','Predicates')}).Count -or
+        $Topology.Status -isnot [string] -or $Topology.Status -cnotin @('NOT_OBSERVED','OBSERVED','PARTIAL')){throw 'PORT_ACCEPTANCE_TOPOLOGY_INVALID'}
+    if($Topology.Status -ceq 'NOT_OBSERVED'){
+        if($null -ne $Topology.Predicates){throw 'PORT_ACCEPTANCE_TOPOLOGY_INVALID'}
+    }else{
+        if($Topology.Predicates -isnot [pscustomobject] -or @($Topology.Predicates.PSObject.Properties).Count -ne 26 -or
+            @($Topology.Predicates.PSObject.Properties.Name|Where-Object {$_ -cnotin $topologyNames}).Count){throw 'PORT_ACCEPTANCE_TOPOLOGY_INVALID'}
+        foreach($name in $topologyNames){$flag=$Topology.Predicates.$name
+            if($flag -isnot [pscustomobject] -or @($flag.PSObject.Properties).Count -ne 2 -or
+                @($flag.PSObject.Properties.Name|Where-Object {$_ -cnotin @('Evaluated','Veto')}).Count -or
+                $flag.Evaluated -isnot [bool] -or $flag.Veto -isnot [bool]){throw 'PORT_ACCEPTANCE_TOPOLOGY_INVALID'}
+        }
+    }
     if(-not [IO.Path]::IsPathFullyQualified($EvidenceRoot) -or -not [IO.Path]::IsPathFullyQualified($RepositoryRoot) -or
         -not [IO.Path]::IsPathFullyQualified([string]$Scope.DataRoot)){throw 'PORT_ACCEPTANCE_OBSERVATION_PATH'}
     $root=[IO.Path]::GetFullPath($EvidenceRoot).TrimEnd('\','/')
@@ -81,7 +140,7 @@ function Write-PortPreviewAcceptancePublicObservation {
         Status=$projected.Status;Reason=$projected.Reason;Provider=$Provider;CanApply=$false;MutationAllowed=$false;
         Actual=$projected.Actual;Desired=$projected.Desired;NoChange=$projected.NoChange;ChangeClass=$projected.ChangeClass;
         Preview=[ordered]@{Downtime=$projected.Preview.Downtime;Endpoint='NOT_CHECKED';Sql='NOT_CHECKED';Backup='NOT_CHECKED';
-            DataImpact='NOT_VERIFIED';Mounts=$projected.Preview.Mounts}}
+            DataImpact='NOT_VERIFIED';Mounts=$projected.Preview.Mounts};Topology=$Topology}
     $bytes=[Text.UTF8Encoding]::new($false).GetBytes(($payload|ConvertTo-Json -Depth 6 -Compress))
     if($bytes.Length -gt 4096){throw 'PORT_ACCEPTANCE_OBSERVATION_SIZE'}
     $name='public-preview-{0:D2}.private.json' -f $Ordinal
@@ -97,8 +156,9 @@ function Invoke-PortPreviewAcceptanceObservations {
     param($Module,$Scope,[string]$RunId,[string]$Provider,[string]$RepositoryRoot,[Parameter(Mandatory)][string]$EvidenceRoot)
     # Only interaction/output and transparent counters are substituted. Runtime
     # discovery, immutable pins, origin/label checks and Inspect remain real.
+    $predicates=@(Get-PortPreviewAcceptanceTopologyPredicates -RepositoryRoot $RepositoryRoot)
     return & $Module {
-        param($Scope,$RunId,$Provider,$Repo,$Evidence,$ObservationWriter)
+        param($Scope,$RunId,$Provider,$Repo,$Evidence,$ObservationWriter,$TopologyPredicates,$TopologyClassifier)
         $binding=Get-LabDiagnosticBinding -RunId $RunId -InstanceId primary -DataRoot $Scope.DataRoot
         $origin=Get-LabOwnedHostRunPolicy -RunId $RunId -StateRoot $Scope.StateRoot
         if($binding.StateRoot -cne $Scope.StateRoot -or $binding.Run.metadata.persistentData -ne $false -or
@@ -108,8 +168,9 @@ function Invoke-PortPreviewAcceptanceObservations {
         if($current -lt 1024 -or $current -gt 65535){throw 'PORT_ACCEPTANCE_CURRENT_PORT'}
         $script:portAcceptancePublicBody=${function:Get-SqlServerLabReconcilePlan}
         $script:portAcceptanceNativeBody=${function:Invoke-LabOwnedHostNativeProcess}
+        $script:portAcceptanceContextBody=${function:Get-LabContainerReconcileContext}
         $saved=@{}
-        foreach($name in @('Get-SqlServerLabReconcilePlan','Invoke-LabOwnedHostNativeProcess','Write-LabInfo','Write-LabWarning','Write-LabError','Wait-LabConsoleAcknowledgement','Show-LabSubMenu','Read-LabConsoleTextInput','Invoke-LabConsoleMenu',
+        foreach($name in @('Get-SqlServerLabReconcilePlan','Get-LabContainerReconcileContext','Invoke-LabOwnedHostNativeProcess','Write-LabInfo','Write-LabWarning','Write-LabError','Wait-LabConsoleAcknowledgement','Show-LabSubMenu','Read-LabConsoleTextInput','Invoke-LabConsoleMenu',
                 'Get-LabSecret','Invoke-SqlQuery','Test-LabEndpointBinding','Repair-LabContainerReconcileJournal','New-LabContainerReconcileJournal','Invoke-LabContainerReconcileCommand','Update-SqlServerLabContainer','Invoke-SqlServerLabWorkflowAction','Invoke-LabActionWithResult')){
             $saved[$name]=(Get-Item ('Function:'+ $name) -ErrorAction SilentlyContinue).ScriptBlock
         }
@@ -121,6 +182,9 @@ function Invoke-PortPreviewAcceptanceObservations {
         $script:portAcceptancePlans=[Collections.Generic.List[object]]::new()
         $script:portAcceptanceObservationEvidence=[Collections.Generic.List[object]]::new()
         $script:portAcceptanceEvidence=$Evidence;$script:portAcceptanceObservationWriter=$ObservationWriter
+        $script:portAcceptanceTopologyPredicates=$TopologyPredicates;$script:portAcceptanceTopologyClassifier=$TopologyClassifier
+        $script:portAcceptanceCaptureTopology=$false
+        $script:portAcceptanceContextCaptures=0
         $script:portAcceptanceScope=$Scope;$script:portAcceptanceRepo=$Repo;$script:portAcceptanceProvider=$Provider
         $script:portAcceptanceText=[Collections.Generic.List[string]]::new()
         $script:portAcceptanceRoot=$Scope.DataRoot;$script:portAcceptanceRun=$RunId;$script:portAcceptanceState=$Scope.StateRoot
@@ -128,10 +192,27 @@ function Invoke-PortPreviewAcceptanceObservations {
             param($RunId,$InstanceId,$StateRoot,[switch]$ContainerPortPreview,[int]$Port)
             if($RunId -cne $script:portAcceptanceRun -or $InstanceId -cne 'primary' -or $StateRoot -cne $script:portAcceptanceState -or -not $ContainerPortPreview){throw 'PORT_ACCEPTANCE_PUBLIC_SCOPE'}
             $script:portAcceptanceCalls++
-            $plan=& $script:portAcceptancePublicBody @PSBoundParameters
-            $record=& $script:portAcceptanceObservationWriter -Module $ExecutionContext.SessionState.Module -Scope $script:portAcceptanceScope -RepositoryRoot $script:portAcceptanceRepo -EvidenceRoot $script:portAcceptanceEvidence -Plan $plan -Provider $script:portAcceptanceProvider -Ordinal $script:portAcceptanceCalls
+            $script:portAcceptanceTopology=[pscustomobject]@{Status='NOT_OBSERVED';Predicates=$null}
+            $script:portAcceptanceCaptureTopology=$true
+            try{$plan=& $script:portAcceptancePublicBody @PSBoundParameters}finally{$script:portAcceptanceCaptureTopology=$false}
+            $record=& $script:portAcceptanceObservationWriter -Module $ExecutionContext.SessionState.Module -Scope $script:portAcceptanceScope -RepositoryRoot $script:portAcceptanceRepo -EvidenceRoot $script:portAcceptanceEvidence -Plan $plan -Provider $script:portAcceptanceProvider -Ordinal $script:portAcceptanceCalls -Topology $script:portAcceptanceTopology
             $script:portAcceptanceObservationEvidence.Add($record)
             $script:portAcceptancePlans.Add($plan);return $plan
+        }
+        function script:Get-LabContainerReconcileContext {
+            param($RunId,$InstanceId,$StateRoot)
+            $context=& $script:portAcceptanceContextBody @PSBoundParameters
+            if($script:portAcceptanceCaptureTopology){
+                $script:portAcceptanceContextCaptures++
+                try{$script:portAcceptanceTopology=& $script:portAcceptanceTopologyClassifier -Context $context -Predicates $script:portAcceptanceTopologyPredicates}
+                catch{
+                    # Diagnostics must never replace the original context or its
+                    # product decision. Unavailable expressions remain unknown.
+                    $unknown=[ordered]@{};foreach($p in $script:portAcceptanceTopologyPredicates){$unknown[$p.Name]=[pscustomobject]@{Evaluated=$false;Veto=$false}}
+                    $script:portAcceptanceTopology=[pscustomobject]@{Status='PARTIAL';Predicates=[pscustomobject]$unknown}
+                }
+            }
+            return $context
         }
         function script:Invoke-LabOwnedHostNativeProcess {
             param($StartInfo,[int]$TimeoutSeconds,[int]$MaximumBytes)
@@ -201,14 +282,14 @@ function Invoke-PortPreviewAcceptanceObservations {
         $sourceBefore=@($before.ContainerId,$before.Inspect.Image,$before.Inspect.Config,$before.Inspect.HostConfig,$before.Inspect.Mounts)|ConvertTo-Json -Depth 50 -Compress
         $sourceAfter=@($after.ContainerId,$after.Inspect.Image,$after.Inspect.Config,$after.Inspect.HostConfig,$after.Inspect.Mounts)|ConvertTo-Json -Depth 50 -Compress
         if($sourceBefore -cne $sourceAfter){throw 'PORT_ACCEPTANCE_NATIVE_SOURCE_DRIFT'}
-        [pscustomobject]@{Core='CHANGED_NOOP_REPEAT_PASSED';Cli='ACTUAL_MENU_ROUTE_PASSED';Http='ACTUAL_INPROCESS_SERVER_ROUTE_PASSED';PublicPreviewCalls=$script:portAcceptanceCalls;PublicObservationEvidence=@($script:portAcceptanceObservationEvidence);PinnedReadCalls=$script:portAcceptanceReads;NativeSourceUnchanged=$true;RenderedBrowser='NOT_EXECUTED';HttpNetworkTransport='NOT_EXECUTED';Endpoint='NOT_CHECKED';SqlPreview='NOT_CHECKED';Apply='NOT_IMPLEMENTED'}
+        [pscustomobject]@{Core='CHANGED_NOOP_REPEAT_PASSED';Cli='ACTUAL_MENU_ROUTE_PASSED';Http='ACTUAL_INPROCESS_SERVER_ROUTE_PASSED';PublicPreviewCalls=$script:portAcceptanceCalls;PublicContextCaptures=$script:portAcceptanceContextCaptures;PublicObservationEvidence=@($script:portAcceptanceObservationEvidence);PinnedReadCalls=$script:portAcceptanceReads;NativeSourceUnchanged=$true;RenderedBrowser='NOT_EXECUTED';HttpNetworkTransport='NOT_EXECUTED';Endpoint='NOT_CHECKED';SqlPreview='NOT_CHECKED';Apply='NOT_IMPLEMENTED'}
         } finally {
             foreach($name in $saved.Keys){
                 if($saved[$name]){Set-Item ('Function:script:'+$name) $saved[$name]}
                 else{Remove-Item ('Function:script:'+$name) -ErrorAction SilentlyContinue}
             }
         }
-    } $Scope $RunId $Provider $RepositoryRoot $EvidenceRoot ${function:Write-PortPreviewAcceptancePublicObservation}
+    } $Scope $RunId $Provider $RepositoryRoot $EvidenceRoot ${function:Write-PortPreviewAcceptancePublicObservation} $predicates ${function:Get-PortPreviewAcceptanceTopologyFlags}
 }
 
 function Get-PortPreviewAcceptanceCustody {
