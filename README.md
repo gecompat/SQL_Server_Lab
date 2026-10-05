@@ -60,8 +60,12 @@ für eine moderne registrierte, laufende Docker-/Podman-SQL-Instanz zeigt sie
 pfad- und portwertfreie Kategorien aus genau einem Inspect. Der opaque
 `ObservationKey` erlaubt kein Apply und reserviert keinen Port. Endpoint,
 SQL und Sicherung bleiben `NOT_CHECKED`; zusätzliche oder unbekannte
-Topologie wird nicht als kompatibel angenommen. Eigene geführte Dialoge und
-gebundenes Port-Apply sind noch nicht Teil dieses Slices. Einzelheiten stehen
+Topologie wird nicht als kompatibel angenommen. Unter **Lab-Umgebungen →
+SQL-Hostport vorprüfen** bietet die CLI einen getrennten Fachdialog mit
+registrierter Lab-/Instanzauswahl und lokaler Wunschport-Eingabe. Abbruch
+ruft keinen Plan auf; eine abgeschlossene Auswahl ruft den öffentlichen Core
+einmal auf und zeigt nur geprüfte Kategorien und Mountcounts.
+Browserdialog und gebundenes Port-Apply bleiben offen. Einzelheiten stehen
 in der [öffentlichen Referenz](Public/README.md#container-portvorschau-ohne-apply).
 
 Die [External-Languages-Entscheidung](Documentation/Architecture/EXTERNAL_RUNTIME_CAPABILITY.md)

@@ -433,6 +433,9 @@ sources_of_truth:
   container_reconcile_contract: Private/ContainerReconcile.ps1 # Preview.Mounts: path-free counts; ContainerPortPreview: separate PLAN_ONLY, opaque ObservationKey, hostport-free categories, no Apply
   guided_resource_change_contract: Private/EnvironmentResources.ps1 # Preview.Mounts: existing Inspect, path-free GUI/CLI counts, Hyper-V null
   guided_resource_change_cli: Public/Invoke-SqlServerLab.ps1 # Set-LabResourcesInteractive: render existing initial/requested Preview.Mounts; no additional runtime read
+  guided_container_port_preview_cli: Public/Invoke-SqlServerLab.ps1 # separate registered metadata selection, one public PLAN_ONLY call; fixed categories, no Apply
+  guided_container_port_preview_menu: Public/BatchConsole.ps1 # Lab-Umgebungen / SQL-Hostport vorprüfen
+  validation_guided_container_port_preview: Tests/Static/Fixtures/ContainerPortPreviewConsoleChecks.ps1 # invoked by existing ContainerReconcile suite, actual menu/router/core boundaries
   validation_guided_resource_change: Tests/Static/Fixtures/ResourceChangeGuidanceChecks.ps1
   validation_environment_resources: Tests/Static/Invoke-EnvironmentResourceChecks.ps1
   validation_podman_ci_privacy: Tests/Static/Invoke-PodmanSmokePrivacyChecks.ps1

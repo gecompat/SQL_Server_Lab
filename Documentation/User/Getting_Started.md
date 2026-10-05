@@ -2,6 +2,15 @@
 
 ## SQL-Hostport nur vorprüfen
 
+In `Invoke-SqlServerLab` **Lab-Umgebungen → SQL-Hostport vorprüfen** wählen.
+Ein vorhandenes registriertes `Lab_Data` angeben, Lab und SQL-Instanz
+auswählen und einen Wunschport von 1024 bis 65535 eingeben. `q` oder Zurück
+bricht vor dem Planaufruf ab. Der getrennte Dialog bleibt PLAN_ONLY: er zeigt
+die lokale Wunschport-Eingabe, SAME_PORT/DIFFERENT_PORT, Änderungsweg,
+Ausfallzeitkategorie und Mountcounts. Istport und private Inspectdaten
+werden nicht angezeigt. Endpoint, SQL, Backup und Volumeeigentum bleiben
+NOT_CHECKED; es gibt keine Bestätigungs- oder Applyaktion.
+
 Im generischen CLI-Befehlszugang den Parametersatz `ContainerPortPreview` von
 `Get-SqlServerLabReconcilePlan` wählen und den registrierten StateRoot, Run,
 die Instanz sowie den gewünschten Port angeben:
@@ -19,7 +28,7 @@ Sicherungszugriffe ausgeführt. Die private Inspect-Antwort bleibt intern;
 auch ihr Konfigurationsinhalt fließt nur in den undurchsichtigen Inhaltskey.
 Endpoint bleibt `NOT_CHECKED`. Unbekannte oder zusätzliche Port-/Netztopologie,
 ungeeignete Mounts, ein offenes Journal und nicht laufende Runs blockieren die
-unterstützte Vorschau. Eigene geführte CLI-/Browserdialoge und Apply folgen
+unterstützte Vorschau. Ein Browserdialog und Apply folgen
 separat; der bestehende Container-Reconcile wird dadurch nicht erweitert.
 
 ## Collations vor einer Lab-Erstellung ansehen

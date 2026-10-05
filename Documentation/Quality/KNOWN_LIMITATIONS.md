@@ -9,8 +9,13 @@ unbekannte Limits und offene Journale werden nicht stillschweigend übernommen.
 Der öffentliche DTO bleibt host- und portwertfrei; sein `ObservationKey` ist
 keine CAS-, Lease-, Reservierungs- oder Executorautorität. `CanApply=false`
 und leere `Actions` gelten auch für No-op. Endpoint, SQL, Backup und
-Volumeeigentum bleiben ungeprüft. Ein neuer geführter Portwechsel mit
-Apply/Recovery sowie eigene CLI-/Browserdialoge fehlen; frühere native
+Volumeeigentum bleiben ungeprüft. Der eigene CLI-Portdialog ist eine
+getrennte PLAN_ONLY-Vorschau mit registrierter Auswahl und lokaler
+Wunschport-Eingabe. Er zeigt keine Istportzahl und erlaubt kein Apply;
+ungültige DTOs oder unerwartete Ausführungsautorität werden vor Anzeige
+abgelehnt. Ein geführter Portwechsel mit Apply/Recovery und Browserdialog
+fehlen weiterhin; die spezifische native Preview-/Dialogform bleibt offen.
+Frühere native
 Container-Reconcile-Abnahmen ersetzen diese neue Abnahme nicht.
 
 `Get-SqlServerLabEvaluationRefreshPlan` bietet nur einen nicht ausführbaren
