@@ -2,6 +2,24 @@
 
 ## Zweck
 
+### Container-Autostart nur vorprüfen
+
+Unter **Lab verwalten → Container-Autostart vorprüfen · PLAN_ONLY** eine
+registrierte laufende Docker-/Podman-SQL-Instanz und on/off auswählen,
+dann **Autostartvorschau lesen**. Öffnen liest nur Metadaten des aktuellen
+serverseitigen `Lab_Data`; Ziel- und Eingabewechsel lösen keinen Read aus.
+Der vollständige Wunsch ruft denselben öffentlichen AutoStart-Core einmal auf;
+zusätzliche eigene Ownership-Inspectreads bleiben erhalten. Feste ON/OFF-,
+SAME_POLICY/DIFFERENT_POLICY-, UNKNOWN/DRIFTED- und Mountcount-Kategorien
+zeigen kein Hostlogin oder SQL-Ergebnis. `CanApply=false`, `MutationAllowed=false`
+und leere Actions gelten immer. Hostlogin, Endpoint, SQL, Backup und
+Volumeeigentum bleiben NOT_CHECKED; Datenerhalt ist NOT_VERIFIED.
+Keine Jobs, Reservierung oder Apply. Schließen/Escape, Bearbeitung und neue
+Requests verwerfen späte Antworten; ein versandter Read darf fertiglaufen.
+Spezifische native CLI-/Browserdialogabnahme, gerenderter Browser und
+HTTP-Netztransport bleiben NOT_EXECUTED. Core77-Evidence ist separat;
+Apply/Recovery und Scope A bleiben offen.
+
 ### SQL-Hostport nur vorprüfen
 
 Unter **Lab verwalten → SQL-Hostport vorprüfen · PLAN_ONLY** werden ausschließlich

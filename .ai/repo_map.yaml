@@ -433,13 +433,16 @@ sources_of_truth:
   container_reconcile_contract: Private/ContainerReconcile.ps1 # Preview.Mounts: path-free counts; ContainerPortPreview: separate PLAN_ONLY, opaque ObservationKey, hostport-free categories, no Apply
   container_autostart_preview_contract: Private/ContainerAutoStartPreview.ps1 # separate PLAN_ONLY, strict raw restartpolicy/label, no hostlogin/CAS/Apply
   validation_container_autostart_preview: Tests/Static/Fixtures/ContainerAutoStartPreviewChecks.ps1 # actual public/module route in existing ContainerReconcile suite
-  acceptance_container_autostart_preview: Tests/Integration/Invoke-ContainerAutoStartPreviewAcceptance.ps1 # owned-only five public core calls; Docker/Podman PASS 2026-10-05 on 77fbaee with own cleanup; dedicated CLI/browser open, no Apply
+  acceptance_container_autostart_preview: Tests/Integration/Invoke-ContainerAutoStartPreviewAcceptance.ps1 # owned-only five public core calls; Docker/Podman PASS 2026-10-05 on 77fbaee with own cleanup; dedicated CLI/browser native NOT_EXECUTED, no Apply
   acceptance_container_autostart_preview_contract: Tests/Common/ContainerAutoStartPreviewAcceptance.ps1 # bounded fixed categories, no-write/content checks; existing port scope/custody/cleanup reuse
   validation_container_autostart_preview_acceptance: Tests/Static/Fixtures/ContainerAutoStartPreviewAcceptanceChecks.ps1 # existing ContainerReconcile suite; actual public route with synthetic inspect leaf
   guided_container_autostart_preview_cli: Public/Invoke-SqlServerLab.ps1 # registered metadata-only selection, one public PLAN_ONLY call, strict scalar DTO, no Apply
   guided_container_autostart_preview_menu: Public/BatchConsole.ps1, Private/ConsoleHelp.ps1 # Lab-Umgebungen / Container-Autostart vorprüfen
   validation_guided_container_autostart_preview: Tests/Static/Fixtures/ContainerAutoStartPreviewConsoleChecks.ps1 # existing ContainerReconcile suite; actual menu/dual router/module/public route, synthetic inspect only
   acceptance_guided_container_autostart_preview_cli: Tests/Integration/Invoke-ContainerAutoStartPreviewAcceptance.ps1 # explicit ConsoleOnly; own scope/custody/mutex, three actual CLI/public calls; Docker/Podman NOT_EXECUTED
+  guided_container_autostart_preview_http: Private/ContainerAutoStartPreviewHttp.ps1 # server-bound metadata, strict scalar projection, one public PLAN_ONLY call, no client StateRoot/native IDs
+  guided_container_autostart_preview_browser: Ui/container-autostart-preview.js # separate on/off dialog; UNKNOWN/DRIFTED/counts, late-response veto, no Apply
+  validation_guided_container_autostart_preview_browser: Tests/Static/Fixtures/ContainerAutoStartPreviewHttpChecks.ps1, Tests/Static/Fixtures/ContainerAutoStartPreviewUiChecks.cjs # actual HTTP/module/public/core and JS; existing WorkflowUI suite before final exit
   guided_resource_change_contract: Private/EnvironmentResources.ps1 # Preview.Mounts: existing Inspect, path-free GUI/CLI counts, Hyper-V null
   guided_resource_change_cli: Public/Invoke-SqlServerLab.ps1 # Set-LabResourcesInteractive: render existing initial/requested Preview.Mounts; no additional runtime read
   guided_container_port_preview_cli: Public/Invoke-SqlServerLab.ps1 # separate registered metadata selection, one public PLAN_ONLY call; fixed categories, no Apply

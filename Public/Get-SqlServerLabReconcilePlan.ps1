@@ -58,7 +58,7 @@
 .PARAMETER ContainerAutoStartPreview
     Getrennte nicht ausfuehrbare Vorschau der gemessenen Container-Restartpolicy.
     Nur moderne registrierte laufende SQL-Runs; keine Hostlogin-/SQL-Pruefung,
-    Reservierung, CAS- oder Executorautoritaet. Dedicated Dialoge bleiben offen.
+    Reservierung, CAS- oder Executorautoritaet. Getrennte reine CLI- und Browserdialoge sind implementiert; deren native Abnahme bleibt NOT_EXECUTED.
 .PARAMETER Cpu
     Gewünschte vCPU-Grenze. Ohne Angabe bleibt der Istwert erhalten.
 .PARAMETER MemoryMB
