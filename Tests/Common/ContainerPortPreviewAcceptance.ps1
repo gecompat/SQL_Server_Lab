@@ -176,19 +176,44 @@ function Get-PortPreviewAcceptanceCustody {
         if($context.Provider -cne $Provider -or $context.ContainerId -cnotmatch '^[a-f0-9]{64}$'){throw 'PORT_ACCEPTANCE_CUSTODY'}
         $null=Assert-LabOwnedHostContainerEffect -StateRoot $Scope.StateRoot -RunId $Run -Provider $Provider -ContainerId $context.ContainerId
         $directory=Join-Path $Scope.StateRoot "runs/$Run/owned-host-containers"
+        $null=Assert-LabOwnedHostPath $directory
         $created=@(Get-ChildItem -LiteralPath $directory -Filter '*.created.json' -File -ErrorAction Stop)
-        if($created.Count -ne 1){throw 'PORT_ACCEPTANCE_CUSTODY'}
-        $receipt=Read-LabOwnedHostRecord $created[0].FullName
-        $intentPath=Join-Path $directory ($receipt.IntentId+'.intent.json')
-        $intent=Read-LabOwnedHostRecord $intentPath
-        if($intent.ContainerName -cne $context.ContainerName -or $intent.RunId -cne $Run){throw 'PORT_ACCEPTANCE_CUSTODY'}
+        if($created.Count -gt 128){throw 'PORT_ACCEPTANCE_CUSTODY_RECEIPT_LIMIT'}
+        # New can retain receipt-backed ephemeral probes as well as the primary.
+        # Select exact current native identity, never the number/order of files.
+        $matches=@(foreach($file in $created){
+            $null=Assert-LabOwnedHostPath $file.FullName
+            $record=Read-LabOwnedHostRecord $file.FullName
+            Assert-LabOwnedHostProperties $record @('ContractVersion','IntentId','PolicyId','RootScopeId','RunId','ScopeId','InstanceId','Provider','ContainerId','IntentSha256')
+            foreach($property in $record.PSObject.Properties){if($property.Value -isnot [string]){throw 'PORT_ACCEPTANCE_CUSTODY_RECORD_INVALID'}}
+            Assert-LabOwnedHostGuid $record.IntentId
+            $intentPath=Assert-LabOwnedHostPath (Join-Path $directory ($record.IntentId+'.intent.json'))
+            $intent=Read-LabOwnedHostRecord $intentPath
+            Assert-LabOwnedHostProperties $intent @('ContractVersion','IntentId','PolicyId','RootScopeId','RunId','ScopeId','WorkflowOperationId','InstanceId','Provider','ContainerName')
+            foreach($property in $intent.PSObject.Properties){if($property.Value -isnot [string]){throw 'PORT_ACCEPTANCE_CUSTODY_RECORD_INVALID'}}
+            if($record.ContractVersion -cne 'SqlServerLab.OwnedHostContainerReceipt/1.0' -or $intent.ContractVersion -cne 'SqlServerLab.OwnedHostContainerIntent/1.0' -or
+                $record.PolicyId -cne $policy.PolicyId -or $intent.PolicyId -cne $policy.PolicyId -or
+                $record.RootScopeId -cne $policy.RootScopeId -or $intent.RootScopeId -cne $policy.RootScopeId -or
+                $record.RunId -cne $Run -or $intent.RunId -cne $Run -or $record.ScopeId -cne $context.Run.scopeId -or $intent.ScopeId -cne $context.Run.scopeId -or
+                $intent.IntentId -cne $record.IntentId -or $file.Name -cne ($record.IntentId+'.created.json') -or
+                $record.InstanceId -cne $intent.InstanceId -or $record.Provider -cne $Provider -or $intent.Provider -cne $Provider -or
+                $intent.WorkflowOperationId -cne $context.Run.metadata.workflowOperationId -or
+                $record.ContainerId -cnotmatch '^[a-f0-9]{64}$' -or $intent.ContainerName -cnotmatch '^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$' -or
+                $record.IntentSha256 -cne (Get-FileHash -LiteralPath $intentPath).Hash.ToLowerInvariant()){throw 'PORT_ACCEPTANCE_CUSTODY_RECORD_DRIFT'}
+            if($record.ContainerId -ceq $context.ContainerId){
+                if($record.InstanceId -cne 'primary' -or $intent.ContainerName -cne $context.ContainerName){throw 'PORT_ACCEPTANCE_CUSTODY'}
+                [pscustomobject]@{Receipt=$record;Path=$file.FullName;IntentPath=$intentPath}
+            }
+        })
+        if($matches.Count -ne 1){throw 'PORT_ACCEPTANCE_CUSTODY'}
+        $receipt=$matches[0].Receipt;$receiptPath=$matches[0].Path;$intentPath=$matches[0].IntentPath
         $volumes=@(foreach($mount in @($context.Inspect.Mounts|Where-Object Type -CEQ volume)){
-            $volume=Get-LabOwnedHostVolumeReceipt -StateRoot $Scope.StateRoot -Provider $Provider -VolumeName $mount.Name
-            if($volume.RunId -cne $Run){throw 'PORT_ACCEPTANCE_VOLUME_CUSTODY'}
+            $volume=(Get-LabOwnedHostVolumeReceipt -StateRoot $Scope.StateRoot -Provider $Provider -VolumeName $mount.Name).Receipt
+            if($volume.RunId -cne $Run -or $volume.ScopeId -cne $context.Run.scopeId -or $volume.Provider -cne $Provider -or $volume.VolumeName -cne $mount.Name){throw 'PORT_ACCEPTANCE_VOLUME_CUSTODY'}
             [pscustomobject]@{Name=$volume.VolumeName;ReceiptHash=(Get-FileHash -LiteralPath (Join-Path $Scope.StateRoot "owned-host-volumes/$Provider-$($volume.VolumeName).created.json")).Hash;IntentHash=(Get-FileHash -LiteralPath (Join-Path $Scope.StateRoot "owned-host-volumes/$Provider-$($volume.VolumeName).intent.json")).Hash}
         })
         [pscustomobject]@{RunId=$Run;ScopeId=$context.Run.scopeId;IntentId=$receipt.IntentId;ContainerId=$context.ContainerId;ContainerName=$context.ContainerName;Volumes=$volumes;
-            ContainerReceiptHash=(Get-FileHash -LiteralPath $created[0].FullName).Hash;IntentHash=(Get-FileHash -LiteralPath $intentPath).Hash}
+            ContainerReceiptHash=(Get-FileHash -LiteralPath $receiptPath).Hash;IntentHash=(Get-FileHash -LiteralPath $intentPath).Hash}
     } $Scope $RunId $Provider
 }
 
@@ -235,8 +260,8 @@ function Remove-PortPreviewAcceptanceScope {
                 $null=Assert-LabOwnedHostPath $path
                 if((Get-FileHash -LiteralPath $path -ErrorAction Stop).Hash -cne $entry.Hash){throw 'PORT_ACCEPTANCE_VOLUME_CUSTODY_DRIFT'}
             }
-            $receipt=Get-LabOwnedHostVolumeReceipt -StateRoot $Scope.StateRoot -Provider $Provider -VolumeName $volume.Name
-            if($receipt.RunId -cne $Custody.RunId -or $receipt.Provider -cne $Provider -or $receipt.VolumeName -cne $volume.Name){throw 'PORT_ACCEPTANCE_VOLUME_CUSTODY_DRIFT'}
+            $receipt=(Get-LabOwnedHostVolumeReceipt -StateRoot $Scope.StateRoot -Provider $Provider -VolumeName $volume.Name).Receipt
+            if($receipt.RunId -cne $Custody.RunId -or $receipt.ScopeId -cne $Custody.ScopeId -or $receipt.Provider -cne $Provider -or $receipt.VolumeName -cne $volume.Name){throw 'PORT_ACCEPTANCE_VOLUME_CUSTODY_DRIFT'}
         }
     } $Scope $Custody $Provider
     $removed=Remove-SqlServerLab -RunId $Custody.RunId -StateRoot $Scope.StateRoot -Force -Confirm:$false
@@ -260,7 +285,7 @@ function Remove-PortPreviewAcceptanceScope {
             $null=Assert-LabOwnedHostPath $path.Path
             if((Get-FileHash -LiteralPath $path.Path -ErrorAction Stop).Hash -cne $path.Hash){throw 'PORT_ACCEPTANCE_CLAIM_DRIFT'}
         }
-        $read=Invoke-LabOwnedHostPinnedCommand -StateRoot $Scope.StateRoot -Provider $Provider -Arguments @('ps','-a','--no-trunc','--filter',('name=^'+[regex]::Escape($Custody.ContainerName)+'$'),'--format','{{.ID}}')
+        $read=Invoke-LabOwnedHostPinnedCommand -StateRoot $Scope.StateRoot -Provider $Provider -Arguments @('ps','-a','--no-trunc','--filter',('id='+$Custody.ContainerId),'--format','{{.ID}}')
         if($read.ExitCode -ne 0 -or $read.Stdout.Trim()){throw 'PORT_ACCEPTANCE_CONTAINER_ABSENCE_UNCONFIRMED'}
         foreach($volume in @($Custody.Volumes)){
             $read=Invoke-LabOwnedHostPinnedCommand -StateRoot $Scope.StateRoot -Provider $Provider -Arguments @('volume','ls','--filter',('name=^'+[regex]::Escape($volume.Name)+'$'),'--format','{{.Name}}')
