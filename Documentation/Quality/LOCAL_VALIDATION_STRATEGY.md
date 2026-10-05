@@ -1275,6 +1275,17 @@ die vollständige Kandidatenmenge samt Delta-Gründen, Klassifikation,
 Repository-Evidence, Begründung und ausgewählten Capabilities. Eine bloße
 Statusliste in der Repo-Map genügt nicht als Upgrade-Nachweis.
 
+Das Upgrade `1.18.0` → `1.19.0` bewertet den vollständigen Einzelfeature-Delta
+`session-lifecycle-management`. Die drei Session-/Handoff-Schemas und der
+normative Lifecycle-Vertrag werden unter `FOUNDATION_INTEGRITY` geprüft.
+Der Projektcheck erhält die historischen Assessments und prüft das aktuelle
+Assessment einschließlich Empfehlung, exaktem Quellref und leerer optionaler
+Capability-Auswahl. Das Projektmapping in
+`Documentation/Quality/COST_EFFICIENT_DEVELOPMENT.md` erhält den Pausecheckpoint;
+numerische Schwellen, automatische Nachfolgesitzungen und der optionale
+`ai-work`-Planer bleiben ungewählt. Kein tatsächlicher Sessionwechsel oder
+Provider-Smoke wird durch dieses Upgrade nachgewiesen.
+
 Der Foundation-Validator behandelt bei verwaltetem UTF-8-Text ausschließlich
 LF-/CRLF-Unterschiede als äquivalent. Andere Inhalts-, Final-Newline-, Lone-CR-
 oder Binärunterschiede bleiben echte Drift. Die Projektkonfiguration für

@@ -1,7 +1,7 @@
 # AI Repository Foundation Ruleset
 
 Status: AUTHORITATIVE BASELINE
-Ruleset version: 1.18.0
+Ruleset version: 1.19.0
 
 This directory contains reusable governance rules, machine-readable schemas, the semantic feature catalog, and the source-license notice required for transferred Foundation material. Optional capability files are installed only when explicitly selected. The ruleset does not describe the Foundation source project and does not define the target project's README, root license, architecture, backlog, status, or release state.
 
@@ -55,6 +55,12 @@ Native client discovery of the applicable global/project `AGENTS.override.md`/`A
 `CACHE_HIT` requires exact validated repository/worktree/scope identity, instruction order, discovery configuration, source set, logical content, Git state, and dependency topology. `PARTIAL_INVALIDATION` rereads changed non-instruction rules plus every transitive semantic dependent. Instruction/scope/topology/source-set/schema/generator/corruption/uncertainty changes are `CACHE_MISS` and require a full context rebuild. UTF-8 LF/CRLF-only representation follows the portable text rule; all other content/encoding/final-newline differences remain significant.
 
 Semantic analyses stay session-local under deterministic analysis keys. Optional persistent records contain fingerprints and dependency metadata only, remain local/non-versioned/non-authoritative, and are atomically replaced under a per-record lock. A hit cannot reuse an analysis that is not actually available under its validated key.
+
+## Session lifecycle boundary
+
+Long-running orchestration may use `foundation-session-lifecycle/v1` to decide `CONTINUE`, `CHECKPOINT`, `ROTATE_AT_BOUNDARY`, or `ROTATE_REQUIRED` from deterministic metadata and explicit natural boundaries. Do not continuously rescan or summarize chat history merely to decide whether to rotate. Thresholds are target-project policy; unknown token metrics remain unknown.
+
+A rotation preserves the logical role and reloads durable repository truth. Use `foundation-session-handoff/v1` for a content-minimized delta since the last checkpoint plus durable-state/current-work references. Keep session/checkpoint/handoff runtime state outside version control by default. Actual new-session creation is a client capability; when unattested or unsupported, surface a manual continuation step rather than claiming automation.
 
 ## Semantic integration boundary
 

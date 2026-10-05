@@ -1,5 +1,5 @@
 schema_version: 1
-foundation_ruleset_version: 1.18.0
+foundation_ruleset_version: 1.19.0
 canonical_entrypoint: AGENTS.md
 authority:
   required_or_baseline:
@@ -66,6 +66,9 @@ authority:
     - .ai/foundation/schemas/model-evidence-sources.schema.json
     - .ai/foundation/schemas/ai-orchestration-request.schema.json
     - .ai/foundation/schemas/ai-orchestration-report.schema.json
+    - .ai/foundation/schemas/session-lifecycle-request.schema.json
+    - .ai/foundation/schemas/session-lifecycle-decision.schema.json
+    - .ai/foundation/schemas/session-handoff.schema.json
 provenance:
   foundation_notice: .ai/foundation/AI_REPOSITORY_FOUNDATION_NOTICE.md
   installation_receipt: .ai/foundation/installation-provenance.json
@@ -269,6 +272,15 @@ ai_work_contract:
   orchestration_pipeline: catalog_evidence_route_invoke_validate_fallback_report
   orchestration_model_evidence: fresh_source_backed_external_only
   orchestration_unattested_result: MANUAL_REQUIRED
+  session_lifecycle_profile: foundation-session-lifecycle/v1
+  session_lifecycle_request_schema: .ai/foundation/schemas/session-lifecycle-request.schema.json
+  session_lifecycle_decision_schema: .ai/foundation/schemas/session-lifecycle-decision.schema.json
+  session_handoff_profile: foundation-session-handoff/v1
+  session_handoff_schema: .ai/foundation/schemas/session-handoff.schema.json
+  session_lifecycle_monitoring: deterministic_metadata_only
+  session_semantic_scan_for_rotation: prohibited
+  session_handoff_scope: delta_since_checkpoint
+  session_rotation_execution: attested_client_capability_or_manual
   cost_refresh_minimum_seconds: 86400
   payload_transport: content_handles_outside_control_plane
   payload_persistence_default: prohibited

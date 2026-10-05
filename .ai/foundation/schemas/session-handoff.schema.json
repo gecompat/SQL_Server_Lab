@@ -1,0 +1,36 @@
+{
+  "$id": "https://example.invalid/ai-repository-foundation/session-handoff.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "changed_state_refs": {"items": {"minLength": 1, "type": "string"}, "type": "array", "uniqueItems": true},
+    "checkpoint_id": {"minLength": 1, "type": ["string", "null"]},
+    "contract": {"const": "foundation-session-handoff/v1"},
+    "created_at": {"format": "date-time", "type": "string"},
+    "current_work_refs": {"items": {"minLength": 1, "type": "string"}, "type": "array", "uniqueItems": true},
+    "delta_handle": {
+      "anyOf": [
+        {"type": "null"},
+        {
+          "additionalProperties": false,
+          "properties": {
+            "content_sha256": {"pattern": "^sha256:[0-9a-f]{64}$", "type": ["string", "null"]},
+            "handle_id": {"minLength": 1, "type": "string"},
+            "kind": {"enum": ["FILE", "EPHEMERAL", "OPAQUE"], "type": "string"}
+          },
+          "required": ["handle_id", "kind", "content_sha256"],
+          "type": "object"
+        }
+      ]
+    },
+    "durable_state_refs": {"items": {"minLength": 1, "type": "string"}, "minItems": 1, "type": "array", "uniqueItems": true},
+    "handoff_id": {"minLength": 1, "type": "string"},
+    "predecessor_session_id": {"minLength": 1, "type": "string"},
+    "schema_version": {"const": 1},
+    "successor_role": {"enum": ["ORCHESTRATOR", "WORKER", "RESEARCH", "OTHER"], "type": "string"},
+    "unresolved_refs": {"items": {"minLength": 1, "type": "string"}, "type": "array", "uniqueItems": true}
+  },
+  "required": ["schema_version", "contract", "handoff_id", "predecessor_session_id", "successor_role", "checkpoint_id", "created_at", "durable_state_refs", "changed_state_refs", "current_work_refs", "unresolved_refs", "delta_handle"],
+  "title": "Content-minimized Foundation session handoff",
+  "type": "object"
+}

@@ -732,12 +732,12 @@ sources_of_truth:
   latest_validation_result: Documentation/Quality/VALIDATION_RESULT_2026-09-02.md
   test_environment_group_lifecycle_validation: Documentation/Quality/VALIDATION_RESULT_2026-08-29_TEST_ENVIRONMENT_GROUP_LIFECYCLE.md
   repository_continuity_runbook: Documentation/Quality/REPOSITORY_CONTINUITY_RUNBOOK.md
-  foundation_upgrade_assessment: .ai/foundation-upgrade-assessments/1.8.0-to-1.18.0.json
+  foundation_upgrade_assessment: .ai/foundation-upgrade-assessments/1.18.0-to-1.19.0.json
 
 foundation_integration:
   source_repository: gecompat/AI_Repository_Foundation
-  source_commit: 8e27de7eb20926f340fbfb856eacd96d3099e5c8
-  ruleset_version: "1.18.0"
+  source_commit: 4aafd20442275d0fdedf291fc6e12e8fe1f683cc
+  ruleset_version: "1.19.0"
   foundation_integrity_index: .ai/foundation/repo_map.yaml
   feature_catalog: .ai/foundation/feature_catalog.json
   selected_adapters:
@@ -763,6 +763,13 @@ foundation_integration:
       - extended_validation_statuses
   model_routing_mapping: .ai/MODEL_ROUTING_POLICY.md
   validation_scope_mapping: Documentation/Quality/LOCAL_VALIDATION_STRATEGY.md
+  session_lifecycle_mapping: Documentation/Quality/COST_EFFICIENT_DEVELOPMENT.md
+  session_lifecycle_selection:
+    normative_rules_and_schemas: integrated
+    numeric_thresholds: not_selected
+    automatic_successor_sessions: not_selected
+    optional_ai_work_planner: not_selected
+    pause_authority: Documentation/Project_Planning/AUTONOMOUS_DEVELOPMENT_WAVE_2026-09-10.md
   identity_registration_mapping: .ai/IDENTITY_AND_ARTIFACT_REGISTRATION.md
   identity_adoption_mode: PRESERVE
   registration_authorities:
@@ -773,18 +780,20 @@ foundation_integration:
   selected_capabilities:
     - rule-context-cache
   upgrade_assessment:
-    current_record: .ai/foundation-upgrade-assessments/1.8.0-to-1.18.0.json
+    current_record: .ai/foundation-upgrade-assessments/1.18.0-to-1.19.0.json
     records:
       - .ai/foundation-upgrade-assessments/1.4.0-to-1.7.0.json
       - .ai/foundation-upgrade-assessments/1.7.0-to-1.8.0.json
       - .ai/foundation-upgrade-assessments/1.8.0-to-1.18.0.json
-    assessed_on: "2026-09-10"
+      - .ai/foundation-upgrade-assessments/1.18.0-to-1.19.0.json
+    assessed_on: "2026-10-05"
     open_recommendations:
       - ai-client-integration
       - ai-runtime-adapters
       - ai-work-execution
       - ai-work-orchestration
       - ci-supersession-and-integration-queue
+      - session-lifecycle-management
     resolved_recommendations:
       rule-context-cache:
         decision: IMPLEMENTED
@@ -2114,10 +2123,11 @@ validation:
       job: foundation-integrity
       runner: ubuntu-latest
       foundation_repository: gecompat/AI_Repository_Foundation
-      foundation_ref: 8e27de7eb20926f340fbfb856eacd96d3099e5c8
+      foundation_ref: 4aafd20442275d0fdedf291fc6e12e8fe1f683cc
       selected_adapters:
         - github-copilot
-      selected_capabilities: []
+      selected_capabilities:
+        - rule-context-cache
       required_via_pr_gate_when_affected: true
     static_contracts:
       source: .github/workflows/static-contracts.yml

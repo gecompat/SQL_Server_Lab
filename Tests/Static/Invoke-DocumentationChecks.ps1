@@ -579,6 +579,7 @@ $coreFiles = @(
     '.ai/foundation-upgrade-assessments/1.4.0-to-1.7.0.json'
     '.ai/foundation-upgrade-assessments/1.7.0-to-1.8.0.json'
     '.ai/foundation-upgrade-assessments/1.8.0-to-1.18.0.json'
+    '.ai/foundation-upgrade-assessments/1.18.0-to-1.19.0.json'
     '.ai/foundation/FOUNDATION_RULESET.md'
     '.ai/foundation/AI_REPOSITORY_FOUNDATION_NOTICE.md'
     '.ai/foundation/PROJECT_RULES.md'
@@ -597,6 +598,9 @@ $coreFiles = @(
     '.ai/foundation/schemas/feature-catalog.schema.json'
     '.ai/foundation/schemas/upgrade-assessment.schema.json'
     '.ai/foundation/schemas/rule-context-cache.schema.json'
+    '.ai/foundation/schemas/session-lifecycle-request.schema.json'
+    '.ai/foundation/schemas/session-lifecycle-decision.schema.json'
+    '.ai/foundation/schemas/session-handoff.schema.json'
     '.ai/foundation/WORKING_RULES.md'
     '.ai/foundation/MODEL_ROUTING_POLICY.md'
     '.ai/foundation/VALIDATION_POLICY.md'
@@ -695,6 +699,9 @@ $foundationUpgradeAssessment = $foundationUpgradeAssessmentJson | ConvertFrom-Js
 $currentFoundationUpgradeAssessmentPath = Join-Path $repoRoot '.ai\foundation-upgrade-assessments\1.8.0-to-1.18.0.json'
 $currentFoundationUpgradeAssessmentJson = Get-Content -LiteralPath $currentFoundationUpgradeAssessmentPath -Raw -Encoding utf8
 $currentFoundationUpgradeAssessment = $currentFoundationUpgradeAssessmentJson | ConvertFrom-Json -Depth 100
+$sessionFoundationUpgradeAssessmentPath = Join-Path $repoRoot '.ai\foundation-upgrade-assessments\1.18.0-to-1.19.0.json'
+$sessionFoundationUpgradeAssessmentJson = Get-Content -LiteralPath $sessionFoundationUpgradeAssessmentPath -Raw -Encoding utf8
+$sessionFoundationUpgradeAssessment = $sessionFoundationUpgradeAssessmentJson | ConvertFrom-Json -Depth 100
 $foundationRuleset = Get-Content -LiteralPath (Join-Path $repoRoot '.ai\foundation\FOUNDATION_RULESET.md') -Raw -Encoding utf8
 $foundationRepoMap = Get-Content -LiteralPath (Join-Path $repoRoot '.ai\foundation\repo_map.yaml') -Raw -Encoding utf8
 $foundationNotice = Get-Content -LiteralPath (Join-Path $repoRoot '.ai\foundation\AI_REPOSITORY_FOUNDATION_NOTICE.md') -Raw -Encoding utf8
@@ -882,10 +889,10 @@ Add-ValidationResult `
     -Message "BEGIN=$foundationBridgeBeginCount; END=$foundationBridgeEndCount"
 
 Add-ValidationResult `
-    -Name 'Foundation-Ruleset, Index und Feature-Katalog sind auf Version 1.18.0 gebunden' `
-    -Success ($foundationRuleset -match 'Ruleset version: 1\.18\.0' -and
-        $foundationRepoMap -match 'foundation_ruleset_version: 1\.18\.0' -and
-        $foundationFeatureCatalog -match '"ruleset_version"\s*:\s*"1\.18\.0"' -and
+    -Name 'Foundation-Ruleset, Index und Feature-Katalog sind auf Version 1.19.0 gebunden' `
+    -Success ($foundationRuleset -match 'Ruleset version: 1\.19\.0' -and
+        $foundationRepoMap -match 'foundation_ruleset_version: 1\.19\.0' -and
+        $foundationFeatureCatalog -match '"ruleset_version"\s*:\s*"1\.19\.0"' -and
         $foundationRuleset -match [regex]::Escape('UPGRADE_APPLICABILITY_POLICY.md') -and
         $foundationRuleset -match [regex]::Escape('REPOSITORY_CONTINUITY_POLICY.md') -and
         $foundationRuleset -match [regex]::Escape('RULE_CONTEXT_CACHE_POLICY.md') -and
@@ -900,12 +907,12 @@ Add-ValidationResult `
 
 Add-ValidationResult `
     -Name 'Repo-Map dokumentiert Foundation-Quelle, Adapter und semantische Zuordnung' `
-    -Success ($repoMap -match 'source_commit: 8e27de7eb20926f340fbfb856eacd96d3099e5c8' -and
-        $repoMap -match 'foundation_ref: 8e27de7eb20926f340fbfb856eacd96d3099e5c8' -and
-        $repoMap -match 'ruleset_version: "1\.18\.0"' -and
+    -Success ($repoMap -match 'source_commit: 4aafd20442275d0fdedf291fc6e12e8fe1f683cc' -and
+        $repoMap -match 'foundation_ref: 4aafd20442275d0fdedf291fc6e12e8fe1f683cc' -and
+        $repoMap -match 'ruleset_version: "1\.19\.0"' -and
         $repoMap -match 'github-copilot' -and
         $repoMap -match 'sql_cu_watch_policy: ops/sql-cu-policy\.md' -and
-        $repoMap -match 'current_record: \.ai/foundation-upgrade-assessments/1\.8\.0-to-1\.18\.0\.json' -and
+        $repoMap -match 'current_record: \.ai/foundation-upgrade-assessments/1\.18\.0-to-1\.19\.0\.json' -and
         $repoMap -match 'rule-context-cache' -and
         $repoMap -match 'ci-supersession-and-integration-queue' -and
         $repoMap -match 'unresolved_conflicts: \[\]')
@@ -934,7 +941,7 @@ catch {
     $currentFoundationUpgradeAssessmentSchemaMessage = $_.Exception.Message
 }
 Add-ValidationResult `
-    -Name 'Aktuelles Foundation-Upgrade-Assessment entspricht dem installierten Schema' `
+    -Name 'Historisches Foundation-1.18-Upgrade-Assessment entspricht dem installierten Schema' `
     -Success $currentFoundationUpgradeAssessmentSchemaValid `
     -Message $currentFoundationUpgradeAssessmentSchemaMessage
 
@@ -1017,9 +1024,60 @@ $currentFoundationUpgradeContract = Test-FoundationUpgradeAssessmentContract `
     -SourceVersion '1.18.0' `
     -SourceRef '8e27de7eb20926f340fbfb856eacd96d3099e5c8'
 Add-ValidationResult `
-    -Name 'Aktuelles Foundation-Upgrade bewertet den vollstaendigen Neuner-Delta mit Evidence und ohne voreilige Capability-Auswahl' `
+    -Name 'Historisches Foundation-1.18-Upgrade bewertet den vollstaendigen Neuner-Delta mit Evidence und ohne voreilige Capability-Auswahl' `
     -Success $currentFoundationUpgradeContract.Success `
     -Message $currentFoundationUpgradeContract.Message
+
+$sessionFoundationUpgradeSchemaValid = $false
+$sessionFoundationUpgradeSchemaMessage = $null
+try {
+    $sessionFoundationUpgradeSchemaValid = $sessionFoundationUpgradeAssessmentJson |
+        Test-Json -SchemaFile $foundationUpgradeAssessmentSchemaPath -ErrorAction Stop
+}
+catch {
+    $sessionFoundationUpgradeSchemaMessage = $_.Exception.Message
+}
+Add-ValidationResult `
+    -Name 'Aktuelles Foundation-1.19-Upgrade-Assessment entspricht dem installierten Schema' `
+    -Success $sessionFoundationUpgradeSchemaValid `
+    -Message $sessionFoundationUpgradeSchemaMessage
+
+$expectedSessionFoundationUpgradeCandidates = [ordered]@{
+    'session-lifecycle-management' = @{ Reasons = @('introduced_in:1.19.0'); Classification = 'RECOMMENDED' }
+}
+$sessionFoundationUpgradeContract = Test-FoundationUpgradeAssessmentContract `
+    -Assessment $sessionFoundationUpgradeAssessment `
+    -ExpectedCandidates $expectedSessionFoundationUpgradeCandidates `
+    -InstalledVersion '1.18.0' `
+    -SourceVersion '1.19.0' `
+    -SourceRef '4aafd20442275d0fdedf291fc6e12e8fe1f683cc'
+Add-ValidationResult `
+    -Name 'Foundation-1.19-Upgrade bewertet den vollstaendigen Session-Delta mit Empfehlung und ohne optionale Capability-Auswahl' `
+    -Success $sessionFoundationUpgradeContract.Success `
+    -Message $sessionFoundationUpgradeContract.Message
+
+$sessionMissingRecommendationFixture = $sessionFoundationUpgradeAssessmentJson | ConvertFrom-Json -Depth 100
+$sessionMissingRecommendationFixture.assessments[0].recommendation = $null
+$sessionMissingRecommendationResult = Test-FoundationUpgradeAssessmentContract `
+    -Assessment $sessionMissingRecommendationFixture `
+    -ExpectedCandidates $expectedSessionFoundationUpgradeCandidates `
+    -InstalledVersion '1.18.0' `
+    -SourceVersion '1.19.0' `
+    -SourceRef '4aafd20442275d0fdedf291fc6e12e8fe1f683cc'
+Add-ValidationResult `
+    -Name 'Foundation-1.19-Vertrag verwirft eine still ausgelassene Empfehlung' `
+    -Success (-not $sessionMissingRecommendationResult.Success)
+
+Add-ValidationResult `
+    -Name 'Session-Lifecycle-Mapping erhaelt die Pause und waehlt weder Schwellen noch automatische Nachfolger oder ai-work aus' `
+    -Success ($repoMap -match 'session_lifecycle_mapping: Documentation/Quality/COST_EFFICIENT_DEVELOPMENT\.md' -and
+        $repoMap -match 'numeric_thresholds: not_selected' -and
+        $repoMap -match 'automatic_successor_sessions: not_selected' -and
+        $repoMap -match 'optional_ai_work_planner: not_selected' -and
+        $repoMap -match 'pause_authority: Documentation/Project_Planning/AUTONOMOUS_DEVELOPMENT_WAVE_2026-09-10\.md' -and
+        $costEfficientDevelopment -match 'ein begrenzter neuer Auftrag öffnet nur seinen eigenen Scope' -and
+        $foundationRepoMap -match 'session_lifecycle_profile: foundation-session-lifecycle/v1' -and
+        $foundationRepoMap -match 'session_handoff_profile: foundation-session-handoff/v1')
 
 Add-ValidationResult `
     -Name 'Repository-Continuity ist mit unveraenderlichem Kernschutz und PR-only Break-Glass umgesetzt' `
