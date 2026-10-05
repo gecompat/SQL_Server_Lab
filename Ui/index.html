@@ -235,6 +235,7 @@
     <section class="split-grid" id="environment-inventory" data-workspace-area="labs">
       <section class="panel compact">
         <div class="section-heading"><div><p class="eyebrow">CONTAINER</p><h2>Aktive Lab-Umgebungen</h2></div></div>
+      <button id="autostart-preview-open" type="button" class="button secondary">Container-Autostart vorprüfen · PLAN_ONLY</button>
       <button id="port-preview-open" type="button" class="button secondary">SQL-Hostport vorprüfen · PLAN_ONLY</button>
       <div id="active-labs" class="list"></div>
       </section>
@@ -527,6 +528,19 @@
       <div class="dialog-actions"><button type="button" class="button secondary" value="cancel" formnovalidate>Abbrechen</button><button class="button primary" value="default">Name speichern</button></div>
     </form>
   </dialog>
+
+  <dialog id="autostart-preview-dialog">
+    <div class="read-only-dialog-content">
+      <div class="dialog-heading"><h2>Container-Autostart vorprüfen</h2><button id="autostart-preview-close" type="button" class="icon-button" aria-label="Schließen">×</button></div>
+      <p>Reine PLAN_ONLY-Vorschau. Keine Änderung, Reservierung oder Apply. Hostlogin und SQL werden nicht geprüft.</p>
+      <label>Registrierte laufende SQL-Instanz<select id="autostart-preview-target" disabled></select></label>
+      <label>Gewünschter Container-Autostart<select id="autostart-preview-policy"><option value="">Bitte wählen</option><option value="on">on</option><option value="off">off</option></select></label>
+      <p id="autostart-preview-status" role="status" aria-live="polite">Hostlogin, Endpoint, SQL, Backup und Volumeeigentum: NOT_CHECKED.</p>
+      <pre id="autostart-preview-result"></pre>
+      <div class="dialog-actions"><button id="autostart-preview-read" type="button" class="button secondary">Zielmetadaten erneut lesen</button><button id="autostart-preview-plan" type="button" class="button primary" disabled>Autostartvorschau lesen</button></div>
+    </div>
+  </dialog>
+  <script src="container-autostart-preview.js"></script>
 
   <dialog id="port-preview-dialog">
     <div class="read-only-dialog-content">

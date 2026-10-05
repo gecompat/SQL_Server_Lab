@@ -40,6 +40,18 @@ function Get-LabConsoleHelpCatalog {
             Effects = 'Nach vollständiger Auswahl einmal PLAN_ONLY anzeigen. CanApply=false; keine Reservierung oder Mutation. Endpoint, SQL und Backup bleiben NOT_CHECKED. Zurück oder q vor dem Planaufruf ändern nichts.'
             Command = 'Get-SqlServerLabReconcilePlan'
         }
+        'container-autostart-run' = @{
+            Title = 'Lab für reine Container-Autostartvorschau'
+            Purpose = 'Wählt einen modernen registrierten, laufenden Container-Run im expliziten Lab_Data. Geschützte Gruppen und CMS werden nicht angeboten.'
+            Effects = 'Nur Metadaten lesen; keine Runtimeabfrage, Speicherung oder Ausführung. Zurück beendet den Dialog ohne Planaufruf.'
+            Command = 'Get-SqlServerLabReconcilePlan'
+        }
+        'container-autostart-instance' = @{
+            Title = 'SQL-Instanz für reine Autostartvorschau'
+            Purpose = 'Wählt die gebundene Docker-/Podman-SQL-Instanz. Danach wird der Autostartwunsch on/off eingegeben; die Istpolicy bleibt ohne gültige Messung unbekannt.'
+            Effects = 'Nach vollständiger Auswahl einmal PLAN_ONLY anzeigen. CanApply=false; keine Reservierung oder Mutation. Hostlogin, Endpoint, SQL und Backup bleiben NOT_CHECKED. Zurück oder q vor dem Planaufruf ändern nichts.'
+            Command = 'Get-SqlServerLabReconcilePlan'
+        }
         'main-menu' = @{
             Title   = 'Hauptmenue'
             Purpose = 'Einstieg in alle Bereiche des Labs. Die Auswahl oeffnet nur einen Unterbereich und veraendert nichts.'
