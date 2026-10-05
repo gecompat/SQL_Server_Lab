@@ -235,6 +235,7 @@
     <section class="split-grid" id="environment-inventory" data-workspace-area="labs">
       <section class="panel compact">
         <div class="section-heading"><div><p class="eyebrow">CONTAINER</p><h2>Aktive Lab-Umgebungen</h2></div></div>
+      <button id="port-preview-open" type="button" class="button secondary">SQL-Hostport vorprüfen · PLAN_ONLY</button>
       <div id="active-labs" class="list"></div>
       </section>
     </section>
@@ -526,6 +527,19 @@
       <div class="dialog-actions"><button type="button" class="button secondary" value="cancel" formnovalidate>Abbrechen</button><button class="button primary" value="default">Name speichern</button></div>
     </form>
   </dialog>
+
+  <dialog id="port-preview-dialog">
+    <div class="read-only-dialog-content">
+      <div class="dialog-heading"><h2>SQL-Hostport vorprüfen</h2><button id="port-preview-close" type="button" class="icon-button" aria-label="Schließen">×</button></div>
+      <p>Reine PLAN_ONLY-Vorschau. Keine Änderung, Reservierung oder Apply. Istportzahlen werden nicht angezeigt.</p>
+      <label>Registrierte laufende SQL-Instanz<select id="port-preview-target" disabled></select></label>
+      <label>Gewünschter SQL-Hostport (1024–65535)<input id="port-preview-port" type="number" min="1024" max="65535" step="1"></label>
+      <p id="port-preview-status" role="status" aria-live="polite">Endpoint, SQL, Backup und Volumeeigentum: NOT_CHECKED.</p>
+      <pre id="port-preview-result"></pre>
+      <div class="dialog-actions"><button id="port-preview-read" type="button" class="button secondary">Zielmetadaten erneut lesen</button><button id="port-preview-plan" type="button" class="button primary" disabled>Portvorschau lesen</button></div>
+    </div>
+  </dialog>
+  <script src="container-port-preview.js"></script>
 
   <dialog id="resource-dialog">
     <form id="resource-form" method="dialog">

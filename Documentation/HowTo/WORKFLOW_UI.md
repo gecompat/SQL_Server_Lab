@@ -2,6 +2,22 @@
 
 ## Zweck
 
+### SQL-Hostport nur vorprüfen
+
+Unter **Lab verwalten → SQL-Hostport vorprüfen · PLAN_ONLY** werden ausschließlich
+registrierte laufende Docker-/Podman-Ziele des aktuellen serverseitigen
+`Lab_Data` gelesen. Geschützte, CMS-, Legacy- und fremde Ziele sind nicht
+auswählbar. Öffnen liest nur Metadaten; Ziel- und Eingabewechsel lesen keine
+Runtime. Erst ein vollständiges Ziel und Wunschport 1024–65535 mit bewusster
+Vorschau rufen den unveränderten öffentlichen Portcore einmal auf.
+Die Anzeige enthält feste Port-/Ausfallzeitkategorien und Mountcounts, keine
+Istportzahl, Pfade, native IDs oder rohe Fehler. `CanApply=false`, leere
+`Actions` und `NOT_CHECKED` für Endpoint, SQL, Backup und Volumeeigentum bleiben
+sichtbar; Datenerhalt ist `NOT_VERIFIED`. Keine Jobs, Reservierung oder Apply.
+Schließen/Escape, Bearbeitung und neue Requests verwerfen späte Antworten.
+Bereits versandte lesende Aufrufe können weiterlaufen. Spezifische native
+Preview-/Dialogabnahme und Port-Apply/Recovery bleiben getrennt offen.
+
 ### Collations im Katalog suchen
 
 Unter **Lab erstellen → Collations suchen** SQL 2019, 2022 oder 2025 und

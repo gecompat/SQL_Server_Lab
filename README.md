@@ -65,7 +65,10 @@ SQL-Hostport vorprüfen** bietet die CLI einen getrennten Fachdialog mit
 registrierter Lab-/Instanzauswahl und lokaler Wunschport-Eingabe. Abbruch
 ruft keinen Plan auf; eine abgeschlossene Auswahl ruft den öffentlichen Core
 einmal auf und zeigt nur geprüfte Kategorien und Mountcounts.
-Browserdialog und gebundenes Port-Apply bleiben offen. Einzelheiten stehen
+Der Browser bietet denselben getrennten PLAN_ONLY-Dialog unter **Lab verwalten
+→ SQL-Hostport vorprüfen**. Er verwendet ausschließlich den serverseitig
+registrierten Root; Öffnen liest nur Metadaten. Gebundenes Port-Apply und die
+spezifische native Preview-/Dialogabnahme bleiben offen. Einzelheiten stehen
 in der [öffentlichen Referenz](Public/README.md#container-portvorschau-ohne-apply).
 
 Die [External-Languages-Entscheidung](Documentation/Architecture/EXTERNAL_RUNTIME_CAPABILITY.md)

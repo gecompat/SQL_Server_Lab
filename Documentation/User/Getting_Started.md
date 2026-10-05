@@ -28,8 +28,16 @@ Sicherungszugriffe ausgeführt. Die private Inspect-Antwort bleibt intern;
 auch ihr Konfigurationsinhalt fließt nur in den undurchsichtigen Inhaltskey.
 Endpoint bleibt `NOT_CHECKED`. Unbekannte oder zusätzliche Port-/Netztopologie,
 ungeeignete Mounts, ein offenes Journal und nicht laufende Runs blockieren die
-unterstützte Vorschau. Ein Browserdialog und Apply folgen
-separat; der bestehende Container-Reconcile wird dadurch nicht erweitert.
+unterstützte Vorschau. Im Browser unter **Lab verwalten → SQL-Hostport
+vorprüfen · PLAN_ONLY** die registrierte laufende Instanz und einen Wunschport
+wählen, dann bewusst **Portvorschau lesen**. Der Server verwendet seinen
+aktuellen registrierten Root; freie Pfade und native IDs können nicht
+übergeben werden. Öffnen liest nur Metadaten, Bearbeiten startet keine
+Vorschau. Schließen, Escape und jede Eingabe-/Zieländerung verwerfen späte
+Antworten; ein bereits versandter lesender Aufruf kann trotzdem weiterlaufen.
+Es gibt keine Applyaktion oder Portreservierung. Die spezifische native
+Preview-/Dialogform und Apply bleiben offen; der bestehende Container-Reconcile
+wird dadurch nicht erweitert.
 
 ## Collations vor einer Lab-Erstellung ansehen
 

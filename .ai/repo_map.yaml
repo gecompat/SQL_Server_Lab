@@ -435,6 +435,9 @@ sources_of_truth:
   guided_resource_change_cli: Public/Invoke-SqlServerLab.ps1 # Set-LabResourcesInteractive: render existing initial/requested Preview.Mounts; no additional runtime read
   guided_container_port_preview_cli: Public/Invoke-SqlServerLab.ps1 # separate registered metadata selection, one public PLAN_ONLY call; fixed categories, no Apply
   guided_container_port_preview_menu: Public/BatchConsole.ps1 # Lab-Umgebungen / SQL-Hostport vorprüfen
+  guided_container_port_preview_http: Private/ContainerPortPreviewHttp.ps1 # server-bound registered metadata, one public PLAN_ONLY call, no client StateRoot/native IDs
+  guided_container_port_preview_browser: Ui/container-port-preview.js # separate dialog; categories/counts only, late-response veto, no Apply
+  validation_guided_container_port_preview_browser: Tests/Static/Fixtures/ContainerPortPreviewHttpChecks.ps1, Tests/Static/Fixtures/ContainerPortPreviewUiChecks.cjs # invoked by existing WorkflowUI suite
   validation_guided_container_port_preview: Tests/Static/Fixtures/ContainerPortPreviewConsoleChecks.ps1 # invoked by existing ContainerReconcile suite, actual menu/router/core boundaries
   validation_guided_resource_change: Tests/Static/Fixtures/ResourceChangeGuidanceChecks.ps1
   validation_environment_resources: Tests/Static/Invoke-EnvironmentResourceChecks.ps1
