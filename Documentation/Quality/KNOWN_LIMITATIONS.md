@@ -1,5 +1,22 @@
 # Bekannte Grenzen
 
+## SA-Passwortpolicy: begrenzte Erstellung
+
+Die zentrale Container-Vorpruefung sowie die CLI- und Browser-Korrektur-/Abbruchwege
+sind implementiert. Der Browser prueft zusaetzlich vor einem Creationjob und
+weist ungueltige oder mehrdeutige Requests serverseitig ab. Customminimum 1..8
+gilt ausschliesslich fuer AdHoc,
+exakt katalogisierte SQL2025-CUs, Standardlaunch und frische eigene kurzlebige
+Systemvolumes. Latest, Manifest, SQL2022, PersistentData, bestehende Stores,
+Derived Images und Mountkollisionen erlauben keine Absenkung. Bei Teilreceipt
+wird keine vorhandene Volume nachinitialisiert; der State115-Erstellungsretry
+bleibt fuer Customminimum gesperrt. Browser/HTTP sind nur synthetisch geprueft;
+gerenderter Browser und echter HTTP-Netztransport sind `NOT_EXECUTED`.
+Native Docker-/Podman-Erststarts, Configerhalt und Cleanupabnahme sind ebenfalls
+`NOT_EXECUTED`.
+[Vertrag](../Architecture/SA_PASSWORD_POLICY.md).
+
+
 ## GUI-Aktionsstatus
 
 Die GUI unterscheidet Annahme, wartende/blockierte Kindvorgänge und tatsächlichen

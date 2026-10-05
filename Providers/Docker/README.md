@@ -1,5 +1,10 @@
 # Providers/Docker/ – Docker-Provider
 
+Die [SA-Passwortpolicy-Vorbereitung](../../Documentation/Architecture/SA_PASSWORD_POLICY.md)
+seedet ein bewusstes Customminimum nur in eine frische eigene kurzlebige
+SQL2025-CU-Systemvolume vor Standardlaunch. Bestehende Config/Volumes bleiben
+gesperrt; native Erststartabnahme ist offen.
+
 Container-basierte SQL-Server-Instanzen via Docker Desktop oder Docker Engine.
 
 ## Dateien

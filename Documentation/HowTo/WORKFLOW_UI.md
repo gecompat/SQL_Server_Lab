@@ -2,6 +2,21 @@
 
 ## Zweck
 
+### SA-Passwort bei neuen Container-Labs
+
+**Neue SQL-Umgebung** prueft das eingegebene SA-Passwort und die Wiederholung
+vor der Jobanlage. Standard sind 8 bis 128 Zeichen und drei Gruppen aus
+Grossbuchstaben, Kleinbuchstaben, Ziffern und Sonderzeichen. Bei einem reinen
+Laengenfehler auf einem neuen kurzlebigen SQL-2025-Container mit katalogisiertem
+CU kann die Mindestlaenge fuer genau dieses Lab bewusst gewaehlt und bestaetigt
+werden. Korrektur und Abbruch erzeugen keinen Job. Ein Manifeststart verwendet
+immer die Standardkriterien. Der lokale Server prueft die Eingabe vor der
+Jobanlage erneut; die Fachfunktion prueft vor State und Providermutation.
+Nach der Erstellung liegt das SA-Passwort fuer spaetere Starts verschluesselt
+run-lokal; der Browserjob und das Live-Log zeigen es nicht an.
+Die Browser- und Serverbindung ist bislang synthetisch geprueft; native
+Erststarts und der gerenderte HTTP-Browserpfad bleiben offen.
+
 ### Container-Autostart nur vorprüfen
 
 Unter **Lab verwalten → Container-Autostart vorprüfen · PLAN_ONLY** eine

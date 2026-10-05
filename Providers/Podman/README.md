@@ -1,5 +1,10 @@
 # Providers/Podman/ – Podman-Provider
 
+Die [SA-Passwortpolicy-Vorbereitung](../../Documentation/Architecture/SA_PASSWORD_POLICY.md)
+seedet ein bewusstes Customminimum nur in eine frische eigene kurzlebige
+SQL2025-CU-Systemvolume vor Standardlaunch. Bestehende Config/Volumes bleiben
+gesperrt; der eigene native Podman-Erststartnachweis ist offen.
+
 Container via Podman. Der allgemeine Provider unterstützt rootless Betrieb;
 Der isolierte Standardmodus für SQL Server 2019/2022/2025 External Runtimes
 benötigt rootful Linux mit cgroup v1. Für SQL 2025 existiert zusätzlich die

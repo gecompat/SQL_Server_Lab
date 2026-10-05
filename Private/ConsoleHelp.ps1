@@ -195,10 +195,20 @@ function Get-LabConsoleHelpCatalog {
         'create-sa-password' = @{
             Title   = 'SA-Kennwort der neuen Umgebung'
             Purpose = 'Legt fest, ob das SA-Kennwort erzeugt oder selbst vergeben wird.'
-            Effects = 'Ein erzeugtes Kennwort wird verschluesselt run-lokal hinterlegt. Ein selbst vergebenes Kennwort bleibt ein SecureString und wird nicht gespeichert.'
+            Effects = 'Jedes SA-Kennwort wird fuer spaetere Starts verschluesselt run-lokal hinterlegt. Ein erzeugtes Kennwort erhaelt zusaetzlich einen getrennten Herkunftsnachweis.'
             Related = @(
                 'Ein selbst vergebenes Kennwort wird nicht als lab-generiert ausgewiesen und ist spaeter nicht abrufbar.',
                 'Die Eingabe erfolgt zweifach; bei Abweichung bricht der Schritt ohne Mutation ab.'
+            )
+            Command = 'New-SqlServerLab -SaPassword'
+        }
+        'sa-password-correction' = @{
+            Title   = 'SA-Passwort korrigieren'
+            Purpose = 'Nach einer ungueltigen Eingabe das Passwort erneut eingeben, abbrechen oder eine zulaessige Mindestlaenge bewusst anpassen.'
+            Effects = 'Korrektur und Abbruch legen keine Umgebung an. Eine bestaetigte Anpassung gilt nur fuer die anschliessende Erstellung dieses neuen Labs.'
+            Related = @(
+                'Die Mindestlaenge darf nur fuer einen neuen Standardcontainer mit katalogisiertem SQL-2025-CU angepasst werden.',
+                'Die Pflicht zu drei Zeichengruppen und die Obergrenze von 128 Zeichen bleiben bestehen.'
             )
             Command = 'New-SqlServerLab -SaPassword'
         }

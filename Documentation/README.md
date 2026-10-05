@@ -1,5 +1,8 @@
 # Dokumentationsübersicht
 
+- [SA-Passwortbarriere und bewusste AdHoc-Mindestlaenge](Architecture/SA_PASSWORD_POLICY.md)
+  – CLI- und Browserkorrektur offline geprueft; native Erststarts offen.
+
 | Merkmal | Wert |
 |---|---|
 | Status | `BINDING_INDEX` |

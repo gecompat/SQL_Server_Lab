@@ -1,5 +1,25 @@
 # Lokale Validierungsstrategie
 
+## SA-Passwortpolicy: fokussierter Offlinevertrag
+
+`Tests/Static/Invoke-SaPasswordPolicyChecks.ps1` prueft Grenzlaengen, alle
+Dreierkombinationen, feste secretfreie Antworten, versionsgebundene Capability,
+tatsaechliche Public-/Manifestbarriere, maskierte Korrektur/Abbruch/Adjust,
+echte CLI-Parameteruebergabe und Secretentsorgung, beide Providerinitializer
+sowie OwnedHost-Teilreceiptveto mit synthetischen Leaves. Es gibt keine
+Provider-, SQL-, Listener- oder echte Secretoperation. Die bestehende
+Volumevertragssuite bleibt gekoppelt. `SaPasswordPolicyHttpChecks.ps1` fuehrt
+den echten Action-Routebody mit synthetischem Job aus; ungueltige, doppelte und
+unbefugte Felder sowie kurze Defaultpasswoerter werden vor der Jobanlage
+abgewiesen. `SaPasswordPolicyUiChecks.cjs` fuehrt die tatsaechlichen Browser-
+Submit-Handler mit synthetischem DOM aus: Korrektur, Abbruch, nur bewusst
+ausgewaehlte Mindestlaenge und Manifestdefault. Beide Fixtures sind vor dem
+Abschluss der bestehenden WorkflowUI-Suite eingebunden. Sie sind keine echte
+HTTP-Netz- oder gerenderte Browserabnahme. Ausgewaehlte Regression/
+Abschlussgates und getrennte native Erststart-/Restart-/Cleanup-Nachweise
+bleiben offen. [Vertrag](../Architecture/SA_PASSWORD_POLICY.md).
+
+
 ## GUI-Aktionsstatus ohne Runtime
 
 `WorkflowJobStatusChecks.ps1` führt den tatsächlichen Statusreader und die

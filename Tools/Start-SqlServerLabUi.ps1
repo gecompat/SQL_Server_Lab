@@ -905,6 +905,12 @@ try {
                 $body = [IO.StreamReader]::new($context.Request.InputStream, $context.Request.ContentEncoding).ReadToEnd()
                 $request = $body | ConvertFrom-Json -Depth 8
                 $action = [string]$request.action
+                if ($action -in @('NewContainerLab','NewContainerLabFromManifest')) {
+                    try {
+                        & (Get-Module SqlServerLab) { param($json,$a) Assert-LabSaPasswordWorkflowJsonShape -Json $json -Action $a } $body $action
+                    }
+                    catch { throw 'UI_SA_PASSWORD_REQUEST_INVALID' }
+                }
                 if ($action -in @('GetCmsInspectionState','InspectCms','GetLlamaSessions','PlanLlamaSessionStop','StopLlamaSession','GetResourceWatchState', 'RefreshResourceWatch', 'GetMediaOverrideState', 'PlanMediaOverride', 'ApplyMediaOverride', 'GetSlotReserveState', 'PlanSlotReserve', 'ApplySlotReserve', 'PlanWindowsPoolMember', 'ApplyWindowsPoolMember', 'CancelWindowsPoolMember', 'GetInitialSetupState', 'PlanInitialSetup', 'ApplyInitialSetup', 'RefreshSetupProvider', 'PlanSetupWriteability', 'ProbeSetupWriteability', 'RefreshSetupCapacity')) { throw 'INITIAL_SETUP_DIRECT_ENDPOINT_REQUIRED' }
                 $parameters = @{}
                 if ($request.parameters) {
@@ -917,8 +923,15 @@ try {
                         $parameters['GuestPassword'] = [string]$request.parameters.GuestPassword
                     }
                     if ($request.parameters.PSObject.Properties.Name -contains 'SaPassword') {
-                        $parameters['SaPassword'] = [string]$request.parameters.SaPassword
+                        if ($request.parameters.SaPassword -isnot [string]) { throw 'UI_SA_PASSWORD_INVALID' }
+                        $parameters['SaPassword'] = $request.parameters.SaPassword
                     }
+                }
+                if ($action -in @('NewContainerLab','NewContainerLabFromManifest')) {
+                    try {
+                        & (Get-Module SqlServerLab) { param($a,$p) Assert-LabSaPasswordWorkflowPreflight -Action $a -Parameters $p } $action $parameters
+                    }
+                    catch { throw 'UI_SA_PASSWORD_PREFLIGHT_FAILED' }
                 }
                 $hasTransientSecret = $parameters.ContainsKey('GuestPassword') -or $parameters.ContainsKey('SaPassword')
                 # A confirmed power plan is a one-shot request: never replay it through batch recovery.

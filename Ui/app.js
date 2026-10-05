@@ -646,6 +646,17 @@ function renderConnectionEndpoints(data) {
 
 function renderWorkflow(data) {
   workflow = data;
+  if (Array.isArray(data.ContainerSql2025PinnedBuilds)) {
+    const select = $('#container-version');
+    const selected = select.value;
+    const versions = data.ContainerSql2025PinnedBuilds.slice(0, 32).filter((item) =>
+      item && typeof item.VersionId === 'string' && typeof item.Cu === 'string' &&
+      /^2025-CU[0-9]+$/.test(item.VersionId) && item.VersionId === '2025-' + item.Cu);
+    const unique = [...new Map(versions.map((item) => [item.VersionId, item])).values()];
+    select.innerHTML = '<option value="2022">SQL Server 2022</option><option value="2019">SQL Server 2019</option><option value="2025">SQL Server 2025 (gleitend)</option>' +
+      unique.map((item) => '<option value="' + escapeHtml(item.VersionId) + '">SQL Server 2025 ' + escapeHtml(item.Cu) + ' (katalogisiert)</option>').join('');
+    if ([...select.options].some((option) => option.value === selected)) select.value = selected;
+  }
   renderConnectionEndpoints(data);
   renderOperationQueue(data.Queue);
   // Der Quellen-Dialog kann vor dem ersten API-Refresh geöffnet werden. In
@@ -1825,12 +1836,29 @@ $('#publish-form').addEventListener('submit', async (event) => {
   queueBackgroundAction($('#publish-action').value, { BuildId: $('#publish-build').value, EvaluationExpiresAt: evaluationExpiresAt }, $('#publish-dialog'));
 });
 
-$('#new-container').addEventListener('click', () => { updateContainerStorageSelection(); $('#container-dialog').showModal(); });
+$('#new-container').addEventListener('click', () => { updateContainerStorageSelection(); resetContainerPasswordAdjustment(); $('#container-dialog').showModal(); });
 
-$('#container-persistent-data').addEventListener('change', updateContainerStorageSelection);
-$('#container-storage-action').addEventListener('change', updateContainerStorageSelection);
-$('#container-provider').addEventListener('change', updateContainerStorageSelection);
-$('#container-version').addEventListener('change', updateContainerStorageSelection);
+function resetContainerPasswordAdjustment() {
+  $('#container-password-adjustment').hidden = true;
+  $('#container-password-minimum').value = '8';
+  $('#container-password-adjust-confirm').checked = false;
+}
+
+function checkContainerSaPassword(value, minimum = 8) {
+  const groups = [/[A-Z]/, /[a-z]/, /[0-9]/, /[^A-Za-z0-9]/].filter((pattern) => pattern.test(value)).length;
+  return { length: value.length >= minimum && value.length <= 128, groups: groups >= 3 };
+}
+
+function containerPasswordAdjustmentEligible() {
+  return /^2025-CU[0-9]+$/.test($('#container-version').value) &&
+    ['docker', 'podman'].includes($('#container-provider').value) &&
+    !$('#container-persistent-data').checked;
+}
+
+$('#container-persistent-data').addEventListener('change', () => { updateContainerStorageSelection(); resetContainerPasswordAdjustment(); });
+$('#container-storage-action').addEventListener('change', () => { updateContainerStorageSelection(); resetContainerPasswordAdjustment(); });
+$('#container-provider').addEventListener('change', () => { updateContainerStorageSelection(); resetContainerPasswordAdjustment(); });
+$('#container-version').addEventListener('change', () => { updateContainerStorageSelection(); resetContainerPasswordAdjustment(); });
 
 $('#new-manifest').addEventListener('click', () => $('#manifest-dialog').showModal());
 
@@ -2143,15 +2171,31 @@ $('#container-form').addEventListener('submit', async (event) => {
   if (event.submitter?.value === 'cancel') return;
   event.preventDefault();
   if ($('#container-password').value !== $('#container-password-repeat').value) { showError(new Error('Die beiden SA-Passwörter stimmen nicht überein.')); return; }
+  const password = $('#container-password').value;
+  const eligible = containerPasswordAdjustmentEligible();
+  const confirmed = $('#container-password-adjust-confirm').checked;
+  const selectedMinimum = Number($('#container-password-minimum').value);
+  if (confirmed && (!eligible || !Number.isInteger(selectedMinimum) || selectedMinimum < 1 || selectedMinimum > 7)) {
+    showError(new Error('Diese Anpassung ist für das gewählte Ziel nicht verfügbar. Passwort korrigieren oder abbrechen.'));
+    return;
+  }
+  const minimum = confirmed ? selectedMinimum : 8;
+  const check = checkContainerSaPassword(password, minimum);
+  if (!check.length || !check.groups) {
+    if (eligible && password.length < 8 && password.length <= 128 && check.groups) $('#container-password-adjustment').hidden = false;
+    showError(new Error('SA-Passwort: mindestens ' + minimum + ', höchstens 128 Zeichen und drei der vier Zeichengruppen erforderlich. Passwort korrigieren oder abbrechen.'));
+    return;
+  }
   const persistentData = $('#container-persistent-data').checked;
   const storageAction = persistentData ? $('#container-storage-action').value : 'NEW';
   const persistentStorageId = storageAction === 'NEW' ? '' : $('#container-storage-source').value;
   if (storageAction !== 'NEW' && !persistentStorageId) { showError(new Error('Kein kompatibler Instanzstore ausgewählt.')); return; }
-  const parameters = { Provider: $('#container-provider').value, SqlVersion: $('#container-version').value, Profile: $('#container-profile').value, InstanceId: $('#container-instance').value, LabName: $('#container-lab-name').value, PersistentData: persistentData, AutoStart: $('#container-autostart').checked ? 'on' : 'off', SaPassword: $('#container-password').value };
+  const parameters = { Provider: $('#container-provider').value, SqlVersion: $('#container-version').value, Profile: $('#container-profile').value, InstanceId: $('#container-instance').value, LabName: $('#container-lab-name').value, PersistentData: persistentData, AutoStart: $('#container-autostart').checked ? 'on' : 'off', SaPassword: password };
+  if (minimum < 8) parameters.SaPasswordMinimumLength = minimum;
   if (persistentData) parameters.DataRoot = workflow?.Defaults?.DataRoot || '';
   if (persistentStorageId) { parameters.PersistentStorageId = persistentStorageId; parameters.PersistentStorageAction = storageAction; }
   queueBackgroundAction('NewContainerLab', parameters, $('#container-dialog'), () => {
-    $('#container-password').value = ''; $('#container-password-repeat').value = ''; $('#container-dialog').close();
+    $('#container-password').value = ''; $('#container-password-repeat').value = ''; resetContainerPasswordAdjustment(); $('#container-dialog').close();
   });
 });
 
@@ -2172,7 +2216,10 @@ $('#manifest-form').addEventListener('submit', async (event) => {
 $('#manifest-run-form').addEventListener('submit', async (event) => {
   if (event.submitter?.value === 'cancel') return;
   event.preventDefault();
-  queueBackgroundAction('NewContainerLabFromManifest', { ManifestPath: $('#manifest-run-path').value.trim(), SaPassword: $('#manifest-run-password').value }, $('#manifest-run-dialog'), () => {
+  const password = $('#manifest-run-password').value;
+  const check = checkContainerSaPassword(password);
+  if (!check.length || !check.groups) { showError(new Error('SA-Passwort: 8 bis 128 Zeichen und drei der vier Zeichengruppen erforderlich. Passwort korrigieren oder abbrechen.')); return; }
+  queueBackgroundAction('NewContainerLabFromManifest', { ManifestPath: $('#manifest-run-path').value.trim(), SaPassword: password }, $('#manifest-run-dialog'), () => {
     $('#manifest-run-password').value = '';
   });
 });

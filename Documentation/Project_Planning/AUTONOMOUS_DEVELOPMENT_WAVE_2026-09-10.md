@@ -2,12 +2,23 @@
 
 | Merkmal | Wert |
 |---|---|
-| Status | `PAUSED` ab Integration des Übergabecheckpoints vom 2026-10-05; Wiederaufnahme nur durch ausdrücklichen Benutzerstart |
-| Stand | 2026-10-05 |
+| Status | `ACTIVE` seit ausdrücklichem Benutzerauftrag vom 2026-10-06 |
+| Stand | 2026-10-06 |
 | Auftrag | Aktuelle Entwicklungswelle aus Orchestrator Chat 2 mit denselben Regeln fortsetzen; C# bleibt USER_DEFERRED |
 | Ausgangspunkt | Durchsicht von `9cfd144`, vor Veröffentlichung gegen `ca9f09e` abgeglichen |
 | Ziel | vollständige Abarbeitung der Implementierungs-, Abnahme- und Bewertungsaufgaben bei konsistentem Gesamtsystem |
 | Reihenfolge | Konkretisierung des nachgelagerten Horizonts aus Abschnitt 12 des [Ausführungsplans](DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md) |
+
+## Wiederaufnahme vom 2026-10-06
+
+Der Benutzer hat die autonome Weiterentwicklung ausdrücklich fortgesetzt. Der
+Nachfolger arbeitet die bereits priorisierte Welle weiter ab; der zugehörige
+Heartbeat ist wieder aktiv. Der GUI-Aktionsstatus wurde mit PR #693 integriert.
+Aktueller Implementierungsscope ist die geführte SA-Passwortbehandlung samt
+eng begrenzter Mindestlängenanpassung für neue SQL-2025-CU-Container. Die
+sechs geschützten Testumgebungen und alle übrigen Grenzen dieses Plans gelten
+weiter. Native Erststart- und Cleanup-Nachweise werden erst nach den statischen
+Vertragsprüfungen getrennt für Docker und Podman erhoben.
 
 ## Übergabe und Benutzerpause vom 2026-10-05
 
