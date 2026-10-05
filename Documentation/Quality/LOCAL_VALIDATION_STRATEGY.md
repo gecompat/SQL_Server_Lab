@@ -28,6 +28,30 @@ Diese Offlineprüfungen ersetzen keine native Preview-/Dialogabnahme und
 schließen weder Port-Apply/Recovery noch Scope A insgesamt ab. Aktuelle
 Impactselektion und einmaliger stabiler Abschluss bleiben erforderlich.
 
+## Getrennte AutoStart-Core-Abnahme
+
+Die getrennte AutoStart-Core-Abnahme liegt in
+`Tests/Integration/Invoke-ContainerAutoStartPreviewAcceptance.ps1` und verwendet
+die bestehenden OwnScope-/Custody-/Cleanup-Primitiven des Port-Harness.
+Der frische externe Parent behält deren geforderten
+`sql-lab-port-preview-<GUID-N>`-Namen. New fordert ausdrücklich `AutoStart off`;
+die Vorschau muss trotzdem die tatsächliche OFF-Policy messen. Je Provider
+sind fünf öffentliche Aufrufe vorgesehen: off, on, on, ON, OFF. No-op,
+Wunschänderung, Wiederholung und Normalisierung müssen Kategorien sowie
+Inhaltsbindungen konsistent halten und eigene Statebytes unverändert lassen.
+Feste validierte Status-/Reason-/Count-Projektionen werden vor einem Veto im
+privaten EvidenceRoot exklusiv gespeichert; keine Keys, Ports, IDs oder
+RawInspectdaten gelangen in diese Projektion. Der Harness erwirbt selbst den
+globalen Mutex und startet keine Runtime. Scope und Ressourcen-Custody werden
+vor Cleanup erneut geprüft; die zwei terminalen Records bleiben bytegebunden
+außerhalb des gelöschten Runtimeparents erhalten. Fehler erhalten Custody.
+Die tatsächliche öffentliche D/P-Orchestrierung wird offline über einen
+synthetischen Inspect-Leaf in der bestehenden ContainerReconcile-Suite geprüft,
+einschließlich Kategorie-/Authority-, Überschreib-, Reparse-, RuntimeRoot- und
+Statebyte-Vetos. Reale Docker-/Podman-Ausführung ist noch `NOT_EXECUTED`.
+Diese geplante Core-Abnahme prüft weder Hostlogin noch Preview-SQL/Endpoint,
+Apply, einen eigenen CLI-/Browserdialog oder HTTP-Netztransport.
+
 ## Getrennte CLI-Portvorschau
 
 `Fixtures/ContainerPortPreviewConsoleChecks.ps1` läuft in der bestehenden

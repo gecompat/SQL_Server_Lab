@@ -183,5 +183,9 @@ $autoStartFixture = Join-Path $PSScriptRoot 'Fixtures/ContainerAutoStartPreviewC
 & (Get-Process -Id $PID).Path -NoProfile -File $autoStartFixture
 Add-CheckResult -Name 'Actual AutoStart PLAN_ONLY public preview rejects unknown/drifted policy without writes' -Success ($LASTEXITCODE -eq 0)
 
+$autoStartAcceptanceFixture = Join-Path $PSScriptRoot 'Fixtures/ContainerAutoStartPreviewAcceptanceChecks.ps1'
+& (Get-Process -Id $PID).Path -NoProfile -File $autoStartAcceptanceFixture
+Add-CheckResult -Name 'Owned AutoStart core acceptance persists bounded veto categories and verifies five read-only public calls' -Success ($LASTEXITCODE -eq 0)
+
 Write-Host ''; Write-Host "Ergebnis: $passed PASS, $($failures.Count) FAIL" -ForegroundColor Cyan
 if ($failures.Count) { exit 1 }; exit 0
