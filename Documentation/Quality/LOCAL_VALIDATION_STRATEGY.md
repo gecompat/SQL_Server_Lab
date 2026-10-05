@@ -7,6 +7,39 @@
 
 ## Getrennte AutoStart-Browservorschau
 
+Der additive Testmodus `Invoke-ContainerAutoStartPreviewAcceptance.ps1 -BrowserOnly`
+ist gegenseitig exklusiv zu `-ConsoleOnly`. Er verlangt eine private, hash- und
+bytegebundene `BrowserRuntimeMetadataPath` mit vorhandenem Node, Playwright-Paket,
+Browserexecutable und einem eigenen Loopbackport; Port 14336 ist ausgeschlossen.
+Installation, URLACL-/UAC-Fallback, Providerstarts und globale Defaultsänderungen
+sind nicht erlaubt. Der eigene NoProfile-UIprozess setzt DataRoot und StateRoot
+ausschließlich im Prozessenvironment und validiert Policy, Runtimepin und
+registriertes Ziel vor dem tatsächlichen Listenerstart. Fremde und unbeteiligte
+Browserrequests werden vor Serverarbeit blockiert; echte statische Antworten und
+AutoStart-Previewantworten werden unverändert weitergeleitet.
+
+Die geplante native BrowserOnly-Abnahme verwendet drei öffentliche on/off/on-
+Aufrufe über echten Loopback-HTTP-Transport und den gerenderten Dialog. Früher
+Cancel/Invalid liest keinen Public-Core; ein bereits versandter Read darf nach
+Schließen fertiglaufen und wird nur bei der Anzeige verworfen. Eigene
+Ownership-/Inspectreads werden getrennt gezählt. Statebytes werden nach dem
+Serverstart sowie je HTTP-Aufruf und am Abschluss gebunden: Startup wird separat
+gemessen, unerwartete Startupschreibvorgänge blockieren diesen Harness ebenfalls.
+Eigene Prozesshandles/Startzeiten, begrenzte Ausgaben, Wiederherstellung und die
+bestehende receiptgebundene Scope-/Cleanup-/Terminalcopy-Autorität bleiben strikt.
+Die bisherigen Core-/Console-Modi werden nicht wiederholt oder ersetzt.
+
+Die neue WorkflowUI-Fixture führt die tatsächliche Beobachterinstallation,
+HTTP/Public/Core mit synthetischem Inspect sowie den tatsächlichen Dialog und
+Driver mit synthetischem Playwright/Transport aus. Sie prüft Exklusivschreiben,
+Bytecaps, Prozesscustody, Rootenvironment, Cancel, echte Responseweitergabe,
+Blocked-/Evidence-Veto und Functionrestoration. Das ist ausschließlich Offline-
+Evidence: der neue BrowserOnly-Modus, gerenderter nativer Browser und echter
+HTTP-Netztransport bleiben `NOT_EXECUTED`; Hostlogin, Preview-SQL/Endpoint,
+Apply/Recovery und Scope A bleiben offen. Native Freigabe verlangt den aktuellen
+geprüften Head, frische eigene Scope-/Runtimepins, globalen Mutationsmutex und
+genau einen gebundenen Vorher-/Nachher-Schutzvergleich.
+
 `ContainerAutoStartPreviewHttpChecks.ps1` und `ContainerAutoStartPreviewUiChecks.cjs`
 laufen vor der Ergebnis-/Exit-Sektion der bestehenden WorkflowUI-Suite.
 Die HTTP-Fixture führt den tatsächlichen Serverbranch, gehaltenen Modulpfad,
