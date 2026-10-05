@@ -2,13 +2,110 @@
 
 | Merkmal | Wert |
 |---|---|
-| Status | `IN_PROGRESS` – nach ausdrücklichem Wiederaufnahmeauftrag vom 2026-09-30 |
-| Stand | 2026-09-30 |
+| Status | `PAUSED` ab Integration des Übergabecheckpoints vom 2026-10-05; Wiederaufnahme nur durch ausdrücklichen Benutzerstart |
+| Stand | 2026-10-05 |
 | Auftrag | Aktuelle Entwicklungswelle aus Orchestrator Chat 2 mit denselben Regeln fortsetzen; C# bleibt USER_DEFERRED |
 | Ausgangspunkt | Durchsicht von `9cfd144`, vor Veröffentlichung gegen `ca9f09e` abgeglichen |
 | Ziel | vollständige Abarbeitung der Implementierungs-, Abnahme- und Bewertungsaufgaben bei konsistentem Gesamtsystem |
 | Reihenfolge | Konkretisierung des nachgelagerten Horizonts aus Abschnitt 12 des [Ausführungsplans](DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md) |
 
+## Übergabe und Benutzerpause vom 2026-10-05
+
+Der Benutzer verlangt nach dem nächsten konsistenten, über PR integrierten
+Stand auf `origin/main` einen neuen Orchestrator-Chat in diesem Projekt.
+Mit Integration dieses Checkpoints endet die Entwicklungsfreigabe des alten
+Orchestrators. Sein Heartbeat wird pausiert und sein Chat archiviert. Der
+Nachfolger übernimmt die offenen Aufgaben, wartet aber auf einen ausdrücklichen
+Startauftrag des Benutzers. Erstellung, Kontextaufnahme, frühere Aufträge,
+Agentenmeldungen und Zeitplanereignisse ersetzen diesen Startauftrag nicht.
+Ohne ihn keine Implementierung, Delegation, Tests, Runtimeaktion, Integration
+oder aktive Fortsetzungsautomation starten.
+
+Root-`AGENTS.md`, `.ai/PROJECT_CONTEXT.md`, `.ai/WORKING_RULES.md` und die über
+`.ai/repo_map.yaml` verbundenen Fachverträge bleiben maßgeblich. Dieser
+Checkpoint koordiniert die bestehende Welle und eröffnet keinen zweiten
+Backlog. Historische Wiederaufnahme- und Prüfmeldungen unten gelten nicht als
+aktuelle Freigabe oder vollständige Abnahme.
+
+### Fortgeltende Ausführungsgrenzen nach einem ausdrücklichen Start
+
+- Genau ein Entwicklungsorchestrator und ein Implementierer je atomarem Scope;
+  unabhängige Reviews beginnen am stabilen Diff. Ergebnisse direkt aufnehmen,
+  nicht auf zyklische Auffrischung warten. Keine zweite Implementierung eines
+  aktiven oder abgeschlossenen Scopes beginnen.
+- Nur vollständige konsistente Slices nach notwendigen lokalen Prüfungen und
+  Pflichtgates am exakten Head per PR integrieren; danach `main` synchronisieren
+  und die eigenen lokalen Arbeitsbranches sowie eigene Worktrees bereinigen.
+  Offene Arbeit und ignorierte Nachweise vorher gesichert erhalten.
+- Die sechs geschützten Testumgebungen bleiben für den parallelen Auftrag
+  SQL_Server_Toolbelt aktiv: niemals stoppen oder verändern. Fremde Dienste,
+  reservierte Ressourcen und fremde Worktrees nicht bereinigen. Den ungenutzten
+  Linuxhost nicht starten. C# bleibt `USER_DEFERRED`.
+- Speicher und Cache nur im eigenen autorisierten Scope bei tatsächlichem Bedarf
+  freigeben. Reale Diagnosen bleiben lokal; keine Rohuploads, unautorisierten
+  Löschungen oder UAC-Schleifen. Parallele Toolbelt-Tests sind bekannt, aber kein
+  Nachweis für den Verursacher einer konkreten Ressourcenabweichung.
+- Während aktiver Arbeit wesentlichen Fortschritt, Fehler, Recoverybedarf und
+  PR/Merge sofort, spätestens alle 30 Minuten knapp auf Deutsch berichten.
+  Unverändert nicht handlungsfähiger Stand erzeugt keine Leerstatusrunden.
+  Bei offener UAC unabhängige autorisierte Arbeit fortsetzen; sobald alle
+  solchen Möglichkeiten ausgeschöpft sind, mit konkreten Abhängigkeiten
+  pausieren. Wiederaufnahme nur durch direkten Benutzerauftrag.
+
+### Offene Prioritäten und Nachweisgrenzen
+
+1. **GUI-Aktionsstatus:** Die bestätigte Ursache ist die fehlende Zuordnung
+   persistenter Batch-IDs in `/api/jobs` und eine optimistische Running-/
+   HEARTBEAT-Anzeige. Batch-Summary Running kann ohne laufenden Kindvorgang
+   vorkommen. Der tatsächliche Zustand auf dem gemeldeten anderen Host ist
+   `UNKNOWN`; dessen Aktionen nicht zur Diagnose erneut ausführen. Der lokale
+   Fix bindet den Annahmeroot, liest nur eigene gebundene Kindstatus, trennt
+   Annahme/Warten/Blockierung/Running/Terminalstatus und zeigt fehlende Quelle,
+   Verbindungsverlust oder Hoststartfehler ohne automatische Wiederholung.
+   Laufzeit und Dedupe dürfen weder Wartedauer als Ausführung noch einen
+   aus Secretwerten abgeleiteten Prüfschlüssel erfinden. Der Integrations- und
+   Gateabschluss ist vor Wiederaufnahme anhand des tatsächlichen PR-Stands zu
+   prüfen; reine Planung belegt ihn nicht.
+2. **Geführte Passwortbehandlung:** Benutzerziel ist Passwortabfrage,
+   verständlicher Kriterienhinweis, Korrektur oder explizite Anpassung und
+   anschließende Konfiguration nach Auswahl. Der gemeldete Startfehler nennt
+   die Mindestlänge acht. Explizite Passwörter umgehen bislang die gemeinsame
+   Vorprüfung. Standardziel: acht bis 128 Zeichen und drei von vier
+   Zeichengruppen; gemeinsamer reiner Check vor State-, Secret-, Build- und
+   Providermutation. GUI/CLI müssen Korrektur und Abbruch erlauben, bevor ein
+   Creationjob entsteht. Die Vorarbeit liegt im eigenen erhaltenen Branch
+   `codex/guided-password-policy`; sie ist nicht als fertige Funktion integriert.
+   Browserintegration, unabhängiger Review, betroffene statische Gates und
+   getrennte eigene native Erststartnachweise bleiben offen.
+3. **Explizite Anpassung:** Zunächst nur für neue Standardcontainer mit exakt
+   katalogisiertem SQL2025-Tag unter Docker/Podman und frischer runeigener
+   Systemvolume; Mindestlänge eins bis acht nur nach bewusster Auswahl.
+   Keine globale Richtlinie, keine Änderung vorhandener Logins/Stores und kein
+   stiller Fallback. Bestehende oder teilinitialisierte Config, überschreibende
+   Benutzerdrives, Manifest, gleitender Tag, SQL2022 und abgeleitete
+   External-Runtime-Images bleiben für diese Anpassung zunächst gesperrt.
+   Die [Microsoft-Dokumentation zur Linux-Passwortrichtlinie](https://learn.microsoft.com/en-us/sql/linux/security/authentication/custom-password-policy?view=sql-server-ver17) beschreibt die Konfigurationsoption; dies beweist den
+   tatsächlich funktionierenden ersten SA-Start noch nicht. Jeder Provider
+   benötigt seinen eigenen Nachweis und erfolgreiches eigenes Cleanup.
+4. **Autostart-Vorschau:** Native Core- und CLI-Nachweise sind in den bestehenden
+   Fachverträgen verzeichnet und nicht zu wiederholen. Native gerenderte
+   Browser-/HTTP-Netzabnahme bleibt `NOT_EXECUTED`; eine lokale vorbereitete
+   Worker-Erzeugung verleiht keine Ausführungsautorität. Dafür nach Benutzerstart
+   den integrierten Head, frische Zulassung, tatsächlichen Workerreview und
+   vorhandene Scope-/Custody-/Cleanupverträge neu binden. Keine alten CI- oder
+   Schutzfehler als bestandenen Nachweis umdeuten.
+5. Danach die nächste konkrete offene Arbeit aus den kanonischen Plänen und
+   tatsächlichen vorhandenen Branches wählen. Geführter llama.cpp-Stop und
+   native Retained-Store-Removal-Abnahme sind integriert; diese Scopes nicht
+   neu implementieren. SSIS und andere nachgelagerte Fähigkeiten nur gemäß
+   ihrem tatsächlichen Code-, Vertrags- und Abnahmestand beurteilen.
+
+Der lokale Übergabeindex bewahrt konkrete Worktree-Lokatoren, Agentenstatus,
+Hashes, private Prüfnachweise und noch nicht integrierte Änderungen. Diese
+Angaben müssen lokal verfügbar bleiben, gehören mit realen Host-/Diagnose-
+oder Secretwerten aber nicht in diesen versionierten Checkpoint. Bei fehlendem
+lokalem Index oder abweichender Sourcebindung keine Mutation auf Basis einer
+vermuteten Fortsetzung. Die vorhandene Arbeit erst lokalisieren und prüfen.
 ## Wiederaufnahmeauftrag vom 2026-09-30
 
 Der neue ausdrückliche Auftrag setzt die aktuelle Entwicklungswelle mit den
