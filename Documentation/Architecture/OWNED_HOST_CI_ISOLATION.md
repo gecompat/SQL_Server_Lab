@@ -1,6 +1,6 @@
 # Eigener CI-Scope auf einem gemeinsam genutzten Windows-Host
 
-Der vorbereitete Portvorschau-Harness verwendet einen frischen externen
+Der Portvorschau-Harness verwendet einen frischen externen
 `sql-lab-port-preview-<GUID-N>`-Parent plus getrennte Policy am `State`-Child.
 Nur die eigene Parent-Location wird registriert; der moderne nichtpersistente
 Run verwendet den Child-StateRoot. Keine existierende Policy/Run wird bewegt
@@ -8,8 +8,14 @@ oder adoptiert. ParentOperation, Policy-/Marker-/Catalog- und tatsächliche
 Container-/Volume-Creation-/Intenthashes werden vor PublicRemove erneut geprüft.
 Nach Cleanup müssen State REMOVED und exakte same-pin Ressourcenabwesenheit
 bestätigt sein; andernfalls bleibt der Parent samt Registrierung/Custody.
-Reale Ausführung steht getrennt für Docker/Podman aus. Der Harness ersetzt
-keinen kanonischen Provider-Gate und startet keine Maschine/Runtime.
+Am 2026-10-05 bestanden Docker und Podman auf `bee35c5d` getrennt die
+begrenzte PLAN_ONLY-Abnahme: je fünf öffentliche Previewaufrufe über Core,
+Console-Menü und in-process HTTP, unveränderte Statebytes und bestätigtes
+Own-Cleanup mit REMOVED/COMPLETED-Records und Ressourcenabwesenheit. Der
+Vorher-/Nachher-Schutzvergleich blieb ohne Findings oder Beobachtungen.
+Gerenderter Browser, HTTP-Netztransport, Preview-SQL/Endpoint und Apply sind
+damit nicht geprüft. Der Harness ersetzt keinen kanonischen Provider-Gate
+und startet keine Maschine/Runtime. Frühere Fehlerbelege bleiben unverändert.
 
 ## Auswahl und Vertrauensgrenze
 

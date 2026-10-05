@@ -1,7 +1,7 @@
 # Tests/ – lokale und Remote-Validierung
 
-`Integration/Invoke-ContainerPortPreviewAcceptance.ps1` bereitet die getrennte
-native Docker-/Podman-Portvorschau-Abnahme vor. Sie verlangt einen frischen
+`Integration/Invoke-ContainerPortPreviewAcceptance.ps1` prüft die getrennte
+native Docker-/Podman-Portvorschau-Abnahme. Sie verlangt einen frischen
 externen `sql-lab-port-preview-<GUID-N>`-Parent und ParentOperationId, bindet
 eigene Parent-/State-Policies und erstellt genau einen nichtpersistenten SQL-Run.
 Die Runtime muss bereits erreichbar sein. Öffentlicher Core, tatsächlicher
@@ -12,7 +12,12 @@ Cancel/ungültige Eingabe keinen. State-Dateibytes müssen unverändert bleiben.
 Cleanup verlangt vorher exakte Claims/Creationreceipts, danach gebundene
 Ressourcenabwesenheit. Unreturned/Drift/Fehler erhalten den gesamten Parent.
 Gerenderter Browser, HTTP-Netztransport, Preview-SQL/Endpoint und Apply werden
-nicht geprüft. Reale Abnahme ist noch **NOT_EXECUTED**, getrennt je Provider.
+nicht geprüft. Am 2026-10-05 auf `bee35c5d` bestanden Docker und Podman
+getrennt je fünf öffentliche Previewaufrufe, unveränderte Statebytes und
+bestätigtes Own-Cleanup (REMOVED/COMPLETED, Ressourcen und Parent entfernt).
+Der eigene Vorher-/Nachher-Schutzvergleich hatte null Findings/Beobachtungen;
+frühere fehlgeschlagene Wellen bleiben unverändert. Dies ist kein vollständiger
+kanonischer Provider-Gate oder Scope-A-Abschluss.
 
 Die Container-CI verwendet einen frischen expliziten eigenen StateRoot über
 `Common/OwnedHostTestScope.ps1`. `Static/Invoke-OwnedHostIntegrationChecks.ps1`
