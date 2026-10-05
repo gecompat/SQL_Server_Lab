@@ -1,5 +1,10 @@
 # Lokale Validierungsstrategie
 
+## Container-Autostart nur vorprüfen
+
+`Get-SqlServerLabReconcilePlan -ContainerAutoStartPreview -RunId $runId -InstanceId primary -AutoStart on -StateRoot $stateRoot` ist eine getrennte PLAN_ONLY-Vorschau der Container-Restartpolicy für moderne registrierte laufende SQL-Instanzen unter Docker/Podman. Explizite skalare on/off-Labels und Restartpolicy müssen übereinstimmen; fehlende, untypisierte oder widersprüchliche Evidence bleibt UNKNOWN/DRIFTED und gesperrt. Nur die begrenzte SQL-Loopbacktopologie und darstellbare Mounts werden akzeptiert. Der DTO zeigt feste ON/OFF- und SAME_POLICY/DIFFERENT_POLICY-Kategorien sowie Mountcounts ohne Hostwerte, native IDs oder Pfade. CanApply=false, MutationAllowed=false und leere Actions gelten auch für No-op; der opaque ObservationKey ist reine Inhaltsbindung, keine CAS-/Reservierungs-/Executorautorität. Endpoint, SQL, Backup und Hostlogin bleiben NOT_CHECKED. Ein Kontextread nutzt die bestehenden Ownership-Revalidierungen; zusätzliche eigene Inspectreads bleiben erhalten. Generic CLI-/Webkatalog verwenden den bestehenden Parametervertrag, eigene Autostartdialoge fehlen. Die spezifische native Core-Abnahme vom 2026-10-05 auf Head `77fbaee` bestand unter Docker und Podman mit je fünf öffentlichen Vorschauaufrufen, unveränderten eigenen Statebytes, zwei bytegebundenen terminalen Cleanuprecords und entfernten eigenen Ressourcen/Roots. Der gemeinsame Schutzvergleich bestand mit null Findings und null Observations. Eigene CLI-/Browserdialoge und HTTP-Netztransport wurden damit nicht abgenommen; CPU/RAM, Portvorschau, Apply/Recovery und der vollständige Scope A bleiben unverändert bzw. separat offen.
+
+
 ## Getrennte Browser-Portvorschau
 
 `ContainerPortPreviewHttpChecks.ps1` und `ContainerPortPreviewUiChecks.cjs`
@@ -22,6 +27,30 @@ ohne Providerwirkung.
 Diese Offlineprüfungen ersetzen keine native Preview-/Dialogabnahme und
 schließen weder Port-Apply/Recovery noch Scope A insgesamt ab. Aktuelle
 Impactselektion und einmaliger stabiler Abschluss bleiben erforderlich.
+
+## Getrennte AutoStart-Core-Abnahme
+
+Die getrennte AutoStart-Core-Abnahme liegt in
+`Tests/Integration/Invoke-ContainerAutoStartPreviewAcceptance.ps1` und verwendet
+die bestehenden OwnScope-/Custody-/Cleanup-Primitiven des Port-Harness.
+Der frische externe Parent behält deren geforderten
+`sql-lab-port-preview-<GUID-N>`-Namen. New fordert ausdrücklich `AutoStart off`;
+die Vorschau muss trotzdem die tatsächliche OFF-Policy messen. Je Provider
+wurden am 2026-10-05 auf Head `77fbaee` fünf öffentliche Aufrufe ausgeführt: off, on, on, ON, OFF. No-op,
+Wunschänderung, Wiederholung und Normalisierung müssen Kategorien sowie
+Inhaltsbindungen konsistent halten und eigene Statebytes unverändert lassen.
+Feste validierte Status-/Reason-/Count-Projektionen werden vor einem Veto im
+privaten EvidenceRoot exklusiv gespeichert; keine Keys, Ports, IDs oder
+RawInspectdaten gelangen in diese Projektion. Der Harness erwirbt selbst den
+globalen Mutex und startet keine Runtime. Scope und Ressourcen-Custody werden
+vor Cleanup erneut geprüft; die zwei terminalen Records bleiben bytegebunden
+außerhalb des gelöschten Runtimeparents erhalten. Fehler erhalten Custody.
+Die tatsächliche öffentliche D/P-Orchestrierung wird offline über einen
+synthetischen Inspect-Leaf in der bestehenden ContainerReconcile-Suite geprüft,
+einschließlich Kategorie-/Authority-, Überschreib-, Reparse-, RuntimeRoot- und
+Statebyte-Vetos. Beide tatsächlichen Providerläufe bestanden mit je fünf validierten Kategoriebelegen, unveränderten Statebytes und ohne zusätzliche diagnostische Reads. Cleanup bestätigte je zwei terminale Records, Ressourcenabwesenheit und Rootentfernung; der gemeinsame Vor-/Nachschutz bestand mit null Findings/Observations und unveränderten acht Providerinventaren, VM-Inventar, sechs geschützten Umgebungen, Defaults, Autostart, Registry und eigenen Aufgaben. Die nichtatomaren Snapshots begründen keine kausale Entlastung oder allgemeine Hostinvarianz.
+Diese begrenzte Core-Abnahme prüft weder Hostlogin noch Preview-SQL/Endpoint,
+Apply, einen eigenen CLI-/Browserdialog oder HTTP-Netztransport.
 
 ## Getrennte CLI-Portvorschau
 

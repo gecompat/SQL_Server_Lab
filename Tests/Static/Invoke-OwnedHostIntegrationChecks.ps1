@@ -12,6 +12,9 @@ $null = New-Item -Path $fixtureRoot -ItemType Directory
 $module = New-Module -ArgumentList $repoRoot,$fixtureRoot -ScriptBlock {
     param($repoRoot,$fixtureRoot)
     . (Join-Path $repoRoot 'Private/Common.ps1')
+    . (Join-Path $repoRoot 'Private/PathSafety.ps1')
+    . (Join-Path $repoRoot 'Private/BatchWorkflow.ps1')
+    . (Join-Path $repoRoot 'Private/WindowsPoolClaims.ps1')
     . (Join-Path $repoRoot 'Private/StateMachine.ps1')
     . (Join-Path $repoRoot 'Private/ContainerOwnedHostIntegration.ps1')
     . (Join-Path $repoRoot 'Private/ContainerRuntimeScope.ps1')
@@ -597,6 +600,9 @@ $module = New-Module -ArgumentList $repoRoot,$fixtureRoot -ScriptBlock {
         $imageFixture=New-Module -ArgumentList $repoRoot,$fixtureRoot,$pins -ScriptBlock {
             param($Repository,$Fixture,$Pins)
             . (Join-Path $Repository 'Private/Common.ps1')
+            . (Join-Path $Repository 'Private/PathSafety.ps1')
+            . (Join-Path $Repository 'Private/BatchWorkflow.ps1')
+            . (Join-Path $Repository 'Private/WindowsPoolClaims.ps1')
             . (Join-Path $Repository 'Private/StateMachine.ps1')
             . (Join-Path $Repository 'Private/ArtifactResolver.ps1')
             . (Join-Path $Repository 'Private/ContainerToolImage.ps1')
