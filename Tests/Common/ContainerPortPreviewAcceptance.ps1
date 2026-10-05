@@ -53,12 +53,52 @@ function Get-PortPreviewAcceptanceFileBinding {
     })
 }
 
+function Write-PortPreviewAcceptancePublicObservation {
+    param($Module,$Scope,[string]$RepositoryRoot,[string]$EvidenceRoot,$Plan,[string]$Provider,[int]$Ordinal)
+    # Reuse the strict product projection, then retain only fixed categories.
+    # No port, identity, observation digest or arbitrary response field is written.
+    $projected=& $Module {param($Plan,$Provider) ConvertTo-LabContainerPortBrowserPlan -Plan $Plan -Provider $Provider} $Plan $Provider
+    $reasons=@('PORT_PREVIEW_BINDING_UNAVAILABLE','PORT_PREVIEW_PROVIDER_UNSUPPORTED','PORT_PREVIEW_PROTECTED_TARGET',
+        'PORT_PREVIEW_RUNNING_REQUIRED','PORT_PREVIEW_JOURNAL_BLOCKED','PORT_PREVIEW_TOPOLOGY_UNSUPPORTED',
+        'PORT_PREVIEW_LIMITS_UNKNOWN','PORT_PREVIEW_MOUNTS_UNSUPPORTED','PORT_PREVIEW_APPLY_NOT_IMPLEMENTED')
+    if($projected.Reason -isnot [string] -or $projected.Reason -cnotin $reasons -or $Ordinal -lt 1 -or $Ordinal -gt 5){throw 'PORT_ACCEPTANCE_OBSERVATION_INVALID'}
+    if(-not [IO.Path]::IsPathFullyQualified($EvidenceRoot) -or -not [IO.Path]::IsPathFullyQualified($RepositoryRoot) -or
+        -not [IO.Path]::IsPathFullyQualified([string]$Scope.DataRoot)){throw 'PORT_ACCEPTANCE_OBSERVATION_PATH'}
+    $root=[IO.Path]::GetFullPath($EvidenceRoot).TrimEnd('\','/')
+    $parent=[IO.Path]::GetFullPath((Join-Path $RepositoryRoot '.artifacts/test-runs')).TrimEnd('\','/')
+    $runtime=[IO.Path]::GetFullPath($Scope.DataRoot).TrimEnd('\','/')
+    if([IO.Path]::GetDirectoryName($root) -ine $parent -or [IO.Path]::GetFileName($root) -cnotmatch '^port-preview-[a-f0-9]{32}$' -or
+        $root -ieq $runtime -or $root.StartsWith($runtime+[IO.Path]::DirectorySeparatorChar,[StringComparison]::OrdinalIgnoreCase)){
+        throw 'PORT_ACCEPTANCE_OBSERVATION_PATH'
+    }
+    $ancestor=$root
+    while($ancestor){
+        $item=Get-Item -LiteralPath $ancestor -Force -ErrorAction Stop
+        if(-not $item.PSIsContainer -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)){throw 'PORT_ACCEPTANCE_OBSERVATION_PATH'}
+        $ancestor=[IO.Path]::GetDirectoryName($ancestor)
+    }
+    $payload=[ordered]@{Contract='SqlServerLab.PortAcceptanceObservation/1.0';PublicCallOrdinal=$Ordinal;
+        Status=$projected.Status;Reason=$projected.Reason;Provider=$Provider;CanApply=$false;MutationAllowed=$false;
+        Actual=$projected.Actual;Desired=$projected.Desired;NoChange=$projected.NoChange;ChangeClass=$projected.ChangeClass;
+        Preview=[ordered]@{Downtime=$projected.Preview.Downtime;Endpoint='NOT_CHECKED';Sql='NOT_CHECKED';Backup='NOT_CHECKED';
+            DataImpact='NOT_VERIFIED';Mounts=$projected.Preview.Mounts}}
+    $bytes=[Text.UTF8Encoding]::new($false).GetBytes(($payload|ConvertTo-Json -Depth 6 -Compress))
+    if($bytes.Length -gt 4096){throw 'PORT_ACCEPTANCE_OBSERVATION_SIZE'}
+    $name='public-preview-{0:D2}.private.json' -f $Ordinal
+    $path=Join-Path $root $name
+    # CreateNew rejects an existing file/link; ancestor checks cannot make a
+    # same-user concurrent filesystem change atomic and no atomic claim is made.
+    $stream=[IO.File]::Open($path,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
+    try{$stream.Write($bytes,0,$bytes.Length);$stream.Flush($true)}finally{$stream.Dispose()}
+    [pscustomobject]@{RelativeEvidencePath=$name;Sha256=(Get-FileHash -LiteralPath $path).Hash;Bytes=(Get-Item -LiteralPath $path).Length}
+}
+
 function Invoke-PortPreviewAcceptanceObservations {
-    param($Module,$Scope,[string]$RunId,[string]$Provider,[string]$RepositoryRoot)
+    param($Module,$Scope,[string]$RunId,[string]$Provider,[string]$RepositoryRoot,[Parameter(Mandatory)][string]$EvidenceRoot)
     # Only interaction/output and transparent counters are substituted. Runtime
     # discovery, immutable pins, origin/label checks and Inspect remain real.
     return & $Module {
-        param($Scope,$RunId,$Provider,$Repo)
+        param($Scope,$RunId,$Provider,$Repo,$Evidence,$ObservationWriter)
         $binding=Get-LabDiagnosticBinding -RunId $RunId -InstanceId primary -DataRoot $Scope.DataRoot
         $origin=Get-LabOwnedHostRunPolicy -RunId $RunId -StateRoot $Scope.StateRoot
         if($binding.StateRoot -cne $Scope.StateRoot -or $binding.Run.metadata.persistentData -ne $false -or
@@ -79,6 +119,9 @@ function Invoke-PortPreviewAcceptanceObservations {
         }
         $script:portAcceptanceCalls=0;$script:portAcceptanceReads=0
         $script:portAcceptancePlans=[Collections.Generic.List[object]]::new()
+        $script:portAcceptanceObservationEvidence=[Collections.Generic.List[object]]::new()
+        $script:portAcceptanceEvidence=$Evidence;$script:portAcceptanceObservationWriter=$ObservationWriter
+        $script:portAcceptanceScope=$Scope;$script:portAcceptanceRepo=$Repo;$script:portAcceptanceProvider=$Provider
         $script:portAcceptanceText=[Collections.Generic.List[string]]::new()
         $script:portAcceptanceRoot=$Scope.DataRoot;$script:portAcceptanceRun=$RunId;$script:portAcceptanceState=$Scope.StateRoot
         function script:Get-SqlServerLabReconcilePlan {
@@ -86,6 +129,8 @@ function Invoke-PortPreviewAcceptanceObservations {
             if($RunId -cne $script:portAcceptanceRun -or $InstanceId -cne 'primary' -or $StateRoot -cne $script:portAcceptanceState -or -not $ContainerPortPreview){throw 'PORT_ACCEPTANCE_PUBLIC_SCOPE'}
             $script:portAcceptanceCalls++
             $plan=& $script:portAcceptancePublicBody @PSBoundParameters
+            $record=& $script:portAcceptanceObservationWriter -Module $ExecutionContext.SessionState.Module -Scope $script:portAcceptanceScope -RepositoryRoot $script:portAcceptanceRepo -EvidenceRoot $script:portAcceptanceEvidence -Plan $plan -Provider $script:portAcceptanceProvider -Ordinal $script:portAcceptanceCalls
+            $script:portAcceptanceObservationEvidence.Add($record)
             $script:portAcceptancePlans.Add($plan);return $plan
         }
         function script:Invoke-LabOwnedHostNativeProcess {
@@ -156,14 +201,14 @@ function Invoke-PortPreviewAcceptanceObservations {
         $sourceBefore=@($before.ContainerId,$before.Inspect.Image,$before.Inspect.Config,$before.Inspect.HostConfig,$before.Inspect.Mounts)|ConvertTo-Json -Depth 50 -Compress
         $sourceAfter=@($after.ContainerId,$after.Inspect.Image,$after.Inspect.Config,$after.Inspect.HostConfig,$after.Inspect.Mounts)|ConvertTo-Json -Depth 50 -Compress
         if($sourceBefore -cne $sourceAfter){throw 'PORT_ACCEPTANCE_NATIVE_SOURCE_DRIFT'}
-        [pscustomobject]@{Core='CHANGED_NOOP_REPEAT_PASSED';Cli='ACTUAL_MENU_ROUTE_PASSED';Http='ACTUAL_INPROCESS_SERVER_ROUTE_PASSED';PublicPreviewCalls=$script:portAcceptanceCalls;PinnedReadCalls=$script:portAcceptanceReads;NativeSourceUnchanged=$true;RenderedBrowser='NOT_EXECUTED';HttpNetworkTransport='NOT_EXECUTED';Endpoint='NOT_CHECKED';SqlPreview='NOT_CHECKED';Apply='NOT_IMPLEMENTED'}
+        [pscustomobject]@{Core='CHANGED_NOOP_REPEAT_PASSED';Cli='ACTUAL_MENU_ROUTE_PASSED';Http='ACTUAL_INPROCESS_SERVER_ROUTE_PASSED';PublicPreviewCalls=$script:portAcceptanceCalls;PublicObservationEvidence=@($script:portAcceptanceObservationEvidence);PinnedReadCalls=$script:portAcceptanceReads;NativeSourceUnchanged=$true;RenderedBrowser='NOT_EXECUTED';HttpNetworkTransport='NOT_EXECUTED';Endpoint='NOT_CHECKED';SqlPreview='NOT_CHECKED';Apply='NOT_IMPLEMENTED'}
         } finally {
             foreach($name in $saved.Keys){
                 if($saved[$name]){Set-Item ('Function:script:'+$name) $saved[$name]}
                 else{Remove-Item ('Function:script:'+$name) -ErrorAction SilentlyContinue}
             }
         }
-    } $Scope $RunId $Provider $RepositoryRoot
+    } $Scope $RunId $Provider $RepositoryRoot $EvidenceRoot ${function:Write-PortPreviewAcceptancePublicObservation}
 }
 
 function Get-PortPreviewAcceptanceCustody {

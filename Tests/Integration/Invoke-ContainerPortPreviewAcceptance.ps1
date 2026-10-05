@@ -58,7 +58,7 @@ try {
     $unreturnedCreation=$false
     if($lab.State -cne 'Running'){throw 'PORT_ACCEPTANCE_INSTALLATION_NOT_RUNNING'}
     $before=Get-PortPreviewAcceptanceFileBinding -DataRoot $root
-    $observations=Invoke-PortPreviewAcceptanceObservations -Module $module -Scope $scope -RunId $lab.RunId -Provider $Provider -RepositoryRoot $repo
+    $observations=Invoke-PortPreviewAcceptanceObservations -Module $module -Scope $scope -RunId $lab.RunId -Provider $Provider -RepositoryRoot $repo -EvidenceRoot $evidence
     $after=Get-PortPreviewAcceptanceFileBinding -DataRoot $root
     if(($before|ConvertTo-Json -Depth 5 -Compress) -cne ($after|ConvertTo-Json -Depth 5 -Compress)){throw 'PORT_ACCEPTANCE_PREVIEW_STATE_WRITE'}
     $custody|ConvertTo-Json -Depth 8|Set-Content -LiteralPath (Join-Path $evidence custody.private.json) -Encoding utf8

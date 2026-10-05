@@ -53,6 +53,44 @@ function Invoke-PortPreviewFixtureCleanupChecks {
         Remove-PortPreviewFixtureTempRoot $outside $base 'port-custody-fixture-'
     }
 }
+function Invoke-PortPreviewAcceptanceObservationEvidenceChecks {
+    param([string]$RepositoryRoot,[string]$Sandbox)
+    $module=Import-Module (Join-Path $RepositoryRoot SqlServerLab.psd1) -Force -PassThru
+    try {
+        $repo=Join-Path $Sandbox observation-repo
+        $runtime=Join-Path $Sandbox observation-runtime
+        $evidence=Join-Path $repo ('.artifacts/test-runs/port-preview-'+[guid]::NewGuid().ToString('N'))
+        $null=New-Item -ItemType Directory -Path $evidence,$runtime -Force
+        $scope=[pscustomobject]@{DataRoot=$runtime}
+        $plan=& $module {New-LabContainerPortPreview -RunId ([guid]::NewGuid().ToString('D')) -InstanceId primary -Port 15433 -StateRoot 'relative-invalid'}
+        $record=Write-PortPreviewAcceptancePublicObservation $module $scope $repo $evidence $plan docker 1
+        $file=Join-Path $evidence $record.RelativeEvidencePath
+        $text=Get-Content -LiteralPath $file -Raw
+        $stored=$text|ConvertFrom-Json
+        Check ($stored.Status -ceq 'BLOCKED' -and $stored.Reason -ceq 'PORT_PREVIEW_BINDING_UNAVAILABLE' -and $stored.PublicCallOrdinal -eq 1) 'Actual fixed unavailable DTO persists as ordinal category evidence'
+        Check ($text -notmatch 'ObservationKey|15433|RunId|ScopeId|StateRoot|HostPort|synthetic-secret' -and $record.Bytes -le 4096) 'Private evidence excludes ports, IDs, keys and host values'
+        foreach($case in @('unknown-reason','raw-extra','inside-runtime','existing-file')){
+            $bad=$plan|ConvertTo-Json -Depth 8|ConvertFrom-Json
+            $target=$evidence;$ordinal=2;$badScope=$scope
+            switch($case){
+                'unknown-reason' {$bad.Reason='synthetic-secret'}
+                'raw-extra' {$bad|Add-Member RawSecret synthetic-secret}
+                'inside-runtime' {$badScope=[pscustomobject]@{DataRoot=$repo}}
+                'existing-file' {$ordinal=1}
+            }
+            $thrown=$false;try{Write-PortPreviewAcceptancePublicObservation $module $badScope $repo $target $bad docker $ordinal|Out-Null}catch{$thrown=$true}
+            Check ($thrown -and (Get-Content -LiteralPath $file -Raw) -ceq $text -and -not (Test-Path (Join-Path $evidence public-preview-02.private.json))) "$case veto before evidence overwrite or outside write"
+        }
+        if($IsWindows){
+            $outside=Join-Path $Sandbox observation-outside;$link=Join-Path $repo ('.artifacts/test-runs/port-preview-'+[guid]::NewGuid().ToString('N'))
+            $null=New-Item -ItemType Directory -Path $outside
+            $null=New-Item -ItemType Junction -Path $link -Target $outside
+            try{$thrown=$false;try{Write-PortPreviewAcceptancePublicObservation $module $scope $repo $link $plan docker 1|Out-Null}catch{$thrown=$true};Check ($thrown -and @(Get-ChildItem $outside).Count -eq 0) 'Evidence reparse veto never writes outside'}
+            finally{Remove-Item -LiteralPath $link -Force}
+        }
+    } finally {Remove-Module $module -Force}
+}
+
 function Invoke-PortPreviewAcceptanceCustodyChecks {
     param([string]$RepositoryRoot)
     $testRoot=Join-Path ([IO.Path]::GetTempPath()) ('port-custody-fixture-'+[guid]::NewGuid().ToString('N'))
@@ -157,6 +195,7 @@ $null=New-Item -ItemType Directory -Path $sandbox
 try {
     Invoke-PortPreviewFixtureCleanupChecks -RepositoryRoot $repo
     Invoke-PortPreviewAcceptanceCustodyChecks -RepositoryRoot $repo
+    Invoke-PortPreviewAcceptanceObservationEvidenceChecks -RepositoryRoot $repo -Sandbox $sandbox
     $valid=Join-Path $sandbox ('sql-lab-port-preview-'+[guid]::NewGuid().ToString('N'))
     Check ((Assert-PortPreviewAcceptanceLayout $valid $repo) -ceq $valid) 'Fresh full-GUID external root'
     foreach($bad in @('relative','sql-lab-port-preview-short',(Join-Path $repo ('sql-lab-port-preview-'+[guid]::NewGuid().ToString('N'))))){
@@ -315,16 +354,38 @@ try {
             $scope=[pscustomobject]@{DataRoot=$data;StateRoot=$state}
             $bindings=Get-PortPreviewAcceptanceFileBinding $data
             $original=& $actual {@(${function:Get-SqlServerLabReconcilePlan}.ToString(),${function:Invoke-LabOwnedHostNativeProcess}.ToString(),${function:Get-LabSecret}.ToString()) -join '|'}
-            $outcome=Invoke-PortPreviewAcceptanceObservations $actual $scope $run.RunId $provider $repo
+            $observationEvidence=Join-Path $repo ('.artifacts/test-runs/port-preview-'+[guid]::NewGuid().ToString('N'))
+            $null=New-Item -ItemType Directory -Path $observationEvidence -Force
+            $outcome=Invoke-PortPreviewAcceptanceObservations $actual $scope $run.RunId $provider $repo -EvidenceRoot $observationEvidence
             Check ($outcome.PublicPreviewCalls -eq 5 -and $outcome.Http -ceq 'ACTUAL_INPROCESS_SERVER_ROUTE_PASSED' -and $outcome.RenderedBrowser -ceq 'NOT_EXECUTED') "$provider actual public/core/menu/HTTP orchestration"
+            Check ($outcome.PublicObservationEvidence.Count -eq 5 -and @($outcome.PublicObservationEvidence|Where-Object {$p=Join-Path $observationEvidence $_.RelativeEvidencePath;(Get-FileHash $p).Hash -cne $_.Sha256 -or (Get-Item $p).Length -ne $_.Bytes}).Count -eq 0) 'Five completed actual public calls retain fixed evidence without extra calls'
             if($IsWindows){Check ($outcome.PinnedReadCalls -gt $outcome.PublicPreviewCalls) 'Actual pinned ownership reads are retained and counted separately'}
             Check (($bindings|ConvertTo-Json -Depth 5 -Compress) -ceq ((Get-PortPreviewAcceptanceFileBinding $data)|ConvertTo-Json -Depth 5 -Compress)) 'All actual preview routes preserve state bytes'
             Check ($original -ceq (& $actual {@(${function:Get-SqlServerLabReconcilePlan}.ToString(),${function:Invoke-LabOwnedHostNativeProcess}.ToString(),${function:Get-LabSecret}.ToString()) -join '|'})) 'Instrumentation restored on success'
             # Initial context stays readable; core vetoes topology after the
             # transparent instrumentation has been installed.
             $global:portAcceptanceSyntheticInspect.NetworkSettings.Networks|Add-Member other ([pscustomobject]@{})
-            $thrown=$false;try{Invoke-PortPreviewAcceptanceObservations $actual $scope $run.RunId $provider $repo|Out-Null}catch{$thrown=$true}
+            $failureEvidence=Join-Path $repo ('.artifacts/test-runs/port-preview-'+[guid]::NewGuid().ToString('N'))
+            $null=New-Item -ItemType Directory -Path $failureEvidence
+            $thrown=$false;try{Invoke-PortPreviewAcceptanceObservations $actual $scope $run.RunId $provider $repo -EvidenceRoot $failureEvidence|Out-Null}catch{$thrown=$true}
             Check ($thrown -and $original -ceq (& $actual {@(${function:Get-SqlServerLabReconcilePlan}.ToString(),${function:Invoke-LabOwnedHostNativeProcess}.ToString(),${function:Get-LabSecret}.ToString()) -join '|'})) 'Instrumentation restored after actual core failure'
+            $failedRecords=@(Get-ChildItem $failureEvidence -Filter public-preview-*.private.json|ForEach-Object {Get-Content $_.FullName -Raw|ConvertFrom-Json})
+            Check ($failedRecords.Count -eq 3 -and @($failedRecords|Where-Object {$_.Status -cne 'UNSUPPORTED' -or $_.Reason -cne 'PORT_PREVIEW_TOPOLOGY_UNSUPPORTED'}).Count -eq 0) 'Actual failure categories survive before original status veto'
+            $writeFailureEvidence=Join-Path $repo ('.artifacts/test-runs/port-preview-'+[guid]::NewGuid().ToString('N'))
+            $null=New-Item -ItemType Directory -Path $writeFailureEvidence
+            [IO.File]::WriteAllText((Join-Path $writeFailureEvidence public-preview-01.private.json),'sentinel')
+            $thrown=$false;try{Invoke-PortPreviewAcceptanceObservations $actual $scope $run.RunId $provider $repo -EvidenceRoot $writeFailureEvidence|Out-Null}catch{$thrown=$true}
+            Check ($thrown -and (Get-Content (Join-Path $writeFailureEvidence public-preview-01.private.json) -Raw) -ceq 'sentinel' -and (& $actual {$script:portAcceptanceCalls}) -eq 1 -and $original -ceq (& $actual {@(${function:Get-SqlServerLabReconcilePlan}.ToString(),${function:Invoke-LabOwnedHostNativeProcess}.ToString(),${function:Get-LabSecret}.ToString()) -join '|'})) 'Exclusive evidence write failure preserves original data and restores functions after one public call'
+            Check (($bindings|ConvertTo-Json -Depth 5 -Compress) -ceq ((Get-PortPreviewAcceptanceFileBinding $data)|ConvertTo-Json -Depth 5 -Compress)) 'Failure diagnostics never write runtime state'
+            foreach($ownedEvidence in @($observationEvidence,$failureEvidence,$writeFailureEvidence)){
+                if([IO.Path]::GetDirectoryName([IO.Path]::GetFullPath($ownedEvidence)) -ine [IO.Path]::GetFullPath((Join-Path $repo '.artifacts/test-runs')) -or
+                    [IO.Path]::GetFileName($ownedEvidence) -cnotmatch '^port-preview-[a-f0-9]{32}$'){throw 'FIXTURE_EVIDENCE_DELETE_SCOPE'}
+                $null=& $actual {param($Path) Assert-LabOwnedHostPath $Path} $ownedEvidence
+                $ownedFiles=@(Get-ChildItem -LiteralPath $ownedEvidence -Force -ErrorAction Stop)
+                if($ownedFiles.Count -gt 5 -or @($ownedFiles|Where-Object {$_.PSIsContainer -or ($_.Attributes -band [IO.FileAttributes]::ReparsePoint) -or $_.Name -cnotmatch '^public-preview-0[1-5]\.private\.json$'}).Count){throw 'FIXTURE_EVIDENCE_DELETE_SCOPE'}
+                foreach($ownedFile in $ownedFiles){Remove-Item -LiteralPath $ownedFile.FullName -Force -ErrorAction Stop}
+                Remove-Item -LiteralPath $ownedEvidence -Force -ErrorAction Stop
+            }
         }
     } finally {$env:SQL_SERVER_LAB_DATA_ROOT=$oldData;Remove-Module $actual -Force;Remove-Variable portAcceptanceSyntheticInspect,portAcceptanceSyntheticReads -Scope Global -ErrorAction SilentlyContinue}
     $tokens=$null;$errors=$null
