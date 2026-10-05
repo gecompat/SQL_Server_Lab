@@ -128,6 +128,7 @@ try{
   Check ($primary.Exception.Data['AutoStartBrowserProcessRecoveryRequired'] -eq $true) 'Started failed driver retains custody even after its PID exited'
   $admission=@($server.EndBlock.Statements|Where-Object{$_.Extent.Text -like '& $module {*'})
   Check ($admission.Count -eq 1) 'Actual child prelistener authority block extracted once'
+  if($IsWindows){
   foreach($provider in @('docker','podman')){
    $own=Join-Path $root ('admission-'+$provider)
    $resolved=& $module {
@@ -159,6 +160,11 @@ try{
     $resolution.Invocation=$resolved.Invocation;$env:SQL_SERVER_LAB_STATE=$root
     Reject {& ([scriptblock]::Create($admission[0].Extent.Text))} 'BROWSER_ROOT' ('Child StateRoot mismatch veto before listener '+$provider)
    }finally{$env:SQL_SERVER_LAB_DATA_ROOT=$oldData;$env:SQL_SERVER_LAB_STATE=$oldState}
+  }
+  }else{
+   $unsupported=Join-Path $root 'admission-unsupported'
+   Reject {& $module {param($Path)Initialize-LabOwnedHostPolicy -StateRoot $Path -RuntimePins @([pscustomobject]@{})} $unsupported} 'OWNED_HOST_PLATFORM_UNSUPPORTED' 'Non-Windows actual owned policy rejects before root mutation'
+   Check (-not (Test-Path -LiteralPath $unsupported)) 'Non-Windows unsupported root remains absent'
   }
   . ([scriptblock]::Create($arrange))
   & $module {Set-Item Function:script:Get-SqlServerLabReconcilePlan $script:publicBody}

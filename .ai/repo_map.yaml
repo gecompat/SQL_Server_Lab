@@ -436,7 +436,7 @@ sources_of_truth:
   acceptance_container_autostart_preview: Tests/Integration/Invoke-ContainerAutoStartPreviewAcceptance.ps1 # owned-only five public core calls; Docker/Podman PASS 2026-10-05 on 77fbaee with own cleanup; dedicated CLI PASS on 960b5452; browser native NOT_EXECUTED, no Apply
   acceptance_container_autostart_preview_contract: Tests/Common/ContainerAutoStartPreviewAcceptance.ps1 # bounded fixed categories, no-write/content checks; existing port scope/custody/cleanup reuse
   acceptance_container_autostart_preview_browser_contract: Tests/Common/ContainerAutoStartPreviewBrowserAcceptance.ps1 # additive BrowserOnly; pinned real listener/browser/HTTP/DOM, process-only roots; native NOT_EXECUTED
-  validation_container_autostart_preview_browser_acceptance: Tests/Static/Fixtures/ContainerAutoStartPreviewBrowserAcceptanceChecks.ps1 # WorkflowUI before final exit; actual public/core/HTTP and dialog/driver with synthetic leaves only
+  validation_container_autostart_preview_browser_acceptance: Tests/Static/Fixtures/ContainerAutoStartPreviewBrowserWorkflowChecks.ps1 # WorkflowUI before final exit; actual public/core/HTTP and dialog/driver with synthetic leaves only
   validation_container_autostart_preview_acceptance: Tests/Static/Fixtures/ContainerAutoStartPreviewAcceptanceChecks.ps1 # existing ContainerReconcile suite; actual public route with synthetic inspect leaf
   guided_container_autostart_preview_cli: Public/Invoke-SqlServerLab.ps1 # registered metadata-only selection, one public PLAN_ONLY call, strict scalar DTO, no Apply
   guided_container_autostart_preview_menu: Public/BatchConsole.ps1, Private/ConsoleHelp.ps1 # Lab-Umgebungen / Container-Autostart vorprüfen
