@@ -12,8 +12,10 @@ Derived Images und Mountkollisionen erlauben keine Absenkung. Bei Teilreceipt
 wird keine vorhandene Volume nachinitialisiert; der State115-Erstellungsretry
 bleibt fuer Customminimum gesperrt. Browser/HTTP sind nur synthetisch geprueft;
 gerenderter Browser und echter HTTP-Netztransport sind `NOT_EXECUTED`.
-Native Docker-/Podman-Erststarts, Configerhalt und Cleanupabnahme sind ebenfalls
-`NOT_EXECUTED`.
+Docker und Podman bestanden am 2026-10-06 je einen eigenen SQL2025-CU9-
+Erststart mit Mindestlaenge drei, SA-Anmeldung, Configerhalt nach Restart und
+gebundenem Cleanup. Andere Mindestlaengen und CU-Images sind nicht nativ
+geprueft; das PR-Abschlussgate ist offen.
 [Vertrag](../Architecture/SA_PASSWORD_POLICY.md).
 
 

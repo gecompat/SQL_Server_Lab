@@ -1,7 +1,8 @@
 # SA-Passwort vor der Containererstellung pruefen
 
 Status: Backend, CLI und Browser offline implementiert; native Erststartabnahme
-der benutzergewaehlten Mindestlaenge ist offen. Keine abgeschlossene Freigabe.
+fuer Docker und Podman auf SQL2025-CU9 mit Mindestlaenge drei bestanden.
+Gerenderter Browser, HTTP-Netztransport und PR-Abschlussgate bleiben offen.
 
 ## Gemeinsame Barriere
 
@@ -77,7 +78,15 @@ Dialog, echte CLI-Route, beide Providerinitializer und OwnedHost-Teilreceipt
 synthetisch aus. Die WorkflowUI-Fixtures fuehren den echten Browserdialog und
 den serverseitigen Action-Routebody mit synthetischen Jobs aus. Kein
 Providerprozess, SQL, Listener oder echte Secretquelle.
-Native Docker-/Podman-Erststarts, Anmeldung, Neustart/Configerhalt und eigenes
-Cleanup bleiben `NOT_EXECUTED`. Gerenderter Browser und HTTP-Netztransport
-sind ebenfalls noch nicht nativ abgenommen.
-Impactselektion und Abschlussgate benoetigen den vollstaendigen stabilen Stand.
+Am 2026-10-06 bestand `Invoke-SaPasswordPolicyAcceptance.ps1` auf dem
+Produktstand `12af45ed` getrennt fuer Docker und Podman: ein frischer eigener
+SQL2025-CU9-Run mit bewusst ausgewaehlter Mindestlaenge drei, tatsaechlicher
+SA-Anmeldung, unveraenderter Config nach Restart und bestaetigtem Cleanup von
+Run, Container, Volume und temporaerem Root. Vorher und nachher waren alle
+sechs geschuetzten Umgebungen laufend und gebunden; der Vergleich ergab null
+Findings. Der erste Docker-Testlauf scheiterte an einer zu engen
+Test-Bindungsannahme fuer die run-spezifische Volume und wurde nach erneuter
+Ownershippruefung vollstaendig aufgeraeumt; der korrigierte Test bestand.
+Andere Mindestlaengen und CU-Images sind damit nicht empirisch abgenommen.
+Gerenderter Browser und HTTP-Netztransport bleiben `NOT_EXECUTED`.
+Impactselektion und PR-Abschlussgate benoetigen den vollstaendigen stabilen Stand.
