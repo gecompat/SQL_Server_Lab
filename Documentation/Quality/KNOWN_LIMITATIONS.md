@@ -2,7 +2,9 @@
 
 Der neue owned-host-only Harness
 `Tests/Integration/Invoke-ContainerPortPreviewAcceptance.ps1` ist vorbereitet,
-aber nativ für Docker und Podman **NOT_EXECUTED**. Er trennt Installation,
+besitzt aber noch keine erfolgreiche native Portvorschau-Abnahme für Docker
+oder Podman. Bisherige Docker-Topologieprüfungen wurden abgelehnt;
+deren Fehlerbelege bleiben unverändert. Er trennt Installation,
 Bereitschaft, beobachtete Previewform und Cleanup. Die HTTP-Route wird
 in-process geprüft, kein gerenderter Browser und kein HTTP-Netztransport.
 Port-Apply/Recovery und Scope A bleiben offen. Statebyte- und Cleanupchecks

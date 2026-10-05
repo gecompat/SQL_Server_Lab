@@ -248,7 +248,7 @@ function New-LabContainerPortPreview {
             @($inspect.HostConfig.ExtraHosts | Where-Object { $_ }).Count -or
             @($inspect.HostConfig.Links | Where-Object { $_ }).Count -or $inspect.HostConfig.PublishAllPorts -eq $true -or
             @($inspect.Config.ExposedPorts.PSObject.Properties | Where-Object { $_ -and $_.Name -cne '1433/tcp' }).Count -or
-            @($network.Aliases | Where-Object { $_ -cnotin @($context.ContainerName,$context.ContainerId,$context.ContainerId.Substring(0,12)) }).Count -or
+            @($network.Aliases | Where-Object { $null -ne $_ -and $_ -cnotin @($context.ContainerName,$context.ContainerId,$context.ContainerId.Substring(0,12)) }).Count -or
             ($network.IPAMConfig -and ($network.IPAMConfig | ConvertTo-Json -Compress) -cne '{}')) {
             $result.Status='UNSUPPORTED'; $result.Reason='PORT_PREVIEW_TOPOLOGY_UNSUPPORTED'; return $result
         }

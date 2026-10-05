@@ -393,7 +393,7 @@ try {
             $global:portAcceptanceSyntheticInspect=[pscustomobject]@{Id=('a'*64);Name='/synthetic';Image=('sha256:'+('b'*64));State=[pscustomobject]@{Running=$true};
                 Config=[pscustomobject]@{Labels=[pscustomobject]@{'sql-server-lab.run-id'=$run.RunId;'sql-server-lab.scope-id'=$run.ScopeId;'sql-server-lab.instance-id'='primary'};Env=@('MSSQL_SA_PASSWORD=SYNTHETIC_PRIVATE');ExposedPorts=[pscustomobject]@{'1433/tcp'=[pscustomobject]@{}}};
                 HostConfig=[pscustomobject]@{NanoCpus=1000000000L;Memory=2560MB;NetworkMode='synthetic';Dns=@();ExtraHosts=@();Links=@();PublishAllPorts=$false;RestartPolicy=[pscustomobject]@{Name='no'};PortBindings=[pscustomobject]@{'1433/tcp'=@([pscustomobject]@{HostIp='127.0.0.1';HostPort='14333'})}};
-                NetworkSettings=[pscustomobject]@{Ports=[pscustomobject]@{'1433/tcp'=@([pscustomobject]@{HostIp='127.0.0.1';HostPort='14333'})};Networks=[pscustomobject]@{synthetic=[pscustomobject]@{Aliases=@();IPAMConfig=$null}}};Mounts=@()}
+                NetworkSettings=[pscustomobject]@{Ports=[pscustomobject]@{'1433/tcp'=@([pscustomobject]@{HostIp='127.0.0.1';HostPort='14333'})};Networks=[pscustomobject]@{synthetic=[pscustomobject]@{Aliases=$null;IPAMConfig=$null}}};Mounts=@()}
             if($IsWindows){
                 & $actual {
                     param($State,$Run,$Provider)

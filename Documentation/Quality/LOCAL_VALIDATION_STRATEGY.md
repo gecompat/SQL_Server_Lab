@@ -54,6 +54,12 @@ kein SQL-/Secret-/Listenerzugriff und keine Recovery. Privacycanaries prüfen
 den host- und portwertfreien DTO; Wiederholung und Zieländerung prüfen die
 Inhaltsbindung des nicht ausführbaren `ObservationKey`. Die generische
 CLI-Katalogsuite prüft den neuen nativen Parametersatz und Portbereich.
+Für optionale Netzwerkaliase werden `null`, leere Arrays sowie der gebundene
+Containername und seine vollständige beziehungsweise kurze ID über den echten
+öffentlichen Core geprüft. `null` ist kein zusätzlicher Alias; konkrete
+unbekannte Werte einschließlich Leerstring, `false` und `0` bleiben gesperrt.
+Die owned-host-Orchestrierungsfixture verwendet ebenfalls nullable Aliase und
+prüft die tatsächlichen Core-/CLI-/HTTP-Pfade mit synthetischem Prozess-Leaf.
 Diese synthetischen Prüfungen bestätigen weder native Inspectformen noch
 Portverfügbarkeit, Reservierung, Apply, Datenerhalt oder native Recovery.
 Die tatsächliche betroffene Selektion und ihr einmaliger stabiler Abschluss
