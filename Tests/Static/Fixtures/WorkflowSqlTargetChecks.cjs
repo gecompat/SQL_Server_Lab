@@ -67,6 +67,13 @@ run(source);
 run('const actualQueueBackgroundAction = queueBackgroundAction; queueBackgroundAction = (action, parameters) => queued.push({action, parameters});');
 let passed = 0;
 function check(name, body) { body(); passed++; console.log('PASS ' + name); }
+async function waitForActualBoundary(predicate, message) {
+  const deadline = Date.now() + 5000;
+  while (!predicate() && Date.now() < deadline) {
+    await new Promise((resolve) => require('node:timers').setTimeout(resolve, 10));
+  }
+  assert.ok(predicate(), message);
+}
 const node = (id) => nodes.get(id);
 const click = (element) => { for (const handler of element.events.get('click') || []) handler({}); };
 check('Nine real area buttons select only their actual destinations without dispatch', () => {
@@ -324,7 +331,7 @@ async function main() {
   await node('container-operation-form').events.get('submit')[0]({ submitter: { value: 'default' }, preventDefault() {} });
   // The real queue is intentionally fire-and-forget. Wait for its asynchronous
   // nonsecret identity digest and actual POST boundary, not server acceptance.
-  for (let attempt = 0; !acceptAction && attempt < 100; attempt++) await new Promise((resolve) => setImmediate(resolve));
+  await waitForActualBoundary(() => typeof acceptAction === 'function', 'Real queued action must reach the POST boundary');
   assert.equal(typeof acceptAction, 'function', 'Real queued action must reach the POST boundary');
   check('Real form/queue/startAction chain exposes live log before server acceptance', () => {
     assert.equal(run('workspaceArea'), 'messages');
@@ -336,7 +343,7 @@ async function main() {
     assert.equal(JSON.parse(actionRequests[0].options.body).action, 'ExecuteContainerScript');
   });
   acceptAction({ ok: true, json: async () => ({ id: 'synthetic-job' }) });
-  for (let attempt = 0; !node('jobs').innerHTML.includes('SYNTHETIC_RESULT') && attempt < 100; attempt++) await new Promise((resolve) => setImmediate(resolve));
+  await waitForActualBoundary(() => node('jobs').innerHTML.includes('SYNTHETIC_RESULT'), 'Actual server result must reach the renderer');
   check('Completed normal action keeps its actual result visible after feedback disappears', () => {
     assert.equal(actionRequests[1].url, '/api/jobs');
     assert.ok(node('jobs').innerHTML.includes('Erfolgreich'));
