@@ -727,6 +727,23 @@ else {
     finally { $process.Dispose() }
 }
 
+foreach ($fixture in @('ContainerPortPreviewHttpChecks.ps1','ContainerPortPreviewUiChecks.cjs')) {
+    $start = [Diagnostics.ProcessStartInfo]::new()
+    $start.FileName = if ($fixture.EndsWith('.ps1')) { (Get-Process -Id $PID).Path } elseif ($node) { $node.Source } else { '' }
+    if (-not $start.FileName) { Add-CheckResult -Name $fixture -Success $false -Message 'NOT_EXECUTED: Node.js fehlt.'; continue }
+    $start.UseShellExecute=$false; $start.CreateNoWindow=$true; $start.RedirectStandardOutput=$true; $start.RedirectStandardError=$true
+    if ($fixture.EndsWith('.ps1')) { $start.ArgumentList.Add('-NoProfile');$start.ArgumentList.Add('-File') }
+    $start.ArgumentList.Add((Join-Path $PSScriptRoot ('Fixtures/'+$fixture)))
+    $process=[Diagnostics.Process]::new();$process.StartInfo=$start
+    try {
+        $null=$process.Start();$output=$process.StandardOutput.ReadToEndAsync();$errors=$process.StandardError.ReadToEndAsync()
+        $complete=$process.WaitForExit(60000);if (-not $complete) { $process.Kill($true);$process.WaitForExit() }
+        Write-Host $output.GetAwaiter().GetResult()
+        $errorText=$errors.GetAwaiter().GetResult()
+        Add-CheckResult -Name $fixture -Success ($complete -and $process.ExitCode -eq 0) -Message $(if ($complete) { $errorText } else { 'Vorschaufixture überschritt 60 Sekunden.' })
+    } finally { $process.Dispose() }
+}
+
 Write-Host "Ergebnis: $passed PASS, $($failures.Count) FAIL" -ForegroundColor Cyan
 if ($failures.Count -gt 0) {
     $failures | ForEach-Object { Write-Host "  - $_" -ForegroundColor Red }

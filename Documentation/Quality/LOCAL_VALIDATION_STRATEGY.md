@@ -1,5 +1,28 @@
 # Lokale Validierungsstrategie
 
+## Getrennte Browser-Portvorschau
+
+`ContainerPortPreviewHttpChecks.ps1` und `ContainerPortPreviewUiChecks.cjs`
+laufen in der bestehenden `Invoke-WorkflowUiChecks.ps1`. Der tatsächliche
+dedizierte Serverbranch und gehaltene Modulpfad rufen öffentliche API,
+Diagnostic-Bindung und Containercontext mit synthetischem Inspect auf.
+Methoden-/Origin-/UTF-8-/Bytegrenzen, doppelte und unbekannte Parameter,
+freie Root-/native ID-/Authorityfelder, ungültige Ports sowie geschützte,
+CMS-, gestoppte und Legacy-Ziele müssen vor jedem Coreaufruf blockieren.
+Der echte JavaScript-Dialog prüft DTO- und Kategoriegrenzen, Mountcounts,
+Cancel/Escape, Eingabe-/Zielwechsel, Busy und superseding Requests mit
+Late-Response-Veto und `textContent`. Metadatenauswahl liest kein Inspect;
+eine gültige Vorschau liest genau eins und erlaubt kein Apply. Eigene
+synthetische Statebytes bleiben unverändert, verbotene Effekte sind null.
+Die HTTP-Grenze verlangt echte Stringskalare für alle Vertrags- und
+Kategoriefelder; auch Ein-Element-Arrays mit erlaubtem Text werden vor
+Serialisierung verworfen. Auch Action-Arrays müssen vor Metadatenarbeit
+blockieren. Die HTTP-Fixture prüft diese Grenzen für Docker und Podman
+ohne Providerwirkung.
+Diese Offlineprüfungen ersetzen keine native Preview-/Dialogabnahme und
+schließen weder Port-Apply/Recovery noch Scope A insgesamt ab. Aktuelle
+Impactselektion und einmaliger stabiler Abschluss bleiben erforderlich.
+
 ## Getrennte CLI-Portvorschau
 
 `Fixtures/ContainerPortPreviewConsoleChecks.ps1` läuft in der bestehenden
@@ -13,7 +36,7 @@ Byteerhalt sowie feste privacy-safe Ausgabe. Eine gültige Vorschau ruft den
 öffentlichen Plan einmal auf und liest ein Inspect; keine Apply-, SQL-,
 Secret-, Listener-, Reparatur- oder Bestätigungsgrenze darf erreicht werden.
 Diese Offlineprüfungen sind keine native Preview-/Dialogabnahme. Deren
-Provider-Nachweise und eine spätere Browser-/Applyform bleiben getrennt
+Provider-Nachweise und eine spätere Applyform bleiben getrennt
 offen; tatsächliche Impactselektion und stabiler Abschluss werden lokal
 gebunden. Unveränderte grüne Prüfungen werden nicht zusätzlich wiederholt.
 

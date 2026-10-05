@@ -199,8 +199,14 @@ vorhandenen `Lab_Data`, wählt Run und Instanz und erfasst den Wunschport
 Anzeige validiert er DTO-Vertrag, Kategorien und fehlende Ausführungsautorität;
 Fehler erscheinen als feste Meldung ohne rohe Exceptions. Nur die lokale
 Wunschport-Eingabe wird angezeigt, kein erfundener Istport. `q` oder Zurück
-vor dem Planaufruf ändern nichts. Browserdialog und gebundenes Port-Apply
-bleiben separate Folgeschritte. Der bestehende `-Container`-Parametersatz
+vor dem Planaufruf ändern nichts. Der Browser bietet einen getrennten
+PLAN_ONLY-Dialog im Bereich **Lab verwalten**. Seine enge read-only Route
+akzeptiert weder StateRoot noch native IDs oder Ausführungsautorität; das Ziel
+wird frisch aus dem aktuellen serverseitig registrierten Root bestimmt.
+Öffnen und Zielwechsel lesen keine Runtime. Eine bewusste vollständige
+Portvorschau ruft den öffentlichen Core einmal auf. Abbruch, Eingabe- und
+Zielwechsel verwerfen späte Antworten. Spezifische native Preview-/Dialogabnahme
+und gebundenes Port-Apply bleiben offen. Der bestehende `-Container`-Parametersatz
 und CPU/RAM-Dialog bleiben unverändert.
 
 ## Hilfe, Discovery und Modulzuordnung

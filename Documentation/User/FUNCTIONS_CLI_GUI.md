@@ -1,5 +1,19 @@
 # Funktionsübersicht für CLI und Browser-GUI
 
+Scope A ergänzt eine getrennte SQL-Portvorschau für registrierte, laufende
+Docker-/Podman-Instanzen: `Get-SqlServerLabReconcilePlan -ContainerPortPreview`
+und der geführte CLI-Einstieg **SQL-Hostport vorprüfen** liefern nur
+`PLAN_ONLY`. Der Browser bietet denselben öffentlichen Plan unter
+**Lab-Umgebungen → SQL-Hostport vorprüfen · PLAN_ONLY**; Öffnen liest lediglich
+Metadaten. Ziel- und Eingabewechsel lösen keinen neuen Read aus; erst ein
+vollständiges Ziel mit Wunschport liest genau ein Inspect.
+Feste Kategorien und Mountcounts bleiben ohne Istport, Hostpfade oder native
+IDs. `CanApply=false`, keine Reservierung und keine SQL-/Endpointprüfung;
+Abbruch und späte Antworten verhindern die Anzeige. Ein bereits abgesendeter
+Read darf fertiglaufen und führt keine Änderung aus. Die spezifische native
+Preview-/Dialogabnahme bleibt `NOT_EXECUTED`; Port-Apply/Recovery und Scope A
+insgesamt bleiben offen. Der bestehende CPU/RAM-Vertrag bleibt unverändert.
+
 `COL-001`: **Lab erstellen → Collations suchen** ist die reine Browseransicht
 der bestehenden tokenbasierten, versionsgebundenen Katalogsuche
 `Find-SqlServerLabCollation`. Metadaten und `DEPRECATED`-Warnung bleiben sichtbar;

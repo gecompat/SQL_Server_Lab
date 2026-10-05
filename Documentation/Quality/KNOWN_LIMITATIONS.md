@@ -13,8 +13,11 @@ Volumeeigentum bleiben ungeprüft. Der eigene CLI-Portdialog ist eine
 getrennte PLAN_ONLY-Vorschau mit registrierter Auswahl und lokaler
 Wunschport-Eingabe. Er zeigt keine Istportzahl und erlaubt kein Apply;
 ungültige DTOs oder unerwartete Ausführungsautorität werden vor Anzeige
-abgelehnt. Ein geführter Portwechsel mit Apply/Recovery und Browserdialog
-fehlen weiterhin; die spezifische native Preview-/Dialogform bleibt offen.
+abgelehnt. Der separate Browserdialog verwendet ausschließlich serverseitig
+registrierte Metadaten und denselben einmaligen öffentlichen PLAN_ONLY-Aufruf.
+Er akzeptiert keine freie Root-/native ID-/Applyautorität und verwirft späte
+Antworten nach Abbruch oder Bearbeitung. Ein geführter Portwechsel mit
+Apply/Recovery fehlt weiterhin; die spezifische native Preview-/Dialogform bleibt offen.
 Frühere native
 Container-Reconcile-Abnahmen ersetzen diese neue Abnahme nicht.
 

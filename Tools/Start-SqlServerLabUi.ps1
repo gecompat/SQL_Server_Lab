@@ -638,6 +638,13 @@ try {
                 catch { Write-UiResponse -Context $context -Body 'TEST_GROUP_READ_UNAVAILABLE: Gruppe erneut lesen; keine Aktion ausgeführt.' -StatusCode 503 }
                 continue
             }
+            if ($path -eq '/api/container-port-preview') {
+                try {
+                    $view=& (Get-Module SqlServerLab) { param($request,$listenerPort) Invoke-LabContainerPortPreviewHttpRequest -Request $request -ListenerPort $listenerPort } $context.Request $Port
+                    Write-UiResponse -Context $context -Body ($view | ConvertTo-Json -Depth 8 -Compress) -ContentType 'application/json; charset=utf-8'
+                } catch { Write-UiResponse -Context $context -Body '{"Code":"PORT_HTTP_INVALID"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400 }
+                continue
+            }
             if ($path -eq '/api/resource-change' -and $context.Request.HttpMethod -eq 'GET') {
                 try {
                     $query = $context.Request.QueryString
