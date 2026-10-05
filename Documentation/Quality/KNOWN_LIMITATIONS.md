@@ -1,5 +1,18 @@
 # Bekannte Grenzen
 
+Der owned-host-only Harness
+`Tests/Integration/Invoke-ContainerPortPreviewAcceptance.ps1` bestand am
+2026-10-05 auf `bee35c5d` getrennt für Docker und Podman die begrenzte
+PLAN_ONLY-Portvorschau: je fünf öffentliche Aufrufe über Core, tatsächliche
+Console-Menüroute und in-process HTTP; eigene Statebytes blieben unverändert,
+Own-Cleanup und der Schutzvergleich wurden bestätigt. Frühere abgelehnte
+Docker-Topologieprüfungen und ihre Fehlerbelege bleiben unverändert.
+Er trennt Installation,
+Bereitschaft, beobachtete Previewform und Cleanup. Die HTTP-Route wird
+in-process geprüft, kein gerenderter Browser und kein HTTP-Netztransport.
+Port-Apply/Recovery und Scope A bleiben offen. Statebyte- und Cleanupchecks
+sind nicht atomar gegenüber gleichzeitigen Dateisystemänderungen desselben Users.
+
 `Get-SqlServerLabReconcilePlan -ContainerPortPreview` ist eine getrennte reine
 `PLAN_ONLY`-Portvorschau für moderne registrierte, laufende Docker-/Podman-Runs.
 Nur eine vollständige SQL-1433/tcp-Loopbackbindung, ein Netz und durch den
@@ -17,7 +30,7 @@ abgelehnt. Der separate Browserdialog verwendet ausschließlich serverseitig
 registrierte Metadaten und denselben einmaligen öffentlichen PLAN_ONLY-Aufruf.
 Er akzeptiert keine freie Root-/native ID-/Applyautorität und verwirft späte
 Antworten nach Abbruch oder Bearbeitung. Ein geführter Portwechsel mit
-Apply/Recovery fehlt weiterhin; die spezifische native Preview-/Dialogform bleibt offen.
+Apply/Recovery fehlt weiterhin; gerenderter Browser und HTTP-Netztransport bleiben ungeprüft.
 Frühere native
 Container-Reconcile-Abnahmen ersetzen diese neue Abnahme nicht.
 

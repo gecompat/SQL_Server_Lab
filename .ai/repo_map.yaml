@@ -439,6 +439,9 @@ sources_of_truth:
   guided_container_port_preview_browser: Ui/container-port-preview.js # separate dialog; categories/counts only, late-response veto, no Apply
   validation_guided_container_port_preview_browser: Tests/Static/Fixtures/ContainerPortPreviewHttpChecks.ps1, Tests/Static/Fixtures/ContainerPortPreviewUiChecks.cjs # invoked by existing WorkflowUI suite
   validation_guided_container_port_preview: Tests/Static/Fixtures/ContainerPortPreviewConsoleChecks.ps1 # invoked by existing ContainerReconcile suite, actual menu/router/core boundaries
+  acceptance_guided_container_port_preview: Tests/Integration/Invoke-ContainerPortPreviewAcceptance.ps1 # owned-host-only fresh parent/State policies; Docker/Podman PLAN_ONLY acceptance 2026-10-05, no rendered browser/network HTTP/Apply
+  acceptance_guided_container_port_preview_contract: Tests/Common/ContainerPortPreviewAcceptance.ps1 # exact creation custody, state-byte equality, actual console/HTTP AST, pre-cleanup hash veto
+  validation_guided_container_port_preview_acceptance: Tests/Static/Fixtures/ContainerPortPreviewAcceptanceChecks.ps1 # existing ContainerReconcile suite; synthetic pinned process leaf, no provider execution
   validation_guided_resource_change: Tests/Static/Fixtures/ResourceChangeGuidanceChecks.ps1
   validation_environment_resources: Tests/Static/Invoke-EnvironmentResourceChecks.ps1
   validation_podman_ci_privacy: Tests/Static/Invoke-PodmanSmokePrivacyChecks.ps1

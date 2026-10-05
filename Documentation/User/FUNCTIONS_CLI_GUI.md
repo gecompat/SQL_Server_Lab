@@ -6,13 +6,23 @@ und der geführte CLI-Einstieg **SQL-Hostport vorprüfen** liefern nur
 `PLAN_ONLY`. Der Browser bietet denselben öffentlichen Plan unter
 **Lab-Umgebungen → SQL-Hostport vorprüfen · PLAN_ONLY**; Öffnen liest lediglich
 Metadaten. Ziel- und Eingabewechsel lösen keinen neuen Read aus; erst ein
-vollständiges Ziel mit Wunschport liest genau ein Inspect.
+vollständiges Ziel mit Wunschport ruft den öffentlichen Preview einmal auf.
+Zusätzliche eigene Ownership-Revalidierungen können Inspectreads benötigen.
 Feste Kategorien und Mountcounts bleiben ohne Istport, Hostpfade oder native
 IDs. `CanApply=false`, keine Reservierung und keine SQL-/Endpointprüfung;
 Abbruch und späte Antworten verhindern die Anzeige. Ein bereits abgesendeter
-Read darf fertiglaufen und führt keine Änderung aus. Die spezifische native
-Preview-/Dialogabnahme bleibt `NOT_EXECUTED`; Port-Apply/Recovery und Scope A
-insgesamt bleiben offen. Der bestehende CPU/RAM-Vertrag bleibt unverändert.
+Read darf fertiglaufen und führt keine Änderung aus. Die begrenzte native
+Core-/Console-/in-process-HTTP-Abnahme für Docker und Podman ist bestanden;
+gerenderter Browser und HTTP-Netztransport bleiben ungeprüft.
+Port-Apply/Recovery und Scope A insgesamt bleiben offen. Der bestehende
+CPU/RAM-Vertrag bleibt unverändert.
+
+Der separate owned-host-only Harness bestand am 2026-10-05 auf `bee35c5d`
+für Docker und Podman je fünf öffentliche Previewaufrufe mit realer
+Runtimebeobachtung: Änderung, No-op, Wiederholung, tatsächliche Console-
+Menü-/Dialogroute und in-process HTTP-Route. Statebytes blieben unverändert;
+Own-Cleanup und Schutzvergleich sind bestätigt. Gerenderter Browser,
+HTTP-Netztransport, Preview-SQL/Endpoint und Apply bleiben außerhalb.
 
 `COL-001`: **Lab erstellen → Collations suchen** ist die reine Browseransicht
 der bestehenden tokenbasierten, versionsgebundenen Katalogsuche

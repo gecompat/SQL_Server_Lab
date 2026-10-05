@@ -35,9 +35,9 @@ Ziele, No-op, unbekannte Topologie und malformed DTOs prüfen Effektgrenzen,
 Byteerhalt sowie feste privacy-safe Ausgabe. Eine gültige Vorschau ruft den
 öffentlichen Plan einmal auf und liest ein Inspect; keine Apply-, SQL-,
 Secret-, Listener-, Reparatur- oder Bestätigungsgrenze darf erreicht werden.
-Diese Offlineprüfungen sind keine native Preview-/Dialogabnahme. Deren
-Provider-Nachweise und eine spätere Applyform bleiben getrennt
-offen; tatsächliche Impactselektion und stabiler Abschluss werden lokal
+Diese Offlineprüfungen sind keine native Preview-/Dialogabnahme. Die begrenzte
+Docker-/Podman-Abnahme ist unten separat dokumentiert; eine spätere Applyform
+bleibt offen. Tatsächliche Impactselektion und stabiler Abschluss werden lokal
 gebunden. Unveränderte grüne Prüfungen werden nicht zusätzlich wiederholt.
 
 ## Reine Container-Portvorschau
@@ -54,6 +54,12 @@ kein SQL-/Secret-/Listenerzugriff und keine Recovery. Privacycanaries prüfen
 den host- und portwertfreien DTO; Wiederholung und Zieländerung prüfen die
 Inhaltsbindung des nicht ausführbaren `ObservationKey`. Die generische
 CLI-Katalogsuite prüft den neuen nativen Parametersatz und Portbereich.
+Für optionale Netzwerkaliase werden `null`, leere Arrays sowie der gebundene
+Containername und seine vollständige beziehungsweise kurze ID über den echten
+öffentlichen Core geprüft. `null` ist kein zusätzlicher Alias; konkrete
+unbekannte Werte einschließlich Leerstring, `false` und `0` bleiben gesperrt.
+Die owned-host-Orchestrierungsfixture verwendet ebenfalls nullable Aliase und
+prüft die tatsächlichen Core-/CLI-/HTTP-Pfade mit synthetischem Prozess-Leaf.
 Diese synthetischen Prüfungen bestätigen weder native Inspectformen noch
 Portverfügbarkeit, Reservierung, Apply, Datenerhalt oder native Recovery.
 Die tatsächliche betroffene Selektion und ihr einmaliger stabiler Abschluss
@@ -2938,3 +2944,32 @@ erforderlich. Native Docker-, Podman-, Mixed-, Hyper-V- und Adaptergates müssen
 den stabilen Head getrennt belegen; Readiness und historische Evidence gelten
 nicht als aktuelle Abnahme. Vor-/Nachschutz erfasst alle vorbestehenden
 Ressourcen; Rohdiagnosen bleiben lokal. [Vertrag](../Architecture/OWNED_HOST_CI_ISOLATION.md).
+## Eigene native Portvorschau-Abnahme – begrenzt bestanden
+
+`Tests/Integration/Invoke-ContainerPortPreviewAcceptance.ps1` ist ein eigener,
+owned-host-only Harness für je einen frischen Docker-/Podman-SQL-2025-Run.
+`ContainerPortPreviewAcceptanceChecks.ps1` wird von ContainerReconcile ausgeführt:
+actual Core/Console/HTTP-AST, synthetischer pinned NativeProcess-Leaf,
+Statebytes und Instrument-Restoration auch nach Core-Veto; Cleanup-Drift muss
+vor PublicRemove blockieren. Diese Offlinebelege sind keine native Abnahme.
+Frische Parent-/State-Policies und Registration bleiben zusammen erhalten,
+wenn Creation nicht zurückkehrt oder Cleanup/Absence nicht bestätigt ist.
+Am 2026-10-05 auf `bee35c5d` bestanden getrennte frische Docker- und
+Podman-Runs die reale Previewform: je fünf öffentliche Aufrufe für geänderten
+Wunsch, No-op, Wiederholung, Console-Menüroute und in-process HTTP. Installation
+war OWN_RUNNING_RUN_OBSERVED, Ressourcenbereitschaft RESOURCE_OK; dies ist
+keine SQL- oder Endpointprüfung während der Preview. Je fünf Contextcaptures
+und 18 pinned Reads schließen eigene Ownership-Revalidierungen ein; die
+Statebytes blieben unverändert. Beide Runs endeten REMOVED, beide Cleanuppläne
+COMPLETED mit je zwei Schritten und null Fehlern; gebundene terminale
+Bytekopien, Ressourcenabwesenheit und Parententfernung wurden geprüft.
+Der gleiche Vorher-/Nachher-ObservationRoot bestätigte unveränderte geschützte
+sechs Umgebungen, Providerinventare, VMs, Aufgaben, Defaults, Registry und
+eigene Autostarts; Schutzvergleich PASS ohne Findings oder Beobachtungen.
+Die privaten Fehlerbelege früherer Wellen werden nicht umgewertet. Dieser
+Nachweis ersetzt keinen kanonischen Provider-Gate. Browserrendering und
+HTTP-Netztransport sind nicht Bestandteil; Preview-SQL/Endpoint bleiben
+NOT_CHECKED, Port-Apply ist NOT_IMPLEMENTED.
+Der Harness behauptet keinen einzelnen globalen Inspect: origin-/labelgebundene
+Revalidierungen bleiben erhalten. Ein abgeschlossener Dialogrequest ruft die
+öffentliche Preview einmal auf. Es gibt kein Apply und keinen Scope-A-Abschluss.

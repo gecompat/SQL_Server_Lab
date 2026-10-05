@@ -74,6 +74,26 @@ try {
             Assert-Port ($same.NoChange -and $same.ChangeClass -ceq 'no-op' -and $same.Desired.PortChange -ceq 'SAME_PORT' -and $same.ObservationKey -cne $good.ObservationKey -and $global:portInspectCalls -eq 1) 'Measured no-op and desired port change content key'
             $repeat=Invoke-PortPlan $run
             Assert-Port ($repeat.ObservationKey -ceq $good.ObservationKey) 'Same observed contents produce stable key'
+            foreach($aliasCase in @(
+                [pscustomobject]@{Name='null';Value=$null;Accepted=$true},
+                [pscustomobject]@{Name='empty-array';Value=@();Accepted=$true},
+                [pscustomobject]@{Name='known-name';Value=@('PRIVATE_NAME_CANARY');Accepted=$true},
+                [pscustomobject]@{Name='known-full-id';Value=@(('a'*64));Accepted=$true},
+                [pscustomobject]@{Name='known-short-id';Value=@(('a'*12));Accepted=$true},
+                [pscustomobject]@{Name='null-and-known';Value=@($null,'PRIVATE_NAME_CANARY');Accepted=$true},
+                [pscustomobject]@{Name='unknown';Value=@('foreign-alias');Accepted=$false},
+                [pscustomobject]@{Name='null-and-unknown';Value=@($null,'foreign-alias');Accepted=$false},
+                [pscustomobject]@{Name='empty-string';Value=@('');Accepted=$false},
+                [pscustomobject]@{Name='false';Value=@($false);Accepted=$false},
+                [pscustomobject]@{Name='zero';Value=@(0);Accepted=$false})) {
+                $global:portInspect=New-PortInspect $run
+                $global:portInspect.NetworkSettings.Networks.PRIVATE_NETWORK_CANARY.Aliases=$aliasCase.Value
+                $aliasPlan=Invoke-PortPlan $run
+                $accepted=$aliasPlan.Status -ceq 'PLAN_ONLY'
+                Assert-Port ($accepted -eq $aliasCase.Accepted -and $global:portInspectCalls -eq 1 -and
+                    ($accepted -or ($aliasPlan.Status -ceq 'UNSUPPORTED' -and $aliasPlan.Reason -ceq 'PORT_PREVIEW_TOPOLOGY_UNSUPPORTED'))) ('Actual public alias boundary: '+$provider+'/'+$aliasCase.Name)
+            }
+            $global:portInspect=New-PortInspect $run
             $global:portInspect.Mounts=@()
             $empty=Invoke-PortPlan $run
             Assert-Port ($empty.Status -ceq 'PLAN_ONLY' -and $empty.Preview.Mounts.TotalMountCount -eq 0 -and $empty.ObservationKey -cne $good.ObservationKey) 'Explicit empty mounts are measured and content-bound'
@@ -150,5 +170,19 @@ try {
 finally {
     Remove-Variable portInspect,portInspectCalls,portToolFail -Scope Global -ErrorAction SilentlyContinue
     Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue
-    if(Test-Path -LiteralPath $root){Remove-Item -LiteralPath $root -Recurse -Force}
+    if(Test-Path -LiteralPath $root -ErrorAction Stop){
+        $absolute=[IO.Path]::GetFullPath($root);$temp=[IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\','/')
+        if([IO.Path]::GetDirectoryName($absolute) -ine $temp -or [IO.Path]::GetFileName($absolute) -cnotmatch '^SqlServerLab-PortPreview-[a-f0-9]{32}$'){throw 'PORT_FIXTURE_CLEANUP_SCOPE'}
+        $ancestor=$absolute
+        while($ancestor){$item=Get-Item -LiteralPath $ancestor -Force -ErrorAction Stop
+            if(-not $item.PSIsContainer -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)){throw 'PORT_FIXTURE_CLEANUP_REPARSE'}
+            $ancestor=[IO.Path]::GetDirectoryName($ancestor)}
+        $pending=[Collections.Generic.Queue[string]]::new();$pending.Enqueue($absolute)
+        while($pending.Count){foreach($item in @(Get-ChildItem -LiteralPath $pending.Dequeue() -Force -ErrorAction Stop)){
+            if(($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -or -not $item.FullName.StartsWith($absolute+[IO.Path]::DirectorySeparatorChar,[StringComparison]::OrdinalIgnoreCase)){throw 'PORT_FIXTURE_CLEANUP_REPARSE'}
+            if($item.PSIsContainer){$pending.Enqueue($item.FullName)}
+        }
+        }
+        Remove-Item -LiteralPath $absolute -Recurse -Force -ErrorAction Stop
+    }
 }
