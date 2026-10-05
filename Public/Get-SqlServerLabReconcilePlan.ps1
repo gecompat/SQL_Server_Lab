@@ -55,6 +55,10 @@
     SQL, Sicherung und Volumeeigentum werden nicht geprüft; der ObservationKey
     ist keine Reservierung oder Executorautorität. Eigene CLI-/Browserdialoge
     und Apply gehören nicht zu diesem Parametersatz.
+.PARAMETER ContainerAutoStartPreview
+    Getrennte nicht ausfuehrbare Vorschau der gemessenen Container-Restartpolicy.
+    Nur moderne registrierte laufende SQL-Runs; keine Hostlogin-/SQL-Pruefung,
+    Reservierung, CAS- oder Executorautoritaet. Dedicated Dialoge bleiben offen.
 .PARAMETER Cpu
     Gewünschte vCPU-Grenze. Ohne Angabe bleibt der Istwert erhalten.
 .PARAMETER MemoryMB
@@ -65,6 +69,9 @@
     Gewünschter live angewandter SQL-Wert `max server memory (MB)`.
 .PARAMETER AutoStart
     Gewünschter Container-Autostartvertrag. Eine Abweichung erfordert recreate.
+    Im ContainerAutoStartPreview-Parametersatz ist on/off erforderlich; diese
+    reine Vorschau liefert nur Kategorien, CanApply=false und leere Actions.
+    Sie prueft weder Hostlogin noch SQL und erlaubt kein Apply.
 .PARAMETER RepairSqlRuntimeContract
     Plant bei Drift von SQL-Memory-/Healthcheck-Vertrag ein recreate.
 .PARAMETER StateRoot
@@ -78,6 +85,13 @@
 .OUTPUTS
     System.Management.Automation.PSCustomObject. Serialisierbarer Vertrag ohne
     Secrets, Host/Port-Werte, Container-/VM-IDs oder lokale Pfade.
+    ContainerAutoStartPreview liefert SqlServerLab.ContainerAutoStartPreview/1.0:
+    PLAN_ONLY-Kategorien, MutationAllowed=false, CanApply=false und Actions=[].
+    ObservationKey ist Inhaltsbindung, keine CAS-/Executorautoritaet.
+.EXAMPLE
+    Get-SqlServerLabReconcilePlan -RunId $runId -InstanceId primary -ContainerAutoStartPreview -AutoStart on -StateRoot $stateRoot
+
+    Zeigt eine nicht ausfuehrbare Restartpolicy-Vorschau ohne Hostlogin-/SQL-Probe.
 .EXAMPLE
     Get-SqlServerLabReconcilePlan -RunId $runId -TargetState STOPPED
 
@@ -156,6 +170,7 @@ function Get-SqlServerLabReconcilePlan {
         [Parameter(ParameterSetName = 'ExternalRuntime')]
         [Parameter(ParameterSetName = 'Container')]
         [Parameter(Mandatory, ParameterSetName = 'ContainerPortPreview')]
+        [Parameter(Mandatory, ParameterSetName = 'ContainerAutoStartPreview')]
         [Parameter(Mandatory, ParameterSetName = 'HyperVNetwork')]
         [Parameter(Mandatory, ParameterSetName = 'HyperVResources')]
         [Parameter(Mandatory, ParameterSetName = 'HyperVStorage')]
@@ -192,6 +207,9 @@ function Get-SqlServerLabReconcilePlan {
         [Parameter(Mandatory, ParameterSetName = 'ContainerPortPreview')]
         [switch]$ContainerPortPreview,
 
+        [Parameter(Mandatory, ParameterSetName = 'ContainerAutoStartPreview')]
+        [switch]$ContainerAutoStartPreview,
+
         [Parameter(ParameterSetName = 'Container')]
         [ValidateRange(1, 64)]
         [decimal]$Cpu,
@@ -210,6 +228,7 @@ function Get-SqlServerLabReconcilePlan {
         [int]$SqlMaxMemoryMB,
 
         [Parameter(ParameterSetName = 'Container')]
+        [Parameter(Mandatory, ParameterSetName = 'ContainerAutoStartPreview')]
         [ValidateSet('on', 'off')]
         [string]$AutoStart,
 
@@ -219,6 +238,9 @@ function Get-SqlServerLabReconcilePlan {
         [string]$StateRoot
     )
 
+    if ($PSCmdlet.ParameterSetName -eq 'ContainerAutoStartPreview') {
+        return New-LabContainerAutoStartPreview -RunId $RunId -InstanceId $InstanceId -AutoStart $AutoStart -StateRoot $StateRoot
+    }
     if ($PSCmdlet.ParameterSetName -eq 'ContainerPortPreview') {
         return New-LabContainerPortPreview -RunId $RunId -InstanceId $InstanceId -Port $Port -StateRoot $StateRoot
     }

@@ -13,6 +13,8 @@ try {
         $portCommand=$catalog|Where-Object Name -eq 'Get-SqlServerLabReconcilePlan'
         $portSet=$portCommand.ParameterSets|Where-Object Name -eq 'ContainerPortPreview'
         $portDescriptors=@(Get-LabPublicCommandParameterDescriptor -Command $portCommand.Command -ParameterSet $portSet.Metadata)
+        $autoStartSet=$portCommand.ParameterSets|Where-Object Name -eq 'ContainerAutoStartPreview'
+        $autoStartDescriptors=@(Get-LabPublicCommandParameterDescriptor -Command $portCommand.Command -ParameterSet $autoStartSet.Metadata)
         $selection=$catalog|Where-Object Name -eq 'Get-SqlServerLabAiComputeSelection'
         $auto=$selection.ParameterSets|Where-Object Name -eq 'Auto'
         $pinned=$selection.ParameterSets|Where-Object Name -eq 'Pinned'
@@ -20,6 +22,8 @@ try {
         $pinnedDescriptors=@(Get-LabPublicCommandParameterDescriptor -Command $selection.Command -ParameterSet $pinned.Metadata)
         $whatIfCommand=$catalog|Where-Object SupportsShouldProcess|Select-Object -First 1
         $webCatalog=@(Get-LabPublicCommandWebCatalog)
+        $autoStartWebCommands=@($webCatalog|Where-Object Name -ceq 'Get-SqlServerLabReconcilePlan')
+        $autoStartWebSets=@($autoStartWebCommands[0].ParameterSets|Where-Object Name -ceq 'ContainerAutoStartPreview')
         $confirmationError=''
         try { Invoke-LabPublicCommandWebRequest -CommandName $whatIfCommand.Name -ParameterSetName $whatIfCommand.ParameterSets[0].Name -Parameters @{} } catch { $confirmationError=$_.Exception.Message }
         $unknownError=''
@@ -27,6 +31,13 @@ try {
         $credential=ConvertFrom-LabPublicCommandWebValue -Value ([pscustomobject]@{userName='lab-user';password='temporary-value'}) -TargetType ([Management.Automation.PSCredential])
         [pscustomobject]@{
             PortMandatory=@($portSet.MandatoryNames)
+            AutoStartPreviewMandatory=@($autoStartSet.MandatoryNames)
+            AutoStartPreviewNames=@($autoStartDescriptors.Name)
+            AutoStartPreviewValues=($autoStartDescriptors|Where-Object Name -eq 'AutoStart').AllowedValues
+            AutoStartWebCommands=$autoStartWebCommands.Count
+            AutoStartWebSets=$autoStartWebSets.Count
+            AutoStartWebRequiresConfirmation=$autoStartWebCommands[0].RequiresConfirmation
+            AutoStartWebMandatory=@($autoStartWebSets[0].Parameters|Where-Object Mandatory|ForEach-Object Name)
             PortDescriptorNames=@($portDescriptors.Name)
             PortRange=($portDescriptors|Where-Object Name -eq 'Port').AllowedValues
             Names=@($catalog.Name)
@@ -53,6 +64,15 @@ try {
         }
     }
     $expectedCatalog=@($exports|Where-Object {$_ -ne 'Invoke-SqlServerLab'})
+    Add-CheckResult 'AutoStart PLAN_ONLY catalog derives mandatory union and ValidateSet from actual metadata' (
+        (@($evidence.AutoStartPreviewMandatory|Sort-Object) -join '|') -ceq 'AutoStart|ContainerAutoStartPreview|InstanceId|RunId' -and
+        'StateRoot' -in $evidence.AutoStartPreviewNames -and 'Cpu' -notin $evidence.AutoStartPreviewNames -and
+        'Port' -notin $evidence.AutoStartPreviewNames -and $evidence.AutoStartPreviewValues -match 'on' -and
+        $evidence.AutoStartPreviewValues -match 'off' -and $evidence.AutoStartWebCommands -eq 1 -and
+        $evidence.AutoStartWebSets -eq 1 -and $evidence.AutoStartWebRequiresConfirmation -is [bool] -and
+        $evidence.AutoStartWebRequiresConfirmation -eq $false -and
+        (@($evidence.AutoStartWebMandatory|Sort-Object) -join '|') -ceq 'AutoStart|ContainerAutoStartPreview|InstanceId|RunId'
+    )
     Add-CheckResult 'Port-PLAN_ONLY erscheint als getrennter nativer Parametersatz im generischen Konsolenkatalog' (
         (@($evidence.PortMandatory|Sort-Object) -join '|') -ceq 'ContainerPortPreview|InstanceId|Port|RunId' -and
         'StateRoot' -in $evidence.PortDescriptorNames -and 'Cpu' -notin $evidence.PortDescriptorNames -and

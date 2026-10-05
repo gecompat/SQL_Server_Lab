@@ -179,5 +179,9 @@ $portAcceptanceFixture = Join-Path $PSScriptRoot 'Fixtures/ContainerPortPreviewA
 & (Get-Process -Id $PID).Path -NoProfile -File $portAcceptanceFixture
 Add-CheckResult -Name 'Owned-only port acceptance preserves state bytes and vetoes custody drift before cleanup' -Success ($LASTEXITCODE -eq 0)
 
+$autoStartFixture = Join-Path $PSScriptRoot 'Fixtures/ContainerAutoStartPreviewChecks.ps1'
+& (Get-Process -Id $PID).Path -NoProfile -File $autoStartFixture
+Add-CheckResult -Name 'Actual AutoStart PLAN_ONLY public preview rejects unknown/drifted policy without writes' -Success ($LASTEXITCODE -eq 0)
+
 Write-Host ''; Write-Host "Ergebnis: $passed PASS, $($failures.Count) FAIL" -ForegroundColor Cyan
 if ($failures.Count) { exit 1 }; exit 0
