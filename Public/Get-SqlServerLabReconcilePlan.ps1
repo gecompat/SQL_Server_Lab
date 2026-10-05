@@ -58,7 +58,7 @@
 .PARAMETER ContainerAutoStartPreview
     Getrennte nicht ausfuehrbare Vorschau der gemessenen Container-Restartpolicy.
     Nur moderne registrierte laufende SQL-Runs; keine Hostlogin-/SQL-Pruefung,
-    Reservierung, CAS- oder Executorautoritaet. Getrennte reine CLI- und Browserdialoge sind implementiert; deren native Abnahme bleibt NOT_EXECUTED.
+    Reservierung, CAS- oder Executorautoritaet. Getrennte reine CLI- und Browserdialoge sind implementiert. Die spezifische CLI-Abnahme bestand am 2026-10-05 auf 960b5452 unter Docker/Podman mit je drei Vorschauaufrufen und Own-Cleanup; gerenderter Browser und HTTP-Netztransport bleiben NOT_EXECUTED.
 .PARAMETER Cpu
     Gewünschte vCPU-Grenze. Ohne Angabe bleibt der Istwert erhalten.
 .PARAMETER MemoryMB
