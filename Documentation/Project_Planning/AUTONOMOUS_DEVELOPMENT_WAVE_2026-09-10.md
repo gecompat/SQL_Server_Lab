@@ -349,11 +349,14 @@ soweit anwendbar. Die Tabelle ersetzt keine umfangreicheren Fachverträge.
 | K: unklare Testreste – `CORE-105/106/109`, `PSR-011` | IMPLEMENTED: gemeinsamer CLI-/GUI-Wartungsdialog mit CleanupAudit-NoWrite-Befunden, Herkunft/Nutzung/Details und separat bestätigter fehlender moderner Container-Store-Katalogzuordnung. Bestehender Repair-Core mit frischer Source-/Runtime-/Volumeidentität, Registry-/Kataloglocks und CAS; kein allgemeines Maintenance-Apply. | Unabhängiger Nachreview geschlossen; Core/HTTP/CLI 34, JS 85 und Audit 38 synthetische Prüfungen bestanden, betroffene Gates grün. Docker und Podman getrennt je 38 native Assertions am neuen Guidancepfad bestanden, eigene Ressourcen entfernt und Abwesenheit bestätigt. UNKNOWN, Konflikt, Schutz und unvollständige Referenzevidence blockieren Repair. Die Zuordnungsreparatur ist keine SQL-Funktionsabnahme. Der separate Retained-Removal-Nachweis bestand am 2026-10-01 auf `b2a1f456` für Docker und Podman je sechs Assertions an einem frischen eigenen SQL-2025-Store mit unabhängigem Cleanup; eigene Container, Volumes und Testnetze abwesend, Shared-Umgebungen und Defaults unverändert. Kein zweiter Löschpfad. |
 | L: Samples, Testmatrix und CMS – `HV-505`, `UX-202/204`, bestehende Fachverträge | `Public/TestEnvironment.ps1`/`TestEnvironmentLifecycle.ps1`, Sample-/ResourceSet- und CMS-Core existieren. Geführter CLI-/GUI-Powerdialog implementiert: kanonische Registrygruppe auswählen, gemessenen Powerstatus je Mitglied lesen, Start/Stop nur nach gebundener Vorschau und Bestätigung. SQL-Bereitschaft bleibt nicht geprüft; keine CMS-/Lizenz-/SQLdienst-/Exportmutation. Offlineprüfung und unabhängiger Nachreview geschlossen; getrennte eigene Docker-/Podman-/Hyper-V-Powerfixtures bestanden je zehn Prüfungen einschließlich Own-Abwesenheit. Keine SQL-/Gastbereitschaftsabnahme. PR #656 ist nach integrierter CI-Privacybasis und vollständig grünen Pflichtgates einschließlich aller fünf Providergates integriert. Der PR-Hyper-V-Aufruf verwendet ausschließlich lifecycle; die geschützte gemeinsame Gruppe wurde nicht ausgeführt. | Einzelaktionen umgehen Gruppenschutz nicht, Teilfehler bleiben pro Mitglied sichtbar, Wiederholung/Resume dupliziert nichts. TestEnvironmentChecks, Pester-Lifecycle, WorkflowUI und isolierte GroupLifecycle-Abnahme; reservierte Gruppe bleibt unangetastet. Manifest-Output-Preflight separat implementiert und synthetisch geprüft: vollständige case-insensitive Outputmenge je Instanz inklusive expliziter Datenbanken und aufgelöster Overrides, erneute Parserprüfung vor Run-Anlage; keine neue native Handlerabnahme. Weitere Samplevarianten/Handler und optionales CMS-Setup/Prüfung/Sync bleiben separat. |
 
-Scope A: Die konkrete Port-PLAN_ONLY-Previewabnahme ist als eigener
-owned-host-only Docker-/Podman-Harness vorbereitet. Offlineprüfungen verbinden
-actual Core, Console und HTTP-AST mit synthetischer Prozessgrenze sowie
-State-/Cleanup-Custody. Nativ weiterhin NOT_EXECUTED; kein gerenderter Browser,
-kein HTTP-Netztransport, keine Apply-/Recoveryfreigabe und kein Scope-A-Abschluss.
+Scope A: Die konkrete Port-PLAN_ONLY-Previewabnahme bestand am 2026-10-05
+auf `bee35c5d` getrennt für Docker und Podman im owned-host-only Harness.
+Je fünf öffentliche Aufrufe prüften Änderung, No-op, Wiederholung, tatsächliche
+Console-Menüroute und in-process HTTP mit realer Runtimebeobachtung und
+unveränderten Statebytes. Beide Own-Cleanups und der Vorher-/Nachher-Schutz
+sind bestätigt. Frühere Fehlerbelege bleiben unverändert; gerenderter Browser
+und HTTP-Netztransport bleiben NOT_EXECUTED, Preview-SQL/Endpoint NOT_CHECKED.
+Keine Apply-/Recoveryfreigabe und kein Scope-A-Abschluss.
 
 
 Nach jedem Slice werden Implementierung, geführte CLI-/GUI-Abdeckung und
