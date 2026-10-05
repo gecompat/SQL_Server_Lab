@@ -187,5 +187,9 @@ $autoStartAcceptanceFixture = Join-Path $PSScriptRoot 'Fixtures/ContainerAutoSta
 & (Get-Process -Id $PID).Path -NoProfile -File $autoStartAcceptanceFixture
 Add-CheckResult -Name 'Owned AutoStart core acceptance persists bounded veto categories and verifies five read-only public calls' -Success ($LASTEXITCODE -eq 0)
 
+$autoStartConsoleFixture = Join-Path $PSScriptRoot 'Fixtures/ContainerAutoStartPreviewConsoleChecks.ps1'
+& (Get-Process -Id $PID).Path -NoProfile -File $autoStartConsoleFixture
+Add-CheckResult -Name 'Actual dedicated AutoStart console route remains private, read-only and failclosed' -Success ($LASTEXITCODE -eq 0)
+
 Write-Host ''; Write-Host "Ergebnis: $passed PASS, $($failures.Count) FAIL" -ForegroundColor Cyan
 if ($failures.Count) { exit 1 }; exit 0

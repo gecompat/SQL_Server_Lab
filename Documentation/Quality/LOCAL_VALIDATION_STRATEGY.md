@@ -2,7 +2,7 @@
 
 ## Container-Autostart nur vorprüfen
 
-`Get-SqlServerLabReconcilePlan -ContainerAutoStartPreview -RunId $runId -InstanceId primary -AutoStart on -StateRoot $stateRoot` ist eine getrennte PLAN_ONLY-Vorschau der Container-Restartpolicy für moderne registrierte laufende SQL-Instanzen unter Docker/Podman. Explizite skalare on/off-Labels und Restartpolicy müssen übereinstimmen; fehlende, untypisierte oder widersprüchliche Evidence bleibt UNKNOWN/DRIFTED und gesperrt. Nur die begrenzte SQL-Loopbacktopologie und darstellbare Mounts werden akzeptiert. Der DTO zeigt feste ON/OFF- und SAME_POLICY/DIFFERENT_POLICY-Kategorien sowie Mountcounts ohne Hostwerte, native IDs oder Pfade. CanApply=false, MutationAllowed=false und leere Actions gelten auch für No-op; der opaque ObservationKey ist reine Inhaltsbindung, keine CAS-/Reservierungs-/Executorautorität. Endpoint, SQL, Backup und Hostlogin bleiben NOT_CHECKED. Ein Kontextread nutzt die bestehenden Ownership-Revalidierungen; zusätzliche eigene Inspectreads bleiben erhalten. Generic CLI-/Webkatalog verwenden den bestehenden Parametervertrag, eigene Autostartdialoge fehlen. Die spezifische native Core-Abnahme vom 2026-10-05 auf Head `77fbaee` bestand unter Docker und Podman mit je fünf öffentlichen Vorschauaufrufen, unveränderten eigenen Statebytes, zwei bytegebundenen terminalen Cleanuprecords und entfernten eigenen Ressourcen/Roots. Der gemeinsame Schutzvergleich bestand mit null Findings und null Observations. Eigene CLI-/Browserdialoge und HTTP-Netztransport wurden damit nicht abgenommen; CPU/RAM, Portvorschau, Apply/Recovery und der vollständige Scope A bleiben unverändert bzw. separat offen.
+`Get-SqlServerLabReconcilePlan -ContainerAutoStartPreview -RunId $runId -InstanceId primary -AutoStart on -StateRoot $stateRoot` ist eine getrennte PLAN_ONLY-Vorschau der Container-Restartpolicy für moderne registrierte laufende SQL-Instanzen unter Docker/Podman. Explizite skalare on/off-Labels und Restartpolicy müssen übereinstimmen; fehlende, untypisierte oder widersprüchliche Evidence bleibt UNKNOWN/DRIFTED und gesperrt. Nur die begrenzte SQL-Loopbacktopologie und darstellbare Mounts werden akzeptiert. Der DTO zeigt feste ON/OFF- und SAME_POLICY/DIFFERENT_POLICY-Kategorien sowie Mountcounts ohne Hostwerte, native IDs oder Pfade. CanApply=false, MutationAllowed=false und leere Actions gelten auch für No-op; der opaque ObservationKey ist reine Inhaltsbindung, keine CAS-/Reservierungs-/Executorautorität. Endpoint, SQL, Backup und Hostlogin bleiben NOT_CHECKED. Ein Kontextread nutzt die bestehenden Ownership-Revalidierungen; zusätzliche eigene Inspectreads bleiben erhalten. Der geführte CLI-Einstieg „Lab-Umgebungen → Container-Autostart vorprüfen“ wählt registrierte Lab-/Instanzmetadaten und liest den bestehenden öffentlichen Core nach einem vollständigen on/off-Wunsch genau einmal. Abbruch und ungültige Eingaben vor dem Aufruf lesen kein Inspect; feste Kategorien, Mountcounts und NOT_CHECKED-Grenzen werden erst nach strikter skalarer DTO-Prüfung angezeigt. Der eigene Browserdialog bleibt offen; der generische CLI-/Webkatalog verwendet unverändert den öffentlichen Parametervertrag. Die spezifische native Core-Abnahme vom 2026-10-05 auf Head `77fbaee` bestand unter Docker und Podman mit je fünf öffentlichen Vorschauaufrufen, unveränderten eigenen Statebytes, zwei bytegebundenen terminalen Cleanuprecords und entfernten eigenen Ressourcen/Roots. Der gemeinsame Schutzvergleich bestand mit null Findings und null Observations. Eigene CLI-/Browserdialoge und HTTP-Netztransport wurden damit nicht abgenommen; CPU/RAM, Portvorschau, Apply/Recovery und der vollständige Scope A bleiben unverändert bzw. separat offen.
 
 
 ## Getrennte Browser-Portvorschau
@@ -51,6 +51,24 @@ einschließlich Kategorie-/Authority-, Überschreib-, Reparse-, RuntimeRoot- und
 Statebyte-Vetos. Beide tatsächlichen Providerläufe bestanden mit je fünf validierten Kategoriebelegen, unveränderten Statebytes und ohne zusätzliche diagnostische Reads. Cleanup bestätigte je zwei terminale Records, Ressourcenabwesenheit und Rootentfernung; der gemeinsame Vor-/Nachschutz bestand mit null Findings/Observations und unveränderten acht Providerinventaren, VM-Inventar, sechs geschützten Umgebungen, Defaults, Autostart, Registry und eigenen Aufgaben. Die nichtatomaren Snapshots begründen keine kausale Entlastung oder allgemeine Hostinvarianz.
 Diese begrenzte Core-Abnahme prüft weder Hostlogin noch Preview-SQL/Endpoint,
 Apply, einen eigenen CLI-/Browserdialog oder HTTP-Netztransport.
+
+## Getrennte AutoStart-CLI-Vorschau
+
+Die Fixture `Tests/Static/Fixtures/ContainerAutoStartPreviewConsoleChecks.ps1`
+läuft in der bestehenden ContainerReconcile-Suite und führt den tatsächlichen
+Fachmenüeintrag, beide Router, Dialog und öffentlichen AutoStart-Core unter
+Docker/Podman mit synthetischem Inspect-Leaf aus. Gebundene lokale Menüeinträge
+behalten die Zielautorität; zurückgegebenes Menü-Data wird nicht übernommen.
+Cancel, ungültige Eingabe, geschützte/CMS-, Legacy-, gestoppte und fremde
+Ziele rufen keinen öffentlichen Plan auf. Ein vollständiger gültiger Wunsch
+ruft genau einmal auf; zusätzliche Ownership-Inspectreads bleiben erhalten.
+Malformed DTOs inklusive Ein-Element-Arrays, unerwarteter Authority, Actions
+oder Kategorien blockieren vor Darstellung; Rohfehler bleiben privat.
+Statebytes und verbotene Effekte werden geprüft. Diese synthetische Route
+ist kein nativer CLI-Nachweis; die konkrete CLI-Abnahme bleibt NOT_EXECUTED.
+Die bereits bestandene native Core-Abnahme auf `77fbaee` bleibt getrennt.
+Browserdialog, HTTP-Netztransport, Hostlogin, Preview-SQL/Endpoint sowie
+Apply/Recovery und vollständiger Scope A bleiben offen.
 
 ## Getrennte CLI-Portvorschau
 
