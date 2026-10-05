@@ -2,7 +2,7 @@
 
 Status: Backend, CLI und Browser offline implementiert; native Erststartabnahme
 fuer Docker und Podman auf SQL2025-CU9 mit Mindestlaenge drei bestanden.
-Gerenderter Browser, HTTP-Netztransport und PR-Abschlussgate bleiben offen.
+Gerenderter Browser, positiver HTTP-Creationjob und PR-Abschlussgate bleiben offen.
 
 ## Gemeinsame Barriere
 
@@ -88,5 +88,9 @@ Findings. Der erste Docker-Testlauf scheiterte an einer zu engen
 Test-Bindungsannahme fuer die run-spezifische Volume und wurde nach erneuter
 Ownershippruefung vollstaendig aufgeraeumt; der korrigierte Test bestand.
 Andere Mindestlaengen und CU-Images sind damit nicht empirisch abgenommen.
-Gerenderter Browser und HTTP-Netztransport bleiben `NOT_EXECUTED`.
+`Invoke-SaPasswordHttpNetworkAcceptance.ps1` bestand am 2026-10-06 mit
+eigenem Loopback-Listener: drei ungueltige bzw. doppelte Requests wurden
+vor der Jobanlage abgewiesen, ohne Passwortwert in der Antwort. Der Listener
+und sein Testroot wurden entfernt. Ein gueltiger Creationjob ueber echten
+HTTP-Transport und die gerenderte Browserbedienung bleiben `NOT_EXECUTED`.
 Impactselektion und PR-Abschlussgate benoetigen den vollstaendigen stabilen Stand.

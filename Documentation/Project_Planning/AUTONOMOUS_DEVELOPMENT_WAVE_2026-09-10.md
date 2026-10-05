@@ -19,8 +19,9 @@ eng begrenzter Mindestlängenanpassung für neue SQL-2025-CU-Container. Die
 sechs geschützten Testumgebungen und alle übrigen Grenzen dieses Plans gelten
 weiter. Die ausgewählten statischen Verträge sowie getrennte eigene Docker-
 und Podman-Erststarts, SQL-Anmeldung, Restart/Configerhalt und Cleanup sind
-bestanden; der Schutzvergleich ergab null Findings. Gerenderter Browser,
-HTTP-Netztransport, unabhängiger Review und PR-Abschlussgate bleiben offen.
+bestanden; der Schutzvergleich ergab null Findings. Der echte Loopback-HTTP-
+Weg weist ungültige Creationrequests vor einem Job ab. Gerenderter Browser,
+gültiger HTTP-Creationjob, unabhängiger Review und PR-Abschlussgate bleiben offen.
 
 ## Übergabe und Benutzerpause vom 2026-10-05
 
@@ -90,8 +91,9 @@ aktuelle Freigabe oder vollständige Abnahme.
    `codex/guided-password-policy` wurde in den aktuellen Implementierungsbranch
    übernommen. Browser- und Serverweg sind synthetisch geprüft; ausgewählte
    statische Gates und getrennte Docker-/Podman-Erststarts sind bestanden.
-   Gerenderter Browser, HTTP-Netztransport, unabhängiger Review und PR-Gate
-   bleiben offen.
+   Der echte Loopback-HTTP-Weg weist ungültige Creationrequests ab;
+   gerenderter Browser, gültiger HTTP-Creationjob, unabhängiger Review und
+   PR-Gate bleiben offen.
 3. **Explizite Anpassung:** Zunächst nur für neue Standardcontainer mit exakt
    katalogisiertem SQL2025-Tag unter Docker/Podman und frischer runeigener
    Systemvolume; Mindestlänge eins bis acht nur nach bewusster Auswahl.

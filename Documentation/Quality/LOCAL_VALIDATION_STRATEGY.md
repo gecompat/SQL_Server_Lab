@@ -21,9 +21,12 @@ bestanden nach Korrektur; `Invoke-SaPasswordPolicyAcceptance.ps1` bestand am
 2026-10-06 auf `12af45ed` getrennt fuer Docker und Podman mit eigenem
 SQL2025-CU9-Erststart, Mindestlaenge drei, Anmeldung, Restart/Configerhalt
 und vollstaendig bestaetigtem Cleanup. Der Vorher-nachher-Abgleich der sechs
-geschuetzten Umgebungen ergab null Findings. Weitere CU-Images und
-Mindestlaengen sowie echter HTTP-Netztransport und gerenderter Browser sind
-nicht abgenommen. [Vertrag](../Architecture/SA_PASSWORD_POLICY.md).
+geschuetzten Umgebungen ergab null Findings.
+`Invoke-SaPasswordHttpNetworkAcceptance.ps1` bestand mit eigenem echten
+Loopback-Listener, drei abgewiesenen fehlerhaften Creationrequests, null
+Creationjobs und bestaetigtem Listener-/Root-Cleanup. Weitere CU-Images und
+Mindestlaengen sowie ein gueltiger HTTP-Creationjob und gerenderter Browser
+sind nicht abgenommen. [Vertrag](../Architecture/SA_PASSWORD_POLICY.md).
 
 
 ## GUI-Aktionsstatus ohne Runtime
