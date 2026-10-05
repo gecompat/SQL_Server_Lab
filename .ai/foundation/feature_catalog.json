@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "ruleset_version": "1.18.0",
+  "ruleset_version": "1.19.0",
   "assessment_classifications": ["NOT_APPLICABLE", "ALREADY_EQUIVALENT", "PROJECT_STRONGER", "APPLY_DEFAULT", "RECOMMENDED", "DECISION_REQUIRED", "CONFLICT"],
   "features": {
     "foundation-baseline": {
@@ -182,6 +182,15 @@
       "dependencies": ["ai-work-orchestration", "model-routing-interoperability", "ai-runtime-adapters"],
       "applicability": {"mode": "REPOSITORY_EVIDENCE", "signals": ["codex_client", "visual_studio_copilot", "github_copilot", "native_client_model_roles", "native_subagent_model_selection", "manual_model_selection", "model_dispatch_attestation", "local_adapter_synthesis", "client_configuration_integration"], "questions": ["Which native role, agent, subagent, invocation, or session model surfaces are established by fresh client evidence?", "Which client transports and configuration locations are actually available?", "Can the client attest the model that executed rather than only the requested model?", "May a prompt cross the selected execution boundary?", "Are configuration/repository writes or local adapter synthesis explicitly authorized?"]},
       "recommendation": {"when_applicable": "RECOMMENDED", "summary": "Prefer fresh, evidenced native client model-routing surfaces; otherwise integrate through detect/plan/apply/verify/rollback, require actual-model evidence, use MCP/CLI/launcher or a content-separated manual handoff, and keep synthesized adapters external and quarantined until conformance passes.", "decision_required_when": ["authorizing client or repository configuration writes", "authorizing non-public remote prompt transfer", "authorizing local adapter synthesis", "promoting a synthesized adapter into version control"]}
+    },
+    "session-lifecycle-management": {
+      "title": "Low-overhead AI session lifecycle and orchestrator rotation",
+      "introduced_in": "1.19.0",
+      "change_history": [],
+      "transfer_sources": ["foundation/FOUNDATION_RULESET.template.md", "foundation/feature_catalog.json", "foundation/repo_map.template.yaml", "Documentation/Standards/AI_WORK_ORCHESTRATION_POLICY.md", "foundation/schemas/session-lifecycle-request.schema.json", "foundation/schemas/session-lifecycle-decision.schema.json", "foundation/schemas/session-handoff.schema.json", "foundation/capabilities/ai-work/AI_WORK.md", "foundation/capabilities/ai-work/ai_work.py", "foundation/capabilities/ai-work/session-lifecycle.example.json"],
+      "dependencies": ["ai-work-orchestration"],
+      "applicability": {"mode": "REPOSITORY_EVIDENCE", "signals": ["long_running_ai_project", "orchestrator_sessions", "large_conversation_context", "repeated_context_bootstrap", "multi_session_continuation"], "questions": ["Which deterministic context metrics does the client expose without rescanning conversation content?", "Which soft/hard ratios, checkpoint delta, and natural work boundaries are target-project policy?", "Can the client create a successor session automatically, or must continuation be manual?", "Which durable project-state references and external delta handle are sufficient to bootstrap the successor?"]},
+      "recommendation": {"when_applicable": "RECOMMENDED", "summary": "Use deterministic metadata and natural work boundaries, checkpoint only when triggered, carry a delta over durable repository truth, and never add continuous semantic chat analysis merely to decide whether to rotate.", "decision_required_when": ["selecting project-specific context and checkpoint thresholds", "persisting session or handoff runtime state", "authorizing a client-specific automatic successor-session mechanism"]}
     }
   }
 }

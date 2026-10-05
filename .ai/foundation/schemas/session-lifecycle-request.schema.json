@@ -1,0 +1,36 @@
+{
+  "$id": "https://example.invalid/ai-repository-foundation/session-lifecycle-request.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "boundary": {"enum": ["NONE", "WORK_ITEM_COMPLETED", "MILESTONE_COMPLETED", "MAJOR_TOPIC_CHANGE", "USER_REQUESTED"], "type": "string"},
+    "contract": {"const": "foundation-session-lifecycle/v1"},
+    "metrics": {
+      "additionalProperties": false,
+      "properties": {
+        "context_window_tokens": {"minimum": 1, "type": ["integer", "null"]},
+        "estimated_context_tokens": {"minimum": 0, "type": ["integer", "null"]},
+        "tokens_since_checkpoint": {"minimum": 0, "type": ["integer", "null"]}
+      },
+      "required": ["estimated_context_tokens", "context_window_tokens", "tokens_since_checkpoint"],
+      "type": "object"
+    },
+    "policy": {
+      "additionalProperties": false,
+      "properties": {
+        "checkpoint_delta_tokens": {"minimum": 1, "type": "integer"},
+        "hard_context_ratio": {"exclusiveMinimum": 0, "maximum": 1, "type": "number"},
+        "soft_context_ratio": {"exclusiveMinimum": 0, "maximum": 1, "type": "number"}
+      },
+      "required": ["soft_context_ratio", "hard_context_ratio", "checkpoint_delta_tokens"],
+      "type": "object"
+    },
+    "role": {"enum": ["ORCHESTRATOR", "WORKER", "RESEARCH", "OTHER"], "type": "string"},
+    "schema_version": {"const": 1},
+    "session_id": {"minLength": 1, "type": "string"},
+    "successor_session_capability": {"enum": ["AUTOMATIC", "MANUAL", "UNKNOWN"], "type": "string"}
+  },
+  "required": ["schema_version", "contract", "session_id", "role", "metrics", "boundary", "policy", "successor_session_capability"],
+  "title": "Foundation session lifecycle request",
+  "type": "object"
+}

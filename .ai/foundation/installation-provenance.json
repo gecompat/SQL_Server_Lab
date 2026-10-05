@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
   "contract": "foundation-installation-provenance/v1",
-  "ruleset_version": "1.18.0",
+  "ruleset_version": "1.19.0",
   "source_repository": "https://github.com/gecompat/AI_Repository_Foundation",
-  "source_commit": "8e27de7eb20926f340fbfb856eacd96d3099e5c8",
-  "source_manifest_sha256": "2cc95ac592396fbe663cd15c73a80ea0f130db78eaafbfb5aaae2638cf1a68a2",
-  "recorded_at": "2026-09-10T09:32:30Z",
+  "source_commit": "4aafd20442275d0fdedf291fc6e12e8fe1f683cc",
+  "source_manifest_sha256": "5fae12cf28f454c2f99b591e86c3f4018e32b30288f0e8021acde0af3c9865b4",
+  "recorded_at": "2026-10-05T19:34:44Z",
   "selection": {
     "adapters": [
       "github-copilot"
@@ -30,8 +30,8 @@
       "target": ".ai/foundation/AI_WORK_ORCHESTRATION_POLICY.md",
       "kind": "rule",
       "merge": "review_if_exists",
-      "source_sha256": "07e7969484eeb2accda19277b9eb9fc0f23de4f4f8b01b9b550b9325f4e4fea0",
-      "installed_sha256": "07e7969484eeb2accda19277b9eb9fc0f23de4f4f8b01b9b550b9325f4e4fea0",
+      "source_sha256": "8351e7c8aad363598b4a801eaf5aa9c7e9f29e647d0f745c4bfba84de6a0b7ba",
+      "installed_sha256": "8351e7c8aad363598b4a801eaf5aa9c7e9f29e647d0f745c4bfba84de6a0b7ba",
       "integration_state": "FOUNDATION_BASELINE",
       "reason": null
     },
@@ -90,8 +90,8 @@
       "target": ".ai/foundation/FOUNDATION_RULESET.md",
       "kind": "rule",
       "merge": "review_if_exists",
-      "source_sha256": "e8b7d15f617f4aa853255fa6c0bc41ad06724b7fd1d523549863e317f3570f32",
-      "installed_sha256": "e8b7d15f617f4aa853255fa6c0bc41ad06724b7fd1d523549863e317f3570f32",
+      "source_sha256": "c019cb5e52cb49eec3afe7764cabec8129af5431fd0f4b8ea44a084cfa22af2a",
+      "installed_sha256": "c019cb5e52cb49eec3afe7764cabec8129af5431fd0f4b8ea44a084cfa22af2a",
       "integration_state": "FOUNDATION_BASELINE",
       "reason": null
     },
@@ -103,7 +103,7 @@
       "source_sha256": "2f388c59898aed4e9bb2d525cb387d5ee2a0e8ea19459cc4f7c478b210f0dfdb",
       "installed_sha256": "5684795b64b08f444700e3b8055e6d1bdda5d65595b11ccee42cfbbb73e5eae6",
       "integration_state": "INTENTIONAL_OVERRIDE",
-      "reason": "Retained the compatible, more detailed project model-routing contract."
+      "reason": "Retained the compatible existing routing baseline and the project-specific detailed model policy; dynamic routing remains unselected."
     },
     {
       "source": "Documentation/Standards/PERSISTENT_IDENTITY_POLICY.md",
@@ -203,7 +203,7 @@
       "source_sha256": "974d0a24f6a7b509bf46eab355739d22bd2fd8b3439f08d9ad6c936a4b058f8f",
       "installed_sha256": "32a20230f37f1578c3ce32b4810322128424ab3f3bda96a172638148bf8f9d7f",
       "integration_state": "INTENTIONAL_OVERRIDE",
-      "reason": "Retained the compatible, more detailed project validation and provenance contract."
+      "reason": "Retained the compatible existing validation baseline and the project-specific validation and provenance contracts."
     },
     {
       "source": ".ai/WORKING_RULES.md",
@@ -220,8 +220,8 @@
       "target": ".ai/foundation/feature_catalog.json",
       "kind": "feature-catalog",
       "merge": "review_if_exists",
-      "source_sha256": "384b888f496c202bffc5518654547342733c96cc8ba5314bc7de17187a21b57f",
-      "installed_sha256": "384b888f496c202bffc5518654547342733c96cc8ba5314bc7de17187a21b57f",
+      "source_sha256": "7ed0798907beb994138b9b233f7f341b3489f31cc3b8bde219b6283207cdcab9",
+      "installed_sha256": "7ed0798907beb994138b9b233f7f341b3489f31cc3b8bde219b6283207cdcab9",
       "integration_state": "FOUNDATION_BASELINE",
       "reason": null
     },
@@ -230,8 +230,8 @@
       "target": ".ai/foundation/repo_map.yaml",
       "kind": "rule-index",
       "merge": "review_if_exists",
-      "source_sha256": "fb8ab906186f4d73549d37ef7fb9f4508148ef6b2b05480e29528ffdc14855f4",
-      "installed_sha256": "fb8ab906186f4d73549d37ef7fb9f4508148ef6b2b05480e29528ffdc14855f4",
+      "source_sha256": "a5aa4c116b5b1020f5e080e9aef650dcc317a28c4f0b5b91cd6a97690b89eb64",
+      "installed_sha256": "a5aa4c116b5b1020f5e080e9aef650dcc317a28c4f0b5b91cd6a97690b89eb64",
       "integration_state": "FOUNDATION_BASELINE",
       "reason": null
     },
@@ -632,6 +632,36 @@
       "merge": "review_if_exists",
       "source_sha256": "5d6f6877e4ff689d47b752bc1e6a9e4e239ae3ade863203f07904a0736c974b8",
       "installed_sha256": "5d6f6877e4ff689d47b752bc1e6a9e4e239ae3ade863203f07904a0736c974b8",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "foundation/schemas/session-handoff.schema.json",
+      "target": ".ai/foundation/schemas/session-handoff.schema.json",
+      "kind": "schema",
+      "merge": "review_if_exists",
+      "source_sha256": "c66536ec74e29ca6eee0944b8e9fc0219bff6743a67fbfc012f8e74b5f184dba",
+      "installed_sha256": "c66536ec74e29ca6eee0944b8e9fc0219bff6743a67fbfc012f8e74b5f184dba",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "foundation/schemas/session-lifecycle-decision.schema.json",
+      "target": ".ai/foundation/schemas/session-lifecycle-decision.schema.json",
+      "kind": "schema",
+      "merge": "review_if_exists",
+      "source_sha256": "f1384b705115365b03a9928d168ca2c782eaa052f3fc0e5ec18aed268f561583",
+      "installed_sha256": "f1384b705115365b03a9928d168ca2c782eaa052f3fc0e5ec18aed268f561583",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "foundation/schemas/session-lifecycle-request.schema.json",
+      "target": ".ai/foundation/schemas/session-lifecycle-request.schema.json",
+      "kind": "schema",
+      "merge": "review_if_exists",
+      "source_sha256": "aeb916f46f5b8b49de50e8ad0e59e1a3e50eb379c396049f741e8f39c788ba9a",
+      "installed_sha256": "aeb916f46f5b8b49de50e8ad0e59e1a3e50eb379c396049f741e8f39c788ba9a",
       "integration_state": "FOUNDATION_BASELINE",
       "reason": null
     },

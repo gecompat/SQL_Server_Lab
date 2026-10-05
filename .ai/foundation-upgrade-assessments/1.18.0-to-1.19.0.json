@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "installed_version": "1.18.0",
+  "source_version": "1.19.0",
+  "source_ref": "4aafd20442275d0fdedf291fc6e12e8fe1f683cc",
+  "assessments": [
+    {
+      "feature_id": "session-lifecycle-management",
+      "candidate_reasons": ["introduced_in:1.19.0"],
+      "classification": "RECOMMENDED",
+      "evidence": ["AGENTS.md", "Documentation/Quality/COST_EFFICIENT_DEVELOPMENT.md", "Documentation/Project_Planning/AUTONOMOUS_DEVELOPMENT_WAVE_2026-09-10.md", ".ai/repo_map.yaml"],
+      "rationale": "Das Projekt verwendet langlebige Orchestrator-Sitzungen und einen versionierten Pausecheckpoint. Die neuen Regeln und Schemas ergänzen den bestehenden Bootstrap: Repositoryzustand bleibt maßgeblich, unbekannte Kontextmetriken bleiben unbekannt und Übergaben enthalten nur Referenzen sowie ein optionales lokales Delta. Vorhandene Pausen- und Startgrenzen sind strenger und bleiben erhalten. Numerische Schwellen, der optionale ai-work-Planer und automatische Nachfolgesitzungen sind nicht ausgewählt.",
+      "recommendation": "Bei einem konkreten Bedarf deterministisch bereitgestellte Kontextmetriken und natürliche Arbeitsgrenzen für ereignisgesteuerte Checkpoints verwenden. Numerische Schwellen und eine automatische Nachfolgesitzung erst durch eine getrennte Projektentscheidung mit aktueller Client-Evidence auswählen; bis dahin manuell fortsetzen und die Benutzerpause bewahren.",
+      "decision_required": null,
+      "selected_capabilities": []
+    }
+  ]
+}

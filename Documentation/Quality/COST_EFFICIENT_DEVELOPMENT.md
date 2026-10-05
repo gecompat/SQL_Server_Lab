@@ -3,7 +3,7 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `BINDING` |
-| Stand | 2026-08-21 |
+| Stand | 2026-10-05 |
 | Geltungsbereich | lokale Entwicklung, KI-Arbeit, Tests, Reviews und CI-Wellen |
 
 ## 1. Ziel
@@ -143,6 +143,33 @@ Ein Delegationskontext enthält nur:
 Lange Chat-Historien, vollständige grüne Logs und unverbundene
 Repositorytexte werden nicht weitergereicht. System- und Modellwahl sowie
 Eskalation folgen `.ai/MODEL_ROUTING_POLICY.md`.
+
+### Sitzungswechsel und Checkpoints
+
+Die Foundation-1.19-Regeln unter
+`.ai/foundation/AI_WORK_ORCHESTRATION_POLICY.md` ergänzen diese Richtlinie.
+Der Orchestrator ist eine Rolle über dauerhaftem Projektzustand. Ein neuer
+Chat lädt die nativen Instruktionen und aktuellen kanonischen Projektquellen;
+eine frühere Regelanalyse wird nur nach dem eigenen Cache-Vertrag wiederverwendet.
+
+Ein Checkpoint entsteht ereignisgesteuert an einer tatsächlichen Arbeitsgrenze
+oder aus bereits verfügbaren deterministischen Kontextmetriken. Unbekannte
+Tokenwerte bleiben unbekannt. Keine kontinuierliche semantische Chatanalyse,
+periodische Gesamtsummierung oder Antwortlatenz als automatischer Wechseltrigger.
+Eine Übergabe verwendet kanonische Zustands- und Arbeitsreferenzen sowie
+höchstens ein autorisiertes lokales Delta seit dem letzten Checkpoint. Neue
+Session-, Checkpoint- und Handoff-Runtimedaten bleiben außerhalb der
+Versionskontrolle; der bereits versionierte Projektcheckpoint bleibt erhalten.
+
+Numerische Kontext- und Deltaschwellen, automatische Nachfolgesitzungen und der
+optionale `ai-work`-Planer sind nicht ausgewählt. Ihre spätere Auswahl benötigt
+eine getrennte Projektentscheidung und für Automatik aktuelle vertrauenswürdige
+Client-Evidence. Bis dahin erfolgt ein erforderlicher Wechsel manuell.
+Eine Übergabe, ein neuer Chat oder ein Foundation-Upgrade ersetzt keinen
+ausdrücklichen Startauftrag für eine pausierte Entwicklungswelle. Deren
+Startgrenze bleibt im
+[Pausecheckpoint](../Project_Planning/AUTONOMOUS_DEVELOPMENT_WAVE_2026-09-10.md)
+maßgeblich; ein begrenzter neuer Auftrag öffnet nur seinen eigenen Scope.
 
 ## 7. Abschlussbericht
 

@@ -1,0 +1,29 @@
+{
+  "$id": "https://example.invalid/ai-repository-foundation/session-lifecycle-decision.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "action": {"enum": ["CONTINUE", "CHECKPOINT", "ROTATE_AT_BOUNDARY", "ROTATE_REQUIRED"], "type": "string"},
+    "context_ratio": {"minimum": 0, "type": ["number", "null"]},
+    "contract": {"const": "foundation-session-lifecycle/v1"},
+    "handoff_scope": {"enum": ["NONE", "DELTA_SINCE_CHECKPOINT"], "type": "string"},
+    "reason_codes": {"items": {"minLength": 1, "type": "string"}, "type": "array", "uniqueItems": true},
+    "role": {"enum": ["ORCHESTRATOR", "WORKER", "RESEARCH", "OTHER"], "type": "string"},
+    "schema_version": {"const": 1},
+    "semantic_scan_required": {"const": false},
+    "session_id": {"minLength": 1, "type": "string"},
+    "successor_session": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {"enum": ["NONE", "AUTOMATIC", "MANUAL"], "type": "string"},
+        "required": {"type": "boolean"},
+        "role": {"enum": ["ORCHESTRATOR", "WORKER", "RESEARCH", "OTHER", null]}
+      },
+      "required": ["required", "mode", "role"],
+      "type": "object"
+    }
+  },
+  "required": ["schema_version", "contract", "session_id", "role", "action", "context_ratio", "reason_codes", "semantic_scan_required", "handoff_scope", "successor_session"],
+  "title": "Foundation session lifecycle decision",
+  "type": "object"
+}
