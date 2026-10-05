@@ -1,11 +1,12 @@
 #Requires -Version 7.2
+[CmdletBinding()]param([switch]$ConsoleOnly)
 $ErrorActionPreference='Stop'
 $repositoryRoot=Split-Path (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent) -Parent
 $root=Join-Path ([IO.Path]::GetTempPath()) ('SqlServerLab-AutoStartPreview-'+[guid]::NewGuid().ToString('N'))
 $module=Import-Module (Join-Path $repositoryRoot SqlServerLab.psd1) -Force -PassThru
 try {
     & $module {
-        param($Root,$Repository,$Module)
+        param($Root,$Repository,$Module,$ConsoleOnly)
         . (Join-Path $Repository 'Tests/Common/ContainerPortPreviewAcceptance.ps1')
         . (Join-Path $Repository 'Tests/Common/ContainerAutoStartPreviewAcceptance.ps1')
         $script:checks=0
@@ -89,7 +90,7 @@ try {
             Assert-AutoStart (-not $plan.CanApply -and -not $plan.MutationAllowed -and $plan.Actions.Count -eq 0 -and $plan.Preview.Endpoint -ceq 'NOT_CHECKED') 'Always PLAN_ONLY authority and unprobed endpoint'
             $plan
         }
-        foreach($provider in @('docker','podman')){
+        if(-not $ConsoleOnly){foreach($provider in @('docker','podman')){
             $instance=[pscustomobject]@{id='primary';provider=$provider;version='2025';profile='standard';autostart='manual';drives=@();databases=@();software=@()}
             $desired=New-LabDesiredStateSnapshot -ResolvedLab ([pscustomobject]@{name='Synthetic SQL autostart acceptance';instances=@($instance)}) -ProvisioningMode adhoc -PersistentData $false
             $run=New-LabRunState -StateRoot $state -Metadata @{desiredState=$desired;persistentData=$false} -ProviderSubRuns @([pscustomobject]@{provider=$provider;instanceIds=@('primary')})
@@ -165,9 +166,52 @@ try {
                 try{$null=Invoke-AutoStartPreviewAcceptanceObservations -Module $Module -Scope $scope -RunId $run.RunId -Provider $provider -RepositoryRoot $Repository -EvidenceRoot $fresh}catch{$thrown=$_.Exception.Message -ceq 'AUTOSTART_ACCEPTANCE_PREVIEW_STATE_WRITE'}
                 Assert-AutoStart ($thrown -and @(Get-ChildItem $fresh -File).Count -eq 5) 'Actual synthetic state-byte change veto after fixed five-call evidence'
             }finally{Set-Content -LiteralPath $tool -Value $originalTool -Encoding utf8}
+        }}
+        # New console-only acceptance uses actual menu, both routers and public
+        # core; only the inspect process leaf is synthetic in this static proof.
+        foreach($provider in @('docker','podman')){
+            $instance=[pscustomobject]@{id='primary';provider=$provider;version='2025';profile='standard';autostart='manual';drives=@();databases=@();software=@()}
+            $desired=New-LabDesiredStateSnapshot -ResolvedLab ([pscustomobject]@{name='Synthetic SQL autostart console acceptance';instances=@($instance)}) -ProvisioningMode adhoc -PersistentData $false
+            $run=New-LabRunState -StateRoot $state -Metadata @{desiredState=$desired;persistentData=$false} -ProviderSubRuns @([pscustomobject]@{provider=$provider;instanceIds=@('primary')})
+            $runPath=Join-Path $run.RunDir run-state.json;$stored=Get-Content $runPath -Raw|ConvertFrom-Json -Depth 60
+            $stored.state='RUNNING';$stored.providerSubRuns[0].state='RUNNING';Write-AutoStartJson $runPath $stored
+            Write-AutoStartJson (Join-Path $run.RunDir connection-info.json) @{instances=@(@{id='primary';provider=$provider;containerId=('a'*64);containerName='PRIVATE_NAME_CANARY';port=1})}
+            $script:currentRun=$run.RunId;$script:protected=$false;$script:cms=$false;$script:forbidden=0
+            $scope=[pscustomobject]@{DataRoot=$dataRoot;StateRoot=$state}
+            $global:autoStartInspect=New-AutoStartInspect $run;$global:autoStartInspectCalls=0
+            $functionNames=@('Get-SqlServerLabReconcilePlan','Invoke-LabOwnedHostNativeProcess','Read-LabConsoleTextInput','Invoke-LabConsoleMenu','Write-LabInfo','Write-LabWarning','Write-LabError','Wait-LabConsoleAcknowledgement','Show-LabSubMenu','Get-LabSecret','Invoke-SqlQuery','Test-LabEndpointBinding','Repair-LabContainerReconcileJournal','New-LabContainerReconcileJournal','Invoke-LabContainerReconcileCommand','Update-SqlServerLabContainer','Invoke-SqlServerLabWorkflowAction','Invoke-LabActionWithResult','Read-LabConfirm')
+            function Get-ConsoleFunctionProof {(@($functionNames|ForEach-Object{$item=Get-Item ('Function:'+$_) -ErrorAction SilentlyContinue;$_+':'+[string]$item.ScriptBlock}) -join '|')}
+            $functions=Get-ConsoleFunctionProof;$before=Get-AutoStartFiles
+            $fresh=New-PortPreviewAcceptanceEvidenceDirectory -Module $Module -RepositoryRoot $Repository
+            $observation=Invoke-AutoStartConsoleAcceptanceObservations -Module $Module -Scope $scope -RunId $run.RunId -Provider $provider -RepositoryRoot $Repository -EvidenceRoot $fresh
+            Assert-AutoStart ($observation.PublicPreviewCalls -eq 3 -and $global:autoStartInspectCalls -eq 3 -and $observation.DedicatedCli -ceq 'ACTUAL_MENU_DUAL_ROUTER_PASSED') 'Actual console-only menu and dual routers execute three real public/module/core calls with synthetic leaf'
+            Assert-AutoStart ($observation.EarlyCancelInvalidPublicCalls -eq 0 -and $observation.EarlyCancelInvalidNativeReads -eq 0 -and $observation.CoreFiveCallRepeat -ceq 'NOT_EXECUTED') 'Early cancel/invalid/forged selection are read-free; original core five-call proof not repeated'
+            Assert-AutoStart ($observation.StateBytesEqual -and $observation.RepeatObservedContentEqual -and $before -ceq (Get-AutoStartFiles) -and $functions -ceq (Get-ConsoleFunctionProof)) 'Actual console observations preserve state bytes and restore every function'
+            foreach($record in $observation.PublicObservationEvidence){$recordPath=Join-Path $fresh $record.RelativeEvidencePath;$text=Get-Content $recordPath -Raw
+                Assert-AutoStart ((Get-FileHash $recordPath).Hash -ceq $record.Sha256 -and (Get-Item $recordPath).Length -eq $record.Bytes -and $text -notmatch 'PRIVATE_|ObservationKey|HostIp|HostPort|StateRoot|containerId|MSSQL_SA_PASSWORD') 'Console ordinal category evidence is bytebound and privacy-safe'}
+            $global:autoStartInspect.Config.Labels.'sql-server-lab.autostart'=$null;$global:autoStartInspectCalls=0
+            $failed=New-PortPreviewAcceptanceEvidenceDirectory -Module $Module -RepositoryRoot $Repository;$thrown=$false
+            try{$null=Invoke-AutoStartConsoleAcceptanceObservations -Module $Module -Scope $scope -RunId $run.RunId -Provider $provider -RepositoryRoot $Repository -EvidenceRoot $failed}catch{$thrown=$_.Exception.Message -ceq 'AUTOSTART_CONSOLE_ACCEPTANCE_NATIVE_FORM'}
+            $category=Get-Content (Join-Path $failed autostart-preview-01.private.json) -Raw|ConvertFrom-Json
+            Assert-AutoStart ($thrown -and $category.Status -ceq 'BLOCKED' -and $category.Reason -ceq 'AUTOSTART_PREVIEW_POLICY_UNKNOWN' -and $global:autoStartInspectCalls -eq 1 -and $functions -ceq (Get-ConsoleFunctionProof) -and $before -ceq (Get-AutoStartFiles)) 'Actual blocked console observation persists fixed reason before veto and restores original functions'
+            $global:autoStartInspect=New-AutoStartInspect $run;$global:autoStartInspectCalls=0;$thrown=$false
+            try{$null=Invoke-AutoStartConsoleAcceptanceObservations -Module $Module -Scope $scope -RunId $run.RunId -Provider $provider -RepositoryRoot $Repository -EvidenceRoot $dataRoot}catch{$thrown=$_.Exception.Message -ceq 'AUTOSTART_ACCEPTANCE_EVIDENCE_SCOPE'}
+            Assert-AutoStart ($thrown -and $global:autoStartInspectCalls -eq 1 -and $functions -ceq (Get-ConsoleFunctionProof) -and $before -ceq (Get-AutoStartFiles)) 'Evidence-writer failure survives fixed console error handling and restores functions without extra calls'
+            $global:autoStartInspectCalls=0;$thrown=$false
+            try{$null=Invoke-AutoStartConsoleAcceptanceObservations -Module $Module -Scope $scope -RunId ([guid]::NewGuid().ToString('D')) -Provider $provider -RepositoryRoot $Repository -EvidenceRoot $fresh}catch{$thrown=$true}
+            Assert-AutoStart ($thrown -and $global:autoStartInspectCalls -eq 0 -and $before -ceq (Get-AutoStartFiles)) 'Foreign run binding veto occurs before instrumentation or runtime reads'
+            $actualPublic=${function:Get-SqlServerLabReconcilePlan};$thrown=$false;$global:autoStartInspectCalls=0
+            try{
+                Set-Item Function:script:Get-SqlServerLabReconcilePlan {throw 'PRIVATE_CONSOLE_READ_FAILURE'}
+                $faultFunctions=Get-ConsoleFunctionProof
+                $fresh=New-PortPreviewAcceptanceEvidenceDirectory -Module $Module -RepositoryRoot $Repository
+                try{$null=Invoke-AutoStartConsoleAcceptanceObservations -Module $Module -Scope $scope -RunId $run.RunId -Provider $provider -RepositoryRoot $Repository -EvidenceRoot $fresh}catch{$thrown=$_.Exception.Message -ceq 'PRIVATE_CONSOLE_READ_FAILURE'}
+                Assert-AutoStart ($thrown -and $faultFunctions -ceq (Get-ConsoleFunctionProof) -and $global:autoStartInspectCalls -eq 0 -and @(Get-ChildItem $fresh -File).Count -eq 0 -and $before -ceq (Get-AutoStartFiles)) 'Unexpected read exception survives UI fixed-error catch and every observer function is restored'
+            }finally{Set-Item Function:script:Get-SqlServerLabReconcilePlan $actualPublic}
+            $stored.state='REMOVED';Write-AutoStartJson $runPath $stored
         }
         Write-Host ('Ergebnis: '+$script:checks+' PASS, 0 FAIL; ProviderMutations=0; NativeRuntimeCalls=0')
-    } $root $repositoryRoot $module
+    } $root $repositoryRoot $module $ConsoleOnly
 }
 
 finally {

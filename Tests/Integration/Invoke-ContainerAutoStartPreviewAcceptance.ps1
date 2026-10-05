@@ -1,10 +1,11 @@
 #Requires -Version 7.2
-# Owned-host-only AutoStart PLAN_ONLY core acceptance; no dedicated UI/Apply proof.
+# Owned-host-only AutoStart PLAN_ONLY acceptance; explicit ConsoleOnly mode.
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)][ValidateSet('docker','podman')][string]$Provider,
     [Parameter(Mandatory)][string]$DataRoot,
-    [Parameter(Mandatory)][ValidatePattern('^[a-f0-9]{32}$')][string]$ParentOperationId
+    [Parameter(Mandatory)][ValidatePattern('^[a-f0-9]{32}$')][string]$ParentOperationId,
+    [switch]$ConsoleOnly
 )
 $ErrorActionPreference='Stop'
 $repo=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
@@ -46,7 +47,11 @@ try {
     $unreturnedCreation=$false
     if($lab.State -cne 'Running'){throw 'PORT_ACCEPTANCE_INSTALLATION_NOT_RUNNING'}
     $before=Get-PortPreviewAcceptanceFileBinding -DataRoot $root
-    $observations=Invoke-AutoStartPreviewAcceptanceObservations -Module $module -Scope $scope -RunId $lab.RunId -Provider $Provider -RepositoryRoot $repo -EvidenceRoot $evidence
+    if($ConsoleOnly){
+        $observations=Invoke-AutoStartConsoleAcceptanceObservations -Module $module -Scope $scope -RunId $lab.RunId -Provider $Provider -RepositoryRoot $repo -EvidenceRoot $evidence
+    }else{
+        $observations=Invoke-AutoStartPreviewAcceptanceObservations -Module $module -Scope $scope -RunId $lab.RunId -Provider $Provider -RepositoryRoot $repo -EvidenceRoot $evidence
+    }
     $after=Get-PortPreviewAcceptanceFileBinding -DataRoot $root
     if(($before|ConvertTo-Json -Depth 5 -Compress) -cne ($after|ConvertTo-Json -Depth 5 -Compress)){throw 'PORT_ACCEPTANCE_PREVIEW_STATE_WRITE'}
     $custody|ConvertTo-Json -Depth 8|Set-Content -LiteralPath (Join-Path $evidence custody.private.json) -Encoding utf8
@@ -64,7 +69,7 @@ finally {
     }
 }
 $status=if($primaryError -or $cleanupError -or -not $completed -or $cleanup.Status -cne 'CLEANED'){'RECOVERY_REQUIRED'}else{'PASS'}
-$result=[pscustomobject]@{Contract='SqlServerLab.ContainerAutoStartNativeAcceptance/1.0';Provider=$Provider;Status=$status;
+$result=[pscustomobject]@{Contract=$(if($ConsoleOnly){'SqlServerLab.ContainerAutoStartConsoleNativeAcceptance/1.0'}else{'SqlServerLab.ContainerAutoStartNativeAcceptance/1.0'});Provider=$Provider;Status=$status;
     Installation=$(if($custody){'OWN_RUNNING_RUN_OBSERVED'}else{'NOT_CONFIRMED'});Readiness=$(if($readiness){$readiness.Status}else{'NOT_EXECUTED'});
     Observations=$observations;Cleanup=$cleanup;UnreturnedCreation=$unreturnedCreation;
     SQLDuringPreview='NOT_CHECKED';RenderedBrowser='NOT_EXECUTED';HttpNetworkTransport='NOT_EXECUTED';AtomicFilesystemProof=$false;
@@ -75,4 +80,5 @@ if($evidence){
 }
 if($primaryError){if($cleanupError){$primaryError.Exception.Data['PortPreviewCleanupRecoveryRequired']=$true};throw $primaryError}
 if($status -cne 'PASS'){throw 'PORT_ACCEPTANCE_RECOVERY_REQUIRED'}
-Write-Host 'PASS: owned ContainerAutoStartPreview public-core acceptance and receipt-bound cleanup.'
+if($ConsoleOnly){Write-Host 'PASS: owned ContainerAutoStartPreview actual console/menu/dual-router acceptance and receipt-bound cleanup.'}
+else{Write-Host 'PASS: owned ContainerAutoStartPreview public-core acceptance and receipt-bound cleanup.'}

@@ -70,6 +70,34 @@ Die bereits bestandene native Core-Abnahme auf `77fbaee` bleibt getrennt.
 Browserdialog, HTTP-Netztransport, Hostlogin, Preview-SQL/Endpoint sowie
 Apply/Recovery und vollständiger Scope A bleiben offen.
 
+### Eigene native AutoStart-CLI-Abnahme (vorbereitet)
+
+`Invoke-ContainerAutoStartPreviewAcceptance.ps1 -ConsoleOnly` nutzt denselben
+frischen eigenen registrierten Root/State-Child, immutable ParentOperation,
+Runtimepins, reale globale Mutex-Aufnahme und gebundene Cleanup-Primitiven wie
+die bestehende Core-Abnahme. Der gewöhnliche Modus und seine fünf Core-Aufrufe
+bleiben unverändert; ConsoleOnly wiederholt diese Abnahme nicht.
+
+Die neue Observation führt den echten Fachmenüeintrag und beide Router mit
+on/off/on aus: genau drei öffentliche Vorschauaufrufe für changed/no-op/repeat.
+Eingabe-/Ausgabeleaves sind deterministisch; der tatsächliche öffentliche Core,
+Kontext und native Ownership-/Inspectreads bleiben erhalten. Cancel, ungültige
+Eingabe und gefälschte Auswahl vor dem Aufruf erzeugen null Public-/NativeReads.
+Transparente Zähler und sämtliche temporären Funktionen werden auch bei
+Beobachtungs- oder Evidencefehlern wiederhergestellt. Feste validierte Kategorien
+werden vor einem Statusveto exklusiv außerhalb des RuntimeRoots gebunden;
+Rohwerte, native IDs, Pfade und ObservationKeys gehören nicht in diesen Payload.
+Statebytes müssen unverändert bleiben. Own-Cleanup prüft die bestehenden Claims
+und kopiert die tatsächlichen terminalen REMOVED-/COMPLETED-Records vor RootDelete;
+Unreturned/Drift/fehlende Bestätigung erhält den Root für Recovery.
+
+Die bestehende Acceptance-Fixture prüft diesen Modus separat mit `-ConsoleOnly`
+über actual Module/Public/Core und synthetischem Inspect-Leaf. Die konkrete
+Docker-/Podman-CLI-Abnahme bleibt NOT_EXECUTED; separate reale Ausführung erst
+nach unabhängiger Ressourcen-/Scopeprüfung und frischem headgebundenem Schutz.
+Kein HTTP-Netztransport, gerenderter Browser, Hostlogin, Preview-SQL/Endpoint,
+Apply/Recovery oder vollständiger Scope-A-Abschluss wird damit behauptet.
+
 ## Getrennte CLI-Portvorschau
 
 `Fixtures/ContainerPortPreviewConsoleChecks.ps1` läuft in der bestehenden
