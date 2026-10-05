@@ -1,5 +1,13 @@
 # Bekannte Grenzen
 
+Der neue owned-host-only Harness
+`Tests/Integration/Invoke-ContainerPortPreviewAcceptance.ps1` ist vorbereitet,
+aber nativ für Docker und Podman **NOT_EXECUTED**. Er trennt Installation,
+Bereitschaft, beobachtete Previewform und Cleanup. Die HTTP-Route wird
+in-process geprüft, kein gerenderter Browser und kein HTTP-Netztransport.
+Port-Apply/Recovery und Scope A bleiben offen. Statebyte- und Cleanupchecks
+sind nicht atomar gegenüber gleichzeitigen Dateisystemänderungen desselben Users.
+
 `Get-SqlServerLabReconcilePlan -ContainerPortPreview` ist eine getrennte reine
 `PLAN_ONLY`-Portvorschau für moderne registrierte, laufende Docker-/Podman-Runs.
 Nur eine vollständige SQL-1433/tcp-Loopbackbindung, ein Netz und durch den

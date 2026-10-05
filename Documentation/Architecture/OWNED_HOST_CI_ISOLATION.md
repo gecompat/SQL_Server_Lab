@@ -1,5 +1,16 @@
 # Eigener CI-Scope auf einem gemeinsam genutzten Windows-Host
 
+Der vorbereitete Portvorschau-Harness verwendet einen frischen externen
+`sql-lab-port-preview-<GUID-N>`-Parent plus getrennte Policy am `State`-Child.
+Nur die eigene Parent-Location wird registriert; der moderne nichtpersistente
+Run verwendet den Child-StateRoot. Keine existierende Policy/Run wird bewegt
+oder adoptiert. ParentOperation, Policy-/Marker-/Catalog- und tatsächliche
+Container-/Volume-Creation-/Intenthashes werden vor PublicRemove erneut geprüft.
+Nach Cleanup müssen State REMOVED und exakte same-pin Ressourcenabwesenheit
+bestätigt sein; andernfalls bleibt der Parent samt Registrierung/Custody.
+Reale Ausführung steht getrennt für Docker/Podman aus. Der Harness ersetzt
+keinen kanonischen Provider-Gate und startet keine Maschine/Runtime.
+
 ## Auswahl und Vertrauensgrenze
 
 Die Container-CI legt über `Tests/Common/OwnedHostTestScope.ps1` einen frischen,

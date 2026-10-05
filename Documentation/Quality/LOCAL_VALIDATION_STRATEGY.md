@@ -2938,3 +2938,18 @@ erforderlich. Native Docker-, Podman-, Mixed-, Hyper-V- und Adaptergates müssen
 den stabilen Head getrennt belegen; Readiness und historische Evidence gelten
 nicht als aktuelle Abnahme. Vor-/Nachschutz erfasst alle vorbestehenden
 Ressourcen; Rohdiagnosen bleiben lokal. [Vertrag](../Architecture/OWNED_HOST_CI_ISOLATION.md).
+## Eigene native Portvorschau-Abnahme – vorbereitet
+
+`Tests/Integration/Invoke-ContainerPortPreviewAcceptance.ps1` ist ein eigener,
+owned-host-only Harness für je einen frischen Docker-/Podman-SQL-2025-Run.
+`ContainerPortPreviewAcceptanceChecks.ps1` wird von ContainerReconcile ausgeführt:
+actual Core/Console/HTTP-AST, synthetischer pinned NativeProcess-Leaf,
+Statebytes und Instrument-Restoration auch nach Core-Veto; Cleanup-Drift muss
+vor PublicRemove blockieren. Diese Offlinebelege sind keine native Abnahme.
+Frische Parent-/State-Policies und Registration bleiben zusammen erhalten,
+wenn Creation nicht zurückkehrt oder Cleanup/Absence nicht bestätigt ist.
+Realer Providerlauf, SQL-Installationsbereitschaft und konkrete Previewform
+stehen noch aus; Browserrendering und HTTP-Netztransport sind nicht Bestandteil.
+Der Harness behauptet keinen einzelnen globalen Inspect: origin-/labelgebundene
+Revalidierungen bleiben erhalten. Ein abgeschlossener Dialogrequest ruft die
+öffentliche Preview einmal auf. Es gibt kein Apply und keinen Scope-A-Abschluss.

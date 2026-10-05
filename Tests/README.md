@@ -1,5 +1,19 @@
 # Tests/ – lokale und Remote-Validierung
 
+`Integration/Invoke-ContainerPortPreviewAcceptance.ps1` bereitet die getrennte
+native Docker-/Podman-Portvorschau-Abnahme vor. Sie verlangt einen frischen
+externen `sql-lab-port-preview-<GUID-N>`-Parent und ParentOperationId, bindet
+eigene Parent-/State-Policies und erstellt genau einen nichtpersistenten SQL-Run.
+Die Runtime muss bereits erreichbar sein. Öffentlicher Core, tatsächlicher
+Console-Menürouter und in-process HTTP-Serverroute werden mit realem Inspect
+ausgeführt; Ownership-Revalidierungen dürfen zusätzliche Inspectreads benötigen.
+Ein gültiger CLI-/HTTP-Request hat genau einen öffentlichen Previewaufruf,
+Cancel/ungültige Eingabe keinen. State-Dateibytes müssen unverändert bleiben.
+Cleanup verlangt vorher exakte Claims/Creationreceipts, danach gebundene
+Ressourcenabwesenheit. Unreturned/Drift/Fehler erhalten den gesamten Parent.
+Gerenderter Browser, HTTP-Netztransport, Preview-SQL/Endpoint und Apply werden
+nicht geprüft. Reale Abnahme ist noch **NOT_EXECUTED**, getrennt je Provider.
+
 Die Container-CI verwendet einen frischen expliziten eigenen StateRoot über
 `Common/OwnedHostTestScope.ps1`. `Static/Invoke-OwnedHostIntegrationChecks.ps1`
 prüft Policy-/Runbindung, tatsächliche Carrier und native Transportgrenzen
