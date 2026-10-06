@@ -1,5 +1,10 @@
 # Public/ – Exportierte Cmdlets
 
+`Get-SqlServerLabRunArtifactRemovalPlan` prüft genau einen modernen entfernten
+Run read-only. `Invoke-SqlServerLabRunArtifactRemoval` entfernt nach gebundener
+Vorschau nur zugelassene Run-Metadaten und leere Runroots; Referenzen, Retention,
+Ressourcen und Recovery sperren. [Vertrag](../Documentation/User/RUN_ARTIFACT_REMOVAL.md).
+
 ## SA-Passwort: Containererstellung
 
 `New-SqlServerLab` prueft Containerpasswoerter vor State-/Secret-/Providerschritten:

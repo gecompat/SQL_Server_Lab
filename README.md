@@ -707,6 +707,11 @@ Details stehen in [Adapters/README.md](Adapters/README.md), die Roadmap in der
 
 ## Lifecycle
 
+Nach erfolgreichem Remove prüft `Get-SqlServerLabRunArtifactRemovalPlan` genau
+einen entfernten Run; `Invoke-SqlServerLabRunArtifactRemoval` entfernt dessen
+zugelassene Metadaten mit Vorschau-, Referenz-, Retention- und Recovery-Schutz.
+[Bedienung und Grenzen](Documentation/User/RUN_ARTIFACT_REMOVAL.md).
+
 ```powershell
 Stop-SqlServerLab -RunId $lab.RunId
 Start-SqlServerLab -RunId $lab.RunId

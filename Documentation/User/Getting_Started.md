@@ -2378,3 +2378,9 @@ Kein automatischer Stop, Retry, Ownershipadoption oder Cleanup-Erfolgsverspreche
 Bestehende eigene Sitzungsführung bleibt separat; SQL bleibt NOT_CHECKED.
 Die Browserführung ist synthetisch geprüft; neue reale Start-/Modell-/TLS-/
 Compute-/Cleanup-Abnahme und ausgewählte Provider-Gates sind NOT_EXECUTED.
+# Entfernte Run-Artefakte
+
+Nach erfolgreichem `Remove-SqlServerLab` prüft
+`Get-SqlServerLabRunArtifactRemovalPlan` genau einen Run und
+`Invoke-SqlServerLabRunArtifactRemoval` entfernt nur zugelassene Metadaten.
+[Vorschau, Bestätigung, Sperren und Wiederaufnahme](RUN_ARTIFACT_REMOVAL.md).

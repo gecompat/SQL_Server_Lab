@@ -179,7 +179,7 @@ function Initialize-DockerSqlNamedVolume {
         return $false
     }
     $dockerInvocation = Get-LabHostToolInvocation -Name docker
-    $inspectionOutput = @($(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider docker -StateRoot $StateRoot -Invocation $dockerInvocation -ArgumentList @('volume', 'inspect', $VolumeName) } else { & $dockerInvocation volume inspect $VolumeName }) 2>$null)
+    $inspectionOutput = @($(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider docker -StateRoot $StateRoot -Invocation $dockerInvocation -ArgumentList @('volume', 'inspect', $VolumeName) } else { Invoke-LabContainerRuntimeCommand -Provider docker -StateRoot $StateRoot -Invocation $dockerInvocation -ArgumentList (@('volume')+@('inspect')+@($VolumeName))  }) 2>$null)
     $volumeExists = $LASTEXITCODE -eq 0
     if ($volumeExists -and $SaPasswordMinimumLength -lt 8) { throw 'SA_PASSWORD_POLICY_EXISTING_VOLUME_FORBIDDEN' }
 
@@ -206,9 +206,9 @@ function Initialize-DockerSqlNamedVolume {
         if ($Persistence) { $labelArguments += @('--label', "sql-server-lab.persistence=$Persistence") }
         if ($PersistentStorageId) { $labelArguments += @('--label', "sql-server-lab.persistent-storage-id=$PersistentStorageId") }
         if ($PersistentStorageRole) { $labelArguments += @('--label', "sql-server-lab.storage-role=$PersistentStorageRole") }
-        $volumeCreate = Invoke-LabProviderOperation -Provider docker -Phase 'volume-create' -RunId $RunId -Native `
+        $volumeCreate = Invoke-LabProviderOperation -Provider docker -Phase 'volume-create' -RunId $RunId -NativeResult `
             -Command "docker volume create $(@($labelArguments) -join ' ') $VolumeName" `
-            -Action { $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider docker -StateRoot $StateRoot -Invocation $dockerInvocation -ArgumentList @('volume', 'create', $labelArguments, $VolumeName) } else { & $dockerInvocation volume create @labelArguments $VolumeName }) 2>&1 }
+            -Action { $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider docker -StateRoot $StateRoot -Invocation $dockerInvocation -ArgumentList @('volume', 'create', $labelArguments, $VolumeName) -NativeResult -TimeoutSeconds 60 } else { Invoke-LabContainerRuntimeCommand -Provider docker -StateRoot $StateRoot -Invocation $dockerInvocation -ArgumentList (@('volume')+@('create')+@($labelArguments)+@($VolumeName)) -NativeResult -TimeoutSeconds 60  }) 2>&1 }
         if (-not $volumeCreate.Succeeded) {
             throw "DOCKER_SQL_VOLUME_CREATE_FAILED: $VolumeName - $(@($volumeCreate.Output) -join ' ')"
         }
@@ -224,9 +224,9 @@ function Initialize-DockerSqlNamedVolume {
     if ($SaPasswordMinimumLength -lt 8) {
         $initializationCommand += ' && ' + (Get-LabSaPasswordConfigSeedCommand -MinimumLength $SaPasswordMinimumLength)
     }
-    $volumeInitialize = Invoke-LabProviderOperation -Provider docker -Phase 'volume-initialize' -RunId $RunId -Native `
+    $volumeInitialize = Invoke-LabProviderOperation -Provider docker -Phase 'volume-initialize' -RunId $RunId -NativeResult `
         -Command "docker run --rm --user 0:0 --entrypoint /bin/sh -v ${VolumeName}:/sql-lab-volume-init $Image -c <volume-initialization>" `
-        -Action { $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider docker -StateRoot $StateRoot -Invocation $dockerInvocation -ArgumentList @('run', '--rm', '--user', '0:0', '--entrypoint', '/bin/sh', '-v', "${VolumeName}:/sql-lab-volume-init", $Image, '-c', $initializationCommand) } else { & $dockerInvocation run --rm --user 0:0 --entrypoint /bin/sh -v "${VolumeName}:/sql-lab-volume-init" $Image -c $initializationCommand }) 2>&1 }
+        -Action { $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider docker -StateRoot $StateRoot -Invocation $dockerInvocation -ArgumentList @('run', '--rm', '--user', '0:0', '--entrypoint', '/bin/sh', '-v', "${VolumeName}:/sql-lab-volume-init", $Image, '-c', $initializationCommand) -NativeResult -TimeoutSeconds 600 } else { Invoke-LabContainerRuntimeCommand -Provider docker -StateRoot $StateRoot -Invocation $dockerInvocation -ArgumentList (@('run')+@('--rm')+@('--user')+@('0:0')+@('--entrypoint')+@('/bin/sh')+@('-v')+@("${VolumeName}:/sql-lab-volume-init")+@($Image)+@('-c')+@($initializationCommand)) -NativeResult -TimeoutSeconds 600  }) 2>&1 }
     if (-not $volumeInitialize.Succeeded) {
         if ($SaPasswordMinimumLength -lt 8) { throw 'SA_PASSWORD_POLICY_CONFIG_SEED_FAILED' }
         throw "DOCKER_SQL_VOLUME_INITIALIZATION_FAILED: $VolumeName - $(@($volumeInitialize.Output) -join ' ')"
@@ -259,7 +259,7 @@ function Wait-DockerSqlPortBinding {
     do {
         $inspect = $null
         try {
-            $raw = @($(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider docker -StateRoot $StateRoot -Invocation $DockerInvocation -ArgumentList @('inspect', $ContainerId) } else { & $DockerInvocation inspect $ContainerId }) 2>$null)
+            $raw = @($(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider docker -StateRoot $StateRoot -Invocation $DockerInvocation -ArgumentList @('inspect', $ContainerId) } else { Invoke-LabContainerRuntimeCommand -Provider docker -StateRoot $StateRoot -Invocation $DockerInvocation -ArgumentList (@('inspect')+@($ContainerId))  }) 2>$null)
             if ($raw) {
                 $inspect = @($raw | ConvertFrom-Json -Depth 30 -ErrorAction Stop)[0]
             }
@@ -482,9 +482,9 @@ function New-DockerInstance {
 
                 Write-LabInfo "Container erstellen: $containerName (Port $selectedPort, Image $image) [Docker]"
                 foreach ($boundDrive in @($Drives | Where-Object { $_.runtimeBinding })) { Assert-LabContainerStoreRuntimeScope -Provider docker -RuntimeBinding $boundDrive.runtimeBinding -StateRoot $StateRoot }
-                $providerOperation = Invoke-LabProviderOperation -Provider docker -Phase 'container-create' -RunId $RunId -Native `
+                $providerOperation = Invoke-LabProviderOperation -Provider docker -Phase 'container-create' -RunId $RunId -NativeResult `
                     -Command "docker $(@($dockerArguments | ForEach-Object { $_ }) -join ' ')" `
-                    -Action { $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider docker -StateRoot $StateRoot -Invocation $dockerInvocation -ArgumentList @($dockerArguments) } else { & $dockerInvocation @dockerArguments }) 2>&1 }
+                    -Action { $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider docker -StateRoot $StateRoot -Invocation $dockerInvocation -ArgumentList @($dockerArguments) -NativeResult -TimeoutSeconds 600 } else { Invoke-LabContainerRuntimeCommand -Provider docker -StateRoot $StateRoot -Invocation $dockerInvocation -ArgumentList (@($dockerArguments)) -NativeResult -TimeoutSeconds 600  }) 2>&1 }
                 $output = @($providerOperation.Output)
                 $exitCode = $providerOperation.ExitCode
                 $providerLogPath = $providerOperation.LogPath
@@ -495,7 +495,7 @@ function New-DockerInstance {
                         Select-Object -Last 1
                     if (-not $containerId) {
                         if ($ownedHostPolicy) { Remove-LabOwnedHostFailedContainer -StateRoot $StateRoot -Intent $ownedContainerIntent }
-                        else { & $dockerInvocation rm -f $containerName 1>$null 2>$null }
+                        else { Invoke-LabContainerRuntimeCommand -Provider docker -StateRoot $StateRoot -Invocation $dockerInvocation -ArgumentList (@('rm')+@('-f')+@($containerName)) 1>$null 2>$null }
                         $logHint = if ($providerLogPath) { " Diagnoselog: $providerLogPath" } else { '' }
                         throw "Docker lieferte keine gueltige Container-ID: $(($output | Out-String).Trim())$logHint"
                     }
@@ -509,7 +509,7 @@ function New-DockerInstance {
                     }
 
                     if ($ownedHostPolicy) { Remove-LabOwnedHostFailedContainer -StateRoot $StateRoot -Intent $ownedContainerIntent }
-                    else { & $dockerInvocation rm -f $containerName 1>$null 2>$null }
+                    else { Invoke-LabContainerRuntimeCommand -Provider docker -StateRoot $StateRoot -Invocation $dockerInvocation -ArgumentList (@('rm')+@('-f')+@($containerName)) 1>$null 2>$null }
                     $bindingVerificationRetries++
                     if ($bindingVerificationRetries -gt 1) {
                         throw "DOCKER_PORT_BINDING_NOT_PUBLISHED: Docker hat 1433/tcp nicht auf 127.0.0.1:$selectedPort veröffentlicht. Docker Desktop bzw. die Container-Runtime prüfen und den Start erneut ausführen."
@@ -526,7 +526,7 @@ function New-DockerInstance {
                     throw "Docker-Container konnte nicht erstellt werden: $outputText"
                 }
 
-                if (-not $ownedHostPolicy) { & $dockerInvocation rm -f $containerName 1>$null 2>$null }
+                if (-not $ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider docker -StateRoot $StateRoot -Invocation $dockerInvocation -ArgumentList (@('rm')+@('-f')+@($containerName)) 1>$null 2>$null }
                 $nextPort = $selectedPort + 1
                 Write-LabWarning "Port $selectedPort wurde beim Runtime-Bindungsschritt belegt. Docker versucht Port $nextPort."
             }
@@ -560,9 +560,9 @@ function Get-DockerInstanceStatus {
 
     try {
         $dockerInvocation = Get-LabHostToolInvocation -Name docker
-        $inspect = $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider docker -StateRoot $StateRoot -Invocation $dockerInvocation -ArgumentList @('inspect', $ContainerIdOrName) } else { & $dockerInvocation inspect $ContainerIdOrName }) 2>$null | ConvertFrom-Json -Depth 30
+        $inspect = $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider docker -StateRoot $StateRoot -Invocation $dockerInvocation -ArgumentList @('inspect', $ContainerIdOrName) } else { Invoke-LabContainerRuntimeCommand -Provider docker -StateRoot $StateRoot -Invocation $dockerInvocation -ArgumentList (@('inspect')+@($ContainerIdOrName))  }) 2>$null | ConvertFrom-Json -Depth 30
         if ($LASTEXITCODE -ne 0 -or -not $inspect) {
-            $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider docker -StateRoot $StateRoot -Invocation $dockerInvocation -ArgumentList @('info') } else { & $dockerInvocation info }) 1>$null 2>$null
+            $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider docker -StateRoot $StateRoot -Invocation $dockerInvocation -ArgumentList @('info') } else { Invoke-LabContainerRuntimeCommand -Provider docker -StateRoot $StateRoot -Invocation $dockerInvocation -ArgumentList (@('info'))  }) 1>$null 2>$null
             $runtimeAvailable = $LASTEXITCODE -eq 0
             return [PSCustomObject]@{
                 Available = $runtimeAvailable
@@ -613,8 +613,8 @@ function Start-DockerInstance {
         $ContainerIdOrName = Resolve-LabOwnedHostContainerEffect -StateRoot $StateRoot -Provider docker -ContainerIdOrName $ContainerIdOrName -RunId $RunId
     }
     $dockerInvocation = Get-LabHostToolInvocation -Name docker
-    $operation = Invoke-LabProviderOperation -Provider docker -Phase 'container-start' -RunId $RunId -Native `
-        -Command "docker start $ContainerIdOrName" -Action { $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider docker -StateRoot $StateRoot -Invocation $dockerInvocation -ArgumentList @('start', $ContainerIdOrName) } else { & $dockerInvocation start $ContainerIdOrName }) 2>&1 }
+    $operation = Invoke-LabProviderOperation -Provider docker -Phase 'container-start' -RunId $RunId -NativeResult `
+        -Command "docker start $ContainerIdOrName" -Action { $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider docker -StateRoot $StateRoot -Invocation $dockerInvocation -ArgumentList @('start', $ContainerIdOrName) -NativeResult -TimeoutSeconds 600 } else { Invoke-LabContainerRuntimeCommand -Provider docker -StateRoot $StateRoot -Invocation $dockerInvocation -ArgumentList (@('start')+@($ContainerIdOrName)) -NativeResult -TimeoutSeconds 600  }) 2>&1 }
     if (-not $operation.Succeeded) {
         throw "Docker-Container konnte nicht gestartet werden: $ContainerIdOrName"
     }
@@ -634,9 +634,9 @@ function Stop-DockerInstance {
         $ContainerIdOrName = Resolve-LabOwnedHostContainerEffect -StateRoot $StateRoot -Provider docker -ContainerIdOrName $ContainerIdOrName -RunId $RunId
     }
     $dockerInvocation = Get-LabHostToolInvocation -Name docker
-    $operation = Invoke-LabProviderOperation -Provider docker -Phase 'container-stop' -RunId $RunId -Native `
+    $operation = Invoke-LabProviderOperation -Provider docker -Phase 'container-stop' -RunId $RunId -NativeResult `
         -Command "docker stop -t $TimeoutSeconds $ContainerIdOrName" `
-        -Action { $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider docker -StateRoot $StateRoot -Invocation $dockerInvocation -ArgumentList @('stop', '-t', $TimeoutSeconds, $ContainerIdOrName) } else { & $dockerInvocation stop -t $TimeoutSeconds $ContainerIdOrName }) 2>&1 }
+        -Action { $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider docker -StateRoot $StateRoot -Invocation $dockerInvocation -ArgumentList @('stop', '-t', $TimeoutSeconds, $ContainerIdOrName) -NativeResult -TimeoutSeconds ($TimeoutSeconds+30) } else { Invoke-LabContainerRuntimeCommand -Provider docker -StateRoot $StateRoot -Invocation $dockerInvocation -ArgumentList (@('stop')+@('-t')+@($TimeoutSeconds)+@($ContainerIdOrName)) -NativeResult -TimeoutSeconds ($TimeoutSeconds+30)  }) 2>&1 }
     if (-not $operation.Succeeded) {
         throw "Docker-Container konnte nicht gestoppt werden: $ContainerIdOrName"
     }
@@ -652,7 +652,7 @@ function Remove-DockerInstance {
 
 
     $dockerInvocation = Get-LabHostToolInvocation -Name docker
-    $inspect = $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider docker -StateRoot $StateRoot -Invocation $dockerInvocation -ArgumentList @('inspect', $ContainerIdOrName) } else { & $dockerInvocation inspect $ContainerIdOrName }) 2>$null | ConvertFrom-Json -Depth 30
+    $inspect = $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider docker -StateRoot $StateRoot -Invocation $dockerInvocation -ArgumentList @('inspect', $ContainerIdOrName) } else { Invoke-LabContainerRuntimeCommand -Provider docker -StateRoot $StateRoot -Invocation $dockerInvocation -ArgumentList (@('inspect')+@($ContainerIdOrName))  }) 2>$null | ConvertFrom-Json -Depth 30
     if ($LASTEXITCODE -ne 0 -or -not $inspect) {
         Write-LabWarning "Container nicht gefunden: $ContainerIdOrName (bereits entfernt?)"
         return
@@ -672,8 +672,8 @@ function Remove-DockerInstance {
         Assert-LabOwnedHostContainerEffect -StateRoot $StateRoot -RunId $runId -Provider docker -ContainerId ([string]$item.Id)
         $ContainerIdOrName = [string]$item.Id
     }
-    $operation = Invoke-LabProviderOperation -Provider docker -Phase 'container-remove' -RunId $runId -Native `
-        -Command "docker rm -f $ContainerIdOrName" -Action { $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider docker -StateRoot $StateRoot -Invocation $dockerInvocation -ArgumentList @('rm', '-f', $ContainerIdOrName) } else { & $dockerInvocation rm -f $ContainerIdOrName }) 2>&1 }
+    $operation = Invoke-LabProviderOperation -Provider docker -Phase 'container-remove' -RunId $runId -NativeResult `
+        -Command "docker rm -f $ContainerIdOrName" -Action { $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider docker -StateRoot $StateRoot -Invocation $dockerInvocation -ArgumentList @('rm', '-f', $ContainerIdOrName) -NativeResult -TimeoutSeconds 60 } else { Invoke-LabContainerRuntimeCommand -Provider docker -StateRoot $StateRoot -Invocation $dockerInvocation -ArgumentList (@('rm')+@('-f')+@($ContainerIdOrName)) -NativeResult -TimeoutSeconds 60  }) 2>&1 }
     if (-not $operation.Succeeded) {
         throw "Docker-Container konnte nicht entfernt werden: $ContainerIdOrName"
     }

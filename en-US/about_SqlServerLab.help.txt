@@ -14,6 +14,10 @@ LONG DESCRIPTION
     identify resources owned by this module.
 
 COMMAND DISCOVERY
+    Get-SqlServerLabRunArtifactRemovalPlan previews metadata removal for one
+    removed run. Invoke-SqlServerLabRunArtifactRemoval requires that preview,
+    revalidates resources and references, and resumes only its own operation.
+
     List all exported commands and their module ownership:
 
         Get-Command -Module SqlServerLab | Sort-Object Name

@@ -191,8 +191,11 @@ function Remove-LabRuntimeResourceForCleanup {
     }
 
     $runtimeInvocation = Get-LabHostToolInvocation -Name $Provider
-    $inspectionOutput = @(& $runtimeInvocation $ResourceType inspect $ResourceId 2>$null)
-    if ($LASTEXITCODE -ne 0) {
+    $observed=Invoke-LabContainerRuntimeCommand -Provider $Provider -StateRoot $StateRoot -Invocation $runtimeInvocation -ArgumentList @($ResourceType,'inspect',$ResourceId) -NativeResult
+    $inspectionOutput=@($observed.Output)
+    if ($observed.ExitCode -ne 0) {
+        $inventory=Invoke-LabContainerRuntimeCommand -Provider $Provider -StateRoot $StateRoot -Invocation $runtimeInvocation -ArgumentList @($ResourceType,'ls','--format','{{.Name}}') -NativeResult
+        if ($inventory.ExitCode -ne 0 -or $ResourceId -cin @($inventory.Output | ForEach-Object {$_.Trim()})) {throw 'RUNTIME_RESOURCE_ABSENCE_UNVERIFIABLE'}
         Write-LabInfo "  Bereits entfernt oder nicht vorhanden: $ResourceType $ResourceId"
         return
     }
@@ -215,10 +218,12 @@ function Remove-LabRuntimeResourceForCleanup {
         }
     }
 
-    & $runtimeInvocation $ResourceType rm $ResourceId 1>$null 2>$null
-    if ($LASTEXITCODE -ne 0) {
+    $removed=Invoke-LabContainerRuntimeCommand -Provider $Provider -StateRoot $StateRoot -Invocation $runtimeInvocation -ArgumentList @($ResourceType,'rm',$ResourceId) -NativeResult
+    if ($removed.ExitCode -ne 0) {
         throw "$Provider konnte $ResourceType '$ResourceId' nicht entfernen."
     }
+    $remaining=Invoke-LabContainerRuntimeCommand -Provider $Provider -StateRoot $StateRoot -Invocation $runtimeInvocation -ArgumentList @($ResourceType,'ls','--format','{{.Name}}') -NativeResult
+    if ($remaining.ExitCode -ne 0 -or $ResourceId -cin @($remaining.Output | ForEach-Object {$_.Trim()})) {throw 'RUNTIME_RESOURCE_DELETE_UNCONFIRMED'}
 }
 
 function Remove-LabHyperVResourceForCleanup {

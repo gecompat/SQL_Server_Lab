@@ -24,7 +24,7 @@ function Test-PodmanAvailable {
     }
 
     try {
-        $versionOutput = $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider podman -StateRoot $StateRoot -Invocation $podmanInvocation -ArgumentList @('version', '--format', '{{.Client.Version}}') } else { & $podmanInvocation version --format '{{.Client.Version}}' }) 2>&1
+        $versionOutput = $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider podman -StateRoot $StateRoot -Invocation $podmanInvocation -ArgumentList @('version', '--format', '{{.Client.Version}}') } else { Invoke-LabContainerRuntimeCommand -Provider podman -StateRoot $StateRoot -Invocation $podmanInvocation -ArgumentList (@('version')+@('--format')+@('{{.Client.Version}}'))  }) 2>&1
         if ($LASTEXITCODE -ne 0) {
             return [PSCustomObject]@{
                 Available = $false
@@ -33,7 +33,7 @@ function Test-PodmanAvailable {
             }
         }
 
-        $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider podman -StateRoot $StateRoot -Invocation $podmanInvocation -ArgumentList @('info') } else { & $podmanInvocation info }) 1>$null 2>$null
+        $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider podman -StateRoot $StateRoot -Invocation $podmanInvocation -ArgumentList @('info') } else { Invoke-LabContainerRuntimeCommand -Provider podman -StateRoot $StateRoot -Invocation $podmanInvocation -ArgumentList (@('info'))  }) 1>$null 2>$null
         if ($LASTEXITCODE -ne 0) {
             return [PSCustomObject]@{
                 Available = $false
@@ -109,7 +109,7 @@ function Initialize-PodmanSqlNamedVolume {
         return $false
     }
     $podmanInvocation = Get-LabHostToolInvocation -Name podman
-    $inspectionOutput = @($(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider podman -StateRoot $StateRoot -Invocation $podmanInvocation -ArgumentList @('volume', 'inspect', $VolumeName) } else { & $podmanInvocation volume inspect $VolumeName }) 2>$null)
+    $inspectionOutput = @($(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider podman -StateRoot $StateRoot -Invocation $podmanInvocation -ArgumentList @('volume', 'inspect', $VolumeName) } else { Invoke-LabContainerRuntimeCommand -Provider podman -StateRoot $StateRoot -Invocation $podmanInvocation -ArgumentList (@('volume')+@('inspect')+@($VolumeName))  }) 2>$null)
     $volumeExists = $LASTEXITCODE -eq 0
     if ($volumeExists -and $SaPasswordMinimumLength -lt 8) { throw 'SA_PASSWORD_POLICY_EXISTING_VOLUME_FORBIDDEN' }
 
@@ -136,9 +136,9 @@ function Initialize-PodmanSqlNamedVolume {
         if ($Persistence) { $labelArguments += @('--label', "sql-server-lab.persistence=$Persistence") }
         if ($PersistentStorageId) { $labelArguments += @('--label', "sql-server-lab.persistent-storage-id=$PersistentStorageId") }
         if ($PersistentStorageRole) { $labelArguments += @('--label', "sql-server-lab.storage-role=$PersistentStorageRole") }
-        $volumeCreate = Invoke-LabProviderOperation -Provider podman -Phase 'volume-create' -RunId $RunId -Native `
+        $volumeCreate = Invoke-LabProviderOperation -Provider podman -Phase 'volume-create' -RunId $RunId -NativeResult `
             -Command "podman volume create $(@($labelArguments) -join ' ') $VolumeName" `
-            -Action { $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider podman -StateRoot $StateRoot -Invocation $podmanInvocation -ArgumentList @('volume', 'create', $labelArguments, $VolumeName) } else { & $podmanInvocation volume create @labelArguments $VolumeName }) 2>&1 }
+            -Action { $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider podman -StateRoot $StateRoot -Invocation $podmanInvocation -ArgumentList @('volume', 'create', $labelArguments, $VolumeName) -NativeResult -TimeoutSeconds 60 } else { Invoke-LabContainerRuntimeCommand -Provider podman -StateRoot $StateRoot -Invocation $podmanInvocation -ArgumentList (@('volume')+@('create')+@($labelArguments)+@($VolumeName)) -NativeResult -TimeoutSeconds 60  }) 2>&1 }
         if (-not $volumeCreate.Succeeded) {
             throw "PODMAN_SQL_VOLUME_CREATE_FAILED: $VolumeName - $(@($volumeCreate.Output) -join ' ')"
         }
@@ -154,9 +154,9 @@ function Initialize-PodmanSqlNamedVolume {
     if ($SaPasswordMinimumLength -lt 8) {
         $initializationCommand += ' && ' + (Get-LabSaPasswordConfigSeedCommand -MinimumLength $SaPasswordMinimumLength)
     }
-    $volumeInitialize = Invoke-LabProviderOperation -Provider podman -Phase 'volume-initialize' -RunId $RunId -Native `
+    $volumeInitialize = Invoke-LabProviderOperation -Provider podman -Phase 'volume-initialize' -RunId $RunId -NativeResult `
         -Command "podman run --rm --user 0:0 --entrypoint /bin/sh -v ${VolumeName}:/sql-lab-volume-init $Image -c <volume-initialization>" `
-        -Action { $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider podman -StateRoot $StateRoot -Invocation $podmanInvocation -ArgumentList @('run', '--rm', '--user', '0:0', '--entrypoint', '/bin/sh', '-v', "${VolumeName}:/sql-lab-volume-init", $Image, '-c', $initializationCommand) } else { & $podmanInvocation run --rm --user 0:0 --entrypoint /bin/sh -v "${VolumeName}:/sql-lab-volume-init" $Image -c $initializationCommand }) 2>&1 }
+        -Action { $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider podman -StateRoot $StateRoot -Invocation $podmanInvocation -ArgumentList @('run', '--rm', '--user', '0:0', '--entrypoint', '/bin/sh', '-v', "${VolumeName}:/sql-lab-volume-init", $Image, '-c', $initializationCommand) -NativeResult -TimeoutSeconds 600 } else { Invoke-LabContainerRuntimeCommand -Provider podman -StateRoot $StateRoot -Invocation $podmanInvocation -ArgumentList (@('run')+@('--rm')+@('--user')+@('0:0')+@('--entrypoint')+@('/bin/sh')+@('-v')+@("${VolumeName}:/sql-lab-volume-init")+@($Image)+@('-c')+@($initializationCommand)) -NativeResult -TimeoutSeconds 600  }) 2>&1 }
     if (-not $volumeInitialize.Succeeded) {
         if ($SaPasswordMinimumLength -lt 8) { throw 'SA_PASSWORD_POLICY_CONFIG_SEED_FAILED' }
         throw "PODMAN_SQL_VOLUME_INITIALIZATION_FAILED: $VolumeName - $(@($volumeInitialize.Output) -join ' ')"
@@ -359,9 +359,9 @@ function New-PodmanInstance {
 
                 Write-LabInfo "Container erstellen: $containerName (Port $selectedPort, Image $image) [Podman]"
                 foreach ($boundDrive in @($Drives | Where-Object { $_.runtimeBinding })) { Assert-LabContainerStoreRuntimeScope -Provider podman -RuntimeBinding $boundDrive.runtimeBinding -StateRoot $StateRoot }
-                $providerOperation = Invoke-LabProviderOperation -Provider podman -Phase 'container-create' -RunId $RunId -Native `
+                $providerOperation = Invoke-LabProviderOperation -Provider podman -Phase 'container-create' -RunId $RunId -NativeResult `
                     -Command "podman $(@($podmanArguments | ForEach-Object { $_ }) -join ' ')" `
-                    -Action { $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider podman -StateRoot $StateRoot -Invocation $podmanInvocation -ArgumentList @($podmanArguments) } else { & $podmanInvocation @podmanArguments }) 2>&1 }
+                    -Action { $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider podman -StateRoot $StateRoot -Invocation $podmanInvocation -ArgumentList @($podmanArguments) -NativeResult -TimeoutSeconds 600 } else { Invoke-LabContainerRuntimeCommand -Provider podman -StateRoot $StateRoot -Invocation $podmanInvocation -ArgumentList (@($podmanArguments)) -NativeResult -TimeoutSeconds 600  }) 2>&1 }
                 $output = @($providerOperation.Output)
                 $exitCode = $providerOperation.ExitCode
                 $providerLogPath = $providerOperation.LogPath
@@ -377,7 +377,7 @@ function New-PodmanInstance {
                     throw "Podman-Container konnte nicht erstellt werden: $outputText$logHint"
                 }
 
-                if (-not $ownedHostPolicy) { & $podmanInvocation rm -f $containerName 1>$null 2>$null }
+                if (-not $ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider podman -StateRoot $StateRoot -Invocation $podmanInvocation -ArgumentList (@('rm')+@('-f')+@($containerName)) 1>$null 2>$null }
                 $nextPort = $selectedPort + 1
                 Write-LabWarning "Port $selectedPort wurde beim Runtime-Bindungsschritt belegt. Podman versucht Port $nextPort."
             }
@@ -424,9 +424,9 @@ function Get-PodmanInstanceStatus {
 
     try {
         $podmanInvocation = Get-LabHostToolInvocation -Name podman
-        $inspect = $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider podman -StateRoot $StateRoot -Invocation $podmanInvocation -ArgumentList @('inspect', $ContainerIdOrName) } else { & $podmanInvocation inspect $ContainerIdOrName }) 2>$null | ConvertFrom-Json -Depth 30
+        $inspect = $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider podman -StateRoot $StateRoot -Invocation $podmanInvocation -ArgumentList @('inspect', $ContainerIdOrName) } else { Invoke-LabContainerRuntimeCommand -Provider podman -StateRoot $StateRoot -Invocation $podmanInvocation -ArgumentList (@('inspect')+@($ContainerIdOrName))  }) 2>$null | ConvertFrom-Json -Depth 30
         if ($LASTEXITCODE -ne 0 -or -not $inspect) {
-            $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider podman -StateRoot $StateRoot -Invocation $podmanInvocation -ArgumentList @('info') } else { & $podmanInvocation info }) 1>$null 2>$null
+            $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider podman -StateRoot $StateRoot -Invocation $podmanInvocation -ArgumentList @('info') } else { Invoke-LabContainerRuntimeCommand -Provider podman -StateRoot $StateRoot -Invocation $podmanInvocation -ArgumentList (@('info'))  }) 1>$null 2>$null
             $runtimeAvailable = $LASTEXITCODE -eq 0
             return [PSCustomObject]@{
                 Available = $runtimeAvailable
@@ -481,8 +481,8 @@ function Start-PodmanInstance {
     }
     $podmanInvocation = Get-LabHostToolInvocation -Name podman
     do {
-        $operation = Invoke-LabProviderOperation -Provider podman -Phase 'container-start' -RunId $RunId -Native `
-            -Command "podman start $ContainerIdOrName" -Action { $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider podman -StateRoot $StateRoot -Invocation $podmanInvocation -ArgumentList @('start', $ContainerIdOrName) } else { & $podmanInvocation start $ContainerIdOrName }) 2>&1 }
+        $operation = Invoke-LabProviderOperation -Provider podman -Phase 'container-start' -RunId $RunId -NativeResult `
+            -Command "podman start $ContainerIdOrName" -Action { $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider podman -StateRoot $StateRoot -Invocation $podmanInvocation -ArgumentList @('start', $ContainerIdOrName) -NativeResult -TimeoutSeconds 600 } else { Invoke-LabContainerRuntimeCommand -Provider podman -StateRoot $StateRoot -Invocation $podmanInvocation -ArgumentList (@('start')+@($ContainerIdOrName)) -NativeResult -TimeoutSeconds 600  }) 2>&1 }
         $lastOutput = @($operation.Output)
         $exitCode = $operation.ExitCode
         if ($exitCode -eq 0) {
@@ -527,9 +527,9 @@ function Stop-PodmanInstance {
         $ContainerIdOrName = Resolve-LabOwnedHostContainerEffect -StateRoot $StateRoot -Provider podman -ContainerIdOrName $ContainerIdOrName -RunId $RunId
     }
     $podmanInvocation = Get-LabHostToolInvocation -Name podman
-    $operation = Invoke-LabProviderOperation -Provider podman -Phase 'container-stop' -RunId $RunId -Native `
+    $operation = Invoke-LabProviderOperation -Provider podman -Phase 'container-stop' -RunId $RunId -NativeResult `
         -Command "podman stop -t $TimeoutSeconds $ContainerIdOrName" `
-        -Action { $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider podman -StateRoot $StateRoot -Invocation $podmanInvocation -ArgumentList @('stop', '-t', $TimeoutSeconds, $ContainerIdOrName) } else { & $podmanInvocation stop -t $TimeoutSeconds $ContainerIdOrName }) 2>&1 }
+        -Action { $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider podman -StateRoot $StateRoot -Invocation $podmanInvocation -ArgumentList @('stop', '-t', $TimeoutSeconds, $ContainerIdOrName) -NativeResult -TimeoutSeconds ($TimeoutSeconds+30) } else { Invoke-LabContainerRuntimeCommand -Provider podman -StateRoot $StateRoot -Invocation $podmanInvocation -ArgumentList (@('stop')+@('-t')+@($TimeoutSeconds)+@($ContainerIdOrName)) -NativeResult -TimeoutSeconds ($TimeoutSeconds+30)  }) 2>&1 }
     if (-not $operation.Succeeded) {
         throw "PODMAN_CONTAINER_STOP_FAILED: $ContainerIdOrName - $(@($operation.Output) -join ' ')"
     }
@@ -545,7 +545,7 @@ function Remove-PodmanInstance {
 
 
     $podmanInvocation = Get-LabHostToolInvocation -Name podman
-    $inspect = $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider podman -StateRoot $StateRoot -Invocation $podmanInvocation -ArgumentList @('inspect', $ContainerIdOrName) } else { & $podmanInvocation inspect $ContainerIdOrName }) 2>$null | ConvertFrom-Json -Depth 30
+    $inspect = $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider podman -StateRoot $StateRoot -Invocation $podmanInvocation -ArgumentList @('inspect', $ContainerIdOrName) } else { Invoke-LabContainerRuntimeCommand -Provider podman -StateRoot $StateRoot -Invocation $podmanInvocation -ArgumentList (@('inspect')+@($ContainerIdOrName))  }) 2>$null | ConvertFrom-Json -Depth 30
     if ($LASTEXITCODE -ne 0 -or -not $inspect) {
         Write-LabWarning "Container nicht gefunden: $ContainerIdOrName (bereits entfernt?)"
         return
@@ -565,8 +565,8 @@ function Remove-PodmanInstance {
         Assert-LabOwnedHostContainerEffect -StateRoot $StateRoot -RunId $runId -Provider podman -ContainerId ([string]$item.Id)
         $ContainerIdOrName = [string]$item.Id
     }
-    $operation = Invoke-LabProviderOperation -Provider podman -Phase 'container-remove' -RunId $runId -Native `
-        -Command "podman rm -f $ContainerIdOrName" -Action { $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider podman -StateRoot $StateRoot -Invocation $podmanInvocation -ArgumentList @('rm', '-f', $ContainerIdOrName) } else { & $podmanInvocation rm -f $ContainerIdOrName }) 2>&1 }
+    $operation = Invoke-LabProviderOperation -Provider podman -Phase 'container-remove' -RunId $runId -NativeResult `
+        -Command "podman rm -f $ContainerIdOrName" -Action { $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider podman -StateRoot $StateRoot -Invocation $podmanInvocation -ArgumentList @('rm', '-f', $ContainerIdOrName) -NativeResult -TimeoutSeconds 60 } else { Invoke-LabContainerRuntimeCommand -Provider podman -StateRoot $StateRoot -Invocation $podmanInvocation -ArgumentList (@('rm')+@('-f')+@($ContainerIdOrName)) -NativeResult -TimeoutSeconds 60  }) 2>&1 }
     if (-not $operation.Succeeded) {
         throw "Podman-Container konnte nicht entfernt werden: $ContainerIdOrName"
     }

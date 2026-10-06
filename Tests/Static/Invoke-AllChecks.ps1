@@ -59,6 +59,7 @@ $checks = @(
     'Invoke-ResourceAssessmentChecks.ps1',
     'Invoke-SecurityToolCatalogChecks.ps1',
     'Invoke-CleanupRecoveryChecks.ps1',
+    'Invoke-RunArtifactRemovalChecks.ps1',
     'Invoke-MixedCleanupRecoveryChecks.ps1',
     'Invoke-CleanupAuditChecks.ps1',
     'Invoke-PersistentStorageCatalogChecks.ps1',

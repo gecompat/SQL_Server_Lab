@@ -9,6 +9,10 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $failures = [System.Collections.Generic.List[string]]::new()
 $passed = 0
 $selector = Join-Path $repoRoot 'Tools/Get-CiTestSelection.ps1'
+foreach ($path in @('Private/RunArtifactRemoval.ps1','Public/RunArtifactRemoval.ps1','Private/StateMachine.ps1','Private/RetainedStoreRuntime.ps1','Private/StorageContract.ps1')) {
+    $selected=& $selector -ChangedPath @($path)
+    Add-CheckResult -Name "Run artifact safety remains selected: $path" -Success ('Invoke-RunArtifactRemovalChecks.ps1' -in $selected.StaticChecks)
+}
 . (Join-Path $PSScriptRoot 'Fixtures/CiStrategyNightlyAuthorizationChecks.ps1')
 foreach ($menuPath in @('Public/Invoke-SqlServerLab.ps1','Public/BatchConsole.ps1')) {
     foreach ($path in @($menuPath,$menuPath.Replace('/','\'))) {
