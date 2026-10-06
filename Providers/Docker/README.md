@@ -3,7 +3,9 @@
 Die [SA-Passwortpolicy-Vorbereitung](../../Documentation/Architecture/SA_PASSWORD_POLICY.md)
 seedet ein bewusstes Customminimum nur in eine frische eigene kurzlebige
 SQL2025-CU-Systemvolume vor Standardlaunch. Bestehende Config/Volumes bleiben
-gesperrt; native Erststartabnahme ist offen.
+gesperrt. Ein eigener Docker-Erststart mit SQL2025-CU9 und Mindestlaenge drei,
+SA-Anmeldung, Restart/Configerhalt und Cleanup ist bestanden; andere CUs und
+Mindestlaengen bleiben ohne native Abnahme.
 
 Container-basierte SQL-Server-Instanzen via Docker Desktop oder Docker Engine.
 

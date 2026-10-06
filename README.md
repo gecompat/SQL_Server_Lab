@@ -3,7 +3,9 @@
 SA-Passwort-Vorpruefung und gefuehrte Korrektur in CLI und Browser sind im
 [Passwortvertrag](Documentation/Architecture/SA_PASSWORD_POLICY.md)
 beschrieben. Die bewusste Mindestlaengenwahl bleibt auf neue eigene Standard-
-SQL2025-CU-Container begrenzt; native Erststartabnahme ist noch offen.
+SQL2025-CU-Container begrenzt. Getrennte Docker-/Podman-Erststarts mit
+SQL2025-CU9 und Mindestlaenge drei sind bestanden; ein gueltiger HTTP-
+Creationjob und gerenderte Browserbedienung bleiben offen.
 
 ## Container-Autostart nur vorprüfen
 

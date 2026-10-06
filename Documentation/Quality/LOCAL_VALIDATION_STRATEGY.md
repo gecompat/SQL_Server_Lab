@@ -12,8 +12,9 @@ Volumevertragssuite bleibt gekoppelt. `SaPasswordPolicyHttpChecks.ps1` fuehrt
 den echten Action-Routebody mit synthetischem Job aus; ungueltige, doppelte und
 unbefugte Felder sowie kurze Defaultpasswoerter werden vor der Jobanlage
 abgewiesen. `SaPasswordPolicyUiChecks.cjs` fuehrt die tatsaechlichen Browser-
-Submit-Handler mit synthetischem DOM aus: Korrektur, Abbruch, nur bewusst
-ausgewaehlte Mindestlaenge und Manifestdefault. Beide Fixtures sind vor dem
+Submit-Handler mit synthetischem DOM aus: Korrektur, Abbruch, Widerruf einer
+frueheren Mindestlaengenwahl nach Passwortkorrektur, nur bewusst ausgewaehlte
+Mindestlaenge und Manifestdefault. Beide Fixtures sind vor dem
 Abschluss der bestehenden WorkflowUI-Suite eingebunden. Sie sind keine echte
 HTTP-Netz- oder gerenderte Browserabnahme. Ausgewaehlte Regression/
 Abschlussgates bleiben separat. Die ausgewaehlten 21 statischen Suiten

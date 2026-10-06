@@ -2,7 +2,8 @@
 
 Status: Backend, CLI und Browser offline implementiert; native Erststartabnahme
 fuer Docker und Podman auf SQL2025-CU9 mit Mindestlaenge drei bestanden.
-Gerenderter Browser, positiver HTTP-Creationjob und PR-Abschlussgate bleiben offen.
+Gerenderter Browser und positiver HTTP-Creationjob bleiben offen; das
+PR-Abschlussgate muss den jeweils aktuellen Head belegen.
 
 ## Gemeinsame Barriere
 

@@ -14,9 +14,9 @@ function slice(start, end) {
   return source.slice(first, last);
 }
 
-const elements = new Map();
+const elements = new Map(), listeners = new Map();
 function element(selector) {
-  if (!elements.has(selector)) elements.set(selector, { value: '', checked: false, hidden: true, close() {} });
+  if (!elements.has(selector)) elements.set(selector, { value: '', checked: false, hidden: true, close() {}, addEventListener(type, handler) { listeners.set(`${selector}:${type}`, handler); } });
   return elements.get(selector);
 }
 const jobs = [], errors = [];
@@ -28,7 +28,7 @@ const context = vm.createContext({
   },
   showError(error) { errors.push(error.message); }
 });
-vm.runInContext(slice('function resetContainerPasswordAdjustment()', "$('#container-persistent-data').addEventListener"), context);
+vm.runInContext(slice('function resetContainerPasswordAdjustment()', "$('#new-manifest').addEventListener"), context);
 const handlers = new Map();
 for (const selector of ['#container-form', '#manifest-run-form']) {
   element(selector).addEventListener = (_, handler) => handlers.set(selector, handler);
@@ -55,25 +55,43 @@ async function run() {
   check(element('#container-password-adjustment').hidden === false, 'Eligible short password exposes explicit adjustment');
   element('#container-password-minimum').value = '3';
   element('#container-password-adjust-confirm').checked = true;
+  element('#container-password').value = element('#container-password-repeat').value = 'Ab3xxxxx';
+  check(await submit('#container-form') && jobs.length === 1 && !('SaPasswordMinimumLength' in jobs[0].parameters), 'Corrected password cannot retain a stale custom minimum');
+  element('#container-password').value = element('#container-password-repeat').value = 'Ab3';
+  check(await submit('#container-form') && jobs.length === 1, 'Another short password still requires explicit adjustment');
+  element('#container-password-minimum').value = '3';
+  element('#container-password-adjust-confirm').checked = true;
+  element('#container-password').value = element('#container-password-repeat').value = 'Ab3xxxxx';
+  listeners.get('#container-password:input')();
+  check(element('#container-password-adjust-confirm').checked === false && element('#container-password-adjustment').hidden === true && element('#container-password-minimum').value === '8', 'Password edit revokes the adjustment choice');
+  check(await submit('#container-form') && jobs.length === 2 && !('SaPasswordMinimumLength' in jobs[1].parameters), 'Edited password uses default policy');
+  element('#container-password').value = element('#container-password-repeat').value = 'Ab3';
+  check(await submit('#container-form') && jobs.length === 2, 'Short password needs a fresh adjustment choice');
+  element('#container-password-minimum').value = '3';
+  element('#container-password-adjust-confirm').checked = true;
+  listeners.get('#container-password:change')();
+  check(element('#container-password-adjust-confirm').checked === false && element('#container-password-minimum').value === '8', 'Password change revokes the adjustment choice');
+  element('#container-password-minimum').value = '3';
+  element('#container-password-adjust-confirm').checked = true;
   element('#container-storage-action').value = 'ATTACH'; // Hidden after persistent storage was disabled.
-  check(await submit('#container-form') && jobs.length === 1 && jobs[0].parameters.SaPasswordMinimumLength === 3, 'Confirmed eligible minimum reaches exactly one creation job despite stale hidden storage action');
+  check(await submit('#container-form') && jobs.length === 3 && jobs[2].parameters.SaPasswordMinimumLength === 3, 'Confirmed eligible minimum reaches exactly one creation job despite stale hidden storage action');
   element('#container-storage-action').value = 'NEW';
   check(element('#container-password').value === '' && element('#container-password-adjust-confirm').checked === false, 'Queued secret and adjustment are cleared');
   element('#container-version').value = '2025';
   element('#container-password').value = element('#container-password-repeat').value = 'Ab3';
-  check(await submit('#container-form') && jobs.length === 1 && element('#container-password-adjustment').hidden === true, 'Floating version cannot offer adjustment or create job');
+  check(await submit('#container-form') && jobs.length === 3 && element('#container-password-adjustment').hidden === true, 'Floating version cannot offer adjustment or create job');
   element('#container-version').value = '2025-CU9';
   element('#container-persistent-data').checked = true;
-  check(await submit('#container-form') && jobs.length === 1, 'Persistent target cannot create short-password job');
+  check(await submit('#container-form') && jobs.length === 3, 'Persistent target cannot create short-password job');
   element('#container-persistent-data').checked = false;
   element('#container-password').value = element('#container-password-repeat').value = 'Ab3xxxxx';
-  check(await submit('#container-form') && jobs.length === 2 && !('SaPasswordMinimumLength' in jobs[1].parameters), 'Corrected password uses default policy');
+  check(await submit('#container-form') && jobs.length === 4 && !('SaPasswordMinimumLength' in jobs[3].parameters), 'Corrected password uses default policy');
   element('#manifest-run-password').value = 'Ab3';
-  check(await submit('#manifest-run-form') && jobs.length === 2, 'Manifest short password creates no job');
+  check(await submit('#manifest-run-form') && jobs.length === 4, 'Manifest short password creates no job');
   element('#manifest-run-password').value = 'Ab3xxxxx';
   element('#manifest-run-path').value = 'synthetic.json';
-  check(await submit('#manifest-run-form') && jobs.length === 3 && jobs[2].action === 'NewContainerLabFromManifest', 'Manifest valid password uses existing action');
-  check(!(await submit('#container-form', true)) && jobs.length === 3, 'Cancel does not submit');
+  check(await submit('#manifest-run-form') && jobs.length === 5 && jobs[4].action === 'NewContainerLabFromManifest', 'Manifest valid password uses existing action');
+  check(!(await submit('#container-form', true)) && jobs.length === 5, 'Cancel does not submit');
   check(errors.length > 0 && errors.every(message => !message.includes('Ab3')), 'Validation errors contain no password');
   check(html.includes('id="container-password-adjustment" hidden') && html.includes('id="container-password-adjust-confirm"'), 'Visible choice is explicit and initially hidden');
   const routeStart = server.indexOf("if ($path -eq '/api/actions'");

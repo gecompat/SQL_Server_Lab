@@ -20,8 +20,10 @@ sechs geschützten Testumgebungen und alle übrigen Grenzen dieses Plans gelten
 weiter. Die ausgewählten statischen Verträge sowie getrennte eigene Docker-
 und Podman-Erststarts, SQL-Anmeldung, Restart/Configerhalt und Cleanup sind
 bestanden; der Schutzvergleich ergab null Findings. Der echte Loopback-HTTP-
-Weg weist ungültige Creationrequests vor einem Job ab. Gerenderter Browser,
-gültiger HTTP-Creationjob, unabhängiger Review und PR-Abschlussgate bleiben offen.
+Weg weist ungültige Creationrequests vor einem Job ab. Der unabhängige Review
+und Nachreview der Browserkorrektur sind geschlossen; 19 ausgewählte statische
+Suites bestanden. Gerenderter Browser und gültiger HTTP-Creationjob bleiben
+offen; das PR-Abschlussgate muss den jeweils aktuellen Head belegen.
 
 ## Übergabe und Benutzerpause vom 2026-10-05
 
@@ -91,9 +93,12 @@ aktuelle Freigabe oder vollständige Abnahme.
    `codex/guided-password-policy` wurde in den aktuellen Implementierungsbranch
    übernommen. Browser- und Serverweg sind synthetisch geprüft; ausgewählte
    statische Gates und getrennte Docker-/Podman-Erststarts sind bestanden.
-   Der echte Loopback-HTTP-Weg weist ungültige Creationrequests ab;
-   gerenderter Browser, gültiger HTTP-Creationjob, unabhängiger Review und
-   PR-Gate bleiben offen.
+   Der echte Loopback-HTTP-Weg weist ungültige Creationrequests ab. Der
+   unabhängige Review fand eine veraltete Mindestlängenwahl nach
+   Passwortkorrektur und widersprüchliche Nachweistexte; beides wurde
+   korrigiert und ohne weitere Findings nachgeprüft. Gerenderter Browser
+   und gültiger HTTP-Creationjob bleiben offen; das PR-Gate muss den
+   jeweils aktuellen Head belegen.
 3. **Explizite Anpassung:** Zunächst nur für neue Standardcontainer mit exakt
    katalogisiertem SQL2025-Tag unter Docker/Podman und frischer runeigener
    Systemvolume; Mindestlänge eins bis acht nur nach bewusster Auswahl.

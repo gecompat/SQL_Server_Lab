@@ -1,7 +1,9 @@
 # Dokumentationsübersicht
 
 - [SA-Passwortbarriere und bewusste AdHoc-Mindestlaenge](Architecture/SA_PASSWORD_POLICY.md)
-  – CLI- und Browserkorrektur offline geprueft; native Erststarts offen.
+  – CLI- und Browserkorrektur offline geprueft; Docker-/Podman-Erststarts mit
+  SQL2025-CU9 und Mindestlaenge drei bestanden, gueltiger HTTP-Creationjob
+  und gerenderte Browserbedienung offen.
 
 | Merkmal | Wert |
 |---|---|

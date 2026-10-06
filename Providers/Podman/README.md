@@ -3,7 +3,9 @@
 Die [SA-Passwortpolicy-Vorbereitung](../../Documentation/Architecture/SA_PASSWORD_POLICY.md)
 seedet ein bewusstes Customminimum nur in eine frische eigene kurzlebige
 SQL2025-CU-Systemvolume vor Standardlaunch. Bestehende Config/Volumes bleiben
-gesperrt; der eigene native Podman-Erststartnachweis ist offen.
+gesperrt. Ein eigener Podman-Erststart mit SQL2025-CU9 und Mindestlaenge drei,
+SA-Anmeldung, Restart/Configerhalt und Cleanup ist bestanden; andere CUs und
+Mindestlaengen bleiben ohne native Abnahme.
 
 Container via Podman. Der allgemeine Provider unterstützt rootless Betrieb;
 Der isolierte Standardmodus für SQL Server 2019/2022/2025 External Runtimes

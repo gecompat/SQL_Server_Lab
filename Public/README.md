@@ -8,8 +8,10 @@ mindestens acht, maximal 128 Zeichen und drei von vier Zeichengruppen.
 zulaessig. Der manuelle Fachdialog erlaubt Korrektur, Abbruch oder bewusstes
 Customminimum auf geeignetem Ziel. `Invoke-SqlServerLabWorkflowAction` reicht
 die nur bewusst gewaehlt kuerzere Mindestlaenge fuer `NewContainerLab` weiter;
-der Browser prueft vor der Jobanlage zusaetzlich die Eingabe. Native
-Erststartabnahme ist offen; [Vertrag](../Documentation/Architecture/SA_PASSWORD_POLICY.md).
+der Browser prueft vor der Jobanlage zusaetzlich die Eingabe. Getrennte
+Docker-/Podman-Erststarts mit SQL2025-CU9 und Mindestlaenge drei sind
+bestanden; gueltiger HTTP-Creationjob und gerenderte Browserbedienung bleiben
+offen. [Vertrag](../Documentation/Architecture/SA_PASSWORD_POLICY.md).
 
 ## Container-Autostart nur vorprüfen
 

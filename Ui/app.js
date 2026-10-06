@@ -1859,6 +1859,8 @@ $('#container-persistent-data').addEventListener('change', () => { updateContain
 $('#container-storage-action').addEventListener('change', () => { updateContainerStorageSelection(); resetContainerPasswordAdjustment(); });
 $('#container-provider').addEventListener('change', () => { updateContainerStorageSelection(); resetContainerPasswordAdjustment(); });
 $('#container-version').addEventListener('change', () => { updateContainerStorageSelection(); resetContainerPasswordAdjustment(); });
+$('#container-password').addEventListener('input', resetContainerPasswordAdjustment);
+$('#container-password').addEventListener('change', resetContainerPasswordAdjustment);
 
 $('#new-manifest').addEventListener('click', () => $('#manifest-dialog').showModal());
 
@@ -2173,7 +2175,7 @@ $('#container-form').addEventListener('submit', async (event) => {
   if ($('#container-password').value !== $('#container-password-repeat').value) { showError(new Error('Die beiden SA-Passwörter stimmen nicht überein.')); return; }
   const password = $('#container-password').value;
   const eligible = containerPasswordAdjustmentEligible();
-  const confirmed = $('#container-password-adjust-confirm').checked;
+  const confirmed = $('#container-password-adjust-confirm').checked && password.length < 8;
   const selectedMinimum = Number($('#container-password-minimum').value);
   if (confirmed && (!eligible || !Number.isInteger(selectedMinimum) || selectedMinimum < 1 || selectedMinimum > 7)) {
     showError(new Error('Diese Anpassung ist für das gewählte Ziel nicht verfügbar. Passwort korrigieren oder abbrechen.'));

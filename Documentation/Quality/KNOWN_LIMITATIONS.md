@@ -17,7 +17,7 @@ Jobanlage ab. Gueltiger HTTP-Creationjob und gerenderter Browser bleiben
 Docker und Podman bestanden am 2026-10-06 je einen eigenen SQL2025-CU9-
 Erststart mit Mindestlaenge drei, SA-Anmeldung, Configerhalt nach Restart und
 gebundenem Cleanup. Andere Mindestlaengen und CU-Images sind nicht nativ
-geprueft; das PR-Abschlussgate ist offen.
+geprueft; das PR-Abschlussgate muss den jeweils aktuellen Head belegen.
 [Vertrag](../Architecture/SA_PASSWORD_POLICY.md).
 
 
