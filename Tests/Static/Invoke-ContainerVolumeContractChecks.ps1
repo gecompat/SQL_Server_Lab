@@ -23,7 +23,7 @@ foreach ($entry in $providers.GetEnumerator()) {
     Assert-VolumeContract ($text -match "function Initialize-$($name.Substring(0,1).ToUpperInvariant())$($name.Substring(1))SqlNamedVolume") "$name besitzt eine explizite SQL-Volume-Initialisierung"
     Assert-VolumeContract ($text -match '10001:0 /sql-lab-volume-init') "$name setzt die SQL-Server-UID auf neuen Named Volumes"
     Assert-VolumeContract ($text -match "(?s)if \(-not \`$drive\.hostPath\).*?Initialize-$($name.Substring(0,1).ToUpperInvariant())$($name.Substring(1))SqlNamedVolume") "$name veraendert keine Host-Bind-Mounts"
-    Assert-VolumeContract ($text -match '(?s)volume inspect.*?return \$false') "$name initialisiert bestehende Volumes nicht erneut"
+    Assert-VolumeContract ($text -match '(?s)-ArgumentList.*?''volume''.*?''inspect''.*?return \$false') "$name initialisiert bestehende Volumes nicht erneut"
     Assert-VolumeContract (
         $text -match 'sql-server-lab\.sql-major-version=' -and
         $text -match 'sql-server-lab\.persistent-storage-id=' -and

@@ -1,5 +1,9 @@
 # Dokumentationsübersicht
 
+- [Artefakte eines entfernten Runs](User/RUN_ARTIFACT_REMOVAL.md):
+  `Get-SqlServerLabRunArtifactRemovalPlan` und `Invoke-SqlServerLabRunArtifactRemoval`
+  mit genauer Run-Auswahl, Referenz-/Retentionprüfung und Recovery.
+
 - [SA-Passwortbarriere und bewusste AdHoc-Mindestlaenge](Architecture/SA_PASSWORD_POLICY.md)
   – CLI- und Browserkorrektur offline geprueft; Docker-/Podman-Erststarts mit
   SQL2025-CU9 und Mindestlaenge drei bestanden, gueltiger HTTP-Creationjob
@@ -83,7 +87,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | Komponente | Status | Autoritative Dateien |
 |---|---|---|
 | PowerShell-Modul | implementiert | `SqlServerLab.psd1`, `SqlServerLab.psm1` |
-| Öffentliche API | 135 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
+| Öffentliche API | 137 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
 | Docker | implementiert | `Providers/Docker/DockerProvider.ps1` |
 | Podman | implementiert | `Providers/Podman/PodmanProvider.ps1` |
 | SQL Server External Languages | Container: Java für SQL 2019, Python/R/Java für SQL 2022/2025, jeweils Docker und Podman; Hyper-V/Windows: SQL-2022 Python/R/Java nativ akzeptiert, C# für SQL 2019–2025 sichtbar `PREVIEW` | `../Catalogs/software.json`, `../Tests/Integration/Invoke-ExternalRuntimeContainerAcceptance.ps1`, `../Tests/Integration/Invoke-ExternalRuntimeHyperVAcceptance.ps1` |

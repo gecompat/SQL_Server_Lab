@@ -14,7 +14,7 @@
 Der Benutzer hat die autonome Weiterentwicklung ausdrücklich fortgesetzt. Der
 Nachfolger arbeitet die bereits priorisierte Welle weiter ab; der zugehörige
 Heartbeat ist wieder aktiv. Der GUI-Aktionsstatus wurde mit PR #693 integriert.
-Aktueller Implementierungsscope ist die geführte SA-Passwortbehandlung samt
+Der vorherige Implementierungsscope war die geführte SA-Passwortbehandlung samt
 eng begrenzter Mindestlängenanpassung für neue SQL-2025-CU-Container. Die
 sechs geschützten Testumgebungen und alle übrigen Grenzen dieses Plans gelten
 weiter. Die ausgewählten statischen Verträge sowie getrennte eigene Docker-
@@ -26,8 +26,21 @@ Suites bestanden. Der anschliessende gerenderte Browser und gueltige
 HTTP-Creationjob mit Mindestlaenge drei bestanden unter Docker und Podman
 getrennt bis zur SQL-Anmeldung und zum eigenen Cleanup. Eine dabei entdeckte
 leere optionale `PersistentStorageId` wurde vor dem erneuten nativen Lauf
-regressionsgesichert korrigiert. Das PR-Abschlussgate muss den aktuellen Head
-noch belegen.
+regressionsgesichert korrigiert. Dieser Stand wurde nach bestandenem
+PR-Abschlussgate mit PR #700 integriert.
+
+Aktueller Slice ist der getrennte CLI-Lifecycle für die Metadaten genau eines
+bereits entfernten Runs. Plan und Apply verlangen registrierte Roots,
+vollständigen Cleanup, unveränderte Inhaltsbindung und bestätigte physische
+Ressourcenabwesenheit. Persistente Daten, Referenzen, Recovery, Workflow-,
+Testgruppen-, Pool- und Owned-Host-Scopes bleiben geschützt. Legacy ohne
+ursprüngliche feste Creationroute sowie Hyper-V ohne physischen VHDX-
+Abwesenheitsvertrag bleiben gesperrt. Docker und Podman bestanden getrennt
+eigene SQL-2025-Läufe mit Query, Stop/Start, regulärem Remove, anschließender
+Artefaktentfernung und unverändertem Providerinventar. Die unabhängige Review
+ist ohne offene Findings geschlossen. Betroffene statische Prüfungen und
+zusätzliche selektierte Smokes werden vor dem exakten PR-Gate abgeschlossen;
+die übrigen Grenzen und der offene Gesamthorizont gelten weiter.
 
 ## Übergabe und Benutzerpause vom 2026-10-05
 
@@ -102,8 +115,8 @@ aktuelle Freigabe oder vollständige Abnahme.
    Passwortkorrektur und widersprüchliche Nachweistexte; beides wurde
    korrigiert und ohne weitere Findings nachgeprüft. Gerenderter Browser
    und gültiger HTTP-Creationjob mit Mindestlänge drei sind danach getrennt
-   für Docker und Podman nativ bestanden; das PR-Gate muss den aktuellen
-   Head noch belegen.
+   für Docker und Podman nativ bestanden; PR #700 wurde nach bestandenem
+   PR-Gate integriert.
 3. **Explizite Anpassung:** Zunächst nur für neue Standardcontainer mit exakt
    katalogisiertem SQL2025-Tag unter Docker/Podman und frischer runeigener
    Systemvolume; Mindestlänge eins bis acht nur nach bewusster Auswahl.

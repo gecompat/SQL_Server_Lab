@@ -103,6 +103,8 @@
         'Stop-SqlServerLab'
         'Restart-SqlServerLab'
         'Remove-SqlServerLab'
+        'Get-SqlServerLabRunArtifactRemovalPlan'
+        'Invoke-SqlServerLabRunArtifactRemoval'
         'Clear-SqlServerLab'
         'Get-SqlServerLabCleanupAudit'
         'Get-SqlServerLabDiagnosticBundle'

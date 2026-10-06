@@ -341,6 +341,15 @@ function Invoke-LabContainerRuntimeCommand {
         elseif (((Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json')) -or (((Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-required')) -or (Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json')))))) { Get-LabOwnedHostPolicy -StateRoot $StateRoot -Required }
         else { $null }
     if (-not $policy) {
+        $creation=$script:LabRunArtifactCreationBinding
+        if ($creation -and $creation.StateRoot -ceq ([IO.Path]::GetFullPath($StateRoot)) -and $creation.Contexts.ContainsKey($Provider)) {
+            $result=Invoke-LabRunArtifactPinnedProcess -Context $creation.Contexts[$Provider] -Arguments $ArgumentList -TimeoutSeconds $TimeoutSeconds
+            $output=@($result.Stdout -split '\r?\n' | Where-Object {$_})+@($result.Stderr -split '\r?\n' | Where-Object {$_})
+            Set-Variable -Name LASTEXITCODE -Value $result.ExitCode -Scope 1
+            if ($NativeResult) {return [pscustomobject]@{ExitCode=$result.ExitCode;Output=$output}}
+            foreach ($line in @($result.Stderr -split '\r?\n' | Where-Object {$_})) {Write-Error -Message $line -ErrorAction Continue}
+            return @($result.Stdout -split '\r?\n' | Where-Object {$_})
+        }
         if (-not $Invocation) { $Invocation = Get-LabHostToolInvocation -Name $Provider }
         if ($NativeResult) {
             return Invoke-LabProgressNativeCommand -FilePath $Invocation -ArgumentList $ArgumentList `

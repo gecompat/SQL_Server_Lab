@@ -105,6 +105,8 @@ $module = New-Module -ArgumentList $repoRoot,$fixtureRoot -ScriptBlock {
         function New-LabDesiredStateSnapshot {}
         function Get-LabWorkflowOperationContext { $null }
         function New-LabRunState { $script:stateCalls++; throw 'FIXTURE_STATE_BARRIER' }
+        function Get-LabStateRoot { param($ExplicitPath) $fixtureRoot }
+        function New-LabRunArtifactCreationBinding { [pscustomobject]@{Contexts=@{};Records=@();StateRoot=$fixtureRoot} }
         function Save-LabSecret { throw 'FORBIDDEN_SECRET_WRITE' }
         function Invoke-LabExternalRuntimeContainerImageBuild { throw 'FORBIDDEN_IMAGE_BUILD' }
         function Invoke-LabContainerToolImageBuild { throw 'FORBIDDEN_IMAGE_BUILD' }
@@ -196,9 +198,13 @@ $module = New-Module -ArgumentList $repoRoot,$fixtureRoot -ScriptBlock {
             if ($args[0] -eq 'volume' -and $args[1] -eq 'inspect' -and -not $script:volumeExists) { $global:LASTEXITCODE=1;return }
             if ($args[0] -eq 'run' -and $script:seedFailure) { $global:LASTEXITCODE=1;return }
         }
-        function Invoke-LabProviderOperation { param($Provider,$Phase,$RunId,[switch]$Native,$Command,$Action)
-            $output=@(& $Action)
-            [pscustomobject]@{Succeeded=$global:LASTEXITCODE -eq 0;Output=$output}
+        function Invoke-LabProgressNativeCommand { param($FilePath,$ArgumentList,$Phase,$TimeoutSeconds,$Progress)
+            $output=@(& $FilePath @ArgumentList)
+            [pscustomobject]@{ExitCode=$global:LASTEXITCODE;Output=$output}
+        }
+        function Invoke-LabProviderOperation { param($Provider,$Phase,$RunId,[switch]$Native,[switch]$NativeResult,$Command,$Action)
+            $result=& $Action
+            [pscustomobject]@{Succeeded=$result.ExitCode -eq 0;Output=$result.Output}
         }
         foreach ($provider in @('docker','podman')) {
             $name='Initialize-'+(Get-Culture).TextInfo.ToTitleCase($provider)+'SqlNamedVolume'

@@ -21,6 +21,10 @@ try {
     Import-Module $modulePath -Force -ErrorAction Stop
     $module = Get-Module SqlServerLab
     $evidence = & $module {
+        function Invoke-LabProgressNativeCommand {param($FilePath,$ArgumentList,$Phase,$TimeoutSeconds,$Progress)
+            $output=@(& $FilePath @ArgumentList)
+            [pscustomobject]@{ExitCode=$global:LASTEXITCODE;Output=$output}
+        }
         $runId = [Guid]::NewGuid().ToString('D'); $scopeId = [Guid]::NewGuid().ToString('D')
         $script:volumeLabels = [PSCustomObject]@{
             'sql-server-lab.run-id' = $runId; 'sql-server-lab.scope-id' = $scopeId
@@ -29,6 +33,7 @@ try {
         function Get-LabHostToolInvocation { param([string]$Name) if ($Name -ne 'docker') { throw 'UNEXPECTED_RUNTIME' }; return 'docker' }
         function docker {
             param([string]$ResourceType,[string]$Action,[string]$ResourceId)
+            if ($ResourceType -eq 'volume' -and $Action -eq 'ls') {$global:LASTEXITCODE=0;return}
             if ($ResourceType -ne 'volume' -or $ResourceId -ne 'synthetic-owned-volume') { throw 'UNEXPECTED_RUNTIME_RESOURCE' }
             if ($Action -eq 'inspect') {
                 [PSCustomObject]@{ Name=$ResourceId; Labels=$script:volumeLabels } | ConvertTo-Json -Compress
@@ -60,6 +65,10 @@ try {
     foreach ($provider in @('docker','podman')) {
         $networkEvidence = & $module {
             param($Provider)
+            function Invoke-LabProgressNativeCommand {param($FilePath,$ArgumentList,$Phase,$TimeoutSeconds,$Progress)
+                $output=@(& $FilePath @ArgumentList)
+                [pscustomobject]@{ExitCode=$global:LASTEXITCODE;Output=$output}
+            }
             $runId = [Guid]::NewGuid().ToString('D'); $scopeId = [Guid]::NewGuid().ToString('D')
             $script:networkLabels = [PSCustomObject]@{
                 'sql-server-lab.run-id'=$runId; 'sql-server-lab.scope-id'=$scopeId
@@ -68,6 +77,7 @@ try {
             function Get-LabHostToolInvocation { param([string]$Name) return 'Invoke-SyntheticNetworkRuntime' }
             function Invoke-SyntheticNetworkRuntime {
                 param([string]$ResourceType,[string]$Action,[string]$ResourceId)
+                if ($ResourceType -eq 'network' -and $Action -eq 'ls') {$global:LASTEXITCODE=0;return}
                 if($ResourceType -ne 'network' -or $ResourceId -ne 'synthetic-owned-network'){throw 'UNEXPECTED_NETWORK_RESOURCE'}
                 if($Action -eq 'inspect'){
                     [pscustomobject]@{Name=$ResourceId;labels=$script:networkLabels} | ConvertTo-Json -Compress

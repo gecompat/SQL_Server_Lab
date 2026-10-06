@@ -605,3 +605,6 @@ SEE ALSO
     laufenden SQL-2025-Hyper-V-Instanz und erneuert deren lokalen Receipt atomar.
     Developer ergibt frisch NOT_APPLICABLE; Evaluation ohne Frist bleibt UNKNOWN.
     WhatIf erzeugt weder Gastzugriff noch Receipt oder Lockdatei.
+    Get-SqlServerLabRunArtifactRemovalPlan prüft die Artefakte genau eines
+    entfernten Runs. Invoke-SqlServerLabRunArtifactRemoval verlangt dessen
+    Vorschau und schützt Ressourcen, Referenzen, Retention und Recovery.

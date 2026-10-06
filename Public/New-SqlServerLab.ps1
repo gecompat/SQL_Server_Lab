@@ -926,12 +926,14 @@ function New-SqlServerLab {
 
     $desiredProvisioningMode = if ($PSCmdlet.ParameterSetName -eq 'Manifest') { 'manifest' } else { 'adhoc' }
     $desiredState = New-LabDesiredStateSnapshot -ResolvedLab $resolved -ProvisioningMode $desiredProvisioningMode -PersistentData ([bool]$PersistentData)
+    $creationBinding=New-LabRunArtifactCreationBinding -Provider @($providerSubRuns.provider) -StateRoot (Get-LabStateRoot -ExplicitPath $StateRoot)
     $runMetadata = @{
         name = $resolved.name
         persistentData = [bool]$PersistentData
         dataRoot = if ($PersistentData) { $DataRoot } else { $null }
         desiredState = $desiredState
         resourceAssessment = $resourceAssessmentRecord
+        artifactRemovalRuntimeScopes = @($creationBinding.Records)
     }
     $workflowOperationId = Get-LabWorkflowOperationContext
     if (-not [string]::IsNullOrWhiteSpace($workflowOperationId)) {
@@ -948,6 +950,9 @@ function New-SqlServerLab {
     Write-LabStatus -Label 'ScopeId' -Value $runState.ScopeId
 
     try {
+        $previousCreationBinding=$script:LabRunArtifactCreationBinding
+        $creationBinding.StateRoot=[IO.Path]::GetFullPath($effectiveStateRoot)
+        $script:LabRunArtifactCreationBinding=$creationBinding
         $null = New-CleanupPlan `
             -RunDir $runState.RunDir `
             -RunId $runState.RunId `
@@ -1636,4 +1641,5 @@ function New-SqlServerLab {
 
         throw "Lab-Erstellung fehlgeschlagen. Cleanup-Status: $cleanupStatus. Ursache: $($provisioningError.Exception.Message)"
     }
+    finally { $script:LabRunArtifactCreationBinding=$previousCreationBinding }
 }

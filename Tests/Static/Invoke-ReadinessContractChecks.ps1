@@ -114,8 +114,8 @@ if ($failures.Count -eq 0) {
     Assert-Contains $portAllocation 'Global\\SQL_Server_Lab_Port_Allocation' 'Windows-Port-Lock ist nicht global benannt.'
     Assert-Contains $portAllocation "@\('docker',\s*'podman'\)" 'Portermittlung prueft Docker und Podman nicht gemeinsam.'
 
-    Assert-Contains $dockerProvider 'Invoke-LabPortAllocationLock[\s\S]+&\s+\$dockerInvocation\s+@dockerArguments' 'Docker bindet den Port nicht innerhalb des atomaren Locks.'
-    Assert-Contains $dockerProvider 'Invoke-LabPortAllocationLock[\s\S]+Test-LabEndpointBinding[\s\S]+&\s+\$dockerInvocation\s+@dockerArguments' 'Docker prueft explizite Portkonflikte nicht innerhalb des atomaren Locks.'
+    Assert-Contains $dockerProvider 'Invoke-LabPortAllocationLock[\s\S]+Invoke-LabContainerRuntimeCommand[\s\S]+-ArgumentList\s+@\(\$dockerArguments\)' 'Docker bindet den Port nicht innerhalb des atomaren Locks.'
+    Assert-Contains $dockerProvider 'Invoke-LabPortAllocationLock[\s\S]+Test-LabEndpointBinding[\s\S]+Invoke-LabContainerRuntimeCommand[\s\S]+-ArgumentList\s+@\(\$dockerArguments\)' 'Docker prueft explizite Portkonflikte nicht innerhalb des atomaren Locks.'
     Assert-Contains $dockerProvider 'Find-LabAvailablePort' 'Docker verwendet nicht die gemeinsame Portermittlung.'
     Assert-Contains $dockerProvider 'address already in use[\s\S]+\$nextPort\s*=\s*\$selectedPort\s*\+\s*1' 'Docker wiederholt automatische Portbindungskonflikte nicht mit dem naechsten Port.'
     Assert-Contains $dockerProvider "NetworkSettings\.Ports\.'1433/tcp'" 'Docker verifiziert die tatsächlich veröffentlichte SQL-Portbindung nach dem Containerstart nicht.'
@@ -123,8 +123,8 @@ if ($failures.Count -eq 0) {
     Assert-Contains $dockerProvider 'Start-Sleep\s+-Milliseconds\s+200' 'Docker pollt die verzögert sichtbare Portbindung nicht mit begrenzter kurzer Wartezeit.'
     Assert-Contains $dockerProvider 'Wait-DockerSqlPortBinding\s+-DockerInvocation\s+\$dockerInvocation\s+-ContainerId\s+\$containerId\s+-Port\s+\$selectedPort[\s\S]{0,300}?\n\s*break' 'Docker entfernt einen frisch gestarteten Container vor der begrenzten Portbindungsabfrage.'
     Assert-Contains $dockerProvider 'DOCKER_PORT_BINDING_NOT_PUBLISHED' 'Docker besitzt keinen klaren Fehlercode für einen erfolgreich gemeldeten Start ohne Portbindung.'
-    Assert-Contains $dockerProvider 'rm -f \$containerName[\s\S]+bindingVerificationRetries' 'Docker entfernt einen Container ohne veröffentlichte Portbindung nicht vor dem begrenzten Wiederholungsversuch.'
-    Assert-Contains $dockerProvider '&\s+\$dockerInvocation\s+rm\s+-f\s+\$containerName' 'Docker entfernt einen bei Bindungsfehler teilweise angelegten Container nicht vor dem Retry.'
+    Assert-Contains $dockerProvider '@\(''rm''\)\+@\(''-f''\)\+@\(\$containerName\)[\s\S]+bindingVerificationRetries' 'Docker entfernt einen Container ohne veröffentlichte Portbindung nicht vor dem begrenzten Wiederholungsversuch.'
+    Assert-Contains $dockerProvider 'Invoke-LabContainerRuntimeCommand[^\r\n]+@\(''rm''\)\+@\(''-f''\)\+@\(\$containerName\)' 'Docker entfernt einen bei Bindungsfehler teilweise angelegten Container nicht vor dem Retry.'
 
     $portBindingProbeRoot = Join-Path ([IO.Path]::GetTempPath()) "sql-server-lab-port-binding-probe-$([guid]::NewGuid().ToString('N'))"
     $portBindingProbeScript = Join-Path $portBindingProbeRoot 'fake-docker.ps1'
@@ -145,6 +145,8 @@ else {
 }
 '@ | Set-Content -LiteralPath $portBindingProbeScript -Encoding utf8
         $env:SQL_SERVER_LAB_PORT_BINDING_PROBE_COUNTER = $portBindingProbeCounter
+        . (Join-Path $repoRoot 'Private/ContainerOwnedHostIntegration.ps1')
+        function Get-LabStateRoot { $portBindingProbeRoot }
         . $dockerProviderPath
         $settled = Wait-DockerSqlPortBinding -DockerInvocation $portBindingProbeScript -ContainerId ('a' * 64) -Port 14335 -TimeoutSeconds 2
         $probeCalls = [int](Get-Content -LiteralPath $portBindingProbeCounter -Raw)
@@ -166,11 +168,11 @@ else {
     Assert-Contains $dockerProvider '\$effectiveMemoryMB\s*\*\s*0\.8' 'Docker reserviert keinen 20-Prozent-Headroom unterhalb des Containerlimits.'
     Assert-Contains $dockerProvider '--health-cmd[^\r\n]+\s-C\s' 'Docker-Healthcheck vertraut dem gebundenen selbstsignierten Containerzertifikat nicht explizit.'
 
-    Assert-Contains $podmanProvider 'Invoke-LabPortAllocationLock[\s\S]+&\s+\$podmanInvocation\s+@podmanArguments' 'Podman bindet den Port nicht innerhalb des atomaren Locks.'
-    Assert-Contains $podmanProvider 'Invoke-LabPortAllocationLock[\s\S]+Test-LabEndpointBinding[\s\S]+&\s+\$podmanInvocation\s+@podmanArguments' 'Podman prueft explizite Portkonflikte nicht innerhalb des atomaren Locks.'
+    Assert-Contains $podmanProvider 'Invoke-LabPortAllocationLock[\s\S]+Invoke-LabContainerRuntimeCommand[\s\S]+-ArgumentList\s+@\(\$podmanArguments\)' 'Podman bindet den Port nicht innerhalb des atomaren Locks.'
+    Assert-Contains $podmanProvider 'Invoke-LabPortAllocationLock[\s\S]+Test-LabEndpointBinding[\s\S]+Invoke-LabContainerRuntimeCommand[\s\S]+-ArgumentList\s+@\(\$podmanArguments\)' 'Podman prueft explizite Portkonflikte nicht innerhalb des atomaren Locks.'
     Assert-Contains $podmanProvider 'Find-LabAvailablePort' 'Podman verwendet nicht die gemeinsame Portermittlung.'
     Assert-Contains $podmanProvider 'cannot bind tcp port[\s\S]+\$nextPort\s*=\s*\$selectedPort\s*\+\s*1' 'Podman wiederholt automatische Portbindungskonflikte nicht mit dem naechsten Port.'
-    Assert-Contains $podmanProvider '&\s+\$podmanInvocation\s+rm\s+-f\s+\$containerName' 'Podman entfernt einen bei Bindungsfehler teilweise angelegten Container nicht vor dem Retry.'
+    Assert-Contains $podmanProvider 'Invoke-LabContainerRuntimeCommand[^\r\n]+@\(''rm''\)\+@\(''-f''\)\+@\(\$containerName\)' 'Podman entfernt einen bei Bindungsfehler teilweise angelegten Container nicht vor dem Retry.'
     Assert-Contains $podmanProvider 'MSSQL_MEMORY_LIMIT_MB=\$sqlMemoryLimitMB' 'Podman setzt kein SQL-internes Memory-Limit mit Headroom unterhalb des cgroup-Limits.'
     Assert-Contains $podmanProvider '\$effectiveMemoryMB\s*\*\s*0\.8' 'Podman reserviert keinen 20-Prozent-Headroom unterhalb des Containerlimits.'
     Assert-Contains $podmanProvider '--health-cmd[^\r\n]+\s-C\s' 'Podman-Healthcheck vertraut dem gebundenen selbstsignierten Containerzertifikat nicht explizit.'
@@ -209,6 +211,3 @@ if ($failures.Count -gt 0) {
 
 Write-Host 'READINESS MENU AND PORT CONTRACT CHECK: PASS' -ForegroundColor Green
 exit 0
-
-
-

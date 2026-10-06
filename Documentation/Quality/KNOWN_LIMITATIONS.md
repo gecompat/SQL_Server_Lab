@@ -3203,3 +3203,13 @@ Matrix-Runspaces und externe Runtime-ToolImage-Builds sind im Profil vor
 Arrange gesperrt. Taskregistrierung belegt keinen Logondispatch; synthetische
 Prüfungen ersetzen keine getrennten nativen Pflichtgates am stabilen Head.
 Standardpfade behalten ihre bisherigen Verträge und Nachweise.
+## Entfernung verbleibender Run-Artefakte
+
+`Get-SqlServerLabRunArtifactRemovalPlan` und `Invoke-SqlServerLabRunArtifactRemoval`
+benötigen moderne REMOVED-Evidence, registriertes Lab_Data/State und vollständige
+Ressourcenabwesenheit. Historische Container-Runs ohne aufgezeichnete Runtime,
+alle Hyper-V-Runs ohne dauerhaften VHDX-Abwesenheitsvertrag, Podman ohne gebundene
+Machine, Workflow-/Gruppen-/Poolmitgliedschaft, Retention, Referenzen, unbekannte
+Metadatendateien, unvollständige Inventare und Recovery
+bleiben gesperrt. Es gibt keine globale Purge-Aktion und keine native
+Ressourcenlöschung. [Vertrag und Nachweisgrenzen](../User/RUN_ARTIFACT_REMOVAL.md).

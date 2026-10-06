@@ -668,3 +668,11 @@ Native Hyper-V Vertical Slice voraus.
 23. Hook-System
 24. Multi-Instanz-Topologien (Abhaengigkeiten zwischen Instanzen)
 25. Erweiterte Restore-Szenarien (Archive, Attach und Backupketten)
+## Separater Run-Artefakt-Lifecycle
+
+`Get-SqlServerLabRunArtifactRemovalPlan` und `Invoke-SqlServerLabRunArtifactRemoval`
+verwenden `Private/RunArtifactRemoval.ps1` für genau einen modernen REMOVED-Run.
+Der Core revalidiert Cleanup, Runtime, Referenzen und Retention vor der
+journalisierten Metadatenentfernung. Providerressourcen werden nur gelesen;
+Teilfehler bleiben als eigener Recovery-Scope erhalten.
+[Bedienung und Grenzen](../User/RUN_ARTIFACT_REMOVAL.md).

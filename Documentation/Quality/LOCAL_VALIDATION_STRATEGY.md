@@ -3179,3 +3179,39 @@ NOT_CHECKED, Port-Apply ist NOT_IMPLEMENTED.
 Der Harness behauptet keinen einzelnen globalen Inspect: origin-/labelgebundene
 Revalidierungen bleiben erhalten. Ein abgeschlossener Dialogrequest ruft die
 öffentliche Preview einmal auf. Es gibt kein Apply und keinen Scope-A-Abschluss.
+## Run-Artefakte nach erfolgreichem Remove
+
+`Tests/Static/Invoke-RunArtifactRemovalChecks.ps1` prüft die tatsächlichen
+Public-/Core-Funktionen an isolierten synthetischen Dateien: getrennte
+Docker-/Podman-Identitätsleaves, Vorschau ohne Writes, WhatIf, Drift,
+Cleanup-/Referenz-/Retention-/Recovery-Vetos und journalisiertes Resume.
+Runtime-Leaves sind synthetisch; dies belegt keine native Ressourcenabwesenheit
+oder SQL-Funktion. Separate Providerabnahmen und selektierte Abschlussgates
+bleiben erforderlich. [Bedienvertrag](../User/RUN_ARTIFACT_REMOVAL.md).
+
+`Tests/Integration/Invoke-RunArtifactRemovalObservationAcceptance.ps1` verwendet
+frische registrierte eigene Dateiroots und echte gebundene Native-Reads.
+Ohne `-CreateSqlRun` prüft er synthetische terminale Metadaten und unveränderte
+Providerinventare. Mit dem Schalter prüft er SQL-2025-Erstellung, SQL-Abfrage,
+Stop/Start, erneute SQL-Abfrage, reguläres Remove und danach die öffentliche
+Artefaktentfernung einschließlich Run-/Markerabwesenheit. Docker und Podman
+bestanden diesen erweiterten Pfad am 2026-10-06 getrennt; die vollständigen
+Container-/Volume-/Netzwerkinventare entsprachen danach dem jeweiligen
+Ausgangsstand. Zwei frühere eigene Docker-Harnessläufe scheiterten am
+Exitcode-Transport beziehungsweise an einem unzulässigen Harnessparameter;
+ihre gebundenen Ressourcen und Dateiroots wurden nach bestätigter Abwesenheit
+bereinigt. Die ursprünglichen Fehlerbelege bleiben lokal erhalten.
+Dies ist keine Hyper-V-Artefaktfreigabe; dort bleibt die physische Abwesenheit
+nicht nachweisbar. Workflow-, Testgruppen-, Pool- und Owned-Host-Runs bleiben
+geschützt. Der obligatorische PR-Gate muss den exakten stabilen Head separat
+belegen.
+
+Die ergänzenden lokalen Mixed-, Adapter- und synthetischen Hyper-V-Smokes
+bestanden ebenfalls. Mixed und Adapter besitzen terminale Cleanuppläne und
+separat bestätigte eigene Ressourcenabwesenheit. Ein zusätzlicher Vergleich
+der gesamten Providerinventare meldete jedoch für beide Ergänzungsläufe eine
+Abweichung unbekannter Ursache. Da der lokale Ergänzungsharness die ursprünglichen
+Inventare nicht als Rohkopien gesichert hatte, bleibt dieser Schutzvergleich
+nicht bestanden; spätere stabile Reads ersetzen ihn nicht. Eigene terminale
+States und Fehlerbelege bleiben lokal erhalten. Dieser Befund wird nicht auf
+die zuvor separat bestandenen Docker-/Podman-Artefaktläufe übertragen.
