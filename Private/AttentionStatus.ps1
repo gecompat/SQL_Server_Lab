@@ -48,17 +48,18 @@ function Get-LabAttentionSnapshot {
     }
 
     $catalogDate = if ($script:VersionCatalog -and $script:VersionCatalog.catalogMetadata) { [string]$script:VersionCatalog.catalogMetadata.lastVerified } else { '' }
+    $cuActionHint = 'GitHub Actions: SQL CU Monthly Watch → Run workflow. Lokal: Hauptmenü 8 → 5 (CU-Abgleich, read-only). Der Watch aktualisiert den lokalen Katalog nicht.'
     $verifiedAt = [datetime]::MinValue
     if (-not [datetime]::TryParse($catalogDate, [ref]$verifiedAt)) {
         $items.Add((New-LabAttentionItem -Id 'cu-catalog-date-missing' -Severity Warning -Category 'CU' `
-            -Message 'Der CU-Katalog besitzt kein gültiges Prüfdatum.' -ActionHint 'Monatlichen CU-Agent ausführen.'))
+            -Message 'Der lokale CU-Katalog besitzt kein gültiges Prüfdatum.' -ActionHint $cuActionHint))
     }
     else {
         $catalogAge = [Math]::Max(0, ((Get-Date).Date - $verifiedAt.Date).Days)
         if ($catalogAge -gt 35) {
             $items.Add((New-LabAttentionItem -Id 'cu-catalog-stale' -Severity Warning -Category 'CU' `
-                -Message "CU-Katalog seit $catalogAge Tagen nicht verifiziert (Stand $catalogDate)." `
-                -ActionHint 'Monatlichen CU-Agent ausführen.'))
+                -Message "Lokaler CU-Katalog seit $catalogAge Tagen nicht verifiziert (Stand $catalogDate)." `
+                -ActionHint $cuActionHint))
         }
     }
 
