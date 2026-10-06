@@ -6,8 +6,20 @@ Zeichengruppen. Im Browser erscheint eine kuerzere Mindestlaenge erst nach
 einem reinen Laengenfehler auf einem neuen kurzlebigen Container mit
 katalogisiertem SQL-2025-CU; Auswahl und Bestaetigung gelten nur fuer dieses Lab.
 Manifeststarts behalten die Standardkriterien. Die enge Grenze steht im
-[AdHoc-Vertrag](../Architecture/SA_PASSWORD_POLICY.md); native Erststartabnahme
-ist noch offen.
+[AdHoc-Vertrag](../Architecture/SA_PASSWORD_POLICY.md). Getrennte native
+Docker-/Podman-Erststarts und gerenderte HTTP-Creationjobs wurden am
+2026-10-06 mit SQL-Anmeldung und eigenem Cleanup geprueft.
+
+## Umgebungsstatus in der CLI
+
+Unter **Lab-Umgebungen → Umgebungsstatus anzeigen** zeigt die Auswahl zuerst
+**Alle Umgebungen** und die vorhandenen Typgruppen, etwa **Lab-Umgebung** und
+**Hyper-V-Windows-Slot**. Enter klappt eine Gruppe auf; Escape kehrt zur
+Gruppenauswahl zurueck. Innerhalb der Gruppe stehen die Umgebungen nach
+Provider und Name sortiert. **Alle Umgebungen** zeigt sie in derselben
+Provider-/Namensfolge. Ein Run mit `RECOVERY_REQUIRED` bleibt sichtbar, weil
+sein Cleanup noch zu pruefen ist. Fehlt seine Runtime, zeigt die Detailansicht
+keine gespeicherten SQL-Verbindungsdaten als nutzbaren Zugang an.
 
 ## Container-Autostart nur vorprüfen
 

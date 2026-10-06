@@ -450,6 +450,7 @@ Add-ConsoleUiCheck 'Untermenue-Wrapper erbt Statusanbieter ohne abgeschlossene S
     $subMenuSource.Value -notmatch 'ParentSession' -and $subMenuSource.Value -notmatch 'StatusHeight'
 )
 . (Join-Path $repoRoot 'Tests/Static/Fixtures/NavigationAreaChecks.ps1')
+. (Join-Path $repoRoot 'Tests/Static/Fixtures/StatusSelectionChecks.ps1')
 
 # CUI-023: Eine Warnung oder ein Fehler darf nicht vom naechsten Menueaufbau verdeckt werden.
 Add-ConsoleUiCheck 'Jede Menueaktion zeigt neue Warnungen und Fehler als sichtbaren Scrollback-Text' (
@@ -1178,7 +1179,7 @@ Add-ConsoleUiCheck 'Infrastrukturmenue bietet neben Delegation eine direkte read
     $batchConsoleSource -match "'Infrastructure' \{ Show-LabInfrastructureMenu \}" -and
     $batchConsoleSource -match 'try \{ Invoke-LabMenuAction -ActionName \$action \}'
 )
-Add-ConsoleUiCheck 'Statusauswahl bietet Alle und einzelne Umgebungen an' ($entrySource -match "-Id '__all' -Label 'Alle Umgebungen'" -and $entrySource -match "-ScreenId 'environment-status-select'" -and $entrySource -match '\$selectedRuns = if')
+Add-ConsoleUiCheck 'Statusauswahl bietet Alle und aufklappbare Gruppen an' ($entrySource -match "-Id '__all' -Label 'Alle Umgebungen'" -and $entrySource -match "-ScreenId 'environment-status-select'" -and $entrySource -match "-ScreenId 'environment-status-group'" -and $entrySource -match 'Show-LabEnvironmentStatusSelectionInteractive')
 Add-ConsoleUiCheck 'Datenbankmenue trennt Verbindungszentrale und reinen Lab-Katalog klar' ($entrySource -match "-Id 'ConnectionCenter' -Label 'Verbindungszentrale und SSMS-Endpunkte'.*-Shortcut 'c'" -and $entrySource -match "-Id 'Catalog' -Label 'Lab-Katalog prüfen'.*-Shortcut 'k'" -and $entrySource -match "Katalogdatei validieren; kein CMS-Zugang")
 Add-ConsoleUiCheck 'KI-Menue bietet kuratierte llama.cpp-Modelle als direkten geprüften Download an' (
     $entrySource -match "-Id 'AiLlamaModels' -Label 'llama.cpp-Modelle anzeigen oder herunterladen'" -and
