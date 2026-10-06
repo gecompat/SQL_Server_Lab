@@ -67,13 +67,27 @@ try{
  $createCall=@($integration.FindAll({param($n)$n -is [Management.Automation.Language.CommandAst] -and $n.GetCommandName() -ceq 'New-SqlServerLab'},$true))
  Check ($admitCall.Count -eq 1 -and $createCall.Count -eq 1 -and $admitCall[0].Extent.StartOffset -lt $createCall[0].Extent.StartOffset) 'Actual BrowserOnly tool admission precedes runtime arrangement'
  $hostHook=@($server.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -ceq 'Write-Host'},$true))[0]
+ $bindingSource='function Write-Host {'+$hostHook.Body.ParamBlock.Extent.Text+';[pscustomobject]@{Value=@($Object);Color=$ForegroundColor}};Write-Host "SQL_Server_Lab Workflow UI: http://127.0.0.1:19499/" -ForegroundColor Green'
+ $binding=& ([scriptblock]::Create($bindingSource))
+ Check (@($binding.Value).Count -eq 1 -and $binding.Value[0] -ceq 'SQL_Server_Lab Workflow UI: http://127.0.0.1:19499/' -and
+  $binding.Color -eq [ConsoleColor]::Green) 'Actual Write-Host hook binds positional UI readiness text'
  $hookIf=$hostHook.Body.EndBlock.Statements[0]
  $hookText=($hookIf.Clauses[0].Item2.Statements[0..2].Extent.Text -join "`n")
  if(-not $hookText.Contains('$listener -isnot [Net.HttpListener]')){throw 'BROWSER_FIXTURE_HOOK_TYPE_CHANGED'}
  # Replace ONLY the native listener type leaf. Caller scope lookup, actual
  # listening/prefix guard and actual exclusive ready writer still execute.
  $hookText=$hookText.Replace('$listener -isnot [Net.HttpListener]','$listener -isnot [pscustomobject]')
- $script:browserServerConfig=[pscustomobject]@{ListenerPort=19499;EvidenceRoot=$evidence}
+ $scopeEvidence=Join-Path $root ('test-runs/port-preview-'+[guid]::NewGuid().ToString('N'))
+ $null=New-Item -ItemType Directory -Path $scopeEvidence
+ $scopeProbe=Join-Path $root 'scope-probe.private.ps1'
+ [IO.File]::WriteAllText($scopeProbe,'$listener=[pscustomobject]@{IsListening=$true;Prefixes=@("http://127.0.0.1:19499/")};Write-Host "SQL_Server_Lab Workflow UI: http://127.0.0.1:19499/" -ForegroundColor Green',[Text.UTF8Encoding]::new($false))
+ $global:browserServerConfig=[pscustomobject]@{ListenerPort=19499;EvidenceRoot=$scopeEvidence}
+ try{
+  $probeSource='function Write-Host {'+$hostHook.Body.ParamBlock.Extent.Text+';if('+$hookIf.Clauses[0].Item1.Extent.Text+'){' + $hookText + '}};& $scopeProbe'
+  & ([scriptblock]::Create($probeSource))
+  Check (Test-Path -LiteralPath (Join-Path $scopeEvidence 'browser-listener-ready.private.json')) 'Actual hook reads bound config across child-script scope'
+ }finally{Remove-Variable -Name browserServerConfig -Scope Global -ErrorAction SilentlyContinue}
+ $global:browserServerConfig=[pscustomobject]@{ListenerPort=19499;EvidenceRoot=$evidence}
  function Invoke-SyntheticReadyHook {. ([scriptblock]::Create($hookText))}
  & {$listener=[pscustomobject]@{IsListening=$true;Prefixes=@('http://127.0.0.1:19499/')};Invoke-SyntheticReadyHook}
  $readyFile=Join-Path $evidence browser-listener-ready.private.json
@@ -81,6 +95,7 @@ try{
  $readyHash=(Get-FileHash $readyFile).Hash
  Reject {& {$listener=[pscustomobject]@{IsListening=$true;Prefixes=@('http://127.0.0.1:14336/')};Invoke-SyntheticReadyHook}} 'LISTENER_BINDING' 'Wrong listener prefix veto before ready write'
  Check ((Get-FileHash $readyFile).Hash -ceq $readyHash) 'Listener veto retains readiness evidence without overwrite'
+ Remove-Variable -Name browserServerConfig -Scope Global -ErrorAction Stop
  # Reuse ONLY the existing HTTP fixture's registered synthetic Arrange. Its
  # assertions are not repeated. The actual module/public/core/HTTP bodies run;
  # the native inspect executable is the existing synthetic process leaf.
@@ -250,7 +265,7 @@ async function scenario(badOriginStatus){
  vm.runInNewContext(dialogSource,dom);
  async function wait(condition){for(let i=0;i<100;i++){if(condition())return;await tick();}throw Error('SYNTHETIC_WAIT');}
  const locator=id=>({click:async()=>{elements[id].events.click();await tick();},selectOption:async value=>{elements[id].value=value;},dispatchEvent:async name=>{elements[id].events[name]();await tick();},textContent:async()=>elements[id].textContent,
-  locator:()=>({first:()=>({waitFor:async()=>wait(()=>elements.target.children.length>0)}),count:async()=>elements.target.children.length})});
+  locator:()=>({first:()=>({waitFor:async options=>{check(options&&options.state==='attached','Option wait uses DOM attachment, not hidden-option visibility');return wait(()=>elements.target.children.length>0);}}),count:async()=>elements.target.children.length})});
  const page={setDefaultTimeout(){},route:async(pattern,fn)=>{check(pattern==='**/*','Driver intercepts all requests before server work');handler=fn;},locator:s=>locator(s.replace('#autostart-preview-','')),waitForFunction:async fn=>wait(()=>vm.runInNewContext('('+fn.toString()+')()',dom)),goto:async()=>{
   for(const suffix of ['/','/app.js','/api/jobs','/api/workflow-inventory','/api/config']){await handler({request:()=>({url:()=>base+suffix,method:()=> 'GET',postData:()=>null}),continue:async()=>{continued++;},abort:async()=>{aborted++;}});}
   await handler({request:()=>({url:()=> 'https://foreign.invalid/',method:()=> 'GET'}),abort:async()=>{aborted++;}});
@@ -263,7 +278,7 @@ async function scenario(badOriginStatus){
  check(launched===1&&closed===1,'Driver finally closes its single returned browser on success/failure');
  check(fetches===1&&aborted===4,'Unrelated/external requests denied; one delayed real response fetched');
  if(badOriginStatus===400){check(proc.exitCode===0&&report.PublicPreviewRequests===3&&report.EarlyCancelInvalidPreviewRequests===0&&report.LateRealResponseDisplayVeto&&report.PreviewResponsesStubbed===false,'Actual driver and dialog complete three previews/cancel/late-veto with fixed report');}
- else{check(proc.exitCode===1&&!report&&error==='AUTOSTART_BROWSER_DRIVER_FAILED\n','Unexpected transport acceptance fails closed without report/raw error');}
+ else{check(proc.exitCode===1&&!report&&error==='AUTOSTART_BROWSER_DRIVER_FAILED:INVALID_REQUESTS\n','Unexpected transport acceptance fails closed with fixed stage only');}
 }
 (async()=>{await scenario(400);await scenario(200);console.log('DRIVER BOUNDARY: '+checks+' PASS; actual driver+actual dialog; synthetic Playwright/HTTP; BrowserStarts0 NetworkStarts0');})().catch(e=>{console.error(e);process.exitCode=1;});
 '@

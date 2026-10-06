@@ -100,6 +100,7 @@ $module=Import-Module (Join-Path $c.RepositoryRoot SqlServerLab.psd1) -PassThru
 . (Join-Path $c.RepositoryRoot Tests/Common/ContainerPortPreviewAcceptance.ps1)
 . (Join-Path $c.RepositoryRoot Tests/Common/ContainerAutoStartPreviewAcceptance.ps1)
 . (Join-Path $c.RepositoryRoot Tests/Common/ContainerAutoStartPreviewBrowserAcceptance.ps1)
+$null=Write-AutoStartBrowserAcceptanceFile $c.EvidenceRoot 'browser-phase-loaded.private.json' '{"Phase":"LOADED"}'
 $scope=$c.Scope
 $resolution=@(& (Join-Path $c.RepositoryRoot Tools/Initialize-SqlServerLabHostTools.ps1) -Name $c.Provider)[0]
 if(-not $resolution.Available){throw 'AUTOSTART_BROWSER_TOOL_UNAVAILABLE'}
@@ -120,6 +121,7 @@ if(-not $resolution.Available){throw 'AUTOSTART_BROWSER_TOOL_UNAVAILABLE'}
  if($targets.Count -ne 1 -or $targets[0].RunId -cne $c.RunId -or $targets[0].InstanceId -cne 'primary' -or
     $targets[0].Provider -cne $c.Provider -or $targets[0].StateRoot -cne $c.Scope.StateRoot){throw 'AUTOSTART_BROWSER_TARGET'}
 } $c $resolution
+$null=Write-AutoStartBrowserAcceptanceFile $c.EvidenceRoot 'browser-phase-bound.private.json' '{"Phase":"BOUND"}'
 $restore=& $module {
  param($c,$writer,$files,$writePrivate)
  $script:browserAcceptanceConfig=$c;$script:browserAcceptanceWriter=$writer;$script:browserAcceptanceFiles=$files;$script:browserAcceptanceWrite=$writePrivate
@@ -161,25 +163,26 @@ $restore=& $module {
 } $c ${function:Write-AutoStartPreviewAcceptanceObservation} ${function:Get-PortPreviewAcceptanceFileBinding} ${function:Write-AutoStartBrowserAcceptanceFile}
 $hostFunction=Get-Item Function:Write-Host -ErrorAction SilentlyContinue
 $savedHost=if($hostFunction){$hostFunction.ScriptBlock}else{$null}
-$script:browserServerConfig=$c;$script:browserServerControl=$null;$script:browserServerControlHandle=$null
+$global:browserServerConfig=$c;$global:browserServerControl=$null;$global:browserServerControlHandle=$null
 function Write-Host {
- param([Parameter(ValueFromRemainingArguments)][object[]]$Object,[ConsoleColor]$ForegroundColor='Gray',[switch]$NoNewline,[string]$Separator=' ')
- if($Object.Count -eq 1 -and $Object[0] -ceq ('SQL_Server_Lab Workflow UI: http://127.0.0.1:'+$script:browserServerConfig.ListenerPort+'/')){
+ param([Parameter(Position=0,ValueFromRemainingArguments)][object[]]$Object,[ConsoleColor]$ForegroundColor='Gray',[switch]$NoNewline,[string]$Separator=' ')
+ if($Object.Count -eq 1 -and $Object[0] -ceq ('SQL_Server_Lab Workflow UI: http://127.0.0.1:'+$global:browserServerConfig.ListenerPort+'/')){
   $listener=Get-Variable -Name listener -Scope 1 -ValueOnly -ErrorAction Stop
   if($listener -isnot [Net.HttpListener] -or -not $listener.IsListening -or @($listener.Prefixes).Count -ne 1 -or
-     @($listener.Prefixes)[0] -cne ('http://127.0.0.1:'+$script:browserServerConfig.ListenerPort+'/')){throw 'AUTOSTART_BROWSER_LISTENER_BINDING'}
-  $null=Write-AutoStartBrowserAcceptanceFile $script:browserServerConfig.EvidenceRoot 'browser-listener-ready.private.json' '{"ListenerStarted":true}'
-  $script:browserServerControl=[powershell]::Create()
-  $null=$script:browserServerControl.AddScript({param($listener,$stop)
+     @($listener.Prefixes)[0] -cne ('http://127.0.0.1:'+$global:browserServerConfig.ListenerPort+'/')){throw 'AUTOSTART_BROWSER_LISTENER_BINDING'}
+  $null=Write-AutoStartBrowserAcceptanceFile $global:browserServerConfig.EvidenceRoot 'browser-listener-ready.private.json' '{"ListenerStarted":true}'
+  $global:browserServerControl=[powershell]::Create()
+  $null=$global:browserServerControl.AddScript({param($listener,$stop)
    $deadline=[datetime]::UtcNow.AddMinutes(4)
    while($listener.IsListening -and -not (Test-Path -LiteralPath $stop) -and [datetime]::UtcNow -lt $deadline){Start-Sleep -Milliseconds 100}
    if($listener.IsListening){$listener.Stop()}
-  }).AddArgument($listener).AddArgument((Join-Path $script:browserServerConfig.EvidenceRoot 'browser-stop.private.json'))
-  $script:browserServerControlHandle=$script:browserServerControl.BeginInvoke()
+  }).AddArgument($listener).AddArgument((Join-Path $global:browserServerConfig.EvidenceRoot 'browser-stop.private.json'))
+  $global:browserServerControlHandle=$global:browserServerControl.BeginInvoke()
  }
  Microsoft.PowerShell.Utility\Write-Host @PSBoundParameters
 }
 $serverPrimary=$null
+$null=Write-AutoStartBrowserAcceptanceFile $c.EvidenceRoot 'browser-phase-ui-start.private.json' '{"Phase":"UI_START"}'
 try{& (Join-Path $c.RepositoryRoot Tools/Start-SqlServerLabUi.ps1) -NoBrowser -Port ([string]$c.ListenerPort)}
 catch{$serverPrimary=$_}
 finally{
@@ -190,8 +193,9 @@ finally{
    foreach($v in @(Get-Variable -Scope Script -Name 'browserAcceptance*'|ForEach-Object Name)){try{Remove-Variable -Scope Script -Name $v -ErrorAction Stop}catch{$errors.Add($_)}}
    if($errors.Count){throw 'AUTOSTART_BROWSER_RESTORATION_REQUIRED'}
   } $restore}catch{$restorationErrors.Add($_)}
- try{if($script:browserServerControl){try{$null=$script:browserServerControl.EndInvoke($script:browserServerControlHandle)}finally{$script:browserServerControl.Dispose()}}}catch{$restorationErrors.Add($_)}
+  try{if($global:browserServerControl){try{$null=$global:browserServerControl.EndInvoke($global:browserServerControlHandle)}finally{$global:browserServerControl.Dispose()}}}catch{$restorationErrors.Add($_)}
  try{if($savedHost){Set-Item Function:Write-Host $savedHost -ErrorAction Stop}else{Remove-Item Function:Write-Host -ErrorAction Stop}}catch{$restorationErrors.Add($_)}
+  foreach($name in @('browserServerConfig','browserServerControl','browserServerControlHandle')){try{Remove-Variable -Name $name -Scope Global -ErrorAction Stop}catch{$restorationErrors.Add($_)}}
  try{Remove-Module $module -Force -ErrorAction Stop}catch{$restorationErrors.Add($_)}
  if(-not $restorationErrors.Count){$null=Write-AutoStartBrowserAcceptanceFile $c.EvidenceRoot 'browser-functions-restored.private.json' '{"OriginalFunctionsRestored":true}'}
 }
@@ -208,11 +212,12 @@ const c=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));
 const {chromium}=require(c.PlaywrightDirectory);
 const base='http://127.0.0.1:'+c.ListenerPort;
 const assert=(v)=>{if(!v)throw Error('AUTOSTART_BROWSER_ASSERTION');};
+let stage='INIT';
 (async()=>{
  let browser;let blocked=0;let previewRequests=0;let readRequests=0;let delayed=false;let completeDelayed;
  const delayedComplete=new Promise(resolve=>{completeDelayed=resolve;});
  try{
-  browser=await chromium.launch({executablePath:c.BrowserExecutable,headless:true,timeout:30000});
+   stage='LAUNCH';browser=await chromium.launch({executablePath:c.BrowserExecutable,headless:true,timeout:30000});
   const context=await browser.newContext({serviceWorkers:'block'});
   const page=await context.newPage();page.setDefaultTimeout(15000);
   await page.route('**/*',async route=>{
@@ -229,27 +234,27 @@ const assert=(v)=>{if(!v)throw Error('AUTOSTART_BROWSER_ASSERTION');};
    // No unrelated inventory/jobs/catalog work is sent to the real server.
    blocked++;return route.abort();
   });
-  await page.goto(base+'/',{waitUntil:'domcontentloaded',timeout:30000});
+   stage='LOAD_PAGE';await page.goto(base+'/',{waitUntil:'domcontentloaded',timeout:30000});
   const open=page.locator('#autostart-preview-open');const dialog=page.locator('#autostart-preview-dialog');
   const policy=page.locator('#autostart-preview-policy');const target=page.locator('#autostart-preview-target');
   const plan=page.locator('#autostart-preview-plan');const result=page.locator('#autostart-preview-result');
-  await open.click();await target.locator('option').first().waitFor();
+   stage='READ_TARGETS';await open.click();await target.locator('option').first().waitFor({state:'attached'});
   assert(await target.locator('option').count()===1);
-  await plan.click();assert(previewRequests===0);
+   stage='EARLY_VETO';await plan.click();assert(previewRequests===0);
   await policy.selectOption('on');await policy.dispatchEvent('input');await target.dispatchEvent('change');
   assert(previewRequests===0);await page.locator('#autostart-preview-close').click();assert(previewRequests===0);
-  await open.click();await target.locator('option').first().waitFor();await policy.selectOption('on');await policy.dispatchEvent('input');
+   stage='LATE_VETO';await open.click();await target.locator('option').first().waitFor({state:'attached'});await policy.selectOption('on');await policy.dispatchEvent('input');
   await plan.click();await page.waitForFunction(()=>!document.querySelector('#autostart-preview-dialog').open);
   await delayedComplete;assert(await result.textContent()==='');
-  await open.click();await target.locator('option').first().waitFor();await policy.selectOption('off');await policy.dispatchEvent('input');await plan.click();
+   stage='OFF_PREVIEW';await open.click();await target.locator('option').first().waitFor({state:'attached'});await policy.selectOption('off');await policy.dispatchEvent('input');await plan.click();
   await page.waitForFunction(()=>document.querySelector('#autostart-preview-result').textContent.includes('SAME_POLICY'));
   assert((await result.textContent()).includes('CanApply=false'));
-  await policy.selectOption('on');await policy.dispatchEvent('input');await plan.click();
+   stage='ON_PREVIEW';await policy.selectOption('on');await policy.dispatchEvent('input');await plan.click();
   await page.waitForFunction(()=>document.querySelector('#autostart-preview-result').textContent.includes('DIFFERENT_POLICY'));
   const text=await result.textContent();assert(text.includes('Mounts:')&&text.includes('NOT_CHECKED')&&!text.includes(c.RunId));
   assert(previewRequests===3);
   // Raw invalid requests use the genuine listener; none should call Public.
-  for(const body of ['{"Action":["Read"]}','{"Action":"Read","Action":"Read"}','{"Action":"Read","Unknown":true}',
+   stage='INVALID_REQUESTS';for(const body of ['{"Action":["Read"]}','{"Action":"Read","Action":"Read"}','{"Action":"Read","Unknown":true}',
    '{"Action":"Preview","RunId":"00000000-0000-0000-0000-000000000000","InstanceId":"primary","AutoStart":"on"}',
    JSON.stringify({Action:'Preview',RunId:c.RunId,InstanceId:'primary',AutoStart:'invalid'}),
    '{"Action":"Read","StateRoot":"FORGED_AUTHORITY"}','x'.repeat(2049)]){
@@ -257,10 +262,10 @@ const assert=(v)=>{if(!v)throw Error('AUTOSTART_BROWSER_ASSERTION');};
   }
   const invalidMethod=await context.request.get(base+'/api/container-autostart-preview',{headers:{Origin:base}});assert(invalidMethod.status()>=400);
   const badOrigin=await context.request.post(base+'/api/container-autostart-preview',{headers:{Origin:'http://127.0.0.1:1','Content-Type':'application/json'},data:'{"Action":"Read"}'});assert(badOrigin.status()===400);
-  const report={Contract:'SqlServerLab.AutoStartRenderedBrowserEvidence/1.0',Status:'PASS',PublicPreviewRequests:3,MetadataRequests:readRequests,EarlyCancelInvalidPreviewRequests:0,LateRealResponseDisplayVeto:true,RenderedCategories:true,DeniedUnrelatedRequests:blocked,PreviewResponsesStubbed:false};
+   stage='WRITE_REPORT';const report={Contract:'SqlServerLab.AutoStartRenderedBrowserEvidence/1.0',Status:'PASS',PublicPreviewRequests:3,MetadataRequests:readRequests,EarlyCancelInvalidPreviewRequests:0,LateRealResponseDisplayVeto:true,RenderedCategories:true,DeniedUnrelatedRequests:blocked,PreviewResponsesStubbed:false};
   fs.writeFileSync(c.ResultPath,JSON.stringify(report),{flag:'wx'});
  }finally{if(browser)await browser.close();}
-})().catch(()=>{process.stderr.write('AUTOSTART_BROWSER_DRIVER_FAILED\n');process.exitCode=1;});
+})().catch(()=>{process.stderr.write('AUTOSTART_BROWSER_DRIVER_FAILED:'+stage+'\n');process.exitCode=1;});
 '@
 }
 
