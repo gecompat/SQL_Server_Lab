@@ -25,9 +25,20 @@ und vollstaendig bestaetigtem Cleanup. Der Vorher-nachher-Abgleich der sechs
 geschuetzten Umgebungen ergab null Findings.
 `Invoke-SaPasswordHttpNetworkAcceptance.ps1` bestand mit eigenem echten
 Loopback-Listener, drei abgewiesenen fehlerhaften Creationrequests, null
-Creationjobs und bestaetigtem Listener-/Root-Cleanup. Weitere CU-Images und
-Mindestlaengen sowie ein gueltiger HTTP-Creationjob und gerenderter Browser
-sind nicht abgenommen. [Vertrag](../Architecture/SA_PASSWORD_POLICY.md).
+Creationjobs und bestaetigtem Listener-/Root-Cleanup.
+`Invoke-SaPasswordBrowserAcceptance.ps1` bestand danach getrennt unter Docker
+und Podman mit gerendertem Edge, expliziter Mindestlaenge drei, genau einem
+gueltigen Loopback-HTTP-Creationjob, SQL-Anmeldung und gebundenem Cleanup.
+Der Schutzvergleich der sechs Toolbelt-Umgebungen blieb unveraendert. Die
+Workflow-Regression prueft nun auch, dass eine leere optionale
+`PersistentStorageId` nicht an die Erstellungsfunktion gebunden wird. Weitere
+CU-Images, Mindestlaengen und Persistenzmodi sind nicht abgenommen.
+Die ausgewaehlten elf weiteren statischen Suites bestanden; die zwoelfte
+Workflow-UI-Suite bestand nach Anpassung ihrer Aufruf-Assertions an die
+optionale Parameteruebergabe. Der selektierte allgemeine Docker-Smoke bestand
+nach Korrektur seiner testinternen Kombination aus direktem `Port` und nur
+RunId-basiertem `StateRoot`; auch dessen eigener Container wurde entfernt.
+[Vertrag](../Architecture/SA_PASSWORD_POLICY.md).
 
 
 ## GUI-Aktionsstatus ohne Runtime
