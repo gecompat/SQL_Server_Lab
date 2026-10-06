@@ -368,7 +368,12 @@
       <p class="form-note">Docker/Podman erhalten eine Restart-Policy. Unter Windows startet ein benutzergebundener Auftrag die Desktop-/Machine-Runtime nach der Anmeldung.</p>
       <label>SA-Passwort<input id="container-password" type="password" autocomplete="new-password" required></label>
       <label>SA-Passwort wiederholen<input id="container-password-repeat" type="password" autocomplete="new-password" required></label>
-      <p class="form-note">Das Passwort wird ausschließlich an den gestarteten Job übergeben, nicht gespeichert und nicht im Live-Log ausgegeben.</p>
+      <p class="form-note">Standard: 8 bis 128 Zeichen und mindestens drei Gruppen aus Großbuchstaben, Kleinbuchstaben, Ziffern und Sonderzeichen. Das Passwort erscheint nicht im Live-Log; nach der Erstellung wird es für spätere Starts verschlüsselt im eigenen Lab abgelegt.</p>
+      <div id="container-password-adjustment" hidden>
+        <p class="form-note">Nur für einen neuen kurzlebigen SQL-2025-Container mit katalogisiertem CU: Wählen Sie bewusst eine kürzere Mindestlänge. Die drei Zeichengruppen bleiben Pflicht.</p>
+        <label>Mindestlänge für dieses neue Lab<select id="container-password-minimum"><option value="8">Standard: 8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option></select></label>
+        <label class="form-check"><input id="container-password-adjust-confirm" type="checkbox"> Diese kürzere Mindestlänge nur für das neue Lab konfigurieren</label>
+      </div>
       <div class="dialog-actions"><button type="button" class="button secondary" value="cancel" formnovalidate>Abbrechen</button><button class="button primary" value="default">Umgebung erstellen</button></div>
     </form>
   </dialog>
@@ -482,7 +487,8 @@
       <div class="dialog-heading"><div><p class="eyebrow">CONTAINER-MANIFEST</p><h2>Umgebung aus Manifest erstellen</h2></div><button type="button" class="icon-button" value="cancel" formnovalidate aria-label="Schließen">×</button></div>
       <label>Manifestpfad<input id="manifest-run-path" placeholder="D:\\Lab\\mein-lab.json" required></label>
       <label>SA-Passwort<input id="manifest-run-password" type="password" autocomplete="new-password" required></label>
-      <p class="form-note">Das Manifest wird vor der Erstellung vollständig validiert. Das Passwort wird weder gespeichert noch im Live-Log angezeigt.</p>
+      <p class="form-note">Mindestens 8, höchstens 128 Zeichen und drei der vier Zeichengruppen. Eine kürzere Mindestlänge ist für Manifeststarts nicht verfügbar.</p>
+      <p class="form-note">Das Manifest wird vor der Erstellung vollständig validiert. Das Passwort erscheint nicht im Live-Log; nach der Erstellung wird es für spätere Starts verschlüsselt im eigenen Lab abgelegt.</p>
       <div class="dialog-actions"><button type="button" class="button secondary" value="cancel" formnovalidate>Abbrechen</button><button class="button primary" value="default">Umgebung erstellen</button></div>
     </form>
   </dialog>

@@ -390,7 +390,7 @@ $module = New-Module -ArgumentList $repoRoot,$fixtureRoot -ScriptBlock {
         $effectiveStateRoot=$script:root;$runState=[pscustomobject]@{RunId=$script:runId;ScopeId=$script:scopeId}
         $run=[pscustomobject]@{StateRoot='foreign-default';RunId='foreign-default'}
         $instance=[pscustomobject]@{provider='podman';autostart='on';version='2025'}
-        $versionDefinition=[pscustomobject]@{major=17};$containerImageArtifactsByInstance=@{};$SaPassword=$secret;$Port=14337
+        $versionDefinition=[pscustomobject]@{major=17};$containerImageArtifactsByInstance=@{};$SaPassword=$secret;$SaPasswordMinimumLength=8;$Port=14337
         $script:newCalls=[Collections.Generic.List[string]]::new();$script:readyAttempts=0
         function New-LabProviderContainer {[pscustomobject]@{Provider='podman';Port=14337;ContainerId=$script:cid}}
         function Resolve-PodmanWindowsHostName {param($StateRoot)Require-ConsumerRoot $StateRoot;$script:newCalls.Add('host');'127.0.0.1'}

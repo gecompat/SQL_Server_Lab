@@ -597,7 +597,12 @@ function Initialize-LabOwnedHostSqlVolume {
         [Parameter(Mandatory)][ValidateSet('docker','podman')][string]$Provider,[Parameter(Mandatory)][string]$VolumeName,
         [Parameter(Mandatory)][string]$Image,[Parameter(Mandatory)][string]$InstanceId,[Parameter(Mandatory)][string]$VersionId,
         [Parameter(Mandatory)][string]$ContainerPath,[string]$PersistentStorageId,[string]$PersistentStorageRole,
-        [string]$Persistence,[switch]$SyncImageContent,$RuntimeBinding)
+        [string]$Persistence,[switch]$SyncImageContent,$RuntimeBinding,
+        [ValidateRange(1,8)][int]$SaPasswordMinimumLength = 8)
+    if ($SaPasswordMinimumLength -lt 8) {
+        Assert-LabSaPasswordVolumeSeedScope -VersionId $VersionId -Provider $Provider -ContainerPath $ContainerPath `
+            -Persistence $Persistence -SyncImageContent ([bool]$SyncImageContent) -RuntimeBinding $RuntimeBinding
+    }
     $policy=Get-LabOwnedHostRunPolicy -RunId $RunId -StateRoot $StateRoot
     $run=Get-LabRunState -RunId $RunId -StateRoot $StateRoot
     if (-not $policy -or $run.scopeId -cne $ScopeId) { throw 'OWNED_HOST_VOLUME_CONTEXT_REQUIRED' }
@@ -606,6 +611,9 @@ function Initialize-LabOwnedHostSqlVolume {
     if (-not (Test-Path $directory)) { $null=New-Item -Path $directory -ItemType Directory -ErrorAction Stop }
     $receiptPath=Join-Path $directory ($Provider+'-'+$VolumeName+'.created.json')
     if (Test-Path -LiteralPath $receiptPath) {
+        # Ein Created-Receipt ist kein erfolgreicher Configseed-Nachweis.
+        # Custom-Initialisierung wird nie erneut in einer vorhandenen Volume ausgefuehrt.
+        if ($SaPasswordMinimumLength -lt 8) { throw 'SA_PASSWORD_POLICY_EXISTING_VOLUME_FORBIDDEN' }
         $owned=Get-LabOwnedHostVolumeReceipt -StateRoot $StateRoot -Provider $Provider -VolumeName $VolumeName
         if ($owned.Intent.VersionId -cne $VersionId -or $owned.Intent.PersistentStorageId -cne $PersistentStorageId -or
             $owned.Intent.PersistentStorageRole -cne $PersistentStorageRole) { throw 'OWNED_HOST_VOLUME_LOGICAL_BINDING_DRIFT' }
@@ -635,8 +643,17 @@ function Initialize-LabOwnedHostSqlVolume {
     $command=if ($SyncImageContent) {
         "if [ ! -d '$ContainerPath' ]; then exit 1; fi; cp -a '$ContainerPath'/. /sql-lab-volume-init/; chown --reference='$ContainerPath' /sql-lab-volume-init && chmod --reference='$ContainerPath' /sql-lab-volume-init"
     } else {'chown -R 10001:0 /sql-lab-volume-init && chmod 0770 /sql-lab-volume-init'}
-    $null=Invoke-LabOwnedHostEphemeralContainer -StateRoot $StateRoot -RunId $RunId -ScopeId $ScopeId -Provider $Provider `
-        -ContainerArguments @('--network','none','--user','0:0','--entrypoint','/bin/sh','-v',($VolumeName+':/sql-lab-volume-init'),$Image,'-c',$command)
+    if ($SaPasswordMinimumLength -lt 8) {
+        $command += ' && ' + (Get-LabSaPasswordConfigSeedCommand -MinimumLength $SaPasswordMinimumLength)
+    }
+    try {
+        $null=Invoke-LabOwnedHostEphemeralContainer -StateRoot $StateRoot -RunId $RunId -ScopeId $ScopeId -Provider $Provider `
+            -ContainerArguments @('--network','none','--user','0:0','--entrypoint','/bin/sh','-v',($VolumeName+':/sql-lab-volume-init'),$Image,'-c',$command)
+    }
+    catch {
+        if ($SaPasswordMinimumLength -lt 8) { throw 'SA_PASSWORD_POLICY_CONFIG_SEED_FAILED' }
+        throw
+    }
     return $true
 }
 

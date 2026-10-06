@@ -3045,6 +3045,27 @@ function Invoke-LabNewContainerEnvironmentInteractive {
         $newLabArguments.Sample = $selectedSamples
     }
 
+    $passwordSelection = $null
+    if ($passwordMode -eq 'manual') {
+        $hasDerivedImage = $false
+        foreach ($sampleSpec in $selectedSamples) {
+            $parts = ([string]$sampleSpec).Split(':', 2)
+            $sampleDefinition = [pscustomobject]@{
+                id = $parts[0].Trim()
+                variant = if ($parts.Count -gt 1 -and $parts[1].Trim()) { $parts[1].Trim() } else { 'full' }
+            }
+            $sampleArtifact = Resolve-LabSampleArtifact -SampleDefinition $sampleDefinition -SqlVersion $version
+            if ($sampleArtifact.artifactType -eq 'bacpac') { $hasDerivedImage = $true }
+        }
+        $policy = Get-LabSaPasswordPolicy -Version $version -Provider $Provider `
+            -PersistentData ([bool]$newLabArguments.PersistentData) -Drives @($newLabArguments.Drives) `
+            -HasDerivedImage $hasDerivedImage
+        $passwordSelection = Read-LabGuidedSaPassword -Policy $policy
+        if ($passwordSelection.Status -ne 'Accepted') { return }
+        $newLabArguments.SaPassword = $passwordSelection.Password
+        $newLabArguments.SaPasswordMinimumLength = $passwordSelection.MinimumLength
+    }
+
     try {
         $lab = New-SqlServerLab @newLabArguments -ErrorAction Stop
         if (-not $lab -or [string]::IsNullOrWhiteSpace([string]$lab.RunId)) {
@@ -3054,6 +3075,9 @@ function Invoke-LabNewContainerEnvironmentInteractive {
     catch {
         Write-LabError "Lab-Erstellung fehlgeschlagen: $($_.Exception.Message)"
         return
+    }
+    finally {
+        if ($passwordSelection -and $passwordSelection.Password) { $passwordSelection.Password.Dispose() }
     }
     Write-Host ''
     Write-LabSuccess "Lab erstellt auf $Provider. RunId: $($lab.RunId)"

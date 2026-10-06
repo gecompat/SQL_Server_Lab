@@ -77,6 +77,7 @@ function New-LabProviderContainer {
         [Parameter(Mandatory)]$Instance,
         [Parameter(Mandatory)]$RunState,
         [Parameter(Mandatory)][SecureString]$SaPassword,
+        [ValidateRange(1,8)][int]$SaPasswordMinimumLength = 8,
         [int]$Port = 0,
         $ContainerImageArtifact,
         [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$')][string]$ContainerName,
@@ -130,6 +131,7 @@ function New-LabProviderContainer {
                 -EndpointBindingIgnoreContainerName $EndpointBindingIgnoreContainerName `
                 -Port $Port `
                 -SaPassword $SaPassword `
+                -SaPasswordMinimumLength $SaPasswordMinimumLength `
                 -Profile $Instance.profile `
                 -Drives $Instance.drives `
                 -NetworkName $Instance.networkName `
@@ -153,6 +155,7 @@ function New-LabProviderContainer {
                 -EndpointBindingIgnoreContainerName $EndpointBindingIgnoreContainerName `
                 -Port $Port `
                 -SaPassword $SaPassword `
+                -SaPasswordMinimumLength $SaPasswordMinimumLength `
                 -Profile $Instance.profile `
                 -Drives $Instance.drives `
                 -NetworkName $Instance.networkName `
@@ -254,6 +257,12 @@ function New-SqlServerLab {
         Erzeugt fuer eine Ad-hoc-Containerumgebung ein eigenes zufaelliges
         SA-Passwort und kennzeichnet dessen verschluesselte run-lokale Ablage
         explizit als lab-generiert. Nicht mit SaPassword kombinierbar.
+    .PARAMETER SaPasswordMinimumLength
+        Bewusste Mindestlaenge 1 bis 8 fuer neue Ad-hoc-Standardcontainer mit
+        exakt katalogisiertem SQL-2025-CU und eigener kurzlebiger Systemvolume.
+        Default 8; Manifest, latest, persistente Stores und Derived Images
+        erlauben keine Absenkung. Drei Zeichengruppen und maximal 128 bleiben.
+        Die native Erststartabnahme der Absenkung bleibt separat erforderlich.
     .PARAMETER StateRoot
         Optionales State-Stammverzeichnis. Ohne Angabe wird der Framework-Default
         fuer das aktuelle Betriebssystem verwendet.
@@ -381,6 +390,7 @@ function New-SqlServerLab {
         [string]$Manifest,
 
         [SecureString]$SaPassword,
+        [Parameter(ParameterSetName = 'AdHoc')][ValidateRange(1,8)][int]$SaPasswordMinimumLength = 8,
         [Parameter(ParameterSetName = 'AdHoc')][switch]$GenerateSaPassword,
         [string]$StateRoot,
         [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9 _-]{0,63}$')][string]$LabName,
@@ -874,7 +884,19 @@ function New-SqlServerLab {
     if (-not $SaPassword) {
         if ($effectiveNonInteractive) { throw 'SA_PASSWORD_REQUIRED_NONINTERACTIVE' }
         Write-LabInfo 'SA-Passwort wird benoetigt.'
-        $SaPassword = Read-SaPassword
+        $SaPassword = Read-SaPassword -MinimumLength $SaPasswordMinimumLength
+    }
+
+    # Jeder Eingabeweg, auch explizite SecureStrings/Manifestsecrets, trifft
+    # dieselbe Barriere vor Run-State, Secretpersistierung und Imagebuild.
+    foreach ($instance in $resolved.instances) {
+        $passwordPolicy = Get-LabSaPasswordPolicy -Version ([string]$instance.version) `
+            -Provider ([string]$instance.provider) -MinimumLength $SaPasswordMinimumLength `
+            -ProvisioningMode $(if ($PSCmdlet.ParameterSetName -eq 'Manifest') { 'manifest' } else { 'adhoc' }) `
+            -PersistentData ([bool]$PersistentData) -Drives @($instance.drives) `
+            -HasDerivedImage ($externalRuntimeImagePlansByInstance.ContainsKey([string]$instance.id) -or
+                $containerToolImagePlansByInstance.ContainsKey([string]$instance.id))
+        Assert-LabSaPasswordPreflight -Password $SaPassword -Policy $passwordPolicy
     }
 
     $providerSubRuns = @(
@@ -1091,6 +1113,7 @@ function New-SqlServerLab {
                     -Instance $instance `
                     -RunState $runState `
                     -SaPassword $SaPassword `
+                    -SaPasswordMinimumLength $SaPasswordMinimumLength `
                     -Port $Port `
                     -ContainerImageArtifact $containerImageArtifactsByInstance[[string]$instance.id]
 
@@ -1117,6 +1140,7 @@ function New-SqlServerLab {
                 if ($readiness.Ready) { break }
 
                 $retryableSql2025State = (
+                    $SaPasswordMinimumLength -eq 8 -and
                     [string]$instance.version -match '^2025(?:$|-)' -and
                     [string]$readiness.Message -match '^LAB_SQL_TRANSIENT_LOGIN_STATE_115:'
                 )

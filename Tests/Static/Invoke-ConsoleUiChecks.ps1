@@ -248,7 +248,7 @@ Add-ConsoleUiCheck 'Bildschirme ohne Statusband warten unveraendert blockierend 
 # CUI-024: Kontexthilfe je ScreenId, live geprueft, mit Begruendung deaktivierter Eintraege.
 $helpCatalog = Get-LabConsoleHelpCatalog
 $criticalScreens = @('main-menu', 'queue-menu', 'environment-menu', 'environment-actions',
-    'sql-target-configuration', 'batch-composer', 'create-menu', 'create-sa-password', 'cms-menu',
+    'sql-target-configuration', 'batch-composer', 'create-menu', 'create-sa-password', 'sa-password-correction', 'cms-menu',
     'infrastructure-menu', 'maintenance-menu', 'settings-menu', 'storage-menu', 'database-menu',
     'connection-center', 'hyperv-menu', 'system-menu', 'public-command-menu',
     'public-command-parameter-set', 'public-command-parameters', 'public-command-value-selection')

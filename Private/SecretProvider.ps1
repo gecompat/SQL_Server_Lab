@@ -11,13 +11,14 @@
 function Test-SaPasswordComplexity {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$Password)
-    $reasons = @()
-    if ($Password.Length -lt 8) { $reasons += 'Mindestens 8 Zeichen' }
-    if ($Password -notmatch '[A-Z]') { $reasons += 'Mindestens ein Grossbuchstabe' }
-    if ($Password -notmatch '[a-z]') { $reasons += 'Mindestens ein Kleinbuchstabe' }
-    if ($Password -notmatch '[0-9]') { $reasons += 'Mindestens eine Ziffer' }
-    if ($Password -notmatch '[^A-Za-z0-9]') { $reasons += 'Mindestens ein Sonderzeichen' }
-    [PSCustomObject]@{ Valid = $reasons.Count -eq 0; Reasons = $reasons }
+    $secure = [SecureString]::new()
+    foreach ($character in $Password.ToCharArray()) { $secure.AppendChar($character) }
+    $secure.MakeReadOnly()
+    try {
+        $check = Test-LabSaPassword -Password $secure
+        [pscustomobject]@{ Valid = $check.Valid; Reasons = @($check.ReasonCodes) }
+    }
+    finally { $secure.Dispose() }
 }
 
 function ConvertFrom-LabSecureString {
@@ -32,25 +33,31 @@ function ConvertFrom-LabSecureString {
 
 function Read-SaPassword {
     [CmdletBinding()]
-    param([int]$MaxAttempts = 3)
+    param([int]$MaxAttempts = 3, [ValidateRange(1,8)][int]$MinimumLength = 8)
     for ($i = 1; $i -le $MaxAttempts; $i++) {
         $secure = Read-Host 'SA-Passwort' -AsSecureString
-        $plain = ConvertFrom-LabSecureString -SecureString $secure
-        $check = Test-SaPasswordComplexity -Password $plain
+        $check = Test-LabSaPassword -Password $secure -MinimumLength $MinimumLength
         if (-not $check.Valid) {
-            Write-LabWarning "Passwort erfuellt nicht die Anforderungen:"
-            $check.Reasons | ForEach-Object { Write-LabWarning "  - $_" }
+            Write-LabWarning 'Passwort erfuellt nicht die Anforderungen.'
+            (Get-LabSaPasswordPolicy -MinimumLength $MinimumLength).Criteria | ForEach-Object { Write-LabWarning $_ }
+            $secure.Dispose()
             if ($i -lt $MaxAttempts) { Write-LabInfo "Erneut eingeben ($($i+1)/$MaxAttempts)." }
             continue
         }
         $confirm = Read-Host 'SA-Passwort bestaetigen' -AsSecureString
-        $confirmPlain = ConvertFrom-LabSecureString -SecureString $confirm
-        if ($plain -ne $confirmPlain) {
+        $plain = $null; $confirmPlain = $null
+        try {
+            $plain = ConvertFrom-LabSecureString -SecureString $secure
+            $confirmPlain = ConvertFrom-LabSecureString -SecureString $confirm
+            $matches = $plain -ceq $confirmPlain
+        }
+        finally { $plain = $null; $confirmPlain = $null; $confirm.Dispose() }
+        if (-not $matches) {
+            $secure.Dispose()
             Write-LabWarning "Passwoerter stimmen nicht ueberein."
             if ($i -lt $MaxAttempts) { Write-LabInfo "Erneut eingeben ($($i+1)/$MaxAttempts)." }
             continue
         }
-        $plain = $null; $confirmPlain = $null
         return $secure
     }
     throw "SA-Passwort konnte nach $MaxAttempts Versuchen nicht gesetzt werden."

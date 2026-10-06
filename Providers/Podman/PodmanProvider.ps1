@@ -81,15 +81,20 @@ function Initialize-PodmanSqlNamedVolume {
         [AllowNull()]$RuntimeBinding,
         [ValidatePattern('^$|^(EXTERNAL_LANGUAGES|EXTERNAL_LIBRARIES)$')][string]$PersistentStorageRole,
         [string]$Persistence,
+        [ValidateRange(1,8)][int]$SaPasswordMinimumLength = 8,
         [switch]$SyncImageContent
     , [string]$StateRoot)
     $ownedHostPolicy = if ($StateRoot -and (((Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json')) -or (((Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-required')) -or (Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json'))))))) { Get-LabOwnedHostPolicy -StateRoot $StateRoot -Required } else { $null }
 
+    if ($SaPasswordMinimumLength -lt 8) {
+        Assert-LabSaPasswordVolumeSeedScope -VersionId $VersionId -Provider podman -ContainerPath $ContainerPath `
+            -Persistence $Persistence -SyncImageContent ([bool]$SyncImageContent) -RuntimeBinding $RuntimeBinding
+    }
     if ($ownedHostPolicy) {
         return Initialize-LabOwnedHostSqlVolume -StateRoot $StateRoot -RunId $RunId -ScopeId $ScopeId -Provider podman `
             -VolumeName $VolumeName -Image $Image -InstanceId $InstanceId -VersionId $VersionId -ContainerPath $ContainerPath `
             -PersistentStorageId $PersistentStorageId -PersistentStorageRole $PersistentStorageRole -Persistence $Persistence `
-            -SyncImageContent:$SyncImageContent -RuntimeBinding $RuntimeBinding
+            -SyncImageContent:$SyncImageContent -RuntimeBinding $RuntimeBinding -SaPasswordMinimumLength $SaPasswordMinimumLength
     }
 
 
@@ -106,6 +111,7 @@ function Initialize-PodmanSqlNamedVolume {
     $podmanInvocation = Get-LabHostToolInvocation -Name podman
     $inspectionOutput = @($(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider podman -StateRoot $StateRoot -Invocation $podmanInvocation -ArgumentList @('volume', 'inspect', $VolumeName) } else { & $podmanInvocation volume inspect $VolumeName }) 2>$null)
     $volumeExists = $LASTEXITCODE -eq 0
+    if ($volumeExists -and $SaPasswordMinimumLength -lt 8) { throw 'SA_PASSWORD_POLICY_EXISTING_VOLUME_FORBIDDEN' }
 
     if ($volumeExists -and $PersistentStorageId) {
         try { $inspection = @($inspectionOutput | ConvertFrom-Json -Depth 30 -ErrorAction Stop)[0] }
@@ -145,10 +151,14 @@ function Initialize-PodmanSqlNamedVolume {
     else {
         'chown -R 10001:0 /sql-lab-volume-init && chmod 0770 /sql-lab-volume-init'
     }
+    if ($SaPasswordMinimumLength -lt 8) {
+        $initializationCommand += ' && ' + (Get-LabSaPasswordConfigSeedCommand -MinimumLength $SaPasswordMinimumLength)
+    }
     $volumeInitialize = Invoke-LabProviderOperation -Provider podman -Phase 'volume-initialize' -RunId $RunId -Native `
         -Command "podman run --rm --user 0:0 --entrypoint /bin/sh -v ${VolumeName}:/sql-lab-volume-init $Image -c <volume-initialization>" `
         -Action { $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider podman -StateRoot $StateRoot -Invocation $podmanInvocation -ArgumentList @('run', '--rm', '--user', '0:0', '--entrypoint', '/bin/sh', '-v', "${VolumeName}:/sql-lab-volume-init", $Image, '-c', $initializationCommand) } else { & $podmanInvocation run --rm --user 0:0 --entrypoint /bin/sh -v "${VolumeName}:/sql-lab-volume-init" $Image -c $initializationCommand }) 2>&1 }
     if (-not $volumeInitialize.Succeeded) {
+        if ($SaPasswordMinimumLength -lt 8) { throw 'SA_PASSWORD_POLICY_CONFIG_SEED_FAILED' }
         throw "PODMAN_SQL_VOLUME_INITIALIZATION_FAILED: $VolumeName - $(@($volumeInitialize.Output) -join ' ')"
     }
     return (-not $volumeExists)
@@ -166,6 +176,7 @@ function New-PodmanInstance {
         [ValidatePattern('^$|^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$')][string]$EndpointBindingIgnoreContainerName,
         [int]$Port = 0,
         [Parameter(Mandatory)][SecureString]$SaPassword,
+        [ValidateRange(1,8)][int]$SaPasswordMinimumLength = 8,
         [ValidateSet('compact', 'standard', 'performance')]
         [string]$Profile = 'standard',
         [array]$Drives = @(),
@@ -181,6 +192,10 @@ function New-PodmanInstance {
     $ownedHostPolicy = if ($StateRoot -and (((Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json')) -or (((Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-required')) -or (Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json'))))))) { Get-LabOwnedHostPolicy -StateRoot $StateRoot -Required } else { $null }
 
 
+    if ($SaPasswordMinimumLength -lt 8) {
+        Assert-LabSaPasswordContainerSeedScope -VersionId $VersionId -Provider podman -Drives $Drives `
+            -ResolvedImage $ResolvedImage -LaunchMode $ExternalRuntimeLaunchMode
+    }
     if ($ResolvedImage -and $ResolvedImage -notmatch '^[a-z0-9][a-z0-9./_-]+:[a-z0-9][a-z0-9._-]+$') {
         throw 'PODMAN_RESOLVED_IMAGE_INVALID'
     }
@@ -231,6 +246,7 @@ function New-PodmanInstance {
                 -ContainerPath ([string]$drive.containerPath) -StateRoot $StateRoot `
                 -PersistentStorageId ([string]$drive.persistentStorageId) -RuntimeBinding $drive.runtimeBinding -Persistence ([string]$drive.persistence) `
                 -PersistentStorageRole ([string]$drive.persistentStorageRole) `
+                -SaPasswordMinimumLength $(if ([string]$drive.containerPath -ceq '/var/opt/mssql') { $SaPasswordMinimumLength } else { 8 }) `
                 -SyncImageContent:($ExternalRuntimeLaunchMode -in @('sql2019-namespace-v1','sql2022-namespace-v1','sql2025-namespace-v1','sql2025-shared-user-v2') -and
                     [string]$drive.containerPath -in @('/var/opt/mssql-extensibility/externallanguages','/var/opt/mssql-extensibility/externallibraries'))
         }

@@ -421,6 +421,10 @@ function Get-SqlServerLabWorkflow {
         })
         WindowsBuilds = $windowsItems
         SqlBuilds = $sqlItems
+        ContainerSql2025PinnedBuilds = @(Get-SqlServerBuilds -VersionId '2025' |
+            Where-Object { [string]$_.cu -match '^CU[0-9]+$' -and [string]$_.tag -match '^2025-CU[0-9]+-.+$' } |
+            Sort-Object { [int](([string]$_.cu).Substring(2)) } -Descending |
+            ForEach-Object { [pscustomobject]@{ VersionId = '2025-' + [string]$_.cu; Cu = [string]$_.cu } })
         AcceptanceEnvironments = $acceptanceItems
         ActiveLabs = @($activeContainerRuns | ForEach-Object {
             $connectionInfo = $null

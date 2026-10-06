@@ -1,5 +1,35 @@
 # Lokale Validierungsstrategie
 
+## SA-Passwortpolicy: fokussierter Offlinevertrag
+
+`Tests/Static/Invoke-SaPasswordPolicyChecks.ps1` prueft Grenzlaengen, alle
+Dreierkombinationen, feste secretfreie Antworten, versionsgebundene Capability,
+tatsaechliche Public-/Manifestbarriere, maskierte Korrektur/Abbruch/Adjust,
+echte CLI-Parameteruebergabe und Secretentsorgung, beide Providerinitializer
+sowie OwnedHost-Teilreceiptveto mit synthetischen Leaves. Es gibt keine
+Provider-, SQL-, Listener- oder echte Secretoperation. Die bestehende
+Volumevertragssuite bleibt gekoppelt. `SaPasswordPolicyHttpChecks.ps1` fuehrt
+den echten Action-Routebody mit synthetischem Job aus; ungueltige, doppelte und
+unbefugte Felder sowie kurze Defaultpasswoerter werden vor der Jobanlage
+abgewiesen. `SaPasswordPolicyUiChecks.cjs` fuehrt die tatsaechlichen Browser-
+Submit-Handler mit synthetischem DOM aus: Korrektur, Abbruch, Widerruf einer
+frueheren Mindestlaengenwahl nach Passwortkorrektur, nur bewusst ausgewaehlte
+Mindestlaenge und Manifestdefault. Beide Fixtures sind vor dem
+Abschluss der bestehenden WorkflowUI-Suite eingebunden. Sie sind keine echte
+HTTP-Netz- oder gerenderte Browserabnahme. Ausgewaehlte Regression/
+Abschlussgates bleiben separat. Die ausgewaehlten 21 statischen Suiten
+bestanden nach Korrektur; `Invoke-SaPasswordPolicyAcceptance.ps1` bestand am
+2026-10-06 auf `12af45ed` getrennt fuer Docker und Podman mit eigenem
+SQL2025-CU9-Erststart, Mindestlaenge drei, Anmeldung, Restart/Configerhalt
+und vollstaendig bestaetigtem Cleanup. Der Vorher-nachher-Abgleich der sechs
+geschuetzten Umgebungen ergab null Findings.
+`Invoke-SaPasswordHttpNetworkAcceptance.ps1` bestand mit eigenem echten
+Loopback-Listener, drei abgewiesenen fehlerhaften Creationrequests, null
+Creationjobs und bestaetigtem Listener-/Root-Cleanup. Weitere CU-Images und
+Mindestlaengen sowie ein gueltiger HTTP-Creationjob und gerenderter Browser
+sind nicht abgenommen. [Vertrag](../Architecture/SA_PASSWORD_POLICY.md).
+
+
 ## GUI-Aktionsstatus ohne Runtime
 
 `WorkflowJobStatusChecks.ps1` führt den tatsächlichen Statusreader und die

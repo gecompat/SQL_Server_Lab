@@ -2,12 +2,28 @@
 
 | Merkmal | Wert |
 |---|---|
-| Status | `PAUSED` ab Integration des Übergabecheckpoints vom 2026-10-05; Wiederaufnahme nur durch ausdrücklichen Benutzerstart |
-| Stand | 2026-10-05 |
+| Status | `ACTIVE` seit ausdrücklichem Benutzerauftrag vom 2026-10-06 |
+| Stand | 2026-10-06 |
 | Auftrag | Aktuelle Entwicklungswelle aus Orchestrator Chat 2 mit denselben Regeln fortsetzen; C# bleibt USER_DEFERRED |
 | Ausgangspunkt | Durchsicht von `9cfd144`, vor Veröffentlichung gegen `ca9f09e` abgeglichen |
 | Ziel | vollständige Abarbeitung der Implementierungs-, Abnahme- und Bewertungsaufgaben bei konsistentem Gesamtsystem |
 | Reihenfolge | Konkretisierung des nachgelagerten Horizonts aus Abschnitt 12 des [Ausführungsplans](DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md) |
+
+## Wiederaufnahme vom 2026-10-06
+
+Der Benutzer hat die autonome Weiterentwicklung ausdrücklich fortgesetzt. Der
+Nachfolger arbeitet die bereits priorisierte Welle weiter ab; der zugehörige
+Heartbeat ist wieder aktiv. Der GUI-Aktionsstatus wurde mit PR #693 integriert.
+Aktueller Implementierungsscope ist die geführte SA-Passwortbehandlung samt
+eng begrenzter Mindestlängenanpassung für neue SQL-2025-CU-Container. Die
+sechs geschützten Testumgebungen und alle übrigen Grenzen dieses Plans gelten
+weiter. Die ausgewählten statischen Verträge sowie getrennte eigene Docker-
+und Podman-Erststarts, SQL-Anmeldung, Restart/Configerhalt und Cleanup sind
+bestanden; der Schutzvergleich ergab null Findings. Der echte Loopback-HTTP-
+Weg weist ungültige Creationrequests vor einem Job ab. Der unabhängige Review
+und Nachreview der Browserkorrektur sind geschlossen; 19 ausgewählte statische
+Suites bestanden. Gerenderter Browser und gültiger HTTP-Creationjob bleiben
+offen; das PR-Abschlussgate muss den jeweils aktuellen Head belegen.
 
 ## Übergabe und Benutzerpause vom 2026-10-05
 
@@ -63,20 +79,26 @@ aktuelle Freigabe oder vollständige Abnahme.
    Annahme/Warten/Blockierung/Running/Terminalstatus und zeigt fehlende Quelle,
    Verbindungsverlust oder Hoststartfehler ohne automatische Wiederholung.
    Laufzeit und Dedupe dürfen weder Wartedauer als Ausführung noch einen
-   aus Secretwerten abgeleiteten Prüfschlüssel erfinden. Der Integrations- und
-   Gateabschluss ist vor Wiederaufnahme anhand des tatsächlichen PR-Stands zu
-   prüfen; reine Planung belegt ihn nicht.
+   aus Secretwerten abgeleiteten Prüfschlüssel erfinden. Der Fix wurde mit
+   PR #693 integriert; der Zustand auf dem gemeldeten anderen Host bleibt
+   ohne dessen eigene Beobachtung `UNKNOWN`.
 2. **Geführte Passwortbehandlung:** Benutzerziel ist Passwortabfrage,
    verständlicher Kriterienhinweis, Korrektur oder explizite Anpassung und
    anschließende Konfiguration nach Auswahl. Der gemeldete Startfehler nennt
-   die Mindestlänge acht. Explizite Passwörter umgehen bislang die gemeinsame
+   die Mindestlänge acht. Explizite Passwörter umgingen zuvor die gemeinsame
    Vorprüfung. Standardziel: acht bis 128 Zeichen und drei von vier
    Zeichengruppen; gemeinsamer reiner Check vor State-, Secret-, Build- und
-   Providermutation. GUI/CLI müssen Korrektur und Abbruch erlauben, bevor ein
-   Creationjob entsteht. Die Vorarbeit liegt im eigenen erhaltenen Branch
-   `codex/guided-password-policy`; sie ist nicht als fertige Funktion integriert.
-   Browserintegration, unabhängiger Review, betroffene statische Gates und
-   getrennte eigene native Erststartnachweise bleiben offen.
+   Providermutation. GUI/CLI erlauben Korrektur und Abbruch, bevor ein
+   Creationjob entsteht. Die erhaltene Vorarbeit aus
+   `codex/guided-password-policy` wurde in den aktuellen Implementierungsbranch
+   übernommen. Browser- und Serverweg sind synthetisch geprüft; ausgewählte
+   statische Gates und getrennte Docker-/Podman-Erststarts sind bestanden.
+   Der echte Loopback-HTTP-Weg weist ungültige Creationrequests ab. Der
+   unabhängige Review fand eine veraltete Mindestlängenwahl nach
+   Passwortkorrektur und widersprüchliche Nachweistexte; beides wurde
+   korrigiert und ohne weitere Findings nachgeprüft. Gerenderter Browser
+   und gültiger HTTP-Creationjob bleiben offen; das PR-Gate muss den
+   jeweils aktuellen Head belegen.
 3. **Explizite Anpassung:** Zunächst nur für neue Standardcontainer mit exakt
    katalogisiertem SQL2025-Tag unter Docker/Podman und frischer runeigener
    Systemvolume; Mindestlänge eins bis acht nur nach bewusster Auswahl.
@@ -85,8 +107,9 @@ aktuelle Freigabe oder vollständige Abnahme.
    Benutzerdrives, Manifest, gleitender Tag, SQL2022 und abgeleitete
    External-Runtime-Images bleiben für diese Anpassung zunächst gesperrt.
    Die [Microsoft-Dokumentation zur Linux-Passwortrichtlinie](https://learn.microsoft.com/en-us/sql/linux/security/authentication/custom-password-policy?view=sql-server-ver17) beschreibt die Konfigurationsoption; dies beweist den
-   tatsächlich funktionierenden ersten SA-Start noch nicht. Jeder Provider
-   benötigt seinen eigenen Nachweis und erfolgreiches eigenes Cleanup.
+   tatsächlich funktionierenden ersten SA-Start allein noch nicht. Die oben
+   genannten Provider-Nachweise belegen diesen eng für CU9 mit Mindestlänge
+   drei und jeweils erfolgreichem eigenem Cleanup.
 4. **Autostart-Vorschau:** Native Core- und CLI-Nachweise sind in den bestehenden
    Fachverträgen verzeichnet und nicht zu wiederholen. Native gerenderte
    Browser-/HTTP-Netzabnahme bleibt `NOT_EXECUTED`; eine lokale vorbereitete

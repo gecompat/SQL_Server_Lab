@@ -140,6 +140,10 @@ lokale Datei geprüft.
     Nicht persistiertes SA-Passwort für Containeraktionen und optional für
     SQL Server in Hyper-V-Labs. Ohne Angabe verwendet ein Hyper-V-Lab das
     Gast-Administratorpasswort auch für SA.
+.PARAMETER SaPasswordMinimumLength
+    Nur fuer NewContainerLab: bewusste Mindestlaenge 1 bis 8 fuer einen neuen
+    kurzlebigen Standardcontainer mit exakt katalogisiertem SQL-2025-CU.
+    Default 8; die gemeinsame Passwortbarriere prueft vor der Providermutation.
 .PARAMETER HostName
     SQL-Host für Datenbank- oder Skriptaktionen; Standard ist 127.0.0.1.
 .PARAMETER Port
@@ -343,6 +347,7 @@ function Invoke-SqlServerLabWorkflowAction {
         [ValidateSet('compact', 'standard', 'performance')][string]$Profile = 'standard',
         [string]$InstanceId = 'primary',
         [SecureString]$SaPassword,
+        [ValidateRange(1,8)][int]$SaPasswordMinimumLength = 8,
         [string]$HostName = '127.0.0.1',
         [int]$Port,
         [string]$DatabaseName,
@@ -606,7 +611,7 @@ function Invoke-SqlServerLabWorkflowAction {
     $result = switch ($Action) {
         'NewContainerLab' {
             New-SqlServerLab -Version $SqlVersion -Provider $Provider -Profile $Profile -InstanceId $InstanceId -LabName $LabName -DataRoot $DataRoot -PersistentData:$PersistentData `
-                -PersistentStorageId $PersistentStorageId -PersistentStorageAction $PersistentStorageAction -AutoStart $AutoStart -SaPassword $SaPassword
+                -PersistentStorageId $PersistentStorageId -PersistentStorageAction $PersistentStorageAction -AutoStart $AutoStart -SaPassword $SaPassword -SaPasswordMinimumLength $SaPasswordMinimumLength
         }
         'CreateContainerManifest' {
             if ([string]::IsNullOrWhiteSpace($ManifestPath) -or [string]::IsNullOrWhiteSpace($LabName)) { throw 'CONTAINER_WORKFLOW_MANIFEST_PATH_AND_NAME_REQUIRED' }
