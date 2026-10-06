@@ -5986,6 +5986,7 @@ function Show-LabEnvironmentStatusSelectionInteractive {
     param()
 
     $selectedGroupId = ''
+    $expandedRole = ''
     while ($true) {
         $runs = @(Get-LabActiveRuns)
         if ($runs.Count -eq 0) {
@@ -6024,24 +6025,29 @@ function Show-LabEnvironmentStatusSelectionInteractive {
             $statusItems.Add((New-LabConsoleItem -Id "group:$role" -Label $role -Value "$count Umgebung(en) | Enter: aufklappen" -Shortcut ([string]$roleIndex)))
         }
 
-        $selection = Invoke-LabConsoleMenu -ScreenId 'environment-status-select' -Title 'Umgebungsstatus anzeigen' -Subtitle 'Typgruppe aufklappen oder Alle auswaehlen' -Items $statusItems.ToArray() -SelectedId $selectedGroupId -Footer 'Pfeile: Navigation  Enter/Shortcut: Aufklappen  Esc: Zurueck'
-        if ($selection.Status -eq 'Refresh') { continue }
-        if ($selection.Status -ne 'Selected') { return }
-
-        if ([string]$selection.SelectedItem.Id -eq '__all') {
-            $selectedEntries = $orderedEntries
+        if (-not $expandedRole) {
+            $selection = Invoke-LabConsoleMenu -ScreenId 'environment-status-select' -Title 'Umgebungsstatus anzeigen' -Subtitle 'Typgruppe aufklappen oder Alle auswaehlen' -Items $statusItems.ToArray() -SelectedId $selectedGroupId -Footer 'Pfeile: Navigation  Enter/Shortcut: Aufklappen  Esc: Zurueck'
+            if ($selection.Status -eq 'Refresh') { continue }
+            if ($selection.Status -ne 'Selected') { return }
+            if ([string]$selection.SelectedItem.Id -eq '__all') {
+                $selectedEntries = $orderedEntries
+            }
+            else {
+                $selectedGroupId = [string]$selection.SelectedItem.Id
+                $expandedRole = $selectedGroupId.Substring('group:'.Length)
+            }
         }
-        else {
-            $selectedGroupId = [string]$selection.SelectedItem.Id
-            $role = $selectedGroupId.Substring('group:'.Length)
-            $groupEntries = @($orderedEntries | Where-Object Role -EQ $role)
+        if ($expandedRole) {
+            $groupEntries = @($orderedEntries | Where-Object Role -EQ $expandedRole)
+            if ($groupEntries.Count -eq 0) { $expandedRole = ''; continue }
             $groupItems = [System.Collections.Generic.List[object]]::new()
             for ($index = 0; $index -lt $groupEntries.Count; $index++) {
                 $entry = $groupEntries[$index]
                 $groupItems.Add((New-LabConsoleItem -Id $entry.RunId -Label $entry.Name -Value $entry.Value -Shortcut ([string]($index + 1))))
             }
-            $member = Invoke-LabConsoleMenu -ScreenId 'environment-status-group' -Title $role -Subtitle 'Nach Provider und Name sortiert' -Items $groupItems.ToArray() -Footer 'Pfeile: Navigation  Enter/Shortcut: Status  Esc: Gruppe zuklappen'
-            if ($member.Status -eq 'Refresh' -or $member.Status -eq 'Cancelled') { continue }
+            $member = Invoke-LabConsoleMenu -ScreenId 'environment-status-group' -Title $expandedRole -Subtitle 'Nach Provider und Name sortiert' -Items $groupItems.ToArray() -Footer 'Pfeile: Navigation  Enter/Shortcut: Status  Esc: Gruppe zuklappen'
+            if ($member.Status -eq 'Refresh') { continue }
+            if ($member.Status -eq 'Cancelled') { $expandedRole = ''; continue }
             if ($member.Status -ne 'Selected') { return }
             $selectedEntries = @($groupEntries | Where-Object RunId -EQ ([string]$member.SelectedItem.Id))
         }

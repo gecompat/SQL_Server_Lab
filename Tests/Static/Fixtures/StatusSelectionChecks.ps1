@@ -28,6 +28,9 @@
         param($ScreenId,$Title,$Subtitle,$Items,$Footer,$SelectedId)
         $script:statusFrames.Add([pscustomobject]@{ScreenId=$ScreenId;Items=@($Items)})
         $choice=$script:statusChoices.Dequeue()
+        if ($choice -eq 'Refresh' -and $ScreenId -eq 'environment-status-group') {
+            $script:statusRuns += New-StatusRun 'r-docker-bravo' 'Bravo' docker
+        }
         if ($choice -in @('Cancelled','Refresh')) { return @{Status=$choice} }
         $selected=@($Items | Where-Object { $_.Id -eq $choice })
         if ($selected.Count -ne 1) { throw "STATUS_SELECTION_MISSING: $choice" }
@@ -65,6 +68,21 @@
         (@($group[0].Items | ForEach-Object Id) -join ',') -eq 'r-slot-a,r-slot-z' -and
         (@($script:statusFrames | ForEach-Object ScreenId) -join ',') -eq 'environment-status-select,environment-status-group,environment-status-select' -and
         (@($script:statusShown) -join ',') -eq 'r-docker-alpha,r-docker-zulu,r-hyperv-other,r-slot-a,r-slot-z,r-podman-beta'
+    )
+
+    $script:statusFrames.Clear(); $script:statusShown.Clear()
+    $script:statusChoices.Enqueue('group:Lab-Umgebung')
+    $script:statusChoices.Enqueue('Refresh')
+    $script:statusChoices.Enqueue('r-docker-bravo')
+    $selectionError=$null
+    try { Show-LabEnvironmentStatusSelectionInteractive 6>$null } catch { $selectionError=$_ }
+    $group=@($script:statusFrames | Where-Object ScreenId -eq 'environment-status-group')
+    Add-ConsoleUiCheck 'F5 laedt die geoeffnete Gruppe neu und bleibt in ihr' (
+        -not $selectionError -and $script:statusChoices.Count -eq 0 -and
+        (@($script:statusFrames | ForEach-Object ScreenId) -join ',') -eq 'environment-status-select,environment-status-group,environment-status-group' -and
+        $group.Count -eq 2 -and
+        (@($group[1].Items | ForEach-Object Id) -join ',') -eq 'r-docker-alpha,r-docker-bravo,r-docker-zulu,r-podman-beta' -and
+        (@($script:statusShown) -join ',') -eq 'r-docker-bravo'
     )
 }
 
