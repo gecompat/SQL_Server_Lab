@@ -665,7 +665,11 @@ function Show-LabEnvironmentStatusInteractive {
     param([Parameter(Mandatory)][string]$RunId, [string]$StateRoot)
 
     if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
-    $null = Get-SqlServerLab -RunId $RunId -Detailed
+    $status = Get-SqlServerLab -RunId $RunId -Detailed
+    if ([string]$status.State -eq 'RECOVERY_REQUIRED' -or [string]$status.RuntimeState -eq 'MISSING') {
+        Write-LabWarning 'Wiederherstellung erforderlich oder Runtime fehlt. Gespeicherte SQL-Verbindungsdaten sind derzeit nicht als nutzbar bestaetigt.'
+        return
+    }
     $connections = @(Get-LabRunConnectionStrings -RunId $RunId -StateRoot $StateRoot)
     $generatedAccess = try { Get-SqlServerLabGeneratedSqlAccess -RunId $RunId -StateRoot $StateRoot } catch { $null }
     $generatedPassword = if ($generatedAccess -and $generatedAccess.Generated -and $generatedAccess.Persisted) {
@@ -1763,40 +1767,7 @@ function Invoke-LabAction {
         'ClearAutomatedTestEnvironment' { Invoke-LabClearAutomatedTestEnvironmentInteractive }
 
         'Status' {
-            $runs = @(Get-LabActiveRuns)
-            if ($runs.Count -eq 0) {
-                Write-LabInfo "Keine aktiven Labs."
-                return
-            }
-            $cmsRunId = try { [string](Get-LabConnectionCenterCmsConfiguration).RunId } catch { '' }
-            $statusRuns = @($runs | Where-Object { [string]$_.runId -ne $cmsRunId })
-            if ($statusRuns.Count -eq 0) {
-                Write-LabInfo 'Keine normalen Lab-Umgebungen vorhanden. Der CMS-Systemdienst wird unter Datenbanken und Verbindungen verwaltet.'
-                return
-            }
-
-            $statusItems = [System.Collections.Generic.List[object]]::new()
-            $statusItems.Add((New-LabConsoleItem -Id '__all' -Label 'Alle Umgebungen' -Value "$($statusRuns.Count) Umgebung(en)" -Shortcut 'a'))
-            for ($index = 0; $index -lt $statusRuns.Count; $index++) {
-                $run = $statusRuns[$index]
-                $presentation = Get-LabRunSelectorPresentation -Run $run -RuntimeState ([string]$run.runtime.state)
-                $statusItems.Add((New-LabConsoleItem -Id ([string]$run.runId) -Label $presentation.Label -Value $presentation.Value -Shortcut ([string]($index + 1))))
-            }
-            $selection = Invoke-LabConsoleMenu -ScreenId 'environment-status-select' -Title 'Umgebungsstatus anzeigen' -Subtitle 'Eine Umgebung oder Alle auswaehlen' -Items $statusItems.ToArray() -Footer 'Pfeile: Navigation  Enter/Shortcut: Auswahl  Esc: Zurueck'
-            if ($selection.Status -ne 'Selected') { return }
-
-            $selectedRuns = if ([string]$selection.SelectedItem.Id -eq '__all') {
-                @($statusRuns)
-            }
-            else {
-                @($statusRuns | Where-Object { [string]$_.runId -eq [string]$selection.SelectedItem.Id })
-            }
-            foreach ($run in $selectedRuns) {
-                Write-Host ''
-                Write-Host ("  Umgebung: {0} ({1})" -f ([string]$run.metadata.name), ([string]$run.runId)) -ForegroundColor Cyan
-                Write-Host '  ---------------------------------------------------------------------' -ForegroundColor DarkCyan
-                Show-LabEnvironmentStatusInteractive -RunId ([string]$run.runId)
-            }
+            Show-LabEnvironmentStatusSelectionInteractive
         }
 
         'Stop' {
@@ -5994,6 +5965,7 @@ function Get-LabRunSelectorPresentation {
 
     $details = [System.Collections.Generic.List[string]]::new()
     if (-not [string]::IsNullOrWhiteSpace($RuntimeState)) { $details.Add($RuntimeState.ToUpperInvariant()) }
+    if ([string]$Run.state -eq 'RECOVERY_REQUIRED') { $details.Add('RECOVERY_REQUIRED') }
     $details.Add($role)
     if (@($providers).Count -gt 0) { $details.Add(('Provider {0}' -f (@($providers) -join '/'))) }
     if (-not [string]::IsNullOrWhiteSpace($shortRunId)) { $details.Add(('Run {0}' -f $shortRunId)) }
@@ -6003,6 +5975,89 @@ function Get-LabRunSelectorPresentation {
     [pscustomobject]@{
         Label = $name
         Value = ($details -join ' | ')
+        Role = $role
+        Provider = (@($providers) -join '/')
+    }
+}
+
+function Show-LabEnvironmentStatusSelectionInteractive {
+    <# .SYNOPSIS Waehlt Status ueber Typgruppen und darin nach Provider/Name sortierte Runs. #>
+    [CmdletBinding()]
+    param()
+
+    $selectedGroupId = ''
+    $expandedRole = ''
+    while ($true) {
+        $runs = @(Get-LabActiveRuns)
+        if ($runs.Count -eq 0) {
+            Write-LabInfo 'Keine aktiven Labs.'
+            return
+        }
+        $cmsRunId = try { [string](Get-LabConnectionCenterCmsConfiguration).RunId } catch { '' }
+        $statusRuns = @($runs | Where-Object { [string]$_.runId -ne $cmsRunId })
+        if ($statusRuns.Count -eq 0) {
+            Write-LabInfo 'Keine normalen Lab-Umgebungen vorhanden. Der CMS-Systemdienst wird unter Datenbanken und Verbindungen verwaltet.'
+            return
+        }
+
+        $entries = @(
+            foreach ($run in $statusRuns) {
+                $presentation = Get-LabRunSelectorPresentation -Run $run -RuntimeState ([string]$run.runtime.state)
+                [pscustomobject]@{
+                    Run = $run
+                    RunId = [string]$run.runId
+                    Name = [string]$presentation.Label
+                    Role = [string]$presentation.Role
+                    Provider = [string]$presentation.Provider
+                    Value = [string]$presentation.Value
+                }
+            }
+        )
+        $orderedEntries = @($entries | Sort-Object Provider, Name, RunId)
+        $statusItems = [System.Collections.Generic.List[object]]::new()
+        $statusItems.Add((New-LabConsoleItem -Id '__all' -Label 'Alle Umgebungen' -Value "$($entries.Count) Umgebung(en)" -Shortcut 'a'))
+        $roleOrder = @('Lab-Umgebung', 'Hyper-V-Windows-Slot', 'Hyper-V-Umgebung')
+        $roleIndex = 0
+        foreach ($role in $roleOrder) {
+            $count = @($entries | Where-Object Role -EQ $role).Count
+            if ($count -eq 0) { continue }
+            $roleIndex++
+            $statusItems.Add((New-LabConsoleItem -Id "group:$role" -Label $role -Value "$count Umgebung(en) | Enter: aufklappen" -Shortcut ([string]$roleIndex)))
+        }
+
+        if (-not $expandedRole) {
+            $selection = Invoke-LabConsoleMenu -ScreenId 'environment-status-select' -Title 'Umgebungsstatus anzeigen' -Subtitle 'Typgruppe aufklappen oder Alle auswaehlen' -Items $statusItems.ToArray() -SelectedId $selectedGroupId -Footer 'Pfeile: Navigation  Enter/Shortcut: Aufklappen  Esc: Zurueck'
+            if ($selection.Status -eq 'Refresh') { continue }
+            if ($selection.Status -ne 'Selected') { return }
+            if ([string]$selection.SelectedItem.Id -eq '__all') {
+                $selectedEntries = $orderedEntries
+            }
+            else {
+                $selectedGroupId = [string]$selection.SelectedItem.Id
+                $expandedRole = $selectedGroupId.Substring('group:'.Length)
+            }
+        }
+        if ($expandedRole) {
+            $groupEntries = @($orderedEntries | Where-Object Role -EQ $expandedRole)
+            if ($groupEntries.Count -eq 0) { $expandedRole = ''; continue }
+            $groupItems = [System.Collections.Generic.List[object]]::new()
+            for ($index = 0; $index -lt $groupEntries.Count; $index++) {
+                $entry = $groupEntries[$index]
+                $groupItems.Add((New-LabConsoleItem -Id $entry.RunId -Label $entry.Name -Value $entry.Value -Shortcut ([string]($index + 1))))
+            }
+            $member = Invoke-LabConsoleMenu -ScreenId 'environment-status-group' -Title $expandedRole -Subtitle 'Nach Provider und Name sortiert' -Items $groupItems.ToArray() -Footer 'Pfeile: Navigation  Enter/Shortcut: Status  Esc: Gruppe zuklappen'
+            if ($member.Status -eq 'Refresh') { continue }
+            if ($member.Status -eq 'Cancelled') { $expandedRole = ''; continue }
+            if ($member.Status -ne 'Selected') { return }
+            $selectedEntries = @($groupEntries | Where-Object RunId -EQ ([string]$member.SelectedItem.Id))
+        }
+        foreach ($entry in $selectedEntries) {
+            Write-Host ''
+            Write-Host ("  Umgebung: {0} ({1})" -f $entry.Name, $entry.RunId) -ForegroundColor Cyan
+            Write-Host '  ---------------------------------------------------------------------' -ForegroundColor DarkCyan
+            Show-LabEnvironmentStatusInteractive -RunId $entry.RunId
+        }
+        return
     }
 }
 

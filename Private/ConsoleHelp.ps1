@@ -401,7 +401,7 @@ function Get-LabConsoleHelpCatalog {
     foreach ($screenId in @(
         'active-run-selection', 'cms-adopt-select', 'container-update-environment',
         'database-package-attach-select', 'database-restore-backup-select',
-        'environment-status-select', 'external-runtime-instance-selection',
+        'environment-status-select', 'environment-status-group', 'external-runtime-instance-selection',
         'hyperv-environment-selection', 'hyperv-existing-vm-source-select',
         'hyperv-image-remove-select', 'hyperv-image-rename-select', 'hyperv-images',
         'hyperv-os-artifact-select', 'hyperv-prepared-artifact-select',
