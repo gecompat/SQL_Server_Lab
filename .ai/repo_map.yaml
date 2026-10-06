@@ -63,6 +63,9 @@ sources_of_truth:
   resource_watch_automation: Tools/Invoke-VersionCatalogResourceWatch.ps1
   resource_watch_automation_projection: Tools/Common/VersionCatalogResourceWatchAutomation.ps1
   resource_watch_fixture_cleanup: Tools/Close-VersionCatalogResourceWatchFixture.ps1
+  local_evidence_archive_tool: Tools/Manage-LocalEvidenceArchive.ps1
+  local_evidence_archive_contract: Documentation/Quality/LOCAL_EVIDENCE_ARCHIVES.md
+  validation_local_evidence_archive: Tests/Static/Invoke-LocalEvidenceArchiveChecks.ps1
   resource_watch_automation_contract: Documentation/Architecture/RESOURCE_WATCH_AUTOMATION.md
   resource_watch_automation_checks: Tests/Static/Fixtures/VersionCatalogResourceWatchAutomationChecks.ps1
   exported_commands: SqlServerLab.psd1
