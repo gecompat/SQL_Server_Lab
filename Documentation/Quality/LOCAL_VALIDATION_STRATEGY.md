@@ -3185,6 +3185,15 @@ Revalidierungen bleiben erhalten. Ein abgeschlossener Dialogrequest ruft die
 Public-/Core-Funktionen an isolierten synthetischen Dateien: getrennte
 Docker-/Podman-Identitätsleaves, Vorschau ohne Writes, WhatIf, Drift,
 Cleanup-/Referenz-/Retention-/Recovery-Vetos und journalisiertes Resume.
+Fehlende Connection-Evidence, Run-/Scope-/Provider-/Instanzdrift, verkürzte oder
+doppelte FullCIDs und schwache Resume-Bindings müssen blockieren. Ein nur unter
+seiner ursprünglichen FullCID sichtbarer Container bleibt RESOURCE_PRESENT,
+auch wenn Name und Labels keinen Treffer liefern; defekte Native-ID-Inventare
+gelten nicht als Abwesenheit.
+Tatsächliche Docker-/Podman-Inventarfunktionen prüfen außerdem den getrennten
+Lesevertrag: globale Auditreads ohne StateRoot übernehmen keinen impliziten
+Owned-Root aus der Umgebung; explizite Owned-Reads bleiben an der gepinnten
+Bridge. Diese Fixtures verwenden ausschließlich synthetische Read-Leaves.
 Runtime-Leaves sind synthetisch; dies belegt keine native Ressourcenabwesenheit
 oder SQL-Funktion. Separate Providerabnahmen und selektierte Abschlussgates
 bleiben erforderlich. [Bedienvertrag](../User/RUN_ARTIFACT_REMOVAL.md).

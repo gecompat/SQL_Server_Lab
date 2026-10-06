@@ -40,6 +40,12 @@ gesperrt. Hyper-V bleibt gesperrt, bis ein eigener physischer Abwesenheitsvertra
 gelöschte von verschobenen VHDX unterscheiden kann. Dieser Befehl entfernt
 selbst keine nativen Ressourcen.
 
+Container benötigen außerdem vollständige 64-stellige Original-IDs aus der
+gebundenen `connection-info.json`, deren Run-/Scope-IDs und eindeutige
+Provider-/Instanz-/Cleanup-Namenszuordnung passen müssen. Fehlende, verkürzte,
+falsch zugeordnete oder doppelte Evidence blockiert auch ein Resume-Journal.
+Eine leere Namens- oder Labelliste ersetzt diesen ID-Nachweis nicht.
+
 Neue Standardcontainer verwenden die aufgezeichnete Route bereits während der
 Erstellung, einschließlich Volumeinitialisierung und Fehlercleanup. Die
 Abwesenheitsprüfung verwendet den festen Endpoint mit bereinigtem

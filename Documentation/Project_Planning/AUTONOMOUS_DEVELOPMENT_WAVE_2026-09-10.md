@@ -40,7 +40,19 @@ eigene SQL-2025-Läufe mit Query, Stop/Start, regulärem Remove, anschließender
 Artefaktentfernung und unverändertem Providerinventar. Die unabhängige Review
 ist ohne offene Findings geschlossen. Betroffene statische Prüfungen und
 zusätzliche selektierte Smokes werden vor dem exakten PR-Gate abgeschlossen;
-die übrigen Grenzen und der offene Gesamthorizont gelten weiter.
+die übrigen Grenzen und der offene Gesamthorizont gelten weiter. Die
+Nachprüfung bindet vollständige Original-CIDs an Run, Scope, Provider,
+Instanz und Cleanup-Namen, auch im Resume. 111 fokussierte Prüfungen sowie
+204 Owned-Host- und 38 Cleanup-Audit-Prüfungen bestanden. Eine lokal
+reproduzierte implizite Providerpolicy-Übernahme beim globalen Auditread wurde
+auf den bestehenden Lesevertrag korrigiert; explizite Owned-Reads bleiben
+gepinnt. Die aktualisierten eigenen Docker-/Podman-SQL-Lifecycles einschließlich
+Artefaktentfernung und Inventarvergleich bestanden getrennt. Der native
+Removal-Executor bestand anschließend unter Docker und Podman getrennt mit
+`DELETE_WITH_RUN`, journalisiertem Abschluss, detached Store und bestätigter
+Volumeabwesenheit. Für die Integration bleibt der Abschlussgate am exakten
+PR-Head verbindlich; [PR #701](https://github.com/gecompat/SQL_Server_Lab/pull/701)
+führt dessen endgültigen Status auf.
 
 ## Übergabe und Benutzerpause vom 2026-10-05
 

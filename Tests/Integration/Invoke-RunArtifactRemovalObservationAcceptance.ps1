@@ -25,8 +25,12 @@ $data=Join-Path $parent 'Lab_Data'
 $module=Import-Module (Join-Path $repo 'SqlServerLab.psd1') -Force -PassThru
 $previous=@{}
 $completion=[pscustomobject]@{SafeToDelete=$false}
+$mutex=[Threading.Mutex]::new($false,$(if ($IsWindows) {'Global\SQL_Server_Lab_Runtime_Smoke'} else {'SQL_Server_Lab_Runtime_Smoke'}))
+$mutexAcquired=$false
 foreach ($name in @('SQL_SERVER_LAB_DATA_ROOT','SQL_SERVER_LAB_CONTROLLER_ID','SQL_SERVER_LAB_STATE')) {$previous[$name]=[Environment]::GetEnvironmentVariable($name,'Process')}
 try {
+    try {$mutexAcquired=$mutex.WaitOne([TimeSpan]::FromMinutes(15))} catch [Threading.AbandonedMutexException] {$mutexAcquired=$true}
+    if (-not $mutexAcquired) { throw 'RUN_ARTIFACT_NATIVE_SMOKE_BUSY' }
     & $module {
         param($Root,$Selected,$CreateSql,$Completion)
         $stateRoot=Join-Path $Root 'State'
@@ -49,7 +53,10 @@ try {
         }
         $before=Read-ObservationInventory
         if ($CreateSql) {
-            $password=ConvertTo-SecureString ('Artifact_'+[guid]::NewGuid().ToString('N')+'!Aa7') -AsPlainText -Force
+            $password=[Security.SecureString]::new()
+            $token='Artifact_'+[guid]::NewGuid().ToString('N')+'!Aa7'
+            foreach ($character in $token.ToCharArray()) {$password.AppendChar($character)}
+            $password.MakeReadOnly(); $token=$null
             $lab=$null
             try {
                 $lab=New-SqlServerLab -Provider $Selected -Version 2025 -Profile compact -Cpu 1 -MemoryMB 1536 -SaPassword $password -LabName ('artifact-'+[guid]::NewGuid().ToString('N').Substring(0,8)) -StateRoot $stateRoot -SkipAssessment
@@ -83,6 +90,9 @@ try {
                 runId=$run.RunId;scopeId=$run.ScopeId;status='COMPLETED';steps=@(
                     [pscustomobject]@{provider=$Selected;resourceType='container';resourceId=$name;action='remove';state='COMPLETED'},
                     [pscustomobject]@{provider=$Selected;resourceType='volume';resourceId=$name;action='remove';state='COMPLETED'})})
+            Write-LabArtifactJsonAtomic -Path (Join-Path $run.RunDir 'connection-info.json') -InputObject ([pscustomobject]@{
+                runId=$run.RunId;scopeId=$run.ScopeId;instances=@([pscustomobject]@{
+                    id='synthetic';provider=$Selected;containerName=$name;containerId=([guid]::NewGuid().ToString('N')+[guid]::NewGuid().ToString('N'))})})
         }
         $arguments=@{RunId=$run.RunId;StateRoot=$stateRoot;DataRoot=$Root}
         $plan=Get-SqlServerLabRunArtifactRemovalPlan @arguments
@@ -98,6 +108,7 @@ try {
     } $data $Provider ([bool]$CreateSqlRun) $completion
 }
 finally {
+    try {
     foreach ($name in $previous.Keys) {[Environment]::SetEnvironmentVariable($name,$previous[$name],'Process')}
     $boundary=[IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\','/')+[IO.Path]::DirectorySeparatorChar
     $resolved=[IO.Path]::GetFullPath($parent)
@@ -105,4 +116,6 @@ finally {
     if ($completion.SafeToDelete -and (Test-Path -LiteralPath $resolved)) {Remove-Item -LiteralPath $resolved -Recurse -Force -ErrorAction Stop}
     elseif (Test-Path -LiteralPath $resolved) {Write-Host 'RUN_ARTIFACT_NATIVE_OWN_RECOVERY_SCOPE_RETAINED'}
     Remove-Module $module.Name -Force
+    }
+    finally {if ($mutexAcquired) {$mutex.ReleaseMutex()};$mutex.Dispose()}
 }

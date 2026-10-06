@@ -194,9 +194,37 @@ function Get-LabRunArtifactReferences {
     Get-LabRetainedStoreHash @($evidence)
 }
 
+function Assert-LabRunArtifactContainerBindings {
+    param($Binding)
+    $providers=@($Binding.Providers | Where-Object {$_ -cin @('docker','podman')})
+    if (-not $providers.Count) { return }
+    $containers=@($Binding.Resources | Where-Object resourceType -CEQ 'container')
+    $instances=@($Binding.Instances)
+    if (-not $containers.Count -or $instances.Count -ne $containers.Count) { throw 'RUN_ARTIFACT_CONTAINER_IDENTITY_REQUIRED' }
+    $identities=@{}; $nativeIds=@{}
+    foreach ($instance in $instances) {
+        if ($instance.provider -isnot [string] -or $instance.provider -cnotin $providers -or
+            $instance.id -isnot [string] -or [string]::IsNullOrWhiteSpace($instance.id) -or
+            $instance.containerId -isnot [string] -or $instance.containerId -cnotmatch '\A[a-f0-9]{64}\z' -or
+            $instance.containerName -isnot [string] -or [string]::IsNullOrWhiteSpace($instance.containerName)) { throw 'RUN_ARTIFACT_CONTAINER_IDENTITY_REQUIRED' }
+        $identity=[string]$instance.id; $nativeKey=$instance.provider+':'+$instance.containerId
+        if ($identities.ContainsKey($identity) -or $nativeIds.ContainsKey($nativeKey)) { throw 'RUN_ARTIFACT_CONTAINER_IDENTITY_REQUIRED' }
+        $identities[$identity]=$true; $nativeIds[$nativeKey]=$true
+        $matches=@($containers | Where-Object { $_.provider -ceq $instance.provider -and $_.resourceId -ceq $instance.containerName })
+        if ($matches.Count -ne 1) { throw 'RUN_ARTIFACT_CONTAINER_IDENTITY_REQUIRED' }
+    }
+    foreach ($container in $containers) {
+        if (@($instances | Where-Object { $_.provider -ceq $container.provider -and $_.containerName -ceq $container.resourceId }).Count -ne 1) { throw 'RUN_ARTIFACT_CONTAINER_IDENTITY_REQUIRED' }
+    }
+    foreach ($provider in $providers) {
+        if (-not @($instances | Where-Object provider -CEQ $provider).Count) { throw 'RUN_ARTIFACT_CONTAINER_IDENTITY_REQUIRED' }
+    }
+}
+
 function Get-LabRunArtifactRuntimeEvidence {
     param($Binding,[string]$StateRoot,[string]$DataRoot)
     $result=@()
+    Assert-LabRunArtifactContainerBindings -Binding $Binding
     foreach ($provider in @($Binding.Providers)) {
         if ($provider -cin @('docker','podman')) {
             $context=Get-LabRunArtifactRuntimeContext -Provider $provider -StateRoot $StateRoot
@@ -214,8 +242,10 @@ function Get-LabRunArtifactRuntimeEvidence {
                 if ($kind -ceq 'container') {
                     $ids=Invoke-LabRunArtifactNative -Context $context -Arguments @('ps','-a','--no-trunc','--format','{{.ID}}')
                     if ($ids.ExitCode -ne 0) { throw 'RUN_ARTIFACT_RUNTIME_UNVERIFIABLE' }
+                    $fullIds=@($ids.Output | ForEach-Object {$_.Trim()} | Where-Object {$_})
+                    if (@($fullIds | Where-Object {$_ -cnotmatch '\A[a-f0-9]{64}\z'}).Count) { throw 'RUN_ARTIFACT_RUNTIME_UNVERIFIABLE' }
                     foreach ($instance in @($Binding.Instances | Where-Object provider -CEQ $provider)) {
-                        if ($instance.containerId -and $instance.containerId -cin @($ids.Output | ForEach-Object {$_.Trim()})) { throw 'RUN_ARTIFACT_RESOURCE_PRESENT' }
+                        if ($instance.containerId -cin $fullIds) { throw 'RUN_ARTIFACT_RESOURCE_PRESENT' }
                     }
                 }
                 foreach ($label in @("sql-server-lab.run-id=$($Binding.RunId)","sql-server-lab.scope-id=$($Binding.ScopeId)")) {
@@ -312,8 +342,16 @@ function Get-LabRunArtifactRemovalContext {
             if (($step.provider -cin @('docker','podman') -and $step.resourceType -cnotin @('container','volume','network')) -or
                 ($step.provider -ceq 'hyperv' -and $step.resourceType -cnotin @('vm','vhdx','ipam-lease'))) { throw 'RUN_ARTIFACT_RESOURCE_UNSUPPORTED' }
         }
+        $connections=$null
+        if (@($providers | Where-Object {$_ -cin @('docker','podman')}).Count) {
+            $connectionPath=Join-Path $directory 'connection-info.json'
+            if (-not (Test-Path -LiteralPath $connectionPath)) { throw 'RUN_ARTIFACT_CONTAINER_IDENTITY_REQUIRED' }
+            $connections=Get-Content -LiteralPath $connectionPath -Raw | ConvertFrom-Json -Depth 100
+            if ($connections.runId -isnot [string] -or $connections.scopeId -isnot [string] -or
+                $connections.runId -cne $RunId -or $connections.scopeId -cne $state.scopeId) { throw 'RUN_ARTIFACT_CONTAINER_IDENTITY_REQUIRED' }
+        }
         $binding=[pscustomobject]@{RunId=$RunId;ScopeId=$state.scopeId;Providers=$providers;Resources=@($cleanup.steps | Select-Object provider,resourceType,resourceId);
-            Instances=if (Test-Path -LiteralPath (Join-Path $directory 'connection-info.json')) {@((Get-Content -LiteralPath (Join-Path $directory 'connection-info.json') -Raw | ConvertFrom-Json -Depth 100).instances | Select-Object provider,containerId,vmId)} else {@()};
+            Instances=@($connections.instances | Select-Object id,provider,containerId,containerName);
             RuntimeScopes=@($state.metadata.artifactRemovalRuntimeScopes)}
         $authorization=[pscustomobject]@{ControllerId=$configuration.ControllerId;StateRoot=$stateRootValue;DataRoot=$dataRootValue;Locations=$locations;Binding=$binding;Manifest=$manifest}
     }

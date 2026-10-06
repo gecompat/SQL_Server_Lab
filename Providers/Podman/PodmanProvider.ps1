@@ -596,7 +596,7 @@ function Get-PodmanLabContainers {
     }
 
     $podmanInvocation = Get-LabHostToolInvocation -Name podman
-    $containerIds = $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider podman -StateRoot $StateRoot -Invocation $podmanInvocation -ArgumentList (@('ps', '-a', '--no-trunc', '-q') + $filters) } else { Invoke-LabContainerRuntimeCommand -Provider podman -StateRoot $StateRoot -Invocation $podmanInvocation -ArgumentList (@('ps')+@('-a')+@('-q')+@($filters))  }) 2>$null
+    $containerIds = $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider podman -StateRoot $StateRoot -Invocation $podmanInvocation -ArgumentList (@('ps', '-a', '--no-trunc', '-q') + $filters) } else { & $podmanInvocation ps -a -q @filters }) 2>$null
     if ($ownedHostPolicy -and $LASTEXITCODE -ne 0) { throw 'OWNED_HOST_CONTAINER_INVENTORY_FAILED' }
     if ($LASTEXITCODE -ne 0 -or -not $containerIds) {
         return @()
@@ -610,7 +610,7 @@ function Get-PodmanLabContainers {
         }
 
         if ($ownedHostPolicy -and $containerId -cnotmatch '^[a-f0-9]{64}$') { throw 'OWNED_HOST_CONTAINER_INVENTORY_ID_INVALID' }
-        $inspect = $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider podman -StateRoot $StateRoot -Invocation $podmanInvocation -ArgumentList @('inspect', $containerId) } else { Invoke-LabContainerRuntimeCommand -Provider podman -StateRoot $StateRoot -Invocation $podmanInvocation -ArgumentList (@('inspect')+@($containerId))  }) 2>$null | ConvertFrom-Json -Depth 30
+        $inspect = $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider podman -StateRoot $StateRoot -Invocation $podmanInvocation -ArgumentList @('inspect', $containerId) } else { & $podmanInvocation inspect $containerId }) 2>$null | ConvertFrom-Json -Depth 30
         if ($ownedHostPolicy -and ($LASTEXITCODE -ne 0 -or -not $inspect)) { throw 'OWNED_HOST_CONTAINER_INVENTORY_INSPECT_FAILED' }
         if ($LASTEXITCODE -ne 0 -or -not $inspect) {
             continue

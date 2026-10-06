@@ -28,8 +28,11 @@ try {
                 [pscustomobject]@{provider=$script:provider;resourceType='container';resourceId='synthetic-container';action='remove';state='COMPLETED'},
                 [pscustomobject]@{provider=$script:provider;resourceType='volume';resourceId='synthetic-volume';action='remove';state='COMPLETED'})}
             Write-LabArtifactJsonAtomic -Path (Join-Path $script:run.RunDir 'cleanup-plan.json') -InputObject $cleanup
+            Write-LabArtifactJsonAtomic -Path (Join-Path $script:run.RunDir 'connection-info.json') -InputObject ([pscustomobject]@{
+                runId=$script:run.RunId;scopeId=$script:run.ScopeId;instances=@([pscustomobject]@{
+                    id='primary';provider=$script:provider;containerName='synthetic-container';containerId=('a'*64)})})
             $script:artifactArguments=@{RunId=$script:run.RunId;StateRoot=$script:stateRoot;DataRoot=$script:data}
-            $script:present=$false; $script:unknown=$false; $script:writeFault=$false
+            $script:present=$false; $script:presentCid=$false; $script:malformedCid=$false; $script:unknown=$false; $script:writeFault=$false
             Set-Item Function:Write-LabArtifactJsonAtomic -Value $script:realWrite
         }
         function Get-ArtifactPlan {Get-SqlServerLabRunArtifactRemovalPlan @script:artifactArguments}
@@ -56,6 +59,8 @@ try {
         }
         Set-Item Function:Invoke-LabRunArtifactNative -Value {param($Context,$Arguments)
             if ($script:unknown) {return [pscustomobject]@{ExitCode=1;Output=@('private synthetic failure')}}
+            if ($script:presentCid -and '{{.ID}}' -cin $Arguments) {return [pscustomobject]@{ExitCode=0;Output=@(('a'*64))}}
+            if ($script:malformedCid -and '{{.ID}}' -cin $Arguments) {return [pscustomobject]@{ExitCode=0;Output=@(('a'*12))}}
             [pscustomobject]@{ExitCode=0;Output=if ($script:present) {@('synthetic-container')} else {@()}}
         }
         foreach ($provider in @('docker','podman')) {
@@ -74,6 +79,28 @@ try {
             $repeat=Invoke-SqlServerLabRunArtifactRemoval @script:artifactArguments -ExpectedPlanKey $plan.PlanKey -Confirm:$false
             Assert-RunArtifact (-not $repeat.Changed -and $repeat.Status -ceq 'REMOVED') 'Completion is idempotent'
         }
+        Reset-RunArtifact; Remove-Item -LiteralPath (Join-Path $script:run.RunDir 'connection-info.json'); Assert-Blocked 'RUN_ARTIFACT_CONTAINER_IDENTITY_REQUIRED'
+        foreach ($edit in @(
+            {param($c)$c.runId=[guid]::NewGuid().ToString('D')},
+            {param($c)$c.scopeId=[guid]::NewGuid().ToString('D')},
+            {param($c)$c.instances=@()},
+            {param($c)$c.instances[0].containerId=$null},
+            {param($c)$c.instances[0].containerId='a'*12},
+            {param($c)$c.instances[0].containerId=('a'*64)+"`n"},
+            {param($c)$c.instances[0].containerId=@(('a'*64),('b'*64))},
+            {param($c)$c.instances[0].provider='Docker'},
+            {param($c)$c.instances[0].containerName='synthetic-other'},
+            {param($c)$c.instances[0].id=''},
+            {param($c)$c.instances=@($c.instances[0],$c.instances[0])}
+        )) {
+            Reset-RunArtifact
+            $connectionPath=Join-Path $script:run.RunDir 'connection-info.json'
+            $connection=Get-Content -LiteralPath $connectionPath -Raw | ConvertFrom-Json -Depth 100
+            & $edit $connection; Write-LabArtifactJsonAtomic -Path $connectionPath -InputObject $connection
+            Assert-Blocked 'RUN_ARTIFACT_CONTAINER_IDENTITY_REQUIRED'
+        }
+        Reset-RunArtifact; $script:presentCid=$true; Assert-Blocked 'RUN_ARTIFACT_RESOURCE_PRESENT'
+        Reset-RunArtifact; $script:malformedCid=$true; Assert-Blocked 'RUN_ARTIFACT_RUNTIME_UNVERIFIABLE'
         Reset-RunArtifact; Edit-Run {param($s)$s.state='RECOVERY_REQUIRED'}; Assert-Blocked 'RUN_ARTIFACT_REMOVED_STATE_REQUIRED'
         Reset-RunArtifact; Edit-Run {param($s)$s.metadata.persistentData=$true}; Assert-Blocked 'RUN_ARTIFACT_RETAINED_OR_PROTECTED'
         Reset-RunArtifact; Edit-Run {param($s)$s.metadata | Add-Member desiredState ([pscustomobject]@{Instances=@([pscustomobject]@{Drives=@([pscustomobject]@{Binding='host-mount';Persistence='run-scoped'})})})}; Assert-Blocked 'RUN_ARTIFACT_RETAINED_OR_PROTECTED'
@@ -131,6 +158,23 @@ try {
         Assert-RunArtifact ($resume.Status -ceq 'RECOVERY_REQUIRED' -and $resume.PlanKey -ceq $plan.PlanKey) 'Resume keeps exact authorization'
         $result=Invoke-SqlServerLabRunArtifactRemoval @script:artifactArguments -ExpectedPlanKey $resume.PlanKey -Confirm:$false
         Assert-RunArtifact ($result.Status -ceq 'REMOVED') 'Resume completes own staged operation'
+        Reset-RunArtifact; $plan=Get-ArtifactPlan
+        Set-Item Function:Write-LabArtifactJsonAtomic -Value {param($Path,$InputObject)
+            if ($InputObject.Status -ceq 'DELETING' -and -not $script:writeFault) {$script:writeFault=$true;throw 'SYNTHETIC_INTERRUPTION'}
+            & $script:realWrite -Path $Path -InputObject $InputObject
+        }
+        try {Invoke-SqlServerLabRunArtifactRemoval @script:artifactArguments -ExpectedPlanKey $plan.PlanKey -Confirm:$false | Out-Null} catch { }
+        Set-Item Function:Write-LabArtifactJsonAtomic -Value $script:realWrite
+        $journalPath=Join-Path $script:stateRoot ('run-artifact-removals/'+$script:run.RunId+'/journal.json')
+        $journal=Get-Content -LiteralPath $journalPath -Raw | ConvertFrom-Json -Depth 100
+        foreach ($instances in @(@(),@([pscustomobject]@{id='primary';provider=$script:provider;containerName='synthetic-container';containerId=('a'*12)}),@([pscustomobject]@{id='primary';provider=$script:provider;containerName='synthetic-container';containerId=(('a'*64)+"`n")}))) {
+            $journal.Authorization.Binding.Instances=@($instances)
+            $journal.PlanKey=Get-LabRetainedStoreHash $journal.Authorization
+            Write-LabArtifactJsonAtomic -Path $journalPath -InputObject $journal
+            $blocked=Get-ArtifactPlan
+            Assert-RunArtifact ($blocked.Status -ceq 'BLOCKED' -and $blocked.ReasonCode -ceq 'RUN_ARTIFACT_CONTAINER_IDENTITY_REQUIRED') 'Weak resumed journal cannot authorize deletion'
+            Assert-RunArtifact (Test-Path -LiteralPath (Join-Path (Split-Path $journalPath -Parent) 'payload/run-state.json')) 'Weak resume keeps staged evidence'
+        }
         Reset-RunArtifact; $plan=Get-ArtifactPlan
         $markerPath=Join-Path $script:stateRoot ('scope-markers/'+$script:run.ScopeId+'.json')
         $handle=$null
@@ -194,6 +238,37 @@ try {
             Assert-RunArtifact ($script:observedTimeout -eq 150) 'Actual stop process budget covers requested grace plus overhead'
         }
         finally {$script:LabRunArtifactCreationBinding=$null;$env:DOCKER_CONTEXT=$priorContext;$env:CONTAINER_CONNECTION=$priorConnection}
+        # Global audit inventories deliberately have no selected StateRoot.
+        # An ambient single-provider policy must not be adopted by these reads.
+        $script:inventoryCalls=[Collections.Generic.List[string]]::new()
+        function Invoke-SyntheticInventoryRead {
+            $global:LASTEXITCODE=0
+            Set-Variable -Name LASTEXITCODE -Value 0 -Scope 1
+            if ($args[0] -ceq 'ps') { return ('a'*64) }
+            if ($args[0] -ceq 'inspect') {
+                return (@([pscustomobject]@{Name='synthetic-container';State=@{Status='exited'};Config=@{Labels=@{}}}) | ConvertTo-Json -Depth 8 -AsArray)
+            }
+            throw 'SYNTHETIC_INVENTORY_ARGUMENT_INVALID'
+        }
+        function Get-LabHostToolInvocation {param($Name) 'Invoke-SyntheticInventoryRead'}
+        function Get-LabOwnedHostPolicy {param($StateRoot,[switch]$Required) [pscustomobject]@{RuntimePins=@()}}
+        function Invoke-LabContainerRuntimeCommand {
+            param($Provider,$StateRoot,$Invocation,$ArgumentList)
+            if ($StateRoot -cne $script:stateRoot) {throw 'UNEXPECTED_IMPLICIT_INVENTORY_POLICY'}
+            $script:inventoryCalls.Add($Provider)
+            $output=@(Invoke-SyntheticInventoryRead @ArgumentList)
+            Set-Variable -Name LASTEXITCODE -Value 0 -Scope 1
+            $output
+        }
+        $null=New-Item -ItemType File -Path (Join-Path $script:stateRoot 'owned-host-policy.json') -Force
+        foreach ($provider in @('docker','podman')) {
+            $command='Get-'+$provider+'LabContainers'
+            $script:inventoryCalls.Clear()
+            $globalInventory=@(& $command)
+            Assert-RunArtifact ($globalInventory.Count -eq 1 -and $script:inventoryCalls.Count -eq 0) "$provider global audit read keeps its explicit unscoped contract"
+            $scopedInventory=@(& $command -StateRoot $script:stateRoot)
+            Assert-RunArtifact ($scopedInventory.Count -eq 1 -and $script:inventoryCalls.Count -eq 2 -and $script:inventoryCalls[0] -ceq $provider) "$provider explicit owned inventory keeps pinned bridge"
+        }
         Write-Host "RUN ARTIFACT REMOVAL CHECKS: $script:checks PASS"
     } $root $repo
 }
