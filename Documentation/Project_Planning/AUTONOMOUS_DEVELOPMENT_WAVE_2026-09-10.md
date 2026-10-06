@@ -29,8 +29,8 @@ leere optionale `PersistentStorageId` wurde vor dem erneuten nativen Lauf
 regressionsgesichert korrigiert. Dieser Stand wurde nach bestandenem
 PR-Abschlussgate mit PR #700 integriert.
 
-Aktueller Slice ist der getrennte CLI-Lifecycle für die Metadaten genau eines
-bereits entfernten Runs. Plan und Apply verlangen registrierte Roots,
+Der getrennte CLI-Lifecycle für die Metadaten genau eines bereits entfernten
+Runs ist mit PR #701 integriert. Plan und Apply verlangen registrierte Roots,
 vollständigen Cleanup, unveränderte Inhaltsbindung und bestätigte physische
 Ressourcenabwesenheit. Persistente Daten, Referenzen, Recovery, Workflow-,
 Testgruppen-, Pool- und Owned-Host-Scopes bleiben geschützt. Legacy ohne
@@ -50,9 +50,18 @@ gepinnt. Die aktualisierten eigenen Docker-/Podman-SQL-Lifecycles einschließlic
 Artefaktentfernung und Inventarvergleich bestanden getrennt. Der native
 Removal-Executor bestand anschließend unter Docker und Podman getrennt mit
 `DELETE_WITH_RUN`, journalisiertem Abschluss, detached Store und bestätigter
-Volumeabwesenheit. Für die Integration bleibt der Abschlussgate am exakten
-PR-Head verbindlich; [PR #701](https://github.com/gecompat/SQL_Server_Lab/pull/701)
-führt dessen endgültigen Status auf.
+Volumeabwesenheit. Der Abschlussgate am exakten PR-Head bestand Windows,
+Ubuntu, Docker, Podman, Mixed, Hyper-V, Adapter und das finale Gate;
+[PR #701](https://github.com/gecompat/SQL_Server_Lab/pull/701) dokumentiert
+auch die früheren Fehler und verbleibenden Nachweisgrenzen.
+
+Aktueller enger Slice ist der Handlungshinweis zur lokalen CU-Katalogwarnung.
+Er nennt den vorhandenen GitHub-Workflow `SQL CU Monthly Watch` mit manueller
+Ausführung sowie den lesenden Konsolenabgleich unter Hauptmenü 8 → 5. Der Watch
+meldet Befunde, aktualisiert aber weder den lokalen Katalog noch dessen
+Prüfdatum. Fehlendes und veraltetes Prüfdatum verwenden denselben Hinweis;
+CU-Daten, Warnschwelle, Quellen und Runtimeverhalten bleiben unverändert.
+Statische Regression und stabiler PR-Gate bleiben für diesen Slice getrennt.
 
 ## Übergabe und Benutzerpause vom 2026-10-05
 

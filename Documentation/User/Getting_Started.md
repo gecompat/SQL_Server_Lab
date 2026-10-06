@@ -598,14 +598,24 @@ Buildtabelle geprüft werden:
 Get-SqlServerLabCuStatus -Version 2019,2022,2025
 ```
 
-Der gleiche read-only Check steht unter **Medien, Testdaten und Speicher →
-Aktuelle CUs bei Microsoft prüfen** bereit und bleibt sichtbar, bis Enter oder
+Der gleiche read-only Check steht unter **Wartung, Aufräumen und Recovery →
+Aktuelle SQL-Server-CUs bei Microsoft prüfen** bereit und bleibt sichtbar, bis Enter oder
 Escape gedrückt wird. Die Quelle liegt wartbar in
 `Catalogs/sql-server-cu-status-sources.json`. Meldet der Check eine neue CU,
 bleibt sie absichtlich nicht downloadbar, bis sie mit exaktem MCR-Tag,
 Microsoft-Downloadziel, SHA-256 und Microsoft-Authenticode in den
 Versionskatalog gebunden ist. Der Check verändert weder `Lab_Base` noch den
 Katalog.
+
+Eine CU-Warnung zum lokalen Katalog bezieht sich auf dessen
+`catalogMetadata.lastVerified`: Ein fehlendes Prüfdatum oder ein Alter von mehr
+als 35 Tagen bleibt sichtbar. Unter GitHub Actions lässt sich der Workflow
+[SQL CU Monthly Watch](../../.github/workflows/sql-cu-monthly-monitor.yml)
+mit **Run workflow** ausführen. Er vergleicht Quellen und meldet Befunde,
+aktualisiert aber weder den lokalen Versionskatalog noch dessen Prüfdatum.
+Auch der lokale Menüpunkt **8 → 5** schreibt keinen Katalog. Das Prüfdatum darf
+erst nach fachlicher Verifikation des Katalogstands aktualisiert werden;
+ein erfolgreicher Watch allein lässt die lokale Alterswarnung nicht verschwinden.
 
 ## 5. Erste Instanz erstellen
 

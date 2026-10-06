@@ -1065,7 +1065,7 @@ $unavailableHyperVAttention = & {
     . (Join-Path $repoRoot 'Private/AttentionStatus.ps1')
     $previousVersionCatalog = Get-Variable -Name VersionCatalog -Scope Script -ErrorAction SilentlyContinue
     $script:VersionCatalog = [PSCustomObject]@{
-        catalogMetadata = [PSCustomObject]@{ lastVerified = '2026-09-08' }
+        catalogMetadata = [PSCustomObject]@{ lastVerified = (Get-Date).AddDays(-36).ToString('yyyy-MM-dd') }
         versions = @([PSCustomObject]@{ id = '2025'; status = 'SUPPORTED'; docker = $true })
     }
     $hyperVProbeCalls = [System.Collections.Generic.List[string]]::new()
@@ -1081,11 +1081,21 @@ $unavailableHyperVAttention = & {
         function Get-HyperVImageBuildPlans { $hyperVReaderCalls.Add('windows-builds'); @() }
         function Get-HyperVSqlImageBuildPlans { $hyperVReaderCalls.Add('sql-builds'); @() }
 
+        $catalogBefore = $script:VersionCatalog | ConvertTo-Json -Depth 5 -Compress
         $snapshot = Get-LabAttentionSnapshot
+        $cuFinding = @($snapshot.AttentionItems | Where-Object { $_.Id -ceq 'cu-catalog-stale' })
+        $catalogUnchanged = $catalogBefore -ceq ($script:VersionCatalog | ConvertTo-Json -Depth 5 -Compress)
+        $script:VersionCatalog.catalogMetadata.lastVerified = 'invalid-date'
+        $invalidCatalogBefore = $script:VersionCatalog | ConvertTo-Json -Depth 5 -Compress
+        $missingDateSnapshot = Get-LabAttentionSnapshot
+        $missingDateFinding = @($missingDateSnapshot.AttentionItems | Where-Object { $_.Id -ceq 'cu-catalog-date-missing' })
         [PSCustomObject]@{
             ProbeCount = $hyperVProbeCalls.Count
             ReaderCount = $hyperVReaderCalls.Count
             FindingIds = @($snapshot.AttentionItems | ForEach-Object { [string]$_.Id })
+            CuFinding = if ($cuFinding.Count -eq 1) { $cuFinding[0] } else { $null }
+            MissingDateFinding = if ($missingDateFinding.Count -eq 1) { $missingDateFinding[0] } else { $null }
+            CatalogUnchanged = $catalogUnchanged -and ($invalidCatalogBefore -ceq ($script:VersionCatalog | ConvertTo-Json -Depth 5 -Compress))
         }
     }
     finally {
@@ -1103,6 +1113,29 @@ Add-ConsoleUiCheck 'Nicht verfuegbares Hyper-V erzeugt keine unbrauchbaren Befun
     @($unavailableHyperVAttention.FindingIds | Where-Object {
         $_ -in @('template-pool-capacity-low', 'sql-slot-pool-low', 'image-builds-pending') -or $_ -like 'cu-media-*-*'
     }).Count -eq 0
+)
+Add-ConsoleUiCheck 'Veralteter lokaler CU-Katalog verweist auf echte GitHub-Monatspruefung und lesenden Menuepfad' (
+    $unavailableHyperVAttention.CuFinding -and
+    $unavailableHyperVAttention.CuFinding.Message -match 'lokale[rn]? CU-Katalog' -and
+    $unavailableHyperVAttention.CuFinding.ActionHint -match 'GitHub Actions' -and
+    $unavailableHyperVAttention.CuFinding.ActionHint -match 'Hauptmenü 8.*5' -and
+    $unavailableHyperVAttention.CuFinding.ActionHint -notmatch 'CU-Agent'
+)
+Add-ConsoleUiCheck 'CU-Hinweis nennt registrierten manuellen Watch und dessen Kataloggrenze' (
+    $unavailableHyperVAttention.CuFinding -and
+    $unavailableHyperVAttention.CuFinding.ActionHint.Contains((Get-Content -LiteralPath (Join-Path $repoRoot '.github/workflows/sql-cu-monthly-monitor.yml') -TotalCount 1).Substring(6)) -and
+    $unavailableHyperVAttention.CuFinding.ActionHint -match 'Run workflow' -and
+    $unavailableHyperVAttention.CuFinding.ActionHint -match 'Watch.+Katalog nicht'
+)
+Add-ConsoleUiCheck 'Fehlendes CU-Pruefdatum zeigt denselben handlungsfaehigen Hinweis ohne Katalogmutation' (
+    $unavailableHyperVAttention.MissingDateFinding -and
+    $unavailableHyperVAttention.MissingDateFinding.Message -match 'lokale[rn]? CU-Katalog' -and
+    $unavailableHyperVAttention.MissingDateFinding.ActionHint -ceq $unavailableHyperVAttention.CuFinding.ActionHint -and
+    $unavailableHyperVAttention.CatalogUnchanged
+)
+Add-ConsoleUiCheck 'CU-Hinweis verweist auf tatsaechlichen Wartungsmenuepfad' (
+    $entrySource -match "-Id 'maintenance'[^\r\n]+-Shortcut '8'" -and
+    $batchConsoleSource -match 'New-LabConsoleItem -Id CuStatus[^\r\n]+-Shortcut 5'
 )
 Add-ConsoleUiCheck 'Hauptmenü bindet Attention-Snapshot an gemeinsamen Renderer' ($entrySource -match 'Update-LabConsoleAttentionSnapshot' -and $entrySource -match 'Invoke-LabConsoleMenu[^\r\n]+-Snapshot \$snapshot')
 Add-ConsoleUiCheck 'Befundliste erzeugt Hyper-V-gebundene Befunde nur bei tatsaechlich verfuegbarem Hyper-V' (
