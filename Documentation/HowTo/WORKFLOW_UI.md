@@ -33,9 +33,10 @@ und leere Actions gelten immer. Hostlogin, Endpoint, SQL, Backup und
 Volumeeigentum bleiben NOT_CHECKED; Datenerhalt ist NOT_VERIFIED.
 Keine Jobs, Reservierung oder Apply. Schließen/Escape, Bearbeitung und neue
 Requests verwerfen späte Antworten; ein versandter Read darf fertiglaufen.
-Spezifische native CLI-/Browserdialogabnahme, gerenderter Browser und
-HTTP-Netztransport bleiben NOT_EXECUTED. Core77-Evidence ist separat;
-Apply/Recovery und Scope A bleiben offen.
+Die getrennten nativen CLI- und Browserdialogabnahmen unter Docker und Podman
+sind bestanden. Der Browserlauf vom 2026-10-06 prüfte echte Loopback-HTTP-
+Antworten, drei Vorschauaufrufe und eigenen Cleanup. Core77-Evidence ist
+separat; Apply/Recovery und Scope A bleiben offen.
 
 ### SQL-Hostport nur vorprüfen
 
