@@ -610,8 +610,15 @@ function Invoke-SqlServerLabWorkflowAction {
     Write-LabInfo "Auftrag angenommen: $progress"
     $result = switch ($Action) {
         'NewContainerLab' {
-            New-SqlServerLab -Version $SqlVersion -Provider $Provider -Profile $Profile -InstanceId $InstanceId -LabName $LabName -DataRoot $DataRoot -PersistentData:$PersistentData `
-                -PersistentStorageId $PersistentStorageId -PersistentStorageAction $PersistentStorageAction -AutoStart $AutoStart -SaPassword $SaPassword -SaPasswordMinimumLength $SaPasswordMinimumLength
+            $newLab = @{
+                Version=$SqlVersion; Provider=$Provider; Profile=$Profile; InstanceId=$InstanceId; LabName=$LabName
+                DataRoot=$DataRoot; PersistentData=$PersistentData; PersistentStorageAction=$PersistentStorageAction
+                AutoStart=$AutoStart; SaPassword=$SaPassword; SaPasswordMinimumLength=$SaPasswordMinimumLength
+            }
+            if (-not [string]::IsNullOrWhiteSpace($PersistentStorageId)) {
+                $newLab.PersistentStorageId = $PersistentStorageId
+            }
+            New-SqlServerLab @newLab
         }
         'CreateContainerManifest' {
             if ([string]::IsNullOrWhiteSpace($ManifestPath) -or [string]::IsNullOrWhiteSpace($LabName)) { throw 'CONTAINER_WORKFLOW_MANIFEST_PATH_AND_NAME_REQUIRED' }

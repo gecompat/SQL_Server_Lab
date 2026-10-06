@@ -14,10 +14,10 @@ immer die Standardkriterien. Der lokale Server prueft die Eingabe vor der
 Jobanlage erneut; die Fachfunktion prueft vor State und Providermutation.
 Nach der Erstellung liegt das SA-Passwort fuer spaetere Starts verschluesselt
 run-lokal; der Browserjob und das Live-Log zeigen es nicht an.
-Die Browserbedienung ist synthetisch geprueft; der echte Loopback-HTTP-Weg
-weist ungueltige Creationrequests vor dem Job ab. Getrennte Docker- und
-Podman-Erststarts sind bestanden. Ein gueltiger HTTP-Creationjob und die
-gerenderte Browserbedienung bleiben offen.
+Der echte Loopback-HTTP-Weg weist ungueltige Creationrequests vor dem Job ab.
+Ein gueltiger Creationjob mit bewusster Mindestlaenge drei wurde im gerenderten
+Browser fuer Docker und Podman getrennt bis zur SQL-Anmeldung und zum eigenen
+Cleanup geprueft. Andere Mindestlaengen und CU-Images sind nativ offen.
 
 ### Container-Autostart nur vorprüfen
 

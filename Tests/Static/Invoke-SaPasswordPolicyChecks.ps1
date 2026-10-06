@@ -245,6 +245,25 @@ $module = New-Module -ArgumentList $repoRoot,$fixtureRoot -ScriptBlock {
         $before=$script:ephemeralCalls
         Assert-Throws { Initialize-LabOwnedHostSqlVolume @owned } 'SA_PASSWORD_POLICY_EXISTING_VOLUME_FORBIDDEN' 'partial owned receipt never masquerades as seeded'
         Assert-Policy ($script:ephemeralCalls -eq $before) 'partial receipt causes no reinitialization'
+
+        # Exercise the public workflow's real argument binding without a runtime.
+        . (Join-Path $repoRoot 'Public/Invoke-SqlServerLabWorkflowAction.ps1')
+        function Write-LabInfo { param([string]$Message) }
+        function Write-LabSuccess { param([string]$Message) }
+        function New-SqlServerLab {
+            param([string]$Version,[string]$Provider,[string]$Profile,[string]$InstanceId,[string]$LabName,
+                [string]$DataRoot,[switch]$PersistentData,
+                [ValidatePattern('^[0-9a-fA-F-]{36}$')][string]$PersistentStorageId,
+                [string]$PersistentStorageAction,[string]$AutoStart,[SecureString]$SaPassword,
+                [int]$SaPasswordMinimumLength)
+            $script:workflowBound = @{} + $PSBoundParameters
+            [pscustomobject]@{RunId='synthetic-only'}
+        }
+        $null = Invoke-SqlServerLabWorkflowAction -Action NewContainerLab -SqlVersion $version -Provider docker -SaPassword $short -SaPasswordMinimumLength 3
+        Assert-Policy (-not $script:workflowBound.ContainsKey('PersistentStorageId')) 'new browser lab omits empty persistent storage id'
+        $sourceId = [guid]::NewGuid().ToString()
+        $null = Invoke-SqlServerLabWorkflowAction -Action NewContainerLab -SqlVersion $version -Provider docker -SaPassword $short -SaPasswordMinimumLength 3 -PersistentData -PersistentStorageId $sourceId
+        Assert-Policy ($script:workflowBound.PersistentStorageId -ceq $sourceId) 'browser retained-store selection forwards valid id'
         Write-Host ("SA PASSWORD POLICY CHECKS: $($script:passed) PASS")
     }
     finally { $short.Dispose();$long.Dispose();$shortText=$null;$longText=$null }

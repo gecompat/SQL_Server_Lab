@@ -22,8 +22,12 @@ und Podman-Erststarts, SQL-Anmeldung, Restart/Configerhalt und Cleanup sind
 bestanden; der Schutzvergleich ergab null Findings. Der echte Loopback-HTTP-
 Weg weist ungültige Creationrequests vor einem Job ab. Der unabhängige Review
 und Nachreview der Browserkorrektur sind geschlossen; 19 ausgewählte statische
-Suites bestanden. Gerenderter Browser und gültiger HTTP-Creationjob bleiben
-offen; das PR-Abschlussgate muss den jeweils aktuellen Head belegen.
+Suites bestanden. Der anschliessende gerenderte Browser und gueltige
+HTTP-Creationjob mit Mindestlaenge drei bestanden unter Docker und Podman
+getrennt bis zur SQL-Anmeldung und zum eigenen Cleanup. Eine dabei entdeckte
+leere optionale `PersistentStorageId` wurde vor dem erneuten nativen Lauf
+regressionsgesichert korrigiert. Das PR-Abschlussgate muss den aktuellen Head
+noch belegen.
 
 ## Übergabe und Benutzerpause vom 2026-10-05
 
@@ -97,8 +101,9 @@ aktuelle Freigabe oder vollständige Abnahme.
    unabhängige Review fand eine veraltete Mindestlängenwahl nach
    Passwortkorrektur und widersprüchliche Nachweistexte; beides wurde
    korrigiert und ohne weitere Findings nachgeprüft. Gerenderter Browser
-   und gültiger HTTP-Creationjob bleiben offen; das PR-Gate muss den
-   jeweils aktuellen Head belegen.
+   und gültiger HTTP-Creationjob mit Mindestlänge drei sind danach getrennt
+   für Docker und Podman nativ bestanden; das PR-Gate muss den aktuellen
+   Head noch belegen.
 3. **Explizite Anpassung:** Zunächst nur für neue Standardcontainer mit exakt
    katalogisiertem SQL2025-Tag unter Docker/Podman und frischer runeigener
    Systemvolume; Mindestlänge eins bis acht nur nach bewusster Auswahl.

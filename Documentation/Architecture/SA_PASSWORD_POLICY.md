@@ -1,9 +1,9 @@
 # SA-Passwort vor der Containererstellung pruefen
 
-Status: Backend, CLI und Browser offline implementiert; native Erststartabnahme
-fuer Docker und Podman auf SQL2025-CU9 mit Mindestlaenge drei bestanden.
-Gerenderter Browser und positiver HTTP-Creationjob bleiben offen; das
-PR-Abschlussgate muss den jeweils aktuellen Head belegen.
+Status: Backend, CLI und Browser implementiert. Native Erststarts sowie
+gerenderter Browser und positiver HTTP-Creationjob mit Mindestlaenge drei
+sind fuer Docker und Podman getrennt bestanden. Das PR-Abschlussgate muss
+den jeweils aktuellen Head belegen.
 
 ## Gemeinsame Barriere
 
@@ -75,7 +75,7 @@ unterstuetzt Mindestlaengen unter acht ab SQL2022 CU23 und SQL2025. Das belegt
 keinen initialen SA-Erststart des konkreten Containerimages.
 
 `Invoke-SaPasswordPolicyChecks.ps1` fuehrt Check, Publicbarriere, maskierten
-Dialog, echte CLI-Route, beide Providerinitializer und OwnedHost-Teilreceipt
+Dialog, echte CLI- und Workflow-Parameteruebergabe, beide Providerinitializer und OwnedHost-Teilreceipt
 synthetisch aus. Die WorkflowUI-Fixtures fuehren den echten Browserdialog und
 den serverseitigen Action-Routebody mit synthetischen Jobs aus. Kein
 Providerprozess, SQL, Listener oder echte Secretquelle.
@@ -92,6 +92,16 @@ Andere Mindestlaengen und CU-Images sind damit nicht empirisch abgenommen.
 `Invoke-SaPasswordHttpNetworkAcceptance.ps1` bestand am 2026-10-06 mit
 eigenem Loopback-Listener: drei ungueltige bzw. doppelte Requests wurden
 vor der Jobanlage abgewiesen, ohne Passwortwert in der Antwort. Der Listener
-und sein Testroot wurden entfernt. Ein gueltiger Creationjob ueber echten
-HTTP-Transport und die gerenderte Browserbedienung bleiben `NOT_EXECUTED`.
+und sein Testroot wurden entfernt. `Invoke-SaPasswordBrowserAcceptance.ps1`
+bestand am 2026-10-06 getrennt fuer Docker und Podman: Ein gerenderter
+Edge-Browser zeigte beim kurzen Passwort zuerst die Korrektur ohne HTTP-Job,
+waehlte dann die Mindestlaenge drei bewusst aus und startete genau einen
+gueltigen Creationjob ueber echten Loopback-HTTP-Transport. Der Job erreichte
+`Completed`; der frische eigene SQL2025-CU9-Run bestand Configpruefung und
+SA-Anmeldung. Container, Volume und Testroot wurden nach nativer Bindung
+entfernt; alle sechs geschuetzten Umgebungen blieben im Vorher-nachher-Abgleich
+unveraendert. Der Test deckte dabei einen leeren explizit weitergereichten
+`PersistentStorageId` auf; der Workflow laesst diesen optionalen Parameter
+jetzt weg. Die Regression reproduzierte den Bindungsfehler vor der Korrektur.
+Andere CU-Images, Mindestlaengen und Persistenzmodi bleiben nativ ungeprueft.
 Impactselektion und PR-Abschlussgate benoetigen den vollstaendigen stabilen Stand.

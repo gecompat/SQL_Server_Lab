@@ -390,7 +390,9 @@ Add-CheckResult -Name 'CLI und Browser erstellen Labs per stabiler Continue-/Clo
     $workflowText -notmatch 'ContainerInstanceStoreCandidates[\s\S]{0,800}ProviderResourceId=' -and
     $actionText -match '\[string\]\$PersistentStorageId' -and
     $actionText -match '\[string\]\$PersistentStorageAction' -and
-    $actionText -match 'New-SqlServerLab[\s\S]{0,400}-PersistentStorageId \$PersistentStorageId[\s\S]{0,200}-PersistentStorageAction \$PersistentStorageAction' -and
+    $actionText -match 'PersistentStorageAction=\$PersistentStorageAction' -and
+    $actionText -match 'if \(-not \[string\]::IsNullOrWhiteSpace\(\$PersistentStorageId\)\)[\s\S]{0,120}\$newLab\.PersistentStorageId = \$PersistentStorageId' -and
+    $actionText -match 'New-SqlServerLab @newLab' -and
     $htmlText -match 'id="container-storage-action"' -and
     $htmlText -match 'id="container-storage-source"' -and
     $scriptText -match 'function updateContainerStorageSelection' -and
@@ -450,7 +452,8 @@ Add-CheckResult -Name 'Container-Labs zeigen alle Instanzen inklusive Provider' 
 Add-CheckResult -Name 'Container-Autostart ist in UI, Workflow und Übersicht durchgängig' -Success (
     $htmlText -match 'id="container-autostart"' -and
     $scriptText -match "AutoStart: \$\('#container-autostart'\)\.checked \? 'on' : 'off'" -and
-    $actionText -match 'New-SqlServerLab[\s\S]{0,700}-AutoStart \$AutoStart' -and
+    $actionText -match 'AutoStart=\$AutoStart' -and
+    $actionText -match 'New-SqlServerLab @newLab' -and
     $workflowText -match 'AutoStart = if \(\$_\.autostart\)' -and
     $scriptText -match 'Autostart: '
 )

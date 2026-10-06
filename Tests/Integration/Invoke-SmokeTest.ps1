@@ -439,7 +439,7 @@ GO
             -ScriptPath $script:TemporarySqlPath `
             -Port $script:Lab.Instances[0].Port `
             -SaPassword $SaPassword `
-            -Database 'SmokeTestDB' -StateRoot $StateRoot
+            -Database 'SmokeTestDB'
     }
 
     if ($scriptResult) {
