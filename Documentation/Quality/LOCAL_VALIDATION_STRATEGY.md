@@ -3127,7 +3127,16 @@ echte Null, Major 15/16/17, Hyper-V, Bindung, unsichere Zähler, sanitisierten F
 Busy-/Wiederholung und Schließen vor Late-Response sind belegt. 27 fokussierte
 Helperchecks einschließlich drei Einzelpfadauswahlen und sechs betroffene statische
 Suites bestanden lokal. State/Provider/Secret/SQL wurden nicht ausgeführt.
-Ganze UI-Seite und native Browser-bis-SQL-Abnahme bleiben getrennte offene Nachweise;
+Die additive vollständige Produktseiten-/CMS-Bootstrapabnahme mit synthetischem
+Backend über `Invoke-ConnectionCenterCmsFullPageAcceptance.ps1` bestand am
+2026-10-07 auf `c6a1458d`: zwölf Assets, dreizehn unveränderte Produktquelldigests,
+53 Requests einschließlich 33 Job-/drei Workflowreads und genau zwei CMS-Aktionen.
+Echte Navigation, Registrierung ohne SQL-Verbindung, Major 17/drei Gruppen/
+echte Null für Server und Schließen sind sichtbar belegt; keine Skriptfehler,
+eigener Listener/Browser-Tab geschlossen. 32 fokussierte Checks und sechs
+betroffene statische Suites bestanden. Kein Modul/State/Provider/Secret/SQL;
+der erste Bytearray-Fehler ist korrigiert und lokal erhalten. Andere UI-Aktionen
+und native Browser-bis-SQL-Abnahme bleiben getrennte offene Nachweise;
 das Pflichtgate bleibt am finalen PR-Head erforderlich.
 
 Die Fixture CmsInspectionChecks wird durch Invoke-ConnectionCenterCmsChecks entdeckt. Notwendig sind tatsächliche PRE_SECRET_BARRIER-Fälle mit unverändertem Run/Runtime/Labels und verändertem Host/Port (SecretReads=0, SqlOpens=0), nullable/zero/feste DTO-Felder, aktuelle Bindung, eigener endlicher Worker, HTTP-Parametergrenzen, echter CLI-Einstieg/Cancel und JavaScript-Late-Response-/Cancel-Grenzen. Synthetische Grenzen führen keine Providerabfrage aus. Ausgewählte statische Suites und die tatsächlich gewählten Provider-Core-Gates bleiben erforderlich; vergangene B-/Capacity-Smokes decken diesen Source-Digest nicht ab. Eine allgemeine Docker-Core-Abnahme ist kein echter CMS-SQL-/SSMS-/Mitgliedsnachweis. Weitere Details im [CMS-Vertrag](../Architecture/CMS_READONLY_INSPECTION.md).

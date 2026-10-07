@@ -993,8 +993,15 @@ Die separate gerenderte synthetische CMS-Dialog-/HTTP-Abnahme bestand am
 unveränderte Produktquelldigests und geschlossener eigener Listener/Browser-Tab.
 Der echte Dialog, CMS-JavaScript und HTTP-Adapter/Dispatch liefen mit festen
 Workflowantworten; State, Provider, Secrets und SQL wurden nicht ausgeführt.
-Ganze UI-Seite und native Browser-bis-SQL-Abnahme bleiben offen, ebenso Sync,
-Windows, weitere Builds, SSMS, Mitgliedsverbindungen und Least Privilege.
+Die additive vollständige Produktseiten-/CMS-Bootstrapabnahme mit synthetischem
+Backend bestand am 2026-10-07 auf `c6a1458d`: zwölf Assets, dreizehn unveränderte
+Produktquelldigests, 53 Requests einschließlich 33 Job-/drei Workflowreads und
+genau zwei CMS-Aktionen. Echte Navigation, Registrierung ohne SQL-Verbindung,
+Major 17/drei Gruppen/echte Null für Server und Schließen sind sichtbar belegt;
+keine Skriptfehler, eigener Listener/Browser-Tab geschlossen. Kein Modul,
+State/Provider/Secret/SQL; der erste Bytearray-Fehler ist korrigiert und lokal
+erhalten. Weitere UI-Aktionen und native Browser-bis-SQL-Abnahme bleiben offen,
+ebenso Sync, Windows, weitere Builds, SSMS, Mitgliedsverbindungen und Least Privilege.
 
 ## Bewusster lokaler Operator-Handoff
 

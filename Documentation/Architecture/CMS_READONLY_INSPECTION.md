@@ -93,7 +93,14 @@ Die Abnahme verlangt alle zwölf Assets, vollständigen Bootstrap ohne Skriptfeh
 Navigation zum CMS und genau zwei bewusste CMS-Aktionen. Der Operatorrecord
 bleibt eine UI-Beobachtung ohne Runtime- oder Cleanupautorität. Kein Modul,
 State, Provider, Secret oder SQL wird ausgeführt. Dieser additive Browsernachweis
-ist NOT_EXECUTED; native Browser-bis-SQL-Abnahme und andere UI-Aktionen bleiben offen.
+bestand am 2026-10-07 auf `c6a1458d`: zwölf Assets, dreizehn unveränderte
+Produktquelldigests und 53 gemessene Requests einschließlich 33 Job-/drei
+Workflowreads sowie genau zwei CMS-Aktionen. Echte Navigation, Registrierung
+ohne SQL-Verbindung, explizite Prüfung mit Major 17/drei Gruppen/echter Null
+für Server und Schließen wurden ohne Skriptfehler sichtbar geprüft; eigener
+Listener/Browser-Tab sind geschlossen. Der erste Lauf mit leerer Bytearray-
+Antwort scheiterte; korrigiert, lokale Fehlerevidence erhalten. Native
+Browser-bis-SQL-Abnahme und andere UI-Aktionen bleiben offen.
 
 Die Offline-Fixture `Tests/Static/Fixtures/CmsInspectionChecks.ps1` wird durch
 `Invoke-ConnectionCenterCmsChecks.ps1` entdeckt. Core, echte Public-/HTTP-/CLI-
