@@ -84,6 +84,14 @@ deterministisch sortierte Hashes sämtlicher Zeilen beider CMS-Tabellen bleiben
 vor/nach den lesenden Fällen gleich. Dies ist keine atomare Endpointbindung.
 Cleanup nutzt den öffentlichen Remove-Vertrag nur mit exakter eigener Custody,
 anschließender same-pin Abwesenheit und hashgesicherten Terminalkopien.
-Unreturned/Drift/Fehler behalten den gesamten Parent zur Recovery. Native
-Docker-/Podman-Abnahme zunächst NOT_EXECUTED; UI, Sync, SSMS, Mitgliedszugriffe
-und Least-Privilege-Authentisierung bleiben getrennt.
+Unreturned/Drift/Fehler behalten den gesamten Parent zur Recovery.
+Die getrennte native Docker-/Podman-Abnahme bestand am 2026-10-07 auf
+`56e8aabf`: stale Auswahlveto, fehlender Root UNKNOWN/null, zweimal echter
+Worker OBSERVED/17/2/1, gleiche Rootdatei-/CMS-Tabellenhashes und bestätigtes
+Own-Cleanup samt bytegesicherten Terminalrecords. Der bidirektionale
+Schutzvergleich hatte je null Findings; die begrenzte Podman-Zeitplanbeobachtung
+eines Windows-Systemtasks hat keine Callerzuordnung. Zwei frühere Harnessfehler
+sind korrigiert; ihre eigenen Runtime-Ressourcen sind entfernt und Fehlerparents
+bleiben zur Recovery erhalten. Historische Protection-Failures werden dadurch
+nicht aufgehoben. UI, Sync, SSMS, Mitgliedszugriffe, andere SQL-Versionen und
+Least-Privilege-Authentisierung bleiben getrennt.

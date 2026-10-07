@@ -3110,8 +3110,14 @@ Siehe [Ownershipvertrag](../Architecture/LLAMA_CPP_OWNED_RUNTIME.md).
 Der optionale gemeinsame CLI-/GUI-Inspektor liest nur den explizit ausgewählten bestehenden CMS und markierte msdb-Zähler. Hyper-V ist ohne nicht reparierende native Probe nicht unterstützt. Counts beweisen weder Hierarchiekonsistenz noch Synchronisationsfrische, Mitgliedszugriffe oder SSMS. Frische Datei-/Runtime-/Portchecks sind keine atomare physische Endpointbindung. Reale CMS-SQL-/Authnachweise sind getrennt von Offline- und allgemeinen Core-Smokes; siehe [Vertrag](../Architecture/CMS_READONLY_INSPECTION.md).
 Ein privater abweichender StateRoot im bisherigen CMS-Menü erhält keine Freigabe für die neue aktive-Registrierungsprüfung; es gibt keine implizite Umleitung auf einen anderen CMS.
 Der isolierte CMS-Worker-/SQL-Harness arrangiert ausschließlich einen frischen
-eigenen SQL-2025-CMS mit synthetischen Metadaten. Native Docker-/Podman-Evidence
-ist zunächst NOT_EXECUTED; seine Vorbereitung schließt keine dieser Lücken.
+eigenen SQL-2025-CMS mit synthetischen Metadaten. Der echte Worker-/SQL-Nachweis
+bestand am 2026-10-07 auf `56e8aabf` getrennt unter Docker und Podman mit
+unveränderten Datei-/CMS-Tabellenhashes und bestätigtem Own-Cleanup. Dies
+schließt ausschließlich diese begrenzte Leseprüfung; andere SQL-Versionen,
+UI, Sync, SSMS, Mitglieder und Least Privilege bleiben offen. Zwei korrigierte
+Harnessfehler behalten ihre Fehlerparents, ihre Runtime-Ressourcen sind entfernt.
+Aktuelle Schutzvergleiche haben null Findings und eine begrenzte Windows-Task-
+Zeitplanbeobachtung ohne Callerzuordnung; historische Failures bleiben erhalten.
 
 ## Bewusster lokaler Operator-Handoff
 

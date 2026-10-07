@@ -14,8 +14,16 @@ exakte Creationreceipts, REMOVED/COMPLETED, same-pin Ressourcenabwesenheit und
 hashgesicherte Terminalkopien vor Entfernung des eigenen Parents. Fehler oder
 unreturned Creation behalten den Parent. `ConnectionCenterCmsInspectionAcceptanceChecks.ps1`
 prüft Custody-/Drift-/Copy-/Abwesenheitsveto synthetisch über die CMS-Suite.
-Native Nachweise sind zunächst NOT_EXECUTED; Sync, SSMS, Mitgliedsverbindungen,
-gerenderte UI und Least-Privilege-Authentisierung sind nicht Bestandteil.
+Am 2026-10-07 auf `56e8aabf` bestanden Docker und Podman getrennt: stale
+Auswahlveto, echter Worker mit fehlendem Root (UNKNOWN/null), anschließend
+zweimal OBSERVED/17/2/1, unveränderte ganze Rootdateien/beide CMS-Tabellen und
+bestätigtes Own-Cleanup mit zwei gesicherten Terminalrecords. Der bidirektionale
+Schutzvergleich hatte je null Findings; Podman beobachtete eine begrenzte
+Windows-Systemtask-Zeitplanänderung ohne Callerzuordnung. Zwei vorausgehende
+Harnessfehler (interner Modulaufruf, leere JSON-Tabelle) sind korrigiert;
+deren Runtime-Ressourcen entfernt, Fehlerparents/Evidence bleiben erhalten.
+Frühere Protection-Failures bleiben unverändert. Sync, SSMS, Mitgliedsverbindungen,
+gerenderte UI, andere SQL-Versionen und Least Privilege bleiben separat.
 
 `Integration/Invoke-ContainerPortPreviewAcceptance.ps1` prüft die getrennte
 native Docker-/Podman-Portvorschau-Abnahme. Sie verlangt einen frischen

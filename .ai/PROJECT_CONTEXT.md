@@ -972,6 +972,16 @@ nicht. Der enge Lifecycle-/Cleanup-Nachreview ist geschlossen.
 
 CLI und GUI verwenden denselben expliziten CMS-Inspektor über die öffentlichen Workflow-Aktionen. Registrierung lesen prüft keine Runtime und liest kein Secret. Nur ein frisch an den eigenen laufenden Docker-/Podman-Container und seine native Loopback-Portfreigabe gebundenes Ziel darf vor dem Secretlesen zur festen SQL-SELECT-Prüfung zugelassen werden. Der feste DTO enthält Zeitpunkt und nullable Zähler, keine Namen, Secrets oder Endpunkte. Hyper-V, SSMS, Mitgliedsverbindungen, Einrichtung und Sync bleiben separate Grenzen. Kanonischer Vertrag: [CMS_READONLY_INSPECTION](../Documentation/Architecture/CMS_READONLY_INSPECTION.md).
 
+Der isolierte Worker-/SQL-Nachweis auf einem frischen eigenen SQL-2025-CMS
+bestand am 2026-10-07 auf `56e8aabf` getrennt unter Docker/Podman: fehlender
+Root UNKNOWN/null, stale Auswahlveto, zweimal OBSERVED/17/2/1, gleiche Datei-/
+CMS-Tabellenhashes und bestätigtes Own-Cleanup. Unmarkierte Kontrollobjekte
+werden nicht mitgezählt. Schutzvergleiche je null Findings; eine begrenzte
+Windows-Systemtask-Zeitplanbeobachtung unter Podman ohne Callerzuordnung.
+Zwei korrigierte Harnessfehler behalten ihre Parents/Evidence; Runtime-Ressourcen
+sind entfernt. UI, Sync, SSMS, Mitgliedszugriffe, andere SQL-Versionen und Least
+Privilege bleiben separat; historische Failures unverändert.
+
 ## Bewusster lokaler Operator-Handoff
 
 Der [kanonische Handoff](../Documentation/HowTo/OPERATOR_DIAGNOSTIC_HANDOFF.md) bindet die bestehenden Skills und den Operator an diese unveränderte API. Standard ist SkipReadiness für genau ein ausdrücklich ausgewähltes Ziel; zusätzliche Providerreadiness bleibt eine bewusste Entscheidung. Keine automatische Sammlung, Datei, Upload, zusätzliche Reader, Shellfreigabe oder Mutationsautorität. Historische Evidence, unbekannte Befunde und fehlende SQL-/Skillloader-Nachweise bleiben getrennt. Die ausführbare Rezeptfixture wird durch Invoke-SkillChecks entdeckt; ein Rezepttest ist kein Modelldispatch- oder Skillloadernachweis.
