@@ -1,5 +1,26 @@
 # Lokale Validierungsstrategie
 
+Dieses Dokument führt Prüfwege und ausgeführte Nachweise mit ihren jeweiligen
+Geltungsbereichen. Fachverträge bleiben in den Architektur-/API-Quellen aus
+der [Repository-Map](../../.ai/repo_map.yaml), Einschränkungen in
+[Known Limitations](KNOWN_LIMITATIONS.md). Historische Referenzen ersetzen
+keinen aktuellen Abschluss-Gate.
+
+## Pester-Runnerstatus
+
+Die Unit-/Contract-Suite verlangt Pester ab Version 5. Fehlendes/zu altes
+Pester bleibt `INFRASTRUCTURE_UNAVAILABLE` und `NOT_EXECUTED` (Exitcode 2).
+Übersprungene, nicht ausgeführte oder unentschiedene Fälle ergeben ebenfalls
+einen unvollständigen Nachweis mit Exitcode 2. Fehlerhafte Tests, Container,
+Import/Aufruf und leere oder widersprüchliche Ergebnisse liefern Exitcode 1.
+Nur vollständig ausgeführte erfolgreiche Tests ergeben `PASS` und Exitcode 0.
+Die bestehenden Aggregatoren behandeln 1 und 2 als nicht grün.
+
+Die [Runner-Fixture](../../Tests/Static/Fixtures/ReleaseReadinessPesterChecks.ps1)
+prüft diese Fehler- und Erfolgswege in isolierten Prozessen innerhalb der
+ReleaseReadiness-Suite mit synthetischer Modulauflösung. Sie ersetzt weder die
+echte Pester-Suite noch einen Provider-/Runtime-Nachweis.
+
 ## Download-Streaminggrenze
 
 `ActionProgressDownloadLimitChecks.ps1` läuft innerhalb der direkten
@@ -75,22 +96,39 @@ frueheren Mindestlaengenwahl nach Passwortkorrektur, nur bewusst ausgewaehlte
 Mindestlaenge und Manifestdefault. Beide Fixtures sind vor dem
 Abschluss der bestehenden WorkflowUI-Suite eingebunden. Sie sind keine echte
 HTTP-Netz- oder gerenderte Browserabnahme. Ausgewaehlte Regression/
-Abschlussgates bleiben separat. Die ausgewaehlten 21 statischen Suiten
-bestanden nach Korrektur; `Invoke-SaPasswordPolicyAcceptance.ps1` bestand am
-2026-10-06 auf `12af45ed` getrennt fuer Docker und Podman mit eigenem
-SQL2025-CU9-Erststart, Mindestlaenge drei, Anmeldung, Restart/Configerhalt
-und vollstaendig bestaetigtem Cleanup. Der Vorher-nachher-Abgleich der sechs
-geschuetzten Umgebungen ergab null Findings.
-`Invoke-SaPasswordHttpNetworkAcceptance.ps1` bestand mit eigenem echten
-Loopback-Listener, drei abgewiesenen fehlerhaften Creationrequests, null
-Creationjobs und bestaetigtem Listener-/Root-Cleanup.
-`Invoke-SaPasswordBrowserAcceptance.ps1` bestand danach getrennt unter Docker
-und Podman mit gerendertem Edge, expliziter Mindestlaenge drei, genau einem
-gueltigen Loopback-HTTP-Creationjob, SQL-Anmeldung und gebundenem Cleanup.
-Der Schutzvergleich der sechs Toolbelt-Umgebungen blieb unveraendert. Die
-Workflow-Regression prueft nun auch, dass eine leere optionale
-`PersistentStorageId` nicht an die Erstellungsfunktion gebunden wird. Weitere
-CU-Images, Mindestlaengen und Persistenzmodi sind nicht abgenommen.
+Abschlussgates bleiben separat.
+
+### Historische Referenzabnahmen
+
+Die ausgewählten 21 statischen Suiten bestanden nach Korrektur.
+
+Am 2026-10-06 bestand `Invoke-SaPasswordPolicyAcceptance.ps1` auf dem
+Produktstand `12af45ed` getrennt fuer Docker und Podman: ein frischer eigener
+SQL2025-CU9-Run mit bewusst ausgewaehlter Mindestlaenge drei, tatsaechlicher
+SA-Anmeldung, unveraenderter Config nach Restart und bestaetigtem Cleanup von
+Run, Container, Volume und temporaerem Root. Vorher und nachher waren alle
+sechs geschuetzten Umgebungen laufend und gebunden; der Vergleich ergab null
+Findings. Der erste Docker-Testlauf scheiterte an einer zu engen
+Test-Bindungsannahme fuer die run-spezifische Volume und wurde nach erneuter
+Ownershippruefung vollstaendig aufgeraeumt; der korrigierte Test bestand.
+Andere Mindestlaengen und CU-Images sind damit nicht empirisch abgenommen.
+`Invoke-SaPasswordHttpNetworkAcceptance.ps1` bestand am 2026-10-06 mit
+eigenem Loopback-Listener: drei ungueltige bzw. doppelte Requests wurden
+vor der Jobanlage abgewiesen, ohne Passwortwert in der Antwort. Der Listener
+und sein Testroot wurden entfernt. `Invoke-SaPasswordBrowserAcceptance.ps1`
+bestand am 2026-10-06 getrennt fuer Docker und Podman: Ein gerenderter
+Edge-Browser zeigte beim kurzen Passwort zuerst die Korrektur ohne HTTP-Job,
+waehlte dann die Mindestlaenge drei bewusst aus und startete genau einen
+gueltigen Creationjob ueber echten Loopback-HTTP-Transport. Der Job erreichte
+`Completed`; der frische eigene SQL2025-CU9-Run bestand Configpruefung und
+SA-Anmeldung. Container, Volume und Testroot wurden nach nativer Bindung
+entfernt; alle sechs geschuetzten Umgebungen blieben im Vorher-nachher-Abgleich
+unveraendert. Der Test deckte dabei einen leeren explizit weitergereichten
+`PersistentStorageId` auf; der Workflow laesst diesen optionalen Parameter
+jetzt weg. Die Regression reproduzierte den Bindungsfehler vor der Korrektur.
+Andere CU-Images, Mindestlaengen und Persistenzmodi bleiben nativ ungeprueft.
+Impactselektion und PR-Abschlussgate benoetigen den vollstaendigen stabilen Stand.
+
 Die ausgewaehlten elf weiteren statischen Suites bestanden; die zwoelfte
 Workflow-UI-Suite bestand nach Anpassung ihrer Aufruf-Assertions an die
 optionale Parameteruebergabe. Der selektierte allgemeine Docker-Smoke bestand
@@ -115,7 +153,20 @@ GUI-Aktion, Statusaufnahme, Listener-, Provider- oder OperationHost-Ausführung.
 
 ## Container-Autostart nur vorprüfen
 
-`Get-SqlServerLabReconcilePlan -ContainerAutoStartPreview -RunId $runId -InstanceId primary -AutoStart on -StateRoot $stateRoot` ist eine getrennte PLAN_ONLY-Vorschau der Container-Restartpolicy für moderne registrierte laufende SQL-Instanzen unter Docker/Podman. Explizite skalare on/off-Labels und Restartpolicy müssen übereinstimmen; fehlende, untypisierte oder widersprüchliche Evidence bleibt UNKNOWN/DRIFTED und gesperrt. Nur die begrenzte SQL-Loopbacktopologie und darstellbare Mounts werden akzeptiert. Der DTO zeigt feste ON/OFF- und SAME_POLICY/DIFFERENT_POLICY-Kategorien sowie Mountcounts ohne Hostwerte, native IDs oder Pfade. CanApply=false, MutationAllowed=false und leere Actions gelten auch für No-op; der opaque ObservationKey ist reine Inhaltsbindung, keine CAS-/Reservierungs-/Executorautorität. Endpoint, SQL, Backup und Hostlogin bleiben NOT_CHECKED. Ein Kontextread nutzt die bestehenden Ownership-Revalidierungen; zusätzliche eigene Inspectreads bleiben erhalten. Der geführte CLI-Einstieg „Lab-Umgebungen → Container-Autostart vorprüfen“ wählt registrierte Lab-/Instanzmetadaten und liest den bestehenden öffentlichen Core nach einem vollständigen on/off-Wunsch genau einmal. Abbruch und ungültige Eingaben vor dem Aufruf lesen kein Inspect; feste Kategorien, Mountcounts und NOT_CHECKED-Grenzen werden erst nach strikter skalarer DTO-Prüfung angezeigt. Der separate Browserdialog „Lab verwalten → Container-Autostart vorprüfen · PLAN_ONLY“ liest beim Öffnen nur registrierte Zielmetadaten des serverseitigen Roots. Ziel-/on/off-Wechsel lösen keinen Read aus; erst bewusste Vorschau ruft denselben öffentlichen Core einmal auf. Strikte Request-/DTO-Projektionen erlauben keine clientseitigen Roots, nativen IDs oder Applyautorität. UNKNOWN/DRIFTED, Mountcounts und NOT_CHECKED-Grenzen bleiben sichtbar; Schließen, Bearbeitung und neue Requests verwerfen späte Antworten, während ein bereits versandter Read fertiglaufen darf. Die spezifische native CLI-Abnahme vom 2026-10-05 auf Head `960b5452` bestand unter Docker und Podman mit je drei tatsächlichen Menü-/Dualrouter-/Public-Vorschauaufrufen (on/off/on), null frühen Cancel-/Invalid-Aufrufen, unveränderten eigenen Statebytes und je neun getrennten Ownership-/Inspectreads. Zwei bytegebundene terminale Cleanuprecords bestätigten pro Provider die Entfernung der eigenen Ressourcen und Roots; der gemeinsame Schutzvergleich hatte null Findings und null Observations. Gerenderter Browser und HTTP-Netztransport wurden am 2026-10-06 unter Docker und Podman mit je drei öffentlichen Vorschauaufrufen und eigenem Cleanup nativ geprüft; der generische CLI-/Webkatalog verwendet unverändert den öffentlichen Parametervertrag. Die spezifische native Core-Abnahme vom 2026-10-05 auf Head `77fbaee` bestand unter Docker und Podman mit je fünf öffentlichen Vorschauaufrufen, unveränderten eigenen Statebytes, zwei bytegebundenen terminalen Cleanuprecords und entfernten eigenen Ressourcen/Roots. Der gemeinsame Schutzvergleich bestand mit null Findings und null Observations. Der historische Corelauf allein nahm keine CLI-/Browserdialoge oder HTTP-Netztransport ab; CPU/RAM, Portvorschau, Apply/Recovery und der vollständige Scope A bleiben unverändert bzw. separat offen.
+Der [öffentliche Vertrag](../../Public/README.md#container-autostart-nur-vorprüfen)
+ist die maßgebliche API-/Bedienreferenz. Die folgenden Abschnitte führen
+Offline-Fixtures und getrennte historische Referenzabnahmen:
+
+| Nachweis | Dokumentierter Stand | Geltungsbereich |
+|---|---|---|
+| [Core](#getrennte-autostart-core-abnahme) | 2026-10-05, `77fbaee` | Docker/Podman getrennt, je fünf öffentliche Vorschauaufrufe |
+| [CLI](#getrennte-autostart-cli-vorschau) | 2026-10-05, `960b5452` | Docker/Podman getrennt, je drei Menü-/Dualrouter-/Public-Aufrufe |
+| [Browser/HTTP](#getrennte-autostart-browservorschau) | 2026-10-06 | Docker/Podman getrennt, gerenderter Dialog und echter Loopback-HTTP |
+
+Eigene Statebytes und Cleanup gehören zu diesen jeweiligen Nachweisen.
+Historische Abnahmen ersetzen keinen aktuellen Abschluss-Gate.
+Die [bekannten Grenzen](KNOWN_LIMITATIONS.md#container-autostart-nur-vorprüfen)
+bleiben maßgeblich für nicht geprüfte oder nicht ausführbare Fähigkeiten.
 
 
 ## Getrennte AutoStart-Browservorschau
@@ -238,8 +289,9 @@ oder Kategorien blockieren vor Darstellung; Rohfehler bleiben privat.
 Statebytes und verbotene Effekte werden geprüft. Diese synthetische Route
 ist kein nativer CLI-Nachweis; die separate native CLI-Abnahme ist unten belegt.
 Die bereits bestandene native Core-Abnahme auf `77fbaee` bleibt getrennt.
-Native Browserdialogabnahme, HTTP-Netztransport, Hostlogin, Preview-SQL/Endpoint sowie
-Apply/Recovery und vollständiger Scope A bleiben offen.
+Diese CLI-Fixture nimmt weder Browserdialog noch HTTP-Netztransport ab;
+deren getrennte Referenz steht unter [Browser-Vorschau](#getrennte-autostart-browservorschau).
+Hostlogin, Preview-SQL/Endpoint, Apply/Recovery und vollständiger Scope A bleiben offen.
 
 ### Eigene native AutoStart-CLI-Abnahme (belegt)
 
@@ -1858,6 +1910,10 @@ Bei einem Fehler bleiben Test-VM, aktueller Root und Journale als
 - PowerShell 7.2 oder neuer;
 - lokaler Repository-Checkout;
 - keine laufende Container-Runtime erforderlich.
+
+Pester-Unit-/Contract-Tests benötigen zusätzlich Pester ab Version 5;
+die Analyse-Suite benötigt PSScriptAnalyzer. Ohne diese Module ist der
+entsprechende Nachweis nicht ausgeführt und der Abschluss-Gate nicht grün.
 
 ### Integration-Smoke-Test
 

@@ -461,6 +461,7 @@ sources_of_truth:
   validation_cleanup_volume_ownership: Tests/Static/Invoke-CleanupVolumeOwnershipChecks.ps1
   container_reconcile_contract: Private/ContainerReconcile.ps1 # Preview.Mounts: path-free counts; ContainerPortPreview: separate PLAN_ONLY, opaque ObservationKey, hostport-free categories, no Apply
   container_autostart_preview_contract: Private/ContainerAutoStartPreview.ps1 # separate PLAN_ONLY, strict raw restartpolicy/label, no hostlogin/CAS/Apply
+  container_autostart_preview_public_reference: Public/README.md # Container-Autostart nur vorprüfen; API/CLI/browser contract, history in local_validation_strategy
   validation_container_autostart_preview: Tests/Static/Fixtures/ContainerAutoStartPreviewChecks.ps1 # actual public/module route in existing ContainerReconcile suite
   acceptance_container_autostart_preview: Tests/Integration/Invoke-ContainerAutoStartPreviewAcceptance.ps1 # owned-only five public core calls; Docker/Podman PASS 2026-10-05 on 77fbaee with own cleanup; dedicated CLI PASS on 960b5452; browser/HTTP PASS 2026-10-06 under Docker/Podman; no Apply
   acceptance_container_autostart_preview_contract: Tests/Common/ContainerAutoStartPreviewAcceptance.ps1 # bounded fixed categories, no-write/content checks; existing port scope/custody/cleanup reuse
@@ -660,6 +661,9 @@ sources_of_truth:
   validation_hyperv_image_migration: Tests/Static/Invoke-HyperVImageMigrationChecks.ps1
   validation_hyperv_storage_acceptance_bootstrap: Tests/Integration/Invoke-HyperVStorageAcceptanceBootstrap.ps1
   runtime_limitations: Documentation/Quality/KNOWN_LIMITATIONS.md
+  local_validation_strategy: Documentation/Quality/LOCAL_VALIDATION_STRATEGY.md # executed evidence with scope/head/date; historical proof is not a current gate
+  validation_pester_runner: Tests/Static/Invoke-PesterChecks.ps1 # Pester >=5; complete success 0, failure 1, NOT_EXECUTED/infrastructure 2
+  validation_pester_runner_fixture: Tests/Static/Fixtures/ReleaseReadinessPesterChecks.ps1 # isolated synthetic process/exit/status checks via ReleaseReadiness
   sample_artifact_and_manifest_wizard_target: Documentation/Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md
   mixed_provider_lifecycle: Documentation/Architecture/MIXED_PROVIDER_LIFECYCLE.md
   component_relation_plan: Private/ComponentRelationPlan.ps1
