@@ -3,7 +3,7 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `BACKLOG_EXPLORATION` |
-| Stand | 2026-08-30 |
+| Stand | 2026-10-07 |
 | Zweck | neue fachliche Einsatzmöglichkeiten des Labs bewerten und priorisieren |
 
 ## Einordnung
@@ -61,6 +61,7 @@ Ein Kandidat erhält eine hohe Priorität, wenn er:
 | P2 | CDC- und Event-Integrationslab | Prüft, wie SQL-Änderungen zuverlässig, geordnet und wiederaufnehmbar an nachgelagerte Systeme gelangen | SQL mit CDC plus lokaler Consumer; später katalogisierter Kafka-kompatibler Broker oder SQL-2025-Change-Event-Streaming zu Azure Event Hubs | lokale CDC-Lane unter Docker/Podman; Hyper-V für Windows-Fälle; Cloud-Lane ausschließlich opt-in |
 | P2 | Betriebsautomatisierungs- und Recovery-Game-Day | Erzeugt kontrollierte Fehler bei SQL Agent, Backup, Storage, Netzwerk oder Dienstrestart und prüft Diagnose, Alarmierung, Repair und Cleanup | SQL-Instanz, SQL-Agent-Jobs, Fault Target, Observability-Probes und definierte Recovery-Schritte | providerneutraler Vertrag, native Evidence je Provider |
 | P2 | Konsolidierungs- und Noisy-Neighbor-Lab | Untersucht Ressourcenisolation, `max server memory`, Resource Governor, TempDB, I/O und konkurrierende Workloads | mehrere Datenbanken oder Instanzen, kontrollierte Workloads und CPU-/RAM-/I/O-Grenzen | Docker und Podman für günstige Matrix; Hyper-V für hostnahe Windows-Vergleiche |
+| P2 | Stresstest-, Last- und Replay-Lab | Untersucht SQL-Server-Verhalten unter steigender Parallelität, Dauerlast und reproduzierter Workload; Werkzeugkandidaten: OStress, HammerDB, OStress Replay und JMeter | eine isolierte SQL-Instanz, synthetische Datenbank und separater Lastgenerator mit begrenztem Lastprofil | SQL-Ziele unter Docker, Podman und Hyper-V getrennt prüfen; Ausführungsplattform des Lastgenerators separat bewerten |
 | P3 | Data-Governance- und Audit-Lab | Demonstriert Temporal Tables, Ledger, Row-Level Security, Dynamic Data Masking, Audit und kontrollierte Schlüsselrotation | eine SQL-Instanz, synthetische Rollen und manipulationsprüfbare Ereignisfolge | je nach Feature-Capability unter allen drei Providern |
 | P3 | SQL-2025-JSON-, REST- und Hybrid-Search-Lab | Erprobt nativen JSON-Datentyp, JSON-Index, Regex/Fuzzy-Funktionen, externe REST-Aufrufe und optional die Kombination relationaler, JSON- und Vector-Suche | SQL Server 2025 plus lokaler HTTPS-Mock-Service; Vector-Lane referenziert den bestehenden Vector-Backlog | SQL-Kern unter Docker/Podman/Hyper-V; Preview-Funktionen immer getrennt ausgewiesen |
 | P3 | Linked-Server-, Collation- und Distributed-Transaction-Lab | Reproduziert Cross-Instance-Abfragen, Collation-Konflikte, Delegation und Transaktionsgrenzen, die in Einzelinstanz-Labs nicht sichtbar werden | zwei SQL-Instanzen und ein Testclient; optional Domain Controller und MSDTC | Container für einfache Linked-Server-Fälle; Hyper-V/Windows für Kerberos und MSDTC |
@@ -109,6 +110,41 @@ SQL Server 2022 und 2025. Er prüft Login, TLS, parametrisierte Queries,
 Transaktion, Connection Pooling, kontrollierten Verbindungsabbruch, Retry und
 Commit-Eindeutigkeit. JDBC, ODBC und Python erweitern denselben Clientvertrag,
 erhalten aber jeweils eigene Runtime-Evidence.
+
+## Themenbereich Stresstest, Last und Replay
+
+Status: `BACKLOG_EXPLORATION`. Ziel ist eine reproduzierbare Untersuchung von
+Durchsatz, Antwortzeiten, Fehlern, Blocking und Ressourcenengpässen unter
+kontrollierter SQL-Server-Last. Die Werkzeuge sind Kandidaten für eine spätere
+Bewertung; ihre Integration und Runtime-Eignung sind noch nicht nachgewiesen.
+
+| Werkzeug / Stichwort | Zu untersuchender Einsatz |
+|---|---|
+| OStress | Wiederholte und parallele Ausführung definierter T-SQL-Workloads |
+| HammerDB (Hammer DB) | Standardisierte SQL-Server-Workloads und Vergleich mehrerer Laststufen |
+| OStress Replay | Reproduktion einer synthetisch erzeugten Workload; konkrete Toolkette, Eingabeformat, Timing und Reihenfolge vor Umsetzung klären |
+| JMeter | JDBC-basierte SQL-Server-Last mit parametrierten Abfragen und Transaktionen |
+
+Der erste Slice soll eine kleine synthetische Datenbasis und einen bewerteten
+Lastgenerator verwenden. Vor der Umsetzung sind folgende Punkte zu klären:
+
+- SQL-Version, Edition, Provider sowie Tool-, Treiber- und Lizenzanforderungen;
+- reproduzierbare Lastprofile mit Warm-up, Parallelität, Laufzeit, Datenmenge
+  und festem Lese-/Schreib- beziehungsweise Transaktionsmix;
+- harte Ressourcen- und Zeitgrenzen, Hostreserve, Abbruch sowie eigenes Cleanup
+  für Lastgenerator und erzeugte SQL-Daten;
+- Messung von Durchsatz, Antwortzeit-Perzentilen, Fehler-/Timeout-Raten,
+  Deadlocks, Waits und CPU-/RAM-/I/O-Auslastung;
+- SQL-Assertions für erwartete Datenstände und Transaktionskonsistenz;
+- vergleichbare Baseline- und Wiederholungsläufe mit dokumentierten
+  Messbedingungen; ein einzelner Hostlauf begründet keine allgemeine
+  Performanceaussage.
+
+Replay verwendet ausschließlich synthetische Eingaben. Last- und Fault-Szenarien
+bleiben getrennte Verträge; ihre spätere Kombination baut auf dem bestehenden
+[Szenariovertrag](SCENARIO_CONTRACT_BACKLOG.md) auf. Für das Ressourcenprofil
+`Stress` gelten die explizite Bestätigung und harten Grenzen aus dem
+[Masterplan](MASTER_IMPLEMENTATION_PLAN.md#102-ressourcenprofile).
 
 ## Gemeinsamer Szenariovertrag
 
