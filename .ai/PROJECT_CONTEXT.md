@@ -988,6 +988,13 @@ Root UNKNOWN/null, stale Auswahlveto, unveränderten Datei-/CMS-Tabellenhashes
 und bestätigtem Own-Cleanup samt je zwei hashgesicherten Terminalkopien.
 Alle vier bidirektionalen Schutzvergleiche hatten null Findings; Podman/2022
 beobachtete eine begrenzte Windows-Systemtask-Zeitplanänderung ohne Callerzuordnung.
+Die separate gerenderte synthetische CMS-Dialog-/HTTP-Abnahme bestand am
+2026-10-07 auf `56fae2de`: zehn Fälle, exakt 19 gemessene Aktionen, vier
+unveränderte Produktquelldigests und geschlossener eigener Listener/Browser-Tab.
+Der echte Dialog, CMS-JavaScript und HTTP-Adapter/Dispatch liefen mit festen
+Workflowantworten; State, Provider, Secrets und SQL wurden nicht ausgeführt.
+Ganze UI-Seite und native Browser-bis-SQL-Abnahme bleiben offen, ebenso Sync,
+Windows, weitere Builds, SSMS, Mitgliedsverbindungen und Least Privilege.
 
 ## Bewusster lokaler Operator-Handoff
 
