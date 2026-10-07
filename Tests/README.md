@@ -447,7 +447,12 @@ Interpretation:
 Die Release-Artefaktprüfung verwendet isolierte Git-Fixtures. Sie prüft
 mutationsfreies `WhatIf`, saubere Quellen, Ausschluss lokaler Daten,
 Pfadumleitungen, Teilpublikation, ZIP-/Hash-Integrität und den Import des
-tatsächlich entpackten Moduls. Sie startet keine Provider-Runtime.
+tatsächlich entpackten Moduls. Zusätzliche eigene PowerShell-Kindprozesse
+werden an vier Publikationsgrenzen hart beendet. Intent, Abschlussquittung
+und rein lesende Inspektion trennen unvollständige Artefakte von einem
+vollständigen, bytegeprüften Stand mit möglichen Stagingresten. Recordlimits,
+Inhaltsdrift, Traversal und leere Reparsepunkte werden ebenfalls geprüft.
+Sie startet keine Provider-Runtime. [Vertrag](../Documentation/Architecture/LOCAL_RELEASE_PUBLICATION.md).
 
 Die native Vector-Core-Abnahme wird für die beiden Linux-Provider getrennt
 ausgeführt. Jeder Lauf provisioniert ein eigenes SQL-2025-Lab und benötigt

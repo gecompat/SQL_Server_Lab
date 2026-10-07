@@ -84,6 +84,78 @@ try {
     Add-CheckResult 'Sauberer Quellstand erzeugt ein Release mit Archiv' ($clean.Success -and (Test-Path -LiteralPath $clean.Result.Archive -PathType Leaf)) -Message $clean.ErrorId
     if ($clean.Success) {
         $release = $clean.Result
+        $inspection = & (Join-Path $fixture 'Tools/Prepare-LocalRelease.ps1') -OutputRoot '.artifacts/clean' -InspectReleaseId $release.ReleaseId
+        Add-CheckResult 'Atomare Quittung attestiert Paket ZIP und Archivhash vollstaendig' ($release.PublicationStatus -ceq 'COMPLETED' -and
+            (Test-Path -LiteralPath $release.PublicationReceipt -PathType Leaf) -and $inspection.PublicationStatus -ceq 'COMPLETED' -and
+            -not $inspection.Mutation -and $inspection.Actions.Count -eq 0 -and -not $inspection.StagePresent -and $inspection.ProcessStatus -ceq 'NOT_CHECKED')
+        $receiptBytes = [IO.File]::ReadAllBytes($release.PublicationReceipt)
+        $receipt = [Text.UTF8Encoding]::new($false, $true).GetString($receiptBytes) | ConvertFrom-Json
+        Add-CheckResult 'Quittung bindet saemtliche Paketdateien und exakt beide Archivdateien ohne Hostpfade' (
+            $receipt.PackageFiles.Count -eq @(Get-ChildItem -LiteralPath $release.ReleaseRoot -Recurse -File -Force).Count -and
+            $receipt.ArchiveFiles.Count -eq 2 -and [Text.UTF8Encoding]::new($false).GetString($receiptBytes) -notmatch [regex]::Escape($fixtureRoot))
+        $savedReceipt = $release.PublicationReceipt + '.held'
+        [IO.File]::Move($release.PublicationReceipt, $savedReceipt)
+        try {
+            $incomplete = & (Join-Path $fixture 'Tools/Prepare-LocalRelease.ps1') -OutputRoot '.artifacts/clean' -InspectReleaseId $release.ReleaseId
+            Add-CheckResult 'Vorhandene Paketbytes ohne Abschlussquittung bleiben INCOMPLETE' ($incomplete.PublicationStatus -ceq 'INCOMPLETE' -and -not $incomplete.Mutation -and $incomplete.Actions.Count -eq 0)
+        }
+        finally { [IO.File]::Move($savedReceipt, $release.PublicationReceipt) }
+        $moduleFile = Join-Path $release.ReleaseRoot 'SqlServerLab.psm1'
+        $moduleBytes = [IO.File]::ReadAllBytes($moduleFile)
+        [IO.File]::WriteAllText($moduleFile, 'synthetic-changed-after-completion')
+        try {
+            $rejected = $false
+            try { & (Join-Path $fixture 'Tools/Prepare-LocalRelease.ps1') -OutputRoot '.artifacts/clean' -InspectReleaseId $release.ReleaseId | Out-Null }
+            catch { $rejected = $_.FullyQualifiedErrorId -match 'RELEASE_PUBLICATION_BYTES_CHANGED' }
+            Add-CheckResult 'Geaenderte Paketbytes verlieren ihre Abschlussattestierung' $rejected
+        }
+        finally { [IO.File]::WriteAllBytes($moduleFile, $moduleBytes) }
+        $invalidReceipt = [Text.UTF8Encoding]::new($false).GetString($receiptBytes) | ConvertFrom-Json
+        $invalidReceipt.PackageFiles[0].Path = '../outside-sentinel'
+        [IO.File]::WriteAllText($release.PublicationReceipt, ($invalidReceipt | ConvertTo-Json -Depth 8))
+        try {
+            $rejected = $false
+            try { & (Join-Path $fixture 'Tools/Prepare-LocalRelease.ps1') -OutputRoot '.artifacts/clean' -InspectReleaseId $release.ReleaseId | Out-Null }
+            catch { $rejected = $_.FullyQualifiedErrorId -match 'RELEASE_RECORD_ROWS_INVALID' }
+            Add-CheckResult 'Traversal in einer Quittung blockiert vor Dateiinspektion' $rejected
+        }
+        finally { [IO.File]::WriteAllBytes($release.PublicationReceipt, $receiptBytes) }
+        [IO.File]::WriteAllBytes($release.PublicationReceipt, [byte[]]::new(4MB + 1))
+        try {
+            $rejected = $false
+            try { & (Join-Path $fixture 'Tools/Prepare-LocalRelease.ps1') -OutputRoot '.artifacts/clean' -InspectReleaseId $release.ReleaseId | Out-Null }
+            catch { $rejected = $_.FullyQualifiedErrorId -match 'RELEASE_RECORD_LIMIT' }
+            Add-CheckResult 'Recordgroesse wird am begrenzten Readstream vor JSON-Interpretation abgefangen' $rejected
+        }
+        finally { [IO.File]::WriteAllBytes($release.PublicationReceipt, $receiptBytes) }
+        $archiveBytes = [IO.File]::ReadAllBytes($release.Archive)
+        $changedArchive = [byte[]]$archiveBytes.Clone()
+        $changedArchive[0] = $changedArchive[0] -bxor 1
+        [IO.File]::WriteAllBytes($release.Archive, $changedArchive)
+        try {
+            $rejected = $false
+            try { & (Join-Path $fixture 'Tools/Prepare-LocalRelease.ps1') -OutputRoot '.artifacts/clean' -InspectReleaseId $release.ReleaseId | Out-Null }
+            catch { $rejected = $_.FullyQualifiedErrorId -match 'RELEASE_PUBLICATION_BYTES_CHANGED' }
+            Add-CheckResult 'Archivdrift gleicher Laenge verliert die Abschlussattestierung' $rejected
+        }
+        finally { [IO.File]::WriteAllBytes($release.Archive, $archiveBytes) }
+        $emptyTarget = Join-Path $fixtureRoot 'empty-inspection-target'
+        [IO.Directory]::CreateDirectory($emptyTarget) | Out-Null
+        $emptyLink = Join-Path $release.ReleaseRoot 'unknown-empty-link'
+        New-Item -ItemType $(if ($IsWindows) { 'Junction' } else { 'SymbolicLink' }) -Path $emptyLink -Target $emptyTarget | Out-Null
+        try {
+            $rejected = $false
+            try { & (Join-Path $fixture 'Tools/Prepare-LocalRelease.ps1') -OutputRoot '.artifacts/clean' -InspectReleaseId $release.ReleaseId | Out-Null }
+            catch { $rejected = $_.FullyQualifiedErrorId -match 'RELEASE_REPARSE_PATH_BLOCKED' }
+            Add-CheckResult 'Leerer Reparsepunkt im Paket blockiert ohne Folgen des Links' ($rejected -and @(Get-ChildItem -LiteralPath $emptyTarget -Force).Count -eq 0)
+        }
+        finally { Remove-Item -LiteralPath $emptyLink -Force }
+        Write-FixtureFile 'untracked-inspection.txt' 'synthetic-dirty-source-without-release-effect'
+        try {
+            $inspection = & (Join-Path $fixture 'Tools/Prepare-LocalRelease.ps1') -OutputRoot '.artifacts/clean' -InspectReleaseId $release.ReleaseId
+            Add-CheckResult 'Rein lesende Inspektion verlangt weder sauberes Git noch Readiness' ($inspection.PublicationStatus -ceq 'COMPLETED')
+        }
+        finally { Remove-Item -LiteralPath (Join-Path $fixture 'untracked-inspection.txt') }
         $unpacked = Join-Path $fixtureRoot 'unpacked'
         [IO.Compression.ZipFile]::ExtractToDirectory($release.Archive, $unpacked)
         if ($IsWindows) {
@@ -122,6 +194,12 @@ try {
 
     $withoutArchive = Invoke-FixtureRelease $fixture '.artifacts/no-archive' -NoArchive
     Add-CheckResult 'Hashliste funktioniert auch ohne ZIP-Option' ($withoutArchive.Success -and $withoutArchive.Result.Archive -eq '' -and (Test-Path -LiteralPath $withoutArchive.Result.HashManifest))
+    $inspection = & (Join-Path $fixture 'Tools/Prepare-LocalRelease.ps1') -OutputRoot '.artifacts/no-archive' -InspectReleaseId $withoutArchive.Result.ReleaseId
+    Add-CheckResult 'Abschlussquittung ohne ZIP wird ohne erfundene Archivfiles geprueft' ($inspection.PublicationStatus -ceq 'COMPLETED' -and
+        (Get-Content -LiteralPath $withoutArchive.Result.PublicationReceipt -Raw | ConvertFrom-Json).ArchiveFiles.Count -eq 0)
+    $unattested = & (Join-Path $fixture 'Tools/Prepare-LocalRelease.ps1') -OutputRoot '.artifacts/unregistered-release' -InspectReleaseId 'sqlserverlab-v0.1.0-20261007-000000-00000000'
+    Add-CheckResult 'Unbekannte Legacy-Veröffentlichung bleibt NOT_ATTESTED ohne Zielanlage' ($unattested.PublicationStatus -ceq 'NOT_ATTESTED' -and
+        -not (Test-Path -LiteralPath (Join-Path $fixture '.artifacts/unregistered-release')) -and -not $unattested.Mutation -and $unattested.Actions.Count -eq 0)
     $withReadiness = @(& (Join-Path $fixture 'Tools/Prepare-LocalRelease.ps1') -OutputRoot '.artifacts/readiness')
     Add-CheckResult 'Readiness-Ausgabe veraendert das strukturierte Release-Ergebnis nicht' ($withReadiness.Count -eq 1 -and
         (Get-Content -LiteralPath (Join-Path $withReadiness[0].ReleaseRoot 'ReleaseManifest.json') -Raw | ConvertFrom-Json).ReleaseReadinessCheck -eq 'PASSED')
@@ -157,6 +235,42 @@ try {
     Invoke-FixtureGit $fixture @('restore',('--source=' + $sourceCommit),'--','Tools/Prepare-LocalRelease.ps1') | Out-Null
     Invoke-FixtureGit $fixture @('add','Tools/Prepare-LocalRelease.ps1') | Out-Null
     Invoke-FixtureGit $fixture @('commit','--quiet','-m','Codex: Restore synthetic release fixture') | Out-Null
+
+    # Der eigene Kindprozess wird hart beendet: finally kann keine Ruecknahme liefern.
+    $crashPoints = @(
+        @{ Name = 'before-archive'; Call = '[IO.File]::Move($stagedArchive, $archivePath)'; Archives = 0; Packages = 0; Receipts = 0; Status = 'INCOMPLETE' }
+        @{ Name = 'before-package'; Call = '[IO.Directory]::Move($packageRoot, $releaseRoot)'; Archives = 1; Packages = 0; Receipts = 0; Status = 'INCOMPLETE' }
+        @{ Name = 'before-receipt'; Call = 'Write-ReleaseRecord $receiptPath $stageRoot $receipt'; Archives = 1; Packages = 1; Receipts = 0; Status = 'INCOMPLETE' }
+        @{ Name = 'after-receipt'; Call = '$completed = $true'; Archives = 1; Packages = 1; Receipts = 1; Status = 'COMPLETED' }
+    )
+    $originalTool = [IO.File]::ReadAllText($fixtureTool)
+    $pwshPath = (Get-Command pwsh -CommandType Application | Select-Object -First 1).Source
+    foreach ($point in $crashPoints) {
+        if (([regex]::Matches($originalTool, [regex]::Escape($point.Call))).Count -ne 1) { throw 'SYNTHETIC_RELEASE_CRASH_POINT_NOT_UNIQUE' }
+        [IO.File]::WriteAllText($fixtureTool, $originalTool.Replace($point.Call, ('[Diagnostics.Process]::GetCurrentProcess().Kill(); ' + $point.Call)))
+        Invoke-FixtureGit $fixture @('add','Tools/Prepare-LocalRelease.ps1') | Out-Null
+        Invoke-FixtureGit $fixture @('commit','--quiet','-m',('Codex: Inject own hard abort ' + $point.Name)) | Out-Null
+        $crashOutput = '.artifacts/crash-' + $point.Name
+        $childOutput = @(& $pwshPath -NoProfile -File $fixtureTool -OutputRoot $crashOutput -CreateArchive -IncludeHashManifest -SkipReadinessChecks 2>&1)
+        $childExit = $LASTEXITCODE
+        $crashRoot = Join-Path $fixture $crashOutput
+        $entries = @(Get-ChildItem -LiteralPath $crashRoot -Force)
+        $intents = @($entries | Where-Object Name -Like '*.publication.json')
+        if ($intents.Count -ne 1) { throw 'SYNTHETIC_RELEASE_CRASH_INTENT_MISSING' }
+        $intent = Get-Content -LiteralPath $intents[0].FullName -Raw | ConvertFrom-Json
+        $beforeHashes = @(Get-ChildItem -LiteralPath $crashRoot -Recurse -File -Force | Get-FileHash -Algorithm SHA256 | Sort-Object Path | Select-Object Path, Hash) | ConvertTo-Json -Compress
+        $inspection = & $fixtureTool -OutputRoot $crashOutput -InspectReleaseId $intent.ReleaseId
+        $afterHashes = @(Get-ChildItem -LiteralPath $crashRoot -Recurse -File -Force | Get-FileHash -Algorithm SHA256 | Sort-Object Path | Select-Object Path, Hash) | ConvertTo-Json -Compress
+        Add-CheckResult ('Harter Own-Abbruch ' + $point.Name + ' bindet den tatsaechlichen Quittungszustand') ($childExit -ne 0 -and
+            @($entries | Where-Object Name -Like '*.completed.json').Count -eq $point.Receipts -and
+            @($entries | Where-Object Name -Like '*.zip').Count -eq $point.Archives -and
+            @($entries | Where-Object { $_.PSIsContainer -and $_.Name -like 'sqlserverlab-v*' }).Count -eq $point.Packages)
+        Add-CheckResult ('Harter Own-Abbruch ' + $point.Name + ' wird rein lesend ohne behauptetes Prozesscleanup erkannt') ($inspection.PublicationStatus -ceq $point.Status -and
+            $inspection.StagePresent -and $inspection.ProcessStatus -ceq 'NOT_CHECKED' -and -not $inspection.Mutation -and $inspection.Actions.Count -eq 0 -and $beforeHashes -ceq $afterHashes)
+    }
+    [IO.File]::WriteAllText($fixtureTool, $originalTool)
+    Invoke-FixtureGit $fixture @('add','Tools/Prepare-LocalRelease.ps1') | Out-Null
+    Invoke-FixtureGit $fixture @('commit','--quiet','-m','Codex: Restore tool after own hard aborts') | Out-Null
 
     # Git kann einen Symlink auch auf Hosts ohne native Symlink-Erzeugung abbilden.
     Invoke-FixtureGit $fixture @('config','core.symlinks','false') | Out-Null

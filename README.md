@@ -1048,8 +1048,15 @@ Nicht erreichbare Provider werden als `SKIP` ausgewiesen. Erreichbare, aber fehl
 Für eine reproduzierbare lokale Release-Kopie:
 
 ```powershell
-.\Tools\Prepare-LocalRelease.ps1 -CreateArchive -IncludeHashManifest
+$release = .\Tools\Prepare-LocalRelease.ps1 -CreateArchive -IncludeHashManifest
+.\Tools\Prepare-LocalRelease.ps1 -InspectReleaseId $release.ReleaseId
 ```
+
+Intent und Abschlussquittung binden die vollständige Veröffentlichung.
+Die zweite Zeile liest nur: ohne Abschlussquittung `INCOMPLETE`, bei aktuell
+passenden vollständigen Bytes `COMPLETED`. Prozessstatus und Cleanup bleiben
+getrennt; keine automatische Wiederaufnahme oder Entfernung.
+[Vertrag und Recoverygrenzen](Documentation/Architecture/LOCAL_RELEASE_PUBLICATION.md).
 
 ## Repository-Struktur
 

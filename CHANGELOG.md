@@ -8,6 +8,11 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Geändert
 
+- Lokale Release-Pakete erhalten ein dauerhaftes Intent und eine atomar
+  veröffentlichte Abschlussquittung. `Prepare-LocalRelease.ps1
+  -InspectReleaseId` prüft eine exakte Release-ID rein lesend gegen die
+  vollständigen Paket- und Archivbytes. Fehlende Quittung bedeutet
+  `INCOMPLETE`; Prozessstatus und Cleanup werden nicht attestiert.
 - Die vorhandene Resource-Watch-Monatslane bietet einen zusätzlichen manuellen
   `metadata_only`-Dispatch ohne Issue-API, Issuerechte oder Publishtoken. Der
   vollständige CU-/SqlPackage-Check und seine Fehlerwahrheit bleiben erhalten;
