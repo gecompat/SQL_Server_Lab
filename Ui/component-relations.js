@@ -63,7 +63,7 @@ async function requestComponentRelations(preview = false) {
   componentRelationsBusy = true; updateComponentRelationsControls(); componentRelationsElement('result').textContent = '';
   componentRelationsElement('status').textContent = preview ? 'Gebundene Vorschau wird gelesen …' : 'Registrierte Metadaten werden gelesen …';
   try {
-    const response = await fetch('/api/component-relations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    const response = await sqlServerLabUiFetch('/api/component-relations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     if (!response.ok) throw new Error('COMPONENT_RELATION_REQUEST_FAILED');
     const view = await response.json();
     if (revision !== componentRelationsRevision || !componentRelationsElement('dialog').open) return;

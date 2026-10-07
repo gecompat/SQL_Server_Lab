@@ -125,7 +125,7 @@ try {
         Start-Sleep -Milliseconds 100
     }
     if(-not (Test-Path -LiteralPath $readyPath)){throw 'SA_BROWSER_SERVER_NOT_READY'}
-    $driverConfig=[ordered]@{ListenerPort=$port;Provider=$Provider;Version=$version;LabName=$labName;
+    $driverConfig=[ordered]@{ListenerPort=$port;Provider=$Provider;Version=$version;LabName=$labName;ReadyPath=$readyPath;
         BrowserExecutable=$browserTools.Browser.Path;PlaywrightDirectory=(Split-Path $browserTools.PlaywrightPackage.Path);ResultPath=(Join-Path $evidence 'browser-result.private.json')}
     $driverConfigPath=Join-Path $evidence 'driver-config.private.json'
     [IO.File]::WriteAllText($driverConfigPath,($driverConfig|ConvertTo-Json -Compress),[Text.UTF8Encoding]::new($false))

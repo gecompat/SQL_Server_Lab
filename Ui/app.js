@@ -90,7 +90,7 @@ function renderPublicCommandCatalog() {
 }
 
 async function refreshPublicCommandCatalog() {
-  const response = await fetch('/api/commands');
+  const response = await sqlServerLabUiFetch('/api/commands');
   if (!response.ok) throw new Error(await response.text());
   const payload = await response.json();
   publicCommandCatalog = Array.isArray(payload) ? payload : (payload ? [payload] : []);
@@ -759,7 +759,7 @@ async function runOperationCommand(operationId, command, verificationType) {
     openConfirmation('Vorgang stoppen und aufräumen', 'Diesen Vorgang wirklich aufräumen? Nur sein persistierter Scope wird entfernt; veröffentlichte Images bleiben unverändert.', '__OperationStopCleanup', { operationId }, 'Stoppen + Cleanup');
     return;
   }
-  const response = await fetch('/api/operations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+  const response = await sqlServerLabUiFetch('/api/operations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
   if (!response.ok) throw new Error(await response.text());
   await refresh();
 }
@@ -913,7 +913,7 @@ function renderAcceptance(items) {
 
 async function refresh(mediaRoot) {
   const suffix = mediaRoot ? '?mediaRoot=' + encodeURIComponent(mediaRoot) : '';
-  const response = await fetch('/api/workflow' + suffix);
+  const response = await sqlServerLabUiFetch('/api/workflow' + suffix);
   if (!response.ok) throw new Error(await response.text());
   const payload = await response.json();
   if (Object.prototype.hasOwnProperty.call(payload, 'Refreshing')) {
@@ -936,7 +936,7 @@ async function refresh(mediaRoot) {
 }
 
 async function refreshUiConfig() {
-  const response = await fetch('/api/config');
+  const response = await sqlServerLabUiFetch('/api/config');
   if (!response.ok) return;
   const config = await response.json();
   const requestedLimit = Number(config?.jobLogBurstLimit);
@@ -1057,7 +1057,7 @@ async function readUiJobResponse(endpoint, options, timeoutMs) {
   try {
     return await Promise.race([
       (async () => {
-        const response = await fetch(endpoint, { ...options, signal: controller.signal });
+        const response = await sqlServerLabUiFetch(endpoint, { ...options, signal: controller.signal });
         if (!response.ok) throw new Error('UI_REQUEST_UNCONFIRMED');
         return response.json();
       })(),
@@ -1382,7 +1382,7 @@ function resourceMountSummary(plan) {
     ' schreibbar); andere Mounttypen: ' + mounts.OtherMountCount + '. Volumeeigentum nicht geprüft.';
 }
 async function fetchResourceView(parameters) {
-  const response = await fetch('/api/resource-change?' + new URLSearchParams(parameters), { cache: 'no-store' });
+  const response = await sqlServerLabUiFetch('/api/resource-change?' + new URLSearchParams(parameters), { cache: 'no-store' });
   if (!response.ok) throw new Error('Ressourcen nicht verfügbar: Ziel, Schutzstatus, Runtime und offene Recovery prüfen; anschließend erneut lesen.');
   return response.json();
 }
@@ -1796,7 +1796,7 @@ $('#credential-form').addEventListener('submit', async (event) => {
   if ($('#credential-action').value === '__ConfirmOperation') {
     const operationId = $('#credential-build').value;
     try {
-      const response = await fetch('/api/operations', {
+      const response = await sqlServerLabUiFetch('/api/operations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ operationId, command: 'Confirm', userName: $('#guest-user').value, password })
@@ -2010,7 +2010,7 @@ function invalidateInitialSetupPlan() {
   updateInitialSetupControls();
 }
 async function requestInitialSetup(action, parameters) {
-  const response = await fetch('/api/initial-setup', action ? {
+  const response = await sqlServerLabUiFetch('/api/initial-setup', action ? {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, parameters })
   } : { cache: 'no-store' });
   if (!response.ok) throw new Error('Grundkonfiguration konnte nicht geprüft oder angewendet werden. Eingaben und aktuellen Zustand erneut prüfen.');
@@ -2393,7 +2393,7 @@ $('#persistent-storage-removal-form').addEventListener('submit', async (event) =
   $('#persistent-storage-removal-execute').disabled = true;
   submit.disabled = true;
   try {
-    const response = await fetch('/api/persistent-storage/removal-plan', {
+    const response = await sqlServerLabUiFetch('/api/persistent-storage/removal-plan', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ runId: $('#persistent-storage-removal-run').value, selections })
@@ -2452,7 +2452,7 @@ $('#retained-store-preview').addEventListener('click', async () => {
   const id = $('#retained-store-source').value;
   $('#retained-store-delete').disabled = true;
   try {
-    const response = await fetch('/api/persistent-storage/retained-removal-plan', {
+    const response = await sqlServerLabUiFetch('/api/persistent-storage/retained-removal-plan', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ persistentStorageId: id })
     });
     if (!response.ok) throw new Error(await response.text());
@@ -2510,7 +2510,7 @@ async function requestLlamaInstaller(action) {
   for (const id of ['release', 'root', 'refresh', 'upstream-read', 'close']) $('#llama-installer-' + id).disabled = true;
   $('#llama-installer-status').textContent = action === 'apply' ? 'Bestätigte Installation und begrenzte Probe laufen …' : 'Wird gelesen …';
   try {
-    const response = await fetch('/api/llama-installer', payload ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) } : { cache: 'no-store' });
+    const response = await sqlServerLabUiFetch('/api/llama-installer', payload ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) } : { cache: 'no-store' });
     if (!response.ok) throw new Error('LLAMA_INSTALL_UNCONFIRMED');
     const result = await response.json();
     if (generation !== llamaInstallerRequest || !$('#llama-installer-dialog').open) return;
@@ -2605,7 +2605,7 @@ async function requestMaintenance(action) {
   $('#maintenance-confirm').checked = false; $('#maintenance-confirm').disabled = true;
   $('#maintenance-status').textContent = action === 'apply' ? 'Katalogergebnis wird abgewartet …' : 'Befund / Zuordnung wird gelesen …';
   try {
-    const response = await fetch('/api/maintenance', payload ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) } : { cache: 'no-store' });
+    const response = await sqlServerLabUiFetch('/api/maintenance', payload ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) } : { cache: 'no-store' });
     if (!response.ok) throw new Error('MAINTENANCE_UNCONFIRMED');
     const result = await response.json();
     if (generation !== maintenanceRequest || !$('#maintenance-dialog').open) return;
@@ -2677,7 +2677,7 @@ $('#evaluation-watch-read').addEventListener('click', async () => {
   $('#evaluation-watch-read').disabled = true;
   $('#evaluation-watch-status').textContent = 'Gespeicherte Evaluationsdaten werden gelesen …';
   try {
-    const response = await fetch('/api/evaluation-watch', { cache: 'no-store' });
+    const response = await sqlServerLabUiFetch('/api/evaluation-watch', { cache: 'no-store' });
     if (!response.ok) throw new Error('EVALUATION_WATCH_READ_UNAVAILABLE');
     const view = await response.json();
     if (!view || !Array.isArray(view.Rows)) throw new Error('EVALUATION_WATCH_RESPONSE_INVALID');
@@ -2745,7 +2745,7 @@ $('#confirmation-form').addEventListener('submit', async (event) => {
   if (confirmation.action === '__OperationStopCleanup') {
     $('#confirmation-dialog').close();
     try {
-      const response = await fetch('/api/operations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ operationId: confirmation.parameters.operationId, command: 'StopCleanup' }) });
+      const response = await sqlServerLabUiFetch('/api/operations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ operationId: confirmation.parameters.operationId, command: 'StopCleanup' }) });
       if (!response.ok) throw new Error(await response.text());
       await refresh();
     }
@@ -2807,7 +2807,7 @@ $('#ai-shared-gateway-service-secret-form').addEventListener('submit', async (ev
   submit.disabled = true;
   result.textContent = 'SecretManagement-Referenzen werden für den aktuellen Principal geprüft …';
   try {
-    const response = await fetch('/api/ai-shared-gateway/service-secret', {
+    const response = await sqlServerLabUiFetch('/api/ai-shared-gateway/service-secret', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ plan, servicePlan })
@@ -2900,7 +2900,7 @@ function invalidateSlotReservePlan() {
   slotReservePlan = null; $('#slot-reserve-plan').hidden = true; updateSlotReserveControls();
 }
 async function requestSlotReserve(action, parameters) {
-  const response = await fetch('/api/slot-reserve', action ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, parameters }) } : { cache: 'no-store' });
+  const response = await sqlServerLabUiFetch('/api/slot-reserve', action ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, parameters }) } : { cache: 'no-store' });
   if (!response.ok) throw new Error('Slotreserve konnte nicht geprüft oder gespeichert werden. Zustand erneut lesen.');
   return (await response.json()).Result;
 }
@@ -3019,7 +3019,7 @@ async function readTestGroupPlan() {
   $('#test-group-selection').disabled = true;
   $('#test-group-members').innerHTML = '';
   try {
-    const response = await fetch('/api/test-group?' + new URLSearchParams({ powerAction: $('#test-group-action').value }), { cache: 'no-store' });
+    const response = await sqlServerLabUiFetch('/api/test-group?' + new URLSearchParams({ powerAction: $('#test-group-action').value }), { cache: 'no-store' });
     if (!response.ok) throw new Error('Gruppe nicht lesbar. Erneut lesen; keine Poweraktion angefordert.');
     const plan = await response.json();
     if (revision !== testGroupRevision || !$('#test-group-dialog').open) return;
@@ -3079,7 +3079,7 @@ function invalidateMediaOverridePlan() {
   mediaOverridePlan = null; $('#media-override-plan').hidden = true; updateMediaOverrideControls();
 }
 async function requestMediaOverride(action, parameters) {
-  const response = await fetch('/api/media-overrides', action ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, parameters }) } : { cache: 'no-store' });
+  const response = await sqlServerLabUiFetch('/api/media-overrides', action ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, parameters }) } : { cache: 'no-store' });
   if (!response.ok) throw new Error('Quellenanfrage abgelehnt; Eingabe und aktuellen Zustand erneut prüfen.');
   return (await response.json()).Result;
 }
@@ -3155,7 +3155,7 @@ async function readResourceWatch(refresh = false) {
   const revision = resourceWatchRevision;
   resourceWatchBusy = true; updateResourceWatchControls();
   try {
-    const response = await fetch('/api/resource-watch', refresh ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'RefreshResourceWatch', parameters: {} }) } : { cache: 'no-store' });
+    const response = await sqlServerLabUiFetch('/api/resource-watch', refresh ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'RefreshResourceWatch', parameters: {} }) } : { cache: 'no-store' });
     if (!response.ok) throw new Error('RESOURCE_WATCH_UNAVAILABLE');
     const view = (await response.json()).Result;
     if (revision !== resourceWatchRevision || !$('#resource-watch-dialog').open) return;
@@ -3203,7 +3203,7 @@ async function requestLlamaSession(action = 'read') {
   llamaSessionBusy = true; llamaSessionStopping = action === 'stop'; invalidateLlamaSessionPlan();
   $('#llama-session-status').textContent = llamaSessionStopping ? 'Bestätigter Stop wird abgewartet; Schließen erst nach Ergebnis. Eine gestartete Aktion wird nicht zurückgenommen.' : 'Ergebnis wird abgewartet …';
   try {
-    const response = await fetch('/api/llama-sessions', payload ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) } : { cache: 'no-store' });
+    const response = await sqlServerLabUiFetch('/api/llama-sessions', payload ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) } : { cache: 'no-store' });
     if (!response.ok) throw new Error('LLAMA_SESSION_UNCONFIRMED');
     const result = await response.json();
     if (revision !== llamaSessionRevision || !$('#llama-session-dialog').open) return;
@@ -3268,7 +3268,7 @@ async function readCmsInspection(inspect = false) {
   $('#cms-inspection-status').textContent = inspect ? 'Dieser CMS wird lesend geprüft …' : 'Registrierung wird gelesen …';
   $('#cms-inspection-result').textContent = '';
   try {
-    const response = await fetch('/api/cms-inspection', inspect ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'InspectCms', parameters: { ExpectedPlanKey: selection.SelectionKey } }) } : { cache: 'no-store' });
+    const response = await sqlServerLabUiFetch('/api/cms-inspection', inspect ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'InspectCms', parameters: { ExpectedPlanKey: selection.SelectionKey } }) } : { cache: 'no-store' });
     if (!response.ok) throw new Error('CMS_INSPECTION_REQUEST_FAILED');
     const payload = await response.json(); const view = payload.Result;
     if (revision !== cmsInspectionRevision || !$('#cms-inspection-dialog').open) return;

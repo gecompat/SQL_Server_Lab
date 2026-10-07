@@ -7,7 +7,7 @@ $checks=0
 function Check([bool]$Condition,[string]$Name){if(-not $Condition){throw "EXTERNAL_CATALOG_BROWSER_FIXTURE: $Name"};$script:checks++}
 function Reject([scriptblock]$Body,[string]$Name){$failed=$false;try{& $Body}catch{$failed=$true};Check $failed $Name}
 function Copy-Observation($Value){$Value | ConvertTo-Json -Depth 16 | ConvertFrom-Json -Depth 16}
-Check ($parts.Assets.Count -eq 12 -and $parts.Sources.Count -gt 23) 'actual page/catalogue/recipe bindings'
+Check ($parts.Assets.Count -eq 13 -and $parts.Sources.Count -gt 23) 'actual page/catalogue/recipe bindings'
 $hidden=@($parts.Sources|Where-Object Path -CEQ 'Images/ExternalLanguages/Linux/.dockerignore')
 Check ($hidden.Count -eq 1) 'hidden recipe context input included'
 Check ($hidden[0].Sha256 -ceq [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([IO.File]::ReadAllBytes((Join-Path $repo 'Images/ExternalLanguages/Linux/.dockerignore'))))) 'hidden input exact byte binding'

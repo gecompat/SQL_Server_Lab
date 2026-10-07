@@ -36,7 +36,7 @@ function Get-CmsBrowserProductParts {
     $route=@($ast.FindAll({param($node)$node -is [Management.Automation.Language.IfStatementAst] -and $node.Clauses[0].Item1.Extent.Text -ceq "`$path -eq '/api/cms-inspection'"},$true))
     if($errors.Count -or $adapter.Count -ne 1 -or $route.Count -ne 1){throw 'CMS_BROWSER_PRODUCT_ROUTE'}
     [pscustomobject]@{
-        Page='<!doctype html><html lang="de"><meta charset="utf-8"><link rel="stylesheet" href="/app.css"><title>CMS Browser Abnahme · synthetisch</title><body>'+$button[0].Value+$dialog[0].Value+'<script src="/cms-fixture.js"></script></body></html>'
+        Page='<!doctype html><html lang="de"><meta charset="utf-8"><script src="/operator-transport.js"></script><link rel="stylesheet" href="/app.css"><title>CMS Browser Abnahme · synthetisch</title><body>'+$button[0].Value+$dialog[0].Value+'<script src="/cms-fixture.js"></script></body></html>'
         JavaScript=$selector[0].Value+"`n"+$js.Substring($begins[0].Index,$end[0].Index+$end[0].Length-$begins[0].Index)
         Adapter=[scriptblock]::Create([IO.File]::ReadAllText((Join-Path $RepositoryRoot 'Tools/WorkflowUiJsonBody.ps1'))+"`n"+$adapter[0].Extent.Text)
         Dispatch=[scriptblock]::Create('foreach($iteration in 1){'+$route[0].Extent.Text+"`nthrow 'CMS_BROWSER_FALLTHROUGH'"+'}')

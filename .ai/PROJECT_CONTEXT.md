@@ -8,10 +8,12 @@
 | Repository | `gecompat/SQL_Server_Lab` |
 | Maschinenlesbare Landkarte | [`repo_map.yaml`](repo_map.yaml) |
 
-Der Benutzer verlangt am 2026-10-07 nach PR-Integration der aktuellen
-UI-Fachreader-Runde eine Entwicklungspause. Der [kanonische Wellenplan](../Documentation/Project_Planning/AUTONOMOUS_DEVELOPMENT_WAVE_2026-09-10.md)
-enthält Abschlussgrenze, offene Schritte und Wiederaufnahmebedingungen.
-Nach Integration keine automatische Weiterarbeit ohne neuen ausdrücklichen Auftrag.
+Der Benutzer hat am 2026-10-08 nach Integration des Backlog-PR #712 die autonome
+Weiterentwicklung ausdrücklich wieder gestartet: `ACTIVE`, mit unabhängigen
+Subagentaufgaben und ereignisgesteuerten Fertigmeldungen. Der
+[kanonische Wellenplan](../Documentation/Project_Planning/AUTONOMOUS_DEVELOPMENT_WAVE_2026-09-10.md)
+erhält den historischen Pausecheckpoint vom 2026-10-07 sowie offene Schritte und
+Wiederaufnahmegrenzen. Genau ein Implementierer verantwortet einen atomaren Scope.
 
 ## Dokumentationszuständigkeiten
 
@@ -58,7 +60,10 @@ offen; Legacy-Cleanup und bestehende Plan-/Receipt-Schluessel bleiben erhalten.
 Die gemeinsame Workflow-UI-[HTTP-Grenze](../Documentation/Architecture/WORKFLOW_UI_REQUEST_BOUNDARY.md)
 prüft Requests vor Routing/Bodylesung. Fremde Origins und ungeeignete POST-
 Medientypen werden abgewiesen; lokale JSON-Clients ohne Origin bleiben erlaubt.
-Operatorauthentifizierung und vollständige Security-Cloud-Fundbehebung sind offen.
+Alle APIrequests verlangen jetzt eine frische startgebundene Operator-Capability
+mit privatem lokalem Handoff und Browsertransport ausschließlich im Speicher.
+Einmalige Action-/Replayfreigaben und vollständige Security-Cloud-Fundbehebung
+bleiben offen.
 Sieben direkte JSON-POST-Routen verwenden nun einen gemeinsamen Reader mit
 1-MiB-Bytegrenze, striktem UTF-8 und fünf Sekunden absoluter Lesefrist.
 Acht interne Fachreader verwenden ebenfalls den gemeinsamen Transport mit

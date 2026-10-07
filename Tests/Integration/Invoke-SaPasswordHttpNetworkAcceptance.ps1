@@ -24,7 +24,26 @@ if($Child){
     }
     $env:SQL_SERVER_LAB_STATE=Join-Path $childRoot 'state'
     $env:SQL_SERVER_LAB_DATA_ROOT=Join-Path $childRoot 'Lab_Data'
-    & (Join-Path $repo 'Tools/Start-SqlServerLabUi.ps1') -Port $Port -NoBrowser
+    $global:saHttpChildRoot=$childRoot;$global:saHttpControl=$null;$global:saHttpHandle=$null
+    function Write-Host {
+        param([Parameter(Position=0,ValueFromRemainingArguments)][object[]]$Object,[ConsoleColor]$ForegroundColor='Gray',[switch]$NoNewline,[string]$Separator=' ')
+        if($Object.Count -eq 1 -and $Object[0] -ceq "SQL_Server_Lab Workflow UI: http://127.0.0.1:$Port/"){
+            $listener=Get-Variable listener -Scope 1 -ValueOnly;$session=Get-Variable operatorSession -Scope 1 -ValueOnly
+            $ready=Join-Path $global:saHttpChildRoot 'operator-locator.private.json'
+            $file=[IO.FileStream]::new($ready,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
+            try{$bytes=[Text.Encoding]::UTF8.GetBytes((@{OperatorFile=$session.File}|ConvertTo-Json -Compress));$file.Write($bytes);$file.Flush($true)}finally{$file.Dispose()}
+            $global:saHttpControl=[powershell]::Create()
+            $null=$global:saHttpControl.AddScript({param($owned,$stop)
+                $deadline=[datetime]::UtcNow.AddMinutes(2)
+                while($owned.IsListening -and -not [IO.File]::Exists($stop) -and [datetime]::UtcNow -lt $deadline){Start-Sleep -Milliseconds 100}
+                if($owned.IsListening){$owned.Stop()}
+            }).AddArgument($listener).AddArgument((Join-Path $global:saHttpChildRoot 'stop.private.json'))
+            $global:saHttpHandle=$global:saHttpControl.BeginInvoke()
+        }
+        Microsoft.PowerShell.Utility\Write-Host @PSBoundParameters
+    }
+    try { & (Join-Path $repo 'Tools/Start-SqlServerLabUi.ps1') -Port $Port -NoBrowser }
+    finally { if($global:saHttpControl){try{$null=$global:saHttpControl.EndInvoke($global:saHttpHandle)}finally{$global:saHttpControl.Dispose()}} }
     return
 }
 $root=Join-Path ([IO.Path]::GetTempPath()) ('sql-lab-sa-http-'+[guid]::NewGuid().ToString('N'))
@@ -62,6 +81,10 @@ try {
         Start-Sleep -Milliseconds 500
     }
     if(-not $ready){throw 'SA_HTTP_SERVER_NOT_READY'}
+    $locator=Get-Content -LiteralPath (Join-Path $root 'operator-locator.private.json') -Raw|ConvertFrom-Json
+    $operator=Get-Content -LiteralPath $locator.OperatorFile -Raw|ConvertFrom-Json
+    if($operator.ListenerUrl -cne ($base+'/') -or $operator.Capability -cnotmatch '^[a-f0-9]{64}$'){throw 'SA_HTTP_OPERATOR_BINDING'}
+    $null=$client.DefaultRequestHeaders.TryAddWithoutValidation('X-SqlServerLab-Operator',$operator.Capability)
     $cases=@(
         '{"action":"NewContainerLab","parameters":{"SaPassword":"Ab3","Provider":"docker","SqlVersion":"2025-CU9"}}',
         '{"action":"NewContainerLab","parameters":{"SaPassword":"Ab3","Provider":"docker","SqlVersion":"2025","SaPasswordMinimumLength":3}}',
@@ -90,6 +113,7 @@ try {
 finally {
     if($client){$client.Dispose()}
     if($process){
+        if($started -and -not $process.HasExited){[IO.File]::WriteAllText((Join-Path $root 'stop.private.json'),'STOP');$null=$process.WaitForExit(10000)}
         if($started -and -not $process.HasExited){$process.Kill($true)}
         if($started){$null=$process.WaitForExit(10000)}
         if(-not $complete){

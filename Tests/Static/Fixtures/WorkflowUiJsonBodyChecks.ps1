@@ -61,6 +61,8 @@ try{
   param($Listener,$url,$Dispatch,$Reply,$Includes,$ToolsRoot,$Count)
   $ErrorActionPreference='Stop';$jobs=@{};$persistentJobs=@{};$script:effects=0
   . ([scriptblock]::Create('param([string]$PSScriptRoot)'+"`n"+$Includes)) $ToolsRoot
+  . (Join-Path $ToolsRoot 'WorkflowUiOperator.ps1')
+  $operatorSession=[pscustomobject]@{ListenerUrl=$url;Capability=('a'*64);Active=$true}
   . ([scriptblock]::Create($Reply))
   function Start-UiPublicCommandJob {param($CommandName,$ParameterSetName,$Parameters,[switch]$Confirmed)$script:effects++;[pscustomobject]@{Id='synthetic-command';Action='synthetic'}}
   function Start-UiWorkflowJob {param($Action,$Parameters)$script:effects++;[pscustomobject]@{Id='synthetic-action';Action='synthetic'}}
@@ -71,7 +73,7 @@ try{
  foreach($case in $cases){
   $client=[Net.Sockets.TcpClient]::new();$stream=$null
   try{
-   $client.Connect('127.0.0.1',$port);$stream=$client.GetStream();$payload=[byte[]]::new(0);$headers="POST $($case.Path) HTTP/1.1`r`nHost: 127.0.0.1:$port`r`nContent-Type: application/json`r`nConnection: close`r`n"
+   $client.Connect('127.0.0.1',$port);$stream=$client.GetStream();$payload=[byte[]]::new(0);$headers="POST $($case.Path) HTTP/1.1`r`nHost: 127.0.0.1:$port`r`nX-SqlServerLab-Operator: $('a'*64)`r`nContent-Type: application/json`r`nConnection: close`r`n"
    switch($case.Mode){
     'header' {$headers+="Content-Length: 1048577`r`n`r`n"}
     'chunked' {$headers+="Transfer-Encoding: chunked`r`n`r`n";$payload=[Text.Encoding]::ASCII.GetBytes("100001`r`n"+(' '*1048577)+"`r`n0`r`n`r`n")}

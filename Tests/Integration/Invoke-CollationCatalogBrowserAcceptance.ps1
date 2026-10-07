@@ -1,4 +1,5 @@
 #Requires -Version 7.2
+# Synthetische Bootstrap-Capability nur für diesen isolierten Dialoglistener; kein zentraler Operatorguard-Nachweis.
 <#
 .SYNOPSIS
     Serves the full product page and actual read-only collation catalogue route.
@@ -35,7 +36,7 @@ $records=[Collections.Generic.List[object]]::new();$listener=[Net.HttpListener]:
 $completion=Join-Path $evidence browser-completed.private.json;$failure=$null;$passed=$false;$calls=@();$effects=$null
 try{
     $listener.Start()
-    Write-CmsBrowserEvidence (Join-Path $evidence browser-ready.private.json) ([pscustomobject]@{Contract='SqlServerLab.CollationBrowserReady/1.0';Url="http://127.0.0.1:$ListenerPort/";CompletionFile=$completion;Sources=$parts.Sources;AssetPaths=@($parts.Assets.Keys);Bootstrap='SYNTHETIC';Catalogue='ACTUAL_PUBLIC_READER';Sql='NOT_EXECUTED';Provider='NOT_EXECUTED'})
+    Write-CmsBrowserEvidence (Join-Path $evidence browser-ready.private.json) ([pscustomobject]@{Contract='SqlServerLab.CollationBrowserReady/1.0';Url="http://127.0.0.1:$ListenerPort/#sql-lab-operator=$('a'*64)";CompletionFile=$completion;Sources=$parts.Sources;AssetPaths=@($parts.Assets.Keys);Bootstrap='SYNTHETIC';Catalogue='ACTUAL_PUBLIC_READER';Sql='NOT_EXECUTED';Provider='NOT_EXECUTED'})
     $deadline=[DateTime]::UtcNow.AddMinutes(4);$pending=$listener.GetContextAsync()
     while(-not(Test-Path -LiteralPath $completion)){
         if([DateTime]::UtcNow -ge $deadline){throw 'COLLATION_BROWSER_DEADLINE'}

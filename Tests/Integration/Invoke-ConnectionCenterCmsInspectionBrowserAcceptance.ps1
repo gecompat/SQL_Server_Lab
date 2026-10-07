@@ -20,7 +20,7 @@ $parent=[IO.Path]::GetFullPath((Join-Path $repo '.artifacts/test-runs'))
 if([IO.Path]::GetDirectoryName($evidence) -cne $parent -or [IO.Path]::GetFileName($evidence) -cnotmatch '^cms-browser-[a-f0-9]{32}$' -or (Test-Path -LiteralPath $evidence)){throw 'CMS_BROWSER_EVIDENCE_SCOPE'}
 Assert-CmsBrowserPath $evidence
 $null=[IO.Directory]::CreateDirectory($evidence)
-$sources=@('Ui/index.html','Ui/app.js','Ui/app.css','Tools/Start-SqlServerLabUi.ps1')
+$sources=@('Ui/index.html','Ui/app.js','Ui/app.css','Ui/operator-transport.js','Tools/Start-SqlServerLabUi.ps1')
 $hashes=@(foreach($source in $sources){[pscustomobject]@{Path=$source;Sha256=(Get-FileHash -LiteralPath (Join-Path $repo $source)).Hash}})
 $parts=Get-CmsBrowserProductParts $repo
 foreach($source in $hashes){if((Get-FileHash -LiteralPath (Join-Path $repo $source.Path)).Hash -cne $source.Sha256){throw 'CMS_BROWSER_PRODUCT_SOURCE_DRIFT'}}
@@ -51,7 +51,8 @@ $records=[Collections.Generic.List[object]]::new();$listener=[Net.HttpListener]:
 $completion=Join-Path $evidence browser-completed.private.json;$failure=$null;$passed=$false;$requests=0
 try{
     $listener.Start()
-    Write-CmsBrowserEvidence (Join-Path $evidence browser-ready.private.json) ([pscustomobject]@{Contract='SqlServerLab.CmsBrowserReady/1.0';Url="http://127.0.0.1:$ListenerPort/?case=docker15";CompletionFile=$completion;Sources=$hashes;Runtime='NOT_EXECUTED';Sql='NOT_EXECUTED'})
+    # Synthetischer Bootstrap für den echten Browsertransport; kein Operatorguard-Nachweis.
+    Write-CmsBrowserEvidence (Join-Path $evidence browser-ready.private.json) ([pscustomobject]@{Contract='SqlServerLab.CmsBrowserReady/1.0';Url="http://127.0.0.1:$ListenerPort/?case=docker15#sql-lab-operator=$('a'*64)";CompletionFile=$completion;Sources=$hashes;Runtime='NOT_EXECUTED';Sql='NOT_EXECUTED'})
     $deadline=[DateTime]::UtcNow.AddMinutes(15);$pending=$listener.GetContextAsync()
     while(-not(Test-Path -LiteralPath $completion)){
         if([DateTime]::UtcNow -ge $deadline){throw 'CMS_BROWSER_DEADLINE'}
@@ -74,8 +75,8 @@ try{
                 $case=[string]$context.Request.QueryString['case']
                 if(@($context.Request.QueryString.AllKeys|Where-Object {$_ -cne 'case'}).Count -or $case -cnotin @('docker15','podman16','docker17','not-configured','unknown','hyperv','wrong-binding','unsafe','error','late')){throw 'CMS_BROWSER_CASE_INVALID'}
                 $script:cmsBrowserCase=$case;Write-UiResponse $context $parts.Page 'text/html; charset=utf-8'
-            }elseif($context.Request.HttpMethod -ceq 'GET' -and -not $context.Request.Url.Query -and $path -cin @('/app.css','/cms-fixture.js')){
-                if($path -ceq '/app.css'){Write-UiResponse $context (Get-Content -LiteralPath (Join-Path $repo Ui/app.css) -Raw) 'text/css; charset=utf-8'}else{Write-UiResponse $context $parts.JavaScript 'application/javascript; charset=utf-8'}
+            }elseif($context.Request.HttpMethod -ceq 'GET' -and -not $context.Request.Url.Query -and $path -cin @('/app.css','/cms-fixture.js','/operator-transport.js')){
+                if($path -ceq '/app.css'){Write-UiResponse $context (Get-Content -LiteralPath (Join-Path $repo Ui/app.css) -Raw) 'text/css; charset=utf-8'}elseif($path -ceq '/operator-transport.js'){Write-UiResponse $context (Get-Content -LiteralPath (Join-Path $repo Ui/operator-transport.js) -Raw) 'application/javascript; charset=utf-8'}else{Write-UiResponse $context $parts.JavaScript 'application/javascript; charset=utf-8'}
             }else{Write-UiResponse $context '{"Code":"NOT_FOUND"}' 'application/json' 404}
         }finally{$context.Response.Close()}
         $pending=$listener.GetContextAsync()

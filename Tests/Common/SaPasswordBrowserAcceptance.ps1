@@ -24,7 +24,8 @@ function Write-Host {
             if($ownedListener.IsListening){$ownedListener.Stop()}
         }).AddArgument($listener).AddArgument([string]$global:saBrowserConfig.StopPath)
         $global:saBrowserControlHandle=$global:saBrowserControl.BeginInvoke()
-        [IO.File]::WriteAllText([string]$global:saBrowserConfig.ReadyPath,'READY',[Text.UTF8Encoding]::new($false))
+        $operatorSession=Get-Variable -Name operatorSession -Scope 1 -ValueOnly -ErrorAction Stop
+        [IO.File]::WriteAllText([string]$global:saBrowserConfig.ReadyPath,(@{OperatorFile=$operatorSession.File}|ConvertTo-Json -Compress),[Text.UTF8Encoding]::new($false))
     }
     Microsoft.PowerShell.Utility\Write-Host @PSBoundParameters
 }
@@ -63,7 +64,10 @@ let stage='INIT';
    if(url.pathname==='/api/actions'&&request.method()==='POST')actionRequests++;
    return route.continue();
   });
-  stage='LOAD';await page.goto(base+'/',{waitUntil:'domcontentloaded',timeout:30000});
+  const locator=JSON.parse(fs.readFileSync(c.ReadyPath,'utf8'));
+  const operator=JSON.parse(fs.readFileSync(locator.OperatorFile,'utf8'));
+  assert(operator.ContractVersion==='SqlServerLab.UiOperator/1.0'&&operator.ListenerUrl===base+'/'&&operator.StartUrl===base+'/#sql-lab-operator='+operator.Capability);
+  stage='LOAD';await page.goto(operator.StartUrl,{waitUntil:'domcontentloaded',timeout:30000});
   await page.locator('#container-version option[value="'+c.Version+'"]') .waitFor({state:'attached',timeout:45000});
   stage='DIALOG';await page.locator('#new-container').click();
   assert(await page.locator('#container-dialog').evaluate(element=>element.open));

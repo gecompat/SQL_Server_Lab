@@ -30,7 +30,7 @@
     if (action === 'Evaluate') Object.assign(payload,{SoftwareId:choice.SoftwareId,RuntimeVersion:choice.RuntimeVersion,VariantId:choice.VariantId,CheckProviderReadiness:check});
     const current = ++revision; busy = true; element('result').textContent = ''; controls();
     try {
-      const response = await fetch('/api/external-runtime-capability',{method:'POST',headers:{'Content-Type':'application/json; charset=utf-8'},body:JSON.stringify(payload)});
+      const response = await sqlServerLabUiFetch('/api/external-runtime-capability',{method:'POST',headers:{'Content-Type':'application/json; charset=utf-8'},body:JSON.stringify(payload)});
       if (current !== revision || !element('dialog').open) return;
       if (!response.ok) throw new Error('INVALID');
       const view = await response.json();

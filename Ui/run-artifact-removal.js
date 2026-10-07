@@ -47,7 +47,7 @@
     el('status').textContent = action === 'Apply' ? 'Entfernung angefordert. Schließen beendet nur die Anzeige; der Vorgang kann weiterlaufen.' : action === 'Read' ? 'Run-Metadaten werden gelesen.' : 'Gebundenen Run prüfen …';
     controls();
     try {
-      const response = await fetch('/api/run-artifact-removal',{method:'POST',headers:{'Content-Type':'application/json; charset=utf-8'},body:JSON.stringify(payload)});
+      const response = await sqlServerLabUiFetch('/api/run-artifact-removal',{method:'POST',headers:{'Content-Type':'application/json; charset=utf-8'},body:JSON.stringify(payload)});
       if (current !== revision || !el('dialog').open) return;
       if (!response.ok) throw new Error('UNCONFIRMED');
       const view = await response.json();

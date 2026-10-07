@@ -48,7 +48,7 @@ async function requestEvaluationRefresh(preview = false) {
   evaluationRefreshBusy = true; updateEvaluationRefreshControls(); evaluationRefreshElement('result').textContent = '';
   evaluationRefreshElement('status').textContent = preview ? 'Gespeicherten Ersatzentscheid lesen …' : 'Registrierte Hyper-V-SQL-Metadaten lesen …';
   try {
-    const response = await fetch('/api/evaluation-refresh-plan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    const response = await sqlServerLabUiFetch('/api/evaluation-refresh-plan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     if (!response.ok) throw new Error('EVALUATION_REFRESH_REQUEST_FAILED');
     const view = await response.json();
     if (revision !== evaluationRefreshRevision || !evaluationRefreshElement('dialog').open) return;

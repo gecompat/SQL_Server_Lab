@@ -68,7 +68,7 @@ function Assert-CollationBrowserCompletion {
     $flags=@('FullDocument','AllScriptsLoaded','BootstrapRendered','NavigationToCreate','OpenEditNoSearch','MatchesRendered','DeprecatedRendered','NoMatchesRendered','ZeroTokensRendered','ReopenClears','NoScriptErrors','DialogClosed')
     if($Operator -isnot [pscustomobject] -or $Operator.Contract -cne 'SqlServerLab.CollationBrowserOperator/1.0' -or @($Operator.PSObject.Properties.Name).Count -ne $flags.Count+1 -or @($Operator.PSObject.Properties.Name | Where-Object {$_ -cnotin (@('Contract')+$flags)}).Count){throw 'COLLATION_BROWSER_OPERATOR'}
     foreach($name in $flags){if($Operator.$name -isnot [bool] -or -not $Operator.$name){throw 'COLLATION_BROWSER_OPERATOR'}}
-    if($AssetPaths.Count -ne 12 -or @($AssetPaths | Sort-Object -Unique).Count -ne 12 -or $Records.Count -gt 512 -or $ForbiddenEffects -ne 0){throw 'COLLATION_BROWSER_BOUNDARY'}
+    if($AssetPaths.Count -ne 13 -or @($AssetPaths | Sort-Object -Unique).Count -ne 13 -or $Records.Count -gt 512 -or $ForbiddenEffects -ne 0){throw 'COLLATION_BROWSER_BOUNDARY'}
     $bootstrap=@('/api/config','/api/commands','/api/workflow','/api/jobs')
     $allowed=@($AssetPaths)+$bootstrap+@('/api/collations/search','/favicon.ico')
     foreach($row in $Records){

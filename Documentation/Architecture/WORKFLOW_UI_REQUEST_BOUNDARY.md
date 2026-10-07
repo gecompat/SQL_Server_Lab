@@ -45,30 +45,118 @@ Fehlercodes und 400-Antworten. Auch erfolgreiche Requeststreams werden geschloss
 GET und alle vorhandenen fachlichen Bindungen und Bestätigungen bleiben erhalten.
 
 Übrige spezifische Adapter/Handler erhalten dadurch keine neue Deadline.
-Headerannahme, Dispatcher-Parallelität, Authentifizierung, Quotas und
+Headerannahme, Dispatcher-Parallelität, Action-/Replayfreigaben, Quotas und
 vollständige JSON-Komplexitätsgrenzen bleiben separate offene Arbeit. Der
 Cloud-Fund zu synchronen UI-Bodys bleibt deshalb offen; die neue Prüfung
 belegt den begrenzten direkten Reader-Scope.
 
-## Offene Autorisierungsgrenze
+## Startgebundene Operator-Capability
 
-Diese HTTP-Prüfung ist keine Operatorauthentifizierung. Lokale JSON-Clients
-ohne Origin-/Fetch-Site-Header bleiben kompatibel; GET ist nicht authentifiziert.
-Ein lokaler Client kann Header selbst setzen. Es entsteht weder eine
-per Start gebundene Operator-Capability noch eine einmalige servergebundene
-Aktionsfreigabe. Bestehende fachliche Guards und Bestätigungen bleiben nötig.
-Die vorgelagerte Headerprüfung selbst führt keine Bodylimits ein; der
-separate direkte JSON-Reader ist oben beschrieben.
+Die Umschlagprüfung bleibt von `Tools/WorkflowUiOperator.ps1` getrennt.
+Der Server erzeugt je Start 32 kryptografisch zufällige Bytes und verlangt nach
+der Umschlagprüfung vor jedem `/api/`-Dispatch den Header
+`X-SqlServerLab-Operator` mit dieser Capability. GET, Statuspolling, Preview und
+POST sind gleichermaßen geschützt. Fehlende, falsche oder mehrdeutige Werte,
+inaktive Sitzungen und andere Listenerbindungen erhalten 403 mit
+`UI_OPERATOR_REQUIRED`, ohne Bodylesung oder Fach-/Jobzugriff. Statische
+Produktassets enthalten keine Capability und bleiben lesbar. Origin- und
+Fetch-Site-Vetos gelten auch bei gültiger Capability; keine CORS-Freigabe.
+
+Der Handoff liegt in einem frisch erzeugten privaten Runtimeverzeichnis
+außerhalb des Repositorys. Windows setzt bereits bei Verzeichnisanlage eine
+geschützte Owner-ACL; Unix verwendet 0700, die Datei 0600. Bestehende Reparse-/
+Symlinkpfade werden abgewiesen. `operator.json` entsteht mit `CreateNew`,
+enthält Listener, Startlink und Capability und bleibt unter einem Read-Handle
+ohne Write-/Delete-Sharing. Startupausgaben enthalten nur die öffentliche
+BasisURL und den privaten Dateilokator. Automatischer Browserstart verwendet
+den Startlink; `-NoBrowser`, HTTP-CLI, weiterer Tab und Reload lesen dieselbe
+Datei ausschließlich lokal. Kein Überschreiben, alter Startscope oder globaler
+Credentialstore wird übernommen.
+
+Windows behält den PowerShell-7.2-Mindeststand. Unter Unix benötigt allein der
+UI-Handoff die atomaren UnixFileMode-APIs von .NET 7 oder neuer. Ein reflektierter
+Featurecheck prüft die drei benötigten Create/Get/Set-Overloads, ohne auf .NET 6
+den fehlenden Enumtyp aufzulösen. Fehlen sie, endet der Start vor Pfadauflösung,
+Verzeichnisanlage oder Credentialerzeugung mit `UI_OPERATOR_UNIX_MODE_UNAVAILABLE`.
+Ein engerer UI-Prerequisite ersetzt keinen Unix-Rechte-/Runtimebeweis.
+
+`Ui/operator-transport.js` lädt vor allen Komponenten, übernimmt nur das exakte
+Capabilityfragment, entfernt es sofort aus der Adress-/Historydarstellung und
+hält den Wert in einer Closure. Kein DOM-, Log- oder Browserstorage-Export und
+kein globales Fetch-Monkeypatch. Der benannte Transport authentifiziert nur
+die eigene numerische Loopback-Origin und `/api/`-URLs, blockiert Redirects und
+behält Header, Requestbody und AbortSignal. Reload ohne erneuten privaten
+Startlink bleibt gesperrt. Lokale JSON-Clients ohne Origin-/Fetch-Site-Header
+benötigen jetzt ebenfalls die Capability; die PowerShell-Cmdlet-/Konsolen-API
+bleibt unverändert.
+
+Beim Serverende wird die Capability inaktiv. Der Cleanup schließt den eigenen
+Handle und entfernt nur das bestätigte unveränderte eigene Credentialartefakt
+und sein leeres Verzeichnis, ohne rekursive Traversierung. Unbestätigte oder
+veränderte Artefakte bleiben mit lokalem `UI_OPERATOR_CLEANUP_UNCONFIRMED`
+für Recovery erhalten. Nach Prozessabbruch wird kein alter Temp-Scope gesucht
+oder automatisch gelöscht; ein neuer Server erzeugt eine neue Capability.
+
+Capabilitybesitz authentifiziert den Operator, keine menschliche Zustimmung
+zu einer konkreten Aktion. Einmalige servergebundene Action-/Replayfreigaben
+bleiben offen. Fachliche Ownership-, Plan-, Secret-, Consent-, Elevations- und
+Cleanupguards sowie vorhandene Bestätigungen bleiben nötig. Zugriff desselben
+OS-Benutzers auf Browser-/Prozessspeicher oder den privaten Startkanal, XSS und
+kompromittierte Assets sind dadurch nicht ausgeschlossen. Headerannahme,
+übrige Reader und Statequotas bleiben separat.
 
 Der vom Benutzer priorisierte Security-Cloud-Scan vom 2026-10-07 auf
 `f82976735c94d869e425d7082c04748ee97ddf65` meldete zwölf offene Findings
 (drei mittel, neun niedrig). Der Loopback-Autorisierungsfund bleibt offen:
-dieser Slice schließt die HTTP-Umschlaggrenze, nicht den gesamten Fund.
+Umschlaggrenze und Operatorbindung schließen nicht den gesamten Fund.
 Der ältere Scan attestiert keinen späteren Repositoryhead. Neue Integrationen
 müssen Findings und Scan-Scope/Freshness weiterhin getrennt bewerten.
 Reale Diagnose- und Runtime-Rohdaten werden nicht in die Cloud hochgeladen.
 
 ## Nachweis
+
+Der Operator-Slice wurde am 2026-10-08 zunächst charakterisiert: ein lokaler
+headerloser APIrequest passierte die vorhandene Umschlaggrenze, ohne einen
+geschlossenen Body zu lesen. `WorkflowUiOperatorChecks.ps1` bestand danach
+mit 50 Checks, darunter zwölf echte Loopback-HTTP-Requests am vollständigen
+Produktrequestblock: unautorisierte GETs/POSTs einschließlich Groß-/
+Mischschreibungen und `/api` erreichen keine Fachaktion; eine gültige
+Capability umgeht keinen fremden Origin. Nur drei autorisierte Reads/Commands
+erreichen synthetische Sinks. Eigene Windows-Handoffartefakte, Listener und
+Threadjob wurden geschlossen/entfernt. Keine Produktmodule, State-, Provider-
+oder SQL-Operationen. Deterministische Plattform-/Featureentscheidungen und
+frühe Preflightreihenfolge sind geprüft; Unix-Rechte bleiben bis zur Ausführung separat.
+
+`WorkflowUiOperatorTransportChecks.cjs` bestand mit 38 Checks am tatsächlichen
+JS-Transport, mit synthetischem Native-Fetch: sofortiger History-Scrub,
+fehlende/missgebildete Capability, andere Origins/Ports, kein Redirect,
+unveränderte Body-/Header-/Abortsemantik, kein Browserstorage-/DOM-/Logzugriff
+und Migration aller zehn aktiven Komponenten. Dies ist kein gerenderter
+Browsernachweis. Die vorhandenen Boundary-/Body-Fixtures wurden mit gültigem
+synthetischem Credentialbootstrap erneut ausgeführt; ihre Header-, Byte-,
+UTF-8- und Timeoutvetos bleiben wirksam. Historische Nachweise darunter behalten
+ihren ursprünglichen Scope.
+
+Die echten NoBrowser-SA-/AutoStart-Driver lesen künftig nur den privaten
+Dateilokator aus ihrem gebundenen Readyrecord und den Handoff lokal im
+Driverprozess. Ihre Raw-Requests senden denselben Credentialheader. Isolierte
+CMS-/Collation-/External-Languages-/Port-Dialoglistener verwenden dagegen einen
+ausdrücklich synthetischen Fragmentbootstrap für den tatsächlichen Transport;
+dies belegt keine zentrale Operatorauthentifizierung. Neue gerenderte/nativ
+mutierende Driverabnahmen und der Pflichtgate am veröffentlichten Head bleiben
+bis zu ihrer tatsächlichen Ausführung offen.
+
+Ein separat quellgebundener lokaler Edgeharness bestand am 2026-10-08 mit
+dem vollständigen Produktrequestblock, den tatsächlichen Helpers und allen
+13 Produktassets. Sieben authentifizierte APIresponses belegen Bootstrap,
+Jobpolling und gerendertes CMS-GET/POST gegen ausschließlich synthetische
+Fachsinks. Fehlendes Fragment erzeugt keinen APItransport; fünf Requests mit
+falschem Fragment und acht direkte unautorisierte HTTP-Requests erhalten 403.
+Fragment, Capability und Startlink bleiben aus DOM, Storage und Responses
+entfernt; keine Scriptfehler. Quellhashes sind vor/nach der Abnahme identisch.
+Eigener Browser, Listener und Credentialscope wurden geschlossen. Produktmodul,
+State, SQL und Provider wurden nicht ausgeführt. Dieser zentrale Guardnachweis
+ersetzt keine native Abnahme der angepassten SA-/AutoStart-Driver.
 
 `Tests/Static/Fixtures/WorkflowUiRequestBoundaryChecks.ps1` ist in die
 WorkflowUI-Suite eingebunden. Die fokussierte Prüfung bestand am 2026-10-07

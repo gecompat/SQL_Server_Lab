@@ -29,7 +29,7 @@
     invalidate(); const current = revision; busy = true; el('plan').disabled = true; el('read').disabled = true;
     const payload = action === 'Read' ? {Action:'Read'} : {Action:'Preview',RunId:selected.RunId,InstanceId:selected.InstanceId,AutoStart:policy};
     try {
-      const response = await fetch('/api/container-autostart-preview',{method:'POST',headers:{'Content-Type':'application/json; charset=utf-8'},body:JSON.stringify(payload)});
+      const response = await sqlServerLabUiFetch('/api/container-autostart-preview',{method:'POST',headers:{'Content-Type':'application/json; charset=utf-8'},body:JSON.stringify(payload)});
       if (current !== revision || !el('dialog').open) return;
       if (!response.ok) throw new Error('INVALID');
       const view = await response.json();

@@ -43,6 +43,8 @@ try {
   param($Listener,$url,$Dispatch,$Reply,$Adapters,$ToolsRoot,$Count)
   $ErrorActionPreference='Stop';$script:effects=0
   . (Join-Path $ToolsRoot 'WorkflowUiRequestBoundary.ps1');. (Join-Path $ToolsRoot 'WorkflowUiJsonBody.ps1')
+  . (Join-Path $ToolsRoot 'WorkflowUiOperator.ps1')
+  $operatorSession=[pscustomobject]@{ListenerUrl=$url;Capability=('a'*64);Active=$true}
   . ([scriptblock]::Create($Adapters));. ([scriptblock]::Create($Reply))
   function Invoke-SqlServerLabWorkflowAction {param($Action,$ExpectedPlanKey,$LlamaSessionOperationId)$script:effects++;[pscustomobject]@{Result=[pscustomobject]@{Synthetic=$true};Synthetic=$true}}
   $synthetic=New-Module -Name SqlServerLab -ScriptBlock {
@@ -59,7 +61,7 @@ try {
   $client=[Net.Sockets.TcpClient]::new();$stream=$null;$clock=[Diagnostics.Stopwatch]::StartNew()
   try {
    $client.Connect('127.0.0.1',$port);$stream=$client.GetStream();$payload=[Text.Encoding]::UTF8.GetBytes($case.Payload)
-   $headers="POST $($case.Path) HTTP/1.1`r`nHost: 127.0.0.1:$port`r`nContent-Type: application/json`r`nConnection: close`r`n"
+   $headers="POST $($case.Path) HTTP/1.1`r`nHost: 127.0.0.1:$port`r`nX-SqlServerLab-Operator: $('a'*64)`r`nContent-Type: application/json`r`nConnection: close`r`n"
    if($case.Mode -ceq 'utf8'){$payload=[byte[]](0xc3,0x28)}
    if($case.Mode -ceq 'chunked'){$headers+="Transfer-Encoding: chunked`r`n`r`n";$payload=[Text.Encoding]::ASCII.GetBytes($payload.Length.ToString('x')+"`r`n"+$case.Payload+"`r`n0`r`n`r`n")}
    else {$length=if($case.Length){$case.Length}else{$payload.Length};$headers+="Content-Length: $length`r`n`r`n"}

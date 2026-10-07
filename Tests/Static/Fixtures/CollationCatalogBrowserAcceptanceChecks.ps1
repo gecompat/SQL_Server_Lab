@@ -8,7 +8,7 @@ $checks=0
 function Check([bool]$Condition,[string]$Name){if(-not $Condition){throw "COLLATION_BROWSER_FIXTURE: $Name"};$script:checks++}
 function Reject([scriptblock]$Body,[string]$Name){$failed=$false;try{& $Body}catch{$failed=$true};Check $failed $Name}
 function Copy-Observation($Value){$Value | ConvertTo-Json -Depth 10 | ConvertFrom-Json -Depth 10}
-Check ($parts.Assets.Count -eq 12 -and $parts.Sources.Count -eq 18) 'full source and asset bindings'
+Check ($parts.Assets.Count -eq 13 -and $parts.Sources.Count -eq 19) 'full source and asset bindings'
 $records=@(foreach($path in $parts.Assets.Keys){[pscustomobject]@{Path=$path;Method='GET';Status=200;Transport='SENT';PublicCalls=0;Result=$null}})
 $records+=@(foreach($path in @('/api/config','/api/commands','/api/workflow','/api/jobs','/api/jobs')){[pscustomobject]@{Path=$path;Method='GET';Status=200;Transport='SENT';PublicCalls=0;Result=$null}})
 $cases=@(Get-CollationBrowserCases)

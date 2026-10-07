@@ -170,7 +170,8 @@ function Write-Host {
   $listener=Get-Variable -Name listener -Scope 1 -ValueOnly -ErrorAction Stop
   if($listener -isnot [Net.HttpListener] -or -not $listener.IsListening -or @($listener.Prefixes).Count -ne 1 -or
      @($listener.Prefixes)[0] -cne ('http://127.0.0.1:'+$global:browserServerConfig.ListenerPort+'/')){throw 'AUTOSTART_BROWSER_LISTENER_BINDING'}
-  $null=Write-AutoStartBrowserAcceptanceFile $global:browserServerConfig.EvidenceRoot 'browser-listener-ready.private.json' '{"ListenerStarted":true}'
+  $operatorSession=Get-Variable -Name operatorSession -Scope 1 -ValueOnly -ErrorAction Stop
+  $null=Write-AutoStartBrowserAcceptanceFile $global:browserServerConfig.EvidenceRoot 'browser-listener-ready.private.json' (@{ListenerStarted=$true;OperatorFile=$operatorSession.File}|ConvertTo-Json -Compress)
   $global:browserServerControl=[powershell]::Create()
   $null=$global:browserServerControl.AddScript({param($listener,$stop)
    $deadline=[datetime]::UtcNow.AddMinutes(4)
@@ -234,7 +235,10 @@ let stage='INIT';
    // No unrelated inventory/jobs/catalog work is sent to the real server.
    blocked++;return route.abort();
   });
-   stage='LOAD_PAGE';await page.goto(base+'/',{waitUntil:'domcontentloaded',timeout:30000});
+   const locator=JSON.parse(fs.readFileSync(c.EvidenceRoot+'/browser-listener-ready.private.json','utf8'));
+   const operator=JSON.parse(fs.readFileSync(locator.OperatorFile,'utf8'));
+   assert(operator.ContractVersion==='SqlServerLab.UiOperator/1.0'&&operator.ListenerUrl===base+'/'&&operator.StartUrl===base+'/#sql-lab-operator='+operator.Capability);
+   stage='LOAD_PAGE';await page.goto(operator.StartUrl,{waitUntil:'domcontentloaded',timeout:30000});
   const open=page.locator('#autostart-preview-open');const dialog=page.locator('#autostart-preview-dialog');
   const policy=page.locator('#autostart-preview-policy');const target=page.locator('#autostart-preview-target');
   const plan=page.locator('#autostart-preview-plan');const result=page.locator('#autostart-preview-result');
@@ -258,10 +262,10 @@ let stage='INIT';
    '{"Action":"Preview","RunId":"00000000-0000-0000-0000-000000000000","InstanceId":"primary","AutoStart":"on"}',
    JSON.stringify({Action:'Preview',RunId:c.RunId,InstanceId:'primary',AutoStart:'invalid'}),
    '{"Action":"Read","StateRoot":"FORGED_AUTHORITY"}','x'.repeat(2049)]){
-   const response=await context.request.post(base+'/api/container-autostart-preview',{headers:{Origin:base,'Content-Type':'application/json'},data:body});assert(response.status()===400);
+   const response=await context.request.post(base+'/api/container-autostart-preview',{headers:{Origin:base,'Content-Type':'application/json','X-SqlServerLab-Operator':operator.Capability},data:body});assert(response.status()===400);
   }
-  const invalidMethod=await context.request.get(base+'/api/container-autostart-preview',{headers:{Origin:base}});assert(invalidMethod.status()>=400);
-  const badOrigin=await context.request.post(base+'/api/container-autostart-preview',{headers:{Origin:'http://127.0.0.1:1','Content-Type':'application/json'},data:'{"Action":"Read"}'});assert(badOrigin.status()===400);
+  const invalidMethod=await context.request.get(base+'/api/container-autostart-preview',{headers:{Origin:base,'X-SqlServerLab-Operator':operator.Capability}});assert(invalidMethod.status()>=400);
+  const badOrigin=await context.request.post(base+'/api/container-autostart-preview',{headers:{Origin:'http://127.0.0.1:1','Content-Type':'application/json','X-SqlServerLab-Operator':operator.Capability},data:'{"Action":"Read"}'});assert(badOrigin.status()===403);
    stage='WRITE_REPORT';const report={Contract:'SqlServerLab.AutoStartRenderedBrowserEvidence/1.0',Status:'PASS',PublicPreviewRequests:3,MetadataRequests:readRequests,EarlyCancelInvalidPreviewRequests:0,LateRealResponseDisplayVeto:true,RenderedCategories:true,DeniedUnrelatedRequests:blocked,PreviewResponsesStubbed:false};
   fs.writeFileSync(c.ResultPath,JSON.stringify(report),{flag:'wx'});
  }finally{if(browser)await browser.close();}

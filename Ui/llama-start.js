@@ -53,7 +53,7 @@ async function requestLlamaStart(action) {
   llamaStartBusy = true; llamaStartAttempted = true; updateLlamaStartControls(); llamaStartElement('result').textContent = '';
   llamaStartElement('status').textContent = action === 'WhatIf' ? 'WhatIf ohne Start oder Bereitschaft …' : 'Eigener Start läuft synchron. Der UI-Listener kann blockieren; Startbudget begrenzt nur die Bereitschaftspolls. Abbrechen beendet keinen Worker.';
   try {
-    const responsePromise = fetch('/api/llama-start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
+    const responsePromise = sqlServerLabUiFetch('/api/llama-start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
     inputs = null; body = null; clearLlamaStartInputs();
     const response = await responsePromise;
     if (revision !== llamaStartRevision || !llamaStartElement('dialog').open) return;

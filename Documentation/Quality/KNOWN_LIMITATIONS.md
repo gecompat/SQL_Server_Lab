@@ -21,18 +21,28 @@ Freigabe, verwaltete Cloud-Allowlist, Datenklassen-/Consentbindung oder neue
 Authority-Anzeige in der Apply-Bestaetigung. Legacy-Lese-/Cleanupvertraege und
 Plan-/Receipt-Schluessel bleiben erhalten. Der Cloud-Fund bleibt offen.
 
-## Workflow-UI: HTTP-Grenze und offene Operatorauthentifizierung
+## Workflow-UI: Operatorbindung und offene Aktionsfreigaben
 
 Die gemeinsame [HTTP-Prüfung](../Architecture/WORKFLOW_UI_REQUEST_BOUNDARY.md)
 weist fremde Origins, mehrdeutige Header und ungeeignete POST-Medientypen
-vor Routing/Bodylesung ab. Lokale JSON-Clients ohne Origin bleiben zugelassen;
-GET ist nicht authentifiziert. Keine per Start gebundene Operator-Capability,
-einmalige servergebundene Aktionsfreigabe. Die sieben direkten JSON-POST-Routen
+vor Routing/Bodylesung ab. Alle API-GET-/POST-Routen verlangen zusätzlich eine
+frische per Start gebundene Operator-Capability. Lokale JSON-Clients ohne Origin
+benötigen denselben Credentialheader. Privater Start-/CLI-/Reload-Handoff,
+Closure-Transport und gezielter eigener Cleanup sind implementiert. Einmalige
+servergebundene Aktions-/Replayfreigaben bleiben offen. Credentialbesitzer
+können Requests bewusst wiederholen; derselbe OS-Benutzer, Prozess-/Browserspeicher,
+XSS und kompromittierte Assets bleiben eigene Grenzen. Nach hartem Prozessabbruch
+wird ein privates Handoffartefakt nicht automatisch aufgesucht oder entfernt.
+Windows bleibt mit PowerShell 7.2 zulässig. Unix-UI-Handoff benötigt die drei
+atomaren UnixFileMode-APIs aus .NET 7 oder neuer; fehlende Features werden vor
+jeder Handoffmutation mit `UI_OPERATOR_UNIX_MODE_UNAVAILABLE` abgewiesen.
+Der deterministische Featurecheck ist geprüft, echte Unix-Rechte bleiben unbewiesen.
+Die sieben direkten JSON-POST-Routen
 besitzen eine 1-MiB-Bytegrenze, striktes UTF-8 und fünf Sekunden absolute
 Lesefrist. Acht interne Fachreader verwenden nun denselben Transport mit ihren
 bisherigen engeren Zeichenlimits und zusätzlichen Byteobergrenzen. Übrige
 spezifische Adapter mit eigenen Readern, Headerannahme,
-Parallelität, Authentifizierung und Statequotas bleiben separat offen. Der zugehörige
+Parallelität, Aktionsbindung und Statequotas bleiben separat offen. Der zugehörige
 Security-Cloud-Fund bleibt offen; der ältere Scan deckt spätere Heads nicht ab.
 
 ## Lokale Release-Veröffentlichung nach Prozessabbruch
