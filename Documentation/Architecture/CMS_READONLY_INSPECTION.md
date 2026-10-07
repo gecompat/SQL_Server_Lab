@@ -69,3 +69,21 @@ Grenzen geprüft. Reale providergebundene CMS-/SQL-Abnahme und SSMS-/Mitglieds-
 verbindungen bleiben getrennte erforderliche Nachweise; ein Docker-Core-Smoke
 beweist nicht automatisch die optionale CMS-Funktion.
 Die CLI-Prüfauswahl gilt nur für die aktive Registrierung; ein abweichender privater CMS-StateRoot erhält keine Inspectionfreigabe.
+
+Der test-only Harness `Tests/Integration/Invoke-ConnectionCenterCmsInspectionAcceptance.ps1`
+registriert ausschließlich seinen frisch angelegten eigenen SQL-2025-Run als
+CMS. Er verwendet einen externen `sql-lab-cms-inspection-<GUID-N>`-Parent mit
+getrennten OwnedHost-Policies am Parent/State und prüft aktive Route/native
+Engineidentität gegen den gespeicherten Custody-Pin. Vor der eigentlichen
+Leseprüfung werden synthetische CMS-Metadaten separat arrangiert: zwei markierte
+Gruppen/ein Server und unmarkierte Kontrollen. Kein Mitglied wird kontaktiert.
+Die tatsächlichen WorkflowActions verwenden den echten geerbten Workerroot.
+Stale Auswahl und fehlender markierter Root müssen UNKNOWN/null ergeben;
+anschließend müssen zwei Workeraufrufe OBSERVED/17/2/1 liefern. Datei- und
+deterministisch sortierte Hashes sämtlicher Zeilen beider CMS-Tabellen bleiben
+vor/nach den lesenden Fällen gleich. Dies ist keine atomare Endpointbindung.
+Cleanup nutzt den öffentlichen Remove-Vertrag nur mit exakter eigener Custody,
+anschließender same-pin Abwesenheit und hashgesicherten Terminalkopien.
+Unreturned/Drift/Fehler behalten den gesamten Parent zur Recovery. Native
+Docker-/Podman-Abnahme zunächst NOT_EXECUTED; UI, Sync, SSMS, Mitgliedszugriffe
+und Least-Privilege-Authentisierung bleiben getrennt.

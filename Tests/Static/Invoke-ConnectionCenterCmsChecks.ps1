@@ -232,6 +232,8 @@ try {
         [regex]::Match($source, 'function Invoke-LabCmsSqlInMemory[\s\S]+?(?=\r?\nfunction Export-SqlServerLabCmsSyncScript)').Value -notmatch 'WriteAllText|WriteAllLines|GetTempFileName|sqlcmd')
     & (Join-Path $PSScriptRoot 'Fixtures/CmsInspectionChecks.ps1')
     Add-CheckResult -Name 'CMS-readonly: echte Core-/HTTP-/CLI-/Workergrenzen' -Success $true
+    & (Join-Path $PSScriptRoot 'Fixtures/ConnectionCenterCmsInspectionAcceptanceChecks.ps1')
+    Add-CheckResult -Name 'CMS-native Harness: eigene Custody, DTO und Cleanupgrenzen' -Success $true
 }
 catch {
     Add-CheckResult -Name 'Connection-Center-CMS-Vertragspruefung' -Success $false -Message $_.Exception.Message

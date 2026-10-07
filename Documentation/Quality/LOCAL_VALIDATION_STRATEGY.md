@@ -3091,6 +3091,18 @@ weitere Findings. Rohlogs und Prozess-/Hostdaten bleiben ausschließlich lokal.
 
 ## Optionaler CMS-Readonly-Inspektor
 
+Der native `Invoke-ConnectionCenterCmsInspectionAcceptance.ps1` verwendet nur einen frischen
+eigenen SQL-2025-CMS je Docker/Podman. `ConnectionCenterCmsInspectionAcceptanceChecks.ps1`
+prüft die tatsächlich verwendeten Custody-/Cleanup-/DTO-Helper einschließlich
+Unreturned-Creation, Claimdrift, vorhandener Ressourcen, fehlgeschlagener
+Terminalkopie und falscher Roots synthetisch; sie wird durch die CMS-Suite
+entdeckt. Vor nativer Abnahme Readiness und fremde Inventare getrennt sichern.
+Arrangement ist eine eigene Schreibphase. Danach müssen echte Worker/SQL,
+fehlender Root, stale Auswahl, wiederholte markierte Zähler und unveränderte
+Datei-/CMS-Tabellenhashes samt exaktem Own-Cleanup belegt sein. Native Evidence
+ist zunächst NOT_EXECUTED. UI, Sync, SSMS, Mitgliedszugriffe und Least Privilege
+bleiben separate Nachweise.
+
 Die Fixture CmsInspectionChecks wird durch Invoke-ConnectionCenterCmsChecks entdeckt. Notwendig sind tatsächliche PRE_SECRET_BARRIER-Fälle mit unverändertem Run/Runtime/Labels und verändertem Host/Port (SecretReads=0, SqlOpens=0), nullable/zero/feste DTO-Felder, aktuelle Bindung, eigener endlicher Worker, HTTP-Parametergrenzen, echter CLI-Einstieg/Cancel und JavaScript-Late-Response-/Cancel-Grenzen. Synthetische Grenzen führen keine Providerabfrage aus. Ausgewählte statische Suites und die tatsächlich gewählten Provider-Core-Gates bleiben erforderlich; vergangene B-/Capacity-Smokes decken diesen Source-Digest nicht ab. Eine allgemeine Docker-Core-Abnahme ist kein echter CMS-SQL-/SSMS-/Mitgliedsnachweis. Weitere Details im [CMS-Vertrag](../Architecture/CMS_READONLY_INSPECTION.md).
 
 ## Bewusster lokaler Operator-Handoff

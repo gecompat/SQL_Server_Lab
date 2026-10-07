@@ -1,5 +1,22 @@
 # Tests/ – lokale und Remote-Validierung
 
+`Integration/Invoke-ConnectionCenterCmsInspectionAcceptance.ps1 -Provider docker|podman`
+verlangt einen frischen externen `sql-lab-cms-inspection-<GUID-N>`-Parent
+und ParentOperationId. Getrennte Parent-/State-Policies binden genau einen
+neuen nichtpersistenten SQL-2025-Run; bestehende CMS werden nicht adoptiert.
+Aktive CLI-Route und native Engineidentität müssen mit dem Custody-Pin
+übereinstimmen. Registrierung und synthetische msdb-Daten sind getrenntes
+Arrangement. Danach prüfen tatsächliche WorkflowActions und der echte Worker
+stale Auswahl, fehlenden markierten Root und zweimal SQL-Major 17 mit zwei
+markierten Gruppen/einem Server trotz unmarkierter Kontrollobjekte. Ganze
+Rootdateien und beide CMS-Tabellen müssen unverändert bleiben. Cleanup verlangt
+exakte Creationreceipts, REMOVED/COMPLETED, same-pin Ressourcenabwesenheit und
+hashgesicherte Terminalkopien vor Entfernung des eigenen Parents. Fehler oder
+unreturned Creation behalten den Parent. `ConnectionCenterCmsInspectionAcceptanceChecks.ps1`
+prüft Custody-/Drift-/Copy-/Abwesenheitsveto synthetisch über die CMS-Suite.
+Native Nachweise sind zunächst NOT_EXECUTED; Sync, SSMS, Mitgliedsverbindungen,
+gerenderte UI und Least-Privilege-Authentisierung sind nicht Bestandteil.
+
 `Integration/Invoke-ContainerPortPreviewAcceptance.ps1` prüft die getrennte
 native Docker-/Podman-Portvorschau-Abnahme. Sie verlangt einen frischen
 externen `sql-lab-port-preview-<GUID-N>`-Parent und ParentOperationId, bindet
