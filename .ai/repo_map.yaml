@@ -727,6 +727,8 @@ sources_of_truth:
   validation_documentation: Tests/Static/Invoke-DocumentationChecks.ps1
   validation_runtime_contracts: Tests/Static/Invoke-ReadinessContractChecks.ps1
   direct_action_progress: Private/ActionProgress.ps1
+  download_stream_limits_contract: Documentation/Architecture/DOWNLOAD_STREAM_LIMITS.md
+  validation_download_stream_limits: Tests/Static/Fixtures/ActionProgressDownloadLimitChecks.ps1
   blocking_action_progress: Private/BlockingActionProgress.ps1
   legacy_sql_wait_progress: Private/HyperVSqlAcceptanceEnvironment.ps1
   validation_blocking_action_progress: Tests/Static/Invoke-BlockingActionProgressChecks.ps1

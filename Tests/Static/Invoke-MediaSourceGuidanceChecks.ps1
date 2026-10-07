@@ -30,7 +30,7 @@ $catalog|ConvertTo-Json -Depth 12|Set-Content -LiteralPath $catalogPath
 $id=(Get-LabMediaOverrideIds)[0]
 $url='https://download.microsoft.com/download/synthetic/SQL2025-SSEI-EntDev.exe'
 $script:Downloads=[Collections.Generic.List[object]]::new()
-function Save-LabProgressDownload { param($Uri,$OutFile,$MaximumRedirection=5);$script:Downloads.Add(@{Uri=$Uri;MaximumRedirection=$MaximumRedirection});[IO.File]::WriteAllBytes($OutFile,$payload);if($IsWindows){[IO.File]::SetAttributes($OutFile,[IO.FileAttributes]::Hidden)} }
+function Save-LabProgressDownload { param($Uri,$OutFile,$MaximumRedirection=5,$MaximumBytes);$script:Downloads.Add(@{Uri=$Uri;MaximumRedirection=$MaximumRedirection;MaximumBytes=$MaximumBytes});[IO.File]::WriteAllBytes($OutFile,$payload);if($IsWindows){[IO.File]::SetAttributes($OutFile,[IO.FileAttributes]::Hidden)} }
 try {
     $view=(Invoke-SqlServerLabWorkflowAction -Action GetMediaOverrideState).Result
     Assert-Media ($view.Status -eq 'READY' -and $view.Items.Count -eq 6 -and -not(Test-Path $script:PreferenceTestPath)) 'six pinned sources read without persistence'
@@ -55,12 +55,13 @@ try {
         $null=New-Item -ItemType Directory -Path $ownMedia
         $ownResult=Save-SqlServerLabMediaSource -Id $item.Id -MediaRoot $ownMedia -Confirm:$false
         Assert-Media ($ownResult.Status -eq 'READY' -and $ownResult.SignatureStatus -eq 'Valid' -and $script:Downloads[-1].Uri -ceq $alternate -and $script:Downloads[-1].MaximumRedirection -eq 0) '2022 real Save verifies bytes hash signature no redirect'
+        Assert-Media ($script:Downloads[-1].MaximumBytes -eq $payload.Length) '2022 real Save forwards catalog byte ceiling'
         foreach($failure in @('Size','Hash','Signature')) {
             $failureRoot=Join-Path $fixture ($item.Id+'-'+$failure);$null=New-Item -ItemType Directory -Path $failureRoot
             & {
                 param($SelectedId,$OutputRoot,$Case)
                 function Save-LabProgressDownload {
-                    param($Uri,$OutFile,$MaximumRedirection=5)
+                    param($Uri,$OutFile,$MaximumRedirection=5,$MaximumBytes)
                     Assert-Media ($MaximumRedirection -eq 0) '2022 failing staged download still forbids redirects'
                     $badPayload=[byte[]]$payload.Clone()
                     if($Case -eq 'Size'){$badPayload=[byte[]]@(0)}
@@ -182,9 +183,9 @@ try {
           $null=Invoke-LabMediaOverridePlan -Plan (New-LabMediaOverridePlan -Id $redirectId -Url $redirectUrl) -Confirm:$false
           foreach($status in @(301,302,303,307,308)){
             function Save-LabProgressDownload {
-                param($Uri,$OutFile,$MaximumRedirection=5)
+                param($Uri,$OutFile,$MaximumRedirection=5,$MaximumBytes)
                 Assert-Media ($Uri -ceq $redirectUrl -and $MaximumRedirection -eq 0) 'Save transport parameters'
-                & $realDownload -Uri "http://127.0.0.1:$port/$status" -OutFile $OutFile -MaximumRedirection $MaximumRedirection -TimeoutSec 5
+                & $realDownload -Uri "http://127.0.0.1:$port/$status" -OutFile $OutFile -MaximumRedirection $MaximumRedirection -MaximumBytes $MaximumBytes -TimeoutSec 5
             }
             Assert-Media (Test-Rejected {Save-SqlServerLabMediaSource -Id $redirectId -MediaRoot $redirectRoot -Confirm:$false}) 'real 2022/2025 3xx rejects before payload'
           }

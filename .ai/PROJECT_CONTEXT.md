@@ -18,6 +18,11 @@ beobachteten Restore-Dauern sind kein Performance-Benchmark; allgemeine
 Migration bleibt unverändert.
 ## 1. Ziel
 
+Der [gemeinsame Downloadtransport](../Documentation/Architecture/DOWNLOAD_STREAM_LIMITS.md)
+begrenzt Streamingbytes vor dem Schreiben. Medien und llama.cpp-Modelle
+verwenden ihre Kataloggröße; übrige Aufrufer zunächst 1 TiB. Speicherprüfung,
+Reservierung und kumulative Quoten bleiben offen.
+
 Die lokale [External-Model-Lane](../Documentation/User/SQL_AI_LOCAL_ACCELERATION.md)
 beschraenkt HTTPS-Autoritaeten auf numerischen Loopback und die festen lokalen
 Hostaliases. Andere Ziele werden vor Probe/neuer SQL-Aktion verworfen.

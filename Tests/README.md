@@ -1,5 +1,12 @@
 # Tests/ – lokale und Remote-Validierung
 
+`Static/Fixtures/ActionProgressDownloadLimitChecks.ps1` ist in die direkte
+Fortschrittssuite eingebunden: echte eigene Loopback-HTTP-Antworten prüfen
+Byteceilings vor Zielöffnung und während des Empfangs. Die Medienquellen- und
+Modellkatalog-Suites prüfen die Kataloggrenzen mit synthetischen Leaves.
+SQL, Provider, Speicherreservierung und kumulative Quoten sind keine daraus
+abgeleiteten Nachweise. [Vertrag](../Documentation/Architecture/DOWNLOAD_STREAM_LIMITS.md).
+
 `Static/Fixtures/AiExternalModelAuthorityChecks.ps1` ist in die External-Model-
 Suite eingebunden. Sie prueft die feste lokale Autoritaetsliste und Vetos vor
 Transport-/SQL-Dispatch ohne Netzwerk oder Provider; bestehende PlanKeys und

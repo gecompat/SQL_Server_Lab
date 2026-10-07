@@ -97,7 +97,10 @@ function Save-LabProgressDownload {
         [ValidateRange(1,86400)][int]$TimeoutSec = 1800,
         [ValidateRange(0,50)][int]$MaximumRedirection = 5,
         [ValidateRange(0,5)][int]$MaximumRetryCount = 0,
-        [ValidateRange(1,60)][int]$RetryIntervalSec = 2
+        [ValidateRange(1,60)][int]$RetryIntervalSec = 2,
+        # Endlicher Kompatibilitaetsrahmen fuer grosse Backup-/Archivquellen
+        # ohne Groessenmetadaten. Katalogaufrufer setzen engere Bytepins.
+        [ValidateRange(1,[long]::MaxValue)][long]$MaximumBytes = 1TB
     )
     if ($Uri.Scheme -notin @('http','https') -or $Uri.UserInfo) { throw 'LAB_DOWNLOAD_URI_INVALID' }
     $progress = Start-LabActionProgress -Phase Download
@@ -115,14 +118,21 @@ function Save-LabProgressDownload {
                 $response = Wait-LabProgressTask -Task $request -Progress $progress
                 $null = $response.EnsureSuccessStatusCode()
                 $total = [long]$response.Content.Headers.ContentLength
+                # Deklarierte Ueberlaenge vor Oeffnen/Kuerzen des Zielpfads.
+                if ($total -gt $MaximumBytes) { throw 'LAB_DOWNLOAD_MAXIMUM_BYTES_EXCEEDED' }
                 $source = $response.Content.ReadAsStreamAsync().GetAwaiter().GetResult()
                 $destination = [System.IO.File]::Open($OutFile, [System.IO.FileMode]::Create, [System.IO.FileAccess]::Write, [System.IO.FileShare]::Read)
                 $buffer = [byte[]]::new(1048576)
                 $bytes = 0L
                 while ($true) {
-                    $read = Wait-LabProgressTask -Task ($source.ReadAsync($buffer, 0, $buffer.Length, $cancellation.Token)) `
+                    $remaining = $MaximumBytes - $bytes
+                    # Am Limit genau ein Sentinelbyte lesen, um EOF von einer
+                    # Ueberlaenge zu unterscheiden; nie ueber das Limit schreiben.
+                    $readLength = if ($remaining -eq 0) { 1 } else { [int][Math]::Min([long]$buffer.Length, $remaining) }
+                    $read = Wait-LabProgressTask -Task ($source.ReadAsync($buffer, 0, $readLength, $cancellation.Token)) `
                         -Progress $progress -CompletedBytes $bytes -TotalBytes $total
                     if ($read -eq 0) { break }
+                    if ($read -gt $remaining) { throw 'LAB_DOWNLOAD_MAXIMUM_BYTES_EXCEEDED' }
                     $null = Wait-LabProgressTask -Task ($destination.WriteAsync($buffer, 0, $read, $cancellation.Token)) `
                         -Progress $progress -CompletedBytes $bytes -TotalBytes $total
                     $bytes += $read

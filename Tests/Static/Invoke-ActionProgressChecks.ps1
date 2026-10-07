@@ -161,3 +161,4 @@ finally {
     if (-not $resolvedTemp.StartsWith($tempBoundary, [StringComparison]::OrdinalIgnoreCase) -or [IO.Path]::GetFileName($resolvedTemp) -notlike 'sql-lab-progress-*') { throw 'TEST_CLEANUP_SCOPE_INVALID' }
     Remove-Item -LiteralPath $resolvedTemp -Recurse -Force
 }
+& (Join-Path $PSScriptRoot 'Fixtures/ActionProgressDownloadLimitChecks.ps1')

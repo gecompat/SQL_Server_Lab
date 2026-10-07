@@ -43,6 +43,14 @@ verwaltete Cloud-Allowlist, Datenklassen-/Consentbindung und Authority-Anzeige
 bleiben offen. Der zugehoerige Cloud-Fund bleibt deshalb offen; der aeltere
 Scan wird nicht als Nachweis fuer diesen Stand verwendet.
 
+Der folgende [Download-Slice](../Architecture/DOWNLOAD_STREAM_LIMITS.md)
+begrenzt Bytes bereits im gemeinsamen Streamingtransport. Medien und Modelle
+verwenden genaue Kataloggrößen, andere Aufrufer zunächst den endlichen
+Kompatibilitätsrahmen von 1 TiB. Überlänge wird vor weiterem Schreiben und ohne
+Retry abgewiesen; bestehende Integritäts- und Caller-Cleanupverträge bleiben
+wirksam. Engere fachliche Limits, Speicherreservierung und kumulative Quoten
+bleiben offen. Der bestehende Cloud-Fund wird nicht extern geschlossen.
+
 Der Benutzer hat die autonome Weiterentwicklung ausdrücklich fortgesetzt. Der
 Nachfolger arbeitet die bereits priorisierte Welle weiter ab; der zugehörige
 Heartbeat ist wieder aktiv. Der GUI-Aktionsstatus wurde mit PR #693 integriert.
