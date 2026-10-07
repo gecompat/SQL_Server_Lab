@@ -12,7 +12,7 @@ Major 17/markierte Zähler 2/1 sind bewusst zu beobachten. Andere Endpunkte werd
 vor Effekten abgewiesen; keine Jobs oder Synchronisation. Ganze Parentdateien und
 beide CMS-Tabellen müssen gleich bleiben. Der bestehende PublicRemove-/same-pin-
 Abwesenheits-/Terminalkopievertrag bereinigt eigene Ressourcen, Fehler behalten den
-Parent zur Recovery. Dieser native Browsernachweis ist NOT_EXECUTED; andere
+Parent zur Recovery. Funktional geprüft auf `e300882e`, Gesamtfreigabe PROTECTION_BLOCKED; andere
 UI-Aktionen, Sync, Windows, SSMS, Mitgliedszugriffe und Least Privilege bleiben separat.
 `Static/Fixtures/SmtpManifestAdmissionChecks.ps1` ergänzt die ManifestBuilder-
 Suite um die tatsächlichen Schema-/Raw-JSON-/Parser-/Public-Manifestadapter mit
@@ -139,6 +139,32 @@ Die gerenderte Abnahme bestand am 2026-10-07 auf `8b2aba1c` mit 105 Requests,
 genau sechs öffentlichen Suchen und null instrumentierten verbotenen Effekten.
 Eigenen Listener und Tab geschlossen; der fokussierte Offlinevertrag bestand
 mit 36 Fällen. Der Seitenbootstrap bleibt synthetisch, SQL ungenutzt.
+
+Die native CMS-Browser-/HTTP-/Workflow-/Worker-/SQL-Komposition wurde am
+2026-10-07 auf `e300882e` mit einem frischen Docker- und zwei getrennten frischen
+Podman-SQL-2025-Runs funktional geprüft. Zwölf Assets und dreizehn unveränderte
+Produktquelldigests, je vier CMS-Requests GET/POST/GET/POST mit
+NOT_CHECKED/OBSERVED/NOT_CHECKED/OBSERVED und zweimal Major 17/markierte Zähler
+2/1, tatsächliche Navigation, erneute bewusste Auswahl und Schließen ohne
+Skriptfehler bestanden. Ganze Parentdateien und beide CMS-Tabellen blieben gleich;
+alle drei Own-Cleanups samt same-pin Abwesenheit und je zwei hashgesicherten
+Terminalkopien bestanden, eigene Listener/Browser-Tabs sind geschlossen.
+Docker maß 87 Requests und Protection PASS/null Findings/null Beobachtungen.
+Die beiden Podman-Läufe maßen 118 beziehungsweise 92 Requests und hatten jeweils
+Protection FAIL mit drei Findings: zunächst fehlende, später zusätzliche
+Docker-Container-/Volumeeinträge und geänderte Netzwerkendpunkte. Die sechs
+geschützten Mitglieder blieben laut Vergleich unverändert; eine Callerzuordnung
+fehlt. Der einmalige Recheck nach beobachteter Inventaränderung ist kein grüner
+Gesamtnachweis und hebt den ersten FAIL nicht auf. Gesamtfreigabe
+PROTECTION_BLOCKED; kein weiterer Runtime-Recheck, kein veröffentlichter PR oder
+Pflichtgate für diesen lokalen Stand. Historische Fehlerparents und
+Protection-Failures bleiben erhalten. Erwartete Bootstrap-Verbindungsabbrüche
+werden eng als CLIENT_DISCONNECTED protokolliert und zählen nicht als gelieferte
+Bootstrapnachweise; in diesen drei Läufen wurden keine beobachtet. Die vier
+Bootstrapendpunkte bleiben synthetisch; vollständiger Produktserverlauncher,
+andere UI-Aktionen, Sync, SSMS, Mitgliedsverbindungen, Windows, weitere Builds
+und Least Privilege bleiben offen; kein atomarer Dateisystemvertrag.
+35 fokussierte Checks, sechs betroffene statische Suites und die Dokumentationsprüfung bestanden; das Pflichtgate bleibt am finalen PR-Head erforderlich.
 
 `Integration/Invoke-ConnectionCenterCmsFullPageAcceptance.ps1` prüft den
 CMS-Einstieg im tatsächlichen vollständigen Seitenbootstrap mit synthetischem Backend.
