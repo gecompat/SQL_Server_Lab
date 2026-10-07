@@ -2393,4 +2393,9 @@ Compute-/Cleanup-Abnahme und ausgewählte Provider-Gates sind NOT_EXECUTED.
 Nach erfolgreichem `Remove-SqlServerLab` prüft
 `Get-SqlServerLabRunArtifactRemovalPlan` genau einen Run und
 `Invoke-SqlServerLabRunArtifactRemoval` entfernt nur zugelassene Metadaten.
+Unter **Wartung, Aufräumen und Recovery → Artefakte eines entfernten Runs**
+einen Run auswählen, Vorschau und Sperrgründe prüfen und die endgültige
+Metadatenentfernung beziehungsweise Wiederaufnahme gesondert bestätigen.
+Zurück und Standard Nein ändern nichts. Der aktuelle registrierte State-Root
+bleibt die Auswahlgrenze; Providerressourcen und Sicherungen werden nicht gelöscht.
 [Vorschau, Bestätigung, Sperren und Wiederaufnahme](RUN_ARTIFACT_REMOVAL.md).

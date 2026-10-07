@@ -20,7 +20,7 @@
 function Invoke-SqlServerLab {
     [CmdletBinding()]
     param(
-        [ValidateSet('New', 'BatchPlan', 'Queue', 'Commands', 'AutomatedTestEnvironment', 'AutomatedTestEnvironmentLifecycle', 'ClearAutomatedTestEnvironment', 'Manifest', 'Status', 'SyncRuntime', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'CleanupAudit', 'RetainedStoreRemoval', 'Script', 'Database', 'DatabaseBackup', 'DatabaseRestore', 'DatabasePackageExport', 'DatabasePackageAttach', 'DatabasePackageInventory', 'DatabaseMigrationDependency', 'Image', 'WindowsSlotPool', 'ReservePolicy', 'Setup', 'MediaRoot', 'MediaSourceOverride', 'RuntimeInstaller', 'OperatingSystemSources', 'CuResource', 'CuStatus', 'ResourceWatch', 'DataRoot', 'TestDataRoot', 'Rename', 'UpdateContainer', 'Resources', 'Manage', 'Install7Zip', 'Catalog', 'ConnectionCenter', 'Cms')]
+        [ValidateSet('New', 'BatchPlan', 'Queue', 'Commands', 'AutomatedTestEnvironment', 'AutomatedTestEnvironmentLifecycle', 'ClearAutomatedTestEnvironment', 'Manifest', 'Status', 'SyncRuntime', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'CleanupAudit', 'RetainedStoreRemoval', 'RunArtifactRemoval', 'Script', 'Database', 'DatabaseBackup', 'DatabaseRestore', 'DatabasePackageExport', 'DatabasePackageAttach', 'DatabasePackageInventory', 'DatabaseMigrationDependency', 'Image', 'WindowsSlotPool', 'ReservePolicy', 'Setup', 'MediaRoot', 'MediaSourceOverride', 'RuntimeInstaller', 'OperatingSystemSources', 'CuResource', 'CuStatus', 'ResourceWatch', 'DataRoot', 'TestDataRoot', 'Rename', 'UpdateContainer', 'Resources', 'Manage', 'Install7Zip', 'Catalog', 'ConnectionCenter', 'Cms')]
         [string]$Action,
 
         [ValidateSet('Auto', 'Fallback')]
@@ -162,7 +162,7 @@ function Invoke-LabMenuAction {
         Wait-LabConsoleAcknowledgement
     }
     if ($ActionName -in @('DatabaseBackup', 'DatabaseRestore', 'DatabasePackageExport', 'DatabasePackageAttach')) { Wait-LabConsoleAcknowledgement }
-    if ($ActionName -eq 'RetainedStoreRemoval') { Wait-LabConsoleAcknowledgement }
+    if ($ActionName -in @('RetainedStoreRemoval', 'RunArtifactRemoval')) { Wait-LabConsoleAcknowledgement }
 
 }
 
@@ -1692,6 +1692,7 @@ function Invoke-LabAction {
             Invoke-LabStorageInteractive
         }
         'RetainedStoreRemoval' { Invoke-LabRetainedStoreRemovalInteractive }
+        'RunArtifactRemoval' { Invoke-LabRunArtifactRemovalInteractive }
         'CleanupAudit' {
             Show-LabMaintenanceGuidanceInteractive
         }

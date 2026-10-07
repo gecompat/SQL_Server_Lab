@@ -5,8 +5,28 @@ Run-State für Diagnose und Recovery. `REMOVED` allein beweist weder die
 physische Ressourcenabwesenheit noch die sichere Löschbarkeit dieses States.
 
 Der separate CLI-Vertrag prüft genau einen modernen entfernten Run unter einem
-registrierten `Lab_Data/State`. Beide Befehle sind auch im Konsolenmenü unter
-**Alle öffentlichen Befehle** erreichbar.
+registrierten `Lab_Data/State`. Der geführte Konsolenweg lautet
+**Wartung, Aufräumen und Recovery → Artefakte eines entfernten Runs**;
+direkt ist derselbe Dialog über `Invoke-SqlServerLab -Action RunArtifactRemoval`
+erreichbar. Beide öffentlichen Befehle bleiben unter **Alle öffentlichen Befehle**
+verfügbar.
+
+Der Dialog liest zunächst nur die Metadaten des aktuellen registrierten
+State-Roots. Er zeigt entfernte Runs mit Anzeigename und Run-ID sowie
+begonnene Artefaktvorgänge auch nach Verschieben des Runverzeichnisses.
+Diese Auswahl ist keine Löschberechtigung. Erst nach Einzelauswahl ruft er die
+öffentliche Vorschau auf und zeigt Status, Dateianzahl und verständliche
+Sperrgründe. „Vorschau erneut prüfen“ liest bewusst erneut; Zurück, Abbruch
+oder eine abgelehnte Bestätigung starten keine Entfernung.
+
+„Geprüfte Artefakte endgültig entfernen“ beziehungsweise „Artefaktentfernung
+fortsetzen“ verlangt eine separate Bestätigung mit Standard Nein. Der Dialog
+übergibt ausschließlich die ausgewählte Run-ID, die aktuell registrierten
+Roots und den PlanKey an den öffentlichen Apply-Befehl. Dessen frische
+Revalidierung bleibt wirksam. Ein bereits abgeschlossener Vorgang wird nur
+angezeigt. Fehler lösen keine automatische Wiederholung aus; bei Recovery
+denselben Run erneut auswählen. Der Browser verwendet weiterhin den generischen
+öffentlichen Befehlskatalog; ein eigener Browserdialog bleibt Folgearbeit.
 
 ```powershell
 $plan = Get-SqlServerLabRunArtifactRemovalPlan `
@@ -80,7 +100,12 @@ diesen Vorgang vorwärts wieder auf. Bereits gelöschte Metadaten werden nicht
 wiederhergestellt. Ein lokaler Abschlussreceipt unter `run-artifact-removals`
 erhält Identität und Inhaltsbindung für die idempotente Ergebnisabfrage.
 
-Die Offline-Suite `Invoke-RunArtifactRemovalChecks.ps1` prüft den echten
+Die Offline-Suite `Invoke-RunArtifactRemovalChecks.ps1` prüft zusätzlich den
+importierten Konsolendialog und dessen Menürouter mit synthetischen
+Provider-/Core-Leaves. Kandidatenauswahl, frische Vorschau, Abbruch,
+Sperren, Bestätigung, PlanKey-Übergabe und Recovery-Discovery sind getrennte
+Prüfungen; sie belegen weder native Ressourcenabwesenheit noch Terminalrendering.
+Die Suite prüft außerdem den echten
 öffentlichen und privaten Dateilifecycle mit synthetischen Runtime-Leaves.
 Dies ist kein nativer Provider- oder SQL-Nachweis. Separate Providerabnahmen
 und die Pflichtgates müssen den stabilen Stand belegen.

@@ -15,9 +15,13 @@
 .PARAMETER CreateSqlRun
     Prüft zusätzlich einen eigenen echten SQL-Create/Query/Stop/Start/Remove-Run.
     Bei Fehlern bleibt dessen isolierter State für Recovery erhalten.
+.PARAMETER GuidedConsole
+    Verwendet den tatsächlichen Wartungsmenürouter und Fachdialog mit festen
+    synthetischen Auswahl-/Bestätigungsleaves. Öffentlicher Core und native
+    Providerbeobachtung bleiben echt; dies prüft keinen gerenderten Terminal.
 #>
 [CmdletBinding()]
-param([Parameter(Mandatory)][ValidateSet('docker','podman')][string]$Provider,[switch]$CreateSqlRun)
+param([Parameter(Mandatory)][ValidateSet('docker','podman')][string]$Provider,[switch]$CreateSqlRun,[switch]$GuidedConsole)
 $ErrorActionPreference='Stop'
 $repo=(Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 $parent=Join-Path ([IO.Path]::GetTempPath()) ('sql-lab-run-artifact-observation-'+[guid]::NewGuid().ToString('N'))
@@ -32,7 +36,7 @@ try {
     try {$mutexAcquired=$mutex.WaitOne([TimeSpan]::FromMinutes(15))} catch [Threading.AbandonedMutexException] {$mutexAcquired=$true}
     if (-not $mutexAcquired) { throw 'RUN_ARTIFACT_NATIVE_SMOKE_BUSY' }
     & $module {
-        param($Root,$Selected,$CreateSql,$Completion)
+        param($Root,$Selected,$CreateSql,$Completion,$Guided)
         $stateRoot=Join-Path $Root 'State'
         $controller=[guid]::NewGuid().ToString('D')
         $env:SQL_SERVER_LAB_DATA_ROOT=$Root; $env:SQL_SERVER_LAB_CONTROLLER_ID=$controller; $env:SQL_SERVER_LAB_STATE=$stateRoot
@@ -97,15 +101,39 @@ try {
         $arguments=@{RunId=$run.RunId;StateRoot=$stateRoot;DataRoot=$Root}
         $plan=Get-SqlServerLabRunArtifactRemovalPlan @arguments
         if ($plan.Status -cne 'READY') {throw ('RUN_ARTIFACT_NATIVE_PLAN_BLOCKED: '+$plan.ReasonCode)}
-        $result=Invoke-SqlServerLabRunArtifactRemoval @arguments -ExpectedPlanKey $plan.PlanKey -Confirm:$false
+        if ($Guided) {
+            $script:artifactConsoleAcceptanceRunId=$run.RunId
+            $script:artifactConsoleAcceptanceSelections=0
+            function Show-LabSubMenu { param($ScreenId,$Title,$Subtitle,$Items)
+                if ($ScreenId -cne 'maintenance-menu' -or 'RunArtifactRemoval' -cnotin @($Items.Id)) {throw 'RUN_ARTIFACT_NATIVE_MENU_UNAVAILABLE'}
+                'RunArtifactRemoval'
+            }
+            function Invoke-LabConsoleMenu { param($ScreenId,$Title,$Subtitle,$Items)
+                $id=if ($ScreenId -ceq 'run-artifact-removal') {$script:artifactConsoleAcceptanceRunId}
+                    elseif ($ScreenId -ceq 'run-artifact-removal-review') {'apply'} else {throw 'RUN_ARTIFACT_NATIVE_MENU_UNEXPECTED'}
+                $item=@($Items | Where-Object Id -CEQ $id)
+                if ($item.Count -ne 1 -or $item[0].Disabled) {throw 'RUN_ARTIFACT_NATIVE_SELECTION_BLOCKED'}
+                $script:artifactConsoleAcceptanceSelections++
+                [pscustomobject]@{Status='Selected';SelectedItem=$item[0]}
+            }
+            function Read-LabConfirm { param($Prompt,$Default)
+                if ($Default -ne $false -or -not $Prompt.Contains($script:artifactConsoleAcceptanceRunId)) {throw 'RUN_ARTIFACT_NATIVE_CONFIRMATION_INVALID'}
+                $true
+            }
+            function Wait-LabConsoleAcknowledgement {}
+            Invoke-LabMenuAction -ActionName (Show-LabMaintenanceMenu)
+            if ($script:artifactConsoleAcceptanceSelections -ne 2) {throw 'RUN_ARTIFACT_NATIVE_MENU_NOT_EXECUTED'}
+            $result=Get-SqlServerLabRunArtifactRemovalPlan @arguments
+        }
+        else { $result=Invoke-SqlServerLabRunArtifactRemoval @arguments -ExpectedPlanKey $plan.PlanKey -Confirm:$false }
         if ($result.Status -cne 'REMOVED' -or (Test-Path -LiteralPath $run.RunDir) -or
             (Test-Path -LiteralPath (Join-Path $stateRoot ('scope-markers/'+$run.ScopeId+'.json')))) {throw 'RUN_ARTIFACT_NATIVE_ABSENCE_FAILED'}
         $after=Read-ObservationInventory
         $fresh=Get-LabRunArtifactRuntimeContext -Provider $Selected -StateRoot $stateRoot
         if ($before -cne $after -or $context.RuntimeScopeId -cne $fresh.RuntimeScopeId) {throw 'RUN_ARTIFACT_NATIVE_PROTECTION_CHANGED'}
         $Completion.SafeToDelete=$true
-        Write-Host "${Selected}: own metadata removal and unchanged provider inventory PASS; real SQL lifecycle=$CreateSql"
-    } $data $Provider ([bool]$CreateSqlRun) $completion
+        Write-Host "${Selected}: own metadata removal and unchanged provider inventory PASS; real SQL lifecycle=$CreateSql; guided console handler=$Guided"
+    } $data $Provider ([bool]$CreateSqlRun) $completion ([bool]$GuidedConsole)
 }
 finally {
     try {

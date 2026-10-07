@@ -3181,6 +3181,30 @@ Revalidierungen bleiben erhalten. Ein abgeschlossener Dialogrequest ruft die
 öffentliche Preview einmal auf. Es gibt kein Apply und keinen Scope-A-Abschluss.
 ## Run-Artefakte nach erfolgreichem Remove
 
+Die eingebundene Fixture `Tests/Static/Fixtures/RunArtifactRemovalConsoleChecks.ps1`
+prüft den importierten Wartungsmenürouter, den öffentlichen Direktaufruf und
+den Fachdialog. Synthetische Core-Leaves zählen Vorschau und Apply; Auswahl,
+Abbruch, gesperrte/ungültige DTOs, Default-Nein-Bestätigung, PlanKey-Bindung,
+Driftfehler und unerwartete Ergebnisse dürfen keine unberechtigte oder
+automatisch wiederholte Entfernung auslösen. Echte isolierte Metadatendateien
+prüfen REMOVED-/Recovery-Discovery und bytegleiche Kontrolle.
+
+`Invoke-RunArtifactRemovalObservationAcceptance.ps1 -Provider docker -CreateSqlRun -GuidedConsole`
+beziehungsweise der getrennte Podman-Aufruf prüft den tatsächlichen
+Konsolenhandler mit fest vorgegebenen Auswahl-/Bestätigungsleaves und echtem
+öffentlichem Core nach dem eigenen SQL-Lifecycle. Native Providerinventare,
+Run-/Markerabwesenheit und Cleanup bleiben echte Prüfungen. Das ist keine
+gerenderte Terminal- oder Browserabnahme.
+
+Der geführte Handler-Nachweis mit `-CreateSqlRun -GuidedConsole` bestand am
+2026-10-07 unter Docker und Podman getrennt: SQL-Major-17-Abfrage vor/nach
+Stop/Start, reguläres Remove, tatsächlicher Wartungsmenürouter, öffentliche
+Vorschau/Apply, Run-/Markerabwesenheit, unverändertes Providerinventar und
+vollständiges eigenes Dateiroot-Cleanup. Die 81 fokussierten Dialogprüfungen
+und 111 Core-Prüfungen bestanden ebenfalls. Die breite statische Auswahl
+bestand nach gezielter Wiederholung der korrigierten ConsoleUI-Suite
+(303 PASS); unveränderte grüne Suites wurden nicht wiederholt.
+
 `Tests/Static/Invoke-RunArtifactRemovalChecks.ps1` prüft die tatsächlichen
 Public-/Core-Funktionen an isolierten synthetischen Dateien: getrennte
 Docker-/Podman-Identitätsleaves, Vorschau ohne Writes, WhatIf, Drift,

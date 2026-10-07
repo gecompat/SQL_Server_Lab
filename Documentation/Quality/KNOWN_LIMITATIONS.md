@@ -3205,6 +3205,12 @@ Prüfungen ersetzen keine getrennten nativen Pflichtgates am stabilen Head.
 Standardpfade behalten ihre bisherigen Verträge und Nachweise.
 ## Entfernung verbleibender Run-Artefakte
 
+Der geführte Konsolendialog unter Wartung bietet Einzelauswahl und bestätigtes
+Apply/Resume über den bestehenden öffentlichen Core. Er berücksichtigt nur den
+aktuellen registrierten State-Root; andere Locations werden nicht automatisch
+durchsucht. Ein eigener Browserdialog und eine gerenderte Terminalabnahme
+bleiben offen. Metadatenauswahl belegt keine Providerabwesenheit.
+
 `Get-SqlServerLabRunArtifactRemovalPlan` und `Invoke-SqlServerLabRunArtifactRemoval`
 benötigen moderne REMOVED-Evidence, registriertes Lab_Data/State und vollständige
 Ressourcenabwesenheit. Historische Container-Runs ohne aufgezeichnete Runtime,
