@@ -177,6 +177,7 @@ try {
         Invoke-LabAction -ActionName $choice.SelectedItem.Id
         Assert-Policy ($script:dispatchCount -eq 1 -and @($templates | Where-Object { $_.Id -eq 'ReservePolicy' -and -not $_.Disabled }).Count -eq 1) 'actual configuration shortcut and dispatcher; templates independent of HyperV'
     }
+    . (Join-Path $repoRoot 'Tools/WorkflowUiJsonBody.ps1')
     $ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $repoRoot 'Tools/Start-SqlServerLabUi.ps1'),[ref]$null,[ref]$null)
     $requestFunction=$ast.Find({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Invoke-UiSlotReserveRequest'},$true)
     Invoke-Expression $requestFunction.Extent.Text

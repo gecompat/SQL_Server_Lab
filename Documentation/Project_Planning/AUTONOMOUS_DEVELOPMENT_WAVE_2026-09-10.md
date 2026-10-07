@@ -2,7 +2,7 @@
 
 | Merkmal | Wert |
 |---|---|
-| Status | `ACTIVE` seit ausdrücklichem Benutzerauftrag vom 2026-10-06 |
+| Status | Benutzerpause vom 2026-10-07: nach Integration dieser Fachreader-Runde `PAUSED`; kein automatischer Folgeslice |
 | Stand | 2026-10-07 |
 | Auftrag | Aktuelle Entwicklungswelle aus Orchestrator Chat 2 mit denselben Regeln fortsetzen; C# bleibt USER_DEFERRED |
 | Ausgangspunkt | Durchsicht von `9cfd144`, vor Veröffentlichung gegen `ca9f09e` abgeglichen |
@@ -10,6 +10,50 @@
 | Reihenfolge | Konkretisierung des nachgelagerten Horizonts aus Abschnitt 12 des [Ausführungsplans](DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md) |
 
 ## Wiederaufnahme vom 2026-10-06
+
+### Abschlussgrenze und Wiederaufnahme nach Benutzerpause vom 2026-10-07
+
+Der Benutzer verlangt den Abschluss der aktuellen Entwicklungsrunde inklusive
+PR-Merge nach `origin/main` und danach eine Entwicklungspause. Diese Runde ist
+der unten beschriebene Fachreader-Slice auf Basis von `8ba94837`; der zugehörige
+Branch heißt `agent/ui-specialized-body-deadlines`. Am integrierten Stand endet
+die aktuelle Implementierungsfreigabe, der Fortsetzungsheartbeat wird pausiert.
+Automatische Chatwechsel oder weitere Implementierung starten während dieser
+Pause nicht. Fortsetzung erfordert einen neuen ausdrücklichen Benutzerauftrag.
+
+Der lokale Stand dieser Runde umfasst 58 fokussierte Prüfungen mit 36 HTTP-
+Requests, die 24 selektierten statischen Suites und getrennte Docker-/Podman-
+SQL-Lifecycle-Smokes mit jeweils 32/32 Prüfungen und eigenem Cleanup. Nach dem
+BOM-Kompatibilitätsfix wurden der fokussierte Bodyvertrag, die betroffenen
+PowerShell-Dateien und die Dokumentation erneut geprüft. Der Pflichtgate am
+exakten veröffentlichten Head bleibt vor Merge erforderlich; sein tatsächlicher
+Status und der Mergecommit sind über den zugehörigen PR zu prüfen. Die sechs
+geschützten Umgebungen blieben im gelesenen Vorher-/Nachhervergleich unverändert;
+dies ist kein atomarer oder hostweiter Invarianznachweis.
+
+Bei späterer Wiederaufnahme zuerst native Instruktionskette, Foundation und
+Projektregeln neu entdecken, aktuellen `origin/main`-Stand und eigenen Scope
+prüfen. Einen geeigneten eigenen Worktree verwenden; fremde Checkouts und
+Ressourcen bleiben unangetastet. Bereits integrierte Slices nicht wiederholen.
+Die bestehende Bewertungs- und Backlogtabelle dieses Plans bleibt maßgeblich.
+Die nächsten offenen Sicherheitsarbeiten sind:
+
+- UI-Operator-/Action-Autorität; übrige spezifische Reader, Headerannahme,
+  Dispatcher-Parallelität und Statequotas separat eingrenzen. Die acht internen
+  Fachreader und sieben direkten JSON-Routen sind durch diese Runde abgedeckt.
+- External-Model-DNS-/TCP-Zielbindung, verwaltete Cloud-Allowlist und Datenklassen-/
+  Consentbindung gemäß den verknüpften Fachverträgen konkretisieren.
+- Engere generische Downloadquoten nach dem integrierten Streaming-Slice prüfen.
+
+Die zwölf älteren Security-Cloud-Findings bleiben offen; es gibt keinen
+Scan-Nachweis am aktuellen Head. Neue kostenpflichtige Scans, externe
+Finding-Schließungen und Rohdiagnoseuploads benötigen eigene Freigabe.
+Native-CMS bleibt `BLOCKED_NO_RETRY` ohne unabhängige neue Evidence. C# bleibt
+`USER_DEFERRED`; Hyper-V-Artefaktpurge bleibt bis zum vertrauenswürdigen
+physischen VHDX-Abwesenheitsvertrag gesperrt. Geschützte Recoveryressourcen,
+blockierte Test-/Evidencewurzeln, die sechs Toolbelt-Umgebungen, fremde Dienste
+und Worktrees bleiben erhalten. Reale Diagnosen und konkrete lokale
+Ressourcenlokatoren stehen ausschließlich im ignorierten Übergabeindex.
 
 ### Automatische Chatwechsel: Benutzerentscheidung vom 2026-10-07
 
@@ -43,6 +87,15 @@ HTTP-Requests und ausschließlich synthetischen Sinks; tatsächlicher Trickle-
 Timeout und gültige Folge-Requests sind geprüft. Spezifische Reader mit eigenen
 Grenzen, Headerannahme, Parallelität, Authentifizierung und Statequotas bleiben
 offen. Der zugehörige Cloud-Fund wird dadurch nicht vollständig geschlossen.
+
+Der ergänzende Fachreader-Slice verwendet denselben begrenzten Transport für
+acht interne UI-Handler. Die bestehenden Zeichenlimits und Bestätigungen bleiben
+erhalten; Byteobergrenzen, striktes UTF-8 und fünf Sekunden absolute Frist gelten
+vor JSON/Fachaufrufen. Die fokussierte Fixture bestand mit 58 Prüfungen und
+36 echten Loopback-HTTP-Requests an ausschließlich synthetische Fach-Sinks,
+einschließlich Trickle-Timeout und gültigem Folgeaufruf. Übrige spezifische
+Reader, Headerannahme, Parallelität und Operatorautorität bleiben offen;
+die bestehende Native-CMS-Sperre wird dadurch nicht aufgehoben.
 
 Der folgende External-Model-Slice beschraenkt die lokale Lane auf numerischen
 Loopback und feste lokale Hostaliases. Andere konfigurierte Autoritaeten werden

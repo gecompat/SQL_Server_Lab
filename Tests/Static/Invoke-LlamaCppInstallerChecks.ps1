@@ -132,6 +132,7 @@ try {
   }
   $script:installerRoot=$previousRoot
   # Import the actual HTTP handler; it never accepts URLs, hashes or paths as authority.
+  . (Join-Path $Repo 'Tools/WorkflowUiJsonBody.ps1')
   $tokens=$null;$errors=$null;$ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $Repo 'Tools/Start-SqlServerLabUi.ps1'),[ref]$tokens,[ref]$errors)
   $handler=$ast.Find({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Invoke-UiLlamaInstallerRequest'},$true)
   . ([scriptblock]::Create($handler.Extent.Text))

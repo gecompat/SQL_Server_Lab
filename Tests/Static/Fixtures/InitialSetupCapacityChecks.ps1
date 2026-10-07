@@ -66,6 +66,7 @@ try {
         Assert-Capacity ($valid -and $result.LocationId -ceq $locationId -and $result.Notice -cnotmatch 'SYNTHETIC_WORKER_NOTICE' -and ($result|ConvertTo-Json -Compress) -cnotmatch 'SYNTHETIC_PRIVATE_DETAIL|PRIVATE_DETAIL') ('actual parent process '+$case+' validates contract and never publishes worker data')
     }
 } finally {$env:SQL_SERVER_LAB_CAPACITY_FIXTURE_CASE=$previousCase}
+. (Join-Path $repository 'Tools/WorkflowUiJsonBody.ps1')
 $adapterAst=[Management.Automation.Language.Parser]::ParseFile((Join-Path $repository 'Tools/Start-SqlServerLabUi.ps1'),[ref]$null,[ref]$null)
 $adapter=$adapterAst.Find({param($node)$node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Invoke-UiInitialSetupRequest'},$true)
 . ([scriptblock]::Create($adapter.Extent.Text))

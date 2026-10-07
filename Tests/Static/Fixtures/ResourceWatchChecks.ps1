@@ -135,6 +135,7 @@ $entryResults = & $module {
     function Write-LabWarning {throw 'UNEXPECTED_CLI_FAILURE'}
     Show-LabResourceWatchInteractive *> $null
     $results.Add([pscustomobject]@{Name='CLI Refresh status and real fallback Details Check Back only checks once';Success=($calls.Menu -eq 4 -and $calls.Refresh -eq 1 -and $calls.Ack -eq 2)})
+    . (Join-Path $RepoRoot 'Tools/WorkflowUiJsonBody.ps1')
     $ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $RepoRoot 'Tools/Start-SqlServerLabUi.ps1'),[ref]$null,[ref]$null)
     $handler=$ast.Find({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Invoke-UiResourceWatchRequest'},$true)
     . ([scriptblock]::Create($handler.Extent.Text))

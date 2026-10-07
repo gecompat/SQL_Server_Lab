@@ -182,6 +182,7 @@ try {
         foreach ($name in @('Resolve-LabDataRootForUse','Get-LabStorageConfiguration','Test-LabDataRootOwnership','Get-LabRetainedStoreRuntimeContext','Get-LabContainerRuntimeScope','Get-LabRetainedStoreVolume','Get-LabContainerInstanceStoreRuntimeInspection')) {
             Set-Item -Path ('Function:script:'+$name) -Value (Get-Command $name).ScriptBlock
         }
+        . (Join-Path $Repo 'Tools/WorkflowUiJsonBody.ps1')
         $ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $Repo 'Tools/Start-SqlServerLabUi.ps1'),[ref]$null,[ref]$null)
         $handler=$ast.Find({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Invoke-UiMaintenanceRequest'},$true)
         . ([scriptblock]::Create($handler.Extent.Text))
