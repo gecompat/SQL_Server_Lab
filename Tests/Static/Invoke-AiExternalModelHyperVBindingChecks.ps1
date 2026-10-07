@@ -42,7 +42,7 @@ try {
 
     $hash='a'*64;$certificateHash='b'*64
     $endpointPlan=Get-SqlServerLabAiExternalModelPlan -Backend LlamaCppOpenVino -Accelerator NPU `
-        -Location 'https://192.0.2.1:18443/v1/embeddings' -ExternalModelName HyperVEmbedding `
+        -Location 'https://127.0.0.1:18443/v1/embeddings' -ExternalModelName HyperVEmbedding `
         -RuntimeModel bound-model -Dimension 3 -ModelSha256 $hash -RuntimeSha256 $hash `
         -ServerCertificateSha256 $certificateHash
     $transport={param($request)$null=$request;[pscustomobject]@{StatusCode=200;ServerCertificateSha256=$certificateHash;Body=[pscustomobject]@{model='bound-model';data=@([pscustomobject]@{embedding=@(1.0,-0.25,0)})}}}.GetNewClosure()

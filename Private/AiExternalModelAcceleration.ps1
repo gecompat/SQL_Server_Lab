@@ -48,6 +48,29 @@ namespace SqlServerLab {
 '@
 }
 
+function Resolve-LabAiExternalModelLocalAuthority {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Location)
+
+    try { $uri = [Uri]::new($Location, [UriKind]::Absolute) }
+    catch { throw 'AI_EXTERNAL_MODEL_LOCAL_AUTHORITY_REQUIRED' }
+    if ($uri.Scheme -cne 'https' -or $uri.Port -lt 1 -or
+        $uri.UserInfo -or $uri.Query -or $uri.Fragment) {
+        throw 'AI_EXTERNAL_MODEL_LOCAL_AUTHORITY_REQUIRED'
+    }
+    # Nur feste Hostaliases und numerischer Loopback; keine DNS-Abfrage,
+    # Wildcards oder callerseitig erweiterbare Freigabeliste.
+    $hostName = $uri.DnsSafeHost
+    $address = $null
+    $loopback = -not $hostName.Contains('%') -and
+        [Net.IPAddress]::TryParse($hostName, [ref]$address) -and
+        [Net.IPAddress]::IsLoopback($address)
+    if (-not $loopback -and $hostName -notin @('localhost','host.docker.internal','host.containers.internal')) {
+        throw 'AI_EXTERNAL_MODEL_LOCAL_AUTHORITY_REQUIRED'
+    }
+    return $uri
+}
+
 <#
 .SYNOPSIS
     Erstellt einen gebundenen, nicht ausführbaren SQL-External-Model-Plan.
@@ -86,6 +109,8 @@ function New-LabAiExternalModelPlan {
             $blockers.Add('AI_EXTERNAL_MODEL_HTTPS_LOCATION_REQUIRED')
         }
         if ($uri.AbsolutePath -cne $expectedPath) { $blockers.Add('AI_EXTERNAL_MODEL_ENDPOINT_PATH_MISMATCH') }
+        try { $null = Resolve-LabAiExternalModelLocalAuthority -Location $uri.AbsoluteUri }
+        catch { $blockers.Add('AI_EXTERNAL_MODEL_LOCAL_AUTHORITY_REQUIRED') }
     }
 
     $allowedAccelerators = switch ($Backend) {
@@ -356,6 +381,7 @@ function Invoke-LabAiExternalModelHttpTransport {
         [Security.Cryptography.X509Certificates.X509Certificate2]$TrustedRootCertificate
     )
 
+    $null = Resolve-LabAiExternalModelLocalAuthority -Location $Location
     $expectedPin = $ExpectedServerCertificateSha256.ToLowerInvariant()
     $validator = [SqlServerLab.AiExternalModelCertificateValidatorV1]::new($expectedPin, $TrustedRootCertificate)
     $handler = [Net.Http.HttpClientHandler]::new()
@@ -623,6 +649,7 @@ function Invoke-LabAiExternalModelSqlPreflight {
         $Binding,
         $BindingIdentity
     )
+    $null=Resolve-LabAiExternalModelLocalAuthority -Location ([string]$SqlPlan.Location)
     $canonical=Resolve-LabAiExternalModelSqlPlan -SqlPlan $SqlPlan
     if(-not $StateRoot){$StateRoot=Get-LabStateRoot}
     if(-not $Binding){$Binding=Get-LabAiExternalModelSqlBinding -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot}
@@ -840,6 +867,7 @@ function Invoke-LabAiExternalModelSqlApply {
         $BindingIdentity,
         [scriptblock]$FaultInjector
     )
+    if(-not $Resume){$null=Resolve-LabAiExternalModelLocalAuthority -Location ([string]$SqlPlan.Location)}
     if(-not $StateRoot){$StateRoot=Get-LabStateRoot}
     if($CredentialSecret.Length -lt 1 -or $CredentialSecret.Length -gt 4000){throw 'AI_EXTERNAL_MODEL_SQL_CREDENTIAL_SECRET_INVALID'}
     $StateRoot=[IO.Path]::GetFullPath($StateRoot)
@@ -898,6 +926,9 @@ function Invoke-LabAiExternalModelSqlApply {
         if($Resume -and ([DateTimeOffset]::Parse([string]$canonical.ValidUntilUtc) -lt [DateTimeOffset]::UtcNow -or [DateTimeOffset]::Parse([string]$receipt.VerifiedAtUtc) -lt [DateTimeOffset]::UtcNow.AddSeconds(-300))){
             throw 'AI_EXTERNAL_MODEL_SQL_APPLY_REPLAN_REQUIRED'
         }
+        # Resume darf eine bestehende SQL-Postcondition bestaetigen. Jede neue
+        # SQL-Mutation prueft die aktuelle Autoritaet vor Secretkonvertierung.
+        $null=Resolve-LabAiExternalModelLocalAuthority -Location ([string]$canonical.Location)
         if($FaultInjector){& $FaultInjector 'BeforeSqlMutation'}
         $pointer=[Runtime.InteropServices.Marshal]::SecureStringToBSTR($CredentialSecret)
         $plain=[Runtime.InteropServices.Marshal]::PtrToStringBSTR($pointer)
@@ -1024,6 +1055,7 @@ function Invoke-LabAiExternalModelSqlEmbeddingProbe {
         $Binding,
         $BindingIdentity
     )
+    $null=Resolve-LabAiExternalModelLocalAuthority -Location ([string]$SqlPlan.Location)
     if(-not $StateRoot){$StateRoot=Get-LabStateRoot}
     $StateRoot=[IO.Path]::GetFullPath($StateRoot)
     $canonical=Resolve-LabAiExternalModelSqlPlan -SqlPlan $SqlPlan -AllowExpired

@@ -1,5 +1,20 @@
 # Lokale Validierungsstrategie
 
+## Lokale External-Model-Autoritaeten
+
+Die in `Invoke-AiExternalModelAccelerationChecks.ps1` eingebundene
+`AiExternalModelAuthorityChecks.ps1` prueft feste Loopback-/Hostaliasplaene,
+fremde DNS-/IP-Autoritaeten, Prefix-/Userinfo-Verwechslungen, Revalidierung eines
+manipulierten Plans sowie Veto vor direktem HTTP- und SQL-Dispatch. Ein zuvor
+charakterisierter lokaler PlanKey bleibt unveraendert; ein hashgebundener
+Legacy-SQL-Plan bleibt fuer den Cleanup-Leseweg gueltig. DNS, externe Netzwerk-
+Requests und Provider werden dabei nicht ausgefuehrt. Ein eigener synthetischer
+SecureString wird entsorgt; abgewiesene SQL-Requests erzeugen keinen State.
+Resume prueft vor neuer SQL-Mutation erneut die Autoritaet. Der native Windows-
+OVMS-Gateway-Runner prueft getrennt die erlaubte numerische HTTPS-Loopback-Lane;
+SQL-Planung ist dabei kein SQL-Mutations- oder Providernachweis. Hostalias-DNS,
+TCP-Zielbindung und klassifizierte Cloud-Freigaben bleiben offen.
+
 ## Gemeinsame Workflow-UI-HTTP-Grenze
 
 `WorkflowUiJsonBodyChecks.ps1` bestand mit 35 Checks, darunter 13 echte HTTP-
