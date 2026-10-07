@@ -7,9 +7,10 @@
     Der Check startet reproduzierbare Pester-Tests unter Tests\Pester.
     Ergebnisse werden nur in der Konsole ausgewertet; der Check persistiert
     keine XML-Berichte im Repository.
-    Falls Pester nicht installiert ist, wird der Check bewusst als übersprungen
-    bewertet (PASS), damit reproduzierbare lokale Arbeit ohne externes Modul
-    möglich bleibt.
+    Benoetigt Pester ab Version 5 fuer die vorhandenen BeforeAll-/Mock-Vertraege.
+    Fehlendes oder zu altes Pester sowie nicht ausgefuehrte Testfaelle bleiben
+    NOT_EXECUTED (Infrastruktur-Exitcode 2). Test- und Runnerfehler liefern 1;
+    nur ein vollstaendiger erfolgreicher Lauf liefert 0.
 #>
 [CmdletBinding()]
 param(
@@ -23,9 +24,17 @@ if ($ShowHelp) {
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
-$failures = [System.Collections.Generic.List[string]]::new()
-$passed = 0
-. (Join-Path $PSScriptRoot '..' 'Common' 'CheckResult.ps1')
+Write-Host ''
+Write-Host 'SQL_Server_Lab - Pester Checks' -ForegroundColor Cyan
+
+$pesterModule = Get-Module -ListAvailable -Name Pester |
+    Where-Object { $_.Version.Major -ge 5 } |
+    Sort-Object Version -Descending | Select-Object -First 1
+if (-not $pesterModule) {
+    Write-Host 'Pester: INFRASTRUCTURE_UNAVAILABLE (Pester ab Version 5 nicht verfuegbar).' -ForegroundColor Yellow
+    Write-Host 'Pester: NOT_EXECUTED (keine Unit-/Contract-Tests ausgefuehrt).' -ForegroundColor Yellow
+    exit 2
+}
 
 $legacyArtifactDir = Join-Path $repoRoot '.artifacts\pester'
 if (Test-Path -LiteralPath $legacyArtifactDir -PathType Container) {
@@ -41,50 +50,44 @@ if (Test-Path -LiteralPath $legacyArtifactDir -PathType Container) {
     }
 }
 
-Write-Host ''
-Write-Host 'SQL_Server_Lab - Pester Checks' -ForegroundColor Cyan
-
-$pesterModule = Get-Module -ListAvailable -Name Pester | Sort-Object Version -Descending | Select-Object -First 1
-if (-not $pesterModule) {
-    Add-CheckResult -Name 'Pester installiert' -Success $true -Message 'Übersprungen: Pester ist nicht installiert.'
-    Add-CheckResult -Name 'Pester-Paket hat mindestens ein Testskript' -Success (Test-Path -LiteralPath (Join-Path $repoRoot 'Tests\Pester'))
-    Write-Host "`nRESULTAT: $passed PASS, 0 FAIL" -ForegroundColor Green
-    exit 0
-}
-
-Add-CheckResult -Name 'Pester verfügbar' -Success $true -Message "Gefundene Version $($pesterModule.Version)"
-
 $pesterRoot = Join-Path $repoRoot 'Tests\Pester'
-
-$previousErrorAction = $ErrorActionPreference
-$ErrorActionPreference = 'Continue'
 try {
-    if ($pesterModule.Version.Major -ge 6) {
-        $configuration = New-PesterConfiguration
-        $configuration.Run.Path = @($pesterRoot)
-        $configuration.Run.PassThru = $true
-        $configuration.Output.Verbosity = 'Normal'
-        $result = Invoke-Pester -Configuration $configuration -ErrorAction SilentlyContinue
+    Import-Module $pesterModule.Path -Force -ErrorAction Stop
+    $configuration = New-PesterConfiguration
+    $configuration.Run.Path = @($pesterRoot)
+    $configuration.Run.PassThru = $true
+    $configuration.Output.Verbosity = 'Normal'
+    $result = Invoke-Pester -Configuration $configuration -ErrorAction Stop
+    if ($null -eq $result -or $result -is [array]) { throw 'PESTER_RESULT_MISSING' }
+    $counts = @{}
+    foreach ($name in @('TotalCount','PassedCount','FailedCount','SkippedCount','NotRunCount','InconclusiveCount')) {
+        $property = $result.PSObject.Properties[$name]
+        if ($null -eq $property -or $property.Value -isnot [int] -or $property.Value -lt 0) {
+            throw "PESTER_RESULT_INVALID: $name"
+        }
+        $counts[$name] = $property.Value
     }
-    else {
-        $result = Invoke-Pester -Script $pesterRoot -PassThru -ErrorAction SilentlyContinue
+    $sum = $counts.PassedCount + $counts.FailedCount + $counts.SkippedCount + $counts.NotRunCount + $counts.InconclusiveCount
+    if ($counts.TotalCount -eq 0 -or $counts.TotalCount -ne $sum) { throw 'PESTER_RESULT_INVALID: TotalCount' }
+    if ($counts.FailedCount -gt 0 -or $result.Result -eq 'Failed' -or $result.FailedContainersCount -gt 0) {
+        throw 'PESTER_TESTS_FAILED'
     }
 }
-finally {
-    $ErrorActionPreference = $previousErrorAction
-}
-$failed = if ($result.PSObject.Properties.Name -contains 'FailedCount') { [int]$result.FailedCount } else { 0 }
-$total = if ($result.PSObject.Properties.Name -contains 'TotalCount') { [int]$result.TotalCount } else { 0 }
-
-Add-CheckResult -Name 'Pester-Testsatz findet ausführbare Tests' -Success ($total -gt 0) -Message "Gefunden: $total"
-
-if ($failed -gt 0) {
-    Add-CheckResult -Name 'Pester-Testlauf' -Success $false -Message ("$failed Testfehler")
-    Write-Host "`nERGEBNIS: $passed PASS, $($failures.Count) FAIL" -ForegroundColor Red
+catch {
+    Write-Host "Pester: FAIL ($($_.Exception.Message))" -ForegroundColor Red
     exit 1
 }
 
-Add-CheckResult -Name 'Pester-Testlauf' -Success $true -Message ("Ergebnis: {0} Total, {1} Failed" -f $total, $failed)
+Write-Host ("Pester-Testfaelle: {0} insgesamt, {1} bestanden, {2} uebersprungen, {3} nicht ausgefuehrt, {4} unentschieden." -f
+    $counts.TotalCount, $counts.PassedCount, $counts.SkippedCount, $counts.NotRunCount, $counts.InconclusiveCount)
+if ($counts.SkippedCount + $counts.NotRunCount + $counts.InconclusiveCount -gt 0) {
+    Write-Host 'Pester: NOT_EXECUTED (Testnachweis unvollstaendig).' -ForegroundColor Yellow
+    exit 2
+}
+if ($result.Result -ne 'Passed') {
+    Write-Host 'Pester: FAIL (kein bestaetigter erfolgreicher Gesamtstatus).' -ForegroundColor Red
+    exit 1
+}
 
-Write-Host "`nERGEBNIS: $passed PASS, 0 FAIL" -ForegroundColor Green
+Write-Host "Pester: PASS ($($counts.PassedCount) ausgefuehrte Tests)." -ForegroundColor Green
 exit 0

@@ -1,5 +1,20 @@
 # Tests/ – lokale und Remote-Validierung
 
+## Pester-Runner und Ergebnisstatus
+
+`Static/Invoke-PesterChecks.ps1` benötigt Pester ab Version 5 und führt die
+Unit-/Contract-Suite unter `Pester/` aus. Maßgeblich für Status und Exitcodes
+ist die [Validierungsstrategie](../Documentation/Quality/LOCAL_VALIDATION_STRATEGY.md#pester-runnerstatus).
+
+`Static/Fixtures/ReleaseReadinessPesterChecks.ps1` ist in die bestehende
+ReleaseReadiness-Suite eingebunden. Isolierte Prozesse mit synthetischer
+Modulauflösung prüfen Erfolg, fehlendes/zu altes Pester, Import-/Aufruffehler,
+leere/ungültige Ergebnisse, Test-/Containerfehler und unvollständige Fälle.
+Die Fixture belegt Runnerstatus und Exitcodes; echte Pester-Ausführung bleibt
+ein eigener Nachweis. `Invoke-ImpactedChecks.ps1` und `Invoke-AllChecks.ps1`
+behandeln jeden von null verschiedenen Suite-Exitcode als nicht grünen Gate.
+Voraussetzungen und Nachweisführung: [Validierungsstrategie](../Documentation/Quality/LOCAL_VALIDATION_STRATEGY.md#pester-runnerstatus).
+
 `Static/Fixtures/ActionProgressDownloadLimitChecks.ps1` ist in die direkte
 Fortschrittssuite eingebunden: echte eigene Loopback-HTTP-Antworten prüfen
 Byteceilings vor Zielöffnung und während des Empfangs. Die Medienquellen- und

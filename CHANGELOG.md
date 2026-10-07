@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-07 – Einstieg, Dokumentationsquellen und Pester-Status
+
+- Der Einstieg führt Voraussetzungen, Setup und Bedienung zusammen;
+  Vertragsquellen, Abnahmehistorie und bekannte Grenzen sind gezielt verlinkt.
+  Veraltete offene SA-Passwort-HTTP-/Browserstatus verweisen auf die begrenzten
+  dokumentierten Referenzabnahmen.
+- Der Pester-Runner verlangt Version 5 oder neuer und meldet fehlende oder
+  unvollständige Ausführung mit Exitcode 2 statt PASS. Isolierte Offline-Fixtures
+  prüfen auch Import-, Aufruf-, Ergebnis- und Testfehler.
+
 ## 2026-10-07 – automatische Nachfolgesitzungen
 
 - Der Projektvertrag erlaubt automatische Chatwechsel an gesicherten

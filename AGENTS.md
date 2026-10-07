@@ -46,6 +46,20 @@ Verhalten. Bei Abweichungen zwischen Code, Dokumentation und Tests muss der
 tatsächliche Stand ermittelt und die Abweichung im Änderungsscope behoben oder
 ausdrücklich dokumentiert werden.
 
+## Pflichtkontext nach Aufgabe finden
+
+Die Leseliste oben bleibt verbindlich. Die folgende Orientierung führt von
+den gemeinsamen Regeln zu den Quellen des konkreten Änderungsscope:
+
+- `.ai/WORKING_RULES.md` bündelt Sicherheit, Privacy, Ownership, State,
+  Cleanup und Recovery; `SECURITY.md` beschreibt die öffentliche Security Policy.
+- `.ai/repo_map.yaml` ordnet Fachvertrag, Implementierung, Aufrufer, Fixtures
+  und getrennte Provider-Nachweise ein. Die betroffenen gekoppelten Quellen
+  werden gemeinsam gelesen und geprüft.
+- `.ai/PROJECT_CONTEXT.md` erklärt die Dokumentationszuständigkeiten:
+  Fachverträge für Verhalten, Validierungsstrategie für ausgeführte Nachweise
+  und Known Limitations für Grenzen. Einstiegstexte verweisen darauf.
+
 ## Kontext- und kosteneffiziente Arbeit
 
 - Die tatsächlich verfügbaren KI-Systeme, Modelle, lokalen Werkzeuge und

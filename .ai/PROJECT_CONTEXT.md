@@ -13,6 +13,22 @@ UI-Fachreader-Runde eine Entwicklungspause. Der [kanonische Wellenplan](../Docum
 enthält Abschlussgrenze, offene Schritte und Wiederaufnahmebedingungen.
 Nach Integration keine automatische Weiterarbeit ohne neuen ausdrücklichen Auftrag.
 
+## Dokumentationszuständigkeiten
+
+| Frage | Maßgebliche Quelle |
+|---|---|
+| Einstieg, Voraussetzungen und erster Aufruf | [`README.md`](../README.md), vertieft durch Getting Started |
+| Verbindliche Arbeits- und Sicherheitsregeln | [`AGENTS.md`](../AGENTS.md) und die dort verpflichtend erschlossenen Regeln |
+| Fachverhalten und öffentliche Verträge | Die in [`repo_map.yaml`](repo_map.yaml) zugeordneten Architektur-/API-Verträge |
+| Ausgeführte Prüfungen, Stand und Geltungsbereich | [`LOCAL_VALIDATION_STRATEGY.md`](../Documentation/Quality/LOCAL_VALIDATION_STRATEGY.md) und deren verlinkte Nachweise |
+| Bekannte Grenzen und fehlende Nachweise | [`KNOWN_LIMITATIONS.md`](../Documentation/Quality/KNOWN_LIMITATIONS.md) |
+
+Für SA-Passwörter gilt der [Architekturvertrag](../Documentation/Architecture/SA_PASSWORD_POLICY.md).
+Für die Autostartvorschau gilt die [öffentliche Referenz](../Public/README.md#container-autostart-nur-vorprüfen).
+Die Einstiege fassen diese Inhalte kurz zusammen. Historische Abnahmen werden
+mit ihrem Stand und Geltungsbereich erhalten; sie sind kein Nachweis für einen
+späteren Repositoryzustand. Die Map verbindet diese Quellen mit Code und Tests.
+
 Die feste [SQL-Version-Upgrade-Referenz](../Documentation/Quality/SQL_VERSION_UPGRADE_REFERENCE.md)
 überträgt eine eigene synthetische SQL-2022-Datenbank über die öffentliche
 Backup-Bibliothek auf einen neuen SQL-2025-Container. Compatibility Level 160
