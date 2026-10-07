@@ -38,6 +38,29 @@ try {
     $second=& $module {param($m,$r,$d)Save-LabLlamaCppModelFile -Model $m -MediaRoot $r -DownloadAction $d} $model $root $download
     Add-CheckResult 'Vorhandener valider Cache wird revalidiert und nicht erneut geladen' ($second.Status -ceq 'ALREADY_PRESENT' -and $downloads.Count -eq 1)
 
+    $budgetModel=$model|ConvertTo-Json -Depth 5|ConvertFrom-Json
+    $budgetModel.id='default-budget';$budgetModel.fileName='default-budget.gguf'
+    $budgetModel.source.downloadUrl='https://huggingface.co/Qwen/Synthetic-GGUF/resolve/'+('a'*40)+'/default-budget.gguf?download=true'
+    $budgetEvidence=& $module {
+        param($Model,$Root,$Payload)
+        $originalDownload=${function:Save-LabProgressDownload}
+        $script:budgetPayload=$Payload;$script:budgetReceived=$null
+        function script:Save-LabProgressDownload {
+            param($Uri,$OutFile,$MaximumRedirection,$MaximumBytes)
+            $script:budgetReceived=[pscustomobject]@{MaximumBytes=$MaximumBytes;MaximumRedirection=$MaximumRedirection;Uri=$Uri}
+            [IO.File]::WriteAllBytes($OutFile,$script:budgetPayload)
+        }
+        try{
+            $saved=Save-LabLlamaCppModelFile -Model $Model -MediaRoot $Root
+            [pscustomobject]@{Status=$saved.Status;Budget=$script:budgetReceived.MaximumBytes;Redirects=$script:budgetReceived.MaximumRedirection}
+        }finally{
+            Set-Item Function:script:Save-LabProgressDownload -Value $originalDownload
+            Remove-Variable budgetPayload,budgetReceived -Scope Script
+        }
+    } $budgetModel $root $payload
+    Add-CheckResult 'Standardtransport erhaelt exakten Modell-Bytepin vor atomischer Publikation' (
+        $budgetEvidence.Status -ceq 'DOWNLOADED' -and $budgetEvidence.Budget -eq $model.sizeBytes -and $budgetEvidence.Redirects -eq 10)
+
     $badHash=$model|ConvertTo-Json -Depth 5|ConvertFrom-Json;$badHash.id='bad-hash';$badHash.fileName='bad-hash.gguf';$badHash.sha256='0'*64
     $badHash.source.downloadUrl='https://huggingface.co/Qwen/Synthetic-GGUF/resolve/'+('a'*40)+'/bad-hash.gguf?download=true'
     $failure='';try{$null=& $module {param($m,$r,$d)Save-LabLlamaCppModelFile $m $r $d} $badHash $root $download}catch{$failure=$_.Exception.Message}

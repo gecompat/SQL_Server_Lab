@@ -1,18 +1,47 @@
 # SQL Server Lab
 
-SA-Passwort-Vorpruefung und gefuehrte Korrektur in CLI und Browser sind im
-[Passwortvertrag](Documentation/Architecture/SA_PASSWORD_POLICY.md)
-beschrieben. Die bewusste Mindestlaengenwahl bleibt auf neue eigene Standard-
-SQL2025-CU-Container begrenzt. Getrennte Docker-/Podman-Erststarts mit
-SQL2025-CU9 und Mindestlaenge drei sind bestanden; ein gueltiger HTTP-
-Creationjob und gerenderte Browserbedienung bleiben offen.
+`SQL_Server_Lab` erstellt lokale, isolierte SQL-Server-Testumgebungen für
+Entwicklung, Analyse und Schulung. Das PowerShell-Modul übernimmt Erstellung,
+SQL-Bereitschaft, Datenbank- und Skriptaufgaben, Start/Stop sowie
+scopegebundenen Cleanup. Docker und Podman sind die Kernprovider;
+Hyper-V bietet eigene begrenzte Windows-/SQL-Referenzpfade.
 
-## Container-Autostart nur vorprüfen
+## Voraussetzungen
 
-`Get-SqlServerLabReconcilePlan -ContainerAutoStartPreview -RunId $runId -InstanceId primary -AutoStart on -StateRoot $stateRoot` ist eine getrennte PLAN_ONLY-Vorschau der Container-Restartpolicy für moderne registrierte laufende SQL-Instanzen unter Docker/Podman. Explizite skalare on/off-Labels und Restartpolicy müssen übereinstimmen; fehlende, untypisierte oder widersprüchliche Evidence bleibt UNKNOWN/DRIFTED und gesperrt. Nur die begrenzte SQL-Loopbacktopologie und darstellbare Mounts werden akzeptiert. Der DTO zeigt feste ON/OFF- und SAME_POLICY/DIFFERENT_POLICY-Kategorien sowie Mountcounts ohne Hostwerte, native IDs oder Pfade. CanApply=false, MutationAllowed=false und leere Actions gelten auch für No-op; der opaque ObservationKey ist reine Inhaltsbindung, keine CAS-/Reservierungs-/Executorautorität. Endpoint, SQL, Backup und Hostlogin bleiben NOT_CHECKED. Ein Kontextread nutzt die bestehenden Ownership-Revalidierungen; zusätzliche eigene Inspectreads bleiben erhalten. Der geführte CLI-Einstieg „Lab-Umgebungen → Container-Autostart vorprüfen“ wählt registrierte Lab-/Instanzmetadaten und liest den bestehenden öffentlichen Core nach einem vollständigen on/off-Wunsch genau einmal. Abbruch und ungültige Eingaben vor dem Aufruf lesen kein Inspect; feste Kategorien, Mountcounts und NOT_CHECKED-Grenzen werden erst nach strikter skalarer DTO-Prüfung angezeigt. Der separate Browserdialog „Lab verwalten → Container-Autostart vorprüfen · PLAN_ONLY“ liest beim Öffnen nur registrierte Zielmetadaten des serverseitigen Roots. Ziel-/on/off-Wechsel lösen keinen Read aus; erst bewusste Vorschau ruft denselben öffentlichen Core einmal auf. Strikte Request-/DTO-Projektionen erlauben keine clientseitigen Roots, nativen IDs oder Applyautorität. UNKNOWN/DRIFTED, Mountcounts und NOT_CHECKED-Grenzen bleiben sichtbar; Schließen, Bearbeitung und neue Requests verwerfen späte Antworten, während ein bereits versandter Read fertiglaufen darf. Die spezifische native CLI-Abnahme vom 2026-10-05 auf Head `960b5452` bestand unter Docker und Podman mit je drei tatsächlichen Menü-/Dualrouter-/Public-Vorschauaufrufen (on/off/on), null frühen Cancel-/Invalid-Aufrufen, unveränderten eigenen Statebytes und je neun getrennten Ownership-/Inspectreads. Zwei bytegebundene terminale Cleanuprecords bestätigten pro Provider die Entfernung der eigenen Ressourcen und Roots; der gemeinsame Schutzvergleich hatte null Findings und null Observations. Gerenderter Browser und HTTP-Netztransport wurden am 2026-10-06 unter Docker und Podman mit je drei öffentlichen Vorschauaufrufen und eigenem Cleanup nativ geprüft; der generische CLI-/Webkatalog verwendet unverändert den öffentlichen Parametervertrag. Die spezifische native Core-Abnahme vom 2026-10-05 auf Head `77fbaee` bestand unter Docker und Podman mit je fünf öffentlichen Vorschauaufrufen, unveränderten eigenen Statebytes, zwei bytegebundenen terminalen Cleanuprecords und entfernten eigenen Ressourcen/Roots. Der gemeinsame Schutzvergleich bestand mit null Findings und null Observations. Der historische Corelauf allein nahm keine CLI-/Browserdialoge oder HTTP-Netztransport ab; CPU/RAM, Portvorschau, Apply/Recovery und der vollständige Scope A bleiben unverändert bzw. separat offen.
+- PowerShell 7.2 oder neuer.
+- Eine installierte und laufende Docker- oder Podman-Runtime für Containerlabs.
+- `sqlcmd` für die dokumentierten SQL- und Diagnoseschritte.
 
+Die [Windows-Installation](Documentation/User/INSTALLATION_WINDOWS.md) und
+[Linux-Installation](Documentation/User/INSTALLATION_LINUX.md) führen durch
+die Einrichtung. Hyper-V verlangt die zusätzlichen Voraussetzungen aus der
+[Entwicklungs- und Testumgebung](Documentation/Development/DEVELOPMENT_AND_TEST_SETUP_WINDOWS.md).
 
----
+## Schnellstart
+
+In PowerShell 7:
+
+```powershell
+git clone https://github.com/gecompat/SQL_Server_Lab.git
+Set-Location .\SQL_Server_Lab
+Import-Module .\SqlServerLab.psd1 -Force
+Invoke-SqlServerLab -Action Setup
+Invoke-SqlServerLab
+```
+
+Beim ersten Setup wählt der gemeinsame Assistent `Lab_Base` und
+`Lab_Data`. Die Konsole bietet danach den geführten Zugang zu Labaufgaben.
+Eine bestehende Einrichtung wird erneut verwendet. Die
+[Schritt-für-Schritt-Anleitung](Documentation/User/Getting_Started.md) beschreibt
+Erstellung, Verbindung und Cleanup. Die optionale Browserbedienung startet mit
+`./Tools/Start-SqlServerLabUi.ps1`;
+[Bedienung und Grenzen](Documentation/HowTo/WORKFLOW_UI.md) erläutern den Ablauf.
+
+**Sicherheit:** Lababläufe können Ressourcen, Konfigurationen und Daten verändern.
+Verwende isolierte Labs mit zulässigen synthetischen oder öffentlichen Samples.
+Produktionsbackups, Kundendaten und Secrets gehören nicht in das Repository.
+[Security Policy](SECURITY.md) und
+[bekannte Grenzen](Documentation/Quality/KNOWN_LIMITATIONS.md) gelten vor der Ausführung.
 
 # ⚠️ READ BEFORE USE
 
@@ -26,25 +55,27 @@ Creationjob und gerenderte Browserbedienung bleiben offen.
 
 The complete terms are defined in [LICENCE.md](./LICENCE.md).
 
----
+## Dokumentation nach Aufgabe
+
+| Anliegen | Einstieg |
+|---|---|
+| Einrichten und erstes Lab bedienen | [Getting Started](Documentation/User/Getting_Started.md) |
+| API, CLI und Browser | [Öffentliche Cmdlets](Public/README.md), [Bedienwege](Documentation/User/FUNCTIONS_CLI_GUI.md) |
+| Geprüfte Pfade und historische Nachweise | [Lokale Validierungsstrategie](Documentation/Quality/LOCAL_VALIDATION_STRATEGY.md) |
+| Einschränkungen und fehlende Nachweise | [Known Limitations](Documentation/Quality/KNOWN_LIMITATIONS.md) |
+| Am Repository arbeiten | [AGENTS.md](AGENTS.md), [CONTRIBUTING.md](CONTRIBUTING.md), [Repository-Map](.ai/repo_map.yaml) |
+
+SA-Passwort-Vorprüfung und Korrektur folgen dem
+[Passwortvertrag](Documentation/Architecture/SA_PASSWORD_POLICY.md);
+die dokumentierten Erststart-, HTTP- und Browserabnahmen stehen in der
+[Validierungsstrategie](Documentation/Quality/LOCAL_VALIDATION_STRATEGY.md#sa-passwortpolicy-fokussierter-offlinevertrag).
+Die nicht ausführbare Autostartvorschau ist in der
+[öffentlichen Referenz](Public/README.md#container-autostart-nur-vorprüfen) beschrieben.
+Details zur geführten KI-Erstellung und dem internen SQL-HTTPS-Referenzpfad:
+[Podman-KI-Setup](Documentation/Architecture/AI_PODMAN_SETUP.md),
+[SQL-HTTPS-Brücke](Documentation/Architecture/AI_SQL_HTTPS_BRIDGE.md).
 
 ## Zweck
-
-Unter **Datenbanken und Verbindungen → SQL Server 2025 KI → Podman-KI-Testumgebung erstellen** erstellt die
-Konsole nach Bestätigung SQL Server 2025 mit eigener Datenvolume und einer
-persistenten synthetischen Retrieval-Collection. Voraussetzung ist bereits
-laufendes lokales Ollama mit `embeddinggemma:latest`; es erfolgt kein
-Modell-Download. Erfolgreiche Umgebungen bleiben erhalten und sind mit Run-
-und Collection-ID wieder auffindbar. Der eigene native Podman-Referenzlauf
-bestand am 2026-09-21 einschließlich Query nach SQLrestart und vollständigem Cleanup.
-[Ablauf und Grenzen](Documentation/Architecture/AI_PODMAN_SETUP.md).
-
-Der interne [SQL-HTTPS-Referenzslice](Documentation/Architecture/AI_SQL_HTTPS_BRIDGE.md)
-belegt SQL-seitige Embeddings auf einem eigenen Docker-Run über vorhandenes
-Host-Ollama. SQL-/TLS-Negative, Retrieval vor/nach SQLrestart und eigenes Cleanup
-bestanden nativ am 2026-09-21. Bestehende Controller-RAG-Lanes bleiben davon unabhängig.
-
-`SQL_Server_Lab` erstellt lokale, isolierte und reproduzierbare SQL-Server-Testumgebungen. Das PowerShell-Modul kapselt Provisionierung, Ressourcenprüfung, Container-Lifecycle, SQL-Bereitschaft, Datenbankerstellung, Restore, Skriptausführung, lokalen Run-State und Cleanup.
 
 Das Repository dient insbesondere als gemeinsame Ausführungsbasis für:
 
@@ -66,111 +97,29 @@ Provider nur mit SQL Server 2025.
 
 ## Aktueller Status
 
-Eine getrennte Portvorschau über
-`Get-SqlServerLabReconcilePlan -ContainerPortPreview` ist `PLAN_ONLY`:
-für eine moderne registrierte, laufende Docker-/Podman-SQL-Instanz zeigt sie
-pfad- und portwertfreie Kategorien aus dem gebundenen Runtimekontext.
-Zusätzliche eigene Ownership-Revalidierungen bleiben erhalten. Der opaque
-`ObservationKey` erlaubt kein Apply und reserviert keinen Port. Endpoint,
-SQL und Sicherung bleiben `NOT_CHECKED`; zusätzliche oder unbekannte
-Topologie wird nicht als kompatibel angenommen. Unter **Lab-Umgebungen →
-SQL-Hostport vorprüfen** bietet die CLI einen getrennten Fachdialog mit
-registrierter Lab-/Instanzauswahl und lokaler Wunschport-Eingabe. Abbruch
-ruft keinen Plan auf; eine abgeschlossene Auswahl ruft den öffentlichen Core
-einmal auf und zeigt nur geprüfte Kategorien und Mountcounts.
-Der Browser bietet denselben getrennten PLAN_ONLY-Dialog unter **Lab verwalten
-→ SQL-Hostport vorprüfen**. Er verwendet ausschließlich den serverseitig
-registrierten Root; Öffnen liest nur Metadaten. Die native Komponentenabnahme
-des gerenderten Portdialogs mit echtem Loopback-HTTP bestand am 2026-10-07
-getrennt für Docker und Podman mit je drei öffentlichen PLAN_ONLY-Aufrufen
-und eigenem Cleanup. Vollständiger UI-Server und gebundenes Port-Apply bleiben
-offen. Einzelheiten stehen
-in der [öffentlichen Referenz](Public/README.md#container-portvorschau-ohne-apply).
-
-Die [External-Languages-Entscheidung](Documentation/Architecture/EXTERNAL_RUNTIME_CAPABILITY.md)
-bewertet explizite Python-/R-/Java-Katalogvarianten für Docker-/Podman-Linux.
-API und bestehender Manifestdialog trennen Katalogunterstützung von optionaler
-Hostprüfung; ohne bewusste Prüfung bleibt der Host `NOT_CHECKED`.
-Dieser CORE-102-Slice bestätigt weder SQL-/Sprachausführung noch Zielbesitz.
-
 **Status:** `CONTAINER_CORE_IMPLEMENTED_HYPERV_SQL_CLI_ACCEPTED`
 
-| Bereich | Status | Nachweis |
-|---|---|---|
-| PowerShell-Modul | implementiert | `SqlServerLab.psd1`, `SqlServerLab.psm1` |
-| Docker-Provider | implementiert | `Providers/Docker/DockerProvider.ps1` |
-| Podman-Provider | implementiert | `Providers/Podman/PodmanProvider.ps1` |
-| Behaltenen Container-SQL-Speicher löschen | enger öffentlicher ID-/Preview-/Resume-Pfad für eigene einzelne detached Stores; SQL-2025-Referenz am 2026-10-01 für Docker und Podman getrennt nativ abgenommen | [Bedienung und Grenzen](Documentation/User/RETAINED_STORE_REMOVAL.md) |
-| SQL Server External Languages | Container: Java für SQL 2019, Python/R/Java für SQL 2022/2025, jeweils Docker und Podman; Hyper-V/Windows: SQL-2022 Python/R/Java nativ akzeptiert und additiv per Reconcile planbar, C# für SQL 2019–2025 sichtbar `PREVIEW` | `Catalogs/software.json`, `Tests/Integration/Invoke-ExternalRuntimeContainerAcceptance.ps1`, `Tests/Integration/Invoke-ExternalRuntimeHyperVAcceptance.ps1` |
-| Gemischter Docker-/Podman-Lifecycle | implementiert | `Documentation/Architecture/MIXED_PROVIDER_LIFECYCLE.md` |
-| Hyper-V-Provider | Lifecycle einschließlich Gast-Drives, Windows-Specialization, SQL-Readiness, Image-Registry, Windows-Builder und resumierbarem SQL-`PrepareImage`-Builder implementiert; frischer Windows-Slot mit echter SQL-2025-Installation sowie operationsgeleaster, atomar katalogisierter Daten-VHDX-Clone/Reattach/Release nativ akzeptiert | `Providers/HyperV/HyperVProvider.ps1`, `Private/HyperVImageBuilder.ps1`, `Private/HyperVSqlImageBuilder.ps1`, `Private/HyperVPersistentDataDrive.ps1`, `Tests/Integration/Invoke-HyperVCliAcceptance.ps1`, `Tests/Integration/Invoke-HyperVPersistentDataDriveAcceptance.ps1` |
-| Ad-hoc-Provisionierung | implementiert | `New-SqlServerLab -Version ... -Provider ...` |
-| Persistente Container-Instanzstores | Continue und unabhängiger Clone per stabiler `PersistentStorageId` in CLI und Browser; operationsgebundene Lease, Digest und atomarer Katalogcommit | `Private/ContainerInstanceStore.ps1`, `Tests/Static/Invoke-ContainerInstanceStoreChecks.ps1` |
-| Providerneutrale Batch-, Queue- und Resume-Provisionierung | implementiert | `Private/BatchWorkflow.ps1`, `Public/BatchWorkflow.ps1`, `Schemas/lab-batch.schema.json` |
-| Manifest-Provisionierung | primärer unbeaufsichtigter Containerpfad; externe Secret-Referenzen, SHA-256-Restores und sichere Mount-Defaults | `Schemas/lab-manifest.schema.json`, `Documentation/Architecture/TEMPLATE_POOL_AND_AUTOMATED_MANIFESTS.md` |
-| Resource Assessment | Erstellungsentscheid mit explizitem Overcommit und lokaler Persistenz; Kapazitätsmodelle teilweise | `Test-SqlServerLabPrerequisite`, [Entscheidungsvertrag](Documentation/Architecture/RESOURCE_ASSESSMENT_DECISION.md) |
-| Run-State und Cleanup-Plan | implementiert | `Private/StateMachine.ps1`, `Private/CleanupEngine.ps1` |
-| Datenbankerstellung | implementiert | `New-SqlServerLabDatabase` |
-| Backup-Restore mit Artifact Resolver | implementiert | `Restore-SqlServerLabDatabase`, `Private/ArtifactResolver.ps1` |
-| Standalone Ressourcen-Prefetch | implementiert | `Get-SqlServerLabResourcePlan`, `Save-SqlServerLabResourceSet`; Samples und Windows-/Hyper-V-External-Runtime-Medien ohne SQL-/Provider-Mutation |
-| Datenbank-Migrationsgrenzen | öffentliche read-only Live-Inventur per direktem Ziel oder stabiler Run-/Instanzbindung; Backup-/Package-Receipts trennen Datenbankinhalt von Serverobjekten, TDE-Keymaterial, Secrets und externen Services | `Get-SqlServerLabDatabaseMigrationDependency`, `Private/DatabaseMigrationDependency.ps1`, `Schemas/database-migration-dependency-inventory.schema.json` |
-| SQL-Observability-Evidence | aggregierte Server-, Datenbank-, Query-Store- und Wait-Metriken direkt oder per Run-/Instanzbindung read-only; keine SQL-Texte, Namen, Hostwerte oder Secrets im Ergebnis | `Get-SqlServerLabSqlObservabilityEvidence`, `Private/SqlObservabilityEvidence.ps1`, `Schemas/sql-observability-evidence.schema.json` |
-| Portabler Container-Transfer-Preflight | bindet einen pfad- und secretfreien Container-Lab-Paketvertrag mit BackupSetId- und Integritäts-Evidence an einen bestehenden Ziel-Run; führt keinen Transfer oder Import aus | `Get-SqlServerLabPortableLabImportPlan`, `Private/PortableLabImport.ps1`, `Schemas/portable-lab-import-plan.schema.json` |
-| Mehrdatenbank-Transfer-Executorplan | prüft nur eine explizite Mehrdatenbankauswahl; ohne vollständige Inventur, SQL-Revalidierung, Vergleich und atomaren Rollback bleibt jede Ausführung blockiert | `Get-SqlServerLabPortableContainerTransferExecutorPlan`, `Private/PortableContainerTransferExecutor.ps1` |
-| Ein-Datenbank-Transfer | erstellt ausschließlich einen neuen eigenen SQL-2025-Linux-Ziel-Run beim selben Docker-/Podman-Provider, restauriert ein gebundenes read-only Backup und verlangt READ_ONLY/MATCH; sichere Whole-Run-Recovery | `Invoke-SqlServerLabPortableContainerTransfer`, [Vertrag](Documentation/Architecture/PORTABLE_CONTAINER_TRANSFER.md) |
-| Container-Backup-Staging- und Medienvorprüfung | revalidiert die gesamte explizite Auswahl vor der ersten Kopie, verwendet nur den live gebundenen `persistent-backups`-Mount eines bestehenden Docker-/Podman-Ziels, prüft SQL-seitig `HEADERONLY` und `VERIFYONLY WITH CHECKSUM, STOP_ON_ERROR` und räumt die operationseigenen Dateien auf; Restore und Transfer bleiben blockiert | `Invoke-SqlServerLabPortableContainerTransferPreflight`, `Private/PortableContainerTransferPreflight.ps1`, `Schemas/portable-container-transfer-preflight-*.schema.json` |
-| Relationaler Mehrdatenbank-Vergleich | vergleicht mehrere live gebundene verwaltete Docker-/Podman-Datenbankpaare PK-sortiert und ohne Rohwerte nach `RELATIONAL_CORE/1.0`; Restore, Staging und Transfer bleiben blockiert | `Test-SqlServerLabRelationalCoreComparison`, `Private/RelationalCoreComparison.ps1`, `Schemas/relational-core-comparison.schema.json` |
-| Hyper-V-Recovery-Point-Inventar | inventarisiert bestehende, eindeutig an einen Run gebundene Hyper-V-Checkpoints ohne VM-Namen oder Hostpfade; erzeugt keinen Checkpoint und führt keinen Restore aus | `Get-SqlServerLabHyperVRecoveryPointPlan`, `Private/RecoveryPointPlan.ps1`, `Schemas/hyperv-recovery-point-plan.schema.json` |
-| Lokaler Automation-API-Plan | projiziert ausschließlich ausgewählte bestehende öffentliche Plan-/Action-Grenzen als versionierten, sanitisierten und nicht ausführbaren Vertrag; keine Runtime, Netzwerkverbindung, State-Mutation oder IaC-Adapter | `Get-SqlServerLabAutomationPlan`, `Private/AutomationApiPlan.ps1`, `Schemas/automation-api-plan.schema.json` |
-| Sample-Datenbanken (Backup) | implementiert | `Private/SampleArtifactHandlers.ps1`; direkte `.bak`-Varianten über Trust-/Hash-Pfad, Mehrfachauswahl im Menü und `New-SqlServerLab -Sample` |
-| Project Adapter (v0.1) | implementiert | `Schemas/project-adapter.schema.json`, `Test-SqlServerLabAdapter`, `Install-SqlServerLabAdapter`; T-SQL-Entrypoints ohne Lifecycle-Seiteneffekt |
-| T-SQL-Skriptausführung | implementiert | `Invoke-SqlServerLabScript` |
-| SQL-2025-KI-Szenarien | Manifest-/Szenariovertrag, deterministischer Vector-Core, lokale Ollama-Embedding-/Generation-Lanes für Docker und Podman, hashgebundene Golden-RAG-Auswertung, opt-in Cloud-Generation sowie ein providerneutraler Hyper-V-Controller mit dokumentiertem `PARTIAL`-Restartnachweis; vorhandene OpenAI-kompatible CPU-/GPU-/NPU-Endpunkte, deren Runtime-/Modelldateien und ein numerischer Loopback-OVMS-Upstream lassen sich prüfen, an einen SQL-Plan binden, gegen einen eigenen SQL-2025-Zielscope vorprüfen, mit journalisiertem Ownership-Receipt als Credential und External Model anwenden, durch SQL selbst mit einem sanitisierten Embedding-Receipt prüfen und receiptgebunden wieder entfernen | `Get-SqlServerLabAiScenario`, `Get-SqlServerLabAiExternalModelPlan`, `Get-SqlServerLabAiExternalModelSqlPlan`, `Test-SqlServerLabAiExternalModelArtifact`, `Test-SqlServerLabAiExternalModelEndpoint`, `Test-SqlServerLabAiExternalModelSqlPreflight`, `Invoke-SqlServerLabAiExternalModelSqlApply`, `Test-SqlServerLabAiExternalModelSqlEmbedding`, `Remove-SqlServerLabAiExternalModelSql`, `Test-SqlServerLabOvmsUpstreamEndpoint`, `Invoke-SqlServerLabAiScenario`, `Invoke-SqlServerLabAiModel`, `Invoke-SqlServerLabAiRag`, `Measure-SqlServerLabAiRetrieval`, `Invoke-SqlServerLabAiDiagnosticAgent` |
-| Provider-/Versions-/Parallel-Smoke-Test | implementiert | `Tests/Integration/Invoke-SmokeMatrix.ps1` |
-| Einzelprovider-Smoke-Test | implementiert | `Tests/Integration/Invoke-SmokeTest.ps1` |
-| Statische Konsistenzprüfung | implementiert | `Tests/Static/Invoke-DocumentationChecks.ps1` |
+Docker und Podman bilden den Containercore. Hyper-V besitzt eigene
+Windows-/SQL-Lifecycle- und Referenzpfade; vollständige deklarative Drives,
+Datenbanken und Network Intents bleiben bis zu ihrem End-to-End-Nachweis
+begrenzt. Implementiertes Verhalten und native Abnahme sind getrennte Aussagen.
 
-Die [bekannten Grenzen](Documentation/Quality/KNOWN_LIMITATIONS.md) sind Teil des öffentlichen Vertrags. Planungsdokumente sind kein Runtime-Nachweis.
+| Details gesucht | Maßgeblicher Einstieg |
+|---|---|
+| Cmdlets, Rückgaben und Funktionsumfang | [Öffentliche Referenz](Public/README.md), [CLI-/GUI-Funktionsübersicht](Documentation/User/FUNCTIONS_CLI_GUI.md) |
+| Provider, Manifeste, State und Cleanup | [Architektur](Documentation/Architecture/ARCHITECTURE.md), vertiefende Verträge über die [Repository-Map](.ai/repo_map.yaml) |
+| Port- und Autostartvorschau ohne Apply | [Portvorschau](Public/README.md#container-portvorschau-ohne-apply), [Autostartvorschau](Public/README.md#container-autostart-nur-vorprüfen) |
+| External Languages und Katalogentscheidung | [Fachvertrag](Documentation/Architecture/EXTERNAL_RUNTIME_CAPABILITY.md), [optionaler Linux-Containerhost](Documentation/User/LINUX_CONTAINER_HOST.md) |
+| Ausgeführte Offline-/Providerabnahmen | [Validierungsstrategie](Documentation/Quality/LOCAL_VALIDATION_STRATEGY.md) mit Stand und Geltungsbereich |
 
-Für External Languages bei cgroup-v2-Desktop-Runtimes gibt es einen optionalen
-[separaten Linux-Containerhost](Documentation/User/LINUX_CONTAINER_HOST.md).
-Das Werkzeug richtet eine eigene Hyper-V-VM mit cgroup v1 und rootful
-Docker/Podman ein; SQL-Labs werden im Gast verwaltet. Desktop-Runtimes bleiben
-unverändert. Bootstrap-Readiness und echte SQL-Sprachabnahme sind getrennte Nachweise.
-Für vorhandene Linux-Hosts gibt es außerdem einen nativen Einstieg ohne
-Hyper-V-Verwaltung mit Providerprüfung, Storage-Einrichtung und Sprachtest.
-Eine explizite laufende WSL-Distribution kann denselben Einstieg verwenden;
-Kernel- und cgroup-Kompatibilität bleiben Voraussetzung.
+Der normale Menüpfad verwendet `ProviderPreference = Auto`; eine explizite
+Providerwahl liegt in den erweiterten Eigenschaften. Hyper-V-spezifische
+Vorlagen-, ISO-, Slot- und Recovery-Aufgaben liegen im Infrastrukturbereich.
+Die [bekannten Grenzen](Documentation/Quality/KNOWN_LIMITATIONS.md) gehören
+zum öffentlichen Vertrag. Planungsdokumente und historische Abnahmen belegen
+keinen neueren Repositoryzustand.
 
-Der normale Menüpfad plant einzelne und mehrere SQL-/Windows-Umgebungen
-providerneutral. `ProviderPreference = Auto` ist der Standard; Docker, Podman
-oder Hyper-V können nur unter den erweiterten Eigenschaften explizit gewählt
-werden. Hyper-V-spezifische Vorlagen-, ISO-, Slot- und Recovery-Aufgaben bleiben
-im eigenen Infrastrukturbereich.
-Alle Provider unterstützen `instances[].autostart: "on"`. Hyper-V verwendet
-`AutomaticStartAction=Start`; Docker und Podman erhalten `unless-stopped` sowie
-ein Lab-Label. Unter Windows startet ein benutzergebundener Auftrag nach der
-Anmeldung Docker Desktop beziehungsweise die Podman Machine und anschließend
-nur markierte Lab-Container. Sind Docker Desktop und Podman Desktop parallel
-installiert und besitzt Podman einen verwalteten Lab-Autostart, erkennt der
-Koordinator die Kombination automatisch: Er wartet zuerst auf Docker, startet
-danach die Podman Machine und erst anschließend Podman Desktop. Den bekannten
-Podman-Desktop-Login-Eintrag übernimmt er dafür reversibel in den Lab-Auftrag;
-Ein-Provider-Systeme behalten ihren direkten bisherigen Startpfad. Ohne Angabe
-bleibt Autostart ausgeschaltet;
-`instances[].hyperv.autostart` bleibt als Kompatibilitätsalias lesbar.
-Docker und Podman trennen das harte Containerlimit von einem niedrigeren
-SQL-internen Memory-Limit. Automatisierte Linux-Testziele verwenden 4 GB
-Container-RAM und 3 GB `max server memory`; ihr Export wird nur bei einem
-laufenden und gesunden gebundenen Container als `READY` veröffentlicht.
-Automatisierte Windows-Testslots aktivieren die Evaluation ihrer eindeutigen
-Child-VM nach OOBE über eine nur temporär angebundene, ausdrücklich gewählte
-External-NIC. Ohne live bestätigten Status `EVALUATION_ACTIVE` oder `LICENSED`
-bleibt der Gruppenexport fail-closed.
-Vollständige deklarative Hyper-V-Drives, Datenbanken und Network Intents bleiben
-bis zu ihrem echten End-to-End-Nachweis begrenzt.
-
-## Voraussetzungen
+## Einrichtung im Detail
 
 Mindestens erforderlich:
 
@@ -217,7 +166,10 @@ Die zusätzlichen Voraussetzungen für Entwicklung, Provider-Smoke-Tests,
 Self-hosted Runner und Hyper-V beschreibt die
 [Entwicklungs- und Testumgebung](Documentation/Development/DEVELOPMENT_AND_TEST_SETUP_WINDOWS.md).
 Für einen geführten Überblick über Windows-Baselines, SQL-Prepared-Images und
-offene Schritte steht außerdem die [lokale Workflow-Oberfläche](Documentation/HowTo/WORKFLOW_UI.md) bereit. Der
+offene Schritte steht außerdem die [lokale Workflow-Oberfläche](Documentation/HowTo/WORKFLOW_UI.md) bereit.
+Ihre gemeinsame [HTTP-Grenze](Documentation/Architecture/WORKFLOW_UI_REQUEST_BOUNDARY.md)
+prüft Origin/Authority und JSON-POSTs. Sieben direkte POST-Routen begrenzen den
+Body auf 1 MiB UTF-8 und fünf Sekunden Lesefrist; Operatorauthentifizierung bleibt offen. Der
 [Vorlagen- und Manifestvertrag](Documentation/Architecture/TEMPLATE_POOL_AND_AUTOMATED_MANIFESTS.md)
 trennt dabei immutable Vorlagen, wegwerfbare Labs und explizite Expertenaktionen.
 
@@ -232,35 +184,7 @@ podman info
 sqlcmd -?
 ```
 
-## Schnellstart
-
-Repository klonen und Modul importieren:
-
-```powershell
-git clone https://github.com/gecompat/SQL_Server_Lab.git
-Set-Location .\SQL_Server_Lab
-Import-Module .\SqlServerLab.psd1 -Force
-```
-
-Beim ersten Start richtet ein gemeinsamer Assistent den einmaligen `Lab_Base`
-und eine oder mehrere `Lab_Data`-Locations ein:
-
-```powershell
-Invoke-SqlServerLab -Action Setup
-```
-
-Anzugeben sind die vollständigen, frei wählbaren gemeinsamen Root-Pfade, etwa
-`D:\Lab_Base` und `D:\Lab_Data`. Bei mehreren Daten-Volumes wird der globale
-Standard ausdrücklich gewählt. Bereits gültige Einstellungen werden nicht
-erneut abgefragt, vorhandene Roots und Dateien nicht überschrieben.
-
-Ressourcen prüfen, ohne etwas zu verändern:
-
-```powershell
-Test-SqlServerLabPrerequisite -Provider docker
-# oder
-Test-SqlServerLabPrerequisite -Provider podman
-```
+## Weitere Befehlsbeispiele
 
 Einen beliebigen katalogisierten CU vorab bereitstellen:
 
@@ -799,6 +723,8 @@ abgewiesen. SQL-seitige Verifikation und freie Advanced-Eingaben bleiben
 | `Invoke-SqlServerLabPortableContainerTransferPreflight` | Explizite Backupsets ausschließlich im bereits live gebundenen `persistent-backups`-Mount stagen und SQL-seitig vorprüfen; die Resultatprojektion bleibt pfad- und secretfrei und der Transferexecutor `BLOCKED` |
 | `Get-SqlServerLabHyperVRecoveryPointPlan` | Bestehende, eindeutig an einen Hyper-V-Run gebundene Checkpoints ohne VM-Namen oder Hostpfade read-only inventarisieren; Erstellung, Quiesce und Restore bleiben nicht implementiert |
 | `Get-SqlServerLabSqlObservabilityEvidence` | Aggregierte Server-, Datenbank-, Query-Store- und Wait-Metriken direkt oder per Run-/Instanzbindung read-only ohne Endpunkt-, SQL-Text-, Namens- oder Secretprojektion erfassen |
+| `Get-SqlServerLabDatabaseMigrationDependency` | Migrationsabhängigkeiten lesend inventarisieren; [API-Vertrag](Public/README.md) |
+| `Test-SqlServerLabRelationalCoreComparison` | Relationalen Kern mehrerer gebundener Datenbankpaare vergleichen; [API-Vertrag](Public/README.md) |
 | `Get-SqlServerLabHyperVResourcePreview` | Registrierte Hyper-V-Location, freien Speicher und physische Run-/Build-/Image-/Staging-Roots ohne Mutation anzeigen |
 | `Get-SqlServerLabCatalog` | Konsolidierten Lab-Katalog als JSON-Artefakt erzeugen |
 | `Get-SqlServerLabCleanupAudit` | `Lab_Data`, Runtime-Scopes und Persistent Storage read-only prüfen sowie jedes auffällige Objekt mit Typ, Grund, Löschungs-/Bewahrungsempfehlung und Warnung ausgeben |
@@ -1048,8 +974,15 @@ Nicht erreichbare Provider werden als `SKIP` ausgewiesen. Erreichbare, aber fehl
 Für eine reproduzierbare lokale Release-Kopie:
 
 ```powershell
-.\Tools\Prepare-LocalRelease.ps1 -CreateArchive -IncludeHashManifest
+$release = .\Tools\Prepare-LocalRelease.ps1 -CreateArchive -IncludeHashManifest
+.\Tools\Prepare-LocalRelease.ps1 -InspectReleaseId $release.ReleaseId
 ```
+
+Intent und Abschlussquittung binden die vollständige Veröffentlichung.
+Die zweite Zeile liest nur: ohne Abschlussquittung `INCOMPLETE`, bei aktuell
+passenden vollständigen Bytes `COMPLETED`. Prozessstatus und Cleanup bleiben
+getrennt; keine automatische Wiederaufnahme oder Entfernung.
+[Vertrag und Recoverygrenzen](Documentation/Architecture/LOCAL_RELEASE_PUBLICATION.md).
 
 ## Repository-Struktur
 

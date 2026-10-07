@@ -276,6 +276,7 @@ try {
     )
     Add-CheckResult -Name 'Echter nummerierter Fallback erreicht Konfiguration mit Auswahl 1 trotz Statusitems' -Success ($cli.FallbackAction -eq 'Configure')
 
+    . (Join-Path $repoRoot 'Tools/WorkflowUiJsonBody.ps1')
     $serverAst = [Management.Automation.Language.Parser]::ParseFile((Join-Path $repoRoot 'Tools/Start-SqlServerLabUi.ps1'), [ref]$null, [ref]$null)
     $requestFunction = $serverAst.Find({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Invoke-UiInitialSetupRequest'}, $true)
     . ([scriptblock]::Create($requestFunction.Extent.Text))

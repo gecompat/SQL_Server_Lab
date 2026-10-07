@@ -439,10 +439,19 @@ try {
     Add-CheckResult 'OVMS-Gateway-Worker bindet Loopback, deaktiviert Proxy und begrenzt Eingaben' (
         $workerSource -match '\[Net\.IPAddress\]::Loopback' -and $workerSource -match '\$handler\.UseProxy=\$false' -and
         $workerSource -match '16384' -and $workerSource -match '65536' -and $workerSource -match 'FixedTimeEquals')
+    $authorityPassed = & (Join-Path $PSScriptRoot 'Fixtures/AiExternalModelAuthorityChecks.ps1') -Module $module -SqlPlan $sqlPlan
+    Add-CheckResult 'Lokale External-Model-Autoritaetsgrenze und Legacy-Lesevertrag bestanden' ($authorityPassed -eq $true)
 }
 finally {
     Remove-Module $module -Force -ErrorAction SilentlyContinue
-    if(Test-Path -LiteralPath $artifactRoot){Remove-Item -LiteralPath $artifactRoot -Recurse -Force}
+    if(Test-Path -LiteralPath $artifactRoot){
+        $resolvedArtifactRoot=[IO.Path]::GetFullPath($artifactRoot)
+        $tempRoot=[IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\','/')+[IO.Path]::DirectorySeparatorChar
+        if(-not $resolvedArtifactRoot.StartsWith($tempRoot,[StringComparison]::OrdinalIgnoreCase) -or
+           [IO.Path]::GetFileName($resolvedArtifactRoot) -cnotmatch '^sql-lab-ai-artifacts-[a-f0-9]{32}$' -or
+           (Get-Item -LiteralPath $resolvedArtifactRoot -Force).Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'OWN_TEST_ROOT_INVALID'}
+        Remove-Item -LiteralPath $resolvedArtifactRoot -Recurse -Force
+    }
 }
 Write-Host "`nAI external model acceleration checks: $passed passed, $($failures.Count) failed"
 if($failures.Count){$failures|ForEach-Object{Write-Host " - $_" -ForegroundColor Red};exit 1}

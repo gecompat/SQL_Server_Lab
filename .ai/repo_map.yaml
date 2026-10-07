@@ -254,6 +254,7 @@ sources_of_truth:
   ai_external_model_sql_plan_schema: Schemas/ai-external-model-sql-plan.schema.json
   ai_external_model_sql_preflight_receipt_schema: Schemas/ai-external-model-sql-preflight-receipt.schema.json
   validation_ai_external_model: Tests/Static/Invoke-AiExternalModelAccelerationChecks.ps1
+  validation_ai_external_model_authority: Tests/Static/Fixtures/AiExternalModelAuthorityChecks.ps1
   validation_ai_external_model_hyperv_binding: Tests/Static/Invoke-AiExternalModelHyperVBindingChecks.ps1
   ai_external_model_acceleration_howto: Documentation/User/SQL_AI_LOCAL_ACCELERATION.md
   ai_persistent_retrieval_api: Public/Invoke-SqlServerLabAiPersistentRetrieval.ps1
@@ -380,6 +381,7 @@ sources_of_truth:
   validation_sql_guest_evaluation_evidence: Tests/Static/Invoke-EvaluationWatchChecks.ps1
   host_tool_resolution: Private/HostToolResolution.ps1
   local_release_preparation: Tools/Prepare-LocalRelease.ps1
+  local_release_publication_contract: Documentation/Architecture/LOCAL_RELEASE_PUBLICATION.md
   validation_release_artifact: Tests/Static/Invoke-ReleaseArtifactChecks.ps1
   client_readiness: Tools/Test-SqlServerLabClientReadiness.ps1
   ssis_prerequisite_diagnostic: Tools/Test-SqlServerLabSsisPrerequisite.ps1
@@ -402,6 +404,9 @@ sources_of_truth:
   external_runtime_capability_http: Private/ExternalRuntimeCapabilityHttp.ps1
   external_runtime_capability_ui: Ui/external-runtime-capability.js
   validation_external_runtime_capability_browser: Tests/Static/Invoke-ExternalRuntimeCapabilityBrowserChecks.ps1
+  validation_external_runtime_catalog_rendered: Tests/Integration/Invoke-ExternalRuntimeCapabilityCatalogBrowserAcceptance.ps1
+  validation_external_runtime_catalog_contracts: Tests/Common/ExternalRuntimeCapabilityCatalogBrowserAcceptance.ps1
+  validation_external_runtime_catalog_fixture: Tests/Static/Fixtures/ExternalRuntimeCapabilityCatalogBrowserAcceptanceChecks.ps1
   external_runtime_capability_contract: Documentation/Architecture/EXTERNAL_RUNTIME_CAPABILITY.md
   validation_external_runtime_capability: Tests/Static/Invoke-ExternalRuntimeCapabilityChecks.ps1
   validation_client_readiness: Tests/Static/Invoke-ClientReadinessChecks.ps1
@@ -456,6 +461,7 @@ sources_of_truth:
   validation_cleanup_volume_ownership: Tests/Static/Invoke-CleanupVolumeOwnershipChecks.ps1
   container_reconcile_contract: Private/ContainerReconcile.ps1 # Preview.Mounts: path-free counts; ContainerPortPreview: separate PLAN_ONLY, opaque ObservationKey, hostport-free categories, no Apply
   container_autostart_preview_contract: Private/ContainerAutoStartPreview.ps1 # separate PLAN_ONLY, strict raw restartpolicy/label, no hostlogin/CAS/Apply
+  container_autostart_preview_public_reference: Public/README.md # Container-Autostart nur vorprüfen; API/CLI/browser contract, history in local_validation_strategy
   validation_container_autostart_preview: Tests/Static/Fixtures/ContainerAutoStartPreviewChecks.ps1 # actual public/module route in existing ContainerReconcile suite
   acceptance_container_autostart_preview: Tests/Integration/Invoke-ContainerAutoStartPreviewAcceptance.ps1 # owned-only five public core calls; Docker/Podman PASS 2026-10-05 on 77fbaee with own cleanup; dedicated CLI PASS on 960b5452; browser/HTTP PASS 2026-10-06 under Docker/Podman; no Apply
   acceptance_container_autostart_preview_contract: Tests/Common/ContainerAutoStartPreviewAcceptance.ps1 # bounded fixed categories, no-write/content checks; existing port scope/custody/cleanup reuse
@@ -655,6 +661,9 @@ sources_of_truth:
   validation_hyperv_image_migration: Tests/Static/Invoke-HyperVImageMigrationChecks.ps1
   validation_hyperv_storage_acceptance_bootstrap: Tests/Integration/Invoke-HyperVStorageAcceptanceBootstrap.ps1
   runtime_limitations: Documentation/Quality/KNOWN_LIMITATIONS.md
+  local_validation_strategy: Documentation/Quality/LOCAL_VALIDATION_STRATEGY.md # executed evidence with scope/head/date; historical proof is not a current gate
+  validation_pester_runner: Tests/Static/Invoke-PesterChecks.ps1 # Pester >=5; complete success 0, failure 1, NOT_EXECUTED/infrastructure 2
+  validation_pester_runner_fixture: Tests/Static/Fixtures/ReleaseReadinessPesterChecks.ps1 # isolated synthetic process/exit/status checks via ReleaseReadiness
   sample_artifact_and_manifest_wizard_target: Documentation/Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md
   mixed_provider_lifecycle: Documentation/Architecture/MIXED_PROVIDER_LIFECYCLE.md
   component_relation_plan: Private/ComponentRelationPlan.ps1
@@ -687,6 +696,11 @@ sources_of_truth:
   sa_password_policy_validation: Tests/Static/Invoke-SaPasswordPolicyChecks.ps1
   sa_password_policy_browser_validation: Tests/Static/Fixtures/SaPasswordPolicyHttpChecks.ps1, Tests/Static/Fixtures/SaPasswordPolicyUiChecks.cjs
   workflow_ui_server: Tools/Start-SqlServerLabUi.ps1
+  workflow_ui_request_boundary: Documentation/Architecture/WORKFLOW_UI_REQUEST_BOUNDARY.md, Tools/WorkflowUiRequestBoundary.ps1
+  workflow_ui_request_boundary_validation: Tests/Static/Fixtures/WorkflowUiRequestBoundaryChecks.ps1
+  workflow_ui_json_body: Tools/WorkflowUiJsonBody.ps1
+  workflow_ui_json_body_validation: Tests/Static/Fixtures/WorkflowUiJsonBodyChecks.ps1
+  workflow_ui_specialized_body_validation: Tests/Static/Fixtures/WorkflowUiSpecializedBodyChecks.ps1 # eight internal adapters; retained character limits, byte ceilings, absolute deadline; synthetic sinks
   workflow_ui_job_status: Tools/WorkflowUiJobStatus.ps1 # bounded UI-owned batch reader; no store initialization or scheduling
   workflow_ui_job_status_validation: Tests/Static/Fixtures/WorkflowJobStatusChecks.ps1, Tests/Static/Fixtures/WorkflowJobStatusChecks.cjs
   workflow_ui_assets: Ui/index.html, Ui/app.js, Ui/app.css
@@ -718,6 +732,8 @@ sources_of_truth:
   validation_documentation: Tests/Static/Invoke-DocumentationChecks.ps1
   validation_runtime_contracts: Tests/Static/Invoke-ReadinessContractChecks.ps1
   direct_action_progress: Private/ActionProgress.ps1
+  download_stream_limits_contract: Documentation/Architecture/DOWNLOAD_STREAM_LIMITS.md
+  validation_download_stream_limits: Tests/Static/Fixtures/ActionProgressDownloadLimitChecks.ps1
   blocking_action_progress: Private/BlockingActionProgress.ps1
   legacy_sql_wait_progress: Private/HyperVSqlAcceptanceEnvironment.ps1
   validation_blocking_action_progress: Tests/Static/Invoke-BlockingActionProgressChecks.ps1
@@ -800,7 +816,10 @@ foundation_integration:
   session_lifecycle_selection:
     normative_rules_and_schemas: integrated
     numeric_thresholds: not_selected
-    automatic_successor_sessions: not_selected
+    automatic_successor_sessions: allowed_at_verified_natural_boundary
+    successor_session_capability: trusted_client_evidence_required
+    role_transfer: checkpoint_bound_single_orchestrator_acknowledgement
+    manual_fallback: creation_or_takeover_unavailable_failed_or_unattested
     optional_ai_work_planner: not_selected
     pause_authority: Documentation/Project_Planning/AUTONOMOUS_DEVELOPMENT_WAVE_2026-09-10.md
   identity_registration_mapping: .ai/IDENTITY_AND_ARTIFACT_REGISTRATION.md
@@ -1429,6 +1448,9 @@ catalogs:
     browser_http: Private/CollationCatalogHttp.ps1; Tools/Start-SqlServerLabUi.ps1 POST /api/collations/search
     browser_view: Ui/collation-catalog.js; Ui/index.html Collations suchen
     browser_validation: Tests/Static/Invoke-CollationCatalogBrowserChecks.ps1; Tests/Static/Fixtures/CollationCatalogHttpChecks.ps1; Tests/Static/Fixtures/CollationCatalogUiChecks.cjs; Tests/Static/Invoke-ReviewedBrowserCompositionChecks.ps1
+    browser_rendered_acceptance: Tests/Integration/Invoke-CollationCatalogBrowserAcceptance.ps1
+    browser_rendered_contracts: Tests/Common/CollationCatalogBrowserAcceptance.ps1
+    browser_rendered_fixture: Tests/Static/Fixtures/CollationCatalogBrowserAcceptanceChecks.ps1
     browser_contract: "Bewusste RAM-only ASCII-AND-Katalogsuche; SQL 2019/2022/2025; <=256 Queryzeichen, geschlossene Metadaten <=100 Zeilen/64KiB, SQL NOT_CHECKED, Actions leer/Mutation und Execution false; kein Auswahltransfer, keine SQL-/Provider-/Stateaktion; bestehende native Evidence separat"
     validation: Tests/Static/Invoke-CollationCatalogChecks.ps1 und Tests/Static/Invoke-CollationRuntimeEvidenceChecks.ps1
     runtime_evidence: Tests/Integration/Invoke-ContainerCollationAcceptance.ps1; Docker und Podman bestanden am 2026-09-13 fuer SQL 2025 mit Latin1_General_100_CS_AS, kataloggebundener Verfuegbarkeit, SERVERPROPERTY-Postcondition, run-gebundener sanitisierter Evidence und Cleanup (PR-Gate 34783317945). Hyper-V/Windows bleibt getrennt offen

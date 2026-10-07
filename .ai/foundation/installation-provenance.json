@@ -711,9 +711,9 @@
       "kind": "entrypoint",
       "merge": "ai_merge_if_exists",
       "source_sha256": "c0ca57c32ad6d69f69b802caf96e5c75e19a17dbd0f5f7671066cb3d51792b22",
-      "installed_sha256": "d7dd5029563f1f0a1e5a3aad3af4000888bc0d6905e7256d8be814c142402616",
+      "installed_sha256": "3bc1e039186b9e935ee2ee9b9f02a0e683aff3f529e73b0c977cffd3a8159b89",
       "integration_state": "INTENTIONAL_OVERRIDE",
-      "reason": "Preserved project-owned governance outside the managed Foundation bridge."
+      "reason": "Preserved project-owned mandatory reads, security, validation and authorized session boundaries outside the unchanged managed Foundation bridge; added task-to-source orientation without parallel rules."
     }
   ]
 }

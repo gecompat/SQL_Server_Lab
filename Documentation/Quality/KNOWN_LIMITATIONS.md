@@ -1,25 +1,65 @@
 # Bekannte Grenzen
 
+## Downloads: Streaminggrenze und offene Speicherquoten
+
+Der [gemeinsame Transport](../Architecture/DOWNLOAD_STREAM_LIMITS.md) begrenzt
+empfangene Bytes vor dem Schreiben. Medien und llama.cpp-Modelle verwenden die
+genaue Kataloggröße; Aufrufer ohne Größenmetadaten zunächst 1 TiB. Das begrenzt
+keine kumulative Belegung und reserviert keinen Speicherplatz. Engere
+fachliche Grenzen, Speicherprüfung und Quoten bleiben offen. Hash-, genaue
+Größen-, GGUF- und Signaturprüfungen sowie eigener Teilstand-Cleanup gelten
+weiter. Der ältere Cloud-Scan deckt diesen Head nicht ab; der Fund bleibt offen.
+
+## Lokale External Models: begrenzte Autoritaetsliste
+
+Die [lokale Lane](../User/SQL_AI_LOCAL_ACCELERATION.md) erlaubt numerischen
+Loopback und exakt `localhost`, `host.docker.internal`, `host.containers.internal`.
+Andere Autoritaeten blockieren vor Probe bzw. neuer SQL-Aktion. TLS-/Runtime-
+Bindings bleiben erforderlich; DNS-/TCP-Zielbindung und Container-/VM-Routing
+sind damit nicht attestiert. Keine allgemeine private Netzwerk- oder Cloud-
+Freigabe, verwaltete Cloud-Allowlist, Datenklassen-/Consentbindung oder neue
+Authority-Anzeige in der Apply-Bestaetigung. Legacy-Lese-/Cleanupvertraege und
+Plan-/Receipt-Schluessel bleiben erhalten. Der Cloud-Fund bleibt offen.
+
+## Workflow-UI: HTTP-Grenze und offene Operatorauthentifizierung
+
+Die gemeinsame [HTTP-Prüfung](../Architecture/WORKFLOW_UI_REQUEST_BOUNDARY.md)
+weist fremde Origins, mehrdeutige Header und ungeeignete POST-Medientypen
+vor Routing/Bodylesung ab. Lokale JSON-Clients ohne Origin bleiben zugelassen;
+GET ist nicht authentifiziert. Keine per Start gebundene Operator-Capability,
+einmalige servergebundene Aktionsfreigabe. Die sieben direkten JSON-POST-Routen
+besitzen eine 1-MiB-Bytegrenze, striktes UTF-8 und fünf Sekunden absolute
+Lesefrist. Acht interne Fachreader verwenden nun denselben Transport mit ihren
+bisherigen engeren Zeichenlimits und zusätzlichen Byteobergrenzen. Übrige
+spezifische Adapter mit eigenen Readern, Headerannahme,
+Parallelität, Authentifizierung und Statequotas bleiben separat offen. Der zugehörige
+Security-Cloud-Fund bleibt offen; der ältere Scan deckt spätere Heads nicht ab.
+
+## Lokale Release-Veröffentlichung nach Prozessabbruch
+
+Ein dauerhaftes Intent und eine atomare Abschlussquittung binden die
+vollständige Paket-/Archivdateimenge. Die rein lesende `InspectReleaseId`-Prüfung
+meldet ohne Quittung `INCOMPLETE`; der Prozess kann noch laufen oder abgebrochen
+sein. Vorhandene Teilartefakte werden weder übernommen noch entfernt.
+`COMPLETED` bestätigt aktuell passende Artefaktbytes, keinen Prozessabschluss
+oder Cleanup; Stagingreste können bestehen. Keine atomare Mehrdateitransaktion,
+Herausgebersignatur, Stromausfallabnahme oder automatische Recovery.
+[Vertrag](../Architecture/LOCAL_RELEASE_PUBLICATION.md).
+
 ## SA-Passwortpolicy: begrenzte Erstellung
 
-Die zentrale Container-Vorpruefung sowie die CLI- und Browser-Korrektur-/Abbruchwege
-sind implementiert. Der Browser prueft zusaetzlich vor einem Creationjob und
-weist ungueltige oder mehrdeutige Requests serverseitig ab. Customminimum 1..8
-gilt ausschliesslich fuer AdHoc,
-exakt katalogisierte SQL2025-CUs, Standardlaunch und frische eigene kurzlebige
-Systemvolumes. Latest, Manifest, SQL2022, PersistentData, bestehende Stores,
-Derived Images und Mountkollisionen erlauben keine Absenkung. Bei Teilreceipt
-wird keine vorhandene Volume nachinitialisiert; der State115-Erstellungsretry
-bleibt fuer Customminimum gesperrt. Der echte Loopback-HTTP-Weg wies drei
-ungueltige Requests vor der Jobanlage ab. Gerenderter Browser und gueltiger
-HTTP-Creationjob mit bewusster Mindestlaenge drei bestanden getrennt fuer
-Docker und Podman bis zur SQL-Anmeldung und zum eigenen Cleanup.
-Docker und Podman bestanden am 2026-10-06 je einen eigenen SQL2025-CU9-
-Erststart mit Mindestlaenge drei, SA-Anmeldung, Configerhalt nach Restart und
-gebundenem Cleanup. Andere Mindestlaengen und CU-Images sind nicht nativ
-geprueft; das PR-Abschlussgate muss den jeweils aktuellen Head belegen.
-[Vertrag](../Architecture/SA_PASSWORD_POLICY.md).
+Eine kürzere Mindestlänge ist nur im engen AdHoc-Neucontainervertrag mit exakt
+katalogisiertem SQL2025-CU, Standardlaunch und frischem eigenem kurzlebigem
+Systemvolume zulässig. Latest, Manifest, SQL2022, PersistentData, bestehende
+Stores, Derived Images und Mountkollisionen erlauben keine Absenkung.
+Teilreceipts gestatten keine Nachinitialisierung einer vorhandenen Volume;
+der State115-Erstellungsretry bleibt für Customminimum gesperrt.
 
+Die dokumentierten nativen Referenzen betreffen SQL2025-CU9 und Mindestlänge
+drei. Andere CU-Images, Mindestlängen und Persistenzmodi sind nicht nativ
+abgenommen. Historische Erststart-, HTTP- und Browsernachweise ersetzen nicht
+das Abschlussgate am aktuellen Head. [Vertrag](../Architecture/SA_PASSWORD_POLICY.md)
+und [getrennte Abnahmehistorie](LOCAL_VALIDATION_STRATEGY.md#sa-passwortpolicy-fokussierter-offlinevertrag).
 
 ## GUI-Aktionsstatus
 
@@ -36,9 +76,20 @@ oder den zuvor beobachteten Hostzustand erneut abzufragen.
 
 ## Container-Autostart nur vorprüfen
 
-`Get-SqlServerLabReconcilePlan -ContainerAutoStartPreview -RunId $runId -InstanceId primary -AutoStart on -StateRoot $stateRoot` ist eine getrennte PLAN_ONLY-Vorschau der Container-Restartpolicy für moderne registrierte laufende SQL-Instanzen unter Docker/Podman. Explizite skalare on/off-Labels und Restartpolicy müssen übereinstimmen; fehlende, untypisierte oder widersprüchliche Evidence bleibt UNKNOWN/DRIFTED und gesperrt. Nur die begrenzte SQL-Loopbacktopologie und darstellbare Mounts werden akzeptiert. Der DTO zeigt feste ON/OFF- und SAME_POLICY/DIFFERENT_POLICY-Kategorien sowie Mountcounts ohne Hostwerte, native IDs oder Pfade. CanApply=false, MutationAllowed=false und leere Actions gelten auch für No-op; der opaque ObservationKey ist reine Inhaltsbindung, keine CAS-/Reservierungs-/Executorautorität. Endpoint, SQL, Backup und Hostlogin bleiben NOT_CHECKED. Ein Kontextread nutzt die bestehenden Ownership-Revalidierungen; zusätzliche eigene Inspectreads bleiben erhalten. Der geführte CLI-Einstieg „Lab-Umgebungen → Container-Autostart vorprüfen“ wählt registrierte Lab-/Instanzmetadaten und liest den bestehenden öffentlichen Core nach einem vollständigen on/off-Wunsch genau einmal. Abbruch und ungültige Eingaben vor dem Aufruf lesen kein Inspect; feste Kategorien, Mountcounts und NOT_CHECKED-Grenzen werden erst nach strikter skalarer DTO-Prüfung angezeigt. Der separate Browserdialog „Lab verwalten → Container-Autostart vorprüfen · PLAN_ONLY“ liest beim Öffnen nur registrierte Zielmetadaten des serverseitigen Roots. Ziel-/on/off-Wechsel lösen keinen Read aus; erst bewusste Vorschau ruft denselben öffentlichen Core einmal auf. Strikte Request-/DTO-Projektionen erlauben keine clientseitigen Roots, nativen IDs oder Applyautorität. UNKNOWN/DRIFTED, Mountcounts und NOT_CHECKED-Grenzen bleiben sichtbar; Schließen, Bearbeitung und neue Requests verwerfen späte Antworten, während ein bereits versandter Read fertiglaufen darf. Die spezifische native CLI-Abnahme vom 2026-10-05 auf Head `960b5452` bestand unter Docker und Podman mit je drei tatsächlichen Menü-/Dualrouter-/Public-Vorschauaufrufen (on/off/on), null frühen Cancel-/Invalid-Aufrufen, unveränderten eigenen Statebytes und je neun getrennten Ownership-/Inspectreads. Zwei bytegebundene terminale Cleanuprecords bestätigten pro Provider die Entfernung der eigenen Ressourcen und Roots; der gemeinsame Schutzvergleich hatte null Findings und null Observations. Gerenderter Browser und HTTP-Netztransport wurden am 2026-10-06 unter Docker und Podman mit je drei öffentlichen Vorschauaufrufen und eigenem Cleanup nativ geprüft; der generische CLI-/Webkatalog verwendet unverändert den öffentlichen Parametervertrag. Die spezifische native Core-Abnahme vom 2026-10-05 auf Head `77fbaee` bestand unter Docker und Podman mit je fünf öffentlichen Vorschauaufrufen, unveränderten eigenen Statebytes, zwei bytegebundenen terminalen Cleanuprecords und entfernten eigenen Ressourcen/Roots. Der gemeinsame Schutzvergleich bestand mit null Findings und null Observations. Der historische Corelauf allein nahm keine CLI-/Browserdialoge oder HTTP-Netztransport ab; CPU/RAM, Portvorschau, Apply/Recovery und der vollständige Scope A bleiben unverändert bzw. separat offen.
+Die Container-Autostartvorschau bleibt PLAN_ONLY, einschließlich No-op.
+UNKNOWN/DRIFTED sperrt; es gibt keine Apply-/Recoveryaktion oder
+CAS-/Reservierungsautorität. Endpoint, SQL, Backup und Hostlogin bleiben
+NOT_CHECKED. Nur moderne registrierte laufende Docker-/Podman-SQL-Instanzen
+mit begrenzter Loopbacktopologie und darstellbaren Mounts sind zulässig.
+Der [öffentliche Vertrag](../../Public/README.md#container-autostart-nur-vorprüfen)
+beschreibt API und Bedienung; die
+[Abnahmehistorie](LOCAL_VALIDATION_STRATEGY.md#getrennte-autostart-core-abnahme)
+grenzt Core, CLI und Browser/HTTP getrennt ab. Diese Referenzen nehmen
+Port-Apply/Recovery oder den vollständigen Scope A nicht ab.
 
-Der test-only Native-CLI-Harness ist mit `Invoke-ContainerAutoStartPreviewAcceptance.ps1 -ConsoleOnly` vorbereitet. Er verwendet für einen frischen eigenen registrierten Run den tatsächlichen Menüeintrag und beide Router mit drei öffentlichen on/off/on-Vorschauaufrufen, frühzeitigem Cancel-/Invalid-Veto, unveränderten Statebytes und vorhandener receiptgebundener Own-Cleanup-Autorität. Eingabe und Ausgabe werden deterministisch geführt; der öffentliche Core und native Ownership-/Inspectreads bleiben unverändert. Die konkrete Docker-/Podman-CLI-Abnahme bestand am 2026-10-05 auf `960b5452` mit den oben beschriebenen Grenzen; die bereits bestandene Core-Abnahme auf `77fbaee` wird nicht wiederholt. Dieser historische CLI-Lauf selbst nahm HTTP/Browser, Hostlogin, Preview-SQL/Endpoint und Apply nicht ab; die getrennte Browser-Abnahme ist oben dokumentiert.
+Der [getrennte CLI-Nachweis](LOCAL_VALIDATION_STRATEGY.md#getrennte-autostart-cli-vorschau)
+ersetzt weder die Browser-/HTTP-Abnahme noch einen Hostlogin-, SQL-/Endpoint-
+oder Applynachweis.
 
 
 Der owned-host-only Harness
@@ -890,6 +941,17 @@ Warnung. Öffnen/Bearbeiten startet keine Suche; RAM-Eingaben und späte Antwort
 werden bei Abbruch verworfen. Dies beendet keine serverseitige Anfrage und
 belegt keinen garantierten HTTP-Zeitbound. Kein vollständiges SQL-Inventar,
 Advanced-Freiname, Manifesttransfer oder neue native Collation-Abnahme.
+
+Die separate gerenderte Katalogabnahme bestand am 2026-10-07 auf `8b2aba1c`:
+vollständige Produktseite mit zwölf unveränderten Assets, achtzehn gebundenen
+Produktquelldigests und 105 Loopback-HTTP-Requests. Genau sechs bewusste Suchen
+liefen über die echte Route und den tatsächlichen öffentlichen Katalogreader
+im isolierten Modul. SQL 2019/2022/2025, UTF-8-/DEPRECATED-Treffer, Nulltreffer,
+leere und Unicode-Zero-Token-Suche sowie Rücksetzen beim Wiederöffnen wurden
+gerendert geprüft. Keine Skriptfehler oder instrumentierten verbotenen Effekte;
+eigener Listener und Tab geschlossen. Vier Seitenbootstrapreads waren
+synthetisch; vollständiger Produktmodulimport, State, Provider, Secrets und SQL
+blieben NOT_EXECUTED. Dies erweitert keinen nativen SQL-/Windows-Nachweis.
 
 Die Instanzdefinition enthält eine Collation, die bei neuen Umgebungen sowohl als SQL-Server-Instanzcollation als auch als Default für neu angelegte Datenbanken verwendet wird. Ohne explizite Angabe gilt der native SQL-Containerstandard `SQL_Latin1_General_CP1_CI_AS`. Eine abweichende Collation wie `Latin1_General_100_CS_AS` löst beim ersten Containerstart einen Systemdatenbankumbau aus und kann deshalb deutlich länger benötigen.
 
@@ -1835,6 +1897,11 @@ Launchmodus. `READY` bestätigt weder SQL-/Sprachausführung, Rechte noch Besitz
 Im Standardvertrag 1.0 bleibt historisches Matching `NOT_RECORDED`/`NOT_DEFINED`. Der geführte Browser
 verwendet denselben engen Public-Entscheid mit bewusstem optionalem Hostcheck;
 Hyper-V-Erweiterung und die vollständige CORE-102-Matrix bleiben offen.
+Die gerenderte Katalogabnahme bestand am 2026-10-07 auf `4007d414` mit vier
+öffentlichen Entscheidungen und tatsächlichen Katalog-/Rezeptquellen. Der
+Seitenbootstrap war synthetisch; Hostprüfung, historischer Lookup, Installation
+und SQL wurden nicht ausgeführt. Dieser Browsernachweis schließt die offene
+native Provider-/SQL-Sprachabnahme nicht.
 Der synchrone HTTP-/Listener-Aufruf besitzt kein Gesamtwallclock-Limit.
 Browserabbruch verwirft die Anzeige, stoppt keine bereits angeforderte Prüfung.
 

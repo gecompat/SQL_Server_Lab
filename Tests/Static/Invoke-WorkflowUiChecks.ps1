@@ -70,7 +70,8 @@ Add-CheckResult -Name 'GUI stellt den vollständigen öffentlichen Befehlsvertra
     $serverText -match 'Get-LabPublicCommandWebCatalog' -and
     $serverText -match 'Invoke-LabPublicCommandWebRequest' -and
     $serverText -match 'Start-UiPublicCommandJob' -and
-    $serverText -match 'PUBLIC_COMMAND_UI_REQUEST_TOO_LARGE' -and
+    $serverText -match 'WorkflowUiJsonBody.ps1' -and
+    $serverText -match 'Read-UiJsonRequestBody -Request \$context.Request' -and
     $serverText -match 'Generische Befehlsparameter können Geheimnisse enthalten' -and
     $htmlText -match 'id="command-center"' -and
     $htmlText -match 'id="command-search"' -and
@@ -731,7 +732,7 @@ else {
     finally { $process.Dispose() }
 }
 
-foreach ($fixture in @('ContainerPortPreviewHttpChecks.ps1','ContainerPortPreviewUiChecks.cjs','ContainerPortPreviewBrowserAcceptanceChecks.ps1','ContainerAutoStartPreviewHttpChecks.ps1','ContainerAutoStartPreviewUiChecks.cjs','ContainerAutoStartPreviewBrowserWorkflowChecks.ps1','WorkflowJobStatusChecks.ps1','WorkflowJobStatusChecks.cjs','SaPasswordPolicyHttpChecks.ps1','SaPasswordPolicyUiChecks.cjs','RunArtifactRemovalHttpChecks.ps1','RunArtifactRemovalUiChecks.cjs')) {
+foreach ($fixture in @('WorkflowUiSpecializedBodyChecks.ps1','WorkflowUiJsonBodyChecks.ps1','WorkflowUiRequestBoundaryChecks.ps1','ContainerPortPreviewHttpChecks.ps1','ContainerPortPreviewUiChecks.cjs','ContainerPortPreviewBrowserAcceptanceChecks.ps1','ContainerAutoStartPreviewHttpChecks.ps1','ContainerAutoStartPreviewUiChecks.cjs','ContainerAutoStartPreviewBrowserWorkflowChecks.ps1','WorkflowJobStatusChecks.ps1','WorkflowJobStatusChecks.cjs','SaPasswordPolicyHttpChecks.ps1','SaPasswordPolicyUiChecks.cjs','RunArtifactRemovalHttpChecks.ps1','RunArtifactRemovalUiChecks.cjs')) {
     $start = [Diagnostics.ProcessStartInfo]::new()
     $start.FileName = if ($fixture.EndsWith('.ps1')) { (Get-Process -Id $PID).Path } elseif ($node) { $node.Source } else { '' }
     if (-not $start.FileName) { Add-CheckResult -Name $fixture -Success $false -Message 'NOT_EXECUTED: Node.js fehlt.'; continue }

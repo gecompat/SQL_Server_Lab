@@ -1,5 +1,91 @@
 # Tests/ – lokale und Remote-Validierung
 
+## Pester-Runner und Ergebnisstatus
+
+`Static/Invoke-PesterChecks.ps1` benötigt Pester ab Version 5 und führt die
+Unit-/Contract-Suite unter `Pester/` aus. Maßgeblich für Status und Exitcodes
+ist die [Validierungsstrategie](../Documentation/Quality/LOCAL_VALIDATION_STRATEGY.md#pester-runnerstatus).
+
+`Static/Fixtures/ReleaseReadinessPesterChecks.ps1` ist in die bestehende
+ReleaseReadiness-Suite eingebunden. Isolierte Prozesse mit synthetischer
+Modulauflösung prüfen Erfolg, fehlendes/zu altes Pester, Import-/Aufruffehler,
+leere/ungültige Ergebnisse, Test-/Containerfehler und unvollständige Fälle.
+Die Fixture belegt Runnerstatus und Exitcodes; echte Pester-Ausführung bleibt
+ein eigener Nachweis. `Invoke-ImpactedChecks.ps1` und `Invoke-AllChecks.ps1`
+behandeln jeden von null verschiedenen Suite-Exitcode als nicht grünen Gate.
+Voraussetzungen und Nachweisführung: [Validierungsstrategie](../Documentation/Quality/LOCAL_VALIDATION_STRATEGY.md#pester-runnerstatus).
+
+`Static/Fixtures/ActionProgressDownloadLimitChecks.ps1` ist in die direkte
+Fortschrittssuite eingebunden: echte eigene Loopback-HTTP-Antworten prüfen
+Byteceilings vor Zielöffnung und während des Empfangs. Die Medienquellen- und
+Modellkatalog-Suites prüfen die Kataloggrenzen mit synthetischen Leaves.
+SQL, Provider, Speicherreservierung und kumulative Quoten sind keine daraus
+abgeleiteten Nachweise. [Vertrag](../Documentation/Architecture/DOWNLOAD_STREAM_LIMITS.md).
+
+`Static/Fixtures/AiExternalModelAuthorityChecks.ps1` ist in die External-Model-
+Suite eingebunden. Sie prueft die feste lokale Autoritaetsliste und Vetos vor
+Transport-/SQL-Dispatch ohne Netzwerk oder Provider; bestehende PlanKeys und
+der Legacy-SQL-Lesevertrag bleiben gebunden. DNS-/TCP-Zielbindung und Cloud-
+Consent sind damit nicht belegt. Der getrennte Windows-OVMS-Gateway-Runner
+prueft einen eigenen kurzlebigen numerischen HTTPS-Loopback-Endpunkt.
+
+`Static/Fixtures/WorkflowUiJsonBodyChecks.ps1` ist in WorkflowUI eingebunden:
+35 Checks mit 13 echten HTTP-Requests über den vollständigen Produktblock und
+synthetischen Fach-Sinks prüfen sieben direkte POST-Reader, Überlängenheader
+ohne Body, Chunked, UTF-8-Veto, Trickle-Deadline und drei gültige Folge-Requests.
+Eigene Streams prüfen Sentinel und exaktes Bytelimit. Kein Produktmodul, State,
+SQL oder Provider; eigener Listener und Threadjob werden beendet. Spezifische
+Adapter, Headerdeadline, Parallelität, Authentifizierung und Statequotas bleiben offen.
+
+`Static/Fixtures/WorkflowUiRequestBoundaryChecks.ps1` ist in WorkflowUI
+eingebunden. Die 48 fokussierten Checks prüfen Header-/Authority-Grenzen ohne
+Bodylesung und zwölf echte HTTP-Requests über zentrale Produktanweisungen.
+Zehn Vetos erreichen keinen synthetischen Job; zwei erlaubte Requests tun es.
+Produktmodul, State, SQL und Provider bleiben ungenutzt. Eigener Loopbacklistener
+und Threadjob werden geschlossen/entfernt. Operatorauthentifizierung und
+gerenderter Browser sind damit nicht abgenommen.
+
+`Integration/Invoke-ExternalRuntimeCapabilityCatalogBrowserAcceptance.ps1` liefert die
+vollständigen zwölf unveränderten Produktassets für die getrennte gerenderte
+External-Languages-Katalogabnahme. Ein frisches
+`.artifacts/test-runs/external-catalog-browser-<GUID-N>` bewahrt lokale Records;
+der eigene Loopbacklistener ist auf vier Minuten und 512 Requests begrenzt.
+Vier Bootstrapreads sind synthetisch. Die tatsächliche HTTP-Route verwendet
+im isolierten Modul den öffentlichen Entscheid mit den tatsächlichen
+Katalogen, Provider-Metadaten und Rezept-/Lockdateien. Vier Optionsreads und
+vier Entscheidungen prüfen Docker Java/2019, Docker Python/2022, Podman R/2022
+und die explizite Podman Java/2025-shared-user-Variante. Geschlossene Payloads
+und DTOs, deaktivierte blockierte Optionen, Öffnen/Bearbeiten ohne Aktion und
+Rücksetzen der Ausgabe beim Wiederöffnen werden gebunden. Hostprüfung und
+historischer Lookup sind verboten; Produktmodulimport, State, Provider-Runtime,
+Secrets, Installation und SQL bleiben ungenutzt. Der Listener schließt auf
+jedem Ergebnis; die Offlinefixture ersetzt keine ausgeführte Browserabnahme.
+Die gerenderte Abnahme bestand am 2026-10-07 auf `4007d414` mit 98 Requests,
+36 unveränderten Produktquellhashes und genau vier öffentlichen Entscheidungen.
+Keine Skriptfehler oder instrumentierten verbotenen Effekte; eigener Listener
+und Tab geschlossen. Die fokussierte Offlinefixture bestand mit 48 Fällen.
+Hostprüfung, historischer Lookup, Installation und SQL bleiben ungenutzt.
+
+`Integration/Invoke-CollationCatalogBrowserAcceptance.ps1` dient der getrennten
+gerenderten Collation-Katalogabnahme über einen eigenen begrenzten Loopbacklistener.
+Ein frisches `.artifacts/test-runs/collation-browser-<GUID-N>` bewahrt lokale
+Ready-, Operator- und Ergebnisrecords. Die vollständigen zwölf Produktassets
+werden unverändert geliefert. Vier Bootstrapreads sind synthetisch; die echte
+Suchroute verwendet im isolierten Modul ausschließlich HTTP-Helper, Public-
+Suchbefehl und Schema-/Katalogreader. Sechs bewusste Suchen prüfen drei SQL-
+Versionen, ASCII-AND/UTF-8, DEPRECATED, Nulltreffer und Zero-Token-Verhalten.
+Öffnen/Bearbeiten ohne Suche, Rücksetzen beim Wiederöffnen und Schließen werden
+gerendert beobachtet; achtzehn Produktquellhashes bleiben gebunden. Verbotene
+State-/Provider-/Secret-/SQLleaves sind instrumentiert. Der eigene Listener
+schließt auf jedem Ergebnis; private Evidence bleibt erhalten. Der Test
+importiert kein vollständiges Produktmodul und startet keine Runtime. Die
+fokussierte Fixture prüft Quelle, tatsächlichen Katalogreader und geschlossene
+Abschlussbedingungen offline; sie ersetzt keine ausgeführte Browserabnahme.
+Die gerenderte Abnahme bestand am 2026-10-07 auf `8b2aba1c` mit 105 Requests,
+genau sechs öffentlichen Suchen und null instrumentierten verbotenen Effekten.
+Eigenen Listener und Tab geschlossen; der fokussierte Offlinevertrag bestand
+mit 36 Fällen. Der Seitenbootstrap bleibt synthetisch, SQL ungenutzt.
+
 `Integration/Invoke-ConnectionCenterCmsFullPageAcceptance.ps1` prüft den
 CMS-Einstieg im tatsächlichen vollständigen Seitenbootstrap mit synthetischem Backend.
 Ein frisches `.artifacts/test-runs/cms-full-page-<GUID-N>` enthält lokale Ready-,
@@ -406,7 +492,12 @@ Interpretation:
 Die Release-Artefaktprüfung verwendet isolierte Git-Fixtures. Sie prüft
 mutationsfreies `WhatIf`, saubere Quellen, Ausschluss lokaler Daten,
 Pfadumleitungen, Teilpublikation, ZIP-/Hash-Integrität und den Import des
-tatsächlich entpackten Moduls. Sie startet keine Provider-Runtime.
+tatsächlich entpackten Moduls. Zusätzliche eigene PowerShell-Kindprozesse
+werden an vier Publikationsgrenzen hart beendet. Intent, Abschlussquittung
+und rein lesende Inspektion trennen unvollständige Artefakte von einem
+vollständigen, bytegeprüften Stand mit möglichen Stagingresten. Recordlimits,
+Inhaltsdrift, Traversal und leere Reparsepunkte werden ebenfalls geprüft.
+Sie startet keine Provider-Runtime. [Vertrag](../Documentation/Architecture/LOCAL_RELEASE_PUBLICATION.md).
 
 Die native Vector-Core-Abnahme wird für die beiden Linux-Provider getrennt
 ausgeführt. Jeder Lauf provisioniert ein eigenes SQL-2025-Lab und benötigt

@@ -1,5 +1,36 @@
 # Changelog
 
+## 2026-10-07 – Einstieg, Dokumentationsquellen und Pester-Status
+
+- Der Einstieg führt Voraussetzungen, Setup und Bedienung zusammen;
+  Vertragsquellen, Abnahmehistorie und bekannte Grenzen sind gezielt verlinkt.
+  Veraltete offene SA-Passwort-HTTP-/Browserstatus verweisen auf die begrenzten
+  dokumentierten Referenzabnahmen.
+- Der Pester-Runner verlangt Version 5 oder neuer und meldet fehlende oder
+  unvollständige Ausführung mit Exitcode 2 statt PASS. Isolierte Offline-Fixtures
+  prüfen auch Import-, Aufruf-, Ergebnis- und Testfehler.
+
+## 2026-10-07 – automatische Nachfolgesitzungen
+
+- Der Projektvertrag erlaubt automatische Chatwechsel an gesicherten
+  natürlichen Arbeitsgrenzen mit bestätigter Client-Fähigkeit und
+  eindeutiger Orchestratorübernahme. Manuelle Fortsetzung bleibt der Fallback;
+  numerische Schwellen, optionale Planer und Foundation-Regeln bleiben erhalten.
+
+## 2026-10-07 – Streaming-Bytegrenzen für Downloads
+
+- Gemeinsame Downloads verwerfen Überlänge vor weiterem Schreiben und ohne
+  Retry. Medien und llama.cpp-Modelle verwenden genaue Kataloggrößen; übrige
+  Aufrufer zunächst 1 TiB. Integritätsprüfung und eigener Teilstand-Cleanup
+  bleiben erhalten; Speicherreservierung und kumulative Quoten bleiben offen.
+
+## 2026-10-07 – lokale External-Model-Autoritaeten
+
+- Die lokale Lane erlaubt nur numerischen Loopback und feste lokale Hostaliases.
+  Andere Ziele blockieren vor Probe bzw. neuer SQL-Aktion. Bestehende Plan-/
+  Receipt-Schluessel und Legacy-Cleanup bleiben erhalten; DNS-/TCP-Zielbindung
+  und eine klassifizierte Cloud-Lane mit Consent bleiben offen.
+
 Dieses Changelog dokumentiert Änderungen am öffentlichen Verhalten, an maschinenlesbaren Verträgen und an der Bedienung von `SQL_Server_Lab`.
 
 Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher nach Datum geführt. Neue Einträge werden oben ergänzt.
@@ -8,6 +39,22 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Geändert
 
+- Sieben direkte JSON-POST-Routen der Workflow-UI begrenzen die tatsächlichen
+  UTF-8-Bodybytes auf 1 MiB und die Reads auf eine absolute Frist von fünf
+  Sekunden. Überlänge, ungültiges UTF-8 und Timeout werden vor JSON-Verarbeitung
+  und Fachaufrufen abgewiesen; spezifische Reader und Authentifizierung bleiben separat.
+
+- Die lokale Workflow-UI prüft gemeinsame Request-Authority, vorhandene
+  Origin-/Fetch-Site-Header und JSON-POST-Medientypen vor Routing/Bodylesung.
+  Fremde Origins und ungeeignete Medientypen werden abgewiesen. Lokale
+  JSON-Clients ohne Origin bleiben kompatibel; Operatorauthentifizierung,
+  servergebundene Aktionsfreigabe und Bodylimits bleiben offen.
+
+- Lokale Release-Pakete erhalten ein dauerhaftes Intent und eine atomar
+  veröffentlichte Abschlussquittung. `Prepare-LocalRelease.ps1
+  -InspectReleaseId` prüft eine exakte Release-ID rein lesend gegen die
+  vollständigen Paket- und Archivbytes. Fehlende Quittung bedeutet
+  `INCOMPLETE`; Prozessstatus und Cleanup werden nicht attestiert.
 - Die vorhandene Resource-Watch-Monatslane bietet einen zusätzlichen manuellen
   `metadata_only`-Dispatch ohne Issue-API, Issuerechte oder Publishtoken. Der
   vollständige CU-/SqlPackage-Check und seine Fehlerwahrheit bleiben erhalten;

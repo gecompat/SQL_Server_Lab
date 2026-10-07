@@ -8,6 +8,27 @@
 | Repository | `gecompat/SQL_Server_Lab` |
 | Maschinenlesbare Landkarte | [`repo_map.yaml`](repo_map.yaml) |
 
+Der Benutzer verlangt am 2026-10-07 nach PR-Integration der aktuellen
+UI-Fachreader-Runde eine Entwicklungspause. Der [kanonische Wellenplan](../Documentation/Project_Planning/AUTONOMOUS_DEVELOPMENT_WAVE_2026-09-10.md)
+enthält Abschlussgrenze, offene Schritte und Wiederaufnahmebedingungen.
+Nach Integration keine automatische Weiterarbeit ohne neuen ausdrücklichen Auftrag.
+
+## Dokumentationszuständigkeiten
+
+| Frage | Maßgebliche Quelle |
+|---|---|
+| Einstieg, Voraussetzungen und erster Aufruf | [`README.md`](../README.md), vertieft durch Getting Started |
+| Verbindliche Arbeits- und Sicherheitsregeln | [`AGENTS.md`](../AGENTS.md) und die dort verpflichtend erschlossenen Regeln |
+| Fachverhalten und öffentliche Verträge | Die in [`repo_map.yaml`](repo_map.yaml) zugeordneten Architektur-/API-Verträge |
+| Ausgeführte Prüfungen, Stand und Geltungsbereich | [`LOCAL_VALIDATION_STRATEGY.md`](../Documentation/Quality/LOCAL_VALIDATION_STRATEGY.md) und deren verlinkte Nachweise |
+| Bekannte Grenzen und fehlende Nachweise | [`KNOWN_LIMITATIONS.md`](../Documentation/Quality/KNOWN_LIMITATIONS.md) |
+
+Für SA-Passwörter gilt der [Architekturvertrag](../Documentation/Architecture/SA_PASSWORD_POLICY.md).
+Für die Autostartvorschau gilt die [öffentliche Referenz](../Public/README.md#container-autostart-nur-vorprüfen).
+Die Einstiege fassen diese Inhalte kurz zusammen. Historische Abnahmen werden
+mit ihrem Stand und Geltungsbereich erhalten; sie sind kein Nachweis für einen
+späteren Repositoryzustand. Die Map verbindet diese Quellen mit Code und Tests.
+
 Die feste [SQL-Version-Upgrade-Referenz](../Documentation/Quality/SQL_VERSION_UPGRADE_REFERENCE.md)
 überträgt eine eigene synthetische SQL-2022-Datenbank über die öffentliche
 Backup-Bibliothek auf einen neuen SQL-2025-Container. Compatibility Level 160
@@ -17,6 +38,32 @@ Die getrennten nativen Docker-/Podman-Referenzläufe bestanden am 2026-09-21 auf
 beobachteten Restore-Dauern sind kein Performance-Benchmark; allgemeine
 Migration bleibt unverändert.
 ## 1. Ziel
+
+Die [Sitzungsrichtlinie](../Documentation/Quality/COST_EFFICIENT_DEVELOPMENT.md)
+erlaubt automatische Chatwechsel an gesicherten natürlichen Arbeitsgrenzen
+mit bestätigter Client-Fähigkeit und eindeutiger Orchestratorübernahme.
+Numerische Schwellen und der optionale `ai-work`-Planer bleiben unselektiert.
+
+Der [gemeinsame Downloadtransport](../Documentation/Architecture/DOWNLOAD_STREAM_LIMITS.md)
+begrenzt Streamingbytes vor dem Schreiben. Medien und llama.cpp-Modelle
+verwenden ihre Kataloggröße; übrige Aufrufer zunächst 1 TiB. Speicherprüfung,
+Reservierung und kumulative Quoten bleiben offen.
+
+Die lokale [External-Model-Lane](../Documentation/User/SQL_AI_LOCAL_ACCELERATION.md)
+beschraenkt HTTPS-Autoritaeten auf numerischen Loopback und die festen lokalen
+Hostaliases. Andere Ziele werden vor Probe/neuer SQL-Aktion verworfen.
+DNS-/TCP-Zielbindung, Cloud-Consent und vollstaendige Cloud-Fundbehebung bleiben
+offen; Legacy-Cleanup und bestehende Plan-/Receipt-Schluessel bleiben erhalten.
+
+Die gemeinsame Workflow-UI-[HTTP-Grenze](../Documentation/Architecture/WORKFLOW_UI_REQUEST_BOUNDARY.md)
+prüft Requests vor Routing/Bodylesung. Fremde Origins und ungeeignete POST-
+Medientypen werden abgewiesen; lokale JSON-Clients ohne Origin bleiben erlaubt.
+Operatorauthentifizierung und vollständige Security-Cloud-Fundbehebung sind offen.
+Sieben direkte JSON-POST-Routen verwenden nun einen gemeinsamen Reader mit
+1-MiB-Bytegrenze, striktem UTF-8 und fünf Sekunden absoluter Lesefrist.
+Acht interne Fachreader verwenden ebenfalls den gemeinsamen Transport mit
+ihren bisherigen engeren Zeichenlimits und fünf Sekunden absoluter Lesefrist.
+Übrige spezifische Reader, Headerannahme, Parallelität und Statequotas bleiben separat.
 
 Der enge Diagnosebundle-Vertrag `Get-SqlServerLabDiagnosticBundle` liefert
 gebundene, sanitisierte Metadaten für eine moderne Instanz unter einem
@@ -41,6 +88,23 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 ## 2. Aktuelle Statuswahrheit
 
 ### Implementiert
+
+- Lokale Release-Veröffentlichung mit dauerhaftem Intent, atomarer
+  Abschlussquittung und rein lesender `InspectReleaseId`-Prüfung. Die Quittung
+  bindet vollständige Paket- und optionale Archivbytes; ohne Quittung bleibt
+  der Status `INCOMPLETE`, ältere Pakete sind `NOT_ATTESTED`. Prozessstatus,
+  automatische Wiederaufnahme und Cleanup werden nicht abgeleitet.
+  Vertrag: `Documentation/Architecture/LOCAL_RELEASE_PUBLICATION.md`;
+
+- Der geführte External-Languages-Browser-Katalogpfad besitzt eine getrennte
+  gerenderte Abnahme auf `4007d414` vom 2026-10-07: zwölf Produktassets,
+  36 tatsächliche Katalog-/Rezept-/Quellhashes, vier Optionsreads und vier
+  öffentliche Entscheidungen für Java/2019, Python/2022, R/2022 und die
+  explizite Java/2025-shared-user-Variante. Keine Skriptfehler oder verbotenen
+  instrumentierten Effekte; eigener Listener und Tab geschlossen. Seitenbootstrap
+  synthetisch; Hostprüfung, historischer Lookup, Installation und SQL ungenutzt.
+  CORE-102-Matrix und native Provider-/SQL-Sprachabnahme bleiben offen.
+  Vertrag: `Documentation/Architecture/EXTERNAL_RUNTIME_CAPABILITY.md`;
 
 - Geführte Podman-KI-Erstellung im Konsolenmenü mit vorhandenem lokalem
   `embeddinggemma:latest`, SQL 2025, eigener Volume und persistenter fester
@@ -179,7 +243,12 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   `sys.fn_helpcollations()` und `SERVERPROPERTY('Collation')`; die getrennte
   native Docker-/Podman-Acceptance bestand am 2026-09-13 fuer SQL 2025 mit
   `Latin1_General_100_CS_AS`, run-gebundener sanitisierter Evidence und
-  vollstaendigem Cleanup. Freie Advanced-Eingaben sowie der getrennte
+  vollstaendigem Cleanup. Die separate gerenderte Katalogsuche bestand am
+  2026-10-07 auf `8b2aba1c` über echten Loopback-HTTP: sechs bewusste Suchen,
+  zwölf unveränderte Produktassets und achtzehn Produktquelldigests. Der echte
+  Public-Reader lief im isolierten Modul; vier Seitenbootstrapreads waren
+  synthetisch. Kein vollständiger Modulimport, State-/Provider-/Secret-/SQL-
+  Zugriff; eigener Listener und Tab geschlossen. Freie Advanced-Eingaben sowie der getrennte
   Hyper-V-/Windows-Nachweis bleiben offen;
 
 - gemeinsamer interner Fortschrittsreporter fuer direkte Downloads,

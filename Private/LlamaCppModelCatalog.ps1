@@ -105,9 +105,9 @@ function Save-LabLlamaCppModelFile {
             return [PSCustomObject]@{ Contract='SqlServerLab.LlamaCppModelAcquisition/1.0'; Id=$Model.id; Status='ALREADY_PRESENT'; Path=$path; Sha256=$Model.sha256; SizeBytes=[long]$Model.sizeBytes }
         }
         if (-not $DownloadAction) {
-            $DownloadAction = { param($Uri, $OutFile) Save-LabProgressDownload -Uri $Uri -OutFile $OutFile -MaximumRedirection 10 -ErrorAction Stop }
+            $DownloadAction = { param($Uri, $OutFile, $MaximumBytes) Save-LabProgressDownload -Uri $Uri -OutFile $OutFile -MaximumRedirection 10 -MaximumBytes $MaximumBytes -ErrorAction Stop }
         }
-        $null = & $DownloadAction $uri $temporary
+        $null = & $DownloadAction $uri $temporary ([long]$Model.sizeBytes)
         if (-not (Test-Path -LiteralPath $temporary -PathType Leaf)) { throw "LLAMA_MODEL_DOWNLOAD_MISSING: $($Model.id)" }
         $null = Confirm-LabLlamaCppModelFile -Model $Model -Path $temporary
         [IO.File]::Move($temporary, $target, $false)

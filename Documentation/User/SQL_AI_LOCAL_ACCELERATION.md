@@ -9,6 +9,25 @@ mit Docker und Ollama nativ belegt.
 
 ## Wann dieser Pfad verwendet wird
 
+Die lokale External-Model-Lane akzeptiert nur numerischen Loopback, `localhost`,
+`host.docker.internal` und `host.containers.internal` als HTTPS-Autorität.
+Andere DNS-Namen sowie private, link-lokale oder öffentliche Nicht-Loopback-
+Adressen ergeben `AI_EXTERNAL_MODEL_LOCAL_AUTHORITY_REQUIRED`. Es gibt keine
+Wildcard oder vom Caller erweiterbare Freigabeliste. Der Plan bleibt rein
+konfigurationsbezogen; direkte HTTPS-Probe, neuer SQL-Preflight, neues Apply und
+die Embeddingprobe prüfen die Grenze vor ihrem Dispatch. TLS-Pin und fachliche
+Bindings bleiben zusätzlich erforderlich.
+
+Die festen Hostaliases attestieren keine DNS-Auflösung, TCP-Zieladresse oder
+Erreichbarkeit aus einem SQL-Container bzw. einer VM. Deren Bindung bleibt offen.
+Unveränderte ältere SQL-Pläne bleiben für Cleanup lesbar; Resume darf einen
+bereits vorhandenen SQL-Endzustand bestätigen, jede neue SQL-Mutation verlangt
+die aktuelle Autoritätsprüfung. Plan-/Receipt-Schlüssel und Cleanupverträge
+werden dabei nicht migriert. Eine klassifizierte Cloud-Lane mit verwalteter
+Zielautorität und Consent sowie die Anzeige der Zielautorität in der
+Apply-Bestätigung bleiben offen. Der Security-Cloud-Fund ist damit nur teilweise
+bearbeitet; ein älterer Scan bestätigt keinen neuen Repositoryhead.
+
 SQL Server 2025 kann ein Embeddingmodell mit `CREATE EXTERNAL MODEL`
 registrieren und durch `AI_GENERATE_EMBEDDINGS` aufrufen. Für `llama-server`
 und OpenVINO Model Server passt `API_FORMAT='OpenAI'` mit dem Endpunkt

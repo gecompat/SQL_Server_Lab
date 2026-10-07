@@ -2,7 +2,7 @@
 
 | Merkmal | Wert |
 |---|---|
-| Status | `ACTIVE` seit ausdrücklichem Benutzerauftrag vom 2026-10-06 |
+| Status | Benutzerpause vom 2026-10-07: nach Integration dieser Fachreader-Runde `PAUSED`; kein automatischer Folgeslice |
 | Stand | 2026-10-07 |
 | Auftrag | Aktuelle Entwicklungswelle aus Orchestrator Chat 2 mit denselben Regeln fortsetzen; C# bleibt USER_DEFERRED |
 | Ausgangspunkt | Durchsicht von `9cfd144`, vor Veröffentlichung gegen `ca9f09e` abgeglichen |
@@ -10,6 +10,109 @@
 | Reihenfolge | Konkretisierung des nachgelagerten Horizonts aus Abschnitt 12 des [Ausführungsplans](DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md) |
 
 ## Wiederaufnahme vom 2026-10-06
+
+### Abschlussgrenze und Wiederaufnahme nach Benutzerpause vom 2026-10-07
+
+Der Benutzer verlangt den Abschluss der aktuellen Entwicklungsrunde inklusive
+PR-Merge nach `origin/main` und danach eine Entwicklungspause. Diese Runde ist
+der unten beschriebene Fachreader-Slice auf Basis von `8ba94837`; der zugehörige
+Branch heißt `agent/ui-specialized-body-deadlines`. Am integrierten Stand endet
+die aktuelle Implementierungsfreigabe, der Fortsetzungsheartbeat wird pausiert.
+Automatische Chatwechsel oder weitere Implementierung starten während dieser
+Pause nicht. Fortsetzung erfordert einen neuen ausdrücklichen Benutzerauftrag.
+
+Der lokale Stand dieser Runde umfasst 58 fokussierte Prüfungen mit 36 HTTP-
+Requests, die 24 selektierten statischen Suites und getrennte Docker-/Podman-
+SQL-Lifecycle-Smokes mit jeweils 32/32 Prüfungen und eigenem Cleanup. Nach dem
+BOM-Kompatibilitätsfix wurden der fokussierte Bodyvertrag, die betroffenen
+PowerShell-Dateien und die Dokumentation erneut geprüft. Der Pflichtgate am
+exakten veröffentlichten Head bleibt vor Merge erforderlich; sein tatsächlicher
+Status und der Mergecommit sind über den zugehörigen PR zu prüfen. Die sechs
+geschützten Umgebungen blieben im gelesenen Vorher-/Nachhervergleich unverändert;
+dies ist kein atomarer oder hostweiter Invarianznachweis.
+
+Bei späterer Wiederaufnahme zuerst native Instruktionskette, Foundation und
+Projektregeln neu entdecken, aktuellen `origin/main`-Stand und eigenen Scope
+prüfen. Einen geeigneten eigenen Worktree verwenden; fremde Checkouts und
+Ressourcen bleiben unangetastet. Bereits integrierte Slices nicht wiederholen.
+Die bestehende Bewertungs- und Backlogtabelle dieses Plans bleibt maßgeblich.
+Die nächsten offenen Sicherheitsarbeiten sind:
+
+- UI-Operator-/Action-Autorität; übrige spezifische Reader, Headerannahme,
+  Dispatcher-Parallelität und Statequotas separat eingrenzen. Die acht internen
+  Fachreader und sieben direkten JSON-Routen sind durch diese Runde abgedeckt.
+- External-Model-DNS-/TCP-Zielbindung, verwaltete Cloud-Allowlist und Datenklassen-/
+  Consentbindung gemäß den verknüpften Fachverträgen konkretisieren.
+- Engere generische Downloadquoten nach dem integrierten Streaming-Slice prüfen.
+
+Die zwölf älteren Security-Cloud-Findings bleiben offen; es gibt keinen
+Scan-Nachweis am aktuellen Head. Neue kostenpflichtige Scans, externe
+Finding-Schließungen und Rohdiagnoseuploads benötigen eigene Freigabe.
+Native-CMS bleibt `BLOCKED_NO_RETRY` ohne unabhängige neue Evidence. C# bleibt
+`USER_DEFERRED`; Hyper-V-Artefaktpurge bleibt bis zum vertrauenswürdigen
+physischen VHDX-Abwesenheitsvertrag gesperrt. Geschützte Recoveryressourcen,
+blockierte Test-/Evidencewurzeln, die sechs Toolbelt-Umgebungen, fremde Dienste
+und Worktrees bleiben erhalten. Reale Diagnosen und konkrete lokale
+Ressourcenlokatoren stehen ausschließlich im ignorierten Übergabeindex.
+
+### Automatische Chatwechsel: Benutzerentscheidung vom 2026-10-07
+
+Die [Projekt-Sitzungsrichtlinie](../Quality/COST_EFFICIENT_DEVELOPMENT.md)
+erlaubt nun automatische Nachfolger an geeigneten gesicherten Arbeitsgrenzen.
+Client-Fähigkeit, konkreter Checkpoint, bestätigte Übernahme und genau ein
+Implementierungsorchestrator bleiben verbindlich. Diese Projektauswahl nutzt
+die bereits vorhandene Foundation-Erlaubnis; sie ändert keine Foundation-Regel
+und ist kein Nachweis eines tatsächlich ausgeführten Chatwechsels. Der Status
+dieser Welle und ausdrückliche Stopps werden durch einen Wechsel nicht verändert.
+
+### Security-Cloud-Scans berücksichtigen: Benutzersteuerung vom 2026-10-07
+
+Der vorhandene Scan auf `f82976735c94d869e425d7082c04748ee97ddf65` meldet
+zwölf offene Findings (drei mittel, neun niedrig); er deckt spätere Heads nicht
+ab. Priorität haben UI-Request-Autorität, externe Modell-HTTPS-Egress/Consent
+und Streaming-Downloadlimits. Keine neuen kostenpflichtigen Scans oder
+Rohdiagnoseuploads sind dadurch freigegeben. Der erste begrenzte
+[HTTP-Slice](../Architecture/WORKFLOW_UI_REQUEST_BOUNDARY.md) weist fremde
+Origins und ungeeignete POST-Medientypen vor Routing/Bodylesung ab; die lokale
+48-Checks-Fixture prüft zwölf echte HTTP-Requests mit synthetischem Job-Sink.
+Der Autorisierungsfund bleibt offen, da Operator-Capability und einmalige
+servergebundene Freigaben fehlen. Lokale JSON-Clients ohne Origin bleiben
+erlaubt. Weitere Findings, Bodylimits und native Provider-/Browsernachweise
+werden daraus nicht als erledigt abgeleitet.
+
+Der anschließende direkte JSON-Reader-Slice begrenzt die sieben bisherigen
+`ReadToEnd`-POST-Routen vor JSON/Fachaufrufen auf 1 MiB UTF-8 und fünf Sekunden
+absolute Lesefrist. Die fokussierte Fixture bestand mit 35 Checks/13 echten
+HTTP-Requests und ausschließlich synthetischen Sinks; tatsächlicher Trickle-
+Timeout und gültige Folge-Requests sind geprüft. Spezifische Reader mit eigenen
+Grenzen, Headerannahme, Parallelität, Authentifizierung und Statequotas bleiben
+offen. Der zugehörige Cloud-Fund wird dadurch nicht vollständig geschlossen.
+
+Der ergänzende Fachreader-Slice verwendet denselben begrenzten Transport für
+acht interne UI-Handler. Die bestehenden Zeichenlimits und Bestätigungen bleiben
+erhalten; Byteobergrenzen, striktes UTF-8 und fünf Sekunden absolute Frist gelten
+vor JSON/Fachaufrufen. Die fokussierte Fixture bestand mit 58 Prüfungen und
+36 echten Loopback-HTTP-Requests an ausschließlich synthetische Fach-Sinks,
+einschließlich Trickle-Timeout und gültigem Folgeaufruf. Übrige spezifische
+Reader, Headerannahme, Parallelität und Operatorautorität bleiben offen;
+die bestehende Native-CMS-Sperre wird dadurch nicht aufgehoben.
+
+Der folgende External-Model-Slice beschraenkt die lokale Lane auf numerischen
+Loopback und feste lokale Hostaliases. Andere konfigurierte Autoritaeten werden
+vor HTTPS-Probe, neuem SQL-Preflight/-Apply und Embeddingprobe verworfen.
+Plan-/Receipt-Schluessel, Legacy-Lesung und Cleanup bleiben erhalten; Resume
+kann einen vorhandenen SQL-Endzustand bestaetigen. DNS-/TCP-Zielbindung,
+verwaltete Cloud-Allowlist, Datenklassen-/Consentbindung und Authority-Anzeige
+bleiben offen. Der zugehoerige Cloud-Fund bleibt deshalb offen; der aeltere
+Scan wird nicht als Nachweis fuer diesen Stand verwendet.
+
+Der folgende [Download-Slice](../Architecture/DOWNLOAD_STREAM_LIMITS.md)
+begrenzt Bytes bereits im gemeinsamen Streamingtransport. Medien und Modelle
+verwenden genaue Kataloggrößen, andere Aufrufer zunächst den endlichen
+Kompatibilitätsrahmen von 1 TiB. Überlänge wird vor weiterem Schreiben und ohne
+Retry abgewiesen; bestehende Integritäts- und Caller-Cleanupverträge bleiben
+wirksam. Engere fachliche Limits, Speicherreservierung und kumulative Quoten
+bleiben offen. Der bestehende Cloud-Fund wird nicht extern geschlossen.
 
 Der Benutzer hat die autonome Weiterentwicklung ausdrücklich fortgesetzt. Der
 Nachfolger arbeitet die bereits priorisierte Welle weiter ab; der zugehörige
@@ -344,7 +447,7 @@ zweiten Backlog und keine unabhängige Capability-Registry:
 | Bestehender Bezug | Ergänzung und offener Umfang |
 |---|---|
 | `BASE-001` bis `BASE-005` im [Ausführungsplan](DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md) | Quellinventur und vorhandenen Evidence-Index zu einer maschinenlesbaren, für Menschen lesbaren, mehrdimensionalen Statussicht zusammenführen; vorhandene Abnahmen übernehmen, Widersprüche im betroffenen Scope berichtigen und Drift testseitig absichern. Der bisherige Inventur-Slice bleibt abgeschlossen, die vollständige Kombinationenmatrix ist offen. |
-| `CORE-102` und [Issue #619](https://github.com/gecompat/SQL_Server_Lab/issues/619) | Gemeinsamen Capability-Entscheid um aktuelle, read-only Host-/Backend-Readiness und passende historische Evidence ergänzen. API, Konsole/Fallback und Browser verwenden denselben Vertrag; External Languages sind der erste vertikale Anwendungsfall. Der enge Docker-/Podman-Linux-Slice Get-SqlServerLabExternalRuntimeCapability verbindet die explizite Python-/R-/Java-Katalogentscheidung mit bewusst angeforderter begrenzter Hostprüfung und dem bestehenden Manifestdialog; default NOT_CHECKED, historische Zuordnung im Standard NOT_DEFINED; explizites IncludeRecordedEvidence definiert exakte versionierte Identitäten ohne Adoption bestehender Records, keine Ausführungsfreigabe. Der geführte Browserdialog neben Lab erstellen nutzt denselben Public-Entscheid mit expliziter Katalogwahl und bewusstem optionalem Hostcheck; kein Speichern, Apply oder Start. Hyper-V, historische Zuordnung und vollständige Matrix bleiben offen. Native Provider-/SQL-Sprachabnahme ist NOT_EXECUTED; Issue #619 bleibt offen. |
+| `CORE-102` und [Issue #619](https://github.com/gecompat/SQL_Server_Lab/issues/619) | Gemeinsamen Capability-Entscheid um aktuelle, read-only Host-/Backend-Readiness und passende historische Evidence ergänzen. API, Konsole/Fallback und Browser verwenden denselben Vertrag; External Languages sind der erste vertikale Anwendungsfall. Der enge Docker-/Podman-Linux-Slice Get-SqlServerLabExternalRuntimeCapability verbindet die explizite Python-/R-/Java-Katalogentscheidung mit bewusst angeforderter begrenzter Hostprüfung und dem bestehenden Manifestdialog; default NOT_CHECKED, historische Zuordnung im Standard NOT_DEFINED; explizites IncludeRecordedEvidence definiert exakte versionierte Identitäten ohne Adoption bestehender Records, keine Ausführungsfreigabe. Der geführte Browserdialog neben Lab erstellen nutzt denselben Public-Entscheid mit expliziter Katalogwahl und bewusstem optionalem Hostcheck; kein Speichern, Apply oder Start. Hyper-V, historische Zuordnung und vollständige Matrix bleiben offen. Gerenderte reine Katalogabnahme am 2026-10-07 auf 4007d414 bestanden: zwölf Produktassets, 36 tatsächliche Quellhashes, vier Optionsreads und vier öffentliche Entscheidungen für Java/2019, Python/2022, R/2022 und die explizite Java/2025-shared-user-Variante; blockierte Optionen deaktiviert, Wiederöffnen setzt Ausgabe zurück, null Skriptfehler/verbotene instrumentierte Effekte, eigener Listener und Tab geschlossen. Seitenbootstrap synthetisch; Hostprüfung, historischer Lookup, Installation und SQL ungenutzt. Native Provider-/SQL-Sprachabnahme ist NOT_EXECUTED; Issue #619 bleibt offen. |
 | `SFT-711`, `SFT-712` im [External-Languages-Plan](EXTERNAL_LANGUAGES_IMPLEMENTATION_PLAN.md) | Python, R, Java und C# getrennt nach tatsächlichem Provider-/OS-/SQL-/Buildpfad behandeln. SQL-2022-Hyper-V und SQL-2025-cgroup-v2-Nachweise wiederverwenden. C#-Build ist belegt; SQL-Registrierung, Launchpad-Roundtrip, Workeridentität und Neustart sind noch offen. |
 | `PSR-011` im [Persistenzbacklog](PERSISTENT_STORAGE_REUSE_AND_LAB_DATA_BACKLOG.md) | Vorhandenen Retained-Store-Removal-Vertrag und dessen noch fehlende native Abnahme prüfen, keine parallele Löschimplementierung eröffnen. |
 | Weitere IDs aus den verlinkten Fachbacklogs | Jede gefundene Implementierungs- oder Abnahmelücke dem bestehenden Eigentümer zuordnen; vor einer neuen ID die kanonische Registration Authority und Duplikate prüfen. |
@@ -737,7 +840,7 @@ Reparatur, abhängige Regression vor Integration.
 | Netzwerk-Testregression | `validated` (offline) | Der Mock liefert einen tatsächlichen Job; Ergebnisweitergabe, leerer Fallback, Ablehnung einer ungültigen IP vor dem Gastaufruf und Job-Cleanup sind geprüft. Die produktive IP-Validierung bleibt unverändert. |
 | Sample-Baseline-Testregression | `validated` (offline) | Die produktive Exportfunktion ist mit synthetischen Session-/Transfergrenzen für Erfolg, gestoppte VM, Verzeichnis, leere Quelle, fehlendes/leeres Ziel und Transferfehler geprüft; jede erzeugte Session wird geschlossen. Native Sample-Parität bleibt separat offen. |
 | Betroffene Testauswahl | `validated` | Hyper-V-Provider → Netzwerkcheck; SQL-Storage-/Session-Helfer → Sample-Baseline, Storage und Hyper-V; gemeinsame KI-Verträge und SQL-Observability → getrennte Docker-/Podman-/Hyper-V-Gates. State-Upgrade, portabler Import, Evaluation-Watch und Recovery-Point-Plan wählen ihre eigenen Suiten. Einzelpfad- und Kombinationstests bestehen nach der Reparatur (64 PASS); Runtime-Gates werden pro Datei vereinigt, damit bekannte Dateien den Fallback unbekannter Produktdateien nicht unterdrücken. Betroffene statische Regression und alle fünf lokalen Provider-Smokes bestanden. |
-| Release-Sicherheit und Funktion | `validated` | Fester sauberer Git-Snapshot, gemeinsame `ShouldProcess`-Grenze, korrigierte Ausschlüsse, relative Metadaten und getrennte Datumsformate umgesetzt. Staging, Pfad-/Symlink-Prüfung und Rollback bei gewöhnlichen Ausnahmen sind auf Windows und Linux geprüft. Harte Prozessabbrüche bleiben Teil der gesonderten Recovery-Härtung. |
+| Release-Sicherheit und Funktion | `validated` (lokaler Publikationsvertrag) | Fester sauberer Git-Snapshot, gemeinsame `ShouldProcess`-Grenze, korrigierte Ausschlüsse, relative Metadaten und getrennte Datumsformate umgesetzt. Staging, Pfad-/Symlink-Prüfung und Rollback bei gewöhnlichen Ausnahmen sind auf Windows und Linux geprüft. Der additive Prozessabbruch-Slice ergänzt dauerhaftes Intent, atomare Abschlussquittung und rein lesende Exact-Release-ID-Inspektion mit vollständiger Paket-/Archivbytebindung. Am 2026-10-07 bestanden lokal 39 Release-Prüfungen einschließlich vier harter Own-Kindprozessgrenzen, drei gesonderte Record-Grenzprüfungen und alle sechs betroffenen statischen Suites. Windows-/Linux-PR-Gates und native SQL-/Provider-Nachweise bleiben davon getrennt. Fehlende Quittung bleibt INCOMPLETE, Prozessstatus NOT_CHECKED; keine automatische Wiederaufnahme oder Entfernung. Atomare Mehrdateitransaktion, Stromausfall und ein Recovery-Executor bleiben offen. [Vertrag](../Architecture/LOCAL_RELEASE_PUBLICATION.md). |
 | Privacy-Scanner und parallele Runtime | `validated` | Die Korrektur trennt flüchtigen State vom Quellscan und prüft dennoch erzwungen versionierte Runtime-Dateien sowie versteckte aktive Env-Dateien. Lokale Evidence auf `3bbe4157`: fünf isolierte Pester-Positiv-/Negativfälle (Runtimewurzeln, aktive Secretdatei, indexierte Runtime-Secretdatei, versteckte `.env`, ähnlich benannter Pfad) sowie drei Scanner-Contracts bestanden. Windows-/Linux-Gates folgen dem dokumentationsbetroffenen PR-Scope. |
 | Paketabnahme | `validated` | Isolierte Git-Fixtures prüfen `WhatIf`, dirty/unversionierte Quellen, sensible Pfade, umgeleitete Ziele, Teilpublikation, ZIP-/Hash-Integrität und den Import des tatsächlichen entpackten Moduls: 20 PASS. Die Suite ist in Selektor, Vollregression und Repo-Map eingebunden; alle 97 Suiten des lokalen Abschlusslaufs bestanden. PR #407 wurde nach grünen Windows-/Linux- und allen fünf Runtime-Gates integriert. |
 | Statuswahrheit | `validated` (lokaler Dokumentations-/Metadatenabgleich) | Vorhandene Readiness-/Validierungs-/Operate-Skills, öffentliche Daten-VHDX-Aktionen und getrennte Hyper-V-Template-/Prepared-/CLI-Pfade sind mit Code und datierter Evidence abgeglichen. Veraltete pauschale Grenzen sind korrigiert; allgemeine Provisionierung, breite Versionsmatrizen und synthetische CI bleiben getrennt. Provider-Vertrag fokussiert 63 PASS; alle elf ausgewählten statischen Suiten bestanden. Keine neue native Ausführung oder breitere Providerfreigabe. |
@@ -821,7 +924,7 @@ keine Golden-Referenz und behauptet keinen Podman-SQL-HTTPS-Nachweis.
 | Allgemeiner Szenariokern | `implemented_partial` | [SCN-802](SCENARIO_CONTRACT_BACKLOG.md) ergänzt einen internen providerlosen synthetischen Executor: fünf feste Phasen, authentifiziertes atomisches Journal, Ownership, begrenzte Timeouts/Cancellation und Cleanup-Resume. Offline-Verträge einschließlich eigener harter Kindprozessunterbrechung sind vorhanden. SCN-801 bleibt unverändert; öffentliche API, fachliche Szenarien, SQL-/Providerbindung und native Evidence bleiben offen. |
 | Upgrade-/Regressionsszenario | `validated_reference` | [Feste SQL-2022-/SQL-2025-Referenz](../Quality/SQL_VERSION_UPGRADE_REFERENCE.md): zwei neue eigene Docker-/Podman-Runs, öffentlich registriertes verifiziertes Full-Backup und Restore per BackupSetId, erhaltene Kompatibilität 160 vor separatem Wechsel auf 170, exakte Daten/Aggregate, Transaktions-/Constraint-/CHECKDB-Prüfungen, unveränderte Quelle und beobachtete Dauern. Native Docker und Podman bestanden am 2026-09-21 auf `46340200`; der unabhängige Nachlauf bestätigte je Provider zwei entfernte Own-Runs und keine Runtime-Residuen. Die Restore-Dauern sind Beobachtungen, kein Benchmark. Allgemeiner Szenariokern, weitere Versionen und fachliche Partnerzuständigkeit bleiben unverändert. |
 | Point-in-Time-Recovery-Szenario | `validated_reference` (enger synthetischer Slice) | `Invoke-PointInTimeRecoveryAcceptance.ps1` bindet je Docker-/Podman-Lauf einen neuen eigenen SQL-2025-Run, containerlokale Full-/Log-Backups, einen SQL-seitigen Serverzeit-`STOPAT` zwischen gutem Marker und Fehlmutation sowie Restore in ein neues Ziel. Offline-Vertraege und getrennte native Docker-/Podman-Läufe auf `f51595ea` bestanden am 2026-09-21: SQL-Major 17, guter Commit wiederhergestellt, Fehlmutation ausgeschlossen, Quelle unverändert, `DBCC CHECKDB` und unabhängige Prüfung von Own-Run-Removal sowie fehlenden Runtime-Resten. Beobachtete Restoreintervalle: Docker 2873,8858 ms, Podman 6600,8529 ms; kein Performance-Benchmark. Der Nachweis erweitert weder den allgemeinen Scenario-Executor noch den öffentlichen PITR-Restorevertrag; Hyper-V bleibt offen. |
-| Collation-Auswahl | `implemented_partial` | `COL-001` besitzt einen schema-validierten Katalog für SQL 2019/2022/2025, die öffentliche tokenbasierte Suche `Find-SqlServerLabCollation` und eine Konsolenauswahl mit Metadaten. Der geführte Browserdialog Collations suchen ergänzt bewusste reine Suche, versionsgebundene Metadaten, DEPRECATED-Warnung und RAM-Abbruch ohne Auswahltransfer oder SQL-Prüfung; HTTP-/DOM-/fünfteRouten-Komposition ist synthetisch geprüft, neue native Evidence bleibt offen. Manifestprüfung, Wizard-Speicherung, Manifestauflösung und Ad-hoc-Erstellung binden die Instanzcollation vor Provisionierung an einen vollständigen versionsgebundenen Namen. Die Offline-Suite prüft auch ungültige Kataloge, null Treffer und Abbruch. Docker/Podman pruefen nach SQL-Readiness vor Konfiguration, Datenbanken und Samples per einer parametrisierten SqlClient-Abfrage `sys.fn_helpcollations()` und `SERVERPROPERTY('Collation')`. Die native Acceptance bestand am 2026-09-13 im PR-Gate-Lauf `34783317945` fuer beide Containerprovider mit SQL Server 2025 und `Latin1_General_100_CS_AS`, Katalogverfuegbarkeit, Server-Postcondition, run-gebundener sanitisierter Evidence und vollstaendigem Cleanup. Freie Advanced-Eingabe und ein getrennter Hyper-V-/Windows-Nachweis bleiben offen. |
+| Collation-Auswahl | `implemented_partial` | `COL-001` besitzt einen schema-validierten Katalog für SQL 2019/2022/2025, die öffentliche tokenbasierte Suche `Find-SqlServerLabCollation` und eine Konsolenauswahl mit Metadaten. Der geführte Browserdialog Collations suchen ergänzt bewusste reine Suche, versionsgebundene Metadaten, DEPRECATED-Warnung und RAM-Abbruch ohne Auswahltransfer oder SQL-Prüfung; HTTP-/DOM-/fünfteRouten-Komposition ist synthetisch geprüft. Die separate gerenderte Katalogabnahme bestand am 2026-10-07 auf `8b2aba1c` über echtes Loopback-HTTP: zwölf unveränderte Assets, achtzehn Produktquelldigests, 105 Requests und exakt sechs Suchen über die echte Route/öffentlichen Reader im isolierten Modul. Drei SQL-Versionen, UTF-8, DEPRECATED, Nulltreffer, Zero-Token-Suche und Rücksetzen beim Wiederöffnen wurden beobachtet; null Skriptfehler/instrumentierte verbotene Effekte, eigener Listener und Tab geschlossen. Vier Seitenbootstrapreads waren synthetisch; vollständiger Modulimport/State/Provider/Secrets/SQL NOT_EXECUTED. Manifestprüfung, Wizard-Speicherung, Manifestauflösung und Ad-hoc-Erstellung binden die Instanzcollation vor Provisionierung an einen vollständigen versionsgebundenen Namen. Die Offline-Suite prüft auch ungültige Kataloge, null Treffer und Abbruch. Docker/Podman pruefen nach SQL-Readiness vor Konfiguration, Datenbanken und Samples per einer parametrisierten SqlClient-Abfrage `sys.fn_helpcollations()` und `SERVERPROPERTY('Collation')`. Die native Acceptance bestand am 2026-09-13 im PR-Gate-Lauf `34783317945` fuer beide Containerprovider mit SQL Server 2025 und `Latin1_General_100_CS_AS`, Katalogverfuegbarkeit, Server-Postcondition, run-gebundener sanitisierter Evidence und vollstaendigem Cleanup. Freie Advanced-Eingabe und ein getrennter Hyper-V-/Windows-Nachweis bleiben offen. |
 | Direkter SQL-Prepared-Locale-Pfad | `validated_reference` | [Run 35574934252](https://github.com/gecompat/SQL_Server_Lab/actions/runs/35574934252) bestand am 2026-09-21 auf `bf72dc32`: explizites hashverifiziertes englisches SQL-2025-Prepared-Artifact, frischer eigener US-Manifest-Child, alle fünf Locale-Werte nach Kaltstart, VM-ID-gebundener SQL-SELECT mit Major 17, Aktivierung, Receipt und unveränderter Parent. Überwachter Cleanup `COMPLETED`, eigener Run-State separat `REMOVED` bestätigt. Weitere Image-Sprachen und SQL-Versionen bleiben offen. |
 | Legacy-WMI-Fortschritt | `implemented` (Offline-Abnahme; neue Gastabnahme offen) | Vorhandene WMI-, Aktivierungs-, Sysprep- und Shutdown-Reporter inventarisiert. Luecken im SQL-Receipt-Polling, Legacy-OOBE und direkten SQL-Setup-Abfragen verwenden nun denselben durchgehenden Reporter. Synthetischer Transport reproduzierte die fehlende Anzeige; Heartbeat, Ausgabe, Fehler vor/nach Transportbeginn und eigener/geliehener Reporter-Cleanup bestehen nach dem Fix. Der bestehende echte Pipeline-Abbruchtest bleibt Bestandteil der fokussierten Suite. Keine Aenderung am WMI-/SMB-Transport oder an dessen Abbruchlatenz; neuer isolierter Legacy-Gastlauf bleibt offen. |
 | Reservierte Manifestfelder | `validated` (Bewertung) | [Einzelbewertung](RESERVED_MANIFEST_FIELDS_ASSESSMENT_2026-09-10.md) für alle neun direkten reservierten `serverConfig`-Felder, `customImage`, zwei `installMethod`-Werte und die gesonderten Adapterfelder abgeschlossen. Bestehende Collation-/Storage-/Derived-Image-Verträge haben Vorrang; direkte erste PITR-/Upgrade-Szenarien benötigen keine zusätzlichen Agent-/CLR-/Authentifizierungsschalter. Jeder spätere Bedarf besitzt Nutzen, Abhängigkeit, Risiko, relativen Aufwand und konkreten Folgeschritt. Felder bleiben reserviert; keine neue Runtimefreigabe. |

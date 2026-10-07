@@ -9,6 +9,8 @@ function Save-SqlServerLabMediaSource {
         erneut geprüft und ohne Redirectfolge verwendet; Integritätswerte und
         Variante bleiben ausschließlich kataloggebunden. Jede
         automatisierbare Quelle besitzt eine erwartete Länge und SHA-256.
+        Die erwartete Länge begrenzt bereits den Streamingdownload; ein
+        Größenverstoß wird nicht erneut versucht und nicht veröffentlicht.
         Historische Quellen können zusätzlich an den veröffentlichten SHA-1
         gebunden sein. EXE-
         Dateien müssen zusätzlich eine gültige Microsoft-Authenticode-Signatur
@@ -138,9 +140,9 @@ function Save-SqlServerLabMediaSource {
     try {
         if ($source.PSObject.Properties['SourceProvenance'] -and $source.SourceProvenance -eq 'LOCAL_OVERRIDE') {
             Assert-LabMediaOverrideUrl -Url $source.DownloadUrl -Source ([pscustomobject]@{DownloadUrl=$source.RepositoryUrl})
-            Save-LabProgressDownload -Uri ([string]$source.DownloadUrl) -OutFile $partialPath -MaximumRedirection 0
+            Save-LabProgressDownload -Uri ([string]$source.DownloadUrl) -OutFile $partialPath -MaximumRedirection 0 -MaximumBytes ([long]$source.ExpectedBytes)
         }
-        else { Save-LabProgressDownload -Uri ([string]$source.DownloadUrl) -OutFile $partialPath }
+        else { Save-LabProgressDownload -Uri ([string]$source.DownloadUrl) -OutFile $partialPath -MaximumBytes ([long]$source.ExpectedBytes) }
         $verification = & $verifyFile $partialPath $source
         Move-Item -LiteralPath $partialPath -Destination $targetPath -ErrorAction Stop
 

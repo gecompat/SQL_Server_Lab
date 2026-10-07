@@ -6,6 +6,7 @@ $module=Import-Module (Join-Path $repo 'SqlServerLab.psd1') -Force -PassThru
 $root=Join-Path ([IO.Path]::GetTempPath()) ('sql-lab-session-check-'+[guid]::NewGuid().ToString('N'))
 $null=New-Item -ItemType Directory -Path $root
 $errors=$null;$tokens=$null
+. (Join-Path $repo 'Tools/WorkflowUiJsonBody.ps1')
 $ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $repo 'Tools/Start-SqlServerLabUi.ps1'),[ref]$tokens,[ref]$errors)
 if($errors.Count){throw 'UI_SYNTAX_INVALID'}
 foreach($name in @('Import-UiSqlServerLabModule','Invoke-UiLlamaSessionRequest')) {

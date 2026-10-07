@@ -101,6 +101,8 @@ Add-CheckResult -Name 'Nightly workflow führt Invoke-AllChecks aus' -Success ($
 
 Add-CheckResult -Name 'Release-Readiness-Checks werden nur informiert, nicht auf mutable State angewiesen' -Success $true
 
+. (Join-Path $PSScriptRoot 'Fixtures/ReleaseReadinessPesterChecks.ps1')
+
 if ($failures.Count -gt 0) {
     Write-Host "`nErgebnis: $passed PASS, $($failures.Count) FAIL" -ForegroundColor Red
     foreach ($failure in $failures) {

@@ -124,6 +124,8 @@ function Import-UiSqlServerLabModule {
 }
 Import-UiSqlServerLabModule -ModulePath $modulePath
 . (Join-Path $PSScriptRoot 'WorkflowUiJobStatus.ps1')
+. (Join-Path $PSScriptRoot 'WorkflowUiRequestBoundary.ps1')
+. (Join-Path $PSScriptRoot 'WorkflowUiJsonBody.ps1')
 
 function Write-UiResponse {
     param(
@@ -398,8 +400,7 @@ function Invoke-UiCmsInspectionRequest {
     if($Request.HttpMethod -cne 'POST' -or $Request.ContentType -notmatch '^application/json(?:;|$)'){throw 'CMS_INSPECTION_REQUEST_INVALID'}
     $origin=[string]$Request.Headers['Origin']
     if($origin -and $origin -cne $Request.Url.GetLeftPart([UriPartial]::Authority)){throw 'CMS_INSPECTION_ORIGIN_INVALID'}
-    $reader=[IO.StreamReader]::new($Request.InputStream,$Request.ContentEncoding)
-    try {$buffer=[char[]]::new(4097);$length=$reader.ReadBlock($buffer,0,$buffer.Length);if($length -gt 4096){throw 'CMS_INSPECTION_REQUEST_INVALID'};$payload=([string]::new($buffer,0,$length))|ConvertFrom-Json -Depth 5 -ErrorAction Stop}finally{$reader.Dispose()}
+    $payload = (Read-UiSpecializedJsonRequestBody -Request $Request -MaxCharacters 4096 -LimitErrorCode 'CMS_INSPECTION_REQUEST_INVALID') | ConvertFrom-Json -Depth 5 -ErrorAction Stop
     if($payload -isnot [pscustomobject] -or $payload.action -cne 'InspectCms' -or $payload.parameters -isnot [pscustomobject] -or @($payload.PSObject.Properties.Name|Where-Object {$_ -cnotin @('action','parameters')}).Count -or
         @($payload.parameters.PSObject.Properties).Count -ne 1 -or $payload.parameters.ExpectedPlanKey -isnot [string] -or $payload.parameters.ExpectedPlanKey -cnotmatch '^[a-f0-9]{64}$'){throw 'CMS_INSPECTION_REQUEST_INVALID'}
     Invoke-SqlServerLabWorkflowAction -Action InspectCms -ExpectedPlanKey $payload.parameters.ExpectedPlanKey
@@ -413,14 +414,7 @@ function Invoke-UiInitialSetupRequest {
     if ($Request.HttpMethod -ne 'POST' -or $Request.ContentType -notmatch '^application/json(?:;|$)') { throw 'INITIAL_SETUP_REQUEST_INVALID' }
     $origin = [string]$Request.Headers['Origin']
     if ($origin -and $origin -ne $Request.Url.GetLeftPart([UriPartial]::Authority)) { throw 'INITIAL_SETUP_ORIGIN_INVALID' }
-    $reader = [IO.StreamReader]::new($Request.InputStream, $Request.ContentEncoding)
-    try {
-        $buffer = [char[]]::new(16385)
-        $length = $reader.ReadBlock($buffer, 0, $buffer.Length)
-        if ($length -gt 16384) { throw 'INITIAL_SETUP_REQUEST_TOO_LARGE' }
-        $payload = ([string]::new($buffer, 0, $length)) | ConvertFrom-Json -Depth 12 -ErrorAction Stop
-    }
-    finally { $reader.Dispose() }
+    $payload = (Read-UiSpecializedJsonRequestBody -Request $Request -MaxCharacters 16384 -LimitErrorCode 'INITIAL_SETUP_REQUEST_TOO_LARGE') | ConvertFrom-Json -Depth 12 -ErrorAction Stop
     if (-not $payload -or @($payload.PSObject.Properties.Name | Where-Object { $_ -notin @('action', 'parameters') }).Count) { throw 'INITIAL_SETUP_REQUEST_INVALID' }
     $allowed = switch ([string]$payload.action) {
         'PlanInitialSetup' { @('MediaRoot', 'LabDataRoot', 'DefaultDataRoot') }
@@ -457,14 +451,7 @@ function Invoke-UiSlotReserveRequest {
     if ($Request.HttpMethod -ne 'POST' -or $Request.ContentType -notmatch '^application/json(?:;|$)') { throw 'SLOT_RESERVE_REQUEST_INVALID' }
     $origin = [string]$Request.Headers['Origin']
     if ($origin -and $origin -ne $Request.Url.GetLeftPart([UriPartial]::Authority)) { throw 'SLOT_RESERVE_ORIGIN_INVALID' }
-    $reader = [IO.StreamReader]::new($Request.InputStream, $Request.ContentEncoding)
-    try {
-        $buffer = [char[]]::new(16385)
-        $length = $reader.ReadBlock($buffer, 0, $buffer.Length)
-        if ($length -gt 16384) { throw 'SLOT_RESERVE_REQUEST_TOO_LARGE' }
-        $payload = ([string]::new($buffer, 0, $length)) | ConvertFrom-Json -Depth 12 -ErrorAction Stop
-    }
-    finally { $reader.Dispose() }
+    $payload = (Read-UiSpecializedJsonRequestBody -Request $Request -MaxCharacters 16384 -LimitErrorCode 'SLOT_RESERVE_REQUEST_TOO_LARGE') | ConvertFrom-Json -Depth 12 -ErrorAction Stop
     if (-not $payload -or @($payload.PSObject.Properties.Name | Where-Object { $_ -notin @('action', 'parameters') }).Count) { throw 'SLOT_RESERVE_REQUEST_INVALID' }
     $allowed = switch ([string]$payload.action) {
         'PlanSlotReserve' { @('SlotReservePolicy') }
@@ -492,13 +479,7 @@ function Invoke-UiResourceWatchRequest {
     if ($Request.HttpMethod -ne 'POST' -or $Request.ContentType -notmatch '^application/json(?:;|$)') { throw 'RESOURCE_WATCH_REQUEST_INVALID' }
     $origin = [string]$Request.Headers['Origin']
     if ($origin -and $origin -ne $Request.Url.GetLeftPart([UriPartial]::Authority)) { throw 'RESOURCE_WATCH_ORIGIN_INVALID' }
-    $reader = [IO.StreamReader]::new($Request.InputStream, $Request.ContentEncoding)
-    try {
-        $buffer = [char[]]::new(1025)
-        $length = $reader.ReadBlock($buffer, 0, $buffer.Length)
-        if ($length -gt 1024) { throw 'RESOURCE_WATCH_REQUEST_TOO_LARGE' }
-        $payload = ([string]::new($buffer, 0, $length)) | ConvertFrom-Json -Depth 4 -ErrorAction Stop
-    } finally { $reader.Dispose() }
+    $payload = (Read-UiSpecializedJsonRequestBody -Request $Request -MaxCharacters 1024 -LimitErrorCode 'RESOURCE_WATCH_REQUEST_TOO_LARGE') | ConvertFrom-Json -Depth 4 -ErrorAction Stop
     if ($payload -isnot [pscustomobject] -or @($payload.PSObject.Properties.Name | Where-Object { $_ -notin @('action', 'parameters') }).Count -or
         $payload.action -cne 'RefreshResourceWatch' -or $payload.parameters -isnot [pscustomobject] -or @($payload.parameters.PSObject.Properties).Count) { throw 'RESOURCE_WATCH_REQUEST_INVALID' }
     Invoke-SqlServerLabWorkflowAction -Action RefreshResourceWatch
@@ -509,8 +490,7 @@ function Invoke-UiLlamaInstallerRequest {
     if($Request.HttpMethod -ne 'POST' -or $Request.ContentType -notmatch '^application/json(?:;|$)'){throw 'LLAMA_INSTALL_REQUEST_INVALID'}
     $origin=[string]$Request.Headers['Origin']
     if($origin -and $origin -ne $Request.Url.GetLeftPart([UriPartial]::Authority)){throw 'LLAMA_INSTALL_ORIGIN_INVALID'}
-    $reader=[IO.StreamReader]::new($Request.InputStream,$Request.ContentEncoding)
-    try{$buffer=[char[]]::new(1025);$length=$reader.ReadBlock($buffer,0,1025);if($length -gt 1024){throw 'LLAMA_INSTALL_REQUEST_LIMIT'};$body=([string]::new($buffer,0,$length))|ConvertFrom-Json -Depth 4}finally{$reader.Dispose()}
+    $body = (Read-UiSpecializedJsonRequestBody -Request $Request -MaxCharacters 1024 -LimitErrorCode 'LLAMA_INSTALL_REQUEST_LIMIT') | ConvertFrom-Json -Depth 4 -ErrorAction Stop
     if($body -isnot [pscustomobject] -or @($body.PSObject.Properties.Name|Where-Object {$_ -notin @('action','candidateId','rootId','expectedKey','confirmed')}).Count){throw 'LLAMA_INSTALL_REQUEST_INVALID'}
     if($body.action -ceq 'upstream'){
         if(@($body.PSObject.Properties).Count -ne 1){throw 'LLAMA_INSTALL_REQUEST_INVALID'}
@@ -528,12 +508,7 @@ function Invoke-UiLlamaSessionRequest {
     if ($Request.HttpMethod -ne 'POST' -or $Request.ContentType -notmatch '^application/json(?:;|$)') { throw 'LLAMA_SESSION_REQUEST_INVALID' }
     $origin=[string]$Request.Headers['Origin']
     if ($origin -and $origin -ne $Request.Url.GetLeftPart([UriPartial]::Authority)) { throw 'LLAMA_SESSION_ORIGIN_INVALID' }
-    $reader=[IO.StreamReader]::new($Request.InputStream,$Request.ContentEncoding)
-    try {
-        $buffer=[char[]]::new(1025);$length=$reader.ReadBlock($buffer,0,$buffer.Length)
-        if ($length -gt 1024) { throw 'LLAMA_SESSION_REQUEST_TOO_LARGE' }
-        $payload=([string]::new($buffer,0,$length)) | ConvertFrom-Json -Depth 4 -ErrorAction Stop
-    } finally { $reader.Dispose() }
+    $payload = (Read-UiSpecializedJsonRequestBody -Request $Request -MaxCharacters 1024 -LimitErrorCode 'LLAMA_SESSION_REQUEST_TOO_LARGE') | ConvertFrom-Json -Depth 4 -ErrorAction Stop
     if ($payload -isnot [pscustomobject]) { throw 'LLAMA_SESSION_REQUEST_INVALID' }
     if ($payload.action -ceq 'preview' -and (($payload.PSObject.Properties.Name | Sort-Object) -join ',') -ceq 'action,operationId' -and
         $payload.operationId -is [string] -and $payload.operationId -cmatch '^[a-f0-9-]{36}$') {
@@ -553,12 +528,7 @@ function Invoke-UiMaintenanceRequest {
     if ($Request.HttpMethod -ne 'POST' -or $Request.ContentType -notmatch '^application/json(?:;|$)') { throw 'MAINTENANCE_REQUEST_INVALID' }
     $origin=[string]$Request.Headers['Origin']
     if ($origin -and $origin -ne $Request.Url.GetLeftPart([UriPartial]::Authority)) { throw 'MAINTENANCE_ORIGIN_INVALID' }
-    $reader=[IO.StreamReader]::new($Request.InputStream,$Request.ContentEncoding)
-    try {
-        $buffer=[char[]]::new(1025); $length=$reader.ReadBlock($buffer,0,$buffer.Length)
-        if ($length -gt 1024) { throw 'MAINTENANCE_REQUEST_TOO_LARGE' }
-        $payload=([string]::new($buffer,0,$length)) | ConvertFrom-Json -Depth 4 -ErrorAction Stop
-    } finally { $reader.Dispose() }
+    $payload = (Read-UiSpecializedJsonRequestBody -Request $Request -MaxCharacters 1024 -LimitErrorCode 'MAINTENANCE_REQUEST_TOO_LARGE') | ConvertFrom-Json -Depth 4 -ErrorAction Stop
     if ($payload -isnot [pscustomobject] -or @($payload.PSObject.Properties.Name | Where-Object {$_ -notin @('action','candidateId','expectedKey','confirmed')}).Count -or
         $payload.candidateId -isnot [string] -or $payload.candidateId -cnotmatch '^[a-f0-9]{64}$') { throw 'MAINTENANCE_REQUEST_INVALID' }
     if ($payload.action -ceq 'preview') {
@@ -577,14 +547,7 @@ function Invoke-UiMediaOverrideRequest {
     if ($Request.HttpMethod -ne 'POST' -or $Request.ContentType -notmatch '^application/json(?:;|$)') { throw 'MEDIA_SOURCE_OVERRIDE_REQUEST_INVALID' }
     $origin = [string]$Request.Headers['Origin']
     if ($origin -and $origin -ne $Request.Url.GetLeftPart([UriPartial]::Authority)) { throw 'MEDIA_SOURCE_OVERRIDE_ORIGIN_INVALID' }
-    $reader = [IO.StreamReader]::new($Request.InputStream, $Request.ContentEncoding)
-    try {
-        $buffer = [char[]]::new(16385)
-        $length = $reader.ReadBlock($buffer, 0, $buffer.Length)
-        if ($length -gt 16384) { throw 'MEDIA_SOURCE_OVERRIDE_REQUEST_TOO_LARGE' }
-        $payload = ([string]::new($buffer, 0, $length)) | ConvertFrom-Json -Depth 12 -ErrorAction Stop
-    }
-    finally { $reader.Dispose() }
+    $payload = (Read-UiSpecializedJsonRequestBody -Request $Request -MaxCharacters 16384 -LimitErrorCode 'MEDIA_SOURCE_OVERRIDE_REQUEST_TOO_LARGE') | ConvertFrom-Json -Depth 12 -ErrorAction Stop
     if (-not $payload -or @($payload.PSObject.Properties.Name | Where-Object { $_ -notin @('action', 'parameters') }).Count) { throw 'MEDIA_SOURCE_OVERRIDE_REQUEST_INVALID' }
     $allowed = switch ([string]$payload.action) {
         'PlanMediaOverride' { @('MediaSourceId', 'MediaSourceOperation', 'MediaSourceUrl') }
@@ -628,6 +591,13 @@ try {
         try {
             if (-not [Net.IPAddress]::IsLoopback($context.Request.RemoteEndPoint.Address)) {
                 Write-UiResponse -Context $context -Body 'Nur lokaler Zugriff ist erlaubt.' -StatusCode 403
+                continue
+            }
+
+            # Gemeinsame Grenze vor jeder Route, Bodylesung und Job-/Batchanlage.
+            $requestBoundary = Get-UiRequestBoundaryDecision -Request $context.Request -ListenerUrl $url
+            if (-not $requestBoundary.Allowed) {
+                Write-UiResponse -Context $context -Body $requestBoundary.Code -StatusCode $requestBoundary.StatusCode
                 continue
             }
 
@@ -742,7 +712,10 @@ try {
             }
             if ($path -eq '/api/cms-inspection') {
                 try {$result=Invoke-UiCmsInspectionRequest -Request $context.Request;Write-UiResponse -Context $context -Body ($result|ConvertTo-Json -Depth 6) -ContentType 'application/json; charset=utf-8'}
-                catch {Write-UiResponse -Context $context -Body 'CMS_INSPECTION_REQUEST_FAILED: Registrierung und Auswahl erneut lesen.' -StatusCode 400}
+                catch {
+                    if (Write-UiBodyFailureResponse -Context $context -ErrorRecord $_) { continue }
+                    Write-UiResponse -Context $context -Body 'CMS_INSPECTION_REQUEST_FAILED: Registrierung und Auswahl erneut lesen.' -StatusCode 400
+                }
                 continue
             }
             if ($path -eq '/api/initial-setup') {
@@ -751,6 +724,8 @@ try {
                     Write-UiResponse -Context $context -Body ($result | ConvertTo-Json -Depth 12) -ContentType 'application/json; charset=utf-8'
                 }
                 catch {
+                    if (Write-UiBodyFailureResponse -Context $context -ErrorRecord $_) { continue }
+
                     Write-UiResponse -Context $context -Body 'INITIAL_SETUP_REQUEST_FAILED: Eingaben und aktuellen Zustand erneut prüfen.' -StatusCode 400
                 }
                 continue
@@ -761,6 +736,8 @@ try {
                     Write-UiResponse -Context $context -Body ($result | ConvertTo-Json -Depth 12) -ContentType 'application/json; charset=utf-8'
                 }
                 catch {
+                    if (Write-UiBodyFailureResponse -Context $context -ErrorRecord $_) { continue }
+
                     Write-UiResponse -Context $context -Body 'SLOT_RESERVE_REQUEST_FAILED: Eingaben und aktuellen Zustand erneut prüfen.' -StatusCode 400
                 }
                 continue
@@ -769,7 +746,10 @@ try {
                 try {
                     $result = Invoke-UiResourceWatchRequest -Request $context.Request
                     Write-UiResponse -Context $context -Body ($result | ConvertTo-Json -Depth 12) -ContentType 'application/json; charset=utf-8'
-                } catch { Write-UiResponse -Context $context -Body 'RESOURCE_WATCH_UNAVAILABLE' -StatusCode 400 }
+                } catch {
+                    if (Write-UiBodyFailureResponse -Context $context -ErrorRecord $_) { continue }
+                    Write-UiResponse -Context $context -Body 'RESOURCE_WATCH_UNAVAILABLE' -StatusCode 400
+                }
                 continue
             }
             if ($path -eq '/api/media-overrides') {
@@ -778,6 +758,8 @@ try {
                     Write-UiResponse -Context $context -Body ($result | ConvertTo-Json -Depth 12) -ContentType 'application/json; charset=utf-8'
                 }
                 catch {
+                    if (Write-UiBodyFailureResponse -Context $context -ErrorRecord $_) { continue }
+
                     Write-UiResponse -Context $context -Body 'MEDIA_SOURCE_OVERRIDE_REQUEST_FAILED: Eingaben und aktuellen Zustand erneut prüfen.' -StatusCode 400
                 }
                 continue
@@ -801,14 +783,20 @@ try {
                 try {
                     $view=Invoke-UiLlamaInstallerRequest -Request $context.Request
                     Write-UiResponse -Context $context -Body ($view|ConvertTo-Json -Depth 8) -ContentType 'application/json; charset=utf-8'
-                }catch{Write-UiResponse -Context $context -Body 'LLAMA_INSTALL_UNCONFIRMED: Ergebnis nicht bestätigt; frisch vorprüfen. Keine automatische Wiederholung oder Prerequisiteinstallation.' -StatusCode 400}
+                }catch{
+                    if (Write-UiBodyFailureResponse -Context $context -ErrorRecord $_) { continue }
+                    Write-UiResponse -Context $context -Body 'LLAMA_INSTALL_UNCONFIRMED: Ergebnis nicht bestätigt; frisch vorprüfen. Keine automatische Wiederholung oder Prerequisiteinstallation.' -StatusCode 400
+                }
                 continue
             }
             if ($path -eq '/api/llama-sessions') {
                 try {
                     $view=Invoke-UiLlamaSessionRequest -Request $context.Request
                     Write-UiResponse -Context $context -Body ($view | ConvertTo-Json -Depth 5) -ContentType 'application/json; charset=utf-8'
-                } catch { Write-UiResponse -Context $context -Body 'LLAMA_SESSION_UNCONFIRMED: Stop nicht bestätigt. Neu lesen und vorprüfen; eigene Recovery separat prüfen. Keine automatische Wiederholung.' -StatusCode 400 }
+                } catch {
+                    if (Write-UiBodyFailureResponse -Context $context -ErrorRecord $_) { continue }
+                    Write-UiResponse -Context $context -Body 'LLAMA_SESSION_UNCONFIRMED: Stop nicht bestätigt. Neu lesen und vorprüfen; eigene Recovery separat prüfen. Keine automatische Wiederholung.' -StatusCode 400
+                }
                 continue
             }
             if ($path -eq '/api/maintenance') {
@@ -816,7 +804,10 @@ try {
                     $view=Invoke-UiMaintenanceRequest -Request $context.Request
                     Write-UiResponse -Context $context -Body ($view | ConvertTo-Json -Depth 8) -ContentType 'application/json; charset=utf-8'
                 }
-                catch { Write-UiResponse -Context $context -Body 'MAINTENANCE_UNCONFIRMED: Ergebnis nicht bestätigt. Erneut lesen und vorprüfen; keine automatische Wiederholung.' -StatusCode 400 }
+                catch {
+                    if (Write-UiBodyFailureResponse -Context $context -ErrorRecord $_) { continue }
+                    Write-UiResponse -Context $context -Body 'MAINTENANCE_UNCONFIRMED: Ergebnis nicht bestätigt. Erneut lesen und vorprüfen; keine automatische Wiederholung.' -StatusCode 400
+                }
                 continue
             }
             if ($path -eq '/api/commands' -and $context.Request.HttpMethod -eq 'GET') {
@@ -834,8 +825,12 @@ try {
                 continue
             }
             if ($path -eq '/api/ai-shared-gateway/service-secret' -and $context.Request.HttpMethod -eq 'POST') {
-                $body = [IO.StreamReader]::new($context.Request.InputStream, $context.Request.ContentEncoding).ReadToEnd()
-                if ($body.Length -gt 1048576) { throw 'AI_SHARED_GATEWAY_UI_REQUEST_TOO_LARGE' }
+                $bodyRead = Read-UiJsonRequestBody -Request $context.Request
+                if (-not $bodyRead.Allowed) {
+                    Write-UiResponse -Context $context -Body $bodyRead.Code -StatusCode $bodyRead.StatusCode
+                    continue
+                }
+                $body = $bodyRead.Body
                 $request = $body | ConvertFrom-Json -Depth 30
                 if (-not $request -or $request.PSObject.Properties.Name -notcontains 'plan' -or $request.PSObject.Properties.Name -notcontains 'servicePlan') {
                     throw 'AI_SHARED_GATEWAY_UI_PLAN_AND_SERVICE_PLAN_REQUIRED'
@@ -849,14 +844,24 @@ try {
                 continue
             }
             if ($path -eq '/api/batches' -and $context.Request.HttpMethod -eq 'POST') {
-                $body = [IO.StreamReader]::new($context.Request.InputStream, $context.Request.ContentEncoding).ReadToEnd()
+                $bodyRead = Read-UiJsonRequestBody -Request $context.Request
+                if (-not $bodyRead.Allowed) {
+                    Write-UiResponse -Context $context -Body $bodyRead.Code -StatusCode $bodyRead.StatusCode
+                    continue
+                }
+                $body = $bodyRead.Body
                 $request = $body | ConvertFrom-Json -Depth 30
                 $batch = New-SqlServerLabBatch -Name ([string]$request.name) -Priority $(if ($request.priority) { [string]$request.priority } else { 'Normal' }) -Defaults $request.defaults -Items @($request.items) -Queue:$false
                 Write-UiResponse -Context $context -Body ($batch | ConvertTo-Json -Depth 30) -ContentType 'application/json; charset=utf-8' -StatusCode 201
                 continue
             }
             if ($path -eq '/api/operations' -and $context.Request.HttpMethod -eq 'POST') {
-                $body = [IO.StreamReader]::new($context.Request.InputStream, $context.Request.ContentEncoding).ReadToEnd()
+                $bodyRead = Read-UiJsonRequestBody -Request $context.Request
+                if (-not $bodyRead.Allowed) {
+                    Write-UiResponse -Context $context -Body $bodyRead.Code -StatusCode $bodyRead.StatusCode
+                    continue
+                }
+                $body = $bodyRead.Body
                 $request = $body | ConvertFrom-Json -Depth 12
                 $operationId = [string]$request.operationId
                 $result = switch ([string]$request.command) {
@@ -890,7 +895,12 @@ try {
                 continue
             }
             if ($path -eq '/api/persistent-storage/retained-removal-plan' -and $context.Request.HttpMethod -eq 'POST') {
-                $body=[IO.StreamReader]::new($context.Request.InputStream,$context.Request.ContentEncoding).ReadToEnd()
+                $bodyRead = Read-UiJsonRequestBody -Request $context.Request
+                if (-not $bodyRead.Allowed) {
+                    Write-UiResponse -Context $context -Body $bodyRead.Code -StatusCode $bodyRead.StatusCode
+                    continue
+                }
+                $body = $bodyRead.Body
                 $request=$body | ConvertFrom-Json -Depth 8
                 $dataRoot=& (Get-Module SqlServerLab) { Get-LabDataRootDefault }
                 $plan=Get-SqlServerLabRetainedStoreRemovalPlan -PersistentStorageId ([guid]$request.persistentStorageId) -DataRoot $dataRoot
@@ -898,7 +908,12 @@ try {
                 continue
             }
             if ($path -eq '/api/persistent-storage/removal-plan' -and $context.Request.HttpMethod -eq 'POST') {
-                $body = [IO.StreamReader]::new($context.Request.InputStream, $context.Request.ContentEncoding).ReadToEnd()
+                $bodyRead = Read-UiJsonRequestBody -Request $context.Request
+                if (-not $bodyRead.Allowed) {
+                    Write-UiResponse -Context $context -Body $bodyRead.Code -StatusCode $bodyRead.StatusCode
+                    continue
+                }
+                $body = $bodyRead.Body
                 $request = $body | ConvertFrom-Json -Depth 30
                 $runId = [string]$request.runId
                 $selections = @($request.selections)
@@ -910,7 +925,12 @@ try {
                 continue
             }
             if ($path -eq '/api/actions' -and $context.Request.HttpMethod -eq 'POST') {
-                $body = [IO.StreamReader]::new($context.Request.InputStream, $context.Request.ContentEncoding).ReadToEnd()
+                $bodyRead = Read-UiJsonRequestBody -Request $context.Request
+                if (-not $bodyRead.Allowed) {
+                    Write-UiResponse -Context $context -Body $bodyRead.Code -StatusCode $bodyRead.StatusCode
+                    continue
+                }
+                $body = $bodyRead.Body
                 $request = $body | ConvertFrom-Json -Depth 8
                 $action = [string]$request.action
                 if ($action -in @('NewContainerLab','NewContainerLabFromManifest')) {
@@ -977,8 +997,12 @@ try {
                 continue
             }
             if ($path -eq '/api/commands' -and $context.Request.HttpMethod -eq 'POST') {
-                $body = [IO.StreamReader]::new($context.Request.InputStream, $context.Request.ContentEncoding).ReadToEnd()
-                if ($body.Length -gt 1048576) { throw 'PUBLIC_COMMAND_UI_REQUEST_TOO_LARGE' }
+                $bodyRead = Read-UiJsonRequestBody -Request $context.Request
+                if (-not $bodyRead.Allowed) {
+                    Write-UiResponse -Context $context -Body $bodyRead.Code -StatusCode $bodyRead.StatusCode
+                    continue
+                }
+                $body = $bodyRead.Body
                 $request = $body | ConvertFrom-Json -Depth 30
                 $commandName = [string]$request.commandName
                 $parameterSetName = [string]$request.parameterSetName

@@ -2,6 +2,21 @@
 
 ## Zweck
 
+Alle Requests passieren die gemeinsame [HTTP-Grenze](../Architecture/WORKFLOW_UI_REQUEST_BOUNDARY.md)
+vor Routing und Bodylesung. Browserzugriffe müssen die genaue
+`http://127.0.0.1:<Port>`-Origin verwenden; POST verlangt JSON in UTF-8.
+Fremde Origins, ungeeignete Medientypen und andere Methoden werden abgewiesen.
+Lokale JSON-Clients ohne Origin bleiben zugelassen. Eine Operatoranmeldung
+oder servergebundene Aktionsfreigabe ist weiterhin offen.
+Die sieben direkten JSON-POST-Routen akzeptieren höchstens 1 MiB UTF-8 und
+teilen pro Body eine absolute Lesefrist von fünf Sekunden. Überlänge ergibt
+413, ungültiges UTF-8 400 und Timeout 408 vor einem Fachaufruf.
+Die acht internen Fachreader für CMS, Setup, Slots, Resource Watch, llama.cpp-
+Installer/-Stop, Wartungsreparatur und Medienoverrides erhalten ebenfalls fünf
+Sekunden absolute Lesefrist. Ihre engeren Zeichenlimits bleiben erhalten;
+zusätzliche Byteobergrenzen gelten vor der Decodierung. Übrige spezifische
+Adapter und Headerannahme besitzen dadurch keine neue Frist.
+
 ### SA-Passwort bei neuen Container-Labs
 
 **Neue SQL-Umgebung** prueft das eingegebene SA-Passwort und die Wiederholung
@@ -66,6 +81,13 @@ ins Manifest. Öffnen und Bearbeiten suchen nicht automatisch. Eingaben bleiben
 im RAM; Zurück/Escape verwirft auch späte Antworten. Eine angeforderte lesende
 Suche kann dabei weiterlaufen; Abbruch ist kein Nachweis ihrer Beendigung.
 
+Die getrennte gerenderte Katalogabnahme bestand am 2026-10-07 auf `8b2aba1c`
+mit sechs bewussten Suchen über die echte Route und den öffentlichen Reader,
+zwölf unveränderten Seitenassets und achtzehn Produktquelldigests. Der
+Seitenbootstrap war synthetisch; SQL, State und Provider wurden nicht benutzt.
+UTF-8, DEPRECATED-Warnung, Nulltreffer, Zero-Token-Suche und Rücksetzen beim
+Wiederöffnen wurden beobachtet, eigener Listener und Tab geschlossen.
+
 ### Evaluation-Ersatzentscheid
 
 Unter **Wartung, Aufräumen und Recovery → SQL-Evaluation: Ersatzentscheid**
@@ -94,6 +116,13 @@ ignorieren späte Antworten; eine laufende lesende Prüfung wird nicht gestoppt.
 Kein Speichern, Apply, Job, Manifestübernahme oder Start. Der Prozess hat
 20 Sekunden Ausführungsbudget plus bis zu fünf Sekunden Terminierungsversuch,
 kein Gesamt-HTTP-/Listener-Zeitlimit. [Vertrag](../Architecture/EXTERNAL_RUNTIME_CAPABILITY.md).
+
+Der gerenderte reine Katalogpfad wurde am 2026-10-07 auf `4007d414` für
+Java/2019, Python/2022, R/2022 und die explizite Java/2025-shared-user-Variante
+geprüft. Vier Optionsreads und vier öffentliche Entscheidungen, blockierte
+Optionen sowie das Rücksetzen der Ausgabe beim Wiederöffnen bestanden.
+Der Seitenbootstrap war synthetisch; Hostprüfung, Installation und SQL blieben
+ungenutzt. [Abnahmegrenzen](../Quality/LOCAL_VALIDATION_STRATEGY.md).
 
 ### Komponentenrelationsvorschau
 

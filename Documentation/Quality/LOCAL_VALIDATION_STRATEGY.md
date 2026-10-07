@@ -1,5 +1,84 @@
 # Lokale Validierungsstrategie
 
+Dieses Dokument führt Prüfwege und ausgeführte Nachweise mit ihren jeweiligen
+Geltungsbereichen. Fachverträge bleiben in den Architektur-/API-Quellen aus
+der [Repository-Map](../../.ai/repo_map.yaml), Einschränkungen in
+[Known Limitations](KNOWN_LIMITATIONS.md). Historische Referenzen ersetzen
+keinen aktuellen Abschluss-Gate.
+
+## Pester-Runnerstatus
+
+Die Unit-/Contract-Suite verlangt Pester ab Version 5. Fehlendes/zu altes
+Pester bleibt `INFRASTRUCTURE_UNAVAILABLE` und `NOT_EXECUTED` (Exitcode 2).
+Übersprungene, nicht ausgeführte oder unentschiedene Fälle ergeben ebenfalls
+einen unvollständigen Nachweis mit Exitcode 2. Fehlerhafte Tests, Container,
+Import/Aufruf und leere oder widersprüchliche Ergebnisse liefern Exitcode 1.
+Nur vollständig ausgeführte erfolgreiche Tests ergeben `PASS` und Exitcode 0.
+Die bestehenden Aggregatoren behandeln 1 und 2 als nicht grün.
+
+Die [Runner-Fixture](../../Tests/Static/Fixtures/ReleaseReadinessPesterChecks.ps1)
+prüft diese Fehler- und Erfolgswege in isolierten Prozessen innerhalb der
+ReleaseReadiness-Suite mit synthetischer Modulauflösung. Sie ersetzt weder die
+echte Pester-Suite noch einen Provider-/Runtime-Nachweis.
+
+## Download-Streaminggrenze
+
+`ActionProgressDownloadLimitChecks.ps1` läuft innerhalb der direkten
+Fortschrittssuite. Eigene echte Loopback-HTTP-Antworten prüfen deklarierte
+Übergröße vor Zielöffnung, unbekannte Länge und Chunked vor Überschreiben des
+Bytebudgets, exaktes Limit, EOF/Sentinel, Redirect, Truncation und HTTP-Retry.
+Ein Größenverstoß wird nicht wiederholt. Die Medienquellen- und Modellkatalog-
+Suites prüfen die tatsächliche Weitergabe des Katalog-Bytepins mit synthetischen
+Transportleaves. Das ersetzt keine native Providerabnahme oder Speicherquote.
+[Vertrag](../Architecture/DOWNLOAD_STREAM_LIMITS.md).
+
+## Lokale External-Model-Autoritaeten
+
+Die in `Invoke-AiExternalModelAccelerationChecks.ps1` eingebundene
+`AiExternalModelAuthorityChecks.ps1` prueft feste Loopback-/Hostaliasplaene,
+fremde DNS-/IP-Autoritaeten, Prefix-/Userinfo-Verwechslungen, Revalidierung eines
+manipulierten Plans sowie Veto vor direktem HTTP- und SQL-Dispatch. Ein zuvor
+charakterisierter lokaler PlanKey bleibt unveraendert; ein hashgebundener
+Legacy-SQL-Plan bleibt fuer den Cleanup-Leseweg gueltig. DNS, externe Netzwerk-
+Requests und Provider werden dabei nicht ausgefuehrt. Ein eigener synthetischer
+SecureString wird entsorgt; abgewiesene SQL-Requests erzeugen keinen State.
+Resume prueft vor neuer SQL-Mutation erneut die Autoritaet. Der native Windows-
+OVMS-Gateway-Runner prueft getrennt die erlaubte numerische HTTPS-Loopback-Lane;
+SQL-Planung ist dabei kein SQL-Mutations- oder Providernachweis. Hostalias-DNS,
+TCP-Zielbindung und klassifizierte Cloud-Freigaben bleiben offen.
+
+## Gemeinsame Workflow-UI-HTTP-Grenze
+
+`WorkflowUiJsonBodyChecks.ps1` bestand mit 35 Checks, darunter 13 echte HTTP-
+Requests über den vollständigen gemeinsamen Requestblock. Sieben direkte
+POST-Routen verwerfen deklarierte Überlänge ohne Bodylesen; Chunked-Überlänge,
+ungültiges UTF-8 und ein echter Trickle-Body werden ebenfalls abgewiesen.
+Drei anschließende gültige Requests erreichen ausschließlich synthetische
+Sinks; kein Produktmodul/State/SQL/Provider wird ausgeführt. Eigener Listener
+und Threadjob werden entfernt. Eigene Streams prüfen zusätzlich Bytegrenze,
+Sentinel, striktes UTF-8 und die absolute Frist. Übrige spezifische Reader, Header-
+Deadline, Parallelität, Authentifizierung und Statequotas bleiben offen.
+
+Die in WorkflowUI eingebundene `WorkflowUiRequestBoundaryChecks.ps1` bestand
+am 2026-10-07 mit 48 Checks, darunter zwölf echte Loopback-HTTP-Requests über
+die tatsächlichen zentralen Gate-/Commandroute-Anweisungen mit synthetischem
+Job-Sink. Neun abgewiesene POSTs verwenden ungültiges JSON; ein OPTIONS ohne
+Body wird ebenfalls abgewiesen. Kein Veto erreicht einen Job; zwei erlaubte
+Requests bleiben synthetisch. Header-/Authority-
+Prüfungen lesen keinen Body. Eigener Listener und Threadjob werden beendet.
+Produktmodul, State, SQL, Provider und gerenderter Browser sind NOT_EXECUTED;
+Operatorauthentifizierung und vollständige Cloud-Fundbehebung bleiben offen.
+[Vertrag](../Architecture/WORKFLOW_UI_REQUEST_BOUNDARY.md).
+
+`WorkflowUiSpecializedBodyChecks.ps1` ist in WorkflowUI eingebunden und prüft
+acht tatsächliche interne Fachadapter am vollständigen gemeinsamen Produktblock.
+58 fokussierte Prüfungen mit 36 echten Loopback-HTTP-Requests bestanden, darunter
+deklarierte/Chunked-/Zeichenübergröße je Route, gültige Requests, striktes UTF-8,
+ein tatsächlicher Trickle-Timeout und ein gültiger Folgeaufruf. Die alten
+Zeichenlimits sind mit mehrbyteigem Text, führender UTF-8-BOM und Überlauf geprüft. Alle Fach-Sinks
+sind synthetisch; kein Produktmodul, State, SQL oder Provider. Eigener Listener
+und Threadjob werden geschlossen. Gerenderte UI und Native-CMS bleiben separat.
+
 ## SA-Passwortpolicy: fokussierter Offlinevertrag
 
 `Tests/Static/Invoke-SaPasswordPolicyChecks.ps1` prueft Grenzlaengen, alle
@@ -17,22 +96,39 @@ frueheren Mindestlaengenwahl nach Passwortkorrektur, nur bewusst ausgewaehlte
 Mindestlaenge und Manifestdefault. Beide Fixtures sind vor dem
 Abschluss der bestehenden WorkflowUI-Suite eingebunden. Sie sind keine echte
 HTTP-Netz- oder gerenderte Browserabnahme. Ausgewaehlte Regression/
-Abschlussgates bleiben separat. Die ausgewaehlten 21 statischen Suiten
-bestanden nach Korrektur; `Invoke-SaPasswordPolicyAcceptance.ps1` bestand am
-2026-10-06 auf `12af45ed` getrennt fuer Docker und Podman mit eigenem
-SQL2025-CU9-Erststart, Mindestlaenge drei, Anmeldung, Restart/Configerhalt
-und vollstaendig bestaetigtem Cleanup. Der Vorher-nachher-Abgleich der sechs
-geschuetzten Umgebungen ergab null Findings.
-`Invoke-SaPasswordHttpNetworkAcceptance.ps1` bestand mit eigenem echten
-Loopback-Listener, drei abgewiesenen fehlerhaften Creationrequests, null
-Creationjobs und bestaetigtem Listener-/Root-Cleanup.
-`Invoke-SaPasswordBrowserAcceptance.ps1` bestand danach getrennt unter Docker
-und Podman mit gerendertem Edge, expliziter Mindestlaenge drei, genau einem
-gueltigen Loopback-HTTP-Creationjob, SQL-Anmeldung und gebundenem Cleanup.
-Der Schutzvergleich der sechs Toolbelt-Umgebungen blieb unveraendert. Die
-Workflow-Regression prueft nun auch, dass eine leere optionale
-`PersistentStorageId` nicht an die Erstellungsfunktion gebunden wird. Weitere
-CU-Images, Mindestlaengen und Persistenzmodi sind nicht abgenommen.
+Abschlussgates bleiben separat.
+
+### Historische Referenzabnahmen
+
+Die ausgewählten 21 statischen Suiten bestanden nach Korrektur.
+
+Am 2026-10-06 bestand `Invoke-SaPasswordPolicyAcceptance.ps1` auf dem
+Produktstand `12af45ed` getrennt fuer Docker und Podman: ein frischer eigener
+SQL2025-CU9-Run mit bewusst ausgewaehlter Mindestlaenge drei, tatsaechlicher
+SA-Anmeldung, unveraenderter Config nach Restart und bestaetigtem Cleanup von
+Run, Container, Volume und temporaerem Root. Vorher und nachher waren alle
+sechs geschuetzten Umgebungen laufend und gebunden; der Vergleich ergab null
+Findings. Der erste Docker-Testlauf scheiterte an einer zu engen
+Test-Bindungsannahme fuer die run-spezifische Volume und wurde nach erneuter
+Ownershippruefung vollstaendig aufgeraeumt; der korrigierte Test bestand.
+Andere Mindestlaengen und CU-Images sind damit nicht empirisch abgenommen.
+`Invoke-SaPasswordHttpNetworkAcceptance.ps1` bestand am 2026-10-06 mit
+eigenem Loopback-Listener: drei ungueltige bzw. doppelte Requests wurden
+vor der Jobanlage abgewiesen, ohne Passwortwert in der Antwort. Der Listener
+und sein Testroot wurden entfernt. `Invoke-SaPasswordBrowserAcceptance.ps1`
+bestand am 2026-10-06 getrennt fuer Docker und Podman: Ein gerenderter
+Edge-Browser zeigte beim kurzen Passwort zuerst die Korrektur ohne HTTP-Job,
+waehlte dann die Mindestlaenge drei bewusst aus und startete genau einen
+gueltigen Creationjob ueber echten Loopback-HTTP-Transport. Der Job erreichte
+`Completed`; der frische eigene SQL2025-CU9-Run bestand Configpruefung und
+SA-Anmeldung. Container, Volume und Testroot wurden nach nativer Bindung
+entfernt; alle sechs geschuetzten Umgebungen blieben im Vorher-nachher-Abgleich
+unveraendert. Der Test deckte dabei einen leeren explizit weitergereichten
+`PersistentStorageId` auf; der Workflow laesst diesen optionalen Parameter
+jetzt weg. Die Regression reproduzierte den Bindungsfehler vor der Korrektur.
+Andere CU-Images, Mindestlaengen und Persistenzmodi bleiben nativ ungeprueft.
+Impactselektion und PR-Abschlussgate benoetigen den vollstaendigen stabilen Stand.
+
 Die ausgewaehlten elf weiteren statischen Suites bestanden; die zwoelfte
 Workflow-UI-Suite bestand nach Anpassung ihrer Aufruf-Assertions an die
 optionale Parameteruebergabe. Der selektierte allgemeine Docker-Smoke bestand
@@ -57,7 +153,20 @@ GUI-Aktion, Statusaufnahme, Listener-, Provider- oder OperationHost-Ausführung.
 
 ## Container-Autostart nur vorprüfen
 
-`Get-SqlServerLabReconcilePlan -ContainerAutoStartPreview -RunId $runId -InstanceId primary -AutoStart on -StateRoot $stateRoot` ist eine getrennte PLAN_ONLY-Vorschau der Container-Restartpolicy für moderne registrierte laufende SQL-Instanzen unter Docker/Podman. Explizite skalare on/off-Labels und Restartpolicy müssen übereinstimmen; fehlende, untypisierte oder widersprüchliche Evidence bleibt UNKNOWN/DRIFTED und gesperrt. Nur die begrenzte SQL-Loopbacktopologie und darstellbare Mounts werden akzeptiert. Der DTO zeigt feste ON/OFF- und SAME_POLICY/DIFFERENT_POLICY-Kategorien sowie Mountcounts ohne Hostwerte, native IDs oder Pfade. CanApply=false, MutationAllowed=false und leere Actions gelten auch für No-op; der opaque ObservationKey ist reine Inhaltsbindung, keine CAS-/Reservierungs-/Executorautorität. Endpoint, SQL, Backup und Hostlogin bleiben NOT_CHECKED. Ein Kontextread nutzt die bestehenden Ownership-Revalidierungen; zusätzliche eigene Inspectreads bleiben erhalten. Der geführte CLI-Einstieg „Lab-Umgebungen → Container-Autostart vorprüfen“ wählt registrierte Lab-/Instanzmetadaten und liest den bestehenden öffentlichen Core nach einem vollständigen on/off-Wunsch genau einmal. Abbruch und ungültige Eingaben vor dem Aufruf lesen kein Inspect; feste Kategorien, Mountcounts und NOT_CHECKED-Grenzen werden erst nach strikter skalarer DTO-Prüfung angezeigt. Der separate Browserdialog „Lab verwalten → Container-Autostart vorprüfen · PLAN_ONLY“ liest beim Öffnen nur registrierte Zielmetadaten des serverseitigen Roots. Ziel-/on/off-Wechsel lösen keinen Read aus; erst bewusste Vorschau ruft denselben öffentlichen Core einmal auf. Strikte Request-/DTO-Projektionen erlauben keine clientseitigen Roots, nativen IDs oder Applyautorität. UNKNOWN/DRIFTED, Mountcounts und NOT_CHECKED-Grenzen bleiben sichtbar; Schließen, Bearbeitung und neue Requests verwerfen späte Antworten, während ein bereits versandter Read fertiglaufen darf. Die spezifische native CLI-Abnahme vom 2026-10-05 auf Head `960b5452` bestand unter Docker und Podman mit je drei tatsächlichen Menü-/Dualrouter-/Public-Vorschauaufrufen (on/off/on), null frühen Cancel-/Invalid-Aufrufen, unveränderten eigenen Statebytes und je neun getrennten Ownership-/Inspectreads. Zwei bytegebundene terminale Cleanuprecords bestätigten pro Provider die Entfernung der eigenen Ressourcen und Roots; der gemeinsame Schutzvergleich hatte null Findings und null Observations. Gerenderter Browser und HTTP-Netztransport wurden am 2026-10-06 unter Docker und Podman mit je drei öffentlichen Vorschauaufrufen und eigenem Cleanup nativ geprüft; der generische CLI-/Webkatalog verwendet unverändert den öffentlichen Parametervertrag. Die spezifische native Core-Abnahme vom 2026-10-05 auf Head `77fbaee` bestand unter Docker und Podman mit je fünf öffentlichen Vorschauaufrufen, unveränderten eigenen Statebytes, zwei bytegebundenen terminalen Cleanuprecords und entfernten eigenen Ressourcen/Roots. Der gemeinsame Schutzvergleich bestand mit null Findings und null Observations. Der historische Corelauf allein nahm keine CLI-/Browserdialoge oder HTTP-Netztransport ab; CPU/RAM, Portvorschau, Apply/Recovery und der vollständige Scope A bleiben unverändert bzw. separat offen.
+Der [öffentliche Vertrag](../../Public/README.md#container-autostart-nur-vorprüfen)
+ist die maßgebliche API-/Bedienreferenz. Die folgenden Abschnitte führen
+Offline-Fixtures und getrennte historische Referenzabnahmen:
+
+| Nachweis | Dokumentierter Stand | Geltungsbereich |
+|---|---|---|
+| [Core](#getrennte-autostart-core-abnahme) | 2026-10-05, `77fbaee` | Docker/Podman getrennt, je fünf öffentliche Vorschauaufrufe |
+| [CLI](#getrennte-autostart-cli-vorschau) | 2026-10-05, `960b5452` | Docker/Podman getrennt, je drei Menü-/Dualrouter-/Public-Aufrufe |
+| [Browser/HTTP](#getrennte-autostart-browservorschau) | 2026-10-06 | Docker/Podman getrennt, gerenderter Dialog und echter Loopback-HTTP |
+
+Eigene Statebytes und Cleanup gehören zu diesen jeweiligen Nachweisen.
+Historische Abnahmen ersetzen keinen aktuellen Abschluss-Gate.
+Die [bekannten Grenzen](KNOWN_LIMITATIONS.md#container-autostart-nur-vorprüfen)
+bleiben maßgeblich für nicht geprüfte oder nicht ausführbare Fähigkeiten.
 
 
 ## Getrennte AutoStart-Browservorschau
@@ -180,8 +289,9 @@ oder Kategorien blockieren vor Darstellung; Rohfehler bleiben privat.
 Statebytes und verbotene Effekte werden geprüft. Diese synthetische Route
 ist kein nativer CLI-Nachweis; die separate native CLI-Abnahme ist unten belegt.
 Die bereits bestandene native Core-Abnahme auf `77fbaee` bleibt getrennt.
-Native Browserdialogabnahme, HTTP-Netztransport, Hostlogin, Preview-SQL/Endpoint sowie
-Apply/Recovery und vollständiger Scope A bleiben offen.
+Diese CLI-Fixture nimmt weder Browserdialog noch HTTP-Netztransport ab;
+deren getrennte Referenz steht unter [Browser-Vorschau](#getrennte-autostart-browservorschau).
+Hostlogin, Preview-SQL/Endpoint, Apply/Recovery und vollständiger Scope A bleiben offen.
 
 ### Eigene native AutoStart-CLI-Abnahme (belegt)
 
@@ -285,6 +395,21 @@ Eigene synthetische HTTP-Katalogfixtures bleiben lokal ignoriert erhalten;
 dieser neue Test behauptet kein Cleanup. Kein manueller Browser- oder nativer
 SQL-Nachweis; die bestehende separate Container-Evidence bleibt historisch.
 
+Die additive `Invoke-CollationCatalogBrowserAcceptance.ps1` liefert dagegen
+die vollständige Produktseite unverändert über einen eigenen begrenzten
+Loopbacklistener. Vier Bootstrapendpunkte bleiben synthetisch; die tatsächliche
+Suchroute verwendet den echten HTTP-Helper und öffentlichen schema-geprüften
+Katalogreader im isolierten Modul. Am 2026-10-07 bestand die gerenderte Abnahme
+auf `8b2aba1c`: zwölf Assets, achtzehn unveränderte Produktquelldigests,
+105 Requests und genau sechs Public-Suchen für SQL 2019/2022/2025 mit UTF-8,
+DEPRECATED, Nulltreffer und Unicode-/leerer Zero-Token-Suche. Navigation,
+Öffnen/Bearbeiten ohne Suche, Rücksetzen beim Wiederöffnen und Schließen wurden
+beobachtet; keine Skriptfehler oder instrumentierten verbotenen Effekte. Eigener
+Listener und Browser-Tab geschlossen, private Evidence bleibt lokal. Kein
+vollständiger Produktmodulimport, State-/Provider-/Secret-/SQL-Zugriff. Die
+36 fokussierten Offline-Fälle prüfen Abschlussveto und Transport-Datentypen;
+sie ersetzen weder diese Browserabnahme noch native SQL-/Windows-Evidence.
+
 ## Reiner Evaluation-Ersatzentscheid
 
 `Invoke-EvaluationRefreshPlanHttpChecks.ps1` führt den tatsächlichen HTTP-Reader,
@@ -327,6 +452,23 @@ negativ geprüft. Das tatsächliche JS-Modul läuft mit Fake-DOM und Fetch-Spies
 Abbruch, Escape, Busy, verworfene späte Antworten, blockierte Varianten und
 Privacyfehler werden geprüft. Das sind synthetische Prüfungen, keine manuelle
 Browser- oder native Provider-/SQL-Sprachabnahme.
+
+Die additive `Invoke-ExternalRuntimeCapabilityCatalogBrowserAcceptance.ps1`
+prüft die vollständige unveränderte Produktseite über einen eigenen begrenzten
+Loopbacklistener. Vier Bootstrapreads bleiben synthetisch; die tatsächliche
+HTTP-Route verwendet den öffentlichen Entscheid, aktuelle Kataloge,
+Provider-Metadaten und Rezept-/Lockdateien im isolierten Modul. Am 2026-10-07
+bestand die gerenderte Abnahme auf `4007d414`: zwölf Assets, 36 unveränderte
+Produktquellhashes, 98 Requests, vier Optionsreads und vier Public-Entscheide.
+Docker Java/2019, Docker Python/2022, Podman R/2022 und die explizite Podman
+Java/2025-shared-user-Variante wurden angezeigt. Navigation, Öffnen/Bearbeiten
+ohne Aktion, deaktivierte blockierte Optionen, Ausgaberücksetzen beim
+Wiederöffnen und Schließen wurden beobachtet. Keine Skriptfehler oder
+instrumentierten verbotenen Effekte; eigener Listener und Tab geschlossen.
+48 Offline-Fälle prüfen Quelle, DTO-/Payload-/Aufrufbindung, Abschlussveto und
+Einzelpfadauswahl mit beiden Pfadtrennern. Produktmodulimport, Hostprüfung,
+historischer Lookup, State, Provider-Runtime, Secrets, Installation und SQL
+bleiben ungenutzt; native Provider-/SQL-Sprachnachweise bleiben separat offen.
 
 `Invoke-ExternalRuntimeCapabilityChecks.ps1` durchläuft den tatsächlichen
 Public-Aufruf, Katalogresolver, Reducer und bestehenden Manifestdialog.
@@ -1769,6 +1911,10 @@ Bei einem Fehler bleiben Test-VM, aktueller Root und Journale als
 - lokaler Repository-Checkout;
 - keine laufende Container-Runtime erforderlich.
 
+Pester-Unit-/Contract-Tests benötigen zusätzlich Pester ab Version 5;
+die Analyse-Suite benötigt PSScriptAnalyzer. Ohne diese Module ist der
+entsprechende Nachweis nicht ausgeführt und der Abschluss-Gate nicht grün.
+
 ### Integration-Smoke-Test
 
 - PowerShell 7.2 oder neuer;
@@ -2478,8 +2624,15 @@ umgeleitete Zielpfade blockieren den Export. `WhatIf` legt keine Dateien an.
 Erst fertig erzeugte Inhalte werden aus einem eigenen Staging-Verzeichnis
 veröffentlicht; Teilfehler entfernen ausschließlich die eigenen Artefakte.
 Diese Rücknahme ist für gewöhnliche Ausnahmen geprüft. Ein harter
-Prozessabbruch kann Staging- oder Teilartefakte zurücklassen; eine atomare
-Mehrdateiveröffentlichung bei Prozessabbruch ist damit nicht nachgewiesen.
+Prozessabbruch kann Staging- oder Teilartefakte zurücklassen. Das neue dauerhafte
+Intent und die atomare Abschlussquittung unterscheiden deshalb vollständige
+Artefakte von einem unquittierten Stand. `InspectReleaseId` prüft genau eine
+Release-ID rein lesend einschließlich vollständiger Byte-/Dateimengenbindung:
+`INCOMPLETE` ohne Quittung, `COMPLETED` nur bei passenden aktuellen Bytes und
+`NOT_ATTESTED` für nicht quittierte ältere Veröffentlichungen. Prozessstatus
+bleibt `NOT_CHECKED`, Actions leer; es gibt keine automatische Wiederaufnahme
+oder Entfernung. Eine atomare Mehrdateiveröffentlichung bleibt unbehauptet.
+[Vertrag und Recoverygrenzen](../Architecture/LOCAL_RELEASE_PUBLICATION.md).
 
 `ReleaseManifest.json` enthält relative Pfade, Quellcommit und SHA-256-Werte;
 `ReleaseReadinessCheck` unterscheidet `PASSED` und `SKIPPED`. Die optionale
@@ -2488,7 +2641,11 @@ ausschließlich neben der fertigen ZIP-Datei; deren Inhalt wird danach nicht
 mehr verändert. Die ZIP-Datei erhält auch versionierte versteckte Nutzdateien.
 `Invoke-ReleaseArtifactChecks.ps1` belegt diesen Vertrag mit synthetischen
 Git-Fixtures, injiziertem Publikationsfehler und Import des realen Moduls aus
-dem entpackten Paket. Ein Pakettest ersetzt keine nativen Providernachweise.
+dem entpackten Paket. Zusätzliche harte Abbrüche eigener Kindprozesse vor
+Archiv-, Paket- und Quittungspublikation sowie nach Quittungspublikation prüfen
+die lesende Status-/Bytebindung ohne behauptetes Cleanup. Inhaltsdrift,
+Recordlimits, Traversal und leere Reparsepunkte werden gesondert geprüft.
+Ein Pakettest ersetzt keine nativen Providernachweise.
 
 Nicht verfügbare Native-Tests müssen im Pull Request mit Grund als `NOT_EXECUTED` angegeben werden.
 
