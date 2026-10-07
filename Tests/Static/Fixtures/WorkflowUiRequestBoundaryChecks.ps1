@@ -87,6 +87,7 @@ try{
   param($Listener,$url,$Dispatch,$Reply,$Include,$ToolsRoot,$Count)
   $ErrorActionPreference='Stop';$jobs=@{};$script:syntheticDispatches=0
   . ([scriptblock]::Create('param([string]$PSScriptRoot)'+"`n"+$Include)) $ToolsRoot
+  . (Join-Path $ToolsRoot 'WorkflowUiJsonBody.ps1')
   . ([scriptblock]::Create($Reply))
   function Start-UiPublicCommandJob {param($CommandName,$ParameterSetName,$Parameters,[switch]$Confirmed)
    if($CommandName -cne 'Remove-SqlServerLab' -or -not $Confirmed){throw 'SYNTHETIC_JOB_INPUT'}

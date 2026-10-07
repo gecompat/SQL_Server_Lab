@@ -1,5 +1,13 @@
 # Tests/ – lokale und Remote-Validierung
 
+`Static/Fixtures/WorkflowUiJsonBodyChecks.ps1` ist in WorkflowUI eingebunden:
+35 Checks mit 13 echten HTTP-Requests über den vollständigen Produktblock und
+synthetischen Fach-Sinks prüfen sieben direkte POST-Reader, Überlängenheader
+ohne Body, Chunked, UTF-8-Veto, Trickle-Deadline und drei gültige Folge-Requests.
+Eigene Streams prüfen Sentinel und exaktes Bytelimit. Kein Produktmodul, State,
+SQL oder Provider; eigener Listener und Threadjob werden beendet. Spezifische
+Adapter, Headerdeadline, Parallelität, Authentifizierung und Statequotas bleiben offen.
+
 `Static/Fixtures/WorkflowUiRequestBoundaryChecks.ps1` ist in WorkflowUI
 eingebunden. Die 48 fokussierten Checks prüfen Header-/Authority-Grenzen ohne
 Bodylesung und zwölf echte HTTP-Requests über zentrale Produktanweisungen.

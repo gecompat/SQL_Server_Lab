@@ -3,6 +3,7 @@ $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $repo = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 . (Join-Path $repo 'Tools/WorkflowUiJobStatus.ps1')
+. (Join-Path $repo 'Tools/WorkflowUiJsonBody.ps1')
 $passed = 0
 function Check($Value, [string]$Name) { if (-not $Value) { throw $Name }; $script:passed++; Write-Host "PASS: $Name" }
 $root = Join-Path $repo ('.artifacts/test-runs/ui-job-status-' + [guid]::NewGuid().ToString('n'))

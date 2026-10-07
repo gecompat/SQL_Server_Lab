@@ -22,6 +22,9 @@ Die gemeinsame Workflow-UI-[HTTP-Grenze](../Documentation/Architecture/WORKFLOW_
 prüft Requests vor Routing/Bodylesung. Fremde Origins und ungeeignete POST-
 Medientypen werden abgewiesen; lokale JSON-Clients ohne Origin bleiben erlaubt.
 Operatorauthentifizierung und vollständige Security-Cloud-Fundbehebung sind offen.
+Sieben direkte JSON-POST-Routen verwenden nun einen gemeinsamen Reader mit
+1-MiB-Bytegrenze, striktem UTF-8 und fünf Sekunden absoluter Lesefrist.
+Spezifische Reader, Headerannahme, Parallelität und Statequotas bleiben separat.
 
 Der enge Diagnosebundle-Vertrag `Get-SqlServerLabDiagnosticBundle` liefert
 gebundene, sanitisierte Metadaten für eine moderne Instanz unter einem

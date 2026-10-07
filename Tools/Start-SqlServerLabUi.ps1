@@ -125,6 +125,7 @@ function Import-UiSqlServerLabModule {
 Import-UiSqlServerLabModule -ModulePath $modulePath
 . (Join-Path $PSScriptRoot 'WorkflowUiJobStatus.ps1')
 . (Join-Path $PSScriptRoot 'WorkflowUiRequestBoundary.ps1')
+. (Join-Path $PSScriptRoot 'WorkflowUiJsonBody.ps1')
 
 function Write-UiResponse {
     param(
@@ -842,8 +843,12 @@ try {
                 continue
             }
             if ($path -eq '/api/ai-shared-gateway/service-secret' -and $context.Request.HttpMethod -eq 'POST') {
-                $body = [IO.StreamReader]::new($context.Request.InputStream, $context.Request.ContentEncoding).ReadToEnd()
-                if ($body.Length -gt 1048576) { throw 'AI_SHARED_GATEWAY_UI_REQUEST_TOO_LARGE' }
+                $bodyRead = Read-UiJsonRequestBody -Request $context.Request
+                if (-not $bodyRead.Allowed) {
+                    Write-UiResponse -Context $context -Body $bodyRead.Code -StatusCode $bodyRead.StatusCode
+                    continue
+                }
+                $body = $bodyRead.Body
                 $request = $body | ConvertFrom-Json -Depth 30
                 if (-not $request -or $request.PSObject.Properties.Name -notcontains 'plan' -or $request.PSObject.Properties.Name -notcontains 'servicePlan') {
                     throw 'AI_SHARED_GATEWAY_UI_PLAN_AND_SERVICE_PLAN_REQUIRED'
@@ -857,14 +862,24 @@ try {
                 continue
             }
             if ($path -eq '/api/batches' -and $context.Request.HttpMethod -eq 'POST') {
-                $body = [IO.StreamReader]::new($context.Request.InputStream, $context.Request.ContentEncoding).ReadToEnd()
+                $bodyRead = Read-UiJsonRequestBody -Request $context.Request
+                if (-not $bodyRead.Allowed) {
+                    Write-UiResponse -Context $context -Body $bodyRead.Code -StatusCode $bodyRead.StatusCode
+                    continue
+                }
+                $body = $bodyRead.Body
                 $request = $body | ConvertFrom-Json -Depth 30
                 $batch = New-SqlServerLabBatch -Name ([string]$request.name) -Priority $(if ($request.priority) { [string]$request.priority } else { 'Normal' }) -Defaults $request.defaults -Items @($request.items) -Queue:$false
                 Write-UiResponse -Context $context -Body ($batch | ConvertTo-Json -Depth 30) -ContentType 'application/json; charset=utf-8' -StatusCode 201
                 continue
             }
             if ($path -eq '/api/operations' -and $context.Request.HttpMethod -eq 'POST') {
-                $body = [IO.StreamReader]::new($context.Request.InputStream, $context.Request.ContentEncoding).ReadToEnd()
+                $bodyRead = Read-UiJsonRequestBody -Request $context.Request
+                if (-not $bodyRead.Allowed) {
+                    Write-UiResponse -Context $context -Body $bodyRead.Code -StatusCode $bodyRead.StatusCode
+                    continue
+                }
+                $body = $bodyRead.Body
                 $request = $body | ConvertFrom-Json -Depth 12
                 $operationId = [string]$request.operationId
                 $result = switch ([string]$request.command) {
@@ -898,7 +913,12 @@ try {
                 continue
             }
             if ($path -eq '/api/persistent-storage/retained-removal-plan' -and $context.Request.HttpMethod -eq 'POST') {
-                $body=[IO.StreamReader]::new($context.Request.InputStream,$context.Request.ContentEncoding).ReadToEnd()
+                $bodyRead = Read-UiJsonRequestBody -Request $context.Request
+                if (-not $bodyRead.Allowed) {
+                    Write-UiResponse -Context $context -Body $bodyRead.Code -StatusCode $bodyRead.StatusCode
+                    continue
+                }
+                $body = $bodyRead.Body
                 $request=$body | ConvertFrom-Json -Depth 8
                 $dataRoot=& (Get-Module SqlServerLab) { Get-LabDataRootDefault }
                 $plan=Get-SqlServerLabRetainedStoreRemovalPlan -PersistentStorageId ([guid]$request.persistentStorageId) -DataRoot $dataRoot
@@ -906,7 +926,12 @@ try {
                 continue
             }
             if ($path -eq '/api/persistent-storage/removal-plan' -and $context.Request.HttpMethod -eq 'POST') {
-                $body = [IO.StreamReader]::new($context.Request.InputStream, $context.Request.ContentEncoding).ReadToEnd()
+                $bodyRead = Read-UiJsonRequestBody -Request $context.Request
+                if (-not $bodyRead.Allowed) {
+                    Write-UiResponse -Context $context -Body $bodyRead.Code -StatusCode $bodyRead.StatusCode
+                    continue
+                }
+                $body = $bodyRead.Body
                 $request = $body | ConvertFrom-Json -Depth 30
                 $runId = [string]$request.runId
                 $selections = @($request.selections)
@@ -918,7 +943,12 @@ try {
                 continue
             }
             if ($path -eq '/api/actions' -and $context.Request.HttpMethod -eq 'POST') {
-                $body = [IO.StreamReader]::new($context.Request.InputStream, $context.Request.ContentEncoding).ReadToEnd()
+                $bodyRead = Read-UiJsonRequestBody -Request $context.Request
+                if (-not $bodyRead.Allowed) {
+                    Write-UiResponse -Context $context -Body $bodyRead.Code -StatusCode $bodyRead.StatusCode
+                    continue
+                }
+                $body = $bodyRead.Body
                 $request = $body | ConvertFrom-Json -Depth 8
                 $action = [string]$request.action
                 if ($action -in @('NewContainerLab','NewContainerLabFromManifest')) {
@@ -985,8 +1015,12 @@ try {
                 continue
             }
             if ($path -eq '/api/commands' -and $context.Request.HttpMethod -eq 'POST') {
-                $body = [IO.StreamReader]::new($context.Request.InputStream, $context.Request.ContentEncoding).ReadToEnd()
-                if ($body.Length -gt 1048576) { throw 'PUBLIC_COMMAND_UI_REQUEST_TOO_LARGE' }
+                $bodyRead = Read-UiJsonRequestBody -Request $context.Request
+                if (-not $bodyRead.Allowed) {
+                    Write-UiResponse -Context $context -Body $bodyRead.Code -StatusCode $bodyRead.StatusCode
+                    continue
+                }
+                $body = $bodyRead.Body
                 $request = $body | ConvertFrom-Json -Depth 30
                 $commandName = [string]$request.commandName
                 $parameterSetName = [string]$request.parameterSetName

@@ -8,6 +8,10 @@ vor Routing und Bodylesung. Browserzugriffe müssen die genaue
 Fremde Origins, ungeeignete Medientypen und andere Methoden werden abgewiesen.
 Lokale JSON-Clients ohne Origin bleiben zugelassen. Eine Operatoranmeldung
 oder servergebundene Aktionsfreigabe ist weiterhin offen.
+Die sieben direkten JSON-POST-Routen akzeptieren höchstens 1 MiB UTF-8 und
+teilen pro Body eine absolute Lesefrist von fünf Sekunden. Überlänge ergibt
+413, ungültiges UTF-8 400 und Timeout 408 vor einem Fachaufruf. Spezifische
+Adapter mit eigenen Readern und Headerannahme besitzen dadurch keine neue Frist.
 
 ### SA-Passwort bei neuen Container-Labs
 

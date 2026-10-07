@@ -8,6 +8,11 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Geändert
 
+- Sieben direkte JSON-POST-Routen der Workflow-UI begrenzen die tatsächlichen
+  UTF-8-Bodybytes auf 1 MiB und die Reads auf eine absolute Frist von fünf
+  Sekunden. Überlänge, ungültiges UTF-8 und Timeout werden vor JSON-Verarbeitung
+  und Fachaufrufen abgewiesen; spezifische Reader und Authentifizierung bleiben separat.
+
 - Die lokale Workflow-UI prüft gemeinsame Request-Authority, vorhandene
   Origin-/Fetch-Site-Header und JSON-POST-Medientypen vor Routing/Bodylesung.
   Fremde Origins und ungeeignete Medientypen werden abgewiesen. Lokale
