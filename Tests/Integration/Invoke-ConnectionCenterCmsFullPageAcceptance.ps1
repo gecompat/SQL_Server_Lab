@@ -29,7 +29,8 @@ function Invoke-SqlServerLabWorkflowAction {
 }
 function Write-UiResponse {
     param($Context,$Body,[string]$ContentType,[int]$StatusCode=200)
-    [byte[]]$bytes=if($Body -is [byte[]]){$Body}else{[Text.Encoding]::UTF8.GetBytes([string]$Body)}
+    # Assign inside the branches: emitting an empty array through if yields null.
+    if($Body -is [byte[]]){[byte[]]$bytes=$Body}else{[byte[]]$bytes=[Text.Encoding]::UTF8.GetBytes([string]$Body)}
     if($bytes.Length -gt 256KB){throw 'CMS_FULL_PAGE_RESPONSE_LIMIT'}
     $Context.Response.StatusCode=$StatusCode;$Context.Response.ContentType=$ContentType
     $Context.Response.ContentLength64=$bytes.Length;$Context.Response.OutputStream.Write($bytes,0,$bytes.Length)
