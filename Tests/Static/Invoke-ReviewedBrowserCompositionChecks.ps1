@@ -35,9 +35,9 @@ try {
     }
     Check ($html.Contains('Worker teilen ein gemeinsames Konto und besitzen Netzwerkzugriff') -and $html.Contains('Abbruch verwirft nur die Anzeige')) 'Complete shared-worker warning and truthful cancellation retained'
     $exports=@((Import-PowerShellDataFile (Join-Path $repo 'SqlServerLab.psd1')).FunctionsToExport)
-    Check ($exports.Count -eq 135 -and @($exports|Sort-Object -Unique).Count -eq 135) '135 unique combined public exports'
+    Check ($exports.Count -eq 137 -and @($exports|Sort-Object -Unique).Count -eq 137) '137 unique combined public exports'
     foreach($name in @('Get-SqlServerLabEvaluationRefreshPlan','Get-SqlServerLabLlamaCppStartPlan','Get-SqlServerLabExternalRuntimeCapability')){Check ($name -cin $exports) "Public union retains $name"}
-    Check ([IO.File]::ReadAllText((Join-Path $repo 'Documentation/README.md')).Contains('135 exportierte Funktionen')) 'Documentation export count follows actual combined manifest'
+    Check ([IO.File]::ReadAllText((Join-Path $repo 'Documentation/README.md')).Contains('137 exportierte Funktionen')) 'Documentation export count follows actual combined manifest'
 
     $module=New-Module -Name SqlServerLab -ArgumentList $repo,$fixture -ScriptBlock {
         param($repoRoot,$fixtureRoot)

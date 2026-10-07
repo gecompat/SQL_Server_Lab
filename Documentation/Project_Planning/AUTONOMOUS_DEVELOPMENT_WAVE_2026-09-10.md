@@ -77,7 +77,25 @@ Aktionsliste. Docker und Podman bestanden am 2026-10-07 getrennt den eigenen
 SQL-Lifecycle, den tatsächlichen Konsolenhandler mit vorgegebenen Auswahlleaves,
 Artefaktentfernung, unverändertes Providerinventar und eigenes Cleanup.
 Die unabhängige Review und Nachreview sind ohne offene Findings geschlossen;
-der obligatorische PR-Gate muss den exakten stabilen Head separat belegen.
+der exakte PR-Gate bestand und der Konsolenslice ist mit
+[PR #703](https://github.com/gecompat/SQL_Server_Lab/pull/703) integriert.
+
+Der folgende enge Browser-Slice unter denselben bestehenden Aufgaben ergänzt
+einen eigenen Wartungsdialog für genau einen entfernten Run. Roots und PlanKey
+bleiben serverseitig; fünf Minuten gültige einmalige Vorschauen, leere
+Bestätigung, frische Core-Revalidierung und Replay-Veto binden Apply/Resume.
+Metadatenread startet keine Vorschau. Schließen nach Versand beendet nur die
+Anzeige; kein automatischer Retry oder behaupteter Abbruch. Die 80 HTTP- und
+63 JavaScript-Fixtureprüfungen bestanden synthetisch. Am 2026-10-07 bestanden
+Docker und Podman getrennt den tatsächlichen Browser-HTTP-Handler über einen
+eigenen Loopback-Listener nach SQL-Major-17-Abfrage, Stop/Start und Remove:
+Read/Preview, Bestätigungsbarriere, Apply, Replay-Veto, Artefaktabwesenheit,
+unverändertes Providerinventar und vollständiger Own-Cleanup. Die tatsächliche
+Browseroberfläche wurde zusätzlich mit synthetischem BLOCKED-Transport
+visuell geprüft; eine dabei gefundene Umbruchlücke ist korrigiert.
+Gerenderte native Apply-/Terminalabnahme, Hyper-V-Purge und der Gesamthorizont
+bleiben offen. Unabhängige Review ist ohne offene Findings abgeschlossen;
+der exakte PR-Gate steht für diesen neuen Slice noch aus.
 
 ## Übergabe und Benutzerpause vom 2026-10-05
 

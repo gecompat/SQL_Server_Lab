@@ -25,8 +25,30 @@ fortsetzen“ verlangt eine separate Bestätigung mit Standard Nein. Der Dialog
 Roots und den PlanKey an den öffentlichen Apply-Befehl. Dessen frische
 Revalidierung bleibt wirksam. Ein bereits abgeschlossener Vorgang wird nur
 angezeigt. Fehler lösen keine automatische Wiederholung aus; bei Recovery
-denselben Run erneut auswählen. Der Browser verwendet weiterhin den generischen
-öffentlichen Befehlskatalog; ein eigener Browserdialog bleibt Folgearbeit.
+denselben Run erneut auswählen.
+
+Im Browser unter **Wartung, Aufräumen und Recovery → Run-Artefakte prüfen**
+öffnet derselbe Fachvertrag einen eigenen Dialog. Öffnen liest nur die
+Run-IDs entfernter Runs und Artefaktvorgänge im aktuellen serverseitigen
+Lab-Datenbereich. Ein Run muss bewusst ausgewählt und mit **Vorschau lesen**
+geprüft werden. Der Browser zeigt Status, Dateianzahl und feste Sperrgründe;
+Metadatenauswahl ist keine Löschberechtigung. Registrierte Roots, interne
+Dateien und der PlanKey werden nicht an den Browser übertragen.
+
+Eine ausführbare Vorschau gilt fünf Minuten und ist serverseitig an genau
+diesen Run, die Roots und den PlanKey gebunden. Die separate Bestätigungsbox
+ist standardmäßig leer. Erst danach kann **Geprüfte Metadaten endgültig
+entfernen** beziehungsweise **Artefaktentfernung fortsetzen** den öffentlichen
+Apply-Befehl aufrufen. Die Vorschau wird einmalig konsumiert, auch bei Fehler.
+Rootwechsel und die frische Core-Revalidierung können weiterhin sperren.
+Auswahlwechsel, erneutes Metadatenlesen und Schließen verwerfen die lokale
+Bestätigung; neue Vorschau und Bestätigung sind erforderlich.
+
+Abbruch vor Versand entfernt nichts. Nach Versand beendet Schließen nur die
+Anzeige; der Servervorgang kann weiterlaufen. Späte Antworten stellen keine
+verworfene Vorschau oder Erfolgsmeldung wieder her. Bei verlorener Antwort
+denselben Run frisch lesen und vorprüfen; keine automatische Wiederholung.
+Der generische öffentliche Befehlskatalog bleibt daneben verfügbar.
 
 ```powershell
 $plan = Get-SqlServerLabRunArtifactRemovalPlan `

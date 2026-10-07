@@ -242,6 +242,12 @@
     </section>
 
     <section class="panel compact" data-workspace-area="maintenance" hidden>
+      <div class="section-heading"><div><p class="eyebrow">RUN-METADATEN</p><h2>Artefakte eines entfernten Runs</h2></div></div>
+      <p>Genau einen entfernten Run vorprüfen und seine Metadaten separat bestätigt entfernen oder den begonnenen Vorgang fortsetzen.</p>
+      <button id="run-artifact-open" type="button" class="button secondary">Run-Artefakte prüfen</button>
+    </section>
+
+    <section class="panel compact" data-workspace-area="maintenance" hidden>
       <div class="section-heading"><div><p class="eyebrow">DOCKER / PODMAN</p><h2>Behaltenen SQL-Speicher löschen</h2></div></div>
       <label>Abgetrennten Speicher auswählen<select id="retained-store-source"><option value="">Kein Speicher verfügbar</option></select></label>
       <p id="retained-store-details" class="form-note">Alle Datenbanken und Serverobjekte gehen endgültig verloren. Ein Backup wird nicht geprüft.</p>
@@ -892,5 +898,19 @@
   </dialog>
   <script src="llama-start-plan.js"></script>
   <script src="llama-start.js"></script>
+  <dialog id="run-artifact-dialog">
+    <div class="dialog-panel">
+      <div class="dialog-heading"><h2>Artefakte eines entfernten Runs</h2><button id="run-artifact-close" type="button" class="icon-button" aria-label="Schließen">×</button></div>
+      <p>Aktueller Lab-Datenbereich · genau ein Run · keine globale Entfernung. Die Auswahl liest nur Metadaten.</p>
+      <label>Entfernter Run oder Artefaktvorgang<select id="run-artifact-target" disabled></select></label>
+      <p id="run-artifact-status" role="status" aria-live="polite">Noch keine Vorschau angefordert.</p>
+      <pre id="run-artifact-result"></pre>
+      <p>Nur geprüfte Run-Metadaten werden endgültig entfernt. Ein Abschlussreceipt bleibt erhalten. Providerressourcen und Sicherungen bleiben erhalten. Ein begonnener Vorgang wird nur vorwärts fortgesetzt.</p>
+      <label><input id="run-artifact-confirm" type="checkbox" disabled> Die angezeigten Metadaten genau dieses Runs endgültig entfernen beziehungsweise den begonnenen Vorgang fortsetzen</label>
+      <p>Abbruch vor Versand entfernt nichts. Nach Versand beendet Schließen nur die Anzeige. Bei verlorener Antwort denselben Run erneut lesen und vorprüfen; keine automatische Wiederholung.</p>
+      <div class="dialog-actions"><button id="run-artifact-read" type="button" class="button secondary">Run-Metadaten erneut lesen</button><button id="run-artifact-preview" type="button" class="button secondary" disabled>Vorschau lesen</button><button id="run-artifact-apply" type="button" class="button danger" disabled>Geprüfte Metadaten endgültig entfernen</button></div>
+    </div>
+  </dialog>
+  <script src="run-artifact-removal.js"></script>
 </body>
 </html>

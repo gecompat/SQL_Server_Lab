@@ -9,6 +9,10 @@ Die Konsole bietet unter **Wartung, Aufräumen und Recovery → Artefakte eines
 entfernten Runs** eine geführte Einzelauswahl mit öffentlicher Vorschau,
 verständlichen Sperren und bestätigtem Apply/Resume. Derselbe Dialog ist über
 `Invoke-SqlServerLab -Action RunArtifactRemoval` erreichbar.
+Der eigene Browserdialog **Run-Artefakte prüfen** im Wartungsbereich bietet
+dieselbe Vorschau und bestätigtes Apply/Resume mit serverseitigen Roots und
+einer einmaligen fünf Minuten gültigen Vorschau. Der Public Core revalidiert
+weiterhin; verlorene Antworten werden nicht automatisch wiederholt.
 
 ## SA-Passwort: Containererstellung
 

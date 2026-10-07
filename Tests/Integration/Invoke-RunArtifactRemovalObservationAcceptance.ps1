@@ -19,10 +19,15 @@
     Verwendet den tatsächlichen Wartungsmenürouter und Fachdialog mit festen
     synthetischen Auswahl-/Bestätigungsleaves. Öffentlicher Core und native
     Providerbeobachtung bleiben echt; dies prüft keinen gerenderten Terminal.
+.PARAMETER GuidedBrowserHttp
+    Prüft den tatsächlichen Browser-HTTP-Handler über einen eigenen Loopback-
+    Listener mit Read, Preview, abgelehnter und bestätigter Apply-Anfrage.
+    Öffentlicher Core und Native-Reads bleiben echt; kein gerenderter Browser.
 #>
 [CmdletBinding()]
-param([Parameter(Mandatory)][ValidateSet('docker','podman')][string]$Provider,[switch]$CreateSqlRun,[switch]$GuidedConsole)
+param([Parameter(Mandatory)][ValidateSet('docker','podman')][string]$Provider,[switch]$CreateSqlRun,[switch]$GuidedConsole,[switch]$GuidedBrowserHttp)
 $ErrorActionPreference='Stop'
+if ($GuidedConsole -and $GuidedBrowserHttp) {throw 'RUN_ARTIFACT_NATIVE_SINGLE_GUIDED_MODE_REQUIRED'}
 $repo=(Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 $parent=Join-Path ([IO.Path]::GetTempPath()) ('sql-lab-run-artifact-observation-'+[guid]::NewGuid().ToString('N'))
 $data=Join-Path $parent 'Lab_Data'
@@ -36,7 +41,7 @@ try {
     try {$mutexAcquired=$mutex.WaitOne([TimeSpan]::FromMinutes(15))} catch [Threading.AbandonedMutexException] {$mutexAcquired=$true}
     if (-not $mutexAcquired) { throw 'RUN_ARTIFACT_NATIVE_SMOKE_BUSY' }
     & $module {
-        param($Root,$Selected,$CreateSql,$Completion,$Guided)
+        param($Root,$Selected,$CreateSql,$Completion,$Guided,$BrowserHttp)
         $stateRoot=Join-Path $Root 'State'
         $controller=[guid]::NewGuid().ToString('D')
         $env:SQL_SERVER_LAB_DATA_ROOT=$Root; $env:SQL_SERVER_LAB_CONTROLLER_ID=$controller; $env:SQL_SERVER_LAB_STATE=$stateRoot
@@ -99,9 +104,58 @@ try {
                     id='synthetic';provider=$Selected;containerName=$name;containerId=([guid]::NewGuid().ToString('N')+[guid]::NewGuid().ToString('N'))})})
         }
         $arguments=@{RunId=$run.RunId;StateRoot=$stateRoot;DataRoot=$Root}
-        $plan=Get-SqlServerLabRunArtifactRemovalPlan @arguments
-        if ($plan.Status -cne 'READY') {throw ('RUN_ARTIFACT_NATIVE_PLAN_BLOCKED: '+$plan.ReasonCode)}
-        if ($Guided) {
+        if (-not $BrowserHttp) {
+            $plan=Get-SqlServerLabRunArtifactRemovalPlan @arguments
+            if ($plan.Status -cne 'READY') {throw ('RUN_ARTIFACT_NATIVE_PLAN_BLOCKED: '+$plan.ReasonCode)}
+        }
+        if ($BrowserHttp) {
+            $portProbe=[Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback,0)
+            try {$portProbe.Start();$listenerPort=$portProbe.LocalEndpoint.Port} finally {$portProbe.Stop()}
+            $listener=[Net.HttpListener]::new();$client=[Net.Http.HttpClient]::new();$previews=@{}
+            try {
+                $origin="http://127.0.0.1:$listenerPort"
+                $listener.Prefixes.Add($origin+'/');$listener.Start()
+                $client.Timeout=[TimeSpan]::FromMinutes(2)
+                $null=$client.DefaultRequestHeaders.TryAddWithoutValidation('Origin',$origin)
+                function Send-ArtifactHttp($Payload) {
+                    $content=[Net.Http.StringContent]::new(($Payload | ConvertTo-Json -Compress),[Text.Encoding]::UTF8,'application/json')
+                    $response=$null
+                    try {
+                        $responseTask=$client.PostAsync($origin+'/api/run-artifact-removal',$content)
+                        $accept=$listener.GetContextAsync()
+                        if (-not $accept.Wait(10000)) {throw 'RUN_ARTIFACT_NATIVE_HTTP_ACCEPT_TIMEOUT'}
+                        $http=$accept.GetAwaiter().GetResult()
+                        try {
+                            try {
+                                $view=Invoke-LabRunArtifactRemovalHttpRequest -Request $http.Request -ListenerPort $listenerPort -Previews $previews
+                                $http.Response.StatusCode=200;$body=$view | ConvertTo-Json -Depth 5 -Compress
+                            } catch {$http.Response.StatusCode=400;$body='{"Code":"RUN_ARTIFACT_HTTP_UNCONFIRMED"}'}
+                            $bytes=[Text.Encoding]::UTF8.GetBytes($body)
+                            $http.Response.ContentType='application/json; charset=utf-8';$http.Response.ContentLength64=$bytes.Length
+                            $http.Response.OutputStream.Write($bytes,0,$bytes.Length)
+                        } finally {$http.Response.Close()}
+                        $response=$responseTask.GetAwaiter().GetResult()
+                        [pscustomobject]@{Status=[int]$response.StatusCode;View=($response.Content.ReadAsStringAsync().GetAwaiter().GetResult() | ConvertFrom-Json)}
+                    } finally {if ($response) {$response.Dispose()};$content.Dispose()}
+                }
+                $read=Send-ArtifactHttp @{Action='Read'}
+                if ($read.Status -ne 200 -or $read.View.Status -cne 'METADATA_ONLY' -or $read.View.CanApply -or
+                    @($read.View.Targets).Count -ne 1 -or $read.View.Targets[0].RunId -cne $run.RunId) {throw 'RUN_ARTIFACT_NATIVE_HTTP_METADATA_INVALID'}
+                $preview=Send-ArtifactHttp @{Action='Preview';RunId=$run.RunId}
+                if ($preview.Status -ne 200 -or $preview.View.Status -cne 'READY' -or -not $preview.View.CanApply -or
+                    $preview.View.PreviewToken -cnotmatch '^[a-f0-9]{32}$') {throw 'RUN_ARTIFACT_NATIVE_HTTP_PREVIEW_INVALID'}
+                $apply=@{Action='Apply';RunId=$run.RunId;PreviewToken=$preview.View.PreviewToken;Confirmed=$false}
+                $denied=Send-ArtifactHttp $apply
+                if ($denied.Status -ne 400 -or -not (Test-Path -LiteralPath $run.RunDir)) {throw 'RUN_ARTIFACT_NATIVE_HTTP_CONFIRMATION_BARRIER'}
+                $apply.Confirmed=$true;$applied=Send-ArtifactHttp $apply
+                if ($applied.Status -ne 200 -or $applied.View.RunId -cne $run.RunId -or $applied.View.Status -cne 'REMOVED' -or
+                    $applied.View.Changed -ne $true) {throw 'RUN_ARTIFACT_NATIVE_HTTP_APPLY_UNCONFIRMED'}
+                $replayed=Send-ArtifactHttp $apply
+                if ($replayed.Status -ne 400) {throw 'RUN_ARTIFACT_NATIVE_HTTP_REPLAY_ACCEPTED'}
+                $result=$applied.View
+            } finally {$listener.Stop();$listener.Close();$client.Dispose()}
+        }
+        elseif ($Guided) {
             $script:artifactConsoleAcceptanceRunId=$run.RunId
             $script:artifactConsoleAcceptanceSelections=0
             function Show-LabSubMenu { param($ScreenId,$Title,$Subtitle,$Items)
@@ -132,8 +186,8 @@ try {
         $fresh=Get-LabRunArtifactRuntimeContext -Provider $Selected -StateRoot $stateRoot
         if ($before -cne $after -or $context.RuntimeScopeId -cne $fresh.RuntimeScopeId) {throw 'RUN_ARTIFACT_NATIVE_PROTECTION_CHANGED'}
         $Completion.SafeToDelete=$true
-        Write-Host "${Selected}: own metadata removal and unchanged provider inventory PASS; real SQL lifecycle=$CreateSql; guided console handler=$Guided"
-    } $data $Provider ([bool]$CreateSqlRun) $completion ([bool]$GuidedConsole)
+        Write-Host "${Selected}: own metadata removal and unchanged provider inventory PASS; real SQL lifecycle=$CreateSql; guided console handler=$Guided; real browser HTTP handler=$BrowserHttp"
+    } $data $Provider ([bool]$CreateSqlRun) $completion ([bool]$GuidedConsole) ([bool]$GuidedBrowserHttp)
 }
 finally {
     try {
