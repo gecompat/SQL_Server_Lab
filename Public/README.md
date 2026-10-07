@@ -237,8 +237,11 @@ akzeptiert weder StateRoot noch native IDs oder Ausführungsautorität; das Ziel
 wird frisch aus dem aktuellen serverseitig registrierten Root bestimmt.
 Öffnen und Zielwechsel lesen keine Runtime. Eine bewusste vollständige
 Portvorschau ruft den öffentlichen Core einmal auf. Abbruch, Eingabe- und
-Zielwechsel verwerfen späte Antworten. Spezifische native Preview-/Dialogabnahme
-und gebundenes Port-Apply bleiben offen. Der bestehende `-Container`-Parametersatz
+Zielwechsel verwerfen späte Antworten. Die native Komponentenabnahme des
+gerenderten Portdialogs und echten Loopback-HTTP-Transports bestand am
+2026-10-07 getrennt für Docker und Podman mit je drei öffentlichen
+PLAN_ONLY-Aufrufen und eigenem Cleanup. Der vollständige UI-Server und
+gebundenes Port-Apply bleiben offen. Der bestehende `-Container`-Parametersatz
 und CPU/RAM-Dialog bleiben unverändert.
 
 ## Hilfe, Discovery und Modulzuordnung

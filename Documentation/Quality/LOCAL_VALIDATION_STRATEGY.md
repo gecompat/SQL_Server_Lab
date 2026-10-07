@@ -3173,12 +3173,29 @@ Der gleiche Vorher-/Nachher-ObservationRoot bestätigte unveränderte geschützt
 sechs Umgebungen, Providerinventare, VMs, Aufgaben, Defaults, Registry und
 eigene Autostarts; Schutzvergleich PASS ohne Findings oder Beobachtungen.
 Die privaten Fehlerbelege früherer Wellen werden nicht umgewertet. Dieser
-Nachweis ersetzt keinen kanonischen Provider-Gate. Browserrendering und
-HTTP-Netztransport sind nicht Bestandteil; Preview-SQL/Endpoint bleiben
+Nachweis ersetzt keinen kanonischen Provider-Gate. Im historischen Standardmodus
+sind Browserrendering und HTTP-Netztransport nicht Bestandteil; Preview-SQL/Endpoint bleiben
 NOT_CHECKED, Port-Apply ist NOT_IMPLEMENTED.
 Der Harness behauptet keinen einzelnen globalen Inspect: origin-/labelgebundene
 Revalidierungen bleiben erhalten. Ein abgeschlossener Dialogrequest ruft die
 öffentliche Preview einmal auf. Es gibt kein Apply und keinen Scope-A-Abschluss.
+
+Der additive Modus `-BrowserAcceptance -ListenerPort 19541` bestand am
+2026-10-07 getrennt mit eigenen Docker- und Podman-Runs. Ein begrenzter
+Loopback-Testlistener stellte das tatsächliche Dialogmarkup, CSS/JavaScript
+und den tatsächlichen HTTP-Dispatch bereit. Ein Browseroperator beobachtete
+Änderung/No-op/Wiederholung, ungültigen Port und Clearing bei Bearbeitung
+sowie Schließen/Öffnen. Unabhängig davon maß der Server je zwei Metadatenreads
+ohne Inspect und drei öffentliche Vorschauaufrufe mit neun pinned Reads,
+strikte PLAN_ONLY-DTOS und stabile Inhaltsbindung. Eigene Statebytes und
+Containerkonfiguration blieben unverändert; terminale Bytekopien,
+Ressourcenabwesenheit und Parententfernung wurden bestätigt. Die gebundenen
+Produkt- und Testquellen waren zwischen beiden Läufen unverändert.
+`ContainerPortPreviewBrowserAcceptanceChecks.ps1` prüft zusätzlich fehlerhafte
+Beobachtungsrecords und den Timeout eines unvollständigen echten Requestbodys
+vor Dispatch (39 fokussierte PASS). Der vollständige UI-Server bleibt
+NOT_EXECUTED, Preview-SQL/Endpoint NOT_CHECKED und Port-Apply NOT_IMPLEMENTED.
+
 ## Run-Artefakte nach erfolgreichem Remove
 
 Die bestehenden WorkflowUI-Prüfungen führen zusätzlich
