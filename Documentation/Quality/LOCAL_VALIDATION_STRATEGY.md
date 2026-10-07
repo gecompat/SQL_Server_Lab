@@ -343,6 +343,23 @@ Abbruch, Escape, Busy, verworfene späte Antworten, blockierte Varianten und
 Privacyfehler werden geprüft. Das sind synthetische Prüfungen, keine manuelle
 Browser- oder native Provider-/SQL-Sprachabnahme.
 
+Die additive `Invoke-ExternalRuntimeCapabilityCatalogBrowserAcceptance.ps1`
+prüft die vollständige unveränderte Produktseite über einen eigenen begrenzten
+Loopbacklistener. Vier Bootstrapreads bleiben synthetisch; die tatsächliche
+HTTP-Route verwendet den öffentlichen Entscheid, aktuelle Kataloge,
+Provider-Metadaten und Rezept-/Lockdateien im isolierten Modul. Am 2026-10-07
+bestand die gerenderte Abnahme auf `4007d414`: zwölf Assets, 36 unveränderte
+Produktquellhashes, 98 Requests, vier Optionsreads und vier Public-Entscheide.
+Docker Java/2019, Docker Python/2022, Podman R/2022 und die explizite Podman
+Java/2025-shared-user-Variante wurden angezeigt. Navigation, Öffnen/Bearbeiten
+ohne Aktion, deaktivierte blockierte Optionen, Ausgaberücksetzen beim
+Wiederöffnen und Schließen wurden beobachtet. Keine Skriptfehler oder
+instrumentierten verbotenen Effekte; eigener Listener und Tab geschlossen.
+48 Offline-Fälle prüfen Quelle, DTO-/Payload-/Aufrufbindung, Abschlussveto und
+Einzelpfadauswahl mit beiden Pfadtrennern. Produktmodulimport, Hostprüfung,
+historischer Lookup, State, Provider-Runtime, Secrets, Installation und SQL
+bleiben ungenutzt; native Provider-/SQL-Sprachnachweise bleiben separat offen.
+
 `Invoke-ExternalRuntimeCapabilityChecks.ps1` durchläuft den tatsächlichen
 Public-Aufruf, Katalogresolver, Reducer und bestehenden Manifestdialog.
 Provider-Metadaten stammen aus dem Repository; native Prozessgrenzen werden
