@@ -1069,13 +1069,20 @@ Add-ValidationResult `
     -Success (-not $sessionMissingRecommendationResult.Success)
 
 Add-ValidationResult `
-    -Name 'Session-Lifecycle-Mapping erhaelt die Pause und waehlt weder Schwellen noch automatische Nachfolger oder ai-work aus' `
+    -Name 'Session-Lifecycle-Mapping erlaubt gebundene automatische Nachfolger und erhaelt Pause sowie unselektierte Schwellen und ai-work' `
     -Success ($repoMap -match 'session_lifecycle_mapping: Documentation/Quality/COST_EFFICIENT_DEVELOPMENT\.md' -and
         $repoMap -match 'numeric_thresholds: not_selected' -and
-        $repoMap -match 'automatic_successor_sessions: not_selected' -and
+        $repoMap -match 'automatic_successor_sessions: allowed_at_verified_natural_boundary' -and
+        $repoMap -match 'successor_session_capability: trusted_client_evidence_required' -and
+        $repoMap -match 'role_transfer: checkpoint_bound_single_orchestrator_acknowledgement' -and
+        $repoMap -match 'manual_fallback: creation_or_takeover_unavailable_failed_or_unattested' -and
         $repoMap -match 'optional_ai_work_planner: not_selected' -and
         $repoMap -match 'pause_authority: Documentation/Project_Planning/AUTONOMOUS_DEVELOPMENT_WAVE_2026-09-10\.md' -and
         $costEfficientDevelopment -match 'ein begrenzter neuer Auftrag öffnet nur seinen eigenen Scope' -and
+        $costEfficientDevelopment -match 'Automatische Nachfolgesitzungen sind als Projektentscheidung ausgewählt' -and
+        $costEfficientDevelopment -match 'keine Implementierung beginnen' -and
+        $costEfficientDevelopment -match 'keine erneute Einzelbestätigung nötig' -and
+        $costEfficientDevelopment -match 'manuelle Fortsetzung zurück' -and
         $foundationRepoMap -match 'session_lifecycle_profile: foundation-session-lifecycle/v1' -and
         $foundationRepoMap -match 'session_handoff_profile: foundation-session-handoff/v1')
 

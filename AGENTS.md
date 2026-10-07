@@ -70,6 +70,11 @@ Die verbindlichen anbieterneutralen Einzelheiten stehen in
 `.ai/MODEL_ROUTING_POLICY.md` und
 `Documentation/Quality/COST_EFFICIENT_DEVELOPMENT.md`.
 
+Automatische Chatwechsel an geeigneten, gesicherten Arbeitsgrenzen sind nach
+der Projektentscheidung in `Documentation/Quality/COST_EFFICIENT_DEVELOPMENT.md`
+erlaubt. Maßgeblich sind die dortigen Client-, Übergabe- und Rollenbedingungen;
+ein Wechsel erzeugt keine zusätzliche Ausführungsautorität.
+
 ## Host-Werkzeuge in neuen Prozessen
 
 - Vor der Aussage, Docker, Podman oder Python sei nicht vorhanden, muss im

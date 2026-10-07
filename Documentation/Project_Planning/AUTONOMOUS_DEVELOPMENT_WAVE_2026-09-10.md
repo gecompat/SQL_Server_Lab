@@ -11,6 +11,16 @@
 
 ## Wiederaufnahme vom 2026-10-06
 
+### Automatische Chatwechsel: Benutzerentscheidung vom 2026-10-07
+
+Die [Projekt-Sitzungsrichtlinie](../Quality/COST_EFFICIENT_DEVELOPMENT.md)
+erlaubt nun automatische Nachfolger an geeigneten gesicherten Arbeitsgrenzen.
+Client-Fähigkeit, konkreter Checkpoint, bestätigte Übernahme und genau ein
+Implementierungsorchestrator bleiben verbindlich. Diese Projektauswahl nutzt
+die bereits vorhandene Foundation-Erlaubnis; sie ändert keine Foundation-Regel
+und ist kein Nachweis eines tatsächlich ausgeführten Chatwechsels. Der Status
+dieser Welle und ausdrückliche Stopps werden durch einen Wechsel nicht verändert.
+
 ### Security-Cloud-Scans berücksichtigen: Benutzersteuerung vom 2026-10-07
 
 Der vorhandene Scan auf `f82976735c94d869e425d7082c04748ee97ddf65` meldet

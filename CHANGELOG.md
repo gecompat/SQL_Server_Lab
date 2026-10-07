@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-07 – automatische Nachfolgesitzungen
+
+- Der Projektvertrag erlaubt automatische Chatwechsel an gesicherten
+  natürlichen Arbeitsgrenzen mit bestätigter Client-Fähigkeit und
+  eindeutiger Orchestratorübernahme. Manuelle Fortsetzung bleibt der Fallback;
+  numerische Schwellen, optionale Planer und Foundation-Regeln bleiben erhalten.
+
 ## 2026-10-07 – Streaming-Bytegrenzen für Downloads
 
 - Gemeinsame Downloads verwerfen Überlänge vor weiterem Schreiben und ohne

@@ -811,7 +811,10 @@ foundation_integration:
   session_lifecycle_selection:
     normative_rules_and_schemas: integrated
     numeric_thresholds: not_selected
-    automatic_successor_sessions: not_selected
+    automatic_successor_sessions: allowed_at_verified_natural_boundary
+    successor_session_capability: trusted_client_evidence_required
+    role_transfer: checkpoint_bound_single_orchestrator_acknowledgement
+    manual_fallback: creation_or_takeover_unavailable_failed_or_unattested
     optional_ai_work_planner: not_selected
     pause_authority: Documentation/Project_Planning/AUTONOMOUS_DEVELOPMENT_WAVE_2026-09-10.md
   identity_registration_mapping: .ai/IDENTITY_AND_ARTIFACT_REGISTRATION.md
