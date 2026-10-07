@@ -82,6 +82,19 @@ verworfenes Bindungs-/Zählerergebnis, sanitisierten Fehler und Busy-/Wiederholu
 sowie Close/Late-Grenzen wurden sichtbar geprüft. Ganze UI-Seite und native
 Browser-bis-SQL-Abnahme bleiben separat; dies ist kein SQL-/Providernachweis.
 
+Der additive test-only `Invoke-ConnectionCenterCmsFullPageAcceptance.ps1`
+liefert die tatsächliche vollständige Seite mit unveränderten index-/CSS-/
+JavaScriptbytes. Die zehn Produkt-JavaScripts einschließlich Navigation und
+CMS werden gemeinsam geladen; dreizehn Produktquellen inklusive HTTP-Quelle
+werden gebunden. Nur vier feste synthetische Bootstrapreads und die tatsächliche
+CMS-Adapter-/Dispatchroute mit synthetischen Workflowantworten sind freigegeben.
+Jobpolling und Listener sind begrenzt; andere Endpunkte führen keinen Effekt aus.
+Die Abnahme verlangt alle zwölf Assets, vollständigen Bootstrap ohne Skriptfehler,
+Navigation zum CMS und genau zwei bewusste CMS-Aktionen. Der Operatorrecord
+bleibt eine UI-Beobachtung ohne Runtime- oder Cleanupautorität. Kein Modul,
+State, Provider, Secret oder SQL wird ausgeführt. Dieser additive Browsernachweis
+ist NOT_EXECUTED; native Browser-bis-SQL-Abnahme und andere UI-Aktionen bleiben offen.
+
 Die Offline-Fixture `Tests/Static/Fixtures/CmsInspectionChecks.ps1` wird durch
 `Invoke-ConnectionCenterCmsChecks.ps1` entdeckt. Core, echte Public-/HTTP-/CLI-
 Adapter, eigener Prozess und JavaScript-Handler werden mit synthetischen
