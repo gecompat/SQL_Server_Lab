@@ -1,5 +1,28 @@
 # Tests/ – lokale und Remote-Validierung
 
+`Integration/Invoke-ConnectionCenterCmsFullPageAcceptance.ps1` prüft den
+CMS-Einstieg im tatsächlichen vollständigen Seitenbootstrap mit synthetischem Backend.
+Ein frisches `.artifacts/test-runs/cms-full-page-<GUID-N>` enthält lokale Ready-,
+Operator- und Ergebnisrecords. Der eigene begrenzte Loopbacklistener liefert
+unveränderte Bytes von `index.html`, CSS und allen zehn Produkt-JavaScripts;
+zusammen mit der CMS-HTTP-Quelle sind dreizehn Produktquelldigests gebunden.
+Vier Bootstrapendpunkte antworten ausschließlich synthetisch und lesend;
+Jobpolling ist begrenzt. Andere Endpunkte werden vor Effekten abgewiesen.
+Der Operator prüft vollständigen Bootstrap ohne Skriptfehler, Navigation nach
+„Verbindungen und CMS“, Registrierung lesen, bewusste Prüfung und Schließen.
+Der Server verlangt alle zwölf Assets, vier Bootstrapreads einschließlich
+wiederholtem Jobpolling und genau zwei CMS-Aktionen. Kein Modul, State, Provider,
+Secret oder SQL wird ausgeführt. Die Browserabnahme bestand am 2026-10-07 auf
+`c6a1458d`: zwölf Assets, dreizehn unveränderte Produktquelldigests, 53 gemessene
+Requests einschließlich 33 Job-/drei Workflowreads und genau zwei CMS-Aktionen.
+Navigation, Registrierung ohne SQL-Verbindung, explizite Prüfung mit Major 17,
+drei Gruppen/echtem Nullwert für Server und Schließen wurden sichtbar geprüft;
+keine Skriptfehler, eigener Listener/Browser-Tab geschlossen. 32 fokussierte Checks
+und sechs betroffene statische Suites bestanden. Der erste Browserlauf scheiterte
+an einer leeren Bytearray-Antwort; der Fehler wurde korrigiert und die lokale
+Fehlerevidence erhalten. Nativer Browser-bis-SQL-Pfad und weitere UI-Aktionen
+bleiben eigene Nachweise; das Pflichtgate ist am finalen PR-Head erforderlich.
+
 `Integration/Invoke-ConnectionCenterCmsInspectionBrowserAcceptance.ps1` dient der getrennten
 gerenderten CMS-Dialog-/HTTP-Abnahme mit ausschließlich synthetischen Antworten.
 Ein frisches `.artifacts/test-runs/cms-browser-<GUID-N>` im eigenen Checkout

@@ -333,6 +333,9 @@ sources_of_truth:
   cms_readonly_browser_acceptance: Tests/Integration/Invoke-ConnectionCenterCmsInspectionBrowserAcceptance.ps1
   cms_readonly_browser_scope: Tests/Common/ConnectionCenterCmsInspectionBrowserAcceptance.ps1
   cms_readonly_browser_fixture: Tests/Static/Fixtures/ConnectionCenterCmsInspectionBrowserAcceptanceChecks.ps1
+  cms_full_page_acceptance: Tests/Integration/Invoke-ConnectionCenterCmsFullPageAcceptance.ps1
+  cms_full_page_scope: Tests/Common/ConnectionCenterCmsFullPageAcceptance.ps1
+  cms_full_page_fixture: Tests/Static/Fixtures/ConnectionCenterCmsFullPageAcceptanceChecks.ps1
   validation_connection_center_cms: Tests/Static/Invoke-ConnectionCenterCmsChecks.ps1
   sql_versions: Catalogs/sql-server-versions.json
   sample_databases: Catalogs/sample-databases.json
