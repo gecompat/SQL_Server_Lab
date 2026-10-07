@@ -2,6 +2,13 @@
 
 ## Zweck
 
+Alle Requests passieren die gemeinsame [HTTP-Grenze](../Architecture/WORKFLOW_UI_REQUEST_BOUNDARY.md)
+vor Routing und Bodylesung. Browserzugriffe müssen die genaue
+`http://127.0.0.1:<Port>`-Origin verwenden; POST verlangt JSON in UTF-8.
+Fremde Origins, ungeeignete Medientypen und andere Methoden werden abgewiesen.
+Lokale JSON-Clients ohne Origin bleiben zugelassen. Eine Operatoranmeldung
+oder servergebundene Aktionsfreigabe ist weiterhin offen.
+
 ### SA-Passwort bei neuen Container-Labs
 
 **Neue SQL-Umgebung** prueft das eingegebene SA-Passwort und die Wiederholung

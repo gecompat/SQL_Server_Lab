@@ -1,5 +1,13 @@
 # Tests/ – lokale und Remote-Validierung
 
+`Static/Fixtures/WorkflowUiRequestBoundaryChecks.ps1` ist in WorkflowUI
+eingebunden. Die 48 fokussierten Checks prüfen Header-/Authority-Grenzen ohne
+Bodylesung und zwölf echte HTTP-Requests über zentrale Produktanweisungen.
+Zehn Vetos erreichen keinen synthetischen Job; zwei erlaubte Requests tun es.
+Produktmodul, State, SQL und Provider bleiben ungenutzt. Eigener Loopbacklistener
+und Threadjob werden geschlossen/entfernt. Operatorauthentifizierung und
+gerenderter Browser sind damit nicht abgenommen.
+
 `Integration/Invoke-ExternalRuntimeCapabilityCatalogBrowserAcceptance.ps1` liefert die
 vollständigen zwölf unveränderten Produktassets für die getrennte gerenderte
 External-Languages-Katalogabnahme. Ein frisches

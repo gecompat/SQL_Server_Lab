@@ -1,5 +1,18 @@
 # Lokale Validierungsstrategie
 
+## Gemeinsame Workflow-UI-HTTP-Grenze
+
+Die in WorkflowUI eingebundene `WorkflowUiRequestBoundaryChecks.ps1` bestand
+am 2026-10-07 mit 48 Checks, darunter zwölf echte Loopback-HTTP-Requests über
+die tatsächlichen zentralen Gate-/Commandroute-Anweisungen mit synthetischem
+Job-Sink. Neun abgewiesene POSTs verwenden ungültiges JSON; ein OPTIONS ohne
+Body wird ebenfalls abgewiesen. Kein Veto erreicht einen Job; zwei erlaubte
+Requests bleiben synthetisch. Header-/Authority-
+Prüfungen lesen keinen Body. Eigener Listener und Threadjob werden beendet.
+Produktmodul, State, SQL, Provider und gerenderter Browser sind NOT_EXECUTED;
+Operatorauthentifizierung und vollständige Cloud-Fundbehebung bleiben offen.
+[Vertrag](../Architecture/WORKFLOW_UI_REQUEST_BOUNDARY.md).
+
 ## SA-Passwortpolicy: fokussierter Offlinevertrag
 
 `Tests/Static/Invoke-SaPasswordPolicyChecks.ps1` prueft Grenzlaengen, alle

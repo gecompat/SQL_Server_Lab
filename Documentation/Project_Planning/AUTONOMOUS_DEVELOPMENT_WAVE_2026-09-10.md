@@ -11,6 +11,21 @@
 
 ## Wiederaufnahme vom 2026-10-06
 
+### Security-Cloud-Scans berücksichtigen: Benutzersteuerung vom 2026-10-07
+
+Der vorhandene Scan auf `f82976735c94d869e425d7082c04748ee97ddf65` meldet
+zwölf offene Findings (drei mittel, neun niedrig); er deckt spätere Heads nicht
+ab. Priorität haben UI-Request-Autorität, externe Modell-HTTPS-Egress/Consent
+und Streaming-Downloadlimits. Keine neuen kostenpflichtigen Scans oder
+Rohdiagnoseuploads sind dadurch freigegeben. Der erste begrenzte
+[HTTP-Slice](../Architecture/WORKFLOW_UI_REQUEST_BOUNDARY.md) weist fremde
+Origins und ungeeignete POST-Medientypen vor Routing/Bodylesung ab; die lokale
+48-Checks-Fixture prüft zwölf echte HTTP-Requests mit synthetischem Job-Sink.
+Der Autorisierungsfund bleibt offen, da Operator-Capability und einmalige
+servergebundene Freigaben fehlen. Lokale JSON-Clients ohne Origin bleiben
+erlaubt. Weitere Findings, Bodylimits und native Provider-/Browsernachweise
+werden daraus nicht als erledigt abgeleitet.
+
 Der Benutzer hat die autonome Weiterentwicklung ausdrücklich fortgesetzt. Der
 Nachfolger arbeitet die bereits priorisierte Welle weiter ab; der zugehörige
 Heartbeat ist wieder aktiv. Der GUI-Aktionsstatus wurde mit PR #693 integriert.

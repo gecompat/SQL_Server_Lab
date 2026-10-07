@@ -8,6 +8,12 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Geändert
 
+- Die lokale Workflow-UI prüft gemeinsame Request-Authority, vorhandene
+  Origin-/Fetch-Site-Header und JSON-POST-Medientypen vor Routing/Bodylesung.
+  Fremde Origins und ungeeignete Medientypen werden abgewiesen. Lokale
+  JSON-Clients ohne Origin bleiben kompatibel; Operatorauthentifizierung,
+  servergebundene Aktionsfreigabe und Bodylimits bleiben offen.
+
 - Lokale Release-Pakete erhalten ein dauerhaftes Intent und eine atomar
   veröffentlichte Abschlussquittung. `Prepare-LocalRelease.ps1
   -InspectReleaseId` prüft eine exakte Release-ID rein lesend gegen die
