@@ -1,5 +1,21 @@
 # Tests/ – lokale und Remote-Validierung
 
+`Integration/Invoke-ExternalRuntimeCapabilityCatalogBrowserAcceptance.ps1` liefert die
+vollständigen zwölf unveränderten Produktassets für die getrennte gerenderte
+External-Languages-Katalogabnahme. Ein frisches
+`.artifacts/test-runs/external-catalog-browser-<GUID-N>` bewahrt lokale Records;
+der eigene Loopbacklistener ist auf vier Minuten und 512 Requests begrenzt.
+Vier Bootstrapreads sind synthetisch. Die tatsächliche HTTP-Route verwendet
+im isolierten Modul den öffentlichen Entscheid mit den tatsächlichen
+Katalogen, Provider-Metadaten und Rezept-/Lockdateien. Vier Optionsreads und
+vier Entscheidungen prüfen Docker Java/2019, Docker Python/2022, Podman R/2022
+und die explizite Podman Java/2025-shared-user-Variante. Geschlossene Payloads
+und DTOs, deaktivierte blockierte Optionen, Öffnen/Bearbeiten ohne Aktion und
+Rücksetzen der Ausgabe beim Wiederöffnen werden gebunden. Hostprüfung und
+historischer Lookup sind verboten; Produktmodulimport, State, Provider-Runtime,
+Secrets, Installation und SQL bleiben ungenutzt. Der Listener schließt auf
+jedem Ergebnis; die Offlinefixture ersetzt keine ausgeführte Browserabnahme.
+
 `Integration/Invoke-CollationCatalogBrowserAcceptance.ps1` dient der getrennten
 gerenderten Collation-Katalogabnahme über einen eigenen begrenzten Loopbacklistener.
 Ein frisches `.artifacts/test-runs/collation-browser-<GUID-N>` bewahrt lokale

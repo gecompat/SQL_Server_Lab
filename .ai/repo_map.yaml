@@ -402,6 +402,9 @@ sources_of_truth:
   external_runtime_capability_http: Private/ExternalRuntimeCapabilityHttp.ps1
   external_runtime_capability_ui: Ui/external-runtime-capability.js
   validation_external_runtime_capability_browser: Tests/Static/Invoke-ExternalRuntimeCapabilityBrowserChecks.ps1
+  validation_external_runtime_catalog_rendered: Tests/Integration/Invoke-ExternalRuntimeCapabilityCatalogBrowserAcceptance.ps1
+  validation_external_runtime_catalog_contracts: Tests/Common/ExternalRuntimeCapabilityCatalogBrowserAcceptance.ps1
+  validation_external_runtime_catalog_fixture: Tests/Static/Fixtures/ExternalRuntimeCapabilityCatalogBrowserAcceptanceChecks.ps1
   external_runtime_capability_contract: Documentation/Architecture/EXTERNAL_RUNTIME_CAPABILITY.md
   validation_external_runtime_capability: Tests/Static/Invoke-ExternalRuntimeCapabilityChecks.ps1
   validation_client_readiness: Tests/Static/Invoke-ClientReadinessChecks.ps1
