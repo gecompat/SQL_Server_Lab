@@ -42,8 +42,11 @@ Reportwrite. `UNCLEAR` und harte Checkfehler bleiben rot; `NEW` ist ein
 erfolgreicher Quellenbefund, keine Katalog-, Download- oder Supportänderung.
 
 Der erste Dispatch am 2026-10-07 auf `12d2df70` (Run `37573277399`) endete
-wegen des abgelehnten CU-Quellenredirects mit `FAIL`. Die erneute Abnahme am
-korrigierten Head ist noch `NOT_EXECUTED`. Ein erfolgreicher Metadatendispatch
+wegen des abgelehnten CU-Quellenredirects mit `FAIL`. Die erneute Abnahme auf
+`bdd2a214` bestand im [Run `37575512288`](https://github.com/gecompat/SQL_Server_Lab/actions/runs/37575512288):
+CU 2019/2022/2025 `NO_CHANGE`, SqlPackage `NEW` (`170.5.96.0`), geprüft am
+2026-10-07 um 05:17 UTC. Nur der Metadatenjob lief; der nachgelesene Receipt
+bestätigt die Nichtveröffentlichung. Ein erfolgreicher Metadatendispatch
 belegt weder Issueveröffentlichung, Deduplikation oder Zustellung noch den
 Monatscron. Der Quellenbefund gilt nur für den dokumentierten Zeitpunkt.
 

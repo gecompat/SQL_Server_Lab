@@ -3067,14 +3067,14 @@ sie allein sind keine Live-Microsoft-, Provider- oder dauerhafte Schedulerabnahm
 Die bestehende monatliche CU-Lane besitzt jetzt eine getrennte CU-/SqlPackage-
 Report-/Issueprojektion mit Ressourcen-/Revisionsmarkern und nachgelesenen
 Receipts. Der zusätzliche manuelle Metadatenjob führt denselben vollständigen
-Quellencheck ohne Issue-API, Issuerechte oder Publishtoken aus; seine echte
-erneute Dispatch-Abnahme am korrigierten Head ist noch nicht ausgeführt. Issue-/Benachrichtigungs- und
+Quellencheck ohne Issue-API, Issuerechte oder Publishtoken aus; seine erneute
+Dispatch-Abnahme auf `bdd2a214` bestand im Run `37575512288`. Issue-/Benachrichtigungs- und
 Cronabnahme bleiben getrennt offen. Ein gelesener Receipt belegt keine Zustellung an Personen.
 Der erste eigene Metadatendispatch am 2026-10-07 blieb wegen der Herstellerumleitung
 der CU-Learnadresse korrekt rot. Die aktive Quelle und der Parser sind nun an den
 direkten lokalisierten Supportartikel KB321185 gebunden; Redirect-, Zeit- und
-Bytegrenzen bleiben bestehen. Der korrigierte lokale Livecheck bestand, die
-korrigierte Dispatch-Abnahme steht noch aus. Reine CU-Zeilen bleiben getrennt
+Bytegrenzen bleiben bestehen. Der korrigierte lokale Livecheck und der korrigierte
+Dispatch bestanden am 2026-10-07; der erste Fehlversuch bleibt erhalten. Reine CU-Zeilen bleiben getrennt
 von GDR-Kombinationen; eine neue Bezugsadresse ist kein Katalog-/Binärupdate.
 Die GET-Revalidierung ist kein serverseitiger CAS gegen externe Issuewriter.
 Alte Monatsissues ohne neuen Marker werden nicht automatisch migriert oder

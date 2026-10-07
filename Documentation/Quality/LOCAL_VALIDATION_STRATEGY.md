@@ -3013,7 +3013,16 @@ Issueprojektion oder Issue-API ist verboten. `NEW`, `NO_CHANGE` und `UNCLEAR`,
 leere Fixture-Eingaben, Dispatch-/Modeveto und strikt typisierte
 Nichtveröffentlichungs-Receipts werden geprüft. Der Job besitzt keine
 Issuerechte oder Publishtoken; Standardjob und Monatscron bleiben erhalten.
-Die echte Dispatch-Abnahme ist noch auszuführen; sie ersetzt keine
+Die echte Dispatch-Abnahme bestand am 2026-10-07 auf `bdd2a214` im
+[Run `37575512288`](https://github.com/gecompat/SQL_Server_Lab/actions/runs/37575512288):
+vollständiger Quellencheck mit drei CU-`NO_CHANGE` und SqlPackage-`NEW`, regulärer
+Issuejob übersprungen, nachgelesener typisierter Nichtveröffentlichungs-Receipt.
+Der erste Dispatch `37573277399` auf `12d2df70` blieb mit abgelehntem CU-Redirect
+rot; dieser Fehler wird durch den korrigierten Nachweis nicht überschrieben.
+Lokale Quellenregression: 16 ausgewählte statische Suites, VersionCatalog 267
+und 21 Support-HTML-Prüfungen bestanden; der neue Quellenpfad benötigt keinen
+Providerstart. Der selektierte Docker-Core-Nachweis bleibt im PR-Gate erforderlich
+und ist lokal für diesen Slice `NOT_EXECUTED`. Der Dispatch ersetzt keine
 Issueveröffentlichung, Dedupe, Zustellung oder Cronabnahme.
 
 `Fixtures/VersionCatalogResourceWatchAutomationChecks.ps1` wird über die
