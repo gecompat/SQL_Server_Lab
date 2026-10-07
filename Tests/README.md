@@ -1,5 +1,12 @@
 # Tests/ – lokale und Remote-Validierung
 
+`Static/Fixtures/AiExternalModelAuthorityChecks.ps1` ist in die External-Model-
+Suite eingebunden. Sie prueft die feste lokale Autoritaetsliste und Vetos vor
+Transport-/SQL-Dispatch ohne Netzwerk oder Provider; bestehende PlanKeys und
+der Legacy-SQL-Lesevertrag bleiben gebunden. DNS-/TCP-Zielbindung und Cloud-
+Consent sind damit nicht belegt. Der getrennte Windows-OVMS-Gateway-Runner
+prueft einen eigenen kurzlebigen numerischen HTTPS-Loopback-Endpunkt.
+
 `Static/Fixtures/WorkflowUiJsonBodyChecks.ps1` ist in WorkflowUI eingebunden:
 35 Checks mit 13 echten HTTP-Requests über den vollständigen Produktblock und
 synthetischen Fach-Sinks prüfen sieben direkte POST-Reader, Überlängenheader

@@ -18,6 +18,12 @@ beobachteten Restore-Dauern sind kein Performance-Benchmark; allgemeine
 Migration bleibt unverändert.
 ## 1. Ziel
 
+Die lokale [External-Model-Lane](../Documentation/User/SQL_AI_LOCAL_ACCELERATION.md)
+beschraenkt HTTPS-Autoritaeten auf numerischen Loopback und die festen lokalen
+Hostaliases. Andere Ziele werden vor Probe/neuer SQL-Aktion verworfen.
+DNS-/TCP-Zielbindung, Cloud-Consent und vollstaendige Cloud-Fundbehebung bleiben
+offen; Legacy-Cleanup und bestehende Plan-/Receipt-Schluessel bleiben erhalten.
+
 Die gemeinsame Workflow-UI-[HTTP-Grenze](../Documentation/Architecture/WORKFLOW_UI_REQUEST_BOUNDARY.md)
 prüft Requests vor Routing/Bodylesung. Fremde Origins und ungeeignete POST-
 Medientypen werden abgewiesen; lokale JSON-Clients ohne Origin bleiben erlaubt.

@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-07 – lokale External-Model-Autoritaeten
+
+- Die lokale Lane erlaubt nur numerischen Loopback und feste lokale Hostaliases.
+  Andere Ziele blockieren vor Probe bzw. neuer SQL-Aktion. Bestehende Plan-/
+  Receipt-Schluessel und Legacy-Cleanup bleiben erhalten; DNS-/TCP-Zielbindung
+  und eine klassifizierte Cloud-Lane mit Consent bleiben offen.
+
 Dieses Changelog dokumentiert Änderungen am öffentlichen Verhalten, an maschinenlesbaren Verträgen und an der Bedienung von `SQL_Server_Lab`.
 
 Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher nach Datum geführt. Neue Einträge werden oben ergänzt.

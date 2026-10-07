@@ -1,5 +1,16 @@
 # Bekannte Grenzen
 
+## Lokale External Models: begrenzte Autoritaetsliste
+
+Die [lokale Lane](../User/SQL_AI_LOCAL_ACCELERATION.md) erlaubt numerischen
+Loopback und exakt `localhost`, `host.docker.internal`, `host.containers.internal`.
+Andere Autoritaeten blockieren vor Probe bzw. neuer SQL-Aktion. TLS-/Runtime-
+Bindings bleiben erforderlich; DNS-/TCP-Zielbindung und Container-/VM-Routing
+sind damit nicht attestiert. Keine allgemeine private Netzwerk- oder Cloud-
+Freigabe, verwaltete Cloud-Allowlist, Datenklassen-/Consentbindung oder neue
+Authority-Anzeige in der Apply-Bestaetigung. Legacy-Lese-/Cleanupvertraege und
+Plan-/Receipt-Schluessel bleiben erhalten. Der Cloud-Fund bleibt offen.
+
 ## Workflow-UI: HTTP-Grenze und offene Operatorauthentifizierung
 
 Die gemeinsame [HTTP-Prüfung](../Architecture/WORKFLOW_UI_REQUEST_BOUNDARY.md)

@@ -34,6 +34,15 @@ Timeout und gültige Folge-Requests sind geprüft. Spezifische Reader mit eigene
 Grenzen, Headerannahme, Parallelität, Authentifizierung und Statequotas bleiben
 offen. Der zugehörige Cloud-Fund wird dadurch nicht vollständig geschlossen.
 
+Der folgende External-Model-Slice beschraenkt die lokale Lane auf numerischen
+Loopback und feste lokale Hostaliases. Andere konfigurierte Autoritaeten werden
+vor HTTPS-Probe, neuem SQL-Preflight/-Apply und Embeddingprobe verworfen.
+Plan-/Receipt-Schluessel, Legacy-Lesung und Cleanup bleiben erhalten; Resume
+kann einen vorhandenen SQL-Endzustand bestaetigen. DNS-/TCP-Zielbindung,
+verwaltete Cloud-Allowlist, Datenklassen-/Consentbindung und Authority-Anzeige
+bleiben offen. Der zugehoerige Cloud-Fund bleibt deshalb offen; der aeltere
+Scan wird nicht als Nachweis fuer diesen Stand verwendet.
+
 Der Benutzer hat die autonome Weiterentwicklung ausdrücklich fortgesetzt. Der
 Nachfolger arbeitet die bereits priorisierte Welle weiter ab; der zugehörige
 Heartbeat ist wieder aktiv. Der GUI-Aktionsstatus wurde mit PR #693 integriert.
