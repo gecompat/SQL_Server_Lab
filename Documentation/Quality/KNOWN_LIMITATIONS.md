@@ -891,6 +891,17 @@ werden bei Abbruch verworfen. Dies beendet keine serverseitige Anfrage und
 belegt keinen garantierten HTTP-Zeitbound. Kein vollständiges SQL-Inventar,
 Advanced-Freiname, Manifesttransfer oder neue native Collation-Abnahme.
 
+Die separate gerenderte Katalogabnahme bestand am 2026-10-07 auf `8b2aba1c`:
+vollständige Produktseite mit zwölf unveränderten Assets, achtzehn gebundenen
+Produktquelldigests und 105 Loopback-HTTP-Requests. Genau sechs bewusste Suchen
+liefen über die echte Route und den tatsächlichen öffentlichen Katalogreader
+im isolierten Modul. SQL 2019/2022/2025, UTF-8-/DEPRECATED-Treffer, Nulltreffer,
+leere und Unicode-Zero-Token-Suche sowie Rücksetzen beim Wiederöffnen wurden
+gerendert geprüft. Keine Skriptfehler oder instrumentierten verbotenen Effekte;
+eigener Listener und Tab geschlossen. Vier Seitenbootstrapreads waren
+synthetisch; vollständiger Produktmodulimport, State, Provider, Secrets und SQL
+blieben NOT_EXECUTED. Dies erweitert keinen nativen SQL-/Windows-Nachweis.
+
 Die Instanzdefinition enthält eine Collation, die bei neuen Umgebungen sowohl als SQL-Server-Instanzcollation als auch als Default für neu angelegte Datenbanken verwendet wird. Ohne explizite Angabe gilt der native SQL-Containerstandard `SQL_Latin1_General_CP1_CI_AS`. Eine abweichende Collation wie `Latin1_General_100_CS_AS` löst beim ersten Containerstart einen Systemdatenbankumbau aus und kann deshalb deutlich länger benötigen.
 
 `Find-SqlServerLabCollation` und die Konsolenauswahl durchsuchen einen

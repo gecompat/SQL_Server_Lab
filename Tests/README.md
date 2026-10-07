@@ -15,6 +15,10 @@ schließt auf jedem Ergebnis; private Evidence bleibt erhalten. Der Test
 importiert kein vollständiges Produktmodul und startet keine Runtime. Die
 fokussierte Fixture prüft Quelle, tatsächlichen Katalogreader und geschlossene
 Abschlussbedingungen offline; sie ersetzt keine ausgeführte Browserabnahme.
+Die gerenderte Abnahme bestand am 2026-10-07 auf `8b2aba1c` mit 105 Requests,
+genau sechs öffentlichen Suchen und null instrumentierten verbotenen Effekten.
+Eigenen Listener und Tab geschlossen; der fokussierte Offlinevertrag bestand
+mit 36 Fällen. Der Seitenbootstrap bleibt synthetisch, SQL ungenutzt.
 
 `Integration/Invoke-ConnectionCenterCmsFullPageAcceptance.ps1` prüft den
 CMS-Einstieg im tatsächlichen vollständigen Seitenbootstrap mit synthetischem Backend.

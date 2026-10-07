@@ -285,6 +285,21 @@ Eigene synthetische HTTP-Katalogfixtures bleiben lokal ignoriert erhalten;
 dieser neue Test behauptet kein Cleanup. Kein manueller Browser- oder nativer
 SQL-Nachweis; die bestehende separate Container-Evidence bleibt historisch.
 
+Die additive `Invoke-CollationCatalogBrowserAcceptance.ps1` liefert dagegen
+die vollständige Produktseite unverändert über einen eigenen begrenzten
+Loopbacklistener. Vier Bootstrapendpunkte bleiben synthetisch; die tatsächliche
+Suchroute verwendet den echten HTTP-Helper und öffentlichen schema-geprüften
+Katalogreader im isolierten Modul. Am 2026-10-07 bestand die gerenderte Abnahme
+auf `8b2aba1c`: zwölf Assets, achtzehn unveränderte Produktquelldigests,
+105 Requests und genau sechs Public-Suchen für SQL 2019/2022/2025 mit UTF-8,
+DEPRECATED, Nulltreffer und Unicode-/leerer Zero-Token-Suche. Navigation,
+Öffnen/Bearbeiten ohne Suche, Rücksetzen beim Wiederöffnen und Schließen wurden
+beobachtet; keine Skriptfehler oder instrumentierten verbotenen Effekte. Eigener
+Listener und Browser-Tab geschlossen, private Evidence bleibt lokal. Kein
+vollständiger Produktmodulimport, State-/Provider-/Secret-/SQL-Zugriff. Die
+36 fokussierten Offline-Fälle prüfen Abschlussveto und Transport-Datentypen;
+sie ersetzen weder diese Browserabnahme noch native SQL-/Windows-Evidence.
+
 ## Reiner Evaluation-Ersatzentscheid
 
 `Invoke-EvaluationRefreshPlanHttpChecks.ps1` führt den tatsächlichen HTTP-Reader,
