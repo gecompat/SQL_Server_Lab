@@ -349,6 +349,24 @@ try {
     $tokens=$null;$errors=$null
     $ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $repo Tests/Integration/Invoke-ConnectionCenterCmsInspectionAcceptance.ps1),[ref]$tokens,[ref]$errors)
     Check ($errors.Count -eq 0) 'Actual native CMS runner parses'
+    $registration=@($ast.FindAll({param($n)$n -is [Management.Automation.Language.ScriptBlockAst] -and $n.Parent -is [Management.Automation.Language.ScriptBlockExpressionAst] -and $n.Extent.Text.Contains('Register-SqlServerLabCmsEnvironment')},$true))
+    if($registration.Count -ne 1 -or $registration[0].Parent.Parent -isnot [Management.Automation.Language.CommandAst] -or
+        $registration[0].Parent.Parent.CommandElements[0].Extent.Text -cne '$module'){throw 'CMS_ACCEPTANCE_MODULE_REGISTRATION_BOUNDARY'}
+    $m=New-Module -ScriptBlock {
+        $script:registrationCalls=0
+        function Register-SqlServerLabCmsEnvironment {
+            param($RunId,$StateRoot)
+            if($RunId -cne 'synthetic-own-run' -or $StateRoot -cne 'synthetic-own-root'){throw 'CMS_ACCEPTANCE_REGISTRATION_ARGUMENTS'}
+            $script:registrationCalls++
+            [pscustomobject]@{RunId=$RunId}
+        }
+        Export-ModuleMember -Function @()
+    }
+    try{
+        $bodyText=$registration[0].Extent.Text
+        $record=& $m ([scriptblock]::Create($bodyText.Substring(1,$bodyText.Length-2))) 'synthetic-own-root' 'synthetic-own-run'
+        Check ((& $m {$script:registrationCalls}) -eq 1 -and $record.RunId -ceq 'synthetic-own-run') 'Actual arrangement registers exactly the returned own run inside module'
+    }finally{Remove-Module $m -Force}
     [pscustomobject]@{Passed=$checks;RuntimeCalls=0;NativeAcceptance='NOT_EXECUTED'}|ConvertTo-Json -Compress
 }finally{
     Remove-CmsInspectionFixtureTempRoot -Path $sandbox -TempBase ([IO.Path]::GetTempPath()) -Prefix 'cms-acceptance-fixture-'

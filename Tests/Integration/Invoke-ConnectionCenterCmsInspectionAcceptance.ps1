@@ -51,7 +51,7 @@ try {
     if($lab.State -cne 'Running'){throw 'CMS_ACCEPTANCE_INSTALLATION_NOT_RUNNING'}
     $custody|ConvertTo-Json -Depth 8|Set-Content -LiteralPath (Join-Path $evidence custody.private.json) -Encoding utf8
     # This run was created by this invocation; never adopt a caller-selected run.
-    $null=Register-SqlServerLabCmsEnvironment -RunId $custody.RunId -StateRoot $scope.StateRoot
+    $null=& $module {param($Root,$Run) Register-SqlServerLabCmsEnvironment -RunId $Run -StateRoot $Root} $scope.StateRoot $custody.RunId
     $before=Get-CmsInspectionAcceptanceFileBinding -DataRoot $root
     $view=(Invoke-SqlServerLabWorkflowAction -Action GetCmsInspectionState).Result
     Assert-CmsInspectionAcceptanceResult $view $custody $Provider $view.SelectionKey NOT_CHECKED CMS_INSPECTION_NOT_CHECKED
