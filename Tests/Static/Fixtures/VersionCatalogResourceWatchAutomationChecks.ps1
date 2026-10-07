@@ -3,7 +3,7 @@
 $automationFixture=[pscustomobject]@{
     Contract='SqlServerLab.ResourceWatch/1.0';Status='NEW';CheckedAtUtc='2026-01-01T00:00:00Z'
     Items=@(
-        [pscustomobject]@{Id='sql-cu-2022';Status='NO_CHANGE';CatalogVersion='16.0.1000.1';ObservedVersion='16.0.1000.1';SourceUrl='https://learn.microsoft.com/en-us/troubleshoot/sql/releases/download-and-install-latest-updates';ReasonCode='RESOURCE_WATCH_COMPLETED';Name='SYNTHETIC_PRIVATE_NAME'}
+        [pscustomobject]@{Id='sql-cu-2022';Status='NO_CHANGE';CatalogVersion='16.0.1000.1';ObservedVersion='16.0.1000.1';SourceUrl='https://support.microsoft.com/en-us/servicing/sql/kb321185-download-and-install-latest-updates';ReasonCode='RESOURCE_WATCH_COMPLETED';Name='SYNTHETIC_PRIVATE_NAME'}
         [pscustomobject]@{Id='sqlpackage';Status='NEW';CatalogVersion='170.4.83.3';ObservedVersion='170.5.96.0';SourceUrl='https://learn.microsoft.com/en-us/sql/tools/sqlpackage/sqlpackage-download?view=sql-server-ver17';ReasonCode='RESOURCE_WATCH_COMPLETED';LastSuccessfulVersion='SYNTHETIC_PRIVATE_HISTORY'}
     );Notice='SYNTHETIC_PRIVATE_NOTICE';CatalogPath='SYNTHETIC_PRIVATE_PATH'
 }

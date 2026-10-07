@@ -125,6 +125,15 @@ Build-/CU-/KB-Metadaten. Ein Quellenwechsel ist daher als kleine,
 schema-geprüfte Katalogänderung wartbar und nicht im Cmdlet hart codiert.
 Der Abgleich verändert weder diesen Katalog noch `Lab_Base`.
 
+Seit 2026-10-07 bindet die aktive Quelle den direkten lokalisierten
+Microsoft-Supportartikel KB321185. Die frühere Learnadresse leitete um und
+wurde vom begrenzten Resource-Watch-Transport abgelehnt. Die Quellenkorrektur
+führt keine automatischen Redirects ein: feste Adresse, Supporthost und
+bekannte fünfspaltige HTML-Tabellen werden gemeinsam geprüft. CU-Builds,
+Binärpins und Rücknahmefilter werden dadurch nicht aktualisiert; GDR-Zeilen
+bleiben außerhalb des reinen CU-Vertrags. Details und getrennte Abnahmegrenzen:
+[Resource-Watch-Automation](../Documentation/Architecture/RESOURCE_WATCH_AUTOMATION.md).
+
 Der Katalog wird nicht automatisch aktualisiert. Eine neu erkannte CU ist erst
 nach fachlicher Verifikation und der Bindung eines exakten MCR-Tags,
 Microsoft-Downloadziels, SHA-256 und der erwarteten Microsoft-Signatur als

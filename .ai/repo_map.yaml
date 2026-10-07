@@ -79,6 +79,7 @@ sources_of_truth:
   validation_local_evidence_archive: Tests/Static/Invoke-LocalEvidenceArchiveChecks.ps1
   resource_watch_automation_contract: Documentation/Architecture/RESOURCE_WATCH_AUTOMATION.md
   resource_watch_automation_checks: Tests/Static/Fixtures/VersionCatalogResourceWatchAutomationChecks.ps1
+  sql_cu_support_html_checks: Tests/Static/Fixtures/CuStatusSupportHtmlChecks.ps1
   exported_commands: SqlServerLab.psd1
   module_loading: SqlServerLab.psm1
   linux_container_host_tool: Tools/Invoke-SqlServerLabLinuxContainerHost.ps1

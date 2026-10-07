@@ -133,7 +133,8 @@ $cuStatusSourceCatalog = Get-Content -LiteralPath (Join-Path $repoRoot 'Catalogs
 Add-CheckResult -Name 'CU-Status-Quellen sind wartbar katalogisiert und schließen den zurückgezogenen SQL-2019-CU7 explizit aus' -Success (
     [string]$cuStatusSourceCatalog.contract -eq 'SqlServerLab.CuStatusSources/1.0' -and
     @($cuStatusSourceCatalog.sources).Count -eq 1 -and
-    [string]$cuStatusSourceCatalog.sources[0].url -eq 'https://learn.microsoft.com/en-us/troubleshoot/sql/releases/download-and-install-latest-updates' -and
+    [string]$cuStatusSourceCatalog.sources[0].url -eq 'https://support.microsoft.com/en-us/servicing/sql/kb321185-download-and-install-latest-updates' -and
+    @($cuStatusSourceCatalog.sources[0].allowedHosts).Count -eq 1 -and $cuStatusSourceCatalog.sources[0].allowedHosts[0] -ceq 'support.microsoft.com' -and
     @($cuStatusSourceCatalog.sources[0].excludedUpdates | Where-Object { $_.version -eq '2019' -and $_.update -eq 'CU7' -and $_.kb -eq 'KB4570012' }).Count -eq 1
 )
 
@@ -420,6 +421,7 @@ Add-CheckResult -Name 'CU-Watch versucht Issuehinweis vor abschließendem roten 
     $watchWorkflow.IndexOf('Preserve failed check outcome') -gt $watchWorkflow.IndexOf('Invoke-VersionCatalogResourceWatch.ps1 @arguments')
 )
 
+. (Join-Path $PSScriptRoot 'Fixtures/CuStatusSupportHtmlChecks.ps1')
 . (Join-Path $PSScriptRoot 'Fixtures/ResourceWatchChecks.ps1')
 . (Join-Path $PSScriptRoot 'Fixtures/VersionCatalogResourceWatchAutomationChecks.ps1')
 

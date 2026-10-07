@@ -41,7 +41,9 @@ bereinigter Bericht und Nichtveröffentlichungs-Receipt mit
 Reportwrite. `UNCLEAR` und harte Checkfehler bleiben rot; `NEW` ist ein
 erfolgreicher Quellenbefund, keine Katalog-, Download- oder Supportänderung.
 
-Diese Abnahme ist vorerst `NOT_EXECUTED`. Ein erfolgreicher Metadatendispatch
+Der erste Dispatch am 2026-10-07 auf `12d2df70` (Run `37573277399`) endete
+wegen des abgelehnten CU-Quellenredirects mit `FAIL`. Die erneute Abnahme am
+korrigierten Head ist noch `NOT_EXECUTED`. Ein erfolgreicher Metadatendispatch
 belegt weder Issueveröffentlichung, Deduplikation oder Zustellung noch den
 Monatscron. Der Quellenbefund gilt nur für den dokumentierten Zeitpunkt.
 
@@ -53,12 +55,26 @@ Versionsordnung und einen festen Fehlercodekatalog. Sie erzeugt Name und
 betroffene Fähigkeit selbst. Übergebene Namen, Reports, FindingKeys, Historien,
 Exceptions, Katalogpfade und sonstige Rohfelder werden nicht übernommen.
 
-Erlaubt sind ausschließlich die beiden vorhandenen Microsoft-Learn-Quellen:
+Erlaubt sind ausschließlich die beiden festen Microsoft-Quellen:
 
-- CU: `https://learn.microsoft.com/en-us/troubleshoot/sql/releases/download-and-install-latest-updates`;
+- CU: `https://support.microsoft.com/en-us/servicing/sql/kb321185-download-and-install-latest-updates`;
 - SqlPackage: `https://learn.microsoft.com/en-us/sql/tools/sqlpackage/sqlpackage-download?view=sql-server-ver17`.
 
-Der Core begrenzt Quellenrequests einschließlich des festen CU-Markdown-Hops
+Die aktive CU-Quelle ist seit der Quellenkorrektur vom 2026-10-07 der direkt
+antwortende lokalisierte Supportartikel KB321185. Die frühere Learnadresse
+antwortete mit einem Redirect; der erste eigene Metadatendispatch blieb deshalb
+korrekt rot. Der neue Pfad wird ausdrücklich katalogisiert und ohne Redirect
+gelesen. Er verwendet je SQL-Version genau eine HTML-Tabelle mit den fünf
+bekannten Spalten. Formatdrift, mehrdeutige Tabellen und Parserdeadline ergeben
+keine Aktualitätsbestätigung. Nur reine CU-Zeilen gehen in den bestehenden
+Build-/KB-/Rücknahmevertrag ein; GDR-Kombinationen und historische Formate außerhalb
+dieses Vertrags werden nicht umgedeutet. Git-Metadaten dieses Supportartikels
+lösen keinen zusätzlichen Hop aus. Alte reine Markdownverträge bleiben erhalten.
+Die SourceId und Ressourcenidentitäten bleiben gleich; die neue Bezugsadresse
+ändert den quellgebundenen FindingKey. Eine echte Issueaktualisierung ist damit
+nicht abgenommen.
+
+Der Core begrenzt Quellenrequests einschließlich des festen Legacy-CU-Markdown-Hops
 auf insgesamt 45 Sekunden und 512 KiB pro Antwort. Die Issue-API erlaubt nur
 `https://api.github.com/repos/gecompat/SQL_Server_Lab/issues` und ihre exakt
 numerischen Unterpfade. Redirects, Cookies, Proxy und Default-Credentials sind

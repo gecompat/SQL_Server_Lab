@@ -2997,6 +2997,15 @@ Dauerüberwachung und keinen anderen Provider.
 
 ### Resource-Watch-Automationslane
 
+`Fixtures/CuStatusSupportHtmlChecks.ps1` prüft am tatsächlichen Core die feste
+Support-Quelle, fünf Spalten, genau eine Tabelle pro Version, Zellmarkup/Entities,
+Formatdrift, Parserbudget, ausgeschlossene Updates und den vollständigen
+Vier-Ressourcenbefund. Historische SQL-2000-Zusammenfassung und dreiteilige
+SQL-2005-Builds werden nicht in den bestehenden vierteiligen CU-Vertrag überführt.
+Redirectverbot und 45-Sekunden-/512-KiB-Grenzen des Watchtransports bleiben erhalten.
+Die reine lokale Reproduktion an der ignoriert erhaltenen Herstellerantwort
+und der korrigierte Livecheck ersetzen keine native Dispatch-/Issue-/Cronabnahme.
+
 Der getrennte manuelle `metadata_only`-Job wird als echte extrahierte
 Workflow-PowerShell zusammen mit dem vollständigen Runner und synthetischem
 Quellenmodul geprüft. Der unveränderte Reporter bleibt aktiv; Eintritt in

@@ -53,7 +53,8 @@ function ConvertTo-LabCuWatchReport {
     foreach($source in @($Result.Sources)){
         $uri=$null
         if(-not [uri]::TryCreate([string]$source.Url,[UriKind]::Absolute,[ref]$uri) -or
-            $uri.Scheme -ne 'https' -or $uri.Host -ne 'learn.microsoft.com' -or
+            $uri.Scheme -ne 'https' -or ($uri.Host -ne 'learn.microsoft.com' -and
+                $uri.AbsoluteUri -cne 'https://support.microsoft.com/en-us/servicing/sql/kb321185-download-and-install-latest-updates') -or
             $uri.UserInfo -or $uri.Query -or $uri.Fragment -or -not $uri.IsDefaultPort -or
             $uri.AbsolutePath -notmatch '^/[a-zA-Z0-9/_-]+$'){
             throw 'CU_WATCH_REPORT_SOURCE_INVALID'
