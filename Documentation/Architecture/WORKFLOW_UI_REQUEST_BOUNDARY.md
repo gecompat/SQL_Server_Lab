@@ -29,8 +29,23 @@ Sekunden; Timeout ergibt 408. Ein abgewiesener Requeststream wird geschlossen.
 Feste Codes enthalten keine Bodywerte. Bestehende JSON-Tiefen und fachliche
 Guards gelten nach erfolgreicher Transportlesung weiterhin.
 
-Spezifische Adapter/Handler mit eigenen Readern erhalten dadurch keine neue
-Deadline. Headerannahme, Dispatcher-Parallelität, Authentifizierung, Quotas und
+## Acht interne Fachreader
+
+CMS-Inspection, Initial Setup, Slotreserve, Resource Watch, llama.cpp-Installer,
+llama.cpp-Sitzungsstop, Wartungsreparatur und Medienoverrides verwenden nun
+denselben Transportreader. Ihre bisherigen UTF-16-Zeichenlimits bleiben bei
+4096 (CMS), 16384 (Setup, Slots, Medienoverrides) beziehungsweise 1024 Zeichen
+(übrige vier Handler). Vor der Decodierung gilt zusätzlich eine Bytegrenze von
+viermal diesem Zeichenlimit und eine absolute Lesefrist von fünf Sekunden.
+Eine führende UTF-8-BOM wird wie bisher vor der Zeichenprüfung entfernt;
+ihre Bytes zählen gegen die Transportgrenze.
+Transportüberlänge ergibt 413, Timeout 408 und ungültiges UTF-8 400 mit festen
+bodyfreien Codes. Zeichenüberlänge und fachliche Fehler behalten die bestehenden
+Fehlercodes und 400-Antworten. Auch erfolgreiche Requeststreams werden geschlossen.
+GET und alle vorhandenen fachlichen Bindungen und Bestätigungen bleiben erhalten.
+
+Übrige spezifische Adapter/Handler erhalten dadurch keine neue Deadline.
+Headerannahme, Dispatcher-Parallelität, Authentifizierung, Quotas und
 vollständige JSON-Komplexitätsgrenzen bleiben separate offene Arbeit. Der
 Cloud-Fund zu synchronen UI-Bodys bleibt deshalb offen; die neue Prüfung
 belegt den begrenzten direkten Reader-Scope.
@@ -75,3 +90,16 @@ Refresh- und Batch-Sinks. Der eigene Listener und Threadjob werden entfernt;
 Produktmodul, State, Provider und SQL sind NOT_EXECUTED. Hinzu kommen
 Sentinel-, exakte Byte-, UTF-8- und absolute Deadlineprüfungen mit eigenen
 synthetischen Streams. Das ist kein gerenderter Browser- oder Providernachweis.
+
+`WorkflowUiSpecializedBodyChecks.ps1` prüft den vollständigen gemeinsamen
+Produkt-Requestblock und die acht tatsächlichen Fachadapter über einen eigenen
+Loopback-Listener. 58 Prüfungen mit 36 HTTP-Requests bestanden: deklarierte und
+Chunked- und Zeichenübergröße für jeden Handler, gültige fachliche Requests, ungültiges UTF-8,
+ein echter Trickle-Timeout und ein gültiger Folgeaufruf. Mehrbyteige Texte am
+exakten Zeichenlimit, führende UTF-8-BOM und Zeichenüberlauf sind separat geprüft. Alle Fach-Sinks
+sind synthetisch, das Produktmodul, State, Provider und SQL nicht ausgeführt.
+Listener und Threadjob wurden geschlossen. Der selektierte SQL-Lifecycle-Smoke
+bestand getrennt für Docker und Podman mit jeweils 32/32 Prüfungen und eigenem
+Cleanup. Die sechs geschützten Umgebungen liefen weiter; ihre gelesenen State-,
+Bindungs- und nativen Inventarwerte blieben im Vorher-/Nachhervergleich gleich.
+Der Vergleich ist kein atomarer Snapshot oder hostweiter Invarianznachweis.

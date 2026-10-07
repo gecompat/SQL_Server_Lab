@@ -150,6 +150,7 @@ $result=& $module {
     }
     # Execute the actual HTTP adapter and workflow together against this own
     # synthetic default root; callers still cannot inject a different root.
+    . (Join-Path $repoRoot 'Tools/WorkflowUiJsonBody.ps1')
     $uiAst=[Management.Automation.Language.Parser]::ParseFile((Join-Path $repoRoot 'Tools/Start-SqlServerLabUi.ps1'),[ref]$null,[ref]$null)
     $requestFunction=$uiAst.Find({param($node)$node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Invoke-UiSlotReserveRequest'},$true)
     Invoke-Expression $requestFunction.Extent.Text

@@ -224,6 +224,7 @@ try {
     $script:MenuCalls=0;$script:ConfirmChoice=$true
     Show-LabMediaOverrideInteractive *> $null
     Assert-Media (((Get-LabMediaOverrideState).Items|Where-Object Id -CEQ $sql2022Id).Provenance -eq 'REPOSITORY_DEFAULT') '2022 actual CLI confirmed reset preserves vendor query default'
+    . (Join-Path $repoRoot 'Tools/WorkflowUiJsonBody.ps1')
     $uiAst=[Management.Automation.Language.Parser]::ParseFile((Join-Path $repoRoot 'Tools/Start-SqlServerLabUi.ps1'),[ref]$null,[ref]$null)
     $handler=$uiAst.Find({param($node)$node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Invoke-UiMediaOverrideRequest'},$true)
     . ([scriptblock]::Create($handler.Extent.Text))

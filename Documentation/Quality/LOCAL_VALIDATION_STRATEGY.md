@@ -35,7 +35,7 @@ ungültiges UTF-8 und ein echter Trickle-Body werden ebenfalls abgewiesen.
 Drei anschließende gültige Requests erreichen ausschließlich synthetische
 Sinks; kein Produktmodul/State/SQL/Provider wird ausgeführt. Eigener Listener
 und Threadjob werden entfernt. Eigene Streams prüfen zusätzlich Bytegrenze,
-Sentinel, striktes UTF-8 und die absolute Frist. Spezifische Reader, Header-
+Sentinel, striktes UTF-8 und die absolute Frist. Übrige spezifische Reader, Header-
 Deadline, Parallelität, Authentifizierung und Statequotas bleiben offen.
 
 Die in WorkflowUI eingebundene `WorkflowUiRequestBoundaryChecks.ps1` bestand
@@ -48,6 +48,15 @@ Prüfungen lesen keinen Body. Eigener Listener und Threadjob werden beendet.
 Produktmodul, State, SQL, Provider und gerenderter Browser sind NOT_EXECUTED;
 Operatorauthentifizierung und vollständige Cloud-Fundbehebung bleiben offen.
 [Vertrag](../Architecture/WORKFLOW_UI_REQUEST_BOUNDARY.md).
+
+`WorkflowUiSpecializedBodyChecks.ps1` ist in WorkflowUI eingebunden und prüft
+acht tatsächliche interne Fachadapter am vollständigen gemeinsamen Produktblock.
+58 fokussierte Prüfungen mit 36 echten Loopback-HTTP-Requests bestanden, darunter
+deklarierte/Chunked-/Zeichenübergröße je Route, gültige Requests, striktes UTF-8,
+ein tatsächlicher Trickle-Timeout und ein gültiger Folgeaufruf. Die alten
+Zeichenlimits sind mit mehrbyteigem Text, führender UTF-8-BOM und Überlauf geprüft. Alle Fach-Sinks
+sind synthetisch; kein Produktmodul, State, SQL oder Provider. Eigener Listener
+und Threadjob werden geschlossen. Gerenderte UI und Native-CMS bleiben separat.
 
 ## SA-Passwortpolicy: fokussierter Offlinevertrag
 

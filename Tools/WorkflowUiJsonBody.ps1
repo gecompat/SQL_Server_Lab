@@ -40,3 +40,46 @@ function Read-UiJsonRequestBody {
         $clock.Stop()
     }
 }
+
+# Acht UI-interne Adapter behalten ihre engeren UTF-16-Zeichenlimits.
+# Der Transport begrenzt zuerst Bytes und dieselbe absolute Fuenfsekundenfrist.
+function Read-UiSpecializedJsonRequestBody {
+    param(
+        [Parameter(Mandatory)]$Request,
+        [Parameter(Mandatory)][ValidateSet(1024,4096,16384)][int]$MaxCharacters,
+        [Parameter(Mandatory)][string]$LimitErrorCode
+    )
+    try {
+        $read = Read-UiJsonRequestBody -Request $Request -MaxBytes ($MaxCharacters * 4)
+        if (-not $read.Allowed) {
+            $failure = [IO.InvalidDataException]::new($read.Code)
+            $failure.Data['SqlServerLab.UiBodyStatus'] = $read.StatusCode
+            throw $failure
+        }
+        # StreamReader entfernte eine fuehrende UTF-8-BOM vor der Zeichenzaehlung.
+        $body = $read.Body
+        if ($body.Length -gt 0 -and $body[0] -eq [char]0xfeff) { $body = $body.Substring(1) }
+        if ($body.Length -gt $MaxCharacters) { throw $LimitErrorCode }
+        return $body
+    }
+    finally {
+        # Wie beim bisherigen StreamReader auch erfolgreiche Bodys schliessen.
+        try { $Request.InputStream.Dispose() } catch { }
+    }
+}
+
+function Write-UiBodyFailureResponse {
+    param([Parameter(Mandatory)]$Context, [Parameter(Mandatory)]$ErrorRecord)
+    $failure = $ErrorRecord.Exception
+    if ($failure -isnot [IO.InvalidDataException]) { return $false }
+    $expected = switch -CaseSensitive ($failure.Message) {
+        'UI_REQUEST_BODY_TOO_LARGE' { 413 }
+        'UI_REQUEST_BODY_TIMEOUT' { 408 }
+        'UI_REQUEST_BODY_UTF8_INVALID' { 400 }
+        'UI_REQUEST_BODY_READ_FAILED' { 400 }
+        default { return $false }
+    }
+    if ($failure.Data['SqlServerLab.UiBodyStatus'] -ne $expected) { return $false }
+    Write-UiResponse -Context $Context -Body $failure.Message -StatusCode $expected
+    return $true
+}

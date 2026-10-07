@@ -8,6 +8,11 @@
 | Repository | `gecompat/SQL_Server_Lab` |
 | Maschinenlesbare Landkarte | [`repo_map.yaml`](repo_map.yaml) |
 
+Der Benutzer verlangt am 2026-10-07 nach PR-Integration der aktuellen
+UI-Fachreader-Runde eine Entwicklungspause. Der [kanonische Wellenplan](../Documentation/Project_Planning/AUTONOMOUS_DEVELOPMENT_WAVE_2026-09-10.md)
+enthält Abschlussgrenze, offene Schritte und Wiederaufnahmebedingungen.
+Nach Integration keine automatische Weiterarbeit ohne neuen ausdrücklichen Auftrag.
+
 Die feste [SQL-Version-Upgrade-Referenz](../Documentation/Quality/SQL_VERSION_UPGRADE_REFERENCE.md)
 überträgt eine eigene synthetische SQL-2022-Datenbank über die öffentliche
 Backup-Bibliothek auf einen neuen SQL-2025-Container. Compatibility Level 160
@@ -40,7 +45,9 @@ Medientypen werden abgewiesen; lokale JSON-Clients ohne Origin bleiben erlaubt.
 Operatorauthentifizierung und vollständige Security-Cloud-Fundbehebung sind offen.
 Sieben direkte JSON-POST-Routen verwenden nun einen gemeinsamen Reader mit
 1-MiB-Bytegrenze, striktem UTF-8 und fünf Sekunden absoluter Lesefrist.
-Spezifische Reader, Headerannahme, Parallelität und Statequotas bleiben separat.
+Acht interne Fachreader verwenden ebenfalls den gemeinsamen Transport mit
+ihren bisherigen engeren Zeichenlimits und fünf Sekunden absoluter Lesefrist.
+Übrige spezifische Reader, Headerannahme, Parallelität und Statequotas bleiben separat.
 
 Der enge Diagnosebundle-Vertrag `Get-SqlServerLabDiagnosticBundle` liefert
 gebundene, sanitisierte Metadaten für eine moderne Instanz unter einem

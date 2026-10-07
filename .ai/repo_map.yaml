@@ -696,6 +696,7 @@ sources_of_truth:
   workflow_ui_request_boundary_validation: Tests/Static/Fixtures/WorkflowUiRequestBoundaryChecks.ps1
   workflow_ui_json_body: Tools/WorkflowUiJsonBody.ps1
   workflow_ui_json_body_validation: Tests/Static/Fixtures/WorkflowUiJsonBodyChecks.ps1
+  workflow_ui_specialized_body_validation: Tests/Static/Fixtures/WorkflowUiSpecializedBodyChecks.ps1 # eight internal adapters; retained character limits, byte ceilings, absolute deadline; synthetic sinks
   workflow_ui_job_status: Tools/WorkflowUiJobStatus.ps1 # bounded UI-owned batch reader; no store initialization or scheduling
   workflow_ui_job_status_validation: Tests/Static/Fixtures/WorkflowJobStatusChecks.ps1, Tests/Static/Fixtures/WorkflowJobStatusChecks.cjs
   workflow_ui_assets: Ui/index.html, Ui/app.js, Ui/app.css

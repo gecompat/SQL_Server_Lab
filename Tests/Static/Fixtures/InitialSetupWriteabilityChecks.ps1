@@ -82,6 +82,7 @@ try {
         $stale=& $module {param($Record) Invoke-LabSetupWriteProbeWorkerCore -Record $Record -Mode Probe} $record
         Assert-Probe (-not $stale.Created -and -not $stale.Written -and $stale.PrimaryCode -ceq 'INITIAL_SETUP_PROBE_PREVIEW_STALE' -and $stale.CleanupCode -ceq 'INITIAL_SETUP_PROBE_CLEANUP_BINDING_CHANGED') 'marker drift blocks mutation and never fabricates absence'
     } finally {[IO.File]::WriteAllBytes($marker,$originalMarker)}
+    . (Join-Path $repository 'Tools/WorkflowUiJsonBody.ps1')
     $serverAst=[Management.Automation.Language.Parser]::ParseFile((Join-Path $repository 'Tools/Start-SqlServerLabUi.ps1'),[ref]$null,[ref]$null)
     $adapter=$serverAst.Find({param($node)$node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Invoke-UiInitialSetupRequest'},$true)
     . ([scriptblock]::Create($adapter.Extent.Text))

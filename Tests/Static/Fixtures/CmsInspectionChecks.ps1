@@ -128,6 +128,7 @@ try {
     Remove-Item -LiteralPath $resolved -Recurse -Force
 }
 
+. (Join-Path $repository 'Tools/WorkflowUiJsonBody.ps1')
 $adapterAst=[Management.Automation.Language.Parser]::ParseFile((Join-Path $repository 'Tools/Start-SqlServerLabUi.ps1'),[ref]$null,[ref]$null)
 $adapter=$adapterAst.Find({param($node)$node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -ceq 'Invoke-UiCmsInspectionRequest'},$true)
 . ([scriptblock]::Create($adapter.Extent.Text))

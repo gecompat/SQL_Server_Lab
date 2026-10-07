@@ -10,8 +10,12 @@ Lokale JSON-Clients ohne Origin bleiben zugelassen. Eine Operatoranmeldung
 oder servergebundene Aktionsfreigabe ist weiterhin offen.
 Die sieben direkten JSON-POST-Routen akzeptieren höchstens 1 MiB UTF-8 und
 teilen pro Body eine absolute Lesefrist von fünf Sekunden. Überlänge ergibt
-413, ungültiges UTF-8 400 und Timeout 408 vor einem Fachaufruf. Spezifische
-Adapter mit eigenen Readern und Headerannahme besitzen dadurch keine neue Frist.
+413, ungültiges UTF-8 400 und Timeout 408 vor einem Fachaufruf.
+Die acht internen Fachreader für CMS, Setup, Slots, Resource Watch, llama.cpp-
+Installer/-Stop, Wartungsreparatur und Medienoverrides erhalten ebenfalls fünf
+Sekunden absolute Lesefrist. Ihre engeren Zeichenlimits bleiben erhalten;
+zusätzliche Byteobergrenzen gelten vor der Decodierung. Übrige spezifische
+Adapter und Headerannahme besitzen dadurch keine neue Frist.
 
 ### SA-Passwort bei neuen Container-Labs
 
