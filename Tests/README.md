@@ -15,6 +15,11 @@ Rücksetzen der Ausgabe beim Wiederöffnen werden gebunden. Hostprüfung und
 historischer Lookup sind verboten; Produktmodulimport, State, Provider-Runtime,
 Secrets, Installation und SQL bleiben ungenutzt. Der Listener schließt auf
 jedem Ergebnis; die Offlinefixture ersetzt keine ausgeführte Browserabnahme.
+Die gerenderte Abnahme bestand am 2026-10-07 auf `c99869e2` mit 102 Requests,
+36 unveränderten Produktquellhashes und genau vier öffentlichen Entscheidungen.
+Keine Skriptfehler oder instrumentierten verbotenen Effekte; eigener Listener
+und Tab geschlossen. Die fokussierte Offlinefixture bestand mit 46 Fällen.
+Hostprüfung, historischer Lookup, Installation und SQL bleiben ungenutzt.
 
 `Integration/Invoke-CollationCatalogBrowserAcceptance.ps1` dient der getrennten
 gerenderten Collation-Katalogabnahme über einen eigenen begrenzten Loopbacklistener.

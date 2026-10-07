@@ -97,6 +97,19 @@ lesende Hostprüfung wird dadurch nicht als gestoppt behauptet. Es gibt keinen
 Apply-, Speicher-, Start- oder Manifestübernahmepfad. Historisches Mapping und
 SQL-Sprachabnahme bleiben unverändert offen; CORE-102 ist damit nicht vollständig.
 
+Die getrennte gerenderte Katalogabnahme bestand am 2026-10-07 auf `c99869e2`:
+zwölf unveränderte Produktassets und 36 gebundene Katalog-/Rezept-/Quellhashes,
+102 Requests, vier Optionsreads und genau vier öffentliche Entscheidungen.
+Docker Java/2019 und Python/2022 sowie Podman R/2022 und die explizite
+Java/2025-shared-user-Variante wurden über die tatsächliche HTTP-Route geprüft.
+Blockierte Optionen waren deaktiviert; Öffnen/Bearbeiten löste keine Aktion aus,
+Wiederöffnen löschte Auswahl und Ausgabe. Keine Skriptfehler oder instrumentierten
+verbotenen Effekte; eigener Listener und Tab geschlossen. Vier Bootstrapreads
+waren synthetisch. Der isolierte Modulkontext verwendete tatsächliche Kataloge,
+Provider-Metadaten und Rezept-/Lockdateien; Produktmodulimport, Hostprüfung,
+historischer Lookup, State, Provider-Runtime, Secrets, Installation und SQL
+blieben ungenutzt. Das bestätigt den Browser-Katalogpfad, keine Native-Abnahme.
+
 ## Exakte historische Identität (CORE-102/BASE)
 
 Der bestehende Nachweisindex unterstützt getrennt Version 1.0 und die geschlossene

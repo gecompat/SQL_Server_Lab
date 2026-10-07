@@ -1846,6 +1846,11 @@ Launchmodus. `READY` bestätigt weder SQL-/Sprachausführung, Rechte noch Besitz
 Im Standardvertrag 1.0 bleibt historisches Matching `NOT_RECORDED`/`NOT_DEFINED`. Der geführte Browser
 verwendet denselben engen Public-Entscheid mit bewusstem optionalem Hostcheck;
 Hyper-V-Erweiterung und die vollständige CORE-102-Matrix bleiben offen.
+Die gerenderte Katalogabnahme bestand am 2026-10-07 auf `c99869e2` mit vier
+öffentlichen Entscheidungen und tatsächlichen Katalog-/Rezeptquellen. Der
+Seitenbootstrap war synthetisch; Hostprüfung, historischer Lookup, Installation
+und SQL wurden nicht ausgeführt. Dieser Browsernachweis schließt die offene
+native Provider-/SQL-Sprachabnahme nicht.
 Der synchrone HTTP-/Listener-Aufruf besitzt kein Gesamtwallclock-Limit.
 Browserabbruch verwirft die Anzeige, stoppt keine bereits angeforderte Prüfung.
 
