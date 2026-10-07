@@ -169,8 +169,8 @@ COMMIT;
             # All columns/rows from both CMS tables, including unmanaged controls.
             # Retain only digests; names, endpoints and raw SQL rows never leave here.
             $command.CommandText=@'
-SELECT (SELECT * FROM dbo.sysmanagement_shared_server_groups ORDER BY server_group_id FOR JSON PATH, INCLUDE_NULL_VALUES),
-       (SELECT * FROM dbo.sysmanagement_shared_registered_servers ORDER BY server_id FOR JSON PATH, INCLUDE_NULL_VALUES);
+SELECT COALESCE((SELECT * FROM dbo.sysmanagement_shared_server_groups ORDER BY server_group_id FOR JSON PATH, INCLUDE_NULL_VALUES), N'[]'),
+       COALESCE((SELECT * FROM dbo.sysmanagement_shared_registered_servers ORDER BY server_id FOR JSON PATH, INCLUDE_NULL_VALUES), N'[]');
 '@
             $reader=$command.ExecuteReader()
             if(-not $reader.Read()){throw 'CMS_ACCEPTANCE_SQL_SNAPSHOT'}
