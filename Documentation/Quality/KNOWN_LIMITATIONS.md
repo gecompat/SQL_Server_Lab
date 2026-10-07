@@ -3208,8 +3208,18 @@ Standardpfade behalten ihre bisherigen Verträge und Nachweise.
 Der geführte Konsolendialog unter Wartung bietet Einzelauswahl und bestätigtes
 Apply/Resume über den bestehenden öffentlichen Core. Er berücksichtigt nur den
 aktuellen registrierten State-Root; andere Locations werden nicht automatisch
-durchsucht. Ein eigener Browserdialog und eine gerenderte Terminalabnahme
-bleiben offen. Metadatenauswahl belegt keine Providerabwesenheit.
+durchsucht. Der eigene Browserdialog verwendet denselben aktuellen
+serverseitigen Root und Public Core. Eine fünf Minuten gültige einmalige
+Vorschau und standardmäßig leere Bestätigung binden Apply/Resume; Auswahlwechsel,
+Rootdrift, verlorene Antworten und Replay erlauben keine automatische
+Wiederholung. Die HTTP-/JavaScript-Fixtures sind synthetische Nachweise.
+Docker und Podman bestanden am 2026-10-07 getrennte eigene SQL-Lifecycle- und
+native HTTP-Handler-Abnahmen mit bestätigtem Apply, Replay-Veto, unverändertem
+Providerinventar und vollständigem Own-Cleanup. Die Browseransicht ist mit
+synthetischem BLOCKED-Transport visuell geprüft; gerenderte native Apply-
+und Terminalabnahme bleiben offen. Metadatenauswahl belegt keine
+Providerabwesenheit. Der synchrone HTTP-Handler kann den UI-Listener blockieren;
+Schließen nach Versand stoppt keine begonnene Entfernung.
 
 `Get-SqlServerLabRunArtifactRemovalPlan` und `Invoke-SqlServerLabRunArtifactRemoval`
 benötigen moderne REMOVED-Evidence, registriertes Lab_Data/State und vollständige

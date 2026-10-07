@@ -25,6 +25,9 @@ sources_of_truth:
   run_artifact_removal_checks: Tests/Static/Invoke-RunArtifactRemovalChecks.ps1
   run_artifact_removal_console: Private/RunArtifactRemovalConsole.ps1
   run_artifact_removal_console_checks: Tests/Static/Fixtures/RunArtifactRemovalConsoleChecks.ps1
+  run_artifact_removal_browser_http: Private/RunArtifactRemovalHttp.ps1 # current registered server roots, strict loopback/origin boundary, expiring single-use preview binding
+  run_artifact_removal_browser: Ui/run-artifact-removal.js # separate maintenance dialog, unchecked confirmation, no retry, late-response veto
+  run_artifact_removal_browser_checks: Tests/Static/Fixtures/RunArtifactRemovalHttpChecks.ps1, Tests/Static/Fixtures/RunArtifactRemovalUiChecks.cjs # existing WorkflowUI suite; actual route/public functions with synthetic Core leaves and actual JS with synthetic DOM
   run_artifact_removal_acceptance: Tests/Integration/Invoke-RunArtifactRemovalObservationAcceptance.ps1
   owned_host_ci_isolation: Documentation/Architecture/OWNED_HOST_CI_ISOLATION.md
   owned_host_ci_implementation: Private/ContainerOwnedHostIntegration.ps1

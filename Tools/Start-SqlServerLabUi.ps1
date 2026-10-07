@@ -607,6 +607,7 @@ $listener.Prefixes.Add($url)
 $listener.Start()
 $jobs = @{}
 $persistentJobs = @{}
+$runArtifactRemovalPreviews = @{}
 
 Write-Host "SQL_Server_Lab Workflow UI: $url" -ForegroundColor Green
 Write-Host 'Zum Beenden Strg+C druecken.' -ForegroundColor DarkGray
@@ -639,6 +640,13 @@ try {
                     Write-UiResponse -Context $context -Body ($view | ConvertTo-Json -Depth 8) -ContentType 'application/json; charset=utf-8'
                 }
                 catch { Write-UiResponse -Context $context -Body 'TEST_GROUP_READ_UNAVAILABLE: Gruppe erneut lesen; keine Aktion ausgeführt.' -StatusCode 503 }
+                continue
+            }
+            if ($path -eq '/api/run-artifact-removal') {
+                try {
+                    $view=& (Get-Module SqlServerLab) { param($request,$listenerPort,$previews) Invoke-LabRunArtifactRemovalHttpRequest -Request $request -ListenerPort $listenerPort -Previews $previews } $context.Request $Port $runArtifactRemovalPreviews
+                    Write-UiResponse -Context $context -Body ($view | ConvertTo-Json -Depth 5 -Compress) -ContentType 'application/json; charset=utf-8'
+                } catch { Write-UiResponse -Context $context -Body '{"Code":"RUN_ARTIFACT_HTTP_UNCONFIRMED"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400 }
                 continue
             }
             if ($path -eq '/api/container-autostart-preview') {

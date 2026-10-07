@@ -2398,4 +2398,8 @@ einen Run auswählen, Vorschau und Sperrgründe prüfen und die endgültige
 Metadatenentfernung beziehungsweise Wiederaufnahme gesondert bestätigen.
 Zurück und Standard Nein ändern nichts. Der aktuelle registrierte State-Root
 bleibt die Auswahlgrenze; Providerressourcen und Sicherungen werden nicht gelöscht.
+Im Browser denselben Ablauf über **Wartung, Aufräumen und Recovery →
+Run-Artefakte prüfen** öffnen. Die Bestätigungsbox bleibt bis zur bewussten
+Auswahl leer. Nach Auswahlwechsel oder verlorener Antwort neu lesen und
+vorprüfen; eine gesendete Entfernung kann beim Schließen weiterlaufen.
 [Vorschau, Bestätigung, Sperren und Wiederaufnahme](RUN_ARTIFACT_REMOVAL.md).

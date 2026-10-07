@@ -40,6 +40,10 @@ dialog.dialog-wide { width: min(920px, calc(100vw - 32px)); }
 dialog::backdrop { background: rgba(1, 7, 13, .76); }
 dialog form { display: grid; gap: 14px; padding: 22px; overflow: auto; max-height: calc(100vh - 32px); }
 dialog .read-only-dialog-content { display: grid; gap: 14px; padding: 22px; overflow: auto; max-height: calc(100vh - 32px); }
+#run-artifact-dialog .dialog-panel { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; padding: 22px; overflow: auto; max-height: calc(100vh - 34px); overflow-wrap: anywhere; }
+#run-artifact-dialog pre { white-space: pre-wrap; margin: 0; }
+#run-artifact-dialog label:has(#run-artifact-confirm) { grid-template-columns: auto minmax(0, 1fr); align-items: start; }
+#run-artifact-confirm { width: 20px; height: 20px; margin: 2px 4px 0 0; accent-color: var(--cyan); }
 #slot-reserve-form { padding: 0; overflow: visible; max-height: none; }
 .dialog-heading { display: flex; align-items: start; justify-content: space-between; gap: 16px; }.dialog-heading h2 { font-size: 1.45rem; }
 .icon-button { width: 34px; height: 34px; border: 0; border-radius: 7px; color: var(--ink); background: #29425c; font-size: 1.3rem; line-height: 1; }

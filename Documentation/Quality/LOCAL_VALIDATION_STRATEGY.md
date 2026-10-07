@@ -3181,6 +3181,40 @@ Revalidierungen bleiben erhalten. Ein abgeschlossener Dialogrequest ruft die
 öffentliche Preview einmal auf. Es gibt kein Apply und keinen Scope-A-Abschluss.
 ## Run-Artefakte nach erfolgreichem Remove
 
+Die bestehenden WorkflowUI-Prüfungen führen zusätzlich
+`RunArtifactRemovalHttpChecks.ps1` und `RunArtifactRemovalUiChecks.cjs` aus.
+Die erste Fixture prüft die tatsächliche Serverroute, das importierte Modul
+und die öffentlichen Funktionen mit synthetischen privaten Core-Leaves.
+80 Prüfungen bestanden: strikte Requests/DTOs, serverseitige Rootbindung,
+Metadaten ohne Vorschau, Sperren, echte boolesche Bestätigung, Tokenexpiry,
+Einmaligkeit, Drift, Recovery und sanitisierte unbestätigte Ergebnisse.
+Die JavaScript-Fixture prüft das tatsächliche Dialogskript mit synthetischem
+DOM/Transport; 63 Prüfungen bestanden einschließlich später Antworten,
+verworfener Bestätigung, Duplicate-Veto und verlorener Apply-Antwort.
+Diese Offline-Nachweise sind keine native oder gerenderte Browserabnahme.
+
+Der opt-in Aufruf `Invoke-RunArtifactRemovalObservationAcceptance.ps1 -Provider docker -CreateSqlRun -GuidedBrowserHttp`
+beziehungsweise sein getrennter Podman-Aufruf verwendet einen eigenen
+Loopback-Listener und den tatsächlichen Browser-HTTP-Handler. Nach dem eigenen
+SQL-Lifecycle prüft er Metadatenread, öffentliche Vorschau, abgelehnte
+Bestätigung, bestätigtes Apply, Replay-Veto, Run-/Markerabwesenheit und
+unverändertes Providerinventar. Öffentlicher Core und native Beobachtung
+bleiben echt. Docker und Podman bestanden diesen Pfad am 2026-10-07 getrennt
+einschließlich vollständigem Own-Cleanup. Er rendert keinen Browser und ersetzt
+die Terminalabnahme nicht. Die echte Browseroberfläche wurde separat mit
+synthetischen Read-/BLOCKED-Antworten geprüft: bewusste Einzelauswahl, lesbarer
+Umbruch, erreichbare Aktionen, gesperrtes Apply und Reset nach Schließen.
+Dieser Sichtnachweis ist keine gerenderte native Apply-Abnahme.
+
+Die betroffene statische Auswahl enthielt zwei veraltete Annahmen: 135 statt
+der tatsächlich unveränderten 137 Exports sowie eine direkte statt der
+vorhandenen gesplatteten Autostart-Weitergabe. Nach Anpassung an den bestehenden
+Vertrag bestanden `Invoke-ReviewedBrowserCompositionChecks.ps1` mit 73 und
+`Invoke-ContainerAutoStartChecks.ps1` mit 17 Prüfungen;
+die ursprünglichen Fehlerbelege bleiben lokal erhalten. Unveränderte grüne
+Suites werden nicht erneut ausgeführt. Die ergänzte CI-Pfadauswahl verlangt
+weiterhin alle fünf Runtime-Gates am exakten PR-Head.
+
 Die eingebundene Fixture `Tests/Static/Fixtures/RunArtifactRemovalConsoleChecks.ps1`
 prüft den importierten Wartungsmenürouter, den öffentlichen Direktaufruf und
 den Fachdialog. Synthetische Core-Leaves zählen Vorschau und Apply; Auswahl,

@@ -713,6 +713,8 @@ zugelassene Metadaten mit Vorschau-, Referenz-, Retention- und Recovery-Schutz.
 Der geführte Dialog **Wartung, Aufräumen und Recovery → Artefakte eines
 entfernten Runs** bietet dieselbe Einzelauswahl, Vorschau und bestätigte
 Entfernung beziehungsweise Wiederaufnahme.
+Im Browser öffnet **Wartung, Aufräumen und Recovery → Run-Artefakte prüfen**
+den eigenen Dialog mit serverseitiger Bindung und separater Bestätigung.
 [Bedienung und Grenzen](Documentation/User/RUN_ARTIFACT_REMOVAL.md).
 
 ```powershell
