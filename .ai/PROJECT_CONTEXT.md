@@ -42,6 +42,13 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 
 ### Implementiert
 
+- Lokale Release-Veröffentlichung mit dauerhaftem Intent, atomarer
+  Abschlussquittung und rein lesender `InspectReleaseId`-Prüfung. Die Quittung
+  bindet vollständige Paket- und optionale Archivbytes; ohne Quittung bleibt
+  der Status `INCOMPLETE`, ältere Pakete sind `NOT_ATTESTED`. Prozessstatus,
+  automatische Wiederaufnahme und Cleanup werden nicht abgeleitet.
+  Vertrag: `Documentation/Architecture/LOCAL_RELEASE_PUBLICATION.md`;
+
 - Der geführte External-Languages-Browser-Katalogpfad besitzt eine getrennte
   gerenderte Abnahme auf `4007d414` vom 2026-10-07: zwölf Produktassets,
   36 tatsächliche Katalog-/Rezept-/Quellhashes, vier Optionsreads und vier

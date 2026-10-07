@@ -380,6 +380,7 @@ sources_of_truth:
   validation_sql_guest_evaluation_evidence: Tests/Static/Invoke-EvaluationWatchChecks.ps1
   host_tool_resolution: Private/HostToolResolution.ps1
   local_release_preparation: Tools/Prepare-LocalRelease.ps1
+  local_release_publication_contract: Documentation/Architecture/LOCAL_RELEASE_PUBLICATION.md
   validation_release_artifact: Tests/Static/Invoke-ReleaseArtifactChecks.ps1
   client_readiness: Tools/Test-SqlServerLabClientReadiness.ps1
   ssis_prerequisite_diagnostic: Tools/Test-SqlServerLabSsisPrerequisite.ps1

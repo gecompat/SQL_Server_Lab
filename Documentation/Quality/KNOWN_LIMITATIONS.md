@@ -1,5 +1,16 @@
 # Bekannte Grenzen
 
+## Lokale Release-Veröffentlichung nach Prozessabbruch
+
+Ein dauerhaftes Intent und eine atomare Abschlussquittung binden die
+vollständige Paket-/Archivdateimenge. Die rein lesende `InspectReleaseId`-Prüfung
+meldet ohne Quittung `INCOMPLETE`; der Prozess kann noch laufen oder abgebrochen
+sein. Vorhandene Teilartefakte werden weder übernommen noch entfernt.
+`COMPLETED` bestätigt aktuell passende Artefaktbytes, keinen Prozessabschluss
+oder Cleanup; Stagingreste können bestehen. Keine atomare Mehrdateitransaktion,
+Herausgebersignatur, Stromausfallabnahme oder automatische Recovery.
+[Vertrag](../Architecture/LOCAL_RELEASE_PUBLICATION.md).
+
 ## SA-Passwortpolicy: begrenzte Erstellung
 
 Die zentrale Container-Vorpruefung sowie die CLI- und Browser-Korrektur-/Abbruchwege

@@ -2510,8 +2510,15 @@ umgeleitete Zielpfade blockieren den Export. `WhatIf` legt keine Dateien an.
 Erst fertig erzeugte Inhalte werden aus einem eigenen Staging-Verzeichnis
 veröffentlicht; Teilfehler entfernen ausschließlich die eigenen Artefakte.
 Diese Rücknahme ist für gewöhnliche Ausnahmen geprüft. Ein harter
-Prozessabbruch kann Staging- oder Teilartefakte zurücklassen; eine atomare
-Mehrdateiveröffentlichung bei Prozessabbruch ist damit nicht nachgewiesen.
+Prozessabbruch kann Staging- oder Teilartefakte zurücklassen. Das neue dauerhafte
+Intent und die atomare Abschlussquittung unterscheiden deshalb vollständige
+Artefakte von einem unquittierten Stand. `InspectReleaseId` prüft genau eine
+Release-ID rein lesend einschließlich vollständiger Byte-/Dateimengenbindung:
+`INCOMPLETE` ohne Quittung, `COMPLETED` nur bei passenden aktuellen Bytes und
+`NOT_ATTESTED` für nicht quittierte ältere Veröffentlichungen. Prozessstatus
+bleibt `NOT_CHECKED`, Actions leer; es gibt keine automatische Wiederaufnahme
+oder Entfernung. Eine atomare Mehrdateiveröffentlichung bleibt unbehauptet.
+[Vertrag und Recoverygrenzen](../Architecture/LOCAL_RELEASE_PUBLICATION.md).
 
 `ReleaseManifest.json` enthält relative Pfade, Quellcommit und SHA-256-Werte;
 `ReleaseReadinessCheck` unterscheidet `PASSED` und `SKIPPED`. Die optionale
@@ -2520,7 +2527,11 @@ ausschließlich neben der fertigen ZIP-Datei; deren Inhalt wird danach nicht
 mehr verändert. Die ZIP-Datei erhält auch versionierte versteckte Nutzdateien.
 `Invoke-ReleaseArtifactChecks.ps1` belegt diesen Vertrag mit synthetischen
 Git-Fixtures, injiziertem Publikationsfehler und Import des realen Moduls aus
-dem entpackten Paket. Ein Pakettest ersetzt keine nativen Providernachweise.
+dem entpackten Paket. Zusätzliche harte Abbrüche eigener Kindprozesse vor
+Archiv-, Paket- und Quittungspublikation sowie nach Quittungspublikation prüfen
+die lesende Status-/Bytebindung ohne behauptetes Cleanup. Inhaltsdrift,
+Recordlimits, Traversal und leere Reparsepunkte werden gesondert geprüft.
+Ein Pakettest ersetzt keine nativen Providernachweise.
 
 Nicht verfügbare Native-Tests müssen im Pull Request mit Grund als `NOT_EXECUTED` angegeben werden.
 
