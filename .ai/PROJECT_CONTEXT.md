@@ -18,6 +18,11 @@ beobachteten Restore-Dauern sind kein Performance-Benchmark; allgemeine
 Migration bleibt unverändert.
 ## 1. Ziel
 
+Die [Sitzungsrichtlinie](../Documentation/Quality/COST_EFFICIENT_DEVELOPMENT.md)
+erlaubt automatische Chatwechsel an gesicherten natürlichen Arbeitsgrenzen
+mit bestätigter Client-Fähigkeit und eindeutiger Orchestratorübernahme.
+Numerische Schwellen und der optionale `ai-work`-Planer bleiben unselektiert.
+
 Der [gemeinsame Downloadtransport](../Documentation/Architecture/DOWNLOAD_STREAM_LIMITS.md)
 begrenzt Streamingbytes vor dem Schreiben. Medien und llama.cpp-Modelle
 verwenden ihre Kataloggröße; übrige Aufrufer zunächst 1 TiB. Speicherprüfung,

@@ -161,10 +161,42 @@ höchstens ein autorisiertes lokales Delta seit dem letzten Checkpoint. Neue
 Session-, Checkpoint- und Handoff-Runtimedaten bleiben außerhalb der
 Versionskontrolle; der bereits versionierte Projektcheckpoint bleibt erhalten.
 
-Numerische Kontext- und Deltaschwellen, automatische Nachfolgesitzungen und der
-optionale `ai-work`-Planer sind nicht ausgewählt. Ihre spätere Auswahl benötigt
-eine getrennte Projektentscheidung und für Automatik aktuelle vertrauenswürdige
-Client-Evidence. Bis dahin erfolgt ein erforderlicher Wechsel manuell.
+Automatische Nachfolgesitzungen sind als Projektentscheidung ausgewählt.
+Ein automatischer Chatwechsel ist an einer gesicherten natürlichen Arbeitsgrenze
+erlaubt, wenn er die Fortsetzung einer bereits autorisierten Arbeit erleichtert.
+Geeignet sind beispielsweise ein abgeschlossener, validierter Slice oder ein
+klar abgegrenzter nächster Arbeitsbereich einer längeren Welle. Bei kurzen
+Aufgaben oder überwiegendem Übergabeaufwand wird der bestehende Chat fortgesetzt.
+Eine laufende Mutation oder ungeklärte Cleanup-/Recoveryverantwortung ist keine
+geeignete Wechselgrenze.
+
+Vor dem automatischen Wechsel müssen folgende Bedingungen erfüllt sein:
+
+- Der aktuelle Stand, ausgeführte Prüfungen, eigene Ressourcen und offene
+  Aufgaben sind über einen geprüften Checkpoint und einen
+  `foundation-session-handoff/v1`-Datensatz lokal gesichert.
+- Aktuelle vertrauenswürdige Client-Evidence bestätigt die tatsächlich
+  verfügbare Erzeugung einer Nachfolgesitzung. Diese Erzeugung und Fortsetzung
+  liegen innerhalb des Benutzerauftrags und der geltenden Clientrechte.
+  Modell-, Kosten- und Datenschutzpräferenzen des Benutzers gelten weiter.
+- Der Nachfolger lädt native Instruktionen und aktuelle kanonische Quellen
+  und bestätigt die Übernahme des konkreten Checkpoints. Bis dahin darf er
+  nur den Bootstrap prüfen und keine Implementierung beginnen.
+- Der Rollenwechsel wird eindeutig dokumentiert. Genau ein Orchestrator
+  verantwortet die Implementierung; nach bestätigter Übergabe implementiert
+  der Vorgänger keine weiteren Scopes. Zugeordnete Heartbeats werden an den
+  tatsächlichen Nachfolger gebunden, bevor sie dort neue Arbeit auslösen.
+
+Für einen so autorisierten Wechsel ist keine erneute Einzelbestätigung nötig.
+Ein unbekannter, nicht unterstützter, fehlgeschlagener oder nicht bestätigter
+Erzeugungs-/Übernahmeversuch fällt auf manuelle Fortsetzung zurück. Der
+Checkpoint bleibt erhalten; ein unklarer Versuch führt nicht zur blinden
+Erzeugung weiterer Chats. Eine vorbereitete Übergabe ist kein Nachweis für
+einen tatsächlich erzeugten Chat oder einen abgeschlossenen Rollenwechsel.
+
+Numerische Kontext- und Deltaschwellen sowie der optionale `ai-work`-Planer
+bleiben nicht ausgewählt. Deren spätere Auswahl benötigt eine getrennte
+Projektentscheidung; die Erlaubnis automatischer Nachfolger aktiviert sie nicht.
 Eine Übergabe, ein neuer Chat oder ein Foundation-Upgrade ersetzt keinen
 ausdrücklichen Startauftrag für eine pausierte Entwicklungswelle. Deren
 Startgrenze bleibt im
