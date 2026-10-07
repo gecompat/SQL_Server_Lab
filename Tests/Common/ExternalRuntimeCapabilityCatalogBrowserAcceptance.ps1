@@ -28,7 +28,7 @@ function Get-ExternalCatalogBrowserProductParts {
     }
     if($recipeFiles.Count -lt 1 -or $recipeFiles.Count -gt 64){throw 'EXTERNAL_CATALOG_BROWSER_RECIPE_LIMIT'}
     $paths+=@($recipeFiles | ForEach-Object {[IO.Path]::GetRelativePath($RepositoryRoot,$_.FullName).Replace('\','/')})
-    $sources=@($parts.Sources)+@(foreach($path in $paths){$file=Join-Path $RepositoryRoot $path;Assert-CmsBrowserPath $file;if((Get-Item -LiteralPath $file).Length -gt 256KB){throw 'EXTERNAL_CATALOG_BROWSER_SOURCE_LIMIT'};[pscustomobject]@{Path=$path;Sha256=(Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash}})
+    $sources=@($parts.Sources)+@(foreach($path in $paths){$file=Join-Path $RepositoryRoot $path;Assert-CmsBrowserPath $file;if((Get-Item -LiteralPath $file -Force).Length -gt 256KB){throw 'EXTERNAL_CATALOG_BROWSER_SOURCE_LIMIT'};[pscustomobject]@{Path=$path;Sha256=(Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash}})
     if(@($sources.Path | Sort-Object -Unique).Count -ne $sources.Count){throw 'EXTERNAL_CATALOG_BROWSER_DUPLICATE_SOURCE'}
     $tokens=$null;$errors=$null
     $ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $RepositoryRoot Tools/Start-SqlServerLabUi.ps1),[ref]$tokens,[ref]$errors)
