@@ -944,7 +944,10 @@ globale Fehler/Recovery und vorhandene Own-Identitäten mit und erlaubt höchste
 ein unterschiedliches Issue und einen Publishwrite pro Aufruf. UNKNOWN wird nur
 receiptgebunden wiederaufgenommen; ohne frischen Marker kein neuer POST. Der
 vollständige Bericht und reguläre `catalog`-/Cronvertrag bleiben unverändert.
-Die echte Dispatch-/Issue-/Cronabnahme dieses Ausbaus ist noch nicht ausgeführt;
+Ein zusätzlicher manueller `metadata_only`-Job verwendet denselben vollständigen
+Quellencheck ohne Issue-API, Issuerechte oder Publishtoken und verlangt leere
+Fixture-Eingaben. Seine echte Dispatch-Abnahme ist noch nicht ausgeführt;
+Issueveröffentlichung, Dedupe, Zustellung und Cron bleiben getrennt offen;
 weitere Familien und Benachrichtigungskanäle bleiben offen. Vertrag:
 [Resource-Watch-Automation](../Documentation/Architecture/RESOURCE_WATCH_AUTOMATION.md).
 

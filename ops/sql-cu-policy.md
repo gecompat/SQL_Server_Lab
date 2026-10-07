@@ -124,5 +124,11 @@ Jeder Receiptstatus wird vor der Zielauswahl strikt validiert; publizierte oder
 deduplizierte Hinweise brauchen echtes boolesches `Verified=true` und eine
 vollständige Issue-/URL-/Bodyhashbindung. Fehlende Bindung ist kein Cleanup-PASS.
 Slack, Email, fremde Chats und Agentstarts werden nicht ausgelöst.
+Für einen manuellen reinen Quellencheck gibt es zusätzlich `metadata_only=true`.
+Dieser eigene Job hat keine Issuerechte oder Publishtoken, verlangt leere
+Fixture-Eingaben und ruft den vorhandenen Runner ohne `PublishIssues` auf.
+Report und Nichtveröffentlichungs-Receipt bleiben bereinigt; unklare Quellen
+bleiben fehlgeschlagen. Standardlane, Monatscron und Concurrency bleiben erhalten.
+Der Metadatenmodus ersetzt keine Issue-, Dedupe-, Zustellungs- oder Cronabnahme.
 Ausführungs-, Dedupe- und Cleanupnachweise sowie die getrennte Cronabnahme stehen
 im [Automationsvertrag](../Documentation/Architecture/RESOURCE_WATCH_AUTOMATION.md).

@@ -2997,6 +2997,16 @@ Dauerüberwachung und keinen anderen Provider.
 
 ### Resource-Watch-Automationslane
 
+Der getrennte manuelle `metadata_only`-Job wird als echte extrahierte
+Workflow-PowerShell zusammen mit dem vollständigen Runner und synthetischem
+Quellenmodul geprüft. Der unveränderte Reporter bleibt aktiv; Eintritt in
+Issueprojektion oder Issue-API ist verboten. `NEW`, `NO_CHANGE` und `UNCLEAR`,
+leere Fixture-Eingaben, Dispatch-/Modeveto und strikt typisierte
+Nichtveröffentlichungs-Receipts werden geprüft. Der Job besitzt keine
+Issuerechte oder Publishtoken; Standardjob und Monatscron bleiben erhalten.
+Die echte Dispatch-Abnahme ist noch auszuführen; sie ersetzt keine
+Issueveröffentlichung, Dedupe, Zustellung oder Cronabnahme.
+
 `Fixtures/VersionCatalogResourceWatchAutomationChecks.ps1` wird über die
 bestehende VersionCatalog-Suite ausgeführt. Reale pure Projektion, kompletter
 Issue-APIvertrag, Runner und extrahierte Workflow-PowerShell laufen mit

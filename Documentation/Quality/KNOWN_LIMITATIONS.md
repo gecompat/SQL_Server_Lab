@@ -3066,8 +3066,10 @@ sie allein sind keine Live-Microsoft-, Provider- oder dauerhafte Schedulerabnahm
 
 Die bestehende monatliche CU-Lane besitzt jetzt eine getrennte CU-/SqlPackage-
 Report-/Issueprojektion mit Ressourcen-/Revisionsmarkern und nachgelesenen
-Receipts. Echte Dispatch-/Benachrichtigungs- und Cronabnahme dieses Ausbaus sind
-noch nicht ausgeführt. Ein gelesener Receipt belegt keine Zustellung an Personen.
+Receipts. Der zusätzliche manuelle Metadatenjob führt denselben vollständigen
+Quellencheck ohne Issue-API, Issuerechte oder Publishtoken aus; seine echte
+Dispatch-Abnahme ist noch nicht ausgeführt. Issue-/Benachrichtigungs- und
+Cronabnahme bleiben getrennt offen. Ein gelesener Receipt belegt keine Zustellung an Personen.
 Die GET-Revalidierung ist kein serverseitiger CAS gegen externe Issuewriter.
 Alte Monatsissues ohne neuen Marker werden nicht automatisch migriert oder
 geschlossen. Markerdrift, unvollständige Pagination und unbestätigte Writes

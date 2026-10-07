@@ -15,9 +15,35 @@ bleibt der Runner ein Metadatencheck. Die interaktive CLI-/GUI-Sitzung und ihr
 kompatibel; sein unveränderter Einzelaufruf hat weiterhin seine eigene
 Transportgrenze.
 
-Der Ausbau besitzt ausführbare Offlineprüfungen. Eine echte Dispatch-/Issue-
-Abnahme und ein tatsächlich ausgelöster Monatscron sind separate Nachweise;
-sie sind für diesen Ausbau noch nicht ausgeführt.
+Der Ausbau besitzt ausführbare Offlineprüfungen und einen getrennten manuellen
+Metadatenmodus. Dessen echte Dispatch-Abnahme, die Issue-Abnahme und ein
+tatsächlich ausgelöster Monatscron sind separate Nachweise.
+
+## Manueller Metadatenmodus ohne Issueveröffentlichung
+
+`workflow_dispatch` mit `metadata_only=true` führt denselben vollständigen
+CU-/SqlPackage-Check ohne `-PublishIssues` aus. Beide `acceptance_`-Eingaben
+müssen leer bleiben; ihre Kombination mit diesem Modus wird vor dem Quellencheck
+abgelehnt. Der getrennte Job besitzt `contents: read`, `issues: none` und keinen
+Publishtoken. Er verwendet weder Issue-API noch Dedupe-, Continuation- oder
+Cleanupaktionen. Cron, Concurrency und der Standardmodus bleiben erhalten.
+
+```powershell
+gh workflow run sql-cu-monthly-monitor.yml --ref <geprüfter-branch> -f metadata_only=true
+```
+
+Vor Dispatch den geprüften Head festhalten. Run-ID, Event `workflow_dispatch`
+und exakten `headSha` nachlesen; nur der Metadatenjob darf ausgeführt werden.
+Nach Runende ausschließlich `sql-cu-watch` lokal herunterladen: vollständiger
+bereinigter Bericht und Nichtveröffentlichungs-Receipt mit
+`ApiBoundary=NOT_EXECUTED`, `Status=NOT_EXECUTED`, `Verified=false` und
+`RESOURCE_WATCH_ISSUE_NOT_REQUESTED`. Der Workflow prüft diese Bindung vor
+Reportwrite. `UNCLEAR` und harte Checkfehler bleiben rot; `NEW` ist ein
+erfolgreicher Quellenbefund, keine Katalog-, Download- oder Supportänderung.
+
+Diese Abnahme ist vorerst `NOT_EXECUTED`. Ein erfolgreicher Metadatendispatch
+belegt weder Issueveröffentlichung, Deduplikation oder Zustellung noch den
+Monatscron. Der Quellenbefund gilt nur für den dokumentierten Zeitpunkt.
 
 ## Veröffentlichung und Fehler
 
@@ -81,7 +107,7 @@ ist kein serverseitiges Compare-and-swap. Ein gelesener Issue-Receipt bestätigt
 die Veröffentlichung am gebundenen Issue, keine Zustellung an einzelne Personen
 und keinen Agentstart.
 
-## Eigene echte Abnahme: noch auszuführen
+## Eigene echte Issue-Abnahme: noch auszuführen
 
 Die manuelle Eingabe `acceptance_scope=own-<32 kleine Hexzeichen>` isoliert die
 Issuefixture vom normalen Scope `catalog`. Ein Schedule darf diesen Parameter

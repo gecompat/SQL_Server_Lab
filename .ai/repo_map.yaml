@@ -71,6 +71,7 @@ sources_of_truth:
   sql_cu_watch_policy: ops/sql-cu-policy.md
   sql_cu_watch_report: Tools/Common/VersionCatalogCuWatchReport.ps1
   resource_watch_automation: Tools/Invoke-VersionCatalogResourceWatch.ps1
+  resource_watch_monthly_workflow: .github/workflows/sql-cu-monthly-monitor.yml
   resource_watch_automation_projection: Tools/Common/VersionCatalogResourceWatchAutomation.ps1
   resource_watch_fixture_cleanup: Tools/Close-VersionCatalogResourceWatchFixture.ps1
   local_evidence_archive_tool: Tools/Manage-LocalEvidenceArchive.ps1
