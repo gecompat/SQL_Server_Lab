@@ -60,6 +60,10 @@ function Get-LabCuStatusContent {
     if ([string]::IsNullOrWhiteSpace($content)) {
         throw "SQL_CU_STATUS_SOURCE_EMPTY: $($Source.id)"
     }
+    # The active Support article is read directly; legacy Git metadata is not authority here.
+    if ($sourceUrl -ceq 'https://support.microsoft.com/en-us/servicing/sql/kb321185-download-and-install-latest-updates') {
+        return [PSCustomObject]@{ Content=$content; EffectiveUrl=$sourceUrl }
+    }
 
     $parseTimeout = if ($ParserBudget) { & $ParserBudget } else { [Text.RegularExpressions.Regex]::InfiniteMatchTimeout }
     $gitSourceMatch = [regex]::Match(
@@ -86,6 +90,47 @@ function Get-LabCuStatusContent {
     return [PSCustomObject]@{ Content=$rawContent; EffectiveUrl=$rawSourceUrl }
 }
 
+function ConvertFrom-LabCuStatusSupportHtml {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Content,[scriptblock]$ParserBudget)
+    # Normalize only the manufacturer's five-column CU tables, not arbitrary HTML.
+    if ($Content.Length -gt 524288) { throw 'SQL_CU_STATUS_SOURCE_FORMAT_INVALID' }
+    $timeout=if($ParserBudget){& $ParserBudget}else{[TimeSpan]::FromSeconds(1)}
+    $sections=[regex]::Matches($Content,'(?is)<h3\b[^>]*>\s*SQL Server\s+(?<version>\d{4}(?:\s+R2)?)\s*</h3>(?<body>.*?)(?=<h[1-3]\b|\z)',[Text.RegularExpressions.RegexOptions]::None,$timeout)
+    if(-not $sections.Count){throw 'SQL_CU_STATUS_SOURCE_FORMAT_INVALID'}
+    $seen=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    $lines=[Collections.Generic.List[string]]::new()
+    foreach($section in $sections){
+        $version=$section.Groups['version'].Value
+        if(-not $seen.Add($version)){throw 'SQL_CU_STATUS_SOURCE_FORMAT_INVALID'}
+        # The SQL 2000 summary has no CU rows and remains outside the existing contract.
+        if($version -ceq '2000'){continue}
+        if($ParserBudget){$timeout=& $ParserBudget}
+        $tables=[regex]::Matches($section.Groups['body'].Value,'(?is)<table\b[^>]*>.*?</table>',[Text.RegularExpressions.RegexOptions]::None,$timeout)
+        if($tables.Count -ne 1){throw 'SQL_CU_STATUS_SOURCE_FORMAT_INVALID'}
+        $table=$tables[0].Value
+        $headers=[regex]::Matches($table,'(?is)<th\b[^>]*>(?<cell>.*?)</th>',[Text.RegularExpressions.RegexOptions]::None,$timeout)
+        $names=@(foreach($header in $headers){[Net.WebUtility]::HtmlDecode([regex]::Replace($header.Groups['cell'].Value,'<[^>]*>','',[Text.RegularExpressions.RegexOptions]::None,$timeout)).Trim()})
+        if(($names -join '|') -cne 'Build number or version|Service pack|Update|Knowledge Base number|Release date'){throw 'SQL_CU_STATUS_SOURCE_FORMAT_INVALID'}
+        $lines.Add('### SQL Server '+$version)
+        $rows=[regex]::Matches($table,'(?is)<tr\b[^>]*>(?<body>.*?)</tr>',[Text.RegularExpressions.RegexOptions]::None,$timeout)
+        foreach($row in $rows){
+            if($ParserBudget){$timeout=& $ParserBudget}
+            $cells=[regex]::Matches($row.Groups['body'].Value,'(?is)<td\b[^>]*>(?<cell>.*?)</td>',[Text.RegularExpressions.RegexOptions]::None,$timeout)
+            if(-not $cells.Count -and $row.Groups['body'].Value -match '(?i)<th\b'){continue}
+            if($cells.Count -ne 5){throw 'SQL_CU_STATUS_SOURCE_FORMAT_INVALID'}
+            $values=@(foreach($cell in $cells){[Net.WebUtility]::HtmlDecode([regex]::Replace($cell.Groups['cell'].Value,'<[^>]*>','',[Text.RegularExpressions.RegexOptions]::None,$timeout)).Trim()})
+            if($values[2] -notmatch '^CU\d+$'){continue}
+            # SQL 2005 lists three-part builds that the existing CU row contract ignores.
+            if($version -ceq '2005' -and $values[0] -match '^\d+\.\d+\.\d+$'){continue}
+            if($values[0] -notmatch '^\d+\.\d+\.\d+\.\d+$' -or $values[3] -notmatch '^KB\d+$' -or
+                @($values|Where-Object{$_ -match '[|\r\n]'}).Count -or $values[4] -notmatch '^[A-Za-z]+ \d{1,2}, \d{4}$'){throw 'SQL_CU_STATUS_SOURCE_FORMAT_INVALID'}
+            $lines.Add('| '+($values -join ' | ')+' |')
+        }
+    }
+    $lines -join "`n"
+}
+
 function Get-LabCuStatusRows {
     [CmdletBinding()]
     param(
@@ -97,6 +142,10 @@ function Get-LabCuStatusRows {
     $rows = [System.Collections.Generic.List[object]]::new()
     foreach ($source in @($Sources)) {
         $sourceContent = Get-LabCuStatusContent -Source $source -WebRequestAction $WebRequestAction -ParserBudget $ParserBudget
+        if ([string]$Source.url -ceq 'https://support.microsoft.com/en-us/servicing/sql/kb321185-download-and-install-latest-updates' -and
+            $sourceContent.Content -match '(?i)<h3\b') {
+            $sourceContent.Content = ConvertFrom-LabCuStatusSupportHtml -Content $sourceContent.Content -ParserBudget $ParserBudget
+        }
         $sectionPattern = '(?ms)^###\s*SQL Server\s+(?<version>\d{4}(?:\s*R2)?)\s*\n(?<body>.*?)(?=^###\s*SQL Server\s+\d{4}(?:\s*R2)?|\z)'
         $parseTimeout = if ($ParserBudget) { & $ParserBudget } else { [Text.RegularExpressions.Regex]::InfiniteMatchTimeout }
         $sectionMatches = [regex]::Matches($sourceContent.Content, $sectionPattern, ([System.Text.RegularExpressions.RegexOptions]::Multiline -bor [System.Text.RegularExpressions.RegexOptions]::IgnoreCase), $parseTimeout)

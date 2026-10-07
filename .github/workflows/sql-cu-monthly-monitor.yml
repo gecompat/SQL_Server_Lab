@@ -5,6 +5,11 @@ on:
     - cron: '0 6 1 * *'
   workflow_dispatch:
     inputs:
+      metadata_only:
+        description: 'Manual source check only: no issue API, publication or fixture; leave both acceptance inputs empty'
+        required: false
+        default: false
+        type: boolean
       acceptance_scope:
         description: 'Optional own-<32 lowercase hex>: isolated, explicitly authorised issue fixture; empty uses regular watch'
         required: false
@@ -27,7 +32,7 @@ concurrency:
 jobs:
   cu-monthly-watch:
     name: Check SQL Server CU and catalogued SqlPackage
-    if: github.repository == 'gecompat/SQL_Server_Lab'
+    if: github.repository == 'gecompat/SQL_Server_Lab' && inputs.metadata_only != true
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -88,3 +93,65 @@ jobs:
         shell: pwsh
         run: |
           throw 'RESOURCE_WATCH_NOTIFICATION_UNSUCCESSFUL: Issue nicht bestaetigt; Receipt pruefen und gebunden wiederaufnehmen.'
+
+  metadata-only-watch:
+    name: Check resource metadata without issue publication
+    if: github.repository == 'gecompat/SQL_Server_Lab' && github.event_name == 'workflow_dispatch' && inputs.metadata_only == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: none
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Run resource metadata check without issue API
+        id: metadatacheck
+        shell: pwsh
+        env:
+          GH_TOKEN: ''
+          RESOURCE_WATCH_METADATA_ONLY: ${{ inputs.metadata_only }}
+          RESOURCE_WATCH_FIXTURE_SCOPE: ${{ inputs.acceptance_scope }}
+          RESOURCE_WATCH_FIXTURE_RESOURCE: ${{ inputs.acceptance_resource }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($env:GITHUB_EVENT_NAME -cne 'workflow_dispatch' -or $env:RESOURCE_WATCH_METADATA_ONLY -cne 'true' -or
+              -not [string]::IsNullOrEmpty($env:RESOURCE_WATCH_FIXTURE_SCOPE) -or
+              -not [string]::IsNullOrEmpty($env:RESOURCE_WATCH_FIXTURE_RESOURCE)) {
+            throw 'RESOURCE_WATCH_METADATA_ONLY_INPUT_INVALID'
+          }
+          $arguments = @{}
+          $result = & ./Tools/Invoke-VersionCatalogResourceWatch.ps1 @arguments
+          $evaluation = $result.Evaluation
+          $receipt = $result.IssueReceipt
+          if ($receipt.ApiBoundary -cne 'NOT_EXECUTED' -or $receipt.NotificationFailed -isnot [bool] -or
+              $receipt.NotificationFailed -or @($receipt.Receipts).Count -ne 1 -or
+              $receipt.Receipts[0].Status -cne 'NOT_EXECUTED' -or $receipt.Receipts[0].Verified -isnot [bool] -or
+              $receipt.Receipts[0].Verified -or $receipt.Receipts[0].ReasonCode -cne 'RESOURCE_WATCH_ISSUE_NOT_REQUESTED') {
+            throw 'RESOURCE_WATCH_METADATA_ONLY_RECEIPT_INVALID'
+          }
+          $outputSummaryPath = Join-Path $env:RUNNER_TEMP 'sql-cu-watch-summary.md'
+          $outputReceiptPath = Join-Path $env:RUNNER_TEMP 'sql-cu-watch-receipt.json'
+          $evaluation.Report | Out-File -LiteralPath $outputSummaryPath -Encoding utf8
+          $receipt | ConvertTo-Json -Depth 8 | Out-File -LiteralPath $outputReceiptPath -Encoding utf8
+          "check_failed=$($evaluation.CheckFailed.ToString().ToLowerInvariant())" | Out-File -LiteralPath $env:GITHUB_OUTPUT -Append
+          Get-Content -LiteralPath $outputSummaryPath | Out-File -LiteralPath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+
+      - name: Upload sanitised metadata report and nonpublication receipt
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: sql-cu-watch
+          path: |
+            ${{ runner.temp }}/sql-cu-watch-summary.md
+            ${{ runner.temp }}/sql-cu-watch-receipt.json
+          if-no-files-found: ignore
+          retention-days: 60
+
+      - name: Preserve failed metadata check outcome
+        if: always() && steps.metadatacheck.outputs.check_failed == 'true'
+        shell: pwsh
+        run: |
+          throw 'RESOURCE_WATCH_CHECK_UNSUCCESSFUL: Keine Aktualitaetsbestaetigung; bereinigten Metadatenbericht pruefen.'

@@ -15,9 +15,40 @@ bleibt der Runner ein Metadatencheck. Die interaktive CLI-/GUI-Sitzung und ihr
 kompatibel; sein unveränderter Einzelaufruf hat weiterhin seine eigene
 Transportgrenze.
 
-Der Ausbau besitzt ausführbare Offlineprüfungen. Eine echte Dispatch-/Issue-
-Abnahme und ein tatsächlich ausgelöster Monatscron sind separate Nachweise;
-sie sind für diesen Ausbau noch nicht ausgeführt.
+Der Ausbau besitzt ausführbare Offlineprüfungen und einen getrennten manuellen
+Metadatenmodus. Dessen echte Dispatch-Abnahme, die Issue-Abnahme und ein
+tatsächlich ausgelöster Monatscron sind separate Nachweise.
+
+## Manueller Metadatenmodus ohne Issueveröffentlichung
+
+`workflow_dispatch` mit `metadata_only=true` führt denselben vollständigen
+CU-/SqlPackage-Check ohne `-PublishIssues` aus. Beide `acceptance_`-Eingaben
+müssen leer bleiben; ihre Kombination mit diesem Modus wird vor dem Quellencheck
+abgelehnt. Der getrennte Job besitzt `contents: read`, `issues: none` und keinen
+Publishtoken. Er verwendet weder Issue-API noch Dedupe-, Continuation- oder
+Cleanupaktionen. Cron, Concurrency und der Standardmodus bleiben erhalten.
+
+```powershell
+gh workflow run sql-cu-monthly-monitor.yml --ref <geprüfter-branch> -f metadata_only=true
+```
+
+Vor Dispatch den geprüften Head festhalten. Run-ID, Event `workflow_dispatch`
+und exakten `headSha` nachlesen; nur der Metadatenjob darf ausgeführt werden.
+Nach Runende ausschließlich `sql-cu-watch` lokal herunterladen: vollständiger
+bereinigter Bericht und Nichtveröffentlichungs-Receipt mit
+`ApiBoundary=NOT_EXECUTED`, `Status=NOT_EXECUTED`, `Verified=false` und
+`RESOURCE_WATCH_ISSUE_NOT_REQUESTED`. Der Workflow prüft diese Bindung vor
+Reportwrite. `UNCLEAR` und harte Checkfehler bleiben rot; `NEW` ist ein
+erfolgreicher Quellenbefund, keine Katalog-, Download- oder Supportänderung.
+
+Der erste Dispatch am 2026-10-07 auf `12d2df70` (Run `37573277399`) endete
+wegen des abgelehnten CU-Quellenredirects mit `FAIL`. Die erneute Abnahme auf
+`bdd2a214` bestand im [Run `37575512288`](https://github.com/gecompat/SQL_Server_Lab/actions/runs/37575512288):
+CU 2019/2022/2025 `NO_CHANGE`, SqlPackage `NEW` (`170.5.96.0`), geprüft am
+2026-10-07 um 05:17 UTC. Nur der Metadatenjob lief; der nachgelesene Receipt
+bestätigt die Nichtveröffentlichung. Ein erfolgreicher Metadatendispatch
+belegt weder Issueveröffentlichung, Deduplikation oder Zustellung noch den
+Monatscron. Der Quellenbefund gilt nur für den dokumentierten Zeitpunkt.
 
 ## Veröffentlichung und Fehler
 
@@ -27,12 +58,26 @@ Versionsordnung und einen festen Fehlercodekatalog. Sie erzeugt Name und
 betroffene Fähigkeit selbst. Übergebene Namen, Reports, FindingKeys, Historien,
 Exceptions, Katalogpfade und sonstige Rohfelder werden nicht übernommen.
 
-Erlaubt sind ausschließlich die beiden vorhandenen Microsoft-Learn-Quellen:
+Erlaubt sind ausschließlich die beiden festen Microsoft-Quellen:
 
-- CU: `https://learn.microsoft.com/en-us/troubleshoot/sql/releases/download-and-install-latest-updates`;
+- CU: `https://support.microsoft.com/en-us/servicing/sql/kb321185-download-and-install-latest-updates`;
 - SqlPackage: `https://learn.microsoft.com/en-us/sql/tools/sqlpackage/sqlpackage-download?view=sql-server-ver17`.
 
-Der Core begrenzt Quellenrequests einschließlich des festen CU-Markdown-Hops
+Die aktive CU-Quelle ist seit der Quellenkorrektur vom 2026-10-07 der direkt
+antwortende lokalisierte Supportartikel KB321185. Die frühere Learnadresse
+antwortete mit einem Redirect; der erste eigene Metadatendispatch blieb deshalb
+korrekt rot. Der neue Pfad wird ausdrücklich katalogisiert und ohne Redirect
+gelesen. Er verwendet je SQL-Version genau eine HTML-Tabelle mit den fünf
+bekannten Spalten. Formatdrift, mehrdeutige Tabellen und Parserdeadline ergeben
+keine Aktualitätsbestätigung. Nur reine CU-Zeilen gehen in den bestehenden
+Build-/KB-/Rücknahmevertrag ein; GDR-Kombinationen und historische Formate außerhalb
+dieses Vertrags werden nicht umgedeutet. Git-Metadaten dieses Supportartikels
+lösen keinen zusätzlichen Hop aus. Alte reine Markdownverträge bleiben erhalten.
+Die SourceId und Ressourcenidentitäten bleiben gleich; die neue Bezugsadresse
+ändert den quellgebundenen FindingKey. Eine echte Issueaktualisierung ist damit
+nicht abgenommen.
+
+Der Core begrenzt Quellenrequests einschließlich des festen Legacy-CU-Markdown-Hops
 auf insgesamt 45 Sekunden und 512 KiB pro Antwort. Die Issue-API erlaubt nur
 `https://api.github.com/repos/gecompat/SQL_Server_Lab/issues` und ihre exakt
 numerischen Unterpfade. Redirects, Cookies, Proxy und Default-Credentials sind
@@ -81,7 +126,7 @@ ist kein serverseitiges Compare-and-swap. Ein gelesener Issue-Receipt bestätigt
 die Veröffentlichung am gebundenen Issue, keine Zustellung an einzelne Personen
 und keinen Agentstart.
 
-## Eigene echte Abnahme: noch auszuführen
+## Eigene echte Issue-Abnahme: noch auszuführen
 
 Die manuelle Eingabe `acceptance_scope=own-<32 kleine Hexzeichen>` isoliert die
 Issuefixture vom normalen Scope `catalog`. Ein Schedule darf diesen Parameter

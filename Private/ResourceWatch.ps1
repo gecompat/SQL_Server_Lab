@@ -11,7 +11,7 @@ function Get-LabResourceWatchConfiguration {
     $url = 'https://learn.microsoft.com/en-us/sql/tools/sqlpackage/sqlpackage-download?view=sql-server-ver17'
     if ($variants.Count -ne 1 -or [string]$variants[0].runtimeVersion -notmatch '^\d+\.\d+\.\d+\.\d+$' -or $url -cnotin @($variants[0].sourceUrls)) { throw 'RESOURCE_WATCH_CATALOG_INVALID' }
     $sources = @(Get-LabCuStatusSourceConfiguration)
-    if ($sources.Count -ne 1 -or $sources[0].url -cne 'https://learn.microsoft.com/en-us/troubleshoot/sql/releases/download-and-install-latest-updates') { throw 'RESOURCE_WATCH_SOURCE_INVALID' }
+    if ($sources.Count -ne 1 -or $sources[0].url -cne 'https://support.microsoft.com/en-us/servicing/sql/kb321185-download-and-install-latest-updates') { throw 'RESOURCE_WATCH_SOURCE_INVALID' }
     $key = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes(('ResourceWatch/1|' + $url + '|sql2022-sqlpackage170-linux-derived|' + ($texts -join '|')))))
     $catalog=$texts[1] | ConvertFrom-Json -Depth 30 -ErrorAction Stop
     $versions=@(foreach($entry in @($catalog.versions | Where-Object status -eq 'SUPPORTED')) {
@@ -29,6 +29,7 @@ function Assert-LabResourceWatchUri {
     # Exact sources only, including the existing CU parser's HTML-to-Markdown hop.
     if ($Uri -cnotin @(
         'https://learn.microsoft.com/en-us/sql/tools/sqlpackage/sqlpackage-download?view=sql-server-ver17',
+        'https://support.microsoft.com/en-us/servicing/sql/kb321185-download-and-install-latest-updates',
         'https://learn.microsoft.com/en-us/troubleshoot/sql/releases/download-and-install-latest-updates',
         'https://raw.githubusercontent.com/MicrosoftDocs/SupportArticles-docs/main/support/sql/releases/download-and-install-latest-updates.md'
     )) { throw 'RESOURCE_WATCH_SOURCE_INVALID' }

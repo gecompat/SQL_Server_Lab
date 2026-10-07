@@ -4,11 +4,9 @@
   "sources": [
     {
       "id": "microsoft-latest-update-history",
-      "url": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/download-and-install-latest-updates",
+      "url": "https://support.microsoft.com/en-us/servicing/sql/kb321185-download-and-install-latest-updates",
       "allowedHosts": [
-        "learn.microsoft.com",
-        "github.com",
-        "raw.githubusercontent.com"
+        "support.microsoft.com"
       ],
       "excludedUpdates": [
         {
@@ -18,7 +16,7 @@
           "reason": "Von Microsoft wegen eines Fehlers bei Datenbanksnapshots zurückgezogen; Microsoft empfiehlt CU8 oder neuer."
         }
       ],
-      "description": "Microsoft Learn: aktuelle SQL-Server-Updates und vollständige Buildtabellen"
+      "description": "Microsoft Support: aktuelle SQL-Server-Updates und vollständige Buildtabellen (KB321185)"
     }
   ]
 }

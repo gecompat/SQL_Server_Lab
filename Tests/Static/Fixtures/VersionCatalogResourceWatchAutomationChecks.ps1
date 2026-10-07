@@ -3,7 +3,7 @@
 $automationFixture=[pscustomobject]@{
     Contract='SqlServerLab.ResourceWatch/1.0';Status='NEW';CheckedAtUtc='2026-01-01T00:00:00Z'
     Items=@(
-        [pscustomobject]@{Id='sql-cu-2022';Status='NO_CHANGE';CatalogVersion='16.0.1000.1';ObservedVersion='16.0.1000.1';SourceUrl='https://learn.microsoft.com/en-us/troubleshoot/sql/releases/download-and-install-latest-updates';ReasonCode='RESOURCE_WATCH_COMPLETED';Name='SYNTHETIC_PRIVATE_NAME'}
+        [pscustomobject]@{Id='sql-cu-2022';Status='NO_CHANGE';CatalogVersion='16.0.1000.1';ObservedVersion='16.0.1000.1';SourceUrl='https://support.microsoft.com/en-us/servicing/sql/kb321185-download-and-install-latest-updates';ReasonCode='RESOURCE_WATCH_COMPLETED';Name='SYNTHETIC_PRIVATE_NAME'}
         [pscustomobject]@{Id='sqlpackage';Status='NEW';CatalogVersion='170.4.83.3';ObservedVersion='170.5.96.0';SourceUrl='https://learn.microsoft.com/en-us/sql/tools/sqlpackage/sqlpackage-download?view=sql-server-ver17';ReasonCode='RESOURCE_WATCH_COMPLETED';LastSuccessfulVersion='SYNTHETIC_PRIVATE_HISTORY'}
     );Notice='SYNTHETIC_PRIVATE_NOTICE';CatalogPath='SYNTHETIC_PRIVATE_PATH'
 }
@@ -487,6 +487,108 @@ try{
         $path=Join-Path $workflowRoot $leaf;if(Test-Path -LiteralPath $path){Remove-Item -LiteralPath $path -ErrorAction Stop}
     }
     if(Test-Path -LiteralPath $workflowRoot){Remove-Item -LiteralPath $workflowRoot -ErrorAction Stop}
+}
+
+$metadataJob=($workflow -split '(?m)^  metadata-only-watch:\r?\n',2)[1]
+Add-CheckResult -Name 'Manueller Metadatenjob ist getrennt, ohne Issuerechte und ohne Publishtoken; Standardlane bleibt aktiv' -Success (
+    $workflow -match '(?s)metadata_only:.*?default: false.*?type: boolean' -and
+    $workflow.Contains("github.repository == 'gecompat/SQL_Server_Lab' && inputs.metadata_only != true") -and
+    $metadataJob.Contains("github.event_name == 'workflow_dispatch' && inputs.metadata_only == true") -and
+    $metadataJob -match '(?m)^      issues: none\r?$' -and $metadataJob -match "(?m)^          GH_TOKEN: ''\r?$" -and
+    $metadataJob -notmatch 'secrets\.|PublishIssues|ContinuationReceipt|notification_failed' -and
+    $metadataJob.Contains("steps.metadatacheck.outputs.check_failed == 'true'")
+)
+$metadataLf=$metadataJob.Replace("`r`n","`n")
+$metadataCrlf=$metadataLf.Replace("`n","`r`n")
+Add-CheckResult -Name 'Metadatenjob-Surfaceprüfung bewahrt LF-/CRLF-Checkoutparität' -Success (
+    $metadataLf -match '(?m)^      issues: none\r?$' -and $metadataCrlf -match '(?m)^      issues: none\r?$' -and
+    $metadataLf -match "(?m)^          GH_TOKEN: ''\r?$" -and $metadataCrlf -match "(?m)^          GH_TOKEN: ''\r?$"
+)
+$metadataMatch=[regex]::Match($metadataJob,'(?ms)      - name: Run resource metadata check without issue API.*?        run: \|\r?\n(?<code>.*?)(?=\r?\n      - name:)')
+$metadataCode=$metadataMatch.Groups['code'].Value -replace '(?m)^          ',''
+$metadataCode=$metadataCode.Replace('& ./Tools/Invoke-VersionCatalogResourceWatch.ps1 @arguments','Invoke-WatchMetadataFixtureRunner @arguments')
+$metadataCounters=@{Runner=0;Issue=0}
+$metadataSourceFixture=Copy-AutomationFixture
+function Invoke-WatchMetadataFixtureRunner {
+    [CmdletBinding()]
+    param([switch]$PublishIssues)
+    $metadataCounters.Runner++
+    if($PublishIssues){throw 'SYNTHETIC_METADATA_PUBLISH_FORBIDDEN'}
+    $fakeModule=New-Module -ArgumentList $metadataSourceFixture -ScriptBlock {
+        param($Fixture)
+        $script:Fixture=$Fixture
+        function Get-LabResourceWatchConfiguration {[pscustomobject]@{CuVersions=@([pscustomobject]@{Version='2022'})}}
+        function Invoke-LabResourceWatchRefresh {$script:Fixture}
+    }
+    function Import-Module {param($Name,[switch]$Force,[switch]$PassThru,$ErrorAction);$fakeModule}
+    $runnerTools=Join-Path $repoRoot 'Tools'
+    $runnerCode=(Get-Content (Join-Path $runnerTools 'Invoke-VersionCatalogResourceWatch.ps1') -Raw).Replace('$PSScriptRoot','$runnerTools')
+    $loader=". (Join-Path `$runnerTools 'Common/VersionCatalogResourceWatchAutomation.ps1')"
+    $runnerCode=$runnerCode.Replace($loader,($loader+"`nfunction Invoke-LabResourceWatchGitHubApi { `$metadataCounters.Issue++; throw 'SYNTHETIC_METADATA_ISSUE_API_FORBIDDEN' }`nfunction Invoke-LabResourceWatchIssueProjection { `$metadataCounters.Issue++; throw 'SYNTHETIC_METADATA_ISSUE_PROJECTION_FORBIDDEN' }"))
+    & ([scriptblock]::Create($runnerCode))
+}
+$metadataRoot=Join-Path (Join-Path $repoRoot '.artifacts/test-runs') ('resourceWatchMetadata-'+[guid]::NewGuid().ToString('N'))
+$previousEnvironment=@{}
+foreach($name in @('RUNNER_TEMP','GITHUB_OUTPUT','GITHUB_STEP_SUMMARY','GITHUB_EVENT_NAME','RESOURCE_WATCH_METADATA_ONLY','RESOURCE_WATCH_FIXTURE_SCOPE','RESOURCE_WATCH_FIXTURE_RESOURCE')){$previousEnvironment[$name]=[Environment]::GetEnvironmentVariable($name)}
+try{
+    New-Item -ItemType Directory -Path $metadataRoot -ErrorAction Stop | Out-Null
+    $env:RUNNER_TEMP=$metadataRoot;$env:GITHUB_OUTPUT=Join-Path $metadataRoot 'output.txt';$env:GITHUB_STEP_SUMMARY=Join-Path $metadataRoot 'summary.md'
+    $env:GITHUB_EVENT_NAME='workflow_dispatch';$env:RESOURCE_WATCH_METADATA_ONLY='true';$env:RESOURCE_WATCH_FIXTURE_SCOPE='';$env:RESOURCE_WATCH_FIXTURE_RESOURCE=''
+    foreach($status in @('NEW','NO_CHANGE','UNCLEAR')){
+        $metadataSourceFixture=Copy-AutomationFixture;$metadataSourceFixture.Status=$status;$metadataSourceFixture.Items[1].Status=$status
+        if($status -ceq 'NO_CHANGE'){$metadataSourceFixture.Items[1].ObservedVersion=$metadataSourceFixture.Items[1].CatalogVersion}
+        if($status -ceq 'UNCLEAR'){$metadataSourceFixture.Items[1].ObservedVersion=$null;$metadataSourceFixture.Items[1].ReasonCode='RESOURCE_WATCH_SOURCE_UNAVAILABLE'}
+        . ([scriptblock]::Create($metadataCode))
+        $savedReceipt=Get-Content (Join-Path $metadataRoot 'sql-cu-watch-receipt.json') -Raw | ConvertFrom-Json -Depth 12
+        Add-CheckResult -Name ('Echter Metadatenworkflow plus Runner erhält vollständigen Quellenbefund ohne Issue-API: '+$status) -Success (
+            $metadataMatch.Success -and $evaluation.Status -ceq $status -and $evaluation.Findings.Count -eq 2 -and
+            $savedReceipt.ApiBoundary -ceq 'NOT_EXECUTED' -and $savedReceipt.Receipts[0].Verified -ceq $false -and
+            $savedReceipt.CheckFailed -eq ($status -ceq 'UNCLEAR') -and $metadataCounters.Issue -eq 0 -and
+            (Get-Content $env:GITHUB_OUTPUT -Raw).Trim().EndsWith(('check_failed='+($status -ceq 'UNCLEAR').ToString().ToLowerInvariant())) -and
+            (Get-Content $env:GITHUB_STEP_SUMMARY -Raw) -notmatch 'SYNTHETIC_PRIVATE'
+        )
+    }
+    foreach($case in @('schedule','false','upper','scope','resource','whitespace')){
+        $env:GITHUB_EVENT_NAME='workflow_dispatch';$env:RESOURCE_WATCH_METADATA_ONLY='true';$env:RESOURCE_WATCH_FIXTURE_SCOPE='';$env:RESOURCE_WATCH_FIXTURE_RESOURCE=''
+        switch($case){
+            'schedule' {$env:GITHUB_EVENT_NAME='schedule'}
+            'false' {$env:RESOURCE_WATCH_METADATA_ONLY='false'}
+            'upper' {$env:RESOURCE_WATCH_METADATA_ONLY='TRUE'}
+            'scope' {$env:RESOURCE_WATCH_FIXTURE_SCOPE=$ownScope}
+            'resource' {$env:RESOURCE_WATCH_FIXTURE_RESOURCE='sqlpackage'}
+            'whitespace' {$env:RESOURCE_WATCH_FIXTURE_SCOPE=' '}
+        }
+        $before=$metadataCounters.Runner;$caught=''
+        try{. ([scriptblock]::Create($metadataCode))}catch{$caught=$_.Exception.Message}
+        Add-CheckResult -Name ('Metadatenmodus vetoisiert vor jedem Quellenaufruf unpassende Dispatchinputs: '+$case) -Success (
+            $caught -ceq 'RESOURCE_WATCH_METADATA_ONLY_INPUT_INVALID' -and $metadataCounters.Runner -eq $before -and $metadataCounters.Issue -eq 0)
+    }
+    $env:GITHUB_EVENT_NAME='workflow_dispatch';$env:RESOURCE_WATCH_METADATA_ONLY='true';$env:RESOURCE_WATCH_FIXTURE_SCOPE='';$env:RESOURCE_WATCH_FIXTURE_RESOURCE=''
+    $receiptVetoCode=$metadataCode.Replace('Invoke-WatchMetadataFixtureRunner @arguments','$metadataTestResult')
+    $beforeSummary=(Get-FileHash (Join-Path $metadataRoot 'sql-cu-watch-summary.md')).Hash
+    foreach($case in @('api','failed','failed-string','verified','verified-string','status','reason','extra')){
+        $metadataTestResult=$runnerResult | ConvertTo-Json -Depth 12 | ConvertFrom-Json -Depth 12
+        switch($case){
+            'api' {$metadataTestResult.IssueReceipt.ApiBoundary='GITHUB_API'}
+            'failed' {$metadataTestResult.IssueReceipt.NotificationFailed=$true}
+            'failed-string' {$metadataTestResult.IssueReceipt.NotificationFailed='false'}
+            'verified' {$metadataTestResult.IssueReceipt.Receipts[0].Verified=$true}
+            'verified-string' {$metadataTestResult.IssueReceipt.Receipts[0].Verified='false'}
+            'status' {$metadataTestResult.IssueReceipt.Receipts[0].Status='PUBLISHED'}
+            'reason' {$metadataTestResult.IssueReceipt.Receipts[0].ReasonCode='OTHER'}
+            'extra' {$metadataTestResult.IssueReceipt.Receipts+=@($metadataTestResult.IssueReceipt.Receipts[0])}
+        }
+        $caught='';try{. ([scriptblock]::Create($receiptVetoCode))}catch{$caught=$_.Exception.Message}
+        Add-CheckResult -Name ('Metadatenworkflow lehnt ungültiges Nichtveröffentlichungs-Receipt vor Reportwrite ab: '+$case) -Success (
+            $caught -ceq 'RESOURCE_WATCH_METADATA_ONLY_RECEIPT_INVALID' -and
+            (Get-FileHash (Join-Path $metadataRoot 'sql-cu-watch-summary.md')).Hash -ceq $beforeSummary)
+    }
+}finally{
+    foreach($name in $previousEnvironment.Keys){[Environment]::SetEnvironmentVariable($name,$previousEnvironment[$name])}
+    foreach($leaf in @('output.txt','summary.md','sql-cu-watch-summary.md','sql-cu-watch-receipt.json')){
+        $path=Join-Path $metadataRoot $leaf;if(Test-Path -LiteralPath $path){Remove-Item -LiteralPath $path -ErrorAction Stop}
+    }
+    if(Test-Path -LiteralPath $metadataRoot){Remove-Item -LiteralPath $metadataRoot -ErrorAction Stop}
 }
 
 foreach($path in @('https://unapproved.invalid','repos/other/fixture/issues','repos/gecompat/SQL_Server_Lab/issues/1?token=value','repos/gecompat/SQL_Server_Lab/issues/../labels')){

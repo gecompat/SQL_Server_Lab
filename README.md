@@ -1119,6 +1119,10 @@ katalogisierte SqlPackage-Variante. Die Bedienung und Statusgrenzen stehen in
 [Workflow UI](Documentation/HowTo/WORKFLOW_UI.md#ressourcenstand-cus-und-sqlpackage).
 Menüwechsel greifen nicht auf die Quellen zu. Sitzungscache und Quellenfehler
 sind sichtbar; neue Metadaten ändern keine Download- oder Supportfreigabe.
+Die bestehende Monatslane bietet zusätzlich einen manuellen Metadatendispatch
+ohne Issueveröffentlichung. Dieser eigene Job besitzt keine Issuerechte und
+verwendet den vollständigen vorhandenen Quellencheck; Standardlauf und Cron
+bleiben erhalten. [Vertrag und Abnahmegrenzen](Documentation/Architecture/RESOURCE_WATCH_AUTOMATION.md).
 
 Der Bereich „Host-Dienste und Modelle“ bietet den geführten Stop einer eigenen
 llama.cpp-Sitzung mit Vorschau und bewusster Bestätigung. Verbraucher-Coverage

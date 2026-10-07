@@ -24,7 +24,7 @@ function ConvertTo-LabResourceWatchAutomationReport {
     $findings=@(foreach ($item in $items | Sort-Object Id) {
         $id=[string]$item.Id; $catalog=[string]$item.CatalogVersion; $observed=[string]$item.ObservedVersion
         $status=[string]$item.Status; $reason=[string]$item.ReasonCode
-        $source=if ($id -ceq 'sqlpackage') {'https://learn.microsoft.com/en-us/sql/tools/sqlpackage/sqlpackage-download?view=sql-server-ver17'} else {'https://learn.microsoft.com/en-us/troubleshoot/sql/releases/download-and-install-latest-updates'}
+        $source=if ($id -ceq 'sqlpackage') {'https://learn.microsoft.com/en-us/sql/tools/sqlpackage/sqlpackage-download?view=sql-server-ver17'} else {'https://support.microsoft.com/en-us/servicing/sql/kb321185-download-and-install-latest-updates'}
         if ($item.SourceUrl -cne $source -or $catalog -cnotmatch '^\d+\.\d+\.\d+\.\d+$' -or $status -cnotin @('NEW','NO_CHANGE','UNCLEAR')) { throw 'RESOURCE_WATCH_REPORT_ITEM_INVALID' }
         if ($reason -cnotin @('RESOURCE_WATCH_COMPLETED','RESOURCE_WATCH_TIMEOUT','RESOURCE_WATCH_RATE_LIMITED','RESOURCE_WATCH_REDIRECT_REJECTED','RESOURCE_WATCH_HTTP_ERROR','RESOURCE_WATCH_ENCODING_UNSUPPORTED','RESOURCE_WATCH_RESPONSE_TOO_LARGE','RESOURCE_WATCH_PARSE_ERROR','RESOURCE_WATCH_SOURCE_UNAVAILABLE','RESOURCE_WATCH_SOURCE_INVALID','RESOURCE_WATCH_SOURCE_BEHIND')) { throw 'RESOURCE_WATCH_REPORT_REASON_INVALID' }
         if ($status -eq 'UNCLEAR') {

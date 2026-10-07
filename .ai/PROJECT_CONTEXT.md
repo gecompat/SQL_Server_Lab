@@ -944,7 +944,17 @@ globale Fehler/Recovery und vorhandene Own-Identitäten mit und erlaubt höchste
 ein unterschiedliches Issue und einen Publishwrite pro Aufruf. UNKNOWN wird nur
 receiptgebunden wiederaufgenommen; ohne frischen Marker kein neuer POST. Der
 vollständige Bericht und reguläre `catalog`-/Cronvertrag bleiben unverändert.
-Die echte Dispatch-/Issue-/Cronabnahme dieses Ausbaus ist noch nicht ausgeführt;
+Ein zusätzlicher manueller `metadata_only`-Job verwendet denselben vollständigen
+Quellencheck ohne Issue-API, Issuerechte oder Publishtoken und verlangt leere
+Fixture-Eingaben. Seine erneute Dispatch-Abnahme auf `bdd2a214` bestand im
+[Run `37575512288`](https://github.com/gecompat/SQL_Server_Lab/actions/runs/37575512288);
+nach einer Herstellerumleitung ist die feste CU-Quelle gemeinsam mit ihrem
+gebundenen fünfspaltigen Support-HTML-Parser korrigiert. Der erste eigene
+Metadatendispatch blieb wegen des abgelehnten Redirects rot; die Quellenkorrektur
+lockert weder Redirect-/Zeit-/Bytegrenzen noch Binärpins. Der korrigierte lokale
+Livecheck und der korrigierte Dispatch bestanden mit drei CU-NO_CHANGE-Befunden
+und SqlPackage NEW. Der nachgelesene Nichtveröffentlichungs-Receipt ist bestätigt.
+Issueveröffentlichung, Dedupe, Zustellung und Cron bleiben getrennt offen;
 weitere Familien und Benachrichtigungskanäle bleiben offen. Vertrag:
 [Resource-Watch-Automation](../Documentation/Architecture/RESOURCE_WATCH_AUTOMATION.md).
 

@@ -2997,6 +2997,34 @@ Dauerüberwachung und keinen anderen Provider.
 
 ### Resource-Watch-Automationslane
 
+`Fixtures/CuStatusSupportHtmlChecks.ps1` prüft am tatsächlichen Core die feste
+Support-Quelle, fünf Spalten, genau eine Tabelle pro Version, Zellmarkup/Entities,
+Formatdrift, Parserbudget, ausgeschlossene Updates und den vollständigen
+Vier-Ressourcenbefund. Historische SQL-2000-Zusammenfassung und dreiteilige
+SQL-2005-Builds werden nicht in den bestehenden vierteiligen CU-Vertrag überführt.
+Redirectverbot und 45-Sekunden-/512-KiB-Grenzen des Watchtransports bleiben erhalten.
+Die reine lokale Reproduktion an der ignoriert erhaltenen Herstellerantwort
+und der korrigierte Livecheck ersetzen keine native Dispatch-/Issue-/Cronabnahme.
+
+Der getrennte manuelle `metadata_only`-Job wird als echte extrahierte
+Workflow-PowerShell zusammen mit dem vollständigen Runner und synthetischem
+Quellenmodul geprüft. Der unveränderte Reporter bleibt aktiv; Eintritt in
+Issueprojektion oder Issue-API ist verboten. `NEW`, `NO_CHANGE` und `UNCLEAR`,
+leere Fixture-Eingaben, Dispatch-/Modeveto und strikt typisierte
+Nichtveröffentlichungs-Receipts werden geprüft. Der Job besitzt keine
+Issuerechte oder Publishtoken; Standardjob und Monatscron bleiben erhalten.
+Die echte Dispatch-Abnahme bestand am 2026-10-07 auf `bdd2a214` im
+[Run `37575512288`](https://github.com/gecompat/SQL_Server_Lab/actions/runs/37575512288):
+vollständiger Quellencheck mit drei CU-`NO_CHANGE` und SqlPackage-`NEW`, regulärer
+Issuejob übersprungen, nachgelesener typisierter Nichtveröffentlichungs-Receipt.
+Der erste Dispatch `37573277399` auf `12d2df70` blieb mit abgelehntem CU-Redirect
+rot; dieser Fehler wird durch den korrigierten Nachweis nicht überschrieben.
+Lokale Quellenregression: 16 ausgewählte statische Suites, VersionCatalog 267
+und 21 Support-HTML-Prüfungen bestanden; der neue Quellenpfad benötigt keinen
+Providerstart. Der selektierte Docker-Core-Nachweis bleibt im PR-Gate erforderlich
+und ist lokal für diesen Slice `NOT_EXECUTED`. Der Dispatch ersetzt keine
+Issueveröffentlichung, Dedupe, Zustellung oder Cronabnahme.
+
 `Fixtures/VersionCatalogResourceWatchAutomationChecks.ps1` wird über die
 bestehende VersionCatalog-Suite ausgeführt. Reale pure Projektion, kompletter
 Issue-APIvertrag, Runner und extrahierte Workflow-PowerShell laufen mit

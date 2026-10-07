@@ -67,7 +67,7 @@ $watchResults = & $module {
     $state.Cu='<meta name="github_feedback_content_git_url" content="https://github.com/Other/repo/blob/main/download-and-install-latest-updates.md">'
     $before=$state.Calls
     $invalid=Invoke-LabResourceWatchRefresh -Now $now.AddMinutes(5) -WebRequestAction $request
-    Check 'CU metadata hop is exact-source bound before request' ($state.Calls -eq $before+2 -and @($invalid.Items|Where-Object {$_.Id -like 'sql-cu-*' -and $_.ReasonCode -eq 'RESOURCE_WATCH_SOURCE_INVALID'}).Count -eq 3)
+    Check 'Direct Support source does not follow untrusted legacy metadata; missing tables remain unclear' ($state.Calls -eq $before+2 -and @($invalid.Items|Where-Object {$_.Id -like 'sql-cu-*' -and $_.ReasonCode -eq 'RESOURCE_WATCH_PARSE_ERROR'}).Count -eq 3)
     $state.Cu=$fixture
     foreach($uri in @('http://learn.microsoft.com/en-us/sql/tools/sqlpackage/sqlpackage-download?view=sql-server-ver17','https://learn.microsoft.com/en-us/sql/tools/sqlpackage/sqlpackage-download?view=sql-server-ver16','https://raw.githubusercontent.com/MicrosoftDocs/other/main/file.md')){
         $rejected=$false;try{Assert-LabResourceWatchUri $uri}catch{$rejected=$true};Check 'Unapproved source URI rejected' $rejected

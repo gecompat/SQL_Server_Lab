@@ -4,6 +4,20 @@ Dieses Changelog dokumentiert Änderungen am öffentlichen Verhalten, an maschin
 
 Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher nach Datum geführt. Neue Einträge werden oben ergänzt.
 
+## 2026-10-07
+
+### Geändert
+
+- Die vorhandene Resource-Watch-Monatslane bietet einen zusätzlichen manuellen
+  `metadata_only`-Dispatch ohne Issue-API, Issuerechte oder Publishtoken. Der
+  vollständige CU-/SqlPackage-Check und seine Fehlerwahrheit bleiben erhalten;
+  Standardlauf, Cron und Concurrency bleiben unverändert.
+- Die aktive CU-Quelle bindet nach der Herstellerumleitung den direkten
+  lokalisierten Microsoft-Supportartikel KB321185. Ein gebundener Parser
+  übernimmt dessen fünfspaltige CU-Tabellen in den bisherigen Build-/KB-/
+  Rücknahmevertrag. Automatische Redirects, Katalog-/Downloadupdates und neue
+  Supportfreigaben entstehen dadurch nicht.
+
 ## 2026-09-22
 
 ### Ergaenzt

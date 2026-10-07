@@ -564,7 +564,7 @@ async function main() {
   await resourceEvent('resource-preview');
   check('Shared preview displays old/new before Apply', () => { assert.equal(node('resource-apply').disabled, false); assert.ok(node('resource-current').textContent.includes('2 → 2.5')); });
   await resourceEvent('resource-form','submit');
-  await new Promise((resolve) => setImmediate(resolve));
+  await waitForActualBoundary(() => resourceRequests.some((r) => r.url === '/api/actions'), 'Actual CPU/RAM submission must reach the POST boundary');
   check('Real resource handler/startAction sends bound CPU/RAM only and exposes results', () => {
     const request = JSON.parse(resourceRequests.find((r) => r.url === '/api/actions').options.body);
     assert.equal(request.action, 'SetLabResources'); assert.equal(request.parameters.InstanceId, 'secondary');
