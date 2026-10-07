@@ -47,7 +47,7 @@ async function requestLlamaStartPlan() {
   llamaStartPlanBusy = true; updateLlamaStartPlanControls(); llamaStartPlanElement('result').textContent = '';
   llamaStartPlanElement('status').textContent = 'Explizite Dateivorschau wird gelesen …';
   try {
-    const response = await fetch('/api/llama-start-plan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ Action: 'Preview', Parameters: inputs }) });
+    const response = await sqlServerLabUiFetch('/api/llama-start-plan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ Action: 'Preview', Parameters: inputs }) });
     if (revision !== llamaStartPlanRevision || !llamaStartPlanElement('dialog').open) return;
     if (!response.ok) throw new Error('RESULT_INVALID');
     const view = await response.json();

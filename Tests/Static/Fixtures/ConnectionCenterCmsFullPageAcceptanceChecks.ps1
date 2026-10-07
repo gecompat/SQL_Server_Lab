@@ -4,7 +4,7 @@ $repo=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 $passed=0
 function Assert-FullPageCheck([bool]$Value,[string]$Name){if(-not $Value){throw ('ASSERT CMS full-page '+$Name)};$script:passed++}
 $parts=Get-CmsFullPageProductParts $repo
-Assert-FullPageCheck ($parts.Sources.Count -eq 13 -and $parts.Assets.Count -eq 12) 'current full source/asset set'
+Assert-FullPageCheck ($parts.Sources.Count -eq 14 -and $parts.Assets.Count -eq 13) 'current full source/asset set'
 foreach($source in $parts.Sources){Assert-FullPageCheck ((Get-FileHash -LiteralPath (Join-Path $repo $source.Path)).Hash -ceq $source.Sha256) ('actual source digest '+$source.Path)}
 $html=[Text.Encoding]::UTF8.GetString($parts.Assets['/'].Bytes)
 Assert-FullPageCheck ($html -cmatch 'data-workspace-target="connections"' -and $html -cmatch '<script src="app.js"' -and $html -cmatch 'id="cms-inspection-open"') 'actual full document/navigation'

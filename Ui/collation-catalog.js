@@ -23,7 +23,7 @@
     if(!['2019','2022','2025'].includes(sql) || !clean(query) || query.length>256){clear();el('status').textContent='Suchangaben prüfen.';return;}
     const current=++revision; busy=true;el('search').disabled=true;el('results').replaceChildren();el('status').textContent='Katalog wird gelesen.';
     try {
-      const response=await fetch('/api/collations/search',{method:'POST',headers:{'Content-Type':'application/json; charset=utf-8'},body:JSON.stringify({SqlVersion:sql,Query:query})});
+      const response=await sqlServerLabUiFetch('/api/collations/search',{method:'POST',headers:{'Content-Type':'application/json; charset=utf-8'},body:JSON.stringify({SqlVersion:sql,Query:query})});
       if(current!==revision || !el('dialog').open)return;
       if(!response.ok)throw new Error('INVALID');
       const view=await response.json();

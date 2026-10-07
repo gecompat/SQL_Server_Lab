@@ -75,7 +75,7 @@ function Invoke-PortPreviewBrowserAcceptance {
         if($button.Count -ne 1 -or $dialog.Count -ne 1){throw 'PORT_BROWSER_MARKUP'}
         # Exact product markup/assets, isolated from unrelated page/API workflows.
         $page='<!doctype html><html lang="de"><meta charset="utf-8"><link rel="stylesheet" href="/app.css"><title>SQL-Portvorschau Abnahme</title><body>'+
-            $button[0].Value+$dialog[0].Value+'<script src="/container-port-preview.js"></script></body></html>'
+            $button[0].Value+$dialog[0].Value+'<script src="/operator-transport.js"></script><script src="/container-port-preview.js"></script></body></html>'
         $tokens=$null;$errors=$null
         $ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $Repo Tools/Start-SqlServerLabUi.ps1),[ref]$tokens,[ref]$errors)
         $routes=@($ast.FindAll({param($n)$n -is [Management.Automation.Language.IfStatementAst] -and $n.Clauses[0].Item1.Extent.Text -ceq "`$path -eq '/api/container-port-preview'"},$true))
@@ -115,7 +115,8 @@ function Invoke-PortPreviewBrowserAcceptance {
                 & $script:portBrowserNative @PSBoundParameters
             }
             $listener.Start()
-            $ready=[ordered]@{Contract='SqlServerLab.PortBrowserReady/1.0';Url="http://127.0.0.1:$Port/";CurrentPort=$current;RequestedPort=$requested;CompletionFile=$completion}
+            # Nur synthetischer Transportbootstrap; kein zentraler Operatorguard-Nachweis.
+            $ready=[ordered]@{Contract='SqlServerLab.PortBrowserReady/1.0';Url="http://127.0.0.1:$Port/#sql-lab-operator=$('a'*64)";CurrentPort=$current;RequestedPort=$requested;CompletionFile=$completion}
             $readyPath=Join-Path $Evidence browser-ready.private.json
             $null=Assert-LabOwnedHostPath $readyPath
             $stream=[IO.File]::Open($readyPath,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
@@ -148,9 +149,9 @@ function Invoke-PortPreviewBrowserAcceptance {
                         if($delta -gt 1 -or ($delta -eq 0 -and $native -ne 0)){throw 'PORT_BROWSER_HTTP_EFFECT'}
                         $records.Add([pscustomobject]@{Status=$context.Response.StatusCode;PublicCalls=$delta;PinnedReads=$native;StateEqual=$true})
                         if($records.Count -gt 16){throw 'PORT_BROWSER_REQUEST_LIMIT'}
-                    } elseif($context.Request.HttpMethod -ceq 'GET' -and -not $context.Request.Url.Query -and $path -cin @('/','/app.css','/container-port-preview.js')){
+                    } elseif($context.Request.HttpMethod -ceq 'GET' -and -not $context.Request.Url.Query -and $path -cin @('/','/app.css','/container-port-preview.js','/operator-transport.js')){
                         $body=if($path -ceq '/'){$page}else{Get-Content -LiteralPath (Join-Path $Repo ('Ui'+$path)) -Raw}
-                        $type=if($path -ceq '/app.css'){'text/css'}elseif($path -ceq '/container-port-preview.js'){'application/javascript'}else{'text/html'}
+                        $type=if($path -ceq '/app.css'){'text/css'}elseif($path.EndsWith('.js')){'application/javascript'}else{'text/html'}
                         Write-UiResponse $context $body ($type+'; charset=utf-8')
                     } else {Write-UiResponse $context '{"Code":"NOT_FOUND"}' 'application/json' 404}
                 } finally {$context.Response.Close()}

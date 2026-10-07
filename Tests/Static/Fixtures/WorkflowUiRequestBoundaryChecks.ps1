@@ -43,7 +43,7 @@ function Get-ActiveRequestBinding([string]$Source){
  $loops=@($tree.FindAll({param($n)$n -is [Management.Automation.Language.WhileStatementAst] -and $n.Condition.Extent.Text -ceq '$listener.IsListening'},$true))
  if($include.Count -ne 1 -or $tree.EndBlock.Statements -notcontains $include[0] -or $loops.Count -ne 1){return $null}
  $loop=$loops[0];$outer=$loop.Parent.Parent
- if($outer -isnot [Management.Automation.Language.TryStatementAst] -or $outer.Parent -ne $tree.EndBlock -or $outer.Body.Statements.Count -ne 1 -or $outer.Body.Statements[0] -ne $loop -or $include[0].Extent.EndOffset -ge $outer.Extent.StartOffset -or $loop.Body.Statements.Count -ne 2){return $null}
+ if($outer -isnot [Management.Automation.Language.TryStatementAst] -or $outer.Parent -ne $tree.EndBlock -or $outer.Body.Statements[-1] -ne $loop -or $include[0].Extent.EndOffset -ge $outer.Extent.StartOffset -or $loop.Body.Statements.Count -ne 2){return $null}
  $receive=$loop.Body.Statements[0];$dispatchTry=$loop.Body.Statements[1]
  if($receive -isnot [Management.Automation.Language.TryStatementAst] -or $receive.Body.Statements.Count -ne 1 -or $receive.Body.Statements[0].Extent.Text -cne '$context = $listener.GetContext()' -or $dispatchTry -isnot [Management.Automation.Language.TryStatementAst]){return $null}
  $statements=$dispatchTry.Body.Statements
@@ -76,7 +76,7 @@ $cases=@(
  @{Name='unsupported-charset';Type='application/json; charset=utf-16';Status=415}
  @{Name='options-no-cors';Method='OPTIONS';Status=405}
  @{Name='same-origin-json';Origin='SELF';Site='same-origin';Type='application/json';Status=202}
- @{Name='local-json-not-authenticated';Type='application/json';Status=202}
+ @{Name='local-originless-authenticated';Type='application/json';Status=202}
 )
 $probe=[Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback,0);$probe.Start();$port=$probe.LocalEndpoint.Port;$probe.Stop()
 $url="http://127.0.0.1:$port/";$listener=[Net.HttpListener]::new();$listener.Prefixes.Add($url)
@@ -88,6 +88,8 @@ try{
   $ErrorActionPreference='Stop';$jobs=@{};$script:syntheticDispatches=0
   . ([scriptblock]::Create('param([string]$PSScriptRoot)'+"`n"+$Include)) $ToolsRoot
   . (Join-Path $ToolsRoot 'WorkflowUiJsonBody.ps1')
+  . (Join-Path $ToolsRoot 'WorkflowUiOperator.ps1')
+  $operatorSession=[pscustomobject]@{ListenerUrl=$url;Capability=('a'*64);Active=$true}
   . ([scriptblock]::Create($Reply))
   function Start-UiPublicCommandJob {param($CommandName,$ParameterSetName,$Parameters,[switch]$Confirmed)
    if($CommandName -cne 'Remove-SqlServerLab' -or -not $Confirmed){throw 'SYNTHETIC_JOB_INPUT'}
@@ -100,6 +102,7 @@ try{
  foreach($case in $cases){
   $method=if($case.Method){$case.Method}else{'POST'};$request=[Net.Http.HttpRequestMessage]::new([Net.Http.HttpMethod]::new($method),$url+'api/commands')
   try{
+   $null=$request.Headers.TryAddWithoutValidation('X-SqlServerLab-Operator',('a'*64))
    if($case.Origin){$origin=if($case.Origin -ceq 'SELF'){$url.TrimEnd('/')}else{$case.Origin};$null=$request.Headers.TryAddWithoutValidation('Origin',$origin)}
    if($case.Site){$null=$request.Headers.TryAddWithoutValidation('Sec-Fetch-Site',$case.Site)}
    if($method -ceq 'POST'){$body=if($case.Status -eq 202){'{"commandName":"Remove-SqlServerLab","parameterSetName":"synthetic","parameters":{},"confirmed":true}'}else{'synthetic-invalid-json-must-not-be-parsed'};$request.Content=[Net.Http.StringContent]::new($body,[Text.Encoding]::UTF8);$request.Content.Headers.Remove('Content-Type')|Out-Null;$null=$request.Content.Headers.TryAddWithoutValidation('Content-Type',$case.Type)}

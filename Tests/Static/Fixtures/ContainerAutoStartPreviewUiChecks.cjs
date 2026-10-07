@@ -8,7 +8,7 @@ const plan=(provider='docker',noop=false)=>({Contract:{Name:'SqlServerLab.Contai
 function setup(){
   const elements={},requests=[];
   for(const id of ['open','dialog','close','read','plan','target','policy','status','result'])elements[id]={events:{},value:'',textContent:'',disabled:false,open:false,children:[],addEventListener(n,f){this.events[n]=f;},replaceChildren(){this.children=[];this.value='';},appendChild(v){this.children.push(v);if(this.children.length===1)this.value=v.value;},showModal(){this.open=true;},close(){this.open=false;}};
-  vm.runInNewContext(fs.readFileSync(path.join(root,'Ui/container-autostart-preview.js'),'utf8'),{document:{querySelector:s=>elements[s.replace('#autostart-preview-','')],createElement:()=>({})},fetch:(url,options)=>new Promise((resolve,reject)=>requests.push({url,options,resolve,reject})),TextEncoder});
+  vm.runInNewContext(fs.readFileSync(path.join(root,'Ui/container-autostart-preview.js'),'utf8'),{document:{querySelector:s=>elements[s.replace('#autostart-preview-','')],createElement:()=>({})},sqlServerLabUiFetch:(url,options)=>new Promise((resolve,reject)=>requests.push({url,options,resolve,reject})),TextEncoder});
   return {elements,requests,click:id=>elements[id].events.click(),flush:()=>new Promise(r=>setImmediate(r))};
 }
 async function answer(f,v,r=f.requests.at(-1)){r.resolve({ok:true,json:async()=>v});await f.flush();}

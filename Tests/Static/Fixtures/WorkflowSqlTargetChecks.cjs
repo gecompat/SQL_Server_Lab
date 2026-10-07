@@ -60,7 +60,7 @@ const document = {
 const context = vm.createContext({ document, console, URLSearchParams,
   crypto: require('node:crypto').webcrypto, TextEncoder, AbortController,
   window: { setInterval() {}, setTimeout() {}, clearTimeout() {}, alert() {} },
-  fetch: (...args) => { fetchRequests.push(args); return args[0] === '/api/jobs' ? Promise.resolve({ ok: true, json: async () => [] }) : new Promise(() => {}); }, setTimeout() {}, clearTimeout() {}, queued: [] });
+  sqlServerLabUiFetch: (...args) => { fetchRequests.push(args); return args[0] === '/api/jobs' ? Promise.resolve({ ok: true, json: async () => [] }) : new Promise(() => {}); }, setTimeout() {}, clearTimeout() {}, queued: [] });
 const fetchRequests = [];
 const run = (code) => vm.runInContext(code, context, { timeout: 5000 });
 run(source);
@@ -254,7 +254,7 @@ async function main() {
       { Id: '1', Label: '<img src=x onerror="throw 1">', Summary: 'Veraltet', Fields: [
         { Label: 'Nächster Schritt', Value: '<b>Evidence prüfen</b>' }] }
     ] };
-  context.fetch = async (url, options) => {
+  context.sqlServerLabUiFetch = async (url, options) => {
     evaluationFetches.push({ url, options });
     return { ok: true, json: async () => evaluationPayload };
   };
@@ -297,7 +297,7 @@ async function main() {
     assert.equal(node('evaluation-watch-selection').disabled, true);
     assert.equal(node('evaluation-watch-details').hidden, true);
   });
-  context.fetch = async () => ({ ok: false });
+  context.sqlServerLabUiFetch = async () => ({ ok: false });
   await readEvaluation();
   check('Evaluation read error clears previous data and offers an explicit next step', () => {
     assert.ok(node('evaluation-watch-status').textContent.includes('Leserechte prüfen'));
@@ -305,7 +305,7 @@ async function main() {
     assert.equal(node('evaluation-watch-read').disabled, false);
   });
   let release;
-  context.fetch = () => new Promise((resolve) => { release = resolve; });
+  context.sqlServerLabUiFetch = () => new Promise((resolve) => { release = resolve; });
   const pendingRead = readEvaluation();
   escape(); openEvaluation();
   release({ ok: true, json: async () => evaluationPayload });
@@ -322,7 +322,7 @@ async function main() {
   node('container-script-path').value = 'synthetic.sql';
   const actionRequests = [];
   let acceptAction;
-  context.fetch = (url, options) => {
+  context.sqlServerLabUiFetch = (url, options) => {
     actionRequests.push({ url, options });
     if (url === '/api/actions') return new Promise((resolve) => { acceptAction = resolve; });
     assert.equal(url, '/api/jobs');
@@ -360,7 +360,7 @@ async function main() {
   const setupRequests = [];
   const capacitySnapshot = { ContractVersion: 'SqlServerLab.InitialSetupCapacity/1.0', LocationId: '11111111-1111-1111-1111-111111111111', Status: 'AVAILABLE', Code: 'INITIAL_SETUP_CAPACITY_OBSERVED', AvailableBytes: 0, TotalBytes: 1099511627776, ObservedAt: '2026-10-01T12:00:00Z' };
   const writePlan = { PlanId: '22222222-2222-2222-2222-222222222222', LocationId: '11111111-1111-1111-1111-111111111111', ExpiresAt: '2099-01-01T00:00:00Z', MaximumSeconds: 39, Notice: 'SYNTHETIC_PREVIEW' };
-  context.fetch = async (url, options) => {
+  context.sqlServerLabUiFetch = async (url, options) => {
     assert.equal(url, '/api/initial-setup');
     const payload = options?.body ? JSON.parse(options.body) : null;
     setupRequests.push(payload);
@@ -424,14 +424,14 @@ async function main() {
     assert.ok(node('initial-setup-capacity-result').textContent.includes('gelesen'));
     assert.equal(context.queued.length, capacityQueueCount);
   });
-  const originalCapacityFetch = context.fetch;
+  const originalCapacityFetch = context.sqlServerLabUiFetch;
   for (const status of ['UNKNOWN', 'UNREADABLE', 'UNSUPPORTED']) {
-    context.fetch = async () => ({ ok: true, json: async () => ({ Result: { ...capacitySnapshot, Status: status, AvailableBytes: null, TotalBytes: null } }) });
+    context.sqlServerLabUiFetch = async () => ({ ok: true, json: async () => ({ Result: { ...capacitySnapshot, Status: status, AvailableBytes: null, TotalBytes: null } }) });
     await setupClick('initial-setup-capacity-read');
     check('Capacity ' + status + ' never renders a fabricated zero or capacity guarantee', () => assert.ok(!node('initial-setup-capacity-result').textContent.includes('GiB')));
   }
   let releaseCapacity;
-  context.fetch = () => new Promise(resolve => { releaseCapacity = resolve; });
+  context.sqlServerLabUiFetch = () => new Promise(resolve => { releaseCapacity = resolve; });
   const lateCapacity = setupClick('initial-setup-capacity-read');
   node('initial-setup-write-location').value = '22222222-2222-2222-2222-222222222222';
   for (const handler of node('initial-setup-write-location').events.get('change')) handler({});
@@ -444,13 +444,13 @@ async function main() {
   releaseCapacity({ ok: true, json: async () => ({ Result: capacitySnapshot }) });
   await closedCapacity;
   check('Closing a readonly capacity request discards the late snapshot', () => assert.ok(node('initial-setup-capacity-result').textContent.includes('noch nicht gelesen')));
-  context.fetch = originalCapacityFetch;
+  context.sqlServerLabUiFetch = originalCapacityFetch;
   await setupClick('configuration-storage');
   node('initial-setup-write-location').value = capacitySnapshot.LocationId;
-  context.fetch = async () => ({ ok: false, text: async () => 'SYNTHETIC_PRIVATE_CAPACITY_DETAIL' });
+  context.sqlServerLabUiFetch = async () => ({ ok: false, text: async () => 'SYNTHETIC_PRIVATE_CAPACITY_DETAIL' });
   await setupClick('initial-setup-capacity-read');
   check('Capacity request failure stays unknown and never publishes raw diagnostics', () => { assert.ok(node('initial-setup-capacity-result').textContent.includes('nicht bestätigt')); assert.ok(!node('initial-setup-capacity-result').textContent.includes('PRIVATE')); });
-  context.fetch = originalCapacityFetch;
+  context.sqlServerLabUiFetch = originalCapacityFetch;
   const writeQueueCount = context.queued.length;
   node('initial-setup-write-location').value = writePlan.LocationId;
   await setupClick('initial-setup-write-preview');
@@ -486,8 +486,8 @@ async function main() {
   await setupClick('initial-setup-write-preview');
   node('initial-setup-write-confirm').checked = true;
   let releaseWrite;
-  const priorFetch = context.fetch;
-  context.fetch = () => new Promise(resolve => { releaseWrite = resolve; });
+  const priorFetch = context.sqlServerLabUiFetch;
+  context.sqlServerLabUiFetch = () => new Promise(resolve => { releaseWrite = resolve; });
   const runningWrite = setupClick('initial-setup-write-apply');
   check('In-flight explicit write locks close buttons and Escape until own cleanup result', () => {
     assert.equal(node('initial-setup-close').disabled, true);
@@ -504,15 +504,15 @@ async function main() {
     assert.equal(node('initial-setup-close').disabled, false);
     assert.equal(node('initial-setup-write-apply').disabled, true);
   });
-  context.fetch = priorFetch;
-  context.fetch = async () => ({ ok: false, text: async () => 'synthetic-private-host' });
+  context.sqlServerLabUiFetch = priorFetch;
+  context.sqlServerLabUiFetch = async () => ({ ok: false, text: async () => 'synthetic-private-host' });
   await setupPreview();
   check('Setup request failure invalidates Apply and never displays raw server diagnostics', () => {
     assert.equal(node('initial-setup-apply').disabled, true);
     assert.ok(!node('initial-setup-status').textContent.includes('synthetic-private-host'));
   });
   let releaseSetup;
-  context.fetch = () => new Promise((resolve) => { releaseSetup = resolve; });
+  context.sqlServerLabUiFetch = () => new Promise((resolve) => { releaseSetup = resolve; });
   const pendingSetup = setupClick('initial-setup-read');
   node('initial-setup-dialog').close();
   releaseSetup({ ok: true, json: async () => ({ Result: { ...setupState, MediaRoot: 'stale' } }) });
@@ -521,7 +521,7 @@ async function main() {
   let resourceMode = 'ready';
   let resourceMounts = { Status: 'MEASURED', TotalMountCount: 3, VolumeMountCount: 1, HostBindCount: 1, WritableHostBindCount: 1, OtherMountCount: 1, VolumeOwnership: 'NOT_CHECKED', Source: '/synthetic/private/host' };
   const resourceRequests = [];
-  context.fetch = async (url, options = {}) => {
+  context.sqlServerLabUiFetch = async (url, options = {}) => {
     resourceRequests.push({ url, options });
     if (url === '/api/actions') return { ok: true, json: async () => ({ id: 'resource-job' }) };
     if (url === '/api/jobs') return { ok: true, json: async () => [] };
@@ -581,9 +581,9 @@ async function main() {
     node('resource-dialog').close();
   }
   resourceMode = 'ready';
-  const immediateResourceFetch = context.fetch;
+  const immediateResourceFetch = context.sqlServerLabUiFetch;
   let releaseTargets;
-  context.fetch = (url, options) => url.includes('/api/resource-change?') && !url.includes('instanceId=')
+  context.sqlServerLabUiFetch = (url, options) => url.includes('/api/resource-change?') && !url.includes('instanceId=')
     ? new Promise((resolve) => { releaseTargets = () => resolve({ ok: true, json: async () => ({ Targets: [{ InstanceId: 'secondary', Provider: 'podman' }] }) }); })
     : immediateResourceFetch(url, options);
   const delayedResourceOpen = run('openResourceDialog(resourceButton)');
@@ -601,7 +601,7 @@ async function main() {
   const reservePolicy = { WindowsReserve: 0, SqlReserve: 0, MinimumDaysRemaining: 45, WarningDaysRemaining: 10 };
   const reserveView = { Configuration: { Status: 'CONFIGURED', Policy: reservePolicy }, CandidateCount: 2, Rows: [], Recommendation: 'NO_RESERVE_REQUESTED', Notice: 'Keine Claims; Verfügbarkeit unbekannt.' };
   const reservePlan = { Policy: reservePolicy, PlanKey: 'synthetic', PreviousKey: 'synthetic', IsNoOp: false, Notice: 'Nur Policy speichern.' };
-  context.fetch = async (url, options = {}) => {
+  context.sqlServerLabUiFetch = async (url, options = {}) => {
     assert.equal(url, '/api/slot-reserve');
     const request = options.body ? JSON.parse(options.body) : null;
     reserveRequests.push(request);
@@ -627,20 +627,20 @@ async function main() {
     assert.deepEqual(reserveRequests.at(-2), { action: 'ApplySlotReserve', parameters: { SlotReservePlan: reservePlan, ConfirmSlotReserve: true } });
     assert.equal(reserveRequests.at(-1), null);
   });
-  context.fetch = async () => ({ ok: false, text: async () => 'synthetic-host-private' });
+  context.sqlServerLabUiFetch = async () => ({ ok: false, text: async () => 'synthetic-host-private' });
   await resourceEvent('slot-reserve-read');
   check('Reserve failure removes stale inventory and disables Apply without raw diagnostics', () => {
     assert.equal(node('slot-reserve-apply').disabled, true); assert.equal(node('slot-reserve-inventory').textContent, '');
     assert.ok(!node('slot-reserve-status').textContent.includes('synthetic-host-private'));
   });
   let releaseReserve;
-  context.fetch = () => new Promise(resolve => { releaseReserve = resolve; });
+  context.sqlServerLabUiFetch = () => new Promise(resolve => { releaseReserve = resolve; });
   const pendingReserve = resourceEvent('slot-reserve-read'); await resourceEvent('slot-reserve-close');
   releaseReserve({ ok: true, json: async () => ({ Result: reserveView }) }); await pendingReserve;
   check('Reserve closed dialog ignores delayed read', () => assert.equal(node('slot-reserve-inventory').textContent, ''));
   const memberRequests = [];
   const memberPreview = { PreviewId: 'opaque-held-member-token', Action: 'Claim', RunId: 'own-member', VMName: 'own-vm', MemberState: 'FREE', Evidence: 'CURRENT', Notice: 'Revalidate before claim.' };
-  context.fetch = async (url, options = {}) => {
+  context.sqlServerLabUiFetch = async (url, options = {}) => {
     assert.equal(url, '/api/slot-reserve');
     const request = options.body ? JSON.parse(options.body) : null; memberRequests.push(request);
     return { ok: true, json: async () => ({ Result: request?.action === 'PlanWindowsPoolMember' ? memberPreview : request?.action === 'ApplyWindowsPoolMember' ? { Status: 'RECOVERY_REQUIRED', RunId: 'own-member', OriginalError: 'WINDOWS_POOL_OPERATION_FAILED' } : reserveView }) };
@@ -666,8 +666,8 @@ async function main() {
   await resourceEvent('slot-member-form', 'submit'); await resourceEvent('slot-reserve-close');
   check('Member dialog close cancels preview separately', () => assert.equal(memberRequests.at(-1).action, 'CancelWindowsPoolMember'));
   await resourceEvent('configuration-reserve');
-  const immediateMemberFetch = context.fetch; let releaseMemberPreview;
-  context.fetch = (url, options = {}) => options.body && JSON.parse(options.body).action === 'PlanWindowsPoolMember'
+  const immediateMemberFetch = context.sqlServerLabUiFetch; let releaseMemberPreview;
+  context.sqlServerLabUiFetch = (url, options = {}) => options.body && JSON.parse(options.body).action === 'PlanWindowsPoolMember'
     ? new Promise(resolve => { releaseMemberPreview = resolve; }) : immediateMemberFetch(url, options);
   const pendingMember = resourceEvent('slot-member-form', 'submit'); await resourceEvent('slot-reserve-close');
   releaseMemberPreview({ ok: true, json: async () => ({ Result: memberPreview }) }); await pendingMember;
@@ -677,7 +677,7 @@ async function main() {
   const groupRequests = [];
   let groupMode = 'ready';
   const groupPlan = { Group: 'Registrierte Testgruppe', Total: 2, PowerStatus: 'MIXED', PowerAction: 'Start', CanApply: true, NoChange: false, PlanKey: 'a'.repeat(64), Notice: 'Nur Power; SQL nicht geprüft.', Members: [{ Key: 'DOCKER', Provider: 'docker', Power: 'STOPPED', Desired: 'RUNNING', Change: 'START' }, { Key: 'PODMAN', Provider: 'podman', Power: 'RUNNING', Desired: 'RUNNING', Change: 'NO_OP' }] };
-  context.fetch = async (url, options = {}) => {
+  context.sqlServerLabUiFetch = async (url, options = {}) => {
     groupRequests.push({ url, options });
     if (url.startsWith('/api/test-group?')) return { ok: groupMode !== 'error', json: async () => ({ ...groupPlan, PowerAction: new URLSearchParams(url.split('?')[1]).get('powerAction'), CanApply: groupMode !== 'unknown', NoChange: groupMode === 'noop', Total: groupMode === 'empty' ? 0 : 2 }) };
     if (url === '/api/actions') return { ok: true, json: async () => ({ id: 'group-job' }) };
@@ -706,7 +706,7 @@ async function main() {
   groupMode = 'ready'; await resourceEvent('test-group-open'); await resourceEvent('test-group-close'); await resourceEvent('test-group-apply');
   check('Group cancel discards preview without mutation', () => assert.equal(groupRequests.filter(r => r.url === '/api/actions').length, 1));
   let releaseGroup;
-  context.fetch = () => new Promise(resolve => { releaseGroup = resolve; });
+  context.sqlServerLabUiFetch = () => new Promise(resolve => { releaseGroup = resolve; });
   const pendingGroup = resourceEvent('test-group-open'); await resourceEvent('test-group-close'); releaseGroup({ ok: true, json: async () => groupPlan }); await pendingGroup;
   check('Closed group dialog rejects delayed preview', () => assert.equal(node('test-group-apply').disabled, true));
   const mediaRequests = [];
@@ -716,7 +716,7 @@ async function main() {
     ['2022', 'developer', 'Developer', 'Dev'], ['2022', 'evaluation', 'Evaluation', 'Eval'], ['2022', 'express', 'Express', 'Expr']
   ].map(([version, id, edition, file]) => ({ ...mediaItem, Id: 'sql-server-'+version+'-'+id+'-bootstrapper', DisplayName: 'SQL Server '+version+' '+edition+' bootstrapper', Version: version, RepositoryUrl: 'https://download.microsoft.com/download/default/SQL'+version+'-SSEI-'+file+'.exe', EffectiveUrl: 'https://download.microsoft.com/download/default/SQL'+version+'-SSEI-'+file+'.exe' }))];
   let mediaMode = 'ready';
-  context.fetch = async (url, options) => {
+  context.sqlServerLabUiFetch = async (url, options) => {
     const body = options?.body ? JSON.parse(options.body) : null;
     mediaRequests.push({url,body});
     const selected = mediaItems.find(item => item.Id === body?.parameters?.MediaSourceId) || mediaItem;
@@ -740,10 +740,10 @@ async function main() {
   }
   mediaMode='ready';await resourceEvent('media-override-read');await resourceEvent('media-override-preview');await resourceEvent('media-override-close');await resourceEvent('media-override-apply');
   check('Media cancel discards pending mutation',()=>assert.equal(mediaRequests.filter(r=>r.body?.action==='ApplyMediaOverride').length,1));
-  let releaseMedia;context.fetch=()=>new Promise(resolve=>{releaseMedia=resolve;});
+  let releaseMedia;context.sqlServerLabUiFetch=()=>new Promise(resolve=>{releaseMedia=resolve;});
   const pendingMedia=resourceEvent('media-override-open');await resourceEvent('media-override-close');releaseMedia({ok:true,json:async()=>({Result:{Status:'READY',Items:[mediaItem]}})});await pendingMedia;
   check('Media closed dialog ignores delayed state',()=>assert.equal(node('media-override-apply').disabled,true));
-  context.fetch = async (url, options) => {
+  context.sqlServerLabUiFetch = async (url, options) => {
     const body = options?.body ? JSON.parse(options.body) : null; mediaRequests.push({url,body});
     const selected = mediaItems.find(item => item.Id === body?.parameters?.MediaSourceId);
     return {ok:true,json:async()=>({Result:selected ? {Id:selected.Id,Operation:body.parameters.MediaSourceOperation,EffectiveUrl:body.parameters.MediaSourceUrl||selected.RepositoryUrl,IsNoOp:false,Notice:'Kein Download'} : {Status:'READY',Items:mediaItems,Notice:'Kein Download'}})};
@@ -762,22 +762,22 @@ async function main() {
   await resourceEvent('media-override-close');
   const watchRequests=[];
   const watchItem={Name:'SqlPackage <fixture>',CatalogVersion:'170.4.83.3',ObservedVersion:'170.5.96.0',LastSuccessfulVersion:'170.5.96.0',LastSuccessfulAtUtc:'synthetic-time',SourceUrl:'https://learn.microsoft.com/fixture',Status:'NEW',ReasonCode:'RESOURCE_WATCH_COMPLETED'};
-  context.fetch=async (url,options={})=>{watchRequests.push({url,options});return{ok:true,json:async()=>({Result:{Status:'NEW',ReasonCode:'RESOURCE_WATCH_COMPLETED',CheckedAtUtc:'synthetic-time',Items:[watchItem],Notice:'Session only'}})}};
+  context.sqlServerLabUiFetch=async (url,options={})=>{watchRequests.push({url,options});return{ok:true,json:async()=>({Result:{Status:'NEW',ReasonCode:'RESOURCE_WATCH_COMPLETED',CheckedAtUtc:'synthetic-time',Items:[watchItem],Notice:'Session only'}})}};
   await resourceEvent('resource-watch-open');
   check('Resource watch open reads snapshot without explicit refresh',()=>{assert.equal(watchRequests[0].options.method,undefined);assert.match(node('resource-watch-details').textContent,/Katalogversion: 170.4.83.3/);assert.match(node('resource-watch-details').textContent,/Letzte erfolgreiche Beobachtung/);});
   await resourceEvent('resource-watch-read');
   check('Resource watch reread remains GET',()=>assert.ok(watchRequests.every(r=>!r.options.method)));
   await resourceEvent('resource-watch-check');
   check('Resource watch explicit refresh reaches direct endpoint',()=>{assert.equal(watchRequests.at(-1).url,'/api/resource-watch');assert.deepEqual(JSON.parse(watchRequests.at(-1).options.body),{action:'RefreshResourceWatch',parameters:{}});});
-  context.fetch=async()=>{throw new Error('SYNTHETIC_PRIVATE');};await resourceEvent('resource-watch-check');
+  context.sqlServerLabUiFetch=async()=>{throw new Error('SYNTHETIC_PRIVATE');};await resourceEvent('resource-watch-check');
   check('Resource watch failed attempt clears current success and raw errors',()=>{assert.match(node('resource-watch-status').textContent,/UNCLEAR/);assert.equal(node('resource-watch-details').textContent,'');assert.doesNotMatch(node('resource-watch-status').textContent,/SYNTHETIC_PRIVATE/);});
-  let releaseWatch;context.fetch=()=>new Promise(resolve=>{releaseWatch=resolve;});
+  let releaseWatch;context.sqlServerLabUiFetch=()=>new Promise(resolve=>{releaseWatch=resolve;});
   const pendingWatch=resourceEvent('resource-watch-read');await resourceEvent('resource-watch-close');releaseWatch({ok:true,json:async()=>({Result:{Status:'NEW',Items:[watchItem]}})});await pendingWatch;
   check('Resource watch closed dialog ignores late response',()=>assert.match(node('resource-watch-status').textContent,/UNCLEAR/));
   const cmsRequests=[];
   const cmsBase={ContractVersion:'SqlServerLab.CmsInspection/1.0',Status:'NOT_CHECKED',Code:'CMS_INSPECTION_NOT_CHECKED',RunId:'11111111-1111-1111-1111-111111111111',InstanceId:'primary',Provider:'docker',SelectionKey:'a'.repeat(64),SqlMajor:null,ManagedGroupCount:null,ManagedServerCount:null,ObservedAt:null};
   let cmsMode='ready';
-  context.fetch=async(url,options={})=>{
+  context.sqlServerLabUiFetch=async(url,options={})=>{
     const body=options.body?JSON.parse(options.body):null;cmsRequests.push({url,body});
     if(cmsMode==='error')throw new Error('SYNTHETIC_PRIVATE_SQL_OR_SECRET');
     const view={...cmsBase};
@@ -802,12 +802,12 @@ async function main() {
     check('CMS '+mode+' discards acceptance and private error',()=>{assert.equal(node('cms-inspection-result').textContent,'');assert.doesNotMatch(node('cms-inspection-status').textContent,/SYNTHETIC_PRIVATE/);});
   }
   cmsMode='ready';await resourceEvent('cms-inspection-read');
-  let releaseCms;context.fetch=()=>new Promise(resolve=>{releaseCms=resolve;});const pendingCms=resourceEvent('cms-inspection-check');await resourceEvent('cms-inspection-close');releaseCms({ok:true,json:async()=>({Result:{...cmsBase,Status:'OBSERVED',SqlMajor:17,ManagedGroupCount:3,ManagedServerCount:5,ObservedAt:'2026-10-01T12:00:00Z'}})});await pendingCms;
+  let releaseCms;context.sqlServerLabUiFetch=()=>new Promise(resolve=>{releaseCms=resolve;});const pendingCms=resourceEvent('cms-inspection-check');await resourceEvent('cms-inspection-close');releaseCms({ok:true,json:async()=>({Result:{...cmsBase,Status:'OBSERVED',SqlMajor:17,ManagedGroupCount:3,ManagedServerCount:5,ObservedAt:'2026-10-01T12:00:00Z'}})});await pendingCms;
   check('CMS close ignores late inspection without retry or queue mutation',()=>{assert.equal(node('cms-inspection-dialog').open,false);assert.equal(node('cms-inspection-result').textContent,'');assert.equal(node('cms-inspection-check').disabled,true);});
   const maintenanceCalls=[];
   const maintenanceRow={Id:'fixture',CandidateId:'a'.repeat(64),Label:'docker · SQL-Speicher',Fields:[{Label:'Herkunft',Value:'Unbekannt <script>marker</script>'}]};
   let maintenanceMode='ready';
-  context.fetch=async(url,options)=>{
+  context.sqlServerLabUiFetch=async(url,options)=>{
     const body=options?.body ? JSON.parse(options.body) : null; maintenanceCalls.push({url,body});
     if(maintenanceMode==='error') return {ok:false};
     return {ok:true,json:async()=>body?.action==='preview' ? {CandidateId:maintenanceRow.CandidateId,ExpectedKey:'b'.repeat(64),Status:maintenanceMode==='noop'?'NO_CHANGE':'READY',Notice:'Katalog-only'} : body?.action==='apply' ? {Status:'RECOVERED'} : {Rows:maintenanceMode==='empty'?[]:[maintenanceRow],Incomplete:maintenanceMode==='unknown',Notice:'Read-only',InventoryStatus:'synthetic',UnavailableProviders:1}};
@@ -831,11 +831,11 @@ async function main() {
   check('Maintenance no-op never enables confirmation',()=>assert.equal(node('maintenance-confirm').disabled,true));
   node('maintenance-dialog').close();
   check('Maintenance cancel clears authority',()=>assert.equal(run('maintenancePlan'),null));
-  await resourceEvent('maintenance-open');let releaseMaintenance;context.fetch=()=>new Promise(resolve=>{releaseMaintenance=resolve;});const pendingMaintenance=resourceEvent('maintenance-read');node('maintenance-dialog').close();releaseMaintenance({ok:true,json:async()=>({Rows:[maintenanceRow]})});await pendingMaintenance;
+  await resourceEvent('maintenance-open');let releaseMaintenance;context.sqlServerLabUiFetch=()=>new Promise(resolve=>{releaseMaintenance=resolve;});const pendingMaintenance=resourceEvent('maintenance-read');node('maintenance-dialog').close();releaseMaintenance({ok:true,json:async()=>({Rows:[maintenanceRow]})});await pendingMaintenance;
   check('Maintenance closed dialog ignores delayed audit',()=>assert.equal(run('maintenanceView'),null));
   const installerCalls = []; let installerMode = 'ready';
   const installerId = 'llama-b11247-win-x64-cpu', installerRoot = 'a'.repeat(64);
-  context.fetch = async (url, options) => {
+  context.sqlServerLabUiFetch = async (url, options) => {
     const body = options?.body ? JSON.parse(options.body) : null; installerCalls.push({ url, body });
     if (installerMode === 'error') throw new Error('SYNTHETIC_PRIVATE');
     return { ok: true, json: async () => body?.action === 'preview' ? { CandidateId: installerId, RootId: installerRoot, ExpectedKey: 'b'.repeat(64), CanApply: installerMode !== 'blocked', IsNoOp: installerMode === 'noop', State: installerMode, Prerequisite: 'UNKNOWN' } : body?.action === 'apply' ? { Status: 'BINARY_PROBE_PASSED' } : body?.action === 'upstream' ? { Status: 'PIN_MATCHES_OFFICIAL_METADATA', Release: 'b11247' } : { Items: [{ Id: installerId, Release: 'b11247', Status: 'EXPERIMENTAL' }], Roots: installerMode === 'empty' ? [] : [{ Id: installerRoot, Label: '<script>synthetic</script>' }], Notice: 'No execution' } };
@@ -857,7 +857,7 @@ async function main() {
     installerMode = mode; await resourceEvent('llama-installer-open');
     check('Installer ' + mode + ' cannot start and hides raw errors', () => { assert.equal(node('llama-installer-preview').disabled, true); assert.equal(node('llama-installer-apply').disabled, true); assert.doesNotMatch(node('llama-installer-status').textContent, /SYNTHETIC_PRIVATE/); });
   }
-  let releaseInstaller; context.fetch = () => new Promise(resolve => { releaseInstaller = resolve; });
+  let releaseInstaller; context.sqlServerLabUiFetch = () => new Promise(resolve => { releaseInstaller = resolve; });
   const pendingInstaller = resourceEvent('llama-installer-refresh');
   check('Installer disables early selection while initial roots are pending', () => { assert.equal(node('llama-installer-root').disabled, true); assert.equal(node('llama-installer-release').disabled, true); });
   releaseInstaller({ ok: true, json: async () => ({ Items: [], Roots: [], Notice: 'empty' }) }); await pendingInstaller;
@@ -865,7 +865,7 @@ async function main() {
   const sessionId = '11111111-1111-1111-1111-111111111111';
   const planId = '22222222-2222-2222-2222-222222222222';
   const sessionCalls = [];
-  context.fetch = async (url, options = {}) => {
+  context.sqlServerLabUiFetch = async (url, options = {}) => {
     assert.equal(url, '/api/llama-sessions');
     const payload = options.body ? JSON.parse(options.body) : null; sessionCalls.push(payload);
     return { ok: true, json: async () => !payload ? { Items: [{ OperationId: sessionId, Port: 19435, Status: 'OWNED_SESSION' }], Notice: 'Coverage UNKNOWN' } : payload.action === 'preview' ? { PlanId: planId, OperationId: sessionId, Port: 19435, Rights: 'OWNED_WORKER_CONTROL', KnownConsumerCount: 0, ConsumerCoverage: 'UNKNOWN', Notice: 'Unknown consumers may fail' } : { Status: 'CLEANUP_SUCCEEDED' } };
@@ -890,25 +890,25 @@ async function main() {
   await run('requestLlamaSession("preview")');
   node('llama-session-confirm').checked = true;
   for (const handler of node('llama-session-confirm').events.get('change')) handler({});
-  const originalSessionFetch = context.fetch; let releaseConfirmedStop;
-  context.fetch = (url, options) => { sessionCalls.push(JSON.parse(options.body)); return new Promise(resolve => { releaseConfirmedStop = resolve; }); };
+  const originalSessionFetch = context.sqlServerLabUiFetch; let releaseConfirmedStop;
+  context.sqlServerLabUiFetch = (url, options) => { sessionCalls.push(JSON.parse(options.body)); return new Promise(resolve => { releaseConfirmedStop = resolve; }); };
   const confirmedStop = run('requestLlamaSession("stop")');
   check('Confirmed in-flight stop waits for outcome and cannot be disguised as Cancel', () => {
     assert.equal(node('llama-session-close').disabled, true);
     let prevented = false; for (const handler of node('llama-session-dialog').events.get('cancel')) handler({ preventDefault() { prevented = true; } });
     assert.equal(prevented, true); click(node('llama-session-close')); assert.equal(node('llama-session-dialog').open, true);
   });
-  releaseConfirmedStop({ ok: true, json: async () => ({ Status: 'CLEANUP_SUCCEEDED' }) }); await confirmedStop; context.fetch = originalSessionFetch;
+  releaseConfirmedStop({ ok: true, json: async () => ({ Status: 'CLEANUP_SUCCEEDED' }) }); await confirmedStop; context.sqlServerLabUiFetch = originalSessionFetch;
   check('Actual stop sends only opaque preview and explicit confirmation, then clears selection', () => {
     assert.deepEqual(sessionCalls.at(-1), { action: 'stop', planId, confirmed: true });
     assert.ok(node('llama-session-status').textContent.includes('CLEANUP_SUCCEEDED')); assert.equal(node('llama-session-stop').disabled, true);
   });
-  let releaseSession; context.fetch = () => new Promise(resolve => { releaseSession = resolve; });
+  let releaseSession; context.sqlServerLabUiFetch = () => new Promise(resolve => { releaseSession = resolve; });
   const lateSession = run('requestLlamaSession()');
   click(node('llama-session-close'));
   releaseSession({ ok: true, json: async () => ({ Items: [{ OperationId: sessionId }], Notice: 'stale' }) }); await lateSession;
   check('Late session response after close cannot restore a target or preview', () => assert.equal(node('llama-session-stop').disabled, true));
-  context.fetch = async () => ({ ok: true, json: async () => ({ Items: [], Notice: 'Coverage UNKNOWN' }) });
+  context.sqlServerLabUiFetch = async () => ({ ok: true, json: async () => ({ Items: [], Notice: 'Coverage UNKNOWN' }) });
   click(node('llama-session-open')); await new Promise(resolve => setImmediate(resolve));
   check('Empty own-session inventory explains same-modulehost start and disables mutation', () => { assert.ok(node('llama-session-status').textContent.includes('Keine Sitzung')); assert.equal(node('llama-session-plan').disabled, true); });
   console.log('WORKFLOW SQL TARGET, EVALUATION AND SETUP: ' + passed + ' PASS');

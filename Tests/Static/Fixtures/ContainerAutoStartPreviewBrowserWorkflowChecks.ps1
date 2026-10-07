@@ -72,7 +72,7 @@ try{
  Check (@($binding.Value).Count -eq 1 -and $binding.Value[0] -ceq 'SQL_Server_Lab Workflow UI: http://127.0.0.1:19499/' -and
   $binding.Color -eq [ConsoleColor]::Green) 'Actual Write-Host hook binds positional UI readiness text'
  $hookIf=$hostHook.Body.EndBlock.Statements[0]
- $hookText=($hookIf.Clauses[0].Item2.Statements[0..2].Extent.Text -join "`n")
+ $hookText=($hookIf.Clauses[0].Item2.Statements[0..3].Extent.Text -join "`n")
  if(-not $hookText.Contains('$listener -isnot [Net.HttpListener]')){throw 'BROWSER_FIXTURE_HOOK_TYPE_CHANGED'}
  # Replace ONLY the native listener type leaf. Caller scope lookup, actual
  # listening/prefix guard and actual exclusive ready writer still execute.
@@ -80,7 +80,7 @@ try{
  $scopeEvidence=Join-Path $root ('test-runs/port-preview-'+[guid]::NewGuid().ToString('N'))
  $null=New-Item -ItemType Directory -Path $scopeEvidence
  $scopeProbe=Join-Path $root 'scope-probe.private.ps1'
- [IO.File]::WriteAllText($scopeProbe,'$listener=[pscustomobject]@{IsListening=$true;Prefixes=@("http://127.0.0.1:19499/")};Write-Host "SQL_Server_Lab Workflow UI: http://127.0.0.1:19499/" -ForegroundColor Green',[Text.UTF8Encoding]::new($false))
+ [IO.File]::WriteAllText($scopeProbe,'$operatorSession=[pscustomobject]@{File="SYNTHETIC_OPERATOR"};$listener=[pscustomobject]@{IsListening=$true;Prefixes=@("http://127.0.0.1:19499/")};Write-Host "SQL_Server_Lab Workflow UI: http://127.0.0.1:19499/" -ForegroundColor Green',[Text.UTF8Encoding]::new($false))
  $global:browserServerConfig=[pscustomobject]@{ListenerPort=19499;EvidenceRoot=$scopeEvidence}
  try{
   $probeSource='function Write-Host {'+$hostHook.Body.ParamBlock.Extent.Text+';if('+$hookIf.Clauses[0].Item1.Extent.Text+'){' + $hookText + '}};& $scopeProbe'
@@ -89,9 +89,10 @@ try{
  }finally{Remove-Variable -Name browserServerConfig -Scope Global -ErrorAction SilentlyContinue}
  $global:browserServerConfig=[pscustomobject]@{ListenerPort=19499;EvidenceRoot=$evidence}
  function Invoke-SyntheticReadyHook {. ([scriptblock]::Create($hookText))}
- & {$listener=[pscustomobject]@{IsListening=$true;Prefixes=@('http://127.0.0.1:19499/')};Invoke-SyntheticReadyHook}
+ & {$operatorSession=[pscustomobject]@{File='SYNTHETIC_OPERATOR'};$listener=[pscustomobject]@{IsListening=$true;Prefixes=@('http://127.0.0.1:19499/')};Invoke-SyntheticReadyHook}
  $readyFile=Join-Path $evidence browser-listener-ready.private.json
- Check ((Get-Content $readyFile -Raw) -ceq '{"ListenerStarted":true}') 'Actual hook resolves listener from caller scope and writes readiness after exact bind'
+ $readyRecord=Get-Content $readyFile -Raw|ConvertFrom-Json
+ Check ($readyRecord.ListenerStarted -eq $true -and $readyRecord.OperatorFile -ceq 'SYNTHETIC_OPERATOR') 'Actual hook resolves listener and private credential locator after exact bind'
  $readyHash=(Get-FileHash $readyFile).Hash
  Reject {& {$listener=[pscustomobject]@{IsListening=$true;Prefixes=@('http://127.0.0.1:14336/')};Invoke-SyntheticReadyHook}} 'LISTENER_BINDING' 'Wrong listener prefix veto before ready write'
  Check ((Get-FileHash $readyFile).Hash -ceq $readyHash) 'Listener veto retains readiness evidence without overwrite'
@@ -252,11 +253,11 @@ vm.runInNewContext(prefix+'\nglobalThis.makePlan=plan;',definitions);
 const dialogSource=fs.readFileSync(path.join(repo,'Ui/container-autostart-preview.js'),'utf8');
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 async function scenario(badOriginStatus){
- const c={ListenerPort:19499,BrowserExecutable:'SYNTHETIC_EDGE',PlaywrightDirectory:'SYNTHETIC_PLAYWRIGHT',ResultPath:'SYNTHETIC_RESULT',RunId:'11111111-1111-1111-1111-111111111111'};
+ const c={ListenerPort:19499,EvidenceRoot:'SYNTHETIC_EVIDENCE',BrowserExecutable:'SYNTHETIC_EDGE',PlaywrightDirectory:'SYNTHETIC_PLAYWRIGHT',ResultPath:'SYNTHETIC_RESULT',RunId:'11111111-1111-1111-1111-111111111111'};
  const base='http://127.0.0.1:19499';let handler,closed=0,launched=0,fetches=0,continued=0,aborted=0,report,error='';
  const elements={};for(const id of ['open','dialog','close','read','plan','target','policy','status','result'])elements[id]={events:{},value:'',textContent:'',disabled:false,open:false,children:[],addEventListener(n,f){this.events[n]=f;},replaceChildren(){this.children=[];this.value='';},appendChild(v){this.children.push(v);if(this.children.length===1)this.value=v.value;},showModal(){this.open=true;},close(){this.open=false;}};
  const document={querySelector:s=>elements[s.replace('#autostart-preview-','')],createElement:()=>({})};
- const dom={document,TextEncoder,fetch:(url,options)=>new Promise((resolve,reject)=>{
+ const dom={document,TextEncoder,sqlServerLabUiFetch:(url,options)=>new Promise((resolve,reject)=>{
   const p=JSON.parse(options.body),value=p.Action==='Read'?{ContractVersion:'SqlServerLab.ContainerAutoStartBrowser/1.0',Status:'METADATA_ONLY',Targets:[{RunId:c.RunId,InstanceId:'primary',Provider:'docker'}],CanApply:false,MutationAllowed:false,Actions:[]}:definitions.makePlan('docker',p.AutoStart==='off');
   const actualResponse={ok:true,json:async()=>value};
   const route={request:()=>({url:()=>base+url,method:()=>options.method,postData:()=>options.body}),fetch:async()=>{fetches++;return actualResponse;},fulfill:async arg=>{check(arg.response===actualResponse && Object.keys(arg).join(',')==='response','Driver forwards delayed genuine response handle/body without replacement');resolve(arg.response);},continue:async()=>{continued++;resolve(actualResponse);},abort:async()=>{aborted++;reject(Error('DENIED'));}};
@@ -273,14 +274,14 @@ async function scenario(badOriginStatus){
  const context={newPage:async()=>page,request:{post:async(url,args)=>({status:()=>args.headers.Origin===base?400:badOriginStatus}),get:async()=>({status:()=>400})}};
  const leaf={chromium:{launch:async args=>{check(args.executablePath===c.BrowserExecutable&&args.headless&&args.timeout===30000,'Driver uses bound existing browser with one bounded launch');launched++;return{newContext:async args=>{check(args.serviceWorkers==='block','Service workers cannot bypass request filter');return context;},close:async()=>{closed++;}};}}};
  const proc={argv:['node','driver','config'],stderr:{write:v=>{error+=v;}},exitCode:0};
- const fakeFs={readFileSync:()=>JSON.stringify(c),writeFileSync:(name,text,args)=>{check(name===c.ResultPath&&args.flag==='wx','Driver result uses exclusive bound path');report=JSON.parse(text);}};
+ const fakeFs={readFileSync:name=>JSON.stringify(name==='SYNTHETIC_OPERATOR'?{ContractVersion:'SqlServerLab.UiOperator/1.0',ListenerUrl:base+'/',StartUrl:base+'/#sql-lab-operator='+'a'.repeat(64),Capability:'a'.repeat(64)}:name.endsWith('browser-listener-ready.private.json')?{OperatorFile:'SYNTHETIC_OPERATOR'}:c),writeFileSync:(name,text,args)=>{check(name===c.ResultPath&&args.flag==='wx','Driver result uses exclusive bound path');report=JSON.parse(text);}};
  await vm.runInNewContext(driver,{require:name=>name==='node:fs'?fakeFs:leaf,process:proc,URL,console});
  check(launched===1&&closed===1,'Driver finally closes its single returned browser on success/failure');
  check(fetches===1&&aborted===4,'Unrelated/external requests denied; one delayed real response fetched');
- if(badOriginStatus===400){check(proc.exitCode===0&&report.PublicPreviewRequests===3&&report.EarlyCancelInvalidPreviewRequests===0&&report.LateRealResponseDisplayVeto&&report.PreviewResponsesStubbed===false,'Actual driver and dialog complete three previews/cancel/late-veto with fixed report');}
+ if(badOriginStatus===403){check(proc.exitCode===0&&report.PublicPreviewRequests===3&&report.EarlyCancelInvalidPreviewRequests===0&&report.LateRealResponseDisplayVeto&&report.PreviewResponsesStubbed===false,'Actual driver and dialog complete three previews/cancel/late-veto with fixed report');}
  else{check(proc.exitCode===1&&!report&&error==='AUTOSTART_BROWSER_DRIVER_FAILED:INVALID_REQUESTS\n','Unexpected transport acceptance fails closed with fixed stage only');}
 }
-(async()=>{await scenario(400);await scenario(200);console.log('DRIVER BOUNDARY: '+checks+' PASS; actual driver+actual dialog; synthetic Playwright/HTTP; BrowserStarts0 NetworkStarts0');})().catch(e=>{console.error(e);process.exitCode=1;});
+(async()=>{await scenario(403);await scenario(200);console.log('DRIVER BOUNDARY: '+checks+' PASS; actual driver+actual dialog; synthetic Playwright/HTTP; BrowserStarts0 NetworkStarts0');})().catch(e=>{console.error(e);process.exitCode=1;});
 '@
  [IO.File]::WriteAllText($driverTest,$driverChecks,[Text.UTF8Encoding]::new($false))
  $node=Get-Command node -ErrorAction Stop

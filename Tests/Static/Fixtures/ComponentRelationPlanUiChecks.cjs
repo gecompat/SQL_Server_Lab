@@ -1,5 +1,5 @@
 'use strict';
-// Execute the actual standalone dialog script with DOM/fetch leaves only.
+// Execute the actual standalone dialog script with DOM/sqlServerLabUiFetch leaves only.
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
@@ -20,7 +20,7 @@ const nodes = new Map([...html.matchAll(/\bid="(component-relations-[^"]+)"/g)].
 const node = id => { const element = nodes.get('component-relations-' + id); assert.ok(element, 'Actual HTML element ' + id); return element; };
 const requests = [];
 const context = vm.createContext({ document: { querySelector(selector) { return nodes.get(selector.slice(1)); }, createElement() { return new Element(); } },
-  fetch(url, options) { assert.equal(url, '/api/component-relations'); let resolve; const promise = new Promise(done => { resolve = done; }); requests.push({ url, options, resolve }); return promise; },
+  sqlServerLabUiFetch(url, options) { assert.equal(url, '/api/component-relations'); let resolve; const promise = new Promise(done => { resolve = done; }); requests.push({ url, options, resolve }); return promise; },
   queueBackgroundAction() { throw new Error('FORBIDDEN_WORKFLOW_DISPATCH'); }, startPublicCommand() { throw new Error('FORBIDDEN_GENERIC_COMMAND'); }, console });
 vm.runInContext(source, context, { timeout: 5000 });
 let checks = 0;

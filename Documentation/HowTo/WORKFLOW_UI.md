@@ -6,8 +6,9 @@ Alle Requests passieren die gemeinsame [HTTP-Grenze](../Architecture/WORKFLOW_UI
 vor Routing und Bodylesung. Browserzugriffe müssen die genaue
 `http://127.0.0.1:<Port>`-Origin verwenden; POST verlangt JSON in UTF-8.
 Fremde Origins, ungeeignete Medientypen und andere Methoden werden abgewiesen.
-Lokale JSON-Clients ohne Origin bleiben zugelassen. Eine Operatoranmeldung
-oder servergebundene Aktionsfreigabe ist weiterhin offen.
+Lokale JSON-Clients ohne Origin benötigen dieselbe startgebundene
+Operator-Capability. Einmalige servergebundene Aktions-/Replayfreigaben
+bleiben offen.
 Die sieben direkten JSON-POST-Routen akzeptieren höchstens 1 MiB UTF-8 und
 teilen pro Body eine absolute Lesefrist von fünf Sekunden. Überlänge ergibt
 413, ungültiges UTF-8 400 und Timeout 408 vor einem Fachaufruf.
@@ -313,9 +314,33 @@ am selben Ziel können daher ebenfalls bis zum bestätigten Abschluss blockieren
 
 Im Repository unter PowerShell 7 starten:
 
+Windows benötigt weiterhin mindestens PowerShell 7.2. Unter Unix benötigt der
+private UI-Handoff zusätzlich die UnixFileMode-APIs aus .NET 7 oder neuer.
+Fehlen diese Hostfeatures, bricht der Start vor jeglicher Handoffanlage mit
+`UI_OPERATOR_UNIX_MODE_UNAVAILABLE` ab.
+
     ./Tools/Start-SqlServerLabUi.ps1
 
-Danach wird die Oberfläche unter http://127.0.0.1:8484 geöffnet. Sie lauscht
+Danach wird die Oberfläche mit einem privaten Startlink unter
+http://127.0.0.1:8484 geöffnet. Jede Serversitzung erzeugt eine neue
+Operator-Capability; alle API-Lese- und Aktionsrequests benötigen sie.
+Der Browser entfernt das Startfragment sofort und hält die Capability nur
+im Arbeitsspeicher. Für Reload oder weiteren Tab den privaten Startlink
+erneut öffnen. Ein nackter Basislink lädt Produktassets, authentifiziert aber
+keine APIrequests.
+
+`-NoBrowser` erzeugt denselben privaten Handoff ohne Browserstart. Das Terminal
+nennt den Locator einer ausschließlich lokal zu lesenden `operator.json` in
+einem neuen privaten Runtimeverzeichnis. Sie enthält `StartUrl`, `ListenerUrl`
+und `Capability`. Den Startlink lokal im Browser öffnen; HTTP-CLI-Clients senden
+`Capability` als `X-SqlServerLab-Operator` an genau `ListenerUrl`. Dateien und
+Werte nicht teilen, in Logs übernehmen oder in Git speichern. Bei Serverende
+entfernt der Server nur sein unverändertes eigenes Handoffartefakt;
+unbestätigter Cleanup bleibt lokal sichtbar. Ein alter Startlink funktioniert
+nach Neustart nicht. Diese Operatorbindung ersetzt keine Aktionsbestätigung
+oder fachliche Zielprüfung.
+
+Sie lauscht
 ausschließlich auf der Loopback-Adresse; ein Zugriff aus dem Netzwerk ist nicht
 vorgesehen. Die normale Sitzung startet nicht erhöht. Read-only-Aktionen laufen
 als Benutzer, Container-Lifecycle-Aktionen mit den vorhandenen Runtimerechten.

@@ -20,7 +20,7 @@ const node = id => { const value = nodes.get('evaluation-refresh-' + id); assert
 node('mode').value = 'FREE_SLOT_REPLACEMENT';
 const requests = [];
 const context = vm.createContext({ document: { querySelector: selector => nodes.get(selector.slice(1)), createElement: () => new Element() },
-  fetch(url, options) { assert.equal(url, '/api/evaluation-refresh-plan'); let resolve; const promise = new Promise(done => { resolve = done; }); requests.push({ options, resolve }); return promise; },
+  sqlServerLabUiFetch(url, options) { assert.equal(url, '/api/evaluation-refresh-plan'); let resolve; const promise = new Promise(done => { resolve = done; }); requests.push({ options, resolve }); return promise; },
   queueBackgroundAction() { throw new Error('FORBIDDEN_JOB'); }, startPublicCommand() { throw new Error('FORBIDDEN_GENERIC_COMMAND'); }, console });
 vm.runInContext(source, context, { timeout: 5000 });
 const own = { RunId: '33333333-3333-4333-8333-333333333333', ScopeId: '44444444-4444-4444-8444-444444444444', InstanceId: 'primary', State: 'RUNNING', Digest: 'a'.repeat(64) };

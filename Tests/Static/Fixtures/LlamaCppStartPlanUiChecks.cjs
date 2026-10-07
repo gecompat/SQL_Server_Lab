@@ -11,7 +11,7 @@ const ids = ['open', 'dialog', 'runtime', 'model', 'backend', 'accelerator', 'di
 function fixture() {
   const elements = new Map(ids.map(id => [id, { value: '', textContent: '', disabled: false, open: false, listeners: {}, addEventListener(event, fn) { (this.listeners[event] ||= []).push(fn); }, showModal() { this.open = true; }, close() { this.open = false; for (const fn of this.listeners.close || []) fn(); }, async emit(event) { for (const fn of this.listeners[event] || []) await fn(); } }]));
   const calls = []; const responses = [];
-  const context = vm.createContext({ document: { querySelector(selector) { const id = selector.replace('#llama-start-plan-', ''); assert.ok(elements.has(id)); return elements.get(id); } }, fetch(url, options) { calls.push({ url, options }); return responses.shift()(); } });
+  const context = vm.createContext({ document: { querySelector(selector) { const id = selector.replace('#llama-start-plan-', ''); assert.ok(elements.has(id)); return elements.get(id); } }, sqlServerLabUiFetch(url, options) { calls.push({ url, options }); return responses.shift()(); } });
   vm.runInContext(source, context, { filename: 'llama-start-plan.js' });
   return { elements, context, calls, responses, get: id => elements.get(id), run: code => vm.runInContext(code, context) };
 }

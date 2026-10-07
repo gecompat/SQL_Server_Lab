@@ -4,7 +4,7 @@ const root=path.resolve(__dirname,'../../..');let passed=0;
 function check(condition,name){assert.ok(condition,name);passed++;console.log('PASS: '+name);}
 function setup(){
   const elements=Object.fromEntries(['open','dialog','sql','query','search','results','status','close'].map(id=>[id,{value:'',textContent:'',disabled:false,open:false,children:[],events:{},addEventListener(name,fn){this.events[name]=fn;},replaceChildren(){this.children=[];},appendChild(v){this.children.push(v);},showModal(){this.open=true;},close(){this.open=false;this.events.close?.();}}]));
-  const requests=[];const context={document:{querySelector:s=>elements[s.replace('#collation-','')],createElement:()=>({})},fetch:(url,options)=>new Promise((resolve,reject)=>requests.push({url,options,resolve,reject})),TextEncoder};
+  const requests=[];const context={document:{querySelector:s=>elements[s.replace('#collation-','')],createElement:()=>({})},sqlServerLabUiFetch:(url,options)=>new Promise((resolve,reject)=>requests.push({url,options,resolve,reject})),TextEncoder};
   vm.runInNewContext(fs.readFileSync(path.join(root,'Ui/collation-catalog.js'),'utf8'),context);
   return {elements,requests,click:id=>elements[id].events.click(),flush:()=>new Promise(r=>setImmediate(r))};
 }

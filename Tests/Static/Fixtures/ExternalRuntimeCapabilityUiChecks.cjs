@@ -8,7 +8,7 @@ function setup(){
   const elements=Object.fromEntries(ids.map(id=>[id,{value:'',textContent:'',disabled:false,open:false,children:[],events:{},addEventListener(name,fn){this.events[name]=fn;},replaceChildren(){this.children=[];this.value='';},appendChild(v){this.children.push(v);},showModal(){this.open=true;},close(){this.open=false;this.events.close?.();}}]));
   elements.provider.value='docker';elements.sql.value='2022';
   const requests=[];
-  const context={document:{querySelector:selector=>elements[selector.replace('#external-runtime-','')],createElement:()=>({})},fetch:(url,options)=>new Promise((resolve,reject)=>requests.push({url,options,resolve,reject})),console};
+  const context={document:{querySelector:selector=>elements[selector.replace('#external-runtime-','')],createElement:()=>({})},sqlServerLabUiFetch:(url,options)=>new Promise((resolve,reject)=>requests.push({url,options,resolve,reject})),console};
   vm.runInNewContext(fs.readFileSync(path.join(root,'Ui/external-runtime-capability.js'),'utf8'),context);
   const click=id=>elements[id].events.click();
   const flush=()=>new Promise(resolve=>setImmediate(resolve));

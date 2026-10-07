@@ -698,6 +698,8 @@ sources_of_truth:
   workflow_ui_server: Tools/Start-SqlServerLabUi.ps1
   workflow_ui_request_boundary: Documentation/Architecture/WORKFLOW_UI_REQUEST_BOUNDARY.md, Tools/WorkflowUiRequestBoundary.ps1
   workflow_ui_request_boundary_validation: Tests/Static/Fixtures/WorkflowUiRequestBoundaryChecks.ps1
+  workflow_ui_operator: Tools/WorkflowUiOperator.ps1, Ui/operator-transport.js # fresh per-start API credential, private owner-only handoff, no action/replay grants
+  workflow_ui_operator_validation: Tests/Static/Fixtures/WorkflowUiOperatorChecks.ps1, Tests/Static/Fixtures/WorkflowUiOperatorTransportChecks.cjs # actual requestblock/HTTP plus actual JS with synthetic fetch leaves
   workflow_ui_json_body: Tools/WorkflowUiJsonBody.ps1
   workflow_ui_json_body_validation: Tests/Static/Fixtures/WorkflowUiJsonBodyChecks.ps1
   workflow_ui_specialized_body_validation: Tests/Static/Fixtures/WorkflowUiSpecializedBodyChecks.ps1 # eight internal adapters; retained character limits, byte ceilings, absolute deadline; synthetic sinks

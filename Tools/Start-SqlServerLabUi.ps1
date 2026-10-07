@@ -125,6 +125,7 @@ function Import-UiSqlServerLabModule {
 Import-UiSqlServerLabModule -ModulePath $modulePath
 . (Join-Path $PSScriptRoot 'WorkflowUiJobStatus.ps1')
 . (Join-Path $PSScriptRoot 'WorkflowUiRequestBoundary.ps1')
+. (Join-Path $PSScriptRoot 'WorkflowUiOperator.ps1')
 . (Join-Path $PSScriptRoot 'WorkflowUiJsonBody.ps1')
 
 function Write-UiResponse {
@@ -567,18 +568,20 @@ function Invoke-UiMediaOverrideRequest {
 $listener = [Net.HttpListener]::new()
 $url = "http://127.0.0.1:$Port/"
 $listener.Prefixes.Add($url)
-$listener.Start()
+$operatorSession = New-UiOperatorSession -ListenerUrl $url
 $jobs = @{}
 $persistentJobs = @{}
 $runArtifactRemovalPreviews = @{}
 
-Write-Host "SQL_Server_Lab Workflow UI: $url" -ForegroundColor Green
-Write-Host 'Zum Beenden Strg+C druecken.' -ForegroundColor DarkGray
-Write-Host "Job-Stop-Timeout beim Beenden: ${JobStopTimeoutSeconds}s (Parameter: -JobStopTimeoutSeconds)." -ForegroundColor DarkGray
-Write-Host "Log-Burst-Limit pro Snapshot: ${JobLogBurstLimit} Zeilen (Parameter: -JobLogBurstLimit)." -ForegroundColor DarkGray
-if (-not $NoBrowser) { Start-Process $url }
-
 try {
+    $listener.Start()
+    Write-Host "SQL_Server_Lab Workflow UI: $url" -ForegroundColor Green
+    Write-Host ('Privater Startlink und HTTP-CLI-Capability: ' + $operatorSession.File) -ForegroundColor DarkGray
+    Write-Host 'Für Reload oder einen weiteren Tab den privaten Startlink erneut öffnen; Datei nicht teilen oder protokollieren.' -ForegroundColor DarkGray
+    Write-Host 'Zum Beenden Strg+C druecken.' -ForegroundColor DarkGray
+    Write-Host "Job-Stop-Timeout beim Beenden: ${JobStopTimeoutSeconds}s (Parameter: -JobStopTimeoutSeconds)." -ForegroundColor DarkGray
+    Write-Host "Log-Burst-Limit pro Snapshot: ${JobLogBurstLimit} Zeilen (Parameter: -JobLogBurstLimit)." -ForegroundColor DarkGray
+    if (-not $NoBrowser) { Start-Process $operatorSession.StartUrl }
     while ($listener.IsListening) {
         try {
             $context = $listener.GetContext()
@@ -602,6 +605,11 @@ try {
             }
 
             $path = $context.Request.Url.AbsolutePath
+            $operatorDecision = Get-UiOperatorDecision -Request $context.Request -ListenerUrl $url -Session $operatorSession
+            if (-not $operatorDecision.Allowed) {
+                Write-UiResponse -Context $context -Body $operatorDecision.Code -StatusCode $operatorDecision.StatusCode
+                continue
+            }
             if ($path -eq '/api/test-group' -and $context.Request.HttpMethod -eq 'GET') {
                 try {
                     $power = [string]$context.Request.QueryString['powerAction']
@@ -1048,6 +1056,7 @@ try {
     }
 }
 finally {
+    try {
     if ($jobs.Count -gt 0) { Write-Host "Beende $($jobs.Count) UI-Job(s)..." -ForegroundColor DarkGray }
     if ($workflowInventory.Job) {
         if ($workflowInventory.Job.State -eq 'Running') { Stop-Job -Job $workflowInventory.Job -ErrorAction SilentlyContinue }
@@ -1075,6 +1084,8 @@ finally {
         Remove-Job -Job $job -Force -ErrorAction SilentlyContinue
     }
     if ($jobs.Count -gt 0) { Write-Host 'UI-Job-Bereinigung abgeschlossen.' -ForegroundColor DarkGray }
-    $listener.Stop()
-    $listener.Close()
+    } finally {
+        try { $listener.Stop(); $listener.Close() }
+        finally { $null = Close-UiOperatorSession -Session $operatorSession }
+    }
 }

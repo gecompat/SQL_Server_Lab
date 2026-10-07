@@ -49,6 +49,40 @@ TCP-Zielbindung und klassifizierte Cloud-Freigaben bleiben offen.
 
 ## Gemeinsame Workflow-UI-HTTP-Grenze
 
+Der startgebundene Operator-Slice besitzt `WorkflowUiOperatorChecks.ps1`:
+50 Checks am 2026-10-08, darunter zwölf echte HTTP-Requests über den vollständigen
+Produktrequestblock. Fehlende/falsche Capability, GET/POST, Groß-/Mischschreibung
+und fremder Origin erreichen keine Fachaktion; drei gültige Aufrufe erreichen
+nur synthetische Sinks. Private Windows-CreateNew-Handoffdateien samt Owner-ACL,
+Startrotation und gezielter eigener Cleanup sind geprüft. Plattform-/Featureveto
+(Unix ohne .NET-7-Mode-APIs, unbekannte Plattform) sowie Preflight vor Mutation
+sind deterministisch geprüft; Windows PS7.2 bleibt zugelassen. Der eigene Listener,
+Threadjob und Credentialscope sind entfernt; Unix, Produktmodul, State, SQL und
+Provider bleiben damit nicht nachgewiesen.
+
+`WorkflowUiOperatorTransportChecks.cjs` bestand mit 38 Checks am tatsächlichen
+benannten Transport mit synthetischem Native-Fetch. Fragment-/History-Scrub,
+Closure statt Storage, eingeschränkte URL-/Originbindung, Redirectveto und
+erhaltene Header-/Body-/Abortsemantik sowie alle zehn Komponenten sind geprüft.
+Die bestehenden Boundary-/Body-Fixtures bestanden mit authentifiziertem
+synthetischem Bootstrap erneut (48, 35 und 58 Checks). Die angepasste
+AutoStart-Driver-Fixture bestand mit 74 Checks einschließlich 21 synthetischen
+Driverprüfungen; keine echten Browser-/Providerstarts. Weitere isolierte
+CMS-/Collation-/External-Languages-/Port-Fixtures bestanden mit 33/36/48/39
+Checks. Die elf betroffenen bisherigen JS-Fixtures bestanden. Dies ersetzt
+keinen gerenderten oder nativen Nachweis. Ausgeführte Pflichtgates und spätere
+Driverabnahmen werden separat am tatsächlichen Stand erfasst.
+
+Die separate gerenderte Edge-Abnahme vom 2026-10-08 bestand mit tatsächlichem
+gemeinsamem Requestblock, Helpers und allen 13 Produktassets. Sieben gültige
+APIresponses decken Bootstrap, Polling und CMS-GET/POST mit synthetischen
+Fachantworten ab. Fehlendes Fragment erzeugt keinen APIrequest; fünf
+Browserrequests mit falscher Capability und acht direkte unautorisierte HTTP-Requests wurden
+abgewiesen. Kein Credential in DOM, Storage oder Responses, keine Scriptfehler,
+unveränderte Quellen und bestätigter Browser-/Listener-/Credentialcleanup.
+Produktmodul, State, SQL und Provider bleiben `NOT_EXECUTED`; native Driver-
+und Unix-Rechteabnahmen sind damit weiterhin nicht belegt.
+
 `WorkflowUiJsonBodyChecks.ps1` bestand mit 35 Checks, darunter 13 echte HTTP-
 Requests über den vollständigen gemeinsamen Requestblock. Sieben direkte
 POST-Routen verwerfen deklarierte Überlänge ohne Bodylesen; Chunked-Überlänge,
@@ -57,7 +91,7 @@ Drei anschließende gültige Requests erreichen ausschließlich synthetische
 Sinks; kein Produktmodul/State/SQL/Provider wird ausgeführt. Eigener Listener
 und Threadjob werden entfernt. Eigene Streams prüfen zusätzlich Bytegrenze,
 Sentinel, striktes UTF-8 und die absolute Frist. Übrige spezifische Reader, Header-
-Deadline, Parallelität, Authentifizierung und Statequotas bleiben offen.
+Deadline, Parallelität, Action-/Replayfreigaben und Statequotas bleiben offen.
 
 Die in WorkflowUI eingebundene `WorkflowUiRequestBoundaryChecks.ps1` bestand
 am 2026-10-07 mit 48 Checks, darunter zwölf echte Loopback-HTTP-Requests über
@@ -67,7 +101,8 @@ Body wird ebenfalls abgewiesen. Kein Veto erreicht einen Job; zwei erlaubte
 Requests bleiben synthetisch. Header-/Authority-
 Prüfungen lesen keinen Body. Eigener Listener und Threadjob werden beendet.
 Produktmodul, State, SQL, Provider und gerenderter Browser sind NOT_EXECUTED;
-Operatorauthentifizierung und vollständige Cloud-Fundbehebung bleiben offen.
+Dieser historische Boundarynachweis prüft keine Operatorauthentifizierung;
+vollständige Cloud-Fundbehebung bleibt offen.
 [Vertrag](../Architecture/WORKFLOW_UI_REQUEST_BOUNDARY.md).
 
 `WorkflowUiSpecializedBodyChecks.ps1` ist in WorkflowUI eingebunden und prüft

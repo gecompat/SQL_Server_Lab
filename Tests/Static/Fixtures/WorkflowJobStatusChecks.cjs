@@ -14,7 +14,7 @@ const document = { querySelector(selector) { if (!elements.has(selector)) elemen
 let timers = new Map(), timerId = 0, calls = [], responder, hashInputs = [];
 const context = vm.createContext({ document, crypto: { subtle: { async digest(algorithm, bytes) { hashInputs.push(new TextDecoder().decode(bytes)); return webcrypto.subtle.digest(algorithm, bytes); } } }, TextEncoder, AbortController, console,
   window: { setTimeout(fn, delay) { timers.set(++timerId, { fn, delay }); return timerId; }, clearTimeout(id) { timers.delete(id); } },
-  fetch: async (url, options) => { calls.push({ url, method: options?.method || 'GET' }); return responder(url, options); },
+  sqlServerLabUiFetch: async (url, options) => { calls.push({ url, method: options?.method || 'GET' }); return responder(url, options); },
   showWorkspaceArea() {}, empty: value => value, migrationInventoryResult: () => '', testGroupResult: () => ''
 });
 vm.runInContext(source.slice(0, source.indexOf('function publicCommandAllowedValues')), context);

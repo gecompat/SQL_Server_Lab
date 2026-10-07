@@ -2,14 +2,46 @@
 
 | Merkmal | Wert |
 |---|---|
-| Status | Benutzerpause vom 2026-10-07: nach Integration dieser Fachreader-Runde `PAUSED`; kein automatischer Folgeslice |
-| Stand | 2026-10-07 |
+| Status | `ACTIVE`; ausdrücklich am 2026-10-08 nach Integration des Backlog-PR #712 wieder aufgenommen |
+| Stand | 2026-10-08 |
 | Auftrag | Aktuelle Entwicklungswelle aus Orchestrator Chat 2 mit denselben Regeln fortsetzen; C# bleibt USER_DEFERRED |
 | Ausgangspunkt | Durchsicht von `9cfd144`, vor Veröffentlichung gegen `ca9f09e` abgeglichen |
 | Ziel | vollständige Abarbeitung der Implementierungs-, Abnahme- und Bewertungsaufgaben bei konsistentem Gesamtsystem |
 | Reihenfolge | Konkretisierung des nachgelagerten Horizonts aus Abschnitt 12 des [Ausführungsplans](DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md) |
 
 ## Wiederaufnahme vom 2026-10-06
+
+### Ausdrückliche Wiederaufnahme vom 2026-10-08
+
+Nach vollständiger Integration der Backlogeinträge aus PR #712 nach
+`origin/main` (`06f7d96b`) hat der Benutzer autonome Weiterentwicklung nach den
+bekannten Regeln und Nutzung unabhängiger Subagents ausdrücklich wieder
+gestartet. Fertigmeldungen lösen die nächste Orchestratorentscheidung aus;
+der Fortsetzungsheartbeat ersetzt weder diese Meldungen noch echte Gates.
+Genau ein Implementierer verantwortet jeden atomaren Scope. Der historische
+Pausecheckpoint darunter bleibt erhalten; die Pause ist durch diesen neuen
+Auftrag aufgehoben. Keine neue Freigabe für gesperrte Ressourcen, Native-CMS,
+C#, Cloud-Scans, Uploads oder ungebundene Bereinigung.
+
+Der nächste begrenzte Sicherheits-Slice implementiert die startgebundene
+[UI-Operator-Capability](../Architecture/WORKFLOW_UI_REQUEST_BOUNDARY.md):
+alle API-Lese-/Aktionsrouten vor Dispatch authentifizieren, privater lokaler
+Start-/CLI-/Reload-Handoff und benannter Browsertransport. Einmalige
+servergebundene Action-/Replayfreigaben bleiben der nächste offene Schritt.
+Prüfungen, gerenderter Nachweis und Pflichtgate werden getrennt vom
+Implementierungsstand erfasst; kein aktueller Cloud-Scan oder nativer
+Providerbeweis wird aus diesem Plan abgeleitet.
+
+Die separate gerenderte Operatorabnahme vom 2026-10-08 bestand am tatsächlichen
+Requestblock und allen Produktassets mit synthetischen Fachantworten:
+authentifizierter Bootstrap/Polling, CMS-GET/POST, fehlende/falsche Credentials,
+acht direkte HTTP-Vetos und bestätigter eigener Cleanup. Produktmodul, SQL,
+Provider und Unix-Rechte bleiben getrennte Nachweise. Der unabhängige Review
+des vollständigen 54-Dateien-Stands ergab keine bestätigten Findings.
+Für den nächsten Einmalgrant-Slice sind `/api/commands`, exakte Body-/Sitzungs-
+bindung und Verbrauch vor Jobanlage vorzubereiten; andere Aktionsrouten und
+Batch-Replay bleiben ausdrücklich offen. Host-DNS-/TCP-Bindung ist separat
+vorbereitet und erteilt keine SQL-Egress- oder Cloud-Consentfreigabe.
 
 ### Abschlussgrenze und Wiederaufnahme nach Benutzerpause vom 2026-10-07
 

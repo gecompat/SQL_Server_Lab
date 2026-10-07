@@ -95,7 +95,7 @@ function Assert-ExternalCatalogBrowserCompletion {
     $flags=@('FullDocument','AllScriptsLoaded','BootstrapRendered','NavigationToCreate','OpenEditNoAction','OptionsRendered','BlockedOptionsDisabled','DecisionsRendered','Explicit2025Variant','HostNotExecuted','ReopenClearsOutput','NoScriptErrors','DialogClosed')
     if($Operator -isnot [pscustomobject] -or $Operator.Contract -cne 'SqlServerLab.ExternalCatalogBrowserOperator/1.0' -or @($Operator.PSObject.Properties.Name).Count -ne $flags.Count+1 -or @($Operator.PSObject.Properties.Name | Where-Object {$_ -cnotin (@('Contract')+$flags)}).Count){throw 'EXTERNAL_CATALOG_BROWSER_OPERATOR'}
     foreach($name in $flags){if($Operator.$name -isnot [bool] -or -not $Operator.$name){throw 'EXTERNAL_CATALOG_BROWSER_OPERATOR'}}
-    if($AssetPaths.Count -ne 12 -or @($AssetPaths | Sort-Object -Unique).Count -ne 12 -or $Records.Count -gt 512 -or $ForbiddenEffects -ne 0){throw 'EXTERNAL_CATALOG_BROWSER_BOUNDARY'}
+    if($AssetPaths.Count -ne 13 -or @($AssetPaths | Sort-Object -Unique).Count -ne 13 -or $Records.Count -gt 512 -or $ForbiddenEffects -ne 0){throw 'EXTERNAL_CATALOG_BROWSER_BOUNDARY'}
     $bootstrap=@('/api/config','/api/commands','/api/workflow','/api/jobs');$allowed=@($AssetPaths)+$bootstrap+@('/api/external-runtime-capability','/favicon.ico')
     foreach($row in $Records){if($row.Path -cnotin $allowed -or $row.Status -ne $(if($row.Path -ceq '/favicon.ico'){204}else{200}) -or $row.Method -cne $(if($row.Path -ceq '/api/external-runtime-capability'){'POST'}else{'GET'}) -or $row.Transport -cne 'SENT'){throw 'EXTERNAL_CATALOG_BROWSER_REQUEST'}}
     foreach($path in $AssetPaths){if(@($Records | Where-Object Path -CEQ $path).Count -ne 1){throw 'EXTERNAL_CATALOG_BROWSER_ASSET'}}
