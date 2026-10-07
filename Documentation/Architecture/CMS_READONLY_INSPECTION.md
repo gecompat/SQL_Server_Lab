@@ -74,8 +74,13 @@ sanitisierten Fehler, Busy-/Wiederholungsgrenzen und Schließen vor später Antw
 Der Operatorrecord ist eine UI-Beobachtung, keine Runtime- oder Cleanupautorität;
 19 unabhängig gemessene HTTP-Aktionen und unveränderte Produktquelldigests müssen
 passen. Listener und eigene Browseransicht werden anschließend geschlossen,
-lokale Nachweise bleiben erhalten. Der gerenderte Nachweis ist zunächst
-NOT_EXECUTED; ganze UI-Seite und native Browser-bis-SQL-Abnahme bleiben separat.
+lokale Nachweise bleiben erhalten. Dieser gerenderte synthetische Nachweis
+bestand am 2026-10-07 auf `56fae2de`: zehn Fälle, exakt 19 gemessene HTTP-Aktionen,
+vier unveränderte Produktquelldigests und geschlossener eigener Listener/Browser-Tab.
+Major 15/16/17, echte Null, nullable unbekannter Befund, Hyper-V-Sperre,
+verworfenes Bindungs-/Zählerergebnis, sanitisierten Fehler und Busy-/Wiederholungs-
+sowie Close/Late-Grenzen wurden sichtbar geprüft. Ganze UI-Seite und native
+Browser-bis-SQL-Abnahme bleiben separat; dies ist kein SQL-/Providernachweis.
 
 Die Offline-Fixture `Tests/Static/Fixtures/CmsInspectionChecks.ps1` wird durch
 `Invoke-ConnectionCenterCmsChecks.ps1` entdeckt. Core, echte Public-/HTTP-/CLI-

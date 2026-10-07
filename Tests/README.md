@@ -12,8 +12,12 @@ Der Operator prüft die zehn Fälle `docker15`, `podman16`, `docker17`,
 in dieser Reihenfolge. Nach sichtbarer Prüfung erstellt er ausschließlich den
 festen Completionrecord; die gemessenen 19 HTTP-Aktionen müssen dazu passen.
 Die Late-Response wird erst nach beobachtetem Schließen explizit freigegeben.
-Fixture-/Helperprüfungen laufen in der CMS-Suite; Browserabnahme ist zunächst
-NOT_EXECUTED. Ganze UI-Seite und native Browser-bis-SQL-Abnahme bleiben getrennt.
+Fixture-/Helperprüfungen laufen in der CMS-Suite. Die zehn gerenderten Fälle
+bestanden am 2026-10-07 auf `56fae2de` mit exakt 19 gemessenen HTTP-Aktionen,
+unveränderten vier Produktquelldigests und anschließend geschlossenem eigenem
+Listener/Browser-Tab. Die fokussierte Fixture bestand mit 27 Checks einschließlich
+der CMS-Auswahl für jeden neuen Einzeldateipfad; sechs betroffene statische Suites
+bestanden lokal. Ganze UI-Seite und native Browser-bis-SQL-Abnahme bleiben getrennt.
 
 `Integration/Invoke-ConnectionCenterCmsInspectionAcceptance.ps1 -Provider docker|podman -Version 2019|2022|2025`
 verlangt einen frischen externen `sql-lab-cms-inspection-<GUID-N>`-Parent

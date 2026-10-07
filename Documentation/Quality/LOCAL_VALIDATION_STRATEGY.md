@@ -3118,6 +3118,17 @@ Callerzuordnung. Die Offline-Fixture bestand mit 179 Checks, einschließlich
 StoredVersion-Veto vor Effekt/Secret, falscher gemessener Majors und tatsächlicher
 Create-Weitergabe. Sechs ausgewählte statische Suites bestanden lokal; der
 abschließende PR-Gate-Nachweis bleibt separat am zu integrierenden Head erforderlich.
+`Invoke-ConnectionCenterCmsInspectionBrowserAcceptance.ps1` liefert separat den
+echten isolierten Dialog, CMS-JavaScript und HTTP-Adapter/Dispatch mit festen
+synthetischen Workflowantworten. Die gerenderte Abnahme bestand am 2026-10-07
+auf `56fae2de` mit zehn Fällen, exakt 19 gemessenen Aktionen, vier unveränderten
+Produktquelldigests und geschlossenem eigenem Listener/Browser-Tab. Nullable/
+echte Null, Major 15/16/17, Hyper-V, Bindung, unsichere Zähler, sanitisierten Fehler,
+Busy-/Wiederholung und Schließen vor Late-Response sind belegt. 27 fokussierte
+Helperchecks einschließlich drei Einzelpfadauswahlen und sechs betroffene statische
+Suites bestanden lokal. State/Provider/Secret/SQL wurden nicht ausgeführt.
+Ganze UI-Seite und native Browser-bis-SQL-Abnahme bleiben getrennte offene Nachweise;
+das Pflichtgate bleibt am finalen PR-Head erforderlich.
 
 Die Fixture CmsInspectionChecks wird durch Invoke-ConnectionCenterCmsChecks entdeckt. Notwendig sind tatsächliche PRE_SECRET_BARRIER-Fälle mit unverändertem Run/Runtime/Labels und verändertem Host/Port (SecretReads=0, SqlOpens=0), nullable/zero/feste DTO-Felder, aktuelle Bindung, eigener endlicher Worker, HTTP-Parametergrenzen, echter CLI-Einstieg/Cancel und JavaScript-Late-Response-/Cancel-Grenzen. Synthetische Grenzen führen keine Providerabfrage aus. Ausgewählte statische Suites und die tatsächlich gewählten Provider-Core-Gates bleiben erforderlich; vergangene B-/Capacity-Smokes decken diesen Source-Digest nicht ab. Eine allgemeine Docker-Core-Abnahme ist kein echter CMS-SQL-/SSMS-/Mitgliedsnachweis. Weitere Details im [CMS-Vertrag](../Architecture/CMS_READONLY_INSPECTION.md).
 

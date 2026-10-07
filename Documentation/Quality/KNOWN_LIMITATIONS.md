@@ -3127,6 +3127,13 @@ je zwei hashgesicherten Terminalkopien. Alle vier Schutzvergleiche hatten null
 Findings; Podman/2022 beobachtete eine begrenzte Windows-Systemtask-
 Zeitplanänderung ohne Callerzuordnung. Daraus folgt keine Abnahme anderer
 Builds, Windows, UI, Sync, SSMS, Mitglieder oder eines Least-Privilege-Rollenmodells.
+Die gerenderte synthetische CMS-Dialog-/HTTP-Abnahme bestand separat am
+2026-10-07 auf `56fae2de` mit zehn Fällen, exakt 19 gemessenen Aktionen und
+vier unveränderten Produktquelldigests; eigener Listener/Browser-Tab sind geschlossen.
+Nur der echte isolierte Dialog, CMS-JavaScript und HTTP-Adapter/Dispatch liefen;
+Workflowantworten waren synthetisch, State/Provider/Secrets/SQL ungenutzt.
+Das schließt weder die ganze UI-Seite noch den nativen Browser-bis-SQL-Pfad
+oder einen der weiter offenen CMS-/Authentisierungsnachweise.
 
 ## Bewusster lokaler Operator-Handoff
 
