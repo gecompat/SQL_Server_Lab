@@ -102,6 +102,20 @@ Listener/Browser-Tab sind geschlossen. Der erste Lauf mit leerer Bytearray-
 Antwort scheiterte; korrigiert, lokale Fehlerevidence erhalten. Native
 Browser-bis-SQL-Abnahme und andere UI-Aktionen bleiben offen.
 
+`Invoke-ConnectionCenterCmsNativeBrowserAcceptance.ps1` ergänzt separat den
+nativen Browser-bis-SQL-Kompositionsnachweis für einen frischen eigenen SQL-2025-
+CMS je Docker/Podman. Die vollständigen Produktseitenbytes und die tatsächliche
+CMS-HTTP-Adapter-/Dispatchroute bleiben unverändert; die vier übrigen Bootstrap-
+antworten sind synthetisch. GET/POST/GET/POST delegiert ausschließlich die beiden
+lesenden Aktionen in die originale Modulsitzung und den echten Worker. Vor/nach
+jedem Aufruf wird die eigene Route geprüft; DTO und Auswahl sind strikt gebunden.
+Zweimal Major 17/2/1, tatsächliche Navigation, wiederholte bewusste Auswahl und
+Schließen müssen beobachtet werden. Danach müssen Parentdateien/beide CMS-Tabellen
+gleich sein und der vorhandene Own-Cleanupvertrag bestehen. Kein bestehender Run
+wird adoptiert; Fehler behalten ihren Parent. Dieser Nachweis ist NOT_EXECUTED;
+vollständiger Produktserver, andere UI-Aktionen, Sync und weitere CMS-/Authgrenzen
+bleiben separat.
+
 Die Offline-Fixture `Tests/Static/Fixtures/CmsInspectionChecks.ps1` wird durch
 `Invoke-ConnectionCenterCmsChecks.ps1` entdeckt. Core, echte Public-/HTTP-/CLI-
 Adapter, eigener Prozess und JavaScript-Handler werden mit synthetischen

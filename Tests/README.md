@@ -1,5 +1,19 @@
 # Tests/ – lokale und Remote-Validierung
 
+`Integration/Invoke-ConnectionCenterCmsNativeBrowserAcceptance.ps1 -Provider docker|podman`
+verwendet den bestehenden frischen `sql-lab-cms-inspection-<GUID-N>`-Parent mit
+getrennter Parent-/State-Policy und receiptgebundener Custody. Nur ein neuer eigener
+SQL-2025-Run wird registriert; synthetische CMS-Metadaten werden vor der Abnahme
+arrangiert. Die vollständigen Produktseitenbytes laufen am eigenen Loopbacklistener
+(Default `ListenerPort` 19545, Produktport gesperrt). Vier Bootstrapreads bleiben
+synthetisch; nur die echte CMS-HTTP-Adapter-/Dispatchroute führt zum unveränderten
+Public-Workflow und echten Worker/SQL. Echte Navigation, GET/POST/GET/POST und zweimal
+Major 17/markierte Zähler 2/1 sind bewusst zu beobachten. Andere Endpunkte werden
+vor Effekten abgewiesen; keine Jobs oder Synchronisation. Ganze Parentdateien und
+beide CMS-Tabellen müssen gleich bleiben. Der bestehende PublicRemove-/same-pin-
+Abwesenheits-/Terminalkopievertrag bereinigt eigene Ressourcen, Fehler behalten den
+Parent zur Recovery. Dieser native Browsernachweis ist NOT_EXECUTED; andere
+UI-Aktionen, Sync, Windows, SSMS, Mitgliedszugriffe und Least Privilege bleiben separat.
 `Static/Fixtures/SmtpManifestAdmissionChecks.ps1` ergänzt die ManifestBuilder-
 Suite um die tatsächlichen Schema-/Raw-JSON-/Parser-/Public-Manifestadapter mit
 synthetischen Default-, Secret-, State- und Providereffektsinks. Sie prüft
