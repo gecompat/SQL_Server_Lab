@@ -1,19 +1,23 @@
 #Requires -Version 7.2
 <#
 .SYNOPSIS
-    Checks the actual read-only CMS worker against one fresh owned SQL 2025 run.
+    Checks the actual read-only CMS worker against one fresh owned SQL run.
 .DESCRIPTION
     Requires an already reachable Docker or Podman runtime. The exact fresh
     sql-lab-cms-inspection-<GUID N> parent receives separate parent/State policies.
     Registration and synthetic CMS metadata are arrangement, completed before
     inspection. This does not test sync, SSMS, member connections or least privilege.
     Unreturned creation, custody drift or failed acceptance retains the parent.
+.PARAMETER Version
+    Exact catalog base version: 2019, 2022 or 2025 (default). Each invocation
+    owns one fresh run and checks the corresponding SQL major 15, 16 or 17.
 #>
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)][ValidateSet('docker','podman')][string]$Provider,
     [Parameter(Mandatory)][string]$DataRoot,
-    [Parameter(Mandatory)][ValidatePattern('^[a-f0-9]{32}$')][string]$ParentOperationId
+    [Parameter(Mandatory)][ValidatePattern('^[a-f0-9]{32}$')][string]$ParentOperationId,
+    [ValidateSet('2019','2022','2025')][string]$Version='2025'
 )
 $ErrorActionPreference='Stop'
 $repo=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
@@ -42,7 +46,7 @@ try {
     foreach($character in ('CmsInspection!aA7_'+[guid]::NewGuid().ToString('N')).ToCharArray()){$password.AppendChar($character)}
     $password.MakeReadOnly();$unreturnedCreation=$true
     try {
-        $lab=New-SqlServerLab -Version 2025 -Provider $Provider -Profile compact -Cpu 1 -MemoryMB 2560 -LabName cms-inspection -StateRoot $scope.StateRoot -SaPassword $password -SkipAssessment
+        $lab=New-SqlServerLab -Version $Version -Provider $Provider -Profile compact -Cpu 1 -MemoryMB 2560 -LabName cms-inspection -StateRoot $scope.StateRoot -SaPassword $password -SkipAssessment
     }finally{$password.Dispose()}
     $parsed=[guid]::Empty
     if(-not [guid]::TryParseExact([string]$lab.RunId,'D',[ref]$parsed) -or $parsed -eq [guid]::Empty){throw 'CMS_ACCEPTANCE_RETURNED_RUN_INVALID'}
@@ -54,38 +58,38 @@ try {
     $null=& $module {param($Root,$Run) Register-SqlServerLabCmsEnvironment -RunId $Run -StateRoot $Root} $scope.StateRoot $custody.RunId
     $before=Get-CmsInspectionAcceptanceFileBinding -DataRoot $root
     $view=(Invoke-SqlServerLabWorkflowAction -Action GetCmsInspectionState).Result
-    Assert-CmsInspectionAcceptanceResult $view $custody $Provider $view.SelectionKey NOT_CHECKED CMS_INSPECTION_NOT_CHECKED
+    Assert-CmsInspectionAcceptanceResult $view $custody $Provider $view.SelectionKey NOT_CHECKED CMS_INSPECTION_NOT_CHECKED -Version $Version
     if($view.SelectionKey -cnotmatch '^[a-f0-9]{64}$'){throw 'CMS_ACCEPTANCE_SELECTION_KEY'}
     $wrongKey=if($view.SelectionKey -ceq ('a'*64)){'b'*64}else{'a'*64}
     $stale=(Invoke-SqlServerLabWorkflowAction -Action InspectCms -ExpectedPlanKey $wrongKey).Result
-    Assert-CmsInspectionAcceptanceResult $stale $custody $Provider $view.SelectionKey UNKNOWN CMS_INSPECTION_SELECTION_CHANGED
-    $emptyBefore=Invoke-CmsInspectionAcceptanceSql $module $scope $custody
+    Assert-CmsInspectionAcceptanceResult $stale $custody $Provider $view.SelectionKey UNKNOWN CMS_INSPECTION_SELECTION_CHANGED -Version $Version
+    $emptyBefore=Invoke-CmsInspectionAcceptanceSql $module $scope $custody -Version $Version
     $missing=(Invoke-SqlServerLabWorkflowAction -Action InspectCms -ExpectedPlanKey $view.SelectionKey).Result
     Assert-CmsInspectionAcceptanceRoute $module $scope $Provider
-    Assert-CmsInspectionAcceptanceResult $missing $custody $Provider $view.SelectionKey UNKNOWN CMS_INSPECTION_SQL_RESULT_INVALID
-    $emptyAfter=Invoke-CmsInspectionAcceptanceSql $module $scope $custody
+    Assert-CmsInspectionAcceptanceResult $missing $custody $Provider $view.SelectionKey UNKNOWN CMS_INSPECTION_SQL_RESULT_INVALID -Version $Version
+    $emptyAfter=Invoke-CmsInspectionAcceptanceSql $module $scope $custody -Version $Version
     $after=Get-CmsInspectionAcceptanceFileBinding -DataRoot $root
     if(($emptyBefore|ConvertTo-Json -Compress) -cne ($emptyAfter|ConvertTo-Json -Compress) -or
         ($before|ConvertTo-Json -Depth 5 -Compress) -cne ($after|ConvertTo-Json -Depth 5 -Compress)){throw 'CMS_ACCEPTANCE_NEGATIVE_WRITE'}
     $observations.Add([pscustomobject]@{Stage='MISSING_ROOT';Status=$missing.Status;Code=$missing.Code;FilesEqual=$true;CmsTablesEqual=$true})
     # Separate own SQL arrangement: managed 2 groups/1 server, plus unmanaged
     # controls. Synthetic server names are never resolved or contacted.
-    $sqlBefore=Invoke-CmsInspectionAcceptanceSql $module $scope $custody -Arrange
+    $sqlBefore=Invoke-CmsInspectionAcceptanceSql $module $scope $custody -Arrange -Version $Version
     $before=Get-CmsInspectionAcceptanceFileBinding -DataRoot $root
     for($ordinal=1;$ordinal -le 2;$ordinal++){
         Assert-CmsInspectionAcceptanceRoute $module $scope $Provider
         $current=(Invoke-SqlServerLabWorkflowAction -Action GetCmsInspectionState).Result
-        Assert-CmsInspectionAcceptanceResult $current $custody $Provider $view.SelectionKey NOT_CHECKED CMS_INSPECTION_NOT_CHECKED
+        Assert-CmsInspectionAcceptanceResult $current $custody $Provider $view.SelectionKey NOT_CHECKED CMS_INSPECTION_NOT_CHECKED -Version $Version
         $result=(Invoke-SqlServerLabWorkflowAction -Action InspectCms -ExpectedPlanKey $current.SelectionKey).Result
         Assert-CmsInspectionAcceptanceRoute $module $scope $Provider
-        Assert-CmsInspectionAcceptanceResult $result $custody $Provider $current.SelectionKey OBSERVED CMS_INSPECTION_OBSERVED
-        $currentSql=Invoke-CmsInspectionAcceptanceSql $module $scope $custody
+        Assert-CmsInspectionAcceptanceResult $result $custody $Provider $current.SelectionKey OBSERVED CMS_INSPECTION_OBSERVED -Version $Version
+        $currentSql=Invoke-CmsInspectionAcceptanceSql $module $scope $custody -Version $Version
         $currentFiles=Get-CmsInspectionAcceptanceFileBinding -DataRoot $root
         if(($sqlBefore|ConvertTo-Json -Compress) -cne ($currentSql|ConvertTo-Json -Compress) -or
             ($before|ConvertTo-Json -Depth 5 -Compress) -cne ($currentFiles|ConvertTo-Json -Depth 5 -Compress)){throw 'CMS_ACCEPTANCE_INSPECTION_WRITE'}
         $observations.Add([pscustomobject]@{Stage='MANAGED_FIXTURE';Ordinal=$ordinal;Status=$result.Status;Code=$result.Code;SqlMajor=$result.SqlMajor;ManagedGroupCount=$result.ManagedGroupCount;ManagedServerCount=$result.ManagedServerCount})
     }
-    $sqlAfter=Invoke-CmsInspectionAcceptanceSql $module $scope $custody
+    $sqlAfter=Invoke-CmsInspectionAcceptanceSql $module $scope $custody -Version $Version
     $after=Get-CmsInspectionAcceptanceFileBinding -DataRoot $root
     if(($sqlBefore|ConvertTo-Json -Compress) -cne ($sqlAfter|ConvertTo-Json -Compress) -or
         ($before|ConvertTo-Json -Depth 5 -Compress) -cne ($after|ConvertTo-Json -Depth 5 -Compress)){throw 'CMS_ACCEPTANCE_INSPECTION_WRITE'}
@@ -102,7 +106,7 @@ finally{
     }
 }
 $status=if($primaryError -or $cleanupError -or -not $completed -or $cleanup.Status -cne 'CLEANED'){'RECOVERY_REQUIRED'}else{'PASS'}
-$receipt=[pscustomobject]@{Contract='SqlServerLab.CmsNativeAcceptance/1.0';Provider=$Provider;Status=$status;Readiness=$(if($readiness){$readiness.Status}else{'NOT_EXECUTED'});
+$receipt=[pscustomobject]@{Contract='SqlServerLab.CmsNativeAcceptance/1.0';Provider=$Provider;SqlVersion=$Version;Status=$status;Readiness=$(if($readiness){$readiness.Status}else{'NOT_EXECUTED'});
     Observations=@($observations);StaleSelectionVeto=$(if($completed){'PASS'}else{'NOT_CONFIRMED'});ReadonlyFilesAndCmsTables=$(if($completed){'PASS'}else{'NOT_CONFIRMED'});
     Cleanup=$cleanup;UnreturnedCreation=$unreturnedCreation;PrimaryFailure=[bool]$primaryError;CleanupFailure=[bool]$cleanupError;
     Sync='NOT_EXECUTED';Ssms='NOT_EXECUTED';MemberConnections='NOT_EXECUTED';LeastPrivilege='NOT_EXECUTED';AtomicFilesystemProof=$false}

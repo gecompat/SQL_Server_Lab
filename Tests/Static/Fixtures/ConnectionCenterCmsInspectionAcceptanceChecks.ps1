@@ -260,8 +260,8 @@ try {
     if($errors.Count -or $bodies.Count -ne 1){throw 'CMS_ACCEPTANCE_SQL_BODY_NOT_UNIQUE'}
     $bodyText=$bodies[0].Extent.Text;$body=[scriptblock]::Create($bodyText.Substring(1,$bodyText.Length-2))
     $own=[pscustomobject]@{RunId=[guid]::NewGuid().ToString('D');ScopeId=[guid]::NewGuid().ToString('D');Provider='docker';ContainerId=('a'*64)}
-    foreach($case in @('cid-drift','provider-drift','run-drift','scope-drift','root-drift','instance-drift','not-running')){
-        $selection=[pscustomobject]@{RunId=$own.RunId;Provider='docker';StateRoot=$sandbox;Run=[pscustomobject]@{scopeId=$own.ScopeId;state='RUNNING'};Instance=[pscustomobject]@{id='primary';containerId=('a'*64)}}
+    foreach($case in @('cid-drift','provider-drift','run-drift','scope-drift','root-drift','instance-drift','not-running','version-drift')){
+        $selection=[pscustomobject]@{RunId=$own.RunId;Provider='docker';StateRoot=$sandbox;Run=[pscustomobject]@{scopeId=$own.ScopeId;state='RUNNING'};Instance=[pscustomobject]@{id='primary';containerId=('a'*64);version='2025'}}
         switch($case){
             cid-drift {$selection.Instance.containerId='b'*64}
             provider-drift {$selection.Provider='podman'}
@@ -270,6 +270,7 @@ try {
             root-drift {$selection.StateRoot=Join-Path $sandbox other}
             instance-drift {$selection.Instance.id='secondary'}
             not-running {$selection.Run.state='STOPPED'}
+            version-drift {$selection.Instance.version='2022'}
         }
         $m=New-Module -ArgumentList $selection -ScriptBlock {
             param($Selection)
@@ -324,6 +325,20 @@ try {
     $custody=[pscustomobject]@{RunId=$candidate.RunId}
     Assert-CmsInspectionAcceptanceResult $candidate $custody docker ('a'*64) OBSERVED CMS_INSPECTION_OBSERVED
     Check $true 'Actual observed DTO accepts fixed managed counts'
+    foreach($version in @('2019','2022','2025')){
+        $major=@{'2019'=15;'2022'=16;'2025'=17}[$version]
+        foreach($provider in @('docker','podman')){
+            $observed=$candidate|ConvertTo-Json|ConvertFrom-Json
+            $observed.SqlMajor=$major;$observed.Provider=$provider
+            Assert-CmsInspectionAcceptanceResult $observed $custody $provider ('a'*64) OBSERVED CMS_INSPECTION_OBSERVED -Version $version
+            Check $true ($provider+' observed DTO binds requested SQL '+$version)
+            foreach($otherMajor in @(15,16,17)|Where-Object{$_ -ne $major}){
+                $observed.SqlMajor=$otherMajor
+                $thrown=$false;try{Assert-CmsInspectionAcceptanceResult $observed $custody $provider ('a'*64) OBSERVED CMS_INSPECTION_OBSERVED -Version $version}catch{$thrown=$true}
+                Check $thrown ($provider+' requested SQL '+$version+' rejects major '+$otherMajor)
+            }
+        }
+    }
     foreach($case in @('extra-field','wrong-run','wrong-provider','wrong-key','negative-group','wrong-major','null-server','wrong-code','string-count')){
         $bad=$candidate|ConvertTo-Json|ConvertFrom-Json
         switch($case){
@@ -349,6 +364,22 @@ try {
     $tokens=$null;$errors=$null
     $ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $repo Tests/Integration/Invoke-ConnectionCenterCmsInspectionAcceptance.ps1),[ref]$tokens,[ref]$errors)
     Check ($errors.Count -eq 0) 'Actual native CMS runner parses'
+    $create=@($ast.FindAll({param($n)$n -is [Management.Automation.Language.CommandAst] -and $n.GetCommandName() -ceq 'New-SqlServerLab'},$true))
+    if($create.Count -ne 1){throw 'CMS_ACCEPTANCE_CREATE_NOT_UNIQUE'}
+    $createBody=[scriptblock]::Create($create[0].Extent.Text)
+    $module=New-Module -ScriptBlock {
+        function New-SqlServerLab {
+            param($Version,$Provider,$Profile,$Cpu,$MemoryMB,$LabName,$StateRoot,$SaPassword,[switch]$SkipAssessment)
+            [pscustomobject]@{Version=$Version;Provider=$Provider;StateRoot=$StateRoot}
+        }
+        Export-ModuleMember -Function @()
+    }
+    try{
+        foreach($version in @('2019','2022','2025')){
+            $created=& $module {param($Body,$Requested)$Version=$Requested;$Provider='docker';$scope=[pscustomobject]@{StateRoot='synthetic-own-root'};$password=$null;& $Body} $createBody $version
+            Check ($created.Version -ceq $version -and $created.Provider -ceq 'docker' -and $created.StateRoot -ceq 'synthetic-own-root') ('Actual runner creates requested own SQL '+$version)
+        }
+    }finally{Remove-Module $module -Force}
     $registration=@($ast.FindAll({param($n)$n -is [Management.Automation.Language.ScriptBlockAst] -and $n.Parent -is [Management.Automation.Language.ScriptBlockExpressionAst] -and $n.Extent.Text.Contains('Register-SqlServerLabCmsEnvironment')},$true))
     if($registration.Count -ne 1 -or $registration[0].Parent.Parent -isnot [Management.Automation.Language.CommandAst] -or
         $registration[0].Parent.Parent.CommandElements[0].Extent.Text -cne '$module'){throw 'CMS_ACCEPTANCE_MODULE_REGISTRATION_BOUNDARY'}

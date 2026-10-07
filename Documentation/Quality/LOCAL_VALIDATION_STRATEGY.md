@@ -3092,7 +3092,8 @@ weitere Findings. Rohlogs und Prozess-/Hostdaten bleiben ausschließlich lokal.
 ## Optionaler CMS-Readonly-Inspektor
 
 Der native `Invoke-ConnectionCenterCmsInspectionAcceptance.ps1` verwendet nur einen frischen
-eigenen SQL-2025-CMS je Docker/Podman. `ConnectionCenterCmsInspectionAcceptanceChecks.ps1`
+eigenen CMS je Docker/Podman und angeforderter `-Version` 2019/2022/2025
+(Default 2025). `ConnectionCenterCmsInspectionAcceptanceChecks.ps1`
 prüft die tatsächlich verwendeten Custody-/Cleanup-/DTO-Helper einschließlich
 Unreturned-Creation, Claimdrift, vorhandener Ressourcen, fehlgeschlagener
 Terminalkopie und falscher Roots synthetisch; sie wird durch die CMS-Suite
@@ -3106,7 +3107,17 @@ Schutzvergleiche: null Findings je Provider, eine begrenzte Windows-Systemtask-
 Zeitplanbeobachtung unter Podman ohne Callerzuordnung. Zwei korrigierte
 Harnessfehler behalten ihre Parents/Evidence; ihre Runtime-Ressourcen sind
 entfernt, historische Failures unverändert. UI, Sync, SSMS, Mitgliedszugriffe,
-andere SQL-Versionen und Least Privilege bleiben separate Nachweise.
+Windows, weitere katalogisierte Builds und Least Privilege bleiben separate Nachweise.
+Die additive 2019-/2022-Auswahl bestand am 2026-10-07 auf `ef5a8fa9` in vier
+getrennten frischen Docker-/Podman-Runs: fehlender Root UNKNOWN/null, stale
+Auswahlveto, zweimal OBSERVED/15 beziehungsweise 16/2/1, unveränderte Datei-/
+CMS-Tabellenhashes und bestätigtes Own-Cleanup mit je zwei hashgesicherten
+Terminalkopien. Alle vier bidirektionalen Schutzvergleiche hatten null Findings;
+Podman/2022 beobachtete eine begrenzte Windows-Systemtask-Zeitplanänderung ohne
+Callerzuordnung. Die Offline-Fixture bestand mit 179 Checks, einschließlich
+StoredVersion-Veto vor Effekt/Secret, falscher gemessener Majors und tatsächlicher
+Create-Weitergabe. Sechs ausgewählte statische Suites bestanden lokal; der
+abschließende PR-Gate-Nachweis bleibt separat am zu integrierenden Head erforderlich.
 
 Die Fixture CmsInspectionChecks wird durch Invoke-ConnectionCenterCmsChecks entdeckt. Notwendig sind tatsächliche PRE_SECRET_BARRIER-Fälle mit unverändertem Run/Runtime/Labels und verändertem Host/Port (SecretReads=0, SqlOpens=0), nullable/zero/feste DTO-Felder, aktuelle Bindung, eigener endlicher Worker, HTTP-Parametergrenzen, echter CLI-Einstieg/Cancel und JavaScript-Late-Response-/Cancel-Grenzen. Synthetische Grenzen führen keine Providerabfrage aus. Ausgewählte statische Suites und die tatsächlich gewählten Provider-Core-Gates bleiben erforderlich; vergangene B-/Capacity-Smokes decken diesen Source-Digest nicht ab. Eine allgemeine Docker-Core-Abnahme ist kein echter CMS-SQL-/SSMS-/Mitgliedsnachweis. Weitere Details im [CMS-Vertrag](../Architecture/CMS_READONLY_INSPECTION.md).
 

@@ -1,13 +1,15 @@
 # Tests/ – lokale und Remote-Validierung
 
-`Integration/Invoke-ConnectionCenterCmsInspectionAcceptance.ps1 -Provider docker|podman`
+`Integration/Invoke-ConnectionCenterCmsInspectionAcceptance.ps1 -Provider docker|podman -Version 2019|2022|2025`
 verlangt einen frischen externen `sql-lab-cms-inspection-<GUID-N>`-Parent
 und ParentOperationId. Getrennte Parent-/State-Policies binden genau einen
-neuen nichtpersistenten SQL-2025-Run; bestehende CMS werden nicht adoptiert.
+neuen nichtpersistenten Run der expliziten SQL-Version (Default 2025);
+bestehende CMS werden nicht adoptiert.
 Aktive CLI-Route und native Engineidentität müssen mit dem Custody-Pin
 übereinstimmen. Registrierung und synthetische msdb-Daten sind getrenntes
 Arrangement. Danach prüfen tatsächliche WorkflowActions und der echte Worker
-stale Auswahl, fehlenden markierten Root und zweimal SQL-Major 17 mit zwei
+stale Auswahl, fehlenden markierten Root und zweimal den zur angeforderten
+Version passenden SQL-Major 15/16/17 mit zwei
 markierten Gruppen/einem Server trotz unmarkierter Kontrollobjekte. Ganze
 Rootdateien und beide CMS-Tabellen müssen unverändert bleiben. Cleanup verlangt
 exakte Creationreceipts, REMOVED/COMPLETED, same-pin Ressourcenabwesenheit und
@@ -23,7 +25,17 @@ Windows-Systemtask-Zeitplanänderung ohne Callerzuordnung. Zwei vorausgehende
 Harnessfehler (interner Modulaufruf, leere JSON-Tabelle) sind korrigiert;
 deren Runtime-Ressourcen entfernt, Fehlerparents/Evidence bleiben erhalten.
 Frühere Protection-Failures bleiben unverändert. Sync, SSMS, Mitgliedsverbindungen,
-gerenderte UI, andere SQL-Versionen und Least Privilege bleiben separat.
+gerenderte UI, Windows, weitere katalogisierte Builds und Least Privilege bleiben separat.
+Die additive Auswahl von 2019/2022 besitzt einen versionsgebundenen SQL-
+Preflight und DTO-Check. Am 2026-10-07 auf `ef5a8fa9` bestanden vier getrennte
+frische Abnahmen: Docker/2019, Docker/2022, Podman/2019 und Podman/2022 mit
+je zweimal OBSERVED/15 beziehungsweise 16/2/1, fehlendem Root UNKNOWN/null,
+stale Auswahlveto, unveränderten Datei-/CMS-Tabellenhashes und bestätigtem
+Own-Cleanup samt je zwei hashgesicherten Terminalkopien. Alle vier
+bidirektionalen Schutzvergleiche hatten null Findings; Podman/2022 beobachtete
+eine begrenzte Windows-Systemtask-Zeitplanänderung ohne Callerzuordnung.
+Die Offline-Fixture bestand mit 179 Checks, darunter Versionsdrift vor
+Effekt/Secret, falsche gemessene Majors und tatsächliche Create-Weitergabe.
 
 `Integration/Invoke-ContainerPortPreviewAcceptance.ps1` prüft die getrennte
 native Docker-/Podman-Portvorschau-Abnahme. Sie verlangt einen frischen

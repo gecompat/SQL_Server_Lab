@@ -979,8 +979,15 @@ CMS-Tabellenhashes und bestätigtes Own-Cleanup. Unmarkierte Kontrollobjekte
 werden nicht mitgezählt. Schutzvergleiche je null Findings; eine begrenzte
 Windows-Systemtask-Zeitplanbeobachtung unter Podman ohne Callerzuordnung.
 Zwei korrigierte Harnessfehler behalten ihre Parents/Evidence; Runtime-Ressourcen
-sind entfernt. UI, Sync, SSMS, Mitgliedszugriffe, andere SQL-Versionen und Least
-Privilege bleiben separat; historische Failures unverändert.
+sind entfernt. UI, Sync, SSMS, Mitgliedszugriffe, Windows, weitere katalogisierte
+Builds und Least Privilege bleiben separat; historische Failures unverändert.
+Die additive Basisversionsauswahl bestand am 2026-10-07 auf `ef5a8fa9` in
+vier getrennten frischen Abnahmen: Docker und Podman jeweils mit SQL Server
+2019 und 2022, passendem Major 15 beziehungsweise 16, zweimal 2/1, fehlendem
+Root UNKNOWN/null, stale Auswahlveto, unveränderten Datei-/CMS-Tabellenhashes
+und bestätigtem Own-Cleanup samt je zwei hashgesicherten Terminalkopien.
+Alle vier bidirektionalen Schutzvergleiche hatten null Findings; Podman/2022
+beobachtete eine begrenzte Windows-Systemtask-Zeitplanänderung ohne Callerzuordnung.
 
 ## Bewusster lokaler Operator-Handoff
 

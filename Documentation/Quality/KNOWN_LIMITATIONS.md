@@ -3110,14 +3110,23 @@ Siehe [Ownershipvertrag](../Architecture/LLAMA_CPP_OWNED_RUNTIME.md).
 Der optionale gemeinsame CLI-/GUI-Inspektor liest nur den explizit ausgewählten bestehenden CMS und markierte msdb-Zähler. Hyper-V ist ohne nicht reparierende native Probe nicht unterstützt. Counts beweisen weder Hierarchiekonsistenz noch Synchronisationsfrische, Mitgliedszugriffe oder SSMS. Frische Datei-/Runtime-/Portchecks sind keine atomare physische Endpointbindung. Reale CMS-SQL-/Authnachweise sind getrennt von Offline- und allgemeinen Core-Smokes; siehe [Vertrag](../Architecture/CMS_READONLY_INSPECTION.md).
 Ein privater abweichender StateRoot im bisherigen CMS-Menü erhält keine Freigabe für die neue aktive-Registrierungsprüfung; es gibt keine implizite Umleitung auf einen anderen CMS.
 Der isolierte CMS-Worker-/SQL-Harness arrangiert ausschließlich einen frischen
-eigenen SQL-2025-CMS mit synthetischen Metadaten. Der echte Worker-/SQL-Nachweis
+eigenen CMS mit synthetischen Metadaten, optional an `-Version` 2019/2022/2025
+gebunden (Default 2025). Der echte SQL-2025-Worker-/SQL-Nachweis
 bestand am 2026-10-07 auf `56e8aabf` getrennt unter Docker und Podman mit
 unveränderten Datei-/CMS-Tabellenhashes und bestätigtem Own-Cleanup. Dies
-schließt ausschließlich diese begrenzte Leseprüfung; andere SQL-Versionen,
-UI, Sync, SSMS, Mitglieder und Least Privilege bleiben offen. Zwei korrigierte
+schließt ausschließlich diese begrenzte Leseprüfung; Windows, weitere katalogisierte
+Builds, UI, Sync, SSMS, Mitglieder und Least Privilege bleiben offen. Zwei korrigierte
 Harnessfehler behalten ihre Fehlerparents, ihre Runtime-Ressourcen sind entfernt.
-Aktuelle Schutzvergleiche haben null Findings und eine begrenzte Windows-Task-
+Die SQL-2025-Schutzvergleiche haben null Findings und eine begrenzte Windows-Task-
 Zeitplanbeobachtung ohne Callerzuordnung; historische Failures bleiben erhalten.
+Die additive Versionsbindung bestand am 2026-10-07 auf `ef5a8fa9` getrennt
+unter Docker/2019, Docker/2022, Podman/2019 und Podman/2022: zweimal passender
+Major 15 beziehungsweise 16 und 2/1, fehlender Root UNKNOWN/null, stale
+Auswahlveto, gleiche Datei-/CMS-Tabellenhashes und bestätigtes Own-Cleanup samt
+je zwei hashgesicherten Terminalkopien. Alle vier Schutzvergleiche hatten null
+Findings; Podman/2022 beobachtete eine begrenzte Windows-Systemtask-
+Zeitplanänderung ohne Callerzuordnung. Daraus folgt keine Abnahme anderer
+Builds, Windows, UI, Sync, SSMS, Mitglieder oder eines Least-Privilege-Rollenmodells.
 
 ## Bewusster lokaler Operator-Handoff
 
