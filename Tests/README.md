@@ -1,5 +1,30 @@
 # Tests/ – lokale und Remote-Validierung
 
+`Integration/Invoke-ConnectionCenterCmsInspectionAcceptance.ps1 -Provider docker|podman`
+verlangt einen frischen externen `sql-lab-cms-inspection-<GUID-N>`-Parent
+und ParentOperationId. Getrennte Parent-/State-Policies binden genau einen
+neuen nichtpersistenten SQL-2025-Run; bestehende CMS werden nicht adoptiert.
+Aktive CLI-Route und native Engineidentität müssen mit dem Custody-Pin
+übereinstimmen. Registrierung und synthetische msdb-Daten sind getrenntes
+Arrangement. Danach prüfen tatsächliche WorkflowActions und der echte Worker
+stale Auswahl, fehlenden markierten Root und zweimal SQL-Major 17 mit zwei
+markierten Gruppen/einem Server trotz unmarkierter Kontrollobjekte. Ganze
+Rootdateien und beide CMS-Tabellen müssen unverändert bleiben. Cleanup verlangt
+exakte Creationreceipts, REMOVED/COMPLETED, same-pin Ressourcenabwesenheit und
+hashgesicherte Terminalkopien vor Entfernung des eigenen Parents. Fehler oder
+unreturned Creation behalten den Parent. `ConnectionCenterCmsInspectionAcceptanceChecks.ps1`
+prüft Custody-/Drift-/Copy-/Abwesenheitsveto synthetisch über die CMS-Suite.
+Am 2026-10-07 auf `56e8aabf` bestanden Docker und Podman getrennt: stale
+Auswahlveto, echter Worker mit fehlendem Root (UNKNOWN/null), anschließend
+zweimal OBSERVED/17/2/1, unveränderte ganze Rootdateien/beide CMS-Tabellen und
+bestätigtes Own-Cleanup mit zwei gesicherten Terminalrecords. Der bidirektionale
+Schutzvergleich hatte je null Findings; Podman beobachtete eine begrenzte
+Windows-Systemtask-Zeitplanänderung ohne Callerzuordnung. Zwei vorausgehende
+Harnessfehler (interner Modulaufruf, leere JSON-Tabelle) sind korrigiert;
+deren Runtime-Ressourcen entfernt, Fehlerparents/Evidence bleiben erhalten.
+Frühere Protection-Failures bleiben unverändert. Sync, SSMS, Mitgliedsverbindungen,
+gerenderte UI, andere SQL-Versionen und Least Privilege bleiben separat.
+
 `Integration/Invoke-ContainerPortPreviewAcceptance.ps1` prüft die getrennte
 native Docker-/Podman-Portvorschau-Abnahme. Sie verlangt einen frischen
 externen `sql-lab-port-preview-<GUID-N>`-Parent und ParentOperationId, bindet
