@@ -277,3 +277,5 @@ finally {
     if ([IO.Path]::GetFullPath($root).StartsWith($boundary,[StringComparison]::OrdinalIgnoreCase) -and (Test-Path -LiteralPath $root)) {Remove-Item -LiteralPath $root -Recurse -Force}
     Remove-Module $module.Name -Force
 }
+
+& (Join-Path $PSScriptRoot 'Fixtures/RunArtifactRemovalConsoleChecks.ps1')

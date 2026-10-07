@@ -3,7 +3,7 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `ACTIVE` seit ausdrücklichem Benutzerauftrag vom 2026-10-06 |
-| Stand | 2026-10-06 |
+| Stand | 2026-10-07 |
 | Auftrag | Aktuelle Entwicklungswelle aus Orchestrator Chat 2 mit denselben Regeln fortsetzen; C# bleibt USER_DEFERRED |
 | Ausgangspunkt | Durchsicht von `9cfd144`, vor Veröffentlichung gegen `ca9f09e` abgeglichen |
 | Ziel | vollständige Abarbeitung der Implementierungs-, Abnahme- und Bewertungsaufgaben bei konsistentem Gesamtsystem |
@@ -55,13 +55,29 @@ Ubuntu, Docker, Podman, Mixed, Hyper-V, Adapter und das finale Gate;
 [PR #701](https://github.com/gecompat/SQL_Server_Lab/pull/701) dokumentiert
 auch die früheren Fehler und verbleibenden Nachweisgrenzen.
 
-Aktueller enger Slice ist der Handlungshinweis zur lokalen CU-Katalogwarnung.
+Der Handlungshinweis zur lokalen CU-Katalogwarnung ist mit PR #702 integriert.
 Er nennt den vorhandenen GitHub-Workflow `SQL CU Monthly Watch` mit manueller
 Ausführung sowie den lesenden Konsolenabgleich unter Hauptmenü 8 → 5. Der Watch
 meldet Befunde, aktualisiert aber weder den lokalen Katalog noch dessen
 Prüfdatum. Fehlendes und veraltetes Prüfdatum verwenden denselben Hinweis;
 CU-Daten, Warnschwelle, Quellen und Runtimeverhalten bleiben unverändert.
-Statische Regression und stabiler PR-Gate bleiben für diesen Slice getrennt.
+Statische Regression und der exakte PR-Gate bestanden für diesen Slice.
+
+Der enge Bedien-Slice unter `UX-202/204`, `CORE-105/106/109` ergänzt
+den vorhandenen Artefakt-Core um einen geführten Konsolendialog unter Wartung.
+Auswahl liest nur REMOVED-/Vorgangsmetadaten des aktuellen registrierten Roots;
+öffentliche Vorschau und bestätigtes Apply/Resume behalten alle bestehenden
+Sperren. Begonnene Artefaktvorgänge bleiben nach Verschieben des Runverzeichnisses
+auffindbar. Der Browser behält zunächst den generischen Befehlskatalog;
+eigene Browserführung und gerenderte Terminalabnahme bleiben offen. Das ist
+keine neue Hyper-V-Purge-Freigabe und keine globale Cleanup-Aktion. Die
+fokussierte Offline-Fixture bestand mit 81 Prüfungen. Alle 21 betroffenen
+statischen Suites bestanden nach der gezielten Korrektur der Standalone-
+Aktionsliste. Docker und Podman bestanden am 2026-10-07 getrennt den eigenen
+SQL-Lifecycle, den tatsächlichen Konsolenhandler mit vorgegebenen Auswahlleaves,
+Artefaktentfernung, unverändertes Providerinventar und eigenes Cleanup.
+Die unabhängige Review und Nachreview sind ohne offene Findings geschlossen;
+der obligatorische PR-Gate muss den exakten stabilen Head separat belegen.
 
 ## Übergabe und Benutzerpause vom 2026-10-05
 

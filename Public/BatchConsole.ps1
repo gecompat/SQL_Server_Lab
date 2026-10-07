@@ -915,6 +915,7 @@ function Show-LabMaintenanceMenu {
         New-LabConsoleItem -Id EvaluationWatch -Label 'Windows-/SQL-Evaluationsfristen' -Value 'gespeicherte Evidence · read-only · kein Gastzugriff' -Shortcut e
         New-LabConsoleItem -Id Messages -Label 'Meldungen dieser Sitzung' -Value 'Warnungen und Fehler · kopierbar · Journalpfad' -Shortcut 6
         New-LabConsoleItem -Id RetainedStoreRemoval -Label 'Behaltenen SQL-Speicher löschen' -Value 'gesonderter bestätigter Entfernungsplan' -Shortcut l
+        New-LabConsoleItem -Id RunArtifactRemoval -Label 'Artefakte eines entfernten Runs' -Value 'Einzelauswahl · Vorschau · bestätigte Entfernung / Resume' -Shortcut r
         New-LabConsoleItem -Id Clear -Label 'Lab-Ressourcen gezielt aufräumen' -Value 'bestehender Cleanup-/Recovery-Vertrag' -Shortcut a
         New-LabConsoleItem -Id back -Label 'Zurueck' -Shortcut 0
     )

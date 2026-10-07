@@ -23,6 +23,9 @@ sources_of_truth:
   run_artifact_removal_commands: Public/RunArtifactRemoval.ps1
   run_artifact_removal_contract: Documentation/User/RUN_ARTIFACT_REMOVAL.md
   run_artifact_removal_checks: Tests/Static/Invoke-RunArtifactRemovalChecks.ps1
+  run_artifact_removal_console: Private/RunArtifactRemovalConsole.ps1
+  run_artifact_removal_console_checks: Tests/Static/Fixtures/RunArtifactRemovalConsoleChecks.ps1
+  run_artifact_removal_acceptance: Tests/Integration/Invoke-RunArtifactRemovalObservationAcceptance.ps1
   owned_host_ci_isolation: Documentation/Architecture/OWNED_HOST_CI_ISOLATION.md
   owned_host_ci_implementation: Private/ContainerOwnedHostIntegration.ps1
   owned_host_ci_schema: Schemas/container-owned-host-integration.schema.json

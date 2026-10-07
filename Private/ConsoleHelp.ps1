@@ -338,6 +338,16 @@ function Get-LabConsoleHelpCatalog {
             Effects='Alle Inhalte gehen nach gesonderter Bestätigung endgültig verloren; keine Backup-Zusage.'
             Command='Invoke-SqlServerLabRetainedStoreRemoval'; Preconditions=@($dataRootPrecondition)
         }
+        'run-artifact-removal' = @{
+            Title='Artefakte eines entfernten Runs'; Purpose='Wählt genau einen entfernten Run oder lokalen Artefaktvorgang im aktuellen registrierten State-Root.'
+            Effects='Die Auswahl liest nur Metadaten. Die öffentliche Vorschau prüft Ressourcenabwesenheit; erst eine gesonderte Bestätigung erlaubt die endgültige Metadatenentfernung.'
+            Command='Get-SqlServerLabRunArtifactRemovalPlan; Invoke-SqlServerLabRunArtifactRemoval'; Preconditions=@($dataRootPrecondition)
+        }
+        'run-artifact-removal-review' = @{
+            Title='Artefaktentfernung prüfen'; Purpose='Zeigt Dateianzahl, Sperrgrund und Wiederaufnahme für den ausgewählten Run.'
+            Effects='Kein globaler Cleanup, keine Provider- oder Sicherungslöschung. Der Core revalidiert die Vorschau vor Apply. Recovery bleibt ausschließlich vorwärts fortsetzbar.'
+            Command='Invoke-SqlServerLabRunArtifactRemoval'; Preconditions=@($dataRootPrecondition)
+        }
         'database-menu' = @{
             Title   = 'Datenbanken und Verbindungen'
             Purpose = 'Zugriff auf Verbindungszentrale, CMS, Datenbankpakete, Backup und Restore.'
