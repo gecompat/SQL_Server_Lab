@@ -66,6 +66,13 @@ ins Manifest. Öffnen und Bearbeiten suchen nicht automatisch. Eingaben bleiben
 im RAM; Zurück/Escape verwirft auch späte Antworten. Eine angeforderte lesende
 Suche kann dabei weiterlaufen; Abbruch ist kein Nachweis ihrer Beendigung.
 
+Die getrennte gerenderte Katalogabnahme bestand am 2026-10-07 auf `8b2aba1c`
+mit sechs bewussten Suchen über die echte Route und den öffentlichen Reader,
+zwölf unveränderten Seitenassets und achtzehn Produktquelldigests. Der
+Seitenbootstrap war synthetisch; SQL, State und Provider wurden nicht benutzt.
+UTF-8, DEPRECATED-Warnung, Nulltreffer, Zero-Token-Suche und Rücksetzen beim
+Wiederöffnen wurden beobachtet, eigener Listener und Tab geschlossen.
+
 ### Evaluation-Ersatzentscheid
 
 Unter **Wartung, Aufräumen und Recovery → SQL-Evaluation: Ersatzentscheid**

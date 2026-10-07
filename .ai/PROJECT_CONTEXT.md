@@ -179,7 +179,12 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   `sys.fn_helpcollations()` und `SERVERPROPERTY('Collation')`; die getrennte
   native Docker-/Podman-Acceptance bestand am 2026-09-13 fuer SQL 2025 mit
   `Latin1_General_100_CS_AS`, run-gebundener sanitisierter Evidence und
-  vollstaendigem Cleanup. Freie Advanced-Eingaben sowie der getrennte
+  vollstaendigem Cleanup. Die separate gerenderte Katalogsuche bestand am
+  2026-10-07 auf `8b2aba1c` über echten Loopback-HTTP: sechs bewusste Suchen,
+  zwölf unveränderte Produktassets und achtzehn Produktquelldigests. Der echte
+  Public-Reader lief im isolierten Modul; vier Seitenbootstrapreads waren
+  synthetisch. Kein vollständiger Modulimport, State-/Provider-/Secret-/SQL-
+  Zugriff; eigener Listener und Tab geschlossen. Freie Advanced-Eingaben sowie der getrennte
   Hyper-V-/Windows-Nachweis bleiben offen;
 
 - gemeinsamer interner Fortschrittsreporter fuer direkte Downloads,
