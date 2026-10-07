@@ -691,6 +691,8 @@ sources_of_truth:
   sa_password_policy_validation: Tests/Static/Invoke-SaPasswordPolicyChecks.ps1
   sa_password_policy_browser_validation: Tests/Static/Fixtures/SaPasswordPolicyHttpChecks.ps1, Tests/Static/Fixtures/SaPasswordPolicyUiChecks.cjs
   workflow_ui_server: Tools/Start-SqlServerLabUi.ps1
+  workflow_ui_request_boundary: Documentation/Architecture/WORKFLOW_UI_REQUEST_BOUNDARY.md, Tools/WorkflowUiRequestBoundary.ps1
+  workflow_ui_request_boundary_validation: Tests/Static/Fixtures/WorkflowUiRequestBoundaryChecks.ps1
   workflow_ui_job_status: Tools/WorkflowUiJobStatus.ps1 # bounded UI-owned batch reader; no store initialization or scheduling
   workflow_ui_job_status_validation: Tests/Static/Fixtures/WorkflowJobStatusChecks.ps1, Tests/Static/Fixtures/WorkflowJobStatusChecks.cjs
   workflow_ui_assets: Ui/index.html, Ui/app.js, Ui/app.css

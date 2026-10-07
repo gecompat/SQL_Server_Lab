@@ -18,6 +18,11 @@ beobachteten Restore-Dauern sind kein Performance-Benchmark; allgemeine
 Migration bleibt unverändert.
 ## 1. Ziel
 
+Die gemeinsame Workflow-UI-[HTTP-Grenze](../Documentation/Architecture/WORKFLOW_UI_REQUEST_BOUNDARY.md)
+prüft Requests vor Routing/Bodylesung. Fremde Origins und ungeeignete POST-
+Medientypen werden abgewiesen; lokale JSON-Clients ohne Origin bleiben erlaubt.
+Operatorauthentifizierung und vollständige Security-Cloud-Fundbehebung sind offen.
+
 Der enge Diagnosebundle-Vertrag `Get-SqlServerLabDiagnosticBundle` liefert
 gebundene, sanitisierte Metadaten für eine moderne Instanz unter einem
 registrierten `Lab_Data/State`. Optionale Provider-Readiness läuft isoliert und

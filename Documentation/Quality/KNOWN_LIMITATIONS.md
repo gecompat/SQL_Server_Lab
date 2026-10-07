@@ -1,5 +1,14 @@
 # Bekannte Grenzen
 
+## Workflow-UI: HTTP-Grenze und offene Operatorauthentifizierung
+
+Die gemeinsame [HTTP-Prüfung](../Architecture/WORKFLOW_UI_REQUEST_BOUNDARY.md)
+weist fremde Origins, mehrdeutige Header und ungeeignete POST-Medientypen
+vor Routing/Bodylesung ab. Lokale JSON-Clients ohne Origin bleiben zugelassen;
+GET ist nicht authentifiziert. Keine per Start gebundene Operator-Capability,
+einmalige servergebundene Aktionsfreigabe oder neue Bodylimits. Der zugehörige
+Security-Cloud-Fund bleibt offen; der ältere Scan deckt spätere Heads nicht ab.
+
 ## Lokale Release-Veröffentlichung nach Prozessabbruch
 
 Ein dauerhaftes Intent und eine atomare Abschlussquittung binden die

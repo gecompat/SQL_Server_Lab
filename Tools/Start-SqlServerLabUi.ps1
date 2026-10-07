@@ -124,6 +124,7 @@ function Import-UiSqlServerLabModule {
 }
 Import-UiSqlServerLabModule -ModulePath $modulePath
 . (Join-Path $PSScriptRoot 'WorkflowUiJobStatus.ps1')
+. (Join-Path $PSScriptRoot 'WorkflowUiRequestBoundary.ps1')
 
 function Write-UiResponse {
     param(
@@ -628,6 +629,13 @@ try {
         try {
             if (-not [Net.IPAddress]::IsLoopback($context.Request.RemoteEndPoint.Address)) {
                 Write-UiResponse -Context $context -Body 'Nur lokaler Zugriff ist erlaubt.' -StatusCode 403
+                continue
+            }
+
+            # Gemeinsame Grenze vor jeder Route, Bodylesung und Job-/Batchanlage.
+            $requestBoundary = Get-UiRequestBoundaryDecision -Request $context.Request -ListenerUrl $url
+            if (-not $requestBoundary.Allowed) {
+                Write-UiResponse -Context $context -Body $requestBoundary.Code -StatusCode $requestBoundary.StatusCode
                 continue
             }
 
