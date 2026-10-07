@@ -1,5 +1,15 @@
 # Bekannte Grenzen
 
+## Downloads: Streaminggrenze und offene Speicherquoten
+
+Der [gemeinsame Transport](../Architecture/DOWNLOAD_STREAM_LIMITS.md) begrenzt
+empfangene Bytes vor dem Schreiben. Medien und llama.cpp-Modelle verwenden die
+genaue Kataloggröße; Aufrufer ohne Größenmetadaten zunächst 1 TiB. Das begrenzt
+keine kumulative Belegung und reserviert keinen Speicherplatz. Engere
+fachliche Grenzen, Speicherprüfung und Quoten bleiben offen. Hash-, genaue
+Größen-, GGUF- und Signaturprüfungen sowie eigener Teilstand-Cleanup gelten
+weiter. Der ältere Cloud-Scan deckt diesen Head nicht ab; der Fund bleibt offen.
+
 ## Lokale External Models: begrenzte Autoritaetsliste
 
 Die [lokale Lane](../User/SQL_AI_LOCAL_ACCELERATION.md) erlaubt numerischen

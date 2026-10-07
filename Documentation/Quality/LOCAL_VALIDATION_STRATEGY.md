@@ -1,5 +1,16 @@
 # Lokale Validierungsstrategie
 
+## Download-Streaminggrenze
+
+`ActionProgressDownloadLimitChecks.ps1` läuft innerhalb der direkten
+Fortschrittssuite. Eigene echte Loopback-HTTP-Antworten prüfen deklarierte
+Übergröße vor Zielöffnung, unbekannte Länge und Chunked vor Überschreiben des
+Bytebudgets, exaktes Limit, EOF/Sentinel, Redirect, Truncation und HTTP-Retry.
+Ein Größenverstoß wird nicht wiederholt. Die Medienquellen- und Modellkatalog-
+Suites prüfen die tatsächliche Weitergabe des Katalog-Bytepins mit synthetischen
+Transportleaves. Das ersetzt keine native Providerabnahme oder Speicherquote.
+[Vertrag](../Architecture/DOWNLOAD_STREAM_LIMITS.md).
+
 ## Lokale External-Model-Autoritaeten
 
 Die in `Invoke-AiExternalModelAccelerationChecks.ps1` eingebundene

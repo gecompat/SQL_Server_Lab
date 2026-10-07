@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-07 – Streaming-Bytegrenzen für Downloads
+
+- Gemeinsame Downloads verwerfen Überlänge vor weiterem Schreiben und ohne
+  Retry. Medien und llama.cpp-Modelle verwenden genaue Kataloggrößen; übrige
+  Aufrufer zunächst 1 TiB. Integritätsprüfung und eigener Teilstand-Cleanup
+  bleiben erhalten; Speicherreservierung und kumulative Quoten bleiben offen.
+
 ## 2026-10-07 – lokale External-Model-Autoritaeten
 
 - Die lokale Lane erlaubt nur numerischen Loopback und feste lokale Hostaliases.
