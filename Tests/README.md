@@ -1,5 +1,21 @@
 # Tests/ – lokale und Remote-Validierung
 
+`Integration/Invoke-CollationCatalogBrowserAcceptance.ps1` dient der getrennten
+gerenderten Collation-Katalogabnahme über einen eigenen begrenzten Loopbacklistener.
+Ein frisches `.artifacts/test-runs/collation-browser-<GUID-N>` bewahrt lokale
+Ready-, Operator- und Ergebnisrecords. Die vollständigen zwölf Produktassets
+werden unverändert geliefert. Vier Bootstrapreads sind synthetisch; die echte
+Suchroute verwendet im isolierten Modul ausschließlich HTTP-Helper, Public-
+Suchbefehl und Schema-/Katalogreader. Sechs bewusste Suchen prüfen drei SQL-
+Versionen, ASCII-AND/UTF-8, DEPRECATED, Nulltreffer und Zero-Token-Verhalten.
+Öffnen/Bearbeiten ohne Suche, Rücksetzen beim Wiederöffnen und Schließen werden
+gerendert beobachtet; achtzehn Produktquellhashes bleiben gebunden. Verbotene
+State-/Provider-/Secret-/SQLleaves sind instrumentiert. Der eigene Listener
+schließt auf jedem Ergebnis; private Evidence bleibt erhalten. Der Test
+importiert kein vollständiges Produktmodul und startet keine Runtime. Die
+fokussierte Fixture prüft Quelle, tatsächlichen Katalogreader und geschlossene
+Abschlussbedingungen offline; sie ersetzt keine ausgeführte Browserabnahme.
+
 `Integration/Invoke-ConnectionCenterCmsFullPageAcceptance.ps1` prüft den
 CMS-Einstieg im tatsächlichen vollständigen Seitenbootstrap mit synthetischem Backend.
 Ein frisches `.artifacts/test-runs/cms-full-page-<GUID-N>` enthält lokale Ready-,
