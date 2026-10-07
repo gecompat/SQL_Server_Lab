@@ -45,7 +45,8 @@ die Instanz sowie den gewünschten Port angeben:
 Get-SqlServerLabReconcilePlan -RunId $runId -InstanceId primary -ContainerPortPreview -Port 15433 -StateRoot $stateRoot
 ```
 
-Die Vorschau liest genau ein Inspect der gebundenen Docker-/Podman-Instanz.
+Ein vollständiger Vorschauaufruf liest den gebundenen Docker-/Podman-Kontext;
+zusätzliche eigene Ownership-Revalidierungen können Inspectreads benötigen.
 Das Ergebnis zeigt „gleicher Port“ oder „anderer Port“ ohne Portnummern,
 native IDs oder Pfade. `PLAN_ONLY`, leere `Actions` und `CanApply=false`
 erlauben keine Ausführung. `ObservationKey` bindet nur beobachtete Inhalte.
@@ -61,8 +62,10 @@ aktuellen registrierten Root; freie Pfade und native IDs können nicht
 übergeben werden. Öffnen liest nur Metadaten, Bearbeiten startet keine
 Vorschau. Schließen, Escape und jede Eingabe-/Zieländerung verwerfen späte
 Antworten; ein bereits versandter lesender Aufruf kann trotzdem weiterlaufen.
-Es gibt keine Applyaktion oder Portreservierung. Die spezifische native
-Preview-/Dialogform und Apply bleiben offen; der bestehende Container-Reconcile
+Es gibt keine Applyaktion oder Portreservierung. Die native Portdialogabnahme
+mit echtem Loopback-HTTP bestand am 2026-10-07 getrennt für Docker und Podman
+mit eigenem Cleanup. Sie umfasst den tatsächlichen Dialog und dessen Route;
+der vollständige UI-Server bleibt ungeprüft. Port-Apply bleibt offen; der bestehende Container-Reconcile
 wird dadurch nicht erweitert.
 
 ## Collations vor einer Lab-Erstellung ansehen

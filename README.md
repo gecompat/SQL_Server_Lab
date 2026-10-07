@@ -69,7 +69,8 @@ Provider nur mit SQL Server 2025.
 Eine getrennte Portvorschau über
 `Get-SqlServerLabReconcilePlan -ContainerPortPreview` ist `PLAN_ONLY`:
 für eine moderne registrierte, laufende Docker-/Podman-SQL-Instanz zeigt sie
-pfad- und portwertfreie Kategorien aus genau einem Inspect. Der opaque
+pfad- und portwertfreie Kategorien aus dem gebundenen Runtimekontext.
+Zusätzliche eigene Ownership-Revalidierungen bleiben erhalten. Der opaque
 `ObservationKey` erlaubt kein Apply und reserviert keinen Port. Endpoint,
 SQL und Sicherung bleiben `NOT_CHECKED`; zusätzliche oder unbekannte
 Topologie wird nicht als kompatibel angenommen. Unter **Lab-Umgebungen →
@@ -79,8 +80,11 @@ ruft keinen Plan auf; eine abgeschlossene Auswahl ruft den öffentlichen Core
 einmal auf und zeigt nur geprüfte Kategorien und Mountcounts.
 Der Browser bietet denselben getrennten PLAN_ONLY-Dialog unter **Lab verwalten
 → SQL-Hostport vorprüfen**. Er verwendet ausschließlich den serverseitig
-registrierten Root; Öffnen liest nur Metadaten. Gebundenes Port-Apply und die
-spezifische native Preview-/Dialogabnahme bleiben offen. Einzelheiten stehen
+registrierten Root; Öffnen liest nur Metadaten. Die native Komponentenabnahme
+des gerenderten Portdialogs mit echtem Loopback-HTTP bestand am 2026-10-07
+getrennt für Docker und Podman mit je drei öffentlichen PLAN_ONLY-Aufrufen
+und eigenem Cleanup. Vollständiger UI-Server und gebundenes Port-Apply bleiben
+offen. Einzelheiten stehen
 in der [öffentlichen Referenz](Public/README.md#container-portvorschau-ohne-apply).
 
 Die [External-Languages-Entscheidung](Documentation/Architecture/EXTERNAL_RUNTIME_CAPABILITY.md)

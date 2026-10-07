@@ -7,7 +7,10 @@
     sql-lab-port-preview-<full GUID N> parent. Creates separate exact parent and
     State policies, one nonpersistent modern run, and exercises public core,
     actual console menu routing and the exact in-process HTTP server route.
-    No listener/rendered browser or Apply is exercised. Failed/unreturned
+    BrowserAcceptance instead serves the exact product dialog/assets and
+    HTTP dispatch on a bounded test-only loopback listener. An external operator
+    observes the rendered dialog and writes the fixed local completion record.
+    No Apply is exercised. Failed/unreturned
     creation or unconfirmed cleanup retains all custody under the parent.
 #>
 [CmdletBinding()]
@@ -15,16 +18,21 @@ param(
     [Parameter(Mandatory)][ValidateSet('docker','podman')][string]$Provider,
     [Parameter(Mandatory)][string]$DataRoot,
     [Parameter(Mandatory)][ValidatePattern('^[a-f0-9]{32}$')][string]$ParentOperationId,
-    [switch]$RuntimeMutexAlreadyHeld
+    [switch]$RuntimeMutexAlreadyHeld,
+    [switch]$BrowserAcceptance,
+    [ValidateRange(1025,65535)][int]$ListenerPort=19541
 )
 $ErrorActionPreference='Stop'
+if($BrowserAcceptance -and $ListenerPort -eq 14336){throw 'PORT_BROWSER_PRODUCT_PORT'}
 $repo=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 . (Join-Path $repo 'Tests/Common/OwnedHostTestScope.ps1')
 . (Join-Path $repo 'Tests/Common/ContainerPortPreviewAcceptance.ps1')
+if($BrowserAcceptance){. (Join-Path $repo 'Tests/Common/ContainerPortPreviewBrowserAcceptance.ps1')}
 $root=Assert-PortPreviewAcceptanceLayout -DataRoot $DataRoot -RepositoryRoot $repo
 $mutex=$null;$locked=$false;$module=$null;$scope=$null;$custody=$null
 $unreturnedCreation=$false;$completed=$false;$primaryError=$null;$cleanupError=$null;$cleanup=$null;$observations=$null
 $readiness=$null
+$browser=$null
 $oldState=$env:SQL_SERVER_LAB_STATE;$oldData=$env:SQL_SERVER_LAB_DATA_ROOT
 $evidence=$null
 try {
@@ -58,7 +66,11 @@ try {
     $unreturnedCreation=$false
     if($lab.State -cne 'Running'){throw 'PORT_ACCEPTANCE_INSTALLATION_NOT_RUNNING'}
     $before=Get-PortPreviewAcceptanceFileBinding -DataRoot $root
-    $observations=Invoke-PortPreviewAcceptanceObservations -Module $module -Scope $scope -RunId $lab.RunId -Provider $Provider -RepositoryRoot $repo -EvidenceRoot $evidence
+    if($BrowserAcceptance){
+        $browser=Invoke-PortPreviewBrowserAcceptance -Module $module -Scope $scope -RunId $lab.RunId -Provider $Provider -RepositoryRoot $repo -EvidenceRoot $evidence -ListenerPort $ListenerPort
+    } else {
+        $observations=Invoke-PortPreviewAcceptanceObservations -Module $module -Scope $scope -RunId $lab.RunId -Provider $Provider -RepositoryRoot $repo -EvidenceRoot $evidence
+    }
     $after=Get-PortPreviewAcceptanceFileBinding -DataRoot $root
     if(($before|ConvertTo-Json -Depth 5 -Compress) -cne ($after|ConvertTo-Json -Depth 5 -Compress)){throw 'PORT_ACCEPTANCE_PREVIEW_STATE_WRITE'}
     $custody|ConvertTo-Json -Depth 8|Set-Content -LiteralPath (Join-Path $evidence custody.private.json) -Encoding utf8
@@ -79,7 +91,8 @@ $status=if($primaryError -or $cleanupError -or -not $completed -or $cleanup.Stat
 $result=[pscustomobject]@{Contract='SqlServerLab.ContainerPortNativeAcceptance/1.0';Provider=$Provider;Status=$status;
     Installation=$(if($custody){'OWN_RUNNING_RUN_OBSERVED'}else{'NOT_CONFIRMED'});Readiness=$(if($readiness){$readiness.Status}else{'NOT_EXECUTED'});
     Observations=$observations;Cleanup=$cleanup;UnreturnedCreation=$unreturnedCreation;
-    SQLDuringPreview='NOT_CHECKED';RenderedBrowser='NOT_EXECUTED';HttpNetworkTransport='NOT_EXECUTED';AtomicFilesystemProof=$false;
+    SQLDuringPreview='NOT_CHECKED';RenderedBrowser=$(if($browser){'OPERATOR_OBSERVED'}elseif($BrowserAcceptance){'NOT_CONFIRMED'}else{'NOT_EXECUTED'});
+    HttpNetworkTransport=$(if($browser){'PASS'}elseif($BrowserAcceptance){'NOT_CONFIRMED'}else{'NOT_EXECUTED'});BrowserAcceptance=$browser;AtomicFilesystemProof=$false;
     PrimaryFailure=[bool]$primaryError;CleanupFailure=[bool]$cleanupError}
 if($evidence){
     try {& $module {param($Path)$null=Assert-LabOwnedHostPath $Path} $evidence;$result|ConvertTo-Json -Depth 8|Set-Content -LiteralPath (Join-Path $evidence result.private.json) -Encoding utf8}
@@ -87,4 +100,4 @@ if($evidence){
 }
 if($primaryError){if($cleanupError){$primaryError.Exception.Data['PortPreviewCleanupRecoveryRequired']=$true};throw $primaryError}
 if($status -cne 'PASS'){throw 'PORT_ACCEPTANCE_RECOVERY_REQUIRED'}
-Write-Host 'PASS: owned ContainerPortPreview core/console/in-process HTTP acceptance and receipt-bound cleanup.'
+Write-Host $(if($BrowserAcceptance){'PASS: owned ContainerPortPreview network HTTP/operator-observed dialog and receipt-bound cleanup.'}else{'PASS: owned ContainerPortPreview core/console/in-process HTTP acceptance and receipt-bound cleanup.'})

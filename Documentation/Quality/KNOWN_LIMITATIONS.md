@@ -50,7 +50,8 @@ Own-Cleanup und der Schutzvergleich wurden bestätigt. Frühere abgelehnte
 Docker-Topologieprüfungen und ihre Fehlerbelege bleiben unverändert.
 Er trennt Installation,
 Bereitschaft, beobachtete Previewform und Cleanup. Die HTTP-Route wird
-in-process geprüft, kein gerenderter Browser und kein HTTP-Netztransport.
+im historischen Standardmodus in-process geprüft, ohne gerenderten Browser
+oder HTTP-Netztransport.
 Port-Apply/Recovery und Scope A bleiben offen. Statebyte- und Cleanupchecks
 sind nicht atomar gegenüber gleichzeitigen Dateisystemänderungen desselben Users.
 
@@ -71,9 +72,25 @@ abgelehnt. Der separate Browserdialog verwendet ausschließlich serverseitig
 registrierte Metadaten und denselben einmaligen öffentlichen PLAN_ONLY-Aufruf.
 Er akzeptiert keine freie Root-/native ID-/Applyautorität und verwirft späte
 Antworten nach Abbruch oder Bearbeitung. Ein geführter Portwechsel mit
-Apply/Recovery fehlt weiterhin; gerenderter Browser und HTTP-Netztransport bleiben ungeprüft.
+Apply/Recovery fehlt weiterhin.
 Frühere native
 Container-Reconcile-Abnahmen ersetzen diese neue Abnahme nicht.
+
+Der additive `-BrowserAcceptance`-Modus bestand am 2026-10-07 getrennt unter
+Docker und Podman mit dem tatsächlich gerenderten Portdialog und echtem
+Loopback-HTTP. Je zwei Metadatenreads ohne Inspect und drei öffentliche
+PLAN_ONLY-Aufrufe (Änderung/No-op/Wiederholung, neun pinned Reads) wurden
+gemessen. Statebytes und native Containerkonfiguration blieben unverändert;
+eigene Ressourcen und Roots wurden mit terminalen Cleanupbelegen entfernt.
+Ungültige Eingabe, Ergebnisclearing beim Bearbeiten und Dialogclearing beim
+Schließen wurden im Browser beobachtet. Der begrenzte Listener verwendet
+Produktmarkup, Assets und tatsächlichen HTTP-Dispatch; der vollständige
+UI-Server bleibt NOT_EXECUTED. Preview-SQL/Endpoint bleiben NOT_CHECKED.
+Der abschließende exakte Gesamtinventarvergleich blieb FAIL wegen eines
+zusätzlichen Dockercontainers samt Netzwerkendpoint ohne bestätigte Callerattribution.
+Die bestehenden verglichenen geschützten Identitäten, bisherigen Endpoints
+und die Netzwerkdefinition blieben gleich; die zusätzliche Beobachtung
+erteilt keine Mutations- oder Löschautorität.
 
 `Get-SqlServerLabEvaluationRefreshPlan` bietet nur einen nicht ausführbaren
 Entscheid für eine moderne registrierte Hyper-V-SQL-Instanz unter explizitem

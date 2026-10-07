@@ -9,6 +9,14 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $failures = [System.Collections.Generic.List[string]]::new()
 $passed = 0
 $selector = Join-Path $repoRoot 'Tools/Get-CiTestSelection.ps1'
+foreach($portPath in @('Private/ContainerPortPreviewHttp.ps1','Tests/Common/ContainerPortPreviewBrowserAcceptance.ps1',
+        'Tests/Integration/Invoke-ContainerPortPreviewAcceptance.ps1','Tests/Static/Fixtures/ContainerPortPreviewBrowserAcceptanceChecks.ps1')){
+    foreach($path in @($portPath,$portPath.Replace('/','\'))){
+        $selected=& $selector -ChangedPath @($path)
+        Add-CheckResult -Name "Port preview core and browser remain coupled: $path" -Success (
+            'Invoke-WorkflowUiChecks.ps1' -in $selected.StaticChecks -and 'Invoke-ContainerReconcileChecks.ps1' -in $selected.StaticChecks)
+    }
+}
 foreach ($path in @('Private/RunArtifactRemovalHttp.ps1','Tests/Static/Fixtures/RunArtifactRemovalHttpChecks.ps1','Tests/Static/Fixtures/RunArtifactRemovalUiChecks.cjs','Ui/run-artifact-removal.js')) {
     $selected=& $selector -ChangedPath @($path)
     Add-CheckResult -Name "Run artifact browser boundary remains selected: $path" -Success ('Invoke-WorkflowUiChecks.ps1' -in $selected.StaticChecks)

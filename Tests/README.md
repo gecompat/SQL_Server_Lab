@@ -11,13 +11,42 @@ Ein gültiger CLI-/HTTP-Request hat genau einen öffentlichen Previewaufruf,
 Cancel/ungültige Eingabe keinen. State-Dateibytes müssen unverändert bleiben.
 Cleanup verlangt vorher exakte Claims/Creationreceipts, danach gebundene
 Ressourcenabwesenheit. Unreturned/Drift/Fehler erhalten den gesamten Parent.
-Gerenderter Browser, HTTP-Netztransport, Preview-SQL/Endpoint und Apply werden
-nicht geprüft. Am 2026-10-05 auf `bee35c5d` bestanden Docker und Podman
+Im Standardmodus werden gerenderter Browser, HTTP-Netztransport,
+Preview-SQL/Endpoint und Apply nicht geprüft. Am 2026-10-05 auf `bee35c5d` bestanden Docker und Podman
 getrennt je fünf öffentliche Previewaufrufe, unveränderte Statebytes und
 bestätigtes Own-Cleanup (REMOVED/COMPLETED, Ressourcen und Parent entfernt).
 Der eigene Vorher-/Nachher-Schutzvergleich hatte null Findings/Beobachtungen;
 frühere fehlgeschlagene Wellen bleiben unverändert. Dies ist kein vollständiger
 kanonischer Provider-Gate oder Scope-A-Abschluss.
+
+Der additive Modus `-BrowserAcceptance -ListenerPort 19541` verwendet denselben
+eigenen Run und Cleanupvertrag. Er stellt den tatsächlichen Portdialog aus
+`Ui/index.html`, CSS und JavaScript auf einem begrenzten Loopback-Testlistener
+bereit und führt den tatsächlichen HTTP-Dispatch aus. Andere APIs sind gesperrt;
+der vollständige UI-Server ist nicht Bestandteil dieser Abnahme. Die lokale
+`browser-ready.private.json` nennt URL, eigene Wunschports und Completiondatei.
+Ein externer Browseroperator öffnet den Dialog, prüft eine ungültige Eingabe,
+liest Änderung/No-op/Wiederholung und schließt/öffnet ihn erneut. Bearbeitung
+muss das Ergebnis löschen, Schließen die Auswahl/Eingabe verwerfen. Danach
+schreibt er den festen lokalen `SqlServerLab.PortBrowserOperatorObservation/1.0`-
+Record mit den vier booleschen Feldern `RenderedDialog`, `InvalidPortVeto`,
+`EditingClearedResult`, `CloseClearedDialog`. Diese Beobachtungen sind keine
+Runtime- oder Cleanupautorität. Der Server verlangt unabhängig davon genau zwei
+inspectfreie Metadatenreads und drei gebundene öffentliche Vorschauaufrufe,
+strikte DTOs, Inhaltsbindung und unveränderte Statebytes/Containerkonfiguration.
+Der Listener wartet höchstens zwölf Minuten auf die Bedienung; ein Bodyread
+ist zusätzlich auf zehn Sekunden und 2049 Bytes begrenzt. Fehler führen zu
+unbestätigter Abnahme und dem bestehenden Recovery-/Cleanupvertrag.
+`ContainerPortPreviewBrowserAcceptanceChecks.ps1` wird von WorkflowUI ausgeführt
+und prüft falsche/unvollständige Evidence sowie einen unvollständigen echten
+Loopback-Requestbody ohne Provideraufruf. Native Browserbelege bleiben getrennt.
+
+Der Browsermodus bestand am 2026-10-07 getrennt unter Docker und Podman:
+je zwei Metadatenreads ohne Inspect, drei öffentliche PLAN_ONLY-Aufrufe,
+neun pinned Reads, unveränderte Statebytes und Containerkonfiguration sowie
+bestätigte Entfernung eigener Ressourcen und Roots. Die vier UI-Beobachtungen
+wurden am tatsächlich gerenderten Dialog bestätigt. Preview-SQL/Endpoint,
+Port-Apply und vollständiger UI-Server sind dadurch nicht abgenommen.
 
 Die Container-CI verwendet einen frischen expliziten eigenen StateRoot über
 `Common/OwnedHostTestScope.ps1`. `Static/Invoke-OwnedHostIntegrationChecks.ps1`
