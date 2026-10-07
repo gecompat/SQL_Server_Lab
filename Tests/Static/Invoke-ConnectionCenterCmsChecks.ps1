@@ -234,6 +234,8 @@ try {
     Add-CheckResult -Name 'CMS-readonly: echte Core-/HTTP-/CLI-/Workergrenzen' -Success $true
     & (Join-Path $PSScriptRoot 'Fixtures/ConnectionCenterCmsInspectionAcceptanceChecks.ps1')
     Add-CheckResult -Name 'CMS-native Harness: eigene Custody, DTO und Cleanupgrenzen' -Success $true
+    & (Join-Path $PSScriptRoot 'Fixtures/ConnectionCenterCmsInspectionBrowserAcceptanceChecks.ps1')
+    Add-CheckResult -Name 'CMS-Browser-Harness: synthetische DTOs und begrenzte Abnahme' -Success $true
 }
 catch {
     Add-CheckResult -Name 'Connection-Center-CMS-Vertragspruefung' -Success $false -Message $_.Exception.Message

@@ -62,6 +62,21 @@ Eine spätere oder anders gebundene Antwort verändert die geschlossene Ansicht
 nicht. Wiederholung erfordert eine neue bewusste Auswahl. CLI-Fallback und
 Cursoroberfläche benutzen denselben Core.
 
+Ein separater test-only Browserharness
+`Tests/Integration/Invoke-ConnectionCenterCmsInspectionBrowserAcceptance.ps1` liefert das exakte
+Produktmarkup, den CMS-Block aus `Ui/app.js`, CSS und die tatsächliche
+HTTP-Adapter-/Dispatchroute auf einem begrenzten eigenen Loopbacklistener.
+Nur die WorkflowActions werden durch feste synthetische Antworten ersetzt;
+Modulimport, State, Provider, Secret und SQL werden nicht ausgeführt. Zehn
+gerenderte Fälle prüfen explizite Auswahl, nullable Werte gegenüber echter
+Null, Major 15/16/17, Hyper-V-Sperre, falsche Bindung, unsichere Ganzzahl,
+sanitisierten Fehler, Busy-/Wiederholungsgrenzen und Schließen vor später Antwort.
+Der Operatorrecord ist eine UI-Beobachtung, keine Runtime- oder Cleanupautorität;
+19 unabhängig gemessene HTTP-Aktionen und unveränderte Produktquelldigests müssen
+passen. Listener und eigene Browseransicht werden anschließend geschlossen,
+lokale Nachweise bleiben erhalten. Der gerenderte Nachweis ist zunächst
+NOT_EXECUTED; ganze UI-Seite und native Browser-bis-SQL-Abnahme bleiben separat.
+
 Die Offline-Fixture `Tests/Static/Fixtures/CmsInspectionChecks.ps1` wird durch
 `Invoke-ConnectionCenterCmsChecks.ps1` entdeckt. Core, echte Public-/HTTP-/CLI-
 Adapter, eigener Prozess und JavaScript-Handler werden mit synthetischen
