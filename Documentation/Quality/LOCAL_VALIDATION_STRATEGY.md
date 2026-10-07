@@ -3092,7 +3092,8 @@ weitere Findings. Rohlogs und Prozess-/Hostdaten bleiben ausschließlich lokal.
 ## Optionaler CMS-Readonly-Inspektor
 
 Der native `Invoke-ConnectionCenterCmsInspectionAcceptance.ps1` verwendet nur einen frischen
-eigenen SQL-2025-CMS je Docker/Podman. `ConnectionCenterCmsInspectionAcceptanceChecks.ps1`
+eigenen CMS je Docker/Podman und angeforderter `-Version` 2019/2022/2025
+(Default 2025). `ConnectionCenterCmsInspectionAcceptanceChecks.ps1`
 prüft die tatsächlich verwendeten Custody-/Cleanup-/DTO-Helper einschließlich
 Unreturned-Creation, Claimdrift, vorhandener Ressourcen, fehlgeschlagener
 Terminalkopie und falscher Roots synthetisch; sie wird durch die CMS-Suite
@@ -3107,6 +3108,8 @@ Zeitplanbeobachtung unter Podman ohne Callerzuordnung. Zwei korrigierte
 Harnessfehler behalten ihre Parents/Evidence; ihre Runtime-Ressourcen sind
 entfernt, historische Failures unverändert. UI, Sync, SSMS, Mitgliedszugriffe,
 andere SQL-Versionen und Least Privilege bleiben separate Nachweise.
+Für die additive 2019-/2022-Auswahl sind native Nachweise zunächst NOT_EXECUTED;
+Versionsdrift muss vor Effekt/Secret und bei gemessenem SQL-Major blockieren.
 
 Die Fixture CmsInspectionChecks wird durch Invoke-ConnectionCenterCmsChecks entdeckt. Notwendig sind tatsächliche PRE_SECRET_BARRIER-Fälle mit unverändertem Run/Runtime/Labels und verändertem Host/Port (SecretReads=0, SqlOpens=0), nullable/zero/feste DTO-Felder, aktuelle Bindung, eigener endlicher Worker, HTTP-Parametergrenzen, echter CLI-Einstieg/Cancel und JavaScript-Late-Response-/Cancel-Grenzen. Synthetische Grenzen führen keine Providerabfrage aus. Ausgewählte statische Suites und die tatsächlich gewählten Provider-Core-Gates bleiben erforderlich; vergangene B-/Capacity-Smokes decken diesen Source-Digest nicht ab. Eine allgemeine Docker-Core-Abnahme ist kein echter CMS-SQL-/SSMS-/Mitgliedsnachweis. Weitere Details im [CMS-Vertrag](../Architecture/CMS_READONLY_INSPECTION.md).
 

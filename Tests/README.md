@@ -1,13 +1,15 @@
 # Tests/ – lokale und Remote-Validierung
 
-`Integration/Invoke-ConnectionCenterCmsInspectionAcceptance.ps1 -Provider docker|podman`
+`Integration/Invoke-ConnectionCenterCmsInspectionAcceptance.ps1 -Provider docker|podman -Version 2019|2022|2025`
 verlangt einen frischen externen `sql-lab-cms-inspection-<GUID-N>`-Parent
 und ParentOperationId. Getrennte Parent-/State-Policies binden genau einen
-neuen nichtpersistenten SQL-2025-Run; bestehende CMS werden nicht adoptiert.
+neuen nichtpersistenten Run der expliziten SQL-Version (Default 2025);
+bestehende CMS werden nicht adoptiert.
 Aktive CLI-Route und native Engineidentität müssen mit dem Custody-Pin
 übereinstimmen. Registrierung und synthetische msdb-Daten sind getrenntes
 Arrangement. Danach prüfen tatsächliche WorkflowActions und der echte Worker
-stale Auswahl, fehlenden markierten Root und zweimal SQL-Major 17 mit zwei
+stale Auswahl, fehlenden markierten Root und zweimal den zur angeforderten
+Version passenden SQL-Major 15/16/17 mit zwei
 markierten Gruppen/einem Server trotz unmarkierter Kontrollobjekte. Ganze
 Rootdateien und beide CMS-Tabellen müssen unverändert bleiben. Cleanup verlangt
 exakte Creationreceipts, REMOVED/COMPLETED, same-pin Ressourcenabwesenheit und
@@ -24,6 +26,8 @@ Harnessfehler (interner Modulaufruf, leere JSON-Tabelle) sind korrigiert;
 deren Runtime-Ressourcen entfernt, Fehlerparents/Evidence bleiben erhalten.
 Frühere Protection-Failures bleiben unverändert. Sync, SSMS, Mitgliedsverbindungen,
 gerenderte UI, andere SQL-Versionen und Least Privilege bleiben separat.
+Die additive Auswahl von 2019/2022 besitzt einen versionsgebundenen SQL-
+Preflight und DTO-Check; deren native Nachweise sind zunächst NOT_EXECUTED.
 
 `Integration/Invoke-ContainerPortPreviewAcceptance.ps1` prüft die getrennte
 native Docker-/Podman-Portvorschau-Abnahme. Sie verlangt einen frischen

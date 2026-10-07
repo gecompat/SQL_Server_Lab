@@ -107,15 +107,16 @@ function Assert-CmsInspectionAcceptanceRoute {
 }
 
 function Invoke-CmsInspectionAcceptanceSql {
-    param($Module,$Scope,$Custody,[switch]$Arrange)
+    param($Module,$Scope,$Custody,[switch]$Arrange,[ValidateSet('2019','2022','2025')][string]$Version='2025')
     Assert-CmsInspectionAcceptanceRoute $Module $Scope $Custody.Provider
     & $Module {
-        param($Scope,$Custody,$Arrange)
+        param($Scope,$Custody,$Arrange,[string]$Version='2025')
         $selection=Get-LabCmsInspectionSelection -StateRoot $Scope.StateRoot
         if(-not $selection -or $selection.RunId -cne $Custody.RunId -or
             $selection.Run.scopeId -cne $Custody.ScopeId -or $selection.Provider -cne $Custody.Provider -or
             $selection.Instance.containerId -cne $Custody.ContainerId -or $selection.Instance.id -cne 'primary' -or
-            $selection.StateRoot -cne $Scope.StateRoot -or $selection.Run.state -cne 'RUNNING'){throw 'CMS_ACCEPTANCE_SQL_SCOPE'}
+            $selection.StateRoot -cne $Scope.StateRoot -or $selection.Run.state -cne 'RUNNING' -or
+            $selection.Instance.version -cne $Version){throw 'CMS_ACCEPTANCE_SQL_SCOPE'}
         $null=Assert-LabOwnedHostContainerEffect -StateRoot $Scope.StateRoot -RunId $Custody.RunId -Provider $selection.Provider -ContainerId $Custody.ContainerId
         # The real product binding runs only inside its bounded worker. Arrange/
         # independent table reads use a bounded pinned inspect of exact custody.
@@ -128,7 +129,7 @@ function Invoke-CmsInspectionAcceptanceSql {
             $labels.'sql-server-lab.run-id' -cne $Custody.RunId -or $labels.'sql-server-lab.scope-id' -cne $Custody.ScopeId -or
             $labels.'sql-server-lab.instance-id' -cne 'primary' -or $ports.Count -ne 1 -or
             $ports[0].HostIp -cnotin @('127.0.0.1','::1') -or [int]$ports[0].HostPort -lt 1 -or [int]$ports[0].HostPort -gt 65535 -or
-            [int]$ports[0].HostPort -ne [int]$selection.Instance.port -or $selection.Instance.version -cne '2025' -or
+            [int]$ports[0].HostPort -ne [int]$selection.Instance.port -or $selection.Instance.version -cne $Version -or
             $selection.Instance.host -cnotin @('localhost',[string]$ports[0].HostIp)){throw 'CMS_ACCEPTANCE_SQL_BINDING'}
         $binding=[pscustomobject]@{HostName=[string]$ports[0].HostIp;Port=[int]$ports[0].HostPort}
         Assert-LabCmsInspectionReadPath -Root $Scope.StateRoot -Path (Join-Path $Scope.StateRoot ('runs/'+$Custody.RunId+'/secrets/sa-password.secret'))
@@ -182,11 +183,12 @@ SELECT COALESCE((SELECT * FROM dbo.sysmanagement_shared_server_groups ORDER BY s
             if($reader.Read() -or $reader.NextResult()){throw 'CMS_ACCEPTANCE_SQL_SNAPSHOT'}
             [pscustomobject]@{GroupsSha256=$hashes[0];ServersSha256=$hashes[1]}
         }finally{if($reader){$reader.Dispose()};if($command){$command.Dispose()};if($connection){$connection.Dispose()};if($secret){$secret.Dispose()}}
-    } $Scope $Custody ([bool]$Arrange)
+    } $Scope $Custody ([bool]$Arrange) $Version
 }
 
 function Assert-CmsInspectionAcceptanceResult {
-    param($Result,$Custody,[string]$Provider,[string]$SelectionKey,[string]$Status,[string]$Code)
+    param($Result,$Custody,[string]$Provider,[string]$SelectionKey,[string]$Status,[string]$Code,
+        [ValidateSet('2019','2022','2025')][string]$Version='2025')
     $fields=@('ContractVersion','Status','Code','RunId','InstanceId','Provider','SelectionKey','ObservedAt','SqlMajor','ManagedGroupCount','ManagedServerCount','Notice')
     if($Result -isnot [pscustomobject] -or @($Result.PSObject.Properties).Count -ne 12 -or
         @($Result.PSObject.Properties.Name|Where-Object{$_ -cnotin $fields}).Count -or
@@ -194,7 +196,8 @@ function Assert-CmsInspectionAcceptanceResult {
         $Result.RunId -cne $Custody.RunId -or $Result.InstanceId -cne 'primary' -or $Result.Provider -cne $Provider -or
         $Result.SelectionKey -cne $SelectionKey){throw 'CMS_ACCEPTANCE_DTO'}
     if($Status -ceq 'OBSERVED'){
-        if(($Result.SqlMajor -isnot [int] -and $Result.SqlMajor -isnot [long]) -or $Result.SqlMajor -ne 17 -or
+        $expectedMajor=@{'2019'=15;'2022'=16;'2025'=17}[$Version]
+        if(($Result.SqlMajor -isnot [int] -and $Result.SqlMajor -isnot [long]) -or $Result.SqlMajor -ne $expectedMajor -or
             $Result.ManagedGroupCount -isnot [long] -or $Result.ManagedServerCount -isnot [long] -or
             $Result.ManagedGroupCount -ne 2 -or $Result.ManagedServerCount -ne 1){throw 'CMS_ACCEPTANCE_COUNTS'}
     }elseif($null -ne $Result.SqlMajor -or $null -ne $Result.ManagedGroupCount -or $null -ne $Result.ManagedServerCount){throw 'CMS_ACCEPTANCE_UNKNOWN_COUNTS'}

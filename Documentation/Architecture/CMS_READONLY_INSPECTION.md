@@ -71,7 +71,7 @@ beweist nicht automatisch die optionale CMS-Funktion.
 Die CLI-Prüfauswahl gilt nur für die aktive Registrierung; ein abweichender privater CMS-StateRoot erhält keine Inspectionfreigabe.
 
 Der test-only Harness `Tests/Integration/Invoke-ConnectionCenterCmsInspectionAcceptance.ps1`
-registriert ausschließlich seinen frisch angelegten eigenen SQL-2025-Run als
+registriert ausschließlich seinen frisch angelegten eigenen SQL-Run als
 CMS. Er verwendet einen externen `sql-lab-cms-inspection-<GUID-N>`-Parent mit
 getrennten OwnedHost-Policies am Parent/State und prüft aktive Route/native
 Engineidentität gegen den gespeicherten Custody-Pin. Vor der eigentlichen
@@ -79,7 +79,10 @@ Leseprüfung werden synthetische CMS-Metadaten separat arrangiert: zwei markiert
 Gruppen/ein Server und unmarkierte Kontrollen. Kein Mitglied wird kontaktiert.
 Die tatsächlichen WorkflowActions verwenden den echten geerbten Workerroot.
 Stale Auswahl und fehlender markierter Root müssen UNKNOWN/null ergeben;
-anschließend müssen zwei Workeraufrufe OBSERVED/17/2/1 liefern. Datei- und
+anschließend müssen zwei Workeraufrufe OBSERVED mit dem passend gebundenen
+SQL-Major und 2/1 liefern. `-Version` wählt genau 2019/2022/2025 (Default 2025);
+der SQL-Preflight verwirft eine abweichende gespeicherte Version vor Effekt und
+Secretlesen, der DTO-Check einen abweichenden gemessenen Major 15/16/17. Datei- und
 deterministisch sortierte Hashes sämtlicher Zeilen beider CMS-Tabellen bleiben
 vor/nach den lesenden Fällen gleich. Dies ist keine atomare Endpointbindung.
 Cleanup nutzt den öffentlichen Remove-Vertrag nur mit exakter eigener Custody,
@@ -94,4 +97,5 @@ eines Windows-Systemtasks hat keine Callerzuordnung. Zwei frühere Harnessfehler
 sind korrigiert; ihre eigenen Runtime-Ressourcen sind entfernt und Fehlerparents
 bleiben zur Recovery erhalten. Historische Protection-Failures werden dadurch
 nicht aufgehoben. UI, Sync, SSMS, Mitgliedszugriffe, andere SQL-Versionen und
-Least-Privilege-Authentisierung bleiben getrennt.
+Least-Privilege-Authentisierung bleiben getrennt. Native 2019-/2022-Nachweise
+der additiven Versionsauswahl sind zunächst NOT_EXECUTED.
