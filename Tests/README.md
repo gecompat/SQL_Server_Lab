@@ -25,9 +25,17 @@ Windows-Systemtask-Zeitplanänderung ohne Callerzuordnung. Zwei vorausgehende
 Harnessfehler (interner Modulaufruf, leere JSON-Tabelle) sind korrigiert;
 deren Runtime-Ressourcen entfernt, Fehlerparents/Evidence bleiben erhalten.
 Frühere Protection-Failures bleiben unverändert. Sync, SSMS, Mitgliedsverbindungen,
-gerenderte UI, andere SQL-Versionen und Least Privilege bleiben separat.
+gerenderte UI, Windows, weitere katalogisierte Builds und Least Privilege bleiben separat.
 Die additive Auswahl von 2019/2022 besitzt einen versionsgebundenen SQL-
-Preflight und DTO-Check; deren native Nachweise sind zunächst NOT_EXECUTED.
+Preflight und DTO-Check. Am 2026-10-07 auf `ef5a8fa9` bestanden vier getrennte
+frische Abnahmen: Docker/2019, Docker/2022, Podman/2019 und Podman/2022 mit
+je zweimal OBSERVED/15 beziehungsweise 16/2/1, fehlendem Root UNKNOWN/null,
+stale Auswahlveto, unveränderten Datei-/CMS-Tabellenhashes und bestätigtem
+Own-Cleanup samt je zwei hashgesicherten Terminalkopien. Alle vier
+bidirektionalen Schutzvergleiche hatten null Findings; Podman/2022 beobachtete
+eine begrenzte Windows-Systemtask-Zeitplanänderung ohne Callerzuordnung.
+Die Offline-Fixture bestand mit 179 Checks, darunter Versionsdrift vor
+Effekt/Secret, falsche gemessene Majors und tatsächliche Create-Weitergabe.
 
 `Integration/Invoke-ContainerPortPreviewAcceptance.ps1` prüft die getrennte
 native Docker-/Podman-Portvorschau-Abnahme. Sie verlangt einen frischen

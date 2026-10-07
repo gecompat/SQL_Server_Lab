@@ -3114,13 +3114,19 @@ eigenen CMS mit synthetischen Metadaten, optional an `-Version` 2019/2022/2025
 gebunden (Default 2025). Der echte SQL-2025-Worker-/SQL-Nachweis
 bestand am 2026-10-07 auf `56e8aabf` getrennt unter Docker und Podman mit
 unveränderten Datei-/CMS-Tabellenhashes und bestätigtem Own-Cleanup. Dies
-schließt ausschließlich diese begrenzte Leseprüfung; andere SQL-Versionen,
-UI, Sync, SSMS, Mitglieder und Least Privilege bleiben offen. Zwei korrigierte
+schließt ausschließlich diese begrenzte Leseprüfung; Windows, weitere katalogisierte
+Builds, UI, Sync, SSMS, Mitglieder und Least Privilege bleiben offen. Zwei korrigierte
 Harnessfehler behalten ihre Fehlerparents, ihre Runtime-Ressourcen sind entfernt.
-Aktuelle Schutzvergleiche haben null Findings und eine begrenzte Windows-Task-
+Die SQL-2025-Schutzvergleiche haben null Findings und eine begrenzte Windows-Task-
 Zeitplanbeobachtung ohne Callerzuordnung; historische Failures bleiben erhalten.
-Die additive Versionsbindung ist vorbereitet; native 2019-/2022-Nachweise
-sind zunächst NOT_EXECUTED.
+Die additive Versionsbindung bestand am 2026-10-07 auf `ef5a8fa9` getrennt
+unter Docker/2019, Docker/2022, Podman/2019 und Podman/2022: zweimal passender
+Major 15 beziehungsweise 16 und 2/1, fehlender Root UNKNOWN/null, stale
+Auswahlveto, gleiche Datei-/CMS-Tabellenhashes und bestätigtes Own-Cleanup samt
+je zwei hashgesicherten Terminalkopien. Alle vier Schutzvergleiche hatten null
+Findings; Podman/2022 beobachtete eine begrenzte Windows-Systemtask-
+Zeitplanänderung ohne Callerzuordnung. Daraus folgt keine Abnahme anderer
+Builds, Windows, UI, Sync, SSMS, Mitglieder oder eines Least-Privilege-Rollenmodells.
 
 ## Bewusster lokaler Operator-Handoff
 

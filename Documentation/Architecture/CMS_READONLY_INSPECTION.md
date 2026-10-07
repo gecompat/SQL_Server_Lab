@@ -96,6 +96,14 @@ Schutzvergleich hatte je null Findings; die begrenzte Podman-Zeitplanbeobachtung
 eines Windows-Systemtasks hat keine Callerzuordnung. Zwei frühere Harnessfehler
 sind korrigiert; ihre eigenen Runtime-Ressourcen sind entfernt und Fehlerparents
 bleiben zur Recovery erhalten. Historische Protection-Failures werden dadurch
-nicht aufgehoben. UI, Sync, SSMS, Mitgliedszugriffe, andere SQL-Versionen und
-Least-Privilege-Authentisierung bleiben getrennt. Native 2019-/2022-Nachweise
-der additiven Versionsauswahl sind zunächst NOT_EXECUTED.
+nicht aufgehoben. UI, Sync, SSMS, Mitgliedszugriffe, Windows, weitere katalogisierte
+Builds und Least-Privilege-Authentisierung bleiben getrennt.
+Die additive Versionsauswahl bestand am 2026-10-07 auf `ef5a8fa9` in vier
+getrennten frischen Abnahmen: Docker und Podman jeweils mit SQL Server 2019
+und 2022. Beide Workeraufrufe lieferten pro Run den passenden Major 15
+beziehungsweise 16 und 2/1; fehlender Root UNKNOWN/null, stale Auswahlveto,
+unveränderte Datei-/CMS-Tabellenhashes und bestätigtes Own-Cleanup mit je zwei
+hashgesicherten Terminalkopien bestanden ebenfalls. Alle vier bidirektionalen
+Schutzvergleiche hatten null Findings; Podman/2022 beobachtete eine begrenzte
+Windows-Systemtask-Zeitplanänderung ohne Callerzuordnung. Dies erweitert nur
+den begrenzten Worker-/SQL-Lesenachweis auf diese Linux-Basisversionen.
