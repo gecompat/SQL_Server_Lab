@@ -348,14 +348,14 @@ prüft die vollständige unveränderte Produktseite über einen eigenen begrenzt
 Loopbacklistener. Vier Bootstrapreads bleiben synthetisch; die tatsächliche
 HTTP-Route verwendet den öffentlichen Entscheid, aktuelle Kataloge,
 Provider-Metadaten und Rezept-/Lockdateien im isolierten Modul. Am 2026-10-07
-bestand die gerenderte Abnahme auf `c99869e2`: zwölf Assets, 36 unveränderte
-Produktquellhashes, 102 Requests, vier Optionsreads und vier Public-Entscheide.
+bestand die gerenderte Abnahme auf `4007d414`: zwölf Assets, 36 unveränderte
+Produktquellhashes, 98 Requests, vier Optionsreads und vier Public-Entscheide.
 Docker Java/2019, Docker Python/2022, Podman R/2022 und die explizite Podman
 Java/2025-shared-user-Variante wurden angezeigt. Navigation, Öffnen/Bearbeiten
 ohne Aktion, deaktivierte blockierte Optionen, Ausgaberücksetzen beim
 Wiederöffnen und Schließen wurden beobachtet. Keine Skriptfehler oder
 instrumentierten verbotenen Effekte; eigener Listener und Tab geschlossen.
-46 Offline-Fälle prüfen Quelle, DTO-/Payload-/Aufrufbindung, Abschlussveto und
+48 Offline-Fälle prüfen Quelle, DTO-/Payload-/Aufrufbindung, Abschlussveto und
 Einzelpfadauswahl mit beiden Pfadtrennern. Produktmodulimport, Hostprüfung,
 historischer Lookup, State, Provider-Runtime, Secrets, Installation und SQL
 bleiben ungenutzt; native Provider-/SQL-Sprachnachweise bleiben separat offen.

@@ -102,7 +102,7 @@ Kein Speichern, Apply, Job, Manifestübernahme oder Start. Der Prozess hat
 20 Sekunden Ausführungsbudget plus bis zu fünf Sekunden Terminierungsversuch,
 kein Gesamt-HTTP-/Listener-Zeitlimit. [Vertrag](../Architecture/EXTERNAL_RUNTIME_CAPABILITY.md).
 
-Der gerenderte reine Katalogpfad wurde am 2026-10-07 auf `c99869e2` für
+Der gerenderte reine Katalogpfad wurde am 2026-10-07 auf `4007d414` für
 Java/2019, Python/2022, R/2022 und die explizite Java/2025-shared-user-Variante
 geprüft. Vier Optionsreads und vier öffentliche Entscheidungen, blockierte
 Optionen sowie das Rücksetzen der Ausgabe beim Wiederöffnen bestanden.

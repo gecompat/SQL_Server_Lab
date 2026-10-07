@@ -97,9 +97,9 @@ lesende Hostprüfung wird dadurch nicht als gestoppt behauptet. Es gibt keinen
 Apply-, Speicher-, Start- oder Manifestübernahmepfad. Historisches Mapping und
 SQL-Sprachabnahme bleiben unverändert offen; CORE-102 ist damit nicht vollständig.
 
-Die getrennte gerenderte Katalogabnahme bestand am 2026-10-07 auf `c99869e2`:
+Die getrennte gerenderte Katalogabnahme bestand am 2026-10-07 auf `4007d414`:
 zwölf unveränderte Produktassets und 36 gebundene Katalog-/Rezept-/Quellhashes,
-102 Requests, vier Optionsreads und genau vier öffentliche Entscheidungen.
+98 Requests, vier Optionsreads und genau vier öffentliche Entscheidungen.
 Docker Java/2019 und Python/2022 sowie Podman R/2022 und die explizite
 Java/2025-shared-user-Variante wurden über die tatsächliche HTTP-Route geprüft.
 Blockierte Optionen waren deaktiviert; Öffnen/Bearbeiten löste keine Aktion aus,

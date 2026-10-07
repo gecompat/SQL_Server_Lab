@@ -43,7 +43,7 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 ### Implementiert
 
 - Der geführte External-Languages-Browser-Katalogpfad besitzt eine getrennte
-  gerenderte Abnahme auf `c99869e2` vom 2026-10-07: zwölf Produktassets,
+  gerenderte Abnahme auf `4007d414` vom 2026-10-07: zwölf Produktassets,
   36 tatsächliche Katalog-/Rezept-/Quellhashes, vier Optionsreads und vier
   öffentliche Entscheidungen für Java/2019, Python/2022, R/2022 und die
   explizite Java/2025-shared-user-Variante. Keine Skriptfehler oder verbotenen
