@@ -219,7 +219,8 @@ Self-hosted Runner und Hyper-V beschreibt die
 Für einen geführten Überblick über Windows-Baselines, SQL-Prepared-Images und
 offene Schritte steht außerdem die [lokale Workflow-Oberfläche](Documentation/HowTo/WORKFLOW_UI.md) bereit.
 Ihre gemeinsame [HTTP-Grenze](Documentation/Architecture/WORKFLOW_UI_REQUEST_BOUNDARY.md)
-prüft Origin/Authority und JSON-POSTs; eine Operatorauthentifizierung bleibt offen. Der
+prüft Origin/Authority und JSON-POSTs. Sieben direkte POST-Routen begrenzen den
+Body auf 1 MiB UTF-8 und fünf Sekunden Lesefrist; Operatorauthentifizierung bleibt offen. Der
 [Vorlagen- und Manifestvertrag](Documentation/Architecture/TEMPLATE_POOL_AND_AUTOMATED_MANIFESTS.md)
 trennt dabei immutable Vorlagen, wegwerfbare Labs und explizite Expertenaktionen.
 

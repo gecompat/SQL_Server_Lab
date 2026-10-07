@@ -2,6 +2,16 @@
 
 ## Gemeinsame Workflow-UI-HTTP-Grenze
 
+`WorkflowUiJsonBodyChecks.ps1` bestand mit 35 Checks, darunter 13 echte HTTP-
+Requests über den vollständigen gemeinsamen Requestblock. Sieben direkte
+POST-Routen verwerfen deklarierte Überlänge ohne Bodylesen; Chunked-Überlänge,
+ungültiges UTF-8 und ein echter Trickle-Body werden ebenfalls abgewiesen.
+Drei anschließende gültige Requests erreichen ausschließlich synthetische
+Sinks; kein Produktmodul/State/SQL/Provider wird ausgeführt. Eigener Listener
+und Threadjob werden entfernt. Eigene Streams prüfen zusätzlich Bytegrenze,
+Sentinel, striktes UTF-8 und die absolute Frist. Spezifische Reader, Header-
+Deadline, Parallelität, Authentifizierung und Statequotas bleiben offen.
+
 Die in WorkflowUI eingebundene `WorkflowUiRequestBoundaryChecks.ps1` bestand
 am 2026-10-07 mit 48 Checks, darunter zwölf echte Loopback-HTTP-Requests über
 die tatsächlichen zentralen Gate-/Commandroute-Anweisungen mit synthetischem

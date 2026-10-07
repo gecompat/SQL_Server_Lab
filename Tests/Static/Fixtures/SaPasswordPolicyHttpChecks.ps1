@@ -1,6 +1,7 @@
 #Requires -Version 7.2
 $ErrorActionPreference = 'Stop'
 $repo = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
+. (Join-Path $repo 'Tools/WorkflowUiJsonBody.ps1')
 $passed = 0
 function Check([bool]$Value,[string]$Name) { if (-not $Value) { throw ('SA_PASSWORD_HTTP_FIXTURE_FAILED: '+$Name) }; $script:passed++ }
 $module = New-Module -Name SqlServerLab -ArgumentList $repo -ScriptBlock {

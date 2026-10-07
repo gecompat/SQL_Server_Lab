@@ -6,7 +6,10 @@ Die gemeinsame [HTTP-Prüfung](../Architecture/WORKFLOW_UI_REQUEST_BOUNDARY.md)
 weist fremde Origins, mehrdeutige Header und ungeeignete POST-Medientypen
 vor Routing/Bodylesung ab. Lokale JSON-Clients ohne Origin bleiben zugelassen;
 GET ist nicht authentifiziert. Keine per Start gebundene Operator-Capability,
-einmalige servergebundene Aktionsfreigabe oder neue Bodylimits. Der zugehörige
+einmalige servergebundene Aktionsfreigabe. Die sieben direkten JSON-POST-Routen
+besitzen eine 1-MiB-Bytegrenze, striktes UTF-8 und fünf Sekunden absolute
+Lesefrist. Spezifische Adapter mit eigenen Readern, Headerannahme,
+Parallelität, Authentifizierung und Statequotas bleiben separat offen. Der zugehörige
 Security-Cloud-Fund bleibt offen; der ältere Scan deckt spätere Heads nicht ab.
 
 ## Lokale Release-Veröffentlichung nach Prozessabbruch

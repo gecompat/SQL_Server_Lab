@@ -26,6 +26,14 @@ servergebundene Freigaben fehlen. Lokale JSON-Clients ohne Origin bleiben
 erlaubt. Weitere Findings, Bodylimits und native Provider-/Browsernachweise
 werden daraus nicht als erledigt abgeleitet.
 
+Der anschließende direkte JSON-Reader-Slice begrenzt die sieben bisherigen
+`ReadToEnd`-POST-Routen vor JSON/Fachaufrufen auf 1 MiB UTF-8 und fünf Sekunden
+absolute Lesefrist. Die fokussierte Fixture bestand mit 35 Checks/13 echten
+HTTP-Requests und ausschließlich synthetischen Sinks; tatsächlicher Trickle-
+Timeout und gültige Folge-Requests sind geprüft. Spezifische Reader mit eigenen
+Grenzen, Headerannahme, Parallelität, Authentifizierung und Statequotas bleiben
+offen. Der zugehörige Cloud-Fund wird dadurch nicht vollständig geschlossen.
+
 Der Benutzer hat die autonome Weiterentwicklung ausdrücklich fortgesetzt. Der
 Nachfolger arbeitet die bereits priorisierte Welle weiter ab; der zugehörige
 Heartbeat ist wieder aktiv. Der GUI-Aktionsstatus wurde mit PR #693 integriert.
