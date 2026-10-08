@@ -62,6 +62,15 @@ Produktmodul, State, SQL und Provider bleiben ungenutzt. Eigener Loopbacklistene
 und Threadjob werden geschlossen/entfernt. Operatorauthentifizierung und
 gerenderter Browser sind damit nicht abgenommen.
 
+`Static/Fixtures/ExternalRuntimeCapabilityHostFactsChecks.ps1` ist in die
+Capability-Suite eingebunden. Sie prüft die gemeinsame typisierte Auswertung
+synthetischer nativer und projizierter Fakten, unveränderte bekannte
+Inkompatibilitäten, gleichwertige typisierte Podman-Aliases (`1`/`v1`, `2`/`v2`),
+unbekannte Werte ohne Freigabe sowie die tatsächlichen
+Menü-/Erstellungs-/Build-Vetos. Tool-/Native-Aufrufe und Effekte werden abgewiesen;
+kein Produktmodulimport, State, Provider oder SQL. Count und ausgeführte
+Frameworks stehen in der kanonischen Validierungsstrategie.
+
 `Integration/Invoke-ExternalRuntimeCapabilityCatalogBrowserAcceptance.ps1` liefert die
 vollständigen zwölf unveränderten Produktassets für die getrennte gerenderte
 External-Languages-Katalogabnahme. Ein frisches

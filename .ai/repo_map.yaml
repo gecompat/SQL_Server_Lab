@@ -402,6 +402,7 @@ sources_of_truth:
   client_readiness_core: Private/ClientReadiness.ps1
   external_runtime_capability_public: Public/Get-SqlServerLabExternalRuntimeCapability.ps1
   external_runtime_capability_core: Private/ExternalRuntimeCapability.ps1
+  external_runtime_host_facts: Private/ContainerImageArtifact.ps1 # shared typed native/projected facts; UNKNOWN never grants support
   external_runtime_capability_http: Private/ExternalRuntimeCapabilityHttp.ps1
   external_runtime_capability_ui: Ui/external-runtime-capability.js
   validation_external_runtime_capability_browser: Tests/Static/Invoke-ExternalRuntimeCapabilityBrowserChecks.ps1
@@ -410,6 +411,7 @@ sources_of_truth:
   validation_external_runtime_catalog_fixture: Tests/Static/Fixtures/ExternalRuntimeCapabilityCatalogBrowserAcceptanceChecks.ps1
   external_runtime_capability_contract: Documentation/Architecture/EXTERNAL_RUNTIME_CAPABILITY.md
   validation_external_runtime_capability: Tests/Static/Invoke-ExternalRuntimeCapabilityChecks.ps1
+  validation_external_runtime_host_facts: Tests/Static/Fixtures/ExternalRuntimeCapabilityHostFactsChecks.ps1 # existing Capability suite; synthetic facts and actual consumer guards, no provider proof
   validation_client_readiness: Tests/Static/Invoke-ClientReadinessChecks.ps1
   diagnostic_bundle_public: Public/Get-SqlServerLabDiagnosticBundle.ps1
   diagnostic_bundle_reader: Private/DiagnosticBundleReader.ps1

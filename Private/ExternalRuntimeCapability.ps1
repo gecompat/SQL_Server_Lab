@@ -29,26 +29,6 @@ function Invoke-LabExternalRuntimeInfoProcess {
     Invoke-LabDiagnosticBoundedProcess -StartInfo $start -TimeoutSeconds 20 -MaximumBytes 65536
 }
 
-function ConvertTo-LabExternalRuntimeHostFacts {
-    param([string]$Provider,$Value)
-    if ($Value -isnot [pscustomobject]) { throw 'PROVIDER_RESPONSE_INVALID' }
-    $names=@($Value.PSObject.Properties.Name)
-    $expected=if($Provider -ceq 'docker'){@('OperatingSystem','CgroupVersion','SecurityOptions')}else{@('OperatingSystem','CgroupVersion','Rootless')}
-    if($names.Count -ne 3 -or @($names|Where-Object{$_ -cnotin $expected}).Count) { throw 'PROVIDER_RESPONSE_INVALID' }
-    if($Value.OperatingSystem -isnot [string] -or $Value.OperatingSystem -cnotin @('linux','windows') -or
-        $Value.CgroupVersion -isnot [string] -or $Value.CgroupVersion -cnotin @('1','2','v1','v2')) { throw 'PROVIDER_RESPONSE_INVALID' }
-    if($Provider -ceq 'docker') {
-        if($Value.SecurityOptions -isnot [array] -or $Value.SecurityOptions.Count -gt 16 -or
-            @($Value.SecurityOptions|Where-Object{$_ -isnot [string] -or $_.Length -gt 128 -or
-                ($_ -match '(?i)rootless' -and $_ -cnotin @('name=rootless','rootless'))}).Count) { throw 'PROVIDER_RESPONSE_INVALID' }
-        $rootless=@($Value.SecurityOptions|Where-Object{$_ -ceq 'name=rootless' -or $_ -ceq 'rootless'}).Count -gt 0
-    } else {
-        if($Value.Rootless -isnot [bool]) { throw 'PROVIDER_RESPONSE_INVALID' }
-        $rootless=$Value.Rootless
-    }
-    [pscustomobject]@{OperatingSystem=$Value.OperatingSystem;CgroupVersion=$Value.CgroupVersion.TrimStart('v');Rootless=[bool]$rootless}
-}
-
 function Read-LabExternalRuntimeHostFacts {
     param([string]$Provider)
     $result=[pscustomobject]@{Status='UNAVAILABLE';ReasonCode='PROVIDER_PROBE_FAILED';Facts=$null}

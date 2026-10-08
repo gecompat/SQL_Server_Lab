@@ -150,3 +150,4 @@ $module=New-Module -ArgumentList $root -ScriptBlock {
     Write-Host "EXTERNAL RUNTIME CAPABILITY CHECKS: PASS ($script:passed assertions; synthetic transport only)"
 }
 try { & $module {} } finally {Remove-Module $module -ErrorAction SilentlyContinue}
+& (Join-Path $PSScriptRoot 'Fixtures/ExternalRuntimeCapabilityHostFactsChecks.ps1')

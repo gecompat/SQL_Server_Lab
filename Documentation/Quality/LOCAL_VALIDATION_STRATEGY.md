@@ -652,6 +652,54 @@ Es werden keine Provider, SQL-Instanzen oder Sprachruntimes gestartet oder
 abgefragt. Native Nachweise bleiben getrennt und werden nach tatsächlichem
 finalen Diff ausgewählt. [Vertrag](../Architecture/EXTERNAL_RUNTIME_CAPABILITY.md).
 
+Der begrenzte CORE-102-Faktenfix vom 2026-10-08 erhält die ursprüngliche reine
+Characterization mit zehn falschen Entscheidungen bei 15 synthetischen Fällen.
+Die eingebundene `ExternalRuntimeCapabilityHostFactsChecks.ps1` bestand im ersten Stand
+mit 70 Assertions: fehlende/falsch typisierte Fakten und Aliaswidersprüche,
+bekannte kompatible/inkompatible Kombinationen, gemeinsame Public-/HTTP-DTOs,
+echte Menüfunktion sowie tatsächliche Erstellungs-/Build-Vetos mit gültigem
+Imageplan vor einem synthetischen Effektsink. Tool-/Native-Aufrufversuche und
+Effekte blieben null; der isolierte Modulkontext wurde geschlossen.
+Die vollständige fokussierte Capability-Suite dieses Stands bestand mit 126 Assertions
+(56 bestehende plus 70 Faktenchecks) getrennt auf PowerShell 7.4.20/.NET 8.0.31
+und 7.6.6/.NET 10.0.12. Beim 7.4-Lauf waren 29 Quelldigests unverändert;
+für den Softwarekatalog fehlte der zeitgleiche Vorherdigest. Der 7.6-Lauf
+bindet auch diesen Katalog mit 30 unveränderten Vorher-/Nachherdigests.
+Das unabhängige Review fand danach vier neue Fehlentscheidungen für semantisch
+gleiche Podman-Aliases (`1`/`v1`, `v1`/`1`, `2`/`v2`, `v2`/`2`); dieser
+fehlgeschlagene Nachweis bleibt erhalten. Der korrigierte Vergleich validiert
+beide Angaben mit demselben Konverter und vergleicht deren kanonische Fakten.
+Die erweiterte Faktenfixture bestand mit 80 Assertions, die betroffene
+Capability-Suite mit 136 (56 bestehende plus 80 Faktenchecks) auf PowerShell
+7.6.6/.NET 10.0.12; Quellen blieben unverändert und Modulcleanup gelang.
+Die zusätzlichen Kontrollen prüfen SQL 2025 mit erforderlicher cgroup 1/2,
+gleichwertige Aliases ohne Effekte sowie ungültige Primär-/Aliaswerte.
+Der frühere 7.4-Nachweis wird nicht auf diesen korrigierten Stand übertragen.
+47 tatsächliche HTTP-Adapterchecks mit synthetischem Prozessreader und 29
+JS-Checks mit Fake-DOM bestanden separat am ersten Stand; ihre unveränderten
+Fixtures wurden nach der Alias-Korrektur nicht wiederholt. Diese Counts werden
+nicht addiert.
+Die anfänglichen Fixture-/Collectorfehler bleiben lokal erhalten. Betroffene
+Regression und finaler Gate sind daraus nicht abgeleitet. PowerShell 7.2/.NET 6,
+gerenderter Browser sowie native Provider-/SQL-Sprachabnahme bleiben für diesen
+Faktenfix `NOT_EXECUTED`; die vollständige Issue-619-Matrix bleibt offen.
+
+Die anschließende tatsächliche Auswahl über den unveränderten
+`Invoke-ImpactedChecks.ps1` bestand mit allen 14 betroffenen statischen Suites
+auf PowerShell 7.6.6/.NET 10.0.12. Der Analyzer meldete 24 genehmigte
+Baselinefehler, keine neuen blockierenden Fehler und 5599 Warnungen.
+Ein zusätzlicher lesender Nachweis über die unveränderte öffentliche
+Capability-Funktion bestand mit genau einer begrenzten echten Docker-`info`-
+Abfrage: typisierte Fakten, Classifier und öffentliche Entscheidung stimmten
+überein; der Defaultaufruf führte keine native Abfrage aus. Der isolierte
+Modulkontext und eigene Prozess wurden geschlossen, der Prozess-PATH
+wiederhergestellt und die 22 gebundenen Quellen blieben unverändert.
+Dieser Nachweis betrifft ausschließlich die Hostvoraussetzung des gewählten
+Launchmodus; er ist kein vollständiger Produktmodulimport, kein Docker-SQL-Smoke,
+keine SQL-/Sprachausführung und kein Podman-/Hyper-V-Nachweis. Die fehlenden
+Mindestframework- und Matrixabnahmen bleiben offen. Der abschließende
+Pflichtgate am exakten PR-Head steht weiterhin aus.
+
 ## Reine Komponenten-/Shared-Verbrauchervorschau
 
 Der zugehörige Browser-Slice wird durch `ComponentRelationPlanHttpChecks.ps1`
