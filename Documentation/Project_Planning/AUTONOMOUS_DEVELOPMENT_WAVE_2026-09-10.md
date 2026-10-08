@@ -61,12 +61,30 @@ sichere Receipts und ein tatsächlicher Verlust der 202-Antwort ohne Replay.
 Keine Seitenfehler oder instrumentierten verbotenen Effekte; eigener Browser,
 Listener, Operatorsitzung und Grantstore geschlossen, alle 19 Quellen während
 des Nachlaufs unverändert. Produktmodul, State, SQL, Provider und vollständiger
-Fachcore bleiben `NOT_EXECUTED`. Vollständiger unabhängiger Review, breitere
-betroffene Prüfungen, Pflichtgate am exakten PR-Head und anschließende Integration
-sind die erforderlichen nächsten Gates. Andere Aktionsrouten,
+Fachcore bleiben `NOT_EXECUTED`. PR #724 ist `MERGED`: Source `81b6b09d`,
+exakter Pflichtgate `37708830173` `SUCCESS`, integrierter main-Checkpoint
+`fe0d0e1276feef6be92f37c5cabd65ebac6ddd1b`. Unabhängiger Review und betroffene
+Prüfungen gehören zu diesem abgeschlossenen Slice. Andere Aktionsrouten,
 Batch-Replay und menschliche Zustimmung bleiben ausdrücklich offen.
-Host-DNS-/TCP-Bindung ist separat
-vorbereitet und erteilt keine SQL-Egress- oder Cloud-Consentfreigabe.
+Der folgende Host-External-Model-Slice bindet einen vollständigen einmaligen
+Loopback-DNS-Snapshot an genau einen numerischen TCP-Peer samt Port vor
+Schlüsselöffnung und Requesterstellung. Originale HTTPS-Autorität und exakt
+HTTP/1.1 bleiben erhalten; keine zweite Adresse oder Streamübergabe. Die
+fokussierte Fixture bestand am 2026-10-08 mit 88 synthetischen DNS-/CLR-/eigenen
+TCP-Prüfungen auf PowerShell 7.2.24/.NET 6.0.35 und 7.6.6/.NET 10.0.12.
+Unabhängiger Produkt-/Korrekturreview und die neun tatsächlich selektierten
+statischen Suites auf PowerShell 7.4.20/.NET 8.0.31 sind abgeschlossen.
+Die native Windows-Mindestframeworkmatrix bleibt `PARTIAL`: 29 von 30 Fällen
+bestanden, `Tls13` blieb `FAIL` vor HTTP; sieben repräsentative aktuelle
+Runtimefälle bestanden separat. Diagnosewiederholungen der TLS-1.2→1.3-
+Sequenz im selben Clientprozess auf .NET 6 und .NET 10 sind
+`NOT_ACCEPTED_PROOF`; Ursache und Produktregressionszuordnung bleiben
+`UNRESOLVED`. Früherer Harnessfehler und ursprünglicher TLS-Fehler bleiben
+erhalten. Vollständige native TLS-/Plattformabnahme und der exakte Pflichtgate
+bleiben separat erforderlich; [Nachweise](../Quality/LOCAL_VALIDATION_STRATEGY.md#lokale-external-model-autoritaeten).
+Die Frist ist kooperativ; synchrone Kettenprüfung/native AIA-Abfragen bleiben
+unverändert. Keine SQL-Egress- oder Cloud-Consentfreigabe; Plan-/Receipt-/SQL-
+Schlüssel und Legacy-Cleanup bleiben erhalten.
 
 ### Abschlussgrenze und Wiederaufnahme nach Benutzerpause vom 2026-10-07
 

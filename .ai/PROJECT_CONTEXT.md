@@ -54,8 +54,20 @@ Reservierung und kumulative Quoten bleiben offen.
 Die lokale [External-Model-Lane](../Documentation/User/SQL_AI_LOCAL_ACCELERATION.md)
 beschraenkt HTTPS-Autoritaeten auf numerischen Loopback und die festen lokalen
 Hostaliases. Andere Ziele werden vor Probe/neuer SQL-Aktion verworfen.
-DNS-/TCP-Zielbindung, Cloud-Consent und vollstaendige Cloud-Fundbehebung bleiben
-offen; Legacy-Cleanup und bestehende Plan-/Receipt-Schluessel bleiben erhalten.
+Die Host-HTTPS-Probe bindet nun einen vollständigen einmaligen Loopback-DNS-
+Snapshot an genau einen numerischen TCP-Peer samt Port vor Schlüsselöffnung.
+Originale TLS-Autorität und HTTP/1.1 bleiben erhalten; kein Adressfallback.
+SQL-/Container-/VM-Zielbindung, Cloud-Consent und vollständige Cloud-Fundbehebung
+bleiben offen. Synchrone Zertifikatskettenprüfung und native AIA-Abfragen bleiben
+unverändert; die Frist ist kooperativ. Legacy-Cleanup und bestehende Plan-/
+Receipt-Schlüssel bleiben erhalten.
+Die Windows-Hostabnahme vom 2026-10-08 ist `PARTIAL` (29/30 auf .NET 6);
+die TLS-1.2→1.3-Sequenzgrenze im selben Clientprozess wurde auch auf .NET 10
+reproduziert. Ursache und Produktregressionszuordnung bleiben `UNRESOLVED`.
+Ausgeführte Fixture-/Regressionsnachweise und Diagnosegrenzen stehen in der
+[Validierungsstrategie](../Documentation/Quality/LOCAL_VALIDATION_STRATEGY.md#lokale-external-model-autoritaeten),
+die offene Windows-Grenze in
+[Known Limitations](../Documentation/Quality/KNOWN_LIMITATIONS.md#lokale-external-models-begrenzte-autoritaetsliste).
 
 Die gemeinsame Workflow-UI-[HTTP-Grenze](../Documentation/Architecture/WORKFLOW_UI_REQUEST_BOUNDARY.md)
 prüft Requests vor Routing/Bodylesung. Fremde Origins und ungeeignete POST-

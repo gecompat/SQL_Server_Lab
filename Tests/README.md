@@ -25,8 +25,20 @@ abgeleiteten Nachweise. [Vertrag](../Documentation/Architecture/DOWNLOAD_STREAM_
 `Static/Fixtures/AiExternalModelAuthorityChecks.ps1` ist in die External-Model-
 Suite eingebunden. Sie prueft die feste lokale Autoritaetsliste und Vetos vor
 Transport-/SQL-Dispatch ohne Netzwerk oder Provider; bestehende PlanKeys und
-der Legacy-SQL-Lesevertrag bleiben gebunden. DNS-/TCP-Zielbindung und Cloud-
-Consent sind damit nicht belegt. Der getrennte Windows-OVMS-Gateway-Runner
+der Legacy-SQL-Lesevertrag bleiben gebunden. Diese Authority-Fixture belegt
+keine DNS-/TCP-Zielbindung und keinen Cloud-Consent. Die zusätzliche
+`Static/Fixtures/AiExternalModelConnectionBindingChecks.ps1` prüft den
+vollständigen synthetischen DNS-Snapshot, Deadline, Vetos vor Connector und
+Schlüsselöffnung, einmaligen CLR-Streamhandoff auf einem Worker sowie echte
+eigene numerische TCP-Verbindungen einschließlich falschem Peerport und Cleanup.
+Sie kann direkt oder innerhalb der External-Model-Suite ausgeführt werden;
+am 2026-10-08 bestanden 88 Fälle auf PowerShell 7.2.24/.NET 6.0.35 und
+7.6.6/.NET 10.0.12. TLS, HttpClient-Scheduling, native Hostaliasauflösung und
+Plattformnachweise sind getrennt: die separate Windows-Mindestframeworkmatrix
+ist mit 29/30 Fällen `PARTIAL`, der TLS-1.3-Sequenzfehler bleibt offen.
+Unter .NET 10 bestanden sieben repräsentative Produktfälle; Diagnosevergleiche
+sind keine akzeptierte Abnahme. [Nachweise und Grenzen](../Documentation/Quality/LOCAL_VALIDATION_STRATEGY.md#lokale-external-model-autoritaeten).
+Der getrennte Windows-OVMS-Gateway-Runner
 prueft einen eigenen kurzlebigen numerischen HTTPS-Loopback-Endpunkt.
 
 `Static/Fixtures/WorkflowUiJsonBodyChecks.ps1` ist in WorkflowUI eingebunden:

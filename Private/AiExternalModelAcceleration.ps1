@@ -371,6 +371,158 @@ function Test-LabAiExternalModelArtifact {
     }
 }
 
+function Resolve-LabAiExternalModelConnectAddress {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][Uri]$Uri,
+        [Parameter(Mandatory)][Threading.CancellationToken]$CancellationToken,
+        [scriptblock]$Resolver
+    )
+    $CancellationToken.ThrowIfCancellationRequested()
+    $numeric = $null
+    if ([Net.IPAddress]::TryParse($Uri.DnsSafeHost, [ref]$numeric)) {
+        if (-not [Net.IPAddress]::IsLoopback($numeric)) { throw 'AI_EXTERNAL_MODEL_DNS_SNAPSHOT_INVALID' }
+        return $numeric
+    }
+    try {
+        # .NET 6 has this overload. Cancellation stops waiting; it does not
+        # claim physical cancellation of the operating system resolver.
+        $task = if ($Resolver) { & $Resolver $Uri.DnsSafeHost $CancellationToken }
+                else { [Net.Dns]::GetHostAddressesAsync($Uri.DnsSafeHost) }
+        $snapshot = @($task.WaitAsync($CancellationToken).GetAwaiter().GetResult())
+        $CancellationToken.ThrowIfCancellationRequested()
+    }
+    catch {
+        if ($CancellationToken.IsCancellationRequested) { throw 'AI_EXTERNAL_MODEL_ENDPOINT_TIMEOUT' }
+        throw 'AI_EXTERNAL_MODEL_DNS_FAILURE'
+    }
+    if ($snapshot.Count -eq 0) { throw 'AI_EXTERNAL_MODEL_DNS_SNAPSHOT_INVALID' }
+    $addresses = [Collections.Generic.List[Net.IPAddress]]::new()
+    foreach ($entry in $snapshot) {
+        $CancellationToken.ThrowIfCancellationRequested()
+        if ($entry -isnot [Net.IPAddress] -or
+            $entry.AddressFamily -notin @([Net.Sockets.AddressFamily]::InterNetwork,[Net.Sockets.AddressFamily]::InterNetworkV6)) {
+            throw 'AI_EXTERNAL_MODEL_DNS_SNAPSHOT_INVALID'
+        }
+        # Freeze before validating; never subsequently use a resolver-owned
+        # mutable address. Preserve scope so it cannot disappear in the copy.
+        $copy = if ($entry.AddressFamily -eq [Net.Sockets.AddressFamily]::InterNetworkV6) {
+            [Net.IPAddress]::new($entry.GetAddressBytes(),$entry.ScopeId)
+        } else { [Net.IPAddress]::new($entry.GetAddressBytes()) }
+        if (-not [Net.IPAddress]::IsLoopback($copy) -or
+            ($copy.AddressFamily -eq [Net.Sockets.AddressFamily]::InterNetworkV6 -and $copy.ScopeId -ne 0)) {
+            throw 'AI_EXTERNAL_MODEL_DNS_SNAPSHOT_INVALID'
+        }
+        $addresses.Add($copy)
+    }
+    $CancellationToken.ThrowIfCancellationRequested()
+    # IPv4 first, then ordinal hexadecimal address bytes; never retry another
+    # address when the sole selected peer cannot accept the connection.
+    return @($addresses | Sort-Object @{Expression={if ($_.AddressFamily -eq [Net.Sockets.AddressFamily]::InterNetwork) {0} else {1}}},
+        @{Expression={[Convert]::ToHexString($_.GetAddressBytes())}})[0]
+}
+
+function Connect-LabAiExternalModelPeer {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][Net.IPAddress]$Address,
+        [Parameter(Mandatory)][ValidateRange(1,65535)][int]$Port,
+        [Parameter(Mandatory)][Threading.CancellationToken]$CancellationToken
+    )
+    $client = [Net.Sockets.TcpClient]::new($Address.AddressFamily)
+    try {
+        $null = $client.ConnectAsync($Address, $Port, $CancellationToken).AsTask().GetAwaiter().GetResult()
+        $CancellationToken.ThrowIfCancellationRequested()
+        return $client
+    }
+    catch { $client.Dispose(); throw }
+}
+
+function Assert-LabAiExternalModelPeer {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][Net.Sockets.TcpClient]$Client,
+        [Parameter(Mandatory)][Net.IPAddress]$Address,
+        [Parameter(Mandatory)][int]$Port
+    )
+    $peer = $Client.Client.RemoteEndPoint
+    if ($peer -isnot [Net.IPEndPoint] -or -not $peer.Address.Equals($Address) -or $peer.Port -ne $Port) {
+        throw 'AI_EXTERNAL_MODEL_PEER_MISMATCH'
+    }
+}
+
+function New-LabAiExternalModelExpressionNode {
+    param([Reflection.ConstructorInfo]$Constructor, [Linq.Expressions.Expression[]]$Arguments)
+    # PowerShell reserves Type::new, including Expression.New's factory name.
+    $factory = [Linq.Expressions.Expression].GetMethod('New', [type[]]@([Reflection.ConstructorInfo],[Linq.Expressions.Expression[]]))
+    return $factory.Invoke($null, [object[]]@($Constructor,$Arguments))
+}
+
+function New-LabAiExternalModelConnectCallback {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][Uri]$Uri, [Parameter(Mandatory)][IO.Stream]$Stream)
+
+    # This CLR-only callback can run without a PowerShell runspace. Caller
+    # retains independent stream/socket disposal custody even after handoff.
+    $box = [Runtime.CompilerServices.StrongBox[IO.Stream]]::new($Stream)
+    $context = [Linq.Expressions.Expression]::Parameter([Net.Http.SocketsHttpConnectionContext],'context')
+    $cancel = [Linq.Expressions.Expression]::Parameter([Threading.CancellationToken],'cancel')
+    $localStream = [Linq.Expressions.Expression]::Variable([IO.Stream],'stream')
+    $endpoint = [Linq.Expressions.Expression]::Property($context,'DnsEndPoint')
+    $request = [Linq.Expressions.Expression]::Property($context,'InitialRequestMessage')
+    $requestUri = [Linq.Expressions.Expression]::Property($request,'RequestUri')
+    $equals = [string].GetMethod('Equals',[type[]]@([string],[string],[StringComparison]))
+    $hostMatch = [Linq.Expressions.Expression]::Call($equals,[Linq.Expressions.Expression[]]@(
+        [Linq.Expressions.Expression]::Property($endpoint,'Host'),[Linq.Expressions.Expression]::Constant($Uri.IdnHost),
+        [Linq.Expressions.Expression]::Constant([StringComparison]::OrdinalIgnoreCase)))
+    if ($Uri.HostNameType -eq [UriHostNameType]::IPv6) {
+        # .NET 6 HttpAuthority preserves IPv6 brackets while Uri.IdnHost
+        # omits them. Permit only these two exact forms for this same URI.
+        $bracketedHostMatch = [Linq.Expressions.Expression]::Call($equals,[Linq.Expressions.Expression[]]@(
+            [Linq.Expressions.Expression]::Property($endpoint,'Host'),[Linq.Expressions.Expression]::Constant('['+$Uri.IdnHost+']'),
+            [Linq.Expressions.Expression]::Constant([StringComparison]::OrdinalIgnoreCase)))
+        $hostMatch = [Linq.Expressions.Expression]::OrElse($hostMatch,$bracketedHostMatch)
+    }
+    $portMatch = [Linq.Expressions.Expression]::Equal([Linq.Expressions.Expression]::Property($endpoint,'Port'),[Linq.Expressions.Expression]::Constant($Uri.Port))
+    $authority = [Linq.Expressions.Expression]::Call($requestUri,[Uri].GetMethod('GetLeftPart',[type[]]@([UriPartial])),[Linq.Expressions.Expression]::Constant([UriPartial]::Authority))
+    $uriMatch = [Linq.Expressions.Expression]::Call($equals,[Linq.Expressions.Expression[]]@($authority,
+        [Linq.Expressions.Expression]::Constant($Uri.GetLeftPart([UriPartial]::Authority)),[Linq.Expressions.Expression]::Constant([StringComparison]::Ordinal)))
+    $matching = [Linq.Expressions.Expression]::AndAlso(
+        [Linq.Expressions.Expression]::NotEqual($endpoint,[Linq.Expressions.Expression]::Constant($null,[Net.DnsEndPoint])),
+        [Linq.Expressions.Expression]::AndAlso([Linq.Expressions.Expression]::NotEqual($request,[Linq.Expressions.Expression]::Constant($null,[Net.Http.HttpRequestMessage])),
+        [Linq.Expressions.Expression]::AndAlso([Linq.Expressions.Expression]::NotEqual($requestUri,[Linq.Expressions.Expression]::Constant($null,[Uri])),
+        [Linq.Expressions.Expression]::AndAlso($hostMatch,[Linq.Expressions.Expression]::AndAlso($portMatch,$uriMatch)))))
+    $exception = New-LabAiExternalModelExpressionNode ([InvalidOperationException].GetConstructor([type[]]@([string]))) `
+        ([Linq.Expressions.Expression[]]@([Linq.Expressions.Expression]::Constant('AI_EXTERNAL_MODEL_CONNECT_HANDOFF_REQUIRED')))
+    $failure = [Linq.Expressions.Expression]::Throw($exception)
+    $cancelGuard = [Linq.Expressions.Expression]::Call($cancel,[Threading.CancellationToken].GetMethod('ThrowIfCancellationRequested'))
+    $guard = [Linq.Expressions.Expression]::IfThen([Linq.Expressions.Expression]::Not($matching),$failure)
+    $exchange = @([Threading.Interlocked].GetMethods() | Where-Object {$_.Name -eq 'Exchange' -and $_.IsGenericMethodDefinition})[0].MakeGenericMethod([IO.Stream])
+    $consume = [Linq.Expressions.Expression]::Assign($localStream,[Linq.Expressions.Expression]::Call($exchange,[Linq.Expressions.Expression[]]@(
+        [Linq.Expressions.Expression]::Field([Linq.Expressions.Expression]::Constant($box),'Value'),[Linq.Expressions.Expression]::Constant($null,[IO.Stream]))))
+    $once = [Linq.Expressions.Expression]::IfThen([Linq.Expressions.Expression]::Equal($localStream,[Linq.Expressions.Expression]::Constant($null,[IO.Stream])),$failure)
+    $output = New-LabAiExternalModelExpressionNode ([Threading.Tasks.ValueTask[IO.Stream]].GetConstructor([type[]]@([IO.Stream]))) ([Linq.Expressions.Expression[]]@($localStream))
+    $body = [Linq.Expressions.Expression]::Block([Linq.Expressions.ParameterExpression[]]@($localStream),[Linq.Expressions.Expression[]]@($cancelGuard,$guard,$consume,$once,$output))
+    return [Linq.Expressions.Expression]::Lambda([Net.Http.SocketsHttpHandler].GetProperty('ConnectCallback').PropertyType,
+        $body,[Linq.Expressions.ParameterExpression[]]@($context,$cancel)).Compile()
+}
+
+function New-LabAiExternalModelTlsCallback {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Validator)
+    $sender = [Linq.Expressions.Expression]::Parameter([object],'sender')
+    $cert = [Linq.Expressions.Expression]::Parameter([Security.Cryptography.X509Certificates.X509Certificate],'certificate')
+    $chain = [Linq.Expressions.Expression]::Parameter([Security.Cryptography.X509Certificates.X509Chain],'chain')
+    $errors = [Linq.Expressions.Expression]::Parameter([Net.Security.SslPolicyErrors],'errors')
+    # Existing verifier does not read its message argument; retain all pin,
+    # native name and system/custom-root trust semantics without a new type.
+    $invoke = [Linq.Expressions.Expression]::Invoke([Linq.Expressions.Expression]::Constant($Validator.Callback),[Linq.Expressions.Expression[]]@(
+        [Linq.Expressions.Expression]::Constant($null,[Net.Http.HttpRequestMessage]),
+        [Linq.Expressions.Expression]::TypeAs($cert,[Security.Cryptography.X509Certificates.X509Certificate2]),$chain,$errors))
+    return [Linq.Expressions.Expression]::Lambda([Net.Security.RemoteCertificateValidationCallback],$invoke,
+        [Linq.Expressions.ParameterExpression[]]@($sender,$cert,$chain,$errors)).Compile()
+}
+
 function Invoke-LabAiExternalModelHttpTransport {
     [CmdletBinding()]
     param(
@@ -378,52 +530,95 @@ function Invoke-LabAiExternalModelHttpTransport {
         [Parameter(Mandatory)][ValidatePattern('^https://')][string]$Location,
         [Parameter(Mandatory)][ValidatePattern('^[a-fA-F0-9]{64}$')][string]$ExpectedServerCertificateSha256,
         [SecureString]$ApiKey,
-        [Security.Cryptography.X509Certificates.X509Certificate2]$TrustedRootCertificate
+        [Security.Cryptography.X509Certificates.X509Certificate2]$TrustedRootCertificate,
+        [scriptblock]$Resolver,
+        [scriptblock]$Connector
     )
 
-    $null = Resolve-LabAiExternalModelLocalAuthority -Location $Location
+    $uri = Resolve-LabAiExternalModelLocalAuthority -Location $Location
     $expectedPin = $ExpectedServerCertificateSha256.ToLowerInvariant()
     $validator = [SqlServerLab.AiExternalModelCertificateValidatorV1]::new($expectedPin, $TrustedRootCertificate)
-    $handler = [Net.Http.HttpClientHandler]::new()
-    $handler.AllowAutoRedirect = $false
-    $handler.UseProxy = $false
-    $handler.ServerCertificateCustomValidationCallback = $validator.Callback
-
-    $client = [Net.Http.HttpClient]::new($handler, $true)
-    $client.MaxResponseContentBufferSize = 1MB
+    $deadline = [Threading.CancellationTokenSource]::new([TimeSpan]::FromSeconds([int]$Request.TimeoutSeconds))
+    $handler = $null
+    $client = $null
+    $tcpClient = $null
+    $stream = $null
     $message = $null
+    $httpResponse = $null
     $plainApiKey = $null
+    $bodyBytes = $null
     try {
-        $client.Timeout = [TimeSpan]::FromSeconds([int]$Request.TimeoutSeconds)
+        $address = Resolve-LabAiExternalModelConnectAddress -Uri $uri -CancellationToken $deadline.Token -Resolver $Resolver
+        $deadline.Token.ThrowIfCancellationRequested()
+        $tcpClient = if ($Connector) { & $Connector $address $uri.Port $deadline.Token }
+                     else { Connect-LabAiExternalModelPeer -Address $address -Port $uri.Port -CancellationToken $deadline.Token }
+        $deadline.Token.ThrowIfCancellationRequested()
+        Assert-LabAiExternalModelPeer -Client $tcpClient -Address $address -Port $uri.Port
+        $stream = $tcpClient.GetStream()
+        $handler = [Net.Http.SocketsHttpHandler]::new()
+        $handler.AllowAutoRedirect = $false
+        $handler.UseProxy = $false
+        $handler.ConnectCallback = New-LabAiExternalModelConnectCallback -Uri $uri -Stream $stream
+        $handler.SslOptions.RemoteCertificateValidationCallback = New-LabAiExternalModelTlsCallback -Validator $validator
+        $client = [Net.Http.HttpClient]::new($handler, $false)
+        $client.Timeout = [Threading.Timeout]::InfiniteTimeSpan
+        $client.MaxResponseContentBufferSize = 1MB
+        $deadline.Token.ThrowIfCancellationRequested()
         $method = if ($Request.Method -eq 'GET') { [Net.Http.HttpMethod]::Get } else { [Net.Http.HttpMethod]::Post }
-        $message = [Net.Http.HttpRequestMessage]::new($method, [Uri]$Location)
-        if ($method -eq [Net.Http.HttpMethod]::Post) { $message.Content = [Net.Http.StringContent]::new(($Request.Body | ConvertTo-Json -Depth 10 -Compress), [Text.Encoding]::UTF8, 'application/json') }
+        $message = [Net.Http.HttpRequestMessage]::new($method, $uri)
+        $message.Version = [Version]::new(1,1)
+        $message.VersionPolicy = [Net.Http.HttpVersionPolicy]::RequestVersionExact
+        if ($method -eq [Net.Http.HttpMethod]::Post) {
+            $requestBody = if (($Request -is [Collections.IDictionary] -and $Request.Contains('RuntimeModel')) -or
+                $Request.PSObject.Properties['RuntimeModel']) {
+                [ordered]@{model=[string]$Request.RuntimeModel;input=@('SQL Server Lab synthetic embedding probe');encoding_format='float'}
+            } else { $Request.Body }
+            $bodyBytes = [Text.Encoding]::UTF8.GetBytes(($requestBody | ConvertTo-Json -Depth 10 -Compress))
+            $message.Content = [Net.Http.ByteArrayContent]::new($bodyBytes)
+            $message.Content.Headers.ContentType = [Net.Http.Headers.MediaTypeHeaderValue]::new('application/json')
+            $message.Content.Headers.ContentType.CharSet = 'utf-8'
+            $requestBody = $null
+        }
         if ($ApiKey) {
+            $deadline.Token.ThrowIfCancellationRequested()
             $plainApiKey = ConvertFrom-LabSecureString -SecureString $ApiKey
             $message.Headers.Authorization = [Net.Http.Headers.AuthenticationHeaderValue]::new('Bearer', $plainApiKey)
         }
-        try { $httpResponse = $client.SendAsync($message).GetAwaiter().GetResult() }
-        catch [Net.Http.HttpRequestException] {
-            if($validator.FailureCode){throw $validator.FailureCode}
-            throw
-        }
+        $deadline.Token.ThrowIfCancellationRequested()
+        $httpResponse = $client.SendAsync($message,[Net.Http.HttpCompletionOption]::ResponseContentRead,$deadline.Token).GetAwaiter().GetResult()
         try {
             $statusCode = [int]$httpResponse.StatusCode
             $body = $null
             if ($statusCode -ge 200 -and $statusCode -lt 300) {
-                $json = $httpResponse.Content.ReadAsStringAsync().GetAwaiter().GetResult()
+                $json = $httpResponse.Content.ReadAsStringAsync($deadline.Token).GetAwaiter().GetResult()
                 try { $body = $json | ConvertFrom-Json -Depth 30 -ErrorAction Stop }
                 catch { throw 'AI_EXTERNAL_MODEL_RESPONSE_INVALID' }
                 finally { $json = $null }
             }
+            $deadline.Token.ThrowIfCancellationRequested()
             return [PSCustomObject]@{StatusCode=$statusCode;Body=$body;ServerCertificateSha256=$validator.ObservedPin}
         }
         finally { $httpResponse.Dispose() }
     }
+    catch {
+        if ($deadline.IsCancellationRequested) { throw 'AI_EXTERNAL_MODEL_ENDPOINT_TIMEOUT' }
+        if ($validator.FailureCode) { throw $validator.FailureCode }
+        $fixedCodes = @('AI_EXTERNAL_MODEL_DNS_FAILURE','AI_EXTERNAL_MODEL_DNS_SNAPSHOT_INVALID',
+            'AI_EXTERNAL_MODEL_PEER_MISMATCH','AI_EXTERNAL_MODEL_CONNECT_HANDOFF_REQUIRED','AI_EXTERNAL_MODEL_RESPONSE_INVALID','AI_EXTERNAL_MODEL_ENDPOINT_TIMEOUT')
+        if ($_.Exception.Message -cin $fixedCodes) { throw $_.Exception.Message }
+        throw 'AI_EXTERNAL_MODEL_ENDPOINT_NETWORK_FAILURE'
+    }
     finally {
         $plainApiKey = $null
+        $requestBody = $null
+        if ($bodyBytes) { [Array]::Clear($bodyBytes,0,$bodyBytes.Length) }
+        $bodyBytes = $null
         if ($message) { $message.Dispose() }
-        $client.Dispose()
+        if ($client) { $client.Dispose() }
+        if ($handler) { $handler.Dispose() }
+        if ($stream) { $stream.Dispose() }
+        if ($tcpClient) { $tcpClient.Dispose() }
+        $deadline.Dispose()
     }
 }
 
@@ -439,9 +634,15 @@ function Invoke-LabAiExternalModelEndpointProbe {
 
     $Plan = Resolve-LabAiExternalModelPlan -Plan $Plan
 
-    $request = [PSCustomObject]@{
+    $request = @{
         Method='POST';Path=[string]$Plan.EndpointPath;TimeoutSeconds=$TimeoutSeconds
-        Body=[ordered]@{model=[string]$Plan.RuntimeModel;input=@('SQL Server Lab synthetic embedding probe');encoding_format='float'}
+        RuntimeModel=[string]$Plan.RuntimeModel
+    }
+    if ($Transport) {
+        # Preserve the existing synthetic seam; actual transport constructs
+        # its application body only after native peer verification.
+        $request = [PSCustomObject]@{Method=$request.Method;Path=$request.Path;TimeoutSeconds=$TimeoutSeconds
+            Body=[ordered]@{model=[string]$Plan.RuntimeModel;input=@('SQL Server Lab synthetic embedding probe');encoding_format='float'}}
     }
     $started = [Diagnostics.Stopwatch]::StartNew()
     try {

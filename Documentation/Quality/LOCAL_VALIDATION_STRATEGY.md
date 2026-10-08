@@ -44,8 +44,72 @@ Requests und Provider werden dabei nicht ausgefuehrt. Ein eigener synthetischer
 SecureString wird entsorgt; abgewiesene SQL-Requests erzeugen keinen State.
 Resume prueft vor neuer SQL-Mutation erneut die Autoritaet. Der native Windows-
 OVMS-Gateway-Runner prueft getrennt die erlaubte numerische HTTPS-Loopback-Lane;
-SQL-Planung ist dabei kein SQL-Mutations- oder Providernachweis. Hostalias-DNS,
-TCP-Zielbindung und klassifizierte Cloud-Freigaben bleiben offen.
+SQL-Planung ist dabei kein SQL-Mutations- oder Providernachweis. Hostalias-DNS
+und klassifizierte Cloud-Freigaben bleiben durch diese Authority-Fixture unbelegt.
+
+Die zusätzliche `AiExternalModelConnectionBindingChecks.ps1` prüft in derselben
+Suite den einmaligen vollständigen synthetischen DNS-Snapshot, abgetrennte
+Adresswahl, IPv4-Vorrang, missgebildete/gemischte Ergebnisse und späte DNS-
+Completion ohne spätere Connector-/Schlüsselarbeit. Tatsächliche CLR-Worker
+prüfen genau eine Streamübergabe und Cancellation-/Authority-Vetos; echte eigene
+numerische TCP-Verbindungen prüfen Adresse plus Port sowie ein bewusst falsches
+Peerport vor Secretkonvertierung und Anwendungsbytes. Alle eigenen Streams,
+Sockets, Listener, Messages, Tokenquellen und der synthetische Key werden
+entsorgt. Nach der Erweiterung von 61 auf 88 Fälle bestand die Fixture am
+2026-10-08 auf PowerShell 7.2.24/.NET 6.0.35 und 7.6.6/.NET 10.0.12. Die
+Erweiterung prüft die beiden exakten IPv6-Callbackhostformen mit und ohne
+Klammern sowie deren Authority-, Cancellation- und Einmaligkeitsvetos.
+TLS, HTTP, native Hostaliasauflösung, SQL und Provider wurden dabei nicht
+ausgeführt. Die innere Verbindungsfixture (88), Authority-Fixture (24) und
+äußere External-Model-Suite (121) sind getrennte Counts, keine additive Summe.
+Der bestehende Zertifikatsprüfer bleibt unverändert; seine synchronen nativen
+Ketten-/AIA-Pfade sind kein durch diese Fixture belegter Deadline-/Egressvertrag.
+
+Der separate providerlose Windows-TLS-/HttpClient-Lauf am eingefrorenen
+Produkttransport lieferte am 2026-10-08 unter PowerShell 7.2.24/.NET 6.0.35
+29 `PASS` und einen `FAIL` (`Tls13`); tatsächlicher Runner-Gesamtstatus `FAIL`.
+Die Abdeckung bleibt `PARTIAL`.
+Numerisches IPv4/IPv6 verwendet echte eigene TCP-/TLS-Verbindungen ohne DNS,
+`localhost` echte native DNS-Auflösung. Docker-/Podmanaliases verwenden eine
+synthetische private Resolverseam, danach echten TLS-/HTTP-Transport mit
+ursprünglicher Autorität; dies belegt keine native Aliasauflösung. `WrongPeer`
+liefert über eine private Connectorseam eine echte eigene Verbindung mit
+falschem Port; die native Peerprüfung lehnt sie vor Schlüsselöffnung ab.
+TLS-Pin-/CA-/SAN-Vetos wurden mit null entschlüsselten HTTP-/Authorization-/
+Bodybytes geprüft; die Schlüsselöffnung kann dabei nach erfolgreicher
+Peerprüfung bereits erfolgt sein. Quellenbindung, Inventarvergleich, eigener
+Cleanup und Kindprozessende bestanden für den gesamten Lauf. Das belegt weder
+physische Key-/Speicherlöschung noch SQL, Provider, Modelle oder Cloud.
+
+Unter PowerShell 7.6.6/.NET 10.0.12 bestanden separat sieben repräsentative
+Produktfälle: `NumericIPv4`, `NumericIPv6`, `AliasDocker`, `WrongPin`,
+`WrongPeer`, `HoldResponse`, `AltSvc`. Sie ersetzen weder die vollständige
+Mindestframeworkmatrix noch einen Ubuntu-Nachweis. Der erste Mindestframework-
+Versuch zeigte bereits `ENDPOINT_VERIFIED` für numerisches IPv4, endete aber
+wegen eines `VoidTaskResult`-Pipelinefehlers im Harness als `FAIL`; dieser
+Fehlerbeleg bleibt erhalten. Die frühere native IPv6-Callbackabweichung führte
+zur eng begrenzten Klammerkorrektur und wurde danach separat geprüft.
+
+Der gezielte Windows-Diagnosevergleich TLS 1.2 → getrenntem TLS-1.3-Server im
+selben Clientprozess scheiterte unter .NET 6 und .NET 10 vor HTTP mit
+`SEC_E_ALGORITHM_MISMATCH`; auch eine reine BCL-Sequenz reproduzierte den Fehler.
+Eine frische isolierte TLS-1.3-Diagnose
+bestand einmal. Alle diese Diagnosen sind `NOT_ACCEPTED_PROOF`; der ursprüngliche
+`Tls13`-Fehler bleibt bestehen. Ursache und Zuordnung zu einer Produktregression
+bleiben `UNRESOLVED`, die unveränderte Produktbaseline wurde nicht verglichen.
+Die [Windows-Sequenzgrenze](KNOWN_LIMITATIONS.md#lokale-external-models-begrenzte-autoritaetsliste)
+bleibt `OPEN`; keine vollständige native TLS-/Plattformabnahme. Systemdefault-TLS
+wurde weder auf eine feste Version gesetzt noch durch Downgrade, Retry oder
+Trustbypass verändert. Die Frist bleibt kooperativ mit unveränderter synchroner
+Ketten-/AIA-Grenze.
+
+Die tatsächliche Pfadauswahl des eingefrorenen Transportstands bestand am 2026-10-08
+mit neun statischen Suites unter PowerShell 7.4.20/.NET 8.0.31 bei unveränderten
+Quellen. Pester meldete 23 PASS, null Fehler und null übersprungene Fälle;
+PSScriptAnalyzer null Fehler bei 5588 erhaltenen Warnungen. Provider-Smokes
+waren nicht selektiert; daraus folgt kein Providernachweis. Unabhängiger
+Produktreview und begrenzter Korrekturreview sind abgeschlossen. Der Pflichtgate
+am exakten veröffentlichten PR-Head bleibt separat erforderlich.
 
 ## Gemeinsame Workflow-UI-HTTP-Grenze
 
