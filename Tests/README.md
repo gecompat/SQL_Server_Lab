@@ -32,8 +32,13 @@ vollständigen synthetischen DNS-Snapshot, Deadline, Vetos vor Connector und
 Schlüsselöffnung, einmaligen CLR-Streamhandoff auf einem Worker sowie echte
 eigene numerische TCP-Verbindungen einschließlich falschem Peerport und Cleanup.
 Sie kann direkt oder innerhalb der External-Model-Suite ausgeführt werden;
-am 2026-10-08 bestanden 88 Fälle auf PowerShell 7.2.24/.NET 6.0.35 und
-7.6.6/.NET 10.0.12. TLS, HttpClient-Scheduling, native Hostaliasauflösung und
+am 2026-10-08 bestanden vor der Kulturkorrektur 88 Fälle auf PowerShell
+7.2.24/.NET 6.0.35 und 7.6.6/.NET 10.0.12. Die spätere Erweiterung prüft
+ordinale Adresswahl unter `en-US`/`cy-GB`, umgekehrte Eingaben, IPv4-Vorrang,
+ungültigen Snapshot-Tail und Wiederherstellung der Aufruferkultur im `finally`.
+115 Fälle bestanden auf PowerShell 7.4.20/.NET 8.0.31 und 7.6.6/.NET 10.0.12;
+die Kulturkorrektur besitzt keinen neuen .NET-6- oder TLS-/HTTP-Nachweis.
+TLS, HttpClient-Scheduling, native Hostaliasauflösung und
 Plattformnachweise sind getrennt: die separate Windows-Mindestframeworkmatrix
 ist mit 29/30 Fällen `PARTIAL`, der TLS-1.3-Sequenzfehler bleibt offen.
 Unter .NET 10 bestanden sieben repräsentative Produktfälle; Diagnosevergleiche

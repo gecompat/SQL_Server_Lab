@@ -418,8 +418,20 @@ function Resolve-LabAiExternalModelConnectAddress {
     $CancellationToken.ThrowIfCancellationRequested()
     # IPv4 first, then ordinal hexadecimal address bytes; never retry another
     # address when the sole selected peer cannot accept the connection.
-    return @($addresses | Sort-Object @{Expression={if ($_.AddressFamily -eq [Net.Sockets.AddressFamily]::InterNetwork) {0} else {1}}},
-        @{Expression={[Convert]::ToHexString($_.GetAddressBytes())}})[0]
+    $selected = $null
+    $selectedRank = 2
+    $selectedBytes = ''
+    foreach ($address in $addresses) {
+        $rank = if ($address.AddressFamily -eq [Net.Sockets.AddressFamily]::InterNetwork) {0} else {1}
+        $bytes = [Convert]::ToHexString($address.GetAddressBytes())
+        if ($rank -lt $selectedRank -or
+            ($rank -eq $selectedRank -and [StringComparer]::Ordinal.Compare($bytes,$selectedBytes) -lt 0)) {
+            $selected = $address
+            $selectedRank = $rank
+            $selectedBytes = $bytes
+        }
+    }
+    return $selected
 }
 
 function Connect-LabAiExternalModelPeer {
