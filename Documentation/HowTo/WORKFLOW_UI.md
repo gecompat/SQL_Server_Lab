@@ -7,9 +7,9 @@ vor Routing und Bodylesung. Browserzugriffe müssen die genaue
 `http://127.0.0.1:<Port>`-Origin verwenden; POST verlangt JSON in UTF-8.
 Fremde Origins, ungeeignete Medientypen und andere Methoden werden abgewiesen.
 Lokale JSON-Clients ohne Origin benötigen dieselbe startgebundene
-Operator-Capability. Einmalige servergebundene Aktions-/Replayfreigaben
-bleiben offen.
-Die sieben direkten JSON-POST-Routen akzeptieren höchstens 1 MiB UTF-8 und
+Operator-Capability. Commands benötigen zusätzlich einen einmaligen Grant;
+die übrigen Aktions-/Replayfreigaben bleiben offen.
+Die acht direkten JSON-POST-Routen akzeptieren höchstens 1 MiB UTF-8 und
 teilen pro Body eine absolute Lesefrist von fünf Sekunden. Überlänge ergibt
 413, ungültiges UTF-8 400 und Timeout 408 vor einem Fachaufruf.
 Die acht internen Fachreader für CMS, Setup, Slots, Resource Watch, llama.cpp-
@@ -248,6 +248,15 @@ frisch erzeugten Katalog enthalten sein; freie PowerShell-Befehlszeilen nimmt
 die Browser-API nicht an. Ergebnisse werden vor der Ausgabe rekursiv um
 Kennwörter, Credentials, Tokens, Secrets und Connection Strings bereinigt.
 
+HTTP-Commands erhalten vor der Übermittlung eine einmalige, an exakt diese
+Eingaben und Serversitzung gebundene Freigabe. Der Browser übermittelt denselben
+einmal serialisierten Body zweimal lokal; fachliche Bestätigungen und Prüfungen
+bleiben wirksam. Nach unbekannter Annahme Status lesen und keine automatische
+Wiederholung auslösen. Jede Sitzung besitzt insgesamt 256 Receipt-Slots;
+abgelaufene und widerrufene Freigaben geben keinen Slot frei. Bei ausgeschöpfter
+Quota meldet die Oberfläche das Veto. Sie wiederholt keinen Request und startet
+keinen Server neu. Laufende Aufträge und Recovery vor bewusstem Serverende prüfen.
+
 Der Grundkonfigurationsdialog liest Lab_Base-Herkunft und registrierte
 Lab_Data-Roots einschließlich ungültiger Einträge. Er ergänzt fehlende Roots
 und wählt den globalen Standard für künftige Vorgänge. Ein gültiger Media-Root
@@ -339,6 +348,45 @@ entfernt der Server nur sein unverändertes eigenes Handoffartefakt;
 unbestätigter Cleanup bleibt lokal sichtbar. Ein alter Startlink funktioniert
 nach Neustart nicht. Diese Operatorbindung ersetzt keine Aktionsbestätigung
 oder fachliche Zielprüfung.
+
+HTTP-CLI verwendet für `POST /api/commands` denselben Zweischritt. Nach lokalem
+Lesen der privaten Startdatei muss `$requestJson` einen bekannten exportierten
+Befehl, echten Parametersatz, `parameters`-Objekt und Boolean-`confirmed` enthalten.
+Bestätigungspflichtige Befehle benötigen `true`; `"false"` ist kein Boolean.
+Der folgende Ablauf hält Credentials und Body ausschließlich lokal im RAM:
+
+```powershell
+$operator = Get-Content -LiteralPath $operatorFile -Raw | ConvertFrom-Json
+$bytes = [Text.UTF8Encoding]::new($false).GetBytes($requestJson)
+$headers = @{ 'X-SqlServerLab-Operator' = $operator.Capability }
+$receiptId = $null
+try {
+    $grant = Invoke-RestMethod -Uri ($operator.ListenerUrl + 'api/command-grants') `
+        -Method Post -ContentType 'application/json; charset=utf-8' -Body $bytes `
+        -Headers $headers -MaximumRedirection 0 -MaximumRetryCount 0
+    $receiptId = $grant.receiptId
+    $headers['X-SqlServerLab-Action-Grant'] = $grant.grant
+    $accepted = Invoke-RestMethod -Uri ($operator.ListenerUrl + 'api/commands') `
+        -Method Post -ContentType 'application/json; charset=utf-8' -Body $bytes `
+        -Headers $headers -MaximumRedirection 0 -MaximumRetryCount 0
+}
+finally {
+    [Array]::Clear($bytes, 0, $bytes.Length)
+    $headers.Clear(); $operator = $null; $grant = $null
+}
+```
+
+Den Body zwischen beiden Requests nicht neu aufbauen; auch Whitespace, BOM,
+Escapeform, Ziel, Plan und Consent sind gebunden. Ein Grant läuft nach 60 Sekunden
+ab und wird vor Jobanlage unwiderruflich verbraucht. `$receiptId` ermöglicht
+bei unbekannter Antwort ein authentifiziertes `GET` an
+`api/command-grants/<receiptId>` mit nur `receiptId`, `state` und `jobId` als Ergebnis.
+Ein noch unverbrauchter Grant kann über `POST` an denselben Pfad plus `/cancel`
+mit exakt `{}` widerrufen werden. Das beendet keinen angenommenen Job. Keine
+Credentials oder Bodys ausgeben oder speichern; Granttoken nach Bedarf lokal
+verwerfen. Im Browser bleibt bei unbekannter Annahme ausschließlich diese sichere
+Annahmereferenz in der Meldungskarte erhalten. Native PowerShell-/Konsolenbefehle
+benötigen diesen HTTP-Grant nicht.
 
 Sie lauscht
 ausschließlich auf der Loopback-Adresse; ein Zugriff aus dem Netzwerk ist nicht

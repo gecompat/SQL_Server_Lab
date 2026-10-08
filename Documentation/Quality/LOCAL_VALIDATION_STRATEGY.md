@@ -49,6 +49,46 @@ TCP-Zielbindung und klassifizierte Cloud-Freigaben bleiben offen.
 
 ## Gemeinsame Workflow-UI-HTTP-Grenze
 
+Der Command-Grant-Slice wurde am `46bdd994` charakterisiert: derselbe Body
+erreichte zweimal den synthetischen Job; `confirmed:"false"` wurde truthy.
+`WorkflowUiCommandGrantsChecks.ps1` bestand anschließend mit 61 Checks und
+23 echten HTTP-Requests am vollständigen Produktrequestblock. Nachgewiesen sind
+genau ein Verbrauch bei zwei tatsächlichen Threadconsumern, Ablauf während
+langsamer tatsächlicher Bodylesung, volle Route-/Session-/Byte-/Ziel-/Plan-/
+Consentbindung, Mehrdeutigkeitsveto, Jobfault ohne Grantrestore, Widerruf,
+bodyfreie Receipts/Fehler, harte Quota und genullte Rawbytebuffer auf Erfolg,
+Veto und Fehler. Eigener Listener, Threadjobs und RAM-Keyscope wurden geschlossen;
+Produktmodul, State, Provider und SQL bleiben `NOT_EXECUTED`.
+30 tatsächliche JS-Prüfungen mit synthetischem DOM/Transport belegen einmalige
+Serialisierung, identischen Zweischritt, separaten Header, begrenzten Abort,
+Unknown ohne Replay mit sicherer Receipt-ID, Widerruf vor Annahme und Quotaanzeige.
+Neun missgebildete Issuer-DTOs einschließlich Null/Array/Objekt und nichtstringförmiger
+Nonce-/Receiptfelder erzeugen keinen Command-POST. Sieben missgebildete Annahme-DTOs
+bleiben ohne Replay unbestätigt; alle Prüfungen führen die tatsächlichen JS-Funktionen aus.
+Gekoppelte Operator-/Boundary-/Body-Fixtures bestanden mit 50/48/37 Checks und
+14/14/15 echten HTTP-Requests einschließlich Grantissuer; Jobstatus-JS bestand
+mit 30 Checks. Unabhängiger Review und breitere Gates werden erst nach Ausführung
+am stabilen Quellenstand registriert.
+
+Die getrennte gerenderte Commandabnahme vom 2026-10-08 am ersten eingefrorenen
+19-Dateien-Stand bestand (`run-ba748315d069443e82dd054fa909669d`): 13 tatsächliche
+Produktassets, vollständiger Produktrequestblock, zwei synthetische Commands
+nach Consume, sechs HTTP-Negativfälle und ein tatsächlicher Verlust einer
+202-Antwort ohne Retry. Grantstore, Operatorsitzung, Browser und Listener wurden
+geschlossen. Produktmodul, State, SQL, Provider und vollständiger Fachcore bleiben
+`NOT_EXECUTED`. Nach der anschließenden engen JS-DTO-Nachhärtung besteht der
+30-Checks-JS-Nachweis. Der gezielte gerenderte Nachlauf bestand
+(`run-9b0bdefc634a4f459ca319ae68a8ae3b`): alle 13 Produktassets, zwei synthetische
+Commands mit zweimal nachgewiesenem Consume vor Jobanlage, sechs HTTP-Negativfälle,
+zwei sichere Receipts und ein tatsächlicher Verlust der 202-Antwort ohne Replay.
+Null Seitenfehler und instrumentierte verbotene Effekte; Browser, Listener,
+Operatorsitzung und Grantstore geschlossen. Alle 19 Quellen blieben während des
+Nachlaufs unverändert, insbesondere `Ui/app.js` mit SHA-256
+`A3F12BE4710AF87EA0464E11863EE4763E0A825DEE7DB0D7EEDEF72131C700E0`
+und 235518 Bytes. Produktmodul, State, SQL, Provider und vollständiger Fachcore
+bleiben `NOT_EXECUTED`. Erforderlich folgen unabhängiger Review, die breiteren
+betroffenen Prüfungen und der Pflichtgate am exakten PR-Head vor Integration.
+
 Der startgebundene Operator-Slice besitzt `WorkflowUiOperatorChecks.ps1`:
 50 Checks am 2026-10-08, darunter zwölf echte HTTP-Requests über den vollständigen
 Produktrequestblock. Fehlende/falsche Capability, GET/POST, Groß-/Mischschreibung

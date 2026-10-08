@@ -18,8 +18,8 @@ der Server erteilt keine CORS-Freigabe.
 
 ## Begrenzte direkte JSON-POST-Routen
 
-Die sieben direkten Routen für Service-Secret-Prüfung, Batches, Operations,
-Retained-/Run-Storage-Entfernungsplan, Actions und Commands verwenden
+Die acht direkten Routen für Service-Secret-Prüfung, Batches, Operations,
+Retained-/Run-Storage-Entfernungsplan, Actions, Command-Grants und Commands verwenden
 `Tools/WorkflowUiJsonBody.ps1` vor JSON-Verarbeitung und Fachaufrufen. Ein
 deklarierter Body über 1 MiB wird vor der Pufferanlage mit 413 abgewiesen.
 Auch bei unbekannter Länge/Chunked gilt die Bytegrenze: maximal ein Sentinelbyte
@@ -98,12 +98,82 @@ für Recovery erhalten. Nach Prozessabbruch wird kein alter Temp-Scope gesucht
 oder automatisch gelöscht; ein neuer Server erzeugt eine neue Capability.
 
 Capabilitybesitz authentifiziert den Operator, keine menschliche Zustimmung
-zu einer konkreten Aktion. Einmalige servergebundene Action-/Replayfreigaben
-bleiben offen. Fachliche Ownership-, Plan-, Secret-, Consent-, Elevations- und
+zu einer konkreten Aktion. Der folgende Einmalgrant schützt ausschließlich
+HTTP-Commandannahme; die übrigen Action-/Replayfreigaben bleiben offen.
+Fachliche Ownership-, Plan-, Secret-, Consent-, Elevations- und
 Cleanupguards sowie vorhandene Bestätigungen bleiben nötig. Zugriff desselben
 OS-Benutzers auf Browser-/Prozessspeicher oder den privaten Startkanal, XSS und
 kompromittierte Assets sind dadurch nicht ausgeschlossen. Headerannahme,
 übrige Reader und Statequotas bleiben separat.
+
+## Einmalige HTTP-Commandannahme
+
+Alle Requests an `POST /api/commands` benötigen zusätzlich einen frischen
+Grant aus dem authentifizierten `POST /api/command-grants`. Der Issuer liest
+dieselben exakten UTF-8-Bodybytes mit der bestehenden 1-MiB-/Fünfsekundengrenze.
+Er validiert ausschließlich die JSON-Form, eindeutige Propertynamen, exportierten
+Befehlsnamen, echten Parametersatz und Boolean-`confirmed`. Für einen laut
+Katalog bestätigungspflichtigen Befehl muss `confirmed` tatsächlich `true` sein;
+Strings werden nicht in Zustimmung umgewandelt. Kein Issuer führt den Befehl,
+legt einen Job an oder ersetzt dessen Parameter-/Ownership-/Plan-/Consentguards.
+
+Der neue `Tools/WorkflowUiCommandGrants.ps1` hält ausschließlich flüchtigen
+Sitzungsstate: frische 256-Bit-Granttokens, getrennte Receipt-IDs, einen zufälligen
+HMAC-Key und begrenzte Records. Im Store liegt nur der Tokenhash, die Bodylänge
+und ein serverseitig geheim gekeyter Digest, niemals Body, Commandparameter oder
+Grantklartext. Die Bindung umfasst dieselbe aktive Operatorobjektidentität und
+Capability, Listener-Origin sowie kanonisch `POST /api/commands`. Wie bestehendes
+PowerShell-Routing sind Pfadvergleiche case-insensitive; `/API/Commands` ist dieselbe
+Route. Querys, andere Methoden, Issuer-/Fremdrouten und andere Listener werden
+abgewiesen. Bodybindung gilt einschließlich Whitespace, BOM, Escapeform,
+Ziel-, Plan-, Consent- und Secretwerten. Der Reader liefert Rawbytes nur per
+internem Opt-in; beide Caller nullen sie im `finally` nach Erfolg und Fehler.
+Das bestehende ReaderDTO ohne Opt-in bleibt unverändert.
+
+Der Issuer antwortet mit `{grant,receiptId,expiresInMilliseconds}`. Der Client
+sendet den Grant ausschließlich als einzelnen `X-SqlServerLab-Action-Grant`-
+Header und dieselben Bytes an Commands. Unter einer gemeinsamen Monitor-Sperre
+prüft der Server die monotone 60-Sekunden-Frist nach vollständiger Bodylesung
+und nochmals unmittelbar vor Verbrauch. `ISSUED` wird vor Threadjobanlage
+unwiderruflich `CONSUMED`; der Bodydigest wird dabei genullt. Jobanlage ergibt
+`ACCEPTED` mit Job-ID oder bei ungeklärtem Fehler `UNCONFIRMED`. Eine verlorene
+HTTP-Antwort stellt den Grant nicht wieder her. Doppelverbrauch, fremde Bindung
+und abgelaufene Grants erhalten den festen 403-Code `UI_COMMAND_GRANT_REQUIRED`.
+Ungültige Commandform erhält 400 `UI_COMMAND_REQUEST_INVALID`; sonstige Fehler
+bleiben bodyfrei `UI_COMMAND_UNCONFIRMED`.
+
+Authentifiziertes `GET /api/command-grants/<receiptId>` liefert ausschließlich
+`{receiptId,state,jobId}`. `POST /api/command-grants/<receiptId>/cancel` mit exakt
+`{}` (maximal 1024 Bytes, fünf Sekunden) widerruft nur ein noch gültiges `ISSUED`
+Record zu `CANCELLED`. Abgelaufene Records werden `EXPIRED`; angenommene oder
+unbestätigte Records bleiben unverändert. Widerruf oder Fetch-Abbruch stoppt
+keinen angenommenen Fachjob. Alle Grantendpunkte verwenden feste Fehler ohne
+Body-/Parameter-/Digest-/Capabilityreflexion und bleiben hinter beiden zentralen
+Header-/Operatorgrenzen.
+
+Die Sitzung besitzt ein hartes Gesamtbudget von 256 Receipt-Slots. Auch
+abgelaufene, widerrufene und terminale Records bleiben bis zum Serverende belegt;
+es gibt keine Eviction aktiver oder alter Receipts. Die 60-Sekunden-Frist gilt
+nur für unverbrauchte Grants. Volles Budget ergibt 429 `UI_COMMAND_GRANT_CAPACITY`
+und eine klare Browsermeldung; keine automatische Wiederholung oder Neustart.
+Vor einem bewusst gewählten Serverende sind laufende Jobs und Recovery zu prüfen.
+Der begrenzte Servercleanup nullt den HMAC-Key und alle verbliebenen Bodydigests,
+leert beide Indizes und löst die Operatorbindung.
+
+`submitUiAction` serialisiert Commandeingaben einmal. Beide begrenzten Browser-
+POSTs verwenden dieselbe String-/UTF-8-Darstellung; Grant und Body bleiben im RAM.
+Ein bekanntes Receipt mit unbrauchbarem Grant wird vor Commandübermittlung
+widerrufen. Nach begonnener Übermittlung gibt es weder Replay, Regrant noch
+automatischen Widerruf. Bei unbekannter Annahme behält nur die sichere Receipt-ID
+in der Meldungskarte die explizite Statusabfrage bei; Grant und Body werden nicht
+gerendert. HTTP-CLI benutzt denselben Zweischritt; native
+PowerShell-/Konsolenbefehle behalten ihre bisherige fachliche Semantik.
+
+Dieser Vertrag verhindert Wiederannahme desselben Grants innerhalb einer
+Serversitzung. Ein neuer ausdrücklich gewünschter Grant ist eine neue
+Anforderung, keine persistente Bodyidempotenz. Andere Aktionsrouten, generische
+Batch-/Operationspfade, harte Prozessunterbrechung, tatsächliche menschliche
+Zustimmung, Zugriff desselben OS-Benutzers und XSS bleiben ausdrücklich offen.
 
 Der vom Benutzer priorisierte Security-Cloud-Scan vom 2026-10-07 auf
 `f82976735c94d869e425d7082c04748ee97ddf65` meldete zwölf offene Findings
@@ -114,6 +184,51 @@ müssen Findings und Scan-Scope/Freshness weiterhin getrennt bewerten.
 Reale Diagnose- und Runtime-Rohdaten werden nicht in die Cloud hochgeladen.
 
 ## Nachweis
+
+Die Characterization am integrierten `46bdd994` nahm denselben Commandbody
+zweimal am tatsächlichen Routeblock an und wandelte `confirmed:"false"` in
+Zustimmung um. Nur ein synthetischer Jobsink wurde ausgeführt. Danach bestand
+`WorkflowUiCommandGrantsChecks.ps1` mit 61 Prüfungen, darunter 23 echte HTTP-
+Requests über den vollständigen Produktrequestblock. Zwei echte Threadconsumer
+erzeugen genau einen Verbrauch; langsame Bodylesung lässt einen Grant vor
+Consume ablaufen. Ziel-/Plan-/Consent-/Transient-/Whitespace-/Escape-/BOMdrift,
+fremde Bindungen, Mehrdeutigkeit, Jobfault, Widerruf, sichere Receipts, Quota und
+genullte tatsächliche Rawbytebuffer sind geprüft. Die Commandausführung wurde
+dreimal ausschließlich als synthetischer Jobversuch erreicht, immer nach Consume.
+Eigener Listener und Threadjobs wurden entfernt; Produktmodul, State, Provider
+und SQL wurden nicht ausgeführt.
+
+`WorkflowUiCommandGrantsChecks.cjs` bestand mit 30 Prüfungen am tatsächlichen
+Browsercode: einmalige Serialisierung, gleiche Bodies, separater Header,
+Timeout/Abort, verlorene Issue-/Annahmeantwort ohne Replay, Widerruf vor Annahme
+und klare Quotaantwort. Null-/Array-/Objekt-DTOs und nichtstringförmige Grant-/
+Receipt-/Jobfelder werden ohne Typkoerzierung abgewiesen; neun missgebildete
+Issuerantworten erzeugen keinen Command-POST, sieben missgebildete Annahmeantworten
+bleiben ohne Replay unbestätigt. Synthetischer Transport/DOM sind kein gerenderter Beweis.
+Die gekoppelten Operator-/Boundary-/Body-Fixtures bestanden mit 50/48/37 Checks
+und nun 14/14/15 HTTPrequests einschließlich echter Grantissuance für erlaubte
+Commandrequests. Der Jobstatus-JS-Vertrag bestand mit 30 Checks. Historische
+Nachweise darunter behalten ihren früheren Scope; breitere Gates bleiben bis
+zur tatsächlichen Ausführung offen.
+
+Die separate gerenderte Commandabnahme vom 2026-10-08 am eingefrorenen ersten
+19-Dateien-Stand bestand (`run-ba748315d069443e82dd054fa909669d`): alle 13
+Produktassets und der vollständige Produktrequestblock, zwei ausschließlich
+synthetische Commands nach tatsächlichem Consume, sechs HTTP-Negativfälle und
+ein realer Verlust der 202-Antwort ohne automatische Wiederholung. Eigener
+Grantstore, Operatorsitzung, Browser und Listener wurden geschlossen. Produktmodul,
+State, SQL, Provider und vollständige Fachcoreausführung blieben `NOT_EXECUTED`.
+Der anschließende enge JS-DTO-Fix ist durch die 30 JS-Prüfungen belegt. Sein
+gezielter gerenderter Nachlauf bestand ebenfalls
+(`run-9b0bdefc634a4f459ca319ae68a8ae3b`): 13 Produktassets, zwei synthetische
+Commands mit zweimal nachgewiesenem Consume vor Jobanlage, sechs HTTP-Negativfälle,
+zwei sichere Receipts und ein tatsächlicher Verlust der 202-Antwort ohne Replay.
+Keine Seitenfehler oder instrumentierten verbotenen Effekte wurden beobachtet;
+eigener Browser, Listener, Operatorsitzung und Grantstore wurden geschlossen.
+Alle 19 Quellen blieben während des Nachlaufs unverändert. Produktmodul, State,
+SQL, Provider und vollständiger Fachcore bleiben `NOT_EXECUTED`. Unabhängiger
+Review, breitere betroffene Prüfungen und Pflichtgate am exakten PR-Head vor
+Integration bleiben die erforderlichen nächsten Gates.
 
 Der Operator-Slice wurde am 2026-10-08 zunächst charakterisiert: ein lokaler
 headerloser APIrequest passierte die vorhandene Umschlaggrenze, ohne einen

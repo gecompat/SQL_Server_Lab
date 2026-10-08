@@ -2,6 +2,7 @@
 $ErrorActionPreference='Stop'
 $repo=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 . (Join-Path $repo 'Tools/WorkflowUiOperator.ps1')
+. (Join-Path $PSScriptRoot 'WorkflowUiCommandGrantFixture.ps1')
 $script:passed=0
 function Check([string]$Name,[bool]$Success){if(-not $Success){throw ('UI_OPERATOR_CHECK_FAILED: '+$Name)};$script:passed++;Write-Host ('PASS '+$Name)}
 function New-Request([string]$Path='/api/jobs',[string]$Method='GET'){
@@ -74,13 +75,15 @@ $probe=[Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback,0);$probe.Start(
 $url="http://127.0.0.1:$port/";$listener=[Net.HttpListener]::new();$listener.Prefixes.Add($url);$session=$null;$job=$null;$client=$null
 try {
  $session=New-UiOperatorSession $url;$listener.Start()
- $job=Start-ThreadJob -ArgumentList $listener,$url,$session,$dispatch,$reply,(Join-Path $repo 'Tools'),$cases.Count -ScriptBlock {
+ $job=Start-ThreadJob -ArgumentList $listener,$url,$session,$dispatch,$reply,(Join-Path $repo 'Tools'),($cases.Count+2) -ScriptBlock {
   param($Listener,$url,$operatorSession,$Dispatch,$Reply,$ToolsRoot,$Count)
   $ErrorActionPreference='Stop';$script:effects=0;$jobs=@{}
   . (Join-Path $ToolsRoot 'WorkflowUiRequestBoundary.ps1');. (Join-Path $ToolsRoot 'WorkflowUiOperator.ps1');. (Join-Path $ToolsRoot 'WorkflowUiJsonBody.ps1');. ([scriptblock]::Create($Reply))
+  . (Join-Path $ToolsRoot '../Tests/Static/Fixtures/WorkflowUiCommandGrantFixture.ps1')
+  $commandGrantStore=New-UiCommandGrantStore $operatorSession
   function Get-UiCapabilityConfig {$script:effects++;[pscustomobject]@{Synthetic=$true}}
   function Start-UiPublicCommandJob {param($CommandName,$ParameterSetName,$Parameters,[switch]$Confirmed)$script:effects++;[pscustomobject]@{Id='synthetic';Action='NOT_EXECUTED'}}
-  for($i=0;$i -lt $Count;$i++){$pending=$Listener.GetContextAsync();if(-not $pending.Wait(10000)){throw 'UI_OPERATOR_OWN_CONTEXT_TIMEOUT'};$context=$pending.GetAwaiter().GetResult();. ([scriptblock]::Create($Dispatch))}
+  try{for($i=0;$i -lt $Count;$i++){$pending=$Listener.GetContextAsync();if(-not $pending.Wait(10000)){throw 'UI_OPERATOR_OWN_CONTEXT_TIMEOUT'};$context=$pending.GetAwaiter().GetResult();. ([scriptblock]::Create($Dispatch))}}finally{Close-UiCommandGrantStore $commandGrantStore}
   [pscustomobject]@{Effects=$script:effects;ProductModule='NOT_IMPORTED';Provider='NOT_EXECUTED';State='NOT_EXECUTED';Sql='NOT_EXECUTED'}
  }
  $client=[Net.Http.HttpClient]::new();$client.Timeout=[timespan]::FromSeconds(5)
@@ -89,7 +92,7 @@ try {
   try {
    if($case.Token){$cap=if($case.Token -ceq 'valid'){$session.Capability}else{'a'*64};$null=$request.Headers.TryAddWithoutValidation('X-SqlServerLab-Operator',$cap)}
    if($case.Origin){$null=$request.Headers.TryAddWithoutValidation('Origin','https://synthetic.invalid')}
-   if($case.Method -ceq 'POST'){$body=if($case.Status -eq 202){'{"commandName":"synthetic","parameterSetName":"synthetic","parameters":{},"confirmed":true}'}else{'invalid-json-never-parse'};$request.Content=[Net.Http.StringContent]::new($body,[Text.Encoding]::UTF8,'application/json')}
+   if($case.Method -ceq 'POST'){$body=if($case.Status -eq 202){'{"commandName":"synthetic","parameterSetName":"synthetic","parameters":{},"confirmed":true}'}else{'invalid-json-never-parse'};if($case.Status -eq 202){$grant=Get-FixtureCommandGrant $url $body $session.Capability;$null=$request.Headers.TryAddWithoutValidation('X-SqlServerLab-Action-Grant',$grant.grant)};$request.Content=[Net.Http.StringContent]::new($body,[Text.Encoding]::UTF8,'application/json')}
    $response=$client.SendAsync($request).GetAwaiter().GetResult()
    try {Check ('Echter HTTP-Request vor Fach-/Jobdispatch '+$case.Path+' '+$case.Method+' '+$case.Token) ([int]$response.StatusCode -eq $case.Status -and -not $response.Headers.Contains('Access-Control-Allow-Origin'))}finally{$response.Dispose()}
   }finally{$request.Dispose()}

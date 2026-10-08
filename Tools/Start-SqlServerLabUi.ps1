@@ -127,6 +127,23 @@ Import-UiSqlServerLabModule -ModulePath $modulePath
 . (Join-Path $PSScriptRoot 'WorkflowUiRequestBoundary.ps1')
 . (Join-Path $PSScriptRoot 'WorkflowUiOperator.ps1')
 . (Join-Path $PSScriptRoot 'WorkflowUiJsonBody.ps1')
+. (Join-Path $PSScriptRoot 'WorkflowUiCommandGrants.ps1')
+
+function Get-UiCommandGrantCatalog {
+    & (Get-Module SqlServerLab) { Get-LabPublicCommandWebCatalog }
+}
+
+function Write-UiCommandGrantFailure {
+    param([Parameter(Mandatory)]$Context,[Parameter(Mandatory)]$ErrorRecord)
+    $code=[string]$ErrorRecord.Exception.Message
+    $status=switch -CaseSensitive ($code) {
+        'UI_COMMAND_REQUEST_INVALID' {400}
+        'UI_COMMAND_GRANT_REQUIRED' {403}
+        'UI_COMMAND_GRANT_CAPACITY' {429}
+        default {$code='UI_COMMAND_UNCONFIRMED';500}
+    }
+    Write-UiResponse -Context $Context -Body $code -StatusCode $status
+}
 
 function Write-UiResponse {
     param(
@@ -569,11 +586,13 @@ $listener = [Net.HttpListener]::new()
 $url = "http://127.0.0.1:$Port/"
 $listener.Prefixes.Add($url)
 $operatorSession = New-UiOperatorSession -ListenerUrl $url
+$commandGrantStore = $null
 $jobs = @{}
 $persistentJobs = @{}
 $runArtifactRemovalPreviews = @{}
 
 try {
+    $commandGrantStore = New-UiCommandGrantStore -Session $operatorSession
     $listener.Start()
     Write-Host "SQL_Server_Lab Workflow UI: $url" -ForegroundColor Green
     Write-Host ('Privater Startlink und HTTP-CLI-Capability: ' + $operatorSession.File) -ForegroundColor DarkGray
@@ -1004,30 +1023,63 @@ try {
                 Write-UiResponse -Context $context -Body (@{ id = $record.Id; action = $action } | ConvertTo-Json -Compress) -ContentType 'application/json; charset=utf-8' -StatusCode 202
                 continue
             }
-            if ($path -eq '/api/commands' -and $context.Request.HttpMethod -eq 'POST') {
-                $bodyRead = Read-UiJsonRequestBody -Request $context.Request
+            if ($path -eq '/api/command-grants' -and $context.Request.HttpMethod -eq 'POST') {
+                $bodyRead = Read-UiJsonRequestBody -Request $context.Request -IncludeBytes
                 if (-not $bodyRead.Allowed) {
                     Write-UiResponse -Context $context -Body $bodyRead.Code -StatusCode $bodyRead.StatusCode
                     continue
                 }
-                $body = $bodyRead.Body
-                $request = $body | ConvertFrom-Json -Depth 30
-                $commandName = [string]$request.commandName
-                $parameterSetName = [string]$request.parameterSetName
-                if ([string]::IsNullOrWhiteSpace($commandName) -or [string]::IsNullOrWhiteSpace($parameterSetName)) {
-                    throw 'PUBLIC_COMMAND_UI_COMMAND_AND_PARAMETER_SET_REQUIRED'
-                }
-                $parameters = @{}
-                if ($request.parameters) {
-                    foreach ($property in $request.parameters.PSObject.Properties) {
-                        $parameters[[string]$property.Name] = $property.Value
+                try {
+                    $null=Get-UiCommandGrantRequest -Body $bodyRead.Body -Catalog @(Get-UiCommandGrantCatalog)
+                    $grant=New-UiCommandGrant -Store $commandGrantStore -Session $operatorSession -Request $context.Request -Bytes $bodyRead.BodyBytes
+                    Write-UiResponse -Context $context -Body ($grant|ConvertTo-Json -Compress) -ContentType 'application/json; charset=utf-8' -StatusCode 201
+                } catch { Write-UiCommandGrantFailure -Context $context -ErrorRecord $_ }
+                finally { [Array]::Clear($bodyRead.BodyBytes,0,$bodyRead.BodyBytes.Length);$bodyRead=$null;$grant=$null }
+                continue
+            }
+            if ($path -match '^/api/command-grants/([a-f0-9]{32})(/cancel)?$') {
+                $receiptId=$Matches[1];$cancel=$Matches[2] -ceq '/cancel'
+                try {
+                    if($cancel){
+                        $bodyRead=Read-UiJsonRequestBody -Request $context.Request -MaxBytes 1024
+                        if(-not $bodyRead.Allowed){Write-UiResponse -Context $context -Body $bodyRead.Code -StatusCode $bodyRead.StatusCode;continue}
+                        if($bodyRead.Body -cne '{}'){throw 'UI_COMMAND_REQUEST_INVALID'}
                     }
+                    $receipt=Get-UiCommandGrantReceipt -Store $commandGrantStore -Session $operatorSession -Request $context.Request -ReceiptId $receiptId -Cancel:$cancel
+                    Write-UiResponse -Context $context -Body ($receipt|ConvertTo-Json -Compress) -ContentType 'application/json; charset=utf-8'
+                } catch { Write-UiCommandGrantFailure -Context $context -ErrorRecord $_ }
+                finally {$bodyRead=$null;$receipt=$null}
+                continue
+            }
+            if ($path -eq '/api/commands' -and $context.Request.HttpMethod -eq 'POST') {
+                $bodyRead = Read-UiJsonRequestBody -Request $context.Request -IncludeBytes
+                if (-not $bodyRead.Allowed) {
+                    Write-UiResponse -Context $context -Body $bodyRead.Code -StatusCode $bodyRead.StatusCode
+                    continue
                 }
-                # Generische Befehlsparameter können Geheimnisse enthalten und
-                # werden deshalb ausschließlich im flüchtigen Thread-Job gehalten.
-                $record = Start-UiPublicCommandJob -CommandName $commandName -ParameterSetName $parameterSetName -Parameters $parameters -Confirmed:([bool]$request.confirmed)
-                $jobs[$record.Id] = $record
-                Write-UiResponse -Context $context -Body (@{ id = $record.Id; action = $record.Action } | ConvertTo-Json -Compress) -ContentType 'application/json; charset=utf-8' -StatusCode 202
+                $receiptId=$null;$request=$null;$parameters=$null
+                try {
+                    $request=Get-UiCommandGrantRequest -Body $bodyRead.Body -Catalog @(Get-UiCommandGrantCatalog)
+                    $receiptId=Use-UiCommandGrant -Store $commandGrantStore -Session $operatorSession -Request $context.Request -Bytes $bodyRead.BodyBytes
+                    $parameters=@{}
+                    foreach($property in $request.parameters.PSObject.Properties){$parameters[$property.Name]=$property.Value}
+                    # Consume ist unwiderruflich vor Jobanlage; Secrets bleiben flüchtig.
+                    try {
+                        $record=Start-UiPublicCommandJob -CommandName $request.commandName -ParameterSetName $request.parameterSetName -Parameters $parameters -Confirmed:$request.confirmed
+                        $jobs[$record.Id]=$record
+                        Set-UiCommandGrantOutcome -Store $commandGrantStore -ReceiptId $receiptId -JobId $record.Id
+                    } catch {
+                        Set-UiCommandGrantOutcome -Store $commandGrantStore -ReceiptId $receiptId -JobId $null
+                        throw 'UI_COMMAND_UNCONFIRMED'
+                    }
+                    Write-UiResponse -Context $context -Body (@{id=$record.Id;action=$record.Action;receiptId=$receiptId}|ConvertTo-Json -Compress) -ContentType 'application/json; charset=utf-8' -StatusCode 202
+                } catch { Write-UiCommandGrantFailure -Context $context -ErrorRecord $_ }
+                finally { [Array]::Clear($bodyRead.BodyBytes,0,$bodyRead.BodyBytes.Length);$bodyRead=$null;$request=$null;$parameters=$null }
+                continue
+            }
+
+            if ($path -match '^/api/command-grants(?:/|$)') {
+                Write-UiResponse -Context $context -Body 'UI_COMMAND_GRANT_REQUIRED' -StatusCode 403
                 continue
             }
 
@@ -1050,7 +1102,7 @@ try {
             Write-UiResponse -Context $context -Body (Get-Content -LiteralPath $filePath -Raw -Encoding utf8) -ContentType $contentType
         }
         catch {
-            $errorBody = if ($path -in @('/api/actions','/api/commands','/api/jobs','/api/operations')) { 'UI_REQUEST_UNCONFIRMED: Annahme oder Ergebnis nicht bestätigt. Status prüfen; keine automatische Wiederholung.' } else { "Fehler: " + $_.Exception.Message }
+            $errorBody = if ($path -in @('/api/actions','/api/commands','/api/jobs','/api/operations') -or $path -match '^/api/command-grants(?:/|$)') { 'UI_REQUEST_UNCONFIRMED: Annahme oder Ergebnis nicht bestätigt. Status prüfen; keine automatische Wiederholung.' } else { "Fehler: " + $_.Exception.Message }
             try { Write-UiResponse -Context $context -Body $errorBody -StatusCode 500 } catch { }
         }
     }
@@ -1086,6 +1138,9 @@ finally {
     if ($jobs.Count -gt 0) { Write-Host 'UI-Job-Bereinigung abgeschlossen.' -ForegroundColor DarkGray }
     } finally {
         try { $listener.Stop(); $listener.Close() }
-        finally { $null = Close-UiOperatorSession -Session $operatorSession }
+        finally {
+            try { if($commandGrantStore){Close-UiCommandGrantStore -Store $commandGrantStore} }
+            finally { $null = Close-UiOperatorSession -Session $operatorSession }
+        }
     }
 }

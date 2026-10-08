@@ -1,6 +1,7 @@
 #Requires -Version 7.2
 $ErrorActionPreference='Stop'
 $repo=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
+. (Join-Path $PSScriptRoot 'WorkflowUiCommandGrantFixture.ps1')
 . (Join-Path $repo 'Tools/WorkflowUiJsonBody.ps1')
 $script:passed=0
 function Check([string]$Name,[bool]$Value){if(-not $Value){throw ('UI_BODY_CHECK_FAILED: '+$Name)};$script:passed++;Write-Host "PASS $Name"}
@@ -39,10 +40,10 @@ $boundary=@($ast.EndBlock.Statements|Where-Object {$_.Extent.Text -ceq ". (Join-
 $loops=@($ast.FindAll({param($n)$n -is [Management.Automation.Language.WhileStatementAst] -and $n.Condition.Extent.Text -ceq '$listener.IsListening'},$true))
 Check 'Beide Includes stehen vor dem eindeutigen Listenerloop' ($errors.Count -eq 0 -and $include.Count -eq 1 -and $boundary.Count -eq 1 -and $loops.Count -eq 1 -and $include[0].Extent.EndOffset -lt $loops[0].Extent.StartOffset -and $boundary[0].Extent.EndOffset -lt $loops[0].Extent.StartOffset)
 $dispatchTry=$loops[0].Body.Statements[1];$body=$dispatchTry.Body
-$expected=@('/api/ai-shared-gateway/service-secret','/api/batches','/api/operations','/api/persistent-storage/retained-removal-plan','/api/persistent-storage/removal-plan','/api/actions','/api/commands')
-$routes=@($body.Statements|Where-Object {$_ -is [Management.Automation.Language.IfStatementAst] -and $_.Clauses[0].Item1.Extent.Text.StartsWith('$path -eq ') -and $_.Clauses[0].Item2.Statements[0].Extent.Text -ceq '$bodyRead = Read-UiJsonRequestBody -Request $context.Request'})
-Check 'Sieben direkte POST-Routen verwenden gemeinsamen Reader' ($routes.Count -eq 7 -and [IO.File]::ReadAllText($server) -notmatch '\.ReadToEnd\(')
-foreach($path in $expected){$route=@($routes|Where-Object {$_.Clauses[0].Item1.Extent.Text -ceq "`$path -eq '$path' -and `$context.Request.HttpMethod -eq 'POST'"});Check ('Reader und Veto vor JSON/Fachaufruf '+$path) ($route.Count -eq 1 -and $route[0].Clauses[0].Item2.Statements[1].Clauses[0].Item1.Extent.Text -ceq '-not $bodyRead.Allowed' -and $route[0].Clauses[0].Item2.Statements[2].Extent.Text -ceq '$body = $bodyRead.Body')}
+$expected=@('/api/ai-shared-gateway/service-secret','/api/batches','/api/operations','/api/persistent-storage/retained-removal-plan','/api/persistent-storage/removal-plan','/api/actions','/api/commands','/api/command-grants')
+$routes=@($body.Statements|Where-Object {$_ -is [Management.Automation.Language.IfStatementAst] -and $_.Clauses[0].Item1.Extent.Text.StartsWith('$path -eq ') -and $_.Clauses[0].Item2.Statements[0].Extent.Text.StartsWith('$bodyRead = Read-UiJsonRequestBody -Request $context.Request')})
+Check 'Acht direkte POST-Routen verwenden gemeinsamen Reader' ($routes.Count -eq 8 -and [IO.File]::ReadAllText($server) -notmatch '\.ReadToEnd\(')
+foreach($path in $expected){$route=@($routes|Where-Object {$_.Clauses[0].Item1.Extent.Text -ceq "`$path -eq '$path' -and `$context.Request.HttpMethod -eq 'POST'"});Check ('Reader und Veto vor JSON/Fachaufruf '+$path) ($route.Count -eq 1 -and $route[0].Clauses[0].Item2.Statements[1].Clauses[0].Item1.Extent.Text -ceq '-not $bodyRead.Allowed' -and $route[0].Extent.Text.Contains('$bodyRead.Body'))}
 $reply=@($ast.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -ceq 'Write-UiResponse'},$true))[0].Extent.Text
 $dispatch='foreach($iteration in 1)'+$body.Extent.Text
 $cases=@(foreach($path in $expected){[pscustomobject]@{Path=$path;Mode='header';Expected=413}})+@(
@@ -57,17 +58,19 @@ $probe=[Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback,0);$probe.Start(
 $url="http://127.0.0.1:$port/";$listener=[Net.HttpListener]::new();$listener.Prefixes.Add($url);$job=$null;$results=[Collections.Generic.List[object]]::new()
 try{
  $listener.Start()
- $job=Start-ThreadJob -ArgumentList $listener,$url,$dispatch,$reply,($boundary[0].Extent.Text+"`n"+$include[0].Extent.Text),(Join-Path $repo 'Tools'),$cases.Count -ScriptBlock {
+ $job=Start-ThreadJob -ArgumentList $listener,$url,$dispatch,$reply,($boundary[0].Extent.Text+"`n"+$include[0].Extent.Text),(Join-Path $repo 'Tools'),($cases.Count+1) -ScriptBlock {
   param($Listener,$url,$Dispatch,$Reply,$Includes,$ToolsRoot,$Count)
   $ErrorActionPreference='Stop';$jobs=@{};$persistentJobs=@{};$script:effects=0
   . ([scriptblock]::Create('param([string]$PSScriptRoot)'+"`n"+$Includes)) $ToolsRoot
   . (Join-Path $ToolsRoot 'WorkflowUiOperator.ps1')
   $operatorSession=[pscustomobject]@{ListenerUrl=$url;Capability=('a'*64);Active=$true}
+  . (Join-Path $ToolsRoot '../Tests/Static/Fixtures/WorkflowUiCommandGrantFixture.ps1')
+  $commandGrantStore=New-UiCommandGrantStore $operatorSession
   . ([scriptblock]::Create($Reply))
   function Start-UiPublicCommandJob {param($CommandName,$ParameterSetName,$Parameters,[switch]$Confirmed)$script:effects++;[pscustomobject]@{Id='synthetic-command';Action='synthetic'}}
   function Start-UiWorkflowJob {param($Action,$Parameters)$script:effects++;[pscustomobject]@{Id='synthetic-action';Action='synthetic'}}
   function New-SqlServerLabBatch {param($Name,$Priority,$Defaults,$Items,[switch]$Queue)$script:effects++;[pscustomobject]@{batchId='synthetic-batch'}}
-  for($i=0;$i -lt $Count;$i++){$pending=$Listener.GetContextAsync();if(-not $pending.Wait(10000)){throw 'OWN_CONTEXT_TIMEOUT'};$context=$pending.GetAwaiter().GetResult();. ([scriptblock]::Create($Dispatch))}
+  try{for($i=0;$i -lt $Count;$i++){$pending=$Listener.GetContextAsync();if(-not $pending.Wait(10000)){throw 'OWN_CONTEXT_TIMEOUT'};$context=$pending.GetAwaiter().GetResult();. ([scriptblock]::Create($Dispatch))}}finally{Close-UiCommandGrantStore $commandGrantStore}
   [pscustomobject]@{SyntheticEffects=$script:effects;ProductModule='NOT_IMPORTED';Provider='NOT_EXECUTED';State='NOT_EXECUTED';Sql='NOT_EXECUTED'}
  }
  foreach($case in $cases){
@@ -79,7 +82,7 @@ try{
     'chunked' {$headers+="Transfer-Encoding: chunked`r`n`r`n";$payload=[Text.Encoding]::ASCII.GetBytes("100001`r`n"+(' '*1048577)+"`r`n0`r`n`r`n")}
     'utf8' {$headers+="Content-Length: 2`r`n`r`n";$payload=[byte[]](0xc3,0x28)}
     'trickle' {$headers+="Content-Length: 100`r`n`r`n";$payload=[byte[]](32)}
-    default {$json=switch($case.Mode){'command' {'{"commandName":"synthetic","parameterSetName":"synthetic","parameters":{},"confirmed":true}'}'action' {'{"action":"Refresh","parameters":{}}'}'batch' {'{"name":"synthetic","items":[]}'}};$payload=[Text.Encoding]::UTF8.GetBytes($json);$headers+="Content-Length: $($payload.Length)`r`n`r`n"}
+    default {$json=switch($case.Mode){'command' {'{"commandName":"synthetic","parameterSetName":"synthetic","parameters":{},"confirmed":true}'}'action' {'{"action":"Refresh","parameters":{}}'}'batch' {'{"name":"synthetic","items":[]}'}};if($case.Mode -ceq 'command'){$grant=Get-FixtureCommandGrant $url $json;$headers+="X-SqlServerLab-Action-Grant: $($grant.grant)`r`n"};$payload=[Text.Encoding]::UTF8.GetBytes($json);$headers+="Content-Length: $($payload.Length)`r`n`r`n"}
    }
    $headerBytes=[Text.Encoding]::ASCII.GetBytes($headers);$stream.Write($headerBytes,0,$headerBytes.Length)
    if($payload.Length){$stream.Write($payload,0,$payload.Length)}

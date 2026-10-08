@@ -1058,7 +1058,7 @@ async function readUiJobResponse(endpoint, options, timeoutMs) {
     return await Promise.race([
       (async () => {
         const response = await sqlServerLabUiFetch(endpoint, { ...options, signal: controller.signal });
-        if (!response.ok) throw new Error('UI_REQUEST_UNCONFIRMED');
+        if (!response.ok) throw new Error(endpoint === '/api/command-grants' && response.status === 429 ? 'UI_COMMAND_GRANT_CAPACITY' : 'UI_REQUEST_UNCONFIRMED');
         return response.json();
       })(),
       new Promise((resolve, reject) => { timer = window.setTimeout(() => { controller.abort(); reject(new Error('UI_REQUEST_TIMEOUT')); }, timeoutMs); })
@@ -1068,6 +1068,27 @@ async function readUiJobResponse(endpoint, options, timeoutMs) {
 
 async function startAction(action, parameters) {
   return submitUiAction(action, '/api/actions', { action, parameters });
+}
+
+async function submitUiCommandBody(body) {
+  let grant = null;
+  let submitted = false;
+  try {
+    grant = await readUiJobResponse('/api/command-grants', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body }, 15000);
+    if (grant === null || typeof grant !== 'object' || Array.isArray(grant) || typeof grant.grant !== 'string' || typeof grant.receiptId !== 'string' || !/^[a-f0-9]{64}$/.test(grant.grant) || !/^[a-f0-9]{32}$/.test(grant.receiptId)) throw new Error('UI_COMMAND_UNCONFIRMED');
+    submitted = true;
+    const accepted = await readUiJobResponse('/api/commands', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-SqlServerLab-Action-Grant': grant.grant }, body }, 15000);
+    if (accepted === null || typeof accepted !== 'object' || Array.isArray(accepted) || typeof accepted.id !== 'string' || !accepted.id || typeof accepted.receiptId !== 'string' || !/^[a-f0-9]{32}$/.test(accepted.receiptId) || accepted.receiptId !== grant.receiptId) throw new Error('UI_COMMAND_UNCONFIRMED');
+    return accepted;
+  } catch (error) {
+    const hasReceipt = grant !== null && typeof grant === 'object' && !Array.isArray(grant) && typeof grant.receiptId === 'string' && /^[a-f0-9]{32}$/.test(grant.receiptId);
+    if (!submitted && hasReceipt) {
+      try { await readUiJobResponse('/api/command-grants/' + grant.receiptId + '/cancel', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }, 15000); } catch { }
+    }
+    const failure = new Error(['UI_COMMAND_GRANT_CAPACITY', 'UI_REQUEST_TIMEOUT', 'UI_REQUEST_UNCONFIRMED', 'UI_COMMAND_UNCONFIRMED'].includes(error.message) ? error.message : 'UI_COMMAND_UNCONFIRMED');
+    if (hasReceipt) failure.receiptId = grant.receiptId;
+    throw failure;
+  } finally { grant = null; }
 }
 
 function canonicalSubmission(value) {
@@ -1107,13 +1128,15 @@ async function submitUiAction(action, endpoint, payload, descriptors = []) {
   showWorkspaceArea('messages');
   $('#jobs').closest('.panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   try {
-    const accepted = await readUiJobResponse(endpoint, {
+    const body = JSON.stringify(payload);
+    const accepted = endpoint === '/api/commands' ? await submitUiCommandBody(body) : await readUiJobResponse(endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
+    body
     }, 15000);
     if (typeof accepted.id !== 'string' || !accepted.id) throw new Error('SUBMISSION_UNCONFIRMED');
     const acceptedId = accepted.id;
+    if (endpoint === '/api/commands') optimistic.ReceiptId = accepted.receiptId;
     if (acceptedId && acceptedId !== optimistic.Id) {
       const previousId = String(optimistic.Id);
       const nextId = String(acceptedId);
@@ -1136,8 +1159,18 @@ async function submitUiAction(action, endpoint, payload, descriptors = []) {
     // Sekunde sichtbar; nach kurzer Zeit wird die fachliche Ansicht erneuert.
     if (!['StartTestGroupPower', 'StopTestGroupPower'].includes(action)) window.setTimeout(() => refresh().catch(showError), 3500);
   } catch (error) {
+    if (error.message === 'UI_COMMAND_GRANT_CAPACITY') {
+      optimistic.State = 'Rejected';
+      optimistic.Lines = ['[STATUS] Commandfreigaben dieser Sitzung sind ausgeschöpft. Laufende Aufträge und Recoverystatus prüfen.'];
+      renderJobs([]);
+      throw new Error('Commandfreigaben dieser Sitzung sind ausgeschöpft. Laufende Aufträge und Recoverystatus prüfen.');
+    }
     optimistic.State = 'Unknown';
     optimistic.Lines = ['[STATUS] Übermittlung oder Annahme unbestätigt; Status prüfen, keine automatische Wiederholung.'];
+    if (endpoint === '/api/commands' && typeof error.receiptId === 'string' && /^[a-f0-9]{32}$/.test(error.receiptId)) {
+      optimistic.ReceiptId = error.receiptId;
+      optimistic.Lines.push('[ANNAHMEREFERENZ] ' + error.receiptId);
+    }
     renderJobs([]);
     throw new Error('Annahme unbekannt oder fehlgeschlagen; Auftrag nicht automatisch wiederholen.');
   }

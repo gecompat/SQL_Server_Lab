@@ -23,14 +23,18 @@ Pausecheckpoint darunter bleibt erhalten; die Pause ist durch diesen neuen
 Auftrag aufgehoben. Keine neue Freigabe für gesperrte Ressourcen, Native-CMS,
 C#, Cloud-Scans, Uploads oder ungebundene Bereinigung.
 
-Der nächste begrenzte Sicherheits-Slice implementiert die startgebundene
+Der abgeschlossene Sicherheits-Slice implementiert die startgebundene
 [UI-Operator-Capability](../Architecture/WORKFLOW_UI_REQUEST_BOUNDARY.md):
 alle API-Lese-/Aktionsrouten vor Dispatch authentifizieren, privater lokaler
 Start-/CLI-/Reload-Handoff und benannter Browsertransport. Einmalige
 servergebundene Action-/Replayfreigaben bleiben der nächste offene Schritt.
-Prüfungen, gerenderter Nachweis und Pflichtgate werden getrennt vom
-Implementierungsstand erfasst; kein aktueller Cloud-Scan oder nativer
-Providerbeweis wird aus diesem Plan abgeleitet.
+PR #723 ist `MERGED`: Source `3ea3df6b9c6a9c355fc6c5f18ec256303b7c0d68`,
+exakter Pflichtgate `37700745006` `SUCCESS`, integrierter main-Checkpoint
+`46bdd994c6eaa37bac87bf22290d7cbca39cd6bc`. Prüfungen und gerenderter Nachweis
+bleiben getrennt vom Implementierungsstand; kein aktueller Cloud-Scan oder
+nativer Providerbeweis wird aus diesem Plan abgeleitet. Der Gate führte auch
+den eigenen Unix-Helper-Handoff mit 0700 und Cleanup aus; das ist kein
+vollständiger Unix-UI-/Cross-user- oder Providerbeweis.
 
 Die separate gerenderte Operatorabnahme vom 2026-10-08 bestand am tatsächlichen
 Requestblock und allen Produktassets mit synthetischen Fachantworten:
@@ -38,9 +42,30 @@ authentifizierter Bootstrap/Polling, CMS-GET/POST, fehlende/falsche Credentials,
 acht direkte HTTP-Vetos und bestätigter eigener Cleanup. Produktmodul, SQL,
 Provider und Unix-Rechte bleiben getrennte Nachweise. Der unabhängige Review
 des vollständigen 54-Dateien-Stands ergab keine bestätigten Findings.
-Für den nächsten Einmalgrant-Slice sind `/api/commands`, exakte Body-/Sitzungs-
-bindung und Verbrauch vor Jobanlage vorzubereiten; andere Aktionsrouten und
-Batch-Replay bleiben ausdrücklich offen. Host-DNS-/TCP-Bindung ist separat
+Der folgende Einmalgrant-Slice implementiert ausschließlich `POST /api/commands`:
+exakte UTF-8-Body-/Sitzungsbindung, monotoner Ablauf, harte Quota, sichere Receipts
+und Verbrauch vor Jobanlage. Lokal bestanden 61 Checks einschließlich 23 echter
+HTTP-Requests sowie 30 tatsächliche JS-Prüfungen mit synthetischen Fachleaves.
+Die JS-Nachhärtung weist neun missgebildete Issuer-DTOs vor jedem Command-POST
+ab und belässt sieben missgebildete Annahme-DTOs ohne Replay unbestätigt.
+Die separate gerenderte Commandabnahme vom 2026-10-08 am ersten eingefrorenen
+19-Dateien-Stand bestand (`run-ba748315d069443e82dd054fa909669d`): 13 Produktassets,
+vollständiger Produktrequestblock, zwei synthetische Commands nach Consume,
+sechs HTTP-Negativfälle und ein realer Verlust der 202-Antwort ohne Retry.
+Grantstore, Operatorsitzung, Browser und Listener wurden geschlossen; Produktmodul,
+State, SQL, Provider und vollständiger Fachcore blieben `NOT_EXECUTED`.
+Der gezielte Browsernachlauf nach der engen JS-DTO-Korrektur bestand ebenfalls
+(`run-9b0bdefc634a4f459ca319ae68a8ae3b`): 13 Produktassets, zwei synthetische
+Commands mit zweimaligem Consume vor Jobanlage, sechs HTTP-Negativfälle, zwei
+sichere Receipts und ein tatsächlicher Verlust der 202-Antwort ohne Replay.
+Keine Seitenfehler oder instrumentierten verbotenen Effekte; eigener Browser,
+Listener, Operatorsitzung und Grantstore geschlossen, alle 19 Quellen während
+des Nachlaufs unverändert. Produktmodul, State, SQL, Provider und vollständiger
+Fachcore bleiben `NOT_EXECUTED`. Vollständiger unabhängiger Review, breitere
+betroffene Prüfungen, Pflichtgate am exakten PR-Head und anschließende Integration
+sind die erforderlichen nächsten Gates. Andere Aktionsrouten,
+Batch-Replay und menschliche Zustimmung bleiben ausdrücklich offen.
+Host-DNS-/TCP-Bindung ist separat
 vorbereitet und erteilt keine SQL-Egress- oder Cloud-Consentfreigabe.
 
 ### Abschlussgrenze und Wiederaufnahme nach Benutzerpause vom 2026-10-07
