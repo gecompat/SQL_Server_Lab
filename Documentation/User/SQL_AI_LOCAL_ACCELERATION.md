@@ -18,8 +18,53 @@ konfigurationsbezogen; direkte HTTPS-Probe, neuer SQL-Preflight, neues Apply und
 die Embeddingprobe prüfen die Grenze vor ihrem Dispatch. TLS-Pin und fachliche
 Bindings bleiben zusätzlich erforderlich.
 
-Die festen Hostaliases attestieren keine DNS-Auflösung, TCP-Zieladresse oder
-Erreichbarkeit aus einem SQL-Container bzw. einer VM. Deren Bindung bleibt offen.
+Die direkte HTTPS-Probe bindet im Hostprozess DNS und TCP: numerischer Loopback
+verwendet kein DNS; ein fester Hostalias wird genau einmal vollständig aufgelöst.
+Ein leeres, missgebildetes, gemischtes oder nicht ausschließlich aus Loopback
+bestehendes Ergebnis wird vor TCP und API-Key-Öffnung abgewiesen. Aus dem
+abgetrennten Snapshot wird zuerst IPv4, danach die aufsteigend sortierte
+numerische Adresse gewählt. Genau diese Adresse und der URI-Port werden
+verbunden und am tatsächlichen `RemoteEndPoint` geprüft, bevor der API-Key
+geöffnet oder die Anwendungsnachricht erstellt wird. Es gibt keinen zweiten
+Adressversuch: ein nur auf IPv6 lauschender Dienst kann daher bei einem
+Dualstack-`localhost` scheitern. In diesem Fall muss die konfigurierte numerische
+IPv6-Adresse mit passendem IP-SAN verwendet werden. Docker-/Podmanaliases, die
+im Hostprozess eine private Nicht-Loopback-Adresse liefern, werden bewusst
+abgewiesen.
+
+HttpClient übernimmt TLS über den einmalig übergebenen bereits verbundenen
+unverschlüsselten Stream. Die ursprüngliche HTTPS-URI bleibt für HTTP-Host,
+TLS-Namenprüfung und DNS-SNI erhalten; numerische Adressen benötigen einen
+passenden IP-SAN. Proxy und Redirect sind deaktiviert, HTTP/1.1 ist exakt
+vorgegeben. Weder ein Verbindungsverlust noch ein erneuter interner
+Callbackaufruf erhält einen zweiten Stream. Eine gemeinsame kooperative Frist
+deckt DNS-Warten, TCP, TLS und die auf 1 MiB begrenzte Antwort ab. Ein abgelaufenes
+DNS-Warten verhindert spätere Verbindungs- oder Schlüsselarbeit, behauptet aber
+keinen Abbruch des Betriebssystemresolvers.
+
+Die Windows-Hostabnahme vom 2026-10-08 ist `PARTIAL`: auf PowerShell 7.2.24/
+.NET 6.0.35 bestanden 29 von 30 Fällen; der TLS-1.3-Fall scheiterte vor HTTP.
+Die Folge TLS 1.2 → TLS 1.3 im selben Clientprozess wurde auch unter .NET 10
+als Fehler reproduziert. Ursache und Zuordnung zu einer Produktregression
+bleiben `UNRESOLVED`; eine vollständige native TLS-/Plattformabnahme liegt
+nicht vor. TLS verwendet weiterhin den Systemdefault, ohne feste TLS-Version,
+Downgrade oder Wiederholung. Die feste Version betrifft ausschließlich HTTP/1.1.
+[Nachweise und Diagnosegrenzen](../Quality/LOCAL_VALIDATION_STRATEGY.md#lokale-external-model-autoritaeten),
+[offene Windows-Sequenzgrenze](../Quality/KNOWN_LIMITATIONS.md#lokale-external-models-begrenzte-autoritaetsliste).
+
+Der bestehende Zertifikatsprüfer bleibt unverändert: Pin, native Namenprüfung
+und System-/Custom-Root-Trust gelten weiter. Seine synchrone Kettenprüfung kann
+nicht zwangsweise durch den CancellationToken unterbrochen werden; mögliche
+native Issuer-/AIA-Abfragen und deren Fristen sind dadurch nicht zusätzlich
+begrenzt. Dieser Slice belegt deshalb keine globale Egresssperre oder harte
+Wallclockgrenze. API-Key und Body werden erst nach Peerprüfung im Speicher
+vorbereitet; HttpClient sendet sie erst nach erfolgreicher TLS-Prüfung.
+Ein TLS-Veto kann daher bereits einen im Speicher geöffneten API-Key haben;
+es darf keine entschlüsselten HTTP-, Authorization- oder Bodybytes übertragen.
+Dispose und verworfene Referenzen belegen keine physische Speicher-/Keylöschung.
+
+Diese Hostbindung attestiert keine DNS-/TCP-Verbindung oder Erreichbarkeit aus
+einem SQL-Container bzw. einer VM. Deren Bindung bleibt offen.
 Unveränderte ältere SQL-Pläne bleiben für Cleanup lesbar; Resume darf einen
 bereits vorhandenen SQL-Endzustand bestätigen, jede neue SQL-Mutation verlangt
 die aktuelle Autoritätsprüfung. Plan-/Receipt-Schlüssel und Cleanupverträge

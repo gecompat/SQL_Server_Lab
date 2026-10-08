@@ -15,11 +15,42 @@ weiter. Der ältere Cloud-Scan deckt diesen Head nicht ab; der Fund bleibt offen
 Die [lokale Lane](../User/SQL_AI_LOCAL_ACCELERATION.md) erlaubt numerischen
 Loopback und exakt `localhost`, `host.docker.internal`, `host.containers.internal`.
 Andere Autoritaeten blockieren vor Probe bzw. neuer SQL-Aktion. TLS-/Runtime-
-Bindings bleiben erforderlich; DNS-/TCP-Zielbindung und Container-/VM-Routing
-sind damit nicht attestiert. Keine allgemeine private Netzwerk- oder Cloud-
+Bindings bleiben erforderlich. Die Host-HTTPS-Probe akzeptiert nun nur einen
+vollständigen einmaligen Loopback-DNS-Snapshot und prüft genau einen numerisch
+verbundenen TCP-Peer samt URI-Port vor Requesterstellung und API-Key-Öffnung.
+IPv4 hat Vorrang, danach entscheidet die numerische Adresse; kein zweiter
+Adressversuch. Ein IPv6-only-Dienst kann bei Dualstack-`localhost` scheitern;
+die explizite IPv6-URI benötigt einen IP-SAN. Docker-/Podmanaliases mit privater
+Nicht-Loopback-Adresse werden im Hostprozess abgewiesen. Originale HTTPS-
+Autorität und exakt HTTP/1.1 bleiben erhalten; Proxy und Redirect sind aus.
+Container-/VM-Routing und SQLs eigene spätere DNS-/TCP-Verbindungen sind damit
+nicht attestiert. Die gemeinsame Transportfrist ist kooperativ: sie beendet
+DNS-Warten und verhindert spätere Verbindung/Schlüsselarbeit, beendet aber
+nicht garantiert den Betriebssystemresolver. Der unveränderte synchrone
+Zertifikatsprüfer kann nicht zwangsweise unterbrochen werden; native Issuer-/
+AIA-Abfragen bleiben möglich und werden hier nicht separat begrenzt oder
+nativ geprüft. Keine globale Egresssperre oder harte Wallclockzusage.
+Keine allgemeine private Netzwerk- oder Cloud-
 Freigabe, verwaltete Cloud-Allowlist, Datenklassen-/Consentbindung oder neue
 Authority-Anzeige in der Apply-Bestaetigung. Legacy-Lese-/Cleanupvertraege und
 Plan-/Receipt-Schluessel bleiben erhalten. Der Cloud-Fund bleibt offen.
+
+Die Windows-Hostabnahme vom 2026-10-08 bleibt `PARTIAL`: PowerShell 7.2.24/
+.NET 6.0.35 bestand 29 von 30 Fällen, `Tls13` blieb `FAIL` vor HTTP.
+Ein gezielter Diagnosevergleich TLS 1.2 → getrenntem TLS-1.3-Server im selben
+Clientprozess reproduzierte `SEC_E_ALGORITHM_MISMATCH` unter .NET 6 und .NET 10;
+auch eine reine BCL-Sequenz reproduzierte den Fehler. Eine frische isolierte
+TLS-1.3-Diagnose bestand einmal. Diese Diagnosen sind `NOT_ACCEPTED_PROOF`,
+heben den ursprünglichen Fehler nicht auf und belegen weder generelle
+TLS-1.3-Unterstützung noch deren Fehlen. Ursache und Produktregressionszuordnung
+sind `UNRESOLVED`; eine unveränderte Produktbaseline wurde nicht verglichen.
+Die Windows-Sequenzgrenze bleibt `OPEN`, vollständige native TLS-/Plattform-
+abnahme sowie Ubuntu-Nachweis fehlen. Systemdefault-TLS bleibt unverändert:
+keine feste TLS-Version, kein Downgrade, kein Retry oder Trustbypass.
+TLS-Vetos dürfen nach geprüfter Peerbindung schon einen geöffneten RAM-Key
+haben, aber keine entschlüsselten HTTP-/Authorization-/Bodybytes senden.
+Bestätigter eigener Cleanup ist kein Nachweis physischer Speicher-/Keylöschung.
+[Ausgeführte Nachweise](LOCAL_VALIDATION_STRATEGY.md#lokale-external-model-autoritaeten).
 
 ## Workflow-UI: Operatorbindung und offene Aktionsfreigaben
 

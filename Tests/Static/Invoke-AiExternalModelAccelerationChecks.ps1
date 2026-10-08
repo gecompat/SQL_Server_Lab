@@ -441,6 +441,8 @@ try {
         $workerSource -match '16384' -and $workerSource -match '65536' -and $workerSource -match 'FixedTimeEquals')
     $authorityPassed = & (Join-Path $PSScriptRoot 'Fixtures/AiExternalModelAuthorityChecks.ps1') -Module $module -SqlPlan $sqlPlan
     Add-CheckResult 'Lokale External-Model-Autoritaetsgrenze und Legacy-Lesevertrag bestanden' ($authorityPassed -eq $true)
+    $connectionPassed = & (Join-Path $PSScriptRoot 'Fixtures/AiExternalModelConnectionBindingChecks.ps1') -Module $module
+    Add-CheckResult 'DNS-Snapshot, native Peerbindung und einmaliger CLR-Streamhandoff bestanden' ($connectionPassed -eq $true)
 }
 finally {
     Remove-Module $module -Force -ErrorAction SilentlyContinue
