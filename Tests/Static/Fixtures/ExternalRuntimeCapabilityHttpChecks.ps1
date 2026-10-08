@@ -1,5 +1,7 @@
 $ErrorActionPreference='Stop'
 $root=Split-Path (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent) -Parent
+$module=$null
+try {
 $module=New-Module -ArgumentList $root -ScriptBlock {
     param($root)
     $script:ModuleRoot=$root;$script:CatalogsPath=Join-Path $root 'Catalogs'
@@ -18,6 +20,9 @@ $module=New-Module -ArgumentList $root -ScriptBlock {
         if($TimeoutSeconds -ne 20 -or $MaximumBytes -ne 65536 -or $StartInfo.ArgumentList.Count -ne 3 -or $StartInfo.ArgumentList[0] -cne 'info' -or $StartInfo.ArgumentList[1] -cne '--format') {throw 'BAD_TRANSPORT'}
         if($script:mode -ceq 'timeout') {return [pscustomobject]@{Success=$false;Reason='DIAGNOSTIC_READINESS_TIMEOUT';Value=$null}}
         $facts=if($StartInfo.FileName -match 'podman'){[pscustomobject]@{OperatingSystem='linux';CgroupVersion='v1';Rootless=$false}}else{[pscustomobject]@{OperatingSystem='linux';CgroupVersion='1';SecurityOptions=@()}}
+        if($script:mode -ceq 'malformedFacts') {
+            if($StartInfo.FileName -match 'podman') {$facts.Rootless='false'}else{$facts.SecurityOptions=$null}
+        }
         [pscustomobject]@{Success=$true;Value=$facts}
     }
     function New-Request {
@@ -41,6 +46,13 @@ $module=New-Module -ArgumentList $root -ScriptBlock {
         $view=Send-Request $evaluate
         Assert-Case ($view.Decision.CurrentReadiness.Status -ceq 'READY' -and $script:transports -eq $before+1) "Actual public bounded adapter and classifier $provider"
         Assert-Case ($view.Decision.SqlLanguageExecution -ceq 'NOT_CHECKED' -and -not $view.Decision.ExecutionSupported -and -not $view.Decision.MutationAllowed -and $view.Decision.Actions.Count -eq 0) "Readiness does not grant execution $provider"
+    }
+    $script:mode='malformedFacts'
+    foreach($provider in @('docker','podman')) {
+        $evaluate.Provider=$provider;$before=$script:transports
+        $view=Send-Request $evaluate
+        Assert-Case ($script:transports -eq $before+1 -and $view.Decision.CurrentReadiness.Status -ceq 'BLOCKED' -and
+            $view.Decision.CurrentReadiness.ReasonCode -ceq 'PROVIDER_RESPONSE_INVALID' -and -not $view.Decision.MutationAllowed) "Actual shared facts parser keeps unknown $provider blocked with fixed reason"
     }
     $script:mode='timeout';$view=Send-Request $evaluate
     Assert-Case ($view.Decision.CurrentReadiness.ReasonCode -ceq 'PROVIDER_PROBE_TIMEOUT') 'Transport timeout remains fixed BLOCKED'
@@ -90,3 +102,7 @@ $module=New-Module -ArgumentList $root -ScriptBlock {
     Write-Host "HTTP TOTAL: $script:passed PASS; real provider/process/import: 0"
 }
 & $module {}
+} finally {
+    if($module){Remove-Module $module -ErrorAction Stop}
+    $module=$null
+}
