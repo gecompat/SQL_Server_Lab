@@ -734,6 +734,19 @@ Abnahmevertrag: Auswahl ohne interne Befehlskenntnis, Ist-/Zielwerte und
 Auswirkungen, Vorschau, Abbruch, Ergebnis sowie Wiederholung/Resume/Cleanup
 soweit anwendbar. Die Tabelle ersetzt keine umfangreicheren Fachverträge.
 
+**P1-Folgearbeit in Scope A (Benutzerauftrag 2026-10-08, offen):**
+Nachträgliches Autostart-`on`/`off` für registrierte SQL-Labs mit CLI-/GUI-Parität
+direkt über Provider-Eigenschaften umsetzen, ohne Backup/Restore oder
+Identitätswechsel und ohne Änderung des aktuellen Powerzustands.
+Der [bestehende Aufgaben- und Abnahmevertrag](DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md#p1--autostart-bestehender-sql-labs-direkt-ändern)
+präzisiert `CORE-101` bis `CORE-106`, `UX-202/622`, `CNT-211` bis `CNT-214`
+und `HV-601` ff.: dauerhafter Intent und beide Container-Hostkoordinatoren,
+exakte Ownership, Drift/Lock/Journal/Readback/Recovery sowie getrennte native
+Provider-Nachweise. Toolbelt-Gruppenpolicy, Export und Reparatur bleiben ein
+separater geschützter Vertrag. PLAN_ONLY, interner Recreate und privater
+Hyper-V-Slotsetter sind kein allgemeiner Apply-Nachweis; neue direkte
+Provider-Prüfungen sind hierfür noch nicht ausgeführt.
+
 | Restanforderung / bestehende Verantwortung | Ist-Stand, nächster vollständiger Schritt und CLI-/GUI-Zugang | Akzeptanz, Prüfungen und Abschlussgrenze |
 |---|---|---|
 | A: bestehende Umgebung ändern – `UX-202/622`, `CNT-211` bis `CNT-214`, `HV-601` bis `HV-607` | `Set-LabResourcesInteractive` und Browser-`openResourceDialog` verwenden einen gemeinsamen instanz-/providergebundenen CPU/RAM-Plan mit gemessenen Limits und Alt/Neu-Vorschau. Container-Apply ist eng live/no-op begrenzt und serialisiert; Hyper-V bleibt read-only, bis dauerhafte Sollzustandsautorität und journalisierte Teilfehler-/Recovery geklärt sind. Container-CPU/RAM ist implementiert und unabhängig nachgeprüft; Docker und Podman bestanden am 2026-09-28 getrennt je neun native Prüfungen des neuen Plan-/Workflow-Apply-/No-op-/Driftpfads mit SQL-Probe und bestätigtem Own-Cleanup. Dies schließt weder Hyper-V-Apply noch weitere Eigenschaften unter den bestehenden IDs ab. Ergänzend liefern der öffentliche ContainerPortPreview-Plan, der eigene geführte CLI-Einstieg und der getrennte Browserdialog eine reine SQL-Portvorschau für registrierte laufende Docker-/Podman-Instanzen. Metadatenauswahl ist inspectfrei; ein vollständiger Wunsch ruft den öffentlichen Preview einmal auf; zusätzliche eigene Ownership-Inspectreads bleiben erhalten. Kategorien und Mountcounts sind host-/portwertfrei, CanApply=false und Actions leer; keine Reservierung oder SQL-/Endpointprüfung. Synthetische Core-/CLI-/HTTP-/JS-Verträge sind geprüft. Am 2026-10-05 auf bee35c5d bestanden Docker und Podman getrennt je fünf öffentliche PLAN_ONLY-Aufrufe über Core, Console-Menü und in-process HTTP mit unveränderten Statebytes, bestätigtem Own-Cleanup und Schutzvergleich ohne Findings/Beobachtungen. Die additive Komponentenabnahme des gerenderten Portdialogs mit echtem Loopback-HTTP bestand am 2026-10-07 unter Docker und Podman mit je drei öffentlichen PLAN_ONLY-Aufrufen und eigenem Cleanup; der vollständige UI-Server bleibt NOT_EXECUTED. Frühere fehlgeschlagene Wellen bleiben unverändert. Port-Apply/Recovery und vollständiger Scope A bleiben offen; CPU/RAM bleibt unverändert. | Cancel/No-op ändern nichts; geschützte Gruppen bleiben geschützt; exakte Instanz-/Providerbindung und verständliches Ergebnis. ConsoleUI/WorkflowUI, Ressourcen-/Reconcile-Verträge und bei Executoränderung getrennte Provider-Smokes. Abschluss nur CPU/RAM, weitere Eigenschaften mit Reset/Removal separat. |
