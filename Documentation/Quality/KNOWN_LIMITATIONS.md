@@ -2189,6 +2189,29 @@ Plattformen. Das ist ein datierter Nachweis und keine Zusicherung für künftige
 Läufe. Die historische Aufarbeitung steht in
 `Documentation/Project_Planning/CONSOLE_UX_FOLLOW_UP_BACKLOG.md`.
 
+Der spätere [Nightly-Lauf 37713231080](https://github.com/gecompat/SQL_Server_Lab/actions/runs/37713231080)
+vom 2026-10-08 auf `fe0d0e12` bleibt fehlgeschlagen beziehungsweise abgebrochen:
+Beide statischen Matrixjobs überschritten 20 Minuten; Ubuntu meldete zusätzlich
+die veraltete Podman-Textannahme der Host-Tool-Suite als Vertragsfehler.
+Die fokussierte Reparatur prüft nun die echte Verfügbarkeitsfunktion über eine
+synthetische Recording-Bridge; nur das Nightly-Static-Gesamtbudget steigt auf
+40 Minuten. Ein neuer vollständiger Nightly-Nachweis für Windows und Ubuntu
+ist damit noch nicht erbracht, und Issue
+[#675](https://github.com/gecompat/SQL_Server_Lab/issues/675) bleibt offen.
+Der frühere grüne Lauf ist keine Abnahme dieses späteren Standes.
+PowerShell 7.2/.NET 6 wurde für den korrigierten Testfolgestand nicht ausgeführt.
+Der lokale Nachweis besteht aus zehn grünen Suites des ursprünglich
+fehlgeschlagenen betroffenen Laufs und der später separat bestandenen echten
+Workflow-UI-Suite mit 72 `PASS` und null `FAIL`. Der ursprüngliche Lauf und sein
+60-Sekunden-Timeout bleiben erhalten; die instrumentierte Diagnose ist kein
+Produktnachweis. Diese Zusammensetzung ersetzt weder einen neuen grünen
+Elf-Suite-Lauf noch die vollständigen 134 Suites beider Plattformen oder die
+fünf getrennten Providerabnahmen.
+Die Standalone-Suite `Invoke-TestGroupGuidanceChecks.ps1` fehlt weiterhin in der
+bestehenden Vollregressionsliste; ihre Pfadselektion allein schließt diese
+Coverage-Lücke nicht. Ausführung und Grenzen stehen in der
+[Validierungsstrategie](LOCAL_VALIDATION_STRATEGY.md#host-tool-auflösung-betroffen).
+
 ### Hyper-V-Netzwerk-Reconcile
 
 Die vorbereitete Reconnect-Abnahme besitzt isolierte Offline-Fehlerfaelle fuer

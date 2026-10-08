@@ -220,11 +220,10 @@ exit 0
         $resolverText -match 'Docker\\Docker\\resources\\bin\\docker\.exe' -and
         $resolverText -match 'Programs\\Podman\\podman\.exe' -and
         $resolverText -match 'Programs\\Python')
-    Add-CheckResult -Name 'Provider-Probes verwenden den zentral aufgeloesten absoluten Aufruf' -Success (
+    Add-CheckResult -Name 'Docker-Probe verwendet den zentral aufgeloesten absoluten Aufruf' -Success (
         $dockerProviderText -match 'Get-LabHostToolInvocation -Name docker' -and
-        $dockerProviderText -match '& \$Invocation @Arguments' -and
-        $podmanProviderText -match 'Get-LabHostToolInvocation -Name podman' -and
-        $podmanProviderText -match '& \$podmanInvocation version')
+        $dockerProviderText -match '& \$Invocation @Arguments')
+    . (Join-Path $PSScriptRoot 'Fixtures/HostToolPodmanAvailabilityChecks.ps1')
     Add-CheckResult -Name 'Modulimport repariert Docker-, Podman- und Python-Auflösung prozesslokal' -Success (
         $moduleLoaderText -match 'Initialize-LabHostToolPath -Name docker,podman,python')
     Add-CheckResult -Name 'Produktive Aufrufpfade verwenden keine nackten Runtime-Befehle oder direkten PATH-Probes' -Success (
