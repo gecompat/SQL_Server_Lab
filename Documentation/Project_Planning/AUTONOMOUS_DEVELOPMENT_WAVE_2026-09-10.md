@@ -80,11 +80,23 @@ Runtimefälle bestanden separat. Diagnosewiederholungen der TLS-1.2→1.3-
 Sequenz im selben Clientprozess auf .NET 6 und .NET 10 sind
 `NOT_ACCEPTED_PROOF`; Ursache und Produktregressionszuordnung bleiben
 `UNRESOLVED`. Früherer Harnessfehler und ursprünglicher TLS-Fehler bleiben
-erhalten. Vollständige native TLS-/Plattformabnahme und der exakte Pflichtgate
-bleiben separat erforderlich; [Nachweise](../Quality/LOCAL_VALIDATION_STRATEGY.md#lokale-external-model-autoritaeten).
+erhalten. Vollständige native TLS-/Plattformabnahme bleibt separat erforderlich;
+[Nachweise](../Quality/LOCAL_VALIDATION_STRATEGY.md#lokale-external-model-autoritaeten).
+PR #725 ist `MERGED`: Source `a2e05d039d216da4e40acda5881f430394d69918`,
+exakter Pflichtgate `37719078586` `SUCCESS` mit Windows, Ubuntu und finalem
+PR-Gate, integrierter main-Checkpoint `43646453634128173649d007c1b31a7d5782284d`.
 Die Frist ist kooperativ; synchrone Kettenprüfung/native AIA-Abfragen bleiben
 unverändert. Keine SQL-Egress- oder Cloud-Consentfreigabe; Plan-/Receipt-/SQL-
 Schlüssel und Legacy-Cleanup bleiben erhalten.
+
+Die nachgelagerte Characterization fand am integrierten Stand eine
+kulturabhängige Adressreihenfolge unter `cy-GB`; der ursprüngliche Fehlerbeleg
+bleibt erhalten. Der enge Folgefix wählt nach vollständiger Snapshotprüfung das
+ordinale Minimum mit IPv4-Vorrang. Die erweiterte Verbindungsfixture bestand
+mit 115 Prüfungen auf PowerShell 7.4.20/.NET 8.0.31 und 7.6.6/.NET 10.0.12.
+Die Mindestlaufzeit PowerShell 7.2/.NET 6 bleibt für diesen Folgestand
+`NOT_EXECUTED`; TLS-Nachweis, betroffene Regression und exakter Pflichtgate
+werden daraus nicht abgeleitet. Die damaligen 88 Prüfungen bleiben historische Evidence.
 
 ### Abschlussgrenze und Wiederaufnahme nach Benutzerpause vom 2026-10-07
 

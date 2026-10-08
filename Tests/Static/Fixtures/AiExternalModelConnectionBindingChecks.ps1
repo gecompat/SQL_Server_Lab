@@ -74,6 +74,54 @@ try {
         }
         Check-Connection ($case.Name+' resolves exactly once') ($calls.Value -eq 1)
     }
+    # Welsh DD collation must not affect numeric address order. Change only
+    # this caller's culture, and restore it even if a characterization fails.
+    $originalCulture=[Globalization.CultureInfo]::CurrentCulture
+    try {
+        foreach ($cultureName in @('en-US','cy-GB')) {
+            [Globalization.CultureInfo]::CurrentCulture=[Globalization.CultureInfo]::GetCultureInfo($cultureName)
+            foreach ($orderCase in @(
+                @{Name='Same-family ordinal minimum';Values=@([Net.IPAddress]::Parse('127.0.0.221'),[Net.IPAddress]::Parse('127.0.0.223'))},
+                @{Name='IPv4 rank before IPv6';Values=@([Net.IPAddress]::IPv6Loopback,[Net.IPAddress]::Parse('127.0.0.223'),[Net.IPAddress]::Parse('127.0.0.221'))})) {
+                foreach ($reverse in @($false,$true)) {
+                    $calls.Value=0
+                    $orderedValues=[object[]]@($orderCase.Values)
+                    if ($reverse) {[Array]::Reverse($orderedValues)}
+                    $valueBox=[Runtime.CompilerServices.StrongBox[object[]]]::new($orderedValues)
+                    $resolver={param($hostName,$token)
+                        $calls.Value++
+                        $completion=[Threading.Tasks.TaskCompletionSource[object[]]]::new()
+                        $completion.SetResult($valueBox.Value)
+                        return $completion.Task
+                    }.GetNewClosure()
+                    $address=& $Module {param($token,$resolver)Resolve-LabAiExternalModelConnectAddress -Uri ([Uri]'https://localhost:18443/v1/embeddings') -CancellationToken $token -Resolver $resolver} $cts.Token $resolver
+                    $caseName=$cultureName+' '+$orderCase.Name+' reversed='+$reverse
+                    Check-Connection ($caseName+' selects exact minimum in caller culture') (
+                        [Globalization.CultureInfo]::CurrentCulture.Name -ceq $cultureName -and
+                        $address.Equals([Net.IPAddress]::Parse('127.0.0.221')))
+                    Check-Connection ($caseName+' resolves exactly once') ($calls.Value -eq 1)
+                    $borrowed=@($orderedValues | Where-Object {[object]::ReferenceEquals($address,$_)})
+                    Check-Connection ($caseName+' selects a detached address') ($borrowed.Count -eq 0)
+                }
+            }
+            if ($cultureName -ceq 'cy-GB') {
+                $calls.Value=0
+                $valueBox=[Runtime.CompilerServices.StrongBox[object[]]]::new([object[]]@(
+                    [Net.IPAddress]::Parse('127.0.0.221'),[Net.IPAddress]::Parse('127.0.0.223'),[Net.IPAddress]::Parse('192.0.2.1')))
+                $resolver={param($hostName,$token)
+                    $calls.Value++
+                    $completion=[Threading.Tasks.TaskCompletionSource[object[]]]::new()
+                    $completion.SetResult($valueBox.Value)
+                    return $completion.Task
+                }.GetNewClosure()
+                Check-Connection 'Welsh invalid tail vetoes the full snapshot before selection' (Error-Connection {
+                    & $Module {param($token,$resolver)Resolve-LabAiExternalModelConnectAddress -Uri ([Uri]'https://localhost:18443/v1/embeddings') -CancellationToken $token -Resolver $resolver} $cts.Token $resolver
+                } 'AI_EXTERNAL_MODEL_DNS_SNAPSHOT_INVALID' $null)
+                Check-Connection 'Welsh invalid tail resolves exactly once' ($calls.Value -eq 1)
+            }
+        }
+    } finally {[Globalization.CultureInfo]::CurrentCulture=$originalCulture}
+    Check-Connection 'Ordinal cases restore the caller culture' ([object]::ReferenceEquals([Globalization.CultureInfo]::CurrentCulture,$originalCulture))
     $late=[Threading.Tasks.TaskCompletionSource[object[]]]::new()
     $lateResolver={param($hostName,$token)$late.Task}.GetNewClosure()
     $short=[Threading.CancellationTokenSource]::new([TimeSpan]::FromMilliseconds(50))

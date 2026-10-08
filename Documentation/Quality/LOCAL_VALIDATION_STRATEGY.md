@@ -60,12 +60,26 @@ entsorgt. Nach der Erweiterung von 61 auf 88 Fälle bestand die Fixture am
 Erweiterung prüft die beiden exakten IPv6-Callbackhostformen mit und ohne
 Klammern sowie deren Authority-, Cancellation- und Einmaligkeitsvetos.
 TLS, HTTP, native Hostaliasauflösung, SQL und Provider wurden dabei nicht
-ausgeführt. Die innere Verbindungsfixture (88), Authority-Fixture (24) und
-äußere External-Model-Suite (121) sind getrennte Counts, keine additive Summe.
+ausgeführt. Die damalige innere Verbindungsfixture (88), Authority-Fixture (24)
+und äußere External-Model-Suite (121) sind getrennte Counts, keine additive Summe.
 Der bestehende Zertifikatsprüfer bleibt unverändert; seine synchronen nativen
 Ketten-/AIA-Pfade sind kein durch diese Fixture belegter Deadline-/Egressvertrag.
 
-Der separate providerlose Windows-TLS-/HttpClient-Lauf am eingefrorenen
+Eine spätere Characterization am integrierten PR-725-Stand zeigte einen Fehler
+der kulturabhängigen `Sort-Object`-Adresswahl: derselbe synthetische Snapshot
+wählte unter `en-US` korrekt `127.0.0.221`, unter `cy-GB` aber `127.0.0.223`.
+Der ursprüngliche `FAIL` bleibt erhalten. Nach vollständiger Snapshotprüfung
+wählt nun ein expliziter ordinaler Minimumvergleich mit IPv4-Vorrang die Adresse.
+Die auf 115 Prüfungen erweiterte Verbindungsfixture bestand am 2026-10-08 einmal
+auf PowerShell 7.4.20/.NET 8.0.31 und einmal auf 7.6.6/.NET 10.0.12 bei
+unveränderten Quellen und bestätigtem eigenem Cleanup. Sie prüft beide Kulturen,
+umgekehrte Eingabereihenfolge, Familienvorrang, einen ungültigen letzten Eintrag
+und Wiederherstellung der Aufruferkultur im `finally`. Die Kulturkorrektur wurde
+nicht mit TLS/HTTP ausgeführt; Mindestlaufzeit PowerShell 7.2/.NET 6 für diesen
+Folgestand: `NOT_EXECUTED`. Die früheren 88 Prüfungen sind kein Nachweis für
+diesen späteren Stand.
+
+Der separate providerlose Windows-TLS-/HttpClient-Lauf am eingefrorenen PR-725-
 Produkttransport lieferte am 2026-10-08 unter PowerShell 7.2.24/.NET 6.0.35
 29 `PASS` und einen `FAIL` (`Tls13`); tatsächlicher Runner-Gesamtstatus `FAIL`.
 Die Abdeckung bleibt `PARTIAL`.
@@ -103,13 +117,31 @@ wurde weder auf eine feste Version gesetzt noch durch Downgrade, Retry oder
 Trustbypass verändert. Die Frist bleibt kooperativ mit unveränderter synchroner
 Ketten-/AIA-Grenze.
 
-Die tatsächliche Pfadauswahl des eingefrorenen Transportstands bestand am 2026-10-08
+Die tatsächliche Pfadauswahl des eingefrorenen PR-725-Transportstands bestand am 2026-10-08
 mit neun statischen Suites unter PowerShell 7.4.20/.NET 8.0.31 bei unveränderten
 Quellen. Pester meldete 23 PASS, null Fehler und null übersprungene Fälle;
-PSScriptAnalyzer null Fehler bei 5588 erhaltenen Warnungen. Provider-Smokes
-waren nicht selektiert; daraus folgt kein Providernachweis. Unabhängiger
-Produktreview und begrenzter Korrekturreview sind abgeschlossen. Der Pflichtgate
-am exakten veröffentlichten PR-Head bleibt separat erforderlich.
+PSScriptAnalyzer bestand ohne neue blockierende Fehler; 24 vorhandene Befunde
+mit Schweregrad `Error` lagen innerhalb der unveränderten Baselines, daneben
+5588 Warnungen. Provider-Smokes waren nicht selektiert; daraus folgt kein
+Providernachweis. Unabhängiger
+Produktreview und begrenzter Korrekturreview sind abgeschlossen. Der exakte
+Pflichtgate für PR #725 bestand; Source und integrierter main-Checkpoint stehen
+im [Wellenplan](../Project_Planning/AUTONOMOUS_DEVELOPMENT_WAVE_2026-09-10.md).
+Am eingefrorenen Stand der Kulturkorrektur vor der anschließenden
+Dokumentationspräzisierung bestanden am 2026-10-08 die neun tatsächlich
+selektierten statischen Suites auf PowerShell 7.4.20/.NET 8.0.31 bei
+unveränderten Quellen. Pester meldete 23 PASS und null übersprungene Fälle,
+die Verbindungsfixture 115 PASS. PSScriptAnalyzer bestand ohne neue blockierende
+Fehler bei denselben 24 `Error`-Befunden innerhalb der unveränderten Baselines
+und 5592 Warnungen; die vier zusätzlichen Warnungen sind ausschließlich
+`PSReviewUnusedParameter` an Parametern synthetischer Fixtureseams.
+Ein unabhängiger reiner Resolvertest bestand auf PowerShell 7.6.6/.NET 10.0.12
+mit 22 Fällen, wiederhergestellter Aufruferkultur und unveränderten Quellen.
+Alle 22 Tokenquellen wurden entsorgt, eigenes Modul und Kindprozess beendet.
+DNS-Snapshots waren synthetisch; native DNS-/TCP-/TLS-Aktionen wurden nicht
+ausgeführt. Dieser Nachweis ersetzt weder die früheren TLS-Fälle noch einen
+neuen Mindestframeworklauf. Der exakte Pflichtgate für die Kulturkorrektur
+bleibt separat erforderlich.
 
 ## Gemeinsame Workflow-UI-HTTP-Grenze
 
