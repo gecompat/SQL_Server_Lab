@@ -1,6 +1,7 @@
 #Requires -Version 7.2
 $ErrorActionPreference='Stop'
 $repo=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
+. (Join-Path $PSScriptRoot 'WorkflowUiCommandGrantFixture.ps1')
 . (Join-Path $repo 'Tools/WorkflowUiRequestBoundary.ps1')
 $script:passed=0
 function Check([string]$Name,[bool]$Success){if(-not $Success){throw "UI_BOUNDARY_CHECK_FAILED: $Name"};$script:passed++;Write-Host "PASS $Name"}
@@ -83,19 +84,21 @@ $url="http://127.0.0.1:$port/";$listener=[Net.HttpListener]::new();$listener.Pre
 $job=$null;$client=$null;$responses=[Collections.Generic.List[object]]::new()
 try{
  $listener.Start()
- $job=Start-ThreadJob -ArgumentList $listener,$url,$dispatch,$reply[0].Extent.Text,$binding.Include,(Join-Path $repo 'Tools'),$cases.Count -ScriptBlock {
+ $job=Start-ThreadJob -ArgumentList $listener,$url,$dispatch,$reply[0].Extent.Text,$binding.Include,(Join-Path $repo 'Tools'),($cases.Count+2) -ScriptBlock {
   param($Listener,$url,$Dispatch,$Reply,$Include,$ToolsRoot,$Count)
   $ErrorActionPreference='Stop';$jobs=@{};$script:syntheticDispatches=0
   . ([scriptblock]::Create('param([string]$PSScriptRoot)'+"`n"+$Include)) $ToolsRoot
   . (Join-Path $ToolsRoot 'WorkflowUiJsonBody.ps1')
   . (Join-Path $ToolsRoot 'WorkflowUiOperator.ps1')
   $operatorSession=[pscustomobject]@{ListenerUrl=$url;Capability=('a'*64);Active=$true}
+  . (Join-Path $ToolsRoot '../Tests/Static/Fixtures/WorkflowUiCommandGrantFixture.ps1')
+  $commandGrantStore=New-UiCommandGrantStore $operatorSession
   . ([scriptblock]::Create($Reply))
   function Start-UiPublicCommandJob {param($CommandName,$ParameterSetName,$Parameters,[switch]$Confirmed)
    if($CommandName -cne 'Remove-SqlServerLab' -or -not $Confirmed){throw 'SYNTHETIC_JOB_INPUT'}
    $script:syntheticDispatches++;[pscustomobject]@{Id='synthetic-only-'+$script:syntheticDispatches;Action='synthetic-not-executed'}
   }
-  for($i=0;$i -lt $Count;$i++){$pending=$Listener.GetContextAsync();if(-not $pending.Wait(10000)){throw 'UI_CONTEXT_TIMEOUT'};$context=$pending.GetAwaiter().GetResult();. ([scriptblock]::Create($Dispatch))}
+  try{for($i=0;$i -lt $Count;$i++){$pending=$Listener.GetContextAsync();if(-not $pending.Wait(10000)){throw 'UI_CONTEXT_TIMEOUT'};$context=$pending.GetAwaiter().GetResult();. ([scriptblock]::Create($Dispatch))}}finally{Close-UiCommandGrantStore $commandGrantStore}
   [pscustomobject]@{SyntheticDispatches=$script:syntheticDispatches;ProductModule='NOT_IMPORTED';State='NOT_EXECUTED';Provider='NOT_EXECUTED';Sql='NOT_EXECUTED'}
  }
  $client=[Net.Http.HttpClient]::new();$client.Timeout=[timespan]::FromSeconds(5)
@@ -105,7 +108,7 @@ try{
    $null=$request.Headers.TryAddWithoutValidation('X-SqlServerLab-Operator',('a'*64))
    if($case.Origin){$origin=if($case.Origin -ceq 'SELF'){$url.TrimEnd('/')}else{$case.Origin};$null=$request.Headers.TryAddWithoutValidation('Origin',$origin)}
    if($case.Site){$null=$request.Headers.TryAddWithoutValidation('Sec-Fetch-Site',$case.Site)}
-   if($method -ceq 'POST'){$body=if($case.Status -eq 202){'{"commandName":"Remove-SqlServerLab","parameterSetName":"synthetic","parameters":{},"confirmed":true}'}else{'synthetic-invalid-json-must-not-be-parsed'};$request.Content=[Net.Http.StringContent]::new($body,[Text.Encoding]::UTF8);$request.Content.Headers.Remove('Content-Type')|Out-Null;$null=$request.Content.Headers.TryAddWithoutValidation('Content-Type',$case.Type)}
+   if($method -ceq 'POST'){$body=if($case.Status -eq 202){'{"commandName":"Remove-SqlServerLab","parameterSetName":"synthetic","parameters":{},"confirmed":true}'}else{'synthetic-invalid-json-must-not-be-parsed'};if($case.Status -eq 202){$grant=Get-FixtureCommandGrant $url $body;$null=$request.Headers.TryAddWithoutValidation('X-SqlServerLab-Action-Grant',$grant.grant)};$request.Content=[Net.Http.StringContent]::new($body,[Text.Encoding]::UTF8);$request.Content.Headers.Remove('Content-Type')|Out-Null;$null=$request.Content.Headers.TryAddWithoutValidation('Content-Type',$case.Type)}
    $response=$client.SendAsync($request).GetAwaiter().GetResult()
    try{$responses.Add([pscustomobject]@{Name=$case.Name;Expected=$case.Status;Actual=[int]$response.StatusCode;CorsGrant=$response.Headers.Contains('Access-Control-Allow-Origin')})}finally{$response.Dispose()}
   }finally{$request.Dispose()}

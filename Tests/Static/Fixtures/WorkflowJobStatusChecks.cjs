@@ -18,7 +18,7 @@ const context = vm.createContext({ document, crypto: { subtle: { async digest(al
   showWorkspaceArea() {}, empty: value => value, migrationInventoryResult: () => '', testGroupResult: () => ''
 });
 vm.runInContext(source.slice(0, source.indexOf('function publicCommandAllowedValues')), context);
-for (const name of ['renderJobs','refreshJobs','readUiJobResponse','canonicalSubmission','nonSecretSubmissionIdentity','submitUiAction','startAction','startPublicCommand']) vm.runInContext(actualFunction(name), context);
+for (const name of ['renderJobs','refreshJobs','readUiJobResponse','submitUiCommandBody','canonicalSubmission','nonSecretSubmissionIdentity','submitUiAction','startAction','startPublicCommand']) vm.runInContext(actualFunction(name), context);
 const run = code => vm.runInContext(code, context);
 const html = () => document.querySelector('#jobs').innerHTML;
 const tick = () => new Promise(resolve => setImmediate(resolve));
@@ -58,7 +58,7 @@ function fire(delay) { const entry = [...timers.entries()].find(([, item]) => it
   const before = calls.length;
   check(await run("startAction('RemoveContainerLab', {BuildId:'synthetic'}).then(() => false, () => true)"), 'Unknown acceptance prevents duplicate submission');
   check(calls.length === before, 'No automatic or second mutation after unknown POST');
-  responder = url => url === '/api/commands' ? response({id:'command-own'}) : response([]);
+  responder = url => url === '/api/command-grants' ? response({grant:'a'.repeat(64),receiptId:'b'.repeat(32)}) : url === '/api/commands' ? response({id:'command-own',receiptId:'b'.repeat(32)}) : response([]);
   await run("startPublicCommand({Name:'Synthetic'}, {Name:'SecretSet'}, {Password:'sensitive-synthetic'}, true)"); await tick();
   check(await run("startPublicCommand({Name:'Synthetic'}, {Name:'SecretSet'}, {Password:'sensitive-synthetic'}, true).then(() => false, () => true)"), 'Public command submission shares dedupe boundary');
   check(run("[...actionSubmissions.keys()].every(key => /^[0-9a-f]{64}$/.test(key))"), 'Retained dedupe keys contain hashes only, no parameters or secrets');
@@ -70,7 +70,7 @@ function fire(delay) { const entry = [...timers.entries()].find(([, item]) => it
   const commandIdentityA = run("nonSecretSubmissionIdentity('Command: Synthetic','/api/commands',{parameterSetName:'SecretSet',parameters:{RunId:'same-target',Password:'canary-first',Credential:{password:'canary-first'},DataRoot:'canary-first',Unknown:'canary-first'}}," + metadata + ")");
   const commandIdentityB = run("nonSecretSubmissionIdentity('Command: Synthetic','/api/commands',{parameterSetName:'SecretSet',parameters:{RunId:'same-target',Password:'canary-second',Credential:{password:'canary-second'},DataRoot:'canary-second',Unknown:'canary-second'}}," + metadata + ")");
   check(JSON.stringify(commandIdentityA) === JSON.stringify(commandIdentityB), 'Generic metadata-sensitive values and unknown inputs are omitted before digest');
-  responder = url => url === '/api/commands' ? response({id:'secret-command-own'}) : response([]);
+  responder = url => url === '/api/command-grants' ? response({grant:'a'.repeat(64),receiptId:'b'.repeat(32)}) : url === '/api/commands' ? response({id:'secret-command-own',receiptId:'b'.repeat(32)}) : response([]);
   await run("startPublicCommand({Name:'SecretCanary'},{Name:'SecretSet',Parameters:" + metadata + "},{RunId:'same-target',Password:'canary-first',Credential:{password:'canary-first'},DataRoot:'canary-first',Unknown:'canary-first'},true)"); await tick();
   const postsBeforeSecretChange = calls.filter(call => call.method === 'POST').length;
   check(await run("startPublicCommand({Name:'SecretCanary'},{Name:'SecretSet',Parameters:" + metadata + "},{RunId:'same-target',Password:'canary-second',Credential:{password:'canary-second'},DataRoot:'canary-second',Unknown:'canary-second'},true).then(()=>false,()=>true)"), 'Secret-only change remains protected against duplicate generic submission');

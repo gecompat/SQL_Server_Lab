@@ -29,15 +29,23 @@ vor Routing/Bodylesung ab. Alle API-GET-/POST-Routen verlangen zusätzlich eine
 frische per Start gebundene Operator-Capability. Lokale JSON-Clients ohne Origin
 benötigen denselben Credentialheader. Privater Start-/CLI-/Reload-Handoff,
 Closure-Transport und gezielter eigener Cleanup sind implementiert. Einmalige
-servergebundene Aktions-/Replayfreigaben bleiben offen. Credentialbesitzer
-können Requests bewusst wiederholen; derselbe OS-Benutzer, Prozess-/Browserspeicher,
+servergebundene Grants schützen jetzt ausschließlich `POST /api/commands` gegen
+erneute Annahme desselben Grants, mit exakten Bodybytes, Consume vor Job und
+sicherem Statusreceipt. Andere Aktions-/Batch-/Operations-Replaypfade bleiben
+offen; ein ausdrücklich neuer Grant ist keine persistente Bodyidempotenz.
+Das harte Sitzungsgesamtbudget von 256 Receipts behält auch abgelaufene und
+widerrufene Slots; volle Quota ist ein klares Veto, kein automatischer Restart.
+Laufende Jobs und Recovery müssen vor bewusstem Serverende geprüft werden.
+Credentialbesitzer können neue Anforderungen bewusst stellen; derselbe OS-Benutzer, Prozess-/Browserspeicher,
 XSS und kompromittierte Assets bleiben eigene Grenzen. Nach hartem Prozessabbruch
 wird ein privates Handoffartefakt nicht automatisch aufgesucht oder entfernt.
 Windows bleibt mit PowerShell 7.2 zulässig. Unix-UI-Handoff benötigt die drei
 atomaren UnixFileMode-APIs aus .NET 7 oder neuer; fehlende Features werden vor
 jeder Handoffmutation mit `UI_OPERATOR_UNIX_MODE_UNAVAILABLE` abgewiesen.
-Der deterministische Featurecheck ist geprüft, echte Unix-Rechte bleiben unbewiesen.
-Die sieben direkten JSON-POST-Routen
+Der deterministische Featurecheck ist geprüft. Der Pflichtgate zu PR #723
+führte außerdem den eigenen Helper-Handoff mit 0700 und Cleanup unter Unix aus;
+vollständige Unix-UI-, Cross-user- und native Providerabnahme folgen daraus nicht.
+Die acht direkten JSON-POST-Routen
 besitzen eine 1-MiB-Bytegrenze, striktes UTF-8 und fünf Sekunden absolute
 Lesefrist. Acht interne Fachreader verwenden nun denselben Transport mit ihren
 bisherigen engeren Zeichenlimits und zusätzlichen Byteobergrenzen. Übrige

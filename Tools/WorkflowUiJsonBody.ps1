@@ -3,9 +3,11 @@ function Read-UiJsonRequestBody {
     param(
         [Parameter(Mandatory)]$Request,
         [ValidateRange(1,1048576)][int]$MaxBytes = 1048576,
-        [ValidateRange(50,5000)][int]$TimeoutMilliseconds = 5000
+        [ValidateRange(50,5000)][int]$TimeoutMilliseconds = 5000,
+        [switch]$IncludeBytes
     )
     $result = [pscustomobject]@{ Allowed = $false; StatusCode = 400; Code = 'UI_REQUEST_BODY_READ_FAILED'; Body = $null }
+    if ($IncludeBytes) { $result | Add-Member -NotePropertyName BodyBytes -NotePropertyValue $null }
     $inputStream = $null; $memory = $null; $buffer = $null
     $clock = [Diagnostics.Stopwatch]::StartNew()
     try {
@@ -29,11 +31,13 @@ function Read-UiJsonRequestBody {
             $memory.Write($buffer, 0, $count)
         }
         $result.Body = [Text.UTF8Encoding]::new($false,$true).GetString($memory.GetBuffer(),0,[int]$memory.Length)
+        if ($IncludeBytes) { $result.BodyBytes = $memory.ToArray() }
         $result.Allowed = $true; $result.StatusCode = 200; $result.Code = 'UI_REQUEST_BODY_READ'; return $result
     }
     catch [Text.DecoderFallbackException] { $result.Code = 'UI_REQUEST_BODY_UTF8_INVALID'; return $result }
     catch { return $result }
     finally {
+        if (-not $result.Allowed -and $IncludeBytes -and $result.BodyBytes) { [Array]::Clear($result.BodyBytes,0,$result.BodyBytes.Length); $result.BodyBytes=$null }
         if (-not $result.Allowed -and $inputStream -is [IO.Stream]) { try { $inputStream.Dispose() } catch { } }
         if ($memory) { [Array]::Clear($memory.GetBuffer(),0,$memory.GetBuffer().Length); $memory.Dispose() }
         if ($buffer) { [Array]::Clear($buffer,0,$buffer.Length) }

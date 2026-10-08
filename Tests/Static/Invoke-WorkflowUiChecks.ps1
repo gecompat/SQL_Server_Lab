@@ -53,6 +53,7 @@ $hyperVLabText = Get-Content -LiteralPath $hyperVLabPath -Raw -Encoding utf8
 $mediaSourceText = Get-Content -LiteralPath $mediaSourcePath -Raw -Encoding utf8
 $htmlText = Get-Content -LiteralPath $htmlPath -Raw -Encoding utf8
 $scriptText = Get-Content -LiteralPath $scriptPath -Raw -Encoding utf8
+$grantText = Get-Content -LiteralPath (Join-Path $repoRoot 'Tools/WorkflowUiCommandGrants.ps1') -Raw -Encoding utf8
 $styleText = Get-Content -LiteralPath $stylePath -Raw -Encoding utf8
 
 Add-CheckResult -Name 'UI lauscht ausschliesslich auf Loopback' -Success (
@@ -72,7 +73,7 @@ Add-CheckResult -Name 'GUI stellt den vollständigen öffentlichen Befehlsvertra
     $serverText -match 'Start-UiPublicCommandJob' -and
     $serverText -match 'WorkflowUiJsonBody.ps1' -and
     $serverText -match 'Read-UiJsonRequestBody -Request \$context.Request' -and
-    $serverText -match 'Generische Befehlsparameter können Geheimnisse enthalten' -and
+    $serverText -match 'Use-UiCommandGrant' -and
     $htmlText -match 'id="command-center"' -and
     $htmlText -match 'id="command-search"' -and
     $htmlText -match 'id="command-parameter-set"' -and
@@ -103,7 +104,8 @@ Add-CheckResult -Name 'GUI-Katalog schützt Geheimnisse und führt ausschließli
     $scriptText -match 'type="password"' -and
     $scriptText -match 'autocomplete="new-password"' -and
     $scriptText -match 'command\.RequiresConfirmation' -and
-    $serverText -match 'Confirmed:\(\[bool\]\$request\.confirmed\)' -and
+    $serverText -match 'Confirmed:\$request\.confirmed' -and
+    $grantText -match '\$request\.confirmed -isnot \[bool\]' -and
     $serverText -match '\$jobs\[\$record\.Id\] = \$record' -and
     $serverText -notmatch 'New-SqlServerLabBatch[^\r\n]+PUBLIC_COMMAND'
 )
@@ -732,7 +734,7 @@ else {
     finally { $process.Dispose() }
 }
 
-foreach ($fixture in @('WorkflowUiOperatorChecks.ps1','WorkflowUiOperatorTransportChecks.cjs','WorkflowUiSpecializedBodyChecks.ps1','WorkflowUiJsonBodyChecks.ps1','WorkflowUiRequestBoundaryChecks.ps1','ContainerPortPreviewHttpChecks.ps1','ContainerPortPreviewUiChecks.cjs','ContainerPortPreviewBrowserAcceptanceChecks.ps1','ContainerAutoStartPreviewHttpChecks.ps1','ContainerAutoStartPreviewUiChecks.cjs','ContainerAutoStartPreviewBrowserWorkflowChecks.ps1','WorkflowJobStatusChecks.ps1','WorkflowJobStatusChecks.cjs','SaPasswordPolicyHttpChecks.ps1','SaPasswordPolicyUiChecks.cjs','RunArtifactRemovalHttpChecks.ps1','RunArtifactRemovalUiChecks.cjs')) {
+foreach ($fixture in @('WorkflowUiCommandGrantsChecks.ps1','WorkflowUiCommandGrantsChecks.cjs','WorkflowUiOperatorChecks.ps1','WorkflowUiOperatorTransportChecks.cjs','WorkflowUiSpecializedBodyChecks.ps1','WorkflowUiJsonBodyChecks.ps1','WorkflowUiRequestBoundaryChecks.ps1','ContainerPortPreviewHttpChecks.ps1','ContainerPortPreviewUiChecks.cjs','ContainerPortPreviewBrowserAcceptanceChecks.ps1','ContainerAutoStartPreviewHttpChecks.ps1','ContainerAutoStartPreviewUiChecks.cjs','ContainerAutoStartPreviewBrowserWorkflowChecks.ps1','WorkflowJobStatusChecks.ps1','WorkflowJobStatusChecks.cjs','SaPasswordPolicyHttpChecks.ps1','SaPasswordPolicyUiChecks.cjs','RunArtifactRemovalHttpChecks.ps1','RunArtifactRemovalUiChecks.cjs')) {
     $start = [Diagnostics.ProcessStartInfo]::new()
     $start.FileName = if ($fixture.EndsWith('.ps1')) { (Get-Process -Id $PID).Path } elseif ($node) { $node.Source } else { '' }
     if (-not $start.FileName) { Add-CheckResult -Name $fixture -Success $false -Message 'NOT_EXECUTED: Node.js fehlt.'; continue }

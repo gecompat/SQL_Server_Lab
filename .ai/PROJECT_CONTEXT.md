@@ -62,9 +62,11 @@ prüft Requests vor Routing/Bodylesung. Fremde Origins und ungeeignete POST-
 Medientypen werden abgewiesen; lokale JSON-Clients ohne Origin bleiben erlaubt.
 Alle APIrequests verlangen jetzt eine frische startgebundene Operator-Capability
 mit privatem lokalem Handoff und Browsertransport ausschließlich im Speicher.
-Einmalige Action-/Replayfreigaben und vollständige Security-Cloud-Fundbehebung
-bleiben offen.
-Sieben direkte JSON-POST-Routen verwenden nun einen gemeinsamen Reader mit
+HTTP-Commands benötigen zusätzlich einen einmaligen sitzungs-/bodygebundenen
+Grant, mit sicherem Receipt und Verbrauch vor Jobanlage. Die übrigen
+Action-/Batch-Replayfreigaben, menschliche Zustimmung und vollständige
+Security-Cloud-Fundbehebung bleiben offen.
+Acht direkte JSON-POST-Routen verwenden nun einen gemeinsamen Reader mit
 1-MiB-Bytegrenze, striktem UTF-8 und fünf Sekunden absoluter Lesefrist.
 Acht interne Fachreader verwenden ebenfalls den gemeinsamen Transport mit
 ihren bisherigen engeren Zeichenlimits und fünf Sekunden absoluter Lesefrist.
