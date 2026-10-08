@@ -1946,6 +1946,14 @@ Launchmodus. `READY` bestätigt weder SQL-/Sprachausführung, Rechte noch Besitz
 Im Standardvertrag 1.0 bleibt historisches Matching `NOT_RECORDED`/`NOT_DEFINED`. Der geführte Browser
 verwendet denselben engen Public-Entscheid mit bewusstem optionalem Hostcheck;
 Hyper-V-Erweiterung und die vollständige CORE-102-Matrix bleiben offen.
+Die direkte Hostklassifikation und die begrenzte Public-Projektion verwenden
+nun dieselbe typisierte Faktenauswertung. Fehlende/falsch typisierte OS-,
+cgroup- oder Rootless-/Security-Fakten und widersprüchliche Podman-Aliases
+bleiben `UNKNOWN` beziehungsweise öffentlich `BLOCKED` mit
+`PROVIDER_RESPONSE_INVALID`; sie erhalten keine Unterstützung durch Typcasts
+oder angenäherte Werte. Die synthetischen Quellen-/Consumerprüfungen bestätigen
+keine aktuelle Provider-/SQL-Ausführung, Hostrechte oder Ressourcen-/Controller-
+Fähigkeiten. Issue #619 bleibt für die breitere Host-/Backendmatrix offen.
 Die gerenderte Katalogabnahme bestand am 2026-10-07 auf `4007d414` mit vier
 öffentlichen Entscheidungen und tatsächlichen Katalog-/Rezeptquellen. Der
 Seitenbootstrap war synthetisch; Hostprüfung, historischer Lookup, Installation

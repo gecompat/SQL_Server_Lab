@@ -27,11 +27,25 @@ Retry, Bootstrap, Pull, vollständigen Client-Readiness-Aufruf, Storagezugriff
 oder erneuten Modulimport durch diese API.
 
 Die Antwort wird auf einen geschlossenen, typisierten Vertrag reduziert.
-Fehlende Docker-`SecurityOptions` und unbekannte/nullwertige Rootless-, OS- oder
-cgroup-Fakten werden abgelehnt. Podmans `v1`/`v2` wird ausdrücklich auf `1`/`2`
-normalisiert. Stringwerte werden nicht in Boolwerte umgedeutet. Erst danach
-erhält der bestehende Hostclassifier ausschließlich die internen Fakten,
-sodass sein ungebundener nativer Fallback nicht erreicht wird.
+Diese Auswertung gilt gemeinsam für den direkten Hostclassifier und die
+begrenzte öffentliche Projektion. Fehlende/nullwertige Docker-`SecurityOptions`,
+falsch typisierte Elemente sowie unbekannte/nullwertige Rootless-, OS- oder
+cgroup-Fakten ergeben im Classifier `UNKNOWN`, `Supported=false` und den festen
+Code `PROVIDER_RESPONSE_INVALID`. Die API projiziert dies als `BLOCKED` mit
+demselben Code. Ursache und Abhilfe enthalten keine rohen Providerwerte.
+Eine vorhandene leere Security-Options-Liste bleibt zulässig. Nur die exakten
+OS-Strings `linux`/`windows` und cgroup-Strings `1`/`2`/`v1`/`v2` sind bekannt;
+Stringwerte werden nicht in Boolwerte umgedeutet und cgroup-Werte nicht durch
+Entfernen beliebiger Zeichen angenähert. Podmans historische `cgroupsVersion`
+ist nur bei fehlendem `cgroupVersion` oder gleicher kanonischer cgroup-Version
+zulässig. Beide vorhandenen Angaben durchlaufen denselben typisierten Konverter;
+`1`/`v1` und `2`/`v2` sind jeweils gleichwertig. Nullwertige oder ungültige
+Primärwerte und widersprüchliche Aliases bleiben unbekannt.
+Bekannte Windows-, Rootless- und unpassende cgroup-Kombinationen bleiben
+`DECLARED_UNSUPPORTED` mit den bestehenden Codes. Menü/Fallback und vorhandene
+Erstellungs-/Build-Guards übernehmen denselben Entscheid vor ihrer Mutation.
+Die Public-API übergibt weiterhin ausschließlich validierte interne Fakten,
+sodass ihr ungebundener nativer Fallback nicht erreicht wird.
 
 `READY` bestätigt ausschließlich die Hostvoraussetzung des konkreten
 Launchmodus. `SqlLanguageExecution` und `TargetAuthorization` bleiben

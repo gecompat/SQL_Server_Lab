@@ -338,6 +338,27 @@ function New-LabExternalRuntimeContainerImagePlan {
     }
 }
 
+# One typed interpretation for native info and the bounded public projection.
+function ConvertTo-LabExternalRuntimeHostFacts {
+    param([string]$Provider,$Value)
+    if ($Provider -cnotin @('docker','podman') -or $Value -isnot [pscustomobject]) { throw 'PROVIDER_RESPONSE_INVALID' }
+    $names=@($Value.PSObject.Properties.Name)
+    $expected=if($Provider -ceq 'docker'){@('OperatingSystem','CgroupVersion','SecurityOptions')}else{@('OperatingSystem','CgroupVersion','Rootless')}
+    if($names.Count -ne 3 -or @($names|Where-Object{$_ -cnotin $expected}).Count) { throw 'PROVIDER_RESPONSE_INVALID' }
+    if($Value.OperatingSystem -isnot [string] -or $Value.OperatingSystem -cnotin @('linux','windows') -or
+        $Value.CgroupVersion -isnot [string] -or $Value.CgroupVersion -cnotin @('1','2','v1','v2')) { throw 'PROVIDER_RESPONSE_INVALID' }
+    if($Provider -ceq 'docker') {
+        if($Value.SecurityOptions -isnot [array] -or $Value.SecurityOptions.Count -gt 16 -or
+            @($Value.SecurityOptions|Where-Object{$_ -isnot [string] -or $_.Length -gt 128 -or
+                ($_ -match '(?i)rootless' -and $_ -cnotin @('name=rootless','rootless'))}).Count) { throw 'PROVIDER_RESPONSE_INVALID' }
+        $rootless=@($Value.SecurityOptions|Where-Object{$_ -ceq 'name=rootless' -or $_ -ceq 'rootless'}).Count -gt 0
+    } else {
+        if($Value.Rootless -isnot [bool]) { throw 'PROVIDER_RESPONSE_INVALID' }
+        $rootless=$Value.Rootless
+    }
+    [pscustomobject]@{OperatingSystem=$Value.OperatingSystem;CgroupVersion=$Value.CgroupVersion.TrimStart('v');Rootless=[bool]$rootless}
+}
+
 function New-LabExternalRuntimeHostCapabilityResult {
     [CmdletBinding()]
     param(
@@ -407,16 +428,32 @@ function Get-LabExternalRuntimeHostCapability {
         }
     }
 
-    if ($Provider -eq 'docker') {
-        $operatingSystem=[string]$info.OSType; $cgroupVersion=[string]$info.CgroupVersion
-        $rootless=[Nullable[bool]](@($info.SecurityOptions | Where-Object { [string]$_ -match '(?i)rootless' }).Count -gt 0)
+    try {
+        if ($info -isnot [pscustomobject]) { throw 'PROVIDER_RESPONSE_INVALID' }
+        if ($Provider -eq 'docker') {
+            $projection=[pscustomobject]@{OperatingSystem=$info.OSType;CgroupVersion=$info.CgroupVersion;SecurityOptions=$info.SecurityOptions}
+        } else {
+            if ($info.host -isnot [pscustomobject] -or $info.host.security -isnot [pscustomobject]) { throw 'PROVIDER_RESPONSE_INVALID' }
+            $primary=$info.host.PSObject.Properties['cgroupVersion']
+            $alias=$info.host.PSObject.Properties['cgroupsVersion']
+            # An absent primary may use the historical alias. When both exist,
+            # validate each through the same converter before comparing facts.
+            $cgroupVersion=if($primary){$primary.Value}elseif($alias){$alias.Value}else{$null}
+            $projection=[pscustomobject]@{OperatingSystem=$info.host.os;CgroupVersion=$cgroupVersion;Rootless=$info.host.security.rootless}
+        }
+        $facts=ConvertTo-LabExternalRuntimeHostFacts -Provider $Provider.ToLowerInvariant() -Value $projection
+        if ($Provider -eq 'podman' -and $primary -and $alias) {
+            $aliasProjection=[pscustomobject]@{OperatingSystem=$info.host.os;CgroupVersion=$alias.Value;Rootless=$info.host.security.rootless}
+            $aliasFacts=ConvertTo-LabExternalRuntimeHostFacts -Provider 'podman' -Value $aliasProjection
+            if ($facts.CgroupVersion -cne $aliasFacts.CgroupVersion) { throw 'PROVIDER_RESPONSE_INVALID' }
+        }
+    } catch {
+        return New-LabExternalRuntimeHostCapabilityResult @result -Status 'UNKNOWN' -ReasonCode 'PROVIDER_RESPONSE_INVALID' `
+            -Reason 'Die OS-, cgroup- und Rootful-Fakten der Container-Runtime sind unvollständig, ungültig oder mehrdeutig; External Languages werden nicht gestartet.' `
+            -Guidance 'Prüfe die Provider-Info und verwende eine eindeutig typisierte Linux-, cgroup- und Rootful-Konfiguration für die gewählte Runtimevariante.'
     }
-    else {
-        $operatingSystem=[string]$info.host.os; $cgroupVersion=[string]$info.host.cgroupVersion
-        if (-not $cgroupVersion) { $cgroupVersion=[string]$info.host.cgroupsVersion }
-        $rootless = if ($null -eq $info.host.security.rootless) { $null } else { [Nullable[bool]]([bool]$info.host.security.rootless) }
-    }
-    $normalizedCgroup=$cgroupVersion -replace '[^0-9]',''; $result.CgroupVersion=$normalizedCgroup; $result.Rootless=$rootless
+    $operatingSystem=$facts.OperatingSystem; $normalizedCgroup=$facts.CgroupVersion; $rootless=$facts.Rootless
+    $result.CgroupVersion=$normalizedCgroup; $result.Rootless=$rootless
     if ($operatingSystem -ne 'linux') {
         return New-LabExternalRuntimeHostCapabilityResult @result -Status 'DECLARED_UNSUPPORTED' -ReasonCode 'LINUX_RUNTIME_REQUIRED' `
             -Reason "External Languages für SQL Server $SqlVersion benötigen einen Linux-Containerhost; $Provider meldet '$operatingSystem'." `
@@ -427,11 +464,6 @@ function Get-LabExternalRuntimeHostCapability {
         return New-LabExternalRuntimeHostCapabilityResult @result -Status 'DECLARED_UNSUPPORTED' -ReasonCode 'CGROUP_VERSION_UNSUPPORTED' `
             -Reason "External Languages für SQL Server $SqlVersion unter $Provider benötigen rootful Linux mit cgroup v$RequiredCgroupVersion; erkannt wurde $detected." `
             -Guidance "Verwende einen rootful Linux-Host mit cgroup v$RequiredCgroupVersion und der ausdrücklich gewählten passenden Runtimevariante."
-    }
-    if ($null -eq $rootless) {
-        return New-LabExternalRuntimeHostCapabilityResult @result -Status 'DECLARED_UNSUPPORTED' -ReasonCode 'ROOTFUL_STATUS_UNKNOWN' `
-            -Reason "$Provider meldet nicht zuverlässig, ob die Runtime rootful läuft; External Languages werden deshalb nicht gestartet." `
-            -Guidance "Prüfe '$Provider info' und verwende eine eindeutig rootful konfigurierte Runtime."
     }
     if ($rootless) {
         return New-LabExternalRuntimeHostCapabilityResult @result -Status 'DECLARED_UNSUPPORTED' -ReasonCode 'ROOTFUL_PROVIDER_REQUIRED' `

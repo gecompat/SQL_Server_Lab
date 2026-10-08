@@ -539,6 +539,20 @@ zweiten Backlog und keine unabhängige Capability-Registry:
 | `PSR-011` im [Persistenzbacklog](PERSISTENT_STORAGE_REUSE_AND_LAB_DATA_BACKLOG.md) | Vorhandenen Retained-Store-Removal-Vertrag und dessen noch fehlende native Abnahme prüfen, keine parallele Löschimplementierung eröffnen. |
 | Weitere IDs aus den verlinkten Fachbacklogs | Jede gefundene Implementierungs- oder Abnahmelücke dem bestehenden Eigentümer zuordnen; vor einer neuen ID die kanonische Registration Authority und Duplikate prüfen. |
 
+Der begrenzte CORE-102-Faktenfix vom 2026-10-08 beseitigt die unterschiedliche
+Typauswertung im direkten Hostclassifier und im Public-Entscheid: fehlende,
+falsch typisierte oder widersprüchliche Fakten bleiben unbekannt und sperren
+die vorhandenen Consumer vor Mutation. Die ursprüngliche fehlgeschlagene
+Characterization und der im Review gefundene Aliasfehler bleiben erhalten;
+80 Faktenchecks, fokussierte Capability-
+und HTTP-/JS-Prüfungen sind getrennt in der
+[Validierungsstrategie](../Quality/LOCAL_VALIDATION_STRATEGY.md#prospektiver-external-languages-capability-entscheid)
+gebunden. Betroffene Regression, finaler Gate, Mindestframework und native
+Host-/SQL-Abnahme werden daraus nicht abgeleitet. Issue #619 bleibt offen:
+vollständige Host-/Backend-, Ressourcen-, Rechte-, Controller- und
+Herstellermatrix sowie historische Aktualität sind nicht umgesetzt;
+C# bleibt `USER_DEFERRED`.
+
 ### Konsolidierter Bedien- und Ressourcenauftrag vom 2026-09-27
 
 Der ergänzende Auftrag erweitert die folgenden bestehenden Verantwortungen;
@@ -719,6 +733,19 @@ und belegten Voraussetzungen. Jeder folgende Schritt übernimmt denselben
 Abnahmevertrag: Auswahl ohne interne Befehlskenntnis, Ist-/Zielwerte und
 Auswirkungen, Vorschau, Abbruch, Ergebnis sowie Wiederholung/Resume/Cleanup
 soweit anwendbar. Die Tabelle ersetzt keine umfangreicheren Fachverträge.
+
+**P1-Folgearbeit in Scope A (Benutzerauftrag 2026-10-08, offen):**
+Nachträgliches Autostart-`on`/`off` für registrierte SQL-Labs mit CLI-/GUI-Parität
+direkt über Provider-Eigenschaften umsetzen, ohne Backup/Restore oder
+Identitätswechsel und ohne Änderung des aktuellen Powerzustands.
+Der [bestehende Aufgaben- und Abnahmevertrag](DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md#p1--autostart-bestehender-sql-labs-direkt-ändern)
+präzisiert `CORE-101` bis `CORE-106`, `UX-202/622`, `CNT-211` bis `CNT-214`
+und `HV-601` ff.: dauerhafter Intent und beide Container-Hostkoordinatoren,
+exakte Ownership, Drift/Lock/Journal/Readback/Recovery sowie getrennte native
+Provider-Nachweise. Toolbelt-Gruppenpolicy, Export und Reparatur bleiben ein
+separater geschützter Vertrag. PLAN_ONLY, interner Recreate und privater
+Hyper-V-Slotsetter sind kein allgemeiner Apply-Nachweis; neue direkte
+Provider-Prüfungen sind hierfür noch nicht ausgeführt.
 
 | Restanforderung / bestehende Verantwortung | Ist-Stand, nächster vollständiger Schritt und CLI-/GUI-Zugang | Akzeptanz, Prüfungen und Abschlussgrenze |
 |---|---|---|
