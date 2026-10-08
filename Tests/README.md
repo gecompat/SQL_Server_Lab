@@ -873,7 +873,25 @@ repräsentativen Fallback.
 
 Ein Push auf `main` startet keine erneute Vollmatrix. Der tägliche Workflow
 `Nightly Regression` führt stattdessen alle statischen Suites, alle Runtime-
-Smokes sowie die SQL-/CMS-Abnahme der gemeinsam exportierten Testumgebungen aus.
+Smokes und die getrennt autorisierte Shared-Abnahme aus. Der gesamte statische
+Matrixjob erhält je Plattform 40 Minuten; einzelne Suite-/Previewfristen bleiben
+erhalten. Schedule autorisiert die gemeinsam exportierten SQL-Testumgebungen
+nicht: Ihre SQL-/CMS-Abnahme benötigt einen manuellen Aufruf desselben
+Repositorys mit `confirm_shared_mutation=true`. Der belegte Ausschluss bleibt
+`NOT_EXECUTED` / `NOT_AUTHORIZED`.
+Die Host-Tool-Suite extrahiert die tatsächliche Podman-Verfügbarkeitsfunktion
+und prüft mit synthetischer Recording-Bridge die absoluten Resolveraufrufe,
+StateRoot, exakten Argumente und Fehlerpfade ohne native Podman-Ausführung.
+Für den lokalen Folgestand sind die zehn grünen Suites des ursprünglichen
+betroffenen Laufs und der spätere unveränderte Workflow-UI-PASS mit 72 Checks
+getrennt belegt. Der ursprüngliche Elf-Suite-Lauf bleibt wegen eines
+60-Sekunden-Fixturetimeouts fehlgeschlagen; der instrumentierte Diagnose-PASS
+ist kein Produktnachweis. Die vollständige 134-Suite-Matrix für Windows und
+Ubuntu, PowerShell 7.2/.NET 6 und die fünf Providerabnahmen bleiben
+`NOT_EXECUTED`; #675 bleibt offen. Einzelheiten stehen in der
+[Validierungsstrategie](../Documentation/Quality/LOCAL_VALIDATION_STRATEGY.md#host-tool-auflösung-betroffen).
+Die bestehende Vollregressionsliste enthält noch keine Standalone-
+`Invoke-TestGroupGuidanceChecks.ps1`; deren Aufnahme bleibt ein separater Scope.
 Der native Gruppen-Lifecycle kann ergänzend mit
 `Invoke-TestEnvironmentGroupLifecycle.ps1` ausgeführt werden; er beweist den
 öffentlichen Ablauf Start, Live-Export `READY`, nicht-destruktiver Windows-Stopp

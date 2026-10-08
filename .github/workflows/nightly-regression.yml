@@ -83,7 +83,7 @@ jobs:
           - windows-latest
           - ubuntu-latest
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v7
       - name: Run all static contracts

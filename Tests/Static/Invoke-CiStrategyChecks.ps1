@@ -691,6 +691,15 @@ $nightly = Get-Content -LiteralPath (Join-Path $repoRoot '.github/workflows/nigh
 Add-CheckResult -Name 'Nightly enthaelt Vollregression und taeglichen Zeitplan' -Success (
     $nightly -match 'Invoke-AllChecks\.ps1' -and $nightly -match '(?m)^\s*schedule:\s*$'
 )
+$nightlyStaticJob = [regex]::Match($nightly,'(?ms)^  full-static-contracts:\r?\n(?<job>.*?)(?=^  [\w-]+:|\z)')
+Add-CheckResult -Name 'Nightly-Vollregression besitzt 40 Minuten Gesamtbudget fuer beide Plattformen' -Success (
+    $nightlyStaticJob.Success -and
+    $nightlyStaticJob.Groups['job'].Value -match '(?m)^    timeout-minutes: 40\s*$' -and
+    $nightlyStaticJob.Groups['job'].Value -match '(?m)^      fail-fast: false\s*$' -and
+    $nightlyStaticJob.Groups['job'].Value -match '(?m)^          - windows-latest\s*$' -and
+    $nightlyStaticJob.Groups['job'].Value -match '(?m)^          - ubuntu-latest\s*$' -and
+    $nightlyStaticJob.Groups['job'].Value -match '(?m)^        run: ./Tests/Static/Invoke-AllChecks\.ps1\s*$'
+)
 
 foreach($path in @('Private/AiPersistentRetrieval.ps1','Private/AiPersistentRetrievalSql.ps1','Private/AiPersistentRetrievalMigration.ps1','Public/Invoke-SqlServerLabAiPersistentRetrieval.ps1','Schemas/ai-persistent-retrieval-journal.schema.json','Schemas/ai-persistent-retrieval-journal-v2.schema.json','Scenarios/Ai/persistent-retrieval/1.0/fixture.json')){
     $persistent=& $selector -ChangedPath @($path)

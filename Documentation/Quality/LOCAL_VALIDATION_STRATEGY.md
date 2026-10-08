@@ -2750,6 +2750,24 @@ danach ausschließlich den absoluten `Invocation`-Pfad. Die Runtime-Smokes
 bleiben erforderlich, weil
 Dateiauflösung weder Engine-Erreichbarkeit noch Ausführungsberechtigung beweist.
 
+Am 2026-10-08 reproduzierte die unveränderte Host-Tool-Suite auf dem integrierten
+Stand `0518a166` unter PowerShell 7.6.6/.NET 10.0.12 die historische Signatur
+mit 22 `PASS` und einem `FAIL`: Die Podman-Textprüfung verlangte einen direkten
+nativen Aufruf, obwohl die echte Verfügbarkeitsfunktion bereits die zentrale
+Runtime-Bridge verwendet. Nach Ersatz dieser Textannahme bestand die gesamte
+fokussierte Suite mit 31 Prüfungen. Die Fixture extrahiert die tatsächliche
+`Test-PodmanAvailable`-Definition und zeichnet an synthetischen Grenzen den
+Provider, den absoluten Resolveraufruf, den StateRoot und die exakten
+`version`-/`info`-Argumente auf. Sie prüft den normalen und den Owned-Policy-Pfad
+sowie Resolver-, Versions- und Infofehler. Ein leerer Prozess-PATH, ein fehlendes
+synthetisches Executable und die vorherige Prüfung der Aufrufgrenzen verhindern
+native Podman-Ausführung; der PATH wird im `finally` wiederhergestellt.
+Produktiver Resolver, Provider und Runtime-Bridge bleiben unverändert.
+Die fokussierte CI-Strategieprüfung bestand mit 475 Prüfungen auf derselben
+Laufzeit bei unveränderten Quellen. Die Mindestlaufzeit PowerShell 7.2/.NET 6
+wurde für diesen Testfolgestand nicht ausgeführt; die Offlineprüfungen ersetzen
+keinen Provider-Smoke oder vollständigen Nightly-Lauf.
+
 ### Podman-Runtime betroffen
 
 Der Bootstrap wartet bei einer bereits laufenden oder startenden Machine auf
@@ -2968,6 +2986,52 @@ Autorisierungsgrenze; rohe Ausgaben bleiben ohne Upload im lokalen Runnerlog.
 Der Nightlyreport wertet ausschließlich den belegten Autorisierungsausschluss
 als neutral: `NOT_EXECUTED` / `NOT_AUTHORIZED`, niemals als `VALIDATED`.
 Fehler, Abbrüche und unerwartete Skips aller Pflichtprüfungen bleiben Fehler.
+
+Der [Nightly-Lauf 37713231080](https://github.com/gecompat/SQL_Server_Lab/actions/runs/37713231080)
+vom 2026-10-08 auf `fe0d0e12` überschritt auf beiden statischen Plattformen das
+damalige 20-Minuten-Gesamtbudget. Ubuntu erreichte alle 134 Suite-Einstiege und
+meldete die Host-Tool-Vertragsprüfung als Fehler; Windows erreichte 77 Einstiege
+und wurde abgebrochen. Beide Logs enthalten die Host-Tool-Signatur mit
+22 `PASS` und einem `FAIL`. Diese Einstiegszahlen sind keine bestandenen
+Suitecounts. Der aggregierte Abbruch bleibt `cancelled` / `UNKNOWN`; die
+bestimmte Vertragsabweichung bleibt ein eigener Fehler. Die tatsächliche
+PowerShell-/.NET-Version des gehosteten Laufs ist nicht attestiert.
+Nur `full-static-contracts` erhält deshalb nun 40 Minuten Gesamtbudget je
+Matrixplattform. Die bestehende Liste mit 134 Suites, einzelne Previewfristen,
+`fail-fast: false`, Concurrency, Providerjobs und Shared-Autorisierung bleiben
+erhalten. Die Budgetänderung und die fokussierten lokalen Prüfungen belegen
+keinen neuen vollständigen Windows-/Ubuntu-Nightly-Erfolg. Issue
+[#675](https://github.com/gecompat/SQL_Server_Lab/issues/675) bleibt bis zu einem
+neuen erfolgreichen erforderlichen Nightly-Scope offen.
+
+Der lokale betroffene Lauf vom 2026-10-08 unter Windows mit PowerShell 7.6.6
+und .NET 10.0.12 führte alle elf ausgewählten Suites aus: zehn bestanden,
+die Workflow-UI-Suite endete mit 71 `PASS` und einem `FAIL`. Ihre
+`ContainerAutoStartPreviewHttpChecks.ps1` überschritt die unveränderte
+60-Sekunden-Frist. Dieser ursprüngliche Lauf bleibt fehlgeschlagen; die
+Ursache seines einzelnen Timeouts ist nicht abschließend zugeordnet.
+
+Eine getrennte instrumentierte Diagnose derselben Vorschaufixture bestand
+mit 107 Checks und 104 Requests in 50,072 Sekunden. Sie bleibt
+`PASS_DIAGNOSTIC_ONLY` / `NOT_ACCEPTED_PRODUCT_PROOF`. Aufgrund dieser neuen
+Evidence wurde ausschließlich die unveränderte echte Workflow-UI-Suite einmal
+als Stabilitätsprüfung ausgeführt: 72 `PASS`, null `FAIL` in 137,593 Sekunden,
+ohne Instrumentierung und ohne Änderung der internen Fristen. Alle 1345
+Quellbindungen waren zu Beginn und Ende identisch. PATH und Konsolencodierung
+wurden wiederhergestellt; der eigene Kindprozess endete mit Exitcode null,
+seine Pipes und Prozessressourcen wurden geschlossen.
+
+Die zehn ursprünglichen grünen Suites und der spätere Workflow-PASS bilden
+einen zusammengesetzten lokalen Nachweis; sie wurden nicht als neuer grüner
+Elf-Suite-Lauf ausgegeben. Die zehn grünen Suites wurden nicht wiederholt.
+PowerShell 7.2/.NET 6, die vollständigen 134 statischen Suites auf Windows und
+Ubuntu sowie die fünf getrennten Providerpfade bleiben für diesen Folgestand
+`NOT_EXECUTED`. Issue #675 bleibt offen.
+
+`Invoke-TestGroupGuidanceChecks.ps1` wird vom Pfadselektor separat ausgewählt,
+steht aber noch nicht in der bestehenden Vollregressionsliste. Diese gekoppelte
+Coverage-Lücke wird durch den Nightly-Budgetfix nicht geschlossen; aus dessen
+Vollregression darf kein Standalone-TestGroup-Nachweis abgeleitet werden.
 `CiStrategyNightlyAuthorizationChecks.ps1` führt extrahierte Guard-, Prozess-
 und Reportblöcke mit synthetischen Grenzen aus. Eine reale Shared-Abnahme
 wird dadurch weder ausgeführt noch nachgewiesen. CI-Infrastrukturänderungen
