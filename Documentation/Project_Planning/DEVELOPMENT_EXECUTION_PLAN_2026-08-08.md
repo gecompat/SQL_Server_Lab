@@ -431,6 +431,56 @@ erhaltenen Mounts und Daten, absichtlich erzwungenen Rollback auf die exakte
 Original-ID sowie Persistenz über Stop, Start und Restart. Freie Mount- oder
 Environment-Änderungen aus `CNT-214` bleiben außerhalb dieses Abschlusses.
 
+#### P1 – Autostart bestehender SQL-Labs direkt ändern
+
+**Hohe Benutzerpriorität, offen (2026-10-08):** Unter den bestehenden
+`CORE-101` bis `CORE-106`, `UX-202/622`, `CNT-211` bis `CNT-214` und
+`HV-601` ff. einen gemeinsamen nachträglichen `on`-/`off`-Pfad für
+registrierte SQL-Lab-Runs in CLI und GUI umsetzen. Keine neue Task-ID.
+Die Änderung soll unmittelbar die Docker-/Podman-Restartpolicy beziehungsweise
+Hyper-V-`AutomaticStartAction` setzen, ohne Backup/Restore, Container-Neuerstellung
+oder Austausch der Container-/VM-Identität. Der aktuelle Powerzustand bleibt
+unverändert; Autostart ist keine Start-/Stop-Aktion.
+
+**Aktueller Bestand:** Die öffentliche Container-Autostartvorschau ist
+`PLAN_ONLY`, auch bei No-op. Der interne, nicht exportierte
+`Update-SqlServerLabContainer` verwendet für Autostart bisher Recreate;
+Workflow-`SetLabResources` reicht nur CPU/RAM weiter. Der private
+`Set-HyperVLabAutoStart` setzt die VM-Eigenschaft im Windows-Slot-
+Wiederverwendungsablauf. Keiner dieser Pfade belegt einen allgemeinen
+nachträglichen CLI-/GUI-Apply mit dem folgenden Abnahmevertrag.
+
+- Gemeinsame Vorschau mit gemessenem Istwert, Wunsch, Voraussetzungen und
+  Auswirkungen; Cancel, No-op und `-WhatIf` ohne Mutation. Autorisierung und
+  bestätigter Zielplan gelten für denselben begrenzten CLI-/GUI-Executor.
+- Run, Scope, Instanz, gespeicherter Provider sowie vollständige Container-ID
+  beziehungsweise VM-GUID exakt binden. Vor Mutation Ownership, Drift und
+  konkurrierende Änderungen unter dem zuständigen Lock erneut prüfen.
+  Journal, Readback und dauerhafter Sollzustand müssen zusammenpassen;
+  Providererfolg mit fehlgeschlagener Statepersistierung bleibt sichtbar
+  recoverybedürftig. Resume darf keine Doppelmutation erzeugen.
+- Für Container zuerst dauerhaften gemeinsamen Intent, unveränderliche
+  Autostartlabels und beide Windows-Hostkoordinatorpfade konsistent auflösen.
+  Ein isolierter Restartflag-Wechsel genügt nicht: Der bestehende Labelvertrag
+  würde Drift melden; ein Koordinator könnte den Container erneut starten.
+  Hostlogin-/Dienstvoraussetzungen getrennt ausweisen; keine automatische
+  Plattforminstallation oder ungebundene Änderung globaler Hostintegration.
+- Geschützte Toolbelt-Testumgebungen separat über eine explizite Gruppenpolicy
+  behandeln. Erstellen, Export und Reparatur müssen denselben Autostartintent
+  verwenden; bisher erzwingen sie `on`. Einzelaktionen dürfen den Gruppenschutz
+  nicht umgehen. Bestehende geschützte Umgebungen sind keine Testressourcen.
+- Docker, Podman und Hyper-V jeweils an eigenen isolierten Ressourcen nativ
+  abnehmen: `on`/`off`, No-op/Abbruch, unveränderte vollständige ID und Powerzustand,
+  persistierter Intent und tatsächlicher Readback, Drift-/Race-Veto sowie
+  Teilfehler/Recovery. CLI und GUI müssen denselben Vertrag erfüllen.
+  Hostneustart beziehungsweise Loginwirkung nur nach tatsächlich ausgeführtem
+  separatem Nachweis behaupten. Historische Preview-/Recreate-Prüfungen ersetzen
+  keinen direkten Eigenschafts-Apply; dieser Nachweis ist noch nicht ausgeführt.
+
+Kann ein Provider den direkten Pfad unter diesen Grenzen nicht erfüllen,
+bleibt die konkrete Einschränkung mit Abhilfe und P1-Folgearbeit offen;
+Recreate oder Backup/Restore sind kein stiller Ersatz für diese Anforderung.
+
 **Gate M2:**
 
 - No-op-Reconcile verändert keine Ressource;
