@@ -600,6 +600,38 @@ und transparent verwaltet werden.
 | `UX-621` | Hardware-, Netzwerk-, Storage-, SQL- und Reconcile-Untermenüs | vollständige Infrastrukturansicht |
 | `UX-622` | Heatmap/Action Preview für `live` bis `reprovision` | verständliche Auswirkungsvorschau |
 
+#### P1 – Hyper-V-VM mit SQL Server und CMS automatisiert neu erstellen
+
+**Benutzerauftrag, offen / nicht implementiert (2026-10-09):** Den bestehenden
+CMS-Erstellungspfad um einen expliziten Hyper-V-Pfad erweitern, der eine neue
+eigene VM samt SQL Server erstellt und anschließend als Central Management
+Server registriert. Einordnung unter M6 und den gemeinsamen CLI-/GUI- und
+Lifecycle-Arbeitspaketen; keine neue Task-ID.
+
+**Aktueller Bestand:** `Initialize-SqlServerLabCms` unterstützt ausschließlich
+Docker und Podman. Das CMS-Menü kann eine vorhandene geeignete Hyper-V-SQL-
+Umgebung als CMS übernehmen. Diese Übernahme ist keine automatisierte
+Neuerstellung einer VM mit SQL und CMS; ein nativer Gesamtnachweis dafür fehlt.
+
+- Die gemeinsame CMS-Erstellung in CLI und GUI bietet Hyper-V ausdrücklich an
+  und verwendet die bestehende Hyper-V-/SQL-Provisionierung. Unterstützte
+  Windows-/SQL-Version, Medien beziehungsweise Prepared-Artifact, Lizenz,
+  Ressourcen, Netzwerk und persistenter Storage werden vor Mutation geprüft.
+  Keine implizite Providerumleitung oder automatische Hostinstallation.
+- Run, VM-GUID und SQL-Endpunkt eindeutig binden; CMS-Registrierung und
+  Connection-Center-Synchronisation erst nach erfolgreicher SQL- und CMS-
+  Verifikation abschließen. Vorhandene CMS-Registrierungen und der bestehende
+  Adoptionsweg bleiben geschützt und erhalten.
+- State und Cleanup-/Recovery-Plan vor Erstellung sichern. Teilfehler zwischen
+  VM-/SQL-Erstellung und CMS-Registrierung bleiben fortsetzbar beziehungsweise
+  gezielt auf eigene Ressourcen bereinigbar; Secrets bleiben aus Logs und
+  versionierter Evidence ausgeschlossen.
+- Den vollständigen Hyper-V-Pfad an einer frischen eigenen VM nativ abnehmen:
+  SQL-Readiness, tatsächliche CMS-Gruppen-/Serverregistrierung und Synchronisation
+  mit synthetischen Einträgen, Persistenz über Stop/Start, Abbruch, Teilfehler und
+  Own-Cleanup. Allgemeine Hyper-V-Smokes oder Container-CMS-Tests ersetzen diesen
+  Nachweis nicht; bestehende Docker-/Podman-CMS-Pfade behalten ihren Vertrag.
+
 **Ist-Stand 2026-09-01:** `NET-611` und der Planungsanteil von `NET-612` sind
 für Docker/Podman-NAT sowie Hyper-V-`isolated`, `hostOnly`, `nat` und `lan`
 implementiert. Hyper-V besitzt zusätzlich einen hostwertfreien Actual-State-
