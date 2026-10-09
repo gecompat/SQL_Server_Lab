@@ -311,7 +311,7 @@ function Test-LabManifestSchemaInputSupport {
             return
         }
 
-        $supportedTypes = @('object', 'array', 'boolean', 'integer', 'number', 'string')
+        $supportedTypes = @('object', 'array', 'boolean', 'integer', 'number', 'string', 'null')
         if ($resolvedNode.type -notin $supportedTypes) {
             $unsupported.Add("${Path}: Schematyp '$($resolvedNode.type)' wird nicht unterstuetzt.")
             return
@@ -804,6 +804,7 @@ function Read-LabManifestSchemaValue {
     }
 
     switch ($Node.type) {
+        'null' { return $null }
         'object' {
             if ($Path -match '\.sample$') {
                 $sampleReference = Select-LabManifestSampleReference -Path $Path
@@ -1063,6 +1064,17 @@ function Get-LabManifestValidationResult {
     $errors = [System.Collections.Generic.List[string]]::new()
     $warnings = [System.Collections.Generic.List[string]]::new()
     $instancePlanPreviews = [System.Collections.Generic.List[object]]::new()
+    try { Assert-LabSmtpManifestAdmission -Json $Json }
+    catch {
+        if ($_.Exception.Message -cnotin @('SMTP_TEST_CONFIG_INVALID', 'SMTP_TEST_SCOPE_UNSUPPORTED', 'SMTP_TEST_BACKEND_UNADMITTED')) { throw }
+        return [PSCustomObject]@{
+            IsValid = $false; Errors = @($_.Exception.Message); Warnings = @()
+            Plan = [PSCustomObject]@{
+                Contract = [PSCustomObject]@{ Name='SqlServerLab.ManifestPlanPreview'; Version='1.3' }
+                Instances = @()
+            }
+        }
+    }
     $schemaResult = Test-LabManifestSchema -Json $Json
     foreach ($schemaError in $schemaResult.Errors) {
         $errors.Add("Schema: $schemaError")

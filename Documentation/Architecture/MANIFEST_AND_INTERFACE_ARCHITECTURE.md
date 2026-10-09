@@ -11,6 +11,41 @@
 
 ## 1. Ziel
 
+### Aktueller SMTP-Manifest-Zulassungsvertrag
+
+Das optionale Rootfeld `smtpTestService` ist eine begrenzte Zulassungsprüfung,
+keine Implementierung des geplanten generischen Komponentenmodells. Weglassen,
+`null` und exakt `{ "enabled": false }` bewahren den bisherigen aufgelösten
+Labzustand und `SqlServerLab.RunDesiredState/1.0`; es entsteht kein SMTP-State.
+Skalares `false`, zusätzliche Felder im deaktivierten Objekt, unbekannte oder
+nichtkanonische Schlüssel und falsche Typen werden abgewiesen.
+
+Dateibasierte Prüfung und Erstellung zählen SMTP-Rootvorkommen ohne Beachtung
+der Groß-/Kleinschreibung und verwerfen doppelte Eigenschaften im SMTP-Teilbaum
+vor `ConvertFrom-Json`. `InputObject` kann bereits bei seiner Erstellung
+verlorene Duplikate nicht rekonstruieren. Übrige Manifestfelder behalten ihre
+bisherige JSON-Regel. Die neun Eingabeschlüssel teilen den vorhandenen privaten
+Configvalidator; das abgeleitete `maxMessageBytes` ist kein Eingabefeld.
+Die Rootprüfung berücksichtigt Kommentare und abschließende Kommas, während
+der SMTP-Teilbaum weiterhin strikt bleibt. Andere vom Legacyparser lesbare
+Schreibweisen mit SMTP-Rootfeld werden vor ihrer Normalisierung abgewiesen;
+ohne SMTP-Feld bleibt die bestehende Parserentscheidung maßgeblich.
+
+Aktiviertes SMTP setzt Senderreferenzen auf vorhandene, eindeutige Instanzen
+und ein einziges Docker- oder Podman-Provider-Tuple mit Linux und einer durch
+den bestehenden Imagekatalog auflösbaren SQL-2025-Version voraus. Fehlende
+Provider-/OS-Werte verwenden die bisherigen Metadatendefaults. Ungültige
+Konfiguration endet mit `SMTP_TEST_CONFIG_INVALID`, ungeeignete Topologie mit
+`SMTP_TEST_SCOPE_UNSUPPORTED`; auch gültiger aktiver Intent endet derzeit mit
+`SMTP_TEST_BACKEND_UNADMITTED`. Diese Barriere liegt vor Default-/Sampleauflösung,
+Lab-Secretöffnung, State und Provideroperationen. Validator und Wizard speichern
+keinen aktiven Entwurf. Der Planvorschauvertrag bleibt `1.3`.
+
+Es gibt damit noch keine SMTP-Provisionierung, AdHoc-/Browserparität, öffentliche
+SMTP-API oder Mailinhaltanzeige. Native Receiver-, Egress-, Quota-, Lifecycle-
+und getrennte Docker-/Podman-Nachweise bleiben offen; ein Schemaerfolg ist
+keine Runtimebereitschaft.
+
 Dieses Dokument definiert die geplanten maschinenlesbaren Verträge und ihre Auflösungsreihenfolge.
 
 SQL Server ist verbindlicher Hauptzweck. Supporting Components werden über erweiterbare Typen modelliert, damit SQL-Server-Szenarien wie Windows Authentication, Always On, PolyBase oder REST-Integration nicht durch zu enge Schemas verhindert werden.

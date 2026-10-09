@@ -34,6 +34,37 @@
         "$ref": "#/definitions/instance"
       }
     },
+    "smtpTestService": {
+      "description": "Nur SMTP-Manifestzulassung, noch keine Provisionierung. Weglassen, null oder exakt enabled=false bewahren Legacy-Verhalten. Aktivierte Konfiguration ist vor Lab-Secrets, State und Provideroperationen gesperrt.",
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "required": ["enabled"],
+          "properties": { "enabled": { "type": "boolean", "enum": [false] } },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean", "enum": [true], "default": true },
+            "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,31}$", "default": "smtp" },
+            "senderInstanceIds": {
+              "type": "array", "minItems": 1, "maxItems": 64, "uniqueItems": true,
+              "items": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$" },
+              "default": ["primary"]
+            },
+            "maxStoredMessages": { "type": "integer", "minimum": 1, "maximum": 100000, "default": 1000 },
+            "maxStoredBytes": { "type": "integer", "minimum": 1048576, "maximum": 4294967296, "default": 268435456 },
+            "maxMessageMiB": { "type": "integer", "minimum": 1, "maximum": 64, "default": 1 },
+            "acceptedMessagesPerUtc60Seconds": { "type": "integer", "minimum": 1, "maximum": 100000, "default": 120 },
+            "MemoryMiB": { "type": "integer", "minimum": 64, "maximum": 4096, "default": 256 },
+            "CPUs": { "type": "number", "minimum": 0.1, "maximum": 8, "default": 0.5 }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
     "resourceOverrides": {
       "type": "object",
       "description": "Optionale Ueberschreibung der Ressourcengrenzen",
