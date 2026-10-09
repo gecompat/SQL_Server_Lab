@@ -178,9 +178,37 @@ Docker-, Podman-, Mixed-, Hyper-V- und Adapterpflichtgates am exakten Head.
 Der CI-Selektor wählt diese fünf Gates auch bei einer isolierten Änderung am
 OwnedHost-Core, seinem Root-Koordinator oder seinem Schema. Reine Änderungen
 an der statischen Fixture oder dieser Dokumentation starten keine Runtime.
-Vor und nach nativem Arrange müssen sämtliche vorbestehenden Ressourcen frisch
-erfasst und als geschützt revalidiert werden. Synthetische Checks, Readiness,
-Taskregistrierung und historische Abnahmen ersetzen diese Nachweise nicht.
+Vor und nach nativem Arrange müssen sämtliche vorbestehenden Ressourcen in den
+durch die konkrete Operation tatsächlich erreichbaren Ressourcenscopes frisch
+erfasst und als geschützt revalidiert werden. Die Schutzmatrix wird vor Arrange
+aus Providerpin, erlaubten nativen Argumenten, tatsächlicher Aufruferkette und
+Cleanupschritten festgelegt. Unbekannte Routen oder zusätzliche Operationspfade
+bleiben gesperrt. Synthetische Checks, Readiness, Taskregistrierung und
+historische Abnahmen ersetzen diese Nachweise nicht.
+
+### Schutzmatrix für begrenzte Docker-/Podman-Operationen
+
+Eine reine Containeroperation erfordert keine Hyper-V-Funktionsprüfung allein
+wegen des gemeinsam genutzten Windows-Hosts. Voraussetzung ist eine geprüfte
+Allowlist ohne VM-, VHDX-, Task-, Service- oder Hostkonfigurations-Schreibpfad,
+einschließlich Cleanup und aufgerufener Hostkoordinatoren. Workflows mit solchen
+Pfaden behalten den vollständigen Schutzumfang der jeweils betroffenen Klassen.
+
+| Operationsumfang | Pflichtschutz und Grenze |
+|---|---|
+| Docker-/Podman-CreateOnly: eigene Containeranlage, Inspect und Entfernung; kein Start | Alle vorbestehenden Container, Volumes, Netzwerke, Images und Tags am betroffenen Pin frisch schützen; nur receiptgebundene eigene Ressourcen als erwartete Änderungen zulassen. Kein Pull, Build, Mount oder Publish; keine gemeinsamen Netzwerk-/Runtimeeingriffe. |
+| Eigener StateRoot und Cleanup | Unveränderte Policy-/Runbindung, Write-ahead-Intent, vollständige CID, frische Besitzprüfung und bestätigtes Cleanup beziehungsweise sichtbarer Recoverybedarf. Keine Adoption fremder Ressourcen. |
+| Host- und Backendressourcen | RAM-/CPU-Reserve, globale Ressourcenbelastung und verfügbarer Daemon-/Gastspeicher vor Arrange berücksichtigen; Verbrauch begrenzen. Daemonmetadaten und das DockerDesktop-/Podman-Backing können sich ändern. Keine Invarianz physischer Host- oder VHDX-Bytes behaupten. |
+| SQL-/Receiverstart, interne Netze oder Named Volumes | Eigenständige erweiterte Schutzmatrix und getrennte Abnahme vor diesen zusätzlichen Operationen; kein Nachweis aus CreateOnly ableiten. |
+
+Eine separate Vor-/Nachinventur dieser nicht erreichbaren Hostklassen ist für
+genau diese CreateOnly-Allowlist nicht erforderlich; ihr Änderungsverbot bleibt
+bestehen.
+
+Diese Schutzklassifikation erteilt keine Ausführungsautorität und belegt keine
+aktuelle native Abnahme. Sie verändert weder die CI-Auswahl noch die oben
+genannten Pflichtgates. Nicht erreichbare Hostklassen bleiben vor Änderungen
+geschützt; eine fehlende Hyper-V-Abnahme wird dadurch nicht zu einem PASS.
 
 Die Consumer-Fixtures führen tatsächliche Provider-Inventar- und Create-Funktionen
 mit null beziehungsweise mehreren Mounts, Transfer-Planung und die terminalen
