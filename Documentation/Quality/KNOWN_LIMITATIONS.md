@@ -3274,6 +3274,17 @@ native Prozessführung im engen Scope, keine echte Modellinferenz, Compute-,
 SQL- oder Providerabnahme und keine vollständige Live-Verbraucherinventur.
 Siehe [Ownershipvertrag](../Architecture/LLAMA_CPP_OWNED_RUNTIME.md).
 
+## CMS-Neuerstellung auf Hyper-V
+
+`Initialize-SqlServerLabCms` erstellt derzeit nur Docker-/Podman-CMS-Runs.
+Das CMS-Menü kann eine vorhandene geeignete Hyper-V-SQL-Umgebung übernehmen;
+eine automatisierte Neuerstellung einer Hyper-V-VM samt SQL Server und CMS ist
+nicht implementiert und besitzt keinen nativen Gesamtnachweis. Die Erweiterung
+ist als offene P1-Arbeit in
+[M6 des Ausführungsplans](../Project_Planning/DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md#p1--hyper-v-vm-mit-sql-server-und-cms-automatisiert-neu-erstellen)
+mit gemeinsamem CLI-/GUI-Pfad sowie Ownership-, Recovery- und Abnahmekriterien
+erfasst.
+
 ## Registrierter CMS: begrenzte Leseprüfung
 
 Der optionale gemeinsame CLI-/GUI-Inspektor liest nur den explizit ausgewählten bestehenden CMS und markierte msdb-Zähler. Hyper-V ist ohne nicht reparierende native Probe nicht unterstützt. Counts beweisen weder Hierarchiekonsistenz noch Synchronisationsfrische, Mitgliedszugriffe oder SSMS. Frische Datei-/Runtime-/Portchecks sind keine atomare physische Endpointbindung. Reale CMS-SQL-/Authnachweise sind getrennt von Offline- und allgemeinen Core-Smokes; siehe [Vertrag](../Architecture/CMS_READONLY_INSPECTION.md).
