@@ -9,6 +9,33 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $failures = [System.Collections.Generic.List[string]]::new()
 $passed = 0
 $selector = Join-Path $repoRoot 'Tools/Get-CiTestSelection.ps1'
+$mimePaths=@('Private/SmtpTestServiceMimeProcess.ps1','Tools/SmtpTestServiceMime.py',
+    'Tests/Static/Fixtures/SmtpTestServiceMimeChecks.py','Tests/Static/Fixtures/SmtpTestServiceMimeParentChecks.ps1',
+    'Tests/Static/Invoke-SmtpTestServiceMimeParentChecks.ps1')
+foreach($mimePath in $mimePaths){
+    foreach($path in @($mimePath,$mimePath.Replace('/','\'))){
+        $selected=& $selector -ChangedPath @($path)
+        $expectedDocker=$mimePath.StartsWith('Private/',[StringComparison]::Ordinal)
+        Add-CheckResult -Name "MIME-Einzelpfad bindet beide Offline-Fixtures: $path" -Success (
+            'Invoke-SmtpTestServiceMimeParentChecks.ps1' -in $selected.StaticChecks -and
+            $selected.Docker -eq $expectedDocker -and -not $selected.Podman -and -not $selected.Mixed -and
+            -not $selected.HyperV -and -not $selected.Adapter)
+    }
+}
+foreach($path in @('Other/SmtpTestServiceMimeProcess.ps1','Other/SmtpTestServiceMime.py',
+    'Tests/Static/Fixtures/SmtpTestServiceMimeChecksOther.py')){
+    $selected=& $selector -ChangedPath @($path)
+    Add-CheckResult -Name "MIME-Zuordnung ist kein Teilnamensmatch: $path" -Success (
+        'Invoke-SmtpTestServiceMimeParentChecks.ps1' -notin $selected.StaticChecks)
+}
+$mimeInfrastructure=& $selector -ChangedPath @($mimePaths[0],'Tools/Get-CiTestSelection.ps1')
+Add-CheckResult -Name 'MIME-Kopplung erhält alle fünf Infrastruktur-Gates' -Success (
+    $mimeInfrastructure.Docker -and $mimeInfrastructure.Podman -and $mimeInfrastructure.Mixed -and
+    $mimeInfrastructure.HyperV -and $mimeInfrastructure.Adapter -and
+    'Invoke-SmtpTestServiceMimeParentChecks.ps1' -in $mimeInfrastructure.StaticChecks)
+$mimeUnion=& $selector -ChangedPath @($mimePaths[1],'Providers/Podman/PodmanProvider.ps1')
+Add-CheckResult -Name 'MIME-Auswahl erhält unabhängigen Providervertrag' -Success (
+    $mimeUnion.Podman -and 'Invoke-SmtpTestServiceMimeParentChecks.ps1' -in $mimeUnion.StaticChecks)
 foreach($portPath in @('Private/ContainerPortPreviewHttp.ps1','Tests/Common/ContainerPortPreviewBrowserAcceptance.ps1',
         'Tests/Integration/Invoke-ContainerPortPreviewAcceptance.ps1','Tests/Static/Fixtures/ContainerPortPreviewBrowserAcceptanceChecks.ps1')){
     foreach($path in @($portPath,$portPath.Replace('/','\'))){
@@ -459,6 +486,8 @@ finally {
 }
 
 $allChecksText = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'Invoke-AllChecks.ps1') -Raw -Encoding utf8
+Add-CheckResult -Name 'MIME-Suite ist genau einmal in der Vollregression registriert' -Success (
+    [regex]::Matches($allChecksText,"'Invoke-SmtpTestServiceMimeParentChecks\.ps1'").Count -eq 1)
 Add-CheckResult -Name 'CI-Strategievertrag ist Teil der Vollregression' -Success ($allChecksText -match 'Invoke-CiStrategyChecks\.ps1')
 
 $runtimeWorkflows = @(

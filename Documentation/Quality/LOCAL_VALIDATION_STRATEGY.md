@@ -1,5 +1,39 @@
 # Lokale Validierungsstrategie
 
+## Private SMTP-Offline-MIME-Projektion
+
+Der [private Fachvertrag](../Architecture/SMTP_TEST_SERVICE_MIME_PROJECTION.md)
+bindet die bestehenden MIME- und Parentfixtures an den regulären Entry
+`Invoke-SmtpTestServiceMimeParentChecks.ps1`. Die neue Paketprüfung mit 63
+Pythonfällen und 13 Parentfällen bestand nach stabilem Source-Review erstmals
+am 2026-10-09 unter Python 3.14.7 und PowerShell 7.6.6/.NET 10.0.12. Exitcode 0,
+37 unveränderte Sourcebindungen und unabhängiger tatsächlicher Ergebnisreview
+bestätigen diesen Offline-Paketlauf. Beide Teile benötigen passende Exitcodes,
+Source-Endhashes und bestätigte Prozesscustody.
+
+Historisch bestand die getrennte Pythonfixture mit 63 Fällen unter Python
+3.14.7. Eine spätere MP10-Teilprüfung bestand mit zwei Pythonkindern; die drei
+Ordinalfälle NUL/LF/CRLF und deren tatsächliche drei Bytetransportfälle bestanden
+getrennt. Diese Prüfungen erhalten ihre früheren Quellen und Originalfehler,
+einschließlich des zuvor nicht vollständig bestandenen 13-Fall-Laufs. Daraus
+folgt kein Paketerfolg; der neue vollständige Lauf ist ein separater Nachweis.
+
+Die anschließende direkte betroffene Auswahl über `Invoke-ImpactedChecks.ps1`
+bestand für CI-Strategie (491/0), Dokumentation (1853/0), Pester (23/0, kein Skip)
+und PSScriptAnalyzer (PASS mit 24 freigegebenen Baselinebefunden). Privacy blieb
+mit 2/1 wegen einer synthetischen Empfängeradresse in MP07 rot. Dieser Originalfehler
+wird erhalten; Scanner und Assertions bleiben unverändert. Die V2-Fixture
+setzt die reservierte Domain und konstanten Localparts zusammen und erzeugt
+für Plaintext und HTML dieselben MIME-Bytes. Diese deterministisch geprüfte
+Byteparität ist kein neuer 63-/13-Fall-Lauf. Geänderte Dokumentations- und
+Privacychecks bestanden nach V2-Review mit 1853/0 und 3/0; 44 aktuelle Quellen
+sind nach dem Lauf hashgebunden. Die übrigen grünen Suites wurden nicht identisch wiederholt.
+Der exakte MIME-Pfadverbund erhält den allgemeinen Docker-Fallback; eine
+Änderung am CI-Selektor wählt weiterhin alle fünf Infrastrukturpflichtgates.
+Das ist keine native SMTP-Abnahme. Es gab für diesen Slice keine
+Provider-, SQL-, Browser-, Receiver- oder Inhalt-API-Ausführung. Minimale
+Pythonversion, PowerShell 7.2/.NET 6 sowie harte RSS-/CPU-Quoten sind ungeprüft.
+
 Dieses Dokument führt Prüfwege und ausgeführte Nachweise mit ihren jeweiligen
 Geltungsbereichen. Fachverträge bleiben in den Architektur-/API-Quellen aus
 der [Repository-Map](../../.ai/repo_map.yaml), Einschränkungen in

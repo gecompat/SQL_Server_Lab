@@ -48,6 +48,11 @@ keine Runtimebereitschaft.
 
 Dieses Dokument definiert die geplanten maschinenlesbaren Verträge und ihre Auflösungsreihenfolge.
 
+Die separate [private Offline-MIME-Projektion](SMTP_TEST_SERVICE_MIME_PROJECTION.md)
+verarbeitet ausdrücklich übergebene Bytes ohne Receiver- oder Stateaktivierung.
+Sie hebt die SMTP-Backendbarriere nicht auf und liefert keine öffentliche
+Inhalt-API oder native Providerbereitschaft.
+
 SQL Server ist verbindlicher Hauptzweck. Supporting Components werden über erweiterbare Typen modelliert, damit SQL-Server-Szenarien wie Windows Authentication, Always On, PolyBase oder REST-Integration nicht durch zu enge Schemas verhindert werden.
 
 ## 2. Architekturprinzipien
