@@ -976,6 +976,11 @@ Pakets. Die erste vollständige Offlineprüfung mit 63 und 13 Fällen bestand am
 notwendige bytegleiche Konstruktion einer synthetischen Adresse ist noch keine
 erneute Paketprüfung; geänderte Dokumentations- und Privacychecks bestanden
 mit 1853/0 und 3/0.
+Der ursprüngliche Windows-Pflichtlauf von PR #734 bestand trotz 63/13 grüner
+Fallassertions wegen unbekannter Temp-Custody nicht insgesamt. Die enge
+Windows-Fixturekorrektur setzt den Eigentümer ihrer neu erzeugten Dateien
+explizit; sie schwächt keine Abschlussprüfung. Die ursprüngliche Fehlerursache
+bleibt ungeklärt und der fehlgeschlagene Lauf erhalten.
 Der ursprüngliche Privacyfehler bleibt erhalten. Harte RSS-/CPU-Quoten,
 physische Speicherlöschung, minimale Pythonversion und PowerShell 7.2/.NET 6
 sind nicht bestätigt. Receiver-Ownership-/Portresolver, öffentliche Mailinhalte,

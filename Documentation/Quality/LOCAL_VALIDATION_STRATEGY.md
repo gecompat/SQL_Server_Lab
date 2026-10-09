@@ -28,6 +28,17 @@ für Plaintext und HTML dieselben MIME-Bytes. Diese deterministisch geprüfte
 Byteparität ist kein neuer 63-/13-Fall-Lauf. Geänderte Dokumentations- und
 Privacychecks bestanden nach V2-Review mit 1853/0 und 3/0; 44 aktuelle Quellen
 sind nach dem Lauf hashgebunden. Die übrigen grünen Suites wurden nicht identisch wiederholt.
+
+Der erste Windows-Pflichtlauf von PR #734 auf `65c29679` blieb insgesamt
+fehlgeschlagen: 63 Python- und 13 Parentfälle bestanden, aber die abschließende
+Temp-Custody meldete `MIME_PARENT_TEMP_CUSTODY_UNKNOWN` und Recoverybedarf.
+Die genaue Ursache wurde damit nicht ermittelt. Die Windows-Fixture weist
+nun ausschließlich ihren frisch erzeugten Pythondateien vor Hashbindung und
+Kindstart den aktuellen Benutzer als Eigentümer zu; bestehende DACL und alle
+abschließenden Eigentums-, Hash-, Umfangs- und Reparseprüfungen bleiben erhalten.
+Dies stellt die bereits verlangte Voraussetzung her und ist kein Nachweis,
+dass ein abweichender Eigentümer die ursprüngliche CI-Ursache war.
+
 Der exakte MIME-Pfadverbund erhält den allgemeinen Docker-Fallback; eine
 Änderung am CI-Selektor wählt weiterhin alle fünf Infrastrukturpflichtgates.
 Das ist keine native SMTP-Abnahme. Es gab für diesen Slice keine

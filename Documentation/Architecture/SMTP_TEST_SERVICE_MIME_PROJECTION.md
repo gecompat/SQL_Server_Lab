@@ -80,10 +80,14 @@ keine MIME-Bytes, rohen Exceptions oder Stacks.
 unveränderte Pythonfixture mit ihren 63 festen Fällen über denselben begrenzten
 Bytetransport. Ihr stdout ist auf 16 KiB begrenzt; der Entry prüft 63 geordnete
 PASS-Zeilen und eine geschlossene Summary mit passenden Zählern und
-`SourceStable=true`. Danach läuft die unveränderte Parentfixture mit 13 Fällen,
+`SourceStable=true`. Danach läuft die Parentfixture mit 13 Fällen,
 einschließlich tatsächlichem Pythontransport, Timeout und synthetischen
 Custody-/Recoverygrenzen. Die Parentfixture erhält eigene erzeugte Dateien zur
 lokalen Evidence-Erhaltung; sie entfernt keine fremden oder historischen Roots.
+Unter Windows setzt sie für jede neu exklusiv erzeugte Pythondatei vor
+Hashregistrierung und Kindstart den aktuellen Benutzer als Eigentümer. Die
+vorhandene DACL und die abschließenden Eigentums- und Inventarprüfungen bleiben
+erhalten; ein ACL-Fehler bleibt ein Fehler des Pakets.
 
 Vor und nach dem Paket werden die sieben direkten Quellen erneut gehasht.
 Die fünf MIME-Pfade wählen exakt diese Suite. Der bestehende Docker-Fallback

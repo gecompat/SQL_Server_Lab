@@ -50,6 +50,11 @@ function Child([string]$Name,[string]$Program,[byte[]]$OwnedBytes,[int]$Limit){
     if($codeBytes.Length -gt 4096 -or $script:generated.Count -ge 16){throw 'MIME_PARENT_TEMP_BOUNDARY'}
     $stream=[IO.File]::Open($file,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
     try{$stream.Write($codeBytes,0,$codeBytes.Length);$stream.Flush($true)}finally{$stream.Dispose();[Array]::Clear($codeBytes,0,$codeBytes.Length)}
+    if($IsWindows){
+        $createdFileAcl=Get-Acl -LiteralPath $file
+        $createdFileAcl.SetOwner([Security.Principal.WindowsIdentity]::GetCurrent().User)
+        Set-Acl -LiteralPath $file -AclObject $createdFileAcl
+    }
     $script:generated.Add([ordered]@{Name=($Name+'.py');SHA=(Get-FileHash -LiteralPath $file).Hash;Bytes=(Get-Item -LiteralPath $file).Length})
     $script:runtimeChildren++
     try{return ,(Invoke-LabSmtpMimeByteProcess (New-OwnStart $file) $OwnedBytes $Limit)}
