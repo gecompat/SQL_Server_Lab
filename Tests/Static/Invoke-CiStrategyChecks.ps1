@@ -9,6 +9,47 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $failures = [System.Collections.Generic.List[string]]::new()
 $passed = 0
 $selector = Join-Path $repoRoot 'Tools/Get-CiTestSelection.ps1'
+$receiverCheck = 'Invoke-SmtpTestServiceReceiverReadChecks.ps1'
+foreach ($receiverPath in @('Private/SmtpTestServiceReceiverRead.ps1',
+        'Tests/Static/Fixtures/SmtpTestServiceReceiverReadChecks.ps1',
+        'Tests/Static/Invoke-SmtpTestServiceReceiverReadChecks.ps1')) {
+    foreach ($path in @($receiverPath,$receiverPath.Replace('/','\'))) {
+        $selected = & $selector -ChangedPath @($path)
+        $expectedDocker = $receiverPath.StartsWith('Private/',[StringComparison]::Ordinal)
+        Add-CheckResult -Name "Privater SMTP-Receiver waehlt seine Suite und behaelt den Runtime-Fallback: $path" -Success (
+            $receiverCheck -in $selected.StaticChecks -and $selected.Docker -eq $expectedDocker -and
+            -not $selected.Podman -and -not $selected.Mixed -and -not $selected.HyperV -and -not $selected.Adapter)
+    }
+}
+$receiverOther = & $selector -ChangedPath @('Tests/Other/Fixtures/SmtpTestServiceReceiverReadChecks.ps1')
+Add-CheckResult -Name 'Gleicher SMTP-Fixturename ausserhalb des Scope waehlt keine Receiver-Suite' -Success (
+    $receiverCheck -notin $receiverOther.StaticChecks -and -not $receiverOther.Docker -and
+    -not $receiverOther.Podman -and -not $receiverOther.Mixed -and -not $receiverOther.HyperV -and -not $receiverOther.Adapter)
+$receiverUnion = & $selector -ChangedPath @('Private/SmtpTestServiceReceiverRead.ps1','Providers/Podman/PodmanProvider.ps1')
+Add-CheckResult -Name 'Receiver-Auswahl erhaelt den fremden Podman-Scope und eigenen Docker-Fallback' -Success (
+    $receiverCheck -in $receiverUnion.StaticChecks -and $receiverUnion.Docker -and $receiverUnion.Podman -and
+    -not $receiverUnion.Mixed -and -not $receiverUnion.HyperV -and -not $receiverUnion.Adapter)
+$receiverInfrastructure = & $selector -ChangedPath @('Private/SmtpTestServiceReceiverRead.ps1','Tools/Get-CiTestSelection.ps1')
+Add-CheckResult -Name 'Receiver plus CI-Infrastruktur behaelt alle fuenf Runtime-Gates' -Success (
+    $receiverCheck -in $receiverInfrastructure.StaticChecks -and
+    $receiverInfrastructure.Docker -and $receiverInfrastructure.Podman -and $receiverInfrastructure.Mixed -and
+    $receiverInfrastructure.HyperV -and $receiverInfrastructure.Adapter)
+$receiverAllTokens = $null; $receiverAllErrors = $null
+$receiverAllAst = [Management.Automation.Language.Parser]::ParseFile(
+    (Join-Path $PSScriptRoot 'Invoke-AllChecks.ps1'),[ref]$receiverAllTokens,[ref]$receiverAllErrors)
+$receiverAssignments = @($receiverAllAst.FindAll({param($node)
+    $node -is [Management.Automation.Language.AssignmentStatementAst] -and
+    $node.Left -is [Management.Automation.Language.VariableExpressionAst] -and
+    $node.Left.VariablePath.UserPath -ceq 'checks'
+},$true))
+$receiverRegistrations = @($receiverAssignments | ForEach-Object {
+    $_.Right.FindAll({param($node)
+        $node -is [Management.Automation.Language.StringConstantExpressionAst] -and
+        $node.Value -ceq 'Invoke-SmtpTestServiceReceiverReadChecks.ps1'
+    },$true)
+})
+Add-CheckResult -Name 'AllChecks registriert die private Receiver-Suite genau einmal' -Success (
+    $receiverAllErrors.Count -eq 0 -and $receiverAssignments.Count -eq 1 -and $receiverRegistrations.Count -eq 1)
 foreach($portPath in @('Private/ContainerPortPreviewHttp.ps1','Tests/Common/ContainerPortPreviewBrowserAcceptance.ps1',
         'Tests/Integration/Invoke-ContainerPortPreviewAcceptance.ps1','Tests/Static/Fixtures/ContainerPortPreviewBrowserAcceptanceChecks.ps1')){
     foreach($path in @($portPath,$portPath.Replace('/','\'))){

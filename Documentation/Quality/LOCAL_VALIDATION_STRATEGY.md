@@ -21,6 +21,37 @@ prüft diese Fehler- und Erfolgswege in isolierten Prozessen innerhalb der
 ReleaseReadiness-Suite mit synthetischer Modulauflösung. Sie ersetzt weder die
 echte Pester-Suite noch einen Provider-/Runtime-Nachweis.
 
+## Privater SMTP-Receiver-Lesetransport
+
+Die [Receiver-Suite](../../Tests/Static/Invoke-SmtpTestServiceReceiverReadChecks.ps1)
+bestand am 2026-10-09 einmal mit 27 `PASS` und null `FAIL`. Sie verwendet die
+echte private Funktion mit eigenen synthetischen Loopback-HTTP-Servern und
+prüft Inputvetos einschließlich bereits entsorgter Credentials, binäre und
+leere Rückgaben, exaktes 8-MiB-Limit, deklarierte und gestreamte Übergröße,
+Chunked/unbekannte Länge, Headergrenze, Redirect-/Status-/Encodingvetos,
+fehlenden Replay, Header-/Bodydeadline und einen frischen Read nach Fehler.
+Request-, Authorization- und TCP-Counts sowie eigener Listener-/ThreadJob-
+Cleanup sind Teil der Prüfung. Quellen blieben stabil; der begrenzte Parent
+bestätigte Kindprozessende, EOF und unabhängigen Dispose ohne Custodyfehler.
+
+Ein getrennter quellenextrahierter Connect-Kontrollfall bestand einmal: ein
+bereits gecancelter Token ergibt einen tatsächlich abgeschlossenen gecancelten
+Connect-Task. Dies ist kein Nachweis einer Cancellation mitten im Connect oder
+der Produktdeadline. Beide Läufe verwendeten den gepinnten Parent unter
+PowerShell 7.6.6/.NET 10.0.12 und dessen festes Kindprozess-Executable; die
+Kindlaufzeit wurde nicht mit einem separaten Runtime-DTO attestiert. Die
+ursprünglichen beiden Source-Reviewfindings und ihre Korrekturen bleiben als
+separate Historie erhalten; der vorbereitete frühere 25-Fall-Stand wurde nicht
+als bestanden gewertet.
+
+Der [Transportvertrag](../Architecture/SMTP_TEST_SERVICE_RECEIVER_READ.md)
+begrenzt Raw-MIME unabhängig von SMTP-DATA auf 8 MiB und setzt eine gemeinsame
+kooperative Zehn-Sekunden-Deadline. Mailpit-/SMTP-, Provider-, SQL- und
+Browseroperationen wurden nicht ausgeführt. Mindestlaufzeit PowerShell
+7.2/.NET 6: `NOT_EXECUTED`. Eigentumsresolver, öffentliche Anbindung und native
+Receiverabnahme bleiben offen. Diese fokussierten Ergebnisse ersetzen keinen
+späteren betroffenen CI-/Abschluss-Gate.
+
 ## Download-Streaminggrenze
 
 `ActionProgressDownloadLimitChecks.ps1` läuft innerhalb der direkten

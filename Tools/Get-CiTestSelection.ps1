@@ -62,6 +62,7 @@ end {
     }
 
     $staticGroups = @(
+        @{ Pattern = '^(Private/SmtpTestServiceReceiverRead\.ps1|Tests/Static/(Fixtures/SmtpTestServiceReceiverReadChecks|Invoke-SmtpTestServiceReceiverReadChecks)\.ps1)$'; Checks = @('Invoke-SmtpTestServiceReceiverReadChecks.ps1') },
         @{ Pattern = '(?i)(SaPasswordPolicy|SecretProvider|Public[\\/]New-SqlServerLab\.ps1|Public[\\/]Invoke-SqlServerLab\.ps1|DockerProvider|PodmanProvider|ContainerOwnedHostIntegration)'; Checks = @('Invoke-SaPasswordPolicyChecks.ps1') },
         @{ Pattern = '(?i)(OwnedHost|owned-host|ContainerAutoStart|ContainerToolImage|ResourceAssessment|Restart-SqlServerLab|runtime-smoke-(docker|podman|mixed-providers))'; Checks = @('Invoke-OwnedHostIntegrationChecks.ps1') },
         @{ Pattern = '(?i)(Manage-LocalEvidenceArchive|LOCAL_EVIDENCE_ARCHIVES|Invoke-LocalEvidenceArchiveChecks)'; Checks = @('Invoke-LocalEvidenceArchiveChecks.ps1') },

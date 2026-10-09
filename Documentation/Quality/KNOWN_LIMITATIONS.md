@@ -942,7 +942,7 @@ Refresh. Der verbindliche Zielvertrag steht in
 
 ## Manifest und Schema
 
-### SMTP: nur Manifestzulassung
+### SMTP: Manifestzulassung und privater Lesetransport
 
 `smtpTestService` ist an Schema, Raw-JSON-Prüfung, Validator und Parser gekoppelt.
 Weglassen, `null` und exakt `{ "enabled": false }` bewahren Legacy-Auflösung und
@@ -954,6 +954,15 @@ Entwurf. Objektinput kann zuvor verlorene JSON-Duplikate nicht rekonstruieren.
 Receiver, native Quota-/Egress- und Providerabnahme, Lifecycle, AdHoc-/Browser-
 Anbindung und Mailinhaltanzeige bleiben offen. Siehe den
 [Manifestvertrag](../Architecture/MANIFEST_AND_INTERFACE_ARCHITECTURE.md#aktueller-smtp-manifest-zulassungsvertrag).
+
+Der [private Receiver-Lesetransport](../Architecture/SMTP_TEST_SERVICE_RECEIVER_READ.md)
+ist mit eigenen synthetischen Loopback-HTTP-Servern geprüft. Er bietet einen
+festen begrenzten Raw-MIME-GET, aber keinen Eigentumsresolver oder öffentlichen
+SMTP-Befehl. Die echte Komponenten-/CID-/Runtime-/Portbindung vor Credentials
+und nach dem Read fehlt weiterhin. Die 27 Transportfälle und der getrennte
+Canceled-Connect-Kontrollfall sind kein nativer Mailpit-, SMTP-, Provider-, SQL-
+oder Browsernachweis. PowerShell 7.2/.NET 6 wurde für diesen Transport nicht
+ausgeführt; daraus folgt keine SMTP-Bereitschaft.
 
 ### Schema ist kein Runtime-Nachweis
 
