@@ -329,6 +329,12 @@ sources_of_truth:
   smtp_manifest_admission_checks: Tests/Static/Fixtures/SmtpManifestAdmissionChecks.ps1
   smtp_manifest_dialect_checks: Tests/Static/Fixtures/SmtpManifestDialectChecks.ps1
   smtp_manifest_disabled_example: Schemas/example-smtp-disabled.json
+  smtp_mime_process: Private/SmtpTestServiceMimeProcess.ps1
+  smtp_mime_decoder: Tools/SmtpTestServiceMime.py
+  smtp_mime_contract: Documentation/Architecture/SMTP_TEST_SERVICE_MIME_PROJECTION.md
+  smtp_mime_python_checks: Tests/Static/Fixtures/SmtpTestServiceMimeChecks.py
+  smtp_mime_parent_checks: Tests/Static/Fixtures/SmtpTestServiceMimeParentChecks.ps1
+  smtp_mime_suite: Tests/Static/Invoke-SmtpTestServiceMimeParentChecks.ps1
   smtp_receiver_read: Private/SmtpTestServiceReceiverRead.ps1
   smtp_receiver_read_contract: Documentation/Architecture/SMTP_TEST_SERVICE_RECEIVER_READ.md
   smtp_receiver_read_fixture: Tests/Static/Fixtures/SmtpTestServiceReceiverReadChecks.ps1
@@ -1629,6 +1635,16 @@ provisioning_flow:
   - "State RUNNING"
 
 validation:
+  static_smtp_mime:
+    command: '.\Tests\Static\Invoke-SmtpTestServiceMimeParentChecks.ps1'
+    source: Tests/Static/Invoke-SmtpTestServiceMimeParentChecks.ps1
+    covers:
+      - private_offline_decoded_and_byte_exact_raw_projection
+      - bounded_python63_then_parent13_fixtures
+      - fixed_error_protocol_and_independent_process_custody
+    excludes:
+      - public_receiver_binding_and_content_api
+      - smtp_backend_provider_and_sql_acceptance
   static_security_tool_catalog:
     command: '.\Tests\Static\Invoke-SecurityToolCatalogChecks.ps1'
     source: Tests/Static/Invoke-SecurityToolCatalogChecks.ps1

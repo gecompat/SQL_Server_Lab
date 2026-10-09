@@ -964,6 +964,29 @@ Canceled-Connect-Kontrollfall sind kein nativer Mailpit-, SMTP-, Provider-, SQL-
 oder Browsernachweis. PowerShell 7.2/.NET 6 wurde für diesen Transport nicht
 ausgeführt; daraus folgt keine SMTP-Bereitschaft.
 
+### SMTP: private Offline-MIME-Projektion
+
+Die [private MIME-Projektion](../Architecture/SMTP_TEST_SERVICE_MIME_PROJECTION.md)
+erhält Raw-MIME bis 8 MiB bytegenau und dekodiert höchstens 1 MiB in einen
+geschlossenen, begrenzten DTO. HTML bleibt wörtlicher Quelltext; keine externen
+Inhalte werden geladen. Die reguläre Suite verbindet 63 Python- mit 13
+Parentfällen. Frühere Teilnachweise sind kein vollständiger Erfolg dieses neuen
+Pakets. Die erste vollständige Offlineprüfung mit 63 und 13 Fällen bestand am
+2026-10-09 unter Python 3.14.7 und PowerShell 7.6.6/.NET 10.0.12. Die anschließend
+notwendige bytegleiche Konstruktion einer synthetischen Adresse ist noch keine
+erneute Paketprüfung; geänderte Dokumentations- und Privacychecks bestanden
+mit 1853/0 und 3/0.
+Der ursprüngliche Windows-Pflichtlauf von PR #734 bestand trotz 63/13 grüner
+Fallassertions wegen unbekannter Temp-Custody nicht insgesamt. Die enge
+Windows-Fixturekorrektur setzt den Eigentümer ihrer neu erzeugten Dateien
+explizit; sie schwächt keine Abschlussprüfung. Die ursprüngliche Fehlerursache
+bleibt ungeklärt und der fehlgeschlagene Lauf erhalten.
+Der ursprüngliche Privacyfehler bleibt erhalten. Harte RSS-/CPU-Quoten,
+physische Speicherlöschung, minimale Pythonversion und PowerShell 7.2/.NET 6
+sind nicht bestätigt. Receiver-Ownership-/Portresolver, öffentliche Mailinhalte,
+CLI-/GUI-Parität, Provisionierung und native SMTP-/SQL-/Providerabnahme bleiben
+offen. Aktive Manifestkonfiguration bleibt gesperrt.
+
 ### Schema ist kein Runtime-Nachweis
 
 `Schemas/lab-manifest.schema.json` enthält neben ausführbaren Feldern auch teilweise vorbereitete Erweiterungsfelder. Direkte `serverConfig`-Eigenschaften sind mit `x-runtimeStatus` als `executable`, `reserved` oder `partially-executable` klassifiziert. Gesetzte reservierte Felder werden vor Auflösung und Mutation mit `MANIFEST_RESERVED_RUNTIME_FIELD` abgelehnt, statt nur gewarnt oder still verworfen zu werden. Wertabhängige Grenzen sind über `x-runtimeValueStatus` maschinenlesbar und enden mit `MANIFEST_RESERVED_RUNTIME_VALUE`. Für die tatsächliche Ausführung sind zusätzlich `Private/ManifestParser.ps1` und die zuständige Runtimefunktion maßgeblich.
