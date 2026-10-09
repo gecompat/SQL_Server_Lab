@@ -14,7 +14,8 @@
 #>
 [CmdletBinding()]
 param(
-    [Alias('h','help','?')][switch]$ShowHelp
+    [Alias('h','help','?')][switch]$ShowHelp,
+    [string[]]$ChangedPath
 )
 
 if ($ShowHelp) {
@@ -24,6 +25,11 @@ if ($ShowHelp) {
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
+$scope = & (Join-Path $repoRoot 'Tools/Get-StaticValidationScope.ps1') -ChangedPath $ChangedPath
+if (-not $scope.Global -and $scope.Pester.Count -eq 0) {
+    Write-Host 'Pester: NOT_APPLICABLE (no affected Pester contract; not an executed PASS).'
+    exit 0
+}
 Write-Host ''
 Write-Host 'SQL_Server_Lab - Pester Checks' -ForegroundColor Cyan
 
@@ -54,7 +60,8 @@ $pesterRoot = Join-Path $repoRoot 'Tests\Pester'
 try {
     Import-Module $pesterModule.Path -Force -ErrorAction Stop
     $configuration = New-PesterConfiguration
-    $configuration.Run.Path = @($pesterRoot)
+    if ($scope.Global) { $configuration.Run.Path = @($pesterRoot) }
+    else { $configuration.Run.Path = @($scope.Pester | ForEach-Object { Join-Path $repoRoot $_ }) }
     $configuration.Run.PassThru = $true
     $configuration.Output.Verbosity = 'Normal'
     $result = Invoke-Pester -Configuration $configuration -ErrorAction Stop

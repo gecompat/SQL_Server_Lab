@@ -4,6 +4,10 @@ Status: AUTHORITATIVE
 
 This policy defines `foundation-ai-work/v1`, a runtime- and vendor-neutral control plane for AI-assisted development, research, documentation, structured data, media, and project-defined work. It governs planning and evidence even when no executable AI component exists. Models, deterministic tools, retrieval sources, renderers, validators, external services, human review points, transports, and runtimes are discoverable capabilities, not Foundation prerequisites.
 
+## Scope and proportionality
+
+Routine repository work follows `PROCESSING_EFFICIENCY_POLICY.md`. The structured requests, plans, receipts, and dispatch evidence below govern the corresponding selected orchestration/execution operations; they are not mandatory paperwork for every ordinary edit. Session-local rule reuse needs no optional component. Additional agents/reviews need distinct acceptance questions. Sustained autonomous work shares one coordinator-owned budget across root, descendants, retries, and coordination. `foundation-processing-budget/v1` provides content-free decision input; atomic reservations and provider enforcement remain caller responsibilities. Missing/estimated telemetry must not be reported as measured enforcement. Heartbeats use bounded rechecks/backoff and do not require renewed model work at an unchanged blocker.
+
 ## Invariants
 
 - Foundation rules, installation, upgrade assessment, and `FOUNDATION_INTEGRITY` validation MUST remain usable when Python, MCP, a model, a provider, a network, an executor, or every optional capability is unavailable.

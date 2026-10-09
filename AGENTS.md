@@ -7,38 +7,26 @@ Chat-Historie sicher weiterzuarbeiten.
 <!-- AI_REPOSITORY_FOUNDATION:BEGIN v1 -->
 ## AI Repository Foundation baseline
 
-At the start of every new run, let Codex rebuild the applicable `AGENTS.override.md`/`AGENTS.md` chain. Before project work, read `.ai/foundation/FOUNDATION_RULESET.md` and then only the Foundation and project rule files relevant to the current scope. Project-specific instructions in this repository remain the source of truth for project facts, domain rules, architecture, state, and selected overrides.
+Apply the native scoped `AGENTS.override.md`/`AGENTS.md` chain on every new session. Read `.ai/foundation/FOUNDATION_RULESET.md`, affected project sources, and only relevant additional policies. Project facts, domain contracts, selected overrides, and current state remain project-owned. Discovery links are not a demand to load every document.
 
-After additional rules have been fully read and analyzed once for a scope, later change waves may reuse that session analysis only through `.ai/foundation/RULE_CONTEXT_CACHE_POLICY.md`: run deterministic discovery/fingerprint checking first, use the exact validated analysis key on `CACHE_HIT`, reread changed rules plus transitive dependents on `PARTIAL_INVALIDATION`, and fully reread on `CACHE_MISS` or uncertainty. A cache never replaces native instruction discovery, repository sources, current instructions, or validation evidence.
+Use `.ai/foundation/PROCESSING_EFFICIENCY_POLICY.md` for routine work, verified session-local rule reuse, proportionate review/delegation, shared wave budgets, and bounded waiting. Reuse requires current authority/content/scope/dependency checks and actually available analysis; no optional planner or persistent record is necessary. Persistent cache users additionally follow `.ai/foundation/RULE_CONTEXT_CACHE_POLICY.md`. Unknown discovery or lost analysis never becomes a fabricated hit.
 
-Active project-specific governance must be transitively discoverable from this root `AGENTS.md`. If this repository keeps authoritative project rules elsewhere, preserve or add a concise project-owned discovery section outside this managed Foundation block that points to their canonical entrypoints or documents the scoped-`AGENTS.md` convention. Do not copy project rule text into this Foundation block. Active authority that cannot be discovered is an integration defect.
+A concrete task authorizes ordinary proportionate work inside its envelope; gate only real unresolved or exceeded boundaries. Preserve REQUIRED safety/privacy/integrity/evidence floors and compatible stronger project rules. Use `.ai/foundation/SEMANTIC_INTEGRATION_POLICY.md` for integration conflicts and efficiency recommendations. Keep active project governance transitively discoverable from this root outside the managed block; preserve/rehome unique adapter rules before thinning adapters.
 
-The current explicit task authorizes ordinary, reasonably expected and proportionate operations inside the project's authorization envelope. Do not create repeated confirmation gates for normal work. Escalate only for unresolved handling/authorization boundaries, unexpected material scope/effects, or destructive/irreversible effects lacking exact authority.
+Foundation validation establishes FOUNDATION_INTEGRITY only. Run affected project semantic/runtime checks and required independent reviews. Use optional routing/execution contracts only for relevant selected operations. Optional capabilities grant no execution authority. Requested models, chat history, fingerprints, and cached analysis are not evidence or durable project truth.
 
-Foundation `REQUIRED` rules are a minimum protected floor; a project may intentionally be stricter. Foundation `DEFAULT` rules may be intentionally overridden by project-specific rules. Use `.ai/foundation/SEMANTIC_INTEGRATION_POLICY.md` to classify overlaps instead of replacing richer project governance.
-
-Tool-specific adapters must lead back to this repository entry point and may not define parallel governance. When an existing adapter contains unique project rules, preserve/rehome those rules before thinning the adapter.
-
-Foundation validation covers Foundation integration integrity only. Preserve and use the target repository's existing semantic validators, static contracts, tests, reviews, and manual validation when their contracts are affected. A green Foundation validator is not evidence that the entire project is validated.
-
-When the optional `model-router` capability is present and the task requires a concrete model choice, follow `.ai/foundation/MODEL_ROUTING_POLICY.md` and use the router's local MCP, CLI, launcher, or unexpired snapshot interface in that order. Do not infer remote authorization or invent a model/price when the router returns no eligible route.
-
-For AI-assisted development, research, documentation, data, media, or project-defined work that may use interchangeable tools or services, follow `.ai/foundation/AI_WORK_ORCHESTRATION_POLICY.md`. Treat every runtime as optional, keep payloads separate from the control plane, apply privacy/authority/health/validation/resource constraints before ranking, and report manual, unavailable, or blocked work truthfully. Optional planners, routers, adapters, executors, provisioners, client integrations, and orchestrators may assist only when explicitly selected; none is required or grants execution authority.
-
-Do not claim that a requested model or subagent actually ran unless an explicitly trusted host/adapter issuer provides execution or response metadata attesting the actual model; an evidence label or model self-report alone is insufficient. If automatic dispatch is unavailable or cannot be attested, use an expiring privacy-safe manual handoff when available: recommend the portable tier/capabilities and, only from fresh eligible runtime evidence, a concrete model for the user to select. Keep prompt content outside control-plane records and mark the result `MANUAL_DISPATCH_REQUIRED` until execution evidence exists.
-
-Chat history, memory, prior scratchpads, and vendor-specific project prompts are not durable project truth.
+Installation/upgrade and material workflow-rule changes require the processing-overhead assessment: actual test triggers, duplicate checks, logs, review chains, and model calls. Preserve necessary gates; justify bounded stronger exceptions or expose pending decisions. Copying rules alone does not establish efficient integration.
 <!-- AI_REPOSITORY_FOUNDATION:END -->
 
-## Vor jeder Änderung lesen
+## Vor jeder Änderung erschließen
 
-1. `.ai/PROJECT_CONTEXT.md`
+1. `.ai/PROJECT_CONTEXT.md`: aktueller Status und Dokumentationszuständigkeiten
 2. `.ai/WORKING_RULES.md`
-3. `.ai/repo_map.yaml`
+3. `.ai/repo_map.yaml`: betroffener Vertrag, Aufrufer und gemeinsame Abhängigkeiten
 4. `Documentation/Quality/COST_EFFICIENT_DEVELOPMENT.md`
-5. `.ai/MODEL_ROUTING_POLICY.md`
-6. `Documentation/Quality/KNOWN_LIMITATIONS.md`
-7. `Documentation/Quality/LOCAL_VALIDATION_STRATEGY.md`
+5. `.ai/MODEL_ROUTING_POLICY.md`, wenn System-/Modellwahl betroffen ist
+6. `Documentation/Quality/KNOWN_LIMITATIONS.md`: betroffene Grenzen
+7. `Documentation/Quality/LOCAL_VALIDATION_STRATEGY.md`: betroffene Prüfwege
 8. die für den betroffenen Bereich in `.ai/repo_map.yaml` genannten Quellen
 
 Planungsdokumente sind kein Nachweis für implementiertes oder validiertes
@@ -48,7 +36,10 @@ ausdrücklich dokumentiert werden.
 
 ## Pflichtkontext nach Aufgabe finden
 
-Die Leseliste oben bleibt verbindlich. Die folgende Orientierung führt von
+Die Quellen oben bleiben verbindlich; gelesen werden ihre betroffenen Abschnitte
+und transitive Abhängigkeiten, keine unverbundenen historischen Nachweise.
+Aktuelle Discovery/Fingerprints und wirklich verfügbare Sessionanalyse sind
+Voraussetzungen für Wiederverwendung. Die folgende Orientierung führt von
 den gemeinsamen Regeln zu den Quellen des konkreten Änderungsscope:
 
 - `.ai/WORKING_RULES.md` bündelt Sicherheit, Privacy, Ownership, State,

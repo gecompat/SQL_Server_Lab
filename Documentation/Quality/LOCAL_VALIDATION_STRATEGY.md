@@ -1,5 +1,26 @@
 # Lokale Validierungsstrategie
 
+## Phasen und Auswahl
+
+| Phase | Prüfscope und Aussage |
+|---|---|
+| Diagnose und Entwicklung | Kleinste Reproduktion, betroffene Einheit und `Invoke-ImpactedChecks.ps1 -Development`; lokale Source-/Umgebungsbindung erlaubt begrenzte Wiederverwendung. Kein Qualifikationsanspruch. |
+| PR-Integration | Kohärenter stabiler Diff, betroffene statische Suites und Provider **mit Fähigkeiten** aus `Get-CiTestSelection.ps1`; Pflichtgate am exakten Head. Keine lokale Cacheevidence als CI-PASS. |
+| Vollständige Qualifikation | Deklarierte Plattform-/SQL-/Provider-/Fähigkeitsmatrix, etwa Nightly. Offene Matrixfälle bleiben offen; Diagnose ersetzt sie nicht. |
+| Release | Zusätzlich die bestehenden ReleaseReadiness-/Paket-/Privacy-/Provenienzverträge. Grüne Foundationintegrität allein attestiert kein Release. |
+
+Die sechs Foundation-Validierungsstufen sind keine sechs obligatorischen
+separaten Läufe. Eine Prüfung kann mehrere Stufen abdecken, soweit ihre
+tatsächlichen Assertions deren Aussagen belegen. Unverändert grüne direkte
+und Suiteprüfungen werden bei identischer relevanter Bindung nicht doppelt
+ausgeführt; Selbsttests eines Validators und seine Anwendung sind getrennte Aussagen.
+
+Beispiele nach Wirkung: PITR-Code verlangt Docker und Podman mit Lifecycle,
+Restore und PITR; Container-Collation verlangt Collation beider Provider;
+ein Dokumentationsdateiname allein verlangt keinen Providerstart. Änderungen
+an gemeinsamem Ownership/Cleanup verlangen weiterhin die breite Matrix.
+[Auswahl, Cachegrenzen und Ausnahmen](FOUNDATION_1_21_PROCESSING_ASSESSMENT.md).
+
 ## Private SMTP-Offline-MIME-Projektion
 
 Der [private Fachvertrag](../Architecture/SMTP_TEST_SERVICE_MIME_PROJECTION.md)

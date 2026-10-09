@@ -27,6 +27,7 @@ Existing target rules do not need to adopt these labels. During integration, cla
 - For each overlapping final human-reference scope, use one project-defined Registration Authority. Humans and AI systems use the same authority; neither may independently guess or allocate the next final sequence.
 - Use `DIRECT` allocation only through serialized or equivalently unique authority behavior. When concurrent/offline creation cannot safely allocate a final sequence, use `DEFERRED` or the project's equivalent safe mechanism.
 - When upgrading from an older installed Foundation version, compute the complete semantic feature delta from `feature_catalog.json`, assess every introduced/materially changed candidate exactly once, and explicitly surface `RECOMMENDED`, `DECISION_REQUIRED`, and `CONFLICT` results. A feature may not be silently skipped because its relevance was not inferred.
+- Complete the processing-overhead assessment of actual target rules/workflows under `PROCESSING_EFFICIENCY_POLICY.md`; compatible stronger rules still require a bounded rationale or an explicit pending decision. Test, log, review, and model-call efficiency is not established by copying Foundation files or a green integrity check.
 
 A project rule that is deliberately stricter than a Foundation minimum is compatible unless it creates a real logical conflict. Extra approvals, narrower data use, additional validation, or reduced autonomous authority are not Foundation conflicts by themselves.
 

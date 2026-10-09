@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/ai-repository-foundation/processing-budget-request.schema.json",
+  "title": "Shared Foundation processing budget request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "contract", "wave_id", "unit", "soft_limit", "hard_limit", "next_reservation", "entries"],
+  "properties": {
+    "schema_version": {"const": 1, "type": "integer"},
+    "contract": {"const": "foundation-processing-budget/v1"},
+    "wave_id": {"type": "string", "minLength": 1},
+    "unit": {"enum": ["TOKENS", "CREDITS", "USD"]},
+    "soft_limit": {"type": ["number", "null"], "minimum": 0},
+    "hard_limit": {"type": ["number", "null"], "minimum": 0},
+    "next_reservation": {"type": "number", "minimum": 0},
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["invocation_id", "actor", "consumed", "reserved", "provenance"],
+        "properties": {
+          "invocation_id": {"type": "string", "minLength": 1},
+          "actor": {"type": "string", "minLength": 1},
+          "consumed": {"type": ["number", "null"], "minimum": 0},
+          "reserved": {"type": "number", "minimum": 0},
+          "provenance": {"enum": ["MEASURED", "ESTIMATED", "UNKNOWN"]}
+        }
+      }
+    }
+  }
+}

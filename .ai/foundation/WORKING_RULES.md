@@ -25,11 +25,17 @@ Additional authorization is required only when an operation materially exceeds t
 4. Identify affected contracts, dependencies, recovery needs, and validation.
 5. Identify local overrides and real conflicts.
 
+## Proportionate routine work
+
+Follow `Documentation/Standards/PROCESSING_EFFICIENCY_POLICY.md` in the source project, or `PROCESSING_EFFICIENCY_POLICY.md` after transfer. Routine edits do not require a WorkRequest, execution DAG, per-action receipt, handoff, or custom CI reader unless a relevant selected capability or material risk requires that contract. Preserve mandatory project gates and independent reviews. Allocate one shared, project-selected budget to sustained autonomous work, including descendants and retries; unknown usage is not zero.
+
+Inspect logs locally before transferring bounded findings to a model. Additional model calls/reviews need a distinct unresolved question or applicable changed-input/gate reason. Separate development tests from full qualification/release and avoid duplicate validator/self-test runs at identical bindings. Installation/upgrade and material workflow-rule changes require the processing-overhead assessment, including actual execution routes and justified stronger exceptions; use existing assessment/decision records without per-action administrative chains.
+
 ## Rule-context reuse between waves
 
 At the start of every new run or TUI session, let the active client rebuild its native `AGENTS.override.md`/`AGENTS.md` chain. Repository caching does not replace that discovery or any system, developer, current user, permission, or runtime instruction.
 
-After the applicable additional repository rules have been fully read and analyzed once for a scope, later change waves may reuse that session analysis only under `RULE_CONTEXT_CACHE_POLICY.md`:
+After the applicable additional repository rules have been fully read and analyzed once for a scope, later change waves use the session-local procedure in `PROCESSING_EFFICIENCY_POLICY.md` without an optional planner. The following additional requirements apply when using persistent `RULE_CONTEXT_CACHE_POLICY.md` records:
 
 - before each wave, re-run deterministic instruction/source discovery and fingerprint the actual working tree, index/HEAD state, dependencies, scope, schema, generator, and discovery configuration;
 - on `CACHE_HIT`, reuse only analysis present under the exact validated analysis key;

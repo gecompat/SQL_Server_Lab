@@ -23,7 +23,9 @@ jobs:
       changed_paths: ${{ steps.selection.outputs.changed_paths }}
       foundation: ${{ steps.selection.outputs.foundation }}
       docker: ${{ steps.selection.outputs.docker }}
+      docker_capabilities: ${{ steps.selection.outputs.docker_capabilities }}
       podman: ${{ steps.selection.outputs.podman }}
+      podman_capabilities: ${{ steps.selection.outputs.podman_capabilities }}
       mixed: ${{ steps.selection.outputs.mixed }}
       hyperv: ${{ steps.selection.outputs.hyperv }}
       adapter: ${{ steps.selection.outputs.adapter }}
@@ -69,7 +71,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: gecompat/AI_Repository_Foundation
-          ref: 4aafd20442275d0fdedf291fc6e12e8fe1f683cc
+          ref: d720db4f2f0d043756a958d5195d0e62090b1c8f
           path: .foundation-source
 
       - name: Validate installed Foundation rules
@@ -108,11 +110,15 @@ jobs:
     needs: classify
     if: needs.classify.outputs.docker == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     uses: ./.github/workflows/runtime-smoke-docker.yml
+    with:
+      capabilities: ${{ needs.classify.outputs.docker_capabilities }}
 
   podman-runtime:
     needs: classify
     if: needs.classify.outputs.podman == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     uses: ./.github/workflows/runtime-smoke-podman.yml
+    with:
+      capabilities: ${{ needs.classify.outputs.podman_capabilities }}
 
   mixed-runtime:
     needs: classify
@@ -163,6 +169,27 @@ jobs:
             podman = '${{ needs.podman-runtime.outputs.validation_classification }}'
             mixed = '${{ needs.mixed-runtime.outputs.validation_classification }}'
             hyperv = '${{ needs.hyperv-runtime.outputs.validation_classification }}'
+          }
+          $requestedProviders = @{
+            docker = '${{ needs.classify.outputs.docker }}'
+            podman = '${{ needs.classify.outputs.podman }}'
+            mixed = '${{ needs.classify.outputs.mixed }}'
+            hyperv = '${{ needs.classify.outputs.hyperv }}'
+            adapter = '${{ needs.classify.outputs.adapter }}'
+          }
+          foreach ($provider in $requestedProviders.Keys) {
+            if ($requestedProviders[$provider] -ceq 'true' -and $optional[$provider] -cne 'success') { throw "SELECTED_PROVIDER_NOT_VALIDATED: $provider" }
+          }
+          $requestedCapabilities = @{
+            docker = '${{ needs.classify.outputs.docker_capabilities }}'
+            podman = '${{ needs.classify.outputs.podman_capabilities }}'
+          }
+          $completedCapabilities = @{
+            docker = '${{ needs.docker-runtime.outputs.validated_capabilities }}'
+            podman = '${{ needs.podman-runtime.outputs.validated_capabilities }}'
+          }
+          foreach ($provider in $requestedCapabilities.Keys) {
+            if ($requestedProviders[$provider] -ceq 'true' -and $requestedCapabilities[$provider] -cne $completedCapabilities[$provider]) { throw "CAPABILITY_PROOF_MISSING: $provider" }
           }
           $failed = @($required.GetEnumerator() | Where-Object Value -ne 'success')
           $failed += @($optional.GetEnumerator() | Where-Object Value -notin @('success','skipped'))

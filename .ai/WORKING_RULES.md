@@ -194,17 +194,21 @@ deduplizierte Findings und entscheidungsrelevante Ausschnitte. Ein
 unveränderter grüner Test oder eine identische Fehlersignatur wird ohne neue
 Evidence nicht erneut ausgeführt.
 
-Mindestens ausführen:
+Die betroffenen Prüfungen aus dem Selektor ausführen. Für lokale Entwicklung:
 
 ```powershell
-.\Tests\Static\Invoke-DocumentationChecks.ps1
+.\Tests\Static\Invoke-ImpactedChecks.ps1 -ChangedPath $paths -Development
 ```
 
-Bei Runtimeänderungen den betroffenen Provider getrennt testen:
+Bei Runtimeänderungen den betroffenen Provider und seine ausgewählten
+Fähigkeiten getrennt testen. Ein PITR-Slice benötigt beispielsweise Lifecycle,
+Restore und PITR unter Docker und Podman; eine reine Dokukorrektur keinen
+Providerstart. Der erforderliche finale PR-Gate bleibt unverändert Pflicht.
+Diagnose, Integration, vollständige Qualifikation und Release sind getrennte
+Aussagen. Die sechs Foundationstufen verlangen keine sechs separaten Läufe:
 
 ```powershell
-.\Tests\Integration\Invoke-SmokeTest.ps1 -Provider docker
-.\Tests\Integration\Invoke-SmokeTest.ps1 -Provider podman
+.\Tools\Get-CiTestSelection.ps1 -ChangedPath $paths
 ```
 
 Nur tatsächlich ausgeführte Prüfungen werden als bestanden bezeichnet. Fehlende Runtime oder fehlendes `sqlcmd` ergibt keinen grünen Nachweis.

@@ -11,7 +11,8 @@
 #>
 [CmdletBinding()]
 param(
-    [Alias('h','help','?')][switch]$ShowHelp
+    [Alias('h','help','?')][switch]$ShowHelp,
+    [string[]]$ChangedPath
 )
 
 if ($ShowHelp) {
@@ -21,6 +22,11 @@ if ($ShowHelp) {
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
+$scope = & (Join-Path $repoRoot 'Tools/Get-StaticValidationScope.ps1') -ChangedPath $ChangedPath
+if (-not $scope.Global -and $scope.Analyzer.Count -eq 0) {
+    Write-Host 'PSScriptAnalyzer: NOT_APPLICABLE (no affected source; not an executed PASS).'
+    exit 0
+}
 $settingsPath = Join-Path $PSScriptRoot 'PSScriptAnalyzerSettings.psd1'
 $settings = Import-PowerShellDataFile -Path $settingsPath -ErrorAction Stop
 $errorBaseline = if ($settings.ErrorBaseline -is [System.Collections.IDictionary]) {
@@ -56,7 +62,7 @@ if (-not $scriptAnalyzerCommand) {
 
 Import-Module $scriptAnalyzerCommand.Module.Name -ErrorAction Stop | Out-Null
 
-$sourceFiles = Get-ChildItem -LiteralPath $repoRoot -Recurse -File |
+$sourceFiles = if (-not $scope.Global) { @($scope.Analyzer | ForEach-Object { Get-Item -LiteralPath (Join-Path $repoRoot $_) }) } else { Get-ChildItem -LiteralPath $repoRoot -Recurse -File |
     Where-Object {
         if ($_.Extension -notin @('.ps1', '.psm1')) {
             return $false
@@ -73,7 +79,7 @@ $sourceFiles = Get-ChildItem -LiteralPath $repoRoot -Recurse -File |
             $pathSegments[0] -ieq 'Tests' -and
             $pathSegments[1] -ieq 'Integration'
         )
-    }
+    } }
 
 $results = @()
 foreach ($file in $sourceFiles) {
@@ -98,7 +104,9 @@ if ($warnings.Count -gt 0) {
 
 foreach ($group in @($errors | Group-Object -Property RuleName | Sort-Object -Property Name)) {
     $baselineCount = 0
-    if ($errorBaseline.Contains($group.Name)) {
+    # A project-wide count cannot authorize a newly introduced error inside a
+    # smaller scope. Existing debt requires the global baseline comparison.
+    if ($scope.Global -and $errorBaseline.Contains($group.Name)) {
         $baselineCount = [int]$errorBaseline[$group.Name]
     }
 
