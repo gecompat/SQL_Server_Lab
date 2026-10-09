@@ -329,6 +329,10 @@ sources_of_truth:
   smtp_manifest_admission_checks: Tests/Static/Fixtures/SmtpManifestAdmissionChecks.ps1
   smtp_manifest_dialect_checks: Tests/Static/Fixtures/SmtpManifestDialectChecks.ps1
   smtp_manifest_disabled_example: Schemas/example-smtp-disabled.json
+  smtp_receiver_read: Private/SmtpTestServiceReceiverRead.ps1
+  smtp_receiver_read_contract: Documentation/Architecture/SMTP_TEST_SERVICE_RECEIVER_READ.md
+  smtp_receiver_read_fixture: Tests/Static/Fixtures/SmtpTestServiceReceiverReadChecks.ps1
+  validation_smtp_receiver_read: Tests/Static/Invoke-SmtpTestServiceReceiverReadChecks.ps1
   connection_center_cms: Public/Sync-SqlServerLabConnectionCenter.ps1
   cms_readonly_inspection: Private/CmsInspection.ps1
   cms_readonly_worker: Tools/Read-CmsInspection.ps1
