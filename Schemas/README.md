@@ -2,6 +2,13 @@
 
 Dieses Verzeichnis enthält die maschinenlesbaren Verträge und ausführbaren Beispielmanifeste.
 
+`smtpTestService` ist derzeit ausschließlich ein Manifest-Zulassungsvertrag.
+[example-smtp-disabled.json](example-smtp-disabled.json) zeigt den bisherigen
+SQL-Lab-Pfad mit deaktiviertem SMTP. Aktivierte Konfiguration wird strukturell
+und fachlich geprüft, aber vor Lab-Secrets, State und Provideroperationen mit
+`SMTP_TEST_BACKEND_UNADMITTED` abgewiesen. Sie provisioniert keinen Receiver.
+AdHoc-Parameter, Browserdialog und SMTP-Lifecycle sind noch nicht implementiert.
+
 ## Schema-Dateien
 
 | Datei | Zweck |

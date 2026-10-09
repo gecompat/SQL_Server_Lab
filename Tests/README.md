@@ -1,5 +1,19 @@
 # Tests/ – lokale und Remote-Validierung
 
+`Static/Fixtures/SmtpManifestAdmissionChecks.ps1` ergänzt die ManifestBuilder-
+Suite um die tatsächlichen Schema-/Raw-JSON-/Parser-/Public-Manifestadapter mit
+synthetischen Default-, Secret-, State- und Providereffektsinks. Sie prüft
+SMTP-Duplikate vor Konversion, Typen, Sender-/Katalog-/Providerbindung, Abweisung
+aktiver Entwürfe und unveränderte Legacy-DesiredState-`1.0`-Projektion. Receiver,
+SMTP-/SQL-Verkehr, Provider-Smokes und AdHoc-/Browserparität sind kein Nachweis
+dieser Offlinefixture.
+
+`Static/Fixtures/SmtpManifestDialectChecks.ps1` prüft zusätzlich die rohe
+SMTP-Erkennung bei Kommentaren, abschließenden Kommas und Legacy-Schreibweisen
+über den Helper sowie beide dateibasierten Adapter. Nicht-SMTP-Eingaben behalten
+die vorhandene Parserentscheidung. Diese lexischen Prüfungen ersetzen keinen
+Nachweis unter der Mindestversion PowerShell 7.2.
+
 ## Pester-Runner und Ergebnisstatus
 
 `Static/Invoke-PesterChecks.ps1` benötigt Pester ab Version 5 und führt die

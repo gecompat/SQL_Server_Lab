@@ -2,6 +2,8 @@
 $outputModule = New-Module -Name ManifestSampleOutputChecks -ArgumentList $repoRoot -ScriptBlock {
     param($root)
     $script:SchemasPath = Join-Path $root 'Schemas'
+    . (Join-Path $root 'Private/SmtpTestServiceConfig.ps1')
+    . (Join-Path $root 'Private/SmtpTestServiceManifestAdmission.ps1')
     . (Join-Path $root 'Private/ManifestParser.ps1')
     . (Join-Path $root 'Private/ManifestBuilder.ps1')
     . (Join-Path $root 'Public/New-SqlServerLab.ps1')

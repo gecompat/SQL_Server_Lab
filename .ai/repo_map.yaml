@@ -323,6 +323,12 @@ sources_of_truth:
   batch_queue_resume_contract: Private/BatchWorkflow.ps1
   manifest_resolution: Private/ManifestParser.ps1
   manifest_builder_validation: Private/ManifestBuilder.ps1
+  smtp_manifest_admission: Private/SmtpTestServiceManifestAdmission.ps1
+  smtp_manifest_admission_contract: Documentation/Architecture/MANIFEST_AND_INTERFACE_ARCHITECTURE.md
+  smtp_config_validation: Private/SmtpTestServiceConfig.ps1
+  smtp_manifest_admission_checks: Tests/Static/Fixtures/SmtpManifestAdmissionChecks.ps1
+  smtp_manifest_dialect_checks: Tests/Static/Fixtures/SmtpManifestDialectChecks.ps1
+  smtp_manifest_disabled_example: Schemas/example-smtp-disabled.json
   connection_center_cms: Public/Sync-SqlServerLabConnectionCenter.ps1
   cms_readonly_inspection: Private/CmsInspection.ps1
   cms_readonly_worker: Tools/Read-CmsInspection.ps1
@@ -1637,6 +1643,7 @@ validation:
       - external_runtime_plan_preview
       - sql_version_lifecycle_plan_preview
       - atomic_manifest_write
+      - smtp_manifest_admission_and_legacy_desired_state_parity
   static_documentation:
     command: '.\Tests\Static\Invoke-DocumentationChecks.ps1'
     source: Tests/Static/Invoke-DocumentationChecks.ps1

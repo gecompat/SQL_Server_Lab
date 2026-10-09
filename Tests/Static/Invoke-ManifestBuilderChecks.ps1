@@ -977,6 +977,10 @@ finally {
 }
 
 . (Join-Path $PSScriptRoot 'Fixtures/ManifestSampleOutputChecks.ps1')
+. (Join-Path $PSScriptRoot 'Fixtures/SmtpManifestAdmissionChecks.ps1')
+. (Join-Path $PSScriptRoot 'Fixtures/SmtpManifestDialectChecks.ps1')
+& (Join-Path $PSScriptRoot 'Fixtures/SmtpTestServiceConfigChecks.ps1') -ConfigOnly
+Add-CheckResult -Name 'SMTP Config: shared offline contract (-ConfigOnly)' -Success $true
 
 if ($failures.Count -gt 0) {
     Write-Host "`nMANIFEST BUILDER CHECKS: FAIL ($passed bestanden, $($failures.Count) fehlgeschlagen)" -ForegroundColor Red

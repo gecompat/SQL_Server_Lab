@@ -942,6 +942,19 @@ Refresh. Der verbindliche Zielvertrag steht in
 
 ## Manifest und Schema
 
+### SMTP: nur Manifestzulassung
+
+`smtpTestService` ist an Schema, Raw-JSON-Prüfung, Validator und Parser gekoppelt.
+Weglassen, `null` und exakt `{ "enabled": false }` bewahren Legacy-Auflösung und
+DesiredState `1.0`. Aktivierte Konfiguration ist trotz gültiger SQL-2025-/Linux-
+Docker- oder Podman-Topologie mit `SMTP_TEST_BACKEND_UNADMITTED` vor Lab-Secrets,
+State und Provideroperationen gesperrt. Falsche Konfiguration und ungeeigneter
+Scope besitzen getrennte feste Fehlercodes. Der Wizard speichert keinen aktiven
+Entwurf. Objektinput kann zuvor verlorene JSON-Duplikate nicht rekonstruieren.
+Receiver, native Quota-/Egress- und Providerabnahme, Lifecycle, AdHoc-/Browser-
+Anbindung und Mailinhaltanzeige bleiben offen. Siehe den
+[Manifestvertrag](../Architecture/MANIFEST_AND_INTERFACE_ARCHITECTURE.md#aktueller-smtp-manifest-zulassungsvertrag).
+
 ### Schema ist kein Runtime-Nachweis
 
 `Schemas/lab-manifest.schema.json` enthält neben ausführbaren Feldern auch teilweise vorbereitete Erweiterungsfelder. Direkte `serverConfig`-Eigenschaften sind mit `x-runtimeStatus` als `executable`, `reserved` oder `partially-executable` klassifiziert. Gesetzte reservierte Felder werden vor Auflösung und Mutation mit `MANIFEST_RESERVED_RUNTIME_FIELD` abgelehnt, statt nur gewarnt oder still verworfen zu werden. Wertabhängige Grenzen sind über `x-runtimeValueStatus` maschinenlesbar und enden mit `MANIFEST_RESERVED_RUNTIME_VALUE`. Für die tatsächliche Ausführung sind zusätzlich `Private/ManifestParser.ps1` und die zuständige Runtimefunktion maßgeblich.

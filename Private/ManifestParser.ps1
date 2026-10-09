@@ -73,6 +73,8 @@ function Read-LabManifest {
     $resolvedPath = (Resolve-Path -LiteralPath $Path).Path
     $raw = Get-Content -LiteralPath $resolvedPath -Raw -Encoding utf8
 
+    Assert-LabSmtpManifestAdmission -Json $raw
+
     try {
         $manifest = $raw | ConvertFrom-Json -Depth 30
     }
@@ -330,6 +332,8 @@ function Resolve-ManifestDefaults {
         $Manifest,
         [string]$ManifestPath
     )
+
+    Assert-LabSmtpManifestAdmission -Json ($Manifest | ConvertTo-Json -Depth 100)
 
     $manifestDirectory = if ($ManifestPath) {
         Split-Path -Parent $ManifestPath
