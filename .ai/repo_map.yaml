@@ -335,6 +335,10 @@ sources_of_truth:
   smtp_mime_python_checks: Tests/Static/Fixtures/SmtpTestServiceMimeChecks.py
   smtp_mime_parent_checks: Tests/Static/Fixtures/SmtpTestServiceMimeParentChecks.ps1
   smtp_mime_suite: Tests/Static/Invoke-SmtpTestServiceMimeParentChecks.ps1
+  smtp_receiver_read: Private/SmtpTestServiceReceiverRead.ps1
+  smtp_receiver_read_contract: Documentation/Architecture/SMTP_TEST_SERVICE_RECEIVER_READ.md
+  smtp_receiver_read_fixture: Tests/Static/Fixtures/SmtpTestServiceReceiverReadChecks.ps1
+  validation_smtp_receiver_read: Tests/Static/Invoke-SmtpTestServiceReceiverReadChecks.ps1
   connection_center_cms: Public/Sync-SqlServerLabConnectionCenter.ps1
   cms_readonly_inspection: Private/CmsInspection.ps1
   cms_readonly_worker: Tools/Read-CmsInspection.ps1

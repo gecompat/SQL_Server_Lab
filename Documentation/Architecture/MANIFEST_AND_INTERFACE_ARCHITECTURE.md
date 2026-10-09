@@ -46,6 +46,12 @@ SMTP-API oder Mailinhaltanzeige. Native Receiver-, Egress-, Quota-, Lifecycle-
 und getrennte Docker-/Podman-Nachweise bleiben offen; ein Schemaerfolg ist
 keine Runtimebereitschaft.
 
+Der getrennte [private Receiver-Lesetransport](SMTP_TEST_SERVICE_RECEIVER_READ.md)
+ist mit synthetischen eigenen Loopback-HTTP-Servern geprüft. Er liest Raw-MIME
+bytegenau, implementiert aber weder die erforderliche echte Komponentenbindung
+noch eine öffentliche API oder einen provisionierten Receiver. Die aktive
+Manifestbarriere bleibt unverändert.
+
 Dieses Dokument definiert die geplanten maschinenlesbaren Verträge und ihre Auflösungsreihenfolge.
 
 Die separate [private Offline-MIME-Projektion](SMTP_TEST_SERVICE_MIME_PROJECTION.md)
