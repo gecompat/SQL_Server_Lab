@@ -3665,7 +3665,21 @@ Die gekoppelte Schema-, RuntimeScope-, Doku- und CI-Auswahlprüfung bleibt
 erforderlich. Native Docker-, Podman-, Mixed-, Hyper-V- und Adaptergates müssen
 den stabilen Head getrennt belegen; Readiness und historische Evidence gelten
 nicht als aktuelle Abnahme. Vor-/Nachschutz erfasst alle vorbestehenden
-Ressourcen; Rohdiagnosen bleiben lokal. [Vertrag](../Architecture/OWNED_HOST_CI_ISOLATION.md).
+Ressourcen der tatsächlich erreichbaren Operationsscopes nach der vor Arrange
+festgelegten Schutzmatrix; unbekannte Routing-/Operationspfade bleiben gesperrt.
+Container-only ohne VM-/Hostkoordinator-Schreibpfad benötigt keine zusätzliche
+Hyper-V-Funktionsprüfung. Hostdruck, RAM/CPU und Daemon-/Gastspeicher bleiben zu
+berücksichtigen, ohne physische Host-/VHDX-Invarianz zu behaupten. CreateOnly
+enthält keinen Start; SQL-/Receiverstart, Netze und Volumes benötigen ihre eigene
+erweiterte Matrix und Abnahme.
+
+Für genau die klassifizierte CreateOnly-Allowlist ist keine separate
+Vor-/Nachinventur nicht erreichbarer Hostklassen erforderlich; ihr
+Änderungsverbot bleibt bestehen.
+
+Pflichtgates bleiben unverändert; dies ist keine native Ausführungsfreigabe.
+Rohdiagnosen bleiben lokal.
+[Vertrag](../Architecture/OWNED_HOST_CI_ISOLATION.md#schutzmatrix-für-begrenzte-docker-podman-operationen).
 ## Eigene native Portvorschau-Abnahme – begrenzt bestanden
 
 `Tests/Integration/Invoke-ContainerPortPreviewAcceptance.ps1` ist ein eigener,
