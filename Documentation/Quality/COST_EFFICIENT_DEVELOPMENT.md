@@ -70,7 +70,7 @@ Die lokale betroffene Regression wird so ausgewählt:
 
 ```powershell
 $paths = git diff --name-only origin/main...HEAD
-.\Tests\Static\Invoke-ImpactedChecks.ps1 -ChangedPath $paths
+.\Tests\Static\Invoke-ImpactedChecks.ps1 -ChangedPath $paths -Development
 ```
 
 Reine Dokumentationsänderungen starten keine Runtime. Unbekannte produktive
@@ -133,6 +133,21 @@ Eine atomare Welle besitzt genau einen aktiven Implementierungsagenten. Ein
 Review beginnt mit einem stabilen Diff und konkreten Abnahmekriterien. Mehrere
 Agenten analysieren nicht gleichzeitig denselben beweglichen Diff.
 
+Zusätzliche Reviews beantworten eine konkrete offene Frage oder eine
+vorgeschriebene unabhängige Beurteilung. Geschlossene Findings, Hashvergleiche
+und grüne Logs lösen keine automatische Review-von-Review-Kette aus.
+Lokale Diagnose/Entwicklung, PR-Integration, vollständige Qualifikation und
+Release haben getrennte Aussagegrenzen. Die sechs Foundationstufen verlangen
+keine sechs einzelnen Läufe; ein Nachweis kann mehrere Aussagen belegen.
+
+`Invoke-ImpactedChecks.ps1 -Development` kann ausschließlich ausgeführte
+Documentation-/CiStrategy-Ergebnisse lokal für höchstens vier Stunden
+wiederverwenden. Quelle, Gitindex, Tests/Fixtures/Konfiguration, konkrete
+Child-Runtimebytes und Umgebung müssen unverändert gebunden sein; fehlende
+Bindung verlangt Ausführung. FAIL/UNKNOWN/RUNNING sind kein PASS. Bei belegter
+Writer-Sperre lautet das Ergebnis NOT_EXECUTED. Runtimeprüfungen und CI bleiben
+frisch ausgeführt; globale Integration und Release verzichten auf Reuse.
+
 Ein Delegationskontext enthält nur:
 
 - Ausgangscommit und erlaubte Dateien;
@@ -146,7 +161,7 @@ Eskalation folgen `.ai/MODEL_ROUTING_POLICY.md`.
 
 ### Sitzungswechsel und Checkpoints
 
-Die Foundation-1.19-Regeln unter
+Die Foundation-1.21-Regeln unter
 `.ai/foundation/AI_WORK_ORCHESTRATION_POLICY.md` ergänzen diese Richtlinie.
 Der Orchestrator ist eine Rolle über dauerhaftem Projektzustand. Ein neuer
 Chat lädt die nativen Instruktionen und aktuellen kanonischen Projektquellen;

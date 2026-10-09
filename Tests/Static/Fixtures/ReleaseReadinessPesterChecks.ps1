@@ -17,6 +17,8 @@ $pesterFixtureRoot = [IO.Path]::GetFullPath($pesterFixtureRoot)
 $null = New-Item -ItemType Directory -Path (Join-Path $pesterFixtureRoot 'Tests/Static') -Force
 $null = New-Item -ItemType Directory -Path (Join-Path $pesterFixtureRoot 'Tests/Common') -Force
 $null = New-Item -ItemType Directory -Path (Join-Path $pesterFixtureRoot 'Tests/Pester') -Force
+$null = New-Item -ItemType Directory -Path (Join-Path $pesterFixtureRoot 'Tools') -Force
+Copy-Item -LiteralPath (Join-Path $repoRoot 'Tools/Get-StaticValidationScope.ps1') -Destination (Join-Path $pesterFixtureRoot 'Tools/Get-StaticValidationScope.ps1')
 $pesterFixtureRunner = Join-Path $pesterFixtureRoot 'Tests/Static/Invoke-PesterChecks.ps1'
 Copy-Item -LiteralPath (Join-Path $repoRoot 'Tests/Static/Invoke-PesterChecks.ps1') -Destination $pesterFixtureRunner
 Copy-Item -LiteralPath (Join-Path $repoRoot 'Tests/Common/CheckResult.ps1') -Destination (Join-Path $pesterFixtureRoot 'Tests/Common/CheckResult.ps1')

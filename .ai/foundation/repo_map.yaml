@@ -1,8 +1,10 @@
 schema_version: 1
-foundation_ruleset_version: 1.19.0
+foundation_ruleset_version: 1.21.0
 canonical_entrypoint: AGENTS.md
 authority:
   required_or_baseline:
+    - .ai/foundation/PROCESSING_EFFICIENCY_POLICY.md
+    - .ai/foundation/FOUNDATION_REFERENCE.md
     - .ai/foundation/FOUNDATION_RULESET.md
     - .ai/foundation/PROJECT_RULES.md
     - .ai/foundation/SEMANTIC_INTEGRATION_POLICY.md
@@ -311,3 +313,12 @@ override_contract:
   required: minimum_floor_project_may_be_stricter
   default: project_may_override_intentionally
   project_specific_facts: target_repository_is_authoritative
+
+processing_efficiency:
+  policy: .ai/foundation/PROCESSING_EFFICIENCY_POLICY.md
+  runtime: .ai/foundation/runtime/processing_efficiency.py
+  budget_profile: foundation-processing-budget/v1
+  audit: advisory_only
+  overhead_assessment: required
+  assessment_areas: [test_cycles, logs, reviews, model_calls, polling]
+  required_gates_preserved: true

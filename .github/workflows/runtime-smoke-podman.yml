@@ -6,7 +6,15 @@ on:
       validation_classification:
         description: VALIDATED, VALIDATION_FAILURE, INFRASTRUCTURE_UNAVAILABLE oder UNKNOWN
         value: ${{ jobs.podman-smoke.outputs.validation_classification }}
+      validated_capabilities:
+        description: Capabilities completed successfully; absent on failure
+        value: ${{ jobs.podman-smoke.outputs.validated_capabilities }}
     inputs:
+      capabilities:
+        description: Comma-separated capability scope; * requests qualification
+        required: false
+        default: "*"
+        type: string
       mode:
         description: Auszufuehrender Podman-Nachweis
         required: false
@@ -14,6 +22,11 @@ on:
         type: string
   workflow_dispatch:
     inputs:
+      capabilities:
+        description: Comma-separated capability scope; * requests qualification
+        required: false
+        default: "*"
+        type: string
       mode:
         description: Auszufuehrender Podman-Nachweis
         required: true
@@ -39,7 +52,10 @@ jobs:
     timeout-minutes: 45
     outputs:
       validation_classification: ${{ steps.runtime-preflight.outputs.validation_classification }}
+      validated_capabilities: ${{ steps.runtime-acceptance.outputs.validated_capabilities }}
     env:
+      SQL_SERVER_LAB_CI_CAPABILITIES: ${{ inputs.capabilities }}
+      SQL_SERVER_LAB_CI_MODE: ${{ inputs.mode }}
       SQL_SERVER_LAB_RESOURCE_LIFECYCLE: test
       SQL_SERVER_LAB_TEST_OPERATION_ID: github-${{ github.run_id }}-${{ github.run_attempt }}
 
@@ -55,6 +71,8 @@ jobs:
         id: runtime-preflight
         run: |
           $ErrorActionPreference = 'Stop'
+          $scope=& .\Tools\Resolve-CiRuntimeScope.ps1 -Provider podman -Capabilities $env:SQL_SERVER_LAB_CI_CAPABILITIES -Mode $env:SQL_SERVER_LAB_CI_MODE
+          $selectedCapabilities=@($scope.Capabilities)
           $classification = 'UNKNOWN'
           $logPath = Join-Path $env:RUNNER_TEMP 'podman-preflight.private.log'
           function Set-ValidationClassification([string]$Value) {
@@ -84,9 +102,13 @@ jobs:
           }
 
       - name: Podman SQL Server lifecycle / CLI acceptance
+        id: runtime-acceptance
         run: |
           $ErrorActionPreference = 'Stop'
           $logPath = Join-Path $env:RUNNER_TEMP 'podman-smoke-matrix.private.log'
+          $scope=& .\Tools\Resolve-CiRuntimeScope.ps1 -Provider podman -Capabilities $env:SQL_SERVER_LAB_CI_CAPABILITIES -Mode $env:SQL_SERVER_LAB_CI_MODE
+          $selectedCapabilities=@($scope.Capabilities)
+          Write-Host ('REQUESTED capabilities: ' + ($selectedCapabilities -join ','))
           $mutexName = if ($IsWindows) { 'Global\SQL_Server_Lab_Runtime_Smoke' } else { 'SQL_Server_Lab_Runtime_Smoke' }
           $mutex = $null
           $acquired = $false
@@ -95,7 +117,7 @@ jobs:
             $acquired = $mutex.WaitOne([TimeSpan]::FromMinutes(10))
             if (-not $acquired) { throw 'Runtime-Smoke-Hostlock konnte innerhalb von 10 Minuten nicht erworben werden.' }
 
-            if ('${{ inputs.mode }}' -eq 'cli-acceptance') {
+            if ($env:SQL_SERVER_LAB_CI_MODE -eq 'cli-acceptance') {
               & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-ContainerCliAcceptance.ps1 -StateRoot $env:SQL_SERVER_LAB_CI_OWN_STATE_ROOT `
                 -Provider podman `
                 -Version 2022-CU18 *> $logPath
@@ -109,77 +131,103 @@ jobs:
               $matrixExitCode = $LASTEXITCODE
               if ($matrixExitCode -ne 0) { throw "Podman Smoke Matrix endete mit Exitcode $matrixExitCode." }
 
-              & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-ContainerCollationAcceptance.ps1 -StateRoot $env:SQL_SERVER_LAB_CI_OWN_STATE_ROOT `
-                -Provider podman `
-                -RuntimeMutexAlreadyHeld *>> $logPath
-              $collationExitCode = $LASTEXITCODE
-              if ($collationExitCode -ne 0) { throw "Podman Collation-Akzeptanz endete mit Exitcode $collationExitCode." }
+              if ('collation' -cin $selectedCapabilities) {
+                & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-ContainerCollationAcceptance.ps1 -StateRoot $env:SQL_SERVER_LAB_CI_OWN_STATE_ROOT `
+                  -Provider podman `
+                  -RuntimeMutexAlreadyHeld *>> $logPath
+                $collationExitCode = $LASTEXITCODE
+                if ($collationExitCode -ne 0) { throw "Podman Collation-Akzeptanz endete mit Exitcode $collationExitCode." }
+              } else { Write-Host 'NOT_APPLICABLE capability: collation' }
 
-              & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-RestoreSmokeTest.ps1 -StateRoot $env:SQL_SERVER_LAB_CI_OWN_STATE_ROOT `
-                -Provider podman `
-                -Version 2025 *>> $logPath
-              $restoreExitCode = $LASTEXITCODE
-              if ($restoreExitCode -ne 0) { throw "Podman Restore Smoke Test endete mit Exitcode $restoreExitCode." }
+              if ('restore' -cin $selectedCapabilities) {
+                & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-RestoreSmokeTest.ps1 -StateRoot $env:SQL_SERVER_LAB_CI_OWN_STATE_ROOT `
+                  -Provider podman `
+                  -Version 2025 *>> $logPath
+                $restoreExitCode = $LASTEXITCODE
+                if ($restoreExitCode -ne 0) { throw "Podman Restore Smoke Test endete mit Exitcode $restoreExitCode." }
+              } else { Write-Host 'NOT_APPLICABLE capability: restore' }
 
-              & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-PointInTimeRecoveryAcceptance.ps1 -StateRoot $env:SQL_SERVER_LAB_CI_OWN_STATE_ROOT `
-                -Provider podman `
-                -Version 2025 -RuntimeMutexAlreadyHeld *>> $logPath
-              $pitrExitCode = $LASTEXITCODE
-              if ($pitrExitCode -ne 0) { throw "Podman Point-in-Time-Recovery-Akzeptanz endete mit Exitcode $pitrExitCode." }
+              if ('pitr' -cin $selectedCapabilities) {
+                & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-PointInTimeRecoveryAcceptance.ps1 -StateRoot $env:SQL_SERVER_LAB_CI_OWN_STATE_ROOT `
+                  -Provider podman `
+                  -Version 2025 -RuntimeMutexAlreadyHeld *>> $logPath
+                $pitrExitCode = $LASTEXITCODE
+                if ($pitrExitCode -ne 0) { throw "Podman Point-in-Time-Recovery-Akzeptanz endete mit Exitcode $pitrExitCode." }
+              } else { Write-Host 'NOT_APPLICABLE capability: pitr' }
 
 
-              & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-SqlVersionUpgradeAcceptance.ps1 -StateRoot $env:SQL_SERVER_LAB_CI_OWN_STATE_ROOT `
-                -Provider podman `
-                -RuntimeMutexAlreadyHeld *>> $logPath
-              $upgradeExitCode = $LASTEXITCODE
-              if ($upgradeExitCode -ne 0) { throw "SQL version upgrade reference failed (exit $upgradeExitCode)." }
-              & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-BatchWorkflowSmokeTest.ps1 -StateRoot $env:SQL_SERVER_LAB_CI_OWN_STATE_ROOT `
-                -Provider podman `
-                -Version 2025 *>> $logPath
-              $batchExitCode = $LASTEXITCODE
-              if ($batchExitCode -ne 0) { throw "Podman Batch Workflow Smoke Test endete mit Exitcode $batchExitCode." }
+              if ('upgrade' -cin $selectedCapabilities) {
+                & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-SqlVersionUpgradeAcceptance.ps1 -StateRoot $env:SQL_SERVER_LAB_CI_OWN_STATE_ROOT `
+                  -Provider podman `
+                  -RuntimeMutexAlreadyHeld *>> $logPath
+                $upgradeExitCode = $LASTEXITCODE
+                if ($upgradeExitCode -ne 0) { throw "SQL version upgrade reference failed (exit $upgradeExitCode)." }
+              } else { Write-Host 'NOT_APPLICABLE capability: upgrade' }
+              if ('batch' -cin $selectedCapabilities) {
+                & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-BatchWorkflowSmokeTest.ps1 -StateRoot $env:SQL_SERVER_LAB_CI_OWN_STATE_ROOT `
+                  -Provider podman `
+                  -Version 2025 *>> $logPath
+                $batchExitCode = $LASTEXITCODE
+                if ($batchExitCode -ne 0) { throw "Podman Batch Workflow Smoke Test endete mit Exitcode $batchExitCode." }
+              } else { Write-Host 'NOT_APPLICABLE capability: batch' }
 
-              & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-ContainerToolAcceptance.ps1 -StateRoot $env:SQL_SERVER_LAB_CI_OWN_STATE_ROOT `
-                -Provider podman `
-                -RuntimeMutexAlreadyHeld -EvidencePath (Join-Path $env:RUNNER_TEMP 'podman-container-tool-acceptance.json') *>> $logPath
-              $toolExitCode = $LASTEXITCODE
-              if ($toolExitCode -ne 0) { throw "Podman Container-Tool-Akzeptanz endete mit Exitcode $toolExitCode." }
+              if ('tool' -cin $selectedCapabilities) {
+                & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-ContainerToolAcceptance.ps1 -StateRoot $env:SQL_SERVER_LAB_CI_OWN_STATE_ROOT `
+                  -Provider podman `
+                  -RuntimeMutexAlreadyHeld -EvidencePath (Join-Path $env:RUNNER_TEMP 'podman-container-tool-acceptance.json') *>> $logPath
+                $toolExitCode = $LASTEXITCODE
+                if ($toolExitCode -ne 0) { throw "Podman Container-Tool-Akzeptanz endete mit Exitcode $toolExitCode." }
+              } else { Write-Host 'NOT_APPLICABLE capability: tool' }
 
-              & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-PersistentStorageRemovalExecutorAcceptance.ps1 -StateRoot $env:SQL_SERVER_LAB_CI_OWN_STATE_ROOT `
-                -Provider podman `
-                -Policy DELETE_WITH_RUN `
-                -RuntimeMutexAlreadyHeld *>> $logPath
-              $removalExitCode = $LASTEXITCODE
-              if ($removalExitCode -ne 0) { throw "Podman Persistent-Storage-Removal-Akzeptanz endete mit Exitcode $removalExitCode." }
+              if ('removal' -cin $selectedCapabilities) {
+                & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-PersistentStorageRemovalExecutorAcceptance.ps1 -StateRoot $env:SQL_SERVER_LAB_CI_OWN_STATE_ROOT `
+                  -Provider podman `
+                  -Policy DELETE_WITH_RUN `
+                  -RuntimeMutexAlreadyHeld *>> $logPath
+                $removalExitCode = $LASTEXITCODE
+                if ($removalExitCode -ne 0) { throw "Podman Persistent-Storage-Removal-Akzeptanz endete mit Exitcode $removalExitCode." }
+              } else { Write-Host 'NOT_APPLICABLE capability: removal' }
 
-              & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-ContainerDatabasePackageExportAcceptance.ps1 -StateRoot $env:SQL_SERVER_LAB_CI_OWN_STATE_ROOT `
-                -Provider podman `
-                -RuntimeMutexAlreadyHeld *>> $logPath
-              $packageExportExitCode = $LASTEXITCODE
-              if ($packageExportExitCode -ne 0) { throw "Podman Database-Package-Export-Akzeptanz endete mit Exitcode $packageExportExitCode." }
+              if ('package' -cin $selectedCapabilities) {
+                & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-ContainerDatabasePackageExportAcceptance.ps1 -StateRoot $env:SQL_SERVER_LAB_CI_OWN_STATE_ROOT `
+                  -Provider podman `
+                  -RuntimeMutexAlreadyHeld *>> $logPath
+                $packageExportExitCode = $LASTEXITCODE
+                if ($packageExportExitCode -ne 0) { throw "Podman Database-Package-Export-Akzeptanz endete mit Exitcode $packageExportExitCode." }
+              } else { Write-Host 'NOT_APPLICABLE capability: package' }
 
-              & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-PortableContainerTransferPreflightAcceptance.ps1 -StateRoot $env:SQL_SERVER_LAB_CI_OWN_STATE_ROOT `
-                -Provider podman `
-                -RuntimeMutexAlreadyHeld *>> $logPath
-              $preflightExitCode = $LASTEXITCODE
-              if ($preflightExitCode -ne 0) { throw "Podman Portable-Container-Transfer-Preflight-Akzeptanz endete mit Exitcode $preflightExitCode." }
+              if ('transfer-preflight' -cin $selectedCapabilities) {
+                & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-PortableContainerTransferPreflightAcceptance.ps1 -StateRoot $env:SQL_SERVER_LAB_CI_OWN_STATE_ROOT `
+                  -Provider podman `
+                  -RuntimeMutexAlreadyHeld *>> $logPath
+                $preflightExitCode = $LASTEXITCODE
+                if ($preflightExitCode -ne 0) { throw "Podman Portable-Container-Transfer-Preflight-Akzeptanz endete mit Exitcode $preflightExitCode." }
+              } else { Write-Host 'NOT_APPLICABLE capability: transfer-preflight' }
 
-              & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-PortableContainerTransferAcceptance.ps1 -StateRoot $env:SQL_SERVER_LAB_CI_OWN_STATE_ROOT `
-                -Provider podman `
-                -RuntimeMutexAlreadyHeld *>> $logPath
-              $transferExitCode = $LASTEXITCODE
-              if ($transferExitCode -ne 0) { throw "Podman Portable-Container-Transfer-Akzeptanz endete mit Exitcode $transferExitCode." }
+              if ('transfer' -cin $selectedCapabilities) {
+                & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-PortableContainerTransferAcceptance.ps1 -StateRoot $env:SQL_SERVER_LAB_CI_OWN_STATE_ROOT `
+                  -Provider podman `
+                  -RuntimeMutexAlreadyHeld *>> $logPath
+                $transferExitCode = $LASTEXITCODE
+                if ($transferExitCode -ne 0) { throw "Podman Portable-Container-Transfer-Akzeptanz endete mit Exitcode $transferExitCode." }
+              } else { Write-Host 'NOT_APPLICABLE capability: transfer' }
 
-              & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-AiVectorCoreAcceptance.ps1 -StateRoot $env:SQL_SERVER_LAB_CI_OWN_STATE_ROOT `
-                -Provider podman *>> $logPath
-              $aiVectorExitCode = $LASTEXITCODE
-              if ($aiVectorExitCode -ne 0) { throw "Podman AI-Vector-Core-Akzeptanz endete mit Exitcode $aiVectorExitCode." }
+              if ('ai-vector' -cin $selectedCapabilities) {
+                & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-AiVectorCoreAcceptance.ps1 -StateRoot $env:SQL_SERVER_LAB_CI_OWN_STATE_ROOT `
+                  -Provider podman *>> $logPath
+                $aiVectorExitCode = $LASTEXITCODE
+                if ($aiVectorExitCode -ne 0) { throw "Podman AI-Vector-Core-Akzeptanz endete mit Exitcode $aiVectorExitCode." }
+              } else { Write-Host 'NOT_APPLICABLE capability: ai-vector' }
 
-              & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-AiPodmanSamplesReferenceAcceptance.ps1 -StateRoot $env:SQL_SERVER_LAB_CI_OWN_STATE_ROOT `
-                -RuntimeMutexAlreadyHeld *>> $logPath
-              $aiSamplesExitCode = $LASTEXITCODE
-              if ($aiSamplesExitCode -ne 0) { throw "Podman AI-Sample-Referenz endete mit Exitcode $aiSamplesExitCode." }
+              if ('ai-samples' -cin $selectedCapabilities) {
+                & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-AiPodmanSamplesReferenceAcceptance.ps1 -StateRoot $env:SQL_SERVER_LAB_CI_OWN_STATE_ROOT `
+                  -RuntimeMutexAlreadyHeld *>> $logPath
+                $aiSamplesExitCode = $LASTEXITCODE
+                if ($aiSamplesExitCode -ne 0) { throw "Podman AI-Sample-Referenz endete mit Exitcode $aiSamplesExitCode." }
+              } else { Write-Host 'NOT_APPLICABLE capability: ai-samples' }
             }
+            $completedCapabilities = if ($env:SQL_SERVER_LAB_CI_MODE -ceq 'cli-acceptance') { 'cli-acceptance' } else { $selectedCapabilities -join ',' }
+            "validated_capabilities=$completedCapabilities" | Out-File -LiteralPath $env:GITHUB_OUTPUT -Encoding utf8 -Append
             Write-Host 'PODMAN_RUNTIME_SUCCEEDED'
           }
           catch {

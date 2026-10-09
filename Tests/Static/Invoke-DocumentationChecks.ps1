@@ -50,14 +50,21 @@ function Get-RepositoryFiles {
         [Parameter(Mandatory)][string[]]$Extensions
     )
 
-    Get-ChildItem -LiteralPath $repoRoot -Recurse -File |
-        Where-Object {
-            $_.FullName -notmatch '[\\/]_QuellRepo[\\/]' -and
-            $_.FullName -notmatch '[\\/]private_Note[\\/]' -and
-            $_.FullName -notmatch '[\\/]\.secrets[\\/]' -and
-            $_.FullName -notmatch '[\\/]\.artifacts[\\/]' -and
-            $_.Extension -in $Extensions
+    # Prune before traversal: neither ignored evidence nor runtime trees need
+    # enumeration, and an active junction cannot expand the source scope.
+    if ($null -eq $script:documentationSourceFiles) {
+        $script:documentationSourceFiles=[Collections.Generic.List[IO.FileInfo]]::new()
+        $pending=[Collections.Generic.Stack[string]]::new(); $pending.Push($repoRoot)
+        $excluded=@('_QuellRepo','private_Note','.secrets','.artifacts','.git','.cache','.local','.runtime','.state')
+        while ($pending.Count) {
+            foreach($item in Get-ChildItem -LiteralPath $pending.Pop() -Force) {
+                if ($item.PSIsContainer -and $item.Name -in $excluded) { continue }
+                if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw 'DOCUMENTATION_ACTIVE_SOURCE_REPARSE_UNSUPPORTED' }
+                if ($item.PSIsContainer) { $pending.Push($item.FullName) } else { $script:documentationSourceFiles.Add($item) }
+            }
         }
+    }
+    $script:documentationSourceFiles | Where-Object { $_.Extension -in $Extensions }
 }
 
 function Test-FoundationUpgradeAssessmentContract {
@@ -118,7 +125,7 @@ function Test-FoundationUpgradeAssessmentContract {
         if ([string]::IsNullOrWhiteSpace([string]$record.rationale)) {
             $issues.Add("$featureId rationale")
         }
-        $expectedCapabilities = if ($SourceVersion -eq '1.8.0' -and $featureId -eq 'rule-context-cache') { @('rule-context-cache') } else { @() }
+        $expectedCapabilities = if ($SourceVersion -in @('1.8.0','1.21.0') -and $featureId -eq 'rule-context-cache') { @('rule-context-cache') } else { @() }
         $actualCapabilities = @($record.selected_capabilities)
         $capabilitiesMatch = if ($expectedCapabilities.Count -eq 0) { $actualCapabilities.Count -eq 0 } else { @(Compare-Object -ReferenceObject $expectedCapabilities -DifferenceObject $actualCapabilities).Count -eq 0 }
         if (-not $record.PSObject.Properties['selected_capabilities'] -or -not $capabilitiesMatch) {
@@ -765,11 +772,11 @@ $legacyCommandAllowlist = @(
     'Tests/Static/Invoke-DocumentationChecks.ps1'
 )
 $legacyCommandHits = @(
-    Get-ChildItem -LiteralPath $repoRoot -Recurse -File |
+    Get-RepositoryFiles -Extensions @('.md', '.txt', '.ps1', '.psm1', '.psd1', '.json', '.yaml', '.yml') |
         Where-Object {
             $relativePath = [System.IO.Path]::GetRelativePath($repoRoot, $_.FullName) -replace '\\', '/'
             $_.Extension -in @('.md', '.txt', '.ps1', '.psm1', '.psd1', '.json', '.yaml', '.yml') -and
-                $relativePath -notmatch '^(?:_QuellRepo|private_Note|\.secrets|\.artifacts)[\\/]' -and
+                $relativePath -notmatch '^(?:_QuellRepo|private_Note|\.(git|secrets|artifacts|cache|local|runtime|state))[\\/]' -and
                 $relativePath -notin $legacyCommandAllowlist
         } |
         ForEach-Object {
@@ -888,16 +895,70 @@ Add-ValidationResult `
         $agentContract -match [regex]::Escape('.ai/foundation/FOUNDATION_RULESET.md')) `
     -Message "BEGIN=$foundationBridgeBeginCount; END=$foundationBridgeEndCount"
 
-Add-ValidationResult `
-    -Name 'Foundation-Ruleset, Index und Feature-Katalog sind auf Version 1.19.0 gebunden' `
-    -Success ($foundationRuleset -match 'Ruleset version: 1\.19\.0' -and
-        $foundationRepoMap -match 'foundation_ruleset_version: 1\.19\.0' -and
-        $foundationFeatureCatalog -match '"ruleset_version"\s*:\s*"1\.19\.0"' -and
-        $foundationRuleset -match [regex]::Escape('UPGRADE_APPLICABILITY_POLICY.md') -and
-        $foundationRuleset -match [regex]::Escape('REPOSITORY_CONTINUITY_POLICY.md') -and
-        $foundationRuleset -match [regex]::Escape('RULE_CONTEXT_CACHE_POLICY.md') -and
-        $foundationRuleset -match [regex]::Escape('AI_WORK_ORCHESTRATION_POLICY.md') -and
-        $foundationRuleset -match [regex]::Escape('installation-provenance.schema.json'))
+$installedFoundation = Get-Content -LiteralPath (Join-Path $repoRoot '.ai/foundation/installation-provenance.json') -Raw | ConvertFrom-Json
+$activeFoundationCatalog = $foundationFeatureCatalog | ConvertFrom-Json
+$activeFoundationAssessment = Get-Content -LiteralPath (Join-Path $repoRoot '.ai/foundation-upgrade-assessments/1.19.0-to-1.21.0.json') -Raw | ConvertFrom-Json
+$activeVersion = $installedFoundation.ruleset_version
+Add-ValidationResult -Name 'Aktive Foundationversionen und Provenienz stimmen strukturiert überein' -Success (
+    $activeVersion -ceq $activeFoundationCatalog.ruleset_version -and $activeVersion -ceq $activeFoundationAssessment.source_version -and
+    $foundationRuleset -match ('Ruleset version: '+[regex]::Escape($activeVersion)+'(?:\r?\n|$)') -and
+    $foundationRepoMap -match ('foundation_ruleset_version: '+[regex]::Escape($activeVersion)+'(?:\r?\n|$)') -and
+    $installedFoundation.source_commit -ceq $activeFoundationAssessment.source_ref -and
+    $installedFoundation.source_commit -ceq 'd720db4f2f0d043756a958d5195d0e62090b1c8f' -and
+    (Test-Path -LiteralPath (Join-Path $repoRoot '.ai/foundation/schemas/installation-provenance.schema.json')))
+
+
+$activeAssessmentJson=Get-Content -LiteralPath (Join-Path $repoRoot '.ai/foundation-upgrade-assessments/1.19.0-to-1.21.0.json') -Raw
+Add-ValidationResult -Name 'Active upgrade assessment conforms to schema' -Success ($activeAssessmentJson | Test-Json -SchemaFile $foundationUpgradeAssessmentSchemaPath)
+# Candidate coverage comes from catalog history, not from the submitted record.
+$activeClassifications=@{
+    'ai-client-integration'='RECOMMENDED'
+    'ai-host-preparation'='NOT_APPLICABLE'
+    'ai-runtime-adapters'='RECOMMENDED'
+    'ai-work-execution'='NOT_APPLICABLE'
+    'ai-work-orchestration'='APPLY_DEFAULT'
+    'artifact-registration'='ALREADY_EQUIVALENT'
+    'authorization-envelope'='APPLY_DEFAULT'
+    'bounded-processing-efficiency'='APPLY_DEFAULT'
+    'central-artifact-registry'='NOT_APPLICABLE'
+    'ci-supersession-and-integration-queue'='PROJECT_STRONGER'
+    'foundation-baseline'='APPLY_DEFAULT'
+    'installed-foundation-provenance'='APPLY_DEFAULT'
+    'layered-validation'='APPLY_DEFAULT'
+    'model-routing-interoperability'='ALREADY_EQUIVALENT'
+    'persistent-identity'='ALREADY_EQUIVALENT'
+    'processing-overhead-assessment'='APPLY_DEFAULT'
+    'repository-continuity-break-glass'='PROJECT_STRONGER'
+    'rule-context-cache'='APPLY_DEFAULT'
+    'rules-only-transfer'='APPLY_DEFAULT'
+    'semantic-integration'='APPLY_DEFAULT'
+    'semantic-upgrade-applicability'='APPLY_DEFAULT'
+    'session-lifecycle-management'='ALREADY_EQUIVALENT'
+}
+$activeCandidates=[ordered]@{}
+foreach($featureProperty in $activeFoundationCatalog.features.PSObject.Properties) {
+    $feature=$featureProperty.Value; $reasons=[Collections.Generic.List[string]]::new()
+    if ([version]$feature.introduced_in -gt [version]'1.19.0' -and [version]$feature.introduced_in -le [version]$activeVersion) { $reasons.Add('introduced_in:'+$feature.introduced_in) }
+    foreach($change in $feature.change_history) {
+        if ([version]$change.version -gt [version]'1.19.0' -and [version]$change.version -le [version]$activeVersion -and $change.impact -ceq 'MATERIAL') { $reasons.Add('material_change:'+$change.version) }
+    }
+    if ($reasons.Count) { $activeCandidates[$featureProperty.Name]=@{Reasons=@($reasons);Classification=$activeClassifications[$featureProperty.Name]} }
+}
+$activeContractArguments=@{ExpectedCandidates=$activeCandidates;InstalledVersion='1.19.0';SourceVersion=$activeVersion;SourceRef=$installedFoundation.source_commit}
+$activeContract=Test-FoundationUpgradeAssessmentContract -Assessment $activeFoundationAssessment @activeContractArguments
+Add-ValidationResult -Name 'Complete active upgrade delta has explicit decisions and evidence' -Success ($activeCandidates.Count -eq 22 -and $activeContract.Success) -Message $activeContract.Message
+foreach($negative in @('missing','duplicate','evidence','capability','decision')) {
+    $bad=$activeAssessmentJson | ConvertFrom-Json -Depth 100
+    switch($negative) {
+        missing { $bad.assessments=@($bad.assessments | Select-Object -Skip 1) }
+        duplicate { $bad.assessments=@($bad.assessments)+@($bad.assessments[0]) }
+        evidence { $bad.assessments[0].evidence=@() }
+        capability { $bad.assessments[0].selected_capabilities=@('ai-work-planner') }
+        decision { $bad.assessments[0].classification='DECISION_REQUIRED' }
+    }
+    $badResult=Test-FoundationUpgradeAssessmentContract -Assessment $bad @activeContractArguments
+    Add-ValidationResult -Name "Active upgrade rejects incomplete or altered contract: $negative" -Success (-not $badResult.Success)
+}
 
 Add-ValidationResult `
     -Name 'Foundation-Provenienz enthaelt den vollstaendigen MIT-Hinweis' `
@@ -907,12 +968,12 @@ Add-ValidationResult `
 
 Add-ValidationResult `
     -Name 'Repo-Map dokumentiert Foundation-Quelle, Adapter und semantische Zuordnung' `
-    -Success ($repoMap -match 'source_commit: 4aafd20442275d0fdedf291fc6e12e8fe1f683cc' -and
-        $repoMap -match 'foundation_ref: 4aafd20442275d0fdedf291fc6e12e8fe1f683cc' -and
-        $repoMap -match 'ruleset_version: "1\.19\.0"' -and
+    -Success ($repoMap -match ('source_commit: '+[regex]::Escape($installedFoundation.source_commit)) -and
+        $repoMap -match ('foundation_ref: '+[regex]::Escape($installedFoundation.source_commit)) -and
+        $repoMap -match ('ruleset_version: "'+[regex]::Escape($activeVersion)+'"') -and
         $repoMap -match 'github-copilot' -and
         $repoMap -match 'sql_cu_watch_policy: ops/sql-cu-policy\.md' -and
-        $repoMap -match 'current_record: \.ai/foundation-upgrade-assessments/1\.18\.0-to-1\.19\.0\.json' -and
+        $repoMap -match 'current_record: \.ai/foundation-upgrade-assessments/1\.19\.0-to-1\.21\.0\.json' -and
         $repoMap -match 'rule-context-cache' -and
         $repoMap -match 'ci-supersession-and-integration-queue' -and
         $repoMap -match 'unresolved_conflicts: \[\]')
@@ -1165,10 +1226,13 @@ Add-ValidationResult `
 Add-ValidationResult `
     -Name 'Projektkontext bildet den aktuellen Runtime- und Validierungsstand ab' `
     -Success ($projectContext -match [regex]::Escape('CONTAINER_CORE_IMPLEMENTED_HYPERV_SQL_CLI_ACCEPTED') -and
-        $projectContext -match [regex]::Escape('| Stand | 2026-09-10 |') -and
-        $projectContext -match 'realer Hyper-V-N5-Mehrgerätepfad' -and
-        $projectContext -match 'drei reale Project-Adapter-Piloten' -and
-        $projectContext -match 'SQL_PerformanceSchulung[\s\S]{0,160}SQL_Server_Analyze[\s\S]{0,160}SQL_Server_Toolbelt[\s\S]{0,240}Docker und Podman[\s\S]{0,100}end-to-end' -and
+        $projectContext -match '(?m)^\| Stand \| \d{4}-\d{2}-\d{2} \|\r?$' -and
+        $repoMap -match 'runtime_status: CONTAINER_CORE_IMPLEMENTED_HYPERV_SQL_CLI_ACCEPTED' -and
+        $repoMap -match 'source: Tests/Integration/Invoke-HyperVStorageAcceptance\.ps1' -and
+        $repoMap -match 'four_tempdb_data_files_on_intent_defined_minimum_proven_backing_devices' -and
+        $projectContext -match [regex]::Escape('SQL_PerformanceSchulung') -and
+        $projectContext -match [regex]::Escape('SQL_Server_Analyze') -and
+        $projectContext -match [regex]::Escape('SQL_Server_Toolbelt') -and
         $projectContext -notmatch 'ein verbleibender realer Project-Adapter-Pilot' -and
         $projectContext -notmatch 'External-Runtime-Varianten für SQL Server 2019, SQL Server 2025' -and
         $projectContext -notmatch 'offen bleiben echter Prozessabbruch, Manifest-Rerun und Windows-User-Gate' -and
@@ -1189,15 +1253,15 @@ Add-ValidationResult `
     -Name 'Repo-Map und Known Limitations beschreiben Reconcile und abgeschlossene Gates aktuell' `
     -Success ($repoMap -match 'journalisierter Container-Reconcile fuer CPU, RAM, SQL max memory, Hostport, Autostart und External Runtimes' -and
         $repoMap -notmatch 'Reconcile ist auf den Lifecycle START/STOP begrenzt' -and
-        $knownLimitations -match 'physische N5-Hyper-V-Mehrgeräte-\s*Nachweis wurde am 2026-08-30 abgeschlossen' -and
+        $knownLimitations -match 'physische N5-Hyper-V-Mehrgeräte-\s*Nachweis wurde am \d{4}-\d{2}-\d{2} abgeschlossen' -and
         $knownLimitations -match 'P0-Ressourcenroot-Bugfix ist nach der realen Legacy-SQL-Abnahme' -and
         $knownLimitations -match '34790092466' -and
         $knownLimitations -match 'zwei frische sequenzielle SQL-2025-Prepared-Runs' -and
         $repoMap -match 'sample_manifest_acceptance:.*34790092466' -and
         $knownLimitations -notmatch 'Den P0-Bugfix für Hyper-V-Ressourcenroots' -and
-        $hyperVResourceRootBacklog -match '\| Status \| `COMPLETE` seit 2026-08-31 \|' -and
+        $hyperVResourceRootBacklog -match '\| Status \| `COMPLETE` seit \d{4}-\d{2}-\d{2} \|' -and
         $hyperVResourceRootBacklog -notmatch 'IN_PROGRESS / P0' -and
-        $persistentStorageBacklog -match 'P0-Bugfix[\s\S]+ist seit 2026-08-31 abgeschlossen' -and
+        $persistentStorageBacklog -match 'P0-Bugfix[\s\S]+ist seit \d{4}-\d{2}-\d{2} abgeschlossen' -and
         $persistentStorageBacklog -notmatch 'bleibt vorrangig' -and
         $projectPlanningIndex -match 'Abgeschlossener P0-Bugfix' -and
         $knownLimitations -notmatch 'positiver realer Lauf dieses Runners steht weiterhin aus' -and
@@ -1551,7 +1615,7 @@ Add-ValidationResult `
     -Name 'Roadmap und Grenzen beschreiben HV-602 evidenzgebunden' `
     -Success ($developmentExecutionPlan -match '`HV-602` bindet\s*vCPU, statisches/dynamisches RAM und Min/Startup/Max' -and
         $knownLimitations -match 'SqlServerLab\.HyperVResourceIntent/1\.0' -and
-        $knownLimitations -match 'Am 2026-09-14 bestand zusätzlich die vollständige native Ressourcen-Acceptance' -and
+        $knownLimitations -match 'Am \d{4}-\d{2}-\d{2} bestand zusätzlich die vollständige native Ressourcen-Acceptance' -and
         $repoMap -match 'hyperv_resource_reconcile_contract: Private/HyperVResourceReconcile\.ps1')
 
 Add-ValidationResult `

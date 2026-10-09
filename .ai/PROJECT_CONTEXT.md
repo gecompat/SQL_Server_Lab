@@ -8,12 +8,13 @@
 | Repository | `gecompat/SQL_Server_Lab` |
 | Maschinenlesbare Landkarte | [`repo_map.yaml`](repo_map.yaml) |
 
-Der Benutzer hat am 2026-10-08 nach Integration des Backlog-PR #712 die autonome
-Weiterentwicklung ausdrücklich wieder gestartet: `ACTIVE`, mit unabhängigen
-Subagentaufgaben und ereignisgesteuerten Fertigmeldungen. Der
+Die autonome Entwicklungswelle wurde am 2026-10-09 auf Benutzerauftrag
+beendet; ihr Fortsetzungsheartbeat ist gelöscht. Der
 [kanonische Wellenplan](../Documentation/Project_Planning/AUTONOMOUS_DEVELOPMENT_WAVE_2026-09-10.md)
-erhält den historischen Pausecheckpoint vom 2026-10-07 sowie offene Schritte und
-Wiederaufnahmegrenzen. Genau ein Implementierer verantwortet einen atomaren Scope.
+erhält historische Wiederaufnahmen, offene Aufgaben und Schutzgrenzen.
+Der anschließende Foundation-1.21-Auftrag ist ein begrenzter Regeln-/Prüfscope,
+keine Wiederaufnahme der Welle. Genau ein Implementierer verantwortet einen
+kohärenten Scope.
 
 ## Dokumentationszuständigkeiten
 

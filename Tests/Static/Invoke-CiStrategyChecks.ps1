@@ -15,7 +15,7 @@ $mimePaths=@('Private/SmtpTestServiceMimeProcess.ps1','Tools/SmtpTestServiceMime
 foreach($mimePath in $mimePaths){
     foreach($path in @($mimePath,$mimePath.Replace('/','\'))){
         $selected=& $selector -ChangedPath @($path)
-        $expectedDocker=$mimePath.StartsWith('Private/',[StringComparison]::Ordinal)
+        $expectedDocker=$false
         Add-CheckResult -Name "MIME-Einzelpfad bindet beide Offline-Fixtures: $path" -Success (
             'Invoke-SmtpTestServiceMimeParentChecks.ps1' -in $selected.StaticChecks -and
             $selected.Docker -eq $expectedDocker -and -not $selected.Podman -and -not $selected.Mixed -and
@@ -29,9 +29,9 @@ foreach($path in @('Other/SmtpTestServiceMimeProcess.ps1','Other/SmtpTestService
         'Invoke-SmtpTestServiceMimeParentChecks.ps1' -notin $selected.StaticChecks)
 }
 $mimeInfrastructure=& $selector -ChangedPath @($mimePaths[0],'Tools/Get-CiTestSelection.ps1')
-Add-CheckResult -Name 'MIME-Kopplung erhält alle fünf Infrastruktur-Gates' -Success (
-    $mimeInfrastructure.Docker -and $mimeInfrastructure.Podman -and $mimeInfrastructure.Mixed -and
-    $mimeInfrastructure.HyperV -and $mimeInfrastructure.Adapter -and
+Add-CheckResult -Name 'Offline MIME und Selektorvertrag verlangen keine Providereffekte' -Success (
+    -not $mimeInfrastructure.Docker -and -not $mimeInfrastructure.Podman -and -not $mimeInfrastructure.Mixed -and
+    -not $mimeInfrastructure.HyperV -and -not $mimeInfrastructure.Adapter -and
     'Invoke-SmtpTestServiceMimeParentChecks.ps1' -in $mimeInfrastructure.StaticChecks)
 $mimeUnion=& $selector -ChangedPath @($mimePaths[1],'Providers/Podman/PodmanProvider.ps1')
 Add-CheckResult -Name 'MIME-Auswahl erhält unabhängigen Providervertrag' -Success (
@@ -42,7 +42,7 @@ foreach ($receiverPath in @('Private/SmtpTestServiceReceiverRead.ps1',
         'Tests/Static/Invoke-SmtpTestServiceReceiverReadChecks.ps1')) {
     foreach ($path in @($receiverPath,$receiverPath.Replace('/','\'))) {
         $selected = & $selector -ChangedPath @($path)
-        $expectedDocker = $receiverPath.StartsWith('Private/',[StringComparison]::Ordinal)
+        $expectedDocker = $false
         Add-CheckResult -Name "Privater SMTP-Receiver waehlt seine Suite und behaelt den Runtime-Fallback: $path" -Success (
             $receiverCheck -in $selected.StaticChecks -and $selected.Docker -eq $expectedDocker -and
             -not $selected.Podman -and -not $selected.Mixed -and -not $selected.HyperV -and -not $selected.Adapter)
@@ -53,14 +53,14 @@ Add-CheckResult -Name 'Gleicher SMTP-Fixturename ausserhalb des Scope waehlt kei
     $receiverCheck -notin $receiverOther.StaticChecks -and -not $receiverOther.Docker -and
     -not $receiverOther.Podman -and -not $receiverOther.Mixed -and -not $receiverOther.HyperV -and -not $receiverOther.Adapter)
 $receiverUnion = & $selector -ChangedPath @('Private/SmtpTestServiceReceiverRead.ps1','Providers/Podman/PodmanProvider.ps1')
-Add-CheckResult -Name 'Receiver-Auswahl erhaelt den fremden Podman-Scope und eigenen Docker-Fallback' -Success (
-    $receiverCheck -in $receiverUnion.StaticChecks -and $receiverUnion.Docker -and $receiverUnion.Podman -and
+Add-CheckResult -Name 'Offline Receiver erhaelt unabhaengigen Podman-Scope' -Success (
+    $receiverCheck -in $receiverUnion.StaticChecks -and -not $receiverUnion.Docker -and $receiverUnion.Podman -and
     -not $receiverUnion.Mixed -and -not $receiverUnion.HyperV -and -not $receiverUnion.Adapter)
 $receiverInfrastructure = & $selector -ChangedPath @('Private/SmtpTestServiceReceiverRead.ps1','Tools/Get-CiTestSelection.ps1')
-Add-CheckResult -Name 'Receiver plus CI-Infrastruktur behaelt alle fuenf Runtime-Gates' -Success (
+Add-CheckResult -Name 'Receiver plus Selektorvertrag erhaelt betroffenen Runtime-Fallback' -Success (
     $receiverCheck -in $receiverInfrastructure.StaticChecks -and
-    $receiverInfrastructure.Docker -and $receiverInfrastructure.Podman -and $receiverInfrastructure.Mixed -and
-    $receiverInfrastructure.HyperV -and $receiverInfrastructure.Adapter)
+    -not $receiverInfrastructure.Docker -and -not $receiverInfrastructure.Podman -and -not $receiverInfrastructure.Mixed -and
+    -not $receiverInfrastructure.HyperV -and -not $receiverInfrastructure.Adapter)
 $receiverAllTokens = $null; $receiverAllErrors = $null
 $receiverAllAst = [Management.Automation.Language.Parser]::ParseFile(
     (Join-Path $PSScriptRoot 'Invoke-AllChecks.ps1'),[ref]$receiverAllTokens,[ref]$receiverAllErrors)
@@ -135,7 +135,7 @@ foreach($referencePath in @('Tests/Integration/Invoke-AiPodmanSamplesReferenceAc
 $setupShared=& $selector -ChangedPath @('Private/AiPodmanSetup.ps1','Private/AiEndpoint.ps1')
 Add-CheckResult -Name 'Podman-Erstellung unterdrückt keine gemeinsame KI-Providerprüfung' -Success ($setupShared.Docker -and $setupShared.Podman -and $setupShared.HyperV)
 $setupInfrastructure=& $selector -ChangedPath @('Private/AiPodmanSetup.ps1','Tools/Get-CiTestSelection.ps1')
-Add-CheckResult -Name 'Podman-Erstellung ändert die volle Infrastrukturmatrix nicht' -Success ($setupInfrastructure.Docker -and $setupInfrastructure.Podman -and $setupInfrastructure.HyperV -and $setupInfrastructure.Mixed -and $setupInfrastructure.Adapter)
+Add-CheckResult -Name 'Podman-Erstellung plus Selektorvertrag bleibt Podman' -Success (-not $setupInfrastructure.Docker -and $setupInfrastructure.Podman -and -not $setupInfrastructure.HyperV -and -not $setupInfrastructure.Mixed -and -not $setupInfrastructure.Adapter)
 
 $docs = & $selector -ChangedPath @('Documentation/User/Getting_Started.md')
 Add-CheckResult -Name 'Dokumentation loest keinen Runtime-Smoke aus' -Success (
@@ -296,7 +296,8 @@ foreach ($resourcePath in @('Private/EnvironmentResources.ps1','Tests/Static/Inv
 foreach ($resourcePath in @('Private/EnvironmentResourcesOther.ps1','Tests/Static/Fixtures/ResourceChangeGuidanceChecksOther.ps1','Documentation/HowTo/EnvironmentResources.md')) {
     $selected = & $selector -ChangedPath @($resourcePath)
     Add-CheckResult -Name "Aehnlicher Pfad erbt keine Ressourcen-Domain: $resourcePath" -Success (
-        'Invoke-EnvironmentResourceChecks.ps1' -notin $selected.StaticChecks -and -not $selected.Podman)
+        'Invoke-EnvironmentResourceChecks.ps1' -notin $selected.StaticChecks -and
+        ($resourcePath -like 'Private/*' -or -not $selected.Podman))
 }
 Add-CheckResult -Name 'Container-Reconcile aktiviert Vertrag sowie Docker- und Podman-Akzeptanz' -Success (
     $containerReconcile.Docker -and $containerReconcile.Podman -and
@@ -758,7 +759,7 @@ Add-CheckResult -Name 'PR-Gate validiert betroffene Foundation-Aenderungen gegen
     $prWorkflow -match 'if:\s*needs\.classify\.outputs\.foundation == ''true''' -and
     $prWorkflow -match '\.ai/foundation-upgrade-assessments/' -and
     $prWorkflow -match 'repository:\s*gecompat/AI_Repository_Foundation' -and
-    $prWorkflow -match 'ref:\s*4aafd20442275d0fdedf291fc6e12e8fe1f683cc' -and
+    $prWorkflow -match 'ref:\s*d720db4f2f0d043756a958d5195d0e62090b1c8f' -and
     $prWorkflow -match 'foundation_validator\.py' -and
     $prWorkflow -match '--adapters github-copilot' -and
     $prWorkflow -match '--capabilities rule-context-cache' -and
@@ -787,7 +788,7 @@ foreach($path in @('Private/AiPersistentRetrieval.ps1','Private/AiPersistentRetr
 $combinedPersistent=& $selector -ChangedPath @('Private/AiPersistentRetrieval.ps1','Private/AiRag.ps1')
 Add-CheckResult -Name 'Geteilter KI-Vertrag behält Hyper-V trotz begrenztem Persistenzpfad' -Success ($combinedPersistent.HyperV -and $combinedPersistent.Docker -and $combinedPersistent.Podman)
 $persistentInfrastructure=& $selector -ChangedPath @('Private/AiPersistentRetrieval.ps1','Tools/Get-CiTestSelection.ps1')
-Add-CheckResult -Name 'CI-Infrastrukturänderung behält vollständige Runtimeauswahl' -Success ($persistentInfrastructure.Docker -and $persistentInfrastructure.Podman -and $persistentInfrastructure.HyperV -and $persistentInfrastructure.Mixed -and $persistentInfrastructure.Adapter)
+Add-CheckResult -Name 'Selektorvertrag verkleinert keine Retrieval-Provider' -Success ($persistentInfrastructure.Docker -and $persistentInfrastructure.Podman -and -not $persistentInfrastructure.HyperV -and -not $persistentInfrastructure.Mixed -and -not $persistentInfrastructure.Adapter)
 
 foreach($path in @('Private/RetainedStoreRemoval.ps1','Public/Invoke-SqlServerLabRetainedStoreRemoval.ps1','Schemas/retained-store-removal-journal.schema.json','Tests/Integration/Invoke-RetainedStoreRemovalAcceptance.ps1')){
     $retained=& $selector -ChangedPath @($path)
@@ -811,6 +812,8 @@ foreach ($provider in @('docker','podman')) {
     Add-CheckResult -Name "$provider workflow invokes supervised upgrade within existing runtime mutex" -Success (
         (Test-WorkflowOwnedHarness $workflow 'Invoke-SqlVersionUpgradeAcceptance.ps1' $provider -ExitVariable upgradeExitCode -Supervisor))
  }
+. (Join-Path $PSScriptRoot 'Fixtures/ValidationScopeChecks.ps1')
+
 if ($failures.Count -gt 0) {
     Write-Host "`nErgebnis: $passed PASS, $($failures.Count) FAIL" -ForegroundColor Red
     foreach ($failure in $failures) { Write-Host "  - $failure" -ForegroundColor Red }

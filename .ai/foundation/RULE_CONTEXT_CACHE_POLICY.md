@@ -8,6 +8,10 @@ A Rule Context Cache may reduce repeated model ingestion and semantic analysis o
 
 The repository files at the current working tree remain the source of truth. System/developer/current-user messages and platform, permission, and runtime instructions supplied outside discovered instruction files remain outside this cache. Native client instruction discovery is not replaced: at the start of every run or TUI session, Codex still discovers and applies its applicable `AGENTS.override.md`/`AGENTS.md` chain. The cache independently fingerprints those files and the resulting scope only so reuse of additional repository analysis can be rejected safely.
 
+## Session-local baseline and persistent profile
+
+`PROCESSING_EFFICIENCY_POLICY.md` defines the default session-local reuse procedure, available without selecting this optional persistent planner. Fresh native authority/discovery and selected source/dependency checks are required in both paths. Equivalent source analysis may survive a worktree/commit change only after current repository, instruction, discovery, and semantic-scope binding is established. The persistent `foundation-rule-context-cache/v1` profile below retains its exact binding keys and CACHE_MISS semantics; session reuse does not weaken or relabel a persistent miss.
+
 ## Smallest safe architecture
 
 Keep semantic rule analysis in session memory, keyed by the record's per-source `analysis_key`. This is sufficient to avoid repeated analysis between change waves in one run and does not create a second durable store of rule meaning.
@@ -130,4 +134,4 @@ For adoption:
 7. on `PARTIAL_INVALIDATION`, reread the reported sources and transitive dependents, then record the new analyzed state;
 8. on `CACHE_MISS`, fully rediscover/read/analyze and record again.
 
-Caching remains optional. If the capability is absent or any invariant cannot be demonstrated, use the safe full-read path.
+Persistent caching remains optional. Without this capability, use verified session-local reuse under `PROCESSING_EFFICIENCY_POLICY.md`. If current authority, scope, selected source/dependency checks, or available analysis cannot be established, use the applicable full-read path. Resolve unknown effective discovery settings at bootstrap; do not invent defaults or repeat semantic configuration diagnosis for an unchanged condition.

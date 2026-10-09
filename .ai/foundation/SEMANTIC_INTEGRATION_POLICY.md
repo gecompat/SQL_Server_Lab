@@ -113,6 +113,7 @@ Semantic integration is complete only when:
 - selected Foundation core material and explicitly selected optional capabilities are installed or intentionally merged;
 - when upgrading from an older Foundation version, the complete semantic feature delta is assessed with no silent omissions;
 - all `RECOMMENDED`, `DECISION_REQUIRED`, and `CONFLICT` feature results are surfaced and durable project choices are recorded when required;
+- the REQUIRED processing-overhead assessment covers actual rules and execution routes, with implemented behavior, justified bounded exceptions, or reasoned non-applicability for every applicable area; unresolved dispositions remain explicitly pending rather than completed efficiency integration;
 - active project governance remains intact and discoverable;
 - meaningful overlaps have a compatible classification or resolved conflict;
 - unique adapter governance has not been lost;
@@ -122,3 +123,9 @@ Semantic integration is complete only when:
 - optional Foundation reference clients have not displaced a compatible project allocator without an explicit decision;
 - installed provenance records every selected baseline or intentional override with portable source/installed hashes and a specific reason for each override; missing or stale provenance remains `UNKNOWN_DRIFT` rather than implied approval;
 - `FOUNDATION_INTEGRITY` validation remains separated from `PROJECT_SEMANTIC` and `RUNTIME_EMPIRICAL` validation.
+
+## Efficiency recommendations alongside compatibility
+
+Assess processing overhead during semantic integration and upgrade. Flag broad mandatory rereading per edit, duplicated governance, recurring unchanged polling, or review chains without a distinct question under `PROCESSING_EFFICIENCY_POLICY.md`. A `PROJECT_STRONGER` rule remains compatible and preserved even when an efficiency recommendation is warranted. Record the recommendation separately in the assessment rationale; do not silently weaken required validation, safety, privacy, independence, or user instructions. The core advisory auditor finds textual signals and locations only; semantic review determines applicability and an authorized target change.
+
+Follow the REQUIRED assessment in `PROCESSING_EFFICIENCY_POLICY.md` for test-cycle, log, review, and model-call overhead. Compatibility alone is not evidence that efficiency behavior is implemented. A stricter exception must identify its protective contract/risk, bounded trigger, and why a smaller alternative is insufficient. Verify changed behavior proportionately; copying newer Foundation files or obtaining green Foundation integrity does not complete this assessment. If amendment authority or a material decision is missing, preserve the rule and expose the pending question with context and consequences; independent authorized integration may continue.

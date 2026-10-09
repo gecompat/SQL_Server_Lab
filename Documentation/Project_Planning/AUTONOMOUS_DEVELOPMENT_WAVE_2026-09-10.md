@@ -2,12 +2,23 @@
 
 | Merkmal | Wert |
 |---|---|
-| Status | `ACTIVE`; ausdrücklich am 2026-10-08 nach Integration des Backlog-PR #712 wieder aufgenommen |
-| Stand | 2026-10-08 |
-| Auftrag | Aktuelle Entwicklungswelle aus Orchestrator Chat 2 mit denselben Regeln fortsetzen; C# bleibt USER_DEFERRED |
+| Status | `USER_ENDED`; am 2026-10-09 auf Benutzerauftrag beendet; Fortsetzungsheartbeat gelöscht |
+| Stand | 2026-10-09 |
+| Auftrag | Gesicherte Änderungen integriert, übrige offene Aufgaben erhalten; keine autonome Wiederaufnahme. C# bleibt USER_DEFERRED |
 | Ausgangspunkt | Durchsicht von `9cfd144`, vor Veröffentlichung gegen `ca9f09e` abgeglichen |
 | Ziel | vollständige Abarbeitung der Implementierungs-, Abnahme- und Bewertungsaufgaben bei konsistentem Gesamtsystem |
 | Reihenfolge | Konkretisierung des nachgelagerten Horizonts aus Abschnitt 12 des [Ausführungsplans](DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md) |
+
+## Aktueller Abschluss der Welle
+
+Der Benutzer hat die laufende Entwicklungswelle beendet. PR #732 und #734
+wurden integriert; der lokale Abschlussstand war `ba8da51bead44d800e6c72793b90690389094971`.
+Eigene abgeschlossene Worktrees und Referenzen wurden bereinigt. Unfertige
+SMTP-Funktionalität, Autostart-Umschaltung und Hyper-V-VM/SQL/CMS-Neuerstellung
+bleiben offen. Geschützte fremde Ressourcen und gesperrte Bereinigungen bleiben
+erhalten. Der anschließende Foundation-1.21-Auftrag ist ein eigener begrenzter
+Scope und aktiviert weder die frühere Welle noch ihren gelöschten Heartbeat.
+Die folgenden Wiederaufnahmen und Pausen sind historische Provenienz.
 
 ## Wiederaufnahme vom 2026-10-06
 

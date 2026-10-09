@@ -1,0 +1,390 @@
+{
+  "schema_version": 1,
+  "installed_version": "1.19.0",
+  "source_version": "1.21.0",
+  "source_ref": "d720db4f2f0d043756a958d5195d0e62090b1c8f",
+  "assessments": [
+    {
+      "feature_id": "ai-client-integration",
+      "candidate_reasons": [
+        "material_change:1.20.0"
+      ],
+      "classification": "RECOMMENDED",
+      "evidence": [
+        "AGENTS.md",
+        ".ai/WORKING_RULES.md",
+        ".ai/repo_map.yaml",
+        "Documentation/Quality/FOUNDATION_1_21_PROCESSING_ASSESSMENT.md"
+      ],
+      "rationale": "Native verfügbare Agenten bleiben nutzbar; tatsächliche Modellattestierung ist nicht belegt. Keine Clientkonfiguration oder Adaptergenerierung ausgewählt.",
+      "recommendation": "Prefer fresh, evidenced native client model-routing surfaces; otherwise integrate through detect/plan/apply/verify/rollback, require actual-model evidence, use MCP/CLI/launcher or a content-separated manual handoff, and keep synthesized adapters external and quarantined until conformance passes.",
+      "decision_required": null,
+      "selected_capabilities": []
+    },
+    {
+      "feature_id": "ai-host-preparation",
+      "candidate_reasons": [
+        "material_change:1.20.0"
+      ],
+      "classification": "NOT_APPLICABLE",
+      "evidence": [
+        "AGENTS.md",
+        ".ai/WORKING_RULES.md",
+        ".ai/repo_map.yaml",
+        "Documentation/Quality/FOUNDATION_1_21_PROCESSING_ASSESSMENT.md"
+      ],
+      "rationale": "Keine Hostprovisionierung für dieses Regeln-/Selektorupgrade; vorhandene Tools genügen. Neue Downloads und Credentials bleiben separat autorisierungspflichtig.",
+      "recommendation": null,
+      "decision_required": null,
+      "selected_capabilities": []
+    },
+    {
+      "feature_id": "ai-runtime-adapters",
+      "candidate_reasons": [
+        "material_change:1.20.0"
+      ],
+      "classification": "RECOMMENDED",
+      "evidence": [
+        "AGENTS.md",
+        ".ai/WORKING_RULES.md",
+        ".ai/repo_map.yaml",
+        "Documentation/Quality/FOUNDATION_1_21_PROCESSING_ASSESSMENT.md"
+      ],
+      "rationale": "Vorhandene lokale Runtimeverträge bleiben maßgeblich; optionale Foundation-Adapter und Verbindungen werden nicht ausgewählt. Kein remote Payloadtransfer.",
+      "recommendation": "Use the content-free JSONL protocol, external named connections, bounded detect/propose/edit/test/save/verify/rollback setup, and independently expiring provider fragments; keep unconfigured operation truthful and preserve stricter endpoint, credential, model-selection, and payload controls.",
+      "decision_required": null,
+      "selected_capabilities": []
+    },
+    {
+      "feature_id": "ai-work-execution",
+      "candidate_reasons": [
+        "material_change:1.20.0"
+      ],
+      "classification": "NOT_APPLICABLE",
+      "evidence": [
+        "AGENTS.md",
+        ".ai/WORKING_RULES.md",
+        ".ai/repo_map.yaml",
+        "Documentation/Quality/FOUNDATION_1_21_PROCESSING_ASSESSMENT.md"
+      ],
+      "rationale": "Kein optionaler resumierbarer Foundation-Executor ausgewählt. Normale lokale Werkzeuge und das erforderliche PR-Gate übernehmen diesen begrenzten Auftrag.",
+      "recommendation": null,
+      "decision_required": null,
+      "selected_capabilities": []
+    },
+    {
+      "feature_id": "ai-work-orchestration",
+      "candidate_reasons": [
+        "material_change:1.20.0"
+      ],
+      "classification": "APPLY_DEFAULT",
+      "evidence": [
+        "AGENTS.md",
+        ".ai/WORKING_RULES.md",
+        ".ai/repo_map.yaml",
+        "Documentation/Quality/FOUNDATION_1_21_PROCESSING_ASSESSMENT.md"
+      ],
+      "rationale": "Neue neutrale Regeln werden übernommen; kein ai-work-Planer und keine neue Heartbeat-Welle ausgewählt. Der frühere Scheduler wurde auf Benutzerauftrag beendet.",
+      "recommendation": null,
+      "decision_required": null,
+      "selected_capabilities": []
+    },
+    {
+      "feature_id": "artifact-registration",
+      "candidate_reasons": [
+        "material_change:1.20.0"
+      ],
+      "classification": "ALREADY_EQUIVALENT",
+      "evidence": [
+        "AGENTS.md",
+        ".ai/WORKING_RULES.md",
+        ".ai/repo_map.yaml",
+        "Documentation/Quality/FOUNDATION_1_21_PROCESSING_ASSESSMENT.md"
+      ],
+      "rationale": "Projektinterne Evidenzregistrierung und bestehende Kennungen bleiben erhalten. Transfer führt keine neue Registrierungsautorität ein; neue Registrywahl bleibt gesonderte Entscheidung.",
+      "recommendation": null,
+      "decision_required": null,
+      "selected_capabilities": []
+    },
+    {
+      "feature_id": "authorization-envelope",
+      "candidate_reasons": [
+        "material_change:1.20.0"
+      ],
+      "classification": "APPLY_DEFAULT",
+      "evidence": [
+        "AGENTS.md",
+        ".ai/WORKING_RULES.md",
+        ".ai/repo_map.yaml",
+        "Documentation/Quality/FOUNDATION_1_21_PROCESSING_ASSESSMENT.md"
+      ],
+      "rationale": "Der konkrete Benutzerauftrag autorisiert verhältnismäßige Prozesskorrekturen; bestehende reale Cleanup-/Privacy-/Consentgrenzen bleiben erhalten.",
+      "recommendation": null,
+      "decision_required": null,
+      "selected_capabilities": []
+    },
+    {
+      "feature_id": "bounded-processing-efficiency",
+      "candidate_reasons": [
+        "introduced_in:1.20.0",
+        "material_change:1.21.0"
+      ],
+      "classification": "APPLY_DEFAULT",
+      "evidence": [
+        "AGENTS.md",
+        ".ai/WORKING_RULES.md",
+        ".ai/repo_map.yaml",
+        "Documentation/Quality/FOUNDATION_1_21_PROCESSING_ASSESSMENT.md"
+      ],
+      "rationale": "A–G korrigieren tatsächliche Selektoren, Entwicklungsprüfungen, Wiederverwendung und Regeln. Ein Writer, konkrete Analysefrage statt Reviewketten; keine gemessene Einsparung behauptet.",
+      "recommendation": null,
+      "decision_required": null,
+      "selected_capabilities": []
+    },
+    {
+      "feature_id": "central-artifact-registry",
+      "candidate_reasons": [
+        "material_change:1.20.0"
+      ],
+      "classification": "NOT_APPLICABLE",
+      "evidence": [
+        "AGENTS.md",
+        ".ai/WORKING_RULES.md",
+        ".ai/repo_map.yaml",
+        "Documentation/Quality/FOUNDATION_1_21_PROCESSING_ASSESSMENT.md"
+      ],
+      "rationale": "Keine zentrale Foundation-Registry oder Kennungsmigration ausgewählt. Vorhandene Fachregister werden durch dieses Upgrade nicht ersetzt; historische Referenzen bleiben byteinhaltlich erhalten.",
+      "recommendation": null,
+      "decision_required": null,
+      "selected_capabilities": []
+    },
+    {
+      "feature_id": "ci-supersession-and-integration-queue",
+      "candidate_reasons": [
+        "material_change:1.20.0"
+      ],
+      "classification": "PROJECT_STRONGER",
+      "evidence": [
+        "AGENTS.md",
+        ".ai/WORKING_RULES.md",
+        ".ai/repo_map.yaml",
+        "Documentation/Quality/FOUNDATION_1_21_PROCESSING_ASSESSMENT.md"
+      ],
+      "rationale": "Self-hosted Runtimejobs behalten cancel-in-progress=false: harter Abbruch kann regulären Cleanup umgehen. Begrenzter Auslöser sind mutierende Runtime-Gates; kleinere Alternative Abbruch ist ohne verifizierten Recoveryvertrag unzureichend.",
+      "recommendation": null,
+      "decision_required": null,
+      "selected_capabilities": []
+    },
+    {
+      "feature_id": "foundation-baseline",
+      "candidate_reasons": [
+        "material_change:1.20.0",
+        "material_change:1.21.0"
+      ],
+      "classification": "APPLY_DEFAULT",
+      "evidence": [
+        "AGENTS.md",
+        ".ai/WORKING_RULES.md",
+        ".ai/repo_map.yaml",
+        "Documentation/Quality/FOUNDATION_1_21_PROCESSING_ASSESSMENT.md"
+      ],
+      "rationale": "Kurzer 1.21-Einstieg ersetzt nur den verwalteten Bridgeblock; projektbezogene Fach-/Sicherheitsregeln und scopierte Discovery bleiben maßgeblich.",
+      "recommendation": null,
+      "decision_required": null,
+      "selected_capabilities": []
+    },
+    {
+      "feature_id": "installed-foundation-provenance",
+      "candidate_reasons": [
+        "material_change:1.20.0",
+        "material_change:1.21.0"
+      ],
+      "classification": "APPLY_DEFAULT",
+      "evidence": [
+        "AGENTS.md",
+        ".ai/WORKING_RULES.md",
+        ".ai/repo_map.yaml",
+        "Documentation/Quality/FOUNDATION_1_21_PROCESSING_ASSESSMENT.md"
+      ],
+      "rationale": "Alle 74 ausgewählten Manifestpfade werden gegen portable Quellhashes geprüft. Exakter Sourcecommit und ein begründeter Root-Override werden quittiert; unveränderte Lizenz bleibt geschützt.",
+      "recommendation": null,
+      "decision_required": null,
+      "selected_capabilities": []
+    },
+    {
+      "feature_id": "layered-validation",
+      "candidate_reasons": [
+        "material_change:1.20.0",
+        "material_change:1.21.0"
+      ],
+      "classification": "APPLY_DEFAULT",
+      "evidence": [
+        "AGENTS.md",
+        ".ai/WORKING_RULES.md",
+        ".ai/repo_map.yaml",
+        "Documentation/Quality/FOUNDATION_1_21_PROCESSING_ASSESSMENT.md"
+      ],
+      "rationale": "Foundationintegrität, Projektaussagen und Runtimebelege getrennt; Diagnose, PR-Integration, Qualifikation und Release sind verschiedene Scopes, keine sechs obligatorischen Einzelläufe.",
+      "recommendation": null,
+      "decision_required": null,
+      "selected_capabilities": []
+    },
+    {
+      "feature_id": "model-routing-interoperability",
+      "candidate_reasons": [
+        "material_change:1.20.0"
+      ],
+      "classification": "ALREADY_EQUIVALENT",
+      "evidence": [
+        "AGENTS.md",
+        ".ai/WORKING_RULES.md",
+        ".ai/repo_map.yaml",
+        "Documentation/Quality/FOUNDATION_1_21_PROCESSING_ASSESSMENT.md"
+      ],
+      "rationale": "Detaillierte Projektrichtlinie bleibt erhalten; Foundationregeln werden aktualisiert, optionales Routing bleibt unselektiert. Kein Preis oder tatsächlich ausgeführtes Modell wird erfunden.",
+      "recommendation": null,
+      "decision_required": null,
+      "selected_capabilities": []
+    },
+    {
+      "feature_id": "persistent-identity",
+      "candidate_reasons": [
+        "material_change:1.20.0"
+      ],
+      "classification": "ALREADY_EQUIVALENT",
+      "evidence": [
+        "AGENTS.md",
+        ".ai/WORKING_RULES.md",
+        ".ai/repo_map.yaml",
+        "Documentation/Quality/FOUNDATION_1_21_PROCESSING_ASSESSMENT.md"
+      ],
+      "rationale": "Bestehende historische Kennungen und Fachregister werden nicht migriert. ADOPT_FORWARD bleibt Empfehlung für eine getrennt autorisierte Änderung der Kennungskonvention.",
+      "recommendation": null,
+      "decision_required": null,
+      "selected_capabilities": []
+    },
+    {
+      "feature_id": "processing-overhead-assessment",
+      "candidate_reasons": [
+        "introduced_in:1.21.0"
+      ],
+      "classification": "APPLY_DEFAULT",
+      "evidence": [
+        "AGENTS.md",
+        ".ai/WORKING_RULES.md",
+        ".ai/repo_map.yaml",
+        "Documentation/Quality/FOUNDATION_1_21_PROCESSING_ASSESSMENT.md"
+      ],
+      "rationale": "Die sieben konkret beauftragten Problembereiche werden am tatsächlichen Ausführungspfad geprüft; verbleibende konservative Grenzen erhalten Trigger und Schutzbegründung im Effizienzbericht.",
+      "recommendation": null,
+      "decision_required": null,
+      "selected_capabilities": []
+    },
+    {
+      "feature_id": "repository-continuity-break-glass",
+      "candidate_reasons": [
+        "material_change:1.20.0"
+      ],
+      "classification": "PROJECT_STRONGER",
+      "evidence": [
+        "AGENTS.md",
+        ".ai/WORKING_RULES.md",
+        ".ai/repo_map.yaml",
+        "Documentation/Quality/FOUNDATION_1_21_PROCESSING_ASSESSMENT.md"
+      ],
+      "rationale": "Kein Bypass autorisiert. Auslöser ist ein ausgefallener oder unbekannter Pflichtgate; Merge wartet auf echte erfolgreiche Validierung, weil kleinere Alternative Bypass fehlende Evidenz nicht ersetzt.",
+      "recommendation": null,
+      "decision_required": null,
+      "selected_capabilities": []
+    },
+    {
+      "feature_id": "rule-context-cache",
+      "candidate_reasons": [
+        "material_change:1.20.0"
+      ],
+      "classification": "APPLY_DEFAULT",
+      "evidence": [
+        "AGENTS.md",
+        ".ai/WORKING_RULES.md",
+        ".ai/repo_map.yaml",
+        "Documentation/Quality/FOUNDATION_1_21_PROCESSING_ASSESSMENT.md"
+      ],
+      "rationale": "Bereits ausgewähltes rule-context-cache bleibt ausgewählt. Native Discovery und verfügbare Sessionanalyse bleiben Voraussetzungen; Regelcache ersetzt keine Testevidence.",
+      "recommendation": null,
+      "decision_required": null,
+      "selected_capabilities": [
+        "rule-context-cache"
+      ]
+    },
+    {
+      "feature_id": "rules-only-transfer",
+      "candidate_reasons": [
+        "material_change:1.20.0",
+        "material_change:1.21.0"
+      ],
+      "classification": "APPLY_DEFAULT",
+      "evidence": [
+        "AGENTS.md",
+        ".ai/WORKING_RULES.md",
+        ".ai/repo_map.yaml",
+        "Documentation/Quality/FOUNDATION_1_21_PROCESSING_ASSESSMENT.md"
+      ],
+      "rationale": "Nur Manifestwhitelist mit bisher ausgewähltem Copilotadapter und Regelcache; keine Foundation-Projektartefakte, Rootlizenz oder optionale Runtimepakete kopiert.",
+      "recommendation": null,
+      "decision_required": null,
+      "selected_capabilities": []
+    },
+    {
+      "feature_id": "semantic-integration",
+      "candidate_reasons": [
+        "material_change:1.20.0",
+        "material_change:1.21.0"
+      ],
+      "classification": "APPLY_DEFAULT",
+      "evidence": [
+        "AGENTS.md",
+        ".ai/WORKING_RULES.md",
+        ".ai/repo_map.yaml",
+        "Documentation/Quality/FOUNDATION_1_21_PROCESSING_ASSESSMENT.md"
+      ],
+      "rationale": "Benutzer autorisiert überbreite lokale Prozessregeln zu korrigieren; reichere Fachverträge bleiben außerhalb des verwalteten Bridgeblocks erhalten.",
+      "recommendation": null,
+      "decision_required": null,
+      "selected_capabilities": []
+    },
+    {
+      "feature_id": "semantic-upgrade-applicability",
+      "candidate_reasons": [
+        "material_change:1.20.0"
+      ],
+      "classification": "APPLY_DEFAULT",
+      "evidence": [
+        "AGENTS.md",
+        ".ai/WORKING_RULES.md",
+        ".ai/repo_map.yaml",
+        "Documentation/Quality/FOUNDATION_1_21_PROCESSING_ASSESSMENT.md"
+      ],
+      "rationale": "Deterministisch vollständiges Delta von tatsächlich installiertem 1.19.0 auf exaktes 1.21.0: 22 Kandidaten, jeder genau einmal klassifiziert.",
+      "recommendation": null,
+      "decision_required": null,
+      "selected_capabilities": []
+    },
+    {
+      "feature_id": "session-lifecycle-management",
+      "candidate_reasons": [
+        "material_change:1.20.0"
+      ],
+      "classification": "ALREADY_EQUIVALENT",
+      "evidence": [
+        "AGENTS.md",
+        ".ai/WORKING_RULES.md",
+        ".ai/repo_map.yaml",
+        "Documentation/Quality/FOUNDATION_1_21_PROCESSING_ASSESSMENT.md"
+      ],
+      "rationale": "Bestehende natürliche Wechsel-/Ownershipgrenzen bleiben erhalten. Kein timerbasierter neuer Modellaufruf; beendete SMTP-Welle und gelöschter Heartbeat werden nicht neu aktiviert.",
+      "recommendation": null,
+      "decision_required": null,
+      "selected_capabilities": []
+    }
+  ]
+}

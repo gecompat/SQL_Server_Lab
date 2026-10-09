@@ -222,7 +222,12 @@ end {
         if ($checkName -notin $orchestratorChecks) { Add-Check $checkName }
     }
 
-    $ciInfrastructure = Test-AnyPath '^(\.github/workflows/(static-contracts|nightly-regression)|Tools/Get-CiTestSelection|Tests/Static/(Invoke-CiStrategyChecks|Fixtures/CiStrategyNightlyAuthorizationChecks))'
+    # Mapping/selector self-tests have no provider effects. Executable workflow
+    # orchestration still needs the full matrix, including unknown workflows.
+    $selectionContract = Test-AnyPath '^(Tools/Get-CiTestSelection\.ps1|Tools/(Get-CiCapabilitySelection|Get-StaticValidationScope|Resolve-CiRuntimeScope)\.ps1|Tests/Common/LocalStaticEvidence\.ps1|Tests/Static/(Invoke-CiStrategyChecks|Fixtures/(CiStrategyNightlyAuthorizationChecks|ValidationScopeChecks))\.ps1)$'
+    if ($selectionContract) { Add-Check 'Invoke-CiStrategyChecks.ps1' }
+    if (Test-AnyPath 'Invoke-PesterChecks|Get-StaticValidationScope|ReleaseReadinessPesterChecks') { Add-Check 'Invoke-ReleaseReadinessChecks.ps1' }
+    $ciInfrastructure = Test-AnyPath '^\.github/workflows/(static-contracts|nightly-regression)'
     if ($ciInfrastructure) {
         $runtime.Docker = $true
         $runtime.Podman = $true
@@ -235,12 +240,16 @@ end {
         # Runtime-Gates sind die Vereinigung der Einzelpfade; bekannte Dateien
         # duerfen den Fallback einer anderen Produktdatei nicht unterdruecken.
         foreach ($runtimePath in $allPaths) {
+            # Documentation may select a static contract, never a runtime just
+            # because its basename resembles executable code.
+            if ($runtimePath -match '(?i)(\.(md|txt|rst)$|^Documentation/)') { continue }
             $pathRuntime = [ordered]@{ Docker = $false; Podman = $false; Mixed = $false; HyperV = $false; Adapter = $false }
             $pathHasProductCode = $runtimePath -match '^(Private|Public|Providers|Adapters|Catalogs|Schemas)/|^SqlServerLab\.(psd1|psm1)$'
             if ($runtimePath -match '(?i)^(Private/ContainerOwnedHostIntegration\.ps1|Tests/Common/OwnedHostTestScope\.ps1|Schemas/container-owned-host-integration\.schema\.json)$') {
                 $pathRuntime.Docker = $true; $pathRuntime.Podman = $true; $pathRuntime.Mixed = $true; $pathRuntime.HyperV = $true; $pathRuntime.Adapter = $true
             }
-            if ($runtimePath -match '(?i)^Private/CleanupEngine\.ps1$') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true; $pathRuntime.Mixed = $true; $pathRuntime.HyperV = $true; $pathRuntime.Adapter = $true }
+            if ($runtimePath -match '(?i)^(Private/(CleanupEngine|Common|StateMachine|ManifestParser|DesiredState|ProviderCapability)\.ps1|SqlServerLab\.(psd1|psm1))$') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true; $pathRuntime.Mixed = $true; $pathRuntime.HyperV = $true; $pathRuntime.Adapter = $true }
+            if ($runtimePath -match '(?i)(BatchWorkflow|BatchConsole|lab-batch)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
             if ($runtimePath -match '(?i)ContainerNetworkCleanup') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
             if ($runtimePath -match '(?i)TestGroupGuidance') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true; $pathRuntime.HyperV = $true }
             if ($runtimePath -match '(?i)(MaintenanceGuidance|PersistentStorageRecovery)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
@@ -299,6 +308,9 @@ end {
             $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -match '^(Private/ScenarioExecutor\.ps1|Schemas/scenario-execution-(plan|journal)\.schema\.json)$'
             $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -match '^(Private/ScenarioCapabilityDecision\.ps1|Schemas/scenario-capability-(plan|decision)\.schema\.json)$'
             $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -match '^(Private/InstanceCapabilityAssessment\.ps1|Schemas/instance-capability-assessment\.schema\.json)$'
+            # These two private helpers are exercised by bounded offline MIME /
+            # synthetic HTTP fixtures. They do not arrange a provider or SQL.
+            $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -match '^Private/SmtpTestService(MimeProcess|ReceiverRead)\.ps1$'
             $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -match '^(Private/DiagnosticBundle(Reader|Readiness)\.ps1|Public/Get-SqlServerLabDiagnosticBundle\.ps1|Schemas/diagnostic-bundle\.schema\.json)$'
             $staticOnlyProductChange = $staticOnlyProductChange -or $aiExternalModelPlanPath
             $staticOnlyProductChange = $staticOnlyProductChange -or $aiSharedGatewayPlanPath
@@ -306,13 +318,16 @@ end {
             $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -match '(?i)^(Private/Ai(Compute(Inventory|Selection)|RuntimeCapability)\.ps1|Public/Get-SqlServerLabAi(Compute(Inventory|Candidate|Selection)|RuntimeCapability)\.ps1|Schemas/ai-(compute-(inventory|candidate-set|selection)|runtime-capability-set)\.schema\.json)$'
             $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -match '(?i)^(Private/LlamaCppModelCatalog\.ps1|Public/(Get|Save)-SqlServerLabLlamaCppModel\.ps1|Catalogs/llama-cpp-models\.json|Schemas/llama-cpp-model-catalog\.schema\.json)$'
             if ($pathHasProductCode -and -not $knownDomainChange -and -not $staticOnlyProductChange) {
-                $pathRuntime.Docker = $true
+                # Unknown product reach cannot establish a Docker-only boundary.
+                foreach($provider in @('Docker','Podman','Mixed','HyperV','Adapter')) { $pathRuntime[$provider]=$true }
             }
             foreach ($provider in @('Docker','Podman','Mixed','HyperV','Adapter')) {
                 if ($pathRuntime[$provider]) { $runtime[$provider] = $true }
             }
         }
     }
+
+    $capabilities = & (Join-Path $PSScriptRoot 'Get-CiCapabilitySelection.ps1') -ChangedPath @($allPaths) -ProviderSelection $runtime
 
     $selection = [pscustomobject]@{
         ChangedPaths = @($allPaths)
@@ -323,6 +338,7 @@ end {
         Mixed = [bool]$runtime.Mixed
         HyperV = [bool]$runtime.HyperV
         Adapter = [bool]$runtime.Adapter
+        Capabilities = $capabilities
     }
 
     if ($WriteGitHubOutput) {
@@ -330,6 +346,8 @@ end {
         foreach ($name in @('Docker','Podman','Mixed','HyperV','Adapter')) {
             $value = ([string]$selection.$name).ToLowerInvariant()
             "$($name.ToLowerInvariant())=$value" |
+                Out-File -LiteralPath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+            "$($name.ToLowerInvariant())_capabilities=$($selection.Capabilities.$name -join ',')" |
                 Out-File -LiteralPath $env:GITHUB_OUTPUT -Encoding utf8 -Append
         }
         $documentationOnly = ([string]$selection.DocumentationOnly).ToLowerInvariant()
