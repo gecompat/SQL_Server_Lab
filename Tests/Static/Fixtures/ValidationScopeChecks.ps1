@@ -135,30 +135,56 @@ Copy-Item -LiteralPath (Join-Path $repoRoot 'Tests/Static/Invoke-ImpactedChecks.
 $custodyRecord=Join-Path $custodyRepo '.artifacts/test-runs/local-static-evidence/Invoke-DocumentationChecks.ps1.json'
 $oldLog=Join-Path (Split-Path -Parent $custodyRecord) 'old.private.log'; 'OLD SYNTHETIC PASS' | Set-Content -LiteralPath $oldLog
 $actualRunner=(Get-Command pwsh -ErrorAction Stop).Source
+function Invoke-OwnedLocalEvidenceParent {
+    param([string]$LogPath,[switch]$Development,[switch]$NoReuse)
+    $info=[Diagnostics.ProcessStartInfo]::new()
+    $info.FileName=$actualRunner;$info.UseShellExecute=$false;$info.CreateNoWindow=$true
+    $info.RedirectStandardOutput=$true;$info.RedirectStandardError=$true
+    # This fixture models a local caller even when the suite itself runs in CI.
+    # Only the owned child's environment changes; production CI never reuses.
+    $info.Environment['GITHUB_ACTIONS']='false'
+    foreach($argument in @('-NoLogo','-NoProfile','-File',(Join-Path $custodyRepo 'Tests/Static/Invoke-ImpactedChecks.ps1'),'-ChangedPath','README.md')) { $info.ArgumentList.Add($argument) }
+    if($Development){$info.ArgumentList.Add('-Development')};if($NoReuse){$info.ArgumentList.Add('-NoReuse')}
+    $child=[Diagnostics.Process]::new();$child.StartInfo=$info
+    try {
+        $null=$child.Start();$stdout=$child.StandardOutput.ReadToEndAsync();$stderr=$child.StandardError.ReadToEndAsync()
+        if(-not $child.WaitForExit(30000)){throw 'LOCAL_EVIDENCE_FIXTURE_PARENT_TIMEOUT'}
+        $output=$stdout.GetAwaiter().GetResult()+$stderr.GetAwaiter().GetResult()
+        if($output.Length -gt 65536){throw 'LOCAL_EVIDENCE_FIXTURE_PARENT_OUTPUT_LIMIT'}
+        $output | Set-Content -LiteralPath $LogPath
+        return $child.ExitCode
+    } finally { if($child.Id -and -not $child.HasExited){$child.Kill($true);$child.WaitForExit()};$child.Dispose() }
+}
 $custodyBinding=Get-LocalStaticEvidenceBinding -RepoRoot $custodyRepo -Check Invoke-DocumentationChecks.ps1 -ChangedPath README.md -RunnerInvocation $actualRunner
 $oldRecord=@{Schema='LOCAL_STATIC_EVIDENCE/v1';Status='EXECUTED_PASS';Binding=$custodyBinding;ExitCode=0;SourceStable=$true;
     CompletedUtc=[datetime]::UtcNow.ToString('o');Log=$oldLog;LogSHA256=(Get-FileHash -LiteralPath $oldLog).Hash}
 $oldRecord | ConvertTo-Json | Set-Content -LiteralPath $custodyRecord
+if (-not $custodyBinding) {
+    # Some platform bundles contain links which deliberately veto reuse. Test
+    # the actual fail-closed uncached path instead of claiming cache execution.
+    $unboundExit=Invoke-OwnedLocalEvidenceParent -LogPath (Join-Path $fixture 'custody-unbound.private.log') -Development
+    $unboundOutput=Get-Content -LiteralPath (Join-Path $fixture 'custody-unbound.private.log') -Raw
+    Add-CheckResult -Name 'Unavailable concrete runtime binding executes fresh and cannot reuse evidence' -Success (
+        $unboundExit -ne 0 -and -not $unboundOutput.Contains('REUSED:') -and
+        (Test-Path -LiteralPath (Join-Path $custodyRepo '.artifacts/child-marker')) -and -not (Test-LocalStaticEvidence $custodyRecord $custodyBinding))
+    return
+}
 $heldLock=[IO.File]::Open($custodyRecord+'.lock',[IO.FileMode]::OpenOrCreate,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)
 try {
-    & $actualRunner -NoLogo -NoProfile -File (Join-Path $custodyRepo 'Tests/Static/Invoke-ImpactedChecks.ps1') -ChangedPath README.md -Development *> (Join-Path $fixture 'custody-busy.private.log')
-    $busyExit=$LASTEXITCODE
+    $busyExit=Invoke-OwnedLocalEvidenceParent -LogPath (Join-Path $fixture 'custody-busy.private.log') -Development
 } finally { $heldLock.Dispose() }
 $busyLog=Get-Content -LiteralPath (Join-Path $fixture 'custody-busy.private.log') -Raw
 Add-CheckResult -Name 'Busy evidence custody reports NOT_EXECUTED and launches no child' -Success (
     $busyExit -ne 0 -and $busyLog.Contains('LOCAL_EVIDENCE_BUSY_NOT_EXECUTED') -and -not (Test-Path -LiteralPath (Join-Path $custodyRepo '.artifacts/child-marker')))
-& $actualRunner -NoLogo -NoProfile -File (Join-Path $custodyRepo 'Tests/Static/Invoke-ImpactedChecks.ps1') -ChangedPath README.md -NoReuse *> (Join-Path $fixture 'custody-failure.private.log')
-$freshFailureExit=$LASTEXITCODE
+$freshFailureExit=Invoke-OwnedLocalEvidenceParent -LogPath (Join-Path $fixture 'custody-failure.private.log') -NoReuse
 $failedRecord=Get-Content -LiteralPath $custodyRecord -Raw | ConvertFrom-Json
 Add-CheckResult -Name 'Fresh failure invalidates old green even when reuse is disabled' -Success (
     $freshFailureExit -ne 0 -and $failedRecord.Status -ceq 'FAIL_OR_UNKNOWN' -and
     (Test-Path -LiteralPath (Join-Path $custodyRepo '.artifacts/child-marker')) -and -not (Test-LocalStaticEvidence $custodyRecord $custodyBinding))
 
 "'CHILD_STARTED' | Add-Content -LiteralPath (Join-Path `$PSScriptRoot '../../.artifacts/child-count'); exit 0" | Set-Content -LiteralPath (Join-Path $custodyRepo 'Tests/Static/Invoke-DocumentationChecks.ps1')
-& $actualRunner -NoLogo -NoProfile -File (Join-Path $custodyRepo 'Tests/Static/Invoke-ImpactedChecks.ps1') -ChangedPath README.md -Development *> (Join-Path $fixture 'custody-first-pass.private.log')
-$firstPassExit=$LASTEXITCODE
-& $actualRunner -NoLogo -NoProfile -File (Join-Path $custodyRepo 'Tests/Static/Invoke-ImpactedChecks.ps1') -ChangedPath README.md -Development *> (Join-Path $fixture 'custody-reused.private.log')
-$reuseExit=$LASTEXITCODE
+$firstPassExit=Invoke-OwnedLocalEvidenceParent -LogPath (Join-Path $fixture 'custody-first-pass.private.log') -Development
+$reuseExit=Invoke-OwnedLocalEvidenceParent -LogPath (Join-Path $fixture 'custody-reused.private.log') -Development
 $reuseOutput=Get-Content -LiteralPath (Join-Path $fixture 'custody-reused.private.log') -Raw
 Add-CheckResult -Name 'Actual development parent reuses original PASS without second child execution' -Success (
     $firstPassExit -eq 0 -and $reuseExit -eq 0 -and $reuseOutput.Contains('REUSED: Invoke-DocumentationChecks.ps1') -and

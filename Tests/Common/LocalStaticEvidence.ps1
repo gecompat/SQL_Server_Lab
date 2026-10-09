@@ -35,6 +35,17 @@ function Get-LocalStaticEvidenceBinding {
             $rows.Add("$path=$((Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash)")
         }
         $exe=(Get-Process -Id $PID).Path
+        $runnerItem=Get-Item -LiteralPath $RunnerInvocation -Force
+        if (($runnerItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+            # Native executable aliases (e.g. /usr/bin/pwsh) are resolved once;
+            # only their concrete runtime tree is inventoried. Source/evidence
+            # junctions remain vetoed. The alias path and target are both bound.
+            if ($runnerItem.LinkType -cne 'SymbolicLink') { return $null }
+            $runnerTarget=$runnerItem.ResolveLinkTarget($true)
+            if ($runnerTarget -isnot [IO.FileInfo]) { return $null }
+            $rows.Add('CHILD_ALIAS='+$RunnerInvocation)
+            $RunnerInvocation=$runnerTarget.FullName
+        }
         $runnerRoot=Split-Path -Parent $RunnerInvocation
         $runtimePending=[Collections.Generic.Stack[string]]::new();$runtimePending.Push($runnerRoot)
         while($runtimePending.Count) {

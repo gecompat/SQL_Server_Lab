@@ -30,6 +30,9 @@ Rootlizenz, vollständiger Foundationhinweis und historische Kennungen bleiben e
   benötigt einen vollständigen geprüften transitiven Abhängigkeitskatalog je
   Suite; ein Namensfilter genügt nicht. Diese konservative Überbindung schützt
   gegen ein wiederverwendetes PASS nach einer unerkannten gemeinsamen Änderung.
+  Native Executable-Aliase werden auf ihre konkrete Datei aufgelöst und mit
+  Alias sowie Target gebunden. Unauflösbare oder nicht vollständig bindbare
+  Runtimebäume erlauben keine Wiederverwendung, sondern frische Ausführung.
 - Modul-Pester und globale Analyzerkonfiguration bleiben breiter: alle
   Private-/Public-Dateien werden vom Modul geladen; unbekannte Test-/Schema-/Katalogabhängigkeiten verlangen globalen Scope; globale Errorbaselinecounts
   besitzen bisher keine sichere Freigabe je Datei. Ein Teilcount ist daher kein
@@ -72,6 +75,9 @@ Abnahme 23/0 ohne übersprungene Fälle; korrigierte Runnerfixture 14/0.
 Development-Pester prüfte sieben Fälle; Development-Analyzer genau eine Datei.
 Der globale Analyzer hielt die unveränderten 24 genehmigten Baselinefehler
 ein und meldete 5652 Warnungen; keine neuen blockierenden Fehler.
+Die lokale Parentfixture bestand zusätzlich mit `GITHUB_ACTIONS=true` im
+äußeren Prozess. Ausschließlich ihre eigenen synthetischen Kinder modellieren
+den lokalen Aufrufer; der echte CI-Prüfaufrufer behält Reuse deaktiviert.
 
 Der erweiterte erste lokale Lauf scheiterte an alten Selektorannahmen und
 zwei Aufruferrandfällen. Originalfehlversuche bleiben private Evidence;
