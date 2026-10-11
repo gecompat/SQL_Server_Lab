@@ -355,6 +355,8 @@ sources_of_truth:
   smtp_quota_gateway: Tools/SmtpTestServiceGateway.py
   smtp_service_run_scope_plan: Private/SmtpTestServicePlan.ps1
   validation_smtp_service_run_scope_plan: Tests/Static/Invoke-SmtpTestServicePlanChecks.ps1
+  smtp_service_journal: Private/SmtpTestServiceJournal.ps1
+  validation_smtp_service_journal: Tests/Static/Invoke-SmtpTestServiceJournalChecks.ps1
   smtp_quota_gateway_fixture: Tests/Static/Fixtures/SmtpTestServiceGatewayChecks.py
   validation_smtp_quota_gateway: Tests/Static/Invoke-SmtpTestServiceGatewayChecks.ps1
   acceptance_smtp_quota_gateway_image: Tests/Integration/Invoke-SmtpTestServiceGatewayImageAcceptance.ps1

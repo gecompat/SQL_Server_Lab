@@ -38,6 +38,7 @@ $checks = @(
     'Invoke-SmtpTestServiceMimeParentChecks.ps1',
     'Invoke-SmtpTestServiceGatewayChecks.ps1',
     'Invoke-SmtpTestServicePlanChecks.ps1',
+    'Invoke-SmtpTestServiceJournalChecks.ps1',
     'Invoke-ConsoleUiChecks.ps1',
     'Invoke-AiPodmanSetupChecks.ps1',
     'Invoke-AiPodmanSetupProcessChecks.ps1',
