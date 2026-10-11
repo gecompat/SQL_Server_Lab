@@ -23,3 +23,22 @@ function New-LabSmtpTestServiceJournal {
     try{$bytes=[Text.UTF8Encoding]::new($false).GetBytes(($journal|ConvertTo-Json -Depth 12));$stream.Write($bytes,0,$bytes.Length);$stream.Flush($true)}finally{$stream.Dispose()}
     return [pscustomobject]@{Journal=$journal;Path=$path}
 }
+
+function Get-LabSmtpTestServiceCleanupPlan {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Journal)
+    if($Journal.ContractVersion -cne 'SqlServerLab.SmtpTestServiceJournal/1.0' -or
+        $Journal.Provider -cnotin @('docker','podman') -or $Journal.Status -cnotin @('PREPARED','PROVISIONING','FAILED','RECOVERY_REQUIRED') -or
+        $Journal.Resources.NetworkName -isnot [string] -or $Journal.Resources.GatewayContainerName -isnot [string] -or $Journal.Resources.ReceiverContainerName -isnot [string]) {
+        throw 'SMTP_TEST_SERVICE_JOURNAL_INVALID'
+    }
+    return [pscustomobject][ordered]@{
+        Contract=[pscustomobject]@{Name='SqlServerLab.SmtpTestServiceCleanupPlan';Version='1.0'}
+        RunId=[string]$Journal.RunId;ScopeId=[string]$Journal.ScopeId;Provider=[string]$Journal.Provider;OperationId=[string]$Journal.OperationId
+        Steps=@(
+            [pscustomobject]@{Id='remove-gateway';Kind='container';Identity=[string]$Journal.Resources.GatewayContainerName},
+            [pscustomobject]@{Id='remove-receiver';Kind='container';Identity=[string]$Journal.Resources.ReceiverContainerName},
+            [pscustomobject]@{Id='remove-network';Kind='network';Identity=[string]$Journal.Resources.NetworkName}
+        )
+    }
+}
