@@ -64,6 +64,7 @@ end {
     $staticGroups = @(
         @{ Pattern = '^(Private/SmtpTestServiceMimeProcess\.ps1|Tools/SmtpTestServiceMime\.py|Tests/Static/Fixtures/SmtpTestServiceMime(Checks\.py|ParentChecks\.ps1)|Tests/Static/Invoke-SmtpTestServiceMimeParentChecks\.ps1)$'; Checks = @('Invoke-SmtpTestServiceMimeParentChecks.ps1') },
         @{ Pattern = '^(Private/SmtpTestServiceReceiverRead\.ps1|Tests/Static/(Fixtures/SmtpTestServiceReceiverReadChecks|Invoke-SmtpTestServiceReceiverReadChecks)\.ps1)$'; Checks = @('Invoke-SmtpTestServiceReceiverReadChecks.ps1') },
+        @{ Pattern = '^(Tools/SmtpTestServiceGateway(\.py|\.Dockerfile)|Tests/(Static/(Fixtures/SmtpTestServiceGatewayChecks|Invoke-SmtpTestServiceGatewayChecks)|Integration/Invoke-SmtpTestServiceGateway(Image|Receiver)Acceptance)\.ps1)$'; Checks = @('Invoke-SmtpTestServiceGatewayChecks.ps1') },
         @{ Pattern = '(?i)(SaPasswordPolicy|SecretProvider|Public[\\/]New-SqlServerLab\.ps1|Public[\\/]Invoke-SqlServerLab\.ps1|DockerProvider|PodmanProvider|ContainerOwnedHostIntegration)'; Checks = @('Invoke-SaPasswordPolicyChecks.ps1') },
         @{ Pattern = '(?i)(OwnedHost|owned-host|ContainerAutoStart|ContainerToolImage|ResourceAssessment|Restart-SqlServerLab|runtime-smoke-(docker|podman|mixed-providers))'; Checks = @('Invoke-OwnedHostIntegrationChecks.ps1') },
         @{ Pattern = '(?i)(Manage-LocalEvidenceArchive|LOCAL_EVIDENCE_ARCHIVES|Invoke-LocalEvidenceArchiveChecks)'; Checks = @('Invoke-LocalEvidenceArchiveChecks.ps1') },
@@ -257,6 +258,7 @@ end {
             if ($runtimePath -match '(?i)(^Providers/Podman/|runtime-smoke-podman\.yml|PodmanBootstrap|Initialize-PodmanRuntime)') { $pathRuntime.Podman = $true }
             if ($runtimePath -match '(?i)(PointInTimeRecovery|point-in-time-recovery|PITR)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
             if ($runtimePath -match '(?i)(HostToolResolution|Initialize-SqlServerLabHostTools)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
+            if ($runtimePath -match '(?i)SmtpTestServiceGateway') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
             if ($runtimePath -match '(?i)(^Private[\\/]ExternalRuntimeReconcile|^Tests[\\/]Static[\\/]Invoke-ExternalRuntimeReconcileChecks|Invoke-ExternalRuntimeContainerAcceptance|Public[\\/]Invoke-SqlServerLabReconcileAction)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
             if ($runtimePath -match '(?i)(HyperVExternalRuntimeReconcile|hyperv-external-runtime-reconcile|Public[\\/]Invoke-SqlServerLabReconcileAction)') { $pathRuntime.HyperV = $true }
             if ($runtimePath -match '(?i)(SqlGuestEvaluationCapture|Update-SqlServerLabSqlGuestEvaluationEvidence)') { $pathRuntime.HyperV = $true }
