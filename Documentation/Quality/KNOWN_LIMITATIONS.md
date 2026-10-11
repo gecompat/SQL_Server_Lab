@@ -955,6 +955,19 @@ Receiver, native Quota-/Egress- und Providerabnahme, Lifecycle, AdHoc-/Browser-
 Anbindung und Mailinhaltanzeige bleiben offen. Siehe den
 [Manifestvertrag](../Architecture/MANIFEST_AND_INTERFACE_ARCHITECTURE.md#aktueller-smtp-manifest-zulassungsvertrag).
 
+Die am 2026-10-11 lokal mit Docker gezogene und abgefragte Mailpit-Runtime
+`ghcr.io/axllent/mailpit:v1.31.3` (Manifest-Digest
+`sha256:ed9b00c609e77e99c79b93f1178255ebc271868920f2c69a8d166bd5634ed10d`)
+liefert eine feste Nachrichtenzahl und maximale Einzelmessage sowie HTTP-/SMTP-
+Hardening. Sie besitzt jedoch keinen Parameter für `maxStoredBytes` und kein
+Annahmelimit pro UTC-60-Sekunden-Fenster. Sie darf daher nicht allein als
+Backend für den bestehenden aktiven Manifestvertrag zugelassen werden. Der
+ausgewählte Folgeansatz ist ein run-eigenes SMTP-Quota-Gateway vor dem
+authentisierten Mailpit-Receiver; es muss beide Grenzen vor der Weiterleitung
+verbindlich durchsetzen, seine State-/Cleanup-Identität an Run und Scope binden
+und Docker sowie Podman nativ nachweisen. Bis dahin bleibt
+`SMTP_TEST_BACKEND_UNADMITTED` unverändert maßgeblich.
+
 Der [private Receiver-Lesetransport](../Architecture/SMTP_TEST_SERVICE_RECEIVER_READ.md)
 ist mit eigenen synthetischen Loopback-HTTP-Servern geprüft. Er bietet einen
 festen begrenzten Raw-MIME-GET, aber keinen Eigentumsresolver oder öffentlichen
