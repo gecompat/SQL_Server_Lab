@@ -9,6 +9,42 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $failures = [System.Collections.Generic.List[string]]::new()
 $passed = 0
 $selector = Join-Path $repoRoot 'Tools/Get-CiTestSelection.ps1'
+$identityRequestCheck = 'Invoke-FixtureIdentityRequestChecks.ps1'
+$identityRequestPaths = @('Private/FixtureIdentityRequest.ps1','Tests/Static/Invoke-FixtureIdentityRequestChecks.ps1')
+foreach ($path in @($identityRequestPaths + 'Private/FixtureHandleContract.ps1')) {
+    foreach ($normalized in @($path, $path.Replace('/', '\'))) {
+        $selected = & $selector -ChangedPath @($normalized)
+        Add-CheckResult -Name "FSF-I02-A10/A11: exakte Anfrage-/UUIDquelle, beide Suites ohne Runtime: $normalized" -Success (
+            $identityRequestCheck -in $selected.StaticChecks -and 'Invoke-FixtureHandleContractChecks.ps1' -in $selected.StaticChecks -and
+            'Invoke-PSScriptAnalyzerChecks.ps1' -in $selected.StaticChecks -and 'Invoke-PesterChecks.ps1' -in $selected.StaticChecks -and
+            -not $selected.Docker -and -not $selected.Podman -and -not $selected.Mixed -and -not $selected.HyperV -and -not $selected.Adapter)
+    }
+}
+foreach ($path in @('Private/Other/FixtureIdentityRequest.ps1','Private/FixtureIdentityRequestOther.ps1',
+        'Private/fixtureIdentityRequest.ps1','Tests/Other/Invoke-FixtureIdentityRequestChecks.ps1')) {
+    $selected = & $selector -ChangedPath @($path)
+    Add-CheckResult -Name "FSF-I02-A10: keine Teilnamen-/Ordner-/Caseausnahme: $path" -Success ($identityRequestCheck -notin $selected.StaticChecks)
+    if ($path.StartsWith('Private/', [StringComparison]::Ordinal)) {
+        Add-CheckResult -Name "FSF-I02-A10: unbekannte Produktdatei behaelt volle Matrix: $path" -Success (
+            $selected.Docker -and $selected.Podman -and $selected.Mixed -and $selected.HyperV -and $selected.Adapter)
+    }
+}
+foreach ($otherPath in @('Private/UnmappedSynthetic.ps1','Providers/Podman/PodmanProvider.ps1','Private/CleanupEngine.ps1')) {
+    $baseline = & $selector -ChangedPath @($otherPath)
+    $union = & $selector -ChangedPath @($identityRequestPaths[0],$otherPath)
+    $preserved = $true
+    foreach ($provider in @('Docker','Podman','Mixed','HyperV','Adapter')) {
+        $preserved = $preserved -and $union.$provider -eq $baseline.$provider -and
+            ($union.Capabilities.$provider -join ',') -ceq ($baseline.Capabilities.$provider -join ',')
+    }
+    Add-CheckResult -Name "FSF-I02-A10: gemischter Diff behaelt Matrix und alte Suites: $otherPath" -Success (
+        $preserved -and $identityRequestCheck -in $union.StaticChecks -and @($baseline.StaticChecks | Where-Object { $_ -notin $union.StaticChecks }).Count -eq 0)
+}
+$requestInfrastructure = & $selector -ChangedPath @($identityRequestPaths + @('Tools/Get-CiTestSelection.ps1','Tests/Static/Invoke-CiStrategyChecks.ps1'))
+Add-CheckResult -Name 'FSF-I02-A10: kohärenter Anfrage-/Selektorscope ohne Provider' -Success (
+    $identityRequestCheck -in $requestInfrastructure.StaticChecks -and 'Invoke-CiStrategyChecks.ps1' -in $requestInfrastructure.StaticChecks -and
+    -not $requestInfrastructure.Docker -and -not $requestInfrastructure.Podman -and -not $requestInfrastructure.Mixed -and
+    -not $requestInfrastructure.HyperV -and -not $requestInfrastructure.Adapter)
 $fixtureHandleCheck = 'Invoke-FixtureHandleContractChecks.ps1'
 $fixtureHandlePaths = @('Private/FixtureHandleContract.ps1', 'Tests/Static/Invoke-FixtureHandleContractChecks.ps1')
 foreach ($fixturePath in $fixtureHandlePaths) {
