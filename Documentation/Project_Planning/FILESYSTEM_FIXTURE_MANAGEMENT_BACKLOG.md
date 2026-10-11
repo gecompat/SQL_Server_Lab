@@ -5,10 +5,10 @@
 | Status | `PLANNED` |
 | Stand | 2026-10-11 |
 | Zweck | synthetische OS-/SQL-Identitäten für automatisierte Tests, manuelle Schulungen und Rekonstruktionsszenarien; optional kombinierbare Dateisystem-Fixtures auf ausgewählten SQL-Labzielen |
-| Nächster Schritt | [FSF-I01-Scopeentwurf](FILESYSTEM_FIXTURE_IMPLEMENTATION_SCOPE_01_DRAFT.md) für den internen Handle-Codec abstimmen; danach gesonderter Implementierungsauftrag unter Abgleich mit der parallelen Welle |
+| Nächster Schritt | getrennten FSF-I01-Implementierungs-PR prüfen und integrieren; weitere OS-/SQL-Scopes anschließend gesondert abstimmen |
 | Entwurfsfreigaben | FSF-01 bis FSF-06 ausdrücklich freigegeben am 2026-10-11 |
-| Implementierungsfreigabe | `PENDING`; der konkrete FSF-I01-Scope ist noch nicht freigegeben oder beauftragt |
-| Autorität | Backlogaufnahme; keine Implementierungs-, Provider-, Identitäts-, Dateisystem- oder Löschfreigabe |
+| Implementierungsfreigabe | `APPROVED` ausschließlich für [FSF-I01](FILESYSTEM_FIXTURE_IMPLEMENTATION_SCOPE_01_DRAFT.md), Revision `0.1`, ausdrücklich freigegeben und beauftragt am 2026-10-11 |
+| Autorität | begrenzter privater Formcodec; keine Provider-, Identitäts-, Dateisystem- oder Löschfreigabe |
 
 ## Ausgangslage und Ziel
 
@@ -41,8 +41,9 @@ Aufbewahrung bis zum vereinbarten Nutzungsende innerhalb des Lab-Runs.
 Testende oder Dateisystem-Cleanup entfernt aufbewahrte Identitäten nicht
 automatisch. Owner, Journal, Lebensdauer, Driftprüfung und eigener Rückbau
 gelten auch für eigenständige Benutzeranlagen. Konkrete Profile,
-Authentisierungsarten, Secretübergabe und Cleanupabhängigkeiten bleiben in
-FSF-02 bis FSF-06 abzustimmen; es gibt keine Implementierungsfreigabe.
+Authentisierungsarten, Secretübergabe und Cleanupabhängigkeiten sind in
+FSF-02 bis FSF-06 freigegeben; ihre native Implementierung bleibt geplant.
+FSF-I01 genehmigt ausschließlich den internen Formcodec.
 
 Dieser Backlog erweitert weder die laufende parallele Entwicklungswelle noch
 deren Freigaben oder Reihenfolge. Der dortige Implementierungsstand bleibt
@@ -58,7 +59,9 @@ Revision `0.1`, wurde anschließend am selben Tag ausdrücklich freigegeben.
 am selben Tag ausdrücklich freigegeben. [FSF-06](FILESYSTEM_FIXTURE_TEST_STRATEGY_DRAFT.md),
 Revision `0.1`, wurde anschließend am selben Tag ausdrücklich freigegeben.
 Damit sind alle sechs Modelle freigegeben. Der erste konkrete Scope FSF-I01
-sowie sämtliche Implementierungs-/Runtimebelege bleiben offen.
+wurde danach ausdrücklich freigegeben und implementiert: ein privater
+Handle-Codec mit synthetischer Offline-Abnahme. Native Fixture-/Runtimebelege
+und sämtliche weiteren Implementierungsscopes bleiben offen.
 
 ## Zielauswahl und Autorisierung
 
@@ -214,8 +217,9 @@ Ownershipdaten sind in die Schutz- und Recoveryregeln einzubeziehen.
 Die spätere Strategie trennt synthetische Offline-Vertragsprüfungen von
 nativen Windows-/Hyper-V-, Linux-/Docker- und Linux-/Podman-Abnahmen.
 Mocks und grüne Dokumentationschecks ersetzen keine plattformspezifischen
-Dateisystem-, Berechtigungs- oder Cleanup-Nachweise. Sämtliche Fixture-
-Implementierungs- und Runtime-Nachweise sind für diesen Backlog offen.
+Dateisystem-, Berechtigungs- oder Cleanup-Nachweise. Native Fixture-
+Implementierungs- und Runtime-Nachweise bleiben offen. FSF-I01 prüft nur
+den privaten Formcodec und seine Testauswahl, keine dieser Fähigkeiten.
 
 ## Einzelfreigaben vor Implementierung
 
@@ -235,15 +239,19 @@ abgestimmtem und beauftragtem Scope mit Abgleich der dann aktuellen
 Entwicklungsplanung und parallelen Arbeiten. Es entsteht keine automatische
 Wellenzuordnung oder Prioritätsänderung.
 
-## Erster konkreter Implementierungsscope zur Abstimmung
+## Erster freigegebener Implementierungsscope
 
 | Scope | Reviewbares Paket | Freigabe |
 |---|---|---|
-| `FSF-I01` | [Interner Handle-Codec](FILESYSTEM_FIXTURE_IMPLEMENTATION_SCOPE_01_DRAFT.md), Revision `0.1`: strikte zweifeldrige UTF-8-Handleform, deterministischer Encoder, synthetische Offline-Abnahme, enge Selektorintegration und konkreter Abgleich mit dem überlappenden SMTP-PR #738 | `PENDING` |
+| `FSF-I01` | [Interner Handle-Codec](FILESYSTEM_FIXTURE_IMPLEMENTATION_SCOPE_01_DRAFT.md), Revision `0.1`: strikte zweifeldrige UTF-8-Handleform, deterministischer Encoder, synthetische Offline-Abnahme, enge Selektorintegration und konkreter Abgleich mit dem überlappenden SMTP-PR #738 | `APPROVED` – ausdrücklich freigegeben und beauftragt am 2026-10-11; interner Codec implementiert |
 
-Der heutige Auftrag erarbeitet dieses Paket; keine Codecimplementation oder
-Benutzeranlage. Die übrigen OS-/SQL-/Security-/Cleanupfähigkeiten bleiben
-geplant und brauchen eigene kohärente Folgescopes und Nachweise.
+Der heutige Auftrag setzt ausschließlich dieses Paket um: privater Codec,
+synthetische Tests und begrenzte Selektor-/Map-/Evidenceintegration auf einem
+separaten Branch mit eigenem PR. Keine Benutzeranlage. Die übrigen OS-/SQL-/
+Security-/Cleanupfähigkeiten bleiben geplant und brauchen eigene kohärente
+Folgescopes und Nachweise. Entwurfsindex und Modelle in Dokumentations-PR #740
+behalten ihren damaligen Planungsstand; die aktuelle FSF-I01-Freigabe und
+Umsetzung sind hier und im verlinkten Scopedokument maßgeblich.
 
 ## Gekoppelte Quellen für die spätere Ausarbeitung
 
