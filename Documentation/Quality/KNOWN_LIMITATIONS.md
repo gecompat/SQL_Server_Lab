@@ -965,8 +965,16 @@ Backend für den bestehenden aktiven Manifestvertrag zugelassen werden. Der
 ausgewählte Folgeansatz ist ein run-eigenes SMTP-Quota-Gateway vor dem
 authentisierten Mailpit-Receiver; es muss beide Grenzen vor der Weiterleitung
 verbindlich durchsetzen, seine State-/Cleanup-Identität an Run und Scope binden
-und Docker sowie Podman nativ nachweisen. Bis dahin bleibt
-`SMTP_TEST_BACKEND_UNADMITTED` unverändert maßgeblich.
+und in den bestehenden Lab-Lifecycle integrieren. Die isolierte Gateway-/
+Receiver-Komponente wurde am 2026-10-11 für Docker und Podman nativ ausgeführt;
+bis zur Run-/Scope-Bindung bleibt `SMTP_TEST_BACKEND_UNADMITTED` unverändert
+maßgeblich.
+
+Die vorbereitete Gateway-Implementierung prüft die Receiver-Inventargrößen vor
+der Weiterleitung, erhält die ursprünglichen SMTP-DATA-Bytes und zählt eine
+Annahme erst nach erfolgreichem Relay. Ihre fünf reinen Pythonfälle sind nur
+Komponentennachweise; sie erzeugt noch kein Image, keine Run-/Scope-Ownership,
+keinen Provider-State und keinen SMTP-End-to-End-Nachweis.
 
 Der [private Receiver-Lesetransport](../Architecture/SMTP_TEST_SERVICE_RECEIVER_READ.md)
 ist mit eigenen synthetischen Loopback-HTTP-Servern geprüft. Er bietet einen

@@ -148,6 +148,25 @@ prüft diese Fehler- und Erfolgswege in isolierten Prozessen innerhalb der
 ReleaseReadiness-Suite mit synthetischer Modulauflösung. Sie ersetzt weder die
 echte Pester-Suite noch einen Provider-/Runtime-Nachweis.
 
+## SMTP-Quota-Gateway und Receiver
+
+`Invoke-SmtpTestServiceGatewayChecks.ps1` prüft den kleinen Gatewaykern ohne
+Listener oder Container: Inventargrenzen für Anzahl und Bytes, Annahmelimit,
+bytegenaues Relay, fehlgeschlagenes Relay ohne Rate-Verbrauch und die Trennung
+von ESMTP-Pfad und optionalem `SIZE`-Parameter. Der Lauf bestand am
+2026-10-11 mit 6/6 unter dem per Host-Initializer aufgelösten Python.
+
+Die zwei getrennten Image-Acceptance-Skripte bauen das digestgebundene
+unprivilegierte Gatewayimage und löschen danach ihre eigenen Images,
+Container, Netzwerke und temporären Auth-Dateien. Der Image-Lauf bestand am
+2026-10-11 für Docker und Podman. Der Receiver-Lauf bestand ebenfalls für
+beide Provider: Gateway und Mailpit erhielten nur ein eigenes internes Netz,
+der Mailpit-HTTP-Zugang war Basic-auth-gebunden, eine echte SMTP-Nachricht
+wurde weitergeleitet und die nächste wurde an der echten
+Receiver-Speicheranzahl mit `452` abgewiesen. Diese Nachweise belegen die
+isolierte Gateway/Receiver-Komponente, aber keine Manifestzulassung,
+Run-/Scope-Ownership, SQL-Integration oder öffentliche SMTP-API.
+
 ## Privater SMTP-Receiver-Lesetransport
 
 Die [Receiver-Suite](../../Tests/Static/Invoke-SmtpTestServiceReceiverReadChecks.ps1)
