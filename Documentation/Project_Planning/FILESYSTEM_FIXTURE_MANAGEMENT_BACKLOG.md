@@ -1,18 +1,22 @@
-# Kontrollierte plattformübergreifende Dateisystem-Fixtures – Backlog
+# Kontrollierte Labidentitäten und plattformübergreifende Dateisystem-Fixtures – Backlog
 
 | Merkmal | Wert |
 |---|---|
 | Status | `PLANNED` |
 | Stand | 2026-10-11 |
-| Zweck | temporäre synthetische Identitäten und Dateisystemstrukturen für Datei-, Sicherheits- und Berechtigungs-Integrationstests gegen SQL-Server-Testziele |
-| Nächster Schritt | Architektur, Capability-Modell, Fixture-Handle, Ownership/Cleanup, Sicherheitsmodell und Teststrategie einzeln ausarbeiten und abstimmen |
-| Implementierungsfreigabe | `PENDING`; erst nach ausdrücklicher Einzelfreigabe aller sechs Entwurfsbereiche |
+| Zweck | synthetische OS-/SQL-Identitäten für automatisierte Tests, manuelle Schulungen und Rekonstruktionsszenarien; optional kombinierbare Dateisystem-Fixtures auf ausgewählten SQL-Labzielen |
+| Nächster Schritt | [FSF-I01-Scopeentwurf](FILESYSTEM_FIXTURE_IMPLEMENTATION_SCOPE_01_DRAFT.md) für den internen Handle-Codec abstimmen; danach gesonderter Implementierungsauftrag unter Abgleich mit der parallelen Welle |
+| Entwurfsfreigaben | FSF-01 bis FSF-06 ausdrücklich freigegeben am 2026-10-11 |
+| Implementierungsfreigabe | `PENDING`; der konkrete FSF-I01-Scope ist noch nicht freigegeben oder beauftragt |
 | Autorität | Backlogaufnahme; keine Implementierungs-, Provider-, Identitäts-, Dateisystem- oder Löschfreigabe |
 
 ## Ausgangslage und Ziel
 
-Konsumierende Projekte benötigen reproduzierbare temporäre Identitäten und
-Dateisystemstrukturen für Integrationstests gegen SQL Server. Das Lab soll
+Konsumierende Projekte und Operatoren benötigen reproduzierbare synthetische
+Identitäten für automatisierte Tests sowie manuelle SQL-Schulungen,
+Demonstrationen und Rekonstruktionsszenarien mit unterschiedlichen Benutzern.
+`SQL_PerformanceSchulung` ist ausdrücklich als Bedarfsträger benannt.
+Dateisystemstrukturen werden je nach Szenario zusätzlich benötigt. Das Lab soll
 deren kontrollierte Bereitstellung und sicheren Rückbau übernehmen, damit
 jedes Projekt keine eigenen Betreiber-Skripte, VM-Admin-Zugänge oder
 Container-Root-Zugänge verwalten muss.
@@ -22,15 +26,45 @@ laufender, ausdrücklich ausgewählter `READY`-Testziele synthetische Ressourcen
 vor. Sie dokumentiert deren Eigentümerzustand und begrenzten Lebenszyklus und
 entfernt ausschließlich nachweislich selbst erzeugte Ressourcen.
 
+Die Benutzeranlage soll auch eigenständig ohne Dateisystem-Fixture,
+Testexecutor oder `SQL_Server_Toolbelt` möglich sein. Der am 2026-10-11
+präzisierte Benutzerscope umfasst ausdrücklich beides mit getrennten Verträgen:
+lokale Windows-/Linux-OS-Identitäten sowie SQL-Logins und Datenbankbenutzer.
+Eine OS-Identität erteilt nicht automatisch SQL-Zugang. SQL-Identitäten werden
+an die ausgewählte Instanz und gegebenenfalls ausdrücklich ausgewählte
+bestehende Labdatenbanken gebunden; keine automatische Datenbankanlage.
+
+Mehrere eigene Benutzer mit unterschiedlichen ausdrücklich gewählten,
+nicht privilegierten Berechtigungsprofilen können zu einem Szenario gehören.
+Manuelle Nutzung benötigt eine sichere lokale Anmeldung und bewusst gewählte
+Aufbewahrung bis zum vereinbarten Nutzungsende innerhalb des Lab-Runs.
+Testende oder Dateisystem-Cleanup entfernt aufbewahrte Identitäten nicht
+automatisch. Owner, Journal, Lebensdauer, Driftprüfung und eigener Rückbau
+gelten auch für eigenständige Benutzeranlagen. Konkrete Profile,
+Authentisierungsarten, Secretübergabe und Cleanupabhängigkeiten bleiben in
+FSF-02 bis FSF-06 abzustimmen; es gibt keine Implementierungsfreigabe.
+
 Dieser Backlog erweitert weder die laufende parallele Entwicklungswelle noch
 deren Freigaben oder Reihenfolge. Der dortige Implementierungsstand bleibt
-getrennt. Dieser Eintrag legt Anforderungen und offene Entwurfsaufgaben fest;
-er ist kein abgeschlossener Architekturvertrag oder Runtime-Nachweis.
+getrennt. Dieser Eintrag legt Anforderungen und offene Entwurfsaufgaben fest.
+[FSF-01](FILESYSTEM_FIXTURE_ARCHITECTURE_DRAFT.md), Revision `0.2`, wurde am
+2026-10-11 einschließlich eigenständiger manueller OS-/SQL-Benutzeranlage
+ausdrücklich freigegeben. [FSF-02](FILESYSTEM_FIXTURE_CAPABILITY_DRAFT.md),
+Revision `0.1`, wurde anschließend am selben Tag ausdrücklich freigegeben.
+[FSF-03](FILESYSTEM_FIXTURE_HANDLE_DRAFT.md), Revision `0.1`, wurde danach
+ebenfalls ausdrücklich freigegeben. [FSF-04](FILESYSTEM_FIXTURE_OWNERSHIP_CLEANUP_DRAFT.md),
+Revision `0.1`, wurde anschließend am selben Tag ausdrücklich freigegeben.
+[FSF-05](FILESYSTEM_FIXTURE_SECURITY_DRAFT.md), Revision `0.1`, wurde danach
+am selben Tag ausdrücklich freigegeben. [FSF-06](FILESYSTEM_FIXTURE_TEST_STRATEGY_DRAFT.md),
+Revision `0.1`, wurde anschließend am selben Tag ausdrücklich freigegeben.
+Damit sind alle sechs Modelle freigegeben. Der erste konkrete Scope FSF-I01
+sowie sämtliche Implementierungs-/Runtimebelege bleiben offen.
 
 ## Zielauswahl und Autorisierung
 
 - Aktionen benötigen ein ausdrücklich ausgewähltes, bereits laufendes
-  `READY`-SQL-Testziel und eine explizite Fixture-Freigabe.
+  `READY`-SQL-Labziel und eine explizite Identitäts-/Fixture-Freigabe. Test,
+  Schulung, Demonstration und Rekonstruktion sind zulässige SQL-Zwecke.
 - Keine automatische Provider- oder Plattformauswahl; Produktionssysteme
   sind ausgeschlossen.
 - Plattform und Runtime stammen aus dem validierten Lab-Vertrag. Vor jeder
@@ -61,6 +95,13 @@ Fehlende oder nicht beweisbare Semantik wird nicht still emuliert. Docker,
 Podman und Hyper-V benötigen jeweils eigene Nachweise.
 
 ## Sichere temporäre Identitäten
+
+Die OS-Identitätsanforderungen unten werden um einen getrennten SQL-Vertrag
+ergänzt: neue eigene SQL-Logins und Datenbankbenutzer, ausdrücklich gebundene
+Zuordnungen, Rechteprofile und Erzeugungs-/Cleanupnachweise. Bestehende
+SQL-Logins, Benutzer, Dienstidentitäten und Authentisierungsmodi werden nicht
+verändert oder übernommen. Ihre Erstellung und spätere Entfernung sind keine
+Dateisystemoperation; ein Dateisystemroot ist dafür keine Voraussetzung.
 
 - Ausschließlich nicht privilegierte Identitäten erzeugen; keine Aufnahme in
   administrative oder anderweitig privilegierte Gruppen.
@@ -105,8 +146,10 @@ Nicht eindeutig prüfbare Grenzen blockieren die Operation.
   Eigentums- und Wiederherstellungsdatensatz sowie einen Cleanup-Plan anlegen.
 - Erzeugung und Eigentum jeder Ressource eindeutig nachweisen. Private
   Ressourcenidentitäten, Pfad- und Zielbindungen bleiben im lokalen Datensatz.
-- Das Fixture-Handle enthält nur minimale, nicht geheime Metadaten. Schema,
-  Versionsbindung, lokale Auflösung und Manipulationsschutz sind offen.
+- Der freigegebene [FSF-03-Handle-Vertrag](FILESYSTEM_FIXTURE_HANDLE_DRAFT.md)
+  enthält nur minimale, nicht geheime Metadaten; Versionsbindung, private
+  Auflösung und Freigabegrenze sind abgestimmt. Implementierung und konkrete
+  Sicherheitsnachweise bleiben offen.
 - Cleanup entfernt ausschließlich nachweislich durch diese Fixture erzeugte
   und weiterhin eindeutig gebundene Ressourcen.
 - Drift, unklare Ownership, abweichende Besitzer oder geänderte Mount-/
@@ -130,6 +173,11 @@ Cmdlets, Exports oder zugesagten endgültigen API-Namen:
 - `New-LabFilesystemFixture`
 - `Get-LabFixtureStatus`
 - `Remove-LabFilesystemFixture`
+
+Diese Beispiele decken nur das Dateisystemprofil ab. Getrennte direkte
+Anlage-/Status-/Entfernungsverträge für OS- und SQL-Identitäten sowie ihre
+Konsolenbedienung und sichere manuelle Nutzung sind in FSF-02/FSF-03 zu
+entwerfen. Keine Benutzeranlage darf eine Testautomatisierung voraussetzen.
 
 Der Schnittstellenentwurf berücksichtigt mindestens ausgewähltes Ziel,
 Owner/Run-ID, gewünschte Identitätsart, Berechtigungsprofil,
@@ -156,6 +204,7 @@ Ownershipdaten sind in die Schutz- und Recoveryregeln einzubeziehen.
 | Autorisierung und Ziel | nicht ausgewählte, nicht laufende, nicht `READY`, produktive, gewechselte oder nicht eindeutig gebundene Ziele vor Mutation ablehnen; keine automatische Providerauswahl |
 | Erfolg und Wiederholung | gewünschte synthetische Identitäten, Verzeichnisse und Rechte; reproduzierbare Profile; definierte Wiederholung ohne Übernahme fremder Ressourcen |
 | Identitäten | keine privilegierten Konten; SID-Bindung und Namensgrenzen; UID/GID-Kollisionen und bestehende Identitäten unverändert |
+| Eigenständige und manuelle Nutzung | OS-Anlage ohne Dateisystem-Fixture; SQL-Login-/Datenbankbenutzeranlage ohne OS-Adminzugang; mehrere Szenariobenutzer, sichere Anmeldung, ausdrückliche Aufbewahrung und getrenntes Cleanup; kein Executor nötig |
 | Teilfehler und Recovery | Abbruch und verlorene Antworten an Mutations-/Journalgrenzen; nachvollziehbares eigenes Cleanup und sichtbarer Recoverybedarf |
 | Drift und Idempotenz | Besitzer-, Ziel-, Mount-, Link- und Journaldrift verhindert unsichere Löschung; wiederholtes Cleanup entfernt nichts Fremdes |
 | Scope-Escape | Junctions/Reparse Points, Symlinks, bind mounts und Volumes; unverändertes Outside-Sentinel sowie unveränderte fremde Außenressourcen |
@@ -172,18 +221,29 @@ Implementierungs- und Runtime-Nachweise sind für diesen Backlog offen.
 
 | ID | Einzeln auszuarbeitender und abzustimmender Bereich | Erwartetes reviewbares Ergebnis | Freigabe |
 |---|---|---|---|
-| `FSF-01` | Architektur | SQL-Bezug, Ziel-/Readinessbindung, interne Betreibergrenze, Abläufe und ausgeschlossene Infrastrukturaktionen | `PENDING` |
-| `FSF-02` | Capability-Modell je Plattform | explizite Windows-/Hyper-V-, Linux-/Docker- und Linux-/Podman-Matrix einschließlich Namespace-/Mountgrenzen und Blockern | `PENDING` |
-| `FSF-03` | Fixture-Handle | minimaler versionierter Ergebnisvertrag, private lokale Auflösung, Ziel-/Owner-/Runbindung und Manipulationsschutz | `PENDING` |
-| `FSF-04` | Ownership und Cleanup | Vorabjournal, Erzeugungsnachweis, begrenzter Outside-Sentinel, Drift-Vetos, Idempotenz, Teilfehler und Recovery | `PENDING` |
-| `FSF-05` | Sicherheitsmodell | Bedrohungsmodell, Least Privilege, Secrets/Privacy, Escape-/Kollisionsschutz und prüfbare Sicherheitsgrenzen | `PENDING` |
-| `FSF-06` | Teststrategie | konkrete positive/negative Testmatrix, getrennte Providerbelege, SQL-Assertions, Schutz fremder Ressourcen und Cleanup-Abnahme | `PENDING` |
+| `FSF-01` | Architektur | [Freigegebener Rahmen](FILESYSTEM_FIXTURE_ARCHITECTURE_DRAFT.md), Revision `0.2`: eigenständige manuelle und automatisierte OS-/SQL-Identitäten, SQL-Bezug, Ziel-/Readinessbindung, interne Betreibergrenze, Abläufe und ausgeschlossene Infrastrukturaktionen | `APPROVED` – ausdrückliche Nutzerfreigabe am 2026-10-11 |
+| `FSF-02` | Capability-Modell je Plattform | [Freigegebenes Modell](FILESYSTEM_FIXTURE_CAPABILITY_DRAFT.md), Revision `0.1`: getrennte OS-/SQL-Identitätsarten, Nutzungs-/Rechteprofile und optionale Dateien; Windows-/Hyper-V-, Linux-/Docker- und Linux-/Podman-Matrix einschließlich Namespace-/Mountgrenzen und Blockern | `APPROVED` – ausdrückliche Nutzerfreigabe am 2026-10-11 |
+| `FSF-03` | Fixture-Handle | [Freigegebener Vertrag](FILESYSTEM_FIXTURE_HANDLE_DRAFT.md), Revision `0.1`: minimaler versionierter Handle, getrennte Ressourcenreferenzen, private lokale Ziel-/Owner-/Runbindung, Inventarrevision, Operationsfreigabe und Manipulationsschutz | `APPROVED` – ausdrückliche Nutzerfreigabe am 2026-10-11 |
+| `FSF-04` | Ownership und Cleanup | [Freigegebenes Modell](FILESYSTEM_FIXTURE_OWNERSHIP_CLEANUP_DRAFT.md), Revision `0.1`: Vorabjournal, getrennte Lebensdauer, Erzeugungs-/Absenznachweis, eigener Sentinel und Profilrückbau, Sitzungs-/Driftblocker, Idempotenz, Teilfehler und Recovery | `APPROVED` – ausdrückliche Nutzerfreigabe am 2026-10-11 |
+| `FSF-05` | Sicherheitsmodell | [Freigegebenes Modell](FILESYSTEM_FIXTURE_SECURITY_DRAFT.md), Revision `0.1`: Vertrauensmodell, exakte Autorisierung, geschützte Records/Schlüssel/Anker, getrennte Credentials und authentisiertes SQL-TLS, effektive Rechte/Generation, Quieszenz/Races, Datei-/Profilgrenzen, Quotas und Retention | `APPROVED` – ausdrückliche Nutzerfreigabe am 2026-10-11 |
+| `FSF-06` | Teststrategie | [Freigegebene Strategie](FILESYSTEM_FIXTURE_TEST_STRATEGY_DRAFT.md), Revision `0.1`: konkrete positive/negative Fallmatrix, getrennte Offline-/Host-/Provider-/SQL-/manuelle Belege, unabhängige Oracles, Fault-/Race-/Grenzfälle, Schutz fremder Ressourcen und Cleanup-Abnahme | `APPROVED` – ausdrückliche Nutzerfreigabe am 2026-10-11 |
 
-Die Backlogaufnahme ist keine Freigabe dieser Entwürfe. Erst wenn alle sechs
-Punkte einzeln abgestimmt und ausdrücklich freigegeben sind, darf eine
-Implementierung beginnen. Danach ist der konkrete Implementierungsscope mit
-der dann aktuellen Entwicklungsplanung und parallelen Arbeiten abzugleichen.
-Es entsteht keine automatische Wellenzuordnung oder Prioritätsänderung.
+Die Backlogaufnahme ist keine Freigabe dieser Entwürfe; die separaten Freigaben
+von FSF-01 bis FSF-06 sind oben dokumentiert. Alle sechs Modellfreigaben
+liegen vor. Die konkrete Implementierung beginnt erst nach separat
+abgestimmtem und beauftragtem Scope mit Abgleich der dann aktuellen
+Entwicklungsplanung und parallelen Arbeiten. Es entsteht keine automatische
+Wellenzuordnung oder Prioritätsänderung.
+
+## Erster konkreter Implementierungsscope zur Abstimmung
+
+| Scope | Reviewbares Paket | Freigabe |
+|---|---|---|
+| `FSF-I01` | [Interner Handle-Codec](FILESYSTEM_FIXTURE_IMPLEMENTATION_SCOPE_01_DRAFT.md), Revision `0.1`: strikte zweifeldrige UTF-8-Handleform, deterministischer Encoder, synthetische Offline-Abnahme, enge Selektorintegration und konkreter Abgleich mit dem überlappenden SMTP-PR #738 | `PENDING` |
+
+Der heutige Auftrag erarbeitet dieses Paket; keine Codecimplementation oder
+Benutzeranlage. Die übrigen OS-/SQL-/Security-/Cleanupfähigkeiten bleiben
+geplant und brauchen eigene kohärente Folgescopes und Nachweise.
 
 ## Gekoppelte Quellen für die spätere Ausarbeitung
 
