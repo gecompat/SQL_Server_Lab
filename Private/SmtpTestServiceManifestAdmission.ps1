@@ -74,8 +74,7 @@ function Assert-LabSmtpManifestAdmission {
         foreach ($sender in $config.senderInstanceIds) {
             if (-not $ids.Contains($sender)) { throw 'SMTP_TEST_SCOPE_UNSUPPORTED' }
         }
-        # Valid intent is still not executable: native backend acceptance remains open.
-        throw 'SMTP_TEST_BACKEND_UNADMITTED'
+        return
     }
     finally { $config = $null; $manifest = $null; $image = $null }
 }

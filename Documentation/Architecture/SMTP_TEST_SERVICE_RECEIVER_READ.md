@@ -3,10 +3,10 @@
 ## Geltungsbereich
 
 `Private/SmtpTestServiceReceiverRead.ps1` implementiert einen privaten Raw-MIME-
-Lesetransport für die spätere lokale SMTP-Testkomponente eines SQL-Labs. Er ist
-keine öffentliche Funktion und provisioniert keinen Receiver. Die
-[Manifestzulassung](MANIFEST_AND_INTERFACE_ARCHITECTURE.md#aktueller-smtp-manifest-zulassungsvertrag)
-lehnt aktiviertes SMTP weiterhin mit `SMTP_TEST_BACKEND_UNADMITTED` ab.
+Lesetransport für die lokale SMTP-Testkomponente eines SQL-Labs. Er ist keine
+öffentliche Funktion und provisioniert selbst keinen Receiver. Die
+[SMTP-Testservice-Bindung](MANIFEST_AND_INTERFACE_ARCHITECTURE.md#smtp-testservice-vertrag)
+provisioniert den Receiver und speichert nur geheimnisfreie Verbindungsdaten.
 
 Typisierte Eingaben sind kein Eigentumsnachweis. Ein zukünftiger Core-Aufrufer
 muss vor Credentialöffnung die echte Komponentenidentität, vollständige native
@@ -74,6 +74,5 @@ Sie prüft Inputvetos, binäre Identität, Leerinhalt, Größen-/Headergrenzen,
 Framing, Status-/Encodingvetos, Deadline, fehlenden Replay und eigenen Cleanup.
 Der [lokale Nachweis](../Quality/LOCAL_VALIDATION_STRATEGY.md#privater-smtp-receiver-lesetransport)
 enthält 27 bestandene Fälle und einen getrennten Canceled-Connect-Kontrollfall.
-Native Mailpit-/SMTP-, Docker-/Podman-, SQL- und Browserabnahme sowie die
-Mindestlaufzeit PowerShell 7.2/.NET 6 bleiben offen. Der Transport begründet
-weder öffentliche SMTP-Bereitschaft noch eine Provisionierungsfreigabe.
+Die Run-/Scope-Resolverbindung, eine öffentliche API und Browserabnahme bleiben
+offen. Der Transport begründet keine öffentliche Mailinhalt-API.

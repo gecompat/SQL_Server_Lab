@@ -334,6 +334,7 @@ function Resolve-ManifestDefaults {
     )
 
     Assert-LabSmtpManifestAdmission -Json ($Manifest | ConvertTo-Json -Depth 100)
+    $smtpTestService = Read-LabSmtpManifestConfig -Json ($Manifest | ConvertTo-Json -Depth 100)
 
     $manifestDirectory = if ($ManifestPath) {
         Split-Path -Parent $ManifestPath
@@ -600,6 +601,7 @@ function Resolve-ManifestDefaults {
             hostWriteMounts = [bool]($Manifest.expertActions -and $Manifest.expertActions.hostWriteMounts -eq $true)
         }
         ai                 = Resolve-LabAiManifestIntent -Ai $Manifest.ai
+        smtpTestService    = $smtpTestService
         manifestPath      = $ManifestPath
     }
 }

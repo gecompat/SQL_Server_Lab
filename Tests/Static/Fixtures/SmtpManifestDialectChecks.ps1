@@ -23,9 +23,9 @@ try{
 switch($Route){
 Helper {Assert-LabSmtpManifestAdmission -Json $Json}
 Read {Read-LabManifest -Path $Path|Out-Null}
-Test {$result=Test-SqlServerLabManifest -Path $Path;if(!$result.IsValid){$code=if($result.Errors.Count -eq 1 -and $result.Errors[0] -cin @('SMTP_TEST_CONFIG_INVALID','SMTP_TEST_SCOPE_UNSUPPORTED','SMTP_TEST_BACKEND_UNADMITTED')){$result.Errors[0]}else{'OTHER'}}}
+Test {$result=Test-SqlServerLabManifest -Path $Path;if(!$result.IsValid){$code=if($result.Errors.Count -eq 1 -and $result.Errors[0] -cin @('SMTP_TEST_CONFIG_INVALID','SMTP_TEST_SCOPE_UNSUPPORTED')){$result.Errors[0]}else{'OTHER'}}}
 }
-}catch{$code=if($_.Exception.Message -cin @('SMTP_TEST_CONFIG_INVALID','SMTP_TEST_SCOPE_UNSUPPORTED','SMTP_TEST_BACKEND_UNADMITTED')){$_.Exception.Message}else{'OTHER'}}
+}catch{$code=if($_.Exception.Message -cin @('SMTP_TEST_CONFIG_INVALID','SMTP_TEST_SCOPE_UNSUPPORTED')){$_.Exception.Message}else{'OTHER'}}
 [pscustomobject]@{Code=$code;Effects=$script:Effects}
 }
 }

@@ -10,9 +10,9 @@ $badRun=$false;try{& $module {param($c,$r,$s)New-LabSmtpTestServicePlan -Config 
 $disabled=$false;try{& $module {param($r,$s)New-LabSmtpTestServicePlan -Config @{enabled=$false} -RunId $r -ScopeId $s -Provider docker} $runId $scopeId|Out-Null}catch{$disabled=$_.Exception.Message -ceq 'SMTP_TEST_SERVICE_BINDING_INVALID'}
 $checks=@(
     ($plan.Contract.Name -ceq 'SqlServerLab.SmtpTestServicePlan')
-    ($plan.NetworkName -ceq "sql-lab-smtp-$runId-$scopeId-acceptance")
+    ($plan.SenderNetworkName -ceq 'sql-lab-smtp-aaaaaaaa-bbbbbbbb-acceptance-sender' -and $plan.ReceiverNetworkName -ceq 'sql-lab-smtp-aaaaaaaa-bbbbbbbb-acceptance-receiver-net')
     ($plan.Gateway.MaxStoredBytes -eq 1048576 -and $plan.Gateway.CPUs -eq 0.5)
-    ($plan.Receiver.Image -cmatch '^ghcr\.io/axllent/mailpit:v1\.31\.3@sha256:[a-f0-9]{64}$')
+    ($plan.Receiver.Image -cmatch '^ghcr\.io/axllent/mailpit:v1\.31\.3@sha256:[a-f0-9]{64}$' -and $plan.DatabaseMail.GatewayPort -eq 1025 -and $plan.DatabaseMail.ProfileName -match '^SQLLabSmtp_acceptance_')
     $badRun
     $disabled
 )

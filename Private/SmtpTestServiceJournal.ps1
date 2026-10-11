@@ -16,7 +16,7 @@ function New-LabSmtpTestServiceJournal {
     if(Test-Path -LiteralPath $path){throw 'SMTP_TEST_SERVICE_JOURNAL_COLLISION'}
     $journal=[pscustomobject][ordered]@{
         ContractVersion='SqlServerLab.SmtpTestServiceJournal/1.0';OperationId=[guid]::NewGuid().ToString('D');RunId=[string]$Plan.RunId;ScopeId=[string]$Plan.ScopeId;Provider=[string]$Plan.Provider;ServiceId=[string]$Plan.ServiceId;Status='PREPARED'
-        Resources=[pscustomobject]@{NetworkName=[string]$Plan.NetworkName;GatewayContainerName=[string]$Plan.GatewayContainerName;ReceiverContainerName=[string]$Plan.ReceiverContainerName;NetworkId=$null;GatewayContainerId=$null;ReceiverContainerId=$null}
+        Resources=[pscustomobject]@{SenderNetworkName=[string]$Plan.SenderNetworkName;ReceiverNetworkName=[string]$Plan.ReceiverNetworkName;GatewayContainerName=[string]$Plan.GatewayContainerName;ReceiverContainerName=[string]$Plan.ReceiverContainerName;SenderNetworkId=$null;ReceiverNetworkId=$null;GatewayContainerId=$null;ReceiverContainerId=$null}
         Recovery=[pscustomobject]@{Status='REMOVE_CREATED_RESOURCES';Attempts=0;ErrorCode=$null};UpdatedAt=Get-LabTimestamp
     }
     $stream=[IO.File]::Open($path,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
@@ -27,20 +27,21 @@ function New-LabSmtpTestServiceJournal {
 function Get-LabSmtpTestServiceCleanupPlan {
     [CmdletBinding()]
     param([Parameter(Mandatory)]$Journal)
-    $prefix='sql-lab-smtp-'+[string]$Journal.RunId+'-'+[string]$Journal.ScopeId+'-'+[string]$Journal.ServiceId
+    $prefix='sql-lab-smtp-'+([string]$Journal.RunId).Substring(0,8)+'-'+([string]$Journal.ScopeId).Substring(0,8)+'-'+[string]$Journal.ServiceId
     if($Journal.ContractVersion -cne 'SqlServerLab.SmtpTestServiceJournal/1.0' -or
         $Journal.Provider -cnotin @('docker','podman') -or $Journal.Status -cnotin @('PREPARED','PROVISIONING','FAILED','RECOVERY_REQUIRED') -or
-        $Journal.Resources.NetworkName -isnot [string] -or $Journal.Resources.GatewayContainerName -isnot [string] -or $Journal.Resources.ReceiverContainerName -isnot [string]) {
+        $Journal.Resources.SenderNetworkName -isnot [string] -or $Journal.Resources.ReceiverNetworkName -isnot [string] -or $Journal.Resources.GatewayContainerName -isnot [string] -or $Journal.Resources.ReceiverContainerName -isnot [string]) {
         throw 'SMTP_TEST_SERVICE_JOURNAL_INVALID'
     }
-    if($Journal.Resources.NetworkName -cne $prefix -or $Journal.Resources.GatewayContainerName -cne ($prefix+'-gateway') -or $Journal.Resources.ReceiverContainerName -cne ($prefix+'-receiver')){throw 'SMTP_TEST_SERVICE_JOURNAL_INVALID'}
+    if($Journal.Resources.SenderNetworkName -cne ($prefix+'-sender') -or $Journal.Resources.ReceiverNetworkName -cne ($prefix+'-receiver-net') -or $Journal.Resources.GatewayContainerName -cne ($prefix+'-gateway') -or $Journal.Resources.ReceiverContainerName -cne ($prefix+'-receiver')){throw 'SMTP_TEST_SERVICE_JOURNAL_INVALID'}
     return [pscustomobject][ordered]@{
         Contract=[pscustomobject]@{Name='SqlServerLab.SmtpTestServiceCleanupPlan';Version='1.0'}
         RunId=[string]$Journal.RunId;ScopeId=[string]$Journal.ScopeId;Provider=[string]$Journal.Provider;OperationId=[string]$Journal.OperationId
         Steps=@(
             [pscustomobject]@{Id='remove-gateway';Kind='container';Identity=[string]$Journal.Resources.GatewayContainerName},
             [pscustomobject]@{Id='remove-receiver';Kind='container';Identity=[string]$Journal.Resources.ReceiverContainerName},
-            [pscustomobject]@{Id='remove-network';Kind='network';Identity=[string]$Journal.Resources.NetworkName}
+            [pscustomobject]@{Id='remove-receiver-network';Kind='network';Identity=[string]$Journal.Resources.ReceiverNetworkName},
+            [pscustomobject]@{Id='remove-sender-network';Kind='network';Identity=[string]$Journal.Resources.SenderNetworkName}
         )
     }
 }

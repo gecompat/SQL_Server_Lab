@@ -942,18 +942,20 @@ Refresh. Der verbindliche Zielvertrag steht in
 
 ## Manifest und Schema
 
-### SMTP: Manifestzulassung und privater Lesetransport
+### SMTP: run-scoped Database-Mail-Testservice und privater Lesetransport
 
-`smtpTestService` ist an Schema, Raw-JSON-Prüfung, Validator und Parser gekoppelt.
-Weglassen, `null` und exakt `{ "enabled": false }` bewahren Legacy-Auflösung und
-DesiredState `1.0`. Aktivierte Konfiguration ist trotz gültiger SQL-2025-/Linux-
-Docker- oder Podman-Topologie mit `SMTP_TEST_BACKEND_UNADMITTED` vor Lab-Secrets,
-State und Provideroperationen gesperrt. Falsche Konfiguration und ungeeigneter
-Scope besitzen getrennte feste Fehlercodes. Der Wizard speichert keinen aktiven
-Entwurf. Objektinput kann zuvor verlorene JSON-Duplikate nicht rekonstruieren.
-Receiver, native Quota-/Egress- und Providerabnahme, Lifecycle, AdHoc-/Browser-
-Anbindung und Mailinhaltanzeige bleiben offen. Siehe den
-[Manifestvertrag](../Architecture/MANIFEST_AND_INTERFACE_ARCHITECTURE.md#aktueller-smtp-manifest-zulassungsvertrag).
+`smtpTestService` ist an Schema, Raw-JSON-Prüfung, Validator, Parser und den
+Run-Lifecycle gekoppelt. Weglassen, `null` und exakt `{ "enabled": false }`
+bewahren Legacy-Auflösung und DesiredState `1.0`. Für eine einzelne gültige
+SQL-2025-/Linux-Docker- oder Podman-Topologie entstehen ein interner
+Sender-Bridge, ein quota-begrenzter SMTP-Gateway, ein Mailpit-Receiver und je
+Senderinstanz ein nichtöffentliches Database-Mail-Profil. Falsche Konfiguration
+und ungeeigneter Scope besitzen getrennte feste Fehlercodes. Der Wizard speichert
+keinen aktiven Entwurf. Objektinput kann zuvor verlorene JSON-Duplikate nicht
+rekonstruieren. Der Serviceabschnitt in `connection-info.json` enthält nur
+Profilname, Gateway und lokalen Receiver; Zugangsdaten bleiben lokale Run-Secrets.
+AdHoc-/Browser-Anbindung und eine öffentliche Mailinhalt-API bleiben offen.
+Siehe den [Manifestvertrag](../Architecture/MANIFEST_AND_INTERFACE_ARCHITECTURE.md#smtp-testservice-vertrag).
 
 Die am 2026-10-11 lokal mit Docker gezogene und abgefragte Mailpit-Runtime
 `ghcr.io/axllent/mailpit:v1.31.3` (Manifest-Digest
@@ -962,19 +964,17 @@ liefert eine feste Nachrichtenzahl und maximale Einzelmessage sowie HTTP-/SMTP-
 Hardening. Sie besitzt jedoch keinen Parameter für `maxStoredBytes` und kein
 Annahmelimit pro UTC-60-Sekunden-Fenster. Sie darf daher nicht allein als
 Backend für den bestehenden aktiven Manifestvertrag zugelassen werden. Der
-ausgewählte Folgeansatz ist ein run-eigenes SMTP-Quota-Gateway vor dem
-authentisierten Mailpit-Receiver; es muss beide Grenzen vor der Weiterleitung
-verbindlich durchsetzen, seine State-/Cleanup-Identität an Run und Scope binden
-und in den bestehenden Lab-Lifecycle integrieren. Die isolierte Gateway-/
-Receiver-Komponente wurde am 2026-10-11 für Docker und Podman nativ ausgeführt;
-bis zur Run-/Scope-Bindung bleibt `SMTP_TEST_BACKEND_UNADMITTED` unverändert
-maßgeblich.
+ausgewählte und implementierte Ansatz ist ein run-eigenes SMTP-Quota-Gateway vor
+dem authentisierten Mailpit-Receiver. Er setzt beide Grenzen vor der
+Weiterleitung durch, bindet State und Cleanup an Run und Scope und ist in den
+Lab-Lifecycle integriert. Die isolierte Gateway-/Receiver-Komponente wurde am
+2026-10-11 für Docker und Podman nativ ausgeführt; der vollständige
+Database-Mail-Lifecycle ist bisher nur für Docker ausgeführt nachgewiesen.
 
-Die vorbereitete Gateway-Implementierung prüft die Receiver-Inventargrößen vor
-der Weiterleitung, erhält die ursprünglichen SMTP-DATA-Bytes und zählt eine
-Annahme erst nach erfolgreichem Relay. Ihre fünf reinen Pythonfälle sind nur
-Komponentennachweise; sie erzeugt noch kein Image, keine Run-/Scope-Ownership,
-keinen Provider-State und keinen SMTP-End-to-End-Nachweis.
+Die Gateway-Implementierung prüft die Receiver-Inventargrößen vor der
+Weiterleitung, erhält die ursprünglichen SMTP-DATA-Bytes und zählt eine Annahme
+erst nach erfolgreichem Relay. Die reinen Pythonfälle ergänzen die ausgeführte
+Docker-End-to-End-Abnahme, ersetzen aber keinen Podman-Lifecycle-Nachweis.
 
 Der [private Receiver-Lesetransport](../Architecture/SMTP_TEST_SERVICE_RECEIVER_READ.md)
 ist mit eigenen synthetischen Loopback-HTTP-Servern geprüft. Er bietet einen
@@ -1005,8 +1005,8 @@ bleibt ungeklärt und der fehlgeschlagene Lauf erhalten.
 Der ursprüngliche Privacyfehler bleibt erhalten. Harte RSS-/CPU-Quoten,
 physische Speicherlöschung, minimale Pythonversion und PowerShell 7.2/.NET 6
 sind nicht bestätigt. Receiver-Ownership-/Portresolver, öffentliche Mailinhalte,
-CLI-/GUI-Parität, Provisionierung und native SMTP-/SQL-/Providerabnahme bleiben
-offen. Aktive Manifestkonfiguration bleibt gesperrt.
+CLI-/GUI-Parität und die Resolverbindung bleiben offen. Die MIME-Projektion
+liefert keine eigene SMTP-/SQL-/Providerabnahme.
 
 ### Schema ist kein Runtime-Nachweis
 
