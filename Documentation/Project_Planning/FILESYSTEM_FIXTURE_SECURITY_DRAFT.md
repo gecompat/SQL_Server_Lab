@@ -1,17 +1,18 @@
-# FSF-05 – Sicherheitsmodell für getrennte OS-/SQL-Identitäten
+# FSF-05 – Freigegebenes Sicherheitsmodell für getrennte OS-/SQL-Identitäten
 
 | Merkmal | Wert |
 |---|---|
-| Status | `SECURITY_MODEL_DECISION_DRAFT` – zur Abstimmung, nicht freigegeben |
+| Status | `SECURITY_MODEL_APPROVED` – Sicherheitsmodell freigegeben |
 | Entwurf | `FSF-05`, Revision `0.1`, Stand 2026-10-11 |
+| Freigabe | ausdrücklich durch den Repository-Eigentümer am 2026-10-11 |
 | Grundlagen | [FSF-01](FILESYSTEM_FIXTURE_ARCHITECTURE_DRAFT.md) Revision `0.2`; [FSF-02](FILESYSTEM_FIXTURE_CAPABILITY_DRAFT.md), [FSF-03](FILESYSTEM_FIXTURE_HANDLE_DRAFT.md) und [FSF-04](FILESYSTEM_FIXTURE_OWNERSHIP_CLEANUP_DRAFT.md) jeweils Revision `0.1`, ausdrücklich freigegeben am 2026-10-11 |
 | Anforderungsquelle | [Fixture-Verwaltungs-Backlog](FILESYSTEM_FIXTURE_MANAGEMENT_BACKLOG.md); eigenständige manuelle und automatisierte Benutzeranlage, Dateien optional |
 | Repositorybasis der Bestandsanalyse | `a6b5a6b3`; keine Fixture-Implementierung oder native Sicherheitsevidence |
-| Autorität | Sicherheitsentwurf; keine Implementierungs-, Benutzeranlage-, Secret-, Konfigurations-, Sitzungsbeendigungs- oder Löschfreigabe |
+| Autorität | freigegebenes Sicherheitsmodell; keine Implementierungs-, Benutzeranlage-, Secret-, Konfigurations-, Sitzungsbeendigungs- oder Löschfreigabe |
 
-E1 bis E10 sind Vorschläge zur Einzelfreigabe. FSF-01 bis FSF-04 sind
-freigegeben; FSF-05 und FSF-06 bleiben offen. Auch nach einer FSF-05-Freigabe
-darf noch keine Implementierung beginnen. Die Begriffe unten beschreiben
+E1 bis E10 wurden ausdrücklich freigegeben. FSF-01 bis FSF-05 sind
+freigegeben; FSF-06 bleibt offen. Die FSF-05-Freigabe erlaubt noch keinen
+Implementierungsbeginn. Die Begriffe unten beschreiben
 Entwurfsanforderungen, keine bereits vorhandenen APIs, Stores oder Fähigkeiten.
 
 ## 1. Schutzbereich, Akteure und Vertrauensgrenzen
@@ -293,7 +294,7 @@ blockiert; kein rekursiver Ordnerfallback. Linux-Home außerhalb eigenen
 Fixture-Scopes ist nicht zugelassen. Workloaddateien werden nicht durch UID
 oder Ordnerlage nachträglich zu eigenen Ressourcen.
 
-## 8. Verbindlich vorgeschlagene Grenzen und Aufbewahrung
+## 8. Freigegebene Grenzen und Aufbewahrung
 
 Die folgenden Erstprofilwerte sind Designentscheidungen, keine Messwerte oder
 Leistungszusagen. Stärkere native Grenzen gelten zusätzlich. Eine Erweiterung
@@ -363,9 +364,9 @@ Cleanup-Engine und Owned-Host-CI sind keine Fixture-Sicherheitsabnahme.
 Diese Bestandsgrenzen bleiben ausdrücklich dokumentiert; in diesem Slice
 werden keine Helfer, Exports, Policies, Schemafelder oder Runtimepfade geändert.
 
-## 10. Entscheidungen zur Abstimmung
+## 10. Freigegebene Entscheidungen und nächster Nachweis
 
-| ID | Vorschlag für FSF-05 | Konsequenz |
+| ID | Freigegebenes Modell innerhalb FSF-05 | Konsequenz |
 |---|---|---|
 | `E1` | Explizites Vertrauensmodell mit vertrauenswürdigem lokalen Betreiber und privilegierter Infrastruktur | Kein Schutzversprechen gegen same-user Hostcode, kompromittierte Administratoren oder vollständigen Host-Rollback. |
 | `E2` | Lokale authentisierte Sitzung, exakter einmaliger Plan-Grant und durchgehende Ziel-/Lifecyclebindung | Keine Bearerautorität durch Handle, freie Vorlagen, HTTP-Erweiterung oder Rechtebootstrap. |
@@ -386,7 +387,11 @@ Linux/Docker und Linux/Podman festlegen. Eine offene native Sicherheitsgrenze
 wird als Capabilityblocker geführt, nicht durch einen Mock überdeckt.
 Alle Fixture-Implementierungs- und Runtimebelege sind weiterhin offen.
 
-Der Abstimmungsstatus ist `PENDING`. Gekoppelte Quellen sind FSF-01 bis FSF-04,
+Der Repository-Eigentümer hat FSF-05 am 2026-10-11 ausdrücklich freigegeben.
+Der Abstimmungsstatus ist `APPROVED` für Revision `0.1` und E1 bis E10.
+Als nächster Schritt liegt der [FSF-06-Teststrategieentwurf](FILESYSTEM_FIXTURE_TEST_STRATEGY_DRAFT.md)
+zur Abstimmung vor; FSF-06 sowie sämtliche Implementierungs-/Runtimebelege
+bleiben offen. Gekoppelte Quellen sind FSF-01 bis FSF-04,
 [Repo-Map](../../.ai/repo_map.yaml), [Arbeitsregeln](../../.ai/WORKING_RULES.md),
 [Known Limitations](../Quality/KNOWN_LIMITATIONS.md) und
 [Validierungsstrategie](../Quality/LOCAL_VALIDATION_STRATEGY.md).

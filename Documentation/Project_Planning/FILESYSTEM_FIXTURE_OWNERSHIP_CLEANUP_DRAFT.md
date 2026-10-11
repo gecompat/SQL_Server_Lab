@@ -13,7 +13,8 @@
 
 Alle Entscheidungen D1 bis D10 wurden ausdrücklich freigegeben. FSF-01 bis
 FSF-04 genehmigen Architektur, Fähigkeiten, Handle und Ownership-/Cleanupmodell.
-FSF-05 und FSF-06 bleiben einzeln freizugeben; erst danach darf eine
+FSF-05 wurde anschließend als Sicherheitsmodell freigegeben.
+FSF-06 bleibt einzeln freizugeben; erst danach darf eine
 Implementierung beginnen.
 Bezeichnungen und Zustände unten sind fachliche Entwurfsbegriffe, keine neuen
 Statefelder, APIs oder ausführbaren Cleanupaktionen.
@@ -359,7 +360,7 @@ diesem Entwurf weder geändert noch als fertiger Fixture-Backend zugesagt.
 | `D7` | Accountdatensätze und nachgewiesene eigene Hilfsressourcen separat; eng begrenzte Windows-Profilnebenwirkung zulassen | Keine globale Kontodatenbank-Rücksetzung; Profilrückbau verlangt eigenen SID-/Erzeugungs-/Sicherheitsbeleg. |
 | `D8` | Eigene Löschung plus gebundene Absenz von unbekannter/externer Abwesenheit unterscheiden; null automatische Mutationsretries | Wiederholung beobachtet; unklarer Dispatch blockiert neue Wirkung und Reservierungsfreigabe. |
 | `D9` | READY auch für Cleanup; Fixture-Cleanup vor regulärem Run-Ende, Records bis gebundenem Abschluss erhalten | Kein Infrastrukturfallback, SQL-unabhängige Löschroute oder TTL-Verschleierung von Recovery. |
-| `D10` | FSF-04-Freigabe genehmigt ausschließlich dieses Ownership-/Cleanupmodell | FSF-05/FSF-06 und jede Implementierungs-/Runtimefreigabe bleiben offen. |
+| `D10` | FSF-04-Freigabe genehmigt ausschließlich dieses Ownership-/Cleanupmodell | FSF-05/FSF-06 benötigen separate Einzelfreigaben; keine Implementierungs-/Runtimefreigabe. |
 
 FSF-05 muss insbesondere Recordintegrität/Rollback, native Generation,
 Quieszenz/Races, Backendnebenwirkungen, sichere Profil-/Dateioperation,
@@ -373,8 +374,10 @@ und bestätigte eigene Absenz. Keine native Löschung wird hier ausgeführt.
 
 Der Repository-Eigentümer hat FSF-04 am 2026-10-11 ausdrücklich freigegeben.
 Der Abstimmungsstatus ist `APPROVED` für Revision `0.1` und D1 bis D10.
-Als nächster Schritt liegt der [FSF-05-Sicherheitsentwurf](FILESYSTEM_FIXTURE_SECURITY_DRAFT.md)
-zur Abstimmung vor; FSF-05 und FSF-06 bleiben offen. Gekoppelte Quellen bleiben
+Das [FSF-05-Sicherheitsmodell](FILESYSTEM_FIXTURE_SECURITY_DRAFT.md) wurde
+anschließend am selben Tag freigegeben. Als nächster Schritt liegt der
+[FSF-06-Teststrategieentwurf](FILESYSTEM_FIXTURE_TEST_STRATEGY_DRAFT.md)
+zur Abstimmung vor; FSF-06 bleibt offen. Gekoppelte Quellen bleiben
 [FSF-01](FILESYSTEM_FIXTURE_ARCHITECTURE_DRAFT.md),
 [FSF-02](FILESYSTEM_FIXTURE_CAPABILITY_DRAFT.md),
 [FSF-03](FILESYSTEM_FIXTURE_HANDLE_DRAFT.md),
