@@ -1,9 +1,9 @@
-# FSF-01 – Architekturentwurf für die Fixture-Verwaltung
+# FSF-01 – Architekturentwurf für Labidentitäten und Dateisystem-Fixtures
 
 | Merkmal | Wert |
 |---|---|
 | Status | `ARCHITECTURE_DECISION_DRAFT` – zur Abstimmung, nicht freigegeben |
-| Entwurf | `FSF-01`, Revision `0.1`, Stand 2026-10-11 |
+| Entwurf | `FSF-01`, Revision `0.2`, Stand 2026-10-11 |
 | Anforderungsquelle | [Fixture-Verwaltungs-Backlog](FILESYSTEM_FIXTURE_MANAGEMENT_BACKLOG.md) |
 | Repositorybasis der Bestandsanalyse | `a6b5a6b3` |
 | Gegenstand | SQL-Bezug, Ziel-/Readinessbindung, interne Betreibergrenze, Abläufe und ausgeschlossene Infrastrukturaktionen |
@@ -17,26 +17,63 @@ Exports noch Provider-, Lifecycle-, Schema-, Secret- oder Stateverträge geände
 
 ## 1. Zweck und Verantwortungsgrenze
 
-Die Fixture-Verwaltung ist eine unterstützende SQL-Labfunktion für synthetische
-Datei-, Sicherheits- und Berechtigungs-Integrationstests. Sie stellt ein
-begrenztes Arrange bereit: eigene nicht privilegierte Testidentitäten,
-Verzeichnisse und Rechte innerhalb genau eines bereits laufenden ausgewählten
-SQL-Testziels. Ein Berechtigungsprofil bindet die Testidentität und die aktuell
-ermittelte SQL-Server-Dienstidentität an die vereinbarten eigenen Ressourcen.
+Die Verwaltung von Labidentitäten und Dateisystem-Fixtures unterstützt
+automatisierte Tests ebenso wie manuelle Schulungen, Demonstrationen und die
+Rekonstruktion von SQL-Server-Szenarien mit unterschiedlichen Benutzern.
+`SQL_PerformanceSchulung` ist ein ausdrücklich benannter Bedarfsträger;
+`SQL_Server_Toolbelt` ist ein weiterer möglicher Consumer, keine Voraussetzung.
+Ein Testexecutor oder Project Adapter muss für eine direkte Benutzeranlage
+nicht laufen. Alle Identitäten bleiben synthetisch und nicht privilegiert.
 
-Das konsumierende Projekt formuliert den SQL-Testzweck, wählt das Ziel und
-fordert ein fest definiertes Fixture-Profil an. Es verantwortet seine SQL-
-Workloads und fachlichen Assertions. Das Lab verantwortet ausschließlich die
-Fixture-Bereitstellung, technische Nachbedingungen, lokale Ownershipdaten und
-den sicheren Rückbau. Erfolg der Bereitstellung beweist noch keinen bestandenen
-fachlichen SQL-Test.
+Innerhalb genau eines bereits laufenden ausgewählten SQL-Labziels sollen
+OS-Benutzer sowie SQL-Logins und Datenbankbenutzer ausdrücklich angelegt werden
+können. Ihre Anlage ist eine eigenständige Laboperation, unabhängig von einer
+Dateisystem-Fixture. Verzeichnisse und Dateirechte sind ein zusätzliches,
+optional kombinierbares Ressourcenprofil. Nur ein Dateisystemprofil bindet
+die OS-Identität und die aktuell ermittelte SQL-Server-Dienstidentität an die
+vereinbarten eigenen Dateisystemressourcen.
 
-Die Fixture-Schnittstelle ist kein allgemeiner Dateisystem-, Benutzer-,
-Remote-Shell- oder Hostverwaltungsdienst. Der Consumer erhält weder VM-Admin-
+Der Operator beziehungsweise das konsumierende Projekt formuliert den
+SQL-Szenariozweck, wählt das Ziel und fordert fest definierte Identitäts- und
+gegebenenfalls Dateisystemprofile an. Er verantwortet Schulungsabläufe,
+Workloads und fachliche Assertions. Das Lab verantwortet Bereitstellung,
+technische Nachbedingungen, lokale Ownershipdaten und sicheren Rückbau.
+Bereitstellungserfolg beweist noch keinen bestandenen fachlichen SQL-Test.
+
+Die Schnittstelle bleibt auf eigene SQL-Labidentitäten und optionale
+Dateisystemressourcen begrenzt; sie ist kein allgemeiner Remote-Shell- oder
+Hostverwaltungsdienst. Der Consumer erhält weder VM-Admin-
 noch Container-Root-Zugänge. Er übergibt keine freien Commands, Scriptblocks,
 Installationspakete oder beliebigen absoluten Zielpfade. Identitätsarten und
 Berechtigungsprofile werden in FSF-02 festgelegt; endgültige API-Namen und
 Felder folgen in FSF-03.
+
+### Eigenständige Identitätsverträge
+
+| Vertrag | Geplanter Gegenstand | Abgrenzung |
+|---|---|---|
+| OS-Identität | synthetischer lokaler Windows-Benutzer beziehungsweise Linux-Benutzer/UID/GID im ausgewählten Gast oder Container | Kein automatischer SQL-Zugang; keine Host-, Domain- oder Adminidentität. |
+| SQL-Identität | neues synthetisches SQL-Login und/oder Datenbankbenutzer mit ausdrücklich gewähltem nicht privilegiertem Berechtigungsprofil | Eigenständige SQL-Ziel-/Datenbankbindung, keine Voraussetzung eines OS-Benutzers oder eines Dateisystemroots. |
+| Dateisystem-Fixture | eigene Verzeichnisse, Dateirechte und optionale Link-/Sentinel-Fälle | Optionales Profil mit eigener Ressourcen-Ownership; kann ausdrücklich an eine bereits durch das Lab erzeugte und erneut geprüfte OS-Identität gebunden werden. |
+
+OS- und SQL-Identität besitzen getrennte Erzeugungsnachweise, Ressourcen-
+identitäten und Cleanupabhängigkeiten. Ein Login und ein Datenbankbenutzer
+sind ebenfalls getrennte SQL-Principals. Ihre Zuordnung muss ausdrücklich
+geplant werden; Namensgleichheit stellt keine Verbindung her. Die fachliche
+Unterscheidung folgt der Microsoft-Dokumentation zu
+[Logins und Datenbankberechtigungen](https://learn.microsoft.com/en-us/sql/relational-databases/security/authentication-access/getting-started-with-database-engine-permissions?view=sql-server-ver17).
+
+FSF-02 bestimmt die konkreten Authentisierungsarten und Plattformfähigkeiten,
+FSF-03 die getrennten Requests und Handles. Windows-Authentication-Verknüpfung,
+Domain-/Kerberos-Identitäten und enthaltene Datenbankbenutzer werden nicht
+stillschweigend zugesagt. Bestehende Authentisierungsmodi werden nicht geändert.
+
+Ein vorgeschlagenes Anforderungsbeispiel für `SQL_PerformanceSchulung` ist die
+manuelle Rekonstruktion eines Falls mit zwei neu erzeugten SQL-Benutzern und
+unterschiedlichen ausdrücklich gewählten Rechten in einer ausgewählten
+Labdatenbank. Dazu können unabhängig eigene OS-Benutzer für lokale
+Dateizugriffsfälle angelegt werden. Das ist ein Planungsbeispiel aus dem
+Benutzerbedarf, kein Nachweis eines vorhandenen Schulungsmoduls.
 
 ## 2. Bestandsanalyse und Wiederverwendung
 
@@ -63,7 +100,7 @@ Readiness-/Transportabnahme. Diese Lücken bleiben Implementierungsvoraussetzung
 
 ```mermaid
 flowchart TD
-    C[Consumer: SQL-Zweck und explizites Ziel] --> F[Fixture-Fassade]
+    C[Operator oder Consumer: SQL-Szenario und explizites Ziel] --> F[Labidentitäts- und Fixture-Fassade]
     F --> B[Zielbindung und reine Vorprüfung]
     B --> A[Gebundene konkrete Freigabe]
     A --> O[Fixture-Koordinator]
@@ -71,9 +108,11 @@ flowchart TD
     O --> W[Windows-/Hyper-V-Adapter]
     O --> D[Linux-/Docker-Adapter]
     O --> P[Linux-/Podman-Adapter]
+    O --> S[SQL-Identitätsadapter]
     W --> T[Genau ein bereits laufendes SQL-Testziel]
     D --> T
     P --> T
+    S --> T
     O --> R[Minimales Handle und sanitisierter Status]
 ```
 
@@ -84,6 +123,7 @@ flowchart TD
 | Freigabeprüfung | konkreten Ziel-/Owner-/Profil-/Effektscope, Gültigkeit und lokalen Aussteller prüfen | ein Handle, ein Manifestboolean oder unterdrücktes Confirm als Autorität behandeln |
 | Fixture-Koordinator | begrenzte Operation und Reservierung führen, vorab journalisieren, Adapter ansteuern, Nachbedingungen und Cleanup zusammenhalten | neue Infrastruktur bereitstellen, ungebunden wiederholen, fachliche Tests starten |
 | Plattformadapter | feste begrenzte Operationen im ausgewählten Gast beziehungsweise Container ausführen und tatsächliche Ressourcenbindungen zurückmelden | freie Commands, Hostpfade, fremde Ressourcen, zusätzliche Rechte oder Fallbackziele |
+| SQL-Identitätsadapter | feste ziel-/datenbankgebundene Login-/Benutzeroperationen und Profile ausführen; eigene SQL-Principals und Zuordnungen separat nachweisen | freie SQL-Payloads als Betreiberoperation, bestehende Logins/Benutzer übernehmen, automatische Datenbankanlage oder Authentisierungsänderung |
 | Privater Store | Ownership-, Freigabe-, Fortschritts- und Recoverydaten geschützt lokal halten | Secrets oder reale Bindings in Git, öffentliche Ergebnisse oder Exports übernehmen |
 
 Die Komponenten sind logische Verantwortungen, keine Zusage separater Prozesse,
@@ -113,7 +153,8 @@ Vorgeschlagen wird `READY` als zeitlich begrenztes Admission-Ergebnis der
 Fixture-Vorprüfung, ohne Änderung der Run-State-Maschine. Dafür müssen alle
 folgenden Bedingungen gleichzeitig erfüllt sein:
 
-1. Das Ziel ist als autorisiertes synthetisches Lab-Testziel nachweisbar
+1. Das Ziel ist als autorisiertes synthetisches SQL-Labziel für Test, Schulung,
+   Demonstration oder Rekonstruktion nachweisbar
    klassifiziert; Produktion, Shared External und unklarer Vorbestand sind
    ausgeschlossen. Eine Selbstauskunft des Requests ersetzt diesen Nachweis nicht.
 2. Run und ausgewählte Instanz sind vertragsgültig, ohne Recovery-/Cleanup-
@@ -122,8 +163,12 @@ folgenden Bedingungen gleichzeitig erfüllt sein:
    die erwartete SQL-Vertragsidentität. Eine Major-Version allein identifiziert
    das Ziel nicht. Bei TCP ist zusätzlich die aktuelle Endpoint-/Runtimebindung
    nachzuweisen; eine beliebige erreichbare SQL-Instanz reicht nicht.
-4. Die SQL-Dienstidentität und das tatsächliche Berechtigungs-/Dateisystemmodell
-   sind für das Profil aktuell prüfbar. Fehlende Rechte oder Werkzeuge blockieren.
+4. Die für die angeforderten Identitäts-/Dateisystemprofile notwendigen
+   Berechtigungen und Zielgrenzen sind aktuell prüfbar. Dateisystemprofile
+   verlangen zusätzlich die SQL-Dienstidentität und das reale Dateisystemmodell;
+   reine SQL-Benutzeranlage verlangt keinen OS-Adminzugang. SQL-Benutzer binden
+   jede ausgewählte bestehende Labdatenbank an ihre aktuell geprüfte Identität.
+   Fehlende Rechte oder Werkzeuge blockieren.
 5. Die für das Profil erforderliche Capability und konkrete Freigabe sind
    vorhanden, und die exklusive Zielreservierung kann wirksam erworben werden.
 
@@ -159,7 +204,13 @@ Vorgeschlagen wird folgende Grenze:
   erforderlich sein; `--privileged`, Namespacewechsel zum Host, Runtime-Socket-
   Mounts, Host-Exec und Erweiterung der bestehenden Containerrechte sind verboten.
 - Für Testoperationen bleibt die Testidentität nicht privilegiert. Dienstkonto,
-  SQL-Logins, bestehende Konten und fremde Gruppen werden nicht umkonfiguriert.
+  bestehende SQL-Logins, Konten und fremde Gruppen werden nicht umkonfiguriert.
+- SQL-Identitäten werden über vorhandene, geschützte SQL-Betreiberzugänge mit
+  den notwendigen Rechten angelegt. Diese Zugänge sind von den neu erzeugten
+  Szenariobenutzern getrennt und werden ihnen nicht weitergegeben. Neue eigene
+  Logins, Benutzer und ihre ausdrücklich freigegebenen Berechtigungen sind
+  erlaubt; vorbestehende SQL-Principals bleiben unverändert. Datenbanken werden
+  nicht automatisch angelegt, fremde Objektdefinitionen nicht geändert.
 - Keine Secretwerte in Handle, Journalnutzdaten, DTOs oder normalen Logs;
   erforderliche Recoveryzugänge bleiben gesondert geschützt lokal. Die genaue
   Secretbereitstellung und Authentisierung folgen in FSF-03/FSF-05.
@@ -187,6 +238,22 @@ Lokale Fixture-Metadaten liegen in einem geschützten, nicht versionierten
 operationsgebundenen Store außerhalb des Checkouts. Zielressourcen liegen
 ausschließlich im ausgewählten Gast beziehungsweise Container.
 
+Eigenständige OS- und SQL-Identitäten besitzen ebenfalls einen eigenen
+Ressourcenlebenszyklus unterhalb des Runs; SQL-Identitäten liegen in der
+gebundenen SQL-Instanz beziehungsweise der ausgewählten Labdatenbank.
+Ein Szenario kann mehrere Identitäten und optionale Dateisystem-Fixtures
+zusammenfassen. Keine bewusst aufbewahrte Identität wird entfernt, nur weil ein
+einzelner Test oder eine Dateisystem-Fixture endet.
+
+Vorgeschlagen sind zwei ausdrücklich gewählte Nutzungsformen: operationseigen
+bis zum Ende eines automatisierten Tests oder bewusst aufbewahrt für ein
+manuelles Schulungs-/Rekonstruktionsszenario bis zum festgelegten Nutzungsende
+innerhalb des Lab-Runs. Auch aufbewahrte Identitäten benötigen Owner,
+Lebensdauer, lokale Secrets und Cleanupnachweis. Sie sind keine allgemeinen
+dauerhaften Konten. Das Ende eines Arrange-Aufrufs ist nicht das Nutzungsende.
+Run-Ende und offene Identitätsressourcen müssen in FSF-04 koordiniert werden;
+eine automatische Infrastrukturentfernung ist weiterhin ausgeschlossen.
+
 Als Struktur wird ein neu erzeugter äußerer Fixture-Root vorgeschlagen, der
 den inneren Testroot, eigene Arbeitsverzeichnisse und gegebenenfalls ein eigenes
 Sentinel als Geschwister des Testroots umfasst. Damit kann das Sentinel außerhalb
@@ -201,6 +268,12 @@ zu ermöglichen. Die genaue Platzierung, vererbte Rechte, Accountdatenbank-
 Writes beim Hinzufügen eigener Konten und unterstützte Namespacevarianten
 bleiben FSF-02/FSF-04/FSF-05 zugeordnet. Fremde Accountdatensätze bleiben erhalten.
 
+Diese Rootstruktur gilt nur für angeforderte Dateisystem-Fixtures. Eine reine
+Identitätsanlage erzeugt keinen künstlichen Dateisystemroot. SQL-Identitäts-
+Ownership wird an SQL-Principals und Datenbanken gebunden, nicht an einen
+Verzeichnisnamen. Genaue SID-/Objektidentitäts-, Rechte- und Driftprüfungen
+werden in FSF-03 bis FSF-05 ausgearbeitet.
+
 Die SQL-Dienstidentität erhält das vereinbarte Profil nur auf eigenen neuen
 Fixture-Ressourcen. Dienstkonfiguration, Datenbankdateien und vorbestehende
 SQL-Verzeichnisse bleiben unverändert. Kein Rechteprofil wird durch globale
@@ -210,8 +283,10 @@ ACL-, Gruppen-, Policy- oder Mountänderungen ermöglicht.
 
 ### Bereitstellung
 
-1. Geschlossene Anforderung, SQL-Zweck, Zielauswahl, Owner/Run und gewünschtes
-   Profil validieren. Keine eigene Infrastruktur allokieren.
+1. Geschlossene Anforderung, SQL-Zweck, Zielauswahl, Owner/Run, mehrere mögliche
+   Identitäten, optionale Dateisystemprofile und die ausdrücklich gewünschte
+   Nutzungsform validieren. Kein Testexecutor und keine Dateisystem-Fixture
+   werden für Benutzeranlage vorausgesetzt. Keine Infrastruktur allokieren.
 2. Ziel und Capability rein prüfen; benötigte Effekte, Lebensdauer, Grenzen
    und Cleanupumfang als konkreten lokalen Plan zur Freigabe bereitstellen.
 3. Die konkrete gültige Freigabe prüfen, wirksame Zielreservierung erwerben
@@ -235,16 +310,29 @@ Zielbeobachtung. Nicht beobachtbar bedeutet unbekannt, nicht entfernt oder
 bereit. Statusabfragen reparieren weder State noch Ressourcen und starten
 keinen Cleanup. Datenform und endgültige Statuscodes folgen in FSF-03.
 
-Der Consumer führt seine fachlichen Tests getrennt durch. Falls Tests unter
-der erzeugten OS-Identität notwendig sind, ist in FSF-02/FSF-03 eine begrenzte
-Nutzungsschnittstelle oder sichere lokale Secretübergabe zu entscheiden.
-FSF-01 autorisiert dafür keine freie Run-as-Shell oder Credentials im Handle.
+Der Operator beziehungsweise Consumer nutzt die angelegten Identitäten für
+manuelle Sitzungen, Schulungen, Rekonstruktionsfälle oder automatisierte Tests.
+Die Bedienung muss Anlage und bewusste Aufbewahrung direkt ermöglichen, ohne
+Kopplung an SCN-Executor oder Toolbelt. Die spätere öffentliche API muss gemäß
+Projektvertrag auch über den Konsolenbefehlszugang erreichbar sein.
+
+Für manuelle Anmeldung, etwa mit einem neuen SQL-Login in einem SQL-Client,
+wird eine separate sichere lokale Bereitstellung der eigenen Benutzer-
+Zugangsdaten benötigt. Für OS-Nutzung sind vorhandene zulässige Gast- oder
+Containerzugänge zu berücksichtigen. Passwortlose Modelle und maskierte,
+flüchtige oder lokal geschützt abrufbare Zugangsdaten sind in FSF-02/FSF-03/
+FSF-05 zu entscheiden. Betreibercredentials und normale DTOs/Handles bleiben
+von dieser Übergabe getrennt. Das Lab aktiviert dafür weder RDP noch Firewall-
+oder Authentisierungsfeatures und bietet keine freie privilegierte Run-as-Shell.
 
 ### Entfernung und Fehler
 
 Remove und Fehlerkompensation verwenden dasselbe private Ownershipjournal
 und denselben Ziel-/Adapterbezug. Sie prüfen vor Mutation aktuelle Bindung,
-Readiness, Ressourcenidentität, Besitzer und Link-/Mountgrenzen. Unklarheit
+Readiness und die zum Ressourcentyp gehörenden Identitäts- und Ownershipbelege.
+Dateisystemressourcen verlangen Besitzer-/Link-/Mountprüfungen; SQL-Identitäten
+verlangen ihre eigenen Principal-, Datenbank- und Abhängigkeitsprüfungen,
+ohne einen OS-Adminzugang zu erzwingen. Unklarheit
 führt zu sichtbarem Recoverybedarf statt spekulativer Löschung.
 
 Für diesen Entwurf bleibt jede Zielmutation einschließlich Cleanup an `READY`
@@ -262,10 +350,15 @@ idempotente Absenzbelege werden in FSF-04 ausgearbeitet.
 
 ## 8. Reservierung und parallele Operationen
 
-Vorgeschlagen wird zunächst eine aktive Fixture pro ausgewählter Instanz mit
-exklusiver Zielreservierung während Arrange, Nutzung und Cleanup. Der Consumer
-kennzeichnet das Nutzungsende ausdrücklich; Crash oder Fristablauf darf keine
-automatische Wiederverwendung eines unklaren Scopes auslösen.
+Vorgeschlagen wird zunächst ein aktiver Szenario-Ressourcenscope pro ausgewählter
+Instanz mit mehreren ausdrücklich angeforderten Benutzern und optionalen
+Dateisystem-Fixtures. Die Beschränkung bedeutet nicht einen Benutzer pro Lab.
+Mutierende Anlage, Erweiterung und Cleanup werden exklusiv serialisiert.
+Die Zielreservierung schützt den genutzten Scope gegen widersprüchliche
+Lifecycleaktionen, ohne mehrere manuelle SQL-Sitzungen unter den eigenen
+Szenariobenutzern zu verhindern. Operator oder Consumer kennzeichnet das
+Nutzungsende ausdrücklich; Crash oder Fristablauf darf keine automatische
+Wiederverwendung eines unklaren Scopes auslösen.
 
 Eine Fixture-Sperre allein verhindert keinen parallelen Start/Stop/Remove,
 Reconcile, SQL-Dienstwechsel oder Store-Reattach. Für spätere Ausführung muss
@@ -303,14 +396,16 @@ Zielen und keine Änderung ihrer Branches, Worktrees, Wellenplanung oder Gates.
 
 | ID | Vorschlag innerhalb FSF-01 | Auswirkung beziehungsweise offene Folge |
 |---|---|---|
-| `A1` | Lokaler Lab-Koordinator mit privaten festen Adaptern; kein dauerhafter Agent und keine freie Shell | Betreiberzugänge verbleiben im Lab; Authentisierung und Bedrohungsmodell folgen in FSF-05. |
+| `A1` | Lokaler Lab-Koordinator mit privaten festen OS-/Dateisystem- und SQL-Identitätsadaptern; kein dauerhafter Agent und keine freie Shell | Betreiberzugänge verbleiben im Lab; Authentisierung und Bedrohungsmodell folgen in FSF-05. |
 | `A2` | Genau eine explizite verwaltete SQL-Testinstanz pro Operation; keine Adoption und kein Providerfallback | Ziel- und Ownershipnachweise sowie minimale Handlebindung folgen in FSF-03/FSF-04. |
 | `A3` | READY als frisches Admission-Ergebnis, getrennt vom persistenten Run-State | SQL-Probe, Frische und Dienstgeneration müssen in FSF-02/FSF-05/FSF-06 konkretisiert werden. |
 | `A4` | PowerShell Direct mit VM-ID; gepinntes Docker-/Podman-Exec ohne zusätzliche Runtimeprivilegien | WinRM-Fallback und Rechtebootstrap ausgeschlossen; inkompatible Ziele bleiben blockiert. |
 | `A5` | Eigener äußerer Fixture-Root; Outside-Sentinel nur außerhalb des inneren Testroots innerhalb dieses Scopes | Die Auslegung ist in FSF-04 gesondert zu bestätigen; Host-/Shared-Volume-Profile bleiben zunächst offen. |
 | `A6` | Jede Zielmutation einschließlich Cleanup benötigt READY; Verlust erzeugt Recoverybedarf | Kein Rückbau durch Start/Repair; eine SQL-unabhängige Cleanupausnahme benötigt eigene Entscheidung. |
-| `A7` | Zunächst eine aktive Fixture pro Instanz mit einer auch von Lifecyclepfaden respektierten Reservierung | Keine Ausführung, solange die wirksame Koordination fehlt; Mehrfixture-Nutzung ist ein späterer Scope. |
+| `A7` | Zunächst ein Szenario-Ressourcenscope pro Instanz mit mehreren Benutzern und optionalen Fixtures; wirksame Lifecycle-Reservierung und serialisierte Mutationen | Manuelle Parallelsitzungen sind vorgesehen; unabhängige überlappende Szenarioscopes bleiben ein späterer Scope. |
 | `A8` | FSF-01-Zustimmung genehmigt nur den Architekturrahmen | FSF-02 bis FSF-06 und sämtliche Implementierungs-/Runtimefreigaben bleiben offen. |
+| `A9` | OS-Identitäten sowie SQL-Logins/Datenbankbenutzer als getrennte eigenständige Verträge; Dateisystem-Fixtures optional | Manuelle Anlage ohne Testexecutor; keine automatische OS-/SQL-Zuordnung oder Änderung bestehender Principals. |
+| `A10` | Automatisierte Tests und bewusst aufbewahrte manuelle Schulungs-/Rekonstruktionsszenarien gleichberechtigt unterstützen | Sichere Benutzeranmeldung, Lebensdauer und eigener Rückbau folgen in FSF-02 bis FSF-05. |
 
 Zum Abschluss der Abstimmung sind Zustimmung oder konkrete Änderungen zu
 diesem Rahmen festzuhalten. Der Stand bleibt bis dahin `PENDING`; aus diesem

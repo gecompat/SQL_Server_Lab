@@ -1,18 +1,21 @@
-# Kontrollierte plattformübergreifende Dateisystem-Fixtures – Backlog
+# Kontrollierte Labidentitäten und plattformübergreifende Dateisystem-Fixtures – Backlog
 
 | Merkmal | Wert |
 |---|---|
 | Status | `PLANNED` |
 | Stand | 2026-10-11 |
-| Zweck | temporäre synthetische Identitäten und Dateisystemstrukturen für Datei-, Sicherheits- und Berechtigungs-Integrationstests gegen SQL-Server-Testziele |
+| Zweck | synthetische OS-/SQL-Identitäten für automatisierte Tests, manuelle Schulungen und Rekonstruktionsszenarien; optional kombinierbare Dateisystem-Fixtures auf ausgewählten SQL-Labzielen |
 | Nächster Schritt | [FSF-01-Architekturentwurf](FILESYSTEM_FIXTURE_ARCHITECTURE_DRAFT.md) abstimmen; danach Capability-Modell, Fixture-Handle, Ownership/Cleanup, Sicherheitsmodell und Teststrategie einzeln ausarbeiten und abstimmen |
 | Implementierungsfreigabe | `PENDING`; erst nach ausdrücklicher Einzelfreigabe aller sechs Entwurfsbereiche |
 | Autorität | Backlogaufnahme; keine Implementierungs-, Provider-, Identitäts-, Dateisystem- oder Löschfreigabe |
 
 ## Ausgangslage und Ziel
 
-Konsumierende Projekte benötigen reproduzierbare temporäre Identitäten und
-Dateisystemstrukturen für Integrationstests gegen SQL Server. Das Lab soll
+Konsumierende Projekte und Operatoren benötigen reproduzierbare synthetische
+Identitäten für automatisierte Tests sowie manuelle SQL-Schulungen,
+Demonstrationen und Rekonstruktionsszenarien mit unterschiedlichen Benutzern.
+`SQL_PerformanceSchulung` ist ausdrücklich als Bedarfsträger benannt.
+Dateisystemstrukturen werden je nach Szenario zusätzlich benötigt. Das Lab soll
 deren kontrollierte Bereitstellung und sicheren Rückbau übernehmen, damit
 jedes Projekt keine eigenen Betreiber-Skripte, VM-Admin-Zugänge oder
 Container-Root-Zugänge verwalten muss.
@@ -22,6 +25,24 @@ laufender, ausdrücklich ausgewählter `READY`-Testziele synthetische Ressourcen
 vor. Sie dokumentiert deren Eigentümerzustand und begrenzten Lebenszyklus und
 entfernt ausschließlich nachweislich selbst erzeugte Ressourcen.
 
+Die Benutzeranlage soll auch eigenständig ohne Dateisystem-Fixture,
+Testexecutor oder `SQL_Server_Toolbelt` möglich sein. Der am 2026-10-11
+präzisierte Benutzerscope umfasst ausdrücklich beides mit getrennten Verträgen:
+lokale Windows-/Linux-OS-Identitäten sowie SQL-Logins und Datenbankbenutzer.
+Eine OS-Identität erteilt nicht automatisch SQL-Zugang. SQL-Identitäten werden
+an die ausgewählte Instanz und gegebenenfalls ausdrücklich ausgewählte
+bestehende Labdatenbanken gebunden; keine automatische Datenbankanlage.
+
+Mehrere eigene Benutzer mit unterschiedlichen ausdrücklich gewählten,
+nicht privilegierten Berechtigungsprofilen können zu einem Szenario gehören.
+Manuelle Nutzung benötigt eine sichere lokale Anmeldung und bewusst gewählte
+Aufbewahrung bis zum vereinbarten Nutzungsende innerhalb des Lab-Runs.
+Testende oder Dateisystem-Cleanup entfernt aufbewahrte Identitäten nicht
+automatisch. Owner, Journal, Lebensdauer, Driftprüfung und eigener Rückbau
+gelten auch für eigenständige Benutzeranlagen. Konkrete Profile,
+Authentisierungsarten, Secretübergabe und Cleanupabhängigkeiten bleiben in
+FSF-02 bis FSF-06 abzustimmen; es gibt keine Implementierungsfreigabe.
+
 Dieser Backlog erweitert weder die laufende parallele Entwicklungswelle noch
 deren Freigaben oder Reihenfolge. Der dortige Implementierungsstand bleibt
 getrennt. Dieser Eintrag legt Anforderungen und offene Entwurfsaufgaben fest;
@@ -30,7 +51,8 @@ er ist kein abgeschlossener Architekturvertrag oder Runtime-Nachweis.
 ## Zielauswahl und Autorisierung
 
 - Aktionen benötigen ein ausdrücklich ausgewähltes, bereits laufendes
-  `READY`-SQL-Testziel und eine explizite Fixture-Freigabe.
+  `READY`-SQL-Labziel und eine explizite Identitäts-/Fixture-Freigabe. Test,
+  Schulung, Demonstration und Rekonstruktion sind zulässige SQL-Zwecke.
 - Keine automatische Provider- oder Plattformauswahl; Produktionssysteme
   sind ausgeschlossen.
 - Plattform und Runtime stammen aus dem validierten Lab-Vertrag. Vor jeder
@@ -61,6 +83,13 @@ Fehlende oder nicht beweisbare Semantik wird nicht still emuliert. Docker,
 Podman und Hyper-V benötigen jeweils eigene Nachweise.
 
 ## Sichere temporäre Identitäten
+
+Die OS-Identitätsanforderungen unten werden um einen getrennten SQL-Vertrag
+ergänzt: neue eigene SQL-Logins und Datenbankbenutzer, ausdrücklich gebundene
+Zuordnungen, Rechteprofile und Erzeugungs-/Cleanupnachweise. Bestehende
+SQL-Logins, Benutzer, Dienstidentitäten und Authentisierungsmodi werden nicht
+verändert oder übernommen. Ihre Erstellung und spätere Entfernung sind keine
+Dateisystemoperation; ein Dateisystemroot ist dafür keine Voraussetzung.
 
 - Ausschließlich nicht privilegierte Identitäten erzeugen; keine Aufnahme in
   administrative oder anderweitig privilegierte Gruppen.
@@ -131,6 +160,11 @@ Cmdlets, Exports oder zugesagten endgültigen API-Namen:
 - `Get-LabFixtureStatus`
 - `Remove-LabFilesystemFixture`
 
+Diese Beispiele decken nur das Dateisystemprofil ab. Getrennte direkte
+Anlage-/Status-/Entfernungsverträge für OS- und SQL-Identitäten sowie ihre
+Konsolenbedienung und sichere manuelle Nutzung sind in FSF-02/FSF-03 zu
+entwerfen. Keine Benutzeranlage darf eine Testautomatisierung voraussetzen.
+
 Der Schnittstellenentwurf berücksichtigt mindestens ausgewähltes Ziel,
 Owner/Run-ID, gewünschte Identitätsart, Berechtigungsprofil,
 Reparse-/Symlink-Fall und optionales Outside-Sentinel. Capability-Prüfung,
@@ -156,6 +190,7 @@ Ownershipdaten sind in die Schutz- und Recoveryregeln einzubeziehen.
 | Autorisierung und Ziel | nicht ausgewählte, nicht laufende, nicht `READY`, produktive, gewechselte oder nicht eindeutig gebundene Ziele vor Mutation ablehnen; keine automatische Providerauswahl |
 | Erfolg und Wiederholung | gewünschte synthetische Identitäten, Verzeichnisse und Rechte; reproduzierbare Profile; definierte Wiederholung ohne Übernahme fremder Ressourcen |
 | Identitäten | keine privilegierten Konten; SID-Bindung und Namensgrenzen; UID/GID-Kollisionen und bestehende Identitäten unverändert |
+| Eigenständige und manuelle Nutzung | OS-Anlage ohne Dateisystem-Fixture; SQL-Login-/Datenbankbenutzeranlage ohne OS-Adminzugang; mehrere Szenariobenutzer, sichere Anmeldung, ausdrückliche Aufbewahrung und getrenntes Cleanup; kein Executor nötig |
 | Teilfehler und Recovery | Abbruch und verlorene Antworten an Mutations-/Journalgrenzen; nachvollziehbares eigenes Cleanup und sichtbarer Recoverybedarf |
 | Drift und Idempotenz | Besitzer-, Ziel-, Mount-, Link- und Journaldrift verhindert unsichere Löschung; wiederholtes Cleanup entfernt nichts Fremdes |
 | Scope-Escape | Junctions/Reparse Points, Symlinks, bind mounts und Volumes; unverändertes Outside-Sentinel sowie unveränderte fremde Außenressourcen |
@@ -173,7 +208,7 @@ Implementierungs- und Runtime-Nachweise sind für diesen Backlog offen.
 | ID | Einzeln auszuarbeitender und abzustimmender Bereich | Erwartetes reviewbares Ergebnis | Freigabe |
 |---|---|---|---|
 | `FSF-01` | Architektur | [Entwurf zur Abstimmung](FILESYSTEM_FIXTURE_ARCHITECTURE_DRAFT.md): SQL-Bezug, Ziel-/Readinessbindung, interne Betreibergrenze, Abläufe und ausgeschlossene Infrastrukturaktionen | `PENDING` |
-| `FSF-02` | Capability-Modell je Plattform | explizite Windows-/Hyper-V-, Linux-/Docker- und Linux-/Podman-Matrix einschließlich Namespace-/Mountgrenzen und Blockern | `PENDING` |
+| `FSF-02` | Capability-Modell je Plattform | getrennte OS-/SQL-Identitätsarten und optionale Dateisystemprofile für automatisierte und manuelle Szenarien; explizite Windows-/Hyper-V-, Linux-/Docker- und Linux-/Podman-Matrix einschließlich Namespace-/Mountgrenzen und Blockern | `PENDING` |
 | `FSF-03` | Fixture-Handle | minimaler versionierter Ergebnisvertrag, private lokale Auflösung, Ziel-/Owner-/Runbindung und Manipulationsschutz | `PENDING` |
 | `FSF-04` | Ownership und Cleanup | Vorabjournal, Erzeugungsnachweis, begrenzter Outside-Sentinel, Drift-Vetos, Idempotenz, Teilfehler und Recovery | `PENDING` |
 | `FSF-05` | Sicherheitsmodell | Bedrohungsmodell, Least Privilege, Secrets/Privacy, Escape-/Kollisionsschutz und prüfbare Sicherheitsgrenzen | `PENDING` |
