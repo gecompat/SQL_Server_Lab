@@ -21,6 +21,36 @@ ein Dokumentationsdateiname allein verlangt keinen Providerstart. Änderungen
 an gemeinsamem Ownership/Cleanup verlangen weiterhin die breite Matrix.
 [Auswahl, Cachegrenzen und Ausnahmen](FOUNDATION_1_21_PROCESSING_ASSESSMENT.md).
 
+## Privater Fixture-Handle-Codec (FSF-I01)
+
+Der [freigegebene Scope](../Project_Planning/FILESYSTEM_FIXTURE_IMPLEMENTATION_SCOPE_01_DRAFT.md)
+implementiert ausschließlich die geschlossene zweifeldrige Handleform im
+Speicher. `Invoke-FixtureHandleContractChecks.ps1` bestand am 2026-10-11
+unter PowerShell 7.2.24/.NET 6.0.35 mit 116 PASS / 0 FAIL: unabhängige Sollbytes,
+255/256/257-Bytegrenzen, JSON-/UTF8-/Duplicate-/UUIDfehler, ordinale NUL-/
+Backspacegrenzen, keine Eingabe-/Parserfehlerausgabe oder Objektgetter,
+unveränderte Eingaben, tatsächlicher Modulimport ohne LoadErrors und unveränderte
+Exporte. Der eigene synthetische Transcript wurde entfernt.
+Die geprüften Git-Sourceblobs sind Codec `0635c14613ea320a648e1e45ffe9879743fc4cc0`
+und Suite `966149a532e980b7656abfe7a79b1f6583d9f9af`, auf Basis der
+freigegebenen Planung `d4d8395e` aus PR #740 über main `a6b5a6b3`.
+
+Die exakt gebundene Diff-Auswahl führt die Codec-Suite und die bestehenden
+CI-Strategie-, Dokumentations-, Privacy-, Analyzer- und Pesterchecks aus.
+Die ergänzten CI-Assertions erhalten unbekannte Produkt-/Provider-/Cleanup-
+Fallbacks auch im gemischten Diff; es gibt keine globale Fixtureausnahme.
+Der lokale betroffene Gate unter PowerShell 7.6.6/.NET 10.0.12 bestand mit
+Codec 116/0, CI-Strategie 582/0, Dokumentation 1883/0, Pester 23/0 (kein Skip),
+Privacy 3/0 und Analyzer PASS mit 24 freigegebenen Baselinebefunden;
+Warnungen bleiben ausgewiesen. Nach finalen Statuskorrekturen wurden nur
+die betroffenen Dokumentations-/Privacychecks erneut ausgeführt. Die vier
+ausführbaren Codec-/Test-/Selektorquellen blieben byteidentisch; die beiden
+zusätzlichen Sourceblobs stehen im Scopedokument. Keine Ableitung eines
+CI-PASS aus lokalen Logs.
+Dieser Scope registriert keinen zusätzlichen AllChecks-Eintrag und startet
+keine Provider-Runtime. OS-/SQL-/Store-/Autorisierungs-/Crypto-/Cleanupnachweise
+und die übrige FSF-06-Matrix bleiben offen.
+
 ## Private SMTP-Offline-MIME-Projektion
 
 Der [private Fachvertrag](../Architecture/SMTP_TEST_SERVICE_MIME_PROJECTION.md)
