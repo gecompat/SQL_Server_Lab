@@ -130,6 +130,7 @@ sources_of_truth:
   filesystem_fixture_security_draft: Documentation/Project_Planning/FILESYSTEM_FIXTURE_SECURITY_DRAFT.md # FSF-05 revision 0.1 approved 2026-10-11: trust and authorization, protected records/keys/anchor, separate credentials and authenticated SQL TLS, effective rights/generation, quiescence/races, filesystem/profile boundaries, quotas and retention; no implementation authority
   filesystem_fixture_test_strategy_draft: Documentation/Project_Planning/FILESYSTEM_FIXTURE_TEST_STRATEGY_DRAFT.md # FSF-06 revision 0.1 approved 2026-10-11: full matrix remains planned; only pure handle portions implemented/checked in FSF-I01, no native qualification or runtime authority
   filesystem_fixture_implementation_scope_01_draft: Documentation/Project_Planning/FILESYSTEM_FIXTURE_IMPLEMENTATION_SCOPE_01_DRAFT.md # FSF-I01 revision 0.1 approved 2026-10-11; implemented private form codec, offline acceptance and exact-path selector; no native identity/authorization/store capability
+  filesystem_fixture_implementation_scope_02_draft: Documentation/Project_Planning/FILESYSTEM_FIXTURE_IMPLEMENTATION_SCOPE_02_DRAFT.md # FSF-I02 proposed private OS/SQL identity request validation, manual/automated use and bounded retention/relationships; pending scope approval, no implementation or runtime authority
   private_fixture_handle_codec: Private/FixtureHandleContract.ps1
   validation_private_fixture_handle_codec: Tests/Static/Invoke-FixtureHandleContractChecks.ps1
   security_tool_catalog: Catalogs/security-tools.json
