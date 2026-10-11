@@ -7,7 +7,7 @@
 | Freigabe und Auftrag | ausdrücklich durch den Repository-Eigentümer am 2026-10-11: FSF-I01 implementieren, separater Branch und eigener PR, parallele Welle schützen |
 | Grundlagen | [FSF-01](FILESYSTEM_FIXTURE_ARCHITECTURE_DRAFT.md) Revision `0.2`; [FSF-02](FILESYSTEM_FIXTURE_CAPABILITY_DRAFT.md), [FSF-03](FILESYSTEM_FIXTURE_HANDLE_DRAFT.md), [FSF-04](FILESYSTEM_FIXTURE_OWNERSHIP_CLEANUP_DRAFT.md), [FSF-05](FILESYSTEM_FIXTURE_SECURITY_DRAFT.md) und [FSF-06](FILESYSTEM_FIXTURE_TEST_STRATEGY_DRAFT.md) jeweils Revision `0.1`; ausdrücklich freigegeben am 2026-10-11 |
 | Ziel | geschlossene Handleform intern im Speicher prüfen und deterministisch serialisieren; ein vollständig abnehmbarer erster Baustein |
-| Basis der Bestandsanalyse | `origin/main` bei `a6b5a6b3`; Entwicklungs-PRs #737/#738 getrennt, Dokumentations-PR #740 |
+| Basis der Bestandsanalyse | historisch `origin/main` bei `a6b5a6b3`; Integration von #740/#741 am 2026-10-11 bestätigt, siehe Abschnitt 7 |
 | Aktueller Auftrag | ausschließlich der freigegebene interne Codec mit Tests und begrenzter Integration; keine native Benutzeranlage |
 
 ## 1. Empfehlung und Nutzen
@@ -206,14 +206,25 @@ CI-Assertions-Sourceblob `a8d37d036f94d3e2129bb8564a7422318736cdb0`.
 CI-PASS wird nicht aus lokalen Prüfungen abgeleitet. Native FSF-06-Abnahmen bleiben
 `NOT_EXECUTED`, die in Abschnitt 5 bezeichnete Teildeckung bleibt begrenzt.
 
-Die Integrationsbasis ist unverändert `origin/main` bei `a6b5a6b3` plus der
+Die historische Implementierungsbasis war `origin/main` bei `a6b5a6b3` plus der
 freigegebene Dokumentationsstand aus PR #740 bei `d4d8395e`. Der separate
-Branch `codex/fixture-handle-codec` enthält die Umsetzung; sein eigener PR
-baut bis zur Integration der Dokumentation auf #740 auf. Die aktuellen
+Branch `codex/fixture-handle-codec` enthielt die Umsetzung; sein eigener PR
+war zunächst auf #740 gestapelt. Die damaligen
 #738-Hunks (Head `258c5b2a`) wurden gelesen: seine SMTP-Zuordnung am Anfang
 der statischen Gruppen, seine Runtime-Regel und seine SMTP-Map-/Evidenceabschnitte
 werden durch die anders platzierten Codecergänzungen nicht überschrieben.
-Vor der späteren main-Integration bleibt der frische gemeinsame Diffabgleich Pflicht.
+Vor der main-Integration wurde der gemeinsame Diff gegen den aktualisierten
+#738-Head `fd9805b6` erneut abgeglichen. #740 wurde zuerst bei `ea87e331`
+integriert, #741 anschließend auf main umgestellt und ohne Sourcebaumänderung
+aktualisiert. Sein Integrationshead `41f67309` bestand den
+[GitHub-Pflichtgate](https://github.com/gecompat/SQL_Server_Lab/actions/runs/38175619784)
+unter Windows und Ubuntu. #741 wurde am 2026-10-11 bei `fea35ee9` gemergt;
+der integrierte Sourcebaum ist `eeacc88a9b849d33872efb42c51c6d2122f5d3b7`.
+Provider-/Adapter-Smokes waren nicht ausgewählt, keine native Fixtureabnahme.
+Die eigenen Remote-Branches sind entfernt, die parallele Welle blieb unberührt.
+Als nächster begrenzter Baustein liegt
+[FSF-I02](FILESYSTEM_FIXTURE_IMPLEMENTATION_SCOPE_02_DRAFT.md) zur Abstimmung vor;
+dieser Folgescope ist noch nicht freigegeben oder implementiert.
 
 Verarbeitungsaufwand: eine neue fokussierte Suite und eng gebundene
 Selektorassertions; keine globale Fixtureausnahme und keine Erweiterung der

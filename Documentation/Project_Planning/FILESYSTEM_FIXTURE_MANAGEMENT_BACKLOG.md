@@ -5,7 +5,7 @@
 | Status | `PLANNED` |
 | Stand | 2026-10-11 |
 | Zweck | synthetische OS-/SQL-Identitäten für automatisierte Tests, manuelle Schulungen und Rekonstruktionsszenarien; optional kombinierbare Dateisystem-Fixtures auf ausgewählten SQL-Labzielen |
-| Nächster Schritt | getrennten FSF-I01-Implementierungs-PR prüfen und integrieren; weitere OS-/SQL-Scopes anschließend gesondert abstimmen |
+| Nächster Schritt | [FSF-I02-Scopeentwurf](FILESYSTEM_FIXTURE_IMPLEMENTATION_SCOPE_02_DRAFT.md) für den privaten Identitäts-Anfragevalidator abstimmen; noch keine Umsetzung dieses Folgescopes |
 | Entwurfsfreigaben | FSF-01 bis FSF-06 ausdrücklich freigegeben am 2026-10-11 |
 | Implementierungsfreigabe | `APPROVED` ausschließlich für [FSF-I01](FILESYSTEM_FIXTURE_IMPLEMENTATION_SCOPE_01_DRAFT.md), Revision `0.1`, ausdrücklich freigegeben und beauftragt am 2026-10-11 |
 | Autorität | begrenzter privater Formcodec; keine Provider-, Identitäts-, Dateisystem- oder Löschfreigabe |
@@ -239,19 +239,23 @@ abgestimmtem und beauftragtem Scope mit Abgleich der dann aktuellen
 Entwicklungsplanung und parallelen Arbeiten. Es entsteht keine automatische
 Wellenzuordnung oder Prioritätsänderung.
 
-## Erster freigegebener Implementierungsscope
+## Kleine Implementierungsscopes
 
 | Scope | Reviewbares Paket | Freigabe |
 |---|---|---|
-| `FSF-I01` | [Interner Handle-Codec](FILESYSTEM_FIXTURE_IMPLEMENTATION_SCOPE_01_DRAFT.md), Revision `0.1`: strikte zweifeldrige UTF-8-Handleform, deterministischer Encoder, synthetische Offline-Abnahme, enge Selektorintegration und konkreter Abgleich mit dem überlappenden SMTP-PR #738 | `APPROVED` – ausdrücklich freigegeben und beauftragt am 2026-10-11; interner Codec implementiert |
+| `FSF-I01` | [Interner Handle-Codec](FILESYSTEM_FIXTURE_IMPLEMENTATION_SCOPE_01_DRAFT.md), Revision `0.1`: strikte zweifeldrige UTF-8-Handleform, deterministischer Encoder, synthetische Offline-Abnahme und enge Selektorintegration | `APPROVED` – implementiert und am 2026-10-11 mit PR #741 nach main integriert; keine native Fixtureverwaltung |
+| `FSF-I02` | [Privater Identitäts-Anfragevalidator](FILESYSTEM_FIXTURE_IMPLEMENTATION_SCOPE_02_DRAFT.md), Revision `0.1`: getrennte OS-/SQL-Anfrageform, ausdrückliche Login-/Datenbankbenutzerbeziehungen, manuelle/automatisierte Nutzung, feste Retention-/Formgrenzen und synthetische Offline-Abnahme | `PENDING` – zur Abstimmung; keine Implementierung |
 
-Der heutige Auftrag setzt ausschließlich dieses Paket um: privater Codec,
-synthetische Tests und begrenzte Selektor-/Map-/Evidenceintegration auf einem
-separaten Branch mit eigenem PR. Keine Benutzeranlage. Die übrigen OS-/SQL-/
+FSF-I01 ist nach erfolgreichem aktuellem Windows-/Ubuntu-PR-Gate integriert:
+Dokumentations-PR #740 bei `ea87e331`, Implementierungs-PR #741 bei
+`fea35ee9`. Der aktuelle Auftrag erarbeitet ausschließlich FSF-I02 zur
+Abstimmung, ohne neue Codec-/Validator-/Testimplementation oder Benutzeranlage.
+Auch ein später umgesetzter Anfragevalidator bestätigt weder Authentisierung
+noch gebundenen Plan, Ownership oder frisches READY. Die übrigen OS-/SQL-/
 Security-/Cleanupfähigkeiten bleiben geplant und brauchen eigene kohärente
-Folgescopes und Nachweise. Entwurfsindex und Modelle in Dokumentations-PR #740
-behalten ihren damaligen Planungsstand; die aktuelle FSF-I01-Freigabe und
-Umsetzung sind hier und im verlinkten Scopedokument maßgeblich.
+Folgescopes und Nachweise. Die sechs Modelle behalten ihren historischen
+Entwurfsstand; aktuelle Implementierung und Folgescope stehen hier und in
+den verlinkten Scopedokumenten. Keine Erweiterung der parallelen Welle.
 
 ## Gekoppelte Quellen für die spätere Ausarbeitung
 
