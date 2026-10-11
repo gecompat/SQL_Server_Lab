@@ -27,11 +27,13 @@ function New-LabSmtpTestServiceJournal {
 function Get-LabSmtpTestServiceCleanupPlan {
     [CmdletBinding()]
     param([Parameter(Mandatory)]$Journal)
+    $prefix='sql-lab-smtp-'+[string]$Journal.RunId+'-'+[string]$Journal.ScopeId+'-'+[string]$Journal.ServiceId
     if($Journal.ContractVersion -cne 'SqlServerLab.SmtpTestServiceJournal/1.0' -or
         $Journal.Provider -cnotin @('docker','podman') -or $Journal.Status -cnotin @('PREPARED','PROVISIONING','FAILED','RECOVERY_REQUIRED') -or
         $Journal.Resources.NetworkName -isnot [string] -or $Journal.Resources.GatewayContainerName -isnot [string] -or $Journal.Resources.ReceiverContainerName -isnot [string]) {
         throw 'SMTP_TEST_SERVICE_JOURNAL_INVALID'
     }
+    if($Journal.Resources.NetworkName -cne $prefix -or $Journal.Resources.GatewayContainerName -cne ($prefix+'-gateway') -or $Journal.Resources.ReceiverContainerName -cne ($prefix+'-receiver')){throw 'SMTP_TEST_SERVICE_JOURNAL_INVALID'}
     return [pscustomobject][ordered]@{
         Contract=[pscustomobject]@{Name='SqlServerLab.SmtpTestServiceCleanupPlan';Version='1.0'}
         RunId=[string]$Journal.RunId;ScopeId=[string]$Journal.ScopeId;Provider=[string]$Journal.Provider;OperationId=[string]$Journal.OperationId
@@ -41,4 +43,26 @@ function Get-LabSmtpTestServiceCleanupPlan {
             [pscustomobject]@{Id='remove-network';Kind='network';Identity=[string]$Journal.Resources.NetworkName}
         )
     }
+}
+
+function Invoke-LabSmtpTestServiceCleanup {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Journal,[Parameter(Mandatory)][string]$JournalPath,[Parameter(Mandatory)][string]$StateRoot,
+        [scriptblock]$RuntimeCommand)
+    $cleanup=Get-LabSmtpTestServiceCleanupPlan -Journal $Journal
+    try {
+        foreach($step in $cleanup.Steps){
+            $arguments=if($step.Kind -ceq 'container'){@('rm','-f',$step.Identity)}else{@('network','rm',$step.Identity)}
+            $result=if($RuntimeCommand){& $RuntimeCommand $cleanup.Provider $arguments}else{Invoke-LabContainerRuntimeCommand -Provider $cleanup.Provider -StateRoot $StateRoot -RunId $cleanup.RunId -ArgumentList $arguments -NativeResult -Phase Cleanup}
+            if($null -eq $result -or $result.ExitCode -ne 0){throw 'SMTP_TEST_SERVICE_CLEANUP_FAILED'}
+        }
+        $Journal.Status='CLEANED';$Journal.Recovery.Status='NOT_REQUIRED';$Journal.Recovery.ErrorCode=$null
+    }catch{
+        $Journal.Status='RECOVERY_REQUIRED';$Journal.Recovery.Status='REMOVE_CREATED_RESOURCES';$Journal.Recovery.Attempts=[int]$Journal.Recovery.Attempts+1;$Journal.Recovery.ErrorCode='SMTP_TEST_SERVICE_CLEANUP_FAILED'
+        throw
+    }finally{
+        $Journal.UpdatedAt=Get-LabTimestamp
+        Write-LabArtifactJsonAtomic -Path $JournalPath -InputObject $Journal|Out-Null
+    }
+    return $Journal
 }
