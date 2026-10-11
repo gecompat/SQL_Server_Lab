@@ -1,16 +1,18 @@
-# FSF-06 – Teststrategie für getrennte OS-/SQL-Identitäten
+# FSF-06 – Freigegebene Teststrategie für getrennte OS-/SQL-Identitäten
 
 | Merkmal | Wert |
 |---|---|
-| Status | `TEST_STRATEGY_DECISION_DRAFT` – zur Abstimmung, nicht freigegeben |
+| Status | `TEST_STRATEGY_APPROVED` – Teststrategie freigegeben |
 | Entwurf | `FSF-06`, Revision `0.1`, Stand 2026-10-11 |
+| Freigabe | ausdrücklich durch den Repository-Eigentümer am 2026-10-11 |
 | Grundlagen | [FSF-01](FILESYSTEM_FIXTURE_ARCHITECTURE_DRAFT.md) Revision `0.2`; [FSF-02](FILESYSTEM_FIXTURE_CAPABILITY_DRAFT.md), [FSF-03](FILESYSTEM_FIXTURE_HANDLE_DRAFT.md), [FSF-04](FILESYSTEM_FIXTURE_OWNERSHIP_CLEANUP_DRAFT.md) und [FSF-05](FILESYSTEM_FIXTURE_SECURITY_DRAFT.md) jeweils Revision `0.1`, ausdrücklich freigegeben am 2026-10-11 |
 | Anforderungsquelle | [Fixture-Verwaltungs-Backlog](FILESYSTEM_FIXTURE_MANAGEMENT_BACKLOG.md); eigenständige manuelle Schulungs-/Rekonstruktionsbenutzer und automatisierte Szenarien |
 | Repositorybasis | `a6b5a6b3`; keine Fixture-Implementierung oder ausgeführte Fixture-Abnahme |
-| Autorität | Teststrategieentwurf; keine Implementierungs-, Harness-, Kontoanlage-, Runtime-, Fehlerinjektions- oder Löschfreigabe |
+| Autorität | freigegebene Teststrategie; keine Implementierungs-, Harness-, Kontoanlage-, Runtime-, Fehlerinjektions- oder Löschfreigabe |
 
-F1 bis F10 sind Vorschläge. FSF-01 bis FSF-05 sind freigegeben; FSF-06 bleibt
-einzeln abzustimmen. Dieser Slice erzeugt keine Testscripts, Testaccounts,
+F1 bis F10 wurden ausdrücklich freigegeben. Damit sind FSF-01 bis FSF-06
+als Modelle freigegeben. Ein konkreter Implementierungsscope ist separat
+abzustimmen und zu beauftragen. Dieser Slice erzeugt keine Testscripts, Testaccounts,
 Schlüssel, Schemas, Providerjobs oder Änderungen an bestehenden Gates.
 Die Fall-IDs beschreiben spätere Abnahmepflichten, keine vorhandenen Tests.
 
@@ -368,9 +370,9 @@ Vor jeder späteren Implementierungsabnahme wird geprüft, ob konkrete
 Assertions alle betroffenen Entscheidungen tragen; Gruppenzuordnung allein
 ist kein Coveragebeweis. Offene Fälle werden nicht aus der Matrix entfernt.
 
-## 11. Entscheidungen zur Abstimmung und nächster Schritt
+## 11. Freigegebene Entscheidungen und nächster Schritt
 
-| ID | Vorschlag für FSF-06 | Konsequenz |
+| ID | Freigegebene Strategie innerhalb FSF-06 | Konsequenz |
 |---|---|---|
 | `F1` | Offline-, native Host-, Provider-/SQL- und manuelle Evidence getrennt führen | Mocks/Bestandschecks qualifizieren keine Fixturefähigkeiten; erwartete Ablehnung ist kein Positivnachweis. |
 | `F2` | Eigene isolierte synthetische Testruns und vorab begrenzter Recoveryplan | Keine Benutzer-/Parallelruns als Testziel; unsicher abschließbare Native-Faultfälle bleiben offen. |
@@ -390,7 +392,11 @@ noch offene native Fähigkeiten, Cleanup-/Recoverygrenzen und Infrastruktur-
 voraussetzungen sichtbar blockieren. Dieser Entwurf ändert weder Priorität
 noch Zuständigkeit der parallelen Entwicklungswelle.
 
-Der Abstimmungsstatus ist `PENDING`. Sämtliche hier geplanten Fixturetests,
+Der Repository-Eigentümer hat FSF-06 am 2026-10-11 ausdrücklich freigegeben.
+Der Abstimmungsstatus ist `APPROVED` für Revision `0.1` und F1 bis F10.
+Als nächster Schritt liegt der [FSF-I01-Scopeentwurf](FILESYSTEM_FIXTURE_IMPLEMENTATION_SCOPE_01_DRAFT.md)
+für den internen Handle-Codec zur Abstimmung vor; noch keine Implementierung.
+Sämtliche hier geplanten Fixturetests,
 nativen Benutzer-/SQL-/Dateinachweise und manuellen Abnahmen sind
 `NOT_EXECUTED`; bestehende Lifecycle-/Cleanup-/Dokumentationschecks werden
 nicht umgedeutet. Gekoppelte Quellen sind FSF-01 bis FSF-05,

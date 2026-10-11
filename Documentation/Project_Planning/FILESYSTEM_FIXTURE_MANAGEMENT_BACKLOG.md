@@ -5,8 +5,9 @@
 | Status | `PLANNED` |
 | Stand | 2026-10-11 |
 | Zweck | synthetische OS-/SQL-Identitäten für automatisierte Tests, manuelle Schulungen und Rekonstruktionsszenarien; optional kombinierbare Dateisystem-Fixtures auf ausgewählten SQL-Labzielen |
-| Nächster Schritt | [FSF-06-Teststrategieentwurf](FILESYSTEM_FIXTURE_TEST_STRATEGY_DRAFT.md) einzeln abstimmen; danach einen konkreten Folgescope mit aktueller Planung und paralleler Welle abgleichen |
-| Implementierungsfreigabe | `PENDING`; erst nach ausdrücklicher Einzelfreigabe aller sechs Entwurfsbereiche |
+| Nächster Schritt | [FSF-I01-Scopeentwurf](FILESYSTEM_FIXTURE_IMPLEMENTATION_SCOPE_01_DRAFT.md) für den internen Handle-Codec abstimmen; danach gesonderter Implementierungsauftrag unter Abgleich mit der parallelen Welle |
+| Entwurfsfreigaben | FSF-01 bis FSF-06 ausdrücklich freigegeben am 2026-10-11 |
+| Implementierungsfreigabe | `PENDING`; der konkrete FSF-I01-Scope ist noch nicht freigegeben oder beauftragt |
 | Autorität | Backlogaufnahme; keine Implementierungs-, Provider-, Identitäts-, Dateisystem- oder Löschfreigabe |
 
 ## Ausgangslage und Ziel
@@ -54,8 +55,10 @@ Revision `0.1`, wurde anschließend am selben Tag ausdrücklich freigegeben.
 ebenfalls ausdrücklich freigegeben. [FSF-04](FILESYSTEM_FIXTURE_OWNERSHIP_CLEANUP_DRAFT.md),
 Revision `0.1`, wurde anschließend am selben Tag ausdrücklich freigegeben.
 [FSF-05](FILESYSTEM_FIXTURE_SECURITY_DRAFT.md), Revision `0.1`, wurde danach
-am selben Tag ausdrücklich freigegeben. FSF-06 und sämtliche
-Implementierungs- und Runtimefreigaben bleiben offen.
+am selben Tag ausdrücklich freigegeben. [FSF-06](FILESYSTEM_FIXTURE_TEST_STRATEGY_DRAFT.md),
+Revision `0.1`, wurde anschließend am selben Tag ausdrücklich freigegeben.
+Damit sind alle sechs Modelle freigegeben. Der erste konkrete Scope FSF-I01
+sowie sämtliche Implementierungs-/Runtimebelege bleiben offen.
 
 ## Zielauswahl und Autorisierung
 
@@ -223,14 +226,24 @@ Implementierungs- und Runtime-Nachweise sind für diesen Backlog offen.
 | `FSF-03` | Fixture-Handle | [Freigegebener Vertrag](FILESYSTEM_FIXTURE_HANDLE_DRAFT.md), Revision `0.1`: minimaler versionierter Handle, getrennte Ressourcenreferenzen, private lokale Ziel-/Owner-/Runbindung, Inventarrevision, Operationsfreigabe und Manipulationsschutz | `APPROVED` – ausdrückliche Nutzerfreigabe am 2026-10-11 |
 | `FSF-04` | Ownership und Cleanup | [Freigegebenes Modell](FILESYSTEM_FIXTURE_OWNERSHIP_CLEANUP_DRAFT.md), Revision `0.1`: Vorabjournal, getrennte Lebensdauer, Erzeugungs-/Absenznachweis, eigener Sentinel und Profilrückbau, Sitzungs-/Driftblocker, Idempotenz, Teilfehler und Recovery | `APPROVED` – ausdrückliche Nutzerfreigabe am 2026-10-11 |
 | `FSF-05` | Sicherheitsmodell | [Freigegebenes Modell](FILESYSTEM_FIXTURE_SECURITY_DRAFT.md), Revision `0.1`: Vertrauensmodell, exakte Autorisierung, geschützte Records/Schlüssel/Anker, getrennte Credentials und authentisiertes SQL-TLS, effektive Rechte/Generation, Quieszenz/Races, Datei-/Profilgrenzen, Quotas und Retention | `APPROVED` – ausdrückliche Nutzerfreigabe am 2026-10-11 |
-| `FSF-06` | Teststrategie | [Entwurf zur Abstimmung](FILESYSTEM_FIXTURE_TEST_STRATEGY_DRAFT.md), Revision `0.1`: konkrete positive/negative Fallmatrix, getrennte Offline-/Host-/Provider-/SQL-/manuelle Belege, unabhängige Oracles, Fault-/Race-/Grenzfälle, Schutz fremder Ressourcen und Cleanup-Abnahme | `PENDING` |
+| `FSF-06` | Teststrategie | [Freigegebene Strategie](FILESYSTEM_FIXTURE_TEST_STRATEGY_DRAFT.md), Revision `0.1`: konkrete positive/negative Fallmatrix, getrennte Offline-/Host-/Provider-/SQL-/manuelle Belege, unabhängige Oracles, Fault-/Race-/Grenzfälle, Schutz fremder Ressourcen und Cleanup-Abnahme | `APPROVED` – ausdrückliche Nutzerfreigabe am 2026-10-11 |
 
 Die Backlogaufnahme ist keine Freigabe dieser Entwürfe; die separaten Freigaben
-von FSF-01 bis FSF-05 sind oben dokumentiert. Erst wenn alle sechs
-Punkte einzeln abgestimmt und ausdrücklich freigegeben sind, darf eine
-Implementierung beginnen. Danach ist der konkrete Implementierungsscope mit
-der dann aktuellen Entwicklungsplanung und parallelen Arbeiten abzugleichen.
-Es entsteht keine automatische Wellenzuordnung oder Prioritätsänderung.
+von FSF-01 bis FSF-06 sind oben dokumentiert. Alle sechs Modellfreigaben
+liegen vor. Die konkrete Implementierung beginnt erst nach separat
+abgestimmtem und beauftragtem Scope mit Abgleich der dann aktuellen
+Entwicklungsplanung und parallelen Arbeiten. Es entsteht keine automatische
+Wellenzuordnung oder Prioritätsänderung.
+
+## Erster konkreter Implementierungsscope zur Abstimmung
+
+| Scope | Reviewbares Paket | Freigabe |
+|---|---|---|
+| `FSF-I01` | [Interner Handle-Codec](FILESYSTEM_FIXTURE_IMPLEMENTATION_SCOPE_01_DRAFT.md), Revision `0.1`: strikte zweifeldrige UTF-8-Handleform, deterministischer Encoder, synthetische Offline-Abnahme, enge Selektorintegration und konkreter Abgleich mit dem überlappenden SMTP-PR #738 | `PENDING` |
+
+Der heutige Auftrag erarbeitet dieses Paket; keine Codecimplementation oder
+Benutzeranlage. Die übrigen OS-/SQL-/Security-/Cleanupfähigkeiten bleiben
+geplant und brauchen eigene kohärente Folgescopes und Nachweise.
 
 ## Gekoppelte Quellen für die spätere Ausarbeitung
 

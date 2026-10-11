@@ -10,9 +10,10 @@
 | Repositorybasis der Bestandsanalyse | `a6b5a6b3`; keine Fixture-Implementierung oder native Sicherheitsevidence |
 | Autorität | freigegebenes Sicherheitsmodell; keine Implementierungs-, Benutzeranlage-, Secret-, Konfigurations-, Sitzungsbeendigungs- oder Löschfreigabe |
 
-E1 bis E10 wurden ausdrücklich freigegeben. FSF-01 bis FSF-05 sind
-freigegeben; FSF-06 bleibt offen. Die FSF-05-Freigabe erlaubt noch keinen
-Implementierungsbeginn. Die Begriffe unten beschreiben
+E1 bis E10 wurden ausdrücklich freigegeben. FSF-06 wurde anschließend als
+Teststrategie freigegeben; damit sind alle sechs Modelle freigegeben.
+Ein konkreter Implementierungsscope bleibt separat abzustimmen und zu
+beauftragen. Die Begriffe unten beschreiben
 Entwurfsanforderungen, keine bereits vorhandenen APIs, Stores oder Fähigkeiten.
 
 ## 1. Schutzbereich, Akteure und Vertrauensgrenzen
@@ -377,7 +378,7 @@ werden keine Helfer, Exports, Policies, Schemafelder oder Runtimepfade geändert
 | `E7` | Positive vollständige Quieszenz und native Racekontrolle ohne erzwungenes Sitzungsende | Unverwaltete Zugänge dürfen keinen ungesicherten Cleanup erzeugen; Snapshot und Lock allein reichen nicht. |
 | `E8` | Objektgebundene Dateioperationen und eng nachgewiesene Windows-Profilnebenwirkung | Fremde Kinder, Link-/Mountdrift oder unbekannte Profilwirkung bleiben unangetastet. |
 | `E9` | Feste Fristen/Quotas, reserviertes Journalbudget und getrennte Secret-/Record-/Indexretention | Kein automatischer Retry, TTL-Cleanup oder Purge unklarer Ownership zur Platzgewinnung. |
-| `E10` | FSF-05 genehmigt ausschließlich dieses Sicherheitsmodell | FSF-06 sowie Implementierung und jede native Abnahme bleiben offen. |
+| `E10` | FSF-05 genehmigt ausschließlich dieses Sicherheitsmodell | FSF-06 benötigt eine separate Einzelfreigabe; keine Implementierungs- oder native Abnahmefreigabe. |
 
 FSF-06 muss positive und negative Nachweise für Autorisierung/Replay,
 fremde Handle, Secretkanäle/TLS, Record-/Anker-/Nonce-Crashgrenzen, Unlockverlust,
@@ -389,9 +390,11 @@ Alle Fixture-Implementierungs- und Runtimebelege sind weiterhin offen.
 
 Der Repository-Eigentümer hat FSF-05 am 2026-10-11 ausdrücklich freigegeben.
 Der Abstimmungsstatus ist `APPROVED` für Revision `0.1` und E1 bis E10.
-Als nächster Schritt liegt der [FSF-06-Teststrategieentwurf](FILESYSTEM_FIXTURE_TEST_STRATEGY_DRAFT.md)
-zur Abstimmung vor; FSF-06 sowie sämtliche Implementierungs-/Runtimebelege
-bleiben offen. Gekoppelte Quellen sind FSF-01 bis FSF-04,
+Die [FSF-06-Teststrategie](FILESYSTEM_FIXTURE_TEST_STRATEGY_DRAFT.md) wurde
+anschließend am selben Tag freigegeben. Als nächster Schritt liegt der
+[FSF-I01-Scopeentwurf](FILESYSTEM_FIXTURE_IMPLEMENTATION_SCOPE_01_DRAFT.md)
+zur Abstimmung vor; sämtliche Implementierungs-/Runtimebelege bleiben offen.
+Gekoppelte Quellen sind FSF-01 bis FSF-04,
 [Repo-Map](../../.ai/repo_map.yaml), [Arbeitsregeln](../../.ai/WORKING_RULES.md),
 [Known Limitations](../Quality/KNOWN_LIMITATIONS.md) und
 [Validierungsstrategie](../Quality/LOCAL_VALIDATION_STRATEGY.md).

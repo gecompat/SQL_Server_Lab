@@ -15,8 +15,9 @@ Dieser Entwurf konkretisiert den Handle-Vertrag innerhalb der freigegebenen
 Architektur und Fähigkeiten. Die Entscheidungen C1 bis C9 wurden ausdrücklich
 freigegeben. FSF-04 wurde anschließend als Ownership-/Cleanupmodell freigegeben.
 FSF-05 wurde danach als Sicherheitsmodell freigegeben.
-FSF-06 bleibt einzeln freizugeben; erst danach darf eine
-Implementierung beginnen. Die Feldnamen und Beispiele unten beschreiben
+FSF-06 wurde anschließend als Teststrategie freigegeben. Ein konkreter
+Implementierungsscope bleibt separat abzustimmen und zu beauftragen.
+Die Feldnamen und Beispiele unten beschreiben
 einen geplanten Vertrag. Sie führen weder ein JSON-Schema noch öffentliche
 Cmdlets, Exporte, Statefelder oder Secretformate ein.
 
@@ -324,9 +325,10 @@ Der Repository-Eigentümer hat FSF-03 am 2026-10-11 ausdrücklich freigegeben.
 Der Abstimmungsstatus ist `APPROVED` für Revision `0.1` und C1 bis C9.
 Das [FSF-04-Ownership-/Cleanupmodell](FILESYSTEM_FIXTURE_OWNERSHIP_CLEANUP_DRAFT.md)
 wurde anschließend am selben Tag freigegeben. Das [FSF-05-Sicherheitsmodell](FILESYSTEM_FIXTURE_SECURITY_DRAFT.md)
-wurde danach am selben Tag freigegeben. Als nächster Schritt liegt der
-[FSF-06-Teststrategieentwurf](FILESYSTEM_FIXTURE_TEST_STRATEGY_DRAFT.md)
-zur Abstimmung vor; FSF-06 bleibt offen. Gekoppelte Quellen sind
+wurde danach am selben Tag freigegeben. Die [FSF-06-Teststrategie](FILESYSTEM_FIXTURE_TEST_STRATEGY_DRAFT.md)
+wurde anschließend am selben Tag freigegeben. Als nächster Schritt liegt der
+[FSF-I01-Scopeentwurf](FILESYSTEM_FIXTURE_IMPLEMENTATION_SCOPE_01_DRAFT.md)
+zur Abstimmung vor; noch keine Implementierung. Gekoppelte Quellen sind
 [FSF-01](FILESYSTEM_FIXTURE_ARCHITECTURE_DRAFT.md),
 [FSF-02](FILESYSTEM_FIXTURE_CAPABILITY_DRAFT.md),
 [Repo-Map](../../.ai/repo_map.yaml),

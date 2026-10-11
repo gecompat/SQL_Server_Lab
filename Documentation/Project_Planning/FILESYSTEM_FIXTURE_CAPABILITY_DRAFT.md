@@ -16,8 +16,8 @@ von FSF-01 und FSF-02 genehmigen Architekturrahmen und Fähigkeitsmodell
 einschließlich eigenständiger manueller und automatisierter OS-/SQL-
 Benutzeranlage. FSF-03 und FSF-04 wurden anschließend als Handle-Vertrag und
 Ownership-/Cleanupmodell freigegeben; FSF-05 anschließend als Sicherheitsmodell.
-FSF-06 bleibt einzeln freizugeben; erst danach darf eine Implementierung
-beginnen. Die Bezeichnungen
+FSF-06 wurde danach als Teststrategie freigegeben. Der konkrete
+Implementierungsscope bleibt separat abzustimmen und zu beauftragen. Die Bezeichnungen
 unten sind fachliche Entwurfsbegriffe, keine vorhandenen API-, Schema- oder
 Fehlercodes. Bestehende Providerdeklarationen werden nicht erweitert.
 
@@ -304,9 +304,10 @@ Der Abstimmungsstatus ist `APPROVED` für Revision `0.1` und B1 bis B8.
 Der [FSF-03-Handle-Vertrag](FILESYSTEM_FIXTURE_HANDLE_DRAFT.md) wurde anschließend
 am selben Tag freigegeben. Das [FSF-04-Ownership-/Cleanupmodell](FILESYSTEM_FIXTURE_OWNERSHIP_CLEANUP_DRAFT.md)
 wurde danach am selben Tag freigegeben. Das [FSF-05-Sicherheitsmodell](FILESYSTEM_FIXTURE_SECURITY_DRAFT.md)
-wurde anschließend am selben Tag freigegeben. Als nächster Schritt liegt der
-[FSF-06-Teststrategieentwurf](FILESYSTEM_FIXTURE_TEST_STRATEGY_DRAFT.md)
-zur Abstimmung vor; FSF-06 bleibt offen. Die technischen Primärquellen
+wurde anschließend am selben Tag freigegeben. Die [FSF-06-Teststrategie](FILESYSTEM_FIXTURE_TEST_STRATEGY_DRAFT.md)
+wurde danach am selben Tag freigegeben. Als nächster Schritt liegt der
+[FSF-I01-Scopeentwurf](FILESYSTEM_FIXTURE_IMPLEMENTATION_SCOPE_01_DRAFT.md)
+zur Abstimmung vor; noch keine Implementierung. Die technischen Primärquellen
 oben wurden am 2026-10-11 geprüft; sie erklären Plattformmechanismen und
 erteilen keine Projektfreigabe. Gekoppelte Projektquellen bleiben
 [FSF-01](FILESYSTEM_FIXTURE_ARCHITECTURE_DRAFT.md),

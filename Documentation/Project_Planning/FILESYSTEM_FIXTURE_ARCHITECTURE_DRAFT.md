@@ -12,10 +12,10 @@
 
 Die Architekturentscheidungen A1 bis A10 wurden ausdrücklich freigegeben.
 Diese Zustimmung zu FSF-01 genehmigt ausschließlich den Architekturrahmen.
-FSF-02 bis FSF-05 wurden anschließend als Fähigkeitsmodell, Handle-Vertrag,
-Ownership-/Cleanupmodell und Sicherheitsmodell freigegeben; FSF-06
-bleibt eigenständig auszuarbeiten und einzeln freizugeben. Erst nach allen
-sechs Freigaben darf eine Implementierung beginnen. Es werden weder bestehende
+FSF-02 bis FSF-06 wurden anschließend als Fähigkeitsmodell, Handle-Vertrag,
+Ownership-/Cleanupmodell, Sicherheitsmodell und Teststrategie freigegeben.
+Die sechs Modellfreigaben erlauben keinen automatischen Implementierungsbeginn;
+der konkrete Scope bleibt separat abzustimmen und zu beauftragen. Es werden weder bestehende
 Exports noch Provider-, Lifecycle-, Schema-, Secret- oder Stateverträge geändert.
 
 ## 1. Zweck und Verantwortungsgrenze
@@ -412,7 +412,7 @@ Zielen und keine Änderung ihrer Branches, Worktrees, Wellenplanung oder Gates.
 
 Der Repository-Eigentümer hat FSF-01 mit diesen Ergänzungen am 2026-10-11
 ausdrücklich freigegeben. Der Abstimmungsstatus ist `APPROVED` für Revision
-`0.2` und A1 bis A10. Die jeweils genannten Folgeentscheidungen bleiben offen;
+`0.2` und A1 bis A10. Aktuelle Folgefreigaben sind im Backlog dokumentiert;
 aus der Architekturfreigabe, ihren Quellen oder einer bestandenen
 Dokumentationsprüfung folgt keine Freigabe einer Implementierung oder Zieloperation.
 
@@ -424,9 +424,10 @@ Windows/Hyper-V, Linux/Docker und Linux/Podman wurde am 2026-10-11 freigegeben.
 Der [FSF-03-Handle-Vertrag](FILESYSTEM_FIXTURE_HANDLE_DRAFT.md) wurde anschließend
 am selben Tag freigegeben. Das [FSF-04-Ownership-/Cleanupmodell](FILESYSTEM_FIXTURE_OWNERSHIP_CLEANUP_DRAFT.md)
 wurde danach am selben Tag freigegeben. Das [FSF-05-Sicherheitsmodell](FILESYSTEM_FIXTURE_SECURITY_DRAFT.md)
-wurde anschließend am selben Tag freigegeben. Als nächster Abstimmungsschritt
-liegt der [FSF-06-Teststrategieentwurf](FILESYSTEM_FIXTURE_TEST_STRATEGY_DRAFT.md)
-vor. FSF-06 legt die getrennten Testnachweise fest.
+wurde anschließend am selben Tag freigegeben. Die [FSF-06-Teststrategie](FILESYSTEM_FIXTURE_TEST_STRATEGY_DRAFT.md)
+wurde danach am selben Tag freigegeben. Als nächster Abstimmungsschritt liegt
+der [FSF-I01-Scopeentwurf](FILESYSTEM_FIXTURE_IMPLEMENTATION_SCOPE_01_DRAFT.md)
+für den internen Handle-Codec vor; noch keine Implementierung.
 Noch offen bleiben insbesondere native Belege für UID/GID-
 Reservierung, NTFS-Details, sichere Linkoperationen, Accountdatenbank-
 Nebenwirkungen, Recovery bei SQL-Ausfall und Lifecycle-Reservierung.
