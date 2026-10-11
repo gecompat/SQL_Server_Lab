@@ -2,12 +2,14 @@
 
 Dieses Verzeichnis enthält die maschinenlesbaren Verträge und ausführbaren Beispielmanifeste.
 
-`smtpTestService` ist derzeit ausschließlich ein Manifest-Zulassungsvertrag.
+`smtpTestService` aktiviert einen laufspezifischen SQL-Database-Mail-Testservice.
 [example-smtp-disabled.json](example-smtp-disabled.json) zeigt den bisherigen
 SQL-Lab-Pfad mit deaktiviertem SMTP. Aktivierte Konfiguration wird strukturell
-und fachlich geprüft, aber vor Lab-Secrets, State und Provideroperationen mit
-`SMTP_TEST_BACKEND_UNADMITTED` abgewiesen. Sie provisioniert keinen Receiver.
-AdHoc-Parameter, Browserdialog und SMTP-Lifecycle sind noch nicht implementiert.
+und fachlich geprüft und für eine einzelne passende Docker- oder Podman-SQL-2025-
+Topologie provisioniert. Sie erzeugt einen laufspezifischen Mailpit-Receiver und
+einen quota-begrenzten SMTP-Gateway; Credentials bleiben in lokalen Run-Secrets
+und erscheinen nicht im Manifest oder in `connection-info.json`. AdHoc-Parameter,
+Browserdialog und eine öffentliche Mailinhalt-API sind nicht implementiert.
 
 ## Schema-Dateien
 

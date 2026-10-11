@@ -103,8 +103,14 @@ beide Provider: Gateway und Mailpit erhielten nur ein eigenes internes Netz,
 der Mailpit-HTTP-Zugang war Basic-auth-gebunden, eine echte SMTP-Nachricht
 wurde weitergeleitet und die nächste wurde an der echten
 Receiver-Speicheranzahl mit `452` abgewiesen. Diese Nachweise belegen die
-isolierte Gateway/Receiver-Komponente, aber keine Manifestzulassung,
-Run-/Scope-Ownership, SQL-Integration oder öffentliche SMTP-API.
+isolierte Gateway/Receiver-Komponente. Der vollständige Database-Mail-Lifecycle
+wurde zusätzlich mit Docker ausgeführt: `New-SqlServerLab` erzeugte den Run,
+`sp_send_dbmail` lieferte über das run-spezifische Profil an Mailpit, und
+`Remove-SqlServerLab` entfernte Gateway, Receiver, Netze, SQL-Container und
+Auth-Datei ohne Cleanupfehler. Damit sind für Docker Manifestbindung,
+Run-/Scope-Ownership, SQL-Integration, End-to-End-Zustellung und Cleanup
+nachgewiesen. Podman bleibt für den vollständigen Lifecycle offen; eine
+öffentliche SMTP-API entsteht nicht.
 
 ## Privater SMTP-Receiver-Lesetransport
 

@@ -539,6 +539,9 @@ function Invoke-CleanupPlan {
                         -ExpectedRunId ([string]$plan.runId) `
                         -ExpectedScopeId $ScopeId -StateRoot $containerStateRoot
                 }
+                'smtp-secret-file' {
+                    Remove-LabSmtpTestServiceSecretFile -Path ([string]$step.resourceId) -RunDirectory $RunDir
+                }
                 'persistent-storage-lease' {
                     if ($provider -notin @('docker','podman')) {
                         throw "Persistent-Storage-Lease-Cleanup erfordert Docker oder Podman."

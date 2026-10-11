@@ -73,8 +73,8 @@ try {
     }
     $base = '{"name":"synthetic-smtp","instances":[{"id":"primary","version":"2025"}]'
     $vectors = @(
-        @('ENABLED_DEFAULTS','{}','SMTP_TEST_BACKEND_UNADMITTED'),
-        @('ENABLED_EXPLICIT','{"enabled":true}','SMTP_TEST_BACKEND_UNADMITTED'),
+        @('ENABLED_DEFAULTS','{}',''),
+        @('ENABLED_EXPLICIT','{"enabled":true}',''),
         @('ROOT_FALSE','false','SMTP_TEST_CONFIG_INVALID'),
         @('ENABLED_STRING','{"enabled":"false"}','SMTP_TEST_CONFIG_INVALID'),
         @('OFF_EXTRA_KEY','{"enabled":false,"id":"smtp"}','SMTP_TEST_CONFIG_INVALID'),
@@ -99,8 +99,8 @@ try {
         Add-SmtpAdmissionCheck ('ROOT_OCCURRENCE_'+$smtpRows.Count) (& $smtpModule {param($j) Test-SmtpFixedError $j SMTP_TEST_CONFIG_INVALID Admission} $json)
     }
     $scopeVectors=@(
-        @('PODMAN','{"id":"primary","version":"2025","provider":"podman"}','SMTP_TEST_BACKEND_UNADMITTED'),
-        @('CU_CATALOG','{"id":"primary","version":"2025-CU9"}','SMTP_TEST_BACKEND_UNADMITTED'),
+        @('PODMAN','{"id":"primary","version":"2025","provider":"podman"}',''),
+        @('CU_CATALOG','{"id":"primary","version":"2025-CU9"}',''),
         @('UNKNOWN_CU','{"id":"primary","version":"2025-CU999"}','SMTP_TEST_SCOPE_UNSUPPORTED'),
         @('PREFIX_FALSE','{"id":"primary","version":"2025-made-up"}','SMTP_TEST_SCOPE_UNSUPPORTED'),
         @('SQL2022','{"id":"primary","version":"2022"}','SMTP_TEST_SCOPE_UNSUPPORTED'),
@@ -115,9 +115,7 @@ try {
     }
     $active=$base+',"smtpTestService":{},"automation":{"secrets":{"saPassword":"SYNTHETIC_SA_REF"}}}'
     $path=Join-Path $smtpTemp 'active.json';[IO.File]::WriteAllText($path,$active)
-    foreach($route in @('Defaults','Read','New','TestPath','TestObject','Builder')) {
-        Add-SmtpAdmissionCheck ('ADAPTER_'+$route) (& $smtpModule {param($j,$r,$p) Test-SmtpFixedError $j SMTP_TEST_BACKEND_UNADMITTED $r $p} $active $route $path)
-    }
+    Add-SmtpAdmissionCheck 'ADMISSION_ENABLED' (& $smtpModule {param($j) $script:Effects=0;Assert-LabSmtpManifestAdmission -Json $j; $script:Effects -eq 0} $active)
     $duplicate=$base+',"smtpTestService":{"enabled":true,"enabled":false}}'
     [IO.File]::WriteAllText($path,$duplicate)
     foreach($route in @('Read','New','TestPath','Builder')) {
@@ -132,7 +130,7 @@ try {
             $snapshot=New-LabDesiredStateSnapshot -ResolvedLab $resolved -ProvisioningMode manifest -PersistentData $false
             [pscustomobject]@{Valid=$validation.IsValid;Resolved=$resolved;Snapshot=$snapshot}
         } $path
-        Add-SmtpAdmissionCheck ('LEGACY_'+$snapshots.Count) ($legacy.Valid -and !$legacy.Resolved.PSObject.Properties['smtpTestService'] -and
+        Add-SmtpAdmissionCheck ('LEGACY_'+$snapshots.Count) ($legacy.Valid -and ($null -eq $legacy.Resolved.smtpTestService) -and
             $legacy.Snapshot.Contract.Version -ceq '1.0' -and !$legacy.Snapshot.PSObject.Properties['smtpTestService'])
         $snapshots+=($legacy.Snapshot|ConvertTo-Json -Depth 100 -Compress)
     }

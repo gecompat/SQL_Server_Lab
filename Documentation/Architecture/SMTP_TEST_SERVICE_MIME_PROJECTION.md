@@ -3,8 +3,8 @@
 Status: `PRIVATE_OFFLINE_IMPLEMENTATION`. Dieser Vertrag beschreibt die
 vorhandene MIME-Projektion für explizit übergebene lokale Bytes. Er aktiviert
 keinen SMTP-Receiver und eröffnet keine öffentliche Core-, CLI- oder GUI-API.
-Die [Manifestzulassung](MANIFEST_AND_INTERFACE_ARCHITECTURE.md#aktueller-smtp-manifest-zulassungsvertrag)
-blockiert aktive Konfiguration weiterhin mit `SMTP_TEST_BACKEND_UNADMITTED`.
+Die [SMTP-Testservice-Bindung](MANIFEST_AND_INTERFACE_ARCHITECTURE.md#smtp-testservice-vertrag)
+ist davon getrennt.
 
 ## Eingaben und Ausgabe
 

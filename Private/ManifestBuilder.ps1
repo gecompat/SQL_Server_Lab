@@ -1066,7 +1066,7 @@ function Get-LabManifestValidationResult {
     $instancePlanPreviews = [System.Collections.Generic.List[object]]::new()
     try { Assert-LabSmtpManifestAdmission -Json $Json }
     catch {
-        if ($_.Exception.Message -cnotin @('SMTP_TEST_CONFIG_INVALID', 'SMTP_TEST_SCOPE_UNSUPPORTED', 'SMTP_TEST_BACKEND_UNADMITTED')) { throw }
+        if ($_.Exception.Message -cnotin @('SMTP_TEST_CONFIG_INVALID', 'SMTP_TEST_SCOPE_UNSUPPORTED')) { throw }
         return [PSCustomObject]@{
             IsValid = $false; Errors = @($_.Exception.Message); Warnings = @()
             Plan = [PSCustomObject]@{

@@ -213,10 +213,12 @@ function Test-SqlServerLabManifest {
         Prueft einen Entwurf aus der Pipeline. Das Originalobjekt wird nicht um
         Schema- oder Runtime-Defaults ergaenzt.
     .NOTES
-        SMTP ist derzeit nur ein Manifest-Zulassungsvertrag. Aktivierte,
-        gueltige Konfiguration endet mit SMTP_TEST_BACKEND_UNADMITTED vor
-        Lab-Secrets, State und Provideroperationen. InputObject kann bereits
-        bei seiner Erstellung verlorene JSON-Duplikate nicht rekonstruieren.
+        smtpTestService aktiviert einen laufspezifischen Database-Mail-Testpfad
+        fuer eine einzige passende Docker- oder Podman-SQL-2025-Topologie.
+        Die Konfiguration erzeugt private Sender-/Receiver-Netze, einen
+        quota-begrenzten Gateway und ein nichtoeffentliches Database-Mail-Profil.
+        InputObject kann bereits bei seiner Erstellung verlorene JSON-Duplikate
+        nicht rekonstruieren.
         Ein nicht vorhandener Path fuehrt zu einem terminierenden Fehler. Bei
         syntaktisch ungueltigem JSON wird dagegen ein ungueltiges Ergebnis mit
         einem Eintrag unter Errors zurueckgegeben; mit Quiet ist das Ergebnis
@@ -242,7 +244,7 @@ function Test-SqlServerLabManifest {
             $json = Get-Content -LiteralPath $fullPath -Raw -Encoding utf8
             try { Assert-LabSmtpManifestAdmission -Json $json }
             catch {
-                if ($_.Exception.Message -cnotin @('SMTP_TEST_CONFIG_INVALID', 'SMTP_TEST_SCOPE_UNSUPPORTED', 'SMTP_TEST_BACKEND_UNADMITTED')) { throw }
+                if ($_.Exception.Message -cnotin @('SMTP_TEST_CONFIG_INVALID', 'SMTP_TEST_SCOPE_UNSUPPORTED')) { throw }
                 $result = [PSCustomObject]@{
                     IsValid = $false; Errors = @($_.Exception.Message); Warnings = @()
                     Plan = [PSCustomObject]@{

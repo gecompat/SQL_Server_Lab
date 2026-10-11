@@ -35,7 +35,7 @@
       }
     },
     "smtpTestService": {
-      "description": "Nur SMTP-Manifestzulassung, noch keine Provisionierung. Weglassen, null oder exakt enabled=false bewahren Legacy-Verhalten. Aktivierte Konfiguration ist vor Lab-Secrets, State und Provideroperationen gesperrt.",
+      "description": "Optionaler laufspezifischer SQL-Database-Mail-Testservice. Weglassen, null oder exakt enabled=false bewahren Legacy-Verhalten. Aktivierte Konfiguration erfordert eine einzelne passende Docker- oder Podman-SQL-2025-Topologie und wird mit privaten Netzen, quota-begrenztem Gateway sowie geheimnisfreier Run-Bindung provisioniert.",
       "oneOf": [
         { "type": "null" },
         {

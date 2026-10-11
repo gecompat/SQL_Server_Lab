@@ -11,10 +11,10 @@
 
 ## 1. Ziel
 
-### Aktueller SMTP-Manifest-Zulassungsvertrag
+### SMTP-Testservice-Vertrag
 
-Das optionale Rootfeld `smtpTestService` ist eine begrenzte Zulassungsprüfung,
-keine Implementierung des geplanten generischen Komponentenmodells. Weglassen,
+Das optionale Rootfeld `smtpTestService` aktiviert einen begrenzten,
+laufspezifischen Database-Mail-Testservice, keine generische Komponentenplattform. Weglassen,
 `null` und exakt `{ "enabled": false }` bewahren den bisherigen aufgelösten
 Labzustand und `SqlServerLab.RunDesiredState/1.0`; es entsteht kein SMTP-State.
 Skalares `false`, zusätzliche Felder im deaktivierten Objekt, unbekannte oder
@@ -36,28 +36,33 @@ und ein einziges Docker- oder Podman-Provider-Tuple mit Linux und einer durch
 den bestehenden Imagekatalog auflösbaren SQL-2025-Version voraus. Fehlende
 Provider-/OS-Werte verwenden die bisherigen Metadatendefaults. Ungültige
 Konfiguration endet mit `SMTP_TEST_CONFIG_INVALID`, ungeeignete Topologie mit
-`SMTP_TEST_SCOPE_UNSUPPORTED`; auch gültiger aktiver Intent endet derzeit mit
-`SMTP_TEST_BACKEND_UNADMITTED`. Diese Barriere liegt vor Default-/Sampleauflösung,
-Lab-Secretöffnung, State und Provideroperationen. Validator und Wizard speichern
-keinen aktiven Entwurf. Der Planvorschauvertrag bleibt `1.3`.
+`SMTP_TEST_SCOPE_UNSUPPORTED`. Nach erfolgreicher Runbindung provisioniert
+`New-SqlServerLab` einen internen Sender-Bridge, einen quota-begrenzten SMTP-
+Gateway und einen Mailpit-Receiver. Der Receiver-HTTP-Port ist ausschließlich
+an `127.0.0.1` gebunden; Mailpit-UI-Zugangsdaten bleiben als DPAPI-geschuetztes
+Run-Secret und werden nie in `connection-info.json` geschrieben. Jede
+Senderinstanz erhaelt ein eigenes, nichtoeffentliches Database-Mail-Profil.
+Validator und Wizard speichern keinen aktiven Entwurf. Der Planvorschauvertrag
+bleibt `1.3`.
 
-Es gibt damit noch keine SMTP-Provisionierung, AdHoc-/Browserparität, öffentliche
-SMTP-API oder Mailinhaltanzeige. Native Receiver-, Egress-, Quota-, Lifecycle-
-und getrennte Docker-/Podman-Nachweise bleiben offen; ein Schemaerfolg ist
-keine Runtimebereitschaft.
+Es gibt keine öffentliche SMTP-, Reader-, CLI-, Browser- oder Mailinhalt-API.
+Der geheimnisfreie Serviceabschnitt in der Run-`connection-info.json` bindet
+Profilname, Gateway und lokalen Receiver für kontrollierte Testautomatisierung.
+Der Docker-Referenzpfad ist ausgeführt; Podman bleibt ein separater offener
+Providernachweis. Ein Schemaerfolg ist keine Runtimebereitschaft.
 
 Der getrennte [private Receiver-Lesetransport](SMTP_TEST_SERVICE_RECEIVER_READ.md)
 ist mit synthetischen eigenen Loopback-HTTP-Servern geprüft. Er liest Raw-MIME
 bytegenau, implementiert aber weder die erforderliche echte Komponentenbindung
-noch eine öffentliche API oder einen provisionierten Receiver. Die aktive
-Manifestbarriere bleibt unverändert.
+noch eine öffentliche API. Seine Bindung an den Runresolver bleibt separat
+offen.
 
 Dieses Dokument definiert die geplanten maschinenlesbaren Verträge und ihre Auflösungsreihenfolge.
 
 Die separate [private Offline-MIME-Projektion](SMTP_TEST_SERVICE_MIME_PROJECTION.md)
 verarbeitet ausdrücklich übergebene Bytes ohne Receiver- oder Stateaktivierung.
-Sie hebt die SMTP-Backendbarriere nicht auf und liefert keine öffentliche
-Inhalt-API oder native Providerbereitschaft.
+Sie liefert keine öffentliche Inhalt-API oder zusätzliche native
+Providerbereitschaft.
 
 SQL Server ist verbindlicher Hauptzweck. Supporting Components werden über erweiterbare Typen modelliert, damit SQL-Server-Szenarien wie Windows Authentication, Always On, PolyBase oder REST-Integration nicht durch zu enge Schemas verhindert werden.
 
