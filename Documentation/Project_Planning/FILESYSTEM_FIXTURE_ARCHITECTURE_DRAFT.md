@@ -12,7 +12,8 @@
 
 Die Architekturentscheidungen A1 bis A10 wurden ausdrücklich freigegeben.
 Diese Zustimmung zu FSF-01 genehmigt ausschließlich den Architekturrahmen.
-FSF-02 wurde anschließend als Fähigkeitsmodell freigegeben; FSF-03 bis FSF-06
+FSF-02 und FSF-03 wurden anschließend als Fähigkeitsmodell und Handle-Vertrag
+freigegeben; FSF-04 bis FSF-06
 bleiben eigenständig auszuarbeiten und einzeln freizugeben. Erst nach allen
 sechs Freigaben darf eine Implementierung beginnen. Es werden weder bestehende
 Exports noch Provider-, Lifecycle-, Schema-, Secret- oder Stateverträge geändert.
@@ -420,9 +421,10 @@ Dokumentationsprüfung folgt keine Freigabe einer Implementierung oder Zielopera
 Das [FSF-02-Capability-Modell](FILESYSTEM_FIXTURE_CAPABILITY_DRAFT.md) mit
 getrennten OS-/SQL-Identitätsarten und der konkreten Fähigkeitsmatrix für
 Windows/Hyper-V, Linux/Docker und Linux/Podman wurde am 2026-10-11 freigegeben.
-Als nächster Abstimmungsschritt liegt der [FSF-03-Handle-Entwurf](FILESYSTEM_FIXTURE_HANDLE_DRAFT.md)
-vor. FSF-03 bis FSF-06 liefern
-danach Handle-/Freigabebindung, Ownership-/Cleanupdetails, Bedrohungsmodell
+Der [FSF-03-Handle-Vertrag](FILESYSTEM_FIXTURE_HANDLE_DRAFT.md) wurde anschließend
+am selben Tag freigegeben. Als nächster Abstimmungsschritt liegt der
+[FSF-04-Ownership-/Cleanup-Entwurf](FILESYSTEM_FIXTURE_OWNERSHIP_CLEANUP_DRAFT.md)
+vor. FSF-04 bis FSF-06 liefern danach Ownership-/Cleanupdetails, Bedrohungsmodell
 und getrennte Testnachweise. Noch offen bleiben insbesondere UID/GID-
 Reservierung, NTFS-Details, sichere Linkoperationen, Accountdatenbank-
 Nebenwirkungen, Recovery bei SQL-Ausfall und Lifecycle-Reservierung.

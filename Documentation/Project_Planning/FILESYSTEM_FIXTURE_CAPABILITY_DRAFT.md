@@ -14,7 +14,8 @@
 Die Entscheidungen B1 bis B8 wurden ausdrücklich freigegeben. Die Freigaben
 von FSF-01 und FSF-02 genehmigen Architekturrahmen und Fähigkeitsmodell
 einschließlich eigenständiger manueller und automatisierter OS-/SQL-
-Benutzeranlage. FSF-03 bis FSF-06 bleiben einzeln
+Benutzeranlage. FSF-03 wurde anschließend als Handle-Vertrag freigegeben;
+FSF-04 bis FSF-06 bleiben einzeln
 freizugeben; erst danach darf eine Implementierung beginnen. Die Bezeichnungen
 unten sind fachliche Entwurfsbegriffe, keine vorhandenen API-, Schema- oder
 Fehlercodes. Bestehende Providerdeklarationen werden nicht erweitert.
@@ -295,12 +296,14 @@ Podman und Hyper-V bleiben getrennte Providerbelege.
 | `B5` | Manuelle und automatisierte Nutzung gleichberechtigt, mit bewusst begrenzter Aufbewahrung und eigener sicherer Zugangsmethode | Testende entfernt keine aufbewahrten Identitäten; keine Klartextcredentials im Handle. |
 | `B6` | Dateien optional, private Zielpfade; NTFS-ACLs beziehungsweise Unix-Mode-Bits, begrenzte Link-/Sentinelfälle | Shared-/Hoststorage und POSIX-ACL-Erweiterungen gehören nicht zum ersten Profil. |
 | `B7` | Capability-Ermittlung fail-closed, lesend und je konkrete Kombination; kein stiller Fallback | Fehlende Evidence/Frische/Freigabe bleibt ein Blocker; Providerdeklaration reicht nicht. |
-| `B8` | FSF-02-Freigabe genehmigt ausschließlich dieses Fähigkeitsmodell | FSF-03 bis FSF-06 bleiben offen; keine Implementierung oder Zielmutation. |
+| `B8` | FSF-02-Freigabe genehmigt ausschließlich dieses Fähigkeitsmodell | FSF-03 bis FSF-06 benötigen separate Einzelfreigaben; keine Implementierung oder Zielmutation. |
 
 Der Repository-Eigentümer hat FSF-02 am 2026-10-11 ausdrücklich freigegeben.
 Der Abstimmungsstatus ist `APPROVED` für Revision `0.1` und B1 bis B8.
-Als nächster Schritt liegt der [FSF-03-Handle-Entwurf](FILESYSTEM_FIXTURE_HANDLE_DRAFT.md)
-zur Abstimmung vor; FSF-03 bis FSF-06 bleiben offen. Die technischen Primärquellen
+Der [FSF-03-Handle-Vertrag](FILESYSTEM_FIXTURE_HANDLE_DRAFT.md) wurde anschließend
+am selben Tag freigegeben. Als nächster Schritt liegt der
+[FSF-04-Ownership-/Cleanup-Entwurf](FILESYSTEM_FIXTURE_OWNERSHIP_CLEANUP_DRAFT.md)
+zur Abstimmung vor; FSF-04 bis FSF-06 bleiben offen. Die technischen Primärquellen
 oben wurden am 2026-10-11 geprüft; sie erklären Plattformmechanismen und
 erteilen keine Projektfreigabe. Gekoppelte Projektquellen bleiben
 [FSF-01](FILESYSTEM_FIXTURE_ARCHITECTURE_DRAFT.md),

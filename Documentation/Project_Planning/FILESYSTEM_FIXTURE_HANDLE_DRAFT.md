@@ -1,18 +1,19 @@
-# FSF-03 – Fixture-Handle für getrennte OS-/SQL-Identitäten
+# FSF-03 – Freigegebener Fixture-Handle-Vertrag für getrennte OS-/SQL-Identitäten
 
 | Merkmal | Wert |
 |---|---|
-| Status | `HANDLE_DECISION_DRAFT` – zur Abstimmung, nicht freigegeben |
+| Status | `HANDLE_CONTRACT_APPROVED` – Handle-Vertrag freigegeben |
 | Entwurf | `FSF-03`, Revision `0.1`, Stand 2026-10-11 |
+| Freigabe | ausdrücklich durch den Repository-Eigentümer am 2026-10-11 |
 | Grundlage | [FSF-01](FILESYSTEM_FIXTURE_ARCHITECTURE_DRAFT.md), Revision `0.2`, und [FSF-02](FILESYSTEM_FIXTURE_CAPABILITY_DRAFT.md), Revision `0.1`; beide ausdrücklich freigegeben am 2026-10-11 |
 | Anforderungsquelle | [Fixture-Verwaltungs-Backlog](FILESYSTEM_FIXTURE_MANAGEMENT_BACKLOG.md) |
 | Repositorybasis der Bestandsanalyse | `a6b5a6b3`; keine neue Fixture-Implementierung oder Runtime-Evidence |
 | Gegenstand | stabiler Handle, getrennte Ressourcenreferenzen, private Bindung, Freigabegrenze und sanitisierter Ergebnisumfang |
-| Autorität | Dokumentationsentwurf; keine Implementierungs-, Benutzeranlage-, Zugangs- oder Löschfreigabe |
+| Autorität | freigegebener Handle-Vertrag; keine Implementierungs-, Benutzeranlage-, Zugangs- oder Löschfreigabe |
 
 Dieser Entwurf konkretisiert den Handle-Vertrag innerhalb der freigegebenen
-Architektur und Fähigkeiten. Alle Entscheidungen C1 bis C9 sind Vorschläge.
-FSF-03 bis FSF-06 bleiben einzeln freizugeben; erst danach darf eine
+Architektur und Fähigkeiten. Die Entscheidungen C1 bis C9 wurden ausdrücklich
+freigegeben. FSF-04 bis FSF-06 bleiben einzeln freizugeben; erst danach darf eine
 Implementierung beginnen. Die Feldnamen und Beispiele unten beschreiben
 einen geplanten Vertrag. Sie führen weder ein JSON-Schema noch öffentliche
 Cmdlets, Exporte, Statefelder oder Secretformate ein.
@@ -303,9 +304,9 @@ Fortsetzung manueller Nutzer nach Dateientfernung; fehlender Secretzugang und
 Privacy sämtlicher Erfolgs-/Fehlerprojektionen. Docker, Podman und Hyper-V
 bleiben getrennte Nachweise.
 
-## 9. Entscheidungen zur Abstimmung
+## 9. Freigegebene Handle-Entscheidungen
 
-| ID | Vorschlag für FSF-03 | Konsequenz |
+| ID | Freigegebener Vertrag innerhalb FSF-03 | Konsequenz |
 |---|---|---|
 | `C1` | Ein stabiler minimaler Handle pro Szenarioscope, nur ContractVersion und HandleId | Kein Credential, Pfad, Runtimeziel oder Grant im Handle. |
 | `C2` | Unabhängige ResourceRefs je OS-Konto, numerischem Kontext, SQL-Login, Datenbankbenutzer und Dateiressourcenpaket | Mehrere Benutzer und Datenbanken bleiben getrennt; keine automatische OS-/SQL-Kopplung. |
@@ -317,7 +318,10 @@ bleiben getrennte Nachweise.
 | `C8` | Dauerhafte Teilfehler-/Abschlusszuordnung ohne Wiederverwendung; Recovery/Idempotenzdetails in FSF-04 | Antwortverlust erzeugt keine blinde zweite Anlage und keinen Zielwechsel. |
 | `C9` | FSF-03-Freigabe genehmigt nur diesen Handle-Vertrag | FSF-04 bis FSF-06 und jede Implementierungs-/Runtimefreigabe bleiben offen. |
 
-Der Abstimmungsstatus ist `PENDING`. Gekoppelte Quellen sind
+Der Repository-Eigentümer hat FSF-03 am 2026-10-11 ausdrücklich freigegeben.
+Der Abstimmungsstatus ist `APPROVED` für Revision `0.1` und C1 bis C9.
+Als nächster Schritt liegt der [FSF-04-Ownership-/Cleanup-Entwurf](FILESYSTEM_FIXTURE_OWNERSHIP_CLEANUP_DRAFT.md)
+zur Abstimmung vor; FSF-04 bis FSF-06 bleiben offen. Gekoppelte Quellen sind
 [FSF-01](FILESYSTEM_FIXTURE_ARCHITECTURE_DRAFT.md),
 [FSF-02](FILESYSTEM_FIXTURE_CAPABILITY_DRAFT.md),
 [Repo-Map](../../.ai/repo_map.yaml),

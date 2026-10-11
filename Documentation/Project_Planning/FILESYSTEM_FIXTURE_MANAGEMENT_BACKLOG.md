@@ -5,7 +5,7 @@
 | Status | `PLANNED` |
 | Stand | 2026-10-11 |
 | Zweck | synthetische OS-/SQL-Identitäten für automatisierte Tests, manuelle Schulungen und Rekonstruktionsszenarien; optional kombinierbare Dateisystem-Fixtures auf ausgewählten SQL-Labzielen |
-| Nächster Schritt | [FSF-03-Handle-Entwurf](FILESYSTEM_FIXTURE_HANDLE_DRAFT.md) abstimmen; danach Ownership/Cleanup, Sicherheitsmodell und Teststrategie einzeln ausarbeiten und abstimmen |
+| Nächster Schritt | [FSF-04-Ownership-/Cleanup-Entwurf](FILESYSTEM_FIXTURE_OWNERSHIP_CLEANUP_DRAFT.md) abstimmen; danach Sicherheitsmodell und Teststrategie einzeln ausarbeiten und abstimmen |
 | Implementierungsfreigabe | `PENDING`; erst nach ausdrücklicher Einzelfreigabe aller sechs Entwurfsbereiche |
 | Autorität | Backlogaufnahme; keine Implementierungs-, Provider-, Identitäts-, Dateisystem- oder Löschfreigabe |
 
@@ -50,7 +50,8 @@ getrennt. Dieser Eintrag legt Anforderungen und offene Entwurfsaufgaben fest.
 2026-10-11 einschließlich eigenständiger manueller OS-/SQL-Benutzeranlage
 ausdrücklich freigegeben. [FSF-02](FILESYSTEM_FIXTURE_CAPABILITY_DRAFT.md),
 Revision `0.1`, wurde anschließend am selben Tag ausdrücklich freigegeben.
-Die übrigen vier Entwürfe und sämtliche
+[FSF-03](FILESYSTEM_FIXTURE_HANDLE_DRAFT.md), Revision `0.1`, wurde danach
+ebenfalls ausdrücklich freigegeben. Die übrigen drei Entwürfe und sämtliche
 Implementierungs- und Runtimefreigaben bleiben offen.
 
 ## Zielauswahl und Autorisierung
@@ -139,8 +140,10 @@ Nicht eindeutig prüfbare Grenzen blockieren die Operation.
   Eigentums- und Wiederherstellungsdatensatz sowie einen Cleanup-Plan anlegen.
 - Erzeugung und Eigentum jeder Ressource eindeutig nachweisen. Private
   Ressourcenidentitäten, Pfad- und Zielbindungen bleiben im lokalen Datensatz.
-- Das Fixture-Handle enthält nur minimale, nicht geheime Metadaten. Schema,
-  Versionsbindung, lokale Auflösung und Manipulationsschutz sind offen.
+- Der freigegebene [FSF-03-Handle-Vertrag](FILESYSTEM_FIXTURE_HANDLE_DRAFT.md)
+  enthält nur minimale, nicht geheime Metadaten; Versionsbindung, private
+  Auflösung und Freigabegrenze sind abgestimmt. Implementierung und konkrete
+  Sicherheitsnachweise bleiben offen.
 - Cleanup entfernt ausschließlich nachweislich durch diese Fixture erzeugte
   und weiterhin eindeutig gebundene Ressourcen.
 - Drift, unklare Ownership, abweichende Besitzer oder geänderte Mount-/
@@ -214,13 +217,13 @@ Implementierungs- und Runtime-Nachweise sind für diesen Backlog offen.
 |---|---|---|---|
 | `FSF-01` | Architektur | [Freigegebener Rahmen](FILESYSTEM_FIXTURE_ARCHITECTURE_DRAFT.md), Revision `0.2`: eigenständige manuelle und automatisierte OS-/SQL-Identitäten, SQL-Bezug, Ziel-/Readinessbindung, interne Betreibergrenze, Abläufe und ausgeschlossene Infrastrukturaktionen | `APPROVED` – ausdrückliche Nutzerfreigabe am 2026-10-11 |
 | `FSF-02` | Capability-Modell je Plattform | [Freigegebenes Modell](FILESYSTEM_FIXTURE_CAPABILITY_DRAFT.md), Revision `0.1`: getrennte OS-/SQL-Identitätsarten, Nutzungs-/Rechteprofile und optionale Dateien; Windows-/Hyper-V-, Linux-/Docker- und Linux-/Podman-Matrix einschließlich Namespace-/Mountgrenzen und Blockern | `APPROVED` – ausdrückliche Nutzerfreigabe am 2026-10-11 |
-| `FSF-03` | Fixture-Handle | [Entwurf zur Abstimmung](FILESYSTEM_FIXTURE_HANDLE_DRAFT.md): minimaler versionierter Handle, getrennte Ressourcenreferenzen, private lokale Ziel-/Owner-/Runbindung, Inventarrevision, Operationsfreigabe und Manipulationsschutz | `PENDING` |
-| `FSF-04` | Ownership und Cleanup | Vorabjournal, Erzeugungsnachweis, begrenzter Outside-Sentinel, Drift-Vetos, Idempotenz, Teilfehler und Recovery | `PENDING` |
+| `FSF-03` | Fixture-Handle | [Freigegebener Vertrag](FILESYSTEM_FIXTURE_HANDLE_DRAFT.md), Revision `0.1`: minimaler versionierter Handle, getrennte Ressourcenreferenzen, private lokale Ziel-/Owner-/Runbindung, Inventarrevision, Operationsfreigabe und Manipulationsschutz | `APPROVED` – ausdrückliche Nutzerfreigabe am 2026-10-11 |
+| `FSF-04` | Ownership und Cleanup | [Entwurf zur Abstimmung](FILESYSTEM_FIXTURE_OWNERSHIP_CLEANUP_DRAFT.md): Vorabjournal, getrennte Lebensdauer, Erzeugungs-/Absenznachweis, eigener Sentinel und Profilrückbau, Sitzungs-/Driftblocker, Idempotenz, Teilfehler und Recovery | `PENDING` |
 | `FSF-05` | Sicherheitsmodell | Bedrohungsmodell, Least Privilege, Secrets/Privacy, Escape-/Kollisionsschutz und prüfbare Sicherheitsgrenzen | `PENDING` |
 | `FSF-06` | Teststrategie | konkrete positive/negative Testmatrix, getrennte Providerbelege, SQL-Assertions, Schutz fremder Ressourcen und Cleanup-Abnahme | `PENDING` |
 
-Die Backlogaufnahme ist keine Freigabe dieser Entwürfe; die separaten FSF-01-
-und FSF-02-Freigaben sind oben dokumentiert. Erst wenn alle sechs
+Die Backlogaufnahme ist keine Freigabe dieser Entwürfe; die separaten Freigaben
+von FSF-01 bis FSF-03 sind oben dokumentiert. Erst wenn alle sechs
 Punkte einzeln abgestimmt und ausdrücklich freigegeben sind, darf eine
 Implementierung beginnen. Danach ist der konkrete Implementierungsscope mit
 der dann aktuellen Entwicklungsplanung und parallelen Arbeiten abzugleichen.
