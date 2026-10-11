@@ -800,6 +800,7 @@ function Show-LabWorkspaceMenu {
         New-LabConsoleItem -Id AiArea -Label 'SQL-2025-KI-Szenarien und Demos' -Shortcut 4
         New-LabConsoleItem -Id ContainerPortPreview -Label 'SQL-Hostport vorprüfen' -Value 'PLAN_ONLY · keine Änderung oder Reservierung' -Shortcut 5
         New-LabConsoleItem -Id ContainerAutoStartPreview -Label 'Container-Autostart vorprüfen' -Value 'PLAN_ONLY · keine Änderung oder Hostloginprüfung' -Shortcut 6
+        New-LabConsoleItem -Id HyperVAutoStart -Label 'Hyper-V-Autostart ändern' -Value 'Gebundener Plan · Bestätigung erforderlich' -Shortcut 7
         New-LabConsoleItem -Id back -Label 'Zurück' -Shortcut 0
     )
 }

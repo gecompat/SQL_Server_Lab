@@ -150,6 +150,7 @@ function Invoke-LabMenuAction {
     if ($ActionName -eq 'queue') { Invoke-LabQueueInteractive; return }
     if ($ActionName -eq 'ContainerPortPreview') { Invoke-LabContainerPortPreviewInteractive; return }
     if ($ActionName -eq 'ContainerAutoStartPreview') { Invoke-LabContainerAutoStartPreviewInteractive; return }
+    if ($ActionName -eq 'HyperVAutoStart') { Invoke-LabHyperVAutoStartInteractive; return }
 
     if ($ActionName -eq 'HyperVManage') {
         Manage-LabHyperVEnvironmentInteractive
@@ -1761,6 +1762,7 @@ function Invoke-LabAction {
         'Resources' { Set-LabResourcesInteractive }
         'ContainerPortPreview' { Invoke-LabContainerPortPreviewInteractive }
         'ContainerAutoStartPreview' { Invoke-LabContainerAutoStartPreviewInteractive }
+        'HyperVAutoStart' { Invoke-LabHyperVAutoStartInteractive }
         'Rename' { Rename-LabEnvironmentInteractive }
         'New' { Invoke-LabNewEnvironmentInteractive }
         'AutomatedTestEnvironment' { Invoke-LabAutomatedTestEnvironmentInteractive }
@@ -6214,7 +6216,7 @@ function Assert-LabContainerAutoStartConsolePlan {
     foreach($value in $scalars.Values){if($value -isnot [string]){throw 'AUTOSTART_CONSOLE_DTO_INVALID'}}
     $reasons=@('AUTOSTART_PREVIEW_BINDING_UNAVAILABLE','AUTOSTART_PREVIEW_PROVIDER_UNSUPPORTED','AUTOSTART_PREVIEW_PROTECTED_TARGET',
         'AUTOSTART_PREVIEW_RUNNING_REQUIRED','AUTOSTART_PREVIEW_JOURNAL_BLOCKED','AUTOSTART_PREVIEW_POLICY_UNKNOWN',
-        'AUTOSTART_PREVIEW_POLICY_UNSUPPORTED','AUTOSTART_PREVIEW_POLICY_DRIFTED','AUTOSTART_PREVIEW_TOPOLOGY_UNSUPPORTED',
+        'AUTOSTART_PREVIEW_POLICY_UNSUPPORTED','AUTOSTART_PREVIEW_TOPOLOGY_UNSUPPORTED',
         'AUTOSTART_PREVIEW_LIMITS_UNKNOWN','AUTOSTART_PREVIEW_MOUNTS_UNSUPPORTED','AUTOSTART_PREVIEW_APPLY_NOT_IMPLEMENTED')
     if ($Plan.Contract.Name -cne 'SqlServerLab.ContainerAutoStartPreview' -or $Plan.Contract.Version -cne '1.0' -or
         $Plan.Mode -cne 'CONTAINER_AUTOSTART_PREVIEW_PLAN_ONLY' -or $Plan.Status -cnotin @('PLAN_ONLY','BLOCKED','UNSUPPORTED') -or
@@ -6225,7 +6227,7 @@ function Assert-LabContainerAutoStartConsolePlan {
     if($Plan.Status -cne 'PLAN_ONLY'){
         if($null -ne $Plan.Provider -or $null -ne $Plan.ObservationKey -or $null -ne $Plan.NoChange -or $Plan.ChangeClass -cne 'unsupported' -or
             $Plan.Actual.Evidence -cne 'UNKNOWN' -or $Plan.Actual.SqlBinding -cne 'UNKNOWN' -or $Plan.Actual.Lifecycle -cne 'UNKNOWN' -or
-            $Plan.Actual.AutoStart -cne $(if($Plan.Reason -ceq 'AUTOSTART_PREVIEW_POLICY_DRIFTED'){'DRIFTED'}else{'UNKNOWN'}) -or
+            $Plan.Actual.AutoStart -cne 'UNKNOWN' -or
             $Plan.Desired.AutoStartChange -cne 'UNKNOWN' -or $Plan.Preview.Downtime -cne 'UNKNOWN' -or $null -ne $Plan.Preview.Mounts){throw 'AUTOSTART_CONSOLE_DTO_INVALID'}
         return
     }
@@ -6233,7 +6235,7 @@ function Assert-LabContainerAutoStartConsolePlan {
         $Plan.ObservationKey -isnot [string] -or $Plan.ObservationKey -cnotmatch '^[a-f0-9]{64}$' -or $Plan.NoChange -isnot [bool] -or
         $Plan.Actual.Evidence -cne 'MEASURED' -or $Plan.Actual.SqlBinding -cne 'SINGLE_LOOPBACK_1433_TCP' -or $Plan.Actual.Lifecycle -cne 'RUNNING' -or
         $Plan.Actual.AutoStart -cnotin @('ON','OFF') -or $Plan.Desired.AutoStartChange -cne $(if($Plan.NoChange){'SAME_POLICY'}else{'DIFFERENT_POLICY'}) -or
-        $Plan.ChangeClass -cne $(if($Plan.NoChange){'no-op'}else{'recreate'}) -or $Plan.Preview.Downtime -cne $(if($Plan.NoChange){'NONE'}else{'REQUIRED'})){throw 'AUTOSTART_CONSOLE_DTO_INVALID'}
+        $Plan.ChangeClass -cne $(if($Plan.NoChange){'no-op'}else{'live'}) -or $Plan.Preview.Downtime -cne 'NONE'){throw 'AUTOSTART_CONSOLE_DTO_INVALID'}
     $m=$Plan.Preview.Mounts
     if(-not $m -or $m.Status -isnot [string] -or $m.Status -cne 'MEASURED' -or $m.VolumeOwnership -isnot [string] -or $m.VolumeOwnership -cne 'NOT_CHECKED'){throw 'AUTOSTART_CONSOLE_DTO_INVALID'}
     foreach($name in @('TotalMountCount','VolumeMountCount','HostBindCount','WritableHostBindCount','OtherMountCount')){
@@ -6285,6 +6287,26 @@ function Invoke-LabContainerAutoStartPreviewInteractive {
         $null=Wait-LabConsoleAcknowledgement
     }
     catch{Write-LabError 'AUTOSTART_CONSOLE_UNAVAILABLE: Auswahl, Eingabe oder gebundene Vorschau konnte nicht sicher geprüft werden.';$null=Wait-LabConsoleAcknowledgement}
+}
+
+function Invoke-LabHyperVAutoStartInteractive {
+    [CmdletBinding()]
+    param()
+    try {
+        $runs=@(Get-LabActiveRuns|Where-Object{[string]$_.state -in @('RUNNING','STOPPED')})
+        if(-not $runs.Count){Write-LabInfo 'Keine registrierten laufenden oder gestoppten Labs verfügbar.';return}
+        $runId=Select-LabRun -Runs $runs -Prompt 'Hyper-V-Lab für Autostart' -DisableAutomatedTestEnvironments -DisableSystemServices
+        if(-not $runId){return};$null=Get-HyperVLabWorkflowRun -RunId $runId
+        $input=Read-LabConsoleTextInput -Prompt 'Gewünschter Hyper-V-Autostart (on/off; q = zurück)'
+        if($input.Status -cne 'Confirmed'){return};$desired=([string]$input.Value).ToLowerInvariant()
+        if($desired -eq 'q'){return};if($desired -cnotin @('on','off')){throw 'HYPERV_AUTOSTART_CONSOLE_INPUT_INVALID'}
+        $plan=Get-SqlServerLabHyperVAutoStartPlan -RunId $runId -AutoStart $desired
+        Write-LabInfo ('Istpolicy: {0}; Wunsch: {1}; Änderungsweg: {2}; Ausfallzeit: {3}.' -f $plan.Actual.AutoStart,$plan.Desired.AutoStart,$plan.ChangeClass,$plan.Preview.Downtime)
+        if($plan.NoChange){Write-LabInfo 'NO_OP · keine Änderung.';$null=Wait-LabConsoleAcknowledgement;return}
+        if(-not(Read-LabConfirm -Prompt 'Gebundenen Autostart-Plan jetzt ausführen?' -Default $false)){return}
+        $result=Set-SqlServerLabHyperVAutoStart -RunId $runId -AutoStart $desired -ExpectedAutoStartPlanKey $plan.PlanKey -Confirm:$false
+        Write-LabSuccess ('Hyper-V-Autostart: {0}.' -f $result.Status);$null=Wait-LabConsoleAcknowledgement
+    }catch{Write-LabError 'HYPERV_AUTOSTART_CONSOLE_UNAVAILABLE: Plan oder Ausführung konnte nicht sicher abgeschlossen werden.';$null=Wait-LabConsoleAcknowledgement}
 }
 
 function Set-LabResourcesInteractive {

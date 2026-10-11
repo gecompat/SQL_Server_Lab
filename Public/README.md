@@ -52,9 +52,9 @@ oder Podman. Ein vollständiger Aufruf lautet:
 Get-SqlServerLabReconcilePlan -ContainerAutoStartPreview -RunId $runId -InstanceId primary -AutoStart on -StateRoot $stateRoot
 ```
 
-Explizite skalare on/off-Labels und Restartpolicy müssen übereinstimmen.
-Fehlende, untypisierte oder widersprüchliche Evidence bleibt UNKNOWN/DRIFTED
-und gesperrt. Nur die begrenzte SQL-Loopbacktopologie und darstellbare Mounts
+Das Label bleibt unveränderliche Erstellungsevidence; die gemessene
+Restartpolicy ist nach einer direkten Änderung maßgeblich. Fehlende oder
+untypisierte Evidence bleibt UNKNOWN und gesperrt. Nur die begrenzte SQL-Loopbacktopologie und darstellbare Mounts
 werden akzeptiert. Der DTO zeigt ON/OFF, SAME_POLICY/DIFFERENT_POLICY und
 Mountcounts ohne Hostwerte, native IDs oder Pfade.
 
@@ -155,6 +155,10 @@ Vertrag. Vollständiger CORE-102 und Native-Abnahmen bleiben offen.
 | `Invoke-SqlServerLabPortableContainerTransfer` | `Invoke-SqlServerLabPortableContainerTransfer.ps1` | Ein read-only Bibliotheksbackup einer SQL-2025-Linux-Quelle in einen neuen eigenen Docker-/Podman-Run restaurieren; MATCH, Idempotenz und Whole-Run-Recovery |
 | `Invoke-SqlServerLabPortableContainerTransferPreflight` | `Invoke-SqlServerLabPortableContainerTransferPreflight.ps1` | Backupsets einer expliziten Auswahl nur im bereits live verifizierten `persistent-backups` Bind-Mount stagen sowie mit SQL `HEADERONLY` und `VERIFYONLY` prüfen; keine Datenbank, kein Restore und kein freigegebener Transfer |
 | `Get-SqlServerLabHyperVRecoveryPointPlan` | `Get-SqlServerLabHyperVRecoveryPointPlan.ps1` | Bestehende, eindeutig an einen Hyper-V-Run gebundene Checkpoints ohne VM-Namen oder Hostpfade read-only inventarisieren; Erstellung, Quiesce und Restore sind nicht implementiert |
+| `Get-SqlServerLabContainerAutoStartPlan` | `Get-SqlServerLabContainerAutoStartPlan.ps1` | Gebundenen Direct-Apply-Plan für eine registrierte Containerinstanz lesen |
+| `Set-SqlServerLabContainerAutoStart` / `Resume-SqlServerLabContainerAutoStart` | jeweilige `.ps1` | Restartpolicy direkt ändern beziehungsweise ausschließlich die verifizierte Statepersistenz wiederaufnehmen |
+| `Get-SqlServerLabHyperVAutoStartPlan` | `Get-SqlServerLabHyperVAutoStartPlan.ps1` | Gebundenen Direct-Apply-Plan für einen registrierten Hyper-V-Run lesen |
+| `Set-SqlServerLabHyperVAutoStart` / `Resume-SqlServerLabHyperVAutoStart` | jeweilige `.ps1` | AutomaticStartAction direkt ändern beziehungsweise ausschließlich die verifizierte Statepersistenz wiederaufnehmen |
 | `Get-SqlServerLabHyperVResourcePreview` | `Get-SqlServerLabHyperVResourcePreview.ps1` | Registrierte Hyper-V-Location, freien Speicher und physische Klassenroots ohne Mutation auflösen |
 | `Get-SqlServerLabCatalog` | `Get-SqlServerLabCatalog.ps1` | Workflow-Katalog als persistenter, maschinenlesbarer Katalog mit Laufzeit-Metadaten |
 | `Get-SqlServerLabCleanupAudit` | `Get-SqlServerLabCleanupAudit.ps1` | `Lab_Data`, Storage-Residency und Runtime-Scopes read-only klassifizieren sowie jedes auffällige Objekt mit Typ, stabilem Grund, Löschungs-/Bewahrungsempfehlung und Handlungshinweis ausweisen |

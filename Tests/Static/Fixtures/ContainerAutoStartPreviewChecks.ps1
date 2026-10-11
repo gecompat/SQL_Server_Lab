@@ -69,7 +69,7 @@ try {
             $script:currentRun=$run.RunId;$script:protected=$false;$script:cms=$false
             $global:autoStartInspect=New-AutoStartInspect $run
             $good=Invoke-AutoStartPlan $run
-            Assert-AutoStart ($good.Status -ceq 'PLAN_ONLY' -and $good.Provider -ceq $provider -and $good.ChangeClass -ceq 'recreate' -and $good.ObservationKey -cmatch '^[a-f0-9]{64}$' -and $global:autoStartInspectCalls -eq 1) 'Real public/core/context route measures one inspect'
+            Assert-AutoStart ($good.Status -ceq 'PLAN_ONLY' -and $good.Provider -ceq $provider -and $good.ChangeClass -ceq 'live' -and $good.Preview.Downtime -ceq 'NONE' -and $good.ObservationKey -cmatch '^[a-f0-9]{64}$' -and $global:autoStartInspectCalls -eq 1) 'Real public/core/context route measures one inspect'
             $same=Invoke-AutoStartPlan $run off
             Assert-AutoStart ($same.NoChange -and $same.ChangeClass -ceq 'no-op' -and $same.Desired.AutoStartChange -ceq 'SAME_POLICY' -and $same.ObservationKey -cne $good.ObservationKey -and $global:autoStartInspectCalls -eq 1) 'Measured no-op and desired port change content key'
             $repeat=Invoke-AutoStartPlan $run
@@ -89,8 +89,8 @@ try {
                 @{Label='off';Policy=$null;Status='BLOCKED';Actual='UNKNOWN'},
                 @{Label='off';Policy=@('no');Status='BLOCKED';Actual='UNKNOWN'},
                 @{Label='off';Policy=0;Status='BLOCKED';Actual='UNKNOWN'},
-                @{Label='off';Policy='always';Status='BLOCKED';Actual='DRIFTED'},
-                @{Label='on';Policy='no';Status='BLOCKED';Actual='DRIFTED'},
+                @{Label='off';Policy='always';Status='PLAN_ONLY';Actual='ON'},
+                @{Label='on';Policy='no';Status='PLAN_ONLY';Actual='OFF'},
                 @{Label='off';Policy='on-failure';Status='UNSUPPORTED';Actual='UNKNOWN'})) {
                 $global:autoStartInspect=New-AutoStartInspect $run
                 $global:autoStartInspect.Config.Labels.'sql-server-lab.autostart'=$policyCase.Label
