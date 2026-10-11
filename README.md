@@ -722,6 +722,8 @@ abgewiesen. SQL-seitige Verifikation und freie Advanced-Eingaben bleiben
 | `Invoke-SqlServerLabPortableContainerTransfer` | Genau eine read-only SQL-2025-Datenbank in einen neuen eigenen Linux-Container-Run übertragen; wiederholte Operationen führen keinen zweiten Restore aus |
 | `Invoke-SqlServerLabPortableContainerTransferPreflight` | Explizite Backupsets ausschließlich im bereits live gebundenen `persistent-backups`-Mount stagen und SQL-seitig vorprüfen; die Resultatprojektion bleibt pfad- und secretfrei und der Transferexecutor `BLOCKED` |
 | `Get-SqlServerLabHyperVRecoveryPointPlan` | Bestehende, eindeutig an einen Hyper-V-Run gebundene Checkpoints ohne VM-Namen oder Hostpfade read-only inventarisieren; Erstellung, Quiesce und Restore bleiben nicht implementiert |
+| `Get-SqlServerLabContainerAutoStartPlan` / `Set-SqlServerLabContainerAutoStart` / `Resume-SqlServerLabContainerAutoStart` | Gebundenen Docker-/Podman-Autostartplan lesen, direkt anwenden oder ausschließlich Statepersistenz wiederaufnehmen |
+| `Get-SqlServerLabHyperVAutoStartPlan` / `Set-SqlServerLabHyperVAutoStart` / `Resume-SqlServerLabHyperVAutoStart` | Gebundenen Hyper-V-Autostartplan lesen, direkt anwenden oder ausschließlich Statepersistenz wiederaufnehmen |
 | `Get-SqlServerLabSqlObservabilityEvidence` | Aggregierte Server-, Datenbank-, Query-Store- und Wait-Metriken direkt oder per Run-/Instanzbindung read-only ohne Endpunkt-, SQL-Text-, Namens- oder Secretprojektion erfassen |
 | `Get-SqlServerLabDatabaseMigrationDependency` | Migrationsabhängigkeiten lesend inventarisieren; [API-Vertrag](Public/README.md) |
 | `Test-SqlServerLabRelationalCoreComparison` | Relationalen Kern mehrerer gebundener Datenbankpaare vergleichen; [API-Vertrag](Public/README.md) |

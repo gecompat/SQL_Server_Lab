@@ -149,6 +149,16 @@ COMMANDS
         Inventarisiert bestehende, eindeutig an einen Hyper-V-Run gebundene
         Checkpoints ohne VM-Namen oder Hostpfade; keine Erstellung oder Restore.
 
+    Get-SqlServerLabContainerAutoStartPlan, Set-SqlServerLabContainerAutoStart,
+    Resume-SqlServerLabContainerAutoStart
+        Lesen, ändern oder vervollständigen den gebundenen direkten Container-
+        Autostartvertrag ohne Neuerstellung oder zweiten Provider-Apply.
+
+    Get-SqlServerLabHyperVAutoStartPlan, Set-SqlServerLabHyperVAutoStart,
+    Resume-SqlServerLabHyperVAutoStart
+        Lesen, ändern oder vervollständigen den gebundenen direkten Hyper-V-
+        Autostartvertrag ohne VM-Identitäts- oder Powerzustandswechsel.
+
     Get-SqlServerLabHyperVResourcePreview
         Zeigt die registrierte Hyper-V-Location, freien Speicher und die
         physischen Klassenroots read-only vor einer Hostmutation an.

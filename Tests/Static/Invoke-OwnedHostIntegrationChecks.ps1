@@ -1008,6 +1008,12 @@ $module = New-Module -ArgumentList $repoRoot,$fixtureRoot -ScriptBlock {
         $script:syntheticReply=$null
         $policyPath = Join-Path $root 'owned-host-policy.json'
         $original = [IO.File]::ReadAllText($policyPath)
+        $singlePinPolicy=$original|ConvertFrom-Json -Depth 20
+        $singlePinPolicy.RuntimePins=@($singlePinPolicy.RuntimePins|Where-Object Provider -ceq 'docker')
+        [IO.File]::WriteAllText($policyPath,($singlePinPolicy|ConvertTo-Json -Depth 20))
+        $singlePinRead=Get-LabOwnedHostPolicy -StateRoot $root -Required
+        Assert-Own (@($singlePinRead.RuntimePins).Count -eq 1 -and $singlePinRead.RuntimePins -is [array] -and $singlePinRead.RuntimePins[0].Provider -ceq 'docker') 'Single-provider policy preserves its JSON array contract'
+        [IO.File]::WriteAllText($policyPath,$original)
         [IO.File]::WriteAllText($policyPath, $original.Replace(':2222/',':99999/'))
         Assert-OwnThrows { Get-LabOwnedHostPolicy -StateRoot $root -Required } 'OWNED_HOST_PODMAN_PIN_INVALID' 'Invalid loopback SSH port fails before transport'
         [IO.File]::WriteAllText($policyPath,$original)

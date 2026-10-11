@@ -24,6 +24,9 @@ try {
         $webCatalog=@(Get-LabPublicCommandWebCatalog)
         $autoStartWebCommands=@($webCatalog|Where-Object Name -ceq 'Get-SqlServerLabReconcilePlan')
         $autoStartWebSets=@($autoStartWebCommands[0].ParameterSets|Where-Object Name -ceq 'ContainerAutoStartPreview')
+        $hyperVPlanWeb=@($webCatalog|Where-Object Name -ceq 'Get-SqlServerLabHyperVAutoStartPlan')
+        $hyperVSetWeb=@($webCatalog|Where-Object Name -ceq 'Set-SqlServerLabHyperVAutoStart')
+        $hyperVSetDescriptors=@($hyperVSetWeb[0].ParameterSets[0].Parameters)
         $confirmationError=''
         try { Invoke-LabPublicCommandWebRequest -CommandName $whatIfCommand.Name -ParameterSetName $whatIfCommand.ParameterSets[0].Name -Parameters @{} } catch { $confirmationError=$_.Exception.Message }
         $unknownError=''
@@ -38,6 +41,9 @@ try {
             AutoStartWebSets=$autoStartWebSets.Count
             AutoStartWebRequiresConfirmation=$autoStartWebCommands[0].RequiresConfirmation
             AutoStartWebMandatory=@($autoStartWebSets[0].Parameters|Where-Object Mandatory|ForEach-Object Name)
+            HyperVPlanWeb=$hyperVPlanWeb.Count; HyperVSetWeb=$hyperVSetWeb.Count
+            HyperVSetConfirmation=$hyperVSetWeb[0].RequiresConfirmation
+            HyperVSetMandatory=@($hyperVSetDescriptors|Where-Object Mandatory|ForEach-Object Name)
             PortDescriptorNames=@($portDescriptors.Name)
             PortRange=($portDescriptors|Where-Object Name -eq 'Port').AllowedValues
             Names=@($catalog.Name)
@@ -77,6 +83,10 @@ try {
         (@($evidence.PortMandatory|Sort-Object) -join '|') -ceq 'ContainerPortPreview|InstanceId|Port|RunId' -and
         'StateRoot' -in $evidence.PortDescriptorNames -and 'Cpu' -notin $evidence.PortDescriptorNames -and
         'TargetState' -notin $evidence.PortDescriptorNames -and $evidence.PortRange -match '1024' -and $evidence.PortRange -match '65535'
+    )
+    Add-CheckResult 'Hyper-V-Autostartplan und bestätigter Executor erscheinen im gemeinsamen GUI-Katalog' (
+        $evidence.HyperVPlanWeb -eq 1 -and $evidence.HyperVSetWeb -eq 1 -and $evidence.HyperVSetConfirmation -eq $true -and
+        (@($evidence.HyperVSetMandatory|Sort-Object) -join '|') -ceq 'AutoStart|ExpectedAutoStartPlanKey|RunId'
     )
     Add-CheckResult 'Jeder Modulexport erscheint exakt einmal im vollständigen Konsolenkatalog' (
         @($expectedCatalog|Where-Object {$_ -notin $evidence.Names}).Count -eq 0 -and

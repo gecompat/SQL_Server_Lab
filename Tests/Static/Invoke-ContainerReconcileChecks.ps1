@@ -183,6 +183,10 @@ $autoStartFixture = Join-Path $PSScriptRoot 'Fixtures/ContainerAutoStartPreviewC
 & (Get-Process -Id $PID).Path -NoProfile -File $autoStartFixture
 Add-CheckResult -Name 'Actual AutoStart PLAN_ONLY public preview rejects unknown/drifted policy without writes' -Success ($LASTEXITCODE -eq 0)
 
+$autoStartApplyFixture = Join-Path $PSScriptRoot 'Fixtures/ContainerAutoStartApplyChecks.ps1'
+& (Get-Process -Id $PID).Path -NoProfile -File $autoStartApplyFixture
+Add-CheckResult -Name 'Direct AutoStart executor preserves runtime identity and power state while journaling intent' -Success ($LASTEXITCODE -eq 0)
+
 $autoStartAcceptanceFixture = Join-Path $PSScriptRoot 'Fixtures/ContainerAutoStartPreviewAcceptanceChecks.ps1'
 & (Get-Process -Id $PID).Path -NoProfile -File $autoStartAcceptanceFixture
 Add-CheckResult -Name 'Owned AutoStart core acceptance persists bounded veto categories and verifies five read-only public calls' -Success ($LASTEXITCODE -eq 0)

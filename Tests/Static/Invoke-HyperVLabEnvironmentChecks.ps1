@@ -46,6 +46,8 @@ try {
         $environmentText -match "Assert-LabHyperVResourceMigrationLifecycleAllowed -RunId \`$RunId -Operation 'SET_AUTOSTART'" -and
         $environmentText -match "Assert-LabHyperVResourceMigrationLifecycleAllowed -RunId \`$RunId -Operation 'REPAIR_SQL_WMI'"
     )
+    $autoStartApply = & (Join-Path $PSScriptRoot 'Fixtures/HyperVAutoStartApplyChecks.ps1') -Module $module
+    Add-CheckResult -Name 'Hyper-V-Autostart ändert nur die native Startaktion und hält VM-ID, VM-Zustand und Desired State konsistent' -Success $autoStartApply.Success
     $guestPathContract = & $module {
         $accepted = $true
         try { Assert-LabContainerPath -Path 'C:\SQLData\TempDB\tempdev.mdf' -Label 'TempDB-Testpfad' }

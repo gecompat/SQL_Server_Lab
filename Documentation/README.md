@@ -87,7 +87,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | Komponente | Status | Autoritative Dateien |
 |---|---|---|
 | PowerShell-Modul | implementiert | `SqlServerLab.psd1`, `SqlServerLab.psm1` |
-| Öffentliche API | 137 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
+| Öffentliche API | 143 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
 | Docker | implementiert | `Providers/Docker/DockerProvider.ps1` |
 | Podman | implementiert | `Providers/Podman/PodmanProvider.ps1` |
 | SQL Server External Languages | Container: Java für SQL 2019, Python/R/Java für SQL 2022/2025, jeweils Docker und Podman; Hyper-V/Windows: SQL-2022 Python/R/Java nativ akzeptiert, C# für SQL 2019–2025 sichtbar `PREVIEW` | `../Catalogs/software.json`, `../Tests/Integration/Invoke-ExternalRuntimeContainerAcceptance.ps1`, `../Tests/Integration/Invoke-ExternalRuntimeHyperVAcceptance.ps1` |
@@ -142,6 +142,8 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | `Invoke-SqlServerLabPortableContainerTransferPreflight` | Explizite Backupsets im live verifizierten `persistent-backups` Bind-Mount stagen und mit SQL `HEADERONLY` sowie `VERIFYONLY` vorprüfen; Restore und Transfer bleiben blockiert |
 | `Test-SqlServerLabRelationalCoreComparison` | Mehrere verwaltete Docker-/Podman-Datenbankpaare nach `RELATIONAL_CORE/1.0` ohne Datenwerte read-only vergleichen; jeder Transfer bleibt blockiert |
 | `Get-SqlServerLabHyperVRecoveryPointPlan` | Bestehende, eindeutig an einen Hyper-V-Run gebundene Checkpoints ohne VM-Namen oder Hostpfade read-only inventarisieren; Erstellung, Quiesce und Restore bleiben nicht implementiert |
+| `Get-SqlServerLabContainerAutoStartPlan` / `Set-SqlServerLabContainerAutoStart` / `Resume-SqlServerLabContainerAutoStart` | Gebundenen Docker-/Podman-Autostartplan lesen, direkt anwenden oder ausschließlich Statepersistenz wiederaufnehmen |
+| `Get-SqlServerLabHyperVAutoStartPlan` / `Set-SqlServerLabHyperVAutoStart` / `Resume-SqlServerLabHyperVAutoStart` | Gebundenen Hyper-V-Autostartplan lesen, direkt anwenden oder ausschließlich Statepersistenz wiederaufnehmen |
 | `Get-SqlServerLabHyperVResourcePreview` | Registrierte Hyper-V-Location, Kapazität und physische Klassenroots read-only anzeigen |
 | `Get-SqlServerLabCatalog` | Konsolidierten Lab-Katalog als JSON-Artefakt erzeugen |
 | `Get-SqlServerLabCleanupAudit` | `Lab_Data`, Runtime-Scopes und Persistent Storage read-only prüfen sowie jedes auffällige Objekt mit Löschungs-/Bewahrungsempfehlung ausgeben |
