@@ -5,10 +5,10 @@
 | Status | `PLANNED` |
 | Stand | 2026-10-11 |
 | Zweck | synthetische OS-/SQL-Identitäten für automatisierte Tests, manuelle Schulungen und Rekonstruktionsszenarien; optional kombinierbare Dateisystem-Fixtures auf ausgewählten SQL-Labzielen |
-| Nächster Schritt | [FSF-I02-Scopeentwurf](FILESYSTEM_FIXTURE_IMPLEMENTATION_SCOPE_02_DRAFT.md) für den privaten Identitäts-Anfragevalidator abstimmen; noch keine Umsetzung dieses Folgescopes |
+| Nächster Schritt | eigenen FSF-I02-Implementierungs-PR prüfen; vor main-Integration Dokumentations-PR #742 und aktuellen Pflichtgate abgleichen; weitere native Scopes separat abstimmen |
 | Entwurfsfreigaben | FSF-01 bis FSF-06 ausdrücklich freigegeben am 2026-10-11 |
-| Implementierungsfreigabe | `APPROVED` ausschließlich für [FSF-I01](FILESYSTEM_FIXTURE_IMPLEMENTATION_SCOPE_01_DRAFT.md), Revision `0.1`, ausdrücklich freigegeben und beauftragt am 2026-10-11 |
-| Autorität | begrenzter privater Formcodec; keine Provider-, Identitäts-, Dateisystem- oder Löschfreigabe |
+| Implementierungsfreigabe | `APPROVED` ausschließlich für [FSF-I01](FILESYSTEM_FIXTURE_IMPLEMENTATION_SCOPE_01_DRAFT.md) und [FSF-I02](FILESYSTEM_FIXTURE_IMPLEMENTATION_SCOPE_02_DRAFT.md), jeweils Revision `0.1`, ausdrücklich freigegeben und beauftragt am 2026-10-11 |
+| Autorität | begrenzter privater Handle-Codec und Anfragevalidator; keine Provider-, Identitäts-, Dateisystem- oder Löschfreigabe |
 
 ## Ausgangslage und Ziel
 
@@ -43,7 +43,8 @@ automatisch. Owner, Journal, Lebensdauer, Driftprüfung und eigener Rückbau
 gelten auch für eigenständige Benutzeranlagen. Konkrete Profile,
 Authentisierungsarten, Secretübergabe und Cleanupabhängigkeiten sind in
 FSF-02 bis FSF-06 freigegeben; ihre native Implementierung bleibt geplant.
-FSF-I01 genehmigt ausschließlich den internen Formcodec.
+FSF-I01 und FSF-I02 genehmigen ausschließlich den internen Handle-Codec
+beziehungsweise Anfragevalidator, keine native Identitätsverwaltung.
 
 Dieser Backlog erweitert weder die laufende parallele Entwicklungswelle noch
 deren Freigaben oder Reihenfolge. Der dortige Implementierungsstand bleibt
@@ -60,8 +61,9 @@ am selben Tag ausdrücklich freigegeben. [FSF-06](FILESYSTEM_FIXTURE_TEST_STRATE
 Revision `0.1`, wurde anschließend am selben Tag ausdrücklich freigegeben.
 Damit sind alle sechs Modelle freigegeben. Der erste konkrete Scope FSF-I01
 wurde danach ausdrücklich freigegeben und implementiert: ein privater
-Handle-Codec mit synthetischer Offline-Abnahme. Native Fixture-/Runtimebelege
-und sämtliche weiteren Implementierungsscopes bleiben offen.
+Handle-Codec mit synthetischer Offline-Abnahme. Der anschließend freigegebene
+FSF-I02 ergänzt nur den privaten Identitäts-Anfragevalidator. Native Fixture-/Runtimebelege
+und weitere Implementierungsscopes nach FSF-I02 bleiben offen.
 
 ## Zielauswahl und Autorisierung
 
@@ -218,8 +220,8 @@ Die spätere Strategie trennt synthetische Offline-Vertragsprüfungen von
 nativen Windows-/Hyper-V-, Linux-/Docker- und Linux-/Podman-Abnahmen.
 Mocks und grüne Dokumentationschecks ersetzen keine plattformspezifischen
 Dateisystem-, Berechtigungs- oder Cleanup-Nachweise. Native Fixture-
-Implementierungs- und Runtime-Nachweise bleiben offen. FSF-I01 prüft nur
-den privaten Formcodec und seine Testauswahl, keine dieser Fähigkeiten.
+Implementierungs- und Runtime-Nachweise bleiben offen. FSF-I01/FSF-I02 prüfen
+nur die private Handle-/Anfrageform und ihre Testauswahl, keine dieser Fähigkeiten.
 
 ## Einzelfreigaben vor Implementierung
 
@@ -244,13 +246,13 @@ Wellenzuordnung oder Prioritätsänderung.
 | Scope | Reviewbares Paket | Freigabe |
 |---|---|---|
 | `FSF-I01` | [Interner Handle-Codec](FILESYSTEM_FIXTURE_IMPLEMENTATION_SCOPE_01_DRAFT.md), Revision `0.1`: strikte zweifeldrige UTF-8-Handleform, deterministischer Encoder, synthetische Offline-Abnahme und enge Selektorintegration | `APPROVED` – implementiert und am 2026-10-11 mit PR #741 nach main integriert; keine native Fixtureverwaltung |
-| `FSF-I02` | [Privater Identitäts-Anfragevalidator](FILESYSTEM_FIXTURE_IMPLEMENTATION_SCOPE_02_DRAFT.md), Revision `0.1`: getrennte OS-/SQL-Anfrageform, ausdrückliche Login-/Datenbankbenutzerbeziehungen, manuelle/automatisierte Nutzung, feste Retention-/Formgrenzen und synthetische Offline-Abnahme | `PENDING` – zur Abstimmung; keine Implementierung |
+| `FSF-I02` | [Privater Identitäts-Anfragevalidator](FILESYSTEM_FIXTURE_IMPLEMENTATION_SCOPE_02_DRAFT.md), Revision `0.1`: getrennte OS-/SQL-Anfrageform, ausdrückliche Login-/Datenbankbenutzerbeziehungen, manuelle/automatisierte Nutzung, feste Retention-/Formgrenzen und synthetische Offline-Abnahme | `APPROVED` – ausdrücklich freigegeben und beauftragt am 2026-10-11; interner Validator im eigenen Branch implementiert |
 
 FSF-I01 ist nach erfolgreichem aktuellem Windows-/Ubuntu-PR-Gate integriert:
 Dokumentations-PR #740 bei `ea87e331`, Implementierungs-PR #741 bei
-`fea35ee9`. Der aktuelle Auftrag erarbeitet ausschließlich FSF-I02 zur
-Abstimmung, ohne neue Codec-/Validator-/Testimplementation oder Benutzeranlage.
-Auch ein später umgesetzter Anfragevalidator bestätigt weder Authentisierung
+`fea35ee9`. Der aktuelle Auftrag setzt ausschließlich den freigegebenen
+FSF-I02 auf einem eigenen Branch mit eigenem PR um, ohne Benutzeranlage.
+Auch der umgesetzte Anfragevalidator bestätigt weder Authentisierung
 noch gebundenen Plan, Ownership oder frisches READY. Die übrigen OS-/SQL-/
 Security-/Cleanupfähigkeiten bleiben geplant und brauchen eigene kohärente
 Folgescopes und Nachweise. Die sechs Modelle behalten ihren historischen

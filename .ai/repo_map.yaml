@@ -122,17 +122,19 @@ sources_of_truth:
   internal_synthetic_scenario_journal_schema: Schemas/scenario-execution-journal.schema.json
   validation_internal_synthetic_scenario_executor: Tests/Static/Invoke-ScenarioExecutorChecks.ps1
   security_tool_acquisition_backlog: Documentation/Project_Planning/SECURITY_TOOL_ACQUISITION_BACKLOG.md
-  filesystem_fixture_management_backlog: Documentation/Project_Planning/FILESYSTEM_FIXTURE_MANAGEMENT_BACKLOG.md # six designs and FSF-I01 approved; private handle codec implemented; native OS/SQL capabilities remain planned, no runtime authority
+  filesystem_fixture_management_backlog: Documentation/Project_Planning/FILESYSTEM_FIXTURE_MANAGEMENT_BACKLOG.md # six designs and FSF-I01/I02 approved; private handle codec and identity request validator implemented; native OS/SQL capabilities remain planned, no runtime authority
   filesystem_fixture_architecture_draft: Documentation/Project_Planning/FILESYSTEM_FIXTURE_ARCHITECTURE_DRAFT.md # FSF-01 revision 0.2 approved 2026-10-11: independent OS/SQL identities for manual and automated scenarios; no implementation authority
   filesystem_fixture_capability_draft: Documentation/Project_Planning/FILESYSTEM_FIXTURE_CAPABILITY_DRAFT.md # FSF-02 revision 0.1 approved 2026-10-11: OS/SQL identity types, manual/automated access, permissions and optional filesystem matrix; no implementation authority
   filesystem_fixture_handle_draft: Documentation/Project_Planning/FILESYSTEM_FIXTURE_HANDLE_DRAFT.md # FSF-03 revision 0.1 approved 2026-10-11: stable opaque handle, separate OS/SQL resource references, private bindings and operation authorization; no implementation authority
   filesystem_fixture_ownership_cleanup_draft: Documentation/Project_Planning/FILESYSTEM_FIXTURE_OWNERSHIP_CLEANUP_DRAFT.md # FSF-04 revision 0.1 approved 2026-10-11: creation and absence proofs, journals, separate retention, session/dependency vetoes, bounded sentinel/profile cleanup and recovery; no implementation authority
   filesystem_fixture_security_draft: Documentation/Project_Planning/FILESYSTEM_FIXTURE_SECURITY_DRAFT.md # FSF-05 revision 0.1 approved 2026-10-11: trust and authorization, protected records/keys/anchor, separate credentials and authenticated SQL TLS, effective rights/generation, quiescence/races, filesystem/profile boundaries, quotas and retention; no implementation authority
-  filesystem_fixture_test_strategy_draft: Documentation/Project_Planning/FILESYSTEM_FIXTURE_TEST_STRATEGY_DRAFT.md # FSF-06 revision 0.1 approved 2026-10-11: full matrix remains planned; only pure handle portions implemented/checked in FSF-I01, no native qualification or runtime authority
+  filesystem_fixture_test_strategy_draft: Documentation/Project_Planning/FILESYSTEM_FIXTURE_TEST_STRATEGY_DRAFT.md # FSF-06 revision 0.1 approved 2026-10-11: full matrix remains planned; only pure handle/request portions implemented/checked in FSF-I01/I02, no native qualification or runtime authority
   filesystem_fixture_implementation_scope_01_draft: Documentation/Project_Planning/FILESYSTEM_FIXTURE_IMPLEMENTATION_SCOPE_01_DRAFT.md # FSF-I01 revision 0.1 approved 2026-10-11; implemented private form codec, offline acceptance and exact-path selector; no native identity/authorization/store capability
-  filesystem_fixture_implementation_scope_02_draft: Documentation/Project_Planning/FILESYSTEM_FIXTURE_IMPLEMENTATION_SCOPE_02_DRAFT.md # FSF-I02 proposed private OS/SQL identity request validation, manual/automated use and bounded retention/relationships; pending scope approval, no implementation or runtime authority
+  filesystem_fixture_implementation_scope_02_draft: Documentation/Project_Planning/FILESYSTEM_FIXTURE_IMPLEMENTATION_SCOPE_02_DRAFT.md # FSF-I02 revision 0.1 approved 2026-10-11; implemented private OS/SQL identity request validator, bounded manual/automated usage and retention/relationships; no native plan/auth/store capability
   private_fixture_handle_codec: Private/FixtureHandleContract.ps1
   validation_private_fixture_handle_codec: Tests/Static/Invoke-FixtureHandleContractChecks.ps1
+  private_fixture_identity_request: Private/FixtureIdentityRequest.ps1
+  validation_private_fixture_identity_request: Tests/Static/Invoke-FixtureIdentityRequestChecks.ps1
   security_tool_catalog: Catalogs/security-tools.json
   security_tool_resolver: Private/SecurityToolCatalog.ps1
   security_tool_catalog_schema: Schemas/security-tool-catalog.schema.json

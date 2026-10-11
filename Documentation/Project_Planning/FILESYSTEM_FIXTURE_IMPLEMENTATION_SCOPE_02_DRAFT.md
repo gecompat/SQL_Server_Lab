@@ -2,12 +2,13 @@
 
 | Merkmal | Wert |
 |---|---|
-| Status | `IMPLEMENTATION_SCOPE_DECISION_DRAFT` – zur Abstimmung, nicht freigegeben |
+| Status | `IMPLEMENTED_PRIVATE_REQUEST_VALIDATOR` – interner Formbaustein; native Fixtureverwaltung bleibt geplant |
 | Scope | `FSF-I02`, Revision `0.1`, Stand 2026-10-11 |
+| Freigabe und Auftrag | ausdrücklich durch den Repository-Eigentümer am 2026-10-11: FSF-I02 implementieren, eigener Branch/PR, parallele Welle schützen |
 | Grundlage | FSF-01 Revision `0.2`, FSF-02 bis FSF-06 jeweils Revision `0.1`; alle freigegeben |
 | Bestand | FSF-I01 in PR #741 integriert; `origin/main` bei `fea35ee9` |
 | Ziel | einen geschlossenen privaten Anfragevertrag für getrennte OS-/SQL-Identitäten im Speicher vollständig prüfen |
-| Aktueller Auftrag | ausschließlich Scopeausarbeitung; keine Implementierungs-, Identitätsanlage-, Provider- oder Löschfreigabe |
+| Aktueller Auftrag | ausschließlich der freigegebene private Anfragevalidator, synthetische Abnahme und begrenzte Integration; keine Identitätsanlage oder native Mutation |
 
 ## 1. Empfehlung und Abgrenzung
 
@@ -39,8 +40,8 @@ nicht zu authentisierten Tatsachen erhoben.
 
 ## 2. Vorgeschlagener geschlossener Anfragevertrag
 
-Dies sind neue **private Vertragsentscheidungen zur Abstimmung**, keine
-bestehenden APIparameter oder fertige Serialisierungsschemas.
+Dies sind freigegebene **private Vertragsentscheidungen**, im internen
+Validator umgesetzt; keine öffentliche API oder externes Serialisierungsschema.
 
 Eingang ist ausschließlich eine explizite UTF-8-Bytesequenz im Speicher.
 Ein neues privates Script enthält nur nebenwirkungsfreie Funktionsdefinitionen.
@@ -152,7 +153,7 @@ Bei Erfolg ist Value ein **privater** normalisierter Request, kein öffentliches
 Inventar oder Logobjekt. Kein Logging/Echo gültiger oder ungültiger Rohrequests.
 Das Ergebnis von FSF-I01 und öffentliche Fehlerverträge bleiben unverändert.
 
-## 3. Erlaubte Änderungsfläche nach gesondertem Implementierungsauftrag
+## 3. Freigegebene Änderungsfläche
 
 | Geplanter Pfad | Begrenzte spätere Änderung |
 |---|---|
@@ -217,13 +218,14 @@ Testpfade kommen in diesen PRs nicht vor. #738 bearbeitet jedoch Selektor,
 Repo-Map und Validierungsstrategie. Diese Momentaufnahme reserviert keine
 Dateien und ändert weder Priorität noch Scope der parallelen Welle.
 
-Der heutige isolierte Dokumentationsbranch basiert auf `origin/main` bei
-`fea35ee9`. Er ändert ausschließlich dieses Dokument, Backlog, Planungsindex,
-die zugehörige Planungszuordnung der Repo-Map und den historischen
-Integrationsvermerk von FSF-I01. Keine ausführbare Datei oder Testregel
-ändern. Für diesen Entwurf werden nur die tatsächlich ausgewählten
-Dokumentations-/Privacy-/statischen Dokumentationsfolgen geprüft; **alle
-I02-A01 bis A11 sind NOT_EXECUTED**. Dokumentations-PASS ist kein Validatornachweis.
+Der historische Dokumentationsbranch in PR #742 basiert auf `origin/main`
+bei `fea35ee9` und enthält ausschließlich den Scope-/Indexstand. Der eigene
+Implementierungsbranch `codex/fixture-identity-request` baut auf dessen
+freigegebenem Head `10741557` auf und ändert nur Abschnitt 3. PR #742 bleibt
+unverändert; vor späterer main-Integration muss die Dokumentation integriert,
+der Implementierungs-PR umgestellt und sein aktueller Pflichtgate geprüft sein.
+Ausgeführte Offline-Abnahmen stehen in Abschnitt 7; Dokumentations-PASS allein
+bleibt kein Validatornachweis. Native FSF-06-Abnahmen bleiben NOT_EXECUTED.
 
 Vor späterem Codeauftrag aktuelle main-/PR-Diffs und Namenskollisionen
 erneut prüfen, eigener isolierter Branch und eigener Implementierungs-PR.
@@ -234,11 +236,10 @@ Hunk zurückhalten und die Basis klären; keine ganze Datei überschreiben.
 
 ## 6. Entscheidung und folgende Voraussetzungen
 
-Zur Abstimmung steht **ein Scopepaket FSF-I02**: der geschlossene private
-Anfragevertrag aus Abschnitt 2 einschließlich Nutzungs-/Retentionregeln,
-Änderungsfläche und A01 bis A11. Eine Zustimmung genehmigt ausschließlich
-diesen Baustein; Implementierung beginnt erst mit konkretem Auftrag.
-Der aktuelle Freigabestatus bleibt `PENDING`.
+Das **Scopepaket FSF-I02** aus Abschnitt 2 einschließlich Nutzungs-/
+Retentionregeln, Änderungsfläche und A01 bis A11 wurde ausdrücklich
+freigegeben und konkret beauftragt. Der Freigabestatus ist `APPROVED`
+für Revision `0.1`; die Autorität bleibt auf diesen privaten Baustein begrenzt.
 
 Nach diesem Slice bleiben gesondert auszuarbeiten: tatsächlich gebundener
 Plan und einmalige Autorisierung; geschützte Records/Schlüssel/Fortschrittsanker
@@ -246,6 +247,50 @@ mit Hostbelegen; native Ziel-/Datenbank-/Profil-/Rechteprüfung und wirksame
 Lifecycle-Reservierung; danach ein kleiner eigenständig nutzbarer nativer
 OS- oder SQL-Slice einschließlich Zugang, Ownership, Retention und Cleanup.
 Dies ist ein Abhängigkeitsausblick ohne automatische Reihenfolge-/Ausführungsfreigabe.
+
+## 7. Interne Umsetzung und begrenzte Evidence
+
+`ConvertFrom-FixtureIdentityRequestBytes` liefert das private Ergebnis
+Success/Value/ErrorCode, bei Ablehnung nur `FIXTURE_REQUEST_INVALID`.
+Ein begrenzter interner Tokenreader prüft Strings, Integer, Objekt-/Array-
+Struktur und die Budgets vor der Projektion. Feldnamen werden nach
+Escape-Decodierung in ordinalen Dictionaries auf Duplikate geprüft.
+Jede gültige geschlossene Form hat nur ASCII-UTF8-Bytes; ASCII-Unicode-Escapes
+werden akzeptiert. Andere Bytes einschließlich BOM/defektem UTF8 können
+keine gültige Form ergeben. Kein allgemeiner JSONreader oder Parserexception.
+Auch eine überschriebene Length-ScriptProperty am byte[] wird nicht gelesen.
+
+Die neue Suite bestand unter PowerShell 7.2.24/.NET 6.0.35 mit
+**513 PASS / 0 FAIL**: unabhängige Sollprojektion, Budget-/Referenz-/Typ-/
+Escape-/Retentionfälle, sämtliche abgeschnittenen Byteprefixe, Streams und
+Fehlerverlauf, tatsächlicher Modulimport, unveränderte Exporte und eigener
+entfernter Transcript. Die strengere 128-Feldgrenze verhindert gültige
+Anfragen mit 32 ausführlichen DB-Benutzern; dieser Wert wird nicht als
+bestandener gültiger Rand ausgegeben. 127/128-Feldfälle sind unabhängig
+berechnet und akzeptiert, 129 Felder abgewiesen.
+
+Geprüfte Git-Sourceblobs: Validator `1857f3a13c3304fd2c11afd57f1d0b3f83bdb933`,
+Suite `70a78e0de7a5f32e72b9d331c01b269d06f91a17`.
+Der betroffene lokale Abschluss-Gate unter PowerShell 7.6.6/.NET 10.0.12
+bestand mit Validator 513/0, I01 116/0, CI-Strategie 599/0,
+Dokumentation 1887/0, Pester 23/0 (kein Skip), Privacy 3/0 und Analyzer PASS
+ohne Error-Fundmeldungen mit 24 freigegebenen Baselinebefunden;
+Warnungen bleiben ausgewiesen. Selektor-Sourceblob
+`9ccf8baf38de8eaf7b515ad73f2e8a9442a8f074`, CI-Assertions
+`1e76c56508aa18ce3058316380a5275ece293d6e`.
+Nach dieser Evidenceergänzung werden nur die betroffenen Dokumentations-/
+Privacychecks wiederholt; die vier ausführbaren Quellen bleiben byteidentisch.
+Der UUIDhelper aus FSF-I01 bleibt byteidentisch. Die genaue Selektorregel
+koppelt beide Suiten an Änderungen seiner Quelle oder des neuen Validators;
+die bestehenden I01-/unbekannten Produkt-/gemischten Providerfallbacks bleiben
+erhalten. Lokaler Abschluss-Gate und GitHub-Integration werden getrennt
+ausgewiesen; aus lokalen Läufen wird kein CI-PASS abgeleitet.
+Keine Native-OS-/SQL-/Store-/Grant-/Cleanup-/manuellen Zugangsabnahmen.
+
+Verarbeitungsaufwand: eine zusätzliche fokussierte Suite mit der gezielten
+I01-Aufruferkopplung, keine neue AllChecks-Registrierung oder globale
+Fixtureausnahme. Bestehende Analyzer-/Pesterpflicht und Pflichtgate bleiben
+erhalten. Rohlogs und lokale Mindestversion-Toolchain bleiben unversioniert.
 
 Gekoppelte Quellen: [Backlog](FILESYSTEM_FIXTURE_MANAGEMENT_BACKLOG.md),
 [FSF-01](FILESYSTEM_FIXTURE_ARCHITECTURE_DRAFT.md),

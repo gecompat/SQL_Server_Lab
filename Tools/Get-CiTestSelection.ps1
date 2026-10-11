@@ -95,6 +95,7 @@ end {
         @{ Pattern = '(?i)(SecurityTool|security-tool|Fixtures/SecurityTools/)'; Checks = @('Invoke-SecurityToolCatalogChecks.ps1') },
         @{ Pattern = '(?i)(Prepare-LocalRelease|ReleaseArtifact)'; Checks = @('Invoke-ReleaseArtifactChecks.ps1','Invoke-ReleaseReadinessChecks.ps1') },
         @{ Pattern = '^(?-i:Private/FixtureHandleContract\.ps1|Tests/Static/Invoke-FixtureHandleContractChecks\.ps1)$'; Checks = @('Invoke-FixtureHandleContractChecks.ps1') },
+        @{ Pattern = '^(?-i:Private/(FixtureHandleContract|FixtureIdentityRequest)\.ps1|Tests/Static/Invoke-FixtureIdentityRequestChecks\.ps1)$'; Checks = @('Invoke-FixtureIdentityRequestChecks.ps1','Invoke-FixtureHandleContractChecks.ps1') },
         @{ Pattern = '(?i)(TransferProgress|HyperVImageMigration|HyperVImageRegistry|HyperVResourceMigration|ArtifactResolver|Save-SqlServerLabMediaSource|VersionCatalog|ExternalRuntimeWindows|Restore-SqlServerLabDatabase)'; Checks = @('Invoke-TransferProgressChecks.ps1') },
         @{ Pattern = '(?i)(Remove-HyperVOrphanWithOwnedStorage|HyperVOrphanCleanupTool)'; Checks = @('Invoke-HyperVOrphanCleanupToolChecks.ps1') },
         @{ Pattern = '(?i)(RunArtifactRemoval|RUN_ARTIFACT_REMOVAL|CleanupEngine|StateMachine|RetainedStoreRuntime|StorageContract|ContainerOwnedHostIntegration|Providers[\\/](Docker|Podman)[\\/])'; Checks = @('Invoke-RunArtifactRemovalChecks.ps1','Invoke-PublicCommandConsoleChecks.ps1') },
@@ -315,6 +316,7 @@ end {
             # Nur dieser belegbar reine In-Memory-Codec; andere Fixturepfade
             # und gemischte Produktdiffs behalten ihren Runtime-Fallback.
             $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -cmatch '^Private/FixtureHandleContract\.ps1$'
+            $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -cmatch '^Private/FixtureIdentityRequest\.ps1$'
             $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -match '^(Private/DiagnosticBundle(Reader|Readiness)\.ps1|Public/Get-SqlServerLabDiagnosticBundle\.ps1|Schemas/diagnostic-bundle\.schema\.json)$'
             $staticOnlyProductChange = $staticOnlyProductChange -or $aiExternalModelPlanPath
             $staticOnlyProductChange = $staticOnlyProductChange -or $aiSharedGatewayPlanPath

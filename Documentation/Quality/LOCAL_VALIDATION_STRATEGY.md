@@ -21,6 +21,37 @@ ein Dokumentationsdateiname allein verlangt keinen Providerstart. Änderungen
 an gemeinsamem Ownership/Cleanup verlangen weiterhin die breite Matrix.
 [Auswahl, Cachegrenzen und Ausnahmen](FOUNDATION_1_21_PROCESSING_ASSESSMENT.md).
 
+## Privater Identitäts-Anfragevalidator (FSF-I02)
+
+Der [freigegebene Scope](../Project_Planning/FILESYSTEM_FIXTURE_IMPLEMENTATION_SCOPE_02_DRAFT.md)
+prüft ausschließlich eine private geschlossene OS-/SQL-Anfrage im Speicher,
+ohne Zielbindung, Autorisierung oder Identitätsanlage. Die neue
+`Invoke-FixtureIdentityRequestChecks.ps1` bestand am 2026-10-11 unter
+PowerShell 7.2.24/.NET 6.0.35 mit 513 PASS / 0 FAIL: unabhängige Sollprojektion,
+manuelle/automatisierte Varianten, Aliasräume und explizite Loginbeziehungen,
+Retention, Bytes/Felder/Shape, Escapes/Duplicate Keys, alle abgeschnittenen
+Byteprefixe, unveränderte Eingaben, keine Rohfehler in Streams/Fehlerverlauf,
+tatsächlicher Modulimport mit unveränderten Exporten. Eigener Transcript entfernt.
+Validator-Sourceblob `1857f3a13c3304fd2c11afd57f1d0b3f83bdb933`,
+Suite `70a78e0de7a5f32e72b9d331c01b269d06f91a17`; Basis ist der freigegebene
+Dokumentationsstand `10741557` aus PR #742 über main `fea35ee9`.
+
+Die genaue Diff-Auswahl koppelt beide Fixture-Suiten bei Änderungen an der
+I01-UUIDquelle oder dem neuen Validator, erhält konservative andere
+Produkt-/Provider-/Cleanupfallbacks und ergänzt keinen AllChecks-Eintrag.
+Keine Provider gestartet. Fokussierte lokale Evidence ersetzt weder den
+späteren aktuellen main-PR-Gate;
+native OS-/SQL-/Store-/Autorisierungs-/Cleanup-/Zugangsabnahmen bleiben offen.
+
+Der betroffene lokale Abschluss-Gate unter PowerShell 7.6.6/.NET 10.0.12
+bestand mit Validator 513/0, I01 116/0, CI-Strategie 599/0,
+Dokumentation 1887/0, Pester 23/0 (kein Skip), Privacy 3/0 und Analyzer PASS
+ohne Error-Fundmeldungen mit 24 freigegebenen Baselinebefunden;
+Warnungen bleiben ausgewiesen. Nach finalen Evidenceergänzungen werden nur
+die betroffenen Dokumentations-/Privacychecks erneut ausgeführt. Die vier
+ausführbaren Validator-/Test-/Selektorquellen bleiben byteidentisch;
+alle Sourceblobs stehen im Scopedokument. Kein CI-PASS aus lokalen Logs.
+
 ## Privater Fixture-Handle-Codec (FSF-I01)
 
 Der [freigegebene Scope](../Project_Planning/FILESYSTEM_FIXTURE_IMPLEMENTATION_SCOPE_01_DRAFT.md)
