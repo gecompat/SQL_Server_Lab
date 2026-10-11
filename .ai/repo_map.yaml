@@ -123,6 +123,7 @@ sources_of_truth:
   validation_internal_synthetic_scenario_executor: Tests/Static/Invoke-ScenarioExecutorChecks.ps1
   security_tool_acquisition_backlog: Documentation/Project_Planning/SECURITY_TOOL_ACQUISITION_BACKLOG.md
   filesystem_fixture_management_backlog: Documentation/Project_Planning/FILESYSTEM_FIXTURE_MANAGEMENT_BACKLOG.md # planned only; six explicit design approvals required before implementation; no runtime authority
+  filesystem_fixture_architecture_draft: Documentation/Project_Planning/FILESYSTEM_FIXTURE_ARCHITECTURE_DRAFT.md # FSF-01 proposed architecture; pending approval; no implementation or runtime authority
   security_tool_catalog: Catalogs/security-tools.json
   security_tool_resolver: Private/SecurityToolCatalog.ps1
   security_tool_catalog_schema: Schemas/security-tool-catalog.schema.json

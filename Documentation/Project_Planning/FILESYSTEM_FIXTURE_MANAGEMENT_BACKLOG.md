@@ -5,7 +5,7 @@
 | Status | `PLANNED` |
 | Stand | 2026-10-11 |
 | Zweck | temporäre synthetische Identitäten und Dateisystemstrukturen für Datei-, Sicherheits- und Berechtigungs-Integrationstests gegen SQL-Server-Testziele |
-| Nächster Schritt | Architektur, Capability-Modell, Fixture-Handle, Ownership/Cleanup, Sicherheitsmodell und Teststrategie einzeln ausarbeiten und abstimmen |
+| Nächster Schritt | [FSF-01-Architekturentwurf](FILESYSTEM_FIXTURE_ARCHITECTURE_DRAFT.md) abstimmen; danach Capability-Modell, Fixture-Handle, Ownership/Cleanup, Sicherheitsmodell und Teststrategie einzeln ausarbeiten und abstimmen |
 | Implementierungsfreigabe | `PENDING`; erst nach ausdrücklicher Einzelfreigabe aller sechs Entwurfsbereiche |
 | Autorität | Backlogaufnahme; keine Implementierungs-, Provider-, Identitäts-, Dateisystem- oder Löschfreigabe |
 
@@ -172,7 +172,7 @@ Implementierungs- und Runtime-Nachweise sind für diesen Backlog offen.
 
 | ID | Einzeln auszuarbeitender und abzustimmender Bereich | Erwartetes reviewbares Ergebnis | Freigabe |
 |---|---|---|---|
-| `FSF-01` | Architektur | SQL-Bezug, Ziel-/Readinessbindung, interne Betreibergrenze, Abläufe und ausgeschlossene Infrastrukturaktionen | `PENDING` |
+| `FSF-01` | Architektur | [Entwurf zur Abstimmung](FILESYSTEM_FIXTURE_ARCHITECTURE_DRAFT.md): SQL-Bezug, Ziel-/Readinessbindung, interne Betreibergrenze, Abläufe und ausgeschlossene Infrastrukturaktionen | `PENDING` |
 | `FSF-02` | Capability-Modell je Plattform | explizite Windows-/Hyper-V-, Linux-/Docker- und Linux-/Podman-Matrix einschließlich Namespace-/Mountgrenzen und Blockern | `PENDING` |
 | `FSF-03` | Fixture-Handle | minimaler versionierter Ergebnisvertrag, private lokale Auflösung, Ziel-/Owner-/Runbindung und Manipulationsschutz | `PENDING` |
 | `FSF-04` | Ownership und Cleanup | Vorabjournal, Erzeugungsnachweis, begrenzter Outside-Sentinel, Drift-Vetos, Idempotenz, Teilfehler und Recovery | `PENDING` |
