@@ -13,7 +13,8 @@
 
 Dieser Entwurf konkretisiert den Handle-Vertrag innerhalb der freigegebenen
 Architektur und Fähigkeiten. Die Entscheidungen C1 bis C9 wurden ausdrücklich
-freigegeben. FSF-04 bis FSF-06 bleiben einzeln freizugeben; erst danach darf eine
+freigegeben. FSF-04 wurde anschließend als Ownership-/Cleanupmodell freigegeben.
+FSF-05 und FSF-06 bleiben einzeln freizugeben; erst danach darf eine
 Implementierung beginnen. Die Feldnamen und Beispiele unten beschreiben
 einen geplanten Vertrag. Sie führen weder ein JSON-Schema noch öffentliche
 Cmdlets, Exporte, Statefelder oder Secretformate ein.
@@ -316,12 +317,14 @@ bleiben getrennte Nachweise.
 | `C6` | Explizite ExpectedInventoryRevision und konkrete ressourcen-/operationsgebundene Freigabe außerhalb des Handles | Alte Kopien autorisieren keine geänderten Pläne; Reservierung und frische Prüfungen bleiben Pflicht. |
 | `C7` | Private Recordintegrität und getrennte lokale Nutzungskanäle, Sicherheitsdetails in FSF-05 | Kein Sicherheitsversprechen durch opaque IDs, Dateirechte oder vorhandene SA-Secretpfade. |
 | `C8` | Dauerhafte Teilfehler-/Abschlusszuordnung ohne Wiederverwendung; Recovery/Idempotenzdetails in FSF-04 | Antwortverlust erzeugt keine blinde zweite Anlage und keinen Zielwechsel. |
-| `C9` | FSF-03-Freigabe genehmigt nur diesen Handle-Vertrag | FSF-04 bis FSF-06 und jede Implementierungs-/Runtimefreigabe bleiben offen. |
+| `C9` | FSF-03-Freigabe genehmigt nur diesen Handle-Vertrag | FSF-04 bis FSF-06 benötigen separate Einzelfreigaben; keine Implementierungs-/Runtimefreigabe. |
 
 Der Repository-Eigentümer hat FSF-03 am 2026-10-11 ausdrücklich freigegeben.
 Der Abstimmungsstatus ist `APPROVED` für Revision `0.1` und C1 bis C9.
-Als nächster Schritt liegt der [FSF-04-Ownership-/Cleanup-Entwurf](FILESYSTEM_FIXTURE_OWNERSHIP_CLEANUP_DRAFT.md)
-zur Abstimmung vor; FSF-04 bis FSF-06 bleiben offen. Gekoppelte Quellen sind
+Das [FSF-04-Ownership-/Cleanupmodell](FILESYSTEM_FIXTURE_OWNERSHIP_CLEANUP_DRAFT.md)
+wurde anschließend am selben Tag freigegeben. Als nächster Schritt liegt der
+[FSF-05-Sicherheitsentwurf](FILESYSTEM_FIXTURE_SECURITY_DRAFT.md)
+zur Abstimmung vor; FSF-05 und FSF-06 bleiben offen. Gekoppelte Quellen sind
 [FSF-01](FILESYSTEM_FIXTURE_ARCHITECTURE_DRAFT.md),
 [FSF-02](FILESYSTEM_FIXTURE_CAPABILITY_DRAFT.md),
 [Repo-Map](../../.ai/repo_map.yaml),

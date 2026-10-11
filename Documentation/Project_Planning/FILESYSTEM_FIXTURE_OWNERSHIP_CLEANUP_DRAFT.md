@@ -1,18 +1,20 @@
-# FSF-04 – Ownership, Cleanup und Recovery für OS-/SQL-Identitäten
+# FSF-04 – Freigegebenes Ownership-, Cleanup- und Recoverymodell für OS-/SQL-Identitäten
 
 | Merkmal | Wert |
 |---|---|
-| Status | `OWNERSHIP_CLEANUP_DECISION_DRAFT` – zur Abstimmung, nicht freigegeben |
+| Status | `OWNERSHIP_CLEANUP_MODEL_APPROVED` – Ownership-/Cleanupmodell freigegeben |
 | Entwurf | `FSF-04`, Revision `0.1`, Stand 2026-10-11 |
+| Freigabe | ausdrücklich durch den Repository-Eigentümer am 2026-10-11 |
 | Grundlagen | [FSF-01](FILESYSTEM_FIXTURE_ARCHITECTURE_DRAFT.md) Revision `0.2`, [FSF-02](FILESYSTEM_FIXTURE_CAPABILITY_DRAFT.md) Revision `0.1`, [FSF-03](FILESYSTEM_FIXTURE_HANDLE_DRAFT.md) Revision `0.1`; ausdrücklich freigegeben am 2026-10-11 |
 | Anforderungsquelle | [Fixture-Verwaltungs-Backlog](FILESYSTEM_FIXTURE_MANAGEMENT_BACKLOG.md) |
 | Repositorybasis der Bestandsanalyse | `a6b5a6b3`; keine neue Fixture-Implementierung oder Runtime-Evidence |
 | Gegenstand | eigene Erzeugung, Vorabjournal, getrennte Lebensdauer, Entfernung, Absenzbelege, Teilfehler und Recovery |
-| Autorität | Dokumentationsentwurf; keine Implementierungs-, Benutzeranlage-, Sitzungsbeendigungs- oder Löschfreigabe |
+| Autorität | freigegebenes Ownership-/Cleanupmodell; keine Implementierungs-, Benutzeranlage-, Sitzungsbeendigungs- oder Löschfreigabe |
 
-Alle Entscheidungen D1 bis D10 sind Vorschläge. Die drei bisherigen Freigaben
-genehmigen Architektur, Fähigkeiten und Handle-Vertrag. FSF-04 bis FSF-06
-bleiben einzeln freizugeben; erst danach darf eine Implementierung beginnen.
+Alle Entscheidungen D1 bis D10 wurden ausdrücklich freigegeben. FSF-01 bis
+FSF-04 genehmigen Architektur, Fähigkeiten, Handle und Ownership-/Cleanupmodell.
+FSF-05 und FSF-06 bleiben einzeln freizugeben; erst danach darf eine
+Implementierung beginnen.
 Bezeichnungen und Zustände unten sind fachliche Entwurfsbegriffe, keine neuen
 Statefelder, APIs oder ausführbaren Cleanupaktionen.
 
@@ -223,7 +225,7 @@ Beschreibung ist keine Kompatibilitätszusage für BusyBox oder andere Backends.
 
 ## 7. Root, Outside-Sentinel und eigene Home-/Profilressourcen
 
-FSF-04 schlägt ausdrücklich die FSF-01-Auslegung vor: Ein neu erzeugter
+FSF-04 bestätigt ausdrücklich die FSF-01-Auslegung: Ein neu erzeugter
 äußerer Fixture-Root enthält den inneren Testroot, eigene Arbeitsverzeichnisse
 und optional einen separat nachgewiesenen Outside-Sentinel als Geschwister
 des Testroots. „Outside“ bedeutet außerhalb des inneren Roots, weiterhin
@@ -251,7 +253,7 @@ Linux-Homes liegen, falls ausdrücklich angefordert, im eigenen geplanten
 Dateipaket. Vorbestehende Homes und Mailspools bleiben fremd. Eigene Gast-
 oder Containerdateien werden nicht über Hostzugriff oder neue Mounts entfernt.
 
-Für Windows schlägt FSF-04 eine eng begrenzte Nebenwirkungsregel vor:
+Für Windows genehmigt FSF-04 eine eng begrenzte Nebenwirkungsregel:
 Ein durch den kontrollierten ersten Gebrauch des neuen eigenen Gastkontos
 erzeugtes lokales Profil darf als private Unterressource dieses Kontos
 registriert werden. Es ist eine ausdrückliche Ausnahme für OS-Profilverwaltung
@@ -344,9 +346,9 @@ Fixture-Reservierung. Auch der [Owned-Host-CI-Vertrag](../Architecture/OWNED_HOS
 ist kein allgemeiner Consumer- oder Fixture-Löschvertrag. Beide werden in
 diesem Entwurf weder geändert noch als fertiger Fixture-Backend zugesagt.
 
-## 10. Entscheidungen zur Abstimmung und nächste Nachweise
+## 10. Freigegebene Entscheidungen und nächste Nachweise
 
-| ID | Vorschlag für FSF-04 | Konsequenz |
+| ID | Freigegebenes Modell innerhalb FSF-04 | Konsequenz |
 |---|---|---|
 | `D1` | Ownership durch private gebundene Recordkette, Vorabintent, eigene Erzeugung und frische native Identität | Namen, UID/SID, Pfad oder Marker allein erlauben keine Löschung. |
 | `D2` | Dauerhafter Plan und Schrittjournal vor Mutation; Freigabe einmal annehmen; Crashlücken bleiben unklar | Kein Retry/Adoption ohne Beleg; angenommene Operation bleibt exakt begrenzt. |
@@ -369,7 +371,10 @@ Benutzer; eigene/fremde Gruppen und Profile; geänderte Mounts/Links/Sentinel;
 unbekannte Kinder; teilweise Entfernung; SQL-Ausfall; zweimaliges Cleanup
 und bestätigte eigene Absenz. Keine native Löschung wird hier ausgeführt.
 
-Der Abstimmungsstatus ist `PENDING`. Gekoppelte Quellen bleiben
+Der Repository-Eigentümer hat FSF-04 am 2026-10-11 ausdrücklich freigegeben.
+Der Abstimmungsstatus ist `APPROVED` für Revision `0.1` und D1 bis D10.
+Als nächster Schritt liegt der [FSF-05-Sicherheitsentwurf](FILESYSTEM_FIXTURE_SECURITY_DRAFT.md)
+zur Abstimmung vor; FSF-05 und FSF-06 bleiben offen. Gekoppelte Quellen bleiben
 [FSF-01](FILESYSTEM_FIXTURE_ARCHITECTURE_DRAFT.md),
 [FSF-02](FILESYSTEM_FIXTURE_CAPABILITY_DRAFT.md),
 [FSF-03](FILESYSTEM_FIXTURE_HANDLE_DRAFT.md),
