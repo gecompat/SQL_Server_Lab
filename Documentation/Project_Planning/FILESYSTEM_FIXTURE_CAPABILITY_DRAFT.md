@@ -1,18 +1,20 @@
-# FSF-02 – Capability-Entwurf für OS-/SQL-Identitäten und Dateisystem-Fixtures
+# FSF-02 – Freigegebenes Capability-Modell für OS-/SQL-Identitäten und Dateisystem-Fixtures
 
 | Merkmal | Wert |
 |---|---|
-| Status | `CAPABILITY_DECISION_DRAFT` – zur Abstimmung, nicht freigegeben |
+| Status | `CAPABILITY_MODEL_APPROVED` – Fähigkeitsmodell freigegeben |
 | Entwurf | `FSF-02`, Revision `0.1`, Stand 2026-10-11 |
+| Freigabe | ausdrücklich durch den Repository-Eigentümer am 2026-10-11 |
 | Grundlage | [FSF-01](FILESYSTEM_FIXTURE_ARCHITECTURE_DRAFT.md), Revision `0.2`, ausdrücklich freigegeben am 2026-10-11 |
 | Anforderungsquelle | [Fixture-Verwaltungs-Backlog](FILESYSTEM_FIXTURE_MANAGEMENT_BACKLOG.md) |
 | Repositorybasis der Bestandsanalyse | `a6b5a6b3`; keine neue Provider- oder SQL-Runtime-Evidence |
 | Gegenstand | getrennte Identitätsarten, Plattformmatrix, Nutzungsarten, Profile, Voraussetzungen und Blocker |
-| Autorität | Dokumentationsentwurf; keine Implementierungs-, Benutzeranlage- oder Runtimefreigabe |
+| Autorität | freigegebenes Fähigkeitsmodell; keine Implementierungs-, Benutzeranlage- oder Runtimefreigabe |
 
-Alle Entscheidungen dieses Dokuments sind Vorschläge. Die Freigabe von FSF-01
-genehmigt den Architekturrahmen einschließlich eigenständiger manueller und
-automatisierter OS-/SQL-Benutzeranlage. FSF-02 bis FSF-06 bleiben einzeln
+Die Entscheidungen B1 bis B8 wurden ausdrücklich freigegeben. Die Freigaben
+von FSF-01 und FSF-02 genehmigen Architekturrahmen und Fähigkeitsmodell
+einschließlich eigenständiger manueller und automatisierter OS-/SQL-
+Benutzeranlage. FSF-03 bis FSF-06 bleiben einzeln
 freizugeben; erst danach darf eine Implementierung beginnen. Die Bezeichnungen
 unten sind fachliche Entwurfsbegriffe, keine vorhandenen API-, Schema- oder
 Fehlercodes. Bestehende Providerdeklarationen werden nicht erweitert.
@@ -282,9 +284,9 @@ Kontodatenbank; unzulässige Mountgrenzen; SQL-/Datenbankdrift; erhaltene fremde
 Principals und erhaltene manuelle Benutzer nach Dateisystem-Cleanup. Docker,
 Podman und Hyper-V bleiben getrennte Providerbelege.
 
-## 8. Entscheidungen zur Abstimmung
+## 8. Freigegebene Capability-Entscheidungen
 
-| ID | Vorschlag für FSF-02 | Konsequenz |
+| ID | Freigegebenes Modell innerhalb FSF-02 | Konsequenz |
 |---|---|---|
 | `B1` | Getrennte OS-, SQL-Login-, Datenbankbenutzer- und Dateifähigkeiten; keine automatische Kopplung | Eigenständige Benutzeranlage ist ohne Testexecutor und ohne Dateien vorgesehen. |
 | `B2` | Benannte Windows-/Linuxkonten sowie ausdrücklich numerische Linuxfälle; rootless bedingt statt pauschal ausgeschlossen | Konto- und Anmeldefähigkeit werden getrennt geprüft; keine Host-/Namespaceänderung. |
@@ -295,8 +297,10 @@ Podman und Hyper-V bleiben getrennte Providerbelege.
 | `B7` | Capability-Ermittlung fail-closed, lesend und je konkrete Kombination; kein stiller Fallback | Fehlende Evidence/Frische/Freigabe bleibt ein Blocker; Providerdeklaration reicht nicht. |
 | `B8` | FSF-02-Freigabe genehmigt ausschließlich dieses Fähigkeitsmodell | FSF-03 bis FSF-06 bleiben offen; keine Implementierung oder Zielmutation. |
 
-Der Abstimmungsstatus bleibt `PENDING`. Zustimmungen oder konkrete Änderungen
-zu B1 bis B8 werden ausdrücklich festgehalten. Die technischen Primärquellen
+Der Repository-Eigentümer hat FSF-02 am 2026-10-11 ausdrücklich freigegeben.
+Der Abstimmungsstatus ist `APPROVED` für Revision `0.1` und B1 bis B8.
+Als nächster Schritt liegt der [FSF-03-Handle-Entwurf](FILESYSTEM_FIXTURE_HANDLE_DRAFT.md)
+zur Abstimmung vor; FSF-03 bis FSF-06 bleiben offen. Die technischen Primärquellen
 oben wurden am 2026-10-11 geprüft; sie erklären Plattformmechanismen und
 erteilen keine Projektfreigabe. Gekoppelte Projektquellen bleiben
 [FSF-01](FILESYSTEM_FIXTURE_ARCHITECTURE_DRAFT.md),

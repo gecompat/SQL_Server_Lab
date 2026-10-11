@@ -12,7 +12,7 @@
 
 Die Architekturentscheidungen A1 bis A10 wurden ausdrücklich freigegeben.
 Diese Zustimmung zu FSF-01 genehmigt ausschließlich den Architekturrahmen.
-FSF-02 bis FSF-06
+FSF-02 wurde anschließend als Fähigkeitsmodell freigegeben; FSF-03 bis FSF-06
 bleiben eigenständig auszuarbeiten und einzeln freizugeben. Erst nach allen
 sechs Freigaben darf eine Implementierung beginnen. Es werden weder bestehende
 Exports noch Provider-, Lifecycle-, Schema-, Secret- oder Stateverträge geändert.
@@ -405,7 +405,7 @@ Zielen und keine Änderung ihrer Branches, Worktrees, Wellenplanung oder Gates.
 | `A5` | Eigener äußerer Fixture-Root; Outside-Sentinel nur außerhalb des inneren Testroots innerhalb dieses Scopes | Die Auslegung ist in FSF-04 gesondert zu bestätigen; Host-/Shared-Volume-Profile bleiben zunächst offen. |
 | `A6` | Jede Zielmutation einschließlich Cleanup benötigt READY; Verlust erzeugt Recoverybedarf | Kein Rückbau durch Start/Repair; eine SQL-unabhängige Cleanupausnahme benötigt eigene Entscheidung. |
 | `A7` | Zunächst ein Szenario-Ressourcenscope pro Instanz mit mehreren Benutzern und optionalen Fixtures; wirksame Lifecycle-Reservierung und serialisierte Mutationen | Manuelle Parallelsitzungen sind vorgesehen; unabhängige überlappende Szenarioscopes bleiben ein späterer Scope. |
-| `A8` | FSF-01-Zustimmung genehmigt nur den Architekturrahmen | FSF-02 bis FSF-06 und sämtliche Implementierungs-/Runtimefreigaben bleiben offen. |
+| `A8` | FSF-01-Zustimmung genehmigt nur den Architekturrahmen | FSF-02 bis FSF-06 benötigen separate Einzelfreigaben; sämtliche Implementierungs-/Runtimefreigaben bleiben offen. |
 | `A9` | OS-Identitäten sowie SQL-Logins/Datenbankbenutzer als getrennte eigenständige Verträge; Dateisystem-Fixtures optional | Manuelle Anlage ohne Testexecutor; keine automatische OS-/SQL-Zuordnung oder Änderung bestehender Principals. |
 | `A10` | Automatisierte Tests und bewusst aufbewahrte manuelle Schulungs-/Rekonstruktionsszenarien gleichberechtigt unterstützen | Sichere Benutzeranmeldung, Lebensdauer und eigener Rückbau folgen in FSF-02 bis FSF-05. |
 
@@ -417,9 +417,11 @@ Dokumentationsprüfung folgt keine Freigabe einer Implementierung oder Zielopera
 
 ## 11. Nächste Entwurfsarbeit und Nachweisgrenze
 
-Als nächster Abstimmungsschritt liegt der [FSF-02-Capability-Entwurf](FILESYSTEM_FIXTURE_CAPABILITY_DRAFT.md)
-mit getrennten OS-/SQL-Identitätsarten und der konkreten Fähigkeitsmatrix
-für Windows/Hyper-V, Linux/Docker und Linux/Podman vor. FSF-03 bis FSF-06 liefern
+Das [FSF-02-Capability-Modell](FILESYSTEM_FIXTURE_CAPABILITY_DRAFT.md) mit
+getrennten OS-/SQL-Identitätsarten und der konkreten Fähigkeitsmatrix für
+Windows/Hyper-V, Linux/Docker und Linux/Podman wurde am 2026-10-11 freigegeben.
+Als nächster Abstimmungsschritt liegt der [FSF-03-Handle-Entwurf](FILESYSTEM_FIXTURE_HANDLE_DRAFT.md)
+vor. FSF-03 bis FSF-06 liefern
 danach Handle-/Freigabebindung, Ownership-/Cleanupdetails, Bedrohungsmodell
 und getrennte Testnachweise. Noch offen bleiben insbesondere UID/GID-
 Reservierung, NTFS-Details, sichere Linkoperationen, Accountdatenbank-
