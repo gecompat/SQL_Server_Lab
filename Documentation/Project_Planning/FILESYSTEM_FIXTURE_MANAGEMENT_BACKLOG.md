@@ -5,7 +5,7 @@
 | Status | `PLANNED` |
 | Stand | 2026-10-11 |
 | Zweck | synthetische OS-/SQL-Identitäten für automatisierte Tests, manuelle Schulungen und Rekonstruktionsszenarien; optional kombinierbare Dateisystem-Fixtures auf ausgewählten SQL-Labzielen |
-| Nächster Schritt | [FSF-01-Architekturentwurf](FILESYSTEM_FIXTURE_ARCHITECTURE_DRAFT.md) abstimmen; danach Capability-Modell, Fixture-Handle, Ownership/Cleanup, Sicherheitsmodell und Teststrategie einzeln ausarbeiten und abstimmen |
+| Nächster Schritt | [FSF-02-Capability-Entwurf](FILESYSTEM_FIXTURE_CAPABILITY_DRAFT.md) abstimmen; danach Fixture-Handle, Ownership/Cleanup, Sicherheitsmodell und Teststrategie einzeln ausarbeiten und abstimmen |
 | Implementierungsfreigabe | `PENDING`; erst nach ausdrücklicher Einzelfreigabe aller sechs Entwurfsbereiche |
 | Autorität | Backlogaufnahme; keine Implementierungs-, Provider-, Identitäts-, Dateisystem- oder Löschfreigabe |
 
@@ -45,8 +45,11 @@ FSF-02 bis FSF-06 abzustimmen; es gibt keine Implementierungsfreigabe.
 
 Dieser Backlog erweitert weder die laufende parallele Entwicklungswelle noch
 deren Freigaben oder Reihenfolge. Der dortige Implementierungsstand bleibt
-getrennt. Dieser Eintrag legt Anforderungen und offene Entwurfsaufgaben fest;
-er ist kein abgeschlossener Architekturvertrag oder Runtime-Nachweis.
+getrennt. Dieser Eintrag legt Anforderungen und offene Entwurfsaufgaben fest.
+[FSF-01](FILESYSTEM_FIXTURE_ARCHITECTURE_DRAFT.md), Revision `0.2`, wurde am
+2026-10-11 einschließlich eigenständiger manueller OS-/SQL-Benutzeranlage
+ausdrücklich freigegeben. Die übrigen fünf Entwürfe und sämtliche
+Implementierungs- und Runtimefreigaben bleiben offen.
 
 ## Zielauswahl und Autorisierung
 
@@ -207,14 +210,15 @@ Implementierungs- und Runtime-Nachweise sind für diesen Backlog offen.
 
 | ID | Einzeln auszuarbeitender und abzustimmender Bereich | Erwartetes reviewbares Ergebnis | Freigabe |
 |---|---|---|---|
-| `FSF-01` | Architektur | [Entwurf zur Abstimmung](FILESYSTEM_FIXTURE_ARCHITECTURE_DRAFT.md): SQL-Bezug, Ziel-/Readinessbindung, interne Betreibergrenze, Abläufe und ausgeschlossene Infrastrukturaktionen | `PENDING` |
-| `FSF-02` | Capability-Modell je Plattform | getrennte OS-/SQL-Identitätsarten und optionale Dateisystemprofile für automatisierte und manuelle Szenarien; explizite Windows-/Hyper-V-, Linux-/Docker- und Linux-/Podman-Matrix einschließlich Namespace-/Mountgrenzen und Blockern | `PENDING` |
+| `FSF-01` | Architektur | [Freigegebener Rahmen](FILESYSTEM_FIXTURE_ARCHITECTURE_DRAFT.md), Revision `0.2`: eigenständige manuelle und automatisierte OS-/SQL-Identitäten, SQL-Bezug, Ziel-/Readinessbindung, interne Betreibergrenze, Abläufe und ausgeschlossene Infrastrukturaktionen | `APPROVED` – ausdrückliche Nutzerfreigabe am 2026-10-11 |
+| `FSF-02` | Capability-Modell je Plattform | [Entwurf zur Abstimmung](FILESYSTEM_FIXTURE_CAPABILITY_DRAFT.md): getrennte OS-/SQL-Identitätsarten, Nutzungs-/Rechteprofile und optionale Dateien; Windows-/Hyper-V-, Linux-/Docker- und Linux-/Podman-Matrix einschließlich Namespace-/Mountgrenzen und Blockern | `PENDING` |
 | `FSF-03` | Fixture-Handle | minimaler versionierter Ergebnisvertrag, private lokale Auflösung, Ziel-/Owner-/Runbindung und Manipulationsschutz | `PENDING` |
 | `FSF-04` | Ownership und Cleanup | Vorabjournal, Erzeugungsnachweis, begrenzter Outside-Sentinel, Drift-Vetos, Idempotenz, Teilfehler und Recovery | `PENDING` |
 | `FSF-05` | Sicherheitsmodell | Bedrohungsmodell, Least Privilege, Secrets/Privacy, Escape-/Kollisionsschutz und prüfbare Sicherheitsgrenzen | `PENDING` |
 | `FSF-06` | Teststrategie | konkrete positive/negative Testmatrix, getrennte Providerbelege, SQL-Assertions, Schutz fremder Ressourcen und Cleanup-Abnahme | `PENDING` |
 
-Die Backlogaufnahme ist keine Freigabe dieser Entwürfe. Erst wenn alle sechs
+Die Backlogaufnahme ist keine Freigabe dieser Entwürfe; die separate FSF-01-
+Freigabe ist oben dokumentiert. Erst wenn alle sechs
 Punkte einzeln abgestimmt und ausdrücklich freigegeben sind, darf eine
 Implementierung beginnen. Danach ist der konkrete Implementierungsscope mit
 der dann aktuellen Entwicklungsplanung und parallelen Arbeiten abzugleichen.

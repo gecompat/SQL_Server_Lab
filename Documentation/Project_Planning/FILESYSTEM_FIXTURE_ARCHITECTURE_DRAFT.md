@@ -1,16 +1,18 @@
-# FSF-01 – Architekturentwurf für Labidentitäten und Dateisystem-Fixtures
+# FSF-01 – Freigegebener Architekturrahmen für Labidentitäten und Dateisystem-Fixtures
 
 | Merkmal | Wert |
 |---|---|
-| Status | `ARCHITECTURE_DECISION_DRAFT` – zur Abstimmung, nicht freigegeben |
+| Status | `ARCHITECTURE_FRAMEWORK_APPROVED` – Architekturrahmen freigegeben |
 | Entwurf | `FSF-01`, Revision `0.2`, Stand 2026-10-11 |
+| Freigabe | ausdrücklich durch den Repository-Eigentümer am 2026-10-11, einschließlich getrennter OS-/SQL-Identitäten für manuelle und automatisierte Szenarien |
 | Anforderungsquelle | [Fixture-Verwaltungs-Backlog](FILESYSTEM_FIXTURE_MANAGEMENT_BACKLOG.md) |
 | Repositorybasis der Bestandsanalyse | `a6b5a6b3` |
 | Gegenstand | SQL-Bezug, Ziel-/Readinessbindung, interne Betreibergrenze, Abläufe und ausgeschlossene Infrastrukturaktionen |
-| Autorität | Dokumentationsentwurf; keine Implementierungs- oder Runtimefreigabe |
+| Autorität | freigegebener Architekturrahmen; keine Implementierungs- oder Runtimefreigabe |
 
-Alle Architekturentscheidungen unten sind Vorschläge. Eine Zustimmung zu
-FSF-01 genehmigt ausschließlich diesen Architekturrahmen. FSF-02 bis FSF-06
+Die Architekturentscheidungen A1 bis A10 wurden ausdrücklich freigegeben.
+Diese Zustimmung zu FSF-01 genehmigt ausschließlich den Architekturrahmen.
+FSF-02 bis FSF-06
 bleiben eigenständig auszuarbeiten und einzeln freizugeben. Erst nach allen
 sechs Freigaben darf eine Implementierung beginnen. Es werden weder bestehende
 Exports noch Provider-, Lifecycle-, Schema-, Secret- oder Stateverträge geändert.
@@ -350,7 +352,7 @@ idempotente Absenzbelege werden in FSF-04 ausgearbeitet.
 
 ## 8. Reservierung und parallele Operationen
 
-Vorgeschlagen wird zunächst ein aktiver Szenario-Ressourcenscope pro ausgewählter
+Der freigegebene Rahmen sieht zunächst einen aktiven Szenario-Ressourcenscope pro ausgewählter
 Instanz mit mehreren ausdrücklich angeforderten Benutzern und optionalen
 Dateisystem-Fixtures. Die Beschränkung bedeutet nicht einen Benutzer pro Lab.
 Mutierende Anlage, Erweiterung und Cleanup werden exklusiv serialisiert.
@@ -392,9 +394,9 @@ Zielen und keine Änderung ihrer Branches, Worktrees, Wellenplanung oder Gates.
   privilegierte Testidentitäten und dauerhafte allgemeine Fixture-Agenten;
 - Export realer Infrastrukturdetails, Secrets oder ungefilterter Runtimeausgaben.
 
-## 10. Entscheidungen zur Abstimmung
+## 10. Freigegebene Architekturentscheidungen
 
-| ID | Vorschlag innerhalb FSF-01 | Auswirkung beziehungsweise offene Folge |
+| ID | Freigegebener Rahmen innerhalb FSF-01 | Auswirkung beziehungsweise offene Folge |
 |---|---|---|
 | `A1` | Lokaler Lab-Koordinator mit privaten festen OS-/Dateisystem- und SQL-Identitätsadaptern; kein dauerhafter Agent und keine freie Shell | Betreiberzugänge verbleiben im Lab; Authentisierung und Bedrohungsmodell folgen in FSF-05. |
 | `A2` | Genau eine explizite verwaltete SQL-Testinstanz pro Operation; keine Adoption und kein Providerfallback | Ziel- und Ownershipnachweise sowie minimale Handlebindung folgen in FSF-03/FSF-04. |
@@ -407,15 +409,17 @@ Zielen und keine Änderung ihrer Branches, Worktrees, Wellenplanung oder Gates.
 | `A9` | OS-Identitäten sowie SQL-Logins/Datenbankbenutzer als getrennte eigenständige Verträge; Dateisystem-Fixtures optional | Manuelle Anlage ohne Testexecutor; keine automatische OS-/SQL-Zuordnung oder Änderung bestehender Principals. |
 | `A10` | Automatisierte Tests und bewusst aufbewahrte manuelle Schulungs-/Rekonstruktionsszenarien gleichberechtigt unterstützen | Sichere Benutzeranmeldung, Lebensdauer und eigener Rückbau folgen in FSF-02 bis FSF-05. |
 
-Zum Abschluss der Abstimmung sind Zustimmung oder konkrete Änderungen zu
-diesem Rahmen festzuhalten. Der Stand bleibt bis dahin `PENDING`; aus diesem
-Dokument, seinen Quellen oder einer bestandenen Dokumentationsprüfung folgt
-keine Freigabe einer Zieloperation.
+Der Repository-Eigentümer hat FSF-01 mit diesen Ergänzungen am 2026-10-11
+ausdrücklich freigegeben. Der Abstimmungsstatus ist `APPROVED` für Revision
+`0.2` und A1 bis A10. Die jeweils genannten Folgeentscheidungen bleiben offen;
+aus der Architekturfreigabe, ihren Quellen oder einer bestandenen
+Dokumentationsprüfung folgt keine Freigabe einer Implementierung oder Zieloperation.
 
 ## 11. Nächste Entwurfsarbeit und Nachweisgrenze
 
-Nach Architekturabstimmung folgt FSF-02 mit der konkreten Fähigkeitsmatrix
-für Windows/Hyper-V, Linux/Docker und Linux/Podman. FSF-03 bis FSF-06 liefern
+Als nächster Abstimmungsschritt liegt der [FSF-02-Capability-Entwurf](FILESYSTEM_FIXTURE_CAPABILITY_DRAFT.md)
+mit getrennten OS-/SQL-Identitätsarten und der konkreten Fähigkeitsmatrix
+für Windows/Hyper-V, Linux/Docker und Linux/Podman vor. FSF-03 bis FSF-06 liefern
 danach Handle-/Freigabebindung, Ownership-/Cleanupdetails, Bedrohungsmodell
 und getrennte Testnachweise. Noch offen bleiben insbesondere UID/GID-
 Reservierung, NTFS-Details, sichere Linkoperationen, Accountdatenbank-
