@@ -24,7 +24,7 @@ Dateibasierte Prüfung und Erstellung zählen SMTP-Rootvorkommen ohne Beachtung
 der Groß-/Kleinschreibung und verwerfen doppelte Eigenschaften im SMTP-Teilbaum
 vor `ConvertFrom-Json`. `InputObject` kann bereits bei seiner Erstellung
 verlorene Duplikate nicht rekonstruieren. Übrige Manifestfelder behalten ihre
-bisherige JSON-Regel. Die neun Eingabeschlüssel teilen den vorhandenen privaten
+bisherige JSON-Regel. Die zehn Eingabeschlüssel teilen den vorhandenen privaten
 Configvalidator; das abgeleitete `maxMessageBytes` ist kein Eingabefeld.
 Die Rootprüfung berücksichtigt Kommentare und abschließende Kommas, während
 der SMTP-Teilbaum weiterhin strikt bleibt. Andere vom Legacyparser lesbare
@@ -42,6 +42,22 @@ Gateway und einen Mailpit-Receiver. Der Receiver-HTTP-Port ist ausschließlich
 an `127.0.0.1` gebunden; Mailpit-UI-Zugangsdaten bleiben als DPAPI-geschuetztes
 Run-Secret und werden nie in `connection-info.json` geschrieben. Jede
 Senderinstanz erhaelt ein eigenes, nichtoeffentliches Database-Mail-Profil.
+`imageProvisioning` ist entweder `build` (Default) oder `require-existing`.
+Der strikte Modus berechnet den Gateway-Tag aus den versionierten Quellen,
+prüft diesen und den gepinnten Mailpit-Tag vor jeder Ressourcenmutation,
+bindet beide auf ihre zurückgelieferten lokalen Image-IDs und verwendet danach
+für beide Starts `--pull=never`; er führt keinen Build aus.
+Ein fehlendes Image endet mit `SMTP_TEST_REQUIRED_IMAGE_MISSING`. Runs mit
+Owned-Host-Policy dürfen ausschließlich diesen Modus verwenden, damit der Run
+weder Images beschafft noch baut.
+Für einen solchen Run werden vor dem Start zwei eigene Container-Intents und
+Receipts angelegt; die Sidecars tragen die zugehörigen Policy-, Scope- und
+Instance-Labels. Owned Host erstellt oder entfernt keine SMTP-Netze: Gateway
+und Receiver verwenden ausschließlich das bereits am gebundenen SQL-Sender
+beobachtete, nicht interne Run-Netz. Dadurch entfällt in diesem Sonderpfad die
+zwei-Bridge-Isolation des normalen Labs. Der Auth-Dateibind ist schreibgeschützt
+und der Start bleibt auf `--pull=never`, `--read-only`, den festen `/tmp`-
+Tmpfs-, Capability- und `no-new-privileges`-Werten begrenzt.
 Validator und Wizard speichern keinen aktiven Entwurf. Der Planvorschauvertrag
 bleibt `1.3`.
 

@@ -954,6 +954,17 @@ und ungeeigneter Scope besitzen getrennte feste Fehlercodes. Der Wizard speicher
 keinen aktiven Entwurf. Objektinput kann zuvor verlorene JSON-Duplikate nicht
 rekonstruieren. Der Serviceabschnitt in `connection-info.json` enthält nur
 Profilname, Gateway und lokalen Receiver; Zugangsdaten bleiben lokale Run-Secrets.
+`imageProvisioning: "require-existing"` prüft den fest gebundenen Mailpit- und
+den aus den versionierten Gatewayquellen abgeleiteten Gateway-Tag vor jeder
+Ressourcenmutation und startet anschließend deren lokale unveränderliche IDs
+mit `--pull=never`. Es findet kein Gateway-Build statt. Dieser Modus ist für Owned-Host-Runs
+verpflichtend; fehlen Images, endet der Lauf mit `SMTP_TEST_REQUIRED_IMAGE_MISSING`.
+Der Owned-Host-Zweig verwendet ausschließlich das bereits am gebundenen SQL-
+Sender beobachtete, nicht interne Run-Netz und darf keine SMTP-Netze erstellen
+oder entfernen. Er ist deshalb nicht durch die zwei privaten Bridges des
+normalen SMTP-Pfads isoliert. Receiver und Gateway bleiben durch eigene
+Container-Intents, Receipts und die festen no-pull-/Hardening-Startoptionen an
+Run und Scope gebunden.
 Der generische AdHoc- und Browserdialog stellt die geheimnisfreie Statusabfrage
 sowie den bestätigten, kurzlebigen Mailpit-Zugang bereit. Eine öffentliche
 Mailinhalt-API bleibt offen; Hyper-V besitzt keinen SMTP-Testdienst und damit

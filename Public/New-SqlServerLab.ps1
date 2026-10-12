@@ -965,7 +965,9 @@ function New-SqlServerLab {
             $smtpPlan = New-LabSmtpTestServicePlan -Config $resolved.smtpTestService -RunId $runState.RunId -ScopeId $runState.ScopeId -Provider ([string]$providers[0])
             $smtpAuthPath = Join-Path (Join-Path (Join-Path $runState.RunDir 'smtp-test-service') 'secrets') ($smtpPlan.ScopeId+'-'+$smtpPlan.ServiceId+'.mailpit-ui-auth')
             $null = Add-CleanupStep -RunDir $runState.RunDir -ResourceType 'smtp-secret-file' -ResourceId $smtpAuthPath -Action 'wipe-and-remove' -Compensation 'Remove SMTP receiver credential file'
-            $null = Add-CleanupStep -RunDir $runState.RunDir -ResourceType 'network' -ResourceId $smtpPlan.SenderNetworkName -Action 'remove' -Provider $smtpPlan.Provider -ProviderSubRunId ('provider-'+$smtpPlan.Provider) -Compensation 'Remove run-scoped SMTP sender network'
+            if (-not (Get-LabOwnedHostRunPolicy -RunId $runState.RunId -StateRoot $effectiveStateRoot)) {
+                $null = Add-CleanupStep -RunDir $runState.RunDir -ResourceType 'network' -ResourceId $smtpPlan.SenderNetworkName -Action 'remove' -Provider $smtpPlan.Provider -ProviderSubRunId ('provider-'+$smtpPlan.Provider) -Compensation 'Remove run-scoped SMTP sender network'
+            }
         }
 
         if ($PersistentData) {

@@ -993,14 +993,22 @@ function Assert-LabOwnedHostContainerCreateInputs {
     while ($index -lt $Arguments.Count -and $Arguments[$index].StartsWith('-')) {
         $option=$Arguments[$index++]
         if ($option -cin @('-d','--detach','--read-only','--init','-i','--interactive','-t','--tty')) { continue }
+        # A require-existing workload must prove that it cannot acquire a
+        # missing image.  This exact spelling is the only pull policy admitted
+        # for an owned host.
+        if ($option -ceq '--pull=never') { continue }
         if ($option -cnotin @('--name','--hostname','--label','--network','--ip','--publish','-p','--env','-e',
                 '--cpus','--memory','--memory-swap','--shm-size','--user','-u','--entrypoint','--restart','--volume','-v',
-                '--health-cmd','--health-interval','--health-timeout','--health-retries','--health-start-period','--ulimit')) {
+                '--health-cmd','--health-interval','--health-timeout','--health-retries','--health-start-period','--ulimit',
+                '--tmpfs','--cap-drop','--security-opt')) {
             throw 'OWNED_HOST_CREATE_OPTION_UNSUPPORTED'
         }
         if ($index -ge $Arguments.Count) { throw 'OWNED_HOST_CREATE_OPTION_INCOMPLETE' }
         $value=$Arguments[$index++]
         if ($option -ceq '--network' -and $value -cin @('host','container','bridge')) { throw 'OWNED_HOST_SHARED_NETWORK_MODE_FORBIDDEN' }
+        if ($option -ceq '--tmpfs' -and $value -cne '/tmp:rw,noexec,nosuid,size=16m') { throw 'OWNED_HOST_CREATE_OPTION_UNSUPPORTED' }
+        if ($option -ceq '--cap-drop' -and $value -cne 'ALL') { throw 'OWNED_HOST_CREATE_OPTION_UNSUPPORTED' }
+        if ($option -ceq '--security-opt' -and $value -cne 'no-new-privileges') { throw 'OWNED_HOST_CREATE_OPTION_UNSUPPORTED' }
         if ($option -cin @('--volume','-v')) {
             # Named volumes need their own original create receipt, including
             # retained-store use. Host writes remain inside this fresh root.

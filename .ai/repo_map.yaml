@@ -356,6 +356,7 @@ sources_of_truth:
   smtp_service_run_scope_plan: Private/SmtpTestServicePlan.ps1
   validation_smtp_service_run_scope_plan: Tests/Static/Invoke-SmtpTestServicePlanChecks.ps1
   smtp_service_provisioning: Private/SmtpTestServiceProvision.ps1
+    validation_smtp_service_provisioning: Tests/Static/Invoke-SmtpTestServiceProvisionChecks.ps1
   smtp_webmail_binding: Private/SmtpTestServiceWebMail.ps1
   smtp_webmail_status_api: Public/Get-SqlServerLabSmtpTestServiceStatus.ps1
   smtp_webmail_access_api: Public/Open-SqlServerLabSmtpTestServiceWebMail.ps1
