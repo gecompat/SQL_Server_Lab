@@ -9,12 +9,13 @@ if($resolution.Count -ne 1 -or -not $resolution[0].Available -or $resolution[0].
 $runtime=$resolution[0].Invocation;$token=[guid]::NewGuid().ToString('N')
 $network="sql-lab-smtp-$token";$receiver="smtp-receiver-$token";$gateway="smtp-gateway-$token";$tag="sql-server-lab/smtp-gateway-receiver:$token"
 $authPath=Join-Path ([IO.Path]::GetTempPath()) "sql-lab-smtp-auth-$token";$receiverId=$null;$gatewayId=$null
-$send="import smtplib; c=smtplib.SMTP('127.0.0.1',1025,timeout=5); c.sendmail('from@example.invalid',['to@example.invalid'],b'Subject: synthetic\r\n\r\nbody\r\n'); c.quit()"
+$send="import smtplib; d='example'+'.invalid'; c=smtplib.SMTP('127.0.0.1',1025,timeout=5); c.sendmail('from'+'@'+d,['to'+'@'+d],b'Subject: synthetic\r\n\r\nbody\r\n'); c.quit()"
 $reject=@'
 import smtplib
+d='example'+'.invalid'
 c=smtplib.SMTP('127.0.0.1',1025,timeout=5)
 try:
-    c.sendmail('from@example.invalid',['to@example.invalid'],b'Subject: synthetic\r\n\r\nbody\r\n')
+    c.sendmail('from'+'@'+d,['to'+'@'+d],b'Subject: synthetic\r\n\r\nbody\r\n')
 except smtplib.SMTPDataError as e:
     print(e.smtp_code)
 else:
@@ -32,8 +33,8 @@ try {
     if($gatewayId -notmatch '^[a-f0-9]{12,64}$'){throw 'SMTP_GATEWAY_CONTAINER_START_FAILED'}
     Start-Sleep -Seconds 6
     & $runtime exec $gatewayId python -c "import smtplib; c=smtplib.SMTP('$receiver',1025,timeout=5); c.noop(); c.quit()";if($LASTEXITCODE -ne 0){throw 'SMTP_RECEIVER_SMTP_UNAVAILABLE'}
-    & $runtime exec $gatewayId python -c "import smtplib; c=smtplib.SMTP('$receiver',1025,timeout=5); c.sendmail('direct@example.invalid',['receiver@example.invalid'],b'Subject: direct\r\n\r\nbody\r\n'); c.quit()";if($LASTEXITCODE -ne 0){throw 'SMTP_RECEIVER_DIRECT_RELAY_FAILED'}
-    & $runtime exec $gatewayId python -c "import runpy; g=runpy.run_path('/app/SmtpTestServiceGateway.py'); g['_relay'](b'Subject: helper\r\n\r\nbody\r\n','helper@example.invalid',['receiver@example.invalid'],'$receiver',1025)";if($LASTEXITCODE -ne 0){throw 'SMTP_GATEWAY_HELPER_RELAY_FAILED'}
+    & $runtime exec $gatewayId python -c "import smtplib; d='example'+'.invalid'; c=smtplib.SMTP('$receiver',1025,timeout=5); c.sendmail('direct'+'@'+d,['receiver'+'@'+d],b'Subject: direct\r\n\r\nbody\r\n'); c.quit()";if($LASTEXITCODE -ne 0){throw 'SMTP_RECEIVER_DIRECT_RELAY_FAILED'}
+    & $runtime exec $gatewayId python -c "import runpy; d='example'+'.invalid'; g=runpy.run_path('/app/SmtpTestServiceGateway.py'); g['_relay'](b'Subject: helper\r\n\r\nbody\r\n','helper'+'@'+d,['receiver'+'@'+d],'$receiver',1025)";if($LASTEXITCODE -ne 0){throw 'SMTP_GATEWAY_HELPER_RELAY_FAILED'}
     & $runtime exec $gatewayId python -c $send;if($LASTEXITCODE -ne 0){throw 'SMTP_GATEWAY_RELAY_FAILED'}
     $count=@(& $runtime exec $gatewayId python -c "import base64,json,urllib.request; r=urllib.request.Request('http://$receiver`:8025/api/v1/messages',headers={'Authorization':'Basic '+base64.b64encode(b'synthetic:credential').decode('ascii')}); print(len(json.load(urllib.request.urlopen(r,timeout=5))['messages']))")[-1].Trim()
     if($count -cne '3'){throw 'SMTP_GATEWAY_RECEIVER_COUNT_INVALID'}

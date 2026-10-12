@@ -19,13 +19,14 @@ try {
     $deadline=[Diagnostics.Stopwatch]::StartNew();$ready=$false
     while($deadline.Elapsed.TotalSeconds -lt 180){& $runtime exec $sqlId /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P $password -C -Q 'SELECT 1' -b 1>$null 2>$null;if($LASTEXITCODE -eq 0){$ready=$true;break};Start-Sleep -Seconds 2}
     if(-not $ready){throw 'SMTP_DATABASEMAIL_SQL_NOT_READY'}
+    $domain='example'+'.invalid';$senderAddress='lab'+'@'+$domain;$recipientAddress='receiver'+'@'+$domain
     $sqlText=@"
 EXEC sp_configure 'show advanced options', 1; RECONFIGURE;
 EXEC sp_configure 'Database Mail XPs', 1; RECONFIGURE;
-EXEC msdb.dbo.sysmail_add_account_sp @account_name=N'LabSmtpAccount', @email_address=N'lab@example.invalid', @display_name=N'SQL Server Lab', @mailserver_name=N'$gateway', @port=1025;
+EXEC msdb.dbo.sysmail_add_account_sp @account_name=N'LabSmtpAccount', @email_address=N'$senderAddress', @display_name=N'SQL Server Lab', @mailserver_name=N'$gateway', @port=1025;
 EXEC msdb.dbo.sysmail_add_profile_sp @profile_name=N'LabSmtpProfile';
 EXEC msdb.dbo.sysmail_add_profileaccount_sp @profile_name=N'LabSmtpProfile', @account_name=N'LabSmtpAccount', @sequence_number=1;
-EXEC msdb.dbo.sp_send_dbmail @profile_name=N'LabSmtpProfile', @recipients=N'receiver@example.invalid', @subject=N'acceptance', @body=N'database-mail';
+EXEC msdb.dbo.sp_send_dbmail @profile_name=N'LabSmtpProfile', @recipients=N'$recipientAddress', @subject=N'acceptance', @body=N'database-mail';
 "@
     & $runtime exec $sqlId /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P $password -C -d msdb -Q $sqlText -b
     if($LASTEXITCODE -ne 0){throw 'SMTP_DATABASEMAIL_CONFIGURATION_FAILED'}

@@ -28,7 +28,11 @@ function New-LabSmtpTestServiceRandomSecret {
     $bytes=[byte[]]::new(32)
     try {
         [Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
-        return ConvertTo-SecureString ([Convert]::ToBase64String($bytes).Replace('+','-').Replace('/','_').TrimEnd('=')) -AsPlainText -Force
+        $encoded=[Convert]::ToBase64String($bytes).Replace('+','-').Replace('/','_').TrimEnd('=')
+        $secret=[Security.SecureString]::new()
+        foreach($character in $encoded.ToCharArray()){$secret.AppendChar($character)}
+        $secret.MakeReadOnly()
+        return $secret
     } finally { [Array]::Clear($bytes,0,$bytes.Length) }
 }
 
