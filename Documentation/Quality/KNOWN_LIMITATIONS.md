@@ -140,6 +140,12 @@ Der [getrennte CLI-Nachweis](LOCAL_VALIDATION_STRATEGY.md#getrennte-autostart-cl
 ersetzt weder die Browser-/HTTP-Abnahme noch einen Hostlogin-, SQL-/Endpoint-
 oder Applynachweis.
 
+**ON_HOLD (2026-10-12):** Der Browser-Observer-/HTTP-Nachweis der
+Autostartvorschau liefert für den vorgesehenen `UNKNOWN`-Policyzustand eine
+inkonsistente Fehlersignatur. Zwei gezielte Diagnoseansätze änderten daran
+nichts; weitere Wiederholungen bleiben bis zu einer getrennten
+Observer-Architekturanalyse ausgesetzt.
+
 
 Der owned-host-only Harness
 `Tests/Integration/Invoke-ContainerPortPreviewAcceptance.ps1` bestand am
