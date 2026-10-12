@@ -1,4 +1,7 @@
 #Requires -Version 7.2
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingConvertToSecureStringWithPlainText','',Justification='Ausschliesslich festes synthetisches Fixture-Secret innerhalb des isolierten Offline-Checks.')]
+[CmdletBinding()]
+param()
 Set-StrictMode -Version Latest
 $ErrorActionPreference='Stop'
 $repoRoot=Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
