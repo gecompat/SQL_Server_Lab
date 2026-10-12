@@ -959,6 +959,15 @@ function New-SqlServerLab {
             -ScopeId $runState.ScopeId `
             -ProviderSubRuns $providerSubRuns
 
+        $smtpPlan = $null
+        if ($resolved.PSObject.Properties['smtpTestService'] -and $null -ne $resolved.smtpTestService) {
+            if (@($providers).Count -ne 1 -or [string]$providers[0] -notin @('docker','podman')) { throw 'SMTP_TEST_SCOPE_UNSUPPORTED' }
+            $smtpPlan = New-LabSmtpTestServicePlan -Config $resolved.smtpTestService -RunId $runState.RunId -ScopeId $runState.ScopeId -Provider ([string]$providers[0])
+            $smtpAuthPath = Join-Path (Join-Path (Join-Path $runState.RunDir 'smtp-test-service') 'secrets') ($smtpPlan.ScopeId+'-'+$smtpPlan.ServiceId+'.mailpit-ui-auth')
+            $null = Add-CleanupStep -RunDir $runState.RunDir -ResourceType 'smtp-secret-file' -ResourceId $smtpAuthPath -Action 'wipe-and-remove' -Compensation 'Remove SMTP receiver credential file'
+            $null = Add-CleanupStep -RunDir $runState.RunDir -ResourceType 'network' -ResourceId $smtpPlan.SenderNetworkName -Action 'remove' -Provider $smtpPlan.Provider -ProviderSubRunId ('provider-'+$smtpPlan.Provider) -Compensation 'Remove run-scoped SMTP sender network'
+        }
+
         if ($PersistentData) {
             foreach ($instance in $resolved.instances) {
                 $storage = Get-LabPersistentInstanceStorage -DataRoot $DataRoot -LabName $resolved.name -Provider $instance.provider -InstanceId $instance.id -SqlVersion $instance.version -Create
@@ -1221,6 +1230,12 @@ function New-SqlServerLab {
             -NewState 'SQL_READY' `
             -Reason 'Alle Instanzen bereit' `
             -StateRoot $effectiveStateRoot
+
+        $smtpService = $null
+        if ($null -ne $smtpPlan) {
+            Write-LabInfo 'Run-gebundenen SMTP-Testdienst und Database-Mail-Profile einrichten...'
+            $smtpService = Invoke-LabSmtpTestServiceProvision -Plan $smtpPlan -RunState $runState -LabInstances $labInstances -SaPassword $SaPassword -StateRoot $effectiveStateRoot -RepositoryRoot $script:ModuleRoot
+        }
         Set-LabProviderSubRunsState `
             -RunId $runState.RunId `
             -Providers $providers `
@@ -1475,6 +1490,7 @@ function New-SqlServerLab {
                     containerTools   = $_.ContainerTools
                 }
             })
+            smtpTestService = $smtpService
         }
 
         $connectionInfo |

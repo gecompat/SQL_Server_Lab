@@ -352,6 +352,17 @@ sources_of_truth:
   smtp_receiver_read_contract: Documentation/Architecture/SMTP_TEST_SERVICE_RECEIVER_READ.md
   smtp_receiver_read_fixture: Tests/Static/Fixtures/SmtpTestServiceReceiverReadChecks.ps1
   validation_smtp_receiver_read: Tests/Static/Invoke-SmtpTestServiceReceiverReadChecks.ps1
+  smtp_quota_gateway: Tools/SmtpTestServiceGateway.py
+  smtp_service_run_scope_plan: Private/SmtpTestServicePlan.ps1
+  validation_smtp_service_run_scope_plan: Tests/Static/Invoke-SmtpTestServicePlanChecks.ps1
+  smtp_service_provisioning: Private/SmtpTestServiceProvision.ps1
+  smtp_service_database_mail_acceptance: Tests/Integration/Invoke-SmtpTestServiceDatabaseMailAcceptance.ps1
+  smtp_service_journal: Private/SmtpTestServiceJournal.ps1
+  validation_smtp_service_journal: Tests/Static/Invoke-SmtpTestServiceJournalChecks.ps1
+  smtp_quota_gateway_fixture: Tests/Static/Fixtures/SmtpTestServiceGatewayChecks.py
+  validation_smtp_quota_gateway: Tests/Static/Invoke-SmtpTestServiceGatewayChecks.ps1
+  acceptance_smtp_quota_gateway_image: Tests/Integration/Invoke-SmtpTestServiceGatewayImageAcceptance.ps1
+  acceptance_smtp_quota_gateway_receiver: Tests/Integration/Invoke-SmtpTestServiceGatewayReceiverAcceptance.ps1
   connection_center_cms: Public/Sync-SqlServerLabConnectionCenter.ps1
   cms_readonly_inspection: Private/CmsInspection.ps1
   cms_readonly_worker: Tools/Read-CmsInspection.ps1
