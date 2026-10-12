@@ -1,5 +1,19 @@
 # Public/ – Exportierte Cmdlets
 
+## SMTP-Testdienst: Status und WebMail
+
+`Get-SqlServerLabSmtpTestServiceStatus -RunId $runId` zeigt für einen
+SMTP-fähigen Docker- oder Podman-Run die gebundene Receiver-Laufzeit an. Es
+liefert keine Mailinhalte, Zugangsdaten oder lokalen Pfade.
+
+`Open-SqlServerLabSmtpTestServiceWebMail -RunId $runId` öffnet Mailpit zum
+Lesen und Löschen der Testmails. Der Cmdlet startet dafür einen zeitlich
+begrenzten lokalen Proxy; das DPAPI-geschützte Run-Secret bleibt aus URL,
+Konsole und Rückgabeobjekt heraus. Mit `-NoBrowser` wird nur der temporäre
+Zugang erzeugt. Die Funktionen erscheinen auch im Browser unter
+**Expertenbefehle**; der Öffnen-Befehl verlangt dort die übliche Bestätigung.
+Hyper-V-Only-Labs haben keinen SMTP-Testdienst und keinen WebMail-Zugang.
+
 `Get-SqlServerLabRunArtifactRemovalPlan` prüft genau einen modernen entfernten
 Run read-only. `Invoke-SqlServerLabRunArtifactRemoval` entfernt nach gebundener
 Vorschau nur zugelassene Run-Metadaten und leere Runroots; Referenzen, Retention,

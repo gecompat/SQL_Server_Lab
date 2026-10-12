@@ -24,6 +24,8 @@
         'Invoke-SqlServerLabScheduler'
         'Invoke-SqlServerLab'
         'Get-SqlServerLabWorkflow'
+        'Get-SqlServerLabSmtpTestServiceStatus'
+        'Open-SqlServerLabSmtpTestServiceWebMail'
         'Get-SqlServerLabAutomationPlan'
         'Get-SqlServerLabAiScenario'
         'Get-SqlServerLabAiComputeInventory'

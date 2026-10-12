@@ -954,7 +954,10 @@ und ungeeigneter Scope besitzen getrennte feste Fehlercodes. Der Wizard speicher
 keinen aktiven Entwurf. Objektinput kann zuvor verlorene JSON-Duplikate nicht
 rekonstruieren. Der Serviceabschnitt in `connection-info.json` enthält nur
 Profilname, Gateway und lokalen Receiver; Zugangsdaten bleiben lokale Run-Secrets.
-AdHoc-/Browser-Anbindung und eine öffentliche Mailinhalt-API bleiben offen.
+Der generische AdHoc- und Browserdialog stellt die geheimnisfreie Statusabfrage
+sowie den bestätigten, kurzlebigen Mailpit-Zugang bereit. Eine öffentliche
+Mailinhalt-API bleibt offen; Hyper-V besitzt keinen SMTP-Testdienst und damit
+keinen WebMail-Zugang.
 Siehe den [Manifestvertrag](../Architecture/MANIFEST_AND_INTERFACE_ARCHITECTURE.md#smtp-testservice-vertrag).
 
 Die am 2026-10-11 lokal mit Docker gezogene und abgefragte Mailpit-Runtime

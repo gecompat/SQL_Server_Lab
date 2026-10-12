@@ -45,11 +45,17 @@ Senderinstanz erhaelt ein eigenes, nichtoeffentliches Database-Mail-Profil.
 Validator und Wizard speichern keinen aktiven Entwurf. Der Planvorschauvertrag
 bleibt `1.3`.
 
-Es gibt keine öffentliche SMTP-, Reader-, CLI-, Browser- oder Mailinhalt-API.
-Der geheimnisfreie Serviceabschnitt in der Run-`connection-info.json` bindet
-Profilname, Gateway und lokalen Receiver für kontrollierte Testautomatisierung.
-Der Docker-Referenzpfad ist ausgeführt; Podman bleibt ein separater offener
-Providernachweis. Ein Schemaerfolg ist keine Runtimebereitschaft.
+`Get-SqlServerLabSmtpTestServiceStatus` liefert eine gebundene, geheimnisfreie
+Runtimeansicht. `Open-SqlServerLabSmtpTestServiceWebMail` startet nach einer
+erneuten Container-/Label-/Loopbackprüfung einen kurzlebigen lokalen Mailpit-
+Browserzugang zum Lesen und Löschen. Das Run-Secret bleibt im DPAPI-Speicher;
+es erscheint weder in der URL noch in Status- oder `connection-info.json`-
+Daten. Der Zugang gilt nur für laufende Docker-/Podman-Receiver. Hyper-V-
+Labs besitzen in diesem Vertrag keinen SMTP-Testdienst und daher keinen
+WebMail-Zugang. Eine öffentliche SMTP- oder Mailinhalt-API gibt es weiterhin
+nicht. Der geheimnisfreie Serviceabschnitt in der Run-`connection-info.json`
+bindet Profilname, Gateway und lokalen Receiver für kontrollierte
+Testautomatisierung. Ein Schemaerfolg ist keine Runtimebereitschaft.
 
 Der getrennte [private Receiver-Lesetransport](SMTP_TEST_SERVICE_RECEIVER_READ.md)
 ist mit synthetischen eigenen Loopback-HTTP-Servern geprüft. Er liest Raw-MIME
