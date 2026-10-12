@@ -108,10 +108,14 @@ try {
         $repeat=Send $body;$again=$repeat.Body|ConvertFrom-Json
         $first=Send $body;$same=$first.Body|ConvertFrom-Json
         Check ($repeat.Status -eq 200 -and $same.ObservationKey -ceq $again.ObservationKey) ('Repeated request content binding '+$target.Provider)
-        foreach($policyCase in @('UNKNOWN','DRIFTED')) {
+        foreach($policyCase in @('UNKNOWN','IMMUTABLE_LABEL_MISMATCH')) {
             & $module {param($c)if($c -ceq 'UNKNOWN'){$global:httpInspect.Config.Labels.'sql-server-lab.autostart'=$null}else{$global:httpInspect.Config.Labels.'sql-server-lab.autostart'='on'}} $policyCase
             $response=Send $body;$v=$response.Body|ConvertFrom-Json
-            Check ($response.Status -eq 200 -and $v.Status -ceq 'BLOCKED' -and $v.Actual.AutoStart -ceq $policyCase -and -not $v.CanApply -and $null -eq $v.ObservationKey) ('Actual public policy '+$policyCase+' '+$target.Provider)
+            if($policyCase -ceq 'UNKNOWN') {
+                Check ($response.Status -eq 200 -and $v.Status -ceq 'BLOCKED' -and $v.Actual.AutoStart -ceq 'UNKNOWN' -and -not $v.CanApply -and $null -eq $v.ObservationKey) ('Actual public policy '+$policyCase+' '+$target.Provider)
+            } else {
+                Check ($response.Status -eq 200 -and $v.Status -ceq 'PLAN_ONLY' -and $v.Actual.AutoStart -ceq 'OFF' -and -not $v.CanApply -and $v.ObservationKey -match '^[a-f0-9]{64}$') ('Actual runtime policy overrides immutable label '+$target.Provider)
+            }
         }
         & $module {param($t)Set-HttpInspect $t} $target
         & $module {$global:httpInspect.HostConfig.RestartPolicy.Name='on-failure'}
