@@ -928,7 +928,7 @@ repräsentativen Fallback.
 Ein Push auf `main` startet keine erneute Vollmatrix. Der tägliche Workflow
 `Nightly Regression` führt stattdessen alle statischen Suites, alle Runtime-
 Smokes und die getrennt autorisierte Shared-Abnahme aus. Der gesamte statische
-Matrixjob erhält je Plattform 40 Minuten; einzelne Suite-/Previewfristen bleiben
+Matrixjob erhält je Plattform 50 Minuten; einzelne Suite-/Previewfristen bleiben
 erhalten. Schedule autorisiert die gemeinsam exportierten SQL-Testumgebungen
 nicht: Ihre SQL-/CMS-Abnahme benötigt einen manuellen Aufruf desselben
 Repositorys mit `confirm_shared_mutation=true`. Der belegte Ausschluss bleibt

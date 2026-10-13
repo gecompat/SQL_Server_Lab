@@ -848,9 +848,9 @@ Add-CheckResult -Name 'Nightly enthaelt Vollregression und taeglichen Zeitplan' 
     $nightly -match 'Invoke-AllChecks\.ps1' -and $nightly -match '(?m)^\s*schedule:\s*$'
 )
 $nightlyStaticJob = [regex]::Match($nightly,'(?ms)^  full-static-contracts:\r?\n(?<job>.*?)(?=^  [\w-]+:|\z)')
-Add-CheckResult -Name 'Nightly-Vollregression besitzt 40 Minuten Gesamtbudget fuer beide Plattformen' -Success (
+Add-CheckResult -Name 'Nightly-Vollregression besitzt 50 Minuten Gesamtbudget fuer beide Plattformen' -Success (
     $nightlyStaticJob.Success -and
-    $nightlyStaticJob.Groups['job'].Value -match '(?m)^    timeout-minutes: 40\s*$' -and
+    $nightlyStaticJob.Groups['job'].Value -match '(?m)^    timeout-minutes: 50\s*$' -and
     $nightlyStaticJob.Groups['job'].Value -match '(?m)^      fail-fast: false\s*$' -and
     $nightlyStaticJob.Groups['job'].Value -match '(?m)^          - windows-latest\s*$' -and
     $nightlyStaticJob.Groups['job'].Value -match '(?m)^          - ubuntu-latest\s*$' -and

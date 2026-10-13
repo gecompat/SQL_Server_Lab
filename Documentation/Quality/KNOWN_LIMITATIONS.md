@@ -2300,6 +2300,15 @@ ist damit noch nicht erbracht, und Issue
 [#675](https://github.com/gecompat/SQL_Server_Lab/issues/675) bleibt offen.
 Der frühere grüne Lauf ist keine Abnahme dieses späteren Standes.
 PowerShell 7.2/.NET 6 wurde für den korrigierten Testfolgestand nicht ausgeführt.
+
+Der aktuelle [Nightly-Lauf 38332750862](https://github.com/gecompat/SQL_Server_Lab/actions/runs/38332750862)
+vom 2026-10-13 brach den Windows-Static-Job nach 40 Minuten ab, obwohl
+`Invoke-AllChecks.ps1` drei Sekunden zuvor erfolgreich endete. Damit ist die
+Joborchestrierung die bestätigte Ursache für `static: cancelled` / `UNKNOWN`
+in [#746](https://github.com/gecompat/SQL_Server_Lab/issues/746), keine neue
+statische Vertragsabweichung. Nur `full-static-contracts` erhält deshalb 50
+Minuten je Matrixplattform. Ein anschließender vollständiger Nightly-Lauf muss
+diese Budgetänderung noch ausführen und bestätigen.
 Der lokale Nachweis besteht aus zehn grünen Suites des ursprünglich
 fehlgeschlagenen betroffenen Laufs und der später separat bestandenen echten
 Workflow-UI-Suite mit 72 `PASS` und null `FAIL`. Der ursprüngliche Lauf und sein
