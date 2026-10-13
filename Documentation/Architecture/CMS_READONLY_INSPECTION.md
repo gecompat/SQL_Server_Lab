@@ -100,7 +100,46 @@ ohne SQL-Verbindung, explizite Prüfung mit Major 17/drei Gruppen/echter Null
 für Server und Schließen wurden ohne Skriptfehler sichtbar geprüft; eigener
 Listener/Browser-Tab sind geschlossen. Der erste Lauf mit leerer Bytearray-
 Antwort scheiterte; korrigiert, lokale Fehlerevidence erhalten. Native
-Browser-bis-SQL-Abnahme und andere UI-Aktionen bleiben offen.
+Dieser synthetische Lauf allein belegt keinen Browser-bis-SQL-Pfad; andere UI-Aktionen bleiben offen.
+
+`Invoke-ConnectionCenterCmsNativeBrowserAcceptance.ps1` ergänzt separat den
+nativen Browser-bis-SQL-Kompositionsnachweis für einen frischen eigenen SQL-2025-
+CMS je Docker/Podman. Die vollständigen Produktseitenbytes und die tatsächliche
+CMS-HTTP-Adapter-/Dispatchroute bleiben unverändert; die vier übrigen Bootstrap-
+antworten sind synthetisch. GET/POST/GET/POST delegiert ausschließlich die beiden
+lesenden Aktionen in die originale Modulsitzung und den echten Worker. Vor/nach
+jedem Aufruf wird die eigene Route geprüft; DTO und Auswahl sind strikt gebunden.
+Zweimal Major 17/2/1, tatsächliche Navigation, wiederholte bewusste Auswahl und
+Schließen müssen beobachtet werden. Danach müssen Parentdateien/beide CMS-Tabellen
+gleich sein und der vorhandene Own-Cleanupvertrag bestehen. Kein bestehender Run
+wird adoptiert; Fehler behalten ihren Parent. Funktionale Abnahmen sind unten belegt, die Gesamtfreigabe ist PROTECTION_BLOCKED;
+vollständiger Produktserver, andere UI-Aktionen, Sync und weitere CMS-/Authgrenzen
+bleiben separat.
+
+Die native CMS-Browser-/HTTP-/Workflow-/Worker-/SQL-Komposition wurde am
+2026-10-07 auf `e300882e` mit einem frischen Docker- und zwei getrennten frischen
+Podman-SQL-2025-Runs funktional geprüft. Zwölf Assets und dreizehn unveränderte
+Produktquelldigests, je vier CMS-Requests GET/POST/GET/POST mit
+NOT_CHECKED/OBSERVED/NOT_CHECKED/OBSERVED und zweimal Major 17/markierte Zähler
+2/1, tatsächliche Navigation, erneute bewusste Auswahl und Schließen ohne
+Skriptfehler bestanden. Ganze Parentdateien und beide CMS-Tabellen blieben gleich;
+alle drei Own-Cleanups samt same-pin Abwesenheit und je zwei hashgesicherten
+Terminalkopien bestanden, eigene Listener/Browser-Tabs sind geschlossen.
+Docker maß 87 Requests und Protection PASS/null Findings/null Beobachtungen.
+Die beiden Podman-Läufe maßen 118 beziehungsweise 92 Requests und hatten jeweils
+Protection FAIL mit drei Findings: zunächst fehlende, später zusätzliche
+Docker-Container-/Volumeeinträge und geänderte Netzwerkendpunkte. Die sechs
+geschützten Mitglieder blieben laut Vergleich unverändert; eine Callerzuordnung
+fehlt. Der einmalige Recheck nach beobachteter Inventaränderung ist kein grüner
+Gesamtnachweis und hebt den ersten FAIL nicht auf. Gesamtfreigabe
+PROTECTION_BLOCKED; kein weiterer Runtime-Recheck, kein veröffentlichter PR oder
+Pflichtgate für diesen lokalen Stand. Historische Fehlerparents und
+Protection-Failures bleiben erhalten. Erwartete Bootstrap-Verbindungsabbrüche
+werden eng als CLIENT_DISCONNECTED protokolliert und zählen nicht als gelieferte
+Bootstrapnachweise; in diesen drei Läufen wurden keine beobachtet. Die vier
+Bootstrapendpunkte bleiben synthetisch; vollständiger Produktserverlauncher,
+andere UI-Aktionen, Sync, SSMS, Mitgliedsverbindungen, Windows, weitere Builds
+und Least Privilege bleiben offen; kein atomarer Dateisystemvertrag.
 
 Die Offline-Fixture `Tests/Static/Fixtures/CmsInspectionChecks.ps1` wird durch
 `Invoke-ConnectionCenterCmsChecks.ps1` entdeckt. Core, echte Public-/HTTP-/CLI-

@@ -1089,8 +1089,33 @@ genau zwei CMS-Aktionen. Echte Navigation, Registrierung ohne SQL-Verbindung,
 Major 17/drei Gruppen/echte Null für Server und Schließen sind sichtbar belegt;
 keine Skriptfehler, eigener Listener/Browser-Tab geschlossen. Kein Modul,
 State/Provider/Secret/SQL; der erste Bytearray-Fehler ist korrigiert und lokal
-erhalten. Weitere UI-Aktionen und native Browser-bis-SQL-Abnahme bleiben offen,
+erhalten. Dieser synthetische Lauf allein belegt keinen nativen Browser-bis-SQL-Pfad; weitere UI-Aktionen bleiben offen,
 ebenso Sync, Windows, weitere Builds, SSMS, Mitgliedsverbindungen und Least Privilege.
+
+Die native CMS-Browser-/HTTP-/Workflow-/Worker-/SQL-Komposition wurde am
+2026-10-07 auf `e300882e` mit einem frischen Docker- und zwei getrennten frischen
+Podman-SQL-2025-Runs funktional geprüft. Zwölf Assets und dreizehn unveränderte
+Produktquelldigests, je vier CMS-Requests GET/POST/GET/POST mit
+NOT_CHECKED/OBSERVED/NOT_CHECKED/OBSERVED und zweimal Major 17/markierte Zähler
+2/1, tatsächliche Navigation, erneute bewusste Auswahl und Schließen ohne
+Skriptfehler bestanden. Ganze Parentdateien und beide CMS-Tabellen blieben gleich;
+alle drei Own-Cleanups samt same-pin Abwesenheit und je zwei hashgesicherten
+Terminalkopien bestanden, eigene Listener/Browser-Tabs sind geschlossen.
+Docker maß 87 Requests und Protection PASS/null Findings/null Beobachtungen.
+Die beiden Podman-Läufe maßen 118 beziehungsweise 92 Requests und hatten jeweils
+Protection FAIL mit drei Findings: zunächst fehlende, später zusätzliche
+Docker-Container-/Volumeeinträge und geänderte Netzwerkendpunkte. Die sechs
+geschützten Mitglieder blieben laut Vergleich unverändert; eine Callerzuordnung
+fehlt. Der einmalige Recheck nach beobachteter Inventaränderung ist kein grüner
+Gesamtnachweis und hebt den ersten FAIL nicht auf. Gesamtfreigabe
+PROTECTION_BLOCKED; kein weiterer Runtime-Recheck, kein veröffentlichter PR oder
+Pflichtgate für diesen lokalen Stand. Historische Fehlerparents und
+Protection-Failures bleiben erhalten. Erwartete Bootstrap-Verbindungsabbrüche
+werden eng als CLIENT_DISCONNECTED protokolliert und zählen nicht als gelieferte
+Bootstrapnachweise; in diesen drei Läufen wurden keine beobachtet. Die vier
+Bootstrapendpunkte bleiben synthetisch; vollständiger Produktserverlauncher,
+andere UI-Aktionen, Sync, SSMS, Mitgliedsverbindungen, Windows, weitere Builds
+und Least Privilege bleiben offen; kein atomarer Dateisystemvertrag.
 
 ## Bewusster lokaler Operator-Handoff
 

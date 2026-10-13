@@ -237,6 +237,8 @@ try {
     & (Join-Path $PSScriptRoot 'Fixtures/ConnectionCenterCmsInspectionBrowserAcceptanceChecks.ps1')
     Add-CheckResult -Name 'CMS-Browser-Harness: synthetische DTOs und begrenzte Abnahme' -Success $true
     & (Join-Path $PSScriptRoot 'Fixtures/ConnectionCenterCmsFullPageAcceptanceChecks.ps1')
+    & (Join-Path $PSScriptRoot 'Fixtures/ConnectionCenterCmsNativeBrowserAcceptanceChecks.ps1')
+    Add-CheckResult -Name 'CMS-Native-Browser: gebundener Moduldispatch und vier lesende Aktionen' -Success $true
     Add-CheckResult -Name 'CMS-Seitenbootstrap: tatsächliche Assets und synthetische Lesegrenzen' -Success $true
 }
 catch {
