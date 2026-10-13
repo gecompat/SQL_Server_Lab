@@ -983,7 +983,13 @@ dem authentisierten Mailpit-Receiver. Er setzt beide Grenzen vor der
 Weiterleitung durch, bindet State und Cleanup an Run und Scope und ist in den
 Lab-Lifecycle integriert. Die isolierte Gateway-/Receiver-Komponente wurde am
 2026-10-11 für Docker und Podman nativ ausgeführt; der vollständige
-Database-Mail-Lifecycle ist bisher nur für Docker ausgeführt nachgewiesen.
+Database-Mail-Lifecycle ist bisher nur für Docker ausgeführt nachgewiesen. Die
+zusätzliche Docker-Abnahme des strengen `require-existing`-Pfads einschließlich
+OwnedHost ist in der
+[Validierungsstrategie](LOCAL_VALIDATION_STRATEGY.md#smtp-quota-gateway-und-receiver)
+dokumentiert. Sie belegt lokale Imageauflösung, no-pull-Start, OwnedHost-
+Netzbindung, `READY` und Cleanup, aber keine zusätzliche Database-Mail-
+End-to-End-Zustellung. Podman und Hyper-V bleiben dafür nicht ausgeführt.
 
 Die Gateway-Implementierung prüft die Receiver-Inventargrößen vor der
 Weiterleitung, erhält die ursprünglichen SMTP-DATA-Bytes und zählt eine Annahme
