@@ -117,6 +117,7 @@ COMMANDS
         no SQL probe, raw logs, host values, secrets, or mutation.
 
     Get-SqlServerLabExternalRuntimeCapability
+    Get-SqlServerLabSsisCatalogCapability
         Separates an explicit External Languages catalog request from an optional
         bounded host check; it grants no SQL acceptance or mutation authority.
 

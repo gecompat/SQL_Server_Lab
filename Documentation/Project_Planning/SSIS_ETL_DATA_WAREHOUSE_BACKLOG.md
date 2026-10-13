@@ -114,15 +114,18 @@ sind ausschließlich Supporting Components.
 ### Begrenzter Diagnoseeinstieg zu Schritt 1
 
 `Tools/Test-SqlServerLabSsisPrerequisite.ps1 -RunId $runId -InstanceId primary`
-beobachtet eine bereits laufende eigene Hyper-V-/Windows-/SQL-2025-Instanz.
-Der interne Einstieg ist kein neuer öffentlicher Cmdletvertrag. Er verwendet
+beobachtet eine bereits laufende eigene Hyper-V-/Windows-/SQL-2019-, -2022-
+oder -2025-Instanz. Der öffentliche, ebenfalls rein lesende Vertrag
+`Get-SqlServerLabSsisCatalogCapability` projiziert dieselbe gebundene
+Voraussetzung ohne Secrets, Endpunkte oder lokale Pfade. Der interne Einstieg verwendet
 den bestehenden StateRoot, bindet Run, Instanz und tatsächliche VM-ID und
 verweigert WinRM-Fallback. Der Gasttransport ist auf 10 bis 120 Sekunden,
 die SQL-Abfrage auf höchstens 30 Sekunden begrenzt. Secrets bleiben flüchtig;
 Ergebnisse und Diagnosen dürfen ausschließlich lokal verwendet werden.
 
 Getrennte Beobachtungen sind tatsächlicher SQL-Major und Edition, zwei
-SSIS-Komponentendateien mit Dateimajor 17 am dokumentierten Standardpfad sowie
+SSIS-Komponentendateien mit dem zur beobachteten Engine passenden Dateimajor
+(15, 16 oder 17) am dokumentierten Standardpfad sowie
 SSISDB-Zustand und Vorhandensein der Katalogsicht `catalog.catalog_properties`.
 `DefaultPathComponents=NOT_OBSERVED` bedeutet nur fehlende Dateien dort.
 Konfigurierbare andere Installationsorte werden nicht durchsucht; fehlende

@@ -10,6 +10,7 @@
 
     FunctionsToExport = @(
         'Get-SqlServerLabExternalRuntimeCapability'
+        'Get-SqlServerLabSsisCatalogCapability'
         'New-SqlServerLabBatch'
         'Get-SqlServerLabBatch'
         'Get-SqlServerLabQueue'

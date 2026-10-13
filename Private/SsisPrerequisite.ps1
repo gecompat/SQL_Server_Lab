@@ -1,4 +1,10 @@
 # Interne, rein lesende Beobachtung; kein Installations- oder Ausführungsnachweis.
+function Test-LabSsisWindowsHost {
+    [CmdletBinding()]
+    param()
+    return [bool]$IsWindows
+}
+
 function Get-LabSsisPrerequisiteContext {
     [CmdletBinding()]
     param([Parameter(Mandatory)][guid]$RunId,[Parameter(Mandatory)][string]$InstanceId,[Parameter(Mandatory)][string]$StateRoot)
@@ -13,7 +19,7 @@ function Get-LabSsisPrerequisiteContext {
     $instance=$instances[0]
     $vmId=[guid]::Empty
     if ([string]$instance.provider -cne 'hyperv' -or [string]$instance.workload -cne 'sql' -or
-        [string]$instance.sqlVersion -cne '2025' -or -not [guid]::TryParse([string]$instance.vmId,[ref]$vmId) -or $vmId -eq [guid]::Empty -or
+        [string]$instance.sqlVersion -cnotin @('2019','2022','2025') -or -not [guid]::TryParse([string]$instance.vmId,[ref]$vmId) -or $vmId -eq [guid]::Empty -or
         [string]$instance.sqlReadiness.instanceName -cnotmatch '^[A-Za-z][A-Za-z0-9_]{0,127}$' -or
         [int]$instance.port -lt 1 -or [int]$instance.port -gt 65535) { throw 'SSIS_TARGET_INVALID' }
     $managed=Get-HyperVManagedVM -VMName ([string]$instance.vmName) -ExpectedRunId $RunId.ToString() -ExpectedScopeId ([string]$run.scopeId)
@@ -23,22 +29,24 @@ function Get-LabSsisPrerequisiteContext {
         $null=Assert-LabDiagnosticPath -Path (Join-Path $directory "secrets/$name.secret")
     }
     $identity=@{Run=$run;Connection=$connection;VmId=$vmId.ToString();InstanceId=$InstanceId} | ConvertTo-Json -Depth 32 -Compress
-    [pscustomobject]@{Run=$run;Instance=$instance;Directory=$directory;StateRoot=$root;Fingerprint=[Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($identity)))}
+    $expectedMajor=switch ([string]$instance.sqlVersion) { '2019' { 15 } '2022' { 16 } '2025' { 17 } default { 0 } }
+    [pscustomobject]@{Run=$run;Instance=$instance;Directory=$directory;StateRoot=$root;ExpectedMajor=$expectedMajor;Fingerprint=[Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($identity)))}
 }
 
 function Get-LabSsisGuestProbe {
     [CmdletBinding()]
     param()
     return {
-        param([securestring]$Password,[int]$Port,[string]$ExpectedInstance,[int]$SqlTimeout)
+        param([securestring]$Password,[int]$Port,[string]$ExpectedInstance,[int]$ExpectedMajor,[int]$SqlTimeout)
         $ErrorActionPreference='Stop'
         function Read-SsisComponentObservation {
-            $directory=Join-Path ([Environment]::GetFolderPath('ProgramFiles')) 'Microsoft SQL Server/170/DTS/Binn'
+            param([ValidateRange(15,17)][int]$ExpectedMajor=17)
+            $directory=Join-Path ([Environment]::GetFolderPath('ProgramFiles')) "Microsoft SQL Server/$($ExpectedMajor * 10)/DTS/Binn"
             $status='OBSERVED'
             foreach ($name in @('DTExec.exe','Microsoft.SqlServer.IntegrationServices.Server.dll')) {
                 try {
                     $file=Get-Item -LiteralPath (Join-Path $directory $name) -Force -ErrorAction Stop
-                    if ($file.PSIsContainer -or ($file.Attributes -band [IO.FileAttributes]::ReparsePoint) -or [int]$file.VersionInfo.FileMajorPart -ne 17) { return 'UNKNOWN' }
+                    if ($file.PSIsContainer -or ($file.Attributes -band [IO.FileAttributes]::ReparsePoint) -or [int]$file.VersionInfo.FileMajorPart -ne $ExpectedMajor) { return 'UNKNOWN' }
                 }
                 catch [Management.Automation.ItemNotFoundException] { $status='NOT_OBSERVED' }
                 catch { return 'UNKNOWN' }
@@ -80,7 +88,7 @@ SELECT CONVERT(int,SERVERPROPERTY('ProductMajorVersion')),
             }
             finally { if($reader){$reader.Dispose()};if($command){$command.Dispose()} }
         }
-        $components=Read-SsisComponentObservation
+        $components=Read-SsisComponentObservation -ExpectedMajor $ExpectedMajor
         $connection=$null;$secret=$null
         try {
             Add-Type -AssemblyName System.Data
@@ -107,7 +115,7 @@ function ConvertTo-LabSsisPrerequisiteResult {
     if ($null -ne $Observation) {
         if ([string]$Observation.Components -cin @('OBSERVED','NOT_OBSERVED','UNKNOWN')) { $components=[string]$Observation.Components }
         if ([string]$Observation.SqlStatus -ceq 'OBSERVED') {
-            $sql=if($Observation.Major -eq 17){'SQL_2025_OBSERVED'}else{'VERSION_MISMATCH'}
+            $sql=switch ([int]$Observation.Major) { 15 {'SQL_2019_OBSERVED'} 16 {'SQL_2022_OBSERVED'} 17 {'SQL_2025_OBSERVED'} default {'VERSION_UNSUPPORTED'} }
             $edition=switch -Regex ([string]$Observation.Edition) {
                 '^(Enterprise |Standard )?Developer Edition( \(64-bit\))?$' { (([string]$Matches[1]).Trim()+'Developer').Trim();break }
                 '^(Enterprise|Standard|Express|Web|Enterprise Evaluation) Edition( \(64-bit\))?$' { $Matches[1];break }
@@ -118,7 +126,7 @@ function ConvertTo-LabSsisPrerequisiteResult {
     }
     if ($FailureCode -cnotin @('','SSIS_TARGET_UNAVAILABLE','SSIS_PROBE_UNAVAILABLE','SSIS_BINDING_CHANGED')) { $FailureCode='SSIS_PROBE_UNAVAILABLE' }
     [pscustomobject]@{
-        Contract='SqlServerLab.SsisPrerequisite/0.1';Provider='hyperv';OperatingSystem='windows'
+        Contract='SqlServerLab.SsisPrerequisite/0.2';Provider='hyperv';OperatingSystem='windows'
         Sql=$sql;Edition=$edition;DefaultPathComponents=$components;SsisDb=$catalog
         Status=$(if($FailureCode -or $sql -eq 'UNKNOWN'){'INCONCLUSIVE'}else{'OBSERVED'})
         ReasonCode=$FailureCode;ExecutionStatus='NOT_EXECUTED';InstallationVerified=$false;ReadOnly=$true
@@ -141,7 +149,7 @@ function Invoke-LabSsisPrerequisite {
         $observation=@(Invoke-HyperVPowerShellDirect -VMName ([string]$context.Instance.vmName) -ExpectedRunId $RunId.ToString() `
             -ExpectedScopeId ([string]$context.Run.scopeId) -ExpectedVmId ([guid]$context.Instance.vmId) `
             -Credential ([pscredential]::new('Administrator',$guest)) -ScriptBlock (Get-LabSsisGuestProbe) `
-            -ArgumentList @($sa,[int]$context.Instance.port,[string]$context.Instance.sqlReadiness.instanceName,[math]::Min(30,$TimeoutSeconds)) `
+            -ArgumentList @($sa,[int]$context.Instance.port,[string]$context.Instance.sqlReadiness.instanceName,[int]$context.ExpectedMajor,[math]::Min(30,$TimeoutSeconds)) `
             -TimeoutSeconds $TimeoutSeconds -ErrorAction Stop 3>$null 4>$null 5>$null 6>$null)
         $fresh=Get-LabSsisPrerequisiteContext -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot
         if ($fresh.Fingerprint -cne $context.Fingerprint) { return ConvertTo-LabSsisPrerequisiteResult -Observation $null -FailureCode 'SSIS_BINDING_CHANGED' }

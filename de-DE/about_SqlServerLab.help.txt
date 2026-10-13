@@ -115,6 +115,7 @@ COMMANDS
         keine SQL-Probe, Rohlogs, Hostwerte, Secrets oder Mutation.
 
     Get-SqlServerLabExternalRuntimeCapability
+    Get-SqlServerLabSsisCatalogCapability
         Trennt eine explizite External-Languages-Kataloganforderung von einer
         optionalen begrenzten Hostprüfung; keine SQL-Abnahme oder Mutation.
 
