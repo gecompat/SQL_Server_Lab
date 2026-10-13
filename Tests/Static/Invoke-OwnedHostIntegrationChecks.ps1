@@ -840,6 +840,14 @@ $module = New-Module -ArgumentList $repoRoot,$fixtureRoot -ScriptBlock {
         Assert-OwnThrows { Assert-LabOwnedHostContainerCreateInputs -StateRoot $root -Provider docker -Arguments @('create','--volume',($fixtureRoot+':/shared:rw'),('sha256:'+('c'*64))) } 'OWNED_HOST_BIND_WRITE_OUTSIDE_ROOT' 'Container creation denies shared host write mount before dispatch'
         Assert-OwnThrows { Assert-LabOwnedHostContainerCreateInputs -StateRoot $root -Provider docker -Arguments @('create','--privileged',('sha256:'+('c'*64))) } 'OWNED_HOST_CREATE_OPTION_UNSUPPORTED' 'Privileged container cannot inherit own CID authority'
         Assert-OwnThrows { Assert-LabOwnedHostContainerCreateInputs -StateRoot $root -Provider docker -Arguments @('create','shared:latest') } 'OWNED_HOST_IMMUTABLE_CONTAINER_IMAGE_REQUIRED' 'Mutable image cannot cause an implicit pull at container arrange'
+        $smtpCreateAllowed=$true
+        try {
+            Assert-LabOwnedHostContainerCreateInputs -StateRoot $root -Provider docker -Arguments @('create','--pull=never','--read-only','--tmpfs','/tmp:rw,noexec,nosuid,size=16m','--cap-drop','ALL','--security-opt','no-new-privileges','--volume',($root+':/run/smtp-auth:ro'),('sha256:'+('c'*64)))
+        } catch {$smtpCreateAllowed=$false}
+        Assert-Own $smtpCreateAllowed 'Owned SMTP sidecar hardening permits only its fixed no-pull option set'
+        foreach($invalidSmtpOption in @(@('--pull=always'),@('--tmpfs','/tmp:rw'),@('--cap-drop','NET_ADMIN'),@('--security-opt','seccomp=unconfined'))){
+            Assert-OwnThrows { Assert-LabOwnedHostContainerCreateInputs -StateRoot $root -Provider docker -Arguments (@('create')+$invalidSmtpOption+@(('sha256:'+('c'*64)))) } 'OWNED_HOST_CREATE_OPTION_UNSUPPORTED' ('Owned SMTP sidecar rejects broadened option: '+($invalidSmtpOption -join '='))
+        }
         $backupFixture=New-Module -ArgumentList $repoRoot,$root,$allocated.RunId,$fixtureRoot -ScriptBlock {
             param($Repository,$Root,$RunId,$OutsideRoot)
             foreach($source in @('Common','StateMachine','ContainerOwnedHostIntegration','BackupLibrary')) { . (Join-Path $Repository ('Private/'+$source+'.ps1')) }

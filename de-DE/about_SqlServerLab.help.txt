@@ -553,6 +553,14 @@ Sync-SqlServerLabRunScopedContainerStore
     Remove-SqlServerLabLicenseProfile
         Entfernt ausschließlich das exakt ausgewählte lokale Lizenzprofil.
 
+    Get-SqlServerLabSmtpTestServiceStatus
+        Prüft den gebundenen Mailpit-Receiver eines SMTP-Testdiensts ohne
+        Mailinhalte, Zugangsdaten oder lokale Pfade auszugeben.
+
+    Open-SqlServerLabSmtpTestServiceWebMail
+        Öffnet einen kurzlebigen lokalen Mailpit-Zugang zum Lesen und Löschen
+        von Testmails; das Run-Secret bleibt außerhalb von URL und Ausgabe.
+
 NAMING AND OWNERSHIP
     PowerShell ordnet jeden exportierten Befehl ueber die Source- und
     ModuleName-Eigenschaften dem Modul SqlServerLab zu:

@@ -217,6 +217,8 @@ Legende:
 |---|---|---|---|
 | [`Invoke-SqlServerLab`](../../Public/Invoke-SqlServerLab.ps1) | Startet die interaktive PowerShell-Konsolenoberfläche. | ist das Hauptmenü | – |
 | [`Get-SqlServerLabWorkflow`](../../Public/Get-SqlServerLabWorkflow.ps1) | Liefert eine verdichtete, geheimnisfreie Workflow-, Image- und Kombinationsübersicht. | – | direkt: zentrale Dashboard-Inventur und Refresh |
+| [`Get-SqlServerLabSmtpTestServiceStatus`](../../Public/Get-SqlServerLabSmtpTestServiceStatus.ps1) | Prüft die gebundene Mailpit-Receiver-Laufzeit eines SMTP-Testdiensts ohne Mailinhalte oder Zugangsdaten. | Expertenbefehl | Expertenbefehle: read-only |
+| [`Open-SqlServerLabSmtpTestServiceWebMail`](../../Public/Open-SqlServerLabSmtpTestServiceWebMail.ps1) | Öffnet einen bestätigten, kurzlebigen lokalen Mailpit-Zugang zum Lesen und Löschen von Testmails. | Expertenbefehl | Expertenbefehle: Bestätigung erforderlich |
 | [`Get-SqlServerLabAutomationPlan`](../../Public/Get-SqlServerLabAutomationPlan.ps1) | Projiziert ausgewählte bestehende öffentliche Plan-/Action-Grenzen als lokalen, versionierten und nicht ausführbaren Vertrag; keine Runtime-, Netzwerk- oder State-Aktion und keine IaC-Adapter. | – | – |
 | [`Get-SqlServerLabAiScenario`](../../Public/Get-SqlServerLabAiScenario.ps1) | Löst ein hashgebundenes SQL-KI-Szenario katalogisiert oder gegen einen Run auf. | Lab-Umgebungen → Datenbanken, Samples und Skripte → SQL Server 2025 KI → Szenarioplan | – |
 | [`Get-SqlServerLabLlamaCppModel`](../../Public/Get-SqlServerLabLlamaCppModel.ps1) | Listet kuratierte, revisions-, größen-, hash- und lizenzgebundene GGUF-Generationsmodelle. | Lab-Umgebungen → Datenbanken, Samples und Skripte → SQL Server 2025 KI → llama.cpp-Modelle | – |

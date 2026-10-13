@@ -75,6 +75,47 @@ function Invoke-LabSmtpRuntime {
     return $result
 }
 
+function Resolve-LabSmtpRuntimeImageId {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][ValidateSet('docker','podman')][string]$Provider,
+        [Parameter(Mandatory)][string]$StateRoot,
+        [Parameter(Mandatory)][string]$RunId,
+        [Parameter(Mandatory)][string]$Image
+    )
+    $result=Invoke-LabContainerRuntimeCommand -Provider $Provider -StateRoot $StateRoot -RunId $RunId -ArgumentList @('image','inspect','--format','{{.Id}}',$Image) -NativeResult -Phase Cleanup -TimeoutSeconds 30
+    $id=if($null -ne $result -and $result.ExitCode -eq 0){[string](@($result.Output)[-1]).Trim()}else{$null}
+    if($id -cnotmatch '^sha256:[a-f0-9]{64}$'){throw 'SMTP_TEST_REQUIRED_IMAGE_MISSING'}
+    return $id
+}
+
+function Resolve-LabSmtpOwnedHostNetwork {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][ValidateSet('docker','podman')][string]$Provider,
+        [Parameter(Mandatory)][string]$StateRoot,
+        [Parameter(Mandatory)][string]$RunId,
+        [Parameter(Mandatory)][string]$SenderContainerId
+    )
+    # Owned hosts may not create or repair networks.  The sender container is
+    # already receipt-bound to this run, so its sole existing network is the
+    # only network we may reuse for the two SMTP sidecars.
+    $result=Invoke-LabSmtpRuntime -Provider $Provider -StateRoot $StateRoot -RunId $RunId -Arguments @('inspect','--format','{{json .NetworkSettings.Networks}}',$SenderContainerId)
+    try {$networks=(($result.Output -join "`n")|ConvertFrom-Json -Depth 16 -ErrorAction Stop)}catch{throw 'SMTP_TEST_OWNED_HOST_NETWORK_PARSE_INVALID'}
+    $properties=@($networks.PSObject.Properties)
+    if($properties.Count -ne 1 -or [string]::IsNullOrWhiteSpace([string]$properties[0].Name) -or $properties[0].Name -cnotmatch '^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$'){
+        throw 'SMTP_TEST_OWNED_HOST_NETWORK_BINDING_INVALID'
+    }
+    $name=[string]$properties[0].Name
+    $inspection=Invoke-LabSmtpRuntime -Provider $Provider -StateRoot $StateRoot -RunId $RunId -Arguments @('network','inspect',$name)
+    try {$items=@(($inspection.Output -join "`n")|ConvertFrom-Json -Depth 30 -ErrorAction Stop)}catch{throw 'SMTP_TEST_OWNED_HOST_NETWORK_PARSE_INVALID'}
+    if($items.Count -ne 1){throw 'SMTP_TEST_OWNED_HOST_NETWORK_BINDING_INVALID'}
+    $internalProperty=$items[0].PSObject.Properties['Internal']
+    if($null -eq $internalProperty){$internalProperty=$items[0].PSObject.Properties['internal']}
+    if($null -ne $internalProperty -and [bool]$internalProperty.Value){throw 'SMTP_TEST_OWNED_HOST_NETWORK_INTERNAL'}
+    return $name
+}
+
 function New-LabSmtpTestServiceDatabaseMailScript {
     [CmdletBinding()]
     param([Parameter(Mandatory)]$Plan)
@@ -109,14 +150,21 @@ IF (SELECT COUNT(*) FROM dbo.sysmail_profileaccount pa JOIN dbo.sysmail_profile 
 function Invoke-LabSmtpTestServiceProvision {
     [CmdletBinding()]
     param([Parameter(Mandatory)]$Plan,[Parameter(Mandatory)]$RunState,[Parameter(Mandatory)][object[]]$LabInstances,[Parameter(Mandatory)][SecureString]$SaPassword,[Parameter(Mandatory)][string]$StateRoot,[Parameter(Mandatory)][string]$RepositoryRoot)
-    if($Plan.Contract.Name -cne 'SqlServerLab.SmtpTestServicePlan' -or $Plan.Contract.Version -cne '1.0'){throw 'SMTP_TEST_SERVICE_PLAN_INVALID'}
-    if(Get-LabOwnedHostRunPolicy -RunId $RunState.RunId -StateRoot $StateRoot){throw 'SMTP_TEST_OWNED_HOST_UNSUPPORTED'}
+    if($Plan.Contract.Name -cne 'SqlServerLab.SmtpTestServicePlan' -or $Plan.Contract.Version -cne '1.0' -or $Plan.ImageProvisioning -cnotin @('build','require-existing')){throw 'SMTP_TEST_SERVICE_PLAN_INVALID'}
+    $ownedHost=[bool](Get-LabOwnedHostRunPolicy -RunId $RunState.RunId -StateRoot $StateRoot)
+    if($ownedHost -and $Plan.ImageProvisioning -cne 'require-existing'){throw 'SMTP_TEST_OWNED_HOST_REQUIRES_EXISTING_IMAGES'}
+    $gatewayTag=Get-LabSmtpGatewayImageTag -RepositoryRoot $RepositoryRoot
+    $receiverImage=[string]$Plan.Receiver.Image;$gatewayImage=$gatewayTag
+    if($Plan.ImageProvisioning -ceq 'require-existing'){
+        $receiverImage=Resolve-LabSmtpRuntimeImageId -Provider $Plan.Provider -StateRoot $StateRoot -RunId $RunState.RunId -Image $receiverImage
+        $gatewayImage=Resolve-LabSmtpRuntimeImageId -Provider $Plan.Provider -StateRoot $StateRoot -RunId $RunState.RunId -Image $gatewayImage
+    }
     $senders=@($LabInstances | Where-Object {$Plan.SenderInstanceIds -contains [string]$_.Id})
     if($senders.Count -ne @($Plan.SenderInstanceIds).Count){throw 'SMTP_TEST_SERVICE_SENDER_BINDING_INVALID'}
     if(@($LabInstances | Select-Object -ExpandProperty Provider -Unique).Count -ne 1 -or [string]$senders[0].Provider -cne [string]$Plan.Provider){throw 'SMTP_TEST_SERVICE_PROVIDER_BINDING_INVALID'}
     $journalResult=New-LabSmtpTestServiceJournal -Plan $Plan -RunDirectory $RunState.RunDir
     $journal=$journalResult.Journal;$journalPath=$journalResult.Path;$provider=[string]$Plan.Provider
-    $null=Add-CleanupStep -RunDir $RunState.RunDir -ResourceType network -ResourceId $Plan.ReceiverNetworkName -Action remove -Provider $provider -ProviderSubRunId ('provider-'+$provider) -Compensation 'Remove run-scoped SMTP receiver network'
+    if(-not $ownedHost){$null=Add-CleanupStep -RunDir $RunState.RunDir -ResourceType network -ResourceId $Plan.ReceiverNetworkName -Action remove -Provider $provider -ProviderSubRunId ('provider-'+$provider) -Compensation 'Remove run-scoped SMTP receiver network'}
     $null=Add-CleanupStep -RunDir $RunState.RunDir -ResourceType container -ResourceId $Plan.ReceiverContainerName -Action remove -Provider $provider -ProviderSubRunId ('provider-'+$provider) -Compensation 'Remove run-scoped SMTP receiver'
     $null=Add-CleanupStep -RunDir $RunState.RunDir -ResourceType container -ResourceId $Plan.GatewayContainerName -Action remove -Provider $provider -ProviderSubRunId ('provider-'+$provider) -Compensation 'Remove run-scoped SMTP gateway'
     $password=New-LabSmtpTestServiceRandomSecret
@@ -125,23 +173,37 @@ function Invoke-LabSmtpTestServiceProvision {
     $journal.Status='PROVISIONING';Write-LabSmtpTestServiceJournal -Journal $journal -Path $journalPath
     try {
         $labels=@('--label',('sql-server-lab.run-id='+$RunState.RunId),'--label',('sql-server-lab.scope-id='+$RunState.ScopeId),'--label',('sql-server-lab.smtp-service-id='+$Plan.ServiceId))
-        $senderNetwork=Invoke-LabSmtpRuntime -Provider $provider -StateRoot $StateRoot -RunId $RunState.RunId -Arguments (@('network','create','--internal')+$labels+@($Plan.SenderNetworkName))
-        $journal.Resources.SenderNetworkId=([string]$senderNetwork.Output[-1]).Trim();Write-LabSmtpTestServiceJournal -Journal $journal -Path $journalPath
-        # Docker does not publish a port from an internal bridge.  This bridge is
-        # still run-private: only Mailpit and the gateway are attached and the
-        # receiver API is bound to host loopback.
-        $receiverNetwork=Invoke-LabSmtpRuntime -Provider $provider -StateRoot $StateRoot -RunId $RunState.RunId -Arguments (@('network','create')+$labels+@($Plan.ReceiverNetworkName))
-        $journal.Resources.ReceiverNetworkId=([string]$receiverNetwork.Output[-1]).Trim();Write-LabSmtpTestServiceJournal -Journal $journal -Path $journalPath
-        foreach($sender in $senders){$null=Invoke-LabSmtpRuntime -Provider $provider -StateRoot $StateRoot -RunId $RunState.RunId -Arguments @('network','connect',$Plan.SenderNetworkName,[string]$sender.ContainerId)}
-        $mount='type=bind,source='+$authPath+',target=/run/smtp-auth,readonly'
+        $receiverIntent=$null;$gatewayIntent=$null
+        if($ownedHost){
+            $ownedNetwork=Resolve-LabSmtpOwnedHostNetwork -Provider $provider -StateRoot $StateRoot -RunId $RunState.RunId -SenderContainerId ([string]$senders[0].ContainerId)
+            $senderNetworkName=$ownedNetwork;$receiverNetworkName=$ownedNetwork
+            $receiverIntent=New-LabOwnedHostContainerIntent -StateRoot $StateRoot -RunId $RunState.RunId -ScopeId $RunState.ScopeId -InstanceId ('smtp-receiver-'+$Plan.ServiceId) -Provider $provider -ContainerName $Plan.ReceiverContainerName
+            $gatewayIntent=New-LabOwnedHostContainerIntent -StateRoot $StateRoot -RunId $RunState.RunId -ScopeId $RunState.ScopeId -InstanceId ('smtp-gateway-'+$Plan.ServiceId) -Provider $provider -ContainerName $Plan.GatewayContainerName
+        } else {
+            $senderNetwork=Invoke-LabSmtpRuntime -Provider $provider -StateRoot $StateRoot -RunId $RunState.RunId -Arguments (@('network','create','--internal')+$labels+@($Plan.SenderNetworkName))
+            $journal.Resources.SenderNetworkId=([string]$senderNetwork.Output[-1]).Trim();Write-LabSmtpTestServiceJournal -Journal $journal -Path $journalPath
+            # Docker does not publish a port from an internal bridge.  This bridge is
+            # still run-private: only Mailpit and the gateway are attached and the
+            # receiver API is bound to host loopback.
+            $receiverNetwork=Invoke-LabSmtpRuntime -Provider $provider -StateRoot $StateRoot -RunId $RunState.RunId -Arguments (@('network','create')+$labels+@($Plan.ReceiverNetworkName))
+            $journal.Resources.ReceiverNetworkId=([string]$receiverNetwork.Output[-1]).Trim();Write-LabSmtpTestServiceJournal -Journal $journal -Path $journalPath
+            foreach($sender in $senders){$null=Invoke-LabSmtpRuntime -Provider $provider -StateRoot $StateRoot -RunId $RunState.RunId -Arguments @('network','connect',$Plan.SenderNetworkName,[string]$sender.ContainerId)}
+            $senderNetworkName=$Plan.SenderNetworkName;$receiverNetworkName=$Plan.ReceiverNetworkName
+        }
+        $mount=if($ownedHost){$authPath+':/run/smtp-auth:ro'}else{'type=bind,source='+$authPath+',target=/run/smtp-auth,readonly'}
+        $mountOption=if($ownedHost){'--volume'}else{'--mount'}
         $receiverPort=Find-LabAvailablePort -RangeStart 18025 -RangeEnd 18124
-        $receiver=Invoke-LabSmtpRuntime -Provider $provider -StateRoot $StateRoot -RunId $RunState.RunId -Arguments (@('run','-d','--name',$Plan.ReceiverContainerName,'--network',$Plan.ReceiverNetworkName,'-p',('127.0.0.1:'+$receiverPort+':8025'))+$labels+@('--mount',$mount,$Plan.Receiver.Image,'--ui-auth-file','/run/smtp-auth','--allowed-hosts',('127.0.0.1,localhost,'+$Plan.ReceiverContainerName)))
+        $imagePullPolicy=if($Plan.ImageProvisioning -ceq 'require-existing'){@('--pull=never')}else{@()}
+        $receiverLabels=if($ownedHost){@('--label',('sql-server-lab.instance-id=smtp-receiver-'+$Plan.ServiceId))+(Get-LabOwnedHostContainerLabels -Intent $receiverIntent)}else{@()}
+        $receiver=Invoke-LabSmtpRuntime -Provider $provider -StateRoot $StateRoot -RunId $RunState.RunId -Arguments (@('run')+$imagePullPolicy+@('-d','--name',$Plan.ReceiverContainerName,'--network',$receiverNetworkName,'-p',('127.0.0.1:'+$receiverPort+':8025'))+$labels+$receiverLabels+@($mountOption,$mount,$receiverImage,'--ui-auth-file','/run/smtp-auth','--allowed-hosts',('127.0.0.1,localhost,'+$Plan.ReceiverContainerName)))
         $journal.Resources.ReceiverContainerId=([string]$receiver.Output[-1]).Trim();Write-LabSmtpTestServiceJournal -Journal $journal -Path $journalPath
-        $gatewayTag=Get-LabSmtpGatewayImageTag -RepositoryRoot $RepositoryRoot
-        $null=Invoke-LabSmtpRuntime -Provider $provider -StateRoot $StateRoot -RunId $RunState.RunId -Phase ImageBuild -TimeoutSeconds 600 -Arguments (@('build','--file',(Join-Path $RepositoryRoot $Plan.Gateway.ImageBuildFile),'--tag',$gatewayTag)+$labels+@($RepositoryRoot))
-        $gateway=Invoke-LabSmtpRuntime -Provider $provider -StateRoot $StateRoot -RunId $RunState.RunId -Arguments (@('run','-d','--name',$Plan.GatewayContainerName,'--network',$Plan.SenderNetworkName,'--read-only','--tmpfs','/tmp:rw,noexec,nosuid,size=16m','--cap-drop','ALL','--security-opt','no-new-privileges','--mount',$mount)+$labels+@('-e',('SMTP_GATEWAY_API_URL=http://'+$Plan.ReceiverContainerName+':8025'),'-e','SMTP_GATEWAY_API_AUTH_FILE=/run/smtp-auth','-e',('SMTP_GATEWAY_MAX_MESSAGES='+$Plan.Gateway.MaxStoredMessages),'-e',('SMTP_GATEWAY_MAX_BYTES='+$Plan.Gateway.MaxStoredBytes),'-e',('SMTP_GATEWAY_MAX_MESSAGE_BYTES='+$Plan.Gateway.MaxMessageBytes),'-e',('SMTP_GATEWAY_MAX_PER_UTC60='+$Plan.Gateway.AcceptedMessagesPerUtc60Seconds),'-e',('SMTP_GATEWAY_UPSTREAM_HOST='+$Plan.ReceiverContainerName),'-e','SMTP_GATEWAY_UPSTREAM_PORT=1025',$gatewayTag))
+        if($ownedHost){$journal.Resources.ReceiverContainerId=(Register-LabOwnedHostContainer -StateRoot $StateRoot -Intent $receiverIntent -ContainerIdOrName $journal.Resources.ReceiverContainerId).ContainerId;Write-LabSmtpTestServiceJournal -Journal $journal -Path $journalPath}
+        if($Plan.ImageProvisioning -ceq 'build'){$null=Invoke-LabSmtpRuntime -Provider $provider -StateRoot $StateRoot -RunId $RunState.RunId -Phase ImageBuild -TimeoutSeconds 600 -Arguments (@('build','--file',(Join-Path $RepositoryRoot $Plan.Gateway.ImageBuildFile),'--tag',$gatewayTag)+$labels+@($RepositoryRoot))}
+        $gatewayLabels=if($ownedHost){@('--label',('sql-server-lab.instance-id=smtp-gateway-'+$Plan.ServiceId))+(Get-LabOwnedHostContainerLabels -Intent $gatewayIntent)}else{@()}
+        $gateway=Invoke-LabSmtpRuntime -Provider $provider -StateRoot $StateRoot -RunId $RunState.RunId -Arguments (@('run')+$imagePullPolicy+@('-d','--name',$Plan.GatewayContainerName,'--network',$senderNetworkName,'--read-only','--tmpfs','/tmp:rw,noexec,nosuid,size=16m','--cap-drop','ALL','--security-opt','no-new-privileges',$mountOption,$mount)+$labels+$gatewayLabels+@('-e',('SMTP_GATEWAY_API_URL=http://'+$Plan.ReceiverContainerName+':8025'),'-e','SMTP_GATEWAY_API_AUTH_FILE=/run/smtp-auth','-e',('SMTP_GATEWAY_MAX_MESSAGES='+$Plan.Gateway.MaxStoredMessages),'-e',('SMTP_GATEWAY_MAX_BYTES='+$Plan.Gateway.MaxStoredBytes),'-e',('SMTP_GATEWAY_MAX_MESSAGE_BYTES='+$Plan.Gateway.MaxMessageBytes),'-e',('SMTP_GATEWAY_MAX_PER_UTC60='+$Plan.Gateway.AcceptedMessagesPerUtc60Seconds),'-e',('SMTP_GATEWAY_UPSTREAM_HOST='+$Plan.ReceiverContainerName),'-e','SMTP_GATEWAY_UPSTREAM_PORT=1025',$gatewayImage))
         $journal.Resources.GatewayContainerId=([string]$gateway.Output[-1]).Trim();Write-LabSmtpTestServiceJournal -Journal $journal -Path $journalPath
-        $null=Invoke-LabSmtpRuntime -Provider $provider -StateRoot $StateRoot -RunId $RunState.RunId -Arguments @('network','connect',$Plan.ReceiverNetworkName,$Plan.GatewayContainerName)
+        if($ownedHost){$journal.Resources.GatewayContainerId=(Register-LabOwnedHostContainer -StateRoot $StateRoot -Intent $gatewayIntent -ContainerIdOrName $journal.Resources.GatewayContainerId).ContainerId;Write-LabSmtpTestServiceJournal -Journal $journal -Path $journalPath}
+        if(-not $ownedHost){$null=Invoke-LabSmtpRuntime -Provider $provider -StateRoot $StateRoot -RunId $RunState.RunId -Arguments @('network','connect',$Plan.ReceiverNetworkName,$Plan.GatewayContainerName)}
         $inspection=Invoke-LabSmtpRuntime -Provider $provider -StateRoot $StateRoot -RunId $RunState.RunId -Arguments @('inspect','--format','{{json .NetworkSettings.Ports}}',$Plan.ReceiverContainerName)
         try {$ports=(($inspection.Output -join "`n")|ConvertFrom-Json -Depth 16 -ErrorAction Stop);$binding=@($ports.'8025/tcp')[0]}catch{throw 'SMTP_TEST_RECEIVER_LOOPBACK_BINDING_PARSE_INVALID'}
         if($null -eq $binding){throw 'SMTP_TEST_RECEIVER_LOOPBACK_BINDING_MISSING'}
@@ -157,5 +219,9 @@ function Invoke-LabSmtpTestServiceProvision {
         }
         $journal.Status='READY';Write-LabSmtpTestServiceJournal -Journal $journal -Path $journalPath
         return [pscustomobject]@{ServiceId=$Plan.ServiceId;ProfileName=$Plan.DatabaseMail.ProfileName;GatewayHostName=$Plan.DatabaseMail.GatewayHostName;GatewayPort=$Plan.DatabaseMail.GatewayPort;Receiver=[pscustomobject]@{Host='127.0.0.1';Port=$port};JournalPath=$journalPath;SenderInstanceIds=@($Plan.SenderInstanceIds)}
-    } catch { $journal.Status='FAILED';$journal.Recovery.ErrorCode='SMTP_TEST_SERVICE_PROVISION_FAILED';Write-LabSmtpTestServiceJournal -Journal $journal -Path $journalPath;throw }
+    } catch {
+        $failure=$_
+        foreach($intent in @($receiverIntent,$gatewayIntent)|Where-Object {$null -ne $_}){try{Remove-LabOwnedHostFailedContainer -StateRoot $StateRoot -Intent $intent}catch{}}
+        $journal.Status='FAILED';$journal.Recovery.ErrorCode='SMTP_TEST_SERVICE_PROVISION_FAILED';Write-LabSmtpTestServiceJournal -Journal $journal -Path $journalPath;throw $failure
+    }
 }

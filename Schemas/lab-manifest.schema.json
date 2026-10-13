@@ -35,7 +35,7 @@
       }
     },
     "smtpTestService": {
-      "description": "Optionaler laufspezifischer SQL-Database-Mail-Testservice. Weglassen, null oder exakt enabled=false bewahren Legacy-Verhalten. Aktivierte Konfiguration erfordert eine einzelne passende Docker- oder Podman-SQL-2025-Topologie und wird mit privaten Netzen, quota-begrenztem Gateway sowie geheimnisfreier Run-Bindung provisioniert.",
+      "description": "Optionaler laufspezifischer SQL-Database-Mail-Testservice. Weglassen, null oder exakt enabled=false bewahren Legacy-Verhalten. Aktivierte Konfiguration erfordert eine einzelne passende Docker- oder Podman-SQL-2025-Topologie und wird mit privaten Netzen, quota-begrenztem Gateway sowie geheimnisfreier Run-Bindung provisioniert. imageProvisioning=require-existing prüft die exakten Receiver- und Gateway-Images vor jeder Ressourcenmutation und startet ausschließlich ohne Pull oder Build.",
       "oneOf": [
         { "type": "null" },
         {
@@ -60,6 +60,7 @@
             "acceptedMessagesPerUtc60Seconds": { "type": "integer", "minimum": 1, "maximum": 100000, "default": 120 },
             "MemoryMiB": { "type": "integer", "minimum": 64, "maximum": 4096, "default": 256 },
             "CPUs": { "type": "number", "minimum": 0.1, "maximum": 8, "default": 0.5 }
+            ,"imageProvisioning": { "type": "string", "enum": ["build", "require-existing"], "default": "build", "description": "build erzeugt das Gateway-Image für diesen Lauf. require-existing prüft Receiver und Gateway vorab lokal und startet beide mit pull=never; erforderlich für Owned-Host-Runs." }
           },
           "additionalProperties": false
         }

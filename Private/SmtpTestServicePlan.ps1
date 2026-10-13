@@ -13,7 +13,7 @@ function New-LabSmtpTestServicePlan {
         -not [guid]::TryParseExact($ScopeId,'D',[ref]$guid) -or $ScopeId -cne $guid.ToString('D') -or $guid -eq [guid]::Empty) {
         throw 'SMTP_TEST_SERVICE_BINDING_INVALID'
     }
-    $allowed=@('enabled','id','senderInstanceIds','maxStoredMessages','maxStoredBytes','maxMessageMiB','acceptedMessagesPerUtc60Seconds','MemoryMiB','CPUs')
+    $allowed=@('enabled','id','senderInstanceIds','maxStoredMessages','maxStoredBytes','maxMessageMiB','acceptedMessagesPerUtc60Seconds','MemoryMiB','CPUs','imageProvisioning')
     $input=[ordered]@{}
     foreach($name in $allowed){if($Config -is [Collections.IDictionary]){if($Config.Contains($name)){$input[$name]=$Config[$name]}}elseif($Config.PSObject.Properties[$name]){$input[$name]=$Config.PSObject.Properties[$name].Value}}
     $normalized=ConvertTo-LabSmtpTestServiceConfig -InputObject $input
@@ -26,7 +26,7 @@ function New-LabSmtpTestServicePlan {
     $profile=('SQLLabSmtp_{0}_{1}' -f $normalized.id,$RunId.Replace('-','').Substring(0,12))
     return [pscustomobject][ordered]@{
         Contract=[pscustomobject]@{Name='SqlServerLab.SmtpTestServicePlan';Version='1.0'}
-        RunId=$RunId;ScopeId=$ScopeId;Provider=$Provider;ServiceId=[string]$normalized.id
+        RunId=$RunId;ScopeId=$ScopeId;Provider=$Provider;ServiceId=[string]$normalized.id;ImageProvisioning=[string]$normalized.imageProvisioning
         SenderInstanceIds=[string[]]@($normalized.senderInstanceIds)
         SenderNetworkName="$base-sender";ReceiverNetworkName="$base-receiver-net";GatewayContainerName="$base-gateway";ReceiverContainerName="$base-receiver"
         DatabaseMail=[pscustomobject][ordered]@{ProfileName=$profile;AccountName=($profile+'_account');GatewayHostName="$base-gateway";GatewayPort=1025}

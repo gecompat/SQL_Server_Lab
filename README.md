@@ -707,6 +707,8 @@ abgewiesen. SQL-seitige Verifikation und freie Advanced-Eingaben bleiben
 | `Invoke-SqlServerLabScheduler` | Persistente Queue mit zwei Workern und maximal einem `HyperVHeavy`-Vorgang verarbeiten |
 | `Invoke-SqlServerLabOperationProbe` | Fällige User-Gates ausschließlich lesend prüfen, ohne sie selbstständig fortzusetzen |
 | `Get-SqlServerLabWorkflow` | Konsolidierte Workflow-, Image-, Vorlagenpool- und Kombinationsübersicht ohne Geheimnisse |
+| `Get-SqlServerLabSmtpTestServiceStatus` | Gebundenen Mailpit-Receiver eines SMTP-Testdiensts ohne Mailinhalte oder Zugangsdaten prüfen |
+| `Open-SqlServerLabSmtpTestServiceWebMail` | Kurzlebigen lokalen Mailpit-Zugang zum Lesen und Löschen von Testmails öffnen |
 | `Get-SqlServerLabAutomationPlan` | Versionierten lokalen Plan-/Result-Vertrag für ausgewählte bestehende öffentliche Plan-/Action-Grenzen ohne Ausführung projizieren |
 | `Find-SqlServerLabCollation` | Katalogisierte SQL-Server-Collations tokenbasiert und versionsgebunden durchsuchen |
 | `Get-SqlServerLabHyperVImageArtifact` | Pfadfreie, read-only Hyper-V-Image-Registry mit Evaluierungs-, Refresh- und Referenzstatus; `-VerifyIntegrity` prüft ausgewählte Parent-VHDX erneut |

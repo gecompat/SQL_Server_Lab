@@ -11,6 +11,17 @@ einen quota-begrenzten SMTP-Gateway; Credentials bleiben in lokalen Run-Secrets
 und erscheinen nicht im Manifest oder in `connection-info.json`. AdHoc-Parameter,
 Browserdialog und eine öffentliche Mailinhalt-API sind nicht implementiert.
 
+[example-smtp-require-existing.json](example-smtp-require-existing.json) zeigt
+den strikten Pfad für vorab bereitgestellte Images. Mit
+`imageProvisioning: "require-existing"` prüft Lab den genauen Mailpit- und den
+aus den Gatewayquellen abgeleiteten lokalen Image-Tag vor der ersten
+Ressourcenmutation und bindet die zurückgelieferten unveränderlichen IDs.
+Anschließend startet es ausschließlich mit `--pull=never` und führt keinen
+Gateway-Build aus. Für Owned-Host-Runs verwendet dieser Pfad das bereits am
+SQL-Sender beobachtete Run-Netz und erstellt oder entfernt keine SMTP-Netze;
+eigene Container-Intents und Receipts begrenzen die beiden Sidecars auf Run und
+Scope.
+
 ## Schema-Dateien
 
 | Datei | Zweck |

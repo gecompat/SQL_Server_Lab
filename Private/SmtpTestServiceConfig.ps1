@@ -6,7 +6,7 @@ function ConvertTo-LabSmtpTestServiceConfig {
     if ($null -eq $InputObject) { return $null }
     $values = [Collections.Generic.Dictionary[string,object]]::new([StringComparer]::Ordinal)
     $seen = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
-    $allowed = @('enabled','id','senderInstanceIds','maxStoredMessages','maxStoredBytes','maxMessageMiB','acceptedMessagesPerUtc60Seconds','MemoryMiB','CPUs')
+    $allowed = @('enabled','id','senderInstanceIds','maxStoredMessages','maxStoredBytes','maxMessageMiB','acceptedMessagesPerUtc60Seconds','MemoryMiB','CPUs','imageProvisioning')
     if ($InputObject -is [Collections.IDictionary]) {
         foreach ($key in $InputObject.Keys) {
             if ($key -isnot [string] -or -not $seen.Add($key) -or $key -cnotin $allowed) { throw 'SMTP_TEST_CONFIG_INVALID' }
@@ -22,7 +22,7 @@ function ConvertTo-LabSmtpTestServiceConfig {
     }
     else { throw 'SMTP_TEST_CONFIG_INVALID' }
 
-    $defaults = [ordered]@{ enabled=$true; id='smtp'; senderInstanceIds=@('primary'); maxStoredMessages=1000; maxStoredBytes=268435456L; maxMessageMiB=1; acceptedMessagesPerUtc60Seconds=120; MemoryMiB=256; CPUs=0.5 }
+    $defaults = [ordered]@{ enabled=$true; id='smtp'; senderInstanceIds=@('primary'); maxStoredMessages=1000; maxStoredBytes=268435456L; maxMessageMiB=1; acceptedMessagesPerUtc60Seconds=120; MemoryMiB=256; CPUs=0.5; imageProvisioning='build' }
     foreach ($key in $values.Keys) { $defaults[$key] = $values[$key] }
     if ($defaults.enabled -isnot [bool]) { throw 'SMTP_TEST_CONFIG_INVALID' }
     if (-not $defaults.enabled) {
@@ -30,6 +30,7 @@ function ConvertTo-LabSmtpTestServiceConfig {
         return $null
     }
     if ($defaults.id -isnot [string] -or $defaults.id -cnotmatch '^[a-z][a-z0-9-]{0,31}$') { throw 'SMTP_TEST_CONFIG_INVALID' }
+    if ($defaults.imageProvisioning -isnot [string] -or $defaults.imageProvisioning -cnotin @('build','require-existing')) { throw 'SMTP_TEST_CONFIG_INVALID' }
     $senders = $defaults.senderInstanceIds
     if ($senders -isnot [array] -or $senders.Count -lt 1 -or $senders.Count -gt 64) { throw 'SMTP_TEST_CONFIG_INVALID' }
     $senderSet = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
