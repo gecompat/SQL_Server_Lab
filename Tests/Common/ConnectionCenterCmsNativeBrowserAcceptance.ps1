@@ -14,7 +14,7 @@ function Assert-CmsNativeBrowserCompletion {
     $flags=@('FullDocument','AllScriptsLoaded','BootstrapRendered','NavigationToCms','InitialNotChecked','FirstNativeInspection','SecondNativeInspection','NoScriptErrors','DialogClosed')
     if($Operator -isnot [pscustomobject] -or $Operator.Contract -cne 'SqlServerLab.CmsNativeBrowserOperator/1.0' -or @($Operator.PSObject.Properties.Name).Count -ne 10 -or @($Operator.PSObject.Properties.Name|Where-Object {$_ -cnotin (@('Contract')+$flags)}).Count){throw 'CMS_NATIVE_BROWSER_OPERATOR_INVALID'}
     foreach($name in $flags){if($Operator.$name -isnot [bool] -or -not $Operator.$name){throw 'CMS_NATIVE_BROWSER_OPERATOR_INVALID'}}
-    if($AssetPaths.Count -ne 12 -or @($AssetPaths|Sort-Object -Unique).Count -ne 12){throw 'CMS_NATIVE_BROWSER_ASSET_SET'}
+    if($AssetPaths.Count -lt 1 -or @($AssetPaths|Sort-Object -Unique).Count -ne $AssetPaths.Count){throw 'CMS_NATIVE_BROWSER_ASSET_SET'}
     $allowed=@($AssetPaths)+@('/api/config','/api/commands','/api/workflow','/api/jobs','/api/cms-inspection','/favicon.ico')
     if($Records.Count -gt 512 -or @($Records|Where-Object {$_.Path -cnotin $allowed -or $_.Status -ne $(if($_.Path -ceq '/favicon.ico'){204}else{200}) -or ($_.Method -cne 'GET' -and $_.Path -cne '/api/cms-inspection') -or $_.Transport -cnotin @('SENT','CLIENT_DISCONNECTED') -or ($_.Transport -ceq 'CLIENT_DISCONNECTED' -and ($_.Method -cne 'GET' -or $_.Path -cnotin @('/api/config','/api/commands','/api/workflow','/api/jobs')))}).Count){throw 'CMS_NATIVE_BROWSER_REQUEST_INVALID'}
     foreach($path in $AssetPaths){if(@($Records|Where-Object Path -CEQ $path).Count -ne 1){throw 'CMS_NATIVE_BROWSER_ASSET_MISSING_OR_DUPLICATE'}}

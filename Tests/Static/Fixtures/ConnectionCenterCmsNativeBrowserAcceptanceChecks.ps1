@@ -27,7 +27,7 @@ foreach($mutation in @('missing-asset','duplicate-asset','missing-bootstrap','mi
         'wrong-method' {$rows[-1].Method='GET'}
         'false-observation' {$copy.SecondNativeInspection=$false}
         'unknown-property' {$copy|Add-Member -NotePropertyName Untrusted -NotePropertyValue $true}
-        'duplicate-asset-set' {$assets=@(1..12|ForEach-Object {'/app.js'})}
+        'duplicate-asset-set' {$assets=@(1..$parts.Assets.Count|ForEach-Object {'/app.js'})}
     }
     $rejected=try{Assert-CmsNativeBrowserCompletion $copy $rows $assets;$false}catch{$_.Exception.Message -cmatch '^CMS_NATIVE_BROWSER_'}
     Assert-NativeBrowserCheck $rejected $mutation
