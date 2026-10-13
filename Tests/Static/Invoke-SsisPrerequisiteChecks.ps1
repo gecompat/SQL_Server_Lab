@@ -13,7 +13,9 @@ foreach($state in @('MISSING','NOT_ONLINE','ONLINE_UNVERIFIED','ONLINE_CATALOG_O
     Check "SSISDB $state bleibt getrennt" ((ConvertTo-LabSsisPrerequisiteResult $copy).SsisDb -eq $state)
 }
 $copy=$positive.PSObject.Copy();$copy.Major=16
-Check 'Falscher tatsächlicher SQL-Major bleibt sichtbar' ((ConvertTo-LabSsisPrerequisiteResult $copy).Sql -eq 'VERSION_MISMATCH')
+Check 'Aelterer tatsaechlicher SQL-Major bleibt korrekt bezeichnet' ((ConvertTo-LabSsisPrerequisiteResult $copy).Sql -eq 'SQL_2022_OBSERVED')
+$copy=$positive.PSObject.Copy();$copy.Major=14
+Check 'Nicht unterstuetzter tatsaechlicher SQL-Major bleibt sichtbar' ((ConvertTo-LabSsisPrerequisiteResult $copy).Sql -eq 'VERSION_UNSUPPORTED')
 $private='SYNTHETIC_PRIVATE_DIAGNOSTIC'
 $copy=$positive.PSObject.Copy();$copy.Edition=$private;$copy.Components=$private;$copy.Catalog=$private
 Check 'Unbekannte Gastwerte und Fehler gelangen nicht in Projektion' (((ConvertTo-LabSsisPrerequisiteResult $copy -FailureCode $private)|ConvertTo-Json) -notmatch $private)
@@ -57,18 +59,19 @@ $contextCases=& {
     function Read-LabDiagnosticJson {
         param($Path)
         if($Path.EndsWith('run-state.json')){return [pscustomobject]@{runId=$id.ToString();scopeId='synthetic';state=$(if($mode -eq 'stopped'){'STOPPED'}else{'RUNNING'});metadata=@{workflowKind='hyperv-lab'}}}
-        $instance=[pscustomobject]@{id='primary';provider=$(if($mode -eq 'provider'){'docker'}else{'hyperv'});workload='sql';sqlVersion=$(if($mode -eq 'version'){'2022'}else{'2025'});vmName='synthetic';vmId=$vmId;port=1433;sqlReadiness=@{instanceName='MSSQLSERVER'}}
+        $instance=[pscustomobject]@{id='primary';provider=$(if($mode -eq 'provider'){'docker'}else{'hyperv'});workload='sql';sqlVersion=$(if($mode -eq 'unsupported-version'){'2017'}elseif($mode -eq 'older-version'){'2022'}else{'2025'});vmName='synthetic';vmId=$vmId;port=1433;sqlReadiness=@{instanceName='MSSQLSERVER'}}
         [pscustomobject]@{instances=$(if($mode -eq 'duplicate'){@($instance,$instance)}else{@($instance)})}
     }
     function Get-HyperVManagedVM { [pscustomobject]@{VM=@{Id=$(if($mode -eq 'vm'){'33333333-3333-3333-3333-333333333333'}else{$vmId});State='Running'};Identity=@{instanceId=$(if($mode -eq 'instance'){'foreign'}else{'primary'})}} }
     $values=@{}
-    foreach($mode in @('valid','stopped','provider','version','duplicate','vm','instance')) {
+    foreach($mode in @('valid','older-version','stopped','provider','unsupported-version','duplicate','vm','instance')) {
         try{$context=Get-LabSsisPrerequisiteContext -RunId $id -InstanceId primary -StateRoot ([IO.Path]::GetTempPath());$values[$mode]=[bool]$context.Fingerprint}catch{$values[$mode]=$false}
     }
     $values
 }
 Check 'Echter Kontext benötigt kein Prepared-Image' $contextCases.valid
-foreach($mode in @('stopped','provider','version','duplicate','vm','instance')){Check "Echter Kontext verweigert $mode" (-not $contextCases[$mode])}
+Check 'Echter Kontext akzeptiert korrekt bezeichnete SQL-2022-Quelle' $contextCases['older-version']
+foreach($mode in @('stopped','provider','unsupported-version','duplicate','vm','instance')){Check "Echter Kontext verweigert $mode" (-not $contextCases[$mode])}
 $wrapperCases=& {
     $runId=[guid]'11111111-1111-1111-1111-111111111111';$vmId='22222222-2222-2222-2222-222222222222'
     function Get-LabSsisPrerequisiteContext {

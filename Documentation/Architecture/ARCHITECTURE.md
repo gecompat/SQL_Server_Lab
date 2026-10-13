@@ -128,6 +128,7 @@ Get-SqlServerLabLlamaCppModel               # Kuratierte hashgebundene Generatio
 Save-SqlServerLabLlamaCppModel              # Gewähltes GGUF bei Bedarf geprüft im MediaRoot ablegen
 Get-SqlServerLabAiComputeInventory          # CPU, GPU und NPU read-only mit vollständiger Coverage inventarisieren
 Get-SqlServerLabExternalRuntimeCapability   # External-Languages-Katalog und optionale Hostvoraussetzung getrennt bewerten
+Get-SqlServerLabSsisCatalogCapability      # Eigene Windows-SSISDB-Quelle read-only binden; keine Fixture oder Ausführung
 Get-SqlServerLabAiRuntimeCapability         # Paketbinärdateien hashen und herstellergebundene Lanes ableiten
 Get-SqlServerLabAiComputeCandidate          # Alle erlaubten Einzel-, Mehrgeräte- und Mischkandidaten bilden
 Get-SqlServerLabAiComputeSelection          # Vollständig benchmarkte Gerätekombination automatisch wählen oder explizit fixieren

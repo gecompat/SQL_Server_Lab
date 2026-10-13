@@ -1,7 +1,7 @@
 #Requires -Version 7.2
 <#
 .SYNOPSIS
-    Beobachtet SSIS-Voraussetzungen eines vorhandenen eigenen Hyper-V-SQL-2025-Runs.
+    Beobachtet SSIS-Voraussetzungen eines vorhandenen eigenen Hyper-V-SQL-2019-, -2022- oder -2025-Runs.
 .DESCRIPTION
     Interner Diagnoseeinstieg. Startet keine VM, installiert nichts und führt kein Package aus.
     Reale Ergebnisse bleiben lokal; fehlende Standarddateien beweisen keine fehlende Installation.

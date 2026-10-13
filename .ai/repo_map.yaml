@@ -433,6 +433,10 @@ sources_of_truth:
   local_release_publication_contract: Documentation/Architecture/LOCAL_RELEASE_PUBLICATION.md
   validation_release_artifact: Tests/Static/Invoke-ReleaseArtifactChecks.ps1
   client_readiness: Tools/Test-SqlServerLabClientReadiness.ps1
+  ssis_catalog_capability_public: Public/Get-SqlServerLabSsisCatalogCapability.ps1
+  ssis_catalog_capability_core: Private/SsisPrerequisite.ps1
+  ssis_catalog_capability_contract: Documentation/Architecture/SSISDB_TEST_FIXTURE.md
+  validation_ssis_catalog_capability: Tests/Static/Invoke-SsisCatalogCapabilityChecks.ps1
   ssis_prerequisite_diagnostic: Tools/Test-SqlServerLabSsisPrerequisite.ps1
   ssis_prerequisite_core: Private/SsisPrerequisite.ps1
   ssis_prerequisite_scope: Documentation/Project_Planning/SSIS_ETL_DATA_WAREHOUSE_BACKLOG.md

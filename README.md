@@ -777,6 +777,7 @@ abgewiesen. SQL-seitige Verifikation und freie Advanced-Eingaben bleiben
 | `Save-SqlServerLabLlamaCppModel` | Ein explizit ausgewähltes Katalogmodell bei Bedarf hashgeprüft unter der Medienwurzel ablegen |
 | `Get-SqlServerLabAiComputeInventory` | Lokale CPU-, GPU- und NPU-Geräte ohne Runtime-Start read-only inventarisieren |
 | `Get-SqlServerLabExternalRuntimeCapability` | Explizite Katalogentscheidung, optional begrenzte Hostprüfung oder exakte historische Identität; keine aktuelle SQL-Abnahme oder Mutation |
+| `Get-SqlServerLabSsisCatalogCapability` | Vorhandenen eigenen Windows-/Hyper-V-/SQL-2019/2022/2025-Run read-only an SSISDB-Voraussetzungen binden; keine Fixture, Verbindung oder Ausführung |
 | `Get-SqlServerLabAiRuntimeCapability` | Lokale llama.cpp-Paketbinärdateien hashen und hardwaregebundene CPU-/GPU-/NPU-Lanes ableiten |
 | `Get-SqlServerLabAiComputeCandidate` | Vollständige erlaubte Einzel-, Mehr-GPU- und gemischte Gerätekandidaten erzeugen |
 | `Get-SqlServerLabAiComputeSelection` | Schnellste vollständig benchmarkte geeignete Gerätekombination wählen oder einen Kandidaten explizit fixieren |

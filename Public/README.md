@@ -1,5 +1,10 @@
 # Public/ – Exportierte Cmdlets
 
+## SSISDB: Ziel- und Capabilitybindung
+
+`Get-SqlServerLabSsisCatalogCapability -RunId $runId -InstanceId primary` beobachtet frisch und read-only eine einzelne bereits laufende eigene Hyper-V-/Windows-/SQL-2019-, -2022- oder -2025-Instanz. Der Cmdlet bindet Run und Instanz vor dem Gasttransport und projiziert ausschließlich Statuswerte: SQL-Edition, SSIS-Komponentenbeobachtung und den SSISDB-Katalogstatus. Rückgabeobjekte enthalten weder lokale Pfade, VM-Namen, Endpunkte noch Credentials.
+
+`READY_FOR_FIXTURE_IMPLEMENTATION` beschreibt nur die Voraussetzung für den nachfolgenden, separat gebundenen Fixture-Slice. Der Cmdlet startet keine VM, installiert nichts, erstellt kein SSISDB, erzeugt keine Projekte, Pakete oder Ausführungen und stellt keine Consumer-Verbindung oder Rechte für SQL_Server_Analyze bereit. Über den vollständigen Exportkatalog ist er sowohl in der Konsolen-CLI als auch im Browser unter **Status und Diagnose** mit denselben Parametern verfügbar. [Vertrag](../Documentation/Architecture/SSISDB_TEST_FIXTURE.md).
 ## SMTP-Testdienst: Status und WebMail
 
 `Get-SqlServerLabSmtpTestServiceStatus -RunId $runId` zeigt für einen
