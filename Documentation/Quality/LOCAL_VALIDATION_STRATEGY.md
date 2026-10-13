@@ -3195,8 +3195,11 @@ und wurde abgebrochen. Beide Logs enthalten die Host-Tool-Signatur mit
 Suitecounts. Der aggregierte Abbruch bleibt `cancelled` / `UNKNOWN`; die
 bestimmte Vertragsabweichung bleibt ein eigener Fehler. Die tatsächliche
 PowerShell-/.NET-Version des gehosteten Laufs ist nicht attestiert.
-Nur `full-static-contracts` erhält deshalb nun 40 Minuten Gesamtbudget je
-Matrixplattform. Die bestehende Liste mit 134 Suites, einzelne Previewfristen,
+Nur `full-static-contracts` erhält deshalb nun 50 Minuten Gesamtbudget je
+Matrixplattform. Der nachfolgende Lauf 38332750862 vom 2026-10-13 erreichte
+seinen 40-Minuten-Jobabbruch nur Sekunden nach dem erfolgreichen Ende von
+`Invoke-AllChecks.ps1`; die erhöhte Reserve verhindert diese Orchestrierungsgrenze.
+Die bestehende Liste mit 134 Suites, einzelne Previewfristen,
 `fail-fast: false`, Concurrency, Providerjobs und Shared-Autorisierung bleiben
 erhalten. Die Budgetänderung und die fokussierten lokalen Prüfungen belegen
 keinen neuen vollständigen Windows-/Ubuntu-Nightly-Erfolg. Issue
