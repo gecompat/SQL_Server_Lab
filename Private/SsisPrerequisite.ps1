@@ -18,9 +18,10 @@ function Get-LabSsisPrerequisiteContext {
         [string]$run.metadata.workflowKind -cne 'hyperv-lab' -or -not [string]$run.scopeId -or $instances.Count -ne 1) { throw 'SSIS_TARGET_INVALID' }
     $instance=$instances[0]
     $vmId=[guid]::Empty
+    $expectedInstance=if([string]$instance.sqlReadiness.instanceName){[string]$instance.sqlReadiness.instanceName}else{'MSSQLSERVER'}
     if ([string]$instance.provider -cne 'hyperv' -or [string]$instance.workload -cne 'sql' -or
         [string]$instance.sqlVersion -cnotin @('2019','2022','2025') -or -not [guid]::TryParse([string]$instance.vmId,[ref]$vmId) -or $vmId -eq [guid]::Empty -or
-        [string]$instance.sqlReadiness.instanceName -cnotmatch '^[A-Za-z][A-Za-z0-9_]{0,127}$' -or
+        $expectedInstance -cnotmatch '^[A-Za-z][A-Za-z0-9_]{0,127}$' -or
         [int]$instance.port -lt 1 -or [int]$instance.port -gt 65535) { throw 'SSIS_TARGET_INVALID' }
     $managed=Get-HyperVManagedVM -VMName ([string]$instance.vmName) -ExpectedRunId $RunId.ToString() -ExpectedScopeId ([string]$run.scopeId)
     if (-not $managed -or [string]$managed.VM.Id -ne $vmId.ToString() -or [string]$managed.VM.State -ne 'Running' -or
@@ -30,7 +31,7 @@ function Get-LabSsisPrerequisiteContext {
     }
     $identity=@{Run=$run;Connection=$connection;VmId=$vmId.ToString();InstanceId=$InstanceId} | ConvertTo-Json -Depth 32 -Compress
     $expectedMajor=switch ([string]$instance.sqlVersion) { '2019' { 15 } '2022' { 16 } '2025' { 17 } default { 0 } }
-    [pscustomobject]@{Run=$run;Instance=$instance;Directory=$directory;StateRoot=$root;ExpectedMajor=$expectedMajor;Fingerprint=[Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($identity)))}
+    [pscustomobject]@{Run=$run;Instance=$instance;Directory=$directory;StateRoot=$root;ExpectedMajor=$expectedMajor;ExpectedInstance=$expectedInstance;Fingerprint=[Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($identity)))}
 }
 
 function Get-LabSsisGuestProbe {
@@ -149,7 +150,7 @@ function Invoke-LabSsisPrerequisite {
         $observation=@(Invoke-HyperVPowerShellDirect -VMName ([string]$context.Instance.vmName) -ExpectedRunId $RunId.ToString() `
             -ExpectedScopeId ([string]$context.Run.scopeId) -ExpectedVmId ([guid]$context.Instance.vmId) `
             -Credential ([pscredential]::new('Administrator',$guest)) -ScriptBlock (Get-LabSsisGuestProbe) `
-            -ArgumentList @($sa,[int]$context.Instance.port,[string]$context.Instance.sqlReadiness.instanceName,[int]$context.ExpectedMajor,[math]::Min(30,$TimeoutSeconds)) `
+            -ArgumentList @($sa,[int]$context.Instance.port,[string]$context.ExpectedInstance,[int]$context.ExpectedMajor,[math]::Min(30,$TimeoutSeconds)) `
             -TimeoutSeconds $TimeoutSeconds -ErrorAction Stop 3>$null 4>$null 5>$null 6>$null)
         $fresh=Get-LabSsisPrerequisiteContext -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot
         if ($fresh.Fingerprint -cne $context.Fingerprint) { return ConvertTo-LabSsisPrerequisiteResult -Observation $null -FailureCode 'SSIS_BINDING_CHANGED' }
