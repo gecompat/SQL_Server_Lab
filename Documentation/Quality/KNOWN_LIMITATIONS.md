@@ -140,6 +140,12 @@ Der [getrennte CLI-Nachweis](LOCAL_VALIDATION_STRATEGY.md#getrennte-autostart-cl
 ersetzt weder die Browser-/HTTP-Abnahme noch einen Hostlogin-, SQL-/Endpoint-
 oder Applynachweis.
 
+**ON_HOLD (2026-10-12):** Der Browser-Observer-/HTTP-Nachweis der
+Autostartvorschau liefert für den vorgesehenen `UNKNOWN`-Policyzustand eine
+inkonsistente Fehlersignatur. Zwei gezielte Diagnoseansätze änderten daran
+nichts; weitere Wiederholungen bleiben bis zu einer getrennten
+Observer-Architekturanalyse ausgesetzt.
+
 
 Der owned-host-only Harness
 `Tests/Integration/Invoke-ContainerPortPreviewAcceptance.ps1` bestand am
@@ -3243,6 +3249,15 @@ ein eigener Stop wurde in separater Recovery bestätigt. Der Nativevertrag
 bleibt ohne erfolgreichen Gesamtbeleg. Vorhandene OOBE-Localequittungen belegen
 keine spätere Poolcapture. Feste feldbezogene Causecodes ermöglichen die
 erneute gebundene Diagnose; Offline- und Prozessracechecks ersetzen sie nicht.
+**ON_HOLD (2026-10-12):** Die erneute fokussierte Prüfung bestand lokal mit
+167 Assertions und fünf echten Prozessrace-/Recovery-Prüfungen. Der vollständige
+Native-Harness kann in der aktuellen nicht erhöhten Lane jedoch nicht gestartet
+werden. Zusätzlich enthält der konfigurierte Medienroot nur SQL Server 2022
+Evaluation; ein verifiziertes Windows-2025-Desktop-`OS_SEALED`-Artifact und das
+für den Harness erforderliche SQL-2025-Medium fehlen. Es gibt daher keinen
+sicheren eigenen Poolmember-Lauf, den diese Welle erzeugen dürfte. Wiederaufnahme
+erst in einer erhöhten, freigegebenen Lane mit genau diesen gebundenen Assets;
+vorher keine erneuten identischen Native-Starts.
 Eine DataRoot-Migration mit tatsächlicher StateRootverschiebung ist bei
 Poolmitgliedern einschließlich CONSUMED vor Copy/Mutation blockiert; nur
 REMOVED-Tombstones ohne frisch gebundene VM sind ausgenommen. Ein

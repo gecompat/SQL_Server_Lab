@@ -68,7 +68,8 @@ Add-CheckResult -Name 'Docker und Podman setzen Restart-Policy und Autostart-Lab
 Add-CheckResult -Name 'Hostkoordinator deckt Windows und natives Podman/Linux ab' -Success (
     $coordinator -match 'Register-ScheduledTask' -and $coordinator -match 'machine start' -and
     $coordinator -match 'podman-restart\.service' -and $coordinator -match 'enable-linger' -and
-    $coordinator -match 'is-enabled docker\.service' -and $coordinator -match 'label=sql-server-lab\.autostart=on' -and
+    $coordinator -match 'is-enabled docker\.service' -and $coordinator -match 'label=sql-server-lab\.provider=\$Provider' -and
+    $coordinator -match 'HostConfig\.RestartPolicy\.Name' -and $coordinator -match 'unless-stopped' -and
     $coordinator -match 'Test-LabWindowsContainerAutoStartTaskReusable'
 )
 Add-CheckResult -Name 'Paralleler Windows-Autostart besitzt Erkennung, Receipt und Recovery' -Success (
@@ -131,6 +132,16 @@ try {
         $dockerReadyIndex -ge 0 -and $podmanStartIndex -gt $dockerReadyIndex -and
         $runtimeReadyIndex -gt $podmanStartIndex -and $podmanDesktopIndex -gt $runtimeReadyIndex -and
         $containerStartIndex -gt $podmanDesktopIndex -and $generatedEvidence.ParallelParseErrors -eq 0
+    )
+    $managedRunFilterIndex = $generatedEvidence.PodmanOnly.IndexOf("--filter 'label=sql-server-lab.run-id'", [StringComparison]::Ordinal)
+    $legacyAutoStartLabelIndex = $generatedEvidence.PodmanOnly.IndexOf("label=sql-server-lab.autostart=on", [StringComparison]::Ordinal)
+    $restartPolicyInspectIndex = $generatedEvidence.PodmanOnly.IndexOf("inspect --format '{{.HostConfig.RestartPolicy.Name}}'", [StringComparison]::Ordinal)
+    $restartPolicyGuardIndex = $generatedEvidence.PodmanOnly.IndexOf("if (`$restartPolicy -in @('always', 'unless-stopped'))", [StringComparison]::Ordinal)
+    $runtimeStartIndex = $generatedEvidence.PodmanOnly.IndexOf('& $runtime start', [StringComparison]::Ordinal)
+    Add-CheckResult -Name 'Generierter Windows-Koordinator nutzt die gemessene Restart-Policy statt des unveränderlichen Labels' -Success (
+        $managedRunFilterIndex -ge 0 -and $legacyAutoStartLabelIndex -lt 0 -and
+        $restartPolicyInspectIndex -gt $managedRunFilterIndex -and $restartPolicyGuardIndex -gt $restartPolicyInspectIndex -and
+        $runtimeStartIndex -gt $restartPolicyGuardIndex
     )
     Add-CheckResult -Name 'Nur der bekannte Podman-Desktop-Loginwert wird übernommen' -Success (
         $generatedEvidence.RecognizedQuotedEntry -and $generatedEvidence.RejectsForeignEntry -and

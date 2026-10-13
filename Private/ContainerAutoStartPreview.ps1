@@ -70,9 +70,9 @@ function New-LabContainerAutoStartPreview {
             $result.Status='UNSUPPORTED';$result.Reason='AUTOSTART_PREVIEW_POLICY_UNSUPPORTED'; return $result
         }
         $current=if($policy -cin @('always','unless-stopped')){'on'}else{'off'}
-        if ($label -cne $current) {
-            $result.Actual.AutoStart='DRIFTED';$result.Reason='AUTOSTART_PREVIEW_POLICY_DRIFTED'; return $result
-        }
+        # sql-server-lab.autostart records creation intent and stays immutable
+        # when P1 changes the runtime policy in place. It remains mandatory
+        # custody evidence, but the measured runtime policy is authoritative.
         $ports=$inspect.NetworkSettings.Ports
         $configuredPorts=$inspect.HostConfig.PortBindings
         $networks=$inspect.NetworkSettings.Networks
@@ -139,8 +139,10 @@ function New-LabContainerAutoStartPreview {
         $result.Provider=$binding.Provider; $result.Status='PLAN_ONLY'; $result.Reason='AUTOSTART_PREVIEW_APPLY_NOT_IMPLEMENTED'
         $result.Actual=[pscustomobject]@{Evidence='MEASURED';SqlBinding='SINGLE_LOOPBACK_1433_TCP';Lifecycle='RUNNING';AutoStart=if($current -ceq 'on'){'ON'}else{'OFF'}}
         $result.Desired.AutoStartChange=if($same){'SAME_POLICY'}else{'DIFFERENT_POLICY'}
-        $result.NoChange=$same; $result.ChangeClass=if($same){'no-op'}else{'recreate'}
-        $result.Preview.Downtime=if($same){'NONE'}else{'REQUIRED'}
+        # A supported future executor uses runtime update --restart against the
+        # bound full ID. It neither recreates nor starts/stops the container.
+        $result.NoChange=$same; $result.ChangeClass=if($same){'no-op'}else{'live'}
+        $result.Preview.Downtime='NONE'
         $result.Preview.Mounts=Get-LabContainerMountPreview -Inspect $inspect
         return $result
     }

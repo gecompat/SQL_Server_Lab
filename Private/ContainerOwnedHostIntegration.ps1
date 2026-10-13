@@ -139,8 +139,14 @@ function Get-LabOwnedHostPolicy {
     }
     $policy = Read-LabOwnedHostRecord -Path $path
     Assert-LabOwnedHostProperties -Value $policy -Names @('ContractVersion','Mode','PolicyId','RootScopeId','StateRoot','OwnerSid','ParentOperationId','RuntimePins')
+    # ConvertFrom-Json represents a one-element JSON array as its contained
+    # PSCustomObject. Keep the contract's one- or two-provider collection
+    # semantics before validating and returning the policy.
+    $policy.RuntimePins = @($policy.RuntimePins)
     if ($policy.ContractVersion -cne 'SqlServerLab.OwnedHostPolicy/1.0' -or $policy.Mode -cne 'OwnedRunWindows' -or
-        [string]$policy.StateRoot -cne $root -or $policy.RuntimePins -isnot [array] -or
+        # OwnedRunWindows paths are case-insensitive; canonical resource roots
+        # normalize their casing before this readback.
+        [string]$policy.StateRoot -ine $root -or $policy.RuntimePins -isnot [array] -or
         @($policy.RuntimePins).Count -notin @(1,2)) { throw 'OWNED_HOST_POLICY_INVALID' }
     Assert-LabOwnedHostGuid -Value $policy.PolicyId
     Assert-LabOwnedHostGuid -Value $policy.RootScopeId
@@ -772,7 +778,8 @@ $module=New-Module -ArgumentList $sources -ScriptBlock {
         if($result.ExitCode -ne 0) { continue }
         $items=@($result.Stdout|ConvertFrom-Json -Depth 32)
         if($items.Count -ne 1) { throw 'OWNED_HOST_CONTAINER_AMBIGUOUS' }
-        if($items[0].Config.Labels.'sql-server-lab.autostart' -cne 'on') { continue }
+        $restartPolicy=[string]$items[0].HostConfig.RestartPolicy.Name
+        if($restartPolicy -cnotin @('always','unless-stopped')) { continue }
         Assert-LabOwnedHostContainerEffect -StateRoot $StateRoot -RunId $RunId -Provider $Provider -ContainerId $receipt.ContainerId
         $started=Invoke-LabOwnedHostPinnedCommand -StateRoot $StateRoot -Provider $Provider -Arguments @('start',$receipt.ContainerId)
         if($started.ExitCode -ne 0) { throw 'OWNED_HOST_COORDINATOR_START_FAILED' }

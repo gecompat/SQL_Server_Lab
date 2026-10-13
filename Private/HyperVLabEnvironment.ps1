@@ -53,6 +53,46 @@ function Get-HyperVLabRuntimeName {
     return "$(($LabName.Trim()))-$runPrefix"
 }
 
+function Get-LabHyperVAutoStartApplyPlan {
+    <# Binds an in-place Hyper-V autostart change to one managed VM. #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$RunId,
+        [Parameter(Mandatory)][ValidateSet('on','off')][string]$AutoStart,
+        [string]$StateRoot
+    )
+
+    Assert-LabResourceChangeAllowed -RunId $RunId -StateRoot $StateRoot
+    $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
+    if ([string]$lab.Run.state -notin @('RUNNING','STOPPED')) { throw 'HYPERV_LAB_AUTOSTART_LIFECYCLE_BLOCKED' }
+    $desiredInstances = @($lab.Run.metadata.desiredState.Instances | Where-Object {
+        [string]$_.Id -eq [string]$lab.Instance.id -and [string]$_.Provider -eq 'hyperv'
+    })
+    if ($desiredInstances.Count -ne 1 -or [string]$desiredInstances[0].AutoStart -notin @('on','off')) {
+        throw 'HYPERV_LAB_AUTOSTART_DESIRED_STATE_INVALID'
+    }
+    $managed = Get-HyperVManagedVM -VMName ([string]$lab.Instance.vmName) `
+        -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
+    if (-not $managed -or [string]$managed.VM.Id -ne [string]$lab.Instance.vmId) { throw 'HYPERV_LAB_AUTOSTART_RUNTIME_BINDING_INVALID' }
+    $current = switch ([string]$managed.VM.AutomaticStartAction) {
+        'Start' { 'on'; break }
+        'Nothing' { 'off'; break }
+        default { throw 'HYPERV_LAB_AUTOSTART_POLICY_UNKNOWN' }
+    }
+    $binding = [ordered]@{
+        Root = [string]$lab.StateRoot; Run = [string]$lab.Run.runId; Scope = [string]$lab.Run.scopeId
+        Instance = [string]$lab.Instance.id; VmId = [string]$managed.VM.Id; State = [string]$managed.VM.State
+        CurrentAutoStart = $current; PersistedAutoStart = [string]$desiredInstances[0].AutoStart; DesiredAutoStart = $AutoStart
+    }
+    $planKey = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData(
+        [Text.Encoding]::UTF8.GetBytes(($binding | ConvertTo-Json -Depth 12 -Compress)))).ToLowerInvariant()
+    [pscustomobject]@{
+        Lab = $lab; Managed = $managed; DesiredInstance = $desiredInstances[0]; CurrentAutoStart = $current
+        NoChange = ($current -eq $AutoStart -and [string]$desiredInstances[0].AutoStart -eq $AutoStart)
+        PlanKey = $planKey
+    }
+}
+
 function Set-HyperVLabAutoStart {
     <# Setzt den nativen VM-Autostart und den persistierten Labvertrag gemeinsam. #>
     [CmdletBinding()]
@@ -68,11 +108,27 @@ function Set-HyperVLabAutoStart {
     $managed = Get-HyperVManagedVM -VMName ([string]$lab.Instance.vmName) `
         -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
     if (-not $managed) { throw 'HYPERV_LAB_VM_NOT_FOUND' }
+    $desiredInstances = @($lab.Run.metadata.desiredState.Instances | Where-Object {
+        [string]$_.Id -eq [string]$lab.Instance.id -and [string]$_.Provider -eq 'hyperv'
+    })
+    if ($desiredInstances.Count -ne 1 -or [string]$desiredInstances[0].AutoStart -notin @('on','off')) {
+        throw 'HYPERV_LAB_AUTOSTART_DESIRED_STATE_INVALID'
+    }
+    $beforeVmId = [string]$managed.VM.Id
+    $beforeState = [string]$managed.VM.State
     $automaticStartAction = if ($AutoStart -eq 'on') { 'Start' } else { 'Nothing' }
     $null = Set-VM -VM $managed.VM -AutomaticStartAction $automaticStartAction -ErrorAction Stop
 
+    $after = Get-HyperVManagedVM -VMName ([string]$lab.Instance.vmName) `
+        -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
+    if (-not $after -or [string]$after.VM.Id -ne $beforeVmId -or [string]$after.VM.State -ne $beforeState -or
+        [string]$after.VM.AutomaticStartAction -ne $automaticStartAction) {
+        throw 'HYPERV_LAB_AUTOSTART_POSTCONDITION_FAILED'
+    }
+
     $lab.Instance | Add-Member -NotePropertyName autostart -NotePropertyValue $AutoStart -Force
     $lab.Run.metadata | Add-Member -NotePropertyName autostart -NotePropertyValue $AutoStart -Force
+    $desiredInstances[0].AutoStart = $AutoStart
     $lab.Run.updatedAt = Get-LabTimestamp
     Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'connection-info.json') -InputObject $lab.Connection
     Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'run-state.json') -InputObject $lab.Run
@@ -572,6 +628,7 @@ function New-HyperVLabEnvironmentFromExistingVm {
     Write-LabInfo 'Schritt 2/6: Workflow-Run und Cleanup-Plan werden angelegt.'
     $run = New-LabRunState -StateRoot $StateRoot -Metadata @{
         name = $LabName; workflowKind = 'hyperv-lab'; baseKind = 'existing-vm'; workload = 'windows'; autostart = $AutoStart
+        desiredState = [pscustomobject]@{ Instances = @([pscustomobject]@{ Id = $InstanceId; Provider = 'hyperv'; AutoStart = $AutoStart }) }
         sourceVMName = $source.VMName; sourceVhdxPath = $source.SourceVhdxPath
         sourceLicenseNotice = $source.LicenseNotice
         windowsActivationIntent=$activationIntent

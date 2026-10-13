@@ -145,10 +145,14 @@ function Get-LabContainerReconcileContext {
     $healthCommand = [string](@($inspect.Config.Healthcheck.Test) -join ' ')
     $restartPolicy = [string]$inspect.HostConfig.RestartPolicy.Name
     $autoStartLabel = [string]$inspect.Config.Labels.'sql-server-lab.autostart'
-    $currentAutoStart = if ($restartPolicy -in @('always','unless-stopped') -and $autoStartLabel -eq 'on') {
+    # The label is immutable creation metadata. A later direct policy update
+    # deliberately preserves the container ID and therefore cannot rewrite it.
+    # Runtime policy is the measured autostart authority; an unknown policy is
+    # still a drift that must not be silently reconciled.
+    $currentAutoStart = if ($restartPolicy -in @('always','unless-stopped')) {
         'on'
     }
-    elseif (($restartPolicy -in @('','no')) -and $autoStartLabel -in @('','off')) {
+    elseif ($restartPolicy -in @('','no')) {
         'off'
     }
     else { 'DRIFTED' }
@@ -409,8 +413,7 @@ function New-LabContainerReconcilePlan {
         $AutoStart
     }
     elseif ([string]$context.CurrentAutoStart -eq 'on' -or
-        [string]$context.CurrentRestartPolicy -in @('always','unless-stopped') -or
-        [string]$context.CurrentAutoStartLabel -eq 'on') {
+        [string]$context.CurrentRestartPolicy -in @('always','unless-stopped')) {
         'on'
     }
     else { 'off' }

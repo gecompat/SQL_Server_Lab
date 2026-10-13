@@ -96,6 +96,12 @@ Get-SqlServerLabPortableContainerTransferExecutorPlan # Mehrdatenbank-Transferve
 Invoke-SqlServerLabPortableContainerTransferPreflight # Explizite Backupsets im live gebundenen persistent-backups Mount SQL-seitig vorprüfen; Transfer bleibt blockiert
 Test-SqlServerLabRelationalCoreComparison # Verwaltete Container-Datenbankpaare PK-sortiert ohne Rohwerte read-only vergleichen
 Get-SqlServerLabHyperVRecoveryPointPlan # Bestehende rungebundene Hyper-V-Checkpoints read-only inventarisieren
+Get-SqlServerLabContainerAutoStartPlan # Gebundenen Container-Autostartplan lesen
+Set-SqlServerLabContainerAutoStart # Container-Restartpolicy direkt und journalisiert ändern
+Resume-SqlServerLabContainerAutoStart # Nur Container-Statepersistenz wiederaufnehmen
+Get-SqlServerLabHyperVAutoStartPlan # Gebundenen Hyper-V-Autostartplan lesen
+Set-SqlServerLabHyperVAutoStart # Hyper-V-Autostart direkt und journalisiert ändern
+Resume-SqlServerLabHyperVAutoStart # Nur Hyper-V-Statepersistenz wiederaufnehmen
 Get-SqlServerLabSqlObservabilityEvidence # Aggregierte SQL-Metriken ohne Namen, Endpunkte oder Secrets read-only erfassen
 Get-SqlServerLabHyperVResourcePreview  # Physische Hyper-V-Klassenroots und Kapazitaet read-only vor UAC
 Get-SqlServerLabCatalog                # Laufzeit-Workflow-Katalog als JSON-Artefakt schreiben

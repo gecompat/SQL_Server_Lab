@@ -16,9 +16,9 @@ function Write-AutoStartPreviewAcceptanceObservation {
     if($null -ne $Plan.Provider){Scalar $Plan.Provider @($Provider)}
     Scalar $Plan.Actual.Evidence @('MEASURED','UNKNOWN');Scalar $Plan.Actual.SqlBinding @('SINGLE_LOOPBACK_1433_TCP','UNKNOWN')
     Scalar $Plan.Actual.Lifecycle @('RUNNING','UNKNOWN');Scalar $Plan.Actual.AutoStart @('ON','OFF','UNKNOWN','DRIFTED')
-    Scalar $Plan.Desired.AutoStartChange @('SAME_POLICY','DIFFERENT_POLICY','UNKNOWN');Scalar $Plan.ChangeClass @('no-op','recreate','unsupported')
+    Scalar $Plan.Desired.AutoStartChange @('SAME_POLICY','DIFFERENT_POLICY','UNKNOWN');Scalar $Plan.ChangeClass @('no-op','live','unsupported')
     if($null -ne $Plan.NoChange -and $Plan.NoChange -isnot [bool]){throw 'AUTOSTART_ACCEPTANCE_DTO_INVALID'}
-    Scalar $Plan.Preview.Downtime @('NONE','REQUIRED','UNKNOWN')
+    Scalar $Plan.Preview.Downtime @('NONE','UNKNOWN')
     foreach($field in @('Endpoint','Sql','Backup','HostLogin')){Scalar $Plan.Preview.$field @('NOT_CHECKED')}
     Scalar $Plan.Preview.DataImpact @('NOT_VERIFIED')
     if($null -ne $Plan.ObservationKey -and ($Plan.ObservationKey -isnot [string] -or $Plan.ObservationKey -cnotmatch '^[a-f0-9]{64}$')){throw 'AUTOSTART_ACCEPTANCE_DTO_INVALID'}
@@ -76,7 +76,7 @@ function Invoke-AutoStartPreviewAcceptanceObservations {
         $plans.Add($plan)
     }
     foreach($i in @(0,4)){if($plans[$i].NoChange -ne $true -or $plans[$i].ChangeClass -cne 'no-op' -or $plans[$i].Desired.AutoStartChange -cne 'SAME_POLICY' -or $plans[$i].Preview.Downtime -cne 'NONE'){throw 'AUTOSTART_ACCEPTANCE_NOOP'}}
-    foreach($i in @(1,2,3)){if($plans[$i].NoChange -ne $false -or $plans[$i].ChangeClass -cne 'recreate' -or $plans[$i].Desired.AutoStartChange -cne 'DIFFERENT_POLICY' -or $plans[$i].Preview.Downtime -cne 'REQUIRED'){throw 'AUTOSTART_ACCEPTANCE_CHANGE'}}
+    foreach($i in @(1,2,3)){if($plans[$i].NoChange -ne $false -or $plans[$i].ChangeClass -cne 'live' -or $plans[$i].Desired.AutoStartChange -cne 'DIFFERENT_POLICY' -or $plans[$i].Preview.Downtime -cne 'NONE'){throw 'AUTOSTART_ACCEPTANCE_CHANGE'}}
     if($plans[1].ObservationKey -cne $plans[2].ObservationKey -or $plans[1].ObservationKey -cne $plans[3].ObservationKey -or $plans[0].ObservationKey -cne $plans[4].ObservationKey -or $plans[0].ObservationKey -ceq $plans[1].ObservationKey){throw 'AUTOSTART_ACCEPTANCE_CONTENT_KEY'}
     $after=Get-PortPreviewAcceptanceFileBinding -DataRoot $Scope.DataRoot
     if(($before|ConvertTo-Json -Depth 5 -Compress) -cne ($after|ConvertTo-Json -Depth 5 -Compress)){throw 'AUTOSTART_ACCEPTANCE_PREVIEW_STATE_WRITE'}
