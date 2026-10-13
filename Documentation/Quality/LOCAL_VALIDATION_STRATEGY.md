@@ -173,6 +173,22 @@ Run-/Scope-Ownership, SQL-Integration, End-to-End-Zustellung und Cleanup
 nachgewiesen. Podman bleibt für den vollständigen Lifecycle offen; eine
 öffentliche SMTP-API entsteht nicht.
 
+Der strenge lokale Imagepfad wurde am 2026-10-12 auf dem Quellstand
+`411c9c1e` (später über PR #745 nach `origin/main` integriert) zusätzlich mit
+Docker ausgeführt. Ein normaler Run mit
+`Schemas/example-smtp-require-existing.json` verwendete vor dem Start bereits
+lokal vorhandene, exakt aufgelöste Mailpit- und Gateway-Images. Die
+Servicejournal-Postcondition war `READY`; der Run endete nach dem Cleanup mit
+`REMOVED`. Ein zweiter Docker-Run führte denselben Modus als OwnedHost aus:
+Der Sender nutzte ein bereits vorhandenes, nicht internes Netz, Receiver und
+Gateway wurden über ihre eigenen Run-/Scope-Intents bereitgestellt, das
+Servicejournal erreichte `READY`, und der Own-Cleanup endete mit `REMOVED`.
+Beide Läufe belegen die Vorauflösung lokaler Images, den Start mit
+`--pull=never`, den fehlenden Gateway-Build sowie die jeweilige Lifecycle- und
+Cleanupbindung. Sie enthalten keine neue Database-Mail-End-to-End-Nachricht;
+diese ist ausschließlich durch den davor beschriebenen normalen Docker-Lauf
+belegt. Lokale Rohjournale und Hostartefakte bleiben absichtlich ignoriert.
+
 ## Privater SMTP-Receiver-Lesetransport
 
 Die [Receiver-Suite](../../Tests/Static/Invoke-SmtpTestServiceReceiverReadChecks.ps1)
