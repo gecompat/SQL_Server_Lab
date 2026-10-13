@@ -59,17 +59,18 @@ $contextCases=& {
     function Read-LabDiagnosticJson {
         param($Path)
         if($Path.EndsWith('run-state.json')){return [pscustomobject]@{runId=$id.ToString();scopeId='synthetic';state=$(if($mode -eq 'stopped'){'STOPPED'}else{'RUNNING'});metadata=@{workflowKind='hyperv-lab'}}}
-        $instance=[pscustomobject]@{id='primary';provider=$(if($mode -eq 'provider'){'docker'}else{'hyperv'});workload='sql';sqlVersion=$(if($mode -eq 'unsupported-version'){'2017'}elseif($mode -eq 'older-version'){'2022'}else{'2025'});vmName='synthetic';vmId=$vmId;port=1433;sqlReadiness=@{instanceName='MSSQLSERVER'}}
+        $instance=[pscustomobject]@{id='primary';provider=$(if($mode -eq 'provider'){'docker'}else{'hyperv'});workload='sql';sqlVersion=$(if($mode -eq 'unsupported-version'){'2017'}elseif($mode -eq 'older-version'){'2022'}else{'2025'});vmName='synthetic';vmId=$vmId;port=1433;sqlReadiness=$(if($mode -eq 'legacy-default'){@{}}else{@{instanceName='MSSQLSERVER'}})}
         [pscustomobject]@{instances=$(if($mode -eq 'duplicate'){@($instance,$instance)}else{@($instance)})}
     }
     function Get-HyperVManagedVM { [pscustomobject]@{VM=@{Id=$(if($mode -eq 'vm'){'33333333-3333-3333-3333-333333333333'}else{$vmId});State='Running'};Identity=@{instanceId=$(if($mode -eq 'instance'){'foreign'}else{'primary'})}} }
     $values=@{}
-    foreach($mode in @('valid','older-version','stopped','provider','unsupported-version','duplicate','vm','instance')) {
+    foreach($mode in @('valid','legacy-default','older-version','stopped','provider','unsupported-version','duplicate','vm','instance')) {
         try{$context=Get-LabSsisPrerequisiteContext -RunId $id -InstanceId primary -StateRoot ([IO.Path]::GetTempPath());$values[$mode]=[bool]$context.Fingerprint}catch{$values[$mode]=$false}
     }
     $values
 }
 Check 'Echter Kontext benötigt kein Prepared-Image' $contextCases.valid
+Check 'Aelterer eigener Run ohne gespeicherten Namen bindet nur an die verifizierte Defaultinstanz' $contextCases['legacy-default']
 Check 'Echter Kontext akzeptiert korrekt bezeichnete SQL-2022-Quelle' $contextCases['older-version']
 foreach($mode in @('stopped','provider','unsupported-version','duplicate','vm','instance')){Check "Echter Kontext verweigert $mode" (-not $contextCases[$mode])}
 $wrapperCases=& {
