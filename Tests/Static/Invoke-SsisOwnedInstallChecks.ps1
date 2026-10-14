@@ -34,8 +34,12 @@ foreach($case in @('valid','operation','hash','vm','provider','workload','runnin
 }
 $installerSource=Get-Content -LiteralPath (Join-Path $repoRoot 'Private/SsisOwnedInstall.ps1') -Raw
 Check 'IS-Installationslauf bindet den vorhandenen temporaeren Windows-Aktivierungsmechanismus' ($installerSource -match "WindowsActivation @\{ContractVersion='SqlServerLab\.WindowsActivationIntent/1\.0';Strategy='EvaluationOnline';EgressPolicy='AllowTemporary'\}")
+Check 'Langer SSIS-Gasttransport besitzt einen eigenstaendigen Fortschrittsreporter' ($installerSource -match '\$blockingProgress=Start-LabBlockingActionProgress -Phase GuestWait' -and $installerSource -match 'finally \{if\(\$blockingProgress\)\{Stop-LabBlockingActionProgress -Handle \$blockingProgress\}')
 $arguments=@(Get-LabSsisSetupArguments)
 Check 'Setup benötigt keine Dienstsecrets und deaktiviert beide Updatequellen' ($arguments.Count -eq 4 -and $arguments -contains '/UpdateEnabled=False' -and $arguments -contains '/USEMICROSOFTUPDATE=False' -and $arguments -contains '/ISSVCACCOUNT="NT AUTHORITY\NETWORK SERVICE"' -and $arguments -contains '/ISSVCStartupType=Automatic')
+Check 'SSISDB-Fixture verwendet nur installierte Gastassemblies und keine Beschaffung' ($installerSource -match "LoadWithPartialName\('Microsoft\.SqlServer\.Management\.IntegrationServices'\)" -and $installerSource -match 'Microsoft\.SqlServer\.Dts\.Runtime\.dll' -and $installerSource -notmatch '(?i)(Invoke-WebRequest|Start-BitsTransfer|winget|choco|Install-Module)')
+Check 'SSISDB-Fixture bildet Erfolg, Fehler und ungestarteten Fall über Katalogausführungen ab' ($installerSource -match 'Success\.dtsx' -and $installerSource -match 'Failure\.dtsx' -and $installerSource -match 'Incomplete\.dtsx' -and $installerSource -match '\[catalog\]\.\[create_execution\]' -and $installerSource -match '\[catalog\]\.\[start_execution\]')
+Check 'SSISDB-Fixture löscht ausschließlich den eigenen Katalogordner' ($installerSource -match '\[catalog\]\.\[delete_folder\].*@folder_name=@folder' -and $installerSource -notmatch '(?i)(drop database\s+ssisdb|catalog\]\.\[delete_catalog)')
 
 $temporary=Join-Path ([IO.Path]::GetTempPath()) ('ssis-offline-'+[guid]::NewGuid().ToString('N'))
 $null=New-Item -ItemType Directory -Path $temporary

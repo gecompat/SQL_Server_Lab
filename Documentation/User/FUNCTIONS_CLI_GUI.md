@@ -575,3 +575,11 @@ Kein automatischer Stop, Retry, Ownershipadoption oder Cleanup-Erfolgsverspreche
 Bestehende eigene Sitzungsführung bleibt separat; SQL bleibt NOT_CHECKED.
 Die Browserführung ist synthetisch geprüft; neue reale Start-/Modell-/TLS-/
 Compute-/Cleanup-Abnahme und ausgewählte Provider-Gates sind NOT_EXECUTED.
+
+## SSISDB-Analysefixtur
+
+`Get-SqlServerLabSsisCatalogCapability` ist über **Alle öffentlichen Befehle** in CLI und Browser erreichbar und prüft ausschließlich eine bereits laufende, eigene Windows-/Hyper-V-Quelle read-only. Der Befehl startet keine VM, erstellt keine SSISDB und startet keine Pakete.
+
+`Install-SqlServerLabSsisComponent` ist der bestätigungspflichtige zweite Schritt. Er ergänzt nur Integration Services auf einem bereits laufenden eigenen Windows-SQL-2025-Run aus der vorhandenen hashgebundenen ISO; die vorhandene SQL-Engine bleibt bestehen. CLI und Browser zeigen denselben generischen Parameterdialog mit Run-, Instanz- und Medienbindung. Nach erfolgreichem Neustart zeigt die Receipt nur Versionen und Cleanup-Scope.
+
+`New-SqlServerLabSsisCatalogFixture -RunId $runId -InstanceId primary` erstellt danach SSISDB sowie Erfolg-, Fehler- und ungestartete Ausführung ausschließlich im eigenen Katalogordner. `Remove-SqlServerLabSsisCatalogFixture` entfernt nur diesen quittierten Ordner; `Remove-SqlServerLab` entfernt den gesamten Run. Der Runtime-Nachweis bleibt separat dokumentiert, bis er ausgeführt vorliegt: [SSISDB-Testfixtur](../Architecture/SSISDB_TEST_FIXTURE.md).

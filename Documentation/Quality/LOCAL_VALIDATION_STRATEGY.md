@@ -4056,3 +4056,18 @@ Inventare nicht als Rohkopien gesichert hatte, bleibt dieser Schutzvergleich
 nicht bestanden; spätere stabile Reads ersetzen ihn nicht. Eigene terminale
 States und Fehlerbelege bleiben lokal erhalten. Dieser Befund wird nicht auf
 die zuvor separat bestandenen Docker-/Podman-Artefaktläufe übertragen.
+
+## SSISDB-Fixture auf Prepared Hyper-V SQL 2025
+
+Die statischen Verträge für `Install-SqlServerLabSsisComponent`,
+`New-SqlServerLabSsisCatalogFixture` und den gezielten Fixture-Cleanup prüfen
+Prepared-Image-Bindung, hashgebundene lokale Medien, fehlende Beschaffung,
+Run-/Instanz-/VM-Bindung, ausschließliches `IS`-Setup, Neustartverifikation,
+sanitierte Receipts und die drei synthetischen Ausführungsfälle.
+
+Ein ausgeführter Windows-/SSISDB-Nachweis steht noch aus. Er muss aus einem
+frisch geklonten `SQL_PREPARED_SEALED`-SQL-2025-Run den Component-Receipt,
+die drei Execution-IDs und -Status, die beobachteten Katalogviews und Rechte,
+den gezielten Fixture-Cleanup sowie den vollständigen Run-Cleanup festhalten.
+Statische Resultate oder ältere vollständige SQL-Installationsversuche öffnen
+das SQL_Server_Analyze-Runtimegate nicht.

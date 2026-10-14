@@ -1,10 +1,13 @@
 # Public/ – Exportierte Cmdlets
 
-## SSISDB: Ziel- und Capabilitybindung
+## SSISDB: Ziel-, Komponenten- und Fixturebindung
 
-`Get-SqlServerLabSsisCatalogCapability -RunId $runId -InstanceId primary` beobachtet frisch und read-only eine einzelne bereits laufende eigene Hyper-V-/Windows-/SQL-2019-, -2022- oder -2025-Instanz. Der Cmdlet bindet Run und Instanz vor dem Gasttransport und projiziert ausschließlich Statuswerte: SQL-Edition, SSIS-Komponentenbeobachtung und den SSISDB-Katalogstatus. Rückgabeobjekte enthalten weder lokale Pfade, VM-Namen, Endpunkte noch Credentials.
+`Get-SqlServerLabSsisCatalogCapability -RunId $runId -InstanceId primary` beobachtet frisch und read-only eine einzelne bereits laufende eigene Hyper-V-/Windows-/SQL-2019-, -2022- oder -2025-Instanz. Die Rückgabe enthält nur SQL-, SSIS- und Katalogstatus, niemals lokale Pfade, VM-Namen, Endpunkte oder Credentials.
 
-`READY_FOR_FIXTURE_IMPLEMENTATION` beschreibt nur die Voraussetzung für den nachfolgenden, separat gebundenen Fixture-Slice. Der Cmdlet startet keine VM, installiert nichts, erstellt kein SSISDB, erzeugt keine Projekte, Pakete oder Ausführungen und stellt keine Consumer-Verbindung oder Rechte für SQL_Server_Analyze bereit. Über den vollständigen Exportkatalog ist er sowohl in der Konsolen-CLI als auch im Browser unter **Status und Diagnose** mit denselben Parametern verfügbar. [Vertrag](../Documentation/Architecture/SSISDB_TEST_FIXTURE.md).
+`Install-SqlServerLabSsisComponent` ist der bestätigungspflichtige, normale Bereitstellungsschritt für eine vorhandene eigene Windows-SQL-2025-Instanz. Er prüft Run-, Instanz- und VM-Bindung erneut, verwendet nur eine bereits vorhandene hashgebundene Enterprise-ISO und installiert ausschließlich das IS-Feature. Die SQL-Engine wird nicht neu installiert. Download, Build und Beschaffung sind ausgeschlossen; der zugehörige Run bleibt der vollständige Cleanup-Scope.
+
+`New-SqlServerLabSsisCatalogFixture -RunId $runId -InstanceId primary` richtet anschließend ausschließlich im gebundenen Run SSISDB und genau drei synthetische Ausführungen ein. Der gezielte `Remove-SqlServerLabSsisCatalogFixture` entfernt nur den quittierten eigenen Katalogordner; `Remove-SqlServerLab` entfernt den gesamten Run. Alle drei Cmdlets sind über den vollständigen Exportkatalog in Konsole und Browser unter **Status und Diagnose** mit denselben Parametern erreichbar. [Vollständiger Vertrag](../Documentation/Architecture/SSISDB_TEST_FIXTURE.md).
+
 ## SMTP-Testdienst: Status und WebMail
 
 `Get-SqlServerLabSmtpTestServiceStatus -RunId $runId` zeigt für einen

@@ -129,6 +129,9 @@ Save-SqlServerLabLlamaCppModel              # Gewähltes GGUF bei Bedarf geprüf
 Get-SqlServerLabAiComputeInventory          # CPU, GPU und NPU read-only mit vollständiger Coverage inventarisieren
 Get-SqlServerLabExternalRuntimeCapability   # External-Languages-Katalog und optionale Hostvoraussetzung getrennt bewerten
 Get-SqlServerLabSsisCatalogCapability      # Eigene Windows-SSISDB-Quelle read-only binden; keine Fixture oder Ausführung
+Install-SqlServerLabSsisComponent           # SSIS gezielt in einen eigenen vorbereiteten Windows-SQL-2025-Run nachinstallieren
+New-SqlServerLabSsisCatalogFixture         # Eigene Windows-2025-SSISDB-Fixture mit drei Analysefällen bereitstellen
+Remove-SqlServerLabSsisCatalogFixture      # Nur den quittierten eigenen SSISDB-Katalogordner entfernen
 Get-SqlServerLabAiRuntimeCapability         # Paketbinärdateien hashen und herstellergebundene Lanes ableiten
 Get-SqlServerLabAiComputeCandidate          # Alle erlaubten Einzel-, Mehrgeräte- und Mischkandidaten bilden
 Get-SqlServerLabAiComputeSelection          # Vollständig benchmarkte Gerätekombination automatisch wählen oder explizit fixieren
