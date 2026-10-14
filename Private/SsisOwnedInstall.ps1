@@ -172,7 +172,7 @@ function Invoke-LabSsisOwnedInstall {
             $created=Invoke-WithLabWorkflowOperationContext -OperationId $context.OperationId -ScriptBlock {
                 New-HyperVLabEnvironment -ArtifactId $ArtifactId -LabName 'ssis-install-acceptance' -InstanceId 'ssis' -MemoryStartupMB 8192 `
                     -DynamicMemoryEnabled $false -ProcessorCount 4 -AutoStart off -NetworkIntent hostOnly `
-                    -WindowsActivation @{ContractVersion='SqlServerLab.WindowsActivationIntent/1.0';Strategy='VerifyOnly';EgressPolicy='Deny'} `
+                    -WindowsActivation @{ContractVersion='SqlServerLab.WindowsActivationIntent/1.0';Strategy='EvaluationOnline';EgressPolicy='AllowTemporary'} `
                     -ResourceAssessmentRecord $assessment -StateRoot $StateRoot
             }
             $context.RunId=[string]$created.RunId

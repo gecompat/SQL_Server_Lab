@@ -32,6 +32,8 @@ foreach($case in @('valid','operation','hash','vm','provider','workload','runnin
     $blocked=$false;try{Assert-LabSsisInstallBinding @binding}catch{$blocked=$true}
     Check "Produktbindung $case" ($blocked -eq ($case -ne 'valid'))
 }
+$installerSource=Get-Content -LiteralPath (Join-Path $repoRoot 'Private/SsisOwnedInstall.ps1') -Raw
+Check 'IS-Installationslauf bindet den vorhandenen temporaeren Windows-Aktivierungsmechanismus' ($installerSource -match "WindowsActivation @\{ContractVersion='SqlServerLab\.WindowsActivationIntent/1\.0';Strategy='EvaluationOnline';EgressPolicy='AllowTemporary'\}")
 $arguments=@(Get-LabSsisSetupArguments)
 Check 'Setup benötigt keine Dienstsecrets und deaktiviert beide Updatequellen' ($arguments.Count -eq 4 -and $arguments -contains '/UpdateEnabled=False' -and $arguments -contains '/USEMICROSOFTUPDATE=False' -and $arguments -contains '/ISSVCACCOUNT="NT AUTHORITY\NETWORK SERVICE"' -and $arguments -contains '/ISSVCStartupType=Automatic')
 

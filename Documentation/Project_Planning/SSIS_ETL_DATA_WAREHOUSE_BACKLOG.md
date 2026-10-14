@@ -169,8 +169,10 @@ Nur SQL 2025 mit Enterprise-Developer-Ziel und `SQLENGINE,IS` ist vorgesehen.
 Der bestehende direkte Slotinstaller bindet diesen Opt-in an Operation und
 VM-ID, verweigert vorhandene SQL-Pläne und erhält alle bisherigen Defaults.
 Setup verwendet den integrierten SSIS-Dienstaccount und deaktiviert automatische
-SQL-/Microsoft-Updates. Windows-Aktivierung ist `VerifyOnly` mit verweigertem
-Egress; fehlende Aktivierung ergibt keinen Online-Fallback. Setup ist auf
+SQL-/Microsoft-Updates. Windows-Aktivierung verwendet für diesen expliziten, eigenen Akzeptanzlauf den bestehenden
+EvaluationOnline-/AllowTemporary-Mechanismus. Der temporäre Egress dient ausschließlich der Windows-
+Evaluation-Aktivierung, wird an Run, Scope und VM gebunden und beim Cleanup entfernt; SQL-Setup aktualisiert
+oder beschafft keine Software. Setup ist auf
 5400 Sekunden und der Setuptransport auf weitere 360 Sekunden begrenzt;
 SQL-Neustartbereitschaft einschließlich des äußeren PowerShell-Direct-Transports
 auf 600 Sekunden, die getrennten Gastproben auf 90.
