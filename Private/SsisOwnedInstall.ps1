@@ -73,10 +73,16 @@ function Get-LabSsisComponentGuestInstall {
     return {
         param([string]$ExpectedSetupVersionPattern,[int]$TimeoutSeconds)
         $ErrorActionPreference='Stop'
-        $setups=@(Get-CimInstance Win32_LogicalDisk -Filter 'DriveType=5' | ForEach-Object {
-            $candidate=Join-Path ([string]$_.DeviceID+'\\') 'setup.exe'
-            if(Test-Path -LiteralPath $candidate -PathType Leaf){Get-Item -LiteralPath $candidate}
-        } | Where-Object {[string]$_.VersionInfo.FileVersion -match $ExpectedSetupVersionPattern})
+        $setups=@()
+        $mediaDeadline=[datetime]::UtcNow.AddSeconds([math]::Min(120,[math]::Max(15,$TimeoutSeconds)))
+        do {
+            $setups=@(Get-CimInstance Win32_LogicalDisk -Filter 'DriveType=5' | ForEach-Object {
+                $candidate=Join-Path ([string]$_.DeviceID+'\\') 'setup.exe'
+                if(Test-Path -LiteralPath $candidate -PathType Leaf){Get-Item -LiteralPath $candidate}
+            } | Where-Object {[string]$_.VersionInfo.FileVersion -match $ExpectedSetupVersionPattern})
+            if($setups.Count -eq 1){break}
+            Start-Sleep -Seconds 2
+        } while([datetime]::UtcNow -lt $mediaDeadline)
         if($setups.Count -ne 1){throw "SSIS_COMPONENT_MEDIA_NOT_UNIQUE: $($setups.Count)"}
         # This scriptblock executes in the guest and therefore carries its narrow
         # setup arguments explicitly instead of relying on host module functions.
@@ -89,6 +95,7 @@ function Get-LabSsisComponentGuestInstall {
         foreach($argument in $arguments){$null=$start.ArgumentList.Add($argument)}
         $start.UseShellExecute=$false
         $process=[Diagnostics.Process]::Start($start)
+        if(-not $process){throw 'SSIS_COMPONENT_SETUP_START_FAILED'}
         if(-not $process.WaitForExit($TimeoutSeconds * 1000)){
             try{$process.Kill($true)}catch{}
             throw 'SSIS_COMPONENT_SETUP_TIMEOUT'
