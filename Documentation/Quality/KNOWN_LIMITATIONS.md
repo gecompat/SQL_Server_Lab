@@ -2273,6 +2273,27 @@ und automatische Gastumschaltung.
 
 ## Tests
 
+### Authentifizierter TLS-Zugang der Testumgebungen
+
+Quellenprüfung vom 2026-10-15: `Public/TestEnvironment.ps1`, das Schema
+`SqlServerLab.TestEnvironment/1.0` und der exportierte Agenten-Prompt verlangen
+weiterhin `encrypt = true` und `trustServerCertificate = true`.
+Toolbelt [PR #322](https://github.com/gecompat/SQL_Server_Toolbelt/pull/322)
+(geprüfter Head `8772e9d6a1d538e6fcb22da3f0bd03c83a28e88a`, zu diesem Zeitpunkt
+offen) verlangt dagegen echte Booleans `true`/`false` und blockiert den
+abweichenden Vertrag vor Verbindungsaufbau. Dieser Blocker beweist keinen
+Zertifikats-, DNS- oder Truststorefehler. Runtime-READY und bestehende interne
+Trust-Override-Probes belegen keine authentifizierte TLS-Verbindung.
+
+Der lokale Zertifikatsbestand und die wirksamen Windows-/Linux-Clientkontexte
+sind in diesem Backlogauftrag nicht live geprüft; die authentifizierte
+2019-/2022-/2025-Matrix bleibt `NOT_EXECUTED`. Der
+[P1-Stream TLS-001](../Project_Planning/NEW_SQL_LAB_USE_CASES_BACKLOG.md#tls-001--authentifizierte-tls-verbindungen-der-testumgebungen)
+konkretisiert Lösung, offene Entscheidungen, Migration und die Abhängigkeit
+**Toolbelt SC-2026-045 – authentifizierte Liveabnahme**. Er hat gemäß
+Ausführungsplan höchste nächste Priorität nach SSISDB; Planung ändert weder
+Exporter noch Zertifikate und ersetzt keine Liveabnahme.
+
 ### Nächtliche Regression auf `main`
 
 Die vom 2026-09-03 bis 2026-09-07 rote Nightly-Serie ist auf dem aktuellen

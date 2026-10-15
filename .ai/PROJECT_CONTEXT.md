@@ -564,6 +564,12 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 
 ### Geplant oder unvollständig
 
+- [`TLS-001`](../Documentation/Project_Planning/NEW_SQL_LAB_USE_CASES_BACKLOG.md#tls-001--authentifizierte-tls-verbindungen-der-testumgebungen):
+  authentifizierter TLS-Zugang der Testumgebungen als höchster nächster
+  P1-Stream nach SSISDB (2026-10-15); bisheriger Export verlangt weiterhin
+  `trustServerCertificate = true`. Zertifikatsbestand und reale Client-Trust-
+  Kontexte ungeprüft, Architektur-/Migrationsentscheidungen und Toolbelt
+  SC-2026-045 – authentifizierte Liveabnahme offen;
 - restliche reale erhöhte End-to-End-Abnahme des Hyper-V-Ressourcenroot-
   Schutzes für SQL-Readiness der Legacy-Migration; der erneute N5-
   Mehrgeräte-Nachweis, die Windows-Legacy-Run-/Parent-/Child-Migration sowie

@@ -39,6 +39,16 @@ einem tatsächlich erfolgreichen, passenden Lauf verwendet.
 
 ### 1.2 Verbindlich berücksichtigte Planungsquellen
 
+Die ausdrückliche Priorisierung vom 2026-10-15 setzt
+[`TLS-001` – authentifizierte TLS-Verbindungen der Testumgebungen](NEW_SQL_LAB_USE_CASES_BACKLOG.md#tls-001--authentifizierte-tls-verbindungen-der-testumgebungen)
+als `P1` unmittelbar nach dem laufenden
+[SSISDB-Stream](SSIS_ETL_DATA_WAREHOUSE_BACKLOG.md) an die höchste nächste
+Stelle. Diese Reihenfolge hat Vorrang vor den älteren Priorisierungen unten;
+SSISDB wird dadurch nicht unterbrochen. Abhängigkeit: **Toolbelt SC-2026-045 –
+authentifizierte Liveabnahme**. Der Auftrag erfasst den Backlog; Start der
+Umsetzung, offene Architekturentscheidungen und scopegebundene lokale Freigaben
+bleiben getrennt. Die beendete autonome Welle wird dadurch nicht reaktiviert.
+
 Die ausdrückliche Priorisierung vom 2026-09-28 stellt C# unter
 `SFT-711`/`SFT-712` als `USER_DEFERRED` zurück. Vorrang haben CLI-/GUI-
 Menüstruktur und verständliche Bedienführung, danach bestehende SQL-bezogene
@@ -938,6 +948,13 @@ verbindliches Performance-SLA festgelegt.
 | lokaler Native-Test ist nicht verfügbar | `NOT_EXECUTED` mit Grund; keine grüne Ersatzbehauptung |
 
 ## 12. Verbindliche nächsten fünf Entwicklungswellen
+
+**Aktuelle Vorrangregel vom 2026-10-15:** Zuerst den laufenden SSISDB-Stream
+abschließen, danach `TLS-001` als höchsten nächsten `P1`-Stream bearbeiten.
+Der [bestehende Treiberkompatibilitätsbacklog](NEW_SQL_LAB_USE_CASES_BACKLOG.md#tls-001--authentifizierte-tls-verbindungen-der-testumgebungen)
+enthält Bestandsbefund, Lösungsvorschlag, Alternativen, Risiken, offene
+Entscheidungen D1–D4 und Liveabnahme. Ältere Wellen und deren Evidence bleiben
+historisch erhalten; aus dieser Planung folgt kein neuer Runtime-Nachweis.
 
 Dieser Abschnitt ist die kanonische Reihenfolge für die nächste
 Weiterentwicklung. Die Wellen bündeln vorhandene Task-IDs aus den
