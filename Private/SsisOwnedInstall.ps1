@@ -366,12 +366,15 @@ function Get-LabSsisCatalogFixtureGuestProbe {
             if(-not $catalogExists){
                 $assembly=[Reflection.Assembly]::LoadWithPartialName('Microsoft.SqlServer.Management.IntegrationServices')
                 if(-not $assembly){throw 'SSIS_FIXTURE_CATALOG_ASSEMBLY_MISSING'}
-                $catalogPassword='L!'+[Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(24))
+                $randomBytes=New-Object byte[] 24
+                $random=[Security.Cryptography.RandomNumberGenerator]::Create()
                 try {
+                    $random.GetBytes($randomBytes)
+                    $catalogPassword='L!'+[Convert]::ToBase64String($randomBytes)
                     $services=New-Object Microsoft.SqlServer.Management.IntegrationServices.IntegrationServices $connection
                     $catalog=New-Object Microsoft.SqlServer.Management.IntegrationServices.Catalog ($services,'SSISDB',$catalogPassword)
                     $catalog.Create()
-                }finally{$catalogPassword=$null}
+                }finally{$catalogPassword=$null;$randomBytes=$null;if($random){$random.Dispose()}}
             }
             $catalogConnection=[Data.SqlClient.SqlConnection]::new('Data Source=localhost;Initial Catalog=SSISDB;Integrated Security=SSPI;Connect Timeout=30;Encrypt=False;Pooling=False')
             $catalogConnection.Open()
