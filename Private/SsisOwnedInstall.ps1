@@ -134,11 +134,12 @@ function Install-LabSsisExistingComponent {
         $vmStartDeadline=[datetime]::UtcNow.AddSeconds(60)
         do {
             $managed=Get-HyperVManagedVM -VMName ([string]$context.Instance.vmName) -ExpectedRunId $RunId.ToString() -ExpectedScopeId ([string]$context.Run.scopeId)
-            if(-not $managed -or [string]$managed.VM.Id -ne [string]$context.VmId){throw 'SSIS_COMPONENT_VM_BINDING_INVALID'}
-            if([string]$managed.VM.State -eq 'Running'){break}
+            if($managed -and [string]$managed.VM.Id -ne [string]$context.VmId){throw 'SSIS_COMPONENT_VM_BINDING_INVALID'}
+            if($managed -and [string]$managed.VM.State -eq 'Running'){break}
             Start-Sleep -Seconds 2
         } while([datetime]::UtcNow -lt $vmStartDeadline)
-        if(-not $managed -or [string]$managed.VM.Id -ne [string]$context.VmId){throw 'SSIS_COMPONENT_VM_BINDING_INVALID'}
+        if(-not $managed){throw 'SSIS_COMPONENT_VM_BINDING_UNAVAILABLE'}
+        if([string]$managed.VM.Id -ne [string]$context.VmId){throw 'SSIS_COMPONENT_VM_BINDING_INVALID'}
         if([string]$managed.VM.State -ne 'Running'){throw ('SSIS_COMPONENT_VM_START_TIMEOUT:{0}' -f [string]$managed.VM.State)}
         $existing=@(Get-VMDvdDrive -VM $managed.VM -ErrorAction Stop | Where-Object {[string]$_.Path -eq [string]$media.Media.IsoPath}) | Select-Object -First 1
         if(-not $existing){$addedDvd=Add-VMDvdDrive -VM $managed.VM -Path $media.Media.IsoPath -ErrorAction Stop}
