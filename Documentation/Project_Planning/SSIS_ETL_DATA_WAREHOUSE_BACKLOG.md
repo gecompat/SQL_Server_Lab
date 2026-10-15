@@ -199,16 +199,15 @@ und eigenes Runtime-Cleanup sind bis zur separaten nativen Abnahme
 **NOT_EXECUTED**. SSISDB, Packages und ETL bleiben offen; es entsteht keine
 öffentliche Provider- oder Editionsfreigabe.
 
-**Abhängigkeit für die Wiederaufnahme der Kataloganlage:** Ein vollständiger,
-versions- und hashgebundener Offlinebestand von
-`Microsoft.SqlServer.Management.IntegrationServices` samt Abhängigkeiten ist
-noch nicht belegt. Die allgemeine SSIS-Anleitung nennt Client Tools SDK,
-der versionsbezogene Setupvertrag begrenzt `SDK` jedoch auf SQL 2019 und älter.
-Deshalb werden weder `/FEATURES=SDK` noch ein geratenes SMO-Paket oder
-`LoadWithPartialName` verwendet. Der Beschaffungscheckpoint unten trennt die
-weiterhin offenen Paket-, Host- und Integritätsverträge; erst nach deren
-Klärung folgen gebundener Paketprüfer und Kataloganlage. Quellen: [Setupfeature IS und SDK-Grenze](https://learn.microsoft.com/sql/database-engine/install-windows/install-sql-server-from-the-command-prompt?view=sql-server-ver17),
-[SQL-2025-Editionen](https://learn.microsoft.com/sql/sql-server/editions-and-components-of-sql-server-2025?view=sql-server-ver17),
+**Kataloganlage ohne Client-SDK:** Der gebundene SQL-2025-/IS-170-Pfad verwendet
+den mit der installierten IS-Komponente gelieferten `SSISDBBackup.bak`-Bestand
+und die zugehörige SQLCLR-Serverassembly. Er benötigt weder `/FEATURES=SDK`
+noch ein SMO-/SSMS-Paket, `LoadWithPartialName`, Download oder Beschaffung.
+Der Gast prüft die lokalen Dateien, stellt SSISDB ausschließlich bei Fehlen im
+eigenen Run wieder her, bindet den Katalogschlüssel an den Dienstschlüssel und
+prüft danach `catalog.check_schema_version`. Die reale Windows-Abnahme bleibt
+bis zu ihrem erfolgreichen Workflownachweis offen. Quellen: [SSIS-Katalog](https://learn.microsoft.com/sql/integration-services/catalog/ssis-catalog?view=sql-server-ver17),
+[Setupfeature IS und SDK-Grenze](https://learn.microsoft.com/sql/database-engine/install-windows/install-sql-server-from-the-command-prompt?view=sql-server-ver17),
 [SSIS-Installation](https://learn.microsoft.com/sql/integration-services/install-windows/install-integration-services?view=sql-server-ver17).
 
 ### Beschaffungscheckpoint G: weiterhin offen

@@ -338,8 +338,8 @@ function Get-LabSsisInstallGuestProbe {
 }
 
 # Runs only inside the fresh, operation-owned guest after SQLENGINE and IS are installed.
-# It deliberately uses the installed server assemblies; no SDK, download, build tool, or
-# external data source participates in the fixture.
+# It restores the SSISDB template shipped by that same IS installation; no SDK, download,
+# build tool, or external data source participates in the fixture.
 function Get-LabSsisCatalogFixtureGuestProbe {
     [CmdletBinding()]
     param()
@@ -364,17 +364,38 @@ function Get-LabSsisCatalogFixtureGuestProbe {
                 }finally{$reader.Dispose()}
             }finally{$command.Dispose()}
             if(-not $catalogExists){
-                $assembly=[Reflection.Assembly]::LoadWithPartialName('Microsoft.SqlServer.Management.IntegrationServices')
-                if(-not $assembly){throw 'SSIS_FIXTURE_CATALOG_ASSEMBLY_MISSING'}
-                $randomBytes=New-Object byte[] 24
-                $random=[Security.Cryptography.RandomNumberGenerator]::Create()
+                $ssisBinn=Join-Path ([Environment]::GetFolderPath('ProgramFiles')) 'Microsoft SQL Server/170/DTS/Binn'
+                $catalogBackup=Join-Path $ssisBinn 'SSISDBBackup.bak'
+                $serverAssembly=Join-Path $ssisBinn 'Microsoft.SqlServer.IntegrationServices.Server.dll'
+                foreach($path in @($catalogBackup,$serverAssembly)){
+                    $file=Get-Item -LiteralPath $path -ErrorAction Stop
+                    if($file.PSIsContainer -or ($file.Attributes -band [IO.FileAttributes]::ReparsePoint)){throw 'SSIS_FIXTURE_INSTALLED_CATALOG_MEDIA_INVALID'}
+                }
+                function Escape-SsisSqlLiteral {param([string]$Value) $Value.Replace("'","''")}
+                function Invoke-SsisMasterNonQuery {param([string]$Text,[int]$Timeout=300)
+                    $cmd=$connection.CreateCommand();$cmd.CommandTimeout=$Timeout;$cmd.CommandText=$Text
+                    try{$null=$cmd.ExecuteNonQuery()}finally{$cmd.Dispose()}
+                }
+                $backupLiteral=Escape-SsisSqlLiteral $catalogBackup
+                $files=@();$cmd=$connection.CreateCommand();$cmd.CommandTimeout=120;$cmd.CommandText="RESTORE FILELISTONLY FROM DISK=N'$backupLiteral';"
                 try {
-                    $random.GetBytes($randomBytes)
-                    $catalogPassword='L!'+[Convert]::ToBase64String($randomBytes)
-                    $services=New-Object Microsoft.SqlServer.Management.IntegrationServices.IntegrationServices $connection
-                    $catalog=New-Object Microsoft.SqlServer.Management.IntegrationServices.Catalog ($services,'SSISDB',$catalogPassword)
-                    $catalog.Create()
-                }finally{$catalogPassword=$null;$randomBytes=$null;if($random){$random.Dispose()}}
+                    $reader=$cmd.ExecuteReader();try{while($reader.Read()){$files+=,[pscustomobject]@{LogicalName=[string]$reader['LogicalName'];Type=[string]$reader['Type']}}}finally{$reader.Dispose()}
+                }finally{$cmd.Dispose()}
+                $dataLogical=@($files|Where-Object {$_.Type -ceq 'D'});$logLogical=@($files|Where-Object {$_.Type -ceq 'L'})
+                if($dataLogical.Count -ne 1 -or $logLogical.Count -ne 1){throw 'SSIS_FIXTURE_INSTALLED_CATALOG_LAYOUT_INVALID'}
+                $cmd=$connection.CreateCommand();$cmd.CommandTimeout=30;$cmd.CommandText='SELECT physical_name,type FROM master.sys.master_files WHERE database_id=1 AND type IN (0,1);'
+                $paths=@();try{$reader=$cmd.ExecuteReader();try{while($reader.Read()){$paths+=,[pscustomobject]@{Path=[string]$reader.GetString(0);Type=[int]$reader.GetInt32(1)}}}finally{$reader.Dispose()}}finally{$cmd.Dispose()}
+                $dataDirectory=Split-Path -Parent ([string](@($paths|Where-Object {$_.Type -eq 0})[0].Path))
+                $logDirectory=Split-Path -Parent ([string](@($paths|Where-Object {$_.Type -eq 1})[0].Path))
+                if([string]::IsNullOrWhiteSpace($dataDirectory) -or [string]::IsNullOrWhiteSpace($logDirectory)){throw 'SSIS_FIXTURE_DEFAULT_PATHS_INVALID'}
+                $dataFileLiteral=Escape-SsisSqlLiteral (Join-Path $dataDirectory 'SSISDB.mdf')
+                $logFileLiteral=Escape-SsisSqlLiteral (Join-Path $logDirectory 'SSISDB_log.ldf')
+                $dataLogicalLiteral=Escape-SsisSqlLiteral $dataLogical[0].LogicalName
+                $logLogicalLiteral=Escape-SsisSqlLiteral $logLogical[0].LogicalName
+                Invoke-SsisMasterNonQuery -Text ("RESTORE DATABASE [SSISDB] FROM DISK=N'$backupLiteral' WITH MOVE N'$dataLogicalLiteral' TO N'$dataFileLiteral', MOVE N'$logLogicalLiteral' TO N'$logFileLiteral', RECOVERY;") -Timeout 600
+                $assemblyLiteral=Escape-SsisSqlLiteral $serverAssembly
+                Invoke-SsisMasterNonQuery -Text ("EXEC sp_configure 'clr enabled',1; RECONFIGURE; IF NOT EXISTS(SELECT 1 FROM sys.asymmetric_keys WHERE name=N'MS_SQLEnableSystemAssemblyLoadingKey') CREATE ASYMMETRIC KEY [MS_SQLEnableSystemAssemblyLoadingKey] FROM EXECUTABLE FILE=N'$assemblyLiteral'; IF NOT EXISTS(SELECT 1 FROM sys.server_principals WHERE name=N'##MS_SQLEnableSystemAssemblyLoadingUser##') CREATE LOGIN [##MS_SQLEnableSystemAssemblyLoadingUser##] FROM ASYMMETRIC KEY [MS_SQLEnableSystemAssemblyLoadingKey]; GRANT UNSAFE ASSEMBLY TO [##MS_SQLEnableSystemAssemblyLoadingUser##];")
+                Invoke-SsisMasterNonQuery -Text "USE [SSISDB]; OPEN MASTER KEY DECRYPTION BY PASSWORD=N'LS1Setup!'; ALTER MASTER KEY ADD ENCRYPTION BY SERVICE MASTER KEY; CLOSE MASTER KEY; EXEC [catalog].[check_schema_version];"
             }
             $catalogConnection=[Data.SqlClient.SqlConnection]::new('Data Source=localhost;Initial Catalog=SSISDB;Integrated Security=SSPI;Connect Timeout=30;Encrypt=False;Pooling=False')
             $catalogConnection.Open()
