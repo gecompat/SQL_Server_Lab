@@ -271,7 +271,19 @@ function Resolve-HyperVWindowsActivationExternalSwitch {
     $physicalAdapters = @(Get-NetAdapter -Physical -ErrorAction Stop | Where-Object { [string]$_.Status -eq 'Up' })
     $usableSwitches = foreach ($switch in $externalSwitches) {
         $descriptions = @($switch.NetAdapterInterfaceDescription | Where-Object { $_ })
-        foreach ($adapter in @($physicalAdapters | Where-Object { [string]$_.InterfaceDescription -in $descriptions })) {
+        $boundPhysical = @($physicalAdapters | Where-Object { [string]$_.InterfaceDescription -in $descriptions })
+        if ($boundPhysical.Count -eq 0) { continue }
+        # Hyper-V normally moves the host IPv4 route from the physical NIC to
+        # the vEthernet adapter named for the External switch.  Prefer that
+        # authoritative host uplink and use the physical adapter only on hosts
+        # that do not expose a matching vEthernet adapter.
+        $virtualUplink = @(Get-NetAdapter -Name ("vEthernet ({0})" -f [string]$switch.Name) -ErrorAction SilentlyContinue)
+        $routeAdapters = if ($virtualUplink.Count -eq 1) {
+            @($virtualUplink | Where-Object { [string]$_.Status -eq 'Up' })
+        } else {
+            $boundPhysical
+        }
+        foreach ($adapter in $routeAdapters) {
             # A link-up adapter is insufficient on hosts with several Ethernet
             # ports and Wi-Fi. Select only the switch whose physical adapter has
             # an active IPv4 default route; a disconnected or unrouted NIC must

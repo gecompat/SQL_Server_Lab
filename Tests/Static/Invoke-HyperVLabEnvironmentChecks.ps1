@@ -712,14 +712,21 @@ try {
             )
         }
         function Get-NetAdapter {
-            @(
-                [PSCustomObject]@{Status='Up';InterfaceDescription='Ethernet NIC';ifIndex=4},
-                [PSCustomObject]@{Status='Up';InterfaceDescription='WiFi NIC';ifIndex=12}
-            )
+            param([string]$Name,[switch]$Physical)
+            if($Name -eq 'vEthernet (Ethernet External)'){
+                [PSCustomObject]@{Status='Up';InterfaceDescription='Hyper-V Virtual Ethernet Adapter';ifIndex=44}
+            } elseif($Name -eq 'vEthernet (WiFi External)'){
+                [PSCustomObject]@{Status='Up';InterfaceDescription='Hyper-V Virtual Ethernet Adapter';ifIndex=52}
+            } else {
+                @(
+                    [PSCustomObject]@{Status='Up';InterfaceDescription='Ethernet NIC';ifIndex=4},
+                    [PSCustomObject]@{Status='Up';InterfaceDescription='WiFi NIC';ifIndex=12}
+                )
+            }
         }
         function Get-NetRoute {
             param($InterfaceIndex,$AddressFamily,$DestinationPrefix)
-            if($InterfaceIndex -eq 12 -and $AddressFamily -eq 'IPv4' -and $DestinationPrefix -eq '0.0.0.0/0'){
+            if($InterfaceIndex -eq 52 -and $AddressFamily -eq 'IPv4' -and $DestinationPrefix -eq '0.0.0.0/0'){
                 [PSCustomObject]@{RouteMetric=15;InterfaceMetric=25}
             }
         }
