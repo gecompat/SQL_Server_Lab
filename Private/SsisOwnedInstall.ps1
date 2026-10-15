@@ -478,7 +478,12 @@ function Get-LabSsisCatalogFixtureGuestProbe {
             try {
                 $catalogKey.CommandText="OPEN MASTER KEY DECRYPTION BY PASSWORD=N'LS1Setup!';"
                 $null=$catalogKey.ExecuteNonQuery()
-            } catch { throw 'SSIS_FIXTURE_MASTER_KEY_OPEN_FAILED' }
+            } catch {
+                $sqlException=$_.Exception
+                while($sqlException.InnerException -and -not ($sqlException -is [Data.SqlClient.SqlException])){$sqlException=$sqlException.InnerException}
+                $number=if($sqlException -is [Data.SqlClient.SqlException]){[int]$sqlException.Number}else{0}
+                throw "SSIS_FIXTURE_MASTER_KEY_OPEN_FAILED_$number"
+            }
             finally {$catalogKey.Dispose()}
             # The generated packages are intentionally local-only: a blank package succeeds;
             # ForceExecutionResult produces the error case; the third execution remains created.
