@@ -392,10 +392,15 @@ function Get-LabSsisCatalogFixtureGuestProbe {
                 $logFileLiteral=Escape-SsisSqlLiteral (Join-Path $logDirectory 'SSISDB_log.ldf')
                 $dataLogicalLiteral=Escape-SsisSqlLiteral $dataLogical[0].LogicalName
                 $logLogicalLiteral=Escape-SsisSqlLiteral $logLogical[0].LogicalName
-                Invoke-SsisMasterNonQuery -Text ("RESTORE DATABASE [SSISDB] FROM DISK=N'$backupLiteral' WITH MOVE N'$dataLogicalLiteral' TO N'$dataFileLiteral', MOVE N'$logLogicalLiteral' TO N'$logFileLiteral', RECOVERY;") -Timeout 600
+                # SQL Server requires the CLR trust principal before an SSISDB backup is restored.
+                # Keeping this before RESTORE also follows the documented first-catalog restore order.
                 $assemblyLiteral=Escape-SsisSqlLiteral $serverAssembly
                 Invoke-SsisMasterNonQuery -Text ("EXEC sp_configure 'clr enabled',1; RECONFIGURE; IF NOT EXISTS(SELECT 1 FROM sys.asymmetric_keys WHERE name=N'MS_SQLEnableSystemAssemblyLoadingKey') CREATE ASYMMETRIC KEY [MS_SQLEnableSystemAssemblyLoadingKey] FROM EXECUTABLE FILE=N'$assemblyLiteral'; IF NOT EXISTS(SELECT 1 FROM sys.server_principals WHERE name=N'##MS_SQLEnableSystemAssemblyLoadingUser##') CREATE LOGIN [##MS_SQLEnableSystemAssemblyLoadingUser##] FROM ASYMMETRIC KEY [MS_SQLEnableSystemAssemblyLoadingKey]; GRANT UNSAFE ASSEMBLY TO [##MS_SQLEnableSystemAssemblyLoadingUser##];")
-                Invoke-SsisMasterNonQuery -Text "USE [SSISDB]; OPEN MASTER KEY DECRYPTION BY PASSWORD=N'LS1Setup!'; ALTER MASTER KEY ADD ENCRYPTION BY SERVICE MASTER KEY; CLOSE MASTER KEY; EXEC [catalog].[check_schema_version];"
+                Invoke-SsisMasterNonQuery -Text ("RESTORE DATABASE [SSISDB] FROM DISK=N'$backupLiteral' WITH MOVE N'$dataLogicalLiteral' TO N'$dataFileLiteral', MOVE N'$logLogicalLiteral' TO N'$logFileLiteral', RECOVERY;") -Timeout 600
+                # The template's database master key is encrypted with the documented
+                # bootstrap password. Bind it to this instance before compatibility check.
+                Invoke-SsisMasterNonQuery -Text "USE [SSISDB]; OPEN MASTER KEY DECRYPTION BY PASSWORD=N'LS1Setup!'; ALTER MASTER KEY ADD ENCRYPTION BY SERVICE MASTER KEY; CLOSE MASTER KEY;"
+                Invoke-SsisMasterNonQuery -Text "USE [SSISDB]; EXEC [catalog].[check_schema_version] @use32bitruntime=0;"
             }
             $catalogConnection=[Data.SqlClient.SqlConnection]::new('Data Source=localhost;Initial Catalog=SSISDB;Integrated Security=SSPI;Connect Timeout=30;Encrypt=False;Pooling=False')
             $catalogConnection.Open()
