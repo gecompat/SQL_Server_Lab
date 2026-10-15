@@ -268,17 +268,28 @@ function Resolve-HyperVWindowsActivationExternalSwitch {
         $externalSwitches = @($externalSwitches | Where-Object { [string]$_.Name -eq $ExternalSwitchName })
         if ($externalSwitches.Count -ne 1) { throw 'HYPERV_WINDOWS_ACTIVATION_EXTERNAL_SWITCH_REQUIRED' }
     }
-    $physicalAdapters = @(Get-NetAdapter -Physical -ErrorAction Stop)
-    $usableSwitches = @($externalSwitches | Where-Object {
-        $descriptions = @($_.NetAdapterInterfaceDescription | Where-Object { $_ })
-        @($physicalAdapters | Where-Object {
-            [string]$_.Status -eq 'Up' -and [string]$_.InterfaceDescription -in $descriptions
-        }).Count -gt 0
-    })
-    if ($usableSwitches.Count -eq 0) {
+    $physicalAdapters = @(Get-NetAdapter -Physical -ErrorAction Stop | Where-Object { [string]$_.Status -eq 'Up' })
+    $usableSwitches = foreach ($switch in $externalSwitches) {
+        $descriptions = @($switch.NetAdapterInterfaceDescription | Where-Object { $_ })
+        foreach ($adapter in @($physicalAdapters | Where-Object { [string]$_.InterfaceDescription -in $descriptions })) {
+            # A link-up adapter is insufficient on hosts with several Ethernet
+            # ports and Wi-Fi. Select only the switch whose physical adapter has
+            # an active IPv4 default route; a disconnected or unrouted NIC must
+            # never become the temporary activation egress path.
+            $routes = @(Get-NetRoute -InterfaceIndex ([int]$adapter.ifIndex) -AddressFamily IPv4 -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue)
+            if ($routes.Count -eq 0) { continue }
+            [PSCustomObject]@{
+                Switch = $switch
+                RouteMetric = [int](@($routes | Sort-Object RouteMetric, InterfaceMetric | Select-Object -First 1)[0].RouteMetric)
+                InterfaceIndex = [int]$adapter.ifIndex
+            }
+        }
+    }
+    $selected = @($usableSwitches | Sort-Object RouteMetric, InterfaceIndex, @{Expression={ [string]$_.Switch.Name }} | Select-Object -First 1)[0]
+    if (-not $selected) {
         throw 'HYPERV_WINDOWS_ACTIVATION_EXTERNAL_ADAPTER_NOT_CONNECTED'
     }
-    return $usableSwitches[0]
+    return $selected.Switch
 }
 
 function Invoke-HyperVWindowsSlotActivation {
