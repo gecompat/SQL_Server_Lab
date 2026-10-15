@@ -95,7 +95,10 @@ function Get-LabSsisComponentGuestInstall {
                 '/ISSVCStartupType=Automatic')
             $start=[Diagnostics.ProcessStartInfo]::new()
             $start.FileName=$setups[0].FullName
-            foreach($argument in $arguments){$null=$start.ArgumentList.Add($argument)}
+            # The guest remoting endpoint is Windows PowerShell/.NET Framework.
+            # ProcessStartInfo.ArgumentList is a .NET Core API, so use the compatible
+            # Arguments string while retaining the already quoted service account.
+            $start.Arguments=($arguments -join ' ')
             $start.UseShellExecute=$false
             $process=[Diagnostics.Process]::Start($start)
             if(-not $process){throw 'SSIS_COMPONENT_SETUP_START_FAILED'}
