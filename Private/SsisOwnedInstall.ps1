@@ -384,7 +384,7 @@ function Get-LabSsisCatalogFixtureGuestProbe {
                 $dataLogical=@($files|Where-Object {$_.Type -ceq 'D'});$logLogical=@($files|Where-Object {$_.Type -ceq 'L'})
                 if($dataLogical.Count -ne 1 -or $logLogical.Count -ne 1){throw 'SSIS_FIXTURE_INSTALLED_CATALOG_LAYOUT_INVALID'}
                 $cmd=$connection.CreateCommand();$cmd.CommandTimeout=30;$cmd.CommandText='SELECT physical_name,type FROM master.sys.master_files WHERE database_id=1 AND type IN (0,1);'
-                $paths=@();try{$reader=$cmd.ExecuteReader();try{while($reader.Read()){$paths+=,[pscustomobject]@{Path=[string]$reader.GetString(0);Type=[int]$reader.GetInt32(1)}}}finally{$reader.Dispose()}}finally{$cmd.Dispose()}
+                $paths=@();try{$reader=$cmd.ExecuteReader();try{while($reader.Read()){$paths+=,[pscustomobject]@{Path=[string]$reader.GetString(0);Type=[Convert]::ToInt32($reader.GetValue(1),[Globalization.CultureInfo]::InvariantCulture)}}}finally{$reader.Dispose()}}finally{$cmd.Dispose()}
                 $dataDirectory=Split-Path -Parent ([string](@($paths|Where-Object {$_.Type -eq 0})[0].Path))
                 $logDirectory=Split-Path -Parent ([string](@($paths|Where-Object {$_.Type -eq 1})[0].Path))
                 if([string]::IsNullOrWhiteSpace($dataDirectory) -or [string]::IsNullOrWhiteSpace($logDirectory)){throw 'SSIS_FIXTURE_DEFAULT_PATHS_INVALID'}
