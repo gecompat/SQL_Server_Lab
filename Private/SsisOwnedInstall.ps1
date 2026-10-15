@@ -475,6 +475,7 @@ function Get-LabSsisCatalogFixtureGuestProbe {
             # SSIS server installation does not require the separately distributed development
             # SDK.  Generate the minimal documented DTSX XML directly, then use DTExec's server
             # parser at catalog execution time instead of loading a managed development assembly.
+            Add-Type -AssemblyName System.IO.Compression
             Add-Type -AssemblyName System.IO.Compression.FileSystem
             function Write-SsisFixturePackage {
                 param(
