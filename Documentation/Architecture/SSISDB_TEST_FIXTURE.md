@@ -48,6 +48,13 @@ Remove-SqlServerLab -RunId $fixture.Target.RunId -Force -Confirm:$false
 
 `READY_FOR_FIXTURE_IMPLEMENTATION` bestätigt ausschließlich die beobachtete Voraussetzung eines vorhandenen eigenen Zielruns. Er bestätigt weder `catalog.executions`-Rechte eines Analyze-Consumers noch reale SSISDB-Ausführungen, Loggingfälle, Cleanup oder die Eignung als SQL_Server_Analyze-Runtimequelle.
 
+Die Fixture erzeugt ihre drei eigenen Pakete als minimale UTF-16-DTSX-Dokumente
+mit `DTS:ForceExecutionResult` und verpackt sie in ein eigenes `.ispac`. Damit
+genügt die bereits installierte SSIS-Serverkomponente einschließlich `DTExec`;
+ein SSIS-Entwicklungs-SDK, `Microsoft.SqlServer.Dts.Runtime.dll`, Download oder
+Build-Schritt ist kein Laufzeitbedarf. Der Erfolg-, Fehler- und ungestartete
+Fall bleiben vollständig synthetisch und ohne externe Datenquelle.
+
 `SqlServerLab.SsisCatalogFixture/1.0` ist die mutierende Receipt. `Status=READY_FOR_READ_ONLY_ANALYSIS` und `Cleanup=REMOVE_OWNED_FIXTURE_TO_CLEANUP` bedeuten, dass nur der zugehörige eigene Run eine Quelle sein darf. `Remove-SqlServerLabSsisCatalogFixture` löscht ausschließlich den quittierten eigenen Katalogordner; fremde Katalogordner, Projekte, globale Retention, Katalogeigenschaften und Loggingkonfiguration bleiben erhalten. Nach Teilfehlern entfernt der Guest-Probe seinen eigenen Ordner, sofern er angelegt wurde; der Fehler bleibt getrennt sichtbar.
 
 ## Ausführungsnachweis

@@ -390,7 +390,7 @@ function Get-LabSsisInstallGuestProbe {
             } catch { throw 'SSIS_INSTALL_SERVICE_START_FAILED' }
         }
         $binn=Join-Path ([Environment]::GetFolderPath('ProgramFiles')) 'Microsoft SQL Server/170/DTS/Binn'
-        foreach($name in @('MsDtsSrvr.exe','Microsoft.SqlServer.IntegrationServices.Server.dll','Microsoft.SqlServer.Dts.Runtime.dll')){
+        foreach($name in @('MsDtsSrvr.exe','Microsoft.SqlServer.IntegrationServices.Server.dll')){
             $file=Get-Item -LiteralPath (Join-Path $binn $name) -ErrorAction Stop
             if ($file.PSIsContainer -or ($file.Attributes -band [IO.FileAttributes]::ReparsePoint) -or [int]$file.VersionInfo.FileMajorPart -ne 17) { throw 'SSIS_INSTALL_COMPONENT_POSTCONDITION' }
         }
@@ -472,16 +472,32 @@ function Get-LabSsisCatalogFixtureGuestProbe {
             $catalogConnection.Open()
             # The generated packages are intentionally local-only: a blank package succeeds;
             # ForceExecutionResult produces the error case; the third execution remains created.
+            # SSIS server installation does not require the separately distributed development
+            # SDK.  Generate the minimal documented DTSX XML directly, then use DTExec's server
+            # parser at catalog execution time instead of loading a managed development assembly.
             Add-Type -AssemblyName System.IO.Compression.FileSystem
-            $runtimePath=Join-Path ([Environment]::GetFolderPath('ProgramFiles')) 'Microsoft SQL Server/170/DTS/Binn/Microsoft.SqlServer.Dts.Runtime.dll'
-            if(-not(Test-Path -LiteralPath $runtimePath)){throw 'SSIS_FIXTURE_RUNTIME_ASSEMBLY_MISSING'}
-            Add-Type -Path $runtimePath
-            $application=[Microsoft.SqlServer.Dts.Runtime.Application]::new()
-            foreach($spec in @(@{Name='Success.dtsx';Failure=$false},@{Name='Failure.dtsx';Failure=$true},@{Name='Incomplete.dtsx';Failure=$false})){
-                $package=[Microsoft.SqlServer.Dts.Runtime.Package]::new()
-                if($spec.Failure){$package.ForceExecutionResult=[Microsoft.SqlServer.Dts.Runtime.DTSExecResult]::Failure}
-                $application.SaveToXml((Join-Path $temporary $spec.Name),$package,$null)
+            function Write-SsisFixturePackage {
+                param(
+                    [Parameter(Mandatory)][string]$Path,
+                    [Parameter(Mandatory)][string]$Name,
+                    [ValidateSet(0,1)][int]$ForceExecutionResult
+                )
+                $packageId=[guid]::NewGuid().ToString('B').ToUpperInvariant()
+                $versionId=[guid]::NewGuid().ToString('B').ToUpperInvariant()
+                $packageXml=@'
+<?xml version="1.0" encoding="utf-16"?>
+<DTS:Executable xmlns:DTS="www.microsoft.com/SqlServer/Dts" DTS:CreationName="Microsoft.Package" DTS:ExecutableType="Microsoft.Package" DTS:ObjectName="{0}" DTS:ProtectionLevel="0" DTS:PackageType="5" DTS:VersionBuild="1" DTS:VersionGUID="{1}" DTS:DTSID="{2}" DTS:LocaleID="1033" DTS:ForceExecutionResult="{3}">
+  <DTS:Property DTS:Name="PackageFormatVersion">8</DTS:Property>
+  <DTS:Variables />
+  <DTS:Executables />
+  <DTS:PrecedenceConstraints />
+</DTS:Executable>
+'@ -f $Name,$versionId,$packageId,$ForceExecutionResult
+                [IO.File]::WriteAllText($Path,$packageXml,[Text.Encoding]::Unicode)
             }
+            Write-SsisFixturePackage -Path (Join-Path $temporary 'Success.dtsx') -Name 'LabSuccess' -ForceExecutionResult 0
+            Write-SsisFixturePackage -Path (Join-Path $temporary 'Failure.dtsx') -Name 'LabFailure' -ForceExecutionResult 1
+            Write-SsisFixturePackage -Path (Join-Path $temporary 'Incomplete.dtsx') -Name 'LabIncomplete' -ForceExecutionResult 0
             $projectParameters=Join-Path $temporary 'Project.params'
             [IO.File]::WriteAllText($projectParameters,'<?xml version="1.0" encoding="utf-8"?><SSIS:Parameters xmlns:SSIS="www.microsoft.com/SqlServer/SSIS"></SSIS:Parameters>',[Text.UTF8Encoding]::new($false))
             $ispac=Join-Path $temporary "$project.ispac"
