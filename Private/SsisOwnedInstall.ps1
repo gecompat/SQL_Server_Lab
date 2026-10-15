@@ -395,11 +395,23 @@ function Get-LabSsisInstallGuestProbe {
             if ($file.PSIsContainer -or ($file.Attributes -band [IO.FileAttributes]::ReparsePoint) -or [int]$file.VersionInfo.FileMajorPart -ne 17) { throw 'SSIS_INSTALL_COMPONENT_POSTCONDITION' }
         }
         if($service.Status -ne 'Running'){throw 'SSIS_INSTALL_COMPONENT_POSTCONDITION'}
-        $connection=[Data.SqlClient.SqlConnection]::new('Data Source=localhost;Initial Catalog=master;Integrated Security=SSPI;Connect Timeout=15;Encrypt=False;Pooling=False')
-        try {
-            $connection.Open();Read-SsisInstalledSql -Connection $connection
-            [pscustomobject]@{Status='IS_COMPONENTS_AND_SQL_VERIFIED';BootTime=(Get-CimInstance Win32_OperatingSystem -ErrorAction Stop).LastBootUpTime.ToUniversalTime().ToString('o')}
-        } finally {$connection.Dispose()}
+        # CompleteImage can report PowerShell Direct as ready while SQL Server is
+        # still bringing its local transport online after the required reboot.
+        # Reopen a non-pooled local connection in a bounded loop; do not treat a
+        # transient guest service start as a fixture failure or touch host networking.
+        $sqlDeadline=[datetime]::UtcNow.AddSeconds(180)
+        $lastSqlError=$null
+        do {
+            $connection=[Data.SqlClient.SqlConnection]::new('Data Source=localhost;Initial Catalog=master;Integrated Security=SSPI;Connect Timeout=15;Encrypt=False;Pooling=False')
+            try {
+                $connection.Open();Read-SsisInstalledSql -Connection $connection
+                return [pscustomobject]@{Status='IS_COMPONENTS_AND_SQL_VERIFIED';BootTime=(Get-CimInstance Win32_OperatingSystem -ErrorAction Stop).LastBootUpTime.ToUniversalTime().ToString('o')}
+            } catch {
+                $lastSqlError=$_.Exception
+            } finally {$connection.Dispose()}
+            if([datetime]::UtcNow -lt $sqlDeadline){Start-Sleep -Seconds 5}
+        } while([datetime]::UtcNow -lt $sqlDeadline)
+        throw ('SSIS_INSTALL_SQL_LOCAL_READY_TIMEOUT:{0}' -f [string]$lastSqlError.GetType().Name)
     }
 }
 
