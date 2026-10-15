@@ -126,8 +126,20 @@ function Install-LabSsisExistingComponent {
     try {
         $media=Open-LabSsisApprovedMedia -MediaRoot $MediaRoot -SqlMediaPath $SqlMediaPath -ExpectedSha256 $ExpectedSqlMediaSha256
         $null=Confirm-HyperVSqlInstallationMediaVersion -IsoPath $media.Media.IsoPath -SqlVersion 2025
-        $managed=Get-HyperVManagedVM -VMName ([string]$context.Instance.vmName) -ExpectedRunId $RunId.ToString() -ExpectedScopeId ([string]$context.Run.scopeId)
-        if(-not $managed -or [string]$managed.VM.Id -ne [string]$context.VmId -or [string]$managed.VM.State -ne 'Running'){throw 'SSIS_COMPONENT_VM_BINDING_INVALID'}
+        # The target has already passed ownership binding above. Reconcile its
+        # lifecycle through the owned-run path, then tolerate Hyper-V's short
+        # Start-VM state transition before attaching installation media.
+        $null=Start-HyperVLabEnvironment -RunId $RunId.ToString() -SkipWindowsActivationReconcile -StateRoot $StateRoot
+        $managed=$null
+        $vmStartDeadline=[datetime]::UtcNow.AddSeconds(60)
+        do {
+            $managed=Get-HyperVManagedVM -VMName ([string]$context.Instance.vmName) -ExpectedRunId $RunId.ToString() -ExpectedScopeId ([string]$context.Run.scopeId)
+            if(-not $managed -or [string]$managed.VM.Id -ne [string]$context.VmId){throw 'SSIS_COMPONENT_VM_BINDING_INVALID'}
+            if([string]$managed.VM.State -eq 'Running'){break}
+            Start-Sleep -Seconds 2
+        } while([datetime]::UtcNow -lt $vmStartDeadline)
+        if(-not $managed -or [string]$managed.VM.Id -ne [string]$context.VmId){throw 'SSIS_COMPONENT_VM_BINDING_INVALID'}
+        if([string]$managed.VM.State -ne 'Running'){throw ('SSIS_COMPONENT_VM_START_TIMEOUT:{0}' -f [string]$managed.VM.State)}
         $existing=@(Get-VMDvdDrive -VM $managed.VM -ErrorAction Stop | Where-Object {[string]$_.Path -eq [string]$media.Media.IsoPath}) | Select-Object -First 1
         if(-not $existing){$addedDvd=Add-VMDvdDrive -VM $managed.VM -Path $media.Media.IsoPath -ErrorAction Stop}
         $guest=Get-LabSecret -Path $context.Directory -Name 'guest-administrator-password'
