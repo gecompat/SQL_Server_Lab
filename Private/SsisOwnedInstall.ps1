@@ -315,7 +315,16 @@ function Get-LabSsisInstallGuestProbe {
             } finally {if($reader){$reader.Dispose()};if($command){$command.Dispose()}}
         }
         $service=Get-Service -Name MsDtsServer170 -ErrorAction Stop
-        $service.WaitForStatus([ServiceProcess.ServiceControllerStatus]::Running,[TimeSpan]::FromSeconds(60))
+        # Setup can complete before the freshly installed service has finished
+        # auto-starting after the required reboot. Start it through the local
+        # service controller and wait within the bounded guest probe instead of
+        # treating that transient state as a failed installation.
+        if($service.Status -ne 'Running'){
+            try {
+                $service.Start()
+                $service.WaitForStatus([ServiceProcess.ServiceControllerStatus]::Running,[TimeSpan]::FromMinutes(5))
+            } catch { throw 'SSIS_INSTALL_SERVICE_START_FAILED' }
+        }
         $path=Join-Path ([Environment]::GetFolderPath('ProgramFiles')) 'Microsoft SQL Server/170/DTS/Binn/MsDtsSrvr.exe'
         $file=Get-Item -LiteralPath $path -ErrorAction Stop
         if ($service.Status -ne 'Running' -or $file.PSIsContainer -or ($file.Attributes -band [IO.FileAttributes]::ReparsePoint) -or
