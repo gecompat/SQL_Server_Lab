@@ -387,10 +387,12 @@ function Get-LabSsisInstallGuestProbe {
                 $service.WaitForStatus([ServiceProcess.ServiceControllerStatus]::Running,[TimeSpan]::FromMinutes(5))
             } catch { throw 'SSIS_INSTALL_SERVICE_START_FAILED' }
         }
-        $path=Join-Path ([Environment]::GetFolderPath('ProgramFiles')) 'Microsoft SQL Server/170/DTS/Binn/MsDtsSrvr.exe'
-        $file=Get-Item -LiteralPath $path -ErrorAction Stop
-        if ($service.Status -ne 'Running' -or $file.PSIsContainer -or ($file.Attributes -band [IO.FileAttributes]::ReparsePoint) -or
-            [int]$file.VersionInfo.FileMajorPart -ne 17) { throw 'SSIS_INSTALL_COMPONENT_POSTCONDITION' }
+        $binn=Join-Path ([Environment]::GetFolderPath('ProgramFiles')) 'Microsoft SQL Server/170/DTS/Binn'
+        foreach($name in @('MsDtsSrvr.exe','Microsoft.SqlServer.IntegrationServices.Server.dll','Microsoft.SqlServer.Dts.Runtime.dll')){
+            $file=Get-Item -LiteralPath (Join-Path $binn $name) -ErrorAction Stop
+            if ($file.PSIsContainer -or ($file.Attributes -band [IO.FileAttributes]::ReparsePoint) -or [int]$file.VersionInfo.FileMajorPart -ne 17) { throw 'SSIS_INSTALL_COMPONENT_POSTCONDITION' }
+        }
+        if($service.Status -ne 'Running'){throw 'SSIS_INSTALL_COMPONENT_POSTCONDITION'}
         $connection=[Data.SqlClient.SqlConnection]::new('Data Source=localhost;Initial Catalog=master;Integrated Security=SSPI;Connect Timeout=15;Encrypt=False;Pooling=False')
         try {
             $connection.Open();Read-SsisInstalledSql -Connection $connection

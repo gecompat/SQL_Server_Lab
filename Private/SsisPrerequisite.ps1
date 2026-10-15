@@ -45,7 +45,10 @@ function Get-LabSsisGuestProbe {
             $directory=Join-Path ([Environment]::GetFolderPath('ProgramFiles')) "Microsoft SQL Server/$($ExpectedMajor * 10)/DTS/Binn"
             $status='OBSERVED'
             # DTExec.exe belongs to shared client runtime on a SQL-engine-only image; it is not evidence of the Integration Services server feature. The service host and server assembly are both feature-owned.
-            foreach ($name in @('MsDtsSrvr.exe','Microsoft.SqlServer.IntegrationServices.Server.dll')) {
+            # The package runtime is needed to construct the local-only synthetic
+            # packages.  A partial IS installation must be repaired, not reported
+            # as an already usable component set.
+            foreach ($name in @('MsDtsSrvr.exe','Microsoft.SqlServer.IntegrationServices.Server.dll','Microsoft.SqlServer.Dts.Runtime.dll')) {
                 try {
                     $file=Get-Item -LiteralPath (Join-Path $directory $name) -Force -ErrorAction Stop
                     if ($file.PSIsContainer -or ($file.Attributes -band [IO.FileAttributes]::ReparsePoint) -or [int]$file.VersionInfo.FileMajorPart -ne $ExpectedMajor) { return 'UNKNOWN' }
