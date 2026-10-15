@@ -54,6 +54,8 @@ Remove-SqlServerLab -RunId $fixture.Target.RunId -Force -Confirm:$false
 
 Die aktuelle Implementierung ist noch kein Windows-/SSISDB-Runtimenachweis. Vor dem Analyze-Runtimegate ist eine tatsächliche Abnahme erforderlich: genauer Cmdlet-Aufruf, Engine-/SSISversion, alle drei Execution-IDs und Statuswerte, beobachtete Views/Rechte, Receipt und erfolgreicher Run-Cleanup. Ein lokaler oder statischer Erfolg ersetzt diesen Nachweis nicht.
 
+Der Prepared-SSISDB-Pfad erklärt Windows-Aktivierung ausdrücklich als `NotRequested` mit `Denied`-Egress. SSIS, SSISDB und die lokale Katalogausführung benötigen keine Windows-Aktivierung; der Test erstellt daher weder eine temporäre externe NIC noch eine Netzverbindung. Die getrennten Fresh-Install-Abnahmen dürfen weiterhin ihre eigene Aktivierungskette prüfen.
+
 Der vorgesehene Nachweis läuft auf dem erhöhten registrierten Hyper-V-Runner,
 nicht über einen lokalen UAC-Dialog. Der manuelle Workflowmodus
 `ssisdb-fixture-acceptance` verlangt ausdrücklich Prepared-Artifact,

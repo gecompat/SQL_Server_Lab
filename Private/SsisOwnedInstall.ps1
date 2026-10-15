@@ -235,7 +235,7 @@ function Invoke-LabSsisPreparedFixtureRun {
         $manifestPath=Join-Path ([IO.Path]::GetTempPath()) ('sql-server-lab-ssis-'+[guid]::NewGuid().ToString('N')+'.json')
         $manifest=[ordered]@{name='ssis-prepared-fixture';instances=@([ordered]@{
             id='primary';version='2025';provider='hyperv';os='windows';profile='standard'
-            windowsActivation=[ordered]@{ContractVersion='SqlServerLab.WindowsActivationIntent/1.0';Strategy='EvaluationOnline';EgressPolicy='AllowTemporary'}
+            windowsActivation=[ordered]@{ContractVersion='SqlServerLab.WindowsActivationIntent/1.0';Strategy='NotRequested';EgressPolicy='Denied'}
             hyperv=[ordered]@{preparedImageId=$ArtifactId;memoryStartupMB=4096;processorCount=2;autostart='off';guestPasswordMode='prompt'}
         })}
         [IO.File]::WriteAllText($manifestPath,($manifest | ConvertTo-Json -Depth 16),[Text.UTF8Encoding]::new($false))

@@ -33,7 +33,8 @@ foreach($case in @('valid','operation','hash','vm','provider','workload','runnin
     Check "Produktbindung $case" ($blocked -eq ($case -ne 'valid'))
 }
 $installerSource=Get-Content -LiteralPath (Join-Path $repoRoot 'Private/SsisOwnedInstall.ps1') -Raw
-Check 'IS-Installationslauf bindet den vorhandenen temporaeren Windows-Aktivierungsmechanismus' ($installerSource -match "WindowsActivation @\{ContractVersion='SqlServerLab\.WindowsActivationIntent/1\.0';Strategy='EvaluationOnline';EgressPolicy='AllowTemporary'\}")
+$preparedFixtureSource=[regex]::Match($installerSource,'(?s)function Invoke-LabSsisPreparedFixtureRun \{.*?(?=function Invoke-LabSsisOwnedTransaction)').Value
+Check 'IS-Installationslauf fordert keine Windows-Aktivierung und keinen Egress an' ($preparedFixtureSource -match "windowsActivation=\[ordered\]@\{ContractVersion='SqlServerLab\.WindowsActivationIntent/1\.0';Strategy='NotRequested';EgressPolicy='Denied'\}")
 Check 'Langer SSIS-Gasttransport besitzt einen eigenstaendigen Fortschrittsreporter' ($installerSource -match '\$blockingProgress=Start-LabBlockingActionProgress -Phase GuestWait' -and $installerSource -match 'finally \{if\(\$blockingProgress\)\{Stop-LabBlockingActionProgress -Handle \$blockingProgress\}')
 $arguments=@(Get-LabSsisSetupArguments)
 Check 'Setup benötigt keine Dienstsecrets und deaktiviert beide Updatequellen' ($arguments.Count -eq 4 -and $arguments -contains '/UpdateEnabled=False' -and $arguments -contains '/USEMICROSOFTUPDATE=False' -and $arguments -contains '/ISSVCACCOUNT="NT AUTHORITY\NETWORK SERVICE"' -and $arguments -contains '/ISSVCStartupType=Automatic')

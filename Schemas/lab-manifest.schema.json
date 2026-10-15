@@ -335,7 +335,7 @@
           "description": "Aktivierungsstrategie und ausdrueckliche Egress-Grenze des Windows-Child-Slots; keine Keys oder privaten Endpunkte.",
           "properties": {
             "ContractVersion": { "const": "SqlServerLab.WindowsActivationIntent/1.0", "type": "string", "default": "SqlServerLab.WindowsActivationIntent/1.0" },
-            "Strategy": { "type": "string", "enum": ["EvaluationOnline", "VerifyOnly"], "default": "EvaluationOnline" },
+            "Strategy": { "type": "string", "enum": ["EvaluationOnline", "VerifyOnly", "NotRequested"], "default": "EvaluationOnline" },
             "EgressPolicy": { "type": "string", "enum": ["Denied", "ExistingOnly", "AllowTemporary"], "default": "ExistingOnly" }
           }
         },
