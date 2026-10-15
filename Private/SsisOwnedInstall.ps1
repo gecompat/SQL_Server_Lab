@@ -73,37 +73,47 @@ function Get-LabSsisComponentGuestInstall {
     return {
         param([string]$ExpectedSetupVersionPattern,[int]$TimeoutSeconds)
         $ErrorActionPreference='Stop'
-        $setups=@()
-        $mediaDeadline=[datetime]::UtcNow.AddSeconds([math]::Min(120,[math]::Max(15,$TimeoutSeconds)))
-        do {
-            $setups=@(Get-CimInstance Win32_LogicalDisk -Filter 'DriveType=5' | ForEach-Object {
-                $candidate=Join-Path ([string]$_.DeviceID+'\\') 'setup.exe'
-                if(Test-Path -LiteralPath $candidate -PathType Leaf){Get-Item -LiteralPath $candidate}
-            } | Where-Object {[string]$_.VersionInfo.FileVersion -match $ExpectedSetupVersionPattern})
-            if($setups.Count -eq 1){break}
-            Start-Sleep -Seconds 2
-        } while([datetime]::UtcNow -lt $mediaDeadline)
-        if($setups.Count -ne 1){throw "SSIS_COMPONENT_MEDIA_NOT_UNIQUE: $($setups.Count)"}
-        # This scriptblock executes in the guest and therefore carries its narrow
-        # setup arguments explicitly instead of relying on host module functions.
-        $arguments=@('/Q','/ACTION=Install','/FEATURES=IS','/INSTANCENAME=MSSQLSERVER',
-            '/IACCEPTSQLSERVERLICENSETERMS','/INDICATEPROGRESS','/UpdateEnabled=False',
-            '/USEMICROSOFTUPDATE=False','/ISSVCACCOUNT="NT AUTHORITY\NETWORK SERVICE"',
-            '/ISSVCStartupType=Automatic')
-        $start=[Diagnostics.ProcessStartInfo]::new()
-        $start.FileName=$setups[0].FullName
-        foreach($argument in $arguments){$null=$start.ArgumentList.Add($argument)}
-        $start.UseShellExecute=$false
-        $process=[Diagnostics.Process]::Start($start)
-        if(-not $process){throw 'SSIS_COMPONENT_SETUP_START_FAILED'}
-        if(-not $process.WaitForExit($TimeoutSeconds * 1000)){
-            try{$process.Kill($true)}catch{}
-            throw 'SSIS_COMPONENT_SETUP_TIMEOUT'
+        $stage='MEDIA_DISCOVERY'
+        try {
+            $setups=@()
+            $mediaDeadline=[datetime]::UtcNow.AddSeconds([math]::Min(120,[math]::Max(15,$TimeoutSeconds)))
+            do {
+                $setups=@(Get-CimInstance Win32_LogicalDisk -Filter 'DriveType=5' | ForEach-Object {
+                    $candidate=Join-Path ([string]$_.DeviceID+'\\') 'setup.exe'
+                    if(Test-Path -LiteralPath $candidate -PathType Leaf){Get-Item -LiteralPath $candidate}
+                } | Where-Object {[string]$_.VersionInfo.FileVersion -match $ExpectedSetupVersionPattern})
+                if($setups.Count -eq 1){break}
+                Start-Sleep -Seconds 2
+            } while([datetime]::UtcNow -lt $mediaDeadline)
+            if($setups.Count -ne 1){throw "SSIS_COMPONENT_MEDIA_NOT_UNIQUE: $($setups.Count)"}
+            # This scriptblock executes in the guest and therefore carries its narrow
+            # setup arguments explicitly instead of relying on host module functions.
+            $stage='SETUP_START'
+            $arguments=@('/Q','/ACTION=Install','/FEATURES=IS','/INSTANCENAME=MSSQLSERVER',
+                '/IACCEPTSQLSERVERLICENSETERMS','/INDICATEPROGRESS','/UpdateEnabled=False',
+                '/USEMICROSOFTUPDATE=False','/ISSVCACCOUNT="NT AUTHORITY\NETWORK SERVICE"',
+                '/ISSVCStartupType=Automatic')
+            $start=[Diagnostics.ProcessStartInfo]::new()
+            $start.FileName=$setups[0].FullName
+            foreach($argument in $arguments){$null=$start.ArgumentList.Add($argument)}
+            $start.UseShellExecute=$false
+            $process=[Diagnostics.Process]::Start($start)
+            if(-not $process){throw 'SSIS_COMPONENT_SETUP_START_FAILED'}
+            $stage='SETUP_WAIT'
+            if(-not $process.WaitForExit($TimeoutSeconds * 1000)){
+                try{$process.Kill($true)}catch{}
+                throw 'SSIS_COMPONENT_SETUP_TIMEOUT'
+            }
+            $exitCode=$process.ExitCode
+            $process.Dispose()
+            if($exitCode -notin @(0,3010)){throw "SSIS_COMPONENT_SETUP_FAILED: $exitCode"}
+            [pscustomobject]@{Status='SSIS_COMPONENT_INSTALL_COMPLETED';RebootRequired=($exitCode -eq 3010)}
         }
-        $exitCode=$process.ExitCode
-        $process.Dispose()
-        if($exitCode -notin @(0,3010)){throw "SSIS_COMPONENT_SETUP_FAILED: $exitCode"}
-        [pscustomobject]@{Status='SSIS_COMPONENT_INSTALL_COMPLETED';RebootRequired=($exitCode -eq 3010)}
+        catch {
+            $message=[string]$_.Exception.Message
+            if($message -match '^SSIS_COMPONENT_'){throw $message}
+            throw ('SSIS_COMPONENT_GUEST_FAILURE:{0}' -f $stage)
+        }
     }
 }
 
