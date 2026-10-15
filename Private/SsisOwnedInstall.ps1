@@ -107,11 +107,19 @@ param([Parameter(Mandatory)][string]$ConfigPath)
 $ErrorActionPreference='Stop'
 $config=Get-Content -LiteralPath $ConfigPath -Raw|ConvertFrom-Json
 $result=[ordered]@{OperationId=[string]$config.OperationId;State='FAILED';ErrorCode='SSIS_COMPONENT_WORKER_FAILED';RebootRequired=$false}
+$stage='SETUP_START'
 try {
-    $process=Start-Process -FilePath ([string]$config.SetupPath) -ArgumentList @($config.Arguments) -PassThru -ErrorAction Stop
+    $start=[Diagnostics.ProcessStartInfo]::new()
+    $start.FileName=[string]$config.SetupPath
+    # Windows PowerShell in the guest does not have ProcessStartInfo.ArgumentList.
+    $start.Arguments=(@($config.Arguments) -join ' ')
+    $start.UseShellExecute=$false
+    $process=[Diagnostics.Process]::Start($start)
+    if(-not $process){throw 'SSIS_COMPONENT_SETUP_START_FAILED'}
+    $stage='SETUP_WAIT'
     $process.WaitForExit()
     if($process.ExitCode -in @(0,3010)){$result.State='SUCCEEDED';$result.ErrorCode='NONE';$result.RebootRequired=($process.ExitCode -eq 3010)}else{$result.ErrorCode='SSIS_COMPONENT_SETUP_FAILED'}
-} catch {$result.ErrorCode='SSIS_COMPONENT_WORKER_FAILED'}
+} catch {$result.ErrorCode=('SSIS_COMPONENT_WORKER_'+$stage)}
 finally {
     $temporary=([string]$config.StatusPath)+'.tmp'
     [IO.File]::WriteAllText($temporary,($result|ConvertTo-Json -Depth 8),[Text.UTF8Encoding]::new($false))
