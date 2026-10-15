@@ -193,18 +193,12 @@ function Install-LabSsisExistingComponent {
     try {
         $media=Open-LabSsisApprovedMedia -MediaRoot $MediaRoot -SqlMediaPath $SqlMediaPath -ExpectedSha256 $ExpectedSqlMediaSha256
         $null=Confirm-HyperVSqlInstallationMediaVersion -IsoPath $media.Media.IsoPath -SqlVersion 2025
-        # The target has already passed ownership binding above. Reconcile its
-        # lifecycle through the owned-run path, then tolerate Hyper-V's short
-        # Start-VM state transition before attaching installation media.
-        $null=Start-HyperVLabEnvironment -RunId $RunId.ToString() -SkipWindowsActivationReconcile -StateRoot $StateRoot
-        $managed=$null
-        $vmStartDeadline=[datetime]::UtcNow.AddSeconds(60)
-        do {
-            $managed=Get-HyperVManagedVM -VMName ([string]$context.Instance.vmName) -ExpectedRunId $RunId.ToString() -ExpectedScopeId ([string]$context.Run.scopeId)
-            if($managed -and [string]$managed.VM.Id -ne [string]$context.Instance.vmId){throw 'SSIS_COMPONENT_VM_BINDING_INVALID'}
-            if($managed -and [string]$managed.VM.State -eq 'Running'){break}
-            Start-Sleep -Seconds 2
-        } while([datetime]::UtcNow -lt $vmStartDeadline)
+        # The prerequisite probe already bound this exact VM in Running state.
+        # Do not start it again: the general environment-start operation updates the
+        # run lifecycle and can invoke unrelated long-running provider work.
+        # Rebind immediately before the first mutation so a stopped or replaced
+        # VM fails closed instead of being implicitly restarted.
+        $managed=Get-HyperVManagedVM -VMName ([string]$context.Instance.vmName) -ExpectedRunId $RunId.ToString() -ExpectedScopeId ([string]$context.Run.scopeId)
         if(-not $managed){throw 'SSIS_COMPONENT_VM_BINDING_UNAVAILABLE'}
         if([string]$managed.VM.Id -ne [string]$context.Instance.vmId){throw 'SSIS_COMPONENT_VM_BINDING_INVALID'}
         if([string]$managed.VM.State -ne 'Running'){throw ('SSIS_COMPONENT_VM_START_TIMEOUT:{0}' -f [string]$managed.VM.State)}
