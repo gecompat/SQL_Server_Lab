@@ -470,6 +470,16 @@ function Get-LabSsisCatalogFixtureGuestProbe {
             }
             $catalogConnection=[Data.SqlClient.SqlConnection]::new('Data Source=localhost;Initial Catalog=SSISDB;Integrated Security=SSPI;Connect Timeout=30;Encrypt=False;Pooling=False')
             $catalogConnection.Open()
+            # Catalog procedures create encrypted values.  Keep the template key open
+            # on this catalog session for the whole owned fixture transaction.  A
+            # catalog with a different unavailable key fails explicitly before an
+            # owned folder can be created.
+            $catalogKey=$catalogConnection.CreateCommand();$catalogKey.CommandTimeout=30
+            try {
+                $catalogKey.CommandText="OPEN MASTER KEY DECRYPTION BY PASSWORD=N'LS1Setup!';"
+                $null=$catalogKey.ExecuteNonQuery()
+            } catch { throw 'SSIS_FIXTURE_MASTER_KEY_OPEN_FAILED' }
+            finally {$catalogKey.Dispose()}
             # The generated packages are intentionally local-only: a blank package succeeds;
             # ForceExecutionResult produces the error case; the third execution remains created.
             # SSIS server installation does not require the separately distributed development
