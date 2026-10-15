@@ -215,7 +215,8 @@ function Invoke-LabSsisPreparedFixtureRun {
         [Parameter(Mandatory)][string]$MediaRoot,
         [Parameter(Mandatory)][string]$SqlMediaPath,
         [Parameter(Mandatory)][string]$ExpectedSqlMediaSha256,
-        [Parameter(Mandatory)][string]$StateRoot
+        [Parameter(Mandatory)][string]$StateRoot,
+        [ValidateRange(600,1800)][int]$FixtureTimeoutSeconds=900
     )
     if(-not $IsWindows){throw 'SSIS_FIXTURE_WINDOWS_REQUIRED'}
     $principal=[Security.Principal.WindowsPrincipal]::new([Security.Principal.WindowsIdentity]::GetCurrent())
@@ -256,10 +257,12 @@ function Invoke-LabSsisPreparedFixtureRun {
             Start-Sleep -Seconds 2
         } while([datetime]::UtcNow -lt $vmStartDeadline)
         if(-not $started -or [string]$started.VM.State -ne 'Running'){throw 'SSIS_FIXTURE_VM_START_TIMEOUT'}
+        Write-LabInfo 'SSIS-Fixture: beginne additive IS-Komponenteninstallation im gebundenen Prepared-Run (Budget: 1800 Sekunden).'
         $component=Install-LabSsisExistingComponent -RunId $runId -InstanceId 'primary' -MediaRoot $MediaRoot -SqlMediaPath $SqlMediaPath `
-            -ExpectedSqlMediaSha256 $ExpectedSqlMediaSha256 -StateRoot $StateRoot
+            -ExpectedSqlMediaSha256 $ExpectedSqlMediaSha256 -StateRoot $StateRoot -SetupTimeoutSeconds 1800
         if([string]$component.Status -notin @('INSTALLED_AND_RESTART_VERIFIED','ALREADY_INSTALLED')){throw 'SSIS_FIXTURE_COMPONENT_RESULT_INVALID'}
-        $fixture=Invoke-LabSsisExistingCatalogFixture -RunId $runId -InstanceId 'primary' -StateRoot $StateRoot
+        Write-LabInfo 'SSIS-Fixture: IS-Komponente verifiziert; erstelle nun den eigenen SSISDB-Katalog und die drei Ausführungen (Budget: 900 Sekunden).'
+        $fixture=Invoke-LabSsisExistingCatalogFixture -RunId $runId -InstanceId 'primary' -StateRoot $StateRoot -FixtureTimeoutSeconds 900
         $fixture | Add-Member -NotePropertyName SourceBinding -NotePropertyValue 'OWNED_PREPARED_HYPERV_RUN' -Force
         return $fixture
     }
@@ -464,7 +467,8 @@ function Invoke-LabSsisExistingCatalogFixture {
     param(
         [Parameter(Mandatory)][guid]$RunId,
         [Parameter(Mandatory)][string]$InstanceId,
-        [Parameter(Mandatory)][string]$StateRoot
+        [Parameter(Mandatory)][string]$StateRoot,
+        [ValidateRange(600,1800)][int]$FixtureTimeoutSeconds=900
     )
     if(-not $IsWindows){throw 'SSIS_FIXTURE_WINDOWS_REQUIRED'}
     $context=Get-LabSsisPrerequisiteContext -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot
@@ -480,7 +484,7 @@ function Invoke-LabSsisExistingCatalogFixture {
         $result=@(Invoke-HyperVPowerShellDirect -VMName ([string]$context.Instance.vmName) -ExpectedRunId $RunId.ToString() `
             -ExpectedScopeId ([string]$context.Run.scopeId) -ExpectedVmId ([guid]$context.Instance.vmId) `
             -Credential ([PSCredential]::new('Administrator',$guest)) -ScriptBlock (Get-LabSsisCatalogFixtureGuestProbe) `
-            -ArgumentList @($operationId,$true) -TimeoutSeconds 600 -ErrorAction Stop)
+            -ArgumentList @($operationId,$true) -TimeoutSeconds $FixtureTimeoutSeconds -ErrorAction Stop)
         if($result.Count -ne 1 -or [string]$result[0].Status -ne 'SSISDB_FIXTURE_ACCEPTED' -or
             [string]$result[0].OperationId -ne $operationId){throw 'SSIS_FIXTURE_RESULT_INVALID'}
         $fixture=$result[0]
