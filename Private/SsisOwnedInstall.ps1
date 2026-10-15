@@ -506,7 +506,20 @@ function Get-LabSsisCatalogFixtureGuestProbe {
             try { foreach($path in @($projectParameters,(Join-Path $temporary 'Success.dtsx'),(Join-Path $temporary 'Failure.dtsx'),(Join-Path $temporary 'Incomplete.dtsx'))){[IO.Compression.ZipFileExtensions]::CreateEntryFromFile($archive,$path,[IO.Path]::GetFileName($path))|Out-Null} } finally {$archive.Dispose()}
             function Invoke-FixtureCommand { param([string]$Text,[hashtable]$Parameters=@{})
                 $cmd=$catalogConnection.CreateCommand();$cmd.CommandTimeout=180;$cmd.CommandText=$Text
-                try {foreach($key in $Parameters.Keys){$value=$Parameters[$key];$parameter=$cmd.Parameters.Add($key,[Data.SqlDbType]::Variant);$parameter.Value=if($null -eq $value){[DBNull]::Value}else{$value}};return $cmd.ExecuteScalar()}finally{$cmd.Dispose()}
+                try {
+                    foreach($key in $Parameters.Keys){
+                        $value=$Parameters[$key]
+                        if($value -is [string]){
+                            $parameter=$cmd.Parameters.Add($key,[Data.SqlDbType]::NVarChar,128)
+                        } elseif($value -is [int64]){
+                            $parameter=$cmd.Parameters.Add($key,[Data.SqlDbType]::BigInt)
+                        } else {
+                            throw 'SSIS_FIXTURE_PARAMETER_TYPE_INVALID'
+                        }
+                        $parameter.Value=$value
+                    }
+                    return $cmd.ExecuteScalar()
+                } finally {$cmd.Dispose()}
             }
             $folderId=Invoke-FixtureCommand -Text 'DECLARE @id bigint; EXEC [catalog].[create_folder] @folder_name=@folder, @folder_id=@id OUTPUT; SELECT @id;' -Parameters @{ '@folder'=$folder }
             if([int64]$folderId -lt 1){throw 'SSIS_FIXTURE_FOLDER_CREATE_FAILED'};$folderCreated=$true
