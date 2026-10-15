@@ -134,12 +134,12 @@ function Install-LabSsisExistingComponent {
         $vmStartDeadline=[datetime]::UtcNow.AddSeconds(60)
         do {
             $managed=Get-HyperVManagedVM -VMName ([string]$context.Instance.vmName) -ExpectedRunId $RunId.ToString() -ExpectedScopeId ([string]$context.Run.scopeId)
-            if($managed -and [string]$managed.VM.Id -ne [string]$context.VmId){throw 'SSIS_COMPONENT_VM_BINDING_INVALID'}
+            if($managed -and [string]$managed.VM.Id -ne [string]$context.Instance.vmId){throw 'SSIS_COMPONENT_VM_BINDING_INVALID'}
             if($managed -and [string]$managed.VM.State -eq 'Running'){break}
             Start-Sleep -Seconds 2
         } while([datetime]::UtcNow -lt $vmStartDeadline)
         if(-not $managed){throw 'SSIS_COMPONENT_VM_BINDING_UNAVAILABLE'}
-        if([string]$managed.VM.Id -ne [string]$context.VmId){throw 'SSIS_COMPONENT_VM_BINDING_INVALID'}
+        if([string]$managed.VM.Id -ne [string]$context.Instance.vmId){throw 'SSIS_COMPONENT_VM_BINDING_INVALID'}
         if([string]$managed.VM.State -ne 'Running'){throw ('SSIS_COMPONENT_VM_START_TIMEOUT:{0}' -f [string]$managed.VM.State)}
         $existing=@(Get-VMDvdDrive -VM $managed.VM -ErrorAction Stop | Where-Object {[string]$_.Path -eq [string]$media.Media.IsoPath}) | Select-Object -First 1
         if(-not $existing){$addedDvd=Add-VMDvdDrive -VM $managed.VM -Path $media.Media.IsoPath -ErrorAction Stop}
@@ -148,18 +148,18 @@ function Install-LabSsisExistingComponent {
         $credential=[PSCredential]::new('Administrator',$guest)
         $progress=Start-LabBlockingActionProgress -Phase GuestWait
         $result=@(Invoke-HyperVPowerShellDirect -VMName ([string]$context.Instance.vmName) -ExpectedRunId $RunId.ToString() `
-            -ExpectedScopeId ([string]$context.Run.scopeId) -ExpectedVmId ([guid]$context.VmId) -Credential $credential `
+            -ExpectedScopeId ([string]$context.Run.scopeId) -ExpectedVmId ([guid]$context.Instance.vmId) -Credential $credential `
             -ScriptBlock (Get-LabSsisComponentGuestInstall) -ArgumentList @((Get-HyperVSqlSetupVersionPattern -SqlVersion '2025'),$SetupTimeoutSeconds) `
             -TimeoutSeconds ($SetupTimeoutSeconds+180) -ErrorAction Stop)
         if($result.Count -ne 1 -or [string]$result[0].Status -ne 'SSIS_COMPONENT_INSTALL_COMPLETED'){throw 'SSIS_COMPONENT_RESULT_INVALID'}
         $managed=Get-HyperVManagedVM -VMName ([string]$context.Instance.vmName) -ExpectedRunId $RunId.ToString() -ExpectedScopeId ([string]$context.Run.scopeId)
-        if(-not $managed -or [string]$managed.VM.Id -ne [string]$context.VmId){throw 'SSIS_COMPONENT_RESTART_BINDING_INVALID'}
+        if(-not $managed -or [string]$managed.VM.Id -ne [string]$context.Instance.vmId){throw 'SSIS_COMPONENT_RESTART_BINDING_INVALID'}
         $null=Restart-VM -VM $managed.VM -Force -ErrorAction Stop
         $ready=Wait-HyperVPowerShellDirect -VMName ([string]$context.Instance.vmName) -ExpectedRunId $RunId.ToString() `
             -ExpectedScopeId ([string]$context.Run.scopeId) -Credential $credential -TimeoutSeconds 600
         if(-not $ready.Ready){throw 'SSIS_COMPONENT_RESTART_NOT_READY'}
         $verified=@(Invoke-HyperVPowerShellDirect -VMName ([string]$context.Instance.vmName) -ExpectedRunId $RunId.ToString() `
-            -ExpectedScopeId ([string]$context.Run.scopeId) -ExpectedVmId ([guid]$context.VmId) -Credential $credential `
+            -ExpectedScopeId ([string]$context.Run.scopeId) -ExpectedVmId ([guid]$context.Instance.vmId) -Credential $credential `
             -ScriptBlock (Get-LabSsisInstallGuestProbe) -TimeoutSeconds 120 -ErrorAction Stop)
         if($verified.Count -ne 1 -or [string]$verified[0].Status -ne 'IS_COMPONENTS_AND_SQL_VERIFIED'){throw 'SSIS_COMPONENT_POSTCONDITION_FAILED'}
         $receipt=[pscustomobject][ordered]@{ContractVersion='SqlServerLab.SsisComponent/1.0';RunId=$RunId.ToString();InstanceId=$InstanceId;OperationId=$operationId;Status='INSTALLED_AND_RESTART_VERIFIED';EngineMajor=17;SsisMajor=17;MediaSha256=$media.Sha256;Cleanup='REMOVE_RUN_TO_CLEANUP'}
@@ -420,7 +420,7 @@ function Invoke-LabSsisExistingCatalogFixture {
         if(-not $guest){throw 'SSIS_FIXTURE_GUEST_CREDENTIAL_REQUIRED'}
         $operationId='ssis-install-'+[guid]::NewGuid().ToString('N')
         $result=@(Invoke-HyperVPowerShellDirect -VMName ([string]$context.Instance.vmName) -ExpectedRunId $RunId.ToString() `
-            -ExpectedScopeId ([string]$context.Run.scopeId) -ExpectedVmId ([guid]$context.VmId) `
+            -ExpectedScopeId ([string]$context.Run.scopeId) -ExpectedVmId ([guid]$context.Instance.vmId) `
             -Credential ([PSCredential]::new('Administrator',$guest)) -ScriptBlock (Get-LabSsisCatalogFixtureGuestProbe) `
             -ArgumentList @($operationId,$true) -TimeoutSeconds 600 -ErrorAction Stop)
         if($result.Count -ne 1 -or [string]$result[0].Status -ne 'SSISDB_FIXTURE_ACCEPTED' -or
@@ -455,7 +455,7 @@ function Remove-LabSsisExistingCatalogFixture {
         $guest=Get-LabSecret -Path $context.Directory -Name 'guest-administrator-password'
         if(-not $guest){throw 'SSIS_FIXTURE_GUEST_CREDENTIAL_REQUIRED'}
         $result=@(Invoke-HyperVPowerShellDirect -VMName ([string]$context.Instance.vmName) -ExpectedRunId $RunId.ToString() `
-            -ExpectedScopeId ([string]$context.Run.scopeId) -ExpectedVmId ([guid]$context.VmId) `
+            -ExpectedScopeId ([string]$context.Run.scopeId) -ExpectedVmId ([guid]$context.Instance.vmId) `
             -Credential ([PSCredential]::new('Administrator',$guest)) -ArgumentList @($folder) -TimeoutSeconds 120 -ErrorAction Stop -ScriptBlock {
                 param($FolderName)
                 $connection=[Data.SqlClient.SqlConnection]::new('Data Source=localhost;Initial Catalog=SSISDB;Integrated Security=SSPI;Connect Timeout=30;Encrypt=False;Pooling=False')
