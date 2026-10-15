@@ -211,6 +211,18 @@ function Invoke-LabSsisPreparedFixtureRun {
         # New-SqlServerLab already performed the one permitted activation reconciliation.
         # A second reconciliation can resume-and-stop an autostart=off run, so the installer only starts the bound VM.
         $null=Start-HyperVLabEnvironment -RunId $runId.ToString() -SkipWindowsActivationReconcile -StateRoot $StateRoot
+        # Start-VM returns while Hyper-V can still report the owned VM as Starting.
+        # Wait only for that immutable, bound state before attaching approved media;
+        # guest readiness remains the installer's separate PowerShell-Direct gate.
+        $startedLab=Get-HyperVLabWorkflowRun -RunId $runId.ToString() -StateRoot $StateRoot
+        $vmStartDeadline=[datetime]::UtcNow.AddSeconds(60)
+        do {
+            $started=Get-HyperVManagedVM -VMName ([string]$startedLab.Instance.vmName) `
+                -ExpectedRunId $runId.ToString() -ExpectedScopeId ([string]$startedLab.Run.scopeId)
+            if($started -and [string]$started.VM.State -eq 'Running'){break}
+            Start-Sleep -Seconds 2
+        } while([datetime]::UtcNow -lt $vmStartDeadline)
+        if(-not $started -or [string]$started.VM.State -ne 'Running'){throw 'SSIS_FIXTURE_VM_START_TIMEOUT'}
         $component=Install-LabSsisExistingComponent -RunId $runId -InstanceId 'primary' -MediaRoot $MediaRoot -SqlMediaPath $SqlMediaPath `
             -ExpectedSqlMediaSha256 $ExpectedSqlMediaSha256 -StateRoot $StateRoot
         if([string]$component.Status -notin @('INSTALLED_AND_RESTART_VERIFIED','ALREADY_INSTALLED')){throw 'SSIS_FIXTURE_COMPONENT_RESULT_INVALID'}
