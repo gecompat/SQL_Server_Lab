@@ -424,12 +424,21 @@ function Invoke-HyperVWindowsSlotActivation {
                 $product = @($products | Select-Object -First 1)[0]
                 if (-not $product) { throw 'WINDOWS_ACTIVATION_PRODUCT_NOT_FOUND' }
                 $activationStage = 'activation-request'
-                try {
-                    $activate = Invoke-CimMethod -InputObject $product -MethodName Activate -ErrorAction Stop
-                }
-                catch {
-                    if ($_.Exception.HResult) { $activationHResult = ('0x{0:X8}' -f [uint32]$_.Exception.HResult) }
-                    throw
+                # The Windows activation endpoint can transiently refuse a newly
+                # attached adapter even after DNS, address, and route checks pass.
+                # Retry precisely once inside the guest; all terminal API errors
+                # remain observable through the existing sanitized receipt.
+                $activationRequestMaxAttempts = 2
+                for ($activationRequestAttempt = 1; $activationRequestAttempt -le $activationRequestMaxAttempts; $activationRequestAttempt++) {
+                    try {
+                        $activate = Invoke-CimMethod -InputObject $product -MethodName Activate -ErrorAction Stop
+                        break
+                    }
+                    catch {
+                        if ($_.Exception.HResult) { $activationHResult = ('0x{0:X8}' -f [uint32]$_.Exception.HResult) }
+                        if ($activationRequestAttempt -ge $activationRequestMaxAttempts) { throw }
+                        Start-Sleep -Seconds 5
+                    }
                 }
                 if ([uint32]$activate.ReturnValue -ne 0) {
                     $activationReturnValue = ('0x{0:X8}' -f [uint32]$activate.ReturnValue)
