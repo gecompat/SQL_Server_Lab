@@ -245,8 +245,7 @@ jobs:
           $evidence=[ordered]@{Contract='SqlServerLab.SsisCatalogExistingRunAcceptance/1.0';Status='PASSED_RETAINED_SOURCE';RunId=$final.Target.RunId;InstanceId=$final.Target.InstanceId;BindingStatus=$final.Target.BindingStatus;SourceBinding=$final.Source.ConnectionBinding;ConsumerRights=$final.Source.ConsumerRights;SqlEngineMajor=$final.Sql.EngineMajor;SsisMajor=$final.Ssis.Major;Catalog=$final.Ssis.Catalog;ExecutionIds=$final.Fixture.ExecutionIds;ExecutionStatus=$final.Fixture.ExecutionStatus;CatalogViews=$final.Fixture.CatalogViews;CleanupProof=$clean.Cleanup}
           $evidenceJson=$evidence|ConvertTo-Json -Depth 8
           $evidenceJson|Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY
-          Write-Host ('SSISDB_EXISTING_RUN_ACCEPTANCE_EVIDENCE: ' + ($evidenceJson -replace '[
-]+',' '))
+          Write-Host ('SSISDB_EXISTING_RUN_ACCEPTANCE_EVIDENCE: ' + ($evidenceJson -replace '\s+',' '))
 
       - name: Hyper-V lifecycle smoke
         if: inputs.mode == 'lifecycle'
