@@ -54,6 +54,16 @@ Remove-SqlServerLab -RunId $fixture.Target.RunId -Force -Confirm:$false
 
 Die aktuelle Implementierung ist noch kein Windows-/SSISDB-Runtimenachweis. Vor dem Analyze-Runtimegate ist eine tatsächliche Abnahme erforderlich: genauer Cmdlet-Aufruf, Engine-/SSISversion, alle drei Execution-IDs und Statuswerte, beobachtete Views/Rechte, Receipt und erfolgreicher Run-Cleanup. Ein lokaler oder statischer Erfolg ersetzt diesen Nachweis nicht.
 
+Der vorgesehene Nachweis läuft auf dem erhöhten registrierten Hyper-V-Runner,
+nicht über einen lokalen UAC-Dialog. Der manuelle Workflowmodus
+`ssisdb-fixture-acceptance` verlangt ausdrücklich Prepared-Artifact,
+State-Root, relativen ISO-Pfad und ISO-Hash. Er ruft ausschließlich
+`New-SqlServerLabSsisCatalogFixture` und `Remove-SqlServerLab` auf,
+schreibt nur eine geheimnisfreie Receipt in die Workflow-Zusammenfassung und
+bereinigt den neuen eigenen Run auch nach einem Fixturefehler. Bis ein
+erfolgreicher Workflowlauf verlinkt ist, bleibt der Runtime-Status
+`IMPLEMENTED_RUNTIME_PENDING`.
+
 ## Herstellergrundlagen
 
 Microsoft beschreibt den SSIS-Katalog und seine `catalog`-Views als SSISDB-Quelle. Die spätere Ausführung verwendet ausschließlich die offiziellen Katalogprozeduren und getrennt dokumentierte Rechtebindungen: [SSIS-Katalog](https://learn.microsoft.com/sql/integration-services/catalog/ssis-catalog?view=sql-server-ver17), [catalog.executions](https://learn.microsoft.com/sql/integration-services/system-views/catalog-executions-ssisdb-database?view=sql-server-ver16), [catalog.create_execution](https://learn.microsoft.com/sql/integration-services/system-stored-procedures/catalog-create-execution-ssisdb-database?view=sql-server-ver17).

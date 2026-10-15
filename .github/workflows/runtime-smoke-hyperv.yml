@@ -59,6 +59,7 @@ on:
           - sample-manifest-acceptance
           - external-runtime-reconcile-acceptance
           - ai-rag-own-run-acceptance
+          - ssisdb-fixture-acceptance
       ai_preflight_only:
         description: Im KI-Own-Run-Modus ausschließlich vorhandenes Artifact und Hostmodelle lesend prüfen
         required: false
@@ -98,6 +99,18 @@ on:
           - Enterprise
           - Standard
           - Eval
+      ssis_state_root:
+        description: Expliziter bestehender State Root für SSISDB-Artifactkatalog und eigenen Acceptance-Run
+        required: false
+        type: string
+      ssis_media_path:
+        description: Relativer Pfad der vorhandenen SQL-ISO für die additive SSIS-Installation
+        required: false
+        type: string
+      ssis_media_sha256:
+        description: Erwarteter SHA-256 der vorhandenen SQL-ISO
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -170,6 +183,34 @@ jobs:
             Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value "## Infrastruktur nicht verfügbar`n`n$message`n`nEs liegt kein Nachweis für einen Implementierungsfehler vor. Nach Wiederherstellung nur diesen Lauf erneut ausführen."
             exit 1
           }
+
+      - name: Reject SSISDB fixture acceptance outside trusted manual dispatch
+        if: inputs.mode == 'ssisdb-fixture-acceptance' && !(github.event_name == 'workflow_dispatch' && github.event.repository.full_name == github.repository)
+        run: |
+          throw 'SSISDB_FIXTURE_MANUAL_DISPATCH_REQUIRED'
+
+      - name: Hyper-V SSISDB prepared fixture acceptance
+        if: inputs.mode == 'ssisdb-fixture-acceptance' && github.event_name == 'workflow_dispatch' && github.event.repository.full_name == github.repository
+        env:
+          SQL_SERVER_LAB_CI_IMAGE_ARTIFACT_ID: ${{ inputs.image_artifact_id }}
+          SQL_SERVER_LAB_CI_SSIS_STATE_ROOT: ${{ inputs.ssis_state_root }}
+          SQL_SERVER_LAB_CI_MEDIA_ROOT: ${{ inputs.media_root }}
+          SQL_SERVER_LAB_CI_SSIS_MEDIA_PATH: ${{ inputs.ssis_media_path }}
+          SQL_SERVER_LAB_CI_SSIS_MEDIA_SHA256: ${{ inputs.ssis_media_sha256 }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ([string]::IsNullOrWhiteSpace($env:SQL_SERVER_LAB_CI_IMAGE_ARTIFACT_ID)) { throw 'SSISDB_FIXTURE_EXPLICIT_ARTIFACT_REQUIRED' }
+          if ([string]::IsNullOrWhiteSpace($env:SQL_SERVER_LAB_CI_SSIS_MEDIA_PATH)) { throw 'SSISDB_FIXTURE_EXPLICIT_MEDIA_PATH_REQUIRED' }
+          if ([string]::IsNullOrWhiteSpace($env:SQL_SERVER_LAB_CI_SSIS_MEDIA_SHA256)) { throw 'SSISDB_FIXTURE_EXPLICIT_MEDIA_HASH_REQUIRED' }
+          $evidencePath = Join-Path $env:RUNNER_TEMP 'ssisdb-fixture-acceptance.json'
+          .\Tests\Integration\Invoke-SsisCatalogFixtureAcceptance.ps1 `
+            -ArtifactId $env:SQL_SERVER_LAB_CI_IMAGE_ARTIFACT_ID `
+            -MediaRoot $env:SQL_SERVER_LAB_CI_MEDIA_ROOT `
+            -SqlMediaPath $env:SQL_SERVER_LAB_CI_SSIS_MEDIA_PATH `
+            -ExpectedSqlMediaSha256 $env:SQL_SERVER_LAB_CI_SSIS_MEDIA_SHA256 `
+            -StateRoot $env:SQL_SERVER_LAB_CI_SSIS_STATE_ROOT `
+            -EvidencePath $evidencePath
+          Get-Content -LiteralPath $evidencePath -Raw | Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY
 
       - name: Hyper-V lifecycle smoke
         if: inputs.mode == 'lifecycle'

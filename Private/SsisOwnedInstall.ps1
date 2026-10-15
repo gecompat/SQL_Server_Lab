@@ -120,7 +120,7 @@ function Install-LabSsisExistingComponent {
     if([string]$preflight.DefaultPathComponents -eq 'OBSERVED'){
         return [pscustomobject]@{RunId=$RunId.ToString();InstanceId=$InstanceId;Status='ALREADY_INSTALLED';EngineMajor=17;SsisMajor=17;Cleanup='REMOVE_RUN_TO_CLEANUP'}
     }
-    if([string]$preflight.DefaultPathComponents -ne 'NOT_OBSERVED'){throw 'SSIS_COMPONENT_PREREQUISITE_INCONCLUSIVE'}
+    if([string]$preflight.DefaultPathComponents -ne 'NOT_OBSERVED'){throw ('SSIS_COMPONENT_PREREQUISITE_INCONCLUSIVE:{0}:{1}' -f [string]$preflight.DefaultPathComponents,[string]$preflight.ReasonCode)}
     $media=$null;$guest=$null;$addedDvd=$null;$progress=$null;$primaryFailure=$null
     $operationId='ssis-component-'+[guid]::NewGuid().ToString('N')
     try {
@@ -207,6 +207,8 @@ function Invoke-LabSsisPreparedFixtureRun {
         [IO.File]::WriteAllText($manifestPath,($manifest | ConvertTo-Json -Depth 16),[Text.UTF8Encoding]::new($false))
         $created=New-SqlServerLab -Manifest $manifestPath -GuestPassword $guest -SqlSaPassword $sa -NonInteractive -StateRoot $StateRoot
         $runId=[guid]$created.RunId
+        # Prepared runs honour autostart=off after readiness; the additive guest installer needs an owned running VM.
+        $null=Start-HyperVLabEnvironment -RunId $runId.ToString() -StateRoot $StateRoot
         $component=Install-LabSsisExistingComponent -RunId $runId -InstanceId 'primary' -MediaRoot $MediaRoot -SqlMediaPath $SqlMediaPath `
             -ExpectedSqlMediaSha256 $ExpectedSqlMediaSha256 -StateRoot $StateRoot
         if([string]$component.Status -notin @('INSTALLED_AND_RESTART_VERIFIED','ALREADY_INSTALLED')){throw 'SSIS_FIXTURE_COMPONENT_RESULT_INVALID'}
