@@ -208,7 +208,9 @@ function Invoke-LabSsisPreparedFixtureRun {
         $created=New-SqlServerLab -Manifest $manifestPath -GuestPassword $guest -SqlSaPassword $sa -NonInteractive -StateRoot $StateRoot
         $runId=[guid]$created.RunId
         # Prepared runs honour autostart=off after readiness; the additive guest installer needs an owned running VM.
-        $null=Start-HyperVLabEnvironment -RunId $runId.ToString() -StateRoot $StateRoot
+        # New-SqlServerLab already performed the one permitted activation reconciliation.
+        # A second reconciliation can resume-and-stop an autostart=off run, so the installer only starts the bound VM.
+        $null=Start-HyperVLabEnvironment -RunId $runId.ToString() -SkipWindowsActivationReconcile -StateRoot $StateRoot
         $component=Install-LabSsisExistingComponent -RunId $runId -InstanceId 'primary' -MediaRoot $MediaRoot -SqlMediaPath $SqlMediaPath `
             -ExpectedSqlMediaSha256 $ExpectedSqlMediaSha256 -StateRoot $StateRoot
         if([string]$component.Status -notin @('INSTALLED_AND_RESTART_VERIFIED','ALREADY_INSTALLED')){throw 'SSIS_FIXTURE_COMPONENT_RESULT_INVALID'}
