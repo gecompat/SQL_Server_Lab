@@ -19,6 +19,12 @@ freizugebendem Client-Trust ausgewählt; der
 ist kein Zertifikats-, Truststore- oder Runtime-Nachweis. Genau ein
 Implementierer verantwortet einen kohärenten Scope.
 
+Die private [Windows-Kontextvorschau](../Documentation/Architecture/AUTHENTICATED_TLS_CONTEXT_PREVIEW.md)
+ergänzt geschlossene Client-/Signierkontextanfragen und liest nach expliziter
+Prozesswahl native Token-/Profil-/Hostmarker- und Client-Diskmetadaten.
+Referenzen bleiben unregistriert; `Ready` und `MutationAllowed` bleiben false.
+Registrytransaktion, Key-/Trustaktionen und native TLS-Qualifikation sind offen.
+
 ## Dokumentationszuständigkeiten
 
 | Frage | Maßgebliche Quelle |

@@ -2,10 +2,10 @@
 
 | Merkmal | Wert |
 |---|---|
-| Status | `DESIGN_PROPOSAL`; keine Registry, Identitätsbindung oder Keyablage implementiert |
+| Status | `DESIGN_PROPOSAL` mit privater Anfrage/Vorschau; keine Registry, dauerhafte Identitätsbindung oder Keyablage implementiert |
 | Stand | 2026-10-16 |
 | Grundlage | Ausgewählte [isolierte Lab-CA](TLS_001_ISOLATED_CA_DESIGN.md), private Anfrage- und Zielmetadatenverträge |
-| Implementierter Teil | [Lesende .NET-API-Metadaten](../Architecture/AUTHENTICATED_TLS_BACKEND_METADATA.md); keine Backendqualifikation |
+| Implementierter Teil | [Lesende .NET-API-Metadaten](../Architecture/AUTHENTICATED_TLS_BACKEND_METADATA.md) und [Windows-Kontextvorschau](../Architecture/AUTHENTICATED_TLS_CONTEXT_PREVIEW.md); keine Backend-/Clientqualifikation |
 
 ## Identitäten getrennt erhalten
 
@@ -98,14 +98,21 @@ Targetfähigkeit nicht. Linux-Dateirechte, targetlokale Keyerzeugung, CSR-
 Transport, exakter Runtimebesitz und getrennte Docker-/Podman-/Hyper-V-
 Abnahmen bleiben die entsprechenden nachfolgenden Verträge.
 
-## Nächster begrenzter Implementierungsscope
+## Implementierte Vorschau und nächster begrenzter Scope
 
-Zuerst einen privaten geschlossenen Registrierungsantrag und die lesende
-Windows-Kontextvorschau aus genau einer ausdrücklichen Auswahl umsetzen.
-Sie muss native Identität, Host-/Profilbezug und konkrete Clientbinaries
-prüfen, fehlende Werte sperren und einen neuen Register-Metadatenauftrag von
-Trust-/Keyaktionen trennen. Noch keine Registrywrites oder Key-/Storeöffnung.
-Die Registrytransaktion folgt erst nach festgelegten Writer-/Crashgrenzen;
+Der private geschlossene Kontextantrag und die lesende Windows-Kontextvorschau
+sind implementiert. Genau `CURRENT_WINDOWS_PROCESS` ist auswählbar. Native
+Token-, Profil-/Hive- und lokale Hostmarkermetadaten sowie beim Client die
+bereits geladene SqlClient-Assembly und erste sqlcmd-Application werden
+beobachtet. Diskdigests messen kein geladenes Image; sqlcmd-Flavor und ODBC-
+Treiber bleiben unqualifiziert. Fehlende Werte sperren den Gesamtbefund.
+Referenzen bleiben unregistriert, `Ready` und `MutationAllowed` false.
+Noch keine Registrywrites oder Key-/Storeöffnung.
+
+Als Nächstes die geschlossene Registryrecordform, Größen-/Tiefegrenzen,
+Referenz-/Revisionsinvarianten und Writer-/Crashgrenzen offline festlegen
+und synthetisch prüfen. Noch keine native Registrierung oder Mutation.
+Die Registrytransaktion folgt erst nach diesen festgelegten Grenzen;
 CA-Keyschutz und konkrete Mutationsfreigaben bleiben separat.
 Die bereits vorhandenen `ClientRef`-/`AuthorityRef`-Anfragen bleiben bis dahin
 unaufgelöst. Native TLS-, Client- und Mindestlaufzeitabnahmen werden durch

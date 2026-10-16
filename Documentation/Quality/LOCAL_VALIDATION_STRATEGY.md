@@ -21,6 +21,43 @@ ein Dokumentationsdateiname allein verlangt keinen Providerstart. Änderungen
 an gemeinsamem Ownership/Cleanup verlangen weiterhin die breite Matrix.
 [Auswahl, Cachegrenzen und Ausnahmen](FOUNDATION_1_21_PROCESSING_ASSESSMENT.md).
 
+## Private TLS-Kontextvorschau (TLS001-CONTEXT-PREVIEW-01)
+
+Die [Kontextanfrage und Windows-Vorschau](../Architecture/AUTHENTICATED_TLS_CONTEXT_PREVIEW.md)
+besitzt synthetische Prüfungen für beide geschlossenen Rollen, StrictMode,
+fehlende/zusätzliche Felder, UUIDs, Ordinalvergleiche unter drei Kulturen,
+fremde Getter, getrennte Stackarrays, Formprüfung vor Hostlesung, private
+Statusprojektionen und sanitisierten Fehler ohne Teilbefund. Eigene lokale
+Dateifixtures prüfen bekannte SHA-256-Bytes, Namen, Traversal, Leerdatei und
+64-MiB-Grenze; ihr GUID-Scope wird entfernt. AST-Prüfungen begrenzen den
+Commandgraph und schließen Registry-/Key-/Store-/Prozessmutation aus.
+
+Die separate direkte Windows-Beobachtung vom 2026-10-16 lieferte beide
+privaten Vorschauen im ausgewählten aktuellen Prozess. Reale SID-, Host-,
+Profil-, Prozess- und Binärwerte bleiben ausschließlich lokal und ignoriert.
+Die Beobachtung misst Diskbytes und geladene Assemblymetadaten; sie beweist
+keinen geladenen Imagedigest, sqlcmd-Flavor, ODBC-Treiber, effektiven Trust
+oder Keyschutz. Referenzen sind `NOT_REGISTERED`, Qualifikation
+`NOT_EXECUTED`, `Ready=false`, `MutationAllowed=false`. Kein Store, Key,
+Zertifikat oder geschütztes Ziel wurde geöffnet oder verändert.
+
+Der fokussierte Windows-Lauf unter PowerShell 7.6.6/.NET 10.0.12 bestand mit
+190 PASS / 0 FAIL. Der unabhängige Quellreview fand keine bestätigten Findings.
+Eine anschließende reine lokale Variablenumbenennung wurde per Rücksubstitution
+gegen den Reviewstand auf Inhaltsgleichheit geprüft. Die danach eingefrorene
+lokale Abschlussauswahl bestand mit Kontext 190/0, CI-Strategie 654/0,
+Dokumentation 1990/0, Pester 23/0, Privacy 3/0 und ScriptAnalyzer PASS mit
+Warnungen und erfassten Baselines. Die direkte Windows-Beobachtung erfolgte
+vor dieser verhaltensgleichen Umbenennung; sie wurde nicht als neue Probe
+ausgegeben oder unverändert wiederholt.
+
+Die Mindestlaufzeit PowerShell 7.2/.NET 6 und native Registry-/
+Client-/Keyschutz-/SQL-/TLS-Abnahmen bleiben `NOT_EXECUTED`. Provider-Smokes
+sind für diesen lesenden Scope nicht ausgewählt. Die neue Suite ist im
+statischen Nightly-Gate und über exakte Produkt-/Testpfade sowie betroffene
+Form-/Backend-/Pfadguard-/Clientauswahlquellen registriert. Ähnliche Pfade
+und gemischte Runtimeänderungen behalten die konservative Auswahl.
+
 ## Private TLS-Backendmetadaten (TLS001-BACKEND-01)
 
 Die [reine API-Metadatenprüfung](../Architecture/AUTHENTICATED_TLS_BACKEND_METADATA.md)

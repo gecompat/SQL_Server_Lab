@@ -48,8 +48,12 @@ diesen Adapter gesperrt. Die private
 entdeckt jetzt sechs .NET-Signaturen im ausdrücklich ausgewählten Prozess;
 Ready und Mutationsautorität bleiben false. Der
 [Registrierungsentwurf](TLS_001_CONTEXT_REGISTRATION_DESIGN.md) trennt Client,
-Signierkontext und CA, ohne neue Bindungen anzulegen. Nächster Scope ist ein
-geschlossener Registrierungsantrag mit lesender Windows-Kontextvorschau;
+Signierkontext und CA, ohne neue Bindungen anzulegen. Die private
+[Kontextvorschau](../Architecture/AUTHENTICATED_TLS_CONTEXT_PREVIEW.md) ergänzt
+geschlossene Anfragen und eine lesende Windows-Token-/Host-/Profil- und
+Client-Diskbeobachtung. Referenzen bleiben unregistriert und unqualifiziert.
+Nächster Scope sind geschlossene Registryrecordformen, Revisionsinvarianten
+und Writer-/Crashgrenzen mit synthetischer Offlineprüfung;
 native Target-/Ownership-, Backend-/Keyschutz- und TLS-Abnahme bleiben
 erforderlich, vor mutierender PKI-/Providerumsetzung.
 
