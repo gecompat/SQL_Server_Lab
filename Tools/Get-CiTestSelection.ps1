@@ -98,6 +98,7 @@ end {
         @{ Pattern = '(?i)(LlamaCppSessionGuidance|LlamaCppSessionLockChild|LlamaCppOwnedRuntime|LlamaCppOwnershipAcceptance|Invoke-SqlServerLabWorkflowAction|BatchConsole|Start-SqlServerLabUi|Ui/app|Ui/index|WorkflowSqlTargetChecks)'; Checks = @('Invoke-LlamaCppSessionGuidanceChecks.ps1','Invoke-LlamaCppOwnedRuntimeChecks.ps1','Invoke-ConsoleUiChecks.ps1','Invoke-WorkflowUiChecks.ps1') },
         @{ Pattern = '(?i)(SecurityTool|security-tool|Fixtures/SecurityTools/)'; Checks = @('Invoke-SecurityToolCatalogChecks.ps1') },
         @{ Pattern = '(?i)(Prepare-LocalRelease|ReleaseArtifact)'; Checks = @('Invoke-ReleaseArtifactChecks.ps1','Invoke-ReleaseReadinessChecks.ps1') },
+        @{ Pattern = '^(?-i:Private/AuthenticatedTlsRequest\.ps1|Tests/Static/Invoke-AuthenticatedTlsRequestChecks\.ps1)$'; Checks = @('Invoke-AuthenticatedTlsRequestChecks.ps1') },
         @{ Pattern = '^(?-i:Private/FixtureHandleContract\.ps1|Tests/Static/Invoke-FixtureHandleContractChecks\.ps1)$'; Checks = @('Invoke-FixtureHandleContractChecks.ps1') },
         @{ Pattern = '^(?-i:Private/(FixtureHandleContract|FixtureIdentityRequest)\.ps1|Tests/Static/Invoke-FixtureIdentityRequestChecks\.ps1)$'; Checks = @('Invoke-FixtureIdentityRequestChecks.ps1','Invoke-FixtureHandleContractChecks.ps1') },
         @{ Pattern = '(?i)(TransferProgress|HyperVImageMigration|HyperVImageRegistry|HyperVResourceMigration|ArtifactResolver|Save-SqlServerLabMediaSource|VersionCatalog|ExternalRuntimeWindows|Restore-SqlServerLabDatabase)'; Checks = @('Invoke-TransferProgressChecks.ps1') },
@@ -322,6 +323,8 @@ end {
             # und gemischte Produktdiffs behalten ihren Runtime-Fallback.
             $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -cmatch '^Private/FixtureHandleContract\.ps1$'
             $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -cmatch '^Private/FixtureIdentityRequest\.ps1$'
+            # Geschlossene reine Formpruefung; kein PKI-/Trust-/Provideraufruf.
+            $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -cmatch '^Private/AuthenticatedTlsRequest\.ps1$'
             $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -match '^(Private/DiagnosticBundle(Reader|Readiness)\.ps1|Public/Get-SqlServerLabDiagnosticBundle\.ps1|Schemas/diagnostic-bundle\.schema\.json)$'
             $staticOnlyProductChange = $staticOnlyProductChange -or $aiExternalModelPlanPath
             $staticOnlyProductChange = $staticOnlyProductChange -or $aiSharedGatewayPlanPath

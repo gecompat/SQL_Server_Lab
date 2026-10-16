@@ -2306,6 +2306,13 @@ und automatische Gastumschaltung.
 
 ### Authentifizierter TLS-Zugang der Testumgebungen
 
+Der [private TLS-Anfragevalidator](../Architecture/AUTHENTICATED_TLS_REQUEST.md)
+prüft ausschließlich geschlossene Objektformen im Speicher. Referenzen,
+Profilwerte und Clienttupel belegen keine vorhandene CA, Backendfähigkeit,
+Ownership, Freigabe oder TLS-Qualifikation. Target-/Clientbindung, Signierung,
+Storepreview/-import, Journal, Erneuerung und Recovery bleiben offen; Export
+und Providerverhalten werden durch diesen ersten Code-Slice nicht geändert.
+
 Quellenprüfung vom 2026-10-15: `Public/TestEnvironment.ps1`, das Schema
 `SqlServerLab.TestEnvironment/1.0` und der exportierte Agenten-Prompt verlangen
 weiterhin `encrypt = true` und `trustServerCertificate = true`.

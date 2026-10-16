@@ -840,6 +840,9 @@ sources_of_truth:
   automated_test_environment_contract: Public/TestEnvironment.ps1
   authenticated_test_environment_tls_backlog: Documentation/Project_Planning/NEW_SQL_LAB_USE_CASES_BACKLOG.md # TLS-001: P1 directly after SSISDB; source assessment and design pending decisions, no authenticated live evidence
   authenticated_test_environment_tls_ca_design: Documentation/Project_Planning/TLS_001_ISOLATED_CA_DESIGN.md # TLS-001a: user-selected isolated CA direction; proposed lifecycle, trust and migration boundaries; no runtime evidence
+  authenticated_tls_request_contract: Documentation/Architecture/AUTHENTICATED_TLS_REQUEST.md
+  authenticated_tls_request_form: Private/AuthenticatedTlsRequest.ps1
+  validation_authenticated_tls_request_form: Tests/Static/Invoke-AuthenticatedTlsRequestChecks.ps1
   test_group_power_guidance: Private/TestGroupGuidance.ps1
   validation_test_group_power_guidance: Tests/Static/Invoke-TestGroupGuidanceChecks.ps1
   validation_nightly_authorization: Tests/Static/Fixtures/CiStrategyNightlyAuthorizationChecks.ps1

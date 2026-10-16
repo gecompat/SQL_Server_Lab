@@ -21,6 +21,41 @@ ein Dokumentationsdateiname allein verlangt keinen Providerstart. Änderungen
 an gemeinsamem Ownership/Cleanup verlangen weiterhin die breite Matrix.
 [Auswahl, Cachegrenzen und Ausnahmen](FOUNDATION_1_21_PROCESSING_ASSESSMENT.md).
 
+## Privater TLS-Anfragevertrag (TLS001-REQUEST-01)
+
+Die [geschlossene Formprüfung](../Architecture/AUTHENTICATED_TLS_REQUEST.md)
+bestand am 2026-10-16 unter PowerShell 7.6.6/.NET 10.0.12 mit 339 PASS / 0 FAIL.
+Unabhängige Sollprojektionen und negative Feld-/Typ-/Frist-/IP-/DNS-/Trustfälle
+belegen die Formgrenze, keine vorhandenen Ressourcen oder Ausführungsrechte.
+Der unabhängige Review fand ausführbare ETS-Getter auf PSNoteProperty-Metadaten
+und kulturabhängige Stringvergleiche. Die zunächst fehlgeschlagenen
+Regressionen bleiben lokal erhalten. Native CLR-Metadatenzugriffe und explizit
+ordinale Vergleiche beheben beide Befunde. Die Nachprüfung erfasste dieselbe
+ETS-Grenze auch am PSObject-Wrapper; stark typisierte native Getter umgehen
+dort `BaseObject`-/`Properties`-Dekorationen. Die erweiterten Prüfungen umfassen
+U+200B und U+00AD in drei Kulturen sowie unveränderte Callerobjekte und Arrays.
+Der eigene Kulturzustand wird nach den Tests wiederhergestellt.
+Eine zusätzliche StrictMode-Reproduktion zeigte einen Rohfehler bei fehlenden
+Feldern. Explizite Presenceprüfungen vor dem Feldzugriff beheben ihn; alle
+drei Anfrageformen und ihre fehlenden Pflichtfelder sind auch unter
+`StrictMode Latest` regressionsgeprüft.
+
+Die neue Suite gehört zur exakten betroffenen Auswahl und zum statischen
+Nightly-Gate. Selektorregressionen prüfen ähnliche Pfade und gemischte Diffs
+gegen die vorhandene vollständige Runtime-/Capabilityauswahl. Zusammen mit
+den bestehenden Dokumentations-, Privacy-, CI-Strategie-, Analyzer- und
+Pesterprüfungen bildet dies den lokalen Gatescope. Erforderliche CI-Gates
+werden vor Integration am exakten Head geprüft; lokale Ergebnisse ersetzen
+sie nicht. Die zusätzlichen Assertions bleiben kurz und offline; zusätzliche
+Provider-/Modellrunden entstehen daraus nicht.
+
+Die fokussierte Mindestlaufzeit PowerShell 7.2 wurde für diesen Slice nicht
+ausgeführt. CA-/Keyanlage, tatsächlicher Backend-/Client-/Targetbesitz,
+Trustpreview/-import, Journal/Recovery, Exportcutover sowie native SQL-/TLS-
+Provider- und Versionsmatrizen bleiben `NOT_EXECUTED`. Der vorhandene
+Exportvertrag und die geschützten sechs Ziele sowie SSISDB-Quelle wurden nicht
+umgestellt. Kein Ressourcen-Cleanup war für die Formprüfungen erforderlich.
+
 ## Privater Identitäts-Anfragevalidator (FSF-I02)
 
 Der [freigegebene Scope](../Project_Planning/FILESYSTEM_FIXTURE_IMPLEMENTATION_SCOPE_02_DRAFT.md)
