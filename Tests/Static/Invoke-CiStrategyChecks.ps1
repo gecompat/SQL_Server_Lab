@@ -674,8 +674,8 @@ function Test-WorkflowOwnedHarness {
             $allocation=@($step.FindAll({param($n) $n -is [Management.Automation.Language.AssignmentStatementAst] -and $n.Left.Extent.Text -ceq '$stateRoot'},$true))
             $export=@($commands|Where-Object {$_.GetCommandName() -ceq 'Out-File' -and
                 (Get-WorkflowCommandArgument $_ FilePath).Extent.Text -ceq '$env:GITHUB_ENV' -and $_.Parent.Extent.Text.Contains('SQL_SERVER_LAB_CI_OWN_STATE_ROOT=$stateRoot')})
-            $fresh=$allocation.Count -eq 1 -and $allocation[0].Right.Extent.Text.Contains('$env:LOCALAPPDATA') -and
-                $allocation[0].Right.Extent.Text.Contains('SqlServerLab/diagnostics/ci-runs/ci-') -and
+            $fresh=$allocation.Count -eq 1 -and $allocation[0].Right.Extent.Text.Contains('(Split-Path $env:RUNNER_TEMP -Parent)') -and
+                $allocation[0].Right.Extent.Text.Contains("ToString('N')") -and
                 $allocation[0].Right.Extent.Text.Contains('[guid]::NewGuid()') -and $export.Count -eq 1 -and
                 $allocation[0].Extent.StartOffset -lt $initializer[0].Extent.StartOffset
         }
@@ -707,9 +707,9 @@ Add-CheckResult -Name 'CI-StateRoot-Carrier lehnt andere Argumentvariable ab' -S
 Add-CheckResult -Name 'CI-Policyroot benoetigt tatsaechlich frische GUID-Allokation' -Success (
     -not (Test-WorkflowOwnedHarness ($dockerWorkflow.Replace('[guid]::NewGuid()','[guid]::Empty')) 'Invoke-BatchWorkflowSmokeTest.ps1' docker -ExitVariable batchExitCode))
 Add-CheckResult -Name 'CI-Policyroot darf nicht vor Recovery vom Runner geloescht werden' -Success (
-    -not (Test-WorkflowOwnedHarness ($dockerWorkflow.Replace('$env:LOCALAPPDATA','$env:RUNNER_TEMP')) 'Invoke-BatchWorkflowSmokeTest.ps1' docker -ExitVariable batchExitCode))
-Add-CheckResult -Name 'CI-Policyroot bleibt im vorgesehenen privaten Diagnosebereich' -Success (
-    -not (Test-WorkflowOwnedHarness ($podmanWorkflow.Replace('SqlServerLab/diagnostics/ci-runs/ci-','Other/ci-')) 'Invoke-BatchWorkflowSmokeTest.ps1' podman -ExitVariable batchExitCode))
+    -not (Test-WorkflowOwnedHarness ($dockerWorkflow.Replace('(Split-Path $env:RUNNER_TEMP -Parent)','$env:RUNNER_TEMP')) 'Invoke-BatchWorkflowSmokeTest.ps1' docker -ExitVariable batchExitCode))
+Add-CheckResult -Name 'CI-Policyroot bleibt kurz mit voller GUID statt Profilpfad' -Success (
+    -not (Test-WorkflowOwnedHarness ($podmanWorkflow.Replace('(Split-Path $env:RUNNER_TEMP -Parent)','$env:LOCALAPPDATA')) 'Invoke-BatchWorkflowSmokeTest.ps1' podman -ExitVariable batchExitCode))
 Add-CheckResult -Name 'CI-Providerbindung ist Argument desselben ausgewaehlten Commands' -Success (
     -not (Test-WorkflowOwnedHarness ($dockerWorkflow.Replace('-Provider docker','-Provider podman')) 'Invoke-BatchWorkflowSmokeTest.ps1' docker -ExitVariable batchExitCode))
 Add-CheckResult -Name 'Runtime-Gates trennen Infrastrukturunverfuegbarkeit von Implementierungsfehlern' -Success (

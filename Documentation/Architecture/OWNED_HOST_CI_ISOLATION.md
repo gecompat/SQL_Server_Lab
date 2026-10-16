@@ -20,7 +20,9 @@ und startet keine Maschine/Runtime. Frühere Fehlerbelege bleiben unverändert.
 ## Auswahl und Vertrauensgrenze
 
 Die Container-CI legt über `Tests/Common/OwnedHostTestScope.ps1` einen frischen,
-expliziten StateRoot unter `RUNNER_TEMP` an. Der interne Initializer schreibt
+expliziten StateRoot in einem kurzen GUID-Verzeichnis neben `RUNNER_TEMP` an.
+So bleiben Ownershiprecords und private Runtime-Logs nach Jobabbruch erhalten,
+ohne lange Docker-Desktop-Bindpfade einzuführen. Der interne Initializer schreibt
 `owned-host-required` und die typisierte `owned-host-policy.json`. Root und
 Policydatei erhalten den aktuellen Token-SID als Owner sowie geschützte ACLs
 mit ausschließlich dessen FullControl. Ein vorhandener Root wird nicht

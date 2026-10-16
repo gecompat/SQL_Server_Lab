@@ -1106,18 +1106,32 @@ Die vollständige Container-Fähigkeitsmatrix besitzt je Provider ein hartes
 90-Minuten-Joblimit. Beim SSISDB-Abschluss am 2026-10-16 brach das frühere
 45-Minuten-Limit einen noch fortschreitenden Podman-Lauf ab. Einzeloperationen,
 Hostmutex und Testumfang behalten ihre bisherigen Grenzen. Geschützte
-Ownership- und Recoveryzustände liegen deshalb unter dem lokalen Benutzerprofil
-in `SqlServerLab/diagnostics/ci-runs`, außerhalb des vom Runner vor dem nächsten
-Job gelöschten Tempverzeichnisses. Sie werden nicht hochgeladen. Die einzelnen
+Ownership- und Recoveryzustände liegen deshalb in einem kurzen, frischen
+GUID-Verzeichnis neben `RUNNER_TEMP`, außerhalb des vom Runner vor dem nächsten
+Job gelöschten Tempverzeichnisses. Der zuvor verwendete tiefere Profilpfad
+verursachte bei Docker Desktop einen nicht sichtbaren Backup-Mount (SQL 3201 /
+OS 2); derselbe echte Transfer-Preflight bestand mit kurzem Pfad vollständig.
+Die geschützten Zustände werden nicht hochgeladen. Die einzelnen
 Tests bereinigen weiterhin ihre eigenen Runtime-Ressourcen.
 
 Aufwandsbewertung: Die Pflichtmatrix und ihre Sicherheitsprüfungen bleiben
 unverändert; das größere endliche Jobbudget verhindert einen vorzeitigen Abbruch
 mit anschließendem vollständigem Wiederanlauf. Zwei vorhandene Privacy-Suites
-prüfen Budget und geschützten Statepfad zusätzlich. Es entstehen weder neue
-Runtimeprüfungen noch zusätzliche Review- oder Modellketten. Lokale
-Recoverymetadaten bleiben für gezielte Wiederherstellung erhalten; Rohlogs
-bleiben temporär und privat.
+prüfen Budget und geschützten Statepfad zusätzlich. Die automatische
+Runtime-Matrix wächst dadurch nicht. Der manuelle Recoverymodus wird nur für
+konkrete eigene Abbruchreste ausgeführt; die Taskbindung wurde einmal unabhängig
+nachgeprüft und durch negative Regressionen ergänzt. Lokale
+Recoverymetadaten und private Runtime-Rohlogs bleiben im geschützten Root für
+gezielte Wiederherstellung erhalten. Preflight-Rohlogs bleiben temporär.
+
+Für abgebrochene nichtpersistente Container-CI-Runs besitzt der bestehende
+Podman-Workflow den manuellen Modus `owned-run-recovery`. Er akzeptiert nur
+Roottyp sowie vollständige State-, Policy- und Run-IDs, keine freien Pfade oder
+Shellbefehle. Bestehende geschützte Policy, Run-/Cleanup-Scope, Provider und
+Task-Intent/Receipt werden vor Löschung geprüft. Abweichende Bindungen oder
+fehlgeschlagene Taskabfragen verweigern Erfolg. Der Runner serialisiert die
+Bereinigung mit dem Runtime-Mutex und bestätigt anschließend Runzustand,
+Container-, Volume- und Taskfreiheit. Dadurch entfällt eine lokale UAC-Anfrage.
 
 Die unveränderte synthetische Autostart-HTTP-Fixture führte auf dem eigenen
 Host alle 107 Prüfungen für zwei Provider in 66 Sekunden erfolgreich aus.
@@ -1128,7 +1142,8 @@ Cleanup werden nicht verkürzt. Dieser zusätzliche Testbudgetbefund erweitert
 keinen Produkt- oder Providervertrag.
 
 Die selbst gehosteten Docker-/Podman-Gates schreiben Preflight- und Testausgaben nur in
-lokale `*.private.log`-Dateien unter `RUNNER_TEMP`. Er lädt keine Rohlogs hoch;
+lokale `*.private.log`-Dateien: Preflight unter `RUNNER_TEMP`, Runtime im eigenen
+geschützten StateRoot. Sie laden keine Rohlogs hoch;
 öffentliche Fehler und Ergebnisse enthalten feste Meldungen ohne übernommene
 Host- oder Ausnahmeinformationen. Die temporären Dateien unterliegen dem
 Cleanup des Runners. Testumfang, Modi, Exitcodeprüfung und Runtime-Sperre bleiben

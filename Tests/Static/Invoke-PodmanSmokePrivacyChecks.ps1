@@ -30,6 +30,7 @@ function Invoke-WorkflowFixture {
     $start.Environment['GITHUB_OUTPUT'] = Join-Path $directory 'outputs.txt'
     $start.Environment['GITHUB_ENV'] = Join-Path $directory 'environment.txt'
     $start.Environment['LOCALAPPDATA'] = $directory
+    $start.Environment['SQL_SERVER_LAB_CI_OWN_STATE_ROOT'] = $directory
     $start.Environment['SQL_SERVER_LAB_CI_MODE'] = if ($Name.StartsWith('cli-acceptance')) { 'cli-acceptance' } else { 'lifecycle' }
     $start.Environment['GITHUB_STEP_SUMMARY'] = Join-Path $directory 'summary.txt'
     $start.Environment['PRIVACY_FIXTURE_EXIT'] = [string]$ExitCode
@@ -56,7 +57,7 @@ try {
     $null = New-Item -ItemType Directory -Path $root
     $rootCreated = $true
     $workflow = Get-Content -LiteralPath (Join-Path $repoRoot '.github/workflows/runtime-smoke-podman.yml') -Raw
-    $blocks = @([regex]::Matches($workflow, '(?m)^        run: \|\r?\n(?<body>(?:^          [^\r\n]*\r?\n|^\r?\n)+)') | ForEach-Object {
+    $blocks = @([regex]::Matches(($workflow -split '(?m)^  owned-run-recovery:')[0], '(?m)^        run: \|\r?\n(?<body>(?:^          [^\r\n]*\r?\n|^\r?\n)+)') | ForEach-Object {
         [regex]::Replace($_.Groups['body'].Value, '(?m)^          ', '')
     })
     if ($blocks.Count -ne 2) { throw 'PODMAN_WORKFLOW_RUN_BLOCK_COUNT' }
@@ -66,9 +67,27 @@ try {
     $expected = @('Invoke-ContainerCliAcceptance.ps1', 'Invoke-SmokeMatrix.ps1', 'Invoke-ContainerCollationAcceptance.ps1', 'Invoke-RestoreSmokeTest.ps1', 'Invoke-PointInTimeRecoveryAcceptance.ps1', 'Invoke-SqlVersionUpgradeAcceptance.ps1', 'Invoke-BatchWorkflowSmokeTest.ps1', 'Invoke-ContainerToolAcceptance.ps1', 'Invoke-PersistentStorageRemovalExecutorAcceptance.ps1', 'Invoke-ContainerDatabasePackageExportAcceptance.ps1', 'Invoke-PortableContainerTransferPreflightAcceptance.ps1', 'Invoke-PortableContainerTransferAcceptance.ps1', 'Invoke-AiVectorCoreAcceptance.ps1', 'Invoke-AiPodmanSamplesReferenceAcceptance.ps1')
     Add-CheckResult -Name 'Podman gate retains every acceptance in order and both modes' -Success (($commands -join '|') -ceq ($expected -join '|') -and $workflow -match 'default: lifecycle' -and $workflow -match '\- cli-acceptance')
     Add-CheckResult -Name 'Podman gate retains serialization, finite qualification budget and mutex cleanup' -Success ($workflow -match 'cancel-in-progress: false' -and $workflow -match 'timeout-minutes: 90' -and $runtime -match 'FromMinutes\(10\)' -and $runtime -match '\$mutex.ReleaseMutex\(\)' -and $runtime -match '\$mutex.Dispose\(\)')
-    Add-CheckResult -Name 'Podman ownership state survives runner temporary-directory cleanup' -Success ($workflow -match '\$stateRoot=Join-Path \$env:LOCALAPPDATA' -and $workflow -match 'SqlServerLab/diagnostics/ci-runs/ci-' -and $workflow -match 'Initialize-OwnedHostTestRoot -Module \$module -StateRoot \$stateRoot')
+    Add-CheckResult -Name 'Podman ownership state survives runner temporary-directory cleanup' -Success ($workflow.Contains('$stateRoot=Join-Path (Split-Path $env:RUNNER_TEMP -Parent) ([guid]::NewGuid().ToString(''N''))') -and $runtime.Contains('Join-Path $env:SQL_SERVER_LAB_CI_OWN_STATE_ROOT') -and $workflow -match 'Initialize-OwnedHostTestRoot -Module \$module -StateRoot \$stateRoot')
     Add-CheckResult -Name 'Every acceptance retains its nonzero exit guard' -Success ([regex]::Matches($runtime, 'if \(\$(?:LASTEXITCODE|\w+ExitCode) -ne 0\) \{ throw ').Count -eq $expected.Count)
     Add-CheckResult -Name 'Podman gate never uploads or tees private diagnostics' -Success ($workflow -notmatch 'upload-artifact|Tee-Object|\$\(_\.Exception.Message\)')
+    $recoveryBlocks=@([regex]::Matches(($workflow -split '(?m)^  owned-run-recovery:')[1], '(?m)^        run: \|\r?\n(?<body>(?:^          [^\r\n]*\r?\n|^\r?\n)+)') | ForEach-Object {
+        [regex]::Replace($_.Groups['body'].Value, '(?m)^          ', '')
+    })
+    if($recoveryBlocks.Count -ne 1){throw 'RECOVERY_WORKFLOW_RUN_BLOCK_COUNT'}
+    foreach($invalid in @('state','policy','run','provider','location')) {
+        $prefix=@'
+$env:RECOVERY_POLICY_ID='4ab2a1f0-693d-4e75-bf9f-6ef902bc7503'
+$env:RECOVERY_RUN_ID='e40a0ac7-51c1-44f3-b754-4dd2cf4a62bd'
+$env:RECOVERY_STATE_ID='7e494facb1af4457bbec91220f3848eb'
+$env:RECOVERY_PROVIDER='podman'
+$env:RECOVERY_LOCATION='runner-work'
+'@
+        $key=switch($invalid){state{'STATE_ID'}policy{'POLICY_ID'}run{'RUN_ID'}provider{'PROVIDER'}location{'LOCATION'}}
+        $prefix+="`n[Environment]::SetEnvironmentVariable('RECOVERY_$key','../foreign')`n"
+        $result=Invoke-WorkflowFixture -Script ($prefix+$recoveryBlocks[0]) -Name ('recovery-invalid-'+$invalid) -ExitCode 0
+        Add-CheckResult -Name ('Actual recovery rejects invalid '+$invalid+' before module or native mutation') -Success (
+            $result.ExitCode -ne 0 -and $result.Public -match 'OWNED_CI_RUN_RECOVERY_FAILED' -and $result.Public -notmatch 'OWNED_CI_RUN_RECOVERY_SUCCEEDED|ModuleNotFound|Initialize-SqlServerLabHostTools')
+    }
 
     $null = New-Item -ItemType Directory -Path (Join-Path $root 'Tests/Integration') -Force
     $null = New-Item -ItemType Directory -Path (Join-Path $root 'Tests/Common') -Force

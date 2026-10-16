@@ -30,6 +30,7 @@ function Invoke-WorkflowFixture {
     $start.Environment['GITHUB_OUTPUT'] = Join-Path $directory 'outputs.txt'
     $start.Environment['GITHUB_ENV'] = Join-Path $directory 'environment.txt'
     $start.Environment['LOCALAPPDATA'] = $directory
+    $start.Environment['SQL_SERVER_LAB_CI_OWN_STATE_ROOT'] = $directory
     $start.Environment['SQL_SERVER_LAB_CI_MODE'] = if ($Name.StartsWith('cli-acceptance')) { 'cli-acceptance' } else { 'lifecycle' }
     $start.Environment['GITHUB_STEP_SUMMARY'] = Join-Path $directory 'summary.txt'
     $start.Environment['PRIVACY_FIXTURE_EXIT'] = [string]$ExitCode
@@ -66,7 +67,7 @@ try {
     $expected = @('Invoke-ContainerCliAcceptance.ps1', 'Invoke-SmokeMatrix.ps1', 'Invoke-ContainerCollationAcceptance.ps1', 'Invoke-RestoreSmokeTest.ps1', 'Invoke-PointInTimeRecoveryAcceptance.ps1', 'Invoke-SqlVersionUpgradeAcceptance.ps1', 'Invoke-BatchWorkflowSmokeTest.ps1', 'Invoke-ContainerToolAcceptance.ps1', 'Invoke-PersistentStorageRemovalExecutorAcceptance.ps1', 'Invoke-ContainerDatabasePackageExportAcceptance.ps1', 'Invoke-PortableContainerTransferPreflightAcceptance.ps1', 'Invoke-PortableContainerTransferAcceptance.ps1', 'Invoke-AiVectorCoreAcceptance.ps1')
     Add-CheckResult -Name 'Docker gate retains every acceptance in order and both modes' -Success (($commands -join '|') -ceq ($expected -join '|') -and $workflow -match 'default: lifecycle' -and $workflow -match '\- cli-acceptance')
     Add-CheckResult -Name 'Docker gate retains serialization, finite qualification budget and mutex cleanup' -Success ($workflow -match 'cancel-in-progress: false' -and $workflow -match 'timeout-minutes: 90' -and $runtime -match 'FromMinutes\(10\)' -and $runtime -match '\$mutex.ReleaseMutex\(\)' -and $runtime -match '\$mutex.Dispose\(\)')
-    Add-CheckResult -Name 'Docker ownership state survives runner temporary-directory cleanup' -Success ($workflow -match '\$stateRoot=Join-Path \$env:LOCALAPPDATA' -and $workflow -match 'SqlServerLab/diagnostics/ci-runs/ci-' -and $workflow -match 'Initialize-OwnedHostTestRoot -Module \$module -StateRoot \$stateRoot')
+    Add-CheckResult -Name 'Docker ownership state survives runner temporary-directory cleanup' -Success ($workflow.Contains('$stateRoot=Join-Path (Split-Path $env:RUNNER_TEMP -Parent) ([guid]::NewGuid().ToString(''N''))') -and $runtime.Contains('Join-Path $env:SQL_SERVER_LAB_CI_OWN_STATE_ROOT') -and $workflow -match 'Initialize-OwnedHostTestRoot -Module \$module -StateRoot \$stateRoot')
     Add-CheckResult -Name 'Every acceptance retains its nonzero exit guard' -Success ([regex]::Matches($runtime, 'if \(\$(?:LASTEXITCODE|\w+ExitCode) -ne 0\) \{ throw ').Count -eq $expected.Count)
     Add-CheckResult -Name 'Docker gate never uploads or tees private diagnostics' -Success ($workflow -notmatch 'upload-artifact|Tee-Object|\$\(_\.Exception.Message\)')
 

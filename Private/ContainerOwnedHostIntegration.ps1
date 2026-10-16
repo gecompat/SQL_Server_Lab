@@ -811,20 +811,23 @@ $module=New-Module -ArgumentList $sources -ScriptBlock {
 function Remove-LabOwnedHostAutoStartIfUnused {
     param([Parameter(Mandatory)][string]$StateRoot,[Parameter(Mandatory)][string]$RunId,
         [Parameter(Mandatory)][ValidateSet('docker','podman')][string]$Provider)
-    $null=Get-LabOwnedHostRunPolicy -RunId $RunId -StateRoot $StateRoot
+    $policy=Get-LabOwnedHostRunPolicy -RunId $RunId -StateRoot $StateRoot
     $directory=Join-Path (Join-Path (Join-Path $StateRoot 'runs') $RunId) 'owned-host-tasks'
     $intentPath=Join-Path $directory ($Provider+'.intent.json')
     if (-not (Test-Path -LiteralPath $intentPath)) { return }
     $intent=Read-LabOwnedHostRecord $intentPath
+    if ($intent.RunId -cne $RunId -or $intent.Provider -cne $Provider -or $intent.PolicyId -cne $policy.PolicyId) {
+        throw 'OWNED_HOST_TASK_REQUEST_BINDING_DRIFT'
+    }
     $list=Invoke-LabOwnedHostPinnedCommand -StateRoot $StateRoot -Provider $Provider -Arguments @('ps','-a','--no-trunc','--filter',('label=sql-server-lab.run-id='+$RunId),'--format','{{.ID}}')
     if ($list.ExitCode -ne 0) { throw 'OWNED_HOST_TASK_UNUSED_UNVERIFIABLE' }
     if ($list.Stdout.Trim()) { return }
-    $task=Get-ScheduledTask -TaskPath '\' -TaskName $intent.TaskName -ErrorAction SilentlyContinue
+    $task=Get-ScheduledTask -ErrorAction Stop | Where-Object { $_.TaskPath -ceq '\' -and $_.TaskName -ceq $intent.TaskName }
     if (-not $task) { return }
     Assert-LabOwnedHostTaskBinding -StateRoot $StateRoot -Intent $intent -Task $task
     Assert-LabOwnedHostTaskReceipt -StateRoot $StateRoot -Intent $intent
     Unregister-ScheduledTask -TaskPath '\' -TaskName $intent.TaskName -Confirm:$false -ErrorAction Stop
-    if (Get-ScheduledTask -TaskPath '\' -TaskName $intent.TaskName -ErrorAction SilentlyContinue) { throw 'OWNED_HOST_TASK_DELETE_UNCONFIRMED' }
+    if (Get-ScheduledTask -ErrorAction Stop | Where-Object { $_.TaskPath -ceq '\' -and $_.TaskName -ceq $intent.TaskName }) { throw 'OWNED_HOST_TASK_DELETE_UNCONFIRMED' }
     # Keep the exclusive intention, script and receipts as local recovery evidence.
 }
 
