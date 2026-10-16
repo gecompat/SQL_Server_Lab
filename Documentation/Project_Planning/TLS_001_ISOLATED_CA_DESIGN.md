@@ -87,6 +87,17 @@ fordert die Übereinstimmung der Verbindungsidentität mit dem Zertifikat.
 
 ## D3 – konkrete Client-Trustfreigabe
 
+Der [private Windows-Trustimport](../Architecture/AUTHENTICATED_TLS_TRUST_IMPORT.md)
+konkretisiert jetzt diese Grenze mit fünfminütiger exakter Freigabebindung,
+geschütztem Intent/Commit und lesendem Status. Der kooperative Lock ist keine
+globale Store-Atomizität; ein Importreceipt erteilt keine Löschautorität.
+Eine eigene dauerhafte CA mit lokal erfolgreichem DPAPI-Reopen/Sign/Verify
+und frischer Trustvorschau existiert. Die konkrete menschliche Freigabe ist
+gesichert; der echte Storeimport erfolgt erst separat nach Integration.
+Die Suite mutiert keinen Rootstore. Native Policy-/UI-Effekte und begrenzte
+Add-Laufzeit bleiben unqualifiziert; ein äußerer Worker darf nach Timeout
+keinen unklaren Intent automatisch wiederholen oder entfernen.
+
 Für Windows wird zunächst `CurrentUser/Root` der ausdrücklich ausgewählten
 Ausführungsidentität vorgeschlagen. Die Preview muss Store, Identität, CA-ID,
 öffentlichen Zertifikatsdigest, Vorzustand, Nutzung durch andere Ziele und
@@ -198,7 +209,10 @@ Trustbypass, keine Abschaltung der Verschlüsselung und kein stiller TLS-Downgra
 
 Aktuelle Evidence: Quellen-/Exportmetadaten und Clientverfügbarkeit lesend
 geprüft; der private Windows-Kandidatenpfad besitzt lokale native Crypto-/
-DPAPI-/ACL-Fixtures. Ein echter dauerhaft angelegter CA-Kandidat außerhalb
-dieser Testfixtures, operative Bindungen, echter Trust, Clientverbindungen und die
+DPAPI-/ACL-Fixtures. Ein eigener dauerhafter CA-Kandidat außerhalb der Tests
+ist inzwischen lokal angelegt und mit frischer lesender Trustvorschau geprüft;
+reale Runtimeidentitäten bleiben privat. Die Importtransaktion ist mit eigenen
+Datei-/ACL-/Lockfixtures und injizierten Storegrenzen geprüft. Operative
+SQL-Bindungen, echter neu importierter Trust, Clientverbindungen und die
 gesamte TLS-Matrix bleiben `NOT_EXECUTED`. Die noch offenen D1–D4-Parameter
 werden vor dem jeweils betroffenen mutierenden Scope konkret abgenommen.

@@ -140,8 +140,14 @@ Auch ein leerer, nach fehlgeschlagener Erstanlage verbleibender privater
 Elternbereich kann Recovery erfordern. Tests entfernen nur ihre zuvor
 verifizierte eigene Tempgrenze und prüfen deren vollständigen Abbau.
 
-Nächste Schritte bleiben eine konkrete reviewbare Trustfreigabe, besitzgebundene
-Import-/Removaltransaktion und neue eigene SQL-Fixtures. Geschützte sechs
+Inzwischen ist eine eigene dauerhafte CA außerhalb der Tests lokal angelegt;
+DPAPI-Reopen/Sign/Verify und frische lesende Trustvorschau bestanden.
+Die konkrete menschliche Freigabe ist gesichert. Die getrennte
+[Trust-Importtransaktion](AUTHENTICATED_TLS_TRUST_IMPORT.md) implementiert jetzt
+geschützte Preview-/Intent-/Commitmetadaten, kooperativen Lock und lesenden
+Recoverybefund. Die vier Kandidatendateien bleiben unverändert; reale
+Storemutation wird von deren Tests nicht ausgeführt. Separate Removalfreigabe,
+neue eigene SQL-Fixtures und vollständige TLS-Abnahme bleiben offen. Geschützte sechs
 Toolbelt-Ziele, erhaltene SSISDB-Quelle, fremde Ressourcen und frühere
 Löschsperren bleiben unverändert. Der
 [Registry-Writer-/Crashvertrag](../Project_Planning/TLS_001_CONTEXT_REGISTRATION_DESIGN.md)

@@ -184,6 +184,12 @@ eigene Tempfixtures liefern lokale native Kryptoevidence. Der Kandidat ist
 ausdrücklich `UNREGISTERED_UNQUALIFIED` und umgeht keine Registrytransaktion.
 Keine automatische Pfadadoption, native Registrierung oder Trustmutation.
 Operativer CA-Keyschutz und konkrete Mutationsfreigaben bleiben separat.
+Der getrennte [private Trustimport](../Architecture/AUTHENTICATED_TLS_TRUST_IMPORT.md)
+ergänzt jetzt eigene geschützte Freigabe-/Intent-/Commitdateien außerhalb des
+Kandidaten und lesenden Status. Er ist kein allgemeiner Registrywriter und
+registriert keine AuthorityRef oder CA. Ein eigener dauerhafter Kandidat und
+seine konkrete gesicherte menschliche Importfreigabe existieren; die native
+Storemutation ist durch die injizierten Storetests weiterhin nicht ausgeführt.
 Die bereits vorhandenen `ClientRef`-/`AuthorityRef`-Anfragen bleiben bis dahin
 unaufgelöst. Native TLS-, Client- und Mindestlaufzeitabnahmen werden durch
 diese Planung nicht ersetzt.

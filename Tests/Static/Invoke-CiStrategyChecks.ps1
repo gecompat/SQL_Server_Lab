@@ -9,6 +9,34 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $failures = [System.Collections.Generic.List[string]]::new()
 $passed = 0
 $selector = Join-Path $repoRoot 'Tools/Get-CiTestSelection.ps1'
+$tlsImportCheck = 'Invoke-AuthenticatedTlsTrustImportChecks.ps1'
+foreach ($path in @('Private/AuthenticatedTlsTrustImport.ps1','Tests/Static/Invoke-AuthenticatedTlsTrustImportChecks.ps1')) {
+    foreach ($normalized in @($path,$path.Replace('/','\'))) {
+        $selected = & $selector -ChangedPath @($normalized)
+        Add-CheckResult "TLS-TI11 exakte lokale Journal-/Storeboundarylane $normalized" ($tlsImportCheck -in $selected.StaticChecks -and
+            -not $selected.Docker -and -not $selected.Podman -and -not $selected.Mixed -and -not $selected.HyperV -and -not $selected.Adapter)
+    }
+}
+foreach ($path in @('Private/AuthenticatedTlsCaCandidate.ps1','Private/AuthenticatedTlsRegistryRoot.ps1','Private/AuthenticatedTlsRegistryPayload.ps1','Private/AuthenticatedTlsRequest.ps1','Private/AuthenticatedTlsContext.ps1','Private/DiagnosticBundleReader.ps1')) {
+    $selected = & $selector -ChangedPath @($path)
+    Add-CheckResult "TLS-TI11 gekoppelte Importquelle $path" ($tlsImportCheck -in $selected.StaticChecks)
+}
+foreach ($path in @('Private/Other/AuthenticatedTlsTrustImport.ps1','Private/AuthenticatedTlsTrustImportOther.ps1','Private/authenticatedTlsTrustImport.ps1')) {
+    $selected = & $selector -ChangedPath @($path)
+    Add-CheckResult "TLS-TI11 kein Teilnamen-/Casefallback $path" ($tlsImportCheck -notin $selected.StaticChecks -and
+        $selected.Docker -and $selected.Podman -and $selected.Mixed -and $selected.HyperV -and $selected.Adapter)
+}
+foreach ($other in @('Private/UnmappedSynthetic.ps1','Private/CleanupEngine.ps1','Providers/Podman/PodmanProvider.ps1')) {
+    $baseline = & $selector -ChangedPath @($other)
+    $union = & $selector -ChangedPath @('Private/AuthenticatedTlsTrustImport.ps1',$other)
+    $preserved = $true
+    foreach ($provider in @('Docker','Podman','Mixed','HyperV','Adapter')) {
+        $preserved = $preserved -and $union.$provider -eq $baseline.$provider -and
+            ($union.Capabilities.$provider -join ',') -ceq ($baseline.Capabilities.$provider -join ',')
+    }
+    Add-CheckResult "TLS-TI11 gemischte Runtimeauswahl erhalten $other" ($preserved -and $tlsImportCheck -in $union.StaticChecks -and
+        @($baseline.StaticChecks | Where-Object { $_ -notin $union.StaticChecks }).Count -eq 0)
+}
 $tlsCaCheck = 'Invoke-AuthenticatedTlsCaCandidateChecks.ps1'
 foreach ($path in @('Private/AuthenticatedTlsCaCandidate.ps1','Tests/Static/Invoke-AuthenticatedTlsCaCandidateChecks.ps1')) {
     foreach ($normalized in @($path,$path.Replace('/','\'))) {

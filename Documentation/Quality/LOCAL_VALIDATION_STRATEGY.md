@@ -21,6 +21,63 @@ ein Dokumentationsdateiname allein verlangt keinen Providerstart. Änderungen
 an gemeinsamem Ownership/Cleanup verlangen weiterhin die breite Matrix.
 [Auswahl, Cachegrenzen und Ausnahmen](FOUNDATION_1_21_PROCESSING_ASSESSMENT.md).
 
+## Privater Windows-Trustimport (TLS001-TRUST-IMPORT-01)
+
+Die [private Importlane](../Architecture/AUTHENTICATED_TLS_TRUST_IMPORT.md)
+wird mit `Invoke-AuthenticatedTlsTrustImportChecks.ps1` geprüft. Echte eigene
+Tempfixtures enthalten geschützte Kandidaten-/Journaldateien, geprüfte ACLs,
+CreateNew/Flush/Rücklesung und einen wirklichen exklusiven DeleteOnClose-Lock.
+Die Storegrenze ist gezielt injiziert: kein realer Rootstore wird durch die
+Suite schreibend geöffnet, auch nicht für eine Test-CA. Native
+Storemutationsqualifikation bleibt ausdrücklich `NOT_EXECUTED`.
+
+Die Suite prüft geschlossene Skalar-/ETS-/Approvalformen vor I/O, konkrete
+Previewbindung und Ablauf, andere Freigaben vor Storewrite, vorhandenen Trust
+ohne Besitz, Race am Writeboundary, Wiederholung ohne zweiten Add, Busy-Lock,
+Intent-only, Abbruch nach Add vor Commit und bestätigtes Commit nach verlorenem
+Aufruferergebnis. Root-/Actor-/DER-/Journal-ACL-/Reparsedrift sowie ungültige
+Commitstrings bleiben gesperrt. Status ist lesend; eigene Teilartefakte bleiben
+bis zum verifizierten Fixture-Cleanup sichtbar. Kandidatenbytes werden nicht
+verändert, private CA-Keys nicht geöffnet und keine Removalaktion ausgeführt.
+
+Der engste Fokus läuft vor Regression. Enger Analyzer verwendet `Settings@{}`;
+der unabhängige Review erhält den stabilen gesamten Diff mit Blobbindungen.
+Der eingefrorene betroffene Gate folgt genau einmal beim Integrator. Kosten-
+und Tokenmessung sind unbekannt; ein Implementierer und ein unabhängiger
+Review reichen für diesen begrenzten Scope. Keine zusätzliche Reviewkette
+oder wiederholte unveränderte grüne Suite wird vorgeschrieben.
+
+Die genaue Produktdatei hat eine Providerstart-Ausnahme im Selektor. Das
+beweist lokale Journal-/ACL-/Locklogik mit injizierten Storeeffekten und ist
+keine reine Offline- oder native Trustmutationsabnahme. Gekoppelte Quellen
+wählen die Suite zusätzlich aus; ähnliche, unbekannte und gemischte Runtime-
+pfade behalten ihre konservative breite Auswahl. Nightly enthält die Suite.
+Ein SQL-/Providerstart ist für diesen Scope nicht erforderlich. Nicht-Windows
+oder Engine vor 7.5 prüfen nur die gesperrte Lane; Windows-Dateifälle bleiben
+dort `NOT_EXECUTED`. PowerShell 7.6.6 ist die lokale Windows-Laufzeit.
+
+Inzwischen existiert ein eigener dauerhafter Kandidat mit lokal erfolgreichem
+DPAPI-Reopen/Sign/Verify und frischer lesender Trustvorschau; die konkrete
+menschliche Importfreigabe ist gesichert. Der separat begrenzte native Worker
+nach Integration muss frische Previewäquivalenz prüfen. `X509Store.Add` ist
+synchron ohne eigenen Timeout; Policy-/UI-Effekte und tatsächliche Laufzeit
+sind hier nicht qualifiziert. Timeout nach Intent ergibt ausschließlich
+lesende Recovery, keinen blinden Retry oder Bypass. Importreceipt und
+kooperativer Lock erteilen keine Removalautorität oder TLS-Lab-Freigabe.
+
+Ausgeführt am 2026-10-16 nach unabhängigem stabilem Review ohne bestätigte
+Produktfindings: eingefrorener betroffener Gate mit Trustimport 89/0,
+CI-Strategie 740/0, Dokumentation 2020/0, Pester 23/0 und Privacy 3/0.
+PSScriptAnalyzer bestand ohne Errors (5893 Warnungen, 24 registrierte
+Baselinebefunde). Alle 15 Reviewbindungen blieben unverändert; gespeicherte
+CI-/Dokumentationsnachweise meldeten SourceStable. Eigene Fixtures: CLEANED.
+Der getrennte lokale Ausführungsadapter erhielt vor der ersten realen
+Rootstoremutation einen unabhängigen Review. Dessen fehlende Git-Status-
+Exitcodeprüfung wurde mit einer reinen Fehlercanary reproduziert, korrigiert
+und gezielt unabhängig nachgeprüft; keine Storeaktion durch diese Canary.
+Diese begrenzte zusätzliche Kontrolle gilt der konkreten erstmaligen nativen
+Freigabebindung und schreibt keine weitere allgemeine Reviewer-Kette vor.
+
 ## Privater Windows-CA-Kandidat (TLS001-CA-CANDIDATE-01)
 
 Der [private Kandidatenvertrag](../Architecture/AUTHENTICATED_TLS_CA_CANDIDATE.md)

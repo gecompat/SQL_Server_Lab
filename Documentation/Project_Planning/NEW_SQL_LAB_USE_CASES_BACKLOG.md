@@ -139,6 +139,13 @@ Die allgemeine Registrytransaktion bleibt offen. Toolbelt PR #322 ist am
 `985b9d8a9df1dad9b1c13e868b7eac0a7758bd6f`); der aktuelle Consumer verlangt
 weiterhin echte Booleans `true`/`false`, System.Data.SqlClient und sqlcmd
 `-N` ohne `-C`. Die authentifizierte Liveabnahme bleibt `NOT_EXECUTED`.
+Der eigene dauerhafte CA-Kandidat ist inzwischen lokal erfolgreich angelegt
+und frisch lesend geprüft; reale Identitäten und Digests bleiben privat.
+Die konkrete menschliche Trustfreigabe ist gesichert. Die
+[private Importtransaktion](../Architecture/AUTHENTICATED_TLS_TRUST_IMPORT.md)
+implementiert fünfminütige Freigabebindung, geschütztes Intent/Commit und
+lesenden Recoverybefund. Native Storemutation und eigentliche TLS-Abnahme
+sind durch deren Datei-/ACL-/Lock- und injizierte Storetests nicht belegt.
 
 **Istzustand und Vertragslücke.** Die Prüfung der Repositoryquellen am
 2026-10-15 ergibt:
