@@ -70,6 +70,17 @@ wird durch diesen ersten Lab-Scope nicht behauptet.
 
 ## D2 – geprüfte Identität ohne Resolveränderung
 
+Die private [CSR-Kryptolane](../Architecture/AUTHENTICATED_TLS_LEAF_CSR.md)
+konkretisiert jetzt D1/D2 für einen begrenzten öffentlichen RSA-3072-/SHA-256-
+CSR mit echter Proof-of-Possession und vollständigem DER-Verbrauch. Der
+gebundene DPAPI-Kandidatenkey signiert erst nach geschlossener Prüfung.
+Genau ein ausdrücklicher IP-/DNS-SAN, CA=false, DigitalSignature/KeyEncipherment
+und ServerAuthentication werden neu aufgebaut; Frist 1 bis 30 Tage innerhalb
+der CA-Gültigkeit, ohne Kürzen. Der feste synthetische Subject und enge
+Requestattribute bleiben eine Fixture-Kryptolane. Native Run-/Targetbindung,
+Windows-certreq/CSP/KeySpec/Dienstrechte, Linux-Keyablage und SQL-Kompatibilität
+sind damit nicht qualifiziert; keine AuthorityRef oder TLS-Freigabe entsteht.
+
 Der erste Entwurf erhält die ausdrücklich ausgewählte Verbindungsidentität.
 Numerische Ziele benötigen einen typisierten IP-SAN, DNS-Ziele einen passenden
 DNS-SAN. Kein Wildcard-SAN und kein Ersatz durch CN, localhost, einen anderen
@@ -93,7 +104,10 @@ geschütztem Intent/Commit und lesendem Status. Der kooperative Lock ist keine
 globale Store-Atomizität; ein Importreceipt erteilt keine Löschautorität.
 Eine eigene dauerhafte CA mit lokal erfolgreichem DPAPI-Reopen/Sign/Verify
 und frischer Trustvorschau existiert. Die konkrete menschliche Freigabe ist
-gesichert; der echte Storeimport erfolgt erst separat nach Integration.
+gesichert. Der separat geprüfte native Worker wurde genau einmal ausgeführt
+und nach 60 Sekunden beendet. Frisch lesend: CA `ABSENT`, Journal
+`RECOVERY_REQUIRED`, passender gültiger Intent, kein Commit und kein Lock;
+kein bestätigter Import. UI-Rückfrage offen; kein Retry oder Journalremove.
 Die Suite mutiert keinen Rootstore. Native Policy-/UI-Effekte und begrenzte
 Add-Laufzeit bleiben unqualifiziert; ein äußerer Worker darf nach Timeout
 keinen unklaren Intent automatisch wiederholen oder entfernen.
@@ -183,11 +197,12 @@ RSA-3072, SHA-256/PKCS1, kritische CA/pathLen0 und KeyCertSign/CrlSign,
 höchstens 365 Tage einschließlich fünf Minuten Rückdatierung, neue UUIDv4
 und synthetischer Subject ohne SAN. Geschützte CurrentUser-Ablage und
 DPAPI-verschlüsseltes PKCS8 werden an eigenen Tempfixtures tatsächlich
-geprüft; die ReadOnly-Trust-Vorschau erlaubt eine spätere konkrete Freigabe.
+geprüft; die konkrete ReadOnly-Trust-Vorschau erhielt inzwischen menschliche Freigabe.
 Kandidat bleibt `UNREGISTERED_UNQUALIFIED`. Registrytransaktion gemäß
 Writer-/Crashvertrag und eigene Crash-/Parallelitätsfixtures bleiben offen;
-keine automatische Pfadadoption. Registrywrites, operative Signierung und
-Import behalten ihre eigenen nachfolgenden Grenzen. Die ursprüngliche Reihenfolge
+keine automatische Pfadadoption. Der private CSR-Kryptobeweis und der
+separate Trustversuch oben ersetzen weder Registrywrites noch native
+Target-/SQL-Signierqualifikation. Die ursprüngliche Reihenfolge
 darunter bleibt als historische Scopegrenze erhalten.
 
 Zuerst den geschlossenen privaten Anfragevertrag für CA-/Leaf-/Trustpläne und
@@ -212,7 +227,9 @@ geprüft; der private Windows-Kandidatenpfad besitzt lokale native Crypto-/
 DPAPI-/ACL-Fixtures. Ein eigener dauerhafter CA-Kandidat außerhalb der Tests
 ist inzwischen lokal angelegt und mit frischer lesender Trustvorschau geprüft;
 reale Runtimeidentitäten bleiben privat. Die Importtransaktion ist mit eigenen
-Datei-/ACL-/Lockfixtures und injizierten Storegrenzen geprüft. Operative
-SQL-Bindungen, echter neu importierter Trust, Clientverbindungen und die
-gesamte TLS-Matrix bleiben `NOT_EXECUTED`. Die noch offenen D1–D4-Parameter
+Datei-/ACL-/Lockfixtures und injizierten Storegrenzen geprüft. Der echte
+Trustversuch blieb nach Timeout unbestätigt und verlangt lesende Recovery.
+Die eigene temporäre CSR-Kryptofixture belegt keine operative SQL-Bindung;
+Clientverbindungen und die gesamte TLS-Matrix bleiben `NOT_EXECUTED`.
+Die noch offenen D1–D4-Parameter
 werden vor dem jeweils betroffenen mutierenden Scope konkret abgenommen.

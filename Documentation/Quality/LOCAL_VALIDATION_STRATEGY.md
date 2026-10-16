@@ -44,6 +44,57 @@ ein Dokumentationsdateiname allein verlangt keinen Providerstart. Änderungen
 an gemeinsamem Ownership/Cleanup verlangen weiterhin die breite Matrix.
 [Auswahl, Cachegrenzen und Ausnahmen](FOUNDATION_1_21_PROCESSING_ASSESSMENT.md).
 
+## Private Windows-CSR-Kryptolane (TLS001-LEAF-CSR-01)
+
+Der [CSR-Vertrag](../Architecture/AUTHENTICATED_TLS_LEAF_CSR.md) wird durch
+`Invoke-AuthenticatedTlsLeafCsrChecks.ps1` geprüft. Eigene geschützte native
+Temp-CA-/CSRfixtures verwenden echte RSA-/DER-/DPAPI-/ACL-Funktionen; keine
+permanente CA, kein Store, SQL, Provider oder DNS wird berührt. IP, IPv6 und
+DNS-SAN werden getrennt geprüft; der Leafpublickey passt zum ausschließlich
+temporären eigenen CSR-Key. ETS-/Typ-/Längengrenzen, beschädigtes/trunkiertes/
+angehängtes DER, schlechte Signatur, schwache/andere Keys und Hashverfahren,
+Subject-/SAN-/Extensionsabweichung, CA-Fristüberschreitung, Root-/Actor-/
+Kandidaten-/Ciphertextdrift, falscher Signierkey und geschlossene Fehler sind
+Gegenfälle. Eigene Fixtures werden entfernt und ihre Abwesenheit geprüft.
+
+Ausgeführt am 2026-10-16 unter Windows PowerShell 7.6.6: engster nativer Fokus
+50 PASS, 0 FAIL, Fixtures `CLEANED`. Ein unabhängiger Review reproduzierte
+zuvor akzeptierte CA-/Leaf-Keywiederverwendung ausschließlich an eigener Temp-CA.
+Die Regression signiert einen echten CSR mit deren Schlüssel und verlangt
+geschlossene Ablehnung bei null Aufrufen der privaten KeyOpen-Canary.
+Ein zweiter Befund betraf BER im PKCS1-Inhalt des SPKI-BITSTRING. Ein echt
+erneut signierter CSR mit gültigem BCL-Proof, aber innerer unbestimmter
+BER-Länge wird vor Kandidaten-/Key-I/O abgelehnt; inneres PKCS1 wird jetzt
+mit DER-Regeln vollständig gelesen.
+NativeTarget, Windows-certreq/CSP/KeySpec,
+SQL-Dienstrechte und TLS bleiben `NOT_EXECUTED`. Die allgemeine Mindestversion
+7.2 ändert sich nicht; Nicht-Windows und Engine vor 7.5 prüfen nur die Sperre,
+die nativen Windowsfälle bleiben dort `NOT_EXECUTED`.
+
+Der gemeinsame Kandidatenbinder wird ohne Storeöffnung wiederverwendet;
+die CA-Reopen-/Matchprüfung wurde kohärent extrahiert. Deshalb wählen die
+Selektoren auch die bestehenden Kandidaten-/Trustregressionen aus. Die genaue
+neue Produktdatei hat eine Providerstart-Ausnahme für lokale native Krypto,
+keine Behauptung reiner Offlineevidence. Gekoppelte Quellen wählen die neue
+Suite; ähnliche, unbekannte und gemischte Runtimepfade behalten den breiten
+Fallback. Nightly enthält die Suite. Kein Providerstart für diese lokale
+Kryptofunktion; spätere eigene SQL-/Clientmatrix bleibt Pflicht.
+
+Overhead: ein Implementierer, ein unabhängiger Review am stabilen vollständigen
+Diff und genau ein eingefrorener betroffener Gate beim Integrator. Fokus vor
+Regression, schmaler Analyzer mit `Settings@{}`, lokale begrenzte Logs statt
+Rohdatenuploads. Keine erneuten identisch grünen Läufe ohne neue Evidence,
+keine zusätzliche Reviewkette. Kosten-/Tokenverbrauch unbekannt.
+Der eingefrorene betroffene Abschlussgate bestand nach unabhängigem Review
+und Korrektur beider reproduzierten Befunde: Kandidat 239/0, CSR 50/0,
+Trustimport 89/0, CI-Strategie 756/0, Dokumentation 2025/0, Pester 23/0 und
+Privacy 3/0. PSScriptAnalyzer bestand ohne Errors mit 5900 Fundmeldungen und
+24 registrierten Baseline-Ausnahmen. Alle 17 Dateibindungen blieben während
+des Gates unverändert; beide gespeicherten CI-/Dokumentationsevidence-Records
+meldeten `EXECUTED_PASS` und `SourceStable=true`. Die eigenen nativen
+Tempfixtures meldeten `CLEANED`. Anschließend wurde nur dieser ausgeführte
+Nachweis ergänzt; Dokumentation und Privacy werden dafür separat geprüft.
+
 ## Privater Windows-Trustimport (TLS001-TRUST-IMPORT-01)
 
 Die [private Importlane](../Architecture/AUTHENTICATED_TLS_TRUST_IMPORT.md)
@@ -82,11 +133,19 @@ dort `NOT_EXECUTED`. PowerShell 7.6.6 ist die lokale Windows-Laufzeit.
 Inzwischen existiert ein eigener dauerhafter Kandidat mit lokal erfolgreichem
 DPAPI-Reopen/Sign/Verify und frischer lesender Trustvorschau; die konkrete
 menschliche Importfreigabe ist gesichert. Der separat begrenzte native Worker
-nach Integration muss frische Previewäquivalenz prüfen. `X509Store.Add` ist
+prüft nach Integration frische Previewäquivalenz. `X509Store.Add` ist
 synchron ohne eigenen Timeout; Policy-/UI-Effekte und tatsächliche Laufzeit
 sind hier nicht qualifiziert. Timeout nach Intent ergibt ausschließlich
 lesende Recovery, keinen blinden Retry oder Bypass. Importreceipt und
 kooperativer Lock erteilen keine Removalautorität oder TLS-Lab-Freigabe.
+
+Separater tatsächlicher Ausführungsstand vom 2026-10-16: der geprüfte native
+Worker wurde mit konkreter bestehender Freigabe genau einmal gestartet und
+nach 60 Sekunden beendet. Frische lesende Befunde: CA `ABSENT`, Journal
+`RECOVERY_REQUIRED`, passender gültiger Intent, kein Commit und kein Lock;
+kein bestätigter Import. Die UI-Rückfrage ist offen. Kein Retry, Journalremove
+oder Storewrite aus diesem Befund; native Storequalifikation bleibt offen.
+Die oben genannten injizierten Suitefälle bleiben davon getrennte Evidence.
 
 Ausgeführt am 2026-10-16 nach unabhängigem stabilem Review ohne bestätigte
 Produktfindings: eingefrorener betroffener Gate mit Trustimport 89/0,

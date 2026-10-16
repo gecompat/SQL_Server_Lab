@@ -168,9 +168,9 @@ function Assert-LabTlsCaCertificate {
     }finally{if($null -ne $public){$public.Dispose()};if($null -ne $cert){$cert.Dispose()}}
 }
 
-function Assert-LabTlsCaEncryptedKey {
+function Open-LabTlsCaSigningKey {
     param([byte[]]$Encrypted,[byte[]]$Entropy,[byte[]]$Der)
-    $plain=$null;$rsa=$null;$cert=$null;$public=$null
+    $plain=$null;$rsa=$null;$cert=$null;$public=$null;$opened=$false
     try{
         $plain=[Security.Cryptography.ProtectedData]::Unprotect($Encrypted,$Entropy,[Security.Cryptography.DataProtectionScope]::CurrentUser)
         $rsa=[Security.Cryptography.RSA]::Create();$consumed=0;$rsa.ImportPkcs8PrivateKey($plain,[ref]$consumed)
@@ -179,12 +179,20 @@ function Assert-LabTlsCaEncryptedKey {
         $challenge=[Security.Cryptography.RandomNumberGenerator]::GetBytes(32)
         $signature=$rsa.SignData($challenge,[Security.Cryptography.HashAlgorithmName]::SHA256,[Security.Cryptography.RSASignaturePadding]::Pkcs1)
         if(-not $public.VerifyData($challenge,$signature,[Security.Cryptography.HashAlgorithmName]::SHA256,[Security.Cryptography.RSASignaturePadding]::Pkcs1)){throw 'TLS_CA_KEY_INVALID'}
+        $opened=$true;return $rsa
     }finally{
         if($null -ne $plain){[Array]::Clear($plain,0,$plain.Length)}
-        foreach($resource in @($public,$cert,$rsa)){if($null -ne $resource){$resource.Dispose()}}
+        foreach($resource in @($public,$cert)){if($null -ne $resource){$resource.Dispose()}}
+        if(-not $opened -and $null -ne $rsa){$rsa.Dispose()}
     }
 }
 
+function Assert-LabTlsCaEncryptedKey {
+    param([byte[]]$Encrypted,[byte[]]$Entropy,[byte[]]$Der)
+    $key=$null
+    try{$key=Open-LabTlsCaSigningKey $Encrypted $Entropy $Der}
+    finally{if($null -ne $key){$key.Dispose()}}
+}
 function New-LabAuthenticatedTlsCaCandidate {
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions','',Justification='Private fixed candidate operation; activation and trust require a separate reviewed approval.')]
     [CmdletBinding()]
@@ -254,20 +262,15 @@ function Get-LabTlsCaExistingTrust {
     }finally{if($null -ne $store){$store.Dispose()}}
 }
 
-function Get-LabAuthenticatedTlsCaTrustPreview {
-    [CmdletBinding()]
-    param([object]$DataRoot,[object]$ControllerId,[object]$LocationId,[object]$Context,[object]$CandidateId)
-    $bad=[pscustomobject][ordered]@{Success=$false;Value=$null;ErrorCode='TLS_CA_TRUST_PREVIEW_INVALID'}
-    if(-not (Test-LabTlsCaCandidateInput $DataRoot $ControllerId $LocationId $Context) -or -not (Test-LabTlsRequestReference $CandidateId)){return $bad}
-    $ControllerId=[guid]::Parse($ControllerId).ToString('D');$LocationId=[guid]::Parse($LocationId).ToString('D');$CandidateId=[guid]::Parse($CandidateId).ToString('D')
-    try{
+function Get-LabTlsCaCandidateBinding {
+    param([string]$DataRoot,[string]$ControllerId,[string]$LocationId,[string]$CandidateId)
         Assert-LabTlsCaCandidateCapability
-        $root=Get-LabAuthenticatedTlsRootMetadata $DataRoot $ControllerId $LocationId;if(-not $root.Success){return $bad}
+        $root=Get-LabAuthenticatedTlsRootMetadata $DataRoot $ControllerId $LocationId;if(-not $root.Success){throw 'TLS_CA_CANDIDATE_BINDING_INVALID'}
         $native=Get-LabTlsWindowsProcessFacts;$actor=Get-LabTlsCaActorDigest $native
         $paths=Get-LabTlsCaCandidatePaths $native $ControllerId $LocationId $CandidateId
         foreach($parent in @($paths.Base,$paths.Controller,$paths.Location,$paths.Candidate)){Assert-LabTlsCaPrivateAcl $parent $native.UserSid -Directory}
         $names=@(Get-ChildItem -LiteralPath $paths.Candidate -Force -ErrorAction Stop|Select-Object -ExpandProperty Name)
-        if($names.Count -ne 4 -or @($names|Where-Object {(-not (Test-LabTlsRequestEnum ($_) (@('intent.json','receipt.json','ca.der','key.dpapi'))))}).Count -ne 0){return $bad}
+        if($names.Count -ne 4 -or @($names|Where-Object {(-not (Test-LabTlsRequestEnum ($_) (@('intent.json','receipt.json','ca.der','key.dpapi'))))}).Count -ne 0){throw 'TLS_CA_CANDIDATE_BINDING_INVALID'}
         $intentPath=Join-Path $paths.Candidate 'intent.json'
         $intentBytes=Read-LabTlsCaPrivateFile $intentPath $native.UserSid 2048
         $intent=Read-LabTlsCaMetadata $intentBytes @('ContractVersion','CandidateId','ActorDigest','RootMetadataDigest','Status')
@@ -277,30 +280,46 @@ function Get-LabAuthenticatedTlsCaTrustPreview {
             -not (Test-LabTlsRequestEnum $intentFields.CandidateId @($CandidateId)) -or
             -not (Test-LabTlsRequestEnum $intentFields.ActorDigest @($actor)) -or
             -not (Test-LabTlsRequestEnum $intentFields.RootMetadataDigest @($root.Value.RootMetadataDigest)) -or
-            -not (Test-LabTlsRequestEnum $intentFields.Status @('OWNED_PARTIAL_RECOVERY_REQUIRED'))){return $bad}
+            -not (Test-LabTlsRequestEnum $intentFields.Status @('OWNED_PARTIAL_RECOVERY_REQUIRED'))){throw 'TLS_CA_CANDIDATE_BINDING_INVALID'}
         $receiptPath=Join-Path $paths.Candidate 'receipt.json'
         $bytes=Read-LabTlsCaPrivateFile $receiptPath $native.UserSid 8192
         $receipt=Read-LabTlsCaMetadata $bytes @('ContractVersion','CandidateId','ControllerId','LocationId','RootMetadataDigest','ActorDigest','CertificateSha256','EncryptedKeySha256','NotBeforeUtc','NotAfterUtc','Status')
         $fields=Get-LabTlsRequestFields $receipt @('ContractVersion','CandidateId','ControllerId','LocationId','RootMetadataDigest','ActorDigest','CertificateSha256','EncryptedKeySha256','NotBeforeUtc','NotAfterUtc','Status')
-        if($null -eq $fields -or $fields.Count -ne 11){return $bad}
-        foreach($entry in $fields.GetEnumerator()){if($entry.Value -isnot [string] -or [string].GetProperty('Length').GetValue($entry.Value) -gt 256){return $bad}}
+        if($null -eq $fields -or $fields.Count -ne 11){throw 'TLS_CA_CANDIDATE_BINDING_INVALID'}
+        foreach($entry in $fields.GetEnumerator()){if($entry.Value -isnot [string] -or [string].GetProperty('Length').GetValue($entry.Value) -gt 256){throw 'TLS_CA_CANDIDATE_BINDING_INVALID'}}
         if((-not [string]::Equals(($fields.ContractVersion),('SqlServerLab.TlsCaCandidate/0.1'),[StringComparison]::Ordinal)) -or (-not [string]::Equals(($fields.CandidateId),($CandidateId),[StringComparison]::Ordinal)) -or (-not [string]::Equals(($fields.ControllerId),($ControllerId),[StringComparison]::Ordinal)) -or
             (-not [string]::Equals(($fields.LocationId),($LocationId),[StringComparison]::Ordinal)) -or (-not [string]::Equals(($fields.RootMetadataDigest),($root.Value.RootMetadataDigest),[StringComparison]::Ordinal)) -or (-not [string]::Equals(($fields.ActorDigest),($actor),[StringComparison]::Ordinal)) -or
-            (-not [string]::Equals(($fields.Status),('UNREGISTERED_UNQUALIFIED'),[StringComparison]::Ordinal)) -or $fields.CertificateSha256 -cnotmatch '\A[0-9a-f]{64}\z' -or $fields.EncryptedKeySha256 -cnotmatch '\A[0-9a-f]{64}\z'){return $bad}
+            (-not [string]::Equals(($fields.Status),('UNREGISTERED_UNQUALIFIED'),[StringComparison]::Ordinal)) -or $fields.CertificateSha256 -cnotmatch '\A[0-9a-f]{64}\z' -or $fields.EncryptedKeySha256 -cnotmatch '\A[0-9a-f]{64}\z'){throw 'TLS_CA_CANDIDATE_BINDING_INVALID'}
         $der=Read-LabTlsCaPrivateFile (Join-Path $paths.Candidate 'ca.der') $native.UserSid 16384
         $profileData=Assert-LabTlsCaCertificate $der $CandidateId
-        if((-not [string]::Equals(($profileData.Sha256),($fields.CertificateSha256),[StringComparison]::Ordinal)) -or (-not [string]::Equals(($profileData.NotBeforeUtc),($fields.NotBeforeUtc),[StringComparison]::Ordinal)) -or (-not [string]::Equals(($profileData.NotAfterUtc),($fields.NotAfterUtc),[StringComparison]::Ordinal))){return $bad}
+        if((-not [string]::Equals(($profileData.Sha256),($fields.CertificateSha256),[StringComparison]::Ordinal)) -or (-not [string]::Equals(($profileData.NotBeforeUtc),($fields.NotBeforeUtc),[StringComparison]::Ordinal)) -or (-not [string]::Equals(($profileData.NotAfterUtc),($fields.NotAfterUtc),[StringComparison]::Ordinal))){throw 'TLS_CA_CANDIDATE_BINDING_INVALID'}
         # Nur Ciphertext-Hash; Preview oeffnet keinen privaten Schluessel.
         $encrypted=Read-LabTlsCaPrivateFile (Join-Path $paths.Candidate 'key.dpapi') $native.UserSid 16384
-        if((-not [string]::Equals(((Get-LabTlsCaByteDigest $encrypted)),($fields.EncryptedKeySha256),[StringComparison]::Ordinal))){return $bad}
-        $preexisting=Get-LabTlsCaExistingTrust $der
+        if((-not [string]::Equals(((Get-LabTlsCaByteDigest $encrypted)),($fields.EncryptedKeySha256),[StringComparison]::Ordinal))){throw 'TLS_CA_CANDIDATE_BINDING_INVALID'}
         $again=Get-LabAuthenticatedTlsRootMetadata $DataRoot $ControllerId $LocationId
         if(-not $again.Success -or (-not [string]::Equals(($again.Value.RootMetadataDigest),($root.Value.RootMetadataDigest),[StringComparison]::Ordinal)) -or
             (-not [string]::Equals(((Get-LabTlsCaActorDigest (Get-LabTlsWindowsProcessFacts))),($actor),[StringComparison]::Ordinal)) -or
             (-not [string]::Equals(((Get-LabTlsCaByteDigest (Read-LabTlsCaPrivateFile $intentPath $native.UserSid 2048))),((Get-LabTlsCaByteDigest $intentBytes)),[StringComparison]::Ordinal)) -or
             (-not [string]::Equals(((Get-LabTlsCaByteDigest (Read-LabTlsCaPrivateFile (Join-Path $paths.Candidate 'ca.der') $native.UserSid 16384))),($profileData.Sha256),[StringComparison]::Ordinal)) -or
             (-not [string]::Equals(((Get-LabTlsCaByteDigest (Read-LabTlsCaPrivateFile (Join-Path $paths.Candidate 'key.dpapi') $native.UserSid 16384))),($fields.EncryptedKeySha256),[StringComparison]::Ordinal)) -or
-            (-not [string]::Equals(((Get-LabTlsCaByteDigest (Read-LabTlsCaPrivateFile $receiptPath $native.UserSid 8192))),((Get-LabTlsCaByteDigest $bytes)),[StringComparison]::Ordinal))){return $bad}
+            (-not [string]::Equals(((Get-LabTlsCaByteDigest (Read-LabTlsCaPrivateFile $receiptPath $native.UserSid 8192))),((Get-LabTlsCaByteDigest $bytes)),[StringComparison]::Ordinal))){throw 'TLS_CA_CANDIDATE_BINDING_INVALID'}
+        $digest=Get-LabTlsPayloadDigest @('SqlServerLab.TlsCaCandidateBinding/0.1',$root.Value.RootMetadataDigest,$actor,$profileData.Sha256,
+            (Get-LabTlsCaByteDigest $intentBytes),(Get-LabTlsCaByteDigest $bytes),(Get-LabTlsCaByteDigest $encrypted))
+        return [pscustomobject]@{Native=$native;Paths=$paths;RootMetadataDigest=$root.Value.RootMetadataDigest;ActorDigest=$actor
+            Certificate=$profileData;Der=$der;Encrypted=$encrypted;Digest=$digest}
+}
+function Get-LabAuthenticatedTlsCaTrustPreview {
+    [CmdletBinding()]
+    param([object]$DataRoot,[object]$ControllerId,[object]$LocationId,[object]$Context,[object]$CandidateId)
+    $bad=[pscustomobject][ordered]@{Success=$false;Value=$null;ErrorCode='TLS_CA_TRUST_PREVIEW_INVALID'}
+    if(-not (Test-LabTlsCaCandidateInput $DataRoot $ControllerId $LocationId $Context) -or -not (Test-LabTlsRequestReference $CandidateId)){return $bad}
+    $ControllerId=[guid]::Parse($ControllerId).ToString('D');$LocationId=[guid]::Parse($LocationId).ToString('D');$CandidateId=[guid]::Parse($CandidateId).ToString('D')
+    try{
+        $binding=Get-LabTlsCaCandidateBinding $DataRoot $ControllerId $LocationId $CandidateId
+        $preexisting=Get-LabTlsCaExistingTrust $binding.Der
+        $again=Get-LabTlsCaCandidateBinding $DataRoot $ControllerId $LocationId $CandidateId
+        if(-not [string]::Equals($binding.Digest,$again.Digest,[StringComparison]::Ordinal)){return $bad}
+        $native=$binding.Native;$profileData=$binding.Certificate
         return [pscustomobject][ordered]@{Success=$true;Value=[pscustomobject][ordered]@{Status='PRIVATE_TRUST_APPROVAL_PREVIEW';CandidateId=$CandidateId
             CertificateSha256=$profileData.Sha256;NotBeforeUtc=$profileData.NotBeforeUtc;NotAfterUtc=$profileData.NotAfterUtc;Context='CURRENT_WINDOWS_PROCESS'
             UserSid=$native.UserSid;HostMarker=$native.HostMarker;ProfilePath=$native.ProfilePath;Store='CURRENT_USER_ROOT';PreexistingTrust=$preexisting
