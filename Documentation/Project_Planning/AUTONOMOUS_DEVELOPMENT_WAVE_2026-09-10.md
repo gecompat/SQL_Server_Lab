@@ -31,8 +31,15 @@ Identitäts-, Trust-, Lifecycle- und Migrationsgrenzen. Das ist keine Freigabe
 zur Änderung bestehender Zertifikate, Truststores, Resolver oder Testziele.
 Die erste Bestandsaufnahme las konfigurierte Exportmetadaten und prüfte lokale
 Clientverfügbarkeit; Serverzertifikate und authentifizierte Verbindungen
-bleiben ungeprüft. Nächster Scope ist der dort benannte private Anfragevertrag
-mit Offlineprüfung, vor mutierender PKI- oder Providerumsetzung.
+bleiben ungeprüft. Der erste
+[private Anfragevertrag](../Architecture/AUTHENTICATED_TLS_REQUEST.md) ist mit
+geschlossenen CA-/Leafprofilen und Client-Trust-Previews implementiert;
+fokussiert bestanden 339 synthetische Prüfungen. Zwei konkrete Reviewbefunde
+wurden mit ursprünglicher Fehlerreproduktion korrigiert und regressionsgeprüft.
+Ausgeführte Nachweise und Mindestlaufzeitgrenze stehen in der
+[Validierungsstrategie](../Quality/LOCAL_VALIDATION_STRATEGY.md#privater-tls-anfragevertrag-tls001-request-01).
+Nächster Scope ist eine besitzgebundene lesende Target-/Clientbindung mit
+Backend-Discovery, vor mutierender PKI- oder Providerumsetzung.
 
 ## Historischer Abschluss vom 2026-10-09
 

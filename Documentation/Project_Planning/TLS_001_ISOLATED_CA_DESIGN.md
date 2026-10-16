@@ -133,6 +133,14 @@ Keine automatische Umschaltung der geschützten sechs Ziele oder SSISDB-Quelle.
 
 ## Nächster ausführbarer Scope und Abnahme
 
+Der erste [private Anfragevertrag](../Architecture/AUTHENTICATED_TLS_REQUEST.md)
+implementiert inzwischen die geschlossene Formprüfung für CA-/Leafprofile und
+Client-Trust-Previews. Referenzen und angeforderte Tupel sind unaufgelöst;
+Erfolg erteilt weder Capabilitynachweis noch Ausführungsautorität. Die folgende
+ursprüngliche Reihenfolge bleibt als Scopegrenze erhalten. Als Nächstes sind
+die besitzgebundene lesende Target-/Clientbindung und tatsächlich vorhandene
+Backendfähigkeiten zu konkretisieren, bevor Signierung oder Import folgen.
+
 Zuerst den geschlossenen privaten Anfragevertrag für CA-/Leaf-/Trustpläne und
 ihre sourcegebundene Offlineprüfung konkretisieren. Noch keine öffentliche API,
 PKI-Anlage, Schlüsselöffnung, Trustmutation oder Provideraktion. Das Ergebnis

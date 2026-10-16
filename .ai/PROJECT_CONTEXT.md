@@ -112,6 +112,11 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 
 ### Implementiert
 
+- Privater [TLS-Anfragevertrag](../Documentation/Architecture/AUTHENTICATED_TLS_REQUEST.md)
+  mit geschlossenen CA-/Leafprofilen, typisierten IP-/DNS-Identitäten und
+  Client-Trust-Previews. Reine Formprüfung im Speicher, keine Auflösung,
+  Ausführungsautorität oder PKI-/Trust-/Provideraktion; native TLS-Abnahme offen;
+
 - Lokale Release-Veröffentlichung mit dauerhaftem Intent, atomarer
   Abschlussquittung und rein lesender `InspectReleaseId`-Prüfung. Die Quittung
   bindet vollständige Paket- und optionale Archivbytes; ohne Quittung bleibt
