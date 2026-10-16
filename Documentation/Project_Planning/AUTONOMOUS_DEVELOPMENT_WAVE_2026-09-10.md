@@ -74,6 +74,15 @@ native Target-/Ownership-, vollständige Backend-/Keyschutz- und TLS-Abnahme
 bleiben erforderlich. Die neue Windows-Kryptosuite erzeugt ausschließlich
 eigene kurzlebige Tempkandidaten und verändert keinen Truststore oder Provider.
 Die authentifizierte TLS-Lab-Abnahme und Toolbelt SC-2026-045 bleiben offen.
+Die eigene dauerhafte CA wurde inzwischen lokal tatsächlich angelegt;
+DPAPI-Reopen/Sign/Verify und frische lesende Trustvorschau bestanden. Die
+konkrete menschliche Importfreigabe ist gesichert. Die neue
+[private Trust-Importtransaktion](../Architecture/AUTHENTICATED_TLS_TRUST_IMPORT.md)
+besitzt geschütztes Intent/Commit, kooperativen Lock und lesenden Recovery-
+Status. Reale Rootstoremutation bleibt den separat freigegebenen nativen
+Schritten nach Integration vorbehalten. Die neue Suite verwendet eigene
+private Dateifixtures und injizierte Storegrenzen; kein Importreceipt erlaubt
+ungeprüften Removal oder qualifiziert SQL/TLS.
 Der Benutzer verlangt ausdrücklich die autonome Fortsetzung bis zur echten
 TLS-Lab-Abnahme und gezielte Fragen bei konkret fehlenden Freigaben.
 Schutzgrenzen bestehen fort; reine Offlinefortschritte beenden diesen Auftrag nicht.

@@ -43,8 +43,17 @@ Der [private Windows-CA-Kandidat](../Documentation/Architecture/AUTHENTICATED_TL
 ergänzt jetzt ein festes RSA-3072-/SHA-256-Profil, geschützte private ACLs,
 DPAPI-CurrentUser-PKCS8 und eine lesende CurrentUser/Root-Trust-Vorschau.
 Rootmarker-/Katalogbindung wird ohne erfundene Registrydatei frisch gelesen.
-Kandidaten bleiben `UNREGISTERED_UNQUALIFIED`; Import, Writer und echte TLS-
-Lab-Abnahme fehlen. Lokale native Kryptoprüfung nutzt nur eigene Tempfixtures.
+Kandidaten bleiben `UNREGISTERED_UNQUALIFIED`; native Importabnahme, allgemeiner
+Writer und echte TLS-Lab-Abnahme fehlen. Inzwischen existiert ein eigener dauerhafter Kandidat
+außerhalb der Tests; DPAPI-Reopen/Sign/Verify und frische lesende Trustvorschau
+bestanden lokal. Runtimeidentitäten bleiben ausschließlich privat.
+Die [private Trust-Importtransaktion](../Documentation/Architecture/AUTHENTICATED_TLS_TRUST_IMPORT.md)
+ergänzt jetzt exakte fünfminütige Freigabebindung, geschütztes Intent/Commit,
+kooperativen Lock und lesenden Status/Recovery. Tests verwenden echte eigene
+Datei-/ACL-/Lockfixtures mit injizierten Storegrenzen. Konkrete menschliche
+Importfreigabe ist gesichert; reale Storemutation erfolgt erst separat nach
+Integration. Sie bleibt hier `NOT_EXECUTED`; keine Löschautorität, Registrierung
+oder TLS-Lab-Abnahme entsteht durch einen Importreceipt.
 Die neue private Lane verlangt PowerShell ab 7.5; tatsächlich lokal geprüft
 ist 7.6.6, die allgemeine Modul-Mindestversion bleibt 7.2.
 Authentifizierte TLS-Lab-Abnahme und Toolbelt SC-2026-045
