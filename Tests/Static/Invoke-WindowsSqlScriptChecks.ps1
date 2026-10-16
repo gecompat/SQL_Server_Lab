@@ -78,6 +78,12 @@ try {
     # connection factory substituted. No SQL server or provider is contacted.
     $guest=Get-LabWindowsSqlScriptGuest
     $factory=$guest.Ast.Find({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'New-WindowsSqlConnection'},$true)
+    $builderCheck=& {
+        $Database='SSISDB';$Port=1433;$TimeoutSeconds=20
+        . ([scriptblock]::Create($factory.Extent.Text.Replace('$sql.Open();',"throw 'SYNTHETIC_OPEN_NOT_EXECUTED';")))
+        try {New-WindowsSqlConnection;return $false}catch{return $_.Exception.Message -ceq 'SYNTHETIC_OPEN_NOT_EXECUTED'}
+    }
+    Check 'Actual connection builder accepts canonical SQL keys before any network access' $builderCheck
     $guestText=$guest.ToString().Replace($factory.Extent.Text,'function New-WindowsSqlConnection { [pscustomobject]@{Connection=$fakeConnection;AuthScheme="NTLM"} }')
     foreach($mode in @('success','sql-fault','oversize')) {
         $table=[Data.DataTable]::new();$null=$table.Columns.Add('id',[long]);$null=$table.Columns.Add('text',[string])
@@ -107,9 +113,10 @@ try {
             $c|Add-Member ScriptMethod Dispose {$this.Disposed=$true};$this.Commands.Add($c);return $c
         }
         $fakeConnection|Add-Member ScriptMethod Dispose {$this.Disposed=$true}
-        $actual=& ([scriptblock]::Create($guestText)) @('SELECT @id','SELECT @stream') @(@{Name='@id';Type='BigInt';Value=[long]12},@{Name='@stream';Type='VarBinary';Value=[byte[]]@(1,2)}) SSISDB 1433 MSSQLSERVER 17 $true 20
+        $actual=& ([scriptblock]::Create($guestText)) @('SELECT @id','SELECT @stream') @(@{Name='@id';Type='BigInt';Value=[long]12},@{Name='@stream';Type='VarBinary';Value=[object[]]@([byte]1,[byte]2)}) SSISDB 1433 MSSQLSERVER 17 $true 20
         if($mode -eq 'success') {
             Check 'Actual guest executes both batches with typed binary parameters and result rows' ($actual.Success -and $actual.Batches -eq 2 -and $actual.ResultSets.Count -eq 2 -and $actual.ResultSets[0].Rows[0][0] -eq 12 -and $commands[0].Parameters['@stream'].SqlDbType -eq 'VarBinary')
+            Check 'Remoted object[] is restored to native SqlClient binary data' ($commands[0].Parameters['@stream'].Value -is [byte[]] -and $commands[0].Parameters['@stream'].SqlValue.Value.Length -eq 2)
         } else {Check "Actual guest $mode sanitizes and bounds output" (-not $actual.Success -and $actual.ResultSets.Count -eq 0 -and ($actual|ConvertTo-Json -Depth 8) -notmatch 'PRIVATE')}
         Check 'Actual guest always disposes connection and commands' ($fakeConnection.Disposed -and @($commands|Where-Object {-not $_.Disposed}).Count -eq 0)
         $table.Dispose()

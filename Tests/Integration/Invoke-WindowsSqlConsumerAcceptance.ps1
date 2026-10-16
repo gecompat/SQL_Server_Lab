@@ -42,7 +42,10 @@ function Invoke-ConsumerSql {
         -WindowsAuthentication -Database SSISDB -ScriptPath $path -Parameters $Values -KeepConnection -TimeoutSeconds 240 -Confirm:$false
     $apiOperations.Add([string]$result.OperationId)
     if($result.Success){$null=$schemes.Add([string]$result.AuthScheme)}
-    if(-not $result.Success -and -not $AllowFailure){throw 'CONSUMER_ACCEPTANCE_SQL_FAILED'}
+    if(-not $result.Success -and -not $AllowFailure){
+        $result|Select-Object ErrorCode,SqlErrorNumber,OperationId|ConvertTo-Json|Set-Content -LiteralPath (Join-Path $workspace 'sql-failure.private.json')
+        throw 'CONSUMER_ACCEPTANCE_SQL_FAILED'
+    }
     return $result
 }
 $protectedParameters=@{p0=$ProtectedExecutionId[0];p1=$ProtectedExecutionId[1];p2=$ProtectedExecutionId[2]}

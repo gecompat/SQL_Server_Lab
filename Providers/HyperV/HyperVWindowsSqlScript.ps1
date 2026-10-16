@@ -39,9 +39,11 @@ function Get-LabWindowsSqlScriptGuest {
         $deadline=[datetime]::UtcNow.AddSeconds($TimeoutSeconds)
         function New-WindowsSqlConnection {
             $builder=[Data.SqlClient.SqlConnectionStringBuilder]::new()
-            $builder.DataSource="tcp:127.0.0.1,$Port"; $builder.InitialCatalog=$Database
-            $builder.IntegratedSecurity=$true; $builder.Encrypt=$true; $builder.TrustServerCertificate=$true
-            $builder.Pooling=$false; $builder.ConnectTimeout=[math]::Min(15,$TimeoutSeconds)
+            # PowerShell's IDictionary adapter requires canonical SQL keyword
+            # keys here, as in the existing prerequisite connection builder.
+            $builder['Data Source']="tcp:127.0.0.1,$Port"; $builder['Initial Catalog']=$Database
+            $builder['Integrated Security']=$true; $builder['Encrypt']=$true; $builder['TrustServerCertificate']=$true
+            $builder['Pooling']=$false; $builder['Connect Timeout']=[math]::Min(15,$TimeoutSeconds)
             $sql=[Data.SqlClient.SqlConnection]::new($builder.ConnectionString)
             try {
                 $sql.Open(); $cmd=$sql.CreateCommand(); $cmd.CommandTimeout=[math]::Min(15,$TimeoutSeconds)
@@ -73,7 +75,16 @@ function Get-LabWindowsSqlScriptGuest {
                     foreach ($item in $Parameters) {
                         $parameter=$command.Parameters.Add([string]$item.Name,[Data.SqlDbType]([string]$item.Type))
                         if ($item.Type -in @('VarBinary','NVarChar')) { $parameter.Size=-1 }
-                        $parameter.Value=if ($null -eq $item.Value) {[DBNull]::Value} else {$item.Value}
+                        # Remoting can deserialize a nested byte[] as object[].
+                        # Re-establish the declared CLR type before SqlClient
+                        # performs native parameter coercion; never interpolate.
+                        if ($null -eq $item.Value) {$parameter.Value=[DBNull]::Value}
+                        elseif ($item.Type -eq 'VarBinary') {$parameter.Value=[byte[]]$item.Value}
+                        elseif ($item.Type -eq 'NVarChar') {$parameter.Value=[string]$item.Value}
+                        elseif ($item.Type -eq 'BigInt') {$parameter.Value=[long]$item.Value}
+                        elseif ($item.Type -eq 'Int') {$parameter.Value=[int]$item.Value}
+                        elseif ($item.Type -eq 'Bit') {$parameter.Value=[bool]$item.Value}
+                        else {throw 'WINDOWS_SQL_PARAMETER_TYPE_INVALID'}
                     }
                     $reader=$command.ExecuteReader([Data.CommandBehavior]::SequentialAccess)
                     try {
@@ -119,7 +130,11 @@ function Get-LabWindowsSqlScriptGuest {
         } catch {
             # Neither SQL text, provider errors, identities nor selected data
             # become automatic diagnostics. A failure never proves rollback.
-            if ($_.Exception -is [Data.SqlClient.SqlException]) {$sqlNumber=$_.Exception.Number}
+            $cause=$_.Exception
+            while ($cause) {
+                if ($cause -is [Data.SqlClient.SqlException]) {$sqlNumber=$cause.Number;break}
+                $cause=$cause.InnerException
+            }
             return [pscustomobject]@{Success=$false;Batches=$executed;AuthScheme=$auth;ResultSets=@();ErrorCode=('WINDOWS_SQL_'+$stage+'_FAILED');SqlErrorNumber=$sqlNumber}
         } finally {if($connection){$connection.Dispose()}}
     }
