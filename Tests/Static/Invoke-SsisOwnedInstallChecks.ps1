@@ -48,6 +48,18 @@ $arguments=@(Get-LabSsisSetupArguments)
 Check 'Setup benötigt keine Dienstsecrets und deaktiviert beide Updatequellen' ($arguments.Count -eq 4 -and $arguments -contains '/UpdateEnabled=False' -and $arguments -contains '/USEMICROSOFTUPDATE=False' -and $arguments -contains '/ISSVCACCOUNT="NT AUTHORITY\NETWORK SERVICE"' -and $arguments -contains '/ISSVCStartupType=Automatic')
 Check 'SSISDB-Fixture erstellt den Katalog über Microsofts installierte, versionsgebundene Management-API' ($installerSource -match 'Microsoft.SqlServer.Management.IntegrationServices, Version=17.0.0.0' -and $installerSource -match '\$catalog.Create\(\)' -and $installerSource -notmatch 'RESTORE DATABASE \[SSISDB\]' -and $installerSource -notmatch '(?i)(Invoke-WebRequest|Start-BitsTransfer|winget|choco|Install-Module)')
 $catalogProbe=Get-LabSsisCatalogFixtureGuestProbe
+$executionGuard=$catalogProbe.Ast.Find({param($n)$n -is [Management.Automation.Language.IfStatementAst] -and $n.Extent.Text -match 'SSIS_FIXTURE_EXECUTION_STATUS_INVALID'},$true)
+foreach($executionCase in @('accepted','pending','unexpected-end')){
+    $success=[int64]1;$failure=[int64]2;$incomplete=[int64]3
+    $states=@{'1'=7;'2'=4;'3'=1}
+    if($executionCase -eq 'pending'){$states['1']=5}
+    if($executionCase -eq 'unexpected-end'){$states['1']=6}
+    $observedError=$null
+    try {& ([scriptblock]::Create($executionGuard.Extent.Text))}catch{$observedError=$_.Exception.Message}
+    $expectedError='SSIS_FIXTURE_EXECUTION_STATUS_INVALID:Success={0};Failure=4;Incomplete=1' -f $states['1']
+    Check "Ausführungsfehler behält sichere numerische Statusdiagnose: $executionCase" $(if($executionCase -eq 'accepted'){-not $observedError}else{$observedError -ceq $expectedError})
+}
+Check 'Lokale Fixture übernimmt keinen globalen Scale-Out-Default' ($installerSource -match '@use32bitruntime=0,@runinscaleout=0,@execution_id=@id OUTPUT')
 $passwordAst=$catalogProbe.Ast.Find({param($n)$n -is [Management.Automation.Language.AssignmentStatementAst] -and $n.Left.Extent.Text -eq '$catalogPassword' -and $n.Right.Extent.Text -match 'NewGuid'},$true)
 $generatedPassword=& { . ([scriptblock]::Create($passwordAst.Extent.Text)); $catalogPassword }
 Check 'Generiertes Katalogkennwort erfüllt alle vier Komplexitätsklassen ohne festen Secretwert' ($generatedPassword.Length -ge 32 -and $generatedPassword -cmatch '[a-z]' -and $generatedPassword -cmatch '[A-Z]' -and $generatedPassword -match '[0-9]' -and $generatedPassword -match '[^a-zA-Z0-9]' -and $installerSource -match 'finally \{[^\r\n]*\$catalogPassword=\$null\}')

@@ -4072,9 +4072,14 @@ Prepared-Image-Bindung, hashgebundene lokale Medien, fehlende Beschaffung,
 Run-/Instanz-/VM-Bindung, ausschließliches `IS`-Setup, Neustartverifikation,
 sanitierte Receipts und die drei synthetischen Ausführungsfälle.
 
-Ein ausgeführter Windows-/SSISDB-Nachweis steht noch aus. Er muss aus einem
-frisch geklonten `SQL_PREPARED_SEALED`-SQL-2025-Run den Component-Receipt,
-die drei Execution-IDs und -Status, die beobachteten Katalogviews und Rechte,
-den gezielten Fixture-Cleanup sowie den vollständigen Run-Cleanup festhalten.
-Statische Resultate oder ältere vollständige SQL-Installationsversuche öffnen
-das SQL_Server_Analyze-Runtimegate nicht.
+Die [Windows-/SSISDB-Abnahme vom 2026-10-16](SSISDB_WINDOWS_RUNTIME_ACCEPTANCE_2026-10-16.md)
+verlinkt die tatsächlich ausgeführten Workflows und ihre geheimnisfreien Receipts.
+Der Existing-Run-Nachweis bestätigt SQL/IS `17.0.1000.7`, drei eigene Fälle mit
+Status 7/4/1, beide Catalog-Views, beobachtete Sysadminrechte, die geschützte
+öffentliche Consumerübergabe und gezielten Cleanup. Ein zusätzlicher synthetischer
+Environment-Sentinel blockierte die Löschung und blieb samt Projekt erhalten;
+anschließend wurde ausschließlich der gebundene Sentinel separat entfernt.
+Der neue Manifest-Run wird mit seinem eigenen vollständigen Cleanup separat
+ausgewiesen. Der letzte Existing-Run bleibt als ausdrückliche Analyze-Quelle
+erhalten. Statische Resultate oder ältere vollständige SQL-Installationsversuche
+ersetzen diese nativen Nachweise und die grünen finalen Integrationschecks nicht.

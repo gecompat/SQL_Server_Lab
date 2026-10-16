@@ -673,7 +673,7 @@ function Get-LabSsisCatalogFixtureGuestProbe {
             $projectVersion=[int64](Invoke-FixtureCommand -Text 'SELECT object_version_lsn FROM [catalog].[projects] WHERE project_id=@projectId;' -Parameters @{'@projectId'=$projectId})
             if($projectId -lt 1 -or $projectVersion -lt 1){throw 'SSIS_FIXTURE_PROJECT_BINDING_INVALID'}
             function New-FixtureExecution {param([string]$Package,[switch]$Start)
-                $cmd=$catalogConnection.CreateCommand();$cmd.CommandTimeout=180;$cmd.CommandText='DECLARE @id bigint; EXEC [catalog].[create_execution] @folder_name=@folder,@project_name=@project,@package_name=@package,@reference_id=NULL,@use32bitruntime=0,@execution_id=@id OUTPUT; SELECT @id;'
+                $cmd=$catalogConnection.CreateCommand();$cmd.CommandTimeout=180;$cmd.CommandText='DECLARE @id bigint; EXEC [catalog].[create_execution] @folder_name=@folder,@project_name=@project,@package_name=@package,@reference_id=NULL,@use32bitruntime=0,@runinscaleout=0,@execution_id=@id OUTPUT; SELECT @id;'
                 try {$null=$cmd.Parameters.Add('@folder',[Data.SqlDbType]::NVarChar,128);$cmd.Parameters['@folder'].Value=$folder;$null=$cmd.Parameters.Add('@project',[Data.SqlDbType]::NVarChar,128);$cmd.Parameters['@project'].Value=$project;$null=$cmd.Parameters.Add('@package',[Data.SqlDbType]::NVarChar,260);$cmd.Parameters['@package'].Value=$Package;$id=[int64]$cmd.ExecuteScalar()}finally{$cmd.Dispose()}
                 $null=Invoke-FixtureCommand -Text "DECLARE @level sql_variant=CONVERT(smallint,1); EXEC [catalog].[set_execution_parameter_value] @execution_id=@id,@object_type=50,@parameter_name=N'LOGGING_LEVEL',@parameter_value=@level;" -Parameters @{'@id'=$id}
                 if($Start){$null=Invoke-FixtureCommand -Text 'EXEC [catalog].[start_execution] @execution_id=@id;' -Parameters @{ '@id'=$id }};return $id
@@ -683,7 +683,13 @@ function Get-LabSsisCatalogFixtureGuestProbe {
             $incomplete=New-FixtureExecution -Package 'Incomplete.dtsx'
             $deadline=[datetime]::UtcNow.AddMinutes(3);$states=@{}
             do {$cmd=$catalogConnection.CreateCommand();$cmd.CommandTimeout=30;$cmd.CommandText='SELECT execution_id,status FROM [catalog].[executions] WHERE execution_id IN (@success,@failure,@incomplete);';try {foreach($name in @('success','failure','incomplete')){$null=$cmd.Parameters.Add('@'+$name,[Data.SqlDbType]::BigInt);$cmd.Parameters['@'+$name].Value=(Get-Variable $name -ValueOnly)};$reader=$cmd.ExecuteReader();try{while($reader.Read()){$states[[string]$reader.GetInt64(0)]=[int]$reader.GetInt32(1)}}finally{$reader.Dispose()}}finally{$cmd.Dispose()};if($states[[string]$success] -in 3,4,6,7,9 -and $states[[string]$failure] -in 3,4,6,7,9){break};Start-Sleep -Milliseconds 500}while([datetime]::UtcNow -lt $deadline)
-            if($states[[string]$success] -ne 7 -or $states[[string]$failure] -ne 4 -or $states[[string]$incomplete] -ne 1){throw 'SSIS_FIXTURE_EXECUTION_STATUS_INVALID'}
+            if($states[[string]$success] -ne 7 -or $states[[string]$failure] -ne 4 -or $states[[string]$incomplete] -ne 1){
+                # Preserve the decisive, non-secret observation before the owned
+                # run is compensated. A generic failure loses whether this was
+                # a terminal runtime error or a still-pending execution timeout.
+                $observedStates='Success={0};Failure={1};Incomplete={2}' -f $states[[string]$success],$states[[string]$failure],$states[[string]$incomplete]
+                throw ('SSIS_FIXTURE_EXECUTION_STATUS_INVALID:'+ $observedStates)
+            }
             $accepted=$true
             [pscustomobject]@{Status='SSISDB_FIXTURE_ACCEPTED';OperationId=$OperationId;EngineMajor=17;EngineVersion=$engineVersion;SsisMajor=17;SsisVersion=$ssisVersion;ExecutionIds=@{Success=$success;Failure=$failure;Incomplete=$incomplete};ExecutionStatus=@{Success=$states[[string]$success];Failure=$states[[string]$failure];Incomplete=$states[[string]$incomplete]};CatalogViews=@('catalog.executions','catalog.event_messages');Rights='SYSADMIN_OBSERVED';FolderId=[int64]$folderId;FolderName=$folder;ProjectId=$projectId;ProjectVersionLsn=$projectVersion;ProjectName=$project;Cleanup=$(if($RetainFolder){'RETAINED_FOR_OWNED_RUN'}else{'CATALOG_FOLDER_CLEANUP_PENDING'})}
         }

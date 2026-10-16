@@ -2,7 +2,7 @@
 
 | Merkmal | Wert |
 |---|---|
-| Status | `IMPLEMENTED_RUNTIME_PENDING` |
+| Status | Windows-/SQL-2025-Existing-Run nativ abgenommen; New-Run-Nachweis separat |
 | Stand | 2026-10-16 |
 | Öffentliche Einstiege | `Get-SqlServerLabSsisCatalogCapability`, `Install-SqlServerLabSsisComponent`, `New-SqlServerLabSsisCatalogFixture`, `Remove-SqlServerLabSsisCatalogFixture` |
 
@@ -38,7 +38,7 @@ Redirects an und entfernt ihren Resolver anschließend wieder. Andere Namen,
 Tokens oder Versionsbereiche werden nicht aufgelöst. Fehlende Abhängigkeiten
 öffnen keinen Download- oder SDK-Installationspfad.
 
-Die vollständige öffentliche Konsolen-CLI katalogisiert beide Exporte automatisch. Der Browser verwendet denselben Exportkatalog im Bereich **Status und Diagnose**. Bis zu einer eigenen gerenderten Fachabnahme bleibt dies ein generischer, parametergebundener Dialog und kein separater SSISDB-Fachdialog.
+Die vollständige öffentliche Konsolen-CLI katalogisiert die Exporte automatisch. Der Browser verwendet denselben Exportkatalog im Bereich **Status und Diagnose**. Bis zu einer eigenen gerenderten Fachabnahme bleibt dies ein generischer, parametergebundener Dialog und kein separater SSISDB-Fachdialog.
 
 ```powershell
 $component=Install-SqlServerLabSsisComponent -RunId $runId -InstanceId primary -MediaRoot $mediaRoot `
@@ -122,7 +122,9 @@ eigenen Run über `Remove-SqlServerLab`.
 
 ## Ausführungsnachweis
 
-Die Formatabnahme `Tests/Integration/Invoke-SsisFixtureFormatAcceptance.ps1` hat am 2026-10-16 mit der vorhandenen SSIS-17-Runtime das tatsächlich erzeugte ISPAC über Microsofts `Project.OpenProject()` geöffnet: drei Entry-Point-Packages, erwartete Forced Results, keine Verbindungen oder Tasks. Sie verwendet Windows PowerShell und startet weder SQL noch eine VM. Dies ist noch kein Windows-/SSISDB-Runtimenachweis. Vor dem Analyze-Runtimegate ist eine tatsächliche Abnahme erforderlich: genauer Cmdlet-Aufruf, Engine-/SSISversion, alle drei Execution-IDs und Statuswerte, beobachtete Views/Rechte, Receipt und erfolgreicher Run-Cleanup. Ein lokaler oder statischer Erfolg ersetzt diesen Nachweis nicht.
+Die [öffentliche Windows-/SSISDB-Abnahme](../Quality/SSISDB_WINDOWS_RUNTIME_ACCEPTANCE_2026-10-16.md) dokumentiert die tatsächlich ausgeführten Workflows, qualifizierten API-Aufrufe, Versionen, Execution-IDs, Quellen-/Rechtebindung und Cleanupbefunde. Der Existing-Run-Pfad hat drei reale Katalogfälle mit Status 7/4/1 erzeugt und den gezielten Cleanup einschließlich Fremdobjektschutz bestanden. Der letzte eigene Source-Run bleibt ausdrücklich für Analyze erhalten; seine Cleanupverantwortung ist im Nachweis benannt. Das Analyze-Runtimegate verlangt zusätzlich die reguläre Integration mit grünen erforderlichen Checks am finalen Head.
+
+Die Formatabnahme `Tests/Integration/Invoke-SsisFixtureFormatAcceptance.ps1` hat am 2026-10-16 mit der vorhandenen SSIS-17-Runtime das tatsächlich erzeugte ISPAC über Microsofts `Project.OpenProject()` geöffnet: drei Entry-Point-Packages, erwartete Forced Results, keine Verbindungen oder Tasks. Sie verwendet Windows PowerShell und startet weder SQL noch eine VM. Diese fokussierte Formatprüfung ergänzt den Katalognachweis.
 
 Die ergänzende `Invoke-SsisCatalogManagementAcceptance.ps1` hat den produktiven
 Loader mit den vorhandenen IS-17-Dateien unter Windows PowerShell ausgeführt:
@@ -143,15 +145,15 @@ den bereits vorhandenen SSISDB-Katalog. Vollständiger Cleanup erfolgt bewusst
 
 Der Prepared-SSISDB-Pfad erklärt Windows-Aktivierung ausdrücklich als `NotRequested` mit `Denied`-Egress. SSIS, SSISDB und die lokale Katalogausführung benötigen keine Windows-Aktivierung; der Test erstellt daher weder eine temporäre externe NIC noch eine Netzverbindung. Die getrennten Fresh-Install-Abnahmen dürfen weiterhin ihre eigene Aktivierungskette prüfen.
 
-Der vorgesehene Nachweis läuft auf dem erhöhten registrierten Hyper-V-Runner,
+Der Nachweis läuft auf dem erhöhten registrierten Hyper-V-Runner,
 nicht über einen lokalen UAC-Dialog. Der manuelle Workflowmodus
 `ssisdb-fixture-acceptance` verlangt ausdrücklich Prepared-Artifact,
 State-Root, relativen ISO-Pfad und ISO-Hash. Er ruft ausschließlich
 `New-SqlServerLabSsisCatalogFixture` und `Remove-SqlServerLab` auf,
 schreibt nur eine geheimnisfreie Receipt in die Workflow-Zusammenfassung und
-bereinigt den neuen eigenen Run auch nach einem Fixturefehler. Bis ein
-erfolgreicher Workflowlauf verlinkt ist, bleibt der Runtime-Status
-`IMPLEMENTED_RUNTIME_PENDING`.
+bereinigt den neuen eigenen Run auch nach einem Fixturefehler. Der oben
+verlinkte Nachweis unterscheidet den erhaltenen Existing-Run und den vollständig
+entfernten neuen Test-Run ausdrücklich.
 
 ## Herstellergrundlagen
 

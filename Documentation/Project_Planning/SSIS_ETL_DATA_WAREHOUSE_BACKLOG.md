@@ -208,8 +208,11 @@ das nur gastlokale Katalogkennwort erfüllt die Komplexitätsrichtlinie. Ein
 vollständiges synthetisches ISPAC mit Projektmanifest und OPC-Content-Types
 wurde vorab mit Microsofts `Project.OpenProject()` gelesen; beide gestarteten
 Pakete lieferten lokal das erwartete Success-/Failure-Ergebnis ohne Datenquelle.
-Die reale Windows-/SSISDB-Abnahme bleibt
-bis zu ihrem erfolgreichen Workflownachweis offen. Quellen: [SSIS-Katalog](https://learn.microsoft.com/sql/integration-services/catalog/ssis-catalog?view=sql-server-ver17),
+Die [reale Windows-/SSISDB-Abnahme](../Quality/SSISDB_WINDOWS_RUNTIME_ACCEPTANCE_2026-10-16.md)
+belegt die enge synthetische Analyze-Quelle mit Erfolg-, Fehler- und ungestartetem
+Fall auf SQL/IS `17.0.1000.7` sowie gezieltem Cleanup und Fremdobjektschutz.
+Die nachfolgenden ETL-, Datenquellen- und Beschaffungsszenarien bleiben getrennte
+offene Scopes. Quellen: [SSIS-Katalog](https://learn.microsoft.com/sql/integration-services/catalog/ssis-catalog?view=sql-server-ver17),
 [Setupfeature IS und SDK-Grenze](https://learn.microsoft.com/sql/database-engine/install-windows/install-sql-server-from-the-command-prompt?view=sql-server-ver17),
 [SSIS-Installation](https://learn.microsoft.com/sql/integration-services/install-windows/install-integration-services?view=sql-server-ver17).
 
