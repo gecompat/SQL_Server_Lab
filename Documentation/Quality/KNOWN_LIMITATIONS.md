@@ -2415,7 +2415,10 @@ IPv4-Endpunkt. Eigene Ressourcen sind entfernt und Bestandsdateien erhalten.
 Die [anschließende Windows-Ablauf-/Erneuerungsprobe](TLS_WINDOWS_SQL2025_EXPIRY_RENEWAL_2026-10-16.md)
 belegt beide Clientgegenfälle für unvertraute Kette, echten Ablauf und falsches
 SAN sowie beide erneuten positiven SQL-Abfragen nach neuem Key/Leaf.
-Vollständige Provider-/Versions-/Exportabnahme bleibt offen.
+Die separate [Podman-Probe](TLS_PODMAN_WINDOWS_SQL2025_ACCEPTANCE_2026-10-16.md)
+bestand dieselben acht Windows-Clientfälle für SQL 2025 CU9 mit eigenem Cleanup
+und frischem Schutzvergleich. Linuxclients, Hyper-V, weitere SQL-Versionen
+und vollständige Exportabnahme bleiben offen.
 Frist höchstens 30 Tage innerhalb der CA-Frist, keine automatische Kürzung.
 Der bestehende Tagespfad bleibt bei 1 bis 30 ganzen Tagen; die alternative
 private Kurzlaufzeit verlangt native `ValiditySeconds` 30 bis 300 und

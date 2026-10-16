@@ -77,7 +77,10 @@ Cleanup ohne Bestandsdateidrift. Die anschließende
 bestand für beide Windows-Stacks: unvertraute Kette, echter Ablauf ohne
 vorherigen Hostkontakt zum kurzen Leaf, Erneuerung mit neuem Key und falsches
 SAN am gleichen IPv4-Endpunkt. Eigener Cleanup und Bestandsdateierhalt bestanden.
-Registry, weitere Provider/Versionen und qualifizierter Export bleiben offen.
+Die separate [Podman-Probe](../Documentation/Quality/TLS_PODMAN_WINDOWS_SQL2025_ACCEPTANCE_2026-10-16.md)
+bestand dieselben acht Windows-Clientfälle an einem eigenen SQL-2025-CU9-Run,
+einschließlich eigenem Cleanup und frischem Bestandsdateierhalt. Registry,
+Hyper-V, weitere SQL-Versionen, Linuxclients und qualifizierter Export bleiben offen.
 Der private Issuer erlaubt für echte Ablaufgegenfälle nun alternativ native
 30–300 Sekunden statt 1–30 Tagen, ohne Caller-Uhr oder Rückdatierung.
 Syntaktische Approval-/Adapter-IDs sind keine menschliche oder Quieszenzevidence.

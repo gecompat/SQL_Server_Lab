@@ -72,7 +72,10 @@ Kette und falsches SAN am gleichen IPv4-Endpunkt. Ihr eigener Run ist entfernt;
 dies qualifiziert nicht die vollständige Matrix oder Registry.
 Die sechs geschützten Testumgebungen,
 die erhaltene SSISDB-Quelle und bestehende Exporte werden dabei bewahrt.
-Linuxclients, Podman, Hyper-V, weitere SQL-Versionen, Ablauf, Renewal, Drift,
+Die anschließenden eigenen [Docker-Ablauf-/Erneuerungsfälle](TLS_WINDOWS_SQL2025_EXPIRY_RENEWAL_2026-10-16.md)
+und die getrennte [Podman-Probe](TLS_PODMAN_WINDOWS_SQL2025_ACCEPTANCE_2026-10-16.md)
+bestanden inzwischen jeweils alle acht Windows-Clientfälle für SQL 2025 CU9.
+Linuxclients, Hyper-V, weitere SQL-Versionen, Trustdrift, TLS-Abbruch/Resume,
 operative Registry und V2-Export bleiben getrennte offene Nachweise.
 
 Die [Microsoft-Anleitung für SQL Server unter Linux](https://learn.microsoft.com/en-us/sql/linux/security/encrypted-connections?view=sql-server-ver17)

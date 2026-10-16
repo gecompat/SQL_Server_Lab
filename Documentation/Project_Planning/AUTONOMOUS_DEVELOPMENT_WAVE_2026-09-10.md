@@ -114,8 +114,12 @@ Die private Kurzlaufzeit von 30–300 Sekunden wurde anschließend in der
 [echten Ablauf-/Erneuerungsprobe](../Quality/TLS_WINDOWS_SQL2025_EXPIRY_RENEWAL_2026-10-16.md)
 genutzt: Beide Windows-Stacks lehnten unvertraute Kette, echten Ablauf und
 falsches SAN ab; Erneuerung mit neuem Key bestand mit verschlüsselter SQL-Abfrage.
-Eigener Cleanup und Bestandsdateierhalt bestanden. Komplette TLS-Matrix,
-Registry, qualifizierter Export und Toolbelt SC-2026-045 bleiben offen.
+Eigener Cleanup und Bestandsdateierhalt bestanden. Die separate
+[Podman-Probe](../Quality/TLS_PODMAN_WINDOWS_SQL2025_ACCEPTANCE_2026-10-16.md)
+bestand dieselben acht Fälle mit beiden Windows-Stacks an einem eigenen
+SQL-2025-CU9-Run samt Cleanup und frischem Schutzvergleich. Linuxclients,
+Hyper-V, weitere SQL-Versionen, komplette TLS-Matrix, Registry, qualifizierter
+Export und Toolbelt SC-2026-045 bleiben offen.
 Der Benutzer verlangt ausdrücklich die autonome Fortsetzung bis zur echten
 TLS-Lab-Abnahme und gezielte Fragen bei konkret fehlenden Freigaben.
 Schutzgrenzen bestehen fort; reine Offlinefortschritte beenden diesen Auftrag nicht.

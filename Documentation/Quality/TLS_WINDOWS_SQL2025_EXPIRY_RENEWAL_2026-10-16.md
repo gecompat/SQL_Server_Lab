@@ -23,7 +23,7 @@ ausgewählten Windows-Benutzerkontext. Sie verändert keinen weiteren Truststore
 
 Das kurzlebige Leaf galt ab tatsächlichem UTC-Beginn 120 Sekunden. Der Lauf
 wartete ohne Uhränderung bis mehr als zwei Sekunden nach dem echten Ende.
-Vorher gab es keine Windows-Hostverbindung zu diesem Leaf: Der öffentliche
+Im Prüflauf gab es vorher keine Windows-Hostverbindung zu diesem Leaf: Der öffentliche
 Start übersprang seine normale Hostreadiness; ausschließlich eine begrenzte
 Abfrage im eigenen Container prüfte SQL-Bereitschaft. Deren Zertifikatsbypass
 ist ausdrücklich nur interne Readiness und keine authentifizierte TLS-Evidence.
@@ -75,7 +75,9 @@ Dies qualifiziert die beschriebenen Windows-Clientfälle für diesen eigenen
 Docker-SQL-2025-CU9-Scope. Operative Registry, AuthorityRef, gebundene frische
 Qualifikationsrecords, V2-Export und koordinierter Consumer-Cutover fehlen
 weiterhin. Trustdrift, Abbruch/Resume des TLS-Lifecycles, Linuxclients,
-Podman, Hyper-V und die weiteren SQL-Versionen bleiben eigene Nachweise.
+Hyper-V und die weiteren SQL-Versionen bleiben eigene Nachweise. Die spätere
+[Podman-Probe](TLS_PODMAN_WINDOWS_SQL2025_ACCEPTANCE_2026-10-16.md) bestand
+separat dieselben acht Windows-Clientfälle für SQL 2025 CU9.
 Toolbelt SC-2026-045 bleibt bis zum policykonformen Export und tatsächlichen
 Toolbelt-Labpreflight gesperrt.
 
