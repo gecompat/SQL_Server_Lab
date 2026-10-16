@@ -55,7 +55,7 @@ oder erfolgreiche CSP-/KeySpec-/Providerqualifikation.
 
 | Feld | Form |
 |---|---|
-| `TargetRef` | kanonische nichtleere UUID; spätere Target-/Ownershipbindung offen |
+| `TargetRef` | kanonische nichtleere UUID; der optionale [Metadatenresolver](AUTHENTICATED_TLS_TARGET_METADATA.md) bindet sie an eine vorhandene RunId mit zusätzlicher ausdrücklicher Instanzwahl; Runtime-/Ownershipprüfung offen |
 | `Provider` | `docker`, `podman` oder `hyperv` als angefordertes Tupel |
 | `SqlVersion` | String `2019`, `2022` oder `2025` als angefordertes Tupel |
 | `Port` | echter `Int32`, 1 bis 65535 |

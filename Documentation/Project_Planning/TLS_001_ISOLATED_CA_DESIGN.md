@@ -136,10 +136,16 @@ Keine automatische Umschaltung der geschützten sechs Ziele oder SSISDB-Quelle.
 Der erste [private Anfragevertrag](../Architecture/AUTHENTICATED_TLS_REQUEST.md)
 implementiert inzwischen die geschlossene Formprüfung für CA-/Leafprofile und
 Client-Trust-Previews. Referenzen und angeforderte Tupel sind unaufgelöst;
-Erfolg erteilt weder Capabilitynachweis noch Ausführungsautorität. Die folgende
-ursprüngliche Reihenfolge bleibt als Scopegrenze erhalten. Als Nächstes sind
-die besitzgebundene lesende Target-/Clientbindung und tatsächlich vorhandene
-Backendfähigkeiten zu konkretisieren, bevor Signierung oder Import folgen.
+Erfolg erteilt weder Capabilitynachweis noch Ausführungsautorität. Der private
+[Zielmetadatenresolver](../Architecture/AUTHENTICATED_TLS_TARGET_METADATA.md)
+bindet jetzt echte RunId und ausdrückliche Instanzwahl unter registriertem Root
+an gespeicherte Docker-/Podman-Container-/Versions-/Endpointdaten. Native
+Runtime-/Ownershipprüfung bleibt offen; Hyper-V ist ausdrücklich gesperrt.
+Für ClientRef und AuthorityRef fehlt noch eine konkrete Registrierung; es
+wird kein impliziter Benutzer-/Prozess-/CA-Bezug erfunden. Als Nächstes diese
+Client-/Signierkontextregistrierung und ihre lesende Backend-Discovery
+konkretisieren, bevor Signierung oder Import folgen. Die ursprüngliche
+Reihenfolge darunter bleibt als historische Scopegrenze erhalten.
 
 Zuerst den geschlossenen privaten Anfragevertrag für CA-/Leaf-/Trustpläne und
 ihre sourcegebundene Offlineprüfung konkretisieren. Noch keine öffentliche API,

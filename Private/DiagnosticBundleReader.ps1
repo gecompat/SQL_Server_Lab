@@ -85,9 +85,11 @@ function Get-LabDiagnosticBinding {
     $root=Assert-LabDiagnosticPath -Path $DataRoot
     $marker=Read-LabDiagnosticJson -Path (Join-Path $root '.sql-server-lab-root.json') -MaximumBytes 16384 -MaximumDepth 8
     $catalog=Read-LabDiagnosticJson -Path (Join-Path $root 'Catalog/storage-locations.json') -MaximumBytes 65536 -MaximumDepth 12
-    if ($marker.ContractVersion -cne 'SqlServerLab.DataRoot/2.0' -or $marker.ManagedBy -cne 'SQL_Server_Lab' -or
-        -not (Test-LabDiagnosticGuid $marker.ControllerId) -or $catalog.ContractVersion -cne 'SqlServerLab.Storage/2.0' -or
-        $catalog.ControllerId -cne $marker.ControllerId) { throw 'DIAGNOSTIC_CONTROLLER_MISMATCH' }
+    if (-not [string]::Equals($marker.ContractVersion,'SqlServerLab.DataRoot/2.0',[StringComparison]::Ordinal) -or
+        -not [string]::Equals($marker.ManagedBy,'SQL_Server_Lab',[StringComparison]::Ordinal) -or
+        -not (Test-LabDiagnosticGuid $marker.ControllerId) -or
+        -not [string]::Equals($catalog.ContractVersion,'SqlServerLab.Storage/2.0',[StringComparison]::Ordinal) -or
+        -not [string]::Equals($catalog.ControllerId,$marker.ControllerId,[StringComparison]::Ordinal)) { throw 'DIAGNOSTIC_CONTROLLER_MISMATCH' }
     $comparison=if($IsWindows){[StringComparison]::OrdinalIgnoreCase}else{[StringComparison]::Ordinal}
     if (-not [string]::Equals([IO.Path]::GetFullPath([string]$marker.DataRoot).TrimEnd('\','/'),$root,$comparison)) {
         throw 'DIAGNOSTIC_ROOT_MISMATCH'
@@ -96,17 +98,19 @@ function Get-LabDiagnosticBinding {
     if ($locations.Count -gt 32) { throw 'DIAGNOSTIC_COUNT_LIMIT' }
     $registered=@($locations | Where-Object { [string]::Equals([string]$_.LabDataRoot,$root,$comparison) })
     if ($registered.Count -ne 1 -or -not (Test-LabDiagnosticGuid $registered[0].LocationId) -or
-        $registered[0].ControllerId -cne $marker.ControllerId -or
-        -not $marker.VolumeId -or $registered[0].VolumeId -cne $marker.VolumeId) { throw 'DIAGNOSTIC_ROOT_UNREGISTERED' }
+        -not [string]::Equals($registered[0].ControllerId,$marker.ControllerId,[StringComparison]::Ordinal) -or
+        -not $marker.VolumeId -or -not [string]::Equals($registered[0].VolumeId,$marker.VolumeId,[StringComparison]::Ordinal)) { throw 'DIAGNOSTIC_ROOT_UNREGISTERED' }
     $stateRoot=Join-Path $root 'State'
     $directory=Join-Path (Join-Path $stateRoot 'runs') $RunId
     $run=Read-LabDiagnosticJson -Path (Join-Path $directory 'run-state.json')
-    if ($run.contractVersion -cne 'SqlServerLab.RunState/1.0') { throw 'DIAGNOSTIC_RUN_CONTRACT_UNSUPPORTED' }
-    if ($run.runId -cne $RunId -or -not (Test-LabDiagnosticGuid $run.scopeId)) { throw 'DIAGNOSTIC_RUN_SCOPE_MISMATCH' }
+    if (-not [string]::Equals($run.contractVersion,'SqlServerLab.RunState/1.0',[StringComparison]::Ordinal)) { throw 'DIAGNOSTIC_RUN_CONTRACT_UNSUPPORTED' }
+    if (-not [string]::Equals($run.runId,$RunId,[StringComparison]::Ordinal) -or -not (Test-LabDiagnosticGuid $run.scopeId)) { throw 'DIAGNOSTIC_RUN_SCOPE_MISMATCH' }
     $scope=Read-LabDiagnosticJson -Path (Join-Path (Join-Path $stateRoot 'scope-markers') ($run.scopeId+'.json')) -MaximumBytes 16384 -MaximumDepth 8
-    if ($scope.runId -cne $RunId -or $scope.scopeId -cne $run.scopeId) { throw 'DIAGNOSTIC_RUN_SCOPE_MISMATCH' }
+    if (-not [string]::Equals($scope.runId,$RunId,[StringComparison]::Ordinal) -or
+        -not [string]::Equals($scope.scopeId,$run.scopeId,[StringComparison]::Ordinal)) { throw 'DIAGNOSTIC_RUN_SCOPE_MISMATCH' }
     $desired=$run.metadata.desiredState
-    if ($desired.Contract.Name -cne 'SqlServerLab.RunDesiredState' -or $desired.Contract.Version -cne '1.0' -or
+    if (-not [string]::Equals($desired.Contract.Name,'SqlServerLab.RunDesiredState',[StringComparison]::Ordinal) -or
+        -not [string]::Equals($desired.Contract.Version,'1.0',[StringComparison]::Ordinal) -or
         $desired.PersistentData -isnot [bool] -or $run.metadata.persistentData -isnot [bool] -or
         $desired.PersistentData -ne $run.metadata.persistentData -or $desired.ProvisioningMode -isnot [string] -or
         $desired.ProvisioningMode -cnotin @('adhoc','manifest')) {
@@ -138,7 +142,7 @@ function Get-LabDiagnosticBinding {
         $sub=@($subRuns | Where-Object provider -CEQ $name)
         $expected=@($instances | Where-Object Provider -CEQ $name | ForEach-Object Id | Sort-Object)
         if ($sub.Count -ne 1 -or @($sub[0].instanceIds).Count -ne $expected.Count -or
-            (@($sub[0].instanceIds | Sort-Object) -join '|') -cne ($expected -join '|')) { throw 'DIAGNOSTIC_PROVIDER_BINDING_INVALID' }
+            -not [string]::Equals((@($sub[0].instanceIds | Sort-Object) -join '|'),($expected -join '|'),[StringComparison]::Ordinal)) { throw 'DIAGNOSTIC_PROVIDER_BINDING_INVALID' }
     }
     $actualIds=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
     foreach ($actual in @($run.instances)) {

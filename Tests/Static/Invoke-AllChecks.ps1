@@ -168,6 +168,7 @@ $checks = @(
     'Invoke-ManifestBuilderChecks.ps1',
     'Invoke-SmtpTestServiceReceiverReadChecks.ps1',
     'Invoke-AuthenticatedTlsRequestChecks.ps1',
+    'Invoke-AuthenticatedTlsTargetChecks.ps1',
     'Invoke-PrivacyScannerChecks.ps1',
     'Invoke-PesterChecks.ps1',
     'Invoke-ReleaseReadinessChecks.ps1',

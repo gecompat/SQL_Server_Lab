@@ -843,6 +843,9 @@ sources_of_truth:
   authenticated_tls_request_contract: Documentation/Architecture/AUTHENTICATED_TLS_REQUEST.md
   authenticated_tls_request_form: Private/AuthenticatedTlsRequest.ps1
   validation_authenticated_tls_request_form: Tests/Static/Invoke-AuthenticatedTlsRequestChecks.ps1
+  authenticated_tls_target_metadata_contract: Documentation/Architecture/AUTHENTICATED_TLS_TARGET_METADATA.md
+  authenticated_tls_target_metadata: Private/AuthenticatedTlsTarget.ps1 # registered root + actual RunId/explicit InstanceId; recorded Docker/Podman metadata only, no live authority
+  validation_authenticated_tls_target_metadata: Tests/Static/Invoke-AuthenticatedTlsTargetChecks.ps1 # coupled DiagnosticBundleReader, request form and real Run/DesiredState producers
   test_group_power_guidance: Private/TestGroupGuidance.ps1
   validation_test_group_power_guidance: Tests/Static/Invoke-TestGroupGuidanceChecks.ps1
   validation_nightly_authorization: Tests/Static/Fixtures/CiStrategyNightlyAuthorizationChecks.ps1

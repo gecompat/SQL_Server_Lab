@@ -116,6 +116,10 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   mit geschlossenen CA-/Leafprofilen, typisierten IP-/DNS-Identitäten und
   Client-Trust-Previews. Reine Formprüfung im Speicher, keine Auflösung,
   Ausführungsautorität oder PKI-/Trust-/Provideraktion; native TLS-Abnahme offen;
+  die zusätzliche [Zielmetadatenbindung](../Documentation/Architecture/AUTHENTICATED_TLS_TARGET_METADATA.md)
+  prüft registrierten Root, wirkliche RunId und ausdrückliche Instanzwahl für
+  gespeicherte Docker-/Podman-Container, Version und Endpoint. Keine Live-
+  Ownership-, Client- oder CA-Autorität;
 
 - Lokale Release-Veröffentlichung mit dauerhaftem Intent, atomarer
   Abschlussquittung und rein lesender `InspectReleaseId`-Prüfung. Die Quittung

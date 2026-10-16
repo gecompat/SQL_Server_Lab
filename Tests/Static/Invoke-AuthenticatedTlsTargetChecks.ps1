@@ -1,0 +1,209 @@
+#Requires -Version 7.2
+[CmdletBinding()]
+param()
+$ErrorActionPreference = 'Stop'
+$repo = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
+$testRoot = Join-Path ([IO.Path]::GetTempPath()) ('sql-lab-tls-target-' + [guid]::NewGuid().ToString('N'))
+$module = Import-Module (Join-Path $repo 'SqlServerLab.psd1') -Force -PassThru -WarningAction SilentlyContinue
+try {
+    & $module {
+        param($Root, $Repo)
+        . (Join-Path $Repo 'Tests/Common/CheckResult.ps1')
+        $script:passed = 0
+        $script:failures = [Collections.Generic.List[string]]::new()
+        function Write-TlsTargetFixture { param($Path, $Value)
+            $null = New-Item -ItemType Directory -Path (Split-Path $Path) -Force
+            $Value | ConvertTo-Json -Depth 32 | Set-Content -LiteralPath $Path -Encoding utf8
+        }
+        function Reset-TlsTargetFixture { param([string]$Provider = 'docker', [string]$Version = '2025', [string]$HostName = '127.0.0.1', [string]$Kind = 'IP')
+            $script:dataRoot = Join-Path $Root ([guid]::NewGuid().ToString('N'))
+            $instance = [pscustomobject]@{ id='primary'; provider=$Provider; version=$Version; profile='standard'; autostart='manual'; drives=@(); databases=@(); software=@() }
+            $desired = New-LabDesiredStateSnapshot -ResolvedLab ([pscustomobject]@{ name='Synthetic TLS target'; instances=@($instance) }) -ProvisioningMode adhoc -PersistentData $true
+            $script:run = New-LabRunState -StateRoot (Join-Path $script:dataRoot 'State') -Metadata @{
+                desiredState=$desired; persistentData=$true; dataRoot=$script:dataRoot
+            } -ProviderSubRuns @([pscustomobject]@{ provider=$Provider; instanceIds=@('primary') })
+            $script:statePath = Join-Path $script:run.RunDir 'run-state.json'
+            $script:state = Get-LabRunState -RunId $script:run.RunId -StateRoot $script:run.StateRoot
+            $script:state.state = 'RUNNING'; $script:state.providerSubRuns[0].state = 'RUNNING'
+            $script:state.instances = @([pscustomobject]@{ id='primary'; provider=$Provider; version=$Version; containerId=('a'*64); host=$HostName; port=15333; ignored='TLS_PRIVATE_CANARY' })
+            $controller = [guid]::NewGuid().ToString('D')
+            $script:marker = [pscustomobject]@{ ContractVersion='SqlServerLab.DataRoot/2.0'; ManagedBy='SQL_Server_Lab'; ControllerId=$controller; VolumeId='synthetic-volume'; DataRoot=$script:dataRoot }
+            $script:catalog = [pscustomobject]@{ ContractVersion='SqlServerLab.Storage/2.0'; ControllerId=$controller; LabDataLocations=@(
+                [pscustomobject]@{ LocationId=[guid]::NewGuid().ToString('D'); ControllerId=$controller; LabDataRoot=$script:dataRoot; VolumeId='synthetic-volume' }) }
+            $script:scopePath = Join-Path (Join-Path $script:run.StateRoot 'scope-markers') ($script:run.ScopeId+'.json')
+            $script:scope = Get-Content -LiteralPath $script:scopePath -Raw | ConvertFrom-Json
+            $script:request = [pscustomobject]@{
+                ContractVersion='SqlServerLab.AuthenticatedTlsRequest/0.1'; RequestId='11111111-1111-1111-1111-111111111111'
+                AuthorityRef='22222222-2222-2222-2222-222222222222'; Kind='LEAF_PROFILE'; TargetRef=$script:run.RunId
+                Provider=$Provider; SqlVersion=$Version; Port=15333; Identity=[pscustomobject]@{ Kind=$Kind; Value=$HostName }
+                Profile=[pscustomobject]@{ Algorithm='RSA'; RsaBits=3072; Signature='SHA256'; ValidityDays=30; RenewBeforeDays=7 }
+            }
+            Save-TlsTargetFixture
+        }
+        function Save-TlsTargetFixture {
+            Write-TlsTargetFixture $script:statePath $script:state
+            Write-TlsTargetFixture (Join-Path $script:dataRoot '.sql-server-lab-root.json') $script:marker
+            Write-TlsTargetFixture (Join-Path $script:dataRoot 'Catalog/storage-locations.json') $script:catalog
+            Write-TlsTargetFixture $script:scopePath $script:scope
+        }
+        function Invoke-TlsTargetFixture {
+            & { Set-StrictMode -Version Latest; Get-LabAuthenticatedTlsTargetMetadata -Request $script:request -InstanceId primary -DataRoot $script:dataRoot }
+        }
+        function Assert-TlsTargetRejected { param([string]$Name, $Result)
+            Add-CheckResult $Name ($null -ne $Result -and $Result.Success -eq $false -and $null -eq $Result.Value -and
+                $Result.ErrorCode -cmatch '\ATLS_TARGET_[A-Z_]+\z' -and @($Result.PSObject.Properties).Count -eq 3)
+            Add-CheckResult "$Name ohne Rohwerte" (($Result | ConvertTo-Json -Compress) -notmatch 'TLS_PRIVATE_CANARY|synthetic-volume|sql-lab-tls-target')
+        }
+        function Get-TlsTargetSnapshot {
+            (@(Get-ChildItem -LiteralPath $script:dataRoot -Recurse -File | Sort-Object FullName | ForEach-Object {
+                [IO.Path]::GetRelativePath($script:dataRoot,$_.FullName)+':'+(Get-FileHash -LiteralPath $_.FullName).Hash
+            }) -join '|')
+        }
+        # Der Produktpfad darf keine Provider-/Secret-/SQL-Probe erreichen.
+        function Get-LabHostToolInvocation { throw 'TLS_PRIVATE_CANARY forbidden tool' }
+        function Get-LabSecret { throw 'TLS_PRIVATE_CANARY forbidden secret' }
+        function Get-LabContainerRuntimeScopeEvidence { throw 'TLS_PRIVATE_CANARY forbidden runtime' }
+        foreach ($provider in @('docker','podman')) {
+            foreach ($version in @('2019','2022','2025')) {
+                foreach ($endpoint in @(@('IP','127.0.0.1'), @('IP','::1'), @('DNS','sql.example.invalid'))) {
+                    Reset-TlsTargetFixture $provider $version $endpoint[1] $endpoint[0]
+                    $before = Get-TlsTargetSnapshot
+                    $result = Invoke-TlsTargetFixture
+                    $expected = [pscustomobject][ordered]@{
+                        ContractVersion='SqlServerLab.AuthenticatedTlsTargetMetadata/0.1'; Status='RECORDED'; TargetRef=$script:run.RunId
+                        InstanceId='primary'; ScopeId=$script:run.ScopeId; Provider=$provider; SqlVersion=$version; ContainerId=('a'*64)
+                        Port=15333; Identity=[pscustomobject][ordered]@{Kind=$endpoint[0];Value=$endpoint[1]}
+                        RuntimeStatus='NOT_EXECUTED'; AuthorizationStatus='NOT_EVALUATED'; MutationAllowed=$false
+                    }
+                    Add-CheckResult "TLS-T01 exakte native Metadatenprojektion $provider/$version/$($endpoint[0])/$($endpoint[1])" (
+                        $result.Success -and $null -eq $result.ErrorCode -and
+                        [string]::Equals(($result.Value|ConvertTo-Json -Depth 8 -Compress),($expected|ConvertTo-Json -Depth 8 -Compress),[StringComparison]::Ordinal))
+                    Add-CheckResult 'TLS-T02 unveraenderte Dateien und private Feldgrenze' ($before -ceq (Get-TlsTargetSnapshot) -and
+                        ($result|ConvertTo-Json -Depth 8 -Compress) -notmatch 'TLS_PRIVATE_CANARY|synthetic-volume|sql-lab-tls-target')
+                    $result.Value.Identity.Value='changed'
+                    Add-CheckResult 'TLS-T03 tiefe getrennte Identitaet' ($script:request.Identity.Value -ceq $endpoint[1])
+                }
+            }
+        }
+        $cases = [ordered]@{
+            'fremde RunId' = { $script:request.TargetRef='33333333-3333-3333-3333-333333333333' }
+            'andere Instanz' = { $script:state.instances[0].id='secondary' }
+            'doppelte Instanz' = { $script:state.instances += $script:state.instances[0] }
+            'fehlende Runtime' = { $script:state.instances=@() }
+            'Providerabweichung' = { $script:state.instances[0].provider='podman' }
+            'Versionsabweichung' = { $script:state.instances[0].version='2022' }
+            'fehlende Version' = { $script:state.instances[0].PSObject.Properties.Remove('version') }
+            'fehlender Container' = { $script:state.instances[0].PSObject.Properties.Remove('containerId') }
+            'Containername' = { $script:state.instances[0].containerId='synthetic-container' }
+            'Containercase' = { $script:state.instances[0].containerId=('A'*64) }
+            'Containerarray' = { $script:state.instances[0].containerId=@('a'*64) }
+            'Portabweichung' = { $script:state.instances[0].port=15334 }
+            'Stringport' = { $script:state.instances[0].port='15333' }
+            'Doubleport' = { $script:state.instances[0].port=15333.5 }
+            'Boolport' = { $script:state.instances[0].port=$true }
+            'fehlender Port' = { $script:state.instances[0].PSObject.Properties.Remove('port') }
+            'Adressabweichung' = { $script:state.instances[0].host='127.0.0.2' }
+            'kein localhost-Alias' = { $script:state.instances[0].host='localhost' }
+            'keine DNS-Aufloesung' = { $script:state.instances[0].host='sql.example.invalid' }
+            'fehlender Host' = { $script:state.instances[0].PSObject.Properties.Remove('host') }
+            'Hostarray' = { $script:state.instances[0].host=@('127.0.0.1') }
+            'nicht laufender Run' = { $script:state.state='STOPPED' }
+            'entfernter Run' = { $script:state.state='REMOVED' }
+            'nicht laufender Teilrun' = { $script:state.providerSubRuns[0].state='INITIALIZING' }
+            'Rootregistrierung fehlt' = { $script:catalog.LabDataLocations=@() }
+            'Rootregistrierung doppelt' = { $script:catalog.LabDataLocations += $script:catalog.LabDataLocations[0] }
+            'anderer Controller' = { $script:catalog.ControllerId='33333333-3333-3333-3333-333333333333' }
+            'fremder Scope' = { $script:scope.runId='33333333-3333-3333-3333-333333333333' }
+            'fremder persistenter Root' = { $script:state.metadata.dataRoot=Join-Path $Root 'other' }
+            'Legacyvertrag' = { $script:state.contractVersion='SqlServerLab.RunState/0.1' }
+        }
+        foreach ($case in $cases.GetEnumerator()) {
+            Reset-TlsTargetFixture; & $case.Value; Save-TlsTargetFixture
+            Assert-TlsTargetRejected ('TLS-T04 '+$case.Key) (Invoke-TlsTargetFixture)
+        }
+        $savedCulture=[Threading.Thread]::CurrentThread.CurrentCulture
+        try {
+            foreach($culture in @('en-US','de-DE','tr-TR')) {
+                [Threading.Thread]::CurrentThread.CurrentCulture=[Globalization.CultureInfo]::GetCultureInfo($culture)
+                foreach($ignored in @([char]0x200b,[char]0x00ad)) {
+                    foreach($field in @('rootContract','managedBy','catalogContract','catalogController','locationController','volume','runContract','runId','scopeRun','scopeId','desiredContract','desiredVersion','host','provider','version','instance','runState','subState','subInstance')) {
+                        Reset-TlsTargetFixture
+                        switch($field) {
+                            rootContract { $script:marker.ContractVersion += $ignored }
+                            managedBy { $script:marker.ManagedBy += $ignored }
+                            catalogContract { $script:catalog.ContractVersion += $ignored }
+                            catalogController { $script:catalog.ControllerId += $ignored }
+                            locationController { $script:catalog.LabDataLocations[0].ControllerId += $ignored }
+                            volume { $script:catalog.LabDataLocations[0].VolumeId += $ignored }
+                            runContract { $script:state.contractVersion += $ignored }
+                            runId { $script:state.runId += $ignored }
+                            scopeRun { $script:scope.runId += $ignored }
+                            scopeId { $script:scope.scopeId += $ignored }
+                            desiredContract { $script:state.metadata.desiredState.Contract.Name += $ignored }
+                            desiredVersion { $script:state.metadata.desiredState.Contract.Version += $ignored }
+                            host { $script:state.instances[0].host += $ignored }
+                            provider { $script:state.instances[0].provider += $ignored }
+                            version { $script:state.instances[0].version += $ignored }
+                            instance { $script:state.instances[0].id += $ignored }
+                            runState { $script:state.state += $ignored }
+                            subState { $script:state.providerSubRuns[0].state += $ignored }
+                            subInstance { $script:state.providerSubRuns[0].instanceIds=@('primary'+$ignored) }
+                        }
+                        Save-TlsTargetFixture
+                        Assert-TlsTargetRejected "TLS-T05 ordinal $culture/$field/$([int]$ignored)" (Invoke-TlsTargetFixture)
+                    }
+                }
+            }
+        } finally { [Threading.Thread]::CurrentThread.CurrentCulture=$savedCulture }
+        Reset-TlsTargetFixture
+        $script:state.metadata.persistentData=$false; $script:state.metadata.desiredState.PersistentData=$false; $script:state.metadata.dataRoot=$null
+        Save-TlsTargetFixture
+        Add-CheckResult 'TLS-T06 nichtpersistenter moderner Run ohne Rootmigration' (Invoke-TlsTargetFixture).Success
+        $connectionPath=Join-Path $script:run.RunDir 'connection-info.json'
+        $secretPath=Join-Path $script:run.RunDir 'secrets/sa-password.secret'
+        $null=New-Item -ItemType Directory -Path (Split-Path $secretPath) -Force
+        [IO.File]::WriteAllText($connectionPath,'TLS_PRIVATE_CANARY'); [IO.File]::WriteAllText($secretPath,'TLS_PRIVATE_CANARY')
+        $connectionLock=[IO.File]::Open($connectionPath,[IO.FileMode]::Open,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)
+        $secretLock=[IO.File]::Open($secretPath,[IO.FileMode]::Open,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)
+        try { Add-CheckResult 'TLS-T06 keine Connection-/Secretdatei gelesen' (Invoke-TlsTargetFixture).Success }
+        finally { $connectionLock.Dispose(); $secretLock.Dispose() }
+        $requestBefore=$script:request|ConvertTo-Json -Depth 8 -Compress
+        $streams=@(Invoke-TlsTargetFixture *>&1)
+        Add-CheckResult 'TLS-T07 genau ein Ergebnis ohne Nebenstreams oder Caller-Mutation' ($streams.Count -eq 1 -and $streams[0].Success -and
+            $requestBefore -ceq ($script:request|ConvertTo-Json -Depth 8 -Compress))
+        $script:request.Provider='hyperv'
+        $result=Invoke-TlsTargetFixture
+        Assert-TlsTargetRejected 'TLS-T08 Hyper-V bleibt explizit gesperrt' $result
+        Add-CheckResult 'TLS-T08 stabiler Unsupportedcode' ($result.ErrorCode -ceq 'TLS_TARGET_PROVIDER_UNSUPPORTED')
+        # Ungueltige Selektoren erreichen nicht einmal den Metadatenreader.
+        $realBinding=${function:Get-LabDiagnosticBinding}; $script:bindingCalls=0
+        try {
+            function Get-LabDiagnosticBinding { $script:bindingCalls++; throw 'TLS_PRIVATE_CANARY unexpected read' }
+            Reset-TlsTargetFixture
+            foreach($id in @($null,'','../primary','primary/other',"primary`n",@('primary'),[pscustomobject]@{})) {
+                Assert-TlsTargetRejected 'TLS-T09 ungueltige Instanzauswahl' (Get-LabAuthenticatedTlsTargetMetadata -Request $script:request -InstanceId $id -DataRoot $script:dataRoot)
+            }
+            foreach($rootValue in @($null,'',@($script:dataRoot),[pscustomobject]@{})) {
+                Assert-TlsTargetRejected 'TLS-T09 ungueltiger Roottyp' (Get-LabAuthenticatedTlsTargetMetadata -Request $script:request -InstanceId primary -DataRoot $rootValue)
+            }
+            Assert-TlsTargetRejected 'TLS-T09 ungueltige Anfrage' (Get-LabAuthenticatedTlsTargetMetadata -Request ([pscustomobject]@{}) -InstanceId primary -DataRoot $script:dataRoot)
+            Add-CheckResult 'TLS-T09 kein Metadatenread vor Formpruefung' ($script:bindingCalls -eq 0)
+        } finally { Set-Item function:Get-LabDiagnosticBinding $realBinding }
+        $source=Join-Path $Repo 'Private/AuthenticatedTlsTarget.ps1'; $tokens=$null; $errors=$null
+        $ast=[Management.Automation.Language.Parser]::ParseFile($source,[ref]$tokens,[ref]$errors)
+        Add-CheckResult 'TLS-T10 reine Definition beim Laden' ($errors.Count -eq 0 -and
+            @($ast.EndBlock.Statements|Where-Object {$_ -isnot [Management.Automation.Language.FunctionDefinitionAst]}).Count -eq 0)
+        $calls=@($ast.FindAll({param($node) $node -is [Management.Automation.Language.CommandAst]},$true)|ForEach-Object GetCommandName)
+        Add-CheckResult 'TLS-T10 geschlossener lesender Commandgraph' (@($calls|Where-Object {$_ -cnotin @(
+            'Test-LabAuthenticatedTlsRequest','Test-LabTlsRequestEnum','Test-LabTlsRequestReference','Get-LabDiagnosticBinding','Where-Object')}).Count -eq 0)
+        Write-Host "Authenticated TLS Target: $script:passed PASS, $($script:failures.Count) FAIL"
+        if($script:failures.Count){throw 'AUTHENTICATED_TLS_TARGET_CHECKS_FAILED'}
+    } $testRoot $repo
+} finally {
+    $resolvedRoot=[IO.Path]::GetFullPath($testRoot)
+    $tempPrefix=[IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\','/')+[IO.Path]::DirectorySeparatorChar
+    if($resolvedRoot.StartsWith($tempPrefix,[StringComparison]::OrdinalIgnoreCase) -and
+        [IO.Path]::GetFileName($resolvedRoot) -cmatch '\Asql-lab-tls-target-[a-f0-9]{32}\z' -and (Test-Path -LiteralPath $resolvedRoot)) {
+        Remove-Item -LiteralPath $resolvedRoot -Recurse -Force
+    }
+}
