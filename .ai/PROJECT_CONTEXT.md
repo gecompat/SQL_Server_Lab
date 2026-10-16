@@ -28,6 +28,11 @@ Der private [Offline-Referenzindex](../Documentation/Architecture/AUTHENTICATED_
 prüft inzwischen begrenzte UTF-8-Formen und Revisions-/Tombstoneübergänge.
 Native Payloads, Digestherkunft, Registrierung und Writer-/Crashabnahme
 werden dadurch nicht implementiert oder qualifiziert.
+Die [privaten Payloadformen](../Documentation/Architecture/AUTHENTICATED_TLS_REGISTRY_PAYLOAD.md)
+ergänzen jetzt Metadaten vor Keyanlage, kanonische Digests und eine intern
+frisch gelesene Prozessbindung. Die neue Bindung ist synthetisch geprüft und
+unter Windows getrennt lesend beobachtet; Rootregistrierung, Key-/Trustzustand
+und die vollständige native Qualifikation bleiben ungeprüft.
 
 ## Dokumentationszuständigkeiten
 

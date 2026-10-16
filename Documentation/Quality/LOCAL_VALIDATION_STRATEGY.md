@@ -21,6 +21,42 @@ ein Dokumentationsdateiname allein verlangt keinen Providerstart. Änderungen
 an gemeinsamem Ownership/Cleanup verlangen weiterhin die breite Matrix.
 [Auswahl, Cachegrenzen und Ausnahmen](FOUNDATION_1_21_PROCESSING_ASSESSMENT.md).
 
+## Private TLS-Metadatenpayload (TLS001-REGISTRY-PAYLOAD-01)
+
+Die [Vor-Key-Payloadformen](../Architecture/AUTHENTICATED_TLS_REGISTRY_PAYLOAD.md)
+bestanden am 2026-10-16 fokussiert mit 228 PASS / 0 FAIL unter PowerShell
+7.6.6/.NET 10.0.12. Synthetische Bytes prüfen beide Kontexte und CA-Metadaten,
+StrictMode, geschlossene UTF-8-/JSON-Formen, Felder, Grenzen, Pfadsyntax,
+Kultur-/ETS-Grenzen, APIbooleans, kanonische Längenrahmung mit UTF-8-Bytezahl,
+feldordnungsunabhängige Digests und getrennte Identitäts-/Revisionsänderungen.
+Abgeleitete Records wurden mit dem echten Index- und Übergangsvalidator geprüft.
+
+Die NativeReader sind im Bindungstest vollständig gemockt. Die Assertions
+prüfen Aufruf erst nach Form-/Signierkantenprüfung, interne Anfragewahl,
+Anfrage-/Prozessbindung, Actor-/Revisionsdrift, verfügbare/fehlende native
+Antworten und Fehler ohne Teilbefund oder Rohdiagnose. Diese Suite liest keine
+Hostwerte, Pfade, Binaries, Keys, Stores, SQL- oder Providerzustände.
+
+Eine separate direkte Windows-Beobachtung desselben Produktstands traf danach
+beide Kontexte und die CA-Signiermetadatenbindung. Sie verwendete synthetische
+Controller-/Location-/Kontext-/CA-/Trustscope-Referenzen; reale Token-, Profil-,
+Prozess- und Binärmetadaten blieben ausschließlich lokal und ignoriert. Alle
+drei Ergebnisse behielten `Ready=false`, `MutationAllowed=false`, Root und
+Trustscope `NOT_EVALUATED`, Registrierung und Qualifikation `NOT_EXECUTED`.
+Keine CA oder Referenz wurde registriert, kein Key, Zertifikat oder Store
+geöffnet, keine SQL-/Provideraktion ausgeführt. Diese lesende Beobachtung ist
+keine vollständige native Qualifikation oder Frischegarantie für spätere Arbeit.
+Root-/Trustscopeauflösung, vollständige Binder- und Mindestlaufzeitabnahme,
+Writer-/Keyschutz-/Client-/SQL-/TLS-Matrix bleiben
+`NOT_EXECUTED`. Die neue Suite ist gezielt und im Nightly-Gate registriert;
+ähnliche Pfade und gemischte Runtimeänderungen behalten ihre Auswahl.
+Der unabhängige stabile Quellreview fand keine bestätigten Findings; Produkt-
+und Testblobs blieben unverändert. Die eingefrorene lokale Abschlussauswahl
+bestand mit Payload 228/0, CI-Strategie 681/0, Dokumentation 2000/0,
+Pester 23/0, Privacy 3/0 und ScriptAnalyzer PASS mit Warnungen und erfassten
+Baselines. Die zusätzliche direkte Beobachtung wurde separat als lesender
+Metadatenbefund eingeordnet; keine Registrierung oder Qualifikation abgeleitet.
+
 ## Privater TLS-Referenzindex (TLS001-REGISTRY-INDEX-01)
 
 Der [Offline-Referenzindex](../Architecture/AUTHENTICATED_TLS_REGISTRY_INDEX.md)

@@ -152,9 +152,13 @@ Client-Diskbytes; sie registriert keine Referenz und qualifiziert keinen
 Client oder Signierer. Der private
 [Offline-Referenzindex](../Architecture/AUTHENTICATED_TLS_REGISTRY_INDEX.md)
 prüft jetzt geschlossene Byteformen, Referenz-/Revisionsinvarianten und
-Tombstones. Der Writer-/Crashvertrag bleibt Planung. Als Nächstes die
-vollständigen privaten Payloadformen, kanonische Digestbildung und frische
-Vorschaubindung offline umsetzen und synthetisch prüfen.
+Tombstones. Die [privaten Metadatenpayloads](../Architecture/AUTHENTICATED_TLS_REGISTRY_PAYLOAD.md)
+vor Keyanlage, kanonische Digests und intern frische Prozessbindung sind
+implementiert und synthetisch geprüft; eine getrennte lesende Windows-
+Beobachtung traf alle drei Metadatenbindungen. Root-/Trustscopeauflösung und
+vollständige Binderqualifikation bleiben offen; der Writer-/Crashvertrag bleibt Planung.
+Als Nächstes die Registry-Gesamtform mit exakter Payload-/Index-/
+Digestzuordnung offline umsetzen und synthetisch prüfen.
 Registrywrites, Keyschutz, Signierung und Import
 behalten ihre eigenen nachfolgenden Grenzen. Die ursprüngliche Reihenfolge
 darunter bleibt als historische Scopegrenze erhalten.

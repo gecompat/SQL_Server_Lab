@@ -13,8 +13,9 @@
 Der Index konkretisiert ausschließlich Referenz-, Rollen-, Revisions- und
 Tombstoneinvarianten für die geplante Lab-CA. Er enthält keine SID, Profile,
 Pfade, Binaries, Keys oder Zertifikate. Die vollständigen privaten Client-,
-Signierer- und CA-Payloads sowie deren kanonische Digestbildung sind noch
-nicht festgelegt. Die hier akzeptierten Digests sind ungeprüfte Angaben;
+Signierer- und CA-Payloads vor der Keyanlage samt kanonischer Digestbildung
+stehen jetzt im [gekoppelten Payloadvertrag](AUTHENTICATED_TLS_REGISTRY_PAYLOAD.md).
+Der Index selbst akzeptiert weiterhin ungeprüfte Digestangaben;
 es wird weder ein natives Objekt aufgelöst noch ein Digest dafür berechnet.
 Auch formal passende IDs und Digests beweisen keine Herkunft, Qualifikation,
 Ownership oder Autorisierung. Ein späterer Writer darf diesen Index nicht
@@ -126,8 +127,10 @@ Nightly registriert die Suite. Eine kleine Offline-Suite ergänzt bestehende
 Gates; unabhängiger Review und Pflichtgate am exakten Head bleiben erforderlich.
 Keine zusätzliche Provider- oder Modellrunde entsteht aus diesem Index.
 
-Vor einem Writer sind die vollständigen privaten Payloadformen, kanonische
-Digestbildung und Bindung der nativen Vorschau festzulegen. Journal, Lock,
+Vor einem Writer sind die Gesamtform und exakte Zuordnung aller privaten
+Payloads zu Indexrecords und Digests sowie Rootbindung festzulegen. Die
+vorhandenen Payloadformen beschreiben nur Metadaten vor Keyanlage, keine
+späteren Key-/Zertifikatsrecords oder Nativevidence. Journal, Lock,
 atomarer Dateiersatz und Crash-/Parallelitätsabnahme bleiben eigene folgende
 Schritte. [Ausgeführte Nachweise](../Quality/LOCAL_VALIDATION_STRATEGY.md) und
 [Grenzen](../Quality/KNOWN_LIMITATIONS.md) unterscheiden dies ausdrücklich.

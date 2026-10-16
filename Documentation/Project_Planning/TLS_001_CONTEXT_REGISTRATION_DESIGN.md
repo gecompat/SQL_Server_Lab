@@ -5,7 +5,7 @@
 | Status | `DESIGN_PROPOSAL` mit privater Anfrage/Vorschau; keine Registry, dauerhafte Identitätsbindung oder Keyablage implementiert |
 | Stand | 2026-10-16 |
 | Grundlage | Ausgewählte [isolierte Lab-CA](TLS_001_ISOLATED_CA_DESIGN.md), private Anfrage- und Zielmetadatenverträge |
-| Implementierter Teil | [Lesende .NET-API-Metadaten](../Architecture/AUTHENTICATED_TLS_BACKEND_METADATA.md), [Windows-Kontextvorschau](../Architecture/AUTHENTICATED_TLS_CONTEXT_PREVIEW.md) und [Offline-Referenzindex](../Architecture/AUTHENTICATED_TLS_REGISTRY_INDEX.md); keine Backend-/Clientqualifikation |
+| Implementierter Teil | [Lesende .NET-API-Metadaten](../Architecture/AUTHENTICATED_TLS_BACKEND_METADATA.md), [Windows-Kontextvorschau](../Architecture/AUTHENTICATED_TLS_CONTEXT_PREVIEW.md), [Offline-Referenzindex](../Architecture/AUTHENTICATED_TLS_REGISTRY_INDEX.md) und [Vor-Key-Payloads](../Architecture/AUTHENTICATED_TLS_REGISTRY_PAYLOAD.md); keine Backend-/Clientqualifikation |
 
 ## Identitäten getrennt erhalten
 
@@ -79,9 +79,12 @@ jetzt geschlossene Referenzrecords, Grenzen und gültige Übergänge fest.
 Er ist ein eigener Teilvertrag, keine vollständige persistierbare Registry.
 Die geplante `AuthenticatedTlsContextRegistry/0.1` behält ihre vollständigen
 privaten Payloads: native Identität, Profil-/Store-/Backend-/Binärmetadaten
-und später Key-/Zertifikatsrevisionen. Ihre geschlossene Form, kanonische
-Digestbildung und Kopplung an frische native Vorschauen sind vor dem Writer
-separat umzusetzen. Indexdigests dürfen nicht als geprüfte Payloads gelten.
+und später Key-/Zertifikatsrevisionen. Die geschlossenen Metadatenpayloads
+vor Keyanlage, kanonische Digestbildung und intern frische Prozessbindung
+sind implementiert und synthetisch geprüft. Die Registry-Gesamtform,
+exakte Index-/Payloadzuordnung und Rootbindung fehlen vor dem Writer noch.
+Indexdigests allein dürfen nicht als geprüfte Payloads gelten; Key-/
+Zertifikatsdaten behalten ihren späteren eigenen Vertrag.
 
 Vorgeschlagene erste Writerlane: genau der registrierte lokale Windows-Root,
 keine Netzfreigabe, keine Pfadadoption und keine globalen Konfigurationen.
@@ -160,9 +163,15 @@ Der geschlossene Offline-Referenzindex mit Byte-/Tiefen-/Recordgrenzen und
 unveränderlichen Rollen, Identitätsangaben und Tombstones ist implementiert.
 CA-Signierkanten und Generationen werden geprüft. Der Writer-/Crashvertrag
 oben ist Planung; reine konkurrierende Kandidaten sind kein nativer Raceproof.
-Als Nächstes die vollständigen privaten Payloadformen, kanonische Digestbildung
-und Kopplung an eine frische native Vorschau offline implementieren und
-synthetisch prüfen. Noch keine native Registrierung oder Mutation.
+Die privaten Vor-Key-Payloadformen, kanonischen Inhaltsdigests und intern
+frische Prozessbindung sind implementiert; die neue Suite verwendet nur
+synthetische Bytes und gemockte native Vorschauen. Eine getrennte direkte
+Windows-Beobachtung bestätigte beide Kontext- und die CA-Signiermetadatenbindung
+mit synthetischen Referenzen. Root und Trustscope bleiben unaufgelöst,
+vollständige Binderqualifikation und spätere Key-/Zertifikatsrecords offen.
+Als Nächstes die geschlossene Registry-Gesamtform mit exakter Zuordnung aller
+Payloads zu Indexrecords und Digests offline implementieren und synthetisch
+prüfen. Noch keine native Registrierung oder Mutation.
 Die Registrytransaktion folgt erst nach diesen vollständigen Verträgen;
 CA-Keyschutz und konkrete Mutationsfreigaben bleiben separat.
 Die bereits vorhandenen `ClientRef`-/`AuthorityRef`-Anfragen bleiben bis dahin
