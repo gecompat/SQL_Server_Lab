@@ -2330,6 +2330,13 @@ prüft nur geschlossene Byteformen, Referenzen, Generationen und Tombstones.
 Digests sind ungeprüfte Angaben; native Payloads, Herkunft, Frische, Lock,
 Compare-and-swap und Crash-/Recoveryverhalten sind nicht implementiert.
 Seine Retirementform belegt keine bekannten Nutzungen oder Löschfreigabe.
+Die [privaten Payloadformen](../Architecture/AUTHENTICATED_TLS_REGISTRY_PAYLOAD.md)
+ergänzen Metadaten vor Keyanlage, kanonische Digests und eine intern frische
+Prozessbindung. Die neue Bindung ist synthetisch geprüft und unter Windows
+getrennt lesend beobachtet; Root und Trustscope bleiben unaufgelöst.
+Digests sind keine Attestation, Diskbytes kein
+geladenes Image. Registry-Gesamtform, tatsächliche Registrierung, Key-/
+Zertifikatsrecords und vollständige Binderqualifikation bleiben offen.
 Hyper-V, echte Kontextregistrierung,
 Backend-/Keyschutzqualifikation, Signierung, Storepreview/-import, Journal,
 Erneuerung und Recovery bleiben offen; Export und Providerverhalten werden

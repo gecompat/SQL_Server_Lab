@@ -9,6 +9,34 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $failures = [System.Collections.Generic.List[string]]::new()
 $passed = 0
 $selector = Join-Path $repoRoot 'Tools/Get-CiTestSelection.ps1'
+$tlsPayloadCheck = 'Invoke-AuthenticatedTlsRegistryPayloadChecks.ps1'
+foreach ($path in @('Private/AuthenticatedTlsRegistryPayload.ps1','Tests/Static/Invoke-AuthenticatedTlsRegistryPayloadChecks.ps1')) {
+    foreach ($normalized in @($path,$path.Replace('/','\'))) {
+        $selected = & $selector -ChangedPath @($normalized)
+        Add-CheckResult "TLS-P08 exakter Payloadpfad $normalized" ($tlsPayloadCheck -in $selected.StaticChecks -and
+            -not $selected.Docker -and -not $selected.Podman -and -not $selected.Mixed -and -not $selected.HyperV -and -not $selected.Adapter)
+    }
+}
+foreach ($path in @('Private/AuthenticatedTlsRegistryIndex.ps1','Private/AuthenticatedTlsRequest.ps1','Private/AuthenticatedTlsContext.ps1','Private/AuthenticatedTlsBackend.ps1','Private/DiagnosticBundleReader.ps1','Private/SqlReadiness.ps1')) {
+    $selected = & $selector -ChangedPath @($path)
+    Add-CheckResult "TLS-P08 gekoppelte Payloadquelle $path" ($tlsPayloadCheck -in $selected.StaticChecks)
+}
+foreach ($path in @('Private/Other/AuthenticatedTlsRegistryPayload.ps1','Private/AuthenticatedTlsRegistryPayloadOther.ps1','Private/authenticatedTlsRegistryPayload.ps1')) {
+    $selected = & $selector -ChangedPath @($path)
+    Add-CheckResult "TLS-P08 kein Teilnamen-/Casefallback $path" ($tlsPayloadCheck -notin $selected.StaticChecks -and
+        $selected.Docker -and $selected.Podman -and $selected.Mixed -and $selected.HyperV -and $selected.Adapter)
+}
+foreach ($other in @('Private/UnmappedSynthetic.ps1','Private/CleanupEngine.ps1','Providers/Podman/PodmanProvider.ps1')) {
+    $baseline = & $selector -ChangedPath @($other)
+    $union = & $selector -ChangedPath @('Private/AuthenticatedTlsRegistryPayload.ps1',$other)
+    $preserved = $true
+    foreach ($provider in @('Docker','Podman','Mixed','HyperV','Adapter')) {
+        $preserved = $preserved -and $union.$provider -eq $baseline.$provider -and
+            ($union.Capabilities.$provider -join ',') -ceq ($baseline.Capabilities.$provider -join ',')
+    }
+    Add-CheckResult "TLS-P08 gemischte Runtimeauswahl erhalten $other" ($preserved -and $tlsPayloadCheck -in $union.StaticChecks -and
+        @($baseline.StaticChecks | Where-Object { $_ -notin $union.StaticChecks }).Count -eq 0)
+}
 $tlsIndexCheck = 'Invoke-AuthenticatedTlsRegistryIndexChecks.ps1'
 foreach ($path in @('Private/AuthenticatedTlsRegistryIndex.ps1','Tests/Static/Invoke-AuthenticatedTlsRegistryIndexChecks.ps1')) {
     foreach ($normalized in @($path,$path.Replace('/','\'))) {

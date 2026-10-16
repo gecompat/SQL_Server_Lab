@@ -55,8 +55,13 @@ Client-Diskbeobachtung. Referenzen bleiben unregistriert und unqualifiziert.
 Der [Offline-Referenzindex](../Architecture/AUTHENTICATED_TLS_REGISTRY_INDEX.md)
 prüft inzwischen geschlossene Byteformen, Referenz-/Revisionsinvarianten und
 Tombstones. Der konkretisierte Writer-/Crashvertrag bleibt Planung. Nächster
-Scope sind vollständige private Payloadformen, kanonische Digestbildung und
-frische Vorschaubindung mit synthetischer Offlineprüfung;
+Scope ist nach den inzwischen implementierten
+[Vor-Key-Payloads](../Architecture/AUTHENTICATED_TLS_REGISTRY_PAYLOAD.md) mit
+kanonischen Digests und intern frischer Prozessbindung die geschlossene
+Registry-Gesamtform mit exakter Payload-/Index-/Digestzuordnung. Die neue
+Suite nutzt ausschließlich synthetische native Vorschauen. Eine getrennte
+direkte Windows-Beobachtung traf alle drei Metadatenbindungen, ohne Root-/
+Trustscopeauflösung oder Registrierung;
 native Target-/Ownership-, Backend-/Keyschutz- und TLS-Abnahme bleiben
 erforderlich, vor mutierender PKI-/Providerumsetzung.
 
