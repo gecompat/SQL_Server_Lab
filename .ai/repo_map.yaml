@@ -850,6 +850,9 @@ sources_of_truth:
   authenticated_tls_backend_metadata_contract: Documentation/Architecture/AUTHENTICATED_TLS_BACKEND_METADATA.md
   authenticated_tls_backend_metadata: Private/AuthenticatedTlsBackend.ps1 # explicit CURRENT_PROCESS; CLR signatures only, never PKI construction/invocation or authority
   validation_authenticated_tls_backend_metadata: Tests/Static/Invoke-AuthenticatedTlsBackendChecks.ps1
+  authenticated_tls_context_preview_contract: Documentation/Architecture/AUTHENTICATED_TLS_CONTEXT_PREVIEW.md
+  authenticated_tls_context_preview: Private/AuthenticatedTlsContext.ps1 # current Windows token/profile/registry marker and on-disk client metadata; private snapshot, no registration or qualification
+  validation_authenticated_tls_context_preview: Tests/Static/Invoke-AuthenticatedTlsContextChecks.ps1 # coupled request/backend/pathguard and SqlReadiness application-selection contract; no SQL/provider execution
   test_group_power_guidance: Private/TestGroupGuidance.ps1
   validation_test_group_power_guidance: Tests/Static/Invoke-TestGroupGuidanceChecks.ps1
   validation_nightly_authorization: Tests/Static/Fixtures/CiStrategyNightlyAuthorizationChecks.ps1

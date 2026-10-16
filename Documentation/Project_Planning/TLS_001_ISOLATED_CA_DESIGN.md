@@ -145,9 +145,13 @@ Der [Registrierungsentwurf](TLS_001_CONTEXT_REGISTRATION_DESIGN.md) trennt
 ClientRef, SignerContextRef und AuthorityRef. Die
 [Backendmetadaten](../Architecture/AUTHENTICATED_TLS_BACKEND_METADATA.md)
 entdecken sechs .NET-API-Signaturen nach ausdrücklicher aktueller Prozesswahl;
-sie erzeugen keine Identitätsbindung oder Backendqualifikation. Als Nächstes
-den geschlossenen Registrierungsantrag und die lesende konkrete Windows-
-Kontextvorschau umsetzen. Registrywrites, Keyschutz, Signierung und Import
+sie erzeugen keine Identitätsbindung oder Backendqualifikation. Die private
+[Windows-Kontextvorschau](../Architecture/AUTHENTICATED_TLS_CONTEXT_PREVIEW.md)
+beobachtet jetzt nach geschlossener Anfrage Token-/Host-/Profilmetadaten und
+Client-Diskbytes; sie registriert keine Referenz und qualifiziert keinen
+Client oder Signierer. Als Nächstes die Registryrecordformen, Invarianten
+und Writer-/Crashgrenzen offline festlegen und synthetisch prüfen.
+Registrywrites, Keyschutz, Signierung und Import
 behalten ihre eigenen nachfolgenden Grenzen. Die ursprüngliche Reihenfolge
 darunter bleibt als historische Scopegrenze erhalten.
 

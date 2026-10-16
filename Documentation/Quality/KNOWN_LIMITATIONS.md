@@ -2318,7 +2318,13 @@ Sie ist keine Live-Runtime-/Ownershipprüfung oder Autorisierung. Die
 prüfen sechs .NET-API-Signaturen im ausdrücklich ausgewählten aktuellen
 Prozess; `COMPLETE` belegt keine Signierung, Keyschutz- oder Clientfähigkeit.
 Der [Registrierungsentwurf](../Project_Planning/TLS_001_CONTEXT_REGISTRATION_DESIGN.md)
-trennt Client, Signierkontext und CA. Hyper-V, echte Kontextregistrierung,
+trennt Client, Signierkontext und CA. Die private
+[Windows-Kontextvorschau](../Architecture/AUTHENTICATED_TLS_CONTEXT_PREVIEW.md)
+beobachtet ausschließlich den ausgewählten aktuellen Prozess und lokale
+Token-/Profil-/Hostmarkermetadaten sowie Client-Diskbytes. Sie ist keine
+dauerhafte Kontextbindung, Hostattestation, Store-, ODBC- oder geladene
+Imagequalifikation. Nicht-Windows und fehlende Werte sperren die Vorschau;
+Registry-/Trust-/Keyaktionen bleiben ausgeschlossen. Hyper-V, echte Kontextregistrierung,
 Backend-/Keyschutzqualifikation, Signierung, Storepreview/-import, Journal,
 Erneuerung und Recovery bleiben offen; Export und Providerverhalten werden
 durch diese privaten Slices nicht geändert.
