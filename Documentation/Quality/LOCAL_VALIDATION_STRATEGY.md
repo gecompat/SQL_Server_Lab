@@ -21,6 +21,33 @@ ein Dokumentationsdateiname allein verlangt keinen Providerstart. Änderungen
 an gemeinsamem Ownership/Cleanup verlangen weiterhin die breite Matrix.
 [Auswahl, Cachegrenzen und Ausnahmen](FOUNDATION_1_21_PROCESSING_ASSESSMENT.md).
 
+## Privater TLS-Referenzindex (TLS001-REGISTRY-INDEX-01)
+
+Der [Offline-Referenzindex](../Architecture/AUTHENTICATED_TLS_REGISTRY_INDEX.md)
+bestand am 2026-10-16 fokussiert unter PowerShell 7.6.6/.NET 10.0.12 mit
+170 PASS / 0 FAIL. Die synthetische Suite prüft StrictMode, geschlossene
+UTF-8-/JSON-Formen, Byte-/Tiefen-/Recordgrenzen, Duplicate-/Case-/escapete
+Schlüssel, fremde Getter und ETS-Länge, Ordinalvergleiche unter drei Kulturen,
+Int32-Grenzen, CA-Signierkanten, Tombstones, Revisionsdeltas und veraltete
+konkurrierende Kandidaten. Alle Eingaben bleiben synthetisch im Speicher;
+es gibt keine Dateifixtures oder Host-/Provider-/PKI-/SQL-Abfrage.
+
+Zwei Kandidaten gegen denselben Ausgangsstand können beide formal passen.
+Erst die Prüfung des zweiten gegen den fortgeschriebenen Stand sperrt ihn.
+Das ist ein reines Übergangsmodell, kein Lock-, Compare-and-swap-, Crash-
+oder Recoverynachweis. Der konkretisierte Writervertrag ist Planung.
+Vollständige private Payloadformen und kanonische Digestbildung fehlen;
+Herkunft, Nativevidence und Autorisierung werden nicht aus Indexangaben
+abgeleitet. Die neue Suite ist gezielt und im Nightly-Gate registriert.
+Der unabhängige Quellreview des stabilen Diffs fand keine bestätigten Findings;
+Produkt- und Testblobs blieben unverändert. Die eingefrorene lokale
+Abschlussauswahl bestand mit Index 170/0, CI-Strategie 665/0, Dokumentation
+1995/0, Pester 23/0, Privacy 3/0 und ScriptAnalyzer PASS mit Warnungen und
+erfassten Baselines. Es wurde kein nativer Ressourcen- oder Recoverynachweis
+aus diesen Offlineprüfungen abgeleitet.
+PowerShell 7.2/.NET 6, persistente Registrierung sowie native Writer-/
+Keyschutz-/Client-/SQL-/TLS-Abnahmen bleiben `NOT_EXECUTED`.
+
 ## Private TLS-Kontextvorschau (TLS001-CONTEXT-PREVIEW-01)
 
 Die [Kontextanfrage und Windows-Vorschau](../Architecture/AUTHENTICATED_TLS_CONTEXT_PREVIEW.md)

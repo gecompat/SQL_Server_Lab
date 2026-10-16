@@ -2324,7 +2324,13 @@ beobachtet ausschließlich den ausgewählten aktuellen Prozess und lokale
 Token-/Profil-/Hostmarkermetadaten sowie Client-Diskbytes. Sie ist keine
 dauerhafte Kontextbindung, Hostattestation, Store-, ODBC- oder geladene
 Imagequalifikation. Nicht-Windows und fehlende Werte sperren die Vorschau;
-Registry-/Trust-/Keyaktionen bleiben ausgeschlossen. Hyper-V, echte Kontextregistrierung,
+Registry-/Trust-/Keyaktionen bleiben ausgeschlossen. Der private
+[Offline-Referenzindex](../Architecture/AUTHENTICATED_TLS_REGISTRY_INDEX.md)
+prüft nur geschlossene Byteformen, Referenzen, Generationen und Tombstones.
+Digests sind ungeprüfte Angaben; native Payloads, Herkunft, Frische, Lock,
+Compare-and-swap und Crash-/Recoveryverhalten sind nicht implementiert.
+Seine Retirementform belegt keine bekannten Nutzungen oder Löschfreigabe.
+Hyper-V, echte Kontextregistrierung,
 Backend-/Keyschutzqualifikation, Signierung, Storepreview/-import, Journal,
 Erneuerung und Recovery bleiben offen; Export und Providerverhalten werden
 durch diese privaten Slices nicht geändert.

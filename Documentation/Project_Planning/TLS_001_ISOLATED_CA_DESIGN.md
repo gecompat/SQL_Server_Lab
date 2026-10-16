@@ -149,8 +149,12 @@ sie erzeugen keine Identitätsbindung oder Backendqualifikation. Die private
 [Windows-Kontextvorschau](../Architecture/AUTHENTICATED_TLS_CONTEXT_PREVIEW.md)
 beobachtet jetzt nach geschlossener Anfrage Token-/Host-/Profilmetadaten und
 Client-Diskbytes; sie registriert keine Referenz und qualifiziert keinen
-Client oder Signierer. Als Nächstes die Registryrecordformen, Invarianten
-und Writer-/Crashgrenzen offline festlegen und synthetisch prüfen.
+Client oder Signierer. Der private
+[Offline-Referenzindex](../Architecture/AUTHENTICATED_TLS_REGISTRY_INDEX.md)
+prüft jetzt geschlossene Byteformen, Referenz-/Revisionsinvarianten und
+Tombstones. Der Writer-/Crashvertrag bleibt Planung. Als Nächstes die
+vollständigen privaten Payloadformen, kanonische Digestbildung und frische
+Vorschaubindung offline umsetzen und synthetisch prüfen.
 Registrywrites, Keyschutz, Signierung und Import
 behalten ihre eigenen nachfolgenden Grenzen. Die ursprüngliche Reihenfolge
 darunter bleibt als historische Scopegrenze erhalten.

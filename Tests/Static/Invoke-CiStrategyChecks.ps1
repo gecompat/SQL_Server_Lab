@@ -9,6 +9,32 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $failures = [System.Collections.Generic.List[string]]::new()
 $passed = 0
 $selector = Join-Path $repoRoot 'Tools/Get-CiTestSelection.ps1'
+$tlsIndexCheck = 'Invoke-AuthenticatedTlsRegistryIndexChecks.ps1'
+foreach ($path in @('Private/AuthenticatedTlsRegistryIndex.ps1','Tests/Static/Invoke-AuthenticatedTlsRegistryIndexChecks.ps1')) {
+    foreach ($normalized in @($path,$path.Replace('/','\'))) {
+        $selected = & $selector -ChangedPath @($normalized)
+        Add-CheckResult "TLS-I07 exakter Indexpfad $normalized" ($tlsIndexCheck -in $selected.StaticChecks -and
+            -not $selected.Docker -and -not $selected.Podman -and -not $selected.Mixed -and -not $selected.HyperV -and -not $selected.Adapter)
+    }
+}
+$selected = & $selector -ChangedPath @('Private/AuthenticatedTlsRequest.ps1')
+Add-CheckResult 'TLS-I07 gekoppelte Referenz-/Enumpruefung' ($tlsIndexCheck -in $selected.StaticChecks)
+foreach ($path in @('Private/Other/AuthenticatedTlsRegistryIndex.ps1','Private/AuthenticatedTlsRegistryIndexOther.ps1','Private/authenticatedTlsRegistryIndex.ps1')) {
+    $selected = & $selector -ChangedPath @($path)
+    Add-CheckResult "TLS-I07 kein Teilnamen-/Casefallback $path" ($tlsIndexCheck -notin $selected.StaticChecks -and
+        $selected.Docker -and $selected.Podman -and $selected.Mixed -and $selected.HyperV -and $selected.Adapter)
+}
+foreach ($other in @('Private/UnmappedSynthetic.ps1','Private/CleanupEngine.ps1','Providers/Podman/PodmanProvider.ps1')) {
+    $baseline = & $selector -ChangedPath @($other)
+    $union = & $selector -ChangedPath @('Private/AuthenticatedTlsRegistryIndex.ps1',$other)
+    $preserved = $true
+    foreach ($provider in @('Docker','Podman','Mixed','HyperV','Adapter')) {
+        $preserved = $preserved -and $union.$provider -eq $baseline.$provider -and
+            ($union.Capabilities.$provider -join ',') -ceq ($baseline.Capabilities.$provider -join ',')
+    }
+    Add-CheckResult "TLS-I07 gemischte Runtimeauswahl erhalten $other" ($preserved -and $tlsIndexCheck -in $union.StaticChecks -and
+        @($baseline.StaticChecks | Where-Object { $_ -notin $union.StaticChecks }).Count -eq 0)
+}
 $tlsContextCheck = 'Invoke-AuthenticatedTlsContextChecks.ps1'
 foreach ($path in @('Private/AuthenticatedTlsContext.ps1','Tests/Static/Invoke-AuthenticatedTlsContextChecks.ps1')) {
     foreach ($normalized in @($path,$path.Replace('/','\'))) {
