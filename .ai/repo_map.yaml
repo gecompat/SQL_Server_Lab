@@ -455,6 +455,7 @@ sources_of_truth:
   acceptance_ssis_catalog_cleanup_guard: Tests/Integration/Invoke-SsisCatalogCleanupGuardAcceptance.ps1
   diagnostic_ssis_management_resident: Tests/Integration/Invoke-SsisManagementResidentDiagnostic.ps1
   diagnostic_ssis_existing_run_observation: Tests/Integration/Get-SsisExistingRunObservation.ps1
+  diagnostic_ssis_legacy_service_isolation: Tests/Integration/Set-SsisOwnedLegacyServiceIsolation.ps1
   evidence_ssis_catalog_windows: Documentation/Quality/SSISDB_WINDOWS_RUNTIME_ACCEPTANCE_2026-10-16.md
   validation_ssis_owned_install: Tests/Static/Invoke-SsisOwnedInstallChecks.ps1
   repository_capability_inventory: Tools/Get-SqlServerLabCapabilityInventory.ps1

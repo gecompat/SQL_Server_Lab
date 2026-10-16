@@ -64,6 +64,7 @@ on:
           - ssisdb-diagnostic-run-acceptance
           - ssisdb-management-resident-diagnostic
           - ssisdb-existing-run-observation
+          - ssisdb-legacy-service-isolation
       ai_preflight_only:
         description: Im KI-Own-Run-Modus ausschließlich vorhandenes Artifact und Hostmodelle lesend prüfen
         required: false
@@ -235,7 +236,7 @@ jobs:
           Get-Content -LiteralPath $evidencePath -Raw | Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY
 
       - name: Hyper-V SSISDB existing owned run acceptance
-        if: (inputs.mode == 'ssisdb-existing-run-acceptance' || inputs.mode == 'ssisdb-diagnostic-run-acceptance' || inputs.mode == 'ssisdb-management-resident-diagnostic') && github.event_name == 'workflow_dispatch' && github.event.repository.full_name == github.repository
+        if: (inputs.mode == 'ssisdb-existing-run-acceptance' || inputs.mode == 'ssisdb-diagnostic-run-acceptance' || inputs.mode == 'ssisdb-management-resident-diagnostic' || inputs.mode == 'ssisdb-legacy-service-isolation') && github.event_name == 'workflow_dispatch' && github.event.repository.full_name == github.repository
         env:
           SQL_SERVER_LAB_CI_SSIS_STATE_ROOT: ${{ inputs.ssis_state_root }}
           SQL_SERVER_LAB_CI_MEDIA_ROOT: ${{ inputs.media_root }}
@@ -256,6 +257,9 @@ jobs:
           }
           if([string]::IsNullOrWhiteSpace($env:SQL_SERVER_LAB_CI_SSIS_EXISTING_RUN_ID)){throw 'SSISDB_EXISTING_RUN_ID_REQUIRED'}
           $id=[guid]$env:SQL_SERVER_LAB_CI_SSIS_EXISTING_RUN_ID
+          if($env:SQL_SERVER_LAB_CI_SSIS_MODE -eq 'ssisdb-legacy-service-isolation'){
+            .\Tests\Integration\Set-SsisOwnedLegacyServiceIsolation.ps1 -RunId $id -StateRoot $env:SQL_SERVER_LAB_CI_SSIS_STATE_ROOT -Confirm:$false
+          }
           if($env:SQL_SERVER_LAB_CI_SSIS_MODE -eq 'ssisdb-management-resident-diagnostic'){
             .\Tests\Integration\Invoke-SsisManagementResidentDiagnostic.ps1 -RunId $id -StateRoot $env:SQL_SERVER_LAB_CI_SSIS_STATE_ROOT
             exit 0
