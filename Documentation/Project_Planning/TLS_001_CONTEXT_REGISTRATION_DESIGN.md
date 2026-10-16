@@ -5,7 +5,7 @@
 | Status | `DESIGN_PROPOSAL` mit privater Anfrage/Vorschau; keine Registry, dauerhafte Identitätsbindung oder Keyablage implementiert |
 | Stand | 2026-10-16 |
 | Grundlage | Ausgewählte [isolierte Lab-CA](TLS_001_ISOLATED_CA_DESIGN.md), private Anfrage- und Zielmetadatenverträge |
-| Implementierter Teil | [Lesende .NET-API-Metadaten](../Architecture/AUTHENTICATED_TLS_BACKEND_METADATA.md) und [Windows-Kontextvorschau](../Architecture/AUTHENTICATED_TLS_CONTEXT_PREVIEW.md); keine Backend-/Clientqualifikation |
+| Implementierter Teil | [Lesende .NET-API-Metadaten](../Architecture/AUTHENTICATED_TLS_BACKEND_METADATA.md), [Windows-Kontextvorschau](../Architecture/AUTHENTICATED_TLS_CONTEXT_PREVIEW.md) und [Offline-Referenzindex](../Architecture/AUTHENTICATED_TLS_REGISTRY_INDEX.md); keine Backend-/Clientqualifikation |
 
 ## Identitäten getrennt erhalten
 
@@ -72,6 +72,53 @@ Nutzung blockiert Key-/Trustentfernung. Parallelität, Abbruch und fehlender
 Commitnachweis bleiben sichtbar `RECOVERY_REQUIRED`, ohne automatisches
 Adoptieren, Überschreiben oder Löschen vorhandener Records.
 
+## Konkretisierter Writer-/Crashvertrag – noch nicht implementiert
+
+Der [Offline-Index](../Architecture/AUTHENTICATED_TLS_REGISTRY_INDEX.md) legt
+jetzt geschlossene Referenzrecords, Grenzen und gültige Übergänge fest.
+Er ist ein eigener Teilvertrag, keine vollständige persistierbare Registry.
+Die geplante `AuthenticatedTlsContextRegistry/0.1` behält ihre vollständigen
+privaten Payloads: native Identität, Profil-/Store-/Backend-/Binärmetadaten
+und später Key-/Zertifikatsrevisionen. Ihre geschlossene Form, kanonische
+Digestbildung und Kopplung an frische native Vorschauen sind vor dem Writer
+separat umzusetzen. Indexdigests dürfen nicht als geprüfte Payloads gelten.
+
+Vorgeschlagene erste Writerlane: genau der registrierte lokale Windows-Root,
+keine Netzfreigabe, keine Pfadadoption und keine globalen Konfigurationen.
+Vor jeder Aktion müssen Ownership, private Ablage-/Zugriffsgrenze, Frische
+der Ausführungsbindung und genaue Metadatenautorität feststehen. Ein Prozess
+hält einen exklusiven, rootgebundenen Writerlock mit begrenzter Wartezeit.
+Nach Locknahme liest und validiert er den tatsächlichen vollständigen
+Ausgangsstand neu. Revision allein genügt nicht: erwartete Quellbytes und
+deren Digest sowie alle Root-/Controller-/Actorbindungen müssen passen.
+Alle kooperierenden Writer verwenden dieselbe Autorität; die Sperre schützt
+nicht gegen Administratoren oder fremde, nicht kooperierende Dateischreiber.
+
+Der geplante Ablauf ist strikt geordnet: frische native Bindung und Quellcheck,
+privater dauerhafter Intent mit Transaktions-ID, eigene begrenzte Kandidatdatei
+im selben Volume, vollständige Kandidatenprüfung, Flush, erneuter Quellcheck
+unter Lock, atomarer Ersatz, unabhängiges Rücklesen und dauerhafter Commitbeleg.
+Erst danach wird ein Erfolg projiziert oder eine Referenz veröffentlicht.
+Kein Append-/Overwrite-Fallback bei fehlender Dateisystemfähigkeit. Der konkrete
+Windows-Lock-/Flush-/Ersatzmechanismus samt Haltbarkeit ist noch zu wählen und
+empirisch zu prüfen; der Offline-Übergangsvalidator implementiert dies nicht.
+
+| Unterbrechungsgrenze | Geplante Behandlung; keine ausgeführte Recovery |
+|---|---|
+| Vor durablem Intent | Kein reservierter/veröffentlichter Record; kein Registryersatz |
+| Intent vorhanden, Kandidat fehlt oder ist unvollständig | `RECOVERY_REQUIRED`; ausschließlich belegte eigene Transaktionsartefakte prüfen, keine breite Suche oder Löschung |
+| Kandidat geprüft, Ersatz noch nicht begonnen | Abweichender Ausgangsdigest sperrt; kein automatisches Überschreiben eines neueren Standes |
+| Ersatz begonnen oder erfolgt, Commitbeleg fehlt | Ergebnis bleibt unklar; kein Erfolg oder blindes Wiederholen. Exakte Quell-/Kandidatenbytes, Intent, Root-/Actorbindung und tatsächlicher Stand müssen unter Lock aufgeklärt werden |
+| Dauerhafter Commitbeleg vorhanden | Erfolg nur nach passendem Rücklesebefund; abweichender Zustand bleibt `RECOVERY_REQUIRED` |
+
+Intents müssen einmal reservierte Referenzen erhalten; Abbruch gibt keine
+bereits registrierte oder veröffentlichte ID zur Wiederbelegung frei. Cleanup
+betrifft nur exakt eigene registrierte Transaktionsartefakte. Unbekannte
+Referenzen oder Nutzungen blockieren Retirement und Key-/Trustentfernung.
+Der Index prüft nur das vorgeschlagene Tombstoneformat, keinen tatsächlichen
+Referenzbestand. Native Lock-, Crash-, Parallelitäts-, Flush-, Recovery- und
+Cleanupnachweise fehlen vollständig und gehören zum späteren Writerscope.
+
 ## Backend- und Keyschutzgrenze
 
 Der Kandidat `DOTNET_X509` wird zunächst nur über sechs API-Signaturen geprüft.
@@ -109,10 +156,14 @@ Treiber bleiben unqualifiziert. Fehlende Werte sperren den Gesamtbefund.
 Referenzen bleiben unregistriert, `Ready` und `MutationAllowed` false.
 Noch keine Registrywrites oder Key-/Storeöffnung.
 
-Als Nächstes die geschlossene Registryrecordform, Größen-/Tiefegrenzen,
-Referenz-/Revisionsinvarianten und Writer-/Crashgrenzen offline festlegen
-und synthetisch prüfen. Noch keine native Registrierung oder Mutation.
-Die Registrytransaktion folgt erst nach diesen festgelegten Grenzen;
+Der geschlossene Offline-Referenzindex mit Byte-/Tiefen-/Recordgrenzen und
+unveränderlichen Rollen, Identitätsangaben und Tombstones ist implementiert.
+CA-Signierkanten und Generationen werden geprüft. Der Writer-/Crashvertrag
+oben ist Planung; reine konkurrierende Kandidaten sind kein nativer Raceproof.
+Als Nächstes die vollständigen privaten Payloadformen, kanonische Digestbildung
+und Kopplung an eine frische native Vorschau offline implementieren und
+synthetisch prüfen. Noch keine native Registrierung oder Mutation.
+Die Registrytransaktion folgt erst nach diesen vollständigen Verträgen;
 CA-Keyschutz und konkrete Mutationsfreigaben bleiben separat.
 Die bereits vorhandenen `ClientRef`-/`AuthorityRef`-Anfragen bleiben bis dahin
 unaufgelöst. Native TLS-, Client- und Mindestlaufzeitabnahmen werden durch

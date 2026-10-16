@@ -52,8 +52,11 @@ Signierkontext und CA, ohne neue Bindungen anzulegen. Die private
 [Kontextvorschau](../Architecture/AUTHENTICATED_TLS_CONTEXT_PREVIEW.md) ergänzt
 geschlossene Anfragen und eine lesende Windows-Token-/Host-/Profil- und
 Client-Diskbeobachtung. Referenzen bleiben unregistriert und unqualifiziert.
-Nächster Scope sind geschlossene Registryrecordformen, Revisionsinvarianten
-und Writer-/Crashgrenzen mit synthetischer Offlineprüfung;
+Der [Offline-Referenzindex](../Architecture/AUTHENTICATED_TLS_REGISTRY_INDEX.md)
+prüft inzwischen geschlossene Byteformen, Referenz-/Revisionsinvarianten und
+Tombstones. Der konkretisierte Writer-/Crashvertrag bleibt Planung. Nächster
+Scope sind vollständige private Payloadformen, kanonische Digestbildung und
+frische Vorschaubindung mit synthetischer Offlineprüfung;
 native Target-/Ownership-, Backend-/Keyschutz- und TLS-Abnahme bleiben
 erforderlich, vor mutierender PKI-/Providerumsetzung.
 

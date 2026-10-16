@@ -24,6 +24,10 @@ ergänzt geschlossene Client-/Signierkontextanfragen und liest nach expliziter
 Prozesswahl native Token-/Profil-/Hostmarker- und Client-Diskmetadaten.
 Referenzen bleiben unregistriert; `Ready` und `MutationAllowed` bleiben false.
 Registrytransaktion, Key-/Trustaktionen und native TLS-Qualifikation sind offen.
+Der private [Offline-Referenzindex](../Documentation/Architecture/AUTHENTICATED_TLS_REGISTRY_INDEX.md)
+prüft inzwischen begrenzte UTF-8-Formen und Revisions-/Tombstoneübergänge.
+Native Payloads, Digestherkunft, Registrierung und Writer-/Crashabnahme
+werden dadurch nicht implementiert oder qualifiziert.
 
 ## Dokumentationszuständigkeiten
 
