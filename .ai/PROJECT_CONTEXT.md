@@ -52,7 +52,9 @@ Der zusätzliche SSIS-Consumerzugang erweitert `Invoke-SqlServerLabScript`
 um den expliziten Windows-Modus, auf dem vorhandenen Hyper-V-Transport und
 geschützten Gast-Secretstore. Die [Consumeranleitung](../Documentation/HowTo/SSIS_CONSUMER_WINDOWS_ACCESS.md)
 beschreibt eigene Analyzeobjekte und Cleanup. Die bisherige Fixture bleibt
-eine lesende Quelle; die zusätzliche native Abnahme ist gesondert auszuweisen.
+eine lesende Quelle. Die [lokale native Consumerabnahme](../Documentation/Quality/WINDOWS_SQL_CONSUMER_ACCEPTANCE_2026-10-16.md)
+bestand mit eigenem Deployment, Paketstart und gezieltem Cleanup bei unveränderter
+Quelle; der finale GitHub-Gate bleibt bis zum verfügbaren Runner offen.
 
 | Frage | Maßgebliche Quelle |
 |---|---|

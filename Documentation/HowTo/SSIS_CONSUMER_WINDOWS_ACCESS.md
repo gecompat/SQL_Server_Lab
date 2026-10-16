@@ -15,8 +15,9 @@ Authentifizierung zur gespeicherten Port-/Instanzbindung. Die aktuelle
 Windows-Identitaet des Hostclients wird nicht als SQL-Login weitergereicht.
 
 Voraussetzungen: PowerShell 7.2 auf dem Hyper-V-Host, ein laufender eigener
-Windows-SQL-Run und ein berechtigter erhoehter Operatorprozess, der dessen
-DPAPI-geschuetzte Gastanmeldung lesen kann. Fehlende Anmeldung oder Rechte
+Windows-SQL-Run und ein Operatorprozess mit den vorhandenen Hyper-V-/
+PowerShell-Direct-Rechten, der dessen DPAPI-geschuetzte Gastanmeldung lesen kann.
+Fehlende Anmeldung oder Rechte
 ergeben keinen SQL-Auth-Fallback. Der administrative Gastzugang ist keine
 Sandbox fuer fremde oder ungepruefte SQL-Skripte. Diese Freigabe ist auf eigene
 synthetische Consumerobjekte in der bezeichneten Labinstanz zu begrenzen.
@@ -231,3 +232,5 @@ Der bestehende SSISDB-Vertrag und seine Leseabnahme bleiben unter
 Der neue Harness `Tests/Integration/Invoke-WindowsSqlConsumerAcceptance.ps1`
 prueft den oeffentlichen Windowsweg am explizit bezeichneten bestehenden Run,
 ohne die vorhandene Lab-Fixture zu erneuern.
+Die [lokale native Abnahme vom 2026-10-16](../Quality/WINDOWS_SQL_CONSUMER_ACCEPTANCE_2026-10-16.md)
+belegt diesen Weg einschließlich Deployment, Paketstart und eigenem Cleanup.

@@ -11,6 +11,14 @@ Der getrennte Harness `Invoke-WindowsSqlConsumerAcceptance.ps1` verwendet den
 öffentlichen Befehl am expliziten bestehenden Run; eigene Objekte und
 identitätsgebundener Cleanup werden von den geschützten Quellen getrennt.
 Eine nicht ausgeführte native Abnahme bleibt NOT_EXECUTED.
+Die [lokale native Abnahme vom 2026-10-16](WINDOWS_SQL_CONSUMER_ACCEPTANCE_2026-10-16.md)
+bestand mit eigenem Ordner 6, Projekt 4/Version 4 und Ausführung 14 mit Status 7.
+Die geschützten IDs 10/11/12 samt Ereignissen, Source-Metadaten, aktive
+Katalog-/Datenbankinventare und globale Katalogeigenschaften blieben unverändert.
+Die 34 fokussierten Offlineprüfungen umfassen jetzt auch den tatsächlichen
+Connection-Builder und die Wiederherstellung binärer CLR-Parametertypen nach
+Remoting. Der vorhandene GitHub-Runner war offline; sein Start wurde von der
+automatischen Freigabeprüfung blockiert. Der finale GitHub-Gate bleibt offen.
 
 | Phase | Prüfscope und Aussage |
 |---|---|
