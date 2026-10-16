@@ -9,6 +9,34 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $failures = [System.Collections.Generic.List[string]]::new()
 $passed = 0
 $selector = Join-Path $repoRoot 'Tools/Get-CiTestSelection.ps1'
+$tlsCaCheck = 'Invoke-AuthenticatedTlsCaCandidateChecks.ps1'
+foreach ($path in @('Private/AuthenticatedTlsCaCandidate.ps1','Tests/Static/Invoke-AuthenticatedTlsCaCandidateChecks.ps1')) {
+    foreach ($normalized in @($path,$path.Replace('/','\'))) {
+        $selected = & $selector -ChangedPath @($normalized)
+        Add-CheckResult "TLS-CA08 exakte lokale Kryptolane $normalized" ($tlsCaCheck -in $selected.StaticChecks -and
+            -not $selected.Docker -and -not $selected.Podman -and -not $selected.Mixed -and -not $selected.HyperV -and -not $selected.Adapter)
+    }
+}
+foreach ($path in @('Private/AuthenticatedTlsRegistryRoot.ps1','Private/AuthenticatedTlsRegistryPayload.ps1','Private/AuthenticatedTlsRequest.ps1','Private/AuthenticatedTlsContext.ps1','Private/DiagnosticBundleReader.ps1')) {
+    $selected = & $selector -ChangedPath @($path)
+    Add-CheckResult "TLS-CA08 gekoppelte Kandidatenquelle $path" ($tlsCaCheck -in $selected.StaticChecks)
+}
+foreach ($path in @('Private/Other/AuthenticatedTlsCaCandidate.ps1','Private/AuthenticatedTlsCaCandidateOther.ps1','Private/authenticatedTlsCaCandidate.ps1')) {
+    $selected = & $selector -ChangedPath @($path)
+    Add-CheckResult "TLS-CA08 kein Teilnamen-/Casefallback $path" ($tlsCaCheck -notin $selected.StaticChecks -and
+        $selected.Docker -and $selected.Podman -and $selected.Mixed -and $selected.HyperV -and $selected.Adapter)
+}
+foreach ($other in @('Private/UnmappedSynthetic.ps1','Private/CleanupEngine.ps1','Providers/Podman/PodmanProvider.ps1')) {
+    $baseline = & $selector -ChangedPath @($other)
+    $union = & $selector -ChangedPath @('Private/AuthenticatedTlsCaCandidate.ps1',$other)
+    $preserved = $true
+    foreach ($provider in @('Docker','Podman','Mixed','HyperV','Adapter')) {
+        $preserved = $preserved -and $union.$provider -eq $baseline.$provider -and
+            ($union.Capabilities.$provider -join ',') -ceq ($baseline.Capabilities.$provider -join ',')
+    }
+    Add-CheckResult "TLS-CA08 gemischte Runtimeauswahl erhalten $other" ($preserved -and $tlsCaCheck -in $union.StaticChecks -and
+        @($baseline.StaticChecks | Where-Object { $_ -notin $union.StaticChecks }).Count -eq 0)
+}
 $tlsRootCheck = 'Invoke-AuthenticatedTlsRegistryRootChecks.ps1'
 foreach ($path in @('Private/AuthenticatedTlsRegistryRoot.ps1','Tests/Static/Invoke-AuthenticatedTlsRegistryRootChecks.ps1')) {
     foreach ($normalized in @($path,$path.Replace('/','\'))) {

@@ -113,7 +113,7 @@ try {
     $tokens=$null;$errors=$null;$ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $repo 'Private/AuthenticatedTlsRegistryRoot.ps1'),[ref]$tokens,[ref]$errors)
     Add-CheckResult 'TLS-R06 Laden definiert nur Funktionen' ($errors.Count -eq 0 -and @($ast.EndBlock.Statements|Where-Object {$_ -isnot [Management.Automation.Language.FunctionDefinitionAst]}).Count -eq 0)
     $calls=@($ast.FindAll({param($n)$n -is [Management.Automation.Language.CommandAst]},$true)|ForEach-Object GetCommandName)
-    Add-CheckResult 'TLS-R06 nur lesender fester Commandgraph' (@($calls|Where-Object {$_ -cnotin @('Assert-LabDiagnosticPath','Get-Item','Test-LabTlsRequestReference','Test-Path','Join-Path','Read-LabDiagnosticJson','Test-LabTlsRequestEnum','ConvertTo-Json','Read-LabTlsRegistryFileBytes','Read-LabAuthenticatedTlsRegistryDocument','Get-LabTlsPayloadDigest')}).Count -eq 0)
+    Add-CheckResult 'TLS-R06 nur lesender fester Commandgraph' (@($calls|Where-Object {$_ -cnotin @('Assert-LabDiagnosticPath','Get-Item','Test-LabTlsRequestReference','Test-Path','Join-Path','Read-LabDiagnosticJson','Test-LabTlsRequestEnum','ConvertTo-Json','Read-LabTlsRegistryFileBytes','Read-LabAuthenticatedTlsRegistryDocument','Get-LabTlsPayloadDigest','Get-LabAuthenticatedTlsRootMetadata')}).Count -eq 0)
     Add-CheckResult 'TLS-R06 keine native Kontext-/PKI-/SQL-Probe' ($script:nativeCalls -eq 0)
     Write-Host "Authenticated TLS Registry Root: $passed PASS, $($failures.Count) FAIL"
     if($failures.Count){throw 'AUTHENTICATED_TLS_REGISTRY_ROOT_CHECKS_FAILED'}
