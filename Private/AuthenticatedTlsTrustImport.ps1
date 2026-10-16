@@ -184,9 +184,11 @@ function Add-LabTlsCurrentUserRootPublicCertificate {
 }
 
 function Get-LabTlsTrustJournalState {
-    param([object]$Binding,[object]$Paths)
+    param([object]$Binding,[object]$Paths,[switch]$OriginalOnly)
     Assert-LabTlsTrustJournalOwner $Binding $Paths
     $hasIntent=Test-Path -LiteralPath $Paths.Intent;$hasCommit=Test-Path -LiteralPath $Paths.Commit
+    $hasRecovery=(Test-Path -LiteralPath (Join-Path $Paths.Journal 'recovery-intent.json')) -or (Test-Path -LiteralPath (Join-Path $Paths.Journal 'recovery-commit.json'))
+    if($hasRecovery -and (-not $hasIntent -or $hasCommit)){throw 'TLS_TRUST_RECOVERY_REQUIRED'}
     if(-not $hasIntent){if($hasCommit){throw 'TLS_TRUST_RECOVERY_REQUIRED'};return [pscustomobject]@{Status='AWAITING_APPROVAL';ApprovalId=$null;PreviewId=$null;PreviewDigest=$null}}
     $intentRead=Read-LabTlsTrustJournalRecord $Paths.Intent $Binding.Native.UserSid @('ContractVersion','ApprovalId','PreviewId','PreviewDigest','BindingDigest','CertificateSha256','Store','Prestate')
     $intent=$intentRead.Record
@@ -197,7 +199,10 @@ function Get-LabTlsTrustJournalState {
     $preview=Read-LabTlsTrustImportPreviewRecord $Binding $Paths $intent.PreviewId
     if(-not (Test-LabTlsRequestEnum $intent.PreviewDigest @((Get-LabTlsTrustPreviewDigest $preview))) -or
         -not (Test-LabTlsRequestEnum $preview.BindingDigest @($Binding.Digest)) -or -not (Test-LabTlsRequestEnum $preview.Prestate @('ABSENT'))){throw 'TLS_TRUST_RECOVERY_REQUIRED'}
-    if(-not $hasCommit){return [pscustomobject]@{Status='RECOVERY_REQUIRED';ApprovalId=$intent.ApprovalId;PreviewId=$intent.PreviewId;PreviewDigest=$intent.PreviewDigest}}
+    if(-not $hasCommit){
+        if($hasRecovery -and -not $OriginalOnly){return Get-LabTlsTrustRecoveryJournalState $Binding $Paths}
+        return [pscustomobject]@{Status='RECOVERY_REQUIRED';ApprovalId=$intent.ApprovalId;PreviewId=$intent.PreviewId;PreviewDigest=$intent.PreviewDigest}
+    }
     $commit=(Read-LabTlsTrustJournalRecord $Paths.Commit $Binding.Native.UserSid @('ContractVersion','ApprovalId','PreviewDigest','IntentByteSha256','CertificateSha256','Outcome','Store')).Record
     if(-not (Test-LabTlsRequestEnum $commit.ContractVersion @('SqlServerLab.TlsTrustImportCommit/0.1')) -or
         -not (Test-LabTlsRequestEnum $commit.ApprovalId @($intent.ApprovalId)) -or -not (Test-LabTlsRequestEnum $commit.PreviewDigest @($intent.PreviewDigest)) -or
@@ -227,7 +232,7 @@ function Invoke-LabAuthenticatedTlsTrustImport {
         Assert-LabTlsCaPrivateAcl $paths.Base $binding.Native.UserSid -Directory
         $lock=Enter-LabTlsTrustJournalLock $paths.Lock $binding.Native.UserSid
         try{$state=Get-LabTlsTrustJournalState $binding $paths}catch{throw 'TLS_TRUST_RECOVERY_REQUIRED'}
-        if(Test-LabTlsRequestEnum $state.Status @('RECOVERY_REQUIRED')){throw 'TLS_TRUST_RECOVERY_REQUIRED'}
+        if(-not (Test-LabTlsRequestEnum $state.Status @('AWAITING_APPROVAL','OWNED_IMPORT_RECORDED','PREEXISTING_NOT_OWNED'))){throw 'TLS_TRUST_RECOVERY_REQUIRED'}
         if(Test-LabTlsRequestEnum $state.Status @('OWNED_IMPORT_RECORDED','PREEXISTING_NOT_OWNED')){
             if(-not (Test-LabTlsRequestEnum $checked.ApprovalId @($state.ApprovalId)) -or -not (Test-LabTlsRequestEnum $checked.PreviewId @($state.PreviewId)) -or
                 -not (Test-LabTlsRequestEnum $checked.PreviewDigest @($state.PreviewDigest))){return $bad}

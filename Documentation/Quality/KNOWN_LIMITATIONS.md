@@ -2376,9 +2376,20 @@ Autorität. Operative Registry, SQL-Bindung und TLS-Lab-Abnahme fehlen weiterhin
 Der separat geprüfte tatsächliche Importworker wurde genau einmal ausgeführt
 und nach 60 Sekunden beendet. Frisch lesend: CA `ABSENT`, Journal
 `RECOVERY_REQUIRED`, passender gültiger Intent, kein Commit und kein Lock;
-kein bestätigter Import. Konkrete UI-Rückfrage offen, Freigabe bleibt gesichert.
-Kein Retry oder Journalremove aus diesem Zustand. Native Storequalifikation
+kein bestätigter Import. Konkrete UI-Wahl: kein Dialog sichtbar, sichtbares Fenster nach geprüfter Recovery gewünscht, Freigabe bleibt gesichert.
+Kein automatischer Retry oder Journalremove aus diesem Zustand. Native Storequalifikation
 ist dadurch weiterhin nicht bestanden.
+Die [private einmalige Recovery](../Architecture/AUTHENTICATED_TLS_TRUST_RECOVERY.md)
+bindet jetzt frische Vorschau, Originalbytes und eigene geschützte Recoveryrecords.
+Tests verwenden ausschließlich eigene synthetische Bindungs-/CA-/Storebytes
+und echte geschützte Datei-/ACL-/Lockfixtures. Kein realer Kandidat, Journal
+oder Store wird dabei gelesen. Approval-/Adapter-IDs sind Auditclaims, kein
+Beweis menschlicher Zustimmung, sichtbarer Fensterwahl oder Quieszenz.
+Ein späterer sichtbarer Adapter muss diese tatsächlichen Grenzen selbst prüfen;
+native Recoveryausführung bleibt `NOT_EXECUTED`. Einmaliger unklarer Versuch
+bleibt terminal; nur ADD_RETURNED plus frische Nachbeobachtung und passender
+Recoverycommit kann neue Importausführung bestätigen. Originalverlust oder
+vorhandener Anker bleibt unattributiert. Removalautorität bleibt `NONE`.
 Die [private CSR-Kryptolane](../Architecture/AUTHENTICATED_TLS_LEAF_CSR.md)
 belegt jetzt öffentlichen RSA-3072-/SHA-256-CSR-Proof, vollständiges DER,
 exakten angeforderten SAN, gebundenes DPAPI-Keymatch und unabhängig geprüfte

@@ -194,11 +194,16 @@ seine konkrete gesicherte menschliche Importfreigabe existieren; die native
 Storemutation ist durch die injizierten Storetests weiterhin nicht ausgeführt.
 Der separat geprüfte echte Worker wurde einmal nach 60 Sekunden beendet:
 frisch lesend CA `ABSENT`, Journal `RECOVERY_REQUIRED`, passender gültiger
-Intent ohne Commit/Lock, kein bestätigter Import. UI-Rückfrage offen;
-kein Retry oder Journalremove. Der private CSR-Slice benötigt keinen Store,
+Intent ohne Commit/Lock, kein bestätigter Import. UI-Wahl: kein Dialog sichtbar, sichtbares Fenster nach geprüfter Recovery gewünscht;
+kein automatischer Retry oder Journalremove. Der private CSR-Slice benötigt keinen Store,
 registriert keine AuthorityRef und liefert nur ein öffentliches unqualifiziertes
 Leaf. Fester synthetischer Subject und enges Attributset qualifizieren keinen
 Windows-certreq-/CSP-/KeySpec-/SQL-Request.
 Die bereits vorhandenen `ClientRef`-/`AuthorityRef`-Anfragen bleiben bis dahin
+unaufgelöst. Die [private einmalige Trust-Recovery](../Architecture/AUTHENTICATED_TLS_TRUST_RECOVERY.md)
+ergänzt eigene Records außerhalb der Kandidatendateien und erhält Originalowner,
+Preview und Intent unverändert. Sie ist kein Registrywriter, kein allgemeines
+Rearm und kein Ersatz für tatsächliche Human-/UI-/Workerprüfung im Adapter.
+Ihre native Ausführung bleibt `NOT_EXECUTED`. Referenzen bleiben weiterhin
 unaufgelöst. Native TLS-, Client- und Mindestlaufzeitabnahmen werden durch
 diese Planung nicht ersetzt.

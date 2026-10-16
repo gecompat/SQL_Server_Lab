@@ -82,7 +82,7 @@ besitzt geschütztes Intent/Commit, kooperativen Lock und lesenden Recovery-
 Status. Der separat geprüfte native Worker wurde genau einmal ausgeführt und
 nach 60 Sekunden beendet: frisch lesend CA `ABSENT`, Journal
 `RECOVERY_REQUIRED`, passender gültiger Intent, kein Commit/Lock und kein
-bestätigter Import. Die UI-Rückfrage ist offen; kein Retry oder Journalremove.
+bestätigter Import. Der Benutzer meldet keinen sichtbaren Dialog und wählt ein sichtbares Fenster nach geprüfter Recovery; kein automatischer Retry oder Journalremove.
 Die neue Suite verwendet eigene
 private Dateifixtures und injizierte Storegrenzen; kein Importreceipt erlaubt
 ungeprüften Removal oder qualifiziert SQL/TLS.
@@ -93,6 +93,12 @@ CA-/Root-/Actorbindung und DPAPI-Keymatch werden frisch geprüft; kein Store
 wird geöffnet. Die eigene native Tempfixture ist kein Windows-certreq-/CSP-/
 KeySpec-/SQL-Profil oder NativeTargetnachweis. Registrierung, Trustrecovery,
 frische eigene Runtimeproben und authentifizierte Clientabnahme bleiben offen.
+Der neue [einmalige Recoverypfad](../Architecture/AUTHENTICATED_TLS_TRUST_RECOVERY.md)
+erhält die ursprünglichen Journal-/Kandidatenbytes und bindet einen neuen
+geschützten Intent/Commit an frische konkrete Preview und Adapterevidence.
+Unklare Recovery bleibt terminal; Original-Add-Verlust wird nie attribuiert.
+Die tatsächliche sichtbare Adapterausführung nach geprüfter Integration ist
+ein separater Scope und noch `NOT_EXECUTED`; kein realer Storezugriff in den Tests.
 Der Benutzer verlangt ausdrücklich die autonome Fortsetzung bis zur echten
 TLS-Lab-Abnahme und gezielte Fragen bei konkret fehlenden Freigaben.
 Schutzgrenzen bestehen fort; reine Offlinefortschritte beenden diesen Auftrag nicht.

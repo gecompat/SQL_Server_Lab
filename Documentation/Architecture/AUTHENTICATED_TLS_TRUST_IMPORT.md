@@ -120,6 +120,16 @@ Zertifikate und gibt keine Fremdzertifikate aus.
 
 ## Status, Recovery und Aussagegrenzen
 
+Die [explizite einmalige Recoverylane](AUTHENTICATED_TLS_TRUST_RECOVERY.md)
+ergänzt jetzt eigene unveränderliche Recoveryrecords für genau einen gültigen
+ursprünglichen Intent ohne normalen Commit. Sie erhält dessen Bytes und
+verlangt frische Bindung sowie separate vertrauenswürdige Adapterevidence.
+Der zentrale Status liest auch `RECOVERY_IMPORT_RECORDED` und
+`RECOVERY_PREEXISTING_UNATTRIBUTED`; unvollständige oder abweichende Recovery
+bleibt `RECOVERY_REQUIRED`. Normale Importe können diese Records nicht umgehen.
+Die frühere Aussage ohne Recoverycommit darunter beschreibt den ursprünglichen
+Importpfad; ausschließlich der verlinkte Recoveryvertrag erweitert ihn.
+
 Alle Funktionen liefern nur `Success`, `Value`, `ErrorCode`. Fehler enthalten
 keinen Teilbefund, Pfad, Key oder rohe Exception. Unbekannte oder geänderte
 Freigaben sperren vor Storewrite. Sobald ein Intent begonnen wurde, ergeben
@@ -161,7 +171,7 @@ wurden lokal erfolgreich ausgeführt. Die konkrete menschliche Importfreigabe
 ist gesichert. Der separat geprüfte Worker wurde genau einmal ausgeführt und
 nach 60 Sekunden beendet. Frisch lesend: CA `ABSENT`, Journal
 `RECOVERY_REQUIRED`, gültiger passender Intent, kein Commit und kein Lock.
-Kein bestätigter Import; die konkrete UI-Rückfrage bleibt offen. Kein Retry,
+Kein bestätigter Import; der Benutzer meldet keinen sichtbaren Dialog und wählt ein sichtbares Fenster nach geprüfter Recovery. Kein Retry,
 Journalremove oder Storewrite aus diesem Befund. Reale Identitäten, Pfade und Digests bleiben ausschließlich
 lokal. Native Storemutation wird von dieser Testsuite nicht ausgeführt oder
 qualifiziert. Die CA bleibt unregistriert; ein Trustimport ist keine Leaf-,

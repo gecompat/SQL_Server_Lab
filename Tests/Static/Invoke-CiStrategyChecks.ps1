@@ -16,6 +16,25 @@ foreach ($path in @('Providers/HyperV/HyperVWindowsSqlScript.ps1','Public/Invoke
         'Invoke-HyperVGuestProgressChecks.ps1' -in $selected.StaticChecks -and 'Invoke-PublicCommandConsoleChecks.ps1' -in $selected.StaticChecks -and $selected.HyperV -and
         -not $selected.Docker -and -not $selected.Podman -and -not $selected.Mixed -and -not $selected.Adapter)
 }
+$tlsRecoveryCheck='Invoke-AuthenticatedTlsTrustRecoveryChecks.ps1'
+foreach($path in @('Private/AuthenticatedTlsTrustRecovery.ps1','Tests/Static/Invoke-AuthenticatedTlsTrustRecoveryChecks.ps1')){
+    foreach($normalized in @($path,$path.Replace('/','\'))){$selected=& $selector -ChangedPath @($normalized)
+        Add-CheckResult "TLS-TR10 exakte lokale Recoverylane $normalized" ($tlsRecoveryCheck -in $selected.StaticChecks -and -not $selected.Docker -and -not $selected.Podman -and -not $selected.Mixed -and -not $selected.HyperV -and -not $selected.Adapter)
+    }
+}
+foreach($path in @('Private/AuthenticatedTlsTrustImport.ps1','Private/AuthenticatedTlsCaCandidate.ps1','Private/AuthenticatedTlsRegistryRoot.ps1','Private/AuthenticatedTlsRegistryPayload.ps1','Private/AuthenticatedTlsRequest.ps1','Private/AuthenticatedTlsContext.ps1','Private/DiagnosticBundleReader.ps1')){
+    Add-CheckResult "TLS-TR10 gekoppelte Recoveryquelle $path" ($tlsRecoveryCheck -in (& $selector -ChangedPath @($path)).StaticChecks)
+}
+foreach($path in @('Private/Other/AuthenticatedTlsTrustRecovery.ps1','Private/AuthenticatedTlsTrustRecoveryOther.ps1','Private/authenticatedTlsTrustRecovery.ps1')){
+    $selected=& $selector -ChangedPath @($path)
+    Add-CheckResult "TLS-TR10 kein Teilnamen-/Casefallback $path" ($tlsRecoveryCheck -notin $selected.StaticChecks -and $selected.Docker -and $selected.Podman -and $selected.Mixed -and $selected.HyperV -and $selected.Adapter)
+}
+foreach($other in @('Private/UnmappedSynthetic.ps1','Private/CleanupEngine.ps1','Providers/Podman/PodmanProvider.ps1')){
+    $baseline=& $selector -ChangedPath @($other);$union=& $selector -ChangedPath @('Private/AuthenticatedTlsTrustRecovery.ps1',$other);$preserved=$true
+    foreach($flag in @('Docker','Podman','Mixed','HyperV','Adapter')){if($baseline.$flag -and -not $union.$flag){$preserved=$false}}
+    foreach($check in $baseline.StaticChecks){if($check -notin $union.StaticChecks){$preserved=$false}}
+    Add-CheckResult "TLS-TR10 gemischter Scope behaelt breite Auswahl $other" ($preserved -and $tlsRecoveryCheck -in $union.StaticChecks)
+}
 $tlsLeafCheck = 'Invoke-AuthenticatedTlsLeafCsrChecks.ps1'
 foreach ($path in @('Private/AuthenticatedTlsLeafCsr.ps1','Tests/Static/Invoke-AuthenticatedTlsLeafCsrChecks.ps1')) {
     foreach ($normalized in @($path,$path.Replace('/','\'))) {

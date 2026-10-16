@@ -44,6 +44,75 @@ ein Dokumentationsdateiname allein verlangt keinen Providerstart. Änderungen
 an gemeinsamem Ownership/Cleanup verlangen weiterhin die breite Matrix.
 [Auswahl, Cachegrenzen und Ausnahmen](FOUNDATION_1_21_PROCESSING_ASSESSMENT.md).
 
+## Private einmalige Trust-Recovery (TLS001-TRUST-RECOVERY-01)
+
+Der [Recoveryvertrag](../Architecture/AUTHENTICATED_TLS_TRUST_RECOVERY.md)
+wird durch `Invoke-AuthenticatedTlsTrustRecoveryChecks.ps1` geprüft. Die Suite
+verwendet ausschließlich eigene synthetische Root-/Actor-/CA-/Storebindungen,
+opaque Kandidatendateien und echte geschützte Datei-/ACL-/CreateNew-/Flush-/
+Lockfixtures. Kein tatsächlicher Kandidat, Journal oder Store wird gelesen,
+kein Key erzeugt oder geöffnet, keine DPAPI-Entschlüsselung oder native
+Storemutation ausgeführt. Native UI-/Add-/Recoveryabnahme bleibt `NOT_EXECUTED`.
+
+Ausgeführt am 2026-10-16 unter Windows PowerShell 7.6.6: Recoveryfokus
+122 PASS, 0 FAIL, eigene Fixtures `CLEANED`; Selektorstrategie 773 PASS,
+0 FAIL. Geprüft sind native Eingabe-/ETS-Grenzen vor I/O, vollständige
+Original-/Approvalbindung trotz historisch abgelaufener Originalpreview,
+frische/future/alte Recoverypreviews, Konkurrenz, dauerhafter Intent vor genau
+einem injizierten Add, Present ohne kausalen Add und Race als UNATTRIBUTED,
+Abbruch vor/nach Add/vor Commit, verlorenes Callerresult nach echtem Datei-
+Commit, terminale Unklarheit, rein lesende Completed-Idempotenz ohne Lock,
+Originalbyteerhalt sowie Original-/Root-/Actor-/CA-/Store-/Approvaldrift.
+Ein anfänglicher Fokus zeigte drei Unterschiede der Fehlerklassifikation;
+vorhandene ungültige Recoveryrecords bleiben jetzt ausdrücklich Recoverybedarf,
+die Gegenfälle wurden entsprechend präzisiert. Kein realer Trustversuch daraus.
+Der unabhängige Review zeigte zusätzlich eine Nachweislücke: Previewbyte-
+Änderung nach Add prüfte Drift, aber nicht eigenständig Ablauf. Der neue
+Gegenfall verschiebt ausschließlich den privaten Uhrleser nach Add über
+Expires, bei bytegleichen Original-/Preview-/Intentrecords und identischen
+Digests. Erwartet sind terminaler Recoverybedarf, kein Commit und kein zweiter
+Add. Der native Produktionsdefault bleibt `DateTime.UtcNow`, ohne öffentlichen
+Zeitparameter. Gezielt ausgeführt: ein reiner Speichermutant entfernt
+ausschließlich post-Add `-RequireFresh`; 121 PASS und genau ein erwarteter FAIL
+des neuen Ablaufgegenfalls, eigene Fixtures ebenfalls `CLEANED`. Getrackte
+Quellen wurden durch den Mutanten nicht verändert. Enger Analyzer der beiden
+korrigierten PowerShellquellen: 0 Errors, 5 Warnings, 6 Information. Die
+unverändert grüne Selektorstrategie 773/0 wurde dabei nicht wiederholt.
+
+Nach unabhängigem vollständigem Review bestand der eingefrorene Integratorgate
+auf der ursprünglichen Basis `2fed9a89` mit unveränderten 17 Quellenbindungen:
+Trustimport 89/0, Recovery 122/0, CI-Strategie 773/0, Dokumentation 2030/0,
+Pester 23/0, Privacy 3/0 und Analyzer PASS (5905 Befunde, 24 Baselinebefunde).
+CI-/Dokumentationsevidence meldete SourceStable; eigene Fixtures `CLEANED`.
+Diese Ergebnisse gehören zum Stand vor den folgenden Nachweis-/Integrations-
+updates. Die anschließende semantische Integration auf `869f9727` erhält die
+Recoveryprodukt-/Testbytes und vereinigt komplementäre Consumerdokumentation
+und Selektoren. Der Integrator prüfte die vollständige Vereinigung unabhängig:
+alle sechs gemeinsamen Upstream-Ergänzungen bleiben erhalten; die neun privaten
+TLS-/Prüfhelferabhängigkeiten sind unverändert. Deshalb wurden 89/122 und
+Pester nicht allein wegen der unabhängigen Main-Ergänzung wiederholt.
+Neu auf dem integrierten Stand ausgeführt: CI-Strategie 776/0, Dokumentation
+2041/0, Privacy 3/0 und enger Analyzer der beiden gemeinsam integrierten
+Selektorquellen mit 0 Errors und 5 Warnings. Dies ist keine erneute vollständige
+Analyzerabnahme. Der exakte CI-Pflichtgate bleibt eine getrennte Aussage;
+native Recovery und TLS-Lab-Abnahme bleiben hier `NOT_EXECUTED`.
+
+Die genaue Produktdatei erhält eine enge Providerstart-Ausnahme für lokale
+Datei-/ACL-/Lockevidence mit injizierter Storegrenze; keine reine Offline-
+oder native Trustqualifikation. Gekoppelte Import-/Kandidaten-/Root-/Request-/
+Payload-/Kontext-/Pfadquellen wählen die Recoveryregression. Nightly enthält
+sie; ähnliche, unbekannte und gemischte Runtimepfade behalten breite Fallbacks.
+Nicht-Windows oder Engine vor 7.5 prüfen nur die Sperre; native Windowsfälle
+bleiben dort `NOT_EXECUTED`, die allgemeine Mindestversion 7.2 bleibt erhalten.
+
+Overhead: ein Implementierer, ein unabhängiger Review des stabilen vollständigen
+Diffs und ein eingefrorener betroffener Gate beim Integrator. Kleinster Fokus
+vor Regression, schmaler Analyzer `Settings@{}`, begrenzte eigene lokale Logs,
+keine Rohdatenuploads oder zusätzliche Reviewketten. Unverändert grüne Prüfungen
+werden ohne neue Evidence nicht wiederholt. Kosten-/Tokenverbrauch unbekannt.
+Die Fokusprüfungen allein ersetzen weder den beschriebenen Integratorgate
+noch den später separat geprüften geschützten sichtbaren Ausführungsadapter.
+
 ## Private Windows-CSR-Kryptolane (TLS001-LEAF-CSR-01)
 
 Der [CSR-Vertrag](../Architecture/AUTHENTICATED_TLS_LEAF_CSR.md) wird durch
@@ -143,7 +212,7 @@ Separater tatsächlicher Ausführungsstand vom 2026-10-16: der geprüfte native
 Worker wurde mit konkreter bestehender Freigabe genau einmal gestartet und
 nach 60 Sekunden beendet. Frische lesende Befunde: CA `ABSENT`, Journal
 `RECOVERY_REQUIRED`, passender gültiger Intent, kein Commit und kein Lock;
-kein bestätigter Import. Die UI-Rückfrage ist offen. Kein Retry, Journalremove
+kein bestätigter Import. Der Benutzer meldet keinen sichtbaren Dialog und wählt ein sichtbares Fenster nach geprüfter Recovery. Kein Retry, Journalremove
 oder Storewrite aus diesem Befund; native Storequalifikation bleibt offen.
 Die oben genannten injizierten Suitefälle bleiben davon getrennte Evidence.
 

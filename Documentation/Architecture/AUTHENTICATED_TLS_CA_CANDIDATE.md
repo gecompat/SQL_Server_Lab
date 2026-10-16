@@ -159,7 +159,7 @@ Recoverybefund. Die vier Kandidatendateien bleiben unverändert; reale
 Storemutation wird von deren Tests nicht ausgeführt. Der separat geprüfte
 echte Worker wurde einmal nach 60 Sekunden beendet: frisch lesend CA `ABSENT`,
 Journal `RECOVERY_REQUIRED`, passender gültiger Intent, kein Commit/Lock und
-kein bestätigter Import. UI-Rückfrage offen; kein Retry oder Journalremove.
+kein bestätigter Import. UI-Wahl: kein Dialog sichtbar, sichtbares Fenster nach geprüfter Recovery gewünscht; kein automatischer Retry oder Journalremove.
 Separate Removalfreigabe,
 neue eigene SQL-Fixtures und vollständige TLS-Abnahme bleiben offen. Geschützte sechs
 Toolbelt-Ziele, erhaltene SSISDB-Quelle, fremde Ressourcen und frühere

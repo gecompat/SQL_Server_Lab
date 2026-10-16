@@ -880,6 +880,9 @@ sources_of_truth:
   validation_authenticated_tls_leaf_csr: Tests/Static/Invoke-AuthenticatedTlsLeafCsrChecks.ps1 # own real temporary CA/CSR/DPAPI/ACL crypto fixtures; no real candidate/store access; native target and SQL NOT_EXECUTED
   validation_authenticated_tls_ca_candidate: Tests/Static/Invoke-AuthenticatedTlsCaCandidateChecks.ps1 # coupled Root metadata/request/payload/context/pathguards; native Windows crypto/ACL/DPAPI in own temp fixtures, not pure offline or TLS acceptance
   authenticated_tls_trust_import_contract: Documentation/Architecture/AUTHENTICATED_TLS_TRUST_IMPORT.md
+  authenticated_tls_trust_recovery_contract: Documentation/Architecture/AUTHENTICATED_TLS_TRUST_RECOVERY.md
+  authenticated_tls_trust_recovery: Private/AuthenticatedTlsTrustRecovery.ps1 # closed one-attempt recovery of valid original intent; same fixed store writer, immutable original bytes, cooperative only, no removal/key/registry authority
+  validation_authenticated_tls_trust_recovery: Tests/Static/Invoke-AuthenticatedTlsTrustRecoveryChecks.ps1 # coupled import/candidate/root/request/payload/context/pathguard; own real ACL/file/lock fixtures + synthetic CA/binding/store; zero real candidate/journal/store reads or writes
   authenticated_tls_trust_import: Private/AuthenticatedTlsTrustImport.ps1 # private Windows CurrentUser Root public-DER lane, exact approval + protected intent/commit/cooperative lock; no removal/registration/TLS qualification
   validation_authenticated_tls_trust_import: Tests/Static/Invoke-AuthenticatedTlsTrustImportChecks.ps1 # coupled candidate/root/request/payload/context/pathguard; own real private file/ACL/lock fixtures + injected store boundaries, native store mutation NOT_EXECUTED
   test_group_power_guidance: Private/TestGroupGuidance.ps1
