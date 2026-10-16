@@ -13,7 +13,8 @@ belegen diesen zusätzlichen mutierenden Consumerweg nicht. Die gesonderte
 bestand am bestehenden Run: Windows-NTLM, eigenes Deployment, Paketstatus 7,
 ID-/Versionscleanup und unveränderte geschützte Quelle. Andere SQL-/IS-Versionen,
 Least-Privilege-Identitäten und ein separat gerenderter Fachdialog sind damit
-nicht abgenommen. Der GitHub-Abschlussgate bleibt bis zum verfügbaren Runner offen.
+nicht abgenommen. Die verlinkte native GitHub-Abnahme bestand ebenfalls;
+der Pflichtgate am jeweiligen PR-Head ist davon getrennt zu bewerten.
 
 Der [SSISDB-Vertrag](../Architecture/SSISDB_TEST_FIXTURE.md) unterstützt eigene
 Windows-/Hyper-V-SQL-2025-Runs mit vorhandener Software. Kataloganlage über
