@@ -2,7 +2,7 @@
 
 | Merkmal | Wert |
 |---|---|
-| Status | `DESIGN_PROPOSAL`; keine Zertifikats- oder TLS-Implementierung |
+| Status | `DESIGN_PROPOSAL` mit privatem Windows-CA-Kandidaten; keine authentifizierte TLS-Abnahme |
 | Stand | 2026-10-16 |
 | Auftrag | Autonome Entwicklung ausdrücklich wiederaufgenommen; eigene isolierte Lab-CA mit ausdrücklich freizugebendem Client-Trust planen |
 | Kanonischer Scope | [TLS-001](NEW_SQL_LAB_USE_CASES_BACKLOG.md#tls-001--authentifizierte-tls-verbindungen-der-testumgebungen) |
@@ -87,6 +87,17 @@ fordert die Übereinstimmung der Verbindungsidentität mit dem Zertifikat.
 
 ## D3 – konkrete Client-Trustfreigabe
 
+Der [private Windows-Trustimport](../Architecture/AUTHENTICATED_TLS_TRUST_IMPORT.md)
+konkretisiert jetzt diese Grenze mit fünfminütiger exakter Freigabebindung,
+geschütztem Intent/Commit und lesendem Status. Der kooperative Lock ist keine
+globale Store-Atomizität; ein Importreceipt erteilt keine Löschautorität.
+Eine eigene dauerhafte CA mit lokal erfolgreichem DPAPI-Reopen/Sign/Verify
+und frischer Trustvorschau existiert. Die konkrete menschliche Freigabe ist
+gesichert; der echte Storeimport erfolgt erst separat nach Integration.
+Die Suite mutiert keinen Rootstore. Native Policy-/UI-Effekte und begrenzte
+Add-Laufzeit bleiben unqualifiziert; ein äußerer Worker darf nach Timeout
+keinen unklaren Intent automatisch wiederholen oder entfernen.
+
 Für Windows wird zunächst `CurrentUser/Root` der ausdrücklich ausgewählten
 Ausführungsidentität vorgeschlagen. Die Preview muss Store, Identität, CA-ID,
 öffentlichen Zertifikatsdigest, Vorzustand, Nutzung durch andere Ziele und
@@ -166,11 +177,17 @@ Die [Registry-Gesamtform](../Architecture/AUTHENTICATED_TLS_REGISTRY_DOCUMENT.md
 prüft jetzt offline die exakte Payload-/Index-/Digestzuordnung und vollständige
 Übergänge. Die [lesende Rootbindung](../Architecture/AUTHENTICATED_TLS_REGISTRY_ROOT.md)
 vergleicht jetzt registrierte Windows-Rootmetadaten und eine bestehende Registrydatei.
-Kein atomarer Snapshot oder Autoritätsnachweis. Als Nächstes die private
-Registrytransaktion gemäß Writer-/Crashvertrag umsetzen und mit eigenen
-Crash-/Parallelitätsfixtures prüfen; keine automatische Pfadadoption.
-Registrywrites, Keyschutz, Signierung und Import
-behalten ihre eigenen nachfolgenden Grenzen. Die ursprüngliche Reihenfolge
+Kein atomarer Snapshot oder Autoritätsnachweis. Vorgezogen ist jetzt der
+[private Windows-CA-Kandidat](../Architecture/AUTHENTICATED_TLS_CA_CANDIDATE.md):
+RSA-3072, SHA-256/PKCS1, kritische CA/pathLen0 und KeyCertSign/CrlSign,
+höchstens 365 Tage einschließlich fünf Minuten Rückdatierung, neue UUIDv4
+und synthetischer Subject ohne SAN. Geschützte CurrentUser-Ablage und
+DPAPI-verschlüsseltes PKCS8 werden an eigenen Tempfixtures tatsächlich
+geprüft; die ReadOnly-Trust-Vorschau erlaubt eine spätere konkrete Freigabe.
+Kandidat bleibt `UNREGISTERED_UNQUALIFIED`. Registrytransaktion gemäß
+Writer-/Crashvertrag und eigene Crash-/Parallelitätsfixtures bleiben offen;
+keine automatische Pfadadoption. Registrywrites, operative Signierung und
+Import behalten ihre eigenen nachfolgenden Grenzen. Die ursprüngliche Reihenfolge
 darunter bleibt als historische Scopegrenze erhalten.
 
 Zuerst den geschlossenen privaten Anfragevertrag für CA-/Leaf-/Trustpläne und
@@ -191,6 +208,11 @@ Trustdrift, Abbruch/Resume und Cleanup erhalten eigene Assertions. Kein
 Trustbypass, keine Abschaltung der Verschlüsselung und kein stiller TLS-Downgrade.
 
 Aktuelle Evidence: Quellen-/Exportmetadaten und Clientverfügbarkeit lesend
-geprüft. CA, Schlüssel, Bindungen, echter Trust, Clientverbindungen und die
+geprüft; der private Windows-Kandidatenpfad besitzt lokale native Crypto-/
+DPAPI-/ACL-Fixtures. Ein eigener dauerhafter CA-Kandidat außerhalb der Tests
+ist inzwischen lokal angelegt und mit frischer lesender Trustvorschau geprüft;
+reale Runtimeidentitäten bleiben privat. Die Importtransaktion ist mit eigenen
+Datei-/ACL-/Lockfixtures und injizierten Storegrenzen geprüft. Operative
+SQL-Bindungen, echter neu importierter Trust, Clientverbindungen und die
 gesamte TLS-Matrix bleiben `NOT_EXECUTED`. Die noch offenen D1–D4-Parameter
 werden vor dem jeweils betroffenen mutierenden Scope konkret abgenommen.

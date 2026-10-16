@@ -23,7 +23,7 @@ Die private [Windows-Kontextvorschau](../Documentation/Architecture/AUTHENTICATE
 ergänzt geschlossene Client-/Signierkontextanfragen und liest nach expliziter
 Prozesswahl native Token-/Profil-/Hostmarker- und Client-Diskmetadaten.
 Referenzen bleiben unregistriert; `Ready` und `MutationAllowed` bleiben false.
-Registrytransaktion, Key-/Trustaktionen und native TLS-Qualifikation sind offen.
+Operative Registrytransaktion, Trustaktionen und native TLS-Qualifikation sind offen.
 Der private [Offline-Referenzindex](../Documentation/Architecture/AUTHENTICATED_TLS_REGISTRY_INDEX.md)
 prüft inzwischen begrenzte UTF-8-Formen und Revisions-/Tombstoneübergänge.
 Native Payloads, Digestherkunft, Registrierung und Writer-/Crashabnahme
@@ -39,6 +39,23 @@ Dokumentübergänge. Die [lesende Rootbindung](../Documentation/Architecture/AUT
 vergleicht jetzt registrierte Windows-Rootmetadaten mit der bestehenden
 Registrydatei; der Befund bleibt nicht atomar und ohne Ausführungsautorität.
 Writer, dauerhafte Registrierung, Trustscope und native Qualifikation fehlen.
+Der [private Windows-CA-Kandidat](../Documentation/Architecture/AUTHENTICATED_TLS_CA_CANDIDATE.md)
+ergänzt jetzt ein festes RSA-3072-/SHA-256-Profil, geschützte private ACLs,
+DPAPI-CurrentUser-PKCS8 und eine lesende CurrentUser/Root-Trust-Vorschau.
+Rootmarker-/Katalogbindung wird ohne erfundene Registrydatei frisch gelesen.
+Kandidaten bleiben `UNREGISTERED_UNQUALIFIED`; native Importabnahme, allgemeiner
+Writer und echte TLS-Lab-Abnahme fehlen. Inzwischen existiert ein eigener dauerhafter Kandidat
+außerhalb der Tests; DPAPI-Reopen/Sign/Verify und frische lesende Trustvorschau
+bestanden lokal. Runtimeidentitäten bleiben ausschließlich privat.
+Die [private Trust-Importtransaktion](../Documentation/Architecture/AUTHENTICATED_TLS_TRUST_IMPORT.md)
+ergänzt jetzt exakte fünfminütige Freigabebindung, geschütztes Intent/Commit,
+kooperativen Lock und lesenden Status/Recovery. Tests verwenden echte eigene
+Datei-/ACL-/Lockfixtures mit injizierten Storegrenzen. Konkrete menschliche
+Importfreigabe ist gesichert; reale Storemutation erfolgt erst separat nach
+Integration. Sie bleibt hier `NOT_EXECUTED`; keine Löschautorität, Registrierung
+oder TLS-Lab-Abnahme entsteht durch einen Importreceipt.
+Die neue private Lane verlangt PowerShell ab 7.5; tatsächlich lokal geprüft
+ist 7.6.6, die allgemeine Modul-Mindestversion bleibt 7.2.
 Authentifizierte TLS-Lab-Abnahme und Toolbelt SC-2026-045
 bleiben offen; die Metadatenprüfung hebt diesen Blocker nicht auf.
 Der Benutzer hat die Fortsetzung bis zur echten TLS-Lab-Abnahme ausdrücklich

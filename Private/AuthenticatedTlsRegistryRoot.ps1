@@ -21,10 +21,10 @@ function Read-LabTlsRegistryFileBytes {
     } finally {if($null -ne $stream){$stream.Dispose()}}
 }
 
-function Get-LabAuthenticatedTlsRegistryRoot {
+function Get-LabAuthenticatedTlsRootMetadata {
     [CmdletBinding()]
     param([object]$DataRoot,[object]$ControllerId,[object]$LocationId)
-    $bad=[pscustomobject][ordered]@{Success=$false;Value=$null;ErrorCode='TLS_REGISTRY_ROOT_INVALID'}
+    $bad=[pscustomobject][ordered]@{Success=$false;Value=$null;ErrorCode='TLS_ROOT_METADATA_INVALID'}
     try {
         # Nicht durch eine veraenderbare PowerShell-Plattformvariable umgehbar.
         if(-not [Runtime.InteropServices.RuntimeInformation]::IsOSPlatform([Runtime.InteropServices.OSPlatform]::Windows) -or
@@ -38,7 +38,6 @@ function Get-LabAuthenticatedTlsRegistryRoot {
         if($drive.DriveType -ne [IO.DriveType]::Fixed -or -not (Test-Path -LiteralPath $root -PathType Container)){return $bad}
         $markerPath=Join-Path $root '.sql-server-lab-root.json'
         $catalogPath=Join-Path $root 'Catalog/storage-locations.json'
-        $registryPath=Join-Path $root 'State/authenticated-tls/registry.json'
         # Der bestehende Reader verbietet Duplicate-/Casealias-Schluessel auch verschachtelt.
         $marker=Read-LabDiagnosticJson -Path $markerPath -MaximumBytes 16384 -MaximumDepth 8
         $catalog=Read-LabDiagnosticJson -Path $catalogPath -MaximumBytes 65536 -MaximumDepth 12
@@ -63,6 +62,23 @@ function Get-LabAuthenticatedTlsRegistryRoot {
             -not (Test-LabTlsRequestEnum $selected.VolumeId @($marker.VolumeId))){return $bad}
         $markerText=$marker|ConvertTo-Json -Depth 12 -Compress
         $catalogText=$catalog|ConvertTo-Json -Depth 12 -Compress
+        return [pscustomobject][ordered]@{Success=$true;Value=[pscustomobject][ordered]@{
+            DataRoot=$root;ControllerId=$marker.ControllerId;LocationId=$selected.LocationId
+            MarkerText=$markerText;CatalogText=$catalogText
+            RootMetadataDigest=(Get-LabTlsPayloadDigest @('SqlServerLab.TlsRootMetadata/0.1',$root,$markerText,$catalogText))
+        };ErrorCode=$null}
+    } catch {return $bad}
+}
+function Get-LabAuthenticatedTlsRegistryRoot {
+    [CmdletBinding()]
+    param([object]$DataRoot,[object]$ControllerId,[object]$LocationId)
+    $bad=[pscustomobject][ordered]@{Success=$false;Value=$null;ErrorCode='TLS_REGISTRY_ROOT_INVALID'}
+    try {
+        $metadata=Get-LabAuthenticatedTlsRootMetadata $DataRoot $ControllerId $LocationId
+        if(-not $metadata.Success){return $bad}
+        $root=$metadata.Value.DataRoot;$markerText=$metadata.Value.MarkerText;$catalogText=$metadata.Value.CatalogText
+        $markerPath=Join-Path $root '.sql-server-lab-root.json';$catalogPath=Join-Path $root 'Catalog/storage-locations.json'
+        $registryPath=Join-Path $root 'State/authenticated-tls/registry.json'
         $bytes=Read-LabTlsRegistryFileBytes $registryPath
         $parsed=Read-LabAuthenticatedTlsRegistryDocument $bytes
         if(-not $parsed.Success -or -not [string]::Equals($parsed.Value.RegistryDocument.Index.ControllerId,$ControllerId,[StringComparison]::Ordinal) -or
@@ -77,7 +93,7 @@ function Get-LabAuthenticatedTlsRegistryRoot {
             -not [string]::Equals($fileDigest,[Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($again)).ToLowerInvariant(),[StringComparison]::Ordinal)){return $bad}
         $rootDigest=Get-LabTlsPayloadDigest @('SqlServerLab.TlsRegistryRootMetadata/0.1',$root,$markerText,$catalogText,$fileDigest)
         return [pscustomobject][ordered]@{Success=$true;Value=[pscustomobject][ordered]@{
-            Status='REGISTERED_ROOT_METADATA_MATCH';DataRoot=$root;ControllerId=$marker.ControllerId;LocationId=$selected.LocationId;RegistryPath=$registryPath
+            Status='REGISTERED_ROOT_METADATA_MATCH';DataRoot=$root;ControllerId=$metadata.Value.ControllerId;LocationId=$metadata.Value.LocationId;RegistryPath=$registryPath
             RegistryDocument=$parsed.Value.RegistryDocument;RegistryByteSha256=$fileDigest;ContentDigest=$parsed.Value.ContentDigest;RootMetadataDigest=$rootDigest
             RootBindingStatus='REGISTERED_METADATA_MATCH';NativeBindingStatus='NOT_EXECUTED';RegistrationStatus='NOT_EXECUTED';QualificationStatus='NOT_EXECUTED'
             SnapshotStatus='NON_ATOMIC_READ';Ready=$false;MutationAllowed=$false

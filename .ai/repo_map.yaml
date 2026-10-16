@@ -873,6 +873,12 @@ sources_of_truth:
   authenticated_tls_registry_root_contract: Documentation/Architecture/AUTHENTICATED_TLS_REGISTRY_ROOT.md
   authenticated_tls_registry_root: Private/AuthenticatedTlsRegistryRoot.ps1 # read-only registered local Windows root metadata and fixed registry file; non-atomic observation, no registration/authority
   validation_authenticated_tls_registry_root: Tests/Static/Invoke-AuthenticatedTlsRegistryRootChecks.ps1 # coupled DiagnosticBundleReader, request/index/payload/document; own synthetic files only, StorageContract producer preserved
+  authenticated_tls_ca_candidate_contract: Documentation/Architecture/AUTHENTICATED_TLS_CA_CANDIDATE.md
+  authenticated_tls_ca_candidate: Private/AuthenticatedTlsCaCandidate.ps1 # private Windows PS>=7.5; protected RSA/DPAPI candidate, read-only CurrentUser Root preview; UNREGISTERED_UNQUALIFIED, no import/SQL/provider authority
+  validation_authenticated_tls_ca_candidate: Tests/Static/Invoke-AuthenticatedTlsCaCandidateChecks.ps1 # coupled Root metadata/request/payload/context/pathguards; native Windows crypto/ACL/DPAPI in own temp fixtures, not pure offline or TLS acceptance
+  authenticated_tls_trust_import_contract: Documentation/Architecture/AUTHENTICATED_TLS_TRUST_IMPORT.md
+  authenticated_tls_trust_import: Private/AuthenticatedTlsTrustImport.ps1 # private Windows CurrentUser Root public-DER lane, exact approval + protected intent/commit/cooperative lock; no removal/registration/TLS qualification
+  validation_authenticated_tls_trust_import: Tests/Static/Invoke-AuthenticatedTlsTrustImportChecks.ps1 # coupled candidate/root/request/payload/context/pathguard; own real private file/ACL/lock fixtures + injected store boundaries, native store mutation NOT_EXECUTED
   test_group_power_guidance: Private/TestGroupGuidance.ps1
   validation_test_group_power_guidance: Tests/Static/Invoke-TestGroupGuidanceChecks.ps1
   validation_nightly_authorization: Tests/Static/Fixtures/CiStrategyNightlyAuthorizationChecks.ps1

@@ -175,12 +175,21 @@ vollständige Binderqualifikation und spätere Key-/Zertifikatsrecords offen.
 Die geschlossene Registry-Gesamtform mit vollständiger Payload-/Index-/
 Digestzuordnung und Dokumentübergängen ist offline implementiert und
 synthetisch geprüft. Die lesende Windows-Rootbindung mit fester Registrydatei
-ist implementiert und an eigenen synthetischen Files geprüft. Als Nächstes
-die private Registrytransaktion mit frischer Kontextbindung, privatem
-Zugriffsschutz und nativen Crash-/Parallelitätsfällen gemäß obigem Vertrag.
-Keine automatische Pfadadoption; noch keine native Registrierung oder Mutation.
-Die Registrytransaktion folgt erst nach diesen vollständigen Verträgen;
-CA-Keyschutz und konkrete Mutationsfreigaben bleiben separat.
+ist implementiert und an eigenen synthetischen Files geprüft. Die private
+Registrytransaktion mit frischer Kontextbindung, privatem Zugriffsschutz und
+nativen Crash-/Parallelitätsfällen gemäß obigem Vertrag bleibt offen.
+Vorgezogen ist der [Windows-CA-Kandidat](../Architecture/AUTHENTICATED_TLS_CA_CANDIDATE.md)
+mit eigenem geschütztem DPAPI-Key und lesender Trust-Vorschau; ausschließlich
+eigene Tempfixtures liefern lokale native Kryptoevidence. Der Kandidat ist
+ausdrücklich `UNREGISTERED_UNQUALIFIED` und umgeht keine Registrytransaktion.
+Keine automatische Pfadadoption, native Registrierung oder Trustmutation.
+Operativer CA-Keyschutz und konkrete Mutationsfreigaben bleiben separat.
+Der getrennte [private Trustimport](../Architecture/AUTHENTICATED_TLS_TRUST_IMPORT.md)
+ergänzt jetzt eigene geschützte Freigabe-/Intent-/Commitdateien außerhalb des
+Kandidaten und lesenden Status. Er ist kein allgemeiner Registrywriter und
+registriert keine AuthorityRef oder CA. Ein eigener dauerhafter Kandidat und
+seine konkrete gesicherte menschliche Importfreigabe existieren; die native
+Storemutation ist durch die injizierten Storetests weiterhin nicht ausgeführt.
 Die bereits vorhandenen `ClientRef`-/`AuthorityRef`-Anfragen bleiben bis dahin
 unaufgelöst. Native TLS-, Client- und Mindestlaufzeitabnahmen werden durch
 diese Planung nicht ersetzt.

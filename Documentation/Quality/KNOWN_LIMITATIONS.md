@@ -2358,8 +2358,28 @@ Writer, Trustscope, tatsächliche Registrierung, Key-/Zertifikatsrecords und
 vollständige Binderqualifikation bleiben offen. Der semantische Dokumentdigest belegt weder Dateibytes,
 Compare-and-swap, Herkunft noch Autorisierung. Toolbelt SC-2026-045 erhält
 dadurch keine authentifizierte TLS-Lab-Freigabe.
+Der [private Windows-CA-Kandidat](../Architecture/AUTHENTICATED_TLS_CA_CANDIDATE.md)
+ergänzt jetzt ein festes CA-Profil, geschützte private Dateirechte,
+DPAPI-CurrentUser-PKCS8 und die ReadOnly-CurrentUser/Root-Vorschau.
+Er bleibt `UNREGISTERED_UNQUALIFIED`. Native Windows-Krypto-/ACL-/DPAPI-
+Fixtures sind lokale Teilnachweise. Eine eigene dauerhafte CA außerhalb der
+Tests ist inzwischen lokal angelegt; DPAPI-Reopen/Sign/Verify und frische
+lesende Trustvorschau bestanden. Die private
+[Importtransaktion](../Architecture/AUTHENTICATED_TLS_TRUST_IMPORT.md) ergänzt
+exakte Freigabebindung, geschütztes Intent/Commit, kooperativen Lock und
+lesenden Recoverybefund. Die konkrete menschliche Freigabe ist gesichert;
+reale Storemutation ist von ihren Tests weiterhin `NOT_EXECUTED`. Synchrone
+native Add-Laufzeit und Policy-/UI-Verhalten sind nicht qualifiziert. Kein
+Importreceipt belegt globale Store-Atomizität, exklusive Nutzung oder Removal-
+Autorität. Operative Registry, SQL-Bindung und TLS-Lab-Abnahme fehlen weiterhin.
+Die private Fähigkeit sperrt Nicht-Windows und Engines
+vor 7.5 vor I/O; lokal nativ geprüft ist 7.6.6, kein 7.5-/7.2-Nachweis.
+DPAPI ist profilgebunden; Keyverlust, Administratoren, feindlicher Code mit
+derselben SID und nicht kooperierende Pfad-/ACL-Races werden dadurch nicht
+gelöst. Eigene Teilzustände ergeben sichtbaren Recoverybedarf; kein allgemeiner
+Writer-/Crash-/Cleanupvertrag oder automatische Adoption entsteht.
 Hyper-V, echte Kontextregistrierung,
-Backend-/Keyschutzqualifikation, Signierung, Storepreview/-import, Journal,
+vollständige Backend-/Keyschutzqualifikation, operative Signierung, Storeimport, Journal,
 Erneuerung und Recovery bleiben offen; Export und Providerverhalten werden
 durch diese privaten Slices nicht geändert.
 
