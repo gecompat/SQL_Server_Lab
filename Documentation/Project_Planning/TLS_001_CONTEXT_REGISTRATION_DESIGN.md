@@ -215,7 +215,10 @@ mit neuem Key für beide Windows-Stacks. Vollständige Matrix und qualifizierter
 Export bleiben offen; keine Registrierung oder zusätzliche Ausführungsautorität.
 Die separate [Podman-Probe](../Quality/TLS_PODMAN_WINDOWS_SQL2025_ACCEPTANCE_2026-10-16.md)
 bestand ebenfalls alle acht Windows-Clientfälle für SQL 2025 CU9 samt eigenem
-Cleanup und Schutzvergleich; Linuxclients und Hyper-V sind dadurch nicht belegt.
+Cleanup und Schutzvergleich. Die spätere [Container-Versionsmatrix](../Quality/TLS_WINDOWS_CONTAINER_VERSION_MATRIX_2026-10-16.md)
+bestand dieselben acht Windows-Clientfälle separat mit Docker und Podman für
+SQL 2019 CU32 und SQL 2022 CU27 samt eigenem Cleanup und frischem Schutzvergleich.
+Linuxclients, Hyper-V, operative Registry und Export sind dadurch nicht belegt.
 Referenzen bleiben weiterhin
 unaufgelöst. Native TLS-, Client- und Mindestlaufzeitabnahmen werden durch
 diese Planung nicht ersetzt.

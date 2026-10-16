@@ -67,8 +67,10 @@ Genau ein Implementierer, unabhängiger Review; Kosten und Tokenverbrauch unbeka
 ## Verbleibende Grenze
 
 Der Nachweis gilt für diese Windowsclients, Podman und SQL Server 2025 CU9.
-Linuxclients, Hyper-V, weitere SQL-Versionen, Trustdrift und TLS-Abbruch/Resume
-bleiben eigene Nachweise. Operative Registry, frische Qualifikationsrecords,
+Die spätere [Container-Versionsmatrix](TLS_WINDOWS_CONTAINER_VERSION_MATRIX_2026-10-16.md)
+bestand dieselben acht Windows-Clientfälle separat für SQL 2019 CU32 und
+SQL 2022 CU27 mit Docker und Podman, jeweils mit eigenem Cleanup.
+Linuxclients, Hyper-V, Trustdrift und TLS-Abbruch/Resume bleiben eigene Nachweise. Operative Registry, frische Qualifikationsrecords,
 V2-Export, koordinierter Consumer-Cutover und tatsächlicher Toolbelt-Labpreflight
 fehlen weiterhin. Toolbelt SC-2026-045 bleibt gesperrt.
 

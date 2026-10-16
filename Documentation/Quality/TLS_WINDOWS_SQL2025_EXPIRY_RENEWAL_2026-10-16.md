@@ -75,7 +75,9 @@ Dies qualifiziert die beschriebenen Windows-Clientfälle für diesen eigenen
 Docker-SQL-2025-CU9-Scope. Operative Registry, AuthorityRef, gebundene frische
 Qualifikationsrecords, V2-Export und koordinierter Consumer-Cutover fehlen
 weiterhin. Trustdrift, Abbruch/Resume des TLS-Lifecycles, Linuxclients,
-Hyper-V und die weiteren SQL-Versionen bleiben eigene Nachweise. Die spätere
+Hyper-V bleibt separat. Die spätere [Container-Versionsmatrix](TLS_WINDOWS_CONTAINER_VERSION_MATRIX_2026-10-16.md)
+bestand dieselben acht Windows-Clientfälle separat für SQL 2019 CU32 und
+SQL 2022 CU27 mit Docker und Podman, jeweils mit eigenem Cleanup. Die spätere
 [Podman-Probe](TLS_PODMAN_WINDOWS_SQL2025_ACCEPTANCE_2026-10-16.md) bestand
 separat dieselben acht Windows-Clientfälle für SQL 2025 CU9.
 Toolbelt SC-2026-045 bleibt bis zum policykonformen Export und tatsächlichen

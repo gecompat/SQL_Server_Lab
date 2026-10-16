@@ -241,8 +241,16 @@ Der getrennte eigene [Podman-Lauf](TLS_PODMAN_WINDOWS_SQL2025_ACCEPTANCE_2026-10
 bestand alle acht Windows-Clientfälle für SQL 2025 CU9, inklusive echtem Ablauf,
 neuem Key bei Erneuerung und beiden verschlüsselten positiven SQL-Abfragen.
 Eigener Cleanup und frischer Bestandsdateivergleich bestanden. Keine zusätzlichen
-Truststores oder Host-Runtimes wurden angelegt; Linuxclients, Hyper-V und weitere
-SQL-Versionen bleiben separat.
+Truststores oder Host-Runtimes wurden angelegt. Die nachfolgende
+[Container-Versionsmatrix](TLS_WINDOWS_CONTAINER_VERSION_MATRIX_2026-10-16.md)
+bestand separat je acht Windows-Clientfälle für Docker und Podman mit SQL 2019
+CU32 und SQL 2022 CU27: unvertraute Kette, echter Ablauf, Erneuerung mit neuem
+Key und falsches SAN. Beide positiven Stacks lieferten den tatsächlichen
+SQL-Build und `encrypt_option=TRUE`; alle eigenen Runs entfernt, frische
+Bestandsdateivergleiche bestanden. Dafür wurde derselbe offizielle feste
+SQL-2019-Image-Digest begrenzt in beide Provider-Caches geladen, keine Host-Runtime gestartet oder
+zusätzliche Truständerung vorgenommen. Linuxclients, Hyper-V, Trustdrift,
+TLS-Abbruch/Resume, operative Registry und qualifizierter Export bleiben separat.
 Bereinigte Einzelheiten: [native Probe](TLS_CA_TRUST_ACCEPTANCE_2026-10-16.md).
 
 Die ergänzte private Kurzlaufzeit ist lokal mit 69/0 eigenen Crypto-/DPAPI-/

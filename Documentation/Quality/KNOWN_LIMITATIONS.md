@@ -2417,7 +2417,10 @@ belegt beide Clientgegenfälle für unvertraute Kette, echten Ablauf und falsche
 SAN sowie beide erneuten positiven SQL-Abfragen nach neuem Key/Leaf.
 Die separate [Podman-Probe](TLS_PODMAN_WINDOWS_SQL2025_ACCEPTANCE_2026-10-16.md)
 bestand dieselben acht Windows-Clientfälle für SQL 2025 CU9 mit eigenem Cleanup
-und frischem Schutzvergleich. Linuxclients, Hyper-V, weitere SQL-Versionen
+und frischem Schutzvergleich. Die spätere [Container-Versionsmatrix](TLS_WINDOWS_CONTAINER_VERSION_MATRIX_2026-10-16.md)
+bestand dieselben acht Windows-Clientfälle separat mit Docker und Podman für
+SQL 2019 CU32 und SQL 2022 CU27 samt eigenem Cleanup und frischem Schutzvergleich.
+Linuxclients, Hyper-V, Trustdrift, TLS-Abbruch/Resume, operative Registry
 und vollständige Exportabnahme bleiben offen.
 Frist höchstens 30 Tage innerhalb der CA-Frist, keine automatische Kürzung.
 Der bestehende Tagespfad bleibt bei 1 bis 30 ganzen Tagen; die alternative
