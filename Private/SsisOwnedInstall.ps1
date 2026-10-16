@@ -233,7 +233,10 @@ function Install-LabSsisExistingComponent {
         if(-not $ready.Ready){throw 'SSIS_COMPONENT_RESTART_NOT_READY'}
         $verified=@(Invoke-HyperVPowerShellDirect -VMName ([string]$context.Instance.vmName) -ExpectedRunId $RunId.ToString() `
             -ExpectedScopeId ([string]$context.Run.scopeId) -ExpectedVmId ([guid]$context.Instance.vmId) -Credential $credential `
-            -ScriptBlock (Get-LabSsisInstallGuestProbe) -TimeoutSeconds 120 -ErrorAction Stop)
+            # The guest probe may wait up to 180 seconds for SQL's local
+            # transport after the mandatory reboot; the enclosing transport
+            # budget must exceed that bounded recovery window.
+            -ScriptBlock (Get-LabSsisInstallGuestProbe) -TimeoutSeconds 300 -ErrorAction Stop)
         if($verified.Count -ne 1 -or [string]$verified[0].Status -ne 'IS_COMPONENTS_AND_SQL_VERIFIED'){throw 'SSIS_COMPONENT_POSTCONDITION_FAILED'}
         $receipt=[pscustomobject][ordered]@{ContractVersion='SqlServerLab.SsisComponent/1.0';RunId=$RunId.ToString();InstanceId=$InstanceId;OperationId=$operationId;Status='INSTALLED_AND_RESTART_VERIFIED';EngineMajor=17;SsisMajor=17;MediaSha256=$media.Sha256;Cleanup='REMOVE_RUN_TO_CLEANUP'}
         Write-LabArtifactJsonAtomic -Path (Join-Path $context.Directory 'ssis-component-receipt.json') -InputObject $receipt
