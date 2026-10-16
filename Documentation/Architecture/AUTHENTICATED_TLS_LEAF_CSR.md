@@ -33,7 +33,8 @@ Grenzen werden vor Kandidat-/Key-I/O abgelehnt. Beginn bleibt ausschließlich
 die tatsächliche auf Sekunden abgerundete UTC-Zeit, Ende liegt innerhalb der
 CA-Frist. Keine Rückdatierung, Caller-Uhr oder automatische Kürzung.
 Die kurze Laufzeit ist keine Registry-, Provider- oder TLS-Qualifikation;
-ihre echten Client-Ablaufgegenfälle sind noch nicht ausgeführt.
+die späteren [echten Windows-Ablaufgegenfälle](../Quality/TLS_WINDOWS_SQL2025_EXPIRY_RENEWAL_2026-10-16.md)
+bestanden mit beiden Stacks. Weitere Client-/Providerkombinationen bleiben offen.
 `Identity` ist genau die
 geschlossene native Objektform `{Kind,Value}` des
 [Anfragevertrags](AUTHENTICATED_TLS_REQUEST.md): kanonische IP oder expliziter

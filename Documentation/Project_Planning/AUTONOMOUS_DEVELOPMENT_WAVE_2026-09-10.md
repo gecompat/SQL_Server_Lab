@@ -110,9 +110,12 @@ Clientproben waren zunächst offen. Die spätere
 [Windows-Probe](../Quality/TLS_WINDOWS_SQL2025_PARTIAL_ACCEPTANCE_2026-10-16.md)
 bestand mit beiden strikten positiven Stacks, .NET-Gegenfällen für unvertraute
 Kette und falsches SAN am gleichen IPv4-Endpunkt sowie vollständigem Cleanup.
-Die private Kurzlaufzeit von 30–300 Sekunden ermöglicht nun die Vorbereitung
-echter Ablaufgegenfälle ohne Uhränderung. CLI-Gegenfälle, Ablauf/Renewal,
-komplette TLS-Matrix, Registry und Toolbelt SC-2026-045 bleiben offen.
+Die private Kurzlaufzeit von 30–300 Sekunden wurde anschließend in der
+[echten Ablauf-/Erneuerungsprobe](../Quality/TLS_WINDOWS_SQL2025_EXPIRY_RENEWAL_2026-10-16.md)
+genutzt: Beide Windows-Stacks lehnten unvertraute Kette, echten Ablauf und
+falsches SAN ab; Erneuerung mit neuem Key bestand mit verschlüsselter SQL-Abfrage.
+Eigener Cleanup und Bestandsdateierhalt bestanden. Komplette TLS-Matrix,
+Registry, qualifizierter Export und Toolbelt SC-2026-045 bleiben offen.
 Der Benutzer verlangt ausdrücklich die autonome Fortsetzung bis zur echten
 TLS-Lab-Abnahme und gezielte Fragen bei konkret fehlenden Freigaben.
 Schutzgrenzen bestehen fort; reine Offlinefortschritte beenden diesen Auftrag nicht.
