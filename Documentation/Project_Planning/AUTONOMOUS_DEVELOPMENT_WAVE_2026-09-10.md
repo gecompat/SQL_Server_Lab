@@ -43,9 +43,15 @@ Der folgende private
 bindet echte RunId und ausdrückliche Instanzwahl unter registriertem Root an
 gespeicherte Docker-/Podman-Container-, Versions- und Endpointdaten. Er prüft
 keine Live-Runtime und erteilt keine Ausführungsautorität; Hyper-V bleibt für
-diesen Adapter gesperrt. Nächster Scope ist die konkrete Client-/CA-
-Kontextregistrierung und lesende Backend-Discovery; native Target-/Ownership-
-und TLS-Abnahme bleiben erforderlich, vor mutierender PKI-/Providerumsetzung.
+diesen Adapter gesperrt. Die private
+[API-Metadatenprüfung](../Architecture/AUTHENTICATED_TLS_BACKEND_METADATA.md)
+entdeckt jetzt sechs .NET-Signaturen im ausdrücklich ausgewählten Prozess;
+Ready und Mutationsautorität bleiben false. Der
+[Registrierungsentwurf](TLS_001_CONTEXT_REGISTRATION_DESIGN.md) trennt Client,
+Signierkontext und CA, ohne neue Bindungen anzulegen. Nächster Scope ist ein
+geschlossener Registrierungsantrag mit lesender Windows-Kontextvorschau;
+native Target-/Ownership-, Backend-/Keyschutz- und TLS-Abnahme bleiben
+erforderlich, vor mutierender PKI-/Providerumsetzung.
 
 ## Historischer Abschluss vom 2026-10-09
 

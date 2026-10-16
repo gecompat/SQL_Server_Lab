@@ -9,6 +9,30 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $failures = [System.Collections.Generic.List[string]]::new()
 $passed = 0
 $selector = Join-Path $repoRoot 'Tools/Get-CiTestSelection.ps1'
+$tlsBackendCheck = 'Invoke-AuthenticatedTlsBackendChecks.ps1'
+foreach ($path in @('Private/AuthenticatedTlsBackend.ps1','Tests/Static/Invoke-AuthenticatedTlsBackendChecks.ps1')) {
+    foreach ($normalized in @($path,$path.Replace('/','\'))) {
+        $selected = & $selector -ChangedPath @($normalized)
+        Add-CheckResult "TLS-B09 exakte API-Metadatenquelle $normalized" ($tlsBackendCheck -in $selected.StaticChecks -and
+            -not $selected.Docker -and -not $selected.Podman -and -not $selected.Mixed -and -not $selected.HyperV -and -not $selected.Adapter)
+    }
+}
+foreach ($path in @('Private/Other/AuthenticatedTlsBackend.ps1','Private/AuthenticatedTlsBackendOther.ps1','Private/authenticatedTlsBackend.ps1')) {
+    $selected = & $selector -ChangedPath @($path)
+    Add-CheckResult "TLS-B09 kein Teilnamen-/Casefallback $path" ($tlsBackendCheck -notin $selected.StaticChecks -and
+        $selected.Docker -and $selected.Podman -and $selected.Mixed -and $selected.HyperV -and $selected.Adapter)
+}
+foreach ($other in @('Private/UnmappedSynthetic.ps1','Private/CleanupEngine.ps1','Providers/Podman/PodmanProvider.ps1')) {
+    $baseline = & $selector -ChangedPath @($other)
+    $union = & $selector -ChangedPath @('Private/AuthenticatedTlsBackend.ps1',$other)
+    $preserved = $true
+    foreach ($provider in @('Docker','Podman','Mixed','HyperV','Adapter')) {
+        $preserved = $preserved -and $union.$provider -eq $baseline.$provider -and
+            ($union.Capabilities.$provider -join ',') -ceq ($baseline.Capabilities.$provider -join ',')
+    }
+    Add-CheckResult "TLS-B09 gemischte Runtimeauswahl erhalten $other" ($preserved -and $tlsBackendCheck -in $union.StaticChecks -and
+        @($baseline.StaticChecks | Where-Object { $_ -notin $union.StaticChecks }).Count -eq 0)
+}
 $tlsTargetCheck = 'Invoke-AuthenticatedTlsTargetChecks.ps1'
 foreach ($path in @('Private/StateMachine.ps1','Private/DesiredState.ps1','Private/StorageContract.ps1','Private/VersionCatalog.ps1','Catalogs/sql-server-versions.json')) {
     $selected = & $selector -ChangedPath @($path)
