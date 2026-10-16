@@ -38,8 +38,14 @@ fokussiert bestanden 339 synthetische Prüfungen. Zwei konkrete Reviewbefunde
 wurden mit ursprünglicher Fehlerreproduktion korrigiert und regressionsgeprüft.
 Ausgeführte Nachweise und Mindestlaufzeitgrenze stehen in der
 [Validierungsstrategie](../Quality/LOCAL_VALIDATION_STRATEGY.md#privater-tls-anfragevertrag-tls001-request-01).
-Nächster Scope ist eine besitzgebundene lesende Target-/Clientbindung mit
-Backend-Discovery, vor mutierender PKI- oder Providerumsetzung.
+Der folgende private
+[Zielmetadatenresolver](../Architecture/AUTHENTICATED_TLS_TARGET_METADATA.md)
+bindet echte RunId und ausdrückliche Instanzwahl unter registriertem Root an
+gespeicherte Docker-/Podman-Container-, Versions- und Endpointdaten. Er prüft
+keine Live-Runtime und erteilt keine Ausführungsautorität; Hyper-V bleibt für
+diesen Adapter gesperrt. Nächster Scope ist die konkrete Client-/CA-
+Kontextregistrierung und lesende Backend-Discovery; native Target-/Ownership-
+und TLS-Abnahme bleiben erforderlich, vor mutierender PKI-/Providerumsetzung.
 
 ## Historischer Abschluss vom 2026-10-09
 

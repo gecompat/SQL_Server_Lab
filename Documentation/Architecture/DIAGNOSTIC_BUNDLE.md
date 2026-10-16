@@ -41,6 +41,9 @@ ausgeschlossen. Der Storage-Katalog des angeforderten Roots wird gelesen;
 globale Storage-Konfiguration und fremde Runs werden nicht inventarisiert.
 Dies ist lokale Metadatenkonsistenz, keine kryptographische Vertrauens- oder
 Live-Runtimeprüfung gegen einen Angreifer mit Schreibrechten auf diese Dateien.
+Die gemeinsam mit dem privaten [TLS-Metadatenresolver](AUTHENTICATED_TLS_TARGET_METADATA.md)
+verwendeten Root-/Controller-/Scope-/Vertragsvergleiche sind ordinal;
+kulturell ignorierbare Zusatzzeichen begründen keine Identitätsgleichheit.
 
 ## Abschnitte und Bedeutung
 

@@ -21,6 +21,45 @@ ein Dokumentationsdateiname allein verlangt keinen Providerstart. Änderungen
 an gemeinsamem Ownership/Cleanup verlangen weiterhin die breite Matrix.
 [Auswahl, Cachegrenzen und Ausnahmen](FOUNDATION_1_21_PROCESSING_ASSESSMENT.md).
 
+## Private TLS-Zielmetadaten (TLS001-BINDING-01)
+
+Der [private Resolver](../Architecture/AUTHENTICATED_TLS_TARGET_METADATA.md)
+bestand am 2026-10-16 im korrigierten Abschlusslauf unter PowerShell 7.6.6/
+.NET 10.0.12 mit 375 PASS / 0 FAIL. Er bindet registrierten Root, wirkliche
+RunId und ausdrückliche Instanzwahl an gespeicherte Docker-/Podman-Metadaten.
+Die Suite verwendet echte moderne Run-/Sollproduzenten mit synthetischem
+Storage. Sie prüft unabhängige Projektionen für beide Provider, drei
+angeforderte Versionen und IP-/DNSformen sowie widersprüchliche/fehlende
+Metadaten, Integer-/Endpointgrenzen, StrictMode, unveränderte Dateien und
+gesperrte Connection-/Secretdateien. Ordinalregressionen für U+200B/U+00AD
+unter en-US, de-DE und tr-TR erfassen auch die gemeinsam verwendete
+Root-/Controller-/Scope-/Vertragsbindung des Diagnose-Readers. Dessen
+relevante Identitätsvergleiche sind deshalb nun explizit ordinal.
+Der unabhängige Quellreview identifizierte einen verbleibenden kulturellen
+Sort-/Join-Vergleich der Teilrun-Instanzliste als P2. Auch dieser Vergleich
+ist nun explizit ordinal; zusätzliche Negativfixtures prüfen die Liste mit
+beiden unsichtbaren Zeichen unter allen drei Kulturen. Der Befund beruhte
+auf Quellprüfung und bereits belegter Vergleichssemantik; ein ausgeführter
+ursprünglicher Dateifehlernachweis wird daraus nicht abgeleitet.
+
+Selektor und Nightly registrieren die neue Suite; gekoppelte Reader-/Anfrage-
+und Produzentenquellen wählen sie ebenfalls. Nur die exakte neue private
+Produktdatei erhält eine Offline-Ausnahme; ähnliche Pfade und gemischte
+Runtimeänderungen erhalten die konservative Auswahl. Das ergänzt gezielte
+Assertions ohne zusätzliche Provider- oder Modellrunde. Der nötige
+unabhängige Review sowie lokale und exakte CI-Abschluss-Gates bleiben Pflicht.
+Die eingefrorene lokale Abschlussauswahl bestand mit TLS 375/0, CI-Strategie
+630/0, Diagnosebundle 123 Assertions, Dokumentation 1977/0, Pester 23/0,
+Privacy 3/0 und ScriptAnalyzer PASS bei bestehenden Warnungen/Baselines.
+Die Abschlussprüfung enthält auch den nichtpersistenten Fall.
+
+Dies ist keine native Provider-/SQL-/TLS-Matrix. Effektive Runtime-/Ownership-,
+Client-/CA-Registrierung, Backendfähigkeit, Schlüssel, Storepreview/-import,
+Journal, Exportcutover und PowerShell-7.2-Mindestlaufzeit bleiben für diesen
+Slice `NOT_EXECUTED`. Hyper-V wird vor Metadatenzugriff abgewiesen. Ausschließlich
+eigene synthetische temporäre Dateien wurden angelegt und pfadgeprüft entfernt;
+die geschützten sechs Ziele und SSISDB-Quelle wurden nicht verwendet.
+
 ## Privater TLS-Anfragevertrag (TLS001-REQUEST-01)
 
 Die [geschlossene Formprüfung](../Architecture/AUTHENTICATED_TLS_REQUEST.md)

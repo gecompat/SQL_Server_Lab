@@ -2309,9 +2309,14 @@ und automatische Gastumschaltung.
 Der [private TLS-Anfragevalidator](../Architecture/AUTHENTICATED_TLS_REQUEST.md)
 prüft ausschließlich geschlossene Objektformen im Speicher. Referenzen,
 Profilwerte und Clienttupel belegen keine vorhandene CA, Backendfähigkeit,
-Ownership, Freigabe oder TLS-Qualifikation. Target-/Clientbindung, Signierung,
-Storepreview/-import, Journal, Erneuerung und Recovery bleiben offen; Export
-und Providerverhalten werden durch diesen ersten Code-Slice nicht geändert.
+Ownership, Freigabe oder TLS-Qualifikation. Die private
+[Zielmetadatenbindung](../Architecture/AUTHENTICATED_TLS_TARGET_METADATA.md)
+ergänzt registrierten Root, echte RunId und ausdrückliche Instanzwahl sowie
+exakte gespeicherte Docker-/Podman-Container-/Versions-/Endpointdaten.
+Sie ist keine Live-Runtime-/Ownershipprüfung oder Autorisierung. Hyper-V,
+Client-/CA-Registrierung, Backend-Discovery, Signierung, Storepreview/-import,
+Journal, Erneuerung und Recovery bleiben offen; Export und Providerverhalten
+werden durch diese privaten Slices nicht geändert.
 
 Quellenprüfung vom 2026-10-15: `Public/TestEnvironment.ps1`, das Schema
 `SqlServerLab.TestEnvironment/1.0` und der exportierte Agenten-Prompt verlangen
