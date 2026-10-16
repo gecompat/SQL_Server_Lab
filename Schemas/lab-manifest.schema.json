@@ -313,6 +313,23 @@
         "serverConfig": {
           "$ref": "#/definitions/serverConfig"
         },
+        "ssisCatalogFixture": {
+          "type": "object",
+          "description": "Installiert vorhandene IS-2025-Medien additiv und erzeugt SSISDB mit drei eigenen Analysefällen. Nur eine Hyper-V-Windows-SQL-2025-Instanz; keine Downloads.",
+          "required": ["mediaRoot", "sqlMediaPath", "expectedSqlMediaSha256"],
+          "properties": {
+            "mediaRoot": {
+              "type": "string", "minLength": 1,
+              "x-ui": { "label": "Vorhandener lokaler Medienroot", "pathKind": "directory", "pathBase": "manifest-directory", "pathScope": "host", "mustExistAtPlan": true, "createdByRuntime": false, "sideEffects": "Nur lokale hashgebundene Medien; kein Download." }
+            },
+            "sqlMediaPath": {
+              "type": "string", "minLength": 1,
+              "x-ui": { "label": "SQL-2025-ISO relativ zum Medienroot", "pathKind": "file", "pathBase": "ssis-media-root", "pathScope": "host", "mustExistAtPlan": true, "createdByRuntime": false, "sideEffects": "IS wird additiv installiert; anschließend werden SSISDB und drei eigene Analysefälle erzeugt." }
+            },
+            "expectedSqlMediaSha256": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" }
+          },
+          "additionalProperties": false
+        },
         "drives": {
           "type": "array",
           "description": "Virtuelle Laufwerke (Container-Volumes oder HyperV-VHDs). Simuliert Multi-Disk-Szenarien.",

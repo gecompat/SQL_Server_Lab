@@ -365,11 +365,25 @@ function Resolve-ManifestDefaults {
             serverConfig  = $null
             software      = @()
             postProvision = @()
+            ssisCatalogFixture = $null
             hyperv        = $null
         }
 
         if (-not $instance.provider) {
             $resolved.provider = Resolve-ProviderAutoSelect -Instance $instance
+        }
+        if($instance.ssisCatalogFixture){
+            if($resolved.provider -ne 'hyperv' -or $resolved.os -ne 'windows' -or
+                [string]$resolved.version -ne '2025' -or @($Manifest.instances).Count -ne 1){
+                throw 'SSIS_MANIFEST_SINGLE_WINDOWS_SQL_2025_REQUIRED'
+            }
+            $ssis=$instance.ssisCatalogFixture
+            $ssisRoot=if([IO.Path]::IsPathRooted([string]$ssis.mediaRoot)){[string]$ssis.mediaRoot}else{Join-Path $manifestDirectory ([string]$ssis.mediaRoot)}
+            $resolved.ssisCatalogFixture=[pscustomobject]@{
+                mediaRoot=[IO.Path]::GetFullPath($ssisRoot)
+                sqlMediaPath=[string]$ssis.sqlMediaPath
+                expectedSqlMediaSha256=[string]$ssis.expectedSqlMediaSha256
+            }
         }
         if($resolved.provider -eq 'hyperv'){
             $manifestLocale=$instance.windowsLocale

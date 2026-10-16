@@ -1,0 +1,26 @@
+{
+  "$schema": "lab-manifest.schema.json",
+  "name": "synthetic-ssis-analysis",
+  "description": "Lokalen Medienroot, ISO-Hash und veröffentlichtes Prepared-Artifact vor Ausführung einsetzen. Keine Downloads oder echten Zugangsdaten im Manifest.",
+  "instances": [{
+    "id": "primary",
+    "provider": "hyperv",
+    "os": "windows",
+    "version": "2025",
+    "windowsActivation": {
+      "ContractVersion": "SqlServerLab.WindowsActivationIntent/1.0",
+      "Strategy": "NotRequested",
+      "EgressPolicy": "Denied"
+    },
+    "hyperv": {
+      "preparedImageId": "hyperv-sql-prepared-sealed-0000000000000000000000000000000000000000000000000000000000000000",
+      "guestPasswordMode": "prompt",
+      "autostart": "off"
+    },
+    "ssisCatalogFixture": {
+      "mediaRoot": "../local-media",
+      "sqlMediaPath": "SQL/2025/Enterprise/ISO/SQLServer2025-x64-ENU-EntDev.iso",
+      "expectedSqlMediaSha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  }]
+}

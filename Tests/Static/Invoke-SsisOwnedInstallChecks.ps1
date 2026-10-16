@@ -74,12 +74,42 @@ try {
     [IO.File]::Delete($collisionSentinel)
     if([IO.Directory]::Exists($collisionDirectory)){[IO.Directory]::Delete($collisionDirectory)}
 }
-Check 'Nach dem Neustart wird der installierte SSIS-Dienst nur lokal und begrenzt nachgestartet' ($installerSource -match 'MsDtsServer170' -and $installerSource -match '\$service\.Start\(\)' -and $installerSource -match 'FromMinutes\(5\)' -and $installerSource -match 'SSIS_INSTALL_SERVICE_START_FAILED')
+Check 'SSISDB verlangt gemäß Microsoft keinen gestarteten Legacy-Paketdienst' ($installerSource -match 'MsDtsServer170' -and $installerSource -match 'LegacyServiceStatus' -and $installerSource -notmatch '\$service\.Start\(\)|\$service\.WaitForStatus\(|SSIS_INSTALL_SERVICE_START_FAILED')
 Check 'SQL-Postcondition wartet nach Neustart lokal und begrenzt auf den Diensttransport' ($installerSource -match '\$sqlDeadline=\[datetime\]::UtcNow\.AddSeconds\(180\)' -and $installerSource -match 'Pooling=False' -and $installerSource -match 'SSIS_INSTALL_SQL_LOCAL_READY_TIMEOUT' -and $installerSource -match 'Start-Sleep -Seconds 5')
 Check 'Der Gasttransport umfasst den begrenzten SQL-Readiness-Retry' ($installerSource -match 'Get-LabSsisInstallGuestProbe\) -TimeoutSeconds 300')
 Check 'SSISDB-Fixture bildet Erfolg, Fehler und ungestarteten Fall über Katalogausführungen ab' ($installerSource -match 'Success\.dtsx' -and $installerSource -match 'Failure\.dtsx' -and $installerSource -match 'Incomplete\.dtsx' -and $installerSource -match '\[catalog\]\.\[create_execution\]' -and $installerSource -match '\[catalog\]\.\[start_execution\]')
 Check 'SSISDB-Fixture bindet Katalognamen und Execution-IDs mit ihren echten SQL-Typen' ($installerSource -match 'SqlDbType\]::NVarChar,128' -and $installerSource -match 'SqlDbType\]::BigInt' -and $installerSource -notmatch 'Invoke-FixtureCommand[\s\S]*SqlDbType\]::Variant')
 Check 'SSISDB-Fixture löscht ausschließlich den eigenen Katalogordner' ($installerSource -match '\[catalog\]\.\[delete_folder\].*@folder_name=@folder' -and $installerSource -notmatch '(?i)(drop database\s+ssisdb|catalog\]\.\[delete_catalog)')
+$cleanupGuards=& {
+    $values=@{};$run=[guid]'11111111-1111-1111-1111-111111111111'
+    function Get-LabSsisPrerequisiteContext { [pscustomobject]@{Directory='synthetic'} }
+    function Read-LabDiagnosticJson {$receipt}
+    function Get-LabSecret {$calls++;throw 'SECRET_MUST_NOT_BE_READ'}
+    foreach($mode in @('folder-token','folder-id','operation')){
+        $receipt=[pscustomobject]@{RunId=$run.ToString();InstanceId='primary';SourceBinding='OWNED_EXISTING_HYPERV_RUN';OperationId=('ssis-install-'+('a'*32));FolderName=('LabFixture_'+('a'*12));FolderId=1}
+        switch($mode){'folder-token'{$receipt.FolderName='LabFixture_'+('b'*12)};'folder-id'{$receipt.FolderId=0};operation{$receipt.OperationId='invalid'}}
+        $calls=0;$blocked=$false
+        try {Remove-LabSsisExistingCatalogFixture -RunId $run -InstanceId primary -StateRoot synthetic}
+        catch {$blocked=$_.Exception.Message -eq 'SSIS_FIXTURE_CLEANUP_BINDING_INVALID'}
+        $values[$mode]=$blocked -and $calls -eq 0
+    }
+    $values
+}
+foreach($mode in $cleanupGuards.Keys){Check "Gezielter Cleanup verwirft veränderte Receipt vor Secret/Gast: $mode" $cleanupGuards[$mode]}
+$probeTry=@($catalogProbe.Ast.EndBlock.Statements|Where-Object {$_ -is [Management.Automation.Language.TryStatementAst]})[0]
+$probeFinally=[scriptblock]::Create(($probeTry.Finally.Statements.Extent.Text -join "`n"))
+$cleanupFailureCase=& {
+    $events=[Collections.Generic.List[string]]::new()
+    $connection=[pscustomobject]@{Events=$events};$connection|Add-Member -MemberType ScriptMethod -Name Dispose -Value {$this.Events.Add('connection-disposed')}
+    $catalogConnection=[pscustomobject]@{Events=$events}
+    $catalogConnection|Add-Member -MemberType ScriptMethod -Name CreateCommand -Value {throw 'SYNTHETIC_CLEANUP_FAILURE'}
+    $catalogConnection|Add-Member -MemberType ScriptMethod -Name Dispose -Value {$this.Events.Add('catalog-disposed')}
+    $folderCreated=$true;$RetainFolder=$false;$accepted=$false;$temporaryCreated=$false
+    $primaryFailure=[Management.Automation.ErrorRecord]::new([InvalidOperationException]::new('SYNTHETIC_PRIMARY'),'synthetic',[Management.Automation.ErrorCategory]::NotSpecified,$null)
+    & $probeFinally
+    [pscustomobject]@{Primary=$primaryFailure;Events=($events -join ',')}
+}
+Check 'Tatsächliches Gast-finally entsorgt Verbindungen trotz Cleanupfehler und bewahrt Primär-/Recoverybefund' ($cleanupFailureCase.Primary.Exception.Message -eq 'SYNTHETIC_PRIMARY' -and $cleanupFailureCase.Primary.Exception.Data['CleanupFailure'] -eq 'SSIS_FIXTURE_CLEANUP_FAILED' -and $cleanupFailureCase.Primary.Exception.Data['RecoveryRequired'] -and $cleanupFailureCase.Events -eq 'catalog-disposed,connection-disposed')
 
 $temporary=Join-Path ([IO.Path]::GetTempPath()) ('ssis-offline-'+[guid]::NewGuid().ToString('N'))
 $null=New-Item -ItemType Directory -Path $temporary

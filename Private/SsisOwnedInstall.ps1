@@ -272,6 +272,39 @@ function Install-LabSsisExistingComponent {
 # then invokes the same additive component installer as an existing run.  The
 # older OS_SEALED/full-engine routine below remains an installation-chain
 # acceptance helper only; it is not a provisioning shortcut.
+function Start-LabSsisOwnedProvisioningRun {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][guid]$RunId,[Parameter(Mandatory)][string]$StateRoot)
+    $null=Start-HyperVLabEnvironment -RunId $RunId.ToString() -SkipWindowsActivationReconcile -StateRoot $StateRoot
+    $startedLab=Get-HyperVLabWorkflowRun -RunId $RunId.ToString() -StateRoot $StateRoot
+    $vmStartDeadline=[datetime]::UtcNow.AddSeconds(60)
+    do {
+        $started=Get-HyperVManagedVM -VMName ([string]$startedLab.Instance.vmName) `
+            -ExpectedRunId $RunId.ToString() -ExpectedScopeId ([string]$startedLab.Run.scopeId)
+        if($started -and [string]$started.VM.Id -ne [string]$startedLab.Instance.vmId){throw 'SSIS_FIXTURE_VM_START_BINDING_INVALID'}
+        if($started -and [string]$started.VM.State -eq 'Running'){return}
+        Start-Sleep -Seconds 2
+    } while([datetime]::UtcNow -lt $vmStartDeadline)
+    throw 'SSIS_FIXTURE_VM_START_TIMEOUT'
+}
+
+function Invoke-LabSsisManifestProvision {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][guid]$RunId,[Parameter(Mandatory)][string]$InstanceId,
+        [Parameter(Mandatory)]$Intent,[Parameter(Mandatory)][string]$StateRoot)
+    try {
+        Start-LabSsisOwnedProvisioningRun -RunId $RunId -StateRoot $StateRoot
+        $null=Install-SqlServerLabSsisComponent -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot `
+            -MediaRoot $Intent.mediaRoot -SqlMediaPath $Intent.sqlMediaPath -ExpectedSqlMediaSha256 $Intent.expectedSqlMediaSha256 -Confirm:$false
+        New-SqlServerLabSsisCatalogFixture -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot -Confirm:$false
+    } catch {
+        $primary=$_
+        try {$null=Remove-SqlServerLab -RunId $RunId -StateRoot $StateRoot -Force -Confirm:$false}
+        catch {$primary.Exception.Data['CleanupFailure']='SSIS_MANIFEST_RUN_CLEANUP_FAILED';$primary.Exception.Data['RunId']=$RunId.ToString()}
+        throw $primary
+    }
+}
+
 function Invoke-LabSsisPreparedFixtureRun {
     [CmdletBinding()]
     param(
@@ -291,7 +324,6 @@ function Invoke-LabSsisPreparedFixtureRun {
         @($artifact.sql.features | ForEach-Object {[string]$_}) -notcontains 'SQLENGINE' -or
         -not (Test-HyperVImageArtifactEvaluationEligibility -Artifact $artifact).Eligible -or
         -not (Test-HyperVImageArtifactChildValidationEligibility -Artifact $artifact).Eligible){throw 'SSIS_FIXTURE_PREPARED_ARTIFACT_INVALID'}
-    $approved=Open-LabSsisApprovedMedia -MediaRoot $MediaRoot -SqlMediaPath $SqlMediaPath -ExpectedSha256 $ExpectedSqlMediaSha256
     $guest=$null;$sa=$null;$manifestPath=$null;$runId=$null
     try {
         $guest=New-HyperVSqlUnattendedPassword
@@ -301,32 +333,19 @@ function Invoke-LabSsisPreparedFixtureRun {
             id='primary';version='2025';provider='hyperv';os='windows';profile='standard'
             windowsActivation=[ordered]@{ContractVersion='SqlServerLab.WindowsActivationIntent/1.0';Strategy='NotRequested';EgressPolicy='Denied'}
             hyperv=[ordered]@{preparedImageId=$ArtifactId;memoryStartupMB=4096;processorCount=2;autostart='off';guestPasswordMode='prompt'}
+            ssisCatalogFixture=[ordered]@{mediaRoot=$MediaRoot;sqlMediaPath=$SqlMediaPath;expectedSqlMediaSha256=$ExpectedSqlMediaSha256}
         })}
         [IO.File]::WriteAllText($manifestPath,($manifest | ConvertTo-Json -Depth 16),[Text.UTF8Encoding]::new($false))
         $created=New-SqlServerLab -Manifest $manifestPath -GuestPassword $guest -SqlSaPassword $sa -NonInteractive -StateRoot $StateRoot
         $runId=[guid]$created.RunId
-        # Prepared runs honour autostart=off after readiness; the additive guest installer needs an owned running VM.
-        # New-SqlServerLab already performed the one permitted activation reconciliation.
-        # A second reconciliation can resume-and-stop an autostart=off run, so the installer only starts the bound VM.
-        $null=Start-HyperVLabEnvironment -RunId $runId.ToString() -SkipWindowsActivationReconcile -StateRoot $StateRoot
-        # Start-VM returns while Hyper-V can still report the owned VM as Starting.
-        # Wait only for that immutable, bound state before attaching approved media;
-        # guest readiness remains the installer's separate PowerShell-Direct gate.
-        $startedLab=Get-HyperVLabWorkflowRun -RunId $runId.ToString() -StateRoot $StateRoot
-        $vmStartDeadline=[datetime]::UtcNow.AddSeconds(60)
-        do {
-            $started=Get-HyperVManagedVM -VMName ([string]$startedLab.Instance.vmName) `
-                -ExpectedRunId $runId.ToString() -ExpectedScopeId ([string]$startedLab.Run.scopeId)
-            if($started -and [string]$started.VM.State -eq 'Running'){break}
-            Start-Sleep -Seconds 2
-        } while([datetime]::UtcNow -lt $vmStartDeadline)
-        if(-not $started -or [string]$started.VM.State -ne 'Running'){throw 'SSIS_FIXTURE_VM_START_TIMEOUT'}
-        Write-LabInfo 'SSIS-Fixture: beginne additive IS-Komponenteninstallation im gebundenen Prepared-Run (Budget: 1800 Sekunden).'
-        $component=Install-LabSsisExistingComponent -RunId $runId -InstanceId 'primary' -MediaRoot $MediaRoot -SqlMediaPath $SqlMediaPath `
-            -ExpectedSqlMediaSha256 $ExpectedSqlMediaSha256 -StateRoot $StateRoot -SetupTimeoutSeconds 1800
-        if([string]$component.Status -notin @('INSTALLED_AND_RESTART_VERIFIED','ALREADY_INSTALLED')){throw 'SSIS_FIXTURE_COMPONENT_RESULT_INVALID'}
-        Write-LabInfo 'SSIS-Fixture: IS-Komponente verifiziert; erstelle nun den eigenen SSISDB-Katalog und die drei Ausführungen (Budget: 900 Sekunden).'
-        $fixture=Invoke-LabSsisExistingCatalogFixture -RunId $runId -InstanceId 'primary' -StateRoot $StateRoot -FixtureTimeoutSeconds 900
+        # This wrapper generated the SQL secret itself. Publish its protected alias
+        # through the existing generated-access API, never in the fixture receipt.
+        $ownedLab=Get-HyperVLabWorkflowRun -RunId $runId.ToString() -StateRoot $StateRoot
+        Save-LabHyperVSqlSaPassword -RunDirectory $ownedLab.RunDirectory -SqlSaPassword $sa -Generated
+        # The ordinary manifest workflow installed IS and generated the receipt.
+        # Reuse that exact result; do not deploy or execute a second fixture.
+        $fixture=Read-LabDiagnosticJson -Path (Join-Path $ownedLab.RunDirectory 'ssis-fixture-receipt.json')
+        if([string]$fixture.RunId -ne $runId.ToString() -or [string]$fixture.InstanceId -cne 'primary'){throw 'SSIS_FIXTURE_RECEIPT_INVALID'}
         $fixture | Add-Member -NotePropertyName SourceBinding -NotePropertyValue 'OWNED_PREPARED_HYPERV_RUN' -Force
         return $fixture
     }
@@ -339,7 +358,6 @@ function Invoke-LabSsisPreparedFixtureRun {
         throw $primaryFailure
     }
     finally {
-        if($approved){$approved.Handle.Dispose()}
         if($guest){$guest.Dispose()};if($sa){$sa.Dispose()}
         if($manifestPath -and (Test-Path -LiteralPath $manifestPath)){Remove-Item -LiteralPath $manifestPath -Force -ErrorAction SilentlyContinue}
     }
@@ -382,22 +400,15 @@ function Get-LabSsisInstallGuestProbe {
             } finally {if($reader){$reader.Dispose()};if($command){$command.Dispose()}}
         }
         $service=Get-Service -Name MsDtsServer170 -ErrorAction Stop
-        # Setup can complete before the freshly installed service has finished
-        # auto-starting after the required reboot. Start it through the local
-        # service controller and wait within the bounded guest probe instead of
-        # treating that transient state as a failed installation.
-        if($service.Status -ne 'Running'){
-            try {
-                $service.Start()
-                $service.WaitForStatus([ServiceProcess.ServiceControllerStatus]::Running,[TimeSpan]::FromMinutes(5))
-            } catch { throw 'SSIS_INSTALL_SERVICE_START_FAILED' }
-        }
+        # MsDtsServer is the legacy package-store management service. Microsoft
+        # explicitly does not require it to create or execute packages. The
+        # SSISDB path proves the server binaries, SQL and real catalog execution;
+        # a stopped legacy service must not block it or trigger restart loops.
         $binn=Join-Path ([Environment]::GetFolderPath('ProgramFiles')) 'Microsoft SQL Server/170/DTS/Binn'
         foreach($name in @('MsDtsSrvr.exe','Microsoft.SqlServer.IntegrationServices.Server.dll')){
             $file=Get-Item -LiteralPath (Join-Path $binn $name) -ErrorAction Stop
             if ($file.PSIsContainer -or ($file.Attributes -band [IO.FileAttributes]::ReparsePoint) -or [int]$file.VersionInfo.FileMajorPart -ne 17) { throw 'SSIS_INSTALL_COMPONENT_POSTCONDITION' }
         }
-        if($service.Status -ne 'Running'){throw 'SSIS_INSTALL_COMPONENT_POSTCONDITION'}
         # CompleteImage can report PowerShell Direct as ready while SQL Server is
         # still bringing its local transport online after the required reboot.
         # Reopen a non-pooled local connection in a bounded loop; do not treat a
@@ -408,7 +419,7 @@ function Get-LabSsisInstallGuestProbe {
             $connection=[Data.SqlClient.SqlConnection]::new('Data Source=localhost;Initial Catalog=master;Integrated Security=SSPI;Connect Timeout=15;Encrypt=False;Pooling=False')
             try {
                 $connection.Open();Read-SsisInstalledSql -Connection $connection
-                return [pscustomobject]@{Status='IS_COMPONENTS_AND_SQL_VERIFIED';BootTime=(Get-CimInstance Win32_OperatingSystem -ErrorAction Stop).LastBootUpTime.ToUniversalTime().ToString('o')}
+                return [pscustomobject]@{Status='IS_COMPONENTS_AND_SQL_VERIFIED';LegacyServiceStatus=[string]$service.Status;BootTime=(Get-CimInstance Win32_OperatingSystem -ErrorAction Stop).LastBootUpTime.ToUniversalTime().ToString('o')}
             } catch {
                 $lastSqlError=$_.Exception
             } finally {$connection.Dispose()}
@@ -431,7 +442,7 @@ function Get-LabSsisCatalogFixtureGuestProbe {
         $token=$OperationId.Substring($OperationId.Length-12)
         $folder="LabFixture_$token";$project="LabProject_$token"
         $temporary=Join-Path ([IO.Path]::GetTempPath()) "SqlServerLab-Ssis-$token"
-        $connection=$null;$catalogConnection=$null;$folderCreated=$false;$accepted=$false;$temporaryCreated=$false
+        $connection=$null;$catalogConnection=$null;$folderCreated=$false;$accepted=$false;$temporaryCreated=$false;$primaryFailure=$null
         try {
             $null=New-Item -ItemType Directory -Path $temporary -ErrorAction Stop
             $temporaryCreated=$true
@@ -566,11 +577,32 @@ function Get-LabSsisCatalogFixtureGuestProbe {
             do {$cmd=$catalogConnection.CreateCommand();$cmd.CommandTimeout=30;$cmd.CommandText='SELECT execution_id,status FROM [catalog].[executions] WHERE execution_id IN (@success,@failure,@incomplete);';try {foreach($name in @('success','failure','incomplete')){$null=$cmd.Parameters.Add('@'+$name,[Data.SqlDbType]::BigInt);$cmd.Parameters['@'+$name].Value=(Get-Variable $name -ValueOnly)};$reader=$cmd.ExecuteReader();try{while($reader.Read()){$states[[string]$reader.GetInt64(0)]=[int]$reader.GetInt32(1)}}finally{$reader.Dispose()}}finally{$cmd.Dispose()};if($states[[string]$success] -in 3,4,6,7,9 -and $states[[string]$failure] -in 3,4,6,7,9){break};Start-Sleep -Milliseconds 500}while([datetime]::UtcNow -lt $deadline)
             if($states[[string]$success] -ne 7 -or $states[[string]$failure] -ne 4 -or $states[[string]$incomplete] -ne 1){throw 'SSIS_FIXTURE_EXECUTION_STATUS_INVALID'}
             $accepted=$true
-            [pscustomobject]@{Status='SSISDB_FIXTURE_ACCEPTED';OperationId=$OperationId;EngineMajor=17;EngineVersion=$engineVersion;SsisMajor=17;SsisVersion=$ssisVersion;ExecutionIds=@{Success=$success;Failure=$failure;Incomplete=$incomplete};ExecutionStatus=@{Success=$states[[string]$success];Failure=$states[[string]$failure];Incomplete=$states[[string]$incomplete]};CatalogViews=@('catalog.executions','catalog.event_messages');Rights='SYSADMIN_OBSERVED';FolderName=$folder;ProjectName=$project;Cleanup=$(if($RetainFolder){'RETAINED_FOR_OWNED_RUN'}else{'CATALOG_FOLDER_CLEANUP_PENDING'})}
+            [pscustomobject]@{Status='SSISDB_FIXTURE_ACCEPTED';OperationId=$OperationId;EngineMajor=17;EngineVersion=$engineVersion;SsisMajor=17;SsisVersion=$ssisVersion;ExecutionIds=@{Success=$success;Failure=$failure;Incomplete=$incomplete};ExecutionStatus=@{Success=$states[[string]$success];Failure=$states[[string]$failure];Incomplete=$states[[string]$incomplete]};CatalogViews=@('catalog.executions','catalog.event_messages');Rights='SYSADMIN_OBSERVED';FolderId=[int64]$folderId;FolderName=$folder;ProjectName=$project;Cleanup=$(if($RetainFolder){'RETAINED_FOR_OWNED_RUN'}else{'CATALOG_FOLDER_CLEANUP_PENDING'})}
         }
+        catch {$primaryFailure=$_;throw}
         finally {
-            if($folderCreated -and (-not $RetainFolder -or -not $accepted) -and $catalogConnection){$cmd=$catalogConnection.CreateCommand();try{$cmd.CommandTimeout=120;$cmd.CommandText='EXEC [catalog].[delete_folder] @folder_name=@folder;';$null=$cmd.Parameters.Add('@folder',[Data.SqlDbType]::NVarChar,128);$cmd.Parameters['@folder'].Value=$folder;$null=$cmd.ExecuteNonQuery()}finally{$cmd.Dispose()}}
-            if($catalogConnection){$catalogConnection.Dispose()};if($connection){$connection.Dispose()};if($temporaryCreated -and (Test-Path -LiteralPath $temporary)){Remove-Item -LiteralPath $temporary -Recurse -Force -ErrorAction Stop}
+            $cleanupFailure=$null
+            try {
+              if($folderCreated -and (-not $RetainFolder -or -not $accepted) -and $catalogConnection){
+                $cmd=$catalogConnection.CreateCommand()
+                try {
+                    $cmd.CommandTimeout=120
+                    $cmd.CommandText="SET XACT_ABORT ON; SET TRANSACTION ISOLATION LEVEL SERIALIZABLE; BEGIN TRANSACTION; IF NOT EXISTS(SELECT 1 FROM [catalog].[folders] WHERE name=@folder AND folder_id=@folderId) THROW 51000,'SSIS_FIXTURE_FOLDER_BINDING_CHANGED',1; EXEC [catalog].[delete_folder] @folder_name=@folder; COMMIT TRANSACTION;"
+                    $null=$cmd.Parameters.Add('@folder',[Data.SqlDbType]::NVarChar,128);$cmd.Parameters['@folder'].Value=$folder
+                    $null=$cmd.Parameters.Add('@folderId',[Data.SqlDbType]::BigInt);$cmd.Parameters['@folderId'].Value=[int64]$folderId
+                    $null=$cmd.ExecuteNonQuery()
+                } finally {$cmd.Dispose()}
+              }
+            } catch {$cleanupFailure=$_}
+            finally {
+                if($catalogConnection){$catalogConnection.Dispose()};if($connection){$connection.Dispose()}
+                try {if($temporaryCreated -and (Test-Path -LiteralPath $temporary)){Remove-Item -LiteralPath $temporary -Recurse -Force -ErrorAction Stop}}
+                catch {$cleanupFailure=$_}
+            }
+            if($cleanupFailure){
+                if($primaryFailure){$primaryFailure.Exception.Data['CleanupFailure']='SSIS_FIXTURE_CLEANUP_FAILED';$primaryFailure.Exception.Data['RecoveryRequired']=$true}
+                else {throw 'SSIS_FIXTURE_CLEANUP_FAILED'}
+            }
         }
     }
 }
@@ -626,17 +658,28 @@ function Remove-LabSsisExistingCatalogFixture {
     if([string]$receipt.RunId -ne $RunId.ToString() -or [string]$receipt.InstanceId -cne $InstanceId -or
         [string]$receipt.SourceBinding -cne 'OWNED_EXISTING_HYPERV_RUN' -or
         [string]$receipt.OperationId -cnotmatch '^ssis-install-[a-f0-9]{32}$' -or
-        $folder -cnotmatch '^LabFixture_[a-f0-9]{12}$'){throw 'SSIS_FIXTURE_CLEANUP_BINDING_INVALID'}
+        $folder -cnotmatch '^LabFixture_[a-f0-9]{12}$' -or
+        $folder -cne ('LabFixture_'+([string]$receipt.OperationId).Substring(([string]$receipt.OperationId).Length-12)) -or
+        [int64]$receipt.FolderId -lt 1){throw 'SSIS_FIXTURE_CLEANUP_BINDING_INVALID'}
     $guest=$null
     try {
         $guest=Get-LabSecret -Path $context.Directory -Name 'guest-administrator-password'
         if(-not $guest){throw 'SSIS_FIXTURE_GUEST_CREDENTIAL_REQUIRED'}
         $result=@(Invoke-HyperVPowerShellDirect -VMName ([string]$context.Instance.vmName) -ExpectedRunId $RunId.ToString() `
             -ExpectedScopeId ([string]$context.Run.scopeId) -ExpectedVmId ([guid]$context.Instance.vmId) `
-            -Credential ([PSCredential]::new('Administrator',$guest)) -ArgumentList @($folder) -TimeoutSeconds 120 -ErrorAction Stop -ScriptBlock {
-                param($FolderName)
+            -Credential ([PSCredential]::new('Administrator',$guest)) -ArgumentList @($folder,[int64]$receipt.FolderId) -TimeoutSeconds 120 -ErrorAction Stop -ScriptBlock {
+                param($FolderName,[int64]$FolderId)
                 $connection=[Data.SqlClient.SqlConnection]::new('Data Source=localhost;Initial Catalog=SSISDB;Integrated Security=SSPI;Connect Timeout=30;Encrypt=False;Pooling=False')
-                try {$connection.Open();$command=$connection.CreateCommand();try {$command.CommandTimeout=120;$command.CommandText='EXEC [catalog].[delete_folder] @folder_name=@folder;';$null=$command.Parameters.Add('@folder',[Data.SqlDbType]::NVarChar,128);$command.Parameters['@folder'].Value=$FolderName;$null=$command.ExecuteNonQuery();[pscustomobject]@{Status='REMOVED'}}finally{$command.Dispose()}}finally{$connection.Dispose()}
+                try {
+                    $connection.Open();$command=$connection.CreateCommand()
+                    try {
+                        $command.CommandTimeout=120
+                        $command.CommandText="SET XACT_ABORT ON; SET TRANSACTION ISOLATION LEVEL SERIALIZABLE; BEGIN TRANSACTION; IF NOT EXISTS(SELECT 1 FROM [catalog].[folders] WHERE name=@folder AND folder_id=@folderId) THROW 51000,'SSIS_FIXTURE_FOLDER_BINDING_CHANGED',1; EXEC [catalog].[delete_folder] @folder_name=@folder; COMMIT TRANSACTION;"
+                        $null=$command.Parameters.Add('@folder',[Data.SqlDbType]::NVarChar,128);$command.Parameters['@folder'].Value=$FolderName
+                        $null=$command.Parameters.Add('@folderId',[Data.SqlDbType]::BigInt);$command.Parameters['@folderId'].Value=$FolderId
+                        $null=$command.ExecuteNonQuery();[pscustomobject]@{Status='REMOVED'}
+                    } finally {$command.Dispose()}
+                } finally {$connection.Dispose()}
             })
         if($result.Count -ne 1 -or [string]$result[0].Status -ne 'REMOVED'){throw 'SSIS_FIXTURE_CLEANUP_FAILED'}
         Remove-Item -LiteralPath $receiptPath -Force -ErrorAction Stop

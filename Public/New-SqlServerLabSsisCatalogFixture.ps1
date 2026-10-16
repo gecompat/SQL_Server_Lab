@@ -55,14 +55,14 @@ function New-SqlServerLabSsisCatalogFixture {
         Invoke-LabSsisPreparedFixtureRun -ArtifactId $ArtifactId -MediaRoot $MediaRoot -SqlMediaPath $SqlMediaPath `
             -ExpectedSqlMediaSha256 $ExpectedSqlMediaSha256 -StateRoot $StateRoot
     }
-    if($fixture.Status -cne 'SSISDB_FIXTURE_ACCEPTED' -or $fixture.SourceBinding -notin @('OWNED_HYPERV_WINDOWS_RUN','OWNED_EXISTING_HYPERV_RUN','OWNED_PREPARED_HYPERV_RUN')){throw 'SSIS_FIXTURE_RECEIPT_INVALID'}
+    if($fixture.Status -cne 'SSISDB_FIXTURE_ACCEPTED' -or [int64]$fixture.FolderId -lt 1 -or $fixture.SourceBinding -notin @('OWNED_HYPERV_WINDOWS_RUN','OWNED_EXISTING_HYPERV_RUN','OWNED_PREPARED_HYPERV_RUN')){throw 'SSIS_FIXTURE_RECEIPT_INVALID'}
     [pscustomobject][ordered]@{
         ContractVersion='SqlServerLab.SsisCatalogFixture/1.0'
         Provider='hyperv'
         OperatingSystem='windows'
         Target=[pscustomobject][ordered]@{RunId=[string]$fixture.RunId;InstanceId=[string]$fixture.InstanceId;BindingStatus='BOUND'}
         Source=[pscustomobject][ordered]@{Status='OWNED_READY';ConnectionBinding=[string]$fixture.SourceBinding;ConsumerRights='SYSADMIN_OBSERVED'}
-        Fixture=[pscustomobject][ordered]@{Status='READY';ExecutionIds=$fixture.ExecutionIds;ExecutionStatus=$fixture.ExecutionStatus;CatalogViews=@($fixture.CatalogViews);FolderName=[string]$fixture.FolderName;ProjectName=[string]$fixture.ProjectName}
+        Fixture=[pscustomobject][ordered]@{Status='READY';ExecutionIds=$fixture.ExecutionIds;ExecutionStatus=$fixture.ExecutionStatus;CatalogViews=@($fixture.CatalogViews);FolderId=[int64]$fixture.FolderId;FolderName=[string]$fixture.FolderName;ProjectName=[string]$fixture.ProjectName}
         Sql=[pscustomobject][ordered]@{EngineMajor=[int]$fixture.EngineMajor;EngineVersion=[string]$fixture.EngineVersion}
         Ssis=[pscustomobject][ordered]@{Major=[int]$fixture.SsisMajor;Version=[string]$fixture.SsisVersion;Catalog='SSISDB_OBSERVED'}
         Cleanup=$(if([string]$fixture.SourceBinding -eq 'OWNED_EXISTING_HYPERV_RUN'){'REMOVE_OWNED_FIXTURE_TO_CLEANUP'}else{'REMOVE_RUN_TO_CLEANUP'})

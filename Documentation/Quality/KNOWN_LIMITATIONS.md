@@ -10,6 +10,12 @@ die vollständige Katalog-/Ausführungsabnahme steht noch aus. SQL_Server_Analyz
 darf diesen Stand daher noch nicht als abgenommene Runtimequelle verwenden.
 Linux unterstützt keinen SSISDB-Katalog. CLI und Browser bieten derzeit die
 öffentlichen Cmdlets über ihren gemeinsamen generischen Befehlszugang an.
+Der Manifestweg `instances[].ssisCatalogFixture` ist auf eine Windows-/Hyper-V-
+SQL-2025-Instanz begrenzt. Ein eigener gerenderter SSIS-Fachdialog und andere
+Engine-/Providerkombinationen sind nicht abgenommen. Ein gestoppter älterer
+SSIS-Paketverwaltungsdienst blockiert den SSISDB-Pfad nicht; ausschlaggebend
+bleiben echte Kataloganlage und -ausführung. Consumerzugang über die geschützte
+Generated-API und gezielter Ordnercleanup sind Teil der offenen Runtime-Abnahme.
 
 ## Downloads: Streaminggrenze und offene Speicherquoten
 

@@ -251,6 +251,10 @@ function New-SqlServerLab {
         Manifest werden relativ zu deren Verzeichnis aufgeloest. Manifeste
         laufen standardmäßig unbeaufsichtigt; Passwörter werden über SecureString
         oder eng benannte externe Prozess-Umgebungsvariablen bereitgestellt.
+        instances[].ssisCatalogFixture ergänzt für eine einzelne Windows-/Hyper-V-
+        SQL-2025-Instanz vorhandene IS-Medien, SSISDB und drei eigene Analysefälle.
+        Der Medienhash wird vor der VM-Erstellung geprüft; Fehler dieses Schritts
+        kompensieren ausschließlich den neuen eigenen Run.
     .PARAMETER SaPassword
         SA-Passwort als SecureString. Ohne Angabe wird es interaktiv abgefragt.
     .PARAMETER GenerateSaPassword
@@ -328,6 +332,7 @@ function New-SqlServerLab {
     .OUTPUTS
         System.Management.Automation.PSCustomObject. Liefert RunId, State,
         StateRoot und die aufgeloesten Instanz- und Verbindungsinformationen.
+        Bei deklariertem SSISDB-Scope zusätzlich die geheimnisfreie SsisCatalogFixture.
     .EXAMPLE
         $lab = New-SqlServerLab -Version '2025' -Provider docker
 
@@ -567,6 +572,15 @@ function New-SqlServerLab {
     Write-LabInfo "Umgebung: $($resolved.name) ($($resolved.instances.Count) Instanz(en))"
 
     $providers = @($resolved.instances | ForEach-Object { $_.provider } | Sort-Object -Unique)
+    foreach($ssisInstance in $resolved.instances){
+        if($ssisInstance.PSObject.Properties['ssisCatalogFixture'] -and $ssisInstance.ssisCatalogFixture){
+            # Reject unavailable/unapproved media before creating any VM. The
+            # installer reopens and binds the same declared content at mutation.
+            $ssisIntent=$ssisInstance.ssisCatalogFixture
+            $ssisMedia=Open-LabSsisApprovedMedia -MediaRoot $ssisIntent.mediaRoot -SqlMediaPath $ssisIntent.sqlMediaPath -ExpectedSha256 $ssisIntent.expectedSqlMediaSha256
+            try {} finally {$ssisMedia.Handle.Dispose()}
+        }
+    }
     $externalRuntimePlansByInstance = @{}
     $externalRuntimeImagePlansByInstance = @{}
     $containerToolPlansByInstance = @{}
@@ -849,11 +863,19 @@ function New-SqlServerLab {
             $hyperVLab.Instance | Add-Member -NotePropertyName databases -NotePropertyValue @($installedDatabases) -Force
             Write-LabArtifactJsonAtomic -Path (Join-Path $hyperVLab.RunDirectory 'connection-info.json') -InputObject $hyperVLab.Connection
         }
-        return [PSCustomObject]@{
+        $ssisFixture=$null
+        if($instance.ssisCatalogFixture){
+            Write-LabInfo 'SSIS-Manifest: installiere IS additiv im eigenen SQL-Run und erzeuge anschließend die SSISDB-Analysefälle.'
+            $ssisFixture=Invoke-LabSsisManifestProvision -RunId ([guid]$lab.RunId) -InstanceId $instance.id -StateRoot $hyperVLab.StateRoot -Intent $instance.ssisCatalogFixture
+            $hyperVLab=Get-HyperVLabWorkflowRun -RunId $lab.RunId -StateRoot $hyperVLab.StateRoot
+        }
+        $hyperVResult=[PSCustomObject]@{
             RunId = $lab.RunId; ScopeId = $lab.ScopeId; State = 'RUNNING'; Name = $resolved.name; Instances = @($hyperVLab.Instance)
             StateRoot = $hyperVLab.StateRoot; DataRoot = if ($PersistentData) { $DataRoot } else { $null }; Provisioning = $provisioning
             GeneratedSqlAccess = if ($provisioning.PSObject.Properties['GeneratedSqlAccess']) { $provisioning.GeneratedSqlAccess } else { $null }
         }
+        if($ssisFixture){$hyperVResult|Add-Member -NotePropertyName SsisCatalogFixture -NotePropertyValue $ssisFixture}
+        return $hyperVResult
     }
 
     $notImplementedProviders = @($providers | Where-Object { $_ -notin @('docker', 'podman') })

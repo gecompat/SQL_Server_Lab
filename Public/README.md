@@ -2,6 +2,14 @@
 
 ## SSISDB: Ziel-, Komponenten- und Fixturebindung
 
+Bei Neuerstellung verarbeitet `New-SqlServerLab -Manifest` das optionale
+`instances[].ssisCatalogFixture` mit vorhandenem Medienroot, relativem ISO-Pfad
+und erwartetem SHA-256. Es ergänzt IS nach der normalen Windows-/SQL-Bereitstellung
+und liefert die Fixture unter `SsisCatalogFixture` zurück.
+[Manifestbeispiel](../Schemas/example-ssis-catalog-fixture.json) und
+[Verbindungs-/Secretbindung](../Documentation/Architecture/SSISDB_TEST_FIXTURE.md#verbindungs--und-secretbindung)
+beschreiben Platzhalter, geschützte Zugangsdaten und den getrennten Cleanup.
+
 `Get-SqlServerLabSsisCatalogCapability -RunId $runId -InstanceId primary` beobachtet frisch und read-only eine einzelne bereits laufende eigene Hyper-V-/Windows-/SQL-2019-, -2022- oder -2025-Instanz. Die Rückgabe enthält nur SQL-, SSIS- und Katalogstatus, niemals lokale Pfade, VM-Namen, Endpunkte oder Credentials.
 
 `Install-SqlServerLabSsisComponent` ist der bestätigungspflichtige, normale Bereitstellungsschritt für eine vorhandene eigene Windows-SQL-2025-Instanz. Er prüft Run-, Instanz- und VM-Bindung erneut, verwendet nur eine bereits vorhandene hashgebundene Enterprise-ISO und installiert ausschließlich das IS-Feature. Die SQL-Engine wird nicht neu installiert. Download, Build und Beschaffung sind ausgeschlossen; der zugehörige Run bleibt der vollständige Cleanup-Scope.

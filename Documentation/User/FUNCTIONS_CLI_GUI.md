@@ -578,6 +578,13 @@ Compute-/Cleanup-Abnahme und ausgewählte Provider-Gates sind NOT_EXECUTED.
 
 ## SSISDB-Analysefixtur
 
+Für ein neues Lab ist auch `New-SqlServerLab -Manifest` mit
+`instances[].ssisCatalogFixture` verfügbar. Der normale Manifestzugang in
+Konsole und Browser ruft diesen gleichen Provisionierungsvertrag auf.
+Das [Beispiel](../../Schemas/example-ssis-catalog-fixture.json) verlangt die
+Anpassung der lokalen Medien-/Artifactwerte; Zugangsdaten bleiben separate
+geschützte Parameter. Die vollständige Rückgabe enthält `SsisCatalogFixture`.
+
 `Get-SqlServerLabSsisCatalogCapability` ist über **Alle öffentlichen Befehle** in CLI und Browser erreichbar und prüft ausschließlich eine bereits laufende, eigene Windows-/Hyper-V-Quelle read-only. Der Befehl startet keine VM, erstellt keine SSISDB und startet keine Pakete.
 
 `Install-SqlServerLabSsisComponent` ist der bestätigungspflichtige zweite Schritt. Er ergänzt nur Integration Services auf einem bereits laufenden eigenen Windows-SQL-2025-Run aus der vorhandenen hashgebundenen ISO; die vorhandene SQL-Engine bleibt bestehen. CLI und Browser zeigen denselben generischen Parameterdialog mit Run-, Instanz- und Medienbindung. Nach erfolgreichem Neustart zeigt die Receipt nur Versionen und Cleanup-Scope.
