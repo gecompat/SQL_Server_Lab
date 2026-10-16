@@ -127,8 +127,9 @@ Nightly registriert die Suite. Eine kleine Offline-Suite ergänzt bestehende
 Gates; unabhängiger Review und Pflichtgate am exakten Head bleiben erforderlich.
 Keine zusätzliche Provider- oder Modellrunde entsteht aus diesem Index.
 
-Vor einem Writer sind die Gesamtform und exakte Zuordnung aller privaten
-Payloads zu Indexrecords und Digests sowie Rootbindung festzulegen. Die
+Die [Registry-Gesamtform](AUTHENTICATED_TLS_REGISTRY_DOCUMENT.md) prüft jetzt
+offline die exakte Zuordnung aller Payloads zu Indexrecords und Digests.
+Vor einem Writer fehlen noch Rootbindung und Dateileser. Die
 vorhandenen Payloadformen beschreiben nur Metadaten vor Keyanlage, keine
 späteren Key-/Zertifikatsrecords oder Nativevidence. Journal, Lock,
 atomarer Dateiersatz und Crash-/Parallelitätsabnahme bleiben eigene folgende

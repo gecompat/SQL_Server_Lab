@@ -132,8 +132,10 @@ Suite ergänzt selektiv ihre Parser-/Vorschauabhängigkeiten und Nightly; nur
 die exakte Produktdatei erhält die Offline-Ausnahme. Gemischte Runtimeänderungen
 behalten ihre Auswahl. Unabhängiger Review und exakter CI-Pflichtgate bleiben.
 
-Nächster Scope ist die geschlossene Registry-Gesamtform mit exakter Zuordnung
-aller Payloads zu Indexrecords und deren Digests. Der Writer-/Crashvertrag und
+Die [Registry-Gesamtform](AUTHENTICATED_TLS_REGISTRY_DOCUMENT.md) prüft jetzt
+offline die exakte Payload-/Index-/Digestzuordnung und vollständige Übergänge.
+Nächster Scope ist die lesende registrierte Controller-/Location-/Rootbindung.
+Der Writer-/Crashvertrag und
 sämtliche echten Registrierungs-, Key-, Trust- oder Provideraktionen bleiben
 nachgelagert. [Nachweise](../Quality/LOCAL_VALIDATION_STRATEGY.md) und
 [Known Limitations](../Quality/KNOWN_LIMITATIONS.md) erhalten diese Trennung.

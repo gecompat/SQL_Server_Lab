@@ -173,6 +173,7 @@ $checks = @(
     'Invoke-AuthenticatedTlsContextChecks.ps1',
     'Invoke-AuthenticatedTlsRegistryIndexChecks.ps1',
     'Invoke-AuthenticatedTlsRegistryPayloadChecks.ps1',
+    'Invoke-AuthenticatedTlsRegistryDocumentChecks.ps1',
     'Invoke-PrivacyScannerChecks.ps1',
     'Invoke-PesterChecks.ps1',
     'Invoke-ReleaseReadinessChecks.ps1',

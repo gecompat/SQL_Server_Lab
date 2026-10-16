@@ -859,6 +859,9 @@ sources_of_truth:
   authenticated_tls_registry_payload_contract: Documentation/Architecture/AUTHENTICATED_TLS_REGISTRY_PAYLOAD.md
   authenticated_tls_registry_payload: Private/AuthenticatedTlsRegistryPayload.ps1 # pre-key metadata, framed digests and internally fresh process match; no root registration or writer/key/trust authority
   validation_authenticated_tls_registry_payload: Tests/Static/Invoke-AuthenticatedTlsRegistryPayloadChecks.ps1 # coupled index/request helpers and context/backend/path/client metadata producers; synthetic bytes/mocks only
+  authenticated_tls_registry_document_contract: Documentation/Architecture/AUTHENTICATED_TLS_REGISTRY_DOCUMENT.md
+  authenticated_tls_registry_document: Private/AuthenticatedTlsRegistryDocument.ps1 # complete pre-key payload/index consistency and semantic digest; no root binding, file I/O, registration or authority
+  validation_authenticated_tls_registry_document: Tests/Static/Invoke-AuthenticatedTlsRegistryDocumentChecks.ps1 # coupled index/payload/request helpers; complete synthetic document transitions, no native reads
   test_group_power_guidance: Private/TestGroupGuidance.ps1
   validation_test_group_power_guidance: Tests/Static/Invoke-TestGroupGuidanceChecks.ps1
   validation_nightly_authorization: Tests/Static/Fixtures/CiStrategyNightlyAuthorizationChecks.ps1

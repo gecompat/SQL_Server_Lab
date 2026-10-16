@@ -33,6 +33,11 @@ ergänzen jetzt Metadaten vor Keyanlage, kanonische Digests und eine intern
 frisch gelesene Prozessbindung. Die neue Bindung ist synthetisch geprüft und
 unter Windows getrennt lesend beobachtet; Rootregistrierung, Key-/Trustzustand
 und die vollständige native Qualifikation bleiben ungeprüft.
+Die [Registry-Gesamtform](../Documentation/Architecture/AUTHENTICATED_TLS_REGISTRY_DOCUMENT.md)
+prüft jetzt offline die vollständige Payload-/Index-/Digestzuordnung und
+Dokumentübergänge. Rootbindung, Dateileser und persistente Registrierung
+fehlen weiterhin. Authentifizierte TLS-Lab-Abnahme und Toolbelt SC-2026-045
+bleiben offen; die Metadatenprüfung hebt diesen Blocker nicht auf.
 
 ## Dokumentationszuständigkeiten
 

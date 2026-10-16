@@ -54,16 +54,20 @@ geschlossene Anfragen und eine lesende Windows-Token-/Host-/Profil- und
 Client-Diskbeobachtung. Referenzen bleiben unregistriert und unqualifiziert.
 Der [Offline-Referenzindex](../Architecture/AUTHENTICATED_TLS_REGISTRY_INDEX.md)
 prüft inzwischen geschlossene Byteformen, Referenz-/Revisionsinvarianten und
-Tombstones. Der konkretisierte Writer-/Crashvertrag bleibt Planung. Nächster
-Scope ist nach den inzwischen implementierten
+Tombstones. Der konkretisierte Writer-/Crashvertrag bleibt Planung. Die
 [Vor-Key-Payloads](../Architecture/AUTHENTICATED_TLS_REGISTRY_PAYLOAD.md) mit
-kanonischen Digests und intern frischer Prozessbindung die geschlossene
-Registry-Gesamtform mit exakter Payload-/Index-/Digestzuordnung. Die neue
-Suite nutzt ausschließlich synthetische native Vorschauen. Eine getrennte
+kanonischen Digests und intern frischer Prozessbindung sind implementiert.
+Die [Registry-Gesamtform](../Architecture/AUTHENTICATED_TLS_REGISTRY_DOCUMENT.md)
+prüft jetzt offline die exakte Payload-/Index-/Digestzuordnung und vollständige
+Übergänge. Nächster Scope ist die lesende registrierte Controller-/Location-/
+Rootbindung; keine automatische Registryanlage oder Pfadadoption. Die
+Payloadsuite nutzt ausschließlich synthetische native Vorschauen, die
+Dokumentsuite ausschließlich synthetische Bytes im Speicher. Eine getrennte
 direkte Windows-Beobachtung traf alle drei Metadatenbindungen, ohne Root-/
 Trustscopeauflösung oder Registrierung;
 native Target-/Ownership-, Backend-/Keyschutz- und TLS-Abnahme bleiben
 erforderlich, vor mutierender PKI-/Providerumsetzung.
+Die authentifizierte TLS-Lab-Abnahme und Toolbelt SC-2026-045 bleiben offen.
 
 ## Historischer Abschluss vom 2026-10-09
 
