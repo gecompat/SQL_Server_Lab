@@ -38,7 +38,7 @@ Redirects an und entfernt ihren Resolver anschließend wieder. Andere Namen,
 Tokens oder Versionsbereiche werden nicht aufgelöst. Fehlende Abhängigkeiten
 öffnen keinen Download- oder SDK-Installationspfad.
 
-Die vollständige öffentliche Konsolen-CLI katalogisiert die Exporte automatisch. Der Browser verwendet denselben Exportkatalog im Bereich **Status und Diagnose**. Bis zu einer eigenen gerenderten Fachabnahme bleibt dies ein generischer, parametergebundener Dialog und kein separater SSISDB-Fachdialog.
+Die vollständige öffentliche Konsolen-CLI katalogisiert die Exporte automatisch. Der Browser verwendet denselben Exportkatalog über **Alle öffentlichen Befehle** mit den gemeinsamen Bereichszuordnungen. Bis zu einer eigenen gerenderten Fachabnahme bleibt dies ein generischer, parametergebundener Dialog und kein separater SSISDB-Fachdialog.
 
 ```powershell
 $component=Install-SqlServerLabSsisComponent -RunId $runId -InstanceId primary -MediaRoot $mediaRoot `

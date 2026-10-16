@@ -109,17 +109,21 @@ $null=New-Item -ItemType Directory -Path $journalDirectory
 try {
     $journalCases=& {
         $id=[guid]::NewGuid()
-        function Get-LabSsisPrerequisiteContext {param($RunId,$InstanceId,$StateRoot) [pscustomobject]@{Directory=$journalDirectory} }
-        function Invoke-LabSsisPrerequisite {[pscustomobject]@{Sql='SQL_2025_OBSERVED';DefaultPathComponents='OBSERVED';SsisDb='ONLINE_CATALOG_OBSERVED'} }
         function Read-LabDiagnosticJson {param($Path) Get-Content -LiteralPath $Path -Raw|ConvertFrom-Json}
-        function Get-LabSecret {throw 'SYNTHETIC_SECRET_REACHED'}
+        # Execute the real file guard without the unrelated Windows/provider
+        # admission. This regression must run identically on both CI platforms.
+        $creation=(Get-Command Invoke-LabSsisExistingCatalogFixture).ScriptBlock
+        $journalGuard=$creation.Ast.Find({param($node)$node -is [Management.Automation.Language.IfStatementAst] -and $node.Extent.Text -match 'SSIS_FIXTURE_RECOVERY_REQUIRED'},$true)
+        if(-not $journalGuard){throw 'SSIS_JOURNAL_GUARD_MISSING'}
+        $guard=[scriptblock]::Create($journalGuard.Extent.Text)
         $values=@{}
         $path=Join-Path $journalDirectory 'ssis-fixture-operation.json'
         foreach($mode in @('STARTED','FAILED_FINAL_STATE_REQUIRES_INSPECTION','FIXTURE_RECEIPT_RECORDED','REMOVED','FOREIGN')){
             @{RunId=$(if($mode -eq 'FOREIGN'){[guid]::NewGuid().ToString()}else{$id.ToString()});Status=$(if($mode -eq 'FOREIGN'){'REMOVED'}else{$mode});OperationId='SYNTHETIC_PRESERVE'}|ConvertTo-Json|Set-Content -LiteralPath $path
             $before=(Get-FileHash -LiteralPath $path).Hash
             $observed=''
-            try {Invoke-LabSsisExistingCatalogFixture -RunId $id -InstanceId primary -StateRoot $journalDirectory}catch{$observed=$_.Exception.Message}
+            $RunId=$id;$operationPath=$path
+            try {& $guard;throw 'SYNTHETIC_SECRET_REACHED'}catch{$observed=$_.Exception.Message}
             $values[$mode]=[pscustomobject]@{Error=$observed;Preserved=((Get-FileHash -LiteralPath $path).Hash -ceq $before)}
         }
         $values
@@ -132,6 +136,7 @@ try {
     foreach($name in @('ssis-fixture-operation.json','ssis-fixture-operation.lock')){$path=Join-Path $journalDirectory $name;if(Test-Path -LiteralPath $path){[IO.File]::Delete($path)}}
     [IO.Directory]::Delete($journalDirectory)
 }
+Check 'Recoveryguard liegt im produktiven Erstellungsablauf vor dem Secret-/Gastzugriff' ($installerSource.IndexOf("throw 'SSIS_FIXTURE_RECOVERY_REQUIRED:") -lt $installerSource.IndexOf("`$guest=Get-LabSecret",$installerSource.IndexOf('function Invoke-LabSsisExistingCatalogFixture')))
 Check 'Projekt wird vor dem leeren Ordner über die offiziellen APIs gelöscht' ($cleanupSql.IndexOf('EXEC [catalog].[delete_project]') -lt $cleanupSql.IndexOf('EXEC [catalog].[delete_folder]') -and $cleanupSql -match 'SSIS_FIXTURE_FOREIGN_RESOURCES_RETAINED' -and $cleanupSql -match 'object_version_lsn' -and $cleanupSql -match 'project_lsn=@currentVersion')
 Check 'Fixture setzt nur das Logging ihrer eigenen Ausführungen explizit auf Basic' ($installerSource -match 'set_execution_parameter_value' -and $installerSource -match "@object_type=50,@parameter_name=N'LOGGING_LEVEL'" -and $installerSource -notmatch '\[catalog\]\.\[configure_catalog\]')
 $cleanupGuards=& {
