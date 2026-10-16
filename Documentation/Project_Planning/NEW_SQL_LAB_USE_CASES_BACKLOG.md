@@ -168,8 +168,12 @@ Originalintent bytegleich, kein ursprünglicher Commit und kein verbleibender Lo
 Der erste eigene Docker-SQL-2025-Lauf belegte die Ablehnung der unvertrauten
 Kette vor SQL-Arbeit und vollständiges Cleanup ohne Bestandsdateidrift;
 die OpenSSL-CSR-Subjectkodierung wird jetzt eng zusätzlich akzeptiert.
-Positive SQL-TLS-Proben, operative Registry, vollständige Client-/Providermatrix
-und SC-2026-045 bleiben davon getrennt offen.
+Die spätere [Windows-Probe](../Quality/TLS_WINDOWS_SQL2025_PARTIAL_ACCEPTANCE_2026-10-16.md)
+bestand mit beiden positiven strikten Stacks, .NET-Gegenfällen für unvertraute
+Kette und falsches SAN am gleichen IPv4-Endpunkt sowie vollständigem Cleanup.
+Private Kurzlaufzeit 30–300 Sekunden ist für den nächsten echten Ablaufgegenfall
+implementiert; dessen native Clientprüfung ist noch offen. CLI-Gegenfälle,
+operative Registry, vollständige Client-/Providermatrix und SC-2026-045 bleiben offen.
 
 **Istzustand und Vertragslücke.** Die Prüfung der Repositoryquellen am
 2026-10-15 ergibt:

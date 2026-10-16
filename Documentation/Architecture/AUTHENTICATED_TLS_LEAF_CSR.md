@@ -11,19 +11,30 @@
 Serverleaf aus einem geprüften öffentlichen CSR und dem ausdrücklich gewählten
 [CA-Kandidaten](AUTHENTICATED_TLS_CA_CANDIDATE.md). Es schreibt keine Dateien,
 öffnet keinen Zertifikatstore und verändert weder Kandidat noch Trustjournal.
-Ein Erfolg belegt Kryptographie; native Target-, SQL-, CSP-/KeySpec-, Dienst-
-und Clientkompatibilität bleiben offen. Das feste synthetische Subject und
+Ein Erfolg belegt Kryptographie, keine native Target-, SQL-, CSP-/KeySpec-,
+Dienst- oder Clientqualifikation. Die separat ausgeführte begrenzte
+[Windows-Probe](../Quality/TLS_WINDOWS_SQL2025_PARTIAL_ACCEPTANCE_2026-10-16.md)
+ersetzt nicht die vollständige Matrix. Das feste synthetische Subject und
 enge Attributset sind kein bereits passender Windows-certreq-/SQL-Request.
 
 ## Expliziter Aufruf und geschlossene Eingabe
 
-Alle acht Parameter sind ausdrücklich zu setzen: `DataRoot`, `ControllerId`,
+Die gemeinsamen Parameter sind ausdrücklich zu setzen: `DataRoot`, `ControllerId`,
 `LocationId`, `Context=CURRENT_WINDOWS_PROCESS`, `CandidateId`, `CsrDer`,
-`Identity` und `ValidityDays`. Root-/UUID-/Kontextformen entsprechen dem
+`Identity` und die ausgewählte Laufzeit. Root-/UUID-/Kontextformen entsprechen dem
 Kandidatenvertrag. Keine freien Keypfade, Caller-SIDs oder AuthorityRefs.
 `CsrDer` ist ein natives `byte[]` von 1 bis 16384 Bytes; die Funktion kopiert
 die nativen Bytes ohne ETS-Getter oder überschreibbare Clone-Methode.
-`ValidityDays` ist ein natives `int` von 1 bis 30. `Identity` ist genau die
+Der bestehende Pfad verlangt `ValidityDays` als natives `int` von 1 bis 30
+und `ValiditySeconds=null`. Für echte Ablaufgegenfälle gibt es alternativ
+`ValidityDays=null` und `ValiditySeconds` als natives `int` von 30 bis 300.
+Beide gleichzeitig, fehlende Laufzeit, fremde Typen und Werte außerhalb der
+Grenzen werden vor Kandidat-/Key-I/O abgelehnt. Beginn bleibt ausschließlich
+die tatsächliche auf Sekunden abgerundete UTC-Zeit, Ende liegt innerhalb der
+CA-Frist. Keine Rückdatierung, Caller-Uhr oder automatische Kürzung.
+Die kurze Laufzeit ist keine Registry-, Provider- oder TLS-Qualifikation;
+ihre echten Client-Ablaufgegenfälle sind noch nicht ausgeführt.
+`Identity` ist genau die
 geschlossene native Objektform `{Kind,Value}` des
 [Anfragevertrags](AUTHENTICATED_TLS_REQUEST.md): kanonische IP oder expliziter
 kleingeschriebener ASCII-DNS-Name. Keine Wildcard, numerische DNS-Ausweichform,
@@ -66,7 +77,8 @@ dem geprüften öffentlichen Schlüssel erhält ausschließlich:
 - nichtkritische EKU ausschließlich `ServerAuthentication`;
 - genau den nichtkritischen angeforderten SAN.
 
-Beginn ist die aktuelle UTC-Sekunde, Ende exakt `ValidityDays` später.
+Beginn ist die aktuelle UTC-Sekunde, Ende exakt die ausgewählten
+`ValidityDays` oder `ValiditySeconds` später.
 Die vollständige Frist muss in der CA-Gültigkeit liegen; kein stilles Kürzen
 oder Profilwechsel. Ein neuer zufälliger positiver 16-Byte-Serial wird erzeugt.
 Öffentliches DER, Identität, SPKI, Subject/Issuer, alle vier Erweiterungen,

@@ -2408,12 +2408,19 @@ Der reale OpenSSL-CSR wurde wegen UTF8 statt BCL-Subjectkodierung abgewiesen;
 das zusätzliche exakt konstruierte feste UTF8-DER wird nun akzeptiert.
 Erhaltener öffentlicher CSR besteht die Readerprüfung ohne Keyöffnung;
 Cleanup entfernte ausschließlich eigene Ressourcen und bewahrte Bestandsdateien.
-Transport des ausgegebenen Leafs und positive Clientabnahme bleiben offen.
+Die spätere [Windows-Probe](TLS_WINDOWS_SQL2025_PARTIAL_ACCEPTANCE_2026-10-16.md)
+belegt öffentliche Leafkopie mit exaktem Rücklesen, beide strikten positiven
+Stacks und .NET-Gegenfälle für unvertraute Kette und falsches SAN am gleichen
+IPv4-Endpunkt. Eigene Ressourcen sind entfernt und Bestandsdateien erhalten.
+CLI-Gegenfälle und vollständige Provider-/Versions-/Exportabnahme bleiben offen.
 Frist höchstens 30 Tage innerhalb der CA-Frist, keine automatische Kürzung.
-Die derzeitige private Issuer-Eingabe erlaubt ausschließlich 1 bis 30 ganze
-Tage. Ein echter sofortiger Ablaufgegenfall eines SQL-Clients braucht deshalb
-eine später separat geprüfte kurze Laufzeit oder tatsächlichen Zeitablauf;
-Offline-`attime` und künstliche globale Uhränderung ersetzen diesen Nachweis nicht.
+Der bestehende Tagespfad bleibt bei 1 bis 30 ganzen Tagen; die alternative
+private Kurzlaufzeit verlangt native `ValiditySeconds` 30 bis 300 und
+`ValidityDays=null`. Beide gleichzeitig sind gesperrt. Tatsächlicher UTC-Beginn,
+CA-Endgrenze und vollständige CSR-/Keyprüfungen bleiben erhalten. Die lokalen
+Kryptofälle sind kein abgelaufener Clientnachweis; der echte Zeitablauf und
+beide Clientgegenfälle stehen noch aus. Offline-`attime` und künstliche globale
+Uhränderung ersetzen diesen Nachweis nicht.
 Zusätzlich bindet der lesende Diagnostic-/TLS-Targetmetadatenpfad derzeit nur
 Basisversionen im Run, während `New-SqlServerLab` auch katalogisierte CU-Tags
 erzeugen kann. Eine native eigene CU-Fixture kann über den bestehenden

@@ -44,7 +44,7 @@ Tatsächliche Kosten und Tokenverbrauch sind unbekannt.
 Nachgewiesen ist die konkrete lokale native Trusttransaktion. Es gibt keine
 allgemeine Laufzeit-/Policy-/UI-Garantie, globale Store-Atomizität, exklusive
 Nutzung oder neue Removalautorität. Die CA bleibt operativ unregistriert;
-`Ready=false` und die positive SQL-/Client-/Provider-TLS-Abnahme bleiben `NOT_EXECUTED`.
+`Ready=false`; dieser Trustnachweis allein qualifiziert keine SQL-/Client-/Provider-TLS-Abnahme.
 Toolbelt SC-2026-045 ist dadurch noch nicht freigegeben.
 
 Die erste nachfolgende native Probe verwendete ausschließlich ein frisches
@@ -66,8 +66,10 @@ ACL-Fixtures bestanden 55/0 und wurden vollständig entfernt; Gegenfälle
 bewahren die Sperre für falschen/zusätzlichen Subject, Signaturdrift und Extensions.
 Dies ist keine nachträgliche native Signierung oder positive SQL-Abnahme.
 
-Der nächste begrenzte Nachweis verwendet einen neuen eigenen Run mit dem
-integrierten Readerfix, targetlokalem Key/CSR und echten strikten Windowsclients.
+Die spätere getrennte [Windows-Probe](TLS_WINDOWS_SQL2025_PARTIAL_ACCEPTANCE_2026-10-16.md)
+bestand mit beiden strikten positiven Stacks und .NET-Gegenfällen für unvertraute
+Kette und falsches SAN am gleichen IPv4-Endpunkt. Ihr eigener Run ist entfernt;
+dies qualifiziert nicht die vollständige Matrix oder Registry.
 Die sechs geschützten Testumgebungen,
 die erhaltene SSISDB-Quelle und bestehende Exporte werden dabei bewahrt.
 Linuxclients, Podman, Hyper-V, weitere SQL-Versionen, Ablauf, Renewal, Drift,
