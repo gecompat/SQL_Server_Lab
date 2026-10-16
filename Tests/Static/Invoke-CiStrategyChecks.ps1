@@ -9,6 +9,34 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $failures = [System.Collections.Generic.List[string]]::new()
 $passed = 0
 $selector = Join-Path $repoRoot 'Tools/Get-CiTestSelection.ps1'
+$tlsLeafCheck = 'Invoke-AuthenticatedTlsLeafCsrChecks.ps1'
+foreach ($path in @('Private/AuthenticatedTlsLeafCsr.ps1','Tests/Static/Invoke-AuthenticatedTlsLeafCsrChecks.ps1')) {
+    foreach ($normalized in @($path,$path.Replace('/','\'))) {
+        $selected = & $selector -ChangedPath @($normalized)
+        Add-CheckResult "TLS-L07 exakte lokale CSR-Kryptolane $normalized" ($tlsLeafCheck -in $selected.StaticChecks -and
+            -not $selected.Docker -and -not $selected.Podman -and -not $selected.Mixed -and -not $selected.HyperV -and -not $selected.Adapter)
+    }
+}
+foreach ($path in @('Private/AuthenticatedTlsCaCandidate.ps1','Private/AuthenticatedTlsRegistryRoot.ps1','Private/AuthenticatedTlsRegistryPayload.ps1','Private/AuthenticatedTlsRequest.ps1','Private/AuthenticatedTlsContext.ps1','Private/DiagnosticBundleReader.ps1')) {
+    $selected = & $selector -ChangedPath @($path)
+    Add-CheckResult "TLS-L07 gekoppelte CSR-Quelle $path" ($tlsLeafCheck -in $selected.StaticChecks)
+}
+foreach ($path in @('Private/Other/AuthenticatedTlsLeafCsr.ps1','Private/AuthenticatedTlsLeafCsrOther.ps1','Private/authenticatedTlsLeafCsr.ps1')) {
+    $selected = & $selector -ChangedPath @($path)
+    Add-CheckResult "TLS-L07 kein Teilnamen-/Casefallback $path" ($tlsLeafCheck -notin $selected.StaticChecks -and
+        $selected.Docker -and $selected.Podman -and $selected.Mixed -and $selected.HyperV -and $selected.Adapter)
+}
+foreach ($other in @('Private/UnmappedSynthetic.ps1','Private/CleanupEngine.ps1','Providers/Podman/PodmanProvider.ps1')) {
+    $baseline = & $selector -ChangedPath @($other)
+    $union = & $selector -ChangedPath @('Private/AuthenticatedTlsLeafCsr.ps1',$other)
+    $preserved = $true
+    foreach ($provider in @('Docker','Podman','Mixed','HyperV','Adapter')) {
+        $preserved = $preserved -and $union.$provider -eq $baseline.$provider -and
+            ($union.Capabilities.$provider -join ',') -ceq ($baseline.Capabilities.$provider -join ',')
+    }
+    Add-CheckResult "TLS-L07 gemischte Runtimeauswahl erhalten $other" ($preserved -and $tlsLeafCheck -in $union.StaticChecks -and
+        @($baseline.StaticChecks | Where-Object { $_ -notin $union.StaticChecks }).Count -eq 0)
+}
 $tlsImportCheck = 'Invoke-AuthenticatedTlsTrustImportChecks.ps1'
 foreach ($path in @('Private/AuthenticatedTlsTrustImport.ps1','Tests/Static/Invoke-AuthenticatedTlsTrustImportChecks.ps1')) {
     foreach ($normalized in @($path,$path.Replace('/','\'))) {

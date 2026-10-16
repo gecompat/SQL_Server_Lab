@@ -2359,6 +2359,21 @@ reale Storemutation ist von ihren Tests weiterhin `NOT_EXECUTED`. Synchrone
 native Add-Laufzeit und Policy-/UI-Verhalten sind nicht qualifiziert. Kein
 Importreceipt belegt globale Store-Atomizität, exklusive Nutzung oder Removal-
 Autorität. Operative Registry, SQL-Bindung und TLS-Lab-Abnahme fehlen weiterhin.
+Der separat geprüfte tatsächliche Importworker wurde genau einmal ausgeführt
+und nach 60 Sekunden beendet. Frisch lesend: CA `ABSENT`, Journal
+`RECOVERY_REQUIRED`, passender gültiger Intent, kein Commit und kein Lock;
+kein bestätigter Import. Konkrete UI-Rückfrage offen, Freigabe bleibt gesichert.
+Kein Retry oder Journalremove aus diesem Zustand. Native Storequalifikation
+ist dadurch weiterhin nicht bestanden.
+Die [private CSR-Kryptolane](../Architecture/AUTHENTICATED_TLS_LEAF_CSR.md)
+belegt jetzt öffentlichen RSA-3072-/SHA-256-CSR-Proof, vollständiges DER,
+exakten angeforderten SAN, gebundenes DPAPI-Keymatch und unabhängig geprüfte
+Leafsignatur an eigenen nativen Tempfixtures. Sie öffnet keinen Store und
+verändert weder echten Kandidaten noch Journal. Fester synthetischer Subject
+und enges Attributset qualifizieren keinen Windows-certreq-/CSP-/KeySpec-/
+SQL-Dienstrequest. CSR-Claims sind keine native Run-/Target-/Ownership-
+Autorität; targetlokale Keyerzeugung, Transport und Clientabnahme bleiben offen.
+Frist höchstens 30 Tage innerhalb der CA-Frist, keine automatische Kürzung.
 Die private Fähigkeit sperrt Nicht-Windows und Engines
 vor 7.5 vor I/O; lokal nativ geprüft ist 7.6.6, kein 7.5-/7.2-Nachweis.
 DPAPI ist profilgebunden; Keyverlust, Administratoren, feindlicher Code mit
@@ -2366,7 +2381,7 @@ derselben SID und nicht kooperierende Pfad-/ACL-Races werden dadurch nicht
 gelöst. Eigene Teilzustände ergeben sichtbaren Recoverybedarf; kein allgemeiner
 Writer-/Crash-/Cleanupvertrag oder automatische Adoption entsteht.
 Hyper-V, echte Kontextregistrierung,
-vollständige Backend-/Keyschutzqualifikation, operative Signierung, Storeimport, Journal,
+vollständige Backend-/Keyschutzqualifikation, native Targetsignierung, bestätigter Storeimport, allgemeines Registryjournal,
 Erneuerung und Recovery bleiben offen; Export und Providerverhalten werden
 durch diese privaten Slices nicht geändert.
 

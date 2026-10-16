@@ -867,6 +867,9 @@ sources_of_truth:
   validation_authenticated_tls_registry_root: Tests/Static/Invoke-AuthenticatedTlsRegistryRootChecks.ps1 # coupled DiagnosticBundleReader, request/index/payload/document; own synthetic files only, StorageContract producer preserved
   authenticated_tls_ca_candidate_contract: Documentation/Architecture/AUTHENTICATED_TLS_CA_CANDIDATE.md
   authenticated_tls_ca_candidate: Private/AuthenticatedTlsCaCandidate.ps1 # private Windows PS>=7.5; protected RSA/DPAPI candidate, read-only CurrentUser Root preview; UNREGISTERED_UNQUALIFIED, no import/SQL/provider authority
+  authenticated_tls_leaf_csr: Private/AuthenticatedTlsLeafCsr.ps1 # private Windows PS>=7.5; bounded RSA3072 SHA256 CSR proof, explicit SAN, candidate-bound DPAPI signing; public leaf only, no store/native target/SQL authority
+  authenticated_tls_leaf_csr_contract: Documentation/Architecture/AUTHENTICATED_TLS_LEAF_CSR.md # coupled candidate/root/request/payload/context binding; synthetic subject is not a qualified Windows certreq/CSP/KeySpec/SQL profile
+  validation_authenticated_tls_leaf_csr: Tests/Static/Invoke-AuthenticatedTlsLeafCsrChecks.ps1 # own real temporary CA/CSR/DPAPI/ACL crypto fixtures; no real candidate/store access; native target and SQL NOT_EXECUTED
   validation_authenticated_tls_ca_candidate: Tests/Static/Invoke-AuthenticatedTlsCaCandidateChecks.ps1 # coupled Root metadata/request/payload/context/pathguards; native Windows crypto/ACL/DPAPI in own temp fixtures, not pure offline or TLS acceptance
   authenticated_tls_trust_import_contract: Documentation/Architecture/AUTHENTICATED_TLS_TRUST_IMPORT.md
   authenticated_tls_trust_import: Private/AuthenticatedTlsTrustImport.ps1 # private Windows CurrentUser Root public-DER lane, exact approval + protected intent/commit/cooperative lock; no removal/registration/TLS qualification

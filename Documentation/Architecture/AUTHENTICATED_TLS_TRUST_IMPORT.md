@@ -3,7 +3,7 @@
 | Merkmal | Wert |
 |---|---|
 | Slice | `TLS001-TRUST-IMPORT-01` |
-| Status | `PRIVATE`; native Storemutationsabnahme noch `NOT_EXECUTED` |
+| Status | `PRIVATE`; nativer Versuch `RECOVERY_REQUIRED`, kein bestätigter Import |
 | Implementierung | [`AuthenticatedTlsTrustImport.ps1`](../../Private/AuthenticatedTlsTrustImport.ps1) |
 | Prüfung | [`Invoke-AuthenticatedTlsTrustImportChecks.ps1`](../../Tests/Static/Invoke-AuthenticatedTlsTrustImportChecks.ps1) |
 | Fachlicher Zweck | Explizit genehmigter öffentlicher CA-Trust für spätere authentifizierte SQL-Labverbindungen |
@@ -152,13 +152,17 @@ Ausführung, Provider-/Policy-/UI-Verhalten und begrenzte native Laufzeit sind
 hier nicht belegt. Der vertrauenswürdige Ausführungsadapter kann einen eigenen
 begrenzten Worker verwenden. Timeout/Abbruch nach Intent bleibt unklar und
 erfordert ausschließlich lesende Recovery; kein Policy-, Protection- oder
-LocalMachine-Bypass. Der eigentliche native Import erfolgt separat nach
-Integration und passender konkreter menschlicher Freigabe.
+LocalMachine-Bypass. Ein tatsächlicher nativer Versuch bleibt von den
+injizierten Suiteprüfungen getrennt; Nachbeobachtung entscheidet über Erfolg.
 
 Es existiert inzwischen ein eigener dauerhafter CA-Kandidat außerhalb der
 Testfixtures; seine DPAPI-Wiedereröffnung und frische lesende Trustvorschau
 wurden lokal erfolgreich ausgeführt. Die konkrete menschliche Importfreigabe
-ist gesichert. Reale Identitäten, Pfade und Digests bleiben ausschließlich
+ist gesichert. Der separat geprüfte Worker wurde genau einmal ausgeführt und
+nach 60 Sekunden beendet. Frisch lesend: CA `ABSENT`, Journal
+`RECOVERY_REQUIRED`, gültiger passender Intent, kein Commit und kein Lock.
+Kein bestätigter Import; die konkrete UI-Rückfrage bleibt offen. Kein Retry,
+Journalremove oder Storewrite aus diesem Befund. Reale Identitäten, Pfade und Digests bleiben ausschließlich
 lokal. Native Storemutation wird von dieser Testsuite nicht ausgeführt oder
 qualifiziert. Die CA bleibt unregistriert; ein Trustimport ist keine Leaf-,
 SQL-, Provider- oder authentifizierte TLS-Lab-Abnahme. Toolbelt SC-2026-045
