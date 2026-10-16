@@ -54,9 +54,15 @@ Datei-/ACL-/Lockfixtures mit injizierten Storegrenzen. Konkrete menschliche
 Importfreigabe ist gesichert. Ein separat geprüfter nativer Worker wurde
 genau einmal ausgeführt und nach 60 Sekunden beendet. Frische lesende Befunde:
 CA `ABSENT`, Journal `RECOVERY_REQUIRED`, passender gültiger Intent, kein
-Commit und kein Lock; kein bestätigter Import. Die UI-Rückfrage ist offen.
-Kein Retry oder Journalremove; keine Löschautorität, Registrierung oder
+Commit und kein Lock; kein bestätigter Import. Der Benutzer meldet keinen sichtbaren Dialog und wählt ein sichtbares Fenster nach geprüfter Recovery.
+Kein automatischer Retry oder Journalremove; keine Löschautorität, Registrierung oder
 TLS-Lab-Abnahme entsteht durch einen Importreceipt.
+Die private [einmalige Trust-Recovery](../Documentation/Architecture/AUTHENTICATED_TLS_TRUST_RECOVERY.md)
+ergänzt jetzt eine frische fünfminütige Preview und eigene geschützte
+Recoveryintent-/Commitrecords. Originalbytes bleiben erhalten; ein unklarer
+Recoveryversuch wird nicht wiederholt und vorhandener Trust bleibt unattributiert.
+Ihre Ausführung im separat geprüften sichtbaren Adapter bleibt `NOT_EXECUTED`.
+Syntaktische Approval-/Adapter-IDs sind keine menschliche oder Quieszenzevidence.
 Die private [CSR-Kryptolane](../Documentation/Architecture/AUTHENTICATED_TLS_LEAF_CSR.md)
 prüft jetzt begrenztes vollständiges DER und echten RSA-3072-/SHA-256-CSR-Proof,
 öffnet den gebundenen Kandidatenkey erst nach geschlossener Prüfung und

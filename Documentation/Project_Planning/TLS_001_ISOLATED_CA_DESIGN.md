@@ -98,6 +98,15 @@ fordert die Übereinstimmung der Verbindungsidentität mit dem Zertifikat.
 
 ## D3 – konkrete Client-Trustfreigabe
 
+Die [private einmalige Recovery](../Architecture/AUTHENTICATED_TLS_TRUST_RECOVERY.md)
+erhält einen gültigen ursprünglichen Intent ohne normalen Commit bytegenau
+und bindet eine neue fünfminütige Preview an dessen Original-/Approvalbytes.
+Nur ein eigener dauerhafter Recoveryintent kann einen neuen Versuch erlauben;
+unklare Recovery bleibt terminal, vorhandener Trust unattributiert. Tatsächliche
+Humanfreigabe, neue sichtbare Fensterwahl und alte Workerbeendigung prüft ein
+separater vertrauenswürdiger Adapter nach Integration. Der Recoverycode selbst
+erzeugt keine Autorität; dessen native Ausführung ist `NOT_EXECUTED`.
+
 Der [private Windows-Trustimport](../Architecture/AUTHENTICATED_TLS_TRUST_IMPORT.md)
 konkretisiert jetzt diese Grenze mit fünfminütiger exakter Freigabebindung,
 geschütztem Intent/Commit und lesendem Status. Der kooperative Lock ist keine
@@ -107,7 +116,7 @@ und frischer Trustvorschau existiert. Die konkrete menschliche Freigabe ist
 gesichert. Der separat geprüfte native Worker wurde genau einmal ausgeführt
 und nach 60 Sekunden beendet. Frisch lesend: CA `ABSENT`, Journal
 `RECOVERY_REQUIRED`, passender gültiger Intent, kein Commit und kein Lock;
-kein bestätigter Import. UI-Rückfrage offen; kein Retry oder Journalremove.
+kein bestätigter Import. UI-Wahl: kein Dialog sichtbar, sichtbares Fenster nach geprüfter Recovery gewünscht; kein automatischer Retry oder Journalremove.
 Die Suite mutiert keinen Rootstore. Native Policy-/UI-Effekte und begrenzte
 Add-Laufzeit bleiben unqualifiziert; ein äußerer Worker darf nach Timeout
 keinen unklaren Intent automatisch wiederholen oder entfernen.

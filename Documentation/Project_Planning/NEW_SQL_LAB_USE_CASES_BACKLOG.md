@@ -149,13 +149,19 @@ sind durch deren Datei-/ACL-/Lock- und injizierte Storetests nicht belegt.
 Der separat geprüfte echte Importworker wurde genau einmal ausgeführt und
 nach 60 Sekunden beendet. Frisch lesend: CA `ABSENT`, Journal
 `RECOVERY_REQUIRED`, passender gültiger Intent ohne Commit/Lock, kein
-bestätigter Import. UI-Rückfrage offen; kein Retry oder Journalremove.
+bestätigter Import. UI-Wahl: kein Dialog sichtbar, sichtbares Fenster nach geprüfter Recovery gewünscht; kein automatischer Retry oder Journalremove.
 Die folgende [private CSR-Kryptolane](../Architecture/AUTHENTICATED_TLS_LEAF_CSR.md)
 prüft öffentlichen CSR-Proof, expliziten SAN und frische Kandidatenbindung und
 signiert ein unabhängig geprüftes öffentliches Leaf mit dem DPAPI-Key.
 Eigene Tempfixtures bleiben getrennt vom echten Kandidaten. Das synthetische
 Subject/Attributprofil ist keine native Windows-certreq-/CSP-/KeySpec-/SQL-
 Qualifikation. NativeTarget, Registrierung und TLS bleiben `NOT_EXECUTED`.
+Die [private einmalige Trust-Recovery](../Architecture/AUTHENTICATED_TLS_TRUST_RECOVERY.md)
+konkretisiert jetzt den gültigen ursprünglichen Intent ohne normalen Commit:
+Originalbytes bleiben erhalten, frische Preview bindet separate Adapterevidence,
+ein Recoveryintent begrenzt den neuen Versuch. Bereits vorhandener Trust bleibt
+unattributiert; unklare Recovery darf nicht wiederholt werden. Die tatsächliche
+sichtbare Adapterausführung bleibt getrennt und `NOT_EXECUTED`.
 
 **Istzustand und Vertragslücke.** Die Prüfung der Repositoryquellen am
 2026-10-15 ergibt:
