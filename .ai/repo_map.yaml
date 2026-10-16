@@ -862,6 +862,9 @@ sources_of_truth:
   authenticated_tls_registry_document_contract: Documentation/Architecture/AUTHENTICATED_TLS_REGISTRY_DOCUMENT.md
   authenticated_tls_registry_document: Private/AuthenticatedTlsRegistryDocument.ps1 # complete pre-key payload/index consistency and semantic digest; no root binding, file I/O, registration or authority
   validation_authenticated_tls_registry_document: Tests/Static/Invoke-AuthenticatedTlsRegistryDocumentChecks.ps1 # coupled index/payload/request helpers; complete synthetic document transitions, no native reads
+  authenticated_tls_registry_root_contract: Documentation/Architecture/AUTHENTICATED_TLS_REGISTRY_ROOT.md
+  authenticated_tls_registry_root: Private/AuthenticatedTlsRegistryRoot.ps1 # read-only registered local Windows root metadata and fixed registry file; non-atomic observation, no registration/authority
+  validation_authenticated_tls_registry_root: Tests/Static/Invoke-AuthenticatedTlsRegistryRootChecks.ps1 # coupled DiagnosticBundleReader, request/index/payload/document; own synthetic files only, StorageContract producer preserved
   test_group_power_guidance: Private/TestGroupGuidance.ps1
   validation_test_group_power_guidance: Tests/Static/Invoke-TestGroupGuidanceChecks.ps1
   validation_nightly_authorization: Tests/Static/Fixtures/CiStrategyNightlyAuthorizationChecks.ps1

@@ -83,7 +83,9 @@ und später Key-/Zertifikatsrevisionen. Die geschlossenen Metadatenpayloads
 vor Keyanlage, kanonische Digestbildung und intern frische Prozessbindung
 sind implementiert und synthetisch geprüft. Die Registry-Gesamtform prüft
 jetzt auch die exakte Index-/Payload-/Digestzuordnung und vollständige
-Dokumentübergänge. Rootbindung und Dateileser fehlen vor dem Writer noch.
+Dokumentübergänge. Die [lesende Rootbindung](../Architecture/AUTHENTICATED_TLS_REGISTRY_ROOT.md)
+prüft jetzt die bestehende Registrydatei gegen registrierte Windows-Rootmetadaten;
+keine atomare oder native Host-/Actorqualifikation. Writer und Zugriffsschutz fehlen noch.
 Indexdigests allein dürfen nicht als geprüfte Payloads gelten; Key-/
 Zertifikatsdaten behalten ihren späteren eigenen Vertrag.
 
@@ -172,10 +174,11 @@ mit synthetischen Referenzen. Root und Trustscope bleiben unaufgelöst,
 vollständige Binderqualifikation und spätere Key-/Zertifikatsrecords offen.
 Die geschlossene Registry-Gesamtform mit vollständiger Payload-/Index-/
 Digestzuordnung und Dokumentübergängen ist offline implementiert und
-synthetisch geprüft. Als Nächstes den privaten lesenden Resolver für die
-ausdrücklich registrierte Controller-/Location-/Rootbindung mit dieser
-Gesamtform ausarbeiten. Keine automatische Registryanlage oder Pfadadoption;
-noch keine native Registrierung oder Mutation.
+synthetisch geprüft. Die lesende Windows-Rootbindung mit fester Registrydatei
+ist implementiert und an eigenen synthetischen Files geprüft. Als Nächstes
+die private Registrytransaktion mit frischer Kontextbindung, privatem
+Zugriffsschutz und nativen Crash-/Parallelitätsfällen gemäß obigem Vertrag.
+Keine automatische Pfadadoption; noch keine native Registrierung oder Mutation.
 Die Registrytransaktion folgt erst nach diesen vollständigen Verträgen;
 CA-Keyschutz und konkrete Mutationsfreigaben bleiben separat.
 Die bereits vorhandenen `ClientRef`-/`AuthorityRef`-Anfragen bleiben bis dahin

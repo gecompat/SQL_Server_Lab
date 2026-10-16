@@ -129,7 +129,9 @@ Keine zusätzliche Provider- oder Modellrunde entsteht aus diesem Index.
 
 Die [Registry-Gesamtform](AUTHENTICATED_TLS_REGISTRY_DOCUMENT.md) prüft jetzt
 offline die exakte Zuordnung aller Payloads zu Indexrecords und Digests.
-Vor einem Writer fehlen noch Rootbindung und Dateileser. Die
+Die [lesende Rootbindung](AUTHENTICATED_TLS_REGISTRY_ROOT.md) ergänzt jetzt
+registrierte Windows-Rootmetadaten und die bestehende Registrydatei;
+der Befund ist nicht atomar und erteilt keine Autorität. Die
 vorhandenen Payloadformen beschreiben nur Metadaten vor Keyanlage, keine
 späteren Key-/Zertifikatsrecords oder Nativevidence. Journal, Lock,
 atomarer Dateiersatz und Crash-/Parallelitätsabnahme bleiben eigene folgende

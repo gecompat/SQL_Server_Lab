@@ -2337,9 +2337,12 @@ getrennt lesend beobachtet; Root und Trustscope bleiben unaufgelöst.
 Digests sind keine Attestation, Diskbytes kein
 geladenes Image. Die [Registry-Gesamtform](../Architecture/AUTHENTICATED_TLS_REGISTRY_DOCUMENT.md)
 prüft jetzt die vollständige interne Payload-/Index-/Digestzuordnung und
-Dokumentübergänge an synthetischen Bytes. Rootbindung, Dateileser, tatsächliche
-Registrierung, Key-/Zertifikatsrecords und vollständige Binderqualifikation
-bleiben offen. Der semantische Dokumentdigest belegt weder Dateibytes,
+Dokumentübergänge an synthetischen Bytes. Die [lesende Rootbindung](../Architecture/AUTHENTICATED_TLS_REGISTRY_ROOT.md)
+ergänzt auf Windows feste Dateipfade, registrierte Rootmetadaten und den
+Originalbytehash der bestehenden Registrydatei. Sie ist ein nicht atomarer
+Metadatenbefund; keine native Host-/Volume-/Actorbindung oder Zugriffsqualifikation.
+Writer, Trustscope, tatsächliche Registrierung, Key-/Zertifikatsrecords und
+vollständige Binderqualifikation bleiben offen. Der semantische Dokumentdigest belegt weder Dateibytes,
 Compare-and-swap, Herkunft noch Autorisierung. Toolbelt SC-2026-045 erhält
 dadurch keine authentifizierte TLS-Lab-Freigabe.
 Hyper-V, echte Kontextregistrierung,

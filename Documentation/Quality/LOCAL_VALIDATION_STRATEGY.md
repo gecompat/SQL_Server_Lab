@@ -21,6 +21,39 @@ ein Dokumentationsdateiname allein verlangt keinen Providerstart. Änderungen
 an gemeinsamem Ownership/Cleanup verlangen weiterhin die breite Matrix.
 [Auswahl, Cachegrenzen und Ausnahmen](FOUNDATION_1_21_PROCESSING_ASSESSMENT.md).
 
+## Lesende TLS-Registry-Rootbindung (TLS001-ROOT-READER-01)
+
+Die [lesende Rootbindung](../Architecture/AUTHENTICATED_TLS_REGISTRY_ROOT.md)
+bestand am 2026-10-16 fokussiert mit 69 PASS / 0 FAIL auf Windows unter
+PowerShell 7.6.6/.NET 10.0.12. Eigene synthetische Tempfixtures prüfen
+Root-/Controller-/Location-/Volumeclaims, leere und nichtleere vollständige
+Dokumente, feste Dateipfade, fehlende/gesperrte Dateien, Junctions, Bytegrenzen,
+ungültiges UTF-8/JSON, Caller-ETS-Grenzen und beobachtete Drift beim zweiten Read.
+Die Fixturedateien blieben beim Reader unverändert und wurden anschließend
+im vorher verifizierten eigenen Tempbereich entfernt. Andere Plattformen
+prüfen nur ihre geschlossene Ablehnung; Windows-Dateifälle dort `NOT_EXECUTED`.
+
+AST und native Tripwire prüfen den lesenden Aufrufgraph. Keine nativen
+Kontext-, Key-, Store-, SQL- oder Provideraktionen wurden ausgeführt. Die
+Root-/Volumewerte sind Metadatenclaims; doppelte Reads und Dateibytehash
+ersetzen keinen atomaren Snapshot, Lock, CAS, Crash- oder Herkunftsnachweis.
+Der unabhängige stabile Quellreview fand keine bestätigten Findings; Produkt-
+und Testblobs blieben unverändert. Die eingefrorene betroffene Abschlussauswahl
+bestand mit Root 69/0, CI-Strategie 709/0, Dokumentation 2010/0, Pester 23/0,
+Privacy 3/0 und ScriptAnalyzer PASS mit Warnungen und erfassten Baselines.
+Writer, Zugriffsschutz, persistente Registrierung und authentifizierte
+TLS-Lab-Abnahme bleiben offen.
+
+Eine separate lesende Bestandsaufnahme fand genau einen ausgewählten
+registrierten Root und noch keine TLS-Registrydatei. Die breiteren geerbten
+State-Zugriffsrechte qualifizieren keine private CA-Ablage; vor privaten
+Schreibvorgängen ist ein eigener geschützter Unterbereich zu prüfen.
+Die getrennten Bootstrapprüfungen für Docker, Podman und Hyper-V mit Operation
+Create ergaben jeweils `READY_WITH_WARNINGS`, keine fehlenden Voraussetzungen
+und `TARGET_AUTHORIZATION_REQUIRED`. Sie starteten keine Runtime und ersetzen
+weder Ziel-/Besitz-/Rechteprüfung noch einen TLS-/Providerfunktionsnachweis.
+Reale Root-/Identitäts-/ACL-Werte und vollständige Ergebnisse blieben lokal.
+
 ## Private TLS-Registry-Gesamtform (TLS001-REGISTRY-DOCUMENT-01)
 
 Die [Registry-Gesamtform](../Architecture/AUTHENTICATED_TLS_REGISTRY_DOCUMENT.md)
