@@ -1102,6 +1102,31 @@ auch außerhalb seiner automatischen Auswahl erforderlich.
 
 ## Private Docker-/Podman-CI-Diagnostik
 
+Die vollständige Container-Fähigkeitsmatrix besitzt je Provider ein hartes
+90-Minuten-Joblimit. Beim SSISDB-Abschluss am 2026-10-16 brach das frühere
+45-Minuten-Limit einen noch fortschreitenden Podman-Lauf ab. Einzeloperationen,
+Hostmutex und Testumfang behalten ihre bisherigen Grenzen. Geschützte
+Ownership- und Recoveryzustände liegen deshalb unter dem lokalen Benutzerprofil
+in `SqlServerLab/diagnostics/ci-runs`, außerhalb des vom Runner vor dem nächsten
+Job gelöschten Tempverzeichnisses. Sie werden nicht hochgeladen. Die einzelnen
+Tests bereinigen weiterhin ihre eigenen Runtime-Ressourcen.
+
+Aufwandsbewertung: Die Pflichtmatrix und ihre Sicherheitsprüfungen bleiben
+unverändert; das größere endliche Jobbudget verhindert einen vorzeitigen Abbruch
+mit anschließendem vollständigem Wiederanlauf. Zwei vorhandene Privacy-Suites
+prüfen Budget und geschützten Statepfad zusätzlich. Es entstehen weder neue
+Runtimeprüfungen noch zusätzliche Review- oder Modellketten. Lokale
+Recoverymetadaten bleiben für gezielte Wiederherstellung erhalten; Rohlogs
+bleiben temporär und privat.
+
+Die unveränderte synthetische Autostart-HTTP-Fixture führte auf dem eigenen
+Host alle 107 Prüfungen für zwei Provider in 66 Sekunden erfolgreich aus.
+Ihr bisheriger 60-Sekunden-Supervisor brach deshalb den lokalen Abschlusslauf
+vorzeitig ab. Ausschließlich diese Fixture erhält 120 Sekunden; alle anderen
+UI-Fixtures behalten 60 Sekunden. Inhalt, negative Sicherheitsfälle und
+Cleanup werden nicht verkürzt. Dieser zusätzliche Testbudgetbefund erweitert
+keinen Produkt- oder Providervertrag.
+
 Die selbst gehosteten Docker-/Podman-Gates schreiben Preflight- und Testausgaben nur in
 lokale `*.private.log`-Dateien unter `RUNNER_TEMP`. Er lädt keine Rohlogs hoch;
 öffentliche Fehler und Ergebnisse enthalten feste Meldungen ohne übernommene
