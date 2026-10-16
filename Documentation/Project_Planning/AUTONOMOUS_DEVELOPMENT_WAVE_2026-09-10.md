@@ -79,10 +79,20 @@ DPAPI-Reopen/Sign/Verify und frische lesende Trustvorschau bestanden. Die
 konkrete menschliche Importfreigabe ist gesichert. Die neue
 [private Trust-Importtransaktion](../Architecture/AUTHENTICATED_TLS_TRUST_IMPORT.md)
 besitzt geschütztes Intent/Commit, kooperativen Lock und lesenden Recovery-
-Status. Reale Rootstoremutation bleibt den separat freigegebenen nativen
-Schritten nach Integration vorbehalten. Die neue Suite verwendet eigene
+Status. Der separat geprüfte native Worker wurde genau einmal ausgeführt und
+nach 60 Sekunden beendet: frisch lesend CA `ABSENT`, Journal
+`RECOVERY_REQUIRED`, passender gültiger Intent, kein Commit/Lock und kein
+bestätigter Import. Die UI-Rückfrage ist offen; kein Retry oder Journalremove.
+Die neue Suite verwendet eigene
 private Dateifixtures und injizierte Storegrenzen; kein Importreceipt erlaubt
 ungeprüften Removal oder qualifiziert SQL/TLS.
+Die [private CSR-Kryptolane](../Architecture/AUTHENTICATED_TLS_LEAF_CSR.md)
+liefert jetzt aus einem strikt begrenzten signierten RSA-3072-/SHA-256-CSR
+ein unabhängig geprüftes öffentliches Leaf mit genau angefordertem IP-/DNS-SAN.
+CA-/Root-/Actorbindung und DPAPI-Keymatch werden frisch geprüft; kein Store
+wird geöffnet. Die eigene native Tempfixture ist kein Windows-certreq-/CSP-/
+KeySpec-/SQL-Profil oder NativeTargetnachweis. Registrierung, Trustrecovery,
+frische eigene Runtimeproben und authentifizierte Clientabnahme bleiben offen.
 Der Benutzer verlangt ausdrücklich die autonome Fortsetzung bis zur echten
 TLS-Lab-Abnahme und gezielte Fragen bei konkret fehlenden Freigaben.
 Schutzgrenzen bestehen fort; reine Offlinefortschritte beenden diesen Auftrag nicht.

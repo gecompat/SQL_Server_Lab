@@ -146,6 +146,16 @@ Die konkrete menschliche Trustfreigabe ist gesichert. Die
 implementiert fünfminütige Freigabebindung, geschütztes Intent/Commit und
 lesenden Recoverybefund. Native Storemutation und eigentliche TLS-Abnahme
 sind durch deren Datei-/ACL-/Lock- und injizierte Storetests nicht belegt.
+Der separat geprüfte echte Importworker wurde genau einmal ausgeführt und
+nach 60 Sekunden beendet. Frisch lesend: CA `ABSENT`, Journal
+`RECOVERY_REQUIRED`, passender gültiger Intent ohne Commit/Lock, kein
+bestätigter Import. UI-Rückfrage offen; kein Retry oder Journalremove.
+Die folgende [private CSR-Kryptolane](../Architecture/AUTHENTICATED_TLS_LEAF_CSR.md)
+prüft öffentlichen CSR-Proof, expliziten SAN und frische Kandidatenbindung und
+signiert ein unabhängig geprüftes öffentliches Leaf mit dem DPAPI-Key.
+Eigene Tempfixtures bleiben getrennt vom echten Kandidaten. Das synthetische
+Subject/Attributprofil ist keine native Windows-certreq-/CSP-/KeySpec-/SQL-
+Qualifikation. NativeTarget, Registrierung und TLS bleiben `NOT_EXECUTED`.
 
 **Istzustand und Vertragslücke.** Die Prüfung der Repositoryquellen am
 2026-10-15 ergibt:

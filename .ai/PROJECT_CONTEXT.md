@@ -51,9 +51,18 @@ Die [private Trust-Importtransaktion](../Documentation/Architecture/AUTHENTICATE
 ergänzt jetzt exakte fünfminütige Freigabebindung, geschütztes Intent/Commit,
 kooperativen Lock und lesenden Status/Recovery. Tests verwenden echte eigene
 Datei-/ACL-/Lockfixtures mit injizierten Storegrenzen. Konkrete menschliche
-Importfreigabe ist gesichert; reale Storemutation erfolgt erst separat nach
-Integration. Sie bleibt hier `NOT_EXECUTED`; keine Löschautorität, Registrierung
-oder TLS-Lab-Abnahme entsteht durch einen Importreceipt.
+Importfreigabe ist gesichert. Ein separat geprüfter nativer Worker wurde
+genau einmal ausgeführt und nach 60 Sekunden beendet. Frische lesende Befunde:
+CA `ABSENT`, Journal `RECOVERY_REQUIRED`, passender gültiger Intent, kein
+Commit und kein Lock; kein bestätigter Import. Die UI-Rückfrage ist offen.
+Kein Retry oder Journalremove; keine Löschautorität, Registrierung oder
+TLS-Lab-Abnahme entsteht durch einen Importreceipt.
+Die private [CSR-Kryptolane](../Documentation/Architecture/AUTHENTICATED_TLS_LEAF_CSR.md)
+prüft jetzt begrenztes vollständiges DER und echten RSA-3072-/SHA-256-CSR-Proof,
+öffnet den gebundenen Kandidatenkey erst nach geschlossener Prüfung und
+liefert ein unabhängig geprüftes öffentliches Serverleaf. Eigene temporäre
+Windows-Kryptofixtures ersetzen keine native Target-/CSP-/KeySpec-/SQL-
+Kompatibilität. Sie öffnet keinen Store; Registrierung und TLS bleiben offen.
 Die neue private Lane verlangt PowerShell ab 7.5; tatsächlich lokal geprüft
 ist 7.6.6, die allgemeine Modul-Mindestversion bleibt 7.2.
 Authentifizierte TLS-Lab-Abnahme und Toolbelt SC-2026-045

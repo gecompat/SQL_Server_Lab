@@ -63,7 +63,7 @@ Auswahl im aufrufenden Workflow. Die notwendige Autorität kann bereits aus
 dem konkreten Auftrag stammen; diese Planung fordert keinen zusätzlichen
 Dialog für jede gewöhnliche Metadatenaktion. Eine generische Discovery oder
 Caller-UUID ersetzt jedoch keine tatsächliche Kontextwahl. Registryanlage
-verlangt geklärte Ownership, Cleanup und Recovery. Der spätere Trustimport
+verlangt geklärte Ownership, Cleanup und Recovery. Der separate Trustimport
 behält seine eigene ausdrücklich freizugebende konkrete Preview aus D3.
 
 Normales Run-Removal entfernt keine gemeinsamen Kontexte, CA oder Trustanker.
@@ -128,13 +128,15 @@ Cleanupnachweise fehlen vollständig und gehören zum späteren Writerscope.
 ## Backend- und Keyschutzgrenze
 
 Der Kandidat `DOTNET_X509` wird zunächst nur über sechs API-Signaturen geprüft.
-Ein tatsächlicher CSR-Slice muss DER strikt begrenzen, vollständigen Verbrauch
-und Signaturprüfung belegen sowie Extensions aus dem geschlossenen Labprofil
-neu aufbauen. Keine Übernahme beliebiger CSR-Erweiterungen. Die dokumentierten
+Der [private CSR-Slice](../Architecture/AUTHENTICATED_TLS_LEAF_CSR.md) begrenzt
+DER strikt, belegt vollständigen Verbrauch und echte RSA-3072-/SHA-256-
+Signaturprüfung und baut Extensions aus dem geschlossenen Labprofil neu auf.
+Keine Übernahme beliebiger CSR-Erweiterungen. Die dokumentierten
 [Loaderoptionen](https://learn.microsoft.com/en-us/dotnet/api/system.security.cryptography.x509certificates.certificaterequestloadoptions?view=net-10.0)
 enthalten einen Schalter zum Überspringen der Signaturprüfung und einen zum
 unsicheren Übernehmen von Extensions; beide sind für diese Lane ausgeschlossen.
-Die aktuelle API-Präsenz belegt diese spätere Verarbeitung nicht.
+Die eigene native Tempfixture prüft diese Kryptoverarbeitung; die frühere
+API-Präsenz allein belegt sie nicht. Native Target-/SQL-Fähigkeit bleibt offen.
 
 Der bestehende [`SecretProvider.ps1`](../../Private/SecretProvider.ps1) ist
 kein ausgewählter CA-Keyprovider: Er besitzt einen Windows-LocalMachine-
@@ -179,8 +181,8 @@ ist implementiert und an eigenen synthetischen Files geprüft. Die private
 Registrytransaktion mit frischer Kontextbindung, privatem Zugriffsschutz und
 nativen Crash-/Parallelitätsfällen gemäß obigem Vertrag bleibt offen.
 Vorgezogen ist der [Windows-CA-Kandidat](../Architecture/AUTHENTICATED_TLS_CA_CANDIDATE.md)
-mit eigenem geschütztem DPAPI-Key und lesender Trust-Vorschau; ausschließlich
-eigene Tempfixtures liefern lokale native Kryptoevidence. Der Kandidat ist
+mit eigenem geschütztem DPAPI-Key und lesender Trust-Vorschau; eigene
+Tempfixtures liefern lokale native Kryptoevidence. Der Kandidat ist
 ausdrücklich `UNREGISTERED_UNQUALIFIED` und umgeht keine Registrytransaktion.
 Keine automatische Pfadadoption, native Registrierung oder Trustmutation.
 Operativer CA-Keyschutz und konkrete Mutationsfreigaben bleiben separat.
@@ -190,6 +192,13 @@ Kandidaten und lesenden Status. Er ist kein allgemeiner Registrywriter und
 registriert keine AuthorityRef oder CA. Ein eigener dauerhafter Kandidat und
 seine konkrete gesicherte menschliche Importfreigabe existieren; die native
 Storemutation ist durch die injizierten Storetests weiterhin nicht ausgeführt.
+Der separat geprüfte echte Worker wurde einmal nach 60 Sekunden beendet:
+frisch lesend CA `ABSENT`, Journal `RECOVERY_REQUIRED`, passender gültiger
+Intent ohne Commit/Lock, kein bestätigter Import. UI-Rückfrage offen;
+kein Retry oder Journalremove. Der private CSR-Slice benötigt keinen Store,
+registriert keine AuthorityRef und liefert nur ein öffentliches unqualifiziertes
+Leaf. Fester synthetischer Subject und enges Attributset qualifizieren keinen
+Windows-certreq-/CSP-/KeySpec-/SQL-Request.
 Die bereits vorhandenen `ClientRef`-/`AuthorityRef`-Anfragen bleiben bis dahin
 unaufgelöst. Native TLS-, Client- und Mindestlaufzeitabnahmen werden durch
 diese Planung nicht ersetzt.

@@ -100,6 +100,16 @@ Umbenennung oder ABA. Die allgemeine Registry-/Crashtransaktion bleibt offen.
 
 ## Lesende konkrete Trust-Vorschau
 
+Der gemeinsame interne `Get-LabTlsCaCandidateBinding` kapselt jetzt die
+frische Root-/Actor-/ACL-/Datei-/DER-Prüfung ohne Store- oder Keyöffnung.
+Sein gerahmter Digest bindet Root, Actor, DER, Intent, Receipt und Ciphertext.
+Die bestehende Trustvorschau ergänzt weiterhin ausschließlich den lesenden
+Storevergleich und wiederholt die Bindungsprüfung. Die
+[CSR-Lane](AUTHENTICATED_TLS_LEAF_CSR.md) verwendet dieselbe Bindung ohne
+Storezugriff. `Open-LabTlsCaSigningKey` teilt den bisherigen DPAPI-Reopen-/
+PKCS8-/Sign/Verify-Code; der Kandidatenchecker entsorgt dessen RSA unmittelbar,
+die CSR-Lane nach Signierung im `finally`. Keine neue Registryautorität.
+
 `Get-LabAuthenticatedTlsCaTrustPreview` verlangt dieselben ausdrücklichen
 Root-/Kontextangaben und eine vorhandene `CandidateId`. Es prüft alle privaten
 ACLs, die vier festen Dateinamen, geschlossene Intent-/Receiptformen,
@@ -146,7 +156,11 @@ Die konkrete menschliche Freigabe ist gesichert. Die getrennte
 [Trust-Importtransaktion](AUTHENTICATED_TLS_TRUST_IMPORT.md) implementiert jetzt
 geschützte Preview-/Intent-/Commitmetadaten, kooperativen Lock und lesenden
 Recoverybefund. Die vier Kandidatendateien bleiben unverändert; reale
-Storemutation wird von deren Tests nicht ausgeführt. Separate Removalfreigabe,
+Storemutation wird von deren Tests nicht ausgeführt. Der separat geprüfte
+echte Worker wurde einmal nach 60 Sekunden beendet: frisch lesend CA `ABSENT`,
+Journal `RECOVERY_REQUIRED`, passender gültiger Intent, kein Commit/Lock und
+kein bestätigter Import. UI-Rückfrage offen; kein Retry oder Journalremove.
+Separate Removalfreigabe,
 neue eigene SQL-Fixtures und vollständige TLS-Abnahme bleiben offen. Geschützte sechs
 Toolbelt-Ziele, erhaltene SSISDB-Quelle, fremde Ressourcen und frühere
 Löschsperren bleiben unverändert. Der
