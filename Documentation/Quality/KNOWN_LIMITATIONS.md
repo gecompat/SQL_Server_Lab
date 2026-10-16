@@ -16,6 +16,13 @@ Engine-/Providerkombinationen sind nicht abgenommen. Ein gestoppter älterer
 SSIS-Paketverwaltungsdienst blockiert den SSISDB-Pfad nicht; ausschlaggebend
 bleiben echte Kataloganlage und -ausführung. Consumerzugang über die geschützte
 Generated-API und gezielter Ordnercleanup sind Teil der offenen Runtime-Abnahme.
+Die additive IS-Neuinstallation ist auf SQL 2025 Enterprise Developer begrenzt;
+andere Editionen werden bereits vor Medienanbindung/Setup abgewiesen. Die
+Management-API braucht ihre installierten SMO-/SqlClient-Dateien und die
+Binding-Redirects der IS-Installation. Die lokale echte Loaderprüfung besteht,
+der korrigierte Gastnachweis bleibt offen. Der Diagnosemodus behält deshalb
+einen ausdrücklich neu angeforderten eigenen SQL-/IS-Run für fokussierte
+Folgeversuche; seine quittierte RunId bleibt der vollständige Cleanup-Scope.
 
 ## Downloads: Streaminggrenze und offene Speicherquoten
 

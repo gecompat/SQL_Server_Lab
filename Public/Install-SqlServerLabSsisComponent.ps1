@@ -6,6 +6,8 @@
     vorhandene, hashgebundene Integration-Services-Feature aus einer lokalen SQL-2025-
     Enterprise-ISO. Die Datenbank-Engine wird nicht neu installiert. Es gibt keinen
     Download, Build oder Beschaffungsschritt. Der gesamte Run bleibt der Cleanup-Scope.
+    Eine Neuinstallation von IS ist auf SQL 2025 Enterprise Developer begrenzt;
+    andere Editionen werden vor Medienanbindung und Setup abgewiesen.
 .PARAMETER RunId
     Eindeutige RunId eines laufenden eigenen Hyper-V-Windows-SQL-2025-Runs.
 .PARAMETER InstanceId

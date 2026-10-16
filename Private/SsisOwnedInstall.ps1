@@ -188,6 +188,9 @@ function Install-LabSsisExistingComponent {
         return [pscustomobject]@{RunId=$RunId.ToString();InstanceId=$InstanceId;Status='ALREADY_INSTALLED';EngineMajor=17;SsisMajor=17;Cleanup='REMOVE_RUN_TO_CLEANUP'}
     }
     if([string]$preflight.DefaultPathComponents -ne 'NOT_OBSERVED'){throw ('SSIS_COMPONENT_PREREQUISITE_INCONCLUSIVE:{0}:{1}' -f [string]$preflight.DefaultPathComponents,[string]$preflight.ReasonCode)}
+    # The post-install SQL contract is Enterprise Developer (or its unprefixed
+    # Developer label). Reject other editions before attaching media or setup.
+    if([string]$preflight.Edition -notin @('EnterpriseDeveloper','Developer')){throw 'SSIS_COMPONENT_ENTERPRISE_DEVELOPER_REQUIRED'}
     $media=$null;$guest=$null;$addedDvd=$null;$progress=$null;$primaryFailure=$null;$guestOperationStarted=$false
     $operationId='ssis-component-'+[guid]::NewGuid().ToString('N')
     try {
@@ -442,7 +445,77 @@ function Get-LabSsisCatalogFixtureGuestProbe {
         $token=$OperationId.Substring($OperationId.Length-12)
         $folder="LabFixture_$token";$project="LabProject_$token"
         $temporary=Join-Path ([IO.Path]::GetTempPath()) "SqlServerLab-Ssis-$token"
-        $connection=$null;$catalogConnection=$null;$folderCreated=$false;$accepted=$false;$temporaryCreated=$false;$primaryFailure=$null
+        function Get-SsisInstalledCatalogManagementTypes {
+            param([Parameter(Mandatory)][string]$BinnDirectory)
+            try {$assembly=[Reflection.Assembly]::Load('Microsoft.SqlServer.Management.IntegrationServices, Version=17.0.0.0, Culture=neutral, PublicKeyToken=89845dcd8080cc91')}
+            catch {throw 'SSIS_FIXTURE_INSTALLED_MANAGEMENT_ASSEMBLY_REQUIRED'}
+            if($assembly.GetName().Version.Major -ne 17){throw 'SSIS_FIXTURE_MANAGEMENT_VERSION_INVALID'}
+            # IS installs its current SMO/SqlClient dependencies beside the server
+            # binaries, not necessarily in the GAC. Load those existing files;
+            # never silently download an SDK or use a host's unrelated SSMS copy.
+            $tokens=@{
+                'Microsoft.Data.SqlClient'='23ec7fc2d6eaa4a5'
+                'Microsoft.SqlServer.Management.Sdk.Sfc'='89845dcd8080cc91'
+                'Microsoft.SqlServer.ConnectionInfo'='89845dcd8080cc91'
+                'Microsoft.SqlServer.Smo'='89845dcd8080cc91'
+            }
+            $directory=Get-Item -LiteralPath $BinnDirectory -ErrorAction Stop
+            if(-not $directory.PSIsContainer -or ($directory.Attributes -band [IO.FileAttributes]::ReparsePoint)){throw 'SSIS_FIXTURE_MANAGEMENT_DIRECTORY_INVALID'}
+            # PowerShell is not ISServerExec and therefore does not inherit the
+            # installed server's .NET binding redirects (for example System.Memory).
+            # Apply only those exact local redirects while this guest probe runs.
+            $configFile=Get-Item -LiteralPath (Join-Path $BinnDirectory 'ISServerExec.exe.config') -ErrorAction Stop
+            if($configFile.PSIsContainer -or ($configFile.Attributes -band [IO.FileAttributes]::ReparsePoint)){throw 'SSIS_FIXTURE_MANAGEMENT_CONFIGURATION_INVALID'}
+            $settings=[Xml.XmlReaderSettings]::new();$settings.DtdProcessing=[Xml.DtdProcessing]::Prohibit;$settings.XmlResolver=$null
+            $reader=[Xml.XmlReader]::Create($configFile.FullName,$settings)
+            try {$configuration=[Xml.XmlDocument]::new();$configuration.XmlResolver=$null;$configuration.Load($reader)}finally{$reader.Dispose()}
+            $redirects=@{}
+            foreach($entry in $configuration.SelectNodes('//*[local-name()="dependentAssembly"]')){
+                $name=[string]$entry.assemblyIdentity.name
+                $range=([string]$entry.bindingRedirect.oldVersion).Split('-')
+                if($name -notmatch '^[A-Za-z][A-Za-z0-9.]*$' -or $range.Count -ne 2){throw 'SSIS_FIXTURE_MANAGEMENT_CONFIGURATION_INVALID'}
+                $redirects[$name]=@{Minimum=[version]$range[0];Maximum=[version]$range[1];Version=[version]$entry.bindingRedirect.newVersion;Token=[string]$entry.assemblyIdentity.publicKeyToken}
+            }
+            $resolver=[ResolveEventHandler]({
+                param($Sender,$Arguments)
+                $request=[Reflection.AssemblyName]::new($Arguments.Name)
+                if(-not $redirects.ContainsKey($request.Name)){return $null}
+                $rule=$redirects[$request.Name]
+                $requestToken=([BitConverter]::ToString($request.GetPublicKeyToken())).Replace('-','').ToLowerInvariant()
+                if($requestToken -ine $rule.Token -or $request.Version -lt $rule.Minimum -or $request.Version -gt $rule.Maximum -or
+                    -not [string]::IsNullOrEmpty($request.CultureName)){return $null}
+                try {
+                    $file=Get-Item -LiteralPath (Join-Path $BinnDirectory ($request.Name+'.dll')) -ErrorAction Stop
+                    if($file.PSIsContainer -or ($file.Attributes -band [IO.FileAttributes]::ReparsePoint)){return $null}
+                    $identity=[Reflection.AssemblyName]::GetAssemblyName($file.FullName)
+                    $fileToken=([BitConverter]::ToString($identity.GetPublicKeyToken())).Replace('-','').ToLowerInvariant()
+                    if($identity.Name -ine $request.Name -or $identity.Version -ne $rule.Version -or $fileToken -ine $rule.Token){return $null}
+                    return [Reflection.Assembly]::LoadFrom($file.FullName)
+                } catch {return $null}
+            }.GetNewClosure())
+            [AppDomain]::CurrentDomain.add_AssemblyResolve($resolver)
+            $references=@($assembly.GetReferencedAssemblies())
+            foreach($name in @('Microsoft.Data.SqlClient','Microsoft.SqlServer.Management.Sdk.Sfc','Microsoft.SqlServer.ConnectionInfo','Microsoft.SqlServer.Smo')){
+                try {
+                    $file=Get-Item -LiteralPath (Join-Path $BinnDirectory ($name+'.dll')) -ErrorAction Stop
+                    if($file.PSIsContainer -or ($file.Attributes -band [IO.FileAttributes]::ReparsePoint)){throw 'INVALID_FILE'}
+                    $identity=[Reflection.AssemblyName]::GetAssemblyName($file.FullName)
+                    $publicToken=([BitConverter]::ToString($identity.GetPublicKeyToken())).Replace('-','').ToLowerInvariant()
+                    $reference=@($references|Where-Object Name -eq $name)
+                    if($identity.Name -cne $name -or $publicToken -cne $tokens[$name] -or
+                        ($reference.Count -eq 1 -and $reference[0].FullName -cne $identity.FullName)){throw 'INVALID_IDENTITY'}
+                    $null=[Reflection.Assembly]::LoadFrom($file.FullName)
+                } catch {[AppDomain]::CurrentDomain.remove_AssemblyResolve($resolver);throw ('SSIS_FIXTURE_INSTALLED_MANAGEMENT_DEPENDENCY_REQUIRED:'+ $name)}
+            }
+            try {
+                $services=$assembly.GetType('Microsoft.SqlServer.Management.IntegrationServices.IntegrationServices',$true)
+                $catalog=$assembly.GetType('Microsoft.SqlServer.Management.IntegrationServices.Catalog',$true)
+                $client=[Microsoft.Data.SqlClient.SqlConnection]
+                if(-not $services.GetConstructor([type[]]@($client))){throw 'CONSTRUCTOR_NOT_FOUND'}
+                [pscustomobject]@{IntegrationServices=$services;Catalog=$catalog;SqlConnection=$client;Resolver=$resolver}
+            } catch {[AppDomain]::CurrentDomain.remove_AssemblyResolve($resolver);throw 'SSIS_FIXTURE_MANAGEMENT_TYPES_UNAVAILABLE'}
+        }
+        $connection=$null;$catalogConnection=$null;$folderCreated=$false;$accepted=$false;$temporaryCreated=$false;$primaryFailure=$null;$managementTypes=$null
         try {
             $null=New-Item -ItemType Directory -Path $temporary -ErrorAction Stop
             $temporaryCreated=$true
@@ -461,17 +534,17 @@ function Get-LabSsisCatalogFixtureGuestProbe {
             if(-not $catalogExists){
                 # Use Microsoft's catalog creation API, rather than partially
                 # reproducing its restore, key, login and maintenance-job setup.
-                try {$assembly=[Reflection.Assembly]::Load('Microsoft.SqlServer.Management.IntegrationServices, Version=17.0.0.0, Culture=neutral, PublicKeyToken=89845dcd8080cc91')}
-                catch {throw 'SSIS_FIXTURE_INSTALLED_MANAGEMENT_ASSEMBLY_REQUIRED'}
-                if($assembly.GetName().Version.Major -ne 17){throw 'SSIS_FIXTURE_MANAGEMENT_VERSION_INVALID'}
+                $managementTypes=Get-SsisInstalledCatalogManagementTypes -BinnDirectory (Join-Path ([Environment]::GetFolderPath('ProgramFiles')) 'Microsoft SQL Server/170/DTS/Binn')
                 $cmd=$connection.CreateCommand();$cmd.CommandTimeout=30
                 try {$cmd.CommandText="EXEC sp_configure 'clr enabled',1; RECONFIGURE;";$null=$cmd.ExecuteNonQuery()}finally{$cmd.Dispose()}
                 $catalogPassword=[guid]::NewGuid().ToString('N')+[guid]::NewGuid().ToString('N')+'aA1!'
+                $managementConnection=$null
                 try {
-                    $integrationServices=[Microsoft.SqlServer.Management.IntegrationServices.IntegrationServices]::new($connection)
-                    $catalog=[Microsoft.SqlServer.Management.IntegrationServices.Catalog]::new($integrationServices,'SSISDB',$catalogPassword)
-                    $catalog.Create()
-                } finally {$catalogPassword=$null}
+                    $managementConnection=[Activator]::CreateInstance($managementTypes.SqlConnection,[object[]]@($connection.ConnectionString))
+                    $integrationServices=[Activator]::CreateInstance($managementTypes.IntegrationServices,[object[]]@($managementConnection))
+                    $catalog=[Activator]::CreateInstance($managementTypes.Catalog,[object[]]@($integrationServices,'SSISDB',$catalogPassword))
+                    $null=$catalog.Create()
+                } finally {if($managementConnection){$managementConnection.Dispose()};$catalogPassword=$null}
             }
             $catalogConnection=[Data.SqlClient.SqlConnection]::new('Data Source=localhost;Initial Catalog=SSISDB;Integrated Security=SSPI;Connect Timeout=30;Encrypt=False;Pooling=False')
             $catalogConnection.Open()
@@ -596,6 +669,7 @@ function Get-LabSsisCatalogFixtureGuestProbe {
             } catch {$cleanupFailure=$_}
             finally {
                 if($catalogConnection){$catalogConnection.Dispose()};if($connection){$connection.Dispose()}
+                if($managementTypes -and $managementTypes.Resolver){[AppDomain]::CurrentDomain.remove_AssemblyResolve($managementTypes.Resolver)}
                 try {if($temporaryCreated -and (Test-Path -LiteralPath $temporary)){Remove-Item -LiteralPath $temporary -Recurse -Force -ErrorAction Stop}}
                 catch {$cleanupFailure=$_}
             }

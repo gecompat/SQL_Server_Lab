@@ -22,6 +22,16 @@ Get-SqlServerLabSsisCatalogCapability -RunId $runId -InstanceId primary
 
 Der Cmdlet legt in der frischen VM SSISDB und einen eindeutig operationseigenen Katalogordner an. Er stellt ein synthetisches lokales Projekt mit drei Packages bereit: `Success.dtsx`, `Failure.dtsx` und `Incomplete.dtsx`. Er startet nur die Erfolgs- und Fehlerausführung; die dritte Ausführung bleibt im Zustand `created`. Die Receipt enthält ausschließlich Run-/Instanzbindung, die eigenen Execution-IDs, die beobachteten `catalog`-Views, vollständige Engine-/SSIS-Dateiversion und Versionsmajor, Rechteklassifikation und den Cleanupstatus. Sie enthält keine Credentials, Endpunkte oder lokalen Pfade.
 
+Die tatsächlich installierte IS-17-Management-API verwendet
+`Microsoft.Data.SqlClient.SqlConnection`. Ihre SMO-/SqlClient-Abhängigkeiten
+werden ausschließlich aus dem installierten `170/DTS/Binn` geladen. Dabei
+werden Assemblyidentität, Public-Key-Token und deklarierte Referenzversionen
+geprüft. PowerShell übernimmt die Binding-Redirects von `ISServerExec.exe.config`
+nicht automatisch; die Probe wendet genau deren lokale, versionsgebundene
+Redirects an und entfernt ihren Resolver anschließend wieder. Andere Namen,
+Tokens oder Versionsbereiche werden nicht aufgelöst. Fehlende Abhängigkeiten
+öffnen keinen Download- oder SDK-Installationspfad.
+
 Die vollständige öffentliche Konsolen-CLI katalogisiert beide Exporte automatisch. Der Browser verwendet denselben Exportkatalog im Bereich **Status und Diagnose**. Bis zu einer eigenen gerenderten Fachabnahme bleibt dies ein generischer, parametergebundener Dialog und kein separater SSISDB-Fachdialog.
 
 ```powershell
@@ -100,6 +110,23 @@ Fall bleiben vollständig synthetisch und ohne externe Datenquelle.
 ## Ausführungsnachweis
 
 Die Formatabnahme `Tests/Integration/Invoke-SsisFixtureFormatAcceptance.ps1` hat am 2026-10-16 mit der vorhandenen SSIS-17-Runtime das tatsächlich erzeugte ISPAC über Microsofts `Project.OpenProject()` geöffnet: drei Entry-Point-Packages, erwartete Forced Results, keine Verbindungen oder Tasks. Sie verwendet Windows PowerShell und startet weder SQL noch eine VM. Dies ist noch kein Windows-/SSISDB-Runtimenachweis. Vor dem Analyze-Runtimegate ist eine tatsächliche Abnahme erforderlich: genauer Cmdlet-Aufruf, Engine-/SSISversion, alle drei Execution-IDs und Statuswerte, beobachtete Views/Rechte, Receipt und erfolgreicher Run-Cleanup. Ein lokaler oder statischer Erfolg ersetzt diesen Nachweis nicht.
+
+Die ergänzende `Invoke-SsisCatalogManagementAcceptance.ps1` hat den produktiven
+Loader mit den vorhandenen IS-17-Dateien unter Windows PowerShell ausgeführt:
+geschlossene SqlConnection, passende echte IS-/Catalog-Konstruktorsignaturen
+und Ablehnung fremder Namen, Tokens und Versionen. SQL wurde dabei nicht
+geöffnet; auch dies ersetzt keine Katalog-/Ausführungsabnahme.
+
+Für fokussierte Diagnose kann der manuelle Workflowmodus
+`ssisdb-existing-run-acceptance` einen ausdrücklich gebundenen vorhandenen
+Run verwenden. Der getrennte Modus `ssisdb-diagnostic-run-acceptance` verlangt
+stattdessen ausdrücklich ein Prepared-Artifact und bereitet über
+`Initialize-SsisCatalogDiagnosticRun.ps1` einmalig einen eigenen
+SQL-/IS-Run vor und quittiert seine RunId. Dieser Run bleibt nach Fixturefehlern
+für die folgende Diagnose erhalten. Weitere Versuche verwenden genau diese
+RunId. Gezielter Cleanup und erneute Fixtureanlage prüfen anschließend auch
+den bereits vorhandenen SSISDB-Katalog. Vollständiger Cleanup erfolgt bewusst
+über `Remove-SqlServerLab` am quittierten eigenen Run.
 
 Der Prepared-SSISDB-Pfad erklärt Windows-Aktivierung ausdrücklich als `NotRequested` mit `Denied`-Egress. SSIS, SSISDB und die lokale Katalogausführung benötigen keine Windows-Aktivierung; der Test erstellt daher weder eine temporäre externe NIC noch eine Netzverbindung. Die getrennten Fresh-Install-Abnahmen dürfen weiterhin ihre eigene Aktivierungskette prüfen.
 

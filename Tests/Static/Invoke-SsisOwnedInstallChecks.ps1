@@ -33,6 +33,14 @@ foreach($case in @('valid','operation','hash','vm','provider','workload','runnin
     Check "Produktbindung $case" ($blocked -eq ($case -ne 'valid'))
 }
 $installerSource=Get-Content -LiteralPath (Join-Path $repoRoot 'Private/SsisOwnedInstall.ps1') -Raw
+$editionGuard=([scriptblock]::Create($installerSource)).Ast.Find({param($node)
+    $node -is [Management.Automation.Language.IfStatementAst] -and $node.Extent.Text -match 'SSIS_COMPONENT_ENTERPRISE_DEVELOPER_REQUIRED'
+},$true)
+foreach($edition in @('EnterpriseDeveloper','Developer','StandardDeveloper','Enterprise','UNKNOWN')){
+    $blocked=$false;$preflight=[pscustomobject]@{Edition=$edition}
+    try {& ([scriptblock]::Create($editionGuard.Extent.Text))}catch{$blocked=$_.Exception.Message -eq 'SSIS_COMPONENT_ENTERPRISE_DEVELOPER_REQUIRED'}
+    Check "Tatsächliche Editionsadmission vor Medien/Setup: $edition" ($blocked -eq ($edition -notin @('EnterpriseDeveloper','Developer')))
+}
 $preparedFixtureSource=[regex]::Match($installerSource,'(?s)function Invoke-LabSsisPreparedFixtureRun \{.*?(?=function Invoke-LabSsisOwnedTransaction)').Value
 Check 'IS-Installationslauf fordert keine Windows-Aktivierung und keinen Egress an' ($preparedFixtureSource -match "windowsActivation=\[ordered\]@\{ContractVersion='SqlServerLab\.WindowsActivationIntent/1\.0';Strategy='NotRequested';EgressPolicy='Denied'\}")
 Check 'Langer SSIS-Gasttransport besitzt einen eigenstaendigen Fortschrittsreporter' ($installerSource -match '\$blockingProgress=Start-LabBlockingActionProgress -Phase GuestWait' -and $installerSource -match 'finally \{if\(\$blockingProgress\)\{Stop-LabBlockingActionProgress -Handle \$blockingProgress\}')
@@ -42,7 +50,7 @@ Check 'SSISDB-Fixture erstellt den Katalog über Microsofts installierte, versio
 $catalogProbe=Get-LabSsisCatalogFixtureGuestProbe
 $passwordAst=$catalogProbe.Ast.Find({param($n)$n -is [Management.Automation.Language.AssignmentStatementAst] -and $n.Left.Extent.Text -eq '$catalogPassword' -and $n.Right.Extent.Text -match 'NewGuid'},$true)
 $generatedPassword=& { . ([scriptblock]::Create($passwordAst.Extent.Text)); $catalogPassword }
-Check 'Generiertes Katalogkennwort erfüllt alle vier Komplexitätsklassen ohne festen Secretwert' ($generatedPassword.Length -ge 32 -and $generatedPassword -cmatch '[a-z]' -and $generatedPassword -cmatch '[A-Z]' -and $generatedPassword -match '[0-9]' -and $generatedPassword -match '[^a-zA-Z0-9]' -and $installerSource -match 'finally \{\$catalogPassword=\$null\}')
+Check 'Generiertes Katalogkennwort erfüllt alle vier Komplexitätsklassen ohne festen Secretwert' ($generatedPassword.Length -ge 32 -and $generatedPassword -cmatch '[a-z]' -and $generatedPassword -cmatch '[A-Z]' -and $generatedPassword -match '[0-9]' -and $generatedPassword -match '[^a-zA-Z0-9]' -and $installerSource -match 'finally \{[^\r\n]*\$catalogPassword=\$null\}')
 $writerAst=$catalogProbe.Ast.Find({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Write-SsisFixtureProject'},$true)
 . ([scriptblock]::Create($writerAst.Extent.Text))
 $formatDirectory=Join-Path ([IO.Path]::GetTempPath()) ('ssis-opc-'+[guid]::NewGuid().ToString('N'))
