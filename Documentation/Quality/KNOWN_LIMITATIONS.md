@@ -6,7 +6,8 @@ Der [SSISDB-Vertrag](../Architecture/SSISDB_TEST_FIXTURE.md) unterstützt eigene
 Windows-/Hyper-V-SQL-2025-Runs mit vorhandener Software. Kataloganlage über
 Microsofts `Catalog.Create()`, synthetische ISPAC und öffentlicher Cleanup
 sind implementiert. Die [Windows-Abnahme vom 2026-10-16](SSISDB_WINDOWS_RUNTIME_ACCEPTANCE_2026-10-16.md)
-belegt den Existing-Run-Pfad mit realen Katalogausführungen, Consumer-SQL-Zugang,
+belegt Existing-Run und Prepared-/Manifest-Neuerstellung mit realen
+Katalogausführungen, Consumer-SQL-Zugang,
 gezieltem Cleanup und Fremdobjektschutz. Sie trennt den erhaltenen Source-Run
 vom neuen Manifest-Run und dessen vollständigem Cleanup. Die Übergabe an
 SQL_Server_Analyze verlangt zusätzlich die Integration nach grünen finalen Checks.
@@ -14,8 +15,10 @@ Linux unterstützt keinen SSISDB-Katalog. CLI und Browser bieten derzeit die
 öffentlichen Cmdlets über ihren gemeinsamen generischen Befehlszugang an.
 Der Manifestweg `instances[].ssisCatalogFixture` ist auf eine Windows-/Hyper-V-
 SQL-2025-Instanz begrenzt. Ein eigener gerenderter SSIS-Fachdialog und andere
-Engine-/Providerkombinationen sind nicht abgenommen. Ein gestoppter älterer
-SSIS-Paketverwaltungsdienst blockiert den SSISDB-Pfad nicht; ausschlaggebend
+Engine-/Providerkombinationen sind nicht abgenommen. Neue eigene IS-Komponenten-
+installationen deaktivieren den älteren SSIS-Paketverwaltungsdienst, um
+beobachtete DCOM-Starttimeouts zu vermeiden. Bestehende Dienstkonfigurationen
+werden nicht pauschal geändert; ausschlaggebend
 bleiben echte Kataloganlage und -ausführung. Consumerzugang über die geschützte
 Generated-API und gezielter Projekt-/Ordnercleanup sind nativ geprüft.
 Die additive IS-Neuinstallation ist auf SQL 2025 Enterprise Developer begrenzt;

@@ -2,7 +2,7 @@
 
 | Merkmal | Wert |
 |---|---|
-| Status | Windows-/SQL-2025-Existing-Run nativ abgenommen; New-Run-Nachweis separat |
+| Status | Windows-/SQL-2025-Existing-Run und Prepared-/Manifest-Neuerstellung nativ abgenommen |
 | Stand | 2026-10-16 |
 | Öffentliche Einstiege | `Get-SqlServerLabSsisCatalogCapability`, `Install-SqlServerLabSsisComponent`, `New-SqlServerLabSsisCatalogFixture`, `Remove-SqlServerLabSsisCatalogFixture` |
 
