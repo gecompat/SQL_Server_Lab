@@ -47,6 +47,11 @@ try {
         if($mode -in @('fallback','winrm')) {Assert-GuestProgress ($trustWrites.Count -eq 2 -and $trustWrites[-1] -eq 'synthetic-existing') "Temporaeres WinRM-Trust wird wiederhergestellt: $mode"}
     }
     $mode='success';$calls.Clear();$contexts.Clear()
+    $mode='retry';$calls.Clear();$contexts.Clear();$noRetryFailed=$false
+    try { $null=Invoke-HyperVPowerShellDirect -VMName SyntheticVM -ExpectedRunId synthetic-run -ExpectedScopeId synthetic-scope -Credential $credential -ScriptBlock {17} -NoRetry }
+    catch {$noRetryFailed=$true}
+    Assert-GuestProgress ($noRetryFailed -and @($calls | Where-Object Kind -eq invoke).Count -eq 1 -and @($calls | Where-Object Kind -eq delay).Count -eq 0) 'NoRetry does not replay a consumer write after an OpenError'
+    $mode='success';$calls.Clear();$contexts.Clear()
     $null=Invoke-HyperVPowerShellDirect -VMName SyntheticVM -ExpectedRunId synthetic-run -ExpectedScopeId synthetic-scope -ExpectedVmId '22222222-2222-2222-2222-222222222222' -Credential $credential -ScriptBlock {17} -TimeoutSeconds 30
     Assert-GuestProgress ($calls[0].VMId -eq '22222222-2222-2222-2222-222222222222' -and -not $calls[0].VMName) 'Strikter Gastaufruf pinnt die tatsächliche VMId statt des austauschbaren Namens'
     foreach($strictCase in @('foreign','fallback','empty')){

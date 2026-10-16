@@ -48,6 +48,12 @@ Schutzgrenzen gelten fort.
 
 ## Dokumentationszuständigkeiten
 
+Der zusätzliche SSIS-Consumerzugang erweitert `Invoke-SqlServerLabScript`
+um den expliziten Windows-Modus, auf dem vorhandenen Hyper-V-Transport und
+geschützten Gast-Secretstore. Die [Consumeranleitung](../Documentation/HowTo/SSIS_CONSUMER_WINDOWS_ACCESS.md)
+beschreibt eigene Analyzeobjekte und Cleanup. Die bisherige Fixture bleibt
+eine lesende Quelle; die zusätzliche native Abnahme ist gesondert auszuweisen.
+
 | Frage | Maßgebliche Quelle |
 |---|---|
 | Einstieg, Voraussetzungen und erster Aufruf | [`README.md`](../README.md), vertieft durch Getting Started |

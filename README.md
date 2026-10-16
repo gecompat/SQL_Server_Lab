@@ -61,6 +61,7 @@ The complete terms are defined in [LICENCE.md](./LICENCE.md).
 |---|---|
 | Einrichten und erstes Lab bedienen | [Getting Started](Documentation/User/Getting_Started.md) |
 | API, CLI und Browser | [Öffentliche Cmdlets](Public/README.md), [Bedienwege](Documentation/User/FUNCTIONS_CLI_GUI.md) |
+| Eigene SSIS-Projekte im bestehenden Windows-Lab | [Windows-authentifizierter Consumerzugang](Documentation/HowTo/SSIS_CONSUMER_WINDOWS_ACCESS.md) |
 | Geprüfte Pfade und historische Nachweise | [Lokale Validierungsstrategie](Documentation/Quality/LOCAL_VALIDATION_STRATEGY.md) |
 | Einschränkungen und fehlende Nachweise | [Known Limitations](Documentation/Quality/KNOWN_LIMITATIONS.md) |
 | Am Repository arbeiten | [AGENTS.md](AGENTS.md), [CONTRIBUTING.md](CONTRIBUTING.md), [Repository-Map](.ai/repo_map.yaml) |

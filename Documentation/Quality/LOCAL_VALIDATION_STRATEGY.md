@@ -2,6 +2,16 @@
 
 ## Phasen und Auswahl
 
+`Invoke-WindowsSqlScriptChecks.ps1` prüft den neuen Windows-Parametersatz des
+bestehenden Skriptbefehls, gebundene Gastanmeldung, Eingabe-/Ausgabegrenzen,
+WhatIf, Geheimnisentsorgung, Journal und unbestätigte Ergebnisse synthetisch.
+`Invoke-HyperVGuestProgressChecks.ps1` prüft zusätzlich, dass `NoRetry` am
+bestehenden Transport nach einem OpenError keinen Consumeraufruf wiederholt.
+Der getrennte Harness `Invoke-WindowsSqlConsumerAcceptance.ps1` verwendet den
+öffentlichen Befehl am expliziten bestehenden Run; eigene Objekte und
+identitätsgebundener Cleanup werden von den geschützten Quellen getrennt.
+Eine nicht ausgeführte native Abnahme bleibt NOT_EXECUTED.
+
 | Phase | Prüfscope und Aussage |
 |---|---|
 | Diagnose und Entwicklung | Kleinste Reproduktion, betroffene Einheit und `Invoke-ImpactedChecks.ps1 -Development`; lokale Source-/Umgebungsbindung erlaubt begrenzte Wiederverwendung. Kein Qualifikationsanspruch. |

@@ -9,6 +9,13 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $failures = [System.Collections.Generic.List[string]]::new()
 $passed = 0
 $selector = Join-Path $repoRoot 'Tools/Get-CiTestSelection.ps1'
+foreach ($path in @('Providers/HyperV/HyperVWindowsSqlScript.ps1','Public/Invoke-SqlServerLabScript.ps1','Tests/Integration/Invoke-WindowsSqlConsumerAcceptance.ps1')) {
+    $selected = & $selector -ChangedPath @($path)
+    Add-CheckResult "Windows SQL consumer selects actual core, binding, no-replay transport and public-console tests: $path" (
+        'Invoke-WindowsSqlScriptChecks.ps1' -in $selected.StaticChecks -and 'Invoke-SsisPrerequisiteChecks.ps1' -in $selected.StaticChecks -and
+        'Invoke-HyperVGuestProgressChecks.ps1' -in $selected.StaticChecks -and 'Invoke-PublicCommandConsoleChecks.ps1' -in $selected.StaticChecks -and $selected.HyperV -and
+        -not $selected.Docker -and -not $selected.Podman -and -not $selected.Mixed -and -not $selected.Adapter)
+}
 $tlsRootCheck = 'Invoke-AuthenticatedTlsRegistryRootChecks.ps1'
 foreach ($path in @('Private/AuthenticatedTlsRegistryRoot.ps1','Tests/Static/Invoke-AuthenticatedTlsRegistryRootChecks.ps1')) {
     foreach ($normalized in @($path,$path.Replace('/','\'))) {

@@ -82,6 +82,14 @@ weiterhin nicht abgenommen.
 
 ## Verbindungs- und Secretbindung
 
+Für eigene mutierende Consumeroperationen ergänzt der bestehende Skriptbefehl
+`Invoke-SqlServerLabScript -WindowsAuthentication` den geschützten Gastzugang.
+Er verwendet den vorhandenen PowerShell-Direct-Transport und internen
+Gast-Secretstore; ein benutzerdefiniertes Kennwort wird nicht exportiert.
+[Aufruf, SQL-Parameter, Ownership und Cleanup](../HowTo/SSIS_CONSUMER_WINDOWS_ACCESS.md)
+sind getrennt vom bisherigen lesenden Fixturezugang dokumentiert. Analyze
+verantwortet seine eigenen Pakete und Objekte; die Lab-Fixture bleibt erhalten.
+
 Die Receipt bindet die Quelle über `Target.RunId` und `Target.InstanceId`.
 `Get-SqlServerLab -RunId` liefert die normale geheimnisfreie Verbindungsbindung.
 Beim neuen Fixture-Run erzeugt das Lab das SQL-Kennwort selbst und speichert

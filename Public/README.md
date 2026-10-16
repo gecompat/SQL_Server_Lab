@@ -248,7 +248,7 @@ Vertrag. Vollständiger CORE-102 und Native-Abnahmen bleiben offen.
 | `Clear-SqlServerLab` | `Clear-SqlServerLab.ps1` | Lab-Container und/oder State bereinigen |
 | `New-SqlServerLabDatabase` | `New-SqlServerLabDatabase.ps1` | Datenbank mit konfigurierbaren Dateien und Pfaden erstellen |
 | `Backup-SqlServerLabDatabase` | `Backup-SqlServerLabDatabase.ps1` | Providerneutrales, gehashtes SQL-Backup erst nach `CHECKSUM` und `RESTORE VERIFYONLY` in der registrierten `Lab_Data`-Bibliothek veröffentlichen |
-| `Invoke-SqlServerLabScript` | `Invoke-SqlServerLabScript.ps1` | T-SQL-Skript mit `GO`-Batchtrennung ausführen |
+| `Invoke-SqlServerLabScript` | `Invoke-SqlServerLabScript.ps1` | T-SQL mit `GO`-Batchtrennung; explizit `-WindowsAuthentication` für geschützte Gastanmeldung, gebundene Hyper-V-Instanz und SQL-Parameter. [Consumeranleitung](../Documentation/HowTo/SSIS_CONSUMER_WINDOWS_ACCESS.md) |
 | `Invoke-SqlServerLabAiScenario` | `Invoke-SqlServerLabAiScenario.ps1` | Deklariertes SQL-KI-Szenario nach Revalidierung journalisiert ausführen; unterstützt `WhatIf`, No-op, Force und automatisches Cleanup |
 | `Invoke-SqlServerLabAiModel` | `Invoke-SqlServerLabAiModel.ps1` | Katalogisiertes lokales Ollama-Modell oder die Cloud-Lane mit explizitem Egress, Datenklasse und begrenztem Budget aufrufen |
 | `Measure-SqlServerLabAiRetrieval` | `Measure-SqlServerLabAiRetrieval.ps1` | Manuelle Rangfolgen oder ein hashgebundenes, tatsächlich ausgeführtes Golden-RAG deterministisch über Recall@k, Precision@k, MRR und nDCG prüfen |

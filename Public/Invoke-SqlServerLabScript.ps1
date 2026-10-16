@@ -4,6 +4,9 @@
 .DESCRIPTION
     Public Wrapper um Invoke-LabSqlScript. Unterstuetzt Pfad oder RunId-basierte
     Instanz-Aufloesung. GO-Batches werden korrekt getrennt.
+    -WindowsAuthentication verwendet fuer einen gebundenen laufenden Hyper-V-
+    Windows-SQL-Run den vorhandenen PowerShell-Direct-Transport und die intern
+    geschuetzte Gastanmeldung. Es werden keine Kennwoerter zurueckgegeben.
 .PARAMETER ScriptPath
     Pfad zu einer vorhandenen lokalen T-SQL-Datei.
 .PARAMETER HostName
@@ -25,16 +28,30 @@
 .PARAMETER KeepConnection
     Fuehrt alle GO-Batches ueber dieselbe sqlcmd-Verbindung aus. Der Alias
     SingleConnection ist ebenfalls zulaessig.
+.PARAMETER WindowsAuthentication
+    SQL im Gast mit Windows-Authentifizierung ausfuehren. Kein Host-Login,
+    kein SQL-Auth-Fallback und keine automatische Wiederholung nach Versand.
+.PARAMETER Parameters
+    Windows-Modus: benannte SQL-Parameter als Hashtable; string, int, long,
+    bool, byte[] oder null. Insgesamt hoechstens 16 MiB, maximal 32 Parameter.
+.PARAMETER TimeoutSeconds
+    Windows-Modus: gesamter Gastaufruf, 5 bis 600 Sekunden. Standard 300.
 .OUTPUTS
     System.Management.Automation.PSCustomObject. Liefert Success, Message,
     Batches und Duration der Skriptausfuehrung.
+    Im Windows-Modus zusaetzlich OperationId, Authentication, AuthScheme,
+    Outcome, ErrorCode, SqlErrorNumber und begrenzte ResultSets mit Columns/Rows.
 .EXAMPLE
     Invoke-SqlServerLabScript -ScriptPath './setup.sql' -Port 14330 -SaPassword $pw
 .EXAMPLE
-    Invoke-SqlServerLabScript -ScriptPath './setup.sql' -RunId $lab.RunId -InstanceId 'primary'
+    Invoke-SqlServerLabScript -ScriptPath './setup.sql' -RunId $lab.RunId -SaPassword $pw
+.EXAMPLE
+    $result = Invoke-SqlServerLabScript -RunId $runId -InstanceId primary `
+      -WindowsAuthentication -Database SSISDB -ScriptPath './own-deploy.sql' `
+      -Parameters @{ project_stream = [IO.File]::ReadAllBytes($ispacPath) } -KeepConnection
 #>
 function Invoke-SqlServerLabScript {
-    [CmdletBinding(DefaultParameterSetName = 'Direct')]
+    [CmdletBinding(DefaultParameterSetName = 'Direct', SupportsShouldProcess)]
     param(
         [Parameter(Mandatory)]
         [string]$ScriptPath,
@@ -46,20 +63,33 @@ function Invoke-SqlServerLabScript {
         [Parameter(ParameterSetName = 'Direct', Mandatory)]
         [int]$Port,
 
-        [Parameter(Mandatory)]
+        [Parameter(ParameterSetName = 'Direct', Mandatory)]
+        [Parameter(ParameterSetName = 'RunBased', Mandatory)]
         [SecureString]$SaPassword,
 
         [string]$Database = 'master',
 
         # --- RunId-basiert ---
         [Parameter(ParameterSetName = 'RunBased', Mandatory)]
+        [Parameter(ParameterSetName = 'RunWindows', Mandatory)]
         [string]$RunId,
 
         [Parameter(ParameterSetName = 'RunBased')]
+        [Parameter(ParameterSetName = 'RunWindows')]
         [string]$InstanceId = 'primary',
 
         [Parameter(ParameterSetName = 'RunBased')]
+        [Parameter(ParameterSetName = 'RunWindows')]
         [string]$StateRoot,
+
+        [Parameter(ParameterSetName = 'RunWindows', Mandatory)]
+        [switch]$WindowsAuthentication,
+
+        [Parameter(ParameterSetName = 'RunWindows')]
+        [hashtable]$Parameters = @{},
+
+        [Parameter(ParameterSetName = 'RunWindows')]
+        [ValidateRange(5,600)][int]$TimeoutSeconds = 300,
 
         [Parameter()]
         [Alias('SingleConnection')]
@@ -67,6 +97,15 @@ function Invoke-SqlServerLabScript {
     )
 
     $ErrorActionPreference = 'Stop'
+
+    if ($PSCmdlet.ParameterSetName -eq 'RunWindows') {
+        if (-not $WindowsAuthentication) { throw 'WINDOWS_SQL_AUTHENTICATION_REQUIRED' }
+        if (-not $PSCmdlet.ShouldProcess("$RunId/$InstanceId", 'SQL-Skript im gebundenen Gast mit Windows-Authentifizierung ausfuehren')) { return }
+        if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
+        return Invoke-LabWindowsSqlScript -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot `
+            -ScriptPath $ScriptPath -Database $Database -Parameters $Parameters `
+            -KeepConnection:$KeepConnection -TimeoutSeconds $TimeoutSeconds
+    }
 
     # Instanz-Aufloesung bei RunId-Modus
     if ($PSCmdlet.ParameterSetName -eq 'RunBased') {
@@ -94,6 +133,7 @@ function Invoke-SqlServerLabScript {
         throw "SQL-Skript nicht gefunden: $ScriptPath"
     }
 
+    if (-not $PSCmdlet.ShouldProcess("$HostName`:$Port/$Database", 'SQL-Skript ausfuehren')) { return }
     Write-LabInfo "Skript ausfuehren: $(Split-Path $ScriptPath -Leaf) -> $HostName`:$Port/$Database"
 
     $scriptParams = @{
