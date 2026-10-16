@@ -146,7 +146,7 @@ function Invoke-LabWindowsSqlScript {
         [Parameter(Mandatory)][string]$StateRoot,[Parameter(Mandatory)][string]$ScriptPath,
         [string]$Database='master',[hashtable]$Parameters=@{},[switch]$KeepConnection,
         [ValidateRange(5,600)][int]$TimeoutSeconds=300)
-    if (-not $IsWindows) {throw 'WINDOWS_SQL_WINDOWS_HOST_REQUIRED'}
+    if (-not (Test-LabSsisWindowsHost)) {throw 'WINDOWS_SQL_WINDOWS_HOST_REQUIRED'}
     if ($Database -cnotmatch '^[A-Za-z][A-Za-z0-9_]{0,127}$') {throw 'WINDOWS_SQL_DATABASE_INVALID'}
     $inputParameters=ConvertTo-LabWindowsSqlParameters -Parameters $Parameters
     $inputStream=$null

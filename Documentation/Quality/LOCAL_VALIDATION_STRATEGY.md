@@ -15,10 +15,15 @@ Die [lokale native Abnahme vom 2026-10-16](WINDOWS_SQL_CONSUMER_ACCEPTANCE_2026-
 bestand mit eigenem Ordner 6, Projekt 4/Version 4 und Ausführung 14 mit Status 7.
 Die geschützten IDs 10/11/12 samt Ereignissen, Source-Metadaten, aktive
 Katalog-/Datenbankinventare und globale Katalogeigenschaften blieben unverändert.
-Die 34 fokussierten Offlineprüfungen umfassen jetzt auch den tatsächlichen
+Die 35 fokussierten Offlineprüfungen umfassen jetzt auch den tatsächlichen
 Connection-Builder und die Wiederherstellung binärer CLR-Parametertypen nach
-Remoting. Der vorhandene GitHub-Runner war offline; sein Start wurde von der
-automatischen Freigabeprüfung blockiert. Der finale GitHub-Gate bleibt offen.
+Remoting sowie die explizite Nicht-Windows-Abweisung über die bereits vorhandene
+Hostprüfgrenze. Die echte Windows-Verbindung bestand danach erneut rein lesend
+mit NTLM; der mutierende Gast-SQL-Code blieb unverändert.
+Nach manuellem Start des vorhandenen Runners bestand auch die
+[native GitHub-Abnahme](https://github.com/gecompat/SQL_Server_Lab/actions/runs/38953413402)
+am bestehenden Run. Der Pflichtgate am aktuellen PR-Head wird getrennt bewertet;
+sein Status steht im verlinkten PR des Nachweisdokuments.
 
 | Phase | Prüfscope und Aussage |
 |---|---|

@@ -56,9 +56,14 @@ behoben und durch fokussierte Regressionen ergänzt. Die vorherigen eigenen
 Ordner wurden jeweils entfernt; ihre Schutzvergleiche bestanden. Die ursprünglichen
 Fehlerbelege bleiben lokal erhalten und werden nicht als erfolgreiche Läufe umgewertet.
 
-34 fokussierte Offlineprüfungen bestanden. Die betroffenen statischen Suites
+35 fokussierte Offlineprüfungen bestanden. Die betroffenen statischen Suites
 wurden ausgeführt; nach den nativen Korrekturen wurden die geänderten Einheiten
 erneut geprüft. Die statische Analyse behielt ihre bestehende Fehlerbaseline.
+Die Hostabweisung verwendet abschließend die bereits vorhandene
+`Test-LabSsisWindowsHost`-Grenze, sodass die simulierte Windows-Komposition auch
+unter Linux geprüft und ein Nicht-Windows-Host ausdrücklich abgewiesen wird.
+Die echte Windows-Verbindung bestand danach erneut rein lesend mit NTLM.
+Der Gast-SQL-Payload der vollständigen nativen Abnahme blieb dabei unverändert.
 
 Diese Abnahme belegt den zusätzlichen Windows-Consumerweg am bezeichneten
 Windows-/Hyper-V-/SQL-2025-Ziel. Andere SQL-/IS-Versionen, Least-Privilege-
@@ -68,13 +73,21 @@ Der eigene Executionrecord und Projektversions-/Operationshistorie verbleiben
 bis zur unveränderten Herstellerretention. Aktiver Projekt-/Ordnercleanup
 behauptet keine sofortige Historienlöschung.
 
-Der [manuell angeforderte GitHub-Lauf](https://github.com/gecompat/SQL_Server_Lab/actions/runs/38947458220)
+Der erste [manuell angeforderte GitHub-Lauf](https://github.com/gecompat/SQL_Server_Lab/actions/runs/38947458220)
 startete wegen des offline befindlichen registrierten Runners nicht und wurde
-noch in der Warteschlange abgebrochen. Er ist **NOT_EXECUTED**, kein nativer
-PASS-Nachweis. Die automatische Freigabeprüfung blockierte den Start des
-vorhandenen Runners mit `blocked by policy`. Der erforderliche GitHub-Abschlussgate
-und die reguläre Integration bleiben deshalb offen; die lokale native Abnahme
-ist davon als tatsächlich ausgeführter Nachweis getrennt.
+noch in der Warteschlange abgebrochen. Er bleibt **NOT_EXECUTED**. Die automatische
+Freigabeprüfung blockierte den Start des vorhandenen Runners mit `blocked by policy`.
+Nach dessen manuellem Start durch den Betreiber bestand die
+[native GitHub-Abnahme](https://github.com/gecompat/SQL_Server_Lab/actions/runs/38953413402)
+am Stand `0dca94bf126c4d9680b13875409e6188b60dbd58` am 2026-10-16 um 19:28 UTC.
+Sie führte denselben Harness einschließlich Deployment, Paketstart, eigenem
+Cleanup und Schutzvergleichen am bestehenden Run aus.
+
+Im [vorherigen PR-Gate](https://github.com/gecompat/SQL_Server_Lab/actions/runs/38953095095)
+bestanden Windows-Verträge und Hyper-V-Smoke. Die Linux-Vertragsprüfung fand
+die fehlende Simulation der Windows-Hostgrenze; diese wurde wie oben beschrieben
+behoben. Der Pflichtgate am jeweiligen aktuellen PR-Head ist eine getrennte
+Integrationsaussage; sein laufender Status steht in [PR #766](https://github.com/gecompat/SQL_Server_Lab/pull/766).
 
 ## Consumeraufruf
 

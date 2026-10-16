@@ -27,6 +27,7 @@ $sql=Join-Path $directory 'consumer.sql';[IO.File]::WriteAllText($sql,"SELECT @i
 try {
     $cases=& {
         $id=[guid]'11111111-1111-1111-1111-111111111111'
+        function Test-LabSsisWindowsHost {return $mode -ne 'not-windows'}
         function Assert-LabDiagnosticPath {param($Path) $Path}
         function Get-LabSsisPrerequisiteContext {
             $tracker.Context++
@@ -53,7 +54,7 @@ try {
                 ErrorCode=$(if($mode -eq 'sql-failure'){'WINDOWS_SQL_SCRIPT_FAILED'}else{$null});SqlErrorNumber=$null;ResultSets=@(@{Batch=1;Columns=@('id');Rows=@(,@(12))})}
         }
         $results=@{}
-        foreach($mode in @('success','target','pre-drift','post-drift','transport','no-secret','journal','extra','sql-auth','sql-failure','whatif')) {
+        foreach($mode in @('success','target','pre-drift','post-drift','transport','no-secret','journal','extra','sql-auth','sql-failure','whatif','not-windows')) {
             $tracker=@{Context=0;Calls=0;SecretCalls=0;Journals=[Collections.Generic.List[string]]::new();NoRetry=$false;Bound=$false;Secret=$null}
             $value=$null;$errorText='';$errorData=$null
             try {$value=Invoke-SqlServerLabScript -WindowsAuthentication -RunId $id -StateRoot $directory -ScriptPath $sql -Parameters @{id=[long]12} -KeepConnection -WhatIf:($mode -eq 'whatif')}
@@ -68,6 +69,7 @@ try {
     Check 'Journal precedes dispatch and contains no script, values, host or credential' ($cases.success.Tracker.Journals[0] -match 'DISPATCHED' -and ($cases.success.Tracker.Journals -join '') -notmatch 'SELECT|synthetic-only|Password|vmName')
     foreach($mode in @('target','pre-drift','no-secret','journal','whatif')) {Check "$mode cannot invoke a guest" ($cases[$mode].Tracker.Calls -eq 0)}
     Check 'WhatIf does not read credentials or write a journal' ($cases.whatif.Tracker.SecretCalls -eq 0 -and $cases.whatif.Tracker.Journals.Count -eq 0)
+    Check 'Non-Windows host is rejected before credentials, state or transport' ($cases['not-windows'].Error -ceq 'WINDOWS_SQL_WINDOWS_HOST_REQUIRED' -and $cases['not-windows'].Tracker.Context -eq 0 -and $cases['not-windows'].Tracker.SecretCalls -eq 0 -and $cases['not-windows'].Tracker.Calls -eq 0)
     foreach($mode in @('post-drift','transport','extra','sql-auth')) {Check "$mode is unconfirmed, sanitized and never retried" ($cases[$mode].Tracker.Calls -eq 1 -and $cases[$mode].Error -match 'WINDOWS_SQL_OPERATION_UNCONFIRMED' -and $cases[$mode].Error -notmatch 'PRIVATE' -and $cases[$mode].Disposed)}
     Check 'Journal failure is visible and cannot dispatch' ($cases.journal.ErrorData['JournalRecorded'] -eq $false -and $cases.journal.ErrorData['Dispatched'] -eq $false)
     Check 'Missing credentials remain distinct, with no fabricated journal' ($cases['no-secret'].ErrorData['ReasonCode'] -ceq 'WINDOWS_SQL_GUEST_CREDENTIAL_REQUIRED' -and -not $cases['no-secret'].ErrorData['JournalRecorded'])
