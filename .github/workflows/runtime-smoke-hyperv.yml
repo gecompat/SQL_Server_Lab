@@ -252,8 +252,12 @@ jobs:
           try {
           $common=@{RunId=$id;InstanceId='primary';StateRoot=$env:SQL_SERVER_LAB_CI_SSIS_STATE_ROOT;Confirm=$false}
           $component=SqlServerLab\Install-SqlServerLabSsisComponent @common -MediaRoot $env:SQL_SERVER_LAB_CI_MEDIA_ROOT -SqlMediaPath $env:SQL_SERVER_LAB_CI_SSIS_MEDIA_PATH -ExpectedSqlMediaSha256 $env:SQL_SERVER_LAB_CI_SSIS_MEDIA_SHA256
+          $receiptPath=Join-Path (Join-Path (Join-Path $env:SQL_SERVER_LAB_CI_SSIS_STATE_ROOT 'runs') $id.ToString()) 'ssis-fixture-receipt.json'
+          if(Test-Path -LiteralPath $receiptPath){$null=SqlServerLab\Remove-SqlServerLabSsisCatalogFixture @common}
           $first=SqlServerLab\New-SqlServerLabSsisCatalogFixture @common
           if($first.Status -ne 'READY_FOR_READ_ONLY_ANALYSIS' -or $first.Sql.EngineMajor -ne 17 -or $first.Ssis.Major -ne 17){throw 'SSISDB_EXISTING_RUN_FIXTURE_INVALID'}
+          $foreignGuard=.\Tests\Integration\Invoke-SsisCatalogCleanupGuardAcceptance.ps1 -RunId $id -StateRoot $env:SQL_SERVER_LAB_CI_SSIS_STATE_ROOT
+          if($foreignGuard.Status -ne 'FOREIGN_RESOURCE_GUARD_PASSED'){throw 'SSISDB_EXISTING_RUN_FOREIGN_GUARD_INVALID'}
           $clean=SqlServerLab\Remove-SqlServerLabSsisCatalogFixture @common
           if($clean.Status -ne 'REMOVED' -or $clean.Cleanup -ne 'CATALOG_FOLDER_CLEANUP_SUCCEEDED'){throw 'SSISDB_EXISTING_RUN_CLEANUP_INVALID'}
           $final=SqlServerLab\New-SqlServerLabSsisCatalogFixture @common
@@ -270,7 +274,7 @@ jobs:
               if([int]$command.ExecuteScalar() -ne 3){throw 'SSIS_CONSUMER_EXECUTIONS_INVALID'}
             } finally {$command.Dispose()}
           } finally {if($connection){$connection.Dispose()};$access=$null}
-          $evidence=[ordered]@{Contract='SqlServerLab.SsisCatalogExistingRunAcceptance/1.0';Status='PASSED_RETAINED_SOURCE';RunId=$final.Target.RunId;InstanceId=$final.Target.InstanceId;BindingStatus=$final.Target.BindingStatus;SourceBinding=$final.Source.ConnectionBinding;ConsumerRights=$final.Source.ConsumerRights;ConsumerAccess='PUBLIC_GENERATED_SQL_ACCESS_VERIFIED';SqlEngineMajor=$final.Sql.EngineMajor;SqlEngineVersion=$final.Sql.EngineVersion;SsisMajor=$final.Ssis.Major;SsisVersion=$final.Ssis.Version;Catalog=$final.Ssis.Catalog;ExecutionIds=$final.Fixture.ExecutionIds;ExecutionStatus=$final.Fixture.ExecutionStatus;CatalogViews=$final.Fixture.CatalogViews;CleanupProof=$clean.Cleanup;ComponentStatus=$component.Status}
+          $evidence=[ordered]@{Contract='SqlServerLab.SsisCatalogExistingRunAcceptance/1.0';Status='PASSED_RETAINED_SOURCE';RunId=$final.Target.RunId;InstanceId=$final.Target.InstanceId;BindingStatus=$final.Target.BindingStatus;SourceBinding=$final.Source.ConnectionBinding;ConsumerRights=$final.Source.ConsumerRights;ConsumerAccess='PUBLIC_GENERATED_SQL_ACCESS_VERIFIED';SqlEngineMajor=$final.Sql.EngineMajor;SqlEngineVersion=$final.Sql.EngineVersion;SsisMajor=$final.Ssis.Major;SsisVersion=$final.Ssis.Version;Catalog=$final.Ssis.Catalog;ExecutionIds=$final.Fixture.ExecutionIds;ExecutionStatus=$final.Fixture.ExecutionStatus;CatalogViews=$final.Fixture.CatalogViews;CleanupProof=$clean.Cleanup;ForeignResourceGuard=$foreignGuard.Status;ComponentStatus=$component.Status}
           $evidenceJson=$evidence|ConvertTo-Json -Depth 8
           $evidenceJson|Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY
           Write-Host ('SSISDB_EXISTING_RUN_ACCEPTANCE_EVIDENCE: ' + ($evidenceJson -replace '\s+',' '))

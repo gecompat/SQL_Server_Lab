@@ -22,6 +22,12 @@ Get-SqlServerLabSsisCatalogCapability -RunId $runId -InstanceId primary
 
 Der Cmdlet legt in der frischen VM SSISDB und einen eindeutig operationseigenen Katalogordner an. Er stellt ein synthetisches lokales Projekt mit drei Packages bereit: `Success.dtsx`, `Failure.dtsx` und `Incomplete.dtsx`. Er startet nur die Erfolgs- und Fehlerausführung; die dritte Ausführung bleibt im Zustand `created`. Die Receipt enthält ausschließlich Run-/Instanzbindung, die eigenen Execution-IDs, die beobachteten `catalog`-Views, vollständige Engine-/SSIS-Dateiversion und Versionsmajor, Rechteklassifikation und den Cleanupstatus. Sie enthält keine Credentials, Endpunkte oder lokalen Pfade.
 
+Das Logging wird über `catalog.set_execution_parameter_value` ausschließlich
+für die eigenen Execution-IDs auf Basic gesetzt; globale Loggingvorgaben bleiben
+erhalten. Pro Run ist eine aktive Fixture erlaubt. Eine weitere Anlage verlangt
+zuerst deren gezielten Cleanup; eine lokale exklusive Operationssperre verhindert
+konkurrierendes Überschreiben der Receipt.
+
 Die tatsächlich installierte IS-17-Management-API verwendet
 `Microsoft.Data.SqlClient.SqlConnection`. Ihre SMO-/SqlClient-Abhängigkeiten
 werden ausschließlich aus dem installierten `170/DTS/Binn` geladen. Dabei
@@ -105,7 +111,14 @@ ein SSIS-Entwicklungs-SDK, `Microsoft.SqlServer.Dts.Runtime.dll`, Download oder
 Build-Schritt ist kein Laufzeitbedarf. Der Erfolg-, Fehler- und ungestartete
 Fall bleiben vollständig synthetisch und ohne externe Datenquelle.
 
-`SqlServerLab.SsisCatalogFixture/1.0` ist die mutierende Receipt. `Status=READY_FOR_READ_ONLY_ANALYSIS` und `Cleanup=REMOVE_OWNED_FIXTURE_TO_CLEANUP` bedeuten, dass nur der zugehörige eigene Run eine Quelle sein darf. `Remove-SqlServerLabSsisCatalogFixture` löscht ausschließlich den quittierten eigenen Katalogordner. Name, Operationstoken und tatsächliche `FolderId` müssen übereinstimmen; die SQL-Prüfung und Löschung laufen in einer serialisierbaren Transaktion. Eine veraltete oder veränderte Receipt gibt keine fremden Ressourcen zur Löschung frei. Fremde Katalogordner, Projekte, globale Retention, Katalogeigenschaften und Loggingkonfiguration bleiben erhalten. Nach Teilfehlern entfernt der Guest-Probe seinen eigenen Ordner, sofern er angelegt wurde; Primär- und Cleanupfehler bleiben getrennt sichtbar und Verbindungen werden auch bei Cleanupfehlern geschlossen.
+`SqlServerLab.SsisCatalogFixture/1.0` ist die mutierende Receipt. `Status=READY_FOR_READ_ONLY_ANALYSIS` und `Cleanup=REMOVE_OWNED_FIXTURE_TO_CLEANUP` bedeuten, dass nur der zugehörige eigene Run eine Quelle sein darf. `Remove-SqlServerLabSsisCatalogFixture` entfernt zuerst das quittierte eigene Projekt über `catalog.delete_project`, anschließend den leeren Ordner über `catalog.delete_folder`. Namen, Operationstoken, tatsächliche `FolderId`, `ProjectId` und `ProjectVersionLsn` müssen übereinstimmen; Prüfung und Löschung laufen in einer serialisierbaren Transaktion. Ältere Receipts ohne Projekt-ID werden ausschließlich über ihre drei nachgewiesenen Execution-IDs und deren identische Projektversion gebunden. Zusätzliche Projekte oder Umgebungen sowie ersetzte Projektversionen verhindern die Löschung. Fremde Katalogordner, Projekte, globale Retention, Katalogeigenschaften und Loggingkonfiguration bleiben erhalten. Nach Teilfehlern entfernt der Guest-Probe seine eigenen Objekte, sofern er sie angelegt hat; Primär- und Cleanupfehler bleiben getrennt sichtbar und Verbindungen werden auch bei Cleanupfehlern geschlossen.
+
+Microsoft bewahrt Projektversionen und Operationshistorie nach
+[`catalog.delete_project`](https://learn.microsoft.com/sql/integration-services/system-stored-procedures/catalog-delete-project-ssisdb-database?view=sql-server-ver17)
+bis zum regulären Cleanupjob auf. `CATALOG_FOLDER_CLEANUP_SUCCEEDED` bestätigt
+die Entfernung des aktiven Projekts und Ordners, keine vorzeitige Historienlöschung.
+Eine vollständige Entfernung einschließlich Historie erfolgt mit dem gesamten
+eigenen Run über `Remove-SqlServerLab`.
 
 ## Ausführungsnachweis
 
