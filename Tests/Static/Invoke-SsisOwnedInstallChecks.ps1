@@ -38,8 +38,42 @@ Check 'IS-Installationslauf fordert keine Windows-Aktivierung und keinen Egress 
 Check 'Langer SSIS-Gasttransport besitzt einen eigenstaendigen Fortschrittsreporter' ($installerSource -match '\$blockingProgress=Start-LabBlockingActionProgress -Phase GuestWait' -and $installerSource -match 'finally \{if\(\$blockingProgress\)\{Stop-LabBlockingActionProgress -Handle \$blockingProgress\}')
 $arguments=@(Get-LabSsisSetupArguments)
 Check 'Setup benötigt keine Dienstsecrets und deaktiviert beide Updatequellen' ($arguments.Count -eq 4 -and $arguments -contains '/UpdateEnabled=False' -and $arguments -contains '/USEMICROSOFTUPDATE=False' -and $arguments -contains '/ISSVCACCOUNT="NT AUTHORITY\NETWORK SERVICE"' -and $arguments -contains '/ISSVCStartupType=Automatic')
-Check 'SSISDB-Fixture stellt den Katalog aus dem installierten IS-Bestand ohne Beschaffung oder Entwicklungs-SDK bereit' ($installerSource -match 'SSISDBBackup\.bak' -and $installerSource -match 'RESTORE DATABASE \[SSISDB\]' -and $installerSource -match 'check_schema_version' -and $installerSource -match 'DTS:ForceExecutionResult' -and $installerSource -match '\[Text\.Encoding\]::Unicode' -and $installerSource -match 'Add-Type -AssemblyName System\.IO\.Compression' -and $installerSource -notmatch 'Microsoft\.SqlServer\.Dts\.Runtime\.dll' -and $installerSource -notmatch 'LoadWithPartialName' -and $installerSource -notmatch '(?i)(Invoke-WebRequest|Start-BitsTransfer|winget|choco|Install-Module)')
-Check 'SSISDB-Fixture erstellt nach Template-Restore einen nur gastlokalen Master-Key und bindet ihn an den Dienstschlüssel' ($installerSource -match '\$catalogPassword=\[guid\]::NewGuid\(\)\.ToString\(''N''\)' -and $installerSource -match 'CREATE MASTER KEY ENCRYPTION BY PASSWORD' -and $installerSource -match 'ALTER MASTER KEY ADD ENCRYPTION BY SERVICE MASTER KEY' -and $installerSource -notmatch "LS1Setup!" -and $installerSource -notmatch 'throw \$_.Exception')
+Check 'SSISDB-Fixture erstellt den Katalog über Microsofts installierte, versionsgebundene Management-API' ($installerSource -match 'Microsoft.SqlServer.Management.IntegrationServices, Version=17.0.0.0' -and $installerSource -match '\$catalog.Create\(\)' -and $installerSource -notmatch 'RESTORE DATABASE \[SSISDB\]' -and $installerSource -notmatch '(?i)(Invoke-WebRequest|Start-BitsTransfer|winget|choco|Install-Module)')
+$catalogProbe=Get-LabSsisCatalogFixtureGuestProbe
+$passwordAst=$catalogProbe.Ast.Find({param($n)$n -is [Management.Automation.Language.AssignmentStatementAst] -and $n.Left.Extent.Text -eq '$catalogPassword' -and $n.Right.Extent.Text -match 'NewGuid'},$true)
+$generatedPassword=& { . ([scriptblock]::Create($passwordAst.Extent.Text)); $catalogPassword }
+Check 'Generiertes Katalogkennwort erfüllt alle vier Komplexitätsklassen ohne festen Secretwert' ($generatedPassword.Length -ge 32 -and $generatedPassword -cmatch '[a-z]' -and $generatedPassword -cmatch '[A-Z]' -and $generatedPassword -match '[0-9]' -and $generatedPassword -match '[^a-zA-Z0-9]' -and $installerSource -match 'finally \{\$catalogPassword=\$null\}')
+$writerAst=$catalogProbe.Ast.Find({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Write-SsisFixtureProject'},$true)
+. ([scriptblock]::Create($writerAst.Extent.Text))
+$formatDirectory=Join-Path ([IO.Path]::GetTempPath()) ('ssis-opc-'+[guid]::NewGuid().ToString('N'))
+$null=New-Item -ItemType Directory -Path $formatDirectory
+try {
+    $archivePath=Write-SsisFixtureProject -Directory $formatDirectory -ProjectName 'LabStaticFormat'
+    $archive=[IO.Compression.ZipFile]::OpenRead($archivePath)
+    try {
+        $entries=@($archive.Entries.FullName)
+        Check 'Tatsächliche ISPAC enthält OPC-Typen, Projektmanifest, Parameter und genau drei Packages' ($entries.Count -eq 6 -and @('@Project.manifest','[Content_Types].xml','Project.params','Success.dtsx','Failure.dtsx','Incomplete.dtsx'|Where-Object {$_ -cnotin $entries}).Count -eq 0)
+        $reader=[IO.StreamReader]::new($archive.GetEntry('@Project.manifest').Open())
+        try {[xml]$manifestXml=$reader.ReadToEnd()}finally{$reader.Dispose()}
+        $ns=[Xml.XmlNamespaceManager]::new($manifestXml.NameTable);$ns.AddNamespace('s','www.microsoft.com/SqlServer/SSIS')
+        $meta=@($manifestXml.SelectNodes('//s:PackageMetaData',$ns))
+        Check 'Projektmanifest bindet alle Pakete und die von Microsofts Reader benötigten Eigenschaften' ($meta.Count -eq 3 -and @($manifestXml.SelectNodes('//s:Packages/s:Package[@s:EntryPoint="1"]',$ns)).Count -eq 3 -and @($meta|Where-Object { -not $_.SelectSingleNode('s:Properties/s:Property[@s:Name="VersionComments"]',$ns) -or -not $_.SelectSingleNode('s:Properties/s:Property[@s:Name="Description"]',$ns)}).Count -eq 0)
+    } finally {$archive.Dispose()}
+} finally {Remove-Item -LiteralPath $formatDirectory -Recurse -Force}
+$collisionOperation='ssis-install-'+[guid]::NewGuid().ToString('N')
+$collisionDirectory=Join-Path ([IO.Path]::GetTempPath()) ('SqlServerLab-Ssis-'+$collisionOperation.Substring($collisionOperation.Length-12))
+$null=New-Item -ItemType Directory -Path $collisionDirectory -ErrorAction Stop
+$collisionSentinel=Join-Path $collisionDirectory 'synthetic-sentinel'
+[IO.File]::WriteAllText($collisionSentinel,'SYNTHETIC')
+try {
+    $blocked=$false
+    try {& $catalogProbe $collisionOperation $false}catch{$blocked=$true}
+    Check 'Tatsächliche Gastprobe bewahrt ein schon vorhandenes Tempverzeichnis und erreicht keine SQL-Aktion' ($blocked -and [IO.File]::Exists($collisionSentinel))
+} finally {
+    # Only the file created here and its now-empty exact directory; no recursion.
+    [IO.File]::Delete($collisionSentinel)
+    if([IO.Directory]::Exists($collisionDirectory)){[IO.Directory]::Delete($collisionDirectory)}
+}
 Check 'Nach dem Neustart wird der installierte SSIS-Dienst nur lokal und begrenzt nachgestartet' ($installerSource -match 'MsDtsServer170' -and $installerSource -match '\$service\.Start\(\)' -and $installerSource -match 'FromMinutes\(5\)' -and $installerSource -match 'SSIS_INSTALL_SERVICE_START_FAILED')
 Check 'SQL-Postcondition wartet nach Neustart lokal und begrenzt auf den Diensttransport' ($installerSource -match '\$sqlDeadline=\[datetime\]::UtcNow\.AddSeconds\(180\)' -and $installerSource -match 'Pooling=False' -and $installerSource -match 'SSIS_INSTALL_SQL_LOCAL_READY_TIMEOUT' -and $installerSource -match 'Start-Sleep -Seconds 5')
 Check 'Der Gasttransport umfasst den begrenzten SQL-Readiness-Retry' ($installerSource -match 'Get-LabSsisInstallGuestProbe\) -TimeoutSeconds 300')

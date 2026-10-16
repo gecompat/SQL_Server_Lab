@@ -199,13 +199,16 @@ und eigenes Runtime-Cleanup sind bis zur separaten nativen Abnahme
 **NOT_EXECUTED**. SSISDB, Packages und ETL bleiben offen; es entsteht keine
 öffentliche Provider- oder Editionsfreigabe.
 
-**Kataloganlage ohne Client-SDK:** Der gebundene SQL-2025-/IS-170-Pfad verwendet
-den mit der installierten IS-Komponente gelieferten `SSISDBBackup.bak`-Bestand
-und die zugehörige SQLCLR-Serverassembly. Er benötigt weder `/FEATURES=SDK`
-noch ein SMO-/SSMS-Paket, `LoadWithPartialName`, Download oder Beschaffung.
-Der Gast prüft die lokalen Dateien, stellt SSISDB ausschließlich bei Fehlen im
-eigenen Run wieder her, bindet den Katalogschlüssel an den Dienstschlüssel und
-prüft danach `catalog.check_schema_version`. Die reale Windows-Abnahme bleibt
+**Kataloganlage nach Microsofts Verfahren:** Der gebundene SQL-2025-/IS-170-Pfad
+verwendet seit dem 2026-10-16 `Catalog.Create()` aus der bereits installierten,
+versionsgebundenen `Microsoft.SqlServer.Management.IntegrationServices`-Assembly.
+Ihr Vorhandensein im eigenen IS-2025-Gast wurde beobachtet. Der vorherige manuelle
+Template-Restore entfällt. Es gibt keinen Download, SSMS- oder SDK-Installationsschritt;
+das nur gastlokale Katalogkennwort erfüllt die Komplexitätsrichtlinie. Ein
+vollständiges synthetisches ISPAC mit Projektmanifest und OPC-Content-Types
+wurde vorab mit Microsofts `Project.OpenProject()` gelesen; beide gestarteten
+Pakete lieferten lokal das erwartete Success-/Failure-Ergebnis ohne Datenquelle.
+Die reale Windows-/SSISDB-Abnahme bleibt
 bis zu ihrem erfolgreichen Workflownachweis offen. Quellen: [SSIS-Katalog](https://learn.microsoft.com/sql/integration-services/catalog/ssis-catalog?view=sql-server-ver17),
 [Setupfeature IS und SDK-Grenze](https://learn.microsoft.com/sql/database-engine/install-windows/install-sql-server-from-the-command-prompt?view=sql-server-ver17),
 [SSIS-Installation](https://learn.microsoft.com/sql/integration-services/install-windows/install-integration-services?view=sql-server-ver17).

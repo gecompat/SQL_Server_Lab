@@ -419,8 +419,8 @@ function Get-LabSsisInstallGuestProbe {
 }
 
 # Runs only inside the fresh, operation-owned guest after SQLENGINE and IS are installed.
-# It restores the SSISDB template shipped by that same IS installation; no SDK, download,
-# build tool, or external data source participates in the fixture.
+# Catalog.Create uses the management assembly shipped by IS, as documented by
+# Microsoft. No download, compiler, or external data source participates.
 function Get-LabSsisCatalogFixtureGuestProbe {
     [CmdletBinding()]
     param()
@@ -431,80 +431,55 @@ function Get-LabSsisCatalogFixtureGuestProbe {
         $token=$OperationId.Substring($OperationId.Length-12)
         $folder="LabFixture_$token";$project="LabProject_$token"
         $temporary=Join-Path ([IO.Path]::GetTempPath()) "SqlServerLab-Ssis-$token"
-        $connection=$null;$catalogConnection=$null;$folderCreated=$false;$accepted=$false
+        $connection=$null;$catalogConnection=$null;$folderCreated=$false;$accepted=$false;$temporaryCreated=$false
         try {
             $null=New-Item -ItemType Directory -Path $temporary -ErrorAction Stop
+            $temporaryCreated=$true
             $connection=[Data.SqlClient.SqlConnection]::new('Data Source=localhost;Initial Catalog=master;Integrated Security=SSPI;Connect Timeout=30;Encrypt=False;Pooling=False')
             $connection.Open()
             $command=$connection.CreateCommand();$command.CommandTimeout=180
             try {
-                $command.CommandText="SELECT CONVERT(int,SERVERPROPERTY('ProductMajorVersion')), (SELECT COUNT(*) FROM sys.databases WHERE name=N'SSISDB');"
+                $command.CommandText="SELECT CONVERT(int,SERVERPROPERTY('ProductMajorVersion')), (SELECT COUNT(*) FROM sys.databases WHERE name=N'SSISDB'), CONVERT(nvarchar(128),SERVERPROPERTY('ProductVersion')), IS_SRVROLEMEMBER(N'sysadmin');"
                 $reader=$command.ExecuteReader();try {
                     if(-not $reader.Read() -or $reader.GetInt32(0) -ne 17){throw 'SSIS_FIXTURE_ENGINE_INVALID'}
                     $catalogExists=$reader.GetInt32(1) -eq 1
+                    $engineVersion=$reader.GetString(2)
+                    if($reader.GetInt32(3) -ne 1){throw 'SSIS_FIXTURE_SYSADMIN_REQUIRED'}
                 }finally{$reader.Dispose()}
             }finally{$command.Dispose()}
             if(-not $catalogExists){
-                $ssisBinn=Join-Path ([Environment]::GetFolderPath('ProgramFiles')) 'Microsoft SQL Server/170/DTS/Binn'
-                $catalogBackup=Join-Path $ssisBinn 'SSISDBBackup.bak'
-                $serverAssembly=Join-Path $ssisBinn 'Microsoft.SqlServer.IntegrationServices.Server.dll'
-                foreach($path in @($catalogBackup,$serverAssembly)){
-                    $file=Get-Item -LiteralPath $path -ErrorAction Stop
-                    if($file.PSIsContainer -or ($file.Attributes -band [IO.FileAttributes]::ReparsePoint)){throw 'SSIS_FIXTURE_INSTALLED_CATALOG_MEDIA_INVALID'}
-                }
-                function Escape-SsisSqlLiteral {param([string]$Value) $Value.Replace("'","''")}
-                function Invoke-SsisMasterNonQuery {param([string]$Text,[int]$Timeout=300)
-                    $cmd=$connection.CreateCommand();$cmd.CommandTimeout=$Timeout;$cmd.CommandText=$Text
-                    try{$null=$cmd.ExecuteNonQuery()}finally{$cmd.Dispose()}
-                }
-                $backupLiteral=Escape-SsisSqlLiteral $catalogBackup
-                $files=@();$cmd=$connection.CreateCommand();$cmd.CommandTimeout=120;$cmd.CommandText="RESTORE FILELISTONLY FROM DISK=N'$backupLiteral';"
+                # Use Microsoft's catalog creation API, rather than partially
+                # reproducing its restore, key, login and maintenance-job setup.
+                try {$assembly=[Reflection.Assembly]::Load('Microsoft.SqlServer.Management.IntegrationServices, Version=17.0.0.0, Culture=neutral, PublicKeyToken=89845dcd8080cc91')}
+                catch {throw 'SSIS_FIXTURE_INSTALLED_MANAGEMENT_ASSEMBLY_REQUIRED'}
+                if($assembly.GetName().Version.Major -ne 17){throw 'SSIS_FIXTURE_MANAGEMENT_VERSION_INVALID'}
+                $cmd=$connection.CreateCommand();$cmd.CommandTimeout=30
+                try {$cmd.CommandText="EXEC sp_configure 'clr enabled',1; RECONFIGURE;";$null=$cmd.ExecuteNonQuery()}finally{$cmd.Dispose()}
+                $catalogPassword=[guid]::NewGuid().ToString('N')+[guid]::NewGuid().ToString('N')+'aA1!'
                 try {
-                    $reader=$cmd.ExecuteReader();try{while($reader.Read()){$files+=,[pscustomobject]@{LogicalName=[string]$reader['LogicalName'];Type=[string]$reader['Type']}}}finally{$reader.Dispose()}
-                }finally{$cmd.Dispose()}
-                $dataLogical=@($files|Where-Object {$_.Type -ceq 'D'});$logLogical=@($files|Where-Object {$_.Type -ceq 'L'})
-                if($dataLogical.Count -ne 1 -or $logLogical.Count -ne 1){throw 'SSIS_FIXTURE_INSTALLED_CATALOG_LAYOUT_INVALID'}
-                $cmd=$connection.CreateCommand();$cmd.CommandTimeout=30;$cmd.CommandText='SELECT physical_name,type FROM master.sys.master_files WHERE database_id=1 AND type IN (0,1);'
-                $paths=@();try{$reader=$cmd.ExecuteReader();try{while($reader.Read()){$paths+=,[pscustomobject]@{Path=[string]$reader.GetString(0);Type=[Convert]::ToInt32($reader.GetValue(1),[Globalization.CultureInfo]::InvariantCulture)}}}finally{$reader.Dispose()}}finally{$cmd.Dispose()}
-                $dataDirectory=Split-Path -Parent ([string](@($paths|Where-Object {$_.Type -eq 0})[0].Path))
-                $logDirectory=Split-Path -Parent ([string](@($paths|Where-Object {$_.Type -eq 1})[0].Path))
-                if([string]::IsNullOrWhiteSpace($dataDirectory) -or [string]::IsNullOrWhiteSpace($logDirectory)){throw 'SSIS_FIXTURE_DEFAULT_PATHS_INVALID'}
-                $dataFileLiteral=Escape-SsisSqlLiteral (Join-Path $dataDirectory 'SSISDB.mdf')
-                $logFileLiteral=Escape-SsisSqlLiteral (Join-Path $logDirectory 'SSISDB_log.ldf')
-                $dataLogicalLiteral=Escape-SsisSqlLiteral $dataLogical[0].LogicalName
-                $logLogicalLiteral=Escape-SsisSqlLiteral $logLogical[0].LogicalName
-                # SQL Server requires the CLR trust principal before an SSISDB backup is restored.
-                # Keeping this before RESTORE also follows the documented first-catalog restore order.
-                $assemblyLiteral=Escape-SsisSqlLiteral $serverAssembly
-                Invoke-SsisMasterNonQuery -Text ("EXEC sp_configure 'clr enabled',1; RECONFIGURE; IF NOT EXISTS(SELECT 1 FROM sys.asymmetric_keys WHERE name=N'MS_SQLEnableSystemAssemblyLoadingKey') CREATE ASYMMETRIC KEY [MS_SQLEnableSystemAssemblyLoadingKey] FROM EXECUTABLE FILE=N'$assemblyLiteral'; IF NOT EXISTS(SELECT 1 FROM sys.server_principals WHERE name=N'##MS_SQLEnableSystemAssemblyLoadingUser##') CREATE LOGIN [##MS_SQLEnableSystemAssemblyLoadingUser##] FROM ASYMMETRIC KEY [MS_SQLEnableSystemAssemblyLoadingKey]; GRANT UNSAFE ASSEMBLY TO [##MS_SQLEnableSystemAssemblyLoadingUser##];")
-                Invoke-SsisMasterNonQuery -Text ("RESTORE DATABASE [SSISDB] FROM DISK=N'$backupLiteral' WITH MOVE N'$dataLogicalLiteral' TO N'$dataFileLiteral', MOVE N'$logLogicalLiteral' TO N'$logFileLiteral', RECOVERY;") -Timeout 600
-                # SSISDBBackup.bak is a catalog template, not a user catalog: it has
-                # no usable database master key after RESTORE.  Create an operation-
-                # local key, then bind it to this SQL instance's service master key.
-                # The password is generated only in the owned guest process and never
-                # leaves it in a receipt, log, manifest, or repository artifact.
-                $catalogPassword=[guid]::NewGuid().ToString('N')+[guid]::NewGuid().ToString('N')
-                $catalogPasswordLiteral=Escape-SsisSqlLiteral $catalogPassword
-                Invoke-SsisMasterNonQuery -Text "USE [SSISDB]; IF EXISTS(SELECT 1 FROM sys.symmetric_keys WHERE name=N'##MS_DatabaseMasterKey##') DROP MASTER KEY; CREATE MASTER KEY ENCRYPTION BY PASSWORD=N'$catalogPasswordLiteral'; ALTER MASTER KEY ADD ENCRYPTION BY SERVICE MASTER KEY;"
-                Invoke-SsisMasterNonQuery -Text "USE [SSISDB]; EXEC [catalog].[check_schema_version] @use32bitruntime=0;"
+                    $integrationServices=[Microsoft.SqlServer.Management.IntegrationServices.IntegrationServices]::new($connection)
+                    $catalog=[Microsoft.SqlServer.Management.IntegrationServices.Catalog]::new($integrationServices,'SSISDB',$catalogPassword)
+                    $catalog.Create()
+                } finally {$catalogPassword=$null}
             }
             $catalogConnection=[Data.SqlClient.SqlConnection]::new('Data Source=localhost;Initial Catalog=SSISDB;Integrated Security=SSPI;Connect Timeout=30;Encrypt=False;Pooling=False')
             $catalogConnection.Open()
-            # The generated packages are intentionally local-only: a blank package succeeds;
-            # ForceExecutionResult produces the error case; the third execution remains created.
-            # SSIS server installation does not require the separately distributed development
-            # SDK.  Generate the minimal documented DTSX XML directly, then use DTExec's server
-            # parser at catalog execution time instead of loading a managed development assembly.
-            Add-Type -AssemblyName System.IO.Compression
-            Add-Type -AssemblyName System.IO.Compression.FileSystem
-            function Write-SsisFixturePackage {
-                param(
-                    [Parameter(Mandatory)][string]$Path,
-                    [Parameter(Mandatory)][string]$Name,
-                    [ValidateSet(0,1)][int]$ForceExecutionResult
-                )
+            foreach($view in @('catalog.executions','catalog.event_messages')){
+                $cmd=$catalogConnection.CreateCommand();$cmd.CommandTimeout=30;$cmd.CommandText="SELECT TOP (0) * FROM $view;"
+                try {$reader=$cmd.ExecuteReader();$reader.Dispose()}finally{$cmd.Dispose()}
+            }
+            $ssisFile=Get-Item -LiteralPath (Join-Path ([Environment]::GetFolderPath('ProgramFiles')) 'Microsoft SQL Server/170/DTS/Binn/MsDtsSrvr.exe') -ErrorAction Stop
+            if($ssisFile.VersionInfo.FileMajorPart -ne 17){throw 'SSIS_FIXTURE_COMPONENT_VERSION_INVALID'}
+            $ssisVersion=[string]$ssisFile.VersionInfo.FileVersion
+            function Write-SsisFixtureProject {
+                param([Parameter(Mandatory)][string]$Directory,[Parameter(Mandatory)][ValidatePattern('^[A-Za-z][A-Za-z0-9_]{0,127}$')][string]$ProjectName)
+                Add-Type -AssemblyName System.IO.Compression
+                Add-Type -AssemblyName System.IO.Compression.FileSystem
+                $metadata=@();$paths=@()
+                foreach($name in @('Success','Failure','Incomplete')){
                 $packageId=[guid]::NewGuid().ToString('B').ToUpperInvariant()
                 $versionId=[guid]::NewGuid().ToString('B').ToUpperInvariant()
+                $forceExecutionResult=if($name -ceq 'Failure'){1}else{0}
                 $packageXml=@'
 <?xml version="1.0" encoding="utf-16"?>
 <DTS:Executable xmlns:DTS="www.microsoft.com/SqlServer/Dts" DTS:CreationName="Microsoft.Package" DTS:ExecutableType="Microsoft.Package" DTS:ObjectName="{0}" DTS:ProtectionLevel="0" DTS:PackageType="5" DTS:VersionBuild="1" DTS:VersionGUID="{1}" DTS:DTSID="{2}" DTS:LocaleID="1033" DTS:ForceExecutionResult="{3}">
@@ -513,17 +488,44 @@ function Get-LabSsisCatalogFixtureGuestProbe {
   <DTS:Executables />
   <DTS:PrecedenceConstraints />
 </DTS:Executable>
-'@ -f $Name,$versionId,$packageId,$ForceExecutionResult
-                [IO.File]::WriteAllText($Path,$packageXml,[Text.Encoding]::Unicode)
+'@ -f $name,$versionId,$packageId,$forceExecutionResult
+                    $path=Join-Path $Directory ($name+'.dtsx')
+                    [IO.File]::WriteAllText($path,$packageXml,[Text.Encoding]::Unicode);$paths+=$path
+                    $metadata+=@{Name=$name;Id=$packageId;VersionId=$versionId}
+                }
+                # MS-ISPAC requires both an OPC content-type declaration and
+                # @Project.manifest; a ZIP containing only DTSX is not an ISPAC.
+                $packageEntries=($metadata|ForEach-Object {'<SSIS:Package SSIS:Name="'+$_.Name+'.dtsx" SSIS:EntryPoint="1" />'}) -join ''
+                $packageMetadata=($metadata|ForEach-Object {@'
+<SSIS:PackageMetaData SSIS:Name="{0}.dtsx"><SSIS:Properties>
+<SSIS:Property SSIS:Name="ID">{1}</SSIS:Property><SSIS:Property SSIS:Name="Name">{0}</SSIS:Property>
+<SSIS:Property SSIS:Name="VersionMajor">1</SSIS:Property><SSIS:Property SSIS:Name="VersionMinor">0</SSIS:Property><SSIS:Property SSIS:Name="VersionBuild">1</SSIS:Property>
+<SSIS:Property SSIS:Name="VersionComments"></SSIS:Property><SSIS:Property SSIS:Name="Description"></SSIS:Property>
+<SSIS:Property SSIS:Name="VersionGUID">{2}</SSIS:Property><SSIS:Property SSIS:Name="PackageFormatVersion">8</SSIS:Property><SSIS:Property SSIS:Name="ProtectionLevel">0</SSIS:Property>
+</SSIS:Properties><SSIS:Parameters /></SSIS:PackageMetaData>
+'@ -f $_.Name,$_.Id,$_.VersionId}) -join ''
+                $manifest=@'
+<SSIS:Project SSIS:ProtectionLevel="DontSaveSensitive" xmlns:SSIS="www.microsoft.com/SqlServer/SSIS"><SSIS:Properties>
+<SSIS:Property SSIS:Name="ID">{0}</SSIS:Property><SSIS:Property SSIS:Name="Name">{1}</SSIS:Property>
+<SSIS:Property SSIS:Name="VersionMajor">1</SSIS:Property><SSIS:Property SSIS:Name="VersionMinor">0</SSIS:Property><SSIS:Property SSIS:Name="VersionBuild">1</SSIS:Property>
+<SSIS:Property SSIS:Name="VersionComments"></SSIS:Property><SSIS:Property SSIS:Name="Description">Synthetic local SSIS acceptance cases</SSIS:Property>
+<SSIS:Property SSIS:Name="CreationDate">2026-01-01T00:00:00Z</SSIS:Property><SSIS:Property SSIS:Name="CreatorName">Synthetic</SSIS:Property><SSIS:Property SSIS:Name="CreatorComputerName">Synthetic</SSIS:Property>
+<SSIS:Property SSIS:Name="TargetServerVersion">170</SSIS:Property><SSIS:Property SSIS:Name="FormatVersion">1</SSIS:Property>
+</SSIS:Properties><SSIS:Packages>{2}</SSIS:Packages><SSIS:ConnectionManagers />
+<SSIS:DeploymentInfo><SSIS:ProjectConnectionParameters /><SSIS:PackageInfo>{3}</SSIS:PackageInfo></SSIS:DeploymentInfo></SSIS:Project>
+'@ -f [guid]::NewGuid().ToString('B'),$ProjectName,$packageEntries,$packageMetadata
+                $texts=@{
+                    '@Project.manifest'=$manifest
+                    'Project.params'='<SSIS:Parameters xmlns:SSIS="www.microsoft.com/SqlServer/SSIS" />'
+                    '[Content_Types].xml'='<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="dtsx" ContentType="text/xml" /><Default Extension="params" ContentType="text/xml" /><Default Extension="manifest" ContentType="text/xml" /></Types>'
+                }
+                foreach($name in $texts.Keys){$path=Join-Path $Directory $name;[IO.File]::WriteAllText($path,$texts[$name],[Text.UTF8Encoding]::new($false));$paths+=$path}
+                $ispac=Join-Path $Directory ($ProjectName+'.ispac')
+                $archive=[IO.Compression.ZipFile]::Open($ispac,[IO.Compression.ZipArchiveMode]::Create)
+                try {foreach($path in $paths){[IO.Compression.ZipFileExtensions]::CreateEntryFromFile($archive,$path,[IO.Path]::GetFileName($path))|Out-Null}}finally{$archive.Dispose()}
+                return $ispac
             }
-            Write-SsisFixturePackage -Path (Join-Path $temporary 'Success.dtsx') -Name 'LabSuccess' -ForceExecutionResult 0
-            Write-SsisFixturePackage -Path (Join-Path $temporary 'Failure.dtsx') -Name 'LabFailure' -ForceExecutionResult 1
-            Write-SsisFixturePackage -Path (Join-Path $temporary 'Incomplete.dtsx') -Name 'LabIncomplete' -ForceExecutionResult 0
-            $projectParameters=Join-Path $temporary 'Project.params'
-            [IO.File]::WriteAllText($projectParameters,'<?xml version="1.0" encoding="utf-8"?><SSIS:Parameters xmlns:SSIS="www.microsoft.com/SqlServer/SSIS"></SSIS:Parameters>',[Text.UTF8Encoding]::new($false))
-            $ispac=Join-Path $temporary "$project.ispac"
-            $archive=[IO.Compression.ZipFile]::Open($ispac,[IO.Compression.ZipArchiveMode]::Create)
-            try { foreach($path in @($projectParameters,(Join-Path $temporary 'Success.dtsx'),(Join-Path $temporary 'Failure.dtsx'),(Join-Path $temporary 'Incomplete.dtsx'))){[IO.Compression.ZipFileExtensions]::CreateEntryFromFile($archive,$path,[IO.Path]::GetFileName($path))|Out-Null} } finally {$archive.Dispose()}
+            $ispac=Write-SsisFixtureProject -Directory $temporary -ProjectName $project
             function Invoke-FixtureCommand { param([string]$Text,[hashtable]$Parameters=@{})
                 $cmd=$catalogConnection.CreateCommand();$cmd.CommandTimeout=180;$cmd.CommandText=$Text
                 try {
@@ -562,13 +564,13 @@ function Get-LabSsisCatalogFixtureGuestProbe {
             $incomplete=New-FixtureExecution -Package 'Incomplete.dtsx'
             $deadline=[datetime]::UtcNow.AddMinutes(3);$states=@{}
             do {$cmd=$catalogConnection.CreateCommand();$cmd.CommandTimeout=30;$cmd.CommandText='SELECT execution_id,status FROM [catalog].[executions] WHERE execution_id IN (@success,@failure,@incomplete);';try {foreach($name in @('success','failure','incomplete')){$null=$cmd.Parameters.Add('@'+$name,[Data.SqlDbType]::BigInt);$cmd.Parameters['@'+$name].Value=(Get-Variable $name -ValueOnly)};$reader=$cmd.ExecuteReader();try{while($reader.Read()){$states[[string]$reader.GetInt64(0)]=[int]$reader.GetInt32(1)}}finally{$reader.Dispose()}}finally{$cmd.Dispose()};if($states[[string]$success] -in 3,4,6,7,9 -and $states[[string]$failure] -in 3,4,6,7,9){break};Start-Sleep -Milliseconds 500}while([datetime]::UtcNow -lt $deadline)
-            if($states[[string]$success] -notin 7,9 -or $states[[string]$failure] -notin 4,6,9 -or $states[[string]$incomplete] -ne 1){throw 'SSIS_FIXTURE_EXECUTION_STATUS_INVALID'}
+            if($states[[string]$success] -ne 7 -or $states[[string]$failure] -ne 4 -or $states[[string]$incomplete] -ne 1){throw 'SSIS_FIXTURE_EXECUTION_STATUS_INVALID'}
             $accepted=$true
-            [pscustomobject]@{Status='SSISDB_FIXTURE_ACCEPTED';OperationId=$OperationId;EngineMajor=17;SsisMajor=17;ExecutionIds=@{Success=$success;Failure=$failure;Incomplete=$incomplete};ExecutionStatus=@{Success=$states[[string]$success];Failure=$states[[string]$failure];Incomplete=$states[[string]$incomplete]};CatalogViews=@('catalog.executions','catalog.event_messages');Rights='SYSADMIN_OBSERVED';FolderName=$folder;ProjectName=$project;Cleanup=$(if($RetainFolder){'RETAINED_FOR_OWNED_RUN'}else{'CATALOG_FOLDER_CLEANUP_PENDING'})}
+            [pscustomobject]@{Status='SSISDB_FIXTURE_ACCEPTED';OperationId=$OperationId;EngineMajor=17;EngineVersion=$engineVersion;SsisMajor=17;SsisVersion=$ssisVersion;ExecutionIds=@{Success=$success;Failure=$failure;Incomplete=$incomplete};ExecutionStatus=@{Success=$states[[string]$success];Failure=$states[[string]$failure];Incomplete=$states[[string]$incomplete]};CatalogViews=@('catalog.executions','catalog.event_messages');Rights='SYSADMIN_OBSERVED';FolderName=$folder;ProjectName=$project;Cleanup=$(if($RetainFolder){'RETAINED_FOR_OWNED_RUN'}else{'CATALOG_FOLDER_CLEANUP_PENDING'})}
         }
         finally {
             if($folderCreated -and (-not $RetainFolder -or -not $accepted) -and $catalogConnection){$cmd=$catalogConnection.CreateCommand();try{$cmd.CommandTimeout=120;$cmd.CommandText='EXEC [catalog].[delete_folder] @folder_name=@folder;';$null=$cmd.Parameters.Add('@folder',[Data.SqlDbType]::NVarChar,128);$cmd.Parameters['@folder'].Value=$folder;$null=$cmd.ExecuteNonQuery()}finally{$cmd.Dispose()}}
-            if($catalogConnection){$catalogConnection.Dispose()};if($connection){$connection.Dispose()};if(Test-Path -LiteralPath $temporary){Remove-Item -LiteralPath $temporary -Recurse -Force -ErrorAction Stop}
+            if($catalogConnection){$catalogConnection.Dispose()};if($connection){$connection.Dispose()};if($temporaryCreated -and (Test-Path -LiteralPath $temporary)){Remove-Item -LiteralPath $temporary -Recurse -Force -ErrorAction Stop}
         }
     }
 }

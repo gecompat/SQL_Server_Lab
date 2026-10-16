@@ -4059,6 +4059,13 @@ die zuvor separat bestandenen Docker-/Podman-Artefaktläufe übertragen.
 
 ## SSISDB-Fixture auf Prepared Hyper-V SQL 2025
 
+Die unabhängige Formatabnahme `Tests/Integration/Invoke-SsisFixtureFormatAcceptance.ps1`
+öffnet das vom produktiven Writer erzeugte ISPAC mit Microsofts installiertem
+SSIS-17-`Project.OpenProject()` unter Windows PowerShell. Am 2026-10-16 wurden
+alle drei Entry-Point-Packages mit den erwarteten Forced Results und ohne
+Verbindungen oder Tasks gelesen. SQL und Provider wurden dabei nicht gestartet.
+Diese fokussierte Prüfung findet Paketformatfehler vor einem VM-Gesamtlauf.
+
 Die statischen Verträge für `Install-SqlServerLabSsisComponent`,
 `New-SqlServerLabSsisCatalogFixture` und den gezielten Fixture-Cleanup prüfen
 Prepared-Image-Bindung, hashgebundene lokale Medien, fehlende Beschaffung,

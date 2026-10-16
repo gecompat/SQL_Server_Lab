@@ -31,7 +31,9 @@ function Write-SsisFixtureEvidence {
         SourceBinding=[string]$Receipt.Source.ConnectionBinding
         ConsumerRights=[string]$Receipt.Source.ConsumerRights
         SqlEngineMajor=[int]$Receipt.Sql.EngineMajor
+        SqlEngineVersion=[string]$Receipt.Sql.EngineVersion
         SsisMajor=[int]$Receipt.Ssis.Major
+        SsisVersion=[string]$Receipt.Ssis.Version
         Catalog=[string]$Receipt.Ssis.Catalog
         ExecutionIds=[ordered]@{
             Success=[string]$Receipt.Fixture.ExecutionIds.Success
@@ -72,7 +74,7 @@ try {
     Assert-SsisFixtureAcceptance (@($receipt.Fixture.CatalogViews) -contains 'catalog.executions' -and @($receipt.Fixture.CatalogViews) -contains 'catalog.event_messages') 'Reale Catalog-Views beobachtet'
     $ids=@($receipt.Fixture.ExecutionIds.Success,$receipt.Fixture.ExecutionIds.Failure,$receipt.Fixture.ExecutionIds.Incomplete)
     Assert-SsisFixtureAcceptance ($ids.Count -eq 3 -and @($ids|Select-Object -Unique).Count -eq 3 -and @($ids|Where-Object {[string]::IsNullOrWhiteSpace([string]$_)}).Count -eq 0) 'Drei eigene Execution-IDs'
-    Assert-SsisFixtureAcceptance ($receipt.Fixture.ExecutionStatus.Success -in @(7,9) -and $receipt.Fixture.ExecutionStatus.Failure -in @(4,6,9) -and $receipt.Fixture.ExecutionStatus.Incomplete -eq 1) 'Erfolgs-, Fehler- und unvollständiger Loggingfall'
+    Assert-SsisFixtureAcceptance ($receipt.Fixture.ExecutionStatus.Success -eq 7 -and $receipt.Fixture.ExecutionStatus.Failure -eq 4 -and $receipt.Fixture.ExecutionStatus.Incomplete -eq 1) 'Erfolgs-, Fehler- und unvollständiger Loggingfall'
 }
 catch {$primaryFailure=$_}
 finally {

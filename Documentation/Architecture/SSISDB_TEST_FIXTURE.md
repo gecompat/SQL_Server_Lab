@@ -3,7 +3,7 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `IMPLEMENTED_RUNTIME_PENDING` |
-| Stand | 2026-10-14 |
+| Stand | 2026-10-16 |
 | Öffentliche Einstiege | `Get-SqlServerLabSsisCatalogCapability`, `Install-SqlServerLabSsisComponent`, `New-SqlServerLabSsisCatalogFixture`, `Remove-SqlServerLabSsisCatalogFixture` |
 
 ## Zweck und Grenze
@@ -18,9 +18,9 @@ Get-SqlServerLabSsisCatalogCapability -RunId $runId -InstanceId primary
 
 `Install-SqlServerLabSsisComponent` ist der ausdrücklich mutierende Komponentenpfad für den normalen Bereitstellungsweg. Er akzeptiert nur einen bereits laufenden, gebundenen eigenen Windows-SQL-2025-Run, eine vorhandene SQL-2025-Enterprise-ISO und deren erwarteten SHA-256-Wert. Vor und nach dem Gasttransport bindet er Run, Scope, Instanz und VM-ID. Er ergänzt ausschließlich `IS`, startet die VM kontrolliert neu und verifiziert Engine und SSIS-Dienst. Die vorhandene SQL-Engine bleibt bestehen. Download, Update, Build und Beschaffung sind ausgeschlossen; `Remove-SqlServerLab` bleibt der Cleanup für die Komponente und den gesamten eigenen Run.
 
-`New-SqlServerLabSsisCatalogFixture -RunId $runId -InstanceId primary` ist der folgende Fixturepfad. Er akzeptiert keine freien Hosts, Endpunkte oder Credentials. Er verlangt beobachtete SQL-2025- und IS-Komponenten und erzeugt SSISDB nur dann, wenn diese im gebundenen eigenen Run fehlt. Dazu verwendet er ausschließlich `SSISDBBackup.bak` und die SQLCLR-Serverassembly aus der bereits installierten, versionsgebundenen IS-170-Installation; einen Client-SDK-, SSMS-, Download- oder Beschaffungspfad gibt es nicht.
+`New-SqlServerLabSsisCatalogFixture -RunId $runId -InstanceId primary` ist der folgende Fixturepfad. Er akzeptiert keine freien Hosts, Endpunkte oder Credentials. Er verlangt beobachtete SQL-2025- und IS-Komponenten und erzeugt SSISDB nur dann, wenn diese im gebundenen eigenen Run fehlt. Dazu verwendet er Microsofts dokumentiertes `Microsoft.SqlServer.Management.IntegrationServices.Catalog.Create()` aus der bereits installierten IS-17-Managementassembly. Die Assembly wurde im eigenen IS-2025-Gast tatsächlich beobachtet. Fehlt sie, bricht die Funktion vor der Kataloganlage mit `SSIS_FIXTURE_INSTALLED_MANAGEMENT_ASSEMBLY_REQUIRED` ab. Ein manuell nachgebauter Template-Restore, SSMS, Download oder nachträglicher SDK-Installationsschritt gehört nicht zur Runtime. Das nur gastlokal erzeugte Katalogkennwort erfüllt alle vier Komplexitätsklassen und verlässt den Gastprozess nicht.
 
-Der Cmdlet legt in der frischen VM SSISDB und einen eindeutig operationseigenen Katalogordner an. Er stellt ein synthetisches lokales Projekt mit drei Packages bereit: `Success.dtsx`, `Failure.dtsx` und `Incomplete.dtsx`. Er startet nur die Erfolgs- und Fehlerausführung; die dritte Ausführung bleibt im Zustand `created`. Die Receipt enthält ausschließlich Run-/Instanzbindung, die eigenen Execution-IDs, die beobachteten `catalog`-Views, Versionsmajor, Rechteklassifikation und den Cleanupstatus. Sie enthält keine Credentials, Endpunkte oder lokalen Pfade.
+Der Cmdlet legt in der frischen VM SSISDB und einen eindeutig operationseigenen Katalogordner an. Er stellt ein synthetisches lokales Projekt mit drei Packages bereit: `Success.dtsx`, `Failure.dtsx` und `Incomplete.dtsx`. Er startet nur die Erfolgs- und Fehlerausführung; die dritte Ausführung bleibt im Zustand `created`. Die Receipt enthält ausschließlich Run-/Instanzbindung, die eigenen Execution-IDs, die beobachteten `catalog`-Views, vollständige Engine-/SSIS-Dateiversion und Versionsmajor, Rechteklassifikation und den Cleanupstatus. Sie enthält keine Credentials, Endpunkte oder lokalen Pfade.
 
 Die vollständige öffentliche Konsolen-CLI katalogisiert beide Exporte automatisch. Der Browser verwendet denselben Exportkatalog im Bereich **Status und Diagnose**. Bis zu einer eigenen gerenderten Fachabnahme bleibt dies ein generischer, parametergebundener Dialog und kein separater SSISDB-Fachdialog.
 
@@ -49,7 +49,7 @@ Remove-SqlServerLab -RunId $fixture.Target.RunId -Force -Confirm:$false
 `READY_FOR_FIXTURE_IMPLEMENTATION` bestätigt ausschließlich die beobachtete Voraussetzung eines vorhandenen eigenen Zielruns. Er bestätigt weder `catalog.executions`-Rechte eines Analyze-Consumers noch reale SSISDB-Ausführungen, Loggingfälle, Cleanup oder die Eignung als SQL_Server_Analyze-Runtimequelle.
 
 Die Fixture erzeugt ihre drei eigenen Pakete als minimale UTF-16-DTSX-Dokumente
-mit `DTS:ForceExecutionResult` und verpackt sie in ein eigenes `.ispac`. Damit
+mit `DTS:ForceExecutionResult` und verpackt sie mit `@Project.manifest`, Paketmetadaten und OPC-Content-Types in ein vollständiges eigenes `.ispac`. Damit
 genügt die bereits installierte SSIS-Serverkomponente einschließlich `DTExec`;
 ein SSIS-Entwicklungs-SDK, `Microsoft.SqlServer.Dts.Runtime.dll`, Download oder
 Build-Schritt ist kein Laufzeitbedarf. Der Erfolg-, Fehler- und ungestartete
@@ -59,7 +59,7 @@ Fall bleiben vollständig synthetisch und ohne externe Datenquelle.
 
 ## Ausführungsnachweis
 
-Die aktuelle Implementierung ist noch kein Windows-/SSISDB-Runtimenachweis. Vor dem Analyze-Runtimegate ist eine tatsächliche Abnahme erforderlich: genauer Cmdlet-Aufruf, Engine-/SSISversion, alle drei Execution-IDs und Statuswerte, beobachtete Views/Rechte, Receipt und erfolgreicher Run-Cleanup. Ein lokaler oder statischer Erfolg ersetzt diesen Nachweis nicht.
+Die Formatabnahme `Tests/Integration/Invoke-SsisFixtureFormatAcceptance.ps1` hat am 2026-10-16 mit der vorhandenen SSIS-17-Runtime das tatsächlich erzeugte ISPAC über Microsofts `Project.OpenProject()` geöffnet: drei Entry-Point-Packages, erwartete Forced Results, keine Verbindungen oder Tasks. Sie verwendet Windows PowerShell und startet weder SQL noch eine VM. Dies ist noch kein Windows-/SSISDB-Runtimenachweis. Vor dem Analyze-Runtimegate ist eine tatsächliche Abnahme erforderlich: genauer Cmdlet-Aufruf, Engine-/SSISversion, alle drei Execution-IDs und Statuswerte, beobachtete Views/Rechte, Receipt und erfolgreicher Run-Cleanup. Ein lokaler oder statischer Erfolg ersetzt diesen Nachweis nicht.
 
 Der Prepared-SSISDB-Pfad erklärt Windows-Aktivierung ausdrücklich als `NotRequested` mit `Denied`-Egress. SSIS, SSISDB und die lokale Katalogausführung benötigen keine Windows-Aktivierung; der Test erstellt daher weder eine temporäre externe NIC noch eine Netzverbindung. Die getrennten Fresh-Install-Abnahmen dürfen weiterhin ihre eigene Aktivierungskette prüfen.
 

@@ -1,5 +1,16 @@
 # Bekannte Grenzen
 
+## SSISDB: Windows-Abnahme noch offen
+
+Der [SSISDB-Vertrag](../Architecture/SSISDB_TEST_FIXTURE.md) unterstützt eigene
+Windows-/Hyper-V-SQL-2025-Runs mit vorhandener Software. Kataloganlage über
+Microsofts `Catalog.Create()`, synthetische ISPAC und öffentlicher Cleanup
+sind implementiert. Die unabhängige lokale ISPAC-Formatabnahme ist ausgeführt;
+die vollständige Katalog-/Ausführungsabnahme steht noch aus. SQL_Server_Analyze
+darf diesen Stand daher noch nicht als abgenommene Runtimequelle verwenden.
+Linux unterstützt keinen SSISDB-Katalog. CLI und Browser bieten derzeit die
+öffentlichen Cmdlets über ihren gemeinsamen generischen Befehlszugang an.
+
 ## Downloads: Streaminggrenze und offene Speicherquoten
 
 Der [gemeinsame Transport](../Architecture/DOWNLOAD_STREAM_LIMITS.md) begrenzt

@@ -63,8 +63,8 @@ function New-SqlServerLabSsisCatalogFixture {
         Target=[pscustomobject][ordered]@{RunId=[string]$fixture.RunId;InstanceId=[string]$fixture.InstanceId;BindingStatus='BOUND'}
         Source=[pscustomobject][ordered]@{Status='OWNED_READY';ConnectionBinding=[string]$fixture.SourceBinding;ConsumerRights='SYSADMIN_OBSERVED'}
         Fixture=[pscustomobject][ordered]@{Status='READY';ExecutionIds=$fixture.ExecutionIds;ExecutionStatus=$fixture.ExecutionStatus;CatalogViews=@($fixture.CatalogViews);FolderName=[string]$fixture.FolderName;ProjectName=[string]$fixture.ProjectName}
-        Sql=[pscustomobject][ordered]@{EngineMajor=[int]$fixture.EngineMajor}
-        Ssis=[pscustomobject][ordered]@{Major=[int]$fixture.SsisMajor;Catalog='SSISDB_OBSERVED'}
+        Sql=[pscustomobject][ordered]@{EngineMajor=[int]$fixture.EngineMajor;EngineVersion=[string]$fixture.EngineVersion}
+        Ssis=[pscustomobject][ordered]@{Major=[int]$fixture.SsisMajor;Version=[string]$fixture.SsisVersion;Catalog='SSISDB_OBSERVED'}
         Cleanup=$(if([string]$fixture.SourceBinding -eq 'OWNED_EXISTING_HYPERV_RUN'){'REMOVE_OWNED_FIXTURE_TO_CLEANUP'}else{'REMOVE_RUN_TO_CLEANUP'})
         Status='READY_FOR_READ_ONLY_ANALYSIS'
     }
