@@ -92,13 +92,21 @@ ein unabhängig geprüftes öffentliches Leaf mit genau angefordertem IP-/DNS-SA
 CA-/Root-/Actorbindung und DPAPI-Keymatch werden frisch geprüft; kein Store
 wird geöffnet. Die eigene native Tempfixture ist kein Windows-certreq-/CSP-/
 KeySpec-/SQL-Profil oder NativeTargetnachweis. Registrierung, Trustrecovery,
-frische eigene Runtimeproben und authentifizierte Clientabnahme bleiben offen.
+frische eigene Runtimeproben und authentifizierte Clientabnahme waren in diesem
+CSR-Scope nicht ausgeführt. Die nachfolgende Trustrecovery ist unten getrennt belegt.
 Der neue [einmalige Recoverypfad](../Architecture/AUTHENTICATED_TLS_TRUST_RECOVERY.md)
 erhält die ursprünglichen Journal-/Kandidatenbytes und bindet einen neuen
 geschützten Intent/Commit an frische konkrete Preview und Adapterevidence.
 Unklare Recovery bleibt terminal; Original-Add-Verlust wird nie attribuiert.
 Die tatsächliche sichtbare Adapterausführung nach geprüfter Integration ist
-ein separater Scope und noch `NOT_EXECUTED`; kein realer Storezugriff in den Tests.
+ein separater Scope. Die [konkrete native CA-Trust-Abnahme](../Quality/TLS_CA_TRUST_ACCEPTANCE_2026-10-16.md)
+bestand inzwischen mit Exitcode 0 und frischem `RECOVERY_IMPORT_RECORDED`;
+Originalintent bytegleich, kein ursprünglicher Commit und kein verbleibender Lock.
+Kein realer Storezugriff in den synthetischen Tests. Der erste eigene Docker-
+SQL-2025-Lauf belegte die strikte Ablehnung der unvertrauten Kette vor SQL-Arbeit
+und vollständiges Cleanup ohne Bestandsdateidrift. Seine OpenSSL-CSR-Probe
+deckte die nun eng korrigierte UTF8-Subjectkodierungslücke auf. Positive
+Clientproben, komplette TLS-Matrix, Registry und Toolbelt SC-2026-045 bleiben offen.
 Der Benutzer verlangt ausdrücklich die autonome Fortsetzung bis zur echten
 TLS-Lab-Abnahme und gezielte Fragen bei konkret fehlenden Freigaben.
 Schutzgrenzen bestehen fort; reine Offlinefortschritte beenden diesen Auftrag nicht.

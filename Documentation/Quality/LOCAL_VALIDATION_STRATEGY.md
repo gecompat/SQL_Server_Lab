@@ -52,7 +52,9 @@ verwendet ausschließlich eigene synthetische Root-/Actor-/CA-/Storebindungen,
 opaque Kandidatendateien und echte geschützte Datei-/ACL-/CreateNew-/Flush-/
 Lockfixtures. Kein tatsächlicher Kandidat, Journal oder Store wird gelesen,
 kein Key erzeugt oder geöffnet, keine DPAPI-Entschlüsselung oder native
-Storemutation ausgeführt. Native UI-/Add-/Recoveryabnahme bleibt `NOT_EXECUTED`.
+Storemutation ausgeführt. Diese Suite führt keine native UI-/Add-/Recoveryabnahme
+aus; der spätere tatsächliche Befund steht getrennt in der
+[nativen CA-Trust-Evidence](TLS_CA_TRUST_ACCEPTANCE_2026-10-16.md).
 
 Ausgeführt am 2026-10-16 unter Windows PowerShell 7.6.6: Recoveryfokus
 122 PASS, 0 FAIL, eigene Fixtures `CLEANED`; Selektorstrategie 773 PASS,
@@ -213,8 +215,19 @@ Worker wurde mit konkreter bestehender Freigabe genau einmal gestartet und
 nach 60 Sekunden beendet. Frische lesende Befunde: CA `ABSENT`, Journal
 `RECOVERY_REQUIRED`, passender gültiger Intent, kein Commit und kein Lock;
 kein bestätigter Import. Der Benutzer meldet keinen sichtbaren Dialog und wählt ein sichtbares Fenster nach geprüfter Recovery. Kein Retry, Journalremove
-oder Storewrite aus diesem Befund; native Storequalifikation bleibt offen.
+oder Storewrite allein aus diesem Befund. Erst die später separat geprüfte
+[sichtbare Recovery](TLS_CA_TRUST_ACCEPTANCE_2026-10-16.md) bestand mit
+Exitcode 0 und frischem zentralem `RECOVERY_IMPORT_RECORDED`, exaktem Trust,
+Originalbyteerhalt und ohne ursprünglichen Commit oder verbleibenden Lock.
 Die oben genannten injizierten Suitefälle bleiben davon getrennte Evidence.
+
+Die anschließende erste eigene Docker-SQL-2025-Probe belegt separat die echte
+Windows-System.Data.SqlClient-Ablehnung der unvertrauten Kette vor SQL-Abfragen.
+Die reale OpenSSL-CSR-Probe scheiterte am festen Subjectencoding. Nach engem
+Readerfix besteht der erhaltene öffentliche CSR die DER-/POP-Prüfung ohne
+Key-/Store-/Runtimezugriff. Der eigene Run wurde vollständig entfernt;
+Bestandsdateien blieben bytegleich. Positive Clientproben bleiben offen.
+Bereinigte Einzelheiten: [native Probe](TLS_CA_TRUST_ACCEPTANCE_2026-10-16.md).
 
 Ausgeführt am 2026-10-16 nach unabhängigem stabilem Review ohne bestätigte
 Produktfindings: eingefrorener betroffener Gate mit Trustimport 89/0,

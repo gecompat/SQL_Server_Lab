@@ -883,6 +883,7 @@ sources_of_truth:
   authenticated_tls_trust_recovery_contract: Documentation/Architecture/AUTHENTICATED_TLS_TRUST_RECOVERY.md
   authenticated_tls_trust_recovery: Private/AuthenticatedTlsTrustRecovery.ps1 # closed one-attempt recovery of valid original intent; same fixed store writer, immutable original bytes, cooperative only, no removal/key/registry authority
   validation_authenticated_tls_trust_recovery: Tests/Static/Invoke-AuthenticatedTlsTrustRecoveryChecks.ps1 # coupled import/candidate/root/request/payload/context/pathguard; own real ACL/file/lock fixtures + synthetic CA/binding/store; zero real candidate/journal/store reads or writes
+  evidence_authenticated_tls_native_ca_trust: Documentation/Quality/TLS_CA_TRUST_ACCEPTANCE_2026-10-16.md # sanitized actual approved visible CurrentUser Root recovery; exact trust confirmed; no registry, SQL TLS or removal authority
   authenticated_tls_trust_import: Private/AuthenticatedTlsTrustImport.ps1 # private Windows CurrentUser Root public-DER lane, exact approval + protected intent/commit/cooperative lock; no removal/registration/TLS qualification
   validation_authenticated_tls_trust_import: Tests/Static/Invoke-AuthenticatedTlsTrustImportChecks.ps1 # coupled candidate/root/request/payload/context/pathguard; own real private file/ACL/lock fixtures + injected store boundaries, native store mutation NOT_EXECUTED
   test_group_power_guidance: Private/TestGroupGuidance.ps1

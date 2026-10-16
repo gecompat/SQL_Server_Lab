@@ -38,8 +38,11 @@ Mindestversion 7.2 importierbar; Nicht-Windows oder ältere Engine liefert
 ## CSR-Proof-of-Possession und festes Zertifikatprofil
 
 DER muss vollständig konsumiert sein. Akzeptiert werden ausschließlich
-PKCS#10 Version 0, Subject `CN=SQL_Server_Lab Server Leaf` in der festen
-X500-DER-Form, RSA-3072 mit Exponent 65537 und SHA-256/PKCS#1-v1.5-Signatur.
+PKCS#10 Version 0, Subject `CN=SQL_Server_Lab Server Leaf` als genau ein CN
+in der bisherigen BCL-DER-Form oder der kanonischen UTF8-DER-Form von OpenSSL,
+RSA-3072 mit Exponent 65537 und SHA-256/PKCS#1-v1.5-Signatur. Beide erlaubten
+Subjectformen werden vollständig gegen konstruiertes DER verglichen; andere
+Namen, zusätzliche RDNs und Signaturdrift bleiben vor Kandidat-/Key-I/O gesperrt.
 Der öffentliche SPKI wird vor der Signaturprüfung importiert und auf Größe
 und Exponent begrenzt. Es entsteht dadurch kein privater Leafkey auf dem Host.
 Auch der enthaltene PKCS1-RSAPublicKey im SPKI-BITSTRING muss vollständig DER
