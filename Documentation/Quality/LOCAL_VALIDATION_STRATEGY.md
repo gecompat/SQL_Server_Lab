@@ -226,8 +226,19 @@ Windows-System.Data.SqlClient-Ablehnung der unvertrauten Kette vor SQL-Abfragen.
 Die reale OpenSSL-CSR-Probe scheiterte am festen Subjectencoding. Nach engem
 Readerfix besteht der erhaltene öffentliche CSR die DER-/POP-Prüfung ohne
 Key-/Store-/Runtimezugriff. Der eigene Run wurde vollständig entfernt;
-Bestandsdateien blieben bytegleich. Positive Clientproben bleiben offen.
+Bestandsdateien blieben bytegleich. Später bestand die begrenzte
+[Windows-Probe](TLS_WINDOWS_SQL2025_PARTIAL_ACCEPTANCE_2026-10-16.md): beide
+strikten positiven Clientstacks bestätigen tatsächliches SQL 2025 CU9 und
+`encrypt_option=TRUE`; .NET lehnt unvertraute Kette und falsches SAN am gleichen
+IPv4-Endpunkt vor SQL-Abfragen ab. Eigene Ressourcen sind entfernt,
+Bestandsdateien erhalten. CLI-Gegenfälle, Ablauf/Renewal und Gesamtmatrix sind offen.
 Bereinigte Einzelheiten: [native Probe](TLS_CA_TRUST_ACCEPTANCE_2026-10-16.md).
+
+Die ergänzte private Kurzlaufzeit ist lokal mit 69/0 eigenen Crypto-/DPAPI-/
+ACL-Fixtures geprüft und vollständig bereinigt. Native 30-/300-Sekunden-Ränder
+behalten Signatur und Leafprofil; ungültige/mehrdeutige Laufzeiten mit gültigem
+CSR bleiben vor Kandidat-/Key-I/O gesperrt. Dies ist kein echter Clientnachweis
+für Ablauf oder Renewal; tatsächliche UTC-Zeit wird dafür später abgewartet.
 
 Ausgeführt am 2026-10-16 nach unabhängigem stabilem Review ohne bestätigte
 Produktfindings: eingefrorener betroffener Gate mit Trustimport 89/0,

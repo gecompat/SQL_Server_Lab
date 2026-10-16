@@ -106,7 +106,13 @@ Kein realer Storezugriff in den synthetischen Tests. Der erste eigene Docker-
 SQL-2025-Lauf belegte die strikte Ablehnung der unvertrauten Kette vor SQL-Arbeit
 und vollständiges Cleanup ohne Bestandsdateidrift. Seine OpenSSL-CSR-Probe
 deckte die nun eng korrigierte UTF8-Subjectkodierungslücke auf. Positive
-Clientproben, komplette TLS-Matrix, Registry und Toolbelt SC-2026-045 bleiben offen.
+Clientproben waren zunächst offen. Die spätere
+[Windows-Probe](../Quality/TLS_WINDOWS_SQL2025_PARTIAL_ACCEPTANCE_2026-10-16.md)
+bestand mit beiden strikten positiven Stacks, .NET-Gegenfällen für unvertraute
+Kette und falsches SAN am gleichen IPv4-Endpunkt sowie vollständigem Cleanup.
+Die private Kurzlaufzeit von 30–300 Sekunden ermöglicht nun die Vorbereitung
+echter Ablaufgegenfälle ohne Uhränderung. CLI-Gegenfälle, Ablauf/Renewal,
+komplette TLS-Matrix, Registry und Toolbelt SC-2026-045 bleiben offen.
 Der Benutzer verlangt ausdrücklich die autonome Fortsetzung bis zur echten
 TLS-Lab-Abnahme und gezielte Fragen bei konkret fehlenden Freigaben.
 Schutzgrenzen bestehen fort; reine Offlinefortschritte beenden diesen Auftrag nicht.

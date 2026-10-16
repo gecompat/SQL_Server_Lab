@@ -98,10 +98,13 @@ function Assert-LabTlsServerLeafCertificate {
 
 function New-LabAuthenticatedTlsServerLeaf {
     [CmdletBinding()]
-    param([object]$DataRoot,[object]$ControllerId,[object]$LocationId,[object]$Context,[object]$CandidateId,[object]$CsrDer,[object]$Identity,[object]$ValidityDays)
+    param([object]$DataRoot,[object]$ControllerId,[object]$LocationId,[object]$Context,[object]$CandidateId,[object]$CsrDer,[object]$Identity,[object]$ValidityDays,[object]$ValiditySeconds=$null)
     $bad=[pscustomobject][ordered]@{Success=$false;Value=$null;ErrorCode='TLS_LEAF_CSR_INVALID'}
+    $shortLifetime=$null -ne $ValiditySeconds
+    $validLifetime=if($shortLifetime){$null -eq $ValidityDays -and $ValiditySeconds -is [int] -and $ValiditySeconds -ge 30 -and $ValiditySeconds -le 300}
+        else{$ValidityDays -is [int] -and $ValidityDays -ge 1 -and $ValidityDays -le 30}
     if(-not (Test-LabTlsCaCandidateInput $DataRoot $ControllerId $LocationId $Context) -or -not (Test-LabTlsRequestReference $CandidateId) -or
-        $CsrDer -isnot [byte[]] -or $ValidityDays -isnot [int] -or $ValidityDays -lt 1 -or $ValidityDays -gt 30){return $bad}
+        $CsrDer -isnot [byte[]] -or -not $validLifetime){return $bad}
     $length=[array].GetProperty('Length').GetValue($CsrDer)
     if($length -lt 1 -or $length -gt 16384){return $bad}
     $selected=Get-LabTlsRequestIdentity $Identity;if($null -eq $selected){return $bad}
@@ -117,7 +120,8 @@ function New-LabAuthenticatedTlsServerLeaf {
         $caPublic=[Security.Cryptography.X509Certificates.RSACertificateExtensions]::GetRSAPublicKey($ca)
         # CA und Leaf muessen getrennte Keys haben, vor privater CA-Keyoeffnung.
         if([string]::Equals([Convert]::ToBase64String($csr.Spki),[Convert]::ToBase64String($caPublic.ExportSubjectPublicKeyInfo()),[StringComparison]::Ordinal)){return $bad}
-        $ticks=[datetime]::UtcNow.Ticks;$begin=[DateTimeOffset]::new(($ticks-($ticks%[timespan]::TicksPerSecond)),[timespan]::Zero);$end=$begin.AddDays($ValidityDays)
+        $ticks=[datetime]::UtcNow.Ticks;$begin=[DateTimeOffset]::new(($ticks-($ticks%[timespan]::TicksPerSecond)),[timespan]::Zero)
+        $end=if($shortLifetime){$begin.AddSeconds($ValiditySeconds)}else{$begin.AddDays($ValidityDays)}
         if($begin.UtcDateTime -lt $ca.NotBefore.ToUniversalTime() -or $end.UtcDateTime -gt $ca.NotAfter.ToUniversalTime()){return $bad}
         $again=Get-LabTlsCaCandidateBinding $DataRoot $ControllerId $LocationId $CandidateId
         if(-not [string]::Equals($binding.Digest,$again.Digest,[StringComparison]::Ordinal)){return $bad}

@@ -2,7 +2,7 @@
 
 | Merkmal | Wert |
 |---|---|
-| Status | Private CA-/CSR-/Trustimplementierung und konkrete native CA-Trust-Abnahme; keine authentifizierte SQL-TLS-Abnahme |
+| Status | Native CA-Trust-Recovery und begrenzte Windows-SQL-TLS-Probe bestanden; vollständige TLS-Lab-Abnahme offen |
 | Stand | 2026-10-16 |
 | Auftrag | Autonome Entwicklung ausdrücklich wiederaufgenommen; eigene isolierte Lab-CA mit ausdrücklich freizugebendem Client-Trust planen |
 | Kanonischer Scope | [TLS-001](NEW_SQL_LAB_USE_CASES_BACKLOG.md#tls-001--authentifizierte-tls-verbindungen-der-testumgebungen) |
@@ -246,7 +246,13 @@ Die erste eigene Docker-SQL-2025-Probe belegte anschließend die Ablehnung der
 unvertrauten Kette vor SQL-Arbeit. Nach Ablehnung des realen OpenSSL-CSRs
 wurde nur der eigene Run vollständig entfernt; Bestandsdateien blieben gleich.
 Die korrigierte feste UTF8-Subjectform besteht den erhaltenen öffentlichen
-CSR-Readercheck ohne Key-/Store-/Runtimezugriff. Positive Clientverbindungen
-und die gesamte TLS-Matrix bleiben `NOT_EXECUTED`.
+CSR-Readercheck ohne Key-/Store-/Runtimezugriff. Die spätere
+[Windows-Probe](../Quality/TLS_WINDOWS_SQL2025_PARTIAL_ACCEPTANCE_2026-10-16.md)
+bestand mit beiden strikten positiven Stacks und .NET-Gegenfällen für
+unvertraute Kette und falsches SAN am gleichen IPv4-Endpunkt. Nur der eigene
+Run wurde entfernt; Bestandsdateien blieben bytegleich. Für die echten
+Ablaufgegenfälle erlaubt die private Signierlane nun alternativ native
+30–300 Sekunden ab tatsächlichem UTC-Beginn, ohne Rückdatierung/Uhränderung.
+CLI-Gegenfälle, Ablauf/Renewal und vollständige TLS-Matrix bleiben offen.
 Die noch offenen D1–D4-Parameter
 werden vor dem jeweils betroffenen mutierenden Scope konkret abgenommen.

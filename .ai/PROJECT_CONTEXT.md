@@ -69,7 +69,13 @@ den Zustand nach dem ersten Timeout. Ein erster eigener Docker-SQL-2025-Lauf
 belegte die Ablehnung der unvertrauten Kette vor SQL-Arbeit und vollständiges
 Cleanup; die reale OpenSSL-CSR-Probe deckte eine enge Subjectkodierungslücke auf.
 Der Reader akzeptiert nun zusätzlich das exakt gleiche feste UTF8-DER-Subject.
-Registrierung und positive SQL-TLS-Abnahme bleiben offen.
+Die spätere [begrenzte Windows-Probe](../Documentation/Quality/TLS_WINDOWS_SQL2025_PARTIAL_ACCEPTANCE_2026-10-16.md)
+bestand mit beiden strikten positiven Clientstacks, unvertrauter Kette und
+falschem SAN als .NET-Gegenfällen am gleichen IPv4-Endpunkt sowie vollständigem
+Cleanup ohne Bestandsdateidrift. Registry, CLI-Gegenfälle, Ablauf/Renewal,
+weitere Provider/Versionen und qualifizierter Export bleiben offen.
+Der private Issuer erlaubt für echte Ablaufgegenfälle nun alternativ native
+30–300 Sekunden statt 1–30 Tagen, ohne Caller-Uhr oder Rückdatierung.
 Syntaktische Approval-/Adapter-IDs sind keine menschliche oder Quieszenzevidence.
 Die private [CSR-Kryptolane](../Documentation/Architecture/AUTHENTICATED_TLS_LEAF_CSR.md)
 prüft jetzt begrenztes vollständiges DER und echten RSA-3072-/SHA-256-CSR-Proof,

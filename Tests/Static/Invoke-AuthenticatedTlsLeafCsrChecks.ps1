@@ -15,7 +15,7 @@ $leafRsa=$null;$weak=$null;$ec=$null
 function Assert-TlsLeafClosed {param([object[]]$Result,[string]$Code='TLS_LEAF_CSR_INVALID')
     Add-CheckResult 'TLS-L01 geschlossener Fehler ohne Teilzertifikat/Rohdaten' ($Result.Count -eq 1 -and @($Result[0].PSObject.Properties).Count -eq 3 -and -not $Result[0].Success -and $null -eq $Result[0].Value -and [string]::Equals($Result[0].ErrorCode,$Code,[StringComparison]::Ordinal))
 }
-function Invoke-TlsLeafFixture {param($Csr,$Identity=$ip,$Days=1) New-LabAuthenticatedTlsServerLeaf $dataRoot $controller $location $context $candidateId $Csr $Identity $Days}
+function Invoke-TlsLeafFixture {param($Csr,$Identity=$ip,$Days=1,$Seconds=$null) New-LabAuthenticatedTlsServerLeaf $dataRoot $controller $location $context $candidateId $Csr $Identity $Days -ValiditySeconds $Seconds}
 function New-TlsLeafFixtureCsr {param($Key,$Identity,$Hash=[Security.Cryptography.HashAlgorithmName]::SHA256,[string]$Subject='CN=SQL_Server_Lab Server Leaf',[switch]$Extra,[switch]$Utf8)
     $name=if($Utf8){[Security.Cryptography.X509Certificates.X500DistinguishedName]::new($Subject,[Security.Cryptography.X509Certificates.X500DistinguishedNameFlags]::UseUTF8Encoding)}else{[Security.Cryptography.X509Certificates.X500DistinguishedName]::new($Subject)}
     $request=[Security.Cryptography.X509Certificates.CertificateRequest]::new($name,$Key,$Hash,[Security.Cryptography.RSASignaturePadding]::Pkcs1)
@@ -113,6 +113,21 @@ try{
         $utf8Result=Invoke-TlsLeafFixture $utf8Csr
         Add-CheckResult 'TLS-L03 fester einzelner UTF8-CN wie nativer OpenSSL-CSR mit echter POP und Leafsignatur' ($utf8Result.Success -and $utf8Result.Value.SignatureStatus -ceq 'VERIFIED' -and
             $utf8Result.Value.CsrSha256 -ceq (Get-LabTlsCaByteDigest $utf8Csr) -and -not $utf8Result.Value.Ready -and -not $utf8Result.Value.MutationAllowed)
+        foreach($seconds in @(30,300)){
+            $shortResult=Invoke-TlsLeafFixture $csr -Days $null -Seconds $seconds
+            Add-CheckResult 'TLS-L03 kurze echte Laufzeit exakt begrenzt mit unveraendertem Leafprofil' ($shortResult.Success -and $shortResult.Value.SignatureStatus -ceq 'VERIFIED' -and
+                ([DateTimeOffset]::Parse($shortResult.Value.NotAfterUtc)-[DateTimeOffset]::Parse($shortResult.Value.NotBeforeUtc)).TotalSeconds -eq $seconds -and
+                -not $shortResult.Value.Ready -and -not $shortResult.Value.MutationAllowed)
+        }
+        $before=$script:keyOpens;$script:bindingCalls=0
+        function Get-LabTlsCaCandidateBinding {$script:bindingCalls++;throw 'INVALID_SHORT_LIFETIME_MUST_NOT_READ_CA'}
+        try{
+            foreach($seconds in @($null,'60',29,301,[long]60,[double]60,[decimal]60,$false,@(60),$alien)){
+                Assert-TlsLeafClosed @(Invoke-TlsLeafFixture $csr -Days $null -Seconds $seconds *>&1)
+            }
+            Assert-TlsLeafClosed @(Invoke-TlsLeafFixture $csr -Days 1 -Seconds 60 *>&1)
+            Add-CheckResult 'TLS-L03 Kurzzeitform und gegenseitiger Ausschluss vor Kandidat-/Key-I/O' ($script:bindingCalls -eq 0 -and $script:keyOpens -eq $before -and $script:alienCalls -eq 0)
+        }finally{Set-Item function:Get-LabTlsCaCandidateBinding $realBinding}
         $before=$script:keyOpens
         $tampered=[byte[]]$csr.Clone();$tampered[$tampered.Length-1]=$tampered[$tampered.Length-1] -bxor 1
         $utf8Tampered=[byte[]]$utf8Csr.Clone();$utf8Tampered[$utf8Tampered.Length-1]=$utf8Tampered[$utf8Tampered.Length-1] -bxor 1

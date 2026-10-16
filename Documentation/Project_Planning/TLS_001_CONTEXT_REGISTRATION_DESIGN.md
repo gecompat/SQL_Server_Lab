@@ -207,6 +207,11 @@ Rearm und kein Ersatz für tatsächliche Human-/UI-/Workerprüfung im Adapter.
 Ihre spätere [native sichtbare Ausführung](../Quality/TLS_CA_TRUST_ACCEPTANCE_2026-10-16.md)
 bestand mit Exitcode 0, frischem exaktem Trust, `RECOVERY_IMPORT_RECORDED`
 und unverändertem Originalintent, ohne ursprünglichen Commit oder verbleibenden Lock.
+Die spätere [begrenzte Windows-Probe](../Quality/TLS_WINDOWS_SQL2025_PARTIAL_ACCEPTANCE_2026-10-16.md)
+belegt beide positiven strikten SQL-Clientstacks sowie .NET-Gegenfälle und eigenen
+Cleanup; CLI-Gegenfälle und vollständige Matrix bleiben offen. Der private
+Kurzlaufzeitpfad ermöglicht die Vorbereitung echter Ablaufgegenfälle, erzeugt
+aber keine Registrierung oder zusätzliche Ausführungsautorität.
 Referenzen bleiben weiterhin
 unaufgelöst. Native TLS-, Client- und Mindestlaufzeitabnahmen werden durch
 diese Planung nicht ersetzt.
