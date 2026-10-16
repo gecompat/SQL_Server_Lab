@@ -27,6 +27,15 @@ keine Einzelstatus; eine konkrete Ursache ist damit noch nicht belegt. Der eigen
 Run wurde mit drei erfolgreichen Cleanupschritten und null Fehlern entfernt.
 Dieser Lauf qualifiziert den neuen Manifestpfad ausdrücklich nicht.
 
+Die [begrenzte Management-Resident-Diagnose](https://github.com/gecompat/SQL_Server_Lab/actions/runs/38858878790)
+bestand anschließend auf `571348d2417fd23db80993be4ff174e8bd19044b` im vorhandenen
+Run. Sie lud dieselben installierten Management-Assemblies vor einer zusätzlichen
+kurzlebigen Fixture, ohne den Katalog neu anzulegen. Die eigenen Diagnosefälle
+18/19/20 lieferten 7/4/1, das temporäre Projekt wurde gezielt bereinigt und die
+ursprüngliche Source-Receipt blieb bytegleich. Dies widerlegt die Assemblyladung
+allein als ausreichende Fehlerursache; es ist ausdrücklich keine neue
+Produkt- oder Neuerstellungsabnahme.
+
 Die vorherige einmalige Diagnosevorbereitung verwendete einen veröffentlichten
 SQL-Prepared-Slot und ergänzte ausschließlich vorhandene IS-Medien. Die
 bestandene Abnahme verwendete genau diesen bestehenden Run weiter;

@@ -63,6 +63,7 @@ on:
           - ssisdb-existing-run-acceptance
           - ssisdb-diagnostic-run-acceptance
           - ssisdb-management-resident-diagnostic
+          - ssisdb-existing-run-observation
       ai_preflight_only:
         description: Im KI-Own-Run-Modus ausschließlich vorhandenes Artifact und Hostmodelle lesend prüfen
         required: false
@@ -200,6 +201,15 @@ jobs:
         if: inputs.mode == 'ssisdb-existing-run-acceptance' && !(github.event_name == 'workflow_dispatch' && github.event.repository.full_name == github.repository)
         run: |
           throw 'SSISDB_EXISTING_RUN_MANUAL_DISPATCH_REQUIRED'
+
+      - name: Hyper-V SSISDB existing run read-only observation
+        if: inputs.mode == 'ssisdb-existing-run-observation' && github.event_name == 'workflow_dispatch' && github.event.repository.full_name == github.repository
+        env:
+          SQL_SERVER_LAB_CI_SSIS_STATE_ROOT: ${{ inputs.ssis_state_root }}
+          SQL_SERVER_LAB_CI_SSIS_EXISTING_RUN_ID: ${{ inputs.ssis_existing_run_id }}
+        run: |
+          $ErrorActionPreference='Stop'
+          .\Tests\Integration\Get-SsisExistingRunObservation.ps1 -RunId ([guid]$env:SQL_SERVER_LAB_CI_SSIS_EXISTING_RUN_ID) -StateRoot $env:SQL_SERVER_LAB_CI_SSIS_STATE_ROOT
 
       - name: Hyper-V SSISDB prepared fixture acceptance
         if: inputs.mode == 'ssisdb-fixture-acceptance' && github.event_name == 'workflow_dispatch' && github.event.repository.full_name == github.repository

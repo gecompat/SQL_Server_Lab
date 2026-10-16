@@ -177,9 +177,11 @@ oder beschafft keine Software. Setup ist auf
 SQL-Neustartbereitschaft einschließlich des äußeren PowerShell-Direct-Transports
 auf 600 Sekunden, die getrennten Gastproben auf 90.
 
-Die Abnahme verlangt tatsächlichen SQL-Major 17 und Developer-Edition,
-laufenden SSIS-170-Dienst, passende Dienstdateiversion, weiterhin fehlendes
-SSISDB und dieselben Postconditions nach VM-Neustart. Eigener Run-State und
+Die erste Komponentenprobe verlangt tatsächlichen SQL-Major 17 und Developer-Edition,
+vorhandene IS-170-Dienst-/Serverdateien, weiterhin fehlendes SSISDB und dieselben
+Postconditions nach VM-Neustart. Der ältere Paketverwaltungsdienst muss nicht
+laufen. Danach verwendet dieser interne Installationsketten-Test denselben
+Katalog-/Fixture-Gastkörper wie der Prepared-Pfad. Eigener Run-State und
 Cleanupplan entstehen vor Provideränderungen. Auch bei verlorener
 Erstellungsantwort wird ausschließlich der eindeutig operationseigene Run
 bereinigt; VM-ID und dateigenaue VHDX-Reste werden kontrolliert. Primär- und
@@ -196,8 +198,9 @@ Installationsfehler noch einen getrennten Cleanupfehler.
 Die synthetische Suite `Invoke-SsisOwnedInstallChecks.ps1` prüft Freigabe-,
 Medien-, Argument-, Plan- und Teilfehlerverträge. Echte Installation, Neustart
 und eigenes Runtime-Cleanup sind bis zur separaten nativen Abnahme
-**NOT_EXECUTED**. SSISDB, Packages und ETL bleiben offen; es entsteht keine
-öffentliche Provider- oder Editionsfreigabe.
+**NOT_EXECUTED** für diese getrennte vollständige Installationskette. Die enge
+öffentliche Prepared-/Existing-Run-Abnahme wird nachfolgend separat belegt;
+ETL und weitere Provider-/Editionsfreigaben werden daraus nicht abgeleitet.
 
 **Kataloganlage nach Microsofts Verfahren:** Der gebundene SQL-2025-/IS-170-Pfad
 verwendet seit dem 2026-10-16 `Catalog.Create()` aus der bereits installierten,
