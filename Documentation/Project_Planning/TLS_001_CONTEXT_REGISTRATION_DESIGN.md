@@ -213,6 +213,9 @@ Cleanup. Die [anschließende Ablauf-/Erneuerungsprobe](../Quality/TLS_WINDOWS_SQ
 bestand mit unvertrauter Kette, echtem Ablauf, falschem SAN und Erneuerung
 mit neuem Key für beide Windows-Stacks. Vollständige Matrix und qualifizierter
 Export bleiben offen; keine Registrierung oder zusätzliche Ausführungsautorität.
+Die separate [Podman-Probe](../Quality/TLS_PODMAN_WINDOWS_SQL2025_ACCEPTANCE_2026-10-16.md)
+bestand ebenfalls alle acht Windows-Clientfälle für SQL 2025 CU9 samt eigenem
+Cleanup und Schutzvergleich; Linuxclients und Hyper-V sind dadurch nicht belegt.
 Referenzen bleiben weiterhin
 unaufgelöst. Native TLS-, Client- und Mindestlaufzeitabnahmen werden durch
 diese Planung nicht ersetzt.

@@ -237,6 +237,12 @@ bestand für beide Windows-Stacks mit unvertrauter Kette, echtem Ablauf,
 falschem SAN und Erneuerung mit neuem Key, erneutem `encrypt_option=TRUE`
 sowie eigenem Cleanup und frischem Bestandsdateivergleich. Gesamtmatrix,
 Registry, qualifizierter Export und Toolbelt-Labpreflight bleiben offen.
+Der getrennte eigene [Podman-Lauf](TLS_PODMAN_WINDOWS_SQL2025_ACCEPTANCE_2026-10-16.md)
+bestand alle acht Windows-Clientfälle für SQL 2025 CU9, inklusive echtem Ablauf,
+neuem Key bei Erneuerung und beiden verschlüsselten positiven SQL-Abfragen.
+Eigener Cleanup und frischer Bestandsdateivergleich bestanden. Keine zusätzlichen
+Truststores oder Host-Runtimes wurden angelegt; Linuxclients, Hyper-V und weitere
+SQL-Versionen bleiben separat.
 Bereinigte Einzelheiten: [native Probe](TLS_CA_TRUST_ACCEPTANCE_2026-10-16.md).
 
 Die ergänzte private Kurzlaufzeit ist lokal mit 69/0 eigenen Crypto-/DPAPI-/

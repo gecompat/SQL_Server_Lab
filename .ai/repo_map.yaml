@@ -846,8 +846,8 @@ sources_of_truth:
   validation_direct_action_progress: Tests/Static/Invoke-ActionProgressChecks.ps1
   acceptance_direct_action_progress: Tests/Integration/Invoke-ActionProgressAcceptance.ps1
   automated_test_environment_contract: Public/TestEnvironment.ps1
-  authenticated_test_environment_tls_backlog: Documentation/Project_Planning/NEW_SQL_LAB_USE_CASES_BACKLOG.md # TLS-001: P1 directly after SSISDB; source assessment and design pending decisions, no authenticated live evidence
-  authenticated_test_environment_tls_ca_design: Documentation/Project_Planning/TLS_001_ISOLATED_CA_DESIGN.md # TLS-001a: user-selected isolated CA direction; proposed lifecycle, trust and migration boundaries; no runtime evidence
+  authenticated_test_environment_tls_backlog: Documentation/Project_Planning/NEW_SQL_LAB_USE_CASES_BACKLOG.md # TLS-001: P1 directly after SSISDB; limited own Docker/Podman SQL2025 Windows TLS evidence exists; full client/version/provider qualification and consumer export remain open
+  authenticated_test_environment_tls_ca_design: Documentation/Project_Planning/TLS_001_ISOLATED_CA_DESIGN.md # TLS-001a: user-selected isolated CA direction; explicit approved Windows CA trust and separate Docker/Podman Windows TLS evidence; broader lifecycle, registry and migration remain open
   authenticated_tls_request_contract: Documentation/Architecture/AUTHENTICATED_TLS_REQUEST.md
   authenticated_tls_request_form: Private/AuthenticatedTlsRequest.ps1
   validation_authenticated_tls_request_form: Tests/Static/Invoke-AuthenticatedTlsRequestChecks.ps1
@@ -886,6 +886,7 @@ sources_of_truth:
   evidence_authenticated_tls_native_ca_trust: Documentation/Quality/TLS_CA_TRUST_ACCEPTANCE_2026-10-16.md # sanitized actual approved visible CurrentUser Root recovery; exact trust confirmed; no registry, SQL TLS or removal authority
   evidence_authenticated_tls_native_windows_partial: Documentation/Quality/TLS_WINDOWS_SQL2025_PARTIAL_ACCEPTANCE_2026-10-16.md # real own Docker SQL2025 strict CLR+actualsqlcmd positives, initial CLR negatives and cleanup; linked real expiry/renewal successor, incomplete matrix, no registry/export/SC045 qualification
   evidence_authenticated_tls_native_windows_expiry: Documentation/Quality/TLS_WINDOWS_SQL2025_EXPIRY_RENEWAL_2026-10-16.md # actual Windows CLR+sqlcmd untrusted/expired/wrongSAN rejection and newkey renewal positives; own cleanup/protected files preserved; no fullmatrix/export/SC045
+  evidence_authenticated_tls_native_podman_windows: Documentation/Quality/TLS_PODMAN_WINDOWS_SQL2025_ACCEPTANCE_2026-10-16.md # separate owned Podman SQL2025CU9: eight actual Windows CLR/sqlcmd cases, newkey renewal, exact own cleanup; no Linuxclient/fullmatrix/export/SC045 claim
   authenticated_tls_trust_import: Private/AuthenticatedTlsTrustImport.ps1 # private Windows CurrentUser Root public-DER lane, exact approval + protected intent/commit/cooperative lock; no removal/registration/TLS qualification
   validation_authenticated_tls_trust_import: Tests/Static/Invoke-AuthenticatedTlsTrustImportChecks.ps1 # coupled candidate/root/request/payload/context/pathguard; own real private file/ACL/lock fixtures + injected store boundaries, native store mutation NOT_EXECUTED
   test_group_power_guidance: Private/TestGroupGuidance.ps1

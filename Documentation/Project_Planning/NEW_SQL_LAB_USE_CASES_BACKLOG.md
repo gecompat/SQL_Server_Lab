@@ -174,8 +174,11 @@ Kette und falsches SAN am gleichen IPv4-Endpunkt sowie vollständigem Cleanup.
 Die [anschließende echte Ablauf-/Erneuerungsprobe](../Quality/TLS_WINDOWS_SQL2025_EXPIRY_RENEWAL_2026-10-16.md)
 bestand für beide Windows-Stacks mit unvertrauter Kette, echtem Ablauf ohne
 vorherigen Hostkontakt zum kurzen Leaf, falschem SAN und Erneuerung mit neuem
-Key. Eigener Cleanup und Bestandsdateierhalt bestanden. Operative Registry,
-qualifizierter Export, vollständige Client-/Providermatrix und SC-2026-045 bleiben offen.
+Key. Eigener Cleanup und Bestandsdateierhalt bestanden. Eine getrennte eigene
+[Podman-Probe](../Quality/TLS_PODMAN_WINDOWS_SQL2025_ACCEPTANCE_2026-10-16.md)
+bestand dieselben acht Windows-Clientfälle für SQL 2025 CU9 samt Cleanup.
+Operative Registry, qualifizierter Export, Linuxclients, Hyper-V, weitere
+SQL-Versionen und SC-2026-045 bleiben offen.
 
 **Istzustand und Vertragslücke.** Die Prüfung der Repositoryquellen am
 2026-10-15 ergibt:
@@ -290,7 +293,7 @@ her; unsicherer Alttransport ist keine erfolgreiche TLS-Recovery.
    | SQL-Zielplattform | SQL Server 2019 | SQL Server 2022 | SQL Server 2025 |
    |---|---|---|---|
    | Windows / Hyper-V | `NOT_EXECUTED` | `NOT_EXECUTED` | `NOT_EXECUTED` |
-   | Linux / Docker und Podman getrennt | `NOT_EXECUTED` | `NOT_EXECUTED` | `NOT_EXECUTED` |
+   | Linux / Docker und Podman getrennt | `NOT_EXECUTED` | `NOT_EXECUTED` | Windowsclients: je acht Fälle bestanden; Linuxclients und vollständige Qualifikation offen |
 
 5. Provisionierung, Neustart, Erneuerung, Migrationscutover, fehlgeschlagener
    Client-Trust-Import und scopegebundener Cleanup/Rollback sind reproduzierbar.

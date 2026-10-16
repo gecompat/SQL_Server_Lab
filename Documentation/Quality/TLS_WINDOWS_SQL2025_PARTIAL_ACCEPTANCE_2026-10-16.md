@@ -53,7 +53,9 @@ In diesem ersten Lauf waren CLI-Gegenfälle und Ablauf/Renewal noch offen.
 Die [spätere eigene Ablauf-/Erneuerungsprobe](TLS_WINDOWS_SQL2025_EXPIRY_RENEWAL_2026-10-16.md)
 bestand für beide Windows-Stacks mit unvertrauter Kette, echtem Ablauf,
 falscher Identität und Erneuerung mit neuem Key. Trustdrift, Abbruch/Resume,
-weitere SQL-Versionen, Podman und Hyper-V bleiben offen; Linuxclients separat.
+weitere SQL-Versionen und Hyper-V bleiben offen; Linuxclients separat.
+Die [Podman-Probe](TLS_PODMAN_WINDOWS_SQL2025_ACCEPTANCE_2026-10-16.md) belegt
+inzwischen separat dieselben acht Windows-Clientfälle für SQL 2025 CU9.
 Operative Registry, AuthorityRef, qualifizierter V2-Export und Bereitschaft
 werden durch diesen Lauf nicht hergestellt. Toolbelt SC-2026-045 bleibt gesperrt.
 
