@@ -21,6 +21,32 @@ ein Dokumentationsdateiname allein verlangt keinen Providerstart. Änderungen
 an gemeinsamem Ownership/Cleanup verlangen weiterhin die breite Matrix.
 [Auswahl, Cachegrenzen und Ausnahmen](FOUNDATION_1_21_PROCESSING_ASSESSMENT.md).
 
+## Private TLS-Registry-Gesamtform (TLS001-REGISTRY-DOCUMENT-01)
+
+Die [Registry-Gesamtform](../Architecture/AUTHENTICATED_TLS_REGISTRY_DOCUMENT.md)
+bestand am 2026-10-16 fokussiert mit 97 PASS / 0 FAIL unter PowerShell
+7.6.6/.NET 10.0.12. Ausschließlich synthetische Bytes im Speicher prüfen
+StrictMode, geschlossene UTF-8-/JSON-Formen, Byte-/Tiefen-/Recordgrenzen,
+exakte Payload-/Index-/Rootangaben und neu abgeleitete Digests, CA-Kanten,
+Tombstones, drei Kulturen, umgeordnete Records/Payloads und Whitespace.
+Vollständige Dokumentübergänge prüfen geänderte Payloads, Initialisierung,
+Rotation, Retirement und veraltete konkurrierende Vorschläge. AST und native
+Tripwire begrenzen den Aufrufgraph auf Parser, Digests und Indexübergänge.
+
+Kein Host, Pfad, Binary, Store, Key, SQL oder Provider wurde hierfür gelesen
+oder verändert. Der Dokumentdigest ist ein semantischer Metadatendigest;
+kein Dateibyte-CAS-, Lock-, Crash-, Herkunfts- oder Autorisierungsnachweis.
+Rootbindung, Dateileser, persistente Registrierung und Writer-/Keyschutz-/
+Client-/SQL-/TLS-Matrix bleiben offen. Toolbelt SC-2026-045 bleibt bis zur
+authentifizierten TLS-Lab-Abnahme blockiert. Die neue Suite ist gezielt und
+im Nightly-Gate registriert; ähnliche Pfade und gemischte Runtimeänderungen
+behalten ihre Auswahl. Der unabhängige stabile Quellreview fand keine
+bestätigten Findings; Produkt- und Testblobs blieben unverändert. Die
+eingefrorene betroffene Abschlussauswahl bestand mit Dokument 97/0,
+CI-Strategie 694/0, Dokumentation 2005/0, Pester 23/0, Privacy 3/0 und
+ScriptAnalyzer PASS mit Warnungen und erfassten Baselines. Daraus folgt
+keine native TLS-, Registrierungs- oder Writerabnahme.
+
 ## Private TLS-Metadatenpayload (TLS001-REGISTRY-PAYLOAD-01)
 
 Die [Vor-Key-Payloadformen](../Architecture/AUTHENTICATED_TLS_REGISTRY_PAYLOAD.md)

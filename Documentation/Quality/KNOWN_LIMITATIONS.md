@@ -2335,8 +2335,13 @@ ergänzen Metadaten vor Keyanlage, kanonische Digests und eine intern frische
 Prozessbindung. Die neue Bindung ist synthetisch geprüft und unter Windows
 getrennt lesend beobachtet; Root und Trustscope bleiben unaufgelöst.
 Digests sind keine Attestation, Diskbytes kein
-geladenes Image. Registry-Gesamtform, tatsächliche Registrierung, Key-/
-Zertifikatsrecords und vollständige Binderqualifikation bleiben offen.
+geladenes Image. Die [Registry-Gesamtform](../Architecture/AUTHENTICATED_TLS_REGISTRY_DOCUMENT.md)
+prüft jetzt die vollständige interne Payload-/Index-/Digestzuordnung und
+Dokumentübergänge an synthetischen Bytes. Rootbindung, Dateileser, tatsächliche
+Registrierung, Key-/Zertifikatsrecords und vollständige Binderqualifikation
+bleiben offen. Der semantische Dokumentdigest belegt weder Dateibytes,
+Compare-and-swap, Herkunft noch Autorisierung. Toolbelt SC-2026-045 erhält
+dadurch keine authentifizierte TLS-Lab-Freigabe.
 Hyper-V, echte Kontextregistrierung,
 Backend-/Keyschutzqualifikation, Signierung, Storepreview/-import, Journal,
 Erneuerung und Recovery bleiben offen; Export und Providerverhalten werden

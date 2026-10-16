@@ -157,8 +157,10 @@ vor Keyanlage, kanonische Digests und intern frische Prozessbindung sind
 implementiert und synthetisch geprüft; eine getrennte lesende Windows-
 Beobachtung traf alle drei Metadatenbindungen. Root-/Trustscopeauflösung und
 vollständige Binderqualifikation bleiben offen; der Writer-/Crashvertrag bleibt Planung.
-Als Nächstes die Registry-Gesamtform mit exakter Payload-/Index-/
-Digestzuordnung offline umsetzen und synthetisch prüfen.
+Die [Registry-Gesamtform](../Architecture/AUTHENTICATED_TLS_REGISTRY_DOCUMENT.md)
+prüft jetzt offline die exakte Payload-/Index-/Digestzuordnung und vollständige
+Übergänge. Als Nächstes die lesende registrierte Controller-/Location-/Rootbindung
+mit dieser Gesamtform ausarbeiten; keine automatische Registryanlage oder Pfadadoption.
 Registrywrites, Keyschutz, Signierung und Import
 behalten ihre eigenen nachfolgenden Grenzen. Die ursprüngliche Reihenfolge
 darunter bleibt als historische Scopegrenze erhalten.
