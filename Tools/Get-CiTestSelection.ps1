@@ -99,6 +99,7 @@ end {
         @{ Pattern = '(?i)(SecurityTool|security-tool|Fixtures/SecurityTools/)'; Checks = @('Invoke-SecurityToolCatalogChecks.ps1') },
         @{ Pattern = '(?i)(Prepare-LocalRelease|ReleaseArtifact)'; Checks = @('Invoke-ReleaseArtifactChecks.ps1','Invoke-ReleaseReadinessChecks.ps1') },
         @{ Pattern = '^(?-i:Private/AuthenticatedTlsRequest\.ps1|Tests/Static/Invoke-AuthenticatedTlsRequestChecks\.ps1)$'; Checks = @('Invoke-AuthenticatedTlsRequestChecks.ps1') },
+        @{ Pattern = '^(?-i:Private/AuthenticatedTlsBackend\.ps1|Tests/Static/Invoke-AuthenticatedTlsBackendChecks\.ps1)$'; Checks = @('Invoke-AuthenticatedTlsBackendChecks.ps1') },
         @{ Pattern = '^(?-i:Private/AuthenticatedTlsTarget\.ps1|Private/AuthenticatedTlsRequest\.ps1|Private/DiagnosticBundleReader\.ps1|Private/StateMachine\.ps1|Private/DesiredState\.ps1|Private/StorageContract\.ps1|Private/VersionCatalog\.ps1|Catalogs/sql-server-versions\.json|Tests/Static/Invoke-AuthenticatedTlsTargetChecks\.ps1)$'; Checks = @('Invoke-AuthenticatedTlsTargetChecks.ps1') },
         @{ Pattern = '^(?-i:Private/FixtureHandleContract\.ps1|Tests/Static/Invoke-FixtureHandleContractChecks\.ps1)$'; Checks = @('Invoke-FixtureHandleContractChecks.ps1') },
         @{ Pattern = '^(?-i:Private/(FixtureHandleContract|FixtureIdentityRequest)\.ps1|Tests/Static/Invoke-FixtureIdentityRequestChecks\.ps1)$'; Checks = @('Invoke-FixtureIdentityRequestChecks.ps1','Invoke-FixtureHandleContractChecks.ps1') },
@@ -327,6 +328,7 @@ end {
             # Geschlossene reine Formpruefung; kein PKI-/Trust-/Provideraufruf.
             $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -cmatch '^Private/AuthenticatedTlsRequest\.ps1$'
             $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -cmatch '^Private/AuthenticatedTlsTarget\.ps1$'
+            $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -cmatch '^Private/AuthenticatedTlsBackend\.ps1$'
             $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -match '^(Private/DiagnosticBundle(Reader|Readiness)\.ps1|Public/Get-SqlServerLabDiagnosticBundle\.ps1|Schemas/diagnostic-bundle\.schema\.json)$'
             $staticOnlyProductChange = $staticOnlyProductChange -or $aiExternalModelPlanPath
             $staticOnlyProductChange = $staticOnlyProductChange -or $aiSharedGatewayPlanPath

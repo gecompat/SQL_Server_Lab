@@ -2313,10 +2313,15 @@ Ownership, Freigabe oder TLS-Qualifikation. Die private
 [Zielmetadatenbindung](../Architecture/AUTHENTICATED_TLS_TARGET_METADATA.md)
 ergänzt registrierten Root, echte RunId und ausdrückliche Instanzwahl sowie
 exakte gespeicherte Docker-/Podman-Container-/Versions-/Endpointdaten.
-Sie ist keine Live-Runtime-/Ownershipprüfung oder Autorisierung. Hyper-V,
-Client-/CA-Registrierung, Backend-Discovery, Signierung, Storepreview/-import,
-Journal, Erneuerung und Recovery bleiben offen; Export und Providerverhalten
-werden durch diese privaten Slices nicht geändert.
+Sie ist keine Live-Runtime-/Ownershipprüfung oder Autorisierung. Die
+[Backendmetadaten](../Architecture/AUTHENTICATED_TLS_BACKEND_METADATA.md)
+prüfen sechs .NET-API-Signaturen im ausdrücklich ausgewählten aktuellen
+Prozess; `COMPLETE` belegt keine Signierung, Keyschutz- oder Clientfähigkeit.
+Der [Registrierungsentwurf](../Project_Planning/TLS_001_CONTEXT_REGISTRATION_DESIGN.md)
+trennt Client, Signierkontext und CA. Hyper-V, echte Kontextregistrierung,
+Backend-/Keyschutzqualifikation, Signierung, Storepreview/-import, Journal,
+Erneuerung und Recovery bleiben offen; Export und Providerverhalten werden
+durch diese privaten Slices nicht geändert.
 
 Quellenprüfung vom 2026-10-15: `Public/TestEnvironment.ps1`, das Schema
 `SqlServerLab.TestEnvironment/1.0` und der exportierte Agenten-Prompt verlangen

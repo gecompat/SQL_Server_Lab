@@ -82,9 +82,11 @@ kein TLS-Ownershipadapter und wird dafür nicht aufgerufen.
 
 Für `ClientRef` und `AuthorityRef` existiert noch keine produktive Registry.
 Es wird keine Bindung an den gerade angemeldeten Benutzer, einen zufälligen
-Prozess oder eine installierte Clientversion erfunden. Der nächste Scope
-konkretisiert eine ausdrücklich ausgewählte Client-/Signierkontextregistrierung
-und deren rein lesende Backend-Discovery. Installierte .NET-/ODBC-Komponenten
+Prozess oder eine installierte Clientversion erfunden. Der
+[Registrierungsentwurf](../Project_Planning/TLS_001_CONTEXT_REGISTRATION_DESIGN.md)
+trennt diese Identitäten; die [Backendmetadaten](AUTHENTICATED_TLS_BACKEND_METADATA.md)
+entdecken ausschließlich API-Signaturen im ausdrücklich gewählten Prozess.
+Die tatsächliche Registrierung bleibt offen. Installierte .NET-/ODBC-Komponenten
 beweisen weder Keyschutz/Signierfähigkeit noch den tatsächlich von sqlcmd
 geladenen Treiber. CA-/Leafkey, Storepreview, Trustimport, Journal, Abbruch/
 Recovery und Exportcutover bleiben nachfolgende getrennte Verträge.

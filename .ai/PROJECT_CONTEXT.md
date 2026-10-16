@@ -120,6 +120,10 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   prüft registrierten Root, wirkliche RunId und ausdrückliche Instanzwahl für
   gespeicherte Docker-/Podman-Container, Version und Endpoint. Keine Live-
   Ownership-, Client- oder CA-Autorität;
+  die [Backendmetadaten](../Documentation/Architecture/AUTHENTICATED_TLS_BACKEND_METADATA.md)
+  entdecken ausschließlich .NET-API-Signaturen im ausdrücklich ausgewählten
+  aktuellen Prozess. Der [Registrierungsentwurf](../Documentation/Project_Planning/TLS_001_CONTEXT_REGISTRATION_DESIGN.md)
+  trennt Client, Signierkontext und CA; Registry und Keyschutz bleiben offen;
 
 - Lokale Release-Veröffentlichung mit dauerhaftem Intent, atomarer
   Abschlussquittung und rein lesender `InspectReleaseId`-Prüfung. Die Quittung

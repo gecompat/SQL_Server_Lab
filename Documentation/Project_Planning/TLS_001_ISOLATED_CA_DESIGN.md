@@ -141,11 +141,15 @@ Erfolg erteilt weder Capabilitynachweis noch Ausführungsautorität. Der private
 bindet jetzt echte RunId und ausdrückliche Instanzwahl unter registriertem Root
 an gespeicherte Docker-/Podman-Container-/Versions-/Endpointdaten. Native
 Runtime-/Ownershipprüfung bleibt offen; Hyper-V ist ausdrücklich gesperrt.
-Für ClientRef und AuthorityRef fehlt noch eine konkrete Registrierung; es
-wird kein impliziter Benutzer-/Prozess-/CA-Bezug erfunden. Als Nächstes diese
-Client-/Signierkontextregistrierung und ihre lesende Backend-Discovery
-konkretisieren, bevor Signierung oder Import folgen. Die ursprüngliche
-Reihenfolge darunter bleibt als historische Scopegrenze erhalten.
+Der [Registrierungsentwurf](TLS_001_CONTEXT_REGISTRATION_DESIGN.md) trennt
+ClientRef, SignerContextRef und AuthorityRef. Die
+[Backendmetadaten](../Architecture/AUTHENTICATED_TLS_BACKEND_METADATA.md)
+entdecken sechs .NET-API-Signaturen nach ausdrücklicher aktueller Prozesswahl;
+sie erzeugen keine Identitätsbindung oder Backendqualifikation. Als Nächstes
+den geschlossenen Registrierungsantrag und die lesende konkrete Windows-
+Kontextvorschau umsetzen. Registrywrites, Keyschutz, Signierung und Import
+behalten ihre eigenen nachfolgenden Grenzen. Die ursprüngliche Reihenfolge
+darunter bleibt als historische Scopegrenze erhalten.
 
 Zuerst den geschlossenen privaten Anfragevertrag für CA-/Leaf-/Trustpläne und
 ihre sourcegebundene Offlineprüfung konkretisieren. Noch keine öffentliche API,
