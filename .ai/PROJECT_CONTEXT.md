@@ -72,8 +72,12 @@ Der Reader akzeptiert nun zusätzlich das exakt gleiche feste UTF8-DER-Subject.
 Die spätere [begrenzte Windows-Probe](../Documentation/Quality/TLS_WINDOWS_SQL2025_PARTIAL_ACCEPTANCE_2026-10-16.md)
 bestand mit beiden strikten positiven Clientstacks, unvertrauter Kette und
 falschem SAN als .NET-Gegenfällen am gleichen IPv4-Endpunkt sowie vollständigem
-Cleanup ohne Bestandsdateidrift. Registry, CLI-Gegenfälle, Ablauf/Renewal,
-weitere Provider/Versionen und qualifizierter Export bleiben offen.
+Cleanup ohne Bestandsdateidrift. Die anschließende
+[Ablauf-/Erneuerungsprobe](../Documentation/Quality/TLS_WINDOWS_SQL2025_EXPIRY_RENEWAL_2026-10-16.md)
+bestand für beide Windows-Stacks: unvertraute Kette, echter Ablauf ohne
+vorherigen Hostkontakt zum kurzen Leaf, Erneuerung mit neuem Key und falsches
+SAN am gleichen IPv4-Endpunkt. Eigener Cleanup und Bestandsdateierhalt bestanden.
+Registry, weitere Provider/Versionen und qualifizierter Export bleiben offen.
 Der private Issuer erlaubt für echte Ablaufgegenfälle nun alternativ native
 30–300 Sekunden statt 1–30 Tagen, ohne Caller-Uhr oder Rückdatierung.
 Syntaktische Approval-/Adapter-IDs sind keine menschliche oder Quieszenzevidence.

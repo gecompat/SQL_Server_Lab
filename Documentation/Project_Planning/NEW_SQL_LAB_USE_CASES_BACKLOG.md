@@ -171,9 +171,11 @@ die OpenSSL-CSR-Subjectkodierung wird jetzt eng zusätzlich akzeptiert.
 Die spätere [Windows-Probe](../Quality/TLS_WINDOWS_SQL2025_PARTIAL_ACCEPTANCE_2026-10-16.md)
 bestand mit beiden positiven strikten Stacks, .NET-Gegenfällen für unvertraute
 Kette und falsches SAN am gleichen IPv4-Endpunkt sowie vollständigem Cleanup.
-Private Kurzlaufzeit 30–300 Sekunden ist für den nächsten echten Ablaufgegenfall
-implementiert; dessen native Clientprüfung ist noch offen. CLI-Gegenfälle,
-operative Registry, vollständige Client-/Providermatrix und SC-2026-045 bleiben offen.
+Die [anschließende echte Ablauf-/Erneuerungsprobe](../Quality/TLS_WINDOWS_SQL2025_EXPIRY_RENEWAL_2026-10-16.md)
+bestand für beide Windows-Stacks mit unvertrauter Kette, echtem Ablauf ohne
+vorherigen Hostkontakt zum kurzen Leaf, falschem SAN und Erneuerung mit neuem
+Key. Eigener Cleanup und Bestandsdateierhalt bestanden. Operative Registry,
+qualifizierter Export, vollständige Client-/Providermatrix und SC-2026-045 bleiben offen.
 
 **Istzustand und Vertragslücke.** Die Prüfung der Repositoryquellen am
 2026-10-15 ergibt:

@@ -253,6 +253,9 @@ unvertraute Kette und falsches SAN am gleichen IPv4-Endpunkt. Nur der eigene
 Run wurde entfernt; Bestandsdateien blieben bytegleich. Für die echten
 Ablaufgegenfälle erlaubt die private Signierlane nun alternativ native
 30–300 Sekunden ab tatsächlichem UTC-Beginn, ohne Rückdatierung/Uhränderung.
-CLI-Gegenfälle, Ablauf/Renewal und vollständige TLS-Matrix bleiben offen.
+Die [anschließende echte Ablauf-/Erneuerungsprobe](../Quality/TLS_WINDOWS_SQL2025_EXPIRY_RENEWAL_2026-10-16.md)
+bestand für beide Windows-Stacks mit unvertrauter Kette, echtem Ablauf,
+falschem SAN und Erneuerung mit neuem Key; eigener Cleanup und Bestandsdateien
+sind bestätigt. Vollständige TLS-Matrix, Registry und qualifizierter Export bleiben offen.
 Die noch offenen D1–D4-Parameter
 werden vor dem jeweils betroffenen mutierenden Scope konkret abgenommen.

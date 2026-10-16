@@ -2412,15 +2412,19 @@ Die spätere [Windows-Probe](TLS_WINDOWS_SQL2025_PARTIAL_ACCEPTANCE_2026-10-16.m
 belegt öffentliche Leafkopie mit exaktem Rücklesen, beide strikten positiven
 Stacks und .NET-Gegenfälle für unvertraute Kette und falsches SAN am gleichen
 IPv4-Endpunkt. Eigene Ressourcen sind entfernt und Bestandsdateien erhalten.
-CLI-Gegenfälle und vollständige Provider-/Versions-/Exportabnahme bleiben offen.
+Die [anschließende Windows-Ablauf-/Erneuerungsprobe](TLS_WINDOWS_SQL2025_EXPIRY_RENEWAL_2026-10-16.md)
+belegt beide Clientgegenfälle für unvertraute Kette, echten Ablauf und falsches
+SAN sowie beide erneuten positiven SQL-Abfragen nach neuem Key/Leaf.
+Vollständige Provider-/Versions-/Exportabnahme bleibt offen.
 Frist höchstens 30 Tage innerhalb der CA-Frist, keine automatische Kürzung.
 Der bestehende Tagespfad bleibt bei 1 bis 30 ganzen Tagen; die alternative
 private Kurzlaufzeit verlangt native `ValiditySeconds` 30 bis 300 und
 `ValidityDays=null`. Beide gleichzeitig sind gesperrt. Tatsächlicher UTC-Beginn,
 CA-Endgrenze und vollständige CSR-/Keyprüfungen bleiben erhalten. Die lokalen
-Kryptofälle sind kein abgelaufener Clientnachweis; der echte Zeitablauf und
-beide Clientgegenfälle stehen noch aus. Offline-`attime` und künstliche globale
-Uhränderung ersetzen diesen Nachweis nicht.
+Kryptofälle sind kein Clientnachweis. Der nachfolgende eigene native Lauf
+wartete den tatsächlichen Ablauf ab und bestand beide Windows-Gegenfälle;
+interne Containerreadiness vor Ablauf ist keine authentifizierte TLS-Evidence.
+Offline-`attime` und künstliche globale Uhränderung ersetzen diesen Nachweis nicht.
 Zusätzlich bindet der lesende Diagnostic-/TLS-Targetmetadatenpfad derzeit nur
 Basisversionen im Run, während `New-SqlServerLab` auch katalogisierte CU-Tags
 erzeugen kann. Eine native eigene CU-Fixture kann über den bestehenden

@@ -231,14 +231,21 @@ Bestandsdateien blieben bytegleich. Später bestand die begrenzte
 strikten positiven Clientstacks bestätigen tatsächliches SQL 2025 CU9 und
 `encrypt_option=TRUE`; .NET lehnt unvertraute Kette und falsches SAN am gleichen
 IPv4-Endpunkt vor SQL-Abfragen ab. Eigene Ressourcen sind entfernt,
-Bestandsdateien erhalten. CLI-Gegenfälle, Ablauf/Renewal und Gesamtmatrix sind offen.
+Bestandsdateien erhalten. Die spätere
+[Ablauf-/Erneuerungsprobe](TLS_WINDOWS_SQL2025_EXPIRY_RENEWAL_2026-10-16.md)
+bestand für beide Windows-Stacks mit unvertrauter Kette, echtem Ablauf,
+falschem SAN und Erneuerung mit neuem Key, erneutem `encrypt_option=TRUE`
+sowie eigenem Cleanup und frischem Bestandsdateivergleich. Gesamtmatrix,
+Registry, qualifizierter Export und Toolbelt-Labpreflight bleiben offen.
 Bereinigte Einzelheiten: [native Probe](TLS_CA_TRUST_ACCEPTANCE_2026-10-16.md).
 
 Die ergänzte private Kurzlaufzeit ist lokal mit 69/0 eigenen Crypto-/DPAPI-/
 ACL-Fixtures geprüft und vollständig bereinigt. Native 30-/300-Sekunden-Ränder
 behalten Signatur und Leafprofil; ungültige/mehrdeutige Laufzeiten mit gültigem
-CSR bleiben vor Kandidat-/Key-I/O gesperrt. Dies ist kein echter Clientnachweis
-für Ablauf oder Renewal; tatsächliche UTC-Zeit wird dafür später abgewartet.
+CSR bleiben vor Kandidat-/Key-I/O gesperrt. Dies ist getrennte Kryptoevidence;
+der danach ausgeführte native Ablauf-/Erneuerungslauf wartet echte UTC-Zeit ab.
+Sein erster Windows-Hostkontakt mit dem kurzlebigen Leaf erfolgt erst nach
+Fristende; SQL-Bereitschaft davor wird nur intern im eigenen Container geprüft.
 
 Ausgeführt am 2026-10-16 nach unabhängigem stabilem Review ohne bestätigte
 Produktfindings: eingefrorener betroffener Gate mit Trustimport 89/0,
