@@ -2,14 +2,39 @@
 
 | Merkmal | Wert |
 |---|---|
-| Status | `USER_ENDED`; am 2026-10-09 auf Benutzerauftrag beendet; Fortsetzungsheartbeat gelöscht |
-| Stand | 2026-10-09 |
-| Auftrag | Gesicherte Änderungen integriert, übrige offene Aufgaben erhalten; keine autonome Wiederaufnahme. C# bleibt USER_DEFERRED |
+| Status | `ACTIVE`; ausdrücklich am 2026-10-16 in einem neuen Orchestrator-Chat wiederaufgenommen |
+| Stand | 2026-10-16 |
+| Auftrag | Autonome Entwicklung fortsetzen; nach abgeschlossenem SSISDB-Stream TLS-001 bearbeiten. C# bleibt USER_DEFERRED |
 | Ausgangspunkt | Durchsicht von `9cfd144`, vor Veröffentlichung gegen `ca9f09e` abgeglichen |
 | Ziel | vollständige Abarbeitung der Implementierungs-, Abnahme- und Bewertungsaufgaben bei konsistentem Gesamtsystem |
 | Reihenfolge | Konkretisierung des nachgelagerten Horizonts aus Abschnitt 12 des [Ausführungsplans](DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md) |
 
-## Aktueller Abschluss der Welle
+## Aktuelle Wiederaufnahme vom 2026-10-16
+
+Der Benutzer hat die autonome Entwicklung ausdrücklich hier als Orchestrator
+wieder gestartet. Genau ein Implementierer je atomarem Scope, unabhängige
+Reviews am stabilen Diff und die bisherigen Schutzgrenzen gelten weiter.
+Die geschützten sechs Toolbelt-Ziele und die bewusst erhaltene SSISDB-Quelle
+für Analyze bleiben unangetastet. Native-CMS bleibt ohne neue unabhängige
+Evidence `BLOCKED_NO_RETRY`; frühere Löschsperren bleiben erhalten.
+
+Der aktuelle SSISDB-Abschluss und seine getrennten Nachweise stehen im
+[Windows-Nachweis](../Quality/SSISDB_WINDOWS_RUNTIME_ACCEPTANCE_2026-10-16.md).
+Der priorisierte TLS-Backlog aus PR #755 ist mit frischem Windows-/Ubuntu-
+Pflichtgate nach main integriert. Sein Quellbaum entspricht dem geprüften
+Head; lokale Dokumentations-/Privacyprüfungen und unabhängiger Review bestanden.
+
+Für TLS-001 hat der Benutzer eine eigene isolierte Lab-CA mit ausdrücklich
+freizugebendem Client-Trust zur Planung ausgewählt. Der
+[konkrete Entwurf](TLS_001_ISOLATED_CA_DESIGN.md) beschreibt Schlüssel-,
+Identitäts-, Trust-, Lifecycle- und Migrationsgrenzen. Das ist keine Freigabe
+zur Änderung bestehender Zertifikate, Truststores, Resolver oder Testziele.
+Die erste Bestandsaufnahme las konfigurierte Exportmetadaten und prüfte lokale
+Clientverfügbarkeit; Serverzertifikate und authentifizierte Verbindungen
+bleiben ungeprüft. Nächster Scope ist der dort benannte private Anfragevertrag
+mit Offlineprüfung, vor mutierender PKI- oder Providerumsetzung.
+
+## Historischer Abschluss vom 2026-10-09
 
 Der Benutzer hat die laufende Entwicklungswelle beendet. PR #732 und #734
 wurden integriert; der lokale Abschlussstand war `ba8da51bead44d800e6c72793b90690389094971`.

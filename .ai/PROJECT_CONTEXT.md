@@ -8,13 +8,16 @@
 | Repository | `gecompat/SQL_Server_Lab` |
 | Maschinenlesbare Landkarte | [`repo_map.yaml`](repo_map.yaml) |
 
-Die autonome Entwicklungswelle wurde am 2026-10-09 auf Benutzerauftrag
-beendet; ihr Fortsetzungsheartbeat ist gelöscht. Der
+Die autonome Entwicklungswelle wurde am 2026-10-16 auf ausdrücklichen
+Benutzerauftrag in einem neuen Orchestrator-Chat wiederaufgenommen. Der
 [kanonische Wellenplan](../Documentation/Project_Planning/AUTONOMOUS_DEVELOPMENT_WAVE_2026-09-10.md)
-erhält historische Wiederaufnahmen, offene Aufgaben und Schutzgrenzen.
-Der anschließende Foundation-1.21-Auftrag ist ein begrenzter Regeln-/Prüfscope,
-keine Wiederaufnahme der Welle. Genau ein Implementierer verantwortet einen
-kohärenten Scope.
+erhält die früheren Abschlüsse, offene Aufgaben und unveränderte Schutzgrenzen.
+SSISDB ist abgeschlossen; als nächster P1-Stream folgt TLS-001. Der Benutzer
+hat die Planung einer eigenen isolierten Lab-CA mit ausdrücklich
+freizugebendem Client-Trust ausgewählt; der
+[Entwurf](../Documentation/Project_Planning/TLS_001_ISOLATED_CA_DESIGN.md)
+ist kein Zertifikats-, Truststore- oder Runtime-Nachweis. Genau ein
+Implementierer verantwortet einen kohärenten Scope.
 
 ## Dokumentationszuständigkeiten
 

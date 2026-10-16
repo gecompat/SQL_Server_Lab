@@ -127,8 +127,8 @@ erhalten aber jeweils eigene Runtime-Evidence.
 | Abhängigkeit | **Toolbelt SC-2026-045 – authentifizierte Liveabnahme** |
 | Auslöser | [Toolbelt PR #322](https://github.com/gecompat/SQL_Server_Toolbelt/pull/322), geprüfter Head `8772e9d6a1d538e6fcb22da3f0bd03c83a28e88a`; PR bei der Prüfung am 2026-10-15 offen, kein behaupteter Merge |
 | Verantwortung | Lab: Serverzertifikate, Identität, Client-Trust, Export und Bereitschaft; Toolbelt: eigener Preflight und tatsächliche Clientverbindungen |
-| Entwicklungsreife | Anforderungen und Abnahme konkret; Architektur-/Migrationsentscheidungen D1–D4 sowie lokale Bestandsaufnahme vor mutierender Umsetzung offen |
-| Aktueller Auftrag | Im Backlog festhalten und priorisieren; kein Start der beendeten autonomen Welle und keine Zertifikats-, Truststore-, DNS- oder Runtimeänderung |
+| Entwicklungsreife | Eigene isolierte Lab-CA am 2026-10-16 zur Planung ausgewählt; [konkreter Entwurf](TLS_001_ISOLATED_CA_DESIGN.md), D1–D4-Parameter und native Bestandsaufnahme vor Mutation weiter offen |
+| Aktueller Auftrag | Autonome Welle am 2026-10-16 ausdrücklich wieder gestartet; isolierte Lab-CA und ausdrücklich freizugebenden Client-Trust planen. Keine Änderung bestehender Zertifikate, Truststores, Resolver oder Testziele durch diesen Planungsscope |
 
 **Istzustand und Vertragslücke.** Die Prüfung der Repositoryquellen am
 2026-10-15 ergibt:
