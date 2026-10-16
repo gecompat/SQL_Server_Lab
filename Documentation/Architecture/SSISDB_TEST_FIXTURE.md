@@ -2,21 +2,95 @@
 
 | Merkmal | Wert |
 |---|---|
-| Status | `INCREMENTAL_IMPLEMENTATION` |
-| Stand | 2026-10-13 |
-| Öffentlicher Einstieg | `Get-SqlServerLabSsisCatalogCapability` |
+| Status | Windows-/SQL-2025-Existing-Run und Prepared-/Manifest-Neuerstellung nativ abgenommen |
+| Stand | 2026-10-16 |
+| Öffentliche Einstiege | `Get-SqlServerLabSsisCatalogCapability`, `Install-SqlServerLabSsisComponent`, `New-SqlServerLabSsisCatalogFixture`, `Remove-SqlServerLabSsisCatalogFixture` |
 
 ## Zweck und Grenze
 
-Dieser Vertrag führt den ersten öffentlichen, rein lesenden Schritt für eine spätere SSISDB-Testquelle ein. Er bindet genau einen vorhandenen, eigenen und laufenden Hyper-V-/Windows-/SQL-2019-, -2022- oder -2025-Run an eine registrierte Instanz und beobachtet dessen SSIS- und SSISDB-Voraussetzungen. SQL Server 2025 ist die bevorzugte Referenz; 2019 und 2022 bleiben als tatsächlich beobachtete Engineversionen getrennt bezeichnet. Er unterstützt keine Linux-, Docker- oder Podman-Quelle für SSISDB.
+Dieser Vertrag bindet eine SSISDB-Testquelle an einen ausschließlich eigenen Hyper-V-/Windows-Run. SQL Server 2025 ist die bevorzugte Referenz; 2019 und 2022 bleiben im rein lesenden Prerequisite-Reader als tatsächlich beobachtete Engineversionen getrennt bezeichnet. Linux, Docker und Podman liefern keine SSISDB-Quelle.
 
-Der Cmdlet führt keinen Download, Build, keine Installation, Katalogerstellung, VM-Start, Paketbereitstellung oder SSIS-Ausführung aus. Er gibt weder Credentials, Endpunkte, VM-Namen noch lokale Pfade zurück. Er prüft die Bindung vor und nach dem begrenzten Gasttransport; eine Änderung verwirft die Beobachtung.
+`Get-SqlServerLabSsisCatalogCapability` führt keinen Download, Build, keine Installation, Katalogerstellung, VM-Start, Paketbereitstellung oder SSIS-Ausführung aus. Er gibt weder Credentials, Endpunkte, VM-Namen noch lokale Pfade zurück. Er prüft die Bindung vor und nach dem begrenzten Gasttransport; eine Änderung verwirft die Beobachtung.
 
 ```powershell
 Get-SqlServerLabSsisCatalogCapability -RunId $runId -InstanceId primary
 ```
 
-Die vollständige öffentliche Konsolen-CLI katalogisiert den Export automatisch. Der Browser verwendet denselben Exportkatalog im Bereich **Status und Diagnose**. Diese generische Eingabemöglichkeit ist kein separater SSISDB-Fachdialog und erzeugt keine Ausführung.
+`Install-SqlServerLabSsisComponent` ist der ausdrücklich mutierende Komponentenpfad für den normalen Bereitstellungsweg. Er akzeptiert nur einen bereits laufenden, gebundenen eigenen Windows-SQL-2025-Run, eine vorhandene SQL-2025-Enterprise-ISO und deren erwarteten SHA-256-Wert. Vor und nach dem Gasttransport bindet er Run, Scope, Instanz und VM-ID. Er ergänzt ausschließlich `IS`, startet die VM kontrolliert neu und verifiziert Engine und installierte Serverkomponenten. Der ältere `MsDtsServer170`-Paketverwaltungsdienst wird bei dieser neuen, ausschließlich für SSISDB bestimmten Komponenteninstallation mit `ISSVCStartupType=Disabled` eingerichtet. Microsoft erklärt ihn für Erstellung und Ausführung von Paketen ausdrücklich als nicht erforderlich. Damit vermeiden eigene Katalogläufe DCOM-Startwartezeiten eines fehlerhaften Legacydienstes. Bereits vorhandene Installationen und deren Dienstkonfiguration werden durch den `ALREADY_INSTALLED`-Pfad nicht umkonfiguriert; Legacy-Package-Store-Verwaltung gehört nicht zu diesem Komponentenvertrag. Seine bloße Existenz ersetzt umgekehrt keinen SSISDB-Ausführungsnachweis. Die vorhandene SQL-Engine bleibt bestehen. Download, Update, Build und Beschaffung sind ausgeschlossen; `Remove-SqlServerLab` bleibt der Cleanup für die Komponente und den gesamten eigenen Run.
+
+`New-SqlServerLabSsisCatalogFixture -RunId $runId -InstanceId primary` ist der folgende Fixturepfad. Er akzeptiert keine freien Hosts, Endpunkte oder Credentials. Er verlangt beobachtete SQL-2025- und IS-Komponenten und erzeugt SSISDB nur dann, wenn diese im gebundenen eigenen Run fehlt. Dazu verwendet er Microsofts dokumentiertes `Microsoft.SqlServer.Management.IntegrationServices.Catalog.Create()` aus der bereits installierten IS-17-Managementassembly. Die Assembly wurde im eigenen IS-2025-Gast tatsächlich beobachtet. Fehlt sie, bricht die Funktion vor der Kataloganlage mit `SSIS_FIXTURE_INSTALLED_MANAGEMENT_ASSEMBLY_REQUIRED` ab. Ein manuell nachgebauter Template-Restore, SSMS, Download oder nachträglicher SDK-Installationsschritt gehört nicht zur Runtime. Das nur gastlokal erzeugte Katalogkennwort erfüllt alle vier Komplexitätsklassen und verlässt den Gastprozess nicht.
+
+Der Cmdlet legt in der frischen VM SSISDB und einen eindeutig operationseigenen Katalogordner an. Er stellt ein synthetisches lokales Projekt mit drei Packages bereit: `Success.dtsx`, `Failure.dtsx` und `Incomplete.dtsx`. Er startet nur die Erfolgs- und Fehlerausführung; die dritte Ausführung bleibt im Zustand `created`. Die Receipt enthält ausschließlich Run-/Instanzbindung, die eigenen Execution-IDs, die beobachteten `catalog`-Views, vollständige Engine-/SSIS-Dateiversion und Versionsmajor, Rechteklassifikation und den Cleanupstatus. Sie enthält keine Credentials, Endpunkte oder lokalen Pfade.
+
+Das Logging wird über `catalog.set_execution_parameter_value` ausschließlich
+für die eigenen Execution-IDs auf Basic gesetzt; globale Loggingvorgaben bleiben
+erhalten. Pro Run ist eine aktive Fixture erlaubt. Eine weitere Anlage verlangt
+zuerst deren gezielten Cleanup; eine lokale exklusive Operationssperre verhindert
+konkurrierendes Überschreiben der Receipt.
+
+Die tatsächlich installierte IS-17-Management-API verwendet
+`Microsoft.Data.SqlClient.SqlConnection`. Ihre SMO-/SqlClient-Abhängigkeiten
+werden ausschließlich aus dem installierten `170/DTS/Binn` geladen. Dabei
+werden Assemblyidentität, Public-Key-Token und deklarierte Referenzversionen
+geprüft. PowerShell übernimmt die Binding-Redirects von `ISServerExec.exe.config`
+nicht automatisch; die Probe wendet genau deren lokale, versionsgebundene
+Redirects an und entfernt ihren Resolver anschließend wieder. Andere Namen,
+Tokens oder Versionsbereiche werden nicht aufgelöst. Fehlende Abhängigkeiten
+öffnen keinen Download- oder SDK-Installationspfad.
+
+Die vollständige öffentliche Konsolen-CLI katalogisiert die Exporte automatisch. Der Browser verwendet denselben Exportkatalog über **Alle öffentlichen Befehle** mit den gemeinsamen Bereichszuordnungen. Bis zu einer eigenen gerenderten Fachabnahme bleibt dies ein generischer, parametergebundener Dialog und kein separater SSISDB-Fachdialog.
+
+```powershell
+$component=Install-SqlServerLabSsisComponent -RunId $runId -InstanceId primary -MediaRoot $mediaRoot `
+  -SqlMediaPath 'SQL/2025/Enterprise/ISO/SQLServer2025-x64-ENU-EntDev.iso' `
+  -ExpectedSqlMediaSha256 $sha256
+$fixture=New-SqlServerLabSsisCatalogFixture -RunId $runId -InstanceId primary
+
+# Optional: nur den quittierten eigenen Katalogordner entfernen.
+Remove-SqlServerLabSsisCatalogFixture -RunId $runId -InstanceId primary -Confirm:$false
+# Oder den gesamten zugehörigen Run einschließlich IS entfernen.
+Remove-SqlServerLab -RunId $fixture.Target.RunId -Force -Confirm:$false
+```
+
+## Neues Lab aus Manifest
+
+`New-SqlServerLab -Manifest` unterstützt `instances[].ssisCatalogFixture` für
+genau eine Hyper-V-/Windows-/SQL-2025-Instanz. Das Objekt verlangt `mediaRoot`,
+`sqlMediaPath` und `expectedSqlMediaSha256`; unbekannte Felder werden abgewiesen.
+Ein relativer Medienroot wird relativ zum Manifest aufgelöst. Die Medien werden
+vor der VM-Erstellung geprüft und bei der Installation erneut inhaltsgebunden.
+Nach der normalen SQL-Bereitstellung folgen dieselbe additive IS-Installation
+und dieselbe öffentliche Fixture-API. Ein bereitgestellter SQL-Slot wird dabei
+weiterverwendet; es gibt keine erzwungene SQL-Neuinstallation. Bei Fehlern in
+diesem SSIS-Schritt wird der neue eigene Run kompensiert; ein Cleanupfehler
+erhält die gebundene RunId als Recoveryhinweis.
+
+Das [Beispielmanifest](../../Schemas/example-ssis-catalog-fixture.json) enthält
+ausdrückliche Platzhalter für lokale Medien und Artifact-/ISO-Hashes. Vor der
+Ausführung müssen sie durch überprüfte lokale Werte ersetzt werden. Secrets
+werden ausschließlich als geschützte Parameter übergeben:
+
+```powershell
+$lab=New-SqlServerLab -Manifest $manifestPath -GuestPassword $guestPassword `
+  -SqlSaPassword $sqlSaPassword -NonInteractive -StateRoot $stateRoot
+$fixture=$lab.SsisCatalogFixture
+```
+
+Der Manifestdialog von CLI und Browser sowie der vollständige Befehlszugang
+verwenden denselben `New-SqlServerLab`-Vertrag. Ein eigener SSIS-Fachdialog ist
+weiterhin nicht abgenommen.
+
+## Verbindungs- und Secretbindung
+
+Die Receipt bindet die Quelle über `Target.RunId` und `Target.InstanceId`.
+`Get-SqlServerLab -RunId` liefert die normale geheimnisfreie Verbindungsbindung.
+Beim neuen Fixture-Run erzeugt das Lab das SQL-Kennwort selbst und speichert
+auch den geschützten Generated-Alias. Ein Consumer ruft es ausschließlich
+explizit über `Get-SqlServerLabGeneratedSqlAccess -RunId` ab. Das Ergebnis ist
+geheimnistragend und gehört niemals in Logs, Receipts oder Repositoryartefakte.
+Bei einem vorhandenen Run oder einem Manifest mit vom Aufrufer übergebenem
+SQL-Kennwort bleibt dessen bereits geschützte Credentialübergabe maßgeblich;
+der Generated-Befehl gibt keine benutzerdefinierten Kennwörter frei.
 
 ## Rückgabevertrag
 
@@ -25,21 +99,62 @@ Die vollständige öffentliche Konsolen-CLI katalogisiert den Export automatisch
 - `Target`: RunId, InstanceId und `BindingStatus` (`BOUND` oder `BLOCKED`);
 - `Sql` und `Ssis`: beobachtete Versions-/Katalogstatus;
 - `Source`: nur `OBSERVED` oder `NOT_READY`; eine Consumer-Verbindungsbindung ist zunächst `NOT_PROVISIONED`, Consumerrechte sind `NOT_ASSESSED`;
-- `Fixture`: immer `NOT_IMPLEMENTED`, `MutationAllowed=false` und keine Execution-IDs;
+- `Fixture`: bei diesem rein lesenden Einstieg weiterhin `NOT_IMPLEMENTED`, `MutationAllowed=false` und keine Execution-IDs;
 - Gesamtstatus `READY_FOR_FIXTURE_IMPLEMENTATION` oder `BLOCKED`.
 
 `READY_FOR_FIXTURE_IMPLEMENTATION` bestätigt ausschließlich die beobachtete Voraussetzung eines vorhandenen eigenen Zielruns. Er bestätigt weder `catalog.executions`-Rechte eines Analyze-Consumers noch reale SSISDB-Ausführungen, Loggingfälle, Cleanup oder die Eignung als SQL_Server_Analyze-Runtimequelle.
 
-## Nächste getrennte Slices
+Die Fixture erzeugt ihre drei eigenen Pakete als minimale UTF-16-DTSX-Dokumente
+mit `DTS:ForceExecutionResult` und verpackt sie mit `@Project.manifest`, Paketmetadaten und OPC-Content-Types in ein vollständiges eigenes `.ispac`. Damit
+genügt die bereits installierte SSIS-Serverkomponente einschließlich `DTExec`;
+ein SSIS-Entwicklungs-SDK, `Microsoft.SqlServer.Dts.Runtime.dll`, Download oder
+Build-Schritt ist kein Laufzeitbedarf. Der Erfolg-, Fehler- und ungestartete
+Fall bleiben vollständig synthetisch und ohne externe Datenquelle.
 
-1. Reale, eigentumsgebundene SSISDB-Fixture mit synthetischen Projekten, Packages und Erfolg-/Fehler-/unvollständigen Loggingfällen.
-2. Geheimnisfreie Consumer-Quellenbindung mit tatsächlicher `catalog`-View- und Rechteprüfung.
-3. Teilfehler- und Abbruchcleanup, der nur die eigenen Katalogressourcen entfernt.
-4. Tatsächlich ausgeführte Windows-/SSISDB-Abnahme samt Engine-/SSISversion, API-Aufruf, Fallmengen und Cleanupbefund; erst diese öffnet das Analyze-Runtimegate.
-5. Ein eigener Browser-Fachdialog erst nach dem konkret gebundenen Fixture-Vertrag. Bis dahin bleibt die generische Browser-Commandoberfläche die read-only Bedienoberfläche.
+`SqlServerLab.SsisCatalogFixture/1.0` ist die mutierende Receipt. `Status=READY_FOR_READ_ONLY_ANALYSIS` und `Cleanup=REMOVE_OWNED_FIXTURE_TO_CLEANUP` bedeuten, dass nur der zugehörige eigene Run eine Quelle sein darf. `Remove-SqlServerLabSsisCatalogFixture` entfernt zuerst das quittierte eigene Projekt über `catalog.delete_project`, anschließend den leeren Ordner über `catalog.delete_folder`. Namen, Operationstoken, tatsächliche `FolderId`, `ProjectId` und `ProjectVersionLsn` müssen übereinstimmen; Prüfung und Löschung laufen in einer serialisierbaren Transaktion. Ältere Receipts ohne Projekt-ID werden ausschließlich über ihre drei nachgewiesenen Execution-IDs und deren identische Projektversion gebunden. Zusätzliche Projekte, Umgebungen, fremde aktive Ausführungen sowie ersetzte Projektversionen verhindern die Löschung. Vor der Objektlöschung werden ausschließlich die quittierten eigenen aktiven Ausführungen einmalig mit `catalog.stop_operation` beendet und höchstens 30 Sekunden auf deren Abschluss gewartet, ohne Katalogtransaktionssperren zu halten. Danach wird die Ownership vor der Löschung erneut geprüft. Ohne bestätigte Beendigung bleiben Projekt und Ordner erhalten. Das lokale `ssis-fixture-operation.json` bindet Run, Scope, VM, Operation und eigene Objektnamen schon vor der Gastmutation; ein Fehler erhält diese Recoverybindung und behauptet keinen erfolgreichen Cleanup. Fremde Katalogordner, Projekte, globale Retention, Katalogeigenschaften und Loggingkonfiguration bleiben erhalten. Nach Teilfehlern entfernt der Guest-Probe seine eigenen Objekte, sofern er sie angelegt hat; Primär- und Cleanupfehler bleiben getrennt sichtbar und Verbindungen werden auch bei Cleanupfehlern geschlossen.
 
-Der mutierende Folgepfad verlangt einen vorhandenen ausdrücklich bezeichneten isolierten Windows-Testhost mit SQL Server, Integration Services und online SSISDB. Installation, Medienbeschaffung, Lizenz- oder Kostenfreigaben werden durch diesen Vertrag nicht impliziert.
+Microsoft bewahrt Projektversionen und Operationshistorie nach
+[`catalog.delete_project`](https://learn.microsoft.com/sql/integration-services/system-stored-procedures/catalog-delete-project-ssisdb-database?view=sql-server-ver17)
+bis zum regulären Cleanupjob auf. `CATALOG_FOLDER_CLEANUP_SUCCEEDED` bestätigt
+die Entfernung des aktiven Projekts und Ordners, keine vorzeitige Historienlöschung.
+Eine vollständige Entfernung einschließlich Historie erfolgt mit dem gesamten
+eigenen Run über `Remove-SqlServerLab`.
+
+## Ausführungsnachweis
+
+Die [öffentliche Windows-/SSISDB-Abnahme](../Quality/SSISDB_WINDOWS_RUNTIME_ACCEPTANCE_2026-10-16.md) dokumentiert die tatsächlich ausgeführten Workflows, qualifizierten API-Aufrufe, Versionen, Execution-IDs, Quellen-/Rechtebindung und Cleanupbefunde. Der Existing-Run-Pfad hat drei reale Katalogfälle mit Status 7/4/1 erzeugt und den gezielten Cleanup einschließlich Fremdobjektschutz bestanden. Der letzte eigene Source-Run bleibt ausdrücklich für Analyze erhalten; seine Cleanupverantwortung ist im Nachweis benannt. Das Analyze-Runtimegate verlangt zusätzlich die reguläre Integration mit grünen erforderlichen Checks am finalen Head.
+
+Die Formatabnahme `Tests/Integration/Invoke-SsisFixtureFormatAcceptance.ps1` hat am 2026-10-16 mit der vorhandenen SSIS-17-Runtime das tatsächlich erzeugte ISPAC über Microsofts `Project.OpenProject()` geöffnet: drei Entry-Point-Packages, erwartete Forced Results, keine Verbindungen oder Tasks. Sie verwendet Windows PowerShell und startet weder SQL noch eine VM. Diese fokussierte Formatprüfung ergänzt den Katalognachweis.
+
+Die ergänzende `Invoke-SsisCatalogManagementAcceptance.ps1` hat den produktiven
+Loader mit den vorhandenen IS-17-Dateien unter Windows PowerShell ausgeführt:
+geschlossene SqlConnection, passende echte IS-/Catalog-Konstruktorsignaturen
+und Ablehnung fremder Namen, Tokens und Versionen. SQL wurde dabei nicht
+geöffnet; auch dies ersetzt keine Katalog-/Ausführungsabnahme.
+
+Für fokussierte Diagnose kann der manuelle Workflowmodus
+`ssisdb-existing-run-acceptance` einen ausdrücklich gebundenen vorhandenen
+Run verwenden. Der getrennte Modus `ssisdb-diagnostic-run-acceptance` verlangt
+stattdessen ausdrücklich ein Prepared-Artifact und bereitet über
+`Initialize-SsisCatalogDiagnosticRun.ps1` einmalig einen eigenen
+SQL-/IS-Run vor und quittiert seine RunId. Dieser Run bleibt nach Fixturefehlern
+für die folgende Diagnose erhalten. Weitere Versuche verwenden genau diese
+RunId. Gezielter Cleanup und erneute Fixtureanlage prüfen anschließend auch
+den bereits vorhandenen SSISDB-Katalog. Vollständiger Cleanup erfolgt bewusst
+über `Remove-SqlServerLab` am quittierten eigenen Run.
+
+Der Prepared-SSISDB-Pfad erklärt Windows-Aktivierung ausdrücklich als `NotRequested` mit `Denied`-Egress. SSIS, SSISDB und die lokale Katalogausführung benötigen keine Windows-Aktivierung; der Test erstellt daher weder eine temporäre externe NIC noch eine Netzverbindung. Die getrennten Fresh-Install-Abnahmen dürfen weiterhin ihre eigene Aktivierungskette prüfen.
+
+Der Nachweis läuft auf dem erhöhten registrierten Hyper-V-Runner,
+nicht über einen lokalen UAC-Dialog. Der manuelle Workflowmodus
+`ssisdb-fixture-acceptance` verlangt ausdrücklich Prepared-Artifact,
+State-Root, relativen ISO-Pfad und ISO-Hash. Er ruft ausschließlich
+`New-SqlServerLabSsisCatalogFixture` und `Remove-SqlServerLab` auf,
+schreibt nur eine geheimnisfreie Receipt in die Workflow-Zusammenfassung und
+bereinigt den neuen eigenen Run auch nach einem Fixturefehler. Der oben
+verlinkte Nachweis unterscheidet den erhaltenen Existing-Run und den vollständig
+entfernten neuen Test-Run ausdrücklich.
 
 ## Herstellergrundlagen
 
-Microsoft beschreibt den SSIS-Katalog und seine `catalog`-Views als SSISDB-Quelle. Die spätere Ausführung verwendet ausschließlich die offiziellen Katalogprozeduren und getrennt dokumentierte Rechtebindungen: [SSIS-Katalog](https://learn.microsoft.com/sql/integration-services/catalog/ssis-catalog?view=sql-server-ver17), [catalog.executions](https://learn.microsoft.com/sql/integration-services/system-views/catalog-executions-ssisdb-database?view=sql-server-ver16), [catalog.create_execution](https://learn.microsoft.com/sql/integration-services/system-stored-procedures/catalog-create-execution-ssisdb-database?view=sql-server-ver17).
+Microsoft beschreibt den SSIS-Katalog und seine `catalog`-Views als SSISDB-Quelle. Die spätere Ausführung verwendet ausschließlich die offiziellen Katalogprozeduren und getrennt dokumentierte Rechtebindungen: [SSIS-Katalog](https://learn.microsoft.com/sql/integration-services/catalog/ssis-catalog?view=sql-server-ver17), [catalog.executions](https://learn.microsoft.com/sql/integration-services/system-views/catalog-executions-ssisdb-database?view=sql-server-ver16), [catalog.create_execution](https://learn.microsoft.com/sql/integration-services/system-stored-procedures/catalog-create-execution-ssisdb-database?view=sql-server-ver17), [Abgrenzung des älteren SSIS-Windows-Dienstes](https://learn.microsoft.com/sql/integration-services/service/integration-services-service-ssis-service?view=sql-server-ver17).

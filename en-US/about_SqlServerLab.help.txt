@@ -118,6 +118,9 @@ COMMANDS
 
     Get-SqlServerLabExternalRuntimeCapability
     Get-SqlServerLabSsisCatalogCapability
+    Install-SqlServerLabSsisComponent - Installs only SSIS into a bound prepared Windows SQL Server 2025 run.
+    New-SqlServerLabSsisCatalogFixture - Creates the SSISDB fixture in a bound owned run.
+    Remove-SqlServerLabSsisCatalogFixture - Removes only the receipted owned SSISDB catalog folder.
         Separates an explicit External Languages catalog request from an optional
         bounded host check; it grants no SQL acceptance or mutation authority.
 

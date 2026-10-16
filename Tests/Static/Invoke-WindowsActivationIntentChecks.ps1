@@ -20,6 +20,11 @@ $module=Import-Module (Join-Path $PSScriptRoot '../../SqlServerLab.psd1') -Force
         $decision=Get-LabWindowsActivationDecision -License $license -Intent $default
         Assert-Intent ($decision.Action -eq $case.Action -and $decision.Code -eq $case.Code -and -not $decision.NetworkMutationAllowed) "Live-Zustandsentscheidung: $($case.State) / $($case.Edition)"
     }
+    $notRequested=Get-LabWindowsActivationDecision -License ([pscustomobject]@{State='ACTIVATION_REQUIRED';Edition='ServerStandardEval';LicenseStatus=5;EvaluationMinutesRemaining=0}) -Intent (Resolve-LabWindowsActivationIntent -Intent @{ContractVersion='SqlServerLab.WindowsActivationIntent/1.0';Strategy='NotRequested';EgressPolicy='Denied'})
+    Assert-Intent ($notRequested.Action -eq 'NoOp' -and $notRequested.Code -eq 'WINDOWS_ACTIVATION_NOT_REQUESTED') 'Nicht angeforderte Aktivierung erzeugt keinen Lizenz- oder Netzwerk-Gate'
+    $invalid=$false
+    try{$null=Resolve-LabWindowsActivationIntent -Intent @{ContractVersion='SqlServerLab.WindowsActivationIntent/1.0';Strategy='NotRequested';EgressPolicy='AllowTemporary'}}catch{$invalid=$_.Exception.Message -eq 'WINDOWS_ACTIVATION_NOT_REQUESTED_EGRESS_MUST_BE_DENIED'}
+    Assert-Intent $invalid 'Nicht angeforderte Aktivierung verbietet jeden Egress'
     $unlicensed=[pscustomobject]@{State='ACTIVATION_REQUIRED';Edition='ServerStandardEval';LicenseStatus=5;EvaluationMinutesRemaining=0}
     $denied=Get-LabWindowsActivationDecision -License $unlicensed -Intent (Resolve-LabWindowsActivationIntent -Isolated)
     Assert-Intent ($denied.Action -eq 'Block' -and $denied.Code -eq 'WINDOWS_ACTIVATION_EGRESS_DENIED') 'Verbotener Egress blockiert vor einer Netzwerkplanung'
@@ -38,6 +43,10 @@ $module=Import-Module (Join-Path $PSScriptRoot '../../SqlServerLab.psd1') -Force
     Assert-Intent (Test-LabManifestSchema -Json ($manifest | ConvertTo-Json -Depth 20)).IsValid 'Manifest akzeptiert ausschliesslich vollstaendigen portablen Aktivierungsintent'
     $resolved=Resolve-ManifestDefaults -Manifest $manifest
     Assert-Intent ($resolved.instances[0].windowsActivation.EgressPolicy -eq 'AllowTemporary' -and $resolved.instances[0].windowsActivationSource -eq 'manifest') 'Expliziter temporaerer Aktivierungs-Egress bleibt als Benutzerintent erhalten'
+    $manifest.instances[0].windowsActivation=[pscustomobject]@{ContractVersion='SqlServerLab.WindowsActivationIntent/1.0';Strategy='NotRequested';EgressPolicy='Denied'}
+    Assert-Intent (Test-LabManifestSchema -Json ($manifest | ConvertTo-Json -Depth 20)).IsValid 'Manifest akzeptiert explizit nicht angeforderte Aktivierung'
+    $resolved=Resolve-ManifestDefaults -Manifest $manifest
+    Assert-Intent ($resolved.instances[0].windowsActivation.Strategy -eq 'NotRequested' -and $resolved.instances[0].windowsActivation.EgressPolicy -eq 'Denied') 'Nicht angeforderte Aktivierung bleibt als netzfreier Manifestintent erhalten'
     Assert-Intent ((Test-LabManifestSchemaInputSupport -RootSchema (Get-LabManifestSchema)).IsSupported) 'Generischer Wizard versteht den Aktivierungsvertrag'
     $vm=@{Id='synthetic-vm'}
     $adapter=@{Id='own-adapter';VMId='synthetic-vm';SwitchId='desired-switch'}

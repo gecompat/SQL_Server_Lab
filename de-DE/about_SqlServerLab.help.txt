@@ -116,6 +116,9 @@ COMMANDS
 
     Get-SqlServerLabExternalRuntimeCapability
     Get-SqlServerLabSsisCatalogCapability
+    Install-SqlServerLabSsisComponent - Installiert nur SSIS in einen gebundenen vorbereiteten Windows-SQL-2025-Run.
+    New-SqlServerLabSsisCatalogFixture - Erstellt die SSISDB-Fixture in einem gebundenen eigenen Run.
+    Remove-SqlServerLabSsisCatalogFixture - Entfernt nur den quittierten eigenen SSISDB-Katalogordner.
         Trennt eine explizite External-Languages-Kataloganforderung von einer
         optionalen begrenzten Hostprüfung; keine SQL-Abnahme oder Mutation.
 

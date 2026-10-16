@@ -59,6 +59,12 @@ on:
           - sample-manifest-acceptance
           - external-runtime-reconcile-acceptance
           - ai-rag-own-run-acceptance
+          - ssisdb-fixture-acceptance
+          - ssisdb-existing-run-acceptance
+          - ssisdb-diagnostic-run-acceptance
+          - ssisdb-management-resident-diagnostic
+          - ssisdb-existing-run-observation
+          - ssisdb-legacy-service-isolation
       ai_preflight_only:
         description: Im KI-Own-Run-Modus ausschließlich vorhandenes Artifact und Hostmodelle lesend prüfen
         required: false
@@ -98,6 +104,22 @@ on:
           - Enterprise
           - Standard
           - Eval
+      ssis_state_root:
+        description: Expliziter bestehender State Root für SSISDB-Artifactkatalog und eigenen Acceptance-Run
+        required: false
+        type: string
+      ssis_existing_run_id:
+        description: Explizite eigene aktive Windows-SQL-RunId für die SSISDB-Existing-Run-Abnahme
+        required: false
+        type: string
+      ssis_media_path:
+        description: Relativer Pfad der vorhandenen SQL-ISO für die additive SSIS-Installation
+        required: false
+        type: string
+      ssis_media_sha256:
+        description: Erwarteter SHA-256 der vorhandenen SQL-ISO
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -169,6 +191,115 @@ jobs:
             "::error title=INFRASTRUCTURE_UNAVAILABLE::$message" | Write-Host
             Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value "## Infrastruktur nicht verfügbar`n`n$message`n`nEs liegt kein Nachweis für einen Implementierungsfehler vor. Nach Wiederherstellung nur diesen Lauf erneut ausführen."
             exit 1
+          }
+
+      - name: Reject SSISDB fixture acceptance outside trusted manual dispatch
+        if: startsWith(inputs.mode, 'ssisdb-') && !(github.event_name == 'workflow_dispatch' && github.event.repository.full_name == github.repository)
+        run: |
+          throw 'SSISDB_FIXTURE_MANUAL_DISPATCH_REQUIRED'
+
+      - name: Reject SSISDB existing-run acceptance outside trusted manual dispatch
+        if: inputs.mode == 'ssisdb-existing-run-acceptance' && !(github.event_name == 'workflow_dispatch' && github.event.repository.full_name == github.repository)
+        run: |
+          throw 'SSISDB_EXISTING_RUN_MANUAL_DISPATCH_REQUIRED'
+
+      - name: Hyper-V SSISDB existing run read-only observation
+        if: inputs.mode == 'ssisdb-existing-run-observation' && github.event_name == 'workflow_dispatch' && github.event.repository.full_name == github.repository
+        env:
+          SQL_SERVER_LAB_CI_SSIS_STATE_ROOT: ${{ inputs.ssis_state_root }}
+          SQL_SERVER_LAB_CI_SSIS_EXISTING_RUN_ID: ${{ inputs.ssis_existing_run_id }}
+        run: |
+          $ErrorActionPreference='Stop'
+          .\Tests\Integration\Get-SsisExistingRunObservation.ps1 -RunId ([guid]$env:SQL_SERVER_LAB_CI_SSIS_EXISTING_RUN_ID) -StateRoot $env:SQL_SERVER_LAB_CI_SSIS_STATE_ROOT
+
+      - name: Hyper-V SSISDB prepared fixture acceptance
+        if: inputs.mode == 'ssisdb-fixture-acceptance' && github.event_name == 'workflow_dispatch' && github.event.repository.full_name == github.repository
+        env:
+          SQL_SERVER_LAB_CI_IMAGE_ARTIFACT_ID: ${{ inputs.image_artifact_id }}
+          SQL_SERVER_LAB_CI_SSIS_STATE_ROOT: ${{ inputs.ssis_state_root }}
+          SQL_SERVER_LAB_CI_MEDIA_ROOT: ${{ inputs.media_root }}
+          SQL_SERVER_LAB_CI_SSIS_MEDIA_PATH: ${{ inputs.ssis_media_path }}
+          SQL_SERVER_LAB_CI_SSIS_MEDIA_SHA256: ${{ inputs.ssis_media_sha256 }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ([string]::IsNullOrWhiteSpace($env:SQL_SERVER_LAB_CI_IMAGE_ARTIFACT_ID)) { throw 'SSISDB_FIXTURE_EXPLICIT_ARTIFACT_REQUIRED' }
+          if ([string]::IsNullOrWhiteSpace($env:SQL_SERVER_LAB_CI_SSIS_MEDIA_PATH)) { throw 'SSISDB_FIXTURE_EXPLICIT_MEDIA_PATH_REQUIRED' }
+          if ([string]::IsNullOrWhiteSpace($env:SQL_SERVER_LAB_CI_SSIS_MEDIA_SHA256)) { throw 'SSISDB_FIXTURE_EXPLICIT_MEDIA_HASH_REQUIRED' }
+          $evidencePath = Join-Path $env:RUNNER_TEMP 'ssisdb-fixture-acceptance.json'
+          .\Tests\Integration\Invoke-SsisCatalogFixtureAcceptance.ps1 `
+            -ArtifactId $env:SQL_SERVER_LAB_CI_IMAGE_ARTIFACT_ID `
+            -MediaRoot $env:SQL_SERVER_LAB_CI_MEDIA_ROOT `
+            -SqlMediaPath $env:SQL_SERVER_LAB_CI_SSIS_MEDIA_PATH `
+            -ExpectedSqlMediaSha256 $env:SQL_SERVER_LAB_CI_SSIS_MEDIA_SHA256 `
+            -StateRoot $env:SQL_SERVER_LAB_CI_SSIS_STATE_ROOT `
+            -EvidencePath $evidencePath
+          Get-Content -LiteralPath $evidencePath -Raw | Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY
+
+      - name: Hyper-V SSISDB existing owned run acceptance
+        if: (inputs.mode == 'ssisdb-existing-run-acceptance' || inputs.mode == 'ssisdb-diagnostic-run-acceptance' || inputs.mode == 'ssisdb-management-resident-diagnostic' || inputs.mode == 'ssisdb-legacy-service-isolation') && github.event_name == 'workflow_dispatch' && github.event.repository.full_name == github.repository
+        env:
+          SQL_SERVER_LAB_CI_SSIS_STATE_ROOT: ${{ inputs.ssis_state_root }}
+          SQL_SERVER_LAB_CI_MEDIA_ROOT: ${{ inputs.media_root }}
+          SQL_SERVER_LAB_CI_SSIS_MEDIA_PATH: ${{ inputs.ssis_media_path }}
+          SQL_SERVER_LAB_CI_SSIS_MEDIA_SHA256: ${{ inputs.ssis_media_sha256 }}
+          SQL_SERVER_LAB_CI_SSIS_EXISTING_RUN_ID: ${{ inputs.ssis_existing_run_id }}
+          SQL_SERVER_LAB_CI_IMAGE_ARTIFACT_ID: ${{ inputs.image_artifact_id }}
+          SQL_SERVER_LAB_CI_SSIS_MODE: ${{ inputs.mode }}
+        run: |
+          $ErrorActionPreference='Stop'
+          if([string]::IsNullOrWhiteSpace($env:SQL_SERVER_LAB_CI_SSIS_STATE_ROOT) -or [string]::IsNullOrWhiteSpace($env:SQL_SERVER_LAB_CI_SSIS_MEDIA_PATH) -or [string]::IsNullOrWhiteSpace($env:SQL_SERVER_LAB_CI_SSIS_MEDIA_SHA256)){throw 'SSISDB_EXISTING_RUN_INPUT_REQUIRED'}
+          if($env:SQL_SERVER_LAB_CI_SSIS_MODE -eq 'ssisdb-diagnostic-run-acceptance'){
+            if(-not [string]::IsNullOrWhiteSpace($env:SQL_SERVER_LAB_CI_SSIS_EXISTING_RUN_ID)){throw 'SSISDB_DIAGNOSTIC_NEW_RUN_AND_EXISTING_RUN_CONFLICT'}
+            if([string]::IsNullOrWhiteSpace($env:SQL_SERVER_LAB_CI_IMAGE_ARTIFACT_ID)){throw 'SSISDB_DIAGNOSTIC_ARTIFACT_OR_EXISTING_RUN_REQUIRED'}
+            $prepared=.\Tests\Integration\Initialize-SsisCatalogDiagnosticRun.ps1 -ArtifactId $env:SQL_SERVER_LAB_CI_IMAGE_ARTIFACT_ID -StateRoot $env:SQL_SERVER_LAB_CI_SSIS_STATE_ROOT -MediaRoot $env:SQL_SERVER_LAB_CI_MEDIA_ROOT -SqlMediaPath $env:SQL_SERVER_LAB_CI_SSIS_MEDIA_PATH -ExpectedSqlMediaSha256 $env:SQL_SERVER_LAB_CI_SSIS_MEDIA_SHA256
+            $env:SQL_SERVER_LAB_CI_SSIS_EXISTING_RUN_ID=[string]$prepared.RunId
+            Write-Host ('SSIS_DIAGNOSTIC_OWNED_RUN_RETAINED: '+[string]$prepared.RunId)
+          }
+          if([string]::IsNullOrWhiteSpace($env:SQL_SERVER_LAB_CI_SSIS_EXISTING_RUN_ID)){throw 'SSISDB_EXISTING_RUN_ID_REQUIRED'}
+          $id=[guid]$env:SQL_SERVER_LAB_CI_SSIS_EXISTING_RUN_ID
+          if($env:SQL_SERVER_LAB_CI_SSIS_MODE -eq 'ssisdb-legacy-service-isolation'){
+            .\Tests\Integration\Set-SsisOwnedLegacyServiceIsolation.ps1 -RunId $id -StateRoot $env:SQL_SERVER_LAB_CI_SSIS_STATE_ROOT -Confirm:$false
+          }
+          if($env:SQL_SERVER_LAB_CI_SSIS_MODE -eq 'ssisdb-management-resident-diagnostic'){
+            .\Tests\Integration\Invoke-SsisManagementResidentDiagnostic.ps1 -RunId $id -StateRoot $env:SQL_SERVER_LAB_CI_SSIS_STATE_ROOT
+            exit 0
+          }
+          Import-Module .\SqlServerLab.psd1 -Force
+          $diagnostics=Join-Path $env:SQL_SERVER_LAB_CI_SSIS_STATE_ROOT 'diagnostics'
+          $null=New-Item -ItemType Directory -Path $diagnostics -Force
+          $privateLog=Join-Path $diagnostics ('ssis-existing-'+[guid]::NewGuid().ToString('N')+'.private.log')
+          try {
+          $common=@{RunId=$id;InstanceId='primary';StateRoot=$env:SQL_SERVER_LAB_CI_SSIS_STATE_ROOT;Confirm=$false}
+          $component=SqlServerLab\Install-SqlServerLabSsisComponent @common -MediaRoot $env:SQL_SERVER_LAB_CI_MEDIA_ROOT -SqlMediaPath $env:SQL_SERVER_LAB_CI_SSIS_MEDIA_PATH -ExpectedSqlMediaSha256 $env:SQL_SERVER_LAB_CI_SSIS_MEDIA_SHA256
+          $receiptPath=Join-Path (Join-Path (Join-Path $env:SQL_SERVER_LAB_CI_SSIS_STATE_ROOT 'runs') $id.ToString()) 'ssis-fixture-receipt.json'
+          if(Test-Path -LiteralPath $receiptPath){$null=SqlServerLab\Remove-SqlServerLabSsisCatalogFixture @common}
+          $first=SqlServerLab\New-SqlServerLabSsisCatalogFixture @common
+          if($first.Status -ne 'READY_FOR_READ_ONLY_ANALYSIS' -or $first.Sql.EngineMajor -ne 17 -or $first.Ssis.Major -ne 17){throw 'SSISDB_EXISTING_RUN_FIXTURE_INVALID'}
+          $foreignGuard=.\Tests\Integration\Invoke-SsisCatalogCleanupGuardAcceptance.ps1 -RunId $id -StateRoot $env:SQL_SERVER_LAB_CI_SSIS_STATE_ROOT
+          if($foreignGuard.Status -ne 'FOREIGN_RESOURCE_GUARD_PASSED'){throw 'SSISDB_EXISTING_RUN_FOREIGN_GUARD_INVALID'}
+          $clean=SqlServerLab\Remove-SqlServerLabSsisCatalogFixture @common
+          if($clean.Status -ne 'REMOVED' -or $clean.Cleanup -ne 'CATALOG_FOLDER_CLEANUP_SUCCEEDED'){throw 'SSISDB_EXISTING_RUN_CLEANUP_INVALID'}
+          $final=SqlServerLab\New-SqlServerLabSsisCatalogFixture @common
+          $access=$null;$connection=$null
+          try {
+            $access=SqlServerLab\Get-SqlServerLabGeneratedSqlAccess -RunId $id -StateRoot $env:SQL_SERVER_LAB_CI_SSIS_STATE_ROOT
+            $connection=[Data.SqlClient.SqlConnection]::new($access.ConnectionString);$connection.Open()
+            $command=$connection.CreateCommand();$command.CommandTimeout=30
+            try {
+              $command.CommandText='SELECT IS_SRVROLEMEMBER(N''sysadmin'');'
+              if([int]$command.ExecuteScalar() -ne 1){throw 'SSIS_CONSUMER_RIGHTS_INVALID'}
+              $command.CommandText='SELECT COUNT(*) FROM SSISDB.catalog.executions WHERE execution_id IN (@success,@failure,@incomplete);'
+              foreach($name in @('success','failure','incomplete')){$parameter=$command.Parameters.Add('@'+$name,[Data.SqlDbType]::BigInt);$parameter.Value=[int64]$final.Fixture.ExecutionIds.$name}
+              if([int]$command.ExecuteScalar() -ne 3){throw 'SSIS_CONSUMER_EXECUTIONS_INVALID'}
+            } finally {$command.Dispose()}
+          } finally {if($connection){$connection.Dispose()};$access=$null}
+          $evidence=[ordered]@{Contract='SqlServerLab.SsisCatalogExistingRunAcceptance/1.0';Status='PASSED_RETAINED_SOURCE';RunId=$final.Target.RunId;InstanceId=$final.Target.InstanceId;BindingStatus=$final.Target.BindingStatus;SourceBinding=$final.Source.ConnectionBinding;ConsumerRights=$final.Source.ConsumerRights;ConsumerAccess='PUBLIC_GENERATED_SQL_ACCESS_VERIFIED';SqlEngineMajor=$final.Sql.EngineMajor;SqlEngineVersion=$final.Sql.EngineVersion;SsisMajor=$final.Ssis.Major;SsisVersion=$final.Ssis.Version;Catalog=$final.Ssis.Catalog;ExecutionIds=$final.Fixture.ExecutionIds;ExecutionStatus=$final.Fixture.ExecutionStatus;CatalogViews=$final.Fixture.CatalogViews;CleanupProof=$clean.Cleanup;ForeignResourceGuard=$foreignGuard.Status;ComponentStatus=$component.Status}
+          $evidenceJson=$evidence|ConvertTo-Json -Depth 8
+          $evidenceJson|Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY
+          Write-Host ('SSISDB_EXISTING_RUN_ACCEPTANCE_EVIDENCE: ' + ($evidenceJson -replace '\s+',' '))
+          } catch {
+            $_.Exception.ToString()|Add-Content -LiteralPath $privateLog
+            throw 'SSISDB_EXISTING_RUN_ACCEPTANCE_FAILED: own run retained; private diagnostics remain local.'
           }
 
       - name: Hyper-V lifecycle smoke

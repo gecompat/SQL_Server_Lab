@@ -35,7 +35,7 @@ $componentCases=& {
     foreach($mode in @('present','missing','denied','link','old')){$values[$mode]=Read-SsisComponentObservation}
     $values
 }
-Check 'Echter Komponentenleser trennt fehlend, verweigert, Link und falsche Version' ($componentCases.present -eq 'OBSERVED' -and $componentCases.missing -eq 'NOT_OBSERVED' -and $componentCases.denied -eq 'UNKNOWN' -and $componentCases.link -eq 'UNKNOWN' -and $componentCases.old -eq 'UNKNOWN')
+Check 'Komponentenleser nutzt nur IS-servereigene Dateien und trennt fehlend, verweigert, Link und falsche Version' ($componentCases.present -eq 'OBSERVED' -and $componentCases.missing -eq 'NOT_OBSERVED' -and $componentCases.denied -eq 'UNKNOWN' -and $componentCases.link -eq 'UNKNOWN' -and $componentCases.old -eq 'UNKNOWN')
 foreach($mode in @('online','missing','offline','denied','ordinary-db','query-fault','duplicate')) {
     $table=[Data.DataTable]::new()
     foreach($name in @('Major','Edition','Instance','Sysadmin','State')){$null=$table.Columns.Add($name,[object])}

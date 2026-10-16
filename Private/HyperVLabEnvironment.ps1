@@ -268,17 +268,40 @@ function Resolve-HyperVWindowsActivationExternalSwitch {
         $externalSwitches = @($externalSwitches | Where-Object { [string]$_.Name -eq $ExternalSwitchName })
         if ($externalSwitches.Count -ne 1) { throw 'HYPERV_WINDOWS_ACTIVATION_EXTERNAL_SWITCH_REQUIRED' }
     }
-    $physicalAdapters = @(Get-NetAdapter -Physical -ErrorAction Stop)
-    $usableSwitches = @($externalSwitches | Where-Object {
-        $descriptions = @($_.NetAdapterInterfaceDescription | Where-Object { $_ })
-        @($physicalAdapters | Where-Object {
-            [string]$_.Status -eq 'Up' -and [string]$_.InterfaceDescription -in $descriptions
-        }).Count -gt 0
-    })
-    if ($usableSwitches.Count -eq 0) {
+    $physicalAdapters = @(Get-NetAdapter -Physical -ErrorAction Stop | Where-Object { [string]$_.Status -eq 'Up' })
+    $usableSwitches = foreach ($switch in $externalSwitches) {
+        $descriptions = @($switch.NetAdapterInterfaceDescription | Where-Object { $_ })
+        $boundPhysical = @($physicalAdapters | Where-Object { [string]$_.InterfaceDescription -in $descriptions })
+        if ($boundPhysical.Count -eq 0) { continue }
+        # Hyper-V normally moves the host IPv4 route from the physical NIC to
+        # the vEthernet adapter named for the External switch.  Prefer that
+        # authoritative host uplink and use the physical adapter only on hosts
+        # that do not expose a matching vEthernet adapter.
+        $virtualUplink = @(Get-NetAdapter -Name ("vEthernet ({0})" -f [string]$switch.Name) -ErrorAction SilentlyContinue)
+        $routeAdapters = if ($virtualUplink.Count -eq 1) {
+            @($virtualUplink | Where-Object { [string]$_.Status -eq 'Up' })
+        } else {
+            $boundPhysical
+        }
+        foreach ($adapter in $routeAdapters) {
+            # A link-up adapter is insufficient on hosts with several Ethernet
+            # ports and Wi-Fi. Select only the switch whose physical adapter has
+            # an active IPv4 default route; a disconnected or unrouted NIC must
+            # never become the temporary activation egress path.
+            $routes = @(Get-NetRoute -InterfaceIndex ([int]$adapter.ifIndex) -AddressFamily IPv4 -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue)
+            if ($routes.Count -eq 0) { continue }
+            [PSCustomObject]@{
+                Switch = $switch
+                RouteMetric = [int](@($routes | Sort-Object RouteMetric, InterfaceMetric | Select-Object -First 1)[0].RouteMetric)
+                InterfaceIndex = [int]$adapter.ifIndex
+            }
+        }
+    }
+    $selected = @($usableSwitches | Sort-Object RouteMetric, InterfaceIndex, @{Expression={ [string]$_.Switch.Name }} | Select-Object -First 1)[0]
+    if (-not $selected) {
         throw 'HYPERV_WINDOWS_ACTIVATION_EXTERNAL_ADAPTER_NOT_CONNECTED'
     }
-    return $usableSwitches[0]
+    return $selected.Switch
 }
 
 function Invoke-HyperVWindowsSlotActivation {
@@ -424,12 +447,21 @@ function Invoke-HyperVWindowsSlotActivation {
                 $product = @($products | Select-Object -First 1)[0]
                 if (-not $product) { throw 'WINDOWS_ACTIVATION_PRODUCT_NOT_FOUND' }
                 $activationStage = 'activation-request'
-                try {
-                    $activate = Invoke-CimMethod -InputObject $product -MethodName Activate -ErrorAction Stop
-                }
-                catch {
-                    if ($_.Exception.HResult) { $activationHResult = ('0x{0:X8}' -f [uint32]$_.Exception.HResult) }
-                    throw
+                # The Windows activation endpoint can transiently refuse a newly
+                # attached adapter even after DNS, address, and route checks pass.
+                # Retry precisely once inside the guest; all terminal API errors
+                # remain observable through the existing sanitized receipt.
+                $activationRequestMaxAttempts = 2
+                for ($activationRequestAttempt = 1; $activationRequestAttempt -le $activationRequestMaxAttempts; $activationRequestAttempt++) {
+                    try {
+                        $activate = Invoke-CimMethod -InputObject $product -MethodName Activate -ErrorAction Stop
+                        break
+                    }
+                    catch {
+                        if ($_.Exception.HResult) { $activationHResult = ('0x{0:X8}' -f [uint32]$_.Exception.HResult) }
+                        if ($activationRequestAttempt -ge $activationRequestMaxAttempts) { throw }
+                        Start-Sleep -Seconds 5
+                    }
                 }
                 if ([uint32]$activate.ReturnValue -ne 0) {
                     $activationReturnValue = ('0x{0:X8}' -f [uint32]$activate.ReturnValue)

@@ -575,3 +575,18 @@ Kein automatischer Stop, Retry, Ownershipadoption oder Cleanup-Erfolgsverspreche
 Bestehende eigene Sitzungsführung bleibt separat; SQL bleibt NOT_CHECKED.
 Die Browserführung ist synthetisch geprüft; neue reale Start-/Modell-/TLS-/
 Compute-/Cleanup-Abnahme und ausgewählte Provider-Gates sind NOT_EXECUTED.
+
+## SSISDB-Analysefixtur
+
+Für ein neues Lab ist auch `New-SqlServerLab -Manifest` mit
+`instances[].ssisCatalogFixture` verfügbar. Der normale Manifestzugang in
+Konsole und Browser ruft diesen gleichen Provisionierungsvertrag auf.
+Das [Beispiel](../../Schemas/example-ssis-catalog-fixture.json) verlangt die
+Anpassung der lokalen Medien-/Artifactwerte; Zugangsdaten bleiben separate
+geschützte Parameter. Die vollständige Rückgabe enthält `SsisCatalogFixture`.
+
+`Get-SqlServerLabSsisCatalogCapability` ist über **Alle öffentlichen Befehle** in CLI und Browser erreichbar und prüft ausschließlich eine bereits laufende, eigene Windows-/Hyper-V-Quelle read-only. Der Befehl startet keine VM, erstellt keine SSISDB und startet keine Pakete.
+
+`Install-SqlServerLabSsisComponent` ist der bestätigungspflichtige zweite Schritt. Er ergänzt nur Integration Services auf einem bereits laufenden eigenen Windows-SQL-2025-Run aus der vorhandenen hashgebundenen ISO; die vorhandene SQL-Engine bleibt bestehen. CLI und Browser zeigen denselben generischen Parameterdialog mit Run-, Instanz- und Medienbindung. Nach erfolgreichem Neustart zeigt die Receipt nur Versionen und Cleanup-Scope.
+
+`New-SqlServerLabSsisCatalogFixture -RunId $runId -InstanceId primary` erstellt danach SSISDB sowie Erfolg-, Fehler- und ungestartete Ausführung ausschließlich im eigenen Katalogordner. `Remove-SqlServerLabSsisCatalogFixture` entfernt das quittierte Projekt und danach den leeren Ordner; `Remove-SqlServerLab` entfernt den gesamten Run. [SSISDB-Testfixtur](../Architecture/SSISDB_TEST_FIXTURE.md) und [ausgeführte Windows-Abnahme](../Quality/SSISDB_WINDOWS_RUNTIME_ACCEPTANCE_2026-10-16.md) unterscheiden den öffentlichen Vertrag, tatsächlich geprüfte Pfade und offene Grenzen.

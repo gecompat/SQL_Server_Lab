@@ -35,6 +35,27 @@ on:
         options:
           - lifecycle
           - cli-acceptance
+          - owned-run-recovery
+      root_location:
+        type: choice
+        options: [profile, runner-work]
+        required: false
+      state_id:
+        description: Exact 32-character state directory UUID
+        type: string
+        required: false
+      policy_id:
+        description: Expected ownership policy UUID
+        type: string
+        required: false
+      run_id:
+        description: Exact nonpersistent test RunId
+        type: string
+        required: false
+      provider:
+        type: choice
+        options: [docker, podman]
+        required: false
 
 permissions:
   contents: read
@@ -47,9 +68,12 @@ concurrency:
 
 jobs:
   podman-smoke:
+    if: inputs.mode != 'owned-run-recovery'
     name: Podman provider runtime / CLI acceptance
     runs-on: [self-hosted, SQL_Lab, Podman]
-    timeout-minutes: 45
+    # Full capability qualification exceeded 45 minutes on the owned runner.
+    # Keep a finite 90-minute ceiling; individual native operations stay bounded.
+    timeout-minutes: 90
     outputs:
       validation_classification: ${{ steps.runtime-preflight.outputs.validation_classification }}
       validated_capabilities: ${{ steps.runtime-acceptance.outputs.validated_capabilities }}
@@ -85,7 +109,9 @@ jobs:
             $tools=@(& .\Tools\Initialize-SqlServerLabHostTools.ps1 -Name podman)
             if (@($tools | Where-Object { -not $_.Available }).Count) { throw 'OWNED_HOST_TEST_TOOL_UNAVAILABLE' }
             $module=Import-Module .\SqlServerLab.psd1 -Force -PassThru
-            $stateRoot=Join-Path $env:RUNNER_TEMP ('ci-'+[guid]::NewGuid().ToString('N'))
+            # Runner temp is erased before the next job, including after timeout.
+            # Keep protected ownership receipts available for scoped recovery.
+            $stateRoot=Join-Path (Split-Path $env:RUNNER_TEMP -Parent) ([guid]::NewGuid().ToString('N'))
             $null=Initialize-OwnedHostTestRoot -Module $module -StateRoot $stateRoot -Providers podman -ParentOperationId ([guid]::NewGuid().ToString('D'))
             "SQL_SERVER_LAB_CI_OWN_STATE_ROOT=$stateRoot" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
             sqlcmd -? *>> $logPath
@@ -105,7 +131,7 @@ jobs:
         id: runtime-acceptance
         run: |
           $ErrorActionPreference = 'Stop'
-          $logPath = Join-Path $env:RUNNER_TEMP 'podman-smoke-matrix.private.log'
+          $logPath = Join-Path $env:SQL_SERVER_LAB_CI_OWN_STATE_ROOT 'podman-smoke-matrix.private.log'
           $scope=& .\Tools\Resolve-CiRuntimeScope.ps1 -Provider podman -Capabilities $env:SQL_SERVER_LAB_CI_CAPABILITIES -Mode $env:SQL_SERVER_LAB_CI_MODE
           $selectedCapabilities=@($scope.Capabilities)
           Write-Host ('REQUESTED capabilities: ' + ($selectedCapabilities -join ','))
@@ -239,3 +265,73 @@ jobs:
             if ($acquired) { $mutex.ReleaseMutex() }
             if ($null -ne $mutex) { $mutex.Dispose() }
           }
+
+  owned-run-recovery:
+    if: github.event_name == 'workflow_dispatch' && inputs.mode == 'owned-run-recovery'
+    runs-on: [self-hosted, SQL_Lab, Podman]
+    timeout-minutes: 10
+    env:
+      RECOVERY_LOCATION: ${{ inputs.root_location }}
+      RECOVERY_STATE_ID: ${{ inputs.state_id }}
+      RECOVERY_POLICY_ID: ${{ inputs.policy_id }}
+      RECOVERY_RUN_ID: ${{ inputs.run_id }}
+      RECOVERY_PROVIDER: ${{ inputs.provider }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Recover exactly one receipt-bound nonpersistent CI run
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          try {
+            foreach($name in @('RECOVERY_POLICY_ID','RECOVERY_RUN_ID')) {
+              $value=[Environment]::GetEnvironmentVariable($name)
+              $id=[guid]::Empty
+              if(-not [guid]::TryParseExact($value,'D',[ref]$id) -or $id -eq [guid]::Empty -or $id.ToString('D') -cne $value){throw 'RECOVERY_ID_INVALID'}
+            }
+            $stateId=$env:RECOVERY_STATE_ID
+            if($stateId -cnotmatch '^[0-9a-f]{32}$' -or $stateId -ceq ('0'*32)){throw 'RECOVERY_STATE_ID_INVALID'}
+            if($env:RECOVERY_PROVIDER -cnotin @('docker','podman')){throw 'RECOVERY_PROVIDER_INVALID'}
+            $root=switch -CaseSensitive ($env:RECOVERY_LOCATION) {
+              profile { Join-Path ([Environment]::GetFolderPath([Environment+SpecialFolder]::LocalApplicationData)) ('SqlServerLab/diagnostics/ci-runs/ci-'+$stateId) }
+              runner-work { Join-Path (Split-Path $env:RUNNER_TEMP -Parent) $stateId }
+              default { throw 'RECOVERY_LOCATION_INVALID' }
+            }
+            $null=& ./Tools/Initialize-SqlServerLabHostTools.ps1 -Name $env:RECOVERY_PROVIDER
+            $module=Import-Module ./SqlServerLab.psd1 -Force -PassThru
+            & $module {
+              param($Root,$PolicyId,$RunId,$Provider)
+              $policy=Get-LabOwnedHostPolicy -StateRoot $Root -Required
+              if($policy.PolicyId -cne $PolicyId){throw 'RECOVERY_POLICY_MISMATCH'}
+              $null=Get-LabOwnedHostRunPolicy -RunId $RunId -StateRoot $Root
+              $state=Get-LabRunState -RunId $RunId -StateRoot $Root
+              $plan=Get-Content (Join-Path $Root ('runs/'+$RunId+'/cleanup-plan.json')) -Raw|ConvertFrom-Json -Depth 30
+              if($state.runId -cne $RunId -or $plan.runId -cne $RunId -or $plan.scopeId -cne $state.scopeId -or
+                $state.metadata.persistentData -isnot [bool] -or $state.metadata.persistentData -ne $false -or
+                @($plan.steps).Count -eq 0 -or @($plan.steps|Where-Object {$_.provider -cne $Provider -or $_.resourceType -cnotin @('container','volume')}).Count){throw 'RECOVERY_RUN_SCOPE_INVALID'}
+              $mutex=[Threading.Mutex]::new($false,'Global\SQL_Server_Lab_Runtime_Smoke')
+              $held=$false
+              $log=Join-Path $Root 'owned-ci-recovery.private.log'
+              try {
+                try {$held=$mutex.WaitOne([timespan]::FromMinutes(2))}catch [Threading.AbandonedMutexException]{$held=$true}
+                if(-not $held){throw 'RECOVERY_RUNTIME_MUTEX_TIMEOUT'}
+                # Missing containers can leave a task after an interrupted or
+                # unelevated cleanup. The existing guard verifies its original
+                # policy, intention, script hash, principal and receipt first.
+                Remove-LabOwnedHostAutoStartIfUnused -StateRoot $Root -RunId $RunId -Provider $Provider *> $log
+                Remove-SqlServerLab -RunId $RunId -StateRoot $Root -Force -Confirm:$false *>> $log
+                $final=Get-LabRunState -RunId $RunId -StateRoot $Root
+                if($final.state -cne 'REMOVED'){throw 'RECOVERY_RUN_NOT_REMOVED'}
+                foreach($kind in @('container','volume')) {
+                  $arguments=if($kind -ceq 'container'){@('ps','-a','--filter',('label=sql-server-lab.run-id='+$RunId),'--format','{{.ID}}')}else{@('volume','ls','--filter',('label=sql-server-lab.run-id='+$RunId),'--format','{{.Name}}')}
+                  $remaining=Invoke-LabOwnedHostPinnedCommand -StateRoot $Root -Provider $Provider -Arguments $arguments
+                  if($remaining.ExitCode -ne 0 -or $remaining.Stdout.Trim()){throw 'RECOVERY_NATIVE_RESIDUE'}
+                }
+                $expectedTask='SQL_Server_Lab_Owned_'+$policy.PolicyId.Replace('-','')+'_'+$RunId.Replace('-','')+'_'+$Provider
+                $tasks=@(Get-ScheduledTask -ErrorAction Stop)
+                if(@($tasks|Where-Object {$_.TaskPath -ceq '\' -and $_.TaskName -ceq $expectedTask}).Count){throw 'RECOVERY_TASK_REMAINS'}
+              } finally {if($held){$mutex.ReleaseMutex()};$mutex.Dispose()}
+            } $root $env:RECOVERY_POLICY_ID $env:RECOVERY_RUN_ID $env:RECOVERY_PROVIDER
+            Write-Host 'OWNED_CI_RUN_RECOVERY_SUCCEEDED: no containers, volumes or autostart task remain.'
+          } catch {throw 'OWNED_CI_RUN_RECOVERY_FAILED: inspect protected runner-local diagnostics.'}
