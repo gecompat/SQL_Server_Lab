@@ -744,10 +744,13 @@ foreach ($fixture in @('WorkflowUiCommandGrantsChecks.ps1','WorkflowUiCommandGra
     $process=[Diagnostics.Process]::new();$process.StartInfo=$start
     try {
         $null=$process.Start();$output=$process.StandardOutput.ReadToEndAsync();$errors=$process.StandardError.ReadToEndAsync()
-        $complete=$process.WaitForExit(60000);if (-not $complete) { $process.Kill($true);$process.WaitForExit() }
+        # This two-provider fixture completed all 107 checks in 66 seconds on
+        # the owned host. Preserve every check and bound only this case at 120s.
+        $fixtureTimeoutMs=if($fixture -ceq 'ContainerAutoStartPreviewHttpChecks.ps1'){120000}else{60000}
+        $complete=$process.WaitForExit($fixtureTimeoutMs);if (-not $complete) { $process.Kill($true);$process.WaitForExit() }
         Write-Host $output.GetAwaiter().GetResult()
         $errorText=$errors.GetAwaiter().GetResult()
-        Add-CheckResult -Name $fixture -Success ($complete -and $process.ExitCode -eq 0) -Message $(if ($complete) { $errorText } else { 'Vorschaufixture überschritt 60 Sekunden.' })
+        Add-CheckResult -Name $fixture -Success ($complete -and $process.ExitCode -eq 0) -Message $(if ($complete) { $errorText } else { 'Vorschaufixture überschritt ihr begrenztes Zeitbudget.' })
     } finally { $process.Dispose() }
 }
 

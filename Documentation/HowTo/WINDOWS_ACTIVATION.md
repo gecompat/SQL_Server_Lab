@@ -20,6 +20,7 @@ Eine Hyper-V-Instanz im Manifest kann `windowsActivation` enthalten:
 
 `EvaluationOnline` erlaubt die Aktivierung einer gueltigen Evaluation.
 `VerifyOnly` prueft ausschliesslich die bestehende Aktivierung.
+`NotRequested` überspringt Lizenzprüfung und Aktivierungsnetz vollständig. Es ist nur für einen konkreten Windows-Workload zulässig, der keine Aktivierung voraussetzt; es aktiviert oder verlängert keine Evaluation.
 `ExistingOnly` verwendet nur eine nachgewiesene permanente LAN-/NAT-NIC mit
 IPv4-Adresse und Default-Route. Ihre Adapter-ID, Switch-Bindung, DHCP- und
 DNS-Konfiguration bleiben erhalten. `AllowTemporary` erlaubt zusaetzlich eine

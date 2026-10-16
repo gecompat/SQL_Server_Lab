@@ -434,15 +434,29 @@ sources_of_truth:
   validation_release_artifact: Tests/Static/Invoke-ReleaseArtifactChecks.ps1
   client_readiness: Tools/Test-SqlServerLabClientReadiness.ps1
   ssis_catalog_capability_public: Public/Get-SqlServerLabSsisCatalogCapability.ps1
+  ssis_catalog_fixture_public: Public/New-SqlServerLabSsisCatalogFixture.ps1
   ssis_catalog_capability_core: Private/SsisPrerequisite.ps1
   ssis_catalog_capability_contract: Documentation/Architecture/SSISDB_TEST_FIXTURE.md
   validation_ssis_catalog_capability: Tests/Static/Invoke-SsisCatalogCapabilityChecks.ps1
+  validation_ssis_catalog_fixture: Tests/Static/Invoke-SsisCatalogFixtureChecks.ps1
+  ssis_catalog_fixture_manifest_example: Schemas/example-ssis-catalog-fixture.json
+  ssis_catalog_fixture_manifest_runtime: Public/New-SqlServerLab.ps1
+  ssis_catalog_fixture_manifest_parser: Private/ManifestParser.ps1
+  acceptance_ssis_catalog_fixture: Tests/Integration/Invoke-SsisCatalogFixtureAcceptance.ps1
   ssis_prerequisite_diagnostic: Tools/Test-SqlServerLabSsisPrerequisite.ps1
   ssis_prerequisite_core: Private/SsisPrerequisite.ps1
   ssis_prerequisite_scope: Documentation/Project_Planning/SSIS_ETL_DATA_WAREHOUSE_BACKLOG.md
   validation_ssis_prerequisite: Tests/Static/Invoke-SsisPrerequisiteChecks.ps1
   ssis_owned_install_core: Private/SsisOwnedInstall.ps1
   acceptance_ssis_owned_install: Tests/Integration/Invoke-SsisOwnedInstallAcceptance.ps1
+  acceptance_ssis_fixture_format: Tests/Integration/Invoke-SsisFixtureFormatAcceptance.ps1
+  acceptance_ssis_catalog_management: Tests/Integration/Invoke-SsisCatalogManagementAcceptance.ps1
+  diagnostic_ssis_catalog_owned_run: Tests/Integration/Initialize-SsisCatalogDiagnosticRun.ps1
+  acceptance_ssis_catalog_cleanup_guard: Tests/Integration/Invoke-SsisCatalogCleanupGuardAcceptance.ps1
+  diagnostic_ssis_management_resident: Tests/Integration/Invoke-SsisManagementResidentDiagnostic.ps1
+  diagnostic_ssis_existing_run_observation: Tests/Integration/Get-SsisExistingRunObservation.ps1
+  diagnostic_ssis_legacy_service_isolation: Tests/Integration/Set-SsisOwnedLegacyServiceIsolation.ps1
+  evidence_ssis_catalog_windows: Documentation/Quality/SSISDB_WINDOWS_RUNTIME_ACCEPTANCE_2026-10-16.md
   validation_ssis_owned_install: Tests/Static/Invoke-SsisOwnedInstallChecks.ps1
   repository_capability_inventory: Tools/Get-SqlServerLabCapabilityInventory.ps1
   repository_recorded_acceptance_matrix: Tools/Get-SqlServerLabCapabilityInventory.ps1 # optional 1.1 view; indexed historical tuples only

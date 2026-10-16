@@ -704,6 +704,36 @@ try {
     } $created.RunId $temporaryRoot
     Add-CheckResult -Name 'Hyper-V-Lab öffnet VMConnect nur für die verwaltete VM' -Success ($opened.VMName -eq 'sql-lab-primary-mock' -and $opened.Exists)
 
+    $activationSwitch = & $module {
+        function Get-VMSwitch {
+            @(
+                [PSCustomObject]@{Name='Ethernet External';SwitchType='External';NetAdapterInterfaceDescription='Ethernet NIC'},
+                [PSCustomObject]@{Name='WiFi External';SwitchType='External';NetAdapterInterfaceDescription='WiFi NIC'}
+            )
+        }
+        function Get-NetAdapter {
+            param([string]$Name,[switch]$Physical)
+            if($Name -eq 'vEthernet (Ethernet External)'){
+                [PSCustomObject]@{Status='Up';InterfaceDescription='Hyper-V Virtual Ethernet Adapter';ifIndex=44}
+            } elseif($Name -eq 'vEthernet (WiFi External)'){
+                [PSCustomObject]@{Status='Up';InterfaceDescription='Hyper-V Virtual Ethernet Adapter';ifIndex=52}
+            } else {
+                @(
+                    [PSCustomObject]@{Status='Up';InterfaceDescription='Ethernet NIC';ifIndex=4},
+                    [PSCustomObject]@{Status='Up';InterfaceDescription='WiFi NIC';ifIndex=12}
+                )
+            }
+        }
+        function Get-NetRoute {
+            param($InterfaceIndex,$AddressFamily,$DestinationPrefix)
+            if($InterfaceIndex -eq 52 -and $AddressFamily -eq 'IPv4' -and $DestinationPrefix -eq '0.0.0.0/0'){
+                [PSCustomObject]@{RouteMetric=15;InterfaceMetric=25}
+            }
+        }
+        (Resolve-HyperVWindowsActivationExternalSwitch).Name
+    }
+    Add-CheckResult -Name 'Windows-Aktivierung wählt bei mehreren verbundenen NICs nur den External-Switch mit IPv4-Default-Route' -Success ($activationSwitch -eq 'WiFi External')
+
     $activation = & $module {
         param($RunId, $Root)
         $script:activationRemoteCalls = 0
@@ -717,7 +747,8 @@ try {
         function Get-VMSwitch {
             [PSCustomObject]@{ Id='external-id';Name = 'External Mock'; SwitchType = 'External'; NetAdapterInterfaceDescription = 'Mock Physical NIC' }
         }
-        function Get-NetAdapter { [PSCustomObject]@{ Status = 'Up'; InterfaceDescription = 'Mock Physical NIC' } }
+        function Get-NetAdapter { [PSCustomObject]@{ Status = 'Up'; InterfaceDescription = 'Mock Physical NIC'; ifIndex = 8 } }
+        function Get-NetRoute { param($InterfaceIndex,$AddressFamily,$DestinationPrefix); if($InterfaceIndex -eq 8 -and $AddressFamily -eq 'IPv4' -and $DestinationPrefix -eq '0.0.0.0/0'){[PSCustomObject]@{RouteMetric=10;InterfaceMetric=5}} }
         function Get-VMNetworkAdapter {
             $script:activationAdapterReads++
             $script:activationAdapters

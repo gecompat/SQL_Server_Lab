@@ -945,7 +945,7 @@ $module = New-Module -ArgumentList $repoRoot,$fixtureRoot -ScriptBlock {
         foreach($check in (& $copyFaultFixture {$script:checks})){Assert-Own $check.Passed ('Actual package copy fault intercepts only exact prepared own copy: '+$check.Case)}
         $script:foreignVolume=$false
         $script:syntheticTask=$null;$script:taskRegisters=0;$script:taskDeletes=0
-        function Get-ScheduledTask {param($TaskPath,$TaskName,$ErrorAction) if($script:syntheticTask){$script:syntheticTask}}
+        function Get-ScheduledTask {param($TaskPath,$TaskName,$ErrorAction) if($script:taskQueryFailure){throw 'SYNTHETIC_TASK_QUERY_DENIED'};if($script:syntheticTask){$script:syntheticTask}elseif($TaskPath -and $ErrorAction -ceq 'Stop'){throw 'SYNTHETIC_EMPTY_ROOT_QUERY_NOT_FOUND'}}
         function New-ScheduledTaskAction {param($Execute,$Argument) [pscustomobject]@{Execute=$Execute;Arguments=$Argument;WorkingDirectory=''}}
         function New-ScheduledTaskTrigger {param([switch]$AtLogOn,$User) [pscustomobject]@{UserId=$User;CimClass=[pscustomobject]@{CimClassName='MSFT_TaskLogonTrigger'}}}
         function New-ScheduledTaskPrincipal {param($UserId,$LogonType,$RunLevel) [pscustomobject]@{UserId=$UserId;LogonType=$LogonType;RunLevel=$RunLevel}}
@@ -964,6 +964,21 @@ $module = New-Module -ArgumentList $repoRoot,$fixtureRoot -ScriptBlock {
         Assert-OwnThrows { Remove-LabOwnedHostAutoStartIfUnused -StateRoot $root -RunId $allocated.RunId -Provider docker } 'OWNED_HOST_TASK_BINDING_DRIFT' 'Task mit abweichender Aktion wird nicht entfernt'
         Assert-Own ($script:taskDeletes -eq 0) 'Task-Drift hat zero Unregister-Aufrufe'
         $taskIntent=Read-LabOwnedHostRecord (Join-Path $allocated.RunDir 'owned-host-tasks/docker.intent.json')
+        $taskIntentPath=Join-Path $allocated.RunDir 'owned-host-tasks/docker.intent.json'
+        $taskIntentText=[IO.File]::ReadAllText($taskIntentPath)
+        foreach($field in @('RunId','Provider','PolicyId')) {
+            $beforeTaskIntentTransport=$script:transportCalls
+            $copiedIntent=$taskIntentText|ConvertFrom-Json
+            $copiedIntent.$field=if($field -ceq 'Provider'){'podman'}else{[guid]::NewGuid().ToString('D')}
+            [IO.File]::WriteAllText($taskIntentPath,($copiedIntent|ConvertTo-Json))
+            Assert-OwnThrows { Remove-LabOwnedHostAutoStartIfUnused -StateRoot $root -RunId $allocated.RunId -Provider docker } 'OWNED_HOST_TASK_REQUEST_BINDING_DRIFT' ('Copied task intent cannot change requested '+$field)
+            Assert-Own ($script:taskDeletes -eq 0 -and $script:transportCalls -eq $beforeTaskIntentTransport) ('Intent '+$field+' drift performs no native query or unregister')
+        }
+        [IO.File]::WriteAllText($taskIntentPath,$taskIntentText)
+        $script:taskQueryFailure=$true
+        Assert-OwnThrows { Remove-LabOwnedHostAutoStartIfUnused -StateRoot $root -RunId $allocated.RunId -Provider docker } 'SYNTHETIC_TASK_QUERY_DENIED' 'Task query failure is not confirmed absence'
+        Assert-Own ($script:taskDeletes -eq 0) 'Failed task observation never unregisters'
+        $script:taskQueryFailure=$false
         $script:syntheticTask.Actions[0].Arguments=$taskIntent.Arguments
         $ownerAccount=[Security.Principal.WindowsIdentity]::GetCurrent().Name
         $script:syntheticTask.Principal.UserId=$ownerAccount

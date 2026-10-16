@@ -1,5 +1,36 @@
 # Bekannte Grenzen
 
+## SSISDB: abgenommener Windows-Scope und Grenzen
+
+Der [SSISDB-Vertrag](../Architecture/SSISDB_TEST_FIXTURE.md) unterstützt eigene
+Windows-/Hyper-V-SQL-2025-Runs mit vorhandener Software. Kataloganlage über
+Microsofts `Catalog.Create()`, synthetische ISPAC und öffentlicher Cleanup
+sind implementiert. Die [Windows-Abnahme vom 2026-10-16](SSISDB_WINDOWS_RUNTIME_ACCEPTANCE_2026-10-16.md)
+belegt Existing-Run und Prepared-/Manifest-Neuerstellung mit realen
+Katalogausführungen, Consumer-SQL-Zugang,
+gezieltem Cleanup und Fremdobjektschutz. Sie trennt den erhaltenen Source-Run
+vom neuen Manifest-Run und dessen vollständigem Cleanup. Die Übergabe an
+SQL_Server_Analyze verlangt zusätzlich die Integration nach grünen finalen Checks.
+Linux unterstützt keinen SSISDB-Katalog. CLI und Browser bieten derzeit die
+öffentlichen Cmdlets über ihren gemeinsamen generischen Befehlszugang an.
+Der Manifestweg `instances[].ssisCatalogFixture` ist auf eine Windows-/Hyper-V-
+SQL-2025-Instanz begrenzt. Ein eigener gerenderter SSIS-Fachdialog und andere
+Engine-/Providerkombinationen sind nicht abgenommen. Neue eigene IS-Komponenten-
+installationen deaktivieren den älteren SSIS-Paketverwaltungsdienst, um
+beobachtete DCOM-Starttimeouts zu vermeiden. Bestehende Dienstkonfigurationen
+werden nicht pauschal geändert; ausschlaggebend
+bleiben echte Kataloganlage und -ausführung. Consumerzugang über die geschützte
+Generated-API und gezielter Projekt-/Ordnercleanup sind nativ geprüft.
+Die additive IS-Neuinstallation ist auf SQL 2025 Enterprise Developer begrenzt;
+andere Editionen werden bereits vor Medienanbindung/Setup abgewiesen. Die
+Management-API braucht ihre installierten SMO-/SqlClient-Dateien und die
+Binding-Redirects der IS-Installation. Die echte Loaderprüfung und der
+Katalog-/Ausführungspfad sind auf IS `17.0.1000.7` nativ geprüft. Der Diagnosemodus behält
+einen ausdrücklich neu angeforderten eigenen SQL-/IS-Run für fokussierte
+Folgeversuche; seine quittierte RunId bleibt der vollständige Cleanup-Scope.
+Andere IS-Builds, mutierende SQL-2019-/2022-Pfade, Least-Privilege-Consumer und
+harte Hostausfälle während der Fixtureausführung sind hier nicht abgenommen.
+
 ## Downloads: Streaminggrenze und offene Speicherquoten
 
 Der [gemeinsame Transport](../Architecture/DOWNLOAD_STREAM_LIMITS.md) begrenzt

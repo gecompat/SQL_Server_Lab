@@ -177,9 +177,11 @@ oder beschafft keine Software. Setup ist auf
 SQL-Neustartbereitschaft einschließlich des äußeren PowerShell-Direct-Transports
 auf 600 Sekunden, die getrennten Gastproben auf 90.
 
-Die Abnahme verlangt tatsächlichen SQL-Major 17 und Developer-Edition,
-laufenden SSIS-170-Dienst, passende Dienstdateiversion, weiterhin fehlendes
-SSISDB und dieselben Postconditions nach VM-Neustart. Eigener Run-State und
+Die erste Komponentenprobe verlangt tatsächlichen SQL-Major 17 und Developer-Edition,
+vorhandene IS-170-Dienst-/Serverdateien, weiterhin fehlendes SSISDB und dieselben
+Postconditions nach VM-Neustart. Der ältere Paketverwaltungsdienst muss nicht
+laufen. Danach verwendet dieser interne Installationsketten-Test denselben
+Katalog-/Fixture-Gastkörper wie der Prepared-Pfad. Eigener Run-State und
 Cleanupplan entstehen vor Provideränderungen. Auch bei verlorener
 Erstellungsantwort wird ausschließlich der eindeutig operationseigene Run
 bereinigt; VM-ID und dateigenaue VHDX-Reste werden kontrolliert. Primär- und
@@ -196,19 +198,25 @@ Installationsfehler noch einen getrennten Cleanupfehler.
 Die synthetische Suite `Invoke-SsisOwnedInstallChecks.ps1` prüft Freigabe-,
 Medien-, Argument-, Plan- und Teilfehlerverträge. Echte Installation, Neustart
 und eigenes Runtime-Cleanup sind bis zur separaten nativen Abnahme
-**NOT_EXECUTED**. SSISDB, Packages und ETL bleiben offen; es entsteht keine
-öffentliche Provider- oder Editionsfreigabe.
+**NOT_EXECUTED** für diese getrennte vollständige Installationskette. Die enge
+öffentliche Prepared-/Existing-Run-Abnahme wird nachfolgend separat belegt;
+ETL und weitere Provider-/Editionsfreigaben werden daraus nicht abgeleitet.
 
-**Abhängigkeit für die Wiederaufnahme der Kataloganlage:** Ein vollständiger,
-versions- und hashgebundener Offlinebestand von
-`Microsoft.SqlServer.Management.IntegrationServices` samt Abhängigkeiten ist
-noch nicht belegt. Die allgemeine SSIS-Anleitung nennt Client Tools SDK,
-der versionsbezogene Setupvertrag begrenzt `SDK` jedoch auf SQL 2019 und älter.
-Deshalb werden weder `/FEATURES=SDK` noch ein geratenes SMO-Paket oder
-`LoadWithPartialName` verwendet. Der Beschaffungscheckpoint unten trennt die
-weiterhin offenen Paket-, Host- und Integritätsverträge; erst nach deren
-Klärung folgen gebundener Paketprüfer und Kataloganlage. Quellen: [Setupfeature IS und SDK-Grenze](https://learn.microsoft.com/sql/database-engine/install-windows/install-sql-server-from-the-command-prompt?view=sql-server-ver17),
-[SQL-2025-Editionen](https://learn.microsoft.com/sql/sql-server/editions-and-components-of-sql-server-2025?view=sql-server-ver17),
+**Kataloganlage nach Microsofts Verfahren:** Der gebundene SQL-2025-/IS-170-Pfad
+verwendet seit dem 2026-10-16 `Catalog.Create()` aus der bereits installierten,
+versionsgebundenen `Microsoft.SqlServer.Management.IntegrationServices`-Assembly.
+Ihr Vorhandensein im eigenen IS-2025-Gast wurde beobachtet. Der vorherige manuelle
+Template-Restore entfällt. Es gibt keinen Download, SSMS- oder SDK-Installationsschritt;
+das nur gastlokale Katalogkennwort erfüllt die Komplexitätsrichtlinie. Ein
+vollständiges synthetisches ISPAC mit Projektmanifest und OPC-Content-Types
+wurde vorab mit Microsofts `Project.OpenProject()` gelesen; beide gestarteten
+Pakete lieferten lokal das erwartete Success-/Failure-Ergebnis ohne Datenquelle.
+Die [reale Windows-/SSISDB-Abnahme](../Quality/SSISDB_WINDOWS_RUNTIME_ACCEPTANCE_2026-10-16.md)
+belegt die enge synthetische Analyze-Quelle mit Erfolg-, Fehler- und ungestartetem
+Fall auf SQL/IS `17.0.1000.7` sowie gezieltem Cleanup und Fremdobjektschutz.
+Die nachfolgenden ETL-, Datenquellen- und Beschaffungsszenarien bleiben getrennte
+offene Scopes. Quellen: [SSIS-Katalog](https://learn.microsoft.com/sql/integration-services/catalog/ssis-catalog?view=sql-server-ver17),
+[Setupfeature IS und SDK-Grenze](https://learn.microsoft.com/sql/database-engine/install-windows/install-sql-server-from-the-command-prompt?view=sql-server-ver17),
 [SSIS-Installation](https://learn.microsoft.com/sql/integration-services/install-windows/install-integration-services?view=sql-server-ver17).
 
 ### Beschaffungscheckpoint G: weiterhin offen

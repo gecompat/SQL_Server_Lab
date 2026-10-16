@@ -33,9 +33,168 @@ foreach($case in @('valid','operation','hash','vm','provider','workload','runnin
     Check "Produktbindung $case" ($blocked -eq ($case -ne 'valid'))
 }
 $installerSource=Get-Content -LiteralPath (Join-Path $repoRoot 'Private/SsisOwnedInstall.ps1') -Raw
-Check 'IS-Installationslauf bindet den vorhandenen temporaeren Windows-Aktivierungsmechanismus' ($installerSource -match "WindowsActivation @\{ContractVersion='SqlServerLab\.WindowsActivationIntent/1\.0';Strategy='EvaluationOnline';EgressPolicy='AllowTemporary'\}")
+$editionGuard=([scriptblock]::Create($installerSource)).Ast.Find({param($node)
+    $node -is [Management.Automation.Language.IfStatementAst] -and $node.Extent.Text -match 'SSIS_COMPONENT_ENTERPRISE_DEVELOPER_REQUIRED'
+},$true)
+foreach($edition in @('EnterpriseDeveloper','Developer','StandardDeveloper','Enterprise','UNKNOWN')){
+    $blocked=$false;$preflight=[pscustomobject]@{Edition=$edition}
+    try {& ([scriptblock]::Create($editionGuard.Extent.Text))}catch{$blocked=$_.Exception.Message -eq 'SSIS_COMPONENT_ENTERPRISE_DEVELOPER_REQUIRED'}
+    Check "Tatsächliche Editionsadmission vor Medien/Setup: $edition" ($blocked -eq ($edition -notin @('EnterpriseDeveloper','Developer')))
+}
+$preparedFixtureSource=[regex]::Match($installerSource,'(?s)function Invoke-LabSsisPreparedFixtureRun \{.*?(?=function Invoke-LabSsisOwnedTransaction)').Value
+Check 'IS-Installationslauf fordert keine Windows-Aktivierung und keinen Egress an' ($preparedFixtureSource -match "windowsActivation=\[ordered\]@\{ContractVersion='SqlServerLab\.WindowsActivationIntent/1\.0';Strategy='NotRequested';EgressPolicy='Denied'\}")
+Check 'Langer SSIS-Gasttransport besitzt einen eigenstaendigen Fortschrittsreporter' ($installerSource -match '\$blockingProgress=Start-LabBlockingActionProgress -Phase GuestWait' -and $installerSource -match 'finally \{if\(\$blockingProgress\)\{Stop-LabBlockingActionProgress -Handle \$blockingProgress\}')
 $arguments=@(Get-LabSsisSetupArguments)
-Check 'Setup benötigt keine Dienstsecrets und deaktiviert beide Updatequellen' ($arguments.Count -eq 4 -and $arguments -contains '/UpdateEnabled=False' -and $arguments -contains '/USEMICROSOFTUPDATE=False' -and $arguments -contains '/ISSVCACCOUNT="NT AUTHORITY\NETWORK SERVICE"' -and $arguments -contains '/ISSVCStartupType=Automatic')
+Check 'Setup benötigt keine Dienstsecrets und deaktiviert Updates sowie den für SSISDB unnötigen Legacydienst' ($arguments.Count -eq 4 -and $arguments -contains '/UpdateEnabled=False' -and $arguments -contains '/USEMICROSOFTUPDATE=False' -and $arguments -contains '/ISSVCACCOUNT="NT AUTHORITY\NETWORK SERVICE"' -and $arguments -contains '/ISSVCStartupType=Disabled' -and $installerSource -notmatch '/ISSVCStartupType=Automatic')
+Check 'SSISDB-Fixture erstellt den Katalog über Microsofts installierte, versionsgebundene Management-API' ($installerSource -match 'Microsoft.SqlServer.Management.IntegrationServices, Version=17.0.0.0' -and $installerSource -match '\$catalog.Create\(\)' -and $installerSource -notmatch 'RESTORE DATABASE \[SSISDB\]' -and $installerSource -notmatch '(?i)(Invoke-WebRequest|Start-BitsTransfer|winget|choco|Install-Module)')
+$catalogProbe=Get-LabSsisCatalogFixtureGuestProbe
+$executionGuard=$catalogProbe.Ast.Find({param($n)$n -is [Management.Automation.Language.IfStatementAst] -and $n.Extent.Text -match 'SSIS_FIXTURE_EXECUTION_STATUS_INVALID'},$true)
+foreach($executionCase in @('accepted','pending','unexpected-end')){
+    $success=[int64]1;$failure=[int64]2;$incomplete=[int64]3
+    $states=@{'1'=7;'2'=4;'3'=1}
+    if($executionCase -eq 'pending'){$states['1']=5}
+    if($executionCase -eq 'unexpected-end'){$states['1']=6}
+    $observedError=$null
+    try {& ([scriptblock]::Create($executionGuard.Extent.Text))}catch{$observedError=$_.Exception.Message}
+    $expectedError='SSIS_FIXTURE_EXECUTION_STATUS_INVALID:Success={0};Failure=4;Incomplete=1' -f $states['1']
+    Check "Ausführungsfehler behält sichere numerische Statusdiagnose: $executionCase" $(if($executionCase -eq 'accepted'){-not $observedError}else{$observedError -ceq $expectedError})
+}
+Check 'Lokale Fixture übernimmt keinen globalen Scale-Out-Default' ($installerSource -match '@use32bitruntime=0,@runinscaleout=0,@execution_id=@id OUTPUT')
+$passwordAst=$catalogProbe.Ast.Find({param($n)$n -is [Management.Automation.Language.AssignmentStatementAst] -and $n.Left.Extent.Text -eq '$catalogPassword' -and $n.Right.Extent.Text -match 'NewGuid'},$true)
+$generatedPassword=& { . ([scriptblock]::Create($passwordAst.Extent.Text)); $catalogPassword }
+Check 'Generiertes Katalogkennwort erfüllt alle vier Komplexitätsklassen ohne festen Secretwert' ($generatedPassword.Length -ge 32 -and $generatedPassword -cmatch '[a-z]' -and $generatedPassword -cmatch '[A-Z]' -and $generatedPassword -match '[0-9]' -and $generatedPassword -match '[^a-zA-Z0-9]' -and $installerSource -match 'finally \{[^\r\n]*\$catalogPassword=\$null\}')
+$writerAst=$catalogProbe.Ast.Find({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Write-SsisFixtureProject'},$true)
+. ([scriptblock]::Create($writerAst.Extent.Text))
+$formatDirectory=Join-Path ([IO.Path]::GetTempPath()) ('ssis-opc-'+[guid]::NewGuid().ToString('N'))
+$null=New-Item -ItemType Directory -Path $formatDirectory
+try {
+    $archivePath=Write-SsisFixtureProject -Directory $formatDirectory -ProjectName 'LabStaticFormat'
+    $archive=[IO.Compression.ZipFile]::OpenRead($archivePath)
+    try {
+        $entries=@($archive.Entries.FullName)
+        Check 'Tatsächliche ISPAC enthält OPC-Typen, Projektmanifest, Parameter und genau drei Packages' ($entries.Count -eq 6 -and @('@Project.manifest','[Content_Types].xml','Project.params','Success.dtsx','Failure.dtsx','Incomplete.dtsx'|Where-Object {$_ -cnotin $entries}).Count -eq 0)
+        $reader=[IO.StreamReader]::new($archive.GetEntry('@Project.manifest').Open())
+        try {[xml]$manifestXml=$reader.ReadToEnd()}finally{$reader.Dispose()}
+        $ns=[Xml.XmlNamespaceManager]::new($manifestXml.NameTable);$ns.AddNamespace('s','www.microsoft.com/SqlServer/SSIS')
+        $meta=@($manifestXml.SelectNodes('//s:PackageMetaData',$ns))
+        Check 'Projektmanifest bindet alle Pakete und die von Microsofts Reader benötigten Eigenschaften' ($meta.Count -eq 3 -and @($manifestXml.SelectNodes('//s:Packages/s:Package[@s:EntryPoint="1"]',$ns)).Count -eq 3 -and @($meta|Where-Object { -not $_.SelectSingleNode('s:Properties/s:Property[@s:Name="VersionComments"]',$ns) -or -not $_.SelectSingleNode('s:Properties/s:Property[@s:Name="Description"]',$ns)}).Count -eq 0)
+    } finally {$archive.Dispose()}
+} finally {Remove-Item -LiteralPath $formatDirectory -Recurse -Force}
+$collisionOperation='ssis-install-'+[guid]::NewGuid().ToString('N')
+$collisionDirectory=Join-Path ([IO.Path]::GetTempPath()) ('SqlServerLab-Ssis-'+$collisionOperation.Substring($collisionOperation.Length-12))
+$null=New-Item -ItemType Directory -Path $collisionDirectory -ErrorAction Stop
+$collisionSentinel=Join-Path $collisionDirectory 'synthetic-sentinel'
+[IO.File]::WriteAllText($collisionSentinel,'SYNTHETIC')
+try {
+    $blocked=$false
+    try {& $catalogProbe $collisionOperation $false}catch{$blocked=$true}
+    Check 'Tatsächliche Gastprobe bewahrt ein schon vorhandenes Tempverzeichnis und erreicht keine SQL-Aktion' ($blocked -and [IO.File]::Exists($collisionSentinel))
+} finally {
+    # Only the file created here and its now-empty exact directory; no recursion.
+    [IO.File]::Delete($collisionSentinel)
+    if([IO.Directory]::Exists($collisionDirectory)){[IO.Directory]::Delete($collisionDirectory)}
+}
+Check 'SSISDB verlangt gemäß Microsoft keinen gestarteten Legacy-Paketdienst' ($installerSource -match 'MsDtsServer170' -and $installerSource -match 'LegacyServiceStatus' -and $installerSource -notmatch '\$service\.Start\(\)|\$service\.WaitForStatus\(|SSIS_INSTALL_SERVICE_START_FAILED')
+Check 'SQL-Postcondition wartet nach Neustart lokal und begrenzt auf den Diensttransport' ($installerSource -match '\$sqlDeadline=\[datetime\]::UtcNow\.AddSeconds\(180\)' -and $installerSource -match 'Pooling=False' -and $installerSource -match 'SSIS_INSTALL_SQL_LOCAL_READY_TIMEOUT' -and $installerSource -match 'Start-Sleep -Seconds 5')
+Check 'Der Gasttransport umfasst den begrenzten SQL-Readiness-Retry' ($installerSource -match 'Get-LabSsisInstallGuestProbe\) -TimeoutSeconds 300')
+Check 'SSISDB-Fixture bildet Erfolg, Fehler und ungestarteten Fall über Katalogausführungen ab' ($installerSource -match 'Success\.dtsx' -and $installerSource -match 'Failure\.dtsx' -and $installerSource -match 'Incomplete\.dtsx' -and $installerSource -match '\[catalog\]\.\[create_execution\]' -and $installerSource -match '\[catalog\]\.\[start_execution\]')
+Check 'SSISDB-Fixture bindet Katalognamen und Execution-IDs mit ihren echten SQL-Typen' ($installerSource -match 'SqlDbType\]::NVarChar,128' -and $installerSource -match 'SqlDbType\]::BigInt' -and $installerSource -notmatch 'Invoke-FixtureCommand[\s\S]*SqlDbType\]::Variant')
+Check 'SSISDB-Fixture löscht ausschließlich den eigenen Katalogordner' ($installerSource -match '\[catalog\]\.\[delete_folder\].*@folder_name=@folder' -and $installerSource -notmatch '(?i)(drop database\s+ssisdb|catalog\]\.\[delete_catalog)')
+$cleanupSql=Get-LabSsisFixtureCleanupSql
+Check 'Cleanup beendet nur quittierte aktive Ausführungen vor der Löschung und wartet begrenzt ohne gehaltene Katalogtransaktion' ($cleanupSql.IndexOf('COMMIT TRANSACTION;') -lt $cleanupSql.IndexOf('EXEC [catalog].[stop_operation]') -and $cleanupSql.IndexOf('EXEC [catalog].[stop_operation]') -lt $cleanupSql.IndexOf('EXEC [catalog].[delete_project]') -and $cleanupSql -match 'project_lsn=@currentVersion AND status IN\(2,5\)' -and $cleanupSql -match 'DATEADD\(second,30,SYSUTCDATETIME\(\)\)' -and $cleanupSql -match 'SSIS_FIXTURE_EXECUTION_STOP_NOT_CONFIRMED' -and $cleanupSql -match 'SSIS_FIXTURE_FOREIGN_EXECUTION_RETAINED')
+Check 'Cleanup prüft Ownership nach dem Stoppen erneut, bevor Objekte gelöscht werden' ([regex]::Matches($cleanupSql,'SSIS_FIXTURE_PROJECT_BINDING_CHANGED').Count -eq 4 -and $cleanupSql.LastIndexOf('SSIS_FIXTURE_PROJECT_BINDING_CHANGED') -gt $cleanupSql.IndexOf('stop_operation'))
+Check 'Cleanup verwirft einen konkurrierenden Start auch nach dem Settlement vor der Löschung' ($cleanupSql.LastIndexOf('SSIS_FIXTURE_EXECUTION_STOP_NOT_CONFIRMED') -gt $cleanupSql.LastIndexOf('SSIS_FIXTURE_PROJECT_BINDING_CHANGED') -and $cleanupSql.LastIndexOf('SSIS_FIXTURE_EXECUTION_STOP_NOT_CONFIRMED') -lt $cleanupSql.IndexOf('EXEC [catalog].[delete_project]'))
+$journalDirectory=Join-Path ([IO.Path]::GetTempPath()) ('ssis-journal-'+[guid]::NewGuid().ToString('N'))
+$null=New-Item -ItemType Directory -Path $journalDirectory
+try {
+    $journalCases=& {
+        $id=[guid]::NewGuid()
+        function Read-LabDiagnosticJson {param($Path) Get-Content -LiteralPath $Path -Raw|ConvertFrom-Json}
+        # Execute the real file guard without the unrelated Windows/provider
+        # admission. This regression must run identically on both CI platforms.
+        $creation=(Get-Command Invoke-LabSsisExistingCatalogFixture).ScriptBlock
+        $journalGuard=$creation.Ast.Find({param($node)$node -is [Management.Automation.Language.IfStatementAst] -and $node.Extent.Text -match 'SSIS_FIXTURE_RECOVERY_REQUIRED'},$true)
+        if(-not $journalGuard){throw 'SSIS_JOURNAL_GUARD_MISSING'}
+        $guard=[scriptblock]::Create($journalGuard.Extent.Text)
+        $values=@{}
+        $path=Join-Path $journalDirectory 'ssis-fixture-operation.json'
+        foreach($mode in @('STARTED','FAILED_FINAL_STATE_REQUIRES_INSPECTION','FIXTURE_RECEIPT_RECORDED','REMOVED','FOREIGN')){
+            @{RunId=$(if($mode -eq 'FOREIGN'){[guid]::NewGuid().ToString()}else{$id.ToString()});Status=$(if($mode -eq 'FOREIGN'){'REMOVED'}else{$mode});OperationId='SYNTHETIC_PRESERVE'}|ConvertTo-Json|Set-Content -LiteralPath $path
+            $before=(Get-FileHash -LiteralPath $path).Hash
+            $observed=''
+            $RunId=$id;$operationPath=$path
+            try {& $guard;throw 'SYNTHETIC_SECRET_REACHED'}catch{$observed=$_.Exception.Message}
+            $values[$mode]=[pscustomobject]@{Error=$observed;Preserved=((Get-FileHash -LiteralPath $path).Hash -ceq $before)}
+        }
+        $values
+    }
+    foreach($mode in $journalCases.Keys){
+        $case=$journalCases[$mode]
+        Check "Echtes Recoveryjournal $mode wird vor Secret-/Gastzugriff geprüft und erhalten" ($case.Preserved -and $(if($mode -eq 'REMOVED'){$case.Error -ceq 'SYNTHETIC_SECRET_REACHED'}else{$case.Error -like 'SSIS_FIXTURE_RECOVERY_REQUIRED:*'}))
+    }
+} finally {
+    foreach($name in @('ssis-fixture-operation.json','ssis-fixture-operation.lock')){$path=Join-Path $journalDirectory $name;if(Test-Path -LiteralPath $path){[IO.File]::Delete($path)}}
+    [IO.Directory]::Delete($journalDirectory)
+}
+Check 'Recoveryguard liegt im produktiven Erstellungsablauf vor dem Secret-/Gastzugriff' ($installerSource.IndexOf("throw 'SSIS_FIXTURE_RECOVERY_REQUIRED:") -lt $installerSource.IndexOf("`$guest=Get-LabSecret",$installerSource.IndexOf('function Invoke-LabSsisExistingCatalogFixture')))
+Check 'Projekt wird vor dem leeren Ordner über die offiziellen APIs gelöscht' ($cleanupSql.IndexOf('EXEC [catalog].[delete_project]') -lt $cleanupSql.IndexOf('EXEC [catalog].[delete_folder]') -and $cleanupSql -match 'SSIS_FIXTURE_FOREIGN_RESOURCES_RETAINED' -and $cleanupSql -match 'object_version_lsn' -and $cleanupSql -match 'project_lsn=@currentVersion')
+Check 'Fixture setzt nur das Logging ihrer eigenen Ausführungen explizit auf Basic' ($installerSource -match 'set_execution_parameter_value' -and $installerSource -match "@object_type=50,@parameter_name=N'LOGGING_LEVEL'" -and $installerSource -notmatch '\[catalog\]\.\[configure_catalog\]')
+$cleanupGuards=& {
+    $values=@{};$run=[guid]'11111111-1111-1111-1111-111111111111'
+    function Get-LabSsisPrerequisiteContext { [pscustomobject]@{Directory='synthetic'} }
+    function Read-LabDiagnosticJson {$receipt}
+    function Get-LabSecret {$calls++;throw 'SECRET_MUST_NOT_BE_READ'}
+    foreach($mode in @('folder-token','folder-id','operation','project-token','negative-project','incomplete-project-binding')){
+        $receipt=[pscustomobject]@{RunId=$run.ToString();InstanceId='primary';SourceBinding='OWNED_EXISTING_HYPERV_RUN';OperationId=('ssis-install-'+('a'*32));FolderName=('LabFixture_'+('a'*12));FolderId=1;ProjectName=('LabProject_'+('a'*12));ProjectId=1;ProjectVersionLsn=1}
+        switch($mode){'folder-token'{$receipt.FolderName='LabFixture_'+('b'*12)};'folder-id'{$receipt.FolderId=0};operation{$receipt.OperationId='invalid'};'project-token'{$receipt.ProjectName='LabProject_'+('b'*12)};'negative-project'{$receipt.ProjectId=-1};'incomplete-project-binding'{$receipt.ProjectVersionLsn=0}}
+        $calls=0;$blocked=$false
+        try {Remove-LabSsisExistingCatalogFixture -RunId $run -InstanceId primary -StateRoot synthetic}
+        catch {$blocked=$_.Exception.Message -eq 'SSIS_FIXTURE_CLEANUP_BINDING_INVALID'}
+        $values[$mode]=$blocked -and $calls -eq 0
+    }
+    $values
+}
+foreach($mode in $cleanupGuards.Keys){Check "Gezielter Cleanup verwirft veränderte Receipt vor Secret/Gast: $mode" $cleanupGuards[$mode]}
+$creator=([scriptblock]::Create($installerSource)).Ast.Find({param($node)$node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Invoke-LabSsisExistingCatalogFixture'},$true)
+$creatorTry=@($creator.Body.EndBlock.Statements|Where-Object {$_ -is [Management.Automation.Language.TryStatementAst]})[0]
+$leaseGuard=[scriptblock]::Create(($creatorTry.Body.Statements[0..3].Extent.Text -join "`n"))
+$leaseFinally=[scriptblock]::Create(($creatorTry.Finally.Statements.Extent.Text -join "`n"))
+$leaseDirectory=Join-Path ([IO.Path]::GetTempPath()) ('ssis-lease-'+[guid]::NewGuid().ToString('N'))
+$null=New-Item -ItemType Directory -Path $leaseDirectory
+try {
+    $leaseCases=& {
+        $context=[pscustomobject]@{Directory=$leaseDirectory};$guest=$null;$lease=$null
+        $receiptFile=Join-Path $leaseDirectory 'ssis-fixture-receipt.json'
+        [IO.File]::WriteAllText($receiptFile,'SYNTHETIC_RECEIPT')
+        $duplicate=$false
+        try {. $leaseGuard}catch{$duplicate=$_.Exception.Message -match '^SSIS_FIXTURE_ALREADY_EXISTS'}finally{. $leaseFinally}
+        [IO.File]::Delete($receiptFile)
+        $held=[IO.FileStream]::new((Join-Path $leaseDirectory 'ssis-fixture-operation.lock'),[IO.FileMode]::Open,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)
+        $busy=$false;$lease=$null
+        try {try {. $leaseGuard}catch{$busy=$_.Exception.Message -eq 'SSIS_FIXTURE_OPERATION_IN_PROGRESS_OR_STATE_LOCK_UNAVAILABLE'}}finally{$held.Dispose();. $leaseFinally}
+        $released=$false
+        try {. $leaseGuard;$released=$true}finally{. $leaseFinally}
+        [pscustomobject]@{Duplicate=$duplicate;Busy=$busy;Released=$released}
+    }
+    Check 'Tatsächliche Erstellungs-Lease verhindert Receiptüberschreiben und Parallelität, gibt die Sperre wieder frei' ($leaseCases.Duplicate -and $leaseCases.Busy -and $leaseCases.Released)
+} finally {
+    foreach($name in @('ssis-fixture-receipt.json','ssis-fixture-operation.lock')){$file=Join-Path $leaseDirectory $name;if([IO.File]::Exists($file)){[IO.File]::Delete($file)}}
+    [IO.Directory]::Delete($leaseDirectory)
+}
+$probeTry=@($catalogProbe.Ast.EndBlock.Statements|Where-Object {$_ -is [Management.Automation.Language.TryStatementAst]})[0]
+$probeFinally=[scriptblock]::Create(($probeTry.Finally.Statements.Extent.Text -join "`n"))
+$cleanupFailureCase=& {
+    $events=[Collections.Generic.List[string]]::new()
+    $connection=[pscustomobject]@{Events=$events};$connection|Add-Member -MemberType ScriptMethod -Name Dispose -Value {$this.Events.Add('connection-disposed')}
+    $catalogConnection=[pscustomobject]@{Events=$events}
+    $catalogConnection|Add-Member -MemberType ScriptMethod -Name CreateCommand -Value {throw 'SYNTHETIC_CLEANUP_FAILURE'}
+    $catalogConnection|Add-Member -MemberType ScriptMethod -Name Dispose -Value {$this.Events.Add('catalog-disposed')}
+    $folderCreated=$true;$RetainFolder=$false;$accepted=$false;$temporaryCreated=$false
+    $primaryFailure=[Management.Automation.ErrorRecord]::new([InvalidOperationException]::new('SYNTHETIC_PRIMARY'),'synthetic',[Management.Automation.ErrorCategory]::NotSpecified,$null)
+    & $probeFinally
+    [pscustomobject]@{Primary=$primaryFailure;Events=($events -join ',')}
+}
+Check 'Tatsächliches Gast-finally entsorgt Verbindungen trotz Cleanupfehler und bewahrt Primär-/Recoverybefund' ($cleanupFailureCase.Primary.Exception.Message -eq 'SYNTHETIC_PRIMARY' -and $cleanupFailureCase.Primary.Exception.Data['CleanupFailure'] -eq 'SSIS_FIXTURE_CLEANUP_FAILED' -and $cleanupFailureCase.Primary.Exception.Data['RecoveryRequired'] -and $cleanupFailureCase.Events -eq 'catalog-disposed,connection-disposed')
 
 $temporary=Join-Path ([IO.Path]::GetTempPath()) ('ssis-offline-'+[guid]::NewGuid().ToString('N'))
 $null=New-Item -ItemType Directory -Path $temporary

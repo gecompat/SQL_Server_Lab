@@ -44,7 +44,11 @@ function Get-LabSsisGuestProbe {
             param([ValidateRange(15,17)][int]$ExpectedMajor=17)
             $directory=Join-Path ([Environment]::GetFolderPath('ProgramFiles')) "Microsoft SQL Server/$($ExpectedMajor * 10)/DTS/Binn"
             $status='OBSERVED'
-            foreach ($name in @('DTExec.exe','Microsoft.SqlServer.IntegrationServices.Server.dll')) {
+            # DTExec.exe belongs to shared client runtime on a SQL-engine-only image; it is not evidence of the Integration Services server feature. The service host and server assembly are both feature-owned.
+            # The server feature supplies the service and catalog assembly.  The
+            # fixture writes its portable DTSX documents directly and must not
+            # require a separately installed SSIS development SDK.
+            foreach ($name in @('MsDtsSrvr.exe','Microsoft.SqlServer.IntegrationServices.Server.dll')) {
                 try {
                     $file=Get-Item -LiteralPath (Join-Path $directory $name) -Force -ErrorAction Stop
                     if ($file.PSIsContainer -or ($file.Attributes -band [IO.FileAttributes]::ReparsePoint) -or [int]$file.VersionInfo.FileMajorPart -ne $ExpectedMajor) { return 'UNKNOWN' }

@@ -11,6 +11,9 @@
     FunctionsToExport = @(
         'Get-SqlServerLabExternalRuntimeCapability'
         'Get-SqlServerLabSsisCatalogCapability'
+        'Install-SqlServerLabSsisComponent'
+        'New-SqlServerLabSsisCatalogFixture'
+        'Remove-SqlServerLabSsisCatalogFixture'
         'New-SqlServerLabBatch'
         'Get-SqlServerLabBatch'
         'Get-SqlServerLabQueue'

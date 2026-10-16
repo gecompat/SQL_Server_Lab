@@ -50,7 +50,20 @@ function Stop-LabBlockingActionProgress {
     if($Handle.Borrowed){return}
     try {
         if($Handle.Signal){$Handle.Signal.Set()}
-        if($Handle.Pending){$null=$Handle.Pipeline.EndInvoke($Handle.Pending)}
+        if($Handle.Pending){
+            # A renderer must never keep a completed workflow process alive.
+            # Give its cooperative signal a short bounded drain period, then stop
+            # the private pipeline before releasing the owning runspace.
+            if($Handle.Pending.AsyncWaitHandle.WaitOne(5000)){
+                try {$null=$Handle.Pipeline.EndInvoke($Handle.Pending)}catch [Management.Automation.PipelineStoppedException] {}
+            }
+            else {
+                try {$Handle.Pipeline.Stop()}catch{}
+                if($Handle.Pending.AsyncWaitHandle.WaitOne(2000)){
+                    try {$null=$Handle.Pipeline.EndInvoke($Handle.Pending)}catch [Management.Automation.PipelineStoppedException] {}
+                }
+            }
+        }
     }
     finally {
         if([object]::ReferenceEquals($script:LabBlockingActionHandle,$Handle)){$script:LabBlockingActionHandle=$null}

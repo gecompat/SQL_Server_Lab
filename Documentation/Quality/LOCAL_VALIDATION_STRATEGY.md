@@ -1102,8 +1102,48 @@ auch außerhalb seiner automatischen Auswahl erforderlich.
 
 ## Private Docker-/Podman-CI-Diagnostik
 
+Die vollständige Container-Fähigkeitsmatrix besitzt je Provider ein hartes
+90-Minuten-Joblimit. Beim SSISDB-Abschluss am 2026-10-16 brach das frühere
+45-Minuten-Limit einen noch fortschreitenden Podman-Lauf ab. Einzeloperationen,
+Hostmutex und Testumfang behalten ihre bisherigen Grenzen. Geschützte
+Ownership- und Recoveryzustände liegen deshalb in einem kurzen, frischen
+GUID-Verzeichnis neben `RUNNER_TEMP`, außerhalb des vom Runner vor dem nächsten
+Job gelöschten Tempverzeichnisses. Der zuvor verwendete tiefere Profilpfad
+verursachte bei Docker Desktop einen nicht sichtbaren Backup-Mount (SQL 3201 /
+OS 2); derselbe echte Transfer-Preflight bestand mit kurzem Pfad vollständig.
+Die geschützten Zustände werden nicht hochgeladen. Die einzelnen
+Tests bereinigen weiterhin ihre eigenen Runtime-Ressourcen.
+
+Aufwandsbewertung: Die Pflichtmatrix und ihre Sicherheitsprüfungen bleiben
+unverändert; das größere endliche Jobbudget verhindert einen vorzeitigen Abbruch
+mit anschließendem vollständigem Wiederanlauf. Zwei vorhandene Privacy-Suites
+prüfen Budget und geschützten Statepfad zusätzlich. Die automatische
+Runtime-Matrix wächst dadurch nicht. Der manuelle Recoverymodus wird nur für
+konkrete eigene Abbruchreste ausgeführt; die Taskbindung wurde einmal unabhängig
+nachgeprüft und durch negative Regressionen ergänzt. Lokale
+Recoverymetadaten und private Runtime-Rohlogs bleiben im geschützten Root für
+gezielte Wiederherstellung erhalten. Preflight-Rohlogs bleiben temporär.
+
+Für abgebrochene nichtpersistente Container-CI-Runs besitzt der bestehende
+Podman-Workflow den manuellen Modus `owned-run-recovery`. Er akzeptiert nur
+Roottyp sowie vollständige State-, Policy- und Run-IDs, keine freien Pfade oder
+Shellbefehle. Bestehende geschützte Policy, Run-/Cleanup-Scope, Provider und
+Task-Intent/Receipt werden vor Löschung geprüft. Abweichende Bindungen oder
+fehlgeschlagene Taskabfragen verweigern Erfolg. Der Runner serialisiert die
+Bereinigung mit dem Runtime-Mutex und bestätigt anschließend Runzustand,
+Container-, Volume- und Taskfreiheit. Dadurch entfällt eine lokale UAC-Anfrage.
+
+Die unveränderte synthetische Autostart-HTTP-Fixture führte auf dem eigenen
+Host alle 107 Prüfungen für zwei Provider in 66 Sekunden erfolgreich aus.
+Ihr bisheriger 60-Sekunden-Supervisor brach deshalb den lokalen Abschlusslauf
+vorzeitig ab. Ausschließlich diese Fixture erhält 120 Sekunden; alle anderen
+UI-Fixtures behalten 60 Sekunden. Inhalt, negative Sicherheitsfälle und
+Cleanup werden nicht verkürzt. Dieser zusätzliche Testbudgetbefund erweitert
+keinen Produkt- oder Providervertrag.
+
 Die selbst gehosteten Docker-/Podman-Gates schreiben Preflight- und Testausgaben nur in
-lokale `*.private.log`-Dateien unter `RUNNER_TEMP`. Er lädt keine Rohlogs hoch;
+lokale `*.private.log`-Dateien: Preflight unter `RUNNER_TEMP`, Runtime im eigenen
+geschützten StateRoot. Sie laden keine Rohlogs hoch;
 öffentliche Fehler und Ergebnisse enthalten feste Meldungen ohne übernommene
 Host- oder Ausnahmeinformationen. Die temporären Dateien unterliegen dem
 Cleanup des Runners. Testumfang, Modi, Exitcodeprüfung und Runtime-Sperre bleiben
@@ -4056,3 +4096,30 @@ Inventare nicht als Rohkopien gesichert hatte, bleibt dieser Schutzvergleich
 nicht bestanden; spätere stabile Reads ersetzen ihn nicht. Eigene terminale
 States und Fehlerbelege bleiben lokal erhalten. Dieser Befund wird nicht auf
 die zuvor separat bestandenen Docker-/Podman-Artefaktläufe übertragen.
+
+## SSISDB-Fixture auf Prepared Hyper-V SQL 2025
+
+Die unabhängige Formatabnahme `Tests/Integration/Invoke-SsisFixtureFormatAcceptance.ps1`
+öffnet das vom produktiven Writer erzeugte ISPAC mit Microsofts installiertem
+SSIS-17-`Project.OpenProject()` unter Windows PowerShell. Am 2026-10-16 wurden
+alle drei Entry-Point-Packages mit den erwarteten Forced Results und ohne
+Verbindungen oder Tasks gelesen. SQL und Provider wurden dabei nicht gestartet.
+Diese fokussierte Prüfung findet Paketformatfehler vor einem VM-Gesamtlauf.
+
+Die statischen Verträge für `Install-SqlServerLabSsisComponent`,
+`New-SqlServerLabSsisCatalogFixture` und den gezielten Fixture-Cleanup prüfen
+Prepared-Image-Bindung, hashgebundene lokale Medien, fehlende Beschaffung,
+Run-/Instanz-/VM-Bindung, ausschließliches `IS`-Setup, Neustartverifikation,
+sanitierte Receipts und die drei synthetischen Ausführungsfälle.
+
+Die [Windows-/SSISDB-Abnahme vom 2026-10-16](SSISDB_WINDOWS_RUNTIME_ACCEPTANCE_2026-10-16.md)
+verlinkt die tatsächlich ausgeführten Workflows und ihre geheimnisfreien Receipts.
+Der Existing-Run-Nachweis bestätigt SQL/IS `17.0.1000.7`, drei eigene Fälle mit
+Status 7/4/1, beide Catalog-Views, beobachtete Sysadminrechte, die geschützte
+öffentliche Consumerübergabe und gezielten Cleanup. Ein zusätzlicher synthetischer
+Environment-Sentinel blockierte die Löschung und blieb samt Projekt erhalten;
+anschließend wurde ausschließlich der gebundene Sentinel separat entfernt.
+Der neue Manifest-Run wird mit seinem eigenen vollständigen Cleanup separat
+ausgewiesen. Der letzte Existing-Run bleibt als ausdrückliche Analyze-Quelle
+erhalten. Statische Resultate oder ältere vollständige SQL-Installationsversuche
+ersetzen diese nativen Nachweise und die grünen finalen Integrationschecks nicht.

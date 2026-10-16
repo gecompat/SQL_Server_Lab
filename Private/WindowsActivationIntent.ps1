@@ -10,10 +10,11 @@ function Resolve-LabWindowsActivationIntent {
         if('Strategy' -notin $keys -or 'EgressPolicy' -notin $keys){throw 'WINDOWS_ACTIVATION_INTENT_INCOMPLETE'}
         $strategy=[string]$Intent.Strategy;$egress=[string]$Intent.EgressPolicy
     }
-    $strategies=@('EvaluationOnline','VerifyOnly')
+    $strategies=@('EvaluationOnline','VerifyOnly','NotRequested')
     $policies=@('Denied','ExistingOnly','AllowTemporary')
     if($strategy -notin $strategies){throw 'WINDOWS_ACTIVATION_STRATEGY_UNSUPPORTED'}
     if($egress -notin $policies){throw 'WINDOWS_ACTIVATION_EGRESS_UNSUPPORTED'}
+    if($strategy -eq 'NotRequested' -and $egress -ne 'Denied'){throw 'WINDOWS_ACTIVATION_NOT_REQUESTED_EGRESS_MUST_BE_DENIED'}
     [pscustomobject]@{
         ContractVersion='SqlServerLab.WindowsActivationIntent/1.0'
         Strategy=@($strategies | Where-Object {$_ -eq $strategy})[0]
@@ -26,7 +27,10 @@ function Get-LabWindowsActivationDecision {
     param([Parameter(Mandatory)]$License,[Parameter(Mandatory)]$Intent)
     $normalized=Resolve-LabWindowsActivationIntent -Intent $Intent
     $action='Block';$code='WINDOWS_ACTIVATION_REQUIRED'
-    if([string]$License.State -in @('EVALUATION_ACTIVE','LICENSED')){
+    if($normalized.Strategy -eq 'NotRequested'){
+        $action='NoOp';$code='WINDOWS_ACTIVATION_NOT_REQUESTED'
+    }
+    elseif([string]$License.State -in @('EVALUATION_ACTIVE','LICENSED')){
         if([int]$License.LicenseStatus -ne 1 -or ([string]$License.State -eq 'EVALUATION_ACTIVE' -and [int]$License.EvaluationMinutesRemaining -le 0)){throw 'WINDOWS_ACTIVATION_LICENSE_EVIDENCE_INVALID'}
         $action='NoOp';$code='WINDOWS_ACTIVATION_ALREADY_ACTIVE'
     }

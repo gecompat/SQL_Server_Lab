@@ -49,7 +49,9 @@ jobs:
   docker-smoke:
     name: Docker provider runtime / CLI acceptance
     runs-on: [self-hosted, SQL_Lab, Docker]
-    timeout-minutes: 45
+    # Full capability qualification exceeded 45 minutes on the owned runner.
+    # Keep a finite 90-minute ceiling; individual native operations stay bounded.
+    timeout-minutes: 90
     outputs:
       validation_classification: ${{ steps.runtime-preflight.outputs.validation_classification }}
       validated_capabilities: ${{ steps.runtime-acceptance.outputs.validated_capabilities }}
@@ -85,7 +87,9 @@ jobs:
             $tools=@(& .\Tools\Initialize-SqlServerLabHostTools.ps1 -Name docker)
             if (@($tools | Where-Object { -not $_.Available }).Count) { throw 'OWNED_HOST_TEST_TOOL_UNAVAILABLE' }
             $module=Import-Module .\SqlServerLab.psd1 -Force -PassThru
-            $stateRoot=Join-Path $env:RUNNER_TEMP ('ci-'+[guid]::NewGuid().ToString('N'))
+            # Runner temp is erased before the next job, including after timeout.
+            # Keep protected ownership receipts available for scoped recovery.
+            $stateRoot=Join-Path (Split-Path $env:RUNNER_TEMP -Parent) ([guid]::NewGuid().ToString('N'))
             $null=Initialize-OwnedHostTestRoot -Module $module -StateRoot $stateRoot -Providers docker -ParentOperationId ([guid]::NewGuid().ToString('D'))
             "SQL_SERVER_LAB_CI_OWN_STATE_ROOT=$stateRoot" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
             sqlcmd -? *>> $logPath
@@ -105,7 +109,7 @@ jobs:
         id: runtime-acceptance
         run: |
           $ErrorActionPreference = 'Stop'
-          $logPath = Join-Path $env:RUNNER_TEMP 'docker-smoke-matrix.private.log'
+          $logPath = Join-Path $env:SQL_SERVER_LAB_CI_OWN_STATE_ROOT 'docker-smoke-matrix.private.log'
           $scope=& .\Tools\Resolve-CiRuntimeScope.ps1 -Provider docker -Capabilities $env:SQL_SERVER_LAB_CI_CAPABILITIES -Mode $env:SQL_SERVER_LAB_CI_MODE
           $selectedCapabilities=@($scope.Capabilities)
           Write-Host ('REQUESTED capabilities: ' + ($selectedCapabilities -join ','))
