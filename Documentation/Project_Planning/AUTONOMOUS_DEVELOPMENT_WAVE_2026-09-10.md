@@ -61,15 +61,18 @@ Die [Registry-Gesamtform](../Architecture/AUTHENTICATED_TLS_REGISTRY_DOCUMENT.md
 prüft jetzt offline die exakte Payload-/Index-/Digestzuordnung und vollständige
 Übergänge. Die [lesende Rootbindung](../Architecture/AUTHENTICATED_TLS_REGISTRY_ROOT.md)
 prüft jetzt registrierte Windows-Rootmetadaten und eine bestehende vollständige
-Registrydatei, ohne atomaren Snapshot oder Autorisierung. Nächster Scope ist
-die private Registrytransaktion mit Zugriffsschutz und Crash-/Parallelitätsfällen;
-keine automatische Pfadadoption. Die
+Registrydatei, ohne atomaren Snapshot oder Autorisierung. Vorgezogen ist jetzt
+der [private Windows-CA-Kandidat](../Architecture/AUTHENTICATED_TLS_CA_CANDIDATE.md)
+mit geschützter Ablage, DPAPI-CurrentUser und lesender Trust-Vorschau.
+Er bleibt `UNREGISTERED_UNQUALIFIED`; Registrytransaktion mit Zugriffsschutz
+und Crash-/Parallelitätsfällen bleibt offen, keine automatische Pfadadoption. Die
 Payloadsuite nutzt ausschließlich synthetische native Vorschauen, die
 Dokumentsuite ausschließlich synthetische Bytes im Speicher. Eine getrennte
 direkte Windows-Beobachtung traf alle drei Metadatenbindungen, ohne Root-/
 Trustscopeauflösung oder Registrierung;
-native Target-/Ownership-, Backend-/Keyschutz- und TLS-Abnahme bleiben
-erforderlich, vor mutierender PKI-/Providerumsetzung.
+native Target-/Ownership-, vollständige Backend-/Keyschutz- und TLS-Abnahme
+bleiben erforderlich. Die neue Windows-Kryptosuite erzeugt ausschließlich
+eigene kurzlebige Tempkandidaten und verändert keinen Truststore oder Provider.
 Die authentifizierte TLS-Lab-Abnahme und Toolbelt SC-2026-045 bleiben offen.
 Der Benutzer verlangt ausdrücklich die autonome Fortsetzung bis zur echten
 TLS-Lab-Abnahme und gezielte Fragen bei konkret fehlenden Freigaben.

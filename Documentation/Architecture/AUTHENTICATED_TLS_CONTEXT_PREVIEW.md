@@ -1,5 +1,11 @@
 # Private TLS-Kontextanfrage und Windows-Vorschau
 
+Der getrennte [CA-Kandidat](AUTHENTICATED_TLS_CA_CANDIDATE.md) verwendet den
+internen nativen Prozessreader frisch für seine CurrentUser-DPAPI-/Trust-
+Bindung. Er übernimmt keine Caller-Preview als Autorität. Die Kontextvorschau
+selbst bleibt lesend, unregistriert und ohne Key-/Trustmutation; beobachtete
+Clientbinaries sind weiterhin kein geladener Treiber- oder SQL-Nachweis.
+
 | Merkmal | Wert |
 |---|---|
 | Status | `PRIVATE_METADATA_PREVIEW`; keine Registrierung oder Qualifikation |

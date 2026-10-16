@@ -130,6 +130,16 @@ erhalten aber jeweils eigene Runtime-Evidence.
 | Entwicklungsreife | Eigene isolierte Lab-CA am 2026-10-16 zur Planung ausgewählt; [konkreter Entwurf](TLS_001_ISOLATED_CA_DESIGN.md), D1–D4-Parameter und native Bestandsaufnahme vor Mutation weiter offen |
 | Aktueller Auftrag | Autonome Welle am 2026-10-16 ausdrücklich wieder gestartet; anschließend Fortsetzung bis zur echten TLS-Lab-Abnahme beauftragt, damit Toolbelt SC-2026-045 weiterführen kann. Isolierte Lab-CA ausgewählt; konkrete fehlende Freigaben gezielt anhand reviewbarer Previews klären. Bestehende geschützte Zertifikats-/Trust-/Resolver-/Testzielbindungen bleiben bis zur passenden konkreten Freigabe unverändert |
 
+Aktueller privater Teilschritt ist der
+[Windows-CA-Kandidat mit lesender Trust-Vorschau](../Architecture/AUTHENTICATED_TLS_CA_CANDIDATE.md).
+Er bleibt `UNREGISTERED_UNQUALIFIED`; native lokale Crypto-/ACL-/DPAPI-
+Fixtures ersetzen keine Registrierung, Trustmutation oder TLS-Lab-Abnahme.
+Die allgemeine Registrytransaktion bleibt offen. Toolbelt PR #322 ist am
+2026-10-16 inzwischen gemergt (Merge
+`985b9d8a9df1dad9b1c13e868b7eac0a7758bd6f`); der aktuelle Consumer verlangt
+weiterhin echte Booleans `true`/`false`, System.Data.SqlClient und sqlcmd
+`-N` ohne `-C`. Die authentifizierte Liveabnahme bleibt `NOT_EXECUTED`.
+
 **Istzustand und Vertragslücke.** Die Prüfung der Repositoryquellen am
 2026-10-15 ergibt:
 

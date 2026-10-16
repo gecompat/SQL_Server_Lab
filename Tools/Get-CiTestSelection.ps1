@@ -103,6 +103,7 @@ end {
         @{ Pattern = '^(?-i:Private/AuthenticatedTlsRegistryIndex\.ps1|Private/AuthenticatedTlsRequest\.ps1|Tests/Static/Invoke-AuthenticatedTlsRegistryIndexChecks\.ps1)$'; Checks = @('Invoke-AuthenticatedTlsRegistryIndexChecks.ps1') },
         @{ Pattern = '^(?-i:Private/AuthenticatedTlsRegistryDocument\.ps1|Private/AuthenticatedTlsRegistryIndex\.ps1|Private/AuthenticatedTlsRegistryPayload\.ps1|Private/AuthenticatedTlsRequest\.ps1|Tests/Static/Invoke-AuthenticatedTlsRegistryDocumentChecks\.ps1)$'; Checks = @('Invoke-AuthenticatedTlsRegistryDocumentChecks.ps1') },
         @{ Pattern = '^(?-i:Private/AuthenticatedTlsRegistryRoot\.ps1|Private/AuthenticatedTlsRegistryDocument\.ps1|Private/AuthenticatedTlsRegistryIndex\.ps1|Private/AuthenticatedTlsRegistryPayload\.ps1|Private/AuthenticatedTlsRequest\.ps1|Private/DiagnosticBundleReader\.ps1|Tests/Static/Invoke-AuthenticatedTlsRegistryRootChecks\.ps1)$'; Checks = @('Invoke-AuthenticatedTlsRegistryRootChecks.ps1') },
+        @{ Pattern = '^(?-i:Private/AuthenticatedTlsCaCandidate\.ps1|Private/AuthenticatedTlsRegistryRoot\.ps1|Private/AuthenticatedTlsRegistryPayload\.ps1|Private/AuthenticatedTlsRequest\.ps1|Private/AuthenticatedTlsContext\.ps1|Private/DiagnosticBundleReader\.ps1|Tests/Static/Invoke-AuthenticatedTlsCaCandidateChecks\.ps1)$'; Checks = @('Invoke-AuthenticatedTlsCaCandidateChecks.ps1') },
         @{ Pattern = '^(?-i:Private/AuthenticatedTlsRegistryPayload\.ps1|Private/AuthenticatedTlsRegistryIndex\.ps1|Private/AuthenticatedTlsRequest\.ps1|Private/AuthenticatedTlsContext\.ps1|Private/AuthenticatedTlsBackend\.ps1|Private/DiagnosticBundleReader\.ps1|Private/SqlReadiness\.ps1|Tests/Static/Invoke-AuthenticatedTlsRegistryPayloadChecks\.ps1)$'; Checks = @('Invoke-AuthenticatedTlsRegistryPayloadChecks.ps1') },
         @{ Pattern = '^(?-i:Private/AuthenticatedTlsContext\.ps1|Private/AuthenticatedTlsRequest\.ps1|Private/AuthenticatedTlsBackend\.ps1|Private/DiagnosticBundleReader\.ps1|Private/SqlReadiness\.ps1|Tests/Static/Invoke-AuthenticatedTlsContextChecks\.ps1)$'; Checks = @('Invoke-AuthenticatedTlsContextChecks.ps1') },
         @{ Pattern = '^(?-i:Private/AuthenticatedTlsTarget\.ps1|Private/AuthenticatedTlsRequest\.ps1|Private/DiagnosticBundleReader\.ps1|Private/StateMachine\.ps1|Private/DesiredState\.ps1|Private/StorageContract\.ps1|Private/VersionCatalog\.ps1|Catalogs/sql-server-versions\.json|Tests/Static/Invoke-AuthenticatedTlsTargetChecks\.ps1)$'; Checks = @('Invoke-AuthenticatedTlsTargetChecks.ps1') },
@@ -340,6 +341,9 @@ end {
             $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -cmatch '^Private/AuthenticatedTlsRegistryDocument\.ps1$'
             # Feste lesende Metadatenpfade; keine Registryanlage, SQL- oder Provideraktion.
             $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -cmatch '^Private/AuthenticatedTlsRegistryRoot\.ps1$'
+            # Lokale Windows-Crypto-/DPAPI-/ACL-Fixtures und ReadOnly-Store; kein
+            # reiner Offlinebeleg, aber keine SQL-/Providerprovisionierung.
+            $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -cmatch '^Private/AuthenticatedTlsCaCandidate\.ps1$'
             # Private Vor-Key-Metadaten und lesende Prozessbindung; kein Writer.
             $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -cmatch '^Private/AuthenticatedTlsRegistryPayload\.ps1$'
             # Private Windows-Metadatenvorschau ohne Registrierung/Key/Store/SQL;
