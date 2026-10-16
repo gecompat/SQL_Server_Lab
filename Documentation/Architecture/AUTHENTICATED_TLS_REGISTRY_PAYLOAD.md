@@ -134,7 +134,9 @@ behalten ihre Auswahl. Unabhängiger Review und exakter CI-Pflichtgate bleiben.
 
 Die [Registry-Gesamtform](AUTHENTICATED_TLS_REGISTRY_DOCUMENT.md) prüft jetzt
 offline die exakte Payload-/Index-/Digestzuordnung und vollständige Übergänge.
-Nächster Scope ist die lesende registrierte Controller-/Location-/Rootbindung.
+Die [lesende Rootbindung](AUTHENTICATED_TLS_REGISTRY_ROOT.md) ergänzt jetzt
+registrierte Windows-Rootmetadaten und die bestehende Registrydatei, ohne
+atomaren Snapshot oder Autorität. Nächster Scope ist die private Registrytransaktion.
 Der Writer-/Crashvertrag und
 sämtliche echten Registrierungs-, Key-, Trust- oder Provideraktionen bleiben
 nachgelagert. [Nachweise](../Quality/LOCAL_VALIDATION_STRATEGY.md) und

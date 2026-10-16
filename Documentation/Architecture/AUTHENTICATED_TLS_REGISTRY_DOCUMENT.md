@@ -109,10 +109,11 @@ Eine zusätzliche Provider- oder Modellrunde ist für diese Byteform nicht nöti
 
 Die authentifizierte TLS-Lab-Abnahme ist dadurch nicht erledigt. Insbesondere
 bleibt Toolbelt SC-2026-045 bis zu seinem echten TLS-/Clientnachweis blockiert.
-Root-/Trustscopeauflösung, Dateileser, Registrywriter, persistente Registrierung,
-Keyschutz, Trustimport und SQL-/TLS-Matrix sind weiterhin offen. Nächster
-begrenzter Scope ist der private lesende Resolver für die ausdrücklich
-registrierte Controller-/Location-/Rootbindung mit dieser Gesamtform;
-kein automatisches Anlegen oder Adoptieren einer Registrydatei.
+Die [lesende Rootbindung](AUTHENTICATED_TLS_REGISTRY_ROOT.md) vergleicht jetzt
+registrierte Windows-Rootmetadaten mit einer bestehenden vollständigen
+Registrydatei, ohne atomaren Snapshot oder Autorisierung. Trustscope,
+Registrywriter, persistente Registrierung, Keyschutz, Trustimport und SQL-/
+TLS-Matrix sind weiterhin offen. Nächster Scope ist die private Registrytransaktion
+gemäß Writer-/Crashvertrag; keine automatische Anlage oder Pfadadoption.
 [Nachweise](../Quality/LOCAL_VALIDATION_STRATEGY.md) und
 [Known Limitations](../Quality/KNOWN_LIMITATIONS.md) erhalten diese Grenzen.

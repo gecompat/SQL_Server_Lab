@@ -8,6 +8,11 @@
 | Kanonischer Scope | [TLS-001](NEW_SQL_LAB_USE_CASES_BACKLOG.md#tls-001--authentifizierte-tls-verbindungen-der-testumgebungen) |
 | Freigegebene Richtung | Eigene isolierte Lab-CA; die Auswahl ist keine Import-, Neustart- oder Änderungsfreigabe für bestehende Testziele |
 
+Der Benutzer hat anschließend die autonome Umsetzung bis zur echten TLS-Lab-
+Abnahme ausdrücklich beauftragt, damit Toolbelt SC-2026-045 weiterführen kann.
+Konkrete fehlende Freigaben werden anhand reviewbarer Previews abgefragt;
+die Schutzgrenzen und nachfolgenden einzelnen Mutationsgrenzen bleiben bestehen.
+
 ## Ausgangslage und Aussagegrenze
 
 PR #755 integriert den priorisierten Backlog nach dem abgeschlossenen SSISDB-
@@ -159,8 +164,11 @@ Beobachtung traf alle drei Metadatenbindungen. Root-/Trustscopeauflösung und
 vollständige Binderqualifikation bleiben offen; der Writer-/Crashvertrag bleibt Planung.
 Die [Registry-Gesamtform](../Architecture/AUTHENTICATED_TLS_REGISTRY_DOCUMENT.md)
 prüft jetzt offline die exakte Payload-/Index-/Digestzuordnung und vollständige
-Übergänge. Als Nächstes die lesende registrierte Controller-/Location-/Rootbindung
-mit dieser Gesamtform ausarbeiten; keine automatische Registryanlage oder Pfadadoption.
+Übergänge. Die [lesende Rootbindung](../Architecture/AUTHENTICATED_TLS_REGISTRY_ROOT.md)
+vergleicht jetzt registrierte Windows-Rootmetadaten und eine bestehende Registrydatei.
+Kein atomarer Snapshot oder Autoritätsnachweis. Als Nächstes die private
+Registrytransaktion gemäß Writer-/Crashvertrag umsetzen und mit eigenen
+Crash-/Parallelitätsfixtures prüfen; keine automatische Pfadadoption.
 Registrywrites, Keyschutz, Signierung und Import
 behalten ihre eigenen nachfolgenden Grenzen. Die ursprüngliche Reihenfolge
 darunter bleibt als historische Scopegrenze erhalten.

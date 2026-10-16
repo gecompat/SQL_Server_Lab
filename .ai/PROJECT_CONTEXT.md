@@ -35,9 +35,16 @@ unter Windows getrennt lesend beobachtet; Rootregistrierung, Key-/Trustzustand
 und die vollständige native Qualifikation bleiben ungeprüft.
 Die [Registry-Gesamtform](../Documentation/Architecture/AUTHENTICATED_TLS_REGISTRY_DOCUMENT.md)
 prüft jetzt offline die vollständige Payload-/Index-/Digestzuordnung und
-Dokumentübergänge. Rootbindung, Dateileser und persistente Registrierung
-fehlen weiterhin. Authentifizierte TLS-Lab-Abnahme und Toolbelt SC-2026-045
+Dokumentübergänge. Die [lesende Rootbindung](../Documentation/Architecture/AUTHENTICATED_TLS_REGISTRY_ROOT.md)
+vergleicht jetzt registrierte Windows-Rootmetadaten mit der bestehenden
+Registrydatei; der Befund bleibt nicht atomar und ohne Ausführungsautorität.
+Writer, dauerhafte Registrierung, Trustscope und native Qualifikation fehlen.
+Authentifizierte TLS-Lab-Abnahme und Toolbelt SC-2026-045
 bleiben offen; die Metadatenprüfung hebt diesen Blocker nicht auf.
+Der Benutzer hat die Fortsetzung bis zur echten TLS-Lab-Abnahme ausdrücklich
+beauftragt. Fehlende konkrete Mutationsfreigaben sind gezielt abzufragen;
+unabhängige autorisierte Implementierungsarbeit läuft weiter. Bestehende
+Schutzgrenzen gelten fort.
 
 ## Dokumentationszuständigkeiten
 

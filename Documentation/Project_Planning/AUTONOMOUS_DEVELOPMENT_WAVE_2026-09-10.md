@@ -59,8 +59,11 @@ Tombstones. Der konkretisierte Writer-/Crashvertrag bleibt Planung. Die
 kanonischen Digests und intern frischer Prozessbindung sind implementiert.
 Die [Registry-Gesamtform](../Architecture/AUTHENTICATED_TLS_REGISTRY_DOCUMENT.md)
 prüft jetzt offline die exakte Payload-/Index-/Digestzuordnung und vollständige
-Übergänge. Nächster Scope ist die lesende registrierte Controller-/Location-/
-Rootbindung; keine automatische Registryanlage oder Pfadadoption. Die
+Übergänge. Die [lesende Rootbindung](../Architecture/AUTHENTICATED_TLS_REGISTRY_ROOT.md)
+prüft jetzt registrierte Windows-Rootmetadaten und eine bestehende vollständige
+Registrydatei, ohne atomaren Snapshot oder Autorisierung. Nächster Scope ist
+die private Registrytransaktion mit Zugriffsschutz und Crash-/Parallelitätsfällen;
+keine automatische Pfadadoption. Die
 Payloadsuite nutzt ausschließlich synthetische native Vorschauen, die
 Dokumentsuite ausschließlich synthetische Bytes im Speicher. Eine getrennte
 direkte Windows-Beobachtung traf alle drei Metadatenbindungen, ohne Root-/
@@ -68,6 +71,9 @@ Trustscopeauflösung oder Registrierung;
 native Target-/Ownership-, Backend-/Keyschutz- und TLS-Abnahme bleiben
 erforderlich, vor mutierender PKI-/Providerumsetzung.
 Die authentifizierte TLS-Lab-Abnahme und Toolbelt SC-2026-045 bleiben offen.
+Der Benutzer verlangt ausdrücklich die autonome Fortsetzung bis zur echten
+TLS-Lab-Abnahme und gezielte Fragen bei konkret fehlenden Freigaben.
+Schutzgrenzen bestehen fort; reine Offlinefortschritte beenden diesen Auftrag nicht.
 
 ## Historischer Abschluss vom 2026-10-09
 
