@@ -75,8 +75,11 @@ die erhaltene SSISDB-Quelle und bestehende Exporte werden dabei bewahrt.
 Die anschließenden eigenen [Docker-Ablauf-/Erneuerungsfälle](TLS_WINDOWS_SQL2025_EXPIRY_RENEWAL_2026-10-16.md)
 und die getrennte [Podman-Probe](TLS_PODMAN_WINDOWS_SQL2025_ACCEPTANCE_2026-10-16.md)
 bestanden inzwischen jeweils alle acht Windows-Clientfälle für SQL 2025 CU9.
-Linuxclients, Hyper-V, weitere SQL-Versionen, Trustdrift, TLS-Abbruch/Resume,
-operative Registry und V2-Export bleiben getrennte offene Nachweise.
+Die spätere [Container-Versionsmatrix](TLS_WINDOWS_CONTAINER_VERSION_MATRIX_2026-10-16.md)
+bestand dieselben acht Windows-Clientfälle separat für SQL 2019 CU32 und
+SQL 2022 CU27 mit Docker und Podman, jeweils mit eigenem Cleanup.
+Linuxclients, Hyper-V, Trustdrift, TLS-Abbruch/Resume, operative Registry und
+V2-Export bleiben getrennte offene Nachweise.
 
 Die [Microsoft-Anleitung für SQL Server unter Linux](https://learn.microsoft.com/en-us/sql/linux/security/encrypted-connections?view=sql-server-ver17)
 ist die externe Referenz für den anschließenden nativen SQL-Konfigurationsscope;

@@ -258,7 +258,10 @@ bestand für beide Windows-Stacks mit unvertrauter Kette, echtem Ablauf,
 falschem SAN und Erneuerung mit neuem Key; eigener Cleanup und Bestandsdateien
 sind bestätigt. Die getrennte eigene [Podman-Probe](../Quality/TLS_PODMAN_WINDOWS_SQL2025_ACCEPTANCE_2026-10-16.md)
 bestand dieselben acht Windows-Clientfälle für SQL 2025 CU9 samt Cleanup und
-frischem Bestandsdateivergleich. Vollständige TLS-Matrix, Registry und
+frischem Bestandsdateivergleich. Die nachfolgende [Container-Versionsmatrix](../Quality/TLS_WINDOWS_CONTAINER_VERSION_MATRIX_2026-10-16.md)
+bestand dieselben acht Windows-Clientfälle separat mit Docker und Podman für
+SQL 2019 CU32 und SQL 2022 CU27 samt eigenem Cleanup. Linuxclients, Hyper-V,
+Trustdrift, TLS-Abbruch/Resume, vollständige TLS-Matrix, Registry und
 qualifizierter Export bleiben offen.
 Die noch offenen D1–D4-Parameter
 werden vor dem jeweils betroffenen mutierenden Scope konkret abgenommen.

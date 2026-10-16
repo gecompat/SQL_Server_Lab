@@ -53,7 +53,10 @@ In diesem ersten Lauf waren CLI-Gegenfälle und Ablauf/Renewal noch offen.
 Die [spätere eigene Ablauf-/Erneuerungsprobe](TLS_WINDOWS_SQL2025_EXPIRY_RENEWAL_2026-10-16.md)
 bestand für beide Windows-Stacks mit unvertrauter Kette, echtem Ablauf,
 falscher Identität und Erneuerung mit neuem Key. Trustdrift, Abbruch/Resume,
-weitere SQL-Versionen und Hyper-V bleiben offen; Linuxclients separat.
+Hyper-V bleibt offen; Linuxclients separat. Die spätere
+[Container-Versionsmatrix](TLS_WINDOWS_CONTAINER_VERSION_MATRIX_2026-10-16.md)
+bestand dieselben acht Windows-Clientfälle separat für SQL 2019 CU32 und
+SQL 2022 CU27 mit Docker und Podman, jeweils mit eigenem Cleanup.
 Die [Podman-Probe](TLS_PODMAN_WINDOWS_SQL2025_ACCEPTANCE_2026-10-16.md) belegt
 inzwischen separat dieselben acht Windows-Clientfälle für SQL 2025 CU9.
 Operative Registry, AuthorityRef, qualifizierter V2-Export und Bereitschaft
