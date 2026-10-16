@@ -45,7 +45,7 @@ $preparedFixtureSource=[regex]::Match($installerSource,'(?s)function Invoke-LabS
 Check 'IS-Installationslauf fordert keine Windows-Aktivierung und keinen Egress an' ($preparedFixtureSource -match "windowsActivation=\[ordered\]@\{ContractVersion='SqlServerLab\.WindowsActivationIntent/1\.0';Strategy='NotRequested';EgressPolicy='Denied'\}")
 Check 'Langer SSIS-Gasttransport besitzt einen eigenstaendigen Fortschrittsreporter' ($installerSource -match '\$blockingProgress=Start-LabBlockingActionProgress -Phase GuestWait' -and $installerSource -match 'finally \{if\(\$blockingProgress\)\{Stop-LabBlockingActionProgress -Handle \$blockingProgress\}')
 $arguments=@(Get-LabSsisSetupArguments)
-Check 'Setup benötigt keine Dienstsecrets und deaktiviert beide Updatequellen' ($arguments.Count -eq 4 -and $arguments -contains '/UpdateEnabled=False' -and $arguments -contains '/USEMICROSOFTUPDATE=False' -and $arguments -contains '/ISSVCACCOUNT="NT AUTHORITY\NETWORK SERVICE"' -and $arguments -contains '/ISSVCStartupType=Automatic')
+Check 'Setup benötigt keine Dienstsecrets und deaktiviert Updates sowie den für SSISDB unnötigen Legacydienst' ($arguments.Count -eq 4 -and $arguments -contains '/UpdateEnabled=False' -and $arguments -contains '/USEMICROSOFTUPDATE=False' -and $arguments -contains '/ISSVCACCOUNT="NT AUTHORITY\NETWORK SERVICE"' -and $arguments -contains '/ISSVCStartupType=Disabled' -and $installerSource -notmatch '/ISSVCStartupType=Automatic')
 Check 'SSISDB-Fixture erstellt den Katalog über Microsofts installierte, versionsgebundene Management-API' ($installerSource -match 'Microsoft.SqlServer.Management.IntegrationServices, Version=17.0.0.0' -and $installerSource -match '\$catalog.Create\(\)' -and $installerSource -notmatch 'RESTORE DATABASE \[SSISDB\]' -and $installerSource -notmatch '(?i)(Invoke-WebRequest|Start-BitsTransfer|winget|choco|Install-Module)')
 $catalogProbe=Get-LabSsisCatalogFixtureGuestProbe
 $executionGuard=$catalogProbe.Ast.Find({param($n)$n -is [Management.Automation.Language.IfStatementAst] -and $n.Extent.Text -match 'SSIS_FIXTURE_EXECUTION_STATUS_INVALID'},$true)
@@ -101,6 +101,37 @@ Check 'SSISDB-Fixture bildet Erfolg, Fehler und ungestarteten Fall über Katalog
 Check 'SSISDB-Fixture bindet Katalognamen und Execution-IDs mit ihren echten SQL-Typen' ($installerSource -match 'SqlDbType\]::NVarChar,128' -and $installerSource -match 'SqlDbType\]::BigInt' -and $installerSource -notmatch 'Invoke-FixtureCommand[\s\S]*SqlDbType\]::Variant')
 Check 'SSISDB-Fixture löscht ausschließlich den eigenen Katalogordner' ($installerSource -match '\[catalog\]\.\[delete_folder\].*@folder_name=@folder' -and $installerSource -notmatch '(?i)(drop database\s+ssisdb|catalog\]\.\[delete_catalog)')
 $cleanupSql=Get-LabSsisFixtureCleanupSql
+Check 'Cleanup beendet nur quittierte aktive Ausführungen vor der Löschung und wartet begrenzt ohne gehaltene Katalogtransaktion' ($cleanupSql.IndexOf('COMMIT TRANSACTION;') -lt $cleanupSql.IndexOf('EXEC [catalog].[stop_operation]') -and $cleanupSql.IndexOf('EXEC [catalog].[stop_operation]') -lt $cleanupSql.IndexOf('EXEC [catalog].[delete_project]') -and $cleanupSql -match 'project_lsn=@currentVersion AND status IN\(2,5\)' -and $cleanupSql -match 'DATEADD\(second,30,SYSUTCDATETIME\(\)\)' -and $cleanupSql -match 'SSIS_FIXTURE_EXECUTION_STOP_NOT_CONFIRMED' -and $cleanupSql -match 'SSIS_FIXTURE_FOREIGN_EXECUTION_RETAINED')
+Check 'Cleanup prüft Ownership nach dem Stoppen erneut, bevor Objekte gelöscht werden' ([regex]::Matches($cleanupSql,'SSIS_FIXTURE_PROJECT_BINDING_CHANGED').Count -eq 4 -and $cleanupSql.LastIndexOf('SSIS_FIXTURE_PROJECT_BINDING_CHANGED') -gt $cleanupSql.IndexOf('stop_operation'))
+Check 'Cleanup verwirft einen konkurrierenden Start auch nach dem Settlement vor der Löschung' ($cleanupSql.LastIndexOf('SSIS_FIXTURE_EXECUTION_STOP_NOT_CONFIRMED') -gt $cleanupSql.LastIndexOf('SSIS_FIXTURE_PROJECT_BINDING_CHANGED') -and $cleanupSql.LastIndexOf('SSIS_FIXTURE_EXECUTION_STOP_NOT_CONFIRMED') -lt $cleanupSql.IndexOf('EXEC [catalog].[delete_project]'))
+$journalDirectory=Join-Path ([IO.Path]::GetTempPath()) ('ssis-journal-'+[guid]::NewGuid().ToString('N'))
+$null=New-Item -ItemType Directory -Path $journalDirectory
+try {
+    $journalCases=& {
+        $id=[guid]::NewGuid()
+        function Get-LabSsisPrerequisiteContext {param($RunId,$InstanceId,$StateRoot) [pscustomobject]@{Directory=$journalDirectory} }
+        function Invoke-LabSsisPrerequisite {[pscustomobject]@{Sql='SQL_2025_OBSERVED';DefaultPathComponents='OBSERVED';SsisDb='ONLINE_CATALOG_OBSERVED'} }
+        function Read-LabDiagnosticJson {param($Path) Get-Content -LiteralPath $Path -Raw|ConvertFrom-Json}
+        function Get-LabSecret {throw 'SYNTHETIC_SECRET_REACHED'}
+        $values=@{}
+        $path=Join-Path $journalDirectory 'ssis-fixture-operation.json'
+        foreach($mode in @('STARTED','FAILED_FINAL_STATE_REQUIRES_INSPECTION','FIXTURE_RECEIPT_RECORDED','REMOVED','FOREIGN')){
+            @{RunId=$(if($mode -eq 'FOREIGN'){[guid]::NewGuid().ToString()}else{$id.ToString()});Status=$(if($mode -eq 'FOREIGN'){'REMOVED'}else{$mode});OperationId='SYNTHETIC_PRESERVE'}|ConvertTo-Json|Set-Content -LiteralPath $path
+            $before=(Get-FileHash -LiteralPath $path).Hash
+            $observed=''
+            try {Invoke-LabSsisExistingCatalogFixture -RunId $id -InstanceId primary -StateRoot $journalDirectory}catch{$observed=$_.Exception.Message}
+            $values[$mode]=[pscustomobject]@{Error=$observed;Preserved=((Get-FileHash -LiteralPath $path).Hash -ceq $before)}
+        }
+        $values
+    }
+    foreach($mode in $journalCases.Keys){
+        $case=$journalCases[$mode]
+        Check "Echtes Recoveryjournal $mode wird vor Secret-/Gastzugriff geprüft und erhalten" ($case.Preserved -and $(if($mode -eq 'REMOVED'){$case.Error -ceq 'SYNTHETIC_SECRET_REACHED'}else{$case.Error -like 'SSIS_FIXTURE_RECOVERY_REQUIRED:*'}))
+    }
+} finally {
+    foreach($name in @('ssis-fixture-operation.json','ssis-fixture-operation.lock')){$path=Join-Path $journalDirectory $name;if(Test-Path -LiteralPath $path){[IO.File]::Delete($path)}}
+    [IO.Directory]::Delete($journalDirectory)
+}
 Check 'Projekt wird vor dem leeren Ordner über die offiziellen APIs gelöscht' ($cleanupSql.IndexOf('EXEC [catalog].[delete_project]') -lt $cleanupSql.IndexOf('EXEC [catalog].[delete_folder]') -and $cleanupSql -match 'SSIS_FIXTURE_FOREIGN_RESOURCES_RETAINED' -and $cleanupSql -match 'object_version_lsn' -and $cleanupSql -match 'project_lsn=@currentVersion')
 Check 'Fixture setzt nur das Logging ihrer eigenen Ausführungen explizit auf Basic' ($installerSource -match 'set_execution_parameter_value' -and $installerSource -match "@object_type=50,@parameter_name=N'LOGGING_LEVEL'" -and $installerSource -notmatch '\[catalog\]\.\[configure_catalog\]')
 $cleanupGuards=& {

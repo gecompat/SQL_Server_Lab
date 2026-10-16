@@ -60,7 +60,7 @@ function Open-LabSsisApprovedMedia {
 function Get-LabSsisSetupArguments {
     [CmdletBinding()]
     param()
-    @('/UpdateEnabled=False','/USEMICROSOFTUPDATE=False','/ISSVCACCOUNT="NT AUTHORITY\NETWORK SERVICE"','/ISSVCStartupType=Automatic')
+    @('/UpdateEnabled=False','/USEMICROSOFTUPDATE=False','/ISSVCACCOUNT="NT AUTHORITY\NETWORK SERVICE"','/ISSVCStartupType=Disabled')
 }
 
 # Installs only the Integration Services server feature into an already bound
@@ -94,7 +94,7 @@ function Get-LabSsisComponentGuestInstall {
             $arguments=@('/Q','/ACTION=Install','/FEATURES=IS','/INSTANCENAME=MSSQLSERVER',
                 '/IACCEPTSQLSERVERLICENSETERMS','/INDICATEPROGRESS','/UpdateEnabled=False',
                 '/USEMICROSOFTUPDATE=False','/ISSVCACCOUNT="NT AUTHORITY\NETWORK SERVICE"',
-                '/ISSVCStartupType=Automatic')
+                '/ISSVCStartupType=Disabled')
             $root=Join-Path $env:ProgramData 'SqlServerLab\SsisOperations'
             $null=New-Item -ItemType Directory -Force -Path $root
             $configPath=Join-Path $root ($OperationId+'.json');$workerPath=Join-Path $root ($OperationId+'.ps1')
@@ -403,6 +403,7 @@ function Get-LabSsisInstallGuestProbe {
             } finally {if($reader){$reader.Dispose()};if($command){$command.Dispose()}}
         }
         $service=Get-Service -Name MsDtsServer170 -ErrorAction Stop
+        if([string]$service.StartType -ne 'Disabled'){throw 'SSIS_INSTALL_LEGACY_SERVICE_STARTUP_INVALID'}
         # MsDtsServer is the legacy package-store management service. Microsoft
         # explicitly does not require it to create or execute packages. The
         # SSISDB path proves the server binaries, SQL and real catalog execution;
@@ -422,7 +423,7 @@ function Get-LabSsisInstallGuestProbe {
             $connection=[Data.SqlClient.SqlConnection]::new('Data Source=localhost;Initial Catalog=master;Integrated Security=SSPI;Connect Timeout=15;Encrypt=False;Pooling=False')
             try {
                 $connection.Open();Read-SsisInstalledSql -Connection $connection
-                return [pscustomobject]@{Status='IS_COMPONENTS_AND_SQL_VERIFIED';LegacyServiceStatus=[string]$service.Status;BootTime=(Get-CimInstance Win32_OperatingSystem -ErrorAction Stop).LastBootUpTime.ToUniversalTime().ToString('o')}
+                return [pscustomobject]@{Status='IS_COMPONENTS_AND_SQL_VERIFIED';LegacyServiceStatus=[string]$service.Status;LegacyServiceStartup=[string]$service.StartType;BootTime=(Get-CimInstance Win32_OperatingSystem -ErrorAction Stop).LastBootUpTime.ToUniversalTime().ToString('o')}
             } catch {
                 $lastSqlError=$_.Exception
             } finally {$connection.Dispose()}
@@ -436,16 +437,13 @@ function Get-LabSsisInstallGuestProbe {
 # Catalog.Create uses the management assembly shipped by IS, as documented by
 # Microsoft. No download, compiler, or external data source participates.
 function Get-LabSsisFixtureCleanupSql {
-    @'
-SET XACT_ABORT ON;
-SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
-BEGIN TRANSACTION;
+    $ownershipGuard=@'
 IF NOT EXISTS(SELECT 1 FROM [catalog].[folders] WHERE name=@folder AND folder_id=@folderId)
     THROW 51000,'SSIS_FIXTURE_FOLDER_BINDING_CHANGED',1;
 IF EXISTS(SELECT 1 FROM [catalog].[projects] WHERE folder_id=@folderId AND name<>@project)
    OR EXISTS(SELECT 1 FROM [catalog].[environments] WHERE folder_id=@folderId)
     THROW 51000,'SSIS_FIXTURE_FOREIGN_RESOURCES_RETAINED',1;
-DECLARE @currentId bigint, @currentVersion bigint;
+SET @currentId=NULL; SET @currentVersion=NULL;
 SELECT @currentId=project_id,@currentVersion=object_version_lsn
 FROM [catalog].[projects] WHERE folder_id=@folderId AND name=@project;
 IF @currentId IS NOT NULL
@@ -458,11 +456,60 @@ BEGIN
        (SELECT COUNT(*) FROM [catalog].[executions] WHERE execution_id IN (@success,@failure,@incomplete)
         AND folder_name=@folder AND project_name=@project AND project_lsn=@currentVersion)<>3
         THROW 51000,'SSIS_FIXTURE_PROJECT_BINDING_CHANGED',1;
-    EXEC [catalog].[delete_project] @folder_name=@folder,@project_name=@project;
 END;
+IF EXISTS(SELECT 1 FROM [catalog].[executions] WHERE folder_name=@folder AND project_name=@project
+          AND status IN(2,5,8) AND execution_id NOT IN(@success,@failure,@incomplete))
+    THROW 51000,'SSIS_FIXTURE_FOREIGN_EXECUTION_RETAINED',1;
+'@
+    # Validate ownership before stopping anything, then release catalog locks so
+    # the native executors can settle. Revalidate after settlement before delete.
+    @"
+SET XACT_ABORT ON;
+SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+DECLARE @currentId bigint, @currentVersion bigint;
+BEGIN TRANSACTION;
+$ownershipGuard
+COMMIT TRANSACTION;
+SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+DECLARE @stopId bigint;
+DECLARE own_executions CURSOR LOCAL STATIC READ_ONLY FOR
+    SELECT execution_id FROM [catalog].[executions]
+    WHERE execution_id IN(@success,@failure,@incomplete) AND folder_name=@folder
+      AND project_name=@project AND project_lsn=@currentVersion AND status IN(2,5);
+OPEN own_executions;
+FETCH NEXT FROM own_executions INTO @stopId;
+WHILE @@FETCH_STATUS=0
+BEGIN
+    IF EXISTS(SELECT 1 FROM [catalog].[executions] WHERE execution_id=@stopId AND status IN(2,5))
+    BEGIN TRY
+        EXEC [catalog].[stop_operation] @operation_id=@stopId;
+    END TRY
+    BEGIN CATCH
+        -- A naturally completed execution can race the stop request. Only its
+        -- observed terminal state makes that race harmless; otherwise retain it.
+        IF EXISTS(SELECT 1 FROM [catalog].[executions] WHERE execution_id=@stopId AND status IN(2,5,8)) THROW;
+    END CATCH;
+    FETCH NEXT FROM own_executions INTO @stopId;
+END;
+CLOSE own_executions; DEALLOCATE own_executions;
+DECLARE @settleDeadline datetime2=DATEADD(second,30,SYSUTCDATETIME());
+WHILE EXISTS(SELECT 1 FROM [catalog].[executions] WHERE execution_id IN(@success,@failure,@incomplete)
+             AND folder_name=@folder AND project_name=@project AND status IN(2,5,8))
+BEGIN
+    IF SYSUTCDATETIME()>=@settleDeadline THROW 51000,'SSIS_FIXTURE_EXECUTION_STOP_NOT_CONFIRMED',1;
+    WAITFOR DELAY '00:00:00.250';
+END;
+SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+BEGIN TRANSACTION;
+$ownershipGuard
+IF EXISTS(SELECT 1 FROM [catalog].[executions] WHERE execution_id IN(@success,@failure,@incomplete)
+          AND folder_name=@folder AND project_name=@project AND status IN(2,5,8))
+    THROW 51000,'SSIS_FIXTURE_EXECUTION_STOP_NOT_CONFIRMED',1;
+IF @currentId IS NOT NULL
+    EXEC [catalog].[delete_project] @folder_name=@folder,@project_name=@project;
 EXEC [catalog].[delete_folder] @folder_name=@folder;
 COMMIT TRANSACTION;
-'@
+"@
 }
 
 function Get-LabSsisCatalogFixtureGuestProbe {
@@ -748,9 +795,19 @@ function Invoke-LabSsisExistingCatalogFixture {
         if((Test-Path -LiteralPath $leasePath) -and ((Get-Item -LiteralPath $leasePath -Force).Attributes -band [IO.FileAttributes]::ReparsePoint)){throw 'SSIS_FIXTURE_STATE_LOCK_INVALID'}
         try {$lease=[IO.FileStream]::new($leasePath,[IO.FileMode]::OpenOrCreate,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)}catch{throw 'SSIS_FIXTURE_OPERATION_IN_PROGRESS_OR_STATE_LOCK_UNAVAILABLE'}
         if(Test-Path -LiteralPath (Join-Path $context.Directory 'ssis-fixture-receipt.json')){throw 'SSIS_FIXTURE_ALREADY_EXISTS: Remove the bound fixture before creating another.'}
+        $operationPath=Join-Path $context.Directory 'ssis-fixture-operation.json'
+        if(Test-Path -LiteralPath $operationPath){
+            $previousOperation=Read-LabDiagnosticJson -Path $operationPath
+            if([string]$previousOperation.RunId -cne $RunId.ToString() -or [string]$previousOperation.Status -cne 'REMOVED'){
+                throw 'SSIS_FIXTURE_RECOVERY_REQUIRED: Preserve the previous operation binding and inspect or remove its exact owned run.'
+            }
+        }
         $guest=Get-LabSecret -Path $context.Directory -Name 'guest-administrator-password'
         if(-not $guest){throw 'SSIS_FIXTURE_GUEST_CREDENTIAL_REQUIRED'}
         $operationId='ssis-install-'+[guid]::NewGuid().ToString('N')
+        $operationRecord=[ordered]@{RunId=$RunId.ToString();ScopeId=[string]$context.Run.scopeId;InstanceId=$InstanceId;VmId=[string]$context.Instance.vmId;OperationId=$operationId;FolderName=('LabFixture_'+$operationId.Substring($operationId.Length-12));ProjectName=('LabProject_'+$operationId.Substring($operationId.Length-12));Status='STARTED';Recovery='REMOVE_EXACT_OWNED_RUN_OR_INSPECT_BOUND_PROJECT'}
+        Write-LabArtifactJsonAtomic -Path $operationPath -InputObject $operationRecord
+        try {
         $result=@(Invoke-HyperVPowerShellDirect -VMName ([string]$context.Instance.vmName) -ExpectedRunId $RunId.ToString() `
             -ExpectedScopeId ([string]$context.Run.scopeId) -ExpectedVmId ([guid]$context.Instance.vmId) `
             -Credential ([PSCredential]::new('Administrator',$guest)) -ScriptBlock (Get-LabSsisCatalogFixtureGuestProbe) `
@@ -762,7 +819,18 @@ function Invoke-LabSsisExistingCatalogFixture {
         $fixture | Add-Member -NotePropertyName InstanceId -NotePropertyValue $InstanceId -Force
         $fixture | Add-Member -NotePropertyName SourceBinding -NotePropertyValue 'OWNED_EXISTING_HYPERV_RUN' -Force
         Write-LabArtifactJsonAtomic -Path (Join-Path $context.Directory 'ssis-fixture-receipt.json') -InputObject $fixture
+        $operationRecord.Status='FIXTURE_RECEIPT_RECORDED'
+        Write-LabArtifactJsonAtomic -Path $operationPath -InputObject $operationRecord
         return $fixture
+        } catch {
+            $primaryFailure=$_
+            $operationRecord.Status='FAILED_FINAL_STATE_REQUIRES_INSPECTION'
+            try {Write-LabArtifactJsonAtomic -Path $operationPath -InputObject $operationRecord}
+            catch {$primaryFailure.Exception.Data['EvidenceFailure']='SSIS_FIXTURE_OPERATION_JOURNAL_WRITE_FAILED'}
+            $primaryFailure.Exception.Data['OperationId']=$operationId
+            $primaryFailure.Exception.Data['RecoveryRequired']=$true
+            throw $primaryFailure
+        }
     }
     finally {if($guest){$guest.Dispose()};if($lease){$lease.Dispose()}}
 }
@@ -812,6 +880,13 @@ function Remove-LabSsisExistingCatalogFixture {
                 } finally {$connection.Dispose()}
             })
         if($result.Count -ne 1 -or [string]$result[0].Status -ne 'REMOVED'){throw 'SSIS_FIXTURE_CLEANUP_FAILED'}
+        $operationPath=Join-Path $context.Directory 'ssis-fixture-operation.json'
+        if(Test-Path -LiteralPath $operationPath){
+            $operationRecord=Read-LabDiagnosticJson -Path $operationPath
+            if([string]$operationRecord.RunId -cne $RunId.ToString() -or [string]$operationRecord.OperationId -cne [string]$receipt.OperationId){throw 'SSIS_FIXTURE_OPERATION_JOURNAL_BINDING_CHANGED'}
+            $operationRecord.Status='REMOVED'
+            Write-LabArtifactJsonAtomic -Path $operationPath -InputObject $operationRecord
+        }
         Remove-Item -LiteralPath $receiptPath -Force -ErrorAction Stop
         return [pscustomobject]@{RunId=$RunId.ToString();InstanceId=$InstanceId;Status='REMOVED';Cleanup='CATALOG_FOLDER_CLEANUP_SUCCEEDED'}
     }
