@@ -2,7 +2,7 @@
 
 | Merkmal | Wert |
 |---|---|
-| Status | `DESIGN_PROPOSAL` mit privatem Windows-CA-Kandidaten; keine authentifizierte TLS-Abnahme |
+| Status | Private CA-/CSR-/Trustimplementierung und konkrete native CA-Trust-Abnahme; keine authentifizierte SQL-TLS-Abnahme |
 | Stand | 2026-10-16 |
 | Auftrag | Autonome Entwicklung ausdrücklich wiederaufgenommen; eigene isolierte Lab-CA mit ausdrücklich freizugebendem Client-Trust planen |
 | Kanonischer Scope | [TLS-001](NEW_SQL_LAB_USE_CASES_BACKLOG.md#tls-001--authentifizierte-tls-verbindungen-der-testumgebungen) |
@@ -237,8 +237,16 @@ DPAPI-/ACL-Fixtures. Ein eigener dauerhafter CA-Kandidat außerhalb der Tests
 ist inzwischen lokal angelegt und mit frischer lesender Trustvorschau geprüft;
 reale Runtimeidentitäten bleiben privat. Die Importtransaktion ist mit eigenen
 Datei-/ACL-/Lockfixtures und injizierten Storegrenzen geprüft. Der echte
-Trustversuch blieb nach Timeout unbestätigt und verlangt lesende Recovery.
+erste Trustversuch blieb nach Timeout unbestätigt. Die später separat geprüfte
+[sichtbare Recovery](../Quality/TLS_CA_TRUST_ACCEPTANCE_2026-10-16.md) bestand
+inzwischen mit Exitcode 0 und frischer exakter Trustnachbeobachtung;
+`RECOVERY_IMPORT_RECORDED`, Originalintent bytegleich und kein verbleibender Lock.
 Die eigene temporäre CSR-Kryptofixture belegt keine operative SQL-Bindung;
-Clientverbindungen und die gesamte TLS-Matrix bleiben `NOT_EXECUTED`.
+Die erste eigene Docker-SQL-2025-Probe belegte anschließend die Ablehnung der
+unvertrauten Kette vor SQL-Arbeit. Nach Ablehnung des realen OpenSSL-CSRs
+wurde nur der eigene Run vollständig entfernt; Bestandsdateien blieben gleich.
+Die korrigierte feste UTF8-Subjectform besteht den erhaltenen öffentlichen
+CSR-Readercheck ohne Key-/Store-/Runtimezugriff. Positive Clientverbindungen
+und die gesamte TLS-Matrix bleiben `NOT_EXECUTED`.
 Die noch offenen D1–D4-Parameter
 werden vor dem jeweils betroffenen mutierenden Scope konkret abgenommen.

@@ -3,7 +3,7 @@
 | Merkmal | Wert |
 |---|---|
 | Slice | `TLS001-TRUST-RECOVERY-01` |
-| Status | `PRIVATE`; native Ausführung dieser Recovery `NOT_EXECUTED` |
+| Status | `PRIVATE`; konkrete native CA-Trust-Recovery erfolgreich; SQL-TLS-Abnahme offen |
 | Implementierung | [`AuthenticatedTlsTrustRecovery.ps1`](../../Private/AuthenticatedTlsTrustRecovery.ps1) |
 | Prüfung | [`Invoke-AuthenticatedTlsTrustRecoveryChecks.ps1`](../../Tests/Static/Invoke-AuthenticatedTlsTrustRecoveryChecks.ps1) |
 
@@ -119,9 +119,12 @@ Der tatsächlich einmal gestartete ursprüngliche Importworker wurde nach
 passender Originalintent, kein Commit/Lock, Status `RECOVERY_REQUIRED` und
 kein passender alter Worker beobachtet. Der Benutzer meldet keinen sichtbaren
 Dialog und wählt ein sichtbares Fenster nach geprüfter Recovery für dieselbe
-bereits freigegebene CA. Diese neue Recovery wurde noch nicht ausgeführt.
-Der spätere geschützte sichtbare Adapter ist ein eigener reviewpflichtiger
-Ausführungsscope nach Integration. Die Implementierungsprüfung verwendet nur
+bereits freigegebene CA. Die spätere separat geprüfte sichtbare Recovery
+bestand inzwischen: Exitcode 0, frische exakte CA-Anwesenheit und zentraler
+Status `RECOVERY_IMPORT_RECORDED`, ursprünglicher Intent bytegleich und kein
+ursprünglicher Commit oder verbleibender Lock. Die [bereinigte native Evidence](../Quality/TLS_CA_TRUST_ACCEPTANCE_2026-10-16.md)
+trennt diesen tatsächlichen Befund von den Implementierungsprüfungen.
+Die Implementierungsprüfung verwendet nur
 eigene synthetische geschützte Datei-/ACL-/Lockfixtures mit injizierter
 Storegrenze; kein realer Kandidat, Journal oder Store wird dabei gelesen.
 Registrierung, SQL-Bindung, native Client-/Provider- und TLS-Abnahme bleiben offen.

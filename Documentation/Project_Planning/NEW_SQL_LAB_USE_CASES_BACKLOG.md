@@ -161,7 +161,15 @@ konkretisiert jetzt den gültigen ursprünglichen Intent ohne normalen Commit:
 Originalbytes bleiben erhalten, frische Preview bindet separate Adapterevidence,
 ein Recoveryintent begrenzt den neuen Versuch. Bereits vorhandener Trust bleibt
 unattributiert; unklare Recovery darf nicht wiederholt werden. Die tatsächliche
-sichtbare Adapterausführung bleibt getrennt und `NOT_EXECUTED`.
+sichtbare Adapterausführung ist getrennt belegt: Die
+[native Trust-Recovery](../Quality/TLS_CA_TRUST_ACCEPTANCE_2026-10-16.md)
+bestand mit Exitcode 0, frischem exaktem Trust und `RECOVERY_IMPORT_RECORDED`.
+Originalintent bytegleich, kein ursprünglicher Commit und kein verbleibender Lock.
+Der erste eigene Docker-SQL-2025-Lauf belegte die Ablehnung der unvertrauten
+Kette vor SQL-Arbeit und vollständiges Cleanup ohne Bestandsdateidrift;
+die OpenSSL-CSR-Subjectkodierung wird jetzt eng zusätzlich akzeptiert.
+Positive SQL-TLS-Proben, operative Registry, vollständige Client-/Providermatrix
+und SC-2026-045 bleiben davon getrennt offen.
 
 **Istzustand und Vertragslücke.** Die Prüfung der Repositoryquellen am
 2026-10-15 ergibt:

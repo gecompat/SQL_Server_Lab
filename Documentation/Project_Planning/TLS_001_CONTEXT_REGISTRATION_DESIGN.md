@@ -204,6 +204,9 @@ unaufgelöst. Die [private einmalige Trust-Recovery](../Architecture/AUTHENTICAT
 ergänzt eigene Records außerhalb der Kandidatendateien und erhält Originalowner,
 Preview und Intent unverändert. Sie ist kein Registrywriter, kein allgemeines
 Rearm und kein Ersatz für tatsächliche Human-/UI-/Workerprüfung im Adapter.
-Ihre native Ausführung bleibt `NOT_EXECUTED`. Referenzen bleiben weiterhin
+Ihre spätere [native sichtbare Ausführung](../Quality/TLS_CA_TRUST_ACCEPTANCE_2026-10-16.md)
+bestand mit Exitcode 0, frischem exaktem Trust, `RECOVERY_IMPORT_RECORDED`
+und unverändertem Originalintent, ohne ursprünglichen Commit oder verbleibenden Lock.
+Referenzen bleiben weiterhin
 unaufgelöst. Native TLS-, Client- und Mindestlaufzeitabnahmen werden durch
 diese Planung nicht ersetzt.

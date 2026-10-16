@@ -2386,7 +2386,12 @@ und echte geschützte Datei-/ACL-/Lockfixtures. Kein realer Kandidat, Journal
 oder Store wird dabei gelesen. Approval-/Adapter-IDs sind Auditclaims, kein
 Beweis menschlicher Zustimmung, sichtbarer Fensterwahl oder Quieszenz.
 Ein späterer sichtbarer Adapter muss diese tatsächlichen Grenzen selbst prüfen;
-native Recoveryausführung bleibt `NOT_EXECUTED`. Einmaliger unklarer Versuch
+die [konkrete native Recovery](TLS_CA_TRUST_ACCEPTANCE_2026-10-16.md) bestand
+inzwischen separat mit Exitcode 0 und `RECOVERY_IMPORT_RECORDED`. Die frische
+lesende Nachprüfung bestätigte exakt den freigegebenen Trust, Originalbyteerhalt,
+keinen ursprünglichen Commit und keinen verbleibenden Lock. Dies qualifiziert
+weder beliebige UI-/Policyfälle noch SQL-TLS oder die operative Registry.
+Einmaliger unklarer Versuch
 bleibt terminal; nur ADD_RETURNED plus frische Nachbeobachtung und passender
 Recoverycommit kann neue Importausführung bestätigen. Originalverlust oder
 vorhandener Anker bleibt unattributiert. Removalautorität bleibt `NONE`.
@@ -2397,8 +2402,23 @@ Leafsignatur an eigenen nativen Tempfixtures. Sie öffnet keinen Store und
 verändert weder echten Kandidaten noch Journal. Fester synthetischer Subject
 und enges Attributset qualifizieren keinen Windows-certreq-/CSP-/KeySpec-/
 SQL-Dienstrequest. CSR-Claims sind keine native Run-/Target-/Ownership-
-Autorität; targetlokale Keyerzeugung, Transport und Clientabnahme bleiben offen.
+Autorität. Eine erste eigene Docker-SQL-2025-Probe erzeugte den Key ausschließlich
+im eigenen Container und belegte die Ablehnung der unvertrauten Kette vor SQL-Arbeit.
+Der reale OpenSSL-CSR wurde wegen UTF8 statt BCL-Subjectkodierung abgewiesen;
+das zusätzliche exakt konstruierte feste UTF8-DER wird nun akzeptiert.
+Erhaltener öffentlicher CSR besteht die Readerprüfung ohne Keyöffnung;
+Cleanup entfernte ausschließlich eigene Ressourcen und bewahrte Bestandsdateien.
+Transport des ausgegebenen Leafs und positive Clientabnahme bleiben offen.
 Frist höchstens 30 Tage innerhalb der CA-Frist, keine automatische Kürzung.
+Die derzeitige private Issuer-Eingabe erlaubt ausschließlich 1 bis 30 ganze
+Tage. Ein echter sofortiger Ablaufgegenfall eines SQL-Clients braucht deshalb
+eine später separat geprüfte kurze Laufzeit oder tatsächlichen Zeitablauf;
+Offline-`attime` und künstliche globale Uhränderung ersetzen diesen Nachweis nicht.
+Zusätzlich bindet der lesende Diagnostic-/TLS-Targetmetadatenpfad derzeit nur
+Basisversionen im Run, während `New-SqlServerLab` auch katalogisierte CU-Tags
+erzeugen kann. Eine native eigene CU-Fixture kann über den bestehenden
+Run-/Scope-/Container-Reconcilepfad gebunden werden; sie qualifiziert dadurch
+den engeren Alpha-Targetmetadatenpfad oder die operative Registry nicht.
 Die private Fähigkeit sperrt Nicht-Windows und Engines
 vor 7.5 vor I/O; lokal nativ geprüft ist 7.6.6, kein 7.5-/7.2-Nachweis.
 DPAPI ist profilgebunden; Keyverlust, Administratoren, feindlicher Code mit

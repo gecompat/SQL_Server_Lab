@@ -23,7 +23,11 @@ function Read-LabTlsServerLeafCsr {
     if($info.ReadInteger() -ne 0){throw 'TLS_LEAF_CSR_INVALID'}
     $subject=$info.ReadEncodedValue().ToArray()
     $expectedSubject=[Security.Cryptography.X509Certificates.X500DistinguishedName]::new('CN=SQL_Server_Lab Server Leaf')
-    if(-not [string]::Equals((Get-LabTlsCaByteDigest $subject),(Get-LabTlsCaByteDigest $expectedSubject.RawData),[StringComparison]::Ordinal)){throw 'TLS_LEAF_CSR_INVALID'}
+    $expectedUtf8Subject=[Security.Cryptography.X509Certificates.X500DistinguishedName]::new('CN=SQL_Server_Lab Server Leaf',[Security.Cryptography.X509Certificates.X500DistinguishedNameFlags]::UseUTF8Encoding)
+    $subjectDigest=Get-LabTlsCaByteDigest $subject
+    # Derselbe feste einzelne CN: native OpenSSL-UTF8- oder bisherige BCL-DER-Form.
+    if(-not [string]::Equals($subjectDigest,(Get-LabTlsCaByteDigest $expectedSubject.RawData),[StringComparison]::Ordinal) -and
+        -not [string]::Equals($subjectDigest,(Get-LabTlsCaByteDigest $expectedUtf8Subject.RawData),[StringComparison]::Ordinal)){throw 'TLS_LEAF_CSR_INVALID'}
     $spkiBytes=$info.ReadEncodedValue().ToArray()
     $keyReader=[Formats.Asn1.AsnReader]::new([ReadOnlyMemory[byte]]::new($spkiBytes),[Formats.Asn1.AsnEncodingRules]::DER)
     $spki=$keyReader.ReadSequence();$algorithm=$spki.ReadSequence()

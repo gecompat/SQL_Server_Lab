@@ -61,7 +61,15 @@ Die private [einmalige Trust-Recovery](../Documentation/Architecture/AUTHENTICAT
 ergänzt jetzt eine frische fünfminütige Preview und eigene geschützte
 Recoveryintent-/Commitrecords. Originalbytes bleiben erhalten; ein unklarer
 Recoveryversuch wird nicht wiederholt und vorhandener Trust bleibt unattributiert.
-Ihre Ausführung im separat geprüften sichtbaren Adapter bleibt `NOT_EXECUTED`.
+Ihre spätere [native sichtbare Ausführung](../Documentation/Quality/TLS_CA_TRUST_ACCEPTANCE_2026-10-16.md)
+bestand inzwischen mit Exitcode 0 und frischer exakter Trustnachbeobachtung:
+`RECOVERY_IMPORT_RECORDED`, ursprünglicher Intent bytegleich, kein ursprünglicher
+Commit und kein verbleibender Lock. Die frühere ABSENT-Beobachtung oben beschreibt
+den Zustand nach dem ersten Timeout. Ein erster eigener Docker-SQL-2025-Lauf
+belegte die Ablehnung der unvertrauten Kette vor SQL-Arbeit und vollständiges
+Cleanup; die reale OpenSSL-CSR-Probe deckte eine enge Subjectkodierungslücke auf.
+Der Reader akzeptiert nun zusätzlich das exakt gleiche feste UTF8-DER-Subject.
+Registrierung und positive SQL-TLS-Abnahme bleiben offen.
 Syntaktische Approval-/Adapter-IDs sind keine menschliche oder Quieszenzevidence.
 Die private [CSR-Kryptolane](../Documentation/Architecture/AUTHENTICATED_TLS_LEAF_CSR.md)
 prüft jetzt begrenztes vollständiges DER und echten RSA-3072-/SHA-256-CSR-Proof,

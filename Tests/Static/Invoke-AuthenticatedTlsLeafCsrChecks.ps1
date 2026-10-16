@@ -16,8 +16,9 @@ function Assert-TlsLeafClosed {param([object[]]$Result,[string]$Code='TLS_LEAF_C
     Add-CheckResult 'TLS-L01 geschlossener Fehler ohne Teilzertifikat/Rohdaten' ($Result.Count -eq 1 -and @($Result[0].PSObject.Properties).Count -eq 3 -and -not $Result[0].Success -and $null -eq $Result[0].Value -and [string]::Equals($Result[0].ErrorCode,$Code,[StringComparison]::Ordinal))
 }
 function Invoke-TlsLeafFixture {param($Csr,$Identity=$ip,$Days=1) New-LabAuthenticatedTlsServerLeaf $dataRoot $controller $location $context $candidateId $Csr $Identity $Days}
-function New-TlsLeafFixtureCsr {param($Key,$Identity,$Hash=[Security.Cryptography.HashAlgorithmName]::SHA256,[string]$Subject='CN=SQL_Server_Lab Server Leaf',[switch]$Extra)
-    $request=[Security.Cryptography.X509Certificates.CertificateRequest]::new($Subject,$Key,$Hash,[Security.Cryptography.RSASignaturePadding]::Pkcs1)
+function New-TlsLeafFixtureCsr {param($Key,$Identity,$Hash=[Security.Cryptography.HashAlgorithmName]::SHA256,[string]$Subject='CN=SQL_Server_Lab Server Leaf',[switch]$Extra,[switch]$Utf8)
+    $name=if($Utf8){[Security.Cryptography.X509Certificates.X500DistinguishedName]::new($Subject,[Security.Cryptography.X509Certificates.X500DistinguishedNameFlags]::UseUTF8Encoding)}else{[Security.Cryptography.X509Certificates.X500DistinguishedName]::new($Subject)}
+    $request=[Security.Cryptography.X509Certificates.CertificateRequest]::new($name,$Key,$Hash,[Security.Cryptography.RSASignaturePadding]::Pkcs1)
     if($null -ne $Identity){$san=[Security.Cryptography.X509Certificates.SubjectAlternativeNameBuilder]::new();if($Identity.Kind -ceq 'IP'){$san.AddIpAddress([Net.IPAddress]::Parse($Identity.Value))}else{$san.AddDnsName($Identity.Value)};$request.CertificateExtensions.Add($san.Build($false))}
     if($Extra){$request.CertificateExtensions.Add([Security.Cryptography.X509Certificates.X509BasicConstraintsExtension]::new($true,$true,0,$true))}
     return ,$request.CreateSigningRequest()
@@ -108,12 +109,21 @@ try{
             $r=Invoke-TlsLeafFixture (New-TlsLeafFixtureCsr $script:leafRsa $identity) $identity
             Add-CheckResult 'TLS-L03 DNS/IPv6 exakt als angeforderter SAN ohne Resolver' ($r.Success -and $r.Value.Identity.Kind -ceq $identity.Kind -and $r.Value.Identity.Value -ceq $identity.Value)
         }
+        $utf8Csr=New-TlsLeafFixtureCsr $script:leafRsa $ip -Utf8
+        $utf8Result=Invoke-TlsLeafFixture $utf8Csr
+        Add-CheckResult 'TLS-L03 fester einzelner UTF8-CN wie nativer OpenSSL-CSR mit echter POP und Leafsignatur' ($utf8Result.Success -and $utf8Result.Value.SignatureStatus -ceq 'VERIFIED' -and
+            $utf8Result.Value.CsrSha256 -ceq (Get-LabTlsCaByteDigest $utf8Csr) -and -not $utf8Result.Value.Ready -and -not $utf8Result.Value.MutationAllowed)
         $before=$script:keyOpens
         $tampered=[byte[]]$csr.Clone();$tampered[$tampered.Length-1]=$tampered[$tampered.Length-1] -bxor 1
+        $utf8Tampered=[byte[]]$utf8Csr.Clone();$utf8Tampered[$utf8Tampered.Length-1]=$utf8Tampered[$utf8Tampered.Length-1] -bxor 1
         $script:weak=[Security.Cryptography.RSA]::Create(2048)
-        foreach($bad in @($tampered,[byte[]]($csr+[byte]0),[byte[]]$csr[0..($csr.Length-2)],(New-TlsLeafFixtureCsr $script:weak $ip),
+        foreach($bad in @($tampered,$utf8Tampered,[byte[]]($csr+[byte]0),[byte[]]$csr[0..($csr.Length-2)],(New-TlsLeafFixtureCsr $script:weak $ip),
             (New-TlsLeafFixtureCsr $script:leafRsa $ip -Hash ([Security.Cryptography.HashAlgorithmName]::SHA384)),
-            (New-TlsLeafFixtureCsr $script:leafRsa $ip -Subject 'CN=foreign.example.test'),(New-TlsLeafFixtureCsr $script:leafRsa $null),(New-TlsLeafFixtureCsr $script:leafRsa $ip -Extra))){Assert-TlsLeafClosed @(Invoke-TlsLeafFixture $bad *>&1)}
+            (New-TlsLeafFixtureCsr $script:leafRsa $ip -Subject 'CN=foreign.example.test'),
+            (New-TlsLeafFixtureCsr $script:leafRsa $ip -Utf8 -Subject 'CN=foreign.example.test'),
+            (New-TlsLeafFixtureCsr $script:leafRsa $ip -Utf8 -Subject 'CN=SQL_Server_Lab Server Leaf, O=extra'),
+            (New-TlsLeafFixtureCsr $script:leafRsa $ip -Utf8 -Extra),
+            (New-TlsLeafFixtureCsr $script:leafRsa $null),(New-TlsLeafFixtureCsr $script:leafRsa $ip -Extra))){Assert-TlsLeafClosed @(Invoke-TlsLeafFixture $bad *>&1)}
         Assert-TlsLeafClosed @(Invoke-TlsLeafFixture $csr $dns *>&1)
         Assert-TlsLeafClosed @(Invoke-TlsLeafFixture $csr $ip 21 *>&1)
         $script:ec=[Security.Cryptography.ECDsa]::Create([Security.Cryptography.ECCurve+NamedCurves]::nistP256)
