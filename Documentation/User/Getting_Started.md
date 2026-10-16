@@ -1,5 +1,10 @@
 # SQL_Server_Lab – Getting Started
 
+Eigene SSIS-Projekte in einem bestehenden Windows-Lab verwenden den
+[Windows-Consumerzugang](../HowTo/SSIS_CONSUMER_WINDOWS_ACCESS.md) des bestehenden
+`Invoke-SqlServerLabScript` mit `-WindowsAuthentication`. Die Gastanmeldung
+bleibt geschützt; die vorhandenen Lab-Fixtureausführungen bleiben erhalten.
+
 CLI und Browser pruefen das SA-Passwort vor der Containererstellung und erlauben
 Korrektur oder Abbruch. Standard: acht bis 128 Zeichen und drei von vier
 Zeichengruppen. Im Browser erscheint eine kuerzere Mindestlaenge erst nach

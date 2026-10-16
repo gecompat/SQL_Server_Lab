@@ -2,6 +2,29 @@
 
 ## Phasen und Auswahl
 
+`Invoke-WindowsSqlScriptChecks.ps1` prüft den neuen Windows-Parametersatz des
+bestehenden Skriptbefehls, gebundene Gastanmeldung, Eingabe-/Ausgabegrenzen,
+WhatIf, Geheimnisentsorgung, Journal und unbestätigte Ergebnisse synthetisch.
+`Invoke-HyperVGuestProgressChecks.ps1` prüft zusätzlich, dass `NoRetry` am
+bestehenden Transport nach einem OpenError keinen Consumeraufruf wiederholt.
+Der getrennte Harness `Invoke-WindowsSqlConsumerAcceptance.ps1` verwendet den
+öffentlichen Befehl am expliziten bestehenden Run; eigene Objekte und
+identitätsgebundener Cleanup werden von den geschützten Quellen getrennt.
+Eine nicht ausgeführte native Abnahme bleibt NOT_EXECUTED.
+Die [lokale native Abnahme vom 2026-10-16](WINDOWS_SQL_CONSUMER_ACCEPTANCE_2026-10-16.md)
+bestand mit eigenem Ordner 6, Projekt 4/Version 4 und Ausführung 14 mit Status 7.
+Die geschützten IDs 10/11/12 samt Ereignissen, Source-Metadaten, aktive
+Katalog-/Datenbankinventare und globale Katalogeigenschaften blieben unverändert.
+Die 35 fokussierten Offlineprüfungen umfassen jetzt auch den tatsächlichen
+Connection-Builder und die Wiederherstellung binärer CLR-Parametertypen nach
+Remoting sowie die explizite Nicht-Windows-Abweisung über die bereits vorhandene
+Hostprüfgrenze. Die echte Windows-Verbindung bestand danach erneut rein lesend
+mit NTLM; der mutierende Gast-SQL-Code blieb unverändert.
+Nach manuellem Start des vorhandenen Runners bestand auch die
+[native GitHub-Abnahme](https://github.com/gecompat/SQL_Server_Lab/actions/runs/38953413402)
+am bestehenden Run. Der Pflichtgate am aktuellen PR-Head wird getrennt bewertet;
+sein Status steht im verlinkten PR des Nachweisdokuments.
+
 | Phase | Prüfscope und Aussage |
 |---|---|
 | Diagnose und Entwicklung | Kleinste Reproduktion, betroffene Einheit und `Invoke-ImpactedChecks.ps1 -Development`; lokale Source-/Umgebungsbindung erlaubt begrenzte Wiederverwendung. Kein Qualifikationsanspruch. |

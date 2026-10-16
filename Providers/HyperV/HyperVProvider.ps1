@@ -1043,6 +1043,7 @@ function Invoke-HyperVPowerShellDirect {
         [Parameter(Mandatory)][PSCredential]$Credential,
         [Parameter(Mandatory)][scriptblock]$ScriptBlock,
         [object[]]$ArgumentList = @(),
+        [switch]$NoRetry,
         [ValidatePattern('^(?:(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])(?:\.(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])){3})?$')][string]$FallbackAddress,
         [object]$Progress,
         [ValidateRange(1,86400)][int]$TimeoutSeconds=86400,
@@ -1099,6 +1100,8 @@ function Invoke-HyperVPowerShellDirect {
                 -TimeoutSeconds ([math]::Max(1,[int][math]::Ceiling(($deadline-[datetime]::UtcNow).TotalSeconds)))
         }
         catch {
+            # A lost reply to a consumer write must never replay the script.
+            if ($NoRetry) { throw }
             if ([string]$_.CategoryInfo.Category -ne 'OpenError') { throw }
             $directError = $_
             if ($attempt -lt 10) { Wait-LabProgressDelay -Progress $Progress -Milliseconds 3000 }

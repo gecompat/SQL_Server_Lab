@@ -2,6 +2,20 @@
 
 ## SSISDB: abgenommener Windows-Scope und Grenzen
 
+Der zusätzliche [Windows-Consumerweg](../HowTo/SSIS_CONSUMER_WINDOWS_ACCESS.md)
+verwendet `Invoke-SqlServerLabScript -WindowsAuthentication` und die vorhandene
+geschützte Gastanmeldung. Er verlangt einen berechtigten Hyper-V-
+Operatorprozess und ersetzt keine Consumer-Ownership oder Cleanupverantwortung.
+Keine automatische Wiederholung nach Versand; unbestätigte Ergebnisse verlangen
+gezielte Prüfung. Die bisherigen Generated-APIs und die lesende Fixtureabnahme
+belegen diesen zusätzlichen mutierenden Consumerweg nicht. Die gesonderte
+[lokale native Abnahme](WINDOWS_SQL_CONSUMER_ACCEPTANCE_2026-10-16.md)
+bestand am bestehenden Run: Windows-NTLM, eigenes Deployment, Paketstatus 7,
+ID-/Versionscleanup und unveränderte geschützte Quelle. Andere SQL-/IS-Versionen,
+Least-Privilege-Identitäten und ein separat gerenderter Fachdialog sind damit
+nicht abgenommen. Die verlinkte native GitHub-Abnahme bestand ebenfalls;
+der Pflichtgate am jeweiligen PR-Head ist davon getrennt zu bewerten.
+
 Der [SSISDB-Vertrag](../Architecture/SSISDB_TEST_FIXTURE.md) unterstützt eigene
 Windows-/Hyper-V-SQL-2025-Runs mit vorhandener Software. Kataloganlage über
 Microsofts `Catalog.Create()`, synthetische ISPAC und öffentlicher Cleanup
