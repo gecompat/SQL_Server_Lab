@@ -45,6 +45,18 @@ Die gemeinsam mit dem privaten [TLS-Metadatenresolver](AUTHENTICATED_TLS_TARGET_
 verwendeten Root-/Controller-/Scope-/Vertragsvergleiche sind ordinal;
 kulturell ignorierbare Zusatzzeichen begründen keine Identitätsgleichheit.
 
+Alle Sollinstanzen benötigen eine katalogisierte Versionsbindung.
+Docker und Podman erlauben zusätzlich zum Basisjahr katalogisierte
+CU-Kurzbezeichner und exakte CU-Tags. `Binding.SqlVersion` erhält den gesamten
+Runselektor; Alias, Tag und Basisjahr werden bei Soll-/Istvergleichen nicht
+gleichgesetzt. Die interne Projektion ergänzt Basisjahr, exaktes Katalogimage
+und Katalogbuild. CU-Kurzbezeichner folgen der geordneten öffentlichen
+Katalogauswahl; ihr Tag muss eindeutig und mit Jahr/CU/Build konsistent sein.
+Unbekannte CUs und Tags bleiben gesperrt, ohne Jahres-/`latest`-Fallback.
+Hyper-V erhält keine CU-Erweiterung. Das Schema begrenzt die Ausgabeform,
+während der Reader die tatsächliche Katalogmitgliedschaft prüft. Dies ist
+keine Beobachtung des geladenen SQL-Builds und keine TLS-Qualifikation.
+
 ## Abschnitte und Bedeutung
 
 | Abschnitt | Beobachtung und Grenze |

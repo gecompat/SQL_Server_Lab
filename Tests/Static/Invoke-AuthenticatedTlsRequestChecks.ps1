@@ -120,6 +120,19 @@ foreach ($provider in @('docker','podman','hyperv')) {
         Add-CheckResult "TLS-R05: deklaratives Zieltupel $provider/$version" (Test-LabAuthenticatedTlsRequest $fixture).Success
     }
 }
+foreach($provider in @('docker','podman')) {
+    foreach($selector in @('2019-CU32','2022-CU27-ubuntu-22.04','2025-CU9','2025-CU999')) {
+        $fixture=New-TlsRequestFixture LEAF_PROFILE; $fixture.Provider=$provider; $fixture.SqlVersion=$selector
+        $result=Test-LabAuthenticatedTlsRequest $fixture
+        Add-CheckResult "TLS-R05: deklarative CU-Form ohne Katalogbehauptung $provider/$selector" ($result.Success -and $result.Value.SqlVersion -ceq $selector)
+    }
+}
+foreach($selector in @('2024-CU1','2025-CU0','2025-CU09','2025-cu9','2025-CU9 ',"2025-CU9`n",'2025-CU9/../x',('2025-CU9-'+('a'*70)))) {
+    $fixture=New-TlsRequestFixture LEAF_PROFILE; $fixture.SqlVersion=$selector
+    Assert-TlsRequestRejected 'TLS-R05: CU-Form bleibt kanonisch begrenzt' $fixture
+}
+$fixture=New-TlsRequestFixture LEAF_PROFILE; $fixture.Provider='hyperv'; $fixture.SqlVersion='2025-CU9'
+Assert-TlsRequestRejected 'TLS-R05: kein Hyper-V-CU-Vertrag' $fixture
 foreach ($pair in @(@('Provider','Docker'),@('Provider','unknown'),@('SqlVersion',2025),@('SqlVersion','2024'),
         @('Port',0),@('Port',65536),@('Port',[long]1433),@('Port','1433'),@('Port',$true),@('TargetRef','unknown'))) {
     $fixture = New-TlsRequestFixture LEAF_PROFILE; $fixture.($pair[0]) = $pair[1]

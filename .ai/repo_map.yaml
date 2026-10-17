@@ -488,7 +488,7 @@ sources_of_truth:
   validation_external_runtime_host_facts: Tests/Static/Fixtures/ExternalRuntimeCapabilityHostFactsChecks.ps1 # existing Capability suite; synthetic facts and actual consumer guards, no provider proof
   validation_client_readiness: Tests/Static/Invoke-ClientReadinessChecks.ps1
   diagnostic_bundle_public: Public/Get-SqlServerLabDiagnosticBundle.ps1
-  diagnostic_bundle_reader: Private/DiagnosticBundleReader.ps1
+  diagnostic_bundle_reader: Private/DiagnosticBundleReader.ps1 # full recorded selector; container CU bound to VersionCatalog exact tag/build, not native SQL evidence
   diagnostic_bundle_readiness: Private/DiagnosticBundleReadiness.ps1
   diagnostic_bundle_readiness_child: Tools/Read-SqlServerLabDiagnosticReadiness.ps1
   diagnostic_bundle_contract: Documentation/Architecture/DIAGNOSTIC_BUNDLE.md

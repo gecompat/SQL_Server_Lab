@@ -30,7 +30,18 @@ Secrets, Cleanuppläne und Workflow-Operationen werden nicht gelesen.
 
 Dieser erste Resolver unterstützt ausschließlich Docker und Podman.
 Angeforderter Provider und SQL-Version müssen ordinal mit Soll- und
-Istinstanz übereinstimmen. Genau eine gespeicherte Instanz mit genau der
+Istinstanz übereinstimmen. Bei katalogisierten CU-Kurzbezeichnern und exakten
+CU-Tags bleibt `SqlVersion` der vollständige ursprüngliche Runselektor.
+Der gemeinsame Reader bindet intern zusätzlich Basisjahr, exaktes Katalogimage
+und Katalogbuild. CU-Kurzbezeichner verwenden dieselbe geordnete Auswahl wie
+`Get-SqlServerDockerImage`; der ausgewählte Tag muss eindeutig katalogisiert
+sein und zu Jahr und CU passen. Ein unbekannter Tag, widersprüchlicher oder
+doppelter Katalogeintrag sperrt die Bindung; kein Rückfall auf Basisjahr oder
+`latest`. Alias und exakter Tag sind keine austauschbaren Runidentitäten.
+Katalogbuild und Tag sind Sollmetadaten, keine native Build-/Imagebeobachtung.
+Diese Bindung wurde synthetisch geprüft; frühere native CU-Fixtures erhalten
+dadurch keinen nachträglichen Nachweis dieses Produktpfads.
+Genau eine gespeicherte Instanz mit genau der
 ausgewählten ID, eine vollständige kleine 64-stellige Hex-Container-ID und
 gespeichertes `RUNNING` im Run sowie passenden Provider-Teilrun sind nötig.
 Ein gespeichertes `RUNNING` ist keine Beobachtung einer laufenden Runtime.

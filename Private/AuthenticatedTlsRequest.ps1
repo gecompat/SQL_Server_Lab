@@ -105,7 +105,10 @@ function Test-LabAuthenticatedTlsRequest {
             foreach ($name in $required) { if (-not $fields.ContainsKey($name)) { return $rejected } }
             if (-not (Test-LabTlsRequestReference $fields.TargetRef) -or
                 -not (Test-LabTlsRequestEnum $fields.Provider @('docker','podman','hyperv')) -or
-                -not (Test-LabTlsRequestEnum $fields.SqlVersion @('2019','2022','2025')) -or
+                ($fields.SqlVersion -isnot [string] -or
+                    (-not (Test-LabTlsRequestEnum $fields.SqlVersion @('2019','2022','2025')) -and
+                    ($fields.Provider -cnotin @('docker','podman') -or $fields.SqlVersion -cnotmatch
+                        '\A(?:2019|2022|2025)-CU[1-9][0-9]{0,3}(?:-[a-z0-9][a-z0-9.-]{0,63})?\z'))) -or
                 $fields.Port -isnot [int] -or $fields.Port -lt 1 -or $fields.Port -gt 65535) { return $rejected }
             $profile = Get-LabTlsRequestProfile $fields.Profile 30
             $identity = Get-LabTlsRequestIdentity $fields.Identity

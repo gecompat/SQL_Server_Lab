@@ -282,6 +282,13 @@ foreach ($other in @('Private/UnmappedSynthetic.ps1','Private/CleanupEngine.ps1'
         @($baseline.StaticChecks | Where-Object { $_ -notin $union.StaticChecks }).Count -eq 0)
 }
 $tlsTargetCheck = 'Invoke-AuthenticatedTlsTargetChecks.ps1'
+$readerSelection=& $selector -ChangedPath @('Private/DiagnosticBundleReader.ps1')
+foreach($check in @('Invoke-DiagnosticBundleChecks.ps1','Invoke-ContainerAutoStartChecks.ps1','Invoke-ContainerReconcileChecks.ps1','Invoke-ComponentRelationPlanChecks.ps1','Invoke-EvaluationRefreshPlanChecks.ps1')) {
+    Add-CheckResult "CU-Bindung gemeinsamer Readeraufrufer $check" ($check -in $readerSelection.StaticChecks)
+}
+foreach($path in @('Private/VersionCatalog.ps1','Catalogs/sql-server-versions.json')) {
+    Add-CheckResult "CU-Bindung Diagnosekatalog $path" ('Invoke-DiagnosticBundleChecks.ps1' -in (& $selector -ChangedPath @($path)).StaticChecks)
+}
 foreach ($path in @('Private/StateMachine.ps1','Private/DesiredState.ps1','Private/StorageContract.ps1','Private/VersionCatalog.ps1','Catalogs/sql-server-versions.json')) {
     $selected = & $selector -ChangedPath @($path)
     Add-CheckResult "TLS-T11 gekoppelte Metadatenquelle $path" ($tlsTargetCheck -in $selected.StaticChecks)

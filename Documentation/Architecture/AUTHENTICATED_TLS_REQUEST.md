@@ -57,10 +57,18 @@ oder erfolgreiche CSP-/KeySpec-/Providerqualifikation.
 |---|---|
 | `TargetRef` | kanonische nichtleere UUID; der optionale [Metadatenresolver](AUTHENTICATED_TLS_TARGET_METADATA.md) bindet sie an eine vorhandene RunId mit zusätzlicher ausdrücklicher Instanzwahl; Runtime-/Ownershipprüfung offen |
 | `Provider` | `docker`, `podman` oder `hyperv` als angefordertes Tupel |
-| `SqlVersion` | String `2019`, `2022` oder `2025` als angefordertes Tupel |
+| `SqlVersion` | String `2019`, `2022` oder `2025`; bei Docker/Podman auch die begrenzte Form `Jahr-CUn` oder `Jahr-CUn-tag` dieser drei Jahre |
 | `Port` | echter `Int32`, 1 bis 65535 |
 | `Identity` | exakt `Kind` und `Value`; eine explizite Verbindungsidentität |
 | `Profile` | obige geschlossene Profilform mit höchstens 30 Tagen |
+
+CU-Formen haben eine positive CU-Nummer mit höchstens vier Ziffern ohne
+führende Null und optional einen Suffix mit 1 bis 64 ASCII-Zeichen
+`[a-z0-9][a-z0-9.-]*`. Groß-/Kleinschreibung und vollständiger Selektor bleiben
+erhalten. Die Formprüfung liest keinen Katalog: Auch eine syntaktisch gültige
+unbekannte CU kann eine Anfrage sein. Erst der lesende Metadatenresolver
+verlangt die exakte Katalogbindung. Für Hyper-V bleiben nur die drei Basisjahre
+zulässig; es entsteht kein Windows-CU-Provisionierungsvertrag.
 
 `Identity.Kind=IP` verlangt eine kanonische numerische IP-Adresse, deren
 Darstellung ordinal mit `IPAddress.ToString()` übereinstimmt. Abgekürzte,

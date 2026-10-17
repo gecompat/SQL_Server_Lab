@@ -4708,3 +4708,22 @@ Der neue Manifest-Run wird mit seinem eigenen vollständigen Cleanup separat
 ausgewiesen. Der letzte Existing-Run bleibt als ausdrückliche Analyze-Quelle
 erhalten. Statische Resultate oder ältere vollständige SQL-Installationsversuche
 ersetzen diese nativen Nachweise und die grünen finalen Integrationschecks nicht.
+## Kataloggebundene CU-Metadaten (TLS001-CU-METADATA-BINDING-01)
+
+Die kleinste Reproduktion wies vor der Korrektur acht begrenzte CU-Anfragen
+ab (348 PASS / 8 FAIL). Nach der Korrektur bestand der Anfragevertrag mit
+356 PASS / 0 FAIL. Die erste fokussierte Targetprüfung bestand mit 441 PASS /
+0 FAIL, die Diagnoseprüfung mit 174 Assertions. Weitere negative
+Katalogfixtures und der erweiterte Selektor gehören zum stabilen Abschluss-Gate.
+Nur synthetische eigene temporäre Roots werden verwendet und pfadgeprüft
+entfernt. Keine Provider-, SQL-, Key-, Store- oder geschützte Zielmutation.
+
+Der gemeinsame Reader ist auch Abhängigkeit von Container-Port-/Autostart-
+Previews, Komponentenrelationsplan und Evaluation-Refreshplan. Seine exakte
+Quelle wählt deshalb deren vier vorhandene statische Suites zusätzlich;
+Versionskatalogänderungen wählen außerdem die Diagnoseprüfung. Bestehende
+konservative Runtimeauswahl und Pflichtgates bleiben erhalten. Diese gezielte
+Regression prüft gemeinsame Aufrufer, ohne die bereits grünen nativen
+SQL-/TLS-Matrizen zu wiederholen. Ein unabhängiger Review am stabilen Diff
+und der exakte lokale/CI-Abschluss sind weiterhin erforderlich. Tatsächliche
+Kosten und Tokenmessung sind unbekannt; es gibt keine neue Modell-/Logpipeline.
