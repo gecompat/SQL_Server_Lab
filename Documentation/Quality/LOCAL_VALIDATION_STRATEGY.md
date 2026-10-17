@@ -5053,6 +5053,15 @@ bewusst persistent und mit Autostart off nutzbar; frühere fehlgeschlagene eigen
 Runs wurden entfernt. Der erste Voranlagefehler hinterließ keinen Runtime-Run;
 sein einzelner Intent und leeres Verzeichnis wurden ebenfalls entfernt.
 
+Der Fehler-Cleanup entfernt nach bestätigter Runentfernung und Containerabwesenheit
+auch die fünf festen privaten Exportdateien des eigenen Abnahmelaufs. Er prüft
+StateRoot, Audit-/Run-/Scopebindung, terminalen Zustand und sämtliche Dateirechte
+vor der ersten Löschung. Unbekannte Inhalte und laufende Runs bleiben erhalten;
+CA-Key und Truststore werden dafür nicht benötigt. Die native Cleanupfixture
+bestand mit 6 PASS / 0 FAIL und vollständiger eigener Bereinigung. Zwei private
+Exportordner früherer fehlgeschlagener Abnahmeläufe wurden damit tatsächlich
+entfernt; der erfolgreiche persistente Run und dessen Export blieben erhalten.
+
 Separat bestanden auf ReFS alle 45 tatsächlichen Writerfälle einschließlich
 File.Replace, Quellbackup, ACLs, Prozessabbrüchen, Konkurrenz, Recovery und
 vollständigem eigenem Cleanup. Die NTFS-Writersuite blieb im betroffenen Gate

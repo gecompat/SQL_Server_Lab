@@ -6,6 +6,7 @@ param([Parameter(Mandatory)][string]$DataRoot,[Parameter(Mandatory)][string]$Con
 $ErrorActionPreference='Stop'
 if(-not $Execute){throw 'TLS_ACCEPTANCE_EXECUTE_REQUIRED: creates one own Docker SQL2025 CU9 lab; no trust import.'}
 $repo=(Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
+. (Join-Path $repo 'Tests/Common/AuthenticatedTlsAcceptanceCleanup.ps1')
 $module=Import-Module (Join-Path $repo 'SqlServerLab.psd1') -Force -PassThru
 $tool=& (Join-Path $repo 'Tools/Initialize-SqlServerLabHostTools.ps1') -Name docker
 if(-not $tool.Available){throw 'TLS_ACCEPTANCE_DOCKER_UNAVAILABLE'}
@@ -90,6 +91,7 @@ finally{
             if($removed.Status -cne 'REMOVED'){throw 'TLS_ACCEPTANCE_CLEANUP_UNCONFIRMED'}
             $remaining=& $tool.Invocation ps -aq --filter "label=sql-server-lab.run-id=$($lab.RunId)"
             if($LASTEXITCODE -ne 0 -or $remaining){throw 'TLS_ACCEPTANCE_CONTAINER_REMAINS'}
+            Remove-OwnedTlsAcceptanceExport -StateRoot $lab.StateRoot -RunId $lab.RunId -Module $module
             $cleanup='PASS'
         }catch{$cleanup='RECOVERY_REQUIRED';if(-not $failure){$failure=$_}}
     }elseif($lab){$cleanup='INTENTIONALLY_PERSISTENT_OWN_LAB'}
