@@ -189,6 +189,15 @@ lokalen Netzwerkfehler; sqlcmd führte nur Hilfe aus. Alle eigenen Fixtures sind
 entfernt, Bestandsdateien frisch erhalten. Kein Linux-TLS-, Trust-, Registry-
 oder Exportnachweis; die Matrixzellen und SC-2026-045 bleiben unverändert offen.
 
+Der spätere konkret freigegebene
+[Linux-Trustversuch](../Quality/TLS_LINUX_TRUST_ATTEMPT_2026-10-17.md)
+scheiterte an der privaten Dateivorbereitung ohne Capabilities vor dem ersten
+TLS-Probeprozess. Eigener Client und SQL-Ziel samt Volumes und temporärer
+Host-Secretdatei sind entfernt, Schutzvergleiche frisch bestanden. Prozess-Trust
+beider Stacks und geladener Linux-ODBC bleiben unqualifiziert. Der nächste
+geplante Versuch lässt UID 10001 die eigene Datei direkt erstellen; er braucht
+eine neue konkrete Vorschau und Freigabe statt eines alten Intent-Replays.
+
 **Istzustand und Vertragslücke.** Die Prüfung der Repositoryquellen am
 2026-10-15 ergibt:
 

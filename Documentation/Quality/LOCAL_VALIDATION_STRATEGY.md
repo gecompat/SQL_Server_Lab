@@ -265,6 +265,22 @@ Prozess-/Transfer-/Isolationsgegenfälle und der korrigierte Konstruktor wurden
 gezielt offline geprüft, unveränderte Helfer nicht wiederholt. Die Probe beweist
 keine Linux-TLS-Abnahme, tatsächlichen geladenen ODBC-Treiber oder Registrierung.
 
+### Freigegebener Linux-Trustversuch vom 2026-10-17 (UTC)
+
+Der [tatsächliche Versuch](TLS_LINUX_TRUST_ATTEMPT_2026-10-17.md) startete genau
+ein eigenes SQL-2025-CU9-Ziel und einen konkret freigegebenen eigenen Client.
+Die Vorbereitung scheiterte an `chown` unter `cap-drop ALL` vor den TLS-Probes.
+Supervisor und Worker endeten mit Fehler; eigener Cleanup und frische
+Nachbeobachtung bestätigten Client-/SQL-/Volume-/Secretabwesenheit sowie
+Bestandsdateierhalt und identischen vorbestehenden Windows-Trust.
+Keine strikte Linux-Verbindung, kein geladener Linux-ODBC und keine wirksame
+Prozess-Trustqualifikation werden behauptet. Vorher bestanden 33 reine
+Isolations-/Ownership-/Budgetguards, zwei eigene lokale STDIN-Transferfälle
+und ein tatsächlicher AST-Catch-/Finally-Gegenfall zur begrenzten Teilevidence.
+Unabhängiger Quellenreview und P2-Schließung liefen vor der ersten Ausführung.
+Ein neuer UID-10001-Dateianlageplan bleibt ohne neue konkrete Freigabe und
+gebundene Quellen ungetestet; kein automatischer Retry oder Intent-Replay.
+
 Die ergänzte private Kurzlaufzeit ist lokal mit 69/0 eigenen Crypto-/DPAPI-/
 ACL-Fixtures geprüft und vollständig bereinigt. Native 30-/300-Sekunden-Ränder
 behalten Signatur und Leafprofil; ungültige/mehrdeutige Laufzeiten mit gültigem

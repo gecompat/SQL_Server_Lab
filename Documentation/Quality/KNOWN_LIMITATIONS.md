@@ -2427,6 +2427,13 @@ beobachtete nun PowerShell, SqlClient-Konstruktion mit lokalem Netzwerkfehler
 und den ersten sqlcmd-Hilfeaufruf. Kein SQL-Server, keine Abfrage, CA-Datei oder
 Truständerung. Geladener ODBC-Treiber, Linux-TLS, Kontextregistrierung und
 qualifizierter Export sind dadurch nicht belegt; alle eigenen Fixtures entfernt.
+Der spätere [freigegebene Linux-Trustversuch](TLS_LINUX_TRUST_ATTEMPT_2026-10-17.md)
+scheiterte vor dem ersten TLS-Probeprozess an `chown` im Client ohne
+Capabilities. Der eigene Client, das eigene SQL-Ziel und temporäre Secrets
+sind entfernt; Abwesenheit und geschützte Dateien frisch geprüft. Geladener
+Linux-ODBC und wirksamer Prozess-Trust bleiben unbewiesen. Direkte Dateianlage
+durch UID 10001 ist erst geplant und verlangt für den neuen Client eine neue
+konkrete Freigabe; die vorherige Freigabe wird nicht wiederverwendet.
 Frist höchstens 30 Tage innerhalb der CA-Frist, keine automatische Kürzung.
 Der bestehende Tagespfad bleibt bei 1 bis 30 ganzen Tagen; die alternative
 private Kurzlaufzeit verlangt native `ValiditySeconds` 30 bis 300 und

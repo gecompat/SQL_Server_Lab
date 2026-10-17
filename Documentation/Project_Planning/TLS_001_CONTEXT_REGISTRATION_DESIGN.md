@@ -224,6 +224,12 @@ beobachtete nur PowerShell, SqlClient-Konstruktion mit lokalem Netzwerkfehler
 und den ersten sqlcmd-Hilfeaufruf im eigenen isolierten Namespace. Keine
 CA-Datei, Truständerung oder SQL-Abfrage; alle eigenen Fixtures entfernt.
 Das implementiert keinen Linux-Kontextselektor, Registryrecord oder TLS-Nachweis.
+Der spätere [freigegebene Trustversuch](../Quality/TLS_LINUX_TRUST_ATTEMPT_2026-10-17.md)
+scheiterte vor TLS an `chown` ohne Capabilities. Eigene Ressourcen und
+temporäre Secretdatei sind entfernt; Abwesenheit und Schutzvergleiche frisch
+bestätigt. Eine neue Vorschau plant Dateianlage durch UID 10001 ohne zusätzliche
+Privilegien. Die verbrauchte Freigabe erlaubt keinen zweiten Client;
+Kontextregistrierung und Linux-TLS bleiben offen.
 Referenzen bleiben weiterhin
 unaufgelöst. Native TLS-, Client- und Mindestlaufzeitabnahmen werden durch
 diese Planung nicht ersetzt.
