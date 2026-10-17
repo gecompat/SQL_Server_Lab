@@ -752,7 +752,7 @@ function Resolve-LabHyperVNetworkBoundPlan {
 
 function Invoke-LabHyperVNetworkBoundPlan {
     [CmdletBinding()]
-    param([Parameter(Mandatory)]$Plan)
+    param([Parameter(Mandatory)]$Plan, [switch]$RequireExistingNetwork)
 
     if ([string]$Plan.Contract.Name -ne 'SqlServerLab.HyperVNetworkBoundPlan' -or [string]$Plan.Status -ne 'READY') {
         throw 'LAB_NETWORK_HYPERV_BOUND_PLAN_NOT_READY'
@@ -768,6 +768,17 @@ function Invoke-LabHyperVNetworkBoundPlan {
         [string]$revalidated.NatName -ne [string]$Plan.NatName -or
         [string]$revalidated.AdapterId -ne [string]$Plan.AdapterId) {
         throw "LAB_NETWORK_HYPERV_BOUND_PLAN_STALE: $(@($revalidated.Blockers) -join ', ')"
+    }
+    if ($RequireExistingNetwork) {
+        if ([string]$Plan.Intent -cne 'hostOnly' -or @($Plan.Actions).Count -ne 0 -or
+            [string]$revalidated.Intent -cne 'hostOnly' -or @($revalidated.Actions).Count -ne 0) {
+            throw 'LAB_NETWORK_HYPERV_EXISTING_NETWORK_REQUIRED'
+        }
+        foreach ($field in @('Name','Subnet','PrefixLength','HostAddress','Gateway','NatName','AddressMode')) {
+            if ([string]$revalidated.$field -cne [string]$Plan.$field) { throw 'LAB_NETWORK_HYPERV_EXISTING_NETWORK_CHANGED' }
+        }
+        # No repair, rollback or default-switch write is entered in this mode.
+        return $revalidated
     }
     $Plan = $revalidated
     $createdSwitch = $false; $createdAddress = $false; $createdNat = $false

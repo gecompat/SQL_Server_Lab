@@ -5097,3 +5097,11 @@ Hyper-V, Linuxclients und andere SQL-/Patchstände; V2-Cutover fremder Consumer;
 Wire-Zertifikatsfingerprint, automatische Erneuerung/Rebind und vollständige
 Produktseitenkomposition. Der bestehende True/True-Default und seine früheren
 getrennten Providerbelege werden dadurch nicht umdefiniert.
+
+## Bestehendes Hostnetz bei Hyper-V-Prepared-Create
+
+`Invoke-LabNetworkChecks.ps1` bindet
+`Tests/Common/HyperVCreateExistingNetworkFixture.ps1` ein. Die injizierten
+Produktfunktionen prüfen fehlende/abweichende Netze, ausstehende Aktionen,
+Ready-Durchlass und das gespeicherte eigene Run-Flag ohne native Aufrufe.
+Das ersetzt keine native Hyper-V-Create-, CSP-, Zertifikats- oder TLS-Abnahme.

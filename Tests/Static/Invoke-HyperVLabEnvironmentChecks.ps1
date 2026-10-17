@@ -333,6 +333,13 @@ try {
     )
     $unattended = & $module {
         param($RunId, $Root)
+        $originalWorkflow = (Get-Command Get-HyperVLabWorkflowRun).ScriptBlock
+        function Get-HyperVLabWorkflowRun {
+            param($RunId,$StateRoot)
+            $context = & $originalWorkflow -RunId $RunId -StateRoot $StateRoot
+            $context.Run.metadata | Add-Member -NotePropertyName requireExistingNetwork -NotePropertyValue $true -Force
+            $context
+        }
         $script:sqlActivationChecked=$false
         $script:denySqlActivation=$true
         $script:sqlCompletionCalls=0
@@ -356,7 +363,8 @@ try {
             }
         }
         function Complete-HyperVLabSqlImage {
-            param($RunId, $Credential, $SqlSaPassword)
+            param($RunId, $Credential, $SqlSaPassword, [switch]$RequireExistingNetwork)
+            $script:capturedExistingNetwork = $RequireExistingNetwork.IsPresent
             $script:sqlCompletionCalls++
             if(-not $script:sqlActivationChecked){throw 'SQL_SETUP_BEFORE_WINDOWS_ACTIVATION'}
             $script:capturedSqlSaPasswordLength = $SqlSaPassword.Length
@@ -380,9 +388,10 @@ try {
         $script:denySqlActivation=$false
         $result = Invoke-HyperVLabUnattendedProvision -RunId $RunId -AdministratorPassword $password -SqlSaPassword $saPassword -PasswordSource user `
             -Region 'de-AT' -SystemLocale 'de-AT' -UiLanguage 'de-DE' -InputLocale '0C07:00000407' -TimeZone 'Central Europe Standard Time' -StateRoot $Root
-        [PSCustomObject]@{ Result = $result; ActivationBlockedSql=$activationBlockedSql; SqlCompletionCalls=$script:sqlCompletionCalls; SqlSaPasswordLength = $script:capturedSqlSaPasswordLength; ExpectedSaPasswordLength = $saPassword.Length }
+        [PSCustomObject]@{ Result = $result; ExistingNetwork=$script:capturedExistingNetwork; ActivationBlockedSql=$activationBlockedSql; SqlCompletionCalls=$script:sqlCompletionCalls; SqlSaPasswordLength = $script:capturedSqlSaPasswordLength; ExpectedSaPasswordLength = $saPassword.Length }
     } $created.RunId $temporaryRoot
     Add-CheckResult -Name 'Aktivierungsblocker verhindert SQL Setup; erlaubter Folgelauf startet es genau einmal' -Success ($unattended.ActivationBlockedSql -and $unattended.SqlCompletionCalls -eq 1)
+    Add-CheckResult -Name 'Gespeicherte bestehende Netzbindung erreicht CompleteImage ohne erneute Caller-Option' -Success $unattended.ExistingNetwork
     $unattendedConnection = Get-Content -LiteralPath (Join-Path (Join-Path (Join-Path $temporaryRoot 'runs') $created.RunId) 'connection-info.json') -Raw | ConvertFrom-Json -Depth 10
     $unattendedSecret = Join-Path (Join-Path (Join-Path (Join-Path $temporaryRoot 'runs') $created.RunId) 'secrets') 'guest-administrator-password.secret'
     $unattendedSaSecret = Join-Path (Join-Path (Join-Path (Join-Path $temporaryRoot 'runs') $created.RunId) 'secrets') 'sa-password.secret'

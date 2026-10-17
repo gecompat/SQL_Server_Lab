@@ -77,6 +77,26 @@ maßgeblich.
 12. Verwendete Artefakte werden nie überschrieben. Refresh oder Rebuild erzeugt
     stets eine neue versionierte Artifact-ID.
 
+### Begrenzte Prepared-Erstellung mit bestehendem Hostnetz
+
+`New-SqlServerLab -Manifest ... -RequireExistingHyperVNetwork` verlangt ein
+einzelnes Hyper-V-SQL-Prepared-Ziel, `hostOnly` und einen expliziten
+`hyperv.switchName`. Ein fehlender Switch, fehlende Hostadresse oder eine
+abweichende Netzbindung führt zum Abbruch. Der Apply-Pfad liest die Bindung
+erneut und betritt weder Infrastrukturreparatur noch deren Rollback.
+Der gespeicherte Standardswitch wird auch beim anschließenden SQL-Hostzugriff
+nicht geändert. Die Option wird im eigenen Run gespeichert und von
+Unattended-Provisionierung, CompleteImage und SQL-Hostzugriff erneut beachtet.
+
+Eigene Run-/VM-/Child-VHDX-Anlage, IPAM-Lease, Gastnetz, SQL-Konfiguration
+und die auf den Host beschränkte Gast-Firewall bleiben Create-Effekte.
+Die Option ist keine allgemeine Schreibsperre und keine atomare Sperre gegen
+fremde Netzänderungen. Sie erteilt keine Aktivierungs-, TLS-, Trust- oder
+Elevationsfreigabe. Der Standard ohne Option bleibt unverändert. Für die
+öffentliche authentifizierte False-Erstellung ist diese Option noch gesperrt.
+Die zunächst ausgeführte Prüfung ist eine injizierte Offline-Grenzprüfung;
+eine native VM-Abnahme dieses erweiterten Create-Pfads bleibt offen.
+
 ## 3. Aktueller Ausgangspunkt und notwendige Providerneutralisierung
 
 | Bereich | Aktueller Stand | Ziel |
