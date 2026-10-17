@@ -5,6 +5,10 @@ Eigene SSIS-Projekte in einem bestehenden Windows-Lab verwenden den
 `Invoke-SqlServerLabScript` mit `-WindowsAuthentication`. Die Gastanmeldung
 bleibt geschützt; die vorhandenen Lab-Fixtureausführungen bleiben erhalten.
 
+Bei Paketladefehlern beobachtet `Get-SqlServerLabSsisPackageDiagnostic` die
+Komponenten derselben Gast-Runtime und `LoadFromXML` des hashgebundenen eigenen
+Pakets ohne Ausführung. [Voraussetzungen und Beispiel](../Architecture/SSIS_PACKAGE_DIAGNOSTIC.md).
+
 CLI und Browser pruefen das SA-Passwort vor der Containererstellung und erlauben
 Korrektur oder Abbruch. Standard: acht bis 128 Zeichen und drei von vier
 Zeichengruppen. Im Browser erscheint eine kuerzere Mindestlaenge erst nach
