@@ -197,6 +197,13 @@ Host-Secretdatei sind entfernt, Schutzvergleiche frisch bestanden. Prozess-Trust
 beider Stacks und geladener Linux-ODBC bleiben unqualifiziert. Der nächste
 geplante Versuch lässt UID 10001 die eigene Datei direkt erstellen; er braucht
 eine neue konkrete Vorschau und Freigabe statt eines alten Intent-Replays.
+Der separat freigegebene [UID-Nachfolger](../Quality/TLS_LINUX_DIRECT_UID_PARTIAL_ACCEPTANCE_2026-10-17.md)
+bestand die native Dateianlage und eine strikte Linux-CLR-SQL-Verbindung mit
+Verschlüsselung. ODBC scheiterte am als gültig geplanten IP-SAN-Fall mit einer
+Namensablehnung. Eigener Cleanup und frische Schutzvergleiche bestanden;
+Trustentzug/-wiederherstellung und geladener ODBC bleiben offen. Eine neue
+`DNS localhost`-Vorschau ändert keine Resolver und verlangt neue Freigabe;
+SC-2026-045 bleibt gesperrt.
 
 **Istzustand und Vertragslücke.** Die Prüfung der Repositoryquellen am
 2026-10-15 ergibt:

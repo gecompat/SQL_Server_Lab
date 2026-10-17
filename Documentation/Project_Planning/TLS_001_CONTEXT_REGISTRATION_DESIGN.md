@@ -230,6 +230,12 @@ temporäre Secretdatei sind entfernt; Abwesenheit und Schutzvergleiche frisch
 bestätigt. Eine neue Vorschau plant Dateianlage durch UID 10001 ohne zusätzliche
 Privilegien. Die verbrauchte Freigabe erlaubt keinen zweiten Client;
 Kontextregistrierung und Linux-TLS bleiben offen.
+Der [separat freigegebene UID-Nachfolger](../Quality/TLS_LINUX_DIRECT_UID_PARTIAL_ACCEPTANCE_2026-10-17.md)
+belegte inzwischen direkte UID-Dateianlage und eine strikte CLR-SQL-Verbindung.
+ODBC lehnte den als positiv geplanten IP-SAN-Fall wegen Namensabweichung ab.
+Eigener Cleanup und Schutzvergleiche bestanden. Kein geladener ODBC-Nachweis,
+Trustentzug/-wiederherstellung oder Registryrecord; die neue `DNS localhost`-
+Vorschau benötigt eigene Freigabe und gebundene Quellen.
 Referenzen bleiben weiterhin
 unaufgelöst. Native TLS-, Client- und Mindestlaufzeitabnahmen werden durch
 diese Planung nicht ersetzt.

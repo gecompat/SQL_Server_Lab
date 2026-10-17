@@ -142,6 +142,15 @@ Capabilities, ist aber noch nicht nativ geprüft. Eine neue konkrete lokale
 Vorschau verlangt neue ausdrückliche Trustfreigabe und gebundene Quellen;
 kein Replay. Linux-TLS und Toolbelt SC-2026-045 bleiben offen.
 
+Der danach separat freigegebene
+[UID-Nachfolger](../Quality/TLS_LINUX_DIRECT_UID_PARTIAL_ACCEPTANCE_2026-10-17.md)
+bestand die tatsächliche direkte Dateianlage durch UID 10001 und die strikte
+Linux-CLR-Verbindung mit SQL-Build und Verschlüsselung. ODBC lehnte den als
+positiv geplanten IP-SAN-Fall wegen Namensabweichung ab. Beide Stacks,
+Trustdrift und geladener ODBC bleiben unqualifiziert; eigener Cleanup und
+frische Schutzvergleiche bestanden. Eine neue konkrete `DNS localhost`-Vorschau
+bleibt ohne neue Freigabe und gebundene Quellen unausgeführt.
+
 ## Historischer Abschluss vom 2026-10-09
 
 Der Benutzer hat die laufende Entwicklungswelle beendet. PR #732 und #734

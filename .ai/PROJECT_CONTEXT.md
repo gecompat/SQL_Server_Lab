@@ -102,6 +102,14 @@ Workerende, Abwesenheit, geschützte Dateien und bestehender Windows-Trust frisc
 geprüft. Kein Linux-TLS-/ODBC-Nachweis. Eine neue konkrete Vorschau plant
 Dateierstellung durch UID 10001 ohne Zusatzprivilegien; ein weiterer Client
 benötigt eine neue ausdrückliche Freigabe, keinen Replay des alten Intents.
+Der erneut konkret freigegebene
+[UID-Nachfolger](../Documentation/Quality/TLS_LINUX_DIRECT_UID_PARTIAL_ACCEPTANCE_2026-10-17.md)
+belegte inzwischen die direkte private Dateianlage durch UID 10001 und eine
+strikte Linux-CLR-Verbindung mit tatsächlichem SQL-Build und Verschlüsselung.
+ODBC lehnte den als positiv geplanten IP-SAN-Fall wegen Namensabweichung ab;
+Trustentzug/-wiederherstellung und geladener ODBC bleiben ungeprüft. Eigener
+Cleanup und frische Schutzvergleiche bestanden. Eine neue konkrete Vorschau
+plant `DNS localhost` ohne Resolveränderung; beide Stacks bleiben unqualifiziert.
 Der private Issuer erlaubt für echte Ablaufgegenfälle nun alternativ native
 30–300 Sekunden statt 1–30 Tagen, ohne Caller-Uhr oder Rückdatierung.
 Syntaktische Approval-/Adapter-IDs sind keine menschliche oder Quieszenzevidence.

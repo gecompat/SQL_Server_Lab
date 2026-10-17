@@ -85,3 +85,8 @@ Linux-TLS, dessen Versions-/Providermatrix, Hyper-V, vollständige Trustdrift-/
 Abbruch-/Resumeabnahme, operative Registry/AuthorityRef, frische Qualifikation,
 qualifizierter Export und tatsächlicher Toolbelt-Preflight bleiben offen.
 SC-2026-045 bleibt gesperrt. Kosten und Tokenverbrauch sind unbekannt.
+
+Der später separat freigegebene
+[UID-Nachfolger](TLS_LINUX_DIRECT_UID_PARTIAL_ACCEPTANCE_2026-10-17.md)
+belegt die tatsächliche direkte Dateianlage und eine strikte CLR-Verbindung;
+seine ODBC-Namensablehnung und sein eigener Cleanup bleiben getrennte Evidence.
