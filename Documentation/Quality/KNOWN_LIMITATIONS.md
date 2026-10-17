@@ -2436,11 +2436,13 @@ Kryptofälle sind kein Clientnachweis. Der nachfolgende eigene native Lauf
 wartete den tatsächlichen Ablauf ab und bestand beide Windows-Gegenfälle;
 interne Containerreadiness vor Ablauf ist keine authentifizierte TLS-Evidence.
 Offline-`attime` und künstliche globale Uhränderung ersetzen diesen Nachweis nicht.
-Zusätzlich bindet der lesende Diagnostic-/TLS-Targetmetadatenpfad derzeit nur
-Basisversionen im Run, während `New-SqlServerLab` auch katalogisierte CU-Tags
-erzeugen kann. Eine native eigene CU-Fixture kann über den bestehenden
-Run-/Scope-/Container-Reconcilepfad gebunden werden; sie qualifiziert dadurch
-den engeren Alpha-Targetmetadatenpfad oder die operative Registry nicht.
+Die frühere Begrenzung des lesenden Diagnostic-/TLS-Targetmetadatenpfads auf
+Basisversionen ist für katalogisierte Docker-/Podman-CU-Auswahlen behoben.
+Der vollständige Runselektor bleibt erhalten und wird an Basisjahr, exakten
+Katalogtag und Katalogbuild gebunden; unbekannte oder widersprüchliche Angaben
+bleiben gesperrt. Der Nachweis dieses Pfads ist synthetisch. Die früheren nativen
+CU-Fixtures nutzten den Run-/Scope-/Container-Reconcilepfad und qualifizieren
+dadurch weder den geänderten Alpha-Targetmetadatenpfad noch die operative Registry.
 Die private Fähigkeit sperrt Nicht-Windows und Engines
 vor 7.5 vor I/O; lokal nativ geprüft ist 7.6.6, kein 7.5-/7.2-Nachweis.
 DPAPI ist profilgebunden; Keyverlust, Administratoren, feindlicher Code mit

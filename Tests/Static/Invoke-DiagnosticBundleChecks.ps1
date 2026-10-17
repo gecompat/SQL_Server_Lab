@@ -18,11 +18,11 @@ try {
             $Value | ConvertTo-Json -Depth 64 | Set-Content -LiteralPath $Path -Encoding utf8
         }
         function Reset-DiagnosticFixture {
-            param([string]$Provider='docker',[switch]$Persistent)
+            param([string]$Provider='docker',[switch]$Persistent,[string]$Version='2025')
             $script:dataRoot=Join-Path $Root ([guid]::NewGuid().ToString('N'))
             $controller=[guid]::NewGuid().ToString('D')
             # Use real modern state and desired-state producers; no runtime provisioning.
-            $instance=[pscustomobject]@{id='primary';provider=$Provider;version='2025';profile='standard';autostart='manual';drives=@();databases=@();software=@()}
+            $instance=[pscustomobject]@{id='primary';provider=$Provider;version=$Version;profile='standard';autostart='manual';drives=@();databases=@();software=@()}
             $desired=New-LabDesiredStateSnapshot -ResolvedLab ([pscustomobject]@{name='Synthetic diagnostic fixture';instances=@($instance)}) -ProvisioningMode adhoc -PersistentData ([bool]$Persistent)
             $script:run=New-LabRunState -StateRoot (Join-Path $script:dataRoot 'State') -Metadata @{
                 desiredState=$desired;persistentData=[bool]$Persistent;dataRoot=$(if($Persistent){$script:dataRoot}else{$null})
@@ -74,6 +74,30 @@ try {
             if($bundle.Status -cne 'OBSERVED'){throw ('DIAGNOSTIC_FIXTURE_BINDING_FAILED: '+$bundle.Binding.Reason)}
             Assert-Diagnostic ($bundle.Status -ceq 'OBSERVED' -and $bundle.Binding.Provider -ceq $provider -and $bundle.History.RunState -ceq 'INITIALIZING' -and $script:probeCalls -eq 1) "${provider}: realer nichtpersistenter Produzent und gebundene Readiness"
             Assert-Diagnostic ($before -ceq (Get-FixtureSnapshot) -and -not $bundle.Capabilities.MutationAllowed -and $bundle.History.RuntimeStatus -ceq 'NOT_EXECUTED') 'Keine Dateiänderung oder behauptete Runtime-/Mutationsfreigabe'
+            Assert-BundleSafe $bundle
+        }
+        foreach($provider in @('docker','podman')) {
+            foreach($selector in @('2019-CU32','2019-CU32-ubuntu-20.04','2022-CU27','2022-CU27-ubuntu-22.04','2025-CU9','2025-CU9-ubuntu-24.04')) {
+                Reset-DiagnosticFixture -Provider $provider -Version $selector
+                $before=Get-FixtureSnapshot
+                $bundle=Get-SqlServerLabDiagnosticBundle @script:diagnosticArguments -SkipReadiness
+                Assert-Diagnostic ($bundle.Status -ceq 'OBSERVED' -and $bundle.Binding.SqlVersion -ceq $selector -and
+                    $script:probeCalls -eq 0 -and $before -ceq (Get-FixtureSnapshot)) 'Katalogisierte CU bleibt exakter Selektor ohne Runtime oder Mutation'
+                Assert-BundleSafe $bundle
+            }
+        }
+        foreach($case in @(@('docker','2025-CU999'),@('podman','2025-CU9-ubuntu-99.99'),@('hyperv','2025-CU9'),@('docker','2025-cu9'),@('docker',"2025-CU9`n"))) {
+            Reset-DiagnosticFixture -Provider $case[0] -Version $case[1]
+            $bundle=Get-SqlServerLabDiagnosticBundle @script:diagnosticArguments -SkipReadiness
+            Assert-Diagnostic ($bundle.Status -ceq 'BLOCKED' -and $bundle.Binding.SqlVersion -ceq 'UNKNOWN' -and $script:probeCalls -eq 0) 'Ungueltige CU ohne Jahresfallback oder Readiness'
+            Assert-BundleSafe $bundle
+        }
+        foreach($ignored in @([char]0x200b,[char]0x00ad)) {
+            Reset-DiagnosticFixture -Provider docker -Version '2025-CU9'
+            $script:state.instances=@([pscustomobject]@{id='primary';provider='docker';version=('2025-CU9'+$ignored)})
+            Write-FixtureJson $script:statePath $script:state
+            $bundle=Get-SqlServerLabDiagnosticBundle @script:diagnosticArguments -SkipReadiness
+            Assert-Diagnostic ($bundle.Status -ceq 'BLOCKED' -and $script:probeCalls -eq 0) 'Ignorierbare Zeichen im Ist-CUselektor bleiben verschieden'
             Assert-BundleSafe $bundle
         }
         Reset-DiagnosticFixture -Persistent

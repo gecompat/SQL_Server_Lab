@@ -85,6 +85,73 @@ try {
                 }
             }
         }
+        # Katalogisierte CU-Selektoren bleiben vollstaendig erhalten; Basisjahr
+        # und aehnliche Tags duerfen die konkrete Auswahl nicht ersetzen.
+        foreach($provider in @('docker','podman')) {
+            foreach($row in @(
+                @('2019','CU32','2019-CU32-ubuntu-20.04','15.0.4430.1'),
+                @('2022','CU27','2022-CU27-ubuntu-22.04','16.0.4295.3'),
+                @('2025','CU9','2025-CU9-ubuntu-24.04','17.0.5005.3'))) {
+                foreach($selector in @(($row[0]+'-'+$row[1]),$row[2])) {
+                    Reset-TlsTargetFixture $provider $selector
+                    $before=Get-TlsTargetSnapshot
+                    $result=Invoke-TlsTargetFixture
+                    Add-CheckResult "TLS-T11 CU bleibt exakt $provider/$selector" ($result.Success -and
+                        $result.Value.SqlVersion -ceq $selector -and $before -ceq (Get-TlsTargetSnapshot))
+                    $binding=Get-LabDiagnosticBinding -RunId $script:run.RunId -InstanceId primary -DataRoot $script:dataRoot
+                    Add-CheckResult 'TLS-T11 unabhaengige Katalogbindung' ($binding.SqlVersionBinding.Selector -ceq $selector -and
+                        $binding.SqlVersionBinding.BaseVersion -ceq $row[0] -and $binding.SqlVersionBinding.CatalogBuild -ceq $row[3] -and
+                        $binding.SqlVersionBinding.ContainerImage -ceq ('mcr.microsoft.com/mssql/server:'+$row[2]))
+                    $script:request.SqlVersion=$row[0]
+                    Assert-TlsTargetRejected 'TLS-T11 Basisjahr ersetzt keine CU' (Invoke-TlsTargetFixture)
+                }
+            }
+        }
+        foreach($selector in @('2025-CU999','2025-CU9-ubuntu-99.99','2025-cu9','2025-CU09','2025-CU9 ' ,"2025-CU9`n",'2025-CU9/../x')) {
+            Reset-TlsTargetFixture docker $selector
+            Assert-TlsTargetRejected 'TLS-T12 unbekannte oder nichtkanonische CU' (Invoke-TlsTargetFixture)
+        }
+        Reset-TlsTargetFixture docker '2025-CU9'
+        $script:state.instances[0].version='2025-CU9-ubuntu-24.04';Save-TlsTargetFixture
+        Assert-TlsTargetRejected 'TLS-T12 Alias und Tag sind keine identischen Runselektoren' (Invoke-TlsTargetFixture)
+        Reset-TlsTargetFixture hyperv '2025-CU9'
+        Assert-TlsTargetRejected 'TLS-T12 keine Hyper-V-CU-Erweiterung' (Invoke-TlsTargetFixture)
+        $savedCatalog=$script:VersionCatalog
+        try {
+            foreach($mutation in @('duplicate-base','duplicate-tag','wrong-cu','wrong-build','wrong-case','missing-tag')) {
+                $script:VersionCatalog=$savedCatalog
+                Reset-TlsTargetFixture docker '2025-CU9-ubuntu-24.04'
+                $script:VersionCatalog=$savedCatalog|ConvertTo-Json -Depth 64|ConvertFrom-Json -Depth 64
+                $version=@($script:VersionCatalog.versions|Where-Object id -CEQ '2025')[0]
+                $build=@($version.docker.builds|Where-Object tag -CEQ '2025-CU9-ubuntu-24.04')[0]
+                switch($mutation) {
+                    duplicate-base { $script:VersionCatalog.versions += $version }
+                    duplicate-tag { $version.docker.builds += $build }
+                    wrong-cu { $build.cu='CU8' }
+                    wrong-build { $build.build='17.0.invalid' }
+                    wrong-case { $build.tag='2025-CU9-Ubuntu-24.04' }
+                    missing-tag { $version.docker.builds=@($version.docker.builds|Where-Object tag -CNE $build.tag) }
+                }
+                Assert-TlsTargetRejected "TLS-T13 inkonsistenter Katalog $mutation" (Invoke-TlsTargetFixture)
+            }
+            $catalogCulture=[Threading.Thread]::CurrentThread.CurrentCulture
+            try {
+                foreach($culture in @('en-US','de-DE','tr-TR')) {
+                    [Threading.Thread]::CurrentThread.CurrentCulture=[Globalization.CultureInfo]::GetCultureInfo($culture)
+                    foreach($ignored in @([char]0x200b,[char]0x00ad)) {
+                        foreach($field in @('id','cu','tag')) {
+                            $script:VersionCatalog=$savedCatalog
+                            Reset-TlsTargetFixture docker '2025-CU9-ubuntu-24.04'
+                            $script:VersionCatalog=$savedCatalog|ConvertTo-Json -Depth 64|ConvertFrom-Json -Depth 64
+                            $version=@($script:VersionCatalog.versions|Where-Object id -CEQ '2025')[0]
+                            $build=@($version.docker.builds|Where-Object tag -CEQ '2025-CU9-ubuntu-24.04')[0]
+                            if($field -ceq 'id'){$version.id += $ignored}else{$build.$field += $ignored}
+                            Assert-TlsTargetRejected "TLS-T13 ordinaler Katalog $culture/$field/$([int]$ignored)" (Invoke-TlsTargetFixture)
+                        }
+                    }
+                }
+            } finally { [Threading.Thread]::CurrentThread.CurrentCulture=$catalogCulture }
+        } finally { $script:VersionCatalog=$savedCatalog }
         $cases = [ordered]@{
             'fremde RunId' = { $script:request.TargetRef='33333333-3333-3333-3333-333333333333' }
             'andere Instanz' = { $script:state.instances[0].id='secondary' }

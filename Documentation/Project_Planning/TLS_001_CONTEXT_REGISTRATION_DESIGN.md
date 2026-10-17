@@ -227,3 +227,14 @@ Das implementiert keinen Linux-Kontextselektor, Registryrecord oder TLS-Nachweis
 Referenzen bleiben weiterhin
 unaufgelöst. Native TLS-, Client- und Mindestlaufzeitabnahmen werden durch
 diese Planung nicht ersetzt.
+## CU-Metadatenbindung am 2026-10-17
+
+Der lesende Diagnostic-/TLS-Zielmetadatenpfad erhält jetzt katalogisierte
+Docker-/Podman-CU-Kurzbezeichner und exakte Tags als vollständige Runselektoren.
+Der Reader bindet zusätzlich Basisjahr, exakten Katalogtag und Katalogbuild;
+unbekannte CUs, widersprüchliche Tags und ein Jahresfallback bleiben gesperrt.
+Dies ist ein synthetisch geprüfter Metadatenvertrag, keine nachträgliche
+Qualifikation der früheren nativen CU-Fixtures. Linux-TLS, Hyper-V, operative
+Registry, Exportcutover und vollständige Abnahme bleiben offen; SC-2026-045
+bleibt gesperrt. Details im
+[TLS-Zielmetadatenvertrag](../Architecture/AUTHENTICATED_TLS_TARGET_METADATA.md).

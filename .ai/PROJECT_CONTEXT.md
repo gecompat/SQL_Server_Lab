@@ -19,6 +19,11 @@ freizugebendem Client-Trust ausgewählt; der
 ist kein Zertifikats-, Truststore- oder Runtime-Nachweis. Genau ein
 Implementierer verantwortet einen kohärenten Scope.
 
+Der lesende [TLS-Zielmetadatenpfad](../Documentation/Architecture/AUTHENTICATED_TLS_TARGET_METADATA.md)
+bindet inzwischen katalogisierte Docker-/Podman-CU-Kurzbezeichner und exakte
+Tags bei erhaltenem Runselektor. Die synthetische Vertragsprüfung ersetzt
+keine native TLS-/Registry-/Exportabnahme; SC-2026-045 bleibt gesperrt.
+
 Die private [Windows-Kontextvorschau](../Documentation/Architecture/AUTHENTICATED_TLS_CONTEXT_PREVIEW.md)
 ergänzt geschlossene Client-/Signierkontextanfragen und liest nach expliziter
 Prozesswahl native Token-/Profil-/Hostmarker- und Client-Diskmetadaten.

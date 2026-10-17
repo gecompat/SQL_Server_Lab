@@ -77,6 +77,37 @@ function Test-LabDiagnosticGuid {
     return $Value -is [string] -and [guid]::TryParseExact($Value,'D',[ref]$parsed) -and $Value -ceq $parsed.ToString('D') -and $parsed -ne [guid]::Empty
 }
 
+function Get-LabDiagnosticSqlVersionBinding {
+    param([string]$Selector,[string]$Provider)
+    # Ein CU-Selektor bleibt Runidentitaet. Das Basisjahr allein darf weder
+    # einen unbekannten CU noch einen nicht katalogisierten Tag legitimieren.
+    if ($Selector -cmatch '\A[0-9]{4}(?:R2)?\z') {
+        $version=Get-SqlServerVersion -VersionId $Selector
+        if (-not $version -or $version.id -isnot [string] -or -not [string]::Equals($version.id,$Selector,[StringComparison]::Ordinal) -or
+            ($Provider -cin @('docker','podman') -and -not $version.docker)) { throw 'DIAGNOSTIC_SQL_VERSION_UNSUPPORTED' }
+        return [pscustomobject]@{Selector=$Selector;BaseVersion=$Selector;ContainerImage=$null;CatalogBuild=$null}
+    }
+    if ($Provider -cnotin @('docker','podman') -or $Selector -cnotmatch
+        '\A(?<year>[0-9]{4})-(?<cu>CU[1-9][0-9]{0,3})(?:-[a-z0-9][a-z0-9.-]{0,63})?\z') { throw 'DIAGNOSTIC_SQL_VERSION_UNSUPPORTED' }
+    $year=$Matches.year; $cu=$Matches.cu
+    $versions=@($script:VersionCatalog.versions | Where-Object { $_.id -is [string] -and [string]::Equals($_.id,$year,[StringComparison]::Ordinal) })
+    if ($versions.Count -ne 1 -or -not $versions[0].docker) { throw 'DIAGNOSTIC_SQL_VERSION_UNSUPPORTED' }
+    # Dasselbe geordnete CU-/Tag-Verfahren wie die oeffentliche Provisionierung.
+    # Keine Imageabfrage, kein Pull und kein Rueckfall auf ein latest-Image.
+    $image=Get-SqlServerDockerImage -VersionId $Selector
+    $prefix='mcr.microsoft.com/mssql/server:'
+    if ($image -isnot [string] -or -not $image.StartsWith($prefix,[StringComparison]::Ordinal)) { throw 'DIAGNOSTIC_SQL_VERSION_UNSUPPORTED' }
+    $tag=$image.Substring($prefix.Length)
+    $builds=@($versions[0].docker.builds | Where-Object { $_.tag -is [string] -and [string]::Equals($_.tag,$tag,[StringComparison]::Ordinal) })
+    if ($tag -cnotmatch ('\A'+$year+'-'+$cu+'-[a-z0-9][a-z0-9.-]{0,63}\z') -or
+        (-not [string]::Equals($Selector,($year+'-'+$cu),[StringComparison]::Ordinal) -and
+            -not [string]::Equals($Selector,$tag,[StringComparison]::Ordinal)) -or $builds.Count -ne 1 -or
+        $builds[0].cu -isnot [string] -or -not [string]::Equals($builds[0].cu,$cu,[StringComparison]::Ordinal) -or $builds[0].build -isnot [string] -or
+        $builds[0].build -cnotmatch '\A[0-9]{1,5}(?:\.[0-9]{1,5}){3}\z') { throw 'DIAGNOSTIC_SQL_VERSION_UNSUPPORTED' }
+    # Katalogbuild ist Sollmetadatum, keine Beobachtung des laufenden SQL-Builds.
+    return [pscustomobject]@{Selector=$Selector;BaseVersion=$year;ContainerImage=$image;CatalogBuild=$builds[0].build}
+}
+
 function Get-LabDiagnosticBinding {
     param([string]$RunId,[string]$InstanceId,[string]$DataRoot,[string]$Provider)
     if (-not (Test-LabDiagnosticGuid $RunId) -or $InstanceId -cnotmatch '^[A-Za-z][A-Za-z0-9_-]{0,63}$') {
@@ -130,11 +161,12 @@ function Get-LabDiagnosticBinding {
     }
     $ids=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
     $providers=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    $versionBindings=@{}
     foreach ($instance in $instances) {
         if ($instance.Id -isnot [string] -or $instance.Id -cnotmatch '^[A-Za-z][A-Za-z0-9_-]{0,63}$' -or
             -not $ids.Add($instance.Id) -or $instance.Provider -isnot [string] -or
-            $instance.Provider -cnotin @('docker','podman','hyperv') -or $instance.Version -isnot [string] -or
-            $instance.Version -cnotmatch '^[0-9]{4}(R2)?$') { throw 'DIAGNOSTIC_INSTANCE_BINDING_INVALID' }
+            $instance.Provider -cnotin @('docker','podman','hyperv') -or $instance.Version -isnot [string]) { throw 'DIAGNOSTIC_INSTANCE_BINDING_INVALID' }
+        $versionBindings[$instance.Id]=Get-LabDiagnosticSqlVersionBinding -Selector $instance.Version -Provider $instance.Provider
         $null=$providers.Add($instance.Provider)
     }
     if ($subRuns.Count -ne $providers.Count) { throw 'DIAGNOSTIC_PROVIDER_BINDING_INVALID' }
@@ -149,22 +181,19 @@ function Get-LabDiagnosticBinding {
         $intent=@($instances | Where-Object Id -CEQ $actual.id)
         if ($intent.Count -ne 1 -or -not $actualIds.Add([string]$actual.id) -or
             $actual.provider -cne $intent[0].Provider -or
-            ($actual.version -and $actual.version -cne $intent[0].Version)) { throw 'DIAGNOSTIC_INSTANCE_BINDING_INVALID' }
+            ($actual.version -and -not [string]::Equals([string]$actual.version,$intent[0].Version,[StringComparison]::Ordinal))) { throw 'DIAGNOSTIC_INSTANCE_BINDING_INVALID' }
     }
     $selected=@($instances | Where-Object Id -CEQ $InstanceId)
     if ($selected.Count -ne 1) { throw 'DIAGNOSTIC_INSTANCE_UNAVAILABLE' }
     $instance=$selected[0]
     if ($Provider -and $Provider -cne $instance.Provider) { throw 'DIAGNOSTIC_PROVIDER_MISMATCH' }
-    $version=Get-SqlServerVersion -VersionId ([string]$instance.Version)
-    if (-not $version -or [string]$version.id -cne [string]$instance.Version -or
-        ($instance.Provider -cin @('docker','podman') -and -not $version.docker)) { throw 'DIAGNOSTIC_SQL_VERSION_UNSUPPORTED' }
     # REMOVED is terminal and intentionally has no outgoing transition-map entry.
     $states=@('INITIALIZING','PROVISIONING','SQL_READY','DATABASES_CREATED','POST_PROVISIONED','RUNNING',
         'STOPPED','PROVISION_FAILED','CLEANUP_PENDING','CLEANUP_RUNNING','CLEANED_UP','RECOVERY_REQUIRED','REMOVED')
     if ($run.state -isnot [string] -or $run.state -cnotin $states -or
         @($subRuns | Where-Object { $_.state -isnot [string] -or $_.state -cnotin $states }).Count) { throw 'DIAGNOSTIC_STATE_INVALID' }
     # No complete desired-state/intent object escapes this internal binding boundary.
-    [pscustomobject]@{Root=$root;StateRoot=$stateRoot;Directory=$directory;Run=$run;Instance=$instance;Provider=$instance.Provider}
+    [pscustomobject]@{Root=$root;StateRoot=$stateRoot;Directory=$directory;Run=$run;Instance=$instance;Provider=$instance.Provider;SqlVersionBinding=$versionBindings[$instance.Id]}
 }
 
 function Get-LabDiagnosticCleanup {
