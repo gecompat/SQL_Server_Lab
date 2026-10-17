@@ -13,6 +13,13 @@ CA-/Trustscopezuordnung und Retirement sind gesperrt; es gibt keine neue
 Unvollständige erstmalige Anlage verlangt gesonderte eigene Recovery/Cleanup;
 kein stiller Retry. Spätere historische Reader-/Planungsnachweise behalten
 ihre damaligen Aussagegrenzen.
+## Anzeige gespeicherter TLS-Werte
+
+Die [TLS-Anzeige](../Architecture/SQL_CONNECTION_SETTINGS.md) in CLI und GUI
+projiziert ausschließlich angegebene Connection-String-Werte. Fehlende Werte
+bleiben null/`nicht angegeben`, ungültige `nicht lesbar`. Die GUI-Zielübersicht
+zeigt keine Zugangsdaten. Dies ist keine Live-Verbindungs-/Zertifikatsprüfung
+und keine Freigabe der öffentlichen `False`-Moduswahl.
 
 ## TLS-Standard für neue Labverbindungen
 

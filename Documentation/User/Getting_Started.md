@@ -6,6 +6,12 @@ CA-/Client-Trusteinrichtung. Gespeicherte Altverbindungen bleiben erhalten.
 Die öffentliche Auswahl von `TrustServerCertificate=False` samt qualifizierter
 CLI-/GUI-Anzeige wird im laufenden TLS-001-Scope ergänzt.
 
+Die CLI-Runstatusansicht zeigt bereits eine eigene **Connection Settings**-
+Zeile je Provider/Instanz. Die GUI zeigt unter **Verbindungen und CMS** beide
+angegebenen TLS-Werte je Ziel ohne Zugangsdaten. Fehlende Werte erscheinen
+als `nicht angegeben`, unlesbare als `nicht lesbar`. Diese Anzeige führt
+keinen Verbindungstest aus; [Vertrag und Grenzen](../Architecture/SQL_CONNECTION_SETTINGS.md).
+
 Eigene SSIS-Projekte in einem bestehenden Windows-Lab verwenden den
 [Windows-Consumerzugang](../HowTo/SSIS_CONSUMER_WINDOWS_ACCESS.md) des bestehenden
 `Invoke-SqlServerLabScript` mit `-WindowsAuthentication`. Die Gastanmeldung

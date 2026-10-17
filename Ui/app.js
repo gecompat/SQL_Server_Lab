@@ -626,22 +626,28 @@ function sqlConnectionEndpoint(connectionString, tcpPort) {
   return server && Number.isInteger(port) && port > 0 && port <= 65535 ? server[1] + ',' + port : 'Host oder Port unbekannt';
 }
 
+function sqlConnectionSettingsLabel(settings) {
+  const missing = settings?.Status === 'UNREADABLE' ? 'nicht lesbar' : 'nicht angegeben';
+  const flag = (value) => settings?.Status !== 'UNREADABLE' && typeof value === 'boolean' ? (value ? 'True' : 'False') : missing;
+  return 'Encrypt=' + flag(settings?.Encrypt) + ';TrustServerCertificate=' + flag(settings?.TrustServerCertificate);
+}
+
 function renderConnectionEndpoints(data) {
   const endpoints = [];
   for (const lab of data.ActiveLabs || []) {
     for (const instance of lab.Instances || []) {
       endpoints.push({ lab: lab.Name || lab.RunId, instance: instance.Id, provider: instance.Provider,
-        endpoint: instance.Host && instance.Port ? instance.Host + ',' + instance.Port : 'Host oder Port unbekannt' });
+        endpoint: instance.Host && instance.Port ? instance.Host + ',' + instance.Port : 'Host oder Port unbekannt', settings: instance.ConnectionSettings });
     }
   }
   for (const lab of data.HyperVLabs || []) {
-    const instances = lab.SqlInstances?.length ? lab.SqlInstances : (lab.Workload === 'sql' ? [{ InstanceId: lab.InstanceId, ConnectionString: lab.ConnectionString }] : []);
+    const instances = lab.SqlInstances?.length ? lab.SqlInstances : (lab.Workload === 'sql' ? [{ InstanceId: lab.InstanceId, ConnectionString: lab.ConnectionString, ConnectionSettings: lab.ConnectionSettings }] : []);
     for (const instance of instances) {
       endpoints.push({ lab: lab.Name || lab.RunId, instance: instance.Name || instance.InstanceId, provider: 'hyperv',
-        endpoint: sqlConnectionEndpoint(instance.ConnectionString, instance.TcpPort) });
+        endpoint: sqlConnectionEndpoint(instance.ConnectionString, instance.TcpPort), settings: instance.ConnectionSettings });
     }
   }
-  $('#connection-endpoints').innerHTML = endpoints.length ? endpoints.map((item) => '<article class="list-item"><strong>' + escapeHtml(item.lab) + ' · ' + escapeHtml(item.instance) + '</strong><span>' + escapeHtml(item.provider) + ' · ' + escapeHtml(item.endpoint) + '</span></article>').join('') : empty('Keine registrierten SQL-Endpunkte in der aktuellen Ansicht.');
+  $('#connection-endpoints').innerHTML = endpoints.length ? endpoints.map((item) => '<article class="list-item"><strong>' + escapeHtml(item.lab) + ' · ' + escapeHtml(item.instance) + '</strong><span>' + escapeHtml(item.provider) + ' · ' + escapeHtml(item.endpoint) + '</span><span><strong>Connection Settings:</strong> ' + escapeHtml(sqlConnectionSettingsLabel(item.settings)) + '</span></article>').join('') : empty('Keine registrierten SQL-Endpunkte in der aktuellen Ansicht.');
 }
 
 function renderWorkflow(data) {

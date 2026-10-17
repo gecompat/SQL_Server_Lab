@@ -1,5 +1,12 @@
 # Lokale Workflow-Oberfläche
 
+Unter **Verbindungen und CMS** zeigt jede SQL-Zielkarte ihre angegebenen
+**Connection Settings**: `Encrypt` und `TrustServerCertificate`. Der neue
+Standard bleibt jeweils `True`. Explizites `False` bleibt sichtbar; fehlende
+oder unlesbare Werte erhalten eine feste Meldung. Die Übersicht zeigt keine
+Zugangsdaten und führt keinen Verbindungstest aus. Die CLI-Runstatusansicht
+zeigt dieselben Werte; [Vertrag](../Architecture/SQL_CONNECTION_SETTINGS.md).
+
 ## Zweck
 
 Alle Requests passieren die gemeinsame [HTTP-Grenze](../Architecture/WORKFLOW_UI_REQUEST_BOUNDARY.md)
