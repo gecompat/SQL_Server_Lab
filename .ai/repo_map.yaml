@@ -890,6 +890,8 @@ sources_of_truth:
   validation_authenticated_tls_authority: Tests/Static/Invoke-AuthenticatedTlsAuthorityChecks.ps1
   validation_authenticated_tls_lab: Tests/Static/Invoke-AuthenticatedTlsLabChecks.ps1
   acceptance_authenticated_tls_lab: Tests/Integration/Invoke-AuthenticatedTlsLabAcceptance.ps1
+  acceptance_authenticated_tls_export_cleanup: Tests/Common/AuthenticatedTlsAcceptanceCleanup.ps1 # fixed private exports of terminal owned acceptance runs only; no CA/key/trust dependency
+  validation_authenticated_tls_export_cleanup: Tests/Static/Invoke-AuthenticatedTlsAcceptanceCleanupChecks.ps1
   schema_authenticated_tls_test_environment: Schemas/test-environment-authenticated.schema.json
   authenticated_tls_registry_writer: Private/AuthenticatedTlsRegistryWriter.ps1 # private Windows NTFS client/signer + selected 0.2 CA metadata; fresh actor/volume, protected journals, cooperative locks and explicit recovery; no CA/trust/SQL qualification
   validation_authenticated_tls_registry_writer: Tests/Static/Invoke-AuthenticatedTlsRegistryWriterChecks.ps1 # native own temp ACL/replace/process crash/concurrency/cleanup; coupled root/document/index/payload/request/context/backend/CA file helpers/StorageContract/DiagnosticBundleReader

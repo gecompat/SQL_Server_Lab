@@ -9,6 +9,12 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $failures = [System.Collections.Generic.List[string]]::new()
 $passed = 0
 $selector = Join-Path $repoRoot 'Tools/Get-CiTestSelection.ps1'
+foreach($path in @('Tests/Common/AuthenticatedTlsAcceptanceCleanup.ps1','Tests/Static/Invoke-AuthenticatedTlsAcceptanceCleanupChecks.ps1','Tests/Integration/Invoke-AuthenticatedTlsLabAcceptance.ps1')){
+    foreach($normalized in @($path,$path.Replace('/','\'))){
+        $selected=& $selector -ChangedPath @($normalized)
+        Add-CheckResult "TLS acceptance cleanup is selected for $normalized" ('Invoke-AuthenticatedTlsAcceptanceCleanupChecks.ps1' -in $selected.StaticChecks)
+    }
+}
 foreach ($path in @('Providers/HyperV/HyperVWindowsSqlScript.ps1','Public/Invoke-SqlServerLabScript.ps1','Tests/Integration/Invoke-WindowsSqlConsumerAcceptance.ps1')) {
     $selected = & $selector -ChangedPath @($path)
     Add-CheckResult "Windows SQL consumer selects actual core, binding, no-replay transport and public-console tests: $path" (
