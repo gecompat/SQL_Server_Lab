@@ -187,10 +187,20 @@ function Assert-LabTlsRegistryFreshPayloads {
     $old=[Collections.Generic.Dictionary[string,object]]::new([StringComparer]::Ordinal)
     foreach($p in $Current.Payloads){$old.Add($p.Ref,$p)}
     foreach($p in $Candidate.Payloads){
-        # Erste Lane nur aktive Client-/Signiermetadaten. Retirement und
-        # Authorityanlage brauchen den noch fehlenden Nutzungs-/Trustscopevertrag.
-        if($p.Kind -ceq 'AUTHORITY' -or $p.Status -cne 'ACTIVE'){throw 'TLS_REGISTRY_OPERATION_UNSUPPORTED'}
+        if($p.Status -cne 'ACTIVE'){throw 'TLS_REGISTRY_OPERATION_UNSUPPORTED'}
         if(-not $old.ContainsKey($p.Ref) -and $Reserved.Contains($p.Ref)){throw 'TLS_REGISTRY_REF_RESERVED'}
+        if($p.Kind -ceq 'AUTHORITY'){
+            # Kein Upgrade ungebundener 0.1-CAs und kein Same-Generation-Skip:
+            # Kandidat, beide Kontexte und Store werden stets frisch gelesen.
+            if($p.ContractVersion -cne 'SqlServerLab.AuthenticatedTlsRegistryPayload/0.2') {throw 'TLS_REGISTRY_OPERATION_UNSUPPORTED'}
+            $signer=@($Candidate.Payloads|Where-Object Ref -CEQ $p.SignerContextRef)
+            $client=@($Candidate.Payloads|Where-Object Ref -CEQ $p.ClientRef)
+            if($signer.Count -ne 1 -or $client.Count -ne 1){throw 'TLS_REGISTRY_PAYLOAD_STALE'}
+            $preview=Get-LabAuthenticatedTlsAuthorityPreview $Binding.Root.DataRoot $Binding.Root.ControllerId $Binding.Root.LocationId CURRENT_WINDOWS_PROCESS `
+                (ConvertTo-LabTlsRegistryWriterBytes $p) (ConvertTo-LabTlsRegistryWriterBytes $signer[0]) (ConvertTo-LabTlsRegistryWriterBytes $client[0])
+            if(-not $preview.Success -or $preview.Value.RootMetadataDigest -cne $Binding.Root.RootMetadataDigest){throw 'TLS_REGISTRY_PAYLOAD_STALE'}
+            continue
+        }
         if($old.ContainsKey($p.Ref) -and $old[$p.Ref].Generation -eq $p.Generation){continue}
         if($p.Actor.UserSid -cne $Binding.Native.UserSid -or $p.Actor.HostMarker -cne $Binding.Native.HostMarker -or
             $p.Actor.ProfilePath -cne $Binding.Native.ProfilePath){throw 'TLS_REGISTRY_ACTOR_MISMATCH'}
@@ -268,6 +278,10 @@ function Invoke-LabAuthenticatedTlsRegistryWrite {
                 $required=if($Operation -ceq 'RECOVER_COMMIT'){'CANDIDATE_INSTALLED'}else{'SOURCE_UNCHANGED'}
                 if($state.Status -cne $required){throw 'TLS_REGISTRY_RECOVERY_INVALID'}
                 Assert-LabTlsRegistryWriterBinding $b $ExpectedRootDigest $ExpectedActorDigest
+                if($Operation -ceq 'RECOVER_COMMIT'){
+                    $recovered=(Read-LabAuthenticatedTlsRegistryDocument $state.Bytes).Value.RegistryDocument
+                    Assert-LabTlsRegistryFreshPayloads ([pscustomobject]@{Payloads=@()}) $recovered $b ([Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal))
+                }
                 # Recovery fuehrt keinen Ersatz aus. Sie bestaetigt nur exakt gelesene Bytes.
                 $started=$true
                 Write-LabTlsRegistryTerminal $b $intent $(if($Operation -ceq 'RECOVER_COMMIT'){'COMMITTED'}else{'ABORTED'})
@@ -292,6 +306,7 @@ function Invoke-LabAuthenticatedTlsRegistryWrite {
         if((Get-LabTlsCaByteDigest $readback) -cne $candidateSha -or -not (Read-LabAuthenticatedTlsRegistryDocument $readback).Success){throw 'TLS_REGISTRY_CANDIDATE_CHANGED'}
         Assert-LabTlsRegistryWriterBinding $b $ExpectedRootDigest $ExpectedActorDigest
         $registry=Join-Path $b.Directory 'registry.json'
+        if($Operation -ceq 'UPDATE'){Assert-LabTlsRegistryFreshPayloads $before $parsed.Value.RegistryDocument $b $state.Reserved}
         if($Operation -ceq 'INITIALIZE'){
             if(Test-Path -LiteralPath $registry){throw 'TLS_REGISTRY_SOURCE_CHANGED'}
             [IO.File]::Move($candidatePath,$registry)
@@ -307,6 +322,7 @@ function Invoke-LabAuthenticatedTlsRegistryWrite {
         $installed=Read-LabTlsCaPrivateFile $registry $b.Native.UserSid 4194304
         if((Get-LabTlsCaByteDigest $installed) -cne $candidateSha -or -not (Read-LabAuthenticatedTlsRegistryDocument $installed).Success){throw 'TLS_REGISTRY_READBACK_INVALID'}
         Assert-LabTlsRegistryWriterBinding $b $ExpectedRootDigest $ExpectedActorDigest
+        if($Operation -ceq 'UPDATE'){Assert-LabTlsRegistryFreshPayloads $before $parsed.Value.RegistryDocument $b $state.Reserved}
         Write-LabTlsRegistryTerminal $b ([pscustomobject]$intent) 'COMMITTED'
         $final=Read-LabTlsRegistryWriterState $b
         if($final.Status -cne 'COMMITTED' -or $final.Digest -cne $candidateSha){throw 'TLS_REGISTRY_COMMIT_INVALID'}

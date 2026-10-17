@@ -1,5 +1,16 @@
 # Private Registry-Gesamtform für TLS-Metadaten
 
+## Ergänzung: Authoritypayloads `0.2`
+
+Die Gesamthülle und der Index bleiben `0.1`; der Payloadreader ergänzt
+[gebundene Authorities](AUTHENTICATED_TLS_AUTHORITY_BINDING.md).
+Das Dokument fordert deren passende Clientpayload zusätzlich zur Signierkante:
+aktive CAs exakt aktive Clientgeneration, retirierte Formen höchstens aktuelle
+Generation. Aktive TrustScopeRef-, CandidateId- und CertificateSha256-Aliases
+sind gesperrt. Neue Felder gehen über die abgeleiteten Payloaddigests in den
+Dokumentdigest ein. Die Dokumentprüfung bleibt reine Byteform ohne I/O oder
+Schreibautorität. Der separate Writer erlaubt nur frisch gebundene aktive CAs.
+
 | Merkmal | Wert |
 |---|---|
 | Status | `OFFLINE_REGISTRY_ONLY`; keine persistente Registry oder Registrierung |

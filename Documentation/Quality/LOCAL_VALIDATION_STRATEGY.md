@@ -1,5 +1,21 @@
 # Lokale Validierungsstrategie
 
+## Private Authoritybindung vom 2026-10-17
+
+Die [fokussierte Suite](../../Tests/Static/Invoke-AuthenticatedTlsAuthorityBindingChecks.ps1)
+prüft die [CA-/Client-Trustmetadaten](../Architecture/AUTHENTICATED_TLS_AUTHORITY_BINDING.md):
+geschlossene Formen und Digests, exakte Clientkante, aktive Duplikate,
+fremden Actor, Ciphertextdrift, unveränderte Generationen und Trustdrift
+zwischen Kandidateninstallation und Commit sowie frischen Recoverycommit.
+Native eigene Temp-CA, DPAPI/ACL, Root/Actor und Writer sind echte lokale
+Fixtures; positive Trust- und Clientbinarywerte sind injiziert. Fehlender
+Trust wird tatsächlich read-only gelesen. Keine tatsächliche Storemutation,
+SQL-/Provideraktion oder bestehende CA-Adoption. Die Writersuite bleibt
+separater Nachweis echter Childprozessabbrüche und Konkurrenz. Native
+Windows-Fälle bleiben auf anderen Plattformen NOT_EXECUTED. Eigener
+Tempcleanup ist erforderlich. Diese Metadatenprüfungen qualifizieren keinen
+Export und geben SC-2026-045 nicht frei.
+
 ## Bedingte TLS-Fortsetzung vom 2026-10-17
 
 Die lesende Vorprüfung auf dem integrierten Stand `b9684cf0` bestand mit

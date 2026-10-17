@@ -1,5 +1,16 @@
 # Private TLS-Metadatenpayload und Prozessbindung vor Keyanlage
 
+## Ergänzung: gebundene Authorityform `0.2`
+
+Nur AUTHORITY unterstützt zusätzlich die geschlossene
+[CA-/Client-Trustbindung](AUTHENTICATED_TLS_AUTHORITY_BINDING.md).
+Client-/Signierformen bleiben unverändert `0.1`; die folgenden bisherigen
+Feld-/Digestangaben gelten weiterhin für `0.1`. `0.2` hat eigene Identitäts-
+und Revisionsdomains und bindet alle neuen Felder einschließlich Version,
+Clientkante, Kandidat/Ciphertext/DER und Gültigkeit. Der alte signer-only
+Preview lehnt diese Form ab. Die neue native Vorschau und der Writer prüfen
+beide Kontexte und ReadOnly-Trust frisch; kein privater Key wird geöffnet.
+
 | Merkmal | Wert |
 |---|---|
 | Status | `PRE_KEY_METADATA_ONLY`; keine Registrierung, CA oder Keyablage |

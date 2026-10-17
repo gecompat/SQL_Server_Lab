@@ -38,6 +38,22 @@ function Read-LabAuthenticatedTlsRegistryDocument {
                 (-not [string]::Equals($record.SignerContextRef,$derived.SignerContextRef,[StringComparison]::Ordinal) -or $record.SignerGeneration -ne $derived.SignerGeneration)){return $bad}
             $payloads.Add($p)
         }
+        # 0.2 bindet genau eine aktive Clientgeneration; eine Referenz allein
+        # oder ein passender Signierer ersetzt diese Kante nicht.
+        $caScopes=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+        $caCandidates=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+        $caCertificates=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+        foreach($p in $payloads){
+            if($p.Kind -cne 'AUTHORITY' -or $p.ContractVersion -cne 'SqlServerLab.AuthenticatedTlsRegistryPayload/0.2'){continue}
+            if(-not $byRef.ContainsKey($p.ClientRef)){return $bad}
+            $client=$byRef[$p.ClientRef]
+            if($client.Kind -cne 'CLIENT_CONTEXT' -or $p.ClientGeneration -gt $client.Generation){return $bad}
+            if($p.Status -ceq 'ACTIVE'){
+                if($client.Status -cne 'ACTIVE' -or $p.ClientGeneration -ne $client.Generation -or
+                    -not $caScopes.Add($p.TrustScopeRef) -or -not $caCandidates.Add($p.CandidateId) -or
+                    -not $caCertificates.Add($p.CertificateSha256)){return $bad}
+            }
+        }
         # Reihenfolge ist Darstellung, nicht Identitaet. Keine Rohfile-CAS-Behauptung.
         $refs=[string[]]@($byRef.Keys);[array]::Sort($refs,[StringComparer]::Ordinal)
         $atoms=[Collections.Generic.List[string]]::new()

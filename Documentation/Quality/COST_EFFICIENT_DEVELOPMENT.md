@@ -230,6 +230,13 @@ unabhängiger Review bleiben erhalten. Logs bleiben lokal; zusätzliche
 Modellrunden, doppelte identische Prüfungen oder Runtime-Smokes entstehen
 daraus nicht. Native Windows-Dateifälle bleiben unter Linux sichtbar ungeprüft.
 
+Die gekoppelte [Authoritybindung](../Architecture/AUTHENTICATED_TLS_AUTHORITY_BINDING.md)
+ergänzt genau eine weitere Produktpfadausnahme und eine fokussierte Suite.
+Native eigene Temp-CA/DPAPI/NTFS-Fixtures verwenden injizierten positiven
+Trust statt Store-/SQL-Mutationen. Transitive Quellen, gemischte Auswahl,
+Nightly einschließlich Writersuite und konservative ähnliche Pfade bleiben
+geprüft. Der Aufwand bleibt auf diese lokale Metadatenlane begrenzt;
+notwendige Sicherheitsprüfungen und unabhängiger Review werden nicht ersetzt.
 Der Abschluss einer Welle nennt knapp:
 
 - geänderten Scope;

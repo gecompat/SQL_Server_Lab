@@ -1,5 +1,18 @@
 # Bekannte Grenzen
 
+## Private Authoritybindung ist keine operative Abnahme
+
+Die [neue Bindung](../Architecture/AUTHENTICATED_TLS_AUTHORITY_BINDING.md)
+implementiert die begrenzte private `0.2`-CA-/Client-/Trustscope-Metadatenform.
+Frische Kandidaten-/Kontext-/ReadOnly-Trustprüfung gilt auch bei unveränderter
+Generation und Recoverycommit. Eigene NTFS-/DPAPI-Tempfixtures verwenden
+injizierte positive Store-/Binärwerte. Kein tatsächlicher CA-Key wurde neu
+qualifiziert, keine bestehende CA adoptiert oder Store-/SQL-Konfiguration
+geändert. Beobachtung bleibt nicht atomar; handlebasierte Rootanker,
+Retirement, Mehrclient-Scope und vollständige native Abnahme fehlen.
+Die folgenden tatsächlichen Exportgruppenbefunde bleiben unverändert;
+öffentlicher strikter Modus, qualifizierter Export und SC-2026-045 sind offen.
+
 ## Bedingte CA-/Trustscopebindung und strikter Export
 
 Die [frische Vorprüfung vom 2026-10-17](LOCAL_VALIDATION_STRATEGY.md#bedingte-tls-fortsetzung-vom-2026-10-17)
@@ -20,7 +33,7 @@ registriertem lokalem NTFS-Root mit frischer Actor-/Volumeprüfung, privaten
 ACLs, kooperativen Sperren, Intent, atomarem Ersatz und expliziter Recovery.
 Eigene Tempfixtures prüfen native Abbrüche, Parallelität und Cleanup. Keine
 Stromausfall-, Administrator-/ABA-, Linux- oder TLS-Qualifikation entsteht.
-CA-/Trustscopezuordnung und Retirement sind gesperrt; es gibt keine neue
+Die aktuelle 0.2-Metadatenform ist oben getrennt beschrieben; tatsächliche CA-/Trustscopeadoption und Retirement bleiben offen. Es gibt keine neue
 öffentliche API. Volle Journale sperren statt automatisch zu kürzen.
 Unvollständige erstmalige Anlage verlangt gesonderte eigene Recovery/Cleanup;
 kein stiller Retry. Spätere historische Reader-/Planungsnachweise behalten

@@ -1,5 +1,17 @@
 # Autonome Entwicklungswelle nach der Repository-Durchsicht
 
+## Begrenzte CA-/Client-Metadatenbindung vom 2026-10-17
+
+Der neue [private Bindungsvertrag](../Architecture/AUTHENTICATED_TLS_AUTHORITY_BINDING.md)
+ergänzt die integrierte Registrytransaktion um vorhandene geschützte
+Kandidaten, exakte Client-/Signiergeneration und ReadOnly-Trustbeobachtung.
+Unveränderte Generationen und Recoverycommit werden frisch geprüft.
+Eigene temporäre Fixtures ersetzen keine tatsächliche Adoption oder
+native TLS-Abnahme. Bestehende CA, Stores und geschützte SQL-Ziele bleiben
+unverändert. Handleanker, vollständige Matrix, öffentliche Moduswahl,
+qualifizierter Export und Toolbelt-Preflight bleiben offen. SC-2026-045
+bleibt gesperrt; kein vorgezogener eigener SSIS-Scope.
+
 | Merkmal | Wert |
 |---|---|
 | Status | `ACTIVE`; ausdrücklich am 2026-10-16 in einem neuen Orchestrator-Chat wiederaufgenommen |
