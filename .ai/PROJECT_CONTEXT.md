@@ -84,6 +84,11 @@ einschließlich eigenem Cleanup und frischem Bestandsdateierhalt. Die spätere
 bestand separat je acht Windows-Clientfälle für Docker und Podman mit SQL 2019
 CU32 und SQL 2022 CU27 samt eigenem Cleanup. Registry, Hyper-V, Linuxclients,
 Trustdrift, TLS-Abbruch/Resume und qualifizierter Export bleiben offen.
+Die spätere [isolierte Linux-Clientvorbereitung](../Documentation/Quality/TLS_LINUX_CLIENT_CAPABILITY_2026-10-16.md)
+beobachtete PowerShell 7.6.6, SqlClient-Konstruktion mit erwartetem lokalem
+Netzwerkfehler und den ersten sqlcmd-Hilfeaufruf. Alle eigenen Fixturecontainer
+sind entfernt, Bestandsdateien frisch erhalten. Kein SQL-Server, keine Abfrage,
+keine CA-Datei oder Truständerung; Linux-TLS und Kontextregistrierung bleiben offen.
 Der private Issuer erlaubt für echte Ablaufgegenfälle nun alternativ native
 30–300 Sekunden statt 1–30 Tagen, ohne Caller-Uhr oder Rückdatierung.
 Syntaktische Approval-/Adapter-IDs sind keine menschliche oder Quieszenzevidence.
