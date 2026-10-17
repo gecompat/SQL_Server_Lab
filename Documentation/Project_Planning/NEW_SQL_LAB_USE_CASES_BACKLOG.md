@@ -335,6 +335,12 @@ her; unsicherer Alttransport ist keine erfolgreiche TLS-Recovery.
    ersetzen keine Linuxclients, operative Registry oder vollständige Qualifikation;
    diese Grenzen bleiben für alle drei Zellen offen.
 
+   Die spätere [Linux-Trustdriftabnahme](../Quality/TLS_LINUX_SQL2025_TRUST_DRIFT_ACCEPTANCE_2026-10-17.md)
+   bestand separat mit sechs strikten SqlClient-/ODBC-Fällen auf Docker/SQL 2025
+   CU9 und vollständigem eigenem Runtime-Cleanup. Sie schließt nur positive
+   Verbindung, Trustentzug und Wiederherstellung ein; echte Linux-Ablauf-/
+   Renewal-/Wrong-SAN-Fälle, andere Matrixzellen, Registry und Export bleiben offen.
+
 5. Provisionierung, Neustart, Erneuerung, Migrationscutover, fehlgeschlagener
    Client-Trust-Import und scopegebundener Cleanup/Rollback sind reproduzierbar.
    Keine fremden Stores, CA-Einträge, Zertifikate, Endpoints oder Daten ändern;

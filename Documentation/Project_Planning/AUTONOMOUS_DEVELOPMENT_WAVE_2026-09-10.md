@@ -162,6 +162,15 @@ Auflösungsaufruf. Sie ist ungetestet und verlangt eine neue konkrete Freigabe,
 ein neues Budget und gebundene geprüfte Quellen. Kein Replay; die vollständige
 TLS-Abnahme und Toolbelt SC-2026-045 bleiben offen.
 
+Der nachfolgende [Linux-Trustdriftnachweis](../Quality/TLS_LINUX_SQL2025_TRUST_DRIFT_ACCEPTANCE_2026-10-17.md)
+bestand mit beiden strikten Clientstacks, Trustentzug und Wiederherstellung
+unter Docker/SQL 2025 CU9. Geladener ODBC, Workerende, vollständige eigene
+Runtimeabwesenheit und geschützte Bestandsdateien sind bestätigt. Der frühere
+Fehlertextfilter bleibt als Harness-FAIL erhalten; die korrigierte Auswertung
+verlangt eine erfolgreiche Kontrollverbindung und null SQL-Arbeit im Gegenfall.
+Weitere Matrixfälle, operative Registry, öffentliche Moduswahl und qualifizierter
+Export bleiben offen; Toolbelt SC-2026-045 ist weiterhin nicht freigegeben.
+
 ## Historischer Abschluss vom 2026-10-09
 
 Der Benutzer hat die laufende Entwicklungswelle beendet. PR #732 und #734

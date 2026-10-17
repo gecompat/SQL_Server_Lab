@@ -6,6 +6,12 @@ SQL-Bereitschaft, Datenbank- und Skriptaufgaben, Start/Stop sowie
 scopegebundenen Cleanup. Docker und Podman sind die Kernprovider;
 Hyper-V bietet eigene begrenzte Windows-/SQL-Referenzpfade.
 
+Neue Lab-Connection-Strings und SSMS-Registrierungsexporte verwenden
+`Encrypt=True;TrustServerCertificate=True` als einfachen Standard ohne eigene
+CA-/Client-Trusteinrichtung. Gespeicherte Altverbindungen werden nicht migriert.
+Die öffentliche Wahl von `TrustServerCertificate=False` und ihre qualifizierte
+CLI-/GUI-Anzeige bleiben im laufenden TLS-001-Scope.
+
 ## Voraussetzungen
 
 - PowerShell 7.2 oder neuer.

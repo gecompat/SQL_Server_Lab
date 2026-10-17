@@ -294,6 +294,14 @@ neue Freigabe und gebundene Quellen bleiben erforderlich. Beide Stacks,
 Trustdrift, geladener ODBC, Registry und SC-2026-045 bleiben offen.
 ## CU-Metadatenbindung am 2026-10-17
 
+Die nachfolgende [Linux-Trustdriftabnahme](../Quality/TLS_LINUX_SQL2025_TRUST_DRIFT_ACCEPTANCE_2026-10-17.md)
+bestand auf einem eigenen Docker-/SQL-2025-CU9-Ziel mit beiden strikten Stacks,
+kontrolliertem Trustentzug und Wiederherstellung. Geladener ODBC und frischer
+vollständiger Runtime-Cleanup sind bestätigt. Die korrigierte generische
+Zertifikatsablehnung benötigt eine vorherige erfolgreiche Kontrolle und null
+SQL-Arbeit; der erste Harnessfehler bleibt erhalten. Andere Matrixfälle,
+operative Registry, öffentliche Moduswahl und qualifizierter Export bleiben offen.
+
 Der anschließend neu konkret freigegebene
 [localhost-Versuch](../Quality/TLS_LINUX_LOCALHOST_PRETRUST_ATTEMPT_2026-10-17.md) scheiterte vor der Client-Trustdateianlage:
 `getent ahosts/hosts` beobachtete nur die freigegebenen Loopback-Adressen,

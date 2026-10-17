@@ -1,5 +1,23 @@
 # Bekannte Grenzen
 
+## TLS-Standard für neue Labverbindungen
+
+Die getrennte [Linux-Abnahme](TLS_LINUX_SQL2025_TRUST_DRIFT_ACCEPTANCE_2026-10-17.md)
+belegt inzwischen beide strikten Clientstacks, kontrollierten Trustentzug
+und Wiederherstellung auf Docker/SQL 2025 CU9 sowie den tatsächlich geladenen
+ODBC-Treiber. Andere Linux-Matrixfälle, Hyper-V-Zertifikatsbindung, operative
+Registry, öffentliche Moduswahl und qualifizierter Export bleiben offen.
+
+Neue gemeinsame Connection Strings und SSMS-Registrierungsexporte enthalten
+ausdrücklich `Encrypt=True;TrustServerCertificate=True`. Gespeicherte
+Altverbindungen werden nicht umgeschrieben. Die
+[Defaultabnahme](LOCAL_VALIDATION_STRATEGY.md#expliziter-tls-standard-vom-2026-10-16)
+und die getrennte [Podman-Abnahme](LOCAL_VALIDATION_STRATEGY.md#podman-tls-default-abnahme-vom-2026-10-17)
+belegen echte verschlüsselte Verbindungen mit SqlClient und sqlcmd unter
+SQL 2019, 2022 und 2025. Dieser einfache Modus verlangt keinen eigenen
+CA-/Client-Trust. Öffentliche `False`-Moduswahl, Zertifikats-Lifecycle und die
+gesonderte qualifizierte CLI-/GUI-Anzeige bleiben im laufenden TLS-001-Scope.
+
 ## SSISDB: abgenommener Windows-Scope und Grenzen
 
 Der zusätzliche [Windows-Consumerweg](../HowTo/SSIS_CONSUMER_WINDOWS_ACCESS.md)
