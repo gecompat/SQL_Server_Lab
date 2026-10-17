@@ -858,8 +858,8 @@ sources_of_truth:
   authenticated_tls_request_form: Private/AuthenticatedTlsRequest.ps1
   validation_authenticated_tls_request_form: Tests/Static/Invoke-AuthenticatedTlsRequestChecks.ps1
   authenticated_tls_target_metadata_contract: Documentation/Architecture/AUTHENTICATED_TLS_TARGET_METADATA.md
-  authenticated_tls_target_metadata: Private/AuthenticatedTlsTarget.ps1 # registered root + actual RunId/explicit InstanceId; recorded Docker/Podman metadata only, no live authority
-  validation_authenticated_tls_target_metadata: Tests/Static/Invoke-AuthenticatedTlsTargetChecks.ps1 # coupled DiagnosticBundleReader, request form and real Run/DesiredState producers
+  authenticated_tls_target_metadata: Private/AuthenticatedTlsTarget.ps1 # registered root + RunId/explicit InstanceId; separate recorded Docker/Podman container and HyperV VM/SQL-instance DTOs, no live authority
+  validation_authenticated_tls_target_metadata: Tests/Static/Invoke-AuthenticatedTlsTargetChecks.ps1 # coupled DiagnosticBundleReader, request form, real Run/DesiredState and HyperVLabEnvironment connection-info producers; no VM/SQL calls
   authenticated_tls_context_registration_design: Documentation/Project_Planning/TLS_001_CONTEXT_REGISTRATION_DESIGN.md # proposed separate ClientRef, SignerContextRef and AuthorityRef; no registry/identity/key effects
   authenticated_tls_backend_metadata_contract: Documentation/Architecture/AUTHENTICATED_TLS_BACKEND_METADATA.md
   authenticated_tls_backend_metadata: Private/AuthenticatedTlsBackend.ps1 # explicit CURRENT_PROCESS; CLR signatures only, never PKI construction/invocation or authority

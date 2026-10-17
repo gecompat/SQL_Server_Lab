@@ -1,5 +1,15 @@
 # Bekannte Grenzen
 
+## Hyper-V-TLS-Zielmetadaten ohne native Qualifikation
+
+Der [zusätzliche private Reader](../Architecture/AUTHENTICATED_TLS_TARGET_METADATA.md#getrennte-aufgezeichnete-hyper-v-zielbindung)
+bindet Root/Run/Scope, eine aufgezeichnete VM-ID, die ausdrücklich gewählte
+SQL-Instanz und den Endpoint. Seine Datei-Fixtures prüfen widersprüchliche
+Bindungen und Ausgaben ohne Rohwerte. Es gibt keine Hyper-V-/Gastbeobachtung,
+KeySpec-/Dienst-ACL-, Zertifikats- oder TLS-Probe. Die Sicht bleibt nicht atomar;
+native Ownership und SQL-Bindung müssen vor späteren Aktionen frisch geprüft
+werden. Hyper-V-False-Erstellung und -Export sowie SC-2026-045 bleiben offen.
+
 ## Private Authoritybindung ist keine operative Abnahme
 
 Die [neue Bindung](../Architecture/AUTHENTICATED_TLS_AUTHORITY_BINDING.md)

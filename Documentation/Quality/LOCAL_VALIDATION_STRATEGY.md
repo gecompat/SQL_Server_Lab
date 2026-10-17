@@ -1,5 +1,26 @@
 # Lokale Validierungsstrategie
 
+## Getrennte Hyper-V-TLS-Zielmetadaten
+
+Die bestehende [Zielmetadatensuite](../../Tests/Static/Invoke-AuthenticatedTlsTargetChecks.ps1)
+enthält zusätzlich eigene Datei-Fixtures für den privaten Hyper-V-Reader:
+Run-/Root-/Scopeabweichung, VM-/SQL-ID-Austausch und Duplikate, falscher
+Workflow/Workload, gestoppte Dienste und abweichende oder falsch typisierte
+Endpoints sperren. Eine exakte geschlossene Projektion, getrennte Callerobjekte,
+Dateiintegrität und ungültige Selektoren vor I/O werden geprüft. Tripwires
+sperren VM-Abfragen und Workflowreparatur. Das ist keine native Hyper-V- oder
+SQL-/TLS-Qualifikation; frühere Providerfälle gelten nicht nachträglich für
+diese neue Produktlane. Vollständige Logs bleiben lokal.
+
+Der korrigierte lokale Lauf vom 2026-10-17 bestand 608/608 Fälle mit eigenem
+Tempcleanup. Der erste Teststart enthielt einen Parserfehler vor den Fällen;
+sein Fehlerbeleg bleibt erhalten. Ein unabhängiger Review fand anschließend
+eine fehlende Name-/Default-/Dienstkante. Ein separater injizierter Gegenfall
+reproduzierte die Annahme eines fremden Dienstes vor der Korrektur und dessen
+Ablehnung danach. Der finale Lauf enthält zusätzlich den positiven benannten
+Dienst und die negativen Zuordnungs-/Typfälle. Dies ist weiterhin ausschließlich
+Datei-/Formevidence, keine ausgeführte VM-/SQL-/TLS-Qualifikation.
+
 ## Private Authoritybindung vom 2026-10-17
 
 Die [fokussierte Suite](../../Tests/Static/Invoke-AuthenticatedTlsAuthorityBindingChecks.ps1)

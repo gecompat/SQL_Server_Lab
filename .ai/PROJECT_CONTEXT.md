@@ -47,6 +47,9 @@ Der lesende [TLS-Zielmetadatenpfad](../Documentation/Architecture/AUTHENTICATED_
 bindet inzwischen katalogisierte Docker-/Podman-CU-Kurzbezeichner und exakte
 Tags bei erhaltenem Runselektor. Die synthetische Vertragsprüfung ersetzt
 keine native TLS-/Registry-/Exportabnahme; SC-2026-045 bleibt gesperrt.
+Eine getrennte private Hyper-V-Metadatenlane bindet jetzt aufgezeichnete
+VM-ID, ausdrückliche SQL-Instanz und Endpoint aus der festen Run-Datei.
+Sie fragt keine VM ab und erweitert die operative False-Capability nicht.
 
 Die private [Windows-Kontextvorschau](../Documentation/Architecture/AUTHENTICATED_TLS_CONTEXT_PREVIEW.md)
 ergänzt geschlossene Client-/Signierkontextanfragen und liest nach expliziter
