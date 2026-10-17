@@ -171,6 +171,15 @@ verlangt eine erfolgreiche Kontrollverbindung und null SQL-Arbeit im Gegenfall.
 Weitere Matrixfälle, operative Registry, öffentliche Moduswahl und qualifizierter
 Export bleiben offen; Toolbelt SC-2026-045 ist weiterhin nicht freigegeben.
 
+Der nachfolgende [private Registrywriter](../Architecture/AUTHENTICATED_TLS_REGISTRY_WRITER.md)
+ergänzt inzwischen aktive Windows-Client-/Signiermetadaten vor Keyanlage mit
+expliziter Initialisierung, frischer Root-/Actor-/Volumeprüfung, privatem
+Zugriffsschutz, kooperativen Sperren, Intent, atomarem Ersatz und Recovery.
+Eigene NTFS-Tempfixtures prüfen echte Prozessabbrüche, Parallelität und Cleanup.
+CA-/Trustscopezuordnung, Retirement, vollständige TLS-Matrix, öffentliche
+Moduswahl und qualifizierter Export bleiben offen. Der Readervertrag bleibt
+nicht atomar; keine automatische Adoption bestehender CA oder Kontexte.
+
 ## Historischer Abschluss vom 2026-10-09
 
 Der Benutzer hat die laufende Entwicklungswelle beendet. PR #732 und #734

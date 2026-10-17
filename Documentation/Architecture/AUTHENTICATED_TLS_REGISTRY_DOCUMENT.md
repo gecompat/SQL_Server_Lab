@@ -112,8 +112,10 @@ bleibt Toolbelt SC-2026-045 bis zu seinem echten TLS-/Clientnachweis blockiert.
 Die [lesende Rootbindung](AUTHENTICATED_TLS_REGISTRY_ROOT.md) vergleicht jetzt
 registrierte Windows-Rootmetadaten mit einer bestehenden vollständigen
 Registrydatei, ohne atomaren Snapshot oder Autorisierung. Trustscope,
-Registrywriter, persistente Registrierung, Keyschutz, Trustimport und SQL-/
-TLS-Matrix sind weiterhin offen. Nächster Scope ist die private Registrytransaktion
-gemäß Writer-/Crashvertrag; keine automatische Anlage oder Pfadadoption.
+operative CA-/Trustscopezuordnung und die vollständige SQL-/TLS-Matrix bleiben
+offen. Die getrennte [private Registrytransaktion](AUTHENTICATED_TLS_REGISTRY_WRITER.md)
+implementiert inzwischen aktive Client-/Signiermetadaten vor Keyanlage mit
+expliziter Initialisierung, Zugriffsschutz, atomarem Ersatz und Recovery.
+Die Offline-Dokumentform selbst erteilt weiterhin keine Schreibautorität.
 [Nachweise](../Quality/LOCAL_VALIDATION_STRATEGY.md) und
 [Known Limitations](../Quality/KNOWN_LIMITATIONS.md) erhalten diese Grenzen.

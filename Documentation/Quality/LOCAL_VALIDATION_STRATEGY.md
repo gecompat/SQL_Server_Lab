@@ -1,5 +1,57 @@
 # Lokale Validierungsstrategie
 
+## Private TLS-Registrytransaktion vom 2026-10-17
+
+Die [Writersuite](../../Tests/Static/Invoke-AuthenticatedTlsRegistryWriterChecks.ps1)
+prüft die getrennte [Windows-NTFS-Metadatenlane](../Architecture/AUTHENTICATED_TLS_REGISTRY_WRITER.md)
+an ausschließlich eigenen kurzlebigen Tempbäumen. Native Token-/Profil-/
+Volumeprüfung, private Verzeichnis-/Datei-ACLs, Initialisierung, tatsächlicher
+Dateiersatz mit Originalsicherung, Quellkonflikt und Journal-Replay werden
+ausgeführt. Vier echte Childprozessabbrüche prüfen die Grenzen vor Intent,
+nach Intent, nach Kandidat und nach Ersatz. Recovery bestätigt ausschließlich
+beobachtete Quell-/Kandidatbytes; abgebrochene Referenzen bleiben reserviert.
+Getrennte Mutex-/Filelockprozesse und zwei gleichzeitige Writer prüfen
+begrenzt gesperrten Zugriff beziehungsweise genau einen erfolgreichen Commit.
+Erweiterte Gegenfälle prüfen Duplicate Keys, ACL-/Backup-/Volumemetadatendrift
+und fremde gültige Registrybytes. Eigene Childprozesse und Tempbäume werden
+unabhängig vom Ergebnis bereinigt. Nicht-Windows prüft die gesperrte Lane;
+native Windows-Fälle bleiben dort ausdrücklich `NOT_EXECUTED`.
+
+Der erste native Lauf fand einen tatsächlichen PowerShell-Bindungsfehler:
+`File.Replace` erhielt bei `$null` als Backupnamen einen Leerpfad. Der
+korrigierte Writer verwendet eine eigene exakte Originalsicherung ohne
+Overwrite-Fallback. Der Fehlerlauf bleibt lokal erhalten und zählt nicht
+als PASS; der korrigierte Lauf bestand zunächst 33/33 Fälle einschließlich
+vollständigem eigenem Cleanup. Die erweiterte Suite bestand anschließend
+43/43 Fälle samt Cleanup; Pflichtgates werden am stabilen Stand gesondert
+ausgeführt. Kein Key, Store, SQL-Ziel oder
+Provider wurde für diesen Writerslice verändert. CA-Zuordnung und öffentliche
+Moduswahl bleiben eigenständiger offener Scope.
+
+Eine getrennte eigene Windows-Tempfixture registrierte zusätzlich Client-
+und Signierpayload gemeinsam durch den tatsächlichen Writer. Die beobachteten
+Token-/Profil-/Hostmarker-, SqlClient-/sqlcmd-Disk- und Backendmetadaten wurden
+intern frisch abgeglichen; der bestehende Reader las beide Records nach
+Commit zurück. Cleanup bestand, null SQL-Abfragen und null Truständerungen.
+Dies qualifiziert weder geladene Treiber noch TLS-Verbindungen. Die lokale
+Auswahl umfasst Writer, CI-Strategie, Dokumentation, Pester, Privacy und
+PSScriptAnalyzer. Nach der Begrenzung gehaltener Journalpayloads werden die
+betroffenen Writer-/Dokumentations-/Modul-/Analyzerprüfungen erneut ausgeführt;
+unveränderte CI-Strategieprüfungen werden nicht doppelt gestartet. Das
+Pflichtgate am veröffentlichten Head bleibt separat erforderlich.
+
+Der unabhängige Quellreview fand anschließend eine ETS-Umleitung der
+Operationsauswahl. Eine eigene native Tempfixture reproduzierte den Fehler:
+Ein gültiger `UPDATE`-String mit angehängter `StartsWith`-Methode wählte den
+Recoveryzweig und schrieb unerwartet einen Abortbeleg. Cleanup bestand.
+Der Writer verwendet jetzt ausschließlich feste ordinale Enumvergleiche.
+Die Regression prüft Methodenausführung vor Rootzugriff und den tatsächlichen
+offenen Intent ohne Dateidrift. Die ursprüngliche Reproduktion bleibt als
+Fehlernachweis lokal erhalten. Die korrigierte native Suite bestand 45/45
+Fälle einschließlich Cleanup. Derselbe unabhängige Reviewer bestätigte die
+feste Enumwahl und beide neuen Regressionen; das Finding ist geschlossen.
+Er führte ausschließlich einen Quellreview aus, keine nativen Probes.
+
 ## Angegebene TLS-Werte in CLI und GUI vom 2026-10-17
 
 Die [native Parser-/CLI-Suite](../../Tests/Static/Invoke-SqlConnectionSettingsChecks.ps1)

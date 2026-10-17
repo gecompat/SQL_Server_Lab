@@ -120,6 +120,14 @@ erhalten aber jeweils eigene Runtime-Evidence.
 
 #### TLS-001 – authentifizierte TLS-Verbindungen der Testumgebungen
 
+Der spätere [private Windows-Registrywriter](../Architecture/AUTHENTICATED_TLS_REGISTRY_WRITER.md)
+ergänzt inzwischen aktive Client-/Signiermetadaten vor Keyanlage mit frischer
+Actor-/Volumeprüfung, geschützter Ablage, atomarem Ersatz und expliziter
+Recovery. Eigene NTFS-Tempfixtures belegen Prozessabbrüche, Parallelität und
+Cleanup; native Client-/Signiermetadaten wurden getrennt im eigenen Tempbereich
+registriert. Das registriert keine CA und qualifiziert keinen TLS-Export.
+CA-/Trustscopezuordnung, Retirement und öffentliche Moduswahl bleiben P1.
+
 | Merkmal | Festlegung |
 |---|---|
 | Priorität | `P1`; höchste nächste Priorität unmittelbar nach dem laufenden SSISDB-Stream, Benutzerauftrag vom 2026-10-15 |

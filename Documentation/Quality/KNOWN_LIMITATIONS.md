@@ -1,5 +1,20 @@
 # Bekannte Grenzen
 
+## Private TLS-Kontextregistrierung vor Keyanlage
+
+Der [Windows-Writer](../Architecture/AUTHENTICATED_TLS_REGISTRY_WRITER.md)
+persistiert inzwischen aktive Client-/Signiermetadaten unter explizit
+registriertem lokalem NTFS-Root mit frischer Actor-/Volumeprüfung, privaten
+ACLs, kooperativen Sperren, Intent, atomarem Ersatz und expliziter Recovery.
+Eigene Tempfixtures prüfen native Abbrüche, Parallelität und Cleanup. Keine
+Stromausfall-, Administrator-/ABA-, Linux- oder TLS-Qualifikation entsteht.
+CA-/Trustscopezuordnung und Retirement sind gesperrt; es gibt keine neue
+öffentliche API. Volle Journale sperren statt automatisch zu kürzen.
+Unvollständige erstmalige Anlage verlangt gesonderte eigene Recovery/Cleanup;
+kein stiller Retry. Spätere historische Reader-/Planungsnachweise behalten
+ihre damaligen Aussagegrenzen.
+## Anzeige gespeicherter TLS-Werte
+
 Die [TLS-Anzeige](../Architecture/SQL_CONNECTION_SETTINGS.md) in CLI und GUI
 projiziert ausschließlich angegebene Connection-String-Werte. Fehlende Werte
 bleiben null/`nicht angegeben`, ungültige `nicht lesbar`. Die GUI-Zielübersicht

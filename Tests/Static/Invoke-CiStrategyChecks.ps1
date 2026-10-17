@@ -16,6 +16,29 @@ foreach ($path in @('Providers/HyperV/HyperVWindowsSqlScript.ps1','Public/Invoke
         'Invoke-HyperVGuestProgressChecks.ps1' -in $selected.StaticChecks -and 'Invoke-PublicCommandConsoleChecks.ps1' -in $selected.StaticChecks -and $selected.HyperV -and
         -not $selected.Docker -and -not $selected.Podman -and -not $selected.Mixed -and -not $selected.Adapter)
 }
+$tlsWriterCheck='Invoke-AuthenticatedTlsRegistryWriterChecks.ps1'
+foreach($path in @('Private/AuthenticatedTlsRegistryWriter.ps1','Tests/Static/Invoke-AuthenticatedTlsRegistryWriterChecks.ps1')){
+    foreach($normalized in @($path,$path.Replace('/','\'))){
+        $selected=& $selector -ChangedPath @($normalized)
+        Add-CheckResult "TLS-W exakte Windows-Dateisystemlane $normalized" ($tlsWriterCheck -in $selected.StaticChecks -and
+            -not $selected.Docker -and -not $selected.Podman -and -not $selected.Mixed -and -not $selected.HyperV -and -not $selected.Adapter)
+    }
+}
+foreach($path in @('Private/AuthenticatedTlsRegistryRoot.ps1','Private/AuthenticatedTlsRegistryDocument.ps1','Private/AuthenticatedTlsRegistryIndex.ps1',
+    'Private/AuthenticatedTlsRegistryPayload.ps1','Private/AuthenticatedTlsRequest.ps1','Private/AuthenticatedTlsContext.ps1','Private/AuthenticatedTlsBackend.ps1',
+    'Private/AuthenticatedTlsCaCandidate.ps1','Private/DiagnosticBundleReader.ps1','Private/StorageContract.ps1')){
+    Add-CheckResult "TLS-W transitive Writerquelle $path" ($tlsWriterCheck -in (& $selector -ChangedPath @($path)).StaticChecks)
+}
+foreach($path in @('Private/Other/AuthenticatedTlsRegistryWriter.ps1','Private/AuthenticatedTlsRegistryWriterOther.ps1','Private/authenticatedTlsRegistryWriter.ps1')){
+    $selected=& $selector -ChangedPath @($path)
+    Add-CheckResult "TLS-W keine aehnliche Pfadausnahme $path" ($selected.Docker -and $tlsWriterCheck -notin $selected.StaticChecks)
+}
+foreach($other in @('Private/SqlReadiness.ps1','Providers/Docker/DockerProvider.ps1','Providers/Podman/PodmanProvider.ps1','Providers/HyperV/HyperVProvider.ps1')){
+    $separate=& $selector -ChangedPath @($other);$union=& $selector -ChangedPath @('Private/AuthenticatedTlsRegistryWriter.ps1',$other)
+    Add-CheckResult "TLS-W gemischter Scope erhaelt Providerauswahl $other" ($tlsWriterCheck -in $union.StaticChecks -and
+        $separate.Docker -eq $union.Docker -and $separate.Podman -eq $union.Podman -and $separate.Mixed -eq $union.Mixed -and
+        $separate.HyperV -eq $union.HyperV -and $separate.Adapter -eq $union.Adapter)
+}
 $tlsRecoveryCheck='Invoke-AuthenticatedTlsTrustRecoveryChecks.ps1'
 foreach($path in @('Private/AuthenticatedTlsTrustRecovery.ps1','Tests/Static/Invoke-AuthenticatedTlsTrustRecoveryChecks.ps1')){
     foreach($normalized in @($path,$path.Replace('/','\'))){$selected=& $selector -ChangedPath @($normalized)

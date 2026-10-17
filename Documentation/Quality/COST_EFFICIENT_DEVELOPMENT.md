@@ -220,6 +220,16 @@ maßgeblich; ein begrenzter neuer Auftrag öffnet nur seinen eigenen Scope.
 
 ## 7. Abschlussbericht
 
+Die begrenzte Selektorentscheidung für den [privaten TLS-Registrywriter](../Architecture/AUTHENTICATED_TLS_REGISTRY_WRITER.md)
+wählt native eigene Windows-Dateisystemfixtures mit ACL-/Prozessabbruch-/
+Parallelitätsfällen statt unbeteiligter SQL-Providerstarts. Nur sein exakter
+Produktpfad erhält diese Ausnahme; transitive Helper, ähnliche Pfade und
+gemischte Änderungen sind ausführbar regressionsgeprüft. Die allgemeine
+Analyzersuite bei Testdateiänderungen, statische Pflichtgates, Nightly und
+unabhängiger Review bleiben erhalten. Logs bleiben lokal; zusätzliche
+Modellrunden, doppelte identische Prüfungen oder Runtime-Smokes entstehen
+daraus nicht. Native Windows-Dateifälle bleiben unter Linux sichtbar ungeprüft.
+
 Der Abschluss einer Welle nennt knapp:
 
 - geänderten Scope;
