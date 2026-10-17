@@ -20,6 +20,8 @@ $failures = [System.Collections.Generic.List[string]]::new(); $passed = 0
 . (Join-Path $PSScriptRoot '..' 'Common' 'CheckResult.ps1')
 
 Write-Host ''; Write-Host 'SQL_Server_Lab - Lab Network Checks' -ForegroundColor Cyan
+$existingCreate = & (Join-Path $repoRoot 'Tests/Common/HyperVCreateExistingNetworkFixture.ps1') -RepositoryRoot $repoRoot
+Add-CheckResult -Name 'Prepared Create akzeptiert nur fertiges Hostnetz und repariert keine Infrastruktur' -Success ($existingCreate -eq $true)
 $networkOverrideNames = @(
     'SQL_SERVER_LAB_DOCKER_NETWORK', 'SQL_SERVER_LAB_DOCKER_SUBNET',
     'SQL_SERVER_LAB_PODMAN_NETWORK', 'SQL_SERVER_LAB_PODMAN_SUBNET',

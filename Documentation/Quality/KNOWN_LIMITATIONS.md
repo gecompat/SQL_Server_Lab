@@ -3884,3 +3884,12 @@ Docker-SQL-2025-CU9-Lab. Die explizite False-Wahl und der separate qualifizierte
 V2-Export sind vom unveränderten True/True-Default getrennt. Native Abnahme und
 weitere Providergrenzen werden in der Validierungsstrategie getrennt geführt.
 Die operative False-Lane ist nativ für Windows CurrentUser, Docker und SQL Server 2025 CU9 belegt. Andere Provider/Clients/Versionen, V2-Consumer-Cutover und automatisches Renewal/Rebind bleiben offen. Der qualifizierte Export verlangt frische Bindungen und zwei echte Stacks; gespeichertes Runtime-READY allein genügt nicht. Der Wire-Fingerprint bleibt ausdrücklich NOT_OBSERVED. Standard und bestehende V1-Gruppe bleiben True/True.
+
+## Begrenzte Hyper-V-Create-Netzbindung
+
+Die explizite Option `New-SqlServerLab -RequireExistingHyperVNetwork` schützt
+den einzelnen manifestgebundenen SQL-Prepared-Create-Pfad vor Reparatur der
+gemeinsamen hostOnly-Infrastruktur und vor Standardswitch-Änderungen. Sie
+erlaubt weiterhin die eigene VM-/IPAM-/Gast-/SQL-Anlage. Fremde Netzänderungen
+werden nicht atomar ausgeschlossen; eine native Abnahme dieses erweiterten
+Pfads und die Windows-CSP-/Hyper-V-TLS-Abnahme stehen weiterhin aus.
