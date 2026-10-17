@@ -27,6 +27,12 @@ belegen SqlClient und sqlcmd für Docker, Podman und Hyper-V unter SQL 2019,
 2022 und 2025. Die öffentliche Wahl von `TrustServerCertificate=False` und
 deren qualifizierte CLI-/GUI-Anzeige bleiben Teil des laufenden TLS-001-Scopes.
 
+Die getrennte [Anzeige angegebener TLS-Werte](../Documentation/Architecture/SQL_CONNECTION_SETTINGS.md)
+ist jetzt in CLI-Runstatus und GUI-Zielübersicht implementiert. Beide verwenden
+die gemeinsame native Parserprojektion; fehlende Werte bleiben null und
+unlesbare Strings ohne Rohdiagnose. Das ist kein TLS-Qualifikationsnachweis
+und keine neue öffentliche Moduswahl.
+
 Der lesende [TLS-Zielmetadatenpfad](../Documentation/Architecture/AUTHENTICATED_TLS_TARGET_METADATA.md)
 bindet inzwischen katalogisierte Docker-/Podman-CU-Kurzbezeichner und exakte
 Tags bei erhaltenem Runselektor. Die synthetische Vertragsprüfung ersetzt

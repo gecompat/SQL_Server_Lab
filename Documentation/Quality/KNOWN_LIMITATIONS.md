@@ -1,5 +1,11 @@
 # Bekannte Grenzen
 
+Die [TLS-Anzeige](../Architecture/SQL_CONNECTION_SETTINGS.md) in CLI und GUI
+projiziert ausschließlich angegebene Connection-String-Werte. Fehlende Werte
+bleiben null/`nicht angegeben`, ungültige `nicht lesbar`. Die GUI-Zielübersicht
+zeigt keine Zugangsdaten. Dies ist keine Live-Verbindungs-/Zertifikatsprüfung
+und keine Freigabe der öffentlichen `False`-Moduswahl.
+
 ## TLS-Standard für neue Labverbindungen
 
 Die getrennte [Linux-Abnahme](TLS_LINUX_SQL2025_TRUST_DRIFT_ACCEPTANCE_2026-10-17.md)

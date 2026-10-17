@@ -370,6 +370,9 @@ sources_of_truth:
   acceptance_smtp_quota_gateway_receiver: Tests/Integration/Invoke-SmtpTestServiceGatewayReceiverAcceptance.ps1
   connection_center_cms: Public/Sync-SqlServerLabConnectionCenter.ps1
   tls_connection_default_core: Private/SqlReadiness.ps1
+  sql_connection_settings_contract: Documentation/Architecture/SQL_CONNECTION_SETTINGS.md
+  sql_connection_settings_core: Private/SqlConnectionSettings.ps1 # native parser, explicit nullable TLS flags only; no credentials, connection or qualification
+  sql_connection_settings_validation: Tests/Static/Invoke-SqlConnectionSettingsChecks.ps1 # coupled actual CLI status, workflow per-instance projection and real GUI renderer fixture
   tls_connection_default_validation: Tests/Static/Invoke-ReadinessContractChecks.ps1
   tls_linux_sql2025_trust_drift_evidence: Documentation/Quality/TLS_LINUX_SQL2025_TRUST_DRIFT_ACCEPTANCE_2026-10-17.md
   cms_readonly_inspection: Private/CmsInspection.ps1

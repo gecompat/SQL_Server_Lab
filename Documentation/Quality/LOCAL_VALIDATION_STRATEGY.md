@@ -1,5 +1,47 @@
 # Lokale Validierungsstrategie
 
+## Angegebene TLS-Werte in CLI und GUI vom 2026-10-17
+
+Die [native Parser-/CLI-Suite](../../Tests/Static/Invoke-SqlConnectionSettingsChecks.ps1)
+bestand mit 37 PASS / 0 FAIL. Sie prüft den echten Default-Erzeuger,
+`True`/`False`, fehlende Werte ohne implizite Defaults, Passwortquotes und
+Semikolons, doppelte Schlüssel gemäß nativem Parser, geschlossene unlesbare
+Eingaben und ETS-Getter. Der tatsächliche CLI-Statusrenderer lief mit festen
+Antworten für drei Provider-/Instanzkombinationen. Keine Stateanlage,
+Secretentschlüsselung, Provideraktion oder SQL-Verbindung.
+
+Die [JavaScript-Fixture](../../Tests/Static/Fixtures/WorkflowSqlTargetChecks.cjs)
+bestand mit 148 PASS. Sie führt das tatsächliche Produkt-JavaScript an einer
+begrenzten DOM-Fixture aus und prüft beide angegebenen TLS-Modi, explizites
+`False`, fehlende Werte und Geheimnisfreiheit in der Zielübersicht. Kein
+echter Browserlauf oder neuer SQL-Nachweis. Der
+[Anzeigevertrag](../Architecture/SQL_CONNECTION_SETTINGS.md) hält diese
+Metadatenanzeige von TLS-Qualifikation und öffentlicher Moduswahl getrennt.
+
+Eine nachfolgende gerenderte Browserabnahme der tatsächlichen Produktkomponente
+mit unverändertem Produkt-CSS zeigte vier synthetische Ziele: `True/True`,
+`True/False`, fehlendes `Encrypt` und einen unlesbaren String. Alle vier
+Textanzeigen waren sichtbar, ohne Zugangsdaten. Eigener Browser-Tab und
+Loopbacklistener sind geschlossen; Workerende mit Exitcode null, frische
+Listenerabwesenheit und unveränderte vier Produktquellen sind bestätigt.
+Keine komplette Produktseiten-/HTTP-/SQL-Komposition. Die zusätzliche echte
+lesende Workflow-API lieferte zehn vorhandene SQL-Zielprojektionen, jeweils
+passend zum tatsächlichen Connection String, ohne SQL-Abfrage oder
+Provideränderung. Lokatoren und Rohdaten bleiben ausschließlich lokal.
+
+Der breite statische Lauf fand ausschließlich einen bereits unveränderten
+Kompositionstest mit festem Exportcount 137, während das unveränderte
+Manifest und die Dokumentation 149 Exporte ausweisen. Git-Blobs von Manifest
+und Test entsprachen dem Ausgangsstand. Die Prüfung verwendet jetzt die
+autoritative Manifestmenge, Eindeutigkeit, genau eine Funktionsdeklaration
+je Export im tatsächlichen Private-/Public-/Provider-Ladegraph und den
+dazu passenden Dokumentationscount.
+Die festen fachlichen Union-Exporte bleiben ausdrücklich geprüft. Der alte
+FAIL bleibt lokal erhalten. Die korrigierte Suite bestand anschließend mit
+222 PASS / 0 FAIL. Die übrigen 22 Suites des breiten Laufs bestanden unverändert;
+die abschließende betroffene Auswahl prüft den korrigierten Test und die
+ergänzte Dokumentation erneut.
+
 ## Expliziter TLS-Standard vom 2026-10-16
 
 Der nachfolgende begrenzte Auftrag implementiert den bereits funktionierenden
