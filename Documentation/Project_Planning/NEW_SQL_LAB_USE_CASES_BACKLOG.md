@@ -492,3 +492,7 @@ Qualifikation der früheren nativen CU-Fixtures. Linux-TLS, Hyper-V, operative
 Registry, Exportcutover und vollständige Abnahme bleiben offen; SC-2026-045
 bleibt gesperrt. Details im
 [TLS-Zielmetadatenvertrag](../Architecture/AUTHENTICATED_TLS_TARGET_METADATA.md).
+
+## TLS-001: operativer erster Pfad
+
+Der [operative Windows-/Docker-SQL-2025-CU9-Pfad](../Architecture/AUTHENTICATED_TLS_OPERATIONAL_LAB.md) mit bestehender CA-/Trustscopebindung, eigener SQL-Zertifikatsbindung, True/False-Anzeige und separatem qualifiziertem V2-Export ist implementiert und nativ geprüft. P1 bleiben die übrigen operativen Provider-/Client-/SQL-Kombinationen, V2-Consumer-Cutover und automatisches Renewal/Rebind. Die früheren Default-True/True-Nachweise sind davon getrennt und bleiben erhalten.

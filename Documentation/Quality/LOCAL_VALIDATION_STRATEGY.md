@@ -5026,3 +5026,44 @@ Regression prüft gemeinsame Aufrufer, ohne die bereits grünen nativen
 SQL-/TLS-Matrizen zu wiederholen. Ein unabhängiger Review am stabilen Diff
 und der exakte lokale/CI-Abschluss sind weiterhin erforderlich. Tatsächliche
 Kosten und Tokenmessung sind unbekannt; es gibt keine neue Modell-/Logpipeline.
+
+## Isolierter operativer TLS-Pfad
+
+Der additive [operative TLS-Vertrag](../Architecture/AUTHENTICATED_TLS_OPERATIONAL_LAB.md)
+verbindet eine bereits vertraute CA mit eigenem Trustscope und einem neuen
+Docker-SQL-2025-CU9-Lab. Die explizite False-Wahl und der separate qualifizierte
+V2-Export sind vom unveränderten True/True-Default getrennt. Native Abnahme und
+weitere Providergrenzen werden in der Validierungsstrategie getrennt geführt.
+### Operativer TLS-Pfad vom 2026-10-17
+
+Die eigene Windows-/Docker-Abnahme für SQL Server 2025 CU9 bestand nach den
+korrigierten Selektor-, Budget- und CLI-Harnessfehlern vollständig. Eigene
+Registryadoption mit frischem DPAPI-Reopen/Sign/Verify, eigener SQL-Key/CSR im
+Container, Leaf-/Konfigurations-/Startbindung und der separate signierte V2-
+False-Export wurden tatsächlich ausgeführt. Sechs echte positive Sitzungen:
+SqlClient und ODBC sqlcmd bei Erstellung, erneut bei Exportqualifikation und
+mit den aus JSON gelesenen Zugangsdaten. Jede SQL-Probe bestätigte Verschlüsselung;
+der Qualifikationspfad bestätigte Build 17.0.5005.3 und beobachtete den geladenen
+ODBC-Treiber. Tatsächlicher CLI-Formatter und GUI-Workflow zeigten True/False.
+Veraltete Serverstartbindung und manipuliertes Exportflag wurden abgewiesen;
+Originalbytes anschließend wiederhergestellt und der Export erneut verifiziert.
+Vorhandene Connection-Dateien, Root-/Katalogdateien, Host-Autostartdateien und
+der Podman-Loginwert blieben unverändert. Der erfolgreiche eigene Run bleibt
+bewusst persistent und mit Autostart off nutzbar; frühere fehlgeschlagene eigene
+Runs wurden entfernt. Der erste Voranlagefehler hinterließ keinen Runtime-Run;
+sein einzelner Intent und leeres Verzeichnis wurden ebenfalls entfernt.
+
+Separat bestanden auf ReFS alle 45 tatsächlichen Writerfälle einschließlich
+File.Replace, Quellbackup, ACLs, Prozessabbrüchen, Konkurrenz, Recovery und
+vollständigem eigenem Cleanup. Die NTFS-Writersuite blieb im betroffenen Gate
+separat erhalten. Authority-Fixtures prüfen native DPAPI-/ACL-/Registryaktionen
+mit injiziertem Trust; Export-Fixtures verwenden echte RSA-Signaturen und
+Dateirechte mit ausdrücklich injizierten Providerbeobachtungen. Diese Fixtures
+ersetzen die oben genannten echten SQL-Sitzungen nicht. Unabhängiger Quellreview
+schloss vier konkrete Findings sowie die nachfolgenden Cleanup-/Budgetdeltas.
+
+Fehlende Nachweise bleiben explizit: öffentliche operative False-Lane für Podman,
+Hyper-V, Linuxclients und andere SQL-/Patchstände; V2-Cutover fremder Consumer;
+Wire-Zertifikatsfingerprint, automatische Erneuerung/Rebind und vollständige
+Produktseitenkomposition. Der bestehende True/True-Default und seine früheren
+getrennten Providerbelege werden dadurch nicht umdefiniert.

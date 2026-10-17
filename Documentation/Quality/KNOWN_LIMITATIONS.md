@@ -11,30 +11,28 @@ qualifiziert, keine bestehende CA adoptiert oder Store-/SQL-Konfiguration
 geändert. Beobachtung bleibt nicht atomar; handlebasierte Rootanker,
 Retirement, Mehrclient-Scope und vollständige native Abnahme fehlen.
 Die folgenden tatsächlichen Exportgruppenbefunde bleiben unverändert;
-öffentlicher strikter Modus, qualifizierter Export und SC-2026-045 sind offen.
+Der separate operative Nachfolger unterstützt jetzt ein eigenes Windows-/Docker-SQL-2025-CU9-Lab und V2-Export; die Gesamtmatrix und SC-2026-045 bleiben offen.
 
-## Bedingte CA-/Trustscopebindung und strikter Export
+## Historische Vorprüfung vor dem operativen eigenen Lab
 
 Die [frische Vorprüfung vom 2026-10-17](LOCAL_VALIDATION_STRATEGY.md#bedingte-tls-fortsetzung-vom-2026-10-17)
 bestätigt Provider-Bootstrap, bestehende CA-Vorschau und CurrentUser-Trust.
-Die operative TLS-Registrydatei fehlt am geprüften Root. In der vorhandenen
+Bei dieser Vorprüfung fehlte die operative TLS-Registrydatei am geprüften Root. In der vorhandenen
 Exportgruppe funktionieren die Docker-/Hyper-V-SQL-2025-Ziele mit dem Default,
 lehnen strikte Verbindungen aber wegen der Zertifikatkette ab. Ein bereites
 registriertes Podman-SQL-2025-Ziel fehlt in dieser Gruppe. Runtime-`READY`
-ist damit kein TLS-Qualifikationsnachweis. Bindung des bestehenden CA-Keys,
-Trustscope und qualifizierter `False`-Export bleiben P1; der Default ist
+ist damit kein TLS-Qualifikationsnachweis. Der nachfolgende eigene Windows-/Docker-Pfad bindet inzwischen den bestehenden CA-Key und Trustscope und qualifiziert seinen separaten `False`-Export; andere operative Kombinationen bleiben P1; der Default ist
 weiterhin `Encrypt=True;TrustServerCertificate=True`.
 
 ## Private TLS-Kontextregistrierung vor Keyanlage
 
 Der [Windows-Writer](../Architecture/AUTHENTICATED_TLS_REGISTRY_WRITER.md)
 persistiert inzwischen aktive Client-/Signiermetadaten unter explizit
-registriertem lokalem NTFS-Root mit frischer Actor-/Volumeprüfung, privaten
+registriertem lokalem NTFS- oder ReFS-Root mit frischer Actor-/Volumeprüfung, privaten
 ACLs, kooperativen Sperren, Intent, atomarem Ersatz und expliziter Recovery.
 Eigene Tempfixtures prüfen native Abbrüche, Parallelität und Cleanup. Keine
 Stromausfall-, Administrator-/ABA-, Linux- oder TLS-Qualifikation entsteht.
-Die aktuelle 0.2-Metadatenform ist oben getrennt beschrieben; tatsächliche CA-/Trustscopeadoption und Retirement bleiben offen. Es gibt keine neue
-öffentliche API. Volle Journale sperren statt automatisch zu kürzen.
+Die aktuelle 0.2-Metadatenform ist oben getrennt beschrieben. Der operative Nachfolger adoptiert die vorhandene CA für sein eigenes Lab; Retirement bleibt offen. Die Moduswahl ist additiv auf dieses Lab begrenzt. Volle Journale sperren statt automatisch zu kürzen.
 Unvollständige erstmalige Anlage verlangt gesonderte eigene Recovery/Cleanup;
 kein stiller Retry. Spätere historische Reader-/Planungsnachweise behalten
 ihre damaligen Aussagegrenzen.
@@ -51,8 +49,7 @@ und keine Freigabe der öffentlichen `False`-Moduswahl.
 Die getrennte [Linux-Abnahme](TLS_LINUX_SQL2025_TRUST_DRIFT_ACCEPTANCE_2026-10-17.md)
 belegt inzwischen beide strikten Clientstacks, kontrollierten Trustentzug
 und Wiederherstellung auf Docker/SQL 2025 CU9 sowie den tatsächlich geladenen
-ODBC-Treiber. Andere Linux-Matrixfälle, Hyper-V-Zertifikatsbindung, operative
-Registry, öffentliche Moduswahl und qualifizierter Export bleiben offen.
+ODBC-Treiber. Andere Linux-Matrixfälle und Hyper-V-Zertifikatsbindung bleiben offen. Operative Registry, Moduswahl und qualifizierter Export sind separat nur für den eigenen Windows-/Docker-Pfad implementiert.
 
 Neue gemeinsame Connection Strings und SSMS-Registrierungsexporte enthalten
 ausdrücklich `Encrypt=True;TrustServerCertificate=True`. Gespeicherte
@@ -3868,3 +3865,12 @@ Machine, Workflow-/Gruppen-/Poolmitgliedschaft, Retention, Referenzen, unbekannt
 Metadatendateien, unvollständige Inventare und Recovery
 bleiben gesperrt. Es gibt keine globale Purge-Aktion und keine native
 Ressourcenlöschung. [Vertrag und Nachweisgrenzen](../User/RUN_ARTIFACT_REMOVAL.md).
+
+## Isolierter operativer TLS-Pfad
+
+Der additive [operative TLS-Vertrag](../Architecture/AUTHENTICATED_TLS_OPERATIONAL_LAB.md)
+verbindet eine bereits vertraute CA mit eigenem Trustscope und einem neuen
+Docker-SQL-2025-CU9-Lab. Die explizite False-Wahl und der separate qualifizierte
+V2-Export sind vom unveränderten True/True-Default getrennt. Native Abnahme und
+weitere Providergrenzen werden in der Validierungsstrategie getrennt geführt.
+Die operative False-Lane ist nativ für Windows CurrentUser, Docker und SQL Server 2025 CU9 belegt. Andere Provider/Clients/Versionen, V2-Consumer-Cutover und automatisches Renewal/Rebind bleiben offen. Der qualifizierte Export verlangt frische Bindungen und zwei echte Stacks; gespeichertes Runtime-READY allein genügt nicht. Der Wire-Fingerprint bleibt ausdrücklich NOT_OBSERVED. Standard und bestehende V1-Gruppe bleiben True/True.

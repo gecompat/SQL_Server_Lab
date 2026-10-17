@@ -38,8 +38,7 @@ Zugangs-/Secretanzeigen der Statusansicht erhalten keine neue Entschlüsselung.
 
 Diese Werte beschreiben den gespeicherten Connection String. Sie sind weder
 ein Live-Verbindungstest noch ein Ketten-, SAN-, Ablauf-, Trust- oder
-Clientqualifikationsnachweis. Die öffentliche strikte Moduswahl und der
-qualifizierte Export bleiben Teil von [TLS-001](../Project_Planning/TLS_001_ISOLATED_CA_DESIGN.md).
+Clientqualifikationsnachweis. Die additive öffentliche strikte Moduswahl und der qualifizierte V2-Export sind im [operativen TLS-Vertrag](AUTHENTICATED_TLS_OPERATIONAL_LAB.md) für ein eigenes Windows-/Docker-SQL-2025-CU9-Lab begrenzt.
 
 Die [fokussierte Suite](../../Tests/Static/Invoke-SqlConnectionSettingsChecks.ps1)
 prüft den tatsächlichen Default-Erzeuger, native Parsergegenfälle, fehlende

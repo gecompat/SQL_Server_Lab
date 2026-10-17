@@ -143,3 +143,7 @@ unabhängiger stabiler Review bleiben erforderlich. Vollständige Logs bleiben
 lokal; ein zweiter Modell-/Providerlauf entsteht daraus nicht. Der
 selektorbezogene Aufwand ist in dieser begrenzten Entscheidung berücksichtigt;
 die tatsächliche volle Analyzersuite bleibt bei Testdateiänderungen erhalten.
+
+## Operativer Nachfolger und ReFS
+
+Der [operative TLS-Pfad](AUTHENTICATED_TLS_OPERATIONAL_LAB.md) verwendet die vorhandene Authority-Metadatenbindung und ergänzt die separate private Keybesitzprüfung. Der Writer unterstützt jetzt lokale feste NTFS- und ReFS-Volumes mit unveränderten ACL-, Lock-, CAS-, Intent-, Replace- und Recoverygrenzen. Die ReFS-Erweiterung ist separat durch alle 45 nativen Writerfälle einschließlich Prozessabbruch, Konkurrenz und Cleanup geprüft. Trustscope-Referenzen bleiben auch in abgebrochenen Intents reserviert. Ein Writercommit allein qualifiziert weiterhin keine SQL-Verbindung.

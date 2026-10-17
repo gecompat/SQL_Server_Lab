@@ -883,6 +883,14 @@ sources_of_truth:
   authenticated_tls_authority_binding: Private/AuthenticatedTlsAuthorityBinding.ps1 # private Windows candidate/ciphertext/DER + exact active client/signer + ReadOnly trust; NON_ATOMIC_READ, no keyopen/storewrite/TLS qualification
   validation_authenticated_tls_authority_binding: Tests/Static/Invoke-AuthenticatedTlsAuthorityBindingChecks.ps1 # own native temp CA/DPAPI/NTFS/actor/root/writer, injected positive trust/binaries; coupled payload/document/index/root/request/context/backend/CaCandidate/StorageContract/DiagnosticBundleReader
   authenticated_tls_registry_writer_contract: Documentation/Architecture/AUTHENTICATED_TLS_REGISTRY_WRITER.md
+  authenticated_tls_operational_lab: Documentation/Architecture/AUTHENTICATED_TLS_OPERATIONAL_LAB.md # actual key proof, own Windows/Docker SQL2025 CU9 and signed V2 false export; V1/default true
+  authenticated_tls_authority: Private/AuthenticatedTlsAuthority.ps1
+  authenticated_tls_lab: Private/AuthenticatedTlsLab.ps1
+  authenticated_tls_qualification: Private/AuthenticatedTlsQualification.ps1
+  validation_authenticated_tls_authority: Tests/Static/Invoke-AuthenticatedTlsAuthorityChecks.ps1
+  validation_authenticated_tls_lab: Tests/Static/Invoke-AuthenticatedTlsLabChecks.ps1
+  acceptance_authenticated_tls_lab: Tests/Integration/Invoke-AuthenticatedTlsLabAcceptance.ps1
+  schema_authenticated_tls_test_environment: Schemas/test-environment-authenticated.schema.json
   authenticated_tls_registry_writer: Private/AuthenticatedTlsRegistryWriter.ps1 # private Windows NTFS client/signer + selected 0.2 CA metadata; fresh actor/volume, protected journals, cooperative locks and explicit recovery; no CA/trust/SQL qualification
   validation_authenticated_tls_registry_writer: Tests/Static/Invoke-AuthenticatedTlsRegistryWriterChecks.ps1 # native own temp ACL/replace/process crash/concurrency/cleanup; coupled root/document/index/payload/request/context/backend/CA file helpers/StorageContract/DiagnosticBundleReader
   authenticated_tls_ca_candidate_contract: Documentation/Architecture/AUTHENTICATED_TLS_CA_CANDIDATE.md
