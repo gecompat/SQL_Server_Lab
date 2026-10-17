@@ -120,6 +120,13 @@ erhalten aber jeweils eigene Runtime-Evidence.
 
 #### TLS-001 – authentifizierte TLS-Verbindungen der Testumgebungen
 
+Die begrenzte [private Authoritybindung](../Architecture/AUTHENTICATED_TLS_AUTHORITY_BINDING.md)
+ergänzt den Writer um CA-Kandidat/Ciphertext/DER, exakte aktive Client-/
+Signiergeneration und ReadOnly-Trust. Frische Prüfung gilt auch für unveränderte
+Generationen und Recoverycommit. Das sind Metadaten und eigene Tempfixtures;
+keine tatsächliche Adoption der bestehenden CA, native Gesamtqualifikation
+oder Exportfreigabe. SC-2026-045 bleibt gesperrt.
+
 Der spätere [private Windows-Registrywriter](../Architecture/AUTHENTICATED_TLS_REGISTRY_WRITER.md)
 ergänzt inzwischen aktive Client-/Signiermetadaten vor Keyanlage mit frischer
 Actor-/Volumeprüfung, geschützter Ablage, atomarem Ersatz und expliziter

@@ -1,5 +1,16 @@
 # TLS-001a – Entwurf einer isolierten Lab-CA
 
+## Private Authority-Metadatenform vom 2026-10-17
+
+Die [Authoritybindung](../Architecture/AUTHENTICATED_TLS_AUTHORITY_BINDING.md)
+verbindet `0.2`-CA-Payloads mit geschütztem Kandidaten/Ciphertext/DER,
+exakter aktiver Client-/Signiergeneration und frischer ReadOnly-Trustlesung.
+Der bestehende Writer prüft vor Intent, Ersatz, Commit und Recoverycommit;
+unveränderte Generationen werden für aktive CAs nicht übersprungen.
+Kein Keyopen, Storewrite, tatsächliche Adoption der bestehenden CA oder
+SQL-Effekt. Der Befund bleibt METADATA_BOUND_NOT_TLS_QUALIFIED und nicht
+atomar; handlebasierte Rootanker und volle TLS-/Exportqualifikation sind offen.
+
 | Merkmal | Wert |
 |---|---|
 | Status | Native CA-Trust-Recovery und begrenzte Windows-SQL-TLS-Probe bestanden; vollständige TLS-Lab-Abnahme offen |

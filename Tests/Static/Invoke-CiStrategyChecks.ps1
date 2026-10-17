@@ -17,6 +17,30 @@ foreach ($path in @('Providers/HyperV/HyperVWindowsSqlScript.ps1','Public/Invoke
         -not $selected.Docker -and -not $selected.Podman -and -not $selected.Mixed -and -not $selected.Adapter)
 }
 $tlsWriterCheck='Invoke-AuthenticatedTlsRegistryWriterChecks.ps1'
+$tlsAuthorityCheck='Invoke-AuthenticatedTlsAuthorityBindingChecks.ps1'
+foreach($path in @('Private/AuthenticatedTlsAuthorityBinding.ps1','Tests/Static/Invoke-AuthenticatedTlsAuthorityBindingChecks.ps1')){
+    foreach($normalized in @($path,$path.Replace('/','\'))){
+        $selected=& $selector -ChangedPath @($normalized)
+        Add-CheckResult "TLS-A exakte private Bindungslane $normalized" ($tlsAuthorityCheck -in $selected.StaticChecks -and
+            -not $selected.Docker -and -not $selected.Podman -and -not $selected.Mixed -and -not $selected.HyperV -and -not $selected.Adapter)
+    }
+}
+foreach($path in @('Private/AuthenticatedTlsRegistryWriter.ps1','Private/AuthenticatedTlsRegistryRoot.ps1','Private/AuthenticatedTlsRegistryDocument.ps1',
+    'Private/AuthenticatedTlsRegistryIndex.ps1','Private/AuthenticatedTlsRegistryPayload.ps1','Private/AuthenticatedTlsRequest.ps1',
+    'Private/AuthenticatedTlsContext.ps1','Private/AuthenticatedTlsBackend.ps1','Private/AuthenticatedTlsCaCandidate.ps1','Private/DiagnosticBundleReader.ps1','Private/StorageContract.ps1')){
+    Add-CheckResult "TLS-A transitive Quelle $path" ($tlsAuthorityCheck -in (& $selector -ChangedPath @($path)).StaticChecks)
+}
+foreach($path in @('Private/Other/AuthenticatedTlsAuthorityBinding.ps1','Private/AuthenticatedTlsAuthorityBindingOther.ps1','Private/authenticatedTlsAuthorityBinding.ps1')){
+    $selected=& $selector -ChangedPath @($path)
+    Add-CheckResult "TLS-A keine aehnliche Pfadausnahme $path" ($selected.Docker -and $tlsAuthorityCheck -notin $selected.StaticChecks)
+}
+foreach($other in @('Private/UnmappedSynthetic.ps1','Private/SqlReadiness.ps1','Providers/HyperV/HyperVProvider.ps1')){
+    $baseline=& $selector -ChangedPath @($other);$union=& $selector -ChangedPath @('Private/AuthenticatedTlsAuthorityBinding.ps1',$other)
+    $preserved=$true
+    foreach($flag in @('Docker','Podman','Mixed','HyperV','Adapter')){if($baseline.$flag -ne $union.$flag){$preserved=$false}}
+    foreach($check in $baseline.StaticChecks){if($check -notin $union.StaticChecks){$preserved=$false}}
+    Add-CheckResult "TLS-A gemischter Scope erhaelt Auswahl $other" ($preserved -and $tlsAuthorityCheck -in $union.StaticChecks)
+}
 foreach($path in @('Private/AuthenticatedTlsRegistryWriter.ps1','Tests/Static/Invoke-AuthenticatedTlsRegistryWriterChecks.ps1')){
     foreach($normalized in @($path,$path.Replace('/','\'))){
         $selected=& $selector -ChangedPath @($normalized)

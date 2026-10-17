@@ -1,5 +1,17 @@
 # Projektkontext
 
+## Private CA-/Client-Trustmetadaten vom 2026-10-17
+
+Die [Authoritybindung](../Documentation/Architecture/AUTHENTICATED_TLS_AUTHORITY_BINDING.md)
+ergänzt den Windows-Registrywriter um geschlossene `0.2`-Authoritypayloads:
+Kandidat/Ciphertext/DER, exakte aktive Client-/Signiergeneration und frischer
+ReadOnly-CurrentUser-Trust werden vor Intent, Ersatz, Commit und Recovery
+geprüft. Eigene Tempfixtures sind von tatsächlicher Adoption getrennt.
+Die bestehende CA, geschützte Ziele und Stores wurden nicht verändert.
+Native Gesamtqualifikation, öffentliche Moduswahl und qualifizierter Export
+bleiben offen; SC-2026-045 bleibt gesperrt. Frühere Vor-Key-Abschnitte
+beschreiben die weiterhin unterstützte `0.1`-Form.
+
 | Merkmal | Wert |
 |---|---|
 | Status | `BINDING` |

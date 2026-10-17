@@ -10,8 +10,9 @@
 Der Writer ergänzt die [lesende Rootbindung](AUTHENTICATED_TLS_REGISTRY_ROOT.md)
 und die [vollständige Dokumentform](AUTHENTICATED_TLS_REGISTRY_DOCUMENT.md).
 Er registriert ausdrücklich ausgewählte aktive Client- und Signiermetadaten
-vor Keyanlage. CA-/Trustscopeanlage, Retirement und Nutzungsauflösung bleiben
-gesperrt. Die bestehende CA wird dadurch weder adoptiert noch qualifiziert.
+und die begrenzte [CA-/Trustscope-Metadatenform](AUTHENTICATED_TLS_AUTHORITY_BINDING.md).
+Retirement und Nutzungsauflösung bleiben gesperrt. Die bestehende CA wird
+durch diese Implementierung weder adoptiert noch qualifiziert.
 Keine öffentliche API, Keyöffnung, Zertifikats-, Truststore-, SQL- oder
 Provideraktion entsteht. `QualificationStatus=NOT_EXECUTED`, `Ready=false`
 und `MutationAllowed=false` bleiben erhalten.
@@ -37,8 +38,10 @@ den exakten SHA-256 der bisherigen Registrybytes. Diese Werte ersetzen weder
 die native Neubeobachtung noch die Autorität des konkreten Auftrags. Unter
 Sperre und unmittelbar vor Dateiersatz und Commit wird erneut geprüft.
 Geänderte aktive Payloads müssen den bestehenden intern frischen
-Prozess-/Binary-/Backendvergleich bestehen. Nicht geänderte Generationen
-werden durch den vollständigen Dokumentübergang erhalten. Diskdigests
+Prozess-/Binary-/Backendvergleich bestehen. Nicht geänderte Kontextgenerationen
+werden durch den vollständigen Dokumentübergang erhalten. Jede aktive `0.2`-CA
+prüft trotzdem Kandidat, beide Kontextgenerationen und ReadOnly-Trust frisch,
+vor Intent, Ersatz und Commit sowie bei `RECOVER_COMMIT`. Diskdigests
 bleiben Diskbeobachtungen; ein Registrycommit qualifiziert keine Clients.
 
 Genau `State/authenticated-tls` unter dem ausgewählten Root ist zulässig.
