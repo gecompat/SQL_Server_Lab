@@ -2,6 +2,14 @@
 
 ## SSISDB: Ziel-, Komponenten- und Fixturebindung
 
+`Get-SqlServerLabSsisPackageDiagnostic` diagnostiziert ein eigenes hashgebundenes
+DTSX oder einen exakten DTSX-Eintrag aus einem ISPAC im bereits laufenden
+Windows-/Hyper-V-Gast. Die Ausgabe enthält tatsächliche SSIS-Runtime, Bitness,
+Komponentenbestand und numerische Ladefehler aus `Package.LoadFromXML`, ohne
+Paketausführung oder SQL-Verbindung. Nur vertrauenswürdige eigene Pakete
+verwenden; [Aufruf, Grenzen und Rückgabe](../Documentation/Architecture/SSIS_PACKAGE_DIAGNOSTIC.md).
+Der Befehl ist über **Alle öffentlichen Befehle** in CLI und Browser erreichbar.
+
 Bei Neuerstellung verarbeitet `New-SqlServerLab -Manifest` das optionale
 `instances[].ssisCatalogFixture` mit vorhandenem Medienroot, relativem ISO-Pfad
 und erwartetem SHA-256. Es ergänzt IS nach der normalen Windows-/SQL-Bereitstellung

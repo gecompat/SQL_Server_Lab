@@ -2,6 +2,14 @@
 
 ## SSISDB: abgenommener Windows-Scope und Grenzen
 
+Die [lesende Paketdiagnose](../Architecture/SSIS_PACKAGE_DIAGNOSTIC.md)
+ergänzt Komponentenbestand und `Package.LoadFromXML` in der zur registrierten
+SQL-Version gehörenden x64-Gast-Runtime. Sie ist keine Sandbox und akzeptiert
+nur eigene vertrauenswürdige Labpakete. Ladefehler, fehlende Runtime und
+unbestätigter Transport bleiben getrennt; fehlerfreies Laden beweist keine
+Katalogausführung oder ETL-Funktion. Der gesonderte native Nachweis steht in
+der [Validierungsstrategie](LOCAL_VALIDATION_STRATEGY.md#ssis-paketladediagnose).
+
 Der zusätzliche [Windows-Consumerweg](../HowTo/SSIS_CONSUMER_WINDOWS_ACCESS.md)
 verwendet `Invoke-SqlServerLabScript -WindowsAuthentication` und die vorhandene
 geschützte Gastanmeldung. Er verlangt einen berechtigten Hyper-V-

@@ -141,6 +141,14 @@ TLS-Abnahme und Toolbelt SC-2026-045 bleiben offen.
 
 ## Dokumentationszuständigkeiten
 
+Der auf Benutzerauftrag ergänzte lesende SSIS-Gastdiagnoseweg
+`Get-SqlServerLabSsisPackageDiagnostic` bindet ein eigenes DTSX/ISPAC per
+SHA-256 an dieselbe Gast-Runtime für Komponentenbestand und `LoadFromXML`.
+Der [Vertrag](../Documentation/Architecture/SSIS_PACKAGE_DIAGNOSTIC.md)
+trennt Ladebeobachtung und Paketausführung. Ausgeführte Offline-/Native-Nachweise
+stehen gesondert in der Validierungsstrategie; die bestehende Consumer-
+Providerabnahme wird dadurch nicht vorweggenommen.
+
 Der zusätzliche SSIS-Consumerzugang erweitert `Invoke-SqlServerLabScript`
 um den expliziten Windows-Modus, auf dem vorhandenen Hyper-V-Transport und
 geschützten Gast-Secretstore. Die [Consumeranleitung](../Documentation/HowTo/SSIS_CONSUMER_WINDOWS_ACCESS.md)
