@@ -294,6 +294,17 @@ neue Freigabe und gebundene Quellen bleiben erforderlich. Beide Stacks,
 Trustdrift, geladener ODBC, Registry und SC-2026-045 bleiben offen.
 ## CU-Metadatenbindung am 2026-10-17
 
+Der anschließend neu konkret freigegebene
+[localhost-Versuch](../Quality/TLS_LINUX_LOCALHOST_PRETRUST_ATTEMPT_2026-10-17.md) scheiterte vor der Client-Trustdateianlage:
+`getent ahosts/hosts` beobachtete nur die freigegebenen Loopback-Adressen,
+der zusätzliche .NET-Auflösungsprozess startete jedoch wegen des schreibgeschützten
+Homeverzeichnisses nicht. Keine TLS-Probes oder Client-Trustanlage; eigener Cleanup,
+frische Abwesenheit und Schutzvergleiche bestanden. Eine neue rein planende
+Vorschau ergänzt ausschließlich das prozesslokale `HOME=/tmp` für diesen
+Auflösungsaufruf. Sie ist ungetestet und verlangt eine neue konkrete Freigabe,
+ein neues Budget und gebundene geprüfte Quellen. Kein Replay; die vollständige
+TLS-Abnahme und Toolbelt SC-2026-045 bleiben offen.
+
 Der lesende Diagnostic-/TLS-Zielmetadatenpfad erhält jetzt katalogisierte
 Docker-/Podman-CU-Kurzbezeichner und exakte Tags als vollständige Runselektoren.
 Der Reader bindet zusätzlich Basisjahr, exakten Katalogtag und Katalogbuild;

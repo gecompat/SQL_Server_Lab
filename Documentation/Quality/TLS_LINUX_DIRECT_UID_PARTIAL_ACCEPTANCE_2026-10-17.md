@@ -90,3 +90,5 @@ Linux-TLS beider Stacks, geladener ODBC, Trustdrift-/Abbruch-/Resumeabnahme,
 Hyper-V, operative Registry/AuthorityRef, frische Qualifikation, qualifizierter
 Export und tatsächlicher Toolbelt-Preflight bleiben offen. SC-2026-045 bleibt
 gesperrt. Kosten und Tokenverbrauch sind unbekannt.
+
+Der später konkret freigegebene [localhost-Versuch](TLS_LINUX_LOCALHOST_PRETRUST_ATTEMPT_2026-10-17.md) scheiterte bereits vor der Trustdateianlage am PowerShell-Startkontext der .NET-Auflösung. Eigener Cleanup und frische Schutzprüfungen bestanden; die dort beschriebene neue Vorschau benötigt eine neue Freigabe.
