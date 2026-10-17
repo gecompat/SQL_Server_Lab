@@ -9,6 +9,12 @@ CA-/Client-Trusteinrichtung. Die öffentliche Wahl des zertifikatsprüfenden
 `False`-Modus und seine qualifizierte CLI-/GUI-Anzeige bleiben im laufenden
 TLS-001-Scope; [ausgeführte Nachweise und Grenzen](../Documentation/Quality/LOCAL_VALIDATION_STRATEGY.md#expliziter-tls-standard-vom-2026-10-16).
 
+CLI-Runstatus und GUI-Zielübersicht zeigen bereits ausdrücklich die angegebenen
+TLS-Werte als **Connection Settings** je Ziel. Fehlende Werte bleiben unbekannt;
+die Anzeige ist kein Zertifikatsnachweis. `Get-SqlServerLabWorkflow` liefert
+dafür die credentialfreie `ConnectionSettings`-Projektion. Details im
+[Anzeigevertrag](../Documentation/Architecture/SQL_CONNECTION_SETTINGS.md).
+
 ## SSISDB: Ziel-, Komponenten- und Fixturebindung
 
 Bei Neuerstellung verarbeitet `New-SqlServerLab -Manifest` das optionale

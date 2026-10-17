@@ -126,6 +126,7 @@ end {
         @{ Pattern = '(?i)(BatchWorkflow|BatchConsole|lab-batch)'; Checks = @('Invoke-BatchWorkflowChecks.ps1') },
         @{ Pattern = '(?i)(PublicCommandConsole|Invoke-PublicCommandConsoleChecks|ConsoleUi|ConsoleHelp|Invoke-SqlServerLab\.ps1|Start-SqlServerLabUi\.ps1|Ui[\\/]|Workflow)'; Checks = @('Invoke-PublicCommandConsoleChecks.ps1','Invoke-ConsoleUiChecks.ps1','Invoke-WorkflowUiChecks.ps1') },
         @{ Pattern = '(?i)(ActionProgress|SqlReadiness|ArtifactResolver|Save-SqlServerLabMediaSource|VersionCatalog|ExternalRuntimeWindows|ContainerImageArtifact|ContainerToolImage|Private/Common\.ps1)'; Checks = @('Invoke-ActionProgressChecks.ps1') },
+        @{ Pattern = '^(?-i:Private/SqlConnectionSettings\.ps1|Private/SqlReadiness\.ps1|Public/Invoke-SqlServerLab\.ps1|Public/Get-SqlServerLabWorkflow\.ps1|Tests/Static/Invoke-SqlConnectionSettingsChecks\.ps1)$'; Checks = @('Invoke-SqlConnectionSettingsChecks.ps1') },
         @{ Pattern = '(?i)(ConnectionCenter|CmsSync|ConnectionCenterCms)'; Checks = @('Invoke-ConnectionCenterCmsChecks.ps1','Invoke-ConsoleUiChecks.ps1') },
         @{ Pattern = '(?i)(ActionResult|Invoke-SqlServerLab\.ps1)'; Checks = @('Invoke-ActionResultChecks.ps1') },
         @{ Pattern = '(?i)(Elevation|Invoke-SqlServerLab\.ps1)'; Checks = @('Invoke-ElevationChecks.ps1') },

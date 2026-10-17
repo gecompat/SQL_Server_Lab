@@ -1,5 +1,9 @@
 # SQL Server Lab
 
+CLI-Runstatus und GUI unter **Verbindungen und CMS** zeigen die angegebenen
+Werte von `Encrypt` und `TrustServerCertificate` je Ziel ausdrücklich an.
+Fehlende Werte werden nicht geraten; [Anzeigevertrag](Documentation/Architecture/SQL_CONNECTION_SETTINGS.md).
+
 `SQL_Server_Lab` erstellt lokale, isolierte SQL-Server-Testumgebungen für
 Entwicklung, Analyse und Schulung. Das PowerShell-Modul übernimmt Erstellung,
 SQL-Bereitschaft, Datenbank- und Skriptaufgaben, Start/Stop sowie

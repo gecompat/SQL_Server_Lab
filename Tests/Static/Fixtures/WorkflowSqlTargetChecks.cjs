@@ -147,6 +147,24 @@ const fixture = {
     SqlInstances: [{ InstanceId: 'primary', Name: 'MSSQLSERVER', IsDefault: true },
       { InstanceId: 'named', Name: 'REPORTING', IsDefault: false }] }]
 };
+check('Connection settings render typed TLS flags for each target without exposing strings', () => {
+  const settings = (trust) => ({ Encrypt: true, TrustServerCertificate: trust, Status: 'CONFIGURED_CONNECTION_STRING' });
+  run('renderConnectionEndpoints(' + JSON.stringify({ ActiveLabs: [{ Name: 'Container', Instances: [
+    { Id: 'simple', Provider: 'docker', Host: 'sql-simple', Port: 1433, ConnectionSettings: settings(true) },
+    { Id: 'strict', Provider: 'podman', Host: 'sql-strict', Port: 1434, ConnectionSettings: settings(false) }
+  ] }], HyperVLabs: [{ Name: 'VM', Workload: 'sql', SqlInstances: [
+    { InstanceId: 'primary', TcpPort: 1433, ConnectionString: 'Server=sql-vm,1433;Password=synthetic-secret;', ConnectionSettings: settings(false) },
+    { InstanceId: 'legacy', TcpPort: 1434, ConnectionString: 'Server=sql-legacy,1434;', ConnectionSettings: { Encrypt: null, TrustServerCertificate: true } }
+  ] }] }) + ')');
+  const output = node('connection-endpoints').innerHTML;
+  assert.equal((output.match(/Connection Settings:/g) || []).length, 4);
+  assert.equal((output.match(/Encrypt=True;TrustServerCertificate=False/g) || []).length, 2);
+  assert.ok(output.includes('Encrypt=True;TrustServerCertificate=True'));
+  assert.ok(output.includes('Encrypt=nicht angegeben;TrustServerCertificate=True'));
+  assert.ok(!output.includes('Password=') && !output.includes('synthetic-secret'));
+  assert.equal(run('sqlConnectionSettingsLabel({Encrypt:"private-canary",TrustServerCertificate:false,Status:"UNREADABLE"})'), 'Encrypt=nicht lesbar;TrustServerCertificate=nicht lesbar');
+  assert.equal(run('sqlConnectionSettingsLabel(null)'), 'Encrypt=nicht angegeben;TrustServerCertificate=nicht angegeben');
+});
 function setWorkflow(value) { run('workflow = ' + JSON.stringify(value)); }
 function clickOperation(dataset) {
   const button = { dataset };

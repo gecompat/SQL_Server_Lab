@@ -35,9 +35,21 @@ try {
     }
     Check ($html.Contains('Worker teilen ein gemeinsames Konto und besitzen Netzwerkzugriff') -and $html.Contains('Abbruch verwirft nur die Anzeige')) 'Complete shared-worker warning and truthful cancellation retained'
     $exports=@((Import-PowerShellDataFile (Join-Path $repo 'SqlServerLab.psd1')).FunctionsToExport)
-    Check ($exports.Count -eq 137 -and @($exports|Sort-Object -Unique).Count -eq 137) '137 unique combined public exports'
+    Check ($exports.Count -gt 0 -and @($exports|Sort-Object -Unique).Count -eq $exports.Count) 'Combined manifest exports are nonempty and unique'
+    $declarations=[Collections.Generic.Dictionary[string,int]]::new([StringComparer]::OrdinalIgnoreCase)
+    $loadedSources=@(Get-ChildItem -LiteralPath (Join-Path $repo 'Private') -Filter '*.ps1' -File -Recurse)
+    $loadedSources+=@(Get-ChildItem -LiteralPath (Join-Path $repo 'Public') -Filter '*.ps1' -File -Recurse)
+    foreach($provider in Get-ChildItem -LiteralPath (Join-Path $repo 'Providers') -Directory){$loadedSources+=@(Get-ChildItem -LiteralPath $provider.FullName -Filter '*.ps1' -File)}
+    foreach($file in $loadedSources){
+        $ast=Parse-Source $file.FullName
+        foreach($definition in $ast.FindAll({param($node)$node -is [Management.Automation.Language.FunctionDefinitionAst]},$true)){
+            if(-not $declarations.ContainsKey($definition.Name)){$declarations.Add($definition.Name,0)}
+            $declarations[$definition.Name]++
+        }
+    }
+    foreach($name in $exports){Check ($declarations.ContainsKey($name) -and $declarations[$name] -eq 1) "Exactly one loaded declaration for manifest export $name"}
     foreach($name in @('Get-SqlServerLabEvaluationRefreshPlan','Get-SqlServerLabLlamaCppStartPlan','Get-SqlServerLabExternalRuntimeCapability')){Check ($name -cin $exports) "Public union retains $name"}
-    Check ([IO.File]::ReadAllText((Join-Path $repo 'Documentation/README.md')).Contains('137 exportierte Funktionen')) 'Documentation export count follows actual combined manifest'
+    Check ([IO.File]::ReadAllText((Join-Path $repo 'Documentation/README.md')).Contains(('{0} exportierte Funktionen' -f $exports.Count))) 'Documentation export count follows actual combined manifest'
 
     $module=New-Module -Name SqlServerLab -ArgumentList $repo,$fixture -ScriptBlock {
         param($repoRoot,$fixtureRoot)
