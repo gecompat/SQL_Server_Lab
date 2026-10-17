@@ -271,6 +271,17 @@ Linux-Trustentscheidung, Kontextregistrierung und tatsächliche Linux-TLS-Probes
 bleiben separat. Die Windows-Freigabe wurde nicht erweitert.
 Die noch offenen D1–D4-Parameter
 werden vor dem jeweils betroffenen mutierenden Scope konkret abgenommen.
+
+Der spätere ausdrücklich freigegebene
+[isolierte Linux-Trustversuch](../Quality/TLS_LINUX_TRUST_ATTEMPT_2026-10-17.md)
+scheiterte vor den TLS-Probes an der privaten Dateivorbereitung: Root ohne
+Capabilities konnte die Datei nicht an UID 10001 umhängen. Eigener Client,
+SQL-Ziel, Volumes und temporäre Secretdatei sind entfernt; Workerende,
+Abwesenheit, Bestandsdateien und bestehender Windows-Trust frisch geprüft.
+Ein Nachfolger plant direkte Dateianlage durch UID 10001 ohne `chown` oder
+Zusatzprivilegien. Er benötigt eine neue konkrete Freigabe, einen endlichen
+Abschnitt und unabhängig geprüfte gebundene Quellen; kein Intent-Replay.
+Linux-TLS, Registry und SC-2026-045 bleiben offen.
 ## CU-Metadatenbindung am 2026-10-17
 
 Der lesende Diagnostic-/TLS-Zielmetadatenpfad erhält jetzt katalogisierte

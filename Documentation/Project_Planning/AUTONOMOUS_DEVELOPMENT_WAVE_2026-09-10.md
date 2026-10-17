@@ -132,6 +132,16 @@ Der Benutzer verlangt ausdrücklich die autonome Fortsetzung bis zur echten
 TLS-Lab-Abnahme und gezielte Fragen bei konkret fehlenden Freigaben.
 Schutzgrenzen bestehen fort; reine Offlinefortschritte beenden diesen Auftrag nicht.
 
+Der folgende ausdrücklich freigegebene
+[Linux-Trustversuch](../Quality/TLS_LINUX_TRUST_ATTEMPT_2026-10-17.md)
+scheiterte vor dem ersten TLS-Probeprozess an `chown` unter `cap-drop ALL`.
+Eigener Client und eigenes SQL-Ziel einschließlich Volumes und Secretdateien
+sind entfernt; Workerende, Abwesenheit und Bestandsdateierhalt frisch geprüft.
+Die geplante direkte Dateianlage durch UID 10001 benötigt keine zusätzlichen
+Capabilities, ist aber noch nicht nativ geprüft. Eine neue konkrete lokale
+Vorschau verlangt neue ausdrückliche Trustfreigabe und gebundene Quellen;
+kein Replay. Linux-TLS und Toolbelt SC-2026-045 bleiben offen.
+
 ## Historischer Abschluss vom 2026-10-09
 
 Der Benutzer hat die laufende Entwicklungswelle beendet. PR #732 und #734

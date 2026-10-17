@@ -94,6 +94,14 @@ beobachtete PowerShell 7.6.6, SqlClient-Konstruktion mit erwartetem lokalem
 Netzwerkfehler und den ersten sqlcmd-Hilfeaufruf. Alle eigenen Fixturecontainer
 sind entfernt, Bestandsdateien frisch erhalten. Kein SQL-Server, keine Abfrage,
 keine CA-Datei oder Truständerung; Linux-TLS und Kontextregistrierung bleiben offen.
+Der spätere ausdrücklich freigegebene
+[Linux-Trustversuch](../Documentation/Quality/TLS_LINUX_TRUST_ATTEMPT_2026-10-17.md)
+scheiterte vor den TLS-Probes an `chown` im Client ohne Capabilities.
+Eigener Client, SQL-Ziel, Volumes und temporäre Secretdatei sind entfernt;
+Workerende, Abwesenheit, geschützte Dateien und bestehender Windows-Trust frisch
+geprüft. Kein Linux-TLS-/ODBC-Nachweis. Eine neue konkrete Vorschau plant
+Dateierstellung durch UID 10001 ohne Zusatzprivilegien; ein weiterer Client
+benötigt eine neue ausdrückliche Freigabe, keinen Replay des alten Intents.
 Der private Issuer erlaubt für echte Ablaufgegenfälle nun alternativ native
 30–300 Sekunden statt 1–30 Tagen, ohne Caller-Uhr oder Rückdatierung.
 Syntaktische Approval-/Adapter-IDs sind keine menschliche oder Quieszenzevidence.
