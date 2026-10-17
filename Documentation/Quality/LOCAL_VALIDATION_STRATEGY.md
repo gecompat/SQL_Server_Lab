@@ -1,5 +1,38 @@
 # Lokale Validierungsstrategie
 
+## Bedingte TLS-Fortsetzung vom 2026-10-17
+
+Die lesende Vorprüfung auf dem integrierten Stand `b9684cf0` bestand mit
+Bootstrap-`READY` für Docker, Podman und Hyper-V. Der tatsächliche
+`Get-LabAuthenticatedTlsCaTrustPreview` bestätigte den bestehenden Kandidaten,
+seine Root-/Actor-/Dateibindungen und `IDENTICAL_PREEXISTING_NOT_OWNED` im
+CurrentUser/Root-Store. Es erfolgte keine private Keyöffnung oder Signierprobe.
+Am gebundenen Root existiert keine `State/authenticated-tls/registry.json`;
+Registrierung und Qualifikation bleiben `NOT_EXECUTED`.
+
+Die bestehende Exportgruppe enthielt sechs runtimebereite registrierte Ziele.
+Je ein vorhandenes Docker- und Hyper-V-SQL-2025-Ziel wurde mit dem tatsächlichen
+System.Data.SqlClient und unveränderten Verbindungsidentitäten gelesen:
+`Encrypt=True;TrustServerCertificate=True` bestand jeweils mit `SELECT 1`.
+Mit `TrustServerCertificate=False` lehnten beide Verbindungen die Kette mit
+SqlException `-2146893019` / `SEC_E_UNTRUSTED_ROOT` ab, jeweils vor der ersten
+SQL-Abfrage. Kein bereites registriertes Podman-SQL-2025-Ziel war in dieser
+Gruppe vorhanden; daraus folgt kein fehlender oder defekter Podman-Provider.
+Der zweite Clientstack wurde nach dieser fehlenden Voraussetzung nicht als
+qualifiziert geprüft. Bestehende isolierte positive TLS-Nachweise werden
+nicht auf diese Gruppe übertragen.
+
+Der erste Diagnoseharness verwendete einen ungeeigneten PowerShell-Setter
+für den Connection-Timeout und erzeugte vier Setupfehler. Sein lokaler Beleg
+ist ausdrücklich `FAILED_HARNESS`, kein PASS. Die korrigierte Ausführung
+verwendete native Connection-String-Schlüssel, `ErrorActionPreference=Stop`,
+fünf Sekunden Connect-/Commandtimeout, keine Verbindungswiederholung und
+kein Pooling. Ihr vollständiger lokaler Beleg bleibt getrennt erhalten.
+Es gab keine SQL-Objekt-, Provider- oder Trustmutation, keine neuen
+Testressourcen und keinen Exportwrite. Rohdaten und Locatoren bleiben privat.
+Der [P1-Backlog](../Project_Planning/NEW_SQL_LAB_USE_CASES_BACKLOG.md#tls-001--authentifizierte-tls-verbindungen-der-testumgebungen)
+enthält die konkrete Fortsetzungsbedingung; dies ist keine neue TLS-Abnahme.
+
 ## Private TLS-Registrytransaktion vom 2026-10-17
 
 Die [Writersuite](../../Tests/Static/Invoke-AuthenticatedTlsRegistryWriterChecks.ps1)

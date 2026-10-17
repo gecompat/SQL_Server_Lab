@@ -1,5 +1,17 @@
 # Bekannte Grenzen
 
+## Bedingte CA-/Trustscopebindung und strikter Export
+
+Die [frische Vorprüfung vom 2026-10-17](LOCAL_VALIDATION_STRATEGY.md#bedingte-tls-fortsetzung-vom-2026-10-17)
+bestätigt Provider-Bootstrap, bestehende CA-Vorschau und CurrentUser-Trust.
+Die operative TLS-Registrydatei fehlt am geprüften Root. In der vorhandenen
+Exportgruppe funktionieren die Docker-/Hyper-V-SQL-2025-Ziele mit dem Default,
+lehnen strikte Verbindungen aber wegen der Zertifikatkette ab. Ein bereites
+registriertes Podman-SQL-2025-Ziel fehlt in dieser Gruppe. Runtime-`READY`
+ist damit kein TLS-Qualifikationsnachweis. Bindung des bestehenden CA-Keys,
+Trustscope und qualifizierter `False`-Export bleiben P1; der Default ist
+weiterhin `Encrypt=True;TrustServerCertificate=True`.
+
 ## Private TLS-Kontextregistrierung vor Keyanlage
 
 Der [Windows-Writer](../Architecture/AUTHENTICATED_TLS_REGISTRY_WRITER.md)
