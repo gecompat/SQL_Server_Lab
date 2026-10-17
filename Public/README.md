@@ -432,3 +432,29 @@ beliebiger Pfad aktiviert keine zusätzlichen Rechte. Im eigenen Profil werden
 vorbestehende Ressourcen erhalten, Podmanmaschinen nicht gestartet und die
 gemeinsame Hostspeicherwartung bei Stop übersprungen.
 [Vertrag und Grenzen](../Documentation/Architecture/OWNED_HOST_CI_ISOLATION.md).
+
+## Isolierter operativer TLS-Pfad
+
+Der additive [operative TLS-Vertrag](../Documentation/Architecture/AUTHENTICATED_TLS_OPERATIONAL_LAB.md)
+verbindet eine bereits vertraute CA mit eigenem Trustscope und einem neuen
+Docker-SQL-2025-CU9-Lab. Die explizite False-Wahl und der separate qualifizierte
+V2-Export sind vom unveränderten True/True-Default getrennt. Native Abnahme und
+weitere Providergrenzen werden in der Validierungsstrategie getrennt geführt.
+Beispiel mit bereits registriertem DataRoot und vorhandenem vertrautem CA-Kandidaten:
+
+```powershell
+$lab = New-SqlServerLab -Version '2025-CU9' -Provider docker -Profile compact `
+    -DataRoot $registeredDataRoot -TlsControllerId $controllerId `
+    -TlsLocationId $locationId -TlsCandidateId $candidateId `
+    -TrustServerCertificate:$false -GenerateSaPassword -NonInteractive
+
+$export = Export-SqlServerLabTestEnvironment -TrustServerCertificate:$false `
+    -RunId $lab.RunId -InstanceId primary -StateRoot $lab.StateRoot `
+    -OutputDirectory (Join-Path $lab.StateRoot ('export-' + [guid]::NewGuid().ToString('N')))
+```
+
+Der eigene Run bleibt absichtlich aktiv; Autostart ist aus. Weitere Lifecycle-
+Befehle verwenden immer seinen zurückgegebenen StateRoot. Für CLI und GUI kann
+in einem eigenen Prozess `SQL_SERVER_LAB_STATE` auf diesen Root gesetzt werden.
+Der V2-Export gilt höchstens 15 Minuten und benötigt einen expliziten Consumer-
+Cutover. Der bestehende Default und V1-Consumer bleiben bei True/True.

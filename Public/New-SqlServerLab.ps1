@@ -360,6 +360,16 @@ function New-SqlServerLab {
         Das Cmdlet veraendert Container-Runtime, Dateisystem und SQL Server. Der
         zurueckgegebene Run kann mit den SqlServerLab-Lifecycle-Commands verwaltet
         und mit Remove-SqlServerLab wieder entfernt werden.
+    .PARAMETER TrustServerCertificate
+        Standard true bei stets aktivierter Verschluesselung. False erstellt nur
+        ein eigenes isoliertes Docker-Lab mit Version 2025-CU9 unter Windows;
+        DataRoot und die drei Tls-CA-Referenzen sind dann erforderlich.
+    .PARAMETER TlsCandidateId
+        Expliziter vorhandener CA-Kandidat mit bereits funktionierendem CurrentUser-Trust.
+    .PARAMETER TlsControllerId
+        Controller der registrierten CA-DataRoot-Bindung.
+    .PARAMETER TlsLocationId
+        Location der registrierten CA-DataRoot-Bindung.
     #>
     [CmdletBinding(DefaultParameterSetName = 'AdHoc')]
     param(
@@ -414,10 +424,18 @@ function New-SqlServerLab {
         [switch]$AllowDeprecated,
         [switch]$AllowExpertHostWriteMounts,
         [switch]$SkipAssessment,
-        [switch]$AllowResourceOvercommit
+        [switch]$AllowResourceOvercommit,
+        [bool]$TrustServerCertificate = $true,
+        [string]$TlsCandidateId,
+        [string]$TlsControllerId,
+        [string]$TlsLocationId
     )
 
     $ErrorActionPreference = 'Stop'
+    if (-not $TrustServerCertificate) {
+        return New-LabAuthenticatedTlsEnvironment -Parameters $PSBoundParameters
+    }
+    if ($TlsCandidateId -or $TlsControllerId -or $TlsLocationId) { throw 'TLS_LAB_FALSE_SELECTION_REQUIRED' }
     Write-LabHeader 'SQL Server Lab - Neue Umgebung'
 
     if ($GenerateSaPassword -and $SaPassword) {

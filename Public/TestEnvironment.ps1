@@ -572,11 +572,25 @@ function Export-SqlServerLabTestEnvironment {
         Optionales Zielverzeichnis. Standard ist Lab_Data/Exports.
     .PARAMETER StateRoot
         Optionaler SQL_Server_Lab-State-Root, aus dem Runs und Secrets gelesen werden.
+    .PARAMETER TrustServerCertificate
+        Standard true fuer den bisherigen Export 1.0. False qualifiziert ein
+        explizites eigenes TLS-Lab frisch ueber beide Windows-Clientstacks und
+        schreibt Vertrag 2.0 in ein neues eigenes OutputDirectory.
+    .PARAMETER RunId
+        Exakter Run des eigenen TLS-Labs; nur zusammen mit false.
+    .PARAMETER InstanceId
+        Exakte Instanz des eigenen TLS-Labs; nur zusammen mit false.
     .OUTPUTS
         Objekt mit den vier Exportpfaden sowie Anzahl aller und bereiter Einträge.
     #>
     [CmdletBinding()]
-    param([string]$OutputDirectory, [string]$StateRoot)
+    param([string]$OutputDirectory, [string]$StateRoot, [bool]$TrustServerCertificate = $true,
+        [string]$RunId, [string]$InstanceId)
+
+    if (-not $TrustServerCertificate) {
+        return Export-LabAuthenticatedTlsEnvironment -OutputDirectory $OutputDirectory -StateRoot $StateRoot -RunId $RunId -InstanceId $InstanceId
+    }
+    if ($RunId -or $InstanceId) { throw 'TLS_EXPORT_FALSE_SELECTION_REQUIRED' }
 
     $directory = Get-LabTestEnvironmentExportDirectory -OutputDirectory $OutputDirectory
     $null = New-Item -ItemType Directory -Path $directory -Force

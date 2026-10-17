@@ -7,7 +7,7 @@ function Get-LabTlsRegistryWriterBinding {
     if(-not $metadata.Success){throw 'TLS_REGISTRY_BINDING_INVALID'}
     $native=Get-LabTlsWindowsProcessFacts
     $drive=[IO.DriveInfo]::new([IO.Path]::GetPathRoot($metadata.Value.DataRoot))
-    if(-not [string]::Equals($drive.DriveFormat,'NTFS',[StringComparison]::OrdinalIgnoreCase)){throw 'TLS_REGISTRY_FILESYSTEM_UNSUPPORTED'}
+    if($drive.DriveFormat -cnotin @('NTFS','ReFS')){throw 'TLS_REGISTRY_FILESYSTEM_UNSUPPORTED'}
     $volume=Get-LabVolumeIdentity -Path $metadata.Value.DataRoot
     $marker=$metadata.Value.MarkerText|ConvertFrom-Json
     if($volume.VolumeId -cnotmatch '\A\\\\\?\\Volume\{[0-9A-Fa-f-]{36}\}\\\z' -or
@@ -118,6 +118,7 @@ function Read-LabTlsRegistryWriterState {
             if((Get-LabTlsCaByteDigest $source) -cne $intent.SourceSha256 -or -not (Read-LabAuthenticatedTlsRegistryDocument $source).Success){throw 'TLS_REGISTRY_SOURCE_INVALID'}
         }
         foreach($record in $parsed.Value.RegistryDocument.Index.Records){$null=$reserved.Add($record.Ref)}
+        foreach($payload in $parsed.Value.RegistryDocument.Payloads){if($payload.Kind -ceq 'AUTHORITY'){$null=$reserved.Add($payload.TrustScopeRef)}}
         # Alte Journale behalten nur ihre Bindungen im Arbeitsspeicher.
         # Vollstaendige Base64-/Payloadkopien je Revision waeren unnoetig kumulativ.
         $intent.PSObject.Properties.Remove('CandidateBase64')
@@ -190,6 +191,7 @@ function Assert-LabTlsRegistryFreshPayloads {
         if($p.Status -cne 'ACTIVE'){throw 'TLS_REGISTRY_OPERATION_UNSUPPORTED'}
         if(-not $old.ContainsKey($p.Ref) -and $Reserved.Contains($p.Ref)){throw 'TLS_REGISTRY_REF_RESERVED'}
         if($p.Kind -ceq 'AUTHORITY'){
+            if(-not $old.ContainsKey($p.Ref) -and $Reserved.Contains($p.TrustScopeRef)){throw 'TLS_REGISTRY_REF_RESERVED'}
             # Kein Upgrade ungebundener 0.1-CAs und kein Same-Generation-Skip:
             # Kandidat, beide Kontexte und Store werden stets frisch gelesen.
             if($p.ContractVersion -cne 'SqlServerLab.AuthenticatedTlsRegistryPayload/0.2') {throw 'TLS_REGISTRY_OPERATION_UNSUPPORTED'}
