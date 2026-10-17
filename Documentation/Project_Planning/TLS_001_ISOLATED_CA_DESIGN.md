@@ -263,5 +263,11 @@ bestand dieselben acht Windows-Clientfälle separat mit Docker und Podman für
 SQL 2019 CU32 und SQL 2022 CU27 samt eigenem Cleanup. Linuxclients, Hyper-V,
 Trustdrift, TLS-Abbruch/Resume, vollständige TLS-Matrix, Registry und
 qualifizierter Export bleiben offen.
+Die nachfolgende [Linux-Clientvorbereitung](../Quality/TLS_LINUX_CLIENT_CAPABILITY_2026-10-16.md)
+beobachtete PowerShell, SqlClient-Konstruktion mit erwartetem lokalem
+Netzwerkfehler und den ersten sqlcmd-Hilfeaufruf. Alle eigenen Fixtures entfernt,
+Bestandsdateien frisch erhalten. Keine CA-Datei oder Truständerung; die konkrete
+Linux-Trustentscheidung, Kontextregistrierung und tatsächliche Linux-TLS-Probes
+bleiben separat. Die Windows-Freigabe wurde nicht erweitert.
 Die noch offenen D1–D4-Parameter
 werden vor dem jeweils betroffenen mutierenden Scope konkret abgenommen.

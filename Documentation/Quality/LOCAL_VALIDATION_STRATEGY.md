@@ -253,6 +253,18 @@ zusätzliche Truständerung vorgenommen. Linuxclients, Hyper-V, Trustdrift,
 TLS-Abbruch/Resume, operative Registry und qualifizierter Export bleiben separat.
 Bereinigte Einzelheiten: [native Probe](TLS_CA_TRUST_ACCEPTANCE_2026-10-16.md).
 
+### Isolierte Linux-Clientfähigkeit vom 2026-10-16 (UTC)
+
+Die [ausgeführte Vorbereitung](TLS_LINUX_CLIENT_CAPABILITY_2026-10-16.md)
+beobachtete PowerShell 7.6.6/.NET 10.0.12, SqlClient-Assemblymetadaten 4.6.1.6
+und Konstruktion/Open mit erwartetem lokalem Netzwerkfehler sowie den ersten
+sqlcmd-Hilfeaufruf 18.6.0002.1. Kein SQL-Server, keine Abfrage oder CA-Truständerung.
+Drei eigene begrenzte Fixtures einschließlich zweier dokumentierter Vorstufen
+sind entfernt; Workerende, eigene Abwesenheit und Bestandsdateien frisch geprüft.
+Prozess-/Transfer-/Isolationsgegenfälle und der korrigierte Konstruktor wurden
+gezielt offline geprüft, unveränderte Helfer nicht wiederholt. Die Probe beweist
+keine Linux-TLS-Abnahme, tatsächlichen geladenen ODBC-Treiber oder Registrierung.
+
 Die ergänzte private Kurzlaufzeit ist lokal mit 69/0 eigenen Crypto-/DPAPI-/
 ACL-Fixtures geprüft und vollständig bereinigt. Native 30-/300-Sekunden-Ränder
 behalten Signatur und Leafprofil; ungültige/mehrdeutige Laufzeiten mit gültigem

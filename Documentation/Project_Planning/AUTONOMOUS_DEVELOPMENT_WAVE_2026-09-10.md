@@ -123,6 +123,11 @@ bestand je acht Windows-Clientfälle separat mit Docker und Podman für SQL 2019
 CU32 und SQL 2022 CU27; alle eigenen Runs entfernt und Schutzvergleiche bestanden.
 Linuxclients, Hyper-V, Trustdrift, TLS-Abbruch/Resume, komplette TLS-Matrix,
 Registry, qualifizierter Export und Toolbelt SC-2026-045 bleiben offen.
+Die anschließende [Linux-Clientvorbereitung](../Quality/TLS_LINUX_CLIENT_CAPABILITY_2026-10-16.md)
+bestand als isolierte Fähigkeitsprobe: PowerShell, SqlClient-Konstruktion und
+erwarteter lokaler Netzwerkfehler sowie erster sqlcmd-Hilfeaufruf. Alle eigenen
+Fixturecontainer entfernt und Schutzvergleiche frisch bestanden. Keine CA-Datei,
+Truständerung, SQL-Server oder Abfrage; Linux-TLS und Registry bleiben offen.
 Der Benutzer verlangt ausdrücklich die autonome Fortsetzung bis zur echten
 TLS-Lab-Abnahme und gezielte Fragen bei konkret fehlenden Freigaben.
 Schutzgrenzen bestehen fort; reine Offlinefortschritte beenden diesen Auftrag nicht.

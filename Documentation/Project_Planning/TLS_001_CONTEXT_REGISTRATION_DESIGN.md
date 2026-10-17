@@ -219,6 +219,11 @@ Cleanup und Schutzvergleich. Die spätere [Container-Versionsmatrix](../Quality/
 bestand dieselben acht Windows-Clientfälle separat mit Docker und Podman für
 SQL 2019 CU32 und SQL 2022 CU27 samt eigenem Cleanup und frischem Schutzvergleich.
 Linuxclients, Hyper-V, operative Registry und Export sind dadurch nicht belegt.
+Die spätere [Linux-Clientfähigkeitsprobe](../Quality/TLS_LINUX_CLIENT_CAPABILITY_2026-10-16.md)
+beobachtete nur PowerShell, SqlClient-Konstruktion mit lokalem Netzwerkfehler
+und den ersten sqlcmd-Hilfeaufruf im eigenen isolierten Namespace. Keine
+CA-Datei, Truständerung oder SQL-Abfrage; alle eigenen Fixtures entfernt.
+Das implementiert keinen Linux-Kontextselektor, Registryrecord oder TLS-Nachweis.
 Referenzen bleiben weiterhin
 unaufgelöst. Native TLS-, Client- und Mindestlaufzeitabnahmen werden durch
 diese Planung nicht ersetzt.

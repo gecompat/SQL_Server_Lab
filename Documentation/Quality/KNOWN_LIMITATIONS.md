@@ -2422,6 +2422,11 @@ bestand dieselben acht Windows-Clientfälle separat mit Docker und Podman für
 SQL 2019 CU32 und SQL 2022 CU27 samt eigenem Cleanup und frischem Schutzvergleich.
 Linuxclients, Hyper-V, Trustdrift, TLS-Abbruch/Resume, operative Registry
 und vollständige Exportabnahme bleiben offen.
+Die [isolierte Linux-Clientfähigkeitsprobe](TLS_LINUX_CLIENT_CAPABILITY_2026-10-16.md)
+beobachtete nun PowerShell, SqlClient-Konstruktion mit lokalem Netzwerkfehler
+und den ersten sqlcmd-Hilfeaufruf. Kein SQL-Server, keine Abfrage, CA-Datei oder
+Truständerung. Geladener ODBC-Treiber, Linux-TLS, Kontextregistrierung und
+qualifizierter Export sind dadurch nicht belegt; alle eigenen Fixtures entfernt.
 Frist höchstens 30 Tage innerhalb der CA-Frist, keine automatische Kürzung.
 Der bestehende Tagespfad bleibt bei 1 bis 30 ganzen Tagen; die alternative
 private Kurzlaufzeit verlangt native `ValiditySeconds` 30 bis 300 und

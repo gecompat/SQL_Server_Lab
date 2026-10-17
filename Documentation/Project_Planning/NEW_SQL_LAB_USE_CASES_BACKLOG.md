@@ -182,6 +182,12 @@ bestand separat je acht Windows-Clientfälle mit Docker und Podman für SQL 2019
 CU32 und SQL 2022 CU27, jeweils mit eigenem Cleanup und frischem Schutzvergleich.
 Operative Registry, qualifizierter Export, Linuxclients, Hyper-V, Trustdrift,
 TLS-Abbruch/Resume und SC-2026-045 bleiben offen.
+Die separate [Linux-Clientvorbereitung](../Quality/TLS_LINUX_CLIENT_CAPABILITY_2026-10-16.md)
+beobachtete die tatsächlichen PowerShell-/SqlClient-/sqlcmd-Bausteine in einem
+isolierten eigenen Clientcontainer. SqlClient erreichte nur einen erwarteten
+lokalen Netzwerkfehler; sqlcmd führte nur Hilfe aus. Alle eigenen Fixtures sind
+entfernt, Bestandsdateien frisch erhalten. Kein Linux-TLS-, Trust-, Registry-
+oder Exportnachweis; die Matrixzellen und SC-2026-045 bleiben unverändert offen.
 
 **Istzustand und Vertragslücke.** Die Prüfung der Repositoryquellen am
 2026-10-15 ergibt:
