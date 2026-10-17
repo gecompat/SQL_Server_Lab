@@ -1,6 +1,120 @@
 # Lokale Validierungsstrategie
 
+## Expliziter TLS-Standard vom 2026-10-16
+
+Der nachfolgende begrenzte Auftrag implementiert den bereits funktionierenden
+Standard unabhängig von den noch fehlenden Voraussetzungen für `False`.
+`New-SqlConnectionString` gab bisher ausdrücklich nur
+`TrustServerCertificate=True` aus; beim tatsächlichen System.Data.SqlClient-
+Parser blieb `Encrypt` damit `false`. Neue Strings enthalten jetzt zusätzlich
+`Encrypt=True`. Der SSMS-Registrierungsexport wechselt von ausdrücklichem
+`Encrypt=False` zu demselben verschlüsselten Default. Testumgebungsexport und
+Hyper-V-Strings verwendeten beide Werte bereits. Gespeicherte Altstrings
+werden nicht verändert.
+
+Die ausführbare Regression in `Invoke-ReadinessContractChecks.ps1` parst den
+tatsächlichen Erzeuger mit und ohne ausdrückliche Passwortausgabe und prüft
+beide TLS-Werte, Ziel, Datenbank und Passwortplatzhalter. Die neue CMS-Assertion
+parst tatsächliches Registrierungs-XML und dessen Connection String und prüft
+explizite Verschlüsselung, Trust-Override und fehlendes Passwort. Beide
+fokussierten Suites bestanden; CMS meldete 35 PASS / 0 FAIL.
+
+Zusätzlich wurde die konfigurierte vollständige Testgruppe ausschließlich
+lesend verwendet, ohne neuen Export, Zielersatz oder Runtime-Start. Für alle
+sechs registrierten Ziele wurde der aktuell geänderte Connection-String-
+Erzeuger aufgerufen; der maskierte Passwortteil wurde im Speicher durch eine
+separate SqlCredential ersetzt. SqlClient und das tatsächlich ausgewählte
+native ODBC-sqlcmd führten eine SQL-Abfrage mit
+`Encrypt=True;TrustServerCertificate=True` beziehungsweise `-N -C` aus.
+`SERVERPROPERTY('ProductMajorVersion')` und `sys.dm_exec_connections.encrypt_option`
+bestätigten die erwartete SQL-Jahresversion und verschlüsselten Transport der
+jeweiligen echten Sitzung.
+
+| SQL-Ziele | SQL 2019 | SQL 2022 | SQL 2025 |
+|---|---|---|---|
+| Linux / Docker | SqlClient + sqlcmd PASS | SqlClient + sqlcmd PASS | SqlClient + sqlcmd PASS |
+| Windows / Hyper-V | SqlClient + sqlcmd PASS | SqlClient + sqlcmd PASS | SqlClient + sqlcmd PASS |
+
+Die zwölf erfolgreichen Verbindungen verteilen sich auf zwei lokale Läufe:
+im ersten bestanden alle sechs SqlClient-Abfragen, der Harness wählte aber
+mehrere installierte sqlcmd-Programme zugleich und startete diesen Client
+nicht. Nach Korrektur auf genau die erste Application wie im Produktpfad
+bestand ausschließlich der noch fehlende sqlcmd-Teil an allen sechs Zielen;
+die unveränderten SqlClient-Prüfungen wurden nicht wiederholt. Der ursprüngliche
+Harnessfehler bleibt lokal erhalten und wird nicht zum PASS umgedeutet.
+Die Exportbytes blieben in beiden Läufen unverändert. Keine Zertifikats-,
+Truststore-, Datenbank- oder Runtime-Konfiguration wurde mutiert; kein eigener
+Runtime-Cleanup war erforderlich. Credentials und native Diagnosen bleiben
+ausschließlich lokal und ignoriert.
+
+Dies belegt den Standardzugang an diesen bestehenden Zielen. Neue
+Provisionierung, Podman-Verbindungen, authentifizierte `False`-Verbindungen,
+gerenderte CLI-/GUI-Abnahme und vollständige CI-/Provider-Capability-Gates
+wurden in diesem begrenzten Nachweis nicht ausgeführt.
+
+Der nachfolgende [Podman-Nachweis vom 2026-10-17](#podman-tls-default-abnahme-vom-2026-10-17)
+ergänzt die dort noch fehlenden Podman-Verbindungen separat; die ursprüngliche
+Aussagegrenze des Nachweises vom 2026-10-16 bleibt erhalten.
+
+
+## Podman: TLS-Default-Abnahme vom 2026-10-17
+
+Der Benutzerauftrag begrenzt die Abnahme auf bereits vorhandene und
+funktionierende Voraussetzungen. `Initialize-SqlServerLabHostTools.ps1 -Name
+podman` löste die CLI auf; `Test-SqlServerLabClientReadiness.ps1 -Provider
+podman -Operation Validate` lieferte `READY` ohne fehlende Voraussetzungen oder
+Warnungen. Die Ressourcenprüfung lieferte `RESOURCE_OK`. Die katalogisierten
+SQL-Images für 2019, 2022 und 2025 waren bereits lokal vorhanden; natives sqlcmd
+und System.Data.SqlClient standen bereit. Kein Download, keine Installation
+und kein Start einer Podman-Machine oder Runtime waren nötig.
+
+Im normalen Run-Index lag kein Podman-Ziel vor. Vorhandene native Container
+wurden nicht als ungebundene Testziele übernommen. Stattdessen erzeugte der
+öffentliche `New-SqlServerLab`-Pfad nacheinander drei eigene nichtpersistente
+Runs mit ausdrücklichem Provider `podman`, Profil `compact`, einem CPU-Kern,
+2560 MiB und Autostart `off`. Ein frischer eigener StateRoot wurde über den
+bestehenden `OwnedHostTestScope` an die bereits laufende lokale Runtime
+gebunden; globale Defaults und vorhandene Runs wurden nicht umkonfiguriert.
+
+Je Version enthielt der tatsächlich zurückgegebene Connection String
+ausdrücklich `Encrypt=True;TrustServerCertificate=True`. SqlClient verwendete
+diesen String mit separat übergebener SqlCredential. Genau eine ausgewählte
+native sqlcmd-Application verwendete `-N -C`; die Credentials gelangten nur
+kurzzeitig in die Umgebung des eigenen Kindprozesses. Beide Clients prüften
+`SERVERPROPERTY('ProductMajorVersion')` und
+`sys.dm_exec_connections.encrypt_option` für ihre eigene Sitzung.
+
+| SQL-Version unter Podman | Defaultwerte | SqlClient | sqlcmd | Remove und terminaler State |
+|---|---|---|---|---|
+| 2019 | beide explizit `True` | verschlüsselte Abfrage PASS | verschlüsselte Abfrage PASS | REMOVED, null Fehler |
+| 2022 | beide explizit `True` | verschlüsselte Abfrage PASS | verschlüsselte Abfrage PASS | REMOVED, null Fehler |
+| 2025 | beide explizit `True` | verschlüsselte Abfrage PASS | verschlüsselte Abfrage PASS | REMOVED, null Fehler |
+
+Alle sechs echten Verbindungen meldeten den erwarteten SQL-Major und
+`encrypt_option=TRUE`. `Remove-SqlServerLab` entfernte jeden eigenen Run mit
+null Fehlern; der gespeicherte terminale State war jeweils `REMOVED`.
+Der abschließende gebundene Vergleich bestätigte identische Container-,
+Volume- und Netzwerkinventare sowie bytegleiche zuvor erfasste Run-State- und
+Connection-Info-Dateien der vorhandenen aktiven Runs. Gesamtergebnis `PASS`,
+kein Recoverybedarf. Private Testmetadaten und Diagnosen bleiben lokal und
+außerhalb der Versionskontrolle.
+
+Dies ist der getrennte Podman-Nachweis für den einfachen TLS-Default mit den
+bereits vorhandenen Images. Er belegt weder einen bestimmten weiteren CU-Stand
+noch `TrustServerCertificate=False`, Client-Trust, gerenderte CLI-/GUI-Ansichten
+oder die vollständigen CI-/Provider-Capability-Gates. Die authentifizierte
+TLS-001-Abnahme bleibt offen; für die hier bestandene Default-Abnahme ist kein
+zusätzlicher offener Podman-Backlogeintrag erforderlich.
+
+
 ## Phasen und Auswahl
+
+Die [native Linux-TLS-Abnahme vom 2026-10-17](TLS_LINUX_SQL2025_TRUST_DRIFT_ACCEPTANCE_2026-10-17.md)
+bestand für beide ausgewählten Stacks unter Docker/SQL 2025 CU9 mit strikter
+Zertifikatsprüfung, kontrolliertem Trustentzug und Wiederherstellung. Sechs
+Fälle, geladener ODBC im Kindprozess, bestätigtes Workerende und frisch
+abwesende eigene Container/Volumes/Netzwerke; geschützte Dateien bytegleich.
+Andere Matrixfälle und öffentliche Moduswahl bleiben separat offen.
 
 `Invoke-WindowsSqlScriptChecks.ps1` prüft den neuen Windows-Parametersatz des
 bestehenden Skriptbefehls, gebundene Gastanmeldung, Eingabe-/Ausgabegrenzen,

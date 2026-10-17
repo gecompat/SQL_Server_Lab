@@ -19,6 +19,14 @@ freizugebendem Client-Trust ausgewählt; der
 ist kein Zertifikats-, Truststore- oder Runtime-Nachweis. Genau ein
 Implementierer verantwortet einen kohärenten Scope.
 
+Neue gemeinsame Lab-Connection-Strings und SSMS-Registrierungsexporte verwenden
+ausdrücklich `Encrypt=True;TrustServerCertificate=True`. Gespeicherte
+Altverbindungen werden nicht migriert. Die getrennten
+[nativen Defaultnachweise](../Documentation/Quality/LOCAL_VALIDATION_STRATEGY.md#expliziter-tls-standard-vom-2026-10-16)
+belegen SqlClient und sqlcmd für Docker, Podman und Hyper-V unter SQL 2019,
+2022 und 2025. Die öffentliche Wahl von `TrustServerCertificate=False` und
+deren qualifizierte CLI-/GUI-Anzeige bleiben Teil des laufenden TLS-001-Scopes.
+
 Der lesende [TLS-Zielmetadatenpfad](../Documentation/Architecture/AUTHENTICATED_TLS_TARGET_METADATA.md)
 bindet inzwischen katalogisierte Docker-/Podman-CU-Kurzbezeichner und exakte
 Tags bei erhaltenem Runselektor. Die synthetische Vertragsprüfung ersetzt
@@ -140,6 +148,16 @@ ein neues Budget und gebundene geprüfte Quellen. Kein Replay; die vollständige
 TLS-Abnahme und Toolbelt SC-2026-045 bleiben offen.
 
 ## Dokumentationszuständigkeiten
+
+Die nachfolgende [Linux-Abnahme](../Documentation/Quality/TLS_LINUX_SQL2025_TRUST_DRIFT_ACCEPTANCE_2026-10-17.md)
+bestand inzwischen mit sechs strikten SqlClient-/ODBC-Fällen an einem eigenen
+Docker-/SQL-2025-CU9-Ziel: Trust gesetzt, entzogen und wiederhergestellt.
+Geladener ODBC wurde im laufenden Kindprozess beobachtet. Workerende, frische
+Ressourcenabwesenheit und geschützte Bestandsdateien sind bestätigt. Der frühere
+Harnessfehler bei generischer Zertifikatsablehnung bleibt als FAIL erhalten;
+die korrigierte Auswertung verlangt eine positive Kontrolle und null SQL-Arbeit.
+Weitere Plattformfälle, operative Registry, öffentliche Moduswahl und
+qualifizierter Export bleiben offen; SC-2026-045 bleibt gesperrt.
 
 Der zusätzliche SSIS-Consumerzugang erweitert `Invoke-SqlServerLabScript`
 um den expliziten Windows-Modus, auf dem vorhandenen Hyper-V-Transport und

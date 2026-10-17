@@ -369,6 +369,9 @@ sources_of_truth:
   acceptance_smtp_quota_gateway_image: Tests/Integration/Invoke-SmtpTestServiceGatewayImageAcceptance.ps1
   acceptance_smtp_quota_gateway_receiver: Tests/Integration/Invoke-SmtpTestServiceGatewayReceiverAcceptance.ps1
   connection_center_cms: Public/Sync-SqlServerLabConnectionCenter.ps1
+  tls_connection_default_core: Private/SqlReadiness.ps1
+  tls_connection_default_validation: Tests/Static/Invoke-ReadinessContractChecks.ps1
+  tls_linux_sql2025_trust_drift_evidence: Documentation/Quality/TLS_LINUX_SQL2025_TRUST_DRIFT_ACCEPTANCE_2026-10-17.md
   cms_readonly_inspection: Private/CmsInspection.ps1
   cms_readonly_worker: Tools/Read-CmsInspection.ps1
   cms_readonly_contract: Documentation/Architecture/CMS_READONLY_INSPECTION.md

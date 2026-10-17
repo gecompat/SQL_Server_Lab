@@ -1,5 +1,14 @@
 # Public/ – Exportierte Cmdlets
 
+## TLS-Standard für neue Verbindungen
+
+Neue gemeinsame Lab-Connection-Strings und SSMS-Registrierungsexporte enthalten
+ausdrücklich `Encrypt=True;TrustServerCertificate=True`, ohne gespeicherte
+Altverbindungen zu verändern. Dieser einfache Standard benötigt keine eigene
+CA-/Client-Trusteinrichtung. Die öffentliche Wahl des zertifikatsprüfenden
+`False`-Modus und seine qualifizierte CLI-/GUI-Anzeige bleiben im laufenden
+TLS-001-Scope; [ausgeführte Nachweise und Grenzen](../Documentation/Quality/LOCAL_VALIDATION_STRATEGY.md#expliziter-tls-standard-vom-2026-10-16).
+
 ## SSISDB: Ziel-, Komponenten- und Fixturebindung
 
 Bei Neuerstellung verarbeitet `New-SqlServerLab -Manifest` das optionale
