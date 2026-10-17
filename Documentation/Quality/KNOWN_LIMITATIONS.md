@@ -2468,6 +2468,17 @@ vollständige Backend-/Keyschutzqualifikation, native Targetsignierung, bestäti
 Erneuerung und Recovery bleiben offen; Export und Providerverhalten werden
 durch diese privaten Slices nicht geändert.
 
+Der anschließend neu konkret freigegebene
+[localhost-Versuch](TLS_LINUX_LOCALHOST_PRETRUST_ATTEMPT_2026-10-17.md) scheiterte vor der Client-Trustdateianlage:
+`getent ahosts/hosts` beobachtete nur die freigegebenen Loopback-Adressen,
+der zusätzliche .NET-Auflösungsprozess startete jedoch wegen des schreibgeschützten
+Homeverzeichnisses nicht. Keine TLS-Probes oder Client-Trustanlage; eigener Cleanup,
+frische Abwesenheit und Schutzvergleiche bestanden. Eine neue rein planende
+Vorschau ergänzt ausschließlich das prozesslokale `HOME=/tmp` für diesen
+Auflösungsaufruf. Sie ist ungetestet und verlangt eine neue konkrete Freigabe,
+ein neues Budget und gebundene geprüfte Quellen. Kein Replay; die vollständige
+TLS-Abnahme und Toolbelt SC-2026-045 bleiben offen.
+
 Quellenprüfung vom 2026-10-15: `Public/TestEnvironment.ps1`, das Schema
 `SqlServerLab.TestEnvironment/1.0` und der exportierte Agenten-Prompt verlangen
 weiterhin `encrypt = true` und `trustServerCertificate = true`.

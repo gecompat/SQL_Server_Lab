@@ -296,6 +296,17 @@ sind nicht nachgewiesen. Workerende, eigener Cleanup und frische Abwesenheits-/
 Schutzprüfungen bestanden. Eine neue `DNS localhost`-Vorschau ist kein nativer
 Nachweis und benötigt neue konkrete Freigabe sowie separat gebundene Quellen.
 
+Der anschließend neu konkret freigegebene
+[localhost-Versuch](TLS_LINUX_LOCALHOST_PRETRUST_ATTEMPT_2026-10-17.md) scheiterte vor der Client-Trustdateianlage:
+`getent ahosts/hosts` beobachtete nur die freigegebenen Loopback-Adressen,
+der zusätzliche .NET-Auflösungsprozess startete jedoch wegen des schreibgeschützten
+Homeverzeichnisses nicht. Keine TLS-Probes oder Client-Trustanlage; eigener Cleanup,
+frische Abwesenheit und Schutzvergleiche bestanden. Eine neue rein planende
+Vorschau ergänzt ausschließlich das prozesslokale `HOME=/tmp` für diesen
+Auflösungsaufruf. Sie ist ungetestet und verlangt eine neue konkrete Freigabe,
+ein neues Budget und gebundene geprüfte Quellen. Kein Replay; die vollständige
+TLS-Abnahme und Toolbelt SC-2026-045 bleiben offen.
+
 Die ergänzte private Kurzlaufzeit ist lokal mit 69/0 eigenen Crypto-/DPAPI-/
 ACL-Fixtures geprüft und vollständig bereinigt. Native 30-/300-Sekunden-Ränder
 behalten Signatur und Leafprofil; ungültige/mehrdeutige Laufzeiten mit gültigem

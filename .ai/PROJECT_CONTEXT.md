@@ -128,6 +128,17 @@ beauftragt. Fehlende konkrete Mutationsfreigaben sind gezielt abzufragen;
 unabhängige autorisierte Implementierungsarbeit läuft weiter. Bestehende
 Schutzgrenzen gelten fort.
 
+Der anschließend neu konkret freigegebene
+[localhost-Versuch](../Documentation/Quality/TLS_LINUX_LOCALHOST_PRETRUST_ATTEMPT_2026-10-17.md) scheiterte vor der Client-Trustdateianlage:
+`getent ahosts/hosts` beobachtete nur die freigegebenen Loopback-Adressen,
+der zusätzliche .NET-Auflösungsprozess startete jedoch wegen des schreibgeschützten
+Homeverzeichnisses nicht. Keine TLS-Probes oder Client-Trustanlage; eigener Cleanup,
+frische Abwesenheit und Schutzvergleiche bestanden. Eine neue rein planende
+Vorschau ergänzt ausschließlich das prozesslokale `HOME=/tmp` für diesen
+Auflösungsaufruf. Sie ist ungetestet und verlangt eine neue konkrete Freigabe,
+ein neues Budget und gebundene geprüfte Quellen. Kein Replay; die vollständige
+TLS-Abnahme und Toolbelt SC-2026-045 bleiben offen.
+
 ## Dokumentationszuständigkeiten
 
 Der zusätzliche SSIS-Consumerzugang erweitert `Invoke-SqlServerLabScript`
