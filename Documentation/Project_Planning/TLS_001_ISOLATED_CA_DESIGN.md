@@ -15,6 +15,16 @@ die Schutzgrenzen und nachfolgenden einzelnen Mutationsgrenzen bleiben bestehen.
 
 ## Ausgangslage und Aussagegrenze
 
+Der spätere [private Windows-Registrywriter](../Architecture/AUTHENTICATED_TLS_REGISTRY_WRITER.md)
+implementiert inzwischen die Metadatenlane vor Keyanlage mit ausdrücklicher
+leerer Initialisierung, aktiven Client-/Signierrecords, frischer Actor-/
+Volumeprüfung, privater Ablage, kooperativen Sperren und expliziter Recovery.
+Eigene NTFS-Tempfixtures prüfen atomaren Ersatz, echte Prozessabbrüche,
+Konkurrenz und Cleanup. Operative CA-/Trustscopezuordnung, Retirement,
+öffentliche Moduswahl und qualifizierter Export bleiben offen. Die folgenden
+früheren Planungsstände sind dadurch keine aktuelle Behauptung eines
+vollständig fehlenden Metadatenwriters.
+
 PR #755 integriert den priorisierten Backlog nach dem abgeschlossenen SSISDB-
 Stream. Exporter, Schema und Agenten-Prompt verwenden weiterhin den Vertrag
 `SqlServerLab.TestEnvironment/1.0` mit Trust-Override. Die lesende Prüfung des

@@ -1,5 +1,19 @@
 # Bekannte Grenzen
 
+## Private TLS-Kontextregistrierung vor Keyanlage
+
+Der [Windows-Writer](../Architecture/AUTHENTICATED_TLS_REGISTRY_WRITER.md)
+persistiert inzwischen aktive Client-/Signiermetadaten unter explizit
+registriertem lokalem NTFS-Root mit frischer Actor-/Volumeprüfung, privaten
+ACLs, kooperativen Sperren, Intent, atomarem Ersatz und expliziter Recovery.
+Eigene Tempfixtures prüfen native Abbrüche, Parallelität und Cleanup. Keine
+Stromausfall-, Administrator-/ABA-, Linux- oder TLS-Qualifikation entsteht.
+CA-/Trustscopezuordnung und Retirement sind gesperrt; es gibt keine neue
+öffentliche API. Volle Journale sperren statt automatisch zu kürzen.
+Unvollständige erstmalige Anlage verlangt gesonderte eigene Recovery/Cleanup;
+kein stiller Retry. Spätere historische Reader-/Planungsnachweise behalten
+ihre damaligen Aussagegrenzen.
+
 ## TLS-Standard für neue Labverbindungen
 
 Die getrennte [Linux-Abnahme](TLS_LINUX_SQL2025_TRUST_DRIFT_ACCEPTANCE_2026-10-17.md)

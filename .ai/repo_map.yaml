@@ -876,6 +876,9 @@ sources_of_truth:
   authenticated_tls_registry_root_contract: Documentation/Architecture/AUTHENTICATED_TLS_REGISTRY_ROOT.md
   authenticated_tls_registry_root: Private/AuthenticatedTlsRegistryRoot.ps1 # read-only registered local Windows root metadata and fixed registry file; non-atomic observation, no registration/authority
   validation_authenticated_tls_registry_root: Tests/Static/Invoke-AuthenticatedTlsRegistryRootChecks.ps1 # coupled DiagnosticBundleReader, request/index/payload/document; own synthetic files only, StorageContract producer preserved
+  authenticated_tls_registry_writer_contract: Documentation/Architecture/AUTHENTICATED_TLS_REGISTRY_WRITER.md
+  authenticated_tls_registry_writer: Private/AuthenticatedTlsRegistryWriter.ps1 # private Windows NTFS pre-key client/signer metadata; fresh actor/volume, protected journals, cooperative locks and explicit recovery; no CA/trust/SQL qualification
+  validation_authenticated_tls_registry_writer: Tests/Static/Invoke-AuthenticatedTlsRegistryWriterChecks.ps1 # native own temp ACL/replace/process crash/concurrency/cleanup; coupled root/document/index/payload/request/context/backend/CA file helpers/StorageContract/DiagnosticBundleReader
   authenticated_tls_ca_candidate_contract: Documentation/Architecture/AUTHENTICATED_TLS_CA_CANDIDATE.md
   authenticated_tls_ca_candidate: Private/AuthenticatedTlsCaCandidate.ps1 # private Windows PS>=7.5; protected RSA/DPAPI candidate, read-only CurrentUser Root preview; UNREGISTERED_UNQUALIFIED, no import/SQL/provider authority
   authenticated_tls_leaf_csr: Private/AuthenticatedTlsLeafCsr.ps1 # private Windows PS>=7.5; bounded RSA3072 SHA256 CSR proof, explicit SAN, candidate-bound DPAPI signing; public leaf only, no store/native target/SQL authority

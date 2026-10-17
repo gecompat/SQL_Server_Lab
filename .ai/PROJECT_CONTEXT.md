@@ -51,7 +51,12 @@ prüft jetzt offline die vollständige Payload-/Index-/Digestzuordnung und
 Dokumentübergänge. Die [lesende Rootbindung](../Documentation/Architecture/AUTHENTICATED_TLS_REGISTRY_ROOT.md)
 vergleicht jetzt registrierte Windows-Rootmetadaten mit der bestehenden
 Registrydatei; der Befund bleibt nicht atomar und ohne Ausführungsautorität.
-Writer, dauerhafte Registrierung, Trustscope und native Qualifikation fehlen.
+Die [private Windows-Registrytransaktion](../Documentation/Architecture/AUTHENTICATED_TLS_REGISTRY_WRITER.md)
+ergänzt jetzt explizite Initialisierung und aktive Client-/Signiermetadaten
+vor Keyanlage: frische Root-/Actor-/Volumeprüfung, private ACLs, kooperative
+Sperren, Intent, atomarer Ersatz und explizite Recovery. Eigene NTFS-Tempfixtures
+prüfen echte Prozessabbrüche und konkurrierende Writer mit Cleanup.
+Operative CA-/Trustscopezuordnung, Retirement und TLS-Qualifikation fehlen weiterhin.
 Der [private Windows-CA-Kandidat](../Documentation/Architecture/AUTHENTICATED_TLS_CA_CANDIDATE.md)
 ergänzt jetzt ein festes RSA-3072-/SHA-256-Profil, geschützte private ACLs,
 DPAPI-CurrentUser-PKCS8 und eine lesende CurrentUser/Root-Trust-Vorschau.
