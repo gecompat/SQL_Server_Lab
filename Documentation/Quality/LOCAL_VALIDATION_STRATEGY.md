@@ -281,6 +281,21 @@ Unabhängiger Quellenreview und P2-Schließung liefen vor der ersten Ausführung
 Ein neuer UID-10001-Dateianlageplan bleibt ohne neue konkrete Freigabe und
 gebundene Quellen ungetestet; kein automatischer Retry oder Intent-Replay.
 
+### Linux-Teilnachweis mit direkter UID-Dateianlage vom 2026-10-17 (UTC)
+
+Der [separat freigegebene Nachfolger](TLS_LINUX_DIRECT_UID_PARTIAL_ACCEPTANCE_2026-10-17.md)
+bestand zwölf neue synthetische UID-/Modus-/Dateityp-/Digestguards; fünfzehn
+übernommene Helfer blieben bytegleich, ihre grünen Prüfungen wurden nicht
+wiederholt. Unabhängiger Quellenreview lief ohne offene P1/P2 vor Ausführung.
+Nativ bestanden direkte Dateianlage durch UID 10001 mit 0700/0600 und geprüftem
+Payloaddigest sowie eine strikte CLR-Verbindung: tatsächlicher SQL-Build und
+`encrypt_option=TRUE`. ODBC lehnte den als positiv geplanten IP-SAN-Fall wegen
+Namensabweichung ab; der Gesamtversuch blieb FAIL. Begrenzte Teilevidence
+erhielt beide Beobachtungen. Trustentzug/-wiederherstellung und geladener ODBC
+sind nicht nachgewiesen. Workerende, eigener Cleanup und frische Abwesenheits-/
+Schutzprüfungen bestanden. Eine neue `DNS localhost`-Vorschau ist kein nativer
+Nachweis und benötigt neue konkrete Freigabe sowie separat gebundene Quellen.
+
 Die ergänzte private Kurzlaufzeit ist lokal mit 69/0 eigenen Crypto-/DPAPI-/
 ACL-Fixtures geprüft und vollständig bereinigt. Native 30-/300-Sekunden-Ränder
 behalten Signatur und Leafprofil; ungültige/mehrdeutige Laufzeiten mit gültigem

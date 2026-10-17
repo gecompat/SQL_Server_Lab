@@ -282,6 +282,16 @@ Ein Nachfolger plant direkte Dateianlage durch UID 10001 ohne `chown` oder
 Zusatzprivilegien. Er benötigt eine neue konkrete Freigabe, einen endlichen
 Abschnitt und unabhängig geprüfte gebundene Quellen; kein Intent-Replay.
 Linux-TLS, Registry und SC-2026-045 bleiben offen.
+Der danach separat freigegebene
+[UID-Nachfolger](../Quality/TLS_LINUX_DIRECT_UID_PARTIAL_ACCEPTANCE_2026-10-17.md)
+bestand die native direkte Dateianlage durch UID 10001 und eine strikte
+Linux-CLR-Verbindung mit SQL-Build und Verschlüsselung. ODBC lehnte den als
+positiv geplanten IP-SAN-Fall wegen Namensabweichung ab; kein bestandener
+Wrong-SAN-Gegenfall und keine allgemeine Aussage über IP-SAN-Unterstützung.
+Eigener Cleanup und frische Schutzvergleiche bestanden. Eine neue konkrete
+`DNS localhost`-Vorschau plant normale Namensprüfung ohne Resolveränderung;
+neue Freigabe und gebundene Quellen bleiben erforderlich. Beide Stacks,
+Trustdrift, geladener ODBC, Registry und SC-2026-045 bleiben offen.
 ## CU-Metadatenbindung am 2026-10-17
 
 Der lesende Diagnostic-/TLS-Zielmetadatenpfad erhält jetzt katalogisierte

@@ -2434,6 +2434,13 @@ sind entfernt; Abwesenheit und geschützte Dateien frisch geprüft. Geladener
 Linux-ODBC und wirksamer Prozess-Trust bleiben unbewiesen. Direkte Dateianlage
 durch UID 10001 ist erst geplant und verlangt für den neuen Client eine neue
 konkrete Freigabe; die vorherige Freigabe wird nicht wiederverwendet.
+Der separat freigegebene [UID-Nachfolger](TLS_LINUX_DIRECT_UID_PARTIAL_ACCEPTANCE_2026-10-17.md)
+bestand die tatsächliche UID-Dateianlage und eine strikte Linux-CLR-Verbindung
+mit SQL-Build und Verschlüsselung. ODBC lehnte den als positiv geplanten
+IP-SAN-Fall wegen Namensabweichung ab. Eigener Cleanup und Schutzvergleiche
+bestanden. Beide Stacks, Trustentzug/-wiederherstellung und tatsächlich
+geladener ODBC bleiben unqualifiziert. Die neue `DNS localhost`-Vorschau ist
+eine ungetestete Hypothese und benötigt eine neue konkrete Freigabe.
 Frist höchstens 30 Tage innerhalb der CA-Frist, keine automatische Kürzung.
 Der bestehende Tagespfad bleibt bei 1 bis 30 ganzen Tagen; die alternative
 private Kurzlaufzeit verlangt native `ValiditySeconds` 30 bis 300 und
