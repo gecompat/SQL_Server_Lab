@@ -138,6 +138,30 @@ CA-/Trustscopezuordnung, Retirement und öffentliche Moduswahl bleiben P1.
 | Entwicklungsreife | Eigene isolierte Lab-CA am 2026-10-16 zur Planung ausgewählt; [konkreter Entwurf](TLS_001_ISOLATED_CA_DESIGN.md), D1–D4-Parameter und native Bestandsaufnahme vor Mutation weiter offen |
 | Aktueller Auftrag | Autonome Welle am 2026-10-16 ausdrücklich wieder gestartet; anschließend Fortsetzung bis zur echten TLS-Lab-Abnahme beauftragt, damit Toolbelt SC-2026-045 weiterführen kann. Isolierte Lab-CA ausgewählt; konkrete fehlende Freigaben gezielt anhand reviewbarer Previews klären. Bestehende geschützte Zertifikats-/Trust-/Resolver-/Testzielbindungen bleiben bis zur passenden konkreten Freigabe unverändert |
 
+**Bedingte Fortsetzung vom 2026-10-17: Voraussetzungen teilweise vorhanden.**
+Die frische lesende Bootstrapprüfung meldet Docker, Podman und Hyper-V `READY`.
+Die bestehende CA-Vorschau und der identische CurrentUser/Root-Trust sind
+bestätigt; am gebundenen Root fehlt jedoch die operative TLS-Registrydatei.
+Der vorhandene Writer unterstützt ausschließlich Client-/Signiermetadaten
+vor Keyanlage, keine Zuordnung des bestehenden CA-Keys zu Authority und
+Trustscope. In der vorhandenen sechsteiligen Exportgruppe gelangen zwei
+SQL-2025-Kontrollanmeldungen mit `Encrypt=True;TrustServerCertificate=True`
+(Docker und Hyper-V). Dieselben Ziele lehnten `False` mit
+`SEC_E_UNTRUSTED_ROOT` vor der ersten SQL-Abfrage ab. Die Gruppe enthält kein
+bereites registriertes Podman-SQL-2025-Ziel; die Podman-Runtime selbst ist bereit.
+Der [ausgeführte Prüfweg](../Quality/LOCAL_VALIDATION_STRATEGY.md#bedingte-tls-fortsetzung-vom-2026-10-17)
+belegt deshalb keinen qualifizierten Gruppenexport. Die früheren isolierten
+TLS-Probes bleiben eigene Nachweise an inzwischen bereinigten Testzielen.
+
+CA-/Trustscopebindung und qualifizierter `False`-Export bleiben **P1**.
+Fortsetzungsbedingungen sind die operative Bindung von CA-/Keygeneration,
+Signierer und Client-Trustscope sowie ein ausdrücklich ausgewähltes SQL-Ziel
+mit gültiger passender Serverkette und erfolgreichen strikten Verbindungen
+beider Clientstacks. Erst danach folgt der gekoppelte Export-/Schema-/Prompt-
+und Consumer-Cutover mit Frische- und Driftprüfung. Der bedingte Auftrag
+veranlasste keine neue CA-/Trust-/Servereinrichtung. Der Default bleibt
+`Encrypt=True;TrustServerCertificate=True`.
+
 Aktueller privater Teilschritt ist der
 [Windows-CA-Kandidat mit lesender Trust-Vorschau](../Architecture/AUTHENTICATED_TLS_CA_CANDIDATE.md).
 Er bleibt `UNREGISTERED_UNQUALIFIED`; native lokale Crypto-/ACL-/DPAPI-
