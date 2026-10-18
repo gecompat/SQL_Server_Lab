@@ -3,8 +3,169 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `BACKLOG` |
-| Stand | 2026-08-30 |
+| Stand | 2026-10-18 |
 | Primärzweck | reproduzierbare SQL-Server-Integration-Services-Szenarien |
+| Planungsumfang | eigener SSIS-Server und ETL-Ausbau; vorhandene SSISDB-Referenz separat abgenommen |
+
+## Machbarkeit und Integrationsentscheidung vom 2026-10-16
+
+Ein eigener Server mit installierter SSIS-Runtime ist möglich und für das Lab
+relevant. Er ermöglicht Paketdeployment, echte Datenflüsse, SQL-Agent-Betrieb
+und Fehler-/Recoverytests unabhängig von den Ressourcen des Quellservers.
+Der vorhandene Windows-/Hyper-V-Pfad wird dafür erweitert. Ein zusätzlicher
+Provider oder ein zweites Provisionierungssystem ist nicht erforderlich.
+
+Der nachfolgende Benutzerauftrag vom 2026-10-16 autorisiert die schrittweise
+Umsetzung dieses Integrationsplans **nach Abschluss von TLS-001**. Zuerst
+werden SSIS-LAB-001/002 als eigenständiges SSIS-Serverprofil ohne Pflichtfixture
+geliefert; weitere Schritte folgen in der unten beschriebenen Reihenfolge.
+Die Umsetzung muss innerhalb dieses Auftrags nicht erneut pauschal bestätigt
+werden. Konkrete zusätzliche Lizenz-, Trust-, Kosten- oder geschützte
+Mutationsgrenzen bleiben erhalten.
+
+Die Startbedingung ist die dokumentierte vereinbarte positive/negative native
+TLS-Lab-Abnahme einschließlich der erforderlichen finalen Gates und Integration.
+Ein fertiger TLS-Entwurf, einzelne grüne Metadatensuites oder ein noch offener
+TLS-Pull-Request erfüllen sie nicht. Bis dahin bleibt die SSIS-Implementierung
+ausstehend. Der bestehende Lab-Orchestrator führt die Reihenfolge gemäß
+[Ausführungsplan](DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md#12-verbindlich-berücksichtigte-planungsquellen)
+mit genau einem Implementierer je atomarem Scope fort. Die Arbeitspakete
+bleiben `planned`, solange Code und erforderliche Nachweise fehlen; die
+bestehende Fixtureabnahme schließt sie nicht ab.
+
+Stand der Übernahme vom 2026-10-18: Der begrenzte operative Windows-/Docker-
+TLS-Pfad ist inzwischen integriert und nativ abgenommen; die verbleibenden
+TLS-001- und Consumergrenzen stehen im [TLS-Backlog](NEW_SQL_LAB_USE_CASES_BACKLOG.md#tls-001--authentifizierte-tls-verbindungen-der-testumgebungen).
+Dieser Dokumentationsabgleich beginnt keine SSIS-Implementierung und erklärt
+die nachfolgenden Arbeitspakete nicht zu implementierten Funktionen.
+
+### Tatsächlicher Bestand und verbleibende Lücke
+
+| Fähigkeit | Belegter Stand | Grenze |
+|---|---|---|
+| Eigene Windows-/Hyper-V-VM mit SQL 2025 und installierter SSIS-Komponente | `Install-SqlServerLabSsisComponent` ergänzt `IS` aus vorhandenen hashgebundenen Medien; die öffentliche Prepared-/Manifest-Neuerstellung ist nativ abgenommen | Additive Neuinstallation nur SQL 2025 Enterprise Developer; keine allgemeine Editions-/Versionsfreigabe |
+| SSISDB mit tatsächlicher Paketausführung | Die [Windows-Abnahme](../Quality/SSISDB_WINDOWS_RUNTIME_ACCEPTANCE_2026-10-16.md) belegt SQL/IS `17.0.1000.7`, Erfolg, Fehler und ungestarteten Fall sowie Cleanup | Synthetische Packages mit erzwungenem Ergebnis, ohne Datenquelle oder Data Flow; kein ETL-Nachweis |
+| Deklarative Neuerstellung | `instances[].ssisCatalogFixture` bindet Prepared-Slot, IS-Installation und Analysefixture | Genau eine Hyper-V-/Windows-/SQL-2025-Instanz; Serverbereitstellung und drei Analysefälle sind gekoppelt |
+| Eigene Consumerprojekte | Der zusätzliche [Windows-Skriptzugang](../HowTo/SSIS_CONSUMER_WINDOWS_ACCESS.md) ist integriert; seine [native Abnahme](../Quality/WINDOWS_SQL_CONSUMER_ACCEPTANCE_2026-10-16.md) belegt Deployment, Paketstart und eigenen Cleanup | Kein allgemeiner Paketkatalog oder Deploymentworkflow; keine Abnahme beliebiger OLE-DB-Komponenten oder fachlicher ETL-Packages |
+| Frische vollständige Installation von `SQLENGINE,IS` auf einem OS-Slot | Interner Installationsharness vorhanden | Eigenständige vollständige Installationskette weiterhin ohne native Abnahme; der grüne Prepared-Pfad ersetzt sie nicht |
+| Frei konfigurierbares SSIS-Serverprofil und SQL-ETL | Geplant | Keine unabhängige deklarative Serverrolle, verwaltete Projektartefakte oder Full-/Delta-Load-Abnahme |
+
+Die Bestandsermittlung umfasst die öffentlichen SSIS-Cmdlets,
+`Private/SsisOwnedInstall.ps1`, `Private/SsisPrerequisite.ps1`,
+`Private/ManifestParser.ps1`, `Public/New-SqlServerLab.ps1` und
+`Schemas/lab-manifest.schema.json`. Maßgeblich für das vorhandene Verhalten
+bleibt der [SSISDB-Vertrag](../Architecture/SSISDB_TEST_FIXTURE.md).
+Die belegte Consumertransport-Abnahme ersetzt keine format-, komponenten- und
+projektspezifische Deployment- oder ETL-Abnahme der folgenden Arbeitspakete.
+
+### Herstellerabgleich und gewählte Topologie
+
+Die folgenden Microsoft-Primärquellen wurden am 2026-10-16 geprüft und beim
+Dokumentationsabgleich am 2026-10-18 erneut gelesen. Sie
+belegen Produktmöglichkeiten; die Lab-Topologie und Lieferfolge sind die
+daraus abgeleitete Planung.
+
+| Produktgrenze | Konsequenz für das Lab |
+|---|---|
+| [SSIS lässt sich separat oder neben einer Engine installieren](https://learn.microsoft.com/en-us/sql/integration-services/install-windows/install-integration-services?view=sql-server-ver17); für einen dedizierten ETL-Server empfiehlt Microsoft eine lokale Engine | Eigene SSIS-VM mit lokaler SQL-Engine und SSISDB als Referenzprofil; Quell- und Warehouse-Server können später getrennt sein |
+| Der [SSIS-Server ist die Engineinstanz mit SSISDB](https://learn.microsoft.com/en-us/sql/integration-services/catalog/integration-services-ssis-server-and-catalog?view=sql-server-ver17) | Ein entfernter Aufruf von `catalog.start_execution` verlagert die Ausführung nicht automatisch auf einen weiteren Rechner mit installierter SSIS-Komponente |
+| Der [ältere SSIS-Windowsdienst](https://learn.microsoft.com/en-us/sql/integration-services/service/integration-services-service-ssis-service?view=sql-server-ver17) verwaltet Legacy-Pakete und ist für die Paketausführung nicht erforderlich | `MsDtsServer170` darf im bestehenden Katalogprofil deaktiviert bleiben; Dienststatus allein ist kein Runtime- oder ETL-Nachweis |
+| [Scale Out](https://learn.microsoft.com/en-us/sql/integration-services/scale-out/integration-services-ssis-scale-out?view=sql-server-ver17) verteilt Ausführungen auf weitere Rechner | Getrennte Worker bei zentralem Katalog sind eine spätere Capability des [Cluster-Backlogs](SQL_SSIS_SSAS_CLUSTER_BACKLOG.md), kein Nebenprodukt der Serverrolle |
+| [Linux-Grenzen](https://learn.microsoft.com/en-us/sql/linux/sql-server-linux-ssis-known-issues?view=sql-server-ver17) schließen SSISDB aus und nennen SSIS für SQL 2025 als nicht verfügbar; die [Linux-Installation](https://learn.microsoft.com/en-us/sql/linux/install-upgrade/setup-ssis?view=sql-server-ver17) ist keine qualifizierte Containerlane dieses Labs | Keine SSIS-Runtime auf Docker oder Podman einplanen; dort sind ausschließlich getrennt qualifizierte SQL-Quellen und -Ziele vorgesehen |
+
+Die erste Lieferung stellt eine dedizierte Windows-Server-2025-/SQL-2025-
+Enterprise-Developer-VM mit SSIS und lokaler SSISDB bereit. Eine kleine
+SQL-Quelldatenbank und ein logisch getrenntes Warehouse liegen für die erste
+ETL-Abnahme auf derselben VM. Damit kann der Datenfluss ohne neue
+rechnerübergreifende Identitäts- und Netzwerkabhängigkeiten geprüft werden.
+
+In einer zweiten Topologie bleiben Engine, SSISDB und SSIS auf der dedizierten
+ETL-VM; Quelle und Warehouse wechseln auf weitere eigene SQL-VMs. Erst danach
+folgen optionale Docker-/Podman-Quellen oder -Ziele mit getrenntem Nachweis.
+Ein SSIS-Rechner ohne lokale Engine mit Dateipaketen und `dtexec` ist eine
+gesonderte spätere Lane mit eigenem Deployment-, Scheduling- und
+Ausführungsortvertrag. Ein entfernter SSISDB-Katalog allein weist ihm keine
+Packages zur Ausführung zu.
+
+SSMS sowie Visual Studio/SSDT sind optionale Verwaltungs- beziehungsweise
+Entwicklungsclients. Ihre Installation ersetzt keine Serverruntime.
+Die erste Lieferung verarbeitet vorhandene freigegebene Medien und ein
+versioniertes synthetisches ISPAC. Neue Downloads, ein Builddienst und
+Drittanbieterconnectoren gehören nicht dazu. Der Beschaffungscheckpoint G
+bleibt unabhängig davon offen.
+
+### Geplante Arbeitspakete
+
+Alle IDs dieser Tabelle sind neue Planungskennungen. Sie bezeichnen keine
+implementierten Commands oder aktuell akzeptierten Manifestfelder.
+
+| ID | Umsetzung und betroffene Verträge | Abnahme / Voraussetzung |
+|---|---|---|
+| SSIS-LAB-001 | Serverbereitstellung von Analysefixture trennen: bestehenden IS-Installer und versionsgebundene Kataloganlage wiederverwenden, eigenständigen Katalogpfad ohne die drei Analysepackages herauslösen. `Private/SsisOwnedInstall.ps1`, öffentliche SSIS-Verträge und `SSISDB_TEST_FIXTURE.md` gemeinsam führen | Vorhandene Kataloge erhalten; erneute Installation/Anlage ohne Duplikate; bisherige Fixture mit unverändertem Rückgabe- und Cleanupvertrag. Komponentenbeobachtung, Katalogbereitschaft und Ausführung getrennt ausweisen |
+| SSIS-LAB-002 | Deklaratives SSIS-Serverprofil additiv in Schema, Parser und `New-SqlServerLab` integrieren; eigener Opt-in für Komponente und Katalog, ohne Pflichtfixture. Bestehendes `ssisCatalogFixture` bleibt kompatibel; widersprüchliche Doppelangaben vor Mutation abweisen | Erst nach SSIS-LAB-001: passendes Beispielmanifest, Hilfen, CLI-/Browser-Manifestzugang und Capabilityentscheidung. Medien-/Edition-/Provider-/Ressourcenprüfung vor VM-Anlage; vorhandener Prepared-/CompleteImage-Pfad und registrierte `Lab_Data`-Roots |
+| SSIS-LAB-003 | Digestgebundene, freigegebene ISPAC-Projekte über vorhandene Artefakt-/Ressourcenverträge anbinden: Runtimeziel, Projektname, Packageinventar, Quelle/Lizenz, Größe und erforderliche Treiber deklarieren; Installationsmedien davon trennen | Vor Deployment kompatibles Projektformat sowie Größen-/Archivgrenzen prüfen; keine ungeprüften Drittanbieter-Tasks. Gleicher Digest ergibt No-op, neue Revision einen expliziten Änderungsplan; keine unkontrollierte Versionsfolge |
+| SSIS-LAB-004 | Gebundenen Deployment-/Ausführungspfad für eigene Folder, Projekte, Environments und Parameter ergänzen; gemeinsamen Windows-Gasttransport und geschützten Secretstore verwenden | Integrierter und nativ geprüfter Consumertransport oder gleichwertig qualifizierter vorhandener SSIS-Gastpfad erforderlich. Projekt-ID, Versions-LSN, Execution-ID und Eigentum quittieren; endliche Wartefrist, gezielter Abbruch und keine blinde Startwiederholung |
+| SSIS-LAB-005 | Synthetischen SQL-zu-Warehouse-Durchstich mit Staging, einer Dimension und einer Faktentabelle nach Project-Deployment-Modell liefern; vorhandene Szenariometadaten und Abnahmeharness-Verträge verwenden | Nach SSIS-LAB-003/004 und betroffenen Szenariogates: Full Load, unveränderter Rerun und feste Insert-/Update-/Delete-Folge mit exakten Schlüsseln, Zeilen, Summen und Rejects. Tatsächliche Datenbewegung ohne `ForceExecutionResult`; Datenwirkung und Fortschritt gemeinsam committen |
+| SSIS-LAB-006 | SQL-Agent-Scheduling und Betrieb ergänzen: nur eigene Jobs, freigegebene Ausführungsidentität, Retention/Logging innerhalb des eigenen Scopes, Stop/Start und Recovery | Nach erfolgreicher direkter Ausführung: manuell gestarteter eigener Agentjob, terminaler Paketstatus, VM-Neustart, Fehler vor/nach Zielcommit und Antwortverlust. Keine produktiven Zeitpläne; Objekt- und vollständiger Run-Cleanup mit Fremdobjektschutz |
+| SSIS-LAB-007 | Geführtes SSIS-Serverprofil in CLI und Browser: vorhandene Medien/Prepared-Quelle wählen, Komponenten, Katalog, Projekte und letzte Ausführung getrennt anzeigen | Gemeinsamer öffentlicher Kern, identische Capabilitygrenzen, Preview/WhatIf/Abbruch ohne Mutation; generischer Exportzugang bleibt bis zur gerenderten Fachabnahme als solcher bezeichnet |
+| SSIS-LAB-008 | Dedizierte ETL-VM mit entfernten SQL-Quellen/-Zielen in bestehende Mehrinstanz-/Topologieverträge einordnen | Erst nach Ein-VM-Abnahme und ausführbarem Topologie-/Ownershipvertrag: DNS, Ports, authentifiziertes TLS, Runtimeidentität und Rechte positiv/negativ prüfen. Windows-Authentifizierung benötigt einen eigenen Domänen-/Delegationsvertrag; der Host-Gastzugang delegiert kein Clientkonto. Docker/Podman und Mixed separat abnehmen |
+
+Das API-/Manifestdesign von SSIS-LAB-001/002 ist vor Codeänderung im
+Fachvertrag festzulegen; dieser Backlog führt bewusst kein ausführbares neues
+Feld ein. Komponentenstatus, vorhandener Katalog, erfolgreiches Deployment,
+laufende Ausführung und fachliches ETL-Ergebnis bleiben getrennte Aussagen.
+Die erste Serverlieferung benötigt keinen neuen allgemeinen Workflowexecutor;
+der vollständige ETL-/Resume-Pfad muss die betroffenen Szenariogates erfüllen
+und darf keinen parallelen generischen Executor aufbauen.
+
+### State, Sicherheit und Recovery des Zielvertrags
+
+- Vor der ersten Mutation Operation, Run-/Scope-/VM-Bindung, erwartete
+  Artefaktrevision und Cleanupplan lokal festhalten; verlorene Antworten
+  anhand dieser Bindung prüfen. Ein Timeout bestätigt keinen Rollback.
+- Installation/Katalogadministration und Paketidentität trennen. Vorhandene
+  Sysadmin-Evidence ersetzt keine Least-Privilege-Abnahme; ein eigener
+  Ausführungsnutzer muss erlaubte Aktionen ausführen und fremde ablehnen.
+- Secretreferenzen und sensitive SSISDB-Parameter lokal auflösen; keine Werte
+  in Manifest, Kommandozeile, Logs oder Receipt. Katalogschlüssel und
+  Parameter sind bei Backup/Restore eigene Recoveryartefakte.
+- Packages sind ausführbarer Code. Nur explizit freigegebene eigene oder
+  lizenzierte synthetische Projekte verwenden; administrative Gastrechte
+  begründen keine sichere Ausführung beliebiger fremder Packages.
+- Aktive eigene Executions vor Projektentfernung identitätsgebunden beenden.
+  Zusätzliche/fremde Projekte, Environments und Jobs blockieren übergreifenden
+  Objektcleanup; vollständiger Run-Cleanup bleibt an die VM-Ownership gebunden.
+  Die bewusst erhaltene Analyze-Quelle wird nicht für neue Versuche verwendet.
+- CPU, RAM, VM-/Datenplatten und Medienbudget aus der bestehenden
+  Ressourcenplanung beziehen. Ein VM-Deployment ohne Datenfluss ist keine
+  Kapazitätsmessung; Speicher und Laufzeiten im ersten isolierten Lauf erfassen.
+
+### Prüf- und Lieferfolge
+
+1. SSIS-LAB-001/002 als begrenzte Serverlieferung: Offlinechecks für Provider,
+   Edition, Medienhash, Katalogzustand, No-op, WhatIf, Identitätswechsel und
+   Cleanup; betroffene Suites über `Invoke-ImpactedChecks.ps1` auswählen.
+2. Genau einen eigenen Prepared-/Manifest-Run mit SSIS und SSISDB neu erzeugen,
+   eine temporäre reale Paketausführung prüfen, deren Objekte gezielt entfernen,
+   VM neu starten und vollständigen Run-Cleanup bestätigen. Bestehende
+   Fixturefälle 7/4/1 und Fremdobjektschutz als betroffene Regression erhalten.
+   Die frische OS-/`SQLENGINE,IS`-Kette bleibt ein getrennter Nachweis.
+3. SSIS-LAB-003 bis -005 mit einem begrenzten synthetischen Projekt abnehmen:
+   Deployment/No-op/Revision, Secret- und Rechtefehler, echter Full-/Delta-Load,
+   terminaler SSISDB-Status und fachliche SQL-Assertions.
+4. SSIS-LAB-006/007 ergänzen: Agent, Fehler/Resume, Restart, gezielter und
+   vollständiger Cleanup sowie gerenderte Bedienabnahme. Fehler und
+   Cleanupfehler getrennt ausweisen; nach unbestätigtem Start keine zweite
+   Execution ohne Zustandsprüfung erzeugen.
+5. SSIS-LAB-008 und danach Scale Out/HA als eigenständige Erweiterungen prüfen.
+   Ein-VM-Evidence gilt weder für entfernte SQL-Ziele noch für mehrere Provider.
+
+Die bestehende [BI-Bewertung](BI_CAPABILITIES_ASSESSMENT_2026-09-10.md) ordnet
+den vollständigen ETL-Ausbau relativ als **L** ein. Der Serverausbau ist eine
+begrenzte Teillieferung; eine belastbare Zeit-/Ressourcenschätzung folgt auf
+das konkrete Vertragsdesign und Medieninventar. Diese Planung ändert keine
+Workflowregeln und startet keine Runtime. Ihre Prüfung umfasst ausschließlich
+Dokumentationskonsistenz und den ausgewählten statischen Gate.
 
 ## Ziel
 
@@ -147,8 +308,10 @@ Transportfehler bleiben sanitisiert und von fehlenden Komponenten getrennt.
 Die Offline-Suite `Invoke-SsisPrerequisiteChecks.ps1` prüft tatsächliche
 Entscheidungs-, Kontext- und Gastlesefunktionen mit synthetischen Ergebnissen,
 Identitätsabweichungen, Sichtrechten, Fehlern, Timeout und Secretentsorgung.
-Die native Voraussetzungenprüfung und alle folgenden ETL-Abnahmen sind
-weiterhin **NOT_EXECUTED**. Der Gesamtbacklog bleibt offen.
+Die Offline-Suite allein belegt keine native Voraussetzungenprüfung oder
+ETL-Abnahme. Die inzwischen ausgeführte enge Windows-/SSISDB-Abnahme ist
+unten und im aktuellen Bestandsabschnitt getrennt belegt. Der vollständige
+ETL-Backlog bleibt offen.
 
 Herstellergrundlagen: [Dateipfade und gemeinsame SSIS-Komponenten](https://learn.microsoft.com/sql/sql-server/install/file-locations-for-default-and-named-instances-of-sql-server?view=sql-server-ver17),
 [SSIS-Katalog](https://learn.microsoft.com/sql/integration-services/catalog/ssis-catalog?view=sql-server-ver17)
@@ -266,8 +429,11 @@ Keine weitere serielle Suche, Beschaffung oder Ladeprobe ist aus diesem
 Checkpoint freigegeben. Die autonome Produktumsetzung von G endet hier;
 unabhängige kanonische Slices können weitergehen. Registriert, herunterladbar,
 lokal geprüft, installiert, konfiguriert und funktional bleiben getrennt.
-SSISDB/ETL bleiben bis zur vollständigen Offlineclosure offen; C# bleibt
-`USER_DEFERRED`.
+Die vollständige Beschaffung und ihre Offlineclosure bleiben offen. Das hebt
+die separat abgenommene SSISDB-Referenz mit vorhandenen installierten
+IS-Managementdateien nicht auf; ein späteres Profil mit zusätzlichen
+Client-/Buildwerkzeugen muss deren eigene Closure vor Verwendung belegen.
+Die vollständigen ETL-Abnahmen bleiben offen; C# bleibt `USER_DEFERRED`.
 
 ### Reihenfolge der vollständigen Umsetzung
 

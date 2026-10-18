@@ -173,6 +173,12 @@ TLS-Abnahme und Toolbelt SC-2026-045 bleiben offen.
 
 ## Dokumentationszuständigkeiten
 
+Der [SSIS-Integrationsplan](../Documentation/Project_Planning/SSIS_ETL_DATA_WAREHOUSE_BACKLOG.md#machbarkeit-und-integrationsentscheidung-vom-2026-10-16)
+erhält den bereits lokal ausgearbeiteten Folgeauftrag nach TLS-001: zuerst
+SSIS-LAB-001/002 als eigenständiges Windows-/Hyper-V-Serverprofil ohne
+Pflichtfixture, danach Projektdeployment, ETL und Betrieb. Reihenfolge und
+Startbedingung stehen im Ausführungsplan; diese Arbeitspakete bleiben geplant.
+
 Die nachfolgende [Linux-Abnahme](../Documentation/Quality/TLS_LINUX_SQL2025_TRUST_DRIFT_ACCEPTANCE_2026-10-17.md)
 bestand inzwischen mit sechs strikten SqlClient-/ODBC-Fällen an einem eigenen
 Docker-/SQL-2025-CU9-Ziel: Trust gesetzt, entzogen und wiederhergestellt.
