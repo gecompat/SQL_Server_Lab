@@ -9,7 +9,12 @@ Analyze-Quelle blieb unverändert. Die anschließende
 [frische öffentliche P1-Abnahme](../Documentation/Quality/SSIS_PUBLIC_FRESH_PROVISIONING_ACCEPTANCE_2026-10-18.md)
 bestand auf SQL-2025-RTM direkt nach Neuanlage: echte OLEDB-/SQL-LogProvider-
 Verbindung, öffentliche API und CLI-/Workflow-TLS-Anzeige sowie vollständiger
-Cleanup. Weitere Consumerpakete und Analyzervergleich bleiben getrennt.
+Cleanup. Die anschließende
+[Consumer- und Analyzerabnahme](../Documentation/Quality/SSIS_CONSUMER_ANALYZER_ACCEPTANCE_2026-10-18.md)
+bestand mit allen vier ursprünglichen Paketen im frischen eigenen Lab:
+Katalogstatus `7/4/7/4`, echte SQL-LogProvider-Daten, zwölf Legacy-Vergleiche
+und Katalog-/Paketvergleich. Eigene VM/VHD wurden entfernt; Analyze-Quelle
+und Original blieben unverändert. Default bleibt `True/True`.
 
 Die [native Windows-CSP-Charakterisierung](../Documentation/Quality/TLS_HYPERV_WINDOWS_CSP_CHARACTERIZATION_2026-10-18.md)
 belegt einen eigenen nicht exportierbaren Gastschlüssel und Host-CSR-Proof nach
@@ -214,7 +219,8 @@ verschlüsselt, der SQL-LogProvider scheiterte damals an der Editionsprüfung.
 Instanzreparatur und CU9 lieferten in diesem Vergleich keine erfolgreiche
 Gesamtpipeline. Die folgende SYSTEM-Registrierungswiederherstellung und die
 oben verlinkte frische öffentliche Abnahme beheben den Basic-Installations-
-blocker. Weitere Consumerpakete und Analyzervergleich bleiben getrennt offen.
+blocker. Die oben verlinkte spätere Consumerabnahme schließt die vier
+ursprünglichen Pakete und den beschriebenen Standard-Analyzervergleich.
 Die eigenen Labs wurden entfernt, die Analyze-Quelle blieb unverändert.
 
 Der [SSIS-Integrationsplan](../Documentation/Project_Planning/SSIS_ETL_DATA_WAREHOUSE_BACKLOG.md#machbarkeit-und-integrationsentscheidung-vom-2026-10-16)

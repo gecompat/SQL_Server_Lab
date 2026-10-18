@@ -9,9 +9,15 @@
 
 ## P1: Katalog-Runtime nach dem Consumervergleich vom 2026-10-18
 
-**Basic-Installationsnachweis abgeschlossen; weitere Consumerabnahmen offen:**
+**Ursprüngliche Consumerpakete und Standard-Analyzervergleich abgeschlossen:**
 Die [frische öffentliche P1-Abnahme](../Quality/SSIS_PUBLIC_FRESH_PROVISIONING_ACCEPTANCE_2026-10-18.md)
 belegt Neuanlage, echte Basic-OLEDB-/SQL-LogProvider-Verbindung und Cleanup.
+Die folgende [Consumer- und Analyzerabnahme](../Quality/SSIS_CONSUMER_ANALYZER_ACCEPTANCE_2026-10-18.md)
+belegt alle vier ursprünglichen Pakete mit erwarteten Zuständen `7/4/7/4`,
+echten Providerdaten und zwölf Legacy-Vergleichen sowie Katalog-/Paketvergleich
+im eigenen frischen Lab. Analyze-Quelle und Original blieben unverändert;
+eigene VM/VHD sind entfernt, Default bleibt `True/True`. Weitere Pakete,
+Analyzer-Opt-ins, Builds, Provider und Rollen bleiben gesondert abzugrenzen.
 
 **Historischer Ausgangsbefund:** Der beauftragte
 [Vergleich der ursprünglichen Consumerpakete](../Quality/LOCAL_VALIDATION_STRATEGY.md#ursprüngliche-consumerfehler-gast--und-katalogvergleich-vom-2026-10-18)
@@ -47,8 +53,9 @@ historisch weiterhin nicht vollständig erklärt.
 bestand über `New-SqlServerLab -Manifest` auf SQL-2025-RTM einschließlich
 SSIS-Installation/Neustart, Fixture `7/4/1`, echter Basic-OLEDB-/SQL-LogProvider-
 Verbindung, API-/CLI-/Workflow-TLS-Werten und öffentlichem Cleanup. Die
-Analyze-Quelle und das Original-ISPAC blieben unverändert. Weitere
-Consumerpakete und Analyzervergleich bleiben eigene Abnahmen.
+Analyze-Quelle und das Original-ISPAC blieben unverändert. Die oben verlinkte
+spätere Consumerabnahme schließt die übrigen ursprünglichen Pakete und den
+beschriebenen Standard-Analyzervergleich.
 Kein erneuter unveränderter Fehlversuch und keine manuelle
 Änderung von Lizenz-/Editionsregistrierung; die bestehende Analyze-Quelle
 bleibt geschützt.
