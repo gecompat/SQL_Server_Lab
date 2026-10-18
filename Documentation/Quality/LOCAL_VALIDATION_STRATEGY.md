@@ -1,5 +1,12 @@
 # Lokale Validierungsstrategie
 
+Die HyperVLabEnvironment-Suite führt zusätzlich die tatsächliche
+[ImmutableRunReader-Fixture](../../Tests/Static/Fixtures/HyperVImmutableRunReaderChecks.ps1)
+aus. Native und Dateiblätter sind synthetisch: strikte ID-/Rootablehnung,
+gespeicherte/native Drift, Mehrdeutigkeit, schreibfreie Namensprojektion und
+unveränderte Legacy-Defaults werden getrennt geprüft. Keine VM-, Setup- oder
+TLS-Ausführung; die öffentliche Gesamtpropagation bleibt offen.
+
 ## Hyper-V-SQL-Abschlussgrenze
 
 Die bestehende HyperVLabEnvironment-Suite führt die

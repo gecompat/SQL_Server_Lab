@@ -1,5 +1,31 @@
 # Hyper-V-SQL-Abschluss: explizite Roots und kein Transportreplay
 
+## Strikter interner Run-Reader als vorgelagerte Grenze
+
+Der interne Get-HyperVLabWorkflowRun akzeptiert optional ExpectedVmId.
+Bei ausdrücklicher Angabe müssen die ID ungleich Null und der StateRoot
+ausdrücklich ausgewählt sein. Gespeicherte Instanz-ID und genau eine aktuell
+über gültige Run-/Scope-UUIDs gefundene VM müssen dieser ID entsprechen.
+Ausgewählte und gespeicherte Run-ID müssen übereinstimmen; ungültige oder
+leere Selektoren werden vor der nativen Suche abgelehnt. Ohne diese Prüfung
+würden leere Providerfilter die Suche erweitern. Gespeicherte Instanz-ID und VM
+bleiben gemeinsam gebunden. Fehlende,
+mehrdeutige oder abweichende Bindungen werden abgelehnt. Eine Namensänderung
+derselben VM wird nur im zurückgegebenen Objekt projiziert; dieser strikte
+Pfad schreibt keine Verbindungsdatei und invalidiert keine Pool-Evidence.
+Ohne ExpectedVmId bleiben Defaultroot und bisherige Rename-Reparatur erhalten.
+
+Die [NoIO-Fixture](../../Tests/Static/Fixtures/HyperVImmutableRunReaderChecks.ps1)
+führt die tatsächliche Readerfunktion mit synthetischen Datei-/Providerblättern
+aus. Das ist eine interne Voraussetzung: Der öffentliche vollständige
+Setupweg propagiert die ID und eine Direct-only-Wahl noch nicht durchgängig.
+Der Reader reserviert keine VM und verhindert keine spätere Runtimeänderung;
+jeder nachfolgende Effekt benötigt erneut die eigene Bindungsprüfung.
+Verbraucherende, handlebasierte Rootanker und native Setup-/TLS-Abnahme
+bleiben offen.
+
+## Öffentliche Rootweitergabe
+
 `Invoke-SqlServerLabWorkflowAction -Action CompleteHyperVLabSql` reicht einen
 ausdrücklich angegebenen `StateRoot` und `MediaRoot` unverändert an
 `Complete-HyperVLabSqlImage` weiter. Nicht angegebene Roots bleiben ungebunden;

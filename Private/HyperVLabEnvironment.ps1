@@ -10,12 +10,28 @@
 
 function Get-HyperVLabWorkflowRun {
     [CmdletBinding()]
-    param([Parameter(Mandatory)][string]$RunId, [string]$StateRoot)
+    param([Parameter(Mandatory)][string]$RunId, [string]$StateRoot, [guid]$ExpectedVmId)
+
+    $strictVmBinding = $PSBoundParameters.ContainsKey('ExpectedVmId')
+    if ($strictVmBinding -and $ExpectedVmId -eq [guid]::Empty) { throw 'HYPERV_LAB_EXPECTED_VM_ID_REQUIRED' }
+    $selectedRunId = [guid]::Empty
+    if ($strictVmBinding -and (-not [guid]::TryParseExact($RunId, 'D', [ref]$selectedRunId) -or $selectedRunId -eq [guid]::Empty)) {
+        throw 'HYPERV_LAB_EXPECTED_VM_RUN_BINDING_INVALID'
+    }
+    if ($strictVmBinding -and [string]::IsNullOrWhiteSpace($StateRoot)) { throw 'HYPERV_LAB_EXPECTED_VM_STATE_ROOT_REQUIRED' }
 
     if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
     $run = Get-LabRunState -RunId $RunId -StateRoot $StateRoot
     if ([string]$run.metadata.workflowKind -ne 'hyperv-lab') {
         throw 'HYPERV_LAB_WORKFLOW_RUN_NOT_FOUND'
+    }
+    $storedRunId = [guid]::Empty
+    $storedScopeId = [guid]::Empty
+    if ($strictVmBinding -and (
+        -not $run.PSObject.Properties['runId'] -or -not $run.PSObject.Properties['scopeId'] -or
+        -not [guid]::TryParseExact([string]$run.runId, 'D', [ref]$storedRunId) -or $storedRunId -ne $selectedRunId -or
+        -not [guid]::TryParseExact([string]$run.scopeId, 'D', [ref]$storedScopeId) -or $storedScopeId -eq [guid]::Empty)) {
+        throw 'HYPERV_LAB_EXPECTED_VM_RUN_BINDING_INVALID'
     }
     $runDirectory = Join-Path (Join-Path $StateRoot 'runs') $RunId
     $connectionPath = Join-Path $runDirectory 'connection-info.json'
@@ -23,8 +39,13 @@ function Get-HyperVLabWorkflowRun {
         throw 'HYPERV_LAB_CONNECTION_INFO_NOT_FOUND'
     }
     $connection = Get-Content -LiteralPath $connectionPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20
-    $instance = @($connection.instances | Where-Object { $_.provider -eq 'hyperv' }) | Select-Object -First 1
+    $hyperVInstances = @($connection.instances | Where-Object { $_.provider -eq 'hyperv' })
+    $instance = $hyperVInstances | Select-Object -First 1
     if (-not $instance -or -not $instance.vmName) { throw 'HYPERV_LAB_CONNECTION_INFO_INVALID' }
+    $storedVmId = [guid]::Empty
+    if ($strictVmBinding -and ($hyperVInstances.Count -ne 1 -or -not [guid]::TryParse([string]$instance.vmId, [ref]$storedVmId) -or $storedVmId -ne $ExpectedVmId)) {
+        throw 'HYPERV_LAB_EXPECTED_VM_ID_MISMATCH'
+    }
 
     # Ältere oder manuell umbenannte VMs können einen inzwischen veralteten
     # connection-info-Namen besitzen. Die signierte Lab-Identity in den VM-
@@ -32,7 +53,18 @@ function Get-HyperVLabWorkflowRun {
     $matchingVm = @(
         Get-HyperVLabVMs -RunId ([string]$run.runId) -ScopeId ([string]$run.scopeId)
     )
-    if ($matchingVm.Count -eq 1 -and [string]$matchingVm[0].VMName -ne [string]$instance.vmName) {
+    if ($strictVmBinding) {
+        $runtimeVmId = [guid]::Empty
+        if ($matchingVm.Count -ne 1 -or
+            -not [guid]::TryParse([string]$matchingVm[0].VMId, [ref]$runtimeVmId) -or $runtimeVmId -ne $ExpectedVmId -or
+            [string]::IsNullOrWhiteSpace([string]$matchingVm[0].VMName)) {
+            throw 'HYPERV_LAB_EXPECTED_VM_RUNTIME_MISMATCH'
+        }
+        # Die strikte Vorprüfung darf keine Rename-Reparatur persistieren.
+        # Nur der aktuelle Name derselben gebundenen VM wird lokal projiziert.
+        $instance.vmName = [string]$matchingVm[0].VMName
+    }
+    elseif ($matchingVm.Count -eq 1 -and [string]$matchingVm[0].VMName -ne [string]$instance.vmName) {
         Assert-LabWindowsPoolMutationAllowed -RunId $RunId -StateRoot $StateRoot
         $instance | Add-Member -NotePropertyName vmName -NotePropertyValue ([string]$matchingVm[0].VMName) -Force
         $instance | Add-Member -NotePropertyName vmId -NotePropertyValue ([string]$matchingVm[0].VMId) -Force

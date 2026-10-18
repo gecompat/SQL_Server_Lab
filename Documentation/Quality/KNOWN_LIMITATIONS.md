@@ -1,5 +1,12 @@
 # Bekannte Grenzen
 
+Der optionale strikte interne
+[Run-Reader](../Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md) prüft gespeicherte
+und native VM-ID vor einer nur lokalen Namensprojektion ohne Write.
+Durchgängige öffentliche Setup-/Direct-only-Bindung, Verbraucherende und
+native TLS-Abnahme sind dadurch noch nicht belegt; kein VM-Reservierungs-
+oder handlebasierter Dateisystemvertrag.
+
 ## SQL-Abschluss ohne Transportreplay ist noch kein nativer TLS-Setupworker
 
 Die [CompletionBoundary](../Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md)
