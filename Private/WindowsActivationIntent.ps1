@@ -1,9 +1,10 @@
 function Resolve-LabWindowsActivationIntent {
     [CmdletBinding()]
-    param([AllowNull()]$Intent,[switch]$Isolated,[switch]$LegacyRequired)
+    param([AllowNull()]$Intent,[switch]$Isolated,[switch]$LegacyRequired,[switch]$RequireExplicit)
+    if($RequireExplicit -and $null -eq $Intent){throw 'WINDOWS_ACTIVATION_INTENT_REQUIRED'}
     $strategy='EvaluationOnline'
     $egress=if($Isolated){'Denied'}elseif($LegacyRequired){'AllowTemporary'}else{'ExistingOnly'}
-    if($Intent){
+    if($Intent -or $RequireExplicit){
         $keys=if($Intent -is [Collections.IDictionary]){@($Intent.Keys)}else{@($Intent.PSObject.Properties.Name)}
         if(@($keys | Where-Object {$_ -notin @('ContractVersion','Strategy','EgressPolicy')}).Count){throw 'WINDOWS_ACTIVATION_INTENT_FIELD_INVALID'}
         if([string]$Intent.ContractVersion -ne 'SqlServerLab.WindowsActivationIntent/1.0'){throw 'WINDOWS_ACTIVATION_CONTRACT_UNSUPPORTED'}
@@ -98,10 +99,24 @@ function Set-LabWindowsTestEnvironmentActivationIntent {
 
 function Invoke-LabWindowsSlotActivationReconcile {
     [CmdletBinding()]
-    param([Parameter(Mandatory)][string]$RunId,[PSCredential]$Credential,[string]$StateRoot)
+    param(
+        [Parameter(Mandatory)][string]$RunId,
+        [PSCredential]$Credential,
+        [string]$StateRoot,
+        [AllowNull()]$WindowsActivation,
+        [ValidateScript({-not [string]::IsNullOrWhiteSpace($_)})][string]$ExternalSwitchName
+    )
+    $activationArguments=@{}
+    if($PSBoundParameters.ContainsKey('WindowsActivation')){
+        $activationArguments.WindowsActivation=Resolve-LabWindowsActivationIntent -Intent $WindowsActivation -RequireExplicit
+        $activationArguments.ExplicitWindowsActivation=$true
+    }
+    if($PSBoundParameters.ContainsKey('ExternalSwitchName')){$activationArguments.ExternalSwitchName=$ExternalSwitchName}
     $lab=Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
-    $intent=Resolve-LabWindowsActivationIntent -Intent $lab.Instance.windowsActivationIntent -Isolated:([string]$lab.Run.metadata.networkIntent -eq 'isolated')
-    Invoke-HyperVWindowsSlotActivation -RunId $RunId -WindowsActivation $intent -Credential $Credential -StateRoot $lab.StateRoot
+    if(-not $activationArguments.ContainsKey('WindowsActivation')){
+        $activationArguments.WindowsActivation=Resolve-LabWindowsActivationIntent -Intent $lab.Instance.windowsActivationIntent -Isolated:([string]$lab.Run.metadata.networkIntent -eq 'isolated')
+    }
+    Invoke-HyperVWindowsSlotActivation -RunId $RunId -Credential $Credential -StateRoot $lab.StateRoot @activationArguments
 }
 
 function Resume-LabWindowsSlotActivation {
@@ -120,10 +135,21 @@ function Resume-LabWindowsSlotActivation {
         [Parameter(Mandatory)][string]$RunId,
         [Parameter(Mandatory)][PSCredential]$Credential,
         [switch]$LeaveRunning,
-        [string]$StateRoot
+        [string]$StateRoot,
+        [AllowNull()]$WindowsActivation,
+        [ValidateScript({-not [string]::IsNullOrWhiteSpace($_)})][string]$ExternalSwitchName
     )
 
+    # Validate an explicit override before reading the run or starting its VM.
+    $activationArguments=@{}
+    if($PSBoundParameters.ContainsKey('WindowsActivation')){
+        $activationArguments.WindowsActivation=Resolve-LabWindowsActivationIntent -Intent $WindowsActivation -RequireExplicit
+    }
+    if($PSBoundParameters.ContainsKey('ExternalSwitchName')){$activationArguments.ExternalSwitchName=$ExternalSwitchName}
     $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
+    $effectiveIntent=if($activationArguments.ContainsKey('WindowsActivation')){$activationArguments.WindowsActivation}else{
+        Resolve-LabWindowsActivationIntent -Intent $lab.Instance.windowsActivationIntent -Isolated:([string]$lab.Run.metadata.networkIntent -eq 'isolated')
+    }
     $synced = Sync-LabRunRuntimeState -Run $lab.Run -StateRoot $lab.StateRoot
     $runtimeState = [string]$synced.Runtime.State
     if ($runtimeState -notin @('RUNNING', 'STOPPED')) {
@@ -138,15 +164,13 @@ function Resume-LabWindowsSlotActivation {
         if ($startedByResume) {
             $null = Start-HyperVLabEnvironment -RunId $RunId -SkipWindowsActivationReconcile -StateRoot $lab.StateRoot
         }
-        # No intent is accepted here: the existing, normalized per-slot intent
-        # remains the activation authority for a manually resumed slot.
-        $activation = Invoke-LabWindowsSlotActivationReconcile -RunId $RunId -Credential $Credential -StateRoot $lab.StateRoot
+        $activation = Invoke-LabWindowsSlotActivationReconcile -RunId $RunId -Credential $Credential -StateRoot $lab.StateRoot @activationArguments
         $result = [PSCustomObject]@{
             ContractVersion = 'SqlServerLab.WindowsActivationResume/1.0'
             RunId = [string]$lab.Run.runId
             StartedByResume = $startedByResume
             StoppedByResume = $false
-            ActivationIntent = Resolve-LabWindowsActivationIntent -Intent $lab.Instance.windowsActivationIntent
+            ActivationIntent = $effectiveIntent
             Activation = $activation
         }
     }

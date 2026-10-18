@@ -320,11 +320,13 @@ function Invoke-HyperVWindowsSlotActivation {
         [Parameter(Mandatory)][string]$RunId,
         [string]$ExternalSwitchName,
         $WindowsActivation,
+        [switch]$ExplicitWindowsActivation,
         [PSCredential]$Credential,
         [ValidateRange(60, 3600)][int]$TimeoutSeconds = 300,
         [string]$StateRoot
     )
 
+    if($ExplicitWindowsActivation){$WindowsActivation=Resolve-LabWindowsActivationIntent -Intent $WindowsActivation -RequireExplicit}
     Assert-LabWindowsPoolMutationAllowed -RunId $RunId -StateRoot $StateRoot -InvalidateEvidence
     $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
     if (-not $Credential) {
@@ -343,7 +345,10 @@ function Invoke-HyperVWindowsSlotActivation {
         Remove-LabWindowsActivationAdapter -Lab $lab
     }
     $savedIntent=$lab.Instance.windowsActivationIntent
-    if($WindowsActivation){$intent=Resolve-LabWindowsActivationIntent -Intent $WindowsActivation}
+    if($WindowsActivation){
+        $intent=Resolve-LabWindowsActivationIntent -Intent $WindowsActivation
+        if($ExplicitWindowsActivation){$lab.Instance | Add-Member -NotePropertyName windowsActivationIntentSource -NotePropertyValue 'parameters' -Force}
+    }
     elseif($savedIntent -and ($lab.Instance.windowsActivationIntentSource -ne 'compatibility-defaults' -or $savedIntent.EgressPolicy -eq 'Denied')){
         $intent=Resolve-LabWindowsActivationIntent -Intent $savedIntent
     }

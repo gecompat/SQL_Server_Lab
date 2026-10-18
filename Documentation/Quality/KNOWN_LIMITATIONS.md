@@ -3301,6 +3301,13 @@ nicht freigegeben. [Vertrag und Nachweisgrenzen](../HowTo/WINDOWS_LOCALE.md).
 
 ## Aktivierungsadapter-Eigentum (2026-09-10)
 
+Der oeffentliche `RepairHyperVWindowsActivation` reicht einen expliziten
+Aktivierungsintent, vorhandenen externen Switch und State Root an den bestehenden
+Aktivierungspfad weiter. Ohne Uebersteuerung bleibt der gespeicherte Intent
+massgeblich. Die Weitergabe und Abweisung ungueltiger Eingaben vor einem
+VM-Start sind statisch geprueft; eine neue native Qualifikation dieser
+Adapterweitergabe oder Freigabe von Aktivierungsegress folgt daraus nicht.
+
 Der spezielle Evaluationspfad entfernt nur journalgebundene temporaere
 Adapter. Fremde gleichnamige Adapter bleiben bestehen. Unvollstaendige
 Journale oder nachtraeglich geaenderte Switch-Bindungen erfordern konkrete
