@@ -1,5 +1,10 @@
 # Projektkontext
 
+Der [Hyper-V-SQL-Abschlussvertrag](../Documentation/Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md)
+bindet explizite öffentliche State-/Medienroots und unterbindet Transportreplay
+an den vier mutierenden Setup-/Hostzugriff-Gastaufrufen. Synthetische
+LostReply-Nachweise sind keine native Setup-/SQL-/TLS-Abnahme oder Recoveryautorität.
+
 Die [native Windows-CSP-Charakterisierung](../Documentation/Quality/TLS_HYPERV_WINDOWS_CSP_CHARACTERIZATION_2026-10-18.md)
 belegt einen eigenen nicht exportierbaren Gastschlüssel und Host-CSR-Proof nach
 separat freigegebener Aktivierung. VM/Disks/Key bleiben gestoppt erhalten.

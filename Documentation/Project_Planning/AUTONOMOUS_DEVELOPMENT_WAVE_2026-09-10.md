@@ -1,5 +1,14 @@
 # Autonome Entwicklungswelle nach der Repository-Durchsicht
 
+## SQL-Abschlussgrenze vor dem nativen TLS-Binder
+
+Der [gekoppelte Vertrag](../Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md)
+schließt die explizite öffentliche State-/Medienrootweitergabe und das
+Transportreplay der vier mutierenden Setup-/Hostzugriff-Gastaufrufe.
+Der NoIO-Nachweis ist von einem noch vorzubereitenden festen nativen Worker
+getrennt. Vorhandener Gastkey und CSR bleiben erhalten; keine erneute Anlage,
+CA-/SQL-/TLS-Abnahme oder SC-2026-045-Freigabe daraus.
+
 ## Windows-CSP-Fortsetzung vom 2026-10-18
 
 Die [getrennte native Charakterisierung](../Quality/TLS_HYPERV_WINDOWS_CSP_CHARACTERIZATION_2026-10-18.md)

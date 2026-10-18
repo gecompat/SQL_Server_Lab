@@ -1,5 +1,10 @@
 # TLS-001a – Entwurf einer isolierten Lab-CA
 
+Die vorgelagerte [SQL-Abschlussgrenze](../Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md)
+bindet explizite Roots und unterbindet Transportreplay mutierender Gastblöcke.
+Sie ist keine native Setup-, CA-, ServiceACL- oder TLS-Abnahme und erteilt
+keine neue Autorität für unbekannte Teilzustände.
+
 Die [Windows-CSP-Charakterisierung vom 2026-10-18](../Quality/TLS_HYPERV_WINDOWS_CSP_CHARACTERIZATION_2026-10-18.md)
 belegt inzwischen einen eigenen nicht exportierbaren Gastkey und Host-CSR-Proof.
 Der additive erwartete Maschinen-CN des privaten Leafvertrags ist eine reine
