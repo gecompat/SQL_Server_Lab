@@ -6,6 +6,10 @@ jedoch keinen Gast- oder Clientkontext. Der neue erwartete Maschinen-CN in der
 privaten Leaflane ist keine Ownership-/Kontextattestation. S/MIME im vorhandenen
 CSR bleibt gesperrt; volle Qualifikation und SC-2026-045 bleiben offen.
 
+Die spätere vorhandene-Key-CSR-Probe und ihre UTF8-Subjectkorrektur bleiben
+getrennte native beziehungsweise Hostnachweise. Der originale Hostfehler
+wird erhalten; weder Kontextregistrierung noch CA-/SQL-/TLS-Abnahme daraus.
+
 ## Begrenzte Authoritybindung vom 2026-10-17
 
 Der [private `0.2`-Authorityvertrag](../Architecture/AUTHENTICATED_TLS_AUTHORITY_BINDING.md)

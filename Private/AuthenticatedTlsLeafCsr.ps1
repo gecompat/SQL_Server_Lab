@@ -34,7 +34,8 @@ function Read-LabTlsServerLeafCsr {
     if($info.ReadInteger() -ne 0){throw 'TLS_LEAF_CSR_INVALID'}
     $subject=$info.ReadEncodedValue().ToArray()
     $expectedSubject=[Security.Cryptography.X509Certificates.X500DistinguishedName]::new($subjectName)
-    $expectedUtf8Subject=[Security.Cryptography.X509Certificates.X500DistinguishedName]::new($subjectName,[Security.Cryptography.X509Certificates.X500DistinguishedNameFlags]::UseUTF8Encoding)
+    # UseUTF8Encoding allein laesst ASCII als PrintableString; nativer CSR nutzt UTF8String.
+    $expectedUtf8Subject=[Security.Cryptography.X509Certificates.X500DistinguishedName]::new($subjectName,[Security.Cryptography.X509Certificates.X500DistinguishedNameFlags]::ForceUTF8Encoding)
     $subjectDigest=Get-LabTlsCaByteDigest $subject
     # Exakt erwarteter einzelner CN, niemals aus dem CSR als Sollwert ableiten.
     if(-not [string]::Equals($subjectDigest,(Get-LabTlsCaByteDigest $expectedSubject.RawData),[StringComparison]::Ordinal) -and

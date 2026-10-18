@@ -8,8 +8,14 @@ Machine-CSP-RSA3072-Key mit tatsächlichem KeySpec 1, öffentlichem CSR und
 Host-Proof. VM/Disks/Key bleiben gestoppt erhalten. Der native CSR mit
 zusätzlichem S/MIME bleibt im engen Reader abgelehnt. Ein erwarteter
 Maschinen-CN ist nun eine private Kryptooption; keine Zusatzextension wird
-erlaubt. Neue CSR-Erstellung mit vorhandenem Key, CA-Ausstellung, Storeannahme,
+erlaubt. CA-Ausstellung, Storeannahme,
 SQL CompleteImage, Dienst-KeyACL und echte TLS-Verbindungen stehen aus.
+Der spätere native CSR aus demselben Key bestand im Gast; der ursprüngliche
+Hostabschluss scheiterte am UTF8-Subject-DER. Die getrennte Readerkorrektur
+erzwingt die erwartete UTF8-Form auch für ASCII. Dieser Hostnachweis macht
+den alten nativen Fehlabschluss nicht nachträglich erfolgreich.
+Der unveränderte öffentliche CSR wurde danach lokal vom korrigierten Reader
+akzeptiert und an denselben ursprünglichen SPKI gebunden; keine Gastwiederholung.
 SQL-Prepared-Medium war 2025 RTM, kein CU9. False-Hyper-V und SC-2026-045
 bleiben gesperrt.
 

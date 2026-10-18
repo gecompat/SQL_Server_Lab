@@ -6,9 +6,14 @@ Die [getrennte native Charakterisierung](../Quality/TLS_HYPERV_WINDOWS_CSP_CHARA
 bestand für konkret freigegebene Aktivierung und isolierten Gast-CSP/CSR samt
 Host-Proof und eigenem Stop. VM/Disks/Key bleiben erhalten. Die private
 Leaflane ergänzt einen expliziten erwarteten Maschinen-CN ohne Erweiterung
-des SAN-/Attributlimits. Vorhandener CSR mit S/MIME bleibt abgelehnt; neuer CSR
-aus dem vorhandenen Key, CA-/SQL-Bindung und echte Hyper-V-TLS-Abnahme folgen
+des SAN-/Attributlimits. Vorhandener CSR mit S/MIME bleibt abgelehnt;
+CA-/SQL-Bindung und echte Hyper-V-TLS-Abnahme folgen
 getrennt. Keine Wiederholung der Keyanlage; SC-2026-045 bleibt gesperrt.
+
+Der spätere CSR aus demselben Key wurde nativ erstellt und der eigene Run
+gestoppt; der Hostabschluss scheiterte am UTF8-Subject-DER. Die getrennte
+Readerkorrektur und Auswertung desselben öffentlichen CSR ersetzen weder
+diesen Fehlabschluss noch die ausstehende CA-/SQL-/TLS-Abnahme.
 
 ## Begrenzte CA-/Client-Metadatenbindung vom 2026-10-17
 

@@ -905,7 +905,7 @@ sources_of_truth:
   authenticated_tls_ca_candidate_contract: Documentation/Architecture/AUTHENTICATED_TLS_CA_CANDIDATE.md
   authenticated_tls_ca_candidate: Private/AuthenticatedTlsCaCandidate.ps1 # private Windows PS>=7.5; protected RSA/DPAPI candidate, read-only CurrentUser Root preview; UNREGISTERED_UNQUALIFIED, no import/SQL/provider authority
   authenticated_tls_leaf_csr: Private/AuthenticatedTlsLeafCsr.ps1 # private Windows PS>=7.5; bounded RSA3072 SHA256 CSR proof, explicit SAN, candidate-bound DPAPI signing; public leaf only, no store/native target/SQL authority
-  authenticated_tls_leaf_csr_contract: Documentation/Architecture/AUTHENTICATED_TLS_LEAF_CSR.md # explicit optional expected Windows machine CN/IP; exact SAN-only CSR remains, no native ownership or SQL qualification
+  authenticated_tls_leaf_csr_contract: Documentation/Architecture/AUTHENTICATED_TLS_LEAF_CSR.md # explicit expected Windows machine CN/IP; forced UTF8 DER for ASCII and BCL form, exact SAN-only; no native ownership or SQL qualification
   acceptance_tls_hyperv_windows_csp: Documentation/Quality/TLS_HYPERV_WINDOWS_CSP_CHARACTERIZATION_2026-10-18.md # actual isolated nonexportable guest CSP/CSR and separately authorized activation; retained stopped VM/key, no CA/SQL/TLS pass
   validation_authenticated_tls_leaf_csr: Tests/Static/Invoke-AuthenticatedTlsLeafCsrChecks.ps1 # own real temporary CA/CSR/DPAPI/ACL crypto fixtures; no real candidate/store access; native target and SQL NOT_EXECUTED
   validation_authenticated_tls_ca_candidate: Tests/Static/Invoke-AuthenticatedTlsCaCandidateChecks.ps1 # coupled Root metadata/request/payload/context/pathguards; native Windows crypto/ACL/DPAPI in own temp fixtures, not pure offline or TLS acceptance

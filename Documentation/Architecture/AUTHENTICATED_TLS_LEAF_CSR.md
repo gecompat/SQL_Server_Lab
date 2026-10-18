@@ -74,6 +74,11 @@ Mit `WindowsMachineName` ersetzt ausschließlich der ausdrücklich erwartete
 einzelne CN diesen Vergleich. BCL- und UTF8-DER werden aus genau diesem Namen
 konstruiert. Ausstellung und unabhängige Leafprüfung verwenden dieselbe
 Erwartung; auch ein nur anders geschriebener CN bleibt gesperrt.
+Die UTF8-Erwartung verwendet `ForceUTF8Encoding`: `UseUTF8Encoding` allein
+erzeugt bei einem ASCII-Maschinennamen weiterhin PrintableString. Beide
+erlaubten DER-Formen werden vollständig aus dem erwarteten Namen konstruiert;
+es wird keine beliebige CN-Dekodierung als Ersatz akzeptiert. Die synthetischen
+signierten ASCII-Fixtures prüfen die tatsächlich unterschiedlichen Stringtags.
 Der öffentliche SPKI wird vor der Signaturprüfung importiert und auf Größe
 und Exponent begrenzt. Es entsteht dadurch kein privater Leafkey auf dem Host.
 Auch der enthaltene PKCS1-RSAPublicKey im SPKI-BITSTRING muss vollständig DER
@@ -99,9 +104,12 @@ dem geprüften öffentlichen Schlüssel erhält ausschließlich:
 
 Das optionale Subject erlaubt keine zusätzliche Erweiterung oder Attributform.
 Ein korrekt signierter CSR mit SAN und S/MIME-Capabilities bleibt in beiden
-Reihenfolgen abgelehnt. Ein späterer fester Gastrequest kann `SMIME=FALSE`
-ausdrücklich setzen. Seine tatsächliche Akzeptanz und Bindung an den vorhandenen
-Gastschlüssel stehen noch aus; vorhandene CSR-Bytes werden nicht umgeschrieben.
+Reihenfolgen abgelehnt. Ein eigener nativer Gastrequest mit `SMIME=FALSE`
+hat den vorhandenen Schlüssel wiederverwendet. Die ursprüngliche Hostprüfung
+lehnte dessen UTF8-Maschinen-CN ab; dieser abgeschlossene Fehlbefund bleibt
+erhalten. Die spätere Prüfung der unveränderten öffentlichen CSR-Bytes mit
+der korrigierten DER-Erwartung ist davon getrennt und keine native CA-/SQL-
+Qualifikation. Einzelheiten stehen im verlinkten Charakterisierungsnachweis.
 
 Beginn ist die aktuelle UTC-Sekunde, Ende exakt die ausgewählten
 `ValidityDays` oder `ValiditySeconds` später.
