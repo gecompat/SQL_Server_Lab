@@ -18,13 +18,24 @@ ist weiterhin unbekannt. Die aktuelle Katalogruntime meldet einen
 Editions-/Installationsfehler trotz vorhandenem IS und Enterprise-Developer-
 Engine. Eine Validierung meldete dabei Status `7` samt Fehlerereignis.
 
-Die Fortsetzung benötigt einen erhöhten Hostprozess für den bestehenden
-öffentlichen IS-Installer. Im geprüften Prozess fehlte dieses Token;
-eine neue VM oder eine Installationsreparatur wurde deshalb nicht gestartet.
-Der nächste Reparaturnachweis verwendet genau ein eigenes isoliertes Lab mit
-vorhandenen hashgebundenen Medien und Prepared-Artefakt, festem Zeit-/Ressourcen-
-budget und vollständigem eigenen Cleanup. Die erhaltene Analyze-Quelle und
-deren Fixture werden nicht repariert oder umkonfiguriert.
+Die Administratorfreigabe wurde anschließend erteilt und der
+[isolierte Reparaturvergleich](../Quality/LOCAL_VALIDATION_STRATEGY.md#isolierter-reparaturvergleich-mit-echten-verbindungen-vom-2026-10-18)
+mit genau einer eigenen VM ausgeführt. Frische IS-Installation,
+Instanzreparatur und CU9 beseitigten den beobachteten SQL-LogProvider-Fehler
+nicht. `MSOLEDBSQL19` schrieb dabei erfolgreich über eine verschlüsselte
+Windows-Verbindung; es entstanden jedoch keine `sysssislog`-Zeilen und die
+Katalogausführung endete mit Status `4`. Der frühere Administratortoken-Blocker
+ist geschlossen, die fachliche Behebung bleibt offen. Eigene VM und eigene
+VHD wurden entfernt; die erhaltene Analyze-Quelle samt Fixture blieb unverändert.
+
+Die nächste Diagnose benötigt neue unterscheidende Evidence: CU9 nach einem
+zusätzlichen OS-Neustart, die tatsächlich vom Katalogprozess geladenen
+Runtimekomponenten und ein kontrollierter Vergleich des SQL-LogProviders im
+SDK- und Katalogkontext. Das beobachtete Versionsinventar allein erklärt den
+Fehler nicht. Kein erneuter unveränderter Paketlauf und keine manuelle Änderung
+von Lizenz-/Editionsregistrierung. Ziel bleibt ein herstellerkonformer,
+reproduzierbar mit echten SQL- und LogProvider-Effekten belegter Pfad im eigenen
+Lab; die bestehende Analyze-Quelle bleibt geschützt.
 
 Vor einem Installations- oder Reparaturschritt sind dessen Herstellerweg,
 Ausgangszustand und Recovery zu prüfen. Danach sind Komponentenladung,

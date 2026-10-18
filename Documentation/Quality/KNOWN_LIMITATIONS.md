@@ -100,7 +100,14 @@ SDK-Laden noch im Katalog. Die historische Ursache bleibt ungeklärt.
 Die aktuelle Katalogruntime meldete stattdessen einen Editions-/Installations-
 fehler trotz vorhandener IS-Komponenten und Enterprise-Developer-Engine.
 Eine Validierung mit Status `7` enthielt ebenfalls ein Fehlerereignis und ist
-kein bestandener Nachweis. Reparatur und fachliche Katalogabnahme bleiben
+kein bestandener Nachweis. Der anschließende
+[eigene Reparaturvergleich](LOCAL_VALIDATION_STRATEGY.md#isolierter-reparaturvergleich-mit-echten-verbindungen-vom-2026-10-18)
+mit Administratorfreigabe, frischer IS-Installation, Instanzreparatur und CU9
+ergab weiterhin `-1073679321` beim SQL-LogProvider und keine `sysssislog`-Zeilen.
+Mit `MSOLEDBSQL19` ist ein echter verschlüsselter SQL-Schreibzugriff belegt;
+`SQLOLEDB` scheiterte zusätzlich an TLS. Eine erfolgreiche Gesamtpipeline oder
+eine nach zusätzlichem OS-Neustart qualifizierte CU9-Reparatur ist nicht belegt.
+Ursachenbehebung und fachliche Katalogabnahme bleiben
 [P1 offen](../Project_Planning/SSIS_ETL_DATA_WAREHOUSE_BACKLOG.md#p1-katalog-runtime-nach-dem-consumervergleich-vom-2026-10-18);
 die bestehende verbindungs- und tasklose Fixtureabnahme wird nicht auf
 OLEDB-/SQL-LogProvider-Pakete erweitert.
