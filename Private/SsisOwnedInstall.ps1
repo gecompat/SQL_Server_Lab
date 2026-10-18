@@ -76,6 +76,8 @@ function Get-LabSsisComponentGuestInstall {
         if($OperationId -cnotmatch '^ssis-component-[a-f0-9]{32}$'){throw 'SSIS_COMPONENT_OPERATION_INVALID'}
         $stage='MEDIA_DISCOVERY'
         try {
+            if(@(Get-Process -Name setup,ScenarioEngine -ErrorAction SilentlyContinue).Count -or
+                (Test-Path -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Installer\InProgress')){throw 'SSIS_COMPONENT_INSTALLER_ALREADY_ACTIVE'}
             $setups=@()
             $mediaDeadline=[datetime]::UtcNow.AddSeconds([math]::Min(120,[math]::Max(15,$TimeoutSeconds)))
             do {
@@ -95,20 +97,29 @@ function Get-LabSsisComponentGuestInstall {
                 '/IACCEPTSQLSERVERLICENSETERMS','/INDICATEPROGRESS','/UpdateEnabled=False',
                 '/USEMICROSOFTUPDATE=False','/ISSVCACCOUNT="NT AUTHORITY\NETWORK SERVICE"',
                 '/ISSVCStartupType=Disabled')
-            $root=Join-Path $env:ProgramData 'SqlServerLab\SsisOperations'
+            # A detached Administrator process can retain a deleted temporary
+            # profile hive after PowerShell Direct disconnects. Run the bounded
+            # installer once under SYSTEM, from administrator-protected files.
+            $root=Join-Path $env:ProgramFiles 'SqlServerLab\SsisOperations'
+            foreach($directory in @((Join-Path $env:ProgramFiles 'SqlServerLab'),$root)){
+                if((Test-Path -LiteralPath $directory) -and ((Get-Item -LiteralPath $directory -Force).Attributes -band [IO.FileAttributes]::ReparsePoint)){throw 'SSIS_COMPONENT_OPERATION_PATH_INVALID'}
+            }
             $null=New-Item -ItemType Directory -Force -Path $root
             $configPath=Join-Path $root ($OperationId+'.json');$workerPath=Join-Path $root ($OperationId+'.ps1')
             $statusPath=Join-Path $root ($OperationId+'.status.json')
-            foreach($path in @($configPath,$workerPath,$statusPath)){if(Test-Path -LiteralPath $path){Remove-Item -LiteralPath $path -Force -ErrorAction Stop}}
-            $config=[ordered]@{OperationId=$OperationId;SetupPath=$setups[0].FullName;Arguments=$arguments;StatusPath=$statusPath}
+            foreach($path in @($configPath,$workerPath,$statusPath)){if(Test-Path -LiteralPath $path){throw 'SSIS_COMPONENT_OPERATION_EXISTS_NO_REPLAY'}}
+            if(Get-ScheduledTask -TaskName $OperationId -ErrorAction SilentlyContinue){throw 'SSIS_COMPONENT_TASK_EXISTS_NO_REPLAY'}
+            $config=[ordered]@{OperationId=$OperationId;SetupPath=$setups[0].FullName;Arguments=$arguments;StatusPath=$statusPath;TimeoutSeconds=$TimeoutSeconds}
             [IO.File]::WriteAllText($configPath,($config|ConvertTo-Json -Depth 8),[Text.UTF8Encoding]::new($false))
             $worker=@'
 param([Parameter(Mandatory)][string]$ConfigPath)
 $ErrorActionPreference='Stop'
 $config=Get-Content -LiteralPath $ConfigPath -Raw|ConvertFrom-Json
-$result=[ordered]@{OperationId=[string]$config.OperationId;State='FAILED';ErrorCode='SSIS_COMPONENT_WORKER_FAILED';RebootRequired=$false}
+$result=[ordered]@{OperationId=[string]$config.OperationId;State='FAILED';ErrorCode='SSIS_COMPONENT_WORKER_FAILED';RebootRequired=$false;ConsumerEnded=$false}
 $stage='SETUP_START'
+$process=$null
 try {
+    if([Security.Principal.WindowsIdentity]::GetCurrent().User.Value -cne 'S-1-5-18'){throw 'SSIS_COMPONENT_SYSTEM_WORKER_REQUIRED'}
     $start=[Diagnostics.ProcessStartInfo]::new()
     $start.FileName=[string]$config.SetupPath
     # Windows PowerShell in the guest does not have ProcessStartInfo.ArgumentList.
@@ -117,18 +128,25 @@ try {
     $process=[Diagnostics.Process]::Start($start)
     if(-not $process){throw 'SSIS_COMPONENT_SETUP_START_FAILED'}
     $stage='SETUP_WAIT'
-    $process.WaitForExit()
+    if(-not $process.WaitForExit([int]$config.TimeoutSeconds * 1000)){throw 'SSIS_COMPONENT_SETUP_TIMEOUT_NO_REPLAY'}
+    $result.ConsumerEnded=$true
+    if($null -eq $process.ExitCode){throw 'SSIS_COMPONENT_SETUP_EXIT_UNOBSERVED'}
     if($process.ExitCode -in @(0,3010)){$result.State='SUCCEEDED';$result.ErrorCode='NONE';$result.RebootRequired=($process.ExitCode -eq 3010)}else{$result.ErrorCode='SSIS_COMPONENT_SETUP_FAILED'}
 } catch {$result.ErrorCode=('SSIS_COMPONENT_WORKER_'+$stage)}
 finally {
+    if($process){$process.Dispose()}
     $temporary=([string]$config.StatusPath)+'.tmp'
     [IO.File]::WriteAllText($temporary,($result|ConvertTo-Json -Depth 8),[Text.UTF8Encoding]::new($false))
     Move-Item -LiteralPath $temporary -Destination ([string]$config.StatusPath) -Force
 }
 '@
             [IO.File]::WriteAllText($workerPath,$worker,[Text.UTF8Encoding]::new($false))
-            $launcher=Start-Process -FilePath (Join-Path $PSHOME 'powershell.exe') -ArgumentList @('-NoLogo','-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',$workerPath,'-ConfigPath',$configPath) -PassThru -WindowStyle Hidden -ErrorAction Stop
-            if(-not $launcher){throw 'SSIS_COMPONENT_SETUP_START_FAILED'}
+            $action=New-ScheduledTaskAction -Execute (Join-Path $PSHOME 'powershell.exe') -Argument ('-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "'+$workerPath+'" -ConfigPath "'+$configPath+'"')
+            $principal=New-ScheduledTaskPrincipal -UserId 'S-1-5-18' -LogonType ServiceAccount -RunLevel Highest
+            $settings=New-ScheduledTaskSettingsSet -ExecutionTimeLimit ([timespan]::Zero) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
+            $task=New-ScheduledTask -Action $action -Principal $principal -Settings $settings -Description $OperationId
+            $null=Register-ScheduledTask -TaskName $OperationId -InputObject $task -ErrorAction Stop
+            Start-ScheduledTask -TaskName $OperationId -ErrorAction Stop
             [pscustomobject]@{Status='SSIS_COMPONENT_INSTALL_LAUNCHED';OperationId=$OperationId}
         }
         catch {
@@ -146,11 +164,15 @@ function Get-LabSsisComponentGuestInstallStatus {
         param([string]$OperationId)
         $ErrorActionPreference='Stop'
         if($OperationId -cnotmatch '^ssis-component-[a-f0-9]{32}$'){throw 'SSIS_COMPONENT_OPERATION_INVALID'}
-        $path=Join-Path (Join-Path $env:ProgramData 'SqlServerLab\SsisOperations') ($OperationId+'.status.json')
+        $path=Join-Path (Join-Path $env:ProgramFiles 'SqlServerLab\SsisOperations') ($OperationId+'.status.json')
         if(-not (Test-Path -LiteralPath $path -PathType Leaf)){return [pscustomobject]@{OperationId=$OperationId;State='RUNNING';ErrorCode='NONE';RebootRequired=$false}}
         $status=Get-Content -LiteralPath $path -Raw|ConvertFrom-Json
         if([string]$status.OperationId -cne $OperationId -or [string]$status.State -notin @('SUCCEEDED','FAILED')){throw 'SSIS_COMPONENT_STATUS_INVALID'}
-        [pscustomobject]@{OperationId=$OperationId;State=[string]$status.State;ErrorCode=[string]$status.ErrorCode;RebootRequired=[bool]$status.RebootRequired}
+        if($status.ConsumerEnded -and (@(Get-Process -Name setup,ScenarioEngine -ErrorAction SilentlyContinue).Count -or
+            (Test-Path -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Installer\InProgress'))){
+            return [pscustomobject]@{OperationId=$OperationId;State='RUNNING';ErrorCode='NONE';RebootRequired=$false;ConsumerEnded=$false}
+        }
+        [pscustomobject]@{OperationId=$OperationId;State=[string]$status.State;ErrorCode=[string]$status.ErrorCode;RebootRequired=[bool]$status.RebootRequired;ConsumerEnded=[bool]$status.ConsumerEnded;BootTime=(Get-CimInstance Win32_OperatingSystem -ErrorAction Stop).LastBootUpTime.ToUniversalTime().ToString('o')}
     }
 }
 
@@ -161,9 +183,78 @@ function Remove-LabSsisComponentGuestOperation {
         param([string]$OperationId)
         $ErrorActionPreference='Stop'
         if($OperationId -cnotmatch '^ssis-component-[a-f0-9]{32}$'){throw 'SSIS_COMPONENT_OPERATION_INVALID'}
-        $root=Join-Path $env:ProgramData 'SqlServerLab\SsisOperations'
-        foreach($suffix in @('.json','.ps1','.status.json')){Remove-Item -LiteralPath (Join-Path $root ($OperationId+$suffix)) -Force -ErrorAction SilentlyContinue}
+        $root=Join-Path $env:ProgramFiles 'SqlServerLab\SsisOperations'
+        $status=Get-Content -LiteralPath (Join-Path $root ($OperationId+'.status.json')) -Raw -ErrorAction Stop|ConvertFrom-Json
+        if($status.OperationId -cne $OperationId -or $status.State -cnotin @('SUCCEEDED','FAILED') -or -not $status.ConsumerEnded){throw 'SSIS_COMPONENT_SETUP_RECOVERY_REQUIRED'}
+        if(@(Get-Process -Name setup,ScenarioEngine -ErrorAction SilentlyContinue).Count -or
+            (Test-Path -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Installer\InProgress')){throw 'SSIS_COMPONENT_SETUP_RECOVERY_REQUIRED'}
+        $tasks=@(Get-ScheduledTask -TaskPath '\' -ErrorAction Stop|Where-Object TaskName -IEQ $OperationId)
+        if($tasks.Count -gt 1){throw 'SSIS_COMPONENT_TASK_BINDING_CHANGED'}
+        $task=$tasks|Select-Object -First 1
+        if($task){
+            $workerPath=Join-Path $root ($OperationId+'.ps1');$configPath=Join-Path $root ($OperationId+'.json')
+            $expectedArguments='-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "'+$workerPath+'" -ConfigPath "'+$configPath+'"'
+            if($task.Description -cne $OperationId -or $task.TaskPath -cne '\' -or @($task.Actions).Count -ne 1 -or
+                $task.Actions[0].Execute -ine (Join-Path $PSHOME 'powershell.exe') -or $task.Actions[0].Arguments -cne $expectedArguments){throw 'SSIS_COMPONENT_TASK_BINDING_CHANGED'}
+            $principalSid=if([string]$task.Principal.UserId -match '^S-1-'){
+                [string]$task.Principal.UserId
+            }else{([Security.Principal.NTAccount]::new([string]$task.Principal.UserId)).Translate([Security.Principal.SecurityIdentifier]).Value}
+            if($principalSid -cne 'S-1-5-18'){throw 'SSIS_COMPONENT_TASK_BINDING_CHANGED'}
+            if([string]$task.State -notin @('Ready','Disabled')){throw 'SSIS_COMPONENT_SETUP_RECOVERY_REQUIRED'}
+            Unregister-ScheduledTask -TaskName $OperationId -TaskPath '\' -Confirm:$false -ErrorAction Stop
+        }
+        foreach($suffix in @('.json','.ps1','.status.json','.status.json.tmp','.reboot.json')){
+            $path=Join-Path $root ($OperationId+$suffix)
+            if(Test-Path -LiteralPath $path){Remove-Item -LiteralPath $path -Force -ErrorAction Stop}
+        }
         [pscustomobject]@{OperationId=$OperationId;Status='REMOVED'}
+    }
+}
+
+function Get-LabSsisComponentGuestRestart {
+    [CmdletBinding()]
+    param()
+    return {
+        param([string]$OperationId)
+        $ErrorActionPreference='Stop'
+        if($OperationId -cnotmatch '^ssis-component-[a-f0-9]{32}$'){throw 'SSIS_COMPONENT_OPERATION_INVALID'}
+        $root=Join-Path $env:ProgramFiles 'SqlServerLab\SsisOperations'
+        $status=Get-Content -LiteralPath (Join-Path $root ($OperationId+'.status.json')) -Raw|ConvertFrom-Json
+        if($status.OperationId -cne $OperationId -or $status.State -cne 'SUCCEEDED' -or -not $status.ConsumerEnded){throw 'SSIS_COMPONENT_RESTART_SETUP_NOT_COMPLETE'}
+        $before=(Get-CimInstance Win32_OperatingSystem -ErrorAction Stop).LastBootUpTime.ToUniversalTime().ToString('o')
+        $marker=Join-Path $root ($OperationId+'.reboot.json')
+        $stream=[IO.FileStream]::new($marker,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
+        try{$bytes=[Text.Encoding]::UTF8.GetBytes($before);$stream.Write($bytes,0,$bytes.Length);$stream.Flush($true)}finally{$stream.Dispose()}
+        & (Join-Path $env:SystemRoot 'System32\shutdown.exe') /r /t 10 /f|Out-Null
+        if($LASTEXITCODE -ne 0){throw 'SSIS_COMPONENT_GRACEFUL_RESTART_FAILED_NO_REPLAY'}
+        [pscustomobject]@{OperationId=$OperationId;Status='GRACEFUL_RESTART_SCHEDULED';BootBefore=$before}
+    }
+}
+
+function Get-LabSsisFeatureRegistrationProbe {
+    [CmdletBinding()]
+    param()
+    return {
+        $ErrorActionPreference='Stop'
+        function Test-SsisRegistrationValues {
+            param([string]$Edition,[string]$EditionType)
+            foreach($value in @($Edition,$EditionType)){
+                if($value -cnotmatch '^(?:(?:Enterprise |Standard )?(?:Developer|Evaluation)|Standard|Enterprise) Edition$'){return $false}
+            }
+            return $true
+        }
+        if(@(Get-Process -Name setup,ScenarioEngine -ErrorAction SilentlyContinue).Count -or
+            (Test-Path -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Installer\InProgress')){throw 'SSIS_COMPONENT_INSTALLER_ALREADY_ACTIVE'}
+        $registered=$true
+        foreach($view in @([Microsoft.Win32.RegistryView]::Registry64,[Microsoft.Win32.RegistryView]::Registry32)){
+            $base=[Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::LocalMachine,$view);$key=$null
+            try {
+                $key=$base.OpenSubKey('SOFTWARE\Microsoft\Microsoft SQL Server\170\DTS\Setup',$false)
+                if(-not $key){$registered=$false;continue}
+                if(-not (Test-SsisRegistrationValues -Edition ([string]$key.GetValue('Edition')) -EditionType ([string]$key.GetValue('EditionType')))){$registered=$false}
+            } finally {if($key){$key.Dispose()};$base.Dispose()}
+        }
+        [pscustomobject]@{Registration=$(if($registered){'OBSERVED'}else{'NOT_OBSERVED'})}
     }
 }
 
@@ -185,13 +276,23 @@ function Install-LabSsisExistingComponent {
     $preflight=Invoke-LabSsisPrerequisite -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot -TimeoutSeconds 60
     if([string]$preflight.Sql -ne 'SQL_2025_OBSERVED'){throw 'SSIS_COMPONENT_SQL_2025_REQUIRED'}
     if([string]$preflight.DefaultPathComponents -eq 'OBSERVED'){
-        return [pscustomobject]@{RunId=$RunId.ToString();InstanceId=$InstanceId;Status='ALREADY_INSTALLED';EngineMajor=17;SsisMajor=17;Cleanup='REMOVE_RUN_TO_CLEANUP'}
+        $probeSecret=Get-LabSecret -Path $context.Directory -Name 'guest-administrator-password'
+        try {
+            if(-not $probeSecret){throw 'SSIS_COMPONENT_GUEST_CREDENTIAL_REQUIRED'}
+            $registered=@(Invoke-HyperVPowerShellDirect -VMName ([string]$context.Instance.vmName) -ExpectedRunId $RunId.ToString() `
+                -ExpectedScopeId ([string]$context.Run.scopeId) -ExpectedVmId ([guid]$context.Instance.vmId) -Credential ([pscredential]::new('Administrator',$probeSecret)) `
+                -ScriptBlock (Get-LabSsisFeatureRegistrationProbe) -NoRetry -TimeoutSeconds 60 -ErrorAction Stop)
+            if($registered.Count -ne 1 -or $registered[0].Registration -cnotin @('OBSERVED','NOT_OBSERVED')){throw 'SSIS_COMPONENT_REGISTRATION_UNKNOWN'}
+            if($registered[0].Registration -ceq 'OBSERVED'){
+                return [pscustomobject]@{RunId=$RunId.ToString();InstanceId=$InstanceId;Status='ALREADY_INSTALLED';EngineMajor=17;SsisMajor=17;Cleanup='REMOVE_RUN_TO_CLEANUP'}
+            }
+        } finally {if($probeSecret){$probeSecret.Dispose()}}
     }
-    if([string]$preflight.DefaultPathComponents -ne 'NOT_OBSERVED'){throw ('SSIS_COMPONENT_PREREQUISITE_INCONCLUSIVE:{0}:{1}' -f [string]$preflight.DefaultPathComponents,[string]$preflight.ReasonCode)}
+    if([string]$preflight.DefaultPathComponents -notin @('OBSERVED','NOT_OBSERVED')){throw ('SSIS_COMPONENT_PREREQUISITE_INCONCLUSIVE:{0}:{1}' -f [string]$preflight.DefaultPathComponents,[string]$preflight.ReasonCode)}
     # The post-install SQL contract is Enterprise Developer (or its unprefixed
     # Developer label). Reject other editions before attaching media or setup.
     if([string]$preflight.Edition -notin @('EnterpriseDeveloper','Developer')){throw 'SSIS_COMPONENT_ENTERPRISE_DEVELOPER_REQUIRED'}
-    $media=$null;$guest=$null;$addedDvd=$null;$progress=$null;$primaryFailure=$null;$guestOperationStarted=$false
+    $media=$null;$guest=$null;$addedDvd=$null;$progress=$null;$primaryFailure=$null;$guestOperationStarted=$false;$setupConsumerEnded=$false
     $operationId='ssis-component-'+[guid]::NewGuid().ToString('N')
     try {
         $media=Open-LabSsisApprovedMedia -MediaRoot $MediaRoot -SqlMediaPath $SqlMediaPath -ExpectedSha256 $ExpectedSqlMediaSha256
@@ -206,17 +307,17 @@ function Install-LabSsisExistingComponent {
         if([string]$managed.VM.Id -ne [string]$context.Instance.vmId){throw 'SSIS_COMPONENT_VM_BINDING_INVALID'}
         if([string]$managed.VM.State -ne 'Running'){throw ('SSIS_COMPONENT_VM_START_TIMEOUT:{0}' -f [string]$managed.VM.State)}
         $existing=@(Get-VMDvdDrive -VM $managed.VM -ErrorAction Stop | Where-Object {[string]$_.Path -eq [string]$media.Media.IsoPath}) | Select-Object -First 1
-        if(-not $existing){$addedDvd=Add-VMDvdDrive -VM $managed.VM -Path $media.Media.IsoPath -ErrorAction Stop}
+        if(-not $existing){$addedDvd=Add-VMDvdDrive -VM $managed.VM -Path $media.Media.IsoPath -Passthru -ErrorAction Stop}
         $guest=Get-LabSecret -Path $context.Directory -Name 'guest-administrator-password'
         if(-not $guest){throw 'SSIS_COMPONENT_GUEST_CREDENTIAL_REQUIRED'}
         $credential=[PSCredential]::new('Administrator',$guest)
         $progress=Start-LabBlockingActionProgress -Phase GuestWait
+        $guestOperationStarted=$true
         $launched=@(Invoke-HyperVPowerShellDirect -VMName ([string]$context.Instance.vmName) -ExpectedRunId $RunId.ToString() `
             -ExpectedScopeId ([string]$context.Run.scopeId) -ExpectedVmId ([guid]$context.Instance.vmId) -Credential $credential `
             -ScriptBlock (Get-LabSsisComponentGuestInstall) -ArgumentList @((Get-HyperVSqlSetupVersionPattern -SqlVersion '2025'),$SetupTimeoutSeconds,$operationId) `
-            -Progress $progress.Progress -TimeoutSeconds 180 -ErrorAction Stop)
+            -Progress $progress.Progress -NoRetry -TimeoutSeconds 180 -ErrorAction Stop)
         if($launched.Count -ne 1 -or [string]$launched[0].Status -ne 'SSIS_COMPONENT_INSTALL_LAUNCHED' -or [string]$launched[0].OperationId -ne $operationId){throw 'SSIS_COMPONENT_LAUNCH_INVALID'}
-        $guestOperationStarted=$true
         $deadline=[datetime]::UtcNow.AddSeconds($SetupTimeoutSeconds);$result=$null
         do {
             Start-Sleep -Seconds 10
@@ -224,22 +325,44 @@ function Install-LabSsisExistingComponent {
                 -ExpectedScopeId ([string]$context.Run.scopeId) -ExpectedVmId ([guid]$context.Instance.vmId) -Credential $credential `
                 -ScriptBlock (Get-LabSsisComponentGuestInstallStatus) -ArgumentList @($operationId) -Progress $progress.Progress -TimeoutSeconds 60 -ErrorAction Stop)
             if($status.Count -ne 1 -or [string]$status[0].OperationId -ne $operationId){throw 'SSIS_COMPONENT_STATUS_INVALID'}
+            $setupConsumerEnded=[bool]$status[0].ConsumerEnded
             if([string]$status[0].State -eq 'SUCCEEDED'){$result=$status[0];break}
             if([string]$status[0].State -eq 'FAILED'){throw ('SSIS_COMPONENT_SETUP_FAILED:{0}' -f [string]$status[0].ErrorCode)}
         } while([datetime]::UtcNow -lt $deadline)
         if(-not $result){throw 'SSIS_COMPONENT_SETUP_TIMEOUT'}
+        $registered=@(Invoke-HyperVPowerShellDirect -VMName ([string]$context.Instance.vmName) -ExpectedRunId $RunId.ToString() `
+            -ExpectedScopeId ([string]$context.Run.scopeId) -ExpectedVmId ([guid]$context.Instance.vmId) -Credential $credential `
+            -ScriptBlock (Get-LabSsisFeatureRegistrationProbe) -NoRetry -TimeoutSeconds 60 -ErrorAction Stop)
+        if($registered.Count -ne 1 -or $registered[0].Registration -cne 'OBSERVED'){throw 'SSIS_COMPONENT_REGISTRATION_POSTCONDITION_FAILED'}
         $managed=Get-HyperVManagedVM -VMName ([string]$context.Instance.vmName) -ExpectedRunId $RunId.ToString() -ExpectedScopeId ([string]$context.Run.scopeId)
         if(-not $managed -or [string]$managed.VM.Id -ne [string]$context.Instance.vmId){throw 'SSIS_COMPONENT_RESTART_BINDING_INVALID'}
-        $null=Restart-VM -VM $managed.VM -Force -ErrorAction Stop
-        $ready=Wait-HyperVPowerShellDirect -VMName ([string]$context.Instance.vmName) -ExpectedRunId $RunId.ToString() `
-            -ExpectedScopeId ([string]$context.Run.scopeId) -Credential $credential -TimeoutSeconds 600
-        if(-not $ready.Ready){throw 'SSIS_COMPONENT_RESTART_NOT_READY'}
+        $restart=@(Invoke-HyperVPowerShellDirect -VMName ([string]$context.Instance.vmName) -ExpectedRunId $RunId.ToString() `
+            -ExpectedScopeId ([string]$context.Run.scopeId) -ExpectedVmId ([guid]$context.Instance.vmId) -Credential $credential `
+            -ScriptBlock (Get-LabSsisComponentGuestRestart) -ArgumentList @($operationId) -NoRetry -TimeoutSeconds 60 -ErrorAction Stop)
+        if($restart.Count -ne 1 -or $restart[0].OperationId -cne $operationId -or $restart[0].Status -cne 'GRACEFUL_RESTART_SCHEDULED'){throw 'SSIS_COMPONENT_RESTART_UNCONFIRMED_NO_REPLAY'}
+        $bootBefore=[datetimeoffset]::Parse([string]$restart[0].BootBefore)
+        $bootDeadline=[datetime]::UtcNow.AddSeconds(600);$newBoot=$false
+        do {
+            Start-Sleep -Seconds 5
+            try {
+                $boot=@(Invoke-HyperVPowerShellDirect -VMName ([string]$context.Instance.vmName) -ExpectedRunId $RunId.ToString() `
+                    -ExpectedScopeId ([string]$context.Run.scopeId) -ExpectedVmId ([guid]$context.Instance.vmId) -Credential $credential `
+                    -ScriptBlock (Get-LabSsisComponentGuestInstallStatus) -ArgumentList @($operationId) -NoRetry -TimeoutSeconds 30 -ErrorAction Stop)
+                $newBoot=$boot.Count -eq 1 -and $boot[0].OperationId -ceq $operationId -and $boot[0].State -ceq 'SUCCEEDED' -and
+                    [datetimeoffset]::Parse([string]$boot[0].BootTime) -gt $bootBefore
+            } catch { $newBoot=$false }
+        } while(-not $newBoot -and [datetime]::UtcNow -lt $bootDeadline)
+        if(-not $newBoot){throw 'SSIS_COMPONENT_RESTART_NOT_READY'}
+        $registered=@(Invoke-HyperVPowerShellDirect -VMName ([string]$context.Instance.vmName) -ExpectedRunId $RunId.ToString() `
+            -ExpectedScopeId ([string]$context.Run.scopeId) -ExpectedVmId ([guid]$context.Instance.vmId) -Credential $credential `
+            -ScriptBlock (Get-LabSsisFeatureRegistrationProbe) -NoRetry -TimeoutSeconds 60 -ErrorAction Stop)
+        if($registered.Count -ne 1 -or $registered[0].Registration -cne 'OBSERVED'){throw 'SSIS_COMPONENT_REGISTRATION_POSTCONDITION_FAILED'}
         # The guest probe may wait up to 180 seconds for SQL's local
         # transport after the mandatory reboot; the enclosing transport
         # budget must exceed that bounded recovery window.
         $verified=@(Invoke-HyperVPowerShellDirect -VMName ([string]$context.Instance.vmName) -ExpectedRunId $RunId.ToString() `
             -ExpectedScopeId ([string]$context.Run.scopeId) -ExpectedVmId ([guid]$context.Instance.vmId) -Credential $credential `
-            -ScriptBlock (Get-LabSsisInstallGuestProbe) -TimeoutSeconds 300 -ErrorAction Stop)
+            -ScriptBlock (Get-LabSsisInstallGuestProbe) -ArgumentList @($true,$true) -NoRetry -TimeoutSeconds 300 -ErrorAction Stop)
         if($verified.Count -ne 1 -or [string]$verified[0].Status -ne 'IS_COMPONENTS_AND_SQL_VERIFIED'){throw 'SSIS_COMPONENT_POSTCONDITION_FAILED'}
         $receipt=[pscustomobject][ordered]@{ContractVersion='SqlServerLab.SsisComponent/1.0';RunId=$RunId.ToString();InstanceId=$InstanceId;OperationId=$operationId;Status='INSTALLED_AND_RESTART_VERIFIED';EngineMajor=17;SsisMajor=17;MediaSha256=$media.Sha256;Cleanup='REMOVE_RUN_TO_CLEANUP'}
         Write-LabArtifactJsonAtomic -Path (Join-Path $context.Directory 'ssis-component-receipt.json') -InputObject $receipt
@@ -247,27 +370,50 @@ function Install-LabSsisExistingComponent {
     }
     catch {
         $primaryFailure=$_
+        $primaryFailure.Exception.Data['OperationId']=$operationId
         throw
     }
     finally {
+        $cleanupFailures=[Collections.Generic.List[string]]::new()
         if($guestOperationStarted -and $guest){
             try {
                 $credential=[PSCredential]::new('Administrator',$guest)
                 $null=Invoke-HyperVPowerShellDirect -VMName ([string]$context.Instance.vmName) -ExpectedRunId $RunId.ToString() `
                     -ExpectedScopeId ([string]$context.Run.scopeId) -ExpectedVmId ([guid]$context.Instance.vmId) -Credential $credential `
-                    -ScriptBlock (Remove-LabSsisComponentGuestOperation) -ArgumentList @($operationId) -TimeoutSeconds 60 -ErrorAction Stop
-            } catch {if(-not $primaryFailure){throw 'SSIS_COMPONENT_OPERATION_CLEANUP_FAILED'}}
-        }
-        if($addedDvd){
-            try { Remove-VMDvdDrive -VMDvdDrive $addedDvd -ErrorAction Stop }
-            catch {
-                if($primaryFailure){ $primaryFailure.Exception.Data['CleanupFailure']='SSIS_COMPONENT_MEDIA_DETACH_FAILED' }
-                else { throw 'SSIS_COMPONENT_MEDIA_DETACH_FAILED' }
+                    -ScriptBlock (Remove-LabSsisComponentGuestOperation) -ArgumentList @($operationId) -NoRetry -TimeoutSeconds 60 -ErrorAction Stop
+            } catch {
+                $cleanupFailures.Add('SSIS_COMPONENT_OPERATION_CLEANUP_FAILED')
             }
         }
-        if($progress){Stop-LabBlockingActionProgress -Handle $progress}
-        if($guest){$guest.Dispose()}
-        if($media){$media.Handle.Dispose()}
+        if($addedDvd -and (-not $guestOperationStarted -or $setupConsumerEnded)){
+            try {
+                $managed=Get-HyperVManagedVM -VMName ([string]$context.Instance.vmName) -ExpectedRunId $RunId.ToString() -ExpectedScopeId ([string]$context.Run.scopeId)
+                if(-not $managed -or [string]$managed.VM.Id -ne [string]$context.Instance.vmId){throw 'SSIS_COMPONENT_MEDIA_BINDING_CHANGED'}
+                $drive=@(Get-VMDvdDrive -VM $managed.VM -ErrorAction Stop|Where-Object {
+                    $_.ControllerNumber -eq $addedDvd.ControllerNumber -and $_.ControllerLocation -eq $addedDvd.ControllerLocation -and $_.Path -ceq $media.Media.IsoPath
+                })
+                if($drive.Count -ne 1){throw 'SSIS_COMPONENT_MEDIA_BINDING_CHANGED'}
+                Remove-VMDvdDrive -VMDvdDrive $drive[0] -ErrorAction Stop
+            }
+            catch {
+                $cleanupFailures.Add('SSIS_COMPONENT_MEDIA_DETACH_FAILED')
+            }
+        }
+        if($primaryFailure -and $guestOperationStarted -and -not $setupConsumerEnded){$primaryFailure.Exception.Data['RecoveryRequired']=$true}
+        try {if($progress){Stop-LabBlockingActionProgress -Handle $progress}}catch{$cleanupFailures.Add('SSIS_COMPONENT_PROGRESS_CLEANUP_FAILED')}
+        try {if($guest){$guest.Dispose()}}catch{$cleanupFailures.Add('SSIS_COMPONENT_SECRET_CLEANUP_FAILED')}
+        try {if($media){$media.Handle.Dispose()}}catch{$cleanupFailures.Add('SSIS_COMPONENT_MEDIA_HANDLE_CLEANUP_FAILED')}
+        if($cleanupFailures.Count){
+            if($primaryFailure){
+                $primaryFailure.Exception.Data['CleanupFailure']=$cleanupFailures -join ';'
+                $primaryFailure.Exception.Data['RecoveryRequired']=$true
+            } else {
+                $failure=[InvalidOperationException]::new('SSIS_COMPONENT_CLEANUP_FAILED')
+                $failure.Data['CleanupFailure']=$cleanupFailures -join ';'
+                $failure.Data['RecoveryRequired']=$true;$failure.Data['OperationId']=$operationId
+                throw $failure
+            }
+        }
     }
 }
 
@@ -389,21 +535,28 @@ function Get-LabSsisInstallGuestProbe {
     [CmdletBinding()]
     param()
     return {
+        param([bool]$AllowExistingCatalog=$false,[bool]$StartSqlIfStopped=$false)
         $ErrorActionPreference='Stop'
         function Read-SsisInstalledSql {
-            param($Connection)
+            param($Connection,[bool]$AllowExistingCatalog=$false)
             $command=$null;$reader=$null
             try {
                 $command=$Connection.CreateCommand();$command.CommandTimeout=30
                 $command.CommandText="SELECT CONVERT(int,SERVERPROPERTY('ProductMajorVersion')),CONVERT(nvarchar(128),SERVERPROPERTY('Edition')),IS_SRVROLEMEMBER(N'sysadmin'),(SELECT COUNT(*) FROM sys.databases WHERE name=N'SSISDB');"
                 $reader=$command.ExecuteReader()
                 if (-not $reader.Read() -or $reader.GetInt32(0) -ne 17 -or
-                    $reader.GetString(1) -cnotmatch '^(Enterprise )?Developer Edition \(64-bit\)$' -or $reader.GetInt32(2) -ne 1 -or $reader.GetInt32(3) -ne 0) { throw 'SSIS_INSTALL_SQL_POSTCONDITION' }
+                    $reader.GetString(1) -cnotmatch '^(Enterprise )?Developer Edition \(64-bit\)$' -or $reader.GetInt32(2) -ne 1 -or
+                    (-not $AllowExistingCatalog -and $reader.GetInt32(3) -ne 0)) { throw 'SSIS_INSTALL_SQL_POSTCONDITION' }
                 if ($reader.Read() -or $reader.NextResult()) { throw 'SSIS_INSTALL_SQL_POSTCONDITION' }
             } finally {if($reader){$reader.Dispose()};if($command){$command.Dispose()}}
         }
         $service=Get-Service -Name MsDtsServer170 -ErrorAction Stop
         if([string]$service.StartType -ne 'Disabled'){throw 'SSIS_INSTALL_LEGACY_SERVICE_STARTUP_INVALID'}
+        if($StartSqlIfStopped){
+            $sqlService=Get-Service -Name MSSQLSERVER -ErrorAction Stop
+            try {if([string]$sqlService.Status -ceq 'Stopped'){Start-Service -Name MSSQLSERVER -ErrorAction Stop}}
+            finally {$sqlService.Dispose()}
+        }
         # MsDtsServer is the legacy package-store management service. Microsoft
         # explicitly does not require it to create or execute packages. The
         # SSISDB path proves the server binaries, SQL and real catalog execution;
@@ -422,7 +575,7 @@ function Get-LabSsisInstallGuestProbe {
         do {
             $connection=[Data.SqlClient.SqlConnection]::new('Data Source=localhost;Initial Catalog=master;Integrated Security=SSPI;Connect Timeout=15;Encrypt=False;Pooling=False')
             try {
-                $connection.Open();Read-SsisInstalledSql -Connection $connection
+                $connection.Open();Read-SsisInstalledSql -Connection $connection -AllowExistingCatalog $AllowExistingCatalog
                 return [pscustomobject]@{Status='IS_COMPONENTS_AND_SQL_VERIFIED';LegacyServiceStatus=[string]$service.Status;LegacyServiceStartup=[string]$service.StartType;BootTime=(Get-CimInstance Win32_OperatingSystem -ErrorAction Stop).LastBootUpTime.ToUniversalTime().ToString('o')}
             } catch {
                 $lastSqlError=$_.Exception

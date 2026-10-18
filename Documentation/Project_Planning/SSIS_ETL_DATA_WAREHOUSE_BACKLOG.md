@@ -9,7 +9,7 @@
 
 ## P1: Katalog-Runtime nach dem Consumervergleich vom 2026-10-18
 
-**Offen, hohe Priorität:** Der beauftragte
+**Rest offen, hohe Priorität; eigene Wiederherstellung belegt:** Der beauftragte
 [Vergleich der ursprünglichen Consumerpakete](../Quality/LOCAL_VALIDATION_STRATEGY.md#ursprüngliche-consumerfehler-gast--und-katalogvergleich-vom-2026-10-18)
 bestätigt deren fehlerfreies SDK-Laden, aber keine funktionsfähige
 OLEDB-/SQL-LogProvider-Katalogpipeline. Die ursprünglichen unbekannten
@@ -28,14 +28,25 @@ Katalogausführung endete mit Status `4`. Der frühere Administratortoken-Blocke
 ist geschlossen, die fachliche Behebung bleibt offen. Eigene VM und eigene
 VHD wurden entfernt; die erhaltene Analyze-Quelle samt Fixture blieb unverändert.
 
-Die nächste Diagnose benötigt neue unterscheidende Evidence: CU9 nach einem
-zusätzlichen OS-Neustart, die tatsächlich vom Katalogprozess geladenen
-Runtimekomponenten und ein kontrollierter Vergleich des SQL-LogProviders im
-SDK- und Katalogkontext. Das beobachtete Versionsinventar allein erklärt den
-Fehler nicht. Kein erneuter unveränderter Paketlauf und keine manuelle Änderung
-von Lizenz-/Editionsregistrierung. Ziel bleibt ein herstellerkonformer,
-reproduzierbar mit echten SQL- und LogProvider-Effekten belegter Pfad im eigenen
-Lab; die bestehende Analyze-Quelle bleibt geschützt.
+Der anschließende [Registrierungsvergleich](../Quality/SSIS_CATALOG_REGISTRATION_RECOVERY_2026-10-18.md)
+hat die fehlende IS-MSI-/Editionsregistrierung erkannt und mit unterstütztem
+IS-only-Setup unter SYSTEM wiederhergestellt. Drei echte Basic-Katalogtests
+bestanden, auch nach geordnetem Windows-Neustart, mit verschlüsseltem
+Windows-SQL-Schreibzugriff und je zwölf SQL-LogProvider-Zeilen. Die tatsächlich
+geladenen Katalogmodule sind erfasst. Das eigene Lab wurde entfernt; die
+Analyze-Quelle blieb unverändert. Dieser aktuelle Editions-/Installations-
+blocker ist im eigenen Lab behoben; die ursprünglichen Typfehler sind
+historisch weiterhin nicht vollständig erklärt.
+
+**Nächster P1-Nachweis:** einen vollständig frischen öffentlichen
+Provisionierungslauf mit dem korrigierten Komponenteninstaller ausführen und
+daran die begrenzte Basic-OLEDB-/SQL-LogProvider-Abnahme wiederholen. Der
+produktive Registrierungsreader wurde bereits lesend nativ geprüft; die
+erfolgreichen Pakettests stammen aus dem unabhängig geprüften isolierten
+Diagnosecontroller. Weitere Consumerpakete und Analyzervergleich bleiben
+eigene Abnahmen. Kein erneuter unveränderter Fehlversuch und keine manuelle
+Änderung von Lizenz-/Editionsregistrierung; die bestehende Analyze-Quelle
+bleibt geschützt.
 
 Vor einem Installations- oder Reparaturschritt sind dessen Herstellerweg,
 Ausgangszustand und Recovery zu prüfen. Danach sind Komponentenladung,

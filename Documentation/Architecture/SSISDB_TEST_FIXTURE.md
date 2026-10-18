@@ -52,6 +52,31 @@ Remove-SqlServerLabSsisCatalogFixture -RunId $runId -InstanceId primary -Confirm
 Remove-SqlServerLab -RunId $fixture.Target.RunId -Force -Confirm:$false
 ```
 
+Der Komponenteninstaller führt Setup einmalig unter SYSTEM aus. Damit hängt
+der abgekoppelte Installationsprozess nicht vom temporären Administratorprofil
+einer PowerShell-Direct-Sitzung ab. Die Aufgabe besitzt keinen Trigger; nach
+bestätigtem Installerende werden nur die unverändert gebundene eigene Aufgabe
+und ihre Operationsdateien entfernt. Unklares Installerende erhält Medium und
+Dateien für Recovery; Löschfehler werden gemeldet. Der Run bleibt der
+vollständige Cleanup-Scope.
+
+Vorhandene Dateien allein reichen für `ALREADY_INSTALLED` nicht aus: auch die
+IS-Feature-/Editionsregistrierung muss in beiden Registry-Sichten beobachtet
+werden. Fehlt sie bei einer Enterprise-Developer-Engine, ist derselbe
+IS-only-Installationsweg zulässig. Ein vorhandener SSISDB-Katalog wird dabei
+nicht entfernt. Vor und nach einem geordneten Windows-Neustart werden die
+Registrierungswerte geprüft; eine tatsächlich neue Bootzeit ist Pflicht.
+Der Komponentenpfad führt keinen harten VM-Reset aus.
+Ein nach dem Neustart gestoppter Standard-SQL-Dienst wird im additiven
+Postcheck einmal gestartet; laufende/startende Dienste und deren Starttyp
+bleiben erhalten. Diese Option ist für die separate frische Installationsprobe
+standardmäßig ausgeschaltet.
+
+Der [isolierte Registrierungsvergleich](../Quality/SSIS_CATALOG_REGISTRATION_RECOVERY_2026-10-18.md)
+belegt die wirksame SYSTEM-Nachinstallation mit echten OLEDB-/SQL-LogProvider-
+Katalogausführungen. Er ist vom noch offenen vollständigen frischen
+Provisionierungsnachweis des korrigierten öffentlichen Pfads getrennt.
+
 ## Neues Lab aus Manifest
 
 `New-SqlServerLab -Manifest` unterstützt `instances[].ssisCatalogFixture` für

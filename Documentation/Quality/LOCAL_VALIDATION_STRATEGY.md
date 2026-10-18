@@ -5205,6 +5205,25 @@ Zielidentitäten und Rohreceipts bleiben ausschließlich lokal außerhalb von Gi
 Der SQL-LogProvider bleibt [P1 offen](../Project_Planning/SSIS_ETL_DATA_WAREHOUSE_BACKLOG.md#p1-katalog-runtime-nach-dem-consumervergleich-vom-2026-10-18);
 die getrennte Legacy-SDK-Providerabnahme wird nicht neu geöffnet.
 
+### Wirksame IS-Registrierungswiederherstellung vom 2026-10-18
+
+Der folgende [isolierte Registrierungsvergleich](SSIS_CATALOG_REGISTRATION_RECOVERY_2026-10-18.md)
+belegt die tatsächlichen Module des aktiven Katalogprozesses und drei
+erfolgreiche Basic-Pakete nach unterstützter SYSTEM-IS-Installation: Status `7`,
+keine Fehler, je ein verschlüsselter Windows-SQL-Marker und zwölf selbst
+erzeugte SQL-LogProvider-Zeilen einschließlich PackageStart/PackageEnd.
+Registrierung und erfolgreicher Paketlauf blieben nach geordnetem
+Windows-Neustart erhalten. Die eigene VM und VHD wurden entfernt, die
+geschützte Quelle und das Original-ISPAC blieben unverändert.
+
+Die fokussierten `Invoke-SsisOwnedInstallChecks.ps1` prüfen den korrigierten
+Installer und seine Cleanup-/NoReplay-Grenzen. Der produktive
+Registrierungsreader bestand im eigenen Gast lesend. Die Paketnachweise
+stammen aus dem unabhängig geprüften Diagnosecontroller; ein vollständig
+frischer öffentlicher Provisionierungslauf mit dem korrigierten Produktcode
+bleibt getrennt offen. Der frühere fehlgeschlagene Reparaturvergleich wird
+nicht rückwirkend als erfolgreich gewertet.
+
 ## SSISDB-Fixture auf Prepared Hyper-V SQL 2025
 
 Die unabhängige Formatabnahme `Tests/Integration/Invoke-SsisFixtureFormatAcceptance.ps1`
