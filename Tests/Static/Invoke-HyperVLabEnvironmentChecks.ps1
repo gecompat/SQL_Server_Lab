@@ -32,6 +32,8 @@ try {
     $module = Import-Module $modulePath -Force -PassThru
     $completionBoundary = & (Join-Path $PSScriptRoot 'Fixtures/HyperVSqlCompletionBoundaryChecks.ps1') -RepoRoot $repoRoot
     Add-CheckResult -Name 'Öffentlicher SQL-Abschluss bindet explizite Roots; vier mutierende Gastaufrufe wiederholen verlorene Replies nicht' -Success $completionBoundary.Success
+    $immutableReader = & (Join-Path $PSScriptRoot 'Fixtures/HyperVImmutableRunReaderChecks.ps1') -RepoRoot $repoRoot
+    Add-CheckResult -Name 'Strikter VM-ID-Reader lehnt Drift vor Rename-Write ab und erhält bisherige Defaults' -Success $immutableReader.Success
     $null = & $module { param($Root) Initialize-LabManagedDataRoot -DataRoot $Root -Confirm:$false } $dataRoot
     $env:SQL_SERVER_LAB_DATA_ROOT = $dataRoot
     $environmentText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/HyperVLabEnvironment.ps1') -Raw -Encoding utf8

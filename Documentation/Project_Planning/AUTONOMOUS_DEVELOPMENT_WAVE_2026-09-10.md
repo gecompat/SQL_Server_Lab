@@ -1,5 +1,10 @@
 # Autonome Entwicklungswelle nach der Repository-Durchsicht
 
+Die vorgelagerte [interne VM-ID-Lesegrenze](../Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md)
+ergänzt einen schreibfreien strikten Reader vor einer Rename-Reparatur.
+Öffentliche durchgängige Setup-/Direct-only-Bindung, Verbraucherende und
+native CA-/SQL-/TLS-Abnahme bleiben offen; SC-2026-045 bleibt gesperrt.
+
 ## SQL-Abschlussgrenze vor dem nativen TLS-Binder
 
 Der [gekoppelte Vertrag](../Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md)

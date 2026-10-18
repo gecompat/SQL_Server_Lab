@@ -1,5 +1,10 @@
 # TLS-001a – Entwurf einer isolierten Lab-CA
 
+Der [strikte interne Run-Reader](../Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md)
+schließt eine vorgelagerte VM-ID-/Rename-Lesegrenze ohne Write.
+Er ersetzt weder durchgängige öffentliche Setupbindung noch Verbraucherende
+oder native CA-/SQL-/TLS-Abnahme.
+
 Die vorgelagerte [SQL-Abschlussgrenze](../Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md)
 bindet explizite Roots und unterbindet Transportreplay mutierender Gastblöcke.
 Sie ist keine native Setup-, CA-, ServiceACL- oder TLS-Abnahme und erteilt

@@ -1,5 +1,9 @@
 # TLS-001 – Client- und Signierkontexte registrieren
 
+Der [strikte interne Run-Reader](../Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md)
+bindet gespeicherte und native VM-ID vor einer schreibfreien Namensprojektion.
+Er registriert keinen Client-/Signierkontext und qualifiziert keinen Verbraucher.
+
 Die [SQL-Abschlussgrenze](../Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md)
 behandelt öffentliche Rootweitergabe und mutierende Gasttransporte. Ihr
 synthetischer Nachweis registriert keinen Trust-/Signierkontext und qualifiziert
