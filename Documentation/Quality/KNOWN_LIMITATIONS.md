@@ -3307,6 +3307,11 @@ Aktivierungspfad weiter. Ohne Uebersteuerung bleibt der gespeicherte Intent
 massgeblich. Die Weitergabe und Abweisung ungueltiger Eingaben vor einem
 VM-Start sind statisch geprueft; eine neue native Qualifikation dieser
 Adapterweitergabe oder Freigabe von Aktivierungsegress folgt daraus nicht.
+Der mutierende Aktivierungsaufruf verwendet `NoRetry`, damit ein verlorener
+Transportreply den Gastblock nicht erneut ausfuehrt. Die beiden begrenzten
+Windows-API-Versuche innerhalb des Gastblocks bleiben erhalten. Ohne gueltigen
+Abschlussreceipt bleibt eine konkrete native Recovery erforderlich; die
+statische Transportpruefung belegt keine neue Windows-Aktivierung.
 
 Der spezielle Evaluationspfad entfernt nur journalgebundene temporaere
 Adapter. Fremde gleichnamige Adapter bleiben bestehen. Unvollstaendige

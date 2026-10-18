@@ -89,8 +89,9 @@ $module=Import-Module (Join-Path $PSScriptRoot '../../SqlServerLab.psd1') -Force
     function Remove-LabWindowsActivationAdapter {throw 'UNEXPECTED_ADAPTER_REMOVAL'}
     function Resolve-HyperVWindowsActivationExternalSwitch {throw 'UNEXPECTED_EXTERNAL_SWITCH_LOOKUP'}
     function Invoke-HyperVPowerShellDirect {
-        param($ArgumentList,$ScriptBlock)
+        param($ArgumentList,$ScriptBlock,[switch]$NoRetry)
         if($ArgumentList.Count -eq 1){return [pscustomobject]@{Available=$true}}
+        $script:activationNoRetry=$NoRetry
         $script:activationGuestScript=$ScriptBlock
         $script:configureTemporary=$ArgumentList[1]
         if($script:activationFailure){throw 'WINDOWS_ACTIVATION_SYNTHETIC_FAILURE'}
@@ -100,9 +101,10 @@ $module=Import-Module (Join-Path $PSScriptRoot '../../SqlServerLab.psd1') -Force
     $credential=[pscredential]::new('synthetic',[SecureString]::new())
     $result=Invoke-LabWindowsSlotActivationReconcile -RunId own-run -Credential $credential
     Assert-Path ($result.State -eq 'EVALUATION_ACTIVE' -and $script:activationMode -eq 'Permanent' -and $script:configureTemporary -eq $false -and $script:permanentAdapter.SwitchId -eq 'own-switch') 'Permanente gebundene NIC wird ohne temporaere NIC oder Gast-Netzwerkkonfiguration wiederverwendet'
+    Assert-Path $script:activationNoRetry 'Mutierender Aktivierungs-Gastblock verbietet Transportreplay nach verlorenem Reply'
     $script:activationFailure=$true;$failed=$false
     try{$null=Invoke-LabWindowsSlotActivationReconcile -RunId own-run -Credential $credential}catch{$failed=$_.Exception.Message -match 'WINDOWS_ACTIVATION_SYNTHETIC_FAILURE'}
-    Assert-Path ($failed -and $script:permanentAdapter.Id -eq 'own-adapter' -and $script:permanentAdapter.SwitchId -eq 'own-switch') 'Aktivierungsfehler erhaelt die permanente NIC unveraendert'
+    Assert-Path ($failed -and $script:activationNoRetry -and $script:permanentAdapter.Id -eq 'own-adapter' -and $script:permanentAdapter.SwitchId -eq 'own-switch') 'Aktivierungsfehler erhaelt die permanente NIC unveraendert und erlaubt kein Transportreplay'
     $script:activationFailure=$false;$script:guestReportedFailure=$true;$failed=$false
     try{$null=Invoke-LabWindowsSlotActivationReconcile -RunId own-run -Credential $credential}catch{$failed=$_.Exception.Message -match 'WINDOWS_ACTIVATION_NETWORK_NOT_READY' -and $_.Exception.Message -match 'dns=unresolved'}
     Assert-Path ($failed -and $script:permanentAdapter.Id -eq 'own-adapter' -and $script:permanentAdapter.SwitchId -eq 'own-switch') 'Sanitisierter Gast-Fehlercode und Netzwerkdiagnose bleiben bis zum Aktivierungsaufrufer erhalten'
