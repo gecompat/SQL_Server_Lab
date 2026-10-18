@@ -478,6 +478,7 @@ sources_of_truth:
   diagnostic_ssis_legacy_service_isolation: Tests/Integration/Set-SsisOwnedLegacyServiceIsolation.ps1
   evidence_ssis_catalog_windows: Documentation/Quality/SSISDB_WINDOWS_RUNTIME_ACCEPTANCE_2026-10-16.md
   evidence_ssis_catalog_registration_recovery: Documentation/Quality/SSIS_CATALOG_REGISTRATION_RECOVERY_2026-10-18.md
+  evidence_ssis_public_fresh_provisioning: Documentation/Quality/SSIS_PUBLIC_FRESH_PROVISIONING_ACCEPTANCE_2026-10-18.md
   validation_ssis_owned_install: Tests/Static/Invoke-SsisOwnedInstallChecks.ps1
   repository_capability_inventory: Tools/Get-SqlServerLabCapabilityInventory.ps1
   repository_recorded_acceptance_matrix: Tools/Get-SqlServerLabCapabilityInventory.ps1 # optional 1.1 view; indexed historical tuples only

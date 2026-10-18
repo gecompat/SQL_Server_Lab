@@ -9,12 +9,16 @@
 
 ## P1: Katalog-Runtime nach dem Consumervergleich vom 2026-10-18
 
-**Rest offen, hohe Priorität; eigene Wiederherstellung belegt:** Der beauftragte
+**Basic-Installationsnachweis abgeschlossen; weitere Consumerabnahmen offen:**
+Die [frische öffentliche P1-Abnahme](../Quality/SSIS_PUBLIC_FRESH_PROVISIONING_ACCEPTANCE_2026-10-18.md)
+belegt Neuanlage, echte Basic-OLEDB-/SQL-LogProvider-Verbindung und Cleanup.
+
+**Historischer Ausgangsbefund:** Der beauftragte
 [Vergleich der ursprünglichen Consumerpakete](../Quality/LOCAL_VALIDATION_STRATEGY.md#ursprüngliche-consumerfehler-gast--und-katalogvergleich-vom-2026-10-18)
-bestätigt deren fehlerfreies SDK-Laden, aber keine funktionsfähige
+bestätigte deren fehlerfreies SDK-Laden, aber keine funktionsfähige
 OLEDB-/SQL-LogProvider-Katalogpipeline. Die ursprünglichen unbekannten
 Komponententypen wurden nicht erneut beobachtet; ihre historische Ursache
-ist weiterhin unbekannt. Die aktuelle Katalogruntime meldet einen
+ist weiterhin unbekannt. Die damalige Katalogruntime meldete einen
 Editions-/Installationsfehler trotz vorhandenem IS und Enterprise-Developer-
 Engine. Eine Validierung meldete dabei Status `7` samt Fehlerereignis.
 
@@ -38,13 +42,14 @@ Analyze-Quelle blieb unverändert. Dieser aktuelle Editions-/Installations-
 blocker ist im eigenen Lab behoben; die ursprünglichen Typfehler sind
 historisch weiterhin nicht vollständig erklärt.
 
-**Nächster P1-Nachweis:** einen vollständig frischen öffentlichen
-Provisionierungslauf mit dem korrigierten Komponenteninstaller ausführen und
-daran die begrenzte Basic-OLEDB-/SQL-LogProvider-Abnahme wiederholen. Der
-produktive Registrierungsreader wurde bereits lesend nativ geprüft; die
-erfolgreichen Pakettests stammen aus dem unabhängig geprüften isolierten
-Diagnosecontroller. Weitere Consumerpakete und Analyzervergleich bleiben
-eigene Abnahmen. Kein erneuter unveränderter Fehlversuch und keine manuelle
+**P1-Nachweis abgeschlossen:** Die
+[frische öffentliche Neuanlage](../Quality/SSIS_PUBLIC_FRESH_PROVISIONING_ACCEPTANCE_2026-10-18.md)
+bestand über `New-SqlServerLab -Manifest` auf SQL-2025-RTM einschließlich
+SSIS-Installation/Neustart, Fixture `7/4/1`, echter Basic-OLEDB-/SQL-LogProvider-
+Verbindung, API-/CLI-/Workflow-TLS-Werten und öffentlichem Cleanup. Die
+Analyze-Quelle und das Original-ISPAC blieben unverändert. Weitere
+Consumerpakete und Analyzervergleich bleiben eigene Abnahmen.
+Kein erneuter unveränderter Fehlversuch und keine manuelle
 Änderung von Lizenz-/Editionsregistrierung; die bestehende Analyze-Quelle
 bleibt geschützt.
 
