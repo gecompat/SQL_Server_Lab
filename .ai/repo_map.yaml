@@ -600,6 +600,8 @@ sources_of_truth:
   validation_hyperv_network_reconnect_static: Tests/Static/Invoke-HyperVNetworkReconnectAcceptanceChecks.ps1
   validation_hyperv_existing_network_fixture: Tests/Common/HyperVExistingNetworkFixture.ps1
   validation_hyperv_create_existing_network_fixture: Tests/Common/HyperVCreateExistingNetworkFixture.ps1 # LabNetwork, HyperVLabEnvironment, public New and persisted run metadata; offline only, no native TLS proof
+  hyperv_sql_completion_boundary: Documentation/Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md # explicit public StateRoot/MediaRoot; NoRetry at setup/network/WMI/hostSQL guestcalls, no native effect/end proof
+  validation_hyperv_sql_completion_boundary: Tests/Static/Fixtures/HyperVSqlCompletionBoundaryChecks.ps1 # existing HyperVLabEnvironment suite; actual public function/caller AST/transport, synthetic native leaves only
   hyperv_resource_reconcile_contract: Private/HyperVResourceReconcile.ps1
   hyperv_resource_reconcile_own_run_acceptance: Tests/Integration/Invoke-HyperVResourceReconcileOwnRunAcceptance.ps1
   hyperv_resource_reconcile_own_run_contract: Documentation/Architecture/HYPERV_RESOURCE_RECONCILE_OWN_RUN_ACCEPTANCE.md

@@ -1,5 +1,15 @@
 # Public/ – Exportierte Cmdlets
 
+## Explizite Roots beim Hyper-V-SQL-Abschluss
+
+`Invoke-SqlServerLabWorkflowAction -Action CompleteHyperVLabSql` reicht bewusst
+angegebene `StateRoot`-/`MediaRoot`-Werte unverändert weiter und lehnt explizite
+Leerwerte vor dem Core-Zugriff ab. Ohne Angabe gelten die bisherigen Defaults.
+Setup und die drei mutierenden Gastschritte für Netz, WMI und SQL-Hostzugriff
+wiederholen einen verlorenen Transportreply nicht automatisch.
+Der [Vertrag](../Documentation/Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md)
+trennt diesen Schutz von tatsächlicher Ausführung und Recoveryautorität.
+
 ## TLS-Standard für neue Verbindungen
 
 Neue gemeinsame Lab-Connection-Strings und SSMS-Registrierungsexporte enthalten

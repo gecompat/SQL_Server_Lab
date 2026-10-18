@@ -1,5 +1,16 @@
 # Lokale Validierungsstrategie
 
+## Hyper-V-SQL-Abschlussgrenze
+
+Die bestehende HyperVLabEnvironment-Suite führt die
+[CompletionBoundary-Fixture](../../Tests/Static/Fixtures/HyperVSqlCompletionBoundaryChecks.ps1)
+aus: tatsächliche öffentliche Rootweitergabe sowie vier echte Caller-Command-ASTs
+mit tatsächlichem Transport und synthetisch verlorenem Reply nach Verbraucherwrite.
+Direct- und ausdrücklich gebundene Lab-WinRM-Wahl werden getrennt geprüft.
+Keine Gastscriptblöcke, Providerstarts, Setup-, SQL- oder Trustaktionen.
+Der [Vertrag](../Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md) begrenzt die Aussage;
+Verbraucherende, native Recovery und TLS sind damit nicht nachgewiesen.
+
 ## Native Windows-CSP-/CSR-Charakterisierung vom 2026-10-18
 
 Der [eigene Hyper-V-Nachweis](TLS_HYPERV_WINDOWS_CSP_CHARACTERIZATION_2026-10-18.md)

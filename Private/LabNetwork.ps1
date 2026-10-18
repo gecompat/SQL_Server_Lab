@@ -987,7 +987,7 @@ function Initialize-HyperVGuestLabNetwork {
     $address = if ($addressMode -eq 'dhcp') { $null } elseif ($Network.PSObject.Properties['address'] -and $Network.address) { [string]$Network.address } else { Get-LabNetworkGuestAddress -Network $Network -Identity $Identity }
     $gateway = if ($Network.PSObject.Properties['gateway']) { [string]$Network.gateway } else { $null }
     $dnsServers = if ($Network.PSObject.Properties['dnsServers']) { @($Network.dnsServers) } else { @() }
-    $receipt = Invoke-HyperVPowerShellDirect -VMName $VMName -ExpectedRunId $ExpectedRunId `
+    $receipt = Invoke-HyperVPowerShellDirect -VMName $VMName -ExpectedRunId $ExpectedRunId -NoRetry `
         -ExpectedScopeId $ExpectedScopeId -Credential $Credential `
         -FallbackAddress $(if ($FallbackAddress) { $FallbackAddress } else { $address }) `
         -ArgumentList @($addressMode, $address, [int]$Network.PrefixLength, [string]$Network.Name, [string]$Network.HostAddress, $gateway, $dnsServers) `

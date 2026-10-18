@@ -1,5 +1,15 @@
 # Bekannte Grenzen
 
+## SQL-Abschluss ohne Transportreplay ist noch kein nativer TLS-Setupworker
+
+Die [CompletionBoundary](../Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md)
+bindet explizite öffentliche Roots und verhindert das automatische Wiederholen
+vier mutierender Gastblöcke nach verlorenem Reply. Sie beweist weder das Ende
+eines Verbrauchers noch sicheres Resume oder Cleanup eines unbekannten
+Teilzustands. Der isolierte SQL-Port-Reconcile bleibt ein getrennter Pfad.
+Ein konkreter neuer eigener Worker mit unabhängiger Prüfung und dauerhaften
+Intents ist vor nativer SQL-/CA-/ServiceACL-/TLS-Abnahme weiter erforderlich.
+
 ## Windows-CSP-Charakterisierung ohne Hyper-V-TLS-Freigabe
 
 Die [native eigene Windows-Probe](TLS_HYPERV_WINDOWS_CSP_CHARACTERIZATION_2026-10-18.md)

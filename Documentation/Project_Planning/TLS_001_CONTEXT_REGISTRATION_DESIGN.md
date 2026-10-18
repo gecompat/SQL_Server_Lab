@@ -1,5 +1,10 @@
 # TLS-001 – Client- und Signierkontexte registrieren
 
+Die [SQL-Abschlussgrenze](../Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md)
+behandelt öffentliche Rootweitergabe und mutierende Gasttransporte. Ihr
+synthetischer Nachweis registriert keinen Trust-/Signierkontext und qualifiziert
+keinen nativen SQL-/TLS-Verbraucher.
+
 Die getrennte [native Gast-CSP-Charakterisierung](../Quality/TLS_HYPERV_WINDOWS_CSP_CHARACTERIZATION_2026-10-18.md)
 belegt targetlokalen nicht exportierbaren Key und Host-CSR-Proof, registriert
 jedoch keinen Gast- oder Clientkontext. Der neue erwartete Maschinen-CN in der

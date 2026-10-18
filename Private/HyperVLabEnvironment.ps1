@@ -2487,7 +2487,7 @@ function Enable-HyperVLabHostSqlAccess {
         -FallbackAddress $networkReceipt.Address -StateRoot $lab.StateRoot
     Write-LabInfo 'Hostzugriff: aktiviere SQL-TCP, SQL-Authentifizierung und die Host-beschränkte Firewallregel.'
     $receipt = Invoke-HyperVPowerShellDirect -VMName $lab.Instance.vmName -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId `
-        -Credential $Credential -FallbackAddress $networkReceipt.Address -ArgumentList @([string]$lab.Run.runId, [string]$lab.Run.scopeId, $SqlSaPassword, $(if ($usesLan) { 'LocalSubnet' } else { [string]$network.HostAddress }), $SqlPort) -ScriptBlock {
+        -Credential $Credential -NoRetry -FallbackAddress $networkReceipt.Address -ArgumentList @([string]$lab.Run.runId, [string]$lab.Run.scopeId, $SqlSaPassword, $(if ($usesLan) { 'LocalSubnet' } else { [string]$network.HostAddress }), $SqlPort) -ScriptBlock {
             param($ExpectedRunId, $ExpectedScopeId, $SaPassword, $RemoteAddress, $RequestedSqlPort)
             $ErrorActionPreference = 'Stop'
             $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword)
@@ -2612,7 +2612,7 @@ function Repair-HyperVLabSqlWmiProvider {
     $managed = Get-HyperVManagedVM -VMName ([string]$lab.Instance.vmName) -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
     if (-not $managed -or [string]$managed.VM.State -ne 'Running') { throw 'HYPERV_LAB_SQL_WMI_VM_MUST_BE_RUNNING' }
 
-    $receipt = Invoke-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $Credential `
+    $receipt = Invoke-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $Credential -NoRetry `
         -FallbackAddress $FallbackAddress -ArgumentList @([string]$lab.Run.runId, [string]$lab.Run.scopeId) -ScriptBlock {
             param($ExpectedRunId, $ExpectedScopeId)
             $ErrorActionPreference = 'Stop'
@@ -2771,7 +2771,7 @@ function Complete-HyperVLabSqlImage {
         $null = Add-VMDvdDrive -VMName $lab.Instance.vmName -Path $media.IsoPath -ErrorAction Stop
     }
     Write-LabInfo 'Schritt 1/3: SQL-Setup-Medium wird in der run-eigenen VM geprüft.'
-    $receipt = Invoke-HyperVPowerShellDirect -VMName $lab.Instance.vmName -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $Credential -FallbackAddress $fallbackAddress -ArgumentList @([string]$lab.Run.runId, [string]$lab.Run.scopeId, $SqlSaPassword) -ScriptBlock {
+    $receipt = Invoke-HyperVPowerShellDirect -VMName $lab.Instance.vmName -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $Credential -NoRetry -FallbackAddress $fallbackAddress -ArgumentList @([string]$lab.Run.runId, [string]$lab.Run.scopeId, $SqlSaPassword) -ScriptBlock {
         param($ExpectedRunId, $ExpectedScopeId, $SaPassword)
         $setup = @(Get-PSDrive -PSProvider FileSystem | ForEach-Object {
             $candidate = Join-Path $_.Root 'setup.exe'

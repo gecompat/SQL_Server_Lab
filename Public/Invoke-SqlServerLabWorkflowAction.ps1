@@ -719,7 +719,18 @@ function Invoke-SqlServerLabWorkflowAction {
                 -TargetRunId $BuildId -TargetLocationId $TargetLocationId -DataRoot $DataRoot `
                 -OperationId $PersistentStorageOperationId
         }
-        'CompleteHyperVLabSql' { Complete-HyperVLabSqlImage -RunId $BuildId -Credential $credential -SqlSaPassword $(if ($SaPassword) { $SaPassword } else { $GuestPassword }) }
+        'CompleteHyperVLabSql' {
+            $completionArguments=@{RunId=$BuildId;Credential=$credential;SqlSaPassword=$(if ($SaPassword) { $SaPassword } else { $GuestPassword })}
+            if($PSBoundParameters.ContainsKey('StateRoot')){
+                if([string]::IsNullOrWhiteSpace($StateRoot)){throw 'HYPERV_LAB_SQL_COMPLETE_STATE_ROOT_REQUIRED'}
+                $completionArguments.StateRoot=$StateRoot
+            }
+            if($PSBoundParameters.ContainsKey('MediaRoot')){
+                if([string]::IsNullOrWhiteSpace($MediaRoot)){throw 'HYPERV_LAB_SQL_COMPLETE_MEDIA_ROOT_REQUIRED'}
+                $completionArguments.MediaRoot=$MediaRoot
+            }
+            Complete-HyperVLabSqlImage @completionArguments
+        }
         'EnableHyperVLabHostSqlAccess' { Enable-HyperVLabHostSqlAccess -RunId $BuildId -Credential $credential -SqlSaPassword $(if ($SaPassword) { $SaPassword } else { $GuestPassword }) -SwitchName $SwitchName }
         'InspectHyperVLabSqlInstances' { Inspect-HyperVLabSqlInstances -RunId $BuildId -Credential $credential }
         'AttachHyperVDatabasePackage' {
