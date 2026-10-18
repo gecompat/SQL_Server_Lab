@@ -1,5 +1,18 @@
 # Bekannte Grenzen
 
+## Windows-CSP-Charakterisierung ohne Hyper-V-TLS-Freigabe
+
+Die [native eigene Windows-Probe](TLS_HYPERV_WINDOWS_CSP_CHARACTERIZATION_2026-10-18.md)
+belegt nach separat freigegebener Aktivierung einen nicht exportierbaren
+Machine-CSP-RSA3072-Key mit tatsächlichem KeySpec 1, öffentlichem CSR und
+Host-Proof. VM/Disks/Key bleiben gestoppt erhalten. Der native CSR mit
+zusätzlichem S/MIME bleibt im engen Reader abgelehnt. Ein erwarteter
+Maschinen-CN ist nun eine private Kryptooption; keine Zusatzextension wird
+erlaubt. Neue CSR-Erstellung mit vorhandenem Key, CA-Ausstellung, Storeannahme,
+SQL CompleteImage, Dienst-KeyACL und echte TLS-Verbindungen stehen aus.
+SQL-Prepared-Medium war 2025 RTM, kein CU9. False-Hyper-V und SC-2026-045
+bleiben gesperrt.
+
 ## Hyper-V-TLS-Zielmetadaten ohne native Qualifikation
 
 Der [zusätzliche private Reader](../Architecture/AUTHENTICATED_TLS_TARGET_METADATA.md#getrennte-aufgezeichnete-hyper-v-zielbindung)

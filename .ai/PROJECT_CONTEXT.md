@@ -1,5 +1,12 @@
 # Projektkontext
 
+Die [native Windows-CSP-Charakterisierung](../Documentation/Quality/TLS_HYPERV_WINDOWS_CSP_CHARACTERIZATION_2026-10-18.md)
+belegt einen eigenen nicht exportierbaren Gastschlüssel und Host-CSR-Proof nach
+separat freigegebener Aktivierung. VM/Disks/Key bleiben gestoppt erhalten.
+Der CSR mit zusätzlichem S/MIME bleibt abgelehnt; der additive erwartete
+Maschinen-CN im privaten Leafvertrag ist keine native CA-/SQL-/TLS-Freigabe.
+SC-2026-045 bleibt gesperrt.
+
 ## Private CA-/Client-Trustmetadaten vom 2026-10-17
 
 Die [Authoritybindung](../Documentation/Architecture/AUTHENTICATED_TLS_AUTHORITY_BINDING.md)

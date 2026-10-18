@@ -17,6 +17,12 @@ Dienst- oder Clientqualifikation. Die separat ausgeführte begrenzte
 ersetzt nicht die vollständige Matrix. Das feste synthetische Subject und
 enge Attributset sind kein bereits passender Windows-certreq-/SQL-Request.
 
+Der additive Parameter `WindowsMachineName` ergänzt einen ausdrücklich
+erwarteten Maschinen-CN. Die getrennte [native Charakterisierung](../Quality/TLS_HYPERV_WINDOWS_CSP_CHARACTERIZATION_2026-10-18.md)
+belegt einen nicht exportierbaren Gastschlüssel, keine akzeptierte native
+Signieranfrage oder SQL-Zertifikatsbindung. Ihr CSR mit zusätzlichem S/MIME
+bleibt auch im erweiterten Reader abgelehnt.
+
 ## Expliziter Aufruf und geschlossene Eingabe
 
 Die gemeinsamen Parameter sind ausdrücklich zu setzen: `DataRoot`, `ControllerId`,
@@ -25,6 +31,15 @@ Die gemeinsamen Parameter sind ausdrücklich zu setzen: `DataRoot`, `ControllerI
 Kandidatenvertrag. Keine freien Keypfade, Caller-SIDs oder AuthorityRefs.
 `CsrDer` ist ein natives `byte[]` von 1 bis 16384 Bytes; die Funktion kopiert
 die nativen Bytes ohne ETS-Getter oder überschreibbare Clone-Methode.
+Der optionale letzte Parameter `WindowsMachineName=null` erhält den bisherigen
+synthetischen CN und dessen Aufrufer. Eine ausdrückliche Wahl verlangt einen
+nativen ASCII-`string` mit 1–15 Zeichen: Buchstaben, Ziffern und innere
+Bindestriche; nicht ausschließlich numerisch. Leere Strings, andere Typen,
+Leerzeichen, Punkte, zusätzliche RDNs, Unicode und Zeilenumbrüche werden vor
+Kandidat-/Key-I/O abgelehnt. Keine Konvertierung, Normalisierung oder
+Namensauflösung; die geprüfte Zeichenfolge wird kopiert. Dieser Windows-Scope
+erlaubt ausschließlich IP-Identitäten. Der erwartete Name wird niemals aus dem
+CSR gewonnen und ist keine Ownership-, CSP-/KeySpec- oder SQL-Attestation.
 Der bestehende Pfad verlangt `ValidityDays` als natives `int` von 1 bis 30
 und `ValiditySeconds=null`. Für echte Ablaufgegenfälle gibt es alternativ
 `ValidityDays=null` und `ValiditySeconds` als natives `int` von 30 bis 300.
@@ -55,6 +70,10 @@ in der bisherigen BCL-DER-Form oder der kanonischen UTF8-DER-Form von OpenSSL,
 RSA-3072 mit Exponent 65537 und SHA-256/PKCS#1-v1.5-Signatur. Beide erlaubten
 Subjectformen werden vollständig gegen konstruiertes DER verglichen; andere
 Namen, zusätzliche RDNs und Signaturdrift bleiben vor Kandidat-/Key-I/O gesperrt.
+Mit `WindowsMachineName` ersetzt ausschließlich der ausdrücklich erwartete
+einzelne CN diesen Vergleich. BCL- und UTF8-DER werden aus genau diesem Namen
+konstruiert. Ausstellung und unabhängige Leafprüfung verwenden dieselbe
+Erwartung; auch ein nur anders geschriebener CN bleibt gesperrt.
 Der öffentliche SPKI wird vor der Signaturprüfung importiert und auf Größe
 und Exponent begrenzt. Es entsteht dadurch kein privater Leafkey auf dem Host.
 Auch der enthaltene PKCS1-RSAPublicKey im SPKI-BITSTRING muss vollständig DER
@@ -77,6 +96,12 @@ dem geprüften öffentlichen Schlüssel erhält ausschließlich:
 - kritische KeyUsage `DigitalSignature|KeyEncipherment`;
 - nichtkritische EKU ausschließlich `ServerAuthentication`;
 - genau den nichtkritischen angeforderten SAN.
+
+Das optionale Subject erlaubt keine zusätzliche Erweiterung oder Attributform.
+Ein korrekt signierter CSR mit SAN und S/MIME-Capabilities bleibt in beiden
+Reihenfolgen abgelehnt. Ein späterer fester Gastrequest kann `SMIME=FALSE`
+ausdrücklich setzen. Seine tatsächliche Akzeptanz und Bindung an den vorhandenen
+Gastschlüssel stehen noch aus; vorhandene CSR-Bytes werden nicht umgeschrieben.
 
 Beginn ist die aktuelle UTC-Sekunde, Ende exakt die ausgewählten
 `ValidityDays` oder `ValiditySeconds` später.
