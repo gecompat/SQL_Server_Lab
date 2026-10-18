@@ -5070,6 +5070,53 @@ wurde entfernt. Es wurden keine Pakete ausgeführt oder SQL-Verbindungen
 geöffnet. Der Reviewer bestätigte die beiden Korrekturen ohne weitere
 blockierende Findings. Die oben genannten Grenzen bleiben bestehen.
 
+### Ursprüngliche Consumerfehler: Gast- und Katalogvergleich vom 2026-10-18
+
+Auf dem integrierten Stand von PR #780 wurde das ursprüngliche, hashgleiche
+Consumer-ISPAC erneut untersucht. Der öffentliche Diagnoseweg lud dessen
+Basic-Paket mit einem Connection Manager und einem Log Provider ohne Fehler.
+Die serialisierten Aliase `OLEDB` und `Microsoft.LogProviderSQLServer` werden
+aufgelöst; das Inventar nennt dafür `DTS.ConnectionManagerOleDb.9` und
+`DTS.LogProviderSQLServer.9`. Unterschiedliche Schreibweisen zwischen Inventar
+und Paket sind deshalb allein kein fehlender Komponentenbestand.
+
+Zwei ergänzende lesende Vergleiche im selben installierten SSIS-2025-x64-Gast
+bestätigten das Ergebnis: `Project.OpenProject` lud alle vier ursprünglichen
+Pakete mit jeweils einem Connection Manager und einem Log Provider ohne
+Paketfehler. Ein frischer Prozess lud das Basic-Paket auch direkt über
+`Package.LoadFromXML`, ohne vorher eine `Application` oder deren Inventar
+anzulegen. Eine notwendige Inventarvorwärmung ist damit nicht belegt.
+
+Der ausdrücklich beauftragte Katalogvergleich verwendete ausschließlich eigene
+temporäre Ordner und Projekte. Eine Validierung des unveränderten Basic-Pakets
+lieferte Status `7`, enthielt aber einen Fehler vom Typ `120`: Die Runtime
+verlangte Standard Edition (64-bit) von Integration Services oder höher.
+Eine weitere eigene Katalogausführung endete mit Status `4` und derselben
+Editionsmeldung. Zusätzlich scheiterte die Verbindung an der erwartungsgemäß
+bereits entfernten ursprünglichen Testdatenbank. Deren Name wurde vor dem
+Start auf Abwesenheit geprüft; sie wurde nicht erneut angelegt.
+
+Die historischen Typfehler `-1073659899` und `-1073659843` traten bei diesen
+Katalogvergleichen nicht erneut auf. Ihre damalige Ursache bleibt ungeklärt;
+eine Ursachenkorrektur oder funktionsfähige Katalogpipeline ist damit nicht
+bewiesen. Insbesondere sind Status `7`, ein erfolgreicher Transport und
+fehlerfreies SDK-Laden ohne Auswertung der Fehlerereignisse keine
+Runtimeabnahme. Die beobachtete Engineedition Enterprise Developer und das
+erfolgreiche IS-Setup ersetzen den fehlenden Ausführungsnachweis nicht.
+
+Alle neu angelegten Katalogprojekte und Ordner wurden identitätsgebunden
+entfernt. Die vor und nach beiden Operationen verglichenen geschützten
+Execution-Projektionen blieben unverändert; normale Operationshistorie und
+Retention blieben erhalten. Original-ISPAC, Rohreceipts und Zielidentitäten
+bleiben ausschließlich lokal außerhalb der Versionskontrolle.
+Ein isolierter Installations-/Reparaturlauf wurde nicht gestartet: Der
+verfügbare Hostprozess hatte kein erhöhtes Administratortoken, das der
+öffentliche IS-Installer verlangt. Der offene Nachweis ist als
+[P1-Diagnosefolgeauftrag](../Project_Planning/SSIS_ETL_DATA_WAREHOUSE_BACKLOG.md#p1-katalog-runtime-nach-dem-consumervergleich-vom-2026-10-18)
+geführt. Die separate begrenzte Legacy-Providerabnahme von SQL_Server_Analyze
+in [PR #392](https://github.com/gecompat/SQL_Server_Analyze/pull/392) wurde
+nicht wiederholt und erklärt diese ursprüngliche Katalogkonstellation nicht.
+
 ## SSISDB-Fixture auf Prepared Hyper-V SQL 2025
 
 Die unabhängige Formatabnahme `Tests/Integration/Invoke-SsisFixtureFormatAcceptance.ps1`
