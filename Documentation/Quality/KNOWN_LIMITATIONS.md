@@ -81,6 +81,17 @@ unbestätigter Transport bleiben getrennt; fehlerfreies Laden beweist keine
 Katalogausführung oder ETL-Funktion. Der gesonderte native Nachweis steht in
 der [Validierungsstrategie](LOCAL_VALIDATION_STRATEGY.md#ssis-paketladediagnose).
 
+Der gezielte Consumervergleich vom 2026-10-18 reproduzierte die ursprünglichen
+OLEDB-/SQL-LogProvider-Typfehler mit unveränderten Paketbytes weder beim
+SDK-Laden noch im Katalog. Die historische Ursache bleibt ungeklärt.
+Die aktuelle Katalogruntime meldete stattdessen einen Editions-/Installations-
+fehler trotz vorhandener IS-Komponenten und Enterprise-Developer-Engine.
+Eine Validierung mit Status `7` enthielt ebenfalls ein Fehlerereignis und ist
+kein bestandener Nachweis. Reparatur und fachliche Katalogabnahme bleiben
+[P1 offen](../Project_Planning/SSIS_ETL_DATA_WAREHOUSE_BACKLOG.md#p1-katalog-runtime-nach-dem-consumervergleich-vom-2026-10-18);
+die bestehende verbindungs- und tasklose Fixtureabnahme wird nicht auf
+OLEDB-/SQL-LogProvider-Pakete erweitert.
+
 Eine eigene VM mit installierter SSIS-Komponente ist im Prepared-/Manifestpfad
 bereits abgenommen. Das allgemeine deklarative SSIS-Serverprofil ohne
 Pflichtfixture sowie verwaltetes ISPAC-Deployment, echte SQL-ETL-Datenflüsse

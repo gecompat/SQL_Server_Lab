@@ -7,6 +7,37 @@
 | Primärzweck | reproduzierbare SQL-Server-Integration-Services-Szenarien |
 | Planungsumfang | eigener SSIS-Server und ETL-Ausbau; vorhandene SSISDB-Referenz separat abgenommen |
 
+## P1: Katalog-Runtime nach dem Consumervergleich vom 2026-10-18
+
+**Offen, hohe Priorität:** Der beauftragte
+[Vergleich der ursprünglichen Consumerpakete](../Quality/LOCAL_VALIDATION_STRATEGY.md#ursprüngliche-consumerfehler-gast--und-katalogvergleich-vom-2026-10-18)
+bestätigt deren fehlerfreies SDK-Laden, aber keine funktionsfähige
+OLEDB-/SQL-LogProvider-Katalogpipeline. Die ursprünglichen unbekannten
+Komponententypen wurden nicht erneut beobachtet; ihre historische Ursache
+ist weiterhin unbekannt. Die aktuelle Katalogruntime meldet einen
+Editions-/Installationsfehler trotz vorhandenem IS und Enterprise-Developer-
+Engine. Eine Validierung meldete dabei Status `7` samt Fehlerereignis.
+
+Die Fortsetzung benötigt einen erhöhten Hostprozess für den bestehenden
+öffentlichen IS-Installer. Im geprüften Prozess fehlte dieses Token;
+eine neue VM oder eine Installationsreparatur wurde deshalb nicht gestartet.
+Der nächste Reparaturnachweis verwendet genau ein eigenes isoliertes Lab mit
+vorhandenen hashgebundenen Medien und Prepared-Artefakt, festem Zeit-/Ressourcen-
+budget und vollständigem eigenen Cleanup. Die erhaltene Analyze-Quelle und
+deren Fixture werden nicht repariert oder umkonfiguriert.
+
+Vor einem Installations- oder Reparaturschritt sind dessen Herstellerweg,
+Ausgangszustand und Recovery zu prüfen. Danach sind Komponentenladung,
+Katalog-Fehlerereignisse, echte SQL-Verbindung und tatsächlich geschriebene
+`sysssislog`-Ereignisse gemeinsam nachzuweisen. Weder bloße Dateipräsenz noch
+SQL-Engineedition, Setup-Exitcode, Validierungsstatus oder SDK-Laden allein
+qualifizieren diesen Pfad. Ohne neue Evidence werden die unveränderten
+fehlgeschlagenen Läufe nicht wiederholt. Die in SQL_Server_Analyze separat
+abgeschlossene begrenzte Legacy-Providerabnahme wird nicht neu geöffnet.
+
+Dieser Diagnosefolgeauftrag ist vom nachfolgenden allgemeinen SSIS-Server-
+und ETL-Ausbau getrennt und erklärt dessen Arbeitspakete nicht zu geliefert.
+
 ## Machbarkeit und Integrationsentscheidung vom 2026-10-16
 
 Ein eigener Server mit installierter SSIS-Runtime ist möglich und für das Lab
