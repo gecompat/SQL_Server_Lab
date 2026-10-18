@@ -78,7 +78,11 @@ Katalogausführungen. Die folgende
 [frische öffentliche P1-Abnahme](../Quality/SSIS_PUBLIC_FRESH_PROVISIONING_ACCEPTANCE_2026-10-18.md)
 bestand direkt auf SQL-2025-RTM nach Manifest-Neuanlage, einschließlich echter
 OLEDB-/SQL-LogProvider-Verbindung, API-/CLI-/Workflow-TLS-Werten und Cleanup.
-Weitere Consumerpakete und der Analyzervergleich bleiben eigene Nachweise.
+Die separate [Consumer- und Analyzerabnahme](../Quality/SSIS_CONSUMER_ANALYZER_ACCEPTANCE_2026-10-18.md)
+belegt im folgenden frischen eigenen Lab alle vier ursprünglichen Pakete
+mit echten SQL-LogProvider-Daten und den beschriebenen Standardvergleich
+der drei Analyze-Procedures. Sie erweitert den Fixturevertrag nicht um
+beliebiges Paketdeployment oder einen eigenen SSIS-Fachdialog.
 
 ## Neues Lab aus Manifest
 

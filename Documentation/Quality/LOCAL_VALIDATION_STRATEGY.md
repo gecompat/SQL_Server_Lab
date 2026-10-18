@@ -5233,7 +5233,37 @@ eigene VM und VHD wurden entfernt; geschützte Quelle und Original blieben
 unverändert. Der frühere fehlgeschlagene Reparaturvergleich und der
 DTO-Fehler des ersten Abnahmecontrollers werden nicht rückwirkend als
 erfolgreiche Providerläufe gewertet. Weitere Consumerpakete und der
-Analyzervergleich bleiben getrennte Nachweise.
+Analyzervergleich sind im folgenden getrennten Nachweis erfasst.
+
+### Ursprüngliche Consumerpakete und Analyzervergleich vom 2026-10-18
+
+Die [Consumer- und Analyzerabnahme](SSIS_CONSUMER_ANALYZER_ACCEPTANCE_2026-10-18.md)
+bestand auf Lab-Stand `54f7f2cd58b6a9be64f6c1b703267b65499df6a6` und
+unverändertem Analyze-Stand `a5efc761986dc77c313f981fa29af58d27c3be55`.
+Ein frisches eigenes öffentlich angelegtes Hyper-V-/SQL-2025-RTM-Lab führte
+die vier ursprünglichen Paketkopien tatsächlich im Katalog aus: Basic und
+Duplicate-Lookup `7`, kontrollierter SQL-Fehler und Lookup-Miss `4`.
+Der SQL-LogProvider schrieb 12/16/60/61 Zeilen. Eigener SQL-Marker und
+Hostverbindung belegten tatsächliche Verschlüsselung; beide TLS-Werte
+blieben `True`.
+
+Der unverändert installierte Analyzer bestand alle zwölf Legacy-Vergleiche
+für vier Fälle mit `MaxZeilen=0/1/2`, neun Standarddatensätzen und
+94-Feld-TABLE-/JSON-Parität. Eine getrennte native Referenz prüfte die
+benannten gespeicherten Inhalte, Aggregate, Fehlertexte und Zeitpaare;
+sie berechnet nicht alle 94 Felder unabhängig nach. Katalogstatus,
+Meldungsanzahl und sechs Meldungsmetadatenfelder sowie das vom Paketanalyzer
+ausgegebene Original-XML-Inventar wurden verglichen. RAW/CONSOLE/NONE
+lieferten neun/ein/kein Ergebnisgrid bei jeweils neun JSON-Datenarrays.
+
+Zwei vorbereitende Testcontrollerfehler starteten kein Paket. Ein späterer
+Lookup-Vergleichsfehler wurde anhand der erhaltenen Originalmeldungen
+korrigiert und unabhängig geprüft. Nur die offenen Vergleiche wurden
+fortgesetzt; kein Paket wurde wiederholt. Der öffentliche Cleanup entfernte
+eigene VM/VHD und gab die Runtime-Sperre frei. Die geschützte Analyze-Quelle,
+ihre vier SQL-Projektionen, der Analyze-Checkout und das Original-ISPAC
+blieben unverändert. Rollen, weitere Builds/Provider und zusätzliche
+Analyzer-Opt-ins bleiben getrennte Nachweise.
 
 ## SSISDB-Fixture auf Prepared Hyper-V SQL 2025
 

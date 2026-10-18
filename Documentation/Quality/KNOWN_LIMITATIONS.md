@@ -123,9 +123,14 @@ Installationskontext und die Registrierungs-/Bootprüfung. Der folgende
 bestand auf SQL-2025-RTM mit echter Basic-OLEDB-/SQL-LogProvider-Verbindung,
 API-/CLI-/Workflow-TLS-Anzeige und vollständigem Cleanup. Diese P1-Lücke ist
 geschlossen.
-Die historische Ursache der ursprünglichen Typfehler, weitere Consumerpakete
-und ein erneuter Analyzervergleich sind dadurch nicht abgenommen. Die
-bestehende verbindungs- und tasklose Fixtureabnahme bleibt getrennt.
+Die folgende [Consumer- und Analyzerabnahme](SSIS_CONSUMER_ANALYZER_ACCEPTANCE_2026-10-18.md)
+bestand auf demselben Produktstand mit allen vier ursprünglichen Paketen,
+erwarteten Katalogzuständen `7/4/7/4` und echten SQL-LogProvider-Daten.
+Zwölf begrenzte Legacy-Vergleiche sowie Katalog-/Paketvergleich und die
+Standardausgaben sind geprüft. Beliebige Pakete, zusätzliche Analyzer-
+Opt-ins und weitere Engine-/Provider-/Rollenkombinationen sind dadurch
+nicht abgenommen. Die historische Ursache der ursprünglichen Typfehler
+bleibt unbekannt; die verbindungs- und tasklose Fixtureabnahme bleibt getrennt.
 
 Eine eigene VM mit installierter SSIS-Komponente ist im Prepared-/Manifestpfad
 bereits abgenommen. Das allgemeine deklarative SSIS-Serverprofil ohne
