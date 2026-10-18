@@ -7,6 +7,13 @@ Der CSR mit zusätzlichem S/MIME bleibt abgelehnt; der additive erwartete
 Maschinen-CN im privaten Leafvertrag ist keine native CA-/SQL-/TLS-Freigabe.
 SC-2026-045 bleibt gesperrt.
 
+Ein späterer CSR aus demselben Gastkey bestand nativ, seine Hostprüfung scheiterte
+am UTF8-Subjectvergleich. Der ursprüngliche Fehlabschluss und eigene Stop bleiben
+erhalten. Die eng begrenzte DER-Korrektur und Prüfung der gespeicherten öffentlichen
+Bytes sind vom nativen Lauf getrennt; keine CA-/SQL-/TLS-Abnahme daraus.
+Der korrigierte Reader akzeptierte diese unveränderten öffentlichen Bytes lokal
+mit gleichem Original-SPKI. Keine erneute Gast- oder Schlüsselaktion.
+
 ## Private CA-/Client-Trustmetadaten vom 2026-10-17
 
 Die [Authoritybindung](../Documentation/Architecture/AUTHENTICATED_TLS_AUTHORITY_BINDING.md)

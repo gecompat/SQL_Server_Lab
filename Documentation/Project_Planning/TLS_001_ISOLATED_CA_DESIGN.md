@@ -6,6 +6,11 @@ Der additive erwartete Maschinen-CN des privaten Leafvertrags ist eine reine
 Kryptoerwartung. Der echte CSR mit zusätzlichem S/MIME bleibt abgelehnt;
 CA-Ausstellung, Storeannahme, SQL-Dienstrechte und TLS stehen weiterhin aus.
 
+Ein späterer Request verwendete nativ denselben Schlüssel mit `SMIME=FALSE`.
+Sein ursprünglicher Hostabschluss scheiterte am UTF8-Subject-DER und bleibt
+fehlgeschlagen erhalten. Die getrennte Readerkorrektur prüft dieselben
+öffentlichen Bytes ohne Gast-/Keywiederholung; keine neue CA-/TLS-Autorität.
+
 ## Integrierter Teilscope vom 2026-10-18
 
 Der [operative Vertrag](../Architecture/AUTHENTICATED_TLS_OPERATIONAL_LAB.md)

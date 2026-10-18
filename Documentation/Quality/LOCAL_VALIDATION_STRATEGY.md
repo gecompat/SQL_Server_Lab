@@ -12,6 +12,13 @@ Ausstellung/Rückprüfung, unveränderte Defaultcaller, Namens-/Typ-/DNS-Gegenf�
 vor I/O und signiertes S/MIME in beiden Reihenfolgen. Eigene temporäre
 Kryptofixtures sind vom erhaltenen nativen Gastschlüssel getrennt.
 
+Die spätere DER-Korrektur verwendet `ForceUTF8Encoding` für die unabhängig
+erwartete UTF8-Subjectform. Signierte ASCII-Fixtures prüfen unterschiedliche
+PrintableString-/UTF8String-Tags sowie falschen CN und S/MIME in beiden
+Erweiterungsreihenfolgen. Die Prüfung des tatsächlich erhaltenen öffentlichen
+CSR bleibt ein separater Hostnachweis; keine neue Gast-/Keyaktion und kein
+nachträglicher nativer PASS. Der verlinkte Nachweis erhält Exitcode 1 und Stop.
+
 ## Getrennte Hyper-V-TLS-Zielmetadaten
 
 Die bestehende [Zielmetadatensuite](../../Tests/Static/Invoke-AuthenticatedTlsTargetChecks.ps1)

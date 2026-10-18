@@ -17,7 +17,7 @@ function Assert-TlsLeafClosed {param([object[]]$Result,[string]$Code='TLS_LEAF_C
 }
 function Invoke-TlsLeafFixture {param($Csr,$Identity=$ip,$Days=1,$Seconds=$null,$WindowsMachineName=$null) New-LabAuthenticatedTlsServerLeaf $dataRoot $controller $location $context $candidateId $Csr $Identity $Days -ValiditySeconds $Seconds -WindowsMachineName $WindowsMachineName}
 function New-TlsLeafFixtureCsr {param($Key,$Identity,$Hash=[Security.Cryptography.HashAlgorithmName]::SHA256,[string]$Subject='CN=SQL_Server_Lab Server Leaf',[switch]$Extra,[switch]$Utf8,[switch]$Smime,[switch]$SmimeFirst)
-    $name=if($Utf8){[Security.Cryptography.X509Certificates.X500DistinguishedName]::new($Subject,[Security.Cryptography.X509Certificates.X500DistinguishedNameFlags]::UseUTF8Encoding)}else{[Security.Cryptography.X509Certificates.X500DistinguishedName]::new($Subject)}
+    $name=if($Utf8){[Security.Cryptography.X509Certificates.X500DistinguishedName]::new($Subject,[Security.Cryptography.X509Certificates.X500DistinguishedNameFlags]::ForceUTF8Encoding)}else{[Security.Cryptography.X509Certificates.X500DistinguishedName]::new($Subject)}
     $request=[Security.Cryptography.X509Certificates.CertificateRequest]::new($name,$Key,$Hash,[Security.Cryptography.RSASignaturePadding]::Pkcs1)
     $smimeExtension=[Security.Cryptography.X509Certificates.X509Extension]::new('1.2.840.113549.1.9.15',[Convert]::FromHexString('300D300B060960864801650304012A'),$false)
     if($Smime -and $SmimeFirst){$request.CertificateExtensions.Add($smimeExtension)}
@@ -135,6 +135,10 @@ try{
         $machine='SQL-LAB-01'
         foreach($utf in @($false,$true)){
             $machineCsr=New-TlsLeafFixtureCsr $script:leafRsa $ip -Subject ('CN='+$machine) -Utf8:$utf
+            $csrReader=[Formats.Asn1.AsnReader]::new([ReadOnlyMemory[byte]]::new($machineCsr),[Formats.Asn1.AsnEncodingRules]::DER)
+            $csrInfo=$csrReader.ReadSequence().ReadSequence();$null=$csrInfo.ReadInteger()
+            $cn=$csrInfo.ReadSequence().ReadSetOf().ReadSequence();$cnOid=$cn.ReadObjectIdentifier()
+            Add-CheckResult 'TLS-L06 ASCII-Maschinenfixture hat tatsaechlich unterschiedliches PrintableString-/UTF8String-DER' ($cnOid -ceq '2.5.4.3' -and $cn.PeekTag().TagValue -eq $(if($utf){12}else{19}))
             $machineResult=Invoke-TlsLeafFixture $machineCsr -WindowsMachineName $machine
             Add-CheckResult 'TLS-L06 erwarteter BCL/UTF8-Maschinen-CN signiert mit unveraendertem IP-SAN-Profil' ($machineResult.Success -and -not $machineResult.Value.Ready -and $machineResult.Value.NativeTargetStatus -ceq 'NOT_EXECUTED')
             if(-not $machineResult.Success){throw 'TLS_LEAF_MACHINE_FIXTURE_FAILED'}
@@ -154,9 +158,13 @@ try{
             Assert-TlsLeafClosed @(Invoke-TlsLeafFixture (New-TlsLeafFixtureCsr $script:leafRsa $dns -Subject ('CN='+$machine)) $dns -WindowsMachineName $machine *>&1)
             foreach($badCsr in @($csr,(New-TlsLeafFixtureCsr $script:leafRsa $ip -Subject 'CN=sql-lab-01'),
                 (New-TlsLeafFixtureCsr $script:leafRsa $ip -Subject 'CN=OTHER-01'),
+                (New-TlsLeafFixtureCsr $script:leafRsa $ip -Subject 'CN=sql-lab-01' -Utf8),
+                (New-TlsLeafFixtureCsr $script:leafRsa $ip -Subject 'CN=OTHER-01' -Utf8),
                 (New-TlsLeafFixtureCsr $script:leafRsa $ip -Subject ('CN='+$machine+', O=extra')),
                 (New-TlsLeafFixtureCsr $script:leafRsa $ip -Subject ('CN='+$machine) -Smime),
                 (New-TlsLeafFixtureCsr $script:leafRsa $ip -Subject ('CN='+$machine) -Smime -SmimeFirst),
+                (New-TlsLeafFixtureCsr $script:leafRsa $ip -Subject ('CN='+$machine) -Utf8 -Smime),
+                (New-TlsLeafFixtureCsr $script:leafRsa $ip -Subject ('CN='+$machine) -Utf8 -Smime -SmimeFirst),
                 (New-TlsLeafFixtureCsr $script:leafRsa $dns -Subject ('CN='+$machine)))){
                 Assert-TlsLeafClosed @(Invoke-TlsLeafFixture $badCsr -WindowsMachineName $machine *>&1)
             }
