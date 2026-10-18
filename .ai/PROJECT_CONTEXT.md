@@ -5,8 +5,11 @@ hat den aktuellen SQL-LogProvider-Installationsfehler im eigenen Lab durch
 unterstütztes IS-Setup unter SYSTEM behoben: drei echte Basic-Katalogtests
 bestanden, auch nach geordnetem Windows-Neustart. Der Komponenteninstaller
 übernimmt SYSTEM, Registrierungsprüfung und echten Bootnachweis. Die
-Analyze-Quelle blieb unverändert; der vollständige frische öffentliche
-Provisionierungsnachweis des korrigierten Pfads bleibt P1 offen.
+Analyze-Quelle blieb unverändert. Die anschließende
+[frische öffentliche P1-Abnahme](../Documentation/Quality/SSIS_PUBLIC_FRESH_PROVISIONING_ACCEPTANCE_2026-10-18.md)
+bestand auf SQL-2025-RTM direkt nach Neuanlage: echte OLEDB-/SQL-LogProvider-
+Verbindung, öffentliche API und CLI-/Workflow-TLS-Anzeige sowie vollständiger
+Cleanup. Weitere Consumerpakete und Analyzervergleich bleiben getrennt.
 
 Die [native Windows-CSP-Charakterisierung](../Documentation/Quality/TLS_HYPERV_WINDOWS_CSP_CHARACTERIZATION_2026-10-18.md)
 belegt einen eigenen nicht exportierbaren Gastschlüssel und Host-CSR-Proof nach
@@ -206,10 +209,13 @@ Providerabnahme wird dadurch nicht vorweggenommen. Der gezielte
 reproduzierte die historischen Typfehler nicht, beobachtete aber eine aktuelle
 Editionsfehlermeldung der Katalogruntime. Der anschließende
 [isolierte Reparaturvergleich](../Documentation/Quality/LOCAL_VALIDATION_STRATEGY.md#isolierter-reparaturvergleich-mit-echten-verbindungen-vom-2026-10-18)
-wurde mit Administratorfreigabe ausgeführt: Der aktuelle OLEDB-Treiber schreibt
-verschlüsselt, der SQL-LogProvider scheitert weiterhin an der Editionsprüfung.
-Instanzreparatur und CU9 lieferten keine erfolgreiche Gesamtpipeline; deren
-Behebung bleibt P1 offen. Eigenes Lab entfernt, Analyze-Quelle unverändert.
+wurde mit Administratorfreigabe ausgeführt: Der aktuelle OLEDB-Treiber schrieb
+verschlüsselt, der SQL-LogProvider scheiterte damals an der Editionsprüfung.
+Instanzreparatur und CU9 lieferten in diesem Vergleich keine erfolgreiche
+Gesamtpipeline. Die folgende SYSTEM-Registrierungswiederherstellung und die
+oben verlinkte frische öffentliche Abnahme beheben den Basic-Installations-
+blocker. Weitere Consumerpakete und Analyzervergleich bleiben getrennt offen.
+Die eigenen Labs wurden entfernt, die Analyze-Quelle blieb unverändert.
 
 Der [SSIS-Integrationsplan](../Documentation/Project_Planning/SSIS_ETL_DATA_WAREHOUSE_BACKLOG.md#machbarkeit-und-integrationsentscheidung-vom-2026-10-16)
 erhält den bereits lokal ausgearbeiteten Folgeauftrag nach TLS-001: zuerst

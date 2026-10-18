@@ -74,8 +74,11 @@ standardmäßig ausgeschaltet.
 
 Der [isolierte Registrierungsvergleich](../Quality/SSIS_CATALOG_REGISTRATION_RECOVERY_2026-10-18.md)
 belegt die wirksame SYSTEM-Nachinstallation mit echten OLEDB-/SQL-LogProvider-
-Katalogausführungen. Er ist vom noch offenen vollständigen frischen
-Provisionierungsnachweis des korrigierten öffentlichen Pfads getrennt.
+Katalogausführungen. Die folgende
+[frische öffentliche P1-Abnahme](../Quality/SSIS_PUBLIC_FRESH_PROVISIONING_ACCEPTANCE_2026-10-18.md)
+bestand direkt auf SQL-2025-RTM nach Manifest-Neuanlage, einschließlich echter
+OLEDB-/SQL-LogProvider-Verbindung, API-/CLI-/Workflow-TLS-Werten und Cleanup.
+Weitere Consumerpakete und der Analyzervergleich bleiben eigene Nachweise.
 
 ## Neues Lab aus Manifest
 

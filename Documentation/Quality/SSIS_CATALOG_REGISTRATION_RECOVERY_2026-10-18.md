@@ -96,14 +96,17 @@ produktive Registrierungsreader wurde im eigenen Gast lesend mit `OBSERVED`
 ausgeführt. Die drei obigen Pakettests gehören zum unabhängig geprüften
 isolierten Diagnosecontroller; sie sind kein vollständig wiederholter frischer
 öffentlicher Provisionierungslauf mit dem korrigierten Produktcode. Dieser
-zusätzliche End-to-End-Nachweis bleibt getrennt offen.
+zusätzliche End-to-End-Nachweis war nicht Teil dieses Vergleichs. Die folgende
+[frische öffentliche P1-Abnahme](SSIS_PUBLIC_FRESH_PROVISIONING_ACCEPTANCE_2026-10-18.md)
+bestand inzwischen direkt auf SQL-2025-RTM einschließlich echter OLEDB-/
+SQL-LogProvider-Verbindung, TLS-Anzeige und vollständigem Cleanup.
 
 Der Ablauf ergänzt keine wiederkehrende Aufgabe: pro Installation gibt es
 eine manuell gestartete Gastaufgabe ohne Trigger, einen begrenzt wartenden
 Worker und einen geordneten Neustart. Ein nach dem Neustart gestoppter
 Standard-SQL-Dienst wird höchstens einmal gestartet, ohne den Starttyp zu
 ändern. Der vorhandene Selektor bestimmt die betroffenen statischen Suites;
-zusätzliche unveränderte Providerläufe sind kein Ersatz für den noch offenen
+zusätzliche unveränderte Providerläufe sind kein Ersatz für den gesonderten
 öffentlichen SSIS-Nachweis. Rohlogs werden lokal ausgewertet. Der unabhängige
 Reviewer wird für den stabilen Produktdiff und konkrete neue Findings
 wiederverwendet; eine zusätzliche Reviewkette wird nicht eingeführt. Tatsächliche

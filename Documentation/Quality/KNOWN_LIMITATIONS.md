@@ -118,9 +118,11 @@ stellte im eigenen Lab die fehlende IS-Feature-/Editionsregistrierung durch
 unterstütztes IS-Setup unter SYSTEM wieder her. Drei echte Basic-Katalogtests
 bestanden mit SQL-Marker und SQL-LogProvider-Ereignissen, auch nach geordnetem
 Windows-Neustart. Der korrigierte Komponenteninstaller übernimmt diesen
-Installationskontext und die Registrierungs-/Bootprüfung. Ein vollständiger
-frischer öffentlicher Provisionierungslauf mit dieser Korrektur bleibt
-[P1 offen](../Project_Planning/SSIS_ETL_DATA_WAREHOUSE_BACKLOG.md#p1-katalog-runtime-nach-dem-consumervergleich-vom-2026-10-18).
+Installationskontext und die Registrierungs-/Bootprüfung. Der folgende
+[frische öffentliche Provisionierungslauf](SSIS_PUBLIC_FRESH_PROVISIONING_ACCEPTANCE_2026-10-18.md)
+bestand auf SQL-2025-RTM mit echter Basic-OLEDB-/SQL-LogProvider-Verbindung,
+API-/CLI-/Workflow-TLS-Anzeige und vollständigem Cleanup. Diese P1-Lücke ist
+geschlossen.
 Die historische Ursache der ursprünglichen Typfehler, weitere Consumerpakete
 und ein erneuter Analyzervergleich sind dadurch nicht abgenommen. Die
 bestehende verbindungs- und tasklose Fixtureabnahme bleibt getrennt.

@@ -5202,7 +5202,9 @@ repariert noch umkonfiguriert. Ihre Run-/Connection-Dateihashes sowie die vor
 und nach dem Vergleich gelesenen Ausführungs-/Ereignisprojektionen, Katalog-
 einstellungen und Datenbankprojektion blieben unverändert. Originalartefakt,
 Zielidentitäten und Rohreceipts bleiben ausschließlich lokal außerhalb von Git.
-Der SQL-LogProvider bleibt [P1 offen](../Project_Planning/SSIS_ETL_DATA_WAREHOUSE_BACKLOG.md#p1-katalog-runtime-nach-dem-consumervergleich-vom-2026-10-18);
+Der SQL-LogProvider ging aus diesem Vergleich als
+[P1-Blocker](../Project_Planning/SSIS_ETL_DATA_WAREHOUSE_BACKLOG.md#p1-katalog-runtime-nach-dem-consumervergleich-vom-2026-10-18)
+hervor. Die folgenden Registrierungs- und Neuanlagenachweise beheben ihn;
 die getrennte Legacy-SDK-Providerabnahme wird nicht neu geöffnet.
 
 ### Wirksame IS-Registrierungswiederherstellung vom 2026-10-18
@@ -5218,11 +5220,20 @@ geschützte Quelle und das Original-ISPAC blieben unverändert.
 
 Die fokussierten `Invoke-SsisOwnedInstallChecks.ps1` prüfen den korrigierten
 Installer und seine Cleanup-/NoReplay-Grenzen. Der produktive
-Registrierungsreader bestand im eigenen Gast lesend. Die Paketnachweise
-stammen aus dem unabhängig geprüften Diagnosecontroller; ein vollständig
-frischer öffentlicher Provisionierungslauf mit dem korrigierten Produktcode
-bleibt getrennt offen. Der frühere fehlgeschlagene Reparaturvergleich wird
-nicht rückwirkend als erfolgreich gewertet.
+Registrierungsreader bestand im eigenen Gast lesend. Diese Paketnachweise
+stammen aus dem unabhängig geprüften Diagnosecontroller. Der folgende
+[frische öffentliche Provisionierungslauf](SSIS_PUBLIC_FRESH_PROVISIONING_ACCEPTANCE_2026-10-18.md)
+schließt den zusätzlichen P1-Nachweis: `New-SqlServerLab -Manifest` mit
+SSIS-Fixture, SYSTEM-Installation und Bootprüfung, Fixture `7/4/1` sowie ein
+echter Basic-Kataloglauf mit OLEDB und SQL-LogProvider direkt auf RTM. Status
+`7`, ein verschlüsselter Windows-/NTLM-SQL-Marker und zwölf Logzeilen wurden
+beobachtet. Öffentliche API, CLI-Anzeige und Workflow-Projektion bestätigen
+`Encrypt=True;TrustServerCertificate=True`. Installationsdateien/-aufgabe,
+eigene VM und VHD wurden entfernt; geschützte Quelle und Original blieben
+unverändert. Der frühere fehlgeschlagene Reparaturvergleich und der
+DTO-Fehler des ersten Abnahmecontrollers werden nicht rückwirkend als
+erfolgreiche Providerläufe gewertet. Weitere Consumerpakete und der
+Analyzervergleich bleiben getrennte Nachweise.
 
 ## SSISDB-Fixture auf Prepared Hyper-V SQL 2025
 
