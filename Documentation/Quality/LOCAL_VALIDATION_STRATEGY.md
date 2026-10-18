@@ -1,5 +1,17 @@
 # Lokale Validierungsstrategie
 
+## Native Windows-CSP-/CSR-Charakterisierung vom 2026-10-18
+
+Der [eigene Hyper-V-Nachweis](TLS_HYPERV_WINDOWS_CSP_CHARACTERIZATION_2026-10-18.md)
+belegt getrennt die konkret freigegebene Onlineaktivierung und einen isolierten
+nicht exportierbaren Machine-CSP-Key mit öffentlichem CSR, Host-Proof und eigenem
+Stop bei erhaltener VM/Disks/Key. Keine native CA-/SQL-/TLS-Abnahme.
+Der additive Maschinen-CN-Parameter des privaten Leafvertrags ist eine spätere
+Produktänderung. Die Leafsuite prüft BCL/UTF8, denselben erwarteten CN in
+Ausstellung/Rückprüfung, unveränderte Defaultcaller, Namens-/Typ-/DNS-Gegenfälle
+vor I/O und signiertes S/MIME in beiden Reihenfolgen. Eigene temporäre
+Kryptofixtures sind vom erhaltenen nativen Gastschlüssel getrennt.
+
 ## Getrennte Hyper-V-TLS-Zielmetadaten
 
 Die bestehende [Zielmetadatensuite](../../Tests/Static/Invoke-AuthenticatedTlsTargetChecks.ps1)

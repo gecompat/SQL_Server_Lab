@@ -15,11 +15,14 @@ $leafRsa=$null;$weak=$null;$ec=$null
 function Assert-TlsLeafClosed {param([object[]]$Result,[string]$Code='TLS_LEAF_CSR_INVALID')
     Add-CheckResult 'TLS-L01 geschlossener Fehler ohne Teilzertifikat/Rohdaten' ($Result.Count -eq 1 -and @($Result[0].PSObject.Properties).Count -eq 3 -and -not $Result[0].Success -and $null -eq $Result[0].Value -and [string]::Equals($Result[0].ErrorCode,$Code,[StringComparison]::Ordinal))
 }
-function Invoke-TlsLeafFixture {param($Csr,$Identity=$ip,$Days=1,$Seconds=$null) New-LabAuthenticatedTlsServerLeaf $dataRoot $controller $location $context $candidateId $Csr $Identity $Days -ValiditySeconds $Seconds}
-function New-TlsLeafFixtureCsr {param($Key,$Identity,$Hash=[Security.Cryptography.HashAlgorithmName]::SHA256,[string]$Subject='CN=SQL_Server_Lab Server Leaf',[switch]$Extra,[switch]$Utf8)
+function Invoke-TlsLeafFixture {param($Csr,$Identity=$ip,$Days=1,$Seconds=$null,$WindowsMachineName=$null) New-LabAuthenticatedTlsServerLeaf $dataRoot $controller $location $context $candidateId $Csr $Identity $Days -ValiditySeconds $Seconds -WindowsMachineName $WindowsMachineName}
+function New-TlsLeafFixtureCsr {param($Key,$Identity,$Hash=[Security.Cryptography.HashAlgorithmName]::SHA256,[string]$Subject='CN=SQL_Server_Lab Server Leaf',[switch]$Extra,[switch]$Utf8,[switch]$Smime,[switch]$SmimeFirst)
     $name=if($Utf8){[Security.Cryptography.X509Certificates.X500DistinguishedName]::new($Subject,[Security.Cryptography.X509Certificates.X500DistinguishedNameFlags]::UseUTF8Encoding)}else{[Security.Cryptography.X509Certificates.X500DistinguishedName]::new($Subject)}
     $request=[Security.Cryptography.X509Certificates.CertificateRequest]::new($name,$Key,$Hash,[Security.Cryptography.RSASignaturePadding]::Pkcs1)
+    $smimeExtension=[Security.Cryptography.X509Certificates.X509Extension]::new('1.2.840.113549.1.9.15',[Convert]::FromHexString('300D300B060960864801650304012A'),$false)
+    if($Smime -and $SmimeFirst){$request.CertificateExtensions.Add($smimeExtension)}
     if($null -ne $Identity){$san=[Security.Cryptography.X509Certificates.SubjectAlternativeNameBuilder]::new();if($Identity.Kind -ceq 'IP'){$san.AddIpAddress([Net.IPAddress]::Parse($Identity.Value))}else{$san.AddDnsName($Identity.Value)};$request.CertificateExtensions.Add($san.Build($false))}
+    if($Smime -and -not $SmimeFirst){$request.CertificateExtensions.Add($smimeExtension)}
     if($Extra){$request.CertificateExtensions.Add([Security.Cryptography.X509Certificates.X509BasicConstraintsExtension]::new($true,$true,0,$true))}
     return ,$request.CreateSigningRequest()
 }
@@ -127,6 +130,37 @@ try{
             }
             Assert-TlsLeafClosed @(Invoke-TlsLeafFixture $csr -Days 1 -Seconds 60 *>&1)
             Add-CheckResult 'TLS-L03 Kurzzeitform und gegenseitiger Ausschluss vor Kandidat-/Key-I/O' ($script:bindingCalls -eq 0 -and $script:keyOpens -eq $before -and $script:alienCalls -eq 0)
+        }finally{Set-Item function:Get-LabTlsCaCandidateBinding $realBinding}
+        # Explizites Windows-Subject bleibt reine Kryptographie, keine CSP-/VM-Autoritaet.
+        $machine='SQL-LAB-01'
+        foreach($utf in @($false,$true)){
+            $machineCsr=New-TlsLeafFixtureCsr $script:leafRsa $ip -Subject ('CN='+$machine) -Utf8:$utf
+            $machineResult=Invoke-TlsLeafFixture $machineCsr -WindowsMachineName $machine
+            Add-CheckResult 'TLS-L06 erwarteter BCL/UTF8-Maschinen-CN signiert mit unveraendertem IP-SAN-Profil' ($machineResult.Success -and -not $machineResult.Value.Ready -and $machineResult.Value.NativeTargetStatus -ceq 'NOT_EXECUTED')
+            if(-not $machineResult.Success){throw 'TLS_LEAF_MACHINE_FIXTURE_FAILED'}
+            $machineCert=[Security.Cryptography.X509Certificates.X509Certificate2]::new($machineResult.Value.CertificateDer)
+            try{Add-CheckResult 'TLS-L06 ausgestelltes Publicleaf hat genau den erwarteten Maschinen-CN und vier Extensions' ($machineCert.Subject -ceq ('CN='+$machine) -and $machineCert.Extensions.Count -eq 4 -and -not $machineCert.HasPrivateKey)}finally{$machineCert.Dispose()}
+            $wrongExpectedRejected=$false
+            try{Assert-LabTlsServerLeafCertificate $machineResult.Value.CertificateDer ($script:leafRsa.ExportSubjectPublicKeyInfo()) $ip $binding.Der ([datetimeoffset]::Parse($machineResult.Value.NotBeforeUtc)) ([datetimeoffset]::Parse($machineResult.Value.NotAfterUtc)) -WindowsMachineName 'OTHER-01'}catch{$wrongExpectedRejected=$true}
+            Add-CheckResult 'TLS-L06 unabhaengige Leafpruefung bindet denselben erwarteten CN' $wrongExpectedRejected
+        }
+        $before=$script:keyOpens;$script:bindingCalls=0
+        function Get-LabTlsCaCandidateBinding {$script:bindingCalls++;throw 'MACHINE_CLAIM_MUST_NOT_READ_CANDIDATE'}
+        try{
+            foreach($badName in @('',12,$false,[string[]]@($machine),$alien,'12345','-SQL','SQL-','SQL.LAB','SQL, O=extra',"SQL`n",('S'*16),('SQL'+[char]0x200b))){
+                Assert-TlsLeafClosed @(Invoke-TlsLeafFixture $machineCsr -WindowsMachineName $badName *>&1)
+            }
+            Assert-TlsLeafClosed @(Invoke-TlsLeafFixture $machineCsr *>&1)
+            Assert-TlsLeafClosed @(Invoke-TlsLeafFixture (New-TlsLeafFixtureCsr $script:leafRsa $dns -Subject ('CN='+$machine)) $dns -WindowsMachineName $machine *>&1)
+            foreach($badCsr in @($csr,(New-TlsLeafFixtureCsr $script:leafRsa $ip -Subject 'CN=sql-lab-01'),
+                (New-TlsLeafFixtureCsr $script:leafRsa $ip -Subject 'CN=OTHER-01'),
+                (New-TlsLeafFixtureCsr $script:leafRsa $ip -Subject ('CN='+$machine+', O=extra')),
+                (New-TlsLeafFixtureCsr $script:leafRsa $ip -Subject ('CN='+$machine) -Smime),
+                (New-TlsLeafFixtureCsr $script:leafRsa $ip -Subject ('CN='+$machine) -Smime -SmimeFirst),
+                (New-TlsLeafFixtureCsr $script:leafRsa $dns -Subject ('CN='+$machine)))){
+                Assert-TlsLeafClosed @(Invoke-TlsLeafFixture $badCsr -WindowsMachineName $machine *>&1)
+            }
+            Add-CheckResult 'TLS-L06 Name/Typ/Default/DNS/CN/SMIME/SAN vor Kandidat und Key abgelehnt ohne Getter' ($script:bindingCalls -eq 0 -and $script:keyOpens -eq $before -and $script:alienCalls -eq 0)
         }finally{Set-Item function:Get-LabTlsCaCandidateBinding $realBinding}
         $before=$script:keyOpens
         $tampered=[byte[]]$csr.Clone();$tampered[$tampered.Length-1]=$tampered[$tampered.Length-1] -bxor 1

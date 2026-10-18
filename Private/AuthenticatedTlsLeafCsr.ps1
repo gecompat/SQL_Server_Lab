@@ -16,16 +16,27 @@ function Assert-LabTlsLeafSan {
     if($reader.HasData -or $names.HasData){throw 'TLS_LEAF_CSR_INVALID'}
 }
 
+function Get-LabTlsLeafSubjectName {
+    param([object]$WindowsMachineName=$null)
+    if($null -eq $WindowsMachineName){return 'CN=SQL_Server_Lab Server Leaf'}
+    if($WindowsMachineName -isnot [string] -or
+        -not [regex]::IsMatch($WindowsMachineName,'\A[A-Za-z0-9](?:[A-Za-z0-9-]{0,13}[A-Za-z0-9])?\z',[Text.RegularExpressions.RegexOptions]::CultureInvariant) -or
+        [regex]::IsMatch($WindowsMachineName,'\A[0-9]+\z',[Text.RegularExpressions.RegexOptions]::CultureInvariant)){return $null}
+    return 'CN='+[string]::Concat($WindowsMachineName)
+}
+
 function Read-LabTlsServerLeafCsr {
-    param([byte[]]$Der,[object]$Identity)
+    param([byte[]]$Der,[object]$Identity,[object]$WindowsMachineName=$null)
+    $subjectName=Get-LabTlsLeafSubjectName $WindowsMachineName
+    if($null -eq $subjectName -or ($null -ne $WindowsMachineName -and -not (Test-LabTlsRequestEnum $Identity.Kind @('IP')))){throw 'TLS_LEAF_CSR_INVALID'}
     $reader=[Formats.Asn1.AsnReader]::new([ReadOnlyMemory[byte]]::new($Der),[Formats.Asn1.AsnEncodingRules]::DER)
     $outer=$reader.ReadSequence();$info=$outer.ReadSequence()
     if($info.ReadInteger() -ne 0){throw 'TLS_LEAF_CSR_INVALID'}
     $subject=$info.ReadEncodedValue().ToArray()
-    $expectedSubject=[Security.Cryptography.X509Certificates.X500DistinguishedName]::new('CN=SQL_Server_Lab Server Leaf')
-    $expectedUtf8Subject=[Security.Cryptography.X509Certificates.X500DistinguishedName]::new('CN=SQL_Server_Lab Server Leaf',[Security.Cryptography.X509Certificates.X500DistinguishedNameFlags]::UseUTF8Encoding)
+    $expectedSubject=[Security.Cryptography.X509Certificates.X500DistinguishedName]::new($subjectName)
+    $expectedUtf8Subject=[Security.Cryptography.X509Certificates.X500DistinguishedName]::new($subjectName,[Security.Cryptography.X509Certificates.X500DistinguishedNameFlags]::UseUTF8Encoding)
     $subjectDigest=Get-LabTlsCaByteDigest $subject
-    # Derselbe feste einzelne CN: native OpenSSL-UTF8- oder bisherige BCL-DER-Form.
+    # Exakt erwarteter einzelner CN, niemals aus dem CSR als Sollwert ableiten.
     if(-not [string]::Equals($subjectDigest,(Get-LabTlsCaByteDigest $expectedSubject.RawData),[StringComparison]::Ordinal) -and
         -not [string]::Equals($subjectDigest,(Get-LabTlsCaByteDigest $expectedUtf8Subject.RawData),[StringComparison]::Ordinal)){throw 'TLS_LEAF_CSR_INVALID'}
     $spkiBytes=$info.ReadEncodedValue().ToArray()
@@ -65,12 +76,14 @@ function Read-LabTlsServerLeafCsr {
 }
 
 function Assert-LabTlsServerLeafCertificate {
-    param([byte[]]$Der,[byte[]]$Spki,[object]$Identity,[byte[]]$CaDer,[DateTimeOffset]$NotBefore,[DateTimeOffset]$NotAfter)
+    param([byte[]]$Der,[byte[]]$Spki,[object]$Identity,[byte[]]$CaDer,[DateTimeOffset]$NotBefore,[DateTimeOffset]$NotAfter,[object]$WindowsMachineName=$null)
+    $subjectName=Get-LabTlsLeafSubjectName $WindowsMachineName
+    if($null -eq $subjectName -or ($null -ne $WindowsMachineName -and -not (Test-LabTlsRequestEnum $Identity.Kind @('IP')))){throw 'TLS_LEAF_CERTIFICATE_INVALID'}
     $certificate=$null;$ca=$null;$public=$null;$issuer=$null
     try{
         $certificate=[Security.Cryptography.X509Certificates.X509Certificate2]::new($Der)
         $ca=[Security.Cryptography.X509Certificates.X509Certificate2]::new($CaDer)
-        $subject=[Security.Cryptography.X509Certificates.X500DistinguishedName]::new('CN=SQL_Server_Lab Server Leaf')
+        $subject=[Security.Cryptography.X509Certificates.X500DistinguishedName]::new($subjectName)
         if($certificate.HasPrivateKey -or $certificate.RawData.Length -ne $Der.Length -or
             -not [string]::Equals((Get-LabTlsCaByteDigest $certificate.RawData),(Get-LabTlsCaByteDigest $Der),[StringComparison]::Ordinal) -or
             -not [string]::Equals((Get-LabTlsCaByteDigest $certificate.SubjectName.RawData),(Get-LabTlsCaByteDigest $subject.RawData),[StringComparison]::Ordinal) -or
@@ -98,7 +111,7 @@ function Assert-LabTlsServerLeafCertificate {
 
 function New-LabAuthenticatedTlsServerLeaf {
     [CmdletBinding()]
-    param([object]$DataRoot,[object]$ControllerId,[object]$LocationId,[object]$Context,[object]$CandidateId,[object]$CsrDer,[object]$Identity,[object]$ValidityDays,[object]$ValiditySeconds=$null)
+    param([object]$DataRoot,[object]$ControllerId,[object]$LocationId,[object]$Context,[object]$CandidateId,[object]$CsrDer,[object]$Identity,[object]$ValidityDays,[object]$ValiditySeconds=$null,[object]$WindowsMachineName=$null)
     $bad=[pscustomobject][ordered]@{Success=$false;Value=$null;ErrorCode='TLS_LEAF_CSR_INVALID'}
     $shortLifetime=$null -ne $ValiditySeconds
     $validLifetime=if($shortLifetime){$null -eq $ValidityDays -and $ValiditySeconds -is [int] -and $ValiditySeconds -ge 30 -and $ValiditySeconds -le 300}
@@ -109,12 +122,15 @@ function New-LabAuthenticatedTlsServerLeaf {
     if($length -lt 1 -or $length -gt 16384){return $bad}
     $selected=Get-LabTlsRequestIdentity $Identity;if($null -eq $selected){return $bad}
     $selected=[pscustomobject]@{Kind=[string]::Concat($selected.Kind);Value=[string]::Concat($selected.Value)}
+    $subjectName=Get-LabTlsLeafSubjectName $WindowsMachineName
+    if($null -eq $subjectName -or ($null -ne $WindowsMachineName -and -not (Test-LabTlsRequestEnum $selected.Kind @('IP')))){return $bad}
+    $WindowsMachineName=if($null -ne $WindowsMachineName){[string]::Concat($WindowsMachineName)}else{$null}
     $ControllerId=[guid]::Parse($ControllerId).ToString('D');$LocationId=[guid]::Parse($LocationId).ToString('D');$CandidateId=[guid]::Parse($CandidateId).ToString('D')
     $bytes=[byte[]]::new($length);[Buffer]::BlockCopy($CsrDer,0,$bytes,0,$length)
     $key=$null;$ca=$null;$caPublic=$null;$leaf=$null
     try{
         Assert-LabTlsCaCandidateCapability
-        $csr=Read-LabTlsServerLeafCsr $bytes $selected
+        $csr=Read-LabTlsServerLeafCsr $bytes $selected -WindowsMachineName $WindowsMachineName
         $binding=Get-LabTlsCaCandidateBinding $DataRoot $ControllerId $LocationId $CandidateId
         $ca=[Security.Cryptography.X509Certificates.X509Certificate2]::new($binding.Der)
         $caPublic=[Security.Cryptography.X509Certificates.RSACertificateExtensions]::GetRSAPublicKey($ca)
@@ -127,7 +143,7 @@ function New-LabAuthenticatedTlsServerLeaf {
         if(-not [string]::Equals($binding.Digest,$again.Digest,[StringComparison]::Ordinal)){return $bad}
         $entropy=[Text.Encoding]::UTF8.GetBytes((Get-LabTlsPayloadDigest @('SqlServerLab.TlsCaCandidateKey/0.1',$CandidateId,$ControllerId,$LocationId,$binding.RootMetadataDigest,$binding.ActorDigest)))
         $key=Open-LabTlsCaSigningKey $again.Encrypted $entropy $again.Der
-        $request=[Security.Cryptography.X509Certificates.CertificateRequest]::new([Security.Cryptography.X509Certificates.X500DistinguishedName]::new('CN=SQL_Server_Lab Server Leaf'),
+        $request=[Security.Cryptography.X509Certificates.CertificateRequest]::new([Security.Cryptography.X509Certificates.X500DistinguishedName]::new($subjectName),
             $csr.PublicKey,[Security.Cryptography.HashAlgorithmName]::SHA256,[Security.Cryptography.RSASignaturePadding]::Pkcs1)
         $request.CertificateExtensions.Add([Security.Cryptography.X509Certificates.X509BasicConstraintsExtension]::new($false,$false,0,$true))
         $request.CertificateExtensions.Add([Security.Cryptography.X509Certificates.X509KeyUsageExtension]::new([Security.Cryptography.X509Certificates.X509KeyUsageFlags]'DigitalSignature, KeyEncipherment',$true))
@@ -139,7 +155,7 @@ function New-LabAuthenticatedTlsServerLeaf {
         $serial=[Security.Cryptography.RandomNumberGenerator]::GetBytes(16);$serial[0]=($serial[0] -band 0x7f) -bor 1
         $generator=[Security.Cryptography.X509Certificates.X509SignatureGenerator]::CreateForRSA($key,[Security.Cryptography.RSASignaturePadding]::Pkcs1)
         $leaf=$request.Create($ca.SubjectName,$generator,$begin,$end,$serial);$der=$leaf.Export([Security.Cryptography.X509Certificates.X509ContentType]::Cert)
-        Assert-LabTlsServerLeafCertificate $der $csr.Spki $selected $again.Der $begin $end
+        Assert-LabTlsServerLeafCertificate $der $csr.Spki $selected $again.Der $begin $end -WindowsMachineName $WindowsMachineName
         $after=Get-LabTlsCaCandidateBinding $DataRoot $ControllerId $LocationId $CandidateId
         if(-not [string]::Equals($binding.Digest,$after.Digest,[StringComparison]::Ordinal)){return $bad}
         return [pscustomobject][ordered]@{Success=$true;Value=[pscustomobject][ordered]@{Status='UNREGISTERED_UNQUALIFIED';CertificateDer=$der

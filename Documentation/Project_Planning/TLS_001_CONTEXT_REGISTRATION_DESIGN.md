@@ -1,5 +1,11 @@
 # TLS-001 – Client- und Signierkontexte registrieren
 
+Die getrennte [native Gast-CSP-Charakterisierung](../Quality/TLS_HYPERV_WINDOWS_CSP_CHARACTERIZATION_2026-10-18.md)
+belegt targetlokalen nicht exportierbaren Key und Host-CSR-Proof, registriert
+jedoch keinen Gast- oder Clientkontext. Der neue erwartete Maschinen-CN in der
+privaten Leaflane ist keine Ownership-/Kontextattestation. S/MIME im vorhandenen
+CSR bleibt gesperrt; volle Qualifikation und SC-2026-045 bleiben offen.
+
 ## Begrenzte Authoritybindung vom 2026-10-17
 
 Der [private `0.2`-Authorityvertrag](../Architecture/AUTHENTICATED_TLS_AUTHORITY_BINDING.md)

@@ -1,5 +1,11 @@
 # TLS-001a – Entwurf einer isolierten Lab-CA
 
+Die [Windows-CSP-Charakterisierung vom 2026-10-18](../Quality/TLS_HYPERV_WINDOWS_CSP_CHARACTERIZATION_2026-10-18.md)
+belegt inzwischen einen eigenen nicht exportierbaren Gastkey und Host-CSR-Proof.
+Der additive erwartete Maschinen-CN des privaten Leafvertrags ist eine reine
+Kryptoerwartung. Der echte CSR mit zusätzlichem S/MIME bleibt abgelehnt;
+CA-Ausstellung, Storeannahme, SQL-Dienstrechte und TLS stehen weiterhin aus.
+
 ## Integrierter Teilscope vom 2026-10-18
 
 Der [operative Vertrag](../Architecture/AUTHENTICATED_TLS_OPERATIONAL_LAB.md)

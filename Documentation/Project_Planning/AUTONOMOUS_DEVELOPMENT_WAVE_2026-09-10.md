@@ -1,5 +1,15 @@
 # Autonome Entwicklungswelle nach der Repository-Durchsicht
 
+## Windows-CSP-Fortsetzung vom 2026-10-18
+
+Die [getrennte native Charakterisierung](../Quality/TLS_HYPERV_WINDOWS_CSP_CHARACTERIZATION_2026-10-18.md)
+bestand für konkret freigegebene Aktivierung und isolierten Gast-CSP/CSR samt
+Host-Proof und eigenem Stop. VM/Disks/Key bleiben erhalten. Die private
+Leaflane ergänzt einen expliziten erwarteten Maschinen-CN ohne Erweiterung
+des SAN-/Attributlimits. Vorhandener CSR mit S/MIME bleibt abgelehnt; neuer CSR
+aus dem vorhandenen Key, CA-/SQL-Bindung und echte Hyper-V-TLS-Abnahme folgen
+getrennt. Keine Wiederholung der Keyanlage; SC-2026-045 bleibt gesperrt.
+
 ## Begrenzte CA-/Client-Metadatenbindung vom 2026-10-17
 
 Der neue [private Bindungsvertrag](../Architecture/AUTHENTICATED_TLS_AUTHORITY_BINDING.md)
