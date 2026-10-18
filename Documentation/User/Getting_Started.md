@@ -1,5 +1,17 @@
 # SQL_Server_Lab – Getting Started
 
+Neue Lab-Connection-Strings und SSMS-Registrierungsexporte verwenden
+`Encrypt=True;TrustServerCertificate=True` als einfachen Standard ohne eigene
+CA-/Client-Trusteinrichtung. Gespeicherte Altverbindungen bleiben erhalten.
+Die öffentliche Auswahl von `TrustServerCertificate=False` samt qualifizierter
+CLI-/GUI-Anzeige wird im laufenden TLS-001-Scope ergänzt.
+
+Die CLI-Runstatusansicht zeigt bereits eine eigene **Connection Settings**-
+Zeile je Provider/Instanz. Die GUI zeigt unter **Verbindungen und CMS** beide
+angegebenen TLS-Werte je Ziel ohne Zugangsdaten. Fehlende Werte erscheinen
+als `nicht angegeben`, unlesbare als `nicht lesbar`. Diese Anzeige führt
+keinen Verbindungstest aus; [Vertrag und Grenzen](../Architecture/SQL_CONNECTION_SETTINGS.md).
+
 Eigene SSIS-Projekte in einem bestehenden Windows-Lab verwenden den
 [Windows-Consumerzugang](../HowTo/SSIS_CONSUMER_WINDOWS_ACCESS.md) des bestehenden
 `Invoke-SqlServerLabScript` mit `-WindowsAuthentication`. Die Gastanmeldung
@@ -859,15 +871,27 @@ Server name: 127.0.0.1,14330
 Authentication: SQL Server Authentication
 Login: sa
 Password: das bei der Erstellung gesetzte Passwort
+Encryption: Mandatory (Encrypt=True)
 Trust server certificate: aktiviert
 ```
 
 Verwenden Sie den tatsächlich in `$lab.Instances[0].Port` zurückgegebenen Port.
 
+Neue Lab-Connection-Strings und der SSMS-Registrierungsexport setzen ausdrücklich
+`Encrypt=True;TrustServerCertificate=True`. Das ist der Standard mit geringerem
+Einrichtungsaufwand: verschlüsselte Verbindung ohne Prüfung der Serveridentität
+durch den Client. Die Connection Strings in CLI und GUI enthalten diese Werte.
+Bestehende gespeicherte Connection Strings werden nicht automatisch migriert.
+Der zusätzliche Modus mit `TrustServerCertificate=False` ist für das eigene
+[Windows-/Docker-SQL-2025-CU9-Lab](../Architecture/AUTHENTICATED_TLS_OPERATIONAL_LAB.md)
+mit bestehender qualifizierter CA-/Clientbindung verfügbar. Die angezeigten
+Flags belegen für sich keine Zertifikatsprüfung. Weitere Kombinationen und
+die gesonderte Prüfstatusanzeige bleiben im [P1-Backlog TLS-001](../Project_Planning/NEW_SQL_LAB_USE_CASES_BACKLOG.md#tls-001--authentifizierte-tls-verbindungen-der-testumgebungen).
+
 Mit `sqlcmd`:
 
 ```powershell
-sqlcmd -S "127.0.0.1,$($lab.Instances[0].Port)" -U sa -C
+sqlcmd -S "127.0.0.1,$($lab.Instances[0].Port)" -U sa -N -C
 ```
 
 Das Passwort wird von `sqlcmd` interaktiv abgefragt, wenn `-P` nicht angegeben wird.

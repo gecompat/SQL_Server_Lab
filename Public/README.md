@@ -1,5 +1,20 @@
 # Public/ – Exportierte Cmdlets
 
+## TLS-Standard für neue Verbindungen
+
+Neue gemeinsame Lab-Connection-Strings und SSMS-Registrierungsexporte enthalten
+ausdrücklich `Encrypt=True;TrustServerCertificate=True`, ohne gespeicherte
+Altverbindungen zu verändern. Dieser einfache Standard benötigt keine eigene
+CA-/Client-Trusteinrichtung. Die öffentliche Wahl des zertifikatsprüfenden
+`False`-Modus und seine qualifizierte CLI-/GUI-Anzeige bleiben im laufenden
+TLS-001-Scope; [ausgeführte Nachweise und Grenzen](../Documentation/Quality/LOCAL_VALIDATION_STRATEGY.md#expliziter-tls-standard-vom-2026-10-16).
+
+CLI-Runstatus und GUI-Zielübersicht zeigen bereits ausdrücklich die angegebenen
+TLS-Werte als **Connection Settings** je Ziel. Fehlende Werte bleiben unbekannt;
+die Anzeige ist kein Zertifikatsnachweis. `Get-SqlServerLabWorkflow` liefert
+dafür die credentialfreie `ConnectionSettings`-Projektion. Details im
+[Anzeigevertrag](../Documentation/Architecture/SQL_CONNECTION_SETTINGS.md).
+
 ## SSISDB: Ziel-, Komponenten- und Fixturebindung
 
 `Get-SqlServerLabSsisPackageDiagnostic` diagnostiziert ein eigenes hashgebundenes
@@ -136,6 +151,22 @@ Die Suche selbst prüft keinen SQL-Server. Der getrennte Containerpfad
 verifiziert nach SQL-Readiness; dessen historische Evidence ist kein Nachweis
 für die Browseransicht **Lab erstellen → Collations suchen**. Diese zeigt
 dieselben Metadaten ohne Auswahltransfer und bleibt bei SQL `NOT_CHECKED`.
+
+## Standard für SQL-Verbindungen
+
+Neue Lab-Connection-Strings und `Export-SqlServerLabSsmsRegistration` verwenden
+ausdrücklich `Encrypt=True;TrustServerCertificate=True`. Der Client fordert
+Verschlüsselung an und prüft dabei die Serveridentität nicht. Der SSMS-Export
+enthält weiterhin kein Passwort. Der Testumgebungsexport und die ausgegebenen
+Hyper-V-Verbindungsstrings verwenden dieselben TLS-Werte bereits.
+CLI und GUI zeigen die erzeugten Connection Strings einschließlich dieser Werte;
+bestehende gespeicherte Verbindungen werden nicht automatisch umgeschrieben.
+Die ausdrückliche Wahl von `False` ist für ein eigenes Windows-/Docker-
+SQL-2025-CU9-Lab samt separatem qualifiziertem V2-Export implementiert;
+maßgeblich ist der [operative Vertrag](../Documentation/Architecture/AUTHENTICATED_TLS_OPERATIONAL_LAB.md).
+Die Flagprojektion in CLI/GUI ist kein frischer Qualifikationsnachweis.
+Weitere Kombinationen und die gesonderte Anzeige des Qualifikationsstatus
+bleiben im [P1-Backlog](../Documentation/Project_Planning/NEW_SQL_LAB_USE_CASES_BACKLOG.md#tls-001--authentifizierte-tls-verbindungen-der-testumgebungen).
 
 ## Cmdlet-Übersicht
 
@@ -425,3 +456,29 @@ beliebiger Pfad aktiviert keine zusätzlichen Rechte. Im eigenen Profil werden
 vorbestehende Ressourcen erhalten, Podmanmaschinen nicht gestartet und die
 gemeinsame Hostspeicherwartung bei Stop übersprungen.
 [Vertrag und Grenzen](../Documentation/Architecture/OWNED_HOST_CI_ISOLATION.md).
+
+## Isolierter operativer TLS-Pfad
+
+Der additive [operative TLS-Vertrag](../Documentation/Architecture/AUTHENTICATED_TLS_OPERATIONAL_LAB.md)
+verbindet eine bereits vertraute CA mit eigenem Trustscope und einem neuen
+Docker-SQL-2025-CU9-Lab. Die explizite False-Wahl und der separate qualifizierte
+V2-Export sind vom unveränderten True/True-Default getrennt. Native Abnahme und
+weitere Providergrenzen werden in der Validierungsstrategie getrennt geführt.
+Beispiel mit bereits registriertem DataRoot und vorhandenem vertrautem CA-Kandidaten:
+
+```powershell
+$lab = New-SqlServerLab -Version '2025-CU9' -Provider docker -Profile compact `
+    -DataRoot $registeredDataRoot -TlsControllerId $controllerId `
+    -TlsLocationId $locationId -TlsCandidateId $candidateId `
+    -TrustServerCertificate:$false -GenerateSaPassword -NonInteractive
+
+$export = Export-SqlServerLabTestEnvironment -TrustServerCertificate:$false `
+    -RunId $lab.RunId -InstanceId primary -StateRoot $lab.StateRoot `
+    -OutputDirectory (Join-Path $lab.StateRoot ('export-' + [guid]::NewGuid().ToString('N')))
+```
+
+Der eigene Run bleibt absichtlich aktiv; Autostart ist aus. Weitere Lifecycle-
+Befehle verwenden immer seinen zurückgegebenen StateRoot. Für CLI und GUI kann
+in einem eigenen Prozess `SQL_SERVER_LAB_STATE` auf diesen Root gesetzt werden.
+Der V2-Export gilt höchstens 15 Minuten und benötigt einen expliziten Consumer-
+Cutover. Der bestehende Default und V1-Consumer bleiben bei True/True.

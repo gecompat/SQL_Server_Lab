@@ -1,10 +1,23 @@
 # SQL Server Lab
 
+CLI-Runstatus und GUI unter **Verbindungen und CMS** zeigen die angegebenen
+Werte von `Encrypt` und `TrustServerCertificate` je Ziel ausdrücklich an.
+Fehlende Werte werden nicht geraten; [Anzeigevertrag](Documentation/Architecture/SQL_CONNECTION_SETTINGS.md).
+
 `SQL_Server_Lab` erstellt lokale, isolierte SQL-Server-Testumgebungen für
 Entwicklung, Analyse und Schulung. Das PowerShell-Modul übernimmt Erstellung,
 SQL-Bereitschaft, Datenbank- und Skriptaufgaben, Start/Stop sowie
 scopegebundenen Cleanup. Docker und Podman sind die Kernprovider;
 Hyper-V bietet eigene begrenzte Windows-/SQL-Referenzpfade.
+
+Neue Lab-Connection-Strings und SSMS-Registrierungsexporte verwenden
+`Encrypt=True;TrustServerCertificate=True` als einfachen Standard ohne eigene
+CA-/Client-Trusteinrichtung. Gespeicherte Altverbindungen werden nicht migriert.
+Die ausdrückliche Wahl von `TrustServerCertificate=False` ist im begrenzten
+[Windows-/Docker-SQL-2025-CU9-Pfad](Documentation/Architecture/AUTHENTICATED_TLS_OPERATIONAL_LAB.md)
+mit qualifiziertem separatem Export implementiert. CLI und GUI zeigen die
+angegebenen Flags; der Flagwert allein ist kein Qualifikationsnachweis.
+Weitere Kombinationen und die gesonderte Prüfstatusanzeige bleiben TLS-001-Scope.
 
 ## Voraussetzungen
 

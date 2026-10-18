@@ -1,5 +1,16 @@
 # Private Registry-Gesamtform für TLS-Metadaten
 
+## Ergänzung: Authoritypayloads `0.2`
+
+Die Gesamthülle und der Index bleiben `0.1`; der Payloadreader ergänzt
+[gebundene Authorities](AUTHENTICATED_TLS_AUTHORITY_BINDING.md).
+Das Dokument fordert deren passende Clientpayload zusätzlich zur Signierkante:
+aktive CAs exakt aktive Clientgeneration, retirierte Formen höchstens aktuelle
+Generation. Aktive TrustScopeRef-, CandidateId- und CertificateSha256-Aliases
+sind gesperrt. Neue Felder gehen über die abgeleiteten Payloaddigests in den
+Dokumentdigest ein. Die Dokumentprüfung bleibt reine Byteform ohne I/O oder
+Schreibautorität. Der separate Writer erlaubt nur frisch gebundene aktive CAs.
+
 | Merkmal | Wert |
 |---|---|
 | Status | `OFFLINE_REGISTRY_ONLY`; keine persistente Registry oder Registrierung |
@@ -112,8 +123,10 @@ bleibt Toolbelt SC-2026-045 bis zu seinem echten TLS-/Clientnachweis blockiert.
 Die [lesende Rootbindung](AUTHENTICATED_TLS_REGISTRY_ROOT.md) vergleicht jetzt
 registrierte Windows-Rootmetadaten mit einer bestehenden vollständigen
 Registrydatei, ohne atomaren Snapshot oder Autorisierung. Trustscope,
-Registrywriter, persistente Registrierung, Keyschutz, Trustimport und SQL-/
-TLS-Matrix sind weiterhin offen. Nächster Scope ist die private Registrytransaktion
-gemäß Writer-/Crashvertrag; keine automatische Anlage oder Pfadadoption.
+operative CA-/Trustscopezuordnung und die vollständige SQL-/TLS-Matrix bleiben
+offen. Die getrennte [private Registrytransaktion](AUTHENTICATED_TLS_REGISTRY_WRITER.md)
+implementiert inzwischen aktive Client-/Signiermetadaten vor Keyanlage mit
+expliziter Initialisierung, Zugriffsschutz, atomarem Ersatz und Recovery.
+Die Offline-Dokumentform selbst erteilt weiterhin keine Schreibautorität.
 [Nachweise](../Quality/LOCAL_VALIDATION_STRATEGY.md) und
 [Known Limitations](../Quality/KNOWN_LIMITATIONS.md) erhalten diese Grenzen.

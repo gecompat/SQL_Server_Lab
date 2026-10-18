@@ -1,6 +1,284 @@
 # Lokale Validierungsstrategie
 
+## Getrennte Hyper-V-TLS-Zielmetadaten
+
+Die bestehende [Zielmetadatensuite](../../Tests/Static/Invoke-AuthenticatedTlsTargetChecks.ps1)
+enthält zusätzlich eigene Datei-Fixtures für den privaten Hyper-V-Reader:
+Run-/Root-/Scopeabweichung, VM-/SQL-ID-Austausch und Duplikate, falscher
+Workflow/Workload, gestoppte Dienste und abweichende oder falsch typisierte
+Endpoints sperren. Eine exakte geschlossene Projektion, getrennte Callerobjekte,
+Dateiintegrität und ungültige Selektoren vor I/O werden geprüft. Tripwires
+sperren VM-Abfragen und Workflowreparatur. Das ist keine native Hyper-V- oder
+SQL-/TLS-Qualifikation; frühere Providerfälle gelten nicht nachträglich für
+diese neue Produktlane. Vollständige Logs bleiben lokal.
+
+Der korrigierte lokale Lauf vom 2026-10-17 bestand 608/608 Fälle mit eigenem
+Tempcleanup. Der erste Teststart enthielt einen Parserfehler vor den Fällen;
+sein Fehlerbeleg bleibt erhalten. Ein unabhängiger Review fand anschließend
+eine fehlende Name-/Default-/Dienstkante. Ein separater injizierter Gegenfall
+reproduzierte die Annahme eines fremden Dienstes vor der Korrektur und dessen
+Ablehnung danach. Der finale Lauf enthält zusätzlich den positiven benannten
+Dienst und die negativen Zuordnungs-/Typfälle. Dies ist weiterhin ausschließlich
+Datei-/Formevidence, keine ausgeführte VM-/SQL-/TLS-Qualifikation.
+
+## Private Authoritybindung vom 2026-10-17
+
+Die [fokussierte Suite](../../Tests/Static/Invoke-AuthenticatedTlsAuthorityBindingChecks.ps1)
+prüft die [CA-/Client-Trustmetadaten](../Architecture/AUTHENTICATED_TLS_AUTHORITY_BINDING.md):
+geschlossene Formen und Digests, exakte Clientkante, aktive Duplikate,
+fremden Actor, Ciphertextdrift, unveränderte Generationen und Trustdrift
+zwischen Kandidateninstallation und Commit sowie frischen Recoverycommit.
+Native eigene Temp-CA, DPAPI/ACL, Root/Actor und Writer sind echte lokale
+Fixtures; positive Trust- und Clientbinarywerte sind injiziert. Fehlender
+Trust wird tatsächlich read-only gelesen. Keine tatsächliche Storemutation,
+SQL-/Provideraktion oder bestehende CA-Adoption. Die Writersuite bleibt
+separater Nachweis echter Childprozessabbrüche und Konkurrenz. Native
+Windows-Fälle bleiben auf anderen Plattformen NOT_EXECUTED. Eigener
+Tempcleanup ist erforderlich. Diese Metadatenprüfungen qualifizieren keinen
+Export und geben SC-2026-045 nicht frei.
+
+## Bedingte TLS-Fortsetzung vom 2026-10-17
+
+Die lesende Vorprüfung auf dem integrierten Stand `b9684cf0` bestand mit
+Bootstrap-`READY` für Docker, Podman und Hyper-V. Der tatsächliche
+`Get-LabAuthenticatedTlsCaTrustPreview` bestätigte den bestehenden Kandidaten,
+seine Root-/Actor-/Dateibindungen und `IDENTICAL_PREEXISTING_NOT_OWNED` im
+CurrentUser/Root-Store. Es erfolgte keine private Keyöffnung oder Signierprobe.
+Am gebundenen Root existiert keine `State/authenticated-tls/registry.json`;
+Registrierung und Qualifikation bleiben `NOT_EXECUTED`.
+
+Die bestehende Exportgruppe enthielt sechs runtimebereite registrierte Ziele.
+Je ein vorhandenes Docker- und Hyper-V-SQL-2025-Ziel wurde mit dem tatsächlichen
+System.Data.SqlClient und unveränderten Verbindungsidentitäten gelesen:
+`Encrypt=True;TrustServerCertificate=True` bestand jeweils mit `SELECT 1`.
+Mit `TrustServerCertificate=False` lehnten beide Verbindungen die Kette mit
+SqlException `-2146893019` / `SEC_E_UNTRUSTED_ROOT` ab, jeweils vor der ersten
+SQL-Abfrage. Kein bereites registriertes Podman-SQL-2025-Ziel war in dieser
+Gruppe vorhanden; daraus folgt kein fehlender oder defekter Podman-Provider.
+Der zweite Clientstack wurde nach dieser fehlenden Voraussetzung nicht als
+qualifiziert geprüft. Bestehende isolierte positive TLS-Nachweise werden
+nicht auf diese Gruppe übertragen.
+
+Der erste Diagnoseharness verwendete einen ungeeigneten PowerShell-Setter
+für den Connection-Timeout und erzeugte vier Setupfehler. Sein lokaler Beleg
+ist ausdrücklich `FAILED_HARNESS`, kein PASS. Die korrigierte Ausführung
+verwendete native Connection-String-Schlüssel, `ErrorActionPreference=Stop`,
+fünf Sekunden Connect-/Commandtimeout, keine Verbindungswiederholung und
+kein Pooling. Ihr vollständiger lokaler Beleg bleibt getrennt erhalten.
+Es gab keine SQL-Objekt-, Provider- oder Trustmutation, keine neuen
+Testressourcen und keinen Exportwrite. Rohdaten und Locatoren bleiben privat.
+Der [P1-Backlog](../Project_Planning/NEW_SQL_LAB_USE_CASES_BACKLOG.md#tls-001--authentifizierte-tls-verbindungen-der-testumgebungen)
+enthält die konkrete Fortsetzungsbedingung; dies ist keine neue TLS-Abnahme.
+
+## Private TLS-Registrytransaktion vom 2026-10-17
+
+Die [Writersuite](../../Tests/Static/Invoke-AuthenticatedTlsRegistryWriterChecks.ps1)
+prüft die getrennte [Windows-NTFS-Metadatenlane](../Architecture/AUTHENTICATED_TLS_REGISTRY_WRITER.md)
+an ausschließlich eigenen kurzlebigen Tempbäumen. Native Token-/Profil-/
+Volumeprüfung, private Verzeichnis-/Datei-ACLs, Initialisierung, tatsächlicher
+Dateiersatz mit Originalsicherung, Quellkonflikt und Journal-Replay werden
+ausgeführt. Vier echte Childprozessabbrüche prüfen die Grenzen vor Intent,
+nach Intent, nach Kandidat und nach Ersatz. Recovery bestätigt ausschließlich
+beobachtete Quell-/Kandidatbytes; abgebrochene Referenzen bleiben reserviert.
+Getrennte Mutex-/Filelockprozesse und zwei gleichzeitige Writer prüfen
+begrenzt gesperrten Zugriff beziehungsweise genau einen erfolgreichen Commit.
+Erweiterte Gegenfälle prüfen Duplicate Keys, ACL-/Backup-/Volumemetadatendrift
+und fremde gültige Registrybytes. Eigene Childprozesse und Tempbäume werden
+unabhängig vom Ergebnis bereinigt. Nicht-Windows prüft die gesperrte Lane;
+native Windows-Fälle bleiben dort ausdrücklich `NOT_EXECUTED`.
+
+Der erste native Lauf fand einen tatsächlichen PowerShell-Bindungsfehler:
+`File.Replace` erhielt bei `$null` als Backupnamen einen Leerpfad. Der
+korrigierte Writer verwendet eine eigene exakte Originalsicherung ohne
+Overwrite-Fallback. Der Fehlerlauf bleibt lokal erhalten und zählt nicht
+als PASS; der korrigierte Lauf bestand zunächst 33/33 Fälle einschließlich
+vollständigem eigenem Cleanup. Die erweiterte Suite bestand anschließend
+43/43 Fälle samt Cleanup; Pflichtgates werden am stabilen Stand gesondert
+ausgeführt. Kein Key, Store, SQL-Ziel oder
+Provider wurde für diesen Writerslice verändert. CA-Zuordnung und öffentliche
+Moduswahl bleiben eigenständiger offener Scope.
+
+Eine getrennte eigene Windows-Tempfixture registrierte zusätzlich Client-
+und Signierpayload gemeinsam durch den tatsächlichen Writer. Die beobachteten
+Token-/Profil-/Hostmarker-, SqlClient-/sqlcmd-Disk- und Backendmetadaten wurden
+intern frisch abgeglichen; der bestehende Reader las beide Records nach
+Commit zurück. Cleanup bestand, null SQL-Abfragen und null Truständerungen.
+Dies qualifiziert weder geladene Treiber noch TLS-Verbindungen. Die lokale
+Auswahl umfasst Writer, CI-Strategie, Dokumentation, Pester, Privacy und
+PSScriptAnalyzer. Nach der Begrenzung gehaltener Journalpayloads werden die
+betroffenen Writer-/Dokumentations-/Modul-/Analyzerprüfungen erneut ausgeführt;
+unveränderte CI-Strategieprüfungen werden nicht doppelt gestartet. Das
+Pflichtgate am veröffentlichten Head bleibt separat erforderlich.
+
+Der unabhängige Quellreview fand anschließend eine ETS-Umleitung der
+Operationsauswahl. Eine eigene native Tempfixture reproduzierte den Fehler:
+Ein gültiger `UPDATE`-String mit angehängter `StartsWith`-Methode wählte den
+Recoveryzweig und schrieb unerwartet einen Abortbeleg. Cleanup bestand.
+Der Writer verwendet jetzt ausschließlich feste ordinale Enumvergleiche.
+Die Regression prüft Methodenausführung vor Rootzugriff und den tatsächlichen
+offenen Intent ohne Dateidrift. Die ursprüngliche Reproduktion bleibt als
+Fehlernachweis lokal erhalten. Die korrigierte native Suite bestand 45/45
+Fälle einschließlich Cleanup. Derselbe unabhängige Reviewer bestätigte die
+feste Enumwahl und beide neuen Regressionen; das Finding ist geschlossen.
+Er führte ausschließlich einen Quellreview aus, keine nativen Probes.
+
+## Angegebene TLS-Werte in CLI und GUI vom 2026-10-17
+
+Die [native Parser-/CLI-Suite](../../Tests/Static/Invoke-SqlConnectionSettingsChecks.ps1)
+bestand mit 37 PASS / 0 FAIL. Sie prüft den echten Default-Erzeuger,
+`True`/`False`, fehlende Werte ohne implizite Defaults, Passwortquotes und
+Semikolons, doppelte Schlüssel gemäß nativem Parser, geschlossene unlesbare
+Eingaben und ETS-Getter. Der tatsächliche CLI-Statusrenderer lief mit festen
+Antworten für drei Provider-/Instanzkombinationen. Keine Stateanlage,
+Secretentschlüsselung, Provideraktion oder SQL-Verbindung.
+
+Die [JavaScript-Fixture](../../Tests/Static/Fixtures/WorkflowSqlTargetChecks.cjs)
+bestand mit 148 PASS. Sie führt das tatsächliche Produkt-JavaScript an einer
+begrenzten DOM-Fixture aus und prüft beide angegebenen TLS-Modi, explizites
+`False`, fehlende Werte und Geheimnisfreiheit in der Zielübersicht. Kein
+echter Browserlauf oder neuer SQL-Nachweis. Der
+[Anzeigevertrag](../Architecture/SQL_CONNECTION_SETTINGS.md) hält diese
+Metadatenanzeige von TLS-Qualifikation und öffentlicher Moduswahl getrennt.
+
+Eine nachfolgende gerenderte Browserabnahme der tatsächlichen Produktkomponente
+mit unverändertem Produkt-CSS zeigte vier synthetische Ziele: `True/True`,
+`True/False`, fehlendes `Encrypt` und einen unlesbaren String. Alle vier
+Textanzeigen waren sichtbar, ohne Zugangsdaten. Eigener Browser-Tab und
+Loopbacklistener sind geschlossen; Workerende mit Exitcode null, frische
+Listenerabwesenheit und unveränderte vier Produktquellen sind bestätigt.
+Keine komplette Produktseiten-/HTTP-/SQL-Komposition. Die zusätzliche echte
+lesende Workflow-API lieferte zehn vorhandene SQL-Zielprojektionen, jeweils
+passend zum tatsächlichen Connection String, ohne SQL-Abfrage oder
+Provideränderung. Lokatoren und Rohdaten bleiben ausschließlich lokal.
+
+Der breite statische Lauf fand ausschließlich einen bereits unveränderten
+Kompositionstest mit festem Exportcount 137, während das unveränderte
+Manifest und die Dokumentation 149 Exporte ausweisen. Git-Blobs von Manifest
+und Test entsprachen dem Ausgangsstand. Die Prüfung verwendet jetzt die
+autoritative Manifestmenge, Eindeutigkeit, genau eine Funktionsdeklaration
+je Export im tatsächlichen Private-/Public-/Provider-Ladegraph und den
+dazu passenden Dokumentationscount.
+Die festen fachlichen Union-Exporte bleiben ausdrücklich geprüft. Der alte
+FAIL bleibt lokal erhalten. Die korrigierte Suite bestand anschließend mit
+222 PASS / 0 FAIL. Die übrigen 22 Suites des breiten Laufs bestanden unverändert;
+die abschließende betroffene Auswahl prüft den korrigierten Test und die
+ergänzte Dokumentation erneut.
+
+## Expliziter TLS-Standard vom 2026-10-16
+
+Der nachfolgende begrenzte Auftrag implementiert den bereits funktionierenden
+Standard unabhängig von den noch fehlenden Voraussetzungen für `False`.
+`New-SqlConnectionString` gab bisher ausdrücklich nur
+`TrustServerCertificate=True` aus; beim tatsächlichen System.Data.SqlClient-
+Parser blieb `Encrypt` damit `false`. Neue Strings enthalten jetzt zusätzlich
+`Encrypt=True`. Der SSMS-Registrierungsexport wechselt von ausdrücklichem
+`Encrypt=False` zu demselben verschlüsselten Default. Testumgebungsexport und
+Hyper-V-Strings verwendeten beide Werte bereits. Gespeicherte Altstrings
+werden nicht verändert.
+
+Die ausführbare Regression in `Invoke-ReadinessContractChecks.ps1` parst den
+tatsächlichen Erzeuger mit und ohne ausdrückliche Passwortausgabe und prüft
+beide TLS-Werte, Ziel, Datenbank und Passwortplatzhalter. Die neue CMS-Assertion
+parst tatsächliches Registrierungs-XML und dessen Connection String und prüft
+explizite Verschlüsselung, Trust-Override und fehlendes Passwort. Beide
+fokussierten Suites bestanden; CMS meldete 35 PASS / 0 FAIL.
+
+Zusätzlich wurde die konfigurierte vollständige Testgruppe ausschließlich
+lesend verwendet, ohne neuen Export, Zielersatz oder Runtime-Start. Für alle
+sechs registrierten Ziele wurde der aktuell geänderte Connection-String-
+Erzeuger aufgerufen; der maskierte Passwortteil wurde im Speicher durch eine
+separate SqlCredential ersetzt. SqlClient und das tatsächlich ausgewählte
+native ODBC-sqlcmd führten eine SQL-Abfrage mit
+`Encrypt=True;TrustServerCertificate=True` beziehungsweise `-N -C` aus.
+`SERVERPROPERTY('ProductMajorVersion')` und `sys.dm_exec_connections.encrypt_option`
+bestätigten die erwartete SQL-Jahresversion und verschlüsselten Transport der
+jeweiligen echten Sitzung.
+
+| SQL-Ziele | SQL 2019 | SQL 2022 | SQL 2025 |
+|---|---|---|---|
+| Linux / Docker | SqlClient + sqlcmd PASS | SqlClient + sqlcmd PASS | SqlClient + sqlcmd PASS |
+| Windows / Hyper-V | SqlClient + sqlcmd PASS | SqlClient + sqlcmd PASS | SqlClient + sqlcmd PASS |
+
+Die zwölf erfolgreichen Verbindungen verteilen sich auf zwei lokale Läufe:
+im ersten bestanden alle sechs SqlClient-Abfragen, der Harness wählte aber
+mehrere installierte sqlcmd-Programme zugleich und startete diesen Client
+nicht. Nach Korrektur auf genau die erste Application wie im Produktpfad
+bestand ausschließlich der noch fehlende sqlcmd-Teil an allen sechs Zielen;
+die unveränderten SqlClient-Prüfungen wurden nicht wiederholt. Der ursprüngliche
+Harnessfehler bleibt lokal erhalten und wird nicht zum PASS umgedeutet.
+Die Exportbytes blieben in beiden Läufen unverändert. Keine Zertifikats-,
+Truststore-, Datenbank- oder Runtime-Konfiguration wurde mutiert; kein eigener
+Runtime-Cleanup war erforderlich. Credentials und native Diagnosen bleiben
+ausschließlich lokal und ignoriert.
+
+Dies belegt den Standardzugang an diesen bestehenden Zielen. Neue
+Provisionierung, Podman-Verbindungen, authentifizierte `False`-Verbindungen,
+gerenderte CLI-/GUI-Abnahme und vollständige CI-/Provider-Capability-Gates
+wurden in diesem begrenzten Nachweis nicht ausgeführt.
+
+Der nachfolgende [Podman-Nachweis vom 2026-10-17](#podman-tls-default-abnahme-vom-2026-10-17)
+ergänzt die dort noch fehlenden Podman-Verbindungen separat; die ursprüngliche
+Aussagegrenze des Nachweises vom 2026-10-16 bleibt erhalten.
+
+
+## Podman: TLS-Default-Abnahme vom 2026-10-17
+
+Der Benutzerauftrag begrenzt die Abnahme auf bereits vorhandene und
+funktionierende Voraussetzungen. `Initialize-SqlServerLabHostTools.ps1 -Name
+podman` löste die CLI auf; `Test-SqlServerLabClientReadiness.ps1 -Provider
+podman -Operation Validate` lieferte `READY` ohne fehlende Voraussetzungen oder
+Warnungen. Die Ressourcenprüfung lieferte `RESOURCE_OK`. Die katalogisierten
+SQL-Images für 2019, 2022 und 2025 waren bereits lokal vorhanden; natives sqlcmd
+und System.Data.SqlClient standen bereit. Kein Download, keine Installation
+und kein Start einer Podman-Machine oder Runtime waren nötig.
+
+Im normalen Run-Index lag kein Podman-Ziel vor. Vorhandene native Container
+wurden nicht als ungebundene Testziele übernommen. Stattdessen erzeugte der
+öffentliche `New-SqlServerLab`-Pfad nacheinander drei eigene nichtpersistente
+Runs mit ausdrücklichem Provider `podman`, Profil `compact`, einem CPU-Kern,
+2560 MiB und Autostart `off`. Ein frischer eigener StateRoot wurde über den
+bestehenden `OwnedHostTestScope` an die bereits laufende lokale Runtime
+gebunden; globale Defaults und vorhandene Runs wurden nicht umkonfiguriert.
+
+Je Version enthielt der tatsächlich zurückgegebene Connection String
+ausdrücklich `Encrypt=True;TrustServerCertificate=True`. SqlClient verwendete
+diesen String mit separat übergebener SqlCredential. Genau eine ausgewählte
+native sqlcmd-Application verwendete `-N -C`; die Credentials gelangten nur
+kurzzeitig in die Umgebung des eigenen Kindprozesses. Beide Clients prüften
+`SERVERPROPERTY('ProductMajorVersion')` und
+`sys.dm_exec_connections.encrypt_option` für ihre eigene Sitzung.
+
+| SQL-Version unter Podman | Defaultwerte | SqlClient | sqlcmd | Remove und terminaler State |
+|---|---|---|---|---|
+| 2019 | beide explizit `True` | verschlüsselte Abfrage PASS | verschlüsselte Abfrage PASS | REMOVED, null Fehler |
+| 2022 | beide explizit `True` | verschlüsselte Abfrage PASS | verschlüsselte Abfrage PASS | REMOVED, null Fehler |
+| 2025 | beide explizit `True` | verschlüsselte Abfrage PASS | verschlüsselte Abfrage PASS | REMOVED, null Fehler |
+
+Alle sechs echten Verbindungen meldeten den erwarteten SQL-Major und
+`encrypt_option=TRUE`. `Remove-SqlServerLab` entfernte jeden eigenen Run mit
+null Fehlern; der gespeicherte terminale State war jeweils `REMOVED`.
+Der abschließende gebundene Vergleich bestätigte identische Container-,
+Volume- und Netzwerkinventare sowie bytegleiche zuvor erfasste Run-State- und
+Connection-Info-Dateien der vorhandenen aktiven Runs. Gesamtergebnis `PASS`,
+kein Recoverybedarf. Private Testmetadaten und Diagnosen bleiben lokal und
+außerhalb der Versionskontrolle.
+
+Dies ist der getrennte Podman-Nachweis für den einfachen TLS-Default mit den
+bereits vorhandenen Images. Er belegt weder einen bestimmten weiteren CU-Stand
+noch `TrustServerCertificate=False`, Client-Trust, gerenderte CLI-/GUI-Ansichten
+oder die vollständigen CI-/Provider-Capability-Gates. Die authentifizierte
+TLS-001-Abnahme bleibt offen; für die hier bestandene Default-Abnahme ist kein
+zusätzlicher offener Podman-Backlogeintrag erforderlich.
+
+
 ## Phasen und Auswahl
+
+Die [native Linux-TLS-Abnahme vom 2026-10-17](TLS_LINUX_SQL2025_TRUST_DRIFT_ACCEPTANCE_2026-10-17.md)
+bestand für beide ausgewählten Stacks unter Docker/SQL 2025 CU9 mit strikter
+Zertifikatsprüfung, kontrolliertem Trustentzug und Wiederherstellung. Sechs
+Fälle, geladener ODBC im Kindprozess, bestätigtes Workerende und frisch
+abwesende eigene Container/Volumes/Netzwerke; geschützte Dateien bytegleich.
+Andere Matrixfälle und öffentliche Moduswahl bleiben separat offen.
 
 `Invoke-WindowsSqlScriptChecks.ps1` prüft den neuen Windows-Parametersatz des
 bestehenden Skriptbefehls, gebundene Gastanmeldung, Eingabe-/Ausgabegrenzen,
@@ -2283,6 +2561,15 @@ Der allgemeine Windows-Aktivierungsintent wurde am 2026-09-10 durch 33
 betroffene statische Suites geprueft. Zusaetzliche fokussierte Nachweise
 decken den SQL-Blocker, Pool-Resume, unveraenderte permanente NIC bei Erfolg
 und Fehler sowie Cleanup vor dem Bereits-aktiviert-No-Op ab.
+`Invoke-WindowsActivationIntentChecks.ps1` prueft ausserdem ohne Runtimezugriff
+die explizite Intent-/Switch-/StateRoot-Weitergabe der oeffentlichen Reparatur
+mit beiden Kennwortpfaden, den unveraenderten gespeicherten Denied-Intent,
+Abweisung leerer/ungueltiger Angaben vor Runzugriff oder VM-Start und den
+eigenen Stop nach fehlgeschlagener manueller Wiederaufnahme. Diese Faelle sind
+kein nativer Aktivierungs- oder Egressnachweis der neuen Adapterweitergabe.
+Die Aktivierungssuite prueft auch die `NoRetry`-Bindung des mutierenden Gastblocks
+bei Erfolg und Fehler. `Invoke-HyperVGuestProgressChecks.ps1` prueft den
+unterliegenden No-Replay-Vertrag bei synthetischem `OpenError` getrennt.
 `Invoke-HyperVWindowsLocaleAcceptance.ps1` verlangt im eigenen Child auch
 einen aktiven Live-Lizenzzustand und prueft ein gegebenenfalls entstandenes
 temporaeres Adapterjournal auf vollstaendiges Cleanup. Die Ausgabe trennt
@@ -4761,6 +5048,28 @@ Rohreceipts, Hashes, Paket-/Zielidentitäten und echte Diagnoseausgaben bleiben
 ausschließlich lokal außerhalb der Versionskontrolle. Der
 [Vertrag](../Architecture/SSIS_PACKAGE_DIAGNOSTIC.md) trennt Ausgabe und Grenzen.
 
+Die Integrationsprüfung vom 2026-10-18 bestätigte zunächst den bisherigen
+Gastpfad erneut mit vier unveränderten Consumerpaketen und einer eigenen
+Negativkopie. Der unabhängige Review identifizierte dabei durchgereichte
+PowerShell-Remotingmetadaten und die fehlende Aufnahme der neuen Suite in die
+Vollregression. Nach der Korrektur bestanden 73 fokussierte Assertions:
+rekursiver DTO-Neubau, verworfene Zusatzfelder, ungültige beziehungsweise
+widersprüchliche Antworten sowie Hash-, Runtime-, Bitness-, Typ- und
+Mengengrenzen sind explizit geprüft. Die Suite ist genau einmal in
+`Invoke-AllChecks.ps1` und damit im Nightly registriert; die CI-Strategie
+sichert diese Registrierung. Der bestehende betroffene Selektor und die
+Providerpflichtgates bleiben erhalten; es entsteht kein zusätzlicher
+Runtimeprüfweg oder Reviewprozess.
+
+Der korrigierte öffentliche Hostpfad bestand anschließend erneut mit allen
+vier Paketen im selben vorhandenen SSIS-2025-x64-Gast. Die öffentliche Ausgabe
+enthielt keine Remotingmetadaten. Die eigene Negativkopie bestätigte weiterhin
+`LOAD_FAILED` und numerische Fehler trotz zurückkehrendem Loader. Original-
+ISPAC und erfasste Run-Dateien blieben bytegleich; die temporäre Negativdatei
+wurde entfernt. Es wurden keine Pakete ausgeführt oder SQL-Verbindungen
+geöffnet. Der Reviewer bestätigte die beiden Korrekturen ohne weitere
+blockierende Findings. Die oben genannten Grenzen bleiben bestehen.
+
 ## SSISDB-Fixture auf Prepared Hyper-V SQL 2025
 
 Die unabhängige Formatabnahme `Tests/Integration/Invoke-SsisFixtureFormatAcceptance.ps1`
@@ -4806,3 +5115,91 @@ Regression prüft gemeinsame Aufrufer, ohne die bereits grünen nativen
 SQL-/TLS-Matrizen zu wiederholen. Ein unabhängiger Review am stabilen Diff
 und der exakte lokale/CI-Abschluss sind weiterhin erforderlich. Tatsächliche
 Kosten und Tokenmessung sind unbekannt; es gibt keine neue Modell-/Logpipeline.
+
+## Isolierter operativer TLS-Pfad
+
+Der additive [operative TLS-Vertrag](../Architecture/AUTHENTICATED_TLS_OPERATIONAL_LAB.md)
+verbindet eine bereits vertraute CA mit eigenem Trustscope und einem neuen
+Docker-SQL-2025-CU9-Lab. Die explizite False-Wahl und der separate qualifizierte
+V2-Export sind vom unveränderten True/True-Default getrennt. Native Abnahme und
+weitere Providergrenzen werden in der Validierungsstrategie getrennt geführt.
+### Operativer TLS-Pfad vom 2026-10-17
+
+Die eigene Windows-/Docker-Abnahme für SQL Server 2025 CU9 bestand nach den
+korrigierten Selektor-, Budget- und CLI-Harnessfehlern vollständig. Eigene
+Registryadoption mit frischem DPAPI-Reopen/Sign/Verify, eigener SQL-Key/CSR im
+Container, Leaf-/Konfigurations-/Startbindung und der separate signierte V2-
+False-Export wurden tatsächlich ausgeführt. Sechs echte positive Sitzungen:
+SqlClient und ODBC sqlcmd bei Erstellung, erneut bei Exportqualifikation und
+mit den aus JSON gelesenen Zugangsdaten. Jede SQL-Probe bestätigte Verschlüsselung;
+der Qualifikationspfad bestätigte Build 17.0.5005.3 und beobachtete den geladenen
+ODBC-Treiber. Tatsächlicher CLI-Formatter und GUI-Workflow zeigten True/False.
+Veraltete Serverstartbindung und manipuliertes Exportflag wurden abgewiesen;
+Originalbytes anschließend wiederhergestellt und der Export erneut verifiziert.
+Vorhandene Connection-Dateien, Root-/Katalogdateien, Host-Autostartdateien und
+der Podman-Loginwert blieben unverändert. Der erfolgreiche eigene Run bleibt
+bewusst persistent und mit Autostart off nutzbar; frühere fehlgeschlagene eigene
+Runs wurden entfernt. Der erste Voranlagefehler hinterließ keinen Runtime-Run;
+sein einzelner Intent und leeres Verzeichnis wurden ebenfalls entfernt.
+
+Der Fehler-Cleanup entfernt nach bestätigter Runentfernung und Containerabwesenheit
+auch die fünf festen privaten Exportdateien des eigenen Abnahmelaufs. Er prüft
+StateRoot, Audit-/Run-/Scopebindung, terminalen Zustand und sämtliche Dateirechte
+vor der ersten Löschung. Unbekannte Inhalte und laufende Runs bleiben erhalten;
+CA-Key und Truststore werden dafür nicht benötigt. Die native Cleanupfixture
+bestand mit 6 PASS / 0 FAIL und vollständiger eigener Bereinigung. Zwei private
+Exportordner früherer fehlgeschlagener Abnahmeläufe wurden damit tatsächlich
+entfernt; der erfolgreiche persistente Run und dessen Export blieben erhalten.
+
+Separat bestanden auf ReFS alle 45 tatsächlichen Writerfälle einschließlich
+File.Replace, Quellbackup, ACLs, Prozessabbrüchen, Konkurrenz, Recovery und
+vollständigem eigenem Cleanup. Die NTFS-Writersuite blieb im betroffenen Gate
+separat erhalten. Authority-Fixtures prüfen native DPAPI-/ACL-/Registryaktionen
+mit injiziertem Trust; Export-Fixtures verwenden echte RSA-Signaturen und
+Dateirechte mit ausdrücklich injizierten Providerbeobachtungen. Diese Fixtures
+ersetzen die oben genannten echten SQL-Sitzungen nicht. Unabhängiger Quellreview
+schloss vier konkrete Findings sowie die nachfolgenden Cleanup-/Budgetdeltas.
+
+Fehlende Nachweise bleiben explizit: öffentliche operative False-Lane für Podman,
+Hyper-V, Linuxclients und andere SQL-/Patchstände; V2-Cutover fremder Consumer;
+Wire-Zertifikatsfingerprint, automatische Erneuerung/Rebind und vollständige
+Produktseitenkomposition. Der bestehende True/True-Default und seine früheren
+getrennten Providerbelege werden dadurch nicht umdefiniert.
+
+## Bestehendes Hostnetz bei Hyper-V-Prepared-Create
+
+`Invoke-LabNetworkChecks.ps1` bindet
+`Tests/Common/HyperVCreateExistingNetworkFixture.ps1` ein. Die injizierten
+Produktfunktionen prüfen fehlende/abweichende Netze, ausstehende Aktionen,
+Ready-Durchlass und das gespeicherte eigene Run-Flag ohne native Aufrufe.
+Das ersetzt keine native Hyper-V-Create-, CSP-, Zertifikats- oder TLS-Abnahme.
+
+
+## TLS-Modi: bedingte Vorprüfung vom 2026-10-16
+
+Historischer Befund des damaligen Auftrags; der spätere operative Teilscope ist separat dokumentiert.
+
+Für den Auftrag „nur bei bereits vorhandenen und funktionierenden
+Voraussetzungen sofort umsetzen“ wurde
+`Tools/Test-SqlServerLabClientReadiness.ps1 -Operation Create` mit `-Provider
+docker`, `podman` und `hyperv` getrennt ausgeführt. Alle drei lieferten
+`READY_WITH_WARNINGS`: Provider erreichbar, Modul/Exports und Storage vorhanden,
+keine `MissingPrerequisites`; ausschließlich `TARGET_AUTHORIZATION_REQUIRED`
+als Hinweis auf die spätere zielgebundene Prüfung. Der Test startet keine Runtime
+und ersetzt weder Ownership noch TLS-Qualifikation.
+
+Im aktuellen Windows-Clientprozess waren System.Data.SqlClient, ein natives
+sqlcmd und installierte SQL-ODBC-Treiber verfügbar. Welcher ODBC-Treiber geladen
+wird, Client-Trust, Zertifikatsbestand, SAN-/SQL-Bindung und echte SQL-Anmeldung
+wurden dadurch nicht qualifiziert. Die zusätzliche Quellenprüfung von `main`
+auf `2fed9a89eb948d16fac51329d5863dd08b43ed52` bestätigt private Crypto-/
+Trustbausteine ohne integrierte operative SQL-Zertifikatsbindung; der dort
+zuletzt dokumentierte Trustimport ist unbestätigt und verlangt Recovery.
+Dieser Quellenbefund ist kein frischer Storestatus.
+
+Damit fehlen funktionierende Voraussetzungen für den vollständigen Auftrag.
+Beide Modi und ihre CLI-/GUI-Anzeige bleiben als gemeinsamer
+[P1-Backlogumfang mit Startbedingungen](../Project_Planning/NEW_SQL_LAB_USE_CASES_BACKLOG.md#voraussetzungen-und-startentscheidung-vom-2026-10-16)
+offen. Echte SQL-/TLS-Verbindungen beider Modi sind in dieser Vorprüfung
+`NOT_EXECUTED`; es gab keinen Providerstart und keine Zertifikats-, Truststore-
+oder SQL-Konfigurationsmutation. Es entstand kein eigener Runtime-Cleanupbedarf.

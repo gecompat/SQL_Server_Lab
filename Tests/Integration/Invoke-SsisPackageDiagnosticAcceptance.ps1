@@ -33,6 +33,9 @@ foreach($name in $PackageName) {
         $result.Observation.Runtime.ProcessBitness -ne 64 -or $result.Observation.LoadStatus -cnotin @('RETURNED','FAILED')) {
         throw 'SSIS_DIAGNOSTIC_ACCEPTANCE_INCONCLUSIVE'
     }
+    if(($result|ConvertTo-Json -Depth 12) -match '"(PSComputerName|RunspaceId|PSShowComputerName|PSSourceJobInstanceId)"\s*:'){
+        throw 'SSIS_DIAGNOSTIC_ACCEPTANCE_REMOTING_METADATA'
+    }
     $results+=$result
 }
 $after=@($stateFiles|ForEach-Object {(Get-FileHash -LiteralPath $_ -Algorithm SHA256).Hash})

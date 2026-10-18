@@ -320,11 +320,13 @@ function Invoke-HyperVWindowsSlotActivation {
         [Parameter(Mandatory)][string]$RunId,
         [string]$ExternalSwitchName,
         $WindowsActivation,
+        [switch]$ExplicitWindowsActivation,
         [PSCredential]$Credential,
         [ValidateRange(60, 3600)][int]$TimeoutSeconds = 300,
         [string]$StateRoot
     )
 
+    if($ExplicitWindowsActivation){$WindowsActivation=Resolve-LabWindowsActivationIntent -Intent $WindowsActivation -RequireExplicit}
     Assert-LabWindowsPoolMutationAllowed -RunId $RunId -StateRoot $StateRoot -InvalidateEvidence
     $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
     if (-not $Credential) {
@@ -343,7 +345,10 @@ function Invoke-HyperVWindowsSlotActivation {
         Remove-LabWindowsActivationAdapter -Lab $lab
     }
     $savedIntent=$lab.Instance.windowsActivationIntent
-    if($WindowsActivation){$intent=Resolve-LabWindowsActivationIntent -Intent $WindowsActivation}
+    if($WindowsActivation){
+        $intent=Resolve-LabWindowsActivationIntent -Intent $WindowsActivation
+        if($ExplicitWindowsActivation){$lab.Instance | Add-Member -NotePropertyName windowsActivationIntentSource -NotePropertyValue 'parameters' -Force}
+    }
     elseif($savedIntent -and ($lab.Instance.windowsActivationIntentSource -ne 'compatibility-defaults' -or $savedIntent.EgressPolicy -eq 'Denied')){
         $intent=Resolve-LabWindowsActivationIntent -Intent $savedIntent
     }
@@ -392,7 +397,7 @@ function Invoke-HyperVWindowsSlotActivation {
 
         $activation = Invoke-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) `
             -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $Credential `
-            -TimeoutSeconds $TimeoutSeconds -ArgumentList @($macAddress,$usesTemporary) `
+            -NoRetry -TimeoutSeconds $TimeoutSeconds -ArgumentList @($macAddress,$usesTemporary) `
             -ScriptBlock {
                 param($MacAddress,$ConfigureTemporaryAdapter)
                 $ErrorActionPreference = 'Stop'
@@ -783,6 +788,7 @@ function New-HyperVLabEnvironment {
         [string]$SwitchName,
         [switch]$Isolated,
         [switch]$TemplateValidationRun,
+        [switch]$RequireExistingNetwork,
         [ValidateSet('hostOnly', 'nat', 'lan')][string]$NetworkIntent = 'hostOnly',
         [object[]]$AdditionalDrives = @(),
         $StorageIntent,
@@ -795,6 +801,9 @@ function New-HyperVLabEnvironment {
         [string]$StateRoot
     )
 
+    if ($RequireExistingNetwork -and ($Isolated -or $NetworkIntent -cne 'hostOnly' -or -not $SwitchName)) {
+        throw 'HYPERV_LAB_EXISTING_HOSTONLY_SWITCH_REQUIRED'
+    }
     Write-LabInfo 'Schritt 1/5: Hyper-V-Verfügbarkeit und veröffentlichte Windows-/SQL-Vorlage werden geprüft.'
     $availability = Test-HyperVAvailable
     if (-not $availability.Available) { throw "HYPERV_WORKFLOW_UNAVAILABLE: $($availability.Message)" }
@@ -837,6 +846,9 @@ function New-HyperVLabEnvironment {
     if ($networkPlan -and [string]$networkPlan.Status -ne 'READY') {
         throw "HYPERV_NETWORK_BINDING_BLOCKED: $(@($networkPlan.Blockers) -join ', ')"
     }
+    if ($RequireExistingNetwork -and @($networkPlan.Actions).Count -ne 0) {
+        throw 'HYPERV_LAB_EXISTING_NETWORK_ACTIONS_FORBIDDEN'
+    }
     $labNetwork = $null
 
     Write-LabInfo 'Schritt 2/5: Workflow-Run und rückgängig ausführbarer Cleanup-Plan werden angelegt.'
@@ -855,6 +867,7 @@ function New-HyperVLabEnvironment {
     if ($null -ne $ResourceAssessmentRecord) {
         $runMetadata['resourceAssessment'] = $ResourceAssessmentRecord
     }
+    if ($RequireExistingNetwork) { $runMetadata['requireExistingNetwork'] = $true }
     $workflowOperationId = Get-LabWorkflowOperationContext
     if (-not [string]::IsNullOrWhiteSpace($workflowOperationId)) {
         $runMetadata['workflowOperationId'] = $workflowOperationId
@@ -865,7 +878,7 @@ function New-HyperVLabEnvironment {
         $null = New-CleanupPlan -RunDir $run.RunDir -RunId $run.RunId -ScopeId $run.ScopeId -ProviderSubRuns @([PSCustomObject]@{ id = 'provider-hyperv'; provider = 'hyperv'; instanceIds = @($InstanceId) })
         if($WindowsLocale){$null=Add-HyperVImageManifestLockEntry -RunDirectory $run.RunDir -Artifact $artifact -WindowsLocale $WindowsLocale}
         if ($networkPlan) {
-            $labNetwork = Invoke-LabHyperVNetworkBoundPlan -Plan $networkPlan
+            $labNetwork = Invoke-LabHyperVNetworkBoundPlan -Plan $networkPlan -RequireExistingNetwork:$RequireExistingNetwork
             if ([string]$labNetwork.Intent -eq 'lan') {
                 $labNetwork | Add-Member -NotePropertyName address -NotePropertyValue $null -Force
             }
@@ -1138,12 +1151,14 @@ function Invoke-HyperVLabUnattendedProvision {
         [ValidatePattern('^[0-9A-Fa-f]{4}:[0-9A-Fa-f]{8}$')][string]$InputLocale = '0407:00000407',
         [string]$TimeZone = 'W. Europe Standard Time',
         [string]$MediaRoot,
+        [switch]$RequireExistingNetwork,
         [string]$StateRoot
     )
 
     Assert-LabWindowsPoolMutationAllowed -RunId $RunId -StateRoot $StateRoot -InvalidateEvidence
     Write-LabInfo 'Schritt 1/6: Klon-Vorlage und isolierte Child-VHDX werden geprüft.'
     $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
+    $RequireExistingNetwork = $RequireExistingNetwork -or ($lab.Run.metadata.PSObject.Properties['requireExistingNetwork'] -and [bool]$lab.Run.metadata.requireExistingNetwork)
     if (-not $lab.Instance.imageArtifactId) { throw 'HYPERV_LAB_UNATTENDED_REQUIRES_IMAGE_ARTIFACT' }
     $windowsOnly = [string]$lab.Instance.workload -eq 'windows'
     if ($lab.Instance.oobeAutomation -and [string]$lab.Instance.oobeAutomation.status -eq 'COMPLETED') {
@@ -1332,7 +1347,7 @@ function Invoke-HyperVLabUnattendedProvision {
     Save-LabHyperVSqlSaPassword -RunDirectory $lab.RunDirectory -SqlSaPassword $SqlSaPassword -Generated:$generatedSqlPassword
     Write-LabInfo 'Schritt 6/6b: SQL CompleteImage, WMI-Prüfung sowie TCP/IP-Hostzugriff werden in der laufenden Klon-VM automatisch ausgeführt.'
     $sqlCompletion = Complete-HyperVLabSqlImage -RunId $RunId -Credential $credential -SqlSaPassword $SqlSaPassword `
-        -GeneratedSqlSaPassword:$generatedSqlPassword -SqlPort $SqlPort -MediaRoot $MediaRoot -StateRoot $lab.StateRoot
+        -GeneratedSqlSaPassword:$generatedSqlPassword -SqlPort $SqlPort -MediaRoot $MediaRoot -StateRoot $lab.StateRoot -RequireExistingNetwork:$RequireExistingNetwork
     $storageRuntime = $null
     $storagePlanPath = Join-Path $lab.RunDirectory 'storage-bound-plan.json'
     if (Test-Path -LiteralPath $storagePlanPath -PathType Leaf) {
@@ -2427,6 +2442,7 @@ function Enable-HyperVLabHostSqlAccess {
         if ($attached.Count -eq 1) { [string]$attached[0].SwitchName } else { $null }
     }
     $usesLan = $lab.Instance.labNetwork -and [string]$lab.Instance.labNetwork.intent -eq 'lan'
+    $RequireExistingNetwork = $RequireExistingNetwork -or ($lab.Run.metadata.PSObject.Properties['requireExistingNetwork'] -and [bool]$lab.Run.metadata.requireExistingNetwork)
     if ($RequireExistingNetwork) {
         # Bounded acceptance must never repair shared host infrastructure or
         # persist a different default switch as a side effect of SQL setup.
@@ -2704,11 +2720,13 @@ function Complete-HyperVLabSqlImage {
         [switch]$GeneratedSqlSaPassword,
         [ValidateRange(1,65535)][int]$SqlPort = 1433,
         [string]$MediaRoot,
+        [switch]$RequireExistingNetwork,
         [string]$StateRoot
     )
 
     Assert-LabWindowsPoolMutationAllowed -RunId $RunId -StateRoot $StateRoot -InvalidateEvidence
     $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
+    $RequireExistingNetwork = $RequireExistingNetwork -or ($lab.Run.metadata.PSObject.Properties['requireExistingNetwork'] -and [bool]$lab.Run.metadata.requireExistingNetwork)
     if (-not $lab.Instance.imageArtifactId -or $lab.Instance.sqlCompletion) { throw 'HYPERV_LAB_SQL_COMPLETE_NOT_REQUIRED' }
     $artifact = Get-HyperVImageArtifact -ArtifactId ([string]$lab.Instance.imageArtifactId) -StateRoot $lab.StateRoot
     if (-not $artifact -or [string]$artifact.artifactState -ne 'SQL_PREPARED_SEALED') { throw 'HYPERV_LAB_SQL_PREPARED_IMAGE_REQUIRED' }
@@ -2817,7 +2835,7 @@ function Complete-HyperVLabSqlImage {
     if ($lab.Instance.labNetwork) {
         Write-LabInfo 'Schritt 4/5: Feste Lab-IP, SQL-TCP und die auf den Host beschränkte Firewallregel werden automatisch eingerichtet.'
         $hostAccess = Enable-HyperVLabHostSqlAccess -RunId $RunId -Credential $Credential `
-            -SqlSaPassword $SqlSaPassword -SqlPort $SqlPort -StateRoot $lab.StateRoot
+            -SqlSaPassword $SqlSaPassword -SqlPort $SqlPort -StateRoot $lab.StateRoot -RequireExistingNetwork:$RequireExistingNetwork
         $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot
         $lab.Instance.sqlCompletion | Add-Member -NotePropertyName hostSqlAccess -NotePropertyValue $hostAccess -Force
         Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'connection-info.json') -InputObject $lab.Connection

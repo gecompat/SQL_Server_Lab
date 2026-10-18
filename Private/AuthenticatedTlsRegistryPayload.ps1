@@ -79,6 +79,13 @@ function Get-LabTlsPayloadIndexRecord {
     if([string]::Equals($p.Kind,'AUTHORITY',[StringComparison]::Ordinal)){
         $identity+=@($p.TrustScopeRef,$p.SignerContextRef)
         $revision+=@($p.SignerGeneration.ToString([Globalization.CultureInfo]::InvariantCulture),$p.KeyStatus,$p.CertificateStatus)
+        if([string]::Equals($p.ContractVersion,'SqlServerLab.AuthenticatedTlsRegistryPayload/0.2',[StringComparison]::Ordinal)){
+            $identity[0]='SqlServerLab.TlsPayloadIdentity/0.2';$identity+=@($p.ClientRef,$p.CandidateId)
+            $revision[0]='SqlServerLab.TlsPayloadRevision/0.2'
+            foreach($name in @('ContractVersion','CandidateId','ClientRef','ClientGeneration','CandidateBindingDigest','CertificateSha256','EncryptedKeySha256','NotBeforeUtc','NotAfterUtc','Store','TrustStatus')){
+                $revision+=@($name,[Convert]::ToString($p.$name,[Globalization.CultureInfo]::InvariantCulture))
+            }
+        }
     }else{
         $identity+=@($p.Context,$p.Actor.UserSid,$p.Actor.HostMarker)
         $revision+=@($p.Actor.ProfilePath)
@@ -116,18 +123,47 @@ function Read-LabAuthenticatedTlsRegistryPayload {
         if($document.RootElement.ValueKind -ne [Text.Json.JsonValueKind]::Object -or -not $document.RootElement.TryGetProperty('Kind',[ref]$kindElement)){return $bad}
         $kind=Get-LabTlsIndexString $kindElement
         if(-not (Test-LabTlsRequestEnum $kind @('CLIENT_CONTEXT','SIGNER_CONTEXT','AUTHORITY'))){return $bad}
+        $versionElement=[Text.Json.JsonElement]::new()
+        if(-not $document.RootElement.TryGetProperty('ContractVersion',[ref]$versionElement)){return $bad}
+        $version=Get-LabTlsIndexString $versionElement
+        $boundAuthority=[string]::Equals($kind,'AUTHORITY',[StringComparison]::Ordinal) -and
+            [string]::Equals($version,'SqlServerLab.AuthenticatedTlsRegistryPayload/0.2',[StringComparison]::Ordinal)
         $names=@('ContractVersion','ControllerId','LocationId','Kind','Ref','Generation','Status')
         $names+=if([string]::Equals($kind,'AUTHORITY',[StringComparison]::Ordinal)){@('TrustScopeRef','SignerContextRef','SignerGeneration','KeyStatus','CertificateStatus')}else{@('Context','Actor','Details')}
+        if($boundAuthority){$names+=@('CandidateId','ClientRef','ClientGeneration','CandidateBindingDigest','CertificateSha256','EncryptedKeySha256','NotBeforeUtc','NotAfterUtc','Store','TrustStatus')}
         $fields=Get-LabTlsIndexFields $document.RootElement $names
         $p=[ordered]@{}
         foreach($name in @('ContractVersion','ControllerId','LocationId','Kind','Ref','Status')){$p[$name]=Get-LabTlsIndexString $fields[$name]}
-        if(-not (Test-LabTlsRequestEnum $p.ContractVersion @('SqlServerLab.AuthenticatedTlsRegistryPayload/0.1')) -or -not (Test-LabTlsRequestEnum $p.Status @('ACTIVE','RETIRED'))){return $bad}
+        $expectedVersion=if($boundAuthority){'SqlServerLab.AuthenticatedTlsRegistryPayload/0.2'}else{'SqlServerLab.AuthenticatedTlsRegistryPayload/0.1'}
+        if(-not (Test-LabTlsRequestEnum $p.ContractVersion @($expectedVersion)) -or -not (Test-LabTlsRequestEnum $p.Status @('ACTIVE','RETIRED'))){return $bad}
         foreach($name in @('ControllerId','LocationId','Ref')){if(-not (Test-LabTlsRequestReference $p[$name])){return $bad}}
         $p.Generation=Get-LabTlsIndexInteger $fields['Generation'] 1
         if([string]::Equals($kind,'AUTHORITY',[StringComparison]::Ordinal)){
             foreach($name in @('TrustScopeRef','SignerContextRef')){$p[$name]=Get-LabTlsIndexString $fields[$name];if(-not (Test-LabTlsRequestReference $p[$name])){return $bad}}
             $p.SignerGeneration=Get-LabTlsIndexInteger $fields['SignerGeneration'] 1
-            foreach($name in @('KeyStatus','CertificateStatus')){$p[$name]=Get-LabTlsIndexString $fields[$name];if(-not (Test-LabTlsRequestEnum $p[$name] @('NOT_CREATED'))){return $bad}}
+            foreach($name in @('KeyStatus','CertificateStatus')){$p[$name]=Get-LabTlsIndexString $fields[$name]}
+            if($boundAuthority){
+                if(-not (Test-LabTlsRequestEnum $p.KeyStatus @('CIPHERTEXT_BOUND_NOT_OPENED')) -or
+                    -not (Test-LabTlsRequestEnum $p.CertificateStatus @('PROFILE_BOUND_NOT_QUALIFIED'))){return $bad}
+                foreach($name in @('CandidateId','ClientRef')){$p[$name]=Get-LabTlsIndexString $fields[$name];if(-not (Test-LabTlsRequestReference $p[$name])){return $bad}}
+                $p.ClientGeneration=Get-LabTlsIndexInteger $fields['ClientGeneration'] 1
+                foreach($name in @('CandidateBindingDigest','CertificateSha256','EncryptedKeySha256')){
+                    $p[$name]=Get-LabTlsIndexString $fields[$name];if($p[$name] -cnotmatch '\A[0-9a-f]{64}\z'){return $bad}
+                }
+                foreach($name in @('NotBeforeUtc','NotAfterUtc')){
+                    $p[$name]=Get-LabTlsIndexString $fields[$name];$date=[datetime]::MinValue
+                    if($p[$name] -cnotmatch '\A[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{7}Z\z' -or
+                        -not [datetime]::TryParseExact($p[$name],'o',[Globalization.CultureInfo]::InvariantCulture,[Globalization.DateTimeStyles]::RoundtripKind,[ref]$date)){return $bad}
+                }
+                $first=[datetime]::ParseExact($p.NotBeforeUtc,'o',[Globalization.CultureInfo]::InvariantCulture,[Globalization.DateTimeStyles]::RoundtripKind)
+                $last=[datetime]::ParseExact($p.NotAfterUtc,'o',[Globalization.CultureInfo]::InvariantCulture,[Globalization.DateTimeStyles]::RoundtripKind)
+                if($last -le $first -or ($last-$first).TotalDays -gt 365){return $bad}
+                $p.Store=Get-LabTlsIndexString $fields['Store'];$p.TrustStatus=Get-LabTlsIndexString $fields['TrustStatus']
+                if(-not (Test-LabTlsRequestEnum $p.Store @('CURRENT_USER_ROOT')) -or
+                    -not (Test-LabTlsRequestEnum $p.TrustStatus @('IDENTICAL_PREEXISTING_NOT_OWNED'))){return $bad}
+            }else{
+                foreach($name in @('KeyStatus','CertificateStatus')){if(-not (Test-LabTlsRequestEnum $p[$name] @('NOT_CREATED'))){return $bad}}
+            }
         }else{
             $p.Context=Get-LabTlsIndexString $fields['Context'];if(-not (Test-LabTlsRequestEnum $p.Context @('CURRENT_WINDOWS_PROCESS'))){return $bad}
             $actor=Get-LabTlsIndexFields $fields['Actor'] @('UserSid','HostMarker','ProfilePath')
@@ -147,6 +183,8 @@ function Get-LabAuthenticatedTlsPayloadPreview {
     $bad=[pscustomobject][ordered]@{Success=$false;Value=$null;ErrorCode='TLS_REGISTRY_PAYLOAD_INVALID'}
     $parsed=Read-LabAuthenticatedTlsRegistryPayload $PayloadBytes;if(-not $parsed.Success){return $bad}
     $p=$parsed.Value.Payload;$isCa=[string]::Equals($p.Kind,'AUTHORITY',[StringComparison]::Ordinal)
+    # Die neue CA-Form benoetigt zusaetzlich die echte Kandidaten-/Client-/Trustbindung.
+    if([string]::Equals($p.ContractVersion,'SqlServerLab.AuthenticatedTlsRegistryPayload/0.2',[StringComparison]::Ordinal)){return $bad}
     $bad.ErrorCode='TLS_REGISTRY_PAYLOAD_BINDING_MISMATCH'
     if(-not [string]::Equals($p.Status,'ACTIVE',[StringComparison]::Ordinal)){return $bad}
     $target=$parsed

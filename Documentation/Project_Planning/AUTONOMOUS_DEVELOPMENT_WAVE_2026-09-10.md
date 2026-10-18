@@ -1,5 +1,17 @@
 # Autonome Entwicklungswelle nach der Repository-Durchsicht
 
+## Begrenzte CA-/Client-Metadatenbindung vom 2026-10-17
+
+Der neue [private Bindungsvertrag](../Architecture/AUTHENTICATED_TLS_AUTHORITY_BINDING.md)
+ergänzt die integrierte Registrytransaktion um vorhandene geschützte
+Kandidaten, exakte Client-/Signiergeneration und ReadOnly-Trustbeobachtung.
+Unveränderte Generationen und Recoverycommit werden frisch geprüft.
+Eigene temporäre Fixtures ersetzen keine tatsächliche Adoption oder
+native TLS-Abnahme. Bestehende CA, Stores und geschützte SQL-Ziele bleiben
+unverändert. Handleanker, vollständige Matrix, öffentliche Moduswahl,
+qualifizierter Export und Toolbelt-Preflight bleiben offen. SC-2026-045
+bleibt gesperrt; kein vorgezogener eigener SSIS-Scope.
+
 | Merkmal | Wert |
 |---|---|
 | Status | `ACTIVE`; ausdrücklich am 2026-10-16 in einem neuen Orchestrator-Chat wiederaufgenommen |
@@ -161,6 +173,24 @@ Vorschau ergänzt ausschließlich das prozesslokale `HOME=/tmp` für diesen
 Auflösungsaufruf. Sie ist ungetestet und verlangt eine neue konkrete Freigabe,
 ein neues Budget und gebundene geprüfte Quellen. Kein Replay; die vollständige
 TLS-Abnahme und Toolbelt SC-2026-045 bleiben offen.
+
+Der nachfolgende [Linux-Trustdriftnachweis](../Quality/TLS_LINUX_SQL2025_TRUST_DRIFT_ACCEPTANCE_2026-10-17.md)
+bestand mit beiden strikten Clientstacks, Trustentzug und Wiederherstellung
+unter Docker/SQL 2025 CU9. Geladener ODBC, Workerende, vollständige eigene
+Runtimeabwesenheit und geschützte Bestandsdateien sind bestätigt. Der frühere
+Fehlertextfilter bleibt als Harness-FAIL erhalten; die korrigierte Auswertung
+verlangt eine erfolgreiche Kontrollverbindung und null SQL-Arbeit im Gegenfall.
+Weitere Matrixfälle, operative Registry, öffentliche Moduswahl und qualifizierter
+Export bleiben offen; Toolbelt SC-2026-045 ist weiterhin nicht freigegeben.
+
+Der nachfolgende [private Registrywriter](../Architecture/AUTHENTICATED_TLS_REGISTRY_WRITER.md)
+ergänzt inzwischen aktive Windows-Client-/Signiermetadaten vor Keyanlage mit
+expliziter Initialisierung, frischer Root-/Actor-/Volumeprüfung, privatem
+Zugriffsschutz, kooperativen Sperren, Intent, atomarem Ersatz und Recovery.
+Eigene NTFS-Tempfixtures prüfen echte Prozessabbrüche, Parallelität und Cleanup.
+CA-/Trustscopezuordnung, Retirement, vollständige TLS-Matrix, öffentliche
+Moduswahl und qualifizierter Export bleiben offen. Der Readervertrag bleibt
+nicht atomar; keine automatische Adoption bestehender CA oder Kontexte.
 
 ## Historischer Abschluss vom 2026-10-09
 

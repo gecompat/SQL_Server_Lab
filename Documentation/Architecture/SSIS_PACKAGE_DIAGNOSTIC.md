@@ -83,6 +83,13 @@ an. Installation, Registrierung, Diensteinstellungen und Paketänderungen
 gehören nicht dazu. Das Laden ist keine Katalogausführung und reproduziert
 weder automatisch deren Serverprozess noch deren Konfiguration.
 
+Der Host prüft die vollständige Gastantwort einschließlich Hash, Runtime,
+Typen, Grenzen und Erfolgskriterien und baut alle Rückgabeobjekte aus den
+dokumentierten Feldern neu auf. Remotingmetadaten wie `PSComputerName` und
+`RunspaceId` sowie zusätzliche Felder werden auch in verschachtelten Objekten
+verworfen. Unvollständige oder widersprüchliche Antworten ergeben
+`INCONCLUSIVE` mit `SSIS_DIAGNOSTIC_RESULT_INVALID`.
+
 Das Paket bleibt ausschließlich im Speicher. Der C#-Event-Collector nutzt
 den vorhandenen lokalen Compiler von Windows PowerShell; dessen temporäre
 Compilerartefakte enthalten keinen Paketinhalt. Diagnoseausgabe und Hashes

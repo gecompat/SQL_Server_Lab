@@ -369,6 +369,12 @@ sources_of_truth:
   acceptance_smtp_quota_gateway_image: Tests/Integration/Invoke-SmtpTestServiceGatewayImageAcceptance.ps1
   acceptance_smtp_quota_gateway_receiver: Tests/Integration/Invoke-SmtpTestServiceGatewayReceiverAcceptance.ps1
   connection_center_cms: Public/Sync-SqlServerLabConnectionCenter.ps1
+  tls_connection_default_core: Private/SqlReadiness.ps1
+  sql_connection_settings_contract: Documentation/Architecture/SQL_CONNECTION_SETTINGS.md
+  sql_connection_settings_core: Private/SqlConnectionSettings.ps1 # native parser, explicit nullable TLS flags only; no credentials, connection or qualification
+  sql_connection_settings_validation: Tests/Static/Invoke-SqlConnectionSettingsChecks.ps1 # coupled actual CLI status, workflow per-instance projection and real GUI renderer fixture
+  tls_connection_default_validation: Tests/Static/Invoke-ReadinessContractChecks.ps1
+  tls_linux_sql2025_trust_drift_evidence: Documentation/Quality/TLS_LINUX_SQL2025_TRUST_DRIFT_ACCEPTANCE_2026-10-17.md
   cms_readonly_inspection: Private/CmsInspection.ps1
   cms_readonly_worker: Tools/Read-CmsInspection.ps1
   cms_readonly_contract: Documentation/Architecture/CMS_READONLY_INSPECTION.md
@@ -590,6 +596,7 @@ sources_of_truth:
   validation_hyperv_network_reconnect_supervisor_fixture: Tests/Common/HyperVNetworkReconnectSupervisorFixture.ps1
   validation_hyperv_network_reconnect_static: Tests/Static/Invoke-HyperVNetworkReconnectAcceptanceChecks.ps1
   validation_hyperv_existing_network_fixture: Tests/Common/HyperVExistingNetworkFixture.ps1
+  validation_hyperv_create_existing_network_fixture: Tests/Common/HyperVCreateExistingNetworkFixture.ps1 # LabNetwork, HyperVLabEnvironment, public New and persisted run metadata; offline only, no native TLS proof
   hyperv_resource_reconcile_contract: Private/HyperVResourceReconcile.ps1
   hyperv_resource_reconcile_own_run_acceptance: Tests/Integration/Invoke-HyperVResourceReconcileOwnRunAcceptance.ps1
   hyperv_resource_reconcile_own_run_contract: Documentation/Architecture/HYPERV_RESOURCE_RECONCILE_OWN_RUN_ACCEPTANCE.md
@@ -858,8 +865,8 @@ sources_of_truth:
   authenticated_tls_request_form: Private/AuthenticatedTlsRequest.ps1
   validation_authenticated_tls_request_form: Tests/Static/Invoke-AuthenticatedTlsRequestChecks.ps1
   authenticated_tls_target_metadata_contract: Documentation/Architecture/AUTHENTICATED_TLS_TARGET_METADATA.md
-  authenticated_tls_target_metadata: Private/AuthenticatedTlsTarget.ps1 # registered root + actual RunId/explicit InstanceId; recorded Docker/Podman metadata only, no live authority
-  validation_authenticated_tls_target_metadata: Tests/Static/Invoke-AuthenticatedTlsTargetChecks.ps1 # coupled DiagnosticBundleReader, request form and real Run/DesiredState producers
+  authenticated_tls_target_metadata: Private/AuthenticatedTlsTarget.ps1 # registered root + RunId/explicit InstanceId; separate recorded Docker/Podman container and HyperV VM/SQL-instance DTOs, no live authority
+  validation_authenticated_tls_target_metadata: Tests/Static/Invoke-AuthenticatedTlsTargetChecks.ps1 # coupled DiagnosticBundleReader, request form, real Run/DesiredState and HyperVLabEnvironment connection-info producers; no VM/SQL calls
   authenticated_tls_context_registration_design: Documentation/Project_Planning/TLS_001_CONTEXT_REGISTRATION_DESIGN.md # proposed separate ClientRef, SignerContextRef and AuthorityRef; no registry/identity/key effects
   authenticated_tls_backend_metadata_contract: Documentation/Architecture/AUTHENTICATED_TLS_BACKEND_METADATA.md
   authenticated_tls_backend_metadata: Private/AuthenticatedTlsBackend.ps1 # explicit CURRENT_PROCESS; CLR signatures only, never PKI construction/invocation or authority
@@ -879,6 +886,22 @@ sources_of_truth:
   authenticated_tls_registry_root_contract: Documentation/Architecture/AUTHENTICATED_TLS_REGISTRY_ROOT.md
   authenticated_tls_registry_root: Private/AuthenticatedTlsRegistryRoot.ps1 # read-only registered local Windows root metadata and fixed registry file; non-atomic observation, no registration/authority
   validation_authenticated_tls_registry_root: Tests/Static/Invoke-AuthenticatedTlsRegistryRootChecks.ps1 # coupled DiagnosticBundleReader, request/index/payload/document; own synthetic files only, StorageContract producer preserved
+  authenticated_tls_authority_binding_contract: Documentation/Architecture/AUTHENTICATED_TLS_AUTHORITY_BINDING.md
+  authenticated_tls_authority_binding: Private/AuthenticatedTlsAuthorityBinding.ps1 # private Windows candidate/ciphertext/DER + exact active client/signer + ReadOnly trust; NON_ATOMIC_READ, no keyopen/storewrite/TLS qualification
+  validation_authenticated_tls_authority_binding: Tests/Static/Invoke-AuthenticatedTlsAuthorityBindingChecks.ps1 # own native temp CA/DPAPI/NTFS/actor/root/writer, injected positive trust/binaries; coupled payload/document/index/root/request/context/backend/CaCandidate/StorageContract/DiagnosticBundleReader
+  authenticated_tls_registry_writer_contract: Documentation/Architecture/AUTHENTICATED_TLS_REGISTRY_WRITER.md
+  authenticated_tls_operational_lab: Documentation/Architecture/AUTHENTICATED_TLS_OPERATIONAL_LAB.md # actual key proof, own Windows/Docker SQL2025 CU9 and signed V2 false export; V1/default true
+  authenticated_tls_authority: Private/AuthenticatedTlsAuthority.ps1
+  authenticated_tls_lab: Private/AuthenticatedTlsLab.ps1
+  authenticated_tls_qualification: Private/AuthenticatedTlsQualification.ps1
+  validation_authenticated_tls_authority: Tests/Static/Invoke-AuthenticatedTlsAuthorityChecks.ps1
+  validation_authenticated_tls_lab: Tests/Static/Invoke-AuthenticatedTlsLabChecks.ps1
+  acceptance_authenticated_tls_lab: Tests/Integration/Invoke-AuthenticatedTlsLabAcceptance.ps1
+  acceptance_authenticated_tls_export_cleanup: Tests/Common/AuthenticatedTlsAcceptanceCleanup.ps1 # fixed private exports of terminal owned acceptance runs only; no CA/key/trust dependency
+  validation_authenticated_tls_export_cleanup: Tests/Static/Invoke-AuthenticatedTlsAcceptanceCleanupChecks.ps1
+  schema_authenticated_tls_test_environment: Schemas/test-environment-authenticated.schema.json
+  authenticated_tls_registry_writer: Private/AuthenticatedTlsRegistryWriter.ps1 # private Windows NTFS client/signer + selected 0.2 CA metadata; fresh actor/volume, protected journals, cooperative locks and explicit recovery; no CA/trust/SQL qualification
+  validation_authenticated_tls_registry_writer: Tests/Static/Invoke-AuthenticatedTlsRegistryWriterChecks.ps1 # native own temp ACL/replace/process crash/concurrency/cleanup; coupled root/document/index/payload/request/context/backend/CA file helpers/StorageContract/DiagnosticBundleReader
   authenticated_tls_ca_candidate_contract: Documentation/Architecture/AUTHENTICATED_TLS_CA_CANDIDATE.md
   authenticated_tls_ca_candidate: Private/AuthenticatedTlsCaCandidate.ps1 # private Windows PS>=7.5; protected RSA/DPAPI candidate, read-only CurrentUser Root preview; UNREGISTERED_UNQUALIFIED, no import/SQL/provider authority
   authenticated_tls_leaf_csr: Private/AuthenticatedTlsLeafCsr.ps1 # private Windows PS>=7.5; bounded RSA3072 SHA256 CSR proof, explicit SAN, candidate-bound DPAPI signing; public leaf only, no store/native target/SQL authority
@@ -1474,6 +1497,7 @@ internal_components:
       - "SQL-Erreichbarkeit und Major-Version prüfen"
       - "Benutzerdatenbank-Readiness nach Start oder Restart pollen"
       - "Podman-Windows-Localhostfehler früh diagnostizieren"
+      - "neue Lab-Connection-Strings mit explizitem Encrypt=True und TrustServerCertificate=True als Standard erzeugen; bestehende gespeicherte Strings nicht migrieren"
   - name: ServerConfig
     source: Private/ServerConfig.ps1
     responsibilities:
@@ -1617,6 +1641,25 @@ project_adapters:
   prioritization: Documentation/Project_Planning/PROJECT_ADAPTER_PRIORITIZATION.md
 
 planning_contracts:
+  ssis_server_and_etl:
+    source: Documentation/Project_Planning/SSIS_ETL_DATA_WAREHOUSE_BACKLOG.md
+    status: PLANNED_EXTENSION_WITH_VALIDATED_FIXTURE_BASELINE
+    execution_status: AUTHORIZED_AFTER_TLS_001_COMPLETION
+    start_condition: DOCUMENTED_NATIVE_TLS_ACCEPTANCE_FINAL_GATES_AND_INTEGRATION
+    first_delivery: SSIS_LAB_001_002_SERVER_PROFILE_WITHOUT_REQUIRED_FIXTURE
+    runtime_status: SQL_2025_HYPERV_FIXTURE_VALIDATED_GENERAL_SERVER_PROFILE_AND_ETL_NOT_IMPLEMENTED
+    baseline_contract: Documentation/Architecture/SSISDB_TEST_FIXTURE.md
+    baseline_evidence: Documentation/Quality/SSISDB_WINDOWS_RUNTIME_ACCEPTANCE_2026-10-16.md
+    covers:
+      - dedicated_windows_hyperv_ssis_vm_with_local_engine_and_catalog
+      - server_provisioning_separate_from_analysis_fixture
+      - approved_project_artifacts_deployment_parameters_and_execution
+      - synthetic_full_delta_load_agent_identity_and_owned_recovery
+      - later_remote_sql_sources_and_targets_with_separate_topology_gates
+    excludes:
+      - ssis_runtime_on_docker_or_podman
+      - automatic_assignment_to_a_separate_worker_without_scale_out
+      - scale_out_ha_and_unapproved_media_or_client_acquisition
   security_tool_acquisition:
     source: Documentation/Project_Planning/SECURITY_TOOL_ACQUISITION_BACKLOG.md
     status: PARTIAL_METADATA_PLAN_IMPLEMENTED

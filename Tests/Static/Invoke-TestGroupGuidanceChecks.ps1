@@ -18,6 +18,15 @@ try {
         function Get-LabHostToolInvocation { param($Name) if ($Name -eq 'docker') { 'Invoke-GroupDocker' } else { 'Invoke-GroupPodman' } }
         function Invoke-GroupDocker { Invoke-GroupNative -Provider docker -Arguments $args }
         function Invoke-GroupPodman { Invoke-GroupNative -Provider podman -Arguments $args }
+        # Provider lifecycle now enters the timed process boundary. Keep this
+        # synthetic group fixture behind that boundary; never launch its fake names.
+        function Invoke-LabContainerRuntimeCommand {
+            param($Provider,$StateRoot,$Invocation,$ArgumentList,[switch]$NativeResult,$TimeoutSeconds,$RunId)
+            $null=$StateRoot,$Invocation,$TimeoutSeconds,$RunId
+            $output=@(Invoke-GroupNative -Provider $Provider -Arguments $ArgumentList)
+            if($NativeResult){return [pscustomobject]@{ExitCode=$global:LASTEXITCODE;Output=$output}}
+            return $output
+        }
         function Invoke-GroupNative {
             param($Provider,$Arguments)
             $global:LASTEXITCODE = 0
@@ -204,6 +213,7 @@ try {
         '{}' | Set-Content (Join-Path $runPath 'unexpected.journal.json')
         Check-Group (-not (Get-LabTestGroupPowerPlan).CanApply) 'Unknown recovery journal accepted'
         $serverSource = Get-Content (Join-Path $script:ModuleRoot 'Tools/Start-SqlServerLabUi.ps1') -Raw
+        . (Join-Path $script:ModuleRoot 'Tools/WorkflowUiJsonBody.ps1')
         $serverAst = [Management.Automation.Language.Parser]::ParseInput($serverSource,[ref]$null,[ref]$null)
         $route = $serverAst.Find({param($node) $node -is [Management.Automation.Language.IfStatementAst] -and $node.Extent.Text.StartsWith('if ($path -eq ''/api/actions''')},$true)
         function New-SqlServerLabBatch { throw 'Power action entered replayable batch' }

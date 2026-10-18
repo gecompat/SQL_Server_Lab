@@ -314,6 +314,11 @@ function New-SqlServerLab {
         Unterbindet Kennwortabfragen. Fehlende, erforderliche Secrets werden
         stattdessen mit einem klaren Fehler abgelehnt; gedacht für CI/CD und
         deklarative Manifestbereitstellungen.
+    .PARAMETER RequireExistingHyperVNetwork
+        Nur für ein einzelnes SQL-Prepared-Hyper-V-Manifest mit explizitem
+        hostOnly-Switch. Verlangt bestehende Infrastruktur ohne Reparatur oder
+        Änderung des Standardswitches. Eigene VM-, Gast- und IPAM-Anlage bleibt
+        Bestandteil des Create-Auftrags; keine TLS-Qualifikation.
     .PARAMETER AllowDeprecated
         Erlaubt ausdrücklich eine im Versionskatalog als DEPRECATED markierte
         SQL-Server-Version. Ohne diesen Schalter bleibt die Bereitstellung vor
@@ -360,6 +365,16 @@ function New-SqlServerLab {
         Das Cmdlet veraendert Container-Runtime, Dateisystem und SQL Server. Der
         zurueckgegebene Run kann mit den SqlServerLab-Lifecycle-Commands verwaltet
         und mit Remove-SqlServerLab wieder entfernt werden.
+    .PARAMETER TrustServerCertificate
+        Standard true bei stets aktivierter Verschluesselung. False erstellt nur
+        ein eigenes isoliertes Docker-Lab mit Version 2025-CU9 unter Windows;
+        DataRoot und die drei Tls-CA-Referenzen sind dann erforderlich.
+    .PARAMETER TlsCandidateId
+        Expliziter vorhandener CA-Kandidat mit bereits funktionierendem CurrentUser-Trust.
+    .PARAMETER TlsControllerId
+        Controller der registrierten CA-DataRoot-Bindung.
+    .PARAMETER TlsLocationId
+        Location der registrierten CA-DataRoot-Bindung.
     #>
     [CmdletBinding(DefaultParameterSetName = 'AdHoc')]
     param(
@@ -411,13 +426,23 @@ function New-SqlServerLab {
         [ValidatePattern('^[0-9A-Fa-f]{4}:[0-9A-Fa-f]{8}$')][string]$InputLocale,
         [string]$TimeZone = 'W. Europe Standard Time',
         [switch]$NonInteractive,
+        [Parameter(ParameterSetName = 'Manifest')][switch]$RequireExistingHyperVNetwork,
         [switch]$AllowDeprecated,
         [switch]$AllowExpertHostWriteMounts,
         [switch]$SkipAssessment,
-        [switch]$AllowResourceOvercommit
+        [switch]$AllowResourceOvercommit,
+        [bool]$TrustServerCertificate = $true,
+        [string]$TlsCandidateId,
+        [string]$TlsControllerId,
+        [string]$TlsLocationId
     )
 
     $ErrorActionPreference = 'Stop'
+    if ($RequireExistingHyperVNetwork -and -not $TrustServerCertificate) { throw 'HYPERV_EXISTING_NETWORK_AUTHENTICATED_TLS_UNSUPPORTED' }
+    if (-not $TrustServerCertificate) {
+        return New-LabAuthenticatedTlsEnvironment -Parameters $PSBoundParameters
+    }
+    if ($TlsCandidateId -or $TlsControllerId -or $TlsLocationId) { throw 'TLS_LAB_FALSE_SELECTION_REQUIRED' }
     Write-LabHeader 'SQL Server Lab - Neue Umgebung'
 
     if ($GenerateSaPassword -and $SaPassword) {
@@ -523,6 +548,12 @@ function New-SqlServerLab {
 
     if ([string]::IsNullOrWhiteSpace([string]$resolved.name)) {
         $resolved.name = "adhoc-$Version-$Provider"
+    }
+    if ($RequireExistingHyperVNetwork -and (@($resolved.instances).Count -ne 1 -or
+        [string]$resolved.instances[0].provider -cne 'hyperv' -or
+        [string]$resolved.instances[0].network.intent -cne 'hostOnly' -or
+        -not $resolved.instances[0].hyperv.preparedImageId -or -not $resolved.instances[0].hyperv.switchName)) {
+        throw 'HYPERV_EXISTING_NETWORK_EXPLICIT_PREPARED_MANIFEST_REQUIRED'
     }
 
     # Manifeste sind der primäre Automationspfad. Sie laufen standardmäßig
@@ -682,6 +713,9 @@ function New-SqlServerLab {
             }
         }
         $artifactState = [string]$artifact.artifactState
+        if ($RequireExistingHyperVNetwork -and $artifactState -cne 'SQL_PREPARED_SEALED') {
+            throw 'HYPERV_EXISTING_NETWORK_SQL_PREPARED_REQUIRED'
+        }
         if (-not $artifact -or $artifactState -notin @('SQL_PREPARED_SEALED', 'OS_SEALED')) {
             throw 'HYPERV_MANIFEST_HYPERV_IMAGE_REQUIRED'
         }
@@ -768,7 +802,7 @@ function New-SqlServerLab {
             -SwitchName $hyperVSwitchName -Isolated:$hyperVIsolated -NetworkIntent $hyperVNetworkIntent -AdditionalDrives $hyperVAdditionalDrives -StorageIntent $instance.storageIntent `
             -DesiredState $hyperVDesiredState -ResourceAssessmentRecord $resourceAssessmentRecord `
             -WindowsLocale $effectiveWindowsLocale -WindowsActivation $instance.windowsActivation `
-            -WindowsActivationSource $instance.windowsActivationSource -StateRoot $StateRoot
+            -WindowsActivationSource $instance.windowsActivationSource -StateRoot $StateRoot -RequireExistingNetwork:$RequireExistingHyperVNetwork
         $hyperVLab = Get-HyperVLabWorkflowRun -RunId $lab.RunId -StateRoot $StateRoot
         if ($PersistentData) {
             $null = Enable-HyperVLabPersistentData -RunId $lab.RunId -DataRoot $DataRoot -SizeGB ([int]$resolved.persistentData.dataDiskGB) -StateRoot $hyperVLab.StateRoot
@@ -776,7 +810,7 @@ function New-SqlServerLab {
         $effectiveHyperVSqlSaPassword = if ($SqlSaPassword) { $SqlSaPassword } else { $GuestPassword }
         $provisioning = Invoke-HyperVLabUnattendedProvision -RunId $lab.RunId -AdministratorPassword $GuestPassword -SqlSaPassword $SqlSaPassword `
             -SqlPort $hyperVSqlPort -PasswordSource $passwordSource -Region $effectiveWindowsLocale.Region -SystemLocale $effectiveWindowsLocale.SystemLocale -UiLanguage $effectiveWindowsLocale.UiLanguage `
-            -InputLocale $effectiveWindowsLocale.InputLocale -TimeZone $effectiveWindowsLocale.TimeZone -StateRoot $hyperVLab.StateRoot
+            -InputLocale $effectiveWindowsLocale.InputLocale -TimeZone $effectiveWindowsLocale.TimeZone -StateRoot $hyperVLab.StateRoot -RequireExistingNetwork:$RequireExistingHyperVNetwork
         $hyperVLab = Get-HyperVLabWorkflowRun -RunId $lab.RunId -StateRoot $hyperVLab.StateRoot
         $initialSqlConfigurationReconcile = Invoke-LabHyperVInitialSqlConfigurationReconcile `
             -ArtifactState $artifactState -Instance $instance -RunId $lab.RunId -StateRoot $hyperVLab.StateRoot

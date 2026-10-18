@@ -697,6 +697,7 @@ function Show-LabEnvironmentStatusInteractive {
     }
     else {
         foreach ($connection in $connections) {
+            Write-LabStatus -Label ("Connection Settings ({0}/{1})" -f $connection.Provider, $connection.InstanceId) -Value (Format-LabSqlConnectionSettings -ConnectionString $connection.Value)
             Write-LabStatus -Label ("Connection String ({0}/{1})" -f $connection.Provider, $connection.InstanceId) -Value ([string]$connection.Value)
         }
     }

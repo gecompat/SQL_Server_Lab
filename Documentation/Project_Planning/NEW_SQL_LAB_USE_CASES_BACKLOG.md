@@ -120,15 +120,118 @@ erhalten aber jeweils eigene Runtime-Evidence.
 
 #### TLS-001 – authentifizierte TLS-Verbindungen der Testumgebungen
 
+Die begrenzte [private Authoritybindung](../Architecture/AUTHENTICATED_TLS_AUTHORITY_BINDING.md)
+ergänzt den Writer um CA-Kandidat/Ciphertext/DER, exakte aktive Client-/
+Signiergeneration und ReadOnly-Trust. Frische Prüfung gilt auch für unveränderte
+Generationen und Recoverycommit. Das sind Metadaten und eigene Tempfixtures;
+keine tatsächliche Adoption der bestehenden CA, native Gesamtqualifikation
+oder Exportfreigabe. SC-2026-045 bleibt gesperrt.
+
+Der spätere [private Windows-Registrywriter](../Architecture/AUTHENTICATED_TLS_REGISTRY_WRITER.md)
+ergänzt inzwischen aktive Client-/Signiermetadaten vor Keyanlage mit frischer
+Actor-/Volumeprüfung, geschützter Ablage, atomarem Ersatz und expliziter
+Recovery. Eigene NTFS-Tempfixtures belegen Prozessabbrüche, Parallelität und
+Cleanup; native Client-/Signiermetadaten wurden getrennt im eigenen Tempbereich
+registriert. Das registriert keine CA und qualifiziert keinen TLS-Export.
+CA-/Trustscopezuordnung, Retirement und öffentliche Moduswahl bleiben P1.
+
 | Merkmal | Festlegung |
 |---|---|
 | Priorität | `P1`; höchste nächste Priorität unmittelbar nach dem laufenden SSISDB-Stream, Benutzerauftrag vom 2026-10-15 |
-| Status | `planned`; Bestandsanalyse der Quellen und Backlog ausgearbeitet, keine TLS-Produktimplementierung oder Livequalifikation durch diesen Eintrag |
+| Status | `partial`; operative Windows-/Docker-SQL-2025-CU9-Lane und getrennter qualifizierter V2-False-Export integriert und nativ abgenommen; Gesamtmatrix und Consumer-Cutover offen |
 | Abhängigkeit | **Toolbelt SC-2026-045 – authentifizierte Liveabnahme** |
 | Auslöser | [Toolbelt PR #322](https://github.com/gecompat/SQL_Server_Toolbelt/pull/322), geprüfter Head `8772e9d6a1d538e6fcb22da3f0bd03c83a28e88a`; PR bei der Prüfung am 2026-10-15 offen, kein behaupteter Merge |
 | Verantwortung | Lab: Serverzertifikate, Identität, Client-Trust, Export und Bereitschaft; Toolbelt: eigener Preflight und tatsächliche Clientverbindungen |
-| Entwicklungsreife | Eigene isolierte Lab-CA am 2026-10-16 zur Planung ausgewählt; [konkreter Entwurf](TLS_001_ISOLATED_CA_DESIGN.md), D1–D4-Parameter und native Bestandsaufnahme vor Mutation weiter offen |
+| Entwicklungsreife | [Modus-/CA-Entwurf](TLS_001_ISOLATED_CA_DESIGN.md) und begrenzter [operativer Vertrag](../Architecture/AUTHENTICATED_TLS_OPERATIONAL_LAB.md); weiterführende Matrix-, Consumer- und Lifecycle-Anforderungen bleiben P1 |
 | Aktueller Auftrag | Autonome Welle am 2026-10-16 ausdrücklich wieder gestartet; anschließend Fortsetzung bis zur echten TLS-Lab-Abnahme beauftragt, damit Toolbelt SC-2026-045 weiterführen kann. Isolierte Lab-CA ausgewählt; konkrete fehlende Freigaben gezielt anhand reviewbarer Previews klären. Bestehende geschützte Zertifikats-/Trust-/Resolver-/Testzielbindungen bleiben bis zur passenden konkreten Freigabe unverändert |
+| Modus und Default | `Encrypt=True;TrustServerCertificate=True` bleibt der Standard mit geringerem Einrichtungsaufwand. `False` wird ausdrücklich gewählt und benötigt qualifizierte Zertifikats-/Clientbindung; im operativen Windows-/Docker-SQL-2025-CU9-Scope implementiert. Weitere Kombinationen bleiben P1; [verbindliche Modusentscheidung](TLS_001_ISOLATED_CA_DESIGN.md#verbindliche-moduswahl-und-standard) |
+| Sofortumsetzung | Die Bedingung vom 2026-10-16 stellte den damaligen unvollständigen Zertifikats-/Trustpfad zurück. Der nachfolgende ausdrückliche Auftrag implementierte den eigenen operativen Teilscope; fehlende weitere Voraussetzungen bleiben im P1-Backlog. |
+
+##### Voraussetzungen und Startentscheidung vom 2026-10-16
+
+Die Bedingung für die sofortige Produktumsetzung war am 2026-10-16 **nicht erfüllt**.
+Die [ausgeführte Vorprüfung](../Quality/LOCAL_VALIDATION_STRATEGY.md#tls-modi-bedingte-vorprüfung-vom-2026-10-16)
+trennt lesende Readiness und Quellenbefunde von fehlender TLS-Liveabnahme.
+Der damalige Umfang blieb mit hoher Priorität im bestehenden TLS-001-Stream:
+Voraussetzungen in `TLS-001b`, konsistente Moduswahl und Connection Settings in
+`TLS-001c`, echte Verbindungsabnahme in `TLS-001d`. Es entsteht kein paralleler
+Implementierungsstream und keine vorgezogene Anzeige einer funktionsfähigen
+`False`-Option. Die folgende Vorprüfung ist historisch; der inzwischen integrierte
+operative Windows-/Docker-Teilscope und seine Grenzen stehen im verlinkten
+Fachvertrag und im aktuellen Status oben.
+
+| Geprüfter Bereich | Ergebnis und Aussagegrenze |
+|---|---|
+| Docker, Podman und Hyper-V | Jeweils `Test-SqlServerLabClientReadiness.ps1 -Operation Create`: `READY_WITH_WARNINGS`, Provider erreichbar, Modul/Exports und Storage vorhanden. Einziger Warncode `TARGET_AUTHORIZATION_REQUIRED` bezeichnet die spätere Zielprüfung; kein Installations- oder Erreichbarkeitsblocker. |
+| Clients | System.Data.SqlClient und natives `sqlcmd` verfügbar, SQL-ODBC-Treiber installiert. Der von sqlcmd tatsächlich geladene Treiber und eine authentifizierte SQL-Verbindung sind dadurch nicht nachgewiesen. |
+| Aktueller Implementierungsstand | Quellenprüfung von `main` auf `2fed9a89eb948d16fac51329d5863dd08b43ed52`: private CA-/CSR-/Trustbausteine vorhanden, aber keine integrierte operative SQL-Zertifikatsbindung oder vollständige Client-/Zielqualifikation. Exporter und 1.0-Schema bleiben auf `true` festgelegt. |
+| Trustimport | Der [letzte dokumentierte native Versuch](https://github.com/gecompat/SQL_Server_Lab/blob/2fed9a89eb948d16fac51329d5863dd08b43ed52/Documentation/Architecture/AUTHENTICATED_TLS_TRUST_IMPORT.md) ist nach Timeout unbestätigt (`RECOVERY_REQUIRED`); dies ist kein frisch erhobener Storebefund oder bestätigter Trust. Der [CSR-Kryptobeweis](https://github.com/gecompat/SQL_Server_Lab/blob/2fed9a89eb948d16fac51329d5863dd08b43ed52/Documentation/Architecture/AUTHENTICATED_TLS_LEAF_CSR.md) ersetzt keine SQL-/Dienst-/Clientbindung. |
+| Echte Verbindungen beider Modi | In dieser Vorprüfung `NOT_EXECUTED`; die fehlenden TLS-Voraussetzungen wurden nicht durch neue CA-Anlage, Trustimport, Serverkonfiguration oder einen Providerstart hergestellt. |
+
+**Startbedingungen für die zurückgestellte Produktumsetzung:** Eine ausdrücklich
+gebundene eigene Testinstanz besitzt ein gültiges, zur Verbindungsidentität
+passendes Serverleaf samt geschütztem Dienstkey und reproduzierbarer
+SQL-Bindung. Der konkrete Clientkontext vertraut der Kette nachweislich;
+ein offener Trustintent ist vor Wiederverwendung über den bestehenden
+Recoveryvertrag geklärt. Der tatsächliche SqlClient-/sqlcmd-Stack kann damit
+eine echte verschlüsselte SQL-Abfrage mit `TrustServerCertificate=False`
+ausführen. Ownership, Cleanup und Recovery sind für diese eigenen Ressourcen
+geklärt. Readiness oder erfolgreiche Signierung allein reichen nicht aus.
+
+**Gebündelter P1-Lieferumfang nach Erfüllung dieser Voraussetzungen:**
+
+- beide Modi bei Erstellung wählbar, Standard immer
+  `Encrypt=True;TrustServerCertificate=True`;
+- effektive Werte und getrennter Prüfstatus unmittelbar in den CLI-/GUI-
+  Connection Settings, konsistent mit State, kopiertem Connection String und
+  allen Exportformen;
+- echte SQL-Anmeldung und Abfrage mit beiden Clientstacks und beiden Modi,
+  nachgewiesene Transportverschlüsselung, negative Zertifikatsfälle bei `False`
+  und kein automatischer Rückfall auf `True`;
+- getrennte Provider-/Versions-/Clientnachweise sowie bestätigter eigener
+  Cleanup; fehlende Kombinationen bleiben offen.
+
+**Nachfolgender begrenzter Auftrag:** Der bereits funktionierende einfache
+Standard wurde unabhängig davon ausdrücklich implementiert. Der gemeinsame
+Container-Connection-String-Erzeuger ergänzt `Encrypt=True` zu seinem bestehenden
+`TrustServerCertificate=True`; der SSMS-Registrierungsexport wechselt von
+`Encrypt=False` zu demselben Standard. Testumgebungsexport und Hyper-V-Strings
+verwenden beide Werte bereits. Bestehende gespeicherte Strings werden nicht
+migriert. Das schließt weder die zusätzliche `False`-Moduswahl noch die
+erweiterte Anzeige des Qualifikationsstatus ab; diese bleiben im P1-Umfang.
+
+**Podman-Default-Abnahme vom 2026-10-17:** Der bedingte Folgeauftrag konnte mit
+bereits erreichbarer Runtime, lokal vorhandenen Images und Clients sowie
+`RESOURCE_OK` ausgeführt werden. Der
+[getrennte Nachweis](../Quality/LOCAL_VALIDATION_STRATEGY.md#podman-tls-default-abnahme-vom-2026-10-17)
+bestand für SQL 2019/2022/2025 mit sechs echten verschlüsselten Verbindungen
+und vollständigem eigenem Cleanup bei unveränderten Inventaren und erfassten
+vorhandenen Run-Dateien. Kein zusätzlicher offener Default-Abnahmeblocker für
+Podman; weitere authentifizierte Matrixfälle und die gesonderte Prüfstatusanzeige bleiben offen.
+
+**Bedingte Fortsetzung vom 2026-10-17: Voraussetzungen teilweise vorhanden.**
+Die frische lesende Bootstrapprüfung meldet Docker, Podman und Hyper-V `READY`.
+Die bestehende CA-Vorschau und der identische CurrentUser/Root-Trust sind
+bestätigt; am gebundenen Root fehlt jedoch die operative TLS-Registrydatei.
+Der vorhandene Writer unterstützt ausschließlich Client-/Signiermetadaten
+vor Keyanlage, keine Zuordnung des bestehenden CA-Keys zu Authority und
+Trustscope. In der vorhandenen sechsteiligen Exportgruppe gelangen zwei
+SQL-2025-Kontrollanmeldungen mit `Encrypt=True;TrustServerCertificate=True`
+(Docker und Hyper-V). Dieselben Ziele lehnten `False` mit
+`SEC_E_UNTRUSTED_ROOT` vor der ersten SQL-Abfrage ab. Die Gruppe enthält kein
+bereites registriertes Podman-SQL-2025-Ziel; die Podman-Runtime selbst ist bereit.
+Der [ausgeführte Prüfweg](../Quality/LOCAL_VALIDATION_STRATEGY.md#bedingte-tls-fortsetzung-vom-2026-10-17)
+belegt deshalb keinen qualifizierten Gruppenexport. Die früheren isolierten
+TLS-Probes bleiben eigene Nachweise an inzwischen bereinigten Testzielen.
+
+CA-/Trustscopebindung und qualifizierter `False`-Export bleiben **P1**.
+Fortsetzungsbedingungen sind die operative Bindung von CA-/Keygeneration,
+Signierer und Client-Trustscope sowie ein ausdrücklich ausgewähltes SQL-Ziel
+mit gültiger passender Serverkette und erfolgreichen strikten Verbindungen
+beider Clientstacks. Erst danach folgt der gekoppelte Export-/Schema-/Prompt-
+und Consumer-Cutover mit Frische- und Driftprüfung. Der bedingte Auftrag
+veranlasste keine neue CA-/Trust-/Servereinrichtung. Der Default bleibt
+`Encrypt=True;TrustServerCertificate=True`.
 
 Aktueller privater Teilschritt ist der
 [Windows-CA-Kandidat mit lesender Trust-Vorschau](../Architecture/AUTHENTICATED_TLS_CA_CANDIDATE.md).
@@ -267,15 +370,20 @@ kein stiller Ersatzpfad und kein Ignorieren eines fehlerhaften Overrides.
 Diese Regeln einschließlich Prompt-Discovery mit Export, Schema und den
 Verbrauchern gemeinsam prüfen.
 
-**Lösungsvorschlag und offene Entscheidungen.** Die Tabelle beschreibt
-Vorschläge, keine bereits freigegebenen Architekturentscheidungen.
+**Lösungsvorschlag und offene Entscheidungen.** Beide Modi und der einfache
+Standard sind gemäß Benutzerauftrag festgelegt. Die folgenden technischen
+Ausgestaltungen bleiben Vorschläge; insbesondere begründet der optionale
+authentifizierte Pfad keine CA-/Trustpflicht für einfache Labs. Eine entsprechend
+qualifizierte Instanz kann beide Clientoptionen bedienen; der Wechsel der
+Clientoption allein erfordert keine zweite Instanz. Provider-/Versions-/
+Clientkombinationen benötigen trotzdem eigene Nachweise.
 
 | Entscheidung | Vorschlag und Alternative | Exakt noch festzulegen |
 |---|---|---|
 | D1 – Zertifikatsautorität und Lifecycle | Bereits vorhandene geeignete Lab-PKI verwenden, falls Bestandsaufnahme und Rechteprüfung passen; sonst explizit eingerichtete Lab-CA mit getrennt geschütztem Signierschlüssel. Serverleaf mit passendem SAN, Server-Authentication-Eignung, gültiger Kette und nur für den SQL-Dienst lesbarem privatem Schlüssel. Alternative: betreiberseitig gelieferte Zertifikate mit validierter Import-/Erneuerungsschnittstelle. | Zuständige CA, Aussteller-/Signierautorität, Schlüsselablage und ACL/Dateimodus, Gültigkeit, Erneuerungsvorlauf, Sperr-/Rücknahmeverfahren, Ausfallverhalten und verantwortlicher Betreiber. Keine automatische Beschaffung oder globale PKI-Anlage. |
 | D2 – Identität und Namensauflösung | Pro SQL-Ziel einen stabilen, aus allen vorgesehenen Clientkontexten auflösbaren Lab-DNS-Namen exportieren und denselben Namen im Zertifikat prüfen. Portweiterleitung ändert den Port, nicht die geprüfte Identität. Alternative: explizite IP-SANs für tatsächlich stabile IP-Ziele; kein stiller Wechsel auf IP, localhost, anderen Host oder Provider. | Namensraum, DNS-/Resolververantwortung, Container-/VM-/WSL-/Hostzugriffswege und erlaubte scopegebundene Resolveränderungen samt Rücknahme; Nachweis bei jeder relevanten Weiterleitung. Kein Hostname-Override als Ersatz für einen passenden Export. |
 | D3 – Client-Trust und Berechtigungen | Trust im tatsächlichen Windows-/Linux-Ausführungskontext des jeweiligen System.Data.SqlClient- und sqlcmd-/ODBC-Clients herstellen und prüfen. Nur ausdrücklich bestätigte Lab-CA-/Storebindungen verändern; Änderungen mit Vorzustand und Ownership journalisieren. Alternative: vorhandene geeignete System-PKI ohne neue Trustanker. | Konkrete Clients/Versionen, interaktive Benutzer, Dienst-/Runneridentitäten, WSL/Container und privilegierte Kontexte; je Kontext effektiver Trust Store, Import-/Removalrechte und Freigabe. Gemeinsam genutzte oder vorbestehende Trustanker niemals beim Lab-Cleanup entfernen. Prozesslokaler Trust zählt nur bei belegter Unterstützung beider konkreter Clients. |
-| D4 – Vertrag und Migration | Explizit versionierter Nachfolgevertrag mit getrenntem TLS-Bereitschaftsnachweis; sichere Exporte erst nach Qualifikation. Alte Artefakte erkennbar halten und für den authentifizierten Pfad ablehnen. Alternative: abgestimmte Revision von 1.0 nur nach nachgewiesenem gemeinsamen Consumer-Cutover. | Versionskennung, Koexistenz-/Cutoverpfade, unterstützte Leserversionen, Verhalten bei unqualifizierten Zielen/Gruppen und Ablauf der Legacyablösung. Toolbelt, Analyze, PerformanceSchulung, lokale Skripte, `.env`-/Markdownnutzer und Agenten-Prompt inventarisieren; deren tatsächliche Versionsannahmen prüfen. Schemaänderung nicht isoliert ausrollen. |
+| D4 – Vertrag und Migration | Explizit versionierter Nachfolgevertrag für beide Modi; `encrypt=true` bleibt fest, `trustServerCertificate` entspricht der ausdrücklichen Moduswahl und ist standardmäßig `true`. Authentifizierte Bereitschaft mit `false` erst nach separater Qualifikation; keine automatische Herabstufung bei Fehlern. Das 1.0-Schema nicht stillschweigend umdefinieren; den einfachen Modus dauerhaft erhalten. | Genaue Feldform, Versionskennung, Koexistenz-/Cutoverpfade, unterstützte Leserversionen und Verhalten bei unqualifizierten Zielen/Gruppen abstimmen. Toolbelt, Analyze, PerformanceSchulung, lokale Skripte, `.env`-/Markdownnutzer und Agenten-Prompt inventarisieren; deren tatsächliche Versions- und Modusannahmen prüfen. Ein Consumer darf `false` verlangen, ohne den globalen Labstandard zu ändern. Schemaänderung nicht isoliert ausrollen. |
 
 **Geordnete Arbeitspakete.** Alle Schritte bleiben innerhalb des ausdrücklich
 betroffenen Lab-Scopes. Vor Mutation müssen State, Preview, Rechte, Cleanup und
@@ -286,7 +394,7 @@ anhalten.
 |---|---|
 | `TLS-001a` – Bestandsaufnahme/ADR | Exporter, Schema, alle Verbraucher und Providerpfade gemeinsam lesen; vorhandene Zertifikatsinfrastruktur und tatsächliche Clientkontexte read-only prüfen. D1–D4 entscheiden; ADR und begrenzten Provisionierungs-/Erneuerungs-/Rollbackvertrag ausarbeiten. Reine Erreichbarkeit, Exportabweichung, DNS-, Ketten-, Identitäts-, Ablauf- und Client-Trust-Probleme getrennt klassifizieren. |
 | `TLS-001b` – Server und Clients | Reproduzierbare Ausstellung/Import, SQL-Zertifikatsbindung, Dienstrechte, vollständige Kette und erforderlichen Neustart pro Docker, Podman und Hyper-V lösen. Client-Trust und Auflösung im gewählten Scope einrichten. Renewal mit erneuter Clientqualifikation, Fehlern, Abbruch/Resume und nachvollziehbarer Rücknahme prüfen; private Schlüssel und Credentials nur im vorgesehenen lokalen Secret-/Konfigurationsbereich. |
-| `TLS-001c` – Export und Migration | Schema, Exporter, JSON/`.env`/Markdown, Connection-String-Erzeugung, Resolver, Prompt, Benutzerreferenz und Verbraucher zusammen aktualisieren. Qualifizierte Ziele exportieren echte Booleans `encrypt = true`, `trustServerCertificate = false`. Qualifikation an Zielidentität, Zertifikat, Client-/Treiber-/Trustkontext und Aktualität binden; bei Renewal, Namens-/Trust-/Kontextänderung invalidieren. Runtime-READY und TCP-Erreichbarkeit bleiben von TLS-Bereitschaft getrennt. Plattform-/Versions-/Patch-/CU- und explizite Providerauswahl sowie Gruppensperre erhalten; kein Ersatz auf ein anderes bereites Ziel. |
+| `TLS-001c` – Moduswahl, Export und Migration | Modus bei Erstellung ausdrücklich wählbar und im State gebunden; API, Konsole und Browser verwenden denselben Standard `Encrypt=True;TrustServerCertificate=True` ohne eigene CA-/Trustpflicht. CLI-/GUI-Connection-Settings zeigen beide effektiven TLS-Werte und den getrennten Qualifikationsstatus unmittelbar am gewählten Ziel. Schema, Exporter, JSON/`.env`/Markdown, Connection-String-Erzeugung, Resolver, Prompt, Benutzerreferenz und Verbraucher zusammen aktualisieren. Der gewählte Modus bestimmt echte TLS-Booleans; nur im qualifizierten authentifizierten Modus gilt `trustServerCertificate = false`. Qualifikation an Zielidentität, Zertifikat, Client-/Treiber-/Trustkontext und Aktualität binden; bei Renewal, Namens-/Trust-/Kontextänderung invalidieren. Runtime-READY und TCP-Erreichbarkeit bleiben von TLS-Bereitschaft getrennt. Bestehende Labs und Standardexporte nicht automatisch umstellen. Plattform-/Versions-/Patch-/CU- und explizite Providerauswahl sowie Gruppensperre erhalten; kein Ersatz auf ein anderes bereites Ziel oder den einfachen Modus. |
 | `TLS-001d` – Liveabnahme und Betrieb | Beide Clientstacks mit positiven und negativen Fällen auf der vereinbarten Matrix ausführen, anschließend gemeinsam mit dem Toolbelt-Labpreflight abnehmen. Architektur, Einrichtung, Betrieb, Erneuerung, Migration und Fehlerdiagnose dokumentieren; Provider-/Kontextgrenzen und offene Kombinationen sichtbar halten. |
 
 **Risiken und Schutzgrenzen.** Ein CA-Import kann andere Anwendungen des
@@ -306,19 +414,32 @@ her; unsicherer Alttransport ist keine erfolgreiche TLS-Recovery.
 **Akzeptanzkriterien und noch offene Evidence.**
 
 1. Schema-/Exporttests prüfen fehlende TLS-Felder, `null`, String-/Zahlwerte,
-   falsche Boolean-Werte, widersprüchliche Connection Strings und jede
-   Discovery-/Overridevariante einschließlich Prompt. Sichere Werte und
+   zum gewählten Modus widersprüchliche Boolean-Werte und Connection Strings
+   sowie jede Discovery-/Overridevariante einschließlich Prompt. Sichere Werte und
    erhaltene Auswahl-/Gruppenregeln sind positiv belegt; unqualifizierte Ziele
-   erhalten durch Flags oder Runtime-READY keinen TLS-Erfolg.
-2. System.Data.SqlClient und genau der vom Toolbelt verwendete
-   sqlcmd-/ODBC-Client verbinden verschlüsselt mit geprüfter Kette und der
+   erhalten durch Flags oder Runtime-READY keinen authentifizierten TLS-Erfolg.
+   Erstellung ohne Moduswahl verwendet `Encrypt=True;TrustServerCertificate=True`
+   ohne eigene CA-/Client-Trusteinrichtung. Ausdrückliches `False` blockiert bei
+   fehlender Qualifikation; keine automatische Umschaltung. API, Konsole,
+   Browser, State und alle Exportformen geben dieselbe Wahl wieder.
+   CLI und GUI zeigen in den Connection Settings ausdrücklich `Encrypt=True`
+   und den effektiven Wert von `TrustServerCertificate`, ergänzt um die Bedeutung
+   der Zertifikatsprüfung und deren gesonderten Qualifikationsstatus. Fehlende,
+   veraltete oder widersprüchliche Daten dürfen keine erfolgreiche Prüfung
+   vortäuschen; Anzeige und kopierter Connection String müssen übereinstimmen.
+2. Im Modus mit Zertifikatsprüfung verbinden System.Data.SqlClient und genau
+   der vom Toolbelt verwendete sqlcmd-/ODBC-Client mit geprüfter Kette und der
    exportierten Serveridentität, führen eine echte SQL-Abfrage aus und prüfen
    den verschlüsselten Transport. Ausführung auf dem SQL-Host allein genügt
    nicht. Client-/Treiberstand und tatsächliche Ausführungsidentität werden
    lokal nachvollziehbar gebunden, öffentlich nur bereinigt klassifiziert.
+   Der Standard erhält einen getrennten positiven SQL-/Verschlüsselungsnachweis;
+   am für Zertifikatsprüfung qualifizierten Ziel funktionieren beide
+   Clientoptionen. Das belegt keine Zertifikatsprüfung des Standardmodus.
 3. Nicht vertrauenswürdige Kette, falscher Servername und abgelaufenes
-   Zertifikat scheitern jeweils in **beiden** Clientstacks vor fachlicher
-   SQL-Arbeit. Isolierte Negativfixtures verwenden, keine gemeinsam benutzten
+   Zertifikat scheitern im Modus mit Zertifikatsprüfung jeweils in **beiden**
+   Clientstacks vor fachlicher SQL-Arbeit. Isolierte Negativfixtures verwenden,
+   keine gemeinsam benutzten
    Zertifikate oder Trustanker für die Fehlererzeugung verändern. DNS-,
    TCP-/Runtime-, Authentisierungs- und Vertragsfehler getrennt berichten.
 4. Mindestens folgende sechs SQL-Zielkombinationen werden je tatsächlichem
@@ -334,6 +455,12 @@ her; unsicherer Alttransport ist keine erfolgreiche TLS-Recovery.
    Die [getrennten Container-Versionsbelege](../Quality/TLS_WINDOWS_CONTAINER_VERSION_MATRIX_2026-10-16.md)
    ersetzen keine Linuxclients, operative Registry oder vollständige Qualifikation;
    diese Grenzen bleiben für alle drei Zellen offen.
+
+   Die spätere [Linux-Trustdriftabnahme](../Quality/TLS_LINUX_SQL2025_TRUST_DRIFT_ACCEPTANCE_2026-10-17.md)
+   bestand separat mit sechs strikten SqlClient-/ODBC-Fällen auf Docker/SQL 2025
+   CU9 und vollständigem eigenem Runtime-Cleanup. Sie schließt nur positive
+   Verbindung, Trustentzug und Wiederherstellung ein; echte Linux-Ablauf-/
+   Renewal-/Wrong-SAN-Fälle, andere Matrixzellen, Registry und Export bleiben offen.
 
 5. Provisionierung, Neustart, Erneuerung, Migrationscutover, fehlgeschlagener
    Client-Trust-Import und scopegebundener Cleanup/Rollback sind reproduzierbar.
@@ -447,3 +574,7 @@ Qualifikation der früheren nativen CU-Fixtures. Linux-TLS, Hyper-V, operative
 Registry, Exportcutover und vollständige Abnahme bleiben offen; SC-2026-045
 bleibt gesperrt. Details im
 [TLS-Zielmetadatenvertrag](../Architecture/AUTHENTICATED_TLS_TARGET_METADATA.md).
+
+## TLS-001: operativer erster Pfad
+
+Der [operative Windows-/Docker-SQL-2025-CU9-Pfad](../Architecture/AUTHENTICATED_TLS_OPERATIONAL_LAB.md) mit bestehender CA-/Trustscopebindung, eigener SQL-Zertifikatsbindung, True/False-Anzeige und separatem qualifiziertem V2-Export ist implementiert und nativ geprüft. P1 bleiben die übrigen operativen Provider-/Client-/SQL-Kombinationen, V2-Consumer-Cutover und automatisches Renewal/Rebind. Die früheren Default-True/True-Nachweise sind davon getrennt und bleiben erhalten.

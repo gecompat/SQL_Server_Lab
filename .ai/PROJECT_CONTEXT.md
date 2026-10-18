@@ -1,5 +1,16 @@
 # Projektkontext
 
+## Private CA-/Client-Trustmetadaten vom 2026-10-17
+
+Die [Authoritybindung](../Documentation/Architecture/AUTHENTICATED_TLS_AUTHORITY_BINDING.md)
+ergänzt den Windows-Registrywriter um geschlossene `0.2`-Authoritypayloads:
+Kandidat/Ciphertext/DER, exakte aktive Client-/Signiergeneration und frischer
+ReadOnly-CurrentUser-Trust werden vor Intent, Ersatz, Commit und Recovery
+geprüft. Eigene Tempfixtures sind von tatsächlicher Adoption getrennt.
+Die bestehende CA, geschützte Ziele und Stores wurden nicht verändert.
+Der operative Nachfolger ergänzt jetzt das eigene Windows-/Docker-SQL-2025-CU9-Lab mit False-Wahl und qualifiziertem V2-Export. Native Gesamtmatrix und Consumer-Cutover bleiben offen; SC-2026-045 bleibt gesperrt. Frühere Vor-Key-Abschnitte
+beschreiben die weiterhin unterstützte `0.1`-Form.
+
 | Merkmal | Wert |
 |---|---|
 | Status | `BINDING` |
@@ -19,10 +30,26 @@ freizugebendem Client-Trust ausgewählt; der
 ist kein Zertifikats-, Truststore- oder Runtime-Nachweis. Genau ein
 Implementierer verantwortet einen kohärenten Scope.
 
+Neue gemeinsame Lab-Connection-Strings und SSMS-Registrierungsexporte verwenden
+ausdrücklich `Encrypt=True;TrustServerCertificate=True`. Gespeicherte
+Altverbindungen werden nicht migriert. Die getrennten
+[nativen Defaultnachweise](../Documentation/Quality/LOCAL_VALIDATION_STRATEGY.md#expliziter-tls-standard-vom-2026-10-16)
+belegen SqlClient und sqlcmd für Docker, Podman und Hyper-V unter SQL 2019,
+2022 und 2025. Der additive [operative TLS-Pfad](../Documentation/Architecture/AUTHENTICATED_TLS_OPERATIONAL_LAB.md) ergänzt eine explizite False-Wahl für ein eigenes Windows-/Docker-SQL-2025-CU9-Lab und einen separaten V2-Export; weitere Kombinationen bleiben TLS-001-Scope.
+
+Die getrennte [Anzeige angegebener TLS-Werte](../Documentation/Architecture/SQL_CONNECTION_SETTINGS.md)
+ist jetzt in CLI-Runstatus und GUI-Zielübersicht implementiert. Beide verwenden
+die gemeinsame native Parserprojektion; fehlende Werte bleiben null und
+unlesbare Strings ohne Rohdiagnose. Das ist kein TLS-Qualifikationsnachweis
+und keine neue öffentliche Moduswahl.
+
 Der lesende [TLS-Zielmetadatenpfad](../Documentation/Architecture/AUTHENTICATED_TLS_TARGET_METADATA.md)
 bindet inzwischen katalogisierte Docker-/Podman-CU-Kurzbezeichner und exakte
 Tags bei erhaltenem Runselektor. Die synthetische Vertragsprüfung ersetzt
 keine native TLS-/Registry-/Exportabnahme; SC-2026-045 bleibt gesperrt.
+Eine getrennte private Hyper-V-Metadatenlane bindet jetzt aufgezeichnete
+VM-ID, ausdrückliche SQL-Instanz und Endpoint aus der festen Run-Datei.
+Sie fragt keine VM ab und erweitert die operative False-Capability nicht.
 
 Die private [Windows-Kontextvorschau](../Documentation/Architecture/AUTHENTICATED_TLS_CONTEXT_PREVIEW.md)
 ergänzt geschlossene Client-/Signierkontextanfragen und liest nach expliziter
@@ -43,7 +70,12 @@ prüft jetzt offline die vollständige Payload-/Index-/Digestzuordnung und
 Dokumentübergänge. Die [lesende Rootbindung](../Documentation/Architecture/AUTHENTICATED_TLS_REGISTRY_ROOT.md)
 vergleicht jetzt registrierte Windows-Rootmetadaten mit der bestehenden
 Registrydatei; der Befund bleibt nicht atomar und ohne Ausführungsautorität.
-Writer, dauerhafte Registrierung, Trustscope und native Qualifikation fehlen.
+Die [private Windows-Registrytransaktion](../Documentation/Architecture/AUTHENTICATED_TLS_REGISTRY_WRITER.md)
+ergänzt jetzt explizite Initialisierung und aktive Client-/Signiermetadaten
+vor Keyanlage: frische Root-/Actor-/Volumeprüfung, private ACLs, kooperative
+Sperren, Intent, atomarer Ersatz und explizite Recovery. Eigene NTFS-Tempfixtures
+prüfen echte Prozessabbrüche und konkurrierende Writer mit Cleanup.
+Die operative CA-/Trustscopezuordnung und TLS-Qualifikation folgen im unten beschriebenen eigenen Windows-/Docker-Pfad; Retirement bleibt offen.
 Der [private Windows-CA-Kandidat](../Documentation/Architecture/AUTHENTICATED_TLS_CA_CANDIDATE.md)
 ergänzt jetzt ein festes RSA-3072-/SHA-256-Profil, geschützte private ACLs,
 DPAPI-CurrentUser-PKCS8 und eine lesende CurrentUser/Root-Trust-Vorschau.
@@ -148,6 +180,22 @@ Der [Vertrag](../Documentation/Architecture/SSIS_PACKAGE_DIAGNOSTIC.md)
 trennt Ladebeobachtung und Paketausführung. Ausgeführte Offline-/Native-Nachweise
 stehen gesondert in der Validierungsstrategie; die bestehende Consumer-
 Providerabnahme wird dadurch nicht vorweggenommen.
+
+Der [SSIS-Integrationsplan](../Documentation/Project_Planning/SSIS_ETL_DATA_WAREHOUSE_BACKLOG.md#machbarkeit-und-integrationsentscheidung-vom-2026-10-16)
+erhält den bereits lokal ausgearbeiteten Folgeauftrag nach TLS-001: zuerst
+SSIS-LAB-001/002 als eigenständiges Windows-/Hyper-V-Serverprofil ohne
+Pflichtfixture, danach Projektdeployment, ETL und Betrieb. Reihenfolge und
+Startbedingung stehen im Ausführungsplan; diese Arbeitspakete bleiben geplant.
+
+Die nachfolgende [Linux-Abnahme](../Documentation/Quality/TLS_LINUX_SQL2025_TRUST_DRIFT_ACCEPTANCE_2026-10-17.md)
+bestand inzwischen mit sechs strikten SqlClient-/ODBC-Fällen an einem eigenen
+Docker-/SQL-2025-CU9-Ziel: Trust gesetzt, entzogen und wiederhergestellt.
+Geladener ODBC wurde im laufenden Kindprozess beobachtet. Workerende, frische
+Ressourcenabwesenheit und geschützte Bestandsdateien sind bestätigt. Der frühere
+Harnessfehler bei generischer Zertifikatsablehnung bleibt als FAIL erhalten;
+die korrigierte Auswertung verlangt eine positive Kontrolle und null SQL-Arbeit.
+Weitere Plattformfälle, operative Registry, öffentliche Moduswahl und
+qualifizierter Export bleiben offen; SC-2026-045 bleibt gesperrt.
 
 Der zusätzliche SSIS-Consumerzugang erweitert `Invoke-SqlServerLabScript`
 um den expliziten Windows-Modus, auf dem vorhandenen Hyper-V-Transport und
@@ -1280,3 +1328,11 @@ und Least Privilege bleiben offen; kein atomarer Dateisystemvertrag.
 ## Bewusster lokaler Operator-Handoff
 
 Der [kanonische Handoff](../Documentation/HowTo/OPERATOR_DIAGNOSTIC_HANDOFF.md) bindet die bestehenden Skills und den Operator an diese unveränderte API. Standard ist SkipReadiness für genau ein ausdrücklich ausgewähltes Ziel; zusätzliche Providerreadiness bleibt eine bewusste Entscheidung. Keine automatische Sammlung, Datei, Upload, zusätzliche Reader, Shellfreigabe oder Mutationsautorität. Historische Evidence, unbekannte Befunde und fehlende SQL-/Skillloader-Nachweise bleiben getrennt. Die ausführbare Rezeptfixture wird durch Invoke-SkillChecks entdeckt; ein Rezepttest ist kein Modelldispatch- oder Skillloadernachweis.
+
+## Isolierter operativer TLS-Pfad
+
+Der additive [operative TLS-Vertrag](../Documentation/Architecture/AUTHENTICATED_TLS_OPERATIONAL_LAB.md)
+verbindet eine bereits vertraute CA mit eigenem Trustscope und einem neuen
+Docker-SQL-2025-CU9-Lab. Die explizite False-Wahl und der separate qualifizierte
+V2-Export sind vom unveränderten True/True-Default getrennt. Native Abnahme und
+weitere Providergrenzen werden in der Validierungsstrategie getrennt geführt.

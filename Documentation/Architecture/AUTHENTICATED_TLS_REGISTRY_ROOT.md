@@ -77,12 +77,13 @@ direkten Parser-/Pathguardabhängigkeiten wählen die neue Suite zusätzlich aus
 Nightly und unabhängiger stabiler Review sowie das Pflichtgate am exakten Head
 bleiben erhalten. Eine kleine Suite ersetzt keine Providerabnahme.
 
-Weiterhin offen ist die private Registrytransaktion mit
-frischer Kontextbindung, Schutz der privaten Ablage, begrenztem exklusivem Lock,
-Intent, geprüftem Kandidat, Flush/atomarem Ersatz, Rücklesung und Recovery.
-Der [Writer-/Crashvertrag](../Project_Planning/TLS_001_CONTEXT_REGISTRATION_DESIGN.md)
-ist weiterhin Planung. Trustscope, echte Registrierung, Keyschutz und die
-authentifizierte TLS-Lab-Abnahme fehlen. Toolbelt SC-2026-045 bleibt blockiert.
+Die getrennte [private Registrytransaktion](AUTHENTICATED_TLS_REGISTRY_WRITER.md)
+ergänzt inzwischen aktive Client-/Signiermetadaten vor Keyanlage mit frischer
+Actor-/Volumeprüfung, privater Ablage, kooperativen Sperren, Intent, atomarem
+Ersatz, Rücklesung und expliziter Recovery. Der hier beschriebene Reader
+behält seinen nicht atomaren Vertrag. Operative CA-/Trustscopezuordnung,
+Retirement und authentifizierte TLS-Lab-Abnahme bleiben offen.
+Toolbelt SC-2026-045 bleibt blockiert.
 
 Der vorgezogene [CA-Kandidat](AUTHENTICATED_TLS_CA_CANDIDATE.md) verwendet
 jetzt den extrahierten privaten `Get-LabAuthenticatedTlsRootMetadata` für
@@ -93,4 +94,4 @@ der jeweilige Aufrufer prüft erneut auf beobachtete Drift. Die bestehende
 Registryfunktion behält ihre 16 Ergebnisfelder, vollständige Dokumentpflicht,
 Originalbytebindung und bisherigen Digestvertrag. Eine fehlende Registry
 wird durch den neuen Helper weder adoptiert noch angelegt. Die allgemeine
-Registrytransaktion bleibt weiterhin Planung und folgt separat.
+Registrytransaktion ist im getrennten Writervertrag begrenzt implementiert.

@@ -52,27 +52,67 @@ try {
         $tracker.Secrets++;if($mode -eq 'credential'){return $null}
         $tracker.Secret=[securestring]::new();$tracker.Secret.AppendChar('x');$tracker.Secret
     }
+    function New-SyntheticGuestObservation {
+        param([string]$Hash)
+        [pscustomobject]@{
+            ContractVersion='SqlServerLab.SsisPackageGuest/1.0';PackageSha256=$Hash;Status='LOAD_FAILED';ReasonCode='PACKAGE_LOAD_FAILED'
+            Runtime=[pscustomobject]@{AssemblyIdentity='Microsoft.SqlServer.ManagedDTS, Version=17.0.0.0, Culture=neutral, PublicKeyToken=89845dcd8080cc91';FileVersion='17.0.1000.7';ProcessBitness=64;OperatingSystemBitness=64;ClrVersion='4.0.30319.42000';PowerShellVersion='5.1.26100.4202';PSComputerName='REMOTING_PRIVATE'}
+            Inventory=[pscustomobject]@{Complete=$true;ConnectionManagers=@('OLEDB');LogProviders=@('Microsoft.LogProviderSQLServer');PrivateText='REMOTING_PRIVATE'}
+            Serialized=[pscustomobject]@{ConnectionManagers=@('OLEDB');LogProviders=@('Microsoft.LogProviderSQLServer');RunspaceId='REMOTING_PRIVATE'}
+            LoadStatus='RETURNED';LoadedObjectCounts=[pscustomobject]@{ConnectionManagers=1;LogProviders=1;Executables=1;PSComputerName='REMOTING_PRIVATE'}
+            ExceptionHResult=$null;Events=@([pscustomobject]@{Kind='ERROR';Code=-1073659899;Description='REMOTING_PRIVATE'})
+            EventsTruncated=$false;ExecutionStatus='NOT_EXECUTED';PSComputerName='REMOTING_PRIVATE';RunspaceId='REMOTING_PRIVATE';PSShowComputerName=$true;PSSourceJobInstanceId='REMOTING_PRIVATE'
+        }
+    }
     function Invoke-HyperVPowerShellDirect {
         param($VMName,$ExpectedRunId,$ExpectedScopeId,$ExpectedVmId,$Credential,$ScriptBlock,$ArgumentList,$TimeoutSeconds,[switch]$NoRetry)
         $tracker.Calls++;$tracker.Bound=$ExpectedRunId -ceq $id.ToString() -and $ExpectedVmId -eq '22222222-2222-2222-2222-222222222222' -and $ExpectedScopeId -ceq 'synthetic'
         $tracker.NoRetry=[bool]$NoRetry;$tracker.Args=$ArgumentList
         if($mode -eq 'transport'){throw 'PRIVATE_TRANSPORT'}
         if($mode -eq 'extra'){return @(@{},@{})}
-        [pscustomobject]@{ContractVersion='SqlServerLab.SsisPackageGuest/1.0';PackageSha256=$ArgumentList[1];Status='LOAD_FAILED';ReasonCode='PACKAGE_LOAD_FAILED';Events=@(@{Kind='ERROR';Code=-1073659899})}
+        $observation=New-SyntheticGuestObservation $ArgumentList[1]
+        if($mode -eq 'malformed'){$observation.PSObject.Properties.Remove('Runtime')}
+        if($mode -eq 'false-success'){$observation.Status='OBSERVED';$observation.ReasonCode='NONE'}
+        $observation
     }
-    foreach($mode in @('ok','target','credential','pre-drift','post-drift','transport','extra','non-windows')) {
+    foreach($mode in @('ok','target','credential','pre-drift','post-drift','transport','extra','non-windows','malformed','false-success')) {
         $tracker=@{Context=0;Calls=0;Secrets=0;Secret=$null}
         $value=$null;$errorCode=FailureCode {$script:value=Get-SqlServerLabSsisPackageDiagnostic -RunId $id -StateRoot $directory -PackagePath $path -ExpectedSha256 (Hash $bytes)}
         if($mode -eq 'ok') {
             Check 'Public diagnostic preserves load failure and exact transport binding' ($value.Status -ceq 'LOAD_FAILED' -and $tracker.Bound -and $tracker.NoRetry -and $tracker.Args[1] -ceq (Hash $bytes) -and $tracker.Args[2] -eq 17)
+            Check 'Public diagnostic recursively drops remoting metadata and undeclared fields' (($value|ConvertTo-Json -Depth 10) -notmatch 'REMOTING_PRIVATE|PSComputerName|RunspaceId|PSShowComputerName|PSSourceJobInstanceId|Description|PrivateText')
         } elseif($mode -in @('target','credential','pre-drift','non-windows')) {
             Check "$mode cannot dispatch" ($tracker.Calls -eq 0)
         } else {
             Check "$mode discards unconfirmed results" ($value.Status -ceq 'INCONCLUSIVE' -and $null -eq $value.Observation)
+            if($mode -in @('malformed','false-success')){Check "$mode reports invalid guest result" ($value.ReasonCode -ceq 'SSIS_DIAGNOSTIC_RESULT_INVALID')}
         }
         if($tracker.Secret) {Check 'Protected guest secret is disposed' ((FailureCode {$tracker.Secret.Copy()}) -match 'disposed')}
         Check 'No raw target or transport exception leaks' (($errorCode+($value|ConvertTo-Json -Depth 6)) -notmatch 'PRIVATE_')
     }
+    foreach($case in @('bad-hash','bad-runtime','bad-bitness','bad-code','bad-boolean','status-array','kind-array','oversized-events','oversized-inventory')) {
+        $observation=New-SyntheticGuestObservation (Hash $bytes)
+        switch($case){
+            bad-hash {$observation.PackageSha256='0'*64}
+            bad-runtime {$observation.Runtime.AssemblyIdentity=$observation.Runtime.AssemblyIdentity.Replace('17.0.0.0','16.0.0.0')}
+            bad-bitness {$observation.Runtime.ProcessBitness=32}
+            bad-code {$observation.Events[0].Code='-1073659899'}
+            bad-boolean {$observation.Inventory.Complete='true'}
+            status-array {$observation.Status=@('LOAD_FAILED','INCONCLUSIVE')}
+            kind-array {$observation.Events[0].Kind=@('ERROR')}
+            oversized-events {$observation.Events=@(1..257|ForEach-Object{[pscustomobject]@{Kind='WARNING';Code=1}})}
+            oversized-inventory {$observation.Inventory.ConnectionManagers=@(1..513|ForEach-Object{'OLEDB'})}
+        }
+        Check "Host projection rejects $case" ((FailureCode {ConvertTo-LabSsisDiagnosticObservation -Value $observation -PackageSha256 (Hash $bytes) -ExpectedMajor 17}) -ceq 'SSIS_DIAGNOSTIC_RESULT_INVALID')
+    }
+    $observation=New-SyntheticGuestObservation (Hash $bytes)
+    $observation.Status='OBSERVED';$observation.ReasonCode='NONE';$observation.Events=@()
+    $projected=ConvertTo-LabSsisDiagnosticObservation -Value $observation -PackageSha256 (Hash $bytes) -ExpectedMajor 17
+    Check 'Host projection retains a complete successful load with no events' ($projected.Status -ceq 'OBSERVED' -and $projected.Events.Count -eq 0)
+    $observation.Status='INCONCLUSIVE';$observation.ReasonCode='RUNTIME_UNAVAILABLE';$observation.Runtime=$null
+    $observation.Inventory.Complete=$false;$observation.LoadStatus='NOT_ATTEMPTED';$observation.LoadedObjectCounts=$null
+    $projected=ConvertTo-LabSsisDiagnosticObservation -Value $observation -PackageSha256 (Hash $bytes) -ExpectedMajor 17
+    Check 'Host projection preserves an observed unavailable runtime as inconclusive' ($projected.Status -ceq 'INCONCLUSIVE' -and $projected.ReasonCode -ceq 'RUNTIME_UNAVAILABLE')
     $metadata=Get-Command Get-SqlServerLabSsisPackageDiagnostic
     Check 'Public API has separate mandatory ISPAC and DTSX inputs' ($metadata.ParameterSets.Count -eq 2 -and @($metadata.Parameters.Keys|Where-Object {$_ -in @('HostName','Port','GuestCredential','ScriptBlock')}).Count -eq 0)
     $guest=Get-LabSsisPackageDiagnosticGuest

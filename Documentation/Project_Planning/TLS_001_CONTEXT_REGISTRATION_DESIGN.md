@@ -1,13 +1,37 @@
 # TLS-001 – Client- und Signierkontexte registrieren
 
+## Begrenzte Authoritybindung vom 2026-10-17
+
+Der [private `0.2`-Authorityvertrag](../Architecture/AUTHENTICATED_TLS_AUTHORITY_BINDING.md)
+ergänzt Kandidaten-/Ciphertext-/DER-Werte und eine exakte aktive Clientkante.
+Client-/Signierpayloads und Dokument-/Indexhülle bleiben `0.1`. Alle neuen
+Felder sind digestgebunden; aktive Scope-/Kandidaten-/Zertifikataliases werden
+abgelehnt. Beide Kontexte und Trust werden bei jedem CA-haltigen Write und
+Recoverycommit frisch geprüft. Keine echte CA-Adoption oder Keyqualifikation,
+kein Retirement oder Mehrclient-Scope; handlebasierte Rootanker, öffentliche
+Moduswahl, native Gesamtqualifikation und qualifizierter Export bleiben offen.
+
 | Merkmal | Wert |
 |---|---|
-| Status | `DESIGN_PROPOSAL` mit privater Anfrage/Vorschau; keine Registry, dauerhafte Identitätsbindung oder Keyablage implementiert |
-| Stand | 2026-10-16 |
+| Status | Private Windows-Metadatenregistry vor Keyanlage implementiert; operative CA-/Trustscopebindung offen |
+| Stand | 2026-10-17 |
 | Grundlage | Ausgewählte [isolierte Lab-CA](TLS_001_ISOLATED_CA_DESIGN.md), private Anfrage- und Zielmetadatenverträge |
 | Implementierter Teil | [Lesende .NET-API-Metadaten](../Architecture/AUTHENTICATED_TLS_BACKEND_METADATA.md), [Windows-Kontextvorschau](../Architecture/AUTHENTICATED_TLS_CONTEXT_PREVIEW.md), [Offline-Referenzindex](../Architecture/AUTHENTICATED_TLS_REGISTRY_INDEX.md), [Vor-Key-Payloads](../Architecture/AUTHENTICATED_TLS_REGISTRY_PAYLOAD.md) und [Registry-Gesamtform](../Architecture/AUTHENTICATED_TLS_REGISTRY_DOCUMENT.md); keine Backend-/Clientqualifikation |
 
 ## Identitäten getrennt erhalten
+
+Der spätere [private Windows-Writer](../Architecture/AUTHENTICATED_TLS_REGISTRY_WRITER.md)
+implementiert inzwischen die begrenzte Metadatenlane vor Keyanlage: explizite
+leere Initialisierung, aktive Client-/Signierrecords, frische Actor-/Volumeprüfung,
+private ACLs, kooperative Sperren, Intent, atomaren Ersatz und explizite Recovery.
+Eigene NTFS-Tempfixtures prüfen echte Prozessabbrüche, Konkurrenz und Cleanup.
+Die folgenden früheren Aussagen über den noch fehlenden Writer beschreiben
+den Entwurfsstand vor diesem Slice. CA-/Trustscopezuordnung, Retirement,
+operative Key-/Zertifikatsrecords und qualifizierter Export bleiben offen.
+Die spätere [Linux-Trustdriftabnahme](../Quality/TLS_LINUX_SQL2025_TRUST_DRIFT_ACCEPTANCE_2026-10-17.md)
+belegt inzwischen beide strikten Stacks, geladenen ODBC sowie kontrollierten
+Trustentzug und Wiederherstellung unter Docker/SQL 2025 CU9; sie registriert
+keinen Linuxkontext und schließt die weiteren Matrixfälle nicht.
 
 `ClientRef` bezeichnet künftig einen ausdrücklich ausgewählten logischen
 Ausführungskontext für die beiden SQL-Clientstacks. `AuthorityRef` bezeichnet
@@ -72,7 +96,7 @@ Nutzung blockiert Key-/Trustentfernung. Parallelität, Abbruch und fehlender
 Commitnachweis bleiben sichtbar `RECOVERY_REQUIRED`, ohne automatisches
 Adoptieren, Überschreiben oder Löschen vorhandener Records.
 
-## Konkretisierter Writer-/Crashvertrag – noch nicht implementiert
+## Konkretisierter Writer-/Crashvertrag – ursprünglicher Entwurfsstand
 
 Der [Offline-Index](../Architecture/AUTHENTICATED_TLS_REGISTRY_INDEX.md) legt
 jetzt geschlossene Referenzrecords, Grenzen und gültige Übergänge fest.

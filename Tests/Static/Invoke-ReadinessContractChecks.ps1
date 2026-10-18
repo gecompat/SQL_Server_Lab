@@ -201,6 +201,25 @@ else {
 
     Assert-Contains $documentation 'networkingMode=mirrored' 'Podman-Windows-How-to dokumentiert mirrored networking nicht.'
     Assert-Contains $documentation 'eth0' 'Diagnose-Fallback ueber eth0 fehlt in der Dokumentation.'
+
+    . $sqlReadinessPath
+    $defaultConnection = [Data.SqlClient.SqlConnectionStringBuilder]::new((New-SqlConnectionString -Port 15433))
+    if (-not $defaultConnection.ShouldSerialize('Encrypt') -or -not $defaultConnection['Encrypt'] -or
+        -not $defaultConnection.ShouldSerialize('TrustServerCertificate') -or -not $defaultConnection['TrustServerCertificate'] -or
+        $defaultConnection['Password'] -cne '***') {
+        $failures.Add('Neue maskierte Labverbindungen muessen Verschluesselung und Trust-Override ausdruecklich aktivieren.')
+    }
+    $testPassword = [Security.SecureString]::new()
+    $testPassword.AppendChar([char]65)
+    try {
+        $includedConnection = [Data.SqlClient.SqlConnectionStringBuilder]::new((
+            New-SqlConnectionString -HostName '192.0.2.25' -Port 15434 -Database 'SyntheticTls' -IncludePassword -SaPassword $testPassword))
+        if (-not $includedConnection['Encrypt'] -or -not $includedConnection['TrustServerCertificate'] -or
+            $includedConnection['Data Source'] -cne '192.0.2.25,15434' -or
+            $includedConnection['Initial Catalog'] -cne 'SyntheticTls' -or $includedConnection['Password'] -cne 'A') {
+            $failures.Add('Ausdrueckliche Passwortausgabe muss denselben TLS-Default und das angeforderte Ziel bewahren.')
+        }
+    } finally { $testPassword.Dispose() }
 }
 
 if ($failures.Count -gt 0) {

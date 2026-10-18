@@ -1,5 +1,76 @@
 # Bekannte Grenzen
 
+## Hyper-V-TLS-Zielmetadaten ohne native Qualifikation
+
+Der [zusätzliche private Reader](../Architecture/AUTHENTICATED_TLS_TARGET_METADATA.md#getrennte-aufgezeichnete-hyper-v-zielbindung)
+bindet Root/Run/Scope, eine aufgezeichnete VM-ID, die ausdrücklich gewählte
+SQL-Instanz und den Endpoint. Seine Datei-Fixtures prüfen widersprüchliche
+Bindungen und Ausgaben ohne Rohwerte. Es gibt keine Hyper-V-/Gastbeobachtung,
+KeySpec-/Dienst-ACL-, Zertifikats- oder TLS-Probe. Die Sicht bleibt nicht atomar;
+native Ownership und SQL-Bindung müssen vor späteren Aktionen frisch geprüft
+werden. Hyper-V-False-Erstellung und -Export sowie SC-2026-045 bleiben offen.
+
+## Private Authoritybindung ist keine operative Abnahme
+
+Die [neue Bindung](../Architecture/AUTHENTICATED_TLS_AUTHORITY_BINDING.md)
+implementiert die begrenzte private `0.2`-CA-/Client-/Trustscope-Metadatenform.
+Frische Kandidaten-/Kontext-/ReadOnly-Trustprüfung gilt auch bei unveränderter
+Generation und Recoverycommit. Eigene NTFS-/DPAPI-Tempfixtures verwenden
+injizierte positive Store-/Binärwerte. Kein tatsächlicher CA-Key wurde neu
+qualifiziert, keine bestehende CA adoptiert oder Store-/SQL-Konfiguration
+geändert. Beobachtung bleibt nicht atomar; handlebasierte Rootanker,
+Retirement, Mehrclient-Scope und vollständige native Abnahme fehlen.
+Die folgenden tatsächlichen Exportgruppenbefunde bleiben unverändert;
+Der separate operative Nachfolger unterstützt jetzt ein eigenes Windows-/Docker-SQL-2025-CU9-Lab und V2-Export; die Gesamtmatrix und SC-2026-045 bleiben offen.
+
+## Historische Vorprüfung vor dem operativen eigenen Lab
+
+Die [frische Vorprüfung vom 2026-10-17](LOCAL_VALIDATION_STRATEGY.md#bedingte-tls-fortsetzung-vom-2026-10-17)
+bestätigt Provider-Bootstrap, bestehende CA-Vorschau und CurrentUser-Trust.
+Bei dieser Vorprüfung fehlte die operative TLS-Registrydatei am geprüften Root. In der vorhandenen
+Exportgruppe funktionieren die Docker-/Hyper-V-SQL-2025-Ziele mit dem Default,
+lehnen strikte Verbindungen aber wegen der Zertifikatkette ab. Ein bereites
+registriertes Podman-SQL-2025-Ziel fehlt in dieser Gruppe. Runtime-`READY`
+ist damit kein TLS-Qualifikationsnachweis. Der nachfolgende eigene Windows-/Docker-Pfad bindet inzwischen den bestehenden CA-Key und Trustscope und qualifiziert seinen separaten `False`-Export; andere operative Kombinationen bleiben P1; der Default ist
+weiterhin `Encrypt=True;TrustServerCertificate=True`.
+
+## Private TLS-Kontextregistrierung vor Keyanlage
+
+Der [Windows-Writer](../Architecture/AUTHENTICATED_TLS_REGISTRY_WRITER.md)
+persistiert inzwischen aktive Client-/Signiermetadaten unter explizit
+registriertem lokalem NTFS- oder ReFS-Root mit frischer Actor-/Volumeprüfung, privaten
+ACLs, kooperativen Sperren, Intent, atomarem Ersatz und expliziter Recovery.
+Eigene Tempfixtures prüfen native Abbrüche, Parallelität und Cleanup. Keine
+Stromausfall-, Administrator-/ABA-, Linux- oder TLS-Qualifikation entsteht.
+Die aktuelle 0.2-Metadatenform ist oben getrennt beschrieben. Der operative Nachfolger adoptiert die vorhandene CA für sein eigenes Lab; Retirement bleibt offen. Die Moduswahl ist additiv auf dieses Lab begrenzt. Volle Journale sperren statt automatisch zu kürzen.
+Unvollständige erstmalige Anlage verlangt gesonderte eigene Recovery/Cleanup;
+kein stiller Retry. Spätere historische Reader-/Planungsnachweise behalten
+ihre damaligen Aussagegrenzen.
+## Anzeige gespeicherter TLS-Werte
+
+Die [TLS-Anzeige](../Architecture/SQL_CONNECTION_SETTINGS.md) in CLI und GUI
+projiziert ausschließlich angegebene Connection-String-Werte. Fehlende Werte
+bleiben null/`nicht angegeben`, ungültige `nicht lesbar`. Die GUI-Zielübersicht
+zeigt keine Zugangsdaten. Dies ist keine Live-Verbindungs-/Zertifikatsprüfung
+und keine Freigabe der öffentlichen `False`-Moduswahl.
+
+## TLS-Standard für neue Labverbindungen
+
+Die getrennte [Linux-Abnahme](TLS_LINUX_SQL2025_TRUST_DRIFT_ACCEPTANCE_2026-10-17.md)
+belegt inzwischen beide strikten Clientstacks, kontrollierten Trustentzug
+und Wiederherstellung auf Docker/SQL 2025 CU9 sowie den tatsächlich geladenen
+ODBC-Treiber. Andere Linux-Matrixfälle und Hyper-V-Zertifikatsbindung bleiben offen. Operative Registry, Moduswahl und qualifizierter Export sind separat nur für den eigenen Windows-/Docker-Pfad implementiert.
+
+Neue gemeinsame Connection Strings und SSMS-Registrierungsexporte enthalten
+ausdrücklich `Encrypt=True;TrustServerCertificate=True`. Gespeicherte
+Altverbindungen werden nicht umgeschrieben. Die
+[Defaultabnahme](LOCAL_VALIDATION_STRATEGY.md#expliziter-tls-standard-vom-2026-10-16)
+und die getrennte [Podman-Abnahme](LOCAL_VALIDATION_STRATEGY.md#podman-tls-default-abnahme-vom-2026-10-17)
+belegen echte verschlüsselte Verbindungen mit SqlClient und sqlcmd unter
+SQL 2019, 2022 und 2025. Dieser einfache Modus verlangt keinen eigenen
+CA-/Client-Trust. Öffentliche `False`-Moduswahl, Zertifikats-Lifecycle und die
+gesonderte qualifizierte CLI-/GUI-Anzeige bleiben im laufenden TLS-001-Scope.
+
 ## SSISDB: abgenommener Windows-Scope und Grenzen
 
 Die [lesende Paketdiagnose](../Architecture/SSIS_PACKAGE_DIAGNOSTIC.md)
@@ -9,6 +80,15 @@ nur eigene vertrauenswürdige Labpakete. Ladefehler, fehlende Runtime und
 unbestätigter Transport bleiben getrennt; fehlerfreies Laden beweist keine
 Katalogausführung oder ETL-Funktion. Der gesonderte native Nachweis steht in
 der [Validierungsstrategie](LOCAL_VALIDATION_STRATEGY.md#ssis-paketladediagnose).
+
+Eine eigene VM mit installierter SSIS-Komponente ist im Prepared-/Manifestpfad
+bereits abgenommen. Das allgemeine deklarative SSIS-Serverprofil ohne
+Pflichtfixture sowie verwaltetes ISPAC-Deployment, echte SQL-ETL-Datenflüsse
+und SQL-Agent-Szenarien sind weiterhin geplant. Die
+[Machbarkeitsprüfung und Integration](../Project_Planning/SSIS_ETL_DATA_WAREHOUSE_BACKLOG.md#machbarkeit-und-integrationsentscheidung-vom-2026-10-16)
+verwendet eine dedizierte Windows-/Hyper-V-VM mit lokaler Engine und SSISDB;
+getrennte Quell-/Warehouse-Server und Scale-Out-Worker benötigen eigene
+Topologie- und Runtime-Nachweise. Diese Planung erweitert keine Providerfreigabe.
 
 Der zusätzliche [Windows-Consumerweg](../HowTo/SSIS_CONSUMER_WINDOWS_ACCESS.md)
 verwendet `Invoke-SqlServerLabScript -WindowsAuthentication` und die vorhandene
@@ -3238,6 +3318,18 @@ nicht freigegeben. [Vertrag und Nachweisgrenzen](../HowTo/WINDOWS_LOCALE.md).
 
 ## Aktivierungsadapter-Eigentum (2026-09-10)
 
+Der oeffentliche `RepairHyperVWindowsActivation` reicht einen expliziten
+Aktivierungsintent, vorhandenen externen Switch und State Root an den bestehenden
+Aktivierungspfad weiter. Ohne Uebersteuerung bleibt der gespeicherte Intent
+massgeblich. Die Weitergabe und Abweisung ungueltiger Eingaben vor einem
+VM-Start sind statisch geprueft; eine neue native Qualifikation dieser
+Adapterweitergabe oder Freigabe von Aktivierungsegress folgt daraus nicht.
+Der mutierende Aktivierungsaufruf verwendet `NoRetry`, damit ein verlorener
+Transportreply den Gastblock nicht erneut ausfuehrt. Die beiden begrenzten
+Windows-API-Versuche innerhalb des Gastblocks bleiben erhalten. Ohne gueltigen
+Abschlussreceipt bleibt eine konkrete native Recovery erforderlich; die
+statische Transportpruefung belegt keine neue Windows-Aktivierung.
+
 Der spezielle Evaluationspfad entfernt nur journalgebundene temporaere
 Adapter. Fremde gleichnamige Adapter bleiben bestehen. Unvollstaendige
 Journale oder nachtraeglich geaenderte Switch-Bindungen erfordern konkrete
@@ -3812,3 +3904,21 @@ Machine, Workflow-/Gruppen-/Poolmitgliedschaft, Retention, Referenzen, unbekannt
 Metadatendateien, unvollständige Inventare und Recovery
 bleiben gesperrt. Es gibt keine globale Purge-Aktion und keine native
 Ressourcenlöschung. [Vertrag und Nachweisgrenzen](../User/RUN_ARTIFACT_REMOVAL.md).
+
+## Isolierter operativer TLS-Pfad
+
+Der additive [operative TLS-Vertrag](../Architecture/AUTHENTICATED_TLS_OPERATIONAL_LAB.md)
+verbindet eine bereits vertraute CA mit eigenem Trustscope und einem neuen
+Docker-SQL-2025-CU9-Lab. Die explizite False-Wahl und der separate qualifizierte
+V2-Export sind vom unveränderten True/True-Default getrennt. Native Abnahme und
+weitere Providergrenzen werden in der Validierungsstrategie getrennt geführt.
+Die operative False-Lane ist nativ für Windows CurrentUser, Docker und SQL Server 2025 CU9 belegt. Andere Provider/Clients/Versionen, V2-Consumer-Cutover und automatisches Renewal/Rebind bleiben offen. Der qualifizierte Export verlangt frische Bindungen und zwei echte Stacks; gespeichertes Runtime-READY allein genügt nicht. Der Wire-Fingerprint bleibt ausdrücklich NOT_OBSERVED. Standard und bestehende V1-Gruppe bleiben True/True.
+
+## Begrenzte Hyper-V-Create-Netzbindung
+
+Die explizite Option `New-SqlServerLab -RequireExistingHyperVNetwork` schützt
+den einzelnen manifestgebundenen SQL-Prepared-Create-Pfad vor Reparatur der
+gemeinsamen hostOnly-Infrastruktur und vor Standardswitch-Änderungen. Sie
+erlaubt weiterhin die eigene VM-/IPAM-/Gast-/SQL-Anlage. Fremde Netzänderungen
+werden nicht atomar ausgeschlossen; eine native Abnahme dieses erweiterten
+Pfads und die Windows-CSP-/Hyper-V-TLS-Abnahme stehen weiterhin aus.

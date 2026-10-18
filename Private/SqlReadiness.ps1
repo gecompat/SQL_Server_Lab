@@ -523,6 +523,8 @@ function New-SqlConnectionString {
     .SYNOPSIS
         Erzeugt einen SQL-Connection-String fuer eine Labinstanz.
     .DESCRIPTION
+        Verwendet fuer neue Labverbindungen immer Encrypt=True und
+        TrustServerCertificate=True, ohne Client-Zertifikatseinrichtung.
         Gibt standardmaessig nur einen maskierten Passwortplatzhalter aus.
         Ein Klartextpasswort wird nur bei explizitem -IncludePassword und
         uebergebenem SecureString kurzzeitig erzeugt.
@@ -543,7 +545,7 @@ function New-SqlConnectionString {
         throw "Database '$Database' ist ungueltig."
     }
 
-    $base = "Server=${HostName},${Port};Database=${Database};User Id=sa;TrustServerCertificate=True;"
+    $base = "Server=${HostName},${Port};Database=${Database};User Id=sa;Encrypt=True;TrustServerCertificate=True;"
     if (-not $IncludePassword) {
         return "${base}Password=***;"
     }

@@ -16,14 +16,15 @@
     setzt die Aktion stattdessen einen nach manueller OOBE fortgesetzten Slot
     mit diesem nur fuer den Aufruf uebergebenen Kennwort fort: Sie synchronisiert
     den Runtimezustand, startet einen ausgeschalteten Slot, aktiviert nur gemaess
-    seinem gespeicherten Egress-Intent und stoppt ihn anschliessend wieder,
+    dem gespeicherten oder explizit uebergebenen Aktivierungsintent und stoppt ihn anschliessend wieder,
     ausser LeaveRunning ist angefordert.
 .PARAMETER BuildId
 Build-ID des vorhandenen Windows- oder SQL-Image-Builds.
 .PARAMETER RunId
     Exakte Run-ID für PlanWindowsPoolMember; keine Namenssuche oder Adoption.
 .PARAMETER StateRoot
-    Unabhängig ausgewählter StateRoot für Slotreserveinventar und Mitgliedvorschau.
+    Unabhängig ausgewählter StateRoot für Slotreserveinventar, Mitgliedvorschau
+    und RepairHyperVWindowsActivation.
 .PARAMETER ArtifactId
 Kennung eines veröffentlichten Hyper-V-Image-Registry-Eintrags, der nach
 vorheriger Prüfung auf aktive Build-Referenzen entfernt werden soll.
@@ -41,6 +42,9 @@ unveränderte Quelle für eine run-lokale Arbeitskopie verwendet.
 Optionaler vorhandener virtueller Hyper-V-Switch für eine reguläre Hyper-V-
 Umgebung. Ohne Angabe wird der gespeicherte beziehungsweise verwaltete
 SQL_Server_Lab-Internal-Switch verwendet.
+Bei RepairHyperVWindowsActivation bezeichnet er ausschliesslich den vorhandenen
+externen Switch fuer einen gemaess Aktivierungsintent erlaubten temporaeren Adapter.
+Eine Switchauswahl erteilt selbst keine Egress-Freigabe.
 .PARAMETER MediaRoot
     Externer Media Root für eine neue Windows- oder SQL-Vorbereitung.
 .PARAMETER DataRoot
@@ -220,7 +224,9 @@ Ist er angegeben, wird der Download strikt dagegen verifiziert.
 .PARAMETER UiLanguage
     Windows-UI-Language im Format en-US (Standard: en-US).
 .PARAMETER WindowsActivation
-    Vollstaendiger WindowsActivationIntent/1.0 fuer neue Windows-Slots;
+    Vollstaendiger WindowsActivationIntent/1.0 fuer neue Windows-Slots oder als
+    expliziter Ersatz des gespeicherten Intents bei RepairHyperVWindowsActivation.
+    Ohne Angabe bleibt bei der Reparatur der gespeicherte Intent massgeblich.
     Strategy und EgressPolicy enthalten keine Secrets oder privaten Endpunkte.
 .PARAMETER InputLocale
     Keyboard Input Locale (z. B. 0407:00000407). Ohne Angabe wird ein
@@ -676,11 +682,23 @@ function Invoke-SqlServerLabWorkflowAction {
         }
         'StartHyperVLab' { Start-HyperVLabEnvironment -RunId $BuildId }
         'RepairHyperVWindowsActivation' {
+            $activationArguments=@{RunId=$BuildId}
+            if($PSBoundParameters.ContainsKey('StateRoot')){
+                if([string]::IsNullOrWhiteSpace($StateRoot)){throw 'WINDOWS_ACTIVATION_STATE_ROOT_REQUIRED'}
+                $activationArguments.StateRoot=$StateRoot
+            }
+            if($PSBoundParameters.ContainsKey('WindowsActivation')){
+                $activationArguments.WindowsActivation=Resolve-LabWindowsActivationIntent -Intent $WindowsActivation -RequireExplicit
+            }
+            if($PSBoundParameters.ContainsKey('SwitchName')){
+                if([string]::IsNullOrWhiteSpace($SwitchName)){throw 'WINDOWS_ACTIVATION_SWITCH_REQUIRED'}
+                $activationArguments.ExternalSwitchName=$SwitchName
+            }
             if ($GuestPassword) {
-                Resume-LabWindowsSlotActivation -RunId $BuildId -Credential $credential -LeaveRunning:$LeaveRunning
+                Resume-LabWindowsSlotActivation @activationArguments -Credential $credential -LeaveRunning:$LeaveRunning
             }
             else {
-                Invoke-LabWindowsSlotActivationReconcile -RunId $BuildId
+                Invoke-LabWindowsSlotActivationReconcile @activationArguments
             }
         }
         'StopHyperVLab' { Stop-HyperVLabEnvironment -RunId $BuildId }

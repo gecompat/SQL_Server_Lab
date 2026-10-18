@@ -49,6 +49,20 @@ try {
     Add-CheckResult -Name 'Leere Providergruppen werden nicht projiziert' -Success (
         'PODMAN (0)' -notin $runningProviders)
 
+    $registrationCenter = [PSCustomObject]@{
+        Grouping = [PSCustomObject]@{ RootGroupName='Synthetic Lab' }
+        Entries = @([PSCustomObject]@{
+            Group='Synthetic'; DisplayName='SQL'; Server='192.0.2.25,15433'; Login='sa'; Description='Synthetic TLS default'
+        })
+    }
+    $registrationXml = [xml]((New-LabSsmsRegistrationLines -ConnectionCenter $registrationCenter) -join "`n")
+    $registrationNodes = @($registrationXml.SelectNodes('//*[local-name()="ConnectionStringWithEncryptedPassword"]'))
+    $registrationConnection = [Data.SqlClient.SqlConnectionStringBuilder]::new([string]$registrationNodes[0].InnerText)
+    Add-CheckResult -Name 'SSMS-Registrierung verwendet explizit verschluesselten Labdefault ohne Kennwort' -Success (
+        $registrationNodes.Count -eq 1 -and $registrationConnection.ShouldSerialize('Encrypt') -and
+        $registrationConnection['Encrypt'] -and $registrationConnection.ShouldSerialize('TrustServerCertificate') -and
+        $registrationConnection['TrustServerCertificate'] -and -not $registrationConnection.ShouldSerialize('Password'))
+
     $dockerClientTarget = ConvertTo-LabCmsServerTarget -Server '127.0.0.1,15433' -CmsProvider docker
     $podmanClientTarget = ConvertTo-LabCmsServerTarget -Server 'localhost,15434' -CmsProvider podman
     $hyperVClientTarget = ConvertTo-LabCmsServerTarget -Server '192.0.2.25,1433' -CmsProvider docker

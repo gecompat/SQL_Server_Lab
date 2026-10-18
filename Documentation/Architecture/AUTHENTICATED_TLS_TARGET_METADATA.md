@@ -79,6 +79,48 @@ liefert `Success=false`, `Value=null` und einen festen Code ohne Rohdiagnose.
 | `TLS_TARGET_METADATA_MISMATCH` | Ausgewählte Soll-/Istinstanz, Container-ID, Provider, Version oder Endpoint passen nicht |
 | `TLS_TARGET_STATE_UNSUPPORTED` | Run oder passender Provider-Teilrun nicht als `RUNNING` gespeichert |
 
+## Getrennte aufgezeichnete Hyper-V-Zielbindung
+
+`Get-LabAuthenticatedTlsHyperVTargetMetadata` ist eine zusätzliche private
+lesende Lane. Sie verlangt dieselbe geschlossene Hyper-V-`LEAF_PROFILE`-Form,
+registrierten Root und ausdrückliche VM-Instanzwahl sowie eine zusätzliche
+`SqlInstanceId` des SQL-Dienstes. Der Containerresolver bleibt unverändert.
+Hyper-V akzeptiert nur katalogisierte Basisjahre; ein Container-CU-Tag
+qualifiziert kein Prepared-Image und wird nicht auf ein Jahr reduziert.
+
+Nach der gemeinsamen Root-/Run-/Scope-/Sollbindung muss der gespeicherte
+Workflow `hyperv-lab` sein und Run sowie Teilrun müssen `RUNNING` melden.
+Gelesen wird zusätzlich ausschließlich die feste `connection-info.json`
+dieses Runs: höchstens 256 KiB, JSON-Tiefe 20, Schema 1 und genau eine VM.
+Provider, Instanz, SQL-Workload, SQL-Jahr und angeforderter Endpoint müssen
+ordinal passen. Die VM-ID ist eine kanonische nichtleere UUID. Der Anzeigename
+ersetzt sie nicht und verlässt den Adapter nicht. Der reguläre Producer lässt
+`run.instances` leer; zusätzliche Istrecords müssen dieselbe VM-ID tragen.
+
+Die SQL-Auswahl ist zwingend, auch bei einem Dienst. Maximal 64 aufgezeichnete
+SQL-Instanzen mit eindeutigen IDs werden gelesen; Groß-/Kleinschreibungsaliases
+gelten als Duplikate. Der ausgewählte Record braucht einen begrenzten
+SQL-Dienstnamen, Status `Running` und denselben numerischen TCP-Port.
+`Name` und das native Boolean `IsDefault` müssen den gespeicherten Dienst
+eindeutig ergeben: `MSSQLSERVER` oder `MSSQL$<Name>`. Die interne SQL-Instanz-ID
+bleibt ein opaker Selektor; ihr Suffix wird nicht als Instanzname geraten.
+Verbindungsstrings, Kennwörter, VM-Namen, Imagepfade und übrige Records werden
+nicht zurückgegeben. Das geschlossene DTO
+`SqlServerLab.AuthenticatedTlsHyperVTargetMetadata/0.1` enthält ausschließlich
+Run-/Scope-/VM-/SQL-Instanz-ID, Provider, SQL-Jahr, Dienstname und Endpoint
+sowie `Status=RECORDED`, `RuntimeStatus=NOT_EXECUTED`,
+`AuthorizationStatus=NOT_EVALUATED` und `MutationAllowed=false`.
+
+Die Lane ruft keine Hyper-V-Workflowfunktion auf: Diese kann veraltete
+VM-Namen reparieren. Sie liest weder VM-Notes noch Gastzustand oder separate
+Credential-, Key- oder Storedateien. Die begrenzt geladene Verbindungsdatei kann
+sensible Felder enthalten; diese verlassen weder DTO noch Fehler- oder
+Nebenstreams. Es gibt keine VM-Abfrage, Verbindung oder Resolveränderung.
+Die Dateibeobachtungen sind nicht atomar. Vor späterer Mutation müssen native
+VM-ID/Ownership, Gast-/SQL-Dienst, CSP/KeySpec und Zertifikatsbindung frisch
+geprüft werden. Diese Metadaten erweitern die öffentliche operative
+False-Capability nicht; sie bleibt Windows/Docker/SQL 2025 CU9.
+
 ## Autoritätsgrenze und nächster vertikaler Schritt
 
 Die Prüfung zeigt ausschließlich lokale Metadatenkonsistenz. Schreibrechte

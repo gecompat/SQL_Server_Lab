@@ -256,13 +256,104 @@ try {
             Assert-TlsTargetRejected 'TLS-T09 ungueltige Anfrage' (Get-LabAuthenticatedTlsTargetMetadata -Request ([pscustomobject]@{}) -InstanceId primary -DataRoot $script:dataRoot)
             Add-CheckResult 'TLS-T09 kein Metadatenread vor Formpruefung' ($script:bindingCalls -eq 0)
         } finally { Set-Item function:Get-LabDiagnosticBinding $realBinding }
+        function Reset-TlsHyperVFixture {
+            Reset-TlsTargetFixture hyperv '2025'
+            $script:state.metadata|Add-Member -NotePropertyName workflowKind -NotePropertyValue 'hyperv-lab' -Force
+            $script:state.instances=@()
+            $script:connection=[pscustomobject]@{schemaVersion=1;instances=@([pscustomobject]@{
+                id='primary';provider='hyperv';sqlVersion='2025';workload='sql';vmId='33333333-3333-3333-3333-333333333333';
+                vmName='TLS_PRIVATE_CANARY';host='127.0.0.1';port=15333;ConnectionString='TLS_PRIVATE_CANARY';
+                sqlInstances=@([pscustomobject]@{InstanceId='MSSQL17.MSSQLSERVER';Name='MSSQLSERVER';IsDefault=$true;ServiceName='MSSQLSERVER';ServiceStatus='Running';TcpPort=15333})})}
+            Save-TlsHyperVFixture
+        }
+        function Save-TlsHyperVFixture {
+            Save-TlsTargetFixture
+            Write-TlsTargetFixture (Join-Path $script:run.RunDir 'connection-info.json') $script:connection
+        }
+        function Invoke-TlsHyperVFixture {
+            & {Set-StrictMode -Version Latest;Get-LabAuthenticatedTlsHyperVTargetMetadata -Request $script:request -InstanceId primary -SqlInstanceId MSSQL17.MSSQLSERVER -DataRoot $script:dataRoot}
+        }
+        function Get-VM {throw 'TLS_PRIVATE_CANARY forbidden VM query'}
+        function Get-HyperVLabWorkflowRun {throw 'TLS_PRIVATE_CANARY forbidden workflow repair'}
+        Reset-TlsHyperVFixture
+        $before=Get-TlsTargetSnapshot;$streams=@(Invoke-TlsHyperVFixture *>&1)
+        $result=$streams[0]
+        $expected=[pscustomobject][ordered]@{ContractVersion='SqlServerLab.AuthenticatedTlsHyperVTargetMetadata/0.1';Status='RECORDED';
+            TargetRef=$script:run.RunId;InstanceId='primary';SqlInstanceId='MSSQL17.MSSQLSERVER';ScopeId=$script:run.ScopeId;
+            Provider='hyperv';SqlVersion='2025';VMId='33333333-3333-3333-3333-333333333333';ServiceName='MSSQLSERVER';Port=15333;
+            Identity=[pscustomobject][ordered]@{Kind='IP';Value='127.0.0.1'};RuntimeStatus='NOT_EXECUTED';AuthorizationStatus='NOT_EVALUATED';MutationAllowed=$false}
+        Add-CheckResult 'TLS-H01 exakter Hyper-V-DTO ohne native Aufrufe oder Rohwerte' ($streams.Count -eq 1 -and $result.Success -and
+            [string]::Equals(($result.Value|ConvertTo-Json -Depth 8 -Compress),($expected|ConvertTo-Json -Depth 8 -Compress),[StringComparison]::Ordinal))
+        Add-CheckResult 'TLS-H02 eigene Metadaten unveraendert' ($before -ceq (Get-TlsTargetSnapshot))
+        $result.Value.Identity.Value='changed'
+        Add-CheckResult 'TLS-H03 abgetrennte Identitaet' ($script:request.Identity.Value -ceq '127.0.0.1')
+        Reset-TlsHyperVFixture
+        $script:connection.instances[0].sqlInstances[0].Name='NAMED_SQL'
+        $script:connection.instances[0].sqlInstances[0].IsDefault=$false
+        $script:connection.instances[0].sqlInstances[0].ServiceName='MSSQL$NAMED_SQL'
+        Save-TlsHyperVFixture
+        Add-CheckResult 'TLS-H03 Instanz-ID bleibt opaque, Dienstkante aus Name und IsDefault' (Invoke-TlsHyperVFixture).Success
+        $hyperVCases=[ordered]@{
+            'fremder Workflow'={ $script:state.metadata.workflowKind='other' }
+            'fremde Scopebindung'={ $script:scope.runId='44444444-4444-4444-4444-444444444444' }
+            'gestoppter Run'={ $script:state.state='STOPPED' }
+            'gestoppter Provider'={ $script:state.providerSubRuns[0].state='STOPPED' }
+            'fremder Root'={ $script:marker.DataRoot=Join-Path $Root 'other' }
+            'zweite registrierte Location'={ $script:catalog.LabDataLocations += $script:catalog.LabDataLocations[0] }
+            'fremde VM im Run'={ $script:state.instances=@([pscustomobject]@{id='primary';provider='hyperv';version='2025';vmId='44444444-4444-4444-4444-444444444444'}) }
+            'VM-ID fehlt'={ $script:connection.instances[0].vmId=$null }
+            'leere VM-ID'={ $script:connection.instances[0].vmId='00000000-0000-0000-0000-000000000000' }
+            'Displayname ersetzt VM-ID'={ $script:connection.instances[0].vmId='TLS_PRIVATE_CANARY' }
+            'doppelte VM'={ $script:connection.instances += $script:connection.instances[0] }
+            'fremde Instanz'={ $script:connection.instances[0].id='other' }
+            'fremder Provider'={ $script:connection.instances[0].provider='docker' }
+            'nur Windows statt SQL'={ $script:connection.instances[0].workload='windows' }
+            'fremde Version'={ $script:connection.instances[0].sqlVersion='2022' }
+            'CU ist kein Hyper-V-Jahr'={ $script:request.SqlVersion='2025-CU9' }
+            'fremder Host'={ $script:connection.instances[0].host='localhost' }
+            'Stringport'={ $script:connection.instances[0].port='15333' }
+            'fremder Port'={ $script:connection.instances[0].port=1433 }
+            'Stringschema'={ $script:connection.schemaVersion='1' }
+            'SQL-Auswahl fehlt'={ $script:connection.instances[0].sqlInstances=@() }
+            'SQL-ID fehlt'={ $script:connection.instances[0].sqlInstances[0].InstanceId='other' }
+            'doppelte SQL-ID'={ $script:connection.instances[0].sqlInstances += $script:connection.instances[0].sqlInstances[0] }
+            'SQL-ID-Kulturalias'={ $script:connection.instances[0].sqlInstances += [pscustomobject]@{InstanceId='mssql17.mssqlserver'} }
+            'SQL-Dienst fehlt'={ $script:connection.instances[0].sqlInstances[0].ServiceName='other' }
+            'Standardinstanz mit fremdem gueltigem Dienst'={ $script:connection.instances[0].sqlInstances[0].ServiceName='MSSQL$OTHER' }
+            'Instanzname fehlt'={ $script:connection.instances[0].sqlInstances[0].Name=$null }
+            'Defaulttyp ist String'={ $script:connection.instances[0].sqlInstances[0].IsDefault='true' }
+            'Defaultinstanz mit anderem Namen'={ $script:connection.instances[0].sqlInstances[0].Name='OTHER' }
+            'Namensinstanz ohne Namensdienst'={ $script:connection.instances[0].sqlInstances[0].IsDefault=$false;$script:connection.instances[0].sqlInstances[0].Name='OTHER' }
+            'Defaultname als Namensinstanz'={ $script:connection.instances[0].sqlInstances[0].IsDefault=$false }
+            'SQL-Dienst gestoppt'={ $script:connection.instances[0].sqlInstances[0].ServiceStatus='Stopped' }
+            'SQL-Port abweichend'={ $script:connection.instances[0].sqlInstances[0].TcpPort=1433 }
+            'SQL-Stringport'={ $script:connection.instances[0].sqlInstances[0].TcpPort='15333' }
+        }
+        foreach($case in $hyperVCases.GetEnumerator()){
+            Reset-TlsHyperVFixture;& $case.Value;Save-TlsHyperVFixture
+            $before=Get-TlsTargetSnapshot
+            Assert-TlsTargetRejected ('TLS-H04 '+$case.Key) (Invoke-TlsHyperVFixture)
+            Add-CheckResult 'TLS-H04 Gegenfall ohne Dateiwrite' ($before -ceq (Get-TlsTargetSnapshot))
+        }
+        $realBinding=${function:Get-LabDiagnosticBinding};$script:bindingCalls=0
+        try{
+            function Get-LabDiagnosticBinding {$script:bindingCalls++;throw 'unexpected metadata read'}
+            Reset-TlsHyperVFixture
+            foreach($selector in @($null,'',@('MSSQL17.MSSQLSERVER'),[pscustomobject]@{},'MSSQL17.MSSQLSERVER ')){
+                Assert-TlsTargetRejected 'TLS-H05 SQL-Auswahlform vor I/O' (Get-LabAuthenticatedTlsHyperVTargetMetadata -Request $script:request -InstanceId primary -SqlInstanceId $selector -DataRoot $script:dataRoot)
+            }
+            $script:request.Provider='docker'
+            Assert-TlsTargetRejected 'TLS-H05 getrennte Providerlane' (Invoke-TlsHyperVFixture)
+            Add-CheckResult 'TLS-H05 kein I/O bei ungueltiger Form oder Provider' ($script:bindingCalls -eq 0)
+        }finally{Set-Item function:Get-LabDiagnosticBinding $realBinding}
         $source=Join-Path $Repo 'Private/AuthenticatedTlsTarget.ps1'; $tokens=$null; $errors=$null
         $ast=[Management.Automation.Language.Parser]::ParseFile($source,[ref]$tokens,[ref]$errors)
         Add-CheckResult 'TLS-T10 reine Definition beim Laden' ($errors.Count -eq 0 -and
             @($ast.EndBlock.Statements|Where-Object {$_ -isnot [Management.Automation.Language.FunctionDefinitionAst]}).Count -eq 0)
         $calls=@($ast.FindAll({param($node) $node -is [Management.Automation.Language.CommandAst]},$true)|ForEach-Object GetCommandName)
         Add-CheckResult 'TLS-T10 geschlossener lesender Commandgraph' (@($calls|Where-Object {$_ -cnotin @(
-            'Test-LabAuthenticatedTlsRequest','Test-LabTlsRequestEnum','Test-LabTlsRequestReference','Get-LabDiagnosticBinding','Where-Object')}).Count -eq 0)
+            'Test-LabAuthenticatedTlsRequest','Test-LabTlsRequestEnum','Test-LabTlsRequestReference','Get-LabDiagnosticBinding','Where-Object',
+            'Read-LabDiagnosticJson','Join-Path','Test-LabDiagnosticGuid')}).Count -eq 0)
         Write-Host "Authenticated TLS Target: $script:passed PASS, $($script:failures.Count) FAIL"
         if($script:failures.Count){throw 'AUTHENTICATED_TLS_TARGET_CHECKS_FAILED'}
     } $testRoot $repo
