@@ -71,9 +71,41 @@ Invoke-SqlServerLabWorkflowAction `
 Das zusätzlich angegebene Kennwort wird nur als SecureString dieses Aufrufs
 verwendet und weder gespeichert noch protokolliert. Der Wiederaufnahmeablauf
 synchronisiert zuerst den Runtimezustand, startet einen ausgeschalteten Slot,
-verwendet ausschliesslich dessen gespeicherten Aktivierungsintent und stoppt
+verwendet ohne explizite Uebersteuerung dessen gespeicherten Aktivierungsintent und stoppt
 nur den von ihm gestarteten Slot nach Erfolg oder Fehler wieder. Mit
 `-LeaveRunning` bleibt ein zuvor ausgeschalteter Slot nach dem Versuch an.
+
+Bei `RepairHyperVWindowsActivation` kann `-WindowsActivation` einen vollstaendigen
+neuen Intent ausdruecklich vorgeben. `-StateRoot` bindet den vorhandenen Run an
+den ausgewaehlten State Root. `-SwitchName` waehlt fuer einen erlaubten temporaeren
+Aktivierungsadapter einen bereits vorhandenen externen Switch; die Auswahl allein
+erlaubt keinen Egress und erzeugt oder repariert keinen Switch. Diese Parameter
+gelten sowohl mit dem gespeicherten Gastkennwort als auch mit `-GuestPassword`.
+Leere oder unvollstaendige explizite Angaben scheitern vor der Reparatur; ein
+ungueltiger Intent wird auch vor einem moeglichen VM-Start zurueckgewiesen.
+Ein ausdruecklicher Intent wird durch den bestehenden Aktivierungskern im lokalen
+Receipt gespeichert und gilt danach auch fuer weitere Aktivierungspruefungen.
+
+Eine Online-Aktivierung mit temporaerer Verbindung erfordert eine ausdrueckliche
+Freigabe fuer genau diesen Gast und Netzwerkzugriff, zum Beispiel anschliessend:
+
+```powershell
+$activationIntent = @{
+    ContractVersion = 'SqlServerLab.WindowsActivationIntent/1.0'
+    Strategy = 'EvaluationOnline'
+    EgressPolicy = 'AllowTemporary'
+}
+Invoke-SqlServerLabWorkflowAction -Action RepairHyperVWindowsActivation `
+    -BuildId $runId -StateRoot $stateRoot -WindowsActivation $activationIntent `
+    -SwitchName $approvedExternalSwitch
+```
+
+Ohne Gastkennwort muss der Slot dabei bereits laufen. Bei einer temporaeren NIC
+werden DHCP und DNS nur auf diesem Gastadapter eingerichtet und der Adapter
+anschliessend anhand seines Journals entfernt. Der externe Netzwerkzugang ist
+keine Beschraenkung auf einzelne Aktivierungsendpunkte. `VerifyOnly` und
+`EgressPolicy = 'Denied'` bleiben ohne expliziten Ersatz erhalten; eine abgelaufene
+Evaluation wird durch diesen Reparaturaufruf nicht verlaengert.
 Keine Product Keys oder privaten Aktivierungsendpunkte gehoeren in den Intent.
 Intent, Live-Zustand und verwendeter Netzwerkmodus werden im lokalen
 Aktivierungsreceipt gefuehrt.

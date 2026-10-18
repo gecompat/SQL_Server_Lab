@@ -2561,6 +2561,12 @@ Der allgemeine Windows-Aktivierungsintent wurde am 2026-09-10 durch 33
 betroffene statische Suites geprueft. Zusaetzliche fokussierte Nachweise
 decken den SQL-Blocker, Pool-Resume, unveraenderte permanente NIC bei Erfolg
 und Fehler sowie Cleanup vor dem Bereits-aktiviert-No-Op ab.
+`Invoke-WindowsActivationIntentChecks.ps1` prueft ausserdem ohne Runtimezugriff
+die explizite Intent-/Switch-/StateRoot-Weitergabe der oeffentlichen Reparatur
+mit beiden Kennwortpfaden, den unveraenderten gespeicherten Denied-Intent,
+Abweisung leerer/ungueltiger Angaben vor Runzugriff oder VM-Start und den
+eigenen Stop nach fehlgeschlagener manueller Wiederaufnahme. Diese Faelle sind
+kein nativer Aktivierungs- oder Egressnachweis der neuen Adapterweitergabe.
 `Invoke-HyperVWindowsLocaleAcceptance.ps1` verlangt im eigenen Child auch
 einen aktiven Live-Lizenzzustand und prueft ein gegebenenfalls entstandenes
 temporaeres Adapterjournal auf vollstaendiges Cleanup. Die Ausgabe trennt

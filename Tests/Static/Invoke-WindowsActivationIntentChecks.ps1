@@ -122,6 +122,19 @@ $module=Import-Module (Join-Path $PSScriptRoot '../../SqlServerLab.psd1') -Force
         Assert-Path ($dns.failureCode -eq 'WINDOWS_ACTIVATION_LICENSE_DISCOVERY_FAILED' -and $dns.diagnostic -ceq 'dns=unresolved;ipv4=present;route=present') 'Tatsächlich fehlgeschlagene DNS-Abfrage bleibt von nicht geprüfter DNS getrennt'
     }
     & {
+        $script:activationLab.Instance.windowsActivationIntentSource='compatibility-defaults'
+        $explicit=@{ContractVersion='SqlServerLab.WindowsActivationIntent/1.0';Strategy='VerifyOnly';EgressPolicy='ExistingOnly'}
+        function Get-HyperVWindowsSlotLicenseStatus {[pscustomobject]@{State='ACTIVATION_REQUIRED';Edition='ServerStandardEval';LicenseStatus=5;EvaluationMinutesRemaining=0}}
+        $blocked=$false
+        try{$null=Invoke-LabWindowsSlotActivationReconcile -RunId own-run -Credential $credential -WindowsActivation $explicit}catch{$blocked=$_.Exception.Message -eq 'WINDOWS_ACTIVATION_VERIFY_ONLY'}
+        Assert-Path ($blocked -and $script:activationLab.Instance.windowsActivationIntentSource -eq 'parameters') 'Explizite Reparatur speichert den Intent mit expliziter Herkunft statt Kompatibilitaetsdefault'
+        $blocked=$false
+        try{$null=Invoke-HyperVWindowsSlotActivation -RunId own-run -Credential $credential}catch{$blocked=$_.Exception.Message -eq 'WINDOWS_ACTIVATION_VERIFY_ONLY'}
+        Assert-Path ($blocked -and $script:activationLab.Instance.windowsActivationIntent.EgressPolicy -eq 'ExistingOnly') 'Spaeterer direkter Aktivierungsaufruf behaelt VerifyOnly ohne neuen temporaeren Egress'
+        $null=Set-LabWindowsTestEnvironmentActivationIntent -RunId own-run
+        Assert-Path ($script:activationLab.Instance.windowsActivationIntent.Strategy -eq 'VerifyOnly' -and $script:activationLab.Instance.windowsActivationIntentSource -eq 'parameters') 'Testumgebungsfallback ersetzt keinen ausdruecklich reparierten Aktivierungsintent'
+    }
+    & {
         $fixtureRoot=Join-Path ([IO.Path]::GetTempPath()) ('sql-lab-activation-resume-'+[guid]::NewGuid().ToString('N'))
         try {
             $null=New-Item -ItemType Directory -Path $fixtureRoot
@@ -221,6 +234,85 @@ $module=Import-Module (Join-Path $PSScriptRoot '../../SqlServerLab.psd1') -Force
     finally {
         if ($originalIsWindows) { Set-Variable -Name IsWindows -Scope Script -Value ([bool]$originalIsWindows.Value) -Force }
         else { Remove-Variable -Name IsWindows -Scope Script -Force -ErrorAction SilentlyContinue }
+    }
+}
+& $module {
+    function Assert-Repair {param([bool]$Condition,[string]$Name);if(-not $Condition){throw "FAIL: $Name"};Write-Host "PASS: $Name"}
+    $denied=@{ContractVersion='SqlServerLab.WindowsActivationIntent/1.0';Strategy='VerifyOnly';EgressPolicy='Denied'}
+    $online=@{ContractVersion='SqlServerLab.WindowsActivationIntent/1.0';Strategy='EvaluationOnline';EgressPolicy='AllowTemporary'}
+    $script:repairReads=0
+    $script:repairCalls=@()
+    function Get-HyperVLabWorkflowRun {
+        param($RunId,$StateRoot)
+        $script:repairReads++
+        $script:repairReadRoot=$StateRoot
+        [pscustomobject]@{StateRoot=$StateRoot;Run=@{metadata=@{networkIntent='isolated'}};Instance=@{windowsActivationIntent=$denied}}
+    }
+    function Invoke-HyperVWindowsSlotActivation {
+        param($RunId,$Credential,$StateRoot,$WindowsActivation,$ExternalSwitchName,[switch]$ExplicitWindowsActivation)
+        $script:repairCalls+=@{Run=$RunId;Root=$StateRoot;Intent=$WindowsActivation;Switch=$ExternalSwitchName;Credential=$Credential;Explicit=$ExplicitWindowsActivation}
+    }
+    $null=Invoke-LabWindowsSlotActivationReconcile -RunId repair-run -StateRoot synthetic-state -ExternalSwitchName synthetic-external
+    Assert-Repair ($script:repairReadRoot -eq 'synthetic-state' -and $script:repairCalls[0].Root -eq 'synthetic-state' -and $script:repairCalls[0].Intent.EgressPolicy -eq 'Denied' -and -not $script:repairCalls[0].Explicit) 'Switchauswahl und expliziter StateRoot erweitern den gespeicherten verweigerten Egress nicht'
+    $null=Invoke-LabWindowsSlotActivationReconcile -RunId repair-run -StateRoot synthetic-state -WindowsActivation $online -ExternalSwitchName synthetic-external
+    Assert-Repair ($script:repairCalls[1].Intent.Strategy -eq 'EvaluationOnline' -and $script:repairCalls[1].Intent.EgressPolicy -eq 'AllowTemporary' -and $script:repairCalls[1].Switch -eq 'synthetic-external' -and $script:repairCalls[1].Explicit) 'Expliziter vollstaendiger Reparaturintent und externer Switch erreichen den bestehenden Aktivierungskern'
+    foreach($invalidIntent in @($null,$false,@{},@{Strategy='EvaluationOnline'},@{ContractVersion='SqlServerLab.WindowsActivationIntent/1.0';Strategy='EvaluationOnline';EgressPolicy='AllowTemporary';Extra='forbidden'})){
+        $reads=$script:repairReads;$calls=$script:repairCalls.Count;$failed=$false
+        try{$null=Invoke-LabWindowsSlotActivationReconcile -RunId repair-run -WindowsActivation $invalidIntent}catch{$failed=$true}
+        Assert-Repair ($failed -and $script:repairReads -eq $reads -and $script:repairCalls.Count -eq $calls) 'Ungueltiger expliziter Reparaturintent scheitert vor Runzugriff und Aktivierung'
+    }
+
+    & {
+        $script:resumeRepairEvents=[Collections.Generic.List[string]]::new()
+        function Get-HyperVLabWorkflowRun {param($RunId,$StateRoot);$script:resumeRepairEvents.Add('read');[pscustomobject]@{StateRoot=$StateRoot;Run=@{runId=$RunId;metadata=@{networkIntent='isolated'}};Instance=@{windowsActivationIntent=$denied}}}
+        function Sync-LabRunRuntimeState {param($Run,$StateRoot);[pscustomobject]@{Runtime=@{State='STOPPED'}}}
+        function Start-HyperVLabEnvironment {param($RunId,$StateRoot,[switch]$SkipWindowsActivationReconcile);if(-not $SkipWindowsActivationReconcile){throw 'UNEXPECTED_START_RECONCILE'};$script:resumeRepairEvents.Add('start')}
+        function Stop-HyperVLabEnvironment {param($RunId,$StateRoot);$script:resumeRepairEvents.Add('stop')}
+        function Invoke-LabWindowsSlotActivationReconcile {
+            param($RunId,$StateRoot,$Credential,$WindowsActivation,$ExternalSwitchName)
+            $script:resumeRepairEvents.Add('activate')
+            $script:resumedRepairArguments=@{Root=$StateRoot;Intent=$WindowsActivation;Switch=$ExternalSwitchName;Credential=$Credential}
+            if($script:resumeRepairFailure){throw 'SYNTHETIC_REPAIR_FAILURE'}
+            [pscustomobject]@{State='EVALUATION_ACTIVE'}
+        }
+        $credential=[pscredential]::new('synthetic',[SecureString]::new())
+        $script:resumeRepairFailure=$false
+        $result=Resume-LabWindowsSlotActivation -RunId repair-run -Credential $credential -StateRoot synthetic-state -WindowsActivation $online -ExternalSwitchName synthetic-external
+        Assert-Repair (($script:resumeRepairEvents -join ',') -eq 'read,start,activate,stop' -and $result.ActivationIntent.EgressPolicy -eq 'AllowTemporary' -and $script:resumedRepairArguments.Root -eq 'synthetic-state' -and $script:resumedRepairArguments.Switch -eq 'synthetic-external' -and $script:resumedRepairArguments.Credential -eq $credential) 'Manuelle Wiederaufnahme reicht explizite Bindungen und fluechtiges Credential weiter und meldet den effektiven Intent'
+        $script:resumeRepairEvents.Clear();$script:resumeRepairFailure=$true;$failed=$false
+        try{$null=Resume-LabWindowsSlotActivation -RunId repair-run -Credential $credential -StateRoot synthetic-state -WindowsActivation $online}catch{$failed=$_.Exception.Message -eq 'SYNTHETIC_REPAIR_FAILURE'}
+        Assert-Repair ($failed -and ($script:resumeRepairEvents -join ',') -eq 'read,start,activate,stop') 'Explizite Aktivierungsreparatur stoppt auch bei Fehler nur den selbst gestarteten Slot'
+        foreach($invalidIntent in @($null,@{},@{Strategy='EvaluationOnline'})){
+            $script:resumeRepairEvents.Clear();$failed=$false
+            try{$null=Resume-LabWindowsSlotActivation -RunId repair-run -Credential $credential -WindowsActivation $invalidIntent}catch{$failed=$true}
+            Assert-Repair ($failed -and $script:resumeRepairEvents.Count -eq 0) 'Ungueltiger expliziter Resumeintent scheitert vor Runzugriff und VMstart'
+        }
+    }
+
+    & {
+        function Test-HyperVAvailable {[pscustomobject]@{Available=$true;Message='synthetic'}}
+        function Invoke-LabWindowsSlotActivationReconcile {param($RunId,$Credential,$StateRoot,$WindowsActivation,$ExternalSwitchName);$script:publicRepairArguments=@{}+$PSBoundParameters;[pscustomobject]@{State='synthetic'}}
+        function Resume-LabWindowsSlotActivation {param($RunId,$Credential,[switch]$LeaveRunning,$StateRoot,$WindowsActivation,$ExternalSwitchName);$script:publicRepairArguments=@{}+$PSBoundParameters;[pscustomobject]@{State='synthetic'}}
+        $password=[SecureString]::new()
+        $originalIsWindows=Get-Variable -Name IsWindows -Scope Script -ErrorAction SilentlyContinue
+        Set-Variable -Name IsWindows -Scope Script -Value $true -Force
+        try {
+        foreach($manual in @($false,$true)){
+            $arguments=@{Action='RepairHyperVWindowsActivation';BuildId='repair-run';StateRoot='synthetic-state';WindowsActivation=$online;SwitchName='synthetic-external'}
+            if($manual){$arguments.GuestPassword=$password;$arguments.LeaveRunning=$true}
+            $null=Invoke-SqlServerLabWorkflowAction @arguments
+            Assert-Repair ($script:publicRepairArguments.RunId -eq 'repair-run' -and $script:publicRepairArguments.StateRoot -eq 'synthetic-state' -and $script:publicRepairArguments.WindowsActivation.EgressPolicy -eq 'AllowTemporary' -and $script:publicRepairArguments.ExternalSwitchName -eq 'synthetic-external' -and ((-not $manual) -or ($script:publicRepairArguments.Credential.UserName -eq 'Administrator' -and $script:publicRepairArguments.LeaveRunning))) "Oeffentlicher Reparaturadapter bindet alle expliziten Eingaben im Kennwortpfad $manual"
+        }
+        foreach($override in @(@{WindowsActivation=$null},@{WindowsActivation=@{}},@{SwitchName=' '},@{StateRoot=' '})){
+            $script:publicRepairArguments=$null;$failed=$false
+            try{$null=Invoke-SqlServerLabWorkflowAction -Action RepairHyperVWindowsActivation -BuildId repair-run @override}catch{$failed=$true}
+            Assert-Repair ($failed -and $null -eq $script:publicRepairArguments) 'Oeffentlicher Reparaturadapter verwirft leere explizite Eingaben vor der Reparatur'
+        }
+        }
+        finally {
+            if($originalIsWindows){Set-Variable -Name IsWindows -Scope Script -Value ([bool]$originalIsWindows.Value) -Force}
+            else{Remove-Variable -Name IsWindows -Scope Script -Force -ErrorAction SilentlyContinue}
+        }
     }
 }
 Write-Host 'WINDOWS ACTIVATION INTENT CHECKS: PASS'
