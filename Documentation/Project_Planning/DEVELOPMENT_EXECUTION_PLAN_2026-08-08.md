@@ -39,6 +39,29 @@ einem tatsächlich erfolgreichen, passenden Lauf verwendet.
 
 ### 1.2 Verbindlich berücksichtigte Planungsquellen
 
+Der Benutzerauftrag vom 2026-10-16 autorisiert unmittelbar **nach dem belegten
+Abschluss von TLS-001** die schrittweise Umsetzung des
+[SSIS-Integrationsplans](SSIS_ETL_DATA_WAREHOUSE_BACKLOG.md#machbarkeit-und-integrationsentscheidung-vom-2026-10-16).
+Erste Lieferung ist SSIS-LAB-001/002: ein eigenständiges Windows-/Hyper-V-
+SSIS-Serverprofil mit lokaler Engine und SSISDB ohne Pflichtfixture. Die
+vereinbarte native TLS-Lab-Abnahme, erforderliche finale Gates und Integration
+bilden die Startbedingung. Danach folgen Projektdeployment, ETL, Betrieb und
+weitere Topologien gemäß ihren getrennten Abhängigkeiten und Abnahmen.
+Der bestehende Lab-Orchestrator übernimmt die Folge; ein paralleler
+SSIS-Implementierer wird während des laufenden TLS-Streams nicht gestartet.
+
+Die [Modusentscheidung vom 2026-10-16](TLS_001_ISOLATED_CA_DESIGN.md#verbindliche-moduswahl-und-standard)
+erhält beide TLS-Verbindungsarten dauerhaft: `Encrypt=True;TrustServerCertificate=True`
+ist der einfache Standard, `Encrypt=True;TrustServerCertificate=False` eine
+ausdrücklich gewählte Zusatzoption mit qualifizierter Zertifikats-/Clientbindung.
+Die damalige [bedingte Vorprüfung](NEW_SQL_LAB_USE_CASES_BACKLOG.md#voraussetzungen-und-startentscheidung-vom-2026-10-16)
+stellte die Umsetzung bei fehlenden Voraussetzungen als P1 zurück; der
+funktionierende Default wurde davon unabhängig implementiert. Inzwischen sind
+die Flags in CLI/GUI und die begrenzte operative Windows-/Docker-False-Lane
+integriert. Maßgeblich sind deren [Vertrag und Grenzen](../Architecture/AUTHENTICATED_TLS_OPERATIONAL_LAB.md),
+die getrennten nativen Nachweise und die verbleibenden P1-Einträge; der
+Planungsabgleich behauptet keinen vollständigen TLS-001-Abschluss.
+
 Die ausdrückliche Priorisierung vom 2026-10-15 setzt
 [`TLS-001` – authentifizierte TLS-Verbindungen der Testumgebungen](NEW_SQL_LAB_USE_CASES_BACKLOG.md#tls-001--authentifizierte-tls-verbindungen-der-testumgebungen)
 als `P1` unmittelbar nach dem laufenden

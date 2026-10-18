@@ -73,6 +73,15 @@ gesonderte qualifizierte CLI-/GUI-Anzeige bleiben im laufenden TLS-001-Scope.
 
 ## SSISDB: abgenommener Windows-Scope und Grenzen
 
+Eine eigene VM mit installierter SSIS-Komponente ist im Prepared-/Manifestpfad
+bereits abgenommen. Das allgemeine deklarative SSIS-Serverprofil ohne
+Pflichtfixture sowie verwaltetes ISPAC-Deployment, echte SQL-ETL-Datenflüsse
+und SQL-Agent-Szenarien sind weiterhin geplant. Die
+[Machbarkeitsprüfung und Integration](../Project_Planning/SSIS_ETL_DATA_WAREHOUSE_BACKLOG.md#machbarkeit-und-integrationsentscheidung-vom-2026-10-16)
+verwendet eine dedizierte Windows-/Hyper-V-VM mit lokaler Engine und SSISDB;
+getrennte Quell-/Warehouse-Server und Scale-Out-Worker benötigen eigene
+Topologie- und Runtime-Nachweise. Diese Planung erweitert keine Providerfreigabe.
+
 Der zusätzliche [Windows-Consumerweg](../HowTo/SSIS_CONSUMER_WINDOWS_ACCESS.md)
 verwendet `Invoke-SqlServerLabScript -WindowsAuthentication` und die vorhandene
 geschützte Gastanmeldung. Er verlangt einen berechtigten Hyper-V-

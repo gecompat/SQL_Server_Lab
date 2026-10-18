@@ -5114,3 +5114,33 @@ getrennten Providerbelege werden dadurch nicht umdefiniert.
 Produktfunktionen prüfen fehlende/abweichende Netze, ausstehende Aktionen,
 Ready-Durchlass und das gespeicherte eigene Run-Flag ohne native Aufrufe.
 Das ersetzt keine native Hyper-V-Create-, CSP-, Zertifikats- oder TLS-Abnahme.
+
+
+## TLS-Modi: bedingte Vorprüfung vom 2026-10-16
+
+Historischer Befund des damaligen Auftrags; der spätere operative Teilscope ist separat dokumentiert.
+
+Für den Auftrag „nur bei bereits vorhandenen und funktionierenden
+Voraussetzungen sofort umsetzen“ wurde
+`Tools/Test-SqlServerLabClientReadiness.ps1 -Operation Create` mit `-Provider
+docker`, `podman` und `hyperv` getrennt ausgeführt. Alle drei lieferten
+`READY_WITH_WARNINGS`: Provider erreichbar, Modul/Exports und Storage vorhanden,
+keine `MissingPrerequisites`; ausschließlich `TARGET_AUTHORIZATION_REQUIRED`
+als Hinweis auf die spätere zielgebundene Prüfung. Der Test startet keine Runtime
+und ersetzt weder Ownership noch TLS-Qualifikation.
+
+Im aktuellen Windows-Clientprozess waren System.Data.SqlClient, ein natives
+sqlcmd und installierte SQL-ODBC-Treiber verfügbar. Welcher ODBC-Treiber geladen
+wird, Client-Trust, Zertifikatsbestand, SAN-/SQL-Bindung und echte SQL-Anmeldung
+wurden dadurch nicht qualifiziert. Die zusätzliche Quellenprüfung von `main`
+auf `2fed9a89eb948d16fac51329d5863dd08b43ed52` bestätigt private Crypto-/
+Trustbausteine ohne integrierte operative SQL-Zertifikatsbindung; der dort
+zuletzt dokumentierte Trustimport ist unbestätigt und verlangt Recovery.
+Dieser Quellenbefund ist kein frischer Storestatus.
+
+Damit fehlen funktionierende Voraussetzungen für den vollständigen Auftrag.
+Beide Modi und ihre CLI-/GUI-Anzeige bleiben als gemeinsamer
+[P1-Backlogumfang mit Startbedingungen](../Project_Planning/NEW_SQL_LAB_USE_CASES_BACKLOG.md#voraussetzungen-und-startentscheidung-vom-2026-10-16)
+offen. Echte SQL-/TLS-Verbindungen beider Modi sind in dieser Vorprüfung
+`NOT_EXECUTED`; es gab keinen Providerstart und keine Zertifikats-, Truststore-
+oder SQL-Konfigurationsmutation. Es entstand kein eigener Runtime-Cleanupbedarf.

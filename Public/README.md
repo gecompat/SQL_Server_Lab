@@ -144,6 +144,22 @@ verifiziert nach SQL-Readiness; dessen historische Evidence ist kein Nachweis
 für die Browseransicht **Lab erstellen → Collations suchen**. Diese zeigt
 dieselben Metadaten ohne Auswahltransfer und bleibt bei SQL `NOT_CHECKED`.
 
+## Standard für SQL-Verbindungen
+
+Neue Lab-Connection-Strings und `Export-SqlServerLabSsmsRegistration` verwenden
+ausdrücklich `Encrypt=True;TrustServerCertificate=True`. Der Client fordert
+Verschlüsselung an und prüft dabei die Serveridentität nicht. Der SSMS-Export
+enthält weiterhin kein Passwort. Der Testumgebungsexport und die ausgegebenen
+Hyper-V-Verbindungsstrings verwenden dieselben TLS-Werte bereits.
+CLI und GUI zeigen die erzeugten Connection Strings einschließlich dieser Werte;
+bestehende gespeicherte Verbindungen werden nicht automatisch umgeschrieben.
+Die ausdrückliche Wahl von `False` ist für ein eigenes Windows-/Docker-
+SQL-2025-CU9-Lab samt separatem qualifiziertem V2-Export implementiert;
+maßgeblich ist der [operative Vertrag](../Documentation/Architecture/AUTHENTICATED_TLS_OPERATIONAL_LAB.md).
+Die Flagprojektion in CLI/GUI ist kein frischer Qualifikationsnachweis.
+Weitere Kombinationen und die gesonderte Anzeige des Qualifikationsstatus
+bleiben im [P1-Backlog](../Documentation/Project_Planning/NEW_SQL_LAB_USE_CASES_BACKLOG.md#tls-001--authentifizierte-tls-verbindungen-der-testumgebungen).
+
 ## Cmdlet-Übersicht
 
 `Get-SqlServerLabExternalRuntimeCapability` trennt für einen expliziten

@@ -1491,6 +1491,7 @@ internal_components:
       - "SQL-Erreichbarkeit und Major-Version prüfen"
       - "Benutzerdatenbank-Readiness nach Start oder Restart pollen"
       - "Podman-Windows-Localhostfehler früh diagnostizieren"
+      - "neue Lab-Connection-Strings mit explizitem Encrypt=True und TrustServerCertificate=True als Standard erzeugen; bestehende gespeicherte Strings nicht migrieren"
   - name: ServerConfig
     source: Private/ServerConfig.ps1
     responsibilities:
@@ -1634,6 +1635,25 @@ project_adapters:
   prioritization: Documentation/Project_Planning/PROJECT_ADAPTER_PRIORITIZATION.md
 
 planning_contracts:
+  ssis_server_and_etl:
+    source: Documentation/Project_Planning/SSIS_ETL_DATA_WAREHOUSE_BACKLOG.md
+    status: PLANNED_EXTENSION_WITH_VALIDATED_FIXTURE_BASELINE
+    execution_status: AUTHORIZED_AFTER_TLS_001_COMPLETION
+    start_condition: DOCUMENTED_NATIVE_TLS_ACCEPTANCE_FINAL_GATES_AND_INTEGRATION
+    first_delivery: SSIS_LAB_001_002_SERVER_PROFILE_WITHOUT_REQUIRED_FIXTURE
+    runtime_status: SQL_2025_HYPERV_FIXTURE_VALIDATED_GENERAL_SERVER_PROFILE_AND_ETL_NOT_IMPLEMENTED
+    baseline_contract: Documentation/Architecture/SSISDB_TEST_FIXTURE.md
+    baseline_evidence: Documentation/Quality/SSISDB_WINDOWS_RUNTIME_ACCEPTANCE_2026-10-16.md
+    covers:
+      - dedicated_windows_hyperv_ssis_vm_with_local_engine_and_catalog
+      - server_provisioning_separate_from_analysis_fixture
+      - approved_project_artifacts_deployment_parameters_and_execution
+      - synthetic_full_delta_load_agent_identity_and_owned_recovery
+      - later_remote_sql_sources_and_targets_with_separate_topology_gates
+    excludes:
+      - ssis_runtime_on_docker_or_podman
+      - automatic_assignment_to_a_separate_worker_without_scale_out
+      - scale_out_ha_and_unapproved_media_or_client_acquisition
   security_tool_acquisition:
     source: Documentation/Project_Planning/SECURITY_TOOL_ACQUISITION_BACKLOG.md
     status: PARTIAL_METADATA_PLAN_IMPLEMENTED
