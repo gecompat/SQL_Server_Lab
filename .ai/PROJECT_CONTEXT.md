@@ -1,5 +1,13 @@
 # Projektkontext
 
+Der [isolierte SSIS-Registrierungsvergleich](../Documentation/Quality/SSIS_CATALOG_REGISTRATION_RECOVERY_2026-10-18.md)
+hat den aktuellen SQL-LogProvider-Installationsfehler im eigenen Lab durch
+unterstütztes IS-Setup unter SYSTEM behoben: drei echte Basic-Katalogtests
+bestanden, auch nach geordnetem Windows-Neustart. Der Komponenteninstaller
+übernimmt SYSTEM, Registrierungsprüfung und echten Bootnachweis. Die
+Analyze-Quelle blieb unverändert; der vollständige frische öffentliche
+Provisionierungsnachweis des korrigierten Pfads bleibt P1 offen.
+
 Die [native Windows-CSP-Charakterisierung](../Documentation/Quality/TLS_HYPERV_WINDOWS_CSP_CHARACTERIZATION_2026-10-18.md)
 belegt einen eigenen nicht exportierbaren Gastschlüssel und Host-CSR-Proof nach
 separat freigegebener Aktivierung. VM/Disks/Key bleiben gestoppt erhalten.

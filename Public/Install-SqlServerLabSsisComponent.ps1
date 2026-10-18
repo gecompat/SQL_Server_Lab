@@ -8,6 +8,10 @@
     Download, Build oder Beschaffungsschritt. Der gesamte Run bleibt der Cleanup-Scope.
     Eine Neuinstallation von IS ist auf SQL 2025 Enterprise Developer begrenzt;
     andere Editionen werden vor Medienanbindung und Setup abgewiesen.
+    Setup läuft einmalig unter SYSTEM, unabhängig vom Administratorprofil.
+    Die Feature-/Editionsregistrierung wird vor und nach einem geordneten
+    Windows-Neustart geprüft. Vorhandene Dateien allein gelten nicht als
+    installierte IS-Komponente. Ein vorhandener SSISDB-Katalog bleibt erhalten.
 .PARAMETER RunId
     Eindeutige RunId eines laufenden eigenen Hyper-V-Windows-SQL-2025-Runs.
 .PARAMETER InstanceId

@@ -113,10 +113,17 @@ ergab weiterhin `-1073679321` beim SQL-LogProvider und keine `sysssislog`-Zeilen
 Mit `MSOLEDBSQL19` ist ein echter verschlüsselter SQL-Schreibzugriff belegt;
 `SQLOLEDB` scheiterte zusätzlich an TLS. Eine erfolgreiche Gesamtpipeline oder
 eine nach zusätzlichem OS-Neustart qualifizierte CU9-Reparatur ist nicht belegt.
-Ursachenbehebung und fachliche Katalogabnahme bleiben
-[P1 offen](../Project_Planning/SSIS_ETL_DATA_WAREHOUSE_BACKLOG.md#p1-katalog-runtime-nach-dem-consumervergleich-vom-2026-10-18);
-die bestehende verbindungs- und tasklose Fixtureabnahme wird nicht auf
-OLEDB-/SQL-LogProvider-Pakete erweitert.
+Der anschließende [Registrierungsvergleich](SSIS_CATALOG_REGISTRATION_RECOVERY_2026-10-18.md)
+stellte im eigenen Lab die fehlende IS-Feature-/Editionsregistrierung durch
+unterstütztes IS-Setup unter SYSTEM wieder her. Drei echte Basic-Katalogtests
+bestanden mit SQL-Marker und SQL-LogProvider-Ereignissen, auch nach geordnetem
+Windows-Neustart. Der korrigierte Komponenteninstaller übernimmt diesen
+Installationskontext und die Registrierungs-/Bootprüfung. Ein vollständiger
+frischer öffentlicher Provisionierungslauf mit dieser Korrektur bleibt
+[P1 offen](../Project_Planning/SSIS_ETL_DATA_WAREHOUSE_BACKLOG.md#p1-katalog-runtime-nach-dem-consumervergleich-vom-2026-10-18).
+Die historische Ursache der ursprünglichen Typfehler, weitere Consumerpakete
+und ein erneuter Analyzervergleich sind dadurch nicht abgenommen. Die
+bestehende verbindungs- und tasklose Fixtureabnahme bleibt getrennt.
 
 Eine eigene VM mit installierter SSIS-Komponente ist im Prepared-/Manifestpfad
 bereits abgenommen. Das allgemeine deklarative SSIS-Serverprofil ohne
