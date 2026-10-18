@@ -397,7 +397,7 @@ function Invoke-HyperVWindowsSlotActivation {
 
         $activation = Invoke-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) `
             -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $Credential `
-            -TimeoutSeconds $TimeoutSeconds -ArgumentList @($macAddress,$usesTemporary) `
+            -NoRetry -TimeoutSeconds $TimeoutSeconds -ArgumentList @($macAddress,$usesTemporary) `
             -ScriptBlock {
                 param($MacAddress,$ConfigureTemporaryAdapter)
                 $ErrorActionPreference = 'Stop'

@@ -109,6 +109,11 @@ Evaluation wird durch diesen Reparaturaufruf nicht verlaengert.
 Keine Product Keys oder privaten Aktivierungsendpunkte gehoeren in den Intent.
 Intent, Live-Zustand und verwendeter Netzwerkmodus werden im lokalen
 Aktivierungsreceipt gefuehrt.
+Der mutierende Aktivierungs-Gastblock wird nach einem Transportfehler nicht
+erneut gestartet. Innerhalb dieses einen Gastblocks bleiben hoechstens zwei
+Windows-API-Aktivierungsanfragen bei API-Fehlern erlaubt. Eine verlorene Antwort
+belegt weder Aktivierungserfolg noch einen beendeten Gastverbraucher; sie
+erfordert konkrete Recovery statt einer automatischen Wiederholung.
 Temporare Adapter werden anhand des Ownership-Journals auch nach Teilfehlern
 und bei Wiederaufnahme bereinigt. Ungeklaerte Bindungen bleiben
 `RECOVERY_REQUIRED` und werden nicht durch Namenssuche geloescht.

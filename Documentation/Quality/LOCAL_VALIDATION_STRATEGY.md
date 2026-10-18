@@ -2567,6 +2567,9 @@ mit beiden Kennwortpfaden, den unveraenderten gespeicherten Denied-Intent,
 Abweisung leerer/ungueltiger Angaben vor Runzugriff oder VM-Start und den
 eigenen Stop nach fehlgeschlagener manueller Wiederaufnahme. Diese Faelle sind
 kein nativer Aktivierungs- oder Egressnachweis der neuen Adapterweitergabe.
+Die Aktivierungssuite prueft auch die `NoRetry`-Bindung des mutierenden Gastblocks
+bei Erfolg und Fehler. `Invoke-HyperVGuestProgressChecks.ps1` prueft den
+unterliegenden No-Replay-Vertrag bei synthetischem `OpenError` getrennt.
 `Invoke-HyperVWindowsLocaleAcceptance.ps1` verlangt im eigenen Child auch
 einen aktiven Live-Lizenzzustand und prueft ein gegebenenfalls entstandenes
 temporaeres Adapterjournal auf vollstaendiges Cleanup. Die Ausgabe trennt
