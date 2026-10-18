@@ -189,8 +189,12 @@ stehen gesondert in der Validierungsstrategie; die bestehende Consumer-
 Providerabnahme wird dadurch nicht vorweggenommen. Der gezielte
 [Consumer-/Katalogvergleich vom 2026-10-18](../Documentation/Quality/LOCAL_VALIDATION_STRATEGY.md#ursprüngliche-consumerfehler-gast--und-katalogvergleich-vom-2026-10-18)
 reproduzierte die historischen Typfehler nicht, beobachtete aber eine aktuelle
-Editionsfehlermeldung der Katalogruntime. Die isolierte Reparatur und deren
-Ausführungsnachweis bleiben P1 offen; fehlerfreies Laden ist keine Behebung.
+Editionsfehlermeldung der Katalogruntime. Der anschließende
+[isolierte Reparaturvergleich](../Documentation/Quality/LOCAL_VALIDATION_STRATEGY.md#isolierter-reparaturvergleich-mit-echten-verbindungen-vom-2026-10-18)
+wurde mit Administratorfreigabe ausgeführt: Der aktuelle OLEDB-Treiber schreibt
+verschlüsselt, der SQL-LogProvider scheitert weiterhin an der Editionsprüfung.
+Instanzreparatur und CU9 lieferten keine erfolgreiche Gesamtpipeline; deren
+Behebung bleibt P1 offen. Eigenes Lab entfernt, Analyze-Quelle unverändert.
 
 Der [SSIS-Integrationsplan](../Documentation/Project_Planning/SSIS_ETL_DATA_WAREHOUSE_BACKLOG.md#machbarkeit-und-integrationsentscheidung-vom-2026-10-16)
 erhält den bereits lokal ausgearbeiteten Folgeauftrag nach TLS-001: zuerst

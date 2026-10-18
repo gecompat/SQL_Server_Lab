@@ -5129,6 +5129,75 @@ geführt. Die separate begrenzte Legacy-Providerabnahme von SQL_Server_Analyze
 in [PR #392](https://github.com/gecompat/SQL_Server_Analyze/pull/392) wurde
 nicht wiederholt und erklärt diese ursprüngliche Katalogkonstellation nicht.
 
+### Isolierter Reparaturvergleich mit echten Verbindungen vom 2026-10-18
+
+Auf dem Stand `5e49c3f0` wurde nach ausdrücklich erteilter UAC-Freigabe genau
+eine eigene Hyper-V-VM aus dem vorhandenen Prepared-Artefakt erstellt. Der
+öffentliche IS-Installer installierte SQL-2025-IS aus der hashgebundenen lokalen
+Enterprise-Developer-ISO und prüfte den Neustart. Die Engine meldete
+`17.0.1000.7`, Enterprise Developer. Der öffentliche Fixturepfad stellte den
+Katalog bereit. Dateipräsenz, Fixtureerfolg und Setup-Exitcode wurden nicht als
+OLEDB-/SQL-LogProvider-Abnahme gewertet.
+
+Die ursprünglichen hashgebundenen Basic-Paketbytes blieben unverändert. Nur
+eine eigene Ableitung erhielt eine eigene Datenbank, einen eigenen SQL-Marker
+und eigene Katalogobjekte. Connection Manager, SQL-LogProvider und Task wurden
+aus dem Paket geladen. Der SQL-Task schrieb die tatsächlich beobachteten
+`encrypt_option`- und `auth_scheme`-Werte seiner Verbindung mit dem Marker.
+PASS hätte Status `7`, keine Fehlerereignisse, genau eine erwartete SQL-Zeile
+und vom LogProvider erzeugte `sysssislog`-Ereignisse `PackageStart`/`PackageEnd`
+verlangt. Keine der folgenden Katalogproben bestand diese Gesamtprüfung:
+
+| Eigener Lauf | Katalogstatus | SQL-Zeilen | Logzeilen | Entscheidender Befund |
+|---|---|---|---|---|
+| RTM, `SQLOLEDB` | `4` | 0 | 0 | Editionsfehler und SSL-Verbindungsfehler |
+| Nach Instanzreparatur und OS-Neustart, `SQLOLEDB` | `4` | 0 | 0 | dieselben beiden Fehlerklassen |
+| Nach Reparatur, `MSOLEDBSQL19` | `4` | 1 | 0 | SQL verschlüsselt/NTLM; zweimal `-1073679321` vom LogProvider |
+| Nach CU9, `MSOLEDBSQL19` | `4` | 1 | 0 | Engine `17.0.5005.3`; derselbe LogProvider-Editionsfehler |
+
+Direkte echte OLEDB-Verbindungen mit den bereits vorhandenen Treibern
+`MSOLEDBSQL19` und `MSOLEDBSQL` bestätigten ebenfalls `encrypt_option=TRUE` und
+Windows/NTLM. Für die eigenen modernen Verbindungen waren Verschlüsselung und
+Serverzertifikatsvertrauen explizit eingeschaltet. Der Produktdefault bleibt
+`Encrypt=True;TrustServerCertificate=True`. Der erfolgreiche OLEDB-Schreibzugriff
+belegt keine erfolgreiche Verbindung oder Ereignisschreibung des LogProviders.
+
+Die von einem unabhängigen Reviewer geprüften privaten Reparaturskripte
+verhinderten Setup-Replays bei unklarem Ausgang. Zwei frühe Repair-Aufrufe
+wurden bereits in der Parameterprüfung abgewiesen: zuerst `UpdateEnabled`,
+danach trotz entsprechender Microsoft-Parametertabelle `FEATURES`.
+Der dokumentierte Minimalaufruf `/Q /ACTION=Repair /INSTANCENAME=MSSQLSERVER`
+beendete die Instanzreparatur mit Exitcode `0`. Das ist kein gesonderter
+Nachweis einer Reparatur des gemeinsamen IS-Features. Nach dem Neustart musste
+der eigene SQL-Dienst gestartet werden; die vorherige reine Verbindungsstörung
+wurde separat erhalten, ohne einen begonnenen Paketlauf zu wiederholen.
+
+Das bereits vorhandene CU9 wurde vor der Übertragung und im Gast per SHA-256
+und Microsoft-Signatur geprüft. Nach den erfolgreichen Patch-Summaries blieb
+ein ungenutzter MSI-Dienstprozess bestehen. Er wurde nach geprüften
+Abschlussbedingungen ohne `Force` regulär beendet. Der begrenzte Worker meldete
+beim anschließenden Warten auf Prozessruhe trotzdem Timeout. Dieser Fehlstatus
+blieb erhalten. Ein gesonderter frischer Recoverybefund bestätigte keine
+Installerprozesse, zwei erfolgreiche aktuelle Patch-Summaries und den live
+gelesenen Enginebuild; Setup wurde nicht erneut gestartet. Die CU9-Katalogprobe
+folgte diesem Befund ohne zusätzlichen OS-Neustart. Deshalb wird weder der
+Worker als erfolgreich noch eine nach OS-Neustart qualifizierte CU9-Reparatur
+behauptet.
+
+Das anschließende Inventar zeigte aktualisierte DTS-/DtsConn-/DTSLog-/DTExec-
+Dateien auf CU9, während die am Defaultpfad beobachtete `ISServerExec.exe`
+weiterhin RTM meldete. Dieses Dateiinventar ist kein Nachweis der vom
+Katalogprozess tatsächlich geladenen Module und keine bewiesene Fehlerursache.
+
+Das eigene Lab wurde innerhalb des festen Testfensters entfernt; VM- und
+VHD-Abwesenheit wurden geprüft. Die geschützte Analyze-Quelle wurde weder
+repariert noch umkonfiguriert. Ihre Run-/Connection-Dateihashes sowie die vor
+und nach dem Vergleich gelesenen Ausführungs-/Ereignisprojektionen, Katalog-
+einstellungen und Datenbankprojektion blieben unverändert. Originalartefakt,
+Zielidentitäten und Rohreceipts bleiben ausschließlich lokal außerhalb von Git.
+Der SQL-LogProvider bleibt [P1 offen](../Project_Planning/SSIS_ETL_DATA_WAREHOUSE_BACKLOG.md#p1-katalog-runtime-nach-dem-consumervergleich-vom-2026-10-18);
+die getrennte Legacy-SDK-Providerabnahme wird nicht neu geöffnet.
+
 ## SSISDB-Fixture auf Prepared Hyper-V SQL 2025
 
 Die unabhängige Formatabnahme `Tests/Integration/Invoke-SsisFixtureFormatAcceptance.ps1`
