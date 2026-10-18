@@ -96,7 +96,7 @@ try {
 }
 Check 'SSISDB verlangt gemäß Microsoft keinen gestarteten Legacy-Paketdienst' ($installerSource -match 'MsDtsServer170' -and $installerSource -match 'LegacyServiceStatus' -and $installerSource -notmatch '\$service\.Start\(\)|\$service\.WaitForStatus\(|SSIS_INSTALL_SERVICE_START_FAILED')
 Check 'SQL-Postcondition wartet nach Neustart lokal und begrenzt auf den Diensttransport' ($installerSource -match '\$sqlDeadline=\[datetime\]::UtcNow\.AddSeconds\(180\)' -and $installerSource -match 'Pooling=False' -and $installerSource -match 'SSIS_INSTALL_SQL_LOCAL_READY_TIMEOUT' -and $installerSource -match 'Start-Sleep -Seconds 5')
-Check 'Der Gasttransport umfasst den begrenzten SQL-Readiness-Retry' ($installerSource -match 'Get-LabSsisInstallGuestProbe\) -TimeoutSeconds 300')
+Check 'Der Gasttransport umfasst den begrenzten SQL-Readiness-Retry' ($installerSource -match 'Get-LabSsisInstallGuestProbe\) -ArgumentList @\(\$true,\$true\) -NoRetry -TimeoutSeconds 300')
 Check 'SSISDB-Fixture bildet Erfolg, Fehler und ungestarteten Fall über Katalogausführungen ab' ($installerSource -match 'Success\.dtsx' -and $installerSource -match 'Failure\.dtsx' -and $installerSource -match 'Incomplete\.dtsx' -and $installerSource -match '\[catalog\]\.\[create_execution\]' -and $installerSource -match '\[catalog\]\.\[start_execution\]')
 Check 'SSISDB-Fixture bindet Katalognamen und Execution-IDs mit ihren echten SQL-Typen' ($installerSource -match 'SqlDbType\]::NVarChar,128' -and $installerSource -match 'SqlDbType\]::BigInt' -and $installerSource -notmatch 'Invoke-FixtureCommand[\s\S]*SqlDbType\]::Variant')
 Check 'SSISDB-Fixture löscht ausschließlich den eigenen Katalogordner' ($installerSource -match '\[catalog\]\.\[delete_folder\].*@folder_name=@folder' -and $installerSource -notmatch '(?i)(drop database\s+ssisdb|catalog\]\.\[delete_catalog)')
@@ -302,19 +302,115 @@ Check 'Eigener vollständiger Cleanup bestätigt Postconditions' ($cleanupCases.
 $guest=Get-LabSsisInstallGuestProbe
 $readerAst=$guest.Ast.Find({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Read-SsisInstalledSql'},$true)
 . ([scriptblock]::Create($readerAst.Extent.Text))
-foreach($case in @('valid','legacy-developer-label','wrong-major','standard-developer','enterprise-paid','not-sysadmin','existing-catalog','duplicate','query-fault')){
+foreach($case in @('valid','legacy-developer-label','wrong-major','standard-developer','enterprise-paid','not-sysadmin','existing-catalog','existing-catalog-allowed','duplicate','query-fault')){
     $table=[Data.DataTable]::new()
     foreach($column in @('Major','Edition','Sysadmin','Catalogs')){$null=$table.Columns.Add($column,$(if($column -eq 'Edition'){[string]}else{[int]}))}
     $edition=switch($case){'legacy-developer-label'{'Developer Edition (64-bit)'};'standard-developer'{'Standard Developer Edition (64-bit)'};'enterprise-paid'{'Enterprise Edition (64-bit)'};default{'Enterprise Developer Edition (64-bit)'}}
-    $null=$table.Rows.Add(@($(if($case -eq 'wrong-major'){16}else{17}),$edition,$(if($case -eq 'not-sysadmin'){0}else{1}),$(if($case -eq 'existing-catalog'){1}else{0})))
+    $null=$table.Rows.Add(@($(if($case -eq 'wrong-major'){16}else{17}),$edition,$(if($case -like 'not-sysadmin*'){0}else{1}),$(if($case -like 'existing-catalog*'){1}else{0})))
     if($case -eq 'duplicate'){$null=$table.Rows.Add($table.Rows[0].ItemArray)}
     $command=[pscustomobject]@{CommandText='';CommandTimeout=0;Table=$table;Case=$case;Disposed=$false}
     $command|Add-Member ScriptMethod ExecuteReader {if($this.Case -eq 'query-fault'){throw 'SYNTHETIC_QUERY_FAILURE'};return ,$this.Table.CreateDataReader()}
     $command|Add-Member ScriptMethod Dispose {$this.Disposed=$true}
     $connection=[pscustomobject]@{Command=$command};$connection|Add-Member ScriptMethod CreateCommand {return $this.Command}
-    $blocked=$false;try{Read-SsisInstalledSql -Connection $connection}catch{$blocked=$true}
-    Check "Tatsächlicher SQL-Gastleser $case, begrenzt und entsorgt" ($blocked -eq ($case -notin @('valid','legacy-developer-label')) -and $command.Disposed -and $command.CommandTimeout -eq 30)
+    $blocked=$false;try{Read-SsisInstalledSql -Connection $connection -AllowExistingCatalog ($case -ceq 'existing-catalog-allowed')}catch{$blocked=$true}
+    Check "Tatsächlicher SQL-Gastleser $case, begrenzt und entsorgt" ($blocked -eq ($case -notin @('valid','legacy-developer-label','existing-catalog-allowed')) -and $command.Disposed -and $command.CommandTimeout -eq 30)
     $table.Dispose()
 }
+$registration=Get-LabSsisFeatureRegistrationProbe
+$registrationValues=$registration.Ast.Find({param($node)$node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Test-SsisRegistrationValues'},$true)
+. ([scriptblock]::Create($registrationValues.Extent.Text))
+foreach($case in @('Enterprise Developer Edition','Developer Edition','Standard Edition','Enterprise Evaluation Edition','','unknown')){
+    Check "Registrierungswerte statt Dateipräsenz: $case" ((Test-SsisRegistrationValues -Edition $case -EditionType $case) -eq ($case -notin @('','unknown')))
+}
+Check 'Ein fehlender Editionswert reicht nicht zur Installationserkennung' (-not (Test-SsisRegistrationValues -Edition 'Enterprise Developer Edition' -EditionType ''))
+$componentAst=([scriptblock]::Create($installerSource)).Ast.Find({param($node)$node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Install-LabSsisExistingComponent'},$true)
+Check 'Komponentenpfad verwendet keinen harten VM-Reset und verlangt eine neue Bootzeit' ($componentAst.Extent.Text -notmatch 'Restart-VM' -and $componentAst.Extent.Text -match '\[datetimeoffset\]::Parse\(\[string\]\$boot\[0\]\.BootTime\) -gt \$bootBefore')
+$mutatingDispatches=@($componentAst.Body.FindAll({param($node)$node -is [Management.Automation.Language.CommandAst] -and $node.GetCommandName() -eq 'Invoke-HyperVPowerShellDirect' -and $node.Extent.Text -match '-ScriptBlock \(Get-LabSsisComponentGuest(?:Install|Restart)\)'},$true))
+Check 'Eine verlorene Setup-/Neustartantwort wiederholt keine Mutation' ($mutatingDispatches.Count -eq 2 -and @($mutatingDispatches|Where-Object {@($_.CommandElements|Where-Object {$_ -is [Management.Automation.Language.CommandParameterAst] -and $_.ParameterName -ceq 'NoRetry'}).Count -ne 1}).Count -eq 0)
+$restart=Get-LabSsisComponentGuestRestart
+Check 'Gastneustart verlangt beendetes Setup und einen exklusiven Rebootmarker' ($restart.ToString() -match 'ConsumerEnded' -and $restart.ToString() -match 'FileMode\]::CreateNew' -and $restart.ToString() -match 'shutdown.exe' -and $restart.ToString() -notmatch 'Restart-VM')
+$guestInstall=Get-LabSsisComponentGuestInstall
+Check 'IS-Task besitzt SYSTEM, keinen Trigger und geschützte ProgramFiles-Pfade' ($guestInstall.ToString() -match "-UserId 'S-1-5-18' -LogonType ServiceAccount" -and $guestInstall.ToString() -notmatch 'New-ScheduledTaskTrigger' -and $guestInstall.ToString() -match '\$env:ProgramFiles' -and $guestInstall.ToString() -match 'OPERATION_EXISTS_NO_REPLAY')
+
+$cleanupTask=Remove-LabSsisComponentGuestOperation
+$taskCases=& {
+    $originalProgramFiles=$env:ProgramFiles
+    try {
+        $env:ProgramFiles=Join-Path ([IO.Path]::GetTempPath()) 'synthetic-program-files'
+        $id='ssis-component-'+('b'*32);$root=Join-Path $env:ProgramFiles 'SqlServerLab\SsisOperations'
+        $workerPath=Join-Path $root ($id+'.ps1');$configPath=Join-Path $root ($id+'.json')
+        $expected='-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "'+$workerPath+'" -ConfigPath "'+$configPath+'"'
+        $values=@{}
+        function Get-ScheduledTask {param($TaskPath) if($case -eq 'scheduler-fault'){throw 'SYNTHETIC_SCHEDULER_FAILED'};if($case -notlike 'missing-task*'){$task}}
+        function Get-Content {param($LiteralPath,[switch]$Raw) $record|ConvertTo-Json}
+        function Test-Path {param($LiteralPath) $LiteralPath -cne 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Installer\InProgress'}
+        function Get-Process {}
+        function Remove-Item {param($LiteralPath,[switch]$Force) $events.Add('file')}
+        function Unregister-ScheduledTask {param($TaskName,$TaskPath) $events.Add('task')}
+        foreach($case in @('valid','running','consumer-unknown','changed-operation','changed-action','changed-principal','delete-fault','missing-task-terminal','missing-task-unknown','scheduler-fault','nonterminal-state')){
+            $events=[Collections.Generic.List[string]]::new()
+            $task=[pscustomobject]@{TaskName=$id;State='Ready';TaskPath='\';Description=$id;Principal=@{UserId='S-1-5-18'};Actions=@(@{Execute=(Join-Path $PSHOME 'powershell.exe');Arguments=$expected})}
+            $record=@{OperationId=$id;State='SUCCEEDED';ConsumerEnded=$true}
+            switch($case){running{$task.State='Running'};'consumer-unknown'{$record.ConsumerEnded=$false};'missing-task-unknown'{$record.ConsumerEnded=$false};'nonterminal-state'{$record.State='RUNNING'};'changed-operation'{$record.OperationId='different'};'changed-action'{$task.Actions[0].Arguments='different'};'changed-principal'{$task.Principal.UserId='S-1-5-19'}}
+            function Remove-Item {param($LiteralPath,[switch]$Force) if($case -eq 'delete-fault'){throw 'SYNTHETIC_DELETE_FAILED'};$events.Add('file')}
+            $blocked=$false;try{& $cleanupTask $id|Out-Null}catch{$blocked=$true}
+            $values[$case]=[pscustomobject]@{Blocked=$blocked;Events=@($events)}
+        }
+        $values
+    }finally{$env:ProgramFiles=$originalProgramFiles}
+}
+Check 'Tatsächlicher Taskcleanup entfernt nur gebundene beendete Aufgabe und fünf eigene Dateien' (-not $taskCases.valid.Blocked -and $taskCases.valid.Events.Count -eq 6 -and $taskCases.valid.Events[0] -eq 'task')
+foreach($case in @('running','consumer-unknown','changed-operation','changed-action','changed-principal','missing-task-unknown','scheduler-fault','nonterminal-state')){
+    Check "Tatsächlicher Taskcleanup schützt unklaren oder veränderten Zustand: $case" ($taskCases[$case].Blocked -and $taskCases[$case].Events.Count -eq 0)
+}
+Check 'Dateilöschfehler wird als fehlgeschlagener Cleanup sichtbar' $taskCases['delete-fault'].Blocked
+Check 'Fehlender Task erlaubt Dateicleanup nur bei unabhängig gebundenem Consumerende' (-not $taskCases['missing-task-terminal'].Blocked -and $taskCases['missing-task-terminal'].Events.Count -eq 5 -and $taskCases['missing-task-terminal'].Events -notcontains 'task')
+$componentTry=@($componentAst.Body.EndBlock.Statements|Where-Object {$_ -is [Management.Automation.Language.TryStatementAst]})[0]
+$componentFinally=[scriptblock]::Create(($componentTry.Finally.Statements.Extent.Text -join "`n"))
+$finallyCases=& {
+    $values=@{}
+    function Invoke-HyperVPowerShellDirect {if($case -in @('cleanup-fault','primary-fault')){throw 'SYNTHETIC_TASK_CLEANUP_FAILED'}}
+    function Get-HyperVManagedVM {[pscustomobject]@{VM=@{Id=$context.Instance.vmId}}}
+    function Get-VMDvdDrive { [pscustomobject]@{ControllerNumber=0;ControllerLocation=1;Path='synthetic.iso'} }
+    function Remove-VMDvdDrive {$events.Add('dvd');if($case -in @('cleanup-fault','primary-fault')){throw 'SYNTHETIC_DVD_CLEANUP_FAILED'}}
+    function Stop-LabBlockingActionProgress {$events.Add('progress')}
+    foreach($case in @('valid','cleanup-fault','primary-fault','unknown-consumer')){
+        $events=[Collections.Generic.List[string]]::new()
+        $operationId='ssis-component-'+('c'*32);$RunId=[guid]'11111111-1111-1111-1111-111111111111'
+        $context=[pscustomobject]@{Instance=@{vmName='synthetic';vmId=$RunId.ToString()};Run=@{scopeId=$RunId.ToString()}}
+        $guest=[Security.SecureString]::new();$guest.AppendChar('x');$guestOperationStarted=$true
+        $setupConsumerEnded=$case -ne 'unknown-consumer';$addedDvd=@{ControllerNumber=0;ControllerLocation=1}
+        $progress=@{};$progress['owned']=$true
+        $handle=[pscustomobject]@{Events=$events};$handle|Add-Member ScriptMethod Dispose {$this.Events.Add('media-handle')}
+        $media=@{Handle=$handle;Media=@{IsoPath='synthetic.iso'}}
+        $primaryFailure=if($case -in @('primary-fault','unknown-consumer')){[Management.Automation.ErrorRecord]::new([InvalidOperationException]::new('SYNTHETIC_PRIMARY'),'synthetic',[Management.Automation.ErrorCategory]::NotSpecified,$null)}else{$null}
+        $caught=$null;try{. $componentFinally}catch{$caught=$_}
+        $disposed=$false;try{$copy=$guest.Copy();$copy.Dispose()}catch{$disposed=$true}
+        $values[$case]=[pscustomobject]@{Caught=$caught;Primary=$primaryFailure;Events=@($events);SecretDisposed=$disposed}
+    }
+    $values
+}
+foreach($case in $finallyCases.Keys){Check "Task-/DVD-Cleanupfehler überspringt weder Fortschritts- noch Secret-/Medienfreigabe: $case" ($finallyCases[$case].SecretDisposed -and $finallyCases[$case].Events -contains 'progress' -and $finallyCases[$case].Events -contains 'media-handle')}
+Check 'Getrennter Cleanupfehler nennt Recovery und bewahrt beide Ursachen' ($finallyCases['cleanup-fault'].Caught.Exception.Data['RecoveryRequired'] -and $finallyCases['cleanup-fault'].Caught.Exception.Data['CleanupFailure'] -eq 'SSIS_COMPONENT_OPERATION_CLEANUP_FAILED;SSIS_COMPONENT_MEDIA_DETACH_FAILED')
+Check 'Primärfehler bleibt bei mehreren Cleanupfehlern erhalten' (-not $finallyCases['primary-fault'].Caught -and $finallyCases['primary-fault'].Primary.Exception.Message -eq 'SYNTHETIC_PRIMARY' -and $finallyCases['primary-fault'].Primary.Exception.Data['RecoveryRequired'])
+Check 'Unbekanntes Installerende behält DVD und kennzeichnet Recovery' ($finallyCases['unknown-consumer'].Events -notcontains 'dvd' -and $finallyCases['unknown-consumer'].Primary.Exception.Data['RecoveryRequired'])
+$sqlStartGuard=$guest.Ast.Find({param($node)$node -is [Management.Automation.Language.IfStatementAst] -and $node.Clauses[0].Item1.Extent.Text -ceq '$StartSqlIfStopped'},$true)
+$sqlStartCases=& {
+    $values=@{}
+    function Get-Service {param($Name) if($Name -cne 'MSSQLSERVER'){throw 'UNEXPECTED_SERVICE'};$controller}
+    function Start-Service {param($Name) if($Name -cne 'MSSQLSERVER'){throw 'UNEXPECTED_SERVICE'};$events.Add('start');if($case -ceq 'start-fault'){throw 'SYNTHETIC_START_FAILED'}}
+    foreach($case in @('disabled-option','stopped','running','start-pending','start-fault')){
+        $events=[Collections.Generic.List[string]]::new();$StartSqlIfStopped=$case -cne 'disabled-option'
+        $controller=[pscustomobject]@{Status=$(switch($case){running{'Running'};'start-pending'{'StartPending'};default{'Stopped'}});Events=$events}
+        $controller|Add-Member ScriptMethod Dispose {$this.Events.Add('dispose')}
+        $caught=$false;try{& ([scriptblock]::Create($sqlStartGuard.Extent.Text))}catch{$caught=$true}
+        $values[$case]=[pscustomobject]@{Events=@($events);Failed=$caught}
+    }
+    $values
+}
+Check 'SQL-Startoption ist standardmäßig wirkungslos' ($sqlStartCases['disabled-option'].Events.Count -eq 0)
+Check 'Gestoppter SQL-Dienst wird genau einmal gestartet und Controller freigegeben' (($sqlStartCases.stopped.Events -join ',') -ceq 'start,dispose')
+foreach($case in @('running','start-pending')){Check "Laufender/bereits startender SQL-Dienst wird nicht erneut gestartet: $case" (($sqlStartCases[$case].Events -join ',') -ceq 'dispose')}
+Check 'SQL-Startfehler wird nicht wiederholt und gibt Controller frei' ($sqlStartCases['start-fault'].Failed -and ($sqlStartCases['start-fault'].Events -join ',') -ceq 'start,dispose')
 Write-Host "SSIS OWNED INSTALL CHECKS: $passed PASS, $failed FAIL; native NOT_EXECUTED"
 if($failed){exit 1}

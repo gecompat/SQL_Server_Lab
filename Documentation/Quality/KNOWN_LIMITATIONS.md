@@ -123,10 +123,24 @@ ergab weiterhin `-1073679321` beim SQL-LogProvider und keine `sysssislog`-Zeilen
 Mit `MSOLEDBSQL19` ist ein echter verschlüsselter SQL-Schreibzugriff belegt;
 `SQLOLEDB` scheiterte zusätzlich an TLS. Eine erfolgreiche Gesamtpipeline oder
 eine nach zusätzlichem OS-Neustart qualifizierte CU9-Reparatur ist nicht belegt.
-Ursachenbehebung und fachliche Katalogabnahme bleiben
-[P1 offen](../Project_Planning/SSIS_ETL_DATA_WAREHOUSE_BACKLOG.md#p1-katalog-runtime-nach-dem-consumervergleich-vom-2026-10-18);
-die bestehende verbindungs- und tasklose Fixtureabnahme wird nicht auf
-OLEDB-/SQL-LogProvider-Pakete erweitert.
+Der anschließende [Registrierungsvergleich](SSIS_CATALOG_REGISTRATION_RECOVERY_2026-10-18.md)
+stellte im eigenen Lab die fehlende IS-Feature-/Editionsregistrierung durch
+unterstütztes IS-Setup unter SYSTEM wieder her. Drei echte Basic-Katalogtests
+bestanden mit SQL-Marker und SQL-LogProvider-Ereignissen, auch nach geordnetem
+Windows-Neustart. Der korrigierte Komponenteninstaller übernimmt diesen
+Installationskontext und die Registrierungs-/Bootprüfung. Der folgende
+[frische öffentliche Provisionierungslauf](SSIS_PUBLIC_FRESH_PROVISIONING_ACCEPTANCE_2026-10-18.md)
+bestand auf SQL-2025-RTM mit echter Basic-OLEDB-/SQL-LogProvider-Verbindung,
+API-/CLI-/Workflow-TLS-Anzeige und vollständigem Cleanup. Diese P1-Lücke ist
+geschlossen.
+Die folgende [Consumer- und Analyzerabnahme](SSIS_CONSUMER_ANALYZER_ACCEPTANCE_2026-10-18.md)
+bestand auf demselben Produktstand mit allen vier ursprünglichen Paketen,
+erwarteten Katalogzuständen `7/4/7/4` und echten SQL-LogProvider-Daten.
+Zwölf begrenzte Legacy-Vergleiche sowie Katalog-/Paketvergleich und die
+Standardausgaben sind geprüft. Beliebige Pakete, zusätzliche Analyzer-
+Opt-ins und weitere Engine-/Provider-/Rollenkombinationen sind dadurch
+nicht abgenommen. Die historische Ursache der ursprünglichen Typfehler
+bleibt unbekannt; die verbindungs- und tasklose Fixtureabnahme bleibt getrennt.
 
 Eine eigene VM mit installierter SSIS-Komponente ist im Prepared-/Manifestpfad
 bereits abgenommen. Das allgemeine deklarative SSIS-Serverprofil ohne

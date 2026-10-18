@@ -49,6 +49,12 @@ beschreiben Platzhalter, geschützte Zugangsdaten und den getrennten Cleanup.
 
 `New-SqlServerLabSsisCatalogFixture -RunId $runId -InstanceId primary` richtet anschließend ausschließlich im gebundenen Run SSISDB und genau drei synthetische Ausführungen ein. Der gezielte `Remove-SqlServerLabSsisCatalogFixture` entfernt das quittierte eigene Projekt und danach den leeren Katalogordner; `Remove-SqlServerLab` entfernt den gesamten Run. Die Cmdlets sind über **Alle öffentlichen Befehle** in Konsole und Browser mit denselben Parametern erreichbar: `Install-SqlServerLabSsisComponent` unter **Lab-Umgebungen**, die Befehle mit `SsisCatalog` im Namen unter **Medien und Speicher**. [Vollständiger Vertrag](../Documentation/Architecture/SSISDB_TEST_FIXTURE.md), [ausgeführte Windows-Abnahme](../Documentation/Quality/SSISDB_WINDOWS_RUNTIME_ACCEPTANCE_2026-10-16.md).
 
+Der IS-Komponenteninstaller verwendet einen vom Administratorprofil getrennten
+SYSTEM-Setupkontext und einen geordneten Windows-Neustart mit Bootnachweis.
+Vorhandene Dateien allein ersetzen keine Feature-/Editionsregistrierung;
+ein vorhandener Katalog bleibt bei der IS-Nachinstallation erhalten.
+[Registrierungsprüfung und begrenzter nativer Nachweis](../Documentation/Quality/SSIS_CATALOG_REGISTRATION_RECOVERY_2026-10-18.md).
+
 ## SMTP-Testdienst: Status und WebMail
 
 `Get-SqlServerLabSmtpTestServiceStatus -RunId $runId` zeigt für einen

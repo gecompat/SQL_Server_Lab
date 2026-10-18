@@ -9,12 +9,22 @@
 
 ## P1: Katalog-Runtime nach dem Consumervergleich vom 2026-10-18
 
-**Offen, hohe Priorität:** Der beauftragte
+**Ursprüngliche Consumerpakete und Standard-Analyzervergleich abgeschlossen:**
+Die [frische öffentliche P1-Abnahme](../Quality/SSIS_PUBLIC_FRESH_PROVISIONING_ACCEPTANCE_2026-10-18.md)
+belegt Neuanlage, echte Basic-OLEDB-/SQL-LogProvider-Verbindung und Cleanup.
+Die folgende [Consumer- und Analyzerabnahme](../Quality/SSIS_CONSUMER_ANALYZER_ACCEPTANCE_2026-10-18.md)
+belegt alle vier ursprünglichen Pakete mit erwarteten Zuständen `7/4/7/4`,
+echten Providerdaten und zwölf Legacy-Vergleichen sowie Katalog-/Paketvergleich
+im eigenen frischen Lab. Analyze-Quelle und Original blieben unverändert;
+eigene VM/VHD sind entfernt, Default bleibt `True/True`. Weitere Pakete,
+Analyzer-Opt-ins, Builds, Provider und Rollen bleiben gesondert abzugrenzen.
+
+**Historischer Ausgangsbefund:** Der beauftragte
 [Vergleich der ursprünglichen Consumerpakete](../Quality/LOCAL_VALIDATION_STRATEGY.md#ursprüngliche-consumerfehler-gast--und-katalogvergleich-vom-2026-10-18)
-bestätigt deren fehlerfreies SDK-Laden, aber keine funktionsfähige
+bestätigte deren fehlerfreies SDK-Laden, aber keine funktionsfähige
 OLEDB-/SQL-LogProvider-Katalogpipeline. Die ursprünglichen unbekannten
 Komponententypen wurden nicht erneut beobachtet; ihre historische Ursache
-ist weiterhin unbekannt. Die aktuelle Katalogruntime meldet einen
+ist weiterhin unbekannt. Die damalige Katalogruntime meldete einen
 Editions-/Installationsfehler trotz vorhandenem IS und Enterprise-Developer-
 Engine. Eine Validierung meldete dabei Status `7` samt Fehlerereignis.
 
@@ -28,14 +38,27 @@ Katalogausführung endete mit Status `4`. Der frühere Administratortoken-Blocke
 ist geschlossen, die fachliche Behebung bleibt offen. Eigene VM und eigene
 VHD wurden entfernt; die erhaltene Analyze-Quelle samt Fixture blieb unverändert.
 
-Die nächste Diagnose benötigt neue unterscheidende Evidence: CU9 nach einem
-zusätzlichen OS-Neustart, die tatsächlich vom Katalogprozess geladenen
-Runtimekomponenten und ein kontrollierter Vergleich des SQL-LogProviders im
-SDK- und Katalogkontext. Das beobachtete Versionsinventar allein erklärt den
-Fehler nicht. Kein erneuter unveränderter Paketlauf und keine manuelle Änderung
-von Lizenz-/Editionsregistrierung. Ziel bleibt ein herstellerkonformer,
-reproduzierbar mit echten SQL- und LogProvider-Effekten belegter Pfad im eigenen
-Lab; die bestehende Analyze-Quelle bleibt geschützt.
+Der anschließende [Registrierungsvergleich](../Quality/SSIS_CATALOG_REGISTRATION_RECOVERY_2026-10-18.md)
+hat die fehlende IS-MSI-/Editionsregistrierung erkannt und mit unterstütztem
+IS-only-Setup unter SYSTEM wiederhergestellt. Drei echte Basic-Katalogtests
+bestanden, auch nach geordnetem Windows-Neustart, mit verschlüsseltem
+Windows-SQL-Schreibzugriff und je zwölf SQL-LogProvider-Zeilen. Die tatsächlich
+geladenen Katalogmodule sind erfasst. Das eigene Lab wurde entfernt; die
+Analyze-Quelle blieb unverändert. Dieser aktuelle Editions-/Installations-
+blocker ist im eigenen Lab behoben; die ursprünglichen Typfehler sind
+historisch weiterhin nicht vollständig erklärt.
+
+**P1-Nachweis abgeschlossen:** Die
+[frische öffentliche Neuanlage](../Quality/SSIS_PUBLIC_FRESH_PROVISIONING_ACCEPTANCE_2026-10-18.md)
+bestand über `New-SqlServerLab -Manifest` auf SQL-2025-RTM einschließlich
+SSIS-Installation/Neustart, Fixture `7/4/1`, echter Basic-OLEDB-/SQL-LogProvider-
+Verbindung, API-/CLI-/Workflow-TLS-Werten und öffentlichem Cleanup. Die
+Analyze-Quelle und das Original-ISPAC blieben unverändert. Die oben verlinkte
+spätere Consumerabnahme schließt die übrigen ursprünglichen Pakete und den
+beschriebenen Standard-Analyzervergleich.
+Kein erneuter unveränderter Fehlversuch und keine manuelle
+Änderung von Lizenz-/Editionsregistrierung; die bestehende Analyze-Quelle
+bleibt geschützt.
 
 Vor einem Installations- oder Reparaturschritt sind dessen Herstellerweg,
 Ausgangszustand und Recovery zu prüfen. Danach sind Komponentenladung,

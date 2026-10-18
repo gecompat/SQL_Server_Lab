@@ -5213,8 +5213,68 @@ repariert noch umkonfiguriert. Ihre Run-/Connection-Dateihashes sowie die vor
 und nach dem Vergleich gelesenen Ausführungs-/Ereignisprojektionen, Katalog-
 einstellungen und Datenbankprojektion blieben unverändert. Originalartefakt,
 Zielidentitäten und Rohreceipts bleiben ausschließlich lokal außerhalb von Git.
-Der SQL-LogProvider bleibt [P1 offen](../Project_Planning/SSIS_ETL_DATA_WAREHOUSE_BACKLOG.md#p1-katalog-runtime-nach-dem-consumervergleich-vom-2026-10-18);
+Der SQL-LogProvider ging aus diesem Vergleich als
+[P1-Blocker](../Project_Planning/SSIS_ETL_DATA_WAREHOUSE_BACKLOG.md#p1-katalog-runtime-nach-dem-consumervergleich-vom-2026-10-18)
+hervor. Die folgenden Registrierungs- und Neuanlagenachweise beheben ihn;
 die getrennte Legacy-SDK-Providerabnahme wird nicht neu geöffnet.
+
+### Wirksame IS-Registrierungswiederherstellung vom 2026-10-18
+
+Der folgende [isolierte Registrierungsvergleich](SSIS_CATALOG_REGISTRATION_RECOVERY_2026-10-18.md)
+belegt die tatsächlichen Module des aktiven Katalogprozesses und drei
+erfolgreiche Basic-Pakete nach unterstützter SYSTEM-IS-Installation: Status `7`,
+keine Fehler, je ein verschlüsselter Windows-SQL-Marker und zwölf selbst
+erzeugte SQL-LogProvider-Zeilen einschließlich PackageStart/PackageEnd.
+Registrierung und erfolgreicher Paketlauf blieben nach geordnetem
+Windows-Neustart erhalten. Die eigene VM und VHD wurden entfernt, die
+geschützte Quelle und das Original-ISPAC blieben unverändert.
+
+Die fokussierten `Invoke-SsisOwnedInstallChecks.ps1` prüfen den korrigierten
+Installer und seine Cleanup-/NoReplay-Grenzen. Der produktive
+Registrierungsreader bestand im eigenen Gast lesend. Diese Paketnachweise
+stammen aus dem unabhängig geprüften Diagnosecontroller. Der folgende
+[frische öffentliche Provisionierungslauf](SSIS_PUBLIC_FRESH_PROVISIONING_ACCEPTANCE_2026-10-18.md)
+schließt den zusätzlichen P1-Nachweis: `New-SqlServerLab -Manifest` mit
+SSIS-Fixture, SYSTEM-Installation und Bootprüfung, Fixture `7/4/1` sowie ein
+echter Basic-Kataloglauf mit OLEDB und SQL-LogProvider direkt auf RTM. Status
+`7`, ein verschlüsselter Windows-/NTLM-SQL-Marker und zwölf Logzeilen wurden
+beobachtet. Öffentliche API, CLI-Anzeige und Workflow-Projektion bestätigen
+`Encrypt=True;TrustServerCertificate=True`. Installationsdateien/-aufgabe,
+eigene VM und VHD wurden entfernt; geschützte Quelle und Original blieben
+unverändert. Der frühere fehlgeschlagene Reparaturvergleich und der
+DTO-Fehler des ersten Abnahmecontrollers werden nicht rückwirkend als
+erfolgreiche Providerläufe gewertet. Weitere Consumerpakete und der
+Analyzervergleich sind im folgenden getrennten Nachweis erfasst.
+
+### Ursprüngliche Consumerpakete und Analyzervergleich vom 2026-10-18
+
+Die [Consumer- und Analyzerabnahme](SSIS_CONSUMER_ANALYZER_ACCEPTANCE_2026-10-18.md)
+bestand auf Lab-Stand `54f7f2cd58b6a9be64f6c1b703267b65499df6a6` und
+unverändertem Analyze-Stand `a5efc761986dc77c313f981fa29af58d27c3be55`.
+Ein frisches eigenes öffentlich angelegtes Hyper-V-/SQL-2025-RTM-Lab führte
+die vier ursprünglichen Paketkopien tatsächlich im Katalog aus: Basic und
+Duplicate-Lookup `7`, kontrollierter SQL-Fehler und Lookup-Miss `4`.
+Der SQL-LogProvider schrieb 12/16/60/61 Zeilen. Eigener SQL-Marker und
+Hostverbindung belegten tatsächliche Verschlüsselung; beide TLS-Werte
+blieben `True`.
+
+Der unverändert installierte Analyzer bestand alle zwölf Legacy-Vergleiche
+für vier Fälle mit `MaxZeilen=0/1/2`, neun Standarddatensätzen und
+94-Feld-TABLE-/JSON-Parität. Eine getrennte native Referenz prüfte die
+benannten gespeicherten Inhalte, Aggregate, Fehlertexte und Zeitpaare;
+sie berechnet nicht alle 94 Felder unabhängig nach. Katalogstatus,
+Meldungsanzahl und sechs Meldungsmetadatenfelder sowie das vom Paketanalyzer
+ausgegebene Original-XML-Inventar wurden verglichen. RAW/CONSOLE/NONE
+lieferten neun/ein/kein Ergebnisgrid bei jeweils neun JSON-Datenarrays.
+
+Zwei vorbereitende Testcontrollerfehler starteten kein Paket. Ein späterer
+Lookup-Vergleichsfehler wurde anhand der erhaltenen Originalmeldungen
+korrigiert und unabhängig geprüft. Nur die offenen Vergleiche wurden
+fortgesetzt; kein Paket wurde wiederholt. Der öffentliche Cleanup entfernte
+eigene VM/VHD und gab die Runtime-Sperre frei. Die geschützte Analyze-Quelle,
+ihre vier SQL-Projektionen, der Analyze-Checkout und das Original-ISPAC
+blieben unverändert. Rollen, weitere Builds/Provider und zusätzliche
+Analyzer-Opt-ins bleiben getrennte Nachweise.
 
 ## SSISDB-Fixture auf Prepared Hyper-V SQL 2025
 
