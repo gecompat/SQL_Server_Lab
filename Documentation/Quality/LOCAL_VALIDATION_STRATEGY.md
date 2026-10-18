@@ -5011,6 +5011,65 @@ nicht bestanden; spätere stabile Reads ersetzen ihn nicht. Eigene terminale
 States und Fehlerbelege bleiben lokal erhalten. Dieser Befund wird nicht auf
 die zuvor separat bestandenen Docker-/Podman-Artefaktläufe übertragen.
 
+## SSIS-Paketladediagnose
+
+Die fokussierte Suite `Tests/Static/Invoke-SsisPackageDiagnosticChecks.ps1`
+bestand am 2026-10-17 mit 53 Assertions. Sie prüft echte Archiv-/Hashlesung,
+Größen- und Duplikatgrenzen, fehlende Anmeldung, geänderte Zielbindung,
+einmaligen VM-ID-gebundenen Transport, XML-/DTD-Abweisung und den produktiven
+Gastcode samt C#-Event-Collector gegen eine synthetische Runtime. Nur deren
+Assemblylade-/Dateigrenze ist ersetzt. Fehler bei zurückkehrendem Loader,
+Ladeexceptions, Warnungen, Eventgrenzen und unveränderte XML-Übergabe sind
+gesondert geprüft. Dies ist kein installierter SSIS-Nachweis.
+
+Der erste echte öffentliche Gastaufruf am selben Tag lud den hashgleichen
+eigenen Consumer-ISPAC-Eintrag erfolgreich mit ManagedDTS 17.0.0.0,
+Dateiversion 17.0.1000.7, x64 und Windows PowerShell 5.1. Inventar und Loader
+liefen im selben Prozess; 20 Connection-Manager- und fünf Log-Provider-
+Creation-Names wurden beobachtet, einschließlich OLE DB und SQL-Server-Logging.
+Es gab keine Ladeevents oder Ladeexception. Keine SQL-Verbindung und keine
+Paketausführung wurden durch diesen Diagnoseweg gestartet.
+
+Die anschließende native Abnahme über
+`Tests/Integration/Invoke-SsisPackageDiagnosticAcceptance.ps1` lud alle vier
+Einträge desselben hashgleichen Consumer-ISPAC fehlerfrei. Alle vier Ergebnisse
+enthielten jeweils einen Connection Manager, einen Log Provider und ein
+Executable im geladenen Paket, keine Ladeevents und keine Ladeexception.
+Die erfassten Run-State-/Connection-Dateien blieben bytegleich.
+Eine separate lokale Negativkopie mit absichtlich unbekanntem Connection-
+Manager-Typ bestätigte die native Fehlererfassung: `LoadFromXML` kehrte zurück,
+aber Events und `Package.Errors` enthielten unter anderem `-1073659899`.
+Der öffentliche Status war deshalb `LOAD_FAILED`; es gab keine Paketausführung
+und keine Änderung am ursprünglichen ISPAC.
+Ein vollständig beobachteter Ladefehler bleibt ein Diagnosebefund,
+keine grüne Consumerpipeline. Andere SSIS-Versionen, x86, Katalogprozess-
+konfiguration und der ursprüngliche Consumerfehler sind damit nicht abgenommen.
+Rohreceipts, Hashes, Paket-/Zielidentitäten und echte Diagnoseausgaben bleiben
+ausschließlich lokal außerhalb der Versionskontrolle. Der
+[Vertrag](../Architecture/SSIS_PACKAGE_DIAGNOSTIC.md) trennt Ausgabe und Grenzen.
+
+Die Integrationsprüfung vom 2026-10-18 bestätigte zunächst den bisherigen
+Gastpfad erneut mit vier unveränderten Consumerpaketen und einer eigenen
+Negativkopie. Der unabhängige Review identifizierte dabei durchgereichte
+PowerShell-Remotingmetadaten und die fehlende Aufnahme der neuen Suite in die
+Vollregression. Nach der Korrektur bestanden 73 fokussierte Assertions:
+rekursiver DTO-Neubau, verworfene Zusatzfelder, ungültige beziehungsweise
+widersprüchliche Antworten sowie Hash-, Runtime-, Bitness-, Typ- und
+Mengengrenzen sind explizit geprüft. Die Suite ist genau einmal in
+`Invoke-AllChecks.ps1` und damit im Nightly registriert; die CI-Strategie
+sichert diese Registrierung. Der bestehende betroffene Selektor und die
+Providerpflichtgates bleiben erhalten; es entsteht kein zusätzlicher
+Runtimeprüfweg oder Reviewprozess.
+
+Der korrigierte öffentliche Hostpfad bestand anschließend erneut mit allen
+vier Paketen im selben vorhandenen SSIS-2025-x64-Gast. Die öffentliche Ausgabe
+enthielt keine Remotingmetadaten. Die eigene Negativkopie bestätigte weiterhin
+`LOAD_FAILED` und numerische Fehler trotz zurückkehrendem Loader. Original-
+ISPAC und erfasste Run-Dateien blieben bytegleich; die temporäre Negativdatei
+wurde entfernt. Es wurden keine Pakete ausgeführt oder SQL-Verbindungen
+geöffnet. Der Reviewer bestätigte die beiden Korrekturen ohne weitere
+blockierende Findings. Die oben genannten Grenzen bleiben bestehen.
+
 ## SSISDB-Fixture auf Prepared Hyper-V SQL 2025
 
 Die unabhängige Formatabnahme `Tests/Integration/Invoke-SsisFixtureFormatAcceptance.ps1`

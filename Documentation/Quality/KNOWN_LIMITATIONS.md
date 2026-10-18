@@ -73,6 +73,14 @@ gesonderte qualifizierte CLI-/GUI-Anzeige bleiben im laufenden TLS-001-Scope.
 
 ## SSISDB: abgenommener Windows-Scope und Grenzen
 
+Die [lesende Paketdiagnose](../Architecture/SSIS_PACKAGE_DIAGNOSTIC.md)
+ergänzt Komponentenbestand und `Package.LoadFromXML` in der zur registrierten
+SQL-Version gehörenden x64-Gast-Runtime. Sie ist keine Sandbox und akzeptiert
+nur eigene vertrauenswürdige Labpakete. Ladefehler, fehlende Runtime und
+unbestätigter Transport bleiben getrennt; fehlerfreies Laden beweist keine
+Katalogausführung oder ETL-Funktion. Der gesonderte native Nachweis steht in
+der [Validierungsstrategie](LOCAL_VALIDATION_STRATEGY.md#ssis-paketladediagnose).
+
 Eine eigene VM mit installierter SSIS-Komponente ist im Prepared-/Manifestpfad
 bereits abgenommen. Das allgemeine deklarative SSIS-Serverprofil ohne
 Pflichtfixture sowie verwaltetes ISPAC-Deployment, echte SQL-ETL-Datenflüsse

@@ -173,6 +173,14 @@ TLS-Abnahme und Toolbelt SC-2026-045 bleiben offen.
 
 ## Dokumentationszuständigkeiten
 
+Der auf Benutzerauftrag ergänzte lesende SSIS-Gastdiagnoseweg
+`Get-SqlServerLabSsisPackageDiagnostic` bindet ein eigenes DTSX/ISPAC per
+SHA-256 an dieselbe Gast-Runtime für Komponentenbestand und `LoadFromXML`.
+Der [Vertrag](../Documentation/Architecture/SSIS_PACKAGE_DIAGNOSTIC.md)
+trennt Ladebeobachtung und Paketausführung. Ausgeführte Offline-/Native-Nachweise
+stehen gesondert in der Validierungsstrategie; die bestehende Consumer-
+Providerabnahme wird dadurch nicht vorweggenommen.
+
 Der [SSIS-Integrationsplan](../Documentation/Project_Planning/SSIS_ETL_DATA_WAREHOUSE_BACKLOG.md#machbarkeit-und-integrationsentscheidung-vom-2026-10-16)
 erhält den bereits lokal ausgearbeiteten Folgeauftrag nach TLS-001: zuerst
 SSIS-LAB-001/002 als eigenständiges Windows-/Hyper-V-Serverprofil ohne

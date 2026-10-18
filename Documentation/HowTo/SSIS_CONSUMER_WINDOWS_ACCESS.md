@@ -4,6 +4,13 @@ Lab stellt Umgebung und Zugang bereit. SQL_Server_Analyze verantwortet seine
 eigenen ISPACs, fachlichen Testfaelle, Referenzabfragen, Objektidentitaeten und
 deren Cleanup. Die vorhandenen Lab-Ausfuehrungen werden dabei nur gelesen.
 
+Für einen Fehler bereits beim Paketladen steht zusätzlich
+`Get-SqlServerLabSsisPackageDiagnostic` bereit: Komponentenbestand und
+`LoadFromXML` desselben hashgebundenen DTSX-/ISPAC-Pakets, ohne Ausführung,
+SQL-Verbindung oder Installation. Der
+[Diagnosevertrag](../Architecture/SSIS_PACKAGE_DIAGNOSTIC.md) beschreibt die
+eigene vertrauenswürdige Paketquelle, Bitness, Runtime und numerische Fehler.
+
 ## Ein vorhandener Zugangsweg
 
 `Invoke-SqlServerLabScript -WindowsAuthentication` erweitert den bestehenden

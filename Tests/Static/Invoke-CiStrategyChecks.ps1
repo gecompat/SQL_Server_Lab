@@ -9,6 +9,13 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $failures = [System.Collections.Generic.List[string]]::new()
 $passed = 0
 $selector = Join-Path $repoRoot 'Tools/Get-CiTestSelection.ps1'
+foreach ($path in @('Private/SsisPackageDiagnostic.ps1','Providers/HyperV/HyperVSsisPackageDiagnostic.ps1','Public/Get-SqlServerLabSsisPackageDiagnostic.ps1')) {
+    $selected = & $selector -ChangedPath @($path)
+    Add-CheckResult "SSIS package diagnostic selects artifact, binding, transport and public surfaces: $path" (
+        'Invoke-SsisPackageDiagnosticChecks.ps1' -in $selected.StaticChecks -and 'Invoke-SsisPrerequisiteChecks.ps1' -in $selected.StaticChecks -and
+        'Invoke-HyperVGuestProgressChecks.ps1' -in $selected.StaticChecks -and 'Invoke-PublicCommandConsoleChecks.ps1' -in $selected.StaticChecks -and
+        $selected.HyperV -and -not $selected.Docker -and -not $selected.Podman -and -not $selected.Mixed)
+}
 foreach($path in @('Tests/Common/AuthenticatedTlsAcceptanceCleanup.ps1','Tests/Static/Invoke-AuthenticatedTlsAcceptanceCleanupChecks.ps1','Tests/Integration/Invoke-AuthenticatedTlsLabAcceptance.ps1')){
     foreach($normalized in @($path,$path.Replace('/','\'))){
         $selected=& $selector -ChangedPath @($normalized)
@@ -997,6 +1004,8 @@ finally {
 }
 
 $allChecksText = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'Invoke-AllChecks.ps1') -Raw -Encoding utf8
+Add-CheckResult -Name 'SSIS-Paketdiagnose ist genau einmal in der Vollregression registriert' -Success (
+    [regex]::Matches($allChecksText,"'Invoke-SsisPackageDiagnosticChecks\.ps1'").Count -eq 1)
 Add-CheckResult -Name 'MIME-Suite ist genau einmal in der Vollregression registriert' -Success (
     [regex]::Matches($allChecksText,"'Invoke-SmtpTestServiceMimeParentChecks\.ps1'").Count -eq 1)
 Add-CheckResult -Name 'CI-Strategievertrag ist Teil der Vollregression' -Success ($allChecksText -match 'Invoke-CiStrategyChecks\.ps1')
