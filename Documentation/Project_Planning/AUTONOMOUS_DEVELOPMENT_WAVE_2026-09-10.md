@@ -1,5 +1,38 @@
 # Autonome Entwicklungswelle nach der Repository-Durchsicht
 
+Die [öffentliche SQL-VM-ID-Lane](../Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md)
+verbindet die bisherigen Reader-, VerifyOnly/Denied- und Port-Abhängigkeiten
+mit CompleteImage/HostSQL und den ausgewählten Folgeaufrufen. Neue
+Funktions-NoIO-Fixtures prüfen Rootweitergabe, Direct-Selector, verlorene
+Replies und Drift vor Writes. Verbraucherende, handlebasierte Rootanker und
+native SQL-/TLS-Abnahme bleiben offen; SC-2026-045 bleibt gesperrt.
+
+Der [isolierte SQL-Port-Setter](../Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md)
+ergänzt die interne No-Replay-/VM-ID-Grenze. Der tatsächliche Funktions-
+NoIO-Nachweis ersetzt keine öffentliche Gesamtpropagation, kein
+Verbraucherende und keine native SQL-/TLS-Abnahme; SC-2026-045 bleibt gesperrt.
+
+Die [interne strikte Aktivierungsprüfung](../Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md)
+ergänzt eine VM-ID-gebundene VerifyOnly/Denied-Lane ohne Aktivierungs-
+oder Netzwerkreparatur. NoIO-Nachweis und begrenzte Evidencewrites sind
+keine öffentliche vollständige Setupbindung oder native TLS-Abnahme;
+SC-2026-045 bleibt gesperrt.
+
+Die vorgelagerte [interne VM-ID-Lesegrenze](../Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md)
+ergänzt einen schreibfreien strikten Reader vor einer Rename-Reparatur.
+Der Reader allein erbringt keine öffentliche Setup-/Direct-only-Bindung;
+Verbraucherende und native CA-/SQL-/TLS-Abnahme bleiben offen.
+SC-2026-045 bleibt gesperrt.
+
+## SQL-Abschlussgrenze vor dem nativen TLS-Binder
+
+Der [gekoppelte Vertrag](../Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md)
+schließt die explizite öffentliche State-/Medienrootweitergabe und das
+Transportreplay der vier mutierenden Setup-/Hostzugriff-Gastaufrufe.
+Der NoIO-Nachweis ist von einem noch vorzubereitenden festen nativen Worker
+getrennt. Vorhandener Gastkey und CSR bleiben erhalten; keine erneute Anlage,
+CA-/SQL-/TLS-Abnahme oder SC-2026-045-Freigabe daraus.
+
 ## Windows-CSP-Fortsetzung vom 2026-10-18
 
 Die [getrennte native Charakterisierung](../Quality/TLS_HYPERV_WINDOWS_CSP_CHARACTERIZATION_2026-10-18.md)

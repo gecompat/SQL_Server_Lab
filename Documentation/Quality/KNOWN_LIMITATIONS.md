@@ -20,6 +20,47 @@ Container-Removal übernimmt keine fremde FTS-Installation und blockiert bei
 geänderter Capsule. Gestoppte Container mit aktivem Volltext müssen vor Recreate
 gestartet werden. Weitere SQL-/OS-Stände benötigen eigene native Nachweise.
 
+Die öffentliche optionale VM-ID-Lane für CompleteImage/HostSQL ist durch
+synthetische Funktionsketten geprüft. Sie verlangt einen ausgewählten Root;
+HostSQL ist darin auf ein unverändertes vorhandenes hostOnly-Netz begrenzt.
+Sie reserviert keine VM, hält keine Root-Handles und belegt kein Ende von
+Gastsetup oder dessen Kindern. GUI-Buttons wählen diese Option nicht
+automatisch. Native Setup-/CA-/SQLServiceACL-/TLS-Qualifikation und
+SC-2026-045 bleiben offen; der
+[Completionvertrag](../Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md)
+trennt Bindung, mutierende Wirkungen und tatsächlich ausgeführte Nachweise.
+
+Der isolierte SQL-Port-Setter verhindert nun Transportreplay und kann intern
+eine ausdrücklich gewählte gespeicherte/native VM-ID an Direct binden.
+Das qualifiziert weder den vollständigen öffentlichen Reconcile-/Setupweg
+noch Verbraucherende oder native TLS-Wirkung; der
+[Completionvertrag](../Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md)
+trennt diese Grenzen.
+
+Die interne optionale VM-ID-gebundene Aktivierungsprüfung ist auf
+`VerifyOnly/Denied`, Direct und unveränderte terminale Netzwerkjournale
+beschränkt. Ihr synthetischer Nachweis belegt keine native Aktivierung,
+Netzabwesenheit oder durchgängige öffentliche Setupbindung. Native
+SQL-/Netz-/WMI-/Portnachweise und Verbraucherende bleiben separat offen;
+siehe [Completionvertrag](../Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md).
+
+Der optionale strikte interne
+[Run-Reader](../Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md) prüft gespeicherte
+und native VM-ID vor einer nur lokalen Namensprojektion ohne Write.
+Durchgängige öffentliche Setup-/Direct-only-Bindung, Verbraucherende und
+native TLS-Abnahme sind dadurch noch nicht belegt; kein VM-Reservierungs-
+oder handlebasierter Dateisystemvertrag.
+
+## SQL-Abschluss ohne Transportreplay ist noch kein nativer TLS-Setupworker
+
+Die [CompletionBoundary](../Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md)
+bindet explizite öffentliche Roots und verhindert das automatische Wiederholen
+vier mutierender Gastblöcke nach verlorenem Reply. Sie beweist weder das Ende
+eines Verbrauchers noch sicheres Resume oder Cleanup eines unbekannten
+Teilzustands. Der isolierte SQL-Port-Reconcile bleibt ein getrennter Pfad.
+Ein konkreter neuer eigener Worker mit unabhängiger Prüfung und dauerhaften
+Intents ist vor nativer SQL-/CA-/ServiceACL-/TLS-Abnahme weiter erforderlich.
+
 ## Windows-CSP-Charakterisierung ohne Hyper-V-TLS-Freigabe
 
 Die [native eigene Windows-Probe](TLS_HYPERV_WINDOWS_CSP_CHARACTERIZATION_2026-10-18.md)

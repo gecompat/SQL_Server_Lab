@@ -75,6 +75,48 @@ Sekunden und ohne Providermutation. Ausschließlich diese Fixture erhält deshal
 ein begrenztes 90-Sekunden-Budget. Oracles, Assertions und Cleanup bleiben
 erhalten; der vollständige Workflow-Gate bestand danach mit 72 PASS und 0 FAIL.
 
+Die HyperVLabEnvironment-Suite führt zusätzlich die
+[öffentliche Entryfixture](../../Tests/Static/Fixtures/HyperVSqlPublicEntryChecks.ps1)
+und die [SQL-VM-ID-Kettenfixture](../../Tests/Static/Fixtures/HyperVSqlVmBindingChecks.ps1)
+aus. Tatsächliche öffentliche Aktionen und ausgewählte Core-/Transport-
+Funktionen werden mit synthetischen Datei-/Provider-/Coreblättern geprüft:
+explizite Roots, optionale VM-ID, VM-Objekt-/Direct-Selector, kein Replay
+mutierender Aufrufe, frühe Ablehnung und Drift vor Writes. Keine Gastkörper,
+neue Aktivierung, native Setup-/SQL-/Trust-/TLS-Wirkung oder Verbraucherende-
+Qualifikation. Ausgewählte Provider-CI bleibt ein eigener Nachweis.
+
+Die SQL-Port-Reconcile-Suite führt die
+[PortMutationBoundary-Fixture](../../Tests/Static/Fixtures/HyperVSqlPortMutationBoundaryChecks.ps1)
+mit tatsächlichem Setter und Transport aus. Synthetische native Blätter
+prüfen verlorenen Reply nach Verbraucherwrite, gespeicherte/native VM-ID,
+frühe Run-/Scopeablehnung und Direct-Selector. Keine Gastkörper, SQL-
+Registry-/Firewall-/Dienstaktionen oder neue native Qualifikation.
+
+Die HyperVLabEnvironment-Suite führt die tatsächlichen internen Reconcile-,
+Lizenzstatus-, Evidence- und Wartefunktionen in der
+[StrictActivationVerify-Fixture](../../Tests/Static/Fixtures/HyperVStrictActivationVerifyChecks.ps1)
+aus. Synthetische native Blätter prüfen ID-/Rootweitergabe, frühen Ausschluss
+von Policy-/Journaldrift, VM-Ersatz, Direct-only sowie unveränderte Defaults
+und Buildbindung. Keine Gastkörper, native Aktivierung oder Setup-/TLS-Probe.
+
+Die HyperVLabEnvironment-Suite führt zusätzlich die tatsächliche
+[ImmutableRunReader-Fixture](../../Tests/Static/Fixtures/HyperVImmutableRunReaderChecks.ps1)
+aus. Native und Dateiblätter sind synthetisch: strikte ID-/Rootablehnung,
+gespeicherte/native Drift, Mehrdeutigkeit, schreibfreie Namensprojektion und
+unveränderte Legacy-Defaults werden getrennt geprüft. Keine VM-, Setup- oder
+TLS-Ausführung; die öffentliche Gesamtpropagation bleibt offen.
+
+## Hyper-V-SQL-Abschlussgrenze
+
+Die bestehende HyperVLabEnvironment-Suite führt die
+[CompletionBoundary-Fixture](../../Tests/Static/Fixtures/HyperVSqlCompletionBoundaryChecks.ps1)
+aus: tatsächliche öffentliche Rootweitergabe sowie vier echte Caller-Command-ASTs
+mit tatsächlichem Transport und synthetisch verlorenem Reply nach Verbraucherwrite.
+Direct- und ausdrücklich gebundene Lab-WinRM-Wahl werden getrennt geprüft.
+Keine Gastscriptblöcke, Providerstarts, Setup-, SQL- oder Trustaktionen.
+Der [Vertrag](../Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md) begrenzt die Aussage;
+Verbraucherende, native Recovery und TLS sind damit nicht nachgewiesen.
+
 ## Native Windows-CSP-/CSR-Charakterisierung vom 2026-10-18
 
 Der [eigene Hyper-V-Nachweis](TLS_HYPERV_WINDOWS_CSP_CHARACTERIZATION_2026-10-18.md)

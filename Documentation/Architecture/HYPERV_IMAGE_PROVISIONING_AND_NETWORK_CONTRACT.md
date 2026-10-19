@@ -889,6 +889,14 @@ setzt dynamische Ports außer Kraft, aktualisiert bei bestehendem Hostzugriff
 die Gastfirewall, startet ausschließlich `MSSQLSERVER` neu und bestätigt SQL
 über den Zielport. Erst danach werden die Connection-Receipts atomar erneuert.
 Mehrdeutige Instanzen, Dienste oder Firewallregeln bleiben fail-closed.
+Der interne Port-Setter führt seinen mutierenden Gastblock mit `NoRetry` aus;
+ein verlorener Reply wird innerhalb dieses Aufrufs nicht durch Transportreplay
+beantwortet. Seine optionale `ExpectedVmId`-Lane verlangt passende gespeicherte
+VM-ID sowie nicht leere Run-/Scope-UUIDs und nutzt anschließend den nativen
+VMId-Direct-Selector. CompleteImage reicht eine ausdrücklich gewählte VM-ID
+nun weiter; der öffentliche Port-Reconcile wählt sie nicht automatisch. Der
+[gekoppelte Vertrag](HYPERV_SQL_COMPLETION_BOUNDARY.md) trennt den tatsächlichen
+Funktions-NoIO-Nachweis von Verbraucherende, Recovery und nativer Qualifikation.
 Ein vorhandener Persistenzintent ist vor jedem Reconcile zentral geschlossen
 validiert: ausschließlich `Contract`, `Protocol`, `Port`,
 `RequiredCapability` und `CapabilityStatus` sind erlaubt. Er verlangt den

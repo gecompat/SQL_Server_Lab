@@ -1162,19 +1162,31 @@ function Wait-HyperVPowerShellDirect {
         [string]$GuestInitializationScript,
         [ValidateRange(1, 3600)][int]$TimeoutSeconds = 300,
         [ValidateRange(100, 60000)][int]$PollIntervalMilliseconds = 2000,
-        $Build, [string]$BuildStateRoot
+        $Build, [string]$BuildStateRoot,
+        [guid]$ExpectedVmId
     )
 
+    $strictVmBinding=$PSBoundParameters.ContainsKey('ExpectedVmId')
+    if($strictVmBinding){
+        $runBinding=[guid]::Empty;$scopeBinding=[guid]::Empty
+        if($ExpectedVmId -eq [guid]::Empty -or [string]::IsNullOrWhiteSpace($VMName) -or
+            -not [guid]::TryParseExact($ExpectedRunId,'D',[ref]$runBinding) -or $runBinding -eq [guid]::Empty -or
+            -not [guid]::TryParseExact($ExpectedScopeId,'D',[ref]$scopeBinding) -or $scopeBinding -eq [guid]::Empty -or
+            $FallbackAddress -or -not [string]::IsNullOrWhiteSpace($GuestInitializationScript) -or
+            ($Build -and [string]$Build.builder.vmId -ne $ExpectedVmId.ToString())){throw 'HYPERV_STRICT_GUEST_WAIT_BINDING_INVALID'}
+    }
     $buildArguments=@{}
     if ($Build) {
         $buildArguments=@{Build=$Build;BuildStateRoot=$BuildStateRoot;ExpectedVmId=[guid]$Build.builder.vmId}
         Assert-HyperVBuildGuestTransportAuthority -Build $Build -StateRoot $BuildStateRoot -ExpectedVmId ([guid]$Build.builder.vmId) -VMName $VMName -ExpectedRunId $ExpectedRunId -ExpectedScopeId $ExpectedScopeId
     }
+    if($strictVmBinding){$buildArguments.ExpectedVmId=$ExpectedVmId}
     $managed = Get-HyperVManagedVM `
         -VMName $VMName `
         -ExpectedRunId $ExpectedRunId `
         -ExpectedScopeId $ExpectedScopeId
     if (-not $managed) { throw "Hyper-V-VM nicht gefunden: $VMName" }
+    if($strictVmBinding -and [string]$managed.VM.Id -ne $ExpectedVmId.ToString()){throw 'HYPERV_GUEST_VM_ID_MISMATCH'}
 
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
     $lastError = ''
@@ -1225,7 +1237,7 @@ function Wait-HyperVPowerShellDirect {
             $lastError = "ComputerName=$($probe.computerName), ImageState=$($probe.imageState)"
         }
         catch {
-            if ($Build -and $_.Exception.Message -match '^HYPERV_BUILD_|^WINDOWS_POOL_|^HYPERV_GUEST_VM_ID_MISMATCH') { throw }
+            if (($Build -or $strictVmBinding) -and $_.Exception.Message -match '^HYPERV_BUILD_|^WINDOWS_POOL_|^HYPERV_GUEST_VM_ID_MISMATCH') { throw }
             $lastError = $_.Exception.Message
         }
         Wait-LabProgressDelay -Progress $progress -Milliseconds ([math]::Min($PollIntervalMilliseconds,[math]::Max(0,[int](1000*($TimeoutSeconds-$stopwatch.Elapsed.TotalSeconds)))))
@@ -1523,14 +1535,24 @@ function Wait-HyperVGuestSqlReady {
         [ValidateRange(0, 99)][int]$ExpectedMajorVersion = 0,
         [ValidateRange(1, 3600)][int]$TimeoutSeconds = 300,
         [ValidateRange(100, 60000)][int]$PollIntervalMilliseconds = 2000,
-        [string]$StateRoot
+        [string]$StateRoot,
+        [guid]$ExpectedVmId
     )
 
+    $vmBinding=@{}
+    if($PSBoundParameters.ContainsKey('ExpectedVmId')){
+        if($FallbackAddress){throw 'HYPERV_GUEST_VM_ID_BINDING_INVALID'}
+        $vmBinding.ExpectedVmId=$ExpectedVmId
+        $selectedLab=Get-HyperVLabWorkflowRun -RunId $ExpectedRunId -StateRoot $StateRoot @vmBinding
+        if([string]$selectedLab.Run.scopeId -cne $ExpectedScopeId){throw 'HYPERV_LAB_SQL_VM_BINDING_CHANGED'}
+        $null=Assert-HyperVLabSqlVmBinding -Lab $selectedLab @vmBinding
+    }
     $managed = Get-HyperVManagedVM `
         -VMName $VMName `
         -ExpectedRunId $ExpectedRunId `
         -ExpectedScopeId $ExpectedScopeId
     if (-not $managed) { throw "Hyper-V-VM nicht gefunden: $VMName" }
+    if($vmBinding.Count){$managed=Assert-HyperVLabSqlVmBinding -Lab $selectedLab @vmBinding}
     Assert-LabWindowsPoolProviderMutation -Managed $managed -StateRoot $StateRoot
     if ([string]$managed.VM.State -ne 'Running') {
         throw "SQL-Readiness erfordert eine laufende VM: $VMName"
@@ -1544,7 +1566,7 @@ function Wait-HyperVGuestSqlReady {
         -ExpectedRunId $ExpectedRunId `
         -ExpectedScopeId $ExpectedScopeId `
         -Credential $Credential `
-        -FallbackAddress $FallbackAddress `
+        -FallbackAddress $FallbackAddress @vmBinding `
         -ArgumentList @($InstanceName, $SaPassword, $ExpectedMajorVersion, $TimeoutSeconds, $PollIntervalMilliseconds) `
         -TimeoutSeconds $TimeoutSeconds `
         -ScriptBlock {
@@ -1653,6 +1675,7 @@ SELECT
         ($ExpectedMajorVersion -gt 0 -and [int]$receipt.majorVersion -ne $ExpectedMajorVersion)) {
         throw 'HYPERV_SQL_READINESS_RECEIPT_INVALID'
     }
+    if($vmBinding.Count){$managed=Assert-HyperVLabSqlVmBinding -Lab $selectedLab @vmBinding}
     $null = Set-HyperVManagedVMIdentityProperty `
         -ManagedVM $managed `
         -PropertyName sqlReadiness `

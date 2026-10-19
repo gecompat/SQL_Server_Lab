@@ -294,10 +294,21 @@ function New-LabHyperVSqlPortReconcilePlan {
 
 function Set-LabHyperVSqlPortBinding {
     [CmdletBinding()]
-    param([Parameter(Mandatory)]$Context, [Parameter(Mandatory)][PSCredential]$Credential)
+    param([Parameter(Mandatory)]$Context, [Parameter(Mandatory)][PSCredential]$Credential, [guid]$ExpectedVmId)
 
+    $binding=@{}
+    if($PSBoundParameters.ContainsKey('ExpectedVmId')){
+        $runBinding=[guid]::Empty;$scopeBinding=[guid]::Empty;$storedVmBinding=[guid]::Empty
+        if($ExpectedVmId -eq [guid]::Empty -or [string]::IsNullOrWhiteSpace([string]$Context.ConnectionInstance.vmName) -or
+            -not [guid]::TryParseExact([string]$Context.RunId,'D',[ref]$runBinding) -or $runBinding -eq [guid]::Empty -or
+            -not [guid]::TryParseExact([string]$Context.ScopeId,'D',[ref]$scopeBinding) -or $scopeBinding -eq [guid]::Empty -or
+            -not [guid]::TryParseExact([string]$Context.ConnectionInstance.vmId,'D',[ref]$storedVmBinding) -or $storedVmBinding -ne $ExpectedVmId){
+            throw 'HYPERV_SQL_PORT_RECONCILE_VM_BINDING_INVALID'
+        }
+        $binding.ExpectedVmId=$ExpectedVmId
+    }
     $receipt = Invoke-HyperVPowerShellDirect -VMName ([string]$Context.ConnectionInstance.vmName) `
-        -ExpectedRunId ([string]$Context.RunId) -ExpectedScopeId ([string]$Context.ScopeId) -Credential $Credential `
+        -ExpectedRunId ([string]$Context.RunId) -ExpectedScopeId ([string]$Context.ScopeId) -Credential $Credential -NoRetry @binding `
         -ArgumentList @([int]$Context.Desired.Port,[bool]$Context.FirewallRequired,[string]$Context.FirewallRemoteAddress,'SQL_Server_Lab SQL TCP Host') -ScriptBlock {
         param($RequestedPort,$FirewallRequired,$FirewallRemoteAddress,$FirewallRuleName)
         $ErrorActionPreference = 'Stop'

@@ -7,6 +7,12 @@ FILESTREAM-Aktivierung vor Mutation ab. Abhängigkeitsprüfung, versionsgebunden
 FTS-Capsule und No-Replay-Recovery sind implementiert. Die tatsächlichen
 Providerabnahmen werden in der Validierungsstrategie separat ausgewiesen.
 
+Der [Hyper-V-SQL-Abschlussvertrag](../Documentation/Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md)
+bindet explizite öffentliche State-/Medienroots und bietet für CompleteImage
+und HostSQL eine zusätzliche ausdrücklich gewählte VM-ID-/Direct-Lane durch
+die Folgeaufrufe. Mutierende Gastaufrufe unterbinden Transportreplay. Synthetische
+LostReply-Nachweise sind keine native Setup-/SQL-/TLS-Abnahme oder Recoveryautorität.
+
 Der [isolierte SSIS-Registrierungsvergleich](../Documentation/Quality/SSIS_CATALOG_REGISTRATION_RECOVERY_2026-10-18.md)
 hat den aktuellen SQL-LogProvider-Installationsfehler im eigenen Lab durch
 unterstütztes IS-Setup unter SYSTEM behoben: drei echte Basic-Katalogtests

@@ -102,4 +102,3 @@ function Invoke-LabHyperVFullTextChange {
         }
     }
 }
-

@@ -1,5 +1,30 @@
 # TLS-001a – Entwurf einer isolierten Lab-CA
 
+Die [öffentliche SQL-VM-ID-Lane](../Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md)
+bindet CompleteImage/HostSQL und ausgewählte Folgeaufrufe an die ausdrücklich
+gewählte gespeicherte/native VM-ID und Direct. Die synthetischen Fälle
+führen keine Gastkörper aus und erteilen keine CA-/Trust-/ServiceACL- oder
+native Setup-/TLS-Autorität. Verbraucherende und Root-Handles bleiben offen.
+
+Die [interne SQL-Port-Mutationsgrenze](../Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md)
+schließt Transportreplay eines weiteren Setup-Folgeaufrufs und bietet eine
+optionale VM-ID-Bindung. Keine native SQL-/CA-/TLS-Abnahme entsteht daraus.
+
+Die [interne strikte Aktivierungsprüfung](../Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md)
+bindet VerifyOnly/Denied an die ausgewählte VM-ID, ohne neue Aktivierung oder
+Netzreparatur. Sie stellt weder einen CA-/Trustkontext noch vollständige
+öffentliche Setupbindung oder native CA-/SQL-/TLS-Qualifikation her.
+
+Der [strikte interne Run-Reader](../Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md)
+schließt eine vorgelagerte VM-ID-/Rename-Lesegrenze ohne Write.
+Er ersetzt weder durchgängige öffentliche Setupbindung noch Verbraucherende
+oder native CA-/SQL-/TLS-Abnahme.
+
+Die vorgelagerte [SQL-Abschlussgrenze](../Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md)
+bindet explizite Roots und unterbindet Transportreplay mutierender Gastblöcke.
+Sie ist keine native Setup-, CA-, ServiceACL- oder TLS-Abnahme und erteilt
+keine neue Autorität für unbekannte Teilzustände.
+
 Die [Windows-CSP-Charakterisierung vom 2026-10-18](../Quality/TLS_HYPERV_WINDOWS_CSP_CHARACTERIZATION_2026-10-18.md)
 belegt inzwischen einen eigenen nicht exportierbaren Gastkey und Host-CSR-Proof.
 Der additive erwartete Maschinen-CN des privaten Leafvertrags ist eine reine

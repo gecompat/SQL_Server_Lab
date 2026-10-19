@@ -104,17 +104,55 @@ function Invoke-LabWindowsSlotActivationReconcile {
         [PSCredential]$Credential,
         [string]$StateRoot,
         [AllowNull()]$WindowsActivation,
-        [ValidateScript({-not [string]::IsNullOrWhiteSpace($_)})][string]$ExternalSwitchName
+        [ValidateScript({-not [string]::IsNullOrWhiteSpace($_)})][string]$ExternalSwitchName,
+        [guid]$ExpectedVmId
     )
+    $binding=@{}
+    if($PSBoundParameters.ContainsKey('ExpectedVmId')){
+        $binding.ExpectedVmId=$ExpectedVmId
+        if($PSBoundParameters.ContainsKey('ExternalSwitchName')){throw 'HYPERV_STRICT_ACTIVATION_EXTERNAL_SWITCH_FORBIDDEN'}
+    }
     $activationArguments=@{}
     if($PSBoundParameters.ContainsKey('WindowsActivation')){
         $activationArguments.WindowsActivation=Resolve-LabWindowsActivationIntent -Intent $WindowsActivation -RequireExplicit
         $activationArguments.ExplicitWindowsActivation=$true
     }
     if($PSBoundParameters.ContainsKey('ExternalSwitchName')){$activationArguments.ExternalSwitchName=$ExternalSwitchName}
-    $lab=Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
+    $lab=Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot @binding
     if(-not $activationArguments.ContainsKey('WindowsActivation')){
         $activationArguments.WindowsActivation=Resolve-LabWindowsActivationIntent -Intent $lab.Instance.windowsActivationIntent -Isolated:([string]$lab.Run.metadata.networkIntent -eq 'isolated')
+    }
+    if($binding.Count){
+        # This selected lane verifies the retained policy; it never repairs an
+        # activation journal, changes the intent, or requests another activation.
+        $saved=Resolve-LabWindowsActivationIntent -Intent $lab.Instance.windowsActivationIntent -RequireExplicit
+        foreach($intent in @($saved,$activationArguments.WindowsActivation)){
+            if($intent.Strategy -ne 'VerifyOnly' -or $intent.EgressPolicy -ne 'Denied'){throw 'HYPERV_STRICT_ACTIVATION_VERIFY_ONLY_REQUIRED'}
+        }
+        $journalPath=Join-Path $lab.RunDirectory 'windows-activation-network.json'
+        $journalFile=$null
+        try{$journalFile=Get-Item -LiteralPath $journalPath -Force -ErrorAction Stop}
+        catch [System.Management.Automation.ItemNotFoundException]{} # Only confirmed absence skips the journal read.
+        catch{throw 'HYPERV_STRICT_ACTIVATION_NETWORK_RECOVERY_REQUIRED'}
+        if($null -ne $journalFile){
+            try{
+                if($journalFile -isnot [IO.FileInfo] -or
+                    ($journalFile.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0 -or
+                    $journalFile.Length -lt 1 -or $journalFile.Length -gt 1048576){throw 'HYPERV_STRICT_ACTIVATION_NETWORK_RECOVERY_REQUIRED'}
+                $journal=Get-Content -LiteralPath $journalPath -Raw -ErrorAction Stop | ConvertFrom-Json -Depth 20 -NoEnumerate -ErrorAction Stop
+                if($journal -is [array] -or $journal -isnot [pscustomobject] -or $journal.ContractVersion -isnot [string] -or
+                    $journal.RunId -isnot [string] -or $journal.ScopeId -isnot [string] -or $journal.VMId -isnot [string] -or $journal.Status -isnot [string] -or
+                    $journal.ContractVersion -ne 'SqlServerLab.WindowsActivationNetwork/1.0' -or
+                    [string]$journal.RunId -ne [string]$lab.Run.runId -or [string]$journal.ScopeId -ne [string]$lab.Run.scopeId -or
+                    [string]$journal.VMId -ne $ExpectedVmId.ToString() -or $journal.Status -ne 'CLEANED'){
+                    throw 'HYPERV_STRICT_ACTIVATION_NETWORK_RECOVERY_REQUIRED'
+                }
+            }catch{throw 'HYPERV_STRICT_ACTIVATION_NETWORK_RECOVERY_REQUIRED'}
+        }
+        $current=Get-HyperVWindowsSlotLicenseStatus -RunId $RunId -Credential $Credential -Persist -StateRoot $lab.StateRoot @binding
+        $decision=Get-LabWindowsActivationDecision -License $current -Intent $saved
+        if($decision.Action -ne 'NoOp'){throw $decision.Code}
+        return $current
     }
     Invoke-HyperVWindowsSlotActivation -RunId $RunId -Credential $Credential -StateRoot $lab.StateRoot @activationArguments
 }

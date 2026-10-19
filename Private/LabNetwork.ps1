@@ -979,17 +979,26 @@ function Initialize-HyperVGuestLabNetwork {
         [Parameter(Mandatory)][PSCredential]$Credential,
         [Parameter(Mandatory)]$Network,
         [Parameter(Mandatory)][string]$Identity,
-        [ValidatePattern('^(?:(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])(?:\.(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])){3})?$')][string]$FallbackAddress
+        [ValidatePattern('^(?:(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])(?:\.(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])){3})?$')][string]$FallbackAddress,
+        [guid]$ExpectedVmId
     )
 
+    $vmBinding=@{}
+    if($PSBoundParameters.ContainsKey('ExpectedVmId')){
+        $runBinding=[guid]::Empty;$scopeBinding=[guid]::Empty
+        if($ExpectedVmId -eq [guid]::Empty -or $FallbackAddress -or [string]::IsNullOrWhiteSpace($VMName) -or
+            -not [guid]::TryParseExact($ExpectedRunId,'D',[ref]$runBinding) -or $runBinding -eq [guid]::Empty -or
+            -not [guid]::TryParseExact($ExpectedScopeId,'D',[ref]$scopeBinding) -or $scopeBinding -eq [guid]::Empty){throw 'HYPERV_GUEST_VM_ID_BINDING_INVALID'}
+        $vmBinding.ExpectedVmId=$ExpectedVmId
+    }
     $addressMode = if (($Network.PSObject.Properties['addressMode'] -and [string]$Network.addressMode -eq 'dhcp') -or
         ($Network.PSObject.Properties['Intent'] -and [string]$Network.Intent -eq 'lan')) { 'dhcp' } else { 'static' }
     $address = if ($addressMode -eq 'dhcp') { $null } elseif ($Network.PSObject.Properties['address'] -and $Network.address) { [string]$Network.address } else { Get-LabNetworkGuestAddress -Network $Network -Identity $Identity }
     $gateway = if ($Network.PSObject.Properties['gateway']) { [string]$Network.gateway } else { $null }
     $dnsServers = if ($Network.PSObject.Properties['dnsServers']) { @($Network.dnsServers) } else { @() }
-    $receipt = Invoke-HyperVPowerShellDirect -VMName $VMName -ExpectedRunId $ExpectedRunId `
+    $receipt = Invoke-HyperVPowerShellDirect -VMName $VMName -ExpectedRunId $ExpectedRunId -NoRetry `
         -ExpectedScopeId $ExpectedScopeId -Credential $Credential `
-        -FallbackAddress $(if ($FallbackAddress) { $FallbackAddress } else { $address }) `
+        -FallbackAddress $(if($vmBinding.Count){$null}elseif ($FallbackAddress) { $FallbackAddress } else { $address }) @vmBinding `
         -ArgumentList @($addressMode, $address, [int]$Network.PrefixLength, [string]$Network.Name, [string]$Network.HostAddress, $gateway, $dnsServers) `
         -ScriptBlock {
             param($AddressMode, $Address, $PrefixLength, $NetworkName, $HostAddress, $Gateway, $DnsServers)
