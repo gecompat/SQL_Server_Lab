@@ -31,6 +31,7 @@ function Set-VMProcessor { param($VM, $Count, $ErrorAction) $VM.ProcessorCount =
 function Set-VMMemory { param($VM, $DynamicMemoryEnabled, $MinimumBytes, $StartupBytes, $MaximumBytes, $ErrorAction) $VM.MemoryStartup = $StartupBytes }
 
 try {
+    . (Join-Path $repoRoot 'Private/SqlFeatures.ps1')
     . (Join-Path $repoRoot 'Private/EnvironmentResources.ps1')
     $before = Get-LabEnvironmentResources -RunId $runId -StateRoot $testRoot
     if ($before.Instances.Count -ne 1 -or $before.Instances[0].MemoryStartupMB -ne 4096 -or $before.Instances[0].ProcessorCount -ne 4) {

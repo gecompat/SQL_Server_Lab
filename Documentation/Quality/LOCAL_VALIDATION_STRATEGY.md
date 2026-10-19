@@ -28,7 +28,13 @@ Die fokussierte Offlineprüfung bestand mit 26 Vertragsassertions und
 ausgeführten synthetischen Mutationsfällen einschließlich gegenseitiger
 Recovery-Sperren für Feature- und Ressourcenänderungen. Die Browserfixture bestand mit
 159 Assertions einschließlich der drei Featuredialoge und der Trennung zwischen
-SQL- und reinen Windows-Vorlagen. Die breite Auswahl mit
+SQL- und reinen Windows-Vorlagen. Die Reconcile-Regression führt den tatsächlichen
+öffentlichen Recreate mit und ohne Instanz-ID sowie explizitem true/false auf
+synthetischen Docker-/Podman-Grenzen aus. Sie prüft die Wiederherstellung vor dem
+Entfernen des Originals, zehn gesperrte Mutatoren, die echten unveränderlichen
+Manifestprojektionen und eine echte Sperrkollision mit einem zweiten Prozess.
+Dies ist ein Kontrollfluss-/Prozessnachweis, keine zusätzliche native SQL-Abnahme.
+Die breite Auswahl mit
 55 statischen Suites bestand. Die getrennten nativen SQL-2025-Abnahmen sind
 für **alle drei Provider bestanden**:
 

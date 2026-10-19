@@ -32,6 +32,9 @@ function Update-SqlServerLabContainer {
         [ValidatePattern('^[a-f0-9]{64}$')][string]$ExpectedResourcePlanKey,
         [string]$StateRoot
     )
+    if(-not $StateRoot){$StateRoot=Get-LabStateRoot}
+    $featureGuard=Enter-LabSqlFeatureConflictGuard -RunId $RunId -StateRoot $StateRoot
+    try {
 
     if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
     if ((Test-LabAutomatedTestEnvironmentRun -RunId $RunId) -and -not $script:LabAutomatedTestEnvironmentGroupOperation) {
@@ -159,9 +162,9 @@ function Update-SqlServerLabContainer {
             $readiness = Wait-SqlReady -HostName $hostName -Port ([int]$plan.Desired.Port) -SaPassword $password `
                 -TimeoutSeconds $ReadinessTimeoutSeconds -Provider $runtime -ContainerIdOrName $name
             if (-not $readiness.Ready) { throw "CONTAINER_RECONCILE_READINESS_TIMEOUT: $($readiness.Message)" }
-            $featureDesired=@($context.Run.metadata.desiredState.Instances|Where-Object Id -ceq $InstanceId)
+            $featureDesired=@($context.Run.metadata.desiredState.Instances|Where-Object Id -ceq $context.InstanceId)
             if($featureDesired.Count -eq 1 -and $featureDesired[0].Intents.SqlFeatures){
-                $featureInstance=[pscustomobject]@{id=$InstanceId;version=[string]$context.Instance.version;sqlFeatures=$featureDesired[0].Intents.SqlFeatures}
+                $featureInstance=[pscustomobject]@{id=[string]$context.InstanceId;version=[string]$context.Instance.version;sqlFeatures=$featureDesired[0].Intents.SqlFeatures}
                 $featureRun=[pscustomobject]@{RunId=$RunId;ScopeId=[string]$context.Run.scopeId;StateRoot=$StateRoot}
                 $featureContainer=[pscustomobject]@{Provider=$runtime;ContainerId=[string]$replacement.Id;Port=[int]$plan.Desired.Port}
                 Invoke-LabInitialContainerSqlFeatures -Instance $featureInstance -RunState $featureRun -Container $featureContainer -SaPassword $password
@@ -226,6 +229,7 @@ function Update-SqlServerLabContainer {
         throw $failure
     }
     } finally { if ($acquired) { $mutex.ReleaseMutex() }; $mutex.Dispose() }
+    } finally {$featureGuard.ReleaseMutex();$featureGuard.Dispose()}
 }
 
 function Update-LabContainerEnvironmentInteractive {

@@ -195,6 +195,7 @@ function Get-LabHyperVSqlConfigurationInstanceFingerprint {
         Profile=[string]$Instance.Profile;AutoStart=[string]$Instance.AutoStart;DatabaseNames=@($Instance.DatabaseNames)
         Drives=@($Instance.Intents.Drives);Network=$Instance.Intents.Network;Resources=$Instance.Intents.Resources
         SqlEndpoint=$Instance.Intents.SqlEndpoint;Databases=$Instance.Intents.Databases
+        SqlFeatures=(Get-LabSqlFeatureIntentFingerprint -Intent $Instance.Intents.SqlFeatures)
         Software=$Instance.Intents.Software;Storage=$Instance.Intents.Storage
     }
 }
@@ -710,6 +711,9 @@ function Sync-LabHyperVSqlConfigurationDesiredState {
 function Invoke-LabHyperVSqlConfigurationReconcileRepair {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$RunId,[Parameter(Mandatory)][string]$InstanceId,[string]$ManifestPath,[string]$StateRoot)
+    if(-not $StateRoot){$StateRoot=Get-LabStateRoot}
+    $featureGuard=Enter-LabSqlFeatureConflictGuard -RunId $RunId -StateRoot $StateRoot
+    try {
 
     Assert-LabWindowsPoolMutationAllowed -RunId $RunId -StateRoot $StateRoot -InvalidateEvidence
     $mutex=[Threading.Mutex]::new($false,"Global\SQL_Server_Lab_HyperV_SQL_Configuration_Reconcile_$($RunId.Replace('-',''))")
@@ -820,4 +824,5 @@ function Invoke-LabHyperVSqlConfigurationReconcileRepair {
         throw
     }
     finally{if($acquired){try{$mutex.ReleaseMutex()}catch{}};$mutex.Dispose()}
+    } finally {$featureGuard.ReleaseMutex();$featureGuard.Dispose()}
 }

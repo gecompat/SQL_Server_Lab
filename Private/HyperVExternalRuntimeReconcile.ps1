@@ -133,6 +133,7 @@ function Get-LabHyperVExternalRuntimeInstanceFingerprint {
         Profile=[string]$Instance.Profile;AutoStart=[string]$Instance.AutoStart;DatabaseNames=@($Instance.DatabaseNames)
         Drives=@($Instance.Intents.Drives);Network=$Instance.Intents.Network;Resources=$Instance.Intents.Resources
         SqlEndpoint=$Instance.Intents.SqlEndpoint;SqlConfiguration=$Instance.Intents.SqlConfiguration
+        SqlFeatures=(Get-LabSqlFeatureIntentFingerprint -Intent $Instance.Intents.SqlFeatures)
         Databases=$Instance.Intents.Databases;Storage=$Instance.Intents.Storage
     }
 }
@@ -318,6 +319,9 @@ function Invoke-LabHyperVExternalRuntimeReconcileRepair {
         [string]$MediaRoot,
         [string]$StateRoot
     )
+    if(-not $StateRoot){$StateRoot=Get-LabStateRoot}
+    $featureGuard=Enter-LabSqlFeatureConflictGuard -RunId $RunId -StateRoot $StateRoot
+    try {
     Assert-LabWindowsPoolMutationAllowed -RunId $RunId -StateRoot $StateRoot -InvalidateEvidence
     $context = Get-LabHyperVExternalRuntimeReconcileContext -RunId $RunId -ManifestPath $ManifestPath -InstanceId $InstanceId -StateRoot $StateRoot
     $plan = New-LabHyperVExternalRuntimeReconcilePlan -RunId $RunId -ManifestPath $ManifestPath -InstanceId $InstanceId -StateRoot $StateRoot
@@ -386,4 +390,5 @@ function Invoke-LabHyperVExternalRuntimeReconcileRepair {
         try { $null = Set-LabHyperVExternalRuntimeReconcileJournalStatus -Journal $journal -Path $context.JournalPath -Status RECOVERY_REQUIRED -ErrorCode $errorCode } catch { }
         throw $failure
     }
+    } finally {$featureGuard.ReleaseMutex();$featureGuard.Dispose()}
 }

@@ -19,6 +19,8 @@ FileTable und die zusätzliche semantische Suchdatenbank werden nicht eingericht
 Container-Removal übernimmt keine fremde FTS-Installation und blockiert bei
 geänderter Capsule. Gestoppte Container mit aktivem Volltext müssen vor Recreate
 gestartet werden. Weitere SQL-/OS-Stände benötigen eigene native Nachweise.
+Spätere Reconcile-Manifeste müssen den aktuellen gespeicherten Featureintent
+enthalten: Andere Reconcile-Arten dürfen ihn nicht stillschweigend zurücksetzen.
 
 Die öffentliche optionale VM-ID-Lane für CompleteImage/HostSQL ist durch
 synthetische Funktionsketten geprüft. Sie verlangt einen ausgewählten Root;

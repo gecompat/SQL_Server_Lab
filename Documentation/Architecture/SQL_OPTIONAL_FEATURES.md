@@ -83,7 +83,11 @@ damit nicht qualifiziert.
 
 Vor einer Mutation werden Run-/Scope-/Instanzbindung und echte Container-ID
 beziehungsweise VM-ID geprüft. Geschützte System-/Testgruppen bleiben gesperrt.
-Eine Änderung benötigt eine eigene Run-Sperre. Vor Entfernung müssen sämtliche
+Featureänderungen, Container-Recreate und -Autostart, External-Runtime-Refresh
+sowie Hyper-V-Ressourcen-, Storage-, SQL-Port-, SQL-Konfigurations- und Sample-Reconcile
+teilen eine atomare Root-/Run-Sperre, unter Windows sitzungsübergreifend.
+Offene Feature-Recovery blockiert diese Mutatoren unter derselben Sperre.
+Vor Entfernung müssen sämtliche
 Datenbanken mit Sysadminrechten sichtbar, online und zugänglich sein.
 Volltextkataloge sowie FILESTREAM-Dateien oder -Spalten blockieren das Entfernen;
 die API löscht keine abhängigen Daten. Benutzer räumen solche Objekte bewusst
@@ -93,9 +97,17 @@ Das lokale Journal wird vor der Mutation geschrieben. Fehler ergeben
 `RECOVERY_REQUIRED`; Setup wird nicht blind wiederholt. `-Resume` darf nur einen
 bereits tatsächlich erreichten Zielzustand bestätigen und den State nachtragen.
 Für einen noch nicht erreichten Zustand bleibt eine gezielte Diagnose nötig.
+Hyper-V-FULLTEXT-Resume verlangt außerdem eine frische rein lesende und
+VM-ID-gebundene Bestätigung, dass weder Setup noch ScenarioEngine noch laufen.
+Aktive oder unbekannte Consumer erhalten die Recovery-Sperre auch bei bereits
+passender SQL-Featureproperty; der Installer wird nicht wiederholt.
 Der verifizierte Intent wird im lokalen Run-State und, falls vorhanden, im
 Desired-State-Snapshot gespeichert. Das ursprüngliche Quelldokument wird durch
 eine spätere Änderung am Run nicht überschrieben.
+Andere Manifest-Reconciles dürfen diesen gespeicherten Featureintent weder
+ändern noch auslassen; entsprechende Abweichungen werden vor Mutation abgewiesen.
+Die booleschen Felder werden dabei unabhängig von ihrer JSON-Reihenfolge verglichen.
+Ein später verwendetes Reconcile-Manifest muss dem aktuellen Featureintent entsprechen.
 
 ## Nachweise und Herstellerquellen
 

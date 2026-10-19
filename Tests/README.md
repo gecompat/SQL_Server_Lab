@@ -2,6 +2,10 @@
 
 `Static/Invoke-SqlFeatureChecks.ps1` prüft die optionalen SQL-Funktionen samt
 WhatIf, Abhängigkeitsveto, Antwortverlust und rein beobachtendem Resume.
+Die gekoppelte `SqlFeatureReconcileChecks.ps1` führt den öffentlichen Recreate
+mit optionaler Instanz-ID, Feature-Recovery-Sperren und unveränderliche
+Manifestprojektionen mit synthetischen Grenzen aus; getrennte echte Prozesse
+prüfen die gemeinsame Operationssperre.
 `Integration/Invoke-SqlFeatureAcceptance.ps1 -Provider docker|podman|hyperv`
 erstellt ausschließlich eigene SQL-2025-Runs und tatsächliche Volltextindizes.
 Die Suchabnahme umfasst `CONTAINS`, `FREETEXT`, `CONTAINSTABLE`, Negativsuche,

@@ -48,4 +48,5 @@ try {
 } finally {Remove-Module $module.Name -Force}
 & (Join-Path $PSScriptRoot 'Fixtures/SqlFeatureMutationChecks.ps1')
 & (Join-Path $PSScriptRoot 'Fixtures/SqlFeatureReadinessChecks.ps1')
+& (Join-Path $PSScriptRoot 'Fixtures/SqlFeatureReconcileChecks.ps1')
 Write-Host "SQL FEATURE CHECKS: PASS ($count assertions)"

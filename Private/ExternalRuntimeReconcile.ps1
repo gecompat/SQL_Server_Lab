@@ -152,6 +152,7 @@ function Get-LabExternalRuntimeReconcileContext {
             DatabaseNames=@($item.DatabaseNames | Sort-Object)
             Drives=@(Get-LabExternalRuntimeManifestComparableDrives -Drives @($item.Intents.Drives) | Sort-Object Id)
             Network=$item.Intents.Network
+            SqlFeatures=(Get-LabSqlFeatureIntentFingerprint -Intent $item.Intents.SqlFeatures)
         }
     }
     $currentFingerprint = (& $toImmutableFingerprint $currentSnapshot[0]) | ConvertTo-Json -Depth 30 -Compress
@@ -642,6 +643,9 @@ function Invoke-LabExternalRuntimeReconcileRefresh {
         [ValidateRange(30,900)][int]$ReadinessTimeoutSeconds=300,
         [string]$StateRoot
     )
+    if(-not $StateRoot){$StateRoot=Get-LabStateRoot}
+    $featureGuard=Enter-LabSqlFeatureConflictGuard -RunId $RunId -StateRoot $StateRoot
+    try {
     $context = Get-LabExternalRuntimeReconcileContext -RunId $RunId -ManifestPath $ManifestPath -InstanceId $InstanceId -StateRoot $StateRoot
     Repair-LabExternalRuntimeRefreshJournal -Context $context
     $context = Get-LabExternalRuntimeReconcileContext -RunId $RunId -ManifestPath $ManifestPath -InstanceId $InstanceId -StateRoot $StateRoot
@@ -815,4 +819,5 @@ function Invoke-LabExternalRuntimeReconcileRefresh {
         }
         throw $failure
     }
+    } finally {$featureGuard.ReleaseMutex();$featureGuard.Dispose()}
 }

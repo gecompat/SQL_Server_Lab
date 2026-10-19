@@ -30,6 +30,9 @@ function Resume-SqlServerLabContainerAutoStart {
     #>
     [CmdletBinding(SupportsShouldProcess)]
     param([Parameter(Mandatory)][string]$RunId,[Parameter(Mandatory)][string]$InstanceId,[string]$StateRoot)
+    if(-not $StateRoot){$StateRoot=Get-LabStateRoot}
+    $featureGuard=Enter-LabSqlFeatureConflictGuard -RunId $RunId -StateRoot $StateRoot
+    try {
     if (-not $StateRoot) { $StateRoot=Get-LabStateRoot };$StateRoot=Get-LabCanonicalResourceRoot -StateRoot $StateRoot
     $mutex=[Threading.Mutex]::new($false,(Get-LabContainerResourceLockName -StateRoot $StateRoot -RunId $RunId));$acquired=$false
     try {
@@ -52,4 +55,5 @@ function Resume-SqlServerLabContainerAutoStart {
         $journal.Status='COMPLETED';$null=Write-LabContainerAutoStartJournal -Journal $journal -Path $path
         [pscustomobject]@{RunId=$RunId;InstanceId=$InstanceId;Provider=$context.Provider;Changed=$true;Status='RECOVERY_SUCCEEDED';OperationId=$journal.OperationId}
     } finally {if($acquired){$mutex.ReleaseMutex()};$mutex.Dispose()}
+    } finally {$featureGuard.ReleaseMutex();$featureGuard.Dispose()}
 }

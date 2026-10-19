@@ -38,6 +38,9 @@ function Set-SqlServerLabContainerAutoStart {
         [Parameter(Mandatory)][ValidatePattern('^[a-f0-9]{64}$')][string]$ExpectedAutoStartPlanKey,
         [string]$StateRoot
     )
+    if(-not $StateRoot){$StateRoot=Get-LabStateRoot}
+    $featureGuard=Enter-LabSqlFeatureConflictGuard -RunId $RunId -StateRoot $StateRoot
+    try {
     if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
     $StateRoot = Get-LabCanonicalResourceRoot -StateRoot $StateRoot
     if ((Test-LabAutomatedTestEnvironmentRun -RunId $RunId) -and -not $script:LabAutomatedTestEnvironmentGroupOperation) {
@@ -89,4 +92,5 @@ function Set-SqlServerLabContainerAutoStart {
         }
     }
     finally { if ($acquired) { $mutex.ReleaseMutex() }; $mutex.Dispose() }
+    } finally {$featureGuard.ReleaseMutex();$featureGuard.Dispose()}
 }

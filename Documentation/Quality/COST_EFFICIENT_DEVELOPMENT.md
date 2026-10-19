@@ -226,6 +226,9 @@ Die Shellquelle wählt Docker/Podman, der Windows-Adapter Hyper-V; gemischte
 Coreänderungen behalten die konservative bestehende Matrix. Die aktuelle
 Manifest-/API-Änderung behält deshalb die betroffenen breiten statischen Gates.
 Die Testauswahl ergänzt keine Modellaufrufe oder zusätzliche Review-/Logpipeline.
+Die Feature-Recovery-Regression wird außerdem für die exakt gekoppelten
+Container-/Hyper-V-Mutatoren gewählt; der SQL-Port-Setter wählt seine bestehende
+Fachsuite. Dies erhält Sperr- und Intentgrenzen ohne zusätzliche Runtimefälle.
 Der bestehende Port-HTTP-Test bestand isoliert mit allen 87 Assertions in
 65,3 Sekunden. Nur sein Wrapperbudget steigt von 60 auf 90 Sekunden; andere
 Timeouts, sämtliche Oracles und Cleanup bleiben erhalten. Dies behebt den

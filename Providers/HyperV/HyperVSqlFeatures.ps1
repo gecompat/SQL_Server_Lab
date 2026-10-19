@@ -1,4 +1,18 @@
 # Windows-only SQL feature operations on an owned Hyper-V guest.
+function Assert-LabHyperVSqlFeatureConsumersEnded {
+    [CmdletBinding()]
+    param($Context)
+    try {
+        $ended=@(Invoke-LabSqlFeatureGuest -Context $Context -ScriptBlock {
+            $ErrorActionPreference='Stop'
+            $active=@(Get-Process -ErrorAction Stop|Where-Object ProcessName -in @('setup','ScenarioEngine'))
+            [bool]($active.Count -eq 0)
+        })
+    } catch {throw 'SQL_FEATURE_SETUP_CONSUMER_END_UNKNOWN_NO_REPLAY'}
+    if($ended.Count -ne 1 -or $ended[0] -isnot [bool]){throw 'SQL_FEATURE_SETUP_CONSUMER_END_UNKNOWN_NO_REPLAY'}
+    if(-not $ended[0]){throw 'SQL_FEATURE_SETUP_CONSUMER_ACTIVE_NO_REPLAY'}
+}
+
 function Invoke-LabHyperVFileStreamChange {
     [CmdletBinding()]
     param($Context,[bool]$Enabled)

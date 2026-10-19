@@ -1,4 +1,53 @@
 # Optional instance features. Intent is explicit; absent fields preserve legacy behaviour.
+function Get-LabSqlFeatureIntentFingerprint {
+    [CmdletBinding()]
+    param($Intent)
+    if($null -eq $Intent){return $null}
+    $result=[ordered]@{}
+    foreach($name in @('fullText','fileStream')){
+        $present=if($Intent -is [Collections.IDictionary]){$Intent.Contains($name)}else{$null -ne $Intent.PSObject.Properties[$name]}
+        if($present){
+            if($Intent.$name -isnot [bool]){throw 'SQL_FEATURE_INTENT_STATE_INVALID'}
+            $result[$name]=$Intent.$name
+        }
+    }
+    if(-not $result.Count){throw 'SQL_FEATURE_INTENT_STATE_INVALID'}
+    [pscustomobject]$result
+}
+
+function Assert-LabSqlFeatureRecoveryClear {
+    [CmdletBinding()]
+    param([string]$RunId,[string]$StateRoot)
+    if(-not $StateRoot){$StateRoot=Get-LabStateRoot}
+    $directory=Join-Path (Join-Path $StateRoot 'runs') $RunId
+    if(Test-Path -LiteralPath $directory -PathType Container){
+        foreach($file in @(Get-ChildItem -LiteralPath $directory -Filter 'sql-feature-*.json' -File -ErrorAction Stop)){
+            $operation=Get-Content -LiteralPath $file.FullName -Raw|ConvertFrom-Json
+            if($operation.Status -cne 'COMPLETED'){throw 'SQL_FEATURE_RECOVERY_REQUIRED_NO_REPLAY'}
+        }
+    }
+}
+
+function Enter-LabSqlFeatureConflictGuard {
+    [CmdletBinding()]
+    param([string]$RunId,[string]$StateRoot,[switch]$AllowFeatureRecovery)
+    if(-not $StateRoot){$StateRoot=Get-LabStateRoot}
+    $name=Get-LabContainerResourceLockName -StateRoot $StateRoot -RunId $RunId
+    # GUI, elevated guest work and CI may run in different Windows sessions.
+    if($IsWindows){$name='Global\'+$name}
+    $mutex=[Threading.Mutex]::new($false,$name);$acquired=$false
+    try {
+        try{$acquired=$mutex.WaitOne(0)}catch [Threading.AbandonedMutexException]{$acquired=$true}
+        if(-not $acquired){throw 'SQL_FEATURE_OPERATION_BUSY'}
+        if(-not $AllowFeatureRecovery){Assert-LabSqlFeatureRecoveryClear -RunId $RunId -StateRoot $StateRoot}
+        return $mutex
+    } catch {
+        if($acquired){$mutex.ReleaseMutex()}
+        $mutex.Dispose()
+        throw
+    }
+}
+
 function Resolve-LabSqlFeatureIntent {
     [CmdletBinding()]
     param($Intent,[Parameter(Mandatory)][string]$Provider,[Parameter(Mandatory)][string]$SqlVersion)

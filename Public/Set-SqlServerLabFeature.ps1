@@ -42,6 +42,9 @@ function Set-SqlServerLabFeature {
         [Parameter(Mandatory)][bool]$Enabled,
         [securestring]$SaPassword,[pscredential]$GuestCredential,[string]$MediaRoot,[string]$SqlMediaPath,[string]$StateRoot,[switch]$Resume
     )
+    if(-not $StateRoot){$StateRoot=Get-LabStateRoot}
+    $featureGuard=Enter-LabSqlFeatureConflictGuard -RunId $RunId -StateRoot $StateRoot -AllowFeatureRecovery
+    try {
     $Feature=if($Feature -ieq 'FullText'){'FullText'}else{'FileStream'}
     if(-not $StateRoot){$StateRoot=Get-LabStateRoot}
     $environment=Get-LabEnvironmentResourceContext -RunId $RunId -StateRoot $StateRoot
@@ -65,7 +68,7 @@ function Set-SqlServerLabFeature {
         $field=if($Feature -eq 'FullText'){'fullText'}else{'fileStream'}
         $null=Resolve-LabSqlFeatureIntent -Intent ([pscustomobject]@{$field=$Enabled}) -Provider $context.Provider -SqlVersion $context.SqlVersion
         $path=Join-Path $context.RunDirectory ("sql-feature-$InstanceId-$Feature.json")
-        foreach($name in @('container-reconcile-journal.json','container-autostart-journal.json','external-runtime-refresh.json','hyperv-sql-configuration-reconcile.local.journal.json','hyperv-sql-port-reconcile.local.journal.json','hyperv-resource-reconcile.local.journal.json','hyperv-storage-reconcile.local.journal.json','hyperv-external-runtime-reconcile.local.journal.json')){
+        foreach($name in @('container-reconcile-journal.json','container-autostart-journal.json','external-runtime-refresh.json','hyperv-sql-configuration-reconcile.local.journal.json','hyperv-sql-port-reconcile.local.journal.json','hyperv-resource-reconcile.local.journal.json','hyperv-storage-reconcile.local.journal.json','hyperv-external-runtime-reconcile.local.journal.json','hyperv-test-database-reconcile.local.journal.json')){
             $otherPath=Join-Path $context.RunDirectory $name
             if(Test-Path -LiteralPath $otherPath -PathType Leaf){
                 $other=Get-Content -LiteralPath $otherPath -Raw|ConvertFrom-Json
@@ -91,6 +94,9 @@ function Set-SqlServerLabFeature {
         if($journal -and $journal.Build -cne $before.Build){throw 'SQL_FEATURE_RECOVERY_BUILD_CHANGED_NO_REPLAY'}
         $matches=if($Feature -eq 'FullText'){[bool]$before.FullText -eq $Enabled}else{([int]$before.FileStream -gt 0) -eq $Enabled}
         if($Resume -and -not $matches){throw 'SQL_FEATURE_RECOVERY_TARGET_NOT_REACHED_NO_REPLAY'}
+        if($journal -and $Resume -and $context.Provider -eq 'hyperv' -and $Feature -eq 'FullText'){
+            Assert-LabHyperVSqlFeatureConsumersEnded -Context $context
+        }
         if(-not $PSCmdlet.ShouldProcess("$RunId/$InstanceId","$Feature = $Enabled; SQL-Neustart bei Änderung")){return}
         if(-not $matches){
             if(-not $Enabled){Assert-LabSqlFeatureRemovalSafe -Context $context -Feature $Feature}
@@ -127,4 +133,5 @@ function Set-SqlServerLabFeature {
         if($journal -and $path -and -not $WhatIfPreference){$journal.Status='RECOVERY_REQUIRED';try{Write-LabArtifactJsonAtomic -Path $path -InputObject $journal}catch{Write-Warning 'SQL_FEATURE_RECOVERY_JOURNAL_WRITE_FAILED'}}
         throw
     } finally {if($mediaBinding){$mediaBinding.Handle.Dispose()};if($acquired){$mutex.ReleaseMutex()};$mutex.Dispose()}
+    } finally {$featureGuard.ReleaseMutex();$featureGuard.Dispose()}
 }
