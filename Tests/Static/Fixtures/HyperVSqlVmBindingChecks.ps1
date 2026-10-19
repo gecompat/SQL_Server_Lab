@@ -29,7 +29,7 @@ try{
         $script:otherId=[guid]'53a98178-a7d6-426f-b2a7-4730fb3e1418'
         $script:runId='8d140b7b-9294-4b85-a5e3-308854b4ea2e'
         $script:scopeId='a16f430c-9789-494b-ad8f-760b554661f3'
-        $script:stateRoot='C:/synthetic/sql-binding-state'
+        $script:stateRoot='/synthetic/sql-binding-state'
         $script:credential=[pscredential]::new('synthetic-user',[securestring]::new())
         $password=[securestring]::new();$password.AppendChar('x');$password.MakeReadOnly()
         function Check([bool]$Value,[string]$Label){if($Value){$script:passed++;Write-Host "PASS: $Label"}else{$script:failed++;Write-Host "FAIL: $Label"}}
