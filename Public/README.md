@@ -1,5 +1,12 @@
 # Public/ – Exportierte Cmdlets
 
+`Set-SqlServerLabFeature` fügt einer eigenen laufenden Instanz `FullText` oder
+`FileStream` mit `-Enabled $true` hinzu; `$false` entfernt beziehungsweise
+deaktiviert die Funktion. Abhängige Daten blockieren Removal. `-Resume` bestätigt
+ausschließlich einen bereits erreichten Zustand nach Antwortverlust. Neuanlage
+verwendet `New-SqlServerLab -FullText $true` beziehungsweise den manifestgebundenen
+`sqlFeatures`-Intent. [Vertrag und Providergrenzen](../Documentation/Architecture/SQL_OPTIONAL_FEATURES.md).
+
 ## TLS-Standard für neue Verbindungen
 
 Neue gemeinsame Lab-Connection-Strings und SSMS-Registrierungsexporte enthalten

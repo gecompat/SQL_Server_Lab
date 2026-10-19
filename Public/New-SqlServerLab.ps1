@@ -369,6 +369,12 @@ function New-SqlServerLab {
         Standard true bei stets aktivierter Verschluesselung. False erstellt nur
         ein eigenes isoliertes Docker-Lab mit Version 2025-CU9 unter Windows;
         DataRoot und die drei Tls-CA-Referenzen sind dann erforderlich.
+    .PARAMETER FullText
+        Explizite Volltextauswahl für AdHoc-Container. true installiert das
+        versionsgleiche FTS-Paket, false entfernt es; ohne Angabe bleibt der Default.
+    .PARAMETER FileStream
+        Explizite FILESTREAM-Auswahl. Aktivierung benötigt Windows/Hyper-V
+        über ein Manifest; SQL Server unter Linux weist true vor Mutation ab.
     .PARAMETER TlsCandidateId
         Expliziter vorhandener CA-Kandidat mit bereits funktionierendem CurrentUser-Trust.
     .PARAMETER TlsControllerId
@@ -402,6 +408,8 @@ function New-SqlServerLab {
         [Parameter(ParameterSetName = 'AdHoc')][ValidateRange(0, 1048576)][int]$MemoryMB = 0,
         [Parameter(ParameterSetName = 'AdHoc')][ValidatePattern('^[A-Za-z0-9_]{1,128}$')][string]$Collation = 'SQL_Latin1_General_CP1_CI_AS',
         [Parameter(ParameterSetName = 'AdHoc')]$ServerConfig,
+        [Parameter(ParameterSetName = 'AdHoc')][Nullable[bool]]$FullText,
+        [Parameter(ParameterSetName = 'AdHoc')][Nullable[bool]]$FileStream,
         [Parameter(ParameterSetName = 'AdHoc')][object[]]$Drives = @(),
         [Parameter(ParameterSetName = 'AdHoc')][string]$NetworkName,
         [Parameter(ParameterSetName = 'AdHoc')][ValidateSet('on', 'off')][string]$AutoStart = 'off',
@@ -517,6 +525,11 @@ function New-SqlServerLab {
         }
 
         $profileDefinition = Get-LabResourceProfile -Name $Profile
+        $featureSelection=[ordered]@{}
+        foreach($featureParameter in @('FullText','FileStream')){if($PSBoundParameters.ContainsKey($featureParameter) -and $null -eq $PSBoundParameters[$featureParameter]){throw 'SQL_FEATURE_EXPLICIT_BOOLEAN_REQUIRED'}}
+        if($PSBoundParameters.ContainsKey('FullText')){$featureSelection.fullText=[bool]$FullText}
+        if($PSBoundParameters.ContainsKey('FileStream')){$featureSelection.fileStream=[bool]$FileStream}
+        $featureIntent=if($featureSelection.Count){Resolve-LabSqlFeatureIntent -Intent $featureSelection -Provider $Provider -SqlVersion $Version}else{$null}
         $resolved = [PSCustomObject]@{
             name      = if ($LabName) { $LabName } else { "adhoc-$Version-$Provider" }
             instances = @(
@@ -531,6 +544,7 @@ function New-SqlServerLab {
                     databases     = $sampleDatabases
                     drives        = @($Drives)
                     serverConfig  = $ServerConfig
+                    sqlFeatures   = $featureIntent
                     networkName   = $NetworkName
                     runtimeResources = [PSCustomObject]@{
                         cpu = if ($Cpu -gt 0) { $Cpu } else { [decimal]$profileDefinition.maxCpus }
@@ -814,6 +828,7 @@ function New-SqlServerLab {
         $hyperVLab = Get-HyperVLabWorkflowRun -RunId $lab.RunId -StateRoot $hyperVLab.StateRoot
         $initialSqlConfigurationReconcile = Invoke-LabHyperVInitialSqlConfigurationReconcile `
             -ArtifactState $artifactState -Instance $instance -RunId $lab.RunId -StateRoot $hyperVLab.StateRoot
+        if($instance.sqlFeatures){Invoke-LabInitialSqlFeatures -Instances @($instance) -RunId $lab.RunId -StateRoot $hyperVLab.StateRoot}
         if ($null -ne $initialSqlConfigurationReconcile) {
             Write-LabInfo "Deklarierte SQL-Serverkonfiguration auf '$($instance.id)' prüfen und anwenden..."
             $hyperVLab = Get-HyperVLabWorkflowRun -RunId $lab.RunId -StateRoot $hyperVLab.StateRoot
@@ -1239,6 +1254,8 @@ function New-SqlServerLab {
                 -HostName $containerHost `
                 -Port ([int]$container.Port) `
                 -SaPassword $SaPassword
+
+            if($instance.sqlFeatures){Invoke-LabInitialContainerSqlFeatures -Instance $instance -RunState $runState -Container $container -SaPassword $SaPassword}
 
             $labInstances += [PSCustomObject]@{
                 Id               = $instance.id

@@ -154,6 +154,7 @@ COMMANDS
         or host paths; it does not create checkpoints or perform a restore.
 
     Get-SqlServerLabContainerAutoStartPlan, Set-SqlServerLabContainerAutoStart,
+    Set-SqlServerLabFeature,
     Resume-SqlServerLabContainerAutoStart
         Read, change, or complete the bound direct container autostart contract
         without recreation or a second provider apply.

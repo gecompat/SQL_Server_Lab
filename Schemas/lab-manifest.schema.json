@@ -310,6 +310,16 @@
             ]
           ]
         },
+        "sqlFeatures": {
+          "type": "object",
+          "additionalProperties": false,
+          "minProperties": 1,
+          "description": "Explizite optionale SQL-Funktionen. Fehlende Felder bewahren das bisherige Verhalten. Entfernen blockiert bei abhängigen Daten. Änderungen starten SQL neu. FILESTREAM ist nur für Windows/Hyper-V verfügbar (T-SQL-Zugriff).",
+          "properties": {
+            "fullText": { "type": "boolean", "description": "Volltext installieren oder entfernen; Docker/Podman verwenden das exakt zur Engine passende mssql-server-fts-Paket." },
+            "fileStream": { "type": "boolean", "description": "FILESTREAM-T-SQL-Zugriff unter Windows einschalten/ausschalten. true wird auf Linux vor Mutation abgewiesen." }
+          }
+        },
         "serverConfig": {
           "$ref": "#/definitions/serverConfig"
         },

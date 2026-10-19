@@ -1,5 +1,12 @@
 # Projektkontext
 
+Die [optionalen SQL-Funktionen](../Documentation/Architecture/SQL_OPTIONAL_FEATURES.md)
+ergänzen explizite Manifest-/CLI-/GUI-Auswahl für Volltext auf Docker, Podman
+und Hyper-V sowie FILESTREAM-T-SQL-Zugriff auf Windows/Hyper-V. Linux lehnt
+FILESTREAM-Aktivierung vor Mutation ab. Abhängigkeitsprüfung, versionsgebundene
+FTS-Capsule und No-Replay-Recovery sind implementiert. Die tatsächlichen
+Providerabnahmen werden in der Validierungsstrategie separat ausgewiesen.
+
 Der [isolierte SSIS-Registrierungsvergleich](../Documentation/Quality/SSIS_CATALOG_REGISTRATION_RECOVERY_2026-10-18.md)
 hat den aktuellen SQL-LogProvider-Installationsfehler im eigenen Lab durch
 unterstütztes IS-Setup unter SYSTEM behoben: drei echte Basic-Katalogtests

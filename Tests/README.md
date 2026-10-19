@@ -1,5 +1,15 @@
 # Tests/ – lokale und Remote-Validierung
 
+`Static/Invoke-SqlFeatureChecks.ps1` prüft die optionalen SQL-Funktionen samt
+WhatIf, Abhängigkeitsveto, Antwortverlust und rein beobachtendem Resume.
+`Integration/Invoke-SqlFeatureAcceptance.ps1 -Provider docker|podman|hyperv`
+erstellt ausschließlich eigene SQL-2025-Runs und tatsächliche Volltextindizes.
+Die Suchabnahme umfasst `CONTAINS`, `FREETEXT`, `CONTAINSTABLE`, Negativsuche,
+Neustart und Remove/Add; Hyper-V ergänzt echte FILESTREAM-BLOBs mit Update und
+Neustart. Für Hyper-V sind `-ArtifactId` eines vorhandenen Prepared Images und
+verifizierte lokale SQL-Medien nötig. Die globale Runtime-Sperre muss frei sein.
+[Vertrag und Grenzen](../Documentation/Architecture/SQL_OPTIONAL_FEATURES.md).
+
 `Integration/Invoke-ConnectionCenterCmsNativeBrowserAcceptance.ps1 -Provider docker|podman`
 verwendet den bestehenden frischen `sql-lab-cms-inspection-<GUID-N>`-Parent mit
 getrennter Parent-/State-Policy und receiptgebundener Custody. Nur ein neuer eigener

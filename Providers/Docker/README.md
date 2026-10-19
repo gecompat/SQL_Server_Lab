@@ -1,5 +1,9 @@
 # Providers/Docker/ – Docker-Provider
 
+[Optionale Volltextsuche](../../Documentation/Architecture/SQL_OPTIONAL_FEATURES.md)
+verwendet die versionsgebundene FTS-Capsule und kann explizit hinzugefügt oder
+entfernt werden. FILESTREAM-Aktivierung wird auf Linux abgewiesen.
+
 Die [SA-Passwortpolicy-Vorbereitung](../../Documentation/Architecture/SA_PASSWORD_POLICY.md)
 seedet ein bewusstes Customminimum nur in eine frische eigene kurzlebige
 SQL2025-CU-Systemvolume vor Standardlaunch. Bestehende Config/Volumes bleiben

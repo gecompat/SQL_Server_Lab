@@ -1,8 +1,17 @@
 function Assert-LabResourceChangeAllowed {
-    param([string]$RunId, [string]$StateRoot)
+    param([string]$RunId, [string]$StateRoot, [switch]$SqlFeatureOperation)
     if (Test-LabAutomatedTestEnvironmentRun -RunId $RunId) { throw 'RESOURCE_CHANGE_PROTECTED_GROUP' }
     $cms = Get-LabConnectionCenterCmsConfiguration -StateRoot $StateRoot
     if ($cms -and [string]$cms.RunId -eq $RunId) { throw 'RESOURCE_CHANGE_SYSTEM_SERVICE' }
+    if(-not $SqlFeatureOperation -and $StateRoot){
+        $runDirectory=Join-Path (Join-Path $StateRoot 'runs') $RunId
+        if(Test-Path -LiteralPath $runDirectory -PathType Container){
+            foreach($file in @(Get-ChildItem -LiteralPath $runDirectory -Filter 'sql-feature-*.json' -File -ErrorAction Stop)){
+                $operation=Get-Content -LiteralPath $file.FullName -Raw|ConvertFrom-Json
+                if($operation.Status -cne 'COMPLETED'){throw 'SQL_FEATURE_RECOVERY_REQUIRED_NO_REPLAY'}
+            }
+        }
+    }
 }
 
 function Get-LabResourceChangeTargets {

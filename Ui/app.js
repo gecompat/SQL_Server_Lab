@@ -352,6 +352,10 @@ function renderHyperVArtifactDetails(items) {
 
 function updateHyperVLabWorkload(selected) {
   const windowsOnly = selected?.Workload === 'windows';
+  for (const selector of ['#hyperv-fulltext', '#hyperv-filestream']) {
+    $(selector).disabled = selected?.Workload !== 'sql';
+    if ($(selector).disabled) $(selector).value = 'default';
+  }
   $('#hyperv-sa-field').hidden = windowsOnly;
   $('#hyperv-sa-password-repeat-label').hidden = windowsOnly || !$('#hyperv-sa-password').value;
   $('#hyperv-persistent-field').hidden = windowsOnly;
@@ -360,6 +364,16 @@ function updateHyperVLabWorkload(selected) {
     ? 'Die Antwortdatei wird nur in die differenzierende Klon-VHDX geschrieben und nach OOBE im Gast entfernt. Das Gastpasswort wird ausschließlich für diesen Run DPAPI-geschützt abgelegt. Diese Vorlage erstellt eine reine Windows-VM; SQL, WMI und SQL-TCP werden bewusst nicht konfiguriert.'
     : 'Die Antwortdatei wird nur in die differenzierende Klon-VHDX geschrieben und nach OOBE im Gast entfernt. Das Gastpasswort wird ausschließlich für diesen Run DPAPI-geschützt abgelegt. Bei einer SQL-Vorlage richtet die Bereitstellung zusätzlich SQL CompleteImage, WMI und TCP/IP für den Hostzugriff ein.';
   $('#hyperv-lab-submit').textContent = windowsOnly ? 'Windows-VM bereitstellen' : 'SQL-Umgebung bereitstellen';
+}
+
+function collectHyperVSqlFeatureParameters(selected) {
+  const parameters = {};
+  if (selected?.Workload !== 'sql') return parameters;
+  for (const [name, selector] of [['FullText', '#hyperv-fulltext'], ['FileStream', '#hyperv-filestream']]) {
+    const value = $(selector).value;
+    if (value === 'true' || value === 'false') parameters[name] = value === 'true';
+  }
+  return parameters;
 }
 
 function renderHyperVSwitchOptions(items) {
@@ -805,6 +819,7 @@ function renderActiveLabs(items) {
         ? '<div class="build-meta"><strong>Backup-Arbeitsbereich:</strong> Host ' + escapeHtml(instance.PersistentStorage.backupHostPath) + ' → SQL ' + escapeHtml(instance.PersistentStorage.backupGuestPath || '/var/opt/mssql/backup') + '</div>'
         : '';
       const operations = running && instance.Port ? [
+        '<button class="button secondary" data-sql-features="true" data-run="' + escapeHtml(item.RunId) + '" data-instance="' + escapeHtml(instance.Id) + '" data-provider="' + escapeHtml(provider) + '">SQL-Funktionen</button>',
         '<button class="button secondary" data-container-operation="CreateContainerDatabase" data-container-operation-kind="container" data-run="' + escapeHtml(item.RunId) + '" data-instance="' + escapeHtml(instance.Id) + '" data-container-operation-host="' + escapeHtml(instance.Host || '127.0.0.1') + '" data-sql-version="' + escapeHtml(instance.SqlVersion) + '" data-port="' + escapeHtml(instance.Port) + '">Datenbank anlegen</button>',
         '<button class="button secondary" data-container-operation="InspectContainerDatabaseMigrationDependencies" data-container-operation-kind="container" data-run="' + escapeHtml(item.RunId) + '" data-instance="' + escapeHtml(instance.Id) + '">Migrationsabhängigkeiten prüfen</button>',
         '<button class="button secondary" data-container-operation="ExportContainerDatabasePackage" data-container-operation-kind="container" data-run="' + escapeHtml(item.RunId) + '" data-instance="' + escapeHtml(instance.Id) + '">Datenbank paketieren</button>',
@@ -850,6 +865,7 @@ function renderHyperVLabs(items) {
       : '';
     const resource = resourceForInstance(item.Resources, item.InstanceId);
     const actions = [
+      (running && isSqlLab) ? '<button class="button secondary" data-sql-features="true" data-run="' + escapeHtml(item.RunId) + '" data-instance="' + escapeHtml(sqlOperationInstanceId) + '" data-provider="hyperv">SQL-Funktionen</button>' : '',
       '<button class="button secondary" data-hyperv-action="' + (running ? 'StopLabReconcile' : 'StartLabReconcile') + '" data-run="' + escapeHtml(item.RunId) + '">' + (running ? 'Stoppen' : 'Starten') + '</button>',
       '<button class="button secondary" data-lab-resources="true" data-run="' + escapeHtml(item.RunId) + '" data-provider="hyperv" data-memory="' + escapeHtml(resource?.MemoryStartupMB || resource?.memoryStartupMB || '') + '" data-cpu="' + escapeHtml(resource?.ProcessorCount || resource?.processorCount || '') + '" data-requires-stopped="true">CPU / Speicher ändern</button>',
       (!running && !persistent) ? '<button class="button secondary" data-hyperv-action="EnableHyperVLabPersistentData" data-run="' + escapeHtml(item.RunId) + '">Daten-VHDX anhängen</button>' : '',
@@ -1687,6 +1703,20 @@ document.addEventListener('click', async (event) => {
     return;
   }
   const resourceButton = event.target.closest('[data-lab-resources]');
+  const featureButton = event.target.closest('[data-sql-features]');
+  if (featureButton) {
+    const windows = featureButton.dataset.provider === 'hyperv';
+    $('#sql-feature-run').value = featureButton.dataset.run;
+    $('#sql-feature-instance').value = featureButton.dataset.instance;
+    $('#sql-feature-name').value = 'FullText';
+    $('#sql-feature-enabled').value = 'true';
+    $('#sql-feature-filestream-option').disabled = !windows;
+    $('#sql-feature-note').textContent = windows ? 'Windows/Hyper-V: Volltext und FILESTREAM-T-SQL-Zugriff. Volltextänderungen benötigen das verifizierte SQL-Medium im konfigurierten Media Root.' : 'Docker/Podman: Volltextsuche verfügbar. FILESTREAM wird von SQL Server auf Linux nicht unterstützt.';
+    $('#sql-feature-password-label').hidden = windows;
+    $('#sql-feature-password').value = '';
+    $('#sql-feature-dialog').showModal();
+    return;
+  }
   if (resourceButton) { openResourceDialog(resourceButton); return; }
   const retentionPreview = event.target.closest('[data-persistent-storage-removal-preview]');
   if (retentionPreview) {
@@ -1961,6 +1991,7 @@ $('#hyperv-lab-form').addEventListener('submit', async (event) => {
     MemoryStartupMB: Number($('#hyperv-memory').value),
     ProcessorCount: Number($('#hyperv-processors').value),
     AutoStart: $('#hyperv-autostart').checked ? 'on' : 'off',
+    ...collectHyperVSqlFeatureParameters(selectedArtifact),
     SwitchName: $('#hyperv-switch').value.trim(),
     Region: region,
     WindowsActivation: {
@@ -2232,6 +2263,8 @@ $('#container-form').addEventListener('submit', async (event) => {
   const persistentStorageId = storageAction === 'NEW' ? '' : $('#container-storage-source').value;
   if (storageAction !== 'NEW' && !persistentStorageId) { showError(new Error('Kein kompatibler Instanzstore ausgewählt.')); return; }
   const parameters = { Provider: $('#container-provider').value, SqlVersion: $('#container-version').value, Profile: $('#container-profile').value, InstanceId: $('#container-instance').value, LabName: $('#container-lab-name').value, PersistentData: persistentData, AutoStart: $('#container-autostart').checked ? 'on' : 'off', SaPassword: password };
+  parameters.FullText = $('#container-fulltext').checked;
+  parameters.FileStream = false;
   if (minimum < 8) parameters.SaPasswordMinimumLength = minimum;
   if (persistentData) parameters.DataRoot = workflow?.Defaults?.DataRoot || '';
   if (persistentStorageId) { parameters.PersistentStorageId = persistentStorageId; parameters.PersistentStorageAction = storageAction; }
@@ -2250,8 +2283,18 @@ $('#manifest-form').addEventListener('submit', async (event) => {
     Provider: $('#manifest-provider').value,
     SqlVersion: $('#manifest-version').value,
     Profile: $('#manifest-profile').value,
-    InstanceId: $('#manifest-instance').value.trim()
+    InstanceId: $('#manifest-instance').value.trim(),
+    FullText: $('#manifest-fulltext').checked,
+    FileStream: false
   }, $('#manifest-dialog'));
+});
+
+$('#sql-feature-form').addEventListener('submit', async (event) => {
+  if (event.submitter?.value === 'cancel') return;
+  event.preventDefault();
+  const parameters = { RunId: $('#sql-feature-run').value, InstanceId: $('#sql-feature-instance').value, SqlFeature: $('#sql-feature-name').value, SqlFeatureEnabled: $('#sql-feature-enabled').value === 'true' };
+  if ($('#sql-feature-password').value) parameters.SaPassword = $('#sql-feature-password').value;
+  queueBackgroundAction('SetSqlFeature', parameters, $('#sql-feature-dialog'), () => { $('#sql-feature-password').value = ''; });
 });
 
 $('#manifest-run-form').addEventListener('submit', async (event) => {

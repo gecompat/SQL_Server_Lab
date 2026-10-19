@@ -71,6 +71,8 @@ function Update-SqlServerLabContainer {
     }
     $recreateMountArguments = @()
     if ([string]$plan.HighestChangeClass -eq 'recreate') {
+        $featureDesired=@($context.Run.metadata.desiredState.Instances|Where-Object Id -ceq $context.InstanceId)
+        if(-not $context.WasRunning -and $featureDesired.Count -eq 1 -and $featureDesired[0].Intents.SqlFeatures.fullText){throw 'SQL_FEATURE_RECREATE_RUNNING_REQUIRED: Instanz für den verifizierten Volltext-Recreate zuerst starten.'}
         $recreateMountArguments = @(Get-LabContainerRecreateMountArguments -Inspect $context.Inspect -Provider $context.Provider)
     }
     if (-not $PSCmdlet.ShouldProcess($context.ContainerName, "Container-Reconcile '$($plan.HighestChangeClass)' ausführen")) { return }
@@ -157,6 +159,13 @@ function Update-SqlServerLabContainer {
             $readiness = Wait-SqlReady -HostName $hostName -Port ([int]$plan.Desired.Port) -SaPassword $password `
                 -TimeoutSeconds $ReadinessTimeoutSeconds -Provider $runtime -ContainerIdOrName $name
             if (-not $readiness.Ready) { throw "CONTAINER_RECONCILE_READINESS_TIMEOUT: $($readiness.Message)" }
+            $featureDesired=@($context.Run.metadata.desiredState.Instances|Where-Object Id -ceq $InstanceId)
+            if($featureDesired.Count -eq 1 -and $featureDesired[0].Intents.SqlFeatures){
+                $featureInstance=[pscustomobject]@{id=$InstanceId;version=[string]$context.Instance.version;sqlFeatures=$featureDesired[0].Intents.SqlFeatures}
+                $featureRun=[pscustomobject]@{RunId=$RunId;ScopeId=[string]$context.Run.scopeId;StateRoot=$StateRoot}
+                $featureContainer=[pscustomobject]@{Provider=$runtime;ContainerId=[string]$replacement.Id;Port=[int]$plan.Desired.Port}
+                Invoke-LabInitialContainerSqlFeatures -Instance $featureInstance -RunState $featureRun -Container $featureContainer -SaPassword $password
+            }
         }
         $replacement = Assert-LabContainerReconcileRuntimeIdentity -Provider $runtime -Identity $name -RunId $RunId -ScopeId ([string]$context.Run.scopeId)
         if ((Get-LabContainerMountFingerprint -Mounts @($replacement.Mounts)) -ne [string]$journal.Target.MountFingerprint) {

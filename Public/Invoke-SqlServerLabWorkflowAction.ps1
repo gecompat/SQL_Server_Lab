@@ -35,6 +35,14 @@ Image erzeugt wird.
 Absoluter Zielpfad eines über die Workflow-UI zu erstellenden Container-Manifests.
 .PARAMETER ManifestDescription
 Optionale Beschreibung des über die Workflow-UI erstellten Container-Manifests.
+.PARAMETER FullText
+Explizite Volltextauswahl für Neuanlage oder Manifest; ohne Angabe bleibt die bisherige Vorgabe erhalten.
+.PARAMETER FileStream
+Explizite FILESTREAM-T-SQL-Auswahl für Windows/Hyper-V. Linux weist Aktivierung ab.
+.PARAMETER SqlFeature
+Gewählte Funktion FullText oder FileStream für SetSqlFeature.
+.PARAMETER SqlFeatureEnabled
+Expliziter boolescher Zielzustand für SetSqlFeature; false entfernt/deaktiviert die Funktion.
 .PARAMETER SourceVMName
 Name einer vorhandenen, ausgeschalteten Hyper-V-VM. Sie wird nur als
 unveränderte Quelle für eine run-lokale Arbeitskopie verwendet.
@@ -282,7 +290,7 @@ function Invoke-SqlServerLabWorkflowAction {
             'GetCmsInspectionState', 'InspectCms',
             'RepairHyperVWindowsActivation',
             'SetMediaRoot', 'SetDataRoot', 'SetTestDataRoot',
-            'NewContainerLab', 'CreateContainerManifest', 'NewContainerLabFromManifest', 'RenameLab', 'SetLabResources', 'StartContainerLab', 'StopContainerLab', 'StartLabReconcile', 'StopLabReconcile', 'RestartContainerLab', 'RemoveContainerLab', 'ClearAllLabs',
+            'NewContainerLab', 'CreateContainerManifest', 'NewContainerLabFromManifest', 'SetSqlFeature', 'RenameLab', 'SetLabResources', 'StartContainerLab', 'StopContainerLab', 'StartLabReconcile', 'StopLabReconcile', 'RestartContainerLab', 'RemoveContainerLab', 'ClearAllLabs',
             'ExecutePersistentStorageRemoval', 'RemoveRetainedStore',
             'CreateContainerDatabase', 'InspectContainerDatabaseMigrationDependencies', 'ExportContainerDatabasePackage', 'RestoreContainerLibraryBackup', 'InstallContainerSampleDatabase', 'InstallContainerSampleDatabases', 'ExecuteContainerScript',
             'NewHyperVLab', 'NewHyperVLabFromExistingVm', 'StartHyperVLab', 'StopHyperVLab', 'EnableHyperVLabPersistentData', 'InitializeHyperVLabPersistentData', 'ReleaseHyperVPersistentData', 'ReattachHyperVPersistentData', 'CloneHyperVPersistentData', 'CompleteHyperVLabSql', 'EnableHyperVLabHostSqlAccess', 'InspectHyperVLabSqlInstances', 'AttachHyperVDatabasePackage', 'RecoverHyperVDatabasePackageAttach', 'OpenHyperVConsole', 'RemoveHyperVLab',
@@ -299,6 +307,10 @@ function Invoke-SqlServerLabWorkflowAction {
         [string]$LabName,
         [string]$ManifestPath,
         [string]$ManifestDescription,
+        [Nullable[bool]]$FullText,
+        [Nullable[bool]]$FileStream,
+        [ValidateSet('FullText','FileStream')][string]$SqlFeature,
+        [bool]$SqlFeatureEnabled,
         [string]$SourceVMName,
         [string]$SwitchName,
         [string]$MediaRoot,
@@ -502,11 +514,12 @@ function Invoke-SqlServerLabWorkflowAction {
     }
 
     $containerActions = @(
-        'NewContainerLab', 'CreateContainerManifest', 'NewContainerLabFromManifest', 'RenameLab', 'SetLabResources', 'StartContainerLab', 'StopContainerLab', 'RestartContainerLab', 'RemoveContainerLab',
+        'NewContainerLab', 'CreateContainerManifest', 'NewContainerLabFromManifest', 'SetSqlFeature', 'RenameLab', 'SetLabResources', 'StartContainerLab', 'StopContainerLab', 'RestartContainerLab', 'RemoveContainerLab',
         'ClearAllLabs', 'CreateContainerDatabase', 'InspectContainerDatabaseMigrationDependencies', 'ExportContainerDatabasePackage', 'RestoreContainerLibraryBackup', 'InstallContainerSampleDatabase', 'InstallContainerSampleDatabases', 'ExecuteContainerScript',
         'ExecutePersistentStorageRemoval', 'RemoveRetainedStore',
         'StartLabReconcile', 'StopLabReconcile'
     )
+    foreach($featureParameter in @('FullText','FileStream')){if($PSBoundParameters.ContainsKey($featureParameter) -and $null -eq $PSBoundParameters[$featureParameter]){throw 'SQL_FEATURE_EXPLICIT_BOOLEAN_REQUIRED'}}
     if ($Action -notin $containerActions) {
         if (-not $IsWindows) { throw 'HYPERV_WORKFLOW_WINDOWS_HOST_REQUIRED' }
         $availability = Test-HyperVAvailable
@@ -624,7 +637,13 @@ function Invoke-SqlServerLabWorkflowAction {
             if (-not [string]::IsNullOrWhiteSpace($PersistentStorageId)) {
                 $newLab.PersistentStorageId = $PersistentStorageId
             }
+            foreach($featureParameter in @('FullText','FileStream')){if($PSBoundParameters.ContainsKey($featureParameter)){$newLab[$featureParameter]=$PSBoundParameters[$featureParameter]}}
             New-SqlServerLab @newLab
+        }
+        'SetSqlFeature' {
+            if(-not $SqlFeature -or -not $PSBoundParameters.ContainsKey('SqlFeatureEnabled')){throw 'SQL_FEATURE_EXPLICIT_SELECTION_REQUIRED'}
+            $targetRun=if($RunId){$RunId}else{$BuildId}
+            Set-SqlServerLabFeature -RunId $targetRun -InstanceId $InstanceId -Feature $SqlFeature -Enabled $SqlFeatureEnabled -StateRoot $StateRoot -SaPassword $SaPassword -GuestCredential $credential -MediaRoot $MediaRoot -Confirm:$false
         }
         'CreateContainerManifest' {
             if ([string]::IsNullOrWhiteSpace($ManifestPath) -or [string]::IsNullOrWhiteSpace($LabName)) { throw 'CONTAINER_WORKFLOW_MANIFEST_PATH_AND_NAME_REQUIRED' }
@@ -633,6 +652,10 @@ function Invoke-SqlServerLabWorkflowAction {
                 description = if ($ManifestDescription) { $ManifestDescription } else { 'Über die lokale SQL Server Lab Workflow-UI erstellt.' }
                 instances = @([ordered]@{ id = $InstanceId; version = $SqlVersion; provider = $Provider; profile = $Profile; autostart = $AutoStart })
             }
+            $featureSelection=[ordered]@{}
+            if($PSBoundParameters.ContainsKey('FullText')){$featureSelection.fullText=[bool]$FullText}
+            if($PSBoundParameters.ContainsKey('FileStream')){$featureSelection.fileStream=[bool]$FileStream}
+            if($featureSelection.Count){$draft.instances[0].sqlFeatures=$featureSelection}
             $manifest = New-SqlServerLabManifest -Path $ManifestPath -InputObject $draft -PassThru
             [PSCustomObject]@{ Path = [IO.Path]::GetFullPath($ManifestPath); Name = $manifest.name; InstanceCount = @($manifest.instances).Count }
         }
@@ -672,6 +695,11 @@ function Invoke-SqlServerLabWorkflowAction {
                     -TimeZone $TimeZone `
                     -MediaRoot $MediaRoot
                 $lab | Add-Member -NotePropertyName provisioning -NotePropertyValue $provisioning -Force
+                foreach($featureParameter in @('FullText','FileStream')){
+                    if($PSBoundParameters.ContainsKey($featureParameter)){
+                        $null=Set-SqlServerLabFeature -RunId $lab.RunId -InstanceId $InstanceId -Feature $featureParameter -Enabled ([bool]$PSBoundParameters[$featureParameter]) -GuestCredential ([pscredential]::new($GuestUserName,$GuestPassword)) -MediaRoot $MediaRoot -Confirm:$false
+                    }
+                }
             }
             $lab
         }

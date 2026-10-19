@@ -167,6 +167,7 @@ Invoke-SqlServerLabReconcileAction     # Start/Stop oder validierten Container-R
 Move-SqlServerLabContainerNetwork      # Verwaltetes konfliktbehaftetes Docker-/Podman-Labnetz explizit migrieren
 Invoke-SqlServerLabWorkflowAction      # UI-tauglicher, nicht interaktiver Hyper-V-Schritt oder gebundener Container-Paketexport
 New-SqlServerLab                       # Neue Umgebung
+Set-SqlServerLabFeature                # Volltext oder Windows-FILESTREAM explizit hinzufügen/entfernen
 Get-SqlServerLab                       # Status
 Sync-SqlServerLabRuntimeState          # State mit Docker, Podman und Hyper-V abgleichen
 Get-SqlServerLabMaintenancePlan        # gesamten State-/Runtime-Drift read-only planen

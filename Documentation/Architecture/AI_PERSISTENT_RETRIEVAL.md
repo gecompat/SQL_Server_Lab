@@ -106,10 +106,11 @@ und ausschließlich die aktive Generation. Sie ist für die
 EmbeddingGemma-, BGE-M3-, direkten Nomic-v2-, All-MiniLM-,
 Paraphrase-Multilingual- und Snowflake-Arctic-Embed-2-Generationen im
 v1-Journal freigegeben. Der
-separate Nomic-Modellmigrationspfad bleibt reine Vektorsuche. SQL Server Full-Text Search mit
-sprachspezifischem Word Breaker und Ranking bleibt ein eigener offener Slice,
-weil das offizielle Standard-Containerimage das optionale
-`mssql-server-fts`-Paket nicht enthält.
+separate Nomic-Modellmigrationspfad bleibt reine Vektorsuche. Die Integration
+dieses Retrievalpfads mit SQL Server Full-Text Search, sprachspezifischem Word
+Breaker und Ranking bleibt offen. Die getrennte
+[optionale Instanzfunktion](SQL_OPTIONAL_FEATURES.md) ergänzt inzwischen die
+FTS-Capsule aus dem versionsgebundenen `mssql-server-fts`-Paket.
 `VECTOR_DISTANCE`-Cosinesuche, keinen ANN-Index. SQL speichert abhängig von
 der gebundenen Collection `VECTOR(384)`, `VECTOR(768)` oder `VECTOR(1024)` mit
 float32; die JSON-Konvertierung ist ein dokumentierter
