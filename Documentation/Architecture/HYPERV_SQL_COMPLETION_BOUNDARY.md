@@ -24,6 +24,42 @@ jeder nachfolgende Effekt benötigt erneut die eigene Bindungsprüfung.
 Verbraucherende, handlebasierte Rootanker und native Setup-/TLS-Abnahme
 bleiben offen.
 
+## Interne strikt gebundene Aktivierungsprüfung
+
+`Invoke-LabWindowsSlotActivationReconcile` bietet intern optional
+`ExpectedVmId`. Bei ausdrücklicher Wahl bindet der strikte Run-Reader zuerst
+den angegebenen StateRoot, Run, Scope und die gespeicherte/native VM-ID.
+Gespeicherter und gegebenenfalls ausdrücklich übergebener Intent müssen
+`VerifyOnly/Denied` sein; ein External-Switchargument ist ausgeschlossen.
+Nur bestätigte Abwesenheit überspringt den Journalcheck; ein Verzeichnis,
+Reparsepoint, Zugriffsfehler oder eine leere beziehungsweise über 1 MiB große
+Datei blockiert. Ein vorhandenes Aktivierungsnetzjournal muss ein einzelnes lesbares Objekt
+mit passendem Vertrag, Run, Scope, VM und Status `CLEANED` sein. Andernfalls
+blockiert die Lane vor Gastprobe und Evidencewrite; auch ein Einelementarray
+wird abgelehnt. Sie führt weder die
+bisherige Aktivierungs-/Netzreparatur aus noch verändert sie Intent oder
+Journal. Ein `CLEANED`-Journal ist allein kein neuer nativer Abwesenheitsbeleg.
+
+Lizenzprobe und Evidencewriter reichen die ID weiter. Vor Poolinvalidierung
+und erneut vor dem Verbindungswrite wird strikt gelesen. Die Gastwartefunktion
+prüft gültige Run-/Scope-UUIDs und VM-ID vor nativer Suche und bindet jeden
+Probeaufruf an die bestehende VMId-Direct-Lane. Fallbackadresse und
+Gastinitialisierungsscript sind bei ausdrücklicher ID ausgeschlossen.
+Ein VM-ID-Wechsel blockiert; ein Transportfehler eines lesenden Probes darf
+innerhalb der bestehenden endlichen Wartefrist erneut geprüft werden.
+Eine inaktive/abgelaufene Lizenz wird als solche gespeichert und blockiert
+nach dem bestehenden Entscheidungsvertrag; es erfolgt keine Aktivierung.
+Ohne Option bleiben Aktivierungsdispatch, Defaulttransport und Buildbindung
+unverändert.
+
+Die [NoIO-Fixture](../../Tests/Static/Fixtures/HyperVStrictActivationVerifyChecks.ps1)
+führt tatsächliche Reconcile-, Status-, Evidence- und Wartefunktionen mit
+synthetischen nativen Blättern aus; Gastkörper werden nicht ausgeführt.
+Dies ist eine interne Abhängigkeit. Öffentliche Complete-/HostSQL-Weitergabe,
+weitere Netzwerk-/WMI-/Port-/Readinesspfade, Verbraucherende und native
+Setup-/TLS-Qualifikation bleiben offen. Keine VM-Reservierung, atomare
+Dateisystembindung oder neue Aktivierungsautorität entsteht daraus.
+
 ## Öffentliche Rootweitergabe
 
 `Invoke-SqlServerLabWorkflowAction -Action CompleteHyperVLabSql` reicht einen

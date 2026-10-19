@@ -178,11 +178,17 @@ function Set-HyperVWindowsSlotActivationEvidence {
         [string]$EvaluationExpiresAt,
         [string]$EvaluationEndDate,
         [ValidateSet('None','Permanent','Temporary')][string]$NetworkMode='None',
-        [string]$StateRoot
+        [string]$StateRoot,
+        [guid]$ExpectedVmId
     )
 
+    $binding=@{}
+    if($PSBoundParameters.ContainsKey('ExpectedVmId')){
+        $binding.ExpectedVmId=$ExpectedVmId
+        $null=Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot @binding
+    }
     Assert-LabWindowsPoolMutationAllowed -RunId $RunId -StateRoot $StateRoot -InvalidateEvidence
-    $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
+    $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot @binding
     $evidence = [ordered]@{
         contractVersion = 'SqlServerLab.WindowsActivation/1.2'
         state = $State
@@ -210,15 +216,19 @@ function Get-HyperVWindowsSlotLicenseStatus {
         [PSCredential]$Credential,
         [ValidateRange(30, 3600)][int]$TimeoutSeconds = 300,
         [switch]$Persist,
-        [string]$StateRoot
+        [string]$StateRoot,
+        [guid]$ExpectedVmId
     )
 
-    $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
+    $binding=@{}
+    if($PSBoundParameters.ContainsKey('ExpectedVmId')){$binding.ExpectedVmId=$ExpectedVmId}
+    $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot @binding
     $managed = Get-HyperVManagedVM -VMName ([string]$lab.Instance.vmName) `
         -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
     if (-not $managed -or [string]$managed.VM.State -ne 'Running') {
         throw 'HYPERV_WINDOWS_LICENSE_PROBE_VM_MUST_BE_RUNNING'
     }
+    if($binding.Count -and [string]$managed.VM.Id -ne $ExpectedVmId.ToString()){throw 'HYPERV_GUEST_VM_ID_MISMATCH'}
     if (-not $Credential) {
         $guestPassword = Get-LabSecret -Path $lab.RunDirectory -Name 'guest-administrator-password'
         if (-not $guestPassword) { throw 'HYPERV_LAB_GUEST_PASSWORD_NOT_STORED' }
@@ -226,11 +236,11 @@ function Get-HyperVWindowsSlotLicenseStatus {
     }
     $ready = Wait-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) `
         -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId `
-        -Credential $Credential -TimeoutSeconds $TimeoutSeconds
+        -Credential $Credential -TimeoutSeconds $TimeoutSeconds @binding
     if (-not $ready.Ready) { throw "HYPERV_WINDOWS_LICENSE_PROBE_TIMEOUT: $($ready.Message)" }
 
     $receipt = Invoke-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) `
-        -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $Credential `
+        -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $Credential @binding `
         -ScriptBlock {
             $ErrorActionPreference = 'Stop'
             $edition = [string](Get-ItemProperty `
@@ -279,7 +289,7 @@ function Get-HyperVWindowsSlotLicenseStatus {
         $null = Set-HyperVWindowsSlotActivationEvidence -RunId $RunId -State $state `
             -Edition ([string]$receipt.edition) -LicenseStatus ([int]$receipt.licenseStatus) `
             -EvaluationMinutesRemaining ([int]$receipt.evaluationMinutesRemaining) `
-            -EvaluationExpiresAt ([string]$receipt.evaluationExpiresAt) -EvaluationEndDate ([string]$receipt.evaluationEndDate) -StateRoot $lab.StateRoot
+            -EvaluationExpiresAt ([string]$receipt.evaluationExpiresAt) -EvaluationEndDate ([string]$receipt.evaluationEndDate) -StateRoot $lab.StateRoot @binding
     }
     return [PSCustomObject]@{
         RunId=$RunId; VMName=[string]$lab.Instance.vmName; State=$state
