@@ -1535,14 +1535,24 @@ function Wait-HyperVGuestSqlReady {
         [ValidateRange(0, 99)][int]$ExpectedMajorVersion = 0,
         [ValidateRange(1, 3600)][int]$TimeoutSeconds = 300,
         [ValidateRange(100, 60000)][int]$PollIntervalMilliseconds = 2000,
-        [string]$StateRoot
+        [string]$StateRoot,
+        [guid]$ExpectedVmId
     )
 
+    $vmBinding=@{}
+    if($PSBoundParameters.ContainsKey('ExpectedVmId')){
+        if($FallbackAddress){throw 'HYPERV_GUEST_VM_ID_BINDING_INVALID'}
+        $vmBinding.ExpectedVmId=$ExpectedVmId
+        $selectedLab=Get-HyperVLabWorkflowRun -RunId $ExpectedRunId -StateRoot $StateRoot @vmBinding
+        if([string]$selectedLab.Run.scopeId -cne $ExpectedScopeId){throw 'HYPERV_LAB_SQL_VM_BINDING_CHANGED'}
+        $null=Assert-HyperVLabSqlVmBinding -Lab $selectedLab @vmBinding
+    }
     $managed = Get-HyperVManagedVM `
         -VMName $VMName `
         -ExpectedRunId $ExpectedRunId `
         -ExpectedScopeId $ExpectedScopeId
     if (-not $managed) { throw "Hyper-V-VM nicht gefunden: $VMName" }
+    if($vmBinding.Count){$managed=Assert-HyperVLabSqlVmBinding -Lab $selectedLab @vmBinding}
     Assert-LabWindowsPoolProviderMutation -Managed $managed -StateRoot $StateRoot
     if ([string]$managed.VM.State -ne 'Running') {
         throw "SQL-Readiness erfordert eine laufende VM: $VMName"
@@ -1556,7 +1566,7 @@ function Wait-HyperVGuestSqlReady {
         -ExpectedRunId $ExpectedRunId `
         -ExpectedScopeId $ExpectedScopeId `
         -Credential $Credential `
-        -FallbackAddress $FallbackAddress `
+        -FallbackAddress $FallbackAddress @vmBinding `
         -ArgumentList @($InstanceName, $SaPassword, $ExpectedMajorVersion, $TimeoutSeconds, $PollIntervalMilliseconds) `
         -TimeoutSeconds $TimeoutSeconds `
         -ScriptBlock {
@@ -1665,6 +1675,7 @@ SELECT
         ($ExpectedMajorVersion -gt 0 -and [int]$receipt.majorVersion -ne $ExpectedMajorVersion)) {
         throw 'HYPERV_SQL_READINESS_RECEIPT_INVALID'
     }
+    if($vmBinding.Count){$managed=Assert-HyperVLabSqlVmBinding -Lab $selectedLab @vmBinding}
     $null = Set-HyperVManagedVMIdentityProperty `
         -ManagedVM $managed `
         -PropertyName sqlReadiness `

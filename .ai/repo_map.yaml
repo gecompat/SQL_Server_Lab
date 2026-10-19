@@ -602,6 +602,8 @@ sources_of_truth:
   validation_hyperv_create_existing_network_fixture: Tests/Common/HyperVCreateExistingNetworkFixture.ps1 # LabNetwork, HyperVLabEnvironment, public New and persisted run metadata; offline only, no native TLS proof
   hyperv_sql_completion_boundary: Documentation/Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md # explicit public StateRoot/MediaRoot; NoRetry at setup/network/WMI/hostSQL guestcalls, no native effect/end proof
   validation_hyperv_sql_completion_boundary: Tests/Static/Fixtures/HyperVSqlCompletionBoundaryChecks.ps1 # existing HyperVLabEnvironment suite; actual public function/caller AST/transport, synthetic native leaves only
+  validation_hyperv_sql_public_entry: Tests/Static/Fixtures/HyperVSqlPublicEntryChecks.ps1 # explicit roots and opt-in ExpectedVmId on actual public actions; synthetic core boundaries
+  validation_hyperv_sql_vm_binding: Tests/Static/Fixtures/HyperVSqlVmBindingChecks.ps1 # actual Complete/HostSQL/WMI/network/receipt/restart/readiness/port/transport with synthetic native leaves; no guest bodies
   validation_hyperv_immutable_run_reader: Tests/Static/Fixtures/HyperVImmutableRunReaderChecks.ps1 # actual internal reader; opt-in strict VM-ID without rename write; public setup propagation/native qualification remain open
   validation_hyperv_strict_activation_verify: Tests/Static/Fixtures/HyperVStrictActivationVerifyChecks.ps1 # internal ExpectedVmId VerifyOnly/Denied reconciliation, status/evidence/Direct wait; no guest bodies; public setup chain remains open
   hyperv_resource_reconcile_contract: Private/HyperVResourceReconcile.ps1

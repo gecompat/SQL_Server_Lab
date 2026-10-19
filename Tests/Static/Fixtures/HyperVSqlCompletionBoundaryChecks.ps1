@@ -83,6 +83,7 @@ try{
             $fallbackAddress='192.0.2.10';$address='192.0.2.10';$addressMode='static';$gateway=$null;$dnsServers=@()
             $Network=[pscustomobject]@{PrefixLength=24;Name='synthetic-internal';HostAddress='192.0.2.1'}
             $networkReceipt=[pscustomobject]@{Address='192.0.2.10'}
+            $vmBinding=@{} # The omitted selector lane now uses an explicit empty splat in the actual callers.
             $observations=@(foreach($case in $Cases){
                 $script:directCalls=0;$script:fallbackCalls=0;$script:consumerWrites=0;$failed=$false
                 # Real producer arguments and real transport; only native leaves are injected.

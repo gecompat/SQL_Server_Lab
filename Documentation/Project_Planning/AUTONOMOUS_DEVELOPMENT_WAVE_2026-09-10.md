@@ -1,5 +1,12 @@
 # Autonome Entwicklungswelle nach der Repository-Durchsicht
 
+Die [öffentliche SQL-VM-ID-Lane](../Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md)
+verbindet die bisherigen Reader-, VerifyOnly/Denied- und Port-Abhängigkeiten
+mit CompleteImage/HostSQL und den ausgewählten Folgeaufrufen. Neue
+Funktions-NoIO-Fixtures prüfen Rootweitergabe, Direct-Selector, verlorene
+Replies und Drift vor Writes. Verbraucherende, handlebasierte Rootanker und
+native SQL-/TLS-Abnahme bleiben offen; SC-2026-045 bleibt gesperrt.
+
 Der [isolierte SQL-Port-Setter](../Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md)
 ergänzt die interne No-Replay-/VM-ID-Grenze. Der tatsächliche Funktions-
 NoIO-Nachweis ersetzt keine öffentliche Gesamtpropagation, kein
@@ -13,8 +20,9 @@ SC-2026-045 bleibt gesperrt.
 
 Die vorgelagerte [interne VM-ID-Lesegrenze](../Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md)
 ergänzt einen schreibfreien strikten Reader vor einer Rename-Reparatur.
-Öffentliche durchgängige Setup-/Direct-only-Bindung, Verbraucherende und
-native CA-/SQL-/TLS-Abnahme bleiben offen; SC-2026-045 bleibt gesperrt.
+Der Reader allein erbringt keine öffentliche Setup-/Direct-only-Bindung;
+Verbraucherende und native CA-/SQL-/TLS-Abnahme bleiben offen.
+SC-2026-045 bleibt gesperrt.
 
 ## SQL-Abschlussgrenze vor dem nativen TLS-Binder
 

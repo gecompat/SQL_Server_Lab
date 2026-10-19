@@ -1,8 +1,9 @@
 # Projektkontext
 
 Der [Hyper-V-SQL-Abschlussvertrag](../Documentation/Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md)
-bindet explizite öffentliche State-/Medienroots und unterbindet Transportreplay
-an den vier mutierenden Setup-/Hostzugriff-Gastaufrufen. Synthetische
+bindet explizite öffentliche State-/Medienroots und bietet für CompleteImage
+und HostSQL eine zusätzliche ausdrücklich gewählte VM-ID-/Direct-Lane durch
+die Folgeaufrufe. Mutierende Gastaufrufe unterbinden Transportreplay. Synthetische
 LostReply-Nachweise sind keine native Setup-/SQL-/TLS-Abnahme oder Recoveryautorität.
 
 Der [isolierte SSIS-Registrierungsvergleich](../Documentation/Quality/SSIS_CATALOG_REGISTRATION_RECOVERY_2026-10-18.md)
