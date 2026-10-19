@@ -1,5 +1,15 @@
 # Lokale Validierungsstrategie
 
+Die HyperVLabEnvironment-Suite führt zusätzlich die
+[öffentliche Entryfixture](../../Tests/Static/Fixtures/HyperVSqlPublicEntryChecks.ps1)
+und die [SQL-VM-ID-Kettenfixture](../../Tests/Static/Fixtures/HyperVSqlVmBindingChecks.ps1)
+aus. Tatsächliche öffentliche Aktionen und ausgewählte Core-/Transport-
+Funktionen werden mit synthetischen Datei-/Provider-/Coreblättern geprüft:
+explizite Roots, optionale VM-ID, VM-Objekt-/Direct-Selector, kein Replay
+mutierender Aufrufe, frühe Ablehnung und Drift vor Writes. Keine Gastkörper,
+neue Aktivierung, native Setup-/SQL-/Trust-/TLS-Wirkung oder Verbraucherende-
+Qualifikation. Ausgewählte Provider-CI bleibt ein eigener Nachweis.
+
 Die SQL-Port-Reconcile-Suite führt die
 [PortMutationBoundary-Fixture](../../Tests/Static/Fixtures/HyperVSqlPortMutationBoundaryChecks.ps1)
 mit tatsächlichem Setter und Transport aus. Synthetische native Blätter

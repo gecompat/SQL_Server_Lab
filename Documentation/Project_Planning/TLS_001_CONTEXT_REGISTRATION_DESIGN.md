@@ -1,5 +1,11 @@
 # TLS-001 – Client- und Signierkontexte registrieren
 
+Die [öffentliche SQL-VM-ID-Lane](../Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md)
+reicht eine ausdrücklich ausgewählte Root-/VM-ID-Bindung durch die
+CompleteImage-/HostSQL-Kette. Ihr synthetischer Nachweis registriert weder
+Client noch Signierkontext und ersetzt keine native TLS-Abnahme oder
+Verbraucherende-/Recoveryqualifikation.
+
 Die [interne SQL-Port-Mutationsgrenze](../Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md)
 bindet auf ausdrückliche Wahl gespeicherte und native VM-ID ohne
 Transportreplay; sie registriert keinen Client-/Signierkontext und ersetzt
@@ -7,8 +13,8 @@ keine öffentliche Gesamtpropagation oder native TLS-Abnahme.
 
 Die [interne strikte Aktivierungsprüfung](../Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md)
 reicht VM-ID und Direct-Wahl durch VerifyOnly/Denied-Verifikation und deren
-Evidencewriter. Das registriert keinen Client-/Signierkontext; öffentliche
-Gesamtpropagation, Verbraucherende und native TLS-Abnahme bleiben offen.
+Evidencewriter. Diese interne Prüfung allein registriert keinen
+Client-/Signierkontext; Verbraucherende und native TLS-Abnahme bleiben offen.
 
 Der [strikte interne Run-Reader](../Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md)
 bindet gespeicherte und native VM-ID vor einer schreibfreien Namensprojektion.

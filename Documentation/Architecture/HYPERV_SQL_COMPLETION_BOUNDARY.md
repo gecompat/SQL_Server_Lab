@@ -1,4 +1,53 @@
-# Hyper-V-SQL-Abschluss: explizite Roots und kein Transportreplay
+# Hyper-V-SQL-Abschluss: explizite Roots, VM-ID und kein Transportreplay
+
+## Öffentliche ausdrücklich gewählte VM-ID
+
+`Invoke-SqlServerLabWorkflowAction` bietet für `CompleteHyperVLabSql` und
+`EnableHyperVLabHostSqlAccess` optional `ExpectedVmId`. Diese Option verlangt
+eine nicht leere VM-UUID und einen ausdrücklich angegebenen, nicht leeren
+`StateRoot`; bei anderen Aktionen wird sie abgelehnt. Ohne Option bleiben
+Defaultroots und die bisherige Transportwahl erhalten. HostSQL reicht jetzt
+auch einen ausdrücklich gewählten StateRoot unverändert weiter und lehnt
+explizite Leere vor dem Core-Aufruf ab.
+
+Bei gewählter VM-ID erfolgt die strikte Run-/Scope-/gespeicherte und native
+VM-ID-Prüfung vor der Poolinvalidierung. CompleteImage reicht diese Wahl
+an die vorhandene VerifyOnly/Denied-Aktivierungsprüfung, WMI, Bootwartefunktion,
+Instanzleser und -writer, isolierten Port-Setter und SQL-Readiness weiter.
+Der HostSQL-Folgepfad reicht sie zusätzlich an die Gastnetzinitialisierung
+und seinen SQL-Gastblock. Eine automatisch berechnete Fallbackadresse wird
+in dieser Lane nicht angeboten; explizite Fallbackargumente der ausgewählten
+internen Helfer werden abgelehnt. Auch eine Lab-WinRM-Markierung erweitert
+die Wahl damit nicht. Die tatsächliche Transportgrenze verwendet `VMId`.
+
+DVD- und Adapterzugriffe verwenden in dieser Lane das überprüfte native
+VM-Objekt. HostSQL verlangt vor Effekten ein bereits gebundenes
+`hostOnly`-Netz mit unverändertem Switch, Subnetz, Hostadresse, Präfix und
+genau einem passenden Adapter sowie einem ReadOnly-Plan ohne Aktionen.
+Gemeinsame Hostnetze werden nicht repariert, Adapter nicht hinzugefügt;
+LAN oder ein anderer Switch blockieren diese zusätzliche Lane. Die
+Gast-IP-/SQL-/Firewallkonfiguration bleibt ein ausdrücklich mutierender
+Teil des ausgewählten Workflows. Das erteilt keine neue native Autorität.
+
+Vor Secretpersistenz, Connection- und Readiness-Notes-Writes wird die
+ausgewählte Identität erneut gelesen. Bei nachgewiesener Drift wird vor dem
+folgenden Write abgebrochen; bereits eingetretene Effekte werden weder als
+zurückgenommen noch als beliebig wiederholbar behandelt. Diese Prüfungen
+reservieren keine VM und schließen keine Race-Fenster durch Root-Handles.
+Sie ersetzen weder Verbraucherende noch Journal-Recovery oder einen festen
+nativen Setupworker mit angemessener 90-Minuten-Setupfrist.
+
+Die [öffentliche Entryfixture](../../Tests/Static/Fixtures/HyperVSqlPublicEntryChecks.ps1)
+prüft beide tatsächlichen öffentlichen Aktionen mit synthetischen Core-Zielen.
+Die [Kettenfixture](../../Tests/Static/Fixtures/HyperVSqlVmBindingChecks.ps1)
+führt tatsächliche Reader-, Complete-, HostSQL-, WMI-, Netz-, Receipt-,
+Restart-, Readiness-, Port- und Transportfunktionen mit synthetischen Datei-,
+Provider- und weiteren abgegrenzten Blättern aus. Gastkörper werden nicht
+ausgeführt. Beide gehören zur HyperVLabEnvironment-Suite. Das ist kein
+nativer Gast-/Setup-/SQL-/TLS-Nachweis. Die bisherige GUI-Kennwortaktion
+wählt diese neue Option nicht automatisch; aus diesem PowerShell-Vertrag
+folgt keine frische GUI-Render- oder Livequalifikation. Connection- und
+Exportformate sowie `Encrypt=True/TrustServerCertificate=True` bleiben erhalten.
 
 ## Strikter interner Run-Reader als vorgelagerte Grenze
 
@@ -17,8 +66,8 @@ Ohne ExpectedVmId bleiben Defaultroot und bisherige Rename-Reparatur erhalten.
 
 Die [NoIO-Fixture](../../Tests/Static/Fixtures/HyperVImmutableRunReaderChecks.ps1)
 führt die tatsächliche Readerfunktion mit synthetischen Datei-/Providerblättern
-aus. Das ist eine interne Voraussetzung: Der öffentliche vollständige
-Setupweg propagiert die ID und eine Direct-only-Wahl noch nicht durchgängig.
+aus. Das ist eine interne Voraussetzung der oben beschriebenen zusätzlichen
+öffentlichen SQL-Lane; der Reader allein propagiert keine Transportwahl.
 Der Reader reserviert keine VM und verhindert keine spätere Runtimeänderung;
 jeder nachfolgende Effekt benötigt erneut die eigene Bindungsprüfung.
 Verbraucherende, handlebasierte Rootanker und native Setup-/TLS-Abnahme
@@ -46,7 +95,7 @@ Blättern. Vor der Korrektur wurden bei einem synthetischen Verbraucherwrite
 mit anschließend verlorenem Reply zehn Direct-Aufrufe beobachtet. Danach
 bleibt es bei einem. Gastkörper werden nicht ausgeführt. Der interne Setter
 liest keinen registrierten Root neu und reserviert keine VM. Öffentliche
-Complete-/Reconcile-Gesamtpropagation, Verbraucherende, Journal-Recovery und
+Reconcile-Gesamtpropagation, Verbraucherende, Journal-Recovery und
 native Setup-/SQL-/TLS-Qualifikation sind damit nicht neu nachgewiesen;
 ein Fehler erteilt keine Wiederholungs- oder Cleanupautorität.
 
@@ -81,8 +130,8 @@ unverändert.
 Die [NoIO-Fixture](../../Tests/Static/Fixtures/HyperVStrictActivationVerifyChecks.ps1)
 führt tatsächliche Reconcile-, Status-, Evidence- und Wartefunktionen mit
 synthetischen nativen Blättern aus; Gastkörper werden nicht ausgeführt.
-Dies ist eine interne Abhängigkeit. Öffentliche Complete-/HostSQL-Weitergabe,
-weitere Netzwerk-/WMI-/Port-/Readinesspfade, Verbraucherende und native
+Dies ist eine interne Abhängigkeit der oben beschriebenen öffentlichen
+Complete-/HostSQL-Weitergabe. Verbraucherende und native
 Setup-/TLS-Qualifikation bleiben offen. Keine VM-Reservierung, atomare
 Dateisystembindung oder neue Aktivierungsautorität entsteht daraus.
 
@@ -114,8 +163,8 @@ Die folgenden Aufrufer setzen beim bestehenden
 Auch ein `OpenError` kann erst nach einem Verbraucherwrite entstanden sein.
 Der Fehler wird deshalb nach dem ersten Direct-Aufruf weitergegeben. Es folgen
 weder die bisherigen weiteren Direct-Versuche noch ein nachträglicher
-WinRM-Fallback desselben Gastblocks. Ein bereits ausdrücklich an Lab-WinRM
-gebundener Transport bleibt eine eigene einmalige Aufrufwahl.
+WinRM-Fallback desselben Gastblocks. Ohne ausdrücklich gewählte VM-ID bleibt
+ein bereits an Lab-WinRM gebundener Transport eine eigene einmalige Aufrufwahl.
 Die Transportimplementierung und ihre übrigen, insbesondere lesenden Aufrufer
 werden nicht global geändert. Lesende Boot-/SQL-Bereitschaftsprüfungen dürfen
 weiter auf ihren bestehenden begrenzten Wiederholungsverträgen beruhen.

@@ -1,5 +1,15 @@
 # Bekannte Grenzen
 
+Die öffentliche optionale VM-ID-Lane für CompleteImage/HostSQL ist durch
+synthetische Funktionsketten geprüft. Sie verlangt einen ausgewählten Root;
+HostSQL ist darin auf ein unverändertes vorhandenes hostOnly-Netz begrenzt.
+Sie reserviert keine VM, hält keine Root-Handles und belegt kein Ende von
+Gastsetup oder dessen Kindern. GUI-Buttons wählen diese Option nicht
+automatisch. Native Setup-/CA-/SQLServiceACL-/TLS-Qualifikation und
+SC-2026-045 bleiben offen; der
+[Completionvertrag](../Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md)
+trennt Bindung, mutierende Wirkungen und tatsächlich ausgeführte Nachweise.
+
 Der isolierte SQL-Port-Setter verhindert nun Transportreplay und kann intern
 eine ausdrücklich gewählte gespeicherte/native VM-ID an Direct binden.
 Das qualifiziert weder den vollständigen öffentlichen Reconcile-/Setupweg
@@ -10,8 +20,8 @@ trennt diese Grenzen.
 Die interne optionale VM-ID-gebundene Aktivierungsprüfung ist auf
 `VerifyOnly/Denied`, Direct und unveränderte terminale Netzwerkjournale
 beschränkt. Ihr synthetischer Nachweis belegt keine native Aktivierung,
-Netzabwesenheit oder durchgängige öffentliche Setupbindung. Die übrigen
-SQL-/Netz-/WMI-/Portpfade und Verbraucherende bleiben separat offen;
+Netzabwesenheit oder durchgängige öffentliche Setupbindung. Native
+SQL-/Netz-/WMI-/Portnachweise und Verbraucherende bleiben separat offen;
 siehe [Completionvertrag](../Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md).
 
 Der optionale strikte interne

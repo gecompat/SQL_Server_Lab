@@ -20,11 +20,18 @@
     ausser LeaveRunning ist angefordert.
 .PARAMETER BuildId
 Build-ID des vorhandenen Windows- oder SQL-Image-Builds.
+    Bei CompleteHyperVLabSql und EnableHyperVLabHostSqlAccess die vorhandene Run-ID.
 .PARAMETER RunId
     Exakte Run-ID für PlanWindowsPoolMember; keine Namenssuche oder Adoption.
 .PARAMETER StateRoot
-    Unabhängig ausgewählter StateRoot für Slotreserveinventar, Mitgliedvorschau
-    und RepairHyperVWindowsActivation.
+    Unabhängig ausgewählter StateRoot für Slotreserveinventar, Mitgliedvorschau,
+    RepairHyperVWindowsActivation und die beiden Hyper-V-SQL-Aktionen.
+    Bei ExpectedVmId muss er ausdrücklich und nicht leer angegeben sein.
+.PARAMETER ExpectedVmId
+    Optional ausdrücklich ausgewählte VM-UUID für CompleteHyperVLabSql und
+    EnableHyperVLabHostSqlAccess. Verlangt StateRoot und bindet die ausgewählten
+    Folgeaufrufe an dieselbe gespeicherte/native VM und PowerShell Direct.
+    Andere Aktionen und die leere UUID werden abgelehnt.
 .PARAMETER ArtifactId
 Kennung eines veröffentlichten Hyper-V-Image-Registry-Eintrags, der nach
 vorheriger Prüfung auf aktive Build-Referenzen entfernt werden soll.
@@ -383,9 +390,15 @@ function Invoke-SqlServerLabWorkflowAction {
         [ValidateRange(1, 64)][int]$ProcessorCount = 4,
         [ValidateSet('on', 'off')][string]$AutoStart = 'off',
         [switch]$ConfirmSourceLicense,
-        [ValidateRange(32, 1048576)][int]$OsDiskSizeGB = 80
+        [ValidateRange(32, 1048576)][int]$OsDiskSizeGB = 80,
+        [guid]$ExpectedVmId
     )
 
+    if($PSBoundParameters.ContainsKey('ExpectedVmId')){
+        if($Action -notin @('CompleteHyperVLabSql','EnableHyperVLabHostSqlAccess')){throw 'HYPERV_LAB_SQL_EXPECTED_VM_ACTION_INVALID'}
+        if($ExpectedVmId -eq [guid]::Empty){throw 'HYPERV_LAB_EXPECTED_VM_ID_REQUIRED'}
+        if(-not $PSBoundParameters.ContainsKey('StateRoot') -or [string]::IsNullOrWhiteSpace($StateRoot)){throw 'HYPERV_LAB_EXPECTED_VM_STATE_ROOT_REQUIRED'}
+    }
     if ($Action -in @('GetResourceWatchState', 'RefreshResourceWatch')) {
         $result=if($Action -eq 'RefreshResourceWatch'){Invoke-LabResourceWatchRefresh}else{Get-LabResourceWatchState}
         return [pscustomobject]@{Action=$Action;CompletedAt=Get-LabTimestamp;Result=$result}
@@ -729,9 +742,18 @@ function Invoke-SqlServerLabWorkflowAction {
                 if([string]::IsNullOrWhiteSpace($MediaRoot)){throw 'HYPERV_LAB_SQL_COMPLETE_MEDIA_ROOT_REQUIRED'}
                 $completionArguments.MediaRoot=$MediaRoot
             }
+            if($PSBoundParameters.ContainsKey('ExpectedVmId')){$completionArguments.ExpectedVmId=$ExpectedVmId}
             Complete-HyperVLabSqlImage @completionArguments
         }
-        'EnableHyperVLabHostSqlAccess' { Enable-HyperVLabHostSqlAccess -RunId $BuildId -Credential $credential -SqlSaPassword $(if ($SaPassword) { $SaPassword } else { $GuestPassword }) -SwitchName $SwitchName }
+        'EnableHyperVLabHostSqlAccess' {
+            $hostSqlArguments=@{RunId=$BuildId;Credential=$credential;SqlSaPassword=$(if ($SaPassword) { $SaPassword } else { $GuestPassword });SwitchName=$SwitchName}
+            if($PSBoundParameters.ContainsKey('StateRoot')){
+                if([string]::IsNullOrWhiteSpace($StateRoot)){throw 'HYPERV_LAB_HOST_SQL_STATE_ROOT_REQUIRED'}
+                $hostSqlArguments.StateRoot=$StateRoot
+            }
+            if($PSBoundParameters.ContainsKey('ExpectedVmId')){$hostSqlArguments.ExpectedVmId=$ExpectedVmId}
+            Enable-HyperVLabHostSqlAccess @hostSqlArguments
+        }
         'InspectHyperVLabSqlInstances' { Inspect-HyperVLabSqlInstances -RunId $BuildId -Credential $credential }
         'AttachHyperVDatabasePackage' {
             $attachArguments = @{

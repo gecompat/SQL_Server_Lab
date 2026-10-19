@@ -2368,6 +2368,33 @@ function Initialize-HyperVLabPersistentData {
     return $receipt
 }
 
+function Assert-HyperVLabSqlVmBinding {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Lab,[Parameter(Mandatory)][guid]$ExpectedVmId)
+    $fresh=Get-HyperVLabWorkflowRun -RunId ([string]$Lab.Run.runId) -StateRoot ([string]$Lab.StateRoot) -ExpectedVmId $ExpectedVmId
+    if([string]$fresh.Run.scopeId -cne [string]$Lab.Run.scopeId -or
+        [string]$fresh.RunDirectory -cne [string]$Lab.RunDirectory -or
+        [string]$Lab.Instance.vmId -ne $ExpectedVmId.ToString()) {throw 'HYPERV_LAB_SQL_VM_BINDING_CHANGED'}
+    $managed=Get-HyperVManagedVM -VMName ([string]$fresh.Instance.vmName) -ExpectedRunId ([string]$fresh.Run.runId) -ExpectedScopeId ([string]$fresh.Run.scopeId)
+    if(-not $managed -or [string]$managed.VM.Id -ne $ExpectedVmId.ToString()){throw 'HYPERV_GUEST_VM_ID_MISMATCH'}
+    return $managed
+}
+
+function Assert-HyperVLabSqlExistingNetwork {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Lab,[Parameter(Mandatory)]$Managed,[string]$SwitchName)
+    $saved=$Lab.Instance.labNetwork
+    if(-not $saved -or [string]$saved.intent -cne 'hostOnly' -or -not $saved.name -or
+        ($SwitchName -and $SwitchName -cne [string]$saved.name)){throw 'HYPERV_LAB_HOST_SQL_EXISTING_NETWORK_REQUIRED'}
+    $plan=Resolve-LabHyperVNetworkBoundPlan -Intent hostOnly -SwitchName ([string]$saved.name) -Subnet ([string]$saved.subnet)
+    if([string]$plan.Status -cne 'READY' -or @($plan.Actions).Count -ne 0 -or
+        [string]$plan.Name -cne [string]$saved.name -or [string]$plan.Intent -cne 'hostOnly' -or
+        [string]$plan.Subnet -cne [string]$saved.subnet -or [string]$plan.HostAddress -cne [string]$saved.hostAddress -or
+        [int]$plan.PrefixLength -ne [int]$saved.prefixLength){throw 'HYPERV_LAB_HOST_SQL_EXISTING_NETWORK_CHANGED'}
+    $adapters=@(Get-VMNetworkAdapter -VM $Managed.VM -ErrorAction Stop)
+    if($adapters.Count -ne 1 -or [string]$adapters[0].SwitchName -cne [string]$saved.name){throw 'HYPERV_LAB_HOST_SQL_EXISTING_ADAPTER_REQUIRED'}
+}
+
 function Get-HyperVLabSqlInstanceReceipt {
     <#
     .SYNOPSIS Liest alle lokal registrierten SQL-Server-Instanzen im verwalteten Gast aus.
@@ -2379,12 +2406,19 @@ function Get-HyperVLabSqlInstanceReceipt {
     param(
         [Parameter(Mandatory)]$Lab,
         [Parameter(Mandatory)][PSCredential]$Credential,
-        [string]$FallbackAddress
+        [string]$FallbackAddress,
+        [guid]$ExpectedVmId
     )
 
+    $vmBinding=@{}
+    if($PSBoundParameters.ContainsKey('ExpectedVmId')){
+        if($FallbackAddress){throw 'HYPERV_GUEST_VM_ID_BINDING_INVALID'}
+        $vmBinding.ExpectedVmId=$ExpectedVmId
+        $null=Assert-HyperVLabSqlVmBinding -Lab $Lab @vmBinding
+    }
     $managed = Get-HyperVManagedVM -VMName ([string]$Lab.Instance.vmName) -ExpectedRunId $Lab.Run.runId -ExpectedScopeId $Lab.Run.scopeId
     if (-not $managed -or [string]$managed.VM.State -ne 'Running') { throw 'HYPERV_LAB_SQL_INSPECTION_VM_MUST_BE_RUNNING' }
-    $receipt = Invoke-HyperVPowerShellDirect -VMName $Lab.Instance.vmName -ExpectedRunId $Lab.Run.runId -ExpectedScopeId $Lab.Run.scopeId -Credential $Credential -FallbackAddress $FallbackAddress -ArgumentList @([string]$Lab.Run.runId, [string]$Lab.Run.scopeId) -ScriptBlock {
+    $receipt = Invoke-HyperVPowerShellDirect -VMName $Lab.Instance.vmName -ExpectedRunId $Lab.Run.runId -ExpectedScopeId $Lab.Run.scopeId -Credential $Credential -FallbackAddress $FallbackAddress @vmBinding -ArgumentList @([string]$Lab.Run.runId, [string]$Lab.Run.scopeId) -ScriptBlock {
         param($ExpectedRunId, $ExpectedScopeId)
         $root = 'HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\Instance Names\SQL'
         $instances = @()
@@ -2421,8 +2455,12 @@ function Get-HyperVLabSqlInstanceReceipt {
 
 function Save-HyperVLabSqlInstanceReceipt {
     [CmdletBinding()]
-    param([Parameter(Mandatory)]$Lab, [Parameter(Mandatory)]$Receipt)
+    param([Parameter(Mandatory)]$Lab, [Parameter(Mandatory)]$Receipt, [guid]$ExpectedVmId)
 
+    if($PSBoundParameters.ContainsKey('ExpectedVmId')){
+        $null=Assert-HyperVLabSqlVmBinding -Lab $Lab -ExpectedVmId $ExpectedVmId
+        if([string]$Receipt.runId -cne [string]$Lab.Run.runId -or [string]$Receipt.scopeId -cne [string]$Lab.Run.scopeId){throw 'HYPERV_LAB_SQL_INSPECTION_RECEIPT_INVALID'}
+    }
     $instances = @($Receipt.instances | ForEach-Object {
         $inVmServer = if ($_.isDefault) {
             if ($_.tcpPort) { "localhost,$($_.tcpPort)" } else { 'localhost' }
@@ -2447,6 +2485,7 @@ function Save-HyperVLabSqlInstanceReceipt {
     $running = @($instances | Where-Object { $_.ServiceStatus -eq 'Running' })
     $primaryConnectionString = if ($running.Count -eq 1) { [string]$running[0].ConnectionString } else { $null }
     $Lab.Instance | Add-Member -NotePropertyName connectionString -NotePropertyValue $primaryConnectionString -Force
+    if($PSBoundParameters.ContainsKey('ExpectedVmId')){$null=Assert-HyperVLabSqlVmBinding -Lab $Lab -ExpectedVmId $ExpectedVmId}
     Write-LabArtifactJsonAtomic -Path (Join-Path $Lab.RunDirectory 'connection-info.json') -InputObject $Lab.Connection
     return $instances
 }
@@ -2469,18 +2508,30 @@ function Enable-HyperVLabHostSqlAccess {
         [ValidateRange(1,65535)][int]$SqlPort = 1433,
         [string]$SwitchName,
         [string]$StateRoot,
-        [switch]$RequireExistingNetwork
+        [switch]$RequireExistingNetwork,
+        [guid]$ExpectedVmId
     )
 
+    $vmBinding=@{}
+    if($PSBoundParameters.ContainsKey('ExpectedVmId')){
+        $vmBinding.ExpectedVmId=$ExpectedVmId
+        $lab=Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot @vmBinding
+        $managed=Assert-HyperVLabSqlVmBinding -Lab $lab @vmBinding
+        $null=Assert-HyperVLabSqlExistingNetwork -Lab $lab -Managed $managed -SwitchName $SwitchName
+        $RequireExistingNetwork=$true
+    }
     Assert-LabWindowsPoolMutationAllowed -RunId $RunId -StateRoot $StateRoot -InvalidateEvidence
-    $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
+    $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot @vmBinding
     $managed = Get-HyperVManagedVM -VMName ([string]$lab.Instance.vmName) -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
+    if($vmBinding.Count){$managed=Assert-HyperVLabSqlVmBinding -Lab $lab @vmBinding}
     if (-not $managed -or [string]$managed.VM.State -ne 'Running') { throw 'HYPERV_LAB_HOST_SQL_VM_MUST_BE_RUNNING' }
+    $vmSelector=@{VMName=$lab.Instance.vmName}
+    if($vmBinding.Count){$vmSelector=@{VM=$managed.VM}}
     $usesSeparateSaPassword = $null -ne $SqlSaPassword
     if (-not $SqlSaPassword) { $SqlSaPassword = $Credential.Password }
 
     $preferredSwitch = if ($SwitchName) { $SwitchName } elseif ($lab.Instance.labNetwork -and $lab.Instance.labNetwork.name) { [string]$lab.Instance.labNetwork.name } else {
-        $attached = @(Get-VMNetworkAdapter -VMName $lab.Instance.vmName -ErrorAction Stop | Where-Object { $_.SwitchName })
+        $attached = @(Get-VMNetworkAdapter @vmSelector -ErrorAction Stop | Where-Object { $_.SwitchName })
         if ($attached.Count -eq 1) { [string]$attached[0].SwitchName } else { $null }
     }
     $usesLan = $lab.Instance.labNetwork -and [string]$lab.Instance.labNetwork.intent -eq 'lan'
@@ -2513,23 +2564,23 @@ function Enable-HyperVLabHostSqlAccess {
         $network = Invoke-LabHyperVNetworkBoundPlan -Plan $networkPlan
     }
     else { $network = Resolve-LabHyperVNetwork -SwitchName $preferredSwitch }
-    $attached = @(Get-VMNetworkAdapter -VMName $lab.Instance.vmName -ErrorAction Stop | Where-Object { [string]$_.SwitchName -eq [string]$network.Name })
+    $attached = @(Get-VMNetworkAdapter @vmSelector -ErrorAction Stop | Where-Object { [string]$_.SwitchName -eq [string]$network.Name })
     if ($attached.Count -eq 0) {
         if ($RequireExistingNetwork) { throw 'HYPERV_LAB_HOST_SQL_EXISTING_ADAPTER_REQUIRED' }
         Write-LabInfo "Hostzugriff: binde $($lab.Instance.vmName) an $($network.Name)."
-        Add-VMNetworkAdapter -VMName $lab.Instance.vmName -SwitchName $network.Name -Name 'SQL_LAB_HYPERV' -ErrorAction Stop | Out-Null
+        Add-VMNetworkAdapter @vmSelector -SwitchName $network.Name -Name 'SQL_LAB_HYPERV' -ErrorAction Stop | Out-Null
     }
 
     Write-LabInfo "Hostzugriff: konfiguriere Gastnetz im Netz $($network.Name)."
     $networkReceipt = Initialize-HyperVGuestLabNetwork -VMName $lab.Instance.vmName -ExpectedRunId $lab.Run.runId `
-        -ExpectedScopeId $lab.Run.scopeId -Credential $Credential -Network $network -Identity $lab.Run.runId
+        -ExpectedScopeId $lab.Run.scopeId -Credential $Credential -Network $network -Identity $lab.Run.runId @vmBinding
 
     Write-LabInfo 'Hostzugriff: SQL-WMI-Provider wird geprüft und bei Bedarf automatisch repariert.'
     $null = Repair-HyperVLabSqlWmiProvider -RunId $RunId -Credential $Credential `
-        -FallbackAddress $networkReceipt.Address -StateRoot $lab.StateRoot
+        -FallbackAddress $(if(-not $vmBinding.Count){$networkReceipt.Address}) -StateRoot $lab.StateRoot @vmBinding
     Write-LabInfo 'Hostzugriff: aktiviere SQL-TCP, SQL-Authentifizierung und die Host-beschränkte Firewallregel.'
     $receipt = Invoke-HyperVPowerShellDirect -VMName $lab.Instance.vmName -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId `
-        -Credential $Credential -NoRetry -FallbackAddress $networkReceipt.Address -ArgumentList @([string]$lab.Run.runId, [string]$lab.Run.scopeId, $SqlSaPassword, $(if ($usesLan) { 'LocalSubnet' } else { [string]$network.HostAddress }), $SqlPort) -ScriptBlock {
+        -Credential $Credential -NoRetry -FallbackAddress $(if(-not $vmBinding.Count){$networkReceipt.Address}) @vmBinding -ArgumentList @([string]$lab.Run.runId, [string]$lab.Run.scopeId, $SqlSaPassword, $(if ($usesLan) { 'LocalSubnet' } else { [string]$network.HostAddress }), $SqlPort) -ScriptBlock {
             param($ExpectedRunId, $ExpectedScopeId, $SaPassword, $RemoteAddress, $RequestedSqlPort)
             $ErrorActionPreference = 'Stop'
             $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword)
@@ -2606,12 +2657,13 @@ EXEC sys.sp_executesql @statement;
         addressMode=[string]$networkReceipt.AddressMode; address=$networkReceipt.Address; prefixLength=$networkReceipt.PrefixLength
         hostAddress=$network.HostAddress; gateway=$networkReceipt.Gateway; dnsServers=@($networkReceipt.DnsServers)
     }) -Force
+    if($vmBinding.Count){$lab.Instance.labNetwork | Add-Member -NotePropertyName subnet -NotePropertyValue ([string]$network.Subnet) -Force}
     $lab.Instance | Add-Member -NotePropertyName host -NotePropertyValue ([string]$networkReceipt.Address) -Force
     $lab.Instance | Add-Member -NotePropertyName port -NotePropertyValue $SqlPort -Force
     $passwordHint = if ($usesSeparateSaPassword) { 'Separat festgelegtes SQL-SA-Passwort' } else { 'Gast-Administratorpasswort' }
     $lab.Instance | Add-Member -NotePropertyName hostSqlAccess -NotePropertyValue ([PSCustomObject]@{ state = 'READY'; authentication = 'sql-authentication'; login = 'sa'; passwordHint = $passwordHint; configuredAt = [string]$receipt.observedAt }) -Force
-    $instanceReceipt = Get-HyperVLabSqlInstanceReceipt -Lab $lab -Credential $Credential -FallbackAddress $networkReceipt.Address
-    $null = Save-HyperVLabSqlInstanceReceipt -Lab $lab -Receipt $instanceReceipt
+    $instanceReceipt = Get-HyperVLabSqlInstanceReceipt -Lab $lab -Credential $Credential -FallbackAddress $(if(-not $vmBinding.Count){$networkReceipt.Address}) @vmBinding
+    $null = Save-HyperVLabSqlInstanceReceipt -Lab $lab -Receipt $instanceReceipt @vmBinding
     Write-LabSuccess "Hostzugriff bereit: $($lab.Instance.host),$SqlPort (SQL-Login sa; Passwort: $passwordHint)."
     return [PSCustomObject]@{ Network = $networkReceipt; Sql = $receipt; ConnectionString = [string]$lab.Instance.connectionString }
 }
@@ -2645,17 +2697,26 @@ function Repair-HyperVLabSqlWmiProvider {
         [Parameter(Mandatory)][string]$RunId,
         [Parameter(Mandatory)][PSCredential]$Credential,
         [string]$FallbackAddress,
-        [string]$StateRoot
+        [string]$StateRoot,
+        [guid]$ExpectedVmId
     )
 
+    $vmBinding=@{}
+    if($PSBoundParameters.ContainsKey('ExpectedVmId')){
+        if($FallbackAddress){throw 'HYPERV_GUEST_VM_ID_BINDING_INVALID'}
+        $vmBinding.ExpectedVmId=$ExpectedVmId
+        $lab=Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot @vmBinding
+        $managed=Assert-HyperVLabSqlVmBinding -Lab $lab @vmBinding
+    }
     Assert-LabWindowsPoolMutationAllowed -RunId $RunId -StateRoot $StateRoot -InvalidateEvidence
     $null = Assert-LabHyperVResourceMigrationLifecycleAllowed -RunId $RunId -Operation 'REPAIR_SQL_WMI' -StateRoot $StateRoot
-    $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
+    $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot @vmBinding
     $managed = Get-HyperVManagedVM -VMName ([string]$lab.Instance.vmName) -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
+    if($vmBinding.Count){$managed=Assert-HyperVLabSqlVmBinding -Lab $lab @vmBinding}
     if (-not $managed -or [string]$managed.VM.State -ne 'Running') { throw 'HYPERV_LAB_SQL_WMI_VM_MUST_BE_RUNNING' }
 
     $receipt = Invoke-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $Credential -NoRetry `
-        -FallbackAddress $FallbackAddress -ArgumentList @([string]$lab.Run.runId, [string]$lab.Run.scopeId) -ScriptBlock {
+        -FallbackAddress $FallbackAddress @vmBinding -ArgumentList @([string]$lab.Run.runId, [string]$lab.Run.scopeId) -ScriptBlock {
             param($ExpectedRunId, $ExpectedScopeId)
             $ErrorActionPreference = 'Stop'
             $instanceMap = Get-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\Instance Names\SQL' -ErrorAction Stop
@@ -2689,6 +2750,7 @@ function Repair-HyperVLabSqlWmiProvider {
         throw 'HYPERV_LAB_SQL_WMI_RECEIPT_INVALID'
     }
     $lab.Instance | Add-Member -NotePropertyName sqlWmiProvider -NotePropertyValue $receipt -Force
+    if($vmBinding.Count){$null=Assert-HyperVLabSqlVmBinding -Lab $lab @vmBinding}
     Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'connection-info.json') -InputObject $lab.Connection
     Write-LabSuccess $(if ($receipt.repaired) { 'SQL-WMI-Provider wurde repariert.' } else { 'SQL-WMI-Provider ist bereits verfügbar.' })
     return $receipt
@@ -2708,21 +2770,29 @@ function Wait-HyperVLabSqlCompletionRestart {
         [Parameter(Mandatory)][PSCredential]$Credential,
         [Parameter(Mandatory)][string]$PreviousBootTime,
         [string]$FallbackAddress,
-        [ValidateRange(30, 1800)][int]$TimeoutSeconds = 600
+        [ValidateRange(30, 1800)][int]$TimeoutSeconds = 600,
+        [guid]$ExpectedVmId
     )
 
+    $vmBinding=@{}
+    if($PSBoundParameters.ContainsKey('ExpectedVmId')){
+        if($FallbackAddress){throw 'HYPERV_GUEST_VM_ID_BINDING_INVALID'}
+        $vmBinding.ExpectedVmId=$ExpectedVmId
+        $null=Assert-HyperVLabSqlVmBinding -Lab $Lab @vmBinding
+    }
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
     $lastStatus = 'Neustart noch nicht beobachtet.'
     $progress=Start-LabActionProgress -Phase GuestWait
     $probeCount=0
     try {
     while ($stopwatch.Elapsed.TotalSeconds -lt $TimeoutSeconds) {
+        if($vmBinding.Count){$null=Assert-HyperVLabSqlVmBinding -Lab $Lab @vmBinding}
         $probeCount++
         Update-LabActionProgress -Progress $progress -Phase GuestWait -ProbeCount $probeCount
         try {
             $probe = Invoke-HyperVPowerShellDirect -VMName ([string]$Lab.Instance.vmName) `
                 -ExpectedRunId ([string]$Lab.Run.runId) -ExpectedScopeId ([string]$Lab.Run.scopeId) `
-                -Credential $Credential -FallbackAddress $FallbackAddress -Progress $progress `
+                -Credential $Credential -FallbackAddress $FallbackAddress @vmBinding -Progress $progress `
                 -TimeoutSeconds ([math]::Max(1,[int][math]::Ceiling($TimeoutSeconds-$stopwatch.Elapsed.TotalSeconds))) -ScriptBlock {
                     [PSCustomObject]@{
                         bootTime = (Get-CimInstance Win32_OperatingSystem -ErrorAction Stop).LastBootUpTime.ToUniversalTime().ToString('o')
@@ -2763,11 +2833,20 @@ function Complete-HyperVLabSqlImage {
         [ValidateRange(1,65535)][int]$SqlPort = 1433,
         [string]$MediaRoot,
         [switch]$RequireExistingNetwork,
-        [string]$StateRoot
+        [string]$StateRoot,
+        [guid]$ExpectedVmId
     )
 
+    $vmBinding=@{}
+    if($PSBoundParameters.ContainsKey('ExpectedVmId')){
+        $vmBinding.ExpectedVmId=$ExpectedVmId
+        $lab=Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot @vmBinding
+        $managed=Assert-HyperVLabSqlVmBinding -Lab $lab @vmBinding
+        if($lab.Instance.labNetwork){$null=Assert-HyperVLabSqlExistingNetwork -Lab $lab -Managed $managed}
+        $RequireExistingNetwork=$true
+    }
     Assert-LabWindowsPoolMutationAllowed -RunId $RunId -StateRoot $StateRoot -InvalidateEvidence
-    $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
+    $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot @vmBinding
     $RequireExistingNetwork = $RequireExistingNetwork -or ($lab.Run.metadata.PSObject.Properties['requireExistingNetwork'] -and [bool]$lab.Run.metadata.requireExistingNetwork)
     if (-not $lab.Instance.imageArtifactId -or $lab.Instance.sqlCompletion) { throw 'HYPERV_LAB_SQL_COMPLETE_NOT_REQUIRED' }
     $artifact = Get-HyperVImageArtifact -ArtifactId ([string]$lab.Instance.imageArtifactId) -StateRoot $lab.StateRoot
@@ -2791,9 +2870,10 @@ function Complete-HyperVLabSqlImage {
     $media = Resolve-HyperVSqlInstallationMedia -MediaRoot $MediaRoot -SqlVersion ([string]$artifact.sql.version) -MediaEdition $mediaEdition -SqlMediaPath ([string]$mediaCandidates[0].MediaId)
     if ($media.HashStatus -ne 'SIDECAR_READY') { throw "HYPERV_LAB_SQL_MEDIA_HASH_REQUIRED: $($media.HashPath)" }
     $managed = Get-HyperVManagedVM -VMName ([string]$lab.Instance.vmName) -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
+    if($vmBinding.Count){$managed=Assert-HyperVLabSqlVmBinding -Lab $lab @vmBinding}
     if (-not $managed -or [string]$managed.VM.State -ne 'Running') { throw 'HYPERV_LAB_SQL_COMPLETE_VM_MUST_BE_RUNNING' }
-    $null=Invoke-LabWindowsSlotActivationReconcile -RunId $RunId -Credential $Credential -StateRoot $lab.StateRoot
-    $lab=Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot
+    $null=Invoke-LabWindowsSlotActivationReconcile -RunId $RunId -Credential $Credential -StateRoot $lab.StateRoot @vmBinding
+    $lab=Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot @vmBinding
     $generatedSqlPassword = $GeneratedSqlSaPassword.IsPresent
     if (-not $SqlSaPassword) {
         $SqlSaPassword = Get-LabSecret -Path $lab.RunDirectory -Name 'sa-password'
@@ -2803,17 +2883,20 @@ function Complete-HyperVLabSqlImage {
         }
         if (-not $SqlSaPassword) { $SqlSaPassword = $Credential.Password }
     }
+    if($vmBinding.Count){$null=Assert-HyperVLabSqlVmBinding -Lab $lab @vmBinding}
     Save-LabHyperVSqlSaPassword -RunDirectory $lab.RunDirectory -SqlSaPassword $SqlSaPassword -Generated:$generatedSqlPassword
-    $fallbackAddress = if ($lab.Instance.labNetwork) {
+    $fallbackAddress = if (-not $vmBinding.Count -and $lab.Instance.labNetwork) {
         if ($lab.Instance.labNetwork.address) { [string]$lab.Instance.labNetwork.address }
         else { Get-LabNetworkGuestAddress -Network $lab.Instance.labNetwork -Identity ([string]$lab.Run.runId) }
     }
 
-    if (-not @(Get-VMDvdDrive -VMName $lab.Instance.vmName -ErrorAction Stop | Where-Object { $_.Path -eq $media.IsoPath })) {
-        $null = Add-VMDvdDrive -VMName $lab.Instance.vmName -Path $media.IsoPath -ErrorAction Stop
+    $vmSelector=@{VMName=$lab.Instance.vmName}
+    if($vmBinding.Count){$managed=Assert-HyperVLabSqlVmBinding -Lab $lab @vmBinding;$vmSelector=@{VM=$managed.VM}}
+    if (-not @(Get-VMDvdDrive @vmSelector -ErrorAction Stop | Where-Object { $_.Path -eq $media.IsoPath })) {
+        $null = Add-VMDvdDrive @vmSelector -Path $media.IsoPath -ErrorAction Stop
     }
     Write-LabInfo 'Schritt 1/3: SQL-Setup-Medium wird in der run-eigenen VM geprüft.'
-    $receipt = Invoke-HyperVPowerShellDirect -VMName $lab.Instance.vmName -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $Credential -NoRetry -FallbackAddress $fallbackAddress -ArgumentList @([string]$lab.Run.runId, [string]$lab.Run.scopeId, $SqlSaPassword) -ScriptBlock {
+    $receipt = Invoke-HyperVPowerShellDirect -VMName $lab.Instance.vmName -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $Credential -NoRetry -FallbackAddress $fallbackAddress @vmBinding -ArgumentList @([string]$lab.Run.runId, [string]$lab.Run.scopeId, $SqlSaPassword) -ScriptBlock {
         param($ExpectedRunId, $ExpectedScopeId, $SaPassword)
         $setup = @(Get-PSDrive -PSProvider FileSystem | ForEach-Object {
             $candidate = Join-Path $_.Root 'setup.exe'
@@ -2847,19 +2930,19 @@ function Complete-HyperVLabSqlImage {
         }
     }
     $receipt = @($receipt)[-1]
-    if (-not $receipt -or [string]$receipt.runId -ne [string]$lab.Run.runId -or [int]$receipt.exitCode -notin @(0, 3010) -or (([int]$receipt.exitCode -eq 0) -and $receipt.serviceName -ne 'MSSQLSERVER')) { throw 'HYPERV_LAB_SQL_COMPLETE_RECEIPT_INVALID' }
+    if (-not $receipt -or [string]$receipt.runId -ne [string]$lab.Run.runId -or ($vmBinding.Count -and [string]$receipt.scopeId -cne [string]$lab.Run.scopeId) -or [int]$receipt.exitCode -notin @(0, 3010) -or (([int]$receipt.exitCode -eq 0) -and $receipt.serviceName -ne 'MSSQLSERVER')) { throw 'HYPERV_LAB_SQL_COMPLETE_RECEIPT_INVALID' }
     if ([int]$receipt.exitCode -eq 3010) {
         Write-LabInfo 'Schritt 2/5: SQL Setup hat einen Neustart angefordert; der automatische Ablauf wartet auf den neuen Gast-Boot.'
         $restarted = Wait-HyperVLabSqlCompletionRestart -Lab $lab -Credential $Credential `
-            -PreviousBootTime ([string]$receipt.bootTimeBeforeRestart) -FallbackAddress $fallbackAddress
+            -PreviousBootTime ([string]$receipt.bootTimeBeforeRestart) -FallbackAddress $fallbackAddress @vmBinding
         if (-not $restarted.Ready) { throw "HYPERV_LAB_SQL_COMPLETE_REBOOT_TIMEOUT: $($restarted.Message)" }
     }
     Write-LabInfo 'Schritt 3/5: SQL-WMI-Provider wird automatisch geprüft und bei Bedarf repariert.'
     $wmiReceipt = Repair-HyperVLabSqlWmiProvider -RunId $RunId -Credential $Credential `
-        -FallbackAddress $fallbackAddress -StateRoot $lab.StateRoot
-    $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot
-    $instanceReceipt = Get-HyperVLabSqlInstanceReceipt -Lab $lab -Credential $Credential -FallbackAddress $fallbackAddress
-    $instances = Save-HyperVLabSqlInstanceReceipt -Lab $lab -Receipt $instanceReceipt
+        -FallbackAddress $fallbackAddress -StateRoot $lab.StateRoot @vmBinding
+    $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot @vmBinding
+    $instanceReceipt = Get-HyperVLabSqlInstanceReceipt -Lab $lab -Credential $Credential @vmBinding -FallbackAddress $fallbackAddress
+    $instances = Save-HyperVLabSqlInstanceReceipt -Lab $lab -Receipt $instanceReceipt @vmBinding
     $defaultInstance = @($instances | Where-Object { $_.IsDefault }) | Select-Object -First 1
     if (-not $defaultInstance -or [string]$defaultInstance.ServiceStatus -ne 'Running') {
         throw 'HYPERV_LAB_SQL_COMPLETE_DEFAULT_INSTANCE_NOT_RUNNING'
@@ -2869,18 +2952,20 @@ function Complete-HyperVLabSqlImage {
         state = 'COMPLETE'; serviceStatus = [string]$defaultInstance.ServiceStatus
         completedAt = [string]$receipt.completedAt; wmiProvider = $wmiReceipt
     }
-    $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot
+    $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot @vmBinding
     $lab.Instance | Add-Member -NotePropertyName sqlCompletion -NotePropertyValue $completion -Force
+    if($vmBinding.Count){$null=Assert-HyperVLabSqlVmBinding -Lab $lab @vmBinding}
     Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'connection-info.json') -InputObject $lab.Connection
 
     $hostAccess = $null
     if ($lab.Instance.labNetwork) {
         Write-LabInfo 'Schritt 4/5: Feste Lab-IP, SQL-TCP und die auf den Host beschränkte Firewallregel werden automatisch eingerichtet.'
         $hostAccess = Enable-HyperVLabHostSqlAccess -RunId $RunId -Credential $Credential `
-            -SqlSaPassword $SqlSaPassword -SqlPort $SqlPort -StateRoot $lab.StateRoot -RequireExistingNetwork:$RequireExistingNetwork
-        $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot
+            -SqlSaPassword $SqlSaPassword -SqlPort $SqlPort -StateRoot $lab.StateRoot -RequireExistingNetwork:$RequireExistingNetwork @vmBinding
+        $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot @vmBinding
         $lab.Instance.sqlCompletion | Add-Member -NotePropertyName hostSqlAccess -NotePropertyValue $hostAccess -Force
-        Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'connection-info.json') -InputObject $lab.Connection
+        if($vmBinding.Count){$null=Assert-HyperVLabSqlVmBinding -Lab $lab @vmBinding}
+    Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'connection-info.json') -InputObject $lab.Connection
     }
     else {
         Write-LabInfo 'Schritt 4/5: Die isolierte VM erhält den deklarativen statischen SQL-TCP-Port ohne Firewall- oder Hostfreigabe.'
@@ -2889,23 +2974,24 @@ function Complete-HyperVLabSqlImage {
             ConnectionInstance=$lab.Instance;Desired=[PSCustomObject]@{Port=[int]$SqlPort}
             FirewallRequired=$false;FirewallRemoteAddress=$null
         }
-        $null = Set-LabHyperVSqlPortBinding -Context $isolatedPortContext -Credential $Credential
-        $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot
+        $null = Set-LabHyperVSqlPortBinding -Context $isolatedPortContext -Credential $Credential @vmBinding
+        $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot @vmBinding
         $lab.Instance | Add-Member -NotePropertyName port -NotePropertyValue ([int]$SqlPort) -Force
-        $isolatedReceipt = Get-HyperVLabSqlInstanceReceipt -Lab $lab -Credential $Credential
-        $null = Save-HyperVLabSqlInstanceReceipt -Lab $lab -Receipt $isolatedReceipt
+        $isolatedReceipt = Get-HyperVLabSqlInstanceReceipt -Lab $lab -Credential $Credential @vmBinding
+        $null = Save-HyperVLabSqlInstanceReceipt -Lab $lab -Receipt $isolatedReceipt @vmBinding
         Write-LabWarning 'Die VM bleibt ausdrücklich isoliert; ein Zugriff des Hosts oder anderer Anwendungen ist nicht möglich.'
     }
     Write-LabInfo 'Schritt 5/5: SQL-Dienst, Hauptversion und alle vier Systemdatenbanken werden im echten Gast geprüft.'
-    $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot
+    $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot @vmBinding
     $readiness = Wait-HyperVGuestSqlReady -VMName ([string]$lab.Instance.vmName) `
         -ExpectedRunId ([string]$lab.Run.runId) -ExpectedScopeId ([string]$lab.Run.scopeId) -StateRoot $lab.StateRoot `
-        -Credential $Credential -SaPassword $SqlSaPassword -FallbackAddress $fallbackAddress `
+        -Credential $Credential -SaPassword $SqlSaPassword -FallbackAddress $fallbackAddress @vmBinding `
         -ExpectedMajorVersion (Get-HyperVSqlMajorVersionFromVersion -SqlVersion ([string]$artifact.sql.version))
     if (-not $readiness.Ready -or [string]$readiness.Status -ne 'SQL_READY_RUN' -or
         [int]$readiness.OnlineSystemDatabases -ne 4) {
         throw 'HYPERV_LAB_SQL_READY_RUN_RECEIPT_INVALID'
     }
+    if($vmBinding.Count){$null=Assert-HyperVLabSqlVmBinding -Lab $lab @vmBinding;$lab=Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot @vmBinding}
     $readinessEvidence = [PSCustomObject]@{
         status = [string]$readiness.Status
         provider = [string]$readiness.Provider
@@ -2918,6 +3004,7 @@ function Complete-HyperVLabSqlImage {
     }
     $lab.Instance.sqlCompletion | Add-Member -NotePropertyName sqlReadiness -NotePropertyValue $readinessEvidence -Force
     $lab.Instance | Add-Member -NotePropertyName sqlReadiness -NotePropertyValue $readinessEvidence -Force
+    if($vmBinding.Count){$null=Assert-HyperVLabSqlVmBinding -Lab $lab @vmBinding}
     Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'connection-info.json') -InputObject $lab.Connection
     Write-LabSuccess 'SQL Server, WMI, SQL_READY_RUN und – im Labnetz – TCP/IP für Host-Anwendungen sind bereit.'
     return $lab.Instance.sqlCompletion
