@@ -389,6 +389,9 @@ function Set-LabHyperVStorageReconcileConnectionReceipt {
 function Invoke-LabHyperVStorageReconcileRepair {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$RunId,[Parameter(Mandatory)][string]$InstanceId,[string]$StateRoot)
+    if(-not $StateRoot){$StateRoot=Get-LabStateRoot}
+    $featureGuard=Enter-LabSqlFeatureConflictGuard -RunId $RunId -StateRoot $StateRoot
+    try {
     Assert-LabWindowsPoolMutationAllowed -RunId $RunId -StateRoot $StateRoot -InvalidateEvidence
     $mutex=[Threading.Mutex]::new($false,"Global\SQL_Server_Lab_HyperV_Storage_Reconcile_$($RunId.Replace('-',''))")
     $acquired=$false;$journal=$null;$journalPath=$null
@@ -432,4 +435,5 @@ function Invoke-LabHyperVStorageReconcileRepair {
         if($journal -and $journalPath){try{$null=Set-LabHyperVStorageReconcileJournalStatus -Journal $journal -Path $journalPath -Status RECOVERY_REQUIRED -ErrorCode $code}catch{};throw "HYPERV_STORAGE_RECONCILE_RECOVERY_REQUIRED: $code"}
         throw
     }finally{if($acquired){try{$mutex.ReleaseMutex()}catch{}};$mutex.Dispose()}
+    } finally {$featureGuard.ReleaseMutex();$featureGuard.Dispose()}
 }

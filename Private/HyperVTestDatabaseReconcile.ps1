@@ -153,6 +153,7 @@ function Get-LabHyperVTestDatabaseInstanceFingerprint {
         Profile=[string]$Instance.Profile;AutoStart=[string]$Instance.AutoStart
         Drives=@($Instance.Intents.Drives);Network=$Instance.Intents.Network;Resources=$Instance.Intents.Resources
         SqlEndpoint=$Instance.Intents.SqlEndpoint;SqlConfiguration=$Instance.Intents.SqlConfiguration
+        SqlFeatures=(Get-LabSqlFeatureIntentFingerprint -Intent $Instance.Intents.SqlFeatures)
         Software=$Instance.Intents.Software;Storage=$Instance.Intents.Storage
     }
 }
@@ -452,6 +453,9 @@ function Sync-LabHyperVTestDatabaseState {
 function Invoke-LabHyperVTestDatabaseReconcileRepair {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$RunId,[Parameter(Mandatory)][string]$ManifestPath,[Parameter(Mandatory)][string]$InstanceId,[SecureString]$SqlSaPassword,[string]$StateRoot)
+    if(-not $StateRoot){$StateRoot=Get-LabStateRoot}
+    $featureGuard=Enter-LabSqlFeatureConflictGuard -RunId $RunId -StateRoot $StateRoot
+    try {
     Assert-LabWindowsPoolMutationAllowed -RunId $RunId -StateRoot $StateRoot -InvalidateEvidence
     $mutex=[Threading.Mutex]::new($false,"Global\SQL_Server_Lab_HyperV_Test_Database_Reconcile_$($RunId.Replace('-',''))");$acquired=$false;$journal=$null;$journalPath=$null
     try{
@@ -500,4 +504,5 @@ function Invoke-LabHyperVTestDatabaseReconcileRepair {
     }
     catch{$code=if($_.Exception.Message -cmatch '[A-Z][A-Z0-9_]{5,127}'){[string]$Matches[0]}else{'HYPERV_TEST_DATABASE_RECONCILE_FAILED'};if($journal -and $journalPath){try{$null=Set-LabHyperVTestDatabaseReconcileJournalStatus -Journal $journal -Path $journalPath -Status RECOVERY_REQUIRED -ErrorCode $code}catch{};throw "HYPERV_TEST_DATABASE_RECONCILE_RECOVERY_REQUIRED: $code"};throw}
     finally{if($acquired){try{$mutex.ReleaseMutex()}catch{}};$mutex.Dispose()}
+    } finally {$featureGuard.ReleaseMutex();$featureGuard.Dispose()}
 }

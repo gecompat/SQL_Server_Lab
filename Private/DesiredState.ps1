@@ -439,6 +439,7 @@ function New-LabDesiredStateSnapshot {
                 $providerCapability = [PSCustomObject]@{ Capabilities = @() }
             }
             $intents = New-LabInstanceIntentSnapshot -Instance $instance -ProviderCapability $providerCapability -ParserAuthorizedRuntime
+            if($instance.sqlFeatures){$intents|Add-Member -NotePropertyName SqlFeatures -NotePropertyValue $instance.sqlFeatures}
             # Ein Target-Rebuild migriert bestehende optionale Metadaten nicht.
             # Alle anderen Felder bleiben Bestandteil der bisherigen Driftpruefung.
             $previous = @($PreviousSnapshot.Instances | Where-Object {
@@ -1273,6 +1274,10 @@ function Get-LabPersistedDesiredState {
         if ($instance.Intents -and $instance.Intents.PSObject.Properties['SqlConfiguration'] -and $null -ne $instance.Intents.SqlConfiguration -and
             -not (Test-LabPersistedSqlConfigurationIntent -SqlConfiguration $instance.Intents.SqlConfiguration -Provider $provider -ProviderCapability $providerCapability)) {
             [void]$validationErrors.Add('DESIRED_INSTANCE_SQL_CONFIGURATION_INTENT_INVALID')
+        }
+        if ($instance.Intents -and $null -ne $instance.Intents.SqlFeatures) {
+            try {$null=Resolve-LabSqlFeatureIntent -Intent $instance.Intents.SqlFeatures -Provider $provider -SqlVersion ([string]$instance.Version)}
+            catch {[void]$validationErrors.Add('DESIRED_INSTANCE_SQL_FEATURE_INTENT_INVALID')}
         }
         if ($instance.Intents -and $instance.Intents.PSObject.Properties['ContainerRuntime'] -and $null -ne $instance.Intents.ContainerRuntime -and
             -not (Test-LabPersistedContainerRuntimeIntent -ContainerRuntime $instance.Intents.ContainerRuntime -Provider $provider -SqlVersion ([string]$instance.Version))) {

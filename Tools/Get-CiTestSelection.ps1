@@ -50,7 +50,7 @@ end {
     }
 
     $hasPowerShell = Test-AnyPath '\.(ps1|psm1|psd1)$'
-    $hasProductCode = Test-AnyPath '^(Private|Public|Providers|Adapters|Catalogs|Schemas)/|^SqlServerLab\.(psd1|psm1)$'
+    $hasProductCode = Test-AnyPath '^(Private|Public|Providers|Adapters|Catalogs|Schemas)/|^SqlServerLab\.(psd1|psm1)$|^Tools/Set-SqlServerLabFullText\.sh$'
     $docsOnly = $allPaths.Count -gt 0 -and -not $hasProductCode -and -not $hasPowerShell -and
         -not (Test-AnyPath '^\.github/workflows/')
 
@@ -62,6 +62,9 @@ end {
     }
 
     $staticGroups = @(
+        @{ Pattern = '^(Private/SqlFeatures\.ps1|Public/Set-SqlServerLabFeature\.ps1|Providers/HyperV/HyperVSqlFeatures\.ps1|Tools/Set-SqlServerLabFullText\.sh|Tests/(Static/Invoke-SqlFeatureChecks|Static/Fixtures/SqlFeature(?:Mutation|Readiness|Reconcile)Checks|Integration/Invoke-SqlFeatureAcceptance)\.ps1)$'; Checks = @('Invoke-SqlFeatureChecks.ps1') },
+        @{ Pattern = '^(Public/(Update-SqlServerLabContainer|Set-SqlServerLabContainerAutoStart|Resume-SqlServerLabContainerAutoStart)|Private/(ExternalRuntimeReconcile|HyperV(?:ExternalRuntime|Resource|SqlConfiguration|SqlPort|Storage|TestDatabase)Reconcile))\.ps1$'; Checks = @('Invoke-SqlFeatureChecks.ps1') },
+        @{ Pattern = '(?i)(HyperVSqlPortReconcile|hyperv-sql-port-reconcile|HyperVSqlPortMutationBoundary)'; Checks = @('Invoke-HyperVSqlPortReconcileChecks.ps1','Invoke-ReconcileActionContractChecks.ps1') },
         @{ Pattern = '^(Private/SmtpTestServiceMimeProcess\.ps1|Tools/SmtpTestServiceMime\.py|Tests/Static/Fixtures/SmtpTestServiceMime(Checks\.py|ParentChecks\.ps1)|Tests/Static/Invoke-SmtpTestServiceMimeParentChecks\.ps1)$'; Checks = @('Invoke-SmtpTestServiceMimeParentChecks.ps1') },
         @{ Pattern = '^(Private/SmtpTestServiceReceiverRead\.ps1|Tests/Static/(Fixtures/SmtpTestServiceReceiverReadChecks|Invoke-SmtpTestServiceReceiverReadChecks)\.ps1)$'; Checks = @('Invoke-SmtpTestServiceReceiverReadChecks.ps1') },
         @{ Pattern = '^(Tools/SmtpTestServiceGateway(\.py|\.Dockerfile)|Tests/(Static/(Fixtures/SmtpTestServiceGatewayChecks|Invoke-SmtpTestServiceGatewayChecks)|Integration/Invoke-SmtpTestServiceGateway(Image|Receiver)Acceptance)\.ps1)$'; Checks = @('Invoke-SmtpTestServiceGatewayChecks.ps1') },
@@ -275,6 +278,8 @@ end {
             if ($runtimePath -match '(?i)(\.(md|txt|rst)$|^Documentation/)') { continue }
             $pathRuntime = [ordered]@{ Docker = $false; Podman = $false; Mixed = $false; HyperV = $false; Adapter = $false }
             $pathHasProductCode = $runtimePath -match '^(Private|Public|Providers|Adapters|Catalogs|Schemas)/|^SqlServerLab\.(psd1|psm1)$'
+            if($runtimePath -cmatch '^Tools/Set-SqlServerLabFullText\.sh$'){$pathRuntime.Docker=$true;$pathRuntime.Podman=$true}
+            if($runtimePath -cmatch '^(Private/SqlFeatures|Public/Set-SqlServerLabFeature|Tests/Integration/Invoke-SqlFeatureAcceptance)\.ps1$'){$pathRuntime.Docker=$true;$pathRuntime.Podman=$true;$pathRuntime.HyperV=$true}
             if ($runtimePath -match '(?i)^(Private/ContainerOwnedHostIntegration\.ps1|Tests/Common/OwnedHostTestScope\.ps1|Schemas/container-owned-host-integration\.schema\.json)$') {
                 $pathRuntime.Docker = $true; $pathRuntime.Podman = $true; $pathRuntime.Mixed = $true; $pathRuntime.HyperV = $true; $pathRuntime.Adapter = $true
             }

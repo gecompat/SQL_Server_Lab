@@ -2,6 +2,28 @@
 
 Der [private Consumer-Guard](../Architecture/AUTHENTICATED_TLS_CONSUMER_GUARD.md) hält ausgewählte NTFS-Leseobjekte und lehnt Journalreplay beziehungsweise behaupteten CLEANED-Abschluss ab. Er bindet keine späteren pfadbasierten Writer, reserviert keine VM und beweist kein Gast-/Kindprozessende. Der feste native Setupworker und SC-2026-045 bleiben offen.
 
+## Optionale Volltextsuche und FILESTREAM
+
+Der [Funktionsvertrag](../Architecture/SQL_OPTIONAL_FEATURES.md) ergänzt explizite
+Auswahl und Add/Remove. Native SQL-2025-Abnahmen für Docker und Podman bestanden
+auf dem Windows-Client mit Linux-Containern und Build `17.0.4075.5`, einschließlich
+tatsächlicher Index-/Suchtests, Remove/Add und eigenem Cleanup. Die vollständige
+Hyper-V-Abnahme mit SQL 2025 RTM (`17.0.1000.7`) bestand ebenfalls: Create,
+echte Volltextindex-/Suchtests, Dependency-Guard, Neustart, physisches Remove/Add
+und erneute Suche. FILESTREAM-BLOBs wurden gespeichert, aktualisiert und nach
+VM-Neustart gelesen; Abhängigkeitssperre und anschließende Deaktivierung bestanden.
+Der native WMI-Status `0x80070BC3` wurde mit SQL-Dienstneustart und tatsächlicher
+SQL-Nachprüfung abgeschlossen. Der Gesamt-Funktionstest endete mit Exitcode 0;
+eigene VM, Child-VHDX und IP-Lease wurden fehlerfrei entfernt.
+FILESTREAM bleibt auf Linux einschließlich Docker und Podman nicht unterstützt.
+Der Windows-Pfad aktiviert ausschließlich T-SQL-Zugriff. Win32-/Remote-Streaming,
+FileTable und die zusätzliche semantische Suchdatenbank werden nicht eingerichtet.
+Container-Removal übernimmt keine fremde FTS-Installation und blockiert bei
+geänderter Capsule. Gestoppte Container mit aktivem Volltext müssen vor Recreate
+gestartet werden. Weitere SQL-/OS-Stände benötigen eigene native Nachweise.
+Spätere Reconcile-Manifeste müssen den aktuellen gespeicherten Featureintent
+enthalten: Andere Reconcile-Arten dürfen ihn nicht stillschweigend zurücksetzen.
+
 Die öffentliche optionale VM-ID-Lane für CompleteImage/HostSQL ist durch
 synthetische Funktionsketten geprüft. Sie verlangt einen ausgewählten Root;
 HostSQL ist darin auf ein unverändertes vorhandenes hostOnly-Netz begrenzt.
@@ -626,8 +648,12 @@ exakte Vektor- sowie hybride SQL-Termabdeckungs-/Vektorsuche, Resume und
 besitzgebundenes Cleanup auf Docker/Podman. Docker und Podman bestanden am
 2026-09-22 getrennt mit je 30 Assertions einschließlich Hybridranking,
 SQLrestart, Delta-Cutover, Caller-Sync, explizitem Prune, Hashdrift und vollständigem Cleanup. SQL Server
-Full-Text Search bleibt wegen des im Standardcontainer fehlenden optionalen
-`mssql-server-fts`-Pakets offen. Caller-Collections mit 1 bis 16 Dokumenten,
+Full-Text Search ist als [optionale Instanzfunktion](../Architecture/SQL_OPTIONAL_FEATURES.md)
+mit versionsgebundener FTS-Capsule für Standardcontainer implementiert; die
+ausgeführten Providerabnahmen stehen getrennt in der Validierungsstrategie.
+Der Retrieval-Hybridmodus verwendet weiterhin SQL-Termabdeckung; seine
+Integration mit Volltextindex und sprachspezifischem Ranking bleibt offen.
+Caller-Collections mit 1 bis 16 Dokumenten,
 freier Frage und atomarem Update/Insert/Delete sind implementiert; die nativen
 Referenzen verwendeten jeweils drei Dokumente. Alte inaktive Generationen einer
 v1-Caller-Collection können nach erfolgreichem Sync explizit und transaktional

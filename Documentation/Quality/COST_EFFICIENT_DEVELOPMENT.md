@@ -220,6 +220,21 @@ maßgeblich; ein begrenzter neuer Auftrag öffnet nur seinen eigenen Scope.
 
 ## 7. Abschlussbericht
 
+Der [optionale SQL-Funktionsvertrag](../Architecture/SQL_OPTIONAL_FEATURES.md)
+ergänzt eine fokussierte statische Suite und getrennte native Providerläufe.
+Die Shellquelle wählt Docker/Podman, der Windows-Adapter Hyper-V; gemischte
+Coreänderungen behalten die konservative bestehende Matrix. Die aktuelle
+Manifest-/API-Änderung behält deshalb die betroffenen breiten statischen Gates.
+Die Testauswahl ergänzt keine Modellaufrufe oder zusätzliche Review-/Logpipeline.
+Die Feature-Recovery-Regression wird außerdem für die exakt gekoppelten
+Container-/Hyper-V-Mutatoren gewählt; der SQL-Port-Setter wählt seine bestehende
+Fachsuite. Dies erhält Sperr- und Intentgrenzen ohne zusätzliche Runtimefälle.
+Der bestehende Port-HTTP-Test bestand isoliert mit allen 87 Assertions in
+65,3 Sekunden. Nur sein Wrapperbudget steigt von 60 auf 90 Sekunden; andere
+Timeouts, sämtliche Oracles und Cleanup bleiben erhalten. Dies behebt den
+beobachteten Harnessabbruch ohne zusätzliche Providerstarts oder ausgelassene
+Fälle. Geld- und Tokenkosten sind unbekannt; Originalausgaben bleiben lokal.
+
 Die begrenzte Selektorentscheidung für den [privaten TLS-Registrywriter](../Architecture/AUTHENTICATED_TLS_REGISTRY_WRITER.md)
 wählt native eigene Windows-Dateisystemfixtures mit ACL-/Prozessabbruch-/
 Parallelitätsfällen statt unbeteiligter SQL-Providerstarts. Nur sein exakter

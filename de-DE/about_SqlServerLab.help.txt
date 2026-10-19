@@ -155,6 +155,7 @@ COMMANDS
         Checkpoints ohne VM-Namen oder Hostpfade; keine Erstellung oder Restore.
 
     Get-SqlServerLabContainerAutoStartPlan, Set-SqlServerLabContainerAutoStart,
+    Set-SqlServerLabFeature,
     Resume-SqlServerLabContainerAutoStart
         Lesen, ändern oder vervollständigen den gebundenen direkten Container-
         Autostartvertrag ohne Neuerstellung oder zweiten Provider-Apply.

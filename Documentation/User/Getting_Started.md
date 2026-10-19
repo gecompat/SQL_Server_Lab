@@ -1,5 +1,15 @@
 # SQL_Server_Lab – Getting Started
 
+Volltext kann mit `New-SqlServerLab -Provider docker -FullText $true` oder im
+Manifest unter `instances[].sqlFeatures.fullText` gewählt werden. Podman nutzt
+denselben expliziten Vertrag. Für vorhandene laufende Instanzen dient
+`Set-SqlServerLabFeature -RunId $run.RunId -InstanceId primary -Feature FullText
+-Enabled $true`; `$false` entfernt die Funktion nach einer Abhängigkeitsprüfung.
+In der GUI stehen die Auswahl bei Neuanlage und **SQL-Funktionen** je Instanz
+bereit. FILESTREAM-T-SQL-Zugriff ist mit `fileStream` beziehungsweise
+`-Feature FileStream` nur auf Windows/Hyper-V verfügbar.
+[Details, Beispielmanifest und Recovery](../Architecture/SQL_OPTIONAL_FEATURES.md).
+
 Neue Lab-Connection-Strings und SSMS-Registrierungsexporte verwenden
 `Encrypt=True;TrustServerCertificate=True` als einfachen Standard ohne eigene
 CA-/Client-Trusteinrichtung. Gespeicherte Altverbindungen bleiben erhalten.

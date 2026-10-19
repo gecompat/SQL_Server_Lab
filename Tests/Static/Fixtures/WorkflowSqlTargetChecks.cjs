@@ -929,6 +929,51 @@ async function main() {
   context.sqlServerLabUiFetch = async () => ({ ok: true, json: async () => ({ Items: [], Notice: 'Coverage UNKNOWN' }) });
   click(node('llama-session-open')); await new Promise(resolve => setImmediate(resolve));
   check('Empty own-session inventory explains same-modulehost start and disables mutation', () => { assert.ok(node('llama-session-status').textContent.includes('Keine Sitzung')); assert.equal(node('llama-session-plan').disabled, true); });
+  run('queueBackgroundAction = (action, parameters) => queued.push({action, parameters})');
+  node('hyperv-fulltext').value = 'true'; node('hyperv-filestream').value = 'false';
+  run("updateHyperVLabWorkload({Workload:'windows'})");
+  check('Windows-only template disables SQL feature selection and clears prior choices', () => {
+    for (const id of ['hyperv-fulltext', 'hyperv-filestream']) {
+      assert.equal(node(id).disabled, true); assert.equal(node(id).value, 'default');
+    }
+  });
+  run("updateHyperVLabWorkload({Workload:'sql'})");
+  node('hyperv-fulltext').value = 'false'; node('hyperv-filestream').value = 'true';
+  check('SQL template enables feature selection and preserves explicit boolean false', () => {
+    assert.equal(node('hyperv-fulltext').disabled, false); assert.equal(node('hyperv-filestream').disabled, false);
+    assert.deepEqual(JSON.parse(run("JSON.stringify(collectHyperVSqlFeatureParameters({Workload:'sql'}))")), { FullText: false, FileStream: true });
+  });
+  check('Windows-only payload omits even stale SQL feature choices', () => {
+    assert.deepEqual(JSON.parse(run("JSON.stringify(collectHyperVSqlFeatureParameters({Workload:'windows'}))")), {});
+  });
+  node('hyperv-fulltext').value = 'default'; node('hyperv-filestream').value = 'default';
+  check('Default SQL template choices leave feature intent absent', () => {
+    assert.deepEqual(JSON.parse(run("JSON.stringify(collectHyperVSqlFeatureParameters({Workload:'sql'}))")), {});
+  });
+  for (const provider of ['docker', 'podman', 'hyperv']) {
+    const button = { dataset: { run: 'synthetic-feature-run', instance: 'secondary', provider } };
+    const event = { target: { closest: selector => selector === '[data-sql-features]' ? button : null } };
+    for (const handler of documentEvents.get('click') || []) handler(event);
+    check(provider + ' feature dialog carries exact target and FILESTREAM capability', () => {
+      assert.equal(node('sql-feature-run').value, 'synthetic-feature-run');
+      assert.equal(node('sql-feature-instance').value, 'secondary');
+      assert.equal(node('sql-feature-filestream-option').disabled, provider !== 'hyperv');
+      assert.equal(node('sql-feature-password-label').hidden, provider === 'hyperv');
+    });
+    node('sql-feature-name').value = provider === 'hyperv' ? 'FileStream' : 'FullText';
+    node('sql-feature-enabled').value = 'false';
+    for (const handler of node('sql-feature-form').events.get('submit') || []) handler({ submitter: { value: 'default' }, preventDefault() {} });
+    check(provider + ' feature removal dispatches boolean false and selected instance', () => {
+      const request = context.queued.at(-1);
+      assert.equal(request.action, 'SetSqlFeature');
+      assert.equal(request.parameters.InstanceId, 'secondary');
+      assert.equal(request.parameters.SqlFeatureEnabled, false);
+      assert.equal(request.parameters.SqlFeature, provider === 'hyperv' ? 'FileStream' : 'FullText');
+    });
+  }
+  const queuedBeforeCancel = context.queued.length;
+  for (const handler of node('sql-feature-form').events.get('submit') || []) handler({ submitter: { value: 'cancel' }, preventDefault() {} });
+  check('Feature cancel dispatches no mutation', () => assert.equal(context.queued.length, queuedBeforeCancel));
   console.log('WORKFLOW SQL TARGET, EVALUATION AND SETUP: ' + passed + ' PASS');
 }
 main().catch((error) => { console.error(error); process.exitCode = 1; });

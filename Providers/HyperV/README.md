@@ -1,5 +1,10 @@
 # Providers/HyperV/ – Hyper-V-Provider
 
+Die [optionalen SQL-Funktionen](../../Documentation/Architecture/SQL_OPTIONAL_FEATURES.md)
+ergänzen FULLTEXT-Setup und FILESTREAM-T-SQL-Zugriff mit explizitem Add/Remove,
+Abhängigkeitsprüfung und SQL-Neustart. Windows-spezifische Änderungen liegen in
+`HyperVSqlFeatures.ps1`; ausgeführte Abnahmen werden separat geführt.
+
 | Merkmal | Wert |
 |---|---|
 | Status | `PARTIALLY_IMPLEMENTED` |

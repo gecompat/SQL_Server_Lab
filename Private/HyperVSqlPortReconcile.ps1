@@ -394,6 +394,9 @@ function Sync-LabHyperVSqlPortConnectionState {
 function Invoke-LabHyperVSqlPortReconcileRepair {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$RunId,[Parameter(Mandatory)][string]$InstanceId,[string]$StateRoot)
+    if(-not $StateRoot){$StateRoot=Get-LabStateRoot}
+    $featureGuard=Enter-LabSqlFeatureConflictGuard -RunId $RunId -StateRoot $StateRoot
+    try {
 
     Assert-LabWindowsPoolMutationAllowed -RunId $RunId -StateRoot $StateRoot -InvalidateEvidence
     $mutex = [Threading.Mutex]::new($false,"Global\SQL_Server_Lab_HyperV_SQL_Port_Reconcile_$($RunId.Replace('-',''))")
@@ -445,4 +448,5 @@ function Invoke-LabHyperVSqlPortReconcileRepair {
         throw
     }
     finally {if($acquired){try{$mutex.ReleaseMutex()}catch{}};$mutex.Dispose()}
+    } finally {$featureGuard.ReleaseMutex();$featureGuard.Dispose()}
 }

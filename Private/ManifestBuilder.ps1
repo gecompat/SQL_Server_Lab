@@ -1122,6 +1122,10 @@ function Get-LabManifestValidationResult {
             Resolve-ProviderAutoSelect -Instance $instance
         }
         $effectiveProviders.Add($effectiveProvider)
+        if($null -ne $instance.sqlFeatures){
+            try { $null=Resolve-LabSqlFeatureIntent -Intent $instance.sqlFeatures -Provider $effectiveProvider -SqlVersion ([string]$instance.version) }
+            catch { $errors.Add("${instancePath}.sqlFeatures: $($_.Exception.Message)") }
+        }
         $networkPlan = $null
         if($instance.windowsLocale){
             if($effectiveProvider -ne 'hyperv' -or [string]$instance.os -eq 'linux'){$errors.Add('WINDOWS_LOCALE_WINDOWS_PROVIDER_REQUIRED')}

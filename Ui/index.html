@@ -362,6 +362,8 @@
         <label>Instanzname<input id="container-instance" value="primary" pattern="[A-Za-z0-9_-]{1,64}" required></label>
         <label>Labname<input id="container-lab-name" value="container-lab" pattern="[A-Za-z0-9][A-Za-z0-9 _-]{0,63}" required></label>
       </div>
+      <label class="form-check"><input id="container-fulltext" type="checkbox"> Volltextsuche installieren</label>
+      <p class="form-note">FILESTREAM ist für SQL Server auf Linux nicht verfügbar. Die Volltexteinrichtung lädt das zur SQL-Version passende Microsoft-Paket herunter.</p>
       <label class="form-check"><input id="container-persistent-data" type="checkbox"> Persistenten Instanzstore und Backups im Data Root verwenden</label>
       <p class="form-note">Bei Aktivierung bleibt <code>/var/opt/mssql</code> in einem katalogisierten Runtime-Volume erhalten; Backups liegen im Data Root. „Umgebung entfernen“ löscht diesen Instanzstore nicht automatisch.</p>
       <div id="container-storage-selection" hidden>
@@ -405,6 +407,10 @@
         <label>Zeitzone<select id="hyperv-time-zone"><option>W. Europe Standard Time</option><option>UTC</option><option>Central Europe Standard Time</option><option>Eastern Standard Time</option></select></label>
       </div>
       <label class="form-check"><input id="hyperv-autostart" type="checkbox"> VM beim Hochfahren des Hyper-V-Hosts automatisch starten</label>
+      <div class="form-grid">
+        <label>Volltextsuche<select id="hyperv-fulltext"><option value="default">Imagevorgabe beibehalten</option><option value="true">Hinzufügen</option><option value="false">Entfernen</option></select></label>
+        <label>FILESTREAM (T-SQL)<select id="hyperv-filestream"><option value="default">Imagevorgabe beibehalten</option><option value="true">Einschalten</option><option value="false">Ausschalten</option></select></label>
+      </div>
       <label id="hyperv-persistent-field" class="form-check"><input id="hyperv-persistent-data" type="checkbox"> Langlebige Daten-VHDX im Data Root anhängen</label>
       <p class="form-note">Die Daten-VHDX wird je Lab neu im Data Root angelegt, nicht mit der Vorlage geteilt und bei „Entfernen“ nicht gelöscht. Im Gast wird ein freier Datenbuchstabe verwendet (bevorzugt <code>S:\SQLData</code>).</p>
       <label>Gastpasswort<select id="hyperv-password-mode"><option value="generated">Zufällig erzeugen und zum Kopieren anzeigen</option><option value="user">Eigenes Passwort verwenden</option></select></label>
@@ -472,6 +478,19 @@
     </form>
   </dialog>
 
+  <dialog id="sql-feature-dialog">
+    <form id="sql-feature-form" method="dialog">
+      <div class="dialog-heading"><div><p class="eyebrow">SQL-FUNKTIONEN</p><h2>Funktion hinzufügen oder entfernen</h2></div><button type="button" class="icon-button" value="cancel" formnovalidate aria-label="Schließen">×</button></div>
+      <input id="sql-feature-run" type="hidden"><input id="sql-feature-instance" type="hidden">
+      <label>Funktion<select id="sql-feature-name"><option value="FullText">Volltextsuche</option><option id="sql-feature-filestream-option" value="FileStream">FILESTREAM (T-SQL)</option></select></label>
+      <label>Zielzustand<select id="sql-feature-enabled"><option value="true">Hinzufügen / einschalten</option><option value="false">Entfernen / ausschalten</option></select></label>
+      <p id="sql-feature-note" class="form-note"></p>
+      <label id="sql-feature-password-label">SA-Passwort (optional bei gespeichertem Zugang)<input id="sql-feature-password" type="password" autocomplete="current-password"></label>
+      <p class="form-note">SQL wird bei einer Änderung neu gestartet. Abhängige Indizes oder FILESTREAM-Daten blockieren das Entfernen. Es werden keine Daten gelöscht.</p>
+      <div class="dialog-actions"><button type="button" class="button secondary" value="cancel" formnovalidate>Abbrechen</button><button class="button primary" value="default">Anwenden</button></div>
+    </form>
+  </dialog>
+
   <dialog id="manifest-dialog">
     <form id="manifest-form" method="dialog">
       <div class="dialog-heading"><div><p class="eyebrow">CONTAINER-MANIFEST</p><h2>Manifest erstellen und prüfen</h2></div><button type="button" class="icon-button" value="cancel" formnovalidate aria-label="Schließen">×</button></div>
@@ -483,6 +502,8 @@
         <label>Profil<select id="manifest-profile"><option value="standard">Standard</option><option value="compact">Kompakt</option><option value="performance">Performance</option></select></label>
         <label>Instanzname<input id="manifest-instance" value="primary" pattern="[A-Za-z0-9_-]{1,64}" required></label>
       </div>
+      <label class="form-check"><input id="manifest-fulltext" type="checkbox"> Volltextsuche installieren</label>
+      <p class="form-note">FILESTREAM bleibt für Container ausdrücklich ausgeschaltet. Windows-Manifeste unterstützen beide Funktionen unter <code>sqlFeatures</code>.</p>
       <label>Beschreibung (optional)<input id="manifest-description"></label>
       <p class="form-note">Das Manifest wird vor dem Speichern validiert. Eine bestehende Datei wird nicht überschrieben.</p>
       <div class="dialog-actions"><button type="button" class="button secondary" value="cancel" formnovalidate>Abbrechen</button><button class="button primary" value="default">Manifest speichern</button></div>

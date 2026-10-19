@@ -1,6 +1,7 @@
 $ErrorActionPreference = 'Stop'
 $repositoryRoot = Split-Path (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent) -Parent
 . (Join-Path $repositoryRoot 'Private/ContainerReconcile.ps1')
+. (Join-Path $repositoryRoot 'Private/SqlFeatures.ps1')
 . (Join-Path $repositoryRoot 'Public/Update-SqlServerLabContainer.ps1')
 
 # Exercise the real plan and executor up to the first new journal. No runtime
