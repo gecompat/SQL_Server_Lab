@@ -150,7 +150,10 @@ $paths = git diff --name-only origin/main...HEAD
 Bei Runtimeänderungen zusätzlich den von
 `Tools/Get-CiTestSelection.ps1` ausgewählten Provider-Smoke ausführen. Docker,
 Podman, Mixed und Hyper-V sind getrennte Nachweise. Die vollständige Regression
-ist kein Pflichtlauf für jeden Beitrag; sie läuft täglich gebündelt.
+ist kein Pflichtlauf für jeden Beitrag. Der tägliche Nightly-Zeitplan startet
+sie nur ohne identische erfolgreiche Commit-Baseline; ein manueller Dispatch
+umgeht diesen Vergleich. Die [offene Driftabdeckung](Documentation/Quality/CI_TEST_EVIDENCE_POLICY.md#2-prüfprofile-und-ergebniswahrheit)
+ohne neuen Commit bleibt davon getrennt.
 
 Beispiele:
 

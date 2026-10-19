@@ -13,6 +13,13 @@ Der gewöhnliche Hyper-V-Lifecycle-Smoke ersetzt keine Windows-/SQL-Installation
 oder funktionale Native-Acceptance. Die [CI-Test- und Evidence-Regeln](CI_TEST_EVIDENCE_POLICY.md)
 beschreiben Voraussetzungen, Statusgrenzen und den sicheren Fallback.
 
+Der tägliche Nightly-Zeitplan prüft derzeit nur auf einen neuen Commit seit
+einem vorherigen erfolgreichen Lauf. Bei identischem SHA entfallen die
+Regressionjobs trotz möglicher Host-/Imagedrift. Ein manueller Dispatch umgeht
+den SHA-Vergleich; regelmäßige Driftabdeckung ohne neuen Commit ist damit
+nicht belegt. Die Drift-/Frequenzentscheidung bleibt `PENDING` gemäß den
+CI-Test- und Evidence-Regeln.
+
 ## Optionale Volltextsuche und FILESTREAM
 
 Der [Funktionsvertrag](../Architecture/SQL_OPTIONAL_FEATURES.md) ergänzt explizite

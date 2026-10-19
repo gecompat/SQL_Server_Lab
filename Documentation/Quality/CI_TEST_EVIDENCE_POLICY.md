@@ -50,9 +50,14 @@ Freigabe. Testauswahl ist keine Freigabe zur Mutation bestehender Umgebungen.
 
 PRs prüfen zuerst betroffene statische und Offlineverträge, dann ausgewählte
 Provider/Fähigkeiten. Der aktuelle Required Check bleibt verbindlich.
-Nightly erkennt auch Host-/Image-/Infrastrukturdrift. Die bestehende tägliche
-Regression wird nicht allein wegen unverändertem Git verkleinert; eine andere
-Frequenz benötigt dokumentierte Risiko-, Abdeckungs- und Releasebewertung.
+Nightly soll zusätzlich Host-/Image-/Infrastrukturdrift erkennen. Der aktuelle
+tägliche Zeitplan führt die Regression jedoch nur aus, wenn kein erfolgreicher
+Nightly für denselben Commit gefunden wird; `workflow_dispatch` umgeht diesen
+SHA-Vergleich. Unverändertes Git beweist keine unveränderte Umgebung. Die
+Driftabdeckung ohne neuen Commit ist daher eine offene Iststandsgrenze,
+keine bereits implementierte Qualifikation. Eine Drift-/Frequenzentscheidung
+benötigt dokumentierte Risiko-, Abdeckungs- und Releasebewertung sowie die
+betroffenen Workflow-/Consumer-Nachweise vor einer Verhaltensänderung.
 Release und Spezialabnahme behalten ihre vollständigen eigenen Verträge.
 
 Die vorhandenen Projektwerte bleiben unverändert. Externe Berichte müssen
@@ -192,6 +197,13 @@ Cache wurden gegen diese Regeln geprüft:
   CiStrategy-Einstieg; keine zusätzliche Validator-, Registry- oder Logpipeline.
   Die aktualisierte Selektorhilfe korrigiert lediglich die veraltete Aussage
   eines Docker-only-Fallbacks. Die ausführbare Auswahl bleibt unverändert.
+- Offene Nightly-Entscheidung: `change-gate` in
+  `.github/workflows/nightly-regression.yml` vergleicht geplante Läufe nur mit
+  dem SHA eines vorherigen erfolgreichen Laufs. Bei gleichem SHA bleiben die
+  Regressionjobs aus, auch bei Host-/Imagedrift. Drift-/Frequenzqualifikation
+  bleibt `PENDING`; dieser PR beseitigt die Lücke nicht. Wiederaufnahme erst
+  mit begründeter Risiko-/Frequenzentscheidung und gezielter Änderung des
+  Gates samt Consumer-Runtime. Der bestehende Zeitplan allein ist kein Nachweis.
 - Ein Implementierungsowner, Review nur für den stabilen Scope und konkrete
   offene Findings; keine Review-von-Review- oder modellbasierte Erfolgsroute.
   Rohlogs bleiben lokal. Anstehende unveränderte Jobs erhalten keine Replays.
