@@ -2131,5 +2131,7 @@ foreach ($case in @('stopped','ambiguous-runtime','duplicate','missing-id','unre
     Add-ConsoleUiCheck "Backup-Menü zeigt $case deaktiviert mit Grund" ($backupInstanceSelectionProbe[$case].Items[1].Disabled -and [bool]$backupInstanceSelectionProbe[$case].Items[1].DisabledReason)
 }
 
+& (Join-Path $PSScriptRoot 'Fixtures/ClearRemovalWarningChecks.ps1') -RepoRoot $repoRoot
+
 Write-Host "`nErgebnis: $passed PASS, $failed FAIL"
 if ($failed -gt 0) { exit 1 }

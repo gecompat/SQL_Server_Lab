@@ -300,7 +300,7 @@ Vertrag. Vollständiger CORE-102 und Native-Abnahmen bleiben offen.
 | `Restart-SqlServerLab` | `Restart-SqlServerLab.ps1` | Stop und Start kombinieren |
 | `Remove-SqlServerLab` | `Remove-SqlServerLab.ps1` | Einzelnen Run scope-validiert entfernen |
 | `Get-SqlServerLabExternalRuntimeCapability` | `Get-SqlServerLabExternalRuntimeCapability.ps1` | Katalogentscheidung und bewusst angeforderte Hostvoraussetzungen getrennt prüfen |
-| `Clear-SqlServerLab` | `Clear-SqlServerLab.ps1` | Lab-Container und/oder State bereinigen |
+| `Clear-SqlServerLab` | `Clear-SqlServerLab.ps1` | Alle regulären Lab-Umgebungen löschen, auch laufende; Datenverlust möglich, Bestätigung standardmäßig Nein |
 | `New-SqlServerLabDatabase` | `New-SqlServerLabDatabase.ps1` | Datenbank mit konfigurierbaren Dateien und Pfaden erstellen |
 | `Backup-SqlServerLabDatabase` | `Backup-SqlServerLabDatabase.ps1` | Providerneutrales, gehashtes SQL-Backup erst nach `CHECKSUM` und `RESTORE VERIFYONLY` in der registrierten `Lab_Data`-Bibliothek veröffentlichen |
 | `Invoke-SqlServerLabScript` | `Invoke-SqlServerLabScript.ps1` | T-SQL mit `GO`-Batchtrennung; explizit `-WindowsAuthentication` für geschützte Gastanmeldung, gebundene Hyper-V-Instanz und SQL-Parameter. [Consumeranleitung](../Documentation/HowTo/SSIS_CONSUMER_WINDOWS_ACCESS.md) |

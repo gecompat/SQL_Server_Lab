@@ -1991,11 +1991,19 @@ die Variante sichtbar `PREVIEW` und wird vor jeder Mutation abgelehnt.
 Remove-SqlServerLab -RunId $lab.RunId
 ```
 
-Alle erkannten Lab-Reste bereinigen:
+**Achtung: Alle regulären Lab-Umgebungen löschen – auch laufende und gestoppte.**
+Dies entfernt nicht nur verwaiste Reste. Zusätzlich werden verwaiste Lab-Container,
+Builder und alle Lab-Verzeichnisse im konfigurierten Data Root entfernt;
+Datenverlust ist möglich. Die Runs der geschützten Testgruppe und veröffentlichte
+OS-/SQL-Vorlagen sind ausgenommen. Die bestehende Bestätigung steht auf **Nein**.
 
 ```powershell
 Clear-SqlServerLab
 ```
+
+Für reine Wartungsbefunde ohne Löschung: `Get-SqlServerLabCleanupAudit -NoWrite`.
+`Clear-SqlServerLab -StateOnly` bereinigt ausschließlich nachweislich verwaiste
+State-Einträge; es löscht keine laufenden oder gestoppten Lab-Umgebungen.
 
 Vor destruktiven Aktionen wird – abhängig vom Cmdlet und den verwendeten Schaltern – eine Bestätigung verlangt.
 
