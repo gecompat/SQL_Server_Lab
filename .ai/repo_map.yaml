@@ -632,6 +632,7 @@ sources_of_truth:
   hyperv_sql_port_reconcile_contract: Private/HyperVSqlPortReconcile.ps1
   hyperv_sql_port_reconcile_journal_schema: Schemas/hyperv-sql-port-reconcile-journal.schema.json
   validation_hyperv_sql_port_reconcile: Tests/Static/Invoke-HyperVSqlPortReconcileChecks.ps1
+  validation_hyperv_sql_port_mutation_boundary: Tests/Static/Fixtures/HyperVSqlPortMutationBoundaryChecks.ps1 # actual setter/transport; one lost-reply attempt and optional stored/native VMId/Direct binding, no guest bodies
   validation_hyperv_sql_port_reconcile_acceptance: Tests/Integration/Invoke-HyperVSqlPortReconcileAcceptance.ps1
   validation_hyperv_sql_port_reconcile_bootstrap: Tests/Integration/Invoke-HyperVSqlPortReconcileAcceptanceBootstrap.ps1
   hyperv_test_database_reconcile_contract: Private/HyperVTestDatabaseReconcile.ps1

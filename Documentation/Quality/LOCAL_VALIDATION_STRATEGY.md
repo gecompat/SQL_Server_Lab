@@ -1,5 +1,12 @@
 # Lokale Validierungsstrategie
 
+Die SQL-Port-Reconcile-Suite führt die
+[PortMutationBoundary-Fixture](../../Tests/Static/Fixtures/HyperVSqlPortMutationBoundaryChecks.ps1)
+mit tatsächlichem Setter und Transport aus. Synthetische native Blätter
+prüfen verlorenen Reply nach Verbraucherwrite, gespeicherte/native VM-ID,
+frühe Run-/Scopeablehnung und Direct-Selector. Keine Gastkörper, SQL-
+Registry-/Firewall-/Dienstaktionen oder neue native Qualifikation.
+
 Die HyperVLabEnvironment-Suite führt die tatsächlichen internen Reconcile-,
 Lizenzstatus-, Evidence- und Wartefunktionen in der
 [StrictActivationVerify-Fixture](../../Tests/Static/Fixtures/HyperVStrictActivationVerifyChecks.ps1)

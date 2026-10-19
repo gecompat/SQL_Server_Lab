@@ -1,5 +1,9 @@
 # TLS-001a – Entwurf einer isolierten Lab-CA
 
+Die [interne SQL-Port-Mutationsgrenze](../Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md)
+schließt Transportreplay eines weiteren Setup-Folgeaufrufs und bietet eine
+optionale VM-ID-Bindung. Keine native SQL-/CA-/TLS-Abnahme entsteht daraus.
+
 Die [interne strikte Aktivierungsprüfung](../Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md)
 bindet VerifyOnly/Denied an die ausgewählte VM-ID, ohne neue Aktivierung oder
 Netzreparatur. Sie stellt weder einen CA-/Trustkontext noch vollständige

@@ -1,5 +1,12 @@
 # Bekannte Grenzen
 
+Der isolierte SQL-Port-Setter verhindert nun Transportreplay und kann intern
+eine ausdrücklich gewählte gespeicherte/native VM-ID an Direct binden.
+Das qualifiziert weder den vollständigen öffentlichen Reconcile-/Setupweg
+noch Verbraucherende oder native TLS-Wirkung; der
+[Completionvertrag](../Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md)
+trennt diese Grenzen.
+
 Die interne optionale VM-ID-gebundene Aktivierungsprüfung ist auf
 `VerifyOnly/Denied`, Direct und unveränderte terminale Netzwerkjournale
 beschränkt. Ihr synthetischer Nachweis belegt keine native Aktivierung,
