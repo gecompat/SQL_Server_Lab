@@ -19,6 +19,10 @@ Kostenreduktion ist kein Grund, notwendige Tests auszulassen. Sie bestimmt die
 Testreihenfolge, die lokale Ergebnisaggregation und die Breite eines
 Zwischenlaufs.
 
+Die [CI-Test- und Evidence-Regeln](CI_TEST_EVIDENCE_POLICY.md) konkretisieren
+risikobasierte Auswahl, Statusbegriffe, mögliche Local-to-Remote-Nachweise und
+getrennte Zeitmessungen. Sie erweitern keine Runtime- oder Uploadfreigabe.
+
 ## 2. Local-first-Auswertung
 
 Folgende Daten werden grundsätzlich zuerst lokal ausgewertet:
@@ -94,6 +98,18 @@ der unvollstaendige Zustand und seine offenen Validierungen muessen dabei in
 Commit und Pull Request klar gekennzeichnet werden.
 
 ## 4. Wiederholungen und Diagnose
+
+Testselektion, Ausführung, Oracles, Ergebnisvergleich, Aggregation und bekannte
+Fehlerklassifikation erfolgen deterministisch mit den vorhandenen Werkzeugen.
+Bei vollständigem Erfolg genügt die kompakte belegte Zusammenfassung; ein
+zusätzlicher Modellaufruf zur bloßen Erfolgsbestätigung entfällt. Vorgeschriebene
+unabhängige fachliche oder Sicherheitsreviews bleiben erforderlich.
+
+Fehler werden zuerst lokal nach Exitcode, tatsächlicher Fehlerstelle,
+Erwartungswert, Timeout, Infrastruktur, Rechten und Cleanup klassifiziert.
+Ein Modell erhält nur neue ungelöste fachliche Findings oder eine notwendige
+Entscheidung mit minimalen bereinigten Ausschnitten. Ein unveränderter Blocker
+begründet keine wiederkehrende Modelldiagnose.
 
 - Ein unveränderter grüner Test wird ohne begründete Abhängigkeitswirkung nicht
   erneut ausgeführt.

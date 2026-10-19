@@ -4202,6 +4202,14 @@ Testskript `Tests/Static/Invoke-AllChecks.ps1`.
 
 ## 15. CI/CD-Abgrenzung
 
+Die [CI-Test- und Evidence-Regeln](CI_TEST_EVIDENCE_POLICY.md) ergänzen
+Auswahl, Ergebnisbegriffe und den nicht implementierten Local-to-Remote-Pfad.
+`ValidationScopeChecks.ps1` prüft über tatsächliche isolierte Parent-/Child-
+Prozesse, dass CI auch mit `-Development` keinen lokalen Record wiederverwendet:
+ein workererzeugtes PASS verdeckt keinen Childfehler, und ein gültiger warmer
+Development-Record verhindert keine frische CI-Ausführung. Diese synthetische
+Regression ersetzt weder einen Remote-Verifikator noch Native-Acceptance.
+
 Die Regressionstests für den leeren Hyper-V-Fallback verwenden seit der
 Reparatur vom 2026-09-10 einen tatsächlichen PowerShell-Job und prüfen dessen
 Ergebnis und Entfernung sowie die Ablehnung ungültiger IPs vor dem Gastaufruf.

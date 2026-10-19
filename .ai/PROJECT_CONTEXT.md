@@ -1,5 +1,11 @@
 # Projektkontext
 
+Die [CI-Test- und Evidence-Regeln](../Documentation/Quality/CI_TEST_EVIDENCE_POLICY.md)
+ergänzen die bestehende risikobasierte Provider-/Capability-Auswahl. Der lokale
+Development-Cache ist keine vertrauenswürdige Native-Attestation für GitHub.
+Ein unabhängiger Local-to-Remote-Verifikator ist nicht implementiert; die
+aktuellen Required Checks und ausgewählten Runtime-Gates bleiben erforderlich.
+
 Der [private Consumer-Guard](../Documentation/Architecture/AUTHENTICATED_TLS_CONSUMER_GUARD.md) ergänzt gehaltene Windows-NTFS-Lesebindungen und einen festen SQL-Journalreader. Nach Dispatch bleibt ohne eigenen Verbrauchernachweis Recovery erforderlich; kein Executor, Stop, Cleanup oder native Setup-/TLS-Freigabe entsteht daraus.
 
 Die [optionalen SQL-Funktionen](../Documentation/Architecture/SQL_OPTIONAL_FEATURES.md)
