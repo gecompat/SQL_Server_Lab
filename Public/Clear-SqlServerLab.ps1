@@ -1,17 +1,22 @@
 <#
 .SYNOPSIS
-    Bereinigt bekannte Runs und verwaiste SQL_Server_Lab-Container.
+    Loescht alle regulaeren Lab-Umgebungen, auch laufende, sowie weitere Lab-Ressourcen.
 .DESCRIPTION
-    Bekannte Runs werden ueber Remove-SqlServerLab provider- und scopegebunden
-    entfernt. Anschliessend werden echte Orphan-Container getrennt in Docker
-    und Podman gesucht. State wird bei unvollstaendigem Cleanup nicht als
-    erfolgreich entfernt markiert.
+    Ohne StateOnly oder ContainersOnly werden alle nicht geschuetzten Runs
+    im aktuellen State-Root ueber Remove-SqlServerLab entfernt, auch laufende
+    und gestoppte Umgebungen. Dies ist keine reine Bereinigung verwaister Reste.
+    Zusaetzlich werden verwaiste Lab-Container, Windows-/SQL-Builder und alle
+    Lab-Verzeichnisse im konfigurierten Data Root entfernt. Datenverlust ist
+    moeglich. Die Runs der automatisierten Testgruppe und veroeffentlichte
+    OS-/SQL-Vorlagen sind ausgenommen. Die interaktive Bestaetigung steht auf Nein.
+    State wird bei unvollstaendigem Cleanup nicht als erfolgreich entfernt markiert.
 .PARAMETER Force
     Keine interaktive Bestaetigung abfragen.
 .PARAMETER StateOnly
     Nur nachweislich verwaiste State-Eintraege bereinigen.
 .PARAMETER ContainersOnly
-    Nur Container entfernen; vorhandener Run-State bleibt erhalten.
+    Alle nicht geschuetzten Lab-Container entfernen, auch laufende. Containerlokale
+    Daten gehen verloren; vorhandener Run-State bleibt erhalten.
 .OUTPUTS
     System.Management.Automation.PSCustomObject. Liefert eine Zusammenfassung
     der erkannten und bereinigten Container und State-Runs.
@@ -32,7 +37,10 @@ function Clear-SqlServerLab {
         throw 'StateOnly und ContainersOnly duerfen nicht gemeinsam verwendet werden.'
     }
 
-    Write-LabHeader 'SQL Server Lab - Cleanup'
+    $operationTitle = if ($StateOnly) { 'Verwaiste State-Einträge bereinigen' }
+        elseif ($ContainersOnly) { 'Alle regulären Lab-Container löschen' }
+        else { 'Alle regulären Lab-Umgebungen löschen' }
+    Write-LabHeader $operationTitle
     $auditBefore = Get-SqlServerLabCleanupAudit
 
     $stateRoot = Get-LabStateRoot
@@ -94,7 +102,8 @@ function Clear-SqlServerLab {
     )
     $cleanupContainers = @($allContainers | Where-Object { -not $_.RunId -or [string]$_.RunId -notin $protectedTestRunIds })
 
-    Write-LabStatus -Label 'Aktive Runs' -Value $activeRuns.Count
+    Write-LabStatus -Label 'Registrierte Lab-Umgebungen' -Value $activeRuns.Count
+    Write-LabStatus -Label 'Aktueller State-Root' -Value $stateRoot
     Write-LabStatus -Label 'Geschützte automatisierte Test-Runs' -Value $protectedTestRunIds.Count
     Write-LabStatus -Label 'Lab-Container' -Value $allContainers.Count
     Write-LabStatus -Label 'Orphan-Container' -Value $orphanContainers.Count
@@ -103,7 +112,7 @@ function Clear-SqlServerLab {
     Write-LabStatus -Label 'Data-Root-Labverzeichnisse' -Value $dataLabDirectories.Count
     Write-LabInfo 'Veröffentlichte OS- und SQL-Vorlagen bleiben erhalten und werden ausschließlich unter Hyper-V -> Veröffentlichte Vorlagen verwaltet.'
     if ($protectedTestRunIds.Count -gt 0) {
-        Write-LabInfo 'Automatisierte Testumgebungen bleiben bei dieser normalen Bereinigung geschützt; dafür den eigenen Gruppen-Löschpunkt verwenden.'
+        Write-LabInfo 'Die Runs der automatisierten Testgruppe sind von dieser Löschung ausgenommen; dafür den eigenen Gruppen-Löschpunkt verwenden.'
     }
     foreach ($runtime in @(
         [PSCustomObject]@{ Id='docker'; Label='docker' }
@@ -124,7 +133,7 @@ function Clear-SqlServerLab {
     }
 
     if ($workCount -eq 0) {
-        Write-LabSuccess $(if ($protectedTestRunIds.Count -gt 0) { 'Keine regulären Cleanup-Ziele. Die automatisierte Testgruppe bleibt unverändert.' } else { 'Alles sauber. Nichts zu entfernen.' })
+        Write-LabSuccess $(if ($protectedTestRunIds.Count -gt 0) { 'Keine regulären Ziele zum Entfernen. Die automatisierte Testgruppe bleibt unverändert.' } else { 'Keine Ziele gefunden. Nichts zu entfernen.' })
         return [PSCustomObject]@{
             Containers = 0
             StateRuns  = 0
@@ -135,9 +144,23 @@ function Clear-SqlServerLab {
         }
     }
 
+    $confirmationPrompt = if ($StateOnly) {
+        Write-LabInfo 'Nur nachweislich verwaiste State-Einträge werden entfernt; laufende und gestoppte Lab-Umgebungen werden nicht gelöscht.'
+        'Nachweislich verwaiste State-Einträge bereinigen?'
+    }
+    elseif ($ContainersOnly) {
+        Write-LabWarning 'ACHTUNG: ALLE nicht geschützten Lab-Container werden gelöscht, auch laufende. Containerlokale Daten gehen verloren; gespeicherter Run-State bleibt bestehen.'
+        "Wirklich ALLE $($cleanupContainers.Count) regulären Lab-Container einschließlich laufender Container löschen?"
+    }
+    else {
+        Write-LabWarning 'ACHTUNG: ALLE nicht geschützten Lab-Umgebungen im aktuellen State-Root werden gelöscht, auch laufende und gestoppte. Dies ist keine reine Bereinigung verwaister Reste.'
+        Write-LabWarning 'Zusätzlich werden verwaiste Lab-Container, Windows-/SQL-Builder und ALLE Lab-Verzeichnisse im konfigurierten Data Root entfernt. Darin gespeicherte Daten können unwiederbringlich verloren gehen.'
+        'Wirklich ALLE regulären Lab-Umgebungen (auch laufende und gestoppte) und die angezeigten Lab-Ressourcen löschen?'
+    }
+
     if (-not $PSCmdlet.ShouldProcess(
         "$($cleanupRuns.Count) reguläre Run(s), $($cleanupContainers.Count) reguläre Container",
-        'SQL_Server_Lab-Bereinigung ausfuehren'
+        $operationTitle
     )) {
         return [PSCustomObject]@{
             Containers = 0
@@ -148,7 +171,7 @@ function Clear-SqlServerLab {
     }
 
     if (-not $Force) {
-        $confirmed = Read-LabConfirm -Prompt "$workCount Cleanup-Einheit(en) verarbeiten?"
+        $confirmed = Read-LabConfirm -Prompt $confirmationPrompt -Default $false
         if (-not $confirmed) {
             Write-LabInfo 'Abgebrochen.'
             return [PSCustomObject]@{
@@ -347,9 +370,9 @@ function Clear-SqlServerLab {
 
     $status = if ($errors -eq 0) { 'CLEAN' } else { 'PARTIAL' }
     $auditAfter = Get-SqlServerLabCleanupAudit
-    Write-LabHeader 'Cleanup abgeschlossen'
+    Write-LabHeader "$operationTitle - Ergebnis"
     Write-LabStatus -Label 'Container entfernt' -Value $removedContainers -Color 'Green'
-    Write-LabStatus -Label 'State-Runs bereinigt' -Value $removedStateRuns -Color 'Green'
+    Write-LabStatus -Label 'Lab-Umgebungen / State-Einträge entfernt' -Value $removedStateRuns -Color 'Green'
     Write-LabStatus -Label 'Image-Builder entfernt' -Value $removedImageBuilds -Color 'Green'
     Write-LabStatus -Label 'Data-Root-Labverzeichnisse entfernt' -Value $removedDataLabDirectories -Color 'Green'
     if ($errors -gt 0) {
