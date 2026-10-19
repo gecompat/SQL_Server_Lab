@@ -1,5 +1,7 @@
 # TLS-001 – Client- und Signierkontexte registrieren
 
+Der [private Consumer-Guard](../Architecture/AUTHENTICATED_TLS_CONSUMER_GUARD.md) hält ausgewählte Windows-NTFS-Leseobjekte und prüft feste SQL-Journalmetadaten. Er registriert keinen Kontext und ersetzt weder den eigenen Gast-Endnachweis noch Recovery-/Cleanupautorität.
+
 Die [öffentliche SQL-VM-ID-Lane](../Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md)
 reicht eine ausdrücklich ausgewählte Root-/VM-ID-Bindung durch die
 CompleteImage-/HostSQL-Kette. Ihr synthetischer Nachweis registriert weder

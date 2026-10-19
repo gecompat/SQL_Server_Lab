@@ -1,5 +1,7 @@
 # Lokale Validierungsstrategie
 
+Die [Consumer-Guard-Suite](../../Tests/Static/Invoke-AuthenticatedTlsConsumerGuardChecks.ps1) prüft geschlossene synthetische SQL-Journale und echte eigene Windows-NTFS-Tempfixtures mit gehaltenen Handles, Austausch-/Writerblockade, Reparse-/Hardlinkablehnung und eigener Freigabe. Unter Linux bleibt der native Windows-Teil ausdrücklich NOT_EXECUTED. Keine Gast-, Setup-, SQL-, Key-, Trust- oder Recovery-Apply-Abnahme.
+
 Die HyperVLabEnvironment-Suite führt zusätzlich die
 [öffentliche Entryfixture](../../Tests/Static/Fixtures/HyperVSqlPublicEntryChecks.ps1)
 und die [SQL-VM-ID-Kettenfixture](../../Tests/Static/Fixtures/HyperVSqlVmBindingChecks.ps1)

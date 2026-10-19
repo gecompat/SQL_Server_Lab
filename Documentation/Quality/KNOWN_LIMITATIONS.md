@@ -1,5 +1,7 @@
 # Bekannte Grenzen
 
+Der [private Consumer-Guard](../Architecture/AUTHENTICATED_TLS_CONSUMER_GUARD.md) hält ausgewählte NTFS-Leseobjekte und lehnt Journalreplay beziehungsweise behaupteten CLEANED-Abschluss ab. Er bindet keine späteren pfadbasierten Writer, reserviert keine VM und beweist kein Gast-/Kindprozessende. Der feste native Setupworker und SC-2026-045 bleiben offen.
+
 Die öffentliche optionale VM-ID-Lane für CompleteImage/HostSQL ist durch
 synthetische Funktionsketten geprüft. Sie verlangt einen ausgewählten Root;
 HostSQL ist darin auf ein unverändertes vorhandenes hostOnly-Netz begrenzt.

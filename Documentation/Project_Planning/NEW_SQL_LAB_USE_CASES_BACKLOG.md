@@ -120,6 +120,8 @@ erhalten aber jeweils eigene Runtime-Evidence.
 
 #### TLS-001 – authentifizierte TLS-Verbindungen der Testumgebungen
 
+Der [private Consumer-Guard](../Architecture/AUTHENTICATED_TLS_CONSUMER_GUARD.md) ergänzt gehaltene NTFS-Lesehandles und feste SQL-Journalmetadaten. Das ist eine vorbereitende interne Grenze, kein Gastverbraucherende, Recovery-Apply oder vollständiger TLS-001-Abschluss.
+
 Die begrenzte [private Authoritybindung](../Architecture/AUTHENTICATED_TLS_AUTHORITY_BINDING.md)
 ergänzt den Writer um CA-Kandidat/Ciphertext/DER, exakte aktive Client-/
 Signiergeneration und ReadOnly-Trust. Frische Prüfung gilt auch für unveränderte

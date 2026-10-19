@@ -102,6 +102,7 @@ end {
         @{ Pattern = '^(?-i:Private/AuthenticatedTlsBackend\.ps1|Tests/Static/Invoke-AuthenticatedTlsBackendChecks\.ps1)$'; Checks = @('Invoke-AuthenticatedTlsBackendChecks.ps1') },
         @{ Pattern = '^(?-i:Private/AuthenticatedTlsRegistryIndex\.ps1|Private/AuthenticatedTlsRequest\.ps1|Tests/Static/Invoke-AuthenticatedTlsRegistryIndexChecks\.ps1)$'; Checks = @('Invoke-AuthenticatedTlsRegistryIndexChecks.ps1') },
         @{ Pattern = '^(?-i:Private/AuthenticatedTlsRegistryDocument\.ps1|Private/AuthenticatedTlsRegistryIndex\.ps1|Private/AuthenticatedTlsRegistryPayload\.ps1|Private/AuthenticatedTlsRequest\.ps1|Tests/Static/Invoke-AuthenticatedTlsRegistryDocumentChecks\.ps1)$'; Checks = @('Invoke-AuthenticatedTlsRegistryDocumentChecks.ps1') },
+        @{ Pattern = '^(?-i:Private/AuthenticatedTlsRootAnchor\.ps1|Private/AuthenticatedTlsConsumerJournal\.ps1|Private/AuthenticatedTlsRegistryIndex\.ps1|Private/AuthenticatedTlsRequest\.ps1|Tests/Static/Invoke-AuthenticatedTlsConsumerGuardChecks\.ps1)$'; Checks = @('Invoke-AuthenticatedTlsConsumerGuardChecks.ps1') },
         @{ Pattern = '^(?-i:Private/AuthenticatedTlsRegistryRoot\.ps1|Private/AuthenticatedTlsRegistryDocument\.ps1|Private/AuthenticatedTlsRegistryIndex\.ps1|Private/AuthenticatedTlsRegistryPayload\.ps1|Private/AuthenticatedTlsRequest\.ps1|Private/DiagnosticBundleReader\.ps1|Tests/Static/Invoke-AuthenticatedTlsRegistryRootChecks\.ps1)$'; Checks = @('Invoke-AuthenticatedTlsRegistryRootChecks.ps1') },
         @{ Pattern = '(?i)(AuthenticatedTls(Authority|Lab|Qualification)|test-environment-authenticated)'; Checks = @('Invoke-AuthenticatedTlsAuthorityChecks.ps1','Invoke-AuthenticatedTlsLabChecks.ps1') },
         @{ Pattern = '^(?-i:Tests/Common/AuthenticatedTlsAcceptanceCleanup\.ps1|Tests/Static/Invoke-AuthenticatedTlsAcceptanceCleanupChecks\.ps1|Tests/Integration/Invoke-AuthenticatedTlsLabAcceptance\.ps1)$'; Checks = @('Invoke-AuthenticatedTlsAcceptanceCleanupChecks.ps1') },
@@ -358,6 +359,8 @@ end {
             $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -cmatch '^Private/AuthenticatedTlsRegistryDocument\.ps1$'
             # Feste lesende Metadatenpfade; keine Registryanlage, SQL- oder Provideraktion.
             $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -cmatch '^Private/AuthenticatedTlsRegistryRoot\.ps1$'
+            # Retained read handles and closed journal metadata; no setup/provider dispatch.
+            $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -cmatch '^Private/AuthenticatedTls(RootAnchor|ConsumerJournal)\.ps1$'
             $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -cmatch '^Private/AuthenticatedTlsRegistryWriter\.ps1$'
             # Private CA-/Trustmetadaten und eigene NTFS/DPAPI-Fixtures, keine Store-/SQL-/Providermutation.
             $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -cmatch '^Private/AuthenticatedTlsAuthorityBinding\.ps1$'
