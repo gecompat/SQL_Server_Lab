@@ -34,6 +34,9 @@ try {
     Add-CheckResult -Name 'Öffentlicher SQL-Abschluss bindet explizite Roots; vier mutierende Gastaufrufe wiederholen verlorene Replies nicht' -Success $completionBoundary.Success
     $immutableReader = & (Join-Path $PSScriptRoot 'Fixtures/HyperVImmutableRunReaderChecks.ps1') -RepoRoot $repoRoot
     $strictActivation = & (Join-Path $PSScriptRoot 'Fixtures/HyperVStrictActivationVerifyChecks.ps1') -RepoRoot $repoRoot
+    $publicSqlEntry = & (Join-Path $PSScriptRoot 'Fixtures/HyperVSqlPublicEntryChecks.ps1') -RepoRoot $repoRoot
+    $sqlVmBinding = & (Join-Path $PSScriptRoot 'Fixtures/HyperVSqlVmBindingChecks.ps1') -RepoRoot $repoRoot
+    Add-CheckResult -Name 'Öffentliche SQL-Roots und optionale VM-ID reichen durch die tatsächliche Direct-Kette ohne mutierendes Replay' -Success ($publicSqlEntry.Failed -eq 0 -and $sqlVmBinding.Failed -eq 0)
     Add-CheckResult -Name 'Strikter VM-ID-Reader lehnt Drift vor Rename-Write ab und erhält bisherige Defaults' -Success $immutableReader.Success
     $null = & $module { param($Root) Initialize-LabManagedDataRoot -DataRoot $Root -Confirm:$false } $dataRoot
     $env:SQL_SERVER_LAB_DATA_ROOT = $dataRoot

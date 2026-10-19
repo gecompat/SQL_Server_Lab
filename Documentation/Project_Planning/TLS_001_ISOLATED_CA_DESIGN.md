@@ -1,5 +1,11 @@
 # TLS-001a – Entwurf einer isolierten Lab-CA
 
+Die [öffentliche SQL-VM-ID-Lane](../Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md)
+bindet CompleteImage/HostSQL und ausgewählte Folgeaufrufe an die ausdrücklich
+gewählte gespeicherte/native VM-ID und Direct. Die synthetischen Fälle
+führen keine Gastkörper aus und erteilen keine CA-/Trust-/ServiceACL- oder
+native Setup-/TLS-Autorität. Verbraucherende und Root-Handles bleiben offen.
+
 Die [interne SQL-Port-Mutationsgrenze](../Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md)
 schließt Transportreplay eines weiteren Setup-Folgeaufrufs und bietet eine
 optionale VM-ID-Bindung. Keine native SQL-/CA-/TLS-Abnahme entsteht daraus.
