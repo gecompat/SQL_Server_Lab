@@ -934,14 +934,17 @@ Geprüft werden:
 
 Der Workflow `PR Gate` führt bei Pull Requests auf Windows und Ubuntu nur die
 von `Tools/Get-CiTestSelection.ps1` ermittelten statischen Suites aus. Je nach
-Änderungsbereich wird höchstens der passende Docker-, Podman-, Mixed-, Hyper-V-
-oder Adapter-Smoke zugeschaltet. Reine Dokumentationsänderungen starten keine
-Runtime. Unbekannte produktive Änderungen verwenden Docker als sicheren
-repräsentativen Fallback.
+Änderungsbereich werden die betroffenen Docker-, Podman-, Mixed-, Hyper-V-
+und Adapter-Smokes zugeschaltet. Reine Dokumentationsänderungen starten keine
+Runtime. Unbekannte produktive Änderungen behalten konservativ alle fünf
+Provider-Gates und alle Containerfähigkeiten.
 
-Ein Push auf `main` startet keine erneute Vollmatrix. Der tägliche Workflow
-`Nightly Regression` führt stattdessen alle statischen Suites, alle Runtime-
-Smokes und die getrennt autorisierte Shared-Abnahme aus. Der gesamte statische
+Ein Push auf `main` startet keine erneute Vollmatrix. Der tägliche Zeitplan von
+`Nightly Regression` überspringt die Regression bei identischer erfolgreicher
+Commit-Baseline. Sonst, beziehungsweise bei manuellem Dispatch, führt er alle
+statischen Suites, alle Runtime-Smokes und die getrennt autorisierte
+Shared-Abnahme aus. Die [offene Driftabdeckung ohne neuen Commit](../Documentation/Quality/CI_TEST_EVIDENCE_POLICY.md#2-prüfprofile-und-ergebniswahrheit)
+bleibt ausdrücklich ungeprüft. Der gesamte statische
 Matrixjob erhält je Plattform 50 Minuten; einzelne Suite-/Previewfristen bleiben
 erhalten. Schedule autorisiert die gemeinsam exportierten SQL-Testumgebungen
 nicht: Ihre SQL-/CMS-Abnahme benötigt einen manuellen Aufruf desselben

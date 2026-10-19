@@ -47,6 +47,7 @@ sources_of_truth:
   foundation_ruleset: .ai/foundation/FOUNDATION_RULESET.md
   model_routing_policy: .ai/MODEL_ROUTING_POLICY.md
   cost_efficient_development: Documentation/Quality/COST_EFFICIENT_DEVELOPMENT.md
+  ci_test_evidence_policy: Documentation/Quality/CI_TEST_EVIDENCE_POLICY.md
   external_languages_cgroup_v2: Documentation/User/EXTERNAL_LANGUAGES_CGROUP_V2.md
   external_languages_cgroup_v2_acceptance: Tests/Integration/Invoke-ExternalRuntimeCgroupV2Acceptance.ps1
   external_languages_cgroup_v2_example: Schemas/example-external-languages-cgroup-v2.json

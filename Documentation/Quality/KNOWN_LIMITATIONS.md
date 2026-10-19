@@ -2,6 +2,24 @@
 
 Der [private Consumer-Guard](../Architecture/AUTHENTICATED_TLS_CONSUMER_GUARD.md) hält ausgewählte NTFS-Leseobjekte und lehnt Journalreplay beziehungsweise behaupteten CLEANED-Abschluss ab. Er bindet keine späteren pfadbasierten Writer, reserviert keine VM und beweist kein Gast-/Kindprozessende. Der feste native Setupworker und SC-2026-045 bleiben offen.
 
+## Lokale Testnachweise und CI
+
+Der vierstündige Development-Cache für Documentation/CiStrategy ist lokale
+Arbeitsersparnis, keine Host-Attestation und kein Native-Nachweis für GitHub.
+Ein unabhängiger vertrauenswürdiger Producer/Verifier für Local-to-Remote-Reuse
+ist `NOT_IMPLEMENTED`. Die ausgewählten CI-Gates werden weiter ausgeführt.
+Ein identischer Git-Stand beweist keine unveränderte Runtime oder Umgebung.
+Der gewöhnliche Hyper-V-Lifecycle-Smoke ersetzt keine Windows-/SQL-Installation
+oder funktionale Native-Acceptance. Die [CI-Test- und Evidence-Regeln](CI_TEST_EVIDENCE_POLICY.md)
+beschreiben Voraussetzungen, Statusgrenzen und den sicheren Fallback.
+
+Der tägliche Nightly-Zeitplan prüft derzeit nur auf einen neuen Commit seit
+einem vorherigen erfolgreichen Lauf. Bei identischem SHA entfallen die
+Regressionjobs trotz möglicher Host-/Imagedrift. Ein manueller Dispatch umgeht
+den SHA-Vergleich; regelmäßige Driftabdeckung ohne neuen Commit ist damit
+nicht belegt. Die Drift-/Frequenzentscheidung bleibt `PENDING` gemäß den
+CI-Test- und Evidence-Regeln.
+
 ## Optionale Volltextsuche und FILESTREAM
 
 Der [Funktionsvertrag](../Architecture/SQL_OPTIONAL_FEATURES.md) ergänzt explizite

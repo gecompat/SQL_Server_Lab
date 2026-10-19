@@ -136,13 +136,13 @@ $custodyRecord=Join-Path $custodyRepo '.artifacts/test-runs/local-static-evidenc
 $oldLog=Join-Path (Split-Path -Parent $custodyRecord) 'old.private.log'; 'OLD SYNTHETIC PASS' | Set-Content -LiteralPath $oldLog
 $actualRunner=(Get-Command pwsh -ErrorAction Stop).Source
 function Invoke-OwnedLocalEvidenceParent {
-    param([string]$LogPath,[switch]$Development,[switch]$NoReuse)
+    param([string]$LogPath,[switch]$Development,[switch]$NoReuse,[switch]$SimulateCi)
     $info=[Diagnostics.ProcessStartInfo]::new()
     $info.FileName=$actualRunner;$info.UseShellExecute=$false;$info.CreateNoWindow=$true
     $info.RedirectStandardOutput=$true;$info.RedirectStandardError=$true
-    # This fixture models a local caller even when the suite itself runs in CI.
-    # Only the owned child's environment changes; production CI never reuses.
-    $info.Environment['GITHUB_ACTIONS']='false'
+    # Only the owned child's environment changes. Exercise both local custody
+    # and the real CI veto; the outer suite's environment remains unchanged.
+    $info.Environment['GITHUB_ACTIONS']=if($SimulateCi){'true'}else{'false'}
     foreach($argument in @('-NoLogo','-NoProfile','-File',(Join-Path $custodyRepo 'Tests/Static/Invoke-ImpactedChecks.ps1'),'-ChangedPath','README.md')) { $info.ArgumentList.Add($argument) }
     if($Development){$info.ArgumentList.Add('-Development')};if($NoReuse){$info.ArgumentList.Add('-NoReuse')}
     $child=[Diagnostics.Process]::new();$child.StartInfo=$info
@@ -159,6 +159,16 @@ $custodyBinding=Get-LocalStaticEvidenceBinding -RepoRoot $custodyRepo -Check Inv
 $oldRecord=@{Schema='LOCAL_STATIC_EVIDENCE/v1';Status='EXECUTED_PASS';Binding=$custodyBinding;ExitCode=0;SourceStable=$true;
     CompletedUtc=[datetime]::UtcNow.ToString('o');Log=$oldLog;LogSHA256=(Get-FileHash -LiteralPath $oldLog).Hash}
 $oldRecord | ConvertTo-Json | Set-Content -LiteralPath $custodyRecord
+$forgedRecordBytes=Get-Content -LiteralPath $custodyRecord -Raw
+$ciFailureLog=Join-Path $fixture 'custody-ci-forged.private.log'
+$ciFailureExit=Invoke-OwnedLocalEvidenceParent -LogPath $ciFailureLog -Development -SimulateCi
+$ciFailureOutput=Get-Content -LiteralPath $ciFailureLog -Raw
+Add-CheckResult -Name 'CI rejects worker-written PASS and observes the actual failing child' -Success (
+    $ciFailureExit -ne 0 -and -not $ciFailureOutput.Contains('REUSED:') -and
+    (Test-Path -LiteralPath (Join-Path $custodyRepo '.artifacts/child-marker')) -and
+    (Get-Content -LiteralPath $custodyRecord -Raw) -ceq $forgedRecordBytes)
+# Remove only this owned synthetic marker before the local busy-lock case.
+Remove-Item -LiteralPath (Join-Path $custodyRepo '.artifacts/child-marker')
 if (-not $custodyBinding) {
     # Some platform bundles contain links which deliberately veto reuse. Test
     # the actual fail-closed uncached path instead of claiming cache execution.
@@ -189,3 +199,11 @@ $reuseOutput=Get-Content -LiteralPath (Join-Path $fixture 'custody-reused.privat
 Add-CheckResult -Name 'Actual development parent reuses original PASS without second child execution' -Success (
     $firstPassExit -eq 0 -and $reuseExit -eq 0 -and $reuseOutput.Contains('REUSED: Invoke-DocumentationChecks.ps1') -and
     @(Get-Content -LiteralPath (Join-Path $custodyRepo '.artifacts/child-count')).Count -eq 1)
+$warmRecordBytes=Get-Content -LiteralPath $custodyRecord -Raw
+$ciPassLog=Join-Path $fixture 'custody-ci-warm.private.log'
+$ciPassExit=Invoke-OwnedLocalEvidenceParent -LogPath $ciPassLog -Development -SimulateCi
+$ciPassOutput=Get-Content -LiteralPath $ciPassLog -Raw
+Add-CheckResult -Name 'CI executes fresh despite a valid warm development record and Development switch' -Success (
+    $ciPassExit -eq 0 -and -not $ciPassOutput.Contains('REUSED:') -and
+    @(Get-Content -LiteralPath (Join-Path $custodyRepo '.artifacts/child-count')).Count -eq 2 -and
+    (Get-Content -LiteralPath $custodyRecord -Raw) -ceq $warmRecordBytes)

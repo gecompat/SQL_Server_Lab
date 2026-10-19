@@ -4,9 +4,9 @@
     Ermittelt die fuer eine Aenderung erforderlichen PR-Pruefungen.
 .DESCRIPTION
     Ordnet Repository-Pfade statischen Vertragssuites und gezielten Runtime-
-    Smokes zu. Unbekannte produktive Aenderungen fallen sicher auf Docker als
-    repraesentativen Runtime-Smoke zurueck. Die vollstaendige Regression bleibt
-    dem Nightly-Workflow vorbehalten.
+    Smokes zu. Unbekannte produktive Aenderungen behalten alle Providergates
+    und Containerfaehigkeiten. Die vollstaendige Regression laeuft ausserdem
+    im Nightly-Workflow.
 #>
 [CmdletBinding()]
 param(

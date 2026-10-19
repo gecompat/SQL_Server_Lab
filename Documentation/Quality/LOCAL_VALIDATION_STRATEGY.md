@@ -4202,6 +4202,14 @@ Testskript `Tests/Static/Invoke-AllChecks.ps1`.
 
 ## 15. CI/CD-Abgrenzung
 
+Die [CI-Test- und Evidence-Regeln](CI_TEST_EVIDENCE_POLICY.md) ergänzen
+Auswahl, Ergebnisbegriffe und den nicht implementierten Local-to-Remote-Pfad.
+`ValidationScopeChecks.ps1` prüft über tatsächliche isolierte Parent-/Child-
+Prozesse, dass CI auch mit `-Development` keinen lokalen Record wiederverwendet:
+ein workererzeugtes PASS verdeckt keinen Childfehler, und ein gültiger warmer
+Development-Record verhindert keine frische CI-Ausführung. Diese synthetische
+Regression ersetzt weder einen Remote-Verifikator noch Native-Acceptance.
+
 Die Regressionstests für den leeren Hyper-V-Fallback verwenden seit der
 Reparatur vom 2026-09-10 einen tatsächlichen PowerShell-Job und prüfen dessen
 Ergebnis und Entfernung sowie die Ablehnung ungültiger IPs vor dem Gastaufruf.
@@ -4270,9 +4278,14 @@ und führt den Foundation-Validator mit den projektspezifisch ausgewählten
 Adaptern und Capabilities aus. Sein Ergebnis fließt in den geschützten
 Abschlusscheck `PR Gate` ein. Auf einen Merge nach `main` folgt keine zweite
 Vollmatrix.
-Die vollständige statische und native Regression läuft täglich gebündelt als
-`Nightly Regression`; eine frische Hyper-V-/SQL-Installation läuft wöchentlich
-oder manuell. Nightly-Fehler werden über ein dauerhaftes Tracking-Issue sichtbar.
+Der tägliche Zeitplan von `Nightly Regression` vergleicht den aktuellen Commit
+mit einem vorherigen erfolgreichen Lauf. Nur ohne identische erfolgreiche
+SHA-Baseline führt er die vollständige statische und native Regression aus;
+ein manueller Dispatch umgeht diesen Vergleich. Drift ohne neuen Commit wird
+dadurch nicht regelmäßig nachgewiesen; die offene Drift-/Frequenzentscheidung
+steht in den [CI-Test- und Evidence-Regeln](CI_TEST_EVIDENCE_POLICY.md).
+Eine frische Hyper-V-/SQL-Installation läuft wöchentlich oder manuell.
+Nightly-Fehler werden über ein dauerhaftes Tracking-Issue sichtbar.
 Die reservierten gemeinsamen SQL-Testumgebungen sind davon ausgeschlossen:
 Schedule autorisiert weder Reaktivierung noch SQL-Schreibtests. Nur ein
 `workflow_dispatch` desselben Repositorys mit der separaten, standardmäßig
