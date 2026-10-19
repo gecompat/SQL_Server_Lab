@@ -1,5 +1,7 @@
 # Autonome Entwicklungswelle nach der Repository-Durchsicht
 
+Der [private Consumer-Guard](../Architecture/AUTHENTICATED_TLS_CONSUMER_GUARD.md) ergänzt die vorbereitende gehaltene Lesebindung und einen geschlossenen SQL-Journalreader. Verlorener Reply wird nicht zu Verbraucherende oder Wiederholungsfreigabe. Ein fester unabhängig geprüfter Gastworker und tatsächliche native End-/Recovery-/TLS-Nachweise bleiben erforderlich; SC-2026-045 bleibt gesperrt.
+
 Die [öffentliche SQL-VM-ID-Lane](../Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md)
 verbindet die bisherigen Reader-, VerifyOnly/Denied- und Port-Abhängigkeiten
 mit CompleteImage/HostSQL und den ausgewählten Folgeaufrufen. Neue

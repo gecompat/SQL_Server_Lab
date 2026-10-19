@@ -1,5 +1,7 @@
 # Bekannte Grenzen
 
+Der [private Consumer-Guard](../Architecture/AUTHENTICATED_TLS_CONSUMER_GUARD.md) hält ausgewählte NTFS-Leseobjekte und lehnt Journalreplay beziehungsweise behaupteten CLEANED-Abschluss ab. Er bindet keine späteren pfadbasierten Writer, reserviert keine VM und beweist kein Gast-/Kindprozessende. Der feste native Setupworker und SC-2026-045 bleiben offen.
+
 ## Optionale Volltextsuche und FILESTREAM
 
 Der [Funktionsvertrag](../Architecture/SQL_OPTIONAL_FEATURES.md) ergänzt explizite

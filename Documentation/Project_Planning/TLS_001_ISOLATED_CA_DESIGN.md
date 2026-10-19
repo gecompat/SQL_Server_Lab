@@ -1,5 +1,7 @@
 # TLS-001a – Entwurf einer isolierten Lab-CA
 
+Der [private Consumer-Guard](../Architecture/AUTHENTICATED_TLS_CONSUMER_GUARD.md) ergänzt gehaltene Windows-NTFS-Lesehandles und einen geschlossenen SQL-Journalreader ohne Executor. Rootregistrierung, spätere Writer, tatsächliches Gast-/Kindprozessende sowie CA-/SQL-/TLS-Autorität werden dadurch nicht übernommen.
+
 Die [öffentliche SQL-VM-ID-Lane](../Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md)
 bindet CompleteImage/HostSQL und ausgewählte Folgeaufrufe an die ausdrücklich
 gewählte gespeicherte/native VM-ID und Direct. Die synthetischen Fälle

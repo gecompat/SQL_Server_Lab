@@ -9,6 +9,18 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $failures = [System.Collections.Generic.List[string]]::new()
 $passed = 0
 $selector = Join-Path $repoRoot 'Tools/Get-CiTestSelection.ps1'
+foreach($path in @('Private/AuthenticatedTlsRootAnchor.ps1','Private/AuthenticatedTlsConsumerJournal.ps1','Tests/Static/Invoke-AuthenticatedTlsConsumerGuardChecks.ps1')){
+    foreach($normalized in @($path,$path.Replace('/','\'))){
+        $selected=& $selector -ChangedPath @($normalized)
+        Add-CheckResult "TLS consumer guard selects own handle/journal checks without provider dispatch: $normalized" (
+            'Invoke-AuthenticatedTlsConsumerGuardChecks.ps1' -in $selected.StaticChecks -and
+            -not $selected.Docker -and -not $selected.Podman -and -not $selected.Mixed -and -not $selected.HyperV -and -not $selected.Adapter)
+    }
+}
+foreach($path in @('Private/AuthenticatedTlsRegistryIndex.ps1','Private/AuthenticatedTlsRequest.ps1')){
+    $selected=& $selector -ChangedPath @($path)
+    Add-CheckResult "TLS journal parser dependencies retain guard regression: $path" ('Invoke-AuthenticatedTlsConsumerGuardChecks.ps1' -in $selected.StaticChecks)
+}
 foreach ($path in @('Private/SsisPackageDiagnostic.ps1','Providers/HyperV/HyperVSsisPackageDiagnostic.ps1','Public/Get-SqlServerLabSsisPackageDiagnostic.ps1')) {
     $selected = & $selector -ChangedPath @($path)
     Add-CheckResult "SSIS package diagnostic selects artifact, binding, transport and public surfaces: $path" (
