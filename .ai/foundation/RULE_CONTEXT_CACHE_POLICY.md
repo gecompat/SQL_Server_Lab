@@ -6,7 +6,7 @@ Status: AUTHORITATIVE — REQUIRED when rule-context caching is used
 
 A Rule Context Cache may reduce repeated model ingestion and semantic analysis of unchanged repository governance and context. It is an optional acceleration mechanism, never a source of rules or authority.
 
-The repository files at the current working tree remain the source of truth. System/developer/current-user messages and platform, permission, and runtime instructions supplied outside discovered instruction files remain outside this cache. Native client instruction discovery is not replaced: at the start of every run or TUI session, Codex still discovers and applies its applicable `AGENTS.override.md`/`AGENTS.md` chain. The cache independently fingerprints those files and the resulting scope only so reuse of additional repository analysis can be rejected safely.
+The repository files at the current working tree remain the source of truth. System/developer/current-user messages and platform, permission, and runtime instructions supplied outside discovered instruction files remain outside this cache. Native client instruction discovery is not replaced: at the start of every run or session, the active client still discovers and applies its applicable native instruction chain under its evidenced precedence and configuration. The Codex `AGENTS.override.md`/`AGENTS.md` chain is one reference path. The cache independently fingerprints the effective instruction files and resulting scope only so reuse of additional repository analysis can be rejected safely.
 
 ## Session-local baseline and persistent profile
 

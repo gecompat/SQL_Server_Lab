@@ -82,6 +82,8 @@ Distinguish a validator's self-test from running that validator against current 
 
 Keep required current-head/integration checks visible. Only an explicitly supported gate may reuse prior evidence after proving relevant input/environment/freshness equivalence; record the original execution and current applicability, never claim a fresh execution. Preserve failed results and safe cleanup/cancellation boundaries. Workflow summaries distinguish executed, reused, not applicable, failed, and unknown work without treating skipped or inconclusive checks as validated.
 
+Cross-host or local-to-CI recognition follows `TEST_EVIDENCE_REUSE_POLICY.md`. Independently authenticate the authorized producer, complete test/oracle/cleanup result and current gate equivalence through a protected verifier. A hash, self-reported PASS or `independent` flag does not establish that trust. Without a supported adapter, retain ordinary execution. Installing the policy does not enable reuse or authorize CI status publication.
+
 The REQUIRED overhead assessment in `PROCESSING_EFFICIENCY_POLICY.md` checks whether target rules and actual execution implement these defaults or justify compatible exceptions. It covers tests and the log/review/model work surrounding them; fewer tests do not justify weaker correctness claims.
 
 ## Review effort

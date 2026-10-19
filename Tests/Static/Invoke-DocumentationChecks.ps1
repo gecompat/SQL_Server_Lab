@@ -897,18 +897,18 @@ Add-ValidationResult `
 
 $installedFoundation = Get-Content -LiteralPath (Join-Path $repoRoot '.ai/foundation/installation-provenance.json') -Raw | ConvertFrom-Json
 $activeFoundationCatalog = $foundationFeatureCatalog | ConvertFrom-Json
-$activeFoundationAssessment = Get-Content -LiteralPath (Join-Path $repoRoot '.ai/foundation-upgrade-assessments/1.19.0-to-1.21.0.json') -Raw | ConvertFrom-Json
+$activeFoundationAssessment = Get-Content -LiteralPath (Join-Path $repoRoot '.ai/foundation-upgrade-assessments/1.21.0-to-1.24.0.json') -Raw | ConvertFrom-Json
 $activeVersion = $installedFoundation.ruleset_version
 Add-ValidationResult -Name 'Aktive Foundationversionen und Provenienz stimmen strukturiert überein' -Success (
     $activeVersion -ceq $activeFoundationCatalog.ruleset_version -and $activeVersion -ceq $activeFoundationAssessment.source_version -and
     $foundationRuleset -match ('Ruleset version: '+[regex]::Escape($activeVersion)+'(?:\r?\n|$)') -and
     $foundationRepoMap -match ('foundation_ruleset_version: '+[regex]::Escape($activeVersion)+'(?:\r?\n|$)') -and
     $installedFoundation.source_commit -ceq $activeFoundationAssessment.source_ref -and
-    $installedFoundation.source_commit -ceq 'd720db4f2f0d043756a958d5195d0e62090b1c8f' -and
+    $installedFoundation.source_commit -ceq '96391403a1b89e19d4824838806d7190d8033389' -and
     (Test-Path -LiteralPath (Join-Path $repoRoot '.ai/foundation/schemas/installation-provenance.schema.json')))
 
 
-$activeAssessmentJson=Get-Content -LiteralPath (Join-Path $repoRoot '.ai/foundation-upgrade-assessments/1.19.0-to-1.21.0.json') -Raw
+$activeAssessmentJson=Get-Content -LiteralPath (Join-Path $repoRoot '.ai/foundation-upgrade-assessments/1.21.0-to-1.24.0.json') -Raw
 Add-ValidationResult -Name 'Active upgrade assessment conforms to schema' -Success ($activeAssessmentJson | Test-Json -SchemaFile $foundationUpgradeAssessmentSchemaPath)
 # Candidate coverage comes from catalog history, not from the submitted record.
 $activeClassifications=@{
@@ -934,19 +934,21 @@ $activeClassifications=@{
     'semantic-integration'='APPLY_DEFAULT'
     'semantic-upgrade-applicability'='APPLY_DEFAULT'
     'session-lifecycle-management'='ALREADY_EQUIVALENT'
+    'orchestrator-job-control'='DECISION_REQUIRED'
+    'test-evidence-reuse'='RECOMMENDED'
 }
 $activeCandidates=[ordered]@{}
 foreach($featureProperty in $activeFoundationCatalog.features.PSObject.Properties) {
     $feature=$featureProperty.Value; $reasons=[Collections.Generic.List[string]]::new()
-    if ([version]$feature.introduced_in -gt [version]'1.19.0' -and [version]$feature.introduced_in -le [version]$activeVersion) { $reasons.Add('introduced_in:'+$feature.introduced_in) }
+    if ([version]$feature.introduced_in -gt [version]'1.21.0' -and [version]$feature.introduced_in -le [version]$activeVersion) { $reasons.Add('introduced_in:'+$feature.introduced_in) }
     foreach($change in $feature.change_history) {
-        if ([version]$change.version -gt [version]'1.19.0' -and [version]$change.version -le [version]$activeVersion -and $change.impact -ceq 'MATERIAL') { $reasons.Add('material_change:'+$change.version) }
+        if ([version]$change.version -gt [version]'1.21.0' -and [version]$change.version -le [version]$activeVersion -and $change.impact -ceq 'MATERIAL') { $reasons.Add('material_change:'+$change.version) }
     }
     if ($reasons.Count) { $activeCandidates[$featureProperty.Name]=@{Reasons=@($reasons);Classification=$activeClassifications[$featureProperty.Name]} }
 }
-$activeContractArguments=@{ExpectedCandidates=$activeCandidates;InstalledVersion='1.19.0';SourceVersion=$activeVersion;SourceRef=$installedFoundation.source_commit}
+$activeContractArguments=@{ExpectedCandidates=$activeCandidates;InstalledVersion='1.21.0';SourceVersion=$activeVersion;SourceRef=$installedFoundation.source_commit}
 $activeContract=Test-FoundationUpgradeAssessmentContract -Assessment $activeFoundationAssessment @activeContractArguments
-Add-ValidationResult -Name 'Complete active upgrade delta has explicit decisions and evidence' -Success ($activeCandidates.Count -eq 22 -and $activeContract.Success) -Message $activeContract.Message
+Add-ValidationResult -Name 'Complete active upgrade delta has explicit decisions and evidence' -Success ($activeCandidates.Count -eq 9 -and $activeContract.Success) -Message $activeContract.Message
 foreach($negative in @('missing','duplicate','evidence','capability','decision')) {
     $bad=$activeAssessmentJson | ConvertFrom-Json -Depth 100
     switch($negative) {
@@ -973,7 +975,7 @@ Add-ValidationResult `
         $repoMap -match ('ruleset_version: "'+[regex]::Escape($activeVersion)+'"') -and
         $repoMap -match 'github-copilot' -and
         $repoMap -match 'sql_cu_watch_policy: ops/sql-cu-policy\.md' -and
-        $repoMap -match 'current_record: \.ai/foundation-upgrade-assessments/1\.19\.0-to-1\.21\.0\.json' -and
+        $repoMap -match 'current_record: \.ai/foundation-upgrade-assessments/1\.21\.0-to-1\.24\.0\.json' -and
         $repoMap -match 'rule-context-cache' -and
         $repoMap -match 'ci-supersession-and-integration-queue' -and
         $repoMap -match 'unresolved_conflicts: \[\]')
