@@ -1936,7 +1936,7 @@ $('#new-manifest').addEventListener('click', () => $('#manifest-dialog').showMod
 $('#run-manifest').addEventListener('click', () => $('#manifest-run-dialog').showModal());
 
 $('#clear-all-labs').addEventListener('click', () => {
-  openConfirmation('Alles aufräumen', 'Alle bekannten SQL Server Lab-Runs sowie nachweislich verwaiste SQL_Server_Lab-Container werden nach ihren Cleanup-Plänen bereinigt. Persistente Data-Root-Inhalte und veröffentlichte Hyper-V-Images bleiben erhalten.', 'ClearAllLabs', {}, 'Alles aufräumen');
+  openConfirmation('Alle regulären Lab-Umgebungen löschen', 'ACHTUNG: Alle nicht geschützten Lab-Umgebungen im aktuellen State-Root werden gelöscht, auch laufende und gestoppte. Zusätzlich werden verwaiste Lab-Container, Windows-/SQL-Builder und alle Lab-Verzeichnisse im konfigurierten Data Root entfernt. Datenverlust ist möglich. Dies ist keine reine Restebereinigung. Die Runs der geschützten Testgruppe und veröffentlichte OS-/SQL-Vorlagen sind ausgenommen.', 'ClearAllLabs', {}, 'Alle regulären Umgebungen löschen');
 });
 
 $('#new-hyperv-lab').addEventListener('click', () => {

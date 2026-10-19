@@ -278,7 +278,7 @@ Legende:
 | [`Stop-SqlServerLab`](../../Public/Stop-SqlServerLab.ps1) | Stoppt eine laufende Umgebung über den gespeicherten Provider. | Lab-Umgebungen → Umgebung auswählen und verwalten → Stopp | über Adapter: `StopContainerLab`; der sichtbare Browserpfad verwendet überwiegend `StopLabReconcile` |
 | [`Restart-SqlServerLab`](../../Public/Restart-SqlServerLab.ps1) | Kombiniert Stop und Start. | Lab-Umgebungen → Umgebung auswählen und verwalten → Neustart | über Adapter: `RestartContainerLab` |
 | [`Remove-SqlServerLab`](../../Public/Remove-SqlServerLab.ps1) | Entfernt einen einzelnen Run scope-validiert. | Lab-Umgebungen → Umgebung auswählen und verwalten → Entfernen | über Adapter: `RemoveContainerLab`, `RemoveHyperVLab` |
-| [`Clear-SqlServerLab`](../../Public/Clear-SqlServerLab.ps1) | Bereinigt Lab-Container und/oder lokalen State. | Lab-Umgebungen → Umgebung auswählen und verwalten → alle Lab-Ressourcen aufräumen | über Adapter: `ClearAllLabs` |
+| [`Clear-SqlServerLab`](../../Public/Clear-SqlServerLab.ps1) | Löscht standardmäßig alle nicht geschützten Lab-Umgebungen im aktuellen State-Root, auch laufende und gestoppte, sowie verwaiste Lab-Container, Builder und Lab-Datenverzeichnisse. Keine reine Restebereinigung; Datenverlust möglich. Bestätigung standardmäßig Nein. `-StateOnly` bereinigt nur nachweislich verwaisten State; `-ContainersOnly` löscht auch laufende Lab-Container. | Wartung, Aufräumen und Recovery → Alle regulären Lab-Umgebungen löschen | über Adapter: `ClearAllLabs` |
 
 ## Automatisierte Testumgebungen
 

@@ -677,11 +677,18 @@ Instanz wird daher auch dann über Podman verwaltet, wenn Docker zusätzlich
 installiert ist. Ein Manifest kann Docker- und Podman-Instanzen in einem Run
 kombinieren; Status, Start, Stop und Cleanup arbeiten dafür je ProviderSubRun.
 
-Alle erkannten Lab-Reste bereinigen:
+**Achtung: Alle regulären Lab-Umgebungen löschen – auch laufende und gestoppte.**
+Dies ist keine reine Restebereinigung: Auch verwaiste Lab-Container, Builder und
+alle Lab-Verzeichnisse im konfigurierten Data Root werden entfernt; Datenverlust
+ist möglich. Die Runs der geschützten Testgruppe und veröffentlichte OS-/SQL-Vorlagen
+sind ausgenommen. Die Bestätigung steht standardmäßig auf **Nein**.
 
 ```powershell
 Clear-SqlServerLab
 ```
+
+Nur Befunde lesen: `Get-SqlServerLabCleanupAudit -NoWrite`.
+Nur nachweislich verwaisten State bereinigen: `Clear-SqlServerLab -StateOnly`.
 
 Container-Batches laufen immer non-interaktiv. Deshalb referenziert der Plan
 nur den Namen einer eng benannten Prozessvariable; der Secret-Wert selbst wird
@@ -784,7 +791,7 @@ abgewiesen. SQL-seitige Verifikation und freie Advanced-Eingaben bleiben
 | `Stop-SqlServerLab` | Laufende Umgebung stoppen |
 | `Restart-SqlServerLab` | Stop und Start kombinieren |
 | `Remove-SqlServerLab` | Einzelnen Run entfernen |
-| `Clear-SqlServerLab` | Lab-Container und/oder State bereinigen |
+| `Clear-SqlServerLab` | Alle regulären Lab-Umgebungen löschen, auch laufende; Datenverlust möglich |
 | `New-SqlServerLabDatabase` | Datenbank erstellen |
 | `Backup-SqlServerLabDatabase` | Datenbank nach `CHECKSUM`, `RESTORE VERIFYONLY` und SHA-256 in der `Lab_Data`-Bibliothek veröffentlichen |
 | `Restore-SqlServerLabDatabase` | `.bak` aus Datei oder URL wiederherstellen |

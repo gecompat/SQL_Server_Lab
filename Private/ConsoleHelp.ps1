@@ -227,10 +227,17 @@ function Get-LabConsoleHelpCatalog {
             Preconditions = @($dataRootPrecondition)
         }
         'maintenance-menu' = @{
-            Title   = 'Wartung und Diagnose'
+            Title   = 'Wartung, Diagnose und Löschung'
             Purpose = 'Read-only Befunde zu Herkunft, Nutzung und Recovery; gezielte Katalogzuordnung separat vorprüfen.'
-            Effects = 'Audit schreibt nichts. Nur eine fehlende moderne SQL-Speicherzuordnung kann nach eigener Vorschau und Bestätigung ergänzt werden; Löschung bleibt separat.'
+            Effects = 'Audit schreibt nichts. Katalogreparaturen benötigen eine eigene Vorschau und Bestätigung. Alle regulären Lab-Umgebungen löschen entfernt dagegen auch laufende und gestoppte Umgebungen und kann Lab-Daten dauerhaft löschen; das ist keine reine Restebereinigung.'
             Command = 'Test-SqlServerLabPrerequisite / Get-SqlServerLabCleanupAudit'
+            Items = @{
+                Clear = @{
+                    Purpose = 'Löscht alle nicht geschützten Lab-Umgebungen im aktuellen State-Root, auch laufende und gestoppte, sowie weitere angezeigte Lab-Ressourcen.'
+                    Effects = 'Datenverlust möglich. Auch Lab-Verzeichnisse im konfigurierten Data Root werden gelöscht. Die Runs der geschützten Testgruppe und veröffentlichte OS-/SQL-Vorlagen sind ausgenommen. Die Bestätigung steht auf Nein.'
+                    Command = 'Clear-SqlServerLab'
+                }
+            }
         }
         'maintenance-guidance' = @{
             Title='Wartungsbefunde und Zuordnung'
