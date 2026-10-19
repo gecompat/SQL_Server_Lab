@@ -1,5 +1,10 @@
 # Autonome Entwicklungswelle nach der Repository-Durchsicht
 
+Der [isolierte SQL-Port-Setter](../Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md)
+ergänzt die interne No-Replay-/VM-ID-Grenze. Der tatsächliche Funktions-
+NoIO-Nachweis ersetzt keine öffentliche Gesamtpropagation, kein
+Verbraucherende und keine native SQL-/TLS-Abnahme; SC-2026-045 bleibt gesperrt.
+
 Die [interne strikte Aktivierungsprüfung](../Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md)
 ergänzt eine VM-ID-gebundene VerifyOnly/Denied-Lane ohne Aktivierungs-
 oder Netzwerkreparatur. NoIO-Nachweis und begrenzte Evidencewrites sind

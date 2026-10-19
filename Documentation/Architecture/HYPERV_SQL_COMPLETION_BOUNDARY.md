@@ -24,6 +24,32 @@ jeder nachfolgende Effekt benötigt erneut die eigene Bindungsprüfung.
 Verbraucherende, handlebasierte Rootanker und native Setup-/TLS-Abnahme
 bleiben offen.
 
+## Isolierter SQL-Port-Aufruf ohne Transportreplay
+
+`Set-LabHyperVSqlPortBinding` verwendet auch für den isolierten CompleteImage-
+Folgepfad `NoRetry`. Nach einem verlorenen Reply wird derselbe Registry-/
+Firewall-/SQL-Dienstblock innerhalb dieses Aufrufs nicht erneut ausgeführt.
+Die vorhandene Receiptprüfung und die unveränderte Wahl
+`Encrypt=True/TrustServerCertificate=True` bleiben erhalten.
+
+Die interne Option `ExpectedVmId` verlangt vor nativer Suche gültige, nicht
+leere Run-/Scope-UUIDs, einen nicht leeren VM-Namen und dieselbe gespeicherte
+`ConnectionInstance.vmId`. Der tatsächliche Transport prüft zusätzlich die
+native VM-ID und verwendet den VMId-Direct-Selector. Der Setter übergibt
+keine Fallbackadresse; eine Lab-WinRM-Markierung erweitert diese gewählte
+Lane daher nicht. Ohne Option bleibt der bisherige VMName-Selector erhalten,
+jedoch ebenfalls mit genau einem mutierenden Transportversuch.
+
+Die [Funktionsfixture](../../Tests/Static/Fixtures/HyperVSqlPortMutationBoundaryChecks.ps1)
+verwendet tatsächlichen Setter und Transport mit synthetischen nativen
+Blättern. Vor der Korrektur wurden bei einem synthetischen Verbraucherwrite
+mit anschließend verlorenem Reply zehn Direct-Aufrufe beobachtet. Danach
+bleibt es bei einem. Gastkörper werden nicht ausgeführt. Der interne Setter
+liest keinen registrierten Root neu und reserviert keine VM. Öffentliche
+Complete-/Reconcile-Gesamtpropagation, Verbraucherende, Journal-Recovery und
+native Setup-/SQL-/TLS-Qualifikation sind damit nicht neu nachgewiesen;
+ein Fehler erteilt keine Wiederholungs- oder Cleanupautorität.
+
 ## Interne strikt gebundene Aktivierungsprüfung
 
 `Invoke-LabWindowsSlotActivationReconcile` bietet intern optional

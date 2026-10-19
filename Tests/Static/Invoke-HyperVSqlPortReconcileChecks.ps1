@@ -252,6 +252,7 @@ try {
     foreach($check in $checks.GetEnumerator()){$color=if($check.Value){'Green'}else{'Red'};Write-Host("  {0}  {1}" -f $(if($check.Value){'PASS'}else{'FAIL'}),$check.Key)-ForegroundColor $color}
     if($failedChecks.Count){throw "Hyper-V SQL port reconcile checks failed: $($failedChecks.Key -join ', ')"}
     Write-Host "Hyper-V SQL Port Reconcile Checks: $($checks.Count) PASS, 0 FAIL" -ForegroundColor Green
+    $null=& (Join-Path $PSScriptRoot 'Fixtures/HyperVSqlPortMutationBoundaryChecks.ps1') -RepoRoot $repoRoot
 }
 finally {
     Remove-Module $module.Name -Force -ErrorAction SilentlyContinue

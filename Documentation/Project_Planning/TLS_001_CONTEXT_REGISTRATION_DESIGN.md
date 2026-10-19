@@ -1,5 +1,10 @@
 # TLS-001 – Client- und Signierkontexte registrieren
 
+Die [interne SQL-Port-Mutationsgrenze](../Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md)
+bindet auf ausdrückliche Wahl gespeicherte und native VM-ID ohne
+Transportreplay; sie registriert keinen Client-/Signierkontext und ersetzt
+keine öffentliche Gesamtpropagation oder native TLS-Abnahme.
+
 Die [interne strikte Aktivierungsprüfung](../Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md)
 reicht VM-ID und Direct-Wahl durch VerifyOnly/Denied-Verifikation und deren
 Evidencewriter. Das registriert keinen Client-/Signierkontext; öffentliche
