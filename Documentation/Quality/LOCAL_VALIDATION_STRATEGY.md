@@ -1,5 +1,12 @@
 # Lokale Validierungsstrategie
 
+Die HyperVLabEnvironment-Suite führt die tatsächlichen internen Reconcile-,
+Lizenzstatus-, Evidence- und Wartefunktionen in der
+[StrictActivationVerify-Fixture](../../Tests/Static/Fixtures/HyperVStrictActivationVerifyChecks.ps1)
+aus. Synthetische native Blätter prüfen ID-/Rootweitergabe, frühen Ausschluss
+von Policy-/Journaldrift, VM-Ersatz, Direct-only sowie unveränderte Defaults
+und Buildbindung. Keine Gastkörper, native Aktivierung oder Setup-/TLS-Probe.
+
 Die HyperVLabEnvironment-Suite führt zusätzlich die tatsächliche
 [ImmutableRunReader-Fixture](../../Tests/Static/Fixtures/HyperVImmutableRunReaderChecks.ps1)
 aus. Native und Dateiblätter sind synthetisch: strikte ID-/Rootablehnung,

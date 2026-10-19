@@ -1,5 +1,11 @@
 # Autonome Entwicklungswelle nach der Repository-Durchsicht
 
+Die [interne strikte Aktivierungsprüfung](../Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md)
+ergänzt eine VM-ID-gebundene VerifyOnly/Denied-Lane ohne Aktivierungs-
+oder Netzwerkreparatur. NoIO-Nachweis und begrenzte Evidencewrites sind
+keine öffentliche vollständige Setupbindung oder native TLS-Abnahme;
+SC-2026-045 bleibt gesperrt.
+
 Die vorgelagerte [interne VM-ID-Lesegrenze](../Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md)
 ergänzt einen schreibfreien strikten Reader vor einer Rename-Reparatur.
 Öffentliche durchgängige Setup-/Direct-only-Bindung, Verbraucherende und

@@ -1,5 +1,10 @@
 # TLS-001a – Entwurf einer isolierten Lab-CA
 
+Die [interne strikte Aktivierungsprüfung](../Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md)
+bindet VerifyOnly/Denied an die ausgewählte VM-ID, ohne neue Aktivierung oder
+Netzreparatur. Sie stellt weder einen CA-/Trustkontext noch vollständige
+öffentliche Setupbindung oder native CA-/SQL-/TLS-Qualifikation her.
+
 Der [strikte interne Run-Reader](../Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md)
 schließt eine vorgelagerte VM-ID-/Rename-Lesegrenze ohne Write.
 Er ersetzt weder durchgängige öffentliche Setupbindung noch Verbraucherende

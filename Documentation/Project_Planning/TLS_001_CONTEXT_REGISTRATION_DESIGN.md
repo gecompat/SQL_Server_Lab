@@ -1,5 +1,10 @@
 # TLS-001 – Client- und Signierkontexte registrieren
 
+Die [interne strikte Aktivierungsprüfung](../Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md)
+reicht VM-ID und Direct-Wahl durch VerifyOnly/Denied-Verifikation und deren
+Evidencewriter. Das registriert keinen Client-/Signierkontext; öffentliche
+Gesamtpropagation, Verbraucherende und native TLS-Abnahme bleiben offen.
+
 Der [strikte interne Run-Reader](../Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md)
 bindet gespeicherte und native VM-ID vor einer schreibfreien Namensprojektion.
 Er registriert keinen Client-/Signierkontext und qualifiziert keinen Verbraucher.

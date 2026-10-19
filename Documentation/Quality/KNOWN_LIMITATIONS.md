@@ -1,5 +1,12 @@
 # Bekannte Grenzen
 
+Die interne optionale VM-ID-gebundene Aktivierungsprüfung ist auf
+`VerifyOnly/Denied`, Direct und unveränderte terminale Netzwerkjournale
+beschränkt. Ihr synthetischer Nachweis belegt keine native Aktivierung,
+Netzabwesenheit oder durchgängige öffentliche Setupbindung. Die übrigen
+SQL-/Netz-/WMI-/Portpfade und Verbraucherende bleiben separat offen;
+siehe [Completionvertrag](../Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md).
+
 Der optionale strikte interne
 [Run-Reader](../Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md) prüft gespeicherte
 und native VM-ID vor einer nur lokalen Namensprojektion ohne Write.
