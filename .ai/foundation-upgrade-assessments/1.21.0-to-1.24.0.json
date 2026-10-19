@@ -1,0 +1,175 @@
+{
+  "schema_version": 1,
+  "installed_version": "1.21.0",
+  "source_version": "1.24.0",
+  "source_ref": "96391403a1b89e19d4824838806d7190d8033389",
+  "assessments": [
+    {
+      "feature_id": "ai-runtime-adapters",
+      "candidate_reasons": [
+        "material_change:1.22.0"
+      ],
+      "classification": "RECOMMENDED",
+      "evidence": [
+        "AGENTS.md",
+        ".ai/foundation/installation-provenance.json",
+        ".ai/WORKING_RULES.md",
+        "Documentation/Quality/COST_EFFICIENT_DEVELOPMENT.md",
+        "Tools/Get-CiTestSelection.ps1"
+      ],
+      "rationale": "Die Core-Schemas und Regeln sind relevant; die optionale Referenzcapability ist bisher nicht ausgewählt und wird nicht zusätzlich installiert. Projektgeführte Runtimewege bleiben erhalten.",
+      "recommendation": "Option nur bei konkretem Nutzen und unter bestehenden Projektgates verwenden; die bisherige Auswahl und Aktivierung bleiben erhalten.",
+      "decision_required": null,
+      "selected_capabilities": []
+    },
+    {
+      "feature_id": "ai-work-execution",
+      "candidate_reasons": [
+        "material_change:1.23.0"
+      ],
+      "classification": "NOT_APPLICABLE",
+      "evidence": [
+        "AGENTS.md",
+        ".ai/foundation/installation-provenance.json",
+        ".ai/WORKING_RULES.md",
+        "Documentation/Quality/COST_EFFICIENT_DEVELOPMENT.md",
+        "Tools/Get-CiTestSelection.ps1"
+      ],
+      "rationale": "Kein Foundation-Executor ist ausgewählt oder als aktueller Projektausführungsweg belegt. Die Änderung des optionalen Executors wird nicht als Anlass für seine Installation verwendet.",
+      "recommendation": null,
+      "decision_required": null,
+      "selected_capabilities": []
+    },
+    {
+      "feature_id": "ai-work-orchestration",
+      "candidate_reasons": [
+        "material_change:1.22.0",
+        "material_change:1.23.0"
+      ],
+      "classification": "APPLY_DEFAULT",
+      "evidence": [
+        "AGENTS.md",
+        ".ai/foundation/installation-provenance.json",
+        ".ai/WORKING_RULES.md",
+        "Documentation/Quality/COST_EFFICIENT_DEVELOPMENT.md",
+        "Tools/Get-CiTestSelection.ps1"
+      ],
+      "rationale": "Aktualisierte portable Schemas und Regeln werden übernommen. Vorhandene Capabilityauswahl bleibt erhalten; Nutzdaten, Credentials, Konfiguration und Runtimezustand bleiben extern und werden nicht angelegt.",
+      "recommendation": null,
+      "decision_required": null,
+      "selected_capabilities": []
+    },
+    {
+      "feature_id": "bounded-processing-efficiency",
+      "candidate_reasons": [
+        "material_change:1.23.0",
+        "material_change:1.24.0"
+      ],
+      "classification": "APPLY_DEFAULT",
+      "evidence": [
+        "AGENTS.md",
+        ".ai/foundation/installation-provenance.json",
+        ".ai/WORKING_RULES.md",
+        "Documentation/Quality/COST_EFFICIENT_DEVELOPMENT.md",
+        "Tools/Get-CiTestSelection.ps1",
+        "Documentation/Quality/CI_TEST_EVIDENCE_POLICY.md"
+      ],
+      "rationale": "Kompakte deterministische Bewertung, lokale Diagnose und scopebezogene Wiederholung ergänzen die bestehenden Projektwege. Die neue Control-Budgetreservierung aktiviert weder einen Scheduler noch neue Modellaufrufe. Die aktuelle projektspezifische CI-Evidence-Policy bleibt maßgeblich: frische CI, lokaler Development-Cache ohne Remoteautorität und Local-to-Remote-Verifikator NOT_IMPLEMENTED.",
+      "recommendation": null,
+      "decision_required": null,
+      "selected_capabilities": []
+    },
+    {
+      "feature_id": "foundation-baseline",
+      "candidate_reasons": [
+        "material_change:1.23.0"
+      ],
+      "classification": "APPLY_DEFAULT",
+      "evidence": [
+        "AGENTS.md",
+        ".ai/foundation/installation-provenance.json",
+        ".ai/WORKING_RULES.md",
+        "Documentation/Quality/COST_EFFICIENT_DEVELOPMENT.md",
+        "Tools/Get-CiTestSelection.ps1"
+      ],
+      "rationale": "Die neue Discovery-Referenz und die geschlossenen Core-Verträge werden integriert. Projektfakten, vorhandene Freigaben und die Regeln außerhalb des verwalteten Blocks bleiben projektgeführt.",
+      "recommendation": null,
+      "decision_required": null,
+      "selected_capabilities": []
+    },
+    {
+      "feature_id": "layered-validation",
+      "candidate_reasons": [
+        "material_change:1.24.0"
+      ],
+      "classification": "APPLY_DEFAULT",
+      "evidence": [
+        "AGENTS.md",
+        ".ai/foundation/installation-provenance.json",
+        ".ai/WORKING_RULES.md",
+        "Documentation/Quality/COST_EFFICIENT_DEVELOPMENT.md",
+        "Tools/Get-CiTestSelection.ps1",
+        "Documentation/Quality/CI_TEST_EVIDENCE_POLICY.md"
+      ],
+      "rationale": "Die neue Policy präzisiert unabhängige Herkunft, aktuelle Anwendbarkeit und vollständige Oracles samt Cleanup. Projektprüfungen und aktuelle Required Checks bleiben erforderlich; Foundationintegrität attestiert keine SQL-Abnahme. Die aktuelle projektspezifische CI-Evidence-Policy bleibt maßgeblich: frische CI, lokaler Development-Cache ohne Remoteautorität und Local-to-Remote-Verifikator NOT_IMPLEMENTED.",
+      "recommendation": null,
+      "decision_required": null,
+      "selected_capabilities": []
+    },
+    {
+      "feature_id": "orchestrator-job-control",
+      "candidate_reasons": [
+        "introduced_in:1.23.0"
+      ],
+      "classification": "DECISION_REQUIRED",
+      "evidence": [
+        "AGENTS.md",
+        ".ai/foundation/installation-provenance.json",
+        ".ai/WORKING_RULES.md",
+        "Documentation/Quality/COST_EFFICIENT_DEVELOPMENT.md",
+        "Tools/Get-CiTestSelection.ps1"
+      ],
+      "rationale": "Die Vertrags- und Schemazugänglichkeit wird übernommen. Für dieses Upgrade wird kein Host-Control-Profil angelegt oder aktiviert. Vor einer künftigen Aktivierung sind vertrauenswürdige Hostbelege, begrenzte Autorität und Budget sowie Clientfähigkeiten projektspezifisch zu entscheiden.",
+      "recommendation": null,
+      "decision_required": "Für dieses Upgrade ausdrücklich nicht aktiviert. Künftige autonome Steuerung benötigt einen eigenen begrenzten Auftrag und vertrauenswürdige Host-/Client-/Budgetkonfiguration.",
+      "selected_capabilities": []
+    },
+    {
+      "feature_id": "session-lifecycle-management",
+      "candidate_reasons": [
+        "material_change:1.23.0"
+      ],
+      "classification": "ALREADY_EQUIVALENT",
+      "evidence": [
+        "AGENTS.md",
+        ".ai/foundation/installation-provenance.json",
+        ".ai/WORKING_RULES.md",
+        "Documentation/Quality/COST_EFFICIENT_DEVELOPMENT.md",
+        "Tools/Get-CiTestSelection.ps1"
+      ],
+      "rationale": "Vorhandene projektgeführte Checkpoint-, Owner-, Client- und manuelle Fortsetzungsgrenzen bleiben erhalten. Die portable Vertragsergänzung führt ohne ausgewählte Referenzorchestrierung keinen automatischen Sessionwechsel aus.",
+      "recommendation": null,
+      "decision_required": null,
+      "selected_capabilities": []
+    },
+    {
+      "feature_id": "test-evidence-reuse",
+      "candidate_reasons": [
+        "introduced_in:1.24.0"
+      ],
+      "classification": "RECOMMENDED",
+      "evidence": [
+        "AGENTS.md",
+        ".ai/foundation/installation-provenance.json",
+        ".ai/WORKING_RULES.md",
+        "Documentation/Quality/COST_EFFICIENT_DEVELOPMENT.md",
+        "Tools/Get-CiTestSelection.ps1",
+        "Documentation/Quality/CI_TEST_EVIDENCE_POLICY.md"
+      ],
+      "rationale": "Die neue Policy wird verfügbar und ist für teure native Tests empfehlenswert. Ein geschützter Host-/CI-Verifikator ist durch dieses Upgrade nicht implementiert oder aktiviert. Bestehende lokale und CI-Ausführung, frische Required Checks und strengere Datenschutzregeln bleiben erhalten. Die aktuelle projektspezifische CI-Evidence-Policy bleibt maßgeblich: frische CI, lokaler Development-Cache ohne Remoteautorität und Local-to-Remote-Verifikator NOT_IMPLEMENTED.",
+      "recommendation": "Option nur bei konkretem Nutzen und unter bestehenden Projektgates verwenden; die bisherige Auswahl und Aktivierung bleiben erhalten.",
+      "decision_required": null,
+      "selected_capabilities": []
+    }
+  ]
+}

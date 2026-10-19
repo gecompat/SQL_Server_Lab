@@ -42,6 +42,8 @@ Batch coherent local corrections into a stable candidate before pushing where th
 
 Count test/CI time, local log processing, and model/coordination consumption separately when trustworthy measurements exist. Less CI runtime does not prove fewer model tokens. Unknown measurements remain unknown; prefer a short factual assessment of avoided duplicate work over new continuous telemetry or per-call paperwork.
 
+Use existing deterministic runners for test selection, execution, oracle comparison, aggregation and cleanup. Complete success produces a compact machine-readable result without another model call solely to confirm PASS. Local diagnosis precedes a model task for a new unresolved failure; an unchanged blocker remains quiet. Required independent review is a separate obligation. Optional local-to-remote evidence recognition follows `TEST_EVIDENCE_REUSE_POLICY.md`; for cheap checks, fresh CI execution may be more economical than attestation. Neither token savings nor local-first preference lowers the evidence floor.
+
 ## Shared wave budget
 
 Before sustained autonomous work, select a project budget and its unit, measurement/estimate source, checkpoint threshold, hard ceiling, and stopping behavior. Do not invent account quotas, prices, usage, or universal percentage limits. If reliable metering is unavailable, report that limitation and choose an authorized finite task/agent bound rather than claim monetary enforcement.

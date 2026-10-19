@@ -1,0 +1,1303 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/ai-repository-foundation/orchestrator-control.schema.json",
+  "title": "Optional deterministic orchestrator control; host configuration and observations are separate trust inputs",
+  "$ref": "#/$defs/request",
+  "$defs": {
+    "request": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "type": "integer",
+          "const": 1
+        },
+        "contract": {
+          "const": "foundation-orchestrator-control/v1"
+        },
+        "job_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]{0,159}$"
+        },
+        "event": {
+          "enum": [
+            "REGISTER",
+            "STATUS",
+            "HEARTBEAT",
+            "EVENT",
+            "PAUSE",
+            "CANCEL",
+            "RESUME",
+            "ROTATE",
+            "SOURCE_FAILED",
+            "ACCEPT_EVIDENCE"
+          ]
+        }
+      },
+      "required": [
+        "schema_version",
+        "contract",
+        "job_id",
+        "event"
+      ],
+      "additionalProperties": false
+    },
+    "client": {
+      "type": "object",
+      "properties": {
+        "client_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]{0,159}$"
+        },
+        "source_ref": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]{0,159}$"
+        },
+        "valid_until": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "capabilities": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "STATUS",
+              "PRE_MODEL_CHECK",
+              "START_SESSION",
+              "RESUME_SESSION",
+              "SUCCESSOR_SESSION",
+              "NOTIFY",
+              "RESEARCH"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "observation_path": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Absolute path outside every Git tree; selected and protected by the host."
+        }
+      },
+      "required": [
+        "client_id",
+        "source_ref",
+        "valid_until",
+        "capabilities",
+        "observation_path"
+      ],
+      "additionalProperties": false
+    },
+    "start_request": {
+      "additionalProperties": false,
+      "properties": {
+        "contract": {
+          "const": "foundation-ai-orchestration/v1"
+        },
+        "input_handle": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "max_attempts": {
+          "maximum": 10,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "orchestration_id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "output_handle": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "remote_authorized": {
+          "default": false,
+          "type": "boolean"
+        },
+        "router_request": {
+          "additionalProperties": false,
+          "properties": {
+            "allow_evaluation": {
+              "default": false,
+              "type": "boolean"
+            },
+            "allow_remote": {
+              "default": false,
+              "type": "boolean"
+            },
+            "allow_unknown_context": {
+              "default": false,
+              "type": "boolean"
+            },
+            "allowed_execution_boundaries": {
+              "items": {
+                "enum": [
+                  "PROCESS",
+                  "HOST",
+                  "LOCAL_NETWORK",
+                  "REMOTE",
+                  "UNKNOWN"
+                ]
+              },
+              "minItems": 1,
+              "type": "array",
+              "uniqueItems": true
+            },
+            "allowed_providers": {
+              "items": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "type": "array",
+              "uniqueItems": true
+            },
+            "at": {
+              "format": "date-time",
+              "type": "string"
+            },
+            "cached_input_tokens": {
+              "default": 0,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "context_tokens": {
+              "default": 0,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "contract": {
+              "const": "foundation-model-router/v2"
+            },
+            "current_model": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "current_provider": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "data_class": {
+              "enum": [
+                "PUBLIC",
+                "INTERNAL",
+                "CONFIDENTIAL",
+                "RESTRICTED"
+              ],
+              "type": "string"
+            },
+            "expected_output_tokens": {
+              "default": 0,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "failed_models": {
+              "items": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "type": "array",
+              "uniqueItems": true
+            },
+            "failure_cost_usd": {
+              "minimum": 0,
+              "type": "number"
+            },
+            "latency_value_usd_per_second": {
+              "minimum": 0,
+              "type": "number"
+            },
+            "max_cost_usd": {
+              "minimum": 0,
+              "type": "number"
+            },
+            "max_fallbacks": {
+              "default": 1,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "max_latency_seconds": {
+              "minimum": 0,
+              "type": "number"
+            },
+            "preferred_reasoning_effort": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "quality_floor": {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            "remote_data_classes": {
+              "items": {
+                "enum": [
+                  "PUBLIC",
+                  "INTERNAL",
+                  "CONFIDENTIAL",
+                  "RESTRICTED"
+                ]
+              },
+              "type": "array",
+              "uniqueItems": true
+            },
+            "required_capabilities": {
+              "items": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "type": "array",
+              "uniqueItems": true
+            },
+            "resource_limits": {
+              "additionalProperties": false,
+              "properties": {
+                "max_cpu_seconds": {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                "max_disk_mb": {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                "max_energy_wh": {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                "max_gpu_seconds": {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                "max_network_mb": {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                "max_ram_mb": {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                "max_vram_mb": {
+                  "minimum": 0,
+                  "type": "number"
+                }
+              },
+              "type": "object"
+            },
+            "schema_version": {
+              "const": 2
+            },
+            "session_id": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "switching_cost_usd": {
+              "minimum": 0,
+              "type": "number"
+            },
+            "task_class": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "tier": {
+              "enum": [
+                "LOCAL",
+                "ECONOMICAL",
+                "BALANCED",
+                "FRONTIER"
+              ],
+              "type": "string",
+              "default": "BALANCED"
+            }
+          },
+          "required": [
+            "schema_version",
+            "contract",
+            "task_class",
+            "data_class",
+            "allowed_execution_boundaries",
+            "remote_data_classes",
+            "resource_limits"
+          ],
+          "title": "Foundation model routing request v2",
+          "type": "object"
+        },
+        "schema_version": {
+          "const": 1
+        },
+        "validation": {
+          "additionalProperties": false,
+          "properties": {
+            "mode": {
+              "enum": [
+                "NONE",
+                "OUTPUT_NONEMPTY",
+                "JSON_DOCUMENT",
+                "MANUAL_REVIEW"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "mode"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "schema_version",
+        "contract",
+        "orchestration_id",
+        "router_request",
+        "input_handle",
+        "output_handle",
+        "remote_authorized",
+        "max_attempts",
+        "validation"
+      ],
+      "title": "Foundation AI orchestration request",
+      "type": "object",
+      "description": "Planning only; omitted tier defaults to BALANCED. No source collector or model invocation."
+    },
+    "configuration": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "type": "integer",
+          "const": 1
+        },
+        "contract": {
+          "const": "foundation-orchestrator-control/v1"
+        },
+        "job_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]{0,159}$"
+        },
+        "work_ref": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]{0,159}$"
+        },
+        "authorization_ref": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]{0,159}$"
+        },
+        "completion_ref": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]{0,159}$"
+        },
+        "budget_ref": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]{0,159}$"
+        },
+        "bootstrap_ref": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]{0,159}$"
+        },
+        "client": {
+          "$ref": "#/$defs/client"
+        },
+        "autonomy": {
+          "type": "boolean",
+          "default": false
+        },
+        "max_dispatches": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "heartbeat_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1800
+        },
+        "budget_request_path": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "description": "Absolute path outside every Git tree; selected and protected by the host."
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "start_request": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/start_request"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "research_ref": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]{0,159}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "notification_target": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]{0,159}$",
+          "default": "CLIENT"
+        },
+        "external_notifications_authorized": {
+          "type": "boolean",
+          "default": false
+        },
+        "action_timeout_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 86400,
+          "default": 300
+        },
+        "state_root": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Absolute protected shared state authority outside every Git tree; overrides must match."
+        }
+      },
+      "required": [
+        "schema_version",
+        "contract",
+        "job_id",
+        "work_ref",
+        "authorization_ref",
+        "completion_ref",
+        "budget_ref",
+        "bootstrap_ref",
+        "client",
+        "state_root"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "autonomy": {
+                "const": true
+              }
+            },
+            "required": [
+              "autonomy"
+            ]
+          },
+          "then": {
+            "anyOf": [
+              {
+                "required": [
+                  "max_dispatches"
+                ],
+                "properties": {
+                  "max_dispatches": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              },
+              {
+                "required": [
+                  "budget_request_path"
+                ],
+                "properties": {
+                  "budget_request_path": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Absolute path outside every Git tree; selected and protected by the host."
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "receipt": {
+      "type": "object",
+      "properties": {
+        "requested_model": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]{0,159}$"
+        },
+        "actual_model": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]{0,159}$"
+        },
+        "issuer": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]{0,159}$"
+        },
+        "evidence_kind": {
+          "enum": [
+            "HOST_EXECUTION",
+            "HOST_RESPONSE_METADATA"
+          ]
+        }
+      },
+      "required": [
+        "requested_model",
+        "actual_model",
+        "issuer",
+        "evidence_kind"
+      ],
+      "additionalProperties": false
+    },
+    "ack": {
+      "type": "object",
+      "properties": {
+        "action_id": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "outcome": {
+          "enum": [
+            "SUCCEEDED",
+            "FAILED",
+            "UNKNOWN",
+            "NOT_STARTED"
+          ]
+        },
+        "session_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]{0,159}$"
+        },
+        "receipt": {
+          "$ref": "#/$defs/receipt"
+        },
+        "checkpoint_ref": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]{0,159}$"
+        },
+        "handoff_ref": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]{0,159}$"
+        },
+        "predecessor_retired": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "action_id",
+        "outcome"
+      ],
+      "additionalProperties": false
+    },
+    "verification": {
+      "type": "object",
+      "properties": {
+        "candidate_path": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Absolute path outside every Git tree; selected and protected by the host."
+        },
+        "candidate_sha256": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "verifier_ref": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]{0,159}$"
+        },
+        "producer_ref": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]{0,159}$"
+        },
+        "source_ref": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]{0,159}$"
+        },
+        "units_ref": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]{0,159}$"
+        },
+        "model_mapping_ref": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]{0,159}$"
+        },
+        "verified": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "candidate_path",
+        "candidate_sha256",
+        "verifier_ref",
+        "producer_ref",
+        "source_ref",
+        "units_ref",
+        "model_mapping_ref",
+        "verified"
+      ],
+      "additionalProperties": false
+    },
+    "observation": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "type": "integer",
+          "const": 1
+        },
+        "contract": {
+          "const": "foundation-orchestrator-control/v1"
+        },
+        "job_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]{0,159}$"
+        },
+        "client_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]{0,159}$"
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "valid_until": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "generation": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "owner_session_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]{0,159}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "execution": {
+          "enum": [
+            "IDLE",
+            "RUNNING",
+            "WAITING",
+            "UNKNOWN"
+          ]
+        },
+        "work_remaining": {
+          "type": "boolean"
+        },
+        "executable": {
+          "type": "boolean"
+        },
+        "checkpoint_ref": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]{0,159}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "completion_verified": {
+          "type": "boolean"
+        },
+        "ack": {
+          "$ref": "#/$defs/ack"
+        },
+        "operator_resume": {
+          "type": "boolean"
+        },
+        "lifecycle_request": {
+          "$ref": "session-lifecycle-request.schema.json"
+        },
+        "handoff": {
+          "$ref": "session-handoff.schema.json"
+        },
+        "models": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "connection_id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]{0,159}$"
+              },
+              "model_id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]{0,159}$"
+              }
+            },
+            "required": [
+              "connection_id",
+              "model_id"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 1000
+        },
+        "source_failure": {
+          "type": "object",
+          "properties": {
+            "source_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]{0,159}$"
+            },
+            "failure_ref": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]{0,159}$"
+            }
+          },
+          "required": [
+            "source_id",
+            "failure_ref"
+          ],
+          "additionalProperties": false
+        },
+        "verification": {
+          "$ref": "#/$defs/verification"
+        },
+        "progress": {
+          "type": "object",
+          "properties": {
+            "checkpoint_ref": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]{0,159}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "previous_checkpoint_ref": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]{0,159}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "progress_ref": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]{0,159}$"
+            }
+          },
+          "required": [
+            "checkpoint_ref",
+            "previous_checkpoint_ref",
+            "progress_ref"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "schema_version",
+        "contract",
+        "job_id",
+        "client_id",
+        "observed_at",
+        "valid_until",
+        "generation",
+        "owner_session_id",
+        "execution",
+        "work_remaining",
+        "executable",
+        "checkpoint_ref",
+        "completion_verified"
+      ],
+      "additionalProperties": false
+    },
+    "action": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "action_id": {
+              "type": "string",
+              "pattern": "^sha256:[0-9a-f]{64}$"
+            },
+            "generation": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "kind": {
+              "const": "CHECK_STATUS"
+            },
+            "work_ref": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]{0,159}$"
+            },
+            "issued_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "valid_until": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          "required": [
+            "action_id",
+            "generation",
+            "kind",
+            "work_ref",
+            "issued_at",
+            "valid_until"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "action_id": {
+              "type": "string",
+              "pattern": "^sha256:[0-9a-f]{64}$"
+            },
+            "generation": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "kind": {
+              "const": "NOTIFY"
+            },
+            "target_ref": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]{0,159}$"
+            },
+            "template": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]{0,159}$"
+            },
+            "work_ref": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]{0,159}$"
+            },
+            "message": {
+              "type": "string",
+              "maxLength": 512
+            },
+            "issued_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "valid_until": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          "required": [
+            "action_id",
+            "generation",
+            "kind",
+            "target_ref",
+            "template",
+            "work_ref",
+            "message",
+            "issued_at",
+            "valid_until"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "action_id": {
+              "type": "string",
+              "pattern": "^sha256:[0-9a-f]{64}$"
+            },
+            "generation": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "kind": {
+              "const": "RESUME_SESSION"
+            },
+            "message": {
+              "const": "HEARTBEAT"
+            },
+            "owner_session_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]{0,159}$"
+            },
+            "work_ref": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]{0,159}$"
+            },
+            "budget_ref": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]{0,159}$"
+            },
+            "issued_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "valid_until": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          "required": [
+            "action_id",
+            "generation",
+            "kind",
+            "message",
+            "owner_session_id",
+            "work_ref",
+            "budget_ref",
+            "issued_at",
+            "valid_until"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "action_id": {
+              "type": "string",
+              "pattern": "^sha256:[0-9a-f]{64}$"
+            },
+            "generation": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "kind": {
+              "const": "START_SESSION"
+            },
+            "next_generation": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "route": {
+              "type": "object",
+              "description": "Existing validated router route plus connection_id and runtime_provider; no payload."
+            },
+            "work_ref": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]{0,159}$"
+            },
+            "bootstrap_ref": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]{0,159}$"
+            },
+            "budget_ref": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]{0,159}$"
+            },
+            "successor": {
+              "type": "boolean"
+            },
+            "handoff_ref": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]{0,159}$"
+            },
+            "issued_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "valid_until": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          "required": [
+            "action_id",
+            "generation",
+            "kind",
+            "next_generation",
+            "route",
+            "work_ref",
+            "bootstrap_ref",
+            "budget_ref",
+            "successor",
+            "issued_at",
+            "valid_until"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "action_id": {
+              "type": "string",
+              "pattern": "^sha256:[0-9a-f]{64}$"
+            },
+            "generation": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "kind": {
+              "const": "PREPARE_HANDOFF"
+            },
+            "work_ref": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]{0,159}$"
+            },
+            "authorization_ref": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]{0,159}$"
+            },
+            "completion_ref": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]{0,159}$"
+            },
+            "budget_ref": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]{0,159}$"
+            },
+            "bootstrap_ref": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]{0,159}$"
+            },
+            "issued_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "valid_until": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          "required": [
+            "action_id",
+            "generation",
+            "kind",
+            "work_ref",
+            "authorization_ref",
+            "completion_ref",
+            "budget_ref",
+            "bootstrap_ref",
+            "issued_at",
+            "valid_until"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "action_id": {
+              "type": "string",
+              "pattern": "^sha256:[0-9a-f]{64}$"
+            },
+            "generation": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "kind": {
+              "const": "CHECKPOINT"
+            },
+            "work_ref": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]{0,159}$"
+            },
+            "issued_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "valid_until": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          "required": [
+            "action_id",
+            "generation",
+            "kind",
+            "work_ref",
+            "issued_at",
+            "valid_until"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "action_id": {
+              "type": "string",
+              "pattern": "^sha256:[0-9a-f]{64}$"
+            },
+            "generation": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "kind": {
+              "const": "RESEARCH"
+            },
+            "request_ref": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]{0,159}$"
+            },
+            "failure_ref": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]{0,159}$"
+            },
+            "issued_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "valid_until": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          "required": [
+            "action_id",
+            "generation",
+            "kind",
+            "request_ref",
+            "failure_ref",
+            "issued_at",
+            "valid_until"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "report": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "schema_version": {
+              "type": "integer",
+              "const": 1
+            },
+            "contract": {
+              "const": "foundation-orchestrator-control/v1"
+            },
+            "job_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]{0,159}$"
+            },
+            "status": {
+              "enum": [
+                "OK",
+                "MANUAL_REQUIRED",
+                "REJECTED"
+              ]
+            },
+            "state": {
+              "enum": [
+                "READY",
+                "RUNNING",
+                "WAITING",
+                "NEEDS_INPUT",
+                "PAUSED",
+                "COMPLETED",
+                "CANCELLED"
+              ]
+            },
+            "reason_code": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]{0,159}$"
+            },
+            "generation": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "owner_session_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]{0,159}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "actions": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/action"
+              }
+            },
+            "pending_action_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^sha256:[0-9a-f]{64}$"
+              }
+            },
+            "budget_ref": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]{0,159}$"
+            },
+            "controller_dispatches": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "model_calls": {
+              "const": 0
+            },
+            "provider_limit_enforced": {
+              "const": false
+            }
+          },
+          "required": [
+            "schema_version",
+            "contract",
+            "job_id",
+            "status",
+            "state",
+            "reason_code",
+            "generation",
+            "owner_session_id",
+            "actions",
+            "pending_action_ids",
+            "budget_ref",
+            "controller_dispatches",
+            "model_calls",
+            "provider_limit_enforced"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "schema_version": {
+              "type": "integer",
+              "const": 1
+            },
+            "contract": {
+              "const": "foundation-orchestrator-control/v1"
+            },
+            "status": {
+              "const": "CONFIGURATION_REQUIRED"
+            },
+            "state": {
+              "type": "null"
+            },
+            "actions": {
+              "type": "array",
+              "maxItems": 0
+            },
+            "reason_code": {
+              "const": "CONTROL_CONFIGURATION_REQUIRED"
+            },
+            "model_calls": {
+              "const": 0
+            }
+          },
+          "required": [
+            "schema_version",
+            "contract",
+            "status",
+            "state",
+            "actions",
+            "reason_code",
+            "model_calls"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
+}
