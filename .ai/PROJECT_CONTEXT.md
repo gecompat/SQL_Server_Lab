@@ -1,5 +1,12 @@
 # Projektkontext
 
+Die [optionalen SQL-Funktionen](../Documentation/Architecture/SQL_OPTIONAL_FEATURES.md)
+ergänzen explizite Manifest-/CLI-/GUI-Auswahl für Volltext auf Docker, Podman
+und Hyper-V sowie FILESTREAM-T-SQL-Zugriff auf Windows/Hyper-V. Linux lehnt
+FILESTREAM-Aktivierung vor Mutation ab. Abhängigkeitsprüfung, versionsgebundene
+FTS-Capsule und No-Replay-Recovery sind implementiert. Die tatsächlichen
+Providerabnahmen werden in der Validierungsstrategie separat ausgewiesen.
+
 Der [Hyper-V-SQL-Abschlussvertrag](../Documentation/Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md)
 bindet explizite öffentliche State-/Medienroots und bietet für CompleteImage
 und HostSQL eine zusätzliche ausdrücklich gewählte VM-ID-/Direct-Lane durch

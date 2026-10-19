@@ -152,6 +152,7 @@ function Get-LabExternalRuntimeReconcileContext {
             DatabaseNames=@($item.DatabaseNames | Sort-Object)
             Drives=@(Get-LabExternalRuntimeManifestComparableDrives -Drives @($item.Intents.Drives) | Sort-Object Id)
             Network=$item.Intents.Network
+            SqlFeatures=(Get-LabSqlFeatureIntentFingerprint -Intent $item.Intents.SqlFeatures)
         }
     }
     $currentFingerprint = (& $toImmutableFingerprint $currentSnapshot[0]) | ConvertTo-Json -Depth 30 -Compress
@@ -642,6 +643,9 @@ function Invoke-LabExternalRuntimeReconcileRefresh {
         [ValidateRange(30,900)][int]$ReadinessTimeoutSeconds=300,
         [string]$StateRoot
     )
+    if(-not $StateRoot){$StateRoot=Get-LabStateRoot}
+    $featureGuard=Enter-LabSqlFeatureConflictGuard -RunId $RunId -StateRoot $StateRoot
+    try {
     $context = Get-LabExternalRuntimeReconcileContext -RunId $RunId -ManifestPath $ManifestPath -InstanceId $InstanceId -StateRoot $StateRoot
     Repair-LabExternalRuntimeRefreshJournal -Context $context
     $context = Get-LabExternalRuntimeReconcileContext -RunId $RunId -ManifestPath $ManifestPath -InstanceId $InstanceId -StateRoot $StateRoot
@@ -732,6 +736,12 @@ function Invoke-LabExternalRuntimeReconcileRefresh {
             -SaPassword $saPassword -TimeoutSeconds $ReadinessTimeoutSeconds -ExpectedMajorVersion ([int]$versionDefinition.major) `
             -Provider $provider -ContainerIdOrName ([string]$replacement.ContainerId)
         if (-not $readiness.Ready) { throw "EXTERNAL_RUNTIME_REFRESH_READINESS_FAILED: $($readiness.Message)" }
+        $featureDesired=@($context.PersistedSnapshot.Instances|Where-Object Id -ceq ([string]$context.ConnectionInstance.id))
+        if($featureDesired.Count -eq 1 -and $featureDesired[0].Intents.SqlFeatures){
+            $featureInstance=[pscustomobject]@{id=[string]$context.ConnectionInstance.id;version=[string]$context.ConnectionInstance.version;sqlFeatures=$featureDesired[0].Intents.SqlFeatures}
+            $featureRun=[pscustomobject]@{RunId=$RunId;ScopeId=[string]$context.Run.scopeId;StateRoot=(Split-Path (Split-Path $context.RunDirectory -Parent) -Parent)}
+            Invoke-LabInitialContainerSqlFeatures -Instance $featureInstance -RunState $featureRun -Container $replacement -SaPassword $saPassword
+        }
         $labInstance = [PSCustomObject]@{
             Id=[string]$context.ConnectionInstance.id; Version=[string]$context.ConnectionInstance.version
             Provider=$provider; Host=[string]$context.ConnectionInstance.host; Port=[int]$replacement.Port
@@ -809,4 +819,5 @@ function Invoke-LabExternalRuntimeReconcileRefresh {
         }
         throw $failure
     }
+    } finally {$featureGuard.ReleaseMutex();$featureGuard.Dispose()}
 }

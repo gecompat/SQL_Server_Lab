@@ -1,8 +1,11 @@
 function Assert-LabResourceChangeAllowed {
-    param([string]$RunId, [string]$StateRoot)
+    param([string]$RunId, [string]$StateRoot, [switch]$SqlFeatureOperation)
     if (Test-LabAutomatedTestEnvironmentRun -RunId $RunId) { throw 'RESOURCE_CHANGE_PROTECTED_GROUP' }
     $cms = Get-LabConnectionCenterCmsConfiguration -StateRoot $StateRoot
     if ($cms -and [string]$cms.RunId -eq $RunId) { throw 'RESOURCE_CHANGE_SYSTEM_SERVICE' }
+    if(-not $SqlFeatureOperation -and $StateRoot){
+        Assert-LabSqlFeatureRecoveryClear -RunId $RunId -StateRoot $StateRoot
+    }
 }
 
 function Get-LabResourceChangeTargets {

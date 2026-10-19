@@ -82,7 +82,9 @@ try {
     $null=$worker.AddScript({param($name,$held,$release) $m=[Threading.Mutex]::new($false,$name);$null=$m.WaitOne();try{$held.Set();$null=$release.Wait(10000)}finally{$m.ReleaseMutex();$m.Dispose()}}).AddArgument((Get-LabContainerResourceLockName -StateRoot $testRoot -RunId $runId)).AddArgument($held).AddArgument($release)
     $pending=$worker.BeginInvoke()
     if(-not $held.Wait(5000)){throw 'Lock fixture failed to acquire'}
-    Assert-ResourceFailure { Update-SqlServerLabContainer -RunId $runId -InstanceId primary -StateRoot $aliasRoot -Cpu 2 -MemoryMB 2048 -ExpectedResourcePlanKey $plan.PlanKey -Confirm:$false } 'RESOURCE_CHANGE_BUSY'
+    # Windows adds a Global shared guard; on Linux it reuses this resource mutex.
+    $busyPattern=if($IsWindows){'^RESOURCE_CHANGE_BUSY$'}else{'^SQL_FEATURE_OPERATION_BUSY$'}
+    Assert-ResourceFailure { Update-SqlServerLabContainer -RunId $runId -InstanceId primary -StateRoot $aliasRoot -Cpu 2 -MemoryMB 2048 -ExpectedResourcePlanKey $plan.PlanKey -Confirm:$false } $busyPattern
 }finally{$release.Set();if($pending){$null=$worker.EndInvoke($pending)};$worker.Dispose();$held.Dispose();$release.Dispose()}
 $changed=Get-LabResourceChangePlan @argsPlan -Cpu 2.5 -MemoryMB 3072
 if ($changed.ChangeClass -ne 'live' -or $changed.NoChange) { throw 'Live plan invalid' }

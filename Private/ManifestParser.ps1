@@ -363,6 +363,7 @@ function Resolve-ManifestDefaults {
             windowsActivationSource = $null
             network       = $null
             serverConfig  = $null
+            sqlFeatures   = $null
             software      = @()
             postProvision = @()
             ssisCatalogFixture = $null
@@ -372,6 +373,7 @@ function Resolve-ManifestDefaults {
         if (-not $instance.provider) {
             $resolved.provider = Resolve-ProviderAutoSelect -Instance $instance
         }
+        if($null -ne $instance.sqlFeatures){$resolved.sqlFeatures = Resolve-LabSqlFeatureIntent -Intent $instance.sqlFeatures -Provider $resolved.provider -SqlVersion $resolved.version}
         if($instance.ssisCatalogFixture){
             if($resolved.provider -ne 'hyperv' -or $resolved.os -ne 'windows' -or
                 [string]$resolved.version -ne '2025' -or @($Manifest.instances).Count -ne 1){

@@ -1,5 +1,86 @@
 # Lokale Validierungsstrategie
 
+## Optionale SQL-Funktionen: Volltext und FILESTREAM
+
+`Invoke-SqlFeatureChecks.ps1` prüft den expliziten Intent und die Linux-
+FILESTREAM-Ablehnung. Die Browserfixture `WorkflowSqlTargetChecks.cjs` prüft
+die Zielinstanz, boolesches Entfernen und die deaktivierte FILESTREAM-Auswahl
+auf Linux. Eine ausgeführte Harnessfixture prüft zusätzlich den SQL-Kaltstart:
+Serverbereitschaft genügt erst nach erfolgreichem lesendem Öffnen der eigenen
+Testdatenbank. Sie prüft begrenzte Read-Retries, Deadline und Providerisolation.
+Die native Abnahme ist implementiert:
+
+```powershell
+./Tests/Integration/Invoke-SqlFeatureAcceptance.ps1 -Provider docker
+./Tests/Integration/Invoke-SqlFeatureAcceptance.ps1 -Provider podman
+./Tests/Integration/Invoke-SqlFeatureAcceptance.ps1 -Provider hyperv -ArtifactId $preparedArtifactId
+```
+
+Jeder Lauf erstellt ausschließlich einen eigenen Run, Volltextkatalog und
+-index. `CONTAINS`, `FREETEXT`, `CONTAINSTABLE`, Negativsuche, SQL-Neustart,
+Dependency-Guard und Remove/Add werden tatsächlich geprüft. Hyper-V ergänzt
+echte FILESTREAM-BLOBs, Update und Disable nach eigenem DB-Cleanup.
+Windows-Volltextänderungen benötigen verifizierte lokale SQL-Medien. Der
+Hyper-V-Test erstellt einen frischen Prepared-Image-Klon; dessen Offline-OOBE
+benötigt erhöhte Rechte für `Mount-VHD`. Das vorhandene Host-only-Netz muss
+ohne Änderungen verwendbar sein.
+Die fokussierte Offlineprüfung bestand mit 26 Vertragsassertions und
+ausgeführten synthetischen Mutationsfällen einschließlich gegenseitiger
+Recovery-Sperren für Feature- und Ressourcenänderungen. Die Browserfixture bestand mit
+159 Assertions einschließlich der drei Featuredialoge und der Trennung zwischen
+SQL- und reinen Windows-Vorlagen. Die Reconcile-Regression führt den tatsächlichen
+öffentlichen Recreate mit und ohne Instanz-ID sowie explizitem true/false auf
+synthetischen Docker-/Podman-Grenzen aus. Sie prüft die Wiederherstellung vor dem
+Entfernen des Originals, zehn gesperrte Mutatoren, die echten unveränderlichen
+Manifestprojektionen und eine echte Sperrkollision mit einem zweiten Prozess.
+Dies ist ein Kontrollfluss-/Prozessnachweis, keine zusätzliche native SQL-Abnahme.
+Die breite Auswahl mit
+55 statischen Suites bestand. Die getrennten nativen SQL-2025-Abnahmen sind
+für **alle drei Provider bestanden**:
+
+| Provider | Tatsächlicher Engine-Build | Ausgeführter Nachweis |
+|---|---|---|
+| Docker | `17.0.4075.5` | Echter Volltextindex, alle Sucharten, Negativsuche, Neustart, Dependency-Guard, physisches Remove/Add, erneute Suche und eigener Container-/Volume-Cleanup |
+| Podman | `17.0.4075.5` | Getrennte vollständige Abnahme derselben Volltextfälle einschließlich eigenem Container-/Volume-Cleanup |
+| Hyper-V | `17.0.1000.7` (SQL 2025 RTM) | Volltextfälle einschließlich VM-Kaltstart und Remove/Add; FILESTREAM-BLOBs, Update, Persistenz nach weiterem Kaltstart, Dependency-Guard, Deaktivierung und eigener VM-/VHDX-/IP-Lease-Cleanup |
+
+Docker und Podman liefen auf dem Windows-Client mit Linux-Containern. Der
+frische erhöhte Hyper-V-Gesamtlauf vom 2026-10-19 endete mit Exitcode 0 und
+bestätigte den öffentlichen Cleanup mit drei erfolgreichen Schritten ohne
+Fehler sowie die Abwesenheit der eigenen VM. Die Funktionsprüfungen verwendeten
+öffentliche Create-/Feature-/Restart-/Remove-Befehle und tatsächliche SQL-Daten.
+
+Beim FILESTREAM-Disable wurde nativ `0x80070BC3` beobachtet. Der korrigierte
+WMI-Guard akzeptiert diesen Service-Neustart-Status; SQL-Dienstneustart und die
+echte SQL-Nachprüfung bestätigten anschließend den deaktivierten Zustand.
+Ausgeführte Regressionen prüfen außerdem `3011`, Erfolg, Zugriffsfehler,
+OS-Reboot-Status und unbekannte Ergebnisse. Fehler behalten ihren numerischen
+Rückgabewert. Der ursprüngliche fehlgeschlagene Versuch protokollierte diesen
+Wert noch nicht; die tatsächliche Beobachtung stammt aus dem frischen Nachtest.
+
+Beide Kaltstarts bestanden mit begrenzten lesenden Bereitschaftsprüfungen der
+eigenen Testdatenbank, ohne Wiederholung mutierender SQL-Befehle. Die getrennten
+Versionsfelder (`sqlVersion` unter Hyper-V, `version` im Container) sind durch
+ausgeführte Regressionen abgedeckt. Der Hyper-V-Test fordert mit
+`NotRequested/Denied` keine Windows-Aktivierung an. Auch die früheren begonnenen
+eigenen Versuche wurden einschließlich VM, Child-VHDX und IP-Lease entfernt;
+ihre Fehlerbelege bleiben lokal erhalten.
+
+Die selektierten Regressionen nach Versionskorrektur, Datenbankbereitschaft
+und WMI-Korrektur bestanden jeweils mit sieben statischen Suites; die exakte
+Fixtureauswahl bestand mit sechs Suites. Die abschließende SQL-/Windows-
+Vorlagenauswahl bestand mit zehn selektierten Suites einschließlich Workflow-Gate
+mit 72 PASS und 0 FAIL. SQL 2019/2022 sowie weitere Windows-CU-Konstellationen
+sind durch diese SQL-2025-Abnahmen nicht nativ qualifiziert. FILESTREAM auf
+Linux wird vor Mutation abgewiesen und ist kein unterstützter Funktionspfad.
+
+Die erste breite Regression erreichte die bestehenden HTTP-Vorschaufixtures.
+Die Port-HTTP-Fixture überschritt dort das bisherige 60-Sekunden-Limit; ihre
+isolierte Ausführung bestand anschließend mit allen 87 Assertions in 65,3
+Sekunden und ohne Providermutation. Ausschließlich diese Fixture erhält deshalb
+ein begrenztes 90-Sekunden-Budget. Oracles, Assertions und Cleanup bleiben
+erhalten; der vollständige Workflow-Gate bestand danach mit 72 PASS und 0 FAIL.
+
 Die HyperVLabEnvironment-Suite führt zusätzlich die
 [öffentliche Entryfixture](../../Tests/Static/Fixtures/HyperVSqlPublicEntryChecks.ps1)
 und die [SQL-VM-ID-Kettenfixture](../../Tests/Static/Fixtures/HyperVSqlVmBindingChecks.ps1)

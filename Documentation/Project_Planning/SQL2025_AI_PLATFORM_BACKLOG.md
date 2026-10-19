@@ -235,8 +235,10 @@ je 30 Assertions einschließlich einer Collection aus drei Caller-Dokumenten,
 SQLrestart, Delta-Cutover, Caller-Sync, explizitem Prune, Hashdrift und Cleanup.
 Caller-Modellwechsel-Re-Embedding zum festen lokalen Nomic-Ziel ist umgesetzt;
 weitere Zielmodelle und Dimensionswechsel bleiben offen. Die feste synthetische
-Persistenz und ihre Migration sind unten gesondert beschrieben. SQL Server Full-Text Search bleibt offen, solange kein
-reproduzierbarer, paketgebundener Containerpfad für `mssql-server-fts` besteht.
+Persistenz und ihre Migration sind unten gesondert beschrieben. Der
+[optionale Instanzpfad](../Architecture/SQL_OPTIONAL_FEATURES.md) ergänzt die
+paketgebundene FTS-Capsule. Die Einbindung von SQL Server Full-Text Search in
+das persistente Retrievalranking bleibt ein getrennter offener Scope.
 
 `AI-50A` implementiert den read-only Diagnose-Agenten mit vier festen
 SELECT-Werkzeugen, maximal vier Aufrufen, Zeilen- und Kontextgrenzen sowie

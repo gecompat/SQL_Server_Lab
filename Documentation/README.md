@@ -87,7 +87,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | Komponente | Status | Autoritative Dateien |
 |---|---|---|
 | PowerShell-Modul | implementiert | `SqlServerLab.psd1`, `SqlServerLab.psm1` |
-| Öffentliche API | 150 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
+| Öffentliche API | 151 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
 | Docker | implementiert | `Providers/Docker/DockerProvider.ps1` |
 | Podman | implementiert | `Providers/Podman/PodmanProvider.ps1` |
 | SQL Server External Languages | Container: Java für SQL 2019, Python/R/Java für SQL 2022/2025, jeweils Docker und Podman; Hyper-V/Windows: SQL-2022 Python/R/Java nativ akzeptiert, C# für SQL 2019–2025 sichtbar `PREVIEW` | `../Catalogs/software.json`, `../Tests/Integration/Invoke-ExternalRuntimeContainerAcceptance.ps1`, `../Tests/Integration/Invoke-ExternalRuntimeHyperVAcceptance.ps1` |
@@ -216,6 +216,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | `New-SqlServerLabManifest` | Manifest schema-gesteuert erstellen |
 | `Test-SqlServerLabManifest` | Manifest ohne Provisionierung prüfen |
 | `New-SqlServerLab` | Umgebung ad hoc oder per Manifest erstellen |
+| `Set-SqlServerLabFeature` | Optionale Volltextsuche oder Windows-FILESTREAM-T-SQL-Zugriff explizit hinzufügen oder entfernen |
 | `Get-SqlServerLab` | State sowie providerneutralen Container-/VM-Live-Status und sanitisierte kataloggebundene Container-Tool-Metadaten anzeigen; ungeprüfte Hyper-V-SQL-Bereitschaft bleibt davon getrennt |
 | `Start-SqlServerLab` | Gestoppte Umgebung starten |
 | `Stop-SqlServerLab` | Laufende Umgebung stoppen |

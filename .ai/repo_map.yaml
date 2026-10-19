@@ -19,6 +19,15 @@ project:
   runtime_status: CONTAINER_CORE_IMPLEMENTED_HYPERV_SQL_CLI_ACCEPTED
 
 sources_of_truth:
+  sql_optional_features: Private/SqlFeatures.ps1
+  sql_optional_features_api: Public/Set-SqlServerLabFeature.ps1
+  sql_fulltext_container_payload: Tools/Set-SqlServerLabFullText.sh
+  sql_optional_features_windows: Providers/HyperV/HyperVSqlFeatures.ps1
+  sql_optional_features_contract: Documentation/Architecture/SQL_OPTIONAL_FEATURES.md
+  sql_optional_features_checks: Tests/Static/Invoke-SqlFeatureChecks.ps1
+  sql_optional_features_readiness_checks: Tests/Static/Fixtures/SqlFeatureReadinessChecks.ps1
+  sql_optional_features_reconcile_checks: Tests/Static/Fixtures/SqlFeatureReconcileChecks.ps1
+  sql_optional_features_acceptance: Tests/Integration/Invoke-SqlFeatureAcceptance.ps1
   run_artifact_removal_core: Private/RunArtifactRemoval.ps1
   run_artifact_removal_commands: Public/RunArtifactRemoval.ps1
   run_artifact_removal_contract: Documentation/User/RUN_ARTIFACT_REMOVAL.md

@@ -101,6 +101,7 @@
         'New-SqlServerLabManifest'
         'Test-SqlServerLabManifest'
         'New-SqlServerLab'
+        'Set-SqlServerLabFeature'
         'Get-SqlServerLab'
         'Get-SqlServerLabGeneratedSqlAccess'
         'Get-SqlServerLabGeneratedWindowsAccess'

@@ -1,5 +1,11 @@
 # SQL Server Lab
 
+Optionale [Volltextsuche und FILESTREAM](Documentation/Architecture/SQL_OPTIONAL_FEATURES.md)
+werden explizit über Manifest, CLI und GUI ausgewählt. Volltext ist für
+Docker/Podman und Windows/Hyper-V implementiert; FILESTREAM-T-SQL-Zugriff
+benötigt Windows/Hyper-V. Die [Validierungsstrategie](Documentation/Quality/LOCAL_VALIDATION_STRATEGY.md#optionale-sql-funktionen-volltext-und-filestream)
+trennt implementierte Tests von tatsächlich ausgeführten Providerabnahmen.
+
 CLI-Runstatus und GUI unter **Verbindungen und CMS** zeigen die angegebenen
 Werte von `Encrypt` und `TrustServerCertificate` je Ziel ausdrücklich an.
 Fehlende Werte werden nicht geraten; [Anzeigevertrag](Documentation/Architecture/SQL_CONNECTION_SETTINGS.md).
@@ -746,6 +752,7 @@ abgewiesen. SQL-seitige Verifikation und freie Advanced-Eingaben bleiben
 | `Invoke-SqlServerLabPortableContainerTransferPreflight` | Explizite Backupsets ausschließlich im bereits live gebundenen `persistent-backups`-Mount stagen und SQL-seitig vorprüfen; die Resultatprojektion bleibt pfad- und secretfrei und der Transferexecutor `BLOCKED` |
 | `Get-SqlServerLabHyperVRecoveryPointPlan` | Bestehende, eindeutig an einen Hyper-V-Run gebundene Checkpoints ohne VM-Namen oder Hostpfade read-only inventarisieren; Erstellung, Quiesce und Restore bleiben nicht implementiert |
 | `Get-SqlServerLabContainerAutoStartPlan` / `Set-SqlServerLabContainerAutoStart` / `Resume-SqlServerLabContainerAutoStart` | Gebundenen Docker-/Podman-Autostartplan lesen, direkt anwenden oder ausschließlich Statepersistenz wiederaufnehmen |
+| `Set-SqlServerLabFeature` | Volltext beziehungsweise Windows-FILESTREAM-T-SQL-Zugriff explizit hinzufügen oder nach Abhängigkeitsprüfung entfernen |
 | `Get-SqlServerLabHyperVAutoStartPlan` / `Set-SqlServerLabHyperVAutoStart` / `Resume-SqlServerLabHyperVAutoStart` | Gebundenen Hyper-V-Autostartplan lesen, direkt anwenden oder ausschließlich Statepersistenz wiederaufnehmen |
 | `Get-SqlServerLabSqlObservabilityEvidence` | Aggregierte Server-, Datenbank-, Query-Store- und Wait-Metriken direkt oder per Run-/Instanzbindung read-only ohne Endpunkt-, SQL-Text-, Namens- oder Secretprojektion erfassen |
 | `Get-SqlServerLabDatabaseMigrationDependency` | Migrationsabhängigkeiten lesend inventarisieren; [API-Vertrag](Public/README.md) |

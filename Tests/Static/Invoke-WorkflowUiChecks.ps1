@@ -746,7 +746,9 @@ foreach ($fixture in @('WorkflowUiCommandGrantsChecks.ps1','WorkflowUiCommandGra
         $null=$process.Start();$output=$process.StandardOutput.ReadToEndAsync();$errors=$process.StandardError.ReadToEndAsync()
         # This two-provider fixture completed all 107 checks in 66 seconds on
         # the owned host. Preserve every check and bound only this case at 120s.
-        $fixtureTimeoutMs=if($fixture -ceq 'ContainerAutoStartPreviewHttpChecks.ps1'){120000}else{60000}
+        # The isolated port HTTP fixture completed all 87 assertions in 65.3s
+        # on this host. Preserve coverage and bound only this fixture at 90s.
+        $fixtureTimeoutMs=if($fixture -ceq 'ContainerAutoStartPreviewHttpChecks.ps1'){120000}elseif($fixture -ceq 'ContainerPortPreviewHttpChecks.ps1'){90000}else{60000}
         $complete=$process.WaitForExit($fixtureTimeoutMs);if (-not $complete) { $process.Kill($true);$process.WaitForExit() }
         Write-Host $output.GetAwaiter().GetResult()
         $errorText=$errors.GetAwaiter().GetResult()
