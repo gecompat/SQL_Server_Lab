@@ -907,6 +907,15 @@ sources_of_truth:
   authenticated_tls_consumer_guard_contract: Documentation/Architecture/AUTHENTICATED_TLS_CONSUMER_GUARD.md # retained Windows NTFS read handles + closed fixed-path SQL journal; no executor/end attestation/cleanup authority
   authenticated_tls_root_anchor: Private/AuthenticatedTlsRootAnchor.ps1
   authenticated_tls_consumer_journal: Private/AuthenticatedTlsConsumerJournal.ps1 # closed read model and pure exact-event byte construction; no durable writer or dispatch
+  authenticated_tls_sql_consumer_writer: Private/AuthenticatedTlsSqlConsumerWriter.ps1 # immutable private snapshots and VM reservation; no replay or cleanup authority from the journal
+  authenticated_tls_hyperv_sql_consumer: Private/AuthenticatedTlsHyperVSqlConsumer.ps1 # explicit own SQL2025 RTM setup-only lane, terminal installer proof and orderly new boot
+  authenticated_tls_hyperv_leaf: Private/AuthenticatedTlsHyperVLeaf.ps1 # existing nonexportable guest CSP key, public CSR and scoped SQL certificate binding; native acceptance separate
+  authenticated_tls_hyperv_native_contract: Documentation/Architecture/AUTHENTICATED_TLS_HYPERV_NATIVE_ACCEPTANCE.md
+  acceptance_authenticated_tls_hyperv_native_evidence: Documentation/Quality/TLS_HYPERV_NATIVE_ACCEPTANCE_2026-10-20.md # completed private SQL2025 RTM reference; composite evidence, public False/export separate
+  acceptance_authenticated_tls_hyperv_native: Tests/Integration/Invoke-AuthenticatedTlsHyperVAcceptance.ps1
+  acceptance_authenticated_tls_hyperv_common: Tests/Common/AuthenticatedTlsHyperVAcceptance.ps1
+  validation_tls_sql_consumer_writer: Tests/Static/Fixtures/TlsSqlConsumerWriterChecks.ps1
+  validation_tls_hyperv_sql_consumer_boundary: Tests/Static/Fixtures/TlsHyperVSqlConsumerBoundaryChecks.ps1
   validation_authenticated_tls_consumer_guard: Tests/Static/Invoke-AuthenticatedTlsConsumerGuardChecks.ps1 # actual own NTFS handles and synthetic journals; Request/RegistryIndex dependencies, no VM/setup/key/trust action
   authenticated_tls_registry_root: Private/AuthenticatedTlsRegistryRoot.ps1 # read-only registered local Windows root metadata and fixed registry file; non-atomic observation, no registration/authority
   validation_authenticated_tls_registry_root: Tests/Static/Invoke-AuthenticatedTlsRegistryRootChecks.ps1 # coupled DiagnosticBundleReader, request/index/payload/document; own synthetic files only, StorageContract producer preserved

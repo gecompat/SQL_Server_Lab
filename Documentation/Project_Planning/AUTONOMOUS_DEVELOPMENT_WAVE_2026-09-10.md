@@ -2,6 +2,27 @@
 
 ## Wiederaufnahme vom 2026-10-20
 
+Nach Integration des reinen Journalbyte-Scopes aus PR #810 beauftragte der
+Benutzer ausdrücklich die fehlenden Bausteine, unabhängigen Review und native
+Hyper-V-TLS-Abnahme sowie Integration nach grünen Gates und eigenen Git-Cleanup.
+Der neue [begrenzte Referenzpfad](../Architecture/AUTHENTICATED_TLS_HYPERV_NATIVE_ACCEPTANCE.md)
+verwendet den vorhandenen eigenen SQL-2025-RTM-Run und dessen erhaltenen CSP-Key.
+Ein Implementierer, ein unabhängig prüfender Agent, genau ein Setupdispatch
+und ein endlicher 180-Minuten-Runtimerahmen gelten für diese Ausführung.
+Eine allgemeine neue Trustimport-, Aktivierungs-/Egress- oder Fremdcleanup-
+Freigabe entsteht nicht. Frühere FAIL-Ergebnisse und verbrauchte Budgets bleiben
+erhalten. Die folgenden Abschnitte beschreiben den vorherigen Journalbyte-Scope.
+
+Die [native Referenzabnahme](../Quality/TLS_HYPERV_NATIVE_ACCEPTANCE_2026-10-20.md)
+ist inzwischen bestanden. Ein Setupdispatch und zwei getrennte geordnete
+Bootepochen wurden nachgewiesen. Neun Fälle lieferten 18 erwartete
+Clientergebnisse. Die gebundenen Fortsetzungen erhielten alle früheren
+Fehlversuche; ein zusätzliches kurzlebiges Leaf wurde ausdrücklich auf den
+vorhandenen CSR/Key begrenzt. Sechs eigene Leafs, eigener Renewalkey,
+Firewallregel und DVD wurden entfernt, ACL und SQL-Bindung restauriert.
+Vorhandene VM/Disks/Originalkey bleiben gestoppt erhalten. Die übrige
+TLS-001-Matrix und SC-2026-045 sind damit nicht abgeschlossen.
+
 Der Benutzer hat die Entwicklung in einem neuen Orchestrator-Chat ausdrücklich
 wiederaufgenommen. Die vorherige allgemeine Pause ist damit aufgehoben. Als
 erste Bestandsarbeit wurde das Foundation-Upgrade aus PR #809 nach dem

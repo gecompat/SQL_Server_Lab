@@ -1,5 +1,30 @@
 # Lokale Validierungsstrategie
 
+## Zusätzliche native Hyper-V-TLS-Abnahme
+
+Die [private Hyper-V-Lane](../Architecture/AUTHENTICATED_TLS_HYPERV_NATIVE_ACCEPTANCE.md)
+ergänzt die Guard-Suite um echte eigene Windows-Datei-/ACL-/CreateNew-Fixtures
+für unveränderliche Snapshots und VM-Reservierung. Synthetische Blätter prüfen
+den tatsächlichen Hostkontrollfluss bei LostReply, Parenttimeout, unbekanntem
+Installer, umgebundener Antwort, alter Bootzeit und verlorenem Neustartreply.
+Sie führen keine Gastblöcke aus. Der feste native Supervisor ist ein getrennter
+Prüfweg. Die [native Referenzabnahme](TLS_HYPERV_NATIVE_ACCEPTANCE_2026-10-20.md)
+bestand am 2026-10-20 auf SQL 2025 RTM (`17.0.1000.7`): ein Setupdispatch,
+getrennte neue Bootepochen nach Setup und Erneuerung, neun Fälle mit 18
+Clientergebnissen und Cleanup von sechs eigenen Leafs. Vorherige Fehlschläge
+und die ausdrücklich gebundenen Fortsetzungen bleiben getrennt dokumentiert.
+Dies ersetzt keinen frischen durchgehenden Lauf, keine öffentliche
+Hyper-V-False-Erstellung und keinen qualifizierten Hyper-V-Export.
+
+Die native Zulassung verwendete sechs frisch ausgeführte statische Suites
+mit unveränderten 1.558 Quellpfaden. Guard 72/0, Writerfixture 10/0,
+Consumer-Boundaryfixture 37/0, Pester 23/0 und Privacy 3/0 waren grün;
+CI-Strategie, Dokumentation und Analyzer bestanden. Docker- und Podman-
+Lifecycle bestanden getrennt mit jeweils 2/0, Mixed-Lifecycle bestand,
+Adapter mit 10/0 und synthetischer Hyper-V-Lifecycle mit Exit 0 einschließlich
+eigener Bereinigung. Letzterer ist ausdrücklich kein SQL-/TLS-Nachweis.
+PowerShell 7.2 wurde lokal nicht ausgeführt; der native Entrypoint benötigt 7.5.
+
 Die [Consumer-Guard-Suite](../../Tests/Static/Invoke-AuthenticatedTlsConsumerGuardChecks.ps1) prüft geschlossene synthetische SQL-Journale und echte eigene Windows-NTFS-Tempfixtures mit gehaltenen Handles, Austausch-/Writerblockade, Reparse-/Hardlinkablehnung und eigener Freigabe. Unter Linux bleibt der native Windows-Teil ausdrücklich NOT_EXECUTED. Keine Gast-, Setup-, SQL-, Key-, Trust- oder Recovery-Apply-Abnahme.
 
 Der additive reine Byteaufbau wurde am 2026-10-20 unter Windows fokussiert mit

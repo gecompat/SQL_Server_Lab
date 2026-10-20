@@ -1,5 +1,16 @@
 # Tests/ – lokale und Remote-Validierung
 
+Die zusätzliche [private native Hyper-V-TLS-Abnahme](../Documentation/Architecture/AUTHENTICATED_TLS_HYPERV_NATIVE_ACCEPTANCE.md)
+verwendet einen festen Supervisor/Worker und eine geschützte, ausdrücklich
+gebundene lokale Konfiguration. Sie benötigt vor Runtime einen stabilen
+unabhängigen Review und die ausgewählten lokalen Gates. Die Guard-Suite
+führt Writer-/Ablaufgegenfälle ohne VM-/SQL-/Trustmutation aus; diese Tests
+ersetzen den gesonderten nativen SQL-2025-RTM-Nachweis nicht.
+Die [zusammengesetzte Referenzabnahme vom 2026-10-20](../Documentation/Quality/TLS_HYPERV_NATIVE_ACCEPTANCE_2026-10-20.md)
+bestand mit neun Fällen und 18 Clientergebnissen. Historische Fehlschläge,
+gebundene Fortsetzungen und verbleibende öffentliche Scopes sind dort getrennt
+ausgewiesen; ein neuer durchgehender Frischsetup-Lauf wird nicht behauptet.
+
 `Static/Invoke-SqlFeatureChecks.ps1` prüft die optionalen SQL-Funktionen samt
 WhatIf, Abhängigkeitsveto, Antwortverlust und rein beobachtendem Resume.
 Die gekoppelte `SqlFeatureReconcileChecks.ps1` führt den öffentlichen Recreate

@@ -177,6 +177,8 @@ try {
         Add-CheckResult 'TLS-RA unsupported platform blocks without native I/O' $blocked
         Write-Host 'Windows NTFS handle fixtures NOT_EXECUTED on this platform.'
     }
+    & (Join-Path $PSScriptRoot 'Fixtures/TlsSqlConsumerWriterChecks.ps1') -RepoRoot $repo
+    & (Join-Path $PSScriptRoot 'Fixtures/TlsHyperVSqlConsumerBoundaryChecks.ps1') -RepoRoot $repo
     Write-Host "Authenticated TLS Consumer Guard: $passed PASS, $($failures.Count) FAIL"
     if($failures.Count){throw 'AUTHENTICATED_TLS_CONSUMER_GUARD_CHECKS_FAILED'}
 } finally {

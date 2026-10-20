@@ -112,7 +112,14 @@ Serialisierung, dauerhaften Ersatz und Recovery separat gewährleisten.
 `ConsumerEnd` bleibt `NOT_PROVEN`; die bestehenden Ready-/Mutations-/Retry-/
 Stop-/Cleanupwerte bleiben false. Öffentliche Workflows bleiben unverändert.
 
-## Ausstehender Verbrauchernachweis
+## Getrennter nativer Verbrauchernachweis
+
+Die zusätzliche [private Hyper-V-Abnahmelane](AUTHENTICATED_TLS_HYPERV_NATIVE_ACCEPTANCE.md)
+implementiert jetzt getrennte unveränderliche Writersnapshots, einen festen
+Setup-only-Pfad und eigenen Gastboot-/Installerbeleg. Ihre
+[native SQL-2025-RTM-Referenzabnahme](../Quality/TLS_HYPERV_NATIVE_ACCEPTANCE_2026-10-20.md)
+ist als zusammengesetzter Nachweis bestanden. Sie erweitert weder diesen Reader noch die bisherige
+öffentliche CompleteImage-Lane automatisch um End- oder Cleanupautorität.
 
 Der vorhandene CompleteImage-Gastblock wartet bis zu 90 Minuten auf seinen
 Setup-Parent. Bei Timeout adressiert er nur diesen Prozess. Ein normaler
