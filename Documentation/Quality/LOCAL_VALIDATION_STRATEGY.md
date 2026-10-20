@@ -2,6 +2,15 @@
 
 Die [Consumer-Guard-Suite](../../Tests/Static/Invoke-AuthenticatedTlsConsumerGuardChecks.ps1) prüft geschlossene synthetische SQL-Journale und echte eigene Windows-NTFS-Tempfixtures mit gehaltenen Handles, Austausch-/Writerblockade, Reparse-/Hardlinkablehnung und eigener Freigabe. Unter Linux bleibt der native Windows-Teil ausdrücklich NOT_EXECUTED. Keine Gast-, Setup-, SQL-, Key-, Trust- oder Recovery-Apply-Abnahme.
 
+Der additive reine Byteaufbau wurde am 2026-10-20 unter Windows fokussiert mit
+72 PASS und 0 FAIL einschließlich der bestehenden eigenen NTFS-Fixtures und
+ihrem Cleanup geprüft. Die neuen synthetischen Fälle prüfen lesbare vollständige
+Zustandsketten, exakten Erhalt alter Ereignisse mit Leerzeichen, veraltete Hashes,
+umgebundene IDs, explizit fehlende Vorgänger, terminale Zustände und Replay.
+Es gab keinen Providerstart oder Gast-/SQL-/Trustzugriff. Die bestehenden
+Scopepfade wählen weiterhin die Guard-, Dokumentations-, Pester-, Privacy- und
+Analyzersuites; es wurde keine Selektor- oder Runtime-Ausnahme ergänzt.
+
 ## Optionale SQL-Funktionen: Volltext und FILESTREAM
 
 `Invoke-SqlFeatureChecks.ps1` prüft den expliziten Intent und die Linux-

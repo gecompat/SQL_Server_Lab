@@ -1,5 +1,54 @@
 #Requires -Version 7.2
-# A closed read model, not an end attestation, writer, executor, or cleanup permit.
+# Closed byte construction and read model; no durable writer or execution permit.
+function New-LabTlsSqlConsumerJournalBytes {
+    [CmdletBinding()]
+    param(
+        [object]$OperationId,[object]$RunId,[object]$ScopeId,[object]$VmId,
+        [object]$RootDigest,[object]$SourceDigest,[object]$WorkerDigest,
+        [object]$PreviousUtf8Json,[object]$ExpectedJournalSha256,
+        [object]$NextPhase='PREPARED'
+    )
+    $bad=[pscustomobject][ordered]@{Success=$false;Value=$null;ErrorCode='TLS_CONSUMER_JOURNAL_BYTES_INVALID'}
+    $document=$null;$stream=$null;$writer=$null
+    try {
+        foreach($id in @($OperationId,$RunId,$ScopeId,$VmId)){if(-not (Test-LabTlsRequestReference $id)){return $bad}}
+        foreach($hash in @($RootDigest,$SourceDigest,$WorkerDigest)){if($hash -isnot [string] -or $hash -cnotmatch '\A[a-f0-9]{64}\z'){return $bad}}
+        if($NextPhase -isnot [string] -or $NextPhase -cnotin @('PREPARED','ABORTED_NO_EFFECT','DISPATCHED','REPLY_OBSERVED','RECOVERY_REQUIRED')){return $bad}
+        $binding=[ordered]@{OperationId=$OperationId;RunId=$RunId;ScopeId=$ScopeId;VmId=$VmId;RootDigest=$RootDigest;SourceDigest=$SourceDigest;WorkerDigest=$WorkerDigest}
+        $events=[Collections.Generic.List[string]]::new()
+        if($PSBoundParameters.ContainsKey('PreviousUtf8Json')){
+            if($null -eq $PreviousUtf8Json -or [object].GetMethod('GetType').Invoke($PreviousUtf8Json,$null) -ne [byte[]] -or
+                $ExpectedJournalSha256 -isnot [string] -or $ExpectedJournalSha256 -cnotmatch '\A[a-f0-9]{64}\z'){return $bad}
+            $length=[array].GetProperty('Length').GetValue($PreviousUtf8Json)
+            if($length -lt 1 -or $length -gt 65536){return $bad}
+            # One owned snapshot is used both for validation and construction.
+            $snapshot=[byte[]]::new($length);[Buffer]::BlockCopy($PreviousUtf8Json,0,$snapshot,0,$length)
+            $previous=Read-LabTlsSqlConsumerJournal -Utf8Json $snapshot @binding
+            if(-not $previous.Success -or $previous.Value.JournalSha256 -cne $ExpectedJournalSha256){return $bad}
+            $document=[Text.Json.JsonDocument]::Parse([Text.UTF8Encoding]::new($false,$true).GetString($snapshot))
+            foreach($event in $document.RootElement.GetProperty('Events').EnumerateArray()){$events.Add($event.GetRawText())}
+        }elseif($PSBoundParameters.ContainsKey('ExpectedJournalSha256') -or $NextPhase -cne 'PREPARED'){
+            return $bad
+        }
+        $previousHash=if($events.Count){[Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($events[$events.Count-1]))).ToLowerInvariant()}else{'0'*64}
+        $next=[ordered]@{Sequence=$events.Count;Phase=$NextPhase;EffectEntered=($NextPhase -cin @('DISPATCHED','REPLY_OBSERVED','RECOVERY_REQUIRED'));PreviousSha256=$previousHash}
+        $events.Add(($next|ConvertTo-Json -Depth 3 -Compress))
+        $stream=[IO.MemoryStream]::new();$writer=[Text.Json.Utf8JsonWriter]::new($stream)
+        $writer.WriteStartObject();$writer.WriteString('ContractVersion','SqlServerLab.TlsSqlConsumerJournal/0.1')
+        foreach($key in $binding.Keys){$writer.WriteString($key,[string]$binding[$key])}
+        $writer.WritePropertyName('Events');$writer.WriteStartArray()
+        # Reserializing an old event would invalidate subsequent exact-byte links.
+        foreach($raw in $events){$writer.WriteRawValue($raw,$false)}
+        $writer.WriteEndArray();$writer.WriteEndObject();$writer.Flush()
+        $candidate=$stream.ToArray()
+        $checked=Read-LabTlsSqlConsumerJournal -Utf8Json $candidate @binding
+        if(-not $checked.Success){return $bad}
+        return [pscustomobject][ordered]@{Success=$true;Value=[pscustomobject][ordered]@{Utf8Json=$candidate;Journal=$checked.Value};ErrorCode=$null}
+    }catch{return $bad}finally{
+        if($null -ne $writer){$writer.Dispose()};if($null -ne $stream){$stream.Dispose()};if($null -ne $document){$document.Dispose()}
+    }
+}
+
 function Read-LabTlsSqlConsumerJournal {
     [CmdletBinding()]
     param(

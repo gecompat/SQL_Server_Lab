@@ -6,7 +6,7 @@ Development-Cache ist keine vertrauenswürdige Native-Attestation für GitHub.
 Ein unabhängiger Local-to-Remote-Verifikator ist nicht implementiert; die
 aktuellen Required Checks und ausgewählten Runtime-Gates bleiben erforderlich.
 
-Der [private Consumer-Guard](../Documentation/Architecture/AUTHENTICATED_TLS_CONSUMER_GUARD.md) ergänzt gehaltene Windows-NTFS-Lesebindungen und einen festen SQL-Journalreader. Nach Dispatch bleibt ohne eigenen Verbrauchernachweis Recovery erforderlich; kein Executor, Stop, Cleanup oder native Setup-/TLS-Freigabe entsteht daraus.
+Der [private Consumer-Guard](../Documentation/Architecture/AUTHENTICATED_TLS_CONSUMER_GUARD.md) ergänzt gehaltene Windows-NTFS-Lesebindungen, einen festen SQL-Journalreader und reinen Byteaufbau unter Erhalt der exakten Ereignisrepräsentation. Es gibt keinen dauerhaften Journalwriter. Nach Dispatch bleibt ohne eigenen Verbrauchernachweis Recovery erforderlich; kein Executor, Stop, Cleanup oder native Setup-/TLS-Freigabe entsteht daraus.
 
 Die [optionalen SQL-Funktionen](../Documentation/Architecture/SQL_OPTIONAL_FEATURES.md)
 ergänzen explizite Manifest-/CLI-/GUI-Auswahl für Volltext auf Docker, Podman
@@ -70,8 +70,8 @@ beschreiben die weiterhin unterstützte `0.1`-Form.
 | Repository | `gecompat/SQL_Server_Lab` |
 | Maschinenlesbare Landkarte | [`repo_map.yaml`](repo_map.yaml) |
 
-Die autonome Entwicklungswelle wurde am 2026-10-16 auf ausdrücklichen
-Benutzerauftrag in einem neuen Orchestrator-Chat wiederaufgenommen. Der
+Die autonome Entwicklungswelle wurde am 2026-10-20 auf ausdrücklichen
+Benutzerauftrag in einem neuen Orchestrator-Chat erneut wiederaufgenommen. Der
 [kanonische Wellenplan](../Documentation/Project_Planning/AUTONOMOUS_DEVELOPMENT_WAVE_2026-09-10.md)
 erhält die früheren Abschlüsse, offene Aufgaben und unveränderte Schutzgrenzen.
 SSISDB ist abgeschlossen; als nächster P1-Stream folgt TLS-001. Der Benutzer
