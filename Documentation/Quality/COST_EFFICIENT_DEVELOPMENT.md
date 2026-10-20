@@ -236,6 +236,15 @@ maßgeblich; ein begrenzter neuer Auftrag öffnet nur seinen eigenen Scope.
 
 ## 7. Abschlussbericht
 
+Die SQL-2022-TLS-Erweiterung nutzt denselben nativen Acceptance-Runner mit
+ausdrücklicher Versionswahl und einem eigenen Lauf je betroffenem Provider.
+Sie wiederholt keine unveränderten SQL-2025-/Hyper-V-Abnahmen. Die neue
+Versionsfixture bleibt Bestandteil der bestehenden TLS-Suite; der Selektor
+erhält die gekoppelte Ownership-Suite und sämtliche erforderlichen CI-Gates.
+Ein Reviewer prüft den stabilen Profil-/Qualifikations-/Export-/Cleanup-Diff;
+Hash- und Ergebnisaggregation bleiben lokal deterministisch. Es entsteht kein
+neuer Review- oder Logleseragent und keine zusätzliche dauerhafte Testpipeline.
+
 Die öffentliche Podman-TLS-Erweiterung verwendet den bestehenden
 OwnedRunWindows-Kern für ausschließlich frische eigene TLS-Roots. Der
 unabhängige Review deckte die bisher nicht durchgängig gepinnte öffentliche

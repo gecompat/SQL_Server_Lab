@@ -1,7 +1,7 @@
 # Tests/ – lokale und Remote-Validierung
 
-`Integration/Invoke-AuthenticatedTlsLabAcceptance.ps1 -Provider docker|podman`
-prüft die ausdrücklich gewählte öffentliche Windows-/SQL-2025-CU9-False-Lane
+`Integration/Invoke-AuthenticatedTlsLabAcceptance.ps1 -Provider docker|podman -Version 2025-CU9|2022-CU27`
+prüft die ausdrücklich gewählte öffentliche Windows-/SQL-/CU-False-Lane
 mit bereits vertrauter eigener CA, signiertem V2-Export und beiden echten
 Clientstacks. Bei eigenem Cleanup prüfen öffentliche Stop-/Start-/Removeaufrufe
 prozesslokal absichtlich ungültige Routingvariablen; gespeicherte Contexts und

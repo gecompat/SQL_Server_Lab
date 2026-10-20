@@ -899,6 +899,8 @@ $dependencyCases = @(
     @{ Path = 'Providers/Podman/PodmanProvider.ps1'; Checks = @('Invoke-OwnedHostIntegrationChecks.ps1'); Runtime = @('Podman') },
     @{ Path = 'Private/AuthenticatedTlsQualification.ps1'; Checks = @('Invoke-OwnedHostIntegrationChecks.ps1','Invoke-AuthenticatedTlsLabChecks.ps1'); Runtime = @('Docker','Podman','Mixed','HyperV','Adapter') },
     @{ Path = 'Tests/Static/Fixtures/AuthenticatedTlsLabProviderChecks.ps1'; Checks = @('Invoke-OwnedHostIntegrationChecks.ps1','Invoke-AuthenticatedTlsLabChecks.ps1'); Runtime = @() },
+    @{ Path = 'Tests/Static/Fixtures/AuthenticatedTlsLabVersionChecks.ps1'; Checks = @('Invoke-OwnedHostIntegrationChecks.ps1','Invoke-AuthenticatedTlsLabChecks.ps1'); Runtime = @() },
+    @{ Path = 'Tests/Common/AuthenticatedTlsAcceptanceSelection.ps1'; Checks = @('Invoke-AuthenticatedTlsLabChecks.ps1'); Runtime = @() },
     @{ Path = 'Private/ContainerOwnedHostIntegration.ps1'; Checks = @('Invoke-OwnedHostIntegrationChecks.ps1'); Runtime = @('Docker','Podman','Mixed','HyperV','Adapter') },
     @{ Path = 'Tests/Common/OwnedHostTestScope.ps1'; Checks = @('Invoke-OwnedHostIntegrationChecks.ps1'); Runtime = @('Docker','Podman','Mixed','HyperV','Adapter') },
     @{ Path = 'Schemas/container-owned-host-integration.schema.json'; Checks = @('Invoke-OwnedHostIntegrationChecks.ps1'); Runtime = @('Docker','Podman','Mixed','HyperV','Adapter') },

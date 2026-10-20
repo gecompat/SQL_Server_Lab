@@ -5485,6 +5485,45 @@ Kosten und Tokenmessung sind unbekannt; es gibt keine neue Modell-/Logpipeline.
 
 ## Isolierter operativer TLS-Pfad
 
+### Operativer SQL-2022-CU27-Scope
+
+Die feste öffentliche Auswahl `2022-CU27` verwendet unter Windows getrennt
+Docker und Podman. Die native Abnahme mit `-Version 2022-CU27` bestand unter
+Windows/PowerShell 7.6.6 auf dem unabhängig geprüften Stand:
+
+| Provider | Operative Fälle | Strikte Clientergebnisse | Eigener Cleanup |
+|---|---:|---:|---|
+| Docker | 7 PASS | 6 PASS | PASS |
+| Podman | 7 PASS | 6 PASS | PASS |
+
+Jeder Lauf bestätigte die ausdrücklich angeforderte SQL-2022-/CU27-Auswahl,
+Build `16.0.4295.3`, eigene False-Erstellung, frischen signierten V2-Export,
+exportierte Credentials mit SqlClient und tatsächlich geladenem ODBC sqlcmd,
+CLI-Formatter und GUI-Workflowmodell, Stale-/Tamperablehnung mit Wiederherstellung,
+öffentlichen Stop/Start unter ungültigen Prozess-Routingvariablen und die
+Ablehnung des alten Nachweises nach tatsächlichem Neustart. Erwartungen für
+Version, Build, Recordprofil und Exportkey stehen vor Erstellung unabhängig
+von Produktrückgaben fest. Der Gegenfall angefordert2022/zurück2025 wird
+synthetisch abgewiesen. Es gab genau zwei neue direkte Acceptance-Labs;
+beide endeten REMOVED mit bestätigter same-pin Container-/Volumeabwesenheit,
+entfernten festen Exportdateien und bestandenem Bestandsvergleich. Vorhandene
+CA/Trust, Verbindungseinstellungen und Host-Autostart blieben erhalten.
+
+Fokussiert bestanden TLS 124 PASS / 0 FAIL und Exportcleanup 11 PASS / 0 FAIL.
+Der unveränderte erste Stand bestand die betroffene 27-Suiten-Regression;
+das anschließend korrigierte Harness-/Selektordelta bestand neun Suites.
+Unabhängige Quell-, Versionsoracle- und Dispatcherfindings sind geschlossen.
+Die erforderlichen PR-Gates bleiben Integrationsbedingung. Rohdaten und
+Secrets bleiben geschützt lokal außerhalb Git.
+
+Die fokussierten Fixtures prüfen historische Recordformen,
+geschlossene `0.3`-Profile, Katalog-/Buildbindung, signierte Versionsumdeutung,
+Schema und ENV-Key sowie Cleanup ohne CA-/Trust-/Katalogzugriff. Sie ersetzen
+keine native SQL-Verbindung. Default und frühere SQL-2025-Nachweise bleiben
+unverändert und wurden in dieser Welle nicht nativ wiederholt. Gerenderter
+Browser, Wire-Zertifikatsfingerprint, weitere Versionen, Linuxclients,
+öffentliche Hyper-V-False-/Exportpfade, Consumer-Cutover und Renewal bleiben offen.
+
 ### Öffentliche Providerabnahme vom 2026-10-20
 
 Die zusätzliche öffentliche Windows-/Podman-Lane verwendet denselben festen

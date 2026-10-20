@@ -1,5 +1,21 @@
 # Autonome Entwicklungswelle nach der Repository-Durchsicht
 
+## Operative SQL-2022-CU27-Fortsetzung
+
+Nach Integration von PR #812 beauftragte der Benutzer den nächsten offenen
+TLS-001-Scope mit unabhängigem Review, Laufzeitnachweisen, regulärer Integration
+und eigener Bereinigung. Das begrenzte Paket ergänzt öffentliche Windows-
+Docker-/Podman-Labs für SQL 2022 CU27 samt strikter Buildqualifikation und
+signiertem V2-Export. Ein Implementierer und ein unabhängiger Reviewer bearbeiten
+den stabilen Diff. Beide nativen Providerabnahmen bestanden je sieben Fälle
+mit sechs strikten Clientergebnissen und vollständigem eigenem Cleanup.
+Fokussiert bestanden TLS 124/0 und Exportcleanup 11/0 sowie die betroffene
+27-Suiten-Regression und der gezielte Neun-Suiten-Nachlauf für das korrigierte
+Versionsoracle-/Selektordelta. Unabhängige Findings sind geschlossen;
+die erforderlichen PR-Gates bleiben Integrationsbedingung.
+Vorhandene CA/Trust, Hyper-V-Ressourcen, frühere
+Evidence und fremde Worktrees bleiben erhalten. Die Gesamtmatrix bleibt offen.
+
 ## Öffentliche Podman-TLS-Fortsetzung vom 2026-10-20
 
 Nach Abschluss und Integration von PR #811 beauftragte der Benutzer erneut die

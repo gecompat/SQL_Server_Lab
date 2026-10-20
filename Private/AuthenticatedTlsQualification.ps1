@@ -1,6 +1,6 @@
 #Requires -Version 7.2
 function Invoke-LabTlsStrictSqlClient {
-    param([int]$Port,[securestring]$Password)
+    param([int]$Port,[securestring]$Password,[Parameter(Mandatory)][string]$ExpectedBuild)
     $builder=[Data.SqlClient.SqlConnectionStringBuilder]::new()
     $builder['Data Source']="tcp:127.0.0.1,$Port";$builder['Initial Catalog']='master';$builder['User ID']='sa'
     $builder['Encrypt']=$true;$builder['TrustServerCertificate']=$false;$builder['Pooling']=$false
@@ -13,13 +13,13 @@ function Invoke-LabTlsStrictSqlClient {
         try{
             $command.CommandText="SELECT CONVERT(varchar(32),SERVERPROPERTY('ProductVersion')),encrypt_option FROM sys.dm_exec_connections WHERE session_id=@@SPID;"
             $reader=$command.ExecuteReader()
-            try{if(-not $reader.Read() -or $reader.GetString(0) -cne '17.0.5005.3' -or $reader.GetString(1) -cne 'TRUE' -or $reader.Read()){throw 'TLS_QUALIFICATION_SQLCLIENT_RESULT_INVALID'}}finally{$reader.Dispose()}
+            try{if(-not $reader.Read() -or $reader.GetString(0) -cne $ExpectedBuild -or $reader.GetString(1) -cne 'TRUE' -or $reader.Read()){throw 'TLS_QUALIFICATION_SQLCLIENT_RESULT_INVALID'}}finally{$reader.Dispose()}
         }finally{$command.Dispose()}
     }catch{throw 'TLS_QUALIFICATION_SQLCLIENT_FAILED'}finally{$connection.Dispose()}
 }
 
 function Invoke-LabTlsStrictSqlcmd {
-    param([int]$Port,[securestring]$Password,[object]$Client)
+    param([int]$Port,[securestring]$Password,[object]$Client,[Parameter(Mandatory)][string]$ExpectedBuild)
     $exe=$Client.Details.SqlcmdPath;$before=Read-LabTlsContextBinaryMetadata $exe 'sqlcmd.exe'
     if($before.DiskSha256 -cne $Client.Details.SqlcmdDiskSha256){throw 'TLS_QUALIFICATION_SQLCMD_CHANGED'}
     $start=[Diagnostics.ProcessStartInfo]::new($exe);$start.UseShellExecute=$false;$start.CreateNoWindow=$true
@@ -41,7 +41,7 @@ function Invoke-LabTlsStrictSqlcmd {
                 if($loaded.Count -eq 1){$driver=Read-LabTlsContextBinaryMetadata $loaded[0].FileName $loaded[0].ModuleName}
             }
         }
-        if($process.ExitCode -ne 0 -or $stdout.GetAwaiter().GetResult().Trim() -cne '17.0.5005.3|TRUE' -or
+        if($process.ExitCode -ne 0 -or $stdout.GetAwaiter().GetResult().Trim() -cne ($ExpectedBuild+'|TRUE') -or
             $stderr.GetAwaiter().GetResult().Trim().Length -ne 0 -or -not $driver){throw 'TLS_QUALIFICATION_SQLCMD_FAILED'}
         if((Read-LabTlsContextBinaryMetadata $exe 'sqlcmd.exe').DiskSha256 -cne $before.DiskSha256 -or
             (Read-LabTlsContextBinaryMetadata $driver.Path ([IO.Path]::GetFileName($driver.Path))).DiskSha256 -cne $driver.DiskSha256){throw 'TLS_QUALIFICATION_BINARY_CHANGED'}
@@ -56,13 +56,15 @@ function Test-LabAuthenticatedTlsEnvironment {
     param([string]$RunId,[string]$InstanceId,[string]$StateRoot,[object]$Budget)
     $bound=Get-LabTlsOwnBinding $StateRoot $RunId $InstanceId
     $record=$bound.Record;$authority=$bound.Authority
+    $profile=Get-LabTlsBindingSqlProfile $record
+    Assert-LabTlsSqlCatalogProfile $profile
     $provider=Get-LabTlsBindingProvider $record
     if($null -eq $Budget){$Budget=New-LabTlsRuntimeBudget -Provider $provider -StateRoot $StateRoot -Record $record}
     $context=Assert-LabTlsSqlCertificateBinding $record $StateRoot $Budget
     $password=Get-LabSecret -Path $context.RunDirectory -Name 'sa-password'
     if(-not $password){throw 'TLS_QUALIFICATION_SECRET_UNAVAILABLE'}
-    Invoke-LabTlsStrictSqlClient $record.Port $password
-    $odbc=Invoke-LabTlsStrictSqlcmd $record.Port $password $authority.Client
+    Invoke-LabTlsStrictSqlClient $record.Port $password $profile.SqlBuild
+    $odbc=Invoke-LabTlsStrictSqlcmd $record.Port $password $authority.Client $profile.SqlBuild
     $null=Assert-LabTlsSqlCertificateBinding $record $StateRoot $Budget
     $again=Get-LabTlsOwnBinding $StateRoot $RunId $InstanceId
     if((Get-LabTlsCaByteDigest $again.Bytes) -cne (Get-LabTlsCaByteDigest $bound.Bytes)){throw 'TLS_QUALIFICATION_BINDING_CHANGED'}
@@ -70,7 +72,7 @@ function Test-LabAuthenticatedTlsEnvironment {
     $leafEnd=[DateTimeOffset]::ParseExact($record.NotAfterUtc,'o',[Globalization.CultureInfo]::InvariantCulture)
     if($leafEnd -lt $expires){$expires=$leafEnd}
     return [pscustomobject][ordered]@{ContractVersion='SqlServerLab.TlsQualification/0.1';Status='QUALIFIED';QualifiedAt=$now.ToString('O');ExpiresAt=$expires.ToString('O');
-        Encrypt=$true;TrustServerCertificate=$false;Provider=$provider;SqlVersion='2025';Patch='cu9';SqlBuild='17.0.5005.3';
+        Encrypt=$true;TrustServerCertificate=$false;Provider=$provider;SqlVersion=$profile.SqlVersion;Patch=$profile.Patch;SqlBuild=$profile.SqlBuild;
         RunId=$RunId;InstanceId=$InstanceId;ScopeId=$record.ScopeId;ContainerId=$record.ContainerId;ImageId=$record.ImageId;StartedAt=$record.StartedAt;
         Endpoint=[pscustomobject]@{Host='127.0.0.1';Port=$record.Port;IdentityKind='IP';Identity='127.0.0.1'};
         AuthorityRef=$authority.Authority.Ref;AuthorityGeneration=$authority.Authority.Generation;ClientRef=$authority.Client.Ref;ClientGeneration=$authority.Client.Generation;
@@ -86,6 +88,7 @@ function Export-LabAuthenticatedTlsEnvironment {
     if(-not $OutputDirectory -or -not $StateRoot -or -not $RunId -or -not $InstanceId){throw 'TLS_EXPORT_EXPLICIT_SELECTION_REQUIRED'}
     $bound=Get-LabTlsOwnBinding $StateRoot $RunId $InstanceId;$sid=$bound.Authority.Native.UserSid
     $provider=Get-LabTlsBindingProvider $bound.Record
+    $profile=Get-LabTlsBindingSqlProfile $bound.Record
     $budget=New-LabTlsRuntimeBudget -Provider $provider -StateRoot $StateRoot -Record $bound.Record
     $directory=Assert-LabDiagnosticPath ([IO.Path]::GetFullPath($OutputDirectory))
     # A fresh dedicated directory prevents overwriting the protected default group.
@@ -95,7 +98,7 @@ function Export-LabAuthenticatedTlsEnvironment {
     $secret=Get-LabSecret -Path $context.RunDirectory -Name 'sa-password'
     $connection=New-SqlConnectionString -HostName '127.0.0.1' -Port $record.Port -IncludePassword -SaPassword $secret
     $builder=[Data.SqlClient.SqlConnectionStringBuilder]::new($connection);$builder['TrustServerCertificate']=$false;$builder['Data Source']="tcp:127.0.0.1,$($record.Port)"
-    $entry=[pscustomobject][ordered]@{key='LINUX_SQL2025_CU9_TLS';status='READY';runtimeStatus='READY';platform='linux';provider=$provider;sqlVersion='2025';patch='cu9';resolvedVersion='17.0.5005.3';
+    $entry=[pscustomobject][ordered]@{key=$profile.ExportKey;status='READY';runtimeStatus='READY';platform='linux';provider=$provider;sqlVersion=$profile.SqlVersion;patch=$profile.Patch;resolvedVersion=$profile.SqlBuild;
         runId=$RunId;instanceId=$InstanceId;host='127.0.0.1';port=$record.Port;database='master';username='sa';password=$builder.Password;encrypt=$true;trustServerCertificate=$false;autoStart='off';connectionString=$builder.ConnectionString}
     $builder.Clear()
     $entryBytes=ConvertTo-LabTlsRegistryWriterBytes $entry
@@ -106,7 +109,7 @@ function Export-LabAuthenticatedTlsEnvironment {
     $key=$null
     try{$key=Open-LabTlsCaSigningKey $ca.Encrypted $entropy $ca.Der;$signature=$key.SignData($bodyBytes,[Security.Cryptography.HashAlgorithmName]::SHA256,[Security.Cryptography.RSASignaturePadding]::Pkcs1)}finally{if($key){$key.Dispose()}}
     $document=[pscustomobject][ordered]@{'$schema'='./TestUmgebung.schema.json';contractVersion='SqlServerLab.TestEnvironment/2.0';generatedAt=[DateTimeOffset]::UtcNow.ToString('O');groupStatus='READY';
-        selectionRule='explicit own Windows current-user qualified Docker or Podman SQL2025 CU9 only; validate signature, freshness and current bindings before use';containsPlainTextSecrets=$true;environments=@($entry);
+        selectionRule=('explicit own Windows current-user qualified Docker or Podman '+$profile.Version+' only; validate signature, freshness and current bindings before use');containsPlainTextSecrets=$true;environments=@($entry);
         qualification=[pscustomobject]@{algorithm='RSA3072_SHA256_PKCS1';payload=[Convert]::ToBase64String($bodyBytes);signature=[Convert]::ToBase64String($signature);caDer=[Convert]::ToBase64String($ca.Der)}}
     $null=Get-LabTlsOwnBinding $StateRoot $RunId $InstanceId
     Initialize-LabTlsCaPrivateDirectory $directory $sid -NewOnly
@@ -122,7 +125,7 @@ function Export-LabAuthenticatedTlsEnvironment {
         $lines.Add('SQL_SERVER_LAB_TEST_ENV_CONTRACT="SqlServerLab.TestEnvironment/2.0"')
         foreach($pair in ([ordered]@{HOST=$entry.host;PORT=[string]$entry.port;RUN_ID=$RunId;INSTANCE_ID=$InstanceId;PASSWORD=$entry.password;
             CONNECTION_STRING=$entry.connectionString;ENCRYPT='true';TRUST_SERVER_CERTIFICATE='false';QUALIFICATION_EXPIRES_AT=$qualification.ExpiresAt}).GetEnumerator()){
-            $lines.Add('SQL_SERVER_LAB_LINUX_SQL2025_CU9_TLS_'+$pair.Key+'='+(ConvertTo-LabDotEnvValue ([string]$pair.Value)))
+            $lines.Add('SQL_SERVER_LAB_'+$profile.ExportKey+'_'+$pair.Key+'='+(ConvertTo-LabDotEnvValue ([string]$pair.Value)))
         }
         Write-LabTlsCaPrivateFile (Join-Path $directory 'TestUmgebung.env') $sid ([Text.Encoding]::UTF8.GetBytes(($lines -join "`n")+"`n"))
         $verified=Test-LabTlsQualifiedExport -Path (Join-Path $directory 'TestUmgebung.json') -StateRoot $StateRoot -RunId $RunId -InstanceId $InstanceId -Budget $budget
@@ -136,6 +139,7 @@ function Test-LabTlsQualifiedExport {
     param([string]$Path,[string]$StateRoot,[string]$RunId,[string]$InstanceId,[object]$Budget)
     $bound=Get-LabTlsOwnBinding $StateRoot $RunId $InstanceId
     $provider=Get-LabTlsBindingProvider $bound.Record
+    $profile=Get-LabTlsBindingSqlProfile $bound.Record
     if($null -eq $Budget){$Budget=New-LabTlsRuntimeBudget -Provider $provider -StateRoot $StateRoot -Record $bound.Record}
     if($Budget.Provider -cne $provider){return $false}
     $document=Read-LabTlsBoundJson (Read-LabTlsCaPrivateFile $Path $bound.Authority.Native.UserSid 65536) @('$schema','contractVersion','generatedAt','groupStatus','selectionRule','containsPlainTextSecrets','environments','qualification')
@@ -146,6 +150,8 @@ function Test-LabTlsQualifiedExport {
         $entry.encrypt -isnot [bool] -or $entry.encrypt -ne $true -or $entry.trustServerCertificate -isnot [bool] -or $entry.trustServerCertificate -ne $false){return $false}
     $q=$body.Qualification;$r=$bound.Record;$a=$bound.Authority
     if($q.Provider -cne $provider -or $entry.provider -cne $provider -or
+        $q.SqlVersion -cne $profile.SqlVersion -or $q.Patch -cne $profile.Patch -or $q.SqlBuild -cne $profile.SqlBuild -or
+        $entry.sqlVersion -cne $profile.SqlVersion -or $entry.patch -cne $profile.Patch -or $entry.resolvedVersion -cne $profile.SqlBuild -or $entry.key -cne $profile.ExportKey -or
         $q.RunId -cne $RunId -or $q.InstanceId -cne $InstanceId -or $q.RegistrySha256 -cne $a.RegistrySha256 -or $q.ActorDigest -cne $a.ActorDigest -or
         $q.AuthorityRef -cne $a.Authority.Ref -or $q.ClientRef -cne $a.Client.Ref -or $q.LeafSha256 -cne $r.CertificateSha256 -or
         $q.Status -cne 'QUALIFIED' -or $q.ContainerId -cne $r.ContainerId -or $q.ScopeId -cne $r.ScopeId -or $q.ImageId -cne $r.ImageId -or $q.StartedAt -cne $r.StartedAt -or
