@@ -120,6 +120,13 @@ erhalten aber jeweils eigene Runtime-Evidence.
 
 #### TLS-001 – authentifizierte TLS-Verbindungen der Testumgebungen
 
+Die [native Hyper-V-Referenzabnahme vom 2026-10-20](../Quality/TLS_HYPERV_NATIVE_ACCEPTANCE_2026-10-20.md)
+ist für Windowsclients und SQL 2025 RTM bestanden: gültige Kette,
+untrusted CA, falscher SAN, echter Ablauf, neuer Schlüssel, striktes TLS nach
+Windows-Neustart und eigener Cleanup. Öffentliche Hyper-V-False-Erstellung,
+qualifizierter Export, weitere Versions-/Clientkombinationen und Toolbelt
+SC-2026-045 bleiben davon getrennt; der Gesamtstatus bleibt `partial`.
+
 Der [private Consumer-Guard](../Architecture/AUTHENTICATED_TLS_CONSUMER_GUARD.md) ergänzt gehaltene NTFS-Lesehandles und feste SQL-Journalmetadaten. Das ist eine vorbereitende interne Grenze, kein Gastverbraucherende, Recovery-Apply oder vollständiger TLS-001-Abschluss.
 
 Die begrenzte [private Authoritybindung](../Architecture/AUTHENTICATED_TLS_AUTHORITY_BINDING.md)
@@ -140,7 +147,7 @@ CA-/Trustscopezuordnung, Retirement und öffentliche Moduswahl bleiben P1.
 | Merkmal | Festlegung |
 |---|---|
 | Priorität | `P1`; höchste nächste Priorität unmittelbar nach dem laufenden SSISDB-Stream, Benutzerauftrag vom 2026-10-15 |
-| Status | `partial`; operative Windows-/Docker-SQL-2025-CU9-Lane und getrennter qualifizierter V2-False-Export integriert und nativ abgenommen; Gesamtmatrix und Consumer-Cutover offen |
+| Status | `partial`; operative Windows-/Docker-SQL-2025-CU9-Lane und getrennter qualifizierter V2-False-Export integriert und nativ abgenommen; private Windows-/Hyper-V-SQL-2025-RTM-Referenz nativ abgenommen; öffentliche Hyper-V-Lane, Gesamtmatrix und Consumer-Cutover offen |
 | Abhängigkeit | **Toolbelt SC-2026-045 – authentifizierte Liveabnahme** |
 | Auslöser | [Toolbelt PR #322](https://github.com/gecompat/SQL_Server_Toolbelt/pull/322), geprüfter Head `8772e9d6a1d538e6fcb22da3f0bd03c83a28e88a`; PR bei der Prüfung am 2026-10-15 offen, kein behaupteter Merge |
 | Verantwortung | Lab: Serverzertifikate, Identität, Client-Trust, Export und Bereitschaft; Toolbelt: eigener Preflight und tatsächliche Clientverbindungen |

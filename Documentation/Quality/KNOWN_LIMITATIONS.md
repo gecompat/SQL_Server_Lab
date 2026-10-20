@@ -1,6 +1,6 @@
 # Bekannte Grenzen
 
-Der [private Consumer-Guard](../Architecture/AUTHENTICATED_TLS_CONSUMER_GUARD.md) hält ausgewählte NTFS-Leseobjekte und lehnt Journalreplay beziehungsweise behaupteten CLEANED-Abschluss ab. Er bindet keine späteren pfadbasierten Writer, reserviert keine VM und beweist kein Gast-/Kindprozessende. Der feste native Setupworker und SC-2026-045 bleiben offen.
+Der [private Consumer-Guard](../Architecture/AUTHENTICATED_TLS_CONSUMER_GUARD.md) hält ausgewählte NTFS-Leseobjekte und lehnt Journalreplay beziehungsweise behaupteten CLEANED-Abschluss ab. Er bindet keine späteren pfadbasierten Writer, reserviert keine VM und beweist kein Gast-/Kindprozessende. Die zusätzliche [private Hyper-V-Lane](../Architecture/AUTHENTICATED_TLS_HYPERV_NATIVE_ACCEPTANCE.md) besitzt jetzt einen festen Setup-only-Worker mit getrennten Boot-/Installerbelegen und [bestandener nativer SQL-2025-RTM-Referenzabnahme](TLS_HYPERV_NATIVE_ACCEPTANCE_2026-10-20.md). Diese zusammengesetzte Abnahme erweitert weder die öffentliche Hyper-V-False-/Exportcapability noch das Journal-Lesemodell zu einer allgemeinen Recoveryautorität. Wire-Zertifikat bleibt NOT_OBSERVED; andere Hyper-V-Versionen/Clientkontexte und SC-2026-045 bleiben offen.
 
 Der reine Journalbyteaufbau erhält bestehende Ereignisbytes und prüft den
 erwarteten Vorgängerhash im Speicher. Er schreibt keinen dauerhaften Intent,
@@ -86,10 +86,13 @@ bindet explizite öffentliche Roots und verhindert das automatische Wiederholen
 vier mutierender Gastblöcke nach verlorenem Reply. Sie beweist weder das Ende
 eines Verbrauchers noch sicheres Resume oder Cleanup eines unbekannten
 Teilzustands. Der isolierte SQL-Port-Reconcile bleibt ein getrennter Pfad.
-Ein konkreter neuer eigener Worker mit unabhängiger Prüfung und dauerhaften
-Intents ist vor nativer SQL-/CA-/ServiceACL-/TLS-Abnahme weiter erforderlich.
+Der zusätzliche private Worker mit unabhängiger Prüfung und dauerhaften
+Intents ist inzwischen implementiert; seine
+[native SQL-2025-RTM-Referenzabnahme](TLS_HYPERV_NATIVE_ACCEPTANCE_2026-10-20.md)
+ist als zusammengesetzter Nachweis bestanden. Daraus entsteht keine allgemeine
+End-/Resume-/Cleanupautorität für die öffentliche CompletionBoundary.
 
-## Windows-CSP-Charakterisierung ohne Hyper-V-TLS-Freigabe
+## Historische Windows-CSP-Charakterisierung und spätere Referenzabnahme
 
 Die [native eigene Windows-Probe](TLS_HYPERV_WINDOWS_CSP_CHARACTERIZATION_2026-10-18.md)
 belegt nach separat freigegebener Aktivierung einen nicht exportierbaren
@@ -97,8 +100,11 @@ Machine-CSP-RSA3072-Key mit tatsächlichem KeySpec 1, öffentlichem CSR und
 Host-Proof. VM/Disks/Key bleiben gestoppt erhalten. Der native CSR mit
 zusätzlichem S/MIME bleibt im engen Reader abgelehnt. Ein erwarteter
 Maschinen-CN ist nun eine private Kryptooption; keine Zusatzextension wird
-erlaubt. CA-Ausstellung, Storeannahme,
-SQL CompleteImage, Dienst-KeyACL und echte TLS-Verbindungen stehen aus.
+erlaubt. CA-Ausstellung, Storeannahme, SQL CompleteImage, Dienst-KeyACL und
+echte TLS-Verbindungen waren in dieser Charakterisierung noch nicht enthalten.
+Der spätere [native Referenzscope vom 2026-10-20](TLS_HYPERV_NATIVE_ACCEPTANCE_2026-10-20.md)
+hat diese Schritte am erhaltenen Originalkey nachgewiesen; die historische
+Charakterisierung wird dadurch nicht nachträglich zum TLS-Gesamtlauf.
 Der spätere native CSR aus demselben Key bestand im Gast; der ursprüngliche
 Hostabschluss scheiterte am UTF8-Subject-DER. Die getrennte Readerkorrektur
 erzwingt die erwartete UTF8-Form auch für ASCII. Dieser Hostnachweis macht

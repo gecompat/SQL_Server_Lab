@@ -236,6 +236,28 @@ maßgeblich; ein begrenzter neuer Auftrag öffnet nur seinen eigenen Scope.
 
 ## 7. Abschlussbericht
 
+Die zusätzliche private Hyper-V-TLS-Abnahmelane verwendet die bestehende
+Guard-Suite für Writer-/Ablauf- und Kryptogegenfälle. Ihre neuen exakten
+Pfadzuordnungen ergänzen keine Runtime-Ausnahme; die Änderung am Selektor
+behält die konservative Provider-Matrix und ihre Pflichtgates. Der native
+Referenzlauf bleibt ein getrennter einmaliger Setupversuch mit 180 Minuten
+Gesamtbudget. Ein Implementierer, ein unabhängiger Reviewer und deterministische
+lokale Log-/Hashauswertung genügen; zusätzliche Reviewketten oder eine
+periodische Modelldiagnose entstehen nicht. Tatsächliche Token- und Geldkosten
+bleiben unbekannt.
+
+Die [native Referenzabnahme vom 2026-10-20](TLS_HYPERV_NATIVE_ACCEPTANCE_2026-10-20.md)
+behielt genau diesen Implementierer/Reviewer und das ursprüngliche Budget.
+Neue Reviewrunden betrafen ausschließlich konkrete Findings, neue tatsächlich
+beobachtete Laufzeitgrenzen und die zugehörige feste Konfigurationsbindung.
+Quelländerungen lösten neue stabile betroffene Gates aus; ein während Änderungen
+gestarteter Lauf wurde verworfen. Unveränderte grüne Provider-Smokes wurden
+nicht wiederholt. Ein zusätzlicher kurzlebiger Leaf am vorhandenen CSR/Key
+ermöglichte direkte, getrennt persistierte Vorher-/Nachher-Ablaufbelege mit
+frischen Clientprozessen; es gab keinen zusätzlichen Setupdispatch oder
+ursprünglichen Key-/CSR-Replay. Logs, Manifeste und rohe Diagnosen bleiben
+lokal geschützt. Die konservativen ausgewählten CI-Runtimegates bleiben Pflicht.
+
 Der [optionale SQL-Funktionsvertrag](../Architecture/SQL_OPTIONAL_FEATURES.md)
 ergänzt eine fokussierte statische Suite und getrennte native Providerläufe.
 Die Shellquelle wählt Docker/Podman, der Windows-Adapter Hyper-V; gemischte
