@@ -54,9 +54,10 @@ function Invoke-LabTlsStrictSqlcmd {
 
 function Test-LabAuthenticatedTlsEnvironment {
     param([string]$RunId,[string]$InstanceId,[string]$StateRoot,[object]$Budget)
-    if($null -eq $Budget){$Budget=New-LabTlsDockerBudget}
     $bound=Get-LabTlsOwnBinding $StateRoot $RunId $InstanceId
     $record=$bound.Record;$authority=$bound.Authority
+    $provider=Get-LabTlsBindingProvider $record
+    if($null -eq $Budget){$Budget=New-LabTlsRuntimeBudget -Provider $provider -StateRoot $StateRoot -Record $record}
     $context=Assert-LabTlsSqlCertificateBinding $record $StateRoot $Budget
     $password=Get-LabSecret -Path $context.RunDirectory -Name 'sa-password'
     if(-not $password){throw 'TLS_QUALIFICATION_SECRET_UNAVAILABLE'}
@@ -69,7 +70,7 @@ function Test-LabAuthenticatedTlsEnvironment {
     $leafEnd=[DateTimeOffset]::ParseExact($record.NotAfterUtc,'o',[Globalization.CultureInfo]::InvariantCulture)
     if($leafEnd -lt $expires){$expires=$leafEnd}
     return [pscustomobject][ordered]@{ContractVersion='SqlServerLab.TlsQualification/0.1';Status='QUALIFIED';QualifiedAt=$now.ToString('O');ExpiresAt=$expires.ToString('O');
-        Encrypt=$true;TrustServerCertificate=$false;Provider='docker';SqlVersion='2025';Patch='cu9';SqlBuild='17.0.5005.3';
+        Encrypt=$true;TrustServerCertificate=$false;Provider=$provider;SqlVersion='2025';Patch='cu9';SqlBuild='17.0.5005.3';
         RunId=$RunId;InstanceId=$InstanceId;ScopeId=$record.ScopeId;ContainerId=$record.ContainerId;ImageId=$record.ImageId;StartedAt=$record.StartedAt;
         Endpoint=[pscustomobject]@{Host='127.0.0.1';Port=$record.Port;IdentityKind='IP';Identity='127.0.0.1'};
         AuthorityRef=$authority.Authority.Ref;AuthorityGeneration=$authority.Authority.Generation;ClientRef=$authority.Client.Ref;ClientGeneration=$authority.Client.Generation;
@@ -83,8 +84,9 @@ function Test-LabAuthenticatedTlsEnvironment {
 function Export-LabAuthenticatedTlsEnvironment {
     param([string]$OutputDirectory,[string]$StateRoot,[string]$RunId,[string]$InstanceId)
     if(-not $OutputDirectory -or -not $StateRoot -or -not $RunId -or -not $InstanceId){throw 'TLS_EXPORT_EXPLICIT_SELECTION_REQUIRED'}
-    $budget=New-LabTlsDockerBudget
     $bound=Get-LabTlsOwnBinding $StateRoot $RunId $InstanceId;$sid=$bound.Authority.Native.UserSid
+    $provider=Get-LabTlsBindingProvider $bound.Record
+    $budget=New-LabTlsRuntimeBudget -Provider $provider -StateRoot $StateRoot -Record $bound.Record
     $directory=Assert-LabDiagnosticPath ([IO.Path]::GetFullPath($OutputDirectory))
     # A fresh dedicated directory prevents overwriting the protected default group.
     if(Test-Path -LiteralPath $directory){throw 'TLS_EXPORT_NEW_DIRECTORY_REQUIRED'}
@@ -93,7 +95,7 @@ function Export-LabAuthenticatedTlsEnvironment {
     $secret=Get-LabSecret -Path $context.RunDirectory -Name 'sa-password'
     $connection=New-SqlConnectionString -HostName '127.0.0.1' -Port $record.Port -IncludePassword -SaPassword $secret
     $builder=[Data.SqlClient.SqlConnectionStringBuilder]::new($connection);$builder['TrustServerCertificate']=$false;$builder['Data Source']="tcp:127.0.0.1,$($record.Port)"
-    $entry=[pscustomobject][ordered]@{key='LINUX_SQL2025_CU9_TLS';status='READY';runtimeStatus='READY';platform='linux';provider='docker';sqlVersion='2025';patch='cu9';resolvedVersion='17.0.5005.3';
+    $entry=[pscustomobject][ordered]@{key='LINUX_SQL2025_CU9_TLS';status='READY';runtimeStatus='READY';platform='linux';provider=$provider;sqlVersion='2025';patch='cu9';resolvedVersion='17.0.5005.3';
         runId=$RunId;instanceId=$InstanceId;host='127.0.0.1';port=$record.Port;database='master';username='sa';password=$builder.Password;encrypt=$true;trustServerCertificate=$false;autoStart='off';connectionString=$builder.ConnectionString}
     $builder.Clear()
     $entryBytes=ConvertTo-LabTlsRegistryWriterBytes $entry
@@ -104,7 +106,7 @@ function Export-LabAuthenticatedTlsEnvironment {
     $key=$null
     try{$key=Open-LabTlsCaSigningKey $ca.Encrypted $entropy $ca.Der;$signature=$key.SignData($bodyBytes,[Security.Cryptography.HashAlgorithmName]::SHA256,[Security.Cryptography.RSASignaturePadding]::Pkcs1)}finally{if($key){$key.Dispose()}}
     $document=[pscustomobject][ordered]@{'$schema'='./TestUmgebung.schema.json';contractVersion='SqlServerLab.TestEnvironment/2.0';generatedAt=[DateTimeOffset]::UtcNow.ToString('O');groupStatus='READY';
-        selectionRule='explicit own Windows current-user qualified Docker SQL2025 CU9 only; validate signature, freshness and current bindings before use';containsPlainTextSecrets=$true;environments=@($entry);
+        selectionRule='explicit own Windows current-user qualified Docker or Podman SQL2025 CU9 only; validate signature, freshness and current bindings before use';containsPlainTextSecrets=$true;environments=@($entry);
         qualification=[pscustomobject]@{algorithm='RSA3072_SHA256_PKCS1';payload=[Convert]::ToBase64String($bodyBytes);signature=[Convert]::ToBase64String($signature);caDer=[Convert]::ToBase64String($ca.Der)}}
     $null=Get-LabTlsOwnBinding $StateRoot $RunId $InstanceId
     Initialize-LabTlsCaPrivateDirectory $directory $sid -NewOnly
@@ -132,8 +134,10 @@ function Export-LabAuthenticatedTlsEnvironment {
 
 function Test-LabTlsQualifiedExport {
     param([string]$Path,[string]$StateRoot,[string]$RunId,[string]$InstanceId,[object]$Budget)
-    if($null -eq $Budget){$Budget=New-LabTlsDockerBudget}
     $bound=Get-LabTlsOwnBinding $StateRoot $RunId $InstanceId
+    $provider=Get-LabTlsBindingProvider $bound.Record
+    if($null -eq $Budget){$Budget=New-LabTlsRuntimeBudget -Provider $provider -StateRoot $StateRoot -Record $bound.Record}
+    if($Budget.Provider -cne $provider){return $false}
     $document=Read-LabTlsBoundJson (Read-LabTlsCaPrivateFile $Path $bound.Authority.Native.UserSid 65536) @('$schema','contractVersion','generatedAt','groupStatus','selectionRule','containsPlainTextSecrets','environments','qualification')
     if($document.contractVersion -cne 'SqlServerLab.TestEnvironment/2.0' -or $document.groupStatus -cne 'READY' -or $document.environments.Count -ne 1 -or $document.qualification.algorithm -cne 'RSA3072_SHA256_PKCS1'){return $false}
     $entry=$document.environments[0];$signed=[Convert]::FromBase64String($document.qualification.payload)
@@ -141,7 +145,8 @@ function Test-LabTlsQualifiedExport {
     if($body.ContractVersion -cne 'SqlServerLab.SignedTlsExport/0.1' -or $body.EnvironmentSha256 -cne (Get-LabTlsCaByteDigest (ConvertTo-LabTlsRegistryWriterBytes $entry)) -or
         $entry.encrypt -isnot [bool] -or $entry.encrypt -ne $true -or $entry.trustServerCertificate -isnot [bool] -or $entry.trustServerCertificate -ne $false){return $false}
     $q=$body.Qualification;$r=$bound.Record;$a=$bound.Authority
-    if($q.RunId -cne $RunId -or $q.InstanceId -cne $InstanceId -or $q.RegistrySha256 -cne $a.RegistrySha256 -or $q.ActorDigest -cne $a.ActorDigest -or
+    if($q.Provider -cne $provider -or $entry.provider -cne $provider -or
+        $q.RunId -cne $RunId -or $q.InstanceId -cne $InstanceId -or $q.RegistrySha256 -cne $a.RegistrySha256 -or $q.ActorDigest -cne $a.ActorDigest -or
         $q.AuthorityRef -cne $a.Authority.Ref -or $q.ClientRef -cne $a.Client.Ref -or $q.LeafSha256 -cne $r.CertificateSha256 -or
         $q.Status -cne 'QUALIFIED' -or $q.ContainerId -cne $r.ContainerId -or $q.ScopeId -cne $r.ScopeId -or $q.ImageId -cne $r.ImageId -or $q.StartedAt -cne $r.StartedAt -or
         $q.ClientGeneration -ne $a.Client.Generation -or $q.AuthorityGeneration -ne $a.Authority.Generation -or $q.TrustScopeRef -cne $a.Authority.TrustScopeRef -or

@@ -1,5 +1,25 @@
 # Autonome Entwicklungswelle nach der Repository-Durchsicht
 
+## Öffentliche Podman-TLS-Fortsetzung vom 2026-10-20
+
+Nach Abschluss und Integration von PR #811 beauftragte der Benutzer erneut die
+autonome Weiterentwicklung. Das nächste begrenzte TLS-001-Arbeitspaket ergänzt
+die öffentliche Windows-/Podman-SQL-2025-CU9-False-Erstellung und den signierten
+V2-Export. Neue eigene TLS-Roots verwenden den bestehenden OwnedRunWindows-Kern
+für eine dauerhafte Providerroute und exakte Run-/Ressourcencustody; CA-/Trust-
+und geschützte Bestandsressourcen bleiben erhalten. Ein Implementierer und ein
+unabhängiger Reviewer bearbeiten den Scope. Das Routingfinding und die konkreten
+Test-/Imagedeltas sind unabhängig geschlossen. Die nativen Läufe deckten den
+Launch-Digestvertrag und einen StateRoot-Verlust im Provider-Operation-Wrapper
+auf; beide Fehler sind behoben. Podman bestand sieben öffentliche Fälle mit
+sechs strikten Clientergebnissen und vollständigem eigenem Cleanup. Docker
+belegt dieselben sieben Fälle sowie einen gezielten erfolgreichen Cleanup-
+Nachlauf am vorhandenen Run; die ursprünglichen FAILs bleiben erhalten.
+Fokussiert bestanden TLS 83/0 und Ownership 223 Prüfungen; die betroffene
+Regression ist grün. Integration erfolgt ausschließlich nach den erforderlichen
+grünen PR-Gates. Die abgeschlossene native Hyper-V-Referenz und verbrauchte
+frühere Scopes werden nicht wiederholt.
+
 ## Wiederaufnahme vom 2026-10-20
 
 Nach Integration des reinen Journalbyte-Scopes aus PR #810 beauftragte der

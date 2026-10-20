@@ -1,5 +1,14 @@
 # Bekannte Grenzen
 
+Die öffentliche operative False-Lane und der signierte V2-Export sind zusätzlich
+für Windows-/Podman-SQL-2025-CU9 implementiert. Die öffentliche native Abnahme
+vom 2026-10-20 bestand sieben Fälle mit sechs strikten Clientergebnissen und
+vollständigem eigenem Cleanup. Die getrennten früheren Podman-TLS-Probes
+werden dadurch nicht umgedeutet. Docker besitzt sieben bestandene Fälle mit
+gezieltem Cleanup-Nachlauf; ursprüngliche FAILs bleiben als solche erhalten.
+Hyper-V-False-Erstellung, Hyper-V-Export, Linuxclients und weitere SQL-Stände
+bleiben getrennte Scopes. Default bleibt True/True.
+
 Der [private Consumer-Guard](../Architecture/AUTHENTICATED_TLS_CONSUMER_GUARD.md) hält ausgewählte NTFS-Leseobjekte und lehnt Journalreplay beziehungsweise behaupteten CLEANED-Abschluss ab. Er bindet keine späteren pfadbasierten Writer, reserviert keine VM und beweist kein Gast-/Kindprozessende. Die zusätzliche [private Hyper-V-Lane](../Architecture/AUTHENTICATED_TLS_HYPERV_NATIVE_ACCEPTANCE.md) besitzt jetzt einen festen Setup-only-Worker mit getrennten Boot-/Installerbelegen und [bestandener nativer SQL-2025-RTM-Referenzabnahme](TLS_HYPERV_NATIVE_ACCEPTANCE_2026-10-20.md). Diese zusammengesetzte Abnahme erweitert weder die öffentliche Hyper-V-False-/Exportcapability noch das Journal-Lesemodell zu einer allgemeinen Recoveryautorität. Wire-Zertifikat bleibt NOT_OBSERVED; andere Hyper-V-Versionen/Clientkontexte und SC-2026-045 bleiben offen.
 
 Der reine Journalbyteaufbau erhält bestehende Ereignisbytes und prüft den

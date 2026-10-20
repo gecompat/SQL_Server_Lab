@@ -1,5 +1,16 @@
 # Tests/ – lokale und Remote-Validierung
 
+`Integration/Invoke-AuthenticatedTlsLabAcceptance.ps1 -Provider docker|podman`
+prüft die ausdrücklich gewählte öffentliche Windows-/SQL-2025-CU9-False-Lane
+mit bereits vertrauter eigener CA, signiertem V2-Export und beiden echten
+Clientstacks. Bei eigenem Cleanup prüfen öffentliche Stop-/Start-/Removeaufrufe
+prozesslokal absichtlich ungültige Routingvariablen; gespeicherte Contexts und
+Connections bleiben unverändert. Neustart muss den alten Nachweis mit dem
+festen Rebind-Reason ablehnen; Container und Volumes müssen am ursprünglichen
+Pin abwesend sein. `-KeepLab` erhält stattdessen das qualifizierte eigene Lab
+ohne diese Neustart-/Entfernungsfälle. Statische Provider-/Policyfixtures ersetzen
+keine ausgeführte native Providerabnahme.
+
 Die zusätzliche [private native Hyper-V-TLS-Abnahme](../Documentation/Architecture/AUTHENTICATED_TLS_HYPERV_NATIVE_ACCEPTANCE.md)
 verwendet einen festen Supervisor/Worker und eine geschützte, ausdrücklich
 gebundene lokale Konfiguration. Sie benötigt vor Runtime einen stabilen

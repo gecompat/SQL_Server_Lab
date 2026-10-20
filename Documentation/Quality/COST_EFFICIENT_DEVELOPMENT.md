@@ -236,6 +236,32 @@ maßgeblich; ein begrenzter neuer Auftrag öffnet nur seinen eigenen Scope.
 
 ## 7. Abschlussbericht
 
+Die öffentliche Podman-TLS-Erweiterung verwendet den bestehenden
+OwnedRunWindows-Kern für ausschließlich frische eigene TLS-Roots. Der
+unabhängige Review deckte die bisher nicht durchgängig gepinnte öffentliche
+Stop-/Start-/Remove-Grenze auf; die Korrektur integriert die vorhandenen
+Policy-/Custodypfade und erzeugt keinen weiteren allgemeinen Lifecycle.
+Die bestehenden TLS-, Cleanup- und OwnedHost-Suites prüfen die gekoppelten
+Verträge; fünf einzelne Selektorfälle sichern die neuen Abhängigkeiten. Es gibt
+keine Runtime-Ausnahme: die konservativen Provider-/Capability-Gates bleiben
+erhalten. Der vorhandene native Acceptance-Harness erhält einen expliziten
+Providerparameter und prüft die öffentlichen Lifecycle-/Cleanupgrenzen mit
+nur prozesslokal ungültigen Routingvariablen. Eigene Docker- und Podman-Nachweise
+bleiben getrennt. Ein Implementierer und ein Reviewer genügen; zusätzliche
+Reviewrunden betreffen ausschließlich konkrete Findings und deren Deltas.
+Logs werden lokal begrenzt ausgewertet; tatsächliche Token-/Geldkosten bleiben
+unbekannt. Ausgeführt beziehungsweise noch ausstehend wird in der
+Validierungsstrategie getrennt ausgewiesen.
+Zwei neue native Fehlersignaturen erforderten eng begrenzte Image- und
+Provider-Wrapperkorrekturen samt erneut gebundenen Sicherheitsprüfungen.
+Ein lokaler Lauf mit einer Testisolationsabweichung wurde als abgebrochen
+erhalten. Die gültige betroffene Regression umfasst 20 Suites; frühere grüne
+Quellenprüfungen werden nur bei gültiger Bindung wiederverwendet. Nach sieben
+grünen Docker-Fällen wurde ausschließlich dessen fehlgeschlagener Cleanup am
+vorhandenen Run fortgesetzt. Insgesamt entstanden zwei Docker- und ein
+Podman-Acceptance-Lab; keine dritte Docker-Neuanlage und keine Wiederholung
+der sieben grünen Fälle. Die konservativen Pflichtgates bleiben erhalten.
+
 Die zusätzliche private Hyper-V-TLS-Abnahmelane verwendet die bestehende
 Guard-Suite für Writer-/Ablauf- und Kryptogegenfälle. Ihre neuen exakten
 Pfadzuordnungen ergänzen keine Runtime-Ausnahme; die Änderung am Selektor

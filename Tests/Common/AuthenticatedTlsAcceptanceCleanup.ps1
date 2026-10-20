@@ -6,11 +6,14 @@ function Remove-OwnedTlsAcceptanceExport {
         param($StateRoot,$RunId)
         $native=Get-LabTlsWindowsProcessFacts
         $root=Assert-LabDiagnosticPath ([IO.Path]::GetFullPath($StateRoot))
-        Assert-LabTlsCaPrivateAcl $root $native.UserSid -Directory
-        $names=@('ContractVersion','AuditId','DataRoot','ControllerId','LocationId','AuthorityRef','ClientRef','RegistrySha256',
-            'RunId','InstanceId','ScopeId','ContainerId','ImageId','Port','CertificateSha256','CertificateDer','NotAfterUtc','StartedAt','ServerPath')
-        $record=Read-LabTlsBoundJson (Read-LabTlsCaPrivateFile (Join-Path $root 'authenticated-tls-lab.json') $native.UserSid 32768) $names
-        if($record.ContractVersion -cne 'SqlServerLab.AuthenticatedTlsLab/0.1' -or $record.RunId -cne $RunId -or
+        $policy=Assert-LabTlsLabRoot $root
+        $record=Read-LabTlsLabRecord (Read-LabTlsCaPrivateFile (Join-Path $root 'authenticated-tls-lab.json') $native.UserSid 32768)
+        if($record.ContractVersion -ceq 'SqlServerLab.AuthenticatedTlsLab/0.2'){
+            if(-not $policy){throw 'TLS_ACCEPTANCE_EXPORT_CLEANUP_POLICY_REQUIRED'}
+            $null=Get-LabTlsRecordedRuntimePin $record $root
+            $null=Get-LabOwnedHostRunPolicy -RunId $RunId -StateRoot $root
+        }
+        if($record.RunId -cne $RunId -or
             -not (Test-LabTlsRequestReference $record.AuditId) -or $record.InstanceId -cne 'primary' -or
             -not [string]::Equals($root,[IO.Path]::GetFullPath((Join-Path $record.DataRoot ('State/authenticated-tls-labs/'+$record.AuditId))),[StringComparison]::OrdinalIgnoreCase)){
             throw 'TLS_ACCEPTANCE_EXPORT_CLEANUP_SCOPE_INVALID'
