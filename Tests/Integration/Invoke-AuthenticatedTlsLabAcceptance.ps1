@@ -2,11 +2,14 @@
 [CmdletBinding()]
 param([Parameter(Mandatory)][string]$DataRoot,[Parameter(Mandatory)][string]$ControllerId,
     [Parameter(Mandatory)][string]$LocationId,[Parameter(Mandatory)][string]$CandidateId,
-    [Parameter(Mandatory)][string]$EvidenceDirectory,[ValidateSet('docker','podman')][string]$Provider='docker',[switch]$Execute,[switch]$KeepLab)
+    [Parameter(Mandatory)][string]$EvidenceDirectory,[ValidateSet('docker','podman')][string]$Provider='docker',
+    [ValidateSet('2025-CU9','2022-CU27')][string]$Version='2025-CU9',[switch]$Execute,[switch]$KeepLab)
 $ErrorActionPreference='Stop'
-if(-not $Execute){throw 'TLS_ACCEPTANCE_EXECUTE_REQUIRED: creates one own selected-provider SQL2025 CU9 lab; no trust import.'}
+if(-not $Execute){throw 'TLS_ACCEPTANCE_EXECUTE_REQUIRED: creates one own selected-provider and selected-version lab; no trust import.'}
 $repo=(Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 . (Join-Path $repo 'Tests/Common/AuthenticatedTlsAcceptanceCleanup.ps1')
+. (Join-Path $repo 'Tests/Common/AuthenticatedTlsAcceptanceSelection.ps1')
+$expected=Get-OwnedTlsAcceptanceProfile $Version
 $module=Import-Module (Join-Path $repo 'SqlServerLab.psd1') -Force -PassThru
 $tool=& (Join-Path $repo 'Tools/Initialize-SqlServerLabHostTools.ps1') -Name $Provider
 if(-not $tool.Available){throw 'TLS_ACCEPTANCE_PROVIDER_UNAVAILABLE'}
@@ -24,32 +27,35 @@ $podmanRunBefore=Get-ItemPropertyValue -LiteralPath 'HKCU:\Software\Microsoft\Wi
 $results=[Collections.Generic.List[object]]::new();$lab=$null;$failure=$null;$cleanup='NOT_REQUIRED'
 $routingBefore=@{};foreach($name in @('DOCKER_HOST','DOCKER_CONTEXT','CONTAINER_HOST','CONTAINER_CONNECTION','CONTAINER_SSHKEY')){$routingBefore[$name]=[Environment]::GetEnvironmentVariable($name,'Process')}
 try{
-    $lab=New-SqlServerLab -Version '2025-CU9' -Provider $Provider -Profile compact -Cpu 2 -MemoryMB 2048 -GenerateSaPassword -NonInteractive -AutoStart off `
+    $lab=New-SqlServerLab -Version $Version -Provider $Provider -Profile compact -Cpu 2 -MemoryMB 2048 -GenerateSaPassword -NonInteractive -AutoStart off `
         -DataRoot $DataRoot -TlsControllerId $ControllerId -TlsLocationId $LocationId -TlsCandidateId $CandidateId -TrustServerCertificate:$false
-    $results.Add(@{Case='OWN_LAB_TWO_STRICT_STACKS';Status='PASS'})
+    Assert-OwnedTlsAcceptanceSelection -Expected $expected -Qualification $lab.TlsQualification
     $returned=[Data.SqlClient.SqlConnectionStringBuilder]::new($lab.Instances[0].ConnectionString)
     if(-not $returned.Encrypt -or $returned.TrustServerCertificate -or $lab.Instances[0].Provider -cne $Provider -or
-        $lab.TlsQualification.Provider -cne $Provider){throw 'TLS_ACCEPTANCE_PUBLIC_RESULT_FLAGS_INVALID'}
+            $lab.TlsQualification.Provider -cne $Provider){throw 'TLS_ACCEPTANCE_PUBLIC_RESULT_FLAGS_INVALID'}
+    $results.Add(@{Case='OWN_LAB_TWO_STRICT_STACKS';Status='PASS'})
     $export=Export-SqlServerLabTestEnvironment -TrustServerCertificate:$false -RunId $lab.RunId -InstanceId primary -StateRoot $lab.StateRoot -OutputDirectory (Join-Path $lab.StateRoot 'qualified-export')
     $results.Add(@{Case='FRESH_QUALIFIED_FALSE_EXPORT';Status='PASS'})
     & $module {
-        param($export,$lab,$Provider)
+        param($export,$lab,$Provider,$expected)
+        . (Join-Path $script:ModuleRoot 'Tests/Common/AuthenticatedTlsAcceptanceSelection.ps1')
         if(-not (Test-LabTlsQualifiedExport $export.JsonPath $lab.StateRoot $lab.RunId primary)){throw 'TLS_ACCEPTANCE_EXPORT_VERIFICATION_FAILED'}
         $document=Get-Content -LiteralPath $export.JsonPath -Raw|ConvertFrom-Json -Depth 12 -DateKind String
         $entry=$document.environments[0]
+        $bound=Get-LabTlsOwnBinding $lab.StateRoot $lab.RunId primary
+        Assert-OwnedTlsAcceptanceSelection -Expected $expected -Qualification $lab.TlsQualification -Record $bound.Record -Entry $entry
         if($entry.encrypt -isnot [bool] -or $entry.encrypt -ne $true -or $entry.trustServerCertificate -isnot [bool] -or $entry.trustServerCertificate -ne $false -or
             $entry.provider -cne $Provider){throw 'TLS_ACCEPTANCE_EXPORT_FLAGS_INVALID'}
         $connection=[Data.SqlClient.SqlConnection]::new($entry.connectionString)
         try{
             $connection.Open();$command=$connection.CreateCommand();$command.CommandTimeout=10
-            try{$command.CommandText="SELECT encrypt_option FROM sys.dm_exec_connections WHERE session_id=@@SPID";if($command.ExecuteScalar() -cne 'TRUE'){throw 'TLS_ACCEPTANCE_EXPORT_SQL_ENCRYPTION_INVALID'}}finally{$command.Dispose()}
+            try{$command.CommandText="SELECT CONCAT(CONVERT(varchar(32),SERVERPROPERTY('ProductVersion')),'|',encrypt_option) FROM sys.dm_exec_connections WHERE session_id=@@SPID";if($command.ExecuteScalar() -cne ($expected.SqlBuild+'|TRUE')){throw 'TLS_ACCEPTANCE_EXPORT_SQL_ENCRYPTION_INVALID'}}finally{$command.Dispose()}
         }finally{$connection.Dispose()}
         $password=[securestring]::new();foreach($character in $entry.password.ToCharArray()){$password.AppendChar($character)};$password.MakeReadOnly()
-        $bound=Get-LabTlsOwnBinding $lab.StateRoot $lab.RunId primary
-        $null=Invoke-LabTlsStrictSqlcmd $entry.port $password $bound.Authority.Client
+        $null=Invoke-LabTlsStrictSqlcmd $entry.port $password $bound.Authority.Client $expected.SqlBuild
         $settings=Get-LabSqlConnectionSettings $entry.connectionString
         if($settings.Encrypt -ne $true -or $settings.TrustServerCertificate -ne $false){throw 'TLS_ACCEPTANCE_CONNECTION_SETTINGS_INVALID'}
-    } $export $lab $Provider
+    } $export $lab $Provider $expected
     $results.Add(@{Case='EXPORTED_CREDENTIALS_BOTH_REAL_STACKS';Status='PASS'})
     $previousState=$env:SQL_SERVER_LAB_STATE
     try{
@@ -133,7 +139,7 @@ finally{
     }}
     $podmanRunAfter=Get-ItemPropertyValue -LiteralPath 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name 'io.podman_desktop.PodmanDesktop' -ErrorAction SilentlyContinue
     if($podmanRunBefore -cne $podmanRunAfter){$results.Add(@{Case='HOST_AUTOSTART_PRESERVATION';Status='FAIL'});if(-not $failure){$failure='TLS_ACCEPTANCE_HOST_AUTOSTART_DRIFT'}}
-    $summary=[pscustomobject]@{Status=$(if($failure){'FAIL'}else{'PASS'});Cases=$results;Cleanup=$cleanup;Default='Encrypt=True;TrustServerCertificate=True';Scope="Windows current user / $Provider / SQL2025 CU9"}
+    $summary=[pscustomobject]@{Status=$(if($failure){'FAIL'}else{'PASS'});Cases=$results;Cleanup=$cleanup;Default='Encrypt=True;TrustServerCertificate=True';Scope="Windows current user / $Provider / $Version"}
     [IO.File]::WriteAllText((Join-Path $evidence 'summary.private.json'),($summary|ConvertTo-Json -Depth 6))
     $summary|Select-Object Status,Cleanup,Scope
 }

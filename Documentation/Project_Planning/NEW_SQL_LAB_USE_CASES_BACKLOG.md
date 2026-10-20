@@ -586,6 +586,12 @@ bleibt gesperrt. Details im
 
 ## TLS-001: operativer erster Pfad
 
+Der nächste begrenzte Scope ergänzt öffentliche Windows-/Docker-/Podman-
+Erstellung und V2-Export für SQL 2022 CU27 mit geschlossener Profilbindung.
+Die getrennten nativen Docker-/Podman-Abnahmen bestanden je sieben Fälle,
+sechs strikte Clientergebnisse und eigenen Cleanup. Die vollständige
+TLS-001-Matrix, Consumer-Cutover und automatisches Renewal/Rebind bleiben offen.
+
 Die zusätzliche öffentliche Windows-/Podman-SQL-2025-CU9-Lane ist implementiert:
 ausdrückliche Providerwahl, eigene `0.2`-Bindung, frische Runtime-Herkunft und
 providergebundener signierter V2-Export. Die native öffentliche Abnahme vom

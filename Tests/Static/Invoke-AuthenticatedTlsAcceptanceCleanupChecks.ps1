@@ -80,6 +80,24 @@ try{
     Add-CheckResult 'Dedicated owner-only TLS policy root is accepted without weakening the CA guard' ($true)
     Remove-OwnedTlsAcceptanceExport $root2 $run $module
     Add-CheckResult 'Policy-bound 0.2 Podman export cleanup validates run custody without CA or trust access' (-not (Test-Path -LiteralPath $directory2))
+    & $module {param($root,$directory)
+        $sid=(Get-LabTlsWindowsProcessFacts).UserSid;$path=Join-Path $root 'authenticated-tls-lab.json'
+        $record=Read-LabTlsLabRecord (Read-LabTlsCaPrivateFile $path $sid 32768)
+        $record.ContractVersion='SqlServerLab.AuthenticatedTlsLab/0.3'
+        [IO.File]::WriteAllBytes($path,(ConvertTo-LabTlsRegistryWriterBytes $record))
+        Initialize-LabTlsCaPrivateDirectory $directory $sid -NewOnly
+        Write-LabTlsCaPrivateFile (Join-Path $directory 'TestUmgebung.env') $sid ([byte[]]@(1,2,3))
+    } $root2 $directory2
+    $blocked=$false;try{Remove-OwnedTlsAcceptanceExport $root2 $run $module}catch{$blocked=$true}
+    Add-CheckResult 'Incomplete 0.3 profile preserves fixed export before deletion' ($blocked -and (Test-Path -LiteralPath $directory2))
+    & $module {param($root)
+        $path=Join-Path $root 'authenticated-tls-lab.json'
+        $record=Get-Content -LiteralPath $path -Raw|ConvertFrom-Json -Depth 12 -DateKind String
+        $record|Add-Member -NotePropertyName SqlProfileId -NotePropertyValue '2022-CU27'
+        [IO.File]::WriteAllBytes($path,(ConvertTo-LabTlsRegistryWriterBytes $record))
+    } $root2
+    Remove-OwnedTlsAcceptanceExport $root2 $run $module
+    Add-CheckResult 'Policy-bound SQL2022 cleanup remains independent of CA, trust and catalog reads' (-not (Test-Path -LiteralPath $directory2))
 }catch{Add-CheckResult ('Cleanup fixture failed: '+$_.Exception.Message) $false}
 finally{
     if(Test-Path -LiteralPath $fixture){

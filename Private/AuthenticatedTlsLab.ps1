@@ -1,5 +1,35 @@
 #Requires -Version 7.2
-# Windows current user -> own explicitly selected container SQL 2025 CU9.
+# Windows current user -> own explicitly selected, closed SQL/CU profiles.
+function Get-LabTlsSqlProfile {
+    param([string]$Version)
+    switch -CaseSensitive ($Version){
+        '2025-CU9' {$major='2025';$patch='cu9';$build='17.0.5005.3';$tag='2025-CU9-ubuntu-24.04'}
+        '2022-CU27' {$major='2022';$patch='cu27';$build='16.0.4295.3';$tag='2022-CU27-ubuntu-22.04'}
+        default {throw 'TLS_LAB_SQL_PROFILE_UNSUPPORTED'}
+    }
+    return [pscustomobject]@{Version=$Version;SqlVersion=$major;Patch=$patch;SqlBuild=$build;ImageTag=$tag;Image=('mcr.microsoft.com/mssql/server:'+$tag);ExportKey=('LINUX_SQL'+$major+'_'+$patch.ToUpperInvariant()+'_TLS')}
+}
+
+function Assert-LabTlsSqlCatalogProfile {
+    param([object]$Profile)
+    # The closed qualification profile must still match the project catalog.
+    # A future catalog edit never silently authorizes another build or image.
+    $catalog=Get-Content -LiteralPath (Join-Path $script:ModuleRoot 'Catalogs/sql-server-versions.json') -Raw|ConvertFrom-Json -Depth 20
+    $versions=@($catalog.versions|Where-Object id -CEQ $Profile.SqlVersion)
+    $rows=@($versions.docker.builds|Where-Object tag -CEQ $Profile.ImageTag)
+    if($versions.Count -ne 1 -or $rows.Count -ne 1 -or $rows[0].build -cne $Profile.SqlBuild -or $rows[0].cu.ToLowerInvariant() -cne $Profile.Patch){throw 'TLS_LAB_SQL_CATALOG_CHANGED'}
+}
+
+function Get-LabTlsBindingSqlProfile {
+    param([object]$Record)
+    if($Record.ContractVersion -cin @('SqlServerLab.AuthenticatedTlsLab/0.1','SqlServerLab.AuthenticatedTlsLab/0.2') -and -not $Record.PSObject.Properties['SqlProfileId']){
+        return Get-LabTlsSqlProfile '2025-CU9'
+    }
+    if($Record.ContractVersion -ceq 'SqlServerLab.AuthenticatedTlsLab/0.3' -and $Record.SqlProfileId -ceq '2022-CU27'){
+        return Get-LabTlsSqlProfile $Record.SqlProfileId
+    }
+    throw 'TLS_LAB_BINDING_SQL_PROFILE_INVALID'
+}
 function Read-LabTlsBoundJson {
     param([byte[]]$Bytes,[string[]]$Names)
     if($Bytes.Length -lt 1 -or $Bytes.Length -gt 65536){throw 'TLS_BOUND_JSON_INVALID'}
@@ -49,7 +79,7 @@ function Assert-LabTlsRuntimeBudget {
 
 function Get-LabTlsRuntimePin {
     param([object]$Budget)
-    if($Budget.Record -and $Budget.Record.ContractVersion -ceq 'SqlServerLab.AuthenticatedTlsLab/0.2'){
+    if($Budget.Record -and $Budget.Record.ContractVersion -cin @('SqlServerLab.AuthenticatedTlsLab/0.2','SqlServerLab.AuthenticatedTlsLab/0.3')){
         $recorded=Get-LabTlsRecordedRuntimePin $Budget.Record $Budget.StateRoot
         if($Budget.RuntimeContext){
             foreach($name in @('Provider','Invocation','Endpoint','IdentityPath','IdentitySha256','RuntimeScopeId','RoutingKey','IncarnationKey','MachineName')){
@@ -152,7 +182,7 @@ function New-LabTlsRuntimeBinding {
 function Get-LabTlsBindingProvider {
     param([object]$Record)
     if($Record.ContractVersion -ceq 'SqlServerLab.AuthenticatedTlsLab/0.1' -and -not $Record.PSObject.Properties['Provider']){return 'docker'}
-    if($Record.ContractVersion -ceq 'SqlServerLab.AuthenticatedTlsLab/0.2' -and $Record.Provider -cin @('docker','podman')){return [string]$Record.Provider}
+    if($Record.ContractVersion -cin @('SqlServerLab.AuthenticatedTlsLab/0.2','SqlServerLab.AuthenticatedTlsLab/0.3') -and $Record.Provider -cin @('docker','podman')){return [string]$Record.Provider}
     throw 'TLS_LAB_BINDING_PROVIDER_INVALID'
 }
 
@@ -160,9 +190,18 @@ function Read-LabTlsLabRecord {
     param([byte[]]$Bytes)
     $fields=@('ContractVersion','AuditId','DataRoot','ControllerId','LocationId','AuthorityRef','ClientRef','RegistrySha256',
         'RunId','InstanceId','ScopeId','ContainerId','ImageId','Port','CertificateSha256','CertificateDer','NotAfterUtc','StartedAt','ServerPath')
-    # Two closed historical forms; 0.1 is Docker-only and is never inferred as Podman.
-    try{$record=Read-LabTlsBoundJson $Bytes $fields}catch{$record=Read-LabTlsBoundJson $Bytes @($fields+'Provider'+'RuntimeBinding')}
+    # Each closed shape has its own version; missing profile data never falls back.
+    $shape='SqlServerLab.AuthenticatedTlsLab/0.1'
+    try{$record=Read-LabTlsBoundJson $Bytes $fields}catch{
+        $shape='SqlServerLab.AuthenticatedTlsLab/0.2'
+        try{$record=Read-LabTlsBoundJson $Bytes @($fields+'Provider'+'RuntimeBinding')}catch{
+            $shape='SqlServerLab.AuthenticatedTlsLab/0.3'
+            $record=Read-LabTlsBoundJson $Bytes @($fields+'Provider'+'RuntimeBinding'+'SqlProfileId')
+        }
+    }
+    if($record.ContractVersion -cne $shape){throw 'TLS_LAB_BINDING_SHAPE_INVALID'}
     $null=Get-LabTlsBindingProvider $record
+    $null=Get-LabTlsBindingSqlProfile $record
     return $record
 }
 
@@ -220,11 +259,11 @@ function Assert-LabTlsOwnContainer {
     $context=Get-LabTlsOwnedRuntimeContext -RunId $Record.RunId -StateRoot $StateRoot -Budget $Budget
     $imageId=$context.Inspect.Image;$configImage=$context.Inspect.Config.Image
     $expectedConfigImage='mcr.microsoft.com/mssql/server:2025-CU9-ubuntu-24.04'
-    if($Record.ContractVersion -ceq 'SqlServerLab.AuthenticatedTlsLab/0.2'){
+    if($Record.ContractVersion -cin @('SqlServerLab.AuthenticatedTlsLab/0.2','SqlServerLab.AuthenticatedTlsLab/0.3')){
         $imageId=ConvertTo-LabTlsImageId $imageId;$configImage=ConvertTo-LabTlsImageId $configImage
         $expectedConfigImage=$Record.ImageId
     }
-    if(($Record.ContractVersion -ceq 'SqlServerLab.AuthenticatedTlsLab/0.2' -and -not $context.PolicyBound) -or
+    if(($Record.ContractVersion -cin @('SqlServerLab.AuthenticatedTlsLab/0.2','SqlServerLab.AuthenticatedTlsLab/0.3') -and -not $context.PolicyBound) -or
         $context.Provider -cne $provider -or $context.ContainerId -cne $Record.ContainerId -or $context.Run.scopeId -cne $Record.ScopeId -or
         $imageId -cne $Record.ImageId -or $context.CurrentPort -ne $Record.Port -or -not $context.WasRunning -or
         $context.Instance.host -cne '127.0.0.1' -or $configImage -cne $expectedConfigImage){
@@ -240,7 +279,7 @@ function Get-LabTlsOwnBinding {
     $null=Assert-LabTlsLabRoot $root
     $bytes=Read-LabTlsCaPrivateFile (Join-Path $root 'authenticated-tls-lab.json') $native.UserSid 32768
     $record=Read-LabTlsLabRecord $bytes
-    if($record.ContractVersion -ceq 'SqlServerLab.AuthenticatedTlsLab/0.2'){$null=Get-LabTlsRecordedRuntimePin $record $root}
+    if($record.ContractVersion -cin @('SqlServerLab.AuthenticatedTlsLab/0.2','SqlServerLab.AuthenticatedTlsLab/0.3')){$null=Get-LabTlsRecordedRuntimePin $record $root}
     if(-not (Test-LabTlsRequestReference $record.AuditId) -or
         $record.RunId -cne $RunId -or $record.InstanceId -cne $InstanceId -or
         $record.ServerPath -cne ('/var/opt/mssql/tls-'+$record.AuditId.Replace('-',''))){throw 'TLS_LAB_BINDING_INVALID'}
@@ -287,17 +326,19 @@ function New-LabAuthenticatedTlsEnvironment {
     param([hashtable]$Parameters)
     $allowed=@('TrustServerCertificate','TlsCandidateId','TlsControllerId','TlsLocationId','DataRoot','Version','Provider','Profile','Port','InstanceId',
         'SaPassword','GenerateSaPassword','NonInteractive','Cpu','MemoryMB','SkipAssessment','AllowResourceOvercommit','AutoStart','LabName','Verbose','ErrorAction')
-    if(@($Parameters.Keys|Where-Object {$_ -cnotin $allowed}).Count -or $Parameters.Version -cne '2025-CU9' -or
+    if(@($Parameters.Keys|Where-Object {$_ -cnotin $allowed}).Count -or $Parameters.Version -cnotin @('2025-CU9','2022-CU27') -or
         ($Parameters.ContainsKey('Provider') -and $Parameters.Provider -cnotin @('docker','podman')) -or
         ($Parameters.ContainsKey('InstanceId') -and $Parameters.InstanceId -cne 'primary') -or
-        ($Parameters.ContainsKey('AutoStart') -and $Parameters.AutoStart -cne 'off') -or -not $Parameters.DataRoot){throw 'TLS_LAB_CAPABILITY_UNSUPPORTED: Windows, Docker or Podman, 2025-CU9 and explicit DataRoot required; primary, autostart off; no manifest, mounts or existing StateRoot.'}
+        ($Parameters.ContainsKey('AutoStart') -and $Parameters.AutoStart -cne 'off') -or -not $Parameters.DataRoot){throw 'TLS_LAB_CAPABILITY_UNSUPPORTED: Windows, Docker or Podman, 2025-CU9 or 2022-CU27 and explicit DataRoot required; primary, autostart off; no manifest, mounts or existing StateRoot.'}
     foreach($key in @('TlsCandidateId','TlsControllerId','TlsLocationId')){if(-not (Test-LabTlsRequestReference $Parameters[$key])){throw 'TLS_LAB_CA_SELECTION_REQUIRED'}}
     Assert-LabTlsCaCandidateCapability
+    $profile=Get-LabTlsSqlProfile $Parameters.Version
+    Assert-LabTlsSqlCatalogProfile $profile
     $provider=if($Parameters.ContainsKey('Provider')){[string]$Parameters.Provider}else{'docker'}
     $budget=New-LabTlsRuntimeBudget -Provider $provider
     $format=if($provider -ceq 'docker'){'{{.ServerVersion}}'}else{'json'}
     $null=Invoke-LabTlsContainer @('info','--format',$format) -Budget $budget
-    $expectedImageId=ConvertTo-LabTlsImageId (Invoke-LabTlsContainer @('image','inspect','mcr.microsoft.com/mssql/server:2025-CU9-ubuntu-24.04','--format','{{.Id}}') -Budget $budget).Trim()
+    $expectedImageId=ConvertTo-LabTlsImageId (Invoke-LabTlsContainer @('image','inspect',$profile.Image,'--format','{{.Id}}') -Budget $budget).Trim()
     $authority=Register-LabTlsOperationalAuthority $Parameters.DataRoot $Parameters.TlsControllerId $Parameters.TlsLocationId $Parameters.TlsCandidateId
     if([DateTimeOffset]::ParseExact($authority.Authority.NotAfterUtc,'o',[Globalization.CultureInfo]::InvariantCulture) -le [DateTimeOffset]::UtcNow.AddDays(1)){throw 'TLS_LAB_CA_LIFETIME_INSUFFICIENT'}
     $sid=$authority.Native.UserSid;$audit=[guid]::NewGuid().ToString('D')
@@ -320,6 +361,7 @@ function New-LabAuthenticatedTlsEnvironment {
         $record=[ordered]@{ContractVersion='SqlServerLab.AuthenticatedTlsLab/0.2';Provider=$provider;RuntimeBinding=(New-LabTlsRuntimeBinding $policy $pin $state);AuditId=$audit;DataRoot=$Parameters.DataRoot;ControllerId=$Parameters.TlsControllerId;LocationId=$Parameters.TlsLocationId;
             AuthorityRef=$authority.Authority.Ref;ClientRef=$authority.Client.Ref;RegistrySha256=$authority.RegistrySha256;RunId=$run.RunId;InstanceId='primary';ScopeId=$context.Run.scopeId;
             ContainerId=$context.ContainerId;ImageId=$expectedImageId;Port=$context.CurrentPort;CertificateSha256='';CertificateDer='';NotAfterUtc='';StartedAt='';ServerPath=('/var/opt/mssql/tls-'+$audit.Replace('-',''))}
+        if($profile.Version -ceq '2022-CU27'){$record.ContractVersion='SqlServerLab.AuthenticatedTlsLab/0.3';$record.SqlProfileId=$profile.Version}
         $budget.Record=[pscustomobject]$record
         $null=Assert-LabTlsOwnContainer ([pscustomobject]$record) $state $budget
         Write-LabTlsCaPrivateFile (Join-Path $state 'target-intent.json') $sid (ConvertTo-LabTlsRegistryWriterBytes ([pscustomobject]$record))

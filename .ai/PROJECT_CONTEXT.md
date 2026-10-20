@@ -1,5 +1,12 @@
 # Projektkontext
 
+Der operative Windows-TLS-Pfad ergänzt den geschlossenen SQL-2022-CU27-Scope
+für Docker und Podman mit eigener `0.3`-Profilbindung, exakter nativer Buildprüfung
+und versionsgebundenem signiertem V2-Export. Beide nativen Providerabnahmen
+bestanden je sieben Fälle mit sechs strikten Clientergebnissen und eigenem
+Cleanup. Details und Grenzen stehen in der Validierungsstrategie; ältere
+SQL-2025-Records und ihre früheren Nachweise bleiben erhalten.
+
 Die [CI-Test- und Evidence-Regeln](../Documentation/Quality/CI_TEST_EVIDENCE_POLICY.md)
 ergänzen die bestehende risikobasierte Provider-/Capability-Auswahl. Der lokale
 Development-Cache ist keine vertrauenswürdige Native-Attestation für GitHub.

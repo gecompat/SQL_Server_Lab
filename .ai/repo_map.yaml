@@ -930,7 +930,9 @@ sources_of_truth:
   validation_authenticated_tls_authority: Tests/Static/Invoke-AuthenticatedTlsAuthorityChecks.ps1
   validation_authenticated_tls_lab: Tests/Static/Invoke-AuthenticatedTlsLabChecks.ps1
   validation_authenticated_tls_lab_provider: Tests/Static/Fixtures/AuthenticatedTlsLabProviderChecks.ps1 # executed by lab suite; injected provider/origin/process observations, no native SQL claim
+  validation_authenticated_tls_lab_versions: Tests/Static/Fixtures/AuthenticatedTlsLabVersionChecks.ps1 # closed operational SQL2025CU9/SQL2022CU27 profiles and historical-shape rejection; no native SQL claim
   acceptance_authenticated_tls_lab: Tests/Integration/Invoke-AuthenticatedTlsLabAcceptance.ps1
+  acceptance_authenticated_tls_selection: Tests/Common/AuthenticatedTlsAcceptanceSelection.ps1 # test-only independent request/version/build oracle; rejects requested2022/returned2025 before live probes
   acceptance_authenticated_tls_export_cleanup: Tests/Common/AuthenticatedTlsAcceptanceCleanup.ps1 # fixed private exports of terminal owned acceptance runs only; no CA/key/trust dependency
   validation_authenticated_tls_export_cleanup: Tests/Static/Invoke-AuthenticatedTlsAcceptanceCleanupChecks.ps1
   schema_authenticated_tls_test_environment: Schemas/test-environment-authenticated.schema.json

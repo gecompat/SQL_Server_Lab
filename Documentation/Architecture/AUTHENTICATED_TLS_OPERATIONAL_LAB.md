@@ -11,7 +11,7 @@ Trustscope-Referenzen sind eindeutig und auch nach abgebrochenen Intents reservi
 Der Writer unterstützt lokale feste NTFS- und ReFS-Volumes; dieselben geschützten Journale, Sperren und nativen File.Replace-/Recoveryprüfungen gelten auf beiden. Die lokale ReFS-Writersuite bestand alle 45 Fälle einschließlich eigenem Cleanup. Der APIvertrag für den Dateiersatz ist bei [Microsoft](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-replacefilew) beschrieben.
 
 `New-SqlServerLab -TrustServerCertificate:$false` verlangt Windows mit
-PowerShell 7.5+, ausdrücklich Docker oder Podman, den lokal vorhandenen Katalogstand `2025-CU9`,
+PowerShell 7.5+, ausdrücklich Docker oder Podman, den lokal vorhandenen Katalogstand `2025-CU9` oder `2022-CU27`,
 `DataRoot`, `TlsControllerId`, `TlsLocationId` und `TlsCandidateId`.
 Der Pfad erzeugt einen eigenen StateRoot unter
 `State/authenticated-tls-labs/<AuditId>` und genau einen eigenen Run.
@@ -35,6 +35,18 @@ Qualifikation zur aktuell beobachteten Runtime passen: Provider, Runtime-Scope,
 Routing-Key und Engine-/Machine-Inkarnation. CLI-Aufrufe verwenden den gebundenen
 Endpoint und unter Podman die zugehörige SSH-Identität. Geerbte Routingvariablen
 werden entfernt; ein anderer Default führt nicht zu einem Providerfallback.
+
+SQL 2022 CU27 verwendet die neue geschlossene Recordform `0.3` mit
+`SqlProfileId=2022-CU27`. Sie übernimmt sämtliche Policy-, Custody-, Runtime-
+und Digestbindungen aus `0.2`; ein fehlendes Profil erlaubt keinen Fallback.
+Die historischen Formen `0.1`/`0.2` bleiben ausschließlich SQL 2025 CU9
+zugeordnet. Der feste Katalogtag `2022-CU27-ubuntu-22.04` und Build
+`16.0.4295.3` werden vor Erstellung und Qualifikation gegen den Katalog geprüft.
+Beide realen Clients müssen genau diesen Build und Verschlüsselung bestätigen.
+Der signierte V2-Eintrag, seine Qualifikation und der versionsgebundene ENV-Key
+müssen zum Recordprofil passen; auch neu gültig signierte Versionsumdeutungen
+werden abgewiesen. Cleanup liest das geschlossene Profil ohne Katalog-, CA-
+oder Trustabhängigkeit. SQL 2025 behält unverändert Build `17.0.5005.3`.
 
 Der vorhandene [OwnedRunWindows-Kern](OWNED_HOST_CI_ISOLATION.md) erzeugt für
 jedes neue `0.2`-Lab einen noch nicht existierenden privaten StateRoot und eine
@@ -132,7 +144,7 @@ nicht gelöscht und vorhandener Trust nicht entzogen.
 
 Der Default der öffentlichen Erstellung und des bisherigen Exports bleibt
 `Encrypt=True;TrustServerCertificate=True`. Hyper-V, Linuxclients und
-andere SQL-/Patchstände sind für diesen operativen Export noch nicht freigegeben.
+andere SQL-/Patchstände außer SQL 2025 CU9 und SQL 2022 CU27 sind für diesen operativen Export noch nicht freigegeben.
 Die früheren getrennten nativen Kryptoproben erweitern diese Capability nicht.
 Die öffentliche Podman-Abnahme vom 2026-10-20 und der zusammengesetzte
 Docker-Regressionsnachweis sind in der Validierungsstrategie getrennt geführt.

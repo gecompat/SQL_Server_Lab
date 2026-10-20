@@ -1,5 +1,11 @@
 # Bekannte Grenzen
 
+SQL 2022 CU27 ist im operativen Windows-/Docker-/Podman-TLS-Pfad mit
+geschlossener `0.3`-Profilbindung implementiert. Die getrennten nativen Abnahmen
+bestanden je sieben Fälle, sechs strikte Clientergebnisse und vollständigen
+eigenen Container-/Volume-/Exportcleanup. Andere SQL-/Patchstände,
+Hyper-V-False/Export, Linuxclients, Consumer-Cutover und Renewal bleiben offen.
+
 Die öffentliche operative False-Lane und der signierte V2-Export sind zusätzlich
 für Windows-/Podman-SQL-2025-CU9 implementiert. Die öffentliche native Abnahme
 vom 2026-10-20 bestand sieben Fälle mit sechs strikten Clientergebnissen und
