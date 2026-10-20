@@ -11,12 +11,12 @@ Trustscope-Referenzen sind eindeutig und auch nach abgebrochenen Intents reservi
 Der Writer unterstützt lokale feste NTFS- und ReFS-Volumes; dieselben geschützten Journale, Sperren und nativen File.Replace-/Recoveryprüfungen gelten auf beiden. Die lokale ReFS-Writersuite bestand alle 45 Fälle einschließlich eigenem Cleanup. Der APIvertrag für den Dateiersatz ist bei [Microsoft](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-replacefilew) beschrieben.
 
 `New-SqlServerLab -TrustServerCertificate:$false` verlangt Windows mit
-PowerShell 7.5+, Docker, den lokal vorhandenen Katalogstand `2025-CU9`,
+PowerShell 7.5+, ausdrücklich Docker oder Podman, den lokal vorhandenen Katalogstand `2025-CU9`,
 `DataRoot`, `TlsControllerId`, `TlsLocationId` und `TlsCandidateId`.
 Der Pfad erzeugt einen eigenen StateRoot unter
 `State/authenticated-tls-labs/<AuditId>` und genau einen eigenen Run.
 Autostart bleibt zwingend `off`; `on` wird abgelehnt. Der Pfad aktiviert keinen globalen Host-Autostartkoordinator.
-Manifest, vorhandener StateRoot, Hostmounts und andere Provider werden vor
+Ohne Providerangabe bleibt Docker der Standard. Manifest, vorhandener StateRoot, Hostmounts und andere Provider werden vor
 Provideraktionen abgelehnt. CA-Metadaten werden gemeinsam registriert;
 bestehende SQL-Ziele werden nicht übernommen oder umkonfiguriert.
 
@@ -26,6 +26,41 @@ für IP `127.0.0.1` mit einem Tag Gültigkeit aus. SQL erhält die exakten
 Zertifikats-/Keypfade und Force Encryption; Stop/Start läuft über den öffentlichen
 Lifecycle. Der lokale geschützte Bindungsrecord enthält Run, Scope, Instanz,
 Container-/Image-ID, Port, Startzeit sowie Leaf-DER und Fingerprint.
+
+Neue Bindungsrecords `SqlServerLab.AuthenticatedTlsLab/0.2` enthalten den
+ausdrücklich gewählten Provider und die ursprüngliche Runtimebindung. Die geschlossene historische Form `0.1` bleibt
+ausschließlich Docker zugeordnet; sie wird nicht als Podman interpretiert.
+Die gespeicherte Runtime-Herkunft des Runs muss vor TLS-Mutationen und bei
+Qualifikation zur aktuell beobachteten Runtime passen: Provider, Runtime-Scope,
+Routing-Key und Engine-/Machine-Inkarnation. CLI-Aufrufe verwenden den gebundenen
+Endpoint und unter Podman die zugehörige SSH-Identität. Geerbte Routingvariablen
+werden entfernt; ein anderer Default führt nicht zu einem Providerfallback.
+
+Der vorhandene [OwnedRunWindows-Kern](OWNED_HOST_CI_ISOLATION.md) erzeugt für
+jedes neue `0.2`-Lab einen noch nicht existierenden privaten StateRoot und eine
+dauerhafte Policy. Dieser Consumer ist ein eigenes TLS-Lab, keine Übernahme
+eines bestehenden CI-Roots. Der TLS-Audit bindet die Policyinitialisierung;
+die legitime Workflowoperation des Runs bleibt davon getrennt. Die frische
+Runreferenz und Creation-/Custodyreceipts binden Policyhash, Scope und Ressourcen.
+Öffentliche Erstellung, Stop, Start, Remove und Fehlerkompensation verwenden
+dadurch dieselbe Route, auch in späteren Prozessen und bei geänderten
+Routingvariablen. Fehlende oder beschädigte Policy erlaubt keinen Legacyfallback.
+Der dedizierte TLS-Lab-Rootguard akzeptiert diese strengere Owner-only-Rootform;
+CA-, Zertifikats-, Record- und Exportdateien behalten ihre bisherigen privaten
+CurrentUser-/SYSTEM-ACLs. Der generische CA-ACLguard wird nicht erweitert.
+Die policybasierte Scopeprojektion ist keine Enginegeneration: ursprünglicher
+Routing-Key und Engine-/Machine-Inkarnation bleiben separat im geschützten
+TLS-Record und werden am ursprünglichen Pin frisch gelesen. Podman benötigt
+dabei keine neue Auswahl der Defaultconnection.
+
+Der gepinnte Preflight löst den festen Katalogtag auf eine vollständige
+SHA256-Image-ID auf. Vor Target-Intent und CSR muss das frisch beobachtete
+Containerimage genau dazu passen. Neue `0.2`-Container starten unveränderlich
+mit diesem Digest; native volle IDs mit oder ohne `sha256:` werden kanonisch
+verglichen, Tags und Kurz-IDs abgelehnt. Historische `0.1`-Docker-Records behalten
+ihren exakten Launch-Tagvertrag. Beide Provider geben den StateRoot ausdrücklich
+an ihren Operation-Wrapper weiter, damit Arrange, Lifecycle, Compensation und
+Diagnoselog unter derselben Policy bleiben.
 
 Vor Qualifikation werden Eigentumslabels, aktueller Container, Image, Port,
 Startzeit, Zertifikatsdatei, Keyrechte `600:10001`, SQL-Konfiguration und die
@@ -65,6 +100,9 @@ ACLs. JSON und ENV enthalten Klartextkennwörter und bleiben lokal.
 Gültigkeit: höchstens 15 Minuten, begrenzt durch das Leaf. Signatur, Flags,
 Eintragshash, Referenzen und aktuelle native Bindungen werden beim Readback
 geprüft. ENV/Markdown sind Begleitformate; autoritativ ist das signierte JSON.
+Provider im Eintrag und in der signierten Qualifikation müssen zur eigenen
+Runbindung passen. Auch eine gültige CA-Signatur erlaubt keine Umdeutung eines
+Podman-Nachweises als Docker-Nachweis.
 Ein bestehendes Exportverzeichnis wird nicht überschrieben.
 Bestehende V1-Consumer benötigen einen expliziten V2-Cutover mit eigener
 Abnahme. Dieser Pfad behauptet keine Toolbelt-/Analyze-Abnahme und keinen
@@ -73,8 +111,17 @@ Fallback auf V1 oder ein anderes SQL-Ziel.
 ## Fehler und Lebenszyklus
 
 Vor Provideränderungen stehen eigener State, Intent und Cleanupzuständigkeit
-fest. Einzelne Docker-Kommandos haben 45 Sekunden Timeout; die private TLS-
-Operation hat höchstens 100 eigene Docker-Kommandos und 20 Minuten Budget. Ein eigenes explizites Budgetobjekt wird durch alle privaten Schritte weitergegeben; unterschiedliche Operationen teilen keine Zähler oder Fristen.
+fest. Einzelne Container-Kommandos haben 45 Sekunden Timeout; die private TLS-
+Operation hat höchstens 100 gezählte TLS-Runtime-Kommandos und 20 Minuten Budget.
+Die feste Runtime-Discovery wird vorab mit ihrem konservativen Maximum von sechs
+Kommandos verrechnet; frische Inkarnationsprüfungen zählen ebenfalls. Die
+darunterliegenden Custodyreader und der normale Lab-Lifecycle behalten ihre
+eigenen vorhandenen festen Grenzen.
+Die
+Zertifikatsübergabe über stdin ist auf 16 KiB und zehn Sekunden begrenzt.
+Ein eigenes explizites Budgetobjekt bindet Provider und Runtime und wird durch
+alle privaten Schritte weitergegeben; unterschiedliche Operationen teilen keine
+Zähler oder Fristen.
 Der normale Lab-Lifecycle besitzt seine vorhandenen eigenen Grenzen.
 Fehler nach erfolgreicher Runanlage entfernen ausschließlich den neuen Run
 über `Remove-SqlServerLab`; unbestätigter Cleanup bleibt Recoverybedarf.
@@ -84,9 +131,11 @@ StateRoot gestartet, gestoppt oder entfernt. Der CA-/Trustscope wird dabei
 nicht gelöscht und vorhandener Trust nicht entzogen.
 
 Der Default der öffentlichen Erstellung und des bisherigen Exports bleibt
-`Encrypt=True;TrustServerCertificate=True`. Podman, Hyper-V, Linuxclients und
+`Encrypt=True;TrustServerCertificate=True`. Hyper-V, Linuxclients und
 andere SQL-/Patchstände sind für diesen operativen Export noch nicht freigegeben.
 Die früheren getrennten nativen Kryptoproben erweitern diese Capability nicht.
+Die öffentliche Podman-Abnahme vom 2026-10-20 und der zusammengesetzte
+Docker-Regressionsnachweis sind in der Validierungsstrategie getrennt geführt.
 
 Prüfwege: [Authority-Fixtures](../../Tests/Static/Invoke-AuthenticatedTlsAuthorityChecks.ps1),
 [Export-Fixtures](../../Tests/Static/Invoke-AuthenticatedTlsLabChecks.ps1),

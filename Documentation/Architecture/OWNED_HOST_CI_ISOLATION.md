@@ -1,5 +1,19 @@
 # Eigener CI-Scope auf einem gemeinsam genutzten Windows-Host
 
+Der bestehende `OwnedRunWindows`-Kern wird zusätzlich von der neuen
+[operativen TLS-Lane](AUTHENTICATED_TLS_OPERATIONAL_LAB.md) für ausschließlich
+frische eigene `0.2`-Lab-StateRoots verwendet. Policy, Owner-only-Rootcustody,
+Runreferenzen, Creationreceipts und gepinnte Lifecycle-/Cleanupaufrufe bleiben
+unverändert. Der eigene TLS-Lab-Rootguard ist vom unveränderten CA-/Datei-ACLguard
+getrennt. Eine ursprüngliche Engine-/Machine-Inkarnation speichert und prüft
+dieser Consumer zusätzlich; sie wird nicht aus der Policy-Scopeprojektion
+abgeleitet. Der folgende CI-Harness bleibt ein getrennter Consumer.
+Die beiden Provider geben ihren StateRoot bei Volume-Create/-Initialisierung
+und Container-Create/-Start/-Stop/-Remove ausdrücklich an den Operation-Wrapper
+weiter. Dessen eigener Parameter darf den Effekt- und Diagnoselogkontext nicht
+durch seinen leeren Default ersetzen. Eine Fixture mit tatsächlichem Wrapper
+prüft beide Remove-Pfade; Creation-Fixtures verlangen ebenfalls den gebundenen Root.
+
 Der Portvorschau-Harness verwendet einen frischen externen
 `sql-lab-port-preview-<GUID-N>`-Parent plus getrennte Policy am `State`-Child.
 Nur die eigene Parent-Location wird registriert; der moderne nichtpersistente

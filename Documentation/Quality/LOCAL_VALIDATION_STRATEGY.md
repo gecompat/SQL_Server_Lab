@@ -5485,9 +5485,51 @@ Kosten und Tokenmessung sind unbekannt; es gibt keine neue Modell-/Logpipeline.
 
 ## Isolierter operativer TLS-Pfad
 
+### Öffentliche Providerabnahme vom 2026-10-20
+
+Die zusätzliche öffentliche Windows-/Podman-Lane verwendet denselben festen
+SQL-2025-CU9-Vertrag mit ausdrücklich gebundenem Provider, Runtime-Herkunft und
+signiertem V2-Export. Die fokussierte TLS-Suite bestand mit 83 PASS / 0 FAIL;
+der eigene Export-Cleanup bestand mit 9 PASS / 0 FAIL einschließlich neuer
+`0.2`-Podman-Bindung ohne CA-/Trustzugriff. Synthetische Provider-/Origin-Drift
+und eine neu gültig signierte falsche Providerqualifikation werden abgewiesen.
+Der reale Provider-Operation-Wrapper und seine explizite Rootweitergabe sind
+Teil der erfolgreichen Ownership-Suite mit 223 Prüfungen. Die ursprüngliche
+lokale Auswahl mit 27 Suites und die neue betroffene Providerregression mit
+20 Suites bestanden; korrigierte konkrete Deltas wurden separat fokussiert
+geprüft und unabhängig geschlossen. Ein wegen Fixtureisolation abgebrochener
+Zwischenlauf bleibt ausdrücklich kein PASS.
+
+Unter Windows/PowerShell 7.6.6 bestand die öffentliche Podman-Abnahme alle
+sieben Fälle: eigene False-Erstellung, frische False-Qualifikation mit
+signiertem V2-Export, exportierte Credentials in beiden echten Clientstacks,
+CLI-/GUI-Workflowflags, Stale-/Tamperablehnung mit Wiederherstellung, öffentlicher
+Stop/Start unter prozesslokal ungültigen Routingvariablen und die tatsächliche
+Neustartablehnung des alten Nachweises. Erstellung, Exportqualifikation und
+Credentialsprobe liefern zusammen sechs erfolgreiche strikte Clientergebnisse
+mit System.Data.SqlClient und ODBC sqlcmd. Cleanup bestätigte am ursprünglichen
+Pin null eigene Container und null eigene Volumes sowie entfernte feste
+Exportdateien. Vorhandene Verbindungsdateien, Root-/Katalogdateien und
+Host-Autostart blieben unverändert.
+
+Der Docker-Regressionsnachweis ist zusammengesetzt. Versuch 1 scheiterte vor
+CSR/Leaf am Unterschied zwischen Tag und unveränderlichem Launch-Digest; sein
+eigener Run wurde entfernt und frische same-pin Abwesenheit bestätigt.
+Nach dem Imagefix bestanden in Versuch 2 dieselben sieben Fälle mit sechs
+strikten Clientergebnissen. Dessen abschließender Cleanup scheiterte an der
+leeren StateRoot-Überschattung im Provider-Operation-Wrapper und bleibt FAIL.
+Nach expliziter Rootweitergabe in allen zwölf betroffenen Docker-/Podman-
+Operationen wurde ausschließlich der vorhandene Docker-Run erneut entfernt:
+REMOVED, same-pin null Container/null Volumes, fester Export entfernt und
+Bestandsvergleich PASS, weiterhin unter demselben Prozess-Routingpoison.
+Es gab kein drittes Docker-Lab und keine Wiederholung der sieben grünen Fälle.
+Die getrennte Podman-Abnahme lief danach bereits auf diesem korrigierten Stand.
+Die ursprünglichen Fehlversuche werden durch den Cleanup-Nachlauf nicht
+nachträglich grün. Rohdaten und Secrets bleiben ausschließlich lokal geschützt.
+
 Der additive [operative TLS-Vertrag](../Architecture/AUTHENTICATED_TLS_OPERATIONAL_LAB.md)
 verbindet eine bereits vertraute CA mit eigenem Trustscope und einem neuen
-Docker-SQL-2025-CU9-Lab. Die explizite False-Wahl und der separate qualifizierte
+Docker- oder Podman-SQL-2025-CU9-Lab. Die explizite False-Wahl und der separate qualifizierte
 V2-Export sind vom unveränderten True/True-Default getrennt. Native Abnahme und
 weitere Providergrenzen werden in der Validierungsstrategie getrennt geführt.
 ### Operativer TLS-Pfad vom 2026-10-17
@@ -5527,8 +5569,9 @@ Dateirechte mit ausdrücklich injizierten Providerbeobachtungen. Diese Fixtures
 ersetzen die oben genannten echten SQL-Sitzungen nicht. Unabhängiger Quellreview
 schloss vier konkrete Findings sowie die nachfolgenden Cleanup-/Budgetdeltas.
 
-Fehlende Nachweise bleiben explizit: öffentliche operative False-Lane für Podman,
-Hyper-V, Linuxclients und andere SQL-/Patchstände; V2-Cutover fremder Consumer;
+Die am 2026-10-17 noch fehlende öffentliche Podman-Lane ist durch die obige
+Abnahme vom 2026-10-20 ergänzt. Weiter offen bleiben öffentliche operative
+Hyper-V-False-/Exportpfade, Linuxclients und andere SQL-/Patchstände; V2-Cutover fremder Consumer;
 Wire-Zertifikatsfingerprint, automatische Erneuerung/Rebind und vollständige
 Produktseitenkomposition. Der bestehende True/True-Default und seine früheren
 getrennten Providerbelege werden dadurch nicht umdefiniert.

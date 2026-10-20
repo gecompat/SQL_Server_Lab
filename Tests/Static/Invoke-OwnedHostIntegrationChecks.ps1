@@ -53,6 +53,54 @@ $module = New-Module -ArgumentList $repoRoot,$fixtureRoot -ScriptBlock {
     function Start-Process { throw 'FORBIDDEN_PROCESS' }
     function Invoke-LabStoppedHostMemoryRelease { throw 'FORBIDDEN_SHARED_MEMORY' }
 
+    # Keep the real operation wrapper: its StateRoot parameter shadows the
+    # provider caller unless that caller explicitly propagates the context.
+    $removalContext=New-Module -ArgumentList $repoRoot,$fixtureRoot -ScriptBlock {
+        param($Repository,$Fixture)
+        . (Join-Path $Repository 'Private/Common.ps1')
+        . (Join-Path $Repository 'Providers/Docker/DockerProvider.ps1')
+        . (Join-Path $Repository 'Providers/Podman/PodmanProvider.ps1')
+        $script:expectedRoot=Join-Path $Fixture 'removal-context'
+        $null=New-Item -ItemType Directory -Path $script:expectedRoot
+        [IO.File]::WriteAllText((Join-Path $script:expectedRoot 'owned-host-required'),'synthetic')
+        $script:cid='a'*64
+        function Get-LabOwnedHostPolicy {param($StateRoot,[switch]$Required) [pscustomobject]@{StateRoot=$StateRoot}}
+        function Get-LabHostToolInvocation {'synthetic-not-executable'}
+        function Assert-LabOwnedHostContainerEffect {param($StateRoot,$RunId,$Provider,$ContainerId)
+            if($StateRoot -cne $script:expectedRoot -or $ContainerId -cne $script:cid){throw 'SYNTHETIC_CUSTODY_DRIFT'}
+        }
+        function Remove-LabOwnedHostAutoStartIfUnused {}
+        function Write-LabSuccess {}
+        function Write-LabProviderLog {param($Provider,$Phase,$Command,$Output,$ExitCode,$RunId,$StateRoot)
+            $script:observedLogRoot=$StateRoot;return $null
+        }
+        function Invoke-LabContainerRuntimeCommand {
+            param($Provider,$StateRoot,$Invocation,[string[]]$ArgumentList,[switch]$NativeResult,$TimeoutSeconds)
+            if($StateRoot -cne $script:expectedRoot){throw 'SYNTHETIC_REMOVAL_ROOT_LOST'}
+            $global:LASTEXITCODE=0
+            if($ArgumentList[0] -ceq 'inspect'){
+                return ('[{"Id":"'+$script:cid+'","Config":{"Labels":{"sql-server-lab.scope-id":"synthetic-scope","sql-server-lab.run-id":"synthetic-run","sql-server-lab.owned-host-policy-id":"synthetic-policy"}}}]')
+            }
+            if(($ArgumentList -join '|') -cne ('rm|-f|'+$script:cid) -or -not $NativeResult){throw 'SYNTHETIC_UNEXPECTED_REMOVAL'}
+            $script:observedEffectRoot=$StateRoot
+            return [pscustomobject]@{ExitCode=0;Output=@($script:cid)}
+        }
+        function Invoke-RemovalCases {
+            foreach($provider in @('docker','podman')){
+                $script:observedEffectRoot=$null;$script:observedLogRoot=$null
+                & ('Remove-'+$provider+'Instance') -ContainerIdOrName $script:cid -ExpectedScopeId synthetic-scope -StateRoot $script:expectedRoot
+                [pscustomobject]@{Provider=$provider;EffectBound=($script:observedEffectRoot -ceq $script:expectedRoot);LogBound=($script:observedLogRoot -ceq $script:expectedRoot)}
+            }
+        }
+        Export-ModuleMember -Function @()
+    }
+    $removalResults=@(& $removalContext {Invoke-RemovalCases})
+    Assert-Own ($removalResults.Count -eq 2) 'Real removal wrapper fixture executes both selected providers'
+    foreach($result in $removalResults){
+        Assert-Own $result.EffectBound "$($result.Provider) real removal wrapper retains the explicit root through effect dispatch"
+        Assert-Own $result.LogBound "$($result.Provider) real removal wrapper writes diagnostics to that same root"
+    }
+
     $imageFixture=New-Module -ArgumentList $repoRoot -ScriptBlock {
         param($Repository)
         . (Join-Path $Repository 'Private/ContainerOwnedHostIntegration.ps1')
@@ -359,7 +407,8 @@ $module = New-Module -ArgumentList $repoRoot,$fixtureRoot -ScriptBlock {
         function Assert-LabContainerStoreRuntimeScope {param($Provider,$RuntimeBinding,$StateRoot)
             Require-ConsumerRoot $StateRoot;$script:driveChecks++
         }
-        function Invoke-LabProviderOperation {param($Action)
+        function Invoke-LabProviderOperation {param($Action,$StateRoot)
+            Require-ConsumerRoot $StateRoot
             $output=@(& $Action);[pscustomobject]@{Output=$output;ExitCode=$global:LASTEXITCODE;LogPath=$null}
         }
         function Register-LabOwnedHostContainer {[pscustomobject]@{ContainerId=$script:cid}}

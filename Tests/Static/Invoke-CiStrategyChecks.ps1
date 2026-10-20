@@ -894,6 +894,11 @@ Add-CheckResult -Name 'CI-Infrastruktur prueft einmalig alle Runtime-Gates' -Suc
 
 # Einzelpfade verhindern, dass ein zweiter Dateiname eine fehlende Abhaengigkeit verdeckt.
 $dependencyCases = @(
+    @{ Path = 'Private/AuthenticatedTlsLab.ps1'; Checks = @('Invoke-OwnedHostIntegrationChecks.ps1','Invoke-AuthenticatedTlsLabChecks.ps1'); Runtime = @('Docker','Podman','Mixed','HyperV','Adapter') },
+    @{ Path = 'Providers/Docker/DockerProvider.ps1'; Checks = @('Invoke-OwnedHostIntegrationChecks.ps1'); Runtime = @('Docker') },
+    @{ Path = 'Providers/Podman/PodmanProvider.ps1'; Checks = @('Invoke-OwnedHostIntegrationChecks.ps1'); Runtime = @('Podman') },
+    @{ Path = 'Private/AuthenticatedTlsQualification.ps1'; Checks = @('Invoke-OwnedHostIntegrationChecks.ps1','Invoke-AuthenticatedTlsLabChecks.ps1'); Runtime = @('Docker','Podman','Mixed','HyperV','Adapter') },
+    @{ Path = 'Tests/Static/Fixtures/AuthenticatedTlsLabProviderChecks.ps1'; Checks = @('Invoke-OwnedHostIntegrationChecks.ps1','Invoke-AuthenticatedTlsLabChecks.ps1'); Runtime = @() },
     @{ Path = 'Private/ContainerOwnedHostIntegration.ps1'; Checks = @('Invoke-OwnedHostIntegrationChecks.ps1'); Runtime = @('Docker','Podman','Mixed','HyperV','Adapter') },
     @{ Path = 'Tests/Common/OwnedHostTestScope.ps1'; Checks = @('Invoke-OwnedHostIntegrationChecks.ps1'); Runtime = @('Docker','Podman','Mixed','HyperV','Adapter') },
     @{ Path = 'Schemas/container-owned-host-integration.schema.json'; Checks = @('Invoke-OwnedHostIntegrationChecks.ps1'); Runtime = @('Docker','Podman','Mixed','HyperV','Adapter') },

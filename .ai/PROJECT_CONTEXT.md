@@ -1396,6 +1396,14 @@ Der [kanonische Handoff](../Documentation/HowTo/OPERATOR_DIAGNOSTIC_HANDOFF.md) 
 
 Der additive [operative TLS-Vertrag](../Documentation/Architecture/AUTHENTICATED_TLS_OPERATIONAL_LAB.md)
 verbindet eine bereits vertraute CA mit eigenem Trustscope und einem neuen
-Docker-SQL-2025-CU9-Lab. Die explizite False-Wahl und der separate qualifizierte
+Docker- oder Podman-SQL-2025-CU9-Lab. Die explizite False-Wahl und der separate qualifizierte
 V2-Export sind vom unveränderten True/True-Default getrennt. Native Abnahme und
 weitere Providergrenzen werden in der Validierungsstrategie getrennt geführt.
+Neue `0.2`-Labbindungen enthalten den Provider; alte `0.1`-Bindungen bleiben
+Docker zugeordnet. Runtime-Herkunft und signierter Export werden gegen denselben
+ausdrücklich gewählten Provider geprüft. Die öffentliche Windows-/Podman-Abnahme
+vom 2026-10-20 bestand sieben Fälle einschließlich sechs strikter Clientergebnisse
+und eigenem Cleanup. Docker besitzt einen zusammengesetzten Nachweis aus sieben
+bestandenen Fällen und einem gezielten Cleanup-Nachlauf am vorhandenen Run;
+die ursprünglichen Fehlversuche bleiben erhalten. Details und Grenzen stehen in
+der Validierungsstrategie.
