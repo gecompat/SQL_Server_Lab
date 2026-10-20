@@ -34,6 +34,55 @@ foreach($change in @('Sequence','EffectEntered','PreviousSha256','Extra')){
 }
 $text=New-ConsumerFixture|ConvertTo-Json -Compress -Depth 6
 foreach($invalid in @($text.Replace('"ContractVersion":','"contractversion":'),$text.Replace('"Events":','"Events":[],"Events":'),('['+$text+']'),($text+' ' +$text))){$r=Read-LabTlsSqlConsumerJournal -Utf8Json ([Text.Encoding]::UTF8.GetBytes($invalid)) @ids;Add-CheckResult 'TLS-CG duplicate/case/array/trailing JSON rejected' (-not $r.Success)}
+
+# The byte builder must preserve the existing reader's exact event representation.
+$initial=New-LabTlsSqlConsumerJournalBytes @ids
+Add-CheckResult 'TLS-CG byte construction starts prepared without authority' ($initial.Success -and $initial.Value.Utf8Json -is [byte[]] -and $initial.Value.Journal.Phase -ceq 'PREPARED' -and -not $initial.Value.Journal.MutationAllowed)
+$current=$initial
+foreach($phase in @('DISPATCHED','REPLY_OBSERVED','RECOVERY_REQUIRED')){
+    $next=New-LabTlsSqlConsumerJournalBytes @ids -PreviousUtf8Json $current.Value.Utf8Json -ExpectedJournalSha256 $current.Value.Journal.JournalSha256 -NextPhase $phase
+    Add-CheckResult ('TLS-CG constructed transition remains readable '+$phase) ($next.Success -and $next.Value.Journal.Phase -ceq $phase -and $next.Value.Journal.Status -ceq 'RECOVERY_REQUIRED' -and -not $next.Value.Journal.RetryAllowed -and -not $next.Value.Journal.StopAllowed -and -not $next.Value.Journal.CleanupAllowed)
+    $current=$next
+}
+$original=[Convert]::ToBase64String($current.Value.Utf8Json)
+foreach($phase in @('DISPATCHED','COMPLETED','CLEANED','PREPARED','recovery_required')){
+    $r=New-LabTlsSqlConsumerJournalBytes @ids -PreviousUtf8Json $current.Value.Utf8Json -ExpectedJournalSha256 $current.Value.Journal.JournalSha256 -NextPhase $phase
+    Add-CheckResult ('TLS-CG byte builder refuses replay or invented end '+$phase) (-not $r.Success -and $null -eq $r.Value)
+}
+Add-CheckResult 'TLS-CG rejected append leaves original caller bytes intact' ([Convert]::ToBase64String($current.Value.Utf8Json) -ceq $original)
+$r=New-LabTlsSqlConsumerJournalBytes @ids -PreviousUtf8Json $initial.Value.Utf8Json -ExpectedJournalSha256 ('f'*64) -NextPhase 'DISPATCHED'
+Add-CheckResult 'TLS-CG byte builder refuses stale journal hash' (-not $r.Success)
+$changed=@{};foreach($key in $ids.Keys){$changed[$key]=$ids[$key]};$changed.RunId='55555555-5555-4555-8555-555555555555'
+$r=New-LabTlsSqlConsumerJournalBytes @changed -PreviousUtf8Json $initial.Value.Utf8Json -ExpectedJournalSha256 $initial.Value.Journal.JournalSha256 -NextPhase 'DISPATCHED'
+Add-CheckResult 'TLS-CG byte builder refuses rebound prior journal' (-not $r.Success)
+$r=New-LabTlsSqlConsumerJournalBytes @ids -NextPhase 'DISPATCHED'
+Add-CheckResult 'TLS-CG initial construction cannot skip prepared' (-not $r.Success)
+$r=New-LabTlsSqlConsumerJournalBytes @ids -ExpectedJournalSha256 ('a'*64)
+Add-CheckResult 'TLS-CG initial construction cannot consume an unattached hash' (-not $r.Success)
+$r=New-LabTlsSqlConsumerJournalBytes @ids -PreviousUtf8Json $null -ExpectedJournalSha256 ('a'*64) -NextPhase 'DISPATCHED'
+Add-CheckResult 'TLS-CG explicit null predecessor cannot become a fresh journal' (-not $r.Success)
+$r=New-LabTlsSqlConsumerJournalBytes @ids -PreviousUtf8Json ([byte[]]@(255)) -ExpectedJournalSha256 ('a'*64) -NextPhase 'DISPATCHED'
+Add-CheckResult 'TLS-CG malformed predecessor is rejected before construction' (-not $r.Success)
+$aborted=New-LabTlsSqlConsumerJournalBytes @ids -PreviousUtf8Json $initial.Value.Utf8Json -ExpectedJournalSha256 $initial.Value.Journal.JournalSha256 -NextPhase 'ABORTED_NO_EFFECT'
+$r=New-LabTlsSqlConsumerJournalBytes @ids -PreviousUtf8Json $aborted.Value.Utf8Json -ExpectedJournalSha256 $aborted.Value.Journal.JournalSha256 -NextPhase 'DISPATCHED'
+Add-CheckResult 'TLS-CG aborted journal cannot dispatch later' ($aborted.Success -and -not $r.Success)
+$r=New-LabTlsSqlConsumerJournalBytes @ids -PreviousUtf8Json $initial.Value.Utf8Json -ExpectedJournalSha256 $initial.Value.Journal.JournalSha256
+Add-CheckResult 'TLS-CG append never silently repeats prepared default' (-not $r.Success)
+$noncanonical=New-ConsumerFixture @('PREPARED','DISPATCHED')
+$firstRaw=$noncanonical.Events[0]|ConvertTo-Json -Depth 3
+$noncanonical.Events[1].PreviousSha256=[Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($firstRaw))).ToLowerInvariant()
+$secondRaw=$noncanonical.Events[1]|ConvertTo-Json -Compress -Depth 3
+$envelope=New-ConsumerFixture;$envelope.Events=@()
+$seedText=($envelope|ConvertTo-Json -Compress -Depth 6).Replace('"Events":[]',('"Events":['+$firstRaw+','+$secondRaw+']'))
+$seedBytes=[Text.Encoding]::UTF8.GetBytes($seedText)
+$seed=Read-LabTlsSqlConsumerJournal -Utf8Json $seedBytes @ids
+Add-CheckResult 'TLS-CG noncanonical whitespace fixture is valid before append' $seed.Success
+$r=New-LabTlsSqlConsumerJournalBytes @ids -PreviousUtf8Json $seedBytes -ExpectedJournalSha256 $seed.Value.JournalSha256 -NextPhase 'REPLY_OBSERVED'
+$observed=$null
+try{
+    if($r.Success){$observed=[Text.Json.JsonDocument]::Parse([Text.Encoding]::UTF8.GetString($r.Value.Utf8Json))}
+    Add-CheckResult 'TLS-CG append preserves exact prior raw events including whitespace' ($r.Success -and $observed.RootElement.GetProperty('Events')[0].GetRawText() -ceq $firstRaw -and $observed.RootElement.GetProperty('Events')[1].GetRawText() -ceq $secondRaw)
+}finally{if($observed){$observed.Dispose()}}
 function Invoke-TlsAnchorCaseProbe {
 param([string]$SourcePath,[string]$FixtureRoot)
 $ErrorActionPreference='Stop'

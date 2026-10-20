@@ -1,5 +1,25 @@
 # Autonome Entwicklungswelle nach der Repository-Durchsicht
 
+## Wiederaufnahme vom 2026-10-20
+
+Der Benutzer hat die Entwicklung in einem neuen Orchestrator-Chat ausdrücklich
+wiederaufgenommen. Die vorherige allgemeine Pause ist damit aufgehoben. Als
+erste Bestandsarbeit wurde das Foundation-Upgrade aus PR #809 nach dem
+unverändert abgeschlossenen vollständigen PR-Gate integriert und sein eigener
+Branch/Worktree nach gesicherter Übernahme bereinigt. Fremde Worktrees und
+erhaltene Runtime-Evidence bleiben bestehen; kein Scheduler wurde aktiviert.
+
+Der folgende begrenzte TLS-001-Scope ergänzt ausschließlich den reinen Aufbau
+geschlossener SQL-Journalbytes mit exakter Ereignisverkettung und geprüfter
+Vorgängerbindung. Dauerhafter Journalwriter, feste Worker-/Supervisorquellen
+und der tatsächliche Gast-/Installer-Verbrauchernachweis bleiben die nächsten
+Voraussetzungen. Keine SQL-, VM-, Key-, CSR-, CA- oder Trustaktion wird daraus
+freigegeben. Frühere geschlossene beziehungsweise ausgeschöpfte Versuchs- und
+Reviewlimits sowie historische FAIL-Ergebnisse werden nicht zurückgesetzt.
+SC-2026-045 bleibt gesperrt; C# bleibt USER_DEFERRED und Native-CMS
+BLOCKED_NO_RETRY. Genau ein Implementierer verantwortet den Scope; der stabile
+Diff benötigt vor Integration die unabhängige Abnahme und seine Pflichtgates.
+
 Der [private Consumer-Guard](../Architecture/AUTHENTICATED_TLS_CONSUMER_GUARD.md) ergänzt die vorbereitende gehaltene Lesebindung und einen geschlossenen SQL-Journalreader. Verlorener Reply wird nicht zu Verbraucherende oder Wiederholungsfreigabe. Ein fester unabhängig geprüfter Gastworker und tatsächliche native End-/Recovery-/TLS-Nachweise bleiben erforderlich; SC-2026-045 bleibt gesperrt.
 
 Die [öffentliche SQL-VM-ID-Lane](../Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md)
@@ -64,8 +84,8 @@ bleibt gesperrt; kein vorgezogener eigener SSIS-Scope.
 
 | Merkmal | Wert |
 |---|---|
-| Status | `ACTIVE`; ausdrücklich am 2026-10-16 in einem neuen Orchestrator-Chat wiederaufgenommen |
-| Stand | 2026-10-16 |
+| Status | `ACTIVE`; ausdrücklich am 2026-10-20 in einem neuen Orchestrator-Chat erneut wiederaufgenommen |
+| Stand | 2026-10-20 |
 | Auftrag | Autonome Entwicklung fortsetzen; nach abgeschlossenem SSISDB-Stream TLS-001 bearbeiten. C# bleibt USER_DEFERRED |
 | Ausgangspunkt | Durchsicht von `9cfd144`, vor Veröffentlichung gegen `ca9f09e` abgeglichen |
 | Ziel | vollständige Abarbeitung der Implementierungs-, Abnahme- und Bewertungsaufgaben bei konsistentem Gesamtsystem |

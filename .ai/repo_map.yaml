@@ -906,7 +906,7 @@ sources_of_truth:
   authenticated_tls_registry_root_contract: Documentation/Architecture/AUTHENTICATED_TLS_REGISTRY_ROOT.md
   authenticated_tls_consumer_guard_contract: Documentation/Architecture/AUTHENTICATED_TLS_CONSUMER_GUARD.md # retained Windows NTFS read handles + closed fixed-path SQL journal; no executor/end attestation/cleanup authority
   authenticated_tls_root_anchor: Private/AuthenticatedTlsRootAnchor.ps1
-  authenticated_tls_consumer_journal: Private/AuthenticatedTlsConsumerJournal.ps1
+  authenticated_tls_consumer_journal: Private/AuthenticatedTlsConsumerJournal.ps1 # closed read model and pure exact-event byte construction; no durable writer or dispatch
   validation_authenticated_tls_consumer_guard: Tests/Static/Invoke-AuthenticatedTlsConsumerGuardChecks.ps1 # actual own NTFS handles and synthetic journals; Request/RegistryIndex dependencies, no VM/setup/key/trust action
   authenticated_tls_registry_root: Private/AuthenticatedTlsRegistryRoot.ps1 # read-only registered local Windows root metadata and fixed registry file; non-atomic observation, no registration/authority
   validation_authenticated_tls_registry_root: Tests/Static/Invoke-AuthenticatedTlsRegistryRootChecks.ps1 # coupled DiagnosticBundleReader, request/index/payload/document; own synthetic files only, StorageContract producer preserved

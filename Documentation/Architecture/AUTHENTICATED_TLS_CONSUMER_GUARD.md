@@ -86,6 +86,32 @@ Reply. `ConsumerEnd` bleibt `NOT_PROVEN`; `Ready`, `MutationAllowed`,
 Readerbefund bestätigt ausschließlich die aufgezeichnete Form. Es gibt hier
 keinen Journalwriter, Executor, automatischen Retry oder Recovery-Apply.
 
+## Reiner Aufbau geschlossener Journalbytes
+
+`New-LabTlsSqlConsumerJournalBytes` erstellt im Speicher ein Journal derselben
+Form mit genau einem `PREPARED`-Ereignis. Für ein Folgeereignis verlangt die
+Funktion ausdrücklich die bisherigen UTF-8-Bytes, deren erwarteten SHA-256
+und dieselben Operation-/Run-/Scope-/VM-/Root-/Source-/Workerbindungen.
+Ein eigener Snapshot wird zuerst mit dem bestehenden Reader geprüft. Fehlende,
+veränderte oder umgebundene Vorgänger ergeben keinen neuen Anfang.
+
+Die Funktion erhält die exakte JSON-Repräsentation jedes bisherigen Ereignisses,
+einschließlich seiner Leerzeichen. Das neue Ereignis verweist auf den Hash des
+letzten unveränderten Ereignisses. Die äußere JSON-Repräsentation darf neu
+aufgebaut werden; ihr Gesamthash beschreibt ausschließlich die neuen Bytes.
+Der bestehende Reader prüft anschließend das vollständige Ergebnis und jeden
+Zustandswechsel. Replay, erfundene Endzustände und ein erneutes `PREPARED`
+nach Dispatch bleiben abgelehnt. Das Ergebnis enthält `Utf8Json` und das
+unveränderte lesende Statusmodell unter `Journal`.
+
+Der erwartete Vorgängerhash ist eine Bedingung an die übergebenen Bytes.
+Er ist kein atomarer Dateivergleich, Lock, dauerhafter Intent oder Beleg für
+die Herkunft eines Journals. Die Funktion öffnet keine Datei und persistiert
+oder dispatcht nichts. Ein späterer Writer muss frische Root-/Actorbindung,
+Serialisierung, dauerhaften Ersatz und Recovery separat gewährleisten.
+`ConsumerEnd` bleibt `NOT_PROVEN`; die bestehenden Ready-/Mutations-/Retry-/
+Stop-/Cleanupwerte bleiben false. Öffentliche Workflows bleiben unverändert.
+
 ## Ausstehender Verbrauchernachweis
 
 Der vorhandene CompleteImage-Gastblock wartet bis zu 90 Minuten auf seinen
