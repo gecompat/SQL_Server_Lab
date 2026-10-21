@@ -372,7 +372,12 @@ function Update-UiWorkflowInventory {
     try {
         if ($workflowInventory.Job.State -eq 'Completed') {
             $snapshot = @(Receive-Job -Job $workflowInventory.Job -ErrorAction Stop)
-            if ($snapshot.Count -gt 0) { $workflowInventory.Snapshot = $snapshot[-1] }
+            if ($snapshot.Count -gt 0) {
+                $workflowInventory.Snapshot = $snapshot[-1]
+                # Cache a completed result for five seconds even when inventory
+                # itself took longer; failed or empty jobs do not renew freshness.
+                $workflowInventory.RequestedAt = Get-Date
+            }
         }
     }
     finally {

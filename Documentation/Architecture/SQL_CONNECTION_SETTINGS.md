@@ -49,4 +49,9 @@ beide Werte, explizites `False`, fehlende Angaben und Geheimnisfreiheit.
 Dies ist keine gerenderte Browser- oder neue SQL-Verbindungsabnahme.
 Die getrennte gerenderte Komponentenabnahme und die tatsächliche lesende
 Workflow-Projektion sind in der [Validierungsstrategie](../Quality/LOCAL_VALIDATION_STRATEGY.md#angegebene-tls-werte-in-cli-und-gui-vom-2026-10-17)
-beschrieben; die vollständige Produktseiten-/SQL-Komposition bleibt separat.
+beschrieben. Die zusätzliche
+[Windows-Produktseitenabnahme vom 2026-10-21](../Quality/TLS_WINDOWS_RENDERED_CONNECTION_SETTINGS_2026-10-21.md)
+bestand an eigenen qualifizierten Docker-/Podman-SQL-2025-CU9-Labs mit echter
+Workflowantwort, sichtbaren False-Werten und exakt angezeigtem Connection
+String. Creation-Dialog, Clipboard und Qualifikationsstatusanzeige sowie
+weitere Modi und Plattformen bleiben getrennte offene Nachweise.

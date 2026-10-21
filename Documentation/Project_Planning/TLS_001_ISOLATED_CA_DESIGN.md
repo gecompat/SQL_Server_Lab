@@ -1,5 +1,13 @@
 # TLS-001a – Entwurf einer isolierten Lab-CA
 
+Die zusätzliche [Windows-Produktseitenabnahme der TLS-Anzeige](../Quality/TLS_WINDOWS_RENDERED_CONNECTION_SETTINGS_2026-10-21.md)
+bestand an eigenen qualifizierten Docker-/Podman-SQL-2025-CU9-Labs. Sie bindet
+die sichtbaren gespeicherten Werte und den angezeigten Connection String an
+den tatsächlichen frischen Workflow-Snapshot. Die vorhergehenden strikten
+SQL-Clientresultate bleiben ein getrennter Nachweis; CA-/Trust-Lebenszyklus,
+weitere Matrixkombinationen, Consumer-Cutover und zusätzliche Browserpfade
+bleiben entsprechend der dortigen offenen Schritte begrenzt.
+
 Der [private Consumer-Guard](../Architecture/AUTHENTICATED_TLS_CONSUMER_GUARD.md) ergänzt gehaltene Windows-NTFS-Lesehandles und einen geschlossenen SQL-Journalreader ohne Executor. Rootregistrierung, spätere Writer, tatsächliches Gast-/Kindprozessende sowie CA-/SQL-/TLS-Autorität werden dadurch nicht übernommen.
 
 Die [öffentliche SQL-VM-ID-Lane](../Architecture/HYPERV_SQL_COMPLETION_BOUNDARY.md)

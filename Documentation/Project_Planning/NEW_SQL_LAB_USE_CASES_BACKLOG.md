@@ -120,6 +120,16 @@ erhalten aber jeweils eigene Runtime-Evidence.
 
 #### TLS-001 – authentifizierte TLS-Verbindungen der Testumgebungen
 
+Die zusätzliche [echte Windows-Produktseitenabnahme](../Quality/TLS_WINDOWS_RENDERED_CONNECTION_SETTINGS_2026-10-21.md)
+schließt die gespeicherte TLS-Anzeige an eigenen qualifizierten Docker-/Podman-
+SQL-2025-CU9-Labs: frischer abgeschlossener Workflow-Snapshot, passender
+Endpoint, explizite False-Werte und exakt angezeigter Connection String.
+Der reproduzierte Inventurcachefehler ist korrigiert; ursprünglicher Docker-
+FAIL und getrennte PASS-Nachläufe bleiben erhalten. Creation-Dialog,
+Clipboard und gesonderte Qualifikationsstatusanzeige bleiben offen. Der
+verlinkte Nachweis führt die weiteren Matrix-, Lifecycle-, Consumer- und
+Trustkontext-Schritte; `TLS-001` bleibt `partial`.
+
 Die separate Windows-/SQL-2022-CU27-Neustart-/Rebind-Abnahme bestand unter Docker und Podman je zwölf Fälle und zwölf bezeichnete strikte Clientergebnisse auf Build `16.0.4295.3`, Recordform `0.3` mit `SqlProfileId=2022-CU27`, eigenem Cleanup und Bestandsvergleich. Damit sind diese beiden fehlenden Rebind-Kombinationen geschlossen; die übrigen TLS-001-Verträge bleiben getrennte offene Scopes.
 
 Die zusätzliche native Neustart-/Rebind-Abnahme für Windows-/SQL-2025-CU9 mit Docker und Podman bestand je zwölf Fälle und zwölf strikte Clientergebnisse auf Build `17.0.5005.3`, Recordform `0.2` ohne `SqlProfileId`, eigenem Cleanup und Bestandsvergleich. Die unabhängige Oracleprüfung unterscheidet Property-Abwesenheit von vorhandenen null-/Leerwerten. Weitere Patch-/Clientkombinationen und die übrigen offenen TLS-001-Verträge bleiben getrennte Scopes.
