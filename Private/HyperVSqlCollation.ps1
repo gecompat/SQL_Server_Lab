@@ -48,7 +48,7 @@ function Test-LabHyperVSqlCollationRuntimeEvidence {
         $null = Assert-HyperVLabSqlVmBinding -Lab $Lab @binding
     }
     try {
-        $rows = @(Invoke-HyperVPowerShellDirect -VMName ([string]$Lab.Instance.vmName) -StateRoot $Lab.StateRoot `
+        $rows = @(Invoke-HyperVPowerShellDirect -VMName ([string]$Lab.Instance.vmName) `
             -ExpectedRunId ([string]$Lab.Run.runId) -ExpectedScopeId ([string]$Lab.Run.scopeId) -Credential $Credential -NoRetry -FallbackAddress $FallbackAddress @binding `
             -ArgumentList @([string]$Lab.Run.runId, [string]$Lab.Run.scopeId, $expected, $SqlPort) -ScriptBlock {
                 param($RunId, $ScopeId, $ExpectedCollation, $Port)
@@ -95,6 +95,13 @@ SELECT
         throw 'HYPERV_SQL_COLLATION_RECEIPT_INVALID'
     }
     if (-not $receipt.CatalogAvailable) { throw 'HYPERV_SQL_COLLATION_CATALOG_UNAVAILABLE' }
+    foreach ($field in @('ServerCollation','MasterCollation','TempdbCollation')) {
+        $property = $receipt.PSObject.Properties[$field]
+        if (-not $property -or $property.Value -isnot [string] -or
+            [string]::IsNullOrWhiteSpace($property.Value) -or $property.Value -notmatch '^[A-Za-z0-9_]{1,128}$') {
+            throw 'HYPERV_SQL_COLLATION_RECEIPT_INVALID'
+        }
+    }
     foreach ($field in @('ServerCollation','MasterCollation','TempdbCollation')) {
         if (-not [string]::Equals([string]$receipt.$field, $expected, [StringComparison]::OrdinalIgnoreCase)) {
             throw 'HYPERV_SQL_COLLATION_POSTCONDITION_FAILED'

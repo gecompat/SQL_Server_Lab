@@ -36,6 +36,12 @@ foreach($case in @('ready','actions','blocked','hostDrift','subnetDrift','multip
         function Resolve-LabHyperVNetwork { $state.Mutations++;throw 'FORBIDDEN_INFRASTRUCTURE' }
         function Invoke-LabHyperVNetworkBoundPlan { $state.Mutations++;throw 'FORBIDDEN_INFRASTRUCTURE' }
         function Add-VMNetworkAdapter { $state.Mutations++;throw 'FORBIDDEN_ADAPTER' }
+        # Lease rejection belongs to the real-reader completion regression; this fixture stops at guest dispatch.
+        function Get-HyperVLabHostSqlNetworkLeaseAddress {
+            [CmdletBinding()]param([Parameter(Mandatory)]$Lab,[Parameter(Mandatory)]$Network)
+            if($Lab.Run.runId -cne 'synthetic-run' -or $Network.Name -cne $binding.name){throw 'SYNTHETIC_LEASE_BINDING_CHANGED'}
+            '192.0.2.42'
+        }
         function Initialize-HyperVGuestLabNetwork { $state.GuestCalls++;throw 'SYNTHETIC_GUEST_BOUNDARY' }
         function Write-LabInfo {}
         $secret=[securestring]::new();$secret.AppendChar('x');$secret.MakeReadOnly()

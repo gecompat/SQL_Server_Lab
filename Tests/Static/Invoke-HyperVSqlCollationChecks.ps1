@@ -186,8 +186,23 @@ try {
             $script:auditConnectionString=[string]$ArgumentList[0]
             [LabHyperVCollationFakeConnection]::new()
         }
+        $transportMetadata = [Management.Automation.CommandMetadata]::new((Get-Command Invoke-HyperVPowerShellDirect))
         function Invoke-HyperVPowerShellDirect {
-            param($VMName,$StateRoot,$ExpectedRunId,$ExpectedScopeId,$Credential,[switch]$NoRetry,$ExpectedVmId,$ScriptBlock,$ArgumentList,$FallbackAddress)
+            [CmdletBinding()]
+            param(
+                [Parameter(Mandatory)][string]$VMName,
+                [Parameter(Mandatory)][string]$ExpectedRunId,
+                [Parameter(Mandatory)][string]$ExpectedScopeId,
+                [guid]$ExpectedVmId,
+                [Parameter(Mandatory)][PSCredential]$Credential,
+                [Parameter(Mandatory)][scriptblock]$ScriptBlock,
+                [object[]]$ArgumentList = @(),
+                [switch]$NoRetry,
+                [ValidatePattern('^(?:(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])(?:\.(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])){3})?$')][string]$FallbackAddress,
+                [object]$Progress,
+                [ValidateRange(1,86400)][int]$TimeoutSeconds=86400,
+                $Build, [string]$BuildStateRoot
+            )
             $script:auditFallbackAddress=$FallbackAddress
             if ($ScriptBlock.ToString().Contains('HYPERV_LAB_SQL_COMPLETE_TIMEOUT')) {
                 $script:auditEvents.Add('setup')
@@ -195,12 +210,21 @@ try {
             }
             $script:auditQueryCalls++
             if ($script:auditEvents) { $script:auditEvents.Add('collation') }
-            if($VMName -cne 'synthetic-vm' -or $StateRoot -cne $script:auditStateRoot -or $ExpectedRunId -cne 'own-run' -or $ExpectedScopeId -cne 'own-scope' -or -not $NoRetry){throw 'BINDING_CHANGED'}
+            if($VMName -cne 'synthetic-vm' -or $ExpectedRunId -cne 'own-run' -or $ExpectedScopeId -cne 'own-scope' -or -not $NoRetry -or
+                -not [object]::ReferenceEquals($Credential,$script:auditCredential)){throw 'BINDING_CHANGED'}
+            $factory=Get-Command New-Object
+            if($factory.CommandType -ne 'Function' -or $factory.ScriptBlock.ToString() -notmatch 'LabHyperVCollationFakeConnection') {throw 'CLOSED_SQL_FACTORY_REQUIRED'}
             $value=& $ScriptBlock @ArgumentList
             if($script:auditBadScope){$value.ScopeId='foreign'}
             $value
         }
+        $spyMetadata = [Management.Automation.CommandMetadata]::new((Get-Command Invoke-HyperVPowerShellDirect))
+        $checks['Closed SQL spy matches original command parameter names and types']=$spyMetadata.Parameters.Count -eq $transportMetadata.Parameters.Count -and @($transportMetadata.Parameters.GetEnumerator()|Where-Object{-not $spyMetadata.Parameters.ContainsKey($_.Key) -or $spyMetadata.Parameters[$_.Key].ParameterType -ne $_.Value.ParameterType}).Count -eq 0
         $credential=[pscredential]::new('synthetic-user',[securestring]::new())
+        $script:auditCredential=$credential
+        $before=$script:auditQueryCalls
+        $bindingError='';try { Invoke-HyperVPowerShellDirect -StateRoot $script:auditStateRoot -VMName synthetic-vm -ExpectedRunId own-run -ExpectedScopeId own-scope -Credential $credential -ScriptBlock {} } catch {$bindingError=$_.FullyQualifiedErrorId}
+        $checks['Original transport ParamBlock rejects unsupported StateRoot before spy body']=$bindingError -like 'NamedParameterNotFound*' -and $script:auditQueryCalls -eq $before
         $vmId=[guid]'9633427c-2101-4dba-ab46-4af532c290a7'
         function Reset-SqlRow([string]$Name) {
             [LabHyperVCollationFakeReader]::Row=[Collections.Generic.Dictionary[string,object]]::new()
@@ -226,7 +250,7 @@ try {
             Reset-SqlRow 'SQL_Latin1_General_CP1_CS_AS'
             $expectedCode='HYPERV_SQL_COLLATION_POSTCONDITION_FAILED'
             switch($case) {
-                null {[LabHyperVCollationFakeReader]::Row['TempdbCollation']=[DBNull]::Value}
+                null {[LabHyperVCollationFakeReader]::Row['TempdbCollation']=[DBNull]::Value;$expectedCode='HYPERV_SQL_COLLATION_RECEIPT_INVALID'}
                 catalog {[LabHyperVCollationFakeReader]::Row['CatalogAvailable']=$false;$expectedCode='HYPERV_SQL_COLLATION_CATALOG_UNAVAILABLE'}
                 empty {[LabHyperVCollationFakeReader]::Empty=$true;$expectedCode='HYPERV_SQL_COLLATION_QUERY_FAILED'}
                 exception {[LabHyperVCollationFakeConnection]::Fail=$true;$expectedCode='HYPERV_SQL_COLLATION_QUERY_FAILED'}
@@ -282,25 +306,31 @@ try {
             $script:auditEvents.Add('ready')
             [pscustomobject]@{Ready=$true;Status='SQL_READY_RUN';OnlineSystemDatabases=4;Provider='hyperv';InstanceName='MSSQLSERVER';MajorVersion=17;ProductVersion='17.0.synthetic';Edition='synthetic';ObservedAt='synthetic-time'}
         }
-        foreach($case in @('absent','selected','stored','mismatch','unknown')) {
+        foreach($case in @('absent','selected','stored','mismatch','missing','unknown')) {
             Reset-SqlRow 'SQL_Latin1_General_CP1_CS_AS'
             $script:auditLab.Instance=[pscustomobject]@{id='primary';vmName='synthetic-vm';imageArtifactId='synthetic-image';workload='sql'}
             $script:auditLab | Add-Member -NotePropertyName Connection -NotePropertyValue ([pscustomobject]@{instances=@($script:auditLab.Instance)}) -Force
             $script:auditEvents=[Collections.Generic.List[string]]::new();$script:auditPoolWrites=0;$script:auditQueryCalls=0
             $arguments=@{RunId='own-run';Credential=$credential;SqlSaPassword=$password;SqlPort=15433;MediaRoot=$script:auditMediaRoot;StateRoot=$script:auditStateRoot}
-            if($case -in @('selected','mismatch')){$arguments.Collation='sql_latin1_general_cp1_cs_as'}
+            if($case -in @('selected','mismatch','missing')){$arguments.Collation='sql_latin1_general_cp1_cs_as'}
             if($case -eq 'stored'){$script:auditLab.Instance|Add-Member -NotePropertyName sqlCollationIntent -NotePropertyValue 'SQL_Latin1_General_CP1_CS_AS'}
             if($case -eq 'mismatch'){[LabHyperVCollationFakeReader]::Row['MasterCollation']='SQL_Latin1_General_CP1_CI_AS'}
+            if($case -eq 'missing'){[LabHyperVCollationFakeReader]::Row['TempdbCollation']=[DBNull]::Value}
             if($case -eq 'unknown'){$arguments.Collation='Unknown_Name'}
             $errorCode='';$result=$null
             try {$result=Complete-HyperVLabSqlImage @arguments} catch {$errorCode=$_.Exception.Message}
             switch($case) {
                 absent {$checks['Actual completion without selection performs no collation query or intent write']=$errorCode -eq '' -and $result.state -ceq 'COMPLETE' -and $script:auditQueryCalls -eq 0 -and -not $script:auditLab.Instance.PSObject.Properties['sqlCollationIntent'] -and @($script:auditSetupArguments|Where-Object{$_ -like '/SQLCOLLATION=*'}).Count -eq 0}
                 mismatch {$checks['Actual completion retains pending state without SQL-ready success on mismatch']=$errorCode -ceq 'HYPERV_SQL_COLLATION_POSTCONDITION_FAILED' -and $script:auditPersisted.instances[0].sqlCompletion.state -ceq 'COLLATION_PENDING' -and -not $script:auditPersisted.instances[0].PSObject.Properties['sqlReadiness'] -and -not $script:auditPersisted.instances[0].sqlCompletion.PSObject.Properties['collation']}
+                missing {$checks['Missing evidence keeps completion pending without claiming a mismatch']=$errorCode -ceq 'HYPERV_SQL_COLLATION_RECEIPT_INVALID' -and $script:auditPersisted.instances[0].sqlCompletion.state -ceq 'COLLATION_PENDING' -and -not $script:auditPersisted.instances[0].PSObject.Properties['sqlReadiness'] -and -not $script:auditPersisted.instances[0].sqlCompletion.PSObject.Properties['collation']}
                 unknown {$checks['Actual completion rejects unknown selection before mutation or dispatch']=$errorCode -like 'SQL_COLLATION_NOT_CATALOGED*' -and $script:auditPoolWrites -eq 0 -and $script:auditEvents.Count -eq 0}
                 default {$checks["Actual completion verifies and persists $case selection after readiness"]=$errorCode -eq '' -and $result.state -ceq 'COMPLETE' -and $result.collation.Status -ceq 'VERIFIED' -and $script:auditPersisted.instances[0].sqlReadiness.status -ceq 'SQL_READY_RUN' -and ($script:auditEvents -join ',') -ceq 'setup,ready,collation'}
             }
-            if($errorCode -and $case -notin @('mismatch','unknown')){throw "UNEXPECTED_COMPLETION_FAILURE: $case $errorCode"}
+            if($case -in @('mismatch','missing')){
+                $replay='';try{$null=Complete-HyperVLabSqlImage @arguments}catch{$replay=$_.Exception.Message}
+                $checks["Pending $case evidence blocks another CompleteImage dispatch"]=$replay -ceq 'HYPERV_LAB_SQL_COMPLETE_NOT_REQUIRED' -and @($script:auditEvents|Where-Object{$_ -ceq 'setup'}).Count -eq 1
+            }
+            if($errorCode -and $case -notin @('mismatch','missing','unknown')){throw "UNEXPECTED_COMPLETION_FAILURE: $case $errorCode"}
         }
         [pscustomobject]$checks
     } $repo $fixture

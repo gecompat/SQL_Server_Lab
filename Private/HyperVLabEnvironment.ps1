@@ -2405,6 +2405,61 @@ function Assert-HyperVLabSqlExistingNetwork {
     if($adapters.Count -ne 1 -or [string]$adapters[0].SwitchName -cne [string]$saved.name){throw 'HYPERV_LAB_HOST_SQL_EXISTING_ADAPTER_REQUIRED'}
 }
 
+function Get-HyperVLabHostSqlNetworkLeaseAddress {
+    <# .SYNOPSIS Bindet die statische HostSQL-Gastadresse lesend an den eigenen Run und seine aktive Lease. #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Lab, [Parameter(Mandatory)]$Network)
+
+    try {
+        $runId = [guid]::Empty; $scopeId = [guid]::Empty
+        if ([string]::IsNullOrWhiteSpace([string]$Lab.StateRoot) -or
+            -not [guid]::TryParseExact([string]$Lab.Run.runId, 'D', [ref]$runId) -or $runId -eq [guid]::Empty -or
+            -not [guid]::TryParseExact([string]$Lab.Run.scopeId, 'D', [ref]$scopeId) -or $scopeId -eq [guid]::Empty -or
+            [string]::IsNullOrWhiteSpace([string]$Lab.Instance.id)) { throw 'INVALID_BINDING' }
+        $runDirectory = Join-Path (Join-Path ([string]$Lab.StateRoot) 'runs') ([string]$Lab.Run.runId)
+        if (-not [string]::Equals([IO.Path]::GetFullPath($runDirectory), [IO.Path]::GetFullPath([string]$Lab.RunDirectory), [StringComparison]::OrdinalIgnoreCase)) {
+            throw 'INVALID_ROOT'
+        }
+        $boundPath = Join-Path $runDirectory 'network-bound-plan.json'
+        if (-not (Test-Path -LiteralPath $boundPath -PathType Leaf)) { throw 'MISSING_PLAN' }
+        $bound = Get-Content -LiteralPath $boundPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20 -NoEnumerate
+        $saved = $Lab.Instance.labNetwork
+        if ($bound -isnot [pscustomobject] -or -not $saved -or [string]$bound.Intent -notin @('hostOnly','nat') -or
+            [string]::IsNullOrWhiteSpace([string]$bound.address)) { throw 'INVALID_PLAN' }
+        foreach ($field in @('Name','Intent','Subnet','HostAddress','PrefixLength')) {
+            if ([string]::IsNullOrWhiteSpace([string]$bound.$field) -or
+                [string]$Network.$field -cne [string]$bound.$field -or [string]$saved.$field -cne [string]$bound.$field) { throw 'NETWORK_CHANGED' }
+        }
+        if ([string]$saved.address -cne [string]$bound.address -or
+            ($Network.PSObject.Properties['address'] -and $Network.address -and [string]$Network.address -cne [string]$bound.address)) { throw 'ADDRESS_CHANGED' }
+        $subnet = ConvertTo-LabIpv4Subnet -Subnet ([string]$bound.Subnet)
+        $address = ConvertTo-LabIpv4UInt32 -Address ([Net.IPAddress]::Parse([string]$bound.address))
+        $hostAddress = ConvertTo-LabIpv4UInt32 -Address ([Net.IPAddress]::Parse([string]$bound.HostAddress))
+        $broadcast = $subnet.Network + [math]::Pow(2, 32 - $subnet.PrefixLength) - 1
+        if ([int]$bound.PrefixLength -ne $subnet.PrefixLength -or ($address -band $subnet.Mask) -ne $subnet.Network -or
+            $address -le $subnet.Network -or $address -ge $broadcast -or $address -eq $hostAddress) { throw 'INVALID_ADDRESS' }
+
+        return Invoke-LabHyperVIpamLock -StateRoot ([string]$Lab.StateRoot) -ScriptBlock {
+            $path = Get-LabHyperVIpamPath -StateRoot ([string]$Lab.StateRoot)
+            if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw 'MISSING_LEASES' }
+            $registry = Get-Content -LiteralPath $path -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20 -NoEnumerate
+            if ($registry -isnot [pscustomobject] -or [string]$registry.contractVersion -cne '1' -or $registry.leases -isnot [array]) { throw 'INVALID_LEASES' }
+            $leases = @($registry.leases | Where-Object {
+                [string]$_.state -ceq 'ACTIVE' -and [string]$_.runId -ceq [string]$Lab.Run.runId -and [string]$_.instanceId -ceq [string]$Lab.Instance.id
+            })
+            if ($leases.Count -ne 1 -or [string]$leases[0].scopeId -cne [string]$Lab.Run.scopeId -or
+                [string]$leases[0].network -cne [string]$bound.Name -or [string]$leases[0].subnet -cne [string]$bound.Subnet -or
+                [string]$leases[0].address -cne [string]$bound.address) { throw 'LEASE_CHANGED' }
+            $addressLeases = @($registry.leases | Where-Object {
+                [string]$_.state -ceq 'ACTIVE' -and [string]$_.subnet -ceq [string]$bound.Subnet -and [string]$_.address -ceq [string]$bound.address
+            })
+            if ($addressLeases.Count -ne 1) { throw 'ADDRESS_NOT_EXCLUSIVE' }
+            return [string]$leases[0].address
+        }
+    }
+    catch { throw 'HYPERV_LAB_HOST_SQL_LEASE_BINDING_INVALID' }
+}
+
 function Get-HyperVLabSqlInstanceReceipt {
     <#
     .SYNOPSIS Liest alle lokal registrierten SQL-Server-Instanzen im verwalteten Gast aus.
@@ -2574,6 +2629,10 @@ function Enable-HyperVLabHostSqlAccess {
         $network = Invoke-LabHyperVNetworkBoundPlan -Plan $networkPlan
     }
     else { $network = Resolve-LabHyperVNetwork -SwitchName $preferredSwitch }
+    if (-not $usesLan) {
+        $leaseAddress = Get-HyperVLabHostSqlNetworkLeaseAddress -Lab $lab -Network $network
+        $network | Add-Member -NotePropertyName address -NotePropertyValue $leaseAddress -Force
+    }
     $attached = @(Get-VMNetworkAdapter @vmSelector -ErrorAction Stop | Where-Object { [string]$_.SwitchName -eq [string]$network.Name })
     if ($attached.Count -eq 0) {
         if ($RequireExistingNetwork) { throw 'HYPERV_LAB_HOST_SQL_EXISTING_ADAPTER_REQUIRED' }
@@ -2667,7 +2726,7 @@ EXEC sys.sp_executesql @statement;
         addressMode=[string]$networkReceipt.AddressMode; address=$networkReceipt.Address; prefixLength=$networkReceipt.PrefixLength
         hostAddress=$network.HostAddress; gateway=$networkReceipt.Gateway; dnsServers=@($networkReceipt.DnsServers)
     }) -Force
-    if($vmBinding.Count){$lab.Instance.labNetwork | Add-Member -NotePropertyName subnet -NotePropertyValue ([string]$network.Subnet) -Force}
+    $lab.Instance.labNetwork | Add-Member -NotePropertyName subnet -NotePropertyValue ([string]$network.Subnet) -Force
     $lab.Instance | Add-Member -NotePropertyName host -NotePropertyValue ([string]$networkReceipt.Address) -Force
     $lab.Instance | Add-Member -NotePropertyName port -NotePropertyValue $SqlPort -Force
     $passwordHint = if ($usesSeparateSaPassword) { 'Separat festgelegtes SQL-SA-Passwort' } else { 'Gast-Administratorpasswort' }

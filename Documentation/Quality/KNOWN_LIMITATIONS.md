@@ -1384,6 +1384,14 @@ gespeichert noch über den Manifestpfad provisioniert werden.
 
 ## Collation
 
+Die lokale Hyper-V-Abschlusskorrektur trennt ungültige Collation-Evidence
+von beobachteten Abweichungen und bindet die statische HostSQL-Gastadresse
+an die aktive eigene Lease. Alte Runs mit fehlender oder widersprüchlicher
+Netz-/Leasebindung blockieren vor der Gastnetzänderung; es gibt keine
+automatische Reparatur oder Setupwiederholung. Ein nativer Erfolg dieser
+Korrektur ist noch nicht nachgewiesen; Analyse- und Providerabnahme bleiben
+gesondert freizugeben.
+
 Der Browserdialog **Lab erstellen → Collations suchen** durchsucht denselben
 kuratierten Katalog für SQL 2019/2022/2025 ohne SQL-Prüfung oder Auswahltransfer.
 Query ist auf 256 Zeichen begrenzt; höchstens 100 validierte Metadatenzeilen

@@ -2721,6 +2721,31 @@ Prozessumgebung bleiben unverändert.
 
 ### Windows-Prepared-Collation und editierbarer Intentstandard
 
+Der lokale Korrekturslice vom 21. Oktober 2026 auf Basis `d569f6bb` ergänzt
+die echte Transportparameterbindung, die aktive eigene HostSQL-Lease und die
+getrennte Klassifikation fehlender Collation-Evidence. Die neue
+`HyperVLabEnvironmentCompletionRegressionChecks.ps1` bestand 50 Prüfungen mit
+Original-ParamBlock und ausschließlich geschlossenen Transportkörpern. Sie
+führt keine Gastskriptkörper aus. Die Hyper-V-Umgebungssuite bestand 54
+Prüfungen; Pester bestand 23 ohne Skips. Der erste gemeinsame Block führte
+alle 16 ausgewählten statischen Suites aus: 14 bestanden, zwei scheiterten
+an Testharnesskopplungen. Die vorhandene Netzfixture benötigte die neue
+geschlossene Leasegrenze; der dynamische Collation-Spy verlor seinen lokalen
+Prüfscope.
+
+Der erste freigegebene Nachlauf bestand die Netzsuite mit 24 Prüfungen;
+der Collationharness scheiterte weiterhin. Nach der Korrektur auf eine lokale
+Funktionsdefinition mit Abgleich der echten `CommandMetadata` und gesperrter
+produktiver SQL-Factory bestand der gesondert freigegebene fokussierte Lauf
+alle 66 Prüfungen ohne Fehler. Damit liegen für alle 16 ausgewählten
+statischen Suites erfolgreiche lokale Ausführungen vor. Diese zusammengesetzte
+Offline-Evidence ist kein gemeinsamer erneuter Lauf auf dem finalen Stand.
+Zwei unabhängige Quellenreviewdurchgänge sind abgeschlossen; der letzte
+fokussierte Lauf schließt den zuvor offenen Ausführungsnachweis.
+Der finale PR-Gate einschließlich Hyper-V-Lifecycle-Smoke bleibt ein eigener
+CI-Nachweis. Er ersetzt keine native Windows-Collationabnahme; die
+tatsächlichen drei Collationwerte bleiben erforderlich.
+
 Der [Collationvertrag](../Architecture/HYPERV_SQL_COLLATION.md) ergaenzt die
 ausdrueckliche Windows-Prepared-Auswahl und den editierbaren Standard neuer
 interaktiver SQL-Zielintents. `Invoke-HyperVSqlCollationChecks.ps1` fuehrt
