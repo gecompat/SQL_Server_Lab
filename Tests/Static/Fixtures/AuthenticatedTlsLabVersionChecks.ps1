@@ -1,12 +1,22 @@
 # Closed operational version selection; no native runtime, key or trust actions.
 function Invoke-TlsLabVersionFixture {
     . (Join-Path $repo 'Tests/Common/AuthenticatedTlsAcceptanceSelection.ps1')
+    $expected2025=Get-OwnedTlsAcceptanceProfile '2025-CU9'
+    $qualification2025=[pscustomobject]@{SqlVersion='2025';Patch='cu9';SqlBuild='17.0.5005.3'}
+    $accepted=$true;try{Assert-OwnedTlsAcceptanceSelection $expected2025 $qualification2025 ([pscustomobject]@{ContractVersion='SqlServerLab.AuthenticatedTlsLab/0.2'})}catch{$accepted=$false}
+    Add-CheckResult 'Native SQL2025 oracle accepts 0.2 only without a profile property' $accepted
+    foreach($value in @($null,'')){
+        $unexpected=[pscustomobject]@{ContractVersion='SqlServerLab.AuthenticatedTlsLab/0.2';SqlProfileId=$value}
+        Add-CheckResult 'Native SQL2025 oracle rejects present null or empty profile properties independently' (Test-TlsLabReject {Assert-OwnedTlsAcceptanceSelection $expected2025 $qualification2025 $unexpected})
+    }
     $expected=Get-OwnedTlsAcceptanceProfile '2022-CU27'
     $returned2025=[pscustomobject]@{SqlVersion='2025';Patch='cu9';SqlBuild='17.0.5005.3'}
     Add-CheckResult 'Native oracle rejects requested SQL2022 with a self-consistent SQL2025 return' (Test-TlsLabReject {Assert-OwnedTlsAcceptanceSelection $expected $returned2025})
     $good=[pscustomobject]@{SqlVersion='2022';Patch='cu27';SqlBuild='16.0.4295.3'}
     $accepted=$true;try{Assert-OwnedTlsAcceptanceSelection $expected $good}catch{$accepted=$false}
     Add-CheckResult 'Native oracle accepts only the independently requested SQL2022 build' $accepted
+    $accepted=$true;try{Assert-OwnedTlsAcceptanceSelection $expected $good ([pscustomobject]@{ContractVersion='SqlServerLab.AuthenticatedTlsLab/0.3';SqlProfileId='2022-CU27'})}catch{$accepted=$false}
+    Add-CheckResult 'Native SQL2022 oracle retains its explicit 0.3 profile after absent-profile hardening' $accepted
     Add-CheckResult 'Native oracle rejects a SQL2025 record for requested SQL2022' (Test-TlsLabReject {Assert-OwnedTlsAcceptanceSelection $expected $good ([pscustomobject]@{ContractVersion='SqlServerLab.AuthenticatedTlsLab/0.2'})})
     Add-CheckResult 'Native oracle rejects a SQL2025 export for requested SQL2022' (Test-TlsLabReject {Assert-OwnedTlsAcceptanceSelection -Expected $expected -Qualification $good -Entry ([pscustomobject]@{sqlVersion='2025';patch='cu9';resolvedVersion='17.0.5005.3';key='LINUX_SQL2025_CU9_TLS'})})
     foreach($version in @('2025-CU9','2022-CU27','2019-CU32')){
