@@ -1,4 +1,4 @@
-# Test-only cleanup of the fixed export created by the owned acceptance run.
+# Test-only cleanup of the fixed exports created by the owned acceptance run.
 # No CA/key/trust dependency: trust drift must never prevent secret cleanup.
 function Remove-OwnedTlsAcceptanceExport {
     param([string]$StateRoot,[string]$RunId,[object]$Module)
@@ -20,18 +20,25 @@ function Remove-OwnedTlsAcceptanceExport {
         }
         $run=Get-LabRunState -RunId $RunId -StateRoot $root
         if($run.scopeId -cne $record.ScopeId -or $run.state -cnotin @('REMOVED','CLEANED_UP')){throw 'TLS_ACCEPTANCE_EXPORT_CLEANUP_REMOVED_RUN_REQUIRED'}
-        $directory=Assert-LabDiagnosticPath (Join-Path $root 'qualified-export')
-        if(-not (Test-Path -LiteralPath $directory)){return}
-        Assert-LabTlsCaPrivateAcl $directory $native.UserSid -Directory
         $allowed=@('TestUmgebung.json','TestUmgebung.env','TestUmgebung.schema.json','TestUmgebung.md','TestUmgebung.prompt.md')
-        $files=@(Get-ChildItem -LiteralPath $directory -Force)
-        foreach($file in $files){
-            if($file.PSIsContainer -or $file.Name -cnotin $allowed -or [IO.Path]::GetDirectoryName($file.FullName) -cne $directory){throw 'TLS_ACCEPTANCE_EXPORT_CLEANUP_UNEXPECTED_CONTENT'}
-            Assert-LabTlsCaPrivateAcl $file.FullName $native.UserSid
+        $targets=[Collections.Generic.List[object]]::new()
+        foreach($name in @('qualified-export','rebound-qualified-export')){
+            $directory=Assert-LabDiagnosticPath (Join-Path $root $name)
+            if(-not (Test-Path -LiteralPath $directory)){continue}
+            Assert-LabTlsCaPrivateAcl $directory $native.UserSid -Directory
+            $files=@(Get-ChildItem -LiteralPath $directory -Force)
+            foreach($file in $files){
+                if($file.PSIsContainer -or $file.Name -cnotin $allowed -or [IO.Path]::GetDirectoryName($file.FullName) -cne $directory){throw 'TLS_ACCEPTANCE_EXPORT_CLEANUP_UNEXPECTED_CONTENT'}
+                Assert-LabTlsCaPrivateAcl $file.FullName $native.UserSid
+            }
+            $targets.Add([pscustomobject]@{Directory=$directory;Files=$files})
         }
-        # Only validated fixed leaves, followed by empty-directory removal.
-        foreach($file in $files){Remove-Item -LiteralPath $file.FullName -Force}
-        Remove-Item -LiteralPath $directory
-        if(Test-Path -LiteralPath $directory){throw 'TLS_ACCEPTANCE_EXPORT_CLEANUP_UNCONFIRMED'}
+        # Validate both targets before deleting any leaf, then remove only the
+        # fixed files and empty directories. Unknown content remains untouched.
+        foreach($target in $targets){
+            foreach($file in $target.Files){Remove-Item -LiteralPath $file.FullName -Force}
+            Remove-Item -LiteralPath $target.Directory
+            if(Test-Path -LiteralPath $target.Directory){throw 'TLS_ACCEPTANCE_EXPORT_CLEANUP_UNCONFIRMED'}
+        }
     } $StateRoot $RunId
 }

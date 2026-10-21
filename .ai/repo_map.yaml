@@ -926,7 +926,11 @@ sources_of_truth:
   authenticated_tls_operational_lab: Documentation/Architecture/AUTHENTICATED_TLS_OPERATIONAL_LAB.md # Windows Docker/Podman SQL2025 CU9, SQL2022 CU27 and SQL2019 CU32 explicit False lane and signed V2 export; provider proofs separate, V1/default true
   authenticated_tls_authority: Private/AuthenticatedTlsAuthority.ps1
   authenticated_tls_lab: Private/AuthenticatedTlsLab.ps1 # explicit provider, original runtime pin, closed 0.1 Docker / 0.2 provider+policy / 0.3 SQL-profile bindings; coupled ContainerOwnedHostIntegration, RunArtifactRemoval and RetainedStoreRuntime
-  authenticated_tls_qualification: Private/AuthenticatedTlsQualification.ps1
+  authenticated_tls_qualification: Private/AuthenticatedTlsQualification.ps1 # ordinary qualification/export/readback also require committed restart-rebind history; coupled restart-rebind and positive signed-export suites
+  authenticated_tls_restart_rebind: Private/AuthenticatedTlsRestartRebind.ps1 # explicit same-container epoch-only update; no certificate/key/trust/config changes; cooperative immutable history and no replay
+  authenticated_tls_restart_rebind_contract: Documentation/Architecture/AUTHENTICATED_TLS_CONTAINER_REBIND.md
+  public_authenticated_tls_restart_rebind: Public/Update-SqlServerLabTlsBinding.ps1
+  validation_authenticated_tls_restart_rebind: Tests/Static/Invoke-AuthenticatedTlsRestartRebindChecks.ps1 # real own Windows ACL/file/lock/replace fixtures with injected authority/provider/client boundaries; no native SQL claim
   validation_authenticated_tls_authority: Tests/Static/Invoke-AuthenticatedTlsAuthorityChecks.ps1
   validation_authenticated_tls_lab: Tests/Static/Invoke-AuthenticatedTlsLabChecks.ps1
   validation_authenticated_tls_lab_provider: Tests/Static/Fixtures/AuthenticatedTlsLabProviderChecks.ps1 # executed by lab suite; injected provider/origin/process observations, no native SQL claim

@@ -53,9 +53,15 @@ function Invoke-LabTlsStrictSqlcmd {
 }
 
 function Test-LabAuthenticatedTlsEnvironment {
-    param([string]$RunId,[string]$InstanceId,[string]$StateRoot,[object]$Budget)
+    param([string]$RunId,[string]$InstanceId,[string]$StateRoot,[object]$Budget,[object]$RestartCandidate,[string]$ExpectedSourceSha256,[object]$RebindLock)
     $bound=Get-LabTlsOwnBinding $StateRoot $RunId $InstanceId
     $record=$bound.Record;$authority=$bound.Authority
+    if($PSBoundParameters.ContainsKey('RestartCandidate')){
+        if($ExpectedSourceSha256 -cnotmatch '\A[0-9a-f]{64}\z' -or (Get-LabTlsCaByteDigest $bound.Bytes) -cne $ExpectedSourceSha256){throw 'TLS_REBIND_SOURCE_CHANGED'}
+        Assert-LabTlsRebindCandidateLock $RebindLock $StateRoot
+        Assert-LabTlsRestartCandidate $record $RestartCandidate
+        $record=$RestartCandidate
+    }else{Assert-LabTlsRebindCommitted $bound $StateRoot}
     $profile=Get-LabTlsBindingSqlProfile $record
     Assert-LabTlsSqlCatalogProfile $profile
     $provider=Get-LabTlsBindingProvider $record
@@ -68,6 +74,8 @@ function Test-LabAuthenticatedTlsEnvironment {
     $null=Assert-LabTlsSqlCertificateBinding $record $StateRoot $Budget
     $again=Get-LabTlsOwnBinding $StateRoot $RunId $InstanceId
     if((Get-LabTlsCaByteDigest $again.Bytes) -cne (Get-LabTlsCaByteDigest $bound.Bytes)){throw 'TLS_QUALIFICATION_BINDING_CHANGED'}
+    if($PSBoundParameters.ContainsKey('RestartCandidate')){Assert-LabTlsRebindCandidateLock $RebindLock $StateRoot}
+    else{Assert-LabTlsRebindCommitted $again $StateRoot}
     $now=[DateTimeOffset]::UtcNow;$expires=$now.AddMinutes(15)
     $leafEnd=[DateTimeOffset]::ParseExact($record.NotAfterUtc,'o',[Globalization.CultureInfo]::InvariantCulture)
     if($leafEnd -lt $expires){$expires=$leafEnd}
@@ -87,6 +95,7 @@ function Export-LabAuthenticatedTlsEnvironment {
     param([string]$OutputDirectory,[string]$StateRoot,[string]$RunId,[string]$InstanceId)
     if(-not $OutputDirectory -or -not $StateRoot -or -not $RunId -or -not $InstanceId){throw 'TLS_EXPORT_EXPLICIT_SELECTION_REQUIRED'}
     $bound=Get-LabTlsOwnBinding $StateRoot $RunId $InstanceId;$sid=$bound.Authority.Native.UserSid
+    Assert-LabTlsRebindCommitted $bound $StateRoot
     $provider=Get-LabTlsBindingProvider $bound.Record
     $profile=Get-LabTlsBindingSqlProfile $bound.Record
     $budget=New-LabTlsRuntimeBudget -Provider $provider -StateRoot $StateRoot -Record $bound.Record
@@ -111,7 +120,8 @@ function Export-LabAuthenticatedTlsEnvironment {
     $document=[pscustomobject][ordered]@{'$schema'='./TestUmgebung.schema.json';contractVersion='SqlServerLab.TestEnvironment/2.0';generatedAt=[DateTimeOffset]::UtcNow.ToString('O');groupStatus='READY';
         selectionRule=('explicit own Windows current-user qualified Docker or Podman '+$profile.Version+' only; validate signature, freshness and current bindings before use');containsPlainTextSecrets=$true;environments=@($entry);
         qualification=[pscustomobject]@{algorithm='RSA3072_SHA256_PKCS1';payload=[Convert]::ToBase64String($bodyBytes);signature=[Convert]::ToBase64String($signature);caDer=[Convert]::ToBase64String($ca.Der)}}
-    $null=Get-LabTlsOwnBinding $StateRoot $RunId $InstanceId
+    $publish=Get-LabTlsOwnBinding $StateRoot $RunId $InstanceId
+    Assert-LabTlsRebindCommitted $publish $StateRoot
     Initialize-LabTlsCaPrivateDirectory $directory $sid -NewOnly
     try{
         Write-LabTlsCaPrivateFile (Join-Path $directory 'TestUmgebung.json') $sid (ConvertTo-LabTlsRegistryWriterBytes $document)
@@ -138,6 +148,7 @@ function Export-LabAuthenticatedTlsEnvironment {
 function Test-LabTlsQualifiedExport {
     param([string]$Path,[string]$StateRoot,[string]$RunId,[string]$InstanceId,[object]$Budget)
     $bound=Get-LabTlsOwnBinding $StateRoot $RunId $InstanceId
+    Assert-LabTlsRebindCommitted $bound $StateRoot
     $provider=Get-LabTlsBindingProvider $bound.Record
     $profile=Get-LabTlsBindingSqlProfile $bound.Record
     if($null -eq $Budget){$Budget=New-LabTlsRuntimeBudget -Provider $provider -StateRoot $StateRoot -Record $bound.Record}
@@ -172,5 +183,6 @@ function Test-LabTlsQualifiedExport {
     $builder=[Data.SqlClient.SqlConnectionStringBuilder]::new($entry.connectionString)
     if(-not $builder.Encrypt -or $builder.TrustServerCertificate -or $builder.DataSource -cne "tcp:127.0.0.1,$($r.Port)" -or $builder.Password -cne $entry.password){return $false}
     $null=Assert-LabTlsSqlCertificateBinding $r $StateRoot $Budget
+    Assert-LabTlsRebindCommitted $bound $StateRoot
     return $true
 }

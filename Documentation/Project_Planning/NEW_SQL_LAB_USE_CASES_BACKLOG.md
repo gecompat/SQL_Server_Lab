@@ -120,6 +120,8 @@ erhalten aber jeweils eigene Runtime-Evidence.
 
 #### TLS-001 – authentifizierte TLS-Verbindungen der Testumgebungen
 
+Die explizite Wiederbindung nach Containerneustart ist im [begrenzten Vertrag](../Architecture/AUTHENTICATED_TLS_CONTAINER_REBIND.md) implementiert und getrennt nativ unter Windows/SQL 2019 CU32 mit Docker und Podman geprüft: je zwölf Fälle und zwölf strikte Clientergebnisse mit eigenem Cleanup. Docker belegt den Stand vor der fokussiert geprüften Offsetkorrektur, Podman den korrigierten Stand; der ursprüngliche Podman-FAIL bleibt erhalten. Der Befehl ändert nur die Start-Epoche derselben eigenen policygebundenen Containerbindung nach beiden strikten Clients. Finale PR-Pflichtgates bleiben Integrationsbedingung; automatische Erneuerung/Reparatur und die Gesamtmatrix bleiben offen.
+
 SQL 2019 CU32 ist als nächstes geschlossenes operatives Windows-/Docker-/Podman-Profil mit Build `15.0.4430.1` implementiert. Der bestehende `0.3`-Record bindet ausdrücklich `2019-CU32`; historische SQL-2025- und SQL-2022-Bindungen bleiben erhalten. Beide getrennten nativen operativen Abnahmen bestanden je sieben Fälle, sechs strikte Clientergebnisse und vollständigen eigenen Container-/Volume-/Exportcleanup. Frühere Kryptoproben bleiben getrennte Nachweise; die finalen PR-Pflichtgates sind Integrationsbedingung.
 
 

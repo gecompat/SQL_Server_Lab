@@ -1,5 +1,7 @@
 # SQL_Server_Lab – Getting Started
 
+Nach Neustart eines eigenen operativen TLS-Containers aktualisiert `Update-SqlServerLabTlsBinding -RunId $lab.RunId -InstanceId primary -StateRoot $lab.StateRoot` ausdrücklich dessen Startbindung nach beiden strikten Clients. Ein unveränderter Start ist kein neuer Nachweis; alte Exporte bleiben ungültig. [Vertrag, WhatIf und Recoverygrenze](../Architecture/AUTHENTICATED_TLS_CONTAINER_REBIND.md).
+
 Volltext kann mit `New-SqlServerLab -Provider docker -FullText $true` oder im
 Manifest unter `instances[].sqlFeatures.fullText` gewählt werden. Podman nutzt
 denselben expliziten Vertrag. Für vorhandene laufende Instanzen dient

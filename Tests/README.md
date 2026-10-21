@@ -1,5 +1,7 @@
 # Tests/ – lokale und Remote-Validierung
 
+`Static/Invoke-AuthenticatedTlsRestartRebindChecks.ps1` prüft echte eigene Windows-Lock-/ACL-/Replace-/Historyfixtures mit injizierten Runtime-/Clientgrenzen. `Integration/Invoke-AuthenticatedTlsLabAcceptance.ps1 -Provider docker|podman -Version 2019-CU32 -ExerciseRestartRebind -Execute` ergänzt WhatIf, zwei echte Rebind-Clients, alte Exportinvalidierung, neuen strikten Export und den No-op ohne neuen Nachweis; nur nach freigegebenem eigenem Scope und mit bereits vorhandener vertrauter CA.
+
 `Integration/Invoke-AuthenticatedTlsLabAcceptance.ps1 -Provider docker|podman -Version 2025-CU9|2022-CU27|2019-CU32`
 prüft die ausdrücklich gewählte öffentliche Windows-/SQL-/CU-False-Lane
 mit bereits vertrauter eigener CA, signiertem V2-Export und beiden echten

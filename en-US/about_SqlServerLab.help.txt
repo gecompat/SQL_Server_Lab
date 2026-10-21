@@ -478,6 +478,10 @@ Sync-SqlServerLabRunScopedContainerStore
         Creates one or more Linux SQL test environments with separate random
         passwords and refreshes the test environment contract.
 
+    Update-SqlServerLabTlsBinding
+        Strictly qualifies an owned policy-bound Docker/Podman TLS run after
+        restart and rebinds only its new start epoch; no certificate renewal.
+
     Export-SqlServerLabTestEnvironment
         Writes TestUmgebung.env, TestUmgebung.json, TestUmgebung.schema.json,
         TestUmgebung.prompt.md, and TestUmgebung.md to the
