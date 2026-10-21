@@ -120,7 +120,9 @@ erhalten aber jeweils eigene Runtime-Evidence.
 
 #### TLS-001 – authentifizierte TLS-Verbindungen der Testumgebungen
 
-Die zusätzliche native Neustart-/Rebind-Abnahme für Windows-/SQL-2025-CU9 mit Docker und Podman bestand je zwölf Fälle und zwölf strikte Clientergebnisse auf Build `17.0.5005.3`, Recordform `0.2` ohne `SqlProfileId`, eigenem Cleanup und Bestandsvergleich. Die unabhängige Oracleprüfung unterscheidet Property-Abwesenheit von vorhandenen null-/Leerwerten. SQL-2022-Rebind, weitere Patch-/Clientkombinationen und die übrigen offenen TLS-001-Verträge bleiben getrennte Scopes.
+Die separate Windows-/SQL-2022-CU27-Neustart-/Rebind-Abnahme bestand unter Docker und Podman je zwölf Fälle und zwölf bezeichnete strikte Clientergebnisse auf Build `16.0.4295.3`, Recordform `0.3` mit `SqlProfileId=2022-CU27`, eigenem Cleanup und Bestandsvergleich. Damit sind diese beiden fehlenden Rebind-Kombinationen geschlossen; die übrigen TLS-001-Verträge bleiben getrennte offene Scopes.
+
+Die zusätzliche native Neustart-/Rebind-Abnahme für Windows-/SQL-2025-CU9 mit Docker und Podman bestand je zwölf Fälle und zwölf strikte Clientergebnisse auf Build `17.0.5005.3`, Recordform `0.2` ohne `SqlProfileId`, eigenem Cleanup und Bestandsvergleich. Die unabhängige Oracleprüfung unterscheidet Property-Abwesenheit von vorhandenen null-/Leerwerten. Weitere Patch-/Clientkombinationen und die übrigen offenen TLS-001-Verträge bleiben getrennte Scopes.
 
 Die explizite Wiederbindung nach Containerneustart ist im [begrenzten Vertrag](../Architecture/AUTHENTICATED_TLS_CONTAINER_REBIND.md) implementiert und getrennt nativ unter Windows/SQL 2019 CU32 mit Docker und Podman geprüft: je zwölf Fälle und zwölf strikte Clientergebnisse mit eigenem Cleanup. Docker belegt den Stand vor der fokussiert geprüften Offsetkorrektur, Podman den korrigierten Stand; der ursprüngliche Podman-FAIL bleibt erhalten. Der Befehl ändert nur die Start-Epoche derselben eigenen policygebundenen Containerbindung nach beiden strikten Clients. Finale PR-Pflichtgates bleiben Integrationsbedingung; automatische Erneuerung/Reparatur und die Gesamtmatrix bleiben offen.
 
@@ -465,12 +467,15 @@ her; unsicherer Alttransport ist keine erfolgreiche TLS-Recovery.
 
    | SQL-Zielplattform | SQL Server 2019 | SQL Server 2022 | SQL Server 2025 |
    |---|---|---|---|
-   | Windows / Hyper-V | `NOT_EXECUTED` | `NOT_EXECUTED` | `NOT_EXECUTED` |
+   | Windows / Hyper-V | `NOT_EXECUTED` | `NOT_EXECUTED` | Private SQL-2025-RTM-Referenz mit Windowsclients bestanden; öffentliche False-/Exportlane offen |
    | Linux / Docker und Podman getrennt | Windowsclients: je acht Fälle für CU32 bestanden | Windowsclients: je acht Fälle für CU27 bestanden | Windowsclients: je acht Fälle für CU9 bestanden |
 
    Die [getrennten Container-Versionsbelege](../Quality/TLS_WINDOWS_CONTAINER_VERSION_MATRIX_2026-10-16.md)
-   ersetzen keine Linuxclients, operative Registry oder vollständige Qualifikation;
-   diese Grenzen bleiben für alle drei Zellen offen.
+   bleiben historische Kryptoproben. Die späteren öffentlichen Windows-Client-/
+   Container-Lab-, V2-Export- und Neustart-/Rebind-Nachweise sind für SQL 2019 CU32,
+   2022 CU27 und 2025 CU9 jeweils getrennt ausgeführt. Linuxclients und die
+   vollständige Matrix bleiben offen; keine dieser Aussagen ersetzt die
+   öffentliche Hyper-V-Lane oder die Consumer-Abnahme.
 
    Die spätere [Linux-Trustdriftabnahme](../Quality/TLS_LINUX_SQL2025_TRUST_DRIFT_ACCEPTANCE_2026-10-17.md)
    bestand separat mit sechs strikten SqlClient-/ODBC-Fällen auf Docker/SQL 2025

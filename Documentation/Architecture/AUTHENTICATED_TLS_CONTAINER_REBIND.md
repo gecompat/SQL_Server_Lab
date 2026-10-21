@@ -76,12 +76,19 @@ Authority-/Provider-/Clientgrenzen. Sie ist keine SQL-Verbindungsabnahme.
 Die [native Lane](../../Tests/Integration/Invoke-AuthenticatedTlsLabAcceptance.ps1)
 besitzt den ausdrücklichen Schalter `-ExerciseRestartRebind`; ihre ausgeführten
 Ergebnisse stehen in der [Validierungsstrategie](../Quality/LOCAL_VALIDATION_STRATEGY.md).
+Die getrennte Windows-/SQL-2022-CU27-Abnahme bestand mit Docker und Podman
+je zwölf Fälle und zwölf bezeichnete strikte Clientergebnisse auf Build
+`16.0.4295.3`. Die tatsächlichen Records verwenden `0.3` mit
+`SqlProfileId=2022-CU27`. Eigener Cleanup und Bestandsvergleich bestanden.
+Produkt und öffentlicher Harness sind dafür unverändert; die bezeichneten
+Clientergebnisse ergeben sich aus sechs positiven Zweiergruppen, keiner
+instrumentierten Gesamtzahl von Netzwerkverbindungen.
 Die zusätzliche Windows-/SQL-2025-CU9-Abnahme bestand getrennt mit Docker und
 Podman auf Build `17.0.5005.3`: je zwölf Fälle und zwölf strikte Clientergebnisse,
 Recordform `0.2` ohne `SqlProfileId`, vollständiger eigener Cleanup und
 Bestandsvergleich. Ein unabhängiges Oracle prüft
 die tatsächliche Property-Abwesenheit; vorhandenes `null` oder leer wird abgewiesen.
-Das ist keine native SQL-2022-Rebind-Abnahme.
+Die SQL-2025-Ergebnisse bleiben ein eigener Versionsnachweis.
 Getrennte native Windows-/SQL-2019-CU32-Abnahmen bestanden für Docker und Podman
 je zwölf Fälle und zwölf strikte Clientergebnisse mit eigenem Cleanup. Docker
 belegt den Stand vor der fokussiert geprüften Offsetkorrektur, Podman den
