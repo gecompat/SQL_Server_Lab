@@ -150,6 +150,31 @@ Run, Credential und die getrennte SQL-SA-Kennwortwahl bleiben unverändert.
 
 ## Vier mutierende Gastaufrufe
 
+Vor der statischen Gastnetzkonfiguration beim HostSQL-Zugriff bindet
+`Get-HyperVLabHostSqlNetworkLeaseAddress` den ausgewählten StateRoot,
+Runverzeichnis, Run, Scope und Instanz an den gespeicherten Netzplan und
+genau eine aktive eigene IPAM-Lease. Netzname, Intent, Subnetz, Hostadresse,
+Präfix und gespeicherte Gastadresse müssen übereinstimmen. Eine zweite aktive
+Lease derselben Adresse im Subnetz blockiert ebenfalls. Fehlende, freigegebene,
+mehrdeutige oder widersprüchliche Bindungen ergeben vor Gastdispatch
+`HYPERV_LAB_HOST_SQL_LEASE_BINDING_INVALID`. Es wird keine Ersatzadresse
+berechnet oder Lease automatisch repariert. LAN/DHCP verwendet weiterhin
+seinen getrennten gebundenen Pfad ohne statische IPAM-Lease.
+
+Der frisch aufgelöste Netzplan erhält ausschließlich die geprüfte reservierte
+Gastadresse. Gastreceipt und gespeicherter Hostzugriff behalten diese Adresse
+und das Subnetz. Alte HostSQL-Metadaten ohne passende gespeicherte Netzbindung
+werden nicht stillschweigend übernommen. Die kurze IPAM-Lesesperre reserviert
+keine VM und wird nicht über den Gastaufruf gehalten; sie verhindert keine
+spätere konkurrierende Änderung und beweist keine native Netzqualifikation.
+
+Die Fixture `HyperVLabEnvironmentCompletionRegressionChecks.ps1` gehört zur
+bestehenden HyperVLabEnvironment-Suite. Sie verwendet die echten Caller und
+Lease-/Receiptprüfer mit dem produktiven Transport-ParamBlock vor einem
+geschlossenen synthetischen Körper. Transport- und Gastkörper werden dabei
+nicht ausgeführt. Root-/Identitäts-/Credential-/NoRetry-Bindungen, Adresserhalt
+und negative Lease-/Evidencefälle sind vom späteren nativen Nachweis getrennt.
+
 Die folgenden Aufrufer setzen beim bestehenden
 `Invoke-HyperVPowerShellDirect` ausdrücklich `NoRetry`:
 

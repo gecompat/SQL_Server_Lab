@@ -30,6 +30,8 @@ Write-Host 'SQL_Server_Lab - Hyper-V Lab Environment Checks' -ForegroundColor Cy
 
 try {
     $module = Import-Module $modulePath -Force -PassThru
+    $completionRegression = & (Join-Path $PSScriptRoot 'Fixtures/HyperVLabEnvironmentCompletionRegressionChecks.ps1') -RepoRoot $repoRoot
+    Add-CheckResult -Name 'SQL-Abschluss bindet echte Transportparameter und aktive Gastadresse; fehlende Collation-Evidence bleibt ungültig' -Success ($completionRegression.Failed -eq 0)
     $completionBoundary = & (Join-Path $PSScriptRoot 'Fixtures/HyperVSqlCompletionBoundaryChecks.ps1') -RepoRoot $repoRoot
     Add-CheckResult -Name 'Öffentlicher SQL-Abschluss bindet explizite Roots; vier mutierende Gastaufrufe wiederholen verlorene Replies nicht' -Success $completionBoundary.Success
     $immutableReader = & (Join-Path $PSScriptRoot 'Fixtures/HyperVImmutableRunReaderChecks.ps1') -RepoRoot $repoRoot

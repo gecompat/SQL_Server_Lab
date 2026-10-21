@@ -71,6 +71,12 @@ try{
         function Save-LabHyperVSqlSaPassword {param($RunDirectory,$SqlSaPassword,[switch]$Generated)$script:secretWrites++;if($RunDirectory -cne (Join-Path (Join-Path $script:stateRoot 'runs') $script:runId)){throw 'FIXTURE_SECRET_ROOT_CHANGED'}}
         function Invoke-LabWindowsSlotActivationReconcile {param($RunId,$Credential,$StateRoot,[guid]$ExpectedVmId)$script:activationBound=$ExpectedVmId -eq $script:vmId -and $StateRoot -ceq $script:stateRoot}
         function Resolve-LabHyperVNetworkBoundPlan {[pscustomobject]@{Status='READY';Actions=@();Name='synthetic-bound-switch';Intent='hostOnly';Subnet='192.0.2.0/24';HostAddress='192.0.2.1';PrefixLength=24}}
+        # The actual lease reader runs in HyperVLabEnvironmentCompletionRegressionChecks.
+        function Get-HyperVLabHostSqlNetworkLeaseAddress {
+            [CmdletBinding()]param([Parameter(Mandatory)]$Lab,[Parameter(Mandatory)]$Network)
+            if($Lab.StateRoot -cne $script:stateRoot -or $Network.Name -cne $Lab.Instance.labNetwork.name){throw 'FIXTURE_LEASE_BINDING_CHANGED'}
+            [string]$Lab.Instance.labNetwork.address
+        }
         function Get-LabNetworkGuestAddress {param($Network,$Identity)if($Identity -cne $script:runId){throw 'FIXTURE_NETWORK_IDENTITY_CHANGED'};'192.0.2.2'}
         function Resolve-LabHyperVNetwork {$script:sharedNetworkWrites++;throw 'FIXTURE_SHARED_NETWORK_REPAIR'}
         function Invoke-LabHyperVNetworkBoundPlan {$script:sharedNetworkWrites++;throw 'FIXTURE_SHARED_NETWORK_REPAIR'}

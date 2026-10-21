@@ -61,6 +61,15 @@ brechen geschlossen ab. Es gibt weder automatische Reparatur noch erneutes
 Setup. Der persistierte Zwischenzustand blockiert einen Setup-Replay. Recovery
 und Cleanup bleiben gesonderte, scopegebundene Operationen.
 
+Der Caller verwendet die vorhandene Transportsignatur ohne `StateRoot`.
+Der ausgewählte Root bleibt an den Run-Readern gebunden; Run, Scope,
+Credential, optionaler VM-ID-Direct-Selector und `NoRetry` werden erhalten.
+Fehlende, NULL-, leere oder ungültig typisierte Collationwerte ergeben
+`HYPERV_SQL_COLLATION_RECEIPT_INVALID`. Erst drei gültige Istwerte erlauben
+den Vergleich; eine tatsächliche Abweichung ergibt
+`HYPERV_SQL_COLLATION_POSTCONDITION_FAILED`. Ein Transportfehler bleibt
+`HYPERV_SQL_COLLATION_QUERY_FAILED` und erzeugt keinen Collationnachweis.
+
 Erst nach Erfolg speichert `sqlCompletion.collation` den Status `VERIFIED`,
 Sollwert, drei Istwerte, Katalogverfuegbarkeit, SQL-Version, Beobachtungszeit
 und Run-/Scope-/Instanzbindung. Es werden keine Gastnamen, Connection Strings
