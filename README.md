@@ -20,7 +20,7 @@ Neue Lab-Connection-Strings und SSMS-Registrierungsexporte verwenden
 `Encrypt=True;TrustServerCertificate=True` als einfachen Standard ohne eigene
 CA-/Client-Trusteinrichtung. Gespeicherte Altverbindungen werden nicht migriert.
 Die ausdrückliche Wahl von `TrustServerCertificate=False` ist im begrenzten
-[Windows-/Docker-SQL-2025-CU9-Pfad](Documentation/Architecture/AUTHENTICATED_TLS_OPERATIONAL_LAB.md)
+[Windows-/Docker-/Podman-Pfad für SQL 2025 CU9, 2022 CU27 und 2019 CU32](Documentation/Architecture/AUTHENTICATED_TLS_OPERATIONAL_LAB.md)
 mit qualifiziertem separatem Export implementiert. CLI und GUI zeigen die
 angegebenen Flags; der Flagwert allein ist kein Qualifikationsnachweis.
 Weitere Kombinationen und die gesonderte Prüfstatusanzeige bleiben TLS-001-Scope.

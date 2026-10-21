@@ -3,7 +3,7 @@
 param([Parameter(Mandatory)][string]$DataRoot,[Parameter(Mandatory)][string]$ControllerId,
     [Parameter(Mandatory)][string]$LocationId,[Parameter(Mandatory)][string]$CandidateId,
     [Parameter(Mandatory)][string]$EvidenceDirectory,[ValidateSet('docker','podman')][string]$Provider='docker',
-    [ValidateSet('2025-CU9','2022-CU27')][string]$Version='2025-CU9',[switch]$Execute,[switch]$KeepLab)
+    [ValidateSet('2025-CU9','2022-CU27','2019-CU32')][string]$Version='2025-CU9',[switch]$Execute,[switch]$KeepLab)
 $ErrorActionPreference='Stop'
 if(-not $Execute){throw 'TLS_ACCEPTANCE_EXECUTE_REQUIRED: creates one own selected-provider and selected-version lab; no trust import.'}
 $repo=(Resolve-Path (Join-Path $PSScriptRoot '../..')).Path

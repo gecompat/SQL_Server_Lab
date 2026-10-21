@@ -1,5 +1,9 @@
 # Autonome Entwicklungswelle nach der Repository-Durchsicht
 
+## Operative SQL-2019-CU32-Fortsetzung
+
+Der Benutzer beauftragt den nächsten offenen TLS-001-Scope und die anschließende autonome Fortsetzung weiterer kohärenter Wellen. Die erste Welle ergänzt ausschließlich das öffentliche Windows-/Docker-/Podman-Profil für SQL 2019 CU32 mit signiertem V2-Export. Ein Implementierer und ein unabhängiger Reviewer arbeiten im gemeinsamen endlichen Budget. Beide nativen Providerabnahmen bestanden je sieben Fälle mit sechs strikten Clientergebnissen und vollständigem eigenem Cleanup. Die betroffene 26-Suiten-Regression bestand; unabhängige Findings sind geschlossen. Alle erforderlichen grünen PR-Gates bleiben Integrationsbedingung. Jede Welle wird vor der nächsten regulär integriert und ihr eigener Branch/Worktree bereinigt. Bestehende CA/Trust, VM/Disks/Originalkeys, geschützte Evidence und fremde Worktrees bleiben erhalten; frühere abgeschlossene Abnahmen werden nicht wiederholt.
+
 ## Operative SQL-2022-CU27-Fortsetzung
 
 Nach Integration von PR #812 beauftragte der Benutzer den nächsten offenen

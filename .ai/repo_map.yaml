@@ -923,16 +923,16 @@ sources_of_truth:
   authenticated_tls_authority_binding: Private/AuthenticatedTlsAuthorityBinding.ps1 # private Windows candidate/ciphertext/DER + exact active client/signer + ReadOnly trust; NON_ATOMIC_READ, no keyopen/storewrite/TLS qualification
   validation_authenticated_tls_authority_binding: Tests/Static/Invoke-AuthenticatedTlsAuthorityBindingChecks.ps1 # own native temp CA/DPAPI/NTFS/actor/root/writer, injected positive trust/binaries; coupled payload/document/index/root/request/context/backend/CaCandidate/StorageContract/DiagnosticBundleReader
   authenticated_tls_registry_writer_contract: Documentation/Architecture/AUTHENTICATED_TLS_REGISTRY_WRITER.md
-  authenticated_tls_operational_lab: Documentation/Architecture/AUTHENTICATED_TLS_OPERATIONAL_LAB.md # Windows Docker/Podman SQL2025 CU9 explicit False lane and signed V2 export; provider proofs separate, V1/default true
+  authenticated_tls_operational_lab: Documentation/Architecture/AUTHENTICATED_TLS_OPERATIONAL_LAB.md # Windows Docker/Podman SQL2025 CU9, SQL2022 CU27 and SQL2019 CU32 explicit False lane and signed V2 export; provider proofs separate, V1/default true
   authenticated_tls_authority: Private/AuthenticatedTlsAuthority.ps1
-  authenticated_tls_lab: Private/AuthenticatedTlsLab.ps1 # explicit provider, original runtime pin, closed 0.1 Docker / 0.2 provider+policy bindings; coupled ContainerOwnedHostIntegration, RunArtifactRemoval and RetainedStoreRuntime
+  authenticated_tls_lab: Private/AuthenticatedTlsLab.ps1 # explicit provider, original runtime pin, closed 0.1 Docker / 0.2 provider+policy / 0.3 SQL-profile bindings; coupled ContainerOwnedHostIntegration, RunArtifactRemoval and RetainedStoreRuntime
   authenticated_tls_qualification: Private/AuthenticatedTlsQualification.ps1
   validation_authenticated_tls_authority: Tests/Static/Invoke-AuthenticatedTlsAuthorityChecks.ps1
   validation_authenticated_tls_lab: Tests/Static/Invoke-AuthenticatedTlsLabChecks.ps1
   validation_authenticated_tls_lab_provider: Tests/Static/Fixtures/AuthenticatedTlsLabProviderChecks.ps1 # executed by lab suite; injected provider/origin/process observations, no native SQL claim
-  validation_authenticated_tls_lab_versions: Tests/Static/Fixtures/AuthenticatedTlsLabVersionChecks.ps1 # closed operational SQL2025CU9/SQL2022CU27 profiles and historical-shape rejection; no native SQL claim
+  validation_authenticated_tls_lab_versions: Tests/Static/Fixtures/AuthenticatedTlsLabVersionChecks.ps1 # closed operational SQL2025CU9/SQL2022CU27/SQL2019CU32 profiles and historical-shape rejection; no native SQL claim
   acceptance_authenticated_tls_lab: Tests/Integration/Invoke-AuthenticatedTlsLabAcceptance.ps1
-  acceptance_authenticated_tls_selection: Tests/Common/AuthenticatedTlsAcceptanceSelection.ps1 # test-only independent request/version/build oracle; rejects requested2022/returned2025 before live probes
+  acceptance_authenticated_tls_selection: Tests/Common/AuthenticatedTlsAcceptanceSelection.ps1 # test-only independent request/version/build oracle; rejects different self-consistent returned SQL profiles before live probes
   acceptance_authenticated_tls_export_cleanup: Tests/Common/AuthenticatedTlsAcceptanceCleanup.ps1 # fixed private exports of terminal owned acceptance runs only; no CA/key/trust dependency
   validation_authenticated_tls_export_cleanup: Tests/Static/Invoke-AuthenticatedTlsAcceptanceCleanupChecks.ps1
   schema_authenticated_tls_test_environment: Schemas/test-environment-authenticated.schema.json

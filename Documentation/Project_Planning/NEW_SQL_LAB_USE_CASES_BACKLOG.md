@@ -120,6 +120,9 @@ erhalten aber jeweils eigene Runtime-Evidence.
 
 #### TLS-001 – authentifizierte TLS-Verbindungen der Testumgebungen
 
+SQL 2019 CU32 ist als nächstes geschlossenes operatives Windows-/Docker-/Podman-Profil mit Build `15.0.4430.1` implementiert. Der bestehende `0.3`-Record bindet ausdrücklich `2019-CU32`; historische SQL-2025- und SQL-2022-Bindungen bleiben erhalten. Beide getrennten nativen operativen Abnahmen bestanden je sieben Fälle, sechs strikte Clientergebnisse und vollständigen eigenen Container-/Volume-/Exportcleanup. Frühere Kryptoproben bleiben getrennte Nachweise; die finalen PR-Pflichtgates sind Integrationsbedingung.
+
+
 Die [native Hyper-V-Referenzabnahme vom 2026-10-20](../Quality/TLS_HYPERV_NATIVE_ACCEPTANCE_2026-10-20.md)
 ist für Windowsclients und SQL 2025 RTM bestanden: gültige Kette,
 untrusted CA, falscher SAN, echter Ablauf, neuer Schlüssel, striktes TLS nach

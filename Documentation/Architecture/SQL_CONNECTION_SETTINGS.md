@@ -38,7 +38,7 @@ Zugangs-/Secretanzeigen der Statusansicht erhalten keine neue Entschlüsselung.
 
 Diese Werte beschreiben den gespeicherten Connection String. Sie sind weder
 ein Live-Verbindungstest noch ein Ketten-, SAN-, Ablauf-, Trust- oder
-Clientqualifikationsnachweis. Die additive öffentliche strikte Moduswahl und der qualifizierte V2-Export sind im [operativen TLS-Vertrag](AUTHENTICATED_TLS_OPERATIONAL_LAB.md) für ein eigenes Windows-/Docker-SQL-2025-CU9-Lab begrenzt.
+Clientqualifikationsnachweis. Die additive öffentliche strikte Moduswahl und der qualifizierte V2-Export sind im [operativen TLS-Vertrag](AUTHENTICATED_TLS_OPERATIONAL_LAB.md) für eigene Windows-/Docker-/Podman-Labs mit SQL 2025 CU9, SQL 2022 CU27 oder SQL 2019 CU32 begrenzt.
 
 Die [fokussierte Suite](../../Tests/Static/Invoke-SqlConnectionSettingsChecks.ps1)
 prüft den tatsächlichen Default-Erzeuger, native Parsergegenfälle, fehlende
