@@ -1246,6 +1246,13 @@ Refresh. Der verbindliche Zielvertrag steht in
 
 ## Manifest und Schema
 
+PowerShell 7.6.7 kann bei verschachtelten Schemafehlern `False` ohne ErrorRecord
+liefern ([Upstream #28218](https://github.com/PowerShell/PowerShell/issues/28218)).
+Der Manifestvalidator behaelt diese Ablehnung bei und ergaenzt nur in diesem
+Fall Fehlerpositionen aus der bereits geladenen Schemaengine, ohne externen
+Fetch. Falls diese Diagnose nicht verfuegbar ist, bleibt ein ausdruecklicher
+generischer Schemafehler erhalten; die Eingabe wird niemals deshalb akzeptiert.
+
 ### SMTP: run-scoped Database-Mail-Testservice und privater Lesetransport
 
 `smtpTestService` ist an Schema, Raw-JSON-Prüfung, Validator, Parser und den

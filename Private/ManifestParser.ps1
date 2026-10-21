@@ -45,9 +45,31 @@ function Test-LabManifestSchema {
         -ErrorAction SilentlyContinue `
         -ErrorVariable schemaErrors
 
+    $messages = @($schemaErrors | ForEach-Object { $_.Exception.Message } | Select-Object -Unique)
+    if (-not $isValid -and $messages.Count -eq 0) {
+        # PowerShell 7.6.7 verliert bei verschachtelten Schemafehlern die
+        # ErrorRecords (PowerShell/PowerShell#28218). Nur die Diagnose wird
+        # mit derselben bereits geladenen Engine ergaenzt; False bleibt bindend.
+        try {
+            $options = [Json.Schema.EvaluationOptions]::new()
+            $options.OutputFormat = [Json.Schema.OutputFormat]::List
+            $options.SchemaRegistry.Fetch = $null
+            $evaluation = [Json.Schema.JsonSchema]::FromText($validationSchema).Evaluate(
+                [System.Text.Json.Nodes.JsonNode]::Parse($Json), $options)
+            $messages = @(
+                @($evaluation) + @($evaluation.Details) | Where-Object { -not $_.IsValid -and $_.HasErrors } |
+                    ForEach-Object { "Schemafehler bei '$($_.InstanceLocation.ToString())'; Test-Json lieferte keine Fehlerdetails." } |
+                    Select-Object -Unique
+            )
+        }
+        catch { $messages = @() }
+        if ($messages.Count -eq 0) {
+            $messages = @('Manifest-Schema ungueltig; Test-Json lieferte keine Fehlerdetails.')
+        }
+    }
     return [PSCustomObject]@{
         IsValid = [bool]$isValid
-        Errors  = @($schemaErrors | ForEach-Object { $_.Exception.Message } | Select-Object -Unique)
+        Errors  = $messages
     }
 }
 

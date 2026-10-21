@@ -2752,6 +2752,16 @@ nativen Providerpruefungen, keinen Imagebau und keine Integration. Die vom
 tatsaechlichen Diff ausgewaehlten CI-Pflichtgates bleiben vor einem Merge
 erforderlich; sie ersetzen nicht die separate Windows-Collationabnahme.
 
+Der erste PR-Gate auf Ubuntu fand zusaetzlich die Upstream-Regression von
+`Test-Json` in PowerShell 7.6.7: drei bestehende Manifestchecks erhielten trotz
+Schemaablehnung keine Fehlerdetails. `Invoke-ManifestBuilderChecks.ps1`
+injiziert jetzt gezielt fehlende ErrorRecords und verlangt weiter Ablehnung,
+echte lokale Diagnosepositionen bei geladener Schemaengine, keinen Secretwert
+und niemals eine Hochstufung zu gueltig. Unter aelteren Engines ohne diese
+Diagnose-API bleibt die Ablehnung mit generischem Fehler erhalten. Der
+fokussierte Nachlauf bestand mit 152 Checks; die bestehenden Assertions und
+der erforderliche CI-Gate bleiben unveraendert.
+
 Der Pruefaufwand folgt dem vorhandenen Selektor: gemeinsame Katalog-/Aufrufer-
 aenderungen behalten ihre bisherigen Regressionen und ergaenzen die eine neue
 Collationsuite; die Selektoraenderung prueft ihr bestehender Selbsttest.

@@ -1320,6 +1320,7 @@ internal_components:
     source: Private/ManifestParser.ps1
     responsibilities:
       - "Manifest lesen und Pflichtfelder prüfen"
+      - "Schemaablehnung trotz fehlender Test-Json-ErrorRecords erhalten; lokale Diagnosepositionen aus der bereits geladenen Schemaengine, ohne externen Fetch"
       - "Defaults anwenden"
       - "relative Pfade auflösen"
       - "Sample-Referenzen in den typisierten Artifact-Vertrag auflösen"

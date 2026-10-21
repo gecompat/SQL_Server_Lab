@@ -48,6 +48,37 @@ Add-CheckResult `
     -Success $schemaSupport.IsSupported `
     -Message ($schemaSupport.Errors -join '; ')
 
+$missingSchemaErrors = & $module {
+    # Die Cmdlet-Regression ohne Runtimewechsel nachstellen; dieselbe echte
+    # Schemaengine muss Fehlerpositionen liefern, niemals IsValid hochstufen.
+    $null = Test-Json -Json '{}' -Schema '{"type":"object"}'
+    $hasSchemaEngine = $null -ne ('Json.Schema.JsonSchema' -as [type])
+    function Test-Json {
+        [CmdletBinding()]
+        param([string]$Json,[string]$Schema)
+        $false
+    }
+    foreach ($json in @(
+        '{"name":"synthetic","instances":[{"id":"primary","version":"2025","unknown":true}]}',
+        '{"name":"synthetic","secrets":{"saPassword":"SYNTHETIC_CANARY"},"instances":[{"id":"primary","version":"2025"}]}',
+        '{"name":"synthetic","instances":[{"id":"primary","version":"2025","provider":"hyperv","hyperv":{"autostart":"always"}}]}',
+        '{"name":"synthetic","instances":[{"id":"primary","version":"2025"}]}'
+    )) {
+        $result = Test-LabManifestSchema -Json $json
+        $result | Add-Member -NotePropertyName HasSchemaEngine -NotePropertyValue $hasSchemaEngine
+        $result
+    }
+}
+foreach ($case in @(@{Index=0;Path='/instances/0/unknown'},@{Index=1;Path='/secrets'},@{Index=2;Path='/instances/0/hyperv/autostart'})) {
+    $result = $missingSchemaErrors[$case.Index]
+    Add-CheckResult -Name "Schemaablehnung ohne Cmdlet-ErrorRecords behaelt echte Fehlerposition: $($case.Path)" `
+        -Success (-not $result.IsValid -and $result.Errors.Count -gt 0 -and
+            (-not $result.HasSchemaEngine -or ($result.Errors -join '; ') -like "*$($case.Path)*") -and
+            ($result.Errors -join '; ') -notmatch 'SYNTHETIC_CANARY')
+}
+Add-CheckResult -Name 'Diagnosefallback stuft eine Cmdlet-Ablehnung auch ohne ermittelbare Fehlerposition niemals hoch' `
+    -Success (-not $missingSchemaErrors[3].IsValid -and $missingSchemaErrors[3].Errors.Count -gt 0)
+
 $manifestBuilderSource=Get-Content -LiteralPath (Join-Path $repoRoot 'Private/ManifestBuilder.ps1') -Raw -Encoding utf8
 Add-CheckResult `
     -Name 'Aufgeloeste readOnly-Metadaten erscheinen nicht als Wizard-Eingaben' `
