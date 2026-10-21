@@ -11,9 +11,14 @@ function Get-OwnedTlsAcceptanceProfile {
 function Assert-OwnedTlsAcceptanceSelection {
     param([object]$Expected,[object]$Qualification,[object]$Record,[object]$Entry)
     if($Qualification.SqlVersion -cne $Expected.SqlVersion -or $Qualification.Patch -cne $Expected.Patch -or $Qualification.SqlBuild -cne $Expected.SqlBuild){throw 'TLS_ACCEPTANCE_REQUESTED_SQL_PROFILE_CHANGED'}
-    $actualProfile=if($null -ne $Record -and $Record.PSObject.Properties['SqlProfileId']){[string]$Record.SqlProfileId}else{''}
+    $property=if($null -ne $Record){$Record.PSObject.Properties['SqlProfileId']}else{$null}
+    $profileMismatch=if($Expected.RecordVersion -ceq 'SqlServerLab.AuthenticatedTlsLab/0.2'){
+        $null -ne $property
+    }else{
+        $null -eq $property -or $property.Value -isnot [string] -or $property.Value -cne $Expected.SqlProfileId
+    }
     if($null -ne $Record -and ($Record.ContractVersion -cne $Expected.RecordVersion -or
-        $actualProfile -cne [string]$Expected.SqlProfileId)){throw 'TLS_ACCEPTANCE_REQUESTED_RECORD_PROFILE_CHANGED'}
+        $profileMismatch)){throw 'TLS_ACCEPTANCE_REQUESTED_RECORD_PROFILE_CHANGED'}
     if($null -ne $Entry -and ($Entry.sqlVersion -cne $Expected.SqlVersion -or $Entry.patch -cne $Expected.Patch -or
         $Entry.resolvedVersion -cne $Expected.SqlBuild -or $Entry.key -cne $Expected.Key)){throw 'TLS_ACCEPTANCE_REQUESTED_EXPORT_PROFILE_CHANGED'}
 }
