@@ -1,5 +1,9 @@
 # Autonome Entwicklungswelle nach der Repository-Durchsicht
 
+## Zusätzliche SQL-2022-CU27-Neustart-Wiederbindung
+
+Ein neuer direkter Folgeauftrag öffnet nach dem abgeschlossenen vorherigen Wellenbudget eine getrennte begrenzte Folge. Die erste Welle schließt die fehlenden nativen Windows-/SQL-2022-CU27-Rebind-Kombinationen mit Docker und Podman: je zwölf Fälle und zwölf bezeichnete strikte Clientergebnisse auf Build `16.0.4295.3`, Recordform `0.3` mit explizitem SQL-Profil und vollständigem eigenem Cleanup. Produkt und Harness bleiben unverändert; frühere Nachweise werden nicht umgedeutet. Finale Pflichtgates und unabhängiger Abschlussreview bleiben Integrationsbedingung. Die Folge ist auf zwei PRs, sechs eigene Acceptance-Labs und vier Stunden begrenzt und wird nicht automatisch erneuert.
+
 ## SQL-2025-CU9-Wiederbindung mit Recordform 0.2
 
 Nach regulärer Integration und eigener Bereinigung der Container-Rebind-Welle schließt die letzte Welle desselben begrenzten Auftrags die fehlende native SQL-2025-CU9-Kombination für Docker und Podman. Produkt und Harness bleiben unverändert; das unabhängige Testoracle lehnt nun auch vorhandenes `SqlProfileId=null` oder leer auf Record `0.2` ab. Die gekoppelte SQL-2022-`0.3`-Positivregression bleibt erhalten. Beide getrennten nativen Windows-Abnahmen bestanden je zwölf Fälle, zwölf strikte Clientergebnisse und vollständigen eigenen Cleanup auf Build `17.0.5005.3`. Alle sieben betroffenen statischen Suites und das unabhängige Korrekturreview sind erfolgreich. Erforderliche finale PR-Gates bleiben Integrationsbedingung; frühere Nachweise werden nicht umgedeutet. Das gemeinsame Wellenbudget wird anschließend beendet und nicht automatisch erneuert.
