@@ -1298,6 +1298,14 @@ Provisionierung und Smoke-Test zuständig.
 
 #### Defaults und Normalisierung
 
+Neue interaktive SQL-Zielintents verwenden den in
+`Catalogs/sql-intent-defaults.json` editierbaren Collationstandard, initial
+`SQL_Latin1_General_CP1_CS_AS`. Eine eigene Auswahl hat Vorrang. Windows ohne
+SQL-Intent beziehungsweise ohne ausdrueckliches Manifestfeld/Ad-hoc-Argument
+behaelt sein bisheriges Setupverhalten. Bei gewaehlter Collation prueft der
+[Prepared-Pfad](../Architecture/HYPERV_SQL_COLLATION.md) nach CompleteImage
+Server, master und tempdb; native Windows-Abnahme bleibt offen.
+
 Die Instanzcollation wird für SQL 2019/2022/2025 gegen den kuratierten Katalog
 geprüft. Mit `Find-SqlServerLabCollation -Query 'Latin1 UTF8' -SqlVersion 2022`
 lassen sich vollständige Namen auswählen. Beispielsweise ist dieser Entwurf

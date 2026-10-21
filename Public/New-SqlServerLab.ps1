@@ -228,9 +228,11 @@ function New-SqlServerLab {
     .PARAMETER Collation
         Vollstaendiger Katalogname fuer SQL 2019/2022/2025; die Suche erfolgt
         mit Find-SqlServerLabCollation. Unbekannte Namen werden vor der
-        Provisionierung abgewiesen. SQL-seitige Verifikation bleibt offen.
+        Provisionierung abgewiesen. Windows-Prepared prueft bei ausdruecklicher
+        Auswahl Server, master und tempdb; native Abnahme bleibt offen.
         SQL-Server-Collation der neuen Ad-hoc-Instanz. Standard ist
-        SQL_Latin1_General_CP1_CI_AS.
+        SQL_Latin1_General_CP1_CI_AS fuer Container und Datenbankdefaults.
+        Windows-Prepared ohne Argument behaelt den bisherigen Setupdefault.
     .PARAMETER ServerConfig
         Optionale typisierte SQL-Server-Konfiguration, beispielsweise fuer
         Max Server Memory, MAXDOP, Cost Threshold und TempDB-Dateien.
@@ -541,6 +543,7 @@ function New-SqlServerLab {
                     profile       = $Profile
                     autostart     = $AutoStart
                     collation     = $Collation
+                    collationExplicit = $PSBoundParameters.ContainsKey('Collation')
                     databases     = $sampleDatabases
                     drives        = @($Drives)
                     serverConfig  = $ServerConfig
@@ -736,6 +739,11 @@ function New-SqlServerLab {
         if ($artifactState -eq 'SQL_PREPARED_SEALED' -and [string]$artifact.sql.version -ne [string]$instance.version) {
             throw "HYPERV_MANIFEST_SQL_VERSION_MISMATCH: Manifest $($instance.version), Image $($artifact.sql.version)"
         }
+        $hyperVCollationArguments = @{}
+        if ($instance.collationExplicit) {
+            if ($artifactState -ne 'SQL_PREPARED_SEALED') { throw 'HYPERV_SQL_COLLATION_PREPARED_REQUIRED' }
+            $hyperVCollationArguments.Collation = Resolve-LabSqlServerCollation -Name ([string]$instance.collation) -SqlVersion ([string]$artifact.sql.version)
+        }
         $hyperVExternalRuntimePlans = @($externalRuntimePlansByInstance[[string]$instance.id])
         if ($hyperVExternalRuntimePlans.Count -gt 0) {
             if ($artifactState -ne 'SQL_PREPARED_SEALED') {
@@ -823,6 +831,7 @@ function New-SqlServerLab {
         }
         $effectiveHyperVSqlSaPassword = if ($SqlSaPassword) { $SqlSaPassword } else { $GuestPassword }
         $provisioning = Invoke-HyperVLabUnattendedProvision -RunId $lab.RunId -AdministratorPassword $GuestPassword -SqlSaPassword $SqlSaPassword `
+            @hyperVCollationArguments `
             -SqlPort $hyperVSqlPort -PasswordSource $passwordSource -Region $effectiveWindowsLocale.Region -SystemLocale $effectiveWindowsLocale.SystemLocale -UiLanguage $effectiveWindowsLocale.UiLanguage `
             -InputLocale $effectiveWindowsLocale.InputLocale -TimeZone $effectiveWindowsLocale.TimeZone -StateRoot $hyperVLab.StateRoot -RequireExistingNetwork:$RequireExistingHyperVNetwork
         $hyperVLab = Get-HyperVLabWorkflowRun -RunId $lab.RunId -StateRoot $hyperVLab.StateRoot

@@ -354,6 +354,9 @@ function Resolve-ManifestDefaults {
             profile       = if ($instance.profile) { $instance.profile } else { 'standard' }
             autostart     = if ($instance.autostart) { [string]$instance.autostart } elseif ($instance.hyperv -and $instance.hyperv.autostart) { [string]$instance.hyperv.autostart } else { 'off' }
             collation     = Resolve-LabSqlServerCollation -Name ([string]$instance.collation) -SqlVersion ([string]$instance.version)
+            # Die ausdrückliche Auswahl vor der Defaultnormalisierung bewahren.
+            # Datenbankdefaults und Container behalten den bisherigen Wert.
+            collationExplicit = $null -ne $instance.collation
             databases     = @()
             drives        = @()
             storageIntent = $null

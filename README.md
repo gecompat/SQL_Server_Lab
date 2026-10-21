@@ -27,6 +27,13 @@ Weitere Kombinationen und die gesonderte Prüfstatusanzeige bleiben TLS-001-Scop
 
 ## Voraussetzungen
 
+Im [Windows-Prepared-Pfad](Documentation/Architecture/HYPERV_SQL_COLLATION.md)
+wird eine ausgewaehlte Instanzcollation bis CompleteImage weitergegeben und
+fuer Server, master und tempdb geprueft. Neue interaktive SQL-Zielintents nutzen
+den editierbaren Standard aus `Catalogs/sql-intent-defaults.json`, initial
+`SQL_Latin1_General_CP1_CS_AS`. Windows ohne Intent bleibt unveraendert;
+native Collationabnahmen sind noch offen.
+
 - PowerShell 7.2 oder neuer.
 - Eine installierte und laufende Docker- oder Podman-Runtime für Containerlabs.
 - `sqlcmd` für die dokumentierten SQL- und Diagnoseschritte.

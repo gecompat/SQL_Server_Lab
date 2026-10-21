@@ -525,7 +525,12 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   ausschließlich lokale, nicht ausführbare Planung. Downloads, Approvals,
   Receipts, Manifestbindung und Toolausführung bleiben offen;
 
-- versionsgebundene Instanzcollation für SQL 2019/2022/2025: kuratierter
+- versionsgebundene Instanzcollation für SQL 2019/2022/2025:
+  Windows-Prepared erhaelt bei ausgewaehltem Intent jetzt `/SQLCOLLATION` und
+  prueft SQL-seitig Server, master und tempdb; ohne Intent unveraendert.
+  [Vertrag](../Documentation/Architecture/HYPERV_SQL_COLLATION.md) und editierbarer
+  interaktiver Standard `Catalogs/sql-intent-defaults.json` (initial SQL-CS).
+  Native Windows-Collationabnahme bleibt offen. Bestehender
   Katalog, öffentliche tokenbasierte Suche und Konsolenauswahl mit Metadaten;
   Manifestprüfung, Wizard-Speicherung, Manifestauflösung und Ad-hoc-Erstellung
   binden vollständige Namen kanonisch vor Provisionierung. Unbekannte Namen

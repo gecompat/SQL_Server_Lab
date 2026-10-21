@@ -1184,6 +1184,7 @@ function Invoke-HyperVLabUnattendedProvision {
         [Parameter(Mandatory)][string]$RunId,
         [Parameter(Mandatory)][SecureString]$AdministratorPassword,
         [SecureString]$SqlSaPassword,
+        [ValidateNotNullOrEmpty()][ValidatePattern('^[A-Za-z0-9_]{1,128}$')][string]$Collation,
         [ValidateRange(1,65535)][int]$SqlPort = 1433,
         [ValidateSet('user', 'generated')][string]$PasswordSource = 'user',
         [ValidateRange(60, 3600)][int]$TimeoutSeconds = 900,
@@ -1197,9 +1198,13 @@ function Invoke-HyperVLabUnattendedProvision {
         [string]$StateRoot
     )
 
-    Assert-LabWindowsPoolMutationAllowed -RunId $RunId -StateRoot $StateRoot -InvalidateEvidence
     Write-LabInfo 'Schritt 1/6: Klon-Vorlage und isolierte Child-VHDX werden geprüft.'
     $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
+    $collationArguments = @{}
+    if ($PSBoundParameters.ContainsKey('Collation') -or $lab.Instance.PSObject.Properties['sqlCollationIntent']) {
+        $collationArguments.Collation = Resolve-LabHyperVSqlCollationSelection -Lab $lab -Parameters $PSBoundParameters
+    }
+    Assert-LabWindowsPoolMutationAllowed -RunId $RunId -StateRoot $StateRoot -InvalidateEvidence
     $RequireExistingNetwork = $RequireExistingNetwork -or ($lab.Run.metadata.PSObject.Properties['requireExistingNetwork'] -and [bool]$lab.Run.metadata.requireExistingNetwork)
     if (-not $lab.Instance.imageArtifactId) { throw 'HYPERV_LAB_UNATTENDED_REQUIRES_IMAGE_ARTIFACT' }
     $windowsOnly = [string]$lab.Instance.workload -eq 'windows'
@@ -1221,6 +1226,10 @@ function Invoke-HyperVLabUnattendedProvision {
     if (-not $managed -or [string]$managed.VM.State -ne 'Off') { throw 'HYPERV_LAB_UNATTENDED_VM_MUST_BE_OFF' }
     $vhdxPath = [string]$managed.Identity.childVhdxPath
     if (-not $vhdxPath -or -not (Test-Path -LiteralPath $vhdxPath -PathType Leaf)) { throw 'HYPERV_LAB_UNATTENDED_CHILD_VHDX_NOT_FOUND' }
+    if ($collationArguments.Count) {
+        $lab.Instance | Add-Member -NotePropertyName sqlCollationIntent -NotePropertyValue $collationArguments.Collation -Force
+        Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'connection-info.json') -InputObject $lab.Connection
+    }
     $null=Add-HyperVImageManifestLockEntry -RunDirectory $lab.RunDirectory -Artifact $localeArtifact -WindowsLocale $normalizedLocale
 
     Write-LabInfo 'Schritt 2/6: Gastpasswort wird nur für diesen Run DPAPI-geschützt abgelegt.'
@@ -1389,6 +1398,7 @@ function Invoke-HyperVLabUnattendedProvision {
     Save-LabHyperVSqlSaPassword -RunDirectory $lab.RunDirectory -SqlSaPassword $SqlSaPassword -Generated:$generatedSqlPassword
     Write-LabInfo 'Schritt 6/6b: SQL CompleteImage, WMI-Prüfung sowie TCP/IP-Hostzugriff werden in der laufenden Klon-VM automatisch ausgeführt.'
     $sqlCompletion = Complete-HyperVLabSqlImage -RunId $RunId -Credential $credential -SqlSaPassword $SqlSaPassword `
+        @collationArguments `
         -GeneratedSqlSaPassword:$generatedSqlPassword -SqlPort $SqlPort -MediaRoot $MediaRoot -StateRoot $lab.StateRoot -RequireExistingNetwork:$RequireExistingNetwork
     $storageRuntime = $null
     $storagePlanPath = Join-Path $lab.RunDirectory 'storage-bound-plan.json'
@@ -2829,6 +2839,7 @@ function Complete-HyperVLabSqlImage {
         [Parameter(Mandatory)][string]$RunId,
         [Parameter(Mandatory)][PSCredential]$Credential,
         [SecureString]$SqlSaPassword,
+        [ValidateNotNullOrEmpty()][ValidatePattern('^[A-Za-z0-9_]{1,128}$')][string]$Collation,
         [switch]$GeneratedSqlSaPassword,
         [ValidateRange(1,65535)][int]$SqlPort = 1433,
         [string]$MediaRoot,
@@ -2845,8 +2856,12 @@ function Complete-HyperVLabSqlImage {
         if($lab.Instance.labNetwork){$null=Assert-HyperVLabSqlExistingNetwork -Lab $lab -Managed $managed}
         $RequireExistingNetwork=$true
     }
-    Assert-LabWindowsPoolMutationAllowed -RunId $RunId -StateRoot $StateRoot -InvalidateEvidence
     $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot @vmBinding
+    $collationArguments = @{}
+    if ($PSBoundParameters.ContainsKey('Collation') -or $lab.Instance.PSObject.Properties['sqlCollationIntent']) {
+        $collationArguments.Collation = Resolve-LabHyperVSqlCollationSelection -Lab $lab -Parameters $PSBoundParameters
+    }
+    Assert-LabWindowsPoolMutationAllowed -RunId $RunId -StateRoot $StateRoot -InvalidateEvidence
     $RequireExistingNetwork = $RequireExistingNetwork -or ($lab.Run.metadata.PSObject.Properties['requireExistingNetwork'] -and [bool]$lab.Run.metadata.requireExistingNetwork)
     if (-not $lab.Instance.imageArtifactId -or $lab.Instance.sqlCompletion) { throw 'HYPERV_LAB_SQL_COMPLETE_NOT_REQUIRED' }
     $artifact = Get-HyperVImageArtifact -ArtifactId ([string]$lab.Instance.imageArtifactId) -StateRoot $lab.StateRoot
@@ -2874,6 +2889,10 @@ function Complete-HyperVLabSqlImage {
     if (-not $managed -or [string]$managed.VM.State -ne 'Running') { throw 'HYPERV_LAB_SQL_COMPLETE_VM_MUST_BE_RUNNING' }
     $null=Invoke-LabWindowsSlotActivationReconcile -RunId $RunId -Credential $Credential -StateRoot $lab.StateRoot @vmBinding
     $lab=Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot @vmBinding
+    if ($collationArguments.Count) {
+        $lab.Instance | Add-Member -NotePropertyName sqlCollationIntent -NotePropertyValue $collationArguments.Collation -Force
+        Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'connection-info.json') -InputObject $lab.Connection
+    }
     $generatedSqlPassword = $GeneratedSqlSaPassword.IsPresent
     if (-not $SqlSaPassword) {
         $SqlSaPassword = Get-LabSecret -Path $lab.RunDirectory -Name 'sa-password'
@@ -2896,8 +2915,8 @@ function Complete-HyperVLabSqlImage {
         $null = Add-VMDvdDrive @vmSelector -Path $media.IsoPath -ErrorAction Stop
     }
     Write-LabInfo 'Schritt 1/3: SQL-Setup-Medium wird in der run-eigenen VM geprüft.'
-    $receipt = Invoke-HyperVPowerShellDirect -VMName $lab.Instance.vmName -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $Credential -NoRetry -FallbackAddress $fallbackAddress @vmBinding -ArgumentList @([string]$lab.Run.runId, [string]$lab.Run.scopeId, $SqlSaPassword) -ScriptBlock {
-        param($ExpectedRunId, $ExpectedScopeId, $SaPassword)
+    $receipt = Invoke-HyperVPowerShellDirect -VMName $lab.Instance.vmName -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $Credential -NoRetry -FallbackAddress $fallbackAddress @vmBinding -ArgumentList @([string]$lab.Run.runId, [string]$lab.Run.scopeId, $SqlSaPassword, $collationArguments.Collation) -ScriptBlock {
+        param($ExpectedRunId, $ExpectedScopeId, $SaPassword, $Collation)
         $setup = @(Get-PSDrive -PSProvider FileSystem | ForEach-Object {
             $candidate = Join-Path $_.Root 'setup.exe'
             if (Test-Path -LiteralPath $candidate -PathType Leaf) { Get-Item -LiteralPath $candidate }
@@ -2909,6 +2928,10 @@ function Complete-HyperVLabSqlImage {
             $plainPassword = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
             if ($plainPassword -match '[\s"]') { throw 'HYPERV_LAB_SQL_SA_PASSWORD_COMMAND_LINE_UNSAFE' }
             $arguments = @('/Q', '/ACTION=CompleteImage', '/INSTANCEID=MSSQLSERVER', '/INSTANCENAME=MSSQLSERVER', '/SQLSYSADMINACCOUNTS="BUILTIN\Administrators"', '/SECURITYMODE=SQL', "/SAPWD=$plainPassword", '/TCPENABLED=1', '/IACCEPTSQLSERVERLICENSETERMS', '/INDICATEPROGRESS')
+            if ($Collation) {
+                if ($Collation -cnotmatch '^[A-Za-z0-9_]{1,128}$') { throw 'HYPERV_SQL_COLLATION_NAME_INVALID' }
+                $arguments += "/SQLCOLLATION=$Collation"
+            }
             $process = Start-Process -FilePath $setup[0].FullName -ArgumentList $arguments -PassThru -NoNewWindow
             if (-not $process.WaitForExit(5400000)) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue; throw 'HYPERV_LAB_SQL_COMPLETE_TIMEOUT' }
             # Setup liefert den Code in älteren Gast-PowerShell-Versionen nicht
@@ -2949,7 +2972,8 @@ function Complete-HyperVLabSqlImage {
     }
 
     $completion = [PSCustomObject]@{
-        state = 'COMPLETE'; serviceStatus = [string]$defaultInstance.ServiceStatus
+        state = if ($collationArguments.Count) { 'COLLATION_PENDING' } else { 'COMPLETE' }
+        serviceStatus = [string]$defaultInstance.ServiceStatus
         completedAt = [string]$receipt.completedAt; wmiProvider = $wmiReceipt
     }
     $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot @vmBinding
@@ -2992,6 +3016,13 @@ function Complete-HyperVLabSqlImage {
         throw 'HYPERV_LAB_SQL_READY_RUN_RECEIPT_INVALID'
     }
     if($vmBinding.Count){$null=Assert-HyperVLabSqlVmBinding -Lab $lab @vmBinding;$lab=Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot @vmBinding}
+    if ($collationArguments.Count) {
+        $collationEvidence = Test-LabHyperVSqlCollationRuntimeEvidence -Lab $lab -Credential $Credential `
+            -Collation $collationArguments.Collation -SqlVersion ([string]$artifact.sql.version) -SqlPort $SqlPort -FallbackAddress $fallbackAddress @vmBinding
+        $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot @vmBinding
+        $lab.Instance.sqlCompletion | Add-Member -NotePropertyName collation -NotePropertyValue $collationEvidence -Force
+        $lab.Instance.sqlCompletion.state = 'COMPLETE'
+    }
     $readinessEvidence = [PSCustomObject]@{
         status = [string]$readiness.Status
         provider = [string]$readiness.Provider

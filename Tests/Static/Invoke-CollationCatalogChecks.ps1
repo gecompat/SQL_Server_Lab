@@ -34,6 +34,11 @@ try {
         }
         $checks['Der katalogisierte DEPRECATED-Default bleibt zulaessig'] =
             (Resolve-LabSqlServerCollation -SqlVersion 2025) -ceq 'SQL_Latin1_General_CP1_CI_AS'
+        foreach ($version in @('2019','2022','2025')) {
+            $checks["SQL-CS-Katalogwert und editierbarer SQL-Intentstandard fuer $version"] =
+                (Resolve-LabSqlServerCollation -Name 'sql_latin1_general_cp1_cs_as' -SqlVersion $version) -ceq 'SQL_Latin1_General_CP1_CS_AS' -and
+                (Get-LabSqlIntentDefaultCollation -SqlVersion $version) -ceq 'SQL_Latin1_General_CP1_CS_AS'
+        }
         foreach ($name in @('Latin1', 'Not_A_Collation', 'Latin1*', 'Latin1_General_100_CI_AS;DROP', ' Latin1_General_100_CI_AS', "Latin1_General_100_CI_AS`n")) {
             $rejected = $false
             try { $null = Resolve-LabSqlServerCollation -Name $name -SqlVersion 2025 }

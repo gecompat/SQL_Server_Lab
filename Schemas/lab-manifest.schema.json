@@ -255,7 +255,7 @@
         },
         "collation": {
           "type": "string",
-          "description": "Kataloggebundene Instanzcollation fuer SQL 2019/2022/2025 und Default fuer neue Datenbanken. Vollstaendigen Namen mit Find-SqlServerLabCollation auswaehlen; SQL-seitige Verifikation bleibt offen.",
+          "description": "Kataloggebundene Instanzcollation fuer SQL 2019/2022/2025 und Default fuer neue Datenbanken. Windows-Prepared: ausdrueckliche Auswahl erreicht CompleteImage und wird fuer Server/master/tempdb geprueft; ohne Auswahl bisheriger Setupdefault. Native Windows-Abnahme bleibt offen.",
           "pattern": "^[A-Za-z0-9_]{1,128}$",
           "default": "SQL_Latin1_General_CP1_CI_AS",
           "examples": [

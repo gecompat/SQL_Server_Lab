@@ -29,7 +29,7 @@ function Reject([string]$Body,[string]$Name,$Overrides=@{},[byte[]]$Bytes=$null)
 }
 foreach($major in @('2019','2022','2025')){foreach($query in @('','---','日本語')){
     $response=Send (@{SqlVersion=$major;Query=$query}|ConvertTo-Json -Compress);$view=$response.Body|ConvertFrom-Json
-    Check ($response.Status -eq 200 -and $view.Results.Count -eq 6 -and $view.ReturnedCount -eq 6 -and -not $view.Truncated -and $view.SqlValidation -ceq 'NOT_CHECKED' -and -not $view.MutationAllowed -and -not $view.ExecutionSupported -and $view.Actions.Count -eq 0) "Actual public/schema zero-token search $major $query"
+    Check ($response.Status -eq 200 -and $view.Results.Count -eq 7 -and $view.ReturnedCount -eq 7 -and -not $view.Truncated -and $view.SqlValidation -ceq 'NOT_CHECKED' -and -not $view.MutationAllowed -and -not $view.ExecutionSupported -and $view.Actions.Count -eq 0) "Actual public/schema zero-token search $major $query"
 }}
 $response=Send '{"SqlVersion":"2025","Query":"Latin1 UTF8"}';$view=$response.Body|ConvertFrom-Json
 Check ($response.Status -eq 200 -and $view.Results.Count -eq 1 -and $view.Results[0].Utf8) 'Actual ASCII AND tokens filter the catalogue'

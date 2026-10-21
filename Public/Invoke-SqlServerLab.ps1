@@ -2406,6 +2406,7 @@ function Read-LabSqlEnvironmentIntentInteractive {
     $versionOptions = @($versions | ForEach-Object { [PSCustomObject]@{ Id=[string]$_.id; Label="SQL Server $($_.id)"; Value=[string]$_.status } })
     $baseVersion = & $selectOption -ScreenId 'sql-intent-version' -Title 'SQL Server Version' -Options $versionOptions -CurrentId '2025'
     if ($baseVersion -notin @($versions.id)) { Write-LabWarning 'SQL-Version ist nicht im Agent-Katalog enthalten.'; return $null }
+    $defaultCollation = Get-LabSqlIntentDefaultCollation -SqlVersion $baseVersion
     $patch = Select-LabSqlPatchIntent -BaseVersion $baseVersion
     $physicalMemoryMB = Get-LabHostPhysicalMemoryMB
     $memoryPrompt = if ($physicalMemoryMB -gt 0) { "RAM MB (Minimum 2048; Host physisch: $physicalMemoryMB; technisches Limit: 1048576)" } else { 'RAM MB (2048..1048576; Host-RAM nicht ermittelbar)' }
@@ -2464,7 +2465,7 @@ function Read-LabSqlEnvironmentIntentInteractive {
             New-LabConsoleField -Id 'requiresWindows' -Label 'Windows-Gast erforderlich' -Value $false -Shortcut '8' -Editor $selectWindows -Formatter { param($value) if([bool]$value){'Ja'}else{'Nein'} }
             New-LabConsoleField -Id 'edition' -Label 'SQL-Edition' -Value 'Developer' -Shortcut '9' -Editor $selectEdition
             New-LabConsoleField -Id 'networkMode' -Label 'Netzwerkmodus' -Value 'host-access' -Shortcut 'n' -Editor $selectNetwork
-            New-LabConsoleField -Id 'collation' -Label 'Server-Collation' -Value 'SQL_Latin1_General_CP1_CI_AS' -Shortcut 'c' -Editor { param($current,$values) Select-LabSqlServerCollationInteractive -SqlVersion ([string]$values['baseVersion']) -Current ([string]$current) } -Validator { param($value,$values) try { $null=Resolve-LabSqlServerCollation -Name ([string]$value) -SqlVersion ([string]$values['baseVersion']) } catch { $_.Exception.Message } }
+            New-LabConsoleField -Id 'collation' -Label 'Server-Collation' -Value $defaultCollation -Shortcut 'c' -Editor { param($current,$values) Select-LabSqlServerCollationInteractive -SqlVersion ([string]$values['baseVersion']) -Current ([string]$current) } -Validator { param($value,$values) try { $null=Resolve-LabSqlServerCollation -Name ([string]$value) -SqlVersion ([string]$values['baseVersion']) } catch { $_.Exception.Message } }
             New-LabConsoleField -Id 'sqlMaxMemoryMB' -Label 'SQL max server memory MB' -Value ([Math]::Max(1024,$defaultMemoryMB-1024)) -Shortcut 's' -Editor { param($current,$values) Read-LabIntegerIntentValue -Prompt 'SQL max server memory MB' -Default ([int]$current) -Minimum 512 -Maximum ([Math]::Max(512,[int]$values['memoryMB']-256)) } -Validator { param($value,$values) if([int]$value -gt ([Math]::Max(512,[int]$values['memoryMB']-256))){'SQL max memory muss mindestens 256 MB unter dem Lab-RAM bleiben.'} }
             New-LabConsoleField -Id 'maxDop' -Label 'MAXDOP (0..64)' -Value $defaultMaxDop -Shortcut 'm' -Editor { param($current,$values) Read-LabIntegerIntentValue -Prompt 'MAXDOP (0..64)' -Default ([int]$current) -Minimum 0 -Maximum 64 }
             New-LabConsoleField -Id 'costThreshold' -Label 'Cost Threshold for Parallelism' -Value 50 -Shortcut 'o' -Editor { param($current,$values) Read-LabIntegerIntentValue -Prompt 'Cost Threshold for Parallelism (0..32767)' -Default ([int]$current) -Minimum 0 -Maximum 32767 }
@@ -2475,6 +2476,8 @@ function Read-LabSqlEnvironmentIntentInteractive {
         )
     }
     if (-not $custom) {
+        $fields += New-LabConsoleField -Id 'collation' -Label 'Server-Collation' -Value $defaultCollation -Editor { param($current,$values) $current } `
+            -Disabled -DisabledReason 'Frameworkstandard fuer neue SQL-Zielintents; eine andere Collation erfordert die benutzerdefinierte Konfiguration.'
         $fields += New-LabConsoleField -Id 'networkMode' -Label 'Netzwerkmodus' -Value 'host-access' -Editor { param($current,$values) $current } `
             -Disabled -DisabledReason 'In der Schnellkonfiguration ist nur Hostzugriff zulaessig; andere Modi erfordern die benutzerdefinierte Konfiguration.'
     }
@@ -2499,7 +2502,7 @@ function Read-LabSqlEnvironmentIntentInteractive {
         Platform=if($requiresWindowsPlatform){'Windows'}else{'Linux'}; OperatingSystem=if($requiresWindowsPlatform){'Windows'}else{'Linux'}
         Purpose=if($custom){[string]$values['purpose']}else{'adhoc'}; RequiresWindows=if($custom){[bool]$values['requiresWindows']}else{$false}; Edition=if($custom){[string]$values['edition']}else{'Developer'}
         Cpu=$cpu; MemoryMB=$memoryMB; Profile=$profile; NetworkMode=[string]$values['networkMode']; HostPort=[int]$values['hostPort']
-        Collation=Resolve-LabSqlServerCollation -Name $(if($custom){[string]$values['collation']}else{'SQL_Latin1_General_CP1_CI_AS'}) -SqlVersion ([string]$values['baseVersion'])
+        Collation=Resolve-LabSqlServerCollation -Name ([string]$values['collation']) -SqlVersion ([string]$values['baseVersion'])
         SqlMaxMemoryMB=if($custom){[int]$values['sqlMaxMemoryMB']}else{[Math]::Max(1024,$memoryMB-1024)}
         MaxDop=if($custom){[int]$values['maxDop']}else{[Math]::Min(8,[int][Math]::Ceiling([double]$cpu))}; CostThreshold=if($custom){[int]$values['costThreshold']}else{50}
         StorageMode=[string]$storage.Mode; Drives=@($storage.Drives)
@@ -5316,6 +5319,10 @@ function New-LabHyperVEnvironmentInteractive {
     else { Select-LabHyperVPreparedArtifact }
     if (-not $artifact) { return }
     $isSqlPrepared = [string]$artifact.artifactState -eq 'SQL_PREPARED_SEALED'
+    $sqlCollationArguments = @{}
+    if ($isSqlPrepared -and $Intent) {
+        $sqlCollationArguments.Collation = Resolve-LabSqlServerCollation -Name ([string]$Intent.Collation) -SqlVersion ([string]$artifact.sql.version)
+    }
     $defaultLabNamePrefix = if ($isSqlPrepared) { 'hyperv-sql-lab' } else { 'hyperv-windows-lab' }
     $defaultLabName = '{0}-{1}' -f $defaultLabNamePrefix, (Get-Date -Format 'yyyy-MM-dd-HHmmss')
     $name = if ($Intent) { [string]$Intent.LabName } else { Read-Host "  Labname [$defaultLabName]" }
@@ -5424,6 +5431,7 @@ function New-LabHyperVEnvironmentInteractive {
             $null = Enable-HyperVLabPersistentData -RunId $lab.RunId -DataRoot $dataRoot -SizeGB ([int]$persistentDataDiskGB)
         }
         $null = Invoke-HyperVLabUnattendedProvision `
+            @sqlCollationArguments `
             -RunId $lab.RunId `
             -AdministratorPassword $guestPassword `
             -SqlSaPassword $sqlSaPassword `
