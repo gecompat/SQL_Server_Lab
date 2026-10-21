@@ -1320,6 +1320,7 @@ internal_components:
     source: Private/ManifestParser.ps1
     responsibilities:
       - "Manifest lesen und Pflichtfelder prüfen"
+      - "Schemaablehnung trotz fehlender Test-Json-ErrorRecords erhalten; lokale Diagnosepositionen aus der bereits geladenen Schemaengine, ohne externen Fetch"
       - "Defaults anwenden"
       - "relative Pfade auflösen"
       - "Sample-Referenzen in den typisierten Artifact-Vertrag auflösen"
@@ -1648,6 +1649,10 @@ catalogs:
     validation: Tests/Static/Invoke-SecurityToolCatalogChecks.ps1
     binding_contract: "Geschlossene IDs und exaktes SQL-/OS-/Distributions-/Versions-/Architektur-/Providertuple; synthetische Trust-Metadatenpruefung; produktive Allowlist leer"
   sql_collations:
+    windows_prepared_contract: Documentation/Architecture/HYPERV_SQL_COLLATION.md
+    windows_prepared_runtime: Private/HyperVSqlCollation.ps1; Private/HyperVLabEnvironment.ps1; Public/New-SqlServerLab.ps1; Public/Invoke-SqlServerLab.ps1
+    windows_prepared_validation: Tests/Static/Invoke-HyperVSqlCollationChecks.ps1; Tests/Static/Invoke-HyperVLabEnvironmentChecks.ps1; native NOT_EXECUTED
+    selected_intent_defaults: Catalogs/sql-intent-defaults.json; Schemas/sql-intent-defaults.schema.json; interaktiver SQL-Zielintent initial SQL_Latin1_General_CP1_CS_AS, Windows ohne Intent unveraendert
     data: Catalogs/sql-server-collations.json
     schema: Schemas/sql-server-collation-catalog.schema.json
     resolver: Private/CollationCatalog.ps1
@@ -1661,7 +1666,7 @@ catalogs:
     browser_contract: "Bewusste RAM-only ASCII-AND-Katalogsuche; SQL 2019/2022/2025; <=256 Queryzeichen, geschlossene Metadaten <=100 Zeilen/64KiB, SQL NOT_CHECKED, Actions leer/Mutation und Execution false; kein Auswahltransfer, keine SQL-/Provider-/Stateaktion; bestehende native Evidence separat"
     validation: Tests/Static/Invoke-CollationCatalogChecks.ps1 und Tests/Static/Invoke-CollationRuntimeEvidenceChecks.ps1
     runtime_evidence: Tests/Integration/Invoke-ContainerCollationAcceptance.ps1; Docker und Podman bestanden am 2026-09-13 fuer SQL 2025 mit Latin1_General_100_CS_AS, kataloggebundener Verfuegbarkeit, SERVERPROPERTY-Postcondition, run-gebundener sanitisierter Evidence und Cleanup (PR-Gate 34783317945). Hyper-V/Windows bleibt getrennt offen
-    binding_contract: "Instanzcollation fuer SQL 2019/2022/2025 exakt und versionsgebunden vor Provisionierung; ManifestParser, ManifestBuilder, New-SqlServerLab und Konsolenformular gemeinsam pruefen. Docker/Podman pruefen nach SQL-Readiness kataloggebunden sys.fn_helpcollations() und SERVERPROPERTY('Collation') mit einer parametrisierten SqlClient-Abfrage vor Konfiguration, Datenbanken und Samples. Datenbank-Overrides, Advanced-Eingabe und der getrennte Hyper-V-/Windows-Nachweis bleiben separat"
+    binding_contract: "Instanzcollation fuer SQL 2019/2022/2025 exakt und versionsgebunden vor Provisionierung; ManifestParser, ManifestBuilder, New-SqlServerLab und Konsolenformular gemeinsam pruefen. Docker/Podman pruefen nach SQL-Readiness kataloggebunden sys.fn_helpcollations() und SERVERPROPERTY('Collation'). Windows-Prepared prueft bei ausdruecklicher Auswahl zusaetzlich master/tempdb; ohne Intent kein neuer Sollwert. Pruefung vor Konfiguration, Datenbanken und Samples. Datenbank-Overrides, Advanced-Eingabe und native Hyper-V-/Windows-Abnahme bleiben separat"
   sql_versions:
     data: Catalogs/sql-server-versions.json
     schema: Schemas/version-catalog.schema.json

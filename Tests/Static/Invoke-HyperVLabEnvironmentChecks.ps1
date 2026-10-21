@@ -352,7 +352,7 @@ try {
         $script:denySqlActivation=$true
         $script:sqlCompletionCalls=0
         function Invoke-LabWindowsSlotActivationReconcile {if($script:denySqlActivation){throw 'ACTIVATION_DENIED_FIXTURE'};$script:sqlActivationChecked=$true;[pscustomobject]@{State='LICENSED'}}
-        function Get-HyperVImageArtifact { [PSCustomObject]@{ artifactId = 'prepared-locale-test'; artifactState = 'SQL_PREPARED_SEALED'; operatingSystem = @{ language = 'de-DE' } } }
+        function Get-HyperVImageArtifact { [PSCustomObject]@{ artifactId = 'prepared-locale-test'; artifactState = 'SQL_PREPARED_SEALED'; sql=[pscustomobject]@{version='2025';edition='Enterprise'}; operatingSystem = @{ language = 'de-DE' } } }
         $child = Join-Path $Root 'unattended-child.vhdx'
         $null = New-Item -Path $child -ItemType File -Force
         function Get-HyperVLabVMs { [PSCustomObject]@{ VMName = 'sql-lab-primary-mock'; VMId = 'mock-vm-id'; State = 'Off' } }
@@ -371,7 +371,8 @@ try {
             }
         }
         function Complete-HyperVLabSqlImage {
-            param($RunId, $Credential, $SqlSaPassword, [switch]$RequireExistingNetwork)
+            param($RunId, $Credential, $SqlSaPassword, $Collation, [switch]$RequireExistingNetwork)
+            $script:capturedSqlCollation = $Collation
             $script:capturedExistingNetwork = $RequireExistingNetwork.IsPresent
             $script:sqlCompletionCalls++
             if(-not $script:sqlActivationChecked){throw 'SQL_SETUP_BEFORE_WINDOWS_ACTIVATION'}
@@ -395,12 +396,15 @@ try {
         $fixtureConnection | ConvertTo-Json -Depth 100 | Set-Content -LiteralPath $fixtureConnectionPath -Encoding utf8
         $script:denySqlActivation=$false
         $result = Invoke-HyperVLabUnattendedProvision -RunId $RunId -AdministratorPassword $password -SqlSaPassword $saPassword -PasswordSource user `
+            -Collation 'sql_latin1_general_cp1_cs_as' `
             -Region 'de-AT' -SystemLocale 'de-AT' -UiLanguage 'de-DE' -InputLocale '0C07:00000407' -TimeZone 'Central Europe Standard Time' -StateRoot $Root
-        [PSCustomObject]@{ Result = $result; ExistingNetwork=$script:capturedExistingNetwork; ActivationBlockedSql=$activationBlockedSql; SqlCompletionCalls=$script:sqlCompletionCalls; SqlSaPasswordLength = $script:capturedSqlSaPasswordLength; ExpectedSaPasswordLength = $saPassword.Length }
+        [PSCustomObject]@{ Result = $result; Collation=$script:capturedSqlCollation; ExistingNetwork=$script:capturedExistingNetwork; ActivationBlockedSql=$activationBlockedSql; SqlCompletionCalls=$script:sqlCompletionCalls; SqlSaPasswordLength = $script:capturedSqlSaPasswordLength; ExpectedSaPasswordLength = $saPassword.Length }
     } $created.RunId $temporaryRoot
     Add-CheckResult -Name 'Aktivierungsblocker verhindert SQL Setup; erlaubter Folgelauf startet es genau einmal' -Success ($unattended.ActivationBlockedSql -and $unattended.SqlCompletionCalls -eq 1)
     Add-CheckResult -Name 'Gespeicherte bestehende Netzbindung erreicht CompleteImage ohne erneute Caller-Option' -Success $unattended.ExistingNetwork
     $unattendedConnection = Get-Content -LiteralPath (Join-Path (Join-Path (Join-Path $temporaryRoot 'runs') $created.RunId) 'connection-info.json') -Raw | ConvertFrom-Json -Depth 10
+    Add-CheckResult -Name 'Unattended speichert nur gewaehlten kanonischen Collationintent und reicht ihn an CompleteImage weiter' -Success (
+        $unattended.Collation -ceq 'SQL_Latin1_General_CP1_CS_AS' -and $unattendedConnection.instances[0].sqlCollationIntent -ceq $unattended.Collation)
     $unattendedSecret = Join-Path (Join-Path (Join-Path (Join-Path $temporaryRoot 'runs') $created.RunId) 'secrets') 'guest-administrator-password.secret'
     $unattendedSaSecret = Join-Path (Join-Path (Join-Path (Join-Path $temporaryRoot 'runs') $created.RunId) 'secrets') 'sa-password.secret'
     $unattendedGeneratedSaAlias = Join-Path (Join-Path (Join-Path (Join-Path $temporaryRoot 'runs') $created.RunId) 'secrets') 'generated-sql-sa-password.secret'

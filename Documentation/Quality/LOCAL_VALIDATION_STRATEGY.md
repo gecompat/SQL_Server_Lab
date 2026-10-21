@@ -2719,6 +2719,56 @@ Windows-/Linux-Beschaffungsabnahme. Beide produktiven Dateien werden gemeinsam
 über eine geschlossene AST-Aufruf-Allowlist geprüft; Quelldateien, Request und
 Prozessumgebung bleiben unverändert.
 
+### Windows-Prepared-Collation und editierbarer Intentstandard
+
+Der [Collationvertrag](../Architecture/HYPERV_SQL_COLLATION.md) ergaenzt die
+ausdrueckliche Windows-Prepared-Auswahl und den editierbaren Standard neuer
+interaktiver SQL-Zielintents. `Invoke-HyperVSqlCollationChecks.ps1` fuehrt
+Manifestnormalisierung, Auswahlbindung, den echten CompleteImage-Gastblock,
+den echten SQL-Gastblock sowie die Abschlussorchestrierung mit synthetischen
+Prozess-/SqlClient-Blaettern aus. Abgedeckt sind fehlender Intent, expliziter
+CI-/CS-Wert, andere Katalogwerte, gespeicherter Intent, Konflikte, falsche
+Artifactversion, Katalog-/Identitaets-/NULL-/Abfragefehler und falsche Istwerte
+von Server/master/tempdb. Ein Fehler behaelt den Abschluss als pending ohne
+SQL-Ready- oder Collation-Erfolg. Die Hyper-V-Umgebungssuite prueft die echte
+Unattended-Weitergabe und persistierte kanonische Auswahl. Der Impact-Selektor
+bindet gemeinsame Aufrufer und Katalog-/Defaultdateien an diese Suite.
+
+Native Windows-Collationabnahme: **NOT_EXECUTED**. Sie ist separat zu
+beauftragen; keine vorhandene Prepared-, Locale- oder Containerabnahme ersetzt
+die drei Istwerte. Der neu katalogisierte SQL-CS-Wert ist auch durch die
+bisherige Containerabnahme mit `Latin1_General_100_CS_AS` nicht nativ belegt.
+
+Am 2026-10-21 bestanden lokal 61 fokussierte Collationchecks, 53 Hyper-V-
+Umgebungschecks, 303 Konsolenchecks, 35 Katalogchecks, neun Container-Evidence-
+Checks mit gefakten SqlClient-Objekten und 23 Pester-Tests ohne Skip. Die
+betroffene Auswahl umfasst 42 statische Suites. Der erste Lauf deckte zwei
+veraltete synthetische Fixtures (Kataloganzahl und fehlende SQL-Version) sowie
+eine zusaetzliche Lintfundstelle im synthetischen Testkennwort auf. Nach deren
+Korrektur bestanden die gezielten Nachlaeufe einschliesslich Browserchecks und
+vollstaendiger Codeanalyse; die Lint-Baseline wurde nicht angehoben. Erstfehler
+bleiben in lokalen Logs erhalten. Dieser lokale Offlineabschluss umfasste keine
+nativen Providerpruefungen, keinen Imagebau und keine Integration. Die vom
+tatsaechlichen Diff ausgewaehlten CI-Pflichtgates bleiben vor einem Merge
+erforderlich; sie ersetzen nicht die separate Windows-Collationabnahme.
+
+Der erste PR-Gate auf Ubuntu fand zusaetzlich die Upstream-Regression von
+`Test-Json` in PowerShell 7.6.7: drei bestehende Manifestchecks erhielten trotz
+Schemaablehnung keine Fehlerdetails. `Invoke-ManifestBuilderChecks.ps1`
+injiziert jetzt gezielt fehlende ErrorRecords und verlangt weiter Ablehnung,
+echte lokale Diagnosepositionen bei geladener Schemaengine, keinen Secretwert
+und niemals eine Hochstufung zu gueltig. Unter aelteren Engines ohne diese
+Diagnose-API bleibt die Ablehnung mit generischem Fehler erhalten. Der
+fokussierte Nachlauf bestand mit 152 Checks; die bestehenden Assertions und
+der erforderliche CI-Gate bleiben unveraendert.
+
+Der Pruefaufwand folgt dem vorhandenen Selektor: gemeinsame Katalog-/Aufrufer-
+aenderungen behalten ihre bisherigen Regressionen und ergaenzen die eine neue
+Collationsuite; die Selektoraenderung prueft ihr bestehender Selbsttest.
+Unveraenderte gruene Suites wurden nach den Findings nicht pauschal wiederholt.
+Vollstaendige Logs bleiben lokal; es kamen keine zusaetzlichen Reviewer- oder
+Modellagenten und keine neue Test-/Logpipeline hinzu.
+
 `Invoke-CollationCatalogChecks.ps1` prüft Katalogsuche, exakte versionsgebundene
 Instanzbindung, kanonische Schreibweise, ungültige und doppelte Namen,
 Manifest-/Ad-hoc-Abweisung vor Provisionierung, verweigerte Wizard-Speicherung

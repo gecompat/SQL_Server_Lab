@@ -4,10 +4,10 @@
 function Get-CollationBrowserCases {
     @(
         [pscustomobject]@{SqlVersion='2025';Query='Latin1 UTF8';Count=1;Name='Latin1_General_100_CI_AS_SC_UTF8';Status='SUPPORTED'}
-        [pscustomobject]@{SqlVersion='2019';Query='SQL_Latin1';Count=1;Name='SQL_Latin1_General_CP1_CI_AS';Status='DEPRECATED'}
+        [pscustomobject]@{SqlVersion='2019';Query='SQL_Latin1';Count=2;Name='SQL_Latin1_General_CP1_CI_AS';Status='DEPRECATED'}
         [pscustomobject]@{SqlVersion='2022';Query='NO_SUCH_COLLATION_FIXTURE';Count=0;Name=$null;Status=$null}
-        [pscustomobject]@{SqlVersion='2019';Query='日本語';Count=6;Name=$null;Status=$null}
-        [pscustomobject]@{SqlVersion='2022';Query='';Count=6;Name=$null;Status=$null}
+        [pscustomobject]@{SqlVersion='2019';Query='日本語';Count=7;Name=$null;Status=$null}
+        [pscustomobject]@{SqlVersion='2022';Query='';Count=7;Name=$null;Status=$null}
         [pscustomobject]@{SqlVersion='2025';Query='Latin1 UTF8';Count=1;Name='Latin1_General_100_CI_AS_SC_UTF8';Status='SUPPORTED'}
     )
 }

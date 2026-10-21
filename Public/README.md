@@ -9,6 +9,13 @@ verwendet `New-SqlServerLab -FullText $true` beziehungsweise den manifestgebunde
 
 ## Explizite Roots beim Hyper-V-SQL-Abschluss
 
+Ausdrueckliche Instanzcollations erreichen im Windows-Prepared-Pfad Setup und
+eine SQL-Postcondition fuer Server/master/tempdb. Die Aktion
+`CompleteHyperVLabSql` beachtet den gespeicherten Runintent. Ohne Auswahl
+bleibt der bisherige Setupdefault erhalten. Den Frameworkstandard neuer
+interaktiver SQL-Zielintents legt `Catalogs/sql-intent-defaults.json` fest.
+[Vertrag, Beispiel und native Nachweisgrenze](../Documentation/Architecture/HYPERV_SQL_COLLATION.md).
+
 `Invoke-SqlServerLabWorkflowAction -Action CompleteHyperVLabSql` reicht bewusst
 angegebene `StateRoot`-/`MediaRoot`-Werte unverändert weiter und lehnt explizite
 Leerwerte vor dem Core-Zugriff ab. Ohne Angabe gelten die bisherigen Defaults.

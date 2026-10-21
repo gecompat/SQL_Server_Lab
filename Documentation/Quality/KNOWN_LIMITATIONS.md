@@ -1248,6 +1248,13 @@ Refresh. Der verbindliche Zielvertrag steht in
 
 ## Manifest und Schema
 
+PowerShell 7.6.7 kann bei verschachtelten Schemafehlern `False` ohne ErrorRecord
+liefern ([Upstream #28218](https://github.com/PowerShell/PowerShell/issues/28218)).
+Der Manifestvalidator behaelt diese Ablehnung bei und ergaenzt nur in diesem
+Fall Fehlerpositionen aus der bereits geladenen Schemaengine, ohne externen
+Fetch. Falls diese Diagnose nicht verfuegbar ist, bleibt ein ausdruecklicher
+generischer Schemafehler erhalten; die Eingabe wird niemals deshalb akzeptiert.
+
 ### SMTP: run-scoped Database-Mail-Testservice und privater Lesetransport
 
 `smtpTestService` ist an Schema, Raw-JSON-Prüfung, Validator, Parser und den
@@ -1394,7 +1401,7 @@ eigener Listener und Tab geschlossen. Vier Seitenbootstrapreads waren
 synthetisch; vollständiger Produktmodulimport, State, Provider, Secrets und SQL
 blieben NOT_EXECUTED. Dies erweitert keinen nativen SQL-/Windows-Nachweis.
 
-Die Instanzdefinition enthält eine Collation, die bei neuen Umgebungen sowohl als SQL-Server-Instanzcollation als auch als Default für neu angelegte Datenbanken verwendet wird. Ohne explizite Angabe gilt der native SQL-Containerstandard `SQL_Latin1_General_CP1_CI_AS`. Eine abweichende Collation wie `Latin1_General_100_CS_AS` löst beim ersten Containerstart einen Systemdatenbankumbau aus und kann deshalb deutlich länger benötigen.
+Die Instanzdefinition enthält eine Collation, die bei neuen Umgebungen sowohl als SQL-Server-Instanzcollation als auch als Default für neu angelegte Datenbanken verwendet wird. Ohne explizite Angabe gilt fuer Container und normalisierte Datenbankdefaults weiterhin `SQL_Latin1_General_CP1_CI_AS`. Windows-Prepared ohne Intent erhaelt kein `/SQLCOLLATION` und keine Sollwertassertion. Neue interaktive SQL-Zielintents verwenden dagegen den editierbaren Frameworkstandard `Catalogs/sql-intent-defaults.json`, initial `SQL_Latin1_General_CP1_CS_AS`. Eine abweichende Collation löst beim ersten Containerstart einen Systemdatenbankumbau aus und kann deshalb deutlich länger benötigen; der bekannte Loginfehler 18456/State 115 beim SQL-CS-Umbau bleibt separat bestehen.
 
 `Find-SqlServerLabCollation` und die Konsolenauswahl durchsuchen einen
 kuratierten Katalog für SQL 2019/2022/2025 tokenbasiert. Manifestprüfung,
@@ -1419,8 +1426,12 @@ bestand am 2026-09-13 fuer SQL Server 2025 mit der angeforderten Collation
 Katalogverfuegbarkeit und die `SERVERPROPERTY('Collation')`-Postcondition. Der
 PR-Gate-Lauf `34783317945` hielt nur run-gebundene sanitisierte Evidence fest
 und entfernte die Testressourcen vollstaendig. Hyper-V/Windows nutzt diesen
-Containerpfad nicht; dessen SQL-seitiger Collation-Nachweis bleibt ein
-getrennter `COL-001`-Folgepunkt des
+Containerpfad nicht. Der [Windows-Prepared-Vertrag](../Architecture/HYPERV_SQL_COLLATION.md)
+implementiert die ausdrueckliche kataloggebundene Weitergabe, einen gespeicherten
+Runintent und eine SQL-Postcondition fuer Server, master und tempdb. Fehler
+bleiben `COLLATION_PENDING`, ohne erfolgreichen Collation-/SQL-Ready-Abschluss
+oder automatischen Setup-Replay. Die Offlinechecks ersetzen keinen nativen
+Windows-Nachweis. Dieser bleibt ein getrennter `COL-001`-Folgepunkt des
 [Konsolidierungsplans](../Project_Planning/CONSOLE_LIFECYCLE_AND_STORAGE_CONSOLIDATION_PLAN_2026-08-12.md).
 
 ## Datenbankdateien und Volumes

@@ -1,3 +1,15 @@
+function Get-LabSqlIntentDefaultCollation {
+    <# .SYNOPSIS Liest den editierbaren Frameworkstandard fuer neu ausgewaehlte SQL-Zielintents. #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$SqlVersion)
+    $json = Get-Content -LiteralPath (Join-Path $script:CatalogsPath 'sql-intent-defaults.json') -Raw -Encoding utf8
+    if (-not ($json | Test-Json -SchemaFile (Join-Path $script:SchemasPath 'sql-intent-defaults.schema.json') -ErrorAction SilentlyContinue)) {
+        throw 'SQL_INTENT_DEFAULTS_INVALID'
+    }
+    $defaults = $json | ConvertFrom-Json
+    return Resolve-LabSqlServerCollation -Name ([string]$defaults.collation) -SqlVersion $SqlVersion
+}
+
 function Get-LabSqlServerCollationCatalog {
     [CmdletBinding()]
     param()
