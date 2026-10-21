@@ -13,8 +13,7 @@ bereit. FILESTREAM-T-SQL-Zugriff ist mit `fileStream` beziehungsweise
 Neue Lab-Connection-Strings und SSMS-Registrierungsexporte verwenden
 `Encrypt=True;TrustServerCertificate=True` als einfachen Standard ohne eigene
 CA-/Client-Trusteinrichtung. Gespeicherte Altverbindungen bleiben erhalten.
-Die öffentliche Auswahl von `TrustServerCertificate=False` samt qualifizierter
-CLI-/GUI-Anzeige wird im laufenden TLS-001-Scope ergänzt.
+Die ausdrückliche Auswahl von `TrustServerCertificate=False` ist für eigene Windows-/Docker-/Podman-Labs mit SQL 2025 CU9, SQL 2022 CU27 oder SQL 2019 CU32 samt signiertem V2-Export implementiert. Der [operative Vertrag](../Architecture/AUTHENTICATED_TLS_OPERATIONAL_LAB.md) beschreibt Voraussetzungen und Grenzen; die Anzeige der Flags allein ist kein frischer Qualifikationsnachweis.
 
 Die CLI-Runstatusansicht zeigt bereits eine eigene **Connection Settings**-
 Zeile je Provider/Instanz. Die GUI zeigt unter **Verbindungen und CMS** beide

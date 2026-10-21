@@ -4,6 +4,7 @@ function Get-OwnedTlsAcceptanceProfile {
     switch -CaseSensitive ($Version){
         '2025-CU9' {return [pscustomobject]@{SqlVersion='2025';Patch='cu9';SqlBuild='17.0.5005.3';Key='LINUX_SQL2025_CU9_TLS';RecordVersion='SqlServerLab.AuthenticatedTlsLab/0.2';SqlProfileId=$null}}
         '2022-CU27' {return [pscustomobject]@{SqlVersion='2022';Patch='cu27';SqlBuild='16.0.4295.3';Key='LINUX_SQL2022_CU27_TLS';RecordVersion='SqlServerLab.AuthenticatedTlsLab/0.3';SqlProfileId='2022-CU27'}}
+        '2019-CU32' {return [pscustomobject]@{SqlVersion='2019';Patch='cu32';SqlBuild='15.0.4430.1';Key='LINUX_SQL2019_CU32_TLS';RecordVersion='SqlServerLab.AuthenticatedTlsLab/0.3';SqlProfileId='2019-CU32'}}
         default {throw 'TLS_ACCEPTANCE_REQUEST_VERSION_UNSUPPORTED'}
     }
 }

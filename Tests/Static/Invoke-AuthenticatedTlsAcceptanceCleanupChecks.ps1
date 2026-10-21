@@ -98,6 +98,16 @@ try{
     } $root2
     Remove-OwnedTlsAcceptanceExport $root2 $run $module
     Add-CheckResult 'Policy-bound SQL2022 cleanup remains independent of CA, trust and catalog reads' (-not (Test-Path -LiteralPath $directory2))
+    & $module {param($root,$directory)
+        $sid=(Get-LabTlsWindowsProcessFacts).UserSid;$path=Join-Path $root 'authenticated-tls-lab.json'
+        $record=Read-LabTlsLabRecord (Read-LabTlsCaPrivateFile $path $sid 32768)
+        $record.SqlProfileId='2019-CU32'
+        [IO.File]::WriteAllBytes($path,(ConvertTo-LabTlsRegistryWriterBytes $record))
+        Initialize-LabTlsCaPrivateDirectory $directory $sid -NewOnly
+        Write-LabTlsCaPrivateFile (Join-Path $directory 'TestUmgebung.env') $sid ([byte[]]@(1,2,3))
+    } $root2 $directory2
+    Remove-OwnedTlsAcceptanceExport $root2 $run $module
+    Add-CheckResult 'Policy-bound SQL2019 cleanup remains independent of CA, trust and catalog reads' (-not (Test-Path -LiteralPath $directory2))
 }catch{Add-CheckResult ('Cleanup fixture failed: '+$_.Exception.Message) $false}
 finally{
     if(Test-Path -LiteralPath $fixture){

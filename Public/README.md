@@ -184,8 +184,7 @@ enthält weiterhin kein Passwort. Der Testumgebungsexport und die ausgegebenen
 Hyper-V-Verbindungsstrings verwenden dieselben TLS-Werte bereits.
 CLI und GUI zeigen die erzeugten Connection Strings einschließlich dieser Werte;
 bestehende gespeicherte Verbindungen werden nicht automatisch umgeschrieben.
-Die ausdrückliche Wahl von `False` ist für ein eigenes Windows-/Docker-
-SQL-2025-CU9-Lab samt separatem qualifiziertem V2-Export implementiert;
+Die ausdrückliche Wahl von `False` ist für ein eigenes Windows-/Docker-/Podman-Lab für SQL 2025 CU9, SQL 2022 CU27 oder SQL 2019 CU32 samt separatem qualifiziertem V2-Export implementiert;
 maßgeblich ist der [operative Vertrag](../Documentation/Architecture/AUTHENTICATED_TLS_OPERATIONAL_LAB.md).
 Die Flagprojektion in CLI/GUI ist kein frischer Qualifikationsnachweis.
 Weitere Kombinationen und die gesonderte Anzeige des Qualifikationsstatus

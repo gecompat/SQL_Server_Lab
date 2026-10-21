@@ -102,15 +102,19 @@ if($IsWindows){
         [IO.File]::WriteAllBytes($podmanExport.JsonPath,$podmanBytes)
         $record.ContractVersion='SqlServerLab.AuthenticatedTlsLab/0.3'
         $record|Add-Member -NotePropertyName SqlProfileId -NotePropertyValue '2022-CU27'
+        foreach($versionCase in @(
+            @{Id='2022-CU27';Major='2022';Build='16.0.4295.3';Key='LINUX_SQL2022_CU27_TLS'},
+            @{Id='2019-CU32';Major='2019';Build='15.0.4430.1';Key='LINUX_SQL2019_CU32_TLS'})){
+        $record.SqlProfileId=$versionCase.Id
         foreach($versionProvider in @('docker','podman')){
             $record.Provider=$versionProvider
-            $versionExport=Export-LabAuthenticatedTlsEnvironment (Join-Path $fixture ($versionProvider+'-2022')) $fixture $record.RunId $record.InstanceId
+            $versionExport=Export-LabAuthenticatedTlsEnvironment (Join-Path $fixture ($versionProvider+'-'+$versionCase.Major)) $fixture $record.RunId $record.InstanceId
             $versionBytes=[IO.File]::ReadAllBytes($versionExport.JsonPath)
             $versionDoc=[Text.Encoding]::UTF8.GetString($versionBytes)|ConvertFrom-Json -Depth 12 -DateKind String
-            Add-CheckResult "$versionProvider SQL2022 export binds build, schema and ENV prefix" ((Test-LabTlsQualifiedExport $versionExport.JsonPath $fixture $record.RunId $record.InstanceId) -and
+            Add-CheckResult "$versionProvider $($versionCase.Id) export binds build, schema and ENV prefix" ((Test-LabTlsQualifiedExport $versionExport.JsonPath $fixture $record.RunId $record.InstanceId) -and
                 (Test-Json -Json ([Text.Encoding]::UTF8.GetString($versionBytes)) -SchemaFile $versionExport.SchemaPath) -and
-                $versionDoc.environments[0].resolvedVersion -ceq '16.0.4295.3' -and (Get-Content -LiteralPath $versionExport.EnvPath -Raw).Contains('SQL_SERVER_LAB_LINUX_SQL2022_CU27_TLS_'))
-            foreach($field in @('SqlVersion','Patch','SqlBuild','entryVersion','entryPatch','entryBuild','entryKey')){
+                $versionDoc.environments[0].resolvedVersion -ceq $versionCase.Build -and (Get-Content -LiteralPath $versionExport.EnvPath -Raw).Contains('SQL_SERVER_LAB_'+$versionCase.Key+'_'))
+            foreach($field in @('SqlVersion','Patch','SqlBuild','entryVersion','entryPatch','entryBuild','entryKey','coherentOtherProfile')){
                 $bad=[Text.Encoding]::UTF8.GetString($versionBytes)|ConvertFrom-Json -Depth 12 -DateKind String
                 $body=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($bad.qualification.payload))|ConvertFrom-Json -Depth 12 -DateKind String
                 switch($field){
@@ -118,6 +122,12 @@ if($IsWindows){
                     entryPatch {$bad.environments[0].patch='cu9'}
                     entryBuild {$bad.environments[0].resolvedVersion='17.0.5005.3'}
                     entryKey {$bad.environments[0].key='LINUX_SQL2025_CU9_TLS'}
+                    coherentOtherProfile {
+                        $otherProfile=if($versionCase.Major -ceq '2019'){Get-LabTlsSqlProfile '2022-CU27'}else{Get-LabTlsSqlProfile '2019-CU32'}
+                        $bad.environments[0].sqlVersion=$otherProfile.SqlVersion;$bad.environments[0].patch=$otherProfile.Patch
+                        $bad.environments[0].resolvedVersion=$otherProfile.SqlBuild;$bad.environments[0].key=$otherProfile.ExportKey
+                        $body.Qualification.SqlVersion=$otherProfile.SqlVersion;$body.Qualification.Patch=$otherProfile.Patch;$body.Qualification.SqlBuild=$otherProfile.SqlBuild
+                    }
                     default {$body.Qualification.$field='changed'}
                 }
                 $body.EnvironmentSha256=Get-LabTlsCaByteDigest (ConvertTo-LabTlsRegistryWriterBytes $bad.environments[0])
@@ -125,8 +135,9 @@ if($IsWindows){
                 $bad.qualification.payload=[Convert]::ToBase64String($bodyBytes)
                 $bad.qualification.signature=[Convert]::ToBase64String($rsa.SignData($bodyBytes,[Security.Cryptography.HashAlgorithmName]::SHA256,[Security.Cryptography.RSASignaturePadding]::Pkcs1))
                 [IO.File]::WriteAllBytes($versionExport.JsonPath,(ConvertTo-LabTlsRegistryWriterBytes $bad))
-                Add-CheckResult "Valid CA signature cannot change SQL2022 $field on $versionProvider" (-not (Test-LabTlsQualifiedExport $versionExport.JsonPath $fixture $record.RunId $record.InstanceId))
+                Add-CheckResult "Valid CA signature cannot change $($versionCase.Id) $field on $versionProvider" (-not (Test-LabTlsQualifiedExport $versionExport.JsonPath $fixture $record.RunId $record.InstanceId))
             }
+        }
         }
         $record.ContractVersion='SqlServerLab.AuthenticatedTlsLab/0.2';$record.PSObject.Properties.Remove('SqlProfileId')
         # Exercise the creator's complete orchestration with explicitly synthetic
@@ -181,9 +192,11 @@ if($IsWindows){
             $created=New-LabAuthenticatedTlsEnvironment @{Version='2025-CU9';Provider=$provider;DataRoot=$fixture;TlsControllerId=$record.ControllerId;TlsLocationId=$record.LocationId;TlsCandidateId=$authority.Authority.CandidateId}
             $settings=[Data.SqlClient.SqlConnectionStringBuilder]::new($created.Instances[0].ConnectionString)
             Add-CheckResult "Creator delegates explicit $provider and returns true/false in the public DTO" ($script:capturedProvider -ceq $provider -and $settings.Encrypt -and -not $settings.TrustServerCertificate)
-            $created2022=New-LabAuthenticatedTlsEnvironment @{Version='2022-CU27';Provider=$provider;DataRoot=$fixture;TlsControllerId=$record.ControllerId;TlsLocationId=$record.LocationId;TlsCandidateId=$authority.Authority.CandidateId}
-            $record2022=Read-LabTlsLabRecord ([IO.File]::ReadAllBytes((Join-Path $created2022.StateRoot 'authenticated-tls-lab.json')))
-            Add-CheckResult "Creator persists closed SQL2022 profile for $provider" ($script:capturedVersion -ceq '2022-CU27' -and $record2022.ContractVersion -ceq 'SqlServerLab.AuthenticatedTlsLab/0.3' -and $record2022.SqlProfileId -ceq '2022-CU27' -and $record2022.Provider -ceq $provider)
+            foreach($selectedVersion in @('2022-CU27','2019-CU32')){
+                $createdVersion=New-LabAuthenticatedTlsEnvironment @{Version=$selectedVersion;Provider=$provider;DataRoot=$fixture;TlsControllerId=$record.ControllerId;TlsLocationId=$record.LocationId;TlsCandidateId=$authority.Authority.CandidateId}
+                $versionRecord=Read-LabTlsLabRecord ([IO.File]::ReadAllBytes((Join-Path $createdVersion.StateRoot 'authenticated-tls-lab.json')))
+                Add-CheckResult "Creator persists closed $selectedVersion profile for $provider" ($script:capturedVersion -ceq $selectedVersion -and $versionRecord.ContractVersion -ceq 'SqlServerLab.AuthenticatedTlsLab/0.3' -and $versionRecord.SqlProfileId -ceq $selectedVersion -and $versionRecord.Provider -ceq $provider)
+            }
         }
         $script:fixtureImageId='sha256:'+('f'*64)
         $rejected=$false
