@@ -369,7 +369,7 @@ function New-SqlServerLab {
         und mit Remove-SqlServerLab wieder entfernt werden.
     .PARAMETER TrustServerCertificate
         Standard true bei stets aktivierter Verschluesselung. False erstellt nur
-        ein eigenes isoliertes Docker- oder Podman-Lab mit Version 2025-CU9 oder 2022-CU27 unter Windows;
+        ein eigenes isoliertes Docker- oder Podman-Lab mit Version 2025-CU9, 2022-CU27 oder 2019-CU32 unter Windows;
         DataRoot und die drei Tls-CA-Referenzen sind dann erforderlich.
     .PARAMETER FullText
         Explizite Volltextauswahl für AdHoc-Container. true installiert das

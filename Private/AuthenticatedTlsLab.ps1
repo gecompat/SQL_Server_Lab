@@ -5,6 +5,7 @@ function Get-LabTlsSqlProfile {
     switch -CaseSensitive ($Version){
         '2025-CU9' {$major='2025';$patch='cu9';$build='17.0.5005.3';$tag='2025-CU9-ubuntu-24.04'}
         '2022-CU27' {$major='2022';$patch='cu27';$build='16.0.4295.3';$tag='2022-CU27-ubuntu-22.04'}
+        '2019-CU32' {$major='2019';$patch='cu32';$build='15.0.4430.1';$tag='2019-CU32-ubuntu-20.04'}
         default {throw 'TLS_LAB_SQL_PROFILE_UNSUPPORTED'}
     }
     return [pscustomobject]@{Version=$Version;SqlVersion=$major;Patch=$patch;SqlBuild=$build;ImageTag=$tag;Image=('mcr.microsoft.com/mssql/server:'+$tag);ExportKey=('LINUX_SQL'+$major+'_'+$patch.ToUpperInvariant()+'_TLS')}
@@ -25,7 +26,7 @@ function Get-LabTlsBindingSqlProfile {
     if($Record.ContractVersion -cin @('SqlServerLab.AuthenticatedTlsLab/0.1','SqlServerLab.AuthenticatedTlsLab/0.2') -and -not $Record.PSObject.Properties['SqlProfileId']){
         return Get-LabTlsSqlProfile '2025-CU9'
     }
-    if($Record.ContractVersion -ceq 'SqlServerLab.AuthenticatedTlsLab/0.3' -and $Record.SqlProfileId -ceq '2022-CU27'){
+    if($Record.ContractVersion -ceq 'SqlServerLab.AuthenticatedTlsLab/0.3' -and $Record.SqlProfileId -cin @('2022-CU27','2019-CU32')){
         return Get-LabTlsSqlProfile $Record.SqlProfileId
     }
     throw 'TLS_LAB_BINDING_SQL_PROFILE_INVALID'
@@ -326,10 +327,10 @@ function New-LabAuthenticatedTlsEnvironment {
     param([hashtable]$Parameters)
     $allowed=@('TrustServerCertificate','TlsCandidateId','TlsControllerId','TlsLocationId','DataRoot','Version','Provider','Profile','Port','InstanceId',
         'SaPassword','GenerateSaPassword','NonInteractive','Cpu','MemoryMB','SkipAssessment','AllowResourceOvercommit','AutoStart','LabName','Verbose','ErrorAction')
-    if(@($Parameters.Keys|Where-Object {$_ -cnotin $allowed}).Count -or $Parameters.Version -cnotin @('2025-CU9','2022-CU27') -or
+    if(@($Parameters.Keys|Where-Object {$_ -cnotin $allowed}).Count -or $Parameters.Version -cnotin @('2025-CU9','2022-CU27','2019-CU32') -or
         ($Parameters.ContainsKey('Provider') -and $Parameters.Provider -cnotin @('docker','podman')) -or
         ($Parameters.ContainsKey('InstanceId') -and $Parameters.InstanceId -cne 'primary') -or
-        ($Parameters.ContainsKey('AutoStart') -and $Parameters.AutoStart -cne 'off') -or -not $Parameters.DataRoot){throw 'TLS_LAB_CAPABILITY_UNSUPPORTED: Windows, Docker or Podman, 2025-CU9 or 2022-CU27 and explicit DataRoot required; primary, autostart off; no manifest, mounts or existing StateRoot.'}
+        ($Parameters.ContainsKey('AutoStart') -and $Parameters.AutoStart -cne 'off') -or -not $Parameters.DataRoot){throw 'TLS_LAB_CAPABILITY_UNSUPPORTED: Windows, Docker or Podman, 2025-CU9, 2022-CU27 or 2019-CU32 and explicit DataRoot required; primary, autostart off; no manifest, mounts or existing StateRoot.'}
     foreach($key in @('TlsCandidateId','TlsControllerId','TlsLocationId')){if(-not (Test-LabTlsRequestReference $Parameters[$key])){throw 'TLS_LAB_CA_SELECTION_REQUIRED'}}
     Assert-LabTlsCaCandidateCapability
     $profile=Get-LabTlsSqlProfile $Parameters.Version
@@ -361,7 +362,7 @@ function New-LabAuthenticatedTlsEnvironment {
         $record=[ordered]@{ContractVersion='SqlServerLab.AuthenticatedTlsLab/0.2';Provider=$provider;RuntimeBinding=(New-LabTlsRuntimeBinding $policy $pin $state);AuditId=$audit;DataRoot=$Parameters.DataRoot;ControllerId=$Parameters.TlsControllerId;LocationId=$Parameters.TlsLocationId;
             AuthorityRef=$authority.Authority.Ref;ClientRef=$authority.Client.Ref;RegistrySha256=$authority.RegistrySha256;RunId=$run.RunId;InstanceId='primary';ScopeId=$context.Run.scopeId;
             ContainerId=$context.ContainerId;ImageId=$expectedImageId;Port=$context.CurrentPort;CertificateSha256='';CertificateDer='';NotAfterUtc='';StartedAt='';ServerPath=('/var/opt/mssql/tls-'+$audit.Replace('-',''))}
-        if($profile.Version -ceq '2022-CU27'){$record.ContractVersion='SqlServerLab.AuthenticatedTlsLab/0.3';$record.SqlProfileId=$profile.Version}
+        if($profile.Version -cin @('2022-CU27','2019-CU32')){$record.ContractVersion='SqlServerLab.AuthenticatedTlsLab/0.3';$record.SqlProfileId=$profile.Version}
         $budget.Record=[pscustomobject]$record
         $null=Assert-LabTlsOwnContainer ([pscustomobject]$record) $state $budget
         Write-LabTlsCaPrivateFile (Join-Path $state 'target-intent.json') $sid (ConvertTo-LabTlsRegistryWriterBytes ([pscustomobject]$record))

@@ -1,5 +1,7 @@
 # Bekannte Grenzen
 
+SQL 2019 CU32 ist als nächstes geschlossenes operatives Windows-/Docker-/Podman-Profil mit Build `15.0.4430.1` implementiert. Der bestehende `0.3`-Record bindet ausdrücklich `2019-CU32`; historische SQL-2025- und SQL-2022-Bindungen bleiben erhalten. Beide getrennten nativen operativen Abnahmen bestanden je sieben Fälle, sechs strikte Clientergebnisse und vollständigen eigenen Container-/Volume-/Exportcleanup. Frühere Kryptoproben bleiben getrennte Nachweise; die finalen PR-Pflichtgates sind Integrationsbedingung.
+
 SQL 2022 CU27 ist im operativen Windows-/Docker-/Podman-TLS-Pfad mit
 geschlossener `0.3`-Profilbindung implementiert. Die getrennten nativen Abnahmen
 bestanden je sieben Fälle, sechs strikte Clientergebnisse und vollständigen
