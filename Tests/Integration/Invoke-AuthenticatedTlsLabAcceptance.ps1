@@ -3,9 +3,10 @@
 param([Parameter(Mandatory)][string]$DataRoot,[Parameter(Mandatory)][string]$ControllerId,
     [Parameter(Mandatory)][string]$LocationId,[Parameter(Mandatory)][string]$CandidateId,
     [Parameter(Mandatory)][string]$EvidenceDirectory,[ValidateSet('docker','podman')][string]$Provider='docker',
-    [ValidateSet('2025-CU9','2022-CU27','2019-CU32')][string]$Version='2025-CU9',[switch]$Execute,[switch]$KeepLab)
+    [ValidateSet('2025-CU9','2022-CU27','2019-CU32')][string]$Version='2025-CU9',[switch]$Execute,[switch]$KeepLab,[switch]$ExerciseRestartRebind)
 $ErrorActionPreference='Stop'
 if(-not $Execute){throw 'TLS_ACCEPTANCE_EXECUTE_REQUIRED: creates one own selected-provider and selected-version lab; no trust import.'}
+if($ExerciseRestartRebind -and $KeepLab){throw 'TLS_ACCEPTANCE_REBIND_REQUIRES_RESTART_AND_CLEANUP'}
 $repo=(Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 . (Join-Path $repo 'Tests/Common/AuthenticatedTlsAcceptanceCleanup.ps1')
 . (Join-Path $repo 'Tests/Common/AuthenticatedTlsAcceptanceSelection.ps1')
@@ -109,6 +110,40 @@ try{
             if(-not $blocked){throw 'TLS_ACCEPTANCE_RESTARTED_EXPORT_NOT_REJECTED'}
         } $lab $export
         $results.Add(@{Case='ACTUAL_RESTART_REJECTS_PRIOR_QUALIFICATION';Status='PASS'})
+        if($ExerciseRestartRebind){
+            $bindingPath=Join-Path $lab.StateRoot 'authenticated-tls-lab.json';$beforeBinding=(Get-FileHash -LiteralPath $bindingPath).Hash
+            $null=Update-SqlServerLabTlsBinding -RunId $lab.RunId -InstanceId primary -StateRoot $lab.StateRoot -WhatIf
+            if((Get-FileHash -LiteralPath $bindingPath).Hash -cne $beforeBinding -or (Test-Path -LiteralPath (Join-Path $lab.StateRoot 'authenticated-tls-rebind'))){throw 'TLS_ACCEPTANCE_REBIND_WHATIF_MUTATED'}
+            $results.Add(@{Case='PUBLIC_REBIND_WHATIF_NO_MUTATION';Status='PASS'})
+            $rebound=Update-SqlServerLabTlsBinding -RunId $lab.RunId -InstanceId primary -StateRoot $lab.StateRoot -Confirm:$false
+            if($rebound.Status -cne 'QUALIFIED_METADATA_COMMITTED' -or -not $rebound.BindingUpdated -or $rebound.QualificationStatus -cne 'QUALIFIED' -or
+                $rebound.SqlBuild -cne $expected.SqlBuild -or $rebound.Provider -cne $Provider -or -not $rebound.Encrypt -or $rebound.TrustServerCertificate){throw 'TLS_ACCEPTANCE_PUBLIC_REBIND_NOT_QUALIFIED'}
+            $results.Add(@{Case='EXPLICIT_RESTART_REBIND_TWO_STRICT_STACKS';Status='PASS'})
+            & $module {param($lab,$export)
+                if(Test-LabTlsQualifiedExport $export.JsonPath $lab.StateRoot $lab.RunId primary){throw 'TLS_ACCEPTANCE_REBIND_REVIVED_OLD_EXPORT'}
+            } $lab $export
+            $results.Add(@{Case='PRIOR_EXPORT_STAYS_INVALID_AFTER_REBIND';Status='PASS'})
+            $reboundExport=Export-SqlServerLabTestEnvironment -TrustServerCertificate:$false -RunId $lab.RunId -InstanceId primary -StateRoot $lab.StateRoot -OutputDirectory (Join-Path $lab.StateRoot 'rebound-qualified-export')
+            & $module {
+                param($lab,$output,$expected)
+                if(-not(Test-LabTlsQualifiedExport $output.JsonPath $lab.StateRoot $lab.RunId primary)){throw 'TLS_ACCEPTANCE_REBOUND_EXPORT_INVALID'}
+                $doc=Get-Content -LiteralPath $output.JsonPath -Raw|ConvertFrom-Json -Depth 12 -DateKind String
+                $entry=$doc.environments[0]
+                $connection=[Data.SqlClient.SqlConnection]::new($entry.connectionString)
+                try{
+                    $connection.Open();$command=$connection.CreateCommand();$command.CommandTimeout=10
+                    try{$command.CommandText="SELECT CONCAT(CONVERT(varchar(32),SERVERPROPERTY('ProductVersion')),'|',encrypt_option) FROM sys.dm_exec_connections WHERE session_id=@@SPID";if($command.ExecuteScalar() -cne ($expected.SqlBuild+'|TRUE')){throw 'TLS_ACCEPTANCE_REBOUND_EXPORT_SQL_CHANGED'}}finally{$command.Dispose()}
+                }finally{$connection.Dispose()}
+                $bound=Get-LabTlsOwnBinding $lab.StateRoot $lab.RunId primary
+                $secret=[securestring]::new();foreach($character in $entry.password.ToCharArray()){$secret.AppendChar($character)};$secret.MakeReadOnly()
+                $null=Invoke-LabTlsStrictSqlcmd $entry.port $secret $bound.Authority.Client $expected.SqlBuild
+            } $lab $reboundExport $expected
+            $results.Add(@{Case='REBOUND_EXPORT_BOTH_REAL_STACKS';Status='PASS'})
+            $unchanged=Update-SqlServerLabTlsBinding -RunId $lab.RunId -InstanceId primary -StateRoot $lab.StateRoot -Confirm:$false
+            if($unchanged.Status -cne 'UNCHANGED_ALREADY_BOUND' -or $unchanged.BindingUpdated -or $unchanged.QualificationStatus -cne 'NOT_EXECUTED' -or $unchanged.QualifiedAt){throw 'TLS_ACCEPTANCE_UNCHANGED_REBIND_CLAIMED_PROOF'}
+            $results.Add(@{Case='UNCHANGED_REBIND_NO_NEW_PROOF';Status='PASS'})
+            [IO.File]::WriteAllText((Join-Path $evidence 'rebind.private.json'),($rebound|ConvertTo-Json -Depth 6))
+        }
     }
     [IO.File]::WriteAllText((Join-Path $evidence 'lab.private.json'),($lab|ConvertTo-Json -Depth 15))
     [IO.File]::WriteAllText((Join-Path $evidence 'export.private.json'),($export|ConvertTo-Json -Depth 15))

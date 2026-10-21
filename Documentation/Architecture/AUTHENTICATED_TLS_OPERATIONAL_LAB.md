@@ -93,7 +93,9 @@ belegt Datei, Konfiguration, SQL-Lademeldung und echte normale Clientvalidierung
 keinen zusätzlich mitgeschnittenen TLS-Handshake. Ein böswilliger Hostadministrator
 oder derselbe Benutzer mit beliebiger Codeausführung liegt außerhalb dieses
 lokalen Lab-Vertrags. Neustart, Port-/Client-/Trust-/Registrydrift oder Ablauf
-sperren den Export. Automatische Reparatur, Renewal und Rebind fehlen.
+sperren den Export. Die [explizite Container-Wiederbindung](AUTHENTICATED_TLS_CONTAINER_REBIND.md)
+qualifiziert nach einem Neustart desselben Containers nur dessen neue Start-Epoche.
+Automatische Reparatur und Renewal fehlen weiterhin.
 
 ## Expliziter qualifizierter Export
 

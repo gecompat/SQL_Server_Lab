@@ -108,6 +108,20 @@ try{
     } $root2 $directory2
     Remove-OwnedTlsAcceptanceExport $root2 $run $module
     Add-CheckResult 'Policy-bound SQL2019 cleanup remains independent of CA, trust and catalog reads' (-not (Test-Path -LiteralPath $directory2))
+    $reboundDirectory=Join-Path $root2 'rebound-qualified-export'
+    & $module {param($first,$second)
+        $sid=(Get-LabTlsWindowsProcessFacts).UserSid
+        foreach($directory in @($first,$second)){
+            Initialize-LabTlsCaPrivateDirectory $directory $sid -NewOnly
+            Write-LabTlsCaPrivateFile (Join-Path $directory 'TestUmgebung.env') $sid ([byte[]]@(1,2,3))
+        }
+        Write-LabTlsCaPrivateFile (Join-Path $second 'unrelated.txt') $sid ([byte[]]@(4))
+    } $directory2 $reboundDirectory
+    $blocked=$false;try{Remove-OwnedTlsAcceptanceExport $root2 $run $module}catch{$blocked=$true}
+    Add-CheckResult 'Unknown rebound contents preserve both fixed export directories before any deletion' ($blocked -and (Test-Path -LiteralPath (Join-Path $directory2 'TestUmgebung.env')) -and (Test-Path -LiteralPath (Join-Path $reboundDirectory 'TestUmgebung.env')))
+    Remove-Item -LiteralPath (Join-Path $reboundDirectory 'unrelated.txt') -Force
+    Remove-OwnedTlsAcceptanceExport $root2 $run $module
+    Add-CheckResult 'Both terminal same-run fixed exports are cleaned without CA, key or trust access' (-not(Test-Path -LiteralPath $directory2) -and -not(Test-Path -LiteralPath $reboundDirectory))
 }catch{Add-CheckResult ('Cleanup fixture failed: '+$_.Exception.Message) $false}
 finally{
     if(Test-Path -LiteralPath $fixture){
