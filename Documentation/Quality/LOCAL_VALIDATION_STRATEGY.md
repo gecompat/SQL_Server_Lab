@@ -1,5 +1,25 @@
 # Lokale Validierungsstrategie
 
+## Echte TLS-Verbindungsanzeige unter Windows vom 2026-10-21
+
+Die [begrenzte Produktseitenabnahme](TLS_WINDOWS_RENDERED_CONNECTION_SETTINGS_2026-10-21.md)
+bestand getrennt für eigene Docker-/Podman-SQL-2025-CU9-Labs: je fünf native
+Fälle, sechs bezeichnete strikte Clientergebnisse und ein frischer
+abgeschlossener Workflow-Snapshot. Echte Produktassets, HTTP, sichtbare
+False-Werte und der exakt angezeigte Connection String sind gebunden;
+Prozessende, eigener Cleanup und Bestandsvergleich bestanden. Der erste
+Docker-Browser-FAIL bleibt unverändert erhalten.
+
+Die neue [Cachefixture](../../Tests/Static/Fixtures/WorkflowInventoryCacheChecks.ps1)
+führt nur die tatsächlichen beiden UI-Cachefunktionen mit synthetischen
+Jobblättern und Zeit aus. Die langsame erfolgreiche Inventur reproduzierte
+6 PASS / 3 FAIL; der minimale Completion-Fix erreichte 9/0, die gezielten
+Fehler-/Leerfälle mit altem Snapshot abschließend 15/0. Sie läuft innerhalb
+der bestehenden WorkflowUI-Suite ohne zusätzliche Provideraktion. Der
+betroffene 14-Suite-Lauf und das siebenteilige Oraclekorrekturdelta bestanden.
+Produkt, Oracle und fester Nachfolgeadapter sind unabhängig geschlossen.
+Die übrige TLS-001-Matrix bleibt offen; Details stehen im verlinkten Nachweis.
+
 ## Zusätzliche native Hyper-V-TLS-Abnahme
 
 Die [private Hyper-V-Lane](../Architecture/AUTHENTICATED_TLS_HYPERV_NATIVE_ACCEPTANCE.md)

@@ -7,6 +7,14 @@ oder unlesbare Werte erhalten eine feste Meldung. Die Übersicht zeigt keine
 Zugangsdaten und führt keinen Verbindungstest aus. Die CLI-Runstatusansicht
 zeigt dieselben Werte; [Vertrag](../Architecture/SQL_CONNECTION_SETTINGS.md).
 
+Die Hintergrundinventur hält ein erfolgreich abgeschlossenes, nichtleeres
+Ergebnis fünf Sekunden frisch. Auch eine langsamere Inventur kann dadurch
+einen abgeschlossenen Snapshot liefern; fehlerhafte oder leere Jobs erneuern
+die Frische nicht. Die begrenzte echte Windows-/Docker-/Podman-
+[TLS-Anzeigeabnahme](../Quality/TLS_WINDOWS_RENDERED_CONNECTION_SETTINGS_2026-10-21.md)
+bindet Ziel, Connection String und angegebene TLS-Werte an eigene qualifizierte
+SQL-2025-CU9-Labs.
+
 ## Zweck
 
 Alle Requests passieren die gemeinsame [HTTP-Grenze](../Architecture/WORKFLOW_UI_REQUEST_BOUNDARY.md)

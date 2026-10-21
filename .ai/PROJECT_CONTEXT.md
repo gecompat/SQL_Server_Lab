@@ -1,6 +1,14 @@
 # Projektkontext
 
-Die getrennte native Windows-/SQL-2022-CU27-Neustart-/Rebind-Abnahme ist für Docker und Podman bestanden: je zwölf Fälle und zwölf bezeichnete strikte Clientergebnisse auf Build `16.0.4295.3`, Recordform `0.3` mit `SqlProfileId=2022-CU27`, vollständiger eigener Cleanup und Bestandsvergleich. Produkt und öffentlicher Harness bleiben unverändert. Die früheren SQL-2019-/SQL-2025-Nachweise bleiben getrennt; Linuxclients, öffentliche Hyper-V-False-/Exportpfade, Renewal, Consumer-Cutover und gerenderter Browser bleiben offen.
+Die echte Windows-Produktseitenabnahme der gespeicherten TLS-Anzeige ist für
+eigene Docker-/Podman-SQL-2025-CU9-Labs bestanden. Ein reproduzierter
+Inventurcachefehler ist korrigiert; frischer abgeschlossener Workflow-Snapshot,
+Ziel, sichtbare False-Werte und angezeigter Connection String passen zusammen.
+Die [Nachweise und verbleibenden TLS-001-Schritte](../Documentation/Quality/TLS_WINDOWS_RENDERED_CONNECTION_SETTINGS_2026-10-21.md)
+trennen diese Anzeige von SQL-Qualifikation, Creation-Dialog, Clipboard und
+Qualifikationsstatusanzeige. Die Gesamtmatrix bleibt teilweise offen.
+
+Die getrennte native Windows-/SQL-2022-CU27-Neustart-/Rebind-Abnahme ist für Docker und Podman bestanden: je zwölf Fälle und zwölf bezeichnete strikte Clientergebnisse auf Build `16.0.4295.3`, Recordform `0.3` mit `SqlProfileId=2022-CU27`, vollständiger eigener Cleanup und Bestandsvergleich. Produkt und öffentlicher Harness bleiben für diesen Rebind-Teilscope unverändert. Die früheren SQL-2019-/SQL-2025-Nachweise bleiben getrennt; weitere Linux- und Browserpfade, öffentliche Hyper-V-False-/Exportpfade, Renewal und Consumer-Cutover bleiben offen.
 
 Die Neustart-Wiederbindung ist zusätzlich für Windows-/SQL-2025-CU9 mit Docker und Podman nativ abgenommen: je zwölf Fälle und zwölf strikte Clientergebnisse auf Build `17.0.5005.3`, Recordform `0.2` ohne `SqlProfileId` und vollständiger eigener Cleanup. Das unabhängige Versionsoracle prüft die tatsächliche Property-Abwesenheit; `null` oder leer sind kein Ersatz. Die vorherigen SQL-2019-Nachweise bleiben getrennt. Die übrige TLS-001-Matrix bleibt offen; Details stehen in der Validierungsstrategie.
 

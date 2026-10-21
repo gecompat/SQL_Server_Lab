@@ -1,6 +1,15 @@
 # Bekannte Grenzen
 
-Die zusätzliche Windows-/SQL-2022-CU27-Neustart-Wiederbindung ist mit Docker und Podman separat nativ abgenommen: je zwölf Fälle und zwölf bezeichnete strikte Clientergebnisse auf Build `16.0.4295.3`, Recordform `0.3` mit explizitem SQL-Profil, eigener Cleanup und Bestandsvergleich bestanden. Die offenen Grenzen betreffen weiterhin weitere Patch-/Clientkontexte, Linuxclients, öffentliche Hyper-V-False-/Exportpfade, Renewal, Consumer-Cutover, gerenderten Browser und Wire-Fingerprint; die gesamte TLS-001-Matrix ist damit nicht abgeschlossen.
+Die [gerenderte Windows-TLS-Verbindungsanzeige](TLS_WINDOWS_RENDERED_CONNECTION_SETTINGS_2026-10-21.md)
+ist zusätzlich an eigenen qualifizierten Docker-/Podman-SQL-2025-CU9-Labs
+abgenommen: frischer abgeschlossener Workflow-Snapshot, exakter angezeigter
+Connection String und passende explizite False-Werte; eigener Cleanup und
+Bestandsvergleich bestanden. Der erste Docker-Browser-FAIL bleibt erhalten;
+der reproduzierte Inventurcachefehler ist korrigiert. Browser-Erstellung,
+Clipboard, Qualifikationsstatusanzeige und weitere Modi/Plattformen bleiben
+separat offen. Der verlinkte Nachweis listet die übrigen TLS-001-Schritte.
+
+Die zusätzliche Windows-/SQL-2022-CU27-Neustart-Wiederbindung ist mit Docker und Podman separat nativ abgenommen: je zwölf Fälle und zwölf bezeichnete strikte Clientergebnisse auf Build `16.0.4295.3`, Recordform `0.3` mit explizitem SQL-Profil, eigener Cleanup und Bestandsvergleich bestanden. Die offenen Grenzen betreffen weiterhin weitere Patch-/Clientkontexte, Linuxclients, öffentliche Hyper-V-False-/Exportpfade, Renewal, Consumer-Cutover, weitere Browserpfade und Wire-Fingerprint; die gesamte TLS-001-Matrix ist damit nicht abgeschlossen.
 
 Die Neustart-Wiederbindung besitzt zusätzliche native Windows-/SQL-2025-CU9-Nachweise für Docker und Podman: je zwölf Fälle und zwölf strikte Clientergebnisse auf Build `17.0.5005.3`, Recordform `0.2` ohne `SqlProfileId`, eigener Cleanup und Bestandsvergleich bestanden. Dieser SQL-2025-Teilscope belegt keine anderen Patchstände, Linuxclients, Hyper-V-False-/Exportpfade, Renewal, Consumer-Cutover, gerenderten Browser oder Wire-Fingerprint. Frühere SQL-2019-PASS-/FAIL-Belege und ihre Quellgrenzen bleiben erhalten.
 
@@ -4104,7 +4113,7 @@ verbindet eine bereits vertraute CA mit eigenem Trustscope und einem neuen
 Docker-SQL-2025-CU9-Lab. Die explizite False-Wahl und der separate qualifizierte
 V2-Export sind vom unveränderten True/True-Default getrennt. Native Abnahme und
 weitere Providergrenzen werden in der Validierungsstrategie getrennt geführt.
-Die operative False-Lane ist nativ für Windows CurrentUser, Docker und SQL Server 2025 CU9 belegt. Andere Provider/Clients/Versionen, V2-Consumer-Cutover und automatisches Renewal/Rebind bleiben offen. Der qualifizierte Export verlangt frische Bindungen und zwei echte Stacks; gespeichertes Runtime-READY allein genügt nicht. Der Wire-Fingerprint bleibt ausdrücklich NOT_OBSERVED. Standard und bestehende V1-Gruppe bleiben True/True.
+Die operative False-Lane und der qualifizierte Export sind für Windows CurrentUser mit Docker und Podman sowie den katalogisierten SQL-2019-CU32-/SQL-2022-CU27-/SQL-2025-CU9-Profilen getrennt belegt. Auch die explizite Container-Wiederbindung nach Neustart ist für diese Profile separat abgenommen. Weitere Client-/Patch-/Providerkontexte, öffentliche Hyper-V-False-/Exportpfade, V2-Consumer-Cutover und der vollständige operative Renewal-/Recovery-Lebenszyklus bleiben offen. Der qualifizierte Export verlangt frische Bindungen und zwei echte Stacks; gespeichertes Runtime-READY allein genügt nicht. Die zusätzliche gerenderte Anzeige ist auf die oben verlinkten eigenen SQL-2025-CU9-Labs begrenzt. Der Wire-Fingerprint bleibt ausdrücklich NOT_OBSERVED. Standard und bestehende V1-Gruppe bleiben True/True.
 
 ## Begrenzte Hyper-V-Create-Netzbindung
 
