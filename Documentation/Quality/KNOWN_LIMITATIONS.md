@@ -1418,9 +1418,17 @@ Die lokale Hyper-V-Abschlusskorrektur trennt ungültige Collation-Evidence
 von beobachteten Abweichungen und bindet die statische HostSQL-Gastadresse
 an die aktive eigene Lease. Alte Runs mit fehlender oder widersprüchlicher
 Netz-/Leasebindung blockieren vor der Gastnetzänderung; es gibt keine
-automatische Reparatur oder Setupwiederholung. Ein nativer Erfolg dieser
-Korrektur ist noch nicht nachgewiesen; Analyse- und Providerabnahme bleiben
-gesondert freizugeben.
+automatische Reparatur oder Setupwiederholung. Die getrennte native
+Windows-/SQL-2025-Prepared-Abnahme auf `77fcf951` bestand am 2026-10-22 mit
+explizitem `SQL_Latin1_General_CP1_CS_AS` für Server, master und tempdb,
+eigener CL170-Datenbank und Kontrolllauf ohne Intent. Details, ursprüngliche
+Fehlversuche und vollständiger eigener Cleanup stehen in der
+[Validierungsstrategie](LOCAL_VALIDATION_STRATEGY.md#windows-prepared-collation-und-editierbarer-intentstandard).
+Andere Collations, Versionen und Patchstände bleiben separat nachzuweisen.
+Die anschließende HRESULT-Formatierungskorrektur ist offline geprüft; der
+negative Aktivierungs-HRESULT wurde nicht nativ provoziert. Der ursprüngliche
+Code des historischen Aktivierungsfehlers ist unbekannt. Analyze-Läufe bleiben
+gesondert zu beauftragen.
 
 Der Browserdialog **Lab erstellen → Collations suchen** durchsucht denselben
 kuratierten Katalog für SQL 2019/2022/2025 ohne SQL-Prüfung oder Auswahltransfer.
@@ -1473,8 +1481,9 @@ implementiert die ausdrueckliche kataloggebundene Weitergabe, einen gespeicherte
 Runintent und eine SQL-Postcondition fuer Server, master und tempdb. Fehler
 bleiben `COLLATION_PENDING`, ohne erfolgreichen Collation-/SQL-Ready-Abschluss
 oder automatischen Setup-Replay. Die Offlinechecks ersetzen keinen nativen
-Windows-Nachweis. Dieser bleibt ein getrennter `COL-001`-Folgepunkt des
-[Konsolidierungsplans](../Project_Planning/CONSOLE_LIFECYCLE_AND_STORAGE_CONSOLIDATION_PLAN_2026-08-12.md).
+Windows-Nachweis. Die oben begrenzte native SQL-2025-Prepared-Abnahme schließt
+den SQL-CS-Referenzfall; eine allgemeine Windows-Collationqualifikation folgt
+daraus nicht.
 
 ## Datenbankdateien und Volumes
 

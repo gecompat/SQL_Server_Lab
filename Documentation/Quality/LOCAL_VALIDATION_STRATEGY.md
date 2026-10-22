@@ -2816,10 +2816,51 @@ SQL-Ready- oder Collation-Erfolg. Die Hyper-V-Umgebungssuite prueft die echte
 Unattended-Weitergabe und persistierte kanonische Auswahl. Der Impact-Selektor
 bindet gemeinsame Aufrufer und Katalog-/Defaultdateien an diese Suite.
 
-Native Windows-Collationabnahme: **NOT_EXECUTED**. Sie ist separat zu
-beauftragen; keine vorhandene Prepared-, Locale- oder Containerabnahme ersetzt
-die drei Istwerte. Der neu katalogisierte SQL-CS-Wert ist auch durch die
-bisherige Containerabnahme mit `Latin1_General_100_CS_AS` nicht nativ belegt.
+Native Windows-Prepared-Collationabnahme vom 2026-10-22: **PASS** auf dem
+unveränderten `origin/main`-Stand `77fcf951`, zwei eigene Child-Runs aus einem
+vorhandenen `SQL_PREPARED_SEALED`-Image, 27 Prüfungen ohne Fehler. Verwendet
+wurden Windows Server 2025 Standard Evaluation und SQL Server 2025 Enterprise
+Developer Edition, Build `17.0.1000.7`. Der öffentliche Pfad `New-SqlServerLab`
+mit ausgewähltem `SQL_Latin1_General_CP1_CS_AS` bestätigte den Wert für Server,
+master und tempdb sowohl im gespeicherten `VERIFIED`-Receipt als auch durch
+unabhängige SQL-Abfragen. Eine eigene über `New-SqlServerLabDatabase`
+angelegte Datenbank war `ONLINE`, hatte CL170 und dieselbe Collation; ihre
+expliziten Windows-Dateipfade wurden aus den tatsächlichen master-Pfaden
+abgeleitet.
+
+Der getrennte öffentliche Kontrolllauf ohne Collationintent beobachtete für
+Server, master und tempdb `Latin1_General_CI_AS`, ohne gespeicherten Intent oder
+`VERIFIED`-Collationreceipt. Dieser beobachtete Wert ist kein neuer Default.
+Beide Runs einschließlich eigener VM-/Diskpfade und Leases wurden vollständig
+bereinigt; null verbleibende eigene Ressourcen und unveränderte Parent-SHA256
+wurden geprüft. Beide Live-Lizenzprüfungen bestanden ohne Aktivierungsrecovery.
+Es gab keinen Imagebau und keinen Analyze-Lauf. Andere Windows-/SQL-Versionen,
+Patchstände und Collations sind damit nicht nativ qualifiziert.
+
+Die ursprünglichen Fehlversuche bleiben getrennt erhalten: Ein
+Zulassungsversuch blockierte vor VM-Anlage, zwei native Versuche scheiterten an
+privaten Harnessfehlern (SqlClient-Schlüssel und fehlende explizite
+Windows-Datenbankpfade); ein weiterer scheiterte vor SQL an der
+Windows-Aktivierungsanfrage. Deren ursprünglicher HRESULT wurde nicht erhalten;
+eine konkrete Microsoft-API-Ursache ist nicht bestimmbar. Ein synthetischer
+Offlineaufruf des unveränderten tatsächlichen Gastblocks reproduzierte die
+sekundär fehlschlagende `uint32`-Konvertierung eines negativen HRESULTs:
+eine API-Anfrage, keine Retrypause, nur `api=exception` im Fehlerreceipt.
+
+Die anschließende HRESULT-Korrektur formatiert den signierten Int32-Wert
+ohne verlustbehafteten Cast. Die fokussierte Aktivierungssuite bestand
+75 Prüfungen, darunter 16 neue Assertions am tatsächlich vom Aufrufer
+übergebenen Gastblock mit ausschließlich synthetischen nativen Blättern.
+Geprüft sind negative HRESULTs, Int32-Grenzen, positive und fehlende Codes,
+der letzte Fehlercode einschließlich einer zweiten Ausnahme ohne Code,
+genau zwei Anfragen mit einer Fünfsekundenpause,
+erfolgreicher Retry mit frischer Lizenzprüfung sowie unveränderte unsigned
+API-Rückgabewerte und secretsfreie Diagnosen. Die neue Regression scheiterte
+zuvor am unveränderten Produktcode. Die native Collation-Evidence auf
+`77fcf951` liegt vor dieser Korrektur; ein nativ provozierter negativer
+HRESULT ist nicht abgenommen. Der erforderliche PR-Gate einschließlich
+Hyper-V-Lifecycle-Smoke bleibt ein eigener Integrationsnachweis und ersetzt
+diese Fehlerpfadabnahme nicht. Analyze-Läufe bleiben separat.
 
 Am 2026-10-21 bestanden lokal 61 fokussierte Collationchecks, 53 Hyper-V-
 Umgebungschecks, 303 Konsolenchecks, 35 Katalogchecks, neun Container-Evidence-

@@ -568,7 +568,11 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   prueft SQL-seitig Server, master und tempdb; ohne Intent unveraendert.
   [Vertrag](../Documentation/Architecture/HYPERV_SQL_COLLATION.md) und editierbarer
   interaktiver Standard `Catalogs/sql-intent-defaults.json` (initial SQL-CS).
-  Native Windows-Collationabnahme bleibt offen. Bestehender
+  Die native Windows-/SQL-2025-Prepared-Referenz mit SQL-CS, eigener
+  CL170-Datenbank und Kontrollfall ohne Intent bestand auf `77fcf951`;
+  [Nachweise und Grenzen](../Documentation/Quality/LOCAL_VALIDATION_STRATEGY.md#windows-prepared-collation-und-editierbarer-intentstandard)
+  trennen sie von der anschließenden offline geprüften HRESULT-Korrektur
+  und den weiterhin separaten Analyze-Läufen. Bestehender
   Katalog, öffentliche tokenbasierte Suche und Konsolenauswahl mit Metadaten;
   Manifestprüfung, Wizard-Speicherung, Manifestauflösung und Ad-hoc-Erstellung
   binden vollständige Namen kanonisch vor Provisionierung. Unbekannte Namen

@@ -96,14 +96,15 @@ Test-SqlServerLabManifest -InputObject @{
 
 Die Offline-Suites fuehren Auswahl, Weitergabe, CompleteImage-Gastskript und
 SQL-Gastskript mit synthetischen nativen Blaettern aus. Das ist kein nativer
-Windows-/SQL-Collationnachweis. Eine spaetere isolierte Abnahme muss einen
+Windows-/SQL-Collationnachweis. Die isolierte native Abnahme muss einen
 eigenen Child aus einem vorhandenen Prepared-Artifact mit expliziter Collation
 und einen Kontrollfall ohne Intent, drei echte Istwerte, Parentintegritaet und
 vollstaendigen eigenen Cleanup pruefen. Ein neuer Imagebau ist dafuer nicht
 erforderlich. Bestehende Docker-/Podman-Nachweise qualifizieren weder Windows
 noch automatisch den neu katalogisierten SQL-CS-Wert.
 
-Die ausgefuehrten Offlinechecks und offenen nativen Abnahmen stehen in der
+Die ausgefuehrten Offlinechecks, die begrenzte native SQL-2025-Referenzabnahme
+mit SQL-CS-Wert und die verbleibenden Nachweisgrenzen stehen in der
 [Validierungsstrategie](../Quality/LOCAL_VALIDATION_STRATEGY.md).
 
 Microsoft dokumentiert `/SQLCOLLATION` unter

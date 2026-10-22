@@ -124,6 +124,74 @@ $module=Import-Module (Join-Path $PSScriptRoot '../../SqlServerLab.psd1') -Force
         Assert-Path ($dns.failureCode -eq 'WINDOWS_ACTIVATION_LICENSE_DISCOVERY_FAILED' -and $dns.diagnostic -ceq 'dns=unresolved;ipv4=present;route=present') 'Tatsächlich fehlgeschlagene DNS-Abfrage bleibt von nicht geprüfter DNS getrennt'
     }
     & {
+        # Derselbe vom echten Aufrufer erfasste Gastblock, alle nativen Blaetter geschlossen.
+        function Get-NetAdapter { [pscustomobject]@{MacAddress='00155D010203';ifIndex=3;Name='synthetic'} }
+        function Get-NetIPAddress { [pscustomobject]@{AddressState='Preferred';IPAddress='192.0.2.10'} }
+        function Get-NetRoute { [pscustomobject]@{DestinationPrefix='0.0.0.0/0'} }
+        function Resolve-DnsName { [pscustomobject]@{Type='A'} }
+        function Get-ItemProperty { [pscustomobject]@{EditionID='ServerStandardEval'} }
+        function Set-NetIPInterface { throw 'UNEXPECTED_NETWORK_MUTATION' }
+        function Set-DnsClientServerAddress { throw 'UNEXPECTED_NETWORK_MUTATION' }
+        function ipconfig.exe { throw 'UNEXPECTED_NETWORK_MUTATION' }
+        function Get-CimInstance {
+            param($ClassName,$Filter)
+            if($ClassName -eq 'SoftwareLicensingService'){return [pscustomobject]@{}}
+            if($ClassName -ne 'SoftwareLicensingProduct'){throw 'UNEXPECTED_CIM_CLASS'}
+            $verified=$Filter -like 'ID=*'
+            if($verified){$script:activationProbe.VerifyCalls++}
+            [pscustomobject]@{
+                ID='synthetic-product';PartialProductKey='synthetic';LicenseIsAddon=$false
+                LicenseStatus=if($verified){1}else{0};GracePeriodRemaining=1440
+            }
+        }
+        function Invoke-CimMethod {
+            param($InputObject,$MethodName)
+            if($MethodName -eq 'RefreshLicenseStatus'){$script:activationProbe.RefreshCalls++;return [pscustomobject]@{ReturnValue=0}}
+            if($MethodName -ne 'Activate'){throw 'UNEXPECTED_CIM_METHOD'}
+            $attempt=$script:activationProbe.ApiCalls++
+            if($attempt -lt $script:activationProbe.HResults.Count){
+                throw [Runtime.InteropServices.COMException]::new('synthetic-private-message 192.0.2.42', $script:activationProbe.HResults[$attempt])
+            }
+            [pscustomobject]@{ReturnValue=$script:activationProbe.ReturnValue}
+        }
+        function Start-Sleep {
+            param($Seconds)
+            switch($Seconds){
+                5 {$script:activationProbe.RetrySleeps++}
+                3 {$script:activationProbe.VerifySleeps++}
+                default {throw 'UNEXPECTED_GUEST_WAIT'}
+            }
+        }
+        function Invoke-ActivationGuestCase {
+            param([int[]]$HResults=@(),[uint32]$ReturnValue=0)
+            $script:activationProbe=@{HResults=$HResults;ReturnValue=$ReturnValue;ApiCalls=0;RetrySleeps=0;RefreshCalls=0;VerifyCalls=0;VerifySleeps=0}
+            & $script:activationGuestScript '00155D010203' $false
+        }
+        foreach($case in @(
+            @{Value=-2147024891;Diagnostic='hresult=0x80070005'},
+            @{Value=[int]::MinValue;Diagnostic='hresult=0x80000000'},
+            @{Value=[int]::MaxValue;Diagnostic='hresult=0x7FFFFFFF'},
+            @{Value=1;Diagnostic='hresult=0x00000001'},
+            @{Value=0;Diagnostic='api=exception'}
+        )){
+            $receipt=Invoke-ActivationGuestCase -HResults @($case.Value,$case.Value)
+            Assert-Path ($receipt.contractVersion -ceq 'SqlServerLab.WindowsActivationGuestReceipt/1.0' -and $receipt.status -ceq 'FAILED' -and $receipt.failureCode -ceq 'WINDOWS_ACTIVATION_REQUEST_FAILED' -and $receipt.diagnostic -ceq ('dns=resolved;ipv4=present;route=present;'+$case.Diagnostic)) "Terminaler HRESULT $($case.Value) bleibt exakt und ohne Rohfehlermeldung im Receipt"
+            Assert-Path ($script:activationProbe.ApiCalls -eq 2 -and $script:activationProbe.RetrySleeps -eq 1 -and $script:activationProbe.RefreshCalls -eq 0 -and $script:activationProbe.VerifyCalls -eq 0 -and $script:activationProbe.VerifySleeps -eq 0) "HRESULT $($case.Value) erlaubt genau zwei Anfragen und eine Pause vor terminalem Fehler"
+        }
+        $receipt=Invoke-ActivationGuestCase -HResults @(-2147024891,-2147467259)
+        Assert-Path ($receipt.diagnostic -ceq 'dns=resolved;ipv4=present;route=present;hresult=0x80004005') 'Terminaler Fehler behaelt den HRESULT der letzten Anfrage'
+        $receipt=Invoke-ActivationGuestCase -HResults @(-2147024891,0)
+        Assert-Path ($receipt.diagnostic -ceq 'dns=resolved;ipv4=present;route=present;api=exception') 'Letzte Ausnahme ohne HRESULT uebernimmt keinen frueheren Fehlercode'
+        Assert-Path ($script:activationProbe.ApiCalls -eq 2 -and $script:activationProbe.RetrySleeps -eq 1 -and $script:activationProbe.RefreshCalls -eq 0) 'Auch eine letzte Ausnahme ohne Code beendet genau den begrenzten Retry'
+        foreach($failures in @(0,1)){
+            $receipt=if($failures){Invoke-ActivationGuestCase -HResults @(-2147024891)}else{Invoke-ActivationGuestCase}
+            Assert-Path ($receipt.status -ceq 'SUCCEEDED' -and $receipt.licenseStatus -eq 1 -and $receipt.evaluationMinutesRemaining -gt 0 -and $script:activationProbe.ApiCalls -eq (1+$failures) -and $script:activationProbe.RetrySleeps -eq $failures -and $script:activationProbe.RefreshCalls -eq 1 -and $script:activationProbe.VerifyCalls -eq 1 -and $script:activationProbe.VerifySleeps -eq 1 -and $null -eq $receipt.PSObject.Properties['diagnostic']) "Erfolg nach $failures API-Fehlern erfordert frische Lizenzpruefung ohne alte Fehlerdiagnose"
+        }
+        $receipt=Invoke-ActivationGuestCase -ReturnValue 2147942405
+        Assert-Path ($receipt.status -ceq 'FAILED' -and $receipt.failureCode -ceq 'WINDOWS_ACTIVATION_REQUEST_FAILED' -and $receipt.diagnostic -ceq 'dns=resolved;ipv4=present;route=present;apiReturn=0x80070005' -and $script:activationProbe.ApiCalls -eq 1 -and $script:activationProbe.RetrySleeps -eq 0 -and $script:activationProbe.RefreshCalls -eq 0) 'Unsigned API-Rueckgabewert bleibt von HRESULT-Ausnahmen getrennt und ohne neuen Retry'
+        Remove-Variable -Name activationProbe -Scope Script
+    }
+    & {
         $script:activationLab.Instance.windowsActivationIntentSource='compatibility-defaults'
         $explicit=@{ContractVersion='SqlServerLab.WindowsActivationIntent/1.0';Strategy='VerifyOnly';EgressPolicy='ExistingOnly'}
         function Get-HyperVWindowsSlotLicenseStatus {[pscustomobject]@{State='ACTIVATION_REQUIRED';Edition='ServerStandardEval';LicenseStatus=5;EvaluationMinutesRemaining=0}}
