@@ -929,6 +929,11 @@ sources_of_truth:
   authenticated_tls_authority: Private/AuthenticatedTlsAuthority.ps1
   authenticated_tls_lab: Private/AuthenticatedTlsLab.ps1 # explicit provider, original runtime pin, closed 0.1 Docker / 0.2 provider+policy / 0.3 SQL-profile bindings; coupled ContainerOwnedHostIntegration, RunArtifactRemoval and RetainedStoreRuntime
   authenticated_tls_qualification: Private/AuthenticatedTlsQualification.ps1 # ordinary qualification/export/readback also require committed restart-rebind history; coupled restart-rebind and positive signed-export suites
+  authenticated_tls_linux_client_fixture: Tests/Common/AuthenticatedTlsLinuxClient.ps1 # test-only fresh owned SQL run and receipt-bound unprivileged client namespaces; no host trust, registry or export qualification
+  authenticated_tls_linux_client_probe: Tests/Integration/Fixtures/TlsLinuxClientProbe.ps1 # fresh genuine Linux SqlClient/sqlcmd children, process-only CA trust, actual ODBC maps and classified certificate failures
+  validation_authenticated_tls_linux_client: Tests/Static/Invoke-AuthenticatedTlsLinuxClientChecks.ps1 # synthetic restrictive argv, original-policy/namespace/image binding and typed-error checks; zero provider actions
+  runtime_authenticated_tls_linux_client: Tests/Integration/Invoke-AuthenticatedTlsLinuxAcceptance.ps1 # explicit one-new-lab acceptance for selected provider/profile; five sequential clients, isolated wrong-SAN/expiry/renewal, own cleanup required
+  evidence_authenticated_tls_linux_matrix: Documentation/Quality/TLS_LINUX_CLIENT_MATRIX_ACCEPTANCE_2026-10-22.md # six D/P SQL2019CU32/2022CU27/2025CU9 Linux crypto cells, distinct native sourceframes; no public Linux registry/export/consumer or operational renewal claim
   public_authenticated_tls_v2_reader: Public/Read-SqlServerLabQualifiedTestEnvironment.ps1 # explicit Windows current-user target; same signed bytes, schema, freshness and native binding; no SQL or fallback
   authenticated_tls_v2_reader_contract: Documentation/Architecture/AUTHENTICATED_TLS_V2_READER.md
   validation_authenticated_tls_v2_reader: Tests/Static/Invoke-AuthenticatedTlsLabChecks.ps1 # public reader single-path CI binding; real RSA/private ACL and injected native drift/expiry, no SQL/provider proof

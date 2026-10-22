@@ -1,5 +1,18 @@
 # Projektkontext
 
+Die [native Linux-Kryptomatrix](../Documentation/Quality/TLS_LINUX_CLIENT_MATRIX_ACCEPTANCE_2026-10-22.md)
+bestand Docker und Podman für SQL 2019 CU32, 2022 CU27 und 2025 CU9 separat:
+je neun Fälle und 18 Clientergebnisse, davon 16 strikt und zwei getrennte
+Bypasskontrollen. Echter Ablauf, falscher SAN, Trustentzug und neuer Leafschlüssel
+sind eingeschlossen; eigener Cleanup und Bestandsvergleich bestanden je Zelle.
+Docker belegt drei frühere Quellframes, Podman den korrigierten Frame; keine
+einheitliche erneute Native-Ausführung am Integrationshead wird behauptet.
+Öffentliche Linux-Registry-/Export-/Consumerpfade, öffentliche Hyper-V-False-Lane,
+operatives Renewal und weitere Browser-/Trustkontexte bleiben offen.
+Die nachfolgenden älteren TLS-Teilscopeabschnitte erweitern ihren jeweiligen
+Nachweisstand nicht; der aktuelle Gesamtumfang steht im verlinkten Nachweis
+und im kanonischen TLS-001-Backlog.
+
 Der [öffentliche V2-Reader](../Documentation/Architecture/AUTHENTICATED_TLS_V2_READER.md)
 ergänzt den expliziten Lab-/Toolbelt-Consumer-Cutover um denselben geprüften
 Bytesnapshot. Signatur, Schema, Frist und aktuelle Bindungen bleiben erforderlich;
@@ -9,7 +22,7 @@ bestand Docker und Podman für SQL 2019 CU32, 2022 CU27 und 2025 CU9 separat:
 je fünf Lab- und drei Consumerfälle mit beiden echten Stacks sowie eigenem
 Cleanup. Zwei ursprüngliche Fehlversuche bleiben erhalten. Die generische
 CLI-/Browseranzeige maskiert Exportbytes; die direkte Reader-API bleibt
-für ausdrücklich gebundene Verbraucher verfügbar. Linuxclients, Hyper-V
+für ausdrücklich gebundene Verbraucher verfügbar. Öffentliche Linux-Consumer, Hyper-V
 und die übrigen TLS-001-Schritte bleiben getrennt offen.
 
 Die [konfigurationsbasierte TLS-Prüfstatusanzeige](../Documentation/Quality/TLS_CONFIGURATION_STATUS_DISPLAY_2026-10-22.md)

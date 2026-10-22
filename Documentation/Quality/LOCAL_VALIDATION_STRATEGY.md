@@ -1,5 +1,27 @@
 # Lokale Validierungsstrategie
 
+## Native Linux-TLS-Clientmatrix vom 2026-10-22 (UTC)
+
+Die [getrennte Linux-Kryptomatrix](TLS_LINUX_CLIENT_MATRIX_ACCEPTANCE_2026-10-22.md)
+bestand für Docker und Podman mit SQL 2019 CU32, 2022 CU27 und 2025 CU9:
+je neun Fälle mit 18 Clientergebnissen, davon 16 strikt und zwei positive
+Bypasskontrollen ohne übergebenen CA-Trust. Beide echten Stacks belegten
+verschlüsselte SQL-Abfragen, Trustentzug/-wiederherstellung, falschen SAN,
+tatsächlichen Ablauf ohne SQL-Neustart und einen neuen Leafschlüssel.
+Cleanup, Bestandsvergleich und terminaler Windows-Jobabschluss bestanden je Zelle.
+Die drei Docker-Quellframes und der spätere Podman-Korrekturframe bleiben
+getrennte Nachweise. Der Schlussstand besitzt keinen erneut ausgeführten
+gemeinsamen Docker-/Podman-Linux-Nachweis.
+
+Die fokussierte Suite bestand zuletzt mit 364/0. Die 22 ausgewählten lokalen
+Integrationssuites und das vierteilige Korrekturdelta einschließlich vollständigem
+Analyzer bestanden; unabhängige Produkt- und Zulassungsreviews ohne offene
+Findings. Die tatsächliche CRLF-Helperfixture reproduzierte zuvor vier Fehler;
+ursprüngliche Native-FAILs und fehlgeschlagene globale Bestandsvergleiche
+bleiben erhalten. Finale PR-Gates sind eine eigene Integrationsbedingung.
+Öffentliche Linux-Moduswahl/Registry/Export/Consumer, Hyper-V-False-/Exportlane,
+operatives Renewal, weitere Browser-/Trustkontexte und Wire-Fingerprint bleiben offen.
+
 ## V2-Consumer-Cutover vom 2026-10-22
 
 Die [native Windows-Consumer-Abnahme](TLS_V2_CONSUMER_CUTOVER_ACCEPTANCE_2026-10-22.md)
