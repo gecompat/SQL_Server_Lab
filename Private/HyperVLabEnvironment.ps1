@@ -506,7 +506,7 @@ function Invoke-HyperVWindowsSlotActivation {
                     }
                     catch {
                         # HRESULT is signed Int32; formatting preserves its bits without a failing UInt32 cast.
-                        if ($_.Exception.HResult) { $activationHResult = ('0x{0:X8}' -f [int]$_.Exception.HResult) }
+                        $activationHResult = if ($_.Exception.HResult) { ('0x{0:X8}' -f [int]$_.Exception.HResult) } else { $null }
                         if ($activationRequestAttempt -ge $activationRequestMaxAttempts) { throw }
                         Start-Sleep -Seconds 5
                     }

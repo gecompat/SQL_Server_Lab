@@ -180,6 +180,9 @@ $module=Import-Module (Join-Path $PSScriptRoot '../../SqlServerLab.psd1') -Force
         }
         $receipt=Invoke-ActivationGuestCase -HResults @(-2147024891,-2147467259)
         Assert-Path ($receipt.diagnostic -ceq 'dns=resolved;ipv4=present;route=present;hresult=0x80004005') 'Terminaler Fehler behaelt den HRESULT der letzten Anfrage'
+        $receipt=Invoke-ActivationGuestCase -HResults @(-2147024891,0)
+        Assert-Path ($receipt.diagnostic -ceq 'dns=resolved;ipv4=present;route=present;api=exception') 'Letzte Ausnahme ohne HRESULT uebernimmt keinen frueheren Fehlercode'
+        Assert-Path ($script:activationProbe.ApiCalls -eq 2 -and $script:activationProbe.RetrySleeps -eq 1 -and $script:activationProbe.RefreshCalls -eq 0) 'Auch eine letzte Ausnahme ohne Code beendet genau den begrenzten Retry'
         foreach($failures in @(0,1)){
             $receipt=if($failures){Invoke-ActivationGuestCase -HResults @(-2147024891)}else{Invoke-ActivationGuestCase}
             Assert-Path ($receipt.status -ceq 'SUCCEEDED' -and $receipt.licenseStatus -eq 1 -and $receipt.evaluationMinutesRemaining -gt 0 -and $script:activationProbe.ApiCalls -eq (1+$failures) -and $script:activationProbe.RetrySleeps -eq $failures -and $script:activationProbe.RefreshCalls -eq 1 -and $script:activationProbe.VerifyCalls -eq 1 -and $script:activationProbe.VerifySleeps -eq 1 -and $null -eq $receipt.PSObject.Properties['diagnostic']) "Erfolg nach $failures API-Fehlern erfordert frische Lizenzpruefung ohne alte Fehlerdiagnose"

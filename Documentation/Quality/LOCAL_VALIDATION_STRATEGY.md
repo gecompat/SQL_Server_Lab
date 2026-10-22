@@ -2849,10 +2849,11 @@ eine API-Anfrage, keine Retrypause, nur `api=exception` im Fehlerreceipt.
 
 Die anschließende HRESULT-Korrektur formatiert den signierten Int32-Wert
 ohne verlustbehafteten Cast. Die fokussierte Aktivierungssuite bestand
-73 Prüfungen, darunter 14 neue Assertions am tatsächlich vom Aufrufer
+75 Prüfungen, darunter 16 neue Assertions am tatsächlich vom Aufrufer
 übergebenen Gastblock mit ausschließlich synthetischen nativen Blättern.
 Geprüft sind negative HRESULTs, Int32-Grenzen, positive und fehlende Codes,
-der letzte Fehlercode, genau zwei Anfragen mit einer Fünfsekundenpause,
+der letzte Fehlercode einschließlich einer zweiten Ausnahme ohne Code,
+genau zwei Anfragen mit einer Fünfsekundenpause,
 erfolgreicher Retry mit frischer Lizenzprüfung sowie unveränderte unsigned
 API-Rückgabewerte und secretsfreie Diagnosen. Die neue Regression scheiterte
 zuvor am unveränderten Produktcode. Die native Collation-Evidence auf
