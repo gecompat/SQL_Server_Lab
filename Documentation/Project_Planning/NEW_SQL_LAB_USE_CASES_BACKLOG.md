@@ -120,13 +120,20 @@ erhalten aber jeweils eigene Runtime-Evidence.
 
 #### TLS-001 – authentifizierte TLS-Verbindungen der Testumgebungen
 
+Die [konfigurationsbasierte TLS-Prüfstatusanzeige](../Quality/TLS_CONFIGURATION_STATUS_DISPLAY_2026-10-22.md)
+ergänzt CLI, SQL-Zielkarte und Verbindungsübersicht. Zwei getrennte native
+Windows-/Docker-/Podman-SQL-2025-CU9-Abnahmen bestanden einschließlich eigener
+Bereinigung. Gespeichertes False meldet `NOT_EVALUATED` und behauptet keine
+aktuelle Prüfung. Eine ausdrücklich ausgelöste Livequalifikation mit
+Frische-/Driftbindung bleibt Teil des offenen TLS-001c-Scope.
+
 Die zusätzliche [echte Windows-Produktseitenabnahme](../Quality/TLS_WINDOWS_RENDERED_CONNECTION_SETTINGS_2026-10-21.md)
 schließt die gespeicherte TLS-Anzeige an eigenen qualifizierten Docker-/Podman-
 SQL-2025-CU9-Labs: frischer abgeschlossener Workflow-Snapshot, passender
 Endpoint, explizite False-Werte und exakt angezeigter Connection String.
 Der reproduzierte Inventurcachefehler ist korrigiert; ursprünglicher Docker-
 FAIL und getrennte PASS-Nachläufe bleiben erhalten. Creation-Dialog,
-Clipboard und gesonderte Qualifikationsstatusanzeige bleiben offen. Der
+Clipboard und gesonderte aktuelle Livequalifikationsstatusanzeige bleiben offen. Der
 verlinkte Nachweis führt die weiteren Matrix-, Lifecycle-, Consumer- und
 Trustkontext-Schritte; `TLS-001` bleibt `partial`.
 

@@ -64,6 +64,9 @@ früheren Export. Die UI startet beim Anzeigen keine zusätzliche Prüfung.
 Eine ausdrücklich ausgelöste Liveprüfung mit gebundener Frische-, Drift-,
 Client- und Zielprüfung bleibt ein weiterer TLS-001-Pflichtscope. Diese
 Konfigurationsanzeige schließt ihn nicht ab.
+Die [getrennte native Anzeigeabnahme](../Quality/TLS_CONFIGURATION_STATUS_DISPLAY_2026-10-22.md)
+prüfte `NOT_EVALUATED` mit echtem Produktserver und Browser an zwei eigenen
+Windows-/Docker-/Podman-SQL-2025-CU9-Labs einschließlich Cleanup.
 
 Die [fokussierte Suite](../../Tests/Static/Invoke-SqlConnectionSettingsChecks.ps1)
 prüft den tatsächlichen Default-Erzeuger, native Parsergegenfälle, fehlende
@@ -78,5 +81,5 @@ beschrieben. Die zusätzliche
 [Windows-Produktseitenabnahme vom 2026-10-21](../Quality/TLS_WINDOWS_RENDERED_CONNECTION_SETTINGS_2026-10-21.md)
 bestand an eigenen qualifizierten Docker-/Podman-SQL-2025-CU9-Labs mit echter
 Workflowantwort, sichtbaren False-Werten und exakt angezeigtem Connection
-String. Creation-Dialog, Clipboard und Qualifikationsstatusanzeige sowie
+String. Creation-Dialog, Clipboard und aktuelle Livequalifikationsstatusanzeige sowie
 weitere Modi und Plattformen bleiben getrennte offene Nachweise.
