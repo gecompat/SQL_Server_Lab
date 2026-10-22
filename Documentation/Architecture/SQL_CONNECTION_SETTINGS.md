@@ -40,6 +40,31 @@ Diese Werte beschreiben den gespeicherten Connection String. Sie sind weder
 ein Live-Verbindungstest noch ein Ketten-, SAN-, Ablauf-, Trust- oder
 Clientqualifikationsnachweis. Die additive öffentliche strikte Moduswahl und der qualifizierte V2-Export sind im [operativen TLS-Vertrag](AUTHENTICATED_TLS_OPERATIONAL_LAB.md) für eigene Windows-/Docker-/Podman-Labs mit SQL 2025 CU9, SQL 2022 CU27 oder SQL 2019 CU32 begrenzt.
 
+## Getrennter Status ohne aktuelle Liveprüfung
+
+Der Workflow ergänzt je SQL-Ziel den skalaren `TlsQualificationStatus`.
+Die bestehende dreifeldrige `ConnectionSettings`-Projektion bleibt erhalten.
+CLI, SQL-Zielkarte und Verbindungsübersicht zeigen den Status unmittelbar
+am jeweiligen Ziel. Der gemeinsame Reader leitet ihn ausschließlich aus
+den ausdrücklich gespeicherten Optionen ab; er liest keine Qualifikation,
+Exporte, Zertifikate, Secrets oder Truststores und öffnet keine Verbindung.
+
+| Status | Bedeutung der Anzeige |
+|---|---|
+| `NOT_EVALUATED` | Encrypt=True und TrustServerCertificate=False sind angegeben; hier nicht aktuell geprüft. Eine frühere Prüfung andernorts ist damit weder bestätigt noch ausgeschlossen. |
+| `CERTIFICATE_VALIDATION_DISABLED` | Zertifikatsprüfung laut gespeicherter Konfiguration abgeschaltet. |
+| `ENCRYPTION_NOT_REQUESTED` | Encrypt=False ist angegeben. Die tatsächlich ausgehandelte Verschlüsselung ist damit nicht ermittelt; der Server kann sie erzwingen. |
+| `INCOMPLETE_CONFIGURATION` | Mindestens eine ausdrückliche TLS-Option fehlt; keine aktuelle Prüfung. |
+| `UNREADABLE_CONFIGURATION` | Die Konfiguration ist nicht lesbar; keine aktuelle Prüfung. |
+
+Fehlende, unbekannte oder falsch typisierte Browsermetadaten ergeben nur
+„Kein aktueller TLS-Prüfstatus gemeldet“. Es gibt keinen Status `QUALIFIED`
+und keine Aufwertung durch Runtime-READY, gespeichertes False oder einen
+früheren Export. Die UI startet beim Anzeigen keine zusätzliche Prüfung.
+Eine ausdrücklich ausgelöste Liveprüfung mit gebundener Frische-, Drift-,
+Client- und Zielprüfung bleibt ein weiterer TLS-001-Pflichtscope. Diese
+Konfigurationsanzeige schließt ihn nicht ab.
+
 Die [fokussierte Suite](../../Tests/Static/Invoke-SqlConnectionSettingsChecks.ps1)
 prüft den tatsächlichen Default-Erzeuger, native Parsergegenfälle, fehlende
 Werte, geschlossene Ablehnung und den tatsächlichen CLI-Renderer mit festen

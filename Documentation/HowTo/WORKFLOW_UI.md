@@ -7,6 +7,13 @@ oder unlesbare Werte erhalten eine feste Meldung. Die Übersicht zeigt keine
 Zugangsdaten und führt keinen Verbindungstest aus. Die CLI-Runstatusansicht
 zeigt dieselben Werte; [Vertrag](../Architecture/SQL_CONNECTION_SETTINGS.md).
 
+Direkt am SQL-Ziel steht zusätzlich der **TLS-Prüfstatus**. Bei gespeicherter
+strikter Konfiguration lautet er „Hier nicht aktuell geprüft“; abgeschaltete
+Zertifikatsprüfung und nicht angeforderte Verschlüsselung werden getrennt
+benannt. Die Anzeige startet keine Verbindung und behauptet keinen aktuellen
+Zertifikatsnachweis. Eine frühere Qualifikation wird dadurch nicht ausgewertet.
+Die ausdrückliche Liveprüfung mit Frische- und Driftbindung bleibt separat.
+
 Die Hintergrundinventur hält ein erfolgreich abgeschlossenes, nichtleeres
 Ergebnis fünf Sekunden frisch. Auch eine langsamere Inventur kann dadurch
 einen abgeschlossenen Snapshot liefern; fehlerhafte oder leere Jobs erneuern
