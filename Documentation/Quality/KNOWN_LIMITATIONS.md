@@ -1,5 +1,15 @@
 # Bekannte Grenzen
 
+Der [V2-Snapshotreader](../Architecture/AUTHENTICATED_TLS_V2_READER.md) ist auf
+den registrierten Windows-Benutzer-/Clientkontext und die operativen
+Docker-/Podman-Profile begrenzt. Er reserviert keine Runtime, verlängert
+keine Qualifikation und ist allein kein Toolbelt-Livebeweis. Linuxclients,
+öffentliche Hyper-V-False-/Exportlane und vollständige TLS-001-Matrix bleiben
+getrennt. Die [native Windows-Consumer-Teilmatrix](TLS_V2_CONSUMER_CUTOVER_ACCEPTANCE_2026-10-22.md)
+bestand alle sechs operativen Containerprofile mit beiden echten Stacks,
+Signatur-Negativfall und eigenem Cleanup. Das ist kein Linux-Client-,
+Hyper-V-, Browserrender- oder vollständiger SC-2026-045-Nachweis.
+
 Die [konfigurationsbasierte TLS-Prüfstatusanzeige](TLS_CONFIGURATION_STATUS_DISPLAY_2026-10-22.md)
 ist an eigenen Windows-/Docker-/Podman-SQL-2025-CU9-Labs zusätzlich nativ
 abgenommen. Sie meldet gespeicherte Optionen und ausdrücklich fehlende

@@ -1,5 +1,22 @@
 # Lokale Validierungsstrategie
 
+## V2-Consumer-Cutover vom 2026-10-22
+
+Die [native Windows-Consumer-Abnahme](TLS_V2_CONSUMER_CUTOVER_ACCEPTANCE_2026-10-22.md)
+bestand Docker und Podman mit SQL 2019 CU32, SQL 2022 CU27 und SQL 2025 CU9
+getrennt: je fünf Labfälle, öffentlicher Reader, echte Toolbelt-Verbindungen
+über SqlClient und sqlcmd sowie gefälschte Signatur vor Preflight abgewiesen.
+Alle acht eigenen Labs einschließlich der zwei erhaltenen FAIL-Versuche
+sind entfernt; same-pin Abwesenheit, feste Exporte und Bestandsvergleich
+wurden in den jeweiligen Ausführungen geprüft. Ausführbare Produktquellen
+blieben während der sechs erfolgreichen Matrixfälle unverändert.
+
+Die anschließenden sensiblen Bytearray-Eingabe-/Ausgabeprüfungen verwenden
+synthetische Canaries und den echten gemeinsamen Sanitizer, Parametereditor
+und Web-Konverter. Node prüft die tatsächlichen Browserfunktionen mit einem
+synthetischen DOM. Daraus folgt kein zusätzlicher nativer oder gerenderter
+Browsernachweis. Die übrigen TLS-001-Matrixzellen bleiben offen.
+
 ## Konfigurationsbasierter TLS-Prüfstatus vom 2026-10-22
 
 Die [getrennte Statusanzeige](TLS_CONFIGURATION_STATUS_DISPLAY_2026-10-22.md)

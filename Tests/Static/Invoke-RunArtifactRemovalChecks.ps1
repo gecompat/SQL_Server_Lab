@@ -47,6 +47,7 @@ try {
             & $Edit $state
             Write-LabArtifactJsonAtomic -Path (Join-Path $script:run.RunDir 'run-state.json') -InputObject $state
         }
+        . (Join-Path $Repo 'Tests/Static/Fixtures/RunArtifactRemovalInvocationChecks.ps1')
         Set-Item Function:Resolve-LabDataRootForUse -Value {param($DataRoot)$DataRoot}
         Set-Item Function:Get-LabStorageConfiguration -Value {param($DataRoot)$script:configuration}
         Set-Item Function:Test-LabDataRootOwnership -Value {param($DataRoot,$ControllerId)$true}

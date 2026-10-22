@@ -46,6 +46,8 @@ function renderPublicCommandParameter(descriptor) {
     editor = '<input id="' + id + '" data-command-parameter="' + escapeHtml(descriptor.Name) + '" data-command-kind="boolean" type="checkbox">';
   } else if (allowedValues.length > 0) {
     editor = '<select id="' + id + '" data-command-parameter="' + escapeHtml(descriptor.Name) + '" data-command-kind="value"' + required + '><option value="">' + (descriptor.Mandatory ? 'Bitte auswählen' : 'Befehlsstandard verwenden') + '</option>' + allowedValues.map((value) => '<option value="' + escapeHtml(value) + '">' + escapeHtml(value) + '</option>').join('') + '</select>';
+  } else if (descriptor.Sensitive && /^System\.Byte\[\]$/i.test(typeName)) {
+    editor = '<input id="' + id + '" data-command-parameter="' + escapeHtml(descriptor.Name) + '" data-command-kind="json" type="password"' + required + sensitive + '>';
   } else if (/\[\]$/.test(typeName) || /Hashtable|PSCustomObject|System\.Object$/i.test(typeName)) {
     editor = '<textarea id="' + id + '" data-command-parameter="' + escapeHtml(descriptor.Name) + '" data-command-kind="json" rows="4" spellcheck="false" placeholder="JSON-Wert, z. B. [\u0022a\u0022, \u0022b\u0022] oder {\u0022key\u0022:\u0022value\u0022}"' + required + '></textarea>';
   } else {

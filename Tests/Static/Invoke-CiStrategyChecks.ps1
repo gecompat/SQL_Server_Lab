@@ -898,6 +898,7 @@ Add-CheckResult -Name 'CI-Infrastruktur prueft einmalig alle Runtime-Gates' -Suc
 
 # Einzelpfade verhindern, dass ein zweiter Dateiname eine fehlende Abhaengigkeit verdeckt.
 $dependencyCases = @(
+    @{ Path = 'Public/Read-SqlServerLabQualifiedTestEnvironment.ps1'; Checks = @('Invoke-AuthenticatedTlsLabChecks.ps1'); Runtime = @('Docker','Podman','Mixed','HyperV','Adapter') },
     @{ Path = 'Private/AuthenticatedTlsRestartRebind.ps1'; Checks = @('Invoke-OwnedHostIntegrationChecks.ps1','Invoke-AuthenticatedTlsRestartRebindChecks.ps1','Invoke-AuthenticatedTlsLabChecks.ps1'); Runtime = @('Docker','Podman','Mixed','HyperV','Adapter') },
     @{ Path = 'Public/Update-SqlServerLabTlsBinding.ps1'; Checks = @('Invoke-OwnedHostIntegrationChecks.ps1','Invoke-AuthenticatedTlsRestartRebindChecks.ps1','Invoke-PublicCommandConsoleChecks.ps1','Invoke-ConsoleUiChecks.ps1','Invoke-WorkflowUiChecks.ps1'); Runtime = @('Docker','Podman','Mixed','HyperV','Adapter') },
     @{ Path = 'Tests/Static/Invoke-AuthenticatedTlsRestartRebindChecks.ps1'; Checks = @('Invoke-AuthenticatedTlsRestartRebindChecks.ps1'); Runtime = @() },

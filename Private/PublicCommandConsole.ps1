@@ -50,20 +50,20 @@ function ConvertTo-LabPublicCommandDisplayValue {
     param([AllowNull()]$Value,[int]$Depth=0)
 
     if($null -eq $Value){return $null}
-    if($Value -is [Security.SecureString] -or $Value -is [Management.Automation.PSCredential]){return '<geschuetzt>'}
+    if($Value -is [Security.SecureString] -or $Value -is [Management.Automation.PSCredential] -or $Value -is [byte[]]){return '<geschuetzt>'}
     if($Value -is [string] -or $Value.GetType().IsPrimitive -or $Value -is [datetime] -or $Value -is [guid]){return $Value}
     if($Depth -ge 8){return '<maximale Anzeigetiefe erreicht>'}
     if($Value -is [Collections.IDictionary]){
         $copy=[ordered]@{}
         foreach($key in @($Value.Keys)){
-            $copy[[string]$key]=if([string]$key -match '(?i)(password|secret|credential|token|connectionstring)'){'<geschuetzt>'}else{ConvertTo-LabPublicCommandDisplayValue -Value $Value[$key] -Depth ($Depth+1)}
+            $copy[[string]$key]=if([string]$key -match '(?i)(password|secret|credential|token|connectionstring|exportbytes)'){'<geschuetzt>'}else{ConvertTo-LabPublicCommandDisplayValue -Value $Value[$key] -Depth ($Depth+1)}
         }
         return [pscustomobject]$copy
     }
     if($Value -is [Collections.IEnumerable]){return @($Value|ForEach-Object {ConvertTo-LabPublicCommandDisplayValue -Value $_ -Depth ($Depth+1)})}
     $copy=[ordered]@{}
     foreach($property in @($Value.PSObject.Properties|Where-Object MemberType -in @('Property','NoteProperty'))){
-        $copy[$property.Name]=if($property.Name -match '(?i)(password|secret|credential|token|connectionstring)'){'<geschuetzt>'}else{ConvertTo-LabPublicCommandDisplayValue -Value $property.Value -Depth ($Depth+1)}
+        $copy[$property.Name]=if($property.Name -match '(?i)(password|secret|credential|token|connectionstring|exportbytes)'){'<geschuetzt>'}else{ConvertTo-LabPublicCommandDisplayValue -Value $property.Value -Depth ($Depth+1)}
     }
     [pscustomobject]$copy
 }
@@ -88,7 +88,7 @@ function Get-LabPublicCommandParameterDescriptor {
             Position=[int]$_.Position
             DefaultExpression=$(if($defaults.ContainsKey($name)){$defaults[$name]}elseif($_.IsMandatory){'<kein Standard>'}else{'<Befehlsstandard>'})
             AllowedValues=(Get-LabPublicCommandAllowedValueText -Parameter $_)
-            Sensitive=($type -eq [Security.SecureString] -or $type -eq [Management.Automation.PSCredential] -or $name -match '(?i)(password|secret|credential)')
+            Sensitive=($type -eq [Security.SecureString] -or $type -eq [Management.Automation.PSCredential] -or $type -eq [byte[]] -or $name -match '(?i)(password|secret|credential|exportbytes)')
             IsCredential=($type -eq [Management.Automation.PSCredential])
             Attributes=@($_.Attributes)
         }
@@ -275,7 +275,11 @@ function Invoke-LabPublicCommandWebRequest {
     foreach ($key in @($Parameters.Keys)) {
         if (-not $descriptorByName.ContainsKey([string]$key)) { throw "PUBLIC_COMMAND_UI_PARAMETER_NOT_ALLOWED: $key" }
         $descriptor = $descriptorByName[[string]$key]
-        $converted = ConvertFrom-LabPublicCommandWebValue -Value $Parameters[$key] -TargetType ([type]$descriptor.ParameterType)
+        try { $converted = ConvertFrom-LabPublicCommandWebValue -Value $Parameters[$key] -TargetType ([type]$descriptor.ParameterType) }
+        catch {
+            if($descriptor.Sensitive){throw "PUBLIC_COMMAND_UI_PARAMETER_INVALID: $key"}
+            throw
+        }
         $validationError = Test-LabPublicCommandParameterValue -Value $converted -Descriptor $descriptor
         if ($validationError) { throw "PUBLIC_COMMAND_UI_PARAMETER_INVALID: $key; $validationError" }
         if ($descriptor.ParameterType -eq [switch] -and -not [bool]$converted) { continue }
@@ -310,7 +314,7 @@ function ConvertFrom-LabPublicCommandInput {
     }
     if($TargetType.IsArray){
         $elementType=$TargetType.GetElementType()
-        $rawValues=if($Text.TrimStart().StartsWith('[')){@($Text|ConvertFrom-Json -Depth 100)}else{@($Text -split ','|ForEach-Object {$_.Trim()})}
+        $rawValues=@(if($Text.TrimStart().StartsWith('[')){$Text|ConvertFrom-Json -Depth 100}else{$Text -split ','|ForEach-Object {$_.Trim()}})
         $array=[Array]::CreateInstance($elementType,$rawValues.Count)
         for($index=0;$index -lt $rawValues.Count;$index++){
             $array.SetValue([Management.Automation.LanguagePrimitives]::ConvertTo($rawValues[$index],$elementType,[Globalization.CultureInfo]::InvariantCulture),$index)
@@ -366,6 +370,12 @@ function Edit-LabPublicCommandParameterValue {
         $input=Read-LabConsoleTextInput -Prompt "$($Descriptor.Name) ($($Descriptor.AllowedValues))" -MaskInput
         if($input.Status -ne 'Confirmed'){return $CurrentValue}
         return [string]$input.Value
+    }
+    if($Descriptor.Sensitive -and $type -eq [byte[]]){
+        $input=Read-LabConsoleTextInput -Prompt "$($Descriptor.Name) (JSON-Bytearray)" -MaskInput
+        if($input.Status -ne 'Confirmed'){return $CurrentValue}
+        try{return ConvertFrom-LabPublicCommandInput -Text ([string]$input.Value) -TargetType $type}
+        catch{Write-LabWarning "Eingabe fuer '$($Descriptor.Name)' ist ungueltig.";return $CurrentValue}
     }
     $defaultText=if($null -eq $CurrentValue){''}elseif($type -eq [string]){[string]$CurrentValue}else{$CurrentValue|ConvertTo-Json -Compress -Depth 20}
     $input=Read-LabConsoleTextInput -Prompt "$($Descriptor.Name) ($($Descriptor.AllowedValues))" -Default $defaultText

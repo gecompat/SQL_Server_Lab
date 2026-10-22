@@ -484,6 +484,10 @@ Sync-SqlServerLabRunScopedContainerStore
         Qualifiziert einen eigenen policygebundenen Docker-/Podman-TLS-Run
         nach Neustart und bindet nur dessen neue Start-Epoche; keine Erneuerung.
 
+    Read-SqlServerLabQualifiedTestEnvironment
+        Prüft denselben signierten V2-Bytesnapshot gegen Frist und aktuelle
+        eigene Bindungen; enthält private Zugangsdaten, öffnet keine SQL-Verbindung.
+
     Export-SqlServerLabTestEnvironment
         Schreibt TestUmgebung.env, TestUmgebung.json, TestUmgebung.schema.json,
         TestUmgebung.prompt.md und TestUmgebung.md in den

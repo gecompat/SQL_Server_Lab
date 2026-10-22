@@ -1,5 +1,17 @@
 # Projektkontext
 
+Der [öffentliche V2-Reader](../Documentation/Architecture/AUTHENTICATED_TLS_V2_READER.md)
+ergänzt den expliziten Lab-/Toolbelt-Consumer-Cutover um denselben geprüften
+Bytesnapshot. Signatur, Schema, Frist und aktuelle Bindungen bleiben erforderlich;
+der Reader selbst öffnet keine SQL-Verbindung. Die [gemeinsame native
+Windows-Consumer-Abnahme](../Documentation/Quality/TLS_V2_CONSUMER_CUTOVER_ACCEPTANCE_2026-10-22.md)
+bestand Docker und Podman für SQL 2019 CU32, 2022 CU27 und 2025 CU9 separat:
+je fünf Lab- und drei Consumerfälle mit beiden echten Stacks sowie eigenem
+Cleanup. Zwei ursprüngliche Fehlversuche bleiben erhalten. Die generische
+CLI-/Browseranzeige maskiert Exportbytes; die direkte Reader-API bleibt
+für ausdrücklich gebundene Verbraucher verfügbar. Linuxclients, Hyper-V
+und die übrigen TLS-001-Schritte bleiben getrennt offen.
+
 Die [konfigurationsbasierte TLS-Prüfstatusanzeige](../Documentation/Quality/TLS_CONFIGURATION_STATUS_DISPLAY_2026-10-22.md)
 ist je SQL-Ziel in CLI und GUI ergänzt. Der echte CLI-Renderer ist mit
 synthetischen Run-/Verbindungsantworten geprüft. Die Workflow-/Browseranzeige
