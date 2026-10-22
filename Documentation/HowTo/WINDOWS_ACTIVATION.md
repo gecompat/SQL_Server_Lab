@@ -121,7 +121,10 @@ und bei Wiederaufnahme bereinigt. Ungeklaerte Bindungen bleiben
 Bei einem Fehler der Windows-Aktivierungsanfrage enthält die öffentliche
 Exception zusätzlich eine secretsfreie Diagnose: `dns=resolved` oder
 `dns=unresolved` für `activation.sls.microsoft.com` sowie, falls verfügbar,
-den numerischen API-Rückgabewert oder HRESULT. IP-Adressen, Proxywerte,
+den numerischen API-Rückgabewert oder HRESULT. Signierte HRESULTs werden als
+achtstellige Hexwerte erhalten; auch ein negativer HRESULT unterbricht die
+begrenzte Wiederholung nicht. Bei zwei API-Ausnahmen wird der letzte HRESULT
+gemeldet. IP-Adressen, Proxywerte,
 Zugangsdaten und Windows-Fehlermeldungstexte werden nicht gespeichert oder
 ausgegeben. Microsoft dokumentiert die Aktivierungs- und Validierungsendpunkte
 für Proxy-/Firewall-Freigaben in der
