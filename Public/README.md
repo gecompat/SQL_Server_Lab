@@ -1,5 +1,10 @@
 # Public/ – Exportierte Cmdlets
 
+`Read-SqlServerLabQualifiedTestEnvironment` prüft einen privaten signierten
+V2-Bytesnapshot mit Frist und aktuellen eigenen Bindungen. Der zurückgegebene
+Snapshot enthält Zugangsdaten; der Reader öffnet keine SQL-Verbindung.
+[Vertrag und Consumergrenze](../Documentation/Architecture/AUTHENTICATED_TLS_V2_READER.md).
+
 Nach Neustart eines eigenen operativen TLS-Containers aktualisiert `Update-SqlServerLabTlsBinding -RunId $lab.RunId -InstanceId primary -StateRoot $lab.StateRoot` ausdrücklich dessen Startbindung nach beiden strikten Clients. Ein unveränderter Start ist kein neuer Nachweis; alte Exporte bleiben ungültig. [Vertrag, WhatIf und Recoverygrenze](../Documentation/Architecture/AUTHENTICATED_TLS_CONTAINER_REBIND.md).
 
 `Set-SqlServerLabFeature` fügt einer eigenen laufenden Instanz `FullText` oder

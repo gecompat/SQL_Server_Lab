@@ -200,6 +200,7 @@ Get-SqlServerLabGeneratedWindowsAccess  # Generierten Windows-Administratorzugan
 New-SqlServerLabAutomatedTestEnvironment # Automatisierte Linux-Testumgebungen und Maschinenvertrag erzeugen
 Export-SqlServerLabTestEnvironment      # TestUmgebung.env/JSON/JSON-Schema/Markdown unter Lab_Data aktualisieren
 Update-SqlServerLabTlsBinding          # Nach eigenem Containerneustart strikt qualifizieren und nur Start-Epoche erneut binden
+Read-SqlServerLabQualifiedTestEnvironment # Privaten V2-Bytesnapshot mit Signatur, Frist und aktuellen Bindungen prüfen
 Repair-SqlServerLabAutomatedTestEnvironment # Testgruppe inklusive sprechender Container-/VM-Namen kontrolliert reparieren
 Start-SqlServerLabAutomatedTestEnvironment # Registrierte Docker-/Podman-/Hyper-V-Mitglieder gruppenweise bereitstellen
 Stop-SqlServerLabAutomatedTestEnvironment # Registrierte Docker-/Podman-/Hyper-V-Mitglieder nicht-destruktiv stoppen

@@ -109,6 +109,7 @@
         'Sync-SqlServerLabRuntimeState'
         'New-SqlServerLabAutomatedTestEnvironment'
         'Export-SqlServerLabTestEnvironment'
+        'Read-SqlServerLabQualifiedTestEnvironment'
         'Update-SqlServerLabTlsBinding'
         'Start-SqlServerLabAutomatedTestEnvironment'
         'Stop-SqlServerLabAutomatedTestEnvironment'

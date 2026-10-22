@@ -40,16 +40,33 @@ function Get-LabRunArtifactRuntimeContext {
 }
 
 function Invoke-LabRunArtifactPinnedProcess {
-    param($Context,[string[]]$Arguments,[int]$TimeoutSeconds=20)
+    param($Context,[string[]]$Arguments,[int]$TimeoutSeconds=20,[AllowNull()][AllowEmptyString()][string]$Invocation)
+    $explicitInvocation=$null
+    if($PSBoundParameters.ContainsKey('Invocation')){
+        # Only the caller's explicit, already validated executable pin is used.
+        # Context metadata alone does not grant executable selection authority.
+        if([string]::IsNullOrWhiteSpace($Invocation) -or -not [IO.Path]::IsPathFullyQualified($Invocation)){throw 'RUN_ARTIFACT_INVOCATION_INVALID'}
+        $explicitInvocation=Assert-LabRunArtifactPath $Invocation
+        if(-not (Test-Path -LiteralPath $explicitInvocation -PathType Leaf)){throw 'RUN_ARTIFACT_INVOCATION_INVALID'}
+    }
     if ($Context.IdentityPath) {
         $null=Assert-LabRunArtifactPath $Context.IdentityPath
         if ((Get-FileHash -LiteralPath $Context.IdentityPath -Algorithm SHA256 -ErrorAction Stop).Hash.ToLowerInvariant() -cne $Context.IdentitySha256) { throw 'RUN_ARTIFACT_ORIGINAL_RUNTIME_UNVERIFIABLE' }
     }
     if ($Context.StateRoot) {
+        if($PSBoundParameters.ContainsKey('Invocation')){
+            $policy=Get-LabOwnedHostPolicy -StateRoot $Context.StateRoot -Required
+            $pins=@($policy.RuntimePins|Where-Object Provider -CEQ $Context.Provider)
+            if($pins.Count -ne 1){throw 'RUN_ARTIFACT_INVOCATION_POLICY_CHANGED'}
+            $policyInvocation=Assert-LabRunArtifactPath ([string]$pins[0].Invocation)
+            $comparison=if($IsWindows){[StringComparison]::OrdinalIgnoreCase}else{[StringComparison]::Ordinal}
+            if(-not [string]::Equals($explicitInvocation,$policyInvocation,$comparison)){throw 'RUN_ARTIFACT_INVOCATION_POLICY_CHANGED'}
+        }
         $native=Invoke-LabOwnedHostPinnedCommand -StateRoot $Context.StateRoot -Provider $Context.Provider -Arguments $Arguments -TimeoutSeconds $TimeoutSeconds
     }
     else {
-        $start=[Diagnostics.ProcessStartInfo]::new((Get-LabHostToolInvocation -Name $Context.Provider))
+        $selectedInvocation=if($PSBoundParameters.ContainsKey('Invocation')){$explicitInvocation}else{Get-LabHostToolInvocation -Name $Context.Provider}
+        $start=[Diagnostics.ProcessStartInfo]::new($selectedInvocation)
         $start.UseShellExecute=$false; $start.CreateNoWindow=$true
         $start.RedirectStandardOutput=$true; $start.RedirectStandardError=$true
         foreach ($name in @('DOCKER_HOST','DOCKER_CONTEXT','DOCKER_TLS','DOCKER_TLS_VERIFY','DOCKER_CERT_PATH',
@@ -62,8 +79,10 @@ function Invoke-LabRunArtifactPinnedProcess {
 }
 
 function Invoke-LabRunArtifactNative {
-    param($Context,[string[]]$Arguments)
-    $native=Invoke-LabRunArtifactPinnedProcess -Context $Context -Arguments $Arguments
+    param($Context,[string[]]$Arguments,[AllowNull()][AllowEmptyString()][string]$Invocation)
+    $options=@{Context=$Context;Arguments=$Arguments}
+    if($PSBoundParameters.ContainsKey('Invocation')){$options.Invocation=$Invocation}
+    $native=Invoke-LabRunArtifactPinnedProcess @options
     if ($native.Stderr -match '\S') { throw 'RUN_ARTIFACT_RUNTIME_UNVERIFIABLE' }
     [pscustomobject]@{ExitCode=$native.ExitCode;Output=@($native.Stdout -split '\r?\n' | Where-Object {$_})}
 }
@@ -86,9 +105,11 @@ function New-LabRunArtifactCreationBinding {
 }
 
 function Get-LabRunArtifactRuntimeIncarnation {
-    param($Context,[string]$StateRoot)
+    param($Context,[string]$StateRoot,[AllowNull()][AllowEmptyString()][string]$Invocation)
+    $options=@{Context=$Context}
+    if($PSBoundParameters.ContainsKey('Invocation')){$options.Invocation=$Invocation}
     if ($Context.Provider -ceq 'docker') {
-        $native=Invoke-LabRunArtifactNative -Context $Context -Arguments @('info','--format','{{json .ID}}')
+        $native=Invoke-LabRunArtifactNative @options -Arguments @('info','--format','{{json .ID}}')
         if ($native.ExitCode -ne 0) { throw 'RUN_ARTIFACT_ORIGINAL_RUNTIME_UNVERIFIABLE' }
         $identity=($native.Output -join "`n") | ConvertFrom-Json -ErrorAction Stop
         if ([string]::IsNullOrWhiteSpace([string]$identity)) { throw 'RUN_ARTIFACT_ORIGINAL_RUNTIME_UNVERIFIABLE' }
@@ -97,7 +118,7 @@ function Get-LabRunArtifactRuntimeIncarnation {
     # Remote/non-machine Podman contexts need their own durable incarnation
     # contract. A context name or endpoint alone cannot authorize removal.
     if (-not $Context.MachineName) { throw 'RUN_ARTIFACT_ORIGINAL_RUNTIME_UNVERIFIABLE' }
-    $native=Invoke-LabRunArtifactNative -Context $Context -Arguments @('machine','inspect',$Context.MachineName)
+    $native=Invoke-LabRunArtifactNative @options -Arguments @('machine','inspect',$Context.MachineName)
     if ($native.ExitCode -ne 0) { throw 'RUN_ARTIFACT_ORIGINAL_RUNTIME_UNVERIFIABLE' }
     $machines=@(($native.Output -join "`n") | ConvertFrom-Json -ErrorAction Stop)
     if ($machines.Count -ne 1 -or -not $machines[0].Created -or $machines[0].Name -cne $Context.MachineName) { throw 'RUN_ARTIFACT_ORIGINAL_RUNTIME_UNVERIFIABLE' }

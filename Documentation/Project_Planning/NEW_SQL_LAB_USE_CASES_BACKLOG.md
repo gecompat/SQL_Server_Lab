@@ -494,6 +494,13 @@ her; unsicherer Alttransport ist keine erfolgreiche TLS-Recovery.
    vollständige Matrix bleiben offen; keine dieser Aussagen ersetzt die
    öffentliche Hyper-V-Lane oder die Consumer-Abnahme.
 
+   Die spätere [Windows-V2-Consumer-Abnahme](../Quality/TLS_V2_CONSUMER_CUTOVER_ACCEPTANCE_2026-10-22.md)
+   bestand für diese sechs Containerprofile zusätzlich den öffentlichen
+   Reader, echten Toolbelt-Preflight und Verbindungen beider Stacks sowie
+   die Ablehnung einer gefälschten Signatur vor SQL-Arbeit. Alle acht eigenen
+   Labs einschließlich zweier erhaltener Fehlversuche sind entfernt.
+   Linux-Clientprozesse und die öffentliche Hyper-V-Lane bleiben offen.
+
    Die spätere [Linux-Trustdriftabnahme](../Quality/TLS_LINUX_SQL2025_TRUST_DRIFT_ACCEPTANCE_2026-10-17.md)
    bestand separat mit sechs strikten SqlClient-/ODBC-Fällen auf Docker/SQL 2025
    CU9 und vollständigem eigenem Runtime-Cleanup. Sie schließt nur positive

@@ -7,6 +7,7 @@ Import-Module (Join-Path $repo 'SqlServerLab.psd1') -Force
 foreach($name in @('DiagnosticBundleReader','AuthenticatedTlsRequest','AuthenticatedTlsRegistryIndex','AuthenticatedTlsRegistryPayload','AuthenticatedTlsCaCandidate',
     'AuthenticatedTlsContext','AuthenticatedTlsRegistryRoot','AuthenticatedTlsRegistryWriter','AuthenticatedTlsLab','AuthenticatedTlsQualification','AuthenticatedTlsRestartRebind','SqlReadiness')){. (Join-Path $repo "Private/$name.ps1")}
 . (Join-Path $repo 'Public/TestEnvironment.ps1')
+. (Join-Path $repo 'Public/Read-SqlServerLabQualifiedTestEnvironment.ps1')
 $script:ModuleRoot=$repo
 function Test-TlsLabReject {param([scriptblock]$Action) try{& $Action|Out-Null;return $false}catch{return $true}}
 Add-CheckResult 'Native executor requires an explicit operation budget' (Test-TlsLabReject {Invoke-LabTlsContainer @('never-executed')})
@@ -45,9 +46,18 @@ if($IsWindows){
         $authority=[pscustomobject]@{Native=$native;RegistrySha256=('c'*64);ActorDigest=('d'*64);RootDigest=('e'*64);
             Authority=[pscustomobject]@{Ref='33333333-3333-4333-8333-333333333333';Generation=1;TrustScopeRef='44444444-4444-4444-8444-444444444444';CandidateId='55555555-5555-4555-8555-555555555555';CertificateSha256=$caHash};
             Client=[pscustomobject]@{Ref='66666666-6666-4666-8666-666666666666';Generation=1;Details=[pscustomobject]@{SqlClientDiskSha256=('1'*64);SqlcmdDiskSha256=('2'*64)}}}
-        function Get-LabTlsOwnBinding {param($StateRoot,$RunId,$InstanceId) $null=$StateRoot,$RunId,$InstanceId;[pscustomobject]@{Record=$record;Authority=$authority}}
+        $script:rejectBindingAfterObservation=$false;$script:changeRecordDuringObservation=$false
+        function Get-LabTlsOwnBinding {
+            param($StateRoot,$RunId,$InstanceId) $null=$StateRoot,$RunId,$InstanceId
+            if($script:rejectBindingAfterObservation -and $script:certificateObservations -gt $script:bindingObservationStart){throw 'SYNTHETIC_AUTHORITY_TRUST_DRIFT'}
+            [pscustomobject]@{Record=$record;Authority=$authority;Bytes=(ConvertTo-LabTlsRegistryWriterBytes $record)}
+        }
         function Assert-LabTlsOwnContainer {param($Record,$StateRoot) $null=$Record,$StateRoot;[pscustomobject]@{RunDirectory=$fixture}}
-        function Assert-LabTlsSqlCertificateBinding {param($Record,$StateRoot) $null=$Record,$StateRoot}
+        $script:certificateObservations=0
+        function Assert-LabTlsSqlCertificateBinding {
+            param($Record,$StateRoot) $null=$Record,$StateRoot;$script:certificateObservations++
+            if($script:changeRecordDuringObservation){$record.StartedAt='changed-during-observation'}
+        }
         function Get-LabSecret {
             param($Path,$Name) $null=$Path,$Name
             $secure=[securestring]::new();foreach($character in 'Synthetic-Only-8472!'.ToCharArray()){$secure.AppendChar($character)}
@@ -71,6 +81,47 @@ if($IsWindows){
         Add-CheckResult 'Actual RSA-signed V2 export reads back under private ACL' (Test-LabTlsQualifiedExport $out.JsonPath $fixture $record.RunId $record.InstanceId)
         Add-CheckResult 'V2 export validates against its copied schema' (Test-Json -Json ([Text.Encoding]::UTF8.GetString($original)) -SchemaFile $out.SchemaPath)
         Add-CheckResult 'All five explicit export formats exist' (@('TestUmgebung.json','TestUmgebung.schema.json','TestUmgebung.env','TestUmgebung.md','TestUmgebung.prompt.md'|Where-Object {-not (Test-Path -LiteralPath (Join-Path $out.Directory $_))}).Count -eq 0)
+        $script:originalPrivateReader=(Get-Command Read-LabTlsCaPrivateFile).ScriptBlock
+        $script:privateFileReads=0
+        function Read-LabTlsCaPrivateFile {
+            param($Path,$UserSid,$MaximumBytes)
+            $script:privateFileReads++
+            return ,([byte[]](& $script:originalPrivateReader $Path $UserSid $MaximumBytes))
+        }
+        $snapshot=Read-SqlServerLabQualifiedTestEnvironment -Path $out.JsonPath -StateRoot $fixture -RunId $record.RunId -InstanceId $record.InstanceId
+        Add-CheckResult 'Public V2 reader returns the once-read signed snapshot, not a Boolean/path ticket' ($script:privateFileReads -eq 1 -and
+            $snapshot.ContractVersion -ceq 'SqlServerLab.QualifiedTestEnvironmentSnapshot/0.1' -and $snapshot.ExportSha256 -ceq (Get-LabTlsCaByteDigest $original) -and
+            $snapshot.Contract.environments[0].password -ceq 'Synthetic-Only-8472!' -and [Convert]::ToBase64String($snapshot.ExportBytes) -ceq [Convert]::ToBase64String($original))
+        [IO.File]::WriteAllText($out.JsonPath,'{"replaced":"PRIVATE_SNAPSHOT_CANARY"}')
+        $snapshot.Contract.environments[0].password='untrusted-in-memory-change'
+        $current=Read-SqlServerLabQualifiedTestEnvironment -ExportBytes $snapshot.ExportBytes -StateRoot $fixture -RunId $record.RunId -InstanceId $record.InstanceId
+        Add-CheckResult 'Revalidation uses the same bytes despite replaced path and mutated caller projection' ($script:privateFileReads -eq 1 -and
+            $current.ExportSha256 -ceq $snapshot.ExportSha256 -and $current.Contract.environments[0].password -ceq 'Synthetic-Only-8472!')
+        Add-CheckResult 'A new path read rejects the substituted document' (Test-TlsLabReject {Read-SqlServerLabQualifiedTestEnvironment -Path $out.JsonPath -StateRoot $fixture -RunId $record.RunId -InstanceId $record.InstanceId})
+        [IO.File]::WriteAllBytes($out.JsonPath,$original)
+        $savedByte=$snapshot.ExportBytes[0];$snapshot.ExportBytes[0]=0
+        Add-CheckResult 'Returned bytearrays do not alias another returned snapshot' ($current.ExportBytes[0] -eq $savedByte)
+        Add-CheckResult 'Changed snapshot bytes require fresh validation and are rejected' (Test-TlsLabReject {Read-SqlServerLabQualifiedTestEnvironment -ExportBytes $snapshot.ExportBytes -StateRoot $fixture -RunId $record.RunId -InstanceId $record.InstanceId})
+        $snapshot.ExportBytes[0]=$savedByte
+        Add-CheckResult 'Oversized consumer bytes reject before private file reads' (Test-TlsLabReject {Read-SqlServerLabQualifiedTestEnvironment -ExportBytes ([byte[]]::new(65537)) -StateRoot $fixture -RunId $record.RunId -InstanceId $record.InstanceId})
+        $script:originalExportClock=(Get-Command Get-LabTlsQualifiedExportUtcNow).ScriptBlock
+        $script:exportClock=[Collections.Generic.Queue[DateTimeOffset]]::new()
+        $script:exportClock.Enqueue([DateTimeOffset]::UtcNow)
+        $script:exportClock.Enqueue([DateTimeOffset]::Parse($current.Qualification.ExpiresAt,[Globalization.CultureInfo]::InvariantCulture))
+        function Get-LabTlsQualifiedExportUtcNow {if($script:exportClock.Count){return $script:exportClock.Dequeue()};return [DateTimeOffset]::UtcNow}
+        $observations=$script:certificateObservations
+        Add-CheckResult 'Expiry reached during native observation rejects before returning a snapshot' ((Test-TlsLabReject {Read-SqlServerLabQualifiedTestEnvironment -ExportBytes $current.ExportBytes -StateRoot $fixture -RunId $record.RunId -InstanceId $record.InstanceId}) -and $script:certificateObservations -eq ($observations+1))
+        Set-Item Function:Read-LabTlsCaPrivateFile $script:originalPrivateReader
+        Set-Item Function:Get-LabTlsQualifiedExportUtcNow $script:originalExportClock
+        $originalStartedAt=$record.StartedAt
+        try{
+            $script:changeRecordDuringObservation=$true
+            Add-CheckResult 'Record changed during observation rejects even without rebind history' (Test-TlsLabReject {Read-SqlServerLabQualifiedTestEnvironment -ExportBytes $current.ExportBytes -StateRoot $fixture -RunId $record.RunId -InstanceId $record.InstanceId})
+        }finally{$record.StartedAt=$originalStartedAt;$script:changeRecordDuringObservation=$false}
+        try{
+            $script:bindingObservationStart=$script:certificateObservations;$script:rejectBindingAfterObservation=$true
+            Add-CheckResult 'Authority or trust drift detected by the return binding rejects the snapshot' ((Test-TlsLabReject {Read-SqlServerLabQualifiedTestEnvironment -ExportBytes $current.ExportBytes -StateRoot $fixture -RunId $record.RunId -InstanceId $record.InstanceId}) -and $script:certificateObservations -eq ($script:bindingObservationStart+1))
+        }finally{$script:rejectBindingAfterObservation=$false}
         foreach($field in @('signature','trustFlag','password','run','ca')){
             $bad=[Text.Encoding]::UTF8.GetString($original)|ConvertFrom-Json -Depth 12 -DateKind String
             switch($field){
@@ -81,6 +132,11 @@ if($IsWindows){
                 ca {$bad.qualification.caDer=[Convert]::ToBase64String([byte[]]@(1))}
             }
             [IO.File]::WriteAllBytes($out.JsonPath,(ConvertTo-LabTlsRegistryWriterBytes $bad))
+            if($field -ceq 'trustFlag'){
+                $schemaFalse=$null;$schemaThrew=$false
+                try{$schemaFalse=Test-LabTlsQualifiedExport $out.JsonPath $fixture $record.RunId $record.InstanceId}catch{$schemaThrew=$true}
+                Add-CheckResult 'Schema-invalid trust flag preserves private Boolean verifier rejection without throwing' (-not $schemaThrew -and $schemaFalse -is [bool] -and -not $schemaFalse)
+            }
             $rejected=$false;try{$rejected=-not (Test-LabTlsQualifiedExport $out.JsonPath $fixture $record.RunId $record.InstanceId)}catch{$rejected=$true}
             Add-CheckResult "Signed export rejects changed $field" $rejected
         }

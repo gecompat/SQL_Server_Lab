@@ -221,7 +221,7 @@ function Get-LabTlsOwnedRuntimeContext {
     $instance=$rows[0]
     $pin=Get-LabTlsRuntimePin $Budget
     Assert-LabTlsRuntimeBudget $Budget 1
-    $incarnation=Get-LabRunArtifactRuntimeIncarnation -Context $pin -StateRoot $root
+    $incarnation=Get-LabRunArtifactRuntimeIncarnation -Context $pin -StateRoot $root -Invocation $pin.Invocation
     if($pin.IncarnationKey -cne $incarnation){throw 'TLS_LAB_RUNTIME_ORIGIN_CHANGED'}
     if($policy){
         $runPolicy=Get-LabOwnedHostRunPolicy -RunId $RunId -StateRoot $root

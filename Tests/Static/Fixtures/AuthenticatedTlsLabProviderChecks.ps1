@@ -29,7 +29,12 @@ function Invoke-TlsLabProviderFixture {
     function Get-LabTlsWindowsProcessFacts {[pscustomobject]@{UserSid='synthetic-sid'}}
     function Get-LabRunState {param($RunId,$StateRoot) $null=$RunId,$StateRoot;return $run}
     function Read-LabDiagnosticJson {param($Path) $null=$Path;return $connection}
-    function Get-LabRunArtifactRuntimeIncarnation {param($Context,$StateRoot) $null=$Context,$StateRoot;return ('c'*64)}
+    function Get-LabRunArtifactRuntimeIncarnation {
+        param($Context,$StateRoot,[string]$Invocation)
+        $null=$StateRoot
+        if(-not $PSBoundParameters.ContainsKey('Invocation') -or $Invocation -cne $Context.Invocation){throw 'SYNTHETIC_EXECUTABLE_PIN_LOST'}
+        return ('c'*64)
+    }
     function Invoke-LabTlsContainer {
         param($Arguments,$InputText,$Budget) $null=$InputText
         if($Arguments.Count -ne 2 -or $Arguments[0] -cne 'inspect' -or $Budget.Provider -cne $connection.instances[0].provider){throw 'SYNTHETIC_UNEXPECTED_PROVIDER_EFFECT'}

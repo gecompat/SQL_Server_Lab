@@ -856,6 +856,7 @@ abgewiesen. SQL-seitige Verifikation und freie Advanced-Eingaben bleiben
 | `New-SqlServerLabWindowsSlotPool` | N Windows-Slots aus einer gültigen `OS_SEALED`-Baseline mit RAM-/Locale-Vorgaben und unbeaufsichtigter OOBE erstellen oder fortsetzen |
 | `New-SqlServerLabAutomatedTestEnvironment` | Linux-Testumgebungen mit getrennten Zufallskennwörtern erstellen und nach Lab_Data exportieren |
 | `Export-SqlServerLabTestEnvironment` | Registrierte Testumgebungen als dotenv, schema-validierbares JSON, portablen Agenten-Prompt und Markdown exportieren |
+| `Read-SqlServerLabQualifiedTestEnvironment` | Signierten privaten V2-Export als gebundenen Bytesnapshot lesen oder dieselben Bytes vor Verwendung erneut prüfen; [Vertrag](Documentation/Architecture/AUTHENTICATED_TLS_V2_READER.md) |
 | `Repair-SqlServerLabAutomatedTestEnvironment` | Ressourcen, Health, Autostart, Windows-Aktivierung und sprechende Runtime-Namen der registrierten Testgruppe sicher abgleichen |
 | `Start-SqlServerLabAutomatedTestEnvironment` | Registrierte Docker-, Podman- und Hyper-V-Mitglieder als Gruppe starten und live bis `READY` prüfen |
 | `Stop-SqlServerLabAutomatedTestEnvironment` | Registrierte Docker-, Podman- und Hyper-V-Mitglieder nicht-destruktiv stoppen, Hostkapazität freigeben und den Export fail-closed erneuern |

@@ -6,6 +6,7 @@ $repoRoot=(Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 $failures=[Collections.Generic.List[string]]::new();$passed=0
 $module=Import-Module (Join-Path $repoRoot 'SqlServerLab.psd1') -Force -PassThru
 try {
+    . (Join-Path $PSScriptRoot 'Fixtures/PublicCommandConsoleSensitiveBytesChecks.ps1')
     $manifest=Import-PowerShellDataFile (Join-Path $repoRoot 'SqlServerLab.psd1')
     $exports=@($manifest.FunctionsToExport|Sort-Object -Unique)
     $evidence=& $module {

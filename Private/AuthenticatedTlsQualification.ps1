@@ -127,7 +127,7 @@ function Export-LabAuthenticatedTlsEnvironment {
         Write-LabTlsCaPrivateFile (Join-Path $directory 'TestUmgebung.json') $sid (ConvertTo-LabTlsRegistryWriterBytes $document)
         $schema=Read-LabTlsRegistryFileBytes (Join-Path $script:ModuleRoot 'Schemas/test-environment-authenticated.schema.json')
         Write-LabTlsCaPrivateFile (Join-Path $directory 'TestUmgebung.schema.json') $sid $schema
-        $text="# Qualifizierter SQL-TLS-Export`n`nEncrypt=True;TrustServerCertificate=False. SqlServerLab.TestEnvironment/2.0.`nWindows CurrentUser/Root, SqlClient und ODBC sqlcmd -N ohne -C. Keine automatische Discoveryumschaltung.`nVor Verwendung Signatur, Ablauf und aktuelle CA-/Client-/Runbindung prüfen; veraltete Exporte erneut explizit erzeugen.`nJSON enthält Klartextkennwörter. Nur im aktuellen Benutzerkontext verwenden; nicht weitergeben oder versionieren.`n"
+        $text="# Qualifizierter SQL-TLS-Export`n`nEncrypt=True;TrustServerCertificate=False. SqlServerLab.TestEnvironment/2.0.`nWindows CurrentUser/Root, SqlClient und ODBC sqlcmd -N ohne -C. Keine automatische Discoveryumschaltung.`nVor Verwendung Read-SqlServerLabQualifiedTestEnvironment mit ausdrücklicher RunId, InstanceId und StateRoot aufrufen. Dessen ExportBytes vor späterer Nutzung erneut prüfen; keinen Exportpfad nachlesen.`nSignatur, Ablauf und aktuelle CA-/Client-/Runbindung bleiben verbindlich; veraltete Exporte erneut explizit erzeugen. Ein Schemaoverride erteilt keine Qualifikation.`nJSON und Readerergebnis enthalten Klartextkennwörter. Nur im aktuellen Benutzerkontext verwenden; nicht ausgeben, weitergeben oder versionieren.`n"
         Write-LabTlsCaPrivateFile (Join-Path $directory 'TestUmgebung.prompt.md') $sid ([Text.Encoding]::UTF8.GetBytes($text))
         Write-LabTlsCaPrivateFile (Join-Path $directory 'TestUmgebung.md') $sid ([Text.Encoding]::UTF8.GetBytes($text))
         $lines=[Collections.Generic.List[string]]::new()
@@ -145,21 +145,35 @@ function Export-LabAuthenticatedTlsEnvironment {
     }catch{throw 'TLS_EXPORT_INCOMPLETE_RECOVERY_REQUIRED'}
 }
 
-function Test-LabTlsQualifiedExport {
-    param([string]$Path,[string]$StateRoot,[string]$RunId,[string]$InstanceId,[object]$Budget)
+function Get-LabTlsQualifiedExportUtcNow { return [DateTimeOffset]::UtcNow }
+
+function Read-LabTlsQualifiedExportSnapshot {
+    param([string]$Path,[string]$StateRoot,[string]$RunId,[string]$InstanceId,[object]$Budget,[byte[]]$ExportBytes,[switch]$FromBytes)
+    # Own the bytes before parsing or invoking any observation. Consumers can
+    # revalidate this same snapshot without reopening the original export path.
+    if($FromBytes){
+        if($null -eq $ExportBytes -or $ExportBytes.Length -eq 0 -or $ExportBytes.Length -gt 65536){throw 'TLS_EXPORT_BYTES_INVALID'}
+        $bytes=[byte[]]$ExportBytes.Clone()
+    }
     $bound=Get-LabTlsOwnBinding $StateRoot $RunId $InstanceId
     Assert-LabTlsRebindCommitted $bound $StateRoot
     $provider=Get-LabTlsBindingProvider $bound.Record
     $profile=Get-LabTlsBindingSqlProfile $bound.Record
     if($null -eq $Budget){$Budget=New-LabTlsRuntimeBudget -Provider $provider -StateRoot $StateRoot -Record $bound.Record}
     if($Budget.Provider -cne $provider){return $false}
-    $document=Read-LabTlsBoundJson (Read-LabTlsCaPrivateFile $Path $bound.Authority.Native.UserSid 65536) @('$schema','contractVersion','generatedAt','groupStatus','selectionRule','containsPlainTextSecrets','environments','qualification')
+    if(-not $FromBytes){$bytes=Read-LabTlsCaPrivateFile $Path $bound.Authority.Native.UserSid 65536}
+    $document=Read-LabTlsBoundJson $bytes @('$schema','contractVersion','generatedAt','groupStatus','selectionRule','containsPlainTextSecrets','environments','qualification')
+    $schema=Join-Path $script:ModuleRoot 'Schemas/test-environment-authenticated.schema.json'
+    if(-not (Test-Json -Json ([Text.UTF8Encoding]::new($false,$true).GetString($bytes)) -SchemaFile $schema -ErrorAction SilentlyContinue)){return $false}
     if($document.contractVersion -cne 'SqlServerLab.TestEnvironment/2.0' -or $document.groupStatus -cne 'READY' -or $document.environments.Count -ne 1 -or $document.qualification.algorithm -cne 'RSA3072_SHA256_PKCS1'){return $false}
     $entry=$document.environments[0];$signed=[Convert]::FromBase64String($document.qualification.payload)
     $body=Read-LabTlsBoundJson $signed @('ContractVersion','EnvironmentSha256','Qualification')
     if($body.ContractVersion -cne 'SqlServerLab.SignedTlsExport/0.1' -or $body.EnvironmentSha256 -cne (Get-LabTlsCaByteDigest (ConvertTo-LabTlsRegistryWriterBytes $entry)) -or
         $entry.encrypt -isnot [bool] -or $entry.encrypt -ne $true -or $entry.trustServerCertificate -isnot [bool] -or $entry.trustServerCertificate -ne $false){return $false}
     $q=$body.Qualification;$r=$bound.Record;$a=$bound.Authority
+    $observedAt=Get-LabTlsQualifiedExportUtcNow
+    $qualifiedAt=[DateTimeOffset]::Parse($q.QualifiedAt,[Globalization.CultureInfo]::InvariantCulture)
+    $expiresAt=[DateTimeOffset]::Parse($q.ExpiresAt,[Globalization.CultureInfo]::InvariantCulture)
     if($q.Provider -cne $provider -or $entry.provider -cne $provider -or
         $q.SqlVersion -cne $profile.SqlVersion -or $q.Patch -cne $profile.Patch -or $q.SqlBuild -cne $profile.SqlBuild -or
         $entry.sqlVersion -cne $profile.SqlVersion -or $entry.patch -cne $profile.Patch -or $entry.resolvedVersion -cne $profile.SqlBuild -or $entry.key -cne $profile.ExportKey -or
@@ -170,9 +184,7 @@ function Test-LabTlsQualifiedExport {
         $q.SqlClientSha256 -cne $a.Client.Details.SqlClientDiskSha256 -or $q.SqlcmdSha256 -cne $a.Client.Details.SqlcmdDiskSha256 -or
         $entry.runId -cne $RunId -or $entry.instanceId -cne $InstanceId -or $entry.port -ne $r.Port -or $entry.host -cne '127.0.0.1' -or
         $q.Endpoint.Port -ne $r.Port -or $q.Endpoint.Host -cne '127.0.0.1' -or
-        [DateTimeOffset]::Parse($q.QualifiedAt,[Globalization.CultureInfo]::InvariantCulture) -gt [DateTimeOffset]::UtcNow -or
-        [DateTimeOffset]::Parse($q.ExpiresAt,[Globalization.CultureInfo]::InvariantCulture) -le [DateTimeOffset]::UtcNow -or
-        ([DateTimeOffset]::Parse($q.ExpiresAt,[Globalization.CultureInfo]::InvariantCulture)-[DateTimeOffset]::Parse($q.QualifiedAt,[Globalization.CultureInfo]::InvariantCulture)).TotalMinutes -gt 15){return $false}
+        $qualifiedAt -gt $observedAt -or $expiresAt -le $observedAt -or ($expiresAt-$qualifiedAt).TotalMinutes -gt 15){return $false}
     $der=[Convert]::FromBase64String($document.qualification.caDer)
     if((Get-LabTlsCaByteDigest $der) -cne $a.Authority.CertificateSha256 -or (Get-LabTlsCaExistingTrust $der) -cne 'IDENTICAL_PREEXISTING_NOT_OWNED'){return $false}
     $cert=[Security.Cryptography.X509Certificates.X509Certificate2]::new($der);$public=$null
@@ -183,6 +195,23 @@ function Test-LabTlsQualifiedExport {
     $builder=[Data.SqlClient.SqlConnectionStringBuilder]::new($entry.connectionString)
     if(-not $builder.Encrypt -or $builder.TrustServerCertificate -or $builder.DataSource -cne "tcp:127.0.0.1,$($r.Port)" -or $builder.Password -cne $entry.password){return $false}
     $null=Assert-LabTlsSqlCertificateBinding $r $StateRoot $Budget
-    Assert-LabTlsRebindCommitted $bound $StateRoot
-    return $true
+    $again=Get-LabTlsOwnBinding $StateRoot $RunId $InstanceId
+    if((Get-LabTlsCaByteDigest $again.Bytes) -cne (Get-LabTlsCaByteDigest $bound.Bytes)){throw 'TLS_EXPORT_BINDING_CHANGED'}
+    Assert-LabTlsRebindCommitted $again $StateRoot
+    $verifiedAt=Get-LabTlsQualifiedExportUtcNow
+    if($expiresAt -le $verifiedAt){return $false}
+    return [pscustomobject][ordered]@{
+        ContractVersion='SqlServerLab.QualifiedTestEnvironmentSnapshot/0.1'
+        ExportSha256=Get-LabTlsCaByteDigest $bytes
+        ExportBytes=[byte[]]$bytes.Clone()
+        Contract=$document
+        Qualification=$q
+        VerifiedAtUtc=$verifiedAt.ToString('o')
+    }
+}
+
+function Test-LabTlsQualifiedExport {
+    param([string]$Path,[string]$StateRoot,[string]$RunId,[string]$InstanceId,[object]$Budget)
+    $snapshot=Read-LabTlsQualifiedExportSnapshot -Path $Path -StateRoot $StateRoot -RunId $RunId -InstanceId $InstanceId -Budget $Budget
+    return $null -ne $snapshot -and $snapshot -isnot [bool]
 }

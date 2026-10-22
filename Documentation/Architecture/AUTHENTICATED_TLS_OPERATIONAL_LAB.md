@@ -117,6 +117,10 @@ ACLs. JSON und ENV enthalten Klartextkennwörter und bleiben lokal.
 Gültigkeit: höchstens 15 Minuten, begrenzt durch das Leaf. Signatur, Flags,
 Eintragshash, Referenzen und aktuelle native Bindungen werden beim Readback
 geprüft. ENV/Markdown sind Begleitformate; autoritativ ist das signierte JSON.
+Der [öffentliche V2-Reader](AUTHENTICATED_TLS_V2_READER.md) gibt genau die
+geprüften Bytes und deren Vertrag zurück. Verbraucher prüfen denselben
+Snapshot vor späterer Nutzung erneut; eine nachfolgende Dateilesung ist
+kein gebundener Consumer-Cutover.
 Provider im Eintrag und in der signierten Qualifikation müssen zur eigenen
 Runbindung passen. Auch eine gültige CA-Signatur erlaubt keine Umdeutung eines
 Podman-Nachweises als Docker-Nachweis.

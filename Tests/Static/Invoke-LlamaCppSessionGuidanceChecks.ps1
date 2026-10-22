@@ -32,7 +32,10 @@ try {
         }
         function Complete-LockProbe($Process,[string]$Expected) {
             try {
-                if(-not $Process.WaitForExit(40000)){throw 'LOCK_PROBE_TIMEOUT'}
+                # The registrar deliberately waits 30s for the held lock. A
+                # measured child including module startup took 39.751s; keep
+                # bounded startup headroom without changing the lock assertion.
+                if(-not $Process.WaitForExit(60000)){throw 'LOCK_PROBE_TIMEOUT'}
                 $out=$Process.StandardOutput.ReadToEnd();$err=$Process.StandardError.ReadToEnd()
                 if($Process.ExitCode -ne 0 -or $out -notmatch $Expected){throw ('LOCK_PROBE_FAILED: '+$err)}
             } finally {if(-not $Process.HasExited){$Process.Kill();if(-not $Process.WaitForExit(5000)){throw 'LOCK_PROBE_CLEANUP_FAILED'}};$Process.Dispose()}
