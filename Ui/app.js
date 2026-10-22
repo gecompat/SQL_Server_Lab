@@ -646,22 +646,33 @@ function sqlConnectionSettingsLabel(settings) {
   return 'Encrypt=' + flag(settings?.Encrypt) + ';TrustServerCertificate=' + flag(settings?.TrustServerCertificate);
 }
 
+function sqlConnectionQualificationLabel(status) {
+  switch (status) {
+    case 'NOT_EVALUATED': return 'Hier nicht aktuell geprüft (Zertifikatsprüfung angefordert).';
+    case 'CERTIFICATE_VALIDATION_DISABLED': return 'Zertifikatsprüfung laut gespeicherter Konfiguration abgeschaltet.';
+    case 'ENCRYPTION_NOT_REQUESTED': return 'Verschlüsselung nicht angefordert (Encrypt=False).';
+    case 'INCOMPLETE_CONFIGURATION': return 'TLS-Konfiguration unvollständig; hier nicht aktuell geprüft.';
+    case 'UNREADABLE_CONFIGURATION': return 'TLS-Konfiguration nicht lesbar; hier nicht aktuell geprüft.';
+    default: return 'Kein aktueller TLS-Prüfstatus gemeldet.';
+  }
+}
+
 function renderConnectionEndpoints(data) {
   const endpoints = [];
   for (const lab of data.ActiveLabs || []) {
     for (const instance of lab.Instances || []) {
       endpoints.push({ lab: lab.Name || lab.RunId, instance: instance.Id, provider: instance.Provider,
-        endpoint: instance.Host && instance.Port ? instance.Host + ',' + instance.Port : 'Host oder Port unbekannt', settings: instance.ConnectionSettings });
+        endpoint: instance.Host && instance.Port ? instance.Host + ',' + instance.Port : 'Host oder Port unbekannt', settings: instance.ConnectionSettings, qualificationStatus: instance.TlsQualificationStatus });
     }
   }
   for (const lab of data.HyperVLabs || []) {
-    const instances = lab.SqlInstances?.length ? lab.SqlInstances : (lab.Workload === 'sql' ? [{ InstanceId: lab.InstanceId, ConnectionString: lab.ConnectionString, ConnectionSettings: lab.ConnectionSettings }] : []);
+    const instances = lab.SqlInstances?.length ? lab.SqlInstances : (lab.Workload === 'sql' ? [{ InstanceId: lab.InstanceId, ConnectionString: lab.ConnectionString, ConnectionSettings: lab.ConnectionSettings, TlsQualificationStatus: lab.TlsQualificationStatus }] : []);
     for (const instance of instances) {
       endpoints.push({ lab: lab.Name || lab.RunId, instance: instance.Name || instance.InstanceId, provider: 'hyperv',
-        endpoint: sqlConnectionEndpoint(instance.ConnectionString, instance.TcpPort), settings: instance.ConnectionSettings });
+        endpoint: sqlConnectionEndpoint(instance.ConnectionString, instance.TcpPort), settings: instance.ConnectionSettings, qualificationStatus: instance.TlsQualificationStatus });
     }
   }
-  $('#connection-endpoints').innerHTML = endpoints.length ? endpoints.map((item) => '<article class="list-item"><strong>' + escapeHtml(item.lab) + ' · ' + escapeHtml(item.instance) + '</strong><span>' + escapeHtml(item.provider) + ' · ' + escapeHtml(item.endpoint) + '</span><span><strong>Connection Settings:</strong> ' + escapeHtml(sqlConnectionSettingsLabel(item.settings)) + '</span></article>').join('') : empty('Keine registrierten SQL-Endpunkte in der aktuellen Ansicht.');
+  $('#connection-endpoints').innerHTML = endpoints.length ? endpoints.map((item) => '<article class="list-item"><strong>' + escapeHtml(item.lab) + ' · ' + escapeHtml(item.instance) + '</strong><span>' + escapeHtml(item.provider) + ' · ' + escapeHtml(item.endpoint) + '</span><span><strong>Connection Settings:</strong> ' + escapeHtml(sqlConnectionSettingsLabel(item.settings)) + '</span><span><strong>TLS-Prüfstatus:</strong> ' + escapeHtml(sqlConnectionQualificationLabel(item.qualificationStatus)) + '</span></article>').join('') : empty('Keine registrierten SQL-Endpunkte in der aktuellen Ansicht.');
 }
 
 function renderWorkflow(data) {
@@ -809,9 +820,9 @@ function renderActiveLabs(items) {
     const instances = (item.Instances || []).map((instance) => {
       const provider = instance.Provider || 'unbekannter Provider';
       const connection = instance.Port ? (instance.Host || '127.0.0.1') + ':' + instance.Port : 'kein Host-Port';
-      const connectionString = instance.ConnectionString
+      const connectionString = (instance.ConnectionString
         ? '<div class="build-meta connection-string"><strong>Connection String:</strong> <code>' + escapeHtml(instance.ConnectionString) + '</code></div>'
-        : '';
+        : '') + '<div class="build-meta"><strong>TLS-Prüfstatus:</strong> ' + escapeHtml(sqlConnectionQualificationLabel(instance.TlsQualificationStatus)) + '</div>';
       const persistentStorage = instance.PersistentStorage?.hostPath
         ? '<div class="build-meta"><strong>Persistente Daten:</strong> Host ' + escapeHtml(instance.PersistentStorage.hostPath) + (instance.PersistentStorage.guestPath ? ' → Gast ' + escapeHtml(instance.PersistentStorage.guestPath) : '') + ' [' + escapeHtml(instance.PersistentStorage.state || '–') + ']</div>'
         : '';
@@ -855,13 +866,13 @@ function renderHyperVLabs(items) {
     const persistent = item.PersistentStorage;
     const instanceDetails = sqlInstances.length
       ? '<div class="container-instance"><div class="build-meta"><strong>SQL-Instanzen in der VM</strong> · geprüft ' + escapeHtml(item.SqlInstancesInspectedAt || '–') + '</div>' + sqlInstances.map((instance) => {
-        const endpoint = instance.ConnectionString ? '<div class="build-meta connection-string"><strong>Connection String:</strong> <code>' + escapeHtml(instance.ConnectionString) + '</code></div>' : '';
+        const endpoint = (instance.ConnectionString ? '<div class="build-meta connection-string"><strong>Connection String:</strong> <code>' + escapeHtml(instance.ConnectionString) + '</code></div>' : '') + '<div class="build-meta"><strong>TLS-Prüfstatus:</strong> ' + escapeHtml(sqlConnectionQualificationLabel(instance.TlsQualificationStatus)) + '</div>';
         const port = instance.TcpPort ? ' · TCP ' + escapeHtml(instance.TcpPort) : '';
         return '<div class="build-meta">' + escapeHtml(instance.Name || instance.ServiceName || '–') + ' · Dienst ' + escapeHtml(instance.ServiceStatus || '–') + port + '</div>' + endpoint;
       }).join('') + '</div>'
       : '';
-    const primaryConnection = item.ConnectionString && !sqlInstances.length
-      ? '<div class="build-meta connection-string"><strong>Connection String (Host-SSMS):</strong> <code>' + escapeHtml(item.ConnectionString) + '</code></div>'
+    const primaryConnection = isSqlLab && !sqlInstances.length
+      ? (item.ConnectionString ? '<div class="build-meta connection-string"><strong>Connection String (Host-SSMS):</strong> <code>' + escapeHtml(item.ConnectionString) + '</code></div>' : '') + '<div class="build-meta"><strong>TLS-Prüfstatus:</strong> ' + escapeHtml(sqlConnectionQualificationLabel(item.TlsQualificationStatus)) + '</div>'
       : '';
     const resource = resourceForInstance(item.Resources, item.InstanceId);
     const actions = [

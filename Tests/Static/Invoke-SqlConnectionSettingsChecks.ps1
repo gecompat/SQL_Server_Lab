@@ -40,12 +40,30 @@ foreach($empty in @($null,'',' ')){
     $settings=Get-LabSqlConnectionSettings $empty
     Add-CheckResult 'TLS-Anzeige fehlende Werte bleiben fehlend' ($null -eq $settings.Encrypt -and $null -eq $settings.TrustServerCertificate -and $settings.Status -ceq 'NOT_SPECIFIED')
 }
+$qualificationCases=@(
+    @{Text='Server=localhost;Encrypt=True;TrustServerCertificate=False;';Status='NOT_EVALUATED';Label='Hier nicht aktuell geprüft (Zertifikatsprüfung angefordert).'},
+    @{Text='Server=localhost;Encrypt=True;TrustServerCertificate=True;';Status='CERTIFICATE_VALIDATION_DISABLED';Label='Zertifikatsprüfung laut gespeicherter Konfiguration abgeschaltet.'},
+    @{Text='Server=localhost;Encrypt=False;TrustServerCertificate=False;';Status='ENCRYPTION_NOT_REQUESTED';Label='Verschlüsselung nicht angefordert (Encrypt=False).'},
+    @{Text='Server=localhost;Encrypt=False;TrustServerCertificate=True;';Status='ENCRYPTION_NOT_REQUESTED';Label='Verschlüsselung nicht angefordert (Encrypt=False).'},
+    @{Text='Server=localhost;Encrypt=True;';Status='INCOMPLETE_CONFIGURATION';Label='TLS-Konfiguration unvollständig; hier nicht aktuell geprüft.'},
+    @{Text=$null;Status='INCOMPLETE_CONFIGURATION';Label='TLS-Konfiguration unvollständig; hier nicht aktuell geprüft.'},
+    @{Text='Unknown=PRIVATE_QUALIFICATION_CANARY;';Status='UNREADABLE_CONFIGURATION';Label='TLS-Konfiguration nicht lesbar; hier nicht aktuell geprüft.'},
+    @{Text='Server=localhost;Password="x;TrustServerCertificate=False;y";Encrypt=True;TrustServerCertificate=True;';Status='CERTIFICATE_VALIDATION_DISABLED';Label='Zertifikatsprüfung laut gespeicherter Konfiguration abgeschaltet.'}
+)
+foreach($case in $qualificationCases){
+    $actual=@(Get-LabSqlConnectionQualificationStatus $case.Text *>&1)
+    $label=@(Format-LabSqlConnectionQualificationStatus $case.Text *>&1)
+    Add-CheckResult 'Konfigurationsstatus ist geschlossen, instanzlokal und niemals QUALIFIED' ($actual.Count -eq 1 -and $actual[0] -is [string] -and $actual[0] -ceq $case.Status -and $actual[0] -cne 'QUALIFIED')
+    Add-CheckResult 'Prüfstatus trennt angeforderte Optionen von tatsächlicher Prüfung ohne Rohdaten' ($label.Count -eq 1 -and $label[0] -ceq $case.Label -and $label[0] -notmatch 'PRIVATE_QUALIFICATION_CANARY|Password|localhost')
+}
 $script:foreignCalls=0
 $foreign=[pscustomobject]@{};$foreign|Add-Member ScriptMethod ToString {$script:foreignCalls++;throw 'TLS_PRIVATE_CANARY'} -Force
 $null=Get-LabSqlConnectionSettings $foreign
+$foreignStatus=Get-LabSqlConnectionQualificationStatus $foreign
 $decorated=('Server=localhost;Encrypt=True;TrustServerCertificate=True;'|Add-Member ScriptProperty Length {$script:foreignCalls++;throw 'TLS_PRIVATE_CANARY'} -Force -PassThru)
 $settings=Get-LabSqlConnectionSettings $decorated
 Add-CheckResult 'TLS-Anzeige keine fremden Casts oder ETS-Getter' ($script:foreignCalls -eq 0 -and $settings.Encrypt -eq $true -and $settings.TrustServerCertificate -eq $true)
+Add-CheckResult 'Prüfstatus wertet fremde Objekte nicht aus' ($script:foreignCalls -eq 0 -and $foreignStatus -ceq 'UNREADABLE_CONFIGURATION')
 & {
     # Der echte CLI-Renderer laeuft mit festen Workflowantworten. Kein State,
     # Provider, Secretprovider oder SQL wird dafuer verwendet.
@@ -61,6 +79,11 @@ Add-CheckResult 'TLS-Anzeige keine fremden Casts oder ETS-Getter' ($script:forei
     function Write-LabStatus {param($Label,$Value,$Color) $script:rows.Add([pscustomobject]@{Label=$Label;Value=$Value})}
     Show-LabEnvironmentStatusInteractive -RunId '11111111-1111-4111-8111-111111111111' -StateRoot (Join-Path ([IO.Path]::GetTempPath()) 'sql-lab-missing-tls-fixture')
     $tlsRows=@($script:rows|Where-Object {$_.Label -like 'Connection Settings*'})
+    $qualificationRows=@($script:rows|Where-Object {$_.Label -like 'TLS-Prüfstatus*'})
+    Add-CheckResult 'Echter CLI-Renderer zeigt getrennte Statuszeilen ohne Livequalifikation' ($qualificationRows.Count -eq 3 -and
+        $qualificationRows[0].Label -ceq 'TLS-Prüfstatus (docker/primary)' -and $qualificationRows[0].Value -ceq 'Zertifikatsprüfung laut gespeicherter Konfiguration abgeschaltet.' -and
+        $qualificationRows[1].Label -ceq 'TLS-Prüfstatus (hyperv/named)' -and $qualificationRows[1].Value -ceq 'Hier nicht aktuell geprüft (Zertifikatsprüfung angefordert).' -and
+        $qualificationRows[2].Value -ceq 'TLS-Konfiguration unvollständig; hier nicht aktuell geprüft.')
     Add-CheckResult 'CLI zeigt Standard, strikte und fehlende Optionen instanzgebunden' ($tlsRows.Count -eq 3 -and
         $tlsRows[0].Label -ceq 'Connection Settings (docker/primary)' -and $tlsRows[0].Value -ceq 'Encrypt=True;TrustServerCertificate=True' -and
         $tlsRows[1].Label -ceq 'Connection Settings (hyperv/named)' -and $tlsRows[1].Value -ceq 'Encrypt=True;TrustServerCertificate=False' -and

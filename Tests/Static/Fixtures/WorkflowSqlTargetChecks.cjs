@@ -150,10 +150,10 @@ const fixture = {
 check('Connection settings render typed TLS flags for each target without exposing strings', () => {
   const settings = (trust) => ({ Encrypt: true, TrustServerCertificate: trust, Status: 'CONFIGURED_CONNECTION_STRING' });
   run('renderConnectionEndpoints(' + JSON.stringify({ ActiveLabs: [{ Name: 'Container', Instances: [
-    { Id: 'simple', Provider: 'docker', Host: 'sql-simple', Port: 1433, ConnectionSettings: settings(true) },
-    { Id: 'strict', Provider: 'podman', Host: 'sql-strict', Port: 1434, ConnectionSettings: settings(false) }
+    { Id: 'simple', Provider: 'docker', Host: 'sql-simple', Port: 1433, ConnectionSettings: settings(true), TlsQualificationStatus: 'CERTIFICATE_VALIDATION_DISABLED' },
+    { Id: 'strict', Provider: 'podman', Host: 'sql-strict', Port: 1434, ConnectionSettings: settings(false), TlsQualificationStatus: 'NOT_EVALUATED' }
   ] }], HyperVLabs: [{ Name: 'VM', Workload: 'sql', SqlInstances: [
-    { InstanceId: 'primary', TcpPort: 1433, ConnectionString: 'Server=sql-vm,1433;Password=synthetic-secret;', ConnectionSettings: settings(false) },
+    { InstanceId: 'primary', TcpPort: 1433, ConnectionString: 'Server=sql-vm,1433;Password=synthetic-secret;', ConnectionSettings: settings(false), TlsQualificationStatus: 'NOT_EVALUATED' },
     { InstanceId: 'legacy', TcpPort: 1434, ConnectionString: 'Server=sql-legacy,1434;', ConnectionSettings: { Encrypt: null, TrustServerCertificate: true } }
   ] }] }) + ')');
   const output = node('connection-endpoints').innerHTML;
@@ -164,6 +164,40 @@ check('Connection settings render typed TLS flags for each target without exposi
   assert.ok(!output.includes('Password=') && !output.includes('synthetic-secret'));
   assert.equal(run('sqlConnectionSettingsLabel({Encrypt:"private-canary",TrustServerCertificate:false,Status:"UNREADABLE"})'), 'Encrypt=nicht lesbar;TrustServerCertificate=nicht lesbar');
   assert.equal(run('sqlConnectionSettingsLabel(null)'), 'Encrypt=nicht angegeben;TrustServerCertificate=nicht angegeben');
+  assert.equal((output.match(/TLS-Prüfstatus:/g) || []).length, 4);
+  assert.equal((output.match(/Hier nicht aktuell geprüft/g) || []).length, 2);
+  assert.ok(output.includes('Zertifikatsprüfung laut gespeicherter Konfiguration abgeschaltet'));
+  assert.ok(output.includes('Kein aktueller TLS-Prüfstatus gemeldet'));
+});
+check('Qualification labels never upgrade unknown metadata or expose its values', () => {
+  const labels = {
+    NOT_EVALUATED: 'Hier nicht aktuell geprüft (Zertifikatsprüfung angefordert).',
+    CERTIFICATE_VALIDATION_DISABLED: 'Zertifikatsprüfung laut gespeicherter Konfiguration abgeschaltet.',
+    ENCRYPTION_NOT_REQUESTED: 'Verschlüsselung nicht angefordert (Encrypt=False).',
+    INCOMPLETE_CONFIGURATION: 'TLS-Konfiguration unvollständig; hier nicht aktuell geprüft.',
+    UNREADABLE_CONFIGURATION: 'TLS-Konfiguration nicht lesbar; hier nicht aktuell geprüft.'
+  };
+  for (const [status, label] of Object.entries(labels)) {
+    assert.equal(run('sqlConnectionQualificationLabel(' + JSON.stringify(status) + ')'), label);
+  }
+  for (const value of [null, true, 'QUALIFIED', '<PRIVATE_CANARY>', { Status: 'QUALIFIED' }]) {
+    assert.equal(run('sqlConnectionQualificationLabel(' + JSON.stringify(value) + ')'), 'Kein aktueller TLS-Prüfstatus gemeldet.');
+  }
+  assert.equal(run('sqlConnectionQualificationLabel({toString(){throw new Error("PRIVATE_CANARY")}})'), 'Kein aktueller TLS-Prüfstatus gemeldet.');
+});
+check('Hyper-V SQL fallback retains its status when the connection string is absent', () => {
+  const target = { RunId: 'vm-incomplete', Name: 'Incomplete SQL', Workload: 'sql', State: 'RUNNING', VMState: 'Running', SqlInstances: [], ConnectionString: '', TlsQualificationStatus: 'INCOMPLETE_CONFIGURATION' };
+  run('renderHyperVLabs(' + JSON.stringify([target]) + ')');
+  assert.ok(node('hyperv-labs').innerHTML.includes('TLS-Prüfstatus:'));
+  assert.ok(node('hyperv-labs').innerHTML.includes('TLS-Konfiguration unvollständig; hier nicht aktuell geprüft.'));
+  assert.ok(!node('hyperv-labs').innerHTML.includes('Connection String (Host-SSMS):'));
+  delete target.TlsQualificationStatus;
+  delete target.ConnectionString;
+  run('renderHyperVLabs(' + JSON.stringify([target]) + ')');
+  assert.ok(node('hyperv-labs').innerHTML.includes('Kein aktueller TLS-Prüfstatus gemeldet.'));
+  target.Workload = 'windows';
+  run('renderHyperVLabs(' + JSON.stringify([target]) + ')');
+  assert.ok(!node('hyperv-labs').innerHTML.includes('TLS-Prüfstatus:'));
 });
 function setWorkflow(value) { run('workflow = ' + JSON.stringify(value)); }
 function clickOperation(dataset) {

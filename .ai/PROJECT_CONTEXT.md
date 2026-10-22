@@ -1,5 +1,15 @@
 # Projektkontext
 
+Die [konfigurationsbasierte TLS-Prüfstatusanzeige](../Documentation/Quality/TLS_CONFIGURATION_STATUS_DISPLAY_2026-10-22.md)
+ist je SQL-Ziel in CLI und GUI ergänzt. Der echte CLI-Renderer ist mit
+synthetischen Run-/Verbindungsantworten geprüft. Die Workflow-/Browseranzeige
+ist an eigenen Windows-/Docker-/Podman-SQL-2025-CU9-Labs nativ geprüft:
+jeweils fünf native Fälle, sechs strikte Clientresultate, ein frischer
+gerenderter Snapshot und eigener Cleanup PASS.
+`NOT_EVALUATED` heißt ausdrücklich „hier nicht aktuell geprüft“; kein Status
+behauptet aktuelle Qualifikation. Die explizite Liveprüfaktion mit Frische-
+und Driftbindung sowie die übrige TLS-001-Matrix bleiben weitere Scopes.
+
 Die echte Windows-Produktseitenabnahme der gespeicherten TLS-Anzeige ist für
 eigene Docker-/Podman-SQL-2025-CU9-Labs bestanden. Ein reproduzierter
 Inventurcachefehler ist korrigiert; frischer abgeschlossener Workflow-Snapshot,

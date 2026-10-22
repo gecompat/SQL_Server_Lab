@@ -1,5 +1,25 @@
 # Lokale Validierungsstrategie
 
+## Konfigurationsbasierter TLS-Prüfstatus vom 2026-10-22
+
+Die [getrennte Statusanzeige](TLS_CONFIGURATION_STATUS_DISPLAY_2026-10-22.md)
+bestand nativ für eigene Windows-/Docker-/Podman-SQL-2025-CU9-Labs: je fünf
+Fälle, sechs bezeichnete strikte Clientresultate und ein frischer eigener
+Workflow-Snapshot mit sichtbarem `NOT_EVALUATED` am Ziel. Browser, Server und
+Jobs endeten; beide eigenen Runs sind REMOVED mit same-pin Container-/
+Volumeabwesenheit, festem Exportcleanup und bestandenem Bestandsdateivergleich.
+
+Der Parser-/CLI-Fokus bestand mit 55/0: Der echte CLI-Renderer verwendete feste
+synthetische Run-/Verbindungsantworten, keine native Abnahme der neuen
+CLI-Statuszeile. Die tatsächliche UI-Rendererfixture bestand abschließend
+mit 161/0. Der erste 22-Suite-Lauf und das zehnteilige
+Korrekturdelta einschließlich vollständigem Analyzer bestanden. Die beiden
+ursprünglichen roten Rendererbeobachtungen bleiben erhalten. Unabhängiger
+Produkt-/Oracle-/Admissionreview ist ohne offene Findings geschlossen.
+Die verbleibende aktuelle Liveprüfaktion ist davon ausdrücklich getrennt;
+es wurden keine neue Hyper-V-, Clipboard- oder Browser-Erstellungsprobe
+ausgeführt. Weitere Grenzen stehen im Nachweis.
+
 ## Echte TLS-Verbindungsanzeige unter Windows vom 2026-10-21
 
 Die [begrenzte Produktseitenabnahme](TLS_WINDOWS_RENDERED_CONNECTION_SETTINGS_2026-10-21.md)

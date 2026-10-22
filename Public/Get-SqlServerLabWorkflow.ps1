@@ -11,7 +11,9 @@
     Workflow-Status, veröffentlichte Images einschließlich ihres read-only
     Evaluation-/Refreshstatus, Abnahmeumgebungen und aktive Labs. SQL-Ziele
     enthalten ConnectionSettings mit angegebenen TLS-Booleans; fehlende Werte
-    bleiben null. Diese Projektion fuehrt keine TLS-Verbindungspruefung aus.
+    bleiben null. TlsQualificationStatus beschreibt ausschliesslich die
+    gespeicherte Konfiguration und meldet niemals QUALIFIED. Diese Projektion
+    fuehrt keine TLS-Verbindungspruefung aus.
 .EXAMPLE
     Get-SqlServerLabWorkflow
 .PARAMETER MediaRoot
@@ -226,12 +228,14 @@ function Get-SqlServerLabWorkflow {
                 SqlCompletionState = if (-not $isSqlLab) { 'NOT_APPLICABLE' } elseif ($instance -and $instance.sqlCompletion) { [string]$instance.sqlCompletion.state } else { 'PENDING_COMPLETE_IMAGE' }
                 ConnectionString = if ($isSqlLab -and $instance) { [string]$instance.connectionString } else { $null }
                 ConnectionSettings = if ($isSqlLab -and $instance) { Get-LabSqlConnectionSettings -ConnectionString ([string]$instance.connectionString) } else { $null }
+                TlsQualificationStatus = if ($isSqlLab -and $instance) { Get-LabSqlConnectionQualificationStatus -ConnectionString ([string]$instance.connectionString) } else { $null }
                 SqlInstances = if ($isSqlLab) { @($instance.sqlInstances | ForEach-Object {
                     [PSCustomObject]@{
                         Name = [string]$_.Name; InstanceId = [string]$_.InstanceId; IsDefault = [bool]$_.IsDefault
                         ServiceName = [string]$_.ServiceName; ServiceStatus = [string]$_.ServiceStatus; TcpPort = $_.TcpPort
                         ConnectionString = [string]$_.ConnectionString
                         ConnectionSettings = Get-LabSqlConnectionSettings -ConnectionString ([string]$_.ConnectionString)
+                        TlsQualificationStatus = Get-LabSqlConnectionQualificationStatus -ConnectionString ([string]$_.ConnectionString)
                     }
                 }) } else { @() }
                 SqlInstancesInspectedAt = if ($isSqlLab -and $instance) { [string]$instance.sqlInstancesInspectedAt } else { $null }
@@ -451,6 +455,7 @@ function Get-SqlServerLabWorkflow {
                         AutoStart = if ($_.autostart) { [string]$_.autostart } else { 'off' }
                         ConnectionString = [string]$_.connectionString
                         ConnectionSettings = Get-LabSqlConnectionSettings -ConnectionString ([string]$_.connectionString)
+                        TlsQualificationStatus = Get-LabSqlConnectionQualificationStatus -ConnectionString ([string]$_.connectionString)
                         PersistentStorage = $_.persistentStorage
                         ResourceSettings = $_.resourceSettings
                     }

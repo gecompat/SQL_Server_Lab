@@ -1,12 +1,21 @@
 # Bekannte Grenzen
 
+Die [konfigurationsbasierte TLS-Prüfstatusanzeige](TLS_CONFIGURATION_STATUS_DISPLAY_2026-10-22.md)
+ist an eigenen Windows-/Docker-/Podman-SQL-2025-CU9-Labs zusätzlich nativ
+abgenommen. Sie meldet gespeicherte Optionen und ausdrücklich fehlende
+aktuelle Auswertung; sie liefert keine aktuelle Livequalifikation.
+Die ausdrückliche Prüfaktion mit Client-/Ziel-/Frische-/Driftbindung,
+Browser-Erstellung und Clipboard bleiben offen. Der fehlende Hyper-V-
+Fallbackstatus wurde synthetisch reproduziert und korrigiert; keine neue
+native Hyper-V-Abnahme daraus.
+
 Die [gerenderte Windows-TLS-Verbindungsanzeige](TLS_WINDOWS_RENDERED_CONNECTION_SETTINGS_2026-10-21.md)
 ist zusätzlich an eigenen qualifizierten Docker-/Podman-SQL-2025-CU9-Labs
 abgenommen: frischer abgeschlossener Workflow-Snapshot, exakter angezeigter
 Connection String und passende explizite False-Werte; eigener Cleanup und
 Bestandsvergleich bestanden. Der erste Docker-Browser-FAIL bleibt erhalten;
 der reproduzierte Inventurcachefehler ist korrigiert. Browser-Erstellung,
-Clipboard, Qualifikationsstatusanzeige und weitere Modi/Plattformen bleiben
+Clipboard, aktuelle Livequalifikationsstatusanzeige und weitere Modi/Plattformen bleiben
 separat offen. Der verlinkte Nachweis listet die übrigen TLS-001-Schritte.
 
 Die zusätzliche Windows-/SQL-2022-CU27-Neustart-Wiederbindung ist mit Docker und Podman separat nativ abgenommen: je zwölf Fälle und zwölf bezeichnete strikte Clientergebnisse auf Build `16.0.4295.3`, Recordform `0.3` mit explizitem SQL-Profil, eigener Cleanup und Bestandsvergleich bestanden. Die offenen Grenzen betreffen weiterhin weitere Patch-/Clientkontexte, Linuxclients, öffentliche Hyper-V-False-/Exportpfade, Renewal, Consumer-Cutover, weitere Browserpfade und Wire-Fingerprint; die gesamte TLS-001-Matrix ist damit nicht abgeschlossen.
