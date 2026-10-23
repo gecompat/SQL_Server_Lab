@@ -40,7 +40,13 @@ entfernt. Drei Zellen belegen den Stand vor der Generationskorrektur, der
 Podman-/SQL-2022-Korrekturlauf den korrigierten Stand; sein ursprünglicher
 FAIL bleibt erhalten. Verspätete Hintergrundantworten dürfen eine seit ihrem
 Request neu gestartete und bereits beendete TLS-Prüfung nicht verwerfen.
-Creationdialog, Clipboard und andere Plattformen bleiben eigene Scopes.
+Die [Default-Erstellung im Browser](../Documentation/Quality/TLS_UI_DEFAULT_CREATION_ACCEPTANCE_2026-10-23.md)
+bestand separat für Windows, Docker/Podman und SQL 2025 CU9: je acht Fälle,
+zwei echte True/True-Clientresultate und vollständiger eigener Cleanup.
+Alle vier neuen Labs sind entfernt; zwei ursprüngliche Fehlversuche mit
+partiellen Resultaten bleiben getrennt erhalten. Das belegt keine strikte
+Zertifikatsprüfung. Authentifizierte Browser-Erstellung, weitere Erstellungsprofile,
+Clipboard und andere Plattformen bleiben eigene Scopes.
 
 Die [native Linux-Kryptomatrix](../Documentation/Quality/TLS_LINUX_CLIENT_MATRIX_ACCEPTANCE_2026-10-22.md)
 bestand Docker und Podman für SQL 2019 CU32, 2022 CU27 und 2025 CU9 separat:

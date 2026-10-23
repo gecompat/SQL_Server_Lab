@@ -77,6 +77,17 @@ $module = New-Module -ArgumentList $repoRoot,$fixtureRoot -ScriptBlock {
         $validJson = (@{action='NewContainerLab';parameters=@{Provider='docker';SqlVersion=$version;PersistentData=$false;SaPassword=$shortText;SaPasswordMinimumLength=3}} | ConvertTo-Json -Depth 4 -Compress)
         Assert-LabSaPasswordWorkflowJsonShape -Json $validJson -Action NewContainerLab
         Assert-Policy $true 'strict browser creation shape accepts bounded scalar request'
+        foreach($flag in @('FullText','FileStream')){
+            foreach($value in @($true,$false)){
+                $request=@{action='NewContainerLab';parameters=@{SaPassword=$shortText;$flag=$value}}|ConvertTo-Json -Depth 4 -Compress
+                Assert-LabSaPasswordWorkflowJsonShape -Json $request -Action NewContainerLab
+                Assert-Policy $true 'creation accepts actual scalar feature booleans'
+            }
+            foreach($value in @('false',0,@($false),$null)){
+                $request=@{action='NewContainerLab';parameters=@{SaPassword=$shortText;$flag=$value}}|ConvertTo-Json -Depth 4 -Compress
+                Assert-Throws { Assert-LabSaPasswordWorkflowJsonShape -Action NewContainerLab -Json $request } 'SA_PASSWORD_WORKFLOW_REQUEST_INVALID' 'creation rejects coerced feature booleans'
+            }
+        }
         Assert-Throws { Assert-LabSaPasswordWorkflowJsonShape -Action NewContainerLab -Json ('{"action":"NewContainerLab","parameters":{"SaPassword":"'+$shortText+'","SaPassword":"'+$shortText+'"}}') } 'SA_PASSWORD_WORKFLOW_REQUEST_INVALID' 'duplicate secret field rejected before job'
         Assert-Throws { Assert-LabSaPasswordWorkflowJsonShape -Action NewContainerLab -Json ('{"action":"NewContainerLab","parameters":{"SaPassword":"'+$shortText+'","Unexpected":"value"}}') } 'SA_PASSWORD_WORKFLOW_REQUEST_INVALID' 'unknown creation authority rejected before job'
         Assert-Throws { Assert-LabSaPasswordWorkflowJsonShape -Action NewContainerLab -Json ('{"action":"NewContainerLab","parameters":{"SaPassword":"'+$shortText+'","SaPasswordMinimumLength":"3"}}') } 'SA_PASSWORD_WORKFLOW_REQUEST_INVALID' 'minimum cannot be a string'

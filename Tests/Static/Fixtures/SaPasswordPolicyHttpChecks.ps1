@@ -31,7 +31,7 @@ try {
         $context=[pscustomobject]@{Request=[pscustomobject]@{InputStream=[IO.MemoryStream]::new([Text.Encoding]::UTF8.GetBytes($Json));ContentEncoding=[Text.Encoding]::UTF8}}
         & $route
     }
-    $base = @{action='NewContainerLab';parameters=@{Provider='docker';SqlVersion=$version;Profile='standard';InstanceId='primary';LabName='synthetic';PersistentData=$false;AutoStart='off';SaPassword=$short}}
+    $base = @{action='NewContainerLab';parameters=@{Provider='docker';SqlVersion=$version;Profile='standard';InstanceId='primary';LabName='synthetic';PersistentData=$false;AutoStart='off';SaPassword=$short;FullText=$false;FileStream=$false}}
     try { Invoke-SyntheticRequest ($base | ConvertTo-Json -Depth 5 -Compress); throw 'EXPECTED_REJECTION_MISSING' }
     catch { Check ($_.Exception.Message -ceq 'UI_SA_PASSWORD_PREFLIGHT_FAILED') 'default short password rejected before job' }
     Check ($script:jobsStarted -eq 0) 'no job after invalid password'

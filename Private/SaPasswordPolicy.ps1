@@ -135,13 +135,13 @@ function Assert-LabSaPasswordWorkflowJsonShape {
         $names = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
         $allowed = if ($Action -ceq 'NewContainerLab') {
             @('Provider','SqlVersion','Profile','InstanceId','LabName','PersistentData','AutoStart',
-                'SaPassword','DataRoot','PersistentStorageId','PersistentStorageAction','SaPasswordMinimumLength')
+                'SaPassword','DataRoot','PersistentStorageId','PersistentStorageAction','SaPasswordMinimumLength','FullText','FileStream')
         }
         else { @('ManifestPath','SaPassword') }
         foreach ($property in $parameters.EnumerateObject()) {
             if (-not $names.Add($property.Name) -or $property.Name -cnotin $allowed) { throw 'SA_PASSWORD_WORKFLOW_REQUEST_INVALID' }
             $kind = $property.Value.ValueKind
-            if ($property.Name -ceq 'PersistentData') {
+            if ($property.Name -cin @('PersistentData','FullText','FileStream')) {
                 if ($kind -notin @([Text.Json.JsonValueKind]::True,[Text.Json.JsonValueKind]::False)) { throw 'SA_PASSWORD_WORKFLOW_REQUEST_INVALID' }
             }
             elseif ($property.Name -ceq 'SaPasswordMinimumLength') {

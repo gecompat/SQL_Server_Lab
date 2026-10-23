@@ -14,9 +14,18 @@ Zellen und der korrigierte Podman-/SQL-2022-Lauf bleiben getrennte Quellstände.
 Der ursprüngliche Podman-/SQL-2022-FAIL bleibt erhalten; alle fünf eigenen
 Labs dieser Profilwelle sind entfernt.
 Sie setzt den passenden serverseitigen Run-StateRoot voraus; das ist kein
-Nachweis einer globalen Suche über sämtliche Auditroots. Creationdialog,
-Clipboard und weitere Patch-/Clientkombinationen bleiben offen. Wire-Fingerprint bleibt
+Nachweis einer globalen Suche über sämtliche Auditroots. Authentifizierter
+Creationdialog, weitere Erstellungsprofile, Clipboard und weitere
+Patch-/Clientkombinationen bleiben offen. Wire-Fingerprint bleibt
 `NOT_OBSERVED`; Linux- und Hyper-V-Live-API sind damit nicht abgenommen.
+
+Die separate [Default-Erstellung im Browser](TLS_UI_DEFAULT_CREATION_ACCEPTANCE_2026-10-23.md)
+ist für Windows mit Docker und Podman auf SQL 2025 CU9 nativ abgenommen:
+kompaktes, nicht persistentes Lab ohne Autostart, Volltextsuche oder FileStream,
+mit `Encrypt=True;TrustServerCertificate=True`. Beide Clientstacks und der
+vollständige eigene UI-Remove/Cleanup bestanden. Diese Verbindung prüft das
+Serverzertifikat nicht; sie ersetzt keine authentifizierte TLS-Abnahme.
+Die zwei ursprünglichen FAILs und ihre partiellen Ergebnisse bleiben erhalten.
 
 Die [Linux-TLS-Kryptomatrix](TLS_LINUX_CLIENT_MATRIX_ACCEPTANCE_2026-10-22.md)
 bestand mit beiden echten Stacks für Docker und Podman mit SQL 2019 CU32,
@@ -46,8 +55,9 @@ abgenommen. Sie meldet gespeicherte Optionen und ausdrücklich fehlende
 aktuelle Auswertung; sie liefert keine aktuelle Livequalifikation.
 Die ausdrückliche Prüfaktion mit Client-/Ziel-/Frische-/Driftbindung ist
 in den oben verlinkten separaten Abnahmen belegt; diese ältere
-Konfigurationsanzeige allein liefert sie nicht. Browser-Erstellung und
-Clipboard bleiben offen. Der fehlende Hyper-V-
+Konfigurationsanzeige allein liefert sie nicht. Die Default-Browser-Erstellung
+ist oben separat belegt; authentifizierte Erstellung und Clipboard bleiben
+offen. Der fehlende Hyper-V-
 Fallbackstatus wurde synthetisch reproduziert und korrigiert; keine neue
 native Hyper-V-Abnahme daraus.
 
@@ -56,8 +66,9 @@ ist zusätzlich an eigenen qualifizierten Docker-/Podman-SQL-2025-CU9-Labs
 abgenommen: frischer abgeschlossener Workflow-Snapshot, exakter angezeigter
 Connection String und passende explizite False-Werte; eigener Cleanup und
 Bestandsvergleich bestanden. Der erste Docker-Browser-FAIL bleibt erhalten;
-der reproduzierte Inventurcachefehler ist korrigiert. Browser-Erstellung,
-Clipboard und weitere Modi/Plattformen bleiben separat offen. Die aktuelle
+der reproduzierte Inventurcachefehler ist korrigiert. Authentifizierte
+Browser-Erstellung, Clipboard und weitere Modi/Plattformen bleiben separat offen;
+die Default-Erstellung ist oben gesondert belegt. Die aktuelle
 explizite Liveaktion ist oben gesondert belegt; dieser ältere Anzeigenachweis
 belegt sie nicht. Der verlinkte Nachweis listet seine TLS-001-Grenzen.
 
