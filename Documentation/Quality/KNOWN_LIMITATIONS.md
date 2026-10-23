@@ -1446,9 +1446,15 @@ eigener CL170-Datenbank und Kontrolllauf ohne Intent. Details, ursprüngliche
 Fehlversuche und vollständiger eigener Cleanup stehen in der
 [Validierungsstrategie](LOCAL_VALIDATION_STRATEGY.md#windows-prepared-collation-und-editierbarer-intentstandard).
 Andere Collations, Versionen und Patchstände bleiben separat nachzuweisen.
-Die anschließende HRESULT-Formatierungskorrektur ist offline geprüft; der
-negative Aktivierungs-HRESULT wurde nicht nativ provoziert. Der ursprüngliche
-Code des historischen Aktivierungsfehlers ist unbekannt. Analyze-Läufe bleiben
+Die anschließende HRESULT-Formatierungskorrektur ist offline geprüft und auf
+`44b63129` mit kontrollierter nativer CIM-/COM-Fehlerinjektion im eigenen
+Windows-/Hyper-V-Gast abgenommen: Retry, letzte bereinigte Diagnose und
+temporärer NIC-Cleanup bestanden. Der
+[Nachweis mit seinen Testeingriffen](LOCAL_VALIDATION_STRATEGY.md#windows-aktivierung-unter-hyper-v-native-hresult-fehlerpfadabnahme)
+enthält keinen echten `Activate`-Aufruf und qualifiziert weder Produktions-DHCP
+noch externen Egress oder einen tatsächlichen Aktivierungsdienstausfall.
+Der ursprüngliche Code des historischen Aktivierungsfehlers ist unbekannt.
+Docker-/Podman-Collationnachweise bleiben eigenständig; Analyze-Läufe bleiben
 gesondert zu beauftragen.
 
 Der Browserdialog **Lab erstellen → Collations suchen** durchsucht denselben

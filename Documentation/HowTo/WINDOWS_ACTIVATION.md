@@ -133,6 +133,16 @@ für Proxy-/Firewall-Freigaben in der
 
 ## Nachweisgrenze
 
+Dieser Windows-Aktivierungspfad betrifft Hyper-V; Docker und Podman besitzen
+eigene Providerverträge und werden durch diese Abnahme nicht qualifiziert.
+Die [kontrollierte native HRESULT-Fehlerpfadabnahme vom 2026-10-22](../Quality/LOCAL_VALIDATION_STRATEGY.md#windows-aktivierung-unter-hyper-v-native-hresult-fehlerpfadabnahme)
+auf `44b63129` bestätigt negative CIM-/COM-Fehlercodes, genau einen Retry,
+die letzte bereinigte Diagnose am öffentlichen Aufrufer und eigenen
+temporären NIC-Cleanup. Sie verwendet einen privaten Switch und ausdrücklich
+ersetzte Aktivierungs- und Netzblätter. Es gab keinen echten `Activate`-Aufruf;
+DHCP, externer Egress, ein tatsächlicher Aktivierungsdienstausfall und
+erfolgreiche Aktivierung nach Retry sind damit nicht abgenommen.
+
 Statische Verhaltenstests pruefen Entscheidungsmatrix, Ablaufdatum,
 Manifestbindung, SQL-Gate, Pool-Wiederaufnahme sowie permanente NIC bei
 Erfolg und Fehler. Der native Ownership-Test bestaetigt temporaere Adapter,
