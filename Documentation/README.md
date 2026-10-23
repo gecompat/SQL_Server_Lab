@@ -60,6 +60,9 @@ führt von dort zu Vertrag, Format und Evidence.
 - [Explizite TLS-Live-API](Quality/TLS_LIVE_QUALIFICATION_API_ACCEPTANCE_2026-10-23.md):
   sechs getrennte Windows-/Docker-/Podman-Abnahmen; aktueller API-Aufruf,
   Neustartablehnung und Cleanup, keine dedizierte UI-Liveaktion.
+- [TLS jetzt prüfen](HowTo/WORKFLOW_UI.md#tls-jetzt-prüfen): Browserbedienung,
+  Voraussetzungen und Fehlerhilfe. Der [getrennte Browsernachweis](Quality/TLS_UI_LIVE_QUALIFICATION_ACCEPTANCE_2026-10-23.md)
+  belegt Docker und Podman mit SQL 2025 CU9.
 
 ### Projekt weiterentwickeln
 

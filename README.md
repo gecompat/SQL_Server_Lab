@@ -19,7 +19,9 @@ Die ausdrückliche Wahl von `TrustServerCertificate=False` ist im begrenzten
 [Windows-/Docker-/Podman-Pfad für SQL 2025 CU9, 2022 CU27 und 2019 CU32](Documentation/Architecture/AUTHENTICATED_TLS_OPERATIONAL_LAB.md)
 mit qualifiziertem separatem Export implementiert. CLI und GUI zeigen die
 angegebenen Flags; der Flagwert allein ist kein Qualifikationsnachweis.
-Weitere Kombinationen und die aktuelle Liveprüfung des TLS-Status bleiben TLS-001-Scope.
+Die [ausdrückliche Liveprüfung am SQL-Ziel](Documentation/HowTo/WORKFLOW_UI.md#tls-jetzt-prüfen)
+liefert eine aktuelle Beobachtung beider strikten Clients. Weitere Plattformen,
+Creation-/Clipboardpfade und Lifecyclekontexte bleiben TLS-001-Scope.
 
 ## Voraussetzungen
 

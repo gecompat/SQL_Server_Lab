@@ -245,6 +245,15 @@ Legende:
 
 ## Verbindungszentrale, SSMS und CMS
 
+Die ausdrückliche TLS-Liveprüfung verwendet `Test-SqlServerLabTlsQualification`
+und die Aktion **Verbindungen und CMS → TLS jetzt prüfen** am einzelnen SQL-Ziel.
+Sie verbindet beide strikten Clients und zeigt eine aktuelle Beobachtung.
+Voraussetzungen, korrekter Serverkontext, Ablauf und Fehlerhilfe stehen in der
+[Bedienanleitung](../HowTo/WORKFLOW_UI.md#tls-jetzt-prüfen); der
+[API-Vertrag](../Architecture/AUTHENTICATED_TLS_LIVE_QUALIFICATION.md) beschreibt
+die geschlossene Ausgabe und deren Grenze. Gespeicherte Connection Settings
+und deren Prüfstatus bleiben davon getrennt.
+
 | Cmdlet | Kurzbeschreibung | Konsolenmenü | Browser-GUI |
 |---|---|---|---|
 | [`Get-SqlServerLabConnectionCenter`](../../Public/Sync-SqlServerLabConnectionCenter.ps1) | Liefert eine passwortfreie Endpunktübersicht für SSMS, CMS und Exporte. | Lab-Umgebungen → Datenbanken, Samples und Skripte → Verbindungszentrale | – |

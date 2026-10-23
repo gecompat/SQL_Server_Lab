@@ -250,7 +250,11 @@ CA-/Clientbindung verfügbar. Die Verbindungszentrale zeigt den konfigurierten
 TLS-Modus und dessen getrennten Prüfstatus an. Angezeigte Flags allein belegen
 keine Zertifikatsprüfung. Die [ausdrückliche Liveprüfung](../Architecture/AUTHENTICATED_TLS_LIVE_QUALIFICATION.md)
 des eigenen operativen Labs erfolgt mit `Test-SqlServerLabTlsQualification`;
-die dedizierte Liveaktion am SQL-Ziel im Verbindungsdialog bleibt offen.
+die Browseraktion **TLS jetzt prüfen** ist unter **Verbindungen und CMS**
+erreichbar. Die [Bedienanleitung](../HowTo/WORKFLOW_UI.md#tls-jetzt-prüfen)
+führt durch Serverkontext, Auswahl, Ergebnis und Fehlerhilfe. Die allgemeine
+UI-Mindestversion bleibt unverändert; die Liveprüfung benötigt Windows und
+PowerShell 7.5.
 Weitere Kombinationen und offene Prüfwege stehen im
 [P1-Backlog TLS-001](../Project_Planning/NEW_SQL_LAB_USE_CASES_BACKLOG.md#tls-001--authentifizierte-tls-verbindungen-der-testumgebungen).
 
