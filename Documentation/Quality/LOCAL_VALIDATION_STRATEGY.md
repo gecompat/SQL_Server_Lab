@@ -1,5 +1,32 @@
 # Lokale Validierungsstrategie
 
+## Explizite öffentliche TLS-Livequalifikation
+
+Der [API-Vertrag](../Architecture/AUTHENTICATED_TLS_LIVE_QUALIFICATION.md)
+trennt die aktuelle strikte SQL-Beobachtung von gespeicherter Konfiguration,
+signiertem Export und späterer Nutzung. Die fokussierte Suite prüft die
+geschlossene Projektion, Frist, Ziel-/Profilbindung, Getter- und Fehlergrenze
+sowie den echten öffentlichen Wrapper mit injiziertem Backend. Die ergänzte
+fokussierte Suite bestand mit 45/0. Der erste Lauf über 16 betroffene Suites
+hatte zwei fehlgeschlagene Suites: Die unabhängige Acceptance-Oracle-Fixture
+erwartete den falschen Fehlercode, der API-Index noch die alte Exportanzahl.
+Nach der gezielten Korrektur bestanden alle neun vom Delta betroffenen Suites
+einschließlich des vollständigen Analyzers; die übrigen unveränderten grünen
+Ergebnisse bleiben getrennt erhalten. Das sind keine SQL-Nachweise.
+
+Der bestehende eigene Acceptance-Harness ergänzt die exklusive Option
+`-ExerciseLiveQualification`. Nach der nötigen eigenen Erstellung prüft er
+gezielt die API, falsche Run-/Instanzwahl, Ablehnung nach echtem Neustart,
+frische Beobachtung nach öffentlicher Wiederbindung und das entfernte Ziel.
+Die bisherigen Export-/Rebind-Szenarien werden dabei nicht wiederholt.
+Die sechs getrennten neuen Docker-/Podman-Zellen für SQL 2019 CU32,
+2022 CU27 und 2025 CU9 bestanden am 2026-10-23 (UTC): insgesamt 42 Fälle
+und 24 direkte strikte API-Clientresultate, zusätzlich zwölf Arrange- und
+zwölf Rebind-Clientresultate. Alle eigenen Labs sind entfernt, Bestandsvergleich
+und terminales Workerende bestätigt. Der [datierte API-Nachweis](TLS_LIVE_QUALIFICATION_API_ACCEPTANCE_2026-10-23.md)
+führt Fälle, Zählweise und Grenzen. Dedizierter Browserstatus, Linux- und
+Hyper-V-Pfade bleiben getrennte Nachweispflichten.
+
 ## Native Linux-TLS-Clientmatrix vom 2026-10-22 (UTC)
 
 Die [getrennte Linux-Kryptomatrix](TLS_LINUX_CLIENT_MATRIX_ACCEPTANCE_2026-10-22.md)

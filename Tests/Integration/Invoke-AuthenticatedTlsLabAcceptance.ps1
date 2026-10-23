@@ -3,13 +3,17 @@
 param([Parameter(Mandatory)][string]$DataRoot,[Parameter(Mandatory)][string]$ControllerId,
     [Parameter(Mandatory)][string]$LocationId,[Parameter(Mandatory)][string]$CandidateId,
     [Parameter(Mandatory)][string]$EvidenceDirectory,[ValidateSet('docker','podman')][string]$Provider='docker',
-    [ValidateSet('2025-CU9','2022-CU27','2019-CU32')][string]$Version='2025-CU9',[switch]$Execute,[switch]$KeepLab,[switch]$ExerciseRestartRebind)
+    [ValidateSet('2025-CU9','2022-CU27','2019-CU32')][string]$Version='2025-CU9',[switch]$Execute,[switch]$KeepLab,[switch]$ExerciseRestartRebind,
+    [switch]$ExerciseLiveQualification,[string]$LiveStopFile)
 $ErrorActionPreference='Stop'
 if(-not $Execute){throw 'TLS_ACCEPTANCE_EXECUTE_REQUIRED: creates one own selected-provider and selected-version lab; no trust import.'}
 if($ExerciseRestartRebind -and $KeepLab){throw 'TLS_ACCEPTANCE_REBIND_REQUIRES_RESTART_AND_CLEANUP'}
+if($ExerciseLiveQualification -and ($KeepLab -or $ExerciseRestartRebind)){throw 'TLS_ACCEPTANCE_LIVE_REQUIRES_EXCLUSIVE_SCENARIO_AND_CLEANUP'}
+if($LiveStopFile -and -not $ExerciseLiveQualification){throw 'TLS_ACCEPTANCE_LIVE_STOP_REQUIRES_LIVE_SCENARIO'}
 $repo=(Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 . (Join-Path $repo 'Tests/Common/AuthenticatedTlsAcceptanceCleanup.ps1')
 . (Join-Path $repo 'Tests/Common/AuthenticatedTlsAcceptanceSelection.ps1')
+. (Join-Path $repo 'Tests/Common/AuthenticatedTlsLiveQualificationAcceptance.ps1')
 $expected=Get-OwnedTlsAcceptanceProfile $Version
 $module=Import-Module (Join-Path $repo 'SqlServerLab.psd1') -Force -PassThru
 $tool=& (Join-Path $repo 'Tools/Initialize-SqlServerLabHostTools.ps1') -Name $Provider
@@ -28,6 +32,7 @@ $podmanRunBefore=Get-ItemPropertyValue -LiteralPath 'HKCU:\Software\Microsoft\Wi
 $results=[Collections.Generic.List[object]]::new();$lab=$null;$failure=$null;$cleanup='NOT_REQUIRED'
 $routingBefore=@{};foreach($name in @('DOCKER_HOST','DOCKER_CONTEXT','CONTAINER_HOST','CONTAINER_CONNECTION','CONTAINER_SSHKEY')){$routingBefore[$name]=[Environment]::GetEnvironmentVariable($name,'Process')}
 try{
+    if($ExerciseLiveQualification){Assert-OwnedTlsLiveContinue $LiveStopFile}
     $lab=New-SqlServerLab -Version $Version -Provider $Provider -Profile compact -Cpu 2 -MemoryMB 2048 -GenerateSaPassword -NonInteractive -AutoStart off `
         -DataRoot $DataRoot -TlsControllerId $ControllerId -TlsLocationId $LocationId -TlsCandidateId $CandidateId -TrustServerCertificate:$false
     Assert-OwnedTlsAcceptanceSelection -Expected $expected -Qualification $lab.TlsQualification
@@ -35,6 +40,9 @@ try{
     if(-not $returned.Encrypt -or $returned.TrustServerCertificate -or $lab.Instances[0].Provider -cne $Provider -or
             $lab.TlsQualification.Provider -cne $Provider){throw 'TLS_ACCEPTANCE_PUBLIC_RESULT_FLAGS_INVALID'}
     $results.Add(@{Case='OWN_LAB_TWO_STRICT_STACKS';Status='PASS'})
+    if($ExerciseLiveQualification){
+        Invoke-OwnedTlsLiveQualificationScenario -Lab $lab -Expected $expected -Provider $Provider -EvidenceDirectory $evidence -Results $results -StopFile $LiveStopFile
+    }else{
     $export=Export-SqlServerLabTestEnvironment -TrustServerCertificate:$false -RunId $lab.RunId -InstanceId primary -StateRoot $lab.StateRoot -OutputDirectory (Join-Path $lab.StateRoot 'qualified-export')
     $results.Add(@{Case='FRESH_QUALIFIED_FALSE_EXPORT';Status='PASS'})
     & $module {
@@ -145,8 +153,9 @@ try{
             [IO.File]::WriteAllText((Join-Path $evidence 'rebind.private.json'),($rebound|ConvertTo-Json -Depth 6))
         }
     }
-    [IO.File]::WriteAllText((Join-Path $evidence 'lab.private.json'),($lab|ConvertTo-Json -Depth 15))
     [IO.File]::WriteAllText((Join-Path $evidence 'export.private.json'),($export|ConvertTo-Json -Depth 15))
+    }
+    [IO.File]::WriteAllText((Join-Path $evidence 'lab.private.json'),($lab|ConvertTo-Json -Depth 15))
 }catch{$failure=$_;[IO.File]::WriteAllText((Join-Path $evidence 'failure.private.txt'),($_|Out-String))}
 finally{
     if($lab -and ($failure -or -not $KeepLab)){
@@ -166,6 +175,12 @@ finally{
         }catch{
             [IO.File]::WriteAllText((Join-Path $evidence 'cleanup-failure.private.txt'),($_|Out-String))
             $cleanup='RECOVERY_REQUIRED';if(-not $failure){$failure=$_}
+        }
+        if($ExerciseLiveQualification -and $cleanup -ceq 'PASS' -and -not $failure){
+            try{
+                Assert-OwnedTlsLiveRejected -RunId $lab.RunId -InstanceId primary -StateRoot $lab.StateRoot
+                $results.Add(@{Case='LIVE_REMOVED_TARGET_REJECTED';Status='PASS'})
+            }catch{$failure=$_;[IO.File]::WriteAllText((Join-Path $evidence 'failure.private.txt'),($_|Out-String))}
         }
     }elseif($lab){$cleanup='INTENTIONALLY_PERSISTENT_OWN_LAB'}
     foreach($name in $routingBefore.Keys){[Environment]::SetEnvironmentVariable($name,$routingBefore[$name],'Process')}

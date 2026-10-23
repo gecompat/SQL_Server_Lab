@@ -1,5 +1,14 @@
 # Bekannte Grenzen
 
+Die [explizite öffentliche TLS-Livequalifikation](../Architecture/AUTHENTICATED_TLS_LIVE_QUALIFICATION.md)
+liefert eine gebundene Beobachtung beider strikten Clientstacks für eigene
+Windows-/Docker-/Podman-Labs der drei operativen SQL-Profile. Sie ist kein
+gespeicherter Status, Cache oder dauerhafter Berechtigungsnachweis; Drift
+invalidiert sie auch vor der angegebenen Frist. Der [native API-Nachweis](TLS_LIVE_QUALIFICATION_API_ACCEPTANCE_2026-10-23.md)
+bestand die sechs geschlossenen Provider-/Profilzellen. Eine dedizierte Liveprüfaktion am SQL-Ziel mit
+gerenderter Anzeige bleibt ein eigener Scope. Wire-Fingerprint bleibt
+`NOT_OBSERVED`; Linux- und Hyper-V-Live-API sind damit nicht abgenommen.
+
 Die [Linux-TLS-Kryptomatrix](TLS_LINUX_CLIENT_MATRIX_ACCEPTANCE_2026-10-22.md)
 bestand mit beiden echten Stacks für Docker und Podman mit SQL 2019 CU32,
 2022 CU27 und 2025 CU9: je neun Fälle und 18 Clientergebnisse, einschließlich

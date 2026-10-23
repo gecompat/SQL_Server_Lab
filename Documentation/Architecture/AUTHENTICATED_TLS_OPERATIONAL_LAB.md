@@ -99,6 +99,12 @@ Automatische Reparatur und Renewal fehlen weiterhin.
 
 ## Expliziter qualifizierter Export
 
+Für eine ausdrückliche aktuelle Prüfung ohne Exportdateien verwenden Sie
+[Test-SqlServerLabTlsQualification](AUTHENTICATED_TLS_LIVE_QUALIFICATION.md).
+Der Befehl nutzt dieselben beiden strikten Clients und aktuellen eigenen
+Bindungen. Sein Ergebnis ohne Secrets ist eine Beobachtung und wird nicht
+als positiver Bereitschaftsstatus gespeichert.
+
 `Export-SqlServerLabTestEnvironment -TrustServerCertificate:$false` verlangt
 den exakten eigenen `RunId`, `InstanceId`, `StateRoot` und ein neues
 `OutputDirectory`. Er führt die beiden echten Verbindungen erneut aus.

@@ -929,6 +929,11 @@ sources_of_truth:
   authenticated_tls_authority: Private/AuthenticatedTlsAuthority.ps1
   authenticated_tls_lab: Private/AuthenticatedTlsLab.ps1 # explicit provider, original runtime pin, closed 0.1 Docker / 0.2 provider+policy / 0.3 SQL-profile bindings; coupled ContainerOwnedHostIntegration, RunArtifactRemoval and RetainedStoreRuntime
   authenticated_tls_qualification: Private/AuthenticatedTlsQualification.ps1 # ordinary qualification/export/readback also require committed restart-rebind history; coupled restart-rebind and positive signed-export suites
+  authenticated_tls_live_qualification_contract: Documentation/Architecture/AUTHENTICATED_TLS_LIVE_QUALIFICATION.md
+  public_authenticated_tls_live_qualification: Public/Test-SqlServerLabTlsQualification.ps1 # explicit own Windows D/P strict observation; no cache/export/secret output or certificate/key/trust mutation
+  authenticated_tls_live_qualification: Private/AuthenticatedTlsLiveQualification.ps1 # closed scalar projection, same selected profile, both clients and bounded current observation; no UI qualification persistence
+  validation_authenticated_tls_live_qualification: Tests/Static/Invoke-AuthenticatedTlsLiveQualificationChecks.ps1 # synthetic projection/delegation/expiry/host-boundary and independent acceptance oracle checks; native SQL proof separate
+  acceptance_authenticated_tls_live_qualification: Tests/Common/AuthenticatedTlsLiveQualificationAcceptance.ps1 # dedicated explicit ExerciseLiveQualification scenario in the shared owned harness; six new API cases, original default/rebind scenarios preserved
   authenticated_tls_linux_client_fixture: Tests/Common/AuthenticatedTlsLinuxClient.ps1 # test-only fresh owned SQL run and receipt-bound unprivileged client namespaces; no host trust, registry or export qualification
   authenticated_tls_linux_client_probe: Tests/Integration/Fixtures/TlsLinuxClientProbe.ps1 # fresh genuine Linux SqlClient/sqlcmd children, process-only CA trust, actual ODBC maps and classified certificate failures
   validation_authenticated_tls_linux_client: Tests/Static/Invoke-AuthenticatedTlsLinuxClientChecks.ps1 # synthetic restrictive argv, original-policy/namespace/image binding and typed-error checks; zero provider actions

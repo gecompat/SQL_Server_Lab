@@ -14,6 +14,15 @@ trennt Regelübernahme, Lesepfadprüfung und geplante Restarbeiten.
 
 ## Ausgewählte Arbeitsstände
 
+Die [explizite öffentliche TLS-Livequalifikation](../Documentation/Architecture/AUTHENTICATED_TLS_LIVE_QUALIFICATION.md)
+ergänzt den vorhandenen strikten Qualifier um einen ausdrücklich gebundenen
+Aufruf und eine geschlossene Ausgabe ohne Secrets. Sie meldet eine aktuelle
+Beobachtung beider Clientstacks, keinen gespeicherten oder dauerhaften Status.
+Die sechs getrennten [nativen API-Zellen](../Documentation/Quality/TLS_LIVE_QUALIFICATION_API_ACCEPTANCE_2026-10-23.md)
+für Docker/Podman und die drei operativen SQL-Profile bestanden mit eigenem
+Cleanup. Die dedizierte Liveprüfaktion am SQL-Ziel und deren gerenderte Anzeige
+bleiben getrennt offen.
+
 Die [native Linux-Kryptomatrix](../Documentation/Quality/TLS_LINUX_CLIENT_MATRIX_ACCEPTANCE_2026-10-22.md)
 bestand Docker und Podman für SQL 2019 CU32, 2022 CU27 und 2025 CU9 separat:
 je neun Fälle und 18 Clientergebnisse, davon 16 strikt und zwei getrennte
@@ -46,8 +55,8 @@ ist an eigenen Windows-/Docker-/Podman-SQL-2025-CU9-Labs nativ geprüft:
 jeweils fünf native Fälle, sechs strikte Clientresultate, ein frischer
 gerenderter Snapshot und eigener Cleanup PASS.
 `NOT_EVALUATED` heißt ausdrücklich „hier nicht aktuell geprüft“; kein Status
-behauptet aktuelle Qualifikation. Die explizite Liveprüfaktion mit Frische-
-und Driftbindung sowie die übrige TLS-001-Matrix bleiben weitere Scopes.
+behauptet aktuelle Qualifikation. Die dedizierte Liveprüfaktion am SQL-Ziel
+mit Frische-/Driftbindung sowie die übrige TLS-001-Matrix bleiben weitere Scopes.
 
 Die echte Windows-Produktseitenabnahme der gespeicherten TLS-Anzeige ist für
 eigene Docker-/Podman-SQL-2025-CU9-Labs bestanden. Ein reproduzierter

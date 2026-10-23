@@ -57,6 +57,9 @@ führt von dort zu Vertrag, Format und Evidence.
   technische Referenzpfade mit getrennten Nachweisgrenzen.
 - [Linux-TLS-Kryptomatrix](Quality/TLS_LINUX_CLIENT_MATRIX_ACCEPTANCE_2026-10-22.md):
   datierter Clientnachweis; kein öffentlicher Linux-Registry-/Exportpfad.
+- [Explizite TLS-Live-API](Quality/TLS_LIVE_QUALIFICATION_API_ACCEPTANCE_2026-10-23.md):
+  sechs getrennte Windows-/Docker-/Podman-Abnahmen; aktueller API-Aufruf,
+  Neustartablehnung und Cleanup, keine dedizierte UI-Liveaktion.
 
 ### Projekt weiterentwickeln
 
@@ -102,7 +105,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | Komponente | Status | Autoritative Dateien |
 |---|---|---|
 | PowerShell-Modul | implementiert | `SqlServerLab.psd1`, `SqlServerLab.psm1` |
-| Öffentliche API | 153 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
+| Öffentliche API | 154 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
 | Docker | implementiert | `Providers/Docker/DockerProvider.ps1` |
 | Podman | implementiert | `Providers/Podman/PodmanProvider.ps1` |
 | SQL Server External Languages | Container: Java für SQL 2019, Python/R/Java für SQL 2022/2025, jeweils Docker und Podman; Hyper-V/Windows: SQL-2022 Python/R/Java nativ akzeptiert, C# für SQL 2019–2025 sichtbar `PREVIEW` | `../Catalogs/software.json`, `../Tests/Integration/Invoke-ExternalRuntimeContainerAcceptance.ps1`, `../Tests/Integration/Invoke-ExternalRuntimeHyperVAcceptance.ps1` |
@@ -258,6 +261,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | `Export-SqlServerLabTestEnvironment` | Testzugänge nach gebundener Live-Health-Prüfung als dotenv, schema-validierbares JSON, portablen Agenten-Prompt und Markdown exportieren |
 | `Update-SqlServerLabTlsBinding` | Eigenen policygebundenen Docker-/Podman-TLS-Run nach Neustart strikt qualifizieren und ausschließlich seine Start-Epoche erneut binden |
 | `Read-SqlServerLabQualifiedTestEnvironment` | Privaten signierten V2-Bytesnapshot mit Frist und aktuellen eigenen Bindungen prüfen; öffnet keine SQL-Verbindung |
+| `Test-SqlServerLabTlsQualification` | Zwei echte strikte Clientverbindungen am eigenen operativen Container-Lab prüfen und ein Ergebnis ohne Secrets für den Beobachtungszeitpunkt zurückgeben; [Vertrag](Architecture/AUTHENTICATED_TLS_LIVE_QUALIFICATION.md) |
 | `Repair-SqlServerLabAutomatedTestEnvironment` | Ressourcen, Health, Autostart, Windows-Aktivierung und sprechende Container-/VM-Namen der registrierten Testgruppe sicher abgleichen |
 | `Start-SqlServerLabAutomatedTestEnvironment` | Registrierte Docker-, Podman- und Hyper-V-Mitglieder gruppenweise starten und den Live-Export bis `READY` prüfen |
 | `Stop-SqlServerLabAutomatedTestEnvironment` | Registrierte Docker-, Podman- und Hyper-V-Mitglieder nicht-destruktiv stoppen und den Live-Export fail-closed erneuern |

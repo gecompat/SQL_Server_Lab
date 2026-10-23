@@ -110,6 +110,7 @@
         'New-SqlServerLabAutomatedTestEnvironment'
         'Export-SqlServerLabTestEnvironment'
         'Read-SqlServerLabQualifiedTestEnvironment'
+        'Test-SqlServerLabTlsQualification'
         'Update-SqlServerLabTlsBinding'
         'Start-SqlServerLabAutomatedTestEnvironment'
         'Stop-SqlServerLabAutomatedTestEnvironment'

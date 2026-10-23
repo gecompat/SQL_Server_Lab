@@ -488,6 +488,11 @@ Sync-SqlServerLabRunScopedContainerStore
         Prüft denselben signierten V2-Bytesnapshot gegen Frist und aktuelle
         eigene Bindungen; enthält private Zugangsdaten, öffnet keine SQL-Verbindung.
 
+    Test-SqlServerLabTlsQualification
+        Prüft ausdrücklich beide echten strikten Clientstacks am eigenen
+        operativen Windows-/Docker-/Podman-TLS-Lab. Ergebnis ohne Secrets für
+        den Beobachtungszeitpunkt; kein Cache, Export oder Reparaturvorgang.
+
     Export-SqlServerLabTestEnvironment
         Schreibt TestUmgebung.env, TestUmgebung.json, TestUmgebung.schema.json,
         TestUmgebung.prompt.md und TestUmgebung.md in den

@@ -248,8 +248,10 @@ Der zusätzliche Modus mit `TrustServerCertificate=False` ist für eigene,
 und SQL 2019 CU32, 2022 CU27 oder 2025 CU9 mit bestehender qualifizierter
 CA-/Clientbindung verfügbar. Die Verbindungszentrale zeigt den konfigurierten
 TLS-Modus und dessen getrennten Prüfstatus an. Angezeigte Flags allein belegen
-keine Zertifikatsprüfung; eine aktuelle Livequalifikation der Verbindung ist
-noch offen. Weitere Kombinationen und offene Prüfwege stehen im
+keine Zertifikatsprüfung. Die [ausdrückliche Liveprüfung](../Architecture/AUTHENTICATED_TLS_LIVE_QUALIFICATION.md)
+des eigenen operativen Labs erfolgt mit `Test-SqlServerLabTlsQualification`;
+die dedizierte Liveaktion am SQL-Ziel im Verbindungsdialog bleibt offen.
+Weitere Kombinationen und offene Prüfwege stehen im
 [P1-Backlog TLS-001](../Project_Planning/NEW_SQL_LAB_USE_CASES_BACKLOG.md#tls-001--authentifizierte-tls-verbindungen-der-testumgebungen).
 
 Mit `sqlcmd`:
