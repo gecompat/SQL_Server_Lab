@@ -1,7 +1,7 @@
 # AI Repository Foundation Ruleset
 
 Status: AUTHORITATIVE BASELINE
-Ruleset version: 1.24.0
+Ruleset version: 1.25.0
 
 ## Protected floor
 
@@ -22,7 +22,8 @@ Follow `PROCESSING_EFFICIENCY_POLICY.md` for session-local rule reuse, review/ag
 - Ordinary workflow/validation: `WORKING_RULES.md`, `VALIDATION_POLICY.md`.
 - Cross-host test evidence recognition: `TEST_EVIDENCE_REUSE_POLICY.md`; activation requires a protected project adapter and does not follow from installing the policy.
 - Data/security/licensing: `DATA_PRIVACY_AND_CONFIDENTIALITY.md`, `SECURITY_AND_SAFE_OPERATIONS.md`, `THIRD_PARTY_AND_LICENSING.md`.
-- Documentation/evidence/dependencies: `DOCUMENTATION_POLICY.md`, `SOURCE_AND_EVIDENCE_POLICY.md`, `DEPENDENCY_POLICY.md`.
+- Human reading paths, directory clarity, AI-control separation, gradual legacy adoption and change-driven drift checks with bounded context: `DOCUMENTATION_POLICY.md`; readability is project-semantic validation, not Foundation integrity.
+- Sources/evidence/dependencies: `SOURCE_AND_EVIDENCE_POLICY.md`, `DEPENDENCY_POLICY.md`.
 - Installation, local overrides, upgrade: `SEMANTIC_INTEGRATION_POLICY.md`, `UPGRADE_APPLICABILITY_POLICY.md`, `feature_catalog.json`.
 - Identity/registration changes: `PERSISTENT_IDENTITY_POLICY.md`, `ARTIFACT_REGISTRATION_POLICY.md`, `CENTRAL_ARTIFACT_REGISTRY_POLICY.md`.
 - Persistent cache use: `RULE_CONTEXT_CACHE_POLICY.md`.

@@ -1,5 +1,19 @@
 # Projektkontext
 
+## Verwendung und Zuständigkeiten
+
+Diese Datei dient der KI-Orientierung. Der native Einstieg bleibt
+[AGENTS.md](../AGENTS.md); die [Repository-Map](repo_map.yaml) führt zu den
+betroffenen autoritativen Verträgen, Formaten, Implementierungen und Tests.
+Für Menschen beginnen Einrichtung und Betrieb in
+[Getting Started](../Documentation/User/Getting_Started.md) und im
+[Dokumentationsindex](../Documentation/README.md). Planung beschreibt Ziele,
+datierte Abnahmen belegen ausschließlich ihren ausgewiesenen Stand.
+Die [Foundation-Upgradebewertung](../Documentation/Quality/FOUNDATION_1_25_UPGRADE_ASSESSMENT.md)
+trennt Regelübernahme, Lesepfadprüfung und geplante Restarbeiten.
+
+## Ausgewählte Arbeitsstände
+
 Die [native Linux-Kryptomatrix](../Documentation/Quality/TLS_LINUX_CLIENT_MATRIX_ACCEPTANCE_2026-10-22.md)
 bestand Docker und Podman für SQL 2019 CU32, 2022 CU27 und 2025 CU9 separat:
 je neun Fälle und 18 Clientergebnisse, davon 16 strikt und zwei getrennte

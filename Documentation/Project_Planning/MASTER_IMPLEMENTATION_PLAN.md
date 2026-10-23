@@ -12,6 +12,23 @@
 | Historische Quellprojekte | `gecompat/SQL_Server_Analyze`, `gecompat/SQL_PerformanceSchulung` |
 | Aktuelle Konsumenten | `gecompat/SQL_PerformanceSchulung`, `gecompat/SQL_Server_Analyze`, `gecompat/SQL_Server_Toolbelt` |
 
+## Dokumentationswege nach Foundation 1.25
+
+Fortschreibung vom 2026-10-23. Diese Planung ergänzt die historische Baseline;
+sie ist kein Runtime- oder vollständiger Dokumentationskonformitätsnachweis.
+Die [Upgradebewertung](../Quality/FOUNDATION_1_25_UPGRADE_ASSESSMENT.md) beschreibt
+die bereits bearbeiteten zentralen Einstiege und die Abgrenzung der Übernahme.
+
+| Verbleibender Scope | Zuständige Rolle | Wiederaufnahmeauslöser |
+|---|---|---|
+| Gewachsene optionale Bedien- und Wartungsreferenzen in Getting Started auf eigenständige, vollständig kontextualisierte HowTos verteilen; notwendige Links und Kompatibilitätsanker gemeinsam erhalten | Dokumentationsmaintainer mit dem jeweiligen Featureverantwortlichen | Nächste materielle Änderung am betreffenden Vertiefungsworkflow oder ein konkret beobachteter Bruch des Leserpfads |
+| Ältere Teilchronologien in Projektkontext, Known Limitations und Validierungsstrategie je betroffenem Thema konsolidieren; aktuelle Aussage, historische Abnahme und Planung ausdrücklich trennen | Qualitäts- und Dokumentationsmaintainer | Materielle Änderung des jeweiligen Fachvertrags, neue Abnahme oder konkrete widersprüchliche Statusaussage |
+| Weitere HowTo-/Architekturpfade auf ungeklärte Vorbereitung, Ergebnisinterpretation, Fehlerhilfe und parallele Ablage prüfen; nur den betroffenen Quellenweg reorganisieren | Verantwortliche des betroffenen Fachbereichs | Neue Funktion, geänderte Konfiguration/Dateiablage oder ein konkretes Navigationsfinding |
+
+Neue und materiell geänderte Pfade folgen bereits der Dokumentationsregel.
+Diese Restplanung ist keine dauerhafte Ausnahme und löst keine pauschale
+Repositorymigration oder zusätzliche Review-/Modellaufrufe aus.
+
 ## 1. Architekturentscheidung
 
 **ENTSCHEIDUNG:** Das gesamte generische SQL-Server-Lab-Thema wird in `SQL_Server_Lab` gebündelt. Die konsumierenden Projekte behalten ihre fachlichen Installations-, Demo-, Beobachtungs- und Erwartungsverträge, delegieren jedoch Infrastruktur, Lifecycle, Host-Preflight, Ressourcensteuerung, Topologieaufbau und Fault Injection an dieses Repository.

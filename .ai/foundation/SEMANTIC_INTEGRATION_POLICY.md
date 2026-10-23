@@ -29,7 +29,7 @@ Classify meaningful overlaps between Foundation and target governance with one o
 - `PROJECT_SELECTABLE_OVERRIDE`: the target intentionally chooses a different value for a Foundation `DEFAULT` or `PROJECT_SELECTABLE` area; preserve the choice.
 - `COMPLEMENTARY`: both rules apply to different aspects and can coexist.
 - `DUPLICATE_GOVERNANCE`: the same active rule is maintained independently in multiple places; choose a canonical source and reduce duplication.
-- `FOUNDATION_REQUIRED_CONFLICT`: the target weakens or contradicts a Foundation `REQUIRED` minimum in safety, privacy, integrity, evidence, authorization, identity, registration, or upgrade completeness; resolve before completion.
+- `FOUNDATION_REQUIRED_CONFLICT`: the target weakens or contradicts a Foundation `REQUIRED` minimum in safety, privacy, integrity, evidence, authorization, identity, registration, documentation, or upgrade completeness; resolve before completion.
 - `TARGET_INTERNAL_CONFLICT`: target-project rules already contradict each other independently of the Foundation; report separately.
 - `ORPHANED_AUTHORITY`: active project governance is not discoverable from the instruction tree.
 - `ADAPTER_GOVERNANCE_MISPLACED`: a tool adapter contains substantive governance; preserve/rehome it before thinning the adapter.
@@ -54,6 +54,12 @@ Before deciding which new Foundation behavior to adopt:
 No candidate may disappear from the assessment merely because an AI did not infer its relevance. `NOT_APPLICABLE` requires evidence/rationale; silence is not a classification.
 
 The upgrade applicability classification and the semantic compatibility class answer different questions. For example, `persistent-identity` may be `RECOMMENDED` as an upgrade feature while the existing project naming rules are simultaneously `PROJECT_SELECTABLE_OVERRIDE` or `ALREADY_EQUIVALENT` at the feature-assessment layer.
+
+## Documentation integration
+
+Apply `DOCUMENTATION_POLICY.md` to the central human reading paths, directory purposes, shared authoritative sources, and separately discoverable AI control. Preserve an existing layout when it meets those outcomes. A confusing layout is not protected merely because it already exists; assess needed navigation or relocation and its path consumers within authorized scope.
+
+Follow the policy's gradual-adoption contract: integrate the rule, resolve active governance contradictions, and require new/materially changed paths to comply. Existing content gaps may remain as explicit project-planned remediation with scope, owner/role, and trigger. Distinguish such legacy gaps from an active rule requiring the opposite behavior. Completed installation/integration with planned gaps is not complete documentation conformity. Preserve target-owned documents through semantic edits rather than copying Foundation's own README or guide.
 
 ## Persistent identifier interoperability
 
@@ -115,6 +121,7 @@ Semantic integration is complete only when:
 - all `RECOMMENDED`, `DECISION_REQUIRED`, and `CONFLICT` feature results are surfaced and durable project choices are recorded when required;
 - the REQUIRED processing-overhead assessment covers actual rules and execution routes, with implemented behavior, justified bounded exceptions, or reasoned non-applicability for every applicable area; unresolved dispositions remain explicitly pending rather than completed efficiency integration;
 - active project governance remains intact and discoverable;
+- documentation paths and structure are assessed under `DOCUMENTATION_POLICY.md`, with affected paths validated and remaining legacy gaps explicitly scoped, owned, and triggered;
 - meaningful overlaps have a compatible classification or resolved conflict;
 - unique adapter governance has not been lost;
 - project-specific validation/model/privacy/license/identifier/registration contracts remain preserved;

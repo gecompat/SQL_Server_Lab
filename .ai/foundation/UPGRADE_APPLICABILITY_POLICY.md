@@ -100,6 +100,12 @@ The `artifact-registration` feature MUST be assessed when humans or AI create du
 
 If a compatible centralized issue tracker, database, service, or project allocator already provides safe uniqueness, classify it according to its semantics rather than replacing it with Foundation reference clients. If the project adopts Foundation-style sequential references without a safe allocator, recommend establishing one Registration Authority and use `DEFERRED` where allocation cannot safely be serialized at creation time.
 
+## Human documentation paths
+
+Assess `human-documentation-paths` on upgrades from before its introduction. Read `DOCUMENTATION_POLICY.md` and inspect the central human paths, the AI entry point, and visible storage/navigation problems. Preserve equivalent or stronger project behavior and use the policy's gradual-adoption contract for remaining legacy content. Record scope, responsible owner/role, and trigger in the existing project planning system; surface any broader migration or unresolved authority as a concrete follow-up/decision rather than silently changing project storage.
+
+The mandatory outcome is assessment and integration of the rule plus compliance of new/materially changed paths. Planned legacy gaps do not alone prohibit an upgrade, but they prohibit a claim of complete documentation conformity. Installation integrity does not establish readability.
+
 ## Material changes versus non-material maintenance
 
 Each catalog feature records `change_history` entries. `MATERIAL` changes re-enter the upgrade delta for targets older than that change. `NON_MATERIAL` entries record review/maintenance without forcing target reassessment.

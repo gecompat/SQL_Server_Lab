@@ -1,7 +1,7 @@
 # Foundation Reference
 
 Status: AUTHORITATIVE — read only the affected boundary
-Ruleset version: 1.21.0
+Ruleset version: 1.25.0
 
 Routine work follows the short `FOUNDATION_RULESET.md` and `PROCESSING_EFFICIENCY_POLICY.md`. This reference retains detailed boundaries for affected operations; its discoverable schemas/capabilities are not a bulk-reading requirement. The cache binding rules below describe the optional persistent profile; the session-local baseline has its own current-authority/source-analysis checks.
 
@@ -39,7 +39,7 @@ Existing project rules do not need to be rewritten into these labels. Use semant
 - optional cross-host test recognition, protected producer/verifier trust, equivalence and safe fallback: `TEST_EVIDENCE_REUSE_POLICY.md` (policy only; no executable adapter or activation)
 - data handling and narrow provenance exceptions: `DATA_PRIVACY_AND_CONFIDENTIALITY.md`
 - safe operations: `SECURITY_AND_SAFE_OPERATIONS.md`
-- documentation truth: `DOCUMENTATION_POLICY.md`
+- complete human reading paths, directory clarity, shared authority, AI-control separation, current/history boundaries, and gradual legacy adoption: `DOCUMENTATION_POLICY.md`
 - third-party/licensing: `THIRD_PARTY_AND_LICENSING.md`
 - evidence/sources: `SOURCE_AND_EVIDENCE_POLICY.md`
 - dependencies/services: `DEPENDENCY_POLICY.md`

@@ -897,18 +897,18 @@ Add-ValidationResult `
 
 $installedFoundation = Get-Content -LiteralPath (Join-Path $repoRoot '.ai/foundation/installation-provenance.json') -Raw | ConvertFrom-Json
 $activeFoundationCatalog = $foundationFeatureCatalog | ConvertFrom-Json
-$activeFoundationAssessment = Get-Content -LiteralPath (Join-Path $repoRoot '.ai/foundation-upgrade-assessments/1.21.0-to-1.24.0.json') -Raw | ConvertFrom-Json
+$activeFoundationAssessment = Get-Content -LiteralPath (Join-Path $repoRoot '.ai/foundation-upgrade-assessments/1.24.0-to-1.25.0.json') -Raw | ConvertFrom-Json
 $activeVersion = $installedFoundation.ruleset_version
 Add-ValidationResult -Name 'Aktive Foundationversionen und Provenienz stimmen strukturiert überein' -Success (
     $activeVersion -ceq $activeFoundationCatalog.ruleset_version -and $activeVersion -ceq $activeFoundationAssessment.source_version -and
     $foundationRuleset -match ('Ruleset version: '+[regex]::Escape($activeVersion)+'(?:\r?\n|$)') -and
     $foundationRepoMap -match ('foundation_ruleset_version: '+[regex]::Escape($activeVersion)+'(?:\r?\n|$)') -and
     $installedFoundation.source_commit -ceq $activeFoundationAssessment.source_ref -and
-    $installedFoundation.source_commit -ceq '96391403a1b89e19d4824838806d7190d8033389' -and
+    $installedFoundation.source_commit -ceq 'a3567f8e5372e5f4db72dbd466323aa22c71b13a' -and
     (Test-Path -LiteralPath (Join-Path $repoRoot '.ai/foundation/schemas/installation-provenance.schema.json')))
 
 
-$activeAssessmentJson=Get-Content -LiteralPath (Join-Path $repoRoot '.ai/foundation-upgrade-assessments/1.21.0-to-1.24.0.json') -Raw
+$activeAssessmentJson=Get-Content -LiteralPath (Join-Path $repoRoot '.ai/foundation-upgrade-assessments/1.24.0-to-1.25.0.json') -Raw
 Add-ValidationResult -Name 'Active upgrade assessment conforms to schema' -Success ($activeAssessmentJson | Test-Json -SchemaFile $foundationUpgradeAssessmentSchemaPath)
 # Candidate coverage comes from catalog history, not from the submitted record.
 $activeClassifications=@{
@@ -925,6 +925,7 @@ $activeClassifications=@{
     'foundation-baseline'='APPLY_DEFAULT'
     'installed-foundation-provenance'='APPLY_DEFAULT'
     'layered-validation'='APPLY_DEFAULT'
+    'human-documentation-paths'='APPLY_DEFAULT'
     'model-routing-interoperability'='ALREADY_EQUIVALENT'
     'persistent-identity'='ALREADY_EQUIVALENT'
     'processing-overhead-assessment'='APPLY_DEFAULT'
@@ -937,29 +938,49 @@ $activeClassifications=@{
     'orchestrator-job-control'='DECISION_REQUIRED'
     'test-evidence-reuse'='RECOMMENDED'
 }
-$activeCandidates=[ordered]@{}
-foreach($featureProperty in $activeFoundationCatalog.features.PSObject.Properties) {
-    $feature=$featureProperty.Value; $reasons=[Collections.Generic.List[string]]::new()
-    if ([version]$feature.introduced_in -gt [version]'1.21.0' -and [version]$feature.introduced_in -le [version]$activeVersion) { $reasons.Add('introduced_in:'+$feature.introduced_in) }
-    foreach($change in $feature.change_history) {
-        if ([version]$change.version -gt [version]'1.21.0' -and [version]$change.version -le [version]$activeVersion -and $change.impact -ceq 'MATERIAL') { $reasons.Add('material_change:'+$change.version) }
+function Get-DocumentationFoundationCandidates {
+    param([version]$After,[version]$Through)
+    $candidates=[ordered]@{}
+    foreach($featureProperty in $activeFoundationCatalog.features.PSObject.Properties) {
+        $feature=$featureProperty.Value; $reasons=[Collections.Generic.List[string]]::new()
+        if ([version]$feature.introduced_in -gt $After -and [version]$feature.introduced_in -le $Through) { $reasons.Add('introduced_in:'+$feature.introduced_in) }
+        foreach($change in $feature.change_history) {
+            if ([version]$change.version -gt $After -and [version]$change.version -le $Through -and $change.impact -ceq 'MATERIAL') { $reasons.Add('material_change:'+$change.version) }
+        }
+        if ($reasons.Count) { $candidates[$featureProperty.Name]=@{Reasons=@($reasons);Classification=$activeClassifications[$featureProperty.Name]} }
     }
-    if ($reasons.Count) { $activeCandidates[$featureProperty.Name]=@{Reasons=@($reasons);Classification=$activeClassifications[$featureProperty.Name]} }
+    return $candidates
 }
-$activeContractArguments=@{ExpectedCandidates=$activeCandidates;InstalledVersion='1.21.0';SourceVersion=$activeVersion;SourceRef=$installedFoundation.source_commit}
+$activeCandidates=Get-DocumentationFoundationCandidates -After '1.24.0' -Through $activeVersion
+$activeContractArguments=@{ExpectedCandidates=$activeCandidates;InstalledVersion='1.24.0';SourceVersion=$activeVersion;SourceRef=$installedFoundation.source_commit}
 $activeContract=Test-FoundationUpgradeAssessmentContract -Assessment $activeFoundationAssessment @activeContractArguments
-Add-ValidationResult -Name 'Complete active upgrade delta has explicit decisions and evidence' -Success ($activeCandidates.Count -eq 9 -and $activeContract.Success) -Message $activeContract.Message
-foreach($negative in @('missing','duplicate','evidence','capability','decision')) {
-    $bad=$activeAssessmentJson | ConvertFrom-Json -Depth 100
-    switch($negative) {
-        missing { $bad.assessments=@($bad.assessments | Select-Object -Skip 1) }
-        duplicate { $bad.assessments=@($bad.assessments)+@($bad.assessments[0]) }
-        evidence { $bad.assessments[0].evidence=@() }
-        capability { $bad.assessments[0].selected_capabilities=@('ai-work-planner') }
-        decision { $bad.assessments[0].classification='DECISION_REQUIRED' }
+Add-ValidationResult -Name 'Complete active upgrade delta has explicit decisions and evidence' -Success ($activeCandidates.Count -eq 1 -and $activeCandidates.Contains('human-documentation-paths') -and $activeContract.Success) -Message $activeContract.Message
+
+# The old nine-feature oracle remains bound to its historical version interval
+# and source pin. A newer catalog must not silently expand that old assessment.
+$historicalAssessmentJson=Get-Content -LiteralPath (Join-Path $repoRoot '.ai/foundation-upgrade-assessments/1.21.0-to-1.24.0.json') -Raw
+$historicalAssessment=$historicalAssessmentJson | ConvertFrom-Json -Depth 100
+$historicalCandidates=Get-DocumentationFoundationCandidates -After '1.21.0' -Through '1.24.0'
+$historicalContractArguments=@{ExpectedCandidates=$historicalCandidates;InstalledVersion='1.21.0';SourceVersion='1.24.0';SourceRef='96391403a1b89e19d4824838806d7190d8033389'}
+$historicalContract=Test-FoundationUpgradeAssessmentContract -Assessment $historicalAssessment @historicalContractArguments
+Add-ValidationResult -Name 'Historical nine-feature upgrade retains its schema and complete oracle' -Success ($historicalCandidates.Count -eq 9 -and $historicalContract.Success -and ($historicalAssessmentJson | Test-Json -SchemaFile $foundationUpgradeAssessmentSchemaPath)) -Message $historicalContract.Message
+foreach($subject in @(
+    @{Name='Active';Json=$activeAssessmentJson;Arguments=$activeContractArguments},
+    @{Name='Historical';Json=$historicalAssessmentJson;Arguments=$historicalContractArguments}
+)) {
+    foreach($negative in @('missing','duplicate','evidence','capability','decision')) {
+        $bad=$subject.Json | ConvertFrom-Json -Depth 100
+        switch($negative) {
+            missing { $bad.assessments=@($bad.assessments | Select-Object -Skip 1) }
+            duplicate { $bad.assessments=@($bad.assessments)+@($bad.assessments[0]) }
+            evidence { $bad.assessments[0].evidence=@() }
+            capability { $bad.assessments[0].selected_capabilities=@('ai-work-planner') }
+            decision { $bad.assessments[0].classification='DECISION_REQUIRED' }
+        }
+        $contractArguments=$subject.Arguments
+        $badResult=Test-FoundationUpgradeAssessmentContract -Assessment $bad @contractArguments
+        Add-ValidationResult -Name "$($subject.Name) upgrade rejects incomplete or altered contract: $negative" -Success (-not $badResult.Success)
     }
-    $badResult=Test-FoundationUpgradeAssessmentContract -Assessment $bad @activeContractArguments
-    Add-ValidationResult -Name "Active upgrade rejects incomplete or altered contract: $negative" -Success (-not $badResult.Success)
 }
 
 Add-ValidationResult `
@@ -975,7 +996,7 @@ Add-ValidationResult `
         $repoMap -match ('ruleset_version: "'+[regex]::Escape($activeVersion)+'"') -and
         $repoMap -match 'github-copilot' -and
         $repoMap -match 'sql_cu_watch_policy: ops/sql-cu-policy\.md' -and
-        $repoMap -match 'current_record: \.ai/foundation-upgrade-assessments/1\.21\.0-to-1\.24\.0\.json' -and
+        $repoMap -match 'current_record: \.ai/foundation-upgrade-assessments/1\.24\.0-to-1\.25\.0\.json' -and
         $repoMap -match 'rule-context-cache' -and
         $repoMap -match 'ci-supersession-and-integration-queue' -and
         $repoMap -match 'unresolved_conflicts: \[\]')

@@ -1,8 +1,51 @@
 {
   "schema_version": 1,
-  "ruleset_version": "1.24.0",
+  "ruleset_version": "1.25.0",
   "assessment_classifications": ["NOT_APPLICABLE", "ALREADY_EQUIVALENT", "PROJECT_STRONGER", "APPLY_DEFAULT", "RECOMMENDED", "DECISION_REQUIRED", "CONFLICT"],
   "features": {
+    "human-documentation-paths": {
+      "title": "Understandable human documentation paths and separate AI control",
+      "introduced_in": "1.25.0",
+      "change_history": [],
+      "transfer_sources": [
+        "Documentation/Standards/DOCUMENTATION_POLICY.md",
+        ".ai/PROJECT_RULES.md",
+        ".ai/VALIDATION_POLICY.md",
+        "Documentation/Standards/SEMANTIC_INTEGRATION_POLICY.md",
+        "Documentation/Standards/UPGRADE_APPLICABILITY_POLICY.md",
+        "Documentation/Standards/FOUNDATION_REFERENCE.md",
+        "foundation/feature_catalog.json",
+        "foundation/AGENTS.template.md",
+        "foundation/FOUNDATION_RULESET.template.md",
+        "foundation/repo_map.template.yaml"
+      ],
+      "dependencies": [
+        "layered-validation",
+        "semantic-integration",
+        "bounded-processing-efficiency"
+      ],
+      "applicability": {
+        "mode": "ALWAYS",
+        "signals": [
+          "human_documentation",
+          "ai_control_discovery",
+          "existing_documentation_structure"
+        ],
+        "questions": [
+          "Can intended readers complete the central tasks and necessary continuation pages without chat history or unexplained work IDs?",
+          "Are shared authority, directory purposes, AI-control discovery and technical-inspection paths understandable?",
+          "How are documentation impacts of behavior/configuration changes selected and checked without repeatedly ingesting unchanged texts?",
+          "Which legacy gaps need concrete scope, owner or role, and resumption trigger in existing project planning?"
+        ]
+      },
+      "recommendation": {
+        "when_applicable": "APPLY_DEFAULT",
+        "summary": "Apply the documentation policy to new/materially changed paths, including behavior/configuration impacts with bounded context, and assess existing human/AI entry paths during integration. Plan scoped legacy remediation without claiming full documentation conformity from installed rules or passing links.",
+        "decision_required_when": [
+          "a needed directory or documentation migration exceeds current scope or has unresolved authority"
+        ]
+      }
+    },
     "test-evidence-reuse": {
       "title": "Optional local-to-remote test evidence recognition",
       "introduced_in": "1.24.0",

@@ -14,6 +14,12 @@ The Foundation validator establishes only `FOUNDATION_INTEGRITY` for an installe
 
 Existing target-project validators, static contracts, tests, reviews, and manual validation remain authoritative for their respective scopes. Installing or upgrading the Foundation must not delete, disable, weaken, or silently replace them. Select `PROJECT_SEMANTIC` and `RUNTIME_EMPIRICAL` checks impact-by-impact when the affected contract requires them.
 
+## Human documentation acceptance
+
+Apply `DOCUMENTATION_POLICY.md` when a change affects human reading paths, directory navigation, shared technical sources, or AI-control discovery, including behavior/configuration changes without documentation edits. Use its change-driven impact selection and bounded-context procedure; the responsible author checks the complete affected task and necessary continuation pages, including expected results, interpretation and help for deviations. A relevant technical-inspection path must lead from the AI entry to the authoritative contract, machine format and evidence or its explicit absence. After relocation, check links and other path consumers together.
+
+This is `PROJECT_SEMANTIC` validation. Use existing link checks and focused manual inspection where no checker exists; record paths, source binding, results and gaps in the existing PR or validation evidence. Neither passing links nor a green `FOUNDATION_INTEGRITY` check proves readability. Follow the documentation policy's gradual legacy adoption and scoped maintenance contract without new per-page metadata, mandatory extra reviewers, model calls, schemas, or tooling.
+
 ## Portable text representation and drift
 
 Foundation installation planning and installed-rule drift detection distinguish logical text content from platform-specific Git working-tree representation.

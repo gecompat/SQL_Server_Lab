@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
   "contract": "foundation-installation-provenance/v1",
-  "ruleset_version": "1.24.0",
+  "ruleset_version": "1.25.0",
   "source_repository": "https://github.com/gecompat/AI_Repository_Foundation",
-  "source_commit": "96391403a1b89e19d4824838806d7190d8033389",
-  "source_manifest_sha256": "acddcc5d9c930229279e627f341c5f4afa24ec00f4f77353ede5d137d90b0f48",
-  "recorded_at": "2026-10-19T22:00:49Z",
+  "source_commit": "a3567f8e5372e5f4db72dbd466323aa22c71b13a",
+  "source_manifest_sha256": "582d3dd2825c5124d7df34874182fef80dafe45bbb7ff239a4fad55c09a4a597",
+  "recorded_at": "2026-10-23T00:46:47Z",
   "selection": {
     "adapters": [
       "github-copilot"
@@ -80,8 +80,8 @@
       "target": ".ai/foundation/DOCUMENTATION_POLICY.md",
       "kind": "rule",
       "merge": "review_if_exists",
-      "source_sha256": "3540672bd4370e2077f5d8b24ac936c951d493994ae44c7818f12171325c8f9e",
-      "installed_sha256": "3540672bd4370e2077f5d8b24ac936c951d493994ae44c7818f12171325c8f9e",
+      "source_sha256": "ce9fc9fff99d342e00e94e31452f5ce28501d707b62825f4310f89a8c387bef7",
+      "installed_sha256": "ce9fc9fff99d342e00e94e31452f5ce28501d707b62825f4310f89a8c387bef7",
       "integration_state": "FOUNDATION_BASELINE",
       "reason": null
     },
@@ -90,8 +90,8 @@
       "target": ".ai/foundation/FOUNDATION_REFERENCE.md",
       "kind": "rule",
       "merge": "review_if_exists",
-      "source_sha256": "0af17deeecab0a9a2b644f6d138d677b13be7727503856fac360fb82b945e8ce",
-      "installed_sha256": "0af17deeecab0a9a2b644f6d138d677b13be7727503856fac360fb82b945e8ce",
+      "source_sha256": "1decc28192d58d07cbb84b1c09cee3f7ff07b7c11900c06756bddbab0b662037",
+      "installed_sha256": "1decc28192d58d07cbb84b1c09cee3f7ff07b7c11900c06756bddbab0b662037",
       "integration_state": "FOUNDATION_BASELINE",
       "reason": null
     },
@@ -100,8 +100,8 @@
       "target": ".ai/foundation/FOUNDATION_RULESET.md",
       "kind": "rule",
       "merge": "review_if_exists",
-      "source_sha256": "22084e5094e0c6847675a7998d494c9b2a8add46a5e8f56039852467c1064ce2",
-      "installed_sha256": "22084e5094e0c6847675a7998d494c9b2a8add46a5e8f56039852467c1064ce2",
+      "source_sha256": "52bfd6afb2bcf53c225c2be0a8b4f6639ff26e2fecccf2231b3d8298914fce4e",
+      "installed_sha256": "52bfd6afb2bcf53c225c2be0a8b4f6639ff26e2fecccf2231b3d8298914fce4e",
       "integration_state": "FOUNDATION_BASELINE",
       "reason": null
     },
@@ -140,8 +140,8 @@
       "target": ".ai/foundation/PROJECT_RULES.md",
       "kind": "rule",
       "merge": "review_if_exists",
-      "source_sha256": "f9ee46c0117573376b0c11c1953184ea657820be5d0db7a2f8862416c6183ad8",
-      "installed_sha256": "f9ee46c0117573376b0c11c1953184ea657820be5d0db7a2f8862416c6183ad8",
+      "source_sha256": "48ad6dd1a00e84513f7d280a88b2a9116a68a04284f97b1458863642f6ea6ce1",
+      "installed_sha256": "48ad6dd1a00e84513f7d280a88b2a9116a68a04284f97b1458863642f6ea6ce1",
       "integration_state": "FOUNDATION_BASELINE",
       "reason": null
     },
@@ -180,8 +180,8 @@
       "target": ".ai/foundation/SEMANTIC_INTEGRATION_POLICY.md",
       "kind": "rule",
       "merge": "review_if_exists",
-      "source_sha256": "a699b3693fbc43f96ff6b75316eda8fd29ce0b78ebbdc87064617fd201fa0abc",
-      "installed_sha256": "a699b3693fbc43f96ff6b75316eda8fd29ce0b78ebbdc87064617fd201fa0abc",
+      "source_sha256": "cc5697c301280424aa2b8db57ed503371728d68f0f0bcc68db294333015930ed",
+      "installed_sha256": "cc5697c301280424aa2b8db57ed503371728d68f0f0bcc68db294333015930ed",
       "integration_state": "FOUNDATION_BASELINE",
       "reason": null
     },
@@ -220,8 +220,8 @@
       "target": ".ai/foundation/UPGRADE_APPLICABILITY_POLICY.md",
       "kind": "rule",
       "merge": "review_if_exists",
-      "source_sha256": "faa206ca11da978d2050070bf5ae734b3b3e474c9d12b89f076f83b2f5f4d686",
-      "installed_sha256": "faa206ca11da978d2050070bf5ae734b3b3e474c9d12b89f076f83b2f5f4d686",
+      "source_sha256": "6656a974640c83c2ed2f4a7d3c18315698f537773facaaddccb353d29c614520",
+      "installed_sha256": "6656a974640c83c2ed2f4a7d3c18315698f537773facaaddccb353d29c614520",
       "integration_state": "FOUNDATION_BASELINE",
       "reason": null
     },
@@ -230,8 +230,8 @@
       "target": ".ai/foundation/VALIDATION_POLICY.md",
       "kind": "rule",
       "merge": "review_if_exists",
-      "source_sha256": "501f76844d9c848e7f057d06e9fc0d33beed7dc392cdf16be28d2bd19d4fbe96",
-      "installed_sha256": "501f76844d9c848e7f057d06e9fc0d33beed7dc392cdf16be28d2bd19d4fbe96",
+      "source_sha256": "813b9707b08d21a93b0212bd6ec3fd53822751f2ef0bdce4477d8cac9aba1036",
+      "installed_sha256": "813b9707b08d21a93b0212bd6ec3fd53822751f2ef0bdce4477d8cac9aba1036",
       "integration_state": "FOUNDATION_BASELINE",
       "reason": null
     },
@@ -250,8 +250,8 @@
       "target": ".ai/foundation/feature_catalog.json",
       "kind": "feature-catalog",
       "merge": "review_if_exists",
-      "source_sha256": "9d363ee9ea79bdd9a8b70d2d3fd786a95e12b0bb7c3a077239b51a9aca806a53",
-      "installed_sha256": "9d363ee9ea79bdd9a8b70d2d3fd786a95e12b0bb7c3a077239b51a9aca806a53",
+      "source_sha256": "915f224dec56bb449e3329a763164eaa4cdbef9912863076b0edcd6c438947dc",
+      "installed_sha256": "915f224dec56bb449e3329a763164eaa4cdbef9912863076b0edcd6c438947dc",
       "integration_state": "FOUNDATION_BASELINE",
       "reason": null
     },
@@ -260,8 +260,8 @@
       "target": ".ai/foundation/repo_map.yaml",
       "kind": "rule-index",
       "merge": "review_if_exists",
-      "source_sha256": "75576de773fddb08575f6912e081fb6333cb7b9a5cb33e92b210d9637e2d4d41",
-      "installed_sha256": "75576de773fddb08575f6912e081fb6333cb7b9a5cb33e92b210d9637e2d4d41",
+      "source_sha256": "06e33f6c836893dd9f6347437c591d9672e8fac32e5eac021bfb660f577c886f",
+      "installed_sha256": "06e33f6c836893dd9f6347437c591d9672e8fac32e5eac021bfb660f577c886f",
       "integration_state": "FOUNDATION_BASELINE",
       "reason": null
     },
@@ -780,10 +780,10 @@
       "target": "AGENTS.md",
       "kind": "entrypoint",
       "merge": "ai_merge_if_exists",
-      "source_sha256": "7ab3f9f93d39fa57b9ae9eae6df77a582c49d9e749a5c918f1206c986be5b553",
-      "installed_sha256": "7aaa499e1696fad238b6a6335f74dc9704e33e5316e7f8e2d1ea6afe1195cb05",
+      "source_sha256": "6739868f8cef93f3779a62c61740403005b7c13e01a6a4471a44f43b56040da1",
+      "installed_sha256": "970e6a3b2c0f2ba2bb90013ba55b1f9d2899f45b5cca98128b9c6e433aaa9475",
       "integration_state": "INTENTIONAL_OVERRIDE",
-      "reason": "Projektgef\u00fchrte Regeln, Privacy, Lizenz und Discovery au\u00dferhalb der Foundation-Bridge erhalten; verwalteten Foundation-1.24.0-Block integriert."
+      "reason": "Projektgef\u00fchrte Regeln, Privacy, Lizenz und Discovery au\u00dferhalb der Foundation-Bridge erhalten; verwalteten Foundation-1.25.0-Block semantisch integriert."
     }
   ]
 }

@@ -1,22 +1,16 @@
 # SQL Server Lab
 
-Nach Neustart eines eigenen operativen TLS-Containers aktualisiert `Update-SqlServerLabTlsBinding -RunId $lab.RunId -InstanceId primary -StateRoot $lab.StateRoot` ausdrücklich dessen Startbindung nach beiden strikten Clients. Ein unveränderter Start ist kein neuer Nachweis; alte Exporte bleiben ungültig. [Vertrag, WhatIf und Recoverygrenze](Documentation/Architecture/AUTHENTICATED_TLS_CONTAINER_REBIND.md).
-
-Optionale [Volltextsuche und FILESTREAM](Documentation/Architecture/SQL_OPTIONAL_FEATURES.md)
-werden explizit über Manifest, CLI und GUI ausgewählt. Volltext ist für
-Docker/Podman und Windows/Hyper-V implementiert; FILESTREAM-T-SQL-Zugriff
-benötigt Windows/Hyper-V. Die [Validierungsstrategie](Documentation/Quality/LOCAL_VALIDATION_STRATEGY.md#optionale-sql-funktionen-volltext-und-filestream)
-trennt implementierte Tests von tatsächlich ausgeführten Providerabnahmen.
-
-CLI-Runstatus und GUI unter **Verbindungen und CMS** zeigen die angegebenen
-Werte von `Encrypt` und `TrustServerCertificate` je Ziel ausdrücklich an.
-Fehlende Werte werden nicht geraten; [Anzeigevertrag](Documentation/Architecture/SQL_CONNECTION_SETTINGS.md).
-
 `SQL_Server_Lab` erstellt lokale, isolierte SQL-Server-Testumgebungen für
 Entwicklung, Analyse und Schulung. Das PowerShell-Modul übernimmt Erstellung,
 SQL-Bereitschaft, Datenbank- und Skriptaufgaben, Start/Stop sowie
 scopegebundenen Cleanup. Docker und Podman sind die Kernprovider;
 Hyper-V bietet eigene begrenzte Windows-/SQL-Referenzpfade.
+
+Das Projekt richtet sich an EntwicklerInnen, SQL-AdministratorInnen und
+SchulungsteilnehmerInnen. Es wird aktiv weiterentwickelt; der implementierte
+Umfang und tatsächlich ausgeführte Providerabnahmen stehen getrennt in der
+[öffentlichen Referenz](Public/README.md) und den
+[bekannten Grenzen](Documentation/Quality/KNOWN_LIMITATIONS.md).
 
 Neue Lab-Connection-Strings und SSMS-Registrierungsexporte verwenden
 `Encrypt=True;TrustServerCertificate=True` als einfachen Standard ohne eigene
@@ -27,20 +21,7 @@ mit qualifiziertem separatem Export implementiert. CLI und GUI zeigen die
 angegebenen Flags; der Flagwert allein ist kein Qualifikationsnachweis.
 Weitere Kombinationen und die aktuelle Liveprüfung des TLS-Status bleiben TLS-001-Scope.
 
-Die [isolierte Linux-TLS-Kryptomatrix](Documentation/Quality/TLS_LINUX_CLIENT_MATRIX_ACCEPTANCE_2026-10-22.md)
-bestand mit beiden echten Clientstacks für Docker und Podman auf den drei
-genannten SQL-Profilen. Öffentliche Linux-Registry-/Export-/Consumerpfade und
-die übrige TLS-001-Matrix bleiben getrennt; dieser Testharness ist keine
-zusätzliche öffentliche Lab-Erstellungsschnittstelle.
-
 ## Voraussetzungen
-
-Im [Windows-Prepared-Pfad](Documentation/Architecture/HYPERV_SQL_COLLATION.md)
-wird eine ausgewaehlte Instanzcollation bis CompleteImage weitergegeben und
-fuer Server, master und tempdb geprueft. Neue interaktive SQL-Zielintents nutzen
-den editierbaren Standard aus `Catalogs/sql-intent-defaults.json`, initial
-`SQL_Latin1_General_CP1_CS_AS`. Windows ohne Intent bleibt unveraendert;
-native Collationabnahmen sind noch offen.
 
 - PowerShell 7.2 oder neuer.
 - Eine installierte und laufende Docker- oder Podman-Runtime für Containerlabs.
@@ -98,7 +79,8 @@ The complete terms are defined in [LICENCE.md](./LICENCE.md).
 | Eigene SSIS-Projekte im bestehenden Windows-Lab | [Windows-authentifizierter Consumerzugang](Documentation/HowTo/SSIS_CONSUMER_WINDOWS_ACCESS.md) |
 | Geprüfte Pfade und historische Nachweise | [Lokale Validierungsstrategie](Documentation/Quality/LOCAL_VALIDATION_STRATEGY.md) |
 | Einschränkungen und fehlende Nachweise | [Known Limitations](Documentation/Quality/KNOWN_LIMITATIONS.md) |
-| Am Repository arbeiten | [AGENTS.md](AGENTS.md), [CONTRIBUTING.md](CONTRIBUTING.md), [Repository-Map](.ai/repo_map.yaml) |
+| Am Repository arbeiten | [CONTRIBUTING.md](CONTRIBUTING.md), [Entwicklungsumgebung](Documentation/Development/DEVELOPMENT_AND_TEST_SETUP_WINDOWS.md), [Validierungsstrategie](Documentation/Quality/LOCAL_VALIDATION_STRATEGY.md) |
+| KI-Arbeitsvertrag und technische Quellen prüfen | [KI-Einstieg AGENTS.md](AGENTS.md), [Quellenweg](#ki-steuerung-und-maschinelle-quellen) |
 
 SA-Passwort-Vorprüfung und Korrektur folgen dem
 [Passwortvertrag](Documentation/Architecture/SA_PASSWORD_POLICY.md);
@@ -722,6 +704,28 @@ $batch = New-SqlServerLabBatch `
 Invoke-SqlServerLabScheduler -UntilIdle
 ```
 
+## Optionale SQL-Funktionen und TLS-Bindung
+
+Nach Neustart eines eigenen operativen TLS-Containers aktualisiert `Update-SqlServerLabTlsBinding -RunId $lab.RunId -InstanceId primary -StateRoot $lab.StateRoot` ausdrücklich dessen Startbindung nach beiden strikten Clients. Ein unveränderter Start ist kein neuer Nachweis; alte Exporte bleiben ungültig. [Vertrag, WhatIf und Recoverygrenze](Documentation/Architecture/AUTHENTICATED_TLS_CONTAINER_REBIND.md).
+
+Optionale [Volltextsuche und FILESTREAM](Documentation/Architecture/SQL_OPTIONAL_FEATURES.md)
+werden explizit über Manifest, CLI und GUI ausgewählt. Volltext ist für
+Docker/Podman und Windows/Hyper-V implementiert; FILESTREAM-T-SQL-Zugriff
+benötigt Windows/Hyper-V. Die [Validierungsstrategie](Documentation/Quality/LOCAL_VALIDATION_STRATEGY.md#optionale-sql-funktionen-volltext-und-filestream)
+trennt implementierte Tests von tatsächlich ausgeführten Providerabnahmen.
+
+CLI-Runstatus und GUI unter **Verbindungen und CMS** zeigen die angegebenen
+Werte von `Encrypt` und `TrustServerCertificate` je Ziel ausdrücklich an.
+Fehlende Werte werden nicht geraten; [Anzeigevertrag](Documentation/Architecture/SQL_CONNECTION_SETTINGS.md).
+
+Im [Windows-Prepared-Pfad](Documentation/Architecture/HYPERV_SQL_COLLATION.md)
+wird eine ausgewaehlte Instanzcollation bis CompleteImage weitergegeben und
+fuer Server, master und tempdb geprueft. Neue interaktive SQL-Zielintents nutzen
+den editierbaren Standard aus `Catalogs/sql-intent-defaults.json`, initial
+`SQL_Latin1_General_CP1_CS_AS`. Windows ohne Intent bleibt unveraendert;
+der begrenzte native SQL-2025-Referenznachweis und seine offenen Grenzen
+stehen in der [Validierungsstrategie](Documentation/Quality/LOCAL_VALIDATION_STRATEGY.md#windows-prepared-collation-und-editierbarer-intentstandard).
+
 ## Öffentliche Cmdlets
 
 Instanzcollations im Manifest und bei `New-SqlServerLab -Collation` werden
@@ -961,6 +965,13 @@ flowchart TD
 
 ## Tests und Validierung
 
+Die [isolierte Linux-TLS-Kryptomatrix](Documentation/Quality/TLS_LINUX_CLIENT_MATRIX_ACCEPTANCE_2026-10-22.md)
+bestand mit beiden echten Clientstacks für Docker und Podman auf den drei
+genannten SQL-Profilen. Öffentliche Linux-Registry-/Export-/Consumerpfade und
+die übrige TLS-001-Matrix bleiben getrennt; dieser Testharness ist keine
+zusätzliche öffentliche Lab-Erstellungsschnittstelle.
+
+
 Vor jedem Push/Release ist zusätzlich die lokale Readiness-Checkliste sinnvoll:
 
 ```powershell
@@ -1051,6 +1062,35 @@ Schemas/         JSON-Schemas und ausführbare Beispiele
 Tests/           statische Prüfungen sowie Lifecycle-, Matrix- und Paralleltests
 _QuellRepo/      unveränderte Quell-Snapshots anderer Repositories
 ```
+
+## KI-Steuerung und maschinelle Quellen
+
+Der ausdrücklich benannte **KI-Einstieg ist [AGENTS.md](AGENTS.md)**.
+Er führt über [Projektkontext](.ai/PROJECT_CONTEXT.md) und
+[Repository-Map](.ai/repo_map.yaml) zu den jeweils betroffenen Fachverträgen.
+Diese Steuerungsdateien ersetzen keine Produktreferenz und keinen Laufzeitnachweis.
+
+- `Documentation/User` und `Documentation/HowTo` erklären Einrichtung und Bedienung.
+- `Documentation/Architecture`, `Documentation/Standards`, `Public` und `Schemas`
+  enthalten gemeinsame technische Quellen für Menschen und Werkzeuge.
+- `Documentation/Project_Planning` beschreibt Vorhaben; `Documentation/Quality`
+  trennt aktuelle Prüfregeln und Grenzen von datierten Abnahmen.
+- `.ai` und die Root-`AGENTS.md` dienen der KI-Steuerung und Quellenauswahl.
+
+Ein technischer Prüfweg führt beispielsweise von der Repository-Map zum
+[Manifestvertrag](Documentation/Architecture/MANIFEST_AND_INTERFACE_ARCHITECTURE.md),
+[Schema](Schemas/lab-manifest.schema.json) und
+[Parser](Private/ManifestParser.ps1). Die
+[Validierungsstrategie](Documentation/Quality/LOCAL_VALIDATION_STRATEGY.md)
+benennt ausgeführte Prüfungen und fehlende Providerbelege. Die Exportliste im
+Modulmanifest ist die Quelle der öffentlichen API; Tabellen in der Dokumentation
+sind geprüfte Ansichten dieser Quelle.
+
+Die [Foundation-Provenienz](.ai/foundation/installation-provenance.json) bindet
+importierte Regeln an ihre Quelle. Sie ist kein SQL- oder Lesbarkeitsnachweis;
+die [semantische Upgradebewertung](Documentation/Quality/FOUNDATION_1_25_UPGRADE_ASSESSMENT.md)
+erklärt Auswahl, Projektverschärfungen und verbleibende Dokumentationsarbeit.
+Reale Runtime-States und vertrauliche Evidence bleiben außerhalb Git.
 
 ## Weiterführende Dokumentation
 
