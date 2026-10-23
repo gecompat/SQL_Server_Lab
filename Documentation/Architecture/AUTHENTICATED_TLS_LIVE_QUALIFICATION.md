@@ -111,16 +111,22 @@ oder Ablauf verwerfen die Anzeige. Eine verspätete Antwort aus einer früheren
 Ansicht wird verworfen. Polling ist auf 300 reine Statuslesungen begrenzt.
 Die automatische Workflowaktualisierung wartet während des laufenden
 TLS-Jobs. Bereits unterwegs befindliche automatische Antworten rendern in
-dieser Zeit keine neue Ansicht. Nach Jobende setzt die Aktualisierung wieder
-ein; ausdrückliche Aktualisierung und andere Benutzeraktionen bleiben
-bedienbar und verwerfen auch während der Prüfung verspätete Ergebnisse.
+dieser Zeit keine neue Ansicht. Eine vor dem TLS-Klick gestartete Antwort
+wird bei geänderter Ansichtsgeneration auch nach Jobende verworfen.
+Danach neu gestartete automatische Aktualisierungen setzen wieder ein;
+ausdrückliche Aktualisierung und andere Benutzeraktionen bleiben bedienbar
+und verwerfen auch während der Prüfung verspätete Ergebnisse.
 Ein unbestätigter Ausgang startet keine neue Probe. Die getrennte
 [native Browserabnahme](../Quality/TLS_UI_LIVE_QUALIFICATION_ACCEPTANCE_2026-10-23.md)
 bestand unter Windows für Docker und Podman mit SQL 2025 CU9: je acht Fälle
 und vier strikte UI-Clientresultate, einschließlich Neustartablehnung,
 frischem Ergebnis nach Wiederbindung, Refreshverfall und eigenem Cleanup.
-Sie verwendet den passenden serverseitigen Run-StateRoot. Creation- und
-Clipboardpfade sowie weitere UI-Profilkombinationen bleiben offene Scopes.
+Die [zusätzliche Profilabnahme](../Quality/TLS_UI_PROFILE_MATRIX_ACCEPTANCE_2026-10-23.md)
+belegt Docker und Podman für SQL 2019 CU32 und 2022 CU27 mit getrennten
+Quellständen: drei frühere positive Zellen und ein korrigierter
+Podman-/SQL-2022-Nachlauf; dessen erster FAIL bleibt erhalten.
+Beide Abnahmen verwenden den passenden serverseitigen Run-StateRoot.
+Creation- und Clipboardpfade sowie weitere Patch-/Clientkontexte bleiben offen.
 
 Die [fokussierte Suite](../../Tests/Static/Invoke-AuthenticatedTlsLiveQualificationChecks.ps1)
 prüft sechs Profil-/Providerprojektionen, geschlossene Typen und Ausgabe,

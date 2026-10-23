@@ -97,5 +97,6 @@
     available = value === true;
     controls.forEach((c) => { c.button.disabled = pending || !available; c.status.textContent = available ? initial : 'Liveprüfung auf diesem Host nicht verfügbar.'; });
   }
-  window.sqlServerLabTlsLiveQualification = Object.freeze({ mount, invalidate, setAvailable, isPending: () => pending });
+  window.sqlServerLabTlsLiveQualification = Object.freeze({ mount, invalidate, setAvailable,
+    isPending: () => pending, getGeneration: () => generation });
 })();

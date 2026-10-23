@@ -131,8 +131,13 @@ Die zusätzliche dedizierte Aktion **TLS jetzt prüfen** und deren gerenderte
 Beobachtung sind für Windows-/Docker-/Podman-SQL-2025-CU9
 [separat nativ abgenommen](../Quality/TLS_UI_LIVE_QUALIFICATION_ACCEPTANCE_2026-10-23.md):
 je acht Fälle, vier strikte UI-Clientresultate, Neustartablehnung, frische
-Wiederbindung, Refreshverfall und eigener Cleanup. Weitere UI-Profile,
-Creationdialog und Clipboard bleiben TLS-001c-Scope.
+Wiederbindung, Refreshverfall und eigener Cleanup. Die zusätzliche
+[UI-Profilabnahme](../Quality/TLS_UI_PROFILE_MATRIX_ACCEPTANCE_2026-10-23.md)
+schließt Docker und Podman mit SQL 2019 CU32 und 2022 CU27: vier positive
+Zellen, 32 Fälle, 16 strikte UI-Resultate; fünf eigene Labs entfernt.
+Drei Zellen und der korrigierte Podman-/SQL-2022-Nachlauf bleiben getrennte
+Quellstände; der erste Podman-/SQL-2022-FAIL bleibt erhalten. Weitere
+Patch-/Clientkontexte, Creationdialog und Clipboard bleiben TLS-001c-Scope.
 
 Die zusätzliche [echte Windows-Produktseitenabnahme](../Quality/TLS_WINDOWS_RENDERED_CONNECTION_SETTINGS_2026-10-21.md)
 schließt die gespeicherte TLS-Anzeige an eigenen qualifizierten Docker-/Podman-
@@ -188,13 +193,13 @@ abgenommen; der Creationdialog bleibt getrennt offen.
 | Merkmal | Festlegung |
 |---|---|
 | Priorität | `P1`; höchste nächste Priorität unmittelbar nach dem laufenden SSISDB-Stream, Benutzerauftrag vom 2026-10-15 |
-| Status | `partial`; operative Windows-/Docker-/Podman-Profile SQL 2019 CU32, 2022 CU27 und 2025 CU9, deren V2-Consumerpfad und explizite Live-API separat nativ abgenommen; gerenderte Liveaktion für Windows-/Docker-/Podman-SQL-2025-CU9 und private Windows-/Hyper-V-SQL-2025-RTM-Referenz nativ abgenommen. Öffentliche Hyper-V-/Linuxpfade, weitere Consumer, Creation-/Clipboardpfade, weitere UI-Profile und Lifecycle-/Trustkontexte bleiben offen |
+| Status | `partial`; operative Windows-/Docker-/Podman-Profile SQL 2019 CU32, 2022 CU27 und 2025 CU9, deren V2-Consumerpfad, explizite Live-API und gerenderte Liveaktion separat nativ abgenommen; getrennte Quellstände bleiben ausgewiesen. Private Windows-/Hyper-V-SQL-2025-RTM-Referenz nativ abgenommen. Öffentliche Hyper-V-/Linuxpfade, weitere Consumer, Creation-/Clipboardpfade, weitere Patch-/Clientkontexte und Lifecycle-/Trustkontexte bleiben offen |
 | Abhängigkeit | **Toolbelt SC-2026-045 – authentifizierte Liveabnahme** |
 | Auslöser | [Toolbelt PR #322](https://github.com/gecompat/SQL_Server_Toolbelt/pull/322), geprüfter Head `8772e9d6a1d538e6fcb22da3f0bd03c83a28e88a`; PR bei der Prüfung am 2026-10-15 offen, kein behaupteter Merge |
 | Verantwortung | Lab: Serverzertifikate, Identität, Client-Trust, Export und Bereitschaft; Toolbelt: eigener Preflight und tatsächliche Clientverbindungen |
 | Entwicklungsreife | [Modus-/CA-Entwurf](TLS_001_ISOLATED_CA_DESIGN.md) und begrenzter [operativer Vertrag](../Architecture/AUTHENTICATED_TLS_OPERATIONAL_LAB.md); weiterführende Matrix-, Consumer- und Lifecycle-Anforderungen bleiben P1 |
 | Aktueller Auftrag | Autonome Welle am 2026-10-16 ausdrücklich wieder gestartet; anschließend Fortsetzung bis zur echten TLS-Lab-Abnahme beauftragt, damit Toolbelt SC-2026-045 weiterführen kann. Isolierte Lab-CA ausgewählt; konkrete fehlende Freigaben gezielt anhand reviewbarer Previews klären. Bestehende geschützte Zertifikats-/Trust-/Resolver-/Testzielbindungen bleiben bis zur passenden konkreten Freigabe unverändert |
-| Modus und Default | `Encrypt=True;TrustServerCertificate=True` bleibt der Standard mit geringerem Einrichtungsaufwand. `False` wird ausdrücklich gewählt und benötigt qualifizierte Zertifikats-/Clientbindung; im operativen Windows-/Docker-SQL-2025-CU9-Scope implementiert. Weitere Kombinationen bleiben P1; [verbindliche Modusentscheidung](TLS_001_ISOLATED_CA_DESIGN.md#verbindliche-moduswahl-und-standard) |
+| Modus und Default | `Encrypt=True;TrustServerCertificate=True` bleibt der Standard mit geringerem Einrichtungsaufwand. `False` wird ausdrücklich gewählt und benötigt qualifizierte Zertifikats-/Clientbindung; die operativen Windows-/Docker-/Podman-Profile SQL 2019 CU32, 2022 CU27 und 2025 CU9 sind getrennt belegt. Weitere Client-/Patch-/Providerkontexte bleiben P1; [verbindliche Modusentscheidung](TLS_001_ISOLATED_CA_DESIGN.md#verbindliche-moduswahl-und-standard) |
 | Sofortumsetzung | Die Bedingung vom 2026-10-16 stellte den damaligen unvollständigen Zertifikats-/Trustpfad zurück. Der nachfolgende ausdrückliche Auftrag implementierte den eigenen operativen Teilscope; fehlende weitere Voraussetzungen bleiben im P1-Backlog. |
 
 ##### Voraussetzungen und Startentscheidung vom 2026-10-16
@@ -664,4 +669,12 @@ vollständigem eigenem Cleanup. Die fokussierten Prüfungen und betroffene
 Regression sind grün; die erforderlichen PR-Gates bleiben Integrationsbedingung.
 Frühere getrennte Podman-TLS-Nachweise werden nicht umgedeutet.
 
-Der [operative Windows-/Docker-SQL-2025-CU9-Pfad](../Architecture/AUTHENTICATED_TLS_OPERATIONAL_LAB.md) mit bestehender CA-/Trustscopebindung, eigener SQL-Zertifikatsbindung, True/False-Anzeige und separatem qualifiziertem V2-Export ist implementiert und nativ geprüft. P1 bleiben die übrigen operativen Provider-/Client-/SQL-Kombinationen, V2-Consumer-Cutover und automatisches Renewal/Rebind. Die früheren Default-True/True-Nachweise sind davon getrennt und bleiben erhalten.
+Der [operative Windows-Containerpfad](../Architecture/AUTHENTICATED_TLS_OPERATIONAL_LAB.md)
+mit bestehender CA-/Trustscopebindung, eigener SQL-Zertifikatsbindung,
+True/False-Anzeige und separatem qualifiziertem V2-Export ist für Docker und
+Podman mit SQL 2019 CU32, 2022 CU27 und 2025 CU9 getrennt nativ belegt.
+Der begrenzte [Windows-V2-Consumer-Cutover](../Quality/TLS_V2_CONSUMER_CUTOVER_ACCEPTANCE_2026-10-22.md)
+und der [explizite Container-Rebind](../Architecture/AUTHENTICATED_TLS_CONTAINER_REBIND.md)
+sind ebenfalls getrennt belegt. P1 bleiben weitere Client-/Provider-/SQL- und
+Consumerkontexte sowie automatisches Renewal/Recovery. Die früheren
+Default-True/True-Nachweise bleiben eigenständige historische Belege.

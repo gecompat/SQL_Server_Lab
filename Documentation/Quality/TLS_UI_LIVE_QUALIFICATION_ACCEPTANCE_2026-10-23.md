@@ -72,9 +72,14 @@ ohne offene Findings; finale Dokumentations- und PR-Gates bleiben eigene Schritt
 
 ## Weiter offen
 
+Die nachfolgende [UI-Profilabnahme](TLS_UI_PROFILE_MATRIX_ACCEPTANCE_2026-10-23.md)
+belegt SQL 2019 CU32 und 2022 CU27 mit eigenen getrennten Quellständen;
+sie erweitert diesen ursprünglichen SQL-2025-Nachweis nicht rückwirkend.
+
 Diese Abnahme verwendet den passenden serverseitigen Run-StateRoot für
 das eigene registrierte Ziel. Sie belegt keine globale Suche über alle
-Auditroots. Andere UI-SQL-Profile, Creationdialog und Clipboardpfade,
+Auditroots. Andere UI-SQL-Profile belegt der oben verlinkte Nachfolger
+gesondert. Creationdialog und Clipboardpfade,
 öffentliche Linux- und Hyper-V-Lanes, operatives Renewal/Recovery und weitere
 Trust-/Consumerkontexte bleiben getrennte Scopes. Die frühere
 [sechszellige API-Abnahme](TLS_LIVE_QUALIFICATION_API_ACCEPTANCE_2026-10-23.md)
