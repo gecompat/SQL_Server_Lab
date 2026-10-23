@@ -38,7 +38,32 @@ mit 16, anschließend 15 und nach dem Laufzeitfix elf ausgewählten Suites.
 Unveränderte grüne Ergebnisse werden als Wiederverwendung ausgewiesen.
 Das sind getrennte statische und native Nachweise; die native Quelle blieb
 während beider positiver Zellen unverändert. Creationdialog und Clipboard
-sind damit nicht abgenommen.
+sind damit nicht abgenommen; der nachfolgende Abschnitt belegt separat den
+einfachen Erstellungsstandard.
+
+## Container-Erstellung im Browser
+
+Der [datierte Default-Erstellungsnachweis](TLS_UI_DEFAULT_CREATION_ACCEPTANCE_2026-10-23.md)
+bestand mit echtem Produktserver, Browser und beiden SQL-Clients separat für
+Windows/Docker und Windows/Podman auf SQL 2025 CU9: je acht Fälle, vier
+Browserfälle und zwei True/True-Clientresultate. Die vier Browserfälle sind
+Teil der acht Fälle. Alle vier neuen Labs wurden vollständig entfernt;
+Bestandsvergleich und tatsächliche ganze Windows-Jobleere bestanden.
+Die zwei ursprünglichen FAILs bleiben mit ihren partiellen Browser- und
+Clientresultaten getrennt erhalten. Ein noch nicht ausgeführter eigener
+Removeauftrag des zweiten FAILs wurde anschließend kanonisch abgebrochen;
+das war Metadaten-Cleanup ohne Provideraktion, keine nachträgliche PASS-Wertung.
+
+Die geschlossene JSON-Grenze akzeptiert die echten booleschen Frontendfelder
+`FullText` und `FileStream`; Strings, Zahlen, Arrays und null bleiben abgewiesen.
+92 fokussierte Passwortprüfungen, neun HTTP-Fixtureprüfungen und alle elf
+betroffenen statischen Suites einschließlich vollständigem Analyzer bestanden.
+Die native Produktquelle blieb während aller vier Labs unverändert. Änderungen
+zwischen den Versuchen betrafen ausschließlich die private Browsersteuerung;
+die abschließenden Dokumentationsänderungen erhalten einen getrennten Deltagate.
+Der einfache Modus `Encrypt=True;TrustServerCertificate=True` ist kein strikter
+Zertifikatsnachweis. Authentifizierte Erstellung, weitere Erstellungsprofile,
+Clipboard und Wire-Fingerprint sind damit nicht abgenommen.
 
 ## Explizite öffentliche TLS-Livequalifikation
 

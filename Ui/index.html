@@ -355,6 +355,7 @@
   <dialog id="container-dialog">
     <form id="container-form" method="dialog">
       <div class="dialog-heading"><div><p class="eyebrow">CONTAINER-LAB</p><h2>Neue SQL-Umgebung</h2></div><button type="button" class="icon-button" value="cancel" formnovalidate aria-label="Schließen">×</button></div>
+      <p id="container-tls-default" class="form-note">Die SQL-Verbindung verwendet Encrypt=True;TrustServerCertificate=True: verschlüsselt, ohne Prüfung des Serverzertifikats.</p>
       <div class="form-grid">
         <label>Provider<select id="container-provider"><option value="docker">Docker</option><option value="podman">Podman</option></select></label>
         <label>SQL Server<select id="container-version"><option value="2022">SQL Server 2022</option><option value="2019">SQL Server 2019</option><option value="2025">SQL Server 2025</option></select></label>

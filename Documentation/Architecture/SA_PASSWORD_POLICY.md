@@ -37,6 +37,12 @@ unbekannter Parameter und Datentypen und fuehrt dieselbe Policy vor dem
 Start eines Creationjobs erneut aus. Der oeffentliche Fachbefehl prueft sie
 vor State und Provider. Fehlermeldungen enthalten keine Passwortwerte.
 
+Der geschlossene JSON-Reader akzeptiert die vom Erstellungsdialog gesendeten
+Featurefelder `FullText` und `FileStream` ausschliesslich als echte Booleans.
+Strings, Zahlen, Arrays und `null` sind ungueltig. Das erweitert weder die
+Manifestform noch die unterstuetzten SQL-/Providerfaehigkeiten; deren
+Fachpruefungen gelten weiterhin vor der Provisionierung.
+
 Der ausschliessliche AdHoc-Parameter `SaPasswordMinimumLength` besitzt Default
 acht. Kleinere Werte beschreiben dieselbe ausdrueckliche Entscheidung. Zulaessig
 sind nur Docker/Podman, exakt katalogisierte SQL2025-CUs, Standardlaunch und

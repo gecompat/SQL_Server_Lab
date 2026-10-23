@@ -1,5 +1,12 @@
 # Lokale Workflow-Oberfläche
 
+Die lokale Oberfläche erstellt und verwaltet eigene SQL-Labs und zeigt deren
+Verbindungen. Richten Sie zuerst die [Voraussetzungen und den UI-Start](#start)
+ein; wählen Sie anschließend die gewünschte Aufgabe. Die Container-Erstellung
+und die Prüfung eines bereits authentifizierten TLS-Labs sind getrennte Abläufe.
+
+## Verbindungen anzeigen
+
 Unter **Verbindungen und CMS** zeigt jede SQL-Zielkarte ihre angegebenen
 **Connection Settings**: `Encrypt` und `TrustServerCertificate`. Der neue
 Standard bleibt jeweils `True`. Explizites `False` bleibt sichtbar; fehlende
@@ -13,6 +20,42 @@ Zertifikatsprüfung und nicht angeforderte Verschlüsselung werden getrennt
 benannt. Die Anzeige startet keine Verbindung und behauptet keinen aktuellen
 Zertifikatsnachweis. Eine frühere Qualifikation wird dadurch nicht ausgewertet.
 Die [ausdrückliche Liveprüfung](#tls-jetzt-prüfen) ist eine separate Aktion.
+
+## Container-Lab erstellen
+
+Starten Sie die Oberfläche gemäß [Start](#start) mit einem bereiten Provider
+und den dort beschriebenen Datenroot-Einstellungen. Öffnen Sie
+**Neue Container-Umgebung** und wählen Sie Provider, SQL-Version, Profil und
+Labnamen ausdrücklich. Der Dialog nennt den unveränderten
+Verbindungsstandard `Encrypt=True;TrustServerCertificate=True`: Die Verbindung
+ist verschlüsselt, das Serverzertifikat wird vom Client dabei nicht geprüft.
+Für diesen Standard sind weder eine eigene CA noch ein Trustimport erforderlich.
+
+Wählen Sie optionale Volltextsuche und Persistenz nur bewusst und bestätigen
+Sie das SA-Passwort. **Umgebung erstellen** übermittelt einen Hintergrundauftrag;
+Annahme und erfolgreicher Abschluss werden getrennt im Auftragsbereich
+angezeigt. Warten Sie auf den erfolgreichen Abschluss und suchen Sie unter
+**Lab-Umgebungen** das genaue neue Lab. Fehlen noch Metadaten, verwenden Sie
+**Aktualisieren**; erstellen Sie deshalb kein zweites Lab.
+
+Unter **Verbindungen und CMS** prüfen Sie für genau dieses Lab Instanz,
+Provider, Host und Port sowie beide True-Werte in den **Connection Settings**.
+Die angezeigte Konfiguration ist selbst kein Zertifikatsnachweis. Wiederholen
+Sie einen Auftrag mit unklarem Ergebnis nicht blind, sondern prüfen Sie zuerst
+seinen Status. Zum späteren Entfernen wählen Sie **Entfernen** am eigenen Lab,
+bestätigen die Aktion und warten auf ihren Abschluss; die Auftragsannahme allein
+belegt den Cleanup noch nicht.
+
+Der [datierte Browsernachweis](../Quality/TLS_UI_DEFAULT_CREATION_ACCEPTANCE_2026-10-23.md)
+belegt den kompakten, nicht persistenten Standardpfad mit Docker und Podman auf
+Windows und SQL 2025 CU9, ohne Autostart, Volltextsuche oder FileStream.
+Andere Erstellungsprofile benötigen eigene Nachweise.
+
+Die Erstellung eines authentifizierten Labs mit `TrustServerCertificate=False`
+erfolgt weiterhin über den ausdrücklich gebundenen
+[operativen API-Pfad](../Architecture/AUTHENTICATED_TLS_OPERATIONAL_LAB.md).
+Der bestehende Erstellungsdialog schaltet weder vorhandene Labs um noch
+richtet er CA oder Client-Trust ein.
 
 ## TLS jetzt prüfen
 
@@ -76,7 +119,8 @@ Die [native Browserabnahme](../Quality/TLS_UI_LIVE_QUALIFICATION_ACCEPTANCE_2026
 belegt Windows-/Docker-/Podman-SQL-2025-CU9. Die zusätzlich geprüften
 SQL-2019-CU32-/SQL-2022-CU27-Zellen stehen in der
 [getrennten Profilabnahme](../Quality/TLS_UI_PROFILE_MATRIX_ACCEPTANCE_2026-10-23.md).
-Weitere Patch-/Clientkontexte, Creationdialog und Clipboard bleiben offen;
+Weitere Patch-/Clientkontexte, authentifizierter Creationdialog, weitere
+Erstellungsprofile und Clipboard bleiben offen;
 `WireCertificateFingerprint=NOT_OBSERVED` bleibt wahr.
 
 Die Hintergrundinventur hält ein erfolgreich abgeschlossenes, nichtleeres
