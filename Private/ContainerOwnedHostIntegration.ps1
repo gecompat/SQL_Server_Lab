@@ -997,8 +997,87 @@ function Invoke-LabOwnedHostToolImageBuild {
     }
 }
 
+function Get-LabOwnedHostTlsLinuxClientArguments {
+    param([Parameter(Mandatory)]$Intent,[Parameter(Mandatory)][string]$SqlContainerId,[Parameter(Mandatory)][string]$ImageId)
+    if($Intent.Provider -isnot [string] -or $Intent.Provider -cnotin @('docker','podman') -or
+        $Intent.InstanceId -cne 'tls-linux-client' -or $SqlContainerId -cnotmatch '\A[a-f0-9]{64}\z' -or $ImageId -cnotmatch '\Asha256:[a-f0-9]{64}\z'){
+        throw 'OWNED_HOST_TLS_LINUX_CLIENT_INPUT_INVALID'
+    }
+    if($Intent.Provider -ceq 'podman' -and ($Intent.ContainerName -isnot [string] -or
+        $Intent.ContainerName -cnotmatch '\A[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\z')){
+        throw 'OWNED_HOST_TLS_LINUX_CLIENT_INPUT_INVALID'
+    }
+    # Podman resolves U against the fixed container UID/GID for this tmpfs.
+    # Its CLI rejects Docker's explicit uid=/gid= tmpfs options. No host mount
+    # or recursive ownership operation is admitted by this closed profile.
+    $clientTmpfs=if($Intent.Provider -ceq 'podman'){'/opt/tls-client:rw,exec,nosuid,nodev,size=512m,mode=0700,U'}else{'/opt/tls-client:rw,exec,nosuid,nodev,size=512m,mode=0700,uid=10001,gid=0'}
+    # The Podman network-container profile shares SQL's hosts file but retains
+    # private UTS. Bind its hostname to its own intent name, which Podman maps
+    # locally; never edit the shared hosts file or change the SQL TLS target.
+    $hostnameArguments=if($Intent.Provider -ceq 'podman'){@('--hostname',$Intent.ContainerName)}else{@()}
+    return @('create','--name',$Intent.ContainerName) + @($hostnameArguments) + @(
+        '--label',('sql-server-lab.run-id='+$Intent.RunId),'--label',('sql-server-lab.scope-id='+$Intent.ScopeId),
+        '--label',('sql-server-lab.instance-id='+$Intent.InstanceId)) + @(Get-LabOwnedHostContainerLabels $Intent) + @(
+        '--label','sql-server-lab.fixture-kind=tls-linux-client-v1','--pull=never',
+        '--network',('container:'+$SqlContainerId),'--read-only',
+        '--tmpfs',$clientTmpfs,
+        '--tmpfs','/tmp:rw,noexec,nosuid,nodev,size=32m,mode=1777',
+        '--user','10001:0','--cap-drop','ALL','--security-opt','no-new-privileges',
+        '--pids-limit','96','--memory','1024m','--cpus','1','--entrypoint','/bin/sleep',$ImageId,'1800')
+}
+
+function Assert-LabOwnedHostTlsLinuxClientCreateInputs {
+    param([string]$StateRoot,[string]$Provider,[string[]]$Arguments)
+    $labels=@{};$network=$null
+    for($i=1;$i -lt $Arguments.Count;$i++){
+        if($Arguments[$i] -ceq '--label'){
+            if(++$i -ge $Arguments.Count){throw 'OWNED_HOST_TLS_LINUX_CLIENT_INPUT_INVALID'}
+            $pair=$Arguments[$i].Split('=',2)
+            if($pair.Count -ne 2 -or $labels.ContainsKey($pair[0])){throw 'OWNED_HOST_TLS_LINUX_CLIENT_INPUT_INVALID'}
+            $labels[$pair[0]]=$pair[1]
+        }elseif($Arguments[$i] -ceq '--network'){
+            if($null -ne $network -or ++$i -ge $Arguments.Count){throw 'OWNED_HOST_TLS_LINUX_CLIENT_INPUT_INVALID'}
+            $network=$Arguments[$i]
+        }
+    }
+    if($labels.'sql-server-lab.fixture-kind' -cne 'tls-linux-client-v1' -or
+        $labels.'sql-server-lab.instance-id' -cne 'tls-linux-client' -or $network -cnotmatch '\Acontainer:([a-f0-9]{64})\z'){
+        throw 'OWNED_HOST_TLS_LINUX_CLIENT_INPUT_INVALID'
+    }
+    $sqlId=$Matches[1];$runId=$labels.'sql-server-lab.run-id';$intentId=$labels.'sql-server-lab.owned-host-intent-id'
+    Assert-LabOwnedHostGuid $runId;Assert-LabOwnedHostGuid $intentId
+    $policy=Get-LabOwnedHostRunPolicy -StateRoot $StateRoot -RunId $runId
+    if(-not $policy){throw 'OWNED_HOST_TLS_LINUX_CLIENT_POLICY_REQUIRED'}
+    $path=Join-Path (Join-Path (Join-Path $StateRoot 'runs') $runId) ('owned-host-containers/'+$intentId+'.intent.json')
+    $intent=Read-LabOwnedHostRecord $path
+    if($intent.Provider -cne $Provider -or $intent.RunId -cne $runId -or $intent.PolicyId -cne $policy.PolicyId -or
+        $intent.RootScopeId -cne $policy.RootScopeId -or $intent.ScopeId -cne $labels.'sql-server-lab.scope-id' -or $intent.IntentId -cne $intentId){
+        throw 'OWNED_HOST_TLS_LINUX_CLIENT_INTENT_DRIFT'
+    }
+    # The shared namespace belongs to this run's receipt-bound primary SQL
+    # container. It never admits a foreign container or the host network.
+    Assert-LabOwnedHostContainerEffect -StateRoot $StateRoot -RunId $runId -Provider $Provider -ContainerId $sqlId
+    $observed=Invoke-LabOwnedHostPinnedCommand -StateRoot $StateRoot -Provider $Provider -Arguments @('inspect',$sqlId)
+    if($observed.ExitCode -ne 0){throw 'OWNED_HOST_TLS_LINUX_CLIENT_SQL_UNVERIFIABLE'}
+    $sql=@($observed.Stdout|ConvertFrom-Json -Depth 32)
+    if($sql.Count -ne 1 -or $sql[0].Config.Labels.'sql-server-lab.instance-id' -cne 'primary' -or -not $sql[0].State.Running){
+        throw 'OWNED_HOST_TLS_LINUX_CLIENT_SQL_UNVERIFIABLE'
+    }
+    # Client tooling is taken only from this already cached stock image. No
+    # image acquisition, host mount or additional capability is admitted.
+    $client=Get-LabOwnedHostImageObservation -StateRoot $StateRoot -Provider $Provider -Image 'mcr.microsoft.com/mssql/server:2025-CU9-ubuntu-24.04'
+    if(-not $client -or $client.Id -cnotmatch '\Asha256:[a-f0-9]{64}\z'){throw 'OWNED_HOST_TLS_LINUX_CLIENT_IMAGE_UNAVAILABLE'}
+    $expected=@(Get-LabOwnedHostTlsLinuxClientArguments -Intent $intent -SqlContainerId $sqlId -ImageId $client.Id)
+    if($Arguments.Count -ne $expected.Count){throw 'OWNED_HOST_TLS_LINUX_CLIENT_ARGUMENT_DRIFT'}
+    for($i=0;$i -lt $expected.Count;$i++){if($Arguments[$i] -cne $expected[$i]){throw 'OWNED_HOST_TLS_LINUX_CLIENT_ARGUMENT_DRIFT'}}
+}
+
 function Assert-LabOwnedHostContainerCreateInputs {
     param([string]$StateRoot,[string]$Provider,[string[]]$Arguments)
+    if($Arguments -ccontains 'sql-server-lab.fixture-kind=tls-linux-client-v1'){
+        Assert-LabOwnedHostTlsLinuxClientCreateInputs -StateRoot $StateRoot -Provider $Provider -Arguments $Arguments
+        return
+    }
     $index=1
     while ($index -lt $Arguments.Count -and $Arguments[$index].StartsWith('-')) {
         $option=$Arguments[$index++]

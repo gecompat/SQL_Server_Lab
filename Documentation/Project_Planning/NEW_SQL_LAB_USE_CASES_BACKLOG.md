@@ -477,7 +477,7 @@ her; unsicherer Alttransport ist keine erfolgreiche TLS-Recovery.
    keine gemeinsam benutzten
    Zertifikate oder Trustanker für die Fehlererzeugung verändern. DNS-,
    TCP-/Runtime-, Authentisierungs- und Vertragsfehler getrennt berichten.
-4. Mindestens folgende sechs SQL-Zielkombinationen werden je tatsächlichem
+4. Mindestens folgende SQL-Zielkombinationen werden je tatsächlichem
    Windows-/Linux-Clientkontext und beiden Clientstacks qualifiziert. Docker,
    Podman und Hyper-V bleiben getrennte Evidence; unzutreffende Kombinationen
    nur mit begründeter Capabilitygrenze ausschließen, offene niemals grün werten.
@@ -485,27 +485,38 @@ her; unsicherer Alttransport ist keine erfolgreiche TLS-Recovery.
    | SQL-Zielplattform | SQL Server 2019 | SQL Server 2022 | SQL Server 2025 |
    |---|---|---|---|
    | Windows / Hyper-V | `NOT_EXECUTED` | `NOT_EXECUTED` | Private SQL-2025-RTM-Referenz mit Windowsclients bestanden; öffentliche False-/Exportlane offen |
-   | Linux / Docker und Podman getrennt | Windowsclients: je acht Fälle für CU32 bestanden | Windowsclients: je acht Fälle für CU27 bestanden | Windowsclients: je acht Fälle für CU9 bestanden |
+   | Linux / Docker und Podman getrennt | Windowsclients: je acht Fälle für CU32; Linuxclients: je neun Kryptofälle bestanden | Windowsclients: je acht Fälle für CU27; Linuxclients: je neun Kryptofälle bestanden | Windowsclients: je acht Fälle für CU9; Linuxclients: je neun Kryptofälle bestanden |
+
+   Die [Linux-Kryptomatrix](../Quality/TLS_LINUX_CLIENT_MATRIX_ACCEPTANCE_2026-10-22.md)
+   ergänzt getrennt je Provider und Profil neun Fälle mit 18 Clientergebnissen:
+   16 strikt und zwei positive Bypasskontrollen ohne übergebenen CA-Trust.
+   Trustentzug, falscher SAN, echter Ablauf und neues Leaf mit anderem Schlüssel
+   sowie eigener Cleanup sind belegt. Docker und Podman bleiben an ihre
+   verschiedenen Quellframes gebunden; keine erneute gemeinsame Native-Abnahme
+   am finalen Integrationshead. Öffentliche Linux-Erstellung ohne eigene CA,
+   Registry, Export und Consumer sind damit nicht abgenommen.
 
    Die [getrennten Container-Versionsbelege](../Quality/TLS_WINDOWS_CONTAINER_VERSION_MATRIX_2026-10-16.md)
    bleiben historische Kryptoproben. Die späteren öffentlichen Windows-Client-/
    Container-Lab-, V2-Export- und Neustart-/Rebind-Nachweise sind für SQL 2019 CU32,
-   2022 CU27 und 2025 CU9 jeweils getrennt ausgeführt. Linuxclients und die
-   vollständige Matrix bleiben offen; keine dieser Aussagen ersetzt die
-   öffentliche Hyper-V-Lane oder die Consumer-Abnahme.
+   2022 CU27 und 2025 CU9 jeweils getrennt ausgeführt. Öffentliche Linux-
+   Registry-/Export-/Consumerpfade und die vollständige Matrix bleiben offen;
+   keine dieser Aussagen ersetzt die öffentliche Hyper-V-Lane oder die Consumer-Abnahme.
 
    Die spätere [Windows-V2-Consumer-Abnahme](../Quality/TLS_V2_CONSUMER_CUTOVER_ACCEPTANCE_2026-10-22.md)
    bestand für diese sechs Containerprofile zusätzlich den öffentlichen
    Reader, echten Toolbelt-Preflight und Verbindungen beider Stacks sowie
    die Ablehnung einer gefälschten Signatur vor SQL-Arbeit. Alle acht eigenen
    Labs einschließlich zweier erhaltener Fehlversuche sind entfernt.
-   Linux-Clientprozesse und die öffentliche Hyper-V-Lane bleiben offen.
+   Linux-Verbraucher des öffentlichen V2-Pfads und die öffentliche Hyper-V-Lane
+   bleiben offen.
 
    Die spätere [Linux-Trustdriftabnahme](../Quality/TLS_LINUX_SQL2025_TRUST_DRIFT_ACCEPTANCE_2026-10-17.md)
    bestand separat mit sechs strikten SqlClient-/ODBC-Fällen auf Docker/SQL 2025
    CU9 und vollständigem eigenem Runtime-Cleanup. Sie schließt nur positive
-   Verbindung, Trustentzug und Wiederherstellung ein; echte Linux-Ablauf-/
-   Renewal-/Wrong-SAN-Fälle, andere Matrixzellen, Registry und Export bleiben offen.
+   Verbindung, Trustentzug und Wiederherstellung ein. Die neuere Linux-Kryptomatrix
+   ergänzt Ablauf, neues Leaf und falschen SAN in sechs Zellen; öffentliche
+   Registry und Export bleiben davon getrennt offen.
 
 5. Provisionierung, Neustart, Erneuerung, Migrationscutover, fehlgeschlagener
    Client-Trust-Import und scopegebundener Cleanup/Rollback sind reproduzierbar.
@@ -626,7 +637,9 @@ Der nächste begrenzte Scope ergänzt öffentliche Windows-/Docker-/Podman-
 Erstellung und V2-Export für SQL 2022 CU27 mit geschlossener Profilbindung.
 Die getrennten nativen Docker-/Podman-Abnahmen bestanden je sieben Fälle,
 sechs strikte Clientergebnisse und eigenen Cleanup. Die vollständige
-TLS-001-Matrix, Consumer-Cutover und automatisches Renewal/Rebind bleiben offen.
+TLS-001-Matrix und weitere Consumerkontexte bleiben offen. Container-Neustart/
+Rebind und der begrenzte Windows-V2-Consumer-Cutover sind inzwischen getrennt
+abgenommen; operative Zertifikatserneuerung und Recovery bleiben eigene Scopes.
 
 Die zusätzliche öffentliche Windows-/Podman-SQL-2025-CU9-Lane ist implementiert:
 ausdrückliche Providerwahl, eigene `0.2`-Bindung, frische Runtime-Herkunft und

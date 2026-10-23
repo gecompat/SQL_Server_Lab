@@ -1,9 +1,21 @@
 # Bekannte Grenzen
 
+Die [Linux-TLS-Kryptomatrix](TLS_LINUX_CLIENT_MATRIX_ACCEPTANCE_2026-10-22.md)
+bestand mit beiden echten Stacks für Docker und Podman mit SQL 2019 CU32,
+2022 CU27 und 2025 CU9: je neun Fälle und 18 Clientergebnisse, einschließlich
+echtem Ablauf, falschem SAN, Trustentzug und neuem Leafschlüssel. Sechs Zellen,
+54 Fälle, 96 strikte und zwölf ausdrücklich getrennte Bypassresultate;
+eigener Cleanup und Bestandsvergleich bestanden. Die Quellframes bleiben
+getrennt; keine neue gemeinsame Docker-/Podman-Ausführung am finalen Head.
+Das ist keine öffentliche Linux-Registry-/Export-/Consumerabnahme und kein
+operativer Renewal-/Recoveryworkflow. Die älteren TLS-Abschnitte darunter
+gelten jeweils für ihren beschriebenen Teilscope, nicht als aktueller
+Gesamtabschluss von TLS-001.
+
 Der [V2-Snapshotreader](../Architecture/AUTHENTICATED_TLS_V2_READER.md) ist auf
 den registrierten Windows-Benutzer-/Clientkontext und die operativen
 Docker-/Podman-Profile begrenzt. Er reserviert keine Runtime, verlängert
-keine Qualifikation und ist allein kein Toolbelt-Livebeweis. Linuxclients,
+keine Qualifikation und ist allein kein Toolbelt-Livebeweis. Linux-V2-Consumer,
 öffentliche Hyper-V-False-/Exportlane und vollständige TLS-001-Matrix bleiben
 getrennt. Die [native Windows-Consumer-Teilmatrix](TLS_V2_CONSUMER_CUTOVER_ACCEPTANCE_2026-10-22.md)
 bestand alle sechs operativen Containerprofile mit beiden echten Stacks,

@@ -1,5 +1,156 @@
 # Eigener CI-Scope auf einem gemeinsam genutzten Windows-Host
 
+## Isolierte Linux-TLS-Clientfixture
+
+Der ausdrückliche Harness
+[`Invoke-AuthenticatedTlsLinuxAcceptance.ps1`](../../Tests/Integration/Invoke-AuthenticatedTlsLinuxAcceptance.ps1)
+verwendet einen neuen eigenen Run und dieselbe ursprüngliche Runtimepolicy.
+Die zusätzliche Fixtureform `tls-linux-client-v1` akzeptiert ausschließlich
+eine feste Argumentfolge und einen receiptgebundenen laufenden SQL-Container
+der Instanz `primary` desselben Runs als Netzwerk-Namespace. Der Client nutzt
+das bereits vorhandene unveränderliche SQL-2025-CU9-Stockimage als Werkzeugbasis;
+sein SQL-Entrypoint wird nicht gestartet. Fehlende Images werden nicht geladen.
+
+Fest sind Benutzer `10001:0`, schreibgeschütztes Root-Dateisystem, verworfene
+Capabilities, `no-new-privileges`, 96 PIDs, 1 GiB RAM, eine CPU und ein begrenzter
+Sleep-Prozess. Ein eigener ausführbarer tmpfs von höchstens 512 MiB nimmt das
+hashgebundene PowerShell-Paket auf; `/tmp` bleibt `noexec` und auf 32 MiB begrenzt.
+Hostmounts, veröffentlichte Ports, freie Befehle und zusätzliche Argumente sind
+in dieser Createform ausgeschlossen. Allgemeine Createformen behalten ihre
+bisherige tmpfs-Grenze. Der SQL-Run und jeder Client benötigen vor Erstellung
+eigene Intents; Übernahme fremder Container bleibt ausgeschlossen.
+
+Bei Podman entspricht der private UTS-Hostname exakt dem DNS-labelgültigen
+eigenen Client-Intentnamen. Die zusätzliche feste Createoption ändert weder
+den SQL-Zielnamen `localhost` noch dessen Zertifikats-SAN. Die gemeinsame
+Hostsdatei wird nicht nachträglich bearbeitet. Docker erhält diese Option nicht.
+
+Ein einzelner ausdrücklicher Lauf umfasst höchstens ein neues SQL-Lab, fünf
+nacheinander erzeugte Clientnamespaces und vier eigene Leafschlüssel. Von
+450 gezählten äußeren Dispatches sind die letzten 50 ausschließlich für
+Cleanup vorgesehen; abgewiesene Aufrufe setzen den Zähler nicht zurück.
+Interne Policy-/Ownershipabfragen der Produktaufrufe sind keine gemessene
+Gesamtzahl nativer CLI-Aufrufe. Vor jedem SQL-Neustart ist der bisherige Client
+entfernt; jeder Nachfolger bindet den aktuellen eigenen Netzwerk-Namespace neu.
+Der Controller hält die tatsächliche Runtimelease bis zum bestätigten Workerende.
+Ein geschütztes, gehaltenes Ticket bindet genau den eigenen Worker an den
+lebenden Parent und dieselbe Quelle; es erteilt keine neue Ressourcenautorität.
+Ready bindet PID und Startzeit des tatsächlich zugeordneten Workers. Eine
+vollständig geschriebene und geschlossene temporäre Datei wird ohne Überschreiben
+auf den festen Ready-Namen verschoben; der Worker sieht keine Teilbytes. Eine
+atomare Einmalbeanspruchung, der noch gehaltene Dateileselock und ein vor
+Leasefreigabe geschriebener Abschlussmarker verhindern parallele oder spätere
+Ticketwiederverwendung. Andere Datei- oder Zugriffsfehler gelten nicht als
+Nachweis des gehaltenen Locks.
+Vor Provideraktionen muss der Worker seinem Windows-Job mit `KILL_ON_JOB_CLOSE`
+zugeordnet sein. Neue gewöhnliche Dispatches enden nach 25 Minuten; laufende
+öffentliche Lifecycleaufrufe stehen ebenfalls unter dem äußeren Prozessbudget.
+Nach 30 Minuten wird der Worker samt Prozessbaum beendet; die Terminierung
+wird einmalig für höchstens fünf weitere Sekunden durch null aktive Prozesse
+im Windows-Job bestätigt. Auch nach gewöhnlichem Workerende werden verbliebene
+Nachfahren beendet und geprüft. Ohne diese Bestätigung bleiben Job, Ticketlock
+und Runtimelease für Recovery gehalten. Die fünf Minuten zwischen
+Stopanforderung und Hardstop dienen kooperativem Cleanup. Vor einem weiteren
+Start sperrt vorhandene Recoverycustody auch den bisherigen aufrufenden Thread;
+die rekursive Mutexsemantik erteilt keine neue Arrange-Freigabe. Ein hängender Aufruf
+begründet keine Garantie für abgeschlossenen Rollback. Hardstop, unbestätigtes
+Workerende oder unvollständiger Cleanup bleiben FAIL mit Recoverybedarf;
+erst tatsächliche Ressourcenabwesenheit erlaubt PASS. Ein Parentabbruch schließt
+den nicht vererbten Jobhandle und beendet den gebundenen Worker ebenfalls.
+
+Die Client-tmpfs-Eigentümerschaft wird für Docker mit festen `uid`-/`gid`-
+Optionen und für Podman mit dessen `U`-Option bei unverändertem Benutzer
+`10001:0` erzeugt. Die Option gilt ausschließlich für das feste eigene tmpfs,
+nicht für Hostpfade oder Volumes. Vor der Podman-Paketinstallation muss die
+beobachtete Eigentümerschaft `10001:0` mit Modus `0700` übereinstimmen.
+Fehlende oder abweichende Werte sperren die Vorbereitung.
+
+Docker muss weiterhin die feste `ALL`-Capabilityauswahl ausweisen. Podman
+stellt entfernte Capabilities als Differenz seiner Standardmenge dar; dort
+müssen die vorhandenen OCI-Felder für Effective und Bounding leer sein.
+Vor jeder Podman-Paketinstallation werden zusätzlich alle fünf Capability-
+Masken und `NoNewPrivs` direkt aus `/proc/1/status` des eigenen Clientcontainers
+geprüft: ausschließlich Nullmasken und `NoNewPrivs=1` sind zulässig. Die
+übrigen Namespace-, Benutzer-, Mount-, Port- und Read-only-Prüfungen bleiben
+Pflicht. Geschützte Diagnostik speichert deren feste Wahrheitswerte, keine
+vollständigen Inspectdaten; sie ist kein bestandener Kernel- oder TLS-Nachweis.
+Vor der Podman-Paketinstallation wird außerdem der frisch gelesene private
+UTS-Hostname gegen dieselbe eigene vollständige CID, den beobachteten
+Konfigurationswert und den festen Intentnamen gebunden. Ein vom Intentnamen
+abweichender tatsächlicher Hostname sperrt die Vorbereitung auch dann,
+wenn seine Auflösung erfolgreich wäre. Zwei feste
+`getent ahostsv4`-Abfragen prüfen `localhost` und diesen Eigenhostname mit
+je höchstens drei Sekunden. Gespeichert werden nur Exitcodes und Wahrheitswerte
+zur Lesbarkeit beziehungsweise zu passenden Aliasen in `/etc/hosts`.
+Namen, Adressen und Dateiinhalte bleiben außerhalb dieses Diagnoserecords.
+Auch bei einem Fehler des festen Shellaufrufs speichert dessen Fehlerbeleg
+anstelle der tatsächlichen Argumente ausschließlich die feste NSS-Operationskennung.
+Nur dieser feste Shelltext wird vor dem Dispatch von CRLF auf LF normalisiert;
+ein verbleibendes einzelnes CR sperrt die Ausführung. Hostnamenargumente,
+Transportdaten und Zugangsdaten werden nicht normalisiert. Eindeutige
+Syntax- beziehungsweise Werkzeugfehlermeldungen erhalten feste Fehlercodes;
+mehrdeutige oder unbekannte Meldungen bleiben unklassifiziert und fehlgeschlagen.
+Eine fehlgeschlagene Auflösung sperrt die Vorbereitung. Diese OS-NSS-Beobachtung
+belegt weder identische ODBC-Resolverparameter noch eine TLS-Qualifikation;
+die gemeinsame Hostsdatei wird nicht geändert. Die Prüfung folgt der eigenen
+Leaf-/SQL-Konfiguration und liegt vor der Paketinstallation und ersten Clientprobe.
+ODBC-Positivfehler unterscheiden feste Kategorien für Clientexit, unerwartetes
+stderr, SQL-Ergebnis und fehlende beziehungsweise unlesbare Treiberbeobachtung.
+Ausdrückliche Anmelde- und Abfragetimeouts werden getrennt klassifiziert;
+eine allgemeine Timeoutmeldung belegt keine dieser beiden Ursachen.
+Version `1.0` behält drei Stringfelder. Version `2.0` ergänzt ausschließlich
+für fehlgeschlagene ODBC-Positivproben sieben geschlossene Fakten: Exitcode,
+monotone Kindlaufzeit, Treiberbeobachtung und zwei begrenzte TCP-Diagnosen im
+eigenen Client-Namespace. Pro aufgelöster Loopback-Adressfamilie wird nach dem
+bereits fehlgeschlagenen Client genau eine Verbindung an Port 1433 mit höchstens
+einer Sekunde aufgebaut, ohne SQL-Abfrage oder TLS-Qualifikationsclaim.
+Die tatsächlich vom ODBC-Client gewählte Adressfamilie bleibt `NOT_OBSERVED`.
+Version `2.1` bindet zusätzlich die tatsächlichen sqlcmd-/Treiberhashes,
+höchstens 13 feste Meldungskategorien und genau einen normalisierten numerischen
+TCP-Providerfehlercode beziehungsweise dessen ausdrückliche Abwesenheit oder
+Mehrdeutigkeit. Ein Boolean erfasst ausschließlich, ob `SQLCMDPASSWORD` beim
+Kindstart gesetzt war; er belegt keine tatsächliche Verwendung im Client.
+Passwortwert, Länge und Hash werden nicht erfasst. Meldungstexte, Dateipfade und Adressen gelangen nicht in diese
+Fakten. Frühere Versionen bleiben mit ihren ursprünglichen Feldmengen lesbar.
+Hostname, TLS-Optionen, Zeitgrenzen und Wiederholungszahl der eigentlichen
+Clientprobe bleiben unverändert. Unbekannte Felder, Typen und Werte sowie
+Duplikate werden verworfen. Rohtexte und Zugangsdaten werden nicht übertragen. Weder diese Einteilung noch
+ein fehlender Treiberbeleg dürfen einen positiven oder negativen TLS-Fall bestehen lassen.
+
+Für die SQL-2022-/SQL-2025-Leafvorbereitung bleibt die UID auf `10001` festgelegt;
+die primäre Gruppe wird wie im operativen SQL-Pfad vom Imageaccount aufgelöst.
+Zwei lesende Prüfungen vergleichen die zuvor erzwungene Gruppe mit der
+Accountgruppe und prüfen den eigenen SQL-Datenpfad vor Leaf-/Keyänderungen.
+Eine andere UID, eine widersprüchliche ausgewählte Gruppe oder fehlender Schreibzugriff
+sperren die Vorbereitung. SQL-2019-Argumente und die feste
+Clientfixtureidentität `10001:0` bleiben unverändert. Der geschützte Nachweis
+dieser Prüfungen ist keine TLS-Qualifikation und keine Recoveryautorität.
+
+Vor jedem Phase-/Cleanupbudget wird derselbe ursprüngliche physische Pin frisch
+gegen Policy und Inkarnation geprüft. Seine Podman-Maschinenbindung stammt aus
+der ursprünglichen Discovery; die Policyprojektion ersetzt sie nicht. Die
+allgemeine OwnedHost-Freigabe für Maschinenbefehle wird nicht erweitert.
+Vor dem ersten Provider-Arrange wird dieser physische Pin zusätzlich als
+geschützter privater Nachweis gespeichert. Er dient der späteren Reconciliation;
+die Nachweiskopie erteilt keine Ausführungs- oder Cleanupautorität.
+
+Unerwartete Clientfehler verlassen die Probe als geschlossener JSON-Fehlerrecord
+mit festem Code und fehlerhaftem Exitcode. Der Host übernimmt nur das begrenzte
+Schema und bekannte Codes; formatierter Fehlertext ist kein Protokoll.
+Rohdiagnosen und Eingaben werden nicht gespeichert. Solche Diagnosecodes
+qualifizieren keinen negativen TLS-Fall. Die nach Cleanup tatsächlich beobachtete
+Ressourcenliste wird privat vor ihrem Vergleich gespeichert, auch wenn der
+anschließende unveränderte Bestandsvergleich scheitert.
+
+Der Fixture-Issuer lebt nur im Speicher, Serverkeys bleiben im neuen eigenen
+SQL-Container und die öffentliche CA-Datei liegt nur im Client-tmpfs. Trust gilt
+ausschließlich für die beiden ausgewählten Kindprozesse. Bestehende CAs,
+Hoststores und ursprüngliche Schlüssel werden nicht geändert. Der Harness
+qualifiziert keine öffentliche Linux-Registry und keinen Linux-V2-Export.
+Seine gezielte synthetische Suite ist Teil der betroffenen statischen Auswahl;
+die native Matrix bleibt ausdrücklich gestartet und wird durch den Selektor
+nicht zusätzlich automatisch ausgeführt.
+
 Der bestehende `OwnedRunWindows`-Kern wird zusätzlich von der neuen
 [operativen TLS-Lane](AUTHENTICATED_TLS_OPERATIONAL_LAB.md) für ausschließlich
 frische eigene `0.2`-Lab-StateRoots verwendet. Policy, Owner-only-Rootcustody,

@@ -1,5 +1,9 @@
 # Dokumentationsübersicht
 
+- [Native Linux-TLS-Kryptomatrix](Quality/TLS_LINUX_CLIENT_MATRIX_ACCEPTANCE_2026-10-22.md):
+  Docker und Podman mit SQL 2019/2022/2025, beide echte Stacks, neun Fälle je
+  Zelle und eigener Cleanup; öffentliche Linux-Registry-/Exportpfade bleiben offen.
+
 - [Artefakte eines entfernten Runs](User/RUN_ARTIFACT_REMOVAL.md):
   `Get-SqlServerLabRunArtifactRemovalPlan` und `Invoke-SqlServerLabRunArtifactRemoval`
   mit genauer Run-Auswahl, Referenz-/Retentionprüfung und Recovery.

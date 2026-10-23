@@ -25,7 +25,13 @@ Die ausdrückliche Wahl von `TrustServerCertificate=False` ist im begrenzten
 [Windows-/Docker-/Podman-Pfad für SQL 2025 CU9, 2022 CU27 und 2019 CU32](Documentation/Architecture/AUTHENTICATED_TLS_OPERATIONAL_LAB.md)
 mit qualifiziertem separatem Export implementiert. CLI und GUI zeigen die
 angegebenen Flags; der Flagwert allein ist kein Qualifikationsnachweis.
-Weitere Kombinationen und die gesonderte Prüfstatusanzeige bleiben TLS-001-Scope.
+Weitere Kombinationen und die aktuelle Liveprüfung des TLS-Status bleiben TLS-001-Scope.
+
+Die [isolierte Linux-TLS-Kryptomatrix](Documentation/Quality/TLS_LINUX_CLIENT_MATRIX_ACCEPTANCE_2026-10-22.md)
+bestand mit beiden echten Clientstacks für Docker und Podman auf den drei
+genannten SQL-Profilen. Öffentliche Linux-Registry-/Export-/Consumerpfade und
+die übrige TLS-001-Matrix bleiben getrennt; dieser Testharness ist keine
+zusätzliche öffentliche Lab-Erstellungsschnittstelle.
 
 ## Voraussetzungen
 
