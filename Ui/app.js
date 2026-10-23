@@ -663,7 +663,7 @@ function renderConnectionEndpoints(data) {
   const endpoints = [];
   for (const lab of data.ActiveLabs || []) {
     for (const instance of lab.Instances || []) {
-      endpoints.push({ lab: lab.Name || lab.RunId, instance: instance.Id, provider: instance.Provider,
+      endpoints.push({ lab: lab.Name || lab.RunId, runId: lab.RunId, instanceId: instance.Id, instance: instance.Id, provider: instance.Provider,
         endpoint: instance.Host && instance.Port ? instance.Host + ',' + instance.Port : 'Host oder Port unbekannt', settings: instance.ConnectionSettings, qualificationStatus: instance.TlsQualificationStatus });
     }
   }
@@ -675,6 +675,7 @@ function renderConnectionEndpoints(data) {
     }
   }
   $('#connection-endpoints').innerHTML = endpoints.length ? endpoints.map((item) => '<article class="list-item"><strong>' + escapeHtml(item.lab) + ' · ' + escapeHtml(item.instance) + '</strong><span>' + escapeHtml(item.provider) + ' · ' + escapeHtml(item.endpoint) + '</span><span><strong>Connection Settings:</strong> ' + escapeHtml(sqlConnectionSettingsLabel(item.settings)) + '</span><span><strong>TLS-Prüfstatus:</strong> ' + escapeHtml(sqlConnectionQualificationLabel(item.qualificationStatus)) + '</span></article>').join('') : empty('Keine registrierten SQL-Endpunkte in der aktuellen Ansicht.');
+  window.sqlServerLabTlsLiveQualification?.mount($('#connection-endpoints'), endpoints);
 }
 
 function renderWorkflow(data) {
@@ -946,11 +947,15 @@ function renderAcceptance(items) {
   }).join('') : empty('Noch keine Abnahmeumgebungen vorhanden.');
 }
 
-async function refresh(mediaRoot) {
+async function refresh(mediaRoot, background = false) {
+  // Keep the selected view stable while its explicit SQL probe is running.
+  // User actions still refresh normally and invalidate any late result.
+  if (background && window.sqlServerLabTlsLiveQualification?.isPending()) return;
   const suffix = mediaRoot ? '?mediaRoot=' + encodeURIComponent(mediaRoot) : '';
   const response = await sqlServerLabUiFetch('/api/workflow' + suffix);
   if (!response.ok) throw new Error(await response.text());
   const payload = await response.json();
+  if (background && window.sqlServerLabTlsLiveQualification?.isPending()) return;
   if (Object.prototype.hasOwnProperty.call(payload, 'Refreshing')) {
     if (payload.Snapshot) renderWorkflow(payload.Snapshot);
     else {
@@ -962,7 +967,7 @@ async function refresh(mediaRoot) {
     if (payload.Refreshing && !workflowRefreshTimer) {
       workflowRefreshTimer = window.setTimeout(() => {
         workflowRefreshTimer = null;
-        refresh(mediaRoot).catch(showError);
+        refresh(mediaRoot, background).catch(showError);
       }, 750);
     }
     return;
@@ -974,6 +979,7 @@ async function refreshUiConfig() {
   const response = await sqlServerLabUiFetch('/api/config');
   if (!response.ok) return;
   const config = await response.json();
+  window.sqlServerLabTlsLiveQualification?.setAvailable(config?.tlsLiveQualificationAvailable === true);
   const requestedLimit = Number(config?.jobLogBurstLimit);
   uiConfig.jobLogBurstLimit = Number.isFinite(requestedLimit) ? Math.max(1, Math.floor(requestedLimit)) : uiConfig.jobLogBurstLimit;
   const capability = config?.aiSharedGatewayServiceSecret || { available: false, reason: 'Capability-Antwort fehlt.' };
@@ -2974,7 +2980,7 @@ refreshJobs();
 // Eine Workflow-Aktualisierung kann ISO- und VHDX-Metadaten untersuchen und
 // darf daher keinen Klickpfad oder den lokalen HTTP-Server blockieren.
 window.setInterval(() => { refreshJobs(); }, 1000);
-window.setInterval(() => { refresh().catch(() => {}); }, 15000);
+window.setInterval(() => { refresh(undefined, true).catch(() => {}); }, 15000);
 let slotReserveState = null;
 let slotReservePlan = null;
 let slotReserveRevision = 0;

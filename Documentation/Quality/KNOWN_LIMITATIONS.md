@@ -5,8 +5,12 @@ liefert eine gebundene Beobachtung beider strikten Clientstacks für eigene
 Windows-/Docker-/Podman-Labs der drei operativen SQL-Profile. Sie ist kein
 gespeicherter Status, Cache oder dauerhafter Berechtigungsnachweis; Drift
 invalidiert sie auch vor der angegebenen Frist. Der [native API-Nachweis](TLS_LIVE_QUALIFICATION_API_ACCEPTANCE_2026-10-23.md)
-bestand die sechs geschlossenen Provider-/Profilzellen. Eine dedizierte Liveprüfaktion am SQL-Ziel mit
-gerenderter Anzeige bleibt ein eigener Scope. Wire-Fingerprint bleibt
+bestand die sechs geschlossenen Provider-/Profilzellen. Die zusätzliche
+[gerenderte Liveaktion](TLS_UI_LIVE_QUALIFICATION_ACCEPTANCE_2026-10-23.md)
+bestand getrennt unter Windows mit Docker und Podman auf SQL 2025 CU9.
+Sie setzt den passenden serverseitigen Run-StateRoot voraus; das ist kein
+Nachweis einer globalen Suche über sämtliche Auditroots. Creationdialog,
+Clipboard und weitere UI-Profilkombinationen bleiben offen. Wire-Fingerprint bleibt
 `NOT_OBSERVED`; Linux- und Hyper-V-Live-API sind damit nicht abgenommen.
 
 Die [Linux-TLS-Kryptomatrix](TLS_LINUX_CLIENT_MATRIX_ACCEPTANCE_2026-10-22.md)

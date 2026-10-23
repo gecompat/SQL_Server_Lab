@@ -128,6 +128,7 @@ Import-UiSqlServerLabModule -ModulePath $modulePath
 . (Join-Path $PSScriptRoot 'WorkflowUiOperator.ps1')
 . (Join-Path $PSScriptRoot 'WorkflowUiJsonBody.ps1')
 . (Join-Path $PSScriptRoot 'WorkflowUiCommandGrants.ps1')
+. (Join-Path $PSScriptRoot 'WorkflowUiTlsLiveQualification.ps1')
 
 function Get-UiCommandGrantCatalog {
     & (Get-Module SqlServerLab) { Get-LabPublicCommandWebCatalog }
@@ -166,6 +167,7 @@ function Get-UiCapabilityConfig {
     $secretAvailable = $null -ne $getSecretCommand
     [PSCustomObject]@{
         jobLogBurstLimit = $JobLogBurstLimit
+        tlsLiveQualificationAvailable = (Test-UiTlsLiveQualificationAvailable)
         aiSharedGatewayServiceSecret = [PSCustomObject]@{
             available = $secretAvailable
             reason = if ($secretAvailable) {
@@ -593,6 +595,7 @@ $listener.Prefixes.Add($url)
 $operatorSession = New-UiOperatorSession -ListenerUrl $url
 $commandGrantStore = $null
 $jobs = @{}
+$tlsLiveQualificationJobs = @{}
 $persistentJobs = @{}
 $runArtifactRemovalPreviews = @{}
 
@@ -649,6 +652,31 @@ try {
                     $view=& (Get-Module SqlServerLab) { param($request,$listenerPort,$previews) Invoke-LabRunArtifactRemovalHttpRequest -Request $request -ListenerPort $listenerPort -Previews $previews } $context.Request $Port $runArtifactRemovalPreviews
                     Write-UiResponse -Context $context -Body ($view | ConvertTo-Json -Depth 5 -Compress) -ContentType 'application/json; charset=utf-8'
                 } catch { Write-UiResponse -Context $context -Body '{"Code":"RUN_ARTIFACT_HTTP_UNCONFIRMED"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400 }
+                continue
+            }
+            if ($path -eq '/api/tls-live-qualification') {
+                if($context.Request.HttpMethod -cne 'POST' -or $context.Request.Url.Query -or
+                    [string]$context.Request.Headers['Origin'] -cne $url.TrimEnd('/')){
+                    Write-UiResponse -Context $context -Body '{"Code":"TLS_LIVE_HTTP_REJECTED"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                    continue
+                }
+                $bodyRead=Read-UiJsonRequestBody -Request $context.Request -MaxBytes 2048
+                if(-not $bodyRead.Allowed){
+                    Write-UiResponse -Context $context -Body $bodyRead.Code -StatusCode $bodyRead.StatusCode
+                    continue
+                }
+                try {
+                    $view=Start-UiTlsLiveQualificationJob -Records $tlsLiveQualificationJobs -Jobs $jobs -PersistentJobs $persistentJobs -ModulePath $modulePath -Body $bodyRead.Body
+                    Write-UiResponse -Context $context -Body ($view|ConvertTo-Json -Depth 4 -Compress) -ContentType 'application/json; charset=utf-8' -StatusCode 202
+                }catch{Write-UiResponse -Context $context -Body '{"Code":"TLS_LIVE_HTTP_REJECTED"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400}
+                continue
+            }
+            if ($path -match '^/api/tls-live-qualification/([a-f0-9]{32})$') {
+                try {
+                    if($context.Request.HttpMethod -cne 'GET' -or $context.Request.Url.Query){throw 'TLS_LIVE_HTTP_REJECTED'}
+                    $view=Get-UiTlsLiveQualificationJob -Records $tlsLiveQualificationJobs -Id $Matches[1]
+                    Write-UiResponse -Context $context -Body ($view|ConvertTo-Json -Depth 5 -Compress) -ContentType 'application/json; charset=utf-8'
+                }catch{Write-UiResponse -Context $context -Body '{"Code":"TLS_LIVE_HTTP_REJECTED"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400}
                 continue
             }
             if ($path -eq '/api/container-autostart-preview') {

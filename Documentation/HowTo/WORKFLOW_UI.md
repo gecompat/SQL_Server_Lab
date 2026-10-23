@@ -12,7 +12,70 @@ strikter Konfiguration lautet er „Hier nicht aktuell geprüft“; abgeschaltet
 Zertifikatsprüfung und nicht angeforderte Verschlüsselung werden getrennt
 benannt. Die Anzeige startet keine Verbindung und behauptet keinen aktuellen
 Zertifikatsnachweis. Eine frühere Qualifikation wird dadurch nicht ausgewertet.
-Die ausdrückliche Liveprüfung mit Frische- und Driftbindung bleibt separat.
+Die [ausdrückliche Liveprüfung](#tls-jetzt-prüfen) ist eine separate Aktion.
+
+## TLS jetzt prüfen
+
+Diese Aktion prüft ein bereits eigenes, registriertes und laufendes
+Windows-/Docker-/Podman-Lab mit `Encrypt=True;TrustServerCertificate=False`.
+Voraussetzung sind PowerShell 7.5, die qualifizierte CA-/Clientbindung des
+[operativen TLS-Pfads](../Architecture/AUTHENTICATED_TLS_OPERATIONAL_LAB.md)
+und beide dort vorgesehenen strikten Clients. Ein Lab mit dem einfachen
+True/True-Standard bietet diese Aktion nicht an. Auf einem ungeeigneten Host
+bleibt sie deaktiviert; die allgemeine Oberfläche benötigt weiterhin nur
+ihre dokumentierte Mindestversion.
+
+1. Starten Sie die Oberfläche im selben Windows-Benutzer-/Clientkontext und
+   mit der Datenroot-Einstellung Ihres operativen Labs. Für ein solches Lab
+   verwenden Sie vor dem UI-Start dessen zurückgegebenen Run-StateRoot:
+
+   ```powershell
+   $env:SQL_SERVER_LAB_STATE = $lab.StateRoot
+   .\Tools\Start-SqlServerLabUi.ps1
+   ```
+
+   `$lab` bezeichnet hier das bereits erstellte eigene operative False-Lab.
+   Die Variable gilt für diesen Prozess und seine Kinder. Verwenden Sie den
+   vom Server ausgegebenen Operatorlink und die genaue Loopbackadresse;
+   die UI sucht nicht global über sämtliche Auditroots.
+2. Öffnen Sie **Verbindungen und CMS**. Prüfen Sie Lab, Instanz, Provider,
+   Host/Port und die angezeigten True/False-Werte am gewünschten SQL-Ziel.
+3. Wählen Sie dort **TLS jetzt prüfen**. Die Prüfung kann länger als eine
+   Inventuraktualisierung dauern. Während der laufenden Prüfung bleibt ein
+   weiterer Aufruf dieser Liveaktion gesperrt; die automatische
+   Workflowaktualisierung wartet. Die Oberfläche bleibt bedienbar.
+4. Bei Erfolg erscheint **Beide Clients erfolgreich geprüft am …** mit dem
+   Beobachtungszeitpunkt. Das bestätigt die frische strikte SQL-Prüfung
+   beider Clients für dieses Ziel. Es ist kein dauerhafter Status und keine
+   Exportfreigabe. Gespeicherte Flags bleiben reine Konfiguration.
+
+Eine neue Workflowansicht, weiterer Button, Formularaktion, Seitenwechsel
+oder Ablauf verwerfen die Anzeige. Auch die nach Jobende fortgesetzte
+automatische Aktualisierung kann sie deshalb wieder auf **Keine aktuelle
+Liveprüfung** setzen. Das startet keinen neuen SQL-Test und macht aus dem
+früheren Ergebnis keinen neuen Nachweis. Nach Änderungen ist eine neue
+ausdrückliche Prüfung nötig.
+
+Fehlt das Ziel oder die Aktion, prüfen Sie zuerst den passenden Run-StateRoot,
+den laufenden Run, dessen Provider und die gespeicherten True/False-Werte.
+Ein deaktivierter Button weist auf einen ungeeigneten Host oder einen noch
+laufenden Job hin. **TLS-Prüfung nicht bestätigt** behauptet keine positive
+Beobachtung: Prüfen Sie Labstatus, Clientvoraussetzungen und die
+[Voraussetzungen der öffentlichen Live-API](../Architecture/AUTHENTICATED_TLS_LIVE_QUALIFICATION.md).
+Nach einem beabsichtigten Neustart desselben eigenen operativen Containers
+folgen Sie bei veralteter Startbindung dem
+[expliziten Rebind-Vertrag](../Architecture/AUTHENTICATED_TLS_CONTAINER_REBIND.md)
+und prüfen danach erneut. Das erneuert weder automatisch Schlüssel noch Trust.
+Nach einem unklaren Browserabbruch kann der Serverjob weiterlaufen; ein neuer
+Klick ersetzt ihn nicht. Wenn eine weitere Diagnose nötig ist, beschreibt der
+[API-Vertrag](../Architecture/AUTHENTICATED_TLS_LIVE_QUALIFICATION.md) den
+ausdrücklichen CLI-Aufruf und seine festen Fehlercodes. Warten Sie vor einer
+erneuten SQL-Prüfung den terminalen Ausgang des bisherigen Jobs ab.
+
+Die [native Browserabnahme](../Quality/TLS_UI_LIVE_QUALIFICATION_ACCEPTANCE_2026-10-23.md)
+belegt Windows-/Docker-/Podman-SQL-2025-CU9. Andere UI-Profile,
+Creationdialog und Clipboard haben dadurch keinen neuen Nachweis;
+`WireCertificateFingerprint=NOT_OBSERVED` bleibt wahr.
 
 Die Hintergrundinventur hält ein erfolgreich abgeschlossenes, nichtleeres
 Ergebnis fünf Sekunden frisch. Auch eine langsamere Inventur kann dadurch

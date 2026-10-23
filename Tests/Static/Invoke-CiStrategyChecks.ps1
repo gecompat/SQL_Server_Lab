@@ -9,6 +9,13 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $failures = [System.Collections.Generic.List[string]]::new()
 $passed = 0
 $selector = Join-Path $repoRoot 'Tools/Get-CiTestSelection.ps1'
+foreach($path in @('Private/AuthenticatedTlsLiveQualificationHttp.ps1','Tools/WorkflowUiTlsLiveQualification.ps1','Ui/tls-live-qualification.js','Tests/Static/Fixtures/TlsLiveQualificationUiChecks.cjs')){
+    foreach($normalized in @($path,$path.Replace('/','\'))){
+        $selected=& $selector -ChangedPath @($normalized)
+        Add-CheckResult "TLS UI selects actual HTTP/browser and public API regression: $normalized" (
+            'Invoke-WorkflowUiChecks.ps1' -in $selected.StaticChecks -and 'Invoke-AuthenticatedTlsLiveQualificationChecks.ps1' -in $selected.StaticChecks)
+    }
+}
 foreach($path in @('Private/AuthenticatedTlsLiveQualification.ps1','Public/Test-SqlServerLabTlsQualification.ps1',
     'Private/AuthenticatedTlsQualification.ps1','Private/AuthenticatedTlsAuthority.ps1','Private/AuthenticatedTlsLab.ps1',
     'Private/AuthenticatedTlsRestartRebind.ps1','Private/DiagnosticBundleReader.ps1','Catalogs/sql-server-versions.json',

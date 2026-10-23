@@ -85,10 +85,42 @@ Der einfache True/True-Erstellungsstandard bleibt ohne eigene CA-Pflicht.
 ## Oberfläche, Prüfung und verbleibender Scope
 
 Die API ist über den vollständigen öffentlichen Befehlszugang erreichbar.
-Die [Connection Settings](SQL_CONNECTION_SETTINGS.md) bleiben eine getrennte
-Konfigurationsprojektion. Eine dedizierte Liveprüfaktion am SQL-Ziel und deren
-gerenderte Statusanzeige, Creation- und Clipboardpfade benötigen eigene
-Integration und Abnahme; diese API allein schließt sie nicht ab.
+Unter **Verbindungen und CMS** ergänzt **TLS jetzt prüfen** eine ausdrückliche
+Aktion für das einzelne Windows-/Docker-/Podman-Ziel mit gespeicherten
+True/False-Werten. Auf anderen Hosts bleibt die Aktion deaktiviert; der
+allgemeine UI-Mindeststand ändert sich dadurch nicht. Die
+[Connection Settings](SQL_CONNECTION_SETTINGS.md) und deren konfigurationsbasierter
+Prüfstatus bleiben getrennt von dieser aktuellen Beobachtung.
+
+Der authentifizierte POST übermittelt ausschließlich Run, Instanz und Provider.
+Der Server löst den StateRoot aus aktuellen registrierten Metadaten auf und
+führt die öffentliche API in einem Hintergrundjob aus. Die Oberfläche bleibt
+bedienbar; während eines nicht terminalen Jobs wird kein zweiter solcher Job
+angenommen. Je Serversitzung werden höchstens 64 dieser Jobs angenommen.
+Ein weiterer TLS-Job wird außerdem abgewiesen, sobald die beiden Tabellen
+für Thread- und persistente UI-Jobs zusammen 256 Einträge enthalten. Diese
+Annahmegrenze ändert keine übrige Jobroute. GET liest ausschließlich den angenommenen Job.
+Es gibt keine automatische Wiederholung einer Probe. Unklarer Browserabbruch
+behauptet kein Backendende; der Server behält die Jobzuständigkeit bis zum
+terminalen Zustand beziehungsweise seinem bestehenden Shutdownpfad.
+
+Die Anzeige nennt die erfolgreiche Beobachtung und ihren Zeitpunkt. Sie
+speichert keine positive Qualifikation und verleiht keine Exportautorität.
+Neue Workflowansicht, weiterer Button, Formularaktion, Hintergrundwechsel
+oder Ablauf verwerfen die Anzeige. Eine verspätete Antwort aus einer früheren
+Ansicht wird verworfen. Polling ist auf 300 reine Statuslesungen begrenzt.
+Die automatische Workflowaktualisierung wartet während des laufenden
+TLS-Jobs. Bereits unterwegs befindliche automatische Antworten rendern in
+dieser Zeit keine neue Ansicht. Nach Jobende setzt die Aktualisierung wieder
+ein; ausdrückliche Aktualisierung und andere Benutzeraktionen bleiben
+bedienbar und verwerfen auch während der Prüfung verspätete Ergebnisse.
+Ein unbestätigter Ausgang startet keine neue Probe. Die getrennte
+[native Browserabnahme](../Quality/TLS_UI_LIVE_QUALIFICATION_ACCEPTANCE_2026-10-23.md)
+bestand unter Windows für Docker und Podman mit SQL 2025 CU9: je acht Fälle
+und vier strikte UI-Clientresultate, einschließlich Neustartablehnung,
+frischem Ergebnis nach Wiederbindung, Refreshverfall und eigenem Cleanup.
+Sie verwendet den passenden serverseitigen Run-StateRoot. Creation- und
+Clipboardpfade sowie weitere UI-Profilkombinationen bleiben offene Scopes.
 
 Die [fokussierte Suite](../../Tests/Static/Invoke-AuthenticatedTlsLiveQualificationChecks.ps1)
 prüft sechs Profil-/Providerprojektionen, geschlossene Typen und Ausgabe,

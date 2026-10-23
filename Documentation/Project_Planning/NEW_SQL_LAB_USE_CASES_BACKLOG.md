@@ -127,8 +127,12 @@ Bereinigung. Gespeichertes False meldet `NOT_EVALUATED` und behauptet keine
 aktuelle Prüfung. Die [explizite öffentliche Live-API](../Architecture/AUTHENTICATED_TLS_LIVE_QUALIFICATION.md)
 ergänzt eine gebundene aktuelle Beobachtung ohne Secrets; ihr [nativer Nachweis](../Quality/TLS_LIVE_QUALIFICATION_API_ACCEPTANCE_2026-10-23.md)
 bestand alle sechs Windows-/Docker-/Podman-Profilzellen mit eigenem Cleanup.
-Eine dedizierte Liveprüfaktion am SQL-Ziel
-und deren gerenderte Frische-/Driftanzeige bleiben Teil des offenen TLS-001c-Scope.
+Die zusätzliche dedizierte Aktion **TLS jetzt prüfen** und deren gerenderte
+Beobachtung sind für Windows-/Docker-/Podman-SQL-2025-CU9
+[separat nativ abgenommen](../Quality/TLS_UI_LIVE_QUALIFICATION_ACCEPTANCE_2026-10-23.md):
+je acht Fälle, vier strikte UI-Clientresultate, Neustartablehnung, frische
+Wiederbindung, Refreshverfall und eigener Cleanup. Weitere UI-Profile,
+Creationdialog und Clipboard bleiben TLS-001c-Scope.
 
 Die zusätzliche [echte Windows-Produktseitenabnahme](../Quality/TLS_WINDOWS_RENDERED_CONNECTION_SETTINGS_2026-10-21.md)
 schließt die gespeicherte TLS-Anzeige an eigenen qualifizierten Docker-/Podman-
@@ -136,7 +140,7 @@ SQL-2025-CU9-Labs: frischer abgeschlossener Workflow-Snapshot, passender
 Endpoint, explizite False-Werte und exakt angezeigter Connection String.
 Der reproduzierte Inventurcachefehler ist korrigiert; ursprünglicher Docker-
 FAIL und getrennte PASS-Nachläufe bleiben erhalten. Creation-Dialog,
-Clipboard und gesonderte aktuelle Livequalifikationsstatusanzeige bleiben offen. Der
+Clipboard bleiben offen; die zusätzliche Liveaktion ist oben separat belegt. Der
 verlinkte Nachweis führt die weiteren Matrix-, Lifecycle-, Consumer- und
 Trustkontext-Schritte; `TLS-001` bleibt `partial`.
 
@@ -184,7 +188,7 @@ abgenommen; der Creationdialog bleibt getrennt offen.
 | Merkmal | Festlegung |
 |---|---|
 | Priorität | `P1`; höchste nächste Priorität unmittelbar nach dem laufenden SSISDB-Stream, Benutzerauftrag vom 2026-10-15 |
-| Status | `partial`; operative Windows-/Docker-/Podman-Profile SQL 2019 CU32, 2022 CU27 und 2025 CU9, deren V2-Consumerpfad und explizite Live-API separat nativ abgenommen; private Windows-/Hyper-V-SQL-2025-RTM-Referenz nativ abgenommen. Öffentliche Hyper-V-/Linuxpfade, weitere Consumer, UI-Liveaktion und Lifecycle-/Trustkontexte bleiben offen |
+| Status | `partial`; operative Windows-/Docker-/Podman-Profile SQL 2019 CU32, 2022 CU27 und 2025 CU9, deren V2-Consumerpfad und explizite Live-API separat nativ abgenommen; gerenderte Liveaktion für Windows-/Docker-/Podman-SQL-2025-CU9 und private Windows-/Hyper-V-SQL-2025-RTM-Referenz nativ abgenommen. Öffentliche Hyper-V-/Linuxpfade, weitere Consumer, Creation-/Clipboardpfade, weitere UI-Profile und Lifecycle-/Trustkontexte bleiben offen |
 | Abhängigkeit | **Toolbelt SC-2026-045 – authentifizierte Liveabnahme** |
 | Auslöser | [Toolbelt PR #322](https://github.com/gecompat/SQL_Server_Toolbelt/pull/322), geprüfter Head `8772e9d6a1d538e6fcb22da3f0bd03c83a28e88a`; PR bei der Prüfung am 2026-10-15 offen, kein behaupteter Merge |
 | Verantwortung | Lab: Serverzertifikate, Identität, Client-Trust, Export und Bereitschaft; Toolbelt: eigener Preflight und tatsächliche Clientverbindungen |
