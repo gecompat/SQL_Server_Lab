@@ -18,6 +18,8 @@ Foundation validation establishes FOUNDATION_INTEGRITY only. Run affected projec
 Installation/upgrade and material workflow-rule changes require the processing-overhead assessment: actual test triggers, duplicate checks, logs, review chains, and model calls. Preserve necessary gates; justify bounded stronger exceptions or expose pending decisions. Copying rules alone does not establish efficient integration.
 
 If bounded autonomous orchestration is selected, use the optional control contract in `.ai/foundation/AI_WORK_ORCHESTRATION_POLICY.md`; its configured `HEARTBEAT` meaning adds no authority.
+
+For changes affecting documented behavior or navigation, apply `.ai/foundation/DOCUMENTATION_POLICY.md`, including change-driven impact selection and bounded context, to the complete affected reading paths and separately discoverable AI control. Check directory purposes and necessary continuation pages; assess legacy gaps during integration without claiming readability from a green integrity check.
 <!-- AI_REPOSITORY_FOUNDATION:END -->
 
 ## Vor jeder Änderung erschließen

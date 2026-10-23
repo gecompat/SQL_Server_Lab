@@ -1,30 +1,27 @@
 # Dokumentationsübersicht
 
-- [Native Linux-TLS-Kryptomatrix](Quality/TLS_LINUX_CLIENT_MATRIX_ACCEPTANCE_2026-10-22.md):
-  Docker und Podman mit SQL 2019/2022/2025, beide echte Stacks, neun Fälle je
-  Zelle und eigener Cleanup; öffentliche Linux-Registry-/Exportpfade bleiben offen.
-
-- [Artefakte eines entfernten Runs](User/RUN_ARTIFACT_REMOVAL.md):
-  `Get-SqlServerLabRunArtifactRemovalPlan` und `Invoke-SqlServerLabRunArtifactRemoval`
-  mit genauer Run-Auswahl, Referenz-/Retentionprüfung und Recovery.
-
-- [SA-Passwortbarriere und bewusste AdHoc-Mindestlaenge](Architecture/SA_PASSWORD_POLICY.md)
-  – CLI- und Browserkorrektur offline geprueft; Docker-/Podman-Erststarts mit
-  SQL2025-CU9 und Mindestlaenge drei bestanden, gueltiger HTTP-Creationjob
-  und gerenderte Browserbedienung offen.
-
 | Merkmal | Wert |
 |---|---|
 | Status | `BINDING_INDEX` |
-| Stand | 2026-09-04 |
+| Stand | 2026-10-23 |
 
 Diese Datei ist der verbindliche Dokumentationsindex. Die Root-[README](../README.md) ist der operative Einstieg. Bei Widersprüchen zwischen Planungsdokumenten und implementiertem Verhalten gelten Code, Schemas, Kataloge, Tests und die dokumentierten bekannten Grenzen als Ist-Nachweis.
 
-[Persistentes Retrieval](Architecture/AI_PERSISTENT_RETRIEVAL.md) beschreibt den begrenzten SQL-2025-Containerpfad mit Fixture- oder atomar synchronisierten Caller-Dokumenten, exakter Vektor- und hybrider lexikalischer SQL-Suche, Resume und eigenem Cleanup.
+## Zweck und Quellenwege
 
-[SQL-seitige HTTPS-Embeddings](Architecture/AI_SQL_HTTPS_BRIDGE.md) beschreibt
-den internen Docker-Referenzslice. SQL-Embeddings, TLS-Negative, Retrieval nach
-SQLrestart und eigenes Cleanup bestanden nativ am 2026-09-21.
+Für ein erstes Lab führt [Getting Started](User/Getting_Started.md) vom Checkout
+über die Einrichtung bis zur Verbindung und zum eigenen Cleanup. Die
+Installationsanleitungen erklären die betriebssystemspezifische Vorbereitung;
+Troubleshooting und bekannte Grenzen sind im selben Bedienweg verlinkt.
+
+`User` und `HowTo` sind Bedienanleitungen, `Architecture` und `Standards`
+gemeinsame technische Quellen. `Project_Planning` beschreibt Vorhaben und
+Entscheidungen. `Quality` enthält aktuelle Prüfregeln, bekannte Grenzen und
+klar datierte historische Abnahmen. Die Tabellen unten sind ein gepflegter
+Index; API und Verhalten bleiben in Modulmanifest, Quellen und Fachverträgen
+maßgeblich. Der gesonderte **KI-Einstieg ist [AGENTS.md](../AGENTS.md)**;
+[technische Inspektion](../README.md#ki-steuerung-und-maschinelle-quellen)
+führt von dort zu Vertrag, Format und Evidence.
 
 ## 1. Einstieg nach Zielgruppe
 
@@ -48,6 +45,19 @@ SQLrestart und eigenes Cleanup bestanden nativ am 2026-09-21.
 16. [Bekannte Grenzen](Quality/KNOWN_LIMITATIONS.md)
 17. [Tests](../Tests/README.md)
 
+### Vertiefung, Betrieb und datierte Nachweise
+
+- [Entfernte Run-Artefakte](User/RUN_ARTIFACT_REMOVAL.md): bewusste Auswahl,
+  Referenz-/Retentionprüfung und Recovery.
+- [SA-Passwortvertrag](Architecture/SA_PASSWORD_POLICY.md): Vorprüfung und
+  begrenzte AdHoc-Korrektur; tatsächliche Abnahmen stehen in der
+  [Validierungsstrategie](Quality/LOCAL_VALIDATION_STRATEGY.md).
+- [Persistentes Retrieval](Architecture/AI_PERSISTENT_RETRIEVAL.md) und
+  [SQL-seitige HTTPS-Embeddings](Architecture/AI_SQL_HTTPS_BRIDGE.md): eigene
+  technische Referenzpfade mit getrennten Nachweisgrenzen.
+- [Linux-TLS-Kryptomatrix](Quality/TLS_LINUX_CLIENT_MATRIX_ACCEPTANCE_2026-10-22.md):
+  datierter Clientnachweis; kein öffentlicher Linux-Registry-/Exportpfad.
+
 ### Projekt weiterentwickeln
 
 1. [Verbindlicher Agenten-Arbeitsvertrag](../AGENTS.md)
@@ -62,6 +72,7 @@ SQLrestart und eigenes Cleanup bestanden nativ am 2026-09-21.
 10. [Lokale Validierungsstrategie](Quality/LOCAL_VALIDATION_STRATEGY.md)
 11. [Bekannte Grenzen](Quality/KNOWN_LIMITATIONS.md)
 12. [PowerShell Command and Help Standard](Standards/POWERSHELL_COMMAND_AND_HELP_STANDARD.md)
+13. [Foundation 1.25: semantische Integration und Dokumentationswege](Quality/FOUNDATION_1_25_UPGRADE_ASSESSMENT.md)
 
 ### Architektur und langfristige Planung verstehen
 
@@ -153,6 +164,8 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | `Get-SqlServerLabHyperVResourcePreview` | Registrierte Hyper-V-Location, Kapazität und physische Klassenroots read-only anzeigen |
 | `Get-SqlServerLabCatalog` | Konsolidierten Lab-Katalog als JSON-Artefakt erzeugen |
 | `Get-SqlServerLabCleanupAudit` | `Lab_Data`, Runtime-Scopes und Persistent Storage read-only prüfen sowie jedes auffällige Objekt mit Löschungs-/Bewahrungsempfehlung ausgeben |
+| `Get-SqlServerLabRunArtifactRemovalPlan` | Artefakte eines exakt ausgewählten entfernten Runs mit Referenz- und Retentionprüfung read-only zur Entfernung vorschlagen |
+| `Invoke-SqlServerLabRunArtifactRemoval` | Den gebundenen Run-Artefaktplan mit erneuter Prüfung, Journal und Recovery ausführen |
 | `Sync-SqlServerLabRuntimeState` | Runs mit Docker, Podman und Hyper-V abgleichen und eindeutig fehlende gebundene Runtimeobjekte fail-closed als `RECOVERY_REQUIRED` markieren |
 | `Get-SqlServerLabMaintenancePlan` | State sowie alle vorhandenen Container und Hyper-V-VMs read-only auf Drift, Orphans und alte Testartefakte prüfen |
 | `Invoke-SqlServerLabMaintenance` | Revalidierte sichere oder scopegebundene Korrekturen ausführen; Legacy-Testartefakte erfordern einen eigenen Schalter |

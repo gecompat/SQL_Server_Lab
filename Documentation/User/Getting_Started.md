@@ -1,306 +1,12 @@
 # SQL_Server_Lab – Getting Started
 
-Nach Neustart eines eigenen operativen TLS-Containers aktualisiert `Update-SqlServerLabTlsBinding -RunId $lab.RunId -InstanceId primary -StateRoot $lab.StateRoot` ausdrücklich dessen Startbindung nach beiden strikten Clients. Ein unveränderter Start ist kein neuer Nachweis; alte Exporte bleiben ungültig. [Vertrag, WhatIf und Recoverygrenze](../Architecture/AUTHENTICATED_TLS_CONTAINER_REBIND.md).
-
-Volltext kann mit `New-SqlServerLab -Provider docker -FullText $true` oder im
-Manifest unter `instances[].sqlFeatures.fullText` gewählt werden. Podman nutzt
-denselben expliziten Vertrag. Für vorhandene laufende Instanzen dient
-`Set-SqlServerLabFeature -RunId $run.RunId -InstanceId primary -Feature FullText
--Enabled $true`; `$false` entfernt die Funktion nach einer Abhängigkeitsprüfung.
-In der GUI stehen die Auswahl bei Neuanlage und **SQL-Funktionen** je Instanz
-bereit. FILESTREAM-T-SQL-Zugriff ist mit `fileStream` beziehungsweise
-`-Feature FileStream` nur auf Windows/Hyper-V verfügbar.
-[Details, Beispielmanifest und Recovery](../Architecture/SQL_OPTIONAL_FEATURES.md).
-
-Neue Lab-Connection-Strings und SSMS-Registrierungsexporte verwenden
-`Encrypt=True;TrustServerCertificate=True` als einfachen Standard ohne eigene
-CA-/Client-Trusteinrichtung. Gespeicherte Altverbindungen bleiben erhalten.
-Die ausdrückliche Auswahl von `TrustServerCertificate=False` ist für eigene Windows-/Docker-/Podman-Labs mit SQL 2025 CU9, SQL 2022 CU27 oder SQL 2019 CU32 samt signiertem V2-Export implementiert. Der [operative Vertrag](../Architecture/AUTHENTICATED_TLS_OPERATIONAL_LAB.md) beschreibt Voraussetzungen und Grenzen; die Anzeige der Flags allein ist kein frischer Qualifikationsnachweis.
-
-Die CLI-Runstatusansicht zeigt bereits eine eigene **Connection Settings**-
-Zeile je Provider/Instanz. Die GUI zeigt unter **Verbindungen und CMS** beide
-angegebenen TLS-Werte je Ziel ohne Zugangsdaten. Fehlende Werte erscheinen
-als `nicht angegeben`, unlesbare als `nicht lesbar`. Diese Anzeige führt
-keinen Verbindungstest aus; [Vertrag und Grenzen](../Architecture/SQL_CONNECTION_SETTINGS.md).
-
-Eigene SSIS-Projekte in einem bestehenden Windows-Lab verwenden den
-[Windows-Consumerzugang](../HowTo/SSIS_CONSUMER_WINDOWS_ACCESS.md) des bestehenden
-`Invoke-SqlServerLabScript` mit `-WindowsAuthentication`. Die Gastanmeldung
-bleibt geschützt; die vorhandenen Lab-Fixtureausführungen bleiben erhalten.
-
-Bei Paketladefehlern beobachtet `Get-SqlServerLabSsisPackageDiagnostic` die
-Komponenten derselben Gast-Runtime und `LoadFromXML` des hashgebundenen eigenen
-Pakets ohne Ausführung. [Voraussetzungen und Beispiel](../Architecture/SSIS_PACKAGE_DIAGNOSTIC.md).
-
-CLI und Browser pruefen das SA-Passwort vor der Containererstellung und erlauben
-Korrektur oder Abbruch. Standard: acht bis 128 Zeichen und drei von vier
-Zeichengruppen. Im Browser erscheint eine kuerzere Mindestlaenge erst nach
-einem reinen Laengenfehler auf einem neuen kurzlebigen Container mit
-katalogisiertem SQL-2025-CU; Auswahl und Bestaetigung gelten nur fuer dieses Lab.
-Manifeststarts behalten die Standardkriterien. Die enge Grenze steht im
-[AdHoc-Vertrag](../Architecture/SA_PASSWORD_POLICY.md). Getrennte native
-Docker-/Podman-Erststarts und gerenderte HTTP-Creationjobs wurden am
-2026-10-06 mit SQL-Anmeldung und eigenem Cleanup geprueft.
-
-## Umgebungsstatus in der CLI
-
-Unter **Lab-Umgebungen → Umgebungsstatus anzeigen** zeigt die Auswahl zuerst
-**Alle Umgebungen** und die vorhandenen Typgruppen, etwa **Lab-Umgebung** und
-**Hyper-V-Windows-Slot**. Enter klappt eine Gruppe auf; Escape kehrt zur
-Gruppenauswahl zurueck. Innerhalb der Gruppe stehen die Umgebungen nach
-Provider und Name sortiert. **Alle Umgebungen** zeigt sie in derselben
-Provider-/Namensfolge. Ein Run mit `RECOVERY_REQUIRED` bleibt sichtbar, weil
-sein Cleanup noch zu pruefen ist. Fehlt seine Runtime, zeigt die Detailansicht
-keine gespeicherten SQL-Verbindungsdaten als nutzbaren Zugang an.
-
-## Container-Autostart nur vorprüfen
-
-In der CLI **Lab-Umgebungen → Container-Autostart vorprüfen** oder im Browser
-**Lab verwalten → Container-Autostart vorprüfen · PLAN_ONLY** öffnen.
-Registrierte laufende Docker-/Podman-Instanz wählen, on/off festlegen und
-bewusst die Vorschau lesen. Die Anzeige bleibt ohne Apply und zeigt nur
-geprüfte Kategorien und Mountcounts; Abbruch oder Bearbeitung verwirft die
-Anzeige. [API und vollständiger Bedienvertrag](../../Public/README.md#container-autostart-nur-vorprüfen),
-[Abnahmehistorie](../Quality/LOCAL_VALIDATION_STRATEGY.md#getrennte-autostart-core-abnahme)
-und [Grenzen](../Quality/KNOWN_LIMITATIONS.md#container-autostart-nur-vorprüfen)
-sind getrennt dokumentiert.
-
-
-## SQL-Hostport nur vorprüfen
-
-In `Invoke-SqlServerLab` **Lab-Umgebungen → SQL-Hostport vorprüfen** wählen.
-Ein vorhandenes registriertes `Lab_Data` angeben, Lab und SQL-Instanz
-auswählen und einen Wunschport von 1024 bis 65535 eingeben. `q` oder Zurück
-bricht vor dem Planaufruf ab. Der getrennte Dialog bleibt PLAN_ONLY: er zeigt
-die lokale Wunschport-Eingabe, SAME_PORT/DIFFERENT_PORT, Änderungsweg,
-Ausfallzeitkategorie und Mountcounts. Istport und private Inspectdaten
-werden nicht angezeigt. Endpoint, SQL, Backup und Volumeeigentum bleiben
-NOT_CHECKED; es gibt keine Bestätigungs- oder Applyaktion.
-
-Im generischen CLI-Befehlszugang den Parametersatz `ContainerPortPreview` von
-`Get-SqlServerLabReconcilePlan` wählen und den registrierten StateRoot, Run,
-die Instanz sowie den gewünschten Port angeben:
-
-```powershell
-Get-SqlServerLabReconcilePlan -RunId $runId -InstanceId primary -ContainerPortPreview -Port 15433 -StateRoot $stateRoot
-```
-
-Ein vollständiger Vorschauaufruf liest den gebundenen Docker-/Podman-Kontext;
-zusätzliche eigene Ownership-Revalidierungen können Inspectreads benötigen.
-Das Ergebnis zeigt „gleicher Port“ oder „anderer Port“ ohne Portnummern,
-native IDs oder Pfade. `PLAN_ONLY`, leere `Actions` und `CanApply=false`
-erlauben keine Ausführung. `ObservationKey` bindet nur beobachtete Inhalte.
-Es werden weder Ports reserviert noch gesonderte SQL-, Secret- oder
-Sicherungszugriffe ausgeführt. Die private Inspect-Antwort bleibt intern;
-auch ihr Konfigurationsinhalt fließt nur in den undurchsichtigen Inhaltskey.
-Endpoint bleibt `NOT_CHECKED`. Unbekannte oder zusätzliche Port-/Netztopologie,
-ungeeignete Mounts, ein offenes Journal und nicht laufende Runs blockieren die
-unterstützte Vorschau. Im Browser unter **Lab verwalten → SQL-Hostport
-vorprüfen · PLAN_ONLY** die registrierte laufende Instanz und einen Wunschport
-wählen, dann bewusst **Portvorschau lesen**. Der Server verwendet seinen
-aktuellen registrierten Root; freie Pfade und native IDs können nicht
-übergeben werden. Öffnen liest nur Metadaten, Bearbeiten startet keine
-Vorschau. Schließen, Escape und jede Eingabe-/Zieländerung verwerfen späte
-Antworten; ein bereits versandter lesender Aufruf kann trotzdem weiterlaufen.
-Es gibt keine Applyaktion oder Portreservierung. Die native Portdialogabnahme
-mit echtem Loopback-HTTP bestand am 2026-10-07 getrennt für Docker und Podman
-mit eigenem Cleanup. Sie umfasst den tatsächlichen Dialog und dessen Route;
-der vollständige UI-Server bleibt ungeprüft. Port-Apply bleibt offen; der bestehende Container-Reconcile
-wird dadurch nicht erweitert.
-
-## Collations vor einer Lab-Erstellung ansehen
-
-Im Browser **Lab erstellen → Collations suchen** öffnen, SQL-Version und
-Suchwörter angeben und **Suchen** wählen. `Latin1 UTF8` verlangt beide Wörter;
-ohne ASCII-Suchwörter erscheinen alle kuratierten Katalogeinträge. Metadaten
-und Warnungen dienen zur Orientierung, prüfen keinen SQL-Server und übernehmen
-keine Auswahl. `DEPRECATED` ist weiterhin zulässig. Zurück/Escape verwirft die
-Eingabe und späte Antworten; eine bereits angeforderte Suche kann weiterlaufen.
-
-## Ersatz oder Migration vor Evaluation-Ablauf planen
-
-`Get-SqlServerLabEvaluationRefreshPlan -RunId $runId -InstanceId primary -DataRoot $dataRoot -Mode STATEFUL_MIGRATION`
-liest genau eine vorhandene moderne Hyper-V-SQL-Instanz. Die weiteren Modi
-`FREE_SLOT_REPLACEMENT` und `RECONSTRUCT_LAB` trennen Slotersatz und Rekonstruktion
-von Datenübernahme. `Invoke-SqlServerLab` bietet den generischen Befehlszugang
-und **Alle öffentlichen Befehle → SQL-Evaluation: Ersatzentscheid**. Im geführten
-Dialog vorhandenes registriertes `Lab_Data` eingeben, eine gebundene einzelne
-Hyper-V-SQL-Instanz und die Entscheidungsart auswählen, dann **Vorschau lesen**.
-Zurück oder Escape verwirft die Eingabe ohne Planaufruf. Der Dialog liest
-höchstens 64 vorhandene Run-Verzeichnisse und beginnt keine neue Inventur.
-Der Plan bleibt `BLOCKED` ohne Aktionen oder Transferautorität. Gespeicherte
-Windows-Metadaten sind keine frische Lizenzprüfung; fehlende SQL-Gast-Evidence,
-Inventar und Gleichwertigkeit bleiben konkrete Blocker.
-Im Browser unter **Wartung, Aufräumen und Recovery → SQL-Evaluation:
-Ersatzentscheid** denselben registrierten Root eingeben, **Registrierte Instanzen
-lesen**, Instanz und Entscheidungsart auswählen und die reine Vorschau lesen.
-Windows-/SQL-Evidence bleiben getrennt; Zurück oder Escape verwirft die
-RAM-Auswahl, späte Antworten können sie nicht wiederherstellen. Keine Jobs,
-neue SQL-/Lizenzprüfung oder Migration.
-[Vertrag und Grenzen](../Project_Planning/FULL_INSTANCE_EVALUATION_REFRESH_BACKLOG.md).
-
-## Python, R oder Java für eine zukünftige Containerinstanz prüfen
-
-Im Browser unter **Lab erstellen → Python / R / Java: Katalog und
-Hostvoraussetzungen** Provider und SQL-Version wählen und Katalogvarianten
-lesen. Blockierte Varianten bleiben mit Grund sichtbar. Die Katalogentscheidung
-prüft keinen Host; der eigene Hostcheck-Knopf fordert genau eine lesende Prüfung
-an. `READY` ist weder SQL-Sprachabnahme noch Ausführungsrecht. SQL 2025
-shared-user-v2 verzichtet auf die Launchpad-Sandbox. Kein Manifest wird
-übernommen oder gespeichert; Abbruch verwirft Eingaben und späte Anzeigen.
-[Grenzen und Vertrag](../Architecture/EXTERNAL_RUNTIME_CAPABILITY.md).
-
-## Verfügbarkeit der SQL-2025-KI-Aktionen
-
-Das KI-Menü lässt Aktionen sichtbar, die ein SQL-Ziel benötigen, deaktiviert sie
-aber solange keine als `RUNNING` registrierte SQL-Server-2025-Instanz vorhanden
-ist. Der Hinweis `AI_SQL_2025_TARGET_UNAVAILABLE` nennt als Abhilfe das Erstellen
-oder Starten einer eigenen SQL-Server-2025-Umgebung. Das gilt für
-Szenarioausführung, lokales SQL-RAG, SQL-Diagnose und Golden-RAG sowie für die
-entsprechenden geführten Demos. Szenarioplan, Modellaufruf, manuelle
-Retrieval-Auswertung und die geführte Offline-Retrieval-Demo bleiben auswählbar.
-Die Menüprüfung liest ausschließlich Run-State und `connection-info.json`; vor
-einer Ausführung prüft der jeweilige Workflow den echten Runtime-Status erneut.
-
-Nach der Umgebungsauswahl zeigt die KI-Zielauswahl die registrierten Instanzen
-mit Instanzname (Instanz-ID), SQL-Version und Provider. Die Instanz-ID muss nicht
-mehr eingetippt werden. Ungeeignete Versionen, unvollständige oder mehrdeutige
-Verbindungsziele und nicht bestätigte Laufzustände bleiben mit Sperrgrund sichtbar.
-Cursor-Auswahl und nummerierter Fallback verwenden dieselben Einträge; Escape
-bricht ohne nachfolgende Aktion ab. Vor der Rückgabe werden die ausgewählte
-Run-/Instanzbindung und der Runtime-Status erneut geprüft. Die Auswahl startet
-keine Umgebung und ersetzt nicht die weiteren Prüfungen des jeweiligen Workflows.
-
-## Podman-KI-Testumgebung erstellen
-
-Starte `Invoke-SqlServerLab` und wähle **Datenbanken und Verbindungen → SQL Server 2025 KI →
-Podman-KI-Testumgebung erstellen**. Podman muss bereit sein. Das Menü lässt
-den Eintrag sichtbar, deaktiviert ihn bei fehlender, nicht ausführbarer oder
-nicht erreichbarer Podman-Runtime jedoch vor jeder Formulareingabe und nennt
-ReasonCode sowie konkrete Abhilfe. Die Anzeigeprüfung ist read-only und startet
-keine Podman-Machine. Der Dialog lässt zwischen dem vorhandenen
-`embeddinggemma:latest` (768 Dimensionen, Standard),
-`bge-m3:latest` (1024 Dimensionen, mehrsprachig),
-`nomic-embed-text-v2-moe:latest` (768 Dimensionen, Suchprofil), dem
-kompakten `all-minilm:latest` (384 Dimensionen) und dem mehrsprachigen
-`paraphrase-multilingual:latest` (768 Dimensionen) sowie
-`snowflake-arctic-embed2:latest` (1024 Dimensionen, Suchprofil) wählen. Er fragt außerdem
-Name, lokalen Ollama-Port (11434), CPU (2) und RAM in MB (4096)
-und zeigt vor der Erstellung eine Vorschau. Abbruch erstellt keinen Run.
-Die feste deutsche All-MiniLM-Referenzabfrage verwendet den gebundenen
-Hybridmodus; die Umgebung zeigt diesen Suchmodus zusammen mit Modell und
-Dimension an.
-
-Nach Erfolg bleiben SQL Server 2025, eigene Volume und die synthetischen
-Embeddingdaten erhalten. **Meine KI-Testumgebungen anzeigen** liefert später
-RunId, CollectionId, Modell und Dimension für erneute Abfragen; SQL-Verbindungen stehen im
-Connection Center. Die vorhandene Run-Entfernung entfernt die ganze Umgebung
-ausdrücklich. Keine Modellinstallation, Cloud oder beliebigen Dokumente.
-Der native Standardlauf bestand am 2026-09-21; die BGE-M3-/1024-, Nomic-v2-/768-,
-All-MiniLM-/384-, Paraphrase-Multilingual-/768- und
-Snowflake-Arctic-Embed-2-/1024-Auswahl am 2026-09-22. Alle behielten die
-Query über einen SQLrestart und bestätigten
-anschließend vollständiges eigenes Cleanup.
-[Details, Fehlerbehandlung und Grenzen](../Architecture/AI_PODMAN_SETUP.md).
-
-Für Ad-hoc-RAG auf einem vorhandenen SQL-2025-Podman-Run kann stattdessen das
-lokal installierte Nomic-v1.5-Modell gewählt werden. Es wird weder geladen noch
-gestartet; Ollama muss auf dem angegebenen Loopback-Port laufen:
-
-```powershell
-Invoke-SqlServerLabAiRag -RunId $runId -SaPassword $password `
-    -Question 'Wie oft werden synthetische Sicherungen geprüft?' `
-    -Document @(
-        @{Id='backup-policy';Content='Synthetische Sicherungen werden täglich geprüft.'}
-        @{Id='cleanup-policy';Content='Run-eigene Ressourcen werden vollständig entfernt.'}
-    ) -TopK 1 -EmbeddingModelKey ollama-nomic-embed-text-v1-5 `
-    -GenerationModelKey ollama-qwen25-coder-7b-local -GenerationLane local
-```
-
-Der Katalog wendet die für Nomic erforderlichen Suchpräfixe automatisch an.
-SQL Server führt die exakte Cosine-Suche aus; Texte und Frage werden nicht in
-der Lab-State-Ablage persistiert.
-
-Als mehrsprachige 1024-dimensionale Alternative kann im selben Aufruf
-`-EmbeddingModelKey ollama-bge-m3-latest` gewählt werden. Dafür muss
-`bge-m3:latest` bereits im lokalen Ollama vorhanden sein. Dieser Ad-hoc-Pfad
-erstellt in SQL Server `VECTOR(1024)` und verwendet die Dokumente unverändert.
-
-## SQL-seitige HTTPS-Embeddings: Referenzabnahme
-
-`Tests/Integration/Invoke-AiSqlHttpsBridgeAcceptance.ps1` erstellt einen eigenen
-SQL-2025-Docker-Run und einen begrenzten Loopback-Gateway zu bereits vorhandenem
-Host-`embeddinggemma:latest`. Die Docker-Referenzabnahme bestand am 2026-09-21
-einschließlich SQL-TLS-Negativen, Retrieval nach SQLrestart und Cleanup.
-Keine öffentliche Gateway-API. Voraussetzungen, Aufruf und Besitzgrenzen stehen im
-[Referenzvertrag](../Architecture/AI_SQL_HTTPS_BRIDGE.md).
-
-## Secret-Preflight für den gemeinsamen KI-Gateway
-
-`Test-SqlServerLabAiSharedGatewayServiceSecret` prüft die Consumer-Referenzen
-eines mit `Get-SqlServerLabAiSharedGatewayServicePlan` erzeugten Dienstplans.
-Plan und Prüfung müssen im selben Benutzer-/Hostkontext ausgeführt werden.
-`AI_SHARED_GATEWAY_SERVICE_PRINCIPAL_MISMATCH` blockiert vor dem Vaultzugriff;
-erstelle den Dienstplan in diesem Fall im gewünschten Ausführungskontext neu.
-CLI und Browser-GUI verwenden dieselbe Prüfung. Das fünf Minuten gültige
-Receipt bestätigt weiterhin nur die aktuelle Sitzung; die nichtinteraktive
-Auflösung beim tatsächlichen Dienststart bleibt separat nachzuweisen.
-
-## Read-only Mehrdatenbankvergleich
-
-`Test-SqlServerLabRelationalCoreComparison` vergleicht explizit benannte, bereits laufende verwaltete Docker-/Podman-Datenbankpaare. Der Befehl nimmt keine Endpunkte, Connection Strings, SQL-Texte oder Kennwörter an. Ein Paar enthält nur die stabile Paar-ID sowie Quell- und Ziel-RunId, InstanceId und Datenbankname. Der Vergleich kann `MATCH`, `DIFFERENT` oder `UNSUPPORTED` feststellen; er ändert keine Datenbank und führt keinen Transfer aus.
-
-## Persistentes Retrieval
-
-`Invoke-SqlServerLabAiPersistentRetrieval` verwendet einen vorhandenen
-SQL-2025-Docker-/Podman-Run mit verwaltetem SA-Secret und ein bereits laufendes
-lokales `embeddinggemma:latest` oder mit explizitem
-`-EmbeddingModelKey ollama-bge-m3-latest` das lokale BGE-M3 oder mit
-`-EmbeddingModelKey ollama-nomic-embed-text-v2-moe` das lokale Nomic v2. Mit
-`-EmbeddingModelKey ollama-all-minilm-latest` wird All-MiniLM mit
-`VECTOR(384)` und unverändertem Rohtext verwendet. Mit
-`-EmbeddingModelKey ollama-paraphrase-multilingual-latest` wird Paraphrase
-Multilingual mit `VECTOR(768)` und unverändertem Rohtext verwendet. Mit
-`-EmbeddingModelKey ollama-snowflake-arctic-embed2-latest` verwendet SQL
-`VECTOR(1024)`; Dokumente bleiben unverändert, Fragen erhalten automatisch den
-Snowflake-Retrievalpräfix. Mit einer
-beibehaltenen Collection-GUID führen
-`-FixtureRevision Initial`, `-FixtureRevision Delta`, `-Action Sync`, `-Action Query` und
-`-Action Remove` durch persistente Generationen und eigenes Cleanup. `-Resume`
-setzt nur exakt gebundenes unterbrochenes Apply, Sync beziehungsweise Migrate fort;
-`-WhatIf` ist rein planend. `-Action Query -SearchMode Hybrid` kombiniert für
-die v1-Generationen SQL-Termabdeckung und exakte Cosine-Distanz; der
-  eine direkte Nomic-v2-Collection setzt die Rollenpräfixe automatisch und begrenzt
-  Eingaben einschließlich Präfix auf 512 UTF-8-Bytes. Der Nomic-Migrationspfad
-  bleibt reine Vektorsuche. Für bestätigtes Delta erlaubt
-  `-Action Migrate -FixtureRevision Delta -TargetModelKey ollama-nomic-embed-text-v2-moe`
-  den einmaligen Wechsel auf das bereits vorhandene lokale Nomic-Modell.
-Alternativ erstellt `-Documents` eine Collection aus 1 bis 16 Objekten mit
-eindeutiger `Id` und `Content`. `-Action Sync` verlangt den vollständigen
-aktuellen Bestand als `-ExpectedDocuments` und den vollständigen Zielbestand als
-`-Documents`; unveränderte Vektoren werden übernommen, Änderungen neu eingebettet
-und ausgelassene IDs atomar entfernt. `-Action Query` verlangt den vollständigen
-  aktiven Bestand und eine freie `-Question`; Inhalt und Frage bleiben aus dem Journal heraus.
-  Nach mindestens einem erfolgreichen Caller-Sync entfernt
-  `-Action Prune -KeepGenerations 2` alte inaktive v1-Generationen in einer SQL-Transaktion.
-  Der modellfreie Aufruf ist idempotent und akzeptiert keine Dokumentpayloads.
-  Derselbe vollständige Bestand kann mit `-Action Migrate`, dem Parameter
-  `-Documents` und `-TargetModelKey ollama-nomic-embed-text-v2-moe` vollständig in die nächste
-  Nomic-Generation neu eingebettet werden. Dokumentinput und spätere Frage sind
-  einschließlich Nomic-Präfix auf 512 UTF-8-Bytes begrenzt. Sync nach diesem
-  Modellwechsel ist derzeit nicht unterstützt.
-[Upgrade, Profile und Recovery](../Architecture/AI_PERSISTENT_MODEL_MIGRATION.md).
-[Beispiel, Besitzvertrag und Grenzen](../Architecture/AI_PERSISTENT_RETRIEVAL.md).
-Die getrennten nativen Docker- und Podman-Referenzläufe vom 2026-09-22 belegen
-Vektor- und Hybridranking der Fixture sowie Caller-Dokument-Sync jeweils
-mit 30 Assertions, SQLrestart, Delta-Cutover, Hashdrift-Abweisung, explizitem
-Prune samt SQL-Tabellenbeleg und vollständigem eigenem DB-/Run-Cleanup.
-Der erweiterte Modellwechsel bestand unter Docker und Podman getrennt mit je 25
-Assertions, Caller-Collection, SQLrestart und vollständigem Cleanup. Weitere
-Zielmodelle, Dimensionen, automatische Generation-Retention, Prune nach Modellmigration
-und Hyper-V bleiben offen.
-
 ## Ziel
+
+Für das erste Containerlab folgt die Reihenfolge unten: Voraussetzungen,
+Checkout, Import, Root-Einrichtung, Ressourcenprüfung, Erstellung und Verbindung.
+Der [Cleanup](#16-umgebung-entfernen) gehört zu demselben Ablauf. Optionale
+Funktionen und Wartungswege stehen anschließend unter
+[Vertiefende Bedienwege](#vertiefende-bedienwege).
 
 Diese Anleitung führt vom leeren Arbeitsverzeichnis bis zu einer erreichbaren SQL-Server-Testinstanz und anschließend durch Datenbankerstellung, Restore, Skriptausführung und Cleanup.
 
@@ -308,32 +14,12 @@ Für Architektur und Entwicklungsregeln siehe [Dokumentationsübersicht](../READ
 
 ## 1. Voraussetzungen
 
-Für eine ausschließlich lokale Security-Tool-Metadatenprüfung ist nach dem
-Modulimport kein laufender Provider nötig:
-
-```powershell
-Get-SqlServerLabSecurityToolPlan -ToolId synthetic-tool `
-    -VariantId synthetic-linux -PurposeId sql-tls -Target @{
-        sqlVersion='2025'; os='linux'; distribution='synthetic-linux'
-        osVersion='1.0'; architecture='x64'; provider='docker'
-    }
-```
-
-Das synthetische Beispiel liefert `BLOCKED` / `UNKNOWN_TOOL`: Die produktive
-Allowlist ist leer. `Target` akzeptiert ausschließlich die sechs gezeigten
-Felder, keine Hostnamen, IPs, Pfade oder automatische Providerwahl. Der Befehl
-liest lokale Katalog-/Schemadateien und erzeugt nur ein Ergebnis im Speicher.
-Auch `PLANNED` wäre ausschließlich eine Metadatenübereinstimmung mit
-`Executable=false` und `AuthenticityVerified=false`. Der reproduzierbare
-PlanHash bindet den normalisierten Request und den gesamten Kataloginhalt;
-er ist keine gespeicherte Plan-ID und keine Beschaffungsfreigabe.
-Downloads, Runbindung, Manifestintegration und Konsolenaktion sind offen.
-
 Die folgenden Voraussetzungen gelten für die Laberstellung.
 
 Die schrittweise Installation mit offiziellen Downloadlinks und getrennter
 Abgrenzung zur Entwicklungsumgebung steht in
 [Installation für AnwenderInnen unter Windows](INSTALLATION_WINDOWS.md).
+Unter Linux gilt die [Linux-Installation](INSTALLATION_LINUX.md).
 
 Erforderlich:
 
@@ -342,25 +28,6 @@ Erforderlich:
 - mindestens 4 GB freier RAM
 - mindestens 5 GB freier Speicherplatz
 - `sqlcmd` für Datenbankoperationen und den vollständigen Smoke-Test
-
-Nach dem Checkout liefert der folgende Check ein strukturiertes Ergebnis,
-ohne einen Skill vorauszusetzen oder eine Runtime zu starten:
-
-```powershell
-./Tools/Test-SqlServerLabClientReadiness.ps1 -Provider docker -Operation Create
-```
-
-Fuer Podman oder Hyper-V den Provider entsprechend waehlen. Fehlende
-Voraussetzungen und naechste Schritte stehen in `MissingPrerequisites` und
-`NextSteps`. `READY_WITH_WARNINGS` verlangt, die `Warnings` zu beachten.
-Die konkrete Operation prueft ihre Ressourcen und Ownership weiterhin selbst.
-
-KI-Clients mit Repository-Skill-Erkennung finden unter `.agents/skills` die
-Abläufe `sql-server-lab-readiness`, `sql-server-lab-validation` und
-`sql-server-lab-operate`. Sie nutzen dieselben Skripte und öffentlichen
-Cmdlets. Falls der Client die Skills nicht lädt, bleibt der obige manuelle
-Readiness-Aufruf verfügbar. Details und Grenzen stehen im
-[Repository-Skill-Vertrag](../Project_Planning/REPOSITORY_AGENT_SKILLS_BACKLOG.md).
 
 Einzelne Werkzeuge lassen sich auch direkt pruefen:
 
@@ -404,48 +71,6 @@ Get-Help about_SqlServerLab
 Get-Help New-SqlServerLab -Full
 Get-Help Test-SqlServerLabManifest -Parameter Path
 ```
-
-Standard für Skript-Hilfeeinträge (`-ShowHelp` und `--help`; `/?` sowie
-`-help`/`-h`/`-?` können je nach PowerShell-Kontext die Engine-Hilfe auslösen):
-
-```powershell
-.\Invoke-SqlServerLab.ps1 -ShowHelp
-.\Tools\Initialize-SqlServerLabDataRoot.ps1 -ShowHelp
-.\Tools\Initialize-SqlServerLabMediaRoot.ps1 -ShowHelp
-.\Tools\Start-SqlServerLabUi.ps1 -ShowHelp
-.\CheckLargeGitFilesPush.ps1 --help
-```
-
-Nach dem Start der lokalen Browseroberfläche steht oben **Alle Funktionen**.
-Dieser Bereich entspricht dem vollständigen öffentlichen Befehlskatalog der
-CLI. Er zeigt für den gewählten Parametersatz alle Pflichtfelder, Standards und
-zulässigen Werte und eignet sich auch für Funktionen, die noch keinen eigenen
-geführten Dialog besitzen. Für häufige Lab-Abläufe bleiben die geführten
-Umgebungsansichten die schnellere Auswahl.
-
-Der Browser bietet unter **Verbindungen und CMS → SQL-Komponenten:
-geführte Vorschau** denselben reinen Plan: vorhandenes registriertes `Lab_Data`
-lesen, Run und verbrauchende Instanz auswählen, eine SQL-Voraussetzung ergänzen
-und **Vorschau lesen**. Relations bleiben im RAM; kein Job oder Apply entsteht.
-`NOT_CHECKED` und Shared `PRESERVE` gelten immer. Zurück/Abbruch verwirft die
-Auswahl; nach Metadatendrift zuerst erneut lesen.
-Die CLI bietet unter **Alle öffentlichen Befehle → SQL-Komponenten: geführte
-Vorschau** einen eigenen Plan-only-Dialog. Ein vorhandenes registriertes
-`Lab_Data` angeben, den Run und seine verbrauchende SQL-Instanz auswählen und
-eine bestehende eigene oder verwaltete Shared-SQL-Voraussetzung ergänzen.
-**Vorschau anzeigen** prüft die gebundenen Metadaten erneut und zeigt ihre
-Voraussetzungreihenfolge. SQL bleibt `NOT_CHECKED`; Shared-SQL bleibt erhalten.
-Zurück oder Esc verwirft die Eingabe. Es wird nichts gespeichert oder gestartet.
-Der Browser bietet für diesen engen Slice weiterhin nur den generischen
-Befehlszugang. [Vertrag und Grenzen](../Architecture/EXTENSIBLE_ENVIRONMENT_AND_EXECUTION_CONTRACT.md#71-implementierter-enger-komponentenplan-slice-e).
-
-Für alle aufgeführten Skripte gilt: Wird ein Support-Switch erkannt, wird direkt
-die Skript-Hilfe angezeigt und anschließend die Ausführung beendet.
-
-Die autoritative Exportliste steht in `SqlServerLab.psd1`. `Get-Command` zeigt
-für jeden Export in `ModuleName` und `Source` die Zuordnung zu `SqlServerLab`.
-Bei einem Namenskonflikt ist der modulqualifizierte Aufruf eindeutig, zum
-Beispiel `SqlServerLab\New-SqlServerLabDatabase`.
 
 ### 3a. Lab_Base und Lab_Data erstmalig einrichten
 
@@ -515,6 +140,21 @@ zur Struktur stehen unter [Externer Media Root](../HowTo/MEDIA_ROOT_LAYOUT.md).
 
 ## 4. Ressourcen prüfen
 
+Nach Checkout und Modulimport liefert der folgende Check ein strukturiertes Ergebnis,
+ohne einen Skill vorauszusetzen oder eine Runtime zu starten:
+
+```powershell
+./Tools/Test-SqlServerLabClientReadiness.ps1 -Provider docker -Operation Create
+```
+
+Fuer Podman oder Hyper-V den Provider entsprechend waehlen. Fehlende
+Voraussetzungen und naechste Schritte stehen in `MissingPrerequisites` und
+`NextSteps`. `READY_WITH_WARNINGS` verlangt, die `Warnings` zu beachten.
+Die konkrete Operation prueft ihre Ressourcen und Ownership weiterhin selbst.
+
+Optional können Medien und gewünschte CUs
+[vorab bereitgestellt](#4a-beliebigen-cu-vorab-bereitstellen) werden.
+
 Docker:
 
 ```powershell
@@ -528,137 +168,6 @@ Test-SqlServerLabPrerequisite -Provider podman
 ```
 
 Die Prüfung erzeugt keine Container. Sie bewertet unter anderem Runtime-Verfügbarkeit, RAM, Storage und Ports.
-
-### 4a. Beliebigen CU vorab bereitstellen
-
-Der Versionskatalog enthält alle 67 bei Microsoft weiterhin verfügbaren CUs
-für SQL Server 2019, 2022 und 2025. Windows-Pakete werden in den Media Root
-geschrieben und vor der Veröffentlichung gegen den katalogisierten SHA-256
-sowie eine gültige Microsoft-Authenticode-Signatur geprüft:
-
-```powershell
-Save-SqlServerLabCuResource `
-    -SqlVersion 2019 `
-    -Cu CU6 `
-    -Platform Windows `
-    -MediaRoot 'D:\Lab_Base'
-```
-
-Unter Linux wird derselbe CU über seinen expliziten MCR-Tag in den lokalen
-Docker- oder Podman-Cache gezogen:
-
-```powershell
-Save-SqlServerLabCuResource `
-    -SqlVersion 2019 `
-    -Cu CU6 `
-    -Platform Linux `
-    -Provider Docker
-```
-
-Ohne Parameterkenntnis führt das Konsolenmenü unter **Medien, Testdaten und
-Speicher → SQL Server CU herunterladen oder prüfen** durch Plattform, Version,
-CU und Container-Provider. Ein fehlender oder nicht katalogisierter CU wird
-fail-closed abgelehnt; SQL Server 2019 CU7 ist wegen des Microsoft-Rückzugs
-nicht auswählbar. Docker und Podman bleiben in der Providerauswahl sichtbar,
-werden bei fehlender CLI, verweigertem Zugriff, Zeitüberschreitung, nicht
-erreichbarer Runtime oder ungültiger Runtimeantwort jedoch ausgegraut. Der
-angezeigte stabile ReasonCode unterscheidet diese Ursachen und nennt jeweils
-eine konkrete Abhilfe.
-
-### 4b. Samples und External-Runtime-Medien vorab bereitstellen
-
-Der eigenständige Prefetch benötigt keine laufende SQL-Instanz und keine
-Provider-Mutation. Zuerst den Plan prüfen, danach dieselben IDs speichern:
-
-`Get-SqlServerLabResourcePlan` ohne `-ResourceId` zeigt alle vom Prefetch
-unterstützten Katalogressourcen. Auch `$null` und ein leeres Array verwenden
-diese Standardauswahl. Der Plan erteilt keine Vertrauensfreigabe und lädt
-keine Dateien herunter; `Save-SqlServerLabResourceSet` verlangt weiterhin
-explizite IDs.
-
-```powershell
-$resources = @(
-    'sample:northwind:script'
-    'sample:adventureworks-2019:lightweight'
-    'software:sql-python:sql2022-python-windows-hyperv'
-    'software:sql-r:sql2022-r-windows-hyperv'
-    'software:sql-java:sql2022-java17-windows-hyperv'
-)
-
-Get-SqlServerLabResourcePlan -ResourceId $resources -MediaRoot 'D:\Lab_Base'
-Save-SqlServerLabResourceSet -ResourceId $resources -MediaRoot 'D:\Lab_Base' -TrustUnknownArtifact
-```
-
-Ein vorhandener älterer Bestand kann mit `-SourceMediaRoot` als Importquelle
-angegeben werden. Jede Datei wird erneut gehasht; unpassende Bytes blockieren
-den Lauf. Fehlende Importdateien werden aus der katalogisierten HTTP(S)-Quelle
-geladen. `-WhatIf` schreibt weder Media-, Testdaten- noch State-Dateien.
-`-TrustUnknownArtifact` ist nur für Samples ohne Katalog-SHA-256 erforderlich
-und vertraut ausschließlich den während dieses Laufs gehashten Bytes.
-
-### 4c. Server-Basismedium vorab bereitstellen
-
-Direkte Microsoft-Downloads und verifizierte Archiv-Fallbacks für historische
-SQL- und Windows-Server-Versionen sind in einem eigenen Katalog gebunden:
-
-```powershell
-Save-SqlServerLabMediaSource `
-    -Id sql-server-2014-express-sp3-full `
-    -MediaRoot 'D:\Lab_Base'
-```
-
-Der Befehl prüft Größe und SHA-256, bei EXE-Dateien zusätzlich die Microsoft-
-Signatur. Mit `-WhatIf` lässt sich der Zielpfad ohne Download anzeigen. Die IDs
-`sql-server-7.0-licensed-media` und `sql-server-6.5-licensed-media` erklären
-bewusst den manuellen Bedarf und starten keinen Download.
-
-Die Evaluation-ISOs für Windows Server 2016, 2019, 2022 und 2025 können genauso
-über ihre `windows-server-<Version>-evaluation-iso`-ID geladen werden. Der
-Katalog verwendet das öffentlich erreichbare Microsoft-Binärziel der jeweiligen
-Evaluation-Center-Seite und prüft exakt Größe und SHA-256. Er füllt kein
-Anmeldeformular aus und übermittelt keine Personen- oder Firmendaten.
-
-Archive.org wird nicht pauschal vertraut. Ein archiviertes Originalmedium ist
-nur dann automatisch downloadbar, wenn Identifier, frühere Microsoft-URL,
-exakte Größe, SHA-1 und SHA-256 im Katalog gebunden sind. Beispiel:
-
-```powershell
-Save-SqlServerLabMediaSource `
-    -Id windows-server-2012r2-evaluation-iso `
-    -MediaRoot 'D:\Lab_Base'
-```
-
-Nicht bestätigte Community-Scans werden ausschließlich mit dem zusätzlichen
-Schalter `-AllowCommunityScan` nach `Incoming\CommunityScan` geladen. Diese
-Freigabe erklärt weder Originalität noch Produktiveignung.
-
-### Aktuellen CU-Stand bei Microsoft prüfen
-
-Vor der Medienbeschaffung kann der Katalog gegen die offizielle Microsoft-
-Buildtabelle geprüft werden:
-
-```powershell
-Get-SqlServerLabCuStatus -Version 2019,2022,2025
-```
-
-Der gleiche read-only Check steht unter **Wartung, Aufräumen und Recovery →
-Aktuelle SQL-Server-CUs bei Microsoft prüfen** bereit und bleibt sichtbar, bis Enter oder
-Escape gedrückt wird. Die Quelle liegt wartbar in
-`Catalogs/sql-server-cu-status-sources.json`. Meldet der Check eine neue CU,
-bleibt sie absichtlich nicht downloadbar, bis sie mit exaktem MCR-Tag,
-Microsoft-Downloadziel, SHA-256 und Microsoft-Authenticode in den
-Versionskatalog gebunden ist. Der Check verändert weder `Lab_Base` noch den
-Katalog.
-
-Eine CU-Warnung zum lokalen Katalog bezieht sich auf dessen
-`catalogMetadata.lastVerified`: Ein fehlendes Prüfdatum oder ein Alter von mehr
-als 35 Tagen bleibt sichtbar. Unter GitHub Actions lässt sich der Workflow
-[SQL CU Monthly Watch](../../.github/workflows/sql-cu-monthly-monitor.yml)
-mit **Run workflow** ausführen. Er vergleicht Quellen und meldet Befunde,
-aktualisiert aber weder den lokalen Versionskatalog noch dessen Prüfdatum.
-Auch der lokale Menüpunkt **8 → 5** schreibt keinen Katalog. Das Prüfdatum darf
-erst nach fachlicher Verifikation des Katalogstands aktualisiert werden;
-ein erfolgreicher Watch allein lässt die lokale Alterswarnung nicht verschwinden.
 
 ## 5. Erste Instanz erstellen
 
@@ -691,165 +200,6 @@ Für neue Labore über das Menü gilt nun der Ziel-first-Fluss:
 für SQL-Umgebungen wird danach der Provider abgefragt, für einen OS-Slot wird direkt
 der Hyper-V-Weg genutzt. Details stehen unter
 [INTERACTIVE_WORKFLOW.md](./INTERACTIVE_WORKFLOW.md).
-
-### Windows-Slot-Pool ohne manuelle OOBE
-
-Für mehrere gleichartige Windows-Slots steht ein eigener resumierbarer
-CLI-Workflow zur Verfügung:
-
-```powershell
-.\Invoke-SqlServerLab.ps1 -Action WindowsSlotPool
-```
-
-Er prüft vor jeder Erstellung die `OS_SEALED`-Baseline und deren
-Evaluation-Restlaufzeit. Ist keine geeignete Baseline vorhanden, wird zuerst
-der geführte Windows-Image-Aufbau angeboten. Die erstmalige Windows-Installation
-aus ISO und die Veröffentlichung dieser generalisierten Baseline bleiben dabei
-manuell geführt. Aus der fertigen Baseline erfolgen Slot-Erstellung, OOBE,
-Region-/Sprach-/Tastatureinstellungen und Erstanmeldung dagegen vollständig
-unbeaufsichtigt.
-
-Zuerst wird die Windows-Variante **Desktop Experience** oder **Server Core** gewählt. Abgefragt werden danach Anzahl und Startindex, vCPU, minimaler RAM, Startspeicher und
-maximaler RAM. Die RAM-Standards sind `1024`, `2048` und `4096 MB`. Zusätzlich
-werden Region, System-Locale, Anzeigesprache, Tastaturlayout und Zeitzone
-abgefragt. Das Passwort kann automatisch je Slot generiert oder als eigenes
-gemeinsames `SecureString` für alle Slots angegeben werden.
-
-Nicht interaktiv entspricht das beispielsweise:
-
-```powershell
-New-SqlServerLabWindowsSlotPool `
-    -Count 20 `
-    -GenerateAdministratorPasswords `
-    -InstallationType core `
-    -MemoryMinimumMB 1024 `
-    -MemoryStartupMB 2048 `
-    -MemoryMaximumMB 4096 `
-    -Region AT `
-    -SystemLocale de-AT `
-    -UiLanguage en-US `
-    -InputLocale '0407:00000407'
-```
-
-Ein automatisch generiertes Passwort wird nur gezielt für den gewünschten Run
-entschlüsselt:
-
-```powershell
-Get-SqlServerLabGeneratedWindowsAccess -RunId $runId
-```
-
-Im Menü lautet der gleichwertige Pfad **Umgebungen** → **Hyper-V-Umgebung
-auswählen und verwalten** → Run auswählen → **Windows-Administratorzugang
-anzeigen**. Die Auswahl zeigt VM, Benutzername und Passwort nur für diesen Run
-und nur nach der ausdrücklichen Aktion. Sie legt weder eine Datei noch einen
-Zwischenablageeintrag an und schreibt den Wert nicht in Status, Meldungsjournal
-oder normale Listen.
-
-Ein eigener Passwortwert wird nicht durch das Modul wieder ausgegeben. Ist kein
-automatisch erzeugter Zugang hinterlegt, fehlt er oder kann er im aktuellen
-Benutzerkontext nicht entschlüsselt werden, erklärt das Menü die Grenze; es
-setzt kein Kennwort zurück und erzeugt keines neu.
-
-### Runtime-State nach manuellen Löschungen abgleichen
-
-Nach einer manuellen Löschung in Hyper-V, Docker oder Podman zeigt
-`Get-SqlServerLab` den gebundenen Runtimezustand als `MISSING`. Der explizite
-Abgleich übernimmt diesen Befund fail-closed in den Lab-State:
-
-```powershell
-Sync-SqlServerLabRuntimeState -WhatIf
-Sync-SqlServerLabRuntimeState
-```
-
-Eine eindeutig fehlende gebundene VM oder ein Container führt zu
-`RECOVERY_REQUIRED`. Der Abgleich löscht weder `Lab_Data` noch Runtimeobjekte
-und erzeugt sie auch nicht neu. Nicht erreichbare Runtimes bleiben reine
-Diagnosezustände, damit ein ausgeschalteter Dienst nicht mit einer Löschung
-verwechselt wird.
-
-### Lab-Zustand jederzeit deterministisch warten
-
-Der Maintenance-Plan vergleicht den gesamten gespeicherten Run-State mit allen
-vorhandenen Docker-, Podman- und Hyper-V-Ressourcen. Er ignoriert fremde
-Ressourcen und trennt automatische State-Korrekturen, scopegebundenes Cleanup
-und alte Testartefakte ohne vollständige Identität. Zusätzlich werden nur
-eindeutig benannte SQL-Lab-Testobjekte direkt im echten Benutzer-Temp nach
-Ablauf der gewählten Schwelle als eine revalidierte Cleanup-Aktion geplant:
-
-```powershell
-# Nur lesen
-.\Tools\Invoke-SqlServerLabMaintenance.ps1
-
-# State korrigieren und eindeutig scopegebundene Lab-Reste entfernen
-.\Tools\Invoke-SqlServerLabMaintenance.ps1 -Apply -Cleanup
-
-# Einmalige, eng revalidierte Bereinigung alter Testartefakte
-.\Tools\Invoke-SqlServerLabMaintenance.ps1 -Apply -Cleanup `
-    -AllowLegacyTestArtifactRemoval
-```
-
-Für einen regelmäßigen Lauf kann Windows Task Scheduler denselben zweiten
-Aufruf mit `pwsh.exe -NoLogo -NoProfile -File` starten. Das Skript liefert bei
-fehlgeschlagenen Aktionen Exitcode 1 und mit `-AsJson` ein maschinenlesbares
-Ergebnis. Neu erzeugte CI-/Smoke-Ressourcen tragen zusätzlich Lifecycle- und
-Ablaufmetadaten; ein nicht vollständig bereinigter Runtime-Smoke schlägt fehl,
-statt nur zu warnen.
-
-### Verwaiste Objekte in Lab_Data prüfen
-
-```powershell
-Get-SqlServerLabCleanupAudit
-# oder mit vollständiger Konsolenausgabe
-.\Invoke-SqlServerLab.ps1 -Action CleanupAudit
-```
-
-Der Audit ist read-only. Jeder auffällige Befund nennt Objektart und stabile ID,
-Provider, Grund, eine ausdrückliche Empfehlung und den nächsten sicheren
-Schritt. `REVIEW_FOR_SCOPED_REMOVAL` empfiehlt eine eigentumsgebundene
-Entfernungsprüfung; `PRESERVE_DO_NOT_DELETE`, `RECOVER_BEFORE_REMOVAL` und
-`DO_NOT_DELETE_UNTIL_VERIFIED` warnen ausdrücklich vor einer Löschung.
-
-### Aggregierte SQL-Evidence erfassen
-
-Für einen laufenden SQL-Run können aggregierte Server-, Datenbank-, Query-Store-
-und Wait-Metriken ohne SQL-Texte, Datenbank-, Login- oder Hostnamen gelesen
-werden:
-
-```powershell
-$password = Read-Host 'SA-Kennwort' -AsSecureString
-Get-SqlServerLabSqlObservabilityEvidence -RunId $lab.RunId -SaPassword $password
-```
-
-Das Cmdlet führt ausschließlich feste `SELECT`-Abfragen aus und speichert kein
-Evidence-Paket. Extended Events, SQL-Agent-/Backupzustände, Aufbewahrung und
-providerbezogene Native-Abnahmen bleiben separate Folgearbeit.
-
-Für eine geführte Übersicht mit OS-Baselines, SQL-Prepared-Images,
-Hintergrundaktionen und Live-Log kann die
-[lokale Workflow-Oberfläche](../HowTo/WORKFLOW_UI.md) gestartet werden.
-
-Das Cmdlet:
-
-1. löst Version und Ressourcenprofil auf;
-2. führt das Resource Assessment aus;
-3. fragt das SA-Passwort ab, sofern keines übergeben wurde;
-4. erzeugt Run-State und Cleanup-Plan;
-5. startet den Container;
-6. wartet auf SQL-Bereitschaft;
-7. führt optional Server-, Datenbank-, Restore- und Post-Provision-Schritte aus;
-8. speichert `connection-info.json` und liefert ein Ergebnisobjekt zurück.
-
-Gemessene RAM-Unterversorgung blockiert die Erstellung standardmäßig.
-Ein bewusstes `-AllowResourceOvercommit` oder im Manifest
-`resourceOverrides.allowResourceOvercommit: true` erlaubt ausschließlich
-übersteuerbare Unterversorgung. Harte Sperren bleiben aktiv. Der lokale Run
-speichert Messung und Entscheidung; der Lifecycle-Reconcile-Plan zeigt unter
-`Desired.ResourceAssessment` eine hostwertfreie Zusammenfassung.
-`-SkipAssessment` beziehungsweise `resourceOverrides.skipAssessment: true`
-überspringt die Messung und wird separat als `SKIPPED` gespeichert.
-Ein vollständiges Manifestbeispiel ist
-[`example-resource-overcommit-lab.json`](../../Schemas/example-resource-overcommit-lab.json).
-Der historische Erstellungsentscheid ersetzt keine aktuelle Ressourcenprüfung.
 
 ## 6. Ergebnisobjekt verstehen
 
@@ -893,11 +243,14 @@ Neue Lab-Connection-Strings und der SSMS-Registrierungsexport setzen ausdrückli
 Einrichtungsaufwand: verschlüsselte Verbindung ohne Prüfung der Serveridentität
 durch den Client. Die Connection Strings in CLI und GUI enthalten diese Werte.
 Bestehende gespeicherte Connection Strings werden nicht automatisch migriert.
-Der zusätzliche Modus mit `TrustServerCertificate=False` ist für das eigene
-[Windows-/Docker-SQL-2025-CU9-Lab](../Architecture/AUTHENTICATED_TLS_OPERATIONAL_LAB.md)
-mit bestehender qualifizierter CA-/Clientbindung verfügbar. Die angezeigten
-Flags belegen für sich keine Zertifikatsprüfung. Weitere Kombinationen und
-die gesonderte Prüfstatusanzeige bleiben im [P1-Backlog TLS-001](../Project_Planning/NEW_SQL_LAB_USE_CASES_BACKLOG.md#tls-001--authentifizierte-tls-verbindungen-der-testumgebungen).
+Der zusätzliche Modus mit `TrustServerCertificate=False` ist für eigene,
+[unter Windows betriebene Docker-/Podman-Labs](../Architecture/AUTHENTICATED_TLS_OPERATIONAL_LAB.md)
+und SQL 2019 CU32, 2022 CU27 oder 2025 CU9 mit bestehender qualifizierter
+CA-/Clientbindung verfügbar. Die Verbindungszentrale zeigt den konfigurierten
+TLS-Modus und dessen getrennten Prüfstatus an. Angezeigte Flags allein belegen
+keine Zertifikatsprüfung; eine aktuelle Livequalifikation der Verbindung ist
+noch offen. Weitere Kombinationen und offene Prüfwege stehen im
+[P1-Backlog TLS-001](../Project_Planning/NEW_SQL_LAB_USE_CASES_BACKLOG.md#tls-001--authentifizierte-tls-verbindungen-der-testumgebungen).
 
 Mit `sqlcmd`:
 
@@ -2190,6 +1543,681 @@ Prüfen Sie zuerst:
 4. `Documentation/Quality/KNOWN_LIMITATIONS.md`
 
 Das Schema allein ist kein Runtime-Nachweis.
+
+## Vertiefende Bedienwege
+
+Die folgenden optionalen Abläufe setzen den
+Modulimport und – soweit der jeweilige Befehl einen Run verwendet – ein
+bewusst ausgewähltes bestehendes Lab voraus. Sie sind keine zusätzliche
+Reihenfolge für die erste Containerinstanz. Windows-/Hyper-V-Erstellung
+benötigt die eigenen [Vorbereitungswege](../HowTo/HYPERV_SLOT_SQL_WORKFLOW.md).
+
+## Security-Tool-Metadaten ohne laufenden Provider
+
+Für eine ausschließlich lokale Security-Tool-Metadatenprüfung ist nach dem
+Modulimport kein laufender Provider nötig:
+
+```powershell
+Get-SqlServerLabSecurityToolPlan -ToolId synthetic-tool `
+    -VariantId synthetic-linux -PurposeId sql-tls -Target @{
+        sqlVersion='2025'; os='linux'; distribution='synthetic-linux'
+        osVersion='1.0'; architecture='x64'; provider='docker'
+    }
+```
+
+Das synthetische Beispiel liefert `BLOCKED` / `UNKNOWN_TOOL`: Die produktive
+Allowlist ist leer. `Target` akzeptiert ausschließlich die sechs gezeigten
+Felder, keine Hostnamen, IPs, Pfade oder automatische Providerwahl. Der Befehl
+liest lokale Katalog-/Schemadateien und erzeugt nur ein Ergebnis im Speicher.
+Auch `PLANNED` wäre ausschließlich eine Metadatenübereinstimmung mit
+`Executable=false` und `AuthenticityVerified=false`. Der reproduzierbare
+PlanHash bindet den normalisierten Request und den gesamten Kataloginhalt;
+er ist keine gespeicherte Plan-ID und keine Beschaffungsfreigabe.
+Downloads, Runbindung, Manifestintegration und Konsolenaktion sind offen.
+
+## Hilfe und optionale Oberflächen
+
+KI-Clients mit Repository-Skill-Erkennung finden unter `.agents/skills` die
+Abläufe `sql-server-lab-readiness`, `sql-server-lab-validation` und
+`sql-server-lab-operate`. Sie nutzen dieselben Skripte und öffentlichen
+Cmdlets. Falls der Client die Skills nicht lädt, bleibt der obige manuelle
+Readiness-Aufruf verfügbar. Details und Grenzen stehen im
+[Repository-Skill-Vertrag](../Project_Planning/REPOSITORY_AGENT_SKILLS_BACKLOG.md).
+
+Standard für Skript-Hilfeeinträge (`-ShowHelp` und `--help`; `/?` sowie
+`-help`/`-h`/`-?` können je nach PowerShell-Kontext die Engine-Hilfe auslösen):
+
+```powershell
+.\Invoke-SqlServerLab.ps1 -ShowHelp
+.\Tools\Initialize-SqlServerLabDataRoot.ps1 -ShowHelp
+.\Tools\Initialize-SqlServerLabMediaRoot.ps1 -ShowHelp
+.\Tools\Start-SqlServerLabUi.ps1 -ShowHelp
+.\CheckLargeGitFilesPush.ps1 --help
+```
+
+Nach dem Start der lokalen Browseroberfläche steht oben **Alle Funktionen**.
+Dieser Bereich entspricht dem vollständigen öffentlichen Befehlskatalog der
+CLI. Er zeigt für den gewählten Parametersatz alle Pflichtfelder, Standards und
+zulässigen Werte und eignet sich auch für Funktionen, die noch keinen eigenen
+geführten Dialog besitzen. Für häufige Lab-Abläufe bleiben die geführten
+Umgebungsansichten die schnellere Auswahl.
+
+Der Browser bietet unter **Verbindungen und CMS → SQL-Komponenten:
+geführte Vorschau** denselben reinen Plan: vorhandenes registriertes `Lab_Data`
+lesen, Run und verbrauchende Instanz auswählen, eine SQL-Voraussetzung ergänzen
+und **Vorschau lesen**. Relations bleiben im RAM; kein Job oder Apply entsteht.
+`NOT_CHECKED` und Shared `PRESERVE` gelten immer. Zurück/Abbruch verwirft die
+Auswahl; nach Metadatendrift zuerst erneut lesen.
+Die CLI bietet unter **Alle öffentlichen Befehle → SQL-Komponenten: geführte
+Vorschau** einen eigenen Plan-only-Dialog. Ein vorhandenes registriertes
+`Lab_Data` angeben, den Run und seine verbrauchende SQL-Instanz auswählen und
+eine bestehende eigene oder verwaltete Shared-SQL-Voraussetzung ergänzen.
+**Vorschau anzeigen** prüft die gebundenen Metadaten erneut und zeigt ihre
+Voraussetzungreihenfolge. SQL bleibt `NOT_CHECKED`; Shared-SQL bleibt erhalten.
+Zurück oder Esc verwirft die Eingabe. Es wird nichts gespeichert oder gestartet.
+Der generische Befehlszugang bleibt zusätzlich zu diesem geführten Browserdialog verfügbar. [Vertrag und Grenzen](../Architecture/EXTENSIBLE_ENVIRONMENT_AND_EXECUTION_CONTRACT.md#71-implementierter-enger-komponentenplan-slice-e).
+
+Für alle aufgeführten Skripte gilt: Wird ein Support-Switch erkannt, wird direkt
+die Skript-Hilfe angezeigt und anschließend die Ausführung beendet.
+
+Die autoritative Exportliste steht in `SqlServerLab.psd1`. `Get-Command` zeigt
+für jeden Export in `ModuleName` und `Source` die Zuordnung zu `SqlServerLab`.
+Bei einem Namenskonflikt ist der modulqualifizierte Aufruf eindeutig, zum
+Beispiel `SqlServerLab\New-SqlServerLabDatabase`.
+
+## Medien vorab und Windows-Workflows
+
+### 4a. Beliebigen CU vorab bereitstellen
+
+Der Versionskatalog enthält alle 67 bei Microsoft weiterhin verfügbaren CUs
+für SQL Server 2019, 2022 und 2025. Windows-Pakete werden in den Media Root
+geschrieben und vor der Veröffentlichung gegen den katalogisierten SHA-256
+sowie eine gültige Microsoft-Authenticode-Signatur geprüft:
+
+```powershell
+Save-SqlServerLabCuResource `
+    -SqlVersion 2019 `
+    -Cu CU6 `
+    -Platform Windows `
+    -MediaRoot 'D:\Lab_Base'
+```
+
+Unter Linux wird derselbe CU über seinen expliziten MCR-Tag in den lokalen
+Docker- oder Podman-Cache gezogen:
+
+```powershell
+Save-SqlServerLabCuResource `
+    -SqlVersion 2019 `
+    -Cu CU6 `
+    -Platform Linux `
+    -Provider Docker
+```
+
+Ohne Parameterkenntnis führt das Konsolenmenü unter **Medien, Testdaten und
+Speicher → SQL Server CU herunterladen oder prüfen** durch Plattform, Version,
+CU und Container-Provider. Ein fehlender oder nicht katalogisierter CU wird
+fail-closed abgelehnt; SQL Server 2019 CU7 ist wegen des Microsoft-Rückzugs
+nicht auswählbar. Docker und Podman bleiben in der Providerauswahl sichtbar,
+werden bei fehlender CLI, verweigertem Zugriff, Zeitüberschreitung, nicht
+erreichbarer Runtime oder ungültiger Runtimeantwort jedoch ausgegraut. Der
+angezeigte stabile ReasonCode unterscheidet diese Ursachen und nennt jeweils
+eine konkrete Abhilfe.
+
+### 4b. Samples und External-Runtime-Medien vorab bereitstellen
+
+Der eigenständige Prefetch benötigt keine laufende SQL-Instanz und keine
+Provider-Mutation. Zuerst den Plan prüfen, danach dieselben IDs speichern:
+
+`Get-SqlServerLabResourcePlan` ohne `-ResourceId` zeigt alle vom Prefetch
+unterstützten Katalogressourcen. Auch `$null` und ein leeres Array verwenden
+diese Standardauswahl. Der Plan erteilt keine Vertrauensfreigabe und lädt
+keine Dateien herunter; `Save-SqlServerLabResourceSet` verlangt weiterhin
+explizite IDs.
+
+```powershell
+$resources = @(
+    'sample:northwind:script'
+    'sample:adventureworks-2019:lightweight'
+    'software:sql-python:sql2022-python-windows-hyperv'
+    'software:sql-r:sql2022-r-windows-hyperv'
+    'software:sql-java:sql2022-java17-windows-hyperv'
+)
+
+Get-SqlServerLabResourcePlan -ResourceId $resources -MediaRoot 'D:\Lab_Base'
+Save-SqlServerLabResourceSet -ResourceId $resources -MediaRoot 'D:\Lab_Base' -TrustUnknownArtifact
+```
+
+Ein vorhandener älterer Bestand kann mit `-SourceMediaRoot` als Importquelle
+angegeben werden. Jede Datei wird erneut gehasht; unpassende Bytes blockieren
+den Lauf. Fehlende Importdateien werden aus der katalogisierten HTTP(S)-Quelle
+geladen. `-WhatIf` schreibt weder Media-, Testdaten- noch State-Dateien.
+`-TrustUnknownArtifact` ist nur für Samples ohne Katalog-SHA-256 erforderlich
+und vertraut ausschließlich den während dieses Laufs gehashten Bytes.
+
+### 4c. Server-Basismedium vorab bereitstellen
+
+Direkte Microsoft-Downloads und verifizierte Archiv-Fallbacks für historische
+SQL- und Windows-Server-Versionen sind in einem eigenen Katalog gebunden:
+
+```powershell
+Save-SqlServerLabMediaSource `
+    -Id sql-server-2014-express-sp3-full `
+    -MediaRoot 'D:\Lab_Base'
+```
+
+Der Befehl prüft Größe und SHA-256, bei EXE-Dateien zusätzlich die Microsoft-
+Signatur. Mit `-WhatIf` lässt sich der Zielpfad ohne Download anzeigen. Die IDs
+`sql-server-7.0-licensed-media` und `sql-server-6.5-licensed-media` erklären
+bewusst den manuellen Bedarf und starten keinen Download.
+
+Die Evaluation-ISOs für Windows Server 2016, 2019, 2022 und 2025 können genauso
+über ihre `windows-server-<Version>-evaluation-iso`-ID geladen werden. Der
+Katalog verwendet das öffentlich erreichbare Microsoft-Binärziel der jeweiligen
+Evaluation-Center-Seite und prüft exakt Größe und SHA-256. Er füllt kein
+Anmeldeformular aus und übermittelt keine Personen- oder Firmendaten.
+
+Archive.org wird nicht pauschal vertraut. Ein archiviertes Originalmedium ist
+nur dann automatisch downloadbar, wenn Identifier, frühere Microsoft-URL,
+exakte Größe, SHA-1 und SHA-256 im Katalog gebunden sind. Beispiel:
+
+```powershell
+Save-SqlServerLabMediaSource `
+    -Id windows-server-2012r2-evaluation-iso `
+    -MediaRoot 'D:\Lab_Base'
+```
+
+Nicht bestätigte Community-Scans werden ausschließlich mit dem zusätzlichen
+Schalter `-AllowCommunityScan` nach `Incoming\CommunityScan` geladen. Diese
+Freigabe erklärt weder Originalität noch Produktiveignung.
+
+### Aktuellen CU-Stand bei Microsoft prüfen
+
+Vor der Medienbeschaffung kann der Katalog gegen die offizielle Microsoft-
+Buildtabelle geprüft werden:
+
+```powershell
+Get-SqlServerLabCuStatus -Version 2019,2022,2025
+```
+
+Der gleiche read-only Check steht unter **Wartung, Aufräumen und Recovery →
+Aktuelle SQL-Server-CUs bei Microsoft prüfen** bereit und bleibt sichtbar, bis Enter oder
+Escape gedrückt wird. Die Quelle liegt wartbar in
+`Catalogs/sql-server-cu-status-sources.json`. Meldet der Check eine neue CU,
+bleibt sie absichtlich nicht downloadbar, bis sie mit exaktem MCR-Tag,
+Microsoft-Downloadziel, SHA-256 und Microsoft-Authenticode in den
+Versionskatalog gebunden ist. Der Check verändert weder `Lab_Base` noch den
+Katalog.
+
+Eine CU-Warnung zum lokalen Katalog bezieht sich auf dessen
+`catalogMetadata.lastVerified`: Ein fehlendes Prüfdatum oder ein Alter von mehr
+als 35 Tagen bleibt sichtbar. Unter GitHub Actions lässt sich der Workflow
+[SQL CU Monthly Watch](../../.github/workflows/sql-cu-monthly-monitor.yml)
+mit **Run workflow** ausführen. Er vergleicht Quellen und meldet Befunde,
+aktualisiert aber weder den lokalen Versionskatalog noch dessen Prüfdatum.
+Auch der lokale Menüpunkt **8 → 5** schreibt keinen Katalog. Das Prüfdatum darf
+erst nach fachlicher Verifikation des Katalogstands aktualisiert werden;
+ein erfolgreicher Watch allein lässt die lokale Alterswarnung nicht verschwinden.
+
+### Windows-Slot-Pool ohne manuelle OOBE
+
+Für mehrere gleichartige Windows-Slots steht ein eigener resumierbarer
+CLI-Workflow zur Verfügung:
+
+```powershell
+.\Invoke-SqlServerLab.ps1 -Action WindowsSlotPool
+```
+
+Er prüft vor jeder Erstellung die `OS_SEALED`-Baseline und deren
+Evaluation-Restlaufzeit. Ist keine geeignete Baseline vorhanden, wird zuerst
+der geführte Windows-Image-Aufbau angeboten. Die erstmalige Windows-Installation
+aus ISO und die Veröffentlichung dieser generalisierten Baseline bleiben dabei
+manuell geführt. Aus der fertigen Baseline erfolgen Slot-Erstellung, OOBE,
+Region-/Sprach-/Tastatureinstellungen und Erstanmeldung dagegen vollständig
+unbeaufsichtigt.
+
+Zuerst wird die Windows-Variante **Desktop Experience** oder **Server Core** gewählt. Abgefragt werden danach Anzahl und Startindex, vCPU, minimaler RAM, Startspeicher und
+maximaler RAM. Die RAM-Standards sind `1024`, `2048` und `4096 MB`. Zusätzlich
+werden Region, System-Locale, Anzeigesprache, Tastaturlayout und Zeitzone
+abgefragt. Das Passwort kann automatisch je Slot generiert oder als eigenes
+gemeinsames `SecureString` für alle Slots angegeben werden.
+
+Nicht interaktiv entspricht das beispielsweise:
+
+```powershell
+New-SqlServerLabWindowsSlotPool `
+    -Count 20 `
+    -GenerateAdministratorPasswords `
+    -InstallationType core `
+    -MemoryMinimumMB 1024 `
+    -MemoryStartupMB 2048 `
+    -MemoryMaximumMB 4096 `
+    -Region AT `
+    -SystemLocale de-AT `
+    -UiLanguage en-US `
+    -InputLocale '0407:00000407'
+```
+
+Ein automatisch generiertes Passwort wird nur gezielt für den gewünschten Run
+entschlüsselt:
+
+```powershell
+Get-SqlServerLabGeneratedWindowsAccess -RunId $runId
+```
+
+Im Menü lautet der gleichwertige Pfad **Umgebungen** → **Hyper-V-Umgebung
+auswählen und verwalten** → Run auswählen → **Windows-Administratorzugang
+anzeigen**. Die Auswahl zeigt VM, Benutzername und Passwort nur für diesen Run
+und nur nach der ausdrücklichen Aktion. Sie legt weder eine Datei noch einen
+Zwischenablageeintrag an und schreibt den Wert nicht in Status, Meldungsjournal
+oder normale Listen.
+
+Ein eigener Passwortwert wird nicht durch das Modul wieder ausgegeben. Ist kein
+automatisch erzeugter Zugang hinterlegt, fehlt er oder kann er im aktuellen
+Benutzerkontext nicht entschlüsselt werden, erklärt das Menü die Grenze; es
+setzt kein Kennwort zurück und erzeugt keines neu.
+
+### Runtime-State nach manuellen Löschungen abgleichen
+
+Nach einer manuellen Löschung in Hyper-V, Docker oder Podman zeigt
+`Get-SqlServerLab` den gebundenen Runtimezustand als `MISSING`. Der explizite
+Abgleich übernimmt diesen Befund fail-closed in den Lab-State:
+
+```powershell
+Sync-SqlServerLabRuntimeState -WhatIf
+Sync-SqlServerLabRuntimeState
+```
+
+Eine eindeutig fehlende gebundene VM oder ein Container führt zu
+`RECOVERY_REQUIRED`. Der Abgleich löscht weder `Lab_Data` noch Runtimeobjekte
+und erzeugt sie auch nicht neu. Nicht erreichbare Runtimes bleiben reine
+Diagnosezustände, damit ein ausgeschalteter Dienst nicht mit einer Löschung
+verwechselt wird.
+
+### Lab-Zustand jederzeit deterministisch warten
+
+Der Maintenance-Plan vergleicht den gesamten gespeicherten Run-State mit allen
+vorhandenen Docker-, Podman- und Hyper-V-Ressourcen. Er ignoriert fremde
+Ressourcen und trennt automatische State-Korrekturen, scopegebundenes Cleanup
+und alte Testartefakte ohne vollständige Identität. Zusätzlich werden nur
+eindeutig benannte SQL-Lab-Testobjekte direkt im echten Benutzer-Temp nach
+Ablauf der gewählten Schwelle als eine revalidierte Cleanup-Aktion geplant:
+
+```powershell
+# Nur lesen
+.\Tools\Invoke-SqlServerLabMaintenance.ps1
+
+# State korrigieren und eindeutig scopegebundene Lab-Reste entfernen
+.\Tools\Invoke-SqlServerLabMaintenance.ps1 -Apply -Cleanup
+
+# Einmalige, eng revalidierte Bereinigung alter Testartefakte
+.\Tools\Invoke-SqlServerLabMaintenance.ps1 -Apply -Cleanup `
+    -AllowLegacyTestArtifactRemoval
+```
+
+Für einen regelmäßigen Lauf kann Windows Task Scheduler denselben zweiten
+Aufruf mit `pwsh.exe -NoLogo -NoProfile -File` starten. Das Skript liefert bei
+fehlgeschlagenen Aktionen Exitcode 1 und mit `-AsJson` ein maschinenlesbares
+Ergebnis. Neu erzeugte CI-/Smoke-Ressourcen tragen zusätzlich Lifecycle- und
+Ablaufmetadaten; ein nicht vollständig bereinigter Runtime-Smoke schlägt fehl,
+statt nur zu warnen.
+
+### Verwaiste Objekte in Lab_Data prüfen
+
+```powershell
+Get-SqlServerLabCleanupAudit
+# oder mit vollständiger Konsolenausgabe
+.\Invoke-SqlServerLab.ps1 -Action CleanupAudit
+```
+
+Der Audit ist read-only. Jeder auffällige Befund nennt Objektart und stabile ID,
+Provider, Grund, eine ausdrückliche Empfehlung und den nächsten sicheren
+Schritt. `REVIEW_FOR_SCOPED_REMOVAL` empfiehlt eine eigentumsgebundene
+Entfernungsprüfung; `PRESERVE_DO_NOT_DELETE`, `RECOVER_BEFORE_REMOVAL` und
+`DO_NOT_DELETE_UNTIL_VERIFIED` warnen ausdrücklich vor einer Löschung.
+
+### Aggregierte SQL-Evidence erfassen
+
+Für einen laufenden SQL-Run können aggregierte Server-, Datenbank-, Query-Store-
+und Wait-Metriken ohne SQL-Texte, Datenbank-, Login- oder Hostnamen gelesen
+werden:
+
+```powershell
+$password = Read-Host 'SA-Kennwort' -AsSecureString
+Get-SqlServerLabSqlObservabilityEvidence -RunId $lab.RunId -SaPassword $password
+```
+
+Das Cmdlet führt ausschließlich feste `SELECT`-Abfragen aus und speichert kein
+Evidence-Paket. Extended Events, SQL-Agent-/Backupzustände, Aufbewahrung und
+providerbezogene Native-Abnahmen bleiben separate Folgearbeit.
+
+Für eine geführte Übersicht mit OS-Baselines, SQL-Prepared-Images,
+Hintergrundaktionen und Live-Log kann die
+[lokale Workflow-Oberfläche](../HowTo/WORKFLOW_UI.md) gestartet werden.
+
+Das Cmdlet:
+
+1. löst Version und Ressourcenprofil auf;
+2. führt das Resource Assessment aus;
+3. fragt das SA-Passwort ab, sofern keines übergeben wurde;
+4. erzeugt Run-State und Cleanup-Plan;
+5. startet den Container;
+6. wartet auf SQL-Bereitschaft;
+7. führt optional Server-, Datenbank-, Restore- und Post-Provision-Schritte aus;
+8. speichert `connection-info.json` und liefert ein Ergebnisobjekt zurück.
+
+Gemessene RAM-Unterversorgung blockiert die Erstellung standardmäßig.
+Ein bewusstes `-AllowResourceOvercommit` oder im Manifest
+`resourceOverrides.allowResourceOvercommit: true` erlaubt ausschließlich
+übersteuerbare Unterversorgung. Harte Sperren bleiben aktiv. Der lokale Run
+speichert Messung und Entscheidung; der Lifecycle-Reconcile-Plan zeigt unter
+`Desired.ResourceAssessment` eine hostwertfreie Zusammenfassung.
+`-SkipAssessment` beziehungsweise `resourceOverrides.skipAssessment: true`
+überspringt die Messung und wird separat als `SKIPPED` gespeichert.
+Ein vollständiges Manifestbeispiel ist
+[`example-resource-overcommit-lab.json`](../../Schemas/example-resource-overcommit-lab.json).
+Der historische Erstellungsentscheid ersetzt keine aktuelle Ressourcenprüfung.
+
+## Weitere SQL-Funktionen
+
+Nach Neustart eines eigenen operativen TLS-Containers aktualisiert `Update-SqlServerLabTlsBinding -RunId $lab.RunId -InstanceId primary -StateRoot $lab.StateRoot` ausdrücklich dessen Startbindung nach beiden strikten Clients. Ein unveränderter Start ist kein neuer Nachweis; alte Exporte bleiben ungültig. [Vertrag, WhatIf und Recoverygrenze](../Architecture/AUTHENTICATED_TLS_CONTAINER_REBIND.md).
+
+Volltext kann mit `New-SqlServerLab -Provider docker -FullText $true` oder im
+Manifest unter `instances[].sqlFeatures.fullText` gewählt werden. Podman nutzt
+denselben expliziten Vertrag. Für vorhandene laufende Instanzen dient
+`Set-SqlServerLabFeature -RunId $run.RunId -InstanceId primary -Feature FullText
+-Enabled $true`; `$false` entfernt die Funktion nach einer Abhängigkeitsprüfung.
+In der GUI stehen die Auswahl bei Neuanlage und **SQL-Funktionen** je Instanz
+bereit. FILESTREAM-T-SQL-Zugriff ist mit `fileStream` beziehungsweise
+`-Feature FileStream` nur auf Windows/Hyper-V verfügbar.
+[Details, Beispielmanifest und Recovery](../Architecture/SQL_OPTIONAL_FEATURES.md).
+
+Neue Lab-Connection-Strings und SSMS-Registrierungsexporte verwenden
+`Encrypt=True;TrustServerCertificate=True` als einfachen Standard ohne eigene
+CA-/Client-Trusteinrichtung. Gespeicherte Altverbindungen bleiben erhalten.
+Die ausdrückliche Auswahl von `TrustServerCertificate=False` ist für eigene Windows-/Docker-/Podman-Labs mit SQL 2025 CU9, SQL 2022 CU27 oder SQL 2019 CU32 samt signiertem V2-Export implementiert. Der [operative Vertrag](../Architecture/AUTHENTICATED_TLS_OPERATIONAL_LAB.md) beschreibt Voraussetzungen und Grenzen; die Anzeige der Flags allein ist kein frischer Qualifikationsnachweis.
+
+Die CLI-Runstatusansicht zeigt bereits eine eigene **Connection Settings**-
+Zeile je Provider/Instanz. Die GUI zeigt unter **Verbindungen und CMS** beide
+angegebenen TLS-Werte je Ziel ohne Zugangsdaten. Fehlende Werte erscheinen
+als `nicht angegeben`, unlesbare als `nicht lesbar`. Diese Anzeige führt
+keinen Verbindungstest aus; [Vertrag und Grenzen](../Architecture/SQL_CONNECTION_SETTINGS.md).
+
+Eigene SSIS-Projekte in einem bestehenden Windows-Lab verwenden den
+[Windows-Consumerzugang](../HowTo/SSIS_CONSUMER_WINDOWS_ACCESS.md) des bestehenden
+`Invoke-SqlServerLabScript` mit `-WindowsAuthentication`. Die Gastanmeldung
+bleibt geschützt; die vorhandenen Lab-Fixtureausführungen bleiben erhalten.
+
+Bei Paketladefehlern beobachtet `Get-SqlServerLabSsisPackageDiagnostic` die
+Komponenten derselben Gast-Runtime und `LoadFromXML` des hashgebundenen eigenen
+Pakets ohne Ausführung. [Voraussetzungen und Beispiel](../Architecture/SSIS_PACKAGE_DIAGNOSTIC.md).
+
+CLI und Browser pruefen das SA-Passwort vor der Containererstellung und erlauben
+Korrektur oder Abbruch. Standard: acht bis 128 Zeichen und drei von vier
+Zeichengruppen. Im Browser erscheint eine kuerzere Mindestlaenge erst nach
+einem reinen Laengenfehler auf einem neuen kurzlebigen Container mit
+katalogisiertem SQL-2025-CU; Auswahl und Bestaetigung gelten nur fuer dieses Lab.
+Manifeststarts behalten die Standardkriterien. Die enge Grenze steht im
+[AdHoc-Vertrag](../Architecture/SA_PASSWORD_POLICY.md). Getrennte native
+Docker-/Podman-Erststarts und gerenderte HTTP-Creationjobs wurden am
+2026-10-06 mit SQL-Anmeldung und eigenem Cleanup geprueft.
+
+## Umgebungsstatus in der CLI
+
+Unter **Lab-Umgebungen → Umgebungsstatus anzeigen** zeigt die Auswahl zuerst
+**Alle Umgebungen** und die vorhandenen Typgruppen, etwa **Lab-Umgebung** und
+**Hyper-V-Windows-Slot**. Enter klappt eine Gruppe auf; Escape kehrt zur
+Gruppenauswahl zurueck. Innerhalb der Gruppe stehen die Umgebungen nach
+Provider und Name sortiert. **Alle Umgebungen** zeigt sie in derselben
+Provider-/Namensfolge. Ein Run mit `RECOVERY_REQUIRED` bleibt sichtbar, weil
+sein Cleanup noch zu pruefen ist. Fehlt seine Runtime, zeigt die Detailansicht
+keine gespeicherten SQL-Verbindungsdaten als nutzbaren Zugang an.
+
+## Container-Autostart nur vorprüfen
+
+In der CLI **Lab-Umgebungen → Container-Autostart vorprüfen** oder im Browser
+**Lab verwalten → Container-Autostart vorprüfen · PLAN_ONLY** öffnen.
+Registrierte laufende Docker-/Podman-Instanz wählen, on/off festlegen und
+bewusst die Vorschau lesen. Die Anzeige bleibt ohne Apply und zeigt nur
+geprüfte Kategorien und Mountcounts; Abbruch oder Bearbeitung verwirft die
+Anzeige. [API und vollständiger Bedienvertrag](../../Public/README.md#container-autostart-nur-vorprüfen),
+[Abnahmehistorie](../Quality/LOCAL_VALIDATION_STRATEGY.md#getrennte-autostart-core-abnahme)
+und [Grenzen](../Quality/KNOWN_LIMITATIONS.md#container-autostart-nur-vorprüfen)
+sind getrennt dokumentiert.
+
+
+## SQL-Hostport nur vorprüfen
+
+In `Invoke-SqlServerLab` **Lab-Umgebungen → SQL-Hostport vorprüfen** wählen.
+Ein vorhandenes registriertes `Lab_Data` angeben, Lab und SQL-Instanz
+auswählen und einen Wunschport von 1024 bis 65535 eingeben. `q` oder Zurück
+bricht vor dem Planaufruf ab. Der getrennte Dialog bleibt PLAN_ONLY: er zeigt
+die lokale Wunschport-Eingabe, SAME_PORT/DIFFERENT_PORT, Änderungsweg,
+Ausfallzeitkategorie und Mountcounts. Istport und private Inspectdaten
+werden nicht angezeigt. Endpoint, SQL, Backup und Volumeeigentum bleiben
+NOT_CHECKED; es gibt keine Bestätigungs- oder Applyaktion.
+
+Im generischen CLI-Befehlszugang den Parametersatz `ContainerPortPreview` von
+`Get-SqlServerLabReconcilePlan` wählen und den registrierten StateRoot, Run,
+die Instanz sowie den gewünschten Port angeben:
+
+```powershell
+Get-SqlServerLabReconcilePlan -RunId $runId -InstanceId primary -ContainerPortPreview -Port 15433 -StateRoot $stateRoot
+```
+
+Ein vollständiger Vorschauaufruf liest den gebundenen Docker-/Podman-Kontext;
+zusätzliche eigene Ownership-Revalidierungen können Inspectreads benötigen.
+Das Ergebnis zeigt „gleicher Port“ oder „anderer Port“ ohne Portnummern,
+native IDs oder Pfade. `PLAN_ONLY`, leere `Actions` und `CanApply=false`
+erlauben keine Ausführung. `ObservationKey` bindet nur beobachtete Inhalte.
+Es werden weder Ports reserviert noch gesonderte SQL-, Secret- oder
+Sicherungszugriffe ausgeführt. Die private Inspect-Antwort bleibt intern;
+auch ihr Konfigurationsinhalt fließt nur in den undurchsichtigen Inhaltskey.
+Endpoint bleibt `NOT_CHECKED`. Unbekannte oder zusätzliche Port-/Netztopologie,
+ungeeignete Mounts, ein offenes Journal und nicht laufende Runs blockieren die
+unterstützte Vorschau. Im Browser unter **Lab verwalten → SQL-Hostport
+vorprüfen · PLAN_ONLY** die registrierte laufende Instanz und einen Wunschport
+wählen, dann bewusst **Portvorschau lesen**. Der Server verwendet seinen
+aktuellen registrierten Root; freie Pfade und native IDs können nicht
+übergeben werden. Öffnen liest nur Metadaten, Bearbeiten startet keine
+Vorschau. Schließen, Escape und jede Eingabe-/Zieländerung verwerfen späte
+Antworten; ein bereits versandter lesender Aufruf kann trotzdem weiterlaufen.
+Es gibt keine Applyaktion oder Portreservierung. Die native Portdialogabnahme
+mit echtem Loopback-HTTP bestand am 2026-10-07 getrennt für Docker und Podman
+mit eigenem Cleanup. Sie umfasst den tatsächlichen Dialog und dessen Route;
+der vollständige UI-Server bleibt ungeprüft. Port-Apply bleibt offen; der bestehende Container-Reconcile
+wird dadurch nicht erweitert.
+
+## Collations vor einer Lab-Erstellung ansehen
+
+Im Browser **Lab erstellen → Collations suchen** öffnen, SQL-Version und
+Suchwörter angeben und **Suchen** wählen. `Latin1 UTF8` verlangt beide Wörter;
+ohne ASCII-Suchwörter erscheinen alle kuratierten Katalogeinträge. Metadaten
+und Warnungen dienen zur Orientierung, prüfen keinen SQL-Server und übernehmen
+keine Auswahl. `DEPRECATED` ist weiterhin zulässig. Zurück/Escape verwirft die
+Eingabe und späte Antworten; eine bereits angeforderte Suche kann weiterlaufen.
+
+## Ersatz oder Migration vor Evaluation-Ablauf planen
+
+`Get-SqlServerLabEvaluationRefreshPlan -RunId $runId -InstanceId primary -DataRoot $dataRoot -Mode STATEFUL_MIGRATION`
+liest genau eine vorhandene moderne Hyper-V-SQL-Instanz. Die weiteren Modi
+`FREE_SLOT_REPLACEMENT` und `RECONSTRUCT_LAB` trennen Slotersatz und Rekonstruktion
+von Datenübernahme. `Invoke-SqlServerLab` bietet den generischen Befehlszugang
+und **Alle öffentlichen Befehle → SQL-Evaluation: Ersatzentscheid**. Im geführten
+Dialog vorhandenes registriertes `Lab_Data` eingeben, eine gebundene einzelne
+Hyper-V-SQL-Instanz und die Entscheidungsart auswählen, dann **Vorschau lesen**.
+Zurück oder Escape verwirft die Eingabe ohne Planaufruf. Der Dialog liest
+höchstens 64 vorhandene Run-Verzeichnisse und beginnt keine neue Inventur.
+Der Plan bleibt `BLOCKED` ohne Aktionen oder Transferautorität. Gespeicherte
+Windows-Metadaten sind keine frische Lizenzprüfung; fehlende SQL-Gast-Evidence,
+Inventar und Gleichwertigkeit bleiben konkrete Blocker.
+Im Browser unter **Wartung, Aufräumen und Recovery → SQL-Evaluation:
+Ersatzentscheid** denselben registrierten Root eingeben, **Registrierte Instanzen
+lesen**, Instanz und Entscheidungsart auswählen und die reine Vorschau lesen.
+Windows-/SQL-Evidence bleiben getrennt; Zurück oder Escape verwirft die
+RAM-Auswahl, späte Antworten können sie nicht wiederherstellen. Keine Jobs,
+neue SQL-/Lizenzprüfung oder Migration.
+[Vertrag und Grenzen](../Project_Planning/FULL_INSTANCE_EVALUATION_REFRESH_BACKLOG.md).
+
+## Python, R oder Java für eine zukünftige Containerinstanz prüfen
+
+Im Browser unter **Lab erstellen → Python / R / Java: Katalog und
+Hostvoraussetzungen** Provider und SQL-Version wählen und Katalogvarianten
+lesen. Blockierte Varianten bleiben mit Grund sichtbar. Die Katalogentscheidung
+prüft keinen Host; der eigene Hostcheck-Knopf fordert genau eine lesende Prüfung
+an. `READY` ist weder SQL-Sprachabnahme noch Ausführungsrecht. SQL 2025
+shared-user-v2 verzichtet auf die Launchpad-Sandbox. Kein Manifest wird
+übernommen oder gespeichert; Abbruch verwirft Eingaben und späte Anzeigen.
+[Grenzen und Vertrag](../Architecture/EXTERNAL_RUNTIME_CAPABILITY.md).
+
+## Verfügbarkeit der SQL-2025-KI-Aktionen
+
+Das KI-Menü lässt Aktionen sichtbar, die ein SQL-Ziel benötigen, deaktiviert sie
+aber solange keine als `RUNNING` registrierte SQL-Server-2025-Instanz vorhanden
+ist. Der Hinweis `AI_SQL_2025_TARGET_UNAVAILABLE` nennt als Abhilfe das Erstellen
+oder Starten einer eigenen SQL-Server-2025-Umgebung. Das gilt für
+Szenarioausführung, lokales SQL-RAG, SQL-Diagnose und Golden-RAG sowie für die
+entsprechenden geführten Demos. Szenarioplan, Modellaufruf, manuelle
+Retrieval-Auswertung und die geführte Offline-Retrieval-Demo bleiben auswählbar.
+Die Menüprüfung liest ausschließlich Run-State und `connection-info.json`; vor
+einer Ausführung prüft der jeweilige Workflow den echten Runtime-Status erneut.
+
+Nach der Umgebungsauswahl zeigt die KI-Zielauswahl die registrierten Instanzen
+mit Instanzname (Instanz-ID), SQL-Version und Provider. Die Instanz-ID muss nicht
+mehr eingetippt werden. Ungeeignete Versionen, unvollständige oder mehrdeutige
+Verbindungsziele und nicht bestätigte Laufzustände bleiben mit Sperrgrund sichtbar.
+Cursor-Auswahl und nummerierter Fallback verwenden dieselben Einträge; Escape
+bricht ohne nachfolgende Aktion ab. Vor der Rückgabe werden die ausgewählte
+Run-/Instanzbindung und der Runtime-Status erneut geprüft. Die Auswahl startet
+keine Umgebung und ersetzt nicht die weiteren Prüfungen des jeweiligen Workflows.
+
+## Podman-KI-Testumgebung erstellen
+
+Starte `Invoke-SqlServerLab` und wähle **Datenbanken und Verbindungen → SQL Server 2025 KI →
+Podman-KI-Testumgebung erstellen**. Podman muss bereit sein. Das Menü lässt
+den Eintrag sichtbar, deaktiviert ihn bei fehlender, nicht ausführbarer oder
+nicht erreichbarer Podman-Runtime jedoch vor jeder Formulareingabe und nennt
+ReasonCode sowie konkrete Abhilfe. Die Anzeigeprüfung ist read-only und startet
+keine Podman-Machine. Der Dialog lässt zwischen dem vorhandenen
+`embeddinggemma:latest` (768 Dimensionen, Standard),
+`bge-m3:latest` (1024 Dimensionen, mehrsprachig),
+`nomic-embed-text-v2-moe:latest` (768 Dimensionen, Suchprofil), dem
+kompakten `all-minilm:latest` (384 Dimensionen) und dem mehrsprachigen
+`paraphrase-multilingual:latest` (768 Dimensionen) sowie
+`snowflake-arctic-embed2:latest` (1024 Dimensionen, Suchprofil) wählen. Er fragt außerdem
+Name, lokalen Ollama-Port (11434), CPU (2) und RAM in MB (4096)
+und zeigt vor der Erstellung eine Vorschau. Abbruch erstellt keinen Run.
+Die feste deutsche All-MiniLM-Referenzabfrage verwendet den gebundenen
+Hybridmodus; die Umgebung zeigt diesen Suchmodus zusammen mit Modell und
+Dimension an.
+
+Nach Erfolg bleiben SQL Server 2025, eigene Volume und die synthetischen
+Embeddingdaten erhalten. **Meine KI-Testumgebungen anzeigen** liefert später
+RunId, CollectionId, Modell und Dimension für erneute Abfragen; SQL-Verbindungen stehen im
+Connection Center. Die vorhandene Run-Entfernung entfernt die ganze Umgebung
+ausdrücklich. Keine Modellinstallation, Cloud oder beliebigen Dokumente.
+Der native Standardlauf bestand am 2026-09-21; die BGE-M3-/1024-, Nomic-v2-/768-,
+All-MiniLM-/384-, Paraphrase-Multilingual-/768- und
+Snowflake-Arctic-Embed-2-/1024-Auswahl am 2026-09-22. Alle behielten die
+Query über einen SQLrestart und bestätigten
+anschließend vollständiges eigenes Cleanup.
+[Details, Fehlerbehandlung und Grenzen](../Architecture/AI_PODMAN_SETUP.md).
+
+Für Ad-hoc-RAG auf einem vorhandenen SQL-2025-Podman-Run kann stattdessen das
+lokal installierte Nomic-v1.5-Modell gewählt werden. Es wird weder geladen noch
+gestartet; Ollama muss auf dem angegebenen Loopback-Port laufen:
+
+```powershell
+Invoke-SqlServerLabAiRag -RunId $runId -SaPassword $password `
+    -Question 'Wie oft werden synthetische Sicherungen geprüft?' `
+    -Document @(
+        @{Id='backup-policy';Content='Synthetische Sicherungen werden täglich geprüft.'}
+        @{Id='cleanup-policy';Content='Run-eigene Ressourcen werden vollständig entfernt.'}
+    ) -TopK 1 -EmbeddingModelKey ollama-nomic-embed-text-v1-5 `
+    -GenerationModelKey ollama-qwen25-coder-7b-local -GenerationLane local
+```
+
+Der Katalog wendet die für Nomic erforderlichen Suchpräfixe automatisch an.
+SQL Server führt die exakte Cosine-Suche aus; Texte und Frage werden nicht in
+der Lab-State-Ablage persistiert.
+
+Als mehrsprachige 1024-dimensionale Alternative kann im selben Aufruf
+`-EmbeddingModelKey ollama-bge-m3-latest` gewählt werden. Dafür muss
+`bge-m3:latest` bereits im lokalen Ollama vorhanden sein. Dieser Ad-hoc-Pfad
+erstellt in SQL Server `VECTOR(1024)` und verwendet die Dokumente unverändert.
+
+## SQL-seitige HTTPS-Embeddings: Referenzabnahme
+
+`Tests/Integration/Invoke-AiSqlHttpsBridgeAcceptance.ps1` erstellt einen eigenen
+SQL-2025-Docker-Run und einen begrenzten Loopback-Gateway zu bereits vorhandenem
+Host-`embeddinggemma:latest`. Die Docker-Referenzabnahme bestand am 2026-09-21
+einschließlich SQL-TLS-Negativen, Retrieval nach SQLrestart und Cleanup.
+Keine öffentliche Gateway-API. Voraussetzungen, Aufruf und Besitzgrenzen stehen im
+[Referenzvertrag](../Architecture/AI_SQL_HTTPS_BRIDGE.md).
+
+## Secret-Preflight für den gemeinsamen KI-Gateway
+
+`Test-SqlServerLabAiSharedGatewayServiceSecret` prüft die Consumer-Referenzen
+eines mit `Get-SqlServerLabAiSharedGatewayServicePlan` erzeugten Dienstplans.
+Plan und Prüfung müssen im selben Benutzer-/Hostkontext ausgeführt werden.
+`AI_SHARED_GATEWAY_SERVICE_PRINCIPAL_MISMATCH` blockiert vor dem Vaultzugriff;
+erstelle den Dienstplan in diesem Fall im gewünschten Ausführungskontext neu.
+CLI und Browser-GUI verwenden dieselbe Prüfung. Das fünf Minuten gültige
+Receipt bestätigt weiterhin nur die aktuelle Sitzung; die nichtinteraktive
+Auflösung beim tatsächlichen Dienststart bleibt separat nachzuweisen.
+
+## Read-only Mehrdatenbankvergleich
+
+`Test-SqlServerLabRelationalCoreComparison` vergleicht explizit benannte, bereits laufende verwaltete Docker-/Podman-Datenbankpaare. Der Befehl nimmt keine Endpunkte, Connection Strings, SQL-Texte oder Kennwörter an. Ein Paar enthält nur die stabile Paar-ID sowie Quell- und Ziel-RunId, InstanceId und Datenbankname. Der Vergleich kann `MATCH`, `DIFFERENT` oder `UNSUPPORTED` feststellen; er ändert keine Datenbank und führt keinen Transfer aus.
+
+## Persistentes Retrieval
+
+`Invoke-SqlServerLabAiPersistentRetrieval` verwendet einen vorhandenen
+SQL-2025-Docker-/Podman-Run mit verwaltetem SA-Secret und ein bereits laufendes
+lokales `embeddinggemma:latest` oder mit explizitem
+`-EmbeddingModelKey ollama-bge-m3-latest` das lokale BGE-M3 oder mit
+`-EmbeddingModelKey ollama-nomic-embed-text-v2-moe` das lokale Nomic v2. Mit
+`-EmbeddingModelKey ollama-all-minilm-latest` wird All-MiniLM mit
+`VECTOR(384)` und unverändertem Rohtext verwendet. Mit
+`-EmbeddingModelKey ollama-paraphrase-multilingual-latest` wird Paraphrase
+Multilingual mit `VECTOR(768)` und unverändertem Rohtext verwendet. Mit
+`-EmbeddingModelKey ollama-snowflake-arctic-embed2-latest` verwendet SQL
+`VECTOR(1024)`; Dokumente bleiben unverändert, Fragen erhalten automatisch den
+Snowflake-Retrievalpräfix. Mit einer
+beibehaltenen Collection-GUID führen
+`-FixtureRevision Initial`, `-FixtureRevision Delta`, `-Action Sync`, `-Action Query` und
+`-Action Remove` durch persistente Generationen und eigenes Cleanup. `-Resume`
+setzt nur exakt gebundenes unterbrochenes Apply, Sync beziehungsweise Migrate fort;
+`-WhatIf` ist rein planend. `-Action Query -SearchMode Hybrid` kombiniert für
+die v1-Generationen SQL-Termabdeckung und exakte Cosine-Distanz; der
+  eine direkte Nomic-v2-Collection setzt die Rollenpräfixe automatisch und begrenzt
+  Eingaben einschließlich Präfix auf 512 UTF-8-Bytes. Der Nomic-Migrationspfad
+  bleibt reine Vektorsuche. Für bestätigtes Delta erlaubt
+  `-Action Migrate -FixtureRevision Delta -TargetModelKey ollama-nomic-embed-text-v2-moe`
+  den einmaligen Wechsel auf das bereits vorhandene lokale Nomic-Modell.
+Alternativ erstellt `-Documents` eine Collection aus 1 bis 16 Objekten mit
+eindeutiger `Id` und `Content`. `-Action Sync` verlangt den vollständigen
+aktuellen Bestand als `-ExpectedDocuments` und den vollständigen Zielbestand als
+`-Documents`; unveränderte Vektoren werden übernommen, Änderungen neu eingebettet
+und ausgelassene IDs atomar entfernt. `-Action Query` verlangt den vollständigen
+  aktiven Bestand und eine freie `-Question`; Inhalt und Frage bleiben aus dem Journal heraus.
+  Nach mindestens einem erfolgreichen Caller-Sync entfernt
+  `-Action Prune -KeepGenerations 2` alte inaktive v1-Generationen in einer SQL-Transaktion.
+  Der modellfreie Aufruf ist idempotent und akzeptiert keine Dokumentpayloads.
+  Derselbe vollständige Bestand kann mit `-Action Migrate`, dem Parameter
+  `-Documents` und `-TargetModelKey ollama-nomic-embed-text-v2-moe` vollständig in die nächste
+  Nomic-Generation neu eingebettet werden. Dokumentinput und spätere Frage sind
+  einschließlich Nomic-Präfix auf 512 UTF-8-Bytes begrenzt. Sync nach diesem
+  Modellwechsel ist derzeit nicht unterstützt.
+[Upgrade, Profile und Recovery](../Architecture/AI_PERSISTENT_MODEL_MIGRATION.md).
+[Beispiel, Besitzvertrag und Grenzen](../Architecture/AI_PERSISTENT_RETRIEVAL.md).
+Die getrennten nativen Docker- und Podman-Referenzläufe vom 2026-09-22 belegen
+Vektor- und Hybridranking der Fixture sowie Caller-Dokument-Sync jeweils
+mit 30 Assertions, SQLrestart, Delta-Cutover, Hashdrift-Abweisung, explizitem
+Prune samt SQL-Tabellenbeleg und vollständigem eigenem DB-/Run-Cleanup.
+Der erweiterte Modellwechsel bestand unter Docker und Podman getrennt mit je 25
+Assertions, Caller-Collection, SQLrestart und vollständigem Cleanup. Weitere
+Zielmodelle, Dimensionen, automatische Generation-Retention, Prune nach Modellmigration
+und Hyper-V bleiben offen.
 
 ## Eine read-only Datenbank in einen neuen Container-Run übertragen
 

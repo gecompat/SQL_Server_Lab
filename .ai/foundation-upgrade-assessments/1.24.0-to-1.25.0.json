@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "installed_version": "1.24.0",
+  "source_version": "1.25.0",
+  "source_ref": "a3567f8e5372e5f4db72dbd466323aa22c71b13a",
+  "assessments": [
+    {
+      "feature_id": "human-documentation-paths",
+      "candidate_reasons": ["introduced_in:1.25.0"],
+      "classification": "APPLY_DEFAULT",
+      "evidence": [
+        "AGENTS.md",
+        ".ai/foundation/DOCUMENTATION_POLICY.md",
+        "README.md",
+        "Documentation/README.md",
+        "Documentation/User/Getting_Started.md",
+        "Documentation/Project_Planning/MASTER_IMPLEMENTATION_PLAN.md",
+        "Documentation/Quality/FOUNDATION_1_25_UPGRADE_ASSESSMENT.md"
+      ],
+      "rationale": "Die Dokumentationsregel wird in den nativen Einstieg und die vorhandenen Fach- und Validierungswege integriert. Die zentralen Menschenpfade beginnen mit Zweck, Voraussetzungen und geordneter Erstnutzung; optionale Referenzabläufe folgen danach. KI-Steuerung, gemeinsame technische Quellen, Planung und datierte Evidence sind unterscheidbar. Bestehende Projekt-, Privacy-, Lizenz- und Providergrenzen bleiben erhalten. Konkrete Legacy-Lücken mit Zuständigkeit und Auslöser stehen im vorhandenen Masterplan; eine vollständige Dokumentationskonformität wird nicht behauptet.",
+      "selected_capabilities": []
+    }
+  ]
+}

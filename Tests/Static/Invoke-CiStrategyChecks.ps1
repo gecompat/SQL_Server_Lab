@@ -1261,7 +1261,7 @@ Add-CheckResult -Name 'PR-Gate validiert betroffene Foundation-Aenderungen gegen
     $prWorkflow -match 'if:\s*needs\.classify\.outputs\.foundation == ''true''' -and
     $prWorkflow -match '\.ai/foundation-upgrade-assessments/' -and
     $prWorkflow -match 'repository:\s*gecompat/AI_Repository_Foundation' -and
-    $prWorkflow -match 'ref:\s*96391403a1b89e19d4824838806d7190d8033389' -and
+    $prWorkflow -match 'ref:\s*a3567f8e5372e5f4db72dbd466323aa22c71b13a' -and
     $prWorkflow -match 'foundation_validator\.py' -and
     $prWorkflow -match '--adapters github-copilot' -and
     $prWorkflow -match '--capabilities rule-context-cache' -and

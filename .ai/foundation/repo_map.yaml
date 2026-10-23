@@ -1,5 +1,5 @@
 schema_version: 1
-foundation_ruleset_version: 1.24.0
+foundation_ruleset_version: 1.25.0
 canonical_entrypoint: AGENTS.md
 authority:
   required_or_baseline:
