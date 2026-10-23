@@ -65,8 +65,11 @@ Die [ausdrückliche öffentliche Liveprüf-API](AUTHENTICATED_TLS_LIVE_QUALIFICA
 prüft das eigene operative Container-Lab mit beiden echten Clients erneut.
 Ihr Ergebnis beschreibt ausschließlich den Beobachtungszeitpunkt und wird
 nicht in diesen Konfigurationsstatus übernommen. Die dedizierte Liveaktion
-am SQL-Ziel mit gerenderter Statusanzeige bleibt ein weiterer
-TLS-001-Pflichtscope. Diese Konfigurationsanzeige schließt ihn nicht ab.
+am SQL-Ziel ist im [Bedienungspfad](../HowTo/WORKFLOW_UI.md#tls-jetzt-prüfen)
+beschrieben und für die drei operativen Windows-/Docker-/Podman-Profile
+in getrennten [Browser-](../Quality/TLS_UI_LIVE_QUALIFICATION_ACCEPTANCE_2026-10-23.md)
+und [Profilabnahmen](../Quality/TLS_UI_PROFILE_MATRIX_ACCEPTANCE_2026-10-23.md)
+belegt. Diese Konfigurationsanzeige allein liefert diesen Nachweis nicht.
 Die [getrennte native Anzeigeabnahme](../Quality/TLS_CONFIGURATION_STATUS_DISPLAY_2026-10-22.md)
 prüfte `NOT_EVALUATED` mit echtem Produktserver und Browser an zwei eigenen
 Windows-/Docker-/Podman-SQL-2025-CU9-Labs einschließlich Cleanup.
@@ -84,5 +87,8 @@ beschrieben. Die zusätzliche
 [Windows-Produktseitenabnahme vom 2026-10-21](../Quality/TLS_WINDOWS_RENDERED_CONNECTION_SETTINGS_2026-10-21.md)
 bestand an eigenen qualifizierten Docker-/Podman-SQL-2025-CU9-Labs mit echter
 Workflowantwort, sichtbaren False-Werten und exakt angezeigtem Connection
-String. Creation-Dialog, Clipboard und aktuelle Livequalifikationsstatusanzeige sowie
-weitere Modi und Plattformen bleiben getrennte offene Nachweise.
+String. Die Default-Browser-Erstellung ist separat für
+[SQL 2025 CU9](../Quality/TLS_UI_DEFAULT_CREATION_ACCEPTANCE_2026-10-23.md)
+und [SQL 2019 CU32 sowie 2022 CU27](../Quality/TLS_UI_DEFAULT_CREATION_PROFILES_ACCEPTANCE_2026-10-23.md)
+belegt. Authentifizierte Browser-Erstellung, Clipboard, weitere
+Erstellungsprofile, Modi und Plattformen bleiben getrennte offene Nachweise.

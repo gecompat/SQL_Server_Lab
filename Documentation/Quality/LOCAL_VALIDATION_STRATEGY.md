@@ -43,6 +43,23 @@ einfachen Erstellungsstandard.
 
 ## Container-Erstellung im Browser
 
+Die [zusätzliche Default-Profilabnahme](TLS_UI_DEFAULT_CREATION_PROFILES_ACCEPTANCE_2026-10-23.md)
+bestand SQL 2019 CU32 und 2022 CU27 separat mit Docker und Podman: vier
+positive Zellen, je acht Fälle, vier darin enthaltene Browserfälle und zwei
+True/True-Clientresultate. Insgesamt 32 Fälle, acht Default-Clientresultate,
+null strikte False-Resultate; alle vier erstellten Labs entfernt und Bestand
+erhalten. Von insgesamt fünf Reservierungen endete die erste vor jeder
+Erstellung und bleibt unverändert FAIL. Die tatsächlich fehlende
+katalogisierte CU-Auswahl wurde rot reproduziert und durch eine additive
+begrenzte Workflowprojektion und den echten Renderer ergänzt: vier
+Projektions- und 13 Rendererfälle bestanden. 13 betroffene statische Suites
+und anschließend sieben Suites für das Selektordelta bestanden jeweils
+einschließlich vollständigem Analyzer. Unveränderte grüne Nachweise bleiben auf
+ihrem jeweiligen Quellframe. Alle vier positiven nativen Zellen liefen auf
+demselben unveränderten korrigierten Frame. Die frühere SQL-2025-Abnahme
+wurde nicht wiederholt. Das abschließende Dokumentationsdelta wird getrennt
+geprüft; die konkreten Gatebelege stehen im datierten Nachweis.
+
 Der [datierte Default-Erstellungsnachweis](TLS_UI_DEFAULT_CREATION_ACCEPTANCE_2026-10-23.md)
 bestand mit echtem Produktserver, Browser und beiden SQL-Clients separat für
 Windows/Docker und Windows/Podman auf SQL 2025 CU9: je acht Fälle, vier
