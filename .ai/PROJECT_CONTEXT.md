@@ -600,15 +600,16 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   Receipts, Manifestbindung und Toolausführung bleiben offen;
 
 - versionsgebundene Instanzcollation für SQL 2019/2022/2025:
-  Windows-Prepared erhaelt bei ausgewaehltem Intent jetzt `/SQLCOLLATION` und
+  Windows-Prepared unter Hyper-V erhaelt bei ausgewaehltem Intent `/SQLCOLLATION` und
   prueft SQL-seitig Server, master und tempdb; ohne Intent unveraendert.
   [Vertrag](../Documentation/Architecture/HYPERV_SQL_COLLATION.md) und editierbarer
   interaktiver Standard `Catalogs/sql-intent-defaults.json` (initial SQL-CS).
   Die native Windows-/SQL-2025-Prepared-Referenz mit SQL-CS, eigener
   CL170-Datenbank und Kontrollfall ohne Intent bestand auf `77fcf951`;
   [Nachweise und Grenzen](../Documentation/Quality/LOCAL_VALIDATION_STRATEGY.md#windows-prepared-collation-und-editierbarer-intentstandard)
-  trennen sie von der anschließenden offline geprüften HRESULT-Korrektur
-  und den weiterhin separaten Analyze-Läufen. Bestehender
+  trennen sie von der anschließenden HRESULT-Korrektur mit kontrollierter
+  nativer Fehlerpfadabnahme im Windows-/Hyper-V-Gast auf `44b63129`
+  (keine echte Aktivierung) und den weiterhin separaten Analyze-Läufen. Bestehender
   Katalog, öffentliche tokenbasierte Suche und Konsolenauswahl mit Metadaten;
   Manifestprüfung, Wizard-Speicherung, Manifestauflösung und Ad-hoc-Erstellung
   binden vollständige Namen kanonisch vor Provisionierung. Unbekannte Namen

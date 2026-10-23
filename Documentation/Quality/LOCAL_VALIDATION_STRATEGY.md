@@ -2906,10 +2906,11 @@ genau zwei Anfragen mit einer Fünfsekundenpause,
 erfolgreicher Retry mit frischer Lizenzprüfung sowie unveränderte unsigned
 API-Rückgabewerte und secretsfreie Diagnosen. Die neue Regression scheiterte
 zuvor am unveränderten Produktcode. Die native Collation-Evidence auf
-`77fcf951` liegt vor dieser Korrektur; ein nativ provozierter negativer
-HRESULT ist nicht abgenommen. Der erforderliche PR-Gate einschließlich
-Hyper-V-Lifecycle-Smoke bleibt ein eigener Integrationsnachweis und ersetzt
-diese Fehlerpfadabnahme nicht. Analyze-Läufe bleiben separat.
+`77fcf951` liegt vor dieser Korrektur. Die spätere
+[native HRESULT-Fehlerpfadabnahme unter Hyper-V](#windows-aktivierung-unter-hyper-v-native-hresult-fehlerpfadabnahme)
+ist separat an `44b63129` gebunden. Die Pflicht-CI von PR824 einschließlich
+Hyper-V-Lifecycle-Smoke bestand; sie ist ein Integrationsnachweis und ersetzt
+keine fachliche Fehlerpfadabnahme. Analyze-Läufe bleiben separat.
 
 Am 2026-10-21 bestanden lokal 61 fokussierte Collationchecks, 53 Hyper-V-
 Umgebungschecks, 303 Konsolenchecks, 35 Katalogchecks, neun Container-Evidence-
@@ -2956,6 +2957,64 @@ Datenbanken und Samples. Die native Docker-/Podman-Acceptance bestand am
 `Latin1_General_100_CS_AS`: Beide Provider bestaetigten Katalogverfuegbarkeit,
 `SERVERPROPERTY('Collation')`, run-gebundene sanitisierte Evidence und
 vollstaendigen Cleanup. Hyper-V bleibt separat.
+
+### Windows-Aktivierung unter Hyper-V: native HRESULT-Fehlerpfadabnahme
+
+Die kontrollierte Fehlerpfadabnahme vom 2026-10-22 bestand auf
+`44b6312928cecc960445bd74d5bc735ca39c381e`, dem bei Ausführung und Abschluss
+aktuellen `origin/main`: **drei Fälle, 32 Prüfungen, null Fehler**. Sie nutzte
+einen eigenen isolierten Windows-Server-2025-Gast unter Hyper-V aus einem
+vorhandenen `OS_SEALED`-Image, Windows PowerShell 5.1 sowie den unveränderten
+öffentlichen Reparaturkern und den tatsächlichen Produktionsgastblock.
+Der öffentliche Aufruf war `RepairHyperVWindowsActivation` über
+`Invoke-SqlServerLabWorkflowAction` mit `-BuildId`.
+
+Die Fehler wurden gezielt am `Activate`-Blatt erzeugt: ein nativer CIM-Aufruf
+einer nicht vorhandenen Methode am Lizenzprodukt, ein nativer COM-Dateizugriff
+auf eine synthetische fehlende Datei und eine explizit injizierte Ausnahme
+mit HRESULT `0`. Diese Aufrufe ersetzten die tatsächliche Aktivierung.
+
+| Fall | Beobachtete HRESULT-Folge | Erwartete letzte Diagnose |
+|---|---|---|
+| Zweimal nativer CIM-Fehler | `0x80131500`, `0x80131500` | `hresult=0x80131500` |
+| Nativer CIM-, danach COM-Fehler | `0x80131500`, `0x800A0035` | `hresult=0x800A0035` |
+| CIM-Fehler, danach Ausnahme ohne Code | `0x80131500`, `0x00000000` | `api=exception`, kein alter HRESULT |
+
+Jeder Fall führte genau zwei Blattaufrufe mit einer tatsächlich gemessenen
+Fünfsekundenpause und genau einem identitätsgebundenen PowerShell-Direct-
+Transportaufruf mit `NoRetry` aus. Die bereinigte Gastdiagnose erreichte den
+öffentlichen Aufrufer unverändert. Die echte temporäre eigene NIC wurde
+je Fall angelegt und über das Ownership-Journal vollständig entfernt;
+die permanenten Adapteridentitäten blieben erhalten.
+
+Der private Harness erzwang den Aktivierungsentscheid nur in seinem
+Prüfscope, ersetzte die External-Switch-Auswahl durch einen eigenen privaten
+Switch ohne Uplink und richtete die eigene Gast-NIC statisch ein.
+Der Produktionsgastblock lief dabei mit `ConfigureTemporaryAdapter=false`.
+Der tatsächliche Lizenzstatus blieb vor und nach der Prüfung unverändert;
+es gab **null echte `Activate`-Aufrufe**. Damit sind HRESULT-Erhalt, begrenzter
+Retry, letzte Diagnose und Cleanup im nativen Gast belegt. Produktions-DHCP,
+externer Egress, ein echter Aktivierungsdienstausfall und erfolgreiche
+Aktivierung nach Retry sind durch diesen Lauf nicht qualifiziert.
+
+Ein erster eigener nativer Versuch scheiterte am privaten Harnessparameter
+`-RunId` statt des aktionsspezifischen `-BuildId`, vor jedem HRESULT-Gastdispatch.
+Sein FAIL bleibt erhalten. Die korrigierte öffentliche Bindung und die
+Controllergrenze wurden zunächst offline geprüft; erst danach folgte der
+erfolgreiche native Lauf. Beide eigenen Child-Runs einschließlich VM, Disks,
+Leases und privatem Switch wurden vollständig bereinigt. Null eigene
+Restressourcen und die unveränderte Parent-SHA256 wurden bestätigt.
+Private Belege und Rohlogs bleiben unversioniert.
+
+Diese Statusnachführung auf Basis `5223abd9` führt keinen nativen Lauf erneut
+aus. Die betroffenen Aktivierungsquellen sind gegenüber `44b63129`
+unverändert; die ursprüngliche native Revisionsbindung bleibt erhalten.
+Der HRESULT des historischen Aktivierungsfehlers und seine Microsoft-API-
+Ursache bleiben unbekannt. Die SQL-Prepared-Collationabnahme auf `77fcf951`
+sowie Docker-/Podman-Nachweise bleiben getrennt. Analyze-Läufe wurden nicht
+ausgeführt und bleiben gesondert zu beauftragen.
+
+#### Frühere Aktivierungs- und Locale-Nachweise
 
 Der allgemeine Windows-Aktivierungsintent wurde am 2026-09-10 durch 33
 betroffene statische Suites geprueft. Zusaetzliche fokussierte Nachweise
