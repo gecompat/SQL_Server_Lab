@@ -73,8 +73,10 @@ ausdrücklichen CLI-Aufruf und seine festen Fehlercodes. Warten Sie vor einer
 erneuten SQL-Prüfung den terminalen Ausgang des bisherigen Jobs ab.
 
 Die [native Browserabnahme](../Quality/TLS_UI_LIVE_QUALIFICATION_ACCEPTANCE_2026-10-23.md)
-belegt Windows-/Docker-/Podman-SQL-2025-CU9. Andere UI-Profile,
-Creationdialog und Clipboard haben dadurch keinen neuen Nachweis;
+belegt Windows-/Docker-/Podman-SQL-2025-CU9. Die zusätzlich geprüften
+SQL-2019-CU32-/SQL-2022-CU27-Zellen stehen in der
+[getrennten Profilabnahme](../Quality/TLS_UI_PROFILE_MATRIX_ACCEPTANCE_2026-10-23.md).
+Weitere Patch-/Clientkontexte, Creationdialog und Clipboard bleiben offen;
 `WireCertificateFingerprint=NOT_OBSERVED` bleibt wahr.
 
 Die Hintergrundinventur hält ein erfolgreich abgeschlossenes, nichtleeres

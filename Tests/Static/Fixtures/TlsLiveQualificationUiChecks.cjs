@@ -114,6 +114,27 @@ function check(name, body) { body(); passed++; console.log('PASS ' + name); }
   const late = result(); pollReply = async () => { now += 10; return { ok: true, json: async () => ({ Status: 'COMPLETE', Id: id, Result: late }) }; };
   release({ ok: true, json: async () => ({ Status: 'ACCEPTED', Id: id }) }); await duringRefresh;
   check('Explicit refresh continues to veto the late SQL result', () => assert.match(view.status.textContent, /Keine aktuelle/));
+  view = mount();
+  workflowReply = () => new Promise((resolve) => { releaseWorkflow = resolve; });
+  const beforeErrorRefresh = context.refresh(undefined, true); await Promise.resolve();
+  postReply = async () => ({ ok: true, json: async () => ({ Status: 'ACCEPTED', Id: id }) });
+  pollReply = async () => ({ ok: false });
+  await view.button.events.click();
+  assert.match(view.status.textContent, /nicht bestätigt/);
+  const rendersBeforeErrorResponse = renders;
+  releaseWorkflow({ ok: true, json: async () => ({ Refreshing: false, Snapshot: {} }) }); await beforeErrorRefresh;
+  check('A background response started before the probe cannot erase its completed rejection', () => {
+    assert.equal(renders, rendersBeforeErrorResponse); assert.match(view.status.textContent, /nicht bestätigt/);
+  });
+  view = mount();
+  workflowReply = () => new Promise((resolve) => { releaseWorkflow = resolve; });
+  const beforeSuccessRefresh = context.refresh(undefined, true); await Promise.resolve();
+  responses(result()); await view.button.events.click();
+  const rendersBeforeSuccessResponse = renders;
+  releaseWorkflow({ ok: true, json: async () => ({ Refreshing: false, Snapshot: {} }) }); await beforeSuccessRefresh;
+  check('A background response started before the probe cannot erase its completed success', () => {
+    assert.equal(renders, rendersBeforeSuccessResponse); assert.match(view.status.textContent, /Beide Clients erfolgreich/);
+  });
   const server = fs.readFileSync(path.join(root, 'Tools/Start-SqlServerLabUi.ps1'), 'utf8');
   check('Actual route remains after operator guard and uses bounded body reader and async custody', () => {
     const route = server.indexOf("if ($path -eq '/api/tls-live-qualification')");

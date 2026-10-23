@@ -2,6 +2,23 @@
 
 ## Gerenderte explizite TLS-Liveaktion
 
+Die zusätzliche [UI-Profilabnahme](TLS_UI_PROFILE_MATRIX_ACCEPTANCE_2026-10-23.md)
+bestand mit Docker und Podman für SQL 2019 CU32 und 2022 CU27: vier positive
+Zellen, 32 Fälle, 16 strikte UI- sowie je acht getrennte Arrange-/Rebind-Resultate.
+Drei Zellen liefen vor der Generationskorrektur, der Podman-/SQL-2022-Nachlauf
+auf dem korrigierten Stand. Keine gemeinsame neue Ausführung am finalen Head.
+Der erste Podman-/SQL-2022-FAIL bleibt mit zwei partiellen UI-/zwei Arrange-
+Resultaten erhalten; insgesamt fünf neue Labs, alle entfernt und Bestand erhalten.
+Die echte Refreshfunktion reproduzierte rot eine verspätete Hintergrundantwort
+nach bereits beendeter TLS-Prüfung. Hintergrundantworten werden nun über
+beide Awaits an dieselbe Ansichtsgeneration gebunden; JS 25/0 und elf
+betroffene statische Suites bestanden.
+Ein nachfolgender Fehler der eigenen Cache-Nachaggregation ändert den
+originalen Runner-PASS nicht; keine Testwiederholung. Die rein passive,
+sichtbarkeits- und klickgebundene Beobachtung bestand 24, die enge neue
+Zulassung 37 Offlinefälle ohne Provideraktion. Der datierte Nachweis trennt
+die nicht eindeutige ursprüngliche Nativefehlersignatur von der Reproduktion.
+
 Die [Browserabnahme vom 2026-10-23](TLS_UI_LIVE_QUALIFICATION_ACCEPTANCE_2026-10-23.md)
 bestand getrennt unter Windows mit Docker und Podman für SQL 2025 CU9,
 Build `17.0.5005.3`: je acht Fälle und vier strikte UI-Clientresultate,

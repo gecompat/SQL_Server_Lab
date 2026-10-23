@@ -12,6 +12,14 @@ datierte Abnahmen belegen ausschließlich ihren ausgewiesenen Stand.
 Die [Foundation-Upgradebewertung](../Documentation/Quality/FOUNDATION_1_25_UPGRADE_ASSESSMENT.md)
 trennt Regelübernahme, Lesepfadprüfung und geplante Restarbeiten.
 
+## Aktuelle KI-Arbeitsgrenze für TLS-001
+
+Die autonome Fortsetzung betrifft derzeit Lab-Scopes. Weitere Entwicklung
+im Toolbelt bleibt gemäß der späteren separaten menschlichen Anweisung
+pausiert; der abgeschlossene Windows-V2-Cutover bleibt erhalten. Ein
+Lab-Teilabschluss hebt diese Pause nicht auf. Für eine Fortsetzung im
+Toolbelt ist eine neue direkte menschliche Anweisung maßgeblich.
+
 ## Ausgewählte Arbeitsstände
 
 Die [explizite öffentliche TLS-Livequalifikation](../Documentation/Architecture/AUTHENTICATED_TLS_LIVE_QUALIFICATION.md)
@@ -24,8 +32,15 @@ Cleanup. Die dedizierte Aktion **TLS jetzt prüfen** ist zusätzlich mit dem
 echten Produktserver und Browser für Windows-/Docker-/Podman-SQL-2025-CU9
 [nativ abgenommen](../Documentation/Quality/TLS_UI_LIVE_QUALIFICATION_ACCEPTANCE_2026-10-23.md):
 je acht Fälle, vier strikte UI-Clientresultate und eigener Cleanup. Ein ursprünglicher
-Docker-FAIL bleibt erhalten. Creationdialog, Clipboard und andere Plattformen
-bleiben eigene Scopes.
+Docker-FAIL bleibt erhalten. Die zusätzliche
+[UI-Profilabnahme](../Documentation/Quality/TLS_UI_PROFILE_MATRIX_ACCEPTANCE_2026-10-23.md)
+bestand Docker und Podman für SQL 2019 CU32 und 2022 CU27: vier positive
+Zellen mit 32 Fällen und 16 strikten UI-Clientresultaten, fünf eigene Labs
+entfernt. Drei Zellen belegen den Stand vor der Generationskorrektur, der
+Podman-/SQL-2022-Korrekturlauf den korrigierten Stand; sein ursprünglicher
+FAIL bleibt erhalten. Verspätete Hintergrundantworten dürfen eine seit ihrem
+Request neu gestartete und bereits beendete TLS-Prüfung nicht verwerfen.
+Creationdialog, Clipboard und andere Plattformen bleiben eigene Scopes.
 
 Die [native Linux-Kryptomatrix](../Documentation/Quality/TLS_LINUX_CLIENT_MATRIX_ACCEPTANCE_2026-10-22.md)
 bestand Docker und Podman für SQL 2019 CU32, 2022 CU27 und 2025 CU9 separat:

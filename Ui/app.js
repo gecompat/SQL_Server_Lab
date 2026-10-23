@@ -951,11 +951,14 @@ async function refresh(mediaRoot, background = false) {
   // Keep the selected view stable while its explicit SQL probe is running.
   // User actions still refresh normally and invalidate any late result.
   if (background && window.sqlServerLabTlsLiveQualification?.isPending()) return;
+  const tlsGeneration = window.sqlServerLabTlsLiveQualification?.getGeneration?.();
   const suffix = mediaRoot ? '?mediaRoot=' + encodeURIComponent(mediaRoot) : '';
   const response = await sqlServerLabUiFetch('/api/workflow' + suffix);
   if (!response.ok) throw new Error(await response.text());
   const payload = await response.json();
-  if (background && window.sqlServerLabTlsLiveQualification?.isPending()) return;
+  // A request issued before a probe can also arrive after that probe finished.
+  if (background && (window.sqlServerLabTlsLiveQualification?.isPending() ||
+      window.sqlServerLabTlsLiveQualification?.getGeneration?.() !== tlsGeneration)) return;
   if (Object.prototype.hasOwnProperty.call(payload, 'Refreshing')) {
     if (payload.Snapshot) renderWorkflow(payload.Snapshot);
     else {

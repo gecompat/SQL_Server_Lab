@@ -62,7 +62,9 @@ führt von dort zu Vertrag, Format und Evidence.
   Neustartablehnung und Cleanup, keine dedizierte UI-Liveaktion.
 - [TLS jetzt prüfen](HowTo/WORKFLOW_UI.md#tls-jetzt-prüfen): Browserbedienung,
   Voraussetzungen und Fehlerhilfe. Der [getrennte Browsernachweis](Quality/TLS_UI_LIVE_QUALIFICATION_ACCEPTANCE_2026-10-23.md)
-  belegt Docker und Podman mit SQL 2025 CU9.
+  belegt Docker und Podman mit SQL 2025 CU9; die
+  [weitere Profilabnahme](Quality/TLS_UI_PROFILE_MATRIX_ACCEPTANCE_2026-10-23.md)
+  ergänzt SQL 2019 CU32 und 2022 CU27 mit getrennten Quellständen.
 
 ### Projekt weiterentwickeln
 

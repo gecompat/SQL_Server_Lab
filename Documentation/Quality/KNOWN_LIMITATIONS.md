@@ -8,9 +8,14 @@ invalidiert sie auch vor der angegebenen Frist. Der [native API-Nachweis](TLS_LI
 bestand die sechs geschlossenen Provider-/Profilzellen. Die zusätzliche
 [gerenderte Liveaktion](TLS_UI_LIVE_QUALIFICATION_ACCEPTANCE_2026-10-23.md)
 bestand getrennt unter Windows mit Docker und Podman auf SQL 2025 CU9.
+Die [weitere UI-Profilabnahme](TLS_UI_PROFILE_MATRIX_ACCEPTANCE_2026-10-23.md)
+bestand für Docker und Podman mit SQL 2019 CU32 und 2022 CU27; drei frühe
+Zellen und der korrigierte Podman-/SQL-2022-Lauf bleiben getrennte Quellstände.
+Der ursprüngliche Podman-/SQL-2022-FAIL bleibt erhalten; alle fünf eigenen
+Labs dieser Profilwelle sind entfernt.
 Sie setzt den passenden serverseitigen Run-StateRoot voraus; das ist kein
 Nachweis einer globalen Suche über sämtliche Auditroots. Creationdialog,
-Clipboard und weitere UI-Profilkombinationen bleiben offen. Wire-Fingerprint bleibt
+Clipboard und weitere Patch-/Clientkombinationen bleiben offen. Wire-Fingerprint bleibt
 `NOT_OBSERVED`; Linux- und Hyper-V-Live-API sind damit nicht abgenommen.
 
 Die [Linux-TLS-Kryptomatrix](TLS_LINUX_CLIENT_MATRIX_ACCEPTANCE_2026-10-22.md)
@@ -39,8 +44,10 @@ Die [konfigurationsbasierte TLS-Prüfstatusanzeige](TLS_CONFIGURATION_STATUS_DIS
 ist an eigenen Windows-/Docker-/Podman-SQL-2025-CU9-Labs zusätzlich nativ
 abgenommen. Sie meldet gespeicherte Optionen und ausdrücklich fehlende
 aktuelle Auswertung; sie liefert keine aktuelle Livequalifikation.
-Die ausdrückliche Prüfaktion mit Client-/Ziel-/Frische-/Driftbindung,
-Browser-Erstellung und Clipboard bleiben offen. Der fehlende Hyper-V-
+Die ausdrückliche Prüfaktion mit Client-/Ziel-/Frische-/Driftbindung ist
+in den oben verlinkten separaten Abnahmen belegt; diese ältere
+Konfigurationsanzeige allein liefert sie nicht. Browser-Erstellung und
+Clipboard bleiben offen. Der fehlende Hyper-V-
 Fallbackstatus wurde synthetisch reproduziert und korrigiert; keine neue
 native Hyper-V-Abnahme daraus.
 
@@ -50,8 +57,9 @@ abgenommen: frischer abgeschlossener Workflow-Snapshot, exakter angezeigter
 Connection String und passende explizite False-Werte; eigener Cleanup und
 Bestandsvergleich bestanden. Der erste Docker-Browser-FAIL bleibt erhalten;
 der reproduzierte Inventurcachefehler ist korrigiert. Browser-Erstellung,
-Clipboard, aktuelle Livequalifikationsstatusanzeige und weitere Modi/Plattformen bleiben
-separat offen. Der verlinkte Nachweis listet die übrigen TLS-001-Schritte.
+Clipboard und weitere Modi/Plattformen bleiben separat offen. Die aktuelle
+explizite Liveaktion ist oben gesondert belegt; dieser ältere Anzeigenachweis
+belegt sie nicht. Der verlinkte Nachweis listet seine TLS-001-Grenzen.
 
 Die zusätzliche Windows-/SQL-2022-CU27-Neustart-Wiederbindung ist mit Docker und Podman separat nativ abgenommen: je zwölf Fälle und zwölf bezeichnete strikte Clientergebnisse auf Build `16.0.4295.3`, Recordform `0.3` mit explizitem SQL-Profil, eigener Cleanup und Bestandsvergleich bestanden. Die offenen Grenzen betreffen weiterhin weitere Patch-/Clientkontexte, Linuxclients, öffentliche Hyper-V-False-/Exportpfade, Renewal, Consumer-Cutover, weitere Browserpfade und Wire-Fingerprint; die gesamte TLS-001-Matrix ist damit nicht abgeschlossen.
 
@@ -4172,7 +4180,7 @@ verbindet eine bereits vertraute CA mit eigenem Trustscope und einem neuen
 Docker-SQL-2025-CU9-Lab. Die explizite False-Wahl und der separate qualifizierte
 V2-Export sind vom unveränderten True/True-Default getrennt. Native Abnahme und
 weitere Providergrenzen werden in der Validierungsstrategie getrennt geführt.
-Die operative False-Lane und der qualifizierte Export sind für Windows CurrentUser mit Docker und Podman sowie den katalogisierten SQL-2019-CU32-/SQL-2022-CU27-/SQL-2025-CU9-Profilen getrennt belegt. Auch die explizite Container-Wiederbindung nach Neustart ist für diese Profile separat abgenommen. Weitere Client-/Patch-/Providerkontexte, öffentliche Hyper-V-False-/Exportpfade, V2-Consumer-Cutover und der vollständige operative Renewal-/Recovery-Lebenszyklus bleiben offen. Der qualifizierte Export verlangt frische Bindungen und zwei echte Stacks; gespeichertes Runtime-READY allein genügt nicht. Die zusätzliche gerenderte Anzeige ist auf die oben verlinkten eigenen SQL-2025-CU9-Labs begrenzt. Der Wire-Fingerprint bleibt ausdrücklich NOT_OBSERVED. Standard und bestehende V1-Gruppe bleiben True/True.
+Die operative False-Lane und der qualifizierte Export sind für Windows CurrentUser mit Docker und Podman sowie den katalogisierten SQL-2019-CU32-/SQL-2022-CU27-/SQL-2025-CU9-Profilen getrennt belegt. Auch die explizite Container-Wiederbindung nach Neustart ist für diese Profile separat abgenommen. Die oben verlinkten Windows-V2-Consumer- und Live-UI-Abnahmen ergänzen jeweils ihren eigenen begrenzten Nachweis. Weitere Client-/Patch-/Providerkontexte, öffentliche Hyper-V-False-/Exportpfade, weitere Consumer und der vollständige operative Renewal-/Recovery-Lebenszyklus bleiben offen. Der qualifizierte Export verlangt frische Bindungen und zwei echte Stacks; gespeichertes Runtime-READY allein genügt nicht. Die älteren Nachweise der gespeicherten gerenderten Anzeige bleiben auf ihre eigenen SQL-2025-CU9-Labs begrenzt. Der Wire-Fingerprint bleibt ausdrücklich NOT_OBSERVED. Standard und bestehende V1-Gruppe bleiben True/True.
 
 ## Begrenzte Hyper-V-Create-Netzbindung
 
