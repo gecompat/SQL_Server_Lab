@@ -124,8 +124,11 @@ Die [konfigurationsbasierte TLS-Prüfstatusanzeige](../Quality/TLS_CONFIGURATION
 ergänzt CLI, SQL-Zielkarte und Verbindungsübersicht. Zwei getrennte native
 Windows-/Docker-/Podman-SQL-2025-CU9-Abnahmen bestanden einschließlich eigener
 Bereinigung. Gespeichertes False meldet `NOT_EVALUATED` und behauptet keine
-aktuelle Prüfung. Eine ausdrücklich ausgelöste Livequalifikation mit
-Frische-/Driftbindung bleibt Teil des offenen TLS-001c-Scope.
+aktuelle Prüfung. Die [explizite öffentliche Live-API](../Architecture/AUTHENTICATED_TLS_LIVE_QUALIFICATION.md)
+ergänzt eine gebundene aktuelle Beobachtung ohne Secrets; ihr [nativer Nachweis](../Quality/TLS_LIVE_QUALIFICATION_API_ACCEPTANCE_2026-10-23.md)
+bestand alle sechs Windows-/Docker-/Podman-Profilzellen mit eigenem Cleanup.
+Eine dedizierte Liveprüfaktion am SQL-Ziel
+und deren gerenderte Frische-/Driftanzeige bleiben Teil des offenen TLS-001c-Scope.
 
 Die zusätzliche [echte Windows-Produktseitenabnahme](../Quality/TLS_WINDOWS_RENDERED_CONNECTION_SETTINGS_2026-10-21.md)
 schließt die gespeicherte TLS-Anzeige an eigenen qualifizierten Docker-/Podman-
@@ -153,6 +156,12 @@ Windows-Neustart und eigener Cleanup. Öffentliche Hyper-V-False-Erstellung,
 qualifizierter Export, weitere Versions-/Clientkombinationen und Toolbelt
 SC-2026-045 bleiben davon getrennt; der Gesamtstatus bleibt `partial`.
 
+Der [Windows-V2-Consumer-Cutover](../Quality/TLS_V2_CONSUMER_CUTOVER_ACCEPTANCE_2026-10-22.md)
+ist für die sechs geschlossenen Docker-/Podman-SQL-Profile separat abgenommen.
+Weitere Consumer-/Plattformpfade bleiben offen. Die folgenden privaten
+Vorstufen beschreiben ihre eigene begrenzte Funktion, nicht den inzwischen
+erreichten Gesamtstand des öffentlichen Windows-Consumerpfads.
+
 Der [private Consumer-Guard](../Architecture/AUTHENTICATED_TLS_CONSUMER_GUARD.md) ergänzt gehaltene NTFS-Lesehandles und feste SQL-Journalmetadaten. Das ist eine vorbereitende interne Grenze, kein Gastverbraucherende, Recovery-Apply oder vollständiger TLS-001-Abschluss.
 
 Die begrenzte [private Authoritybindung](../Architecture/AUTHENTICATED_TLS_AUTHORITY_BINDING.md)
@@ -160,7 +169,7 @@ ergänzt den Writer um CA-Kandidat/Ciphertext/DER, exakte aktive Client-/
 Signiergeneration und ReadOnly-Trust. Frische Prüfung gilt auch für unveränderte
 Generationen und Recoverycommit. Das sind Metadaten und eigene Tempfixtures;
 keine tatsächliche Adoption der bestehenden CA, native Gesamtqualifikation
-oder Exportfreigabe. SC-2026-045 bleibt gesperrt.
+oder Exportfreigabe. Diese private Vorstufe allein gab SC-2026-045 noch nicht frei.
 
 Der spätere [private Windows-Registrywriter](../Architecture/AUTHENTICATED_TLS_REGISTRY_WRITER.md)
 ergänzt inzwischen aktive Client-/Signiermetadaten vor Keyanlage mit frischer
@@ -168,12 +177,14 @@ Actor-/Volumeprüfung, geschützter Ablage, atomarem Ersatz und expliziter
 Recovery. Eigene NTFS-Tempfixtures belegen Prozessabbrüche, Parallelität und
 Cleanup; native Client-/Signiermetadaten wurden getrennt im eigenen Tempbereich
 registriert. Das registriert keine CA und qualifiziert keinen TLS-Export.
-CA-/Trustscopezuordnung, Retirement und öffentliche Moduswahl bleiben P1.
+Weitere CA-/Trustscopezuordnungen und Retirement bleiben P1. Öffentliche
+Moduswahl ist nur in den oben genannten geschlossenen Containerprofilen
+abgenommen; der Creationdialog bleibt getrennt offen.
 
 | Merkmal | Festlegung |
 |---|---|
 | Priorität | `P1`; höchste nächste Priorität unmittelbar nach dem laufenden SSISDB-Stream, Benutzerauftrag vom 2026-10-15 |
-| Status | `partial`; operative Windows-/Docker-SQL-2025-CU9-Lane und getrennter qualifizierter V2-False-Export integriert und nativ abgenommen; private Windows-/Hyper-V-SQL-2025-RTM-Referenz nativ abgenommen; öffentliche Hyper-V-Lane, Gesamtmatrix und Consumer-Cutover offen |
+| Status | `partial`; operative Windows-/Docker-/Podman-Profile SQL 2019 CU32, 2022 CU27 und 2025 CU9, deren V2-Consumerpfad und explizite Live-API separat nativ abgenommen; private Windows-/Hyper-V-SQL-2025-RTM-Referenz nativ abgenommen. Öffentliche Hyper-V-/Linuxpfade, weitere Consumer, UI-Liveaktion und Lifecycle-/Trustkontexte bleiben offen |
 | Abhängigkeit | **Toolbelt SC-2026-045 – authentifizierte Liveabnahme** |
 | Auslöser | [Toolbelt PR #322](https://github.com/gecompat/SQL_Server_Toolbelt/pull/322), geprüfter Head `8772e9d6a1d538e6fcb22da3f0bd03c83a28e88a`; PR bei der Prüfung am 2026-10-15 offen, kein behaupteter Merge |
 | Verantwortung | Lab: Serverzertifikate, Identität, Client-Trust, Export und Bereitschaft; Toolbelt: eigener Preflight und tatsächliche Clientverbindungen |

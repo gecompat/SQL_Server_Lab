@@ -61,9 +61,12 @@ Fehlende, unbekannte oder falsch typisierte Browsermetadaten ergeben nur
 „Kein aktueller TLS-Prüfstatus gemeldet“. Es gibt keinen Status `QUALIFIED`
 und keine Aufwertung durch Runtime-READY, gespeichertes False oder einen
 früheren Export. Die UI startet beim Anzeigen keine zusätzliche Prüfung.
-Eine ausdrücklich ausgelöste Liveprüfung mit gebundener Frische-, Drift-,
-Client- und Zielprüfung bleibt ein weiterer TLS-001-Pflichtscope. Diese
-Konfigurationsanzeige schließt ihn nicht ab.
+Die [ausdrückliche öffentliche Liveprüf-API](AUTHENTICATED_TLS_LIVE_QUALIFICATION.md)
+prüft das eigene operative Container-Lab mit beiden echten Clients erneut.
+Ihr Ergebnis beschreibt ausschließlich den Beobachtungszeitpunkt und wird
+nicht in diesen Konfigurationsstatus übernommen. Die dedizierte Liveaktion
+am SQL-Ziel mit gerenderter Statusanzeige bleibt ein weiterer
+TLS-001-Pflichtscope. Diese Konfigurationsanzeige schließt ihn nicht ab.
 Die [getrennte native Anzeigeabnahme](../Quality/TLS_CONFIGURATION_STATUS_DISPLAY_2026-10-22.md)
 prüfte `NOT_EVALUATED` mit echtem Produktserver und Browser an zwei eigenen
 Windows-/Docker-/Podman-SQL-2025-CU9-Labs einschließlich Cleanup.

@@ -867,6 +867,7 @@ abgewiesen. SQL-seitige Verifikation und freie Advanced-Eingaben bleiben
 | `New-SqlServerLabAutomatedTestEnvironment` | Linux-Testumgebungen mit getrennten Zufallskennwörtern erstellen und nach Lab_Data exportieren |
 | `Export-SqlServerLabTestEnvironment` | Registrierte Testumgebungen als dotenv, schema-validierbares JSON, portablen Agenten-Prompt und Markdown exportieren |
 | `Read-SqlServerLabQualifiedTestEnvironment` | Signierten privaten V2-Export als gebundenen Bytesnapshot lesen oder dieselben Bytes vor Verwendung erneut prüfen; [Vertrag](Documentation/Architecture/AUTHENTICATED_TLS_V2_READER.md) |
+| `Test-SqlServerLabTlsQualification` | Eigenes operatives Windows-/Docker-/Podman-Lab ausdrücklich mit beiden strikten Clients aktuell prüfen; [Aufruf und Aussagegrenze](Documentation/Architecture/AUTHENTICATED_TLS_LIVE_QUALIFICATION.md) |
 | `Repair-SqlServerLabAutomatedTestEnvironment` | Ressourcen, Health, Autostart, Windows-Aktivierung und sprechende Runtime-Namen der registrierten Testgruppe sicher abgleichen |
 | `Start-SqlServerLabAutomatedTestEnvironment` | Registrierte Docker-, Podman- und Hyper-V-Mitglieder als Gruppe starten und live bis `READY` prüfen |
 | `Stop-SqlServerLabAutomatedTestEnvironment` | Registrierte Docker-, Podman- und Hyper-V-Mitglieder nicht-destruktiv stoppen, Hostkapazität freigeben und den Export fail-closed erneuern |

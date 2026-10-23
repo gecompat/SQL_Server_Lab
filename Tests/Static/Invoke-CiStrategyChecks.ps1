@@ -9,6 +9,19 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $failures = [System.Collections.Generic.List[string]]::new()
 $passed = 0
 $selector = Join-Path $repoRoot 'Tools/Get-CiTestSelection.ps1'
+foreach($path in @('Private/AuthenticatedTlsLiveQualification.ps1','Public/Test-SqlServerLabTlsQualification.ps1',
+    'Private/AuthenticatedTlsQualification.ps1','Private/AuthenticatedTlsAuthority.ps1','Private/AuthenticatedTlsLab.ps1',
+    'Private/AuthenticatedTlsRestartRebind.ps1','Private/DiagnosticBundleReader.ps1','Catalogs/sql-server-versions.json',
+    'Tests/Static/Invoke-AuthenticatedTlsLiveQualificationChecks.ps1',
+    'Tests/Common/AuthenticatedTlsLiveQualificationAcceptance.ps1','Tests/Common/AuthenticatedTlsAcceptanceSelection.ps1',
+    'Tests/Integration/Invoke-AuthenticatedTlsLabAcceptance.ps1')){
+    foreach($normalized in @($path,$path.Replace('/','\'))){
+        $selected=& $selector -ChangedPath @($normalized)
+        Add-CheckResult "Explicit live qualification retains coupled checks: $normalized" (
+            'Invoke-AuthenticatedTlsLiveQualificationChecks.ps1' -in $selected.StaticChecks
+        )
+    }
+}
 foreach ($path in @('Private/HyperVSqlCollation.ps1','Catalogs/sql-intent-defaults.json','Schemas/sql-intent-defaults.schema.json','Private/HyperVLabEnvironment.ps1','Private/ManifestParser.ps1','Public/New-SqlServerLab.ps1','Public/Invoke-SqlServerLab.ps1')) {
     $selected = & $selector -ChangedPath @($path)
     Add-CheckResult "Prepared collation selects its offline regression: $path" ('Invoke-HyperVSqlCollationChecks.ps1' -in $selected.StaticChecks)
