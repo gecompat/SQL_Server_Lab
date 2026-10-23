@@ -1,5 +1,28 @@
 # Lokale Validierungsstrategie
 
+## Gerenderte explizite TLS-Liveaktion
+
+Die [Browserabnahme vom 2026-10-23](TLS_UI_LIVE_QUALIFICATION_ACCEPTANCE_2026-10-23.md)
+bestand getrennt unter Windows mit Docker und Podman für SQL 2025 CU9,
+Build `17.0.5005.3`: je acht Fälle und vier strikte UI-Clientresultate,
+zusätzlich je zwei Arrange- und Rebind-Resultate. Echter Produktserver,
+Assets, Operatorzugang, drei tatsächliche Klicks und beide SQL-Stacks sind
+eingeschlossen. Neustartablehnung, frische Wiederbindung, Refreshverfall,
+ganze Windows-Jobleere, eigener Cleanup und Bestandsvergleich bestanden.
+
+Der ursprüngliche Dockerlauf bleibt FAIL: Ein frisches SQL-Ergebnis wurde
+durch die automatische Workflowaktualisierung vor seiner Anzeige verworfen.
+Eine rote Reproduktion und sechs zusätzliche Fälle prüfen die tatsächliche
+Refreshfunktion zusammen mit der echten Komponente; danach 23/0. Manuelle
+Aktionen verwerfen verspätete Ergebnisse weiterhin. Drei frühere Reviewfindings
+zu Auditstate-Resolver, skalaren DTO-Typen und beiden Jobtabellen sind behoben;
+der HTTPfokus bestand mit 24/0. Die betroffenen statischen Läufe bestanden
+mit 16, anschließend 15 und nach dem Laufzeitfix elf ausgewählten Suites.
+Unveränderte grüne Ergebnisse werden als Wiederverwendung ausgewiesen.
+Das sind getrennte statische und native Nachweise; die native Quelle blieb
+während beider positiver Zellen unverändert. Creationdialog und Clipboard
+sind damit nicht abgenommen.
+
 ## Explizite öffentliche TLS-Livequalifikation
 
 Der [API-Vertrag](../Architecture/AUTHENTICATED_TLS_LIVE_QUALIFICATION.md)
@@ -24,8 +47,8 @@ Die sechs getrennten neuen Docker-/Podman-Zellen für SQL 2019 CU32,
 und 24 direkte strikte API-Clientresultate, zusätzlich zwölf Arrange- und
 zwölf Rebind-Clientresultate. Alle eigenen Labs sind entfernt, Bestandsvergleich
 und terminales Workerende bestätigt. Der [datierte API-Nachweis](TLS_LIVE_QUALIFICATION_API_ACCEPTANCE_2026-10-23.md)
-führt Fälle, Zählweise und Grenzen. Dedizierter Browserstatus, Linux- und
-Hyper-V-Pfade bleiben getrennte Nachweispflichten.
+führt Fälle, Zählweise und Grenzen. Der zusätzliche Browserstatus ist oben
+getrennt belegt; Linux- und Hyper-V-Pfade bleiben eigene Nachweispflichten.
 
 ## Native Linux-TLS-Clientmatrix vom 2026-10-22 (UTC)
 
