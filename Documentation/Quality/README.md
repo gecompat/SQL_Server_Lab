@@ -5,6 +5,7 @@
 | [COST_EFFICIENT_DEVELOPMENT.md](COST_EFFICIENT_DEVELOPMENT.md) | verbindliche Local-first-, Log-, Teststufen- und Kontextkostenstrategie |
 | [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md) | verbindliche Grenzen des aktuellen Runtimepfads |
 | [LOCAL_VALIDATION_STRATEGY.md](LOCAL_VALIDATION_STRATEGY.md) | tatsächlich verfügbare lokale Prüfpfade und verbleibende Testlücken |
+| [TLS_UI_AUTHENTICATED_CREATION_ACCEPTANCE_2026-10-24.md](TLS_UI_AUTHENTICATED_CREATION_ACCEPTANCE_2026-10-24.md) | kompakte Windows-/Docker-/Podman-SQL-2025-CU9-Erstellung im Browser mit strikter Liveprüfung, Wiederbindung und eigenem UI-Remove; ursprüngliche FAILs erhalten |
 | [TLS_HYPERV_NATIVE_ACCEPTANCE_2026-10-20.md](TLS_HYPERV_NATIVE_ACCEPTANCE_2026-10-20.md) | bestandene native Windows-/Hyper-V-SQL-2025-RTM-Referenz mit Ablauf, Erneuerung, neuem Boot und eigenem TLS-Cleanup |
 | [CLI_ACCEPTANCE_MATRIX.md](CLI_ACCEPTANCE_MATRIX.md) | providergetrennte reale CLI-, Sample-, Storage- und Ressourcenabnahme |
 | [LOCAL_READINESS_CHECKLIST.md](LOCAL_READINESS_CHECKLIST.md) | präzise Vor-Push- und Vor-Release-Validierungsreihenfolge |

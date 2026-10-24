@@ -61,11 +61,40 @@ belegt dieselben Optionen separat mit SQL 2019 CU32 und 2022 CU27 für beide
 Provider. Die SQL-2025-Abnahme bleibt ihr eigener früherer Quellstand.
 Andere Erstellungsprofile benötigen eigene Nachweise.
 
-Die Erstellung eines authentifizierten Labs mit `TrustServerCertificate=False`
-erfolgt weiterhin über den ausdrücklich gebundenen
-[operativen API-Pfad](../Architecture/AUTHENTICATED_TLS_OPERATIONAL_LAB.md).
-Der bestehende Erstellungsdialog schaltet weder vorhandene Labs um noch
-richtet er CA oder Client-Trust ein.
+## Authentifiziertes Container-Lab erstellen
+
+Für `Encrypt=True;TrustServerCertificate=False` öffnen Sie im Erstellungsdialog
+**Stattdessen mit Zertifikatsprüfung erstellen …**. Dieser getrennte Weg
+verlangt Windows, PowerShell 7.5+, Docker oder Podman, SQL 2025 CU9 und die
+bereits eingerichtete [CA-/Clientbindung des operativen TLS-Pfads](../Architecture/AUTHENTICATED_TLS_OPERATIONAL_LAB.md).
+Er richtet weder CA noch Client-Trust ein und übernimmt keine vorhandenen Labs.
+Die [native Dialogabnahme](../Quality/TLS_UI_AUTHENTICATED_CREATION_ACCEPTANCE_2026-10-24.md)
+bestand mit Docker und Podman für das kompakte SQL-2025-CU9-Lab einschließlich
+strikter Liveprüfung, Neustartablehnung, Wiederbindung und eigenem UI-Remove.
+Andere Ressourcen- und SQL-Erstellungsprofile bleiben getrennte Nachweise.
+
+1. Wählen Sie Provider und Ressourcenprofil. Instanz `primary`, ausgeschalteter
+   Autostart und ein nicht persistentes Lab sind fest vorgegeben.
+2. Geben Sie die Kandidat-, Controller- und Location-Referenzen Ihrer vorhandenen
+   TLS-Einrichtung sowie Labname und bestätigtes SA-Passwort ein. Der Data Root
+   wird ausschließlich aus der Serverkonfiguration verwendet.
+3. Wählen Sie **Authentifiziertes Lab erstellen** genau einmal und warten Sie
+   auf den bestätigten Abschluss. Bei unbestätigter Annahme oder verlorenem
+   Ergebnis nicht erneut erstellen; lesen Sie die Sitzungsziele erneut und
+   prüfen Sie den privaten Allokationsbeleg gemäß
+   [Zuordnungs- und Fehlervertrag](../Architecture/AUTHENTICATED_TLS_UI_CREATION.md).
+4. Unter **Authentifizierte Labs dieser Sitzung** stehen die gebundenen
+   Zielaktionen bereit. **TLS jetzt prüfen** beobachtet beide strikten Clients.
+   Stop/Start allein qualifizieren TLS nicht; nach einem Neustart desselben
+   Containers verwenden Sie die ausdrückliche Wiederbindung und prüfen erneut.
+5. **Dieses Lab entfernen** betrifft ausschließlich das ausgewählte neue Lab.
+   Warten Sie auf `REMOVED`; Annahme allein bestätigt keinen Cleanup. CA und
+   Trust bleiben erhalten. Das Schließen der Oberfläche entfernt kein Lab.
+
+Die Ansicht enthält nur Ziele dieses Serverstarts. Ein neuer UI-Start sucht
+keine Auditroots zusammen; verwenden Sie für ein früheres Lab seinen privaten
+zurückgegebenen StateRoot und die dokumentierte öffentliche API. Angezeigte
+gespeicherte Zustände sind keine frische Runtime- oder TLS-Bereitschaft.
 
 ## TLS jetzt prüfen
 

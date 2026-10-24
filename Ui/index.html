@@ -289,6 +289,13 @@
       </div>
       <div id="jobs" class="jobs"></div>
     </section>
+    <section id="tls-created-section" class="panel" data-workspace-area="labs" hidden>
+      <h2>Authentifizierte Labs dieser Sitzung</h2>
+      <p id="tls-created-status" role="status">Sitzungszustand wird gelesen.</p>
+      <p>Getrennte Ziele mit Encrypt=True;TrustServerCertificate=False. Angezeigte Konfiguration ist keine aktuelle TLS-Qualifikation. Schließen der Oberfläche entfernt keine Labs.</p>
+      <button id="tls-created-refresh" type="button" class="button secondary">Sitzungsziele erneut lesen</button>
+      <div id="tls-created-targets" class="list"></div>
+    </section>
   </main>
 
   <dialog id="build-dialog">
@@ -356,6 +363,7 @@
     <form id="container-form" method="dialog">
       <div class="dialog-heading"><div><p class="eyebrow">CONTAINER-LAB</p><h2>Neue SQL-Umgebung</h2></div><button type="button" class="icon-button" value="cancel" formnovalidate aria-label="Schließen">×</button></div>
       <p id="container-tls-default" class="form-note">Die SQL-Verbindung verwendet Encrypt=True;TrustServerCertificate=True: verschlüsselt, ohne Prüfung des Serverzertifikats.</p>
+      <button id="tls-auth-create-open" type="button" class="button secondary">Stattdessen mit Zertifikatsprüfung erstellen …</button>
       <div class="form-grid">
         <label>Provider<select id="container-provider"><option value="docker">Docker</option><option value="podman">Podman</option></select></label>
         <label>SQL Server<select id="container-version"><option value="2022">SQL Server 2022</option><option value="2019">SQL Server 2019</option><option value="2025">SQL Server 2025</option></select></label>
@@ -388,6 +396,26 @@
     </form>
   </dialog>
 
+  <dialog id="tls-auth-create-dialog">
+    <form id="tls-auth-create-form" method="dialog">
+      <div class="dialog-heading"><h2>Lab mit authentifiziertem TLS</h2><button type="button" class="icon-button" value="cancel" formnovalidate aria-label="Schließen">×</button></div>
+      <p>Encrypt=True;TrustServerCertificate=False. Nur Windows, SQL 2025 CU9 und ein bereits eingerichteter CA-/Client-Trustkontext. Keine automatische Trusteinrichtung oder Rückstufung.</p>
+      <div class="form-grid">
+        <label>Provider<select id="tls-auth-provider"><option value="docker">Docker</option><option value="podman">Podman</option></select></label>
+        <label>SQL Server<select id="tls-auth-version"><option value="2025-CU9">SQL Server 2025 CU9</option></select></label>
+        <label>Profil<select id="tls-auth-profile"><option value="compact">Kompakt</option><option value="standard">Standard</option><option value="performance">Performance</option></select></label>
+        <label>Labname<input id="tls-auth-name" value="tls-lab" pattern="[A-Za-z0-9][A-Za-z0-9 _-]{0,63}" required></label>
+        <label>CA-Kandidat-Referenz<input id="tls-auth-candidate" maxlength="128" required></label>
+        <label>Controller-Referenz<input id="tls-auth-controller" maxlength="128" required></label>
+        <label>Location-Referenz<input id="tls-auth-location" maxlength="128" required></label>
+        <label>SA-Passwort<input id="tls-auth-password" type="password" autocomplete="new-password" required></label>
+        <label>SA-Passwort wiederholen<input id="tls-auth-password-repeat" type="password" autocomplete="new-password" required></label>
+      </div>
+      <p>Verwendet ausschließlich den serverseitig konfigurierten Data Root. Eine Instanz primary, Autostart aus, kein persistenter Store oder zusätzliche SQL-Features. Referenzen aus der vorhandenen TLS-Einrichtung verwenden.</p>
+      <p id="tls-auth-create-status" role="status">Noch kein Auftrag gesendet.</p>
+      <div class="dialog-actions"><button type="button" class="button secondary" value="cancel" formnovalidate>Abbrechen</button><button id="tls-auth-create-submit" class="button primary" value="default">Authentifiziertes Lab erstellen</button></div>
+    </form>
+  </dialog>
   <dialog id="hyperv-lab-dialog" class="dialog-wide">
     <form id="hyperv-lab-form" method="dialog">
       <div class="dialog-heading"><div><p class="eyebrow">HYPER-V-LAB</p><h2>Neue Windows- oder SQL-Umgebung aus Vorlage</h2></div><button type="button" class="icon-button" value="cancel" formnovalidate aria-label="Schließen">×</button></div>
@@ -936,5 +964,6 @@
     </div>
   </dialog>
   <script src="run-artifact-removal.js"></script>
+  <script src="tls-authenticated-creation.js"></script>
 </body>
 </html>

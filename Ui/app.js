@@ -990,6 +990,7 @@ async function refreshUiConfig() {
   if (!response.ok) return;
   const config = await response.json();
   window.sqlServerLabTlsLiveQualification?.setAvailable(config?.tlsLiveQualificationAvailable === true);
+  window.sqlServerLabTlsCreation?.setAvailable(config?.tlsAuthenticatedCreationAvailable === true);
   const requestedLimit = Number(config?.jobLogBurstLimit);
   uiConfig.jobLogBurstLimit = Number.isFinite(requestedLimit) ? Math.max(1, Math.floor(requestedLimit)) : uiConfig.jobLogBurstLimit;
   const capability = config?.aiSharedGatewayServiceSecret || { available: false, reason: 'Capability-Antwort fehlt.' };

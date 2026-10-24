@@ -53,8 +53,14 @@ bleibt FAIL; seine genaue Browserassertion wurde nicht aufgezeichnet.
 Separat belegte die rote Projektionsprüfung fehlende katalogisierte
 UI-Auswahlwerte. Die additive Katalogprojektion und Auswahl sind korrigiert;
 SQL 2025 wurde nicht wiederholt.
-Authentifizierte Browser-Erstellung, weitere Erstellungsprofile,
-Clipboard und andere Plattformen bleiben eigene Scopes.
+Die [authentifizierte Browser-Erstellung](../Documentation/Quality/TLS_UI_AUTHENTICATED_CREATION_ACCEPTANCE_2026-10-24.md)
+bestand separat für kompakte Windows-/Docker-/Podman-SQL-2025-CU9-Labs:
+je acht Fälle, darin sechs Browserfälle und vier strikte UI-Clientresultate,
+zusätzlich je zwei Arrange-Resultate. Zwei frühere Docker-FAILs wegen Fehlern
+der privaten Prüfsteuerung bleiben getrennt erhalten. Alle vier tatsächlich
+erstellten Labs sind entfernt; Quelle, CA/Trust und fremder Bestand blieben
+gebunden. Weitere Ressourcen-/SQL-Erstellungsprofile, Clipboard und andere
+Plattformen bleiben eigene Scopes.
 
 Die [native Linux-Kryptomatrix](../Documentation/Quality/TLS_LINUX_CLIENT_MATRIX_ACCEPTANCE_2026-10-22.md)
 bestand Docker und Podman für SQL 2019 CU32, 2022 CU27 und 2025 CU9 separat:

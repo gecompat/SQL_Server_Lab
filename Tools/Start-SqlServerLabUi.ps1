@@ -129,6 +129,7 @@ Import-UiSqlServerLabModule -ModulePath $modulePath
 . (Join-Path $PSScriptRoot 'WorkflowUiJsonBody.ps1')
 . (Join-Path $PSScriptRoot 'WorkflowUiCommandGrants.ps1')
 . (Join-Path $PSScriptRoot 'WorkflowUiTlsLiveQualification.ps1')
+. (Join-Path $PSScriptRoot 'WorkflowUiTlsCreation.ps1')
 
 function Get-UiCommandGrantCatalog {
     & (Get-Module SqlServerLab) { Get-LabPublicCommandWebCatalog }
@@ -168,6 +169,7 @@ function Get-UiCapabilityConfig {
     [PSCustomObject]@{
         jobLogBurstLimit = $JobLogBurstLimit
         tlsLiveQualificationAvailable = (Test-UiTlsLiveQualificationAvailable)
+        tlsAuthenticatedCreationAvailable = (Test-UiTlsLiveQualificationAvailable)
         aiSharedGatewayServiceSecret = [PSCustomObject]@{
             available = $secretAvailable
             reason = if ($secretAvailable) {
@@ -596,6 +598,7 @@ $operatorSession = New-UiOperatorSession -ListenerUrl $url
 $commandGrantStore = $null
 $jobs = @{}
 $tlsLiveQualificationJobs = @{}
+$tlsCreationStore = New-UiTlsCreationStore
 $persistentJobs = @{}
 $runArtifactRemovalPreviews = @{}
 
@@ -652,6 +655,28 @@ try {
                     $view=& (Get-Module SqlServerLab) { param($request,$listenerPort,$previews) Invoke-LabRunArtifactRemovalHttpRequest -Request $request -ListenerPort $listenerPort -Previews $previews } $context.Request $Port $runArtifactRemovalPreviews
                     Write-UiResponse -Context $context -Body ($view | ConvertTo-Json -Depth 5 -Compress) -ContentType 'application/json; charset=utf-8'
                 } catch { Write-UiResponse -Context $context -Body '{"Code":"RUN_ARTIFACT_HTTP_UNCONFIRMED"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400 }
+                continue
+            }
+            if ($path -cin @('/api/tls-creation','/api/tls-created-targets/action')) {
+                try {
+                    if($context.Request.HttpMethod -cne 'POST' -or $context.Request.Url.Query -or
+                        [string]$context.Request.Headers['Origin'] -cne $url.TrimEnd('/')){throw 'TLS_CREATION_REQUEST_REJECTED'}
+                    $bodyRead=Read-UiJsonRequestBody -Request $context.Request -MaxBytes 4096
+                    if(-not $bodyRead.Allowed){throw 'TLS_CREATION_REQUEST_REJECTED'}
+                    $view=Start-UiTlsCreationWork -Store $tlsCreationStore -Jobs $jobs -PersistentJobs $persistentJobs -ModulePath $modulePath -Body $bodyRead.Body -TargetAction:($path -ceq '/api/tls-created-targets/action')
+                    Write-UiResponse -Context $context -Body ($view|ConvertTo-Json -Depth 5 -Compress) -ContentType 'application/json; charset=utf-8' -StatusCode 202
+                }catch{Write-UiResponse -Context $context -Body '{"Code":"TLS_CREATION_UNCONFIRMED"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400}
+                finally{$bodyRead=$null}
+                continue
+            }
+            if ($path -ceq '/api/tls-created-targets' -or $path -cmatch '^/api/tls-created-targets/([a-f0-9]{32})$') {
+                try {
+                    if($context.Request.HttpMethod -cne 'GET' -or $context.Request.Url.Query){throw 'TLS_CREATION_REQUEST_REJECTED'}
+                    $view=if($path -ceq '/api/tls-created-targets'){
+                        @{Targets=@($tlsCreationStore.Tickets.Keys|ForEach-Object{Get-UiTlsCreationView -Store $tlsCreationStore -Id $_});CreationBlocked=(Test-UiTlsCreationBlocked -Store $tlsCreationStore)}
+                    }else{Get-UiTlsCreationView -Store $tlsCreationStore -Id $Matches[1]}
+                    Write-UiResponse -Context $context -Body ($view|ConvertTo-Json -Depth 7 -Compress) -ContentType 'application/json; charset=utf-8'
+                }catch{Write-UiResponse -Context $context -Body '{"Code":"TLS_CREATION_REQUEST_REJECTED"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400}
                 continue
             }
             if ($path -eq '/api/tls-live-qualification') {
