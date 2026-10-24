@@ -69,7 +69,9 @@ führt von dort zu Vertrag, Format und Evidence.
   Bedienung und Kontrolle des einfachen True/True-Standards. Der
   [Default-Erstellungsnachweis](Quality/TLS_UI_DEFAULT_CREATION_ACCEPTANCE_2026-10-23.md)
   belegt Windows/Docker/Podman mit SQL 2025 CU9; die Serverzertifikatsprüfung
-  ist in diesem Modus abgeschaltet.
+  ist in diesem Modus abgeschaltet. Die [zusätzlichen Default-Profile](Quality/TLS_UI_DEFAULT_CREATION_PROFILES_ACCEPTANCE_2026-10-23.md)
+  ergänzen SQL 2019 CU32 und 2022 CU27 mit Docker und Podman auf einem
+  getrennten Quellstand.
 
 ### Projekt weiterentwickeln
 

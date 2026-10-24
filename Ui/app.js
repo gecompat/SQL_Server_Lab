@@ -678,19 +678,26 @@ function renderConnectionEndpoints(data) {
   window.sqlServerLabTlsLiveQualification?.mount($('#connection-endpoints'), endpoints);
 }
 
-function renderWorkflow(data) {
-  workflow = data;
-  if (Array.isArray(data.ContainerSql2025PinnedBuilds)) {
+function renderContainerVersionOptions(data) {
+  const legacyOnly = !Array.isArray(data.ContainerPinnedBuilds);
+  const builds = legacyOnly ? data.ContainerSql2025PinnedBuilds : data.ContainerPinnedBuilds;
+  if (Array.isArray(builds)) {
     const select = $('#container-version');
     const selected = select.value;
-    const versions = data.ContainerSql2025PinnedBuilds.slice(0, 32).filter((item) =>
+    const versions = builds.slice(0, 96).filter((item) =>
       item && typeof item.VersionId === 'string' && typeof item.Cu === 'string' &&
-      /^2025-CU[0-9]+$/.test(item.VersionId) && item.VersionId === '2025-' + item.Cu);
+      /^(2019|2022|2025)-CU[0-9]+$/.test(item.VersionId) && item.VersionId === item.VersionId.substring(0, 4) + '-' + item.Cu &&
+      (!legacyOnly || item.VersionId.startsWith('2025-')));
     const unique = [...new Map(versions.map((item) => [item.VersionId, item])).values()];
     select.innerHTML = '<option value="2022">SQL Server 2022</option><option value="2019">SQL Server 2019</option><option value="2025">SQL Server 2025 (gleitend)</option>' +
-      unique.map((item) => '<option value="' + escapeHtml(item.VersionId) + '">SQL Server 2025 ' + escapeHtml(item.Cu) + ' (katalogisiert)</option>').join('');
+      unique.map((item) => '<option value="' + escapeHtml(item.VersionId) + '">SQL Server ' + escapeHtml(item.VersionId.substring(0, 4)) + ' ' + escapeHtml(item.Cu) + ' (katalogisiert)</option>').join('');
     if ([...select.options].some((option) => option.value === selected)) select.value = selected;
   }
+}
+
+function renderWorkflow(data) {
+  workflow = data;
+  renderContainerVersionOptions(data);
   renderConnectionEndpoints(data);
   renderOperationQueue(data.Queue);
   // Der Quellen-Dialog kann vor dem ersten API-Refresh geöffnet werden. In

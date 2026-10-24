@@ -45,7 +45,15 @@ bestand separat für Windows, Docker/Podman und SQL 2025 CU9: je acht Fälle,
 zwei echte True/True-Clientresultate und vollständiger eigener Cleanup.
 Alle vier neuen Labs sind entfernt; zwei ursprüngliche Fehlversuche mit
 partiellen Resultaten bleiben getrennt erhalten. Das belegt keine strikte
-Zertifikatsprüfung. Authentifizierte Browser-Erstellung, weitere Erstellungsprofile,
+Zertifikatsprüfung. Die [zusätzliche Default-Profilabnahme](../Documentation/Quality/TLS_UI_DEFAULT_CREATION_PROFILES_ACCEPTANCE_2026-10-23.md)
+bestand SQL 2019 CU32 und 2022 CU27 jeweils mit Docker und Podman:
+vier positive Zellen, 32 Fälle, acht True/True-Clientresultate und vier
+entfernte Labs. Der ursprüngliche Versuch endete vor der Erstellung und
+bleibt FAIL; seine genaue Browserassertion wurde nicht aufgezeichnet.
+Separat belegte die rote Projektionsprüfung fehlende katalogisierte
+UI-Auswahlwerte. Die additive Katalogprojektion und Auswahl sind korrigiert;
+SQL 2025 wurde nicht wiederholt.
+Authentifizierte Browser-Erstellung, weitere Erstellungsprofile,
 Clipboard und andere Plattformen bleiben eigene Scopes.
 
 Die [native Linux-Kryptomatrix](../Documentation/Quality/TLS_LINUX_CLIENT_MATRIX_ACCEPTANCE_2026-10-22.md)

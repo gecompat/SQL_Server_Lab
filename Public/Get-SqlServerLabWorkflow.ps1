@@ -429,6 +429,17 @@ function Get-SqlServerLabWorkflow {
         })
         WindowsBuilds = $windowsItems
         SqlBuilds = $sqlItems
+        ContainerPinnedBuilds = @(
+            foreach ($major in @('2025','2022','2019')) {
+                Get-SqlServerBuilds -VersionId $major |
+                    Where-Object { $_.cu -is [string] -and $_.tag -is [string] -and
+                        $_.cu.Length -le 8 -and $_.cu -cmatch '^CU[0-9]+$' -and
+                        $_.tag -cmatch ('^' + $major + '-' + $_.cu + '-.+$') } |
+                    Sort-Object { [int]($_.cu.Substring(2)) } -Descending |
+                    Select-Object -First 32 |
+                    ForEach-Object { [pscustomobject]@{ VersionId = $major + '-' + $_.cu; Cu = $_.cu } }
+            }
+        )
         ContainerSql2025PinnedBuilds = @(Get-SqlServerBuilds -VersionId '2025' |
             Where-Object { [string]$_.cu -match '^CU[0-9]+$' -and [string]$_.tag -match '^2025-CU[0-9]+-.+$' } |
             Sort-Object { [int](([string]$_.cu).Substring(2)) } -Descending |

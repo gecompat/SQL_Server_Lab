@@ -31,6 +31,13 @@ Verbindungsstandard `Encrypt=True;TrustServerCertificate=True`: Die Verbindung
 ist verschlüsselt, das Serverzertifikat wird vom Client dabei nicht geprüft.
 Für diesen Standard sind weder eine eigene CA noch ein Trustimport erforderlich.
 
+Für einen reproduzierbaren CU-Stand wählen Sie einen als **katalogisiert**
+bezeichneten Eintrag, etwa **SQL Server 2019 CU32** oder **SQL Server 2022 CU27**.
+Die Liste enthält katalogisierte Container-CUs für 2019, 2022 und 2025;
+die bisherigen gleitenden Jahreseinträge bleiben verfügbar. Die Auswahl eines
+CU-Eintrags bindet die Erstellung an diesen Katalogeintrag. Sie bestätigt
+für sich weder einen erfolgreichen Lauf noch eine Zertifikatsprüfung.
+
 Wählen Sie optionale Volltextsuche und Persistenz nur bewusst und bestätigen
 Sie das SA-Passwort. **Umgebung erstellen** übermittelt einen Hintergrundauftrag;
 Annahme und erfolgreicher Abschluss werden getrennt im Auftragsbereich
@@ -49,6 +56,9 @@ belegt den Cleanup noch nicht.
 Der [datierte Browsernachweis](../Quality/TLS_UI_DEFAULT_CREATION_ACCEPTANCE_2026-10-23.md)
 belegt den kompakten, nicht persistenten Standardpfad mit Docker und Podman auf
 Windows und SQL 2025 CU9, ohne Autostart, Volltextsuche oder FileStream.
+Die [zusätzliche Profilabnahme](../Quality/TLS_UI_DEFAULT_CREATION_PROFILES_ACCEPTANCE_2026-10-23.md)
+belegt dieselben Optionen separat mit SQL 2019 CU32 und 2022 CU27 für beide
+Provider. Die SQL-2025-Abnahme bleibt ihr eigener früherer Quellstand.
 Andere Erstellungsprofile benötigen eigene Nachweise.
 
 Die Erstellung eines authentifizierten Labs mit `TrustServerCertificate=False`

@@ -26,6 +26,13 @@ mit `Encrypt=True;TrustServerCertificate=True`. Beide Clientstacks und der
 vollständige eigene UI-Remove/Cleanup bestanden. Diese Verbindung prüft das
 Serverzertifikat nicht; sie ersetzt keine authentifizierte TLS-Abnahme.
 Die zwei ursprünglichen FAILs und ihre partiellen Ergebnisse bleiben erhalten.
+Die [zusätzliche Default-Profilabnahme](TLS_UI_DEFAULT_CREATION_PROFILES_ACCEPTANCE_2026-10-23.md)
+bestand SQL 2019 CU32 und 2022 CU27 jeweils mit Docker und Podman: vier
+positive Zellen, 32 Fälle und acht True/True-Clientresultate. Alle vier
+erstellten Labs sind entfernt. Ein zusätzlicher ursprünglicher FAIL endete
+vor der Erstellung; die danach ergänzte katalogisierte CU-Auswahl ist
+fokussiert und nativ geprüft. Das ist kein neuer SQL-2025-Nachweis und keine
+strikte False-, andere Erstellungsprofil- oder Clipboardabnahme.
 
 Die [Linux-TLS-Kryptomatrix](TLS_LINUX_CLIENT_MATRIX_ACCEPTANCE_2026-10-22.md)
 bestand mit beiden echten Stacks für Docker und Podman mit SQL 2019 CU32,

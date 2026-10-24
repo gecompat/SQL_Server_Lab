@@ -16,7 +16,7 @@ erklärt Erstellung, Zielkontrolle und Entfernen.
 | Docker | PASS, eigenes Lab entfernt | 8 | 4 | 2 |
 | Podman | PASS, eigenes Lab entfernt | 8 | 4 | 2 |
 
-Die beiden echten Stacks waren Microsoft.Data.SqlClient mit
+Die beiden echten Stacks waren System.Data.SqlClient mit
 `Encrypt=True;TrustServerCertificate=True` sowie ODBC/sqlcmd mit `-N -C`.
 Beide bestätigten den erwarteten SQL-Build und serverseitige Verschlüsselung.
 Das ergibt vier positive Default-Clientresultate und **null strikte
@@ -93,6 +93,10 @@ der jeweiligen Ausführung geschlossen. Separate Reproduktionen der privaten
 Steuerung sind keine zusätzlichen SQL- oder Providerabnahmen.
 
 ## Offene TLS-001-Grenzen
+
+Die spätere [Default-Profilabnahme](TLS_UI_DEFAULT_CREATION_PROFILES_ACCEPTANCE_2026-10-23.md)
+ergänzt SQL 2019 CU32 und 2022 CU27 auf einem getrennten Quellstand.
+Sie verändert die hier beschriebenen ursprünglichen Resultate nicht.
 
 Diese Abnahme umfasst keine authentifizierte Browser-Erstellung mit
 `TrustServerCertificate=False`, keine weiteren Erstellungsprofile, Clipboard,

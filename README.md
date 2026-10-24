@@ -22,7 +22,8 @@ angegebenen Flags; der Flagwert allein ist kein Qualifikationsnachweis.
 Die [ausdrückliche Liveprüfung am SQL-Ziel](Documentation/HowTo/WORKFLOW_UI.md#tls-jetzt-prüfen)
 liefert eine aktuelle Beobachtung beider strikten Clients. Die
 [Container-Erstellung im Browser](Documentation/HowTo/WORKFLOW_UI.md#container-lab-erstellen)
-verwendet den einfachen True/True-Standard. Authentifizierte Erstellung im
+verwendet den einfachen True/True-Standard und bietet katalogisierte CUs für
+SQL 2019, 2022 und 2025 zur ausdrücklichen Auswahl. Authentifizierte Erstellung im
 Browser, weitere Erstellungsprofile, Clipboard, weitere Plattformen und
 Lifecyclekontexte bleiben TLS-001-Scope.
 
