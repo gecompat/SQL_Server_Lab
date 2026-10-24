@@ -1,5 +1,9 @@
 # Default-Erstellung weiterer SQL-Profile – Abnahme vom 2026-10-23 (UTC)
 
+Die spätere [Ressourcenprofilabnahme](TLS_UI_RESOURCE_PROFILES_ACCEPTANCE_2026-10-24.md)
+ergänzt Standard und Performance in beiden Erstellungsmodi. Dieser frühere
+Nachweis bleibt an seinen beschriebenen Umfang und Quellstand gebunden.
+
 ## Umfang und Ergebnis
 
 Diese Abnahme ergänzt die [frühere SQL-2025-Abnahme](TLS_UI_DEFAULT_CREATION_ACCEPTANCE_2026-10-23.md)

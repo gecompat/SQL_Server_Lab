@@ -8,8 +8,11 @@ Die [native Abnahme vom 2026-10-24](../Quality/TLS_UI_AUTHENTICATED_CREATION_ACC
 bestand separat mit Docker und Podman für das kompakte SQL-2025-CU9-Lab.
 Die zusätzliche [Profilabnahme](../Quality/TLS_UI_AUTHENTICATED_PROFILES_ACCEPTANCE_2026-10-24.md)
 bestand separat für kompakte SQL-2019-CU32- und SQL-2022-CU27-Labs mit beiden
-Providern. Weitere Ressourcen-, Patch-, Client- und Plattformkombinationen
-sind dadurch nicht abgenommen.
+Providern. Die spätere [Ressourcenprofilabnahme](../Quality/TLS_UI_RESOURCE_PROFILES_ACCEPTANCE_2026-10-24.md)
+ergänzt `standard` und `performance` für alle drei SQL-Profile und beide
+Provider unter Windows, jeweils im beschriebenen nicht persistenten Umfang.
+Andere Erstellungsoptionen, Patch-, Client- und Plattformkombinationen
+benötigen getrennte Nachweise.
 
 ## Geschlossener Umfang
 

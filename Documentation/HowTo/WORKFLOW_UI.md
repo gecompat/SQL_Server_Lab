@@ -58,8 +58,11 @@ belegt den kompakten, nicht persistenten Standardpfad mit Docker und Podman auf
 Windows und SQL 2025 CU9, ohne Autostart, Volltextsuche oder FileStream.
 Die [zusätzliche Profilabnahme](../Quality/TLS_UI_DEFAULT_CREATION_PROFILES_ACCEPTANCE_2026-10-23.md)
 belegt dieselben Optionen separat mit SQL 2019 CU32 und 2022 CU27 für beide
-Provider. Die SQL-2025-Abnahme bleibt ihr eigener früherer Quellstand.
-Andere Erstellungsprofile benötigen eigene Nachweise.
+Provider. Die [Ressourcenprofilabnahme](../Quality/TLS_UI_RESOURCE_PROFILES_ACCEPTANCE_2026-10-24.md)
+ergänzt für alle drei SQL-Profile und beide Provider `standard`
+(4 CPU, 4096 MiB) und `performance` (8 CPU, 8192 MiB) unter denselben
+übrigen Optionen. Die kompakten Abnahmen bleiben ihre früheren Quellstände.
+Andere Erstellungsoptionen benötigen eigene Nachweise.
 
 ## Authentifiziertes Container-Lab erstellen
 
@@ -74,8 +77,11 @@ bestand mit Docker und Podman für das kompakte SQL-2025-CU9-Lab einschließlich
 strikter Liveprüfung, Neustartablehnung, Wiederbindung und eigenem UI-Remove.
 Die zusätzliche [Profilabnahme](../Quality/TLS_UI_AUTHENTICATED_PROFILES_ACCEPTANCE_2026-10-24.md)
 bestand für kompakte SQL-2019-CU32- und SQL-2022-CU27-Labs mit beiden Providern.
-Andere Ressourcen-, Patch-, Client- und Plattformkombinationen bleiben
-getrennte Nachweise.
+Die [zusätzliche Ressourcenprofilabnahme](../Quality/TLS_UI_RESOURCE_PROFILES_ACCEPTANCE_2026-10-24.md)
+belegt `standard` (4 CPU, 4096 MiB) und `performance` (8 CPU, 8192 MiB)
+für alle drei SQL-Profile und beide Provider unter denselben übrigen
+Optionen. Andere Erstellungsoptionen, Patch-, Client- und Plattformkontexte
+bleiben getrennte Nachweise.
 
 1. Wählen Sie Provider, SQL-Profil und Ressourcenprofil. Instanz `primary`, ausgeschalteter
    Autostart und ein nicht persistentes Lab sind fest vorgegeben.
@@ -163,8 +169,11 @@ belegt Windows-/Docker-/Podman-SQL-2025-CU9. Die zusätzlich geprüften
 SQL-2019-CU32-/SQL-2022-CU27-Zellen stehen in der
 [getrennten Profilabnahme](../Quality/TLS_UI_PROFILE_MATRIX_ACCEPTANCE_2026-10-23.md).
 Die [authentifizierte Erstellung](#authentifiziertes-container-lab-erstellen)
-ist separat für kompakte Labs der drei geschlossenen SQL-Profile abgenommen.
-Weitere Patch-/Clientkontexte, Ressourcenprofile und Clipboard bleiben offen;
+ist separat für kompakte Labs sowie die zusätzlichen
+[Standard-/Performanceprofile](../Quality/TLS_UI_RESOURCE_PROFILES_ACCEPTANCE_2026-10-24.md)
+der drei geschlossenen SQL-Profile abgenommen. Die hier beschriebene separate
+Liveaktion bestehender Labkarten benötigt für weitere Ressourcenprofile
+eigene Nachweise. Weitere Patch-/Clientkontexte und Clipboard bleiben offen;
 `WireCertificateFingerprint=NOT_OBSERVED` bleibt wahr.
 
 Die Hintergrundinventur hält ein erfolgreich abgeschlossenes, nichtleeres

@@ -42,8 +42,9 @@ Docker-FAILs bleiben erhalten; alle vier erstellten Labs sind entfernt.
 Der Server bindet die intern allokierten Auditroots vor der Policy-/Runanlage
 an private Sitzungstickets. Das ist keine globale Discovery oder Übernahme
 früherer Labs und kein Recovery-Apply. Ein unbestätigtes Creationticket sperrt
-weitere Erstellungen; ein Reload löst diese Sperre nicht. Weitere Ressourcen-
-und Patchprofile, Clipboard, Linux-/Hyper-V-Erstellung und andere
+weitere Erstellungen; ein Reload löst diese Sperre nicht. Zusätzliche
+Ressourcenprofile sind nachfolgend separat belegt. Andere Patchprofile,
+Clipboard, Linux-/Hyper-V-Erstellung und andere
 Trustkontexte bleiben offen. Interne Creator-/Rebind-Prüfungen werden nicht
 zusätzlich als separat erfasste Clientresultate gezählt; Wire bleibt
 `NOT_OBSERVED`.
@@ -54,8 +55,15 @@ CU27 auf einem gemeinsamen unveränderten Quellstand: vier positive Zellen,
 32 Fälle, darin 24 Browserfälle, 16 strikte UI- und acht zusätzliche
 Arrange-Clientresultate. Alle vier Labs sind entfernt; Jobleere, Same-Pin-
 Abwesenheit und Bestandsvergleich bestanden. Request, Sitzungsticket, frischer
-kanonischer Record und Liveanzeige binden das ausgewählte Profil; andere
-Ressourcen-, Patch-, Client- und Plattformkombinationen bleiben offen.
+kanonischer Record und Liveanzeige binden das ausgewählte Profil. Die spätere
+[Ressourcenprofilabnahme](TLS_UI_RESOURCE_PROFILES_ACCEPTANCE_2026-10-24.md)
+ergänzt Standard und Performance für beide Erstellungsmodi, beide Provider
+und alle drei genannten SQL-Profile unter denselben übrigen Optionen:
+24 Zellen mit tatsächlichen CPU-/Speichergrenzen und 24 entfernten Labs.
+23 ursprüngliche Controller-PASS und ein ursprünglicher ACL-FAIL mit
+getrenntem passivem Abschluss bleiben ausgewiesen. Andere Erstellungsoptionen,
+Patch-, Client- und Plattformkontexte bleiben offen. Das erweitert nicht
+den oben abgegrenzten Nachweis der separaten Liveaktion bestehender Labkarten.
 
 Die [Linux-TLS-Kryptomatrix](TLS_LINUX_CLIENT_MATRIX_ACCEPTANCE_2026-10-22.md)
 bestand mit beiden echten Stacks für Docker und Podman mit SQL 2019 CU32,

@@ -1,5 +1,9 @@
 # Authentifizierte Browser-Erstellung – Abnahme vom 2026-10-24 (UTC)
 
+Die spätere [Ressourcenprofilabnahme](TLS_UI_RESOURCE_PROFILES_ACCEPTANCE_2026-10-24.md)
+ergänzt Standard und Performance in beiden Erstellungsmodi. Dieser frühere
+Nachweis bleibt an seinen beschriebenen Umfang und Quellstand gebunden.
+
 ## Umfang und Ergebnis
 
 Geprüft wurde die ausdrückliche Erstellung eines kompakten, nicht persistenten

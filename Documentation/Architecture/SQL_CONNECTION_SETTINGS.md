@@ -93,5 +93,10 @@ und [SQL 2019 CU32 sowie 2022 CU27](../Quality/TLS_UI_DEFAULT_CREATION_PROFILES_
 belegt. Die authentifizierte kompakte Browser-Erstellung ist separat für
 [SQL 2025 CU9](../Quality/TLS_UI_AUTHENTICATED_CREATION_ACCEPTANCE_2026-10-24.md)
 und [SQL 2019 CU32 sowie 2022 CU27](../Quality/TLS_UI_AUTHENTICATED_PROFILES_ACCEPTANCE_2026-10-24.md)
-abgenommen. Clipboard, weitere Ressourcenprofile, Patch-/Clientkontexte und
-Plattformen bleiben getrennte offene Nachweise.
+abgenommen. Die zusätzliche
+[Ressourcenprofilabnahme](../Quality/TLS_UI_RESOURCE_PROFILES_ACCEPTANCE_2026-10-24.md)
+belegt Standard und Performance beider Erstellungsmodi für alle drei
+SQL-Profile und beide Provider unter denselben übrigen Optionen.
+Weitere Ressourcenprofile der separaten Liveaktion bestehender Labkarten,
+andere Erstellungsoptionen, Clipboard, Patch-/Clientkontexte und Plattformen
+bleiben getrennte offene Nachweise.

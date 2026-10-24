@@ -85,7 +85,27 @@ Suites einschließlich GLOBALAnalyzer sowie drei nach Unterbrechung fehlende
 Suites und Docs/Privacy nach einer HTML-Hinweiskorrektur bestanden getrennt;
 kein gemeinsamer neuer Zehnsuitenlauf. 30 neue Zulassungs- und 22
 Requestboundary-Fälle waren ausschließlich synthetisch. Weitere
-Ressourcenprofile, Clipboard und andere Plattformen bleiben offen.
+Ressourcenprofile sind im nachfolgenden getrennten Nachweis abgegrenzt.
+Clipboard und andere Plattformen bleiben offen.
+
+## Ressourcenprofile der Browsererstellung
+
+Die zusätzliche [Ressourcenprofilabnahme](TLS_UI_RESOURCE_PROFILES_ACCEPTANCE_2026-10-24.md)
+belegt unter Windows Standard und Performance für beide Erstellungsmodi,
+Docker/Podman und SQL 2019 CU32, 2022 CU27 sowie 2025 CU9. 24 tatsächliche
+Labs sind entfernt; 204 erfolgreiche Fälle enthalten 120 Browserfälle,
+24 True/True-, 48 strikte UI- und 24 zusätzliche Arrange-Clientresultate.
+Frische Inspectwerte belegen die tatsächlichen CPU-/Speichergrenzen, im
+authentifizierten Modus auch nach Neustart. Der Produktstand blieb während
+aller Zellen unverändert; frühere kompakte Abnahmen wurden nicht wiederholt.
+
+23 ursprüngliche Controllerabschlüsse sind PASS. Der erste ACL-FAIL bleibt
+mit seinen vollständigen Laufzeit-/Cleanupbelegen und einem getrennten,
+unabhängig geprüften passiven Abschluss erhalten. Dieser erzeugte weder
+Provideraktionen noch weitere Labs. Das Korrekturdelta bestand 18 Guard-/
+Postconditionfälle und 38 JSON-Formprüfungen; frühere grüne Prüfungen wurden
+nicht wiederholt. Das belegt keine Benchmarkleistung oder zusätzlichen
+Ressourcenprofile der separaten Liveaktion bestehender Labkarten.
 
 ## Container-Erstellung im Browser
 
