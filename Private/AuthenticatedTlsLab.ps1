@@ -324,7 +324,7 @@ function Assert-LabTlsSqlCertificateBinding {
 }
 
 function New-LabAuthenticatedTlsEnvironment {
-    param([hashtable]$Parameters)
+    param([hashtable]$Parameters,[scriptblock]$AllocationObserver)
     $allowed=@('TrustServerCertificate','TlsCandidateId','TlsControllerId','TlsLocationId','DataRoot','Version','Provider','Profile','Port','InstanceId',
         'SaPassword','GenerateSaPassword','NonInteractive','Cpu','MemoryMB','SkipAssessment','AllowResourceOvercommit','AutoStart','LabName','Verbose','ErrorAction')
     if(@($Parameters.Keys|Where-Object {$_ -cnotin $allowed}).Count -or $Parameters.Version -cnotin @('2025-CU9','2022-CU27','2019-CU32') -or
@@ -346,6 +346,9 @@ function New-LabAuthenticatedTlsEnvironment {
     $parent=Join-Path $Parameters.DataRoot 'State/authenticated-tls-labs'
     Initialize-LabTlsCaPrivateDirectory $parent $sid
     $state=Join-Path $parent $audit
+    # Private callers may take custody of this exact new allocation before any
+    # owned policy/run/provider effect. The public API cannot supply a callback.
+    if($AllocationObserver){ & $AllocationObserver $audit $state }
     $pin=Get-LabTlsRuntimePin $budget
     $runtimePin=[pscustomobject]@{Provider=$provider;Invocation=$pin.Invocation;Endpoint=$pin.Endpoint;IdentityPath=[string]$pin.IdentityPath;IdentitySha256=[string]$pin.IdentitySha256}
     $policy=Initialize-LabOwnedHostPolicy -StateRoot $state -RuntimePins @($runtimePin) -ParentOperationId $audit

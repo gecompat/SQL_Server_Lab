@@ -41,6 +41,38 @@ während beider positiver Zellen unverändert. Creationdialog und Clipboard
 sind damit nicht abgenommen; der nachfolgende Abschnitt belegt separat den
 einfachen Erstellungsstandard.
 
+## Authentifizierte Container-Erstellung im Browser
+
+Die [Abnahme vom 2026-10-24](TLS_UI_AUTHENTICATED_CREATION_ACCEPTANCE_2026-10-24.md)
+bestand getrennt mit Docker und Podman für kompakte Windows-/SQL-2025-CU9-Labs,
+Build `17.0.5005.3`: je acht Fälle, darin sechs Browserfälle und vier strikte
+UI-Clientresultate, zusätzlich je zwei Arrange-Resultate. Echter Produktserver,
+Assets, Operatorzugang und genau eine Erstellung sowie sieben Zielaktionen
+je positiver Zelle sind eingeschlossen. Private Allokationsbindung vor der
+Policy-/Runanlage, zwei positive UI-Liveprüfungen, Neustartablehnung vor Clients,
+ausdrückliche Wiederbindung, Refreshverfall und tatsächlicher UI-Remove
+bestanden. Ganze Windows-Jobleere, Same-Pin-Abwesenheit und Bestandsvergleich
+bestanden; alle vier tatsächlich erstellten Labs dieser Welle sind entfernt.
+
+Zwei ursprüngliche Docker-FAILs bleiben erhalten: zuerst las die private
+Steuerung den Labnamen am falschen Metadatenpfad; danach wartete ihr
+Remove-Oracle auf einen wieder aktivierten Knopf, obwohl `REMOVED` ihn
+korrekt dauerhaft deaktiviert. Das Produkt blieb während aller vier
+nativen Zellen unverändert. Die zweite FAIL-Zelle enthält fünf abgeschlossene
+Browserfälle, vier partielle UI- und zwei Arrange-Resultate; sie wird nicht
+nachträglich als PASS gewertet. Die korrigierte private Steuerung bestand
+sechs synthetische JS- und vier Zulassungsfälle ohne Provideraktion.
+
+Drei unabhängige Produktfindings zu unbestätigten Creationtickets,
+strukturierten Lifecyclefehlern und skalaren ClientChecks sind geschlossen.
+Der betroffene Produktfokus bestand mit 43 PowerShell- und 16 JS-Fällen.
+Von 19 ausgewählten statischen Suites bestanden zunächst 18; nur der volle
+Analyzer scheiterte an einer neuen Plaintextconversion neben unveränderten
+Baselinebefunden. Nach der Umstellung auf direkte SecureString-Befüllung
+bestand der erneut ausgeführte vollständige Analyzer. Diese getrennten
+Nachweise sind kein neuer gemeinsamer 19-Suite-Lauf. Weitere Ressourcen-/SQL-
+Erstellungsprofile, Clipboard und andere Plattformen bleiben offen.
+
 ## Container-Erstellung im Browser
 
 Die [zusätzliche Default-Profilabnahme](TLS_UI_DEFAULT_CREATION_PROFILES_ACCEPTANCE_2026-10-23.md)
