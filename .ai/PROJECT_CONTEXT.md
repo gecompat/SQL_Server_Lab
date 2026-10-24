@@ -71,9 +71,19 @@ PS61/JS28 Fokus, sieben originale statische PASS einschließlich vollem
 Analyzer und anschließend drei fehlende Suites plus Docs/Privacy-Textdelta
 bestanden getrennt. Der ursprüngliche Zehnsuitenlauf wurde unterbrochen;
 kein neuer gemeinsamer Zehnsuiten-PASS wird behauptet. Die unabhängigen
-Produkt-/Steuerungsreviews haben keine offenen Findings. Weitere
-Ressourcenprofile, Clipboard und andere Plattformen bleiben eigene Scopes;
-weitere Toolbelt-Entwicklung bleibt pausiert.
+Produkt-/Steuerungsreviews haben keine offenen Findings.
+Die zusätzliche [Ressourcenprofilabnahme](../Documentation/Quality/TLS_UI_RESOURCE_PROFILES_ACCEPTANCE_2026-10-24.md)
+belegt unter Windows `standard` und `performance` für beide Erstellungsmodi,
+Docker/Podman und SQL 2019 CU32, 2022 CU27 sowie 2025 CU9: 24 Zellen,
+204 Fälle, darin 120 Browserfälle, 24 True/True-, 48 strikte UI- und
+24 zusätzliche Arrange-Clientresultate. Alle 24 Labs sind entfernt.
+23 ursprüngliche Controllerabschlüsse sind PASS; der erste ACL-FAIL bleibt
+mit vollständigen Laufzeitbelegen und separat geprüftem passivem Abschluss
+erhalten, ohne neue native Ausführung. Der Produktstand blieb unverändert;
+die private Nachweisübergabe ist korrigiert und unabhängig geschlossen.
+Andere Erstellungsoptionen, Clipboard und weitere Patch-/Client-/
+Plattformkontexte bleiben eigene Scopes; weitere Toolbelt-Entwicklung
+bleibt pausiert.
 
 Die [native Linux-Kryptomatrix](../Documentation/Quality/TLS_LINUX_CLIENT_MATRIX_ACCEPTANCE_2026-10-22.md)
 bestand Docker und Podman für SQL 2019 CU32, 2022 CU27 und 2025 CU9 separat:

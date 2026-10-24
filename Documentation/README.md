@@ -66,18 +66,23 @@ führt von dort zu Vertrag, Format und Evidence.
   [weitere Profilabnahme](Quality/TLS_UI_PROFILE_MATRIX_ACCEPTANCE_2026-10-23.md)
   ergänzt SQL 2019 CU32 und 2022 CU27 mit getrennten Quellständen.
 - [Authentifiziertes Container-Lab erstellen](HowTo/WORKFLOW_UI.md#authentifiziertes-container-lab-erstellen):
-  getrennte explizite False-Wahl für den vorhandenen Windows-/SQL-2025-CU9-Kontext;
+  getrennte explizite False-Wahl unter Windows für SQL 2019 CU32, SQL 2022 CU27
+  und SQL 2025 CU9;
   [Sitzungsbindung und Fehlergrenze](Architecture/AUTHENTICATED_TLS_UI_CREATION.md).
   Der [native Erstellungsnachweis](Quality/TLS_UI_AUTHENTICATED_CREATION_ACCEPTANCE_2026-10-24.md)
   belegt das kompakte Lab mit Docker und Podman einschließlich strikter
-  Liveprüfung, Wiederbindung und eigenem UI-Remove.
+  Liveprüfung, Wiederbindung und eigenem UI-Remove. Die
+  [Ressourcenprofilabnahme](Quality/TLS_UI_RESOURCE_PROFILES_ACCEPTANCE_2026-10-24.md)
+  ergänzt beide Provider und alle drei SQL-Profile mit Standard und Performance.
 - [Container-Lab erstellen](HowTo/WORKFLOW_UI.md#container-lab-erstellen):
   Bedienung und Kontrolle des einfachen True/True-Standards. Der
   [Default-Erstellungsnachweis](Quality/TLS_UI_DEFAULT_CREATION_ACCEPTANCE_2026-10-23.md)
   belegt Windows/Docker/Podman mit SQL 2025 CU9; die Serverzertifikatsprüfung
   ist in diesem Modus abgeschaltet. Die [zusätzlichen Default-Profile](Quality/TLS_UI_DEFAULT_CREATION_PROFILES_ACCEPTANCE_2026-10-23.md)
   ergänzen SQL 2019 CU32 und 2022 CU27 mit Docker und Podman auf einem
-  getrennten Quellstand.
+  getrennten Quellstand. Standard und Performance sind in derselben
+  [Ressourcenprofilabnahme](Quality/TLS_UI_RESOURCE_PROFILES_ACCEPTANCE_2026-10-24.md)
+  für den einfachen Modus separat belegt.
 
 ### Projekt weiterentwickeln
 

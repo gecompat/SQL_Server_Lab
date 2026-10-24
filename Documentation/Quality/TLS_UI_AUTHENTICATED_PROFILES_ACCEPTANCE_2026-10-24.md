@@ -1,5 +1,9 @@
 # Authentifizierte SQL-2019-/SQL-2022-Erstellung – Abnahme vom 2026-10-24
 
+Die spätere [Ressourcenprofilabnahme](TLS_UI_RESOURCE_PROFILES_ACCEPTANCE_2026-10-24.md)
+ergänzt Standard und Performance in beiden Erstellungsmodi. Dieser frühere
+Nachweis bleibt an seinen beschriebenen Umfang und Quellstand gebunden.
+
 ## Umfang und Ergebnis
 
 Die zusätzliche Browser-Erstellung wurde unter Windows getrennt mit Docker
