@@ -137,7 +137,7 @@ schließt Docker und Podman mit SQL 2019 CU32 und 2022 CU27: vier positive
 Zellen, 32 Fälle, 16 strikte UI-Resultate; fünf eigene Labs entfernt.
 Drei Zellen und der korrigierte Podman-/SQL-2022-Nachlauf bleiben getrennte
 Quellstände; der erste Podman-/SQL-2022-FAIL bleibt erhalten. Weitere
-Patch-/Clientkontexte, weitere Ressourcen-/SQL-Erstellungsprofile und
+Patch-/Clientkontexte, weitere Ressourcenprofile und
 Clipboard bleiben TLS-001c-Scope; der kompakte authentifizierte
 SQL-2025-Erstellungspfad ist unten separat belegt.
 
@@ -162,7 +162,17 @@ zusätzlich je zwei Arrange-Resultate. Allokationsgebundene Sitzungstickets,
 Neustartablehnung, Wiederbindung, Refreshverfall und tatsächlicher UI-Remove
 sind eingeschlossen. Alle vier neuen Labs sind entfernt; zwei ursprüngliche
 Docker-FAILs der privaten Steuerung bleiben getrennt erhalten. Weitere
-Ressourcen-/SQL-Erstellungsprofile, Clipboard und andere Plattformen bleiben offen.
+Ressourcenprofile, Clipboard und andere Plattformen bleiben offen.
+
+Die zusätzliche [authentifizierte Profilabnahme](../Quality/TLS_UI_AUTHENTICATED_PROFILES_ACCEPTANCE_2026-10-24.md)
+bestand kompakte Windows-/Docker-/Podman-SQL-2019-CU32-/SQL-2022-CU27-Labs:
+vier Zellen auf einem unveränderten Quellstand, 32 Fälle, darin 24 Browserfälle,
+16 strikte UI- und acht zusätzliche Arrange-Clientresultate. Alle vier neuen
+Labs sind entfernt; ganze Jobleere, Same-Pin-Abwesenheit und Bestandsvergleich
+bestanden. Auswahl, Sitzungsticket, kanonischer Record und Liveanzeige binden
+das genaue SQL-Profil. Weitere Ressourcenprofile, Clipboard und weitere
+Patch-/Client-/Plattformkombinationen bleiben offen; SQL 2025 wurde nicht erneut
+abgenommen.
 
 Die zusätzliche [echte Windows-Produktseitenabnahme](../Quality/TLS_WINDOWS_RENDERED_CONNECTION_SETTINGS_2026-10-21.md)
 schließt die gespeicherte TLS-Anzeige an eigenen qualifizierten Docker-/Podman-
@@ -214,13 +224,15 @@ Cleanup; native Client-/Signiermetadaten wurden getrennt im eigenen Tempbereich
 registriert. Das registriert keine CA und qualifiziert keinen TLS-Export.
 Weitere CA-/Trustscopezuordnungen und Retirement bleiben P1. Öffentliche
 Moduswahl ist nur in den oben genannten geschlossenen Containerprofilen
-abgenommen. Die kompakte authentifizierte SQL-2025-Browser-Erstellung ist
-oben separat belegt; weitere Ressourcen-/SQL-Erstellungsprofile bleiben offen.
+abgenommen. Die kompakte authentifizierte Browser-Erstellung ist für Windows
+mit Docker und Podman auf SQL 2019 CU32, SQL 2022 CU27 und SQL 2025 CU9 oben
+getrennt belegt. Weitere Ressourcenprofile sowie Patch-, Client- und
+Plattformkontexte bleiben offen.
 
 | Merkmal | Festlegung |
 |---|---|
 | Priorität | `P1`; höchste nächste Priorität unmittelbar nach dem laufenden SSISDB-Stream, Benutzerauftrag vom 2026-10-15 |
-| Status | `partial`; operative Windows-/Docker-/Podman-Profile SQL 2019 CU32, 2022 CU27 und 2025 CU9, deren V2-Consumerpfad, explizite Live-API und gerenderte Liveaktion separat nativ abgenommen; getrennte Quellstände bleiben ausgewiesen. Default-Browser-Erstellung für Windows/Docker/Podman und dieselben drei SQL-Profile separat belegt. Private Windows-/Hyper-V-SQL-2025-RTM-Referenz nativ abgenommen. Kompakte authentifizierte Windows-/Docker-/Podman-SQL-2025-CU9-Erstellung separat belegt. Öffentliche Hyper-V-/Linuxpfade, weitere Consumer, weitere Ressourcen-/SQL-Erstellungsprofile, Clipboard, weitere Patch-/Clientkontexte und Lifecycle-/Trustkontexte bleiben offen |
+| Status | `partial`; operative Windows-/Docker-/Podman-Profile SQL 2019 CU32, 2022 CU27 und 2025 CU9, deren V2-Consumerpfad, explizite Live-API und gerenderte Liveaktion separat nativ abgenommen; getrennte Quellstände bleiben ausgewiesen. Default-Browser-Erstellung für Windows/Docker/Podman und dieselben drei SQL-Profile separat belegt. Private Windows-/Hyper-V-SQL-2025-RTM-Referenz nativ abgenommen. Kompakte authentifizierte Windows-/Docker-/Podman-Erstellung für SQL 2019 CU32, 2022 CU27 und 2025 CU9 separat belegt. Öffentliche Hyper-V-/Linuxpfade, weitere Consumer, weitere Ressourcenprofile, Clipboard, weitere Patch-/Clientkontexte und Lifecycle-/Trustkontexte bleiben offen |
 | Abhängigkeit | **Toolbelt SC-2026-045 – authentifizierte Liveabnahme** |
 | Auslöser | [Toolbelt PR #322](https://github.com/gecompat/SQL_Server_Toolbelt/pull/322), geprüfter Head `8772e9d6a1d538e6fcb22da3f0bd03c83a28e88a`; PR bei der Prüfung am 2026-10-15 offen, kein behaupteter Merge |
 | Verantwortung | Lab: Serverzertifikate, Identität, Client-Trust, Export und Bereitschaft; Toolbelt: eigener Preflight und tatsächliche Clientverbindungen |

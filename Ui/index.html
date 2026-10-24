@@ -399,10 +399,10 @@
   <dialog id="tls-auth-create-dialog">
     <form id="tls-auth-create-form" method="dialog">
       <div class="dialog-heading"><h2>Lab mit authentifiziertem TLS</h2><button type="button" class="icon-button" value="cancel" formnovalidate aria-label="Schließen">×</button></div>
-      <p>Encrypt=True;TrustServerCertificate=False. Nur Windows, SQL 2025 CU9 und ein bereits eingerichteter CA-/Client-Trustkontext. Keine automatische Trusteinrichtung oder Rückstufung.</p>
+      <p>Encrypt=True;TrustServerCertificate=False. Nur Windows, SQL 2019 CU32, SQL 2022 CU27 oder SQL 2025 CU9 und ein bereits eingerichteter CA-/Client-Trustkontext. Keine automatische Trusteinrichtung oder Rückstufung.</p>
       <div class="form-grid">
         <label>Provider<select id="tls-auth-provider"><option value="docker">Docker</option><option value="podman">Podman</option></select></label>
-        <label>SQL Server<select id="tls-auth-version"><option value="2025-CU9">SQL Server 2025 CU9</option></select></label>
+        <label>SQL Server<select id="tls-auth-version"><option value="2025-CU9">SQL Server 2025 CU9</option><option value="2022-CU27">SQL Server 2022 CU27</option><option value="2019-CU32">SQL Server 2019 CU32</option></select></label>
         <label>Profil<select id="tls-auth-profile"><option value="compact">Kompakt</option><option value="standard">Standard</option><option value="performance">Performance</option></select></label>
         <label>Labname<input id="tls-auth-name" value="tls-lab" pattern="[A-Za-z0-9][A-Za-z0-9 _-]{0,63}" required></label>
         <label>CA-Kandidat-Referenz<input id="tls-auth-candidate" maxlength="128" required></label>

@@ -56,6 +56,28 @@ async function submit() { return element('tls-auth-create-form').events.submit({
   const before = calls.length; timer();
   check('Expiry invalidates without SQL replay', () => { assert.equal(calls.length, before); assert.match(element('tls-created-targets').children[0].children[2].textContent, /Keine aktuelle/); });
   const goodLive = get;
+  for (const [version, year, patch, build] of [['2019-CU32', '2019', 'cu32', '15.0.4430.1'], ['2022-CU27', '2022', 'cu27', '16.0.4295.3']]) {
+    get = () => ({ Targets: [{ ...view(), Version: version }], CreationBlocked: false });
+    await element('tls-created-refresh').events.click();
+    check('Selected authenticated SQL profile renders ' + version, () => assert.match(element('tls-created-targets').children[0].children[1].textContent, new RegExp(version.replace('-', ' '))));
+    get = () => { const v = goodLive(); v.Version = version; Object.assign(v.LiveResult, { SqlVersion: year, Patch: patch, SqlBuild: build }); return v; };
+    await element('tls-created-targets').children[0].children[3].events.click();
+    check('Exact selected profile accepts fresh two-stack result ' + version, () => assert.match(element('tls-created-targets').children[0].children[2].textContent, /Beide Clients erfolgreich/));
+    const matchingLive = get;
+    get = () => { const v = goodLive(); v.Version = '2025-CU9'; return v; };
+    await element('tls-created-targets').children[0].children[3].events.click();
+    check('Polling cannot replace the requested target profile ' + version, () => {
+      assert.doesNotMatch(element('tls-created-targets').children[0].children[2].textContent, /Beide Clients erfolgreich/);
+      assert.match(element('tls-created-targets').children[0].children[1].textContent, new RegExp(version.replace('-', ' ')));
+    });
+    for (const drift of [{ SqlVersion: '2025' }, { Patch: 'cu0' }, { SqlBuild: '0.0.0.0' }]) {
+      get = () => { const v = matchingLive(); Object.assign(v.LiveResult, drift); return v; };
+      await element('tls-created-targets').children[0].children[3].events.click();
+      check('Cross-profile live result is rejected ' + version, () => assert.doesNotMatch(element('tls-created-targets').children[0].children[2].textContent, /Beide Clients erfolgreich/));
+    }
+  }
+  get = () => ({ Targets: [view()], CreationBlocked: false });
+  await element('tls-created-refresh').events.click();
   for (const change of [(r) => { r.ClientChecks = ['SYSTEM_DATA_SQLCLIENT|ODBC_SQLCMD']; },
     (r) => { r.ClientChecks = [['SYSTEM_DATA_SQLCLIENT'], ['ODBC_SQLCMD']]; },
     (r) => { r.ClientChecks = ['SYSTEM_DATA_SQLCLIENT', 'ODBC_SQLCMD', 'ODBC_SQLCMD']; },

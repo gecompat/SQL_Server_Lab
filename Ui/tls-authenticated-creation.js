@@ -7,6 +7,11 @@
   let available = false, initialized = false, busy = false, uncertain = false, generation = 0;
   let expiry;
   const targets = new Map();
+  const profiles = Object.freeze({
+    '2019-CU32': { year: '2019', patch: 'cu32', build: '15.0.4430.1' },
+    '2022-CU27': { year: '2022', patch: 'cu27', build: '16.0.4295.3' },
+    '2025-CU9': { year: '2025', patch: 'cu9', build: '17.0.5005.3' }
+  });
   const viewKeys = ['Ref', 'Status', 'Provider', 'Version', 'LabName', 'RunId', 'RunState', 'Port', 'Encrypt', 'TrustServerCertificate', 'ActionStatus', 'LiveResult'];
   const liveKeys = ['ContractVersion', 'Status', 'RunId', 'InstanceId', 'Provider', 'SqlVersion', 'Patch', 'SqlBuild', 'Encrypt', 'TrustServerCertificate',
     'QualifiedAtUtc', 'ObservedAtUtc', 'ExpiresAtUtc', 'ClientChecks', 'Evidence', 'WireCertificateFingerprint'];
@@ -15,7 +20,7 @@
   function valid(v) {
     return v && !Array.isArray(v) && Object.keys(v).length === viewKeys.length && viewKeys.every((key) => Object.hasOwn(v, key)) && ref(v.Ref) &&
       ['ACCEPTED', 'PENDING', 'COMPLETE', 'UNCONFIRMED', 'REJECTED'].includes(v.Status) &&
-      ['docker', 'podman'].includes(v.Provider) && v.Version === '2025-CU9' && typeof v.LabName === 'string' &&
+      ['docker', 'podman'].includes(v.Provider) && typeof v.Version === 'string' && Object.hasOwn(profiles, v.Version) && typeof v.LabName === 'string' &&
       typeof v.RunId === 'string' && ['UNKNOWN', 'RUNNING', 'STOPPED', 'REMOVED'].includes(v.RunState) &&
       Number.isInteger(v.Port) && v.Port >= 0 && v.Port <= 65535 && v.Encrypt === true && v.TrustServerCertificate === false &&
       ['NONE', 'PENDING', 'COMPLETE', 'UNCONFIRMED'].includes(v.ActionStatus);
@@ -23,9 +28,10 @@
   function validLive(r, view, started) {
     if (!r || Array.isArray(r) || Object.keys(r).length !== liveKeys.length || !liveKeys.every((key) => Object.hasOwn(r, key))) return false;
     const q = Date.parse(r.QualifiedAtUtc), o = Date.parse(r.ObservedAtUtc), e = Date.parse(r.ExpiresAtUtc);
+    const profile = profiles[view.Version];
     return r.ContractVersion === 'SqlServerLab.TlsLiveQualificationResult/0.1' && r.Status === 'QUALIFIED_AT_OBSERVATION' &&
-      r.RunId === view.RunId && r.InstanceId === 'primary' && r.Provider === view.Provider && r.SqlVersion === '2025' && r.Patch === 'cu9' &&
-      r.SqlBuild === '17.0.5005.3' && r.Encrypt === true && r.TrustServerCertificate === false &&
+      r.RunId === view.RunId && r.InstanceId === 'primary' && r.Provider === view.Provider && r.SqlVersion === profile.year && r.Patch === profile.patch &&
+      r.SqlBuild === profile.build && r.Encrypt === true && r.TrustServerCertificate === false &&
       r.Evidence === 'FRESH_NATIVE_SQLCLIENT_AND_ODBC_SQLCMD' && r.WireCertificateFingerprint === 'NOT_OBSERVED' &&
       Array.isArray(r.ClientChecks) && r.ClientChecks.length === 2 && r.ClientChecks[0] === 'SYSTEM_DATA_SQLCLIENT' && r.ClientChecks[1] === 'ODBC_SQLCMD' &&
       Number.isFinite(q) && Number.isFinite(o) && Number.isFinite(e) && q >= started && q <= o && o <= Date.now() && e > Date.now() && e - q <= 900000;
@@ -42,7 +48,7 @@
       const card = document.createElement('article'); card.dataset.tlsCreatedRef = target.Ref;
       const title = document.createElement('h3'); title.textContent = target.LabName + ' · ' + target.Provider;
       const text = document.createElement('p');
-      text.textContent = 'Referenz: ' + target.Ref + ' · ' + target.Status + ' · ' + target.RunState + ' · Encrypt=True;TrustServerCertificate=False' +
+      text.textContent = 'Referenz: ' + target.Ref + ' · SQL Server ' + target.Version.replace('-', ' ') + ' · ' + target.Status + ' · ' + target.RunState + ' · Encrypt=True;TrustServerCertificate=False' +
         (target.Port ? ' · 127.0.0.1:' + target.Port : '') + ' · Aktion: ' + target.ActionStatus;
       const live = document.createElement('p'); live.setAttribute('role', 'status');
       const result = target.LiveResult;
@@ -72,11 +78,11 @@
       return await response.json();
     } finally { window.clearTimeout(timeout); }
   }
-  async function poll(id) {
+  async function poll(id, version) {
     for (let i = 0; i < 900; i++) {
       await new Promise((resolve) => window.setTimeout(resolve, 2000));
       const view = await json('/api/tls-created-targets/' + id);
-      if (!valid(view) || view.Ref !== id) throw new Error('TLS_CREATION_UNCONFIRMED');
+      if (!valid(view) || view.Ref !== id || view.Version !== version) throw new Error('TLS_CREATION_UNCONFIRMED');
       targets.set(id, { ...view, LiveResult: null }); render();
       if (view.Status !== 'PENDING' && view.ActionStatus !== 'PENDING') return view;
     }
@@ -85,11 +91,12 @@
   async function act(id, action) {
     if (busy || !available) return;
     if (action === 'Remove' && !window.confirm('Genau dieses authentifizierte Lab entfernen? CA und Trust bleiben erhalten.')) return;
+    const version = targets.get(id).Version;
     invalidate(); const current = generation, started = Date.now(); busy = true; render();
     try {
       const accepted = await json('/api/tls-created-targets/action', { Ref: id, Action: action, RequestId: requestId() });
       if (accepted.Status !== 'ACCEPTED' || accepted.Ref !== id) throw new Error('TLS_CREATION_UNCONFIRMED');
-      const view = await poll(id);
+      const view = await poll(id, version);
       if (current !== generation) { view.LiveResult = null; return; }
       if (action === 'Live' && view.ActionStatus === 'COMPLETE') {
         const r = view.LiveResult;
@@ -119,7 +126,7 @@
       const accepted = await json('/api/tls-creation', body);
       if (accepted.Status !== 'ACCEPTED' || !ref(accepted.Ref)) throw new Error('TLS_CREATION_UNCONFIRMED');
       status.textContent = 'Erstellung angenommen. Der eigene Auftrag wird beobachtet.';
-      const view = await poll(accepted.Ref);
+      const view = await poll(accepted.Ref, body.Version);
       uncertain = view.Status === 'UNCONFIRMED';
       status.textContent = view.Status === 'COMPLETE' ? 'Eigenes authentifiziertes Lab erstellt. Zielaktionen stehen in der Sitzungsansicht bereit.' :
         'Erstellung nicht bestätigt. Privaten Allokationsbeleg prüfen; keine automatische Wiederholung.';

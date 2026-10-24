@@ -828,7 +828,7 @@ sources_of_truth:
   workflow_ui_job_status: Tools/WorkflowUiJobStatus.ps1 # bounded UI-owned batch reader; no store initialization or scheduling
   workflow_ui_job_status_validation: Tests/Static/Fixtures/WorkflowJobStatusChecks.ps1, Tests/Static/Fixtures/WorkflowJobStatusChecks.cjs
   workflow_ui_assets: Ui/index.html, Ui/app.js, Ui/app.css
-  workflow_ui_authenticated_creation: Tools/WorkflowUiTlsCreation.ps1, Private/AuthenticatedTlsUiCreation.ps1, Ui/tls-authenticated-creation.js # session-private allocation custody and exact scoped lifecycle, no browser root selection
+  workflow_ui_authenticated_creation: Tools/WorkflowUiTlsCreation.ps1, Private/AuthenticatedTlsUiCreation.ps1, Ui/tls-authenticated-creation.js # session-private allocation custody, closed SQL2019CU32/2022CU27/2025CU9 ticket/profile binding and exact scoped lifecycle, no browser root selection
   workflow_ui_authenticated_creation_validation: Tests/Static/Fixtures/WorkflowUiTlsCreationChecks.ps1, Tests/Static/Fixtures/WorkflowUiTlsCreationChecks.cjs # real request/allocation/worker/renderer boundaries with synthetic provider leaves; native proof separate
   workflow_ui_container_pins: Public/Get-SqlServerLabWorkflow.ps1, Ui/app.js, Catalogs/sql-server-versions.json # bounded scalar ContainerPinnedBuilds; legacy SQL2025 field retained
   workflow_ui_container_pins_validation: Tests/Static/Fixtures/ContainerPinnedVersionWorkflowChecks.ps1, Tests/Static/Fixtures/WorkflowContainerPinnedVersionUiChecks.cjs # WorkflowUI suite; actual projection and renderer with synthetic catalog/DOM leaves

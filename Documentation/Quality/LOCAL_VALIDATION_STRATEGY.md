@@ -71,7 +71,21 @@ Analyzer scheiterte an einer neuen Plaintextconversion neben unveränderten
 Baselinebefunden. Nach der Umstellung auf direkte SecureString-Befüllung
 bestand der erneut ausgeführte vollständige Analyzer. Diese getrennten
 Nachweise sind kein neuer gemeinsamer 19-Suite-Lauf. Weitere Ressourcen-/SQL-
-Erstellungsprofile, Clipboard und andere Plattformen bleiben offen.
+Erstellungsprofile, Clipboard und andere Plattformen bleiben eigene Scopes.
+
+Die zusätzliche [authentifizierte Profilabnahme](TLS_UI_AUTHENTICATED_PROFILES_ACCEPTANCE_2026-10-24.md)
+bestand SQL 2019 CU32 und SQL 2022 CU27 separat mit Docker und Podman unter
+Windows: vier kompakte Zellen auf demselben unveränderten Quellstand,
+32 Fälle, darin 24 Browserfälle, 16 strikte UI- und acht zusätzliche
+Arrange-Clientresultate. Alle vier Labs sind entfernt, ganze Windows-Jobs
+leer, Same-Pin-Abwesenheit und Bestandsvergleich bestanden. Exakte Profil-
+und Jahr-/Patch-/Buildbindungen verhindern einen unbemerkten Profilwechsel.
+Der Produktfokus bestand 61 PowerShell- und 28 JS-Fälle. Sieben originale
+Suites einschließlich GLOBALAnalyzer sowie drei nach Unterbrechung fehlende
+Suites und Docs/Privacy nach einer HTML-Hinweiskorrektur bestanden getrennt;
+kein gemeinsamer neuer Zehnsuitenlauf. 30 neue Zulassungs- und 22
+Requestboundary-Fälle waren ausschließlich synthetisch. Weitere
+Ressourcenprofile, Clipboard und andere Plattformen bleiben offen.
 
 ## Container-Erstellung im Browser
 
