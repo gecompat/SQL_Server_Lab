@@ -16,7 +16,7 @@ function Get-LabTlsUiCreationRequest {
                 $p[$item.Name]=$item.Value.GetString()
             }
             if($p.Count -ne $names.Count -or $p.RequestId -cnotmatch '\A[a-f0-9]{32}\z' -or
-                $p.Provider -cnotin @('docker','podman') -or $p.Version -cne '2025-CU9' -or
+                $p.Provider -cnotin @('docker','podman') -or $p.Version -cnotin @('2025-CU9','2022-CU27','2019-CU32') -or
                 $p.Profile -cnotin @('compact','standard','performance') -or
                 $p.LabName -cnotmatch '\A[A-Za-z0-9][A-Za-z0-9 _-]{0,63}\z'){throw 'INVALID'}
             foreach($key in @('TlsCandidateId','TlsControllerId','TlsLocationId')){
@@ -56,7 +56,8 @@ function Invoke-LabTlsUiCreation {
         if(-not $Ticket.StateRoot -or $run.StateRoot -cne $Ticket.StateRoot -or
             $run.RunId -isnot [string] -or $run.RunId -cnotmatch '^[a-f0-9-]{36}$'){throw 'TLS_CREATION_RESULT_INVALID'}
         $own=Get-LabTlsOwnBinding -StateRoot $Ticket.StateRoot -RunId $run.RunId -InstanceId primary
-        if($own.Record.AuditId -cne $Ticket.AuditId -or (Get-LabTlsBindingProvider $own.Record) -cne $Parameters.Provider){throw 'TLS_CREATION_RESULT_INVALID'}
+        if($own.Record.AuditId -cne $Ticket.AuditId -or (Get-LabTlsBindingProvider $own.Record) -cne $Parameters.Provider -or
+            (Get-LabTlsBindingSqlProfile $own.Record).Version -cne $Parameters.Version){throw 'TLS_CREATION_RESULT_INVALID'}
         $Ticket.RunId=$run.RunId;$Ticket.Port=[int]$own.Record.Port;$Ticket.Status='COMPLETE';$Ticket.RunState='RUNNING'
     }catch{
         # The original canonical intent/compensation remains authoritative.
@@ -75,7 +76,8 @@ function Get-LabTlsUiCreationTarget {
     $null=Get-LabTlsRecordedRuntimePin $record $root
     $expected=[IO.Path]::GetFullPath((Join-Path $record.DataRoot ('State/authenticated-tls-labs/'+$record.AuditId)))
     if($record.AuditId -cne $Ticket.AuditId -or $record.RunId -cne $Ticket.RunId -or $record.InstanceId -cne 'primary' -or
-        (Get-LabTlsBindingProvider $record) -cne $Ticket.Provider -or $expected -cne $root){throw 'TLS_CREATION_TARGET_CHANGED'}
+        (Get-LabTlsBindingProvider $record) -cne $Ticket.Provider -or
+        (Get-LabTlsBindingSqlProfile $record).Version -cne $Ticket.Version -or $expected -cne $root){throw 'TLS_CREATION_TARGET_CHANGED'}
     $policy=Get-LabOwnedHostRunPolicy -RunId $record.RunId -StateRoot $root
     if(-not $policy -or $policy.PolicyId -cne $record.RuntimeBinding.PolicyId){throw 'TLS_CREATION_POLICY_CHANGED'}
     [pscustomobject]@{StateRoot=$root;RunId=$record.RunId;Provider=$Ticket.Provider;InstanceId='primary'}

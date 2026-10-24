@@ -6,6 +6,7 @@
 | [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md) | verbindliche Grenzen des aktuellen Runtimepfads |
 | [LOCAL_VALIDATION_STRATEGY.md](LOCAL_VALIDATION_STRATEGY.md) | tatsächlich verfügbare lokale Prüfpfade und verbleibende Testlücken |
 | [TLS_UI_AUTHENTICATED_CREATION_ACCEPTANCE_2026-10-24.md](TLS_UI_AUTHENTICATED_CREATION_ACCEPTANCE_2026-10-24.md) | kompakte Windows-/Docker-/Podman-SQL-2025-CU9-Erstellung im Browser mit strikter Liveprüfung, Wiederbindung und eigenem UI-Remove; ursprüngliche FAILs erhalten |
+| [TLS_UI_AUTHENTICATED_PROFILES_ACCEPTANCE_2026-10-24.md](TLS_UI_AUTHENTICATED_PROFILES_ACCEPTANCE_2026-10-24.md) | zusätzliche kompakte authentifizierte Browser-Erstellung für SQL 2019 CU32 und 2022 CU27, jeweils Docker und Podman, strikte Clients und eigener Cleanup |
 | [TLS_HYPERV_NATIVE_ACCEPTANCE_2026-10-20.md](TLS_HYPERV_NATIVE_ACCEPTANCE_2026-10-20.md) | bestandene native Windows-/Hyper-V-SQL-2025-RTM-Referenz mit Ablauf, Erneuerung, neuem Boot und eigenem TLS-Cleanup |
 | [CLI_ACCEPTANCE_MATRIX.md](CLI_ACCEPTANCE_MATRIX.md) | providergetrennte reale CLI-, Sample-, Storage- und Ressourcenabnahme |
 | [LOCAL_READINESS_CHECKLIST.md](LOCAL_READINESS_CHECKLIST.md) | präzise Vor-Push- und Vor-Release-Validierungsreihenfolge |

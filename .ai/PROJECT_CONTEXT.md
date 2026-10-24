@@ -59,8 +59,21 @@ je acht Fälle, darin sechs Browserfälle und vier strikte UI-Clientresultate,
 zusätzlich je zwei Arrange-Resultate. Zwei frühere Docker-FAILs wegen Fehlern
 der privaten Prüfsteuerung bleiben getrennt erhalten. Alle vier tatsächlich
 erstellten Labs sind entfernt; Quelle, CA/Trust und fremder Bestand blieben
-gebunden. Weitere Ressourcen-/SQL-Erstellungsprofile, Clipboard und andere
-Plattformen bleiben eigene Scopes.
+gebunden. Die zusätzliche [authentifizierte Profilabnahme](../Documentation/Quality/TLS_UI_AUTHENTICATED_PROFILES_ACCEPTANCE_2026-10-24.md)
+bestand kompakte Docker-/Podman-SQL-2019-CU32-/SQL-2022-CU27-Labs unter Windows:
+vier Zellen auf demselben unveränderten Quellstand, 32 Fälle, darin 24
+Browserfälle, 16 strikte UI- und acht zusätzliche Arrange-Resultate.
+Alle vier neuen Labs sind entfernt; CA/Trust, ursprüngliche Schlüssel,
+fremder Bestand und ganze Windows-Jobleere sind gebunden. Der neue Dialog
+erhält das ausgewählte Profil über Request, privates Ticket, frischen
+kanonischen Record und konkrete Jahr-/Patch-/Buildprüfung der Liveanzeige.
+PS61/JS28 Fokus, sieben originale statische PASS einschließlich vollem
+Analyzer und anschließend drei fehlende Suites plus Docs/Privacy-Textdelta
+bestanden getrennt. Der ursprüngliche Zehnsuitenlauf wurde unterbrochen;
+kein neuer gemeinsamer Zehnsuiten-PASS wird behauptet. Die unabhängigen
+Produkt-/Steuerungsreviews haben keine offenen Findings. Weitere
+Ressourcenprofile, Clipboard und andere Plattformen bleiben eigene Scopes;
+weitere Toolbelt-Entwicklung bleibt pausiert.
 
 Die [native Linux-Kryptomatrix](../Documentation/Quality/TLS_LINUX_CLIENT_MATRIX_ACCEPTANCE_2026-10-22.md)
 bestand Docker und Podman für SQL 2019 CU32, 2022 CU27 und 2025 CU9 separat:

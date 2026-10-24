@@ -65,15 +65,19 @@ Andere Erstellungsprofile benötigen eigene Nachweise.
 
 Für `Encrypt=True;TrustServerCertificate=False` öffnen Sie im Erstellungsdialog
 **Stattdessen mit Zertifikatsprüfung erstellen …**. Dieser getrennte Weg
-verlangt Windows, PowerShell 7.5+, Docker oder Podman, SQL 2025 CU9 und die
+verlangt Windows, PowerShell 7.5+, Docker oder Podman, SQL 2019 CU32,
+SQL 2022 CU27 oder SQL 2025 CU9 und die
 bereits eingerichtete [CA-/Clientbindung des operativen TLS-Pfads](../Architecture/AUTHENTICATED_TLS_OPERATIONAL_LAB.md).
 Er richtet weder CA noch Client-Trust ein und übernimmt keine vorhandenen Labs.
 Die [native Dialogabnahme](../Quality/TLS_UI_AUTHENTICATED_CREATION_ACCEPTANCE_2026-10-24.md)
 bestand mit Docker und Podman für das kompakte SQL-2025-CU9-Lab einschließlich
 strikter Liveprüfung, Neustartablehnung, Wiederbindung und eigenem UI-Remove.
-Andere Ressourcen- und SQL-Erstellungsprofile bleiben getrennte Nachweise.
+Die zusätzliche [Profilabnahme](../Quality/TLS_UI_AUTHENTICATED_PROFILES_ACCEPTANCE_2026-10-24.md)
+bestand für kompakte SQL-2019-CU32- und SQL-2022-CU27-Labs mit beiden Providern.
+Andere Ressourcen-, Patch-, Client- und Plattformkombinationen bleiben
+getrennte Nachweise.
 
-1. Wählen Sie Provider und Ressourcenprofil. Instanz `primary`, ausgeschalteter
+1. Wählen Sie Provider, SQL-Profil und Ressourcenprofil. Instanz `primary`, ausgeschalteter
    Autostart und ein nicht persistentes Lab sind fest vorgegeben.
 2. Geben Sie die Kandidat-, Controller- und Location-Referenzen Ihrer vorhandenen
    TLS-Einrichtung sowie Labname und bestätigtes SA-Passwort ein. Der Data Root
@@ -158,8 +162,9 @@ Die [native Browserabnahme](../Quality/TLS_UI_LIVE_QUALIFICATION_ACCEPTANCE_2026
 belegt Windows-/Docker-/Podman-SQL-2025-CU9. Die zusätzlich geprüften
 SQL-2019-CU32-/SQL-2022-CU27-Zellen stehen in der
 [getrennten Profilabnahme](../Quality/TLS_UI_PROFILE_MATRIX_ACCEPTANCE_2026-10-23.md).
-Weitere Patch-/Clientkontexte, authentifizierter Creationdialog, weitere
-Erstellungsprofile und Clipboard bleiben offen;
+Die [authentifizierte Erstellung](#authentifiziertes-container-lab-erstellen)
+ist separat für kompakte Labs der drei geschlossenen SQL-Profile abgenommen.
+Weitere Patch-/Clientkontexte, Ressourcenprofile und Clipboard bleiben offen;
 `WireCertificateFingerprint=NOT_OBSERVED` bleibt wahr.
 
 Die Hintergrundinventur hält ein erfolgreich abgeschlossenes, nichtleeres

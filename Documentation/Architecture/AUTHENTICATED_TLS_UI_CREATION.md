@@ -6,15 +6,19 @@ Sie verwendet dessen kanonischen Creator und verändert den einfachen Standard
 stehen unter [Workflow-Oberfläche](../HowTo/WORKFLOW_UI.md#authentifiziertes-container-lab-erstellen).
 Die [native Abnahme vom 2026-10-24](../Quality/TLS_UI_AUTHENTICATED_CREATION_ACCEPTANCE_2026-10-24.md)
 bestand separat mit Docker und Podman für das kompakte SQL-2025-CU9-Lab.
-Weitere Ressourcen- und SQL-Erstellungsprofile sind dadurch nicht abgenommen.
+Die zusätzliche [Profilabnahme](../Quality/TLS_UI_AUTHENTICATED_PROFILES_ACCEPTANCE_2026-10-24.md)
+bestand separat für kompakte SQL-2019-CU32- und SQL-2022-CU27-Labs mit beiden
+Providern. Weitere Ressourcen-, Patch-, Client- und Plattformkombinationen
+sind dadurch nicht abgenommen.
 
 ## Geschlossener Umfang
 
 Der Dialog unterstützt Windows mit PowerShell 7.5+, ausdrücklich Docker oder
-Podman und SQL 2025 CU9. Die bestehende registrierte CA, der Signierkontext,
+Podman sowie die geschlossenen Profile SQL 2019 CU32, SQL 2022 CU27 und
+SQL 2025 CU9. Die bestehende registrierte CA, der Signierkontext,
 der aktuelle Clientkontext und CurrentUser-Trust müssen bereits passen.
 Der Server verwendet seinen konfigurierten Data Root. Der Browser übermittelt
-nur Kandidat-, Controller- und Location-Referenzen, Provider, das feste
+nur Kandidat-, Controller- und Location-Referenzen, Provider, das ausgewählte
 SQL-Profil, Ressourcenprofil, Labnamen, Passwort und eine Request-ID.
 Andere Felder, doppelte JSON-Schlüssel, falsche skalare Typen und andere
 SQL-/Providerprofile werden abgewiesen. Es gibt keinen automatischen Fallback.
@@ -43,7 +47,11 @@ geben ein Ziel für die Oberfläche frei. Der Browser erhält eine undurchsichti
 Referenz und eine geschlossene Projektion mit Provider, Profil, Run-ID,
 gespeichertem Zustand, lokalem Port und beiden TLS-Booleans. StateRoot,
 DataRoot, Registry-/Schlüsselpfade, Credentials und rohe Receipts werden nicht
-projiziert. Die allgemeine Workflowinventur wird weder umgeschaltet noch
+projiziert. Das serverprivate Ticket erhält das ausgewählte SQL-Profil;
+Erstellungsabschluss und jede Zielaktion vergleichen es mit dem frisch
+gelesenen kanonischen Record. Die Liveanzeige verlangt genau dessen SQL-Jahr,
+Patch und Build. Ein Versionswechsel während des Pollings wird abgewiesen.
+Die allgemeine Workflowinventur wird weder umgeschaltet noch
 um fremde Auditroots erweitert.
 
 Gleiche Request-ID und gleiche Bytes liefern nur die bereits angenommene

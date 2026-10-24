@@ -90,5 +90,8 @@ Workflowantwort, sichtbaren False-Werten und exakt angezeigtem Connection
 String. Die Default-Browser-Erstellung ist separat für
 [SQL 2025 CU9](../Quality/TLS_UI_DEFAULT_CREATION_ACCEPTANCE_2026-10-23.md)
 und [SQL 2019 CU32 sowie 2022 CU27](../Quality/TLS_UI_DEFAULT_CREATION_PROFILES_ACCEPTANCE_2026-10-23.md)
-belegt. Authentifizierte Browser-Erstellung, Clipboard, weitere
-Erstellungsprofile, Modi und Plattformen bleiben getrennte offene Nachweise.
+belegt. Die authentifizierte kompakte Browser-Erstellung ist separat für
+[SQL 2025 CU9](../Quality/TLS_UI_AUTHENTICATED_CREATION_ACCEPTANCE_2026-10-24.md)
+und [SQL 2019 CU32 sowie 2022 CU27](../Quality/TLS_UI_AUTHENTICATED_PROFILES_ACCEPTANCE_2026-10-24.md)
+abgenommen. Clipboard, weitere Ressourcenprofile, Patch-/Clientkontexte und
+Plattformen bleiben getrennte offene Nachweise.

@@ -43,7 +43,7 @@ function Get-UiTlsCreationView {
     $actionStatus=if($acting){'PENDING'}elseif($ticket.ActionJob -and $ticket.ActionJob.State -cne 'Completed'){'UNCONFIRMED'}else{[string]$ticket.ActionStatus}
     $result=$null
     if(-not $creating -and -not $acting -and $ticket.LiveResult -and [DateTimeOffset]::Parse($ticket.LiveResult.ExpiresAtUtc) -gt [DateTimeOffset]::UtcNow){$result=$ticket.LiveResult}
-    [pscustomobject]@{Ref=$Id;Status=$status;Provider=[string]$ticket.Provider;Version='2025-CU9';LabName=[string]$ticket.LabName;
+    [pscustomobject]@{Ref=$Id;Status=$status;Provider=[string]$ticket.Provider;Version=[string]$ticket.Version;LabName=[string]$ticket.LabName;
         RunId=if($status -ceq 'COMPLETE'){[string]$ticket.RunId}else{''};RunState=if($status -ceq 'COMPLETE'){[string]$ticket.RunState}else{'UNKNOWN'};
         Port=if($status -ceq 'COMPLETE'){[int]$ticket.Port}else{0};Encrypt=$true;TrustServerCertificate=$false;ActionStatus=$actionStatus;LiveResult=$result}
 }
@@ -71,7 +71,7 @@ function Start-UiTlsCreationWork {
         if($Store.Tickets.Count -ge 64){throw 'TLS_CREATION_CAPACITY'}
         $id=[guid]::NewGuid().ToString('n')
         $ticket=[hashtable]::Synchronized(@{Id=$id;SessionId=$Store.SessionId;RequestId=$request.RequestId;Status='ACCEPTED';
-            Provider=$request.Provider;LabName=$request.LabName;StateRoot=$null;AuditId=$null;RunId=$null;RunState='UNKNOWN';
+            Provider=$request.Provider;Version=$request.Version;LabName=$request.LabName;StateRoot=$null;AuditId=$null;RunId=$null;RunState='UNKNOWN';
             Port=0;ActionJob=$null;ActionStatus='NONE';LiveResult=$null;Job=$null})
         $Store.Tickets[$id]=$ticket;$work='Create'
     }
