@@ -64,7 +64,10 @@ führt von dort zu Vertrag, Format und Evidence.
   Voraussetzungen und Fehlerhilfe. Der [getrennte Browsernachweis](Quality/TLS_UI_LIVE_QUALIFICATION_ACCEPTANCE_2026-10-23.md)
   belegt Docker und Podman mit SQL 2025 CU9; die
   [weitere Profilabnahme](Quality/TLS_UI_PROFILE_MATRIX_ACCEPTANCE_2026-10-23.md)
-  ergänzt SQL 2019 CU32 und 2022 CU27 mit getrennten Quellständen.
+  ergänzt SQL 2019 CU32 und 2022 CU27 mit getrennten Quellständen. Die
+  [Ressourcenprofile der separaten Liveaktion](Quality/TLS_UI_LIVE_RESOURCE_PROFILES_ACCEPTANCE_2026-10-25.md)
+  sind für Standard und Performance mit beiden Providern und allen drei
+  operativen SQL-Profilen zusätzlich abgenommen.
 - [Authentifiziertes Container-Lab erstellen](HowTo/WORKFLOW_UI.md#authentifiziertes-container-lab-erstellen):
   getrennte explizite False-Wahl unter Windows für SQL 2019 CU32, SQL 2022 CU27
   und SQL 2025 CU9;

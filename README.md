@@ -23,8 +23,10 @@ Die [ausdrückliche Liveprüfung am SQL-Ziel](Documentation/HowTo/WORKFLOW_UI.md
 liefert eine aktuelle Beobachtung beider strikten Clients. Die
 [Container-Erstellung im Browser](Documentation/HowTo/WORKFLOW_UI.md#container-lab-erstellen)
 verwendet den einfachen True/True-Standard und bietet katalogisierte CUs für
-SQL 2019, 2022 und 2025 zur ausdrücklichen Auswahl. Authentifizierte Erstellung im
-Browser, weitere Erstellungsprofile, Clipboard, weitere Plattformen und
+SQL 2019, 2022 und 2025 zur ausdrücklichen Auswahl. Die
+[authentifizierte Erstellung im Browser](Documentation/HowTo/WORKFLOW_UI.md#authentifiziertes-container-lab-erstellen)
+verwendet die bestehende qualifizierte CA-/Clientbindung und die ausdrückliche
+False-Wahl. Weitere Erstellungsoptionen, Clipboard, weitere Plattformen und
 Lifecyclekontexte bleiben TLS-001-Scope.
 
 ## Voraussetzungen

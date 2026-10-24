@@ -172,8 +172,12 @@ Die [authentifizierte Erstellung](#authentifiziertes-container-lab-erstellen)
 ist separat für kompakte Labs sowie die zusätzlichen
 [Standard-/Performanceprofile](../Quality/TLS_UI_RESOURCE_PROFILES_ACCEPTANCE_2026-10-24.md)
 der drei geschlossenen SQL-Profile abgenommen. Die hier beschriebene separate
-Liveaktion bestehender Labkarten benötigt für weitere Ressourcenprofile
-eigene Nachweise. Weitere Patch-/Clientkontexte und Clipboard bleiben offen;
+Liveaktion bestehender Labkarten ist zusätzlich für
+[Standard und Performance](../Quality/TLS_UI_LIVE_RESOURCE_PROFILES_ACCEPTANCE_2026-10-25.md)
+mit Docker/Podman und denselben drei SQL-Profilen abgenommen. Der Server
+verwendet dabei weiterhin den ausdrücklich gewählten Run-StateRoot; der
+Erstellungsdialog mit ResultRef ist ein eigener Pfad.
+Weitere Erstellungsoptionen, Patch-/Clientkontexte und Clipboard bleiben offen;
 `WireCertificateFingerprint=NOT_OBSERVED` bleibt wahr.
 
 Die Hintergrundinventur hält ein erfolgreich abgeschlossenes, nichtleeres
