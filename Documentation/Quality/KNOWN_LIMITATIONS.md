@@ -2501,6 +2501,15 @@ Sämtliche Beschaffungs-Runtime-Nachweise sind `NOT_EXECUTED`.
 
 ## External Languages
 
+Die neue CORE-102-Hostmatrix zeigt Katalogvarianten und optionale aktuelle
+Providerinstallation/-bereitschaft für Docker, Podman und Hyper-V.
+Docker/Podman beziehen sich auf Linux, Hyper-V auf das Windows-Gastziel.
+Erreichbarkeit bleibt `INCOMPLETE` für konkrete Sprachstarts. SQL-Build,
+Gastbeobachtung, Kernel/cgroup-Controller, WSL-Konflikte, Ressourcen, Rootless/
+Launchmodus, Zielrechte und Native-Sprachabnahme sind ausdrücklich ungeprüft.
+Die vollständige #619-Matrix und Browserübersicht bleiben offen; C# bleibt
+`USER_DEFERRED`. [Vertrag](../Architecture/HOST_CAPABILITY_MATRIX.md).
+
 Der enge [CORE-102-Entscheid](../Architecture/EXTERNAL_RUNTIME_CAPABILITY.md)
 verwendet für API und Manifestdialog explizite Docker-/Podman-Linux-Katalogtuple
 für Python, R und Java. Der Standard prüft keinen Host. Eine bewusst

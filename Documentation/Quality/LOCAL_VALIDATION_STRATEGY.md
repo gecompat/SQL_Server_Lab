@@ -2258,6 +2258,25 @@ Zähler sowie Fehler-/Driftfälle sind ausschließlich offline geprüft.
 Die ursprünglichen Fixture- und verspäteten Abschluss-FAILs bleiben erhalten;
 der erfolgreiche gebündelte Lauf verwendete dieselbe Vier-Minuten-Grenze.
 
+`Invoke-HostCapabilityMatrixChecks.ps1` prüft den tatsächlichen neuen
+Public-Aufruf, Katalogresolver und gemeinsamen Readiness-Reader. Nur die
+native Prozessgrenze wird ersetzt: alle acht Providerprofile, Einzelprovider
+ohne Querabhängigkeit, Rechte-/Erreichbarkeits-/Installationsfehler,
+unvollständige/widersprüchliche Antworten, alle geladenen SQL-Versionen,
+feste Projektion ohne Rohdaten sowie die echte Konsolenfunktion einschließlich
+Abbruch und ausdrücklicher Probeauswahl. Der erste fokussierte Lauf bestand
+mit 65 Assertions; ausschließlich synthetische Providerbeobachtungen.
+Der unabhängige Review fand danach eine unerwünschte Journalpersistierung
+der Konsolenausgabe und eine fehlende Rückkehrbestätigung. Nach Umstellung
+auf nicht persistierende Ausgabe mit ausdrücklicher Bestätigung bestand die
+erweiterte Suite mit 67 Assertions. Beide Review-Findings sind geschlossen.
+Die erste Console-UI-Prüfung fand fehlende kuratierte Hilfe für die zwei
+neuen Screens (302 PASS / 1 FAIL); nach Ergänzung bestand sie mit 303 PASS.
+Der Dokumentationslauf fand zunächst drei veraltete API-Indexeinträge;
+nach deren Aktualisierung bestand die Prüfung mit 2439 PASS / 0 FAIL.
+Dies ist kein Native-, SQL- oder Sprachnachweis.
+[Matrixvertrag und offene Dimensionen](../Architecture/HOST_CAPABILITY_MATRIX.md).
+
 `Invoke-ExternalRuntimeCapabilityChecks.ps1` durchläuft den tatsächlichen
 Public-Aufruf, Katalogresolver, Reducer und bestehenden Manifestdialog.
 Provider-Metadaten stammen aus dem Repository; native Prozessgrenzen werden

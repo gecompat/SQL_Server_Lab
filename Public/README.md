@@ -208,6 +208,14 @@ bleiben im [P1-Backlog](../Documentation/Project_Planning/NEW_SQL_LAB_USE_CASES_
 
 ## Cmdlet-Übersicht
 
+`Get-SqlServerLabHostCapabilityMatrix -SqlVersion 2022` zeigt Python, R, Java
+und zurückgestelltes C# für Docker, Podman und Hyper-V vor der Funktionsauswahl.
+Der Hauptmenüpunkt **Hostfähigkeiten vor der Funktionsauswahl** nutzt denselben
+Vertrag in Cursor- und Fallback-Konsole. Standardmäßig erfolgt keine Hostabfrage;
+`-CheckProviderReadiness` prüft jeden ausgewählten Provider einmal lesend.
+Installation, Erreichbarkeit, Katalogunterstützung und ungeprüfte Launchanforderungen
+bleiben getrennt. [Scope und nächste Schritte](../Documentation/Architecture/HOST_CAPABILITY_MATRIX.md).
+
 `Get-SqlServerLabExternalRuntimeCapability` trennt für einen expliziten
 Docker-/Podman-Linux-Manifestentwurf Katalogunterstützung von optionaler
 aktueller Hostbereitschaft. Standard ist `NOT_CHECKED` ohne Hostaufruf;
@@ -322,6 +330,7 @@ Vertrag. Vollständiger CORE-102 und Native-Abnahmen bleiben offen.
 | `Restart-SqlServerLab` | `Restart-SqlServerLab.ps1` | Stop und Start kombinieren |
 | `Remove-SqlServerLab` | `Remove-SqlServerLab.ps1` | Einzelnen Run scope-validiert entfernen |
 | `Get-SqlServerLabExternalRuntimeCapability` | `Get-SqlServerLabExternalRuntimeCapability.ps1` | Katalogentscheidung und bewusst angeforderte Hostvoraussetzungen getrennt prüfen |
+| `Get-SqlServerLabHostCapabilityMatrix` | `Get-SqlServerLabHostCapabilityMatrix.ps1` | Providerübergreifende Übersicht: Installation, Bootstrap-Readiness und Sprachkatalog getrennt bewerten |
 | `Clear-SqlServerLab` | `Clear-SqlServerLab.ps1` | Alle regulären Lab-Umgebungen löschen, auch laufende; Datenverlust möglich, Bestätigung standardmäßig Nein |
 | `New-SqlServerLabDatabase` | `New-SqlServerLabDatabase.ps1` | Datenbank mit konfigurierbaren Dateien und Pfaden erstellen |
 | `Backup-SqlServerLabDatabase` | `Backup-SqlServerLabDatabase.ps1` | Providerneutrales, gehashtes SQL-Backup erst nach `CHECKSUM` und `RESTORE VERIFYONLY` in der registrierten `Lab_Data`-Bibliothek veröffentlichen |

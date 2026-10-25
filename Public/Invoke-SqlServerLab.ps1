@@ -69,6 +69,7 @@ function Invoke-SqlServerLab {
                 'database' { Invoke-LabAreaMenuInteractive -Area Database }
                 'maintenance' { Invoke-LabAreaMenuInteractive -Area Maintenance }
                 'settings' { Invoke-LabAreaMenuInteractive -Area Settings }
+                'hostmatrix' { Show-LabHostCapabilityMatrixInteractive }
                 'commands' { Manage-LabPublicCommandsInteractive }
                 'messages' { Show-LabMessagesInteractive }
                 '0' { $exit = $true }
@@ -864,6 +865,7 @@ function Show-LabMenu {
             New-LabConsoleItem -Id 'maintenance' -Label 'Wartung, Aufräumen und Recovery' -Value 'Diagnose · Evaluation · Cleanup · Wiederherstellung' -Shortcut '8'
             New-LabConsoleItem -Id 'queue' -Label 'Vorgänge, Warteschlange und Wiederaufnahme' -Value 'Fortschritt · Priorität · Resume · Scheduler' -Shortcut '9'
             New-LabConsoleItem -Id 'commands' -Label 'Alle oeffentlichen Befehle' -Value 'vollstaendige Funktionsliste · Defaults · zulaessige Eingaben' -Shortcut 'b'
+            New-LabConsoleItem -Id 'hostmatrix' -Label 'Hostfähigkeiten vor der Funktionsauswahl' -Value 'SQL-Sprachen · Katalog · Providerinstallation und Bereitschaft' -Shortcut 'h'
             New-LabConsoleItem -Id 'messages' -Label 'Meldungen dieser Sitzung' -Value 'Warnungen und Fehler · kopierbar · Journalpfad' -Shortcut 'm'
             New-LabConsoleItem -Id 'exit' -Label 'Beenden' -Shortcut '0' -Aliases @('q')
         )

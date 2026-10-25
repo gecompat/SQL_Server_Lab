@@ -926,6 +926,14 @@ bleibt eine Implementierungsaufgabe offen; ein deaktivierter Eintrag genügt nic
 | 18: Funktionsfamilien | bestehende Fachbacklogs in Project_Planning/README, `BASE-001/003` | OS/SQL/Locale/Aktivierung; Lifecycle/Ressourcen/Netz; CU/Upgrade; Backup/Restore/PITR/Import/Export; Persistenz/Retention/Attach/FILESTREAM; Mehrinstanz/-version/Mixed; Sprachen/Software; Vector/Embedding/RAG/Metriken/Agent/Re-Embedding; External Models/TLS/ONNX/Cloud; Geräte/Benchmark; Evaluation/Recovery/Portabilität; Observability/UX/Queue/Scheduler; Szenarien/Faults; PolyBase/S3; SSIS/SSAS/BI; AG/FCI/HA/DR/Scale-out; Remote-Hyper-V/Air Gap/API; Treiber/Security/CDC/Event/JSON/REST/Hybrid Search/Collation/Linked Server/MSDTC bleiben getrennt zugeordnet. Keine sofortige Implementierung aller Zukunftsfunktionen und keine Wiedereröffnung erledigter Slices. |
 | 19–21: Benutzerreisen, Integration und Bericht | `BASE-004/005`, `UX-204/206`, bestehende Abnahmematrizen und autonomer Zyklus | Je Slice Startzustand → Menüweg → Eingaben → Vorschau → Ausführung → fachliches Ergebnis → Wiederholung → Fehler/Resume → Cleanup. Labels/Ziel/Defaults editierbar, Zurück ohne Eingabeverlust, Abbruch ohne Mutation, Auswirkungen/Downtime/Daten-/Verbraucherwirkung, echter Fortschritt, Fehler mit nächstem Schritt, keine Secrets im generischen Formularstate/Log. Contract- und Native-Tests getrennt. Dokumentation allein beendet den Auftrag nicht. |
 
+CORE-102 / #619: Der erste providerübergreifende Hostmatrix-Slice ist als
+Public-API und Hauptmenüfunktion in Cursor/Fallback implementiert:
+Katalogvarianten, Installation und optionale Bootstrap-Readiness bleiben
+getrennt; C# bleibt USER_DEFERRED. Die umfassende Launch-/Kernel-/WSL-/
+Ressourcenmatrix, Browserübersicht und scopegebundene Native-Sprachabnahmen
+bleiben offen. [Vertrag und gekoppelte Quellen](../Architecture/HOST_CAPABILITY_MATRIX.md).
+Ausgeführte Checks stehen ausschließlich in der Validierungsstrategie.
+
 **Nachverfolgung pro Slice:** Anforderung → obiger bestehender Task/Vertrag →
 konkreter Code → CLI-/GUI-Einstieg → Test → scopegebundene Evidence → Restarbeit.
 Die Ausgangsklassifikation lautet je Einzelfall: vollständig vorhanden und

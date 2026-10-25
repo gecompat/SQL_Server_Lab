@@ -3,7 +3,7 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `BINDING_INDEX` |
-| Stand | 2026-10-23 |
+| Stand | 2026-10-25 |
 
 Diese Datei ist der verbindliche Dokumentationsindex. Die Root-[README](../README.md) ist der operative Einstieg. Bei Widersprüchen zwischen Planungsdokumenten und implementiertem Verhalten gelten Code, Schemas, Kataloge, Tests und die dokumentierten bekannten Grenzen als Ist-Nachweis.
 
@@ -140,7 +140,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | Komponente | Status | Autoritative Dateien |
 |---|---|---|
 | PowerShell-Modul | implementiert | `SqlServerLab.psd1`, `SqlServerLab.psm1` |
-| Öffentliche API | 155 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
+| Öffentliche API | 156 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
 | Docker | implementiert | `Providers/Docker/DockerProvider.ps1` |
 | Podman | implementiert | `Providers/Podman/PodmanProvider.ps1` |
 | SQL Server External Languages | Container: Java für SQL 2019, Python/R/Java für SQL 2022/2025, jeweils Docker und Podman; Hyper-V/Windows: SQL-2022 Python/R/Java nativ akzeptiert, C# für SQL 2019–2025 sichtbar `PREVIEW` | `../Catalogs/software.json`, `../Tests/Integration/Invoke-ExternalRuntimeContainerAcceptance.ps1`, `../Tests/Integration/Invoke-ExternalRuntimeHyperVAcceptance.ps1` |
@@ -230,6 +230,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | `Save-SqlServerLabLlamaCppModel` | Ein gewähltes GGUF bei Bedarf herunterladen, prüfen und atomisch im MediaRoot veröffentlichen |
 | `Get-SqlServerLabAiComputeInventory` | Lokale CPU-, GPU- und NPU-Geräte read-only inventarisieren und nur bei vollständiger Coverage hashen |
 | `Get-SqlServerLabExternalRuntimeCapability` | External-Languages-Katalog und optionale aktuelle Hostvoraussetzung getrennt bewerten |
+| `Get-SqlServerLabHostCapabilityMatrix` | Providerinstallation, Bootstrap-Readiness und Sprachkatalog getrennt vor der Funktionsauswahl anzeigen ([Vertrag](Architecture/HOST_CAPABILITY_MATRIX.md)) |
 | `Get-SqlServerLabSsisCatalogCapability` | Vorhandene eigene Windows-/Hyper-V-/SQL-2019/2022/2025-Quelle read-only auf SSISDB-Voraussetzungen binden; keine Fixture oder Ausführung |
 | `Get-SqlServerLabSsisPackageDiagnostic` | Komponenten und `LoadFromXML` eines hashgebundenen eigenen DTSX/ISPAC im Gast beobachten; [Vertrag](Architecture/SSIS_PACKAGE_DIAGNOSTIC.md) |
 | `Get-SqlServerLabSsisExecutionDiagnostic` | Vorhandene Ausführung, bekannte Dateien, Registrierungen und gegebenenfalls Worker im eigenen SQL-2025-Gast beobachten; [Vertrag](Architecture/SSIS_EXECUTION_DIAGNOSTIC.md) |
