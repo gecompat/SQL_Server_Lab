@@ -785,6 +785,15 @@ try {
                 }
                 continue
             }
+            if ($path -eq '/api/host-capability-matrix') {
+                try {
+                    $result=& (Get-Module SqlServerLab) {param($request,$listenerPort) Invoke-LabHostCapabilityMatrixHttpRequest -Request $request -ListenerPort $listenerPort} $context.Request $Port
+                    Write-UiResponse -Context $context -Body ($result | ConvertTo-Json -Depth 20 -Compress) -ContentType 'application/json; charset=utf-8'
+                } catch {
+                    Write-UiResponse -Context $context -Body '{"Code":"HOST_MATRIX_HTTP_INVALID"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                }
+                continue
+            }
             if ($path -eq '/api/component-relations') {
                 try {
                     $result=& (Get-Module SqlServerLab) { param($request) Invoke-LabComponentRelationHttpRequest -Request $request } $context.Request

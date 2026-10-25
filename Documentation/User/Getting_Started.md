@@ -608,6 +608,14 @@ keinen Provider ab. Python, R und Java bleiben nach Katalogvariante getrennt,
 C# bleibt zurückgestellt. Erreichbarkeit ist noch keine erfüllte Launch-
 oder Sprachvoraussetzung. [Grenzen und nächste Schritte](../Architecture/HOST_CAPABILITY_MATRIX.md).
 
+Im Browser öffnet derselbe Eintrag unter **Lab-Umgebungen** die Matrix.
+SQL-Version wählen, bei Bedarf alle Provider anzeigen und **Übersicht ohne
+Hostabfrage lesen** verwenden. Für **Gewählten Provider bewusst lesend prüfen**
+zuvor Docker, Podman oder Hyper-V einzeln wählen. Alle Varianten einschließlich
+fehlender Katalogzuordnung und zurückgestelltem C# bleiben sichtbar.
+SQL-/Providerwechsel und Abbruch verwerfen die Anzeige; eine bereits laufende
+lesende Prüfung kann noch bis zu ihrer Zeitgrenze weiterlaufen.
+
 `Get-SqlServerLabExternalRuntimeCapability` und Dialog verwenden dieselbe
 Katalogentscheidung. Ohne bewusste Hostprüfung bleibt `CurrentReadiness`
 `NOT_CHECKED`; **Hostvoraussetzungen bewusst lesend prüfen** liest den Provider

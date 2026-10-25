@@ -122,6 +122,9 @@ COMMANDS
         probes by default; -CheckProviderReadiness checks each selected provider
         once, read-only. Reachability does not authorize execution. C# is deferred.
         Main menu: Hostfaehigkeiten vor der Funktionsauswahl (cursor/fallback).
+        The guided browser exposes the same overview under Lab-Umgebungen.
+        Read the overview without host probes; explicitly select one provider
+        for a current read-only readiness check. Changing selection clears results.
         Contract: Documentation/Architecture/HOST_CAPABILITY_MATRIX.md.
 
     Get-SqlServerLabExternalRuntimeCapability

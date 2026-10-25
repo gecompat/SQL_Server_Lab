@@ -11,8 +11,24 @@ $passed = 0
 $selector = Join-Path $repoRoot 'Tools/Get-CiTestSelection.ps1'
 foreach($path in @('Private/HostCapabilityMatrix.ps1','Private/HostCapabilityMatrixConsole.ps1','Public/Get-SqlServerLabHostCapabilityMatrix.ps1','Tests/Static/Invoke-HostCapabilityMatrixChecks.ps1','Private/DiagnosticBundleReadiness.ps1','Tools/Read-SqlServerLabDiagnosticReadiness.ps1','Private/SoftwareCatalog.ps1','Private/VersionCatalog.ps1','Private/ExternalRuntimeCapability.ps1','Catalogs/software.json','Catalogs/sql-server-versions.json','Providers/HyperV/provider.json','Private/ConsoleHelp.ps1','Public/Invoke-SqlServerLab.ps1')) {
     foreach($normalized in @($path,$path.Replace('/','\'))) {
-        Add-CheckResult "Host matrix dependency selects its actual suite: $normalized" ('Invoke-HostCapabilityMatrixChecks.ps1' -in (& $selector -ChangedPath @($normalized)).StaticChecks)
+        $selected=& $selector -ChangedPath @($normalized)
+        Add-CheckResult "Host matrix dependency selects its actual suite: $normalized" ('Invoke-HostCapabilityMatrixChecks.ps1' -in $selected.StaticChecks)
+        Add-CheckResult "Host matrix dependency also selects its browser contract: $normalized" ('Invoke-HostCapabilityMatrixBrowserChecks.ps1' -in $selected.StaticChecks)
     }
+}
+foreach($path in @('Private/HostCapabilityMatrixHttp.ps1','Ui/host-capability-matrix.js','Tests/Static/Fixtures/HostCapabilityMatrixHttpChecks.ps1','Tests/Static/Fixtures/HostCapabilityMatrixUiChecks.cjs','Tests/Static/Invoke-HostCapabilityMatrixBrowserChecks.ps1','Tools/Start-SqlServerLabUi.ps1','Ui/index.html','Ui/app.css','Tests/Common/ConnectionCenterCmsFullPageAcceptance.ps1','Tests/Common/ConnectionCenterCmsInspectionBrowserAcceptance.ps1')) {
+    foreach($normalized in @($path,$path.Replace('/','\'))) {
+        Add-CheckResult "Host browser dependency selects its actual suite: $normalized" ('Invoke-HostCapabilityMatrixBrowserChecks.ps1' -in (& $selector -ChangedPath @($normalized)).StaticChecks)
+    }
+}
+$hostProjection=& $selector -ChangedPath @('Private/HostCapabilityMatrixHttp.ps1')
+Add-CheckResult 'Read-only host HTTP projection retains its actual contract suite without provider mutation smokes' (
+    'Invoke-HostCapabilityMatrixBrowserChecks.ps1' -in $hostProjection.StaticChecks -and
+    -not ($hostProjection.Docker -or $hostProjection.Podman -or $hostProjection.HyperV -or $hostProjection.Mixed -or $hostProjection.Adapter))
+foreach($path in @('Public/Get-SqlServerLabHostCapabilityMatrix.ps1','Private/HostCapabilityMatrixExecutor.ps1')) {
+    $selected=& $selector -ChangedPath @($path)
+    Add-CheckResult "Underlying public API and unknown adjacent product source retain full native selection: $path" (
+        $selected.Docker -and $selected.Podman -and $selected.HyperV -and $selected.Mixed -and $selected.Adapter)
 }
 foreach($path in @('Tests/Static/Fixtures/SqlConnectionClipboardUiChecks.cjs','Tests\Static\Fixtures\SqlConnectionClipboardUiChecks.cjs')){
     $selected=& $selector -ChangedPath @($path)

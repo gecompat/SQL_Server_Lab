@@ -76,6 +76,39 @@ Katalogblockierung ist kein Beweis technischer Unmöglichkeit.
 Keine Zeile dieser Vertragsversion behauptet eine native Sprachabnahme oder
 vollständig erfüllte Launchvoraussetzungen.
 
+## Geführter Browser
+
+Im Bereich **Lab-Umgebungen** öffnet **Hostfähigkeiten vor der Funktionsauswahl**
+dieselbe Matrix. Beim Öffnen werden ausschließlich die geladenen SQL-
+Katalogversionen gelesen; erst die gewählte SQL-Version und **Übersicht ohne
+Hostabfrage lesen** führen zur Matrix. Alle drei Provider können gemeinsam
+angezeigt werden. Die bewusste aktuelle Prüfung verlangt genau einen Provider,
+damit eine einzelne Anfrage auf dessen vorhandenen Worker begrenzt bleibt.
+
+`POST /api/host-capability-matrix` akzeptiert nur exakt gebundene Loopback-
+Origin/Authority, JSON bis 2048 Bytes und zwei geschlossene Aktionen:
+`ReadVersions` mit ausschließlich `Action` oder `ReadMatrix` mit `Action`,
+exakter `SqlVersion`, `Provider` (`all`, `docker`, `podman`, `hyperv`) und
+echtem Boolean `CheckProviderReadiness`. Die Kombination `all` plus true
+wird vor dem Public-Aufruf abgelehnt. Methode, Pfad, Query, doppelte beziehungsweise
+unbekannte Felder und Typabweichungen sind fail-closed.
+
+Die Antwort `HostCapabilityMatrixBrowser/1.0` liefert `VERSIONS` oder `MATRIX`.
+Eine Matrixaktion ruft die Public-API genau einmal auf und projiziert deren
+Entscheidung ohne freie `Explanation`-Texte. Der Browser beschreibt feste
+Status-/Grund-/Folgeschrittcodes; er berechnet keine eigene Sprachkompatibilität.
+Geschlossene Felder, Identitäten, Scope, Zeitbindung und verweigerte
+Ausführungsautorität werden vor der Anzeige geprüft. Host-/Native-Rohtexte
+werden nicht übernommen. Die vollständige Antwort bleibt auf 256 KiB begrenzt.
+
+Providerstatus und Sprachvarianten bleiben sichtbar und ohne auswählbare
+Ausführung. Ein Wechsel von SQL-Version oder Provider verwirft die vorige
+Anzeige; Schließen/Wiederöffnen ebenso. Späte Antworten können keine neue
+Auswahl befüllen. Solange eine Anfrage läuft, startet Wiederöffnen keine
+weitere Hostprüfung. Es gibt keine Hintergrundprüfung oder Persistierung;
+Abbruch verwirft die Anzeige, eine bereits angeforderte lesende Prüfung
+läuft höchstens bis zur vorhandenen Workergrenze weiter.
+
 ## Frische, Grenzen und Fortsetzung
 
 `GeneratedAtUtc` und die einzelnen Beobachtungszeiten binden die Abfrage an
@@ -91,7 +124,7 @@ und Projektabnahme bleiben separat `NOT_ASSESSED`. `ExecutionSupported` und
 `MutationAllowed` sind immer false; `Actions` ist leer.
 
 Offen bleiben die umfassende Host-/Launchmatrix, aktuelle Ressourcen-/Kernel-
-und WSL-Konfliktbewertung, Browserübersicht sowie scopegebundene Native-
+und WSL-Konfliktbewertung sowie scopegebundene Native-
 Sprachnachweise. Der bereits vorhandene engere
 [External-Runtime-Vertrag](EXTERNAL_RUNTIME_CAPABILITY.md) bleibt für einzelne
 Linux-Manifestanforderungen einschließlich cgroup-/Rootful-Prüfung zuständig.

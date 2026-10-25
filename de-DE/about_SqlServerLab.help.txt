@@ -120,6 +120,9 @@ COMMANDS
         ohne Hostabfrage; -CheckProviderReadiness prüft jeden gewählten Provider
         einmal lesend. Erreichbarkeit erteilt keine Ausführungsfreigabe. C# bleibt zurückgestellt.
         Hauptmenü: Hostfähigkeiten vor der Funktionsauswahl (Cursor/Fallback).
+        Im geführten Browser steht dieselbe Übersicht unter Lab-Umgebungen.
+        Übersicht ohne Hostabfrage lesen; für die bewusste aktuelle Readiness
+        genau einen Provider wählen. Auswahlwechsel verwirft alte Ergebnisse.
         Vertrag: Documentation/Architecture/HOST_CAPABILITY_MATRIX.md.
 
     Get-SqlServerLabExternalRuntimeCapability

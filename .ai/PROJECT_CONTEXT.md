@@ -564,6 +564,10 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 - CORE-102 / #619 besitzt mit `Get-SqlServerLabHostCapabilityMatrix` eine
   providerübergreifende Katalog-/Bootstrapübersicht vor der Funktionsauswahl.
   Hauptmenü, Cursor und Fallback verwenden denselben Public-Vertrag;
+  der geführte Browser projiziert dieselbe Public-Matrix ohne freie Rohtexte.
+  Öffnen liest nur SQL-Katalogversionen; aktuelle Readiness verlangt einen
+  einzelnen bewusst gewählten Provider. Auswahlwechsel/Abbruch verwerfen
+  alte und verspätete Ergebnisse ohne Persistierung.
   Standard ohne Hostabfrage, bewusste Readiness einmal je gewähltem Provider.
   C# bleibt USER_DEFERRED; Kernel/Controller, WSL, Ressourcen, konkrete
   Launchanforderungen und Native-Sprachabnahmen bleiben offen.
