@@ -42,6 +42,11 @@ sources_of_truth:
   owned_host_ci_implementation: Private/ContainerOwnedHostIntegration.ps1
   owned_host_ci_schema: Schemas/container-owned-host-integration.schema.json
   owned_host_ci_coordinator: Tests/Common/OwnedHostTestScope.ps1
+  owned_host_ci_test_cleanup: Tests/Common/OwnedHostTestCleanup.ps1
+  owned_host_ci_test_completion: Tests/Integration/Complete-OwnedHostTestRoot.ps1
+  owned_host_ci_test_cleanup_checks: Tests/Static/Invoke-OwnedHostTestCleanupChecks.ps1
+  disposable_test_directory: Tests/Common/TestTemporaryDirectory.ps1
+  disposable_test_directory_checks: Tests/Static/Invoke-TestTemporaryDirectoryChecks.ps1
   owned_host_ci_checks: Tests/Static/Invoke-OwnedHostIntegrationChecks.ps1
   agent_working_contract: AGENTS.md
   foundation_ruleset: .ai/foundation/FOUNDATION_RULESET.md
@@ -70,6 +75,8 @@ sources_of_truth:
   csharp_native_request: Tests/Integration/Invoke-CSharpNativeRequestAcceptance.ps1
   csharp_native_evidence_checks: Tests/Static/Fixtures/CSharpNativeEvidenceChecks.ps1
   csharp_native_evidence_contracts: Tests/Common/CSharpNativeEvidence.ps1
+  csharp_native_evidence_archive: Tests/Common/CSharpNativeEvidenceArchive.ps1
+  csharp_native_evidence_archive_checks: Tests/Static/Invoke-CSharpNativeEvidenceArchiveChecks.ps1
   csharp_native_request_contracts: Tests/Common/CSharpNativeProfileRequest.ps1
   csharp_native_request_checks: Tests/Static/Fixtures/CSharpNativeRequestChecks.ps1
   csharp_native_acceptance_guest: Tests/Integration/Fixtures/CSharp/guest.ps1

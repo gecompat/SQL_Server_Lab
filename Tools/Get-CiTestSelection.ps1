@@ -185,7 +185,7 @@ end {
         @{ Pattern = '(?i)(PortableLabImport|portable-lab-import)'; Checks = @('Invoke-PortableLabImportChecks.ps1') },
         @{ Pattern = '(?i)(PortableContainerTransferExecutor(?!Runtime)|portable-container-transfer-executor(?!-runtime))'; Checks = @('Invoke-PortableContainerTransferExecutorChecks.ps1') },
         @{ Pattern = '(?i)(PortableContainerTransferExecutorRuntime|Invoke-SqlServerLabPortableContainerTransfer|portable-container-transfer-journal|Invoke-PortableContainerTransferAcceptance)'; Checks = @('Invoke-PortableContainerTransferExecutorRuntimeChecks.ps1','Invoke-RelationalCoreComparisonChecks.ps1') },
-        @{ Pattern = '(?i)(PortableContainerTransferPreflight|portable-container-transfer-preflight)'; Checks = @('Invoke-PortableContainerTransferPreflightChecks.ps1','Invoke-PortableContainerTransferExecutorChecks.ps1') },
+        @{ Pattern = '(?i)(PortableContainerTransferPreflight|portable-container-transfer-preflight|TransferPreflightAcceptanceCleanup)'; Checks = @('Invoke-PortableContainerTransferPreflightChecks.ps1','Invoke-PortableContainerTransferExecutorChecks.ps1','Invoke-TransferPreflightAcceptanceCleanupChecks.ps1') },
         @{ Pattern = '(?i)(RelationalCoreComparison|relational-core-comparison)'; Checks = @('Invoke-RelationalCoreComparisonChecks.ps1') },
         @{ Pattern = '(?i)(EvaluationWatch|evaluation-watch|SqlGuestEvaluationEvidence|sql-guest-evaluation-evidence)'; Checks = @('Invoke-EvaluationWatchChecks.ps1') },
         @{ Pattern = '(?i)(EvaluationRefreshPlan|evaluation-refresh-plan)'; Checks = @('Invoke-EvaluationRefreshPlanChecks.ps1','Invoke-EvaluationWatchChecks.ps1') },
@@ -205,7 +205,9 @@ end {
         @{ Pattern = '(?i)(DiagnosticBundle|DiagnosticReadiness|diagnostic-bundle|DIAGNOSTIC_BUNDLE|ClientReadiness|StateMachine|DesiredState|StorageContract|CleanupEngine|Private/BatchWorkflow\.ps1|sql-server-versions)'; Checks = @('Invoke-DiagnosticBundleChecks.ps1') },
         @{ Pattern = '(?i)(^\.agents/skills/|Invoke-SkillChecks|REPOSITORY_AGENT_SKILLS_BACKLOG|SqlServerLab\.psd1)'; Checks = @('Invoke-SkillChecks.ps1','Invoke-DocumentationChecks.ps1','Invoke-PrivacyScannerChecks.ps1') },
         @{ Pattern = '(?i)(CapabilityInventory|capability-evidence-index|ProviderCapability|provider\.json|SqlServerLab\.ps[dm]1)'; Checks = @('Invoke-CapabilityInventoryChecks.ps1') },
-        @{ Pattern = '(?i)(CapabilityEvidence|capability-evidence-index|CapabilityInventory|ExternalRuntimeCapability)'; Checks = @('Invoke-CapabilityEvidenceIdentityChecks.ps1') },
+        @{ Pattern = '(?i)(CapabilityEvidence|capability-evidence-index|CapabilityInventory|ExternalRuntimeCapability|TestTemporaryDirectory)'; Checks = @('Invoke-CapabilityEvidenceIdentityChecks.ps1','Invoke-TestTemporaryDirectoryChecks.ps1') },
+        @{ Pattern = '(?i)(OwnedHostTestCleanup|Complete-OwnedHostTestRoot|runtime-smoke-(docker|podman|mixed-providers))'; Checks = @('Invoke-OwnedHostTestCleanupChecks.ps1') },
+        @{ Pattern = '(?i)(CSharpNativeEvidenceArchive|CSharpNativeRequestAcceptance)'; Checks = @('Invoke-CSharpNativeEvidenceArchiveChecks.ps1') },
         @{ Pattern = '(?i)(LabNetwork|PortAllocation)'; Checks = @('Invoke-LabNetworkChecks.ps1','Invoke-PortAllocationChecks.ps1') },
         @{ Pattern = '(?i)(LabPreferences|PersistentLabData|StorageContract|StorageFilePlacement|HyperVResourceBinding|HyperVResourceMigration|HyperVImageMigration|hyperv-(resource-(binding|migration)|image-migration)|lab-storage-(intent|bound-plan|runtime-receipt)|SecretProvider|TestEnvironment)'; Checks = @('Invoke-DataRootChecks.ps1','Invoke-HyperVResourceBindingChecks.ps1','Invoke-HyperVImageMigrationChecks.ps1','Invoke-HyperVResourceMigrationChecks.ps1','Invoke-StorageMigrationChecks.ps1','Invoke-StorageFilePlacementChecks.ps1','Invoke-TestEnvironmentChecks.ps1') },
         @{ Pattern = '(?i)(LicenseProfile|license-profile)'; Checks = @('Invoke-LicenseProfileChecks.ps1','Invoke-PrivacyScannerChecks.ps1','Invoke-HyperVSqlImageBuilderChecks.ps1') },
@@ -357,6 +359,10 @@ end {
 
             $knownDomainChange = $pathRuntime.Docker -or $pathRuntime.Podman -or $pathRuntime.Mixed -or $pathRuntime.HyperV -or $pathRuntime.Adapter
             $staticOnlyProductChange = $runtimePath -match '(?i)(PersistentStorageCatalog|PersistentStorageArtifact|persistent-storage-(catalog|artifact)|ResourceSet|ResourcePlan|ScenarioContract|scenario-contract|EvaluationWatch|evaluation-watch|SqlGuestEvaluationEvidence|sql-guest-evaluation-evidence|AutomationApiPlan|automation-api-plan|Get-SqlServerLabAutomationPlan)'
+            # The legacy executor planner stays BLOCKED and never arranges a
+            # provider or executes SQL. Its closed schemas need the plan suite;
+            # the distinct ExecutorRuntime and acceptance paths retain natives.
+            $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -cmatch '^(Private/PortableContainerTransferExecutor\.ps1|Public/Get-SqlServerLabPortableContainerTransferExecutorPlan\.ps1|Schemas/portable-container-transfer-executor-(plan|journal)\.schema\.json)$'
             $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -match '^(Private/SecurityToolCatalog\.ps1|Public/Get-SqlServerLabSecurityToolPlan\.ps1|Catalogs/security-tools\.json|Schemas/security-tool-(catalog|request|plan)\.schema\.json)$'
             $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -match '^(Private/ScenarioExecutor\.ps1|Schemas/scenario-execution-(plan|journal)\.schema\.json)$'
             $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -match '^(Private/ScenarioCapabilityDecision\.ps1|Schemas/scenario-capability-(plan|decision)\.schema\.json)$'

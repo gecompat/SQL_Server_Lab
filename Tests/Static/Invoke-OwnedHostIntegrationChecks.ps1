@@ -191,7 +191,7 @@ $module = New-Module -ArgumentList $repoRoot,$fixtureRoot -ScriptBlock {
     $preflightTokens=$null;$preflightErrors=$null
     $preflightAst=[Management.Automation.Language.Parser]::ParseFile((Join-Path $repoRoot 'Tests/Integration/Invoke-PortableContainerTransferPreflightAcceptance.ps1'),[ref]$preflightTokens,[ref]$preflightErrors)
     $newCarrier=@($preflightAst.FindAll({param($Node)$Node -is [Management.Automation.Language.FunctionDefinitionAst] -and $Node.Name -ceq 'New-TransferPreflightAcceptanceRun'},$true))
-    $incompleteGuard=@($preflightAst.FindAll({param($Node)$Node -is [Management.Automation.Language.IfStatementAst] -and $Node.Clauses[0].Item1.Extent.Text -ceq '$requestedStateRoot -and $script:unreturnedCreation'},$true))
+    $incompleteGuard=@($preflightAst.FindAll({param($Node)$Node -is [Management.Automation.Language.IfStatementAst] -and $Node.Clauses[0].Item1.Extent.Text -ceq '$script:unreturnedCreation'},$true))
     $dataCleanupGuard=@($preflightAst.FindAll({param($Node)$Node -is [Management.Automation.Language.IfStatementAst] -and $Node.Clauses[0].Item1.Extent.Text.StartsWith('$requestedStateRoot -and $dataRoot -and -not $cleanupFailed')},$true))
     Assert-Own (-not $preflightErrors -and $newCarrier.Count -eq 1 -and $incompleteGuard.Count -eq 1 -and $dataCleanupGuard.Count -eq 1) 'Partial-New fixture uses actual carrier and cleanup guards'
     $partialNewEvidence=New-Module -ArgumentList $newCarrier[0].Extent.Text,$incompleteGuard[0].Extent.Text,$dataCleanupGuard[0].Extent.Text -ScriptBlock {
