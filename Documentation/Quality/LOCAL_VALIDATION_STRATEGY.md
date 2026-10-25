@@ -2213,6 +2213,33 @@ Einzelpfadauswahl mit beiden Pfadtrennern. Produktmodulimport, Hostprüfung,
 historischer Lookup, State, Provider-Runtime, Secrets, Installation und SQL
 bleiben ungenutzt; native Provider-/SQL-Sprachnachweise bleiben separat offen.
 
+Die additive Browseraktion `ReadRecordedEvidence` verwendet denselben Public-
+1.1-Resolver und Indexreader. Die HTTP-Fixture prüft separat den hostfreien
+Aufruf, unveränderte Public-Objekte, die geschlossene Metadatenprojektion sowie
+Count-/Typ-/Shape- und Autoritätsvetos. Die JS-Fixture prüft die bewusste Aktion,
+Legacy-/Missing-/Unavailable-Anzeigen, Identitätsbindung, fremde Antworten,
+Busy, Cancel und verspätete Historienantworten. Dies sind Offlineprüfungen.
+Der Vollseiten-Harness 1.1 verwendet fünf synthetische Bootstrapreads, darunter
+eine leere gesperrte TLS-Sitzungssicht ohne Zugriff auf echte TLS-Daten. Er bindet das exakte aktuelle HTML-Assetinventar und
+die zusätzlichen Reader-/Schema-/Indexbytes. Für die vier bisherigen Tupel
+folgt nach jedem Optionsread und jeder Katalogentscheidung ein expliziter
+Historienread: zwölf HTTP-Aktionen, acht Public-Aufrufe, davon vier mit
+historischem Opt-in. Die ausschließlich während des Dispatchs beobachteten
+Indexreads werden pro Aktion gezählt; zusätzliche Oracle-Lesevorgänge sind
+keine Browserdispatches. Produktmodulimport, aktuelle Hostprüfung, State,
+Provider-Runtime, Secrets und SQL bleiben gesperrt. Eine gerenderte Ausführung
+wird getrennt vom Offline-Harness protokolliert; keine neue native Abnahme.
+
+Am 2026-10-25 bestand die gerenderte Erweiterung im isolierten Browser: alle
+16 aktuell deklarierten Assets und 46 Quellbindungen, zwölf Fachaktionen,
+acht Public-Aufrufe und vier explizite Indexlesungen. Die vier beschriebenen
+Tupel zeigten die reale Legacyindex-Grenze, NOT_VERIFIED und weiterhin
+NOT_CHECKED für aktuelle Host-/SQL-Prüfung. Wiederöffnen leerte beide Ausgaben;
+Dialog, eigener Listener und Tab wurden geschlossen. Positive historische
+Zähler sowie Fehler-/Driftfälle sind ausschließlich offline geprüft.
+Die ursprünglichen Fixture- und verspäteten Abschluss-FAILs bleiben erhalten;
+der erfolgreiche gebündelte Lauf verwendete dieselbe Vier-Minuten-Grenze.
+
 `Invoke-ExternalRuntimeCapabilityChecks.ps1` durchläuft den tatsächlichen
 Public-Aufruf, Katalogresolver, Reducer und bestehenden Manifestdialog.
 Provider-Metadaten stammen aus dem Repository; native Prozessgrenzen werden
