@@ -9,6 +9,11 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $failures = [System.Collections.Generic.List[string]]::new()
 $passed = 0
 $selector = Join-Path $repoRoot 'Tools/Get-CiTestSelection.ps1'
+foreach($path in @('Tests/Static/Fixtures/SqlConnectionClipboardUiChecks.cjs','Tests\Static\Fixtures\SqlConnectionClipboardUiChecks.cjs')){
+    $selected=& $selector -ChangedPath @($path)
+    Add-CheckResult "Clipboard fixture selects its actual WorkflowUI execution: $path" ('Invoke-WorkflowUiChecks.ps1' -in $selected.StaticChecks)
+    Add-CheckResult "Clipboard fixture alone does not select providers: $path" (-not ($selected.Docker -or $selected.Podman -or $selected.Mixed -or $selected.HyperV -or $selected.Adapter))
+}
 foreach($path in @('Private/AuthenticatedTlsLiveQualificationHttp.ps1','Tools/WorkflowUiTlsLiveQualification.ps1','Ui/tls-live-qualification.js','Tests/Static/Fixtures/TlsLiveQualificationUiChecks.cjs')){
     foreach($normalized in @($path,$path.Replace('/','\'))){
         $selected=& $selector -ChangedPath @($normalized)

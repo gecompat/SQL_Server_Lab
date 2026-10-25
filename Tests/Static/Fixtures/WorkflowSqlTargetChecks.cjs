@@ -57,9 +57,11 @@ const document = {
   },
   addEventListener(type, callback) { documentEvents.set(type, [...(documentEvents.get(type) || []), callback]); }
 };
+const clipboardMounts = [];
 const context = vm.createContext({ document, console, URLSearchParams,
   crypto: require('node:crypto').webcrypto, TextEncoder, AbortController,
-  window: { setInterval() {}, setTimeout() {}, clearTimeout() {}, alert() {} },
+  window: { setInterval() {}, setTimeout() {}, clearTimeout() {}, alert() {},
+    sqlServerLabConnectionClipboard: { mount(element) { clipboardMounts.push(element.id); } } },
   sqlServerLabUiFetch: (...args) => { fetchRequests.push(args); return args[0] === '/api/jobs' ? Promise.resolve({ ok: true, json: async () => [] }) : new Promise(() => {}); }, setTimeout() {}, clearTimeout() {}, queued: [] });
 const fetchRequests = [];
 const run = (code) => vm.runInContext(code, context, { timeout: 5000 });
@@ -216,6 +218,11 @@ check('Actual renderer names both instances and retains exact action bindings', 
   assert.ok(output.includes('<strong>Instanz: primary</strong>'));
   assert.ok(output.includes('<strong>Instanz: analytics</strong>'));
   assert.ok(output.includes('data-run="run-a" data-instance="analytics"'));
+});
+check('Both real lab renderers mount Clipboard only at their own lab containers', () => {
+  const before = clipboardMounts.length;
+  run('renderActiveLabs(workflow.ActiveLabs); renderHyperVLabs(workflow.HyperVLabs);');
+  assert.deepEqual(clipboardMounts.slice(before), ['active-labs', 'hyperv-labs']);
 });
 check('Actual click handler opens the selected named target', () => {
   open('analytics');

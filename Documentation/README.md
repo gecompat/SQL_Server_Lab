@@ -55,6 +55,8 @@ führt von dort zu Vertrag, Format und Evidence.
 - [Persistentes Retrieval](Architecture/AI_PERSISTENT_RETRIEVAL.md) und
   [SQL-seitige HTTPS-Embeddings](Architecture/AI_SQL_HTTPS_BRIDGE.md): eigene
   technische Referenzpfade mit getrennten Nachweisgrenzen.
+- [TLS-001-Abschlussübersicht](Project_Planning/TLS_001_COMPLETION_CHECKLIST.md):
+  endliche Pflichtkriterien, bereits belegte Grenzen und verbleibende Arbeit.
 - [Linux-TLS-Kryptomatrix](Quality/TLS_LINUX_CLIENT_MATRIX_ACCEPTANCE_2026-10-22.md):
   datierter Clientnachweis; kein öffentlicher Linux-Registry-/Exportpfad.
 - [Explizite TLS-Live-API](Quality/TLS_LIVE_QUALIFICATION_API_ACCEPTANCE_2026-10-23.md):
@@ -68,6 +70,11 @@ führt von dort zu Vertrag, Format und Evidence.
   [Ressourcenprofile der separaten Liveaktion](Quality/TLS_UI_LIVE_RESOURCE_PROFILES_ACCEPTANCE_2026-10-25.md)
   sind für Standard und Performance mit beiden Providern und allen drei
   operativen SQL-Profilen zusätzlich abgenommen.
+- [Angezeigte Verbindung kopieren](HowTo/WORKFLOW_UI.md#angezeigte-verbindung-kopieren):
+  exakter sichtbarer Text mit erhaltenen Passwortplatzhaltern. Die
+  [native Abnahme](Quality/TLS_UI_CONNECTION_CLIPBOARD_ACCEPTANCE_2026-10-25.md)
+  belegt die isolierte Browserzwischenablage und beide SQL-Clientstacks für
+  kompakte Windows-/Docker-/Podman-SQL-2025-CU9-Labs in beiden TLS-Modi.
 - [Authentifiziertes Container-Lab erstellen](HowTo/WORKFLOW_UI.md#authentifiziertes-container-lab-erstellen):
   getrennte explizite False-Wahl unter Windows für SQL 2019 CU32, SQL 2022 CU27
   und SQL 2025 CU9;
