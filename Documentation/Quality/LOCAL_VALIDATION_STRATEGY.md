@@ -2528,8 +2528,15 @@ Diese Offline-Prüfung ersetzt den erforderlichen Docker-Providernachweis nicht.
 
 Mixed-Preflight und -Smoke, Hyper-V-Preflight und der Standardmodus `lifecycle`
 sowie Adapterinstallation, -Smoke und -Cleanup führen ihre Rohstreams ebenfalls
-nur in lokalen privaten Logs. Der Mixed-Rohlogupload entfällt; veröffentlichte
-Fehler und Ergebnisse sind fest vorgegeben. Die vorhandenen Testskripte und
+nur in lokalen privaten Logs. Der Mixed-Rohlogupload entfällt.
+Mixed-Runtimediagnosen liegen im geschützten eigenen Policyroot außerhalb
+von `RUNNER_TEMP` und bleiben nach dessen Bereinigung erhalten. Die bestehende
+Privacy-Fixture prüft erfolgreiche, mit Exitcode fehlgeschlagene und durch
+Exception abgebrochene echte Workflowblöcke, die Bindung des Kindprozesses an
+denselben StateRoot und das Überleben des Logs nach synthetischem Runner-Cleanup.
+Ein Gegenfall bildet den Diagnoseverlust am früheren Temp-Pfad ab.
+Preflightlogs bleiben temporär. Dies repariert keinen Runtime- oder Mutexfehler.
+Veröffentlichte Fehler und Ergebnisse sind fest vorgegeben. Die vorhandenen Testskripte und
 Argumente bleiben erhalten; eine PowerShell-Prozessgrenze erfasst auch direkte
 Konsolenausgaben. Der Adapter-Cleanup behält seinen bisherigen Best-Effort-Vertrag.
 `Invoke-RuntimeSmokePrivacyChecks.ps1` führt die echten Workflowblöcke mit
