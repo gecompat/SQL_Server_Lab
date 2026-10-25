@@ -119,6 +119,7 @@ COMMANDS
     Get-SqlServerLabExternalRuntimeCapability
     Get-SqlServerLabSsisCatalogCapability
     Get-SqlServerLabSsisPackageDiagnostic - Observes components and LoadFromXML for a hash-bound owned guest package without execution.
+    Get-SqlServerLabSsisExecutionDiagnostic - Observes a bound SSISDB execution context without starting packages or repairing the installation.
     Install-SqlServerLabSsisComponent - Installs only SSIS into a bound prepared Windows SQL Server 2025 run.
     New-SqlServerLabSsisCatalogFixture - Creates the SSISDB fixture in a bound owned run.
     Remove-SqlServerLabSsisCatalogFixture - Removes only the receipted owned SSISDB catalog folder.

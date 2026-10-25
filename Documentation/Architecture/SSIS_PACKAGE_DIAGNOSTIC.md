@@ -96,6 +96,11 @@ Compilerartefakte enthalten keinen Paketinhalt. Diagnoseausgabe und Hashes
 bleiben im geschützten lokalen Consumerbereich und werden nicht versioniert.
 Es gibt keinen dauerhaften Diagnosejournal- oder Cleanupzustand im Lab-Run.
 
+Der getrennte [Ausführungskontextdiagnoseweg](SSIS_EXECUTION_DIAGNOSTIC.md)
+liest vorhandene SSISDB-Ausführungen und feste Runtime-/Registrierungsmetadaten.
+Auch er startet kein Paket; ein bereits aktiver Worker bleibt eine ausdrücklich
+begrenzte zusätzliche Beobachtung.
+
 ## Quellen
 
 Microsoft beschreibt [Package.LoadFromXML und den Event-Parameter](https://learn.microsoft.com/en-us/dotnet/api/microsoft.sqlserver.dts.runtime.package.loadfromxml?view=sqlserver-2019),

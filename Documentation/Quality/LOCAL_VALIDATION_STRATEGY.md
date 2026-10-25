@@ -5709,6 +5709,49 @@ nicht bestanden; spätere stabile Reads ersetzen ihn nicht. Eigene terminale
 States und Fehlerbelege bleiben lokal erhalten. Dieser Befund wird nicht auf
 die zuvor separat bestandenen Docker-/Podman-Artefaktläufe übertragen.
 
+## SSISDB-Ausführungskontextdiagnose
+
+Die fokussierte Suite `Tests/Static/Invoke-SsisExecutionDiagnosticChecks.ps1`
+besteht mit 76 synthetischen Fällen. Sie prüft exakte Int64-Bindungen,
+Vorher-/Nachherbindung, einen einzigen VM-ID-gebundenen Dispatch ohne Replay,
+geschlossene Rückgaben und widersprüchliche Antworten. Im produktiven
+Gastkörper werden nur SQL-, Registry-, Dateiwurzel- und Prozesszugriffe durch
+synthetische Grenzen ersetzt. Der Fall gültig→abweichend→gültig verwirft auch
+einen nur zwischenzeitlichen SQL-Bindungswechsel. Jahrespräfixe in numerischen
+Dateiversionen bleiben zulässig. Diese Suite startet keine VM und verbindet
+sich nicht mit SQL.
+
+Der öffentliche Diagnoseaufruf wurde im vorhandenen eigenen Windows-/Hyper-V-/
+SQL-2025-Run nativ ausgeführt. Der abschließende Metadatenread beobachtete alle
+sechs festen Dateien, beide Editionsregistrierungen und die sechs festen
+COM-Registrierungen. Eine anfängliche Verwechslung von Recovery-Kennung und
+`service_broker_guid` wurde fail-closed abgewiesen; der ursprüngliche Fehlerbeleg
+bleibt privat erhalten. Die Diagnose verwendet jetzt dieselbe Katalogkennung
+wie der Analyze-Consumer.
+
+Ein eigener Kataloglauf mit ausschließlich einer Stock-ForLoop ermöglichte
+zusätzlich die Beobachtung eines laufenden 64-Bit-Worker-Kandidaten und seiner
+bekannten Executor-/Core-Dateien. Die eigene Ausführung wurde kontrolliert
+abgebrochen; eigene Consumerdatenbank und Katalogobjekte sind nachgewiesen
+entfernt. Die bestehende SSISDB und der Lab-Run bleiben ausdrücklich erhalten.
+Diese Beobachtung belegt weder Komponentenaktivierung noch eine erfolgreiche
+SSIS-Pipeline. Es erfolgte keine Installations- oder Registrierungsreparatur.
+Die [Aussagegrenzen](../Architecture/SSIS_EXECUTION_DIAGNOSTIC.md) gelten auch
+bei vollständig beobachteten Metadaten.
+
+Exportliste und Testselektor wählen konservativ 17 statische Einstiegssuites
+mit 81 enthaltenen Prüfskripten sowie die bestehenden fünf Runtimegates aus.
+Die betroffenen statischen Prüfungen bestehen. Ein späterer stabiler Lauf
+meldete einen Zeitbudgetfehler der HTTP-Vorschaufixture; ihr fokussierter
+Nachlauf bestand mit 87 Fällen und ohne Providermutation. Der ursprüngliche
+Fehlerbeleg bleibt privat erhalten. Erforderliche finale PR-Gates bleiben
+erhalten. Die Erweiterung führt keine Pfadausnahme oder
+Gateabsenkung ein. Native Diagnose verwendet den vorhandenen Run statt einer
+weiteren Umgebung. Ein Implementierer und derselbe unabhängige Reviewer prüfen
+die neue Lesegrenze und konkrete Korrekturen. Unveränderte grüne Prüfungen werden
+nicht durch zusätzliche Modellrunden bestätigt; tatsächliche Geld- und
+Tokenkosten bleiben unbekannt.
+
 ## SSIS-Paketladediagnose
 
 Die fokussierte Suite `Tests/Static/Invoke-SsisPackageDiagnosticChecks.ps1`

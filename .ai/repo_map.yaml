@@ -464,6 +464,11 @@ sources_of_truth:
   validation_release_artifact: Tests/Static/Invoke-ReleaseArtifactChecks.ps1
   client_readiness: Tools/Test-SqlServerLabClientReadiness.ps1
   ssis_catalog_capability_public: Public/Get-SqlServerLabSsisCatalogCapability.ps1
+  ssis_execution_diagnostic_public: Public/Get-SqlServerLabSsisExecutionDiagnostic.ps1
+  ssis_execution_diagnostic_projection: Private/SsisExecutionDiagnostic.ps1
+  ssis_execution_diagnostic_guest: Providers/HyperV/HyperVSsisExecutionDiagnostic.ps1
+  ssis_execution_diagnostic_contract: Documentation/Architecture/SSIS_EXECUTION_DIAGNOSTIC.md
+  validation_ssis_execution_diagnostic: Tests/Static/Invoke-SsisExecutionDiagnosticChecks.ps1
   ssis_package_diagnostic_public: Public/Get-SqlServerLabSsisPackageDiagnostic.ps1
   ssis_package_diagnostic_artifact_and_binding: Private/SsisPackageDiagnostic.ps1
   ssis_package_diagnostic_guest: Providers/HyperV/HyperVSsisPackageDiagnostic.ps1

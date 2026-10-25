@@ -836,6 +836,7 @@ abgewiesen. SQL-seitige Verifikation und freie Advanced-Eingaben bleiben
 | `Get-SqlServerLabExternalRuntimeCapability` | Explizite Katalogentscheidung, optional begrenzte Hostprüfung oder exakte historische Identität; keine aktuelle SQL-Abnahme oder Mutation |
 | `Get-SqlServerLabSsisCatalogCapability` | Vorhandenen eigenen Windows-/Hyper-V-/SQL-2019/2022/2025-Run read-only an SSISDB-Voraussetzungen binden; keine Fixture, Verbindung oder Ausführung |
 | `Get-SqlServerLabSsisPackageDiagnostic` | Komponentenbestand und `LoadFromXML` eines hashgebundenen eigenen DTSX/ISPAC im Windows-Gast lesen; [Vertrag und Grenzen](Documentation/Architecture/SSIS_PACKAGE_DIAGNOSTIC.md) |
+| `Get-SqlServerLabSsisExecutionDiagnostic` | Festen SSISDB-Ausführungskontext, Dateien und Registrierungen eines eigenen Runs lesend beobachten; [Vertrag und Grenzen](Documentation/Architecture/SSIS_EXECUTION_DIAGNOSTIC.md) |
 | `Install-SqlServerLabSsisComponent` | Nur SSIS in einen gebundenen vorbereiteten Windows-SQL-2025-Run aus vorhandenen hashgebundenen Medien nachinstallieren |
 | `New-SqlServerLabSsisCatalogFixture` | Im gebundenen eigenen Run SSISDB und drei synthetische Ausführungen für eine read-only Analysequelle bereitstellen |
 | `Remove-SqlServerLabSsisCatalogFixture` | Nur den quittierten eigenen SSISDB-Katalogordner aus einem gebundenen Run entfernen |
