@@ -387,6 +387,19 @@ $readerSelection=& $selector -ChangedPath @('Private/DiagnosticBundleReader.ps1'
 foreach($check in @('Invoke-DiagnosticBundleChecks.ps1','Invoke-ContainerAutoStartChecks.ps1','Invoke-ContainerReconcileChecks.ps1','Invoke-ComponentRelationPlanChecks.ps1','Invoke-EvaluationRefreshPlanChecks.ps1')) {
     Add-CheckResult "CU-Bindung gemeinsamer Readeraufrufer $check" ($check -in $readerSelection.StaticChecks)
 }
+foreach($path in @('Catalogs/software.json','Tests/Static/Fixtures/ResourceWatchChecks.ps1','Tests/Static/Fixtures/CuStatusSupportHtmlChecks.ps1')) {
+    foreach($normalized in @($path,$path.Replace('/','\'))){
+        $selected=& $selector -ChangedPath @($normalized)
+        Add-CheckResult "SqlPackage catalog/watch fixture selects actual VersionCatalog execution: $normalized" ('Invoke-VersionCatalogChecks.ps1' -in $selected.StaticChecks)
+        if($path.StartsWith('Tests/',[StringComparison]::Ordinal)){
+            Add-CheckResult "Watch fixture alone does not select providers: $normalized" (-not ($selected.Docker -or $selected.Podman -or $selected.Mixed -or $selected.HyperV -or $selected.Adapter))
+        }else{
+            Add-CheckResult "Software catalog retains all provider gates: $normalized" ($selected.Docker -and $selected.Podman -and $selected.Mixed -and $selected.HyperV -and $selected.Adapter)
+        }
+    }
+}
+$watchMixed=& $selector -ChangedPath @('Tests/Static/Fixtures/ResourceWatchChecks.ps1','Private/UnknownWatchProduct.ps1')
+Add-CheckResult 'Known watch fixture cannot suppress unknown product fallback' ('Invoke-VersionCatalogChecks.ps1' -in $watchMixed.StaticChecks -and $watchMixed.Docker -and $watchMixed.Podman -and $watchMixed.Mixed -and $watchMixed.HyperV -and $watchMixed.Adapter)
 foreach($path in @('Private/VersionCatalog.ps1','Catalogs/sql-server-versions.json')) {
     Add-CheckResult "CU-Bindung Diagnosekatalog $path" ('Invoke-DiagnosticBundleChecks.ps1' -in (& $selector -ChangedPath @($path)).StaticChecks)
 }

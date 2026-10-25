@@ -1402,6 +1402,12 @@ internal_components:
     validation: Tests/Static/Invoke-HyperVImageBuilderChecks.ps1
   - name: SoftwareCatalog
     source: Private/SoftwareCatalog.ps1
+    catalog: Catalogs/software.json
+    tool_image_source: Private/ContainerToolImage.ps1
+    tool_image_recipe: Images/Tools/Linux/recipe.json
+    validation: Tests/Static/Invoke-SoftwareCatalogChecks.ps1
+    native_acceptance: Tests/Integration/Invoke-ContainerToolAcceptance.ps1
+    current_sqlpackage_acceptance: Documentation/Quality/SQLPACKAGE_170_5_96_ACCEPTANCE_2026-10-25.md
     responsibilities:
       - "Python-, R- und Java-Anforderungen in providerneutrale Software-Intents normalisieren"
       - "SQL-Version, Betriebssystem, Architektur, Provider und Runtimevariante deterministisch aufloesen"

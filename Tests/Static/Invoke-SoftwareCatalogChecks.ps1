@@ -76,10 +76,13 @@ $result = & $module {
         Optional=$false; Packages=@(); RequestSource='software'
     }) -SqlVersion '2019' -Provider hyperv -OperatingSystem windows
     $generalRequest = [PSCustomObject]@{
-        Id='sqlpackage'; Version='170.4.83.3'; Variant=$null; Scope='instance'; InstallMethod='catalog'
+        Id='sqlpackage'; Version='170.5.96.0'; Variant=$null; Scope='instance'; InstallMethod='catalog'
         Optional=$false; Packages=@(); RequestSource='software'
     }
     $generalPlan = Resolve-LabExternalRuntimePlan -SoftwareItem $generalRequest -SqlVersion '2022' -Provider docker -OperatingSystem linux
+    $oldGeneralRequest = $generalRequest | Select-Object *
+    $oldGeneralRequest.Version = '170.4.83.3'
+    $oldGeneralPlan = Resolve-LabExternalRuntimePlan -SoftwareItem $oldGeneralRequest -SqlVersion '2022' -Provider docker -OperatingSystem linux
     $toolImagePlan = New-LabContainerToolImagePlan -Provider docker -SqlVersion '2022' -SoftwarePlans @($generalPlan)
     $nullFreeInputPlan = @(Resolve-LabSoftwarePlansForInstance -Instance ([PSCustomObject]@{
         version='2022'; provider='docker'; os='linux'; serverConfig=$null
@@ -174,11 +177,14 @@ $result = & $module {
             $csharpPlan.Language -eq 'CSharp'
         GeneralSoftware = $generalPlan.Kind -eq 'generalSoftware' -and
             $generalPlan.Status -eq 'RESOLVED' -and
-            $generalPlan.RuntimeVersion -eq '170.4.83.3' -and
+            $generalPlan.RuntimeVersion -eq '170.5.96.0' -and
+            $generalPlan.RecipeVersion -eq '2' -and $toolImagePlan.RecipeVersion -eq '2' -and
             @($generalPlan.ArtifactRefs).Count -eq 2 -and
             [string]$toolImagePlan.Contract.Name -eq 'SqlServerLab.ContainerToolImagePlan' -and
             [string]$toolImagePlan.ImageKey -match '^[a-f0-9]{64}$' -and
-            [string]$toolImagePlan.SqlPackageArchiveSha256 -eq 'e81ede2429f3a15d9e752845c8928569c7706b3a911fad2d1717c0f03e0fc7c3'
+            [string]$toolImagePlan.SqlPackageArchiveSha256 -eq 'e2ee0d6ec74b9089db926f44fdc681fe5d22bd1e68c938ff10c25a54f53ce5d4'
+        GeneralSoftwareOldPin = $oldGeneralPlan.Status -eq 'DECLARED_UNSUPPORTED' -and
+            $oldGeneralPlan.ReasonCode -eq 'RUNTIME_COMBINATION_NOT_CATALOGUED'
         GeneralSoftwareNullInput = $nullFreeInputPlan.Status -eq 'RESOLVED' -and
             $freeInputPlan.Status -eq 'DECLARED_UNSUPPORTED' -and
             $freeInputPlan.ReasonCode -eq 'GENERAL_SOFTWARE_FREE_INPUT_FORBIDDEN'
@@ -239,6 +245,7 @@ Add-CheckResult -Name 'SQL-2022-Python wird fuer Podman deterministisch als frei
 Add-CheckResult -Name 'SQL Server 2025 erbt keine unbelegte SQL-2022-Runtimeannahme' -Success $result.Sql2025
 Add-CheckResult -Name 'C# bleibt ohne freigegebenen Binär- und Native-Evidence-Pfad explizit fail-closed' -Success $result.CSharp
 Add-CheckResult -Name 'SqlPackage erhält einen kataloggebundenen Tool-Image-Plan mit SHA-256-Artefakten' -Success $result.GeneralSoftware
+Add-CheckResult -Name 'Alter ausdrücklicher SqlPackage-Versionspin wird nicht stillschweigend aktualisiert' -Success $result.GeneralSoftwareOldPin
 Add-CheckResult -Name 'Leere Manifestfelder bleiben erlaubt, freie allgemeine Softwarequellen werden abgelehnt' -Success $result.GeneralSoftwareNullInput
 Add-CheckResult -Name 'SqlPackage und SQL-2022-External-Runtime erhalten einen gemeinsam gebundenen Derived-Image-Plan' -Success $result.CombinedContainerImage
 Add-CheckResult -Name 'Nicht katalogisierte Zusatzpakete werden vor der Mutation abgelehnt' -Success $result.PackageLock

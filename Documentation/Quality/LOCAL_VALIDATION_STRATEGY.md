@@ -4599,6 +4599,15 @@ wenn deren API bis zum Ende der Poll-Wartezeit unerreichbar bleibt.
 
 ### Kataloggebundenes SqlPackage, BACPAC oder Container-Attach betroffen
 
+Die [Abnahme vom 2026-10-25](SQLPACKAGE_170_5_96_ACCEPTANCE_2026-10-25.md)
+bestätigt SqlPackage `170.5.96.0` mit seinem self-contained .NET-10-Archiv
+getrennt unter Docker und Podman: je 30 native Assertions einschließlich
+Restart, synthetischem BACPAC-/Attach-Inhalt, erwartetem SQL-Fehlerjournal
+und eigenem Cleanup. Beide Läufe verwendeten frische explizite
+[OwnedHost-StateRoots](../Architecture/OWNED_HOST_CI_ISOLATION.md).
+Die zugehörigen elf statischen Suites und der Sample-Handler-Check bestanden;
+finale PR-Gates und weitere Versions-/Providerpfade bleiben getrennte Aussagen.
+
 ```powershell
 .\Tests\Static\Invoke-SampleHandlerChecks.ps1
 .\Tests\Static\Invoke-SoftwareCatalogChecks.ps1
