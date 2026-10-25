@@ -21,6 +21,35 @@ benannt. Die Anzeige startet keine Verbindung und behauptet keinen aktuellen
 Zertifikatsnachweis. Eine frühere Qualifikation wird dadurch nicht ausgewertet.
 Die [ausdrückliche Liveprüfung](#tls-jetzt-prüfen) ist eine separate Aktion.
 
+## Angezeigte Verbindung kopieren
+
+1. Öffnen Sie die Karte des gewünschten Container- oder Hyper-V-Labs und
+   suchen Sie die richtige SQL-Instanz.
+2. Prüfen Sie den angezeigten **Connection String** und dessen TLS-Werte.
+3. Klicken Sie daneben auf **Connection String kopieren**. Nach erfolgreicher
+   Browserfreigabe erscheint „Connection String kopiert.“ an genau dieser Zeile.
+
+Der angezeigte Text wird unverändert übernommen. Ein vorhandener
+Passwortplatzhalter wie `***` bleibt erhalten und muss beim Verbinden durch
+das eigene Passwort ersetzt werden. Der TLS-Prüfstatus hat weiterhin seine
+[getrennte Bedeutung](#verbindungen-anzeigen).
+
+Während ein Kopiervorgang auf den Browser wartet, sind weitere Kopieraktionen
+gesperrt. Aktualisiert sich die Labansicht, erhält die neue Ansicht keine
+Erfolgsmeldung für einen vorherigen Text. Ein bereits gestarteter Schreibvorgang
+kann dabei noch abgeschlossen werden.
+
+Wenn der Browser den Zugriff nicht unterstützt oder verweigert, erscheint
+eine feste Meldung. Prüfen Sie die Browserfreigabe oder markieren und kopieren
+Sie den sichtbaren Text manuell. Die Aktion benötigt einen sicheren
+Browserkontext, beispielsweise den lokalen UI-Aufruf über `localhost`.
+Technische Grenzen und Nachweise stehen im
+[Verbindungsvertrag](../Architecture/SQL_CONNECTION_SETTINGS.md#angezeigten-connection-string-kopieren).
+Die [getrennte Laufzeitabnahme](../Quality/TLS_UI_CONNECTION_CLIPBOARD_ACCEPTANCE_2026-10-25.md)
+belegt kompakte Windows-/Docker-/Podman-Labs mit SQL 2025 CU9 in beiden
+TLS-Modi. Sie prüft einen isolierten Headless-Browser; weitere Profile und
+die vorhandene Windows-Benutzerzwischenablage bleiben getrennte Nachweise.
+
 ## Container-Lab erstellen
 
 Starten Sie die Oberfläche gemäß [Start](#start) mit einem bereiten Provider
@@ -177,7 +206,7 @@ Liveaktion bestehender Labkarten ist zusätzlich für
 mit Docker/Podman und denselben drei SQL-Profilen abgenommen. Der Server
 verwendet dabei weiterhin den ausdrücklich gewählten Run-StateRoot; der
 Erstellungsdialog mit ResultRef ist ein eigener Pfad.
-Weitere Erstellungsoptionen, Patch-/Clientkontexte und Clipboard bleiben offen;
+Weitere Erstellungsoptionen, Patch-/Clientkontexte und weitere Clipboardprofile bleiben offen;
 `WireCertificateFingerprint=NOT_OBSERVED` bleibt wahr.
 
 Die Hintergrundinventur hält ein erfolgreich abgeschlossenes, nichtleeres

@@ -54,6 +54,11 @@ function setup(fragment = '#sql-lab-operator=' + 'a'.repeat(64), origin = 'http:
   check(assets[0] === 'operator-transport.js', 'Capabilitybootstrap steht vor dem ersten aktiven Komponentenasset');
   for (const asset of assets.slice(1)) {
     const text = fs.readFileSync(path.join(root, 'Ui', asset), 'utf8');
+    if (asset === 'sql-connection-clipboard.js') {
+      check(!/\b(fetch|sqlServerLabUiFetch|XMLHttpRequest|WebSocket|EventSource|sendBeacon)\b/.test(text),
+        'Exact Clipboard-only asset has no network API: ' + asset);
+      continue;
+    }
     check(!/\bfetch\s*\(/.test(text) && /sqlServerLabUiFetch\s*\(/.test(text), 'Aktives Produktasset verwendet nur den benannten Transport: ' + asset);
   }
   console.log(`Ergebnis: ${count} PASS, 0 FAIL`);

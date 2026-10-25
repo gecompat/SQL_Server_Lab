@@ -341,3 +341,18 @@ Die explizite TLS-Neustartwiederbindung verwendet den bestehenden privaten Lock-
 Die ergänzende SQL-2025-CU9-Rebind-Abnahme verwendet den unveränderten öffentlichen Harness für zwei bisher fehlende Provider-/Recordform-Kombinationen. Nur das unabhängige Testoracle und seine Gegen-/Kompatibilitätsfälle ändern sich; Produkt und Selektor bleiben erhalten. Ein Implementierer und derselbe unabhängige Reviewer schließen konkrete Oracle- und Zulassungsfindings. Zwei neue eigene Labs mit vollständigem Cleanup liefern die fehlenden Laufzeitnachweise; frühere SQL-2019- und SQL-2025-Abnahmen werden nicht als neu ausgeführt umgedeutet. Die sieben betroffenen statischen Suites, das anschließende Dokumentationsdelta und das finale PR-Gate bleiben erforderlich. Das gemeinsame endliche Wellenbudget wird nicht erneuert; tatsächliche Geld-/Tokenkosten bleiben unbekannt.
 
 Die ergänzende SQL-2022-CU27-Rebind-Abnahme schließt ausschließlich zwei fehlende native Providerkombinationen mit unverändertem öffentlichem Harness. Ein Implementierer und derselbe unabhängige Reviewer genügen. Zwei neue eigene Labs liefern die zusammengesetzten Nachweise; vorhandene grüne TLS-Quellenprüfungen werden bei unveränderten relevanten Bindungen nicht wiederholt. Das reine Dokumentationsdelta nutzt seine betroffenen Doku-/Privacy-Suites und den unveränderten finalen PR-Gate. Der neue direkte Folgeauftrag besitzt ein gemeinsames endliches Budget von höchstens zwei PRs und sechs Acceptance-Labs innerhalb von vier Stunden; keine automatische Erneuerung, tatsächliche Geld-/Tokenkosten unbekannt.
+
+Die explizite Verbindungstext-Kopie nutzt die vorhandene WorkflowUI-Suite
+statt einer weiteren Suite oder Modellpipeline. Der Selektor erkennt den
+exakten neuen Fixturepfad unter Windows und POSIX. Nur die reine
+Clipboarddatei erhält eine präzise Ausnahme von der Operator-Transportannahme;
+ihre fehlenden Netzwerkzugriffe bleiben ausdrücklich geprüft. Übrige Assets,
+voller Analyzer und erforderliche PR-Gates behalten ihre Pflichten. Sechs
+unveränderte zuvor grüne Suites und acht korrigierte Deltas liefern die
+betroffene 14-Suiten-Abdeckung ohne gemeinsame Wiederholung. Vier getrennte
+positive Browser-/SQL-Zellen und genau ein begründeter Podman-Nachlauf nach
+beobachtetem ACK-Timeout genügen; die drei grünen Zellen werden nicht erneut
+ausgeführt. Ein Implementierer und derselbe unabhängige Reviewer beurteilen
+Produkt, neue Zulassungsgrenzen und tatsächliche Belegbindung. Vollständige
+Originallogs und private Kopien bleiben lokal. Das gemeinsame endliche Budget
+gilt auch für Korrekturen; tatsächliche Geld-/Tokenkosten bleiben unbekannt.

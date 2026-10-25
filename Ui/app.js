@@ -851,6 +851,7 @@ function renderActiveLabs(items) {
     }).join('') || '<p class="empty">Keine Instanzen im Run gespeichert.</p>';
     return '<article class="build-card"><div class="build-card-top"><div><div class="build-title">' + escapeHtml(item.Name || shortId(item.RunId)) + '</div><div class="build-meta">' + escapeHtml(item.State) + '</div></div><span class="status ' + statusClass(item.State === 'RUNNING' ? 'TESTS_PASSED' : item.State) + '">' + escapeHtml(item.State) + '</span></div><div class="build-actions">' + lifecycleActions + '</div>' + instances + '<div class="build-meta">Run: ' + escapeHtml(shortId(item.RunId)) + '</div></article>';
   }).join('') : empty('Noch keine Container-Labs vorhanden.');
+  window.sqlServerLabConnectionClipboard?.mount($('#active-labs'));
 }
 
 function parseSqlConnectionHost(connectionString) {
@@ -911,6 +912,7 @@ function renderHyperVLabs(items) {
       : sqlNeedsCompletion ? (running ? 'SQL, WMI und TCP/IP automatisch einrichten; danach ist die VM vom Host aus erreichbar.' : 'VM starten; danach SQL, WMI und TCP/IP automatisch einrichten.') : (item.SqlCompletionState === 'REBOOT_REQUIRED' ? 'SQL Setup startet automatisch neu; der laufende Job wartet auf die anschließende WMI- und TCP/IP-Konfiguration.' : (running ? 'VM läuft und ist bei erfolgreicher Bereitstellung über ihren Connection String vom Host erreichbar.' : 'VM starten und anschließend VMConnect öffnen.'));
     return '<article class="build-card"><div class="build-card-top"><div><div class="build-title">' + escapeHtml(item.Name || shortId(item.RunId)) + '</div><div class="build-meta">' + escapeHtml(detail) + '</div></div><span class="status ' + statusClass(running ? 'TESTS_PASSED' : item.State) + '">' + escapeHtml(item.State) + '</span></div><p class="build-next"><strong>Nächster Schritt:</strong> ' + escapeHtml(nextStep) + '</p><div class="build-actions">' + actions + '</div><div class="build-meta">' + escapeHtml(resourceSummary(resource, 'hyperv')) + '</div>' + persistentDetail + backupDetail + instanceDetails + primaryConnection + '<div class="build-meta">Run: ' + escapeHtml(shortId(item.RunId)) + ' · ' + escapeHtml(baseDetail) + '</div></article>';
   }).join('') : empty('Noch keine regulären Hyper-V-Umgebungen vorhanden.');
+  window.sqlServerLabConnectionClipboard?.mount($('#hyperv-labs'));
 }
 
 function generateHyperVGuestPassword() {
