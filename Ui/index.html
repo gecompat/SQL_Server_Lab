@@ -912,12 +912,15 @@
       <p>Blockierte Varianten bleiben mit Grund sichtbar und können nicht gewählt werden. SQL 2025 shared-user-v2 verwendet keine Launchpad-Sandbox; die Worker teilen ein gemeinsames Konto und besitzen Netzwerkzugriff.</p>
       <p id="external-runtime-status" role="status">Host: NOT_CHECKED</p>
       <pre id="external-runtime-result"></pre>
+      <pre id="external-runtime-history-result"></pre>
       <div class="dialog-actions">
         <button id="external-runtime-evaluate" type="button" class="button secondary">Katalogentscheidung anzeigen</button>
         <button id="external-runtime-host" type="button" class="button secondary">Hostvoraussetzungen bewusst lesend prüfen</button>
+        <button id="external-runtime-history" type="button" class="button secondary">Historische Nachweise lesen</button>
         <button id="external-runtime-close" type="button" class="button secondary">Zurück / Abbrechen</button>
       </div>
       <p>Die Prüfung kann einen Moment dauern. Abbruch verwirft nur die Anzeige; eine angeforderte lesende Prüfung läuft weiter. READY bestätigt nur Hostvoraussetzungen.</p>
+      <p>Historische Nachweise werden nur auf Wunsch gelesen. Sie bestätigen weder aktuelle Hostbereitschaft noch heutige SQL-Sprachausführung; ihre Referenzen sind nicht erneut verifiziert.</p>
     </div>
   </dialog>
   <script src="external-runtime-capability.js"></script>

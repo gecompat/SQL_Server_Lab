@@ -11,7 +11,7 @@ $module=New-Module -ArgumentList $root -ScriptBlock {
         $definition=Get-Content (Join-Path $root "Providers/$provider/provider.json") -Raw|ConvertFrom-Json
         $script:RegisteredProviders[$definition.name]=@{Definition=$definition}
     }
-    foreach($file in @('Private/VersionCatalog.ps1','Private/SoftwareCatalog.ps1','Private/ContainerImageArtifact.ps1','Private/ExternalRuntimeCapability.ps1','Public/Get-SqlServerLabExternalRuntimeCapability.ps1','Private/ExternalRuntimeCapabilityHttp.ps1')) {. (Join-Path $root $file)}
+    foreach($file in @('Private/VersionCatalog.ps1','Private/SoftwareCatalog.ps1','Private/ContainerImageArtifact.ps1','Private/CapabilityEvidence.ps1','Private/ExternalRuntimeCapability.ps1','Public/Get-SqlServerLabExternalRuntimeCapability.ps1','Private/ExternalRuntimeCapabilityHttp.ps1')) {. (Join-Path $root $file)}
     $script:transports=0;$script:tools=0;$script:mode='ready'
     function Initialize-LabHostToolPath {param($Name) $script:tools++;[pscustomobject]@{Available=$true;Invocation=Join-Path ([IO.Path]::GetTempPath()) "synthetic-$Name.exe"}}
     function Invoke-LabDiagnosticBoundedProcess {
@@ -41,6 +41,40 @@ $module=New-Module -ArgumentList $root -ScriptBlock {
     $evaluate=[ordered]@{Action='Evaluate';SqlVersion='2022';Provider='docker';OperatingSystem='linux';SoftwareId=$selected.SoftwareId;RuntimeVersion=$selected.RuntimeVersion;VariantId=$selected.VariantId;CheckProviderReadiness=$false}
     $view=Send-Request $evaluate
     Assert-Case ($view.Decision.CurrentReadiness.Status -ceq 'NOT_CHECKED' -and $script:transports -eq 0) 'Actual public default is not checked'
+    $history=[ordered]@{Action='ReadRecordedEvidence';SqlVersion='2022';Provider='docker';OperatingSystem='linux';SoftwareId=$selected.SoftwareId;RuntimeVersion=$selected.RuntimeVersion;VariantId=$selected.VariantId}
+    $historyView=Send-Request $history
+    Assert-Case ($historyView.ContractVersion -ceq 'SqlServerLab.ExternalRuntimeCapabilityBrowser/1.1' -and $historyView.Status -ceq 'HISTORY' -and
+        $historyView.CurrentReadinessStatus -ceq 'NOT_CHECKED' -and $historyView.SqlLanguageExecution -ceq 'NOT_CHECKED' -and
+        -not $historyView.MutationAllowed -and -not $historyView.ExecutionSupported -and $historyView.Actions.Count -eq 0 -and
+        $script:transports -eq 0 -and $script:tools -eq 0) 'Actual public history opt-in reads no host and grants no authority'
+    $publicHistory=Get-SqlServerLabExternalRuntimeCapability -SqlVersion '2022' -Provider docker -OperatingSystem linux -SoftwareId $selected.SoftwareId -RuntimeVersion $selected.RuntimeVersion -VariantId $selected.VariantId -IncludeRecordedEvidence
+    $publicHistory.HistoricalEvidence=New-LabExternalRuntimeHistoricalEvidenceResult 'RECORDED_HISTORY_ONLY' 'DEFINED' 'INDEX_MATCH_RECORDED' -Cells @([pscustomobject]@{RecordCount=2;Reference='PRIVATE_CANARY';Records=@('PRIVATE_CANARY')})
+    $summary=Assert-LabExternalRuntimeHttpDecision $publicHistory -IncludeRecordedEvidence
+    Assert-Case ($publicHistory.Contract.Version -ceq '1.1' -and $summary.RecordCount -eq 2 -and $summary.Status -ceq 'RECORDED_HISTORY_ONLY' -and
+        ($summary|ConvertTo-Json -Depth 8) -notmatch 'PRIVATE_CANARY|Cells|Records|Reference"') 'History projection preserves source1.1 and omits raw records/references'
+    foreach($badVersion in @('Number','SingleElementArray')) {
+        $candidate=$publicHistory|ConvertTo-Json -Depth 10|ConvertFrom-Json -Depth 10
+        if($badVersion -ceq 'Number'){$candidate.Contract.Version=1.1}else{$candidate.Contract.Version=@('1.1')}
+        try{Assert-LabExternalRuntimeHttpDecision $candidate -IncludeRecordedEvidence|Out-Null;$caught=$false}catch{$caught=$_.Exception.Message -ceq 'EXTERNAL_RUNTIME_HTTP_INVALID'}
+        Assert-Case $caught "Original history contract version must be a string $badVersion"
+    }
+    foreach($badHistory in @('CountMismatch','CountLimit','CountString','UnknownReason','ExtraProperty','HostReady')) {
+        $candidate=$publicHistory|ConvertTo-Json -Depth 10|ConvertFrom-Json -Depth 10
+        switch($badHistory) {
+            CountMismatch {$candidate.HistoricalEvidence.RecordCount=0}
+            CountLimit {$candidate.HistoricalEvidence.RecordCount=129}
+            CountString {$candidate.HistoricalEvidence.RecordCount='2'}
+            UnknownReason {$candidate.HistoricalEvidence.ReasonCode='PRIVATE_CANARY'}
+            ExtraProperty {$candidate.HistoricalEvidence|Add-Member NoteProperty Extra 'PRIVATE_CANARY'}
+            HostReady {$candidate.CurrentReadiness.Status='READY';$candidate.CurrentReadiness.ReasonCode='NONE'}
+        }
+        try{Assert-LabExternalRuntimeHttpDecision $candidate -IncludeRecordedEvidence|Out-Null;$caught=$false}catch{$caught=$_.Exception.Message -ceq 'EXTERNAL_RUNTIME_HTTP_INVALID'}
+        Assert-Case $caught "History count/type/shape/authority fails closed $badHistory"
+    }
+    foreach($extra in @('CheckProviderReadiness','IncludeRecordedEvidence','Apply')) {
+        $bad=@{};foreach($key in $history.Keys){$bad[$key]=$history[$key]};$bad[$extra]=$true
+        Reject-Request (New-Request ($bad|ConvertTo-Json -Compress)) "History cannot request extra capability $extra"
+    }
     foreach($provider in @('docker','podman')) {
         $evaluate.Provider=$provider;$evaluate.CheckProviderReadiness=$true;$before=$script:transports
         $view=Send-Request $evaluate
@@ -85,7 +119,7 @@ $module=New-Module -ArgumentList $root -ScriptBlock {
     Reject-Request (New-Request ($evaluate|ConvertTo-Json -Compress)) 'String boolean cannot authorize provider read'
     $evaluate.CheckProviderReadiness=$false
     $html=Get-Content (Join-Path $root 'Ui/index.html') -Raw
-    foreach($id in @('open','dialog','provider','sql','choice','read','evaluate','host','close','result','status')) {
+    foreach($id in @('open','dialog','provider','sql','choice','read','evaluate','host','history','close','result','history-result','status')) {
         Assert-Case ([regex]::Matches($html,'id="external-runtime-'+$id+'"').Count -eq 1) "UI element exists exactly once $id"
     }
     $script:mode='ready';$evaluate.VariantId=$selected.VariantId;$evaluate.Provider='docker';$evaluate.CheckProviderReadiness=$false
@@ -99,6 +133,9 @@ $module=New-Module -ArgumentList $root -ScriptBlock {
     $script:fixtureModule=$ExecutionContext.SessionState.Module
     foreach($once in 1) { & ([scriptblock]::Create($route[0].Clauses[0].Item2.Extent.Text.Trim().TrimStart('{').TrimEnd('}'))) }
     Assert-Case ($script:routeResponse.Status -eq 200 -and ($script:routeResponse.Body|ConvertFrom-Json).Decision.CurrentReadiness.Status -ceq 'NOT_CHECKED') 'Actual route reaches helper/public/core in same module'
+    $context=[pscustomobject]@{Request=New-Request ($history|ConvertTo-Json -Compress)};$before=$script:transports
+    foreach($once in 1) { & ([scriptblock]::Create($route[0].Clauses[0].Item2.Extent.Text.Trim().TrimStart('{').TrimEnd('}'))) }
+    Assert-Case ($script:routeResponse.Status -eq 200 -and ($script:routeResponse.Body|ConvertFrom-Json).Status -ceq 'HISTORY' -and $script:transports -eq $before) 'Actual route dispatches explicit history without native work'
     Write-Host "HTTP TOTAL: $script:passed PASS; real provider/process/import: 0"
 }
 & $module {}

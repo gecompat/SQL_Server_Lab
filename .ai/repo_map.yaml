@@ -515,7 +515,7 @@ sources_of_truth:
   external_runtime_capability_public: Public/Get-SqlServerLabExternalRuntimeCapability.ps1
   external_runtime_capability_core: Private/ExternalRuntimeCapability.ps1
   external_runtime_host_facts: Private/ContainerImageArtifact.ps1 # shared typed native/projected facts; UNKNOWN never grants support
-  external_runtime_capability_http: Private/ExternalRuntimeCapabilityHttp.ps1
+  external_runtime_capability_http: Private/ExternalRuntimeCapabilityHttp.ps1 # default browser1.0; explicit ReadRecordedEvidence projects public1.1 metadata without host probe or authority
   external_runtime_capability_ui: Ui/external-runtime-capability.js
   validation_external_runtime_capability_browser: Tests/Static/Invoke-ExternalRuntimeCapabilityBrowserChecks.ps1
   validation_external_runtime_catalog_rendered: Tests/Integration/Invoke-ExternalRuntimeCapabilityCatalogBrowserAcceptance.ps1

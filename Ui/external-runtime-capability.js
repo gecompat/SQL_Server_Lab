@@ -17,31 +17,40 @@
   const selected = () => /^\d+$/.test(element('choice').value) ? options[Number(element('choice').value)] : undefined;
   function controls() {
     for (const id of ['provider','sql','read','choice']) element(id).disabled = busy;
-    for (const id of ['evaluate','host']) element(id).disabled = busy || selected()?.Decision.CatalogDecision.Status !== 'DECLARED_SUPPORTED';
+    for (const id of ['evaluate','host','history']) element(id).disabled = busy || selected()?.Decision.CatalogDecision.Status !== 'DECLARED_SUPPORTED';
   }
   function clear() {
-    revision++; busy = false; options = []; element('choice').replaceChildren(); element('result').textContent = ''; element('status').textContent = 'Host: NOT_CHECKED'; controls();
+    revision++; busy = false; options = []; element('choice').replaceChildren(); element('result').textContent = ''; element('history-result').textContent = ''; element('status').textContent = 'Host: NOT_CHECKED'; controls();
   }
   async function request(action, check = false) {
     if (busy || !element('dialog').open) return;
     const provider = element('provider').value, sql = element('sql').value, choice = selected();
-    if (!['docker','podman'].includes(provider) || !['2019','2022','2025'].includes(sql) || (action === 'Evaluate' && choice?.Decision.CatalogDecision.Status !== 'DECLARED_SUPPORTED')) return;
+    if (!['docker','podman'].includes(provider) || !['2019','2022','2025'].includes(sql) || (action !== 'ReadOptions' && choice?.Decision.CatalogDecision.Status !== 'DECLARED_SUPPORTED')) return;
     const payload = {Action: action, SqlVersion: sql, Provider: provider, OperatingSystem: 'linux'};
     if (action === 'Evaluate') Object.assign(payload,{SoftwareId:choice.SoftwareId,RuntimeVersion:choice.RuntimeVersion,VariantId:choice.VariantId,CheckProviderReadiness:check});
-    const current = ++revision; busy = true; element('result').textContent = ''; controls();
+    if (action === 'ReadRecordedEvidence') Object.assign(payload,{SoftwareId:choice.SoftwareId,RuntimeVersion:choice.RuntimeVersion,VariantId:choice.VariantId});
+    const current = ++revision; busy = true; element('result').textContent = ''; element('history-result').textContent = ''; controls();
     try {
       const response = await sqlServerLabUiFetch('/api/external-runtime-capability',{method:'POST',headers:{'Content-Type':'application/json; charset=utf-8'},body:JSON.stringify(payload)});
       if (current !== revision || !element('dialog').open) return;
       if (!response.ok) throw new Error('INVALID');
       const view = await response.json();
       if (current !== revision || !element('dialog').open) return;
-      if (view.ContractVersion !== 'SqlServerLab.ExternalRuntimeCapabilityBrowser/1.0') throw new Error('INVALID');
+      if (view.ContractVersion !== (action === 'ReadRecordedEvidence' ? 'SqlServerLab.ExternalRuntimeCapabilityBrowser/1.1' : 'SqlServerLab.ExternalRuntimeCapabilityBrowser/1.0')) throw new Error('INVALID');
       if (action === 'ReadOptions') {
         if (!shape(view,['ContractVersion','Status','Options']) || view.Status !== 'OPTIONS' || !Array.isArray(view.Options) || view.Options.length > 128 || view.Options.some(o => !shape(o,['SoftwareId','Language','VariantId','RuntimeVersion','Decision']) || !identity(o) || !decision(o.Decision) || o.Decision.Provider !== provider || o.Decision.CurrentReadiness.Status !== 'NOT_CHECKED' || (o.Decision.Identity && (o.Decision.Identity.VariantId !== o.VariantId || o.Decision.Identity.SoftwareId !== o.SoftwareId || o.Decision.Identity.RuntimeVersion !== o.RuntimeVersion || o.Decision.Identity.SqlVersion !== sql)))) throw new Error('INVALID');
         options = view.Options; element('choice').replaceChildren();
         const placeholder = document.createElement('option'); placeholder.value = ''; placeholder.textContent = 'Variante bewusst auswählen'; element('choice').appendChild(placeholder);
         options.forEach((o,i) => {const item=document.createElement('option');item.value=String(i);item.disabled=o.Decision.CatalogDecision.Status !== 'DECLARED_SUPPORTED';item.textContent=o.Language+' '+o.RuntimeVersion+' · '+o.VariantId+' · '+o.Decision.CatalogDecision.Status+' / '+o.Decision.CatalogDecision.ReasonCode;element('choice').appendChild(item);});
         element('choice').value = ''; element('status').textContent = 'Katalog gelesen · Host: NOT_CHECKED';
+      } else if (action === 'ReadRecordedEvidence') {
+        const h = view.HistoricalEvidence;
+        const states = {CATALOG_IDENTITY_UNRESOLVED:['NOT_RECORDED','NOT_DEFINED'],INDEX_LEGACY_IDENTITY_UNKNOWN:['NOT_RECORDED','NOT_DEFINED'],INDEX_NO_MATCH:['NOT_RECORDED','DEFINED'],INDEX_MATCH_RECORDED:['RECORDED_HISTORY_ONLY','DEFINED'],INDEX_NOT_PRESENT:['UNAVAILABLE','UNAVAILABLE'],INDEX_SCHEMA_UNSUPPORTED:['UNAVAILABLE','UNAVAILABLE'],INDEX_INVALID:['UNAVAILABLE','UNAVAILABLE'],EVIDENCE_OUTPUT_LIMIT:['UNAVAILABLE','UNAVAILABLE']};
+        if (!shape(view,['ContractVersion','Status','Provider','OperatingSystem','Identity','HistoricalEvidence','CurrentReadinessStatus','SqlLanguageExecution','TargetAuthorization','ExecutionSupported','MutationAllowed','Actions']) || view.Status !== 'HISTORY' || view.Provider !== provider || view.OperatingSystem !== 'linux' || view.CurrentReadinessStatus !== 'NOT_CHECKED' || view.SqlLanguageExecution !== 'NOT_CHECKED' || view.TargetAuthorization !== 'NOT_CHECKED' || view.ExecutionSupported !== false || view.MutationAllowed !== false || !Array.isArray(view.Actions) || view.Actions.length || !shape(h,['Status','MappingStatus','ReasonCode','RecordCount','ReferenceVerificationStatus','EvidenceBoundary']) || typeof h.ReasonCode !== 'string' || !Object.hasOwn(states,h.ReasonCode) || h.Status !== states[h.ReasonCode][0] || h.MappingStatus !== states[h.ReasonCode][1] || !Number.isInteger(h.RecordCount) || h.RecordCount < 0 || h.RecordCount > 128 || ((h.Status === 'RECORDED_HISTORY_ONLY') !== (h.RecordCount > 0)) || h.ReferenceVerificationStatus !== 'NOT_VERIFIED' || h.EvidenceBoundary !== 'RECORDED_HISTORY_ONLY') throw new Error('INVALID');
+        if (view.Identity !== null && (!shape(view.Identity,['SoftwareId','VariantId','RuntimeVersion','Language','SqlVersion']) || !identity(view.Identity) || view.Identity.SoftwareId !== choice.SoftwareId || view.Identity.VariantId !== choice.VariantId || view.Identity.RuntimeVersion !== choice.RuntimeVersion || view.Identity.Language !== choice.Language || view.Identity.SqlVersion !== sql)) throw new Error('INVALID');
+        if (view.Identity === null && h.ReasonCode !== 'CATALOG_IDENTITY_UNRESOLVED') throw new Error('INVALID');
+        element('history-result').textContent='Historie: '+h.Status+' / '+h.MappingStatus+' / '+h.ReasonCode+'\nZugeordnete historische Einträge: '+h.RecordCount+'\nDie Anzahl sagt nicht aus, ob eine Abnahme bestanden wurde.\nReferenzen: '+h.ReferenceVerificationStatus+'\nAktuelle Hostbereitschaft: NOT_CHECKED\nAktuelle SQL-Sprachausführung: NOT_CHECKED\nKeine Ausführungsfreigabe.';
+        element('status').textContent = 'Historische Zuordnung gelesen; aktuelle Bereitschaft nicht geprüft.';
       } else {
         if (!shape(view,['ContractVersion','Status','Decision']) || view.Status !== 'DECISION' || !decision(view.Decision) || view.Decision.Provider !== provider || (!check && view.Decision.CurrentReadiness.Status !== 'NOT_CHECKED') || (view.Decision.Identity && (view.Decision.Identity.SoftwareId !== choice.SoftwareId || view.Decision.Identity.VariantId !== choice.VariantId || view.Decision.Identity.RuntimeVersion !== choice.RuntimeVersion || view.Decision.Identity.SqlVersion !== sql))) throw new Error('INVALID');
         const d=view.Decision; element('result').textContent='Katalog: '+d.CatalogDecision.Status+' / '+d.CatalogDecision.ReasonCode+'\nHostvoraussetzungen: '+d.CurrentReadiness.Status+' / '+d.CurrentReadiness.ReasonCode+'\nSQL-Sprachausführung: NOT_CHECKED\nZielautorisierung: NOT_CHECKED\nHistorie: NOT_RECORDED / NOT_DEFINED\nKeine Ausführungsfreigabe.';
@@ -54,8 +63,9 @@
   element('read').addEventListener('click',()=>request('ReadOptions'));
   element('evaluate').addEventListener('click',()=>request('Evaluate'));
   element('host').addEventListener('click',()=>request('Evaluate',true));
+  element('history').addEventListener('click',()=>request('ReadRecordedEvidence'));
   for(const id of ['provider','sql']) element(id).addEventListener('change',clear);
-  element('choice').addEventListener('change',()=>{revision++;element('result').textContent='';controls();});
+  element('choice').addEventListener('change',()=>{revision++;element('result').textContent='';element('history-result').textContent='';controls();});
   element('close').addEventListener('click',()=>{clear();element('dialog').close();});
   for(const event of ['cancel','close']) element('dialog').addEventListener(event,clear);
   controls();
