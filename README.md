@@ -26,7 +26,9 @@ verwendet den einfachen True/True-Standard und bietet katalogisierte CUs für
 SQL 2019, 2022 und 2025 zur ausdrücklichen Auswahl. Die
 [authentifizierte Erstellung im Browser](Documentation/HowTo/WORKFLOW_UI.md#authentifiziertes-container-lab-erstellen)
 verwendet die bestehende qualifizierte CA-/Clientbindung und die ausdrückliche
-False-Wahl. Weitere Erstellungsoptionen, Clipboard, weitere Plattformen und
+False-Wahl. Die [Kopieraktion an der Lab-Instanz](Documentation/HowTo/WORKFLOW_UI.md#angezeigte-verbindung-kopieren)
+übernimmt deren angezeigten Connection String einschließlich vorhandener
+Passwortplatzhalter. Weitere Erstellungsoptionen, weitere Plattformen und
 Lifecyclekontexte bleiben TLS-001-Scope.
 
 ## Voraussetzungen

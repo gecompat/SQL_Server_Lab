@@ -40,6 +40,43 @@ Diese Werte beschreiben den gespeicherten Connection String. Sie sind weder
 ein Live-Verbindungstest noch ein Ketten-, SAN-, Ablauf-, Trust- oder
 Clientqualifikationsnachweis. Die additive öffentliche strikte Moduswahl und der qualifizierte V2-Export sind im [operativen TLS-Vertrag](AUTHENTICATED_TLS_OPERATIONAL_LAB.md) für eigene Windows-/Docker-/Podman-Labs mit SQL 2025 CU9, SQL 2022 CU27 oder SQL 2019 CU32 begrenzt.
 
+## Angezeigten Connection String kopieren
+
+Die Labkarte ergänzt an jeder vorhandenen Connection-String-Zeile eine
+ausdrückliche Kopieraktion. Quelle ist ausschließlich das sichtbare
+`textContent` ihres eigenen `code`-Elements. Alle Zeichen, expliziten TLS-Werte
+und vorhandenen Passwortplatzhalter bleiben erhalten. Die stringfreie
+Verbindungsübersicht behält ihre bisherige Projektion. Der Bedienungspfad
+steht unter [Verbindung kopieren](../HowTo/WORKFLOW_UI.md#angezeigte-verbindung-kopieren).
+
+Die Komponente verwendet nach einem Klick die asynchrone Browserfunktion
+`navigator.clipboard.writeText()`. Leerer, mehrdeutiger oder mehr als 65536
+Zeichen langer Text erhält keine Kopieraktion. Genau ein offener Write ist
+zugelassen, auch über die Neudarstellung der Container- und Hyper-V-Karten
+hinweg. Rückmeldungen prüfen nach Abschluss erneut Ansichtsgeneration,
+verbundene Ursprungselemente und unveränderten Text. Ein bereits begonnener
+Write ist dadurch nicht abbrechbar; eine veraltete Rückmeldung wird verworfen.
+
+Erfolg bedeutet ausschließlich, dass der Browser den angezeigten Text
+übernommen hat. Fehlender Clipboardzugriff oder verweigerte Berechtigung
+liefert eine feste Meldung ohne ursprüngliche Exception oder Connection String.
+Die gespeicherten Verbindungswerte und ihr Konfigurationsstatus bleiben
+unverändert. Wie bei anderen manuellen Klicks kann die bestehende
+Ansichtsinvalidierung eine vorherige explizite Livebeobachtung verwerfen;
+Kopieren erzeugt keine neue Livequalifikation.
+
+Die [Komponentenfixture](../../Tests/Static/Fixtures/SqlConnectionClipboardUiChecks.cjs)
+prüft die echte Komponente mit synthetischen DOM-/Clipboard-Grenzen. Die
+bisherige Rendererfixture prüft zusätzlich die Aufrufe beider tatsächlichen
+Lab-Renderer. Das sind Offlineprüfungen; Browser-, Betriebssystem- und
+SQL-Laufzeitnachweise bleiben getrennt in der
+[Validierungsstrategie](../Quality/LOCAL_VALIDATION_STRATEGY.md#verbindungstext-kopieren) ausgewiesen.
+Die [native Kopierabnahme](../Quality/TLS_UI_CONNECTION_CLIPBOARD_ACCEPTANCE_2026-10-25.md)
+belegt kompakte Windows-/Docker-/Podman-SQL-2025-CU9-Labs in Default und
+authentifiziertem Modus. Sie beobachtet die isolierte Browserzwischenablage;
+die vorhandene Windows-Benutzerzwischenablage und Hyper-V sind damit nicht
+nativ abgenommen.
+
 ## Getrennter Status ohne aktuelle Liveprüfung
 
 Der Workflow ergänzt je SQL-Ziel den skalaren `TlsQualificationStatus`.
@@ -102,5 +139,5 @@ ist ebenfalls für Standard und Performance mit beiden Providern und allen
 drei operativen SQL-Profilen nativ abgenommen. Das verändert den oben
 beschriebenen konfigurationsbasierten Status nicht; allein eine ausdrücklich
 ausgeführte Prüfung liefert eine aktuelle Beobachtung.
-Andere Erstellungsoptionen, Clipboard, Patch-/Clientkontexte und Plattformen
-bleiben getrennte offene Nachweise.
+Andere Erstellungsoptionen, weitere Clipboardprofile, Patch-/Clientkontexte
+und Plattformen bleiben getrennte offene Nachweise.

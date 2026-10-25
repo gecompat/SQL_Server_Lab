@@ -1,5 +1,25 @@
 # Lokale Validierungsstrategie
 
+## Verbindungstext kopieren
+
+Die echte Clipboard-Komponente bestand 16 fokussierte Offlinefälle zu
+instanzgebundener exakter Textübernahme, beiden TLS-Modi, erhaltenen
+Passwortplatzhaltern, Zeichen-/Längengrenzen, fehlenden Berechtigungen sowie
+ausstehenden Writes über Refresh und Zielwechsel. Die tatsächliche
+GUI-Rendererfixture bestand separat 162 Fälle einschließlich beider neuen
+Mountaufrufe an den jeweiligen Labcontainern. Beide Fixtures sind Teil der
+WorkflowUI-Suite. Synthetische DOM-/Clipboard-Grenzen belegen dabei weder
+Browser- oder Betriebssystemzwischenablage noch SQL-Verbindungen. Die separate
+[native Kopierabnahme](TLS_UI_CONNECTION_CLIPBOARD_ACCEPTANCE_2026-10-25.md)
+bestand vier Windows-/Docker-/Podman-Zellen für kompakte SQL-2025-CU9-Labs:
+24 Browserfälle und acht kopierte SQL-Clientresultate, davon vier True/True
+und vier strikte True/False. Ein ursprünglicher Podman-FAIL mit zwei
+partiellen Browserfällen und zwei erfolgreichen strikten Clients bleibt
+separat. Alle fünf angelegten Labs sind entfernt. Drei frühe positive Zellen
+und der Nachlauf verwenden unterschiedliche private ACK-Wartefristen auf
+derselben Produktquelle. Betriebssystemzwischenablage, weitere Profile,
+Hyper-V und Wire-Fingerprint sind damit nicht belegt.
+
 ## Gerenderte explizite TLS-Liveaktion
 
 Die zusätzliche [Ressourcenprofilabnahme](TLS_UI_LIVE_RESOURCE_PROFILES_ACCEPTANCE_2026-10-25.md)

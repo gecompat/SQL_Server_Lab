@@ -22,8 +22,14 @@ Arrange-/Rebindresultate. Alle 15 neuen Labs sind entfernt; drei ursprüngliche
 FAILs bleiben mit ihren partiellen Ergebnissen erhalten. Zwei frühe positive
 Zellen und zehn Zellen nach Korrektur der privaten Recordübergabe bleiben
 getrennte Controllerstände auf derselben Produktquelle.
-Andere Erstellungsoptionen, Clipboard und weitere
-Patch-/Clientkombinationen bleiben offen. Wire-Fingerprint bleibt
+Die [separate Clipboardabnahme](TLS_UI_CONNECTION_CLIPBOARD_ACCEPTANCE_2026-10-25.md)
+bestand vier kompakte Windows-/Docker-/Podman-SQL-2025-CU9-Zellen in Default
+und authentifiziertem Modus: 24 Browserfälle und acht kopierte SQL-Clients.
+Der ursprüngliche Podman-FAIL mit zwei partiellen Browserfällen und zwei
+erfolgreichen strikten Clients bleibt erhalten; alle fünf neuen Labs sind
+entfernt. Das belegt die isolierte Headless-Browserzwischenablage, keine
+vorhandene Windows-Benutzerzwischenablage. Weitere Clipboardprofile,
+andere Erstellungsoptionen und Patch-/Clientkombinationen bleiben offen. Wire-Fingerprint bleibt
 `NOT_OBSERVED`; Linux- und Hyper-V-Live-API sind damit nicht abgenommen.
 
 Die separate [Default-Erstellung im Browser](TLS_UI_DEFAULT_CREATION_ACCEPTANCE_2026-10-23.md)
@@ -51,7 +57,7 @@ an private Sitzungstickets. Das ist keine globale Discovery oder Übernahme
 früherer Labs und kein Recovery-Apply. Ein unbestätigtes Creationticket sperrt
 weitere Erstellungen; ein Reload löst diese Sperre nicht. Zusätzliche
 Ressourcenprofile sind nachfolgend separat belegt. Andere Patchprofile,
-Clipboard, Linux-/Hyper-V-Erstellung und andere
+weitere Clipboardprofile, Linux-/Hyper-V-Erstellung und andere
 Trustkontexte bleiben offen. Interne Creator-/Rebind-Prüfungen werden nicht
 zusätzlich als separat erfasste Clientresultate gezählt; Wire bleibt
 `NOT_OBSERVED`.
@@ -103,7 +109,7 @@ Die ausdrückliche Prüfaktion mit Client-/Ziel-/Frische-/Driftbindung ist
 in den oben verlinkten separaten Abnahmen belegt; diese ältere
 Konfigurationsanzeige allein liefert sie nicht. Die Default-Browser-Erstellung
 und authentifizierte SQL-2025-Erstellung sind oben separat belegt; weitere
-Erstellungsprofile und Clipboard bleiben offen. Der fehlende Hyper-V-
+Erstellungsprofile und weitere Clipboardprofile bleiben offen. Der fehlende Hyper-V-
 Fallbackstatus wurde synthetisch reproduziert und korrigiert; keine neue
 native Hyper-V-Abnahme daraus.
 
@@ -113,7 +119,7 @@ abgenommen: frischer abgeschlossener Workflow-Snapshot, exakter angezeigter
 Connection String und passende explizite False-Werte; eigener Cleanup und
 Bestandsvergleich bestanden. Der erste Docker-Browser-FAIL bleibt erhalten;
 der reproduzierte Inventurcachefehler ist korrigiert. Weitere Erstellungsprofile,
-Clipboard und weitere Modi/Plattformen bleiben separat offen; die Default-
+weitere Clipboardprofile und weitere Modi/Plattformen bleiben separat offen; die Default-
 und authentifizierte SQL-2025-Erstellung sind oben gesondert belegt. Die aktuelle
 explizite Liveaktion ist oben gesondert belegt; dieser ältere Anzeigenachweis
 belegt sie nicht. Der verlinkte Nachweis listet seine TLS-001-Grenzen.
@@ -4229,6 +4235,21 @@ Machine, Workflow-/Gruppen-/Poolmitgliedschaft, Retention, Referenzen, unbekannt
 Metadatendateien, unvollständige Inventare und Recovery
 bleiben gesperrt. Es gibt keine globale Purge-Aktion und keine native
 Ressourcenlöschung. [Vertrag und Nachweisgrenzen](../User/RUN_ARTIFACT_REMOVAL.md).
+
+## Angezeigten SQL-Verbindungstext kopieren
+
+Die explizite Kopieraktion der Labkarten übernimmt den bereits sichtbaren
+Text einschließlich vorhandener Passwortplatzhalter. Berechtigungsfehler
+bleiben sichtbar. Gespeicherte Verbindungswerte bleiben unverändert; Kopieren
+startet keine neue TLS-Qualifikation. Die bestehende manuelle
+Ansichtsinvalidierung kann eine frühere Livebeobachtung verwerfen.
+Fokussierte Offlineprüfungen der echten Komponente und Renderer sowie die
+[getrennte native Abnahme](TLS_UI_CONNECTION_CLIPBOARD_ACCEPTANCE_2026-10-25.md)
+für kompakte Windows-/Docker-/Podman-SQL-2025-CU9-Labs in Default und
+authentifiziertem Modus sind belegt. Weitere Profile, Hyper-V, Linux und die
+vorhandene Windows-Benutzerzwischenablage bleiben offen; siehe
+[Vertrag](../Architecture/SQL_CONNECTION_SETTINGS.md#angezeigten-connection-string-kopieren)
+und [Validierungsstrategie](LOCAL_VALIDATION_STRATEGY.md#verbindungstext-kopieren).
 
 ## Isolierter operativer TLS-Pfad
 

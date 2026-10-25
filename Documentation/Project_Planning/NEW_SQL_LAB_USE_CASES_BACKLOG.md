@@ -120,6 +120,10 @@ erhalten aber jeweils eigene Runtime-Evidence.
 
 #### TLS-001 – authentifizierte TLS-Verbindungen der Testumgebungen
 
+Die [endliche Abschlussübersicht](TLS_001_COMPLETION_CHECKLIST.md) ordnet die
+bestehenden Pflichtkriterien den bereits ausgeführten Nachweisen und offenen
+Arbeiten zu. Zusätzliche Varianten erweitern den Pflichtumfang nicht automatisch.
+
 Die [konfigurationsbasierte TLS-Prüfstatusanzeige](../Quality/TLS_CONFIGURATION_STATUS_DISPLAY_2026-10-22.md)
 ergänzt CLI, SQL-Zielkarte und Verbindungsübersicht. Zwei getrennte native
 Windows-/Docker-/Podman-SQL-2025-CU9-Abnahmen bestanden einschließlich eigener
@@ -144,7 +148,16 @@ und 24 Rebindresultate. Alle 15 neuen Labs sind entfernt; drei ursprüngliche
 FAILs bleiben getrennt erhalten. Zwei frühe positive Zellen und
 zehn Zellen nach Korrektur der privaten Recordübergabe verwenden dieselbe
 Produktquelle. Weitere Patch-/Clientkontexte, andere Erstellungsoptionen und
-Clipboard bleiben TLS-001c-Scope; die Browser-Erstellung ist unten separat belegt.
+weitere Clipboardprofile bleiben TLS-001c-Scope; die Browser-Erstellung ist unten separat belegt.
+
+Die separate [Clipboardabnahme bestehender Labkarten](../Quality/TLS_UI_CONNECTION_CLIPBOARD_ACCEPTANCE_2026-10-25.md)
+bestand kompakte Windows-/Docker-/Podman-SQL-2025-CU9-Labs in Default und
+authentifiziertem Modus: vier positive Zellen, 24 Browserfälle und acht
+kopierte SQL-Clientresultate. Ein ursprünglicher Podman-FAIL mit zwei
+partiellen Browserfällen und zwei erfolgreichen strikten Clients bleibt
+separat; alle fünf neuen Labs sind entfernt. Das belegt die isolierte
+Headless-Browserzwischenablage, keine vorhandene Windows-Benutzerzwischenablage.
+Weitere SQL-/Patch-/Ressourcenprofile und andere Plattformen bleiben offen.
 
 Die separate [Default-Erstellung im Browser](../Quality/TLS_UI_DEFAULT_CREATION_ACCEPTANCE_2026-10-23.md)
 bestand für Windows/Docker und Windows/Podman mit SQL 2025 CU9: je acht Fälle,
@@ -167,7 +180,7 @@ zusätzlich je zwei Arrange-Resultate. Allokationsgebundene Sitzungstickets,
 Neustartablehnung, Wiederbindung, Refreshverfall und tatsächlicher UI-Remove
 sind eingeschlossen. Alle vier neuen Labs sind entfernt; zwei ursprüngliche
 Docker-FAILs der privaten Steuerung bleiben getrennt erhalten. Die zusätzlichen
-Katalogprofile sind nachfolgend separat belegt. Clipboard und andere
+Katalogprofile sind nachfolgend separat belegt. Weitere Clipboardprofile und andere
 Plattformen bleiben offen.
 
 Die zusätzliche [authentifizierte Profilabnahme](../Quality/TLS_UI_AUTHENTICATED_PROFILES_ACCEPTANCE_2026-10-24.md)
@@ -177,7 +190,7 @@ vier Zellen auf einem unveränderten Quellstand, 32 Fälle, darin 24 Browserfäl
 Labs sind entfernt; ganze Jobleere, Same-Pin-Abwesenheit und Bestandsvergleich
 bestanden. Auswahl, Sitzungsticket, kanonischer Record und Liveanzeige binden
 das genaue SQL-Profil. Die hier kompakten Profile werden im nachfolgenden
-Ressourcennachweis ergänzt. Clipboard und weitere Patch-/Client-/
+Ressourcennachweis ergänzt. Weitere Clipboardprofile und weitere Patch-/Client-/
 Plattformkombinationen bleiben offen; SQL 2025 wurde in dieser kompakten
 Profilwelle nicht erneut abgenommen.
 
@@ -198,7 +211,7 @@ SQL-2025-CU9-Labs: frischer abgeschlossener Workflow-Snapshot, passender
 Endpoint, explizite False-Werte und exakt angezeigter Connection String.
 Der reproduzierte Inventurcachefehler ist korrigiert; ursprünglicher Docker-
 FAIL und getrennte PASS-Nachläufe bleiben erhalten. Weitere Erstellungsprofile
-und Clipboard bleiben offen; Default-/authentifizierte SQL-2025-Erstellung und Liveaktion
+und weitere Clipboardprofile bleiben offen; Default-/authentifizierte SQL-2025-Erstellung und Liveaktion
 sind oben separat belegt. Der
 verlinkte Nachweis führt die weiteren Matrix-, Lifecycle-, Consumer- und
 Trustkontext-Schritte; `TLS-001` bleibt `partial`.
@@ -252,7 +265,7 @@ Standard und Performance der separaten Liveaktion sind oben zusätzlich belegt.
 | Merkmal | Festlegung |
 |---|---|
 | Priorität | `P1`; höchste nächste Priorität unmittelbar nach dem laufenden SSISDB-Stream, Benutzerauftrag vom 2026-10-15 |
-| Status | `partial`; operative Windows-/Docker-/Podman-Profile SQL 2019 CU32, 2022 CU27 und 2025 CU9, deren V2-Consumerpfad, explizite Live-API und gerenderte Liveaktion separat nativ abgenommen; getrennte Quellstände bleiben ausgewiesen. Default- und authentifizierte Browser-Erstellung sowie die separate Liveaktion bestehender Labkarten sind für Windows/Docker/Podman und dieselben drei SQL-Profile mit compact sowie separat standard/performance belegt. Private Windows-/Hyper-V-SQL-2025-RTM-Referenz nativ abgenommen. Öffentliche Hyper-V-/Linuxpfade, weitere Consumer, andere Erstellungsoptionen, Clipboard, weitere Patch-/Clientkontexte und Lifecycle-/Trustkontexte bleiben offen |
+| Status | `partial`; operative Windows-/Docker-/Podman-Profile SQL 2019 CU32, 2022 CU27 und 2025 CU9, deren V2-Consumerpfad, explizite Live-API und gerenderte Liveaktion separat nativ abgenommen; getrennte Quellstände bleiben ausgewiesen. Default- und authentifizierte Browser-Erstellung sowie die separate Liveaktion bestehender Labkarten sind für Windows/Docker/Podman und dieselben drei SQL-Profile mit compact sowie separat standard/performance belegt. Clipboard ist separat für kompakte Windows-/Docker-/Podman-SQL-2025-CU9-Labs in beiden Modi belegt, begrenzt auf den isolierten Browser. Private Windows-/Hyper-V-SQL-2025-RTM-Referenz nativ abgenommen. Öffentliche Hyper-V-/Linuxpfade, weitere Consumer, andere Erstellungsoptionen, weitere Clipboardprofile, weitere Patch-/Clientkontexte und Lifecycle-/Trustkontexte bleiben offen |
 | Abhängigkeit | **Toolbelt SC-2026-045 – authentifizierte Liveabnahme** |
 | Auslöser | [Toolbelt PR #322](https://github.com/gecompat/SQL_Server_Toolbelt/pull/322), geprüfter Head `8772e9d6a1d538e6fcb22da3f0bd03c83a28e88a`; PR bei der Prüfung am 2026-10-15 offen, kein behaupteter Merge |
 | Verantwortung | Lab: Serverzertifikate, Identität, Client-Trust, Export und Bereitschaft; Toolbelt: eigener Preflight und tatsächliche Clientverbindungen |
@@ -497,7 +510,7 @@ Clientkombinationen benötigen trotzdem eigene Nachweise.
 | D1 – Zertifikatsautorität und Lifecycle | Bereits vorhandene geeignete Lab-PKI verwenden, falls Bestandsaufnahme und Rechteprüfung passen; sonst explizit eingerichtete Lab-CA mit getrennt geschütztem Signierschlüssel. Serverleaf mit passendem SAN, Server-Authentication-Eignung, gültiger Kette und nur für den SQL-Dienst lesbarem privatem Schlüssel. Alternative: betreiberseitig gelieferte Zertifikate mit validierter Import-/Erneuerungsschnittstelle. | Zuständige CA, Aussteller-/Signierautorität, Schlüsselablage und ACL/Dateimodus, Gültigkeit, Erneuerungsvorlauf, Sperr-/Rücknahmeverfahren, Ausfallverhalten und verantwortlicher Betreiber. Keine automatische Beschaffung oder globale PKI-Anlage. |
 | D2 – Identität und Namensauflösung | Pro SQL-Ziel einen stabilen, aus allen vorgesehenen Clientkontexten auflösbaren Lab-DNS-Namen exportieren und denselben Namen im Zertifikat prüfen. Portweiterleitung ändert den Port, nicht die geprüfte Identität. Alternative: explizite IP-SANs für tatsächlich stabile IP-Ziele; kein stiller Wechsel auf IP, localhost, anderen Host oder Provider. | Namensraum, DNS-/Resolververantwortung, Container-/VM-/WSL-/Hostzugriffswege und erlaubte scopegebundene Resolveränderungen samt Rücknahme; Nachweis bei jeder relevanten Weiterleitung. Kein Hostname-Override als Ersatz für einen passenden Export. |
 | D3 – Client-Trust und Berechtigungen | Trust im tatsächlichen Windows-/Linux-Ausführungskontext des jeweiligen System.Data.SqlClient- und sqlcmd-/ODBC-Clients herstellen und prüfen. Nur ausdrücklich bestätigte Lab-CA-/Storebindungen verändern; Änderungen mit Vorzustand und Ownership journalisieren. Alternative: vorhandene geeignete System-PKI ohne neue Trustanker. | Konkrete Clients/Versionen, interaktive Benutzer, Dienst-/Runneridentitäten, WSL/Container und privilegierte Kontexte; je Kontext effektiver Trust Store, Import-/Removalrechte und Freigabe. Gemeinsam genutzte oder vorbestehende Trustanker niemals beim Lab-Cleanup entfernen. Prozesslokaler Trust zählt nur bei belegter Unterstützung beider konkreter Clients. |
-| D4 – Vertrag und Migration | Explizit versionierter Nachfolgevertrag für beide Modi; `encrypt=true` bleibt fest, `trustServerCertificate` entspricht der ausdrücklichen Moduswahl und ist standardmäßig `true`. Authentifizierte Bereitschaft mit `false` erst nach separater Qualifikation; keine automatische Herabstufung bei Fehlern. Das 1.0-Schema nicht stillschweigend umdefinieren; den einfachen Modus dauerhaft erhalten. | Genaue Feldform, Versionskennung, Koexistenz-/Cutoverpfade, unterstützte Leserversionen und Verhalten bei unqualifizierten Zielen/Gruppen abstimmen. Toolbelt, Analyze, PerformanceSchulung, lokale Skripte, `.env`-/Markdownnutzer und Agenten-Prompt inventarisieren; deren tatsächliche Versions- und Modusannahmen prüfen. Ein Consumer darf `false` verlangen, ohne den globalen Labstandard zu ändern. Schemaänderung nicht isoliert ausrollen. |
+| D4 – Vertrag und Migration | Die Projektentscheidung vom 2026-10-25 akzeptiert die bestehende V1/True- und V2/False-Koexistenz als Abschlussbasis; ein gemeinsamer neuer Exportvertrag ist keine TLS-001-Abschlussbedingung. `encrypt=true` bleibt fest, der einfache Standard erhält `trustServerCertificate=true`. Authentifiziertes V2 mit `false` verlangt separate Qualifikation; keine automatische Herabstufung bei Fehlern. Bestehende V1-/V2-Schemas nicht stillschweigend umdefinieren; [konkreter Vertrag](TLS_001_ISOLATED_CA_DESIGN.md#d4--koordinierter-nachfolgevertrag). | Consumerinventur, Koexistenz-/Cutoverpfade, unterstützte Leserversionen, Discovery und Verhalten bei unqualifizierten Zielen/Gruppen tatsächlich prüfen. Toolbelt, Analyze, PerformanceSchulung, lokale Skripte, `.env`-/Markdownnutzer und Agenten-Prompt bleiben im vereinbarten Umfang zu erfassen. Ein Consumer darf `false` verlangen, ohne den globalen Labstandard zu ändern. Sicherheits-, Lifecycle- und Mindestmatrixnachweise bleiben erforderlich; kein isolierter Schemawechsel. |
 
 **Geordnete Arbeitspakete.** Alle Schritte bleiben innerhalb des ausdrücklich
 betroffenen Lab-Scopes. Vor Mutation müssen State, Preview, Rechte, Cleanup und

@@ -20,7 +20,28 @@ pausiert; der abgeschlossene Windows-V2-Cutover bleibt erhalten. Ein
 Lab-Teilabschluss hebt diese Pause nicht auf. Für eine Fortsetzung im
 Toolbelt ist eine neue direkte menschliche Anweisung maßgeblich.
 
+Die [endliche TLS-001-Abschlussübersicht](../Documentation/Project_Planning/TLS_001_COMPLETION_CHECKLIST.md)
+leitet den Pflichtrest aus den bestehenden Akzeptanzkriterien ab. Die
+Projektentscheidung vom 2026-10-25 akzeptiert V1/True und V2/False als
+Vertragsbasis; ein gemeinsamer neuer Exportvertrag ist keine zusätzliche
+Abschlussbedingung. Übrige Sicherheits-, Lifecycle-, Matrix- und
+Consumerpflichten sowie die Toolbelt-Pause bleiben bestehen.
+
 ## Ausgewählte Arbeitsstände
+
+Die [explizite Kopieraktion an der Labinstanz](../Documentation/Architecture/SQL_CONNECTION_SETTINGS.md#angezeigten-connection-string-kopieren)
+übernimmt ausschließlich den angezeigten Connection String samt vorhandenen
+Passwortplatzhaltern. 16 neue Komponentenfälle und die Rendererfixture mit
+162 Fällen sind offline bestanden. Die getrennte
+[native Kopierabnahme](../Documentation/Quality/TLS_UI_CONNECTION_CLIPBOARD_ACCEPTANCE_2026-10-25.md)
+bestand vier kompakte Windows-/Docker-/Podman-SQL-2025-CU9-Zellen mit
+24 Browserfällen und acht kopierten SQL-Clientresultaten. Der ursprüngliche
+Podman-FAIL bleibt separat; alle fünf angelegten Labs sind entfernt.
+Isolierte Browserzwischenablage und Windows-Benutzerzwischenablage sind
+getrennte Aussagen. Die Kopieraktion erzeugt keine neue TLS-Qualifikation;
+manuelle Ansichtsinvalidierung kann eine frühere Livebeobachtung verwerfen.
+Der [Bedienungspfad](../Documentation/HowTo/WORKFLOW_UI.md#angezeigte-verbindung-kopieren)
+erklärt Auswahl, Browserfreigabe und Fehlerbehandlung.
 
 Die [explizite öffentliche TLS-Livequalifikation](../Documentation/Architecture/AUTHENTICATED_TLS_LIVE_QUALIFICATION.md)
 ergänzt den vorhandenen strikten Qualifier um einen ausdrücklich gebundenen
@@ -81,7 +102,7 @@ Docker/Podman und SQL 2019 CU32, 2022 CU27 sowie 2025 CU9: 24 Zellen,
 mit vollständigen Laufzeitbelegen und separat geprüftem passivem Abschluss
 erhalten, ohne neue native Ausführung. Der Produktstand blieb unverändert;
 die private Nachweisübergabe ist korrigiert und unabhängig geschlossen.
-Andere Erstellungsoptionen, Clipboard und weitere Patch-/Client-/
+Andere Erstellungsoptionen, weitere Clipboardprofile und weitere Patch-/Client-/
 Plattformkontexte bleiben eigene Scopes; weitere Toolbelt-Entwicklung
 bleibt pausiert.
 
@@ -92,7 +113,7 @@ Docker/Podman sowie allen drei operativen SQL-Profilen: zwölf positive Zellen,
 Labs einschließlich dreier ursprünglicher FAILs sind entfernt. Die beiden
 Docker-/SQL-2019-Zellen und die zehn Zellen nach Korrektur der privaten
 Recordübergabe bleiben getrennte Controllerstände auf derselben Produktquelle.
-Die Browser-Erstellung mit ResultRef ist ein anderer Nachweispfad; Clipboard,
+Die Browser-Erstellung mit ResultRef ist ein anderer Nachweispfad; weitere Clipboardprofile,
 andere Erstellungsoptionen, Plattformen und Lifecyclekontexte bleiben offen.
 
 Die [native Linux-Kryptomatrix](../Documentation/Quality/TLS_LINUX_CLIENT_MATRIX_ACCEPTANCE_2026-10-22.md)

@@ -300,8 +300,14 @@ Qualifikationsnachweis. Der True/True-Standard bleibt im unveränderten V1-
 Vertrag. Beide Formate werden getrennt ausgegeben; bestehende Discovery wird
 nicht umgeschaltet. Der Consumer-Cutover benötigt weiterhin eine eigene Abnahme.
 
+Die Projektentscheidung vom 2026-10-25 akzeptiert diese bestehende
+V1/True- und V2/False-Koexistenz als Vertragsbasis für den TLS-001-Abschluss.
+Ein gemeinsamer neuer Exportvertrag ist keine zusätzliche Abschlussbedingung.
+Die erforderlichen Sicherheits-, Lifecycle-, Mindestmatrix- und
+Consumer-Nachweise bleiben bestehen; diese Entscheidung ersetzt keine Abnahme.
+
 Der zuvor lokal geplante gemeinsame Nachfolgevertrag für beide Modi bleibt
-als Erweiterungsziel erhalten. Ein solcher Vertrag muss zusätzlich echte
+als optionales Erweiterungsziel erhalten. Ein solcher Vertrag muss zusätzlich echte
 Booleans `encrypt=true`/`trustServerCertificate=true` ausdrücken können und
 braucht eine ausdrücklich abgestimmte neue Version; er darf das bestehende
 V2-False-Schema nicht stillschweigend umdefinieren. Die genaue Feldform ist
