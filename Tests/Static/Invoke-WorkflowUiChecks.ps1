@@ -35,6 +35,7 @@ $stylePath = Join-Path $repoRoot 'Ui/app.css'
 $failures = [System.Collections.Generic.List[string]]::new()
 $passed = 0
 . (Join-Path $PSScriptRoot '..' 'Common' 'CheckResult.ps1')
+. (Join-Path $PSScriptRoot '..' 'Common' 'WorkflowUiTestTemporaryDirectory.ps1')
 
 Write-Host ''
 Write-Host 'SQL_Server_Lab - Workflow UI Checks' -ForegroundColor Cyan
@@ -735,6 +736,21 @@ else {
 }
 
 foreach ($fixture in @('SqlConnectionClipboardUiChecks.cjs','WorkflowUiTlsCreationChecks.ps1','WorkflowUiTlsCreationChecks.cjs','ContainerPinnedVersionWorkflowChecks.ps1','WorkflowContainerPinnedVersionUiChecks.cjs','TlsLiveQualificationHttpChecks.ps1','TlsLiveQualificationUiChecks.cjs','WorkflowInventoryCacheChecks.ps1','WorkflowUiCommandGrantsChecks.ps1','WorkflowUiCommandGrantsChecks.cjs','PublicCommandConsoleSensitiveBytesChecks.cjs','WorkflowUiOperatorChecks.ps1','WorkflowUiOperatorTransportChecks.cjs','WorkflowUiSpecializedBodyChecks.ps1','WorkflowUiJsonBodyChecks.ps1','WorkflowUiRequestBoundaryChecks.ps1','ContainerPortPreviewHttpChecks.ps1','ContainerPortPreviewUiChecks.cjs','ContainerPortPreviewBrowserAcceptanceChecks.ps1','ContainerAutoStartPreviewHttpChecks.ps1','ContainerAutoStartPreviewUiChecks.cjs','ContainerAutoStartPreviewBrowserWorkflowChecks.ps1','WorkflowJobStatusChecks.ps1','WorkflowJobStatusChecks.cjs','SaPasswordPolicyHttpChecks.ps1','SaPasswordPolicyUiChecks.cjs','RunArtifactRemovalHttpChecks.ps1','RunArtifactRemovalUiChecks.cjs')) {
+    if($fixture -cin @('ContainerPortPreviewHttpChecks.ps1','ContainerAutoStartPreviewHttpChecks.ps1')) {
+        $fixtureTimeoutMs = if($fixture -ceq 'ContainerPortPreviewHttpChecks.ps1') { 90000 } else { 120000 }
+        $result = Invoke-WorkflowUiTemporaryFixture -FixturePath (Join-Path $PSScriptRoot ('Fixtures/'+$fixture)) -TimeoutMilliseconds $fixtureTimeoutMs
+        Write-Host $result.Output
+        if($result.Cleanup -cne 'CLEAN') {
+            $recoveryRoot = Join-Path $repoRoot '.artifacts/test-runs/workflow-fixture-recovery'
+            $receipt = Write-WorkflowUiFixtureRecoveryReceipt -Directory $recoveryRoot -Record ($result | Select-Object PrimaryFailure,Cleanup,CleanupReason,OwnedDirectory,Process)
+        }
+        Add-CheckResult -Name $fixture -Success ($result.Completed -and $result.ExitCode -eq 0 -and $result.PrimaryFailure -ceq 'NONE' -and $result.Cleanup -ceq 'CLEAN') -Message $(
+            if($result.Cleanup -cne 'CLEAN') { 'RECOVERY_REQUIRED: eigener Fixturebereich bleibt erhalten; Prozessstatus '+$result.PrimaryFailure+'; Belegstatus '+$receipt.Status+'.' }
+            elseif($result.PrimaryFailure -ceq 'TIMEOUT') { 'Vorschaufixture überschritt ihr begrenztes Zeitbudget.' }
+            elseif($result.PrimaryFailure -cnotin @('NONE','NONZERO_EXIT')) { 'FIXTURE_PROCESS_FAILED: '+$result.PrimaryFailure }
+            else { $result.Error })
+        continue
+    }
     $start = [Diagnostics.ProcessStartInfo]::new()
     $start.FileName = if ($fixture.EndsWith('.ps1')) { (Get-Process -Id $PID).Path } elseif ($node) { $node.Source } else { '' }
     if (-not $start.FileName) { Add-CheckResult -Name $fixture -Success $false -Message 'NOT_EXECUTED: Node.js fehlt.'; continue }
@@ -744,11 +760,7 @@ foreach ($fixture in @('SqlConnectionClipboardUiChecks.cjs','WorkflowUiTlsCreati
     $process=[Diagnostics.Process]::new();$process.StartInfo=$start
     try {
         $null=$process.Start();$output=$process.StandardOutput.ReadToEndAsync();$errors=$process.StandardError.ReadToEndAsync()
-        # This two-provider fixture completed all 107 checks in 66 seconds on
-        # the owned host. Preserve every check and bound only this case at 120s.
-        # The isolated port HTTP fixture completed all 87 assertions in 65.3s
-        # on this host. Preserve coverage and bound only this fixture at 90s.
-        $fixtureTimeoutMs=if($fixture -ceq 'ContainerAutoStartPreviewHttpChecks.ps1'){120000}elseif($fixture -ceq 'ContainerPortPreviewHttpChecks.ps1'){90000}else{60000}
+        $fixtureTimeoutMs=60000
         $complete=$process.WaitForExit($fixtureTimeoutMs);if (-not $complete) { $process.Kill($true);$process.WaitForExit() }
         Write-Host $output.GetAwaiter().GetResult()
         $errorText=$errors.GetAwaiter().GetResult()

@@ -47,6 +47,7 @@ sources_of_truth:
   owned_host_ci_test_cleanup_checks: Tests/Static/Invoke-OwnedHostTestCleanupChecks.ps1
   disposable_test_directory: Tests/Common/TestTemporaryDirectory.ps1
   disposable_test_directory_checks: Tests/Static/Invoke-TestTemporaryDirectoryChecks.ps1
+  workflow_ui_test_temporary_directory: Tests/Common/WorkflowUiTestTemporaryDirectory.ps1 # supervisor owns temporary roots for Port/AutoStart HTTP child fixtures; same timeout/failure status, guarded cleanup and private recovery receipt
   owned_host_ci_checks: Tests/Static/Invoke-OwnedHostIntegrationChecks.ps1
   agent_working_contract: AGENTS.md
   foundation_ruleset: .ai/foundation/FOUNDATION_RULESET.md

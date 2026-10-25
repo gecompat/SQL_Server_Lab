@@ -407,6 +407,24 @@ Sekunden und ohne Providermutation. Ausschließlich diese Fixture erhält deshal
 ein begrenztes 90-Sekunden-Budget. Oracles, Assertions und Cleanup bleiben
 erhalten; der vollständige Workflow-Gate bestand danach mit 72 PASS und 0 FAIL.
 
+Die Port- und AutoStart-HTTP-Fixtures laufen unter einem vom übergeordneten
+Workflow-Testrunner vor Prozessstart angelegten eigenen temporären Bereich.
+Nur der Kindprozess erhält diesen Bereich über `TEMP`, `TMP` und `TMPDIR`.
+Nach bestätigtem Prozessende und geschlossenen Ausgabestreams verwendet der
+Runner den bestehenden tokengebundenen `TestTemporaryDirectory`-Cleanup auch
+nach einem Timeout; 90 beziehungsweise 120 Sekunden und alle Assertions bleiben
+erhalten. Ein Timeout bleibt ein Fehler. Fehlende Terminierungsbestätigung oder
+ein Cleanupveto behalten Bereich und privaten Recoverybeleg und verhindern PASS.
+Der Beleg bindet PID und Startzeit und trennt Prozessende von geschlossenen
+Ausgabestreams. Bei einer fehlgeschlagenen Assertion entfernt auch der äußere
+Test-Teardown den erhaltenen Bereich nicht nachträglich.
+Eine fehlgeschlagene Belegablage wird getrennt als `WRITE_FAILED` ausgewiesen;
+sie ersetzt den Primärfehler nicht und behauptet keinen geschriebenen Beleg.
+Die bestehende Temporary-Directory-Suite prüft dies mit echten synthetischen
+Kindprozessen für Erfolg, Fehler-Exitcode, Exception, Timeout, Ownershipdrift
+und einen fremden Linkzielbereich. Ein abschließender Verzeichnistrenner im
+Parentpfad ändert dessen kanonische Besitzbindung nicht. Das ist keine Providerabnahme.
+
 Die HyperVLabEnvironment-Suite führt zusätzlich die
 [öffentliche Entryfixture](../../Tests/Static/Fixtures/HyperVSqlPublicEntryChecks.ps1)
 und die [SQL-VM-ID-Kettenfixture](../../Tests/Static/Fixtures/HyperVSqlVmBindingChecks.ps1)
