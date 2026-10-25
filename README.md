@@ -718,6 +718,12 @@ Invoke-SqlServerLabScheduler -UntilIdle
 
 Nach Neustart eines eigenen operativen TLS-Containers aktualisiert `Update-SqlServerLabTlsBinding -RunId $lab.RunId -InstanceId primary -StateRoot $lab.StateRoot` ausdrücklich dessen Startbindung nach beiden strikten Clients. Ein unveränderter Start ist kein neuer Nachweis; alte Exporte bleiben ungültig. [Vertrag, WhatIf und Recoverygrenze](Documentation/Architecture/AUTHENTICATED_TLS_CONTAINER_REBIND.md).
 
+Bei einer unterbrochenen Wiederbindung zeigt Get-SqlServerLabTlsBindingRecovery
+die eigene offene Transaktion. Resolve-SqlServerLabTlsBindingRecovery schließt
+genau diese mit beiden frischen strikten Clients ab oder nimmt nur die eigenen
+Metadaten ausdrücklich ohne TLS-PASS zurück. Die verlinkte Recoveryanleitung
+beschreibt Auswahl, WhatIf, Sperrgrenzen und noch fehlende native Nachweise.
+
 Optionale [Volltextsuche und FILESTREAM](Documentation/Architecture/SQL_OPTIONAL_FEATURES.md)
 werden explizit über Manifest, CLI und GUI ausgewählt. Volltext ist für
 Docker/Podman und Windows/Hyper-V implementiert; FILESTREAM-T-SQL-Zugriff

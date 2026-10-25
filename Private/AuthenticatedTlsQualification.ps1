@@ -53,13 +53,19 @@ function Invoke-LabTlsStrictSqlcmd {
 }
 
 function Test-LabAuthenticatedTlsEnvironment {
-    param([string]$RunId,[string]$InstanceId,[string]$StateRoot,[object]$Budget,[object]$RestartCandidate,[string]$ExpectedSourceSha256,[object]$RebindLock)
+    param([string]$RunId,[string]$InstanceId,[string]$StateRoot,[object]$Budget,[object]$RestartCandidate,[string]$ExpectedSourceSha256,[object]$RebindLock,[string]$RecoveryTransactionId)
     $bound=Get-LabTlsOwnBinding $StateRoot $RunId $InstanceId
     $record=$bound.Record;$authority=$bound.Authority
     if($PSBoundParameters.ContainsKey('RestartCandidate')){
         if($ExpectedSourceSha256 -cnotmatch '\A[0-9a-f]{64}\z' -or (Get-LabTlsCaByteDigest $bound.Bytes) -cne $ExpectedSourceSha256){throw 'TLS_REBIND_SOURCE_CHANGED'}
         Assert-LabTlsRebindCandidateLock $RebindLock $StateRoot
-        Assert-LabTlsRestartCandidate $record $RestartCandidate
+        if($RecoveryTransactionId){
+            $binding=[pscustomobject]@{Directory=(Join-Path $StateRoot 'authenticated-tls-rebind');Native=$authority.Native}
+            $history=Get-LabTlsRebindHistoryState $binding $record $bound.Bytes -AllowIncomplete
+            if(-not $history.Pending -or $history.Pending.Id -cne $RecoveryTransactionId -or $history.Pending.Status -cne 'PENDING' -or
+                (Get-LabTlsCaByteDigest (ConvertTo-LabTlsRegistryWriterBytes $RestartCandidate)) -cne $history.Pending.CandidateSha256){throw 'TLS_REBIND_RECOVERY_CANDIDATE_INVALID'}
+            Assert-LabTlsRestartCandidate $history.Pending.Original $RestartCandidate
+        }else{Assert-LabTlsRestartCandidate $record $RestartCandidate}
         $record=$RestartCandidate
     }else{Assert-LabTlsRebindCommitted $bound $StateRoot}
     $profile=Get-LabTlsBindingSqlProfile $record
