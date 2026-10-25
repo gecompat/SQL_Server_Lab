@@ -57,6 +57,8 @@ führt von dort zu Vertrag, Format und Evidence.
   technische Referenzpfade mit getrennten Nachweisgrenzen.
 - [TLS-001-Abschlussübersicht](Project_Planning/TLS_001_COMPLETION_CHECKLIST.md):
   endliche Pflichtkriterien, bereits belegte Grenzen und verbleibende Arbeit.
+- [TLS-001-Consumerinventur](Project_Planning/TLS_001_CONSUMER_INVENTORY.md):
+  konkrete V1-/V2-Reader, direkte API-Nutzer und die verbleibenden Cutovergrenzen.
 - [Linux-TLS-Kryptomatrix](Quality/TLS_LINUX_CLIENT_MATRIX_ACCEPTANCE_2026-10-22.md):
   datierter Clientnachweis; kein öffentlicher Linux-Registry-/Exportpfad.
 - [Explizite TLS-Live-API](Quality/TLS_LIVE_QUALIFICATION_API_ACCEPTANCE_2026-10-23.md):
