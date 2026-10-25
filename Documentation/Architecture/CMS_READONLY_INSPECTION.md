@@ -84,13 +84,14 @@ Browser-bis-SQL-Abnahme bleiben separat; dies ist kein SQL-/Providernachweis.
 
 Der additive test-only `Invoke-ConnectionCenterCmsFullPageAcceptance.ps1`
 liefert die tatsächliche vollständige Seite mit unveränderten index-/CSS-/
-JavaScriptbytes. Die zehn Produkt-JavaScripts einschließlich Navigation und
-CMS werden gemeinsam geladen; dreizehn Produktquellen inklusive HTTP-Quelle
-werden gebunden. Nur vier feste synthetische Bootstrapreads und die tatsächliche
+JavaScriptbytes. Die im aktuellen Dokument deklarierten Produkt-JavaScripts
+einschließlich Navigation und CMS werden gemeinsam geladen; alle Seitenquellen
+und die HTTP-Quelle werden gebunden. Nur vier feste synthetische Bootstrapreads und die tatsächliche
 CMS-Adapter-/Dispatchroute mit synthetischen Workflowantworten sind freigegeben.
 Jobpolling und Listener sind begrenzt; andere Endpunkte führen keinen Effekt aus.
-Die Abnahme verlangt alle zwölf Assets, vollständigen Bootstrap ohne Skriptfehler,
-Navigation zum CMS und genau zwei bewusste CMS-Aktionen. Der Operatorrecord
+Die Abnahme verlangt alle im jeweiligen Produktdokument deklarierten Assets,
+vollständigen Bootstrap ohne Skriptfehler, Navigation zum CMS und genau zwei
+bewusste CMS-Aktionen. Der Operatorrecord
 bleibt eine UI-Beobachtung ohne Runtime- oder Cleanupautorität. Kein Modul,
 State, Provider, Secret oder SQL wird ausgeführt. Dieser additive Browsernachweis
 bestand am 2026-10-07 auf `c6a1458d`: zwölf Assets, dreizehn unveränderte
@@ -101,6 +102,15 @@ für Server und Schließen wurden ohne Skriptfehler sichtbar geprüft; eigener
 Listener/Browser-Tab sind geschlossen. Der erste Lauf mit leerer Bytearray-
 Antwort scheiterte; korrigiert, lokale Fehlerevidence erhalten. Native
 Dieser synthetische Lauf allein belegt keinen Browser-bis-SQL-Pfad; andere UI-Aktionen bleiben offen.
+
+Die statische Vollseitenprüfung vergleicht das vollständige Asset- und
+Quellinventar mit den Deklarationen der aktuellen Produktseite statt mit einer
+festen historischen Anzahl. Eine isolierte Dateifixture prüft zusätzlich ein
+neues deklariertes Skript samt Bytes und Digest, ein nicht deklariertes Skript,
+doppelte Deklarationen, eine fehlende Datei und den eigenen Cleanup. Die
+vorhandenen Gegenfälle für fehlende oder doppelte HTTP-Abrufe bleiben erhalten.
+Diese Offline-Prüfung startet keinen Listener und ersetzt keine neue native
+CMS- oder Browserabnahme; die datierten Nachweise behalten ihren Umfang.
 
 `Invoke-ConnectionCenterCmsNativeBrowserAcceptance.ps1` ergänzt separat den
 nativen Browser-bis-SQL-Kompositionsnachweis für einen frischen eigenen SQL-2025-
