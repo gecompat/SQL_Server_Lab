@@ -15,3 +15,10 @@ ausführbar. URI-Referenzen, Ressourcen-IDs, dynamische Referenzen und fremde
 Dialekte werden vor der Validierung abgewiesen. Der zusätzliche Nachlauf
 betrifft diesen neu erkannten Integrationsfehler, nicht eine erneute Abnahme
 unveränderter Cleanupgrenzen.
+Die vier exakten Pfade des weiterhin blockierten Legacy-Planvertrags wählen
+seine statische Suite, Pester und Analyzer. Die ausführende Runtime, native
+Acceptance und unbekannte Produktpfade behalten ihre bisherigen Gates.
+Damit startet die lokale Schemakomposition keine zusätzliche Hyper-V- oder
+Adapterprovisionierung; die Docker-/Podman-/Mixed-Gates dieses Cleanup-Diffs
+bleiben erforderlich. Die zusätzliche Auswahlprüfung kontrolliert alle vier
+Einzelpfade; vorhandene Vereinigungs- und Fallbackprüfungen bleiben erhalten.

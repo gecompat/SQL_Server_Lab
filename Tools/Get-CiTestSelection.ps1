@@ -358,6 +358,10 @@ end {
 
             $knownDomainChange = $pathRuntime.Docker -or $pathRuntime.Podman -or $pathRuntime.Mixed -or $pathRuntime.HyperV -or $pathRuntime.Adapter
             $staticOnlyProductChange = $runtimePath -match '(?i)(PersistentStorageCatalog|PersistentStorageArtifact|persistent-storage-(catalog|artifact)|ResourceSet|ResourcePlan|ScenarioContract|scenario-contract|EvaluationWatch|evaluation-watch|SqlGuestEvaluationEvidence|sql-guest-evaluation-evidence|AutomationApiPlan|automation-api-plan|Get-SqlServerLabAutomationPlan)'
+            # The legacy executor planner stays BLOCKED and never arranges a
+            # provider or executes SQL. Its closed schemas need the plan suite;
+            # the distinct ExecutorRuntime and acceptance paths retain natives.
+            $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -cmatch '^(Private/PortableContainerTransferExecutor\.ps1|Public/Get-SqlServerLabPortableContainerTransferExecutorPlan\.ps1|Schemas/portable-container-transfer-executor-(plan|journal)\.schema\.json)$'
             $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -match '^(Private/SecurityToolCatalog\.ps1|Public/Get-SqlServerLabSecurityToolPlan\.ps1|Catalogs/security-tools\.json|Schemas/security-tool-(catalog|request|plan)\.schema\.json)$'
             $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -match '^(Private/ScenarioExecutor\.ps1|Schemas/scenario-execution-(plan|journal)\.schema\.json)$'
             $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -match '^(Private/ScenarioCapabilityDecision\.ps1|Schemas/scenario-capability-(plan|decision)\.schema\.json)$'

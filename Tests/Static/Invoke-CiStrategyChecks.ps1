@@ -871,6 +871,12 @@ Add-CheckResult -Name 'Transfer-Staging-Preflight aktiviert seinen Vertrag und g
     'Invoke-PortableContainerTransferExecutorChecks.ps1' -in $transferPreflight.StaticChecks
 )
 
+foreach($plannerPath in @('Private/PortableContainerTransferExecutor.ps1','Public/Get-SqlServerLabPortableContainerTransferExecutorPlan.ps1','Schemas/portable-container-transfer-executor-plan.schema.json','Schemas/portable-container-transfer-executor-journal.schema.json')){
+    $plannerSelection=& $selector -ChangedPath @($plannerPath)
+    Add-CheckResult "Blocked executor planner selects its contract without native arrange: $plannerPath" (
+        'Invoke-PortableContainerTransferExecutorChecks.ps1' -in $plannerSelection.StaticChecks -and
+        -not($plannerSelection.Docker -or $plannerSelection.Podman -or $plannerSelection.Mixed -or $plannerSelection.HyperV -or $plannerSelection.Adapter))
+}
 $transferRuntime = & $selector -ChangedPath @('Private/PortableContainerTransferExecutorRuntime.ps1')
 Add-CheckResult -Name 'Ein-Datenbank-Transferexecutor aktiviert seine Runtime- und Inhaltsvertraege nur fuer Docker und Podman' -Success (
     $transferRuntime.Docker -and $transferRuntime.Podman -and
