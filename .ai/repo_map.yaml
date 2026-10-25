@@ -980,6 +980,11 @@ sources_of_truth:
   authenticated_tls_restart_rebind: Private/AuthenticatedTlsRestartRebind.ps1 # explicit same-container epoch-only update; no certificate/key/trust/config changes; cooperative immutable history and no replay
   authenticated_tls_restart_rebind_contract: Documentation/Architecture/AUTHENTICATED_TLS_CONTAINER_REBIND.md
   public_authenticated_tls_restart_rebind: Public/Update-SqlServerLabTlsBinding.ps1
+  authenticated_tls_rebind_recovery: Private/AuthenticatedTlsRebindRecovery.ps1 # closed original/candidate/intent recovery; explicit latest transaction only, fresh two-client Complete or unqualified metadata Rollback; no cert/key/trust mutation
+  public_authenticated_tls_rebind_recovery_status: Public/Get-SqlServerLabTlsBindingRecovery.ps1
+  public_authenticated_tls_rebind_recovery_apply: Public/Resolve-SqlServerLabTlsBindingRecovery.ps1
+  validation_authenticated_tls_rebind_recovery: Tests/Static/Fixtures/AuthenticatedTlsRebindRecoveryChecks.ps1 # real own ACL/replace/interruption fixtures executed by restart-rebind suite; no provider proof
+  acceptance_authenticated_tls_rebind_recovery: Tests/Common/AuthenticatedTlsRebindRecoveryAcceptance.ps1 # explicit exclusive ExerciseRebindRecovery in shared new-own-lab harness; native proof required separately
   validation_authenticated_tls_restart_rebind: Tests/Static/Invoke-AuthenticatedTlsRestartRebindChecks.ps1 # real own Windows ACL/file/lock/replace fixtures with injected authority/provider/client boundaries; no native SQL claim
   validation_authenticated_tls_authority: Tests/Static/Invoke-AuthenticatedTlsAuthorityChecks.ps1
   validation_authenticated_tls_lab: Tests/Static/Invoke-AuthenticatedTlsLabChecks.ps1

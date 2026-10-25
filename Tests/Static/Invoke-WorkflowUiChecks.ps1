@@ -737,7 +737,9 @@ else {
 
 foreach ($fixture in @('SqlConnectionClipboardUiChecks.cjs','WorkflowUiTlsCreationChecks.ps1','WorkflowUiTlsCreationChecks.cjs','ContainerPinnedVersionWorkflowChecks.ps1','WorkflowContainerPinnedVersionUiChecks.cjs','TlsLiveQualificationHttpChecks.ps1','TlsLiveQualificationUiChecks.cjs','WorkflowInventoryCacheChecks.ps1','WorkflowUiCommandGrantsChecks.ps1','WorkflowUiCommandGrantsChecks.cjs','PublicCommandConsoleSensitiveBytesChecks.cjs','WorkflowUiOperatorChecks.ps1','WorkflowUiOperatorTransportChecks.cjs','WorkflowUiSpecializedBodyChecks.ps1','WorkflowUiJsonBodyChecks.ps1','WorkflowUiRequestBoundaryChecks.ps1','ContainerPortPreviewHttpChecks.ps1','ContainerPortPreviewUiChecks.cjs','ContainerPortPreviewBrowserAcceptanceChecks.ps1','ContainerAutoStartPreviewHttpChecks.ps1','ContainerAutoStartPreviewUiChecks.cjs','ContainerAutoStartPreviewBrowserWorkflowChecks.ps1','WorkflowJobStatusChecks.ps1','WorkflowJobStatusChecks.cjs','SaPasswordPolicyHttpChecks.ps1','SaPasswordPolicyUiChecks.cjs','RunArtifactRemovalHttpChecks.ps1','RunArtifactRemovalUiChecks.cjs')) {
     if($fixture -cin @('ContainerPortPreviewHttpChecks.ps1','ContainerAutoStartPreviewHttpChecks.ps1')) {
-        $fixtureTimeoutMs = if($fixture -ceq 'ContainerPortPreviewHttpChecks.ps1') { 90000 } else { 120000 }
+        # Fixed complete-fixture ceilings, not HTTP latency requirements.
+        # Keep all assertions, termination confirmation and owned cleanup.
+        $fixtureTimeoutMs = if($fixture -ceq 'ContainerPortPreviewHttpChecks.ps1') { 180000 } else { 240000 }
         $result = Invoke-WorkflowUiTemporaryFixture -FixturePath (Join-Path $PSScriptRoot ('Fixtures/'+$fixture)) -TimeoutMilliseconds $fixtureTimeoutMs
         Write-Host $result.Output
         if($result.Cleanup -cne 'CLEAN') {

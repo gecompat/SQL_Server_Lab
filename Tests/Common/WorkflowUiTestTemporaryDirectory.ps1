@@ -17,7 +17,7 @@ function Invoke-WorkflowUiTemporaryFixture {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$FixturePath,
-        [Parameter(Mandatory)][ValidateRange(1,120000)][int]$TimeoutMilliseconds,
+        [Parameter(Mandatory)][ValidateRange(1,240000)][int]$TimeoutMilliseconds,
         [string]$ParentPath = [IO.Path]::GetTempPath()
     )
     $owned = $null

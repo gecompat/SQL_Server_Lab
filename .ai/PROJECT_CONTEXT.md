@@ -171,6 +171,18 @@ Die Neustart-Wiederbindung ist zusätzlich für Windows-/SQL-2025-CU9 mit Docker
 
 Die explizite Container-TLS-Wiederbindung ist für dieselben eigenen policygebundenen Windows-/Docker-/Podman-Labs implementiert. `Update-SqlServerLabTlsBinding` aktualisiert nur die gespeicherte Start-Epoche nach beiden strikten Clients und einer geschützten Vorgänger-/Kandidat-/Committransaktion. Alte Exporte bleiben ungültig; unklare Writes sind Recoverybedarf. Die getrennten nativen Windows-/SQL-2019-CU32-Abnahmen bestanden je zwölf Fälle und zwölf strikte Clientergebnisse mit eigenem Cleanup. Docker belegt den Stand vor der fokussiert geprüften Offsetkorrektur; Podman den korrigierten Stand. Der ursprüngliche Podman-FAIL bleibt erhalten. Details und Grenzen stehen in der Validierungsstrategie; finale PR-Pflichtgates bleiben Integrationsbedingung.
 
+Die gezielte Recovery unvollständiger Start-Epochen-Wiederbindungen ist als
+Get-SqlServerLabTlsBindingRecovery und Resolve-SqlServerLabTlsBindingRecovery
+implementiert. Nur die letzte exakte eigene Transaktion darf frisch mit beiden
+Clients abgeschlossen oder ausschließlich in ihren Metadaten unqualifiziert
+zurückgenommen werden. Runtime-, Zertifikats-, Key- und Truständerungen sind
+ausgeschlossen. Die [native Recoveryabnahme](../Documentation/Quality/TLS_REBIND_RECOVERY_ACCEPTANCE_2026-10-25.md)
+bestand getrennt mit Windows-/Docker-/SQL-2025-CU9 und
+Windows-/Podman-/SQL-2019-CU32, je 15 Fälle und eigener Cleanup.
+Statische Fixtures und diese beiden Providerbelege bleiben getrennt; der vollständige operative
+Renewal-/Recovery-Lebenszyklus bleibt TLS-001-Scope. Maßgeblich ist der
+[Wiederbindungsvertrag](../Documentation/Architecture/AUTHENTICATED_TLS_CONTAINER_REBIND.md).
+
 SQL 2019 CU32 ist als nächstes geschlossenes operatives Windows-/Docker-/Podman-Profil mit Build `15.0.4430.1` implementiert. Der bestehende `0.3`-Record bindet ausdrücklich `2019-CU32`; historische SQL-2025- und SQL-2022-Bindungen bleiben erhalten. Beide getrennten nativen operativen Abnahmen bestanden je sieben Fälle, sechs strikte Clientergebnisse und vollständigen eigenen Container-/Volume-/Exportcleanup. Frühere Kryptoproben bleiben getrennte Nachweise; die finalen PR-Pflichtgates sind Integrationsbedingung.
 
 Der operative Windows-TLS-Pfad ergänzt den geschlossenen SQL-2022-CU27-Scope
