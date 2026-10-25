@@ -15,16 +15,18 @@ ausgeführte datierte Nachweise bleiben maßgeblich; eine Planung ist kein PASS.
 | Mindestmatrix und öffentlicher Hyper-V-Pfad | Drei operative SQL-Generationen mit Docker/Podman und beiden Windows-Clientstacks; sechs getrennte Linux-Kryptozellen; private Hyper-V-/SQL-2025-RTM-Referenz mit Windowsclients. | Hyper-V 2019/2022, fehlende Linux-Clientzellen an Windows-SQL-Zielen und die öffentliche Hyper-V-False-/Exportlane. Nicht zutreffende Kombinationen brauchen eine begründete Capabilitygrenze, keinen fingierten PASS. |
 | Öffentlicher Linux-Pfad | Die Linux-Kryptomatrix belegt beide echten Stacks einschließlich negativer Zertifikatsfälle. | Öffentliche Registry-/Reader-/Export-/Consumerfähigkeit im vereinbarten Linux-Ausführungskontext implementieren und abnehmen. Kryptoproben allein schließen diesen Pfad nicht. |
 | Operativer Zertifikatslebenszyklus | Zertifikatsnegativfälle und Container-Start-Epochen-Rebind sind getrennt belegt. | Reproduzierbare Erneuerung mit neuer Qualifikation, Fehlern, Abbruch/Resume und eigener Recovery/Rücknahme. Nur eigene journalisierte Bindungen zurücknehmen; vorbestehende Schlüssel und gemeinsam verwendeten Trust erhalten. |
-| Consumer und gekoppelter Preflight | Windows-Toolbelt-Cutover für sechs Containerprofile ist abgenommen. | Die endliche relevante Inventur von Toolbelt, Analyze, PerformanceSchulung, lokalen Skripten, ENV/Markdown und Prompt auf Versions-, Discovery- und Modusannahmen abschließen; erforderliche Cutover und tatsächliche gekoppelte Preflights je behauptetem Kontext belegen. |
+| Consumer und gekoppelter Preflight | Windows-Toolbelt-Cutover für sechs Containerprofile ist abgenommen. Die Consumerinventur und die reparierten isolierten Reader besitzen einen begrenzten echten Windows-/Docker-V1-Preflight mit zehn Readerfamilien, zwei funktionalen Clients und eigenem Cleanup; der übergeordnete Kontroll-FAIL bleibt separat erhalten. | Erforderliche aktuelle CI und Integrationsstände binden; verbleibende Analyze-/Schulungs-, öffentliche Linux-/Hyper-V- und weitere ausdrücklich behauptete Consumerkontexte gemäß Inventur abschließen. |
 | Integration, Betrieb und Abschlusszuordnung | Implementierte Teilverträge und datierte Nachweise sind getrennt verlinkt. | Jedem Pflichtkriterium Vertrag, ausgeführten Nachweis oder offene Grenze zuordnen; erforderliche finale Gates, Integration sowie Betriebs-, Migrations- und Fehlerdiagnose abschließen. Eigenen Cleanup erledigen oder ausdrücklich genehmigten offenen Cleanup transparent ausweisen. |
 
 Die [D4-Festlegung](TLS_001_ISOLATED_CA_DESIGN.md#d4--koordinierter-nachfolgevertrag)
 verlangt keinen zusätzlichen gemeinsamen Exportnachfolger. Sie verändert
 weder die bestehenden Schemas noch die übrigen Sicherheits-, Lifecycle-,
-Matrix- und Consumerpflichten. Neue Toolbelt-Entwicklung bleibt nach der
+Matrix- und Consumerpflichten. Die nötige Toolbelt-Arbeit ist nach der direkten
+menschlichen Anweisung vom 2026-10-25 innerhalb der
 [aktuellen Arbeitsgrenze](../../.ai/PROJECT_CONTEXT.md#aktuelle-ki-arbeitsgrenze-für-tls-001)
-pausiert. Der bereits abgenommene Windows-Cutover bleibt gültig; eine neue
-Fortsetzung benötigt eine direkte menschliche Freigabe.
+wieder freigegeben. Der bereits abgenommene Windows-Cutover bleibt gültig.
+Die [Consumerinventur](TLS_001_CONSUMER_INVENTORY.md) konkretisiert Reader-,
+API-, Versions- und noch offene Preflightgrenzen.
 
 ## Mindestmatrix richtig lesen
 
