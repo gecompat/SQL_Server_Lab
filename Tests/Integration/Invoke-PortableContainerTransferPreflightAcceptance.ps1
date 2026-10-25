@@ -108,7 +108,7 @@ try {
     $completed=$true
 }
 finally {
-    if($requestedStateRoot -and $script:unreturnedCreation){
+    if($script:unreturnedCreation){
         $cleanupFailed=$true
         Write-Warning 'Partielle eigene Erstellung ohne zurückgegebene Run-ID benötigt Recovery; Daten und Custody bleiben erhalten.'
     }
@@ -117,7 +117,7 @@ finally {
     }
     # Run removal deliberately retains persistent data. Remove only this test's
     # cataloged target store with the fresh public plan before deleting its data.
-    if($requestedStateRoot -and $targetLab -and -not $cleanupFailed){
+    if($targetLab -and -not $cleanupFailed){
         try {
             $storeId=& $module {
                 param($RunId,$State)

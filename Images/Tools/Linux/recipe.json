@@ -3,7 +3,7 @@
     "name": "SqlServerLab.ContainerToolRecipe",
     "version": "1.0"
   },
-  "recipeVersion": "1",
+  "recipeVersion": "2",
   "operatingSystem": "ubuntu-22.04",
   "architecture": "x86_64",
   "baseImage": {
@@ -16,12 +16,12 @@
   },
   "tools": {
     "sqlpackage": {
-      "runtimeVersion": "170.4.83.3",
+      "runtimeVersion": "170.5.96.0",
       "archive": {
         "id": "sqlpackage-linux-x64",
-        "source": "https://download.microsoft.com/download/18a5e51e-8332-4cbe-bb50-6d3a50c704c5/sqlpackage-linux-x64-en-170.4.83.3.zip",
-        "version": "170.4.83.3",
-        "sha256": "e81ede2429f3a15d9e752845c8928569c7706b3a911fad2d1717c0f03e0fc7c3"
+        "source": "https://download.microsoft.com/download/00b77a44-b9ad-404a-ba5d-0b9c8740c016/sqlpackage-linux-x64-en-170.5.96.0.zip",
+        "version": "170.5.96.0",
+        "sha256": "e2ee0d6ec74b9089db926f44fdc681fe5d22bd1e68c938ff10c25a54f53ce5d4"
       },
       "runtimeLibrary": {
         "id": "ubuntu-jammy-libunwind8",

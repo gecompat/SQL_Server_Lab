@@ -7,7 +7,27 @@ Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue;$module=Import-M
 try{$batch=Get-SqlServerLabPortableContainerTransferExecutorPlan -SourceRunId $sourceRun -SourceInstanceId source -TargetRunId $targetRun -TargetInstanceId target -DatabaseTransfers @([pscustomobject]@{SourceDatabaseName='SourceDb';TargetDatabaseName='TargetDb';BackupSetId=$backupId}) -DataRoot $root -StateRoot $root;$plan=$batch.Transfers[0].Plan;$journal=& $module {param($p) New-LabPortableContainerTransferExecutorJournal -Plan $p} $plan;$result=[pscustomobject]@{Batch=$batch;Plan=$plan;Journal=$journal}
  Add-CheckResult 'Mehrdatenbank-Executorplan bleibt ohne Inhaltsvergleich und SQL-Revalidierung strikt blockiert' ($result.Batch.SelectionMode -eq 'EXPLICIT' -and $result.Batch.Status -eq 'BLOCKED' -and -not $result.Batch.ExecutionImplemented -and 'CONTENT_COMPARISON_PROFILE_UNAVAILABLE' -in $result.Plan.Blockers -and 'BACKUP_HEADERONLY_AND_LIVE_CHECKSUM_VERIFYONLY_NOT_EXECUTED' -in $result.Plan.Blockers)
  Add-CheckResult 'Plan bindet beide angeforderten Runs und Instanzen ohne Secrets' ($result.Plan.Source.RunId -eq $sourceRun -and $result.Plan.Target.RunId -eq $targetRun -and $result.Plan.Source.InstanceId -eq 'source' -and $result.Plan.Target.InstanceId -eq 'target' -and (($result.Plan|ConvertTo-Json -Depth 30) -notmatch '(?i)password|credential|secret'))
- Add-CheckResult 'Journal behauptet keine Mutation und erfuellt den Schema-Vertrag' ($result.Journal.Status -eq 'BLOCKED' -and $result.Journal.Recovery -eq 'NO_MUTATION_PERFORMED' -and (($result.Journal|ConvertTo-Json -Depth 40)|Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/portable-container-transfer-executor-journal.schema.json')))
+ $journalSchema=& $module {Get-LabPortableContainerTransferExecutorJournalSchema}
+ Add-CheckResult 'Journal behauptet keine Mutation und erfuellt den Schema-Vertrag' ($result.Journal.Status -eq 'BLOCKED' -and $result.Journal.Recovery -eq 'NO_MUTATION_PERFORMED' -and (($result.Journal|ConvertTo-Json -Depth 40)|Test-Json -Schema $journalSchema))
  Add-CheckResult 'Executorplan akzeptiert ausschliesslich explizite DatabaseTransfers' ($result.Batch.SelectionMode -eq 'EXPLICIT' -and -not (Get-Command Get-SqlServerLabPortableContainerTransferExecutorPlan).Parameters.ContainsKey('AllEligible'))
+ foreach($case in @('local','remote-plan','remote-binding','dynamic-ref','resource-id','remote-dialect')){
+    $fixture=Join-Path $root $case;$null=New-Item -ItemType Directory -Path $fixture
+    $journalSchemaDocument=Get-Content -LiteralPath (Join-Path $repoRoot 'Schemas/portable-container-transfer-executor-journal.schema.json') -Raw|ConvertFrom-Json -AsHashtable
+    $planSchemaDocument=Get-Content -LiteralPath (Join-Path $repoRoot 'Schemas/portable-container-transfer-executor-plan.schema.json') -Raw|ConvertFrom-Json -AsHashtable
+    switch($case){
+        'remote-plan' {$journalSchemaDocument.properties.Plan['$ref']='https://example.invalid/foreign.json'}
+        'remote-binding' {$planSchemaDocument.properties.Source['$ref']='https://example.invalid/foreign.json'}
+        'dynamic-ref' {$planSchemaDocument['$dynamicRef']='https://example.invalid/foreign.json'}
+        'resource-id' {$planSchemaDocument['$id']='https://example.invalid/resource'}
+        'remote-dialect' {$planSchemaDocument['$schema']='https://example.invalid/dialect'}
+    }
+    $journalSchemaDocument|ConvertTo-Json -Depth 100|Set-Content -LiteralPath (Join-Path $fixture 'portable-container-transfer-executor-journal.schema.json')
+    $planSchemaDocument|ConvertTo-Json -Depth 100|Set-Content -LiteralPath (Join-Path $fixture 'portable-container-transfer-executor-plan.schema.json')
+    $accepted=& $module {param($Fixture)$previous=$script:SchemasPath;try{$script:SchemasPath=$Fixture;$null=Get-LabPortableContainerTransferExecutorJournalSchema;$true}catch{$false}finally{$script:SchemasPath=$previous}} $fixture
+    Add-CheckResult "Lokale Schema-Komposition ohne Nachladen: $case" ($accepted -eq ($case -eq 'local'))
+ }
+ $invalidJournal=$result.Journal|ConvertTo-Json -Depth 40|ConvertFrom-Json
+ $invalidJournal.Plan.Source.PSObject.Properties.Remove('RunId')
+ Add-CheckResult 'Komponierter Vertrag validiert weiterhin die verschachtelte Planbindung' (-not(($invalidJournal|ConvertTo-Json -Depth 40)|Test-Json -Schema $journalSchema -ErrorAction SilentlyContinue))
 }finally{Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue;Remove-Item $root -Recurse -Force -ErrorAction SilentlyContinue}
 $failed=@($results|Where-Object{-not $_.Success});if($failed){throw "PORTABLE CONTAINER TRANSFER EXECUTOR CHECKS FAILED: $($failed.Name -join '; ')"};Write-Host "PORTABLE CONTAINER TRANSFER EXECUTOR CHECKS: PASS ($($results.Count))"

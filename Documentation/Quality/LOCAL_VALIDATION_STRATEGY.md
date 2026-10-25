@@ -4599,6 +4599,15 @@ wenn deren API bis zum Ende der Poll-Wartezeit unerreichbar bleibt.
 
 ### Kataloggebundenes SqlPackage, BACPAC oder Container-Attach betroffen
 
+Die [Abnahme vom 2026-10-25](SQLPACKAGE_170_5_96_ACCEPTANCE_2026-10-25.md)
+bestätigt SqlPackage `170.5.96.0` mit seinem self-contained .NET-10-Archiv
+getrennt unter Docker und Podman: je 30 native Assertions einschließlich
+Restart, synthetischem BACPAC-/Attach-Inhalt, erwartetem SQL-Fehlerjournal
+und eigenem Cleanup. Beide Läufe verwendeten frische explizite
+[OwnedHost-StateRoots](../Architecture/OWNED_HOST_CI_ISOLATION.md).
+Die zugehörigen elf statischen Suites und der Sample-Handler-Check bestanden;
+finale PR-Gates und weitere Versions-/Providerpfade bleiben getrennte Aussagen.
+
 ```powershell
 .\Tests\Static\Invoke-SampleHandlerChecks.ps1
 .\Tests\Static\Invoke-SoftwareCatalogChecks.ps1
@@ -4840,10 +4849,16 @@ PowerShell 7.2/.NET 6, die vollständigen 134 statischen Suites auf Windows und
 Ubuntu sowie die fünf getrennten Providerpfade bleiben für diesen Folgestand
 `NOT_EXECUTED`. Issue #675 bleibt offen.
 
-`Invoke-TestGroupGuidanceChecks.ps1` wird vom Pfadselektor separat ausgewählt,
-steht aber noch nicht in der bestehenden Vollregressionsliste. Diese gekoppelte
-Coverage-Lücke wird durch den Nightly-Budgetfix nicht geschlossen; aus dessen
-Vollregression darf kein Standalone-TestGroup-Nachweis abgeleitet werden.
+`Invoke-TestGroupGuidanceChecks.ps1` steht genau einmal in der bestehenden
+Vollregressionsliste und wird bei Änderungen an `Invoke-AllChecks.ps1` auch
+vom Pfadselektor ausgewählt. Die CI-Strategie prüft die tatsächliche AST-Liste,
+beide Pfadschreibweisen und den weiterhin vollständigen Runtimefallback bei
+zusätzlichem unbekanntem Produktcode. Die unveränderte Offlinesuite bestand
+lokal am 2026-10-25 mit 40 `PASS` und null `FAIL`; Provider- und HTTP-Grenzen
+bleiben synthetisch. Das belegt weder reale Gruppen-Lifecycles noch einen
+vollständigen Windows-/Ubuntu-Nightly. Der Zusatzaufwand ist eine bestehende
+Offlinesuite pro Vollregression sowie bei einer Änderung des Gesamtrunners;
+es entsteht kein weiterer Vollregressions- oder Providerlauf pro Zwischenfix.
 `CiStrategyNightlyAuthorizationChecks.ps1` führt extrahierte Guard-, Prozess-
 und Reportblöcke mit synthetischen Grenzen aus. Eine reale Shared-Abnahme
 wird dadurch weder ausgeführt noch nachgewiesen. CI-Infrastrukturänderungen

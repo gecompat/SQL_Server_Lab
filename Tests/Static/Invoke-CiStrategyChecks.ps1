@@ -387,6 +387,19 @@ $readerSelection=& $selector -ChangedPath @('Private/DiagnosticBundleReader.ps1'
 foreach($check in @('Invoke-DiagnosticBundleChecks.ps1','Invoke-ContainerAutoStartChecks.ps1','Invoke-ContainerReconcileChecks.ps1','Invoke-ComponentRelationPlanChecks.ps1','Invoke-EvaluationRefreshPlanChecks.ps1')) {
     Add-CheckResult "CU-Bindung gemeinsamer Readeraufrufer $check" ($check -in $readerSelection.StaticChecks)
 }
+foreach($path in @('Catalogs/software.json','Tests/Static/Fixtures/ResourceWatchChecks.ps1','Tests/Static/Fixtures/CuStatusSupportHtmlChecks.ps1')) {
+    foreach($normalized in @($path,$path.Replace('/','\'))){
+        $selected=& $selector -ChangedPath @($normalized)
+        Add-CheckResult "SqlPackage catalog/watch fixture selects actual VersionCatalog execution: $normalized" ('Invoke-VersionCatalogChecks.ps1' -in $selected.StaticChecks)
+        if($path.StartsWith('Tests/',[StringComparison]::Ordinal)){
+            Add-CheckResult "Watch fixture alone does not select providers: $normalized" (-not ($selected.Docker -or $selected.Podman -or $selected.Mixed -or $selected.HyperV -or $selected.Adapter))
+        }else{
+            Add-CheckResult "Software catalog retains all provider gates: $normalized" ($selected.Docker -and $selected.Podman -and $selected.Mixed -and $selected.HyperV -and $selected.Adapter)
+        }
+    }
+}
+$watchMixed=& $selector -ChangedPath @('Tests/Static/Fixtures/ResourceWatchChecks.ps1','Private/UnknownWatchProduct.ps1')
+Add-CheckResult 'Known watch fixture cannot suppress unknown product fallback' ('Invoke-VersionCatalogChecks.ps1' -in $watchMixed.StaticChecks -and $watchMixed.Docker -and $watchMixed.Podman -and $watchMixed.Mixed -and $watchMixed.HyperV -and $watchMixed.Adapter)
 foreach($path in @('Private/VersionCatalog.ps1','Catalogs/sql-server-versions.json')) {
     Add-CheckResult "CU-Bindung Diagnosekatalog $path" ('Invoke-DiagnosticBundleChecks.ps1' -in (& $selector -ChangedPath @($path)).StaticChecks)
 }
@@ -617,6 +630,24 @@ foreach ($menuPath in @('Public/Invoke-SqlServerLab.ps1','Public/BatchConsole.ps
         Add-CheckResult -Name "Jeder Menuequellpfad selektiert echte Image-Navigation: $path" -Success (
             'Invoke-HyperVImageOperatorChecks.ps1' -in $selected.StaticChecks)
     }
+}
+$groupAllRegistrations = @($receiverAssignments | ForEach-Object {
+    $_.Right.FindAll({param($node)
+        $node -is [Management.Automation.Language.StringConstantExpressionAst] -and
+        $node.Value -ceq 'Invoke-TestGroupGuidanceChecks.ps1'
+    },$true)
+})
+Add-CheckResult -Name 'AllChecks registriert die Gruppen-Power-Suite genau einmal' -Success (
+    $receiverAllErrors.Count -eq 0 -and $receiverAssignments.Count -eq 1 -and $groupAllRegistrations.Count -eq 1)
+foreach ($runnerPath in @('Tests/Static/Invoke-AllChecks.ps1','Tests\Static\Invoke-AllChecks.ps1')) {
+    $selected = & $selector -ChangedPath @($runnerPath)
+    Add-CheckResult -Name "Gesamtrunner selektiert die Gruppen-Power-Offlinesuite genau einmal: $runnerPath" -Success (
+        @($selected.StaticChecks | Where-Object { $_ -ceq 'Invoke-TestGroupGuidanceChecks.ps1' }).Count -eq 1 -and
+        -not $selected.Docker -and -not $selected.Podman -and -not $selected.Mixed -and -not $selected.HyperV -and -not $selected.Adapter)
+    $selected = & $selector -ChangedPath @($runnerPath,'Private/UnmappedGroupRegressionProduct.ps1')
+    Add-CheckResult -Name "Gesamtrunner erhaelt unbekannten Produkt-Runtimefallback: $runnerPath" -Success (
+        'Invoke-TestGroupGuidanceChecks.ps1' -in $selected.StaticChecks -and
+        $selected.Docker -and $selected.Podman -and $selected.Mixed -and $selected.HyperV -and $selected.Adapter)
 }
 foreach ($groupPath in @('Private/TestGroupGuidance.ps1','Tests/Static/Invoke-TestGroupGuidanceChecks.ps1')) {
     foreach ($path in @($groupPath,$groupPath.Replace('/','\'))) {
@@ -853,6 +884,12 @@ Add-CheckResult -Name 'Transfer-Staging-Preflight aktiviert seinen Vertrag und g
     'Invoke-PortableContainerTransferExecutorChecks.ps1' -in $transferPreflight.StaticChecks
 )
 
+foreach($plannerPath in @('Private/PortableContainerTransferExecutor.ps1','Public/Get-SqlServerLabPortableContainerTransferExecutorPlan.ps1','Schemas/portable-container-transfer-executor-plan.schema.json','Schemas/portable-container-transfer-executor-journal.schema.json')){
+    $plannerSelection=& $selector -ChangedPath @($plannerPath)
+    Add-CheckResult "Blocked executor planner selects its contract without native arrange: $plannerPath" (
+        'Invoke-PortableContainerTransferExecutorChecks.ps1' -in $plannerSelection.StaticChecks -and
+        -not($plannerSelection.Docker -or $plannerSelection.Podman -or $plannerSelection.Mixed -or $plannerSelection.HyperV -or $plannerSelection.Adapter))
+}
 $transferRuntime = & $selector -ChangedPath @('Private/PortableContainerTransferExecutorRuntime.ps1')
 Add-CheckResult -Name 'Ein-Datenbank-Transferexecutor aktiviert seine Runtime- und Inhaltsvertraege nur fuer Docker und Podman' -Success (
     $transferRuntime.Docker -and $transferRuntime.Podman -and
