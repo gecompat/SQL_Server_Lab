@@ -102,6 +102,7 @@ $module=New-Module -ArgumentList $root -ScriptBlock {
     foreach($version in $script:VersionCatalog.versions) {
         $matrix=Get-SqlServerLabHostCapabilityMatrix -SqlVersion $version.id
         Assert-Case ($matrix.SqlVersion -ceq $version.id -and $matrix.Capabilities.Count -ge 12 -and -not $matrix.MutationAllowed) "Current catalog SQL identity remains scoped: $($version.id)"
+        Assert-Case (@($matrix.Capabilities | Where-Object {$null -eq $_.VariantId -and $_.RequiredCapabilities.Count -ne 0}).Count -eq 0) "Absent catalog variant invents no required capability: $($version.id)"
     }
     Assert-Case ($script:calls.Count -eq $before) 'Full version catalog inspection has no provider effects'
     $script:codes=@{};$script:consoleStep=0;$script:consoleProbe=$false;$script:consoleCancel=0;$script:messages=@()

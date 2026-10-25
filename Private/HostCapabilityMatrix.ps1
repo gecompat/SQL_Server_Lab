@@ -119,7 +119,7 @@ function New-LabHostCapabilityMatrix {
                         'CATALOG_BLOCKED' {'Für dieses SQL-/Provider-/Gastziel wurde keine nutzbare Katalogvariante aufgelöst.'}
                         default {'Die verfügbaren Daten erlauben keine verlässliche aktuelle Entscheidung.'}
                     })
-                    RequiredCapabilities=@($variant.requiresCapabilities | ForEach-Object {[string]$_})
+                    RequiredCapabilities=@($variant.requiresCapabilities | Where-Object {$null -ne $_} | ForEach-Object {[string]$_})
                     ExplicitSelectionRequired=($variant.explicitSelectionOnly -eq $true)
                 })
                 # Use the catalog's language identity, not its display/product name.

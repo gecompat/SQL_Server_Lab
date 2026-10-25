@@ -2274,6 +2274,12 @@ Die erste Console-UI-Prüfung fand fehlende kuratierte Hilfe für die zwei
 neuen Screens (302 PASS / 1 FAIL); nach Ergänzung bestand sie mit 303 PASS.
 Der Dokumentationslauf fand zunächst drei veraltete API-Indexeinträge;
 nach deren Aktualisierung bestand die Prüfung mit 2439 PASS / 0 FAIL.
+Die nachfolgende Browser-Projektion deckte einen leeren Anforderungseintrag
+bei fehlender Katalogvariante auf. Der Reducer verwirft diesen Nullwert vor
+der Stringkonvertierung; die erweiterte Matrixsuite prüft diesen Fall für
+jede geladene SQL-Version getrennt.
+Dieser korrigierte Stand bestand mit 72 Assertions; der gezielte unabhängige
+Review der Nullwertkorrektur fand keine weiteren Findings.
 Dies ist kein Native-, SQL- oder Sprachnachweis.
 [Matrixvertrag und offene Dimensionen](../Architecture/HOST_CAPABILITY_MATRIX.md).
 
