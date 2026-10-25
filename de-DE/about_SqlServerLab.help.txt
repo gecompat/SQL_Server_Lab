@@ -499,6 +499,15 @@ Sync-SqlServerLabRunScopedContainerStore
         Qualifiziert einen eigenen policygebundenen Docker-/Podman-TLS-Run
         nach Neustart und bindet nur dessen neue Start-Epoche; keine Erneuerung.
 
+    Get-SqlServerLabTlsBindingRecovery
+        Zeigt den Status einer eigenen unvollständigen Wiederbindung;
+        führt keine Clients aus und liefert keinen Qualifikationsnachweis.
+
+    Resolve-SqlServerLabTlsBindingRecovery
+        Complete qualifiziert die exakte eigene Transaktion mit beiden Clients.
+        Rollback stellt nur Vorgängermetadaten unqualifiziert wieder her;
+        kein Zertifikatsrenewal, kein Clientnachweis durch Rollback.
+
     Read-SqlServerLabQualifiedTestEnvironment
         Prüft denselben signierten V2-Bytesnapshot gegen Frist und aktuelle
         eigene Bindungen; enthält private Zugangsdaten, öffnet keine SQL-Verbindung.

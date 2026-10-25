@@ -4,10 +4,19 @@ $repo=(Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 . (Join-Path $PSScriptRoot '../Common/CheckResult.ps1')
 $passed=0;$failures=[Collections.Generic.List[string]]::new()
 Import-Module (Join-Path $repo 'SqlServerLab.psd1') -Force
+# Check actual exported metadata without invoking lifecycle/provider actions.
+$acceptanceAst=[Management.Automation.Language.Parser]::ParseFile((Join-Path $repo 'Tests/Common/AuthenticatedTlsRebindRecoveryAcceptance.ps1'),[ref]$null,[ref]$null)
+foreach($call in @($acceptanceAst.FindAll({param($node)$node-is[Management.Automation.Language.CommandAst]-and$node.GetCommandName()-like'*-SqlServerLab*'},$true))){
+    $command=Get-Command $call.GetCommandName() -Module SqlServerLab -ErrorAction Stop
+    $invalid=@($call.CommandElements|Where-Object{$_-is[Management.Automation.Language.CommandParameterAst]-and-not$command.Parameters.ContainsKey($_.ParameterName)}|ForEach-Object ParameterName)
+    Add-CheckResult ("Recovery harness public parameter binding at line {0}: {1}; unknown=[{2}]" -f $call.Extent.StartLineNumber,$command.Name,($invalid-join',')) ($invalid.Count-eq0)
+}
 foreach($name in @('DiagnosticBundleReader','AuthenticatedTlsRequest','AuthenticatedTlsRegistryIndex','AuthenticatedTlsRegistryPayload',
     'AuthenticatedTlsCaCandidate','AuthenticatedTlsContext','AuthenticatedTlsRegistryRoot','AuthenticatedTlsRegistryWriter',
-    'AuthenticatedTlsLab','AuthenticatedTlsQualification','AuthenticatedTlsRestartRebind')){. (Join-Path $repo "Private/$name.ps1")}
+    'AuthenticatedTlsLab','AuthenticatedTlsQualification','AuthenticatedTlsRestartRebind','AuthenticatedTlsRebindRecovery')){. (Join-Path $repo "Private/$name.ps1")}
 . (Join-Path $repo 'Public/Update-SqlServerLabTlsBinding.ps1')
+. (Join-Path $repo 'Public/Get-SqlServerLabTlsBindingRecovery.ps1')
+. (Join-Path $repo 'Public/Resolve-SqlServerLabTlsBindingRecovery.ps1')
 $script:ModuleRoot=$repo
 function Test-RebindReject {param([scriptblock]$Action) try{& $Action|Out-Null;return $false}catch{return $true}}
 $script:baseEpoch=[datetime]::UtcNow.AddMinutes(-10).ToString('O')
@@ -166,6 +175,7 @@ if($IsWindows){
             Add-CheckResult "Uncommitted installed candidate blocks ordinary $operation before clients or output" ($message -ceq 'TLS_REBIND_RECOVERY_REQUIRED' -and
                 $script:sqlChecks -eq $count -and $script:odbcChecks -eq $odbcCount -and -not(Test-Path -LiteralPath $blockedOutput))
         }
+        . (Join-Path $PSScriptRoot 'Fixtures/AuthenticatedTlsRebindRecoveryChecks.ps1')
     } catch {Add-CheckResult ('Restart rebind fixture failed: '+$_.Exception.Message) $false;Write-Host $_.ScriptStackTrace}
     finally {
         if(Test-Path -LiteralPath $fixture){

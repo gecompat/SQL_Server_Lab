@@ -6379,3 +6379,21 @@ Der unveränderte öffentliche Acceptance-Harness wurde zusätzlich mit `-Versio
 Die realen öffentlichen Stop-/Start-/Rebind-/Exportpfade, WhatIf ohne Bindungsänderung, weiterhin ungültiger alter Export und der No-op ohne neuen Qualifikationsclaim bestanden. Beide neuen eigenen Runs sind REMOVED; same-pin Container-/Volumeabwesenheit, entfernte feste Exporte und Bestandsvergleich sind bestätigt. Bestehende CA/Trust, ursprüngliche Schlüssel und Hyper-V-Ressourcen bleiben erhalten. Die beiden Läufe wurden durch dieselbe Runtime-Sperre serialisiert; Warteschlangen ohne Lease reservierten kein Lab.
 
 Produkt und Harness bleiben unverändert. Der überprüfte und integrierte Basisdateibaum von PR818 ist identisch; dessen Hyper-V-Delta verändert den Containerdefault nicht. Unveränderte grüne TLS-Quellenprüfungen wurden nicht wiederholt. Dokumentationsdelta, unabhängiger Abschlussreview und erforderliche finale PR-Gates bleiben Integrationsbedingung. Frühere SQL-2019-/SQL-2025-PASS-/FAIL-Belege bleiben getrennt. Linuxclients, weitere Patchstände, öffentliche Hyper-V-False-/Exportpfade, Renewal, Consumer-Cutover, gerenderter Browser und Wire-Fingerprint bleiben offen.
+
+## Native gezielte Container-Rebind-Recovery vom 2026-10-25
+
+Die [getrennte Recoveryabnahme](TLS_REBIND_RECOVERY_ACCEPTANCE_2026-10-25.md)
+bestand mit Windows-/Docker-/SQL-2025-CU9 und Windows-/Podman-/SQL-2019-CU32:
+je 15 Fälle einschließlich tatsächlicher Unterbrechung nach dem Dateiersatz,
+frischem Complete, getrenntem Rollback ohne Qualifikationsclaim, neuer
+expliziter Wiederbindung und neuem qualifiziertem Export. Beide positiven
+Prozessgruppen waren vollständig leer; eigene Runs, Container, Volumes und
+feste Exporte sind entfernt, Bestandsvergleich und Authorityerhalt bestanden.
+
+Der ursprüngliche Docker-Importfehler vor Allocation und der zweite Docker-FAIL
+nach elf bestandenen Fällen bleiben erhalten. Letzterer entstand durch einen
+nicht unterstützten Startparameter; der neue tatsächliche Cmdlet-Metadatentest
+reproduzierte 163 PASS / 1 FAIL und bestand nach Korrektur mit 164 / 0.
+Die sechs betroffenen statischen Suites samt vollständigem Analyzer bestanden.
+Unveränderte übrige Checks und ihre Originalbelege bleiben getrennt.
+Dies schließt weder Zertifikatserneuerung noch weitere Recoveryprofile.

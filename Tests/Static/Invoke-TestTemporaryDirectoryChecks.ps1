@@ -41,6 +41,12 @@ try{
     }finally{Remove-Item -LiteralPath $linkedParent -Force}
     $supervisor=New-TestTemporaryDirectory -ParentPath $parent
     $driver=Join-Path $supervisor.Path 'fixture.ps1'
+    $range=@((Get-Command Invoke-WorkflowUiTemporaryFixture).Parameters['TimeoutMilliseconds'].Attributes|Where-Object{$_-is[Management.Automation.ValidateRangeAttribute]})
+    if($range.Count-ne1-or$range[0].MinRange-ne1-or$range[0].MaxRange-ne240000){throw 'Fixture timeout lost its fixed 240-second ceiling'};$passed++
+    $before=@(Get-ChildItem -LiteralPath $supervisor.Path -Force).Count
+    $blocked=$false
+    try{$null=Invoke-WorkflowUiTemporaryFixture -FixturePath $driver -TimeoutMilliseconds 240001 -ParentPath $supervisor.Path}catch [Management.Automation.ParameterBindingException]{if($_.FullyQualifiedErrorId-ceq'ParameterArgumentValidationError,Invoke-WorkflowUiTemporaryFixture'){$blocked=$true}else{throw}}
+    if(-not$blocked-or@(Get-ChildItem -LiteralPath $supervisor.Path -Force).Count-ne$before){throw 'Oversized timeout was not rejected before allocation'};$passed++
     $environmentBefore=@($env:TEMP,$env:TMP,$env:TMPDIR)
     Set-Content -LiteralPath $driver -Value '[Console]::WriteLine(($env:TEMP,$env:TMP,$env:TMPDIR -join "|")); exit 0'
     $result=Invoke-WorkflowUiTemporaryFixture -FixturePath $driver -TimeoutMilliseconds 5000 -ParentPath $supervisor.Path

@@ -87,7 +87,15 @@ echtem Ablauf, falschem SAN, Trustentzug und neuem Leafschlüssel. Sechs Zellen,
 eigener Cleanup und Bestandsvergleich bestanden. Die Quellframes bleiben
 getrennt; keine neue gemeinsame Docker-/Podman-Ausführung am finalen Head.
 Das ist keine öffentliche Linux-Registry-/Export-/Consumerabnahme und kein
-operativer Renewal-/Recoveryworkflow. Die älteren TLS-Abschnitte darunter
+operativer Renewal-/Recoveryworkflow. Die gezielte
+[Recovery von Start-Epochen-Metadaten](../Architecture/AUTHENTICATED_TLS_CONTAINER_REBIND.md)
+ist ein eigener begrenzter Pfad; Zertifikatsrenewal, allgemeine beschädigte
+Journale, Keys und Trust sind davon ausgeschlossen. Die getrennte
+[native Recoveryabnahme](TLS_REBIND_RECOVERY_ACCEPTANCE_2026-10-25.md)
+bestand für Windows-/Docker-/SQL-2025-CU9 und Windows-/Podman-/SQL-2019-CU32
+mit je 15 Fällen und vollständigem eigenem Cleanup. Andere Recoveryprofile
+und der operative Zertifikatslebenszyklus bleiben offen.
+Die älteren TLS-Abschnitte darunter
 gelten jeweils für ihren beschriebenen Teilscope, nicht als aktueller
 Gesamtabschluss von TLS-001.
 

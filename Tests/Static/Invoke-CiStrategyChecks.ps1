@@ -1,4 +1,4 @@
-#Requires -Version 7.2
+﻿#Requires -Version 7.2
 [CmdletBinding()]
 param()
 
@@ -41,6 +41,17 @@ foreach($path in @('Public/Get-SqlServerLabHostCapabilityMatrix.ps1','Private/Ho
     $selected=& $selector -ChangedPath @($path)
     Add-CheckResult "Underlying public API and unknown adjacent product source retain full native selection: $path" (
         $selected.Docker -and $selected.Podman -and $selected.HyperV -and $selected.Mixed -and $selected.Adapter)
+}
+foreach($path in @('Private/AuthenticatedTlsRebindRecovery.ps1','Public/Get-SqlServerLabTlsBindingRecovery.ps1',
+    'Public/Resolve-SqlServerLabTlsBindingRecovery.ps1','Tests/Static/Fixtures/AuthenticatedTlsRebindRecoveryChecks.ps1',
+    'Tests/Common/AuthenticatedTlsRebindRecoveryAcceptance.ps1')){
+    foreach($normalized in @($path,$path.Replace('/','\'))){
+        $selected=& $selector -ChangedPath @($normalized)
+        Add-CheckResult "Recovery dependency selects actual rebind execution: $normalized" ('Invoke-AuthenticatedTlsRestartRebindChecks.ps1' -in $selected.StaticChecks)
+        if($path -ceq 'Private/AuthenticatedTlsRebindRecovery.ps1'){
+            Add-CheckResult 'Recovery history retains export and live-qualification regressions' ('Invoke-AuthenticatedTlsLabChecks.ps1' -in $selected.StaticChecks -and 'Invoke-AuthenticatedTlsLiveQualificationChecks.ps1' -in $selected.StaticChecks)
+        }
+    }
 }
 foreach($path in @('Tests/Static/Fixtures/SqlConnectionClipboardUiChecks.cjs','Tests\Static\Fixtures\SqlConnectionClipboardUiChecks.cjs')){
     $selected=& $selector -ChangedPath @($path)
