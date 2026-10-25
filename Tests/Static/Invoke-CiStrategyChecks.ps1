@@ -631,6 +631,24 @@ foreach ($menuPath in @('Public/Invoke-SqlServerLab.ps1','Public/BatchConsole.ps
             'Invoke-HyperVImageOperatorChecks.ps1' -in $selected.StaticChecks)
     }
 }
+$groupAllRegistrations = @($receiverAssignments | ForEach-Object {
+    $_.Right.FindAll({param($node)
+        $node -is [Management.Automation.Language.StringConstantExpressionAst] -and
+        $node.Value -ceq 'Invoke-TestGroupGuidanceChecks.ps1'
+    },$true)
+})
+Add-CheckResult -Name 'AllChecks registriert die Gruppen-Power-Suite genau einmal' -Success (
+    $receiverAllErrors.Count -eq 0 -and $receiverAssignments.Count -eq 1 -and $groupAllRegistrations.Count -eq 1)
+foreach ($runnerPath in @('Tests/Static/Invoke-AllChecks.ps1','Tests\Static\Invoke-AllChecks.ps1')) {
+    $selected = & $selector -ChangedPath @($runnerPath)
+    Add-CheckResult -Name "Gesamtrunner selektiert die Gruppen-Power-Offlinesuite genau einmal: $runnerPath" -Success (
+        @($selected.StaticChecks | Where-Object { $_ -ceq 'Invoke-TestGroupGuidanceChecks.ps1' }).Count -eq 1 -and
+        -not $selected.Docker -and -not $selected.Podman -and -not $selected.Mixed -and -not $selected.HyperV -and -not $selected.Adapter)
+    $selected = & $selector -ChangedPath @($runnerPath,'Private/UnmappedGroupRegressionProduct.ps1')
+    Add-CheckResult -Name "Gesamtrunner erhaelt unbekannten Produkt-Runtimefallback: $runnerPath" -Success (
+        'Invoke-TestGroupGuidanceChecks.ps1' -in $selected.StaticChecks -and
+        $selected.Docker -and $selected.Podman -and $selected.Mixed -and $selected.HyperV -and $selected.Adapter)
+}
 foreach ($groupPath in @('Private/TestGroupGuidance.ps1','Tests/Static/Invoke-TestGroupGuidanceChecks.ps1')) {
     foreach ($path in @($groupPath,$groupPath.Replace('/','\'))) {
         $selected = & $selector -ChangedPath @($path)

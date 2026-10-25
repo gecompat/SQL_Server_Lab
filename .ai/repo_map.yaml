@@ -991,6 +991,7 @@ sources_of_truth:
   validation_authenticated_tls_trust_import: Tests/Static/Invoke-AuthenticatedTlsTrustImportChecks.ps1 # coupled candidate/root/request/payload/context/pathguard; own real private file/ACL/lock fixtures + injected store boundaries, native store mutation NOT_EXECUTED
   test_group_power_guidance: Private/TestGroupGuidance.ps1
   validation_test_group_power_guidance: Tests/Static/Invoke-TestGroupGuidanceChecks.ps1
+  validation_test_group_full_regression: Tests/Static/Invoke-AllChecks.ps1 # exact-once group suite registration; selection and registry protected by Invoke-CiStrategyChecks.ps1
   validation_nightly_authorization: Tests/Static/Fixtures/CiStrategyNightlyAuthorizationChecks.ps1
   automated_test_environment_windows_lifecycle: Public/TestEnvironmentLifecycle.ps1
   stopped_host_memory_contract: Documentation/Architecture/STOP_HOST_MEMORY.md
