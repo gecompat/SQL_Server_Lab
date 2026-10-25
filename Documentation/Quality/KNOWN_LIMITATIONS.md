@@ -90,8 +90,11 @@ Das ist keine öffentliche Linux-Registry-/Export-/Consumerabnahme und kein
 operativer Renewal-/Recoveryworkflow. Die gezielte
 [Recovery von Start-Epochen-Metadaten](../Architecture/AUTHENTICATED_TLS_CONTAINER_REBIND.md)
 ist ein eigener begrenzter Pfad; Zertifikatsrenewal, allgemeine beschädigte
-Journale, Keys und Trust sind davon ausgeschlossen. Die neue native
-Recoveryabnahme bleibt bis zu ihrer tatsächlichen Ausführung offen.
+Journale, Keys und Trust sind davon ausgeschlossen. Die getrennte
+[native Recoveryabnahme](TLS_REBIND_RECOVERY_ACCEPTANCE_2026-10-25.md)
+bestand für Windows-/Docker-/SQL-2025-CU9 und Windows-/Podman-/SQL-2019-CU32
+mit je 15 Fällen und vollständigem eigenem Cleanup. Andere Recoveryprofile
+und der operative Zertifikatslebenszyklus bleiben offen.
 Die älteren TLS-Abschnitte darunter
 gelten jeweils für ihren beschriebenen Teilscope, nicht als aktueller
 Gesamtabschluss von TLS-001.
@@ -338,6 +341,13 @@ CA-/Client-Trust. Öffentliche `False`-Moduswahl, Zertifikats-Lifecycle und die
 gesonderte qualifizierte CLI-/GUI-Anzeige bleiben im laufenden TLS-001-Scope.
 
 ## SSISDB: abgenommener Windows-Scope und Grenzen
+
+Die [Ausführungskontextdiagnose](../Architecture/SSIS_EXECUTION_DIAGNOSTIC.md)
+ist auf bestehende eigene Windows-/Hyper-V-/SQL-2025-Runs begrenzt. Sie
+beobachtet feste Metadaten und gegebenenfalls einen aktiven Workerkandidaten.
+Ein SDK-Ladeerfolg, vorhandene Dateien oder `OBSERVED` beweisen keine
+Komponentenaktivierung oder erfolgreiche Katalogausführung. Die native
+Kontextabnahme ist von der synthetischen Prüfung getrennt.
 
 Die [lesende Paketdiagnose](../Architecture/SSIS_PACKAGE_DIAGNOSTIC.md)
 ergänzt Komponentenbestand und `Package.LoadFromXML` in der zur registrierten
@@ -4208,7 +4218,12 @@ Compute-/Cleanup-Abnahme und ausgewählte Provider-Gates sind NOT_EXECUTED.
 Das optionale CORE-102-Identitätsmapping verwendet den bestehenden Indexvertrag
 1.1; Legacyrecords bleiben unbekannt und unverändert. Public
 `Get-SqlServerLabExternalRuntimeCapability -IncludeRecordedEvidence` liefert
-Version 1.1 ohne aktuelle Evidence-Aufwertung. Das Tool verlangt beide Schalter
+Version 1.1 ohne aktuelle Evidence-Aufwertung. Die bewusste Browseraktion
+`ReadRecordedEvidence` projiziert daraus eine geschlossene 1.1-Zusammenfassung:
+Zuordnung, fester Grund und Anzahl, keine einzelnen Records oder Referenzen.
+Eine positive Anzahl ist kein PASS; aktuelle Host- und SQL-Prüfung bleiben
+NOT_CHECKED, Referenzen NOT_VERIFIED. Einzelnachweise mit Quelle/Datum/Ergebnis
+im Browser und die übrige #619-Matrix bleiben offen. Das Tool verlangt beide Schalter
 `-IncludeRecordedAcceptanceMatrix -IncludeRecordedIdentityMatrix` und liefert
 Version 1.2 ausschließlich als begrenzte historische Identitätsmatrix, ohne
 Quellinventar/Modulimport. Maximal 128 Records und 256 KiB UTF-8 für die komplette

@@ -1963,6 +1963,12 @@ Bei Paketladefehlern beobachtet `Get-SqlServerLabSsisPackageDiagnostic` die
 Komponenten derselben Gast-Runtime und `LoadFromXML` des hashgebundenen eigenen
 Pakets ohne Ausführung. [Voraussetzungen und Beispiel](../Architecture/SSIS_PACKAGE_DIAGNOSTIC.md).
 
+Bei einem Fehler ausschließlich in SSISDB liest
+`Get-SqlServerLabSsisExecutionDiagnostic` eine bereits gebundene eigene
+SQL-2025-Ausführung und feste Runtime-/Registrierungsmetadaten. Ein noch
+aktiver Worker bleibt eine begrenzte zusätzliche Beobachtung.
+[Aufruf und Aussagegrenzen](../Architecture/SSIS_EXECUTION_DIAGNOSTIC.md).
+
 CLI und Browser pruefen das SA-Passwort vor der Containererstellung und erlauben
 Korrektur oder Abbruch. Standard: acht bis 128 Zeichen und drei von vier
 Zeichengruppen. Im Browser erscheint eine kuerzere Mindestlaenge erst nach

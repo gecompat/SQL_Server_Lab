@@ -2,7 +2,7 @@
 function New-TestTemporaryDirectory {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$ParentPath)
-    $parent=[IO.Path]::GetFullPath($ParentPath)
+    $parent=[IO.Path]::TrimEndingDirectorySeparator([IO.Path]::GetFullPath($ParentPath))
     $probe=$parent
     while(-not(Test-Path -LiteralPath $probe)){
         $probe=[IO.Path]::GetDirectoryName($probe)
@@ -25,7 +25,7 @@ function Remove-TestTemporaryDirectory {
     param([Parameter(Mandatory)]$OwnedDirectory)
     $path=[IO.Path]::GetFullPath([string]$OwnedDirectory.Path)
     $comparison=if($IsWindows){[StringComparison]::OrdinalIgnoreCase}else{[StringComparison]::Ordinal}
-    if(-not [IO.Path]::GetDirectoryName($path).Equals([IO.Path]::GetFullPath([string]$OwnedDirectory.Parent),$comparison) -or
+    if(-not [IO.Path]::GetDirectoryName($path).Equals([IO.Path]::TrimEndingDirectorySeparator([IO.Path]::GetFullPath([string]$OwnedDirectory.Parent)),$comparison) -or
         [IO.Path]::GetFileName($path) -cnotmatch '^[a-f0-9]{32}$' -or
         [string]$OwnedDirectory.Token -cnotmatch '^[a-f0-9-]{36}$'){throw 'TEST_DIRECTORY_SCOPE_INVALID'}
     if(-not(Test-Path -LiteralPath $path)){return}

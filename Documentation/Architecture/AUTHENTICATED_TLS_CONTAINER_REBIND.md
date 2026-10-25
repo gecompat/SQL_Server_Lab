@@ -109,9 +109,11 @@ Clientnachweis. Andere oder ältere Transaktions-IDs werden abgewiesen.
 Diese Recovery betrifft ausschließlich die Start-Epochen-Metadaten eigener
 Windows-/Docker-/Podman-Labs. Sie ist kein Zertifikatsrenewal und keine
 allgemeine Recovery für fremde Ziele, fehlende Dateien, geänderte Zertifikate
-oder eine erneut abweichende Runtime-Epoche. Die native Abnahme dieses neuen
-Recoverypfads ist vor seiner ausgeführten Belegung weiterhin offen; ältere
-Rebindabnahmen darunter belegen nur ihren damaligen Teilscope.
+oder eine erneut abweichende Runtime-Epoche. Die getrennte
+[native Recoveryabnahme vom 2026-10-25](../Quality/TLS_REBIND_RECOVERY_ACCEPTANCE_2026-10-25.md)
+bestand für Windows-/Docker-/SQL-2025-CU9 und Windows-/Podman-/SQL-2019-CU32
+mit je 15 Fällen und eigenem Cleanup. Ältere Rebindabnahmen darunter belegen
+nur ihren damaligen Teilscope; weitere Recoveryprofile bleiben unbelegt.
 
 ## Export und Betrieb
 

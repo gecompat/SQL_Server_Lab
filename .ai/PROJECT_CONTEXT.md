@@ -176,8 +176,10 @@ Get-SqlServerLabTlsBindingRecovery und Resolve-SqlServerLabTlsBindingRecovery
 implementiert. Nur die letzte exakte eigene Transaktion darf frisch mit beiden
 Clients abgeschlossen oder ausschließlich in ihren Metadaten unqualifiziert
 zurückgenommen werden. Runtime-, Zertifikats-, Key- und Truständerungen sind
-ausgeschlossen. Statische Fixtureergebnisse und fehlende neue native
-Providerbelege bleiben getrennt; der vollständige operative
+ausgeschlossen. Die [native Recoveryabnahme](../Documentation/Quality/TLS_REBIND_RECOVERY_ACCEPTANCE_2026-10-25.md)
+bestand getrennt mit Windows-/Docker-/SQL-2025-CU9 und
+Windows-/Podman-/SQL-2019-CU32, je 15 Fälle und eigener Cleanup.
+Statische Fixtures und diese beiden Providerbelege bleiben getrennt; der vollständige operative
 Renewal-/Recovery-Lebenszyklus bleibt TLS-001-Scope. Maßgeblich ist der
 [Wiederbindungsvertrag](../Documentation/Architecture/AUTHENTICATED_TLS_CONTAINER_REBIND.md).
 
@@ -579,6 +581,10 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   instrumentierten Effekte; eigener Listener und Tab geschlossen. Seitenbootstrap
   synthetisch; Hostprüfung, historischer Lookup, Installation und SQL ungenutzt.
   CORE-102-Matrix und native Provider-/SQL-Sprachabnahme bleiben offen.
+  Der aktuelle Dialog ergänzt die bewusste Aktion `ReadRecordedEvidence` mit
+  begrenzter historischer Zuordnung und Anzahl; kein PASS aus der Anzahl,
+  keine aktuelle Readiness, keine Rohrecords oder Referenzen. Die alte Abnahme
+  bleibt auf ihren damaligen Scope begrenzt; neue Browserprüfungen werden separat geführt.
   Vertrag: `Documentation/Architecture/EXTERNAL_RUNTIME_CAPABILITY.md`;
 
 - Geführte Podman-KI-Erstellung im Konsolenmenü mit vorhandenem lokalem

@@ -1,5 +1,7 @@
 # Public/ – Exportierte Cmdlets
 
+`Get-SqlServerLabSsisExecutionDiagnostic` beobachtet den gebundenen SSISDB-Ausführungskontext eines eigenen Runs ohne Paketstart oder Reparatur. [Vertrag und Grenzen](../Documentation/Architecture/SSIS_EXECUTION_DIAGNOSTIC.md).
+
 `Read-SqlServerLabQualifiedTestEnvironment` prüft einen privaten signierten
 V2-Bytesnapshot mit Frist und aktuellen eigenen Bindungen. Der zurückgegebene
 Snapshot enthält Zugangsdaten; der Reader öffnet keine SQL-Verbindung.

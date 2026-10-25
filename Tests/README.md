@@ -1,5 +1,14 @@
 # Tests/ – lokale und Remote-Validierung
 
+Die beiden vollständigen synthetischen HTTP-Fixtures für Containerports und
+Autostart laufen in eigenen begrenzten Prozessen mit festen Obergrenzen von
+180 beziehungsweise 240 Sekunden. Lokale Diagnosemessungen vom 2026-10-25
+ergaben 128,2 und 169,6 Sekunden bei unveränderten 87 beziehungsweise 107
+bestandenen Assertions; die früheren 90-/120-Sekunden-Timeouts bleiben FAIL.
+Diese Infrastrukturgrenzen sind keine HTTP-Antwortzeit-SLAs. Assertions,
+Prozessende, geschlossene Ausgaben und eigener Cleanup bleiben erforderlich;
+ein zu großes Timeout wird vor Allocation abgewiesen.
+
 `Static/Invoke-AuthenticatedTlsRestartRebindChecks.ps1` prüft echte eigene Windows-Lock-/ACL-/Replace-/Historyfixtures mit injizierten Runtime-/Clientgrenzen. `Integration/Invoke-AuthenticatedTlsLabAcceptance.ps1 -Provider docker|podman -Version 2019-CU32 -ExerciseRestartRebind -Execute` ergänzt WhatIf, zwei echte Rebind-Clients, alte Exportinvalidierung, neuen strikten Export und den No-op ohne neuen Nachweis; nur nach freigegebenem eigenem Scope und mit bereits vorhandener vertrauter CA.
 
 Dieselbe statische Suite prüft die gezielte Wiederaufnahme und unqualifizierte
@@ -11,6 +20,11 @@ den Abbruch nach dem echten Metadatenersatz nur im eigenen Modulprozess, entfern
 die Injektion vor Recovery, prüft `Complete`, `Rollback`, spätere neue
 Qualifikation und neuen Export. Nicht mit anderen Szenarioschaltern oder
 `KeepLab` kombinieren. Noch nicht ausgeführte Providerzellen bleiben offen.
+Die [ausgeführte Recoveryabnahme](../Documentation/Quality/TLS_REBIND_RECOVERY_ACCEPTANCE_2026-10-25.md)
+belegt Windows-/Docker-/SQL-2025-CU9 und Windows-/Podman-/SQL-2019-CU32
+mit je 15 Fällen. Die statische Suite prüft außerdem benannte öffentliche
+Harnessargumente gegen tatsächliche exportierte Cmdlet-Metadaten, ohne
+Lifecycle- oder Provideraktionen auszuführen.
 
 `Integration/Invoke-AuthenticatedTlsLabAcceptance.ps1 -Provider docker|podman -Version 2025-CU9|2022-CU27|2019-CU32`
 prüft die ausdrücklich gewählte öffentliche Windows-/SQL-/CU-False-Lane

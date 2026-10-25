@@ -119,6 +119,7 @@ COMMANDS
     Get-SqlServerLabExternalRuntimeCapability
     Get-SqlServerLabSsisCatalogCapability
     Get-SqlServerLabSsisPackageDiagnostic - Observes components and LoadFromXML for a hash-bound owned guest package without execution.
+    Get-SqlServerLabSsisExecutionDiagnostic - Observes a bound SSISDB execution context without starting packages or repairing the installation.
     Install-SqlServerLabSsisComponent - Installs only SSIS into a bound prepared Windows SQL Server 2025 run.
     New-SqlServerLabSsisCatalogFixture - Creates the SSISDB fixture in a bound owned run.
     Remove-SqlServerLabSsisCatalogFixture - Removes only the receipted owned SSISDB catalog folder.
@@ -479,10 +480,17 @@ Sync-SqlServerLabRunScopedContainerStore
         passwords and refreshes the test environment contract.
 
     Update-SqlServerLabTlsBinding
-    Get-SqlServerLabTlsBindingRecovery
-    Resolve-SqlServerLabTlsBindingRecovery
         Strictly qualifies an owned policy-bound Docker/Podman TLS run after
         restart and rebinds only its new start epoch; no certificate renewal.
+
+    Get-SqlServerLabTlsBindingRecovery
+        Shows the status of an owned incomplete rebind; runs no clients
+        and provides no qualification evidence.
+
+    Resolve-SqlServerLabTlsBindingRecovery
+        Complete qualifies the exact owned transaction with both clients.
+        Rollback restores predecessor metadata without qualification;
+        no certificate renewal or client evidence from Rollback.
 
     Read-SqlServerLabQualifiedTestEnvironment
         Verifies the same signed V2 byte snapshot against expiry and current
