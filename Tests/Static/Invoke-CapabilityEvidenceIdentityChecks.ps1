@@ -1,6 +1,6 @@
 #Requires -Version 7.2
 [CmdletBinding()]
-param()
+param([switch]$KeepArtifacts)
 $ErrorActionPreference='Stop'
 $root=Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . (Join-Path $root 'Private/CapabilityEvidence.ps1')
@@ -8,8 +8,12 @@ $script:passed=0
 function Assert-EvidenceIdentity {param([bool]$Condition,[string]$Name)
     if(-not $Condition){throw "FIXTURE_FAILED: $Name"};$script:passed++;Write-Host "PASS: $Name"
 }
-# Persist isolated synthetic inputs locally; no runtime, SQL, process or cleanup path.
-$fixture=Join-Path $root ('.artifacts/evidence-identity-fixtures/'+[guid]::NewGuid().ToString('N'))
+# Disposable synthetic inputs; retention requires an explicit diagnostic opt-in.
+. (Join-Path $PSScriptRoot '../Common/TestTemporaryDirectory.ps1')
+$ownedFixture=New-TestTemporaryDirectory -ParentPath (Join-Path $root '.artifacts/evidence-identity-fixtures')
+$fixture=$ownedFixture.Path
+$primaryFailure=$null
+try {
 $null=New-Item -ItemType Directory -Path (Join-Path $fixture 'Schemas'),(Join-Path $fixture 'Documentation/Quality') -Force
 Copy-Item (Join-Path $root 'Schemas/capability-evidence-index.schema.json') (Join-Path $fixture 'Schemas/capability-evidence-index.schema.json')
 # An untrusted data root deliberately offers an accept-all schema. It is never authority.
@@ -191,4 +195,19 @@ Assert-EvidenceIdentity ((Read-LabCapabilityEvidenceIndex $fixture -IncludeIdent
     if([Text.Encoding]::UTF8.GetByteCount(($result|ConvertTo-Json -Depth 30 -Compress)) -gt 262144 -or $script:observations -ne 0){throw 'PUBLIC_OVERFLOW_RESPONSE_INVALID'}
 } $fixture
 Assert-EvidenceIdentity $true 'Actual Public/Core/matcher complete response overflow is bounded, empty and zero-probe'
-Write-Host "EVIDENCE IDENTITY: $script:passed PASS; isolated files retained; no runtime execution"
+Write-Host "EVIDENCE IDENTITY: $script:passed PASS; no runtime execution"
+}catch{$primaryFailure=$_;throw}
+finally{
+    if($KeepArtifacts){Write-Warning 'Explicit KeepArtifacts: isolated fixture retained for diagnosis.'}
+    else{
+        try{Remove-TestTemporaryDirectory -OwnedDirectory $ownedFixture}
+        catch{
+            if($primaryFailure){
+                $failure=[InvalidOperationException]::new('EVIDENCE_IDENTITY_CLEANUP_FAILED',$primaryFailure.Exception)
+                $failure.Data['CleanupFailure']=$_.Exception.Message
+                throw $failure
+            }
+            throw
+        }
+    }
+}

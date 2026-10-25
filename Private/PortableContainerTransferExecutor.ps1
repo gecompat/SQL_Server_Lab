@@ -57,8 +57,29 @@ function Get-LabPortableContainerTransferExecutorPlan {
     $plan=[PSCustomObject][ordered]@{ContractVersion='SqlServerLab.PortableContainerTransferExecutorPlan/1.0';OperationId=[guid]::NewGuid().ToString('D');Status='BLOCKED';ExecutionImplemented=$false;Source=$source;Target=$target;Backup=[PSCustomObject]$backupView;ContentComparison=[PSCustomObject]@{Profile='RELATIONAL_CORE/1.0';Status='UNAVAILABLE'};Blockers=@($blockers|Sort-Object -Unique);Steps=@([PSCustomObject]@{Order=1;Action='REVALIDATE_LOCAL_BACKUP_SHA256_AND_SIZE';Mutation='NONE'},[PSCustomObject]@{Order=2;Action='REVALIDATE_SOURCE_AND_TARGET_LIVE_BINDINGS';Mutation='NONE'},[PSCustomObject]@{Order=3;Action='REQUIRE_SOURCE_READ_ONLY';Mutation='NONE'},[PSCustomObject]@{Order=4;Action='EXECUTE_HEADERONLY_CHECKSUM_VERIFYONLY';Mutation='NONE'},[PSCustomObject]@{Order=5;Action='REQUIRE_NEW_TARGET_DATABASE';Mutation='NONE'},[PSCustomObject]@{Order=6;Action='COMPARE_RELATIONAL_CORE_CONTENT';Mutation='NONE'});PlannedAt=Get-LabTimestamp}
     $valid=$plan|ConvertTo-Json -Depth 20|Test-Json -SchemaFile (Join-Path $script:SchemasPath 'portable-container-transfer-executor-plan.schema.json') -ErrorAction Stop;if(-not $valid){throw 'PORTABLE_CONTAINER_TRANSFER_EXECUTOR_PLAN_INVALID'};return $plan
 }
+function Get-LabPortableContainerTransferExecutorJournalSchema {
+    # Compose the two fixed repository schemas locally. Test-Json must never
+    # fetch a file/URI reference, including on versions that disable it by default.
+    $journal=Get-Content -LiteralPath (Join-Path $script:SchemasPath 'portable-container-transfer-executor-journal.schema.json') -Raw|ConvertFrom-Json -AsHashtable -Depth 100
+    $plan=Get-Content -LiteralPath (Join-Path $script:SchemasPath 'portable-container-transfer-executor-plan.schema.json') -Raw|ConvertFrom-Json -AsHashtable -Depth 100
+    if($journal.properties.Plan['$ref'] -cne 'portable-container-transfer-executor-plan.schema.json' -or $journal.ContainsKey('$defs')){throw 'TRANSFER_EXECUTOR_SCHEMA_COMPOSITION_INVALID'}
+    $journal.properties.Plan=$plan
+    $journal['$defs']=$plan['$defs']
+    $pending=[Collections.Generic.Stack[object]]::new();$pending.Push($journal)
+    while($pending.Count){
+        $node=$pending.Pop()
+        if($node -is [Collections.IDictionary]){
+            foreach($key in $node.Keys){
+                if($key -cin @('$id','$dynamicRef','$recursiveRef') -or ($key -ceq '$ref' -and [string]$node[$key] -cnotmatch '^#(/|$)')){throw 'TRANSFER_EXECUTOR_SCHEMA_EXTERNAL_REFERENCE'}
+                if($key -ceq '$schema' -and $node[$key] -cne 'https://json-schema.org/draft/2020-12/schema'){throw 'TRANSFER_EXECUTOR_SCHEMA_DIALECT_INVALID'}
+                $pending.Push($node[$key])
+            }
+        }elseif($node -is [Collections.IEnumerable] -and $node -isnot [string]){foreach($child in $node){$pending.Push($child)}}
+    }
+    return ($journal|ConvertTo-Json -Depth 100 -Compress)
+}
 function New-LabPortableContainerTransferExecutorJournal {
     [CmdletBinding()]param([Parameter(Mandatory)]$Plan)
     $journal=[PSCustomObject][ordered]@{ContractVersion='SqlServerLab.PortableContainerTransferExecutorJournal/1.0';OperationId=[string]$Plan.OperationId;Status='BLOCKED';Plan=$Plan;Recovery='NO_MUTATION_PERFORMED';UpdatedAt=Get-LabTimestamp}
-    $valid=$journal|ConvertTo-Json -Depth 30|Test-Json -SchemaFile (Join-Path $script:SchemasPath 'portable-container-transfer-executor-journal.schema.json') -ErrorAction Stop;if(-not $valid){throw 'PORTABLE_CONTAINER_TRANSFER_EXECUTOR_JOURNAL_INVALID'};return $journal
+    $valid=$journal|ConvertTo-Json -Depth 30|Test-Json -Schema (Get-LabPortableContainerTransferExecutorJournalSchema) -ErrorAction Stop;if(-not $valid){throw 'PORTABLE_CONTAINER_TRANSFER_EXECUTOR_JOURNAL_INVALID'};return $journal
 }
