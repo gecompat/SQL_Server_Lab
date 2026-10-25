@@ -4840,10 +4840,16 @@ PowerShell 7.2/.NET 6, die vollständigen 134 statischen Suites auf Windows und
 Ubuntu sowie die fünf getrennten Providerpfade bleiben für diesen Folgestand
 `NOT_EXECUTED`. Issue #675 bleibt offen.
 
-`Invoke-TestGroupGuidanceChecks.ps1` wird vom Pfadselektor separat ausgewählt,
-steht aber noch nicht in der bestehenden Vollregressionsliste. Diese gekoppelte
-Coverage-Lücke wird durch den Nightly-Budgetfix nicht geschlossen; aus dessen
-Vollregression darf kein Standalone-TestGroup-Nachweis abgeleitet werden.
+`Invoke-TestGroupGuidanceChecks.ps1` steht genau einmal in der bestehenden
+Vollregressionsliste und wird bei Änderungen an `Invoke-AllChecks.ps1` auch
+vom Pfadselektor ausgewählt. Die CI-Strategie prüft die tatsächliche AST-Liste,
+beide Pfadschreibweisen und den weiterhin vollständigen Runtimefallback bei
+zusätzlichem unbekanntem Produktcode. Die unveränderte Offlinesuite bestand
+lokal am 2026-10-25 mit 40 `PASS` und null `FAIL`; Provider- und HTTP-Grenzen
+bleiben synthetisch. Das belegt weder reale Gruppen-Lifecycles noch einen
+vollständigen Windows-/Ubuntu-Nightly. Der Zusatzaufwand ist eine bestehende
+Offlinesuite pro Vollregression sowie bei einer Änderung des Gesamtrunners;
+es entsteht kein weiterer Vollregressions- oder Providerlauf pro Zwischenfix.
 `CiStrategyNightlyAuthorizationChecks.ps1` führt extrahierte Guard-, Prozess-
 und Reportblöcke mit synthetischen Grenzen aus. Eine reale Shared-Abnahme
 wird dadurch weder ausgeführt noch nachgewiesen. CI-Infrastrukturänderungen

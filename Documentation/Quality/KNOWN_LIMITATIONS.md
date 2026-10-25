@@ -2960,9 +2960,11 @@ Workflow-UI-Suite mit 72 `PASS` und null `FAIL`. Der ursprüngliche Lauf und sei
 Produktnachweis. Diese Zusammensetzung ersetzt weder einen neuen grünen
 Elf-Suite-Lauf noch die vollständigen 134 Suites beider Plattformen oder die
 fünf getrennten Providerabnahmen.
-Die Standalone-Suite `Invoke-TestGroupGuidanceChecks.ps1` fehlt weiterhin in der
-bestehenden Vollregressionsliste; ihre Pfadselektion allein schließt diese
-Coverage-Lücke nicht. Ausführung und Grenzen stehen in der
+Die Standalone-Suite `Invoke-TestGroupGuidanceChecks.ps1` gehört nun genau einmal
+zur Vollregressionsliste. Änderungen an `Invoke-AllChecks.ps1` wählen sie auch
+im betroffenen PR-Gate aus. Registrierung und lokale Offlineprüfung ersetzen
+keinen vollständigen Windows-/Ubuntu-Nightly- oder realen Provider-Nachweis.
+Ausführung und Grenzen stehen in der
 [Validierungsstrategie](LOCAL_VALIDATION_STRATEGY.md#host-tool-auflösung-betroffen).
 
 ### Hyper-V-Netzwerk-Reconcile

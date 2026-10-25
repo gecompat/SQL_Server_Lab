@@ -75,6 +75,7 @@ end {
         @{ Pattern = '(?i)(OwnedHost|owned-host|ContainerAutoStart|ContainerToolImage|ResourceAssessment|Restart-SqlServerLab|runtime-smoke-(docker|podman|mixed-providers))'; Checks = @('Invoke-OwnedHostIntegrationChecks.ps1') },
         @{ Pattern = '(?i)(Manage-LocalEvidenceArchive|LOCAL_EVIDENCE_ARCHIVES|Invoke-LocalEvidenceArchiveChecks)'; Checks = @('Invoke-LocalEvidenceArchiveChecks.ps1') },
         @{ Pattern = '(?i)(TestGroupGuidance|TestEnvironment)'; Checks = @('Invoke-TestGroupGuidanceChecks.ps1','Invoke-TestEnvironmentChecks.ps1') },
+        @{ Pattern = '(?i)^Tests/Static/Invoke-AllChecks\.ps1$'; Checks = @('Invoke-TestGroupGuidanceChecks.ps1') },
         @{ Pattern = '(?i)(CSharpNative|CSharpHyperV|Fixtures[\\/]CSharp[\\/]|csharp-native-acceptance)'; Checks = @('Invoke-ExternalRuntimeWindowsChecks.ps1') },
         @{ Pattern = '(?i)(AiPodmanSamplesReference|ai-podman-samples-reference)'; Checks = @('Invoke-AiPodmanSamplesReferenceChecks.ps1') },
         @{ Pattern = '(?i)(AiPodmanSetup|ai-podman-setup)'; Checks = @('Invoke-AiPodmanSetupChecks.ps1','Invoke-AiPodmanSetupProcessChecks.ps1','Invoke-AiPersistentRetrievalChecks.ps1','Invoke-ConsoleUiChecks.ps1') },
