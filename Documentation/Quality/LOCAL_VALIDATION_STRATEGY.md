@@ -2,6 +2,21 @@
 
 ## Gerenderte explizite TLS-Liveaktion
 
+Die zusätzliche [Ressourcenprofilabnahme](TLS_UI_LIVE_RESOURCE_PROFILES_ACCEPTANCE_2026-10-25.md)
+bestand Standard und Performance für Docker/Podman und SQL 2019 CU32,
+2022 CU27 sowie 2025 CU9: zwölf positive Zellen, 108 Workerfälle plus zwölf
+eigene Cleanupfälle, 48 strikte UI-, 24 Arrange- und 24 Rebindresultate.
+24 gespeicherte originale Inspectantworten belegen die tatsächlichen Limits
+nach Erstellung und Neustart. Alle 15 neuen Labs einschließlich drei
+ursprünglicher FAILs sind entfernt. Produktquelle und Authority blieben
+über alle Läufe unverändert; zwei Docker-/SQL-2019-Zellen belegen den
+Controller vor der privaten Recordübergabekorrektur, zehn weitere den
+korrigierten Stand. Original-FAILs und diagnostische Grenzen bleiben erhalten.
+Die getrennte passive Sammlung bindet Originalhashes, Browserseals, Tickets,
+Run-/Nonce-/Profilbezug und die 372 kopierten kanonischen Dateien aus 15
+eigenen entfernten Auditroots. Sie führte keine Provideraktionen aus und
+erzeugte keinen zusätzlichen Runtime-PASS.
+
 Die zusätzliche [UI-Profilabnahme](TLS_UI_PROFILE_MATRIX_ACCEPTANCE_2026-10-23.md)
 bestand mit Docker und Podman für SQL 2019 CU32 und 2022 CU27: vier positive
 Zellen, 32 Fälle, 16 strikte UI- sowie je acht getrennte Arrange-/Rebind-Resultate.
@@ -105,7 +120,8 @@ unabhängig geprüften passiven Abschluss erhalten. Dieser erzeugte weder
 Provideraktionen noch weitere Labs. Das Korrekturdelta bestand 18 Guard-/
 Postconditionfälle und 38 JSON-Formprüfungen; frühere grüne Prüfungen wurden
 nicht wiederholt. Das belegt keine Benchmarkleistung oder zusätzlichen
-Ressourcenprofile der separaten Liveaktion bestehender Labkarten.
+Ressourcenprofile der separaten Liveaktion bestehender Labkarten; deren
+zusätzlicher eigener Nachweis ist oben getrennt verlinkt.
 
 ## Container-Erstellung im Browser
 

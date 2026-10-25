@@ -97,6 +97,10 @@ abgenommen. Die zusätzliche
 [Ressourcenprofilabnahme](../Quality/TLS_UI_RESOURCE_PROFILES_ACCEPTANCE_2026-10-24.md)
 belegt Standard und Performance beider Erstellungsmodi für alle drei
 SQL-Profile und beide Provider unter denselben übrigen Optionen.
-Weitere Ressourcenprofile der separaten Liveaktion bestehender Labkarten,
-andere Erstellungsoptionen, Clipboard, Patch-/Clientkontexte und Plattformen
+Die [separate Liveaktion bestehender Labkarten](../Quality/TLS_UI_LIVE_RESOURCE_PROFILES_ACCEPTANCE_2026-10-25.md)
+ist ebenfalls für Standard und Performance mit beiden Providern und allen
+drei operativen SQL-Profilen nativ abgenommen. Das verändert den oben
+beschriebenen konfigurationsbasierten Status nicht; allein eine ausdrücklich
+ausgeführte Prüfung liefert eine aktuelle Beobachtung.
+Andere Erstellungsoptionen, Clipboard, Patch-/Clientkontexte und Plattformen
 bleiben getrennte offene Nachweise.

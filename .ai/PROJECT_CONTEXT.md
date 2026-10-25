@@ -85,6 +85,16 @@ Andere Erstellungsoptionen, Clipboard und weitere Patch-/Client-/
 Plattformkontexte bleiben eigene Scopes; weitere Toolbelt-Entwicklung
 bleibt pausiert.
 
+Die getrennte [Ressourcenprofilabnahme der Liveaktion](../Documentation/Quality/TLS_UI_LIVE_RESOURCE_PROFILES_ACCEPTANCE_2026-10-25.md)
+bestand für bestehende eigene Labkarten mit Standard und Performance,
+Docker/Podman sowie allen drei operativen SQL-Profilen: zwölf positive Zellen,
+120 Fälle, 48 strikte UI-, 24 Arrange- und 24 Rebindresultate. Alle 15 neuen
+Labs einschließlich dreier ursprünglicher FAILs sind entfernt. Die beiden
+Docker-/SQL-2019-Zellen und die zehn Zellen nach Korrektur der privaten
+Recordübergabe bleiben getrennte Controllerstände auf derselben Produktquelle.
+Die Browser-Erstellung mit ResultRef ist ein anderer Nachweispfad; Clipboard,
+andere Erstellungsoptionen, Plattformen und Lifecyclekontexte bleiben offen.
+
 Die [native Linux-Kryptomatrix](../Documentation/Quality/TLS_LINUX_CLIENT_MATRIX_ACCEPTANCE_2026-10-22.md)
 bestand Docker und Podman für SQL 2019 CU32, 2022 CU27 und 2025 CU9 separat:
 je neun Fälle und 18 Clientergebnisse, davon 16 strikt und zwei getrennte

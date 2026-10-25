@@ -126,7 +126,15 @@ belegt Docker und Podman für SQL 2019 CU32 und 2022 CU27 mit getrennten
 Quellständen: drei frühere positive Zellen und ein korrigierter
 Podman-/SQL-2022-Nachlauf; dessen erster FAIL bleibt erhalten.
 Beide Abnahmen verwenden den passenden serverseitigen Run-StateRoot.
-Creation- und Clipboardpfade sowie weitere Patch-/Clientkontexte bleiben offen.
+Die zusätzliche [Ressourcenprofilabnahme](../Quality/TLS_UI_LIVE_RESOURCE_PROFILES_ACCEPTANCE_2026-10-25.md)
+schließt diese separate Liveaktion für Standard (4 CPU, 4096 MiB) und
+Performance (8 CPU, 8192 MiB), beide Provider und alle drei operativen
+SQL-Profile. Tatsächliche Inspectwerte, beide strikten Clients, Ablehnung
+nach Neustart, Wiederbindung, Refreshverfall und eigener Cleanup sind belegt.
+Die [authentifizierte Browser-Erstellung](AUTHENTICATED_TLS_UI_CREATION.md)
+mit privatem ResultRef bleibt ein eigener Vertrag und Nachweispfad.
+Weitere Erstellungsoptionen, Clipboard sowie weitere Patch-/Clientkontexte
+bleiben offen.
 
 Die [fokussierte Suite](../../Tests/Static/Invoke-AuthenticatedTlsLiveQualificationChecks.ps1)
 prüft sechs Profil-/Providerprojektionen, geschlossene Typen und Ausgabe,

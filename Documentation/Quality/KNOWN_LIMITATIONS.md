@@ -14,8 +14,15 @@ Zellen und der korrigierte Podman-/SQL-2022-Lauf bleiben getrennte Quellstände.
 Der ursprüngliche Podman-/SQL-2022-FAIL bleibt erhalten; alle fünf eigenen
 Labs dieser Profilwelle sind entfernt.
 Sie setzt den passenden serverseitigen Run-StateRoot voraus; das ist kein
-Nachweis einer globalen Suche über sämtliche Auditroots. Weitere
-Ressourcenprofile, Clipboard und weitere
+Nachweis einer globalen Suche über sämtliche Auditroots. Die zusätzliche
+[Ressourcenprofilabnahme der separaten Liveaktion](TLS_UI_LIVE_RESOURCE_PROFILES_ACCEPTANCE_2026-10-25.md)
+bestand Standard und Performance für beide Provider und alle drei operativen
+SQL-Profile: zwölf positive Zellen, 120 Fälle, 48 strikte UI- sowie je 24
+Arrange-/Rebindresultate. Alle 15 neuen Labs sind entfernt; drei ursprüngliche
+FAILs bleiben mit ihren partiellen Ergebnissen erhalten. Zwei frühe positive
+Zellen und zehn Zellen nach Korrektur der privaten Recordübergabe bleiben
+getrennte Controllerstände auf derselben Produktquelle.
+Andere Erstellungsoptionen, Clipboard und weitere
 Patch-/Clientkombinationen bleiben offen. Wire-Fingerprint bleibt
 `NOT_OBSERVED`; Linux- und Hyper-V-Live-API sind damit nicht abgenommen.
 
@@ -62,8 +69,9 @@ und alle drei genannten SQL-Profile unter denselben übrigen Optionen:
 24 Zellen mit tatsächlichen CPU-/Speichergrenzen und 24 entfernten Labs.
 23 ursprüngliche Controller-PASS und ein ursprünglicher ACL-FAIL mit
 getrenntem passivem Abschluss bleiben ausgewiesen. Andere Erstellungsoptionen,
-Patch-, Client- und Plattformkontexte bleiben offen. Das erweitert nicht
-den oben abgegrenzten Nachweis der separaten Liveaktion bestehender Labkarten.
+Patch-, Client- und Plattformkontexte bleiben offen. Dieser Erstellungsnachweis
+bleibt vom oben verlinkten Ressourcennachweis der separaten Liveaktion
+bestehender Labkarten getrennt.
 
 Die [Linux-TLS-Kryptomatrix](TLS_LINUX_CLIENT_MATRIX_ACCEPTANCE_2026-10-22.md)
 bestand mit beiden echten Stacks für Docker und Podman mit SQL 2019 CU32,
