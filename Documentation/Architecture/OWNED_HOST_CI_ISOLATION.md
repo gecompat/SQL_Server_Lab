@@ -244,6 +244,10 @@ Nach bestätigtem Cleanup entfernt der Abschluss die eigenen temporären
 Nutzdaten unter `test-artifacts`, `dpf` und `dtr`. Die kleinen Policy- und
 Runbelege bleiben zur Zuordnung erhalten. Bei Fehlern bleiben auch die
 Nutzdaten für die gezielte Recovery bestehen.
+Hat eine erfolgreiche Acceptance ihren temporären DataRoot bereits entfernt,
+liest der Abschluss dort keinen gelöschten Katalog erneut ein. Die frischen
+Container- und Volumeabfragen für Run und Policy bleiben trotzdem Pflicht;
+ein verbliebenes Volume blockiert den Erfolg auch bei fehlendem DataRoot.
 
 Der lokale Transfer-Preflight entfernt denselben eigenen persistenten Zielstore
 auch ohne expliziten CI-StateRoot. Eine Erstellung ohne zurückgegebene Run-ID

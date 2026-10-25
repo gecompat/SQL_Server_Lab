@@ -33,18 +33,23 @@ function Invoke-OwnedHostTestCleanup {
                     if([IO.Path]::IsPathRooted($relative) -or $relative -ceq '..' -or $relative.StartsWith('..'+[IO.Path]::DirectorySeparatorChar) -or $relative -ceq '.'){
                         throw 'OWNED_TEST_CLEANUP_DATA_OUTSIDE_POLICY'
                     }
-                    $configuration=Get-LabStorageConfiguration -DataRoot $data
-                    $ids=@($run.metadata.desiredState.Instances|ForEach-Object {$_.Intents.Drives}|Where-Object {$_.Persistence -ceq 'data-root-runtime-volume'}|ForEach-Object PersistentStorageId|Sort-Object -Unique)
-                    if(-not $ids.Count){throw 'OWNED_TEST_CLEANUP_STORE_BINDING_MISSING'}
-                    foreach($id in $ids){
-                        $catalog=Get-LabPersistentStorageCatalog -Configuration $configuration
-                        $store=@($catalog.Document.Stores|Where-Object PersistentStorageId -CEQ $id)
-                        if($catalog.Status -cne 'AVAILABLE' -or $store.Count -ne 1){throw 'OWNED_TEST_CLEANUP_STORE_UNRESOLVED'}
-                        if($store[0].State -ceq 'REMOVED'){continue}
-                        $plan=Get-SqlServerLabRetainedStoreRemovalPlan -PersistentStorageId ([guid]$id) -DataRoot $data -StateRoot $Root
-                        if($plan.Status -cne 'READY'){throw 'OWNED_TEST_CLEANUP_STORE_BLOCKED'}
-                        $result=Invoke-SqlServerLabRetainedStoreRemoval -PersistentStorageId ([guid]$id) -DataRoot $data -StateRoot $Root -ExpectedCatalogRevision $plan.CatalogRevision -ExpectedPlanKey $plan.PlanKey -Confirm:$false
-                        if($result.Status -cne 'REMOVED'){throw 'OWNED_TEST_CLEANUP_STORE_REMAINS'}
+                    # A successful acceptance may already have removed its
+                    # complete temporary data root. Fresh run/policy inventories
+                    # below must still prove that no native volume remains.
+                    if(Test-Path -LiteralPath $data){
+                        $configuration=Get-LabStorageConfiguration -DataRoot $data
+                        $ids=@($run.metadata.desiredState.Instances|ForEach-Object {$_.Intents.Drives}|Where-Object {$_.Persistence -ceq 'data-root-runtime-volume'}|ForEach-Object PersistentStorageId|Sort-Object -Unique)
+                        if(-not $ids.Count){throw 'OWNED_TEST_CLEANUP_STORE_BINDING_MISSING'}
+                        foreach($id in $ids){
+                            $catalog=Get-LabPersistentStorageCatalog -Configuration $configuration
+                            $store=@($catalog.Document.Stores|Where-Object PersistentStorageId -CEQ $id)
+                            if($catalog.Status -cne 'AVAILABLE' -or $store.Count -ne 1){throw 'OWNED_TEST_CLEANUP_STORE_UNRESOLVED'}
+                            if($store[0].State -ceq 'REMOVED'){continue}
+                            $plan=Get-SqlServerLabRetainedStoreRemovalPlan -PersistentStorageId ([guid]$id) -DataRoot $data -StateRoot $Root
+                            if($plan.Status -cne 'READY'){throw 'OWNED_TEST_CLEANUP_STORE_BLOCKED'}
+                            $result=Invoke-SqlServerLabRetainedStoreRemoval -PersistentStorageId ([guid]$id) -DataRoot $data -StateRoot $Root -ExpectedCatalogRevision $plan.CatalogRevision -ExpectedPlanKey $plan.PlanKey -Confirm:$false
+                            if($result.Status -cne 'REMOVED'){throw 'OWNED_TEST_CLEANUP_STORE_REMAINS'}
+                        }
                     }
                 }
                 foreach($pin in $policy.RuntimePins){
