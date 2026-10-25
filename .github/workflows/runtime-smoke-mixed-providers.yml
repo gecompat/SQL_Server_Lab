@@ -73,7 +73,7 @@ jobs:
         timeout-minutes: 10
         run: |
           $ErrorActionPreference = 'Stop'
-          $logPath = Join-Path $env:RUNNER_TEMP 'mixed-provider-smoke.private.log'
+          $logPath = Join-Path $env:SQL_SERVER_LAB_CI_OWN_STATE_ROOT 'mixed-provider-smoke.private.log'
           $mutexName = if ($IsWindows) { 'Global\SQL_Server_Lab_Runtime_Smoke' } else { 'SQL_Server_Lab_Runtime_Smoke' }
           $mutex = $null
           $acquired = $false

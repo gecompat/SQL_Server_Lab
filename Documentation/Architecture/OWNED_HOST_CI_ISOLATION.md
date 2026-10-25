@@ -240,6 +240,11 @@ Ein persistenter Teststore wird nur über seine im Run gespeicherte ID und den
 öffentlichen Retained-Store-Plan entfernt; sein DataRoot muss im Policyroot liegen.
 Gemeinsame Entwickler-Labs und benachbarte Policyroots sind kein Cleanupziel.
 Die geschützten State- und Recoveryrecords werden nicht pauschal gelöscht.
+Der Mixed-Smoke schreibt seinen privaten Rohlog wie Docker und Podman direkt
+in diesen eigenen Policyroot. Er bleibt dadurch auch nach dem nächsten
+Runner-Temp-Cleanup erhalten; Preflightlogs liegen weiterhin unter `RUNNER_TEMP`.
+Die Logs werden nicht hochgeladen. Sie werden bei einer gezielten lokalen
+Diagnose beziehungsweise späteren Freigabe des eigenen Recovery-State behandelt.
 Nach bestätigtem Cleanup entfernt der Abschluss die eigenen temporären
 Nutzdaten unter `test-artifacts`, `dpf` und `dtr`. Die kleinen Policy- und
 Runbelege bleiben zur Zuordnung erhalten. Bei Fehlern bleiben auch die
