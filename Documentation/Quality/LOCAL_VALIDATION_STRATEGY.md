@@ -2231,6 +2231,33 @@ Einzelpfadauswahl mit beiden Pfadtrennern. Produktmodulimport, Hostprüfung,
 historischer Lookup, State, Provider-Runtime, Secrets, Installation und SQL
 bleiben ungenutzt; native Provider-/SQL-Sprachnachweise bleiben separat offen.
 
+Die additive Browseraktion `ReadRecordedEvidence` verwendet denselben Public-
+1.1-Resolver und Indexreader. Die HTTP-Fixture prüft separat den hostfreien
+Aufruf, unveränderte Public-Objekte, die geschlossene Metadatenprojektion sowie
+Count-/Typ-/Shape- und Autoritätsvetos. Die JS-Fixture prüft die bewusste Aktion,
+Legacy-/Missing-/Unavailable-Anzeigen, Identitätsbindung, fremde Antworten,
+Busy, Cancel und verspätete Historienantworten. Dies sind Offlineprüfungen.
+Der Vollseiten-Harness 1.1 verwendet fünf synthetische Bootstrapreads, darunter
+eine leere gesperrte TLS-Sitzungssicht ohne Zugriff auf echte TLS-Daten. Er bindet das exakte aktuelle HTML-Assetinventar und
+die zusätzlichen Reader-/Schema-/Indexbytes. Für die vier bisherigen Tupel
+folgt nach jedem Optionsread und jeder Katalogentscheidung ein expliziter
+Historienread: zwölf HTTP-Aktionen, acht Public-Aufrufe, davon vier mit
+historischem Opt-in. Die ausschließlich während des Dispatchs beobachteten
+Indexreads werden pro Aktion gezählt; zusätzliche Oracle-Lesevorgänge sind
+keine Browserdispatches. Produktmodulimport, aktuelle Hostprüfung, State,
+Provider-Runtime, Secrets und SQL bleiben gesperrt. Eine gerenderte Ausführung
+wird getrennt vom Offline-Harness protokolliert; keine neue native Abnahme.
+
+Am 2026-10-25 bestand die gerenderte Erweiterung im isolierten Browser: alle
+16 aktuell deklarierten Assets und 46 Quellbindungen, zwölf Fachaktionen,
+acht Public-Aufrufe und vier explizite Indexlesungen. Die vier beschriebenen
+Tupel zeigten die reale Legacyindex-Grenze, NOT_VERIFIED und weiterhin
+NOT_CHECKED für aktuelle Host-/SQL-Prüfung. Wiederöffnen leerte beide Ausgaben;
+Dialog, eigener Listener und Tab wurden geschlossen. Positive historische
+Zähler sowie Fehler-/Driftfälle sind ausschließlich offline geprüft.
+Die ursprünglichen Fixture- und verspäteten Abschluss-FAILs bleiben erhalten;
+der erfolgreiche gebündelte Lauf verwendete dieselbe Vier-Minuten-Grenze.
+
 `Invoke-ExternalRuntimeCapabilityChecks.ps1` durchläuft den tatsächlichen
 Public-Aufruf, Katalogresolver, Reducer und bestehenden Manifestdialog.
 Provider-Metadaten stammen aus dem Repository; native Prozessgrenzen werden
@@ -2546,8 +2573,15 @@ Diese Offline-Prüfung ersetzt den erforderlichen Docker-Providernachweis nicht.
 
 Mixed-Preflight und -Smoke, Hyper-V-Preflight und der Standardmodus `lifecycle`
 sowie Adapterinstallation, -Smoke und -Cleanup führen ihre Rohstreams ebenfalls
-nur in lokalen privaten Logs. Der Mixed-Rohlogupload entfällt; veröffentlichte
-Fehler und Ergebnisse sind fest vorgegeben. Die vorhandenen Testskripte und
+nur in lokalen privaten Logs. Der Mixed-Rohlogupload entfällt.
+Mixed-Runtimediagnosen liegen im geschützten eigenen Policyroot außerhalb
+von `RUNNER_TEMP` und bleiben nach dessen Bereinigung erhalten. Die bestehende
+Privacy-Fixture prüft erfolgreiche, mit Exitcode fehlgeschlagene und durch
+Exception abgebrochene echte Workflowblöcke, die Bindung des Kindprozesses an
+denselben StateRoot und das Überleben des Logs nach synthetischem Runner-Cleanup.
+Ein Gegenfall bildet den Diagnoseverlust am früheren Temp-Pfad ab.
+Preflightlogs bleiben temporär. Dies repariert keinen Runtime- oder Mutexfehler.
+Veröffentlichte Fehler und Ergebnisse sind fest vorgegeben. Die vorhandenen Testskripte und
 Argumente bleiben erhalten; eine PowerShell-Prozessgrenze erfasst auch direkte
 Konsolenausgaben. Der Adapter-Cleanup behält seinen bisherigen Best-Effort-Vertrag.
 `Invoke-RuntimeSmokePrivacyChecks.ps1` führt die echten Workflowblöcke mit
@@ -5699,6 +5733,49 @@ Inventare nicht als Rohkopien gesichert hatte, bleibt dieser Schutzvergleich
 nicht bestanden; spätere stabile Reads ersetzen ihn nicht. Eigene terminale
 States und Fehlerbelege bleiben lokal erhalten. Dieser Befund wird nicht auf
 die zuvor separat bestandenen Docker-/Podman-Artefaktläufe übertragen.
+
+## SSISDB-Ausführungskontextdiagnose
+
+Die fokussierte Suite `Tests/Static/Invoke-SsisExecutionDiagnosticChecks.ps1`
+besteht mit 76 synthetischen Fällen. Sie prüft exakte Int64-Bindungen,
+Vorher-/Nachherbindung, einen einzigen VM-ID-gebundenen Dispatch ohne Replay,
+geschlossene Rückgaben und widersprüchliche Antworten. Im produktiven
+Gastkörper werden nur SQL-, Registry-, Dateiwurzel- und Prozesszugriffe durch
+synthetische Grenzen ersetzt. Der Fall gültig→abweichend→gültig verwirft auch
+einen nur zwischenzeitlichen SQL-Bindungswechsel. Jahrespräfixe in numerischen
+Dateiversionen bleiben zulässig. Diese Suite startet keine VM und verbindet
+sich nicht mit SQL.
+
+Der öffentliche Diagnoseaufruf wurde im vorhandenen eigenen Windows-/Hyper-V-/
+SQL-2025-Run nativ ausgeführt. Der abschließende Metadatenread beobachtete alle
+sechs festen Dateien, beide Editionsregistrierungen und die sechs festen
+COM-Registrierungen. Eine anfängliche Verwechslung von Recovery-Kennung und
+`service_broker_guid` wurde fail-closed abgewiesen; der ursprüngliche Fehlerbeleg
+bleibt privat erhalten. Die Diagnose verwendet jetzt dieselbe Katalogkennung
+wie der Analyze-Consumer.
+
+Ein eigener Kataloglauf mit ausschließlich einer Stock-ForLoop ermöglichte
+zusätzlich die Beobachtung eines laufenden 64-Bit-Worker-Kandidaten und seiner
+bekannten Executor-/Core-Dateien. Die eigene Ausführung wurde kontrolliert
+abgebrochen; eigene Consumerdatenbank und Katalogobjekte sind nachgewiesen
+entfernt. Die bestehende SSISDB und der Lab-Run bleiben ausdrücklich erhalten.
+Diese Beobachtung belegt weder Komponentenaktivierung noch eine erfolgreiche
+SSIS-Pipeline. Es erfolgte keine Installations- oder Registrierungsreparatur.
+Die [Aussagegrenzen](../Architecture/SSIS_EXECUTION_DIAGNOSTIC.md) gelten auch
+bei vollständig beobachteten Metadaten.
+
+Exportliste und Testselektor wählen konservativ 17 statische Einstiegssuites
+mit 81 enthaltenen Prüfskripten sowie die bestehenden fünf Runtimegates aus.
+Die betroffenen statischen Prüfungen bestehen. Ein späterer stabiler Lauf
+meldete einen Zeitbudgetfehler der HTTP-Vorschaufixture; ihr fokussierter
+Nachlauf bestand mit 87 Fällen und ohne Providermutation. Der ursprüngliche
+Fehlerbeleg bleibt privat erhalten. Erforderliche finale PR-Gates bleiben
+erhalten. Die Erweiterung führt keine Pfadausnahme oder
+Gateabsenkung ein. Native Diagnose verwendet den vorhandenen Run statt einer
+weiteren Umgebung. Ein Implementierer und derselbe unabhängige Reviewer prüfen
+die neue Lesegrenze und konkrete Korrekturen. Unveränderte grüne Prüfungen werden
+nicht durch zusätzliche Modellrunden bestätigt; tatsächliche Geld- und
+Tokenkosten bleiben unbekannt.
 
 ## SSIS-Paketladediagnose
 

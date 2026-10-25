@@ -4,7 +4,7 @@
 .SYNOPSIS
     Serves the full product page and actual read-only external runtime catalogue route.
 .DESCRIPTION
-    Four page bootstrap reads are synthetic. The isolated module loads only the
+    Five page bootstrap reads are synthetic, including an empty blocked TLS view. The isolated module loads only the
     actual catalogue/recipe reader, public decision and HTTP helper. No product module
     import, State, provider, secret or SQL operation. The bounded own listener
     closes on every outcome; private observations remain in the owned test root.
@@ -33,20 +33,22 @@ function Write-UiResponse {
     if($ContentType -ceq 'application/json; charset=utf-8' -and $Context.Request.Url.AbsolutePath -ceq '/api/external-runtime-capability'){$script:ExternalCatalogBrowserResponse=[string]$Body}
 }
 $records=[Collections.Generic.List[object]]::new();$listener=[Net.HttpListener]::new();$listener.Prefixes.Add("http://127.0.0.1:$ListenerPort/")
-$completion=Join-Path $evidence browser-completed.private.json;$failure=$null;$passed=$false;$calls=@();$effects=$null
+$completion=Join-Path $evidence browser-completed.private.json;$failure=$null;$passed=$false;$calls=@();$effects=$null;$lastRequest=$null
 try{
     $listener.Start()
-    Write-CmsBrowserEvidence (Join-Path $evidence browser-ready.private.json) ([pscustomobject]@{Contract='SqlServerLab.ExternalCatalogBrowserReady/1.0';Url="http://127.0.0.1:$ListenerPort/#sql-lab-operator=$('a'*64)";CompletionFile=$completion;Sources=$parts.Sources;AssetPaths=@($parts.Assets.Keys);Bootstrap='SYNTHETIC';Catalogue='ACTUAL_PUBLIC_READER';HostReadiness='NOT_EXECUTED';RecordedEvidence='NOT_EXECUTED';Sql='NOT_EXECUTED';Provider='NOT_EXECUTED'})
+    Write-CmsBrowserEvidence (Join-Path $evidence browser-ready.private.json) ([pscustomobject]@{Contract='SqlServerLab.ExternalCatalogBrowserReady/1.1';Url="http://127.0.0.1:$ListenerPort/#sql-lab-operator=$('a'*64)";CompletionFile=$completion;Sources=$parts.Sources;AssetPaths=@($parts.Assets.Keys);Bootstrap='SYNTHETIC';Catalogue='ACTUAL_PUBLIC_READER';HostReadiness='NOT_EXECUTED';RecordedEvidence='ACTUAL_INDEX_METADATA_ONLY';Sql='NOT_EXECUTED';Provider='NOT_EXECUTED'})
     $deadline=[DateTime]::UtcNow.AddMinutes(4);$pending=$listener.GetContextAsync()
     while(-not(Test-Path -LiteralPath $completion)){
         if([DateTime]::UtcNow -ge $deadline){throw 'EXTERNAL_CATALOG_BROWSER_DEADLINE'}
         if(-not $pending.Wait(100)){continue}
         $context=$pending.GetAwaiter().GetResult()
+        $lastRequest=[pscustomobject]@{Path=$context.Request.Url.AbsolutePath;Method=$context.Request.HttpMethod}
         try{
             if($records.Count -ge 512 -or -not [Net.IPAddress]::IsLoopback($context.Request.RemoteEndPoint.Address) -or $context.Request.Url.Query){throw 'EXTERNAL_CATALOG_BROWSER_REQUEST_BOUNDARY'}
-            $path=$context.Request.Url.AbsolutePath;$publicCalls=0;$view=$null;$payload=$null;$beforeResponses=$script:ExternalCatalogBrowserResponses
+            $path=$context.Request.Url.AbsolutePath;$publicCalls=0;$historyReads=0;$view=$null;$payload=$null;$beforeResponses=$script:ExternalCatalogBrowserResponses
             if($path -ceq '/api/external-runtime-capability'){
                 $beforeCalls=& $script:ExternalCatalogBrowserModule {$script:BrowserCalls.Count}
+                $beforeHistory=& $script:ExternalCatalogBrowserModule {$script:BrowserHistoryReads}
                 $caseIndex=@($records | Where-Object Path -CEQ '/api/external-runtime-capability').Count
                 $cases=@(Get-ExternalCatalogBrowserCases)
                 if($caseIndex -ge $cases.Count){throw 'EXTERNAL_CATALOG_BROWSER_EXTRA_ACTION'}
@@ -58,20 +60,21 @@ try{
                 $Port=$ListenerPort;$script:ExternalCatalogBrowserResponse=$null
                 try{& $parts.Dispatch}finally{$stream.Dispose();$context=$original}
                 $publicCalls=(& $script:ExternalCatalogBrowserModule {$script:BrowserCalls.Count})-$beforeCalls
-                if($publicCalls -ne $(if($cases[$caseIndex].Action -ceq 'Evaluate'){1}else{0}) -or $context.Response.StatusCode -ne 200 -or -not $script:ExternalCatalogBrowserResponse){throw 'EXTERNAL_CATALOG_BROWSER_DISPATCH'}
+                $historyReads=(& $script:ExternalCatalogBrowserModule {$script:BrowserHistoryReads})-$beforeHistory
+                if($publicCalls -ne $(if($cases[$caseIndex].Action -cne 'ReadOptions'){1}else{0}) -or $historyReads -ne $(if($cases[$caseIndex].Action -ceq 'ReadRecordedEvidence'){1}else{0}) -or $context.Response.StatusCode -ne 200 -or -not $script:ExternalCatalogBrowserResponse){throw 'EXTERNAL_CATALOG_BROWSER_DISPATCH'}
                 $view=$script:ExternalCatalogBrowserResponse | ConvertFrom-Json -Depth 6
                 Assert-ExternalCatalogBrowserResult $script:ExternalCatalogBrowserModule $view $cases[$caseIndex]
             }elseif($context.Request.HttpMethod -ceq 'GET' -and $parts.Assets.ContainsKey($path)){
                 $asset=$parts.Assets[$path];Write-UiResponse $context $asset.Bytes $asset.ContentType
-            }elseif($context.Request.HttpMethod -ceq 'GET' -and $path -cin @('/api/config','/api/commands','/api/jobs','/api/workflow')){
-                Write-UiResponse $context (Get-CmsFullPageBootstrapResponse $path) 'application/json; charset=utf-8'
+            }elseif($context.Request.HttpMethod -ceq 'GET' -and $path -cin @('/api/config','/api/commands','/api/jobs','/api/workflow','/api/tls-created-targets')){
+                Write-UiResponse $context (Get-ExternalCatalogBrowserBootstrapResponse $path) 'application/json; charset=utf-8'
             }elseif($context.Request.HttpMethod -ceq 'GET' -and $path -ceq '/favicon.ico'){
                 Write-UiResponse $context ([byte[]]::new(0)) 'image/x-icon' 204
             }else{throw 'EXTERNAL_CATALOG_BROWSER_ENDPOINT_NOT_ALLOWED'}
             if($script:ExternalCatalogBrowserResponses -ne $beforeResponses+1){throw 'EXTERNAL_CATALOG_BROWSER_RESPONSE_COUNT'}
             $status=$context.Response.StatusCode
             $context.Response.Close()
-            $records.Add([pscustomobject]@{Path=$path;Method=$context.Request.HttpMethod;Status=$status;Transport='SENT';PublicCalls=$publicCalls;Payload=$payload;Result=$view})
+            $records.Add([pscustomobject]@{Path=$path;Method=$context.Request.HttpMethod;Status=$status;Transport='SENT';PublicCalls=$publicCalls;HistoryReads=$historyReads;Payload=$payload;Result=$view})
         }finally{$context.Response.Close()}
         $pending=$listener.GetContextAsync()
     }
@@ -87,7 +90,7 @@ try{
     $listener.Close()
     $calls=@(& $script:ExternalCatalogBrowserModule {@($script:BrowserCalls)})
     $effects=& $script:ExternalCatalogBrowserModule {$script:BrowserEffects}
-    Write-CmsBrowserEvidence (Join-Path $evidence result.private.json) ([pscustomobject]@{Contract='SqlServerLab.ExternalCatalogBrowserAcceptance/1.0';Status=$(if($passed){'PASS'}else{'FAIL'});Sources=$parts.Sources;AssetPaths=@($parts.Assets.Keys);Requests=@($records);Calls=$calls;ForbiddenEffects=$effects;ListenerClosed=$true;Bootstrap='SYNTHETIC';Catalogue='ACTUAL_PUBLIC_READER';HostReadiness='NOT_EXECUTED';RecordedEvidence='NOT_EXECUTED';ProductModuleImport='NOT_EXECUTED';State='NOT_EXECUTED';Provider='NOT_EXECUTED';Secret='NOT_EXECUTED';Sql='NOT_EXECUTED';OtherUiOperations='NOT_EXECUTED'})
+    Write-CmsBrowserEvidence (Join-Path $evidence result.private.json) ([pscustomobject]@{Contract='SqlServerLab.ExternalCatalogBrowserAcceptance/1.1';Status=$(if($passed){'PASS'}else{'FAIL'});Sources=$parts.Sources;AssetPaths=@($parts.Assets.Keys);Requests=@($records);LastRequest=$lastRequest;Calls=$calls;ForbiddenEffects=$effects;ListenerClosed=$true;Bootstrap='SYNTHETIC';Catalogue='ACTUAL_PUBLIC_READER';HostReadiness='NOT_EXECUTED';RecordedEvidence='ACTUAL_INDEX_METADATA_ONLY';ProductModuleImport='NOT_EXECUTED';State='NOT_EXECUTED';Provider='NOT_EXECUTED';Secret='NOT_EXECUTED';Sql='NOT_EXECUTED';OtherUiOperations='NOT_EXECUTED'})
 }
 if($failure){throw $failure}
 Write-Host 'PASS: rendered full-page external runtime catalogue decisions, actual route/public reader, own listener closed.'

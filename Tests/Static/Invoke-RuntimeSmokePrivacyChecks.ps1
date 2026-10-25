@@ -13,9 +13,12 @@ $passed = 0
 . (Join-Path $PSScriptRoot '../Common/CheckResult.ps1')
 
 function Invoke-WorkflowFixture {
-    param([string]$Script, [string]$Name, [int]$ExitCode, [string]$FailureStage = '')
+    param([string]$Script, [string]$Name, [int]$ExitCode, [string]$FailureStage = '', [switch]$ClearRunnerTemp)
     $directory = Join-Path $root $Name
     $null = New-Item -ItemType Directory -Path $directory
+    $runnerTemp = Join-Path $directory 'runner-temp'
+    $policyRoot = Join-Path $directory 'owned-state'
+    $null = New-Item -ItemType Directory -Path $runnerTemp, $policyRoot
     $driver = Join-Path $directory 'driver.ps1'
     [IO.File]::WriteAllText($driver, $Script)
     $start = [Diagnostics.ProcessStartInfo]::new()
@@ -26,12 +29,15 @@ function Invoke-WorkflowFixture {
     $start.RedirectStandardError = $true
     $start.WorkingDirectory = $root
     foreach ($argument in @('-NoLogo', '-NoProfile', '-File', $driver)) { $start.ArgumentList.Add($argument) }
-    $start.Environment['RUNNER_TEMP'] = $directory
+    $start.Environment['RUNNER_TEMP'] = $runnerTemp
+    $start.Environment['SQL_SERVER_LAB_CI_OWN_STATE_ROOT'] = $policyRoot
+    $start.Environment['GITHUB_ENV'] = Join-Path $directory 'github-env.txt'
     $start.Environment['GITHUB_OUTPUT'] = Join-Path $directory 'outputs.txt'
     $start.Environment['GITHUB_STEP_SUMMARY'] = Join-Path $directory 'summary.txt'
     $start.Environment['PRIVACY_FIXTURE_EXIT'] = [string]$ExitCode
     $start.Environment['PRIVACY_FIXTURE_STAGE'] = $FailureStage
     $start.Environment['PRIVACY_FIXTURE_TRACE'] = Join-Path $directory 'trace.txt'
+    $start.Environment['PRIVACY_FIXTURE_STATE_TRACE'] = Join-Path $directory 'state-trace.txt'
     $process = [Diagnostics.Process]::Start($start)
     try {
         $stdout = $process.StandardOutput.ReadToEndAsync()
@@ -42,9 +48,20 @@ function Invoke-WorkflowFixture {
             $path = Join-Path $directory $file
             if (Test-Path -LiteralPath $path) { $public += Get-Content -LiteralPath $path -Raw }
         }
-        $private = (@(Get-ChildItem -LiteralPath $directory -Filter '*.private.log' | ForEach-Object { Get-Content -LiteralPath $_.FullName -Raw }) -join "`n")
+        $private = (@(Get-ChildItem -LiteralPath $directory -Recurse -Filter '*.private.log' | ForEach-Object { Get-Content -LiteralPath $_.FullName -Raw }) -join "`n")
         $trace = if (Test-Path -LiteralPath $start.Environment['PRIVACY_FIXTURE_TRACE']) { @(Get-Content -LiteralPath $start.Environment['PRIVACY_FIXTURE_TRACE']) } else { @() }
-        return [pscustomobject]@{ ExitCode = $process.ExitCode; Public = $public; Private = $private; Trace = @($trace) }
+        $stateTrace = if (Test-Path -LiteralPath $start.Environment['PRIVACY_FIXTURE_STATE_TRACE']) { @(Get-Content -LiteralPath $start.Environment['PRIVACY_FIXTURE_STATE_TRACE']) } else { @() }
+        if ($ClearRunnerTemp) {
+            $item = Get-Item -LiteralPath $runnerTemp -Force
+            if ($item.FullName -cne [IO.Path]::GetFullPath((Join-Path $directory 'runner-temp')) -or
+                @(@($item) + @(Get-ChildItem -LiteralPath $runnerTemp -Recurse -Force) | Where-Object { $_.Attributes -band [IO.FileAttributes]::ReparsePoint }).Count) {
+                throw 'PRIVACY_FIXTURE_RUNNER_TEMP_SCOPE_INVALID'
+            }
+            Remove-Item -LiteralPath $runnerTemp -Recurse -Force
+        }
+        $retainedPath = Join-Path $policyRoot 'mixed-provider-smoke.private.log'
+        $retained = if (Test-Path -LiteralPath $retainedPath) { Get-Content -LiteralPath $retainedPath -Raw } else { '' }
+        return [pscustomobject]@{ ExitCode = $process.ExitCode; Public = $public; Private = $private; Trace = @($trace); StateTrace = @($stateTrace); PolicyRoot = $policyRoot; RetainedPrivate = $retained; RunnerTempAbsent = -not (Test-Path -LiteralPath $runnerTemp) }
     }
     finally { $process.Dispose() }
 }
@@ -84,6 +101,9 @@ try {
     $null=New-Item -ItemType Directory -Path $root
     $rootCreated=$true
     $null=New-Item -ItemType Directory -Path (Join-Path $root 'Tests/Integration')
+    $null=New-Item -ItemType Directory -Path (Join-Path $root 'Tests/Common'), (Join-Path $root 'Tools')
+    [IO.File]::WriteAllText((Join-Path $root 'Tests/Common/OwnedHostTestScope.ps1'), 'function Initialize-OwnedHostTestRoot { param($Module,$StateRoot,$Providers,$ParentOperationId); $null=New-Item -ItemType Directory -Path $StateRoot }')
+    [IO.File]::WriteAllText((Join-Path $root 'Tools/Initialize-SqlServerLabHostTools.ps1'), 'param($Name); [pscustomobject]@{Available=($env:PRIVACY_FIXTURE_STAGE -cne ''tools-unavailable'')}')
     $mixed=@(Get-WorkflowBlocks 'runtime-smoke-mixed-providers.yml')
     $hyperv=@(
         Get-WorkflowBlocks 'runtime-smoke-hyperv.yml' 'Hyper-V preflight'
@@ -91,11 +111,12 @@ try {
     )
     $adapter=@(Get-WorkflowBlocks 'adapter-smoke-github-hosted.yml')
     $fixture=@'
-param([string]$Version,[string]$Provider)
+param([string]$Version,[string]$Provider,[string]$StateRoot)
 Write-Output 'SYNTHETIC_PRIVATE_HOST sentinel.invalid'
 [Console]::Error.WriteLine('SYNTHETIC_PRIVATE_SECRET fixture-value')
 Write-Host 'SYNTHETIC_PRIVATE_INFORMATION'
 Add-Content $env:PRIVACY_FIXTURE_TRACE ([IO.Path]::GetFileName($PSCommandPath)+"|$Version|$Provider")
+if($StateRoot){Add-Content $env:PRIVACY_FIXTURE_STATE_TRACE $StateRoot}
 if($env:PRIVACY_FIXTURE_STAGE -eq 'throw'){throw 'SYNTHETIC_PRIVATE_EXCEPTION'}
 exit ([int]$env:PRIVACY_FIXTURE_EXIT)
 '@
@@ -108,6 +129,7 @@ function docker { & pwsh -NoLogo -NoProfile -File ./native-fixture.ps1; $global:
 function sqlcmd { & pwsh -NoLogo -NoProfile -File ./native-fixture.ps1; $global:LASTEXITCODE=$LASTEXITCODE }
 function Get-VMHost { Write-Output 'SYNTHETIC_PRIVATE_HOST'; if([int]$env:PRIVACY_FIXTURE_EXIT){throw 'SYNTHETIC_PRIVATE_EXCEPTION'} }
 function Get-Command { Write-Output 'SYNTHETIC_PRIVATE_TOOLS' }
+function Import-Module { [pscustomobject]@{Name='SyntheticFixtureModule'} }
 '@
     foreach($entry in @(@{Name='mixed';Block=$mixed[0]},@{Name='hyperv';Block=$hyperv[0]})) {
         foreach($code in @(0,19)) {
@@ -125,18 +147,30 @@ function Get-Command { Write-Output 'SYNTHETIC_PRIVATE_TOOLS' }
     )
     foreach($entry in $cases) {
         foreach($case in @(@{Name='success';Code=0;Stage=''},@{Name='exit';Code=23;Stage=''},@{Name='throw';Code=0;Stage='throw'})) {
-            $result=Invoke-WorkflowFixture -Script $entry.Block -Name ($entry.Name+'-'+$case.Name) -ExitCode $case.Code -FailureStage $case.Stage
+            $result=Invoke-WorkflowFixture -Script $entry.Block -Name ($entry.Name+'-'+$case.Name) -ExitCode $case.Code -FailureStage $case.Stage -ClearRunnerTemp:($entry.Name -ceq 'mixed')
             $expected=$entry.Result+$(if($case.Name -eq 'success'){'_SUCCEEDED'}else{'_FAILED'})
             Add-CheckResult -Name "$($entry.Name) $($case.Name) executes exact invocation and keeps streams private" -Success (
                 $result.Public -notmatch 'SYNTHETIC_PRIVATE' -and $result.Private -match 'SYNTHETIC_PRIVATE_HOST' -and $result.Private -match 'SYNTHETIC_PRIVATE_SECRET' -and
                 $result.Public -match $expected -and ($result.Trace -join '') -ceq $entry.Trace -and
                 (($case.Name -eq 'success' -and $result.ExitCode -eq 0) -or ($case.Name -ne 'success' -and $result.ExitCode -ne 0)))
+            if($entry.Name -ceq 'mixed') {
+                Add-CheckResult -Name "Mixed $($case.Name) retains bound private diagnostics after runner-temp cleanup" -Success (
+                    $result.RunnerTempAbsent -and $result.RetainedPrivate -match 'SYNTHETIC_PRIVATE_HOST' -and
+                    $result.RetainedPrivate -match 'SYNTHETIC_PRIVATE_SECRET' -and $result.StateTrace.Count -eq 1 -and
+                    $result.StateTrace[0] -ceq $result.PolicyRoot)
+            }
         }
     }
-    $result=Invoke-WorkflowFixture -Script ("function docker { `$global:LASTEXITCODE=0 }`nfunction sqlcmd { `$global:LASTEXITCODE=0 }`n"+$mixed[0]) -Name 'mixed-podman-failure' -ExitCode 23
-    Add-CheckResult -Name 'Mixed Podman initialization failure cannot be masked by later sqlcmd success' -Success (
-        $result.ExitCode -ne 0 -and $result.Public -match 'INFRASTRUCTURE_UNAVAILABLE' -and $result.Public -notmatch 'SYNTHETIC_PRIVATE' -and $result.Private -match 'SYNTHETIC_PRIVATE_SECRET')
-    $result=Invoke-WorkflowFixture -Script ("function docker { throw 'SYNTHETIC_PRIVATE_EXCEPTION' }`n"+$mixed[0]) -Name 'mixed-preflight-exception' -ExitCode 0
+    $legacy = $mixed[1].Replace('SQL_Server_Lab_Runtime_Smoke', ('PrivacyFixture_' + [guid]::NewGuid().ToString('N'))).Replace("`$env:SQL_SERVER_LAB_CI_OWN_STATE_ROOT 'mixed-provider-smoke.private.log'", "`$env:RUNNER_TEMP 'mixed-provider-smoke.private.log'")
+    $result = Invoke-WorkflowFixture -Script $legacy -Name 'mixed-legacy-loss' -ExitCode 0 -ClearRunnerTemp
+    Add-CheckResult -Name 'Legacy runner-temp log loses diagnostics after runner cleanup' -Success (
+        $legacy -cne $mixed[1] -and $result.ExitCode -eq 0 -and $result.RunnerTempAbsent -and
+        $result.Private -match 'SYNTHETIC_PRIVATE_SECRET' -and [string]::IsNullOrEmpty($result.RetainedPrivate))
+    $result=Invoke-WorkflowFixture -Script ($shim+"`n"+$mixed[0]) -Name 'mixed-podman-failure' -ExitCode 0 -FailureStage 'tools-unavailable'
+    Add-CheckResult -Name 'Mixed unavailable host tool stops before sqlcmd without raw forwarding' -Success (
+        $result.ExitCode -ne 0 -and $result.Public -match 'INFRASTRUCTURE_UNAVAILABLE' -and
+        $result.Public -notmatch 'SYNTHETIC_PRIVATE' -and $result.Private -match 'OWNED_HOST_TEST_TOOL_UNAVAILABLE' -and $result.Trace.Count -eq 0)
+    $result=Invoke-WorkflowFixture -Script ("function Import-Module { throw 'SYNTHETIC_PRIVATE_EXCEPTION' }`n"+$mixed[0]) -Name 'mixed-preflight-exception' -ExitCode 0
     Add-CheckResult -Name 'Mixed unexpected preflight exception stays private' -Success ($result.ExitCode -ne 0 -and $result.Public -notmatch 'SYNTHETIC_PRIVATE' -and $result.Private -match 'SYNTHETIC_PRIVATE_EXCEPTION')
     $bashShim=@'
 fixture_native() { printf '%s\n' 'SYNTHETIC_PRIVATE_HOST sentinel.invalid'; printf '%s\n' 'SYNTHETIC_PRIVATE_SECRET fixture-value' >&2; return "$PRIVACY_FIXTURE_EXIT"; }
@@ -169,7 +203,9 @@ xargs() { cat >/dev/null; fixture_native; }
         $workflow -match "if: inputs.mode == 'shared-environments'")
     Add-CheckResult -Name 'Mixed gate retains timeout mutex exit guard and cleanup without uploads' -Success (
         $mixedWorkflow -match 'timeout-minutes: 20' -and $mixedWorkflow -match 'cancel-in-progress: false' -and
-        $mixed[1] -match 'FromMinutes\(10\)' -and $mixed[1] -match '\$smokeExitCode -ne 0' -and
+        $mixed[1] -match 'FromMinutes\(2\)' -and $mixed[1] -match '\$smokeExitCode -ne 0' -and
+        $mixedWorkflow -match '(?s)name: Mixed provider smoke test\s+timeout-minutes: 10' -and
+        $mixedWorkflow -match 'Complete-OwnedHostTestRoot\.ps1 -StateRoot \$env:SQL_SERVER_LAB_CI_OWN_STATE_ROOT' -and
         $mixed[1] -match '\$mutex.ReleaseMutex\(\)' -and $mixed[1] -match '\$mutex.Dispose\(\)' -and
         $mixedWorkflow -notmatch 'Tee-Object|upload-artifact|Exception.Message')
 }

@@ -92,8 +92,8 @@ ruft dieselbe Public-API ohne Probe auf. Erst **Hostvoraussetzungen bewusst lese
 prüfen** setzt `CheckProviderReadiness=true`. Linux ist das explizite Ziel;
 C# und Hyper-V bleiben außerhalb dieses Dialogs.
 
-`POST /api/external-runtime-capability` besitzt getrennte `ReadOptions`- und
-`Evaluate`-Körper. Die Grenze verlangt den tatsächlichen IPv4-Loopback-Listener,
+`POST /api/external-runtime-capability` besitzt getrennte `ReadOptions`-,
+`Evaluate`- und `ReadRecordedEvidence`-Körper. Die Grenze verlangt den tatsächlichen IPv4-Loopback-Listener,
 seinen Port und eine nichtleere identische Origin. Das ist keine neue
 Authentifizierungs- oder Besitzautorität. JSON wird als striktes UTF-8 auf
 8192 Bytes, 4096 Zeichen, Tiefe 2 und 16 Knoten begrenzt; doppelte oder anders
@@ -101,6 +101,27 @@ geschriebene Feldnamen, unbekannte Felder, Nullwerte und Typumdeutungen sperren.
 Öffentliche Eingaben enthalten niemals Providerfakten. Antworten besitzen den
 geschlossenen Browservertrag `SqlServerLab.ExternalRuntimeCapabilityBrowser/1.0`
 mit validierten Katalogidentitäten und dem unveränderten Public-Entscheid.
+Dies bleibt für `ReadOptions` und `Evaluate` unverändert.
+
+**Historische Nachweise lesen** ist eine eigene bewusste Aktion für die gewählte
+Katalogidentität. Ihr Request enthält ausschließlich Action, SQL-Version,
+Provider, Linux-Ziel, Software-ID, Runtimeversion und Variante. Hostprüfungs-,
+Apply- und zusätzliche Opt-in-Felder werden abgewiesen. Der Server ruft die
+vorhandene Public-API einmal mit `IncludeRecordedEvidence` auf, ohne
+`CheckProviderReadiness`; erst diese Aktion liest den bestehenden Nachweisindex.
+
+Die neue Antwort `SqlServerLab.ExternalRuntimeCapabilityBrowser/1.1` mit
+`Status=HISTORY` ist eine begrenzte Zusammenfassung: validierte Katalogidentität,
+Status, MappingStatus, fester Reason-Code und RecordCount von 0 bis 128.
+Rohrecords, Cells, Pfade, Quellenrevisionen und Referenzen werden nicht übertragen.
+`RECORDED_HISTORY_ONLY` bedeutet eine exakte historische Zuordnung, keinen
+bestandenen oder aktuellen SQL-Sprachtest; die Anzahl umfasst auch frühere
+Fehler und andere Ergebnisse. Legacyidentität, fehlender Match und nicht lesbarer
+Index bleiben mit verschiedenen Gründen sichtbar. Referenzen bleiben
+`NOT_VERIFIED`, aktuelle Readiness und SQL-Ausführung `NOT_CHECKED`; Ausführung
+und Mutation bleiben false und Actions leer. Quelle, Datum und einzelne
+historische Ergebnisse sind weiterhin über die bestehende API 1.1 beziehungsweise
+den Index zu untersuchen; ihre Browserdetailansicht bleibt offen.
 
 Der bestehende UI-Modulhost führt den Aufruf synchron aus, ohne Job oder
 erneuten Import. 20 Sekunden Prozessausführung plus bis zu fünf Sekunden
@@ -108,8 +129,8 @@ Terminierungsversuch begrenzen weder den gesamten HTTP-Aufruf noch den Listener.
 Eingaben bleiben im Browser-RAM. Abbruch, Escape und neue Auswahl verwerfen die
 Anzeige; späte Erfolge und Fehler werden ignoriert. Eine bereits angeforderte
 lesende Hostprüfung wird dadurch nicht als gestoppt behauptet. Es gibt keinen
-Apply-, Speicher-, Start- oder Manifestübernahmepfad. Historisches Mapping und
-SQL-Sprachabnahme bleiben unverändert offen; CORE-102 ist damit nicht vollständig.
+Apply-, Speicher-, Start- oder Manifestübernahmepfad. Aktuelle SQL-Sprachabnahme,
+Browser-Einzelnachweise und die übrige CORE-102-Matrix bleiben offen.
 
 Die getrennte gerenderte Katalogabnahme bestand am 2026-10-07 auf `4007d414`:
 zwölf unveränderte Produktassets und 36 gebundene Katalog-/Rezept-/Quellhashes,

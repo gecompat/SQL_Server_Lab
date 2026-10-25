@@ -34,6 +34,11 @@ beschraenkt. `Get-SqlServerLabGeneratedSqlAccess` eignet sich weiterhin fuer
 den vorhandenen lesenden Analyzezugang; sein SA-Login ersetzt diese
 Windows-Authentifizierung fuer Katalogoperationen nicht.
 
+Der zusätzliche [Ausführungskontextdiagnoseweg](../Architecture/SSIS_EXECUTION_DIAGNOSTIC.md)
+verwendet dieselbe gebundene Windows-Anmeldung ausschließlich zum Lesen einer
+vorhandenen eigenen SQL-2025-Ausführung und ihrer Runtimeumgebung. Er startet
+keine Ausführung und übernimmt keine Consumerobjekte.
+
 ## Aufruf aus Analyze
 
 Alle folgenden Variablen stammen aus dem lokalen Consumerworkflow. Skripte und

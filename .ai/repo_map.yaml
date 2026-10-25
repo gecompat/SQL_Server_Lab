@@ -465,6 +465,11 @@ sources_of_truth:
   validation_release_artifact: Tests/Static/Invoke-ReleaseArtifactChecks.ps1
   client_readiness: Tools/Test-SqlServerLabClientReadiness.ps1
   ssis_catalog_capability_public: Public/Get-SqlServerLabSsisCatalogCapability.ps1
+  ssis_execution_diagnostic_public: Public/Get-SqlServerLabSsisExecutionDiagnostic.ps1
+  ssis_execution_diagnostic_projection: Private/SsisExecutionDiagnostic.ps1
+  ssis_execution_diagnostic_guest: Providers/HyperV/HyperVSsisExecutionDiagnostic.ps1
+  ssis_execution_diagnostic_contract: Documentation/Architecture/SSIS_EXECUTION_DIAGNOSTIC.md
+  validation_ssis_execution_diagnostic: Tests/Static/Invoke-SsisExecutionDiagnosticChecks.ps1
   ssis_package_diagnostic_public: Public/Get-SqlServerLabSsisPackageDiagnostic.ps1
   ssis_package_diagnostic_artifact_and_binding: Private/SsisPackageDiagnostic.ps1
   ssis_package_diagnostic_guest: Providers/HyperV/HyperVSsisPackageDiagnostic.ps1
@@ -517,7 +522,7 @@ sources_of_truth:
   external_runtime_capability_public: Public/Get-SqlServerLabExternalRuntimeCapability.ps1
   external_runtime_capability_core: Private/ExternalRuntimeCapability.ps1
   external_runtime_host_facts: Private/ContainerImageArtifact.ps1 # shared typed native/projected facts; UNKNOWN never grants support
-  external_runtime_capability_http: Private/ExternalRuntimeCapabilityHttp.ps1
+  external_runtime_capability_http: Private/ExternalRuntimeCapabilityHttp.ps1 # default browser1.0; explicit ReadRecordedEvidence projects public1.1 metadata without host probe or authority
   external_runtime_capability_ui: Ui/external-runtime-capability.js
   validation_external_runtime_capability_browser: Tests/Static/Invoke-ExternalRuntimeCapabilityBrowserChecks.ps1
   validation_external_runtime_catalog_rendered: Tests/Integration/Invoke-ExternalRuntimeCapabilityCatalogBrowserAcceptance.ps1
