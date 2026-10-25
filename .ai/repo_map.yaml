@@ -521,7 +521,7 @@ sources_of_truth:
   client_readiness_core: Private/ClientReadiness.ps1
   host_capability_matrix_public: Public/Get-SqlServerLabHostCapabilityMatrix.ps1
   host_capability_matrix_core: Private/HostCapabilityMatrix.ps1 # catalog resolver + shared bounded diagnostic readiness, no independent compatibility truth
-  host_capability_matrix_console: Private/HostCapabilityMatrixConsole.ps1 # main menu cursor/fallback uses same public API
+  host_capability_matrix_console: Private/HostCapabilityMatrixConsole.ps1 # main menu + explicit existing external-runtime detail decision, nonpersisting cursor/fallback
   host_capability_matrix_http: Private/HostCapabilityMatrixHttp.ps1 # closed read-only projection; explicit single-provider bootstrap opt-in
   host_capability_matrix_ui: Ui/host-capability-matrix.js
   host_capability_matrix_contract: Documentation/Architecture/HOST_CAPABILITY_MATRIX.md
@@ -530,6 +530,10 @@ sources_of_truth:
   validation_host_capability_matrix_rendered: Tests/Integration/Invoke-HostCapabilityMatrixBrowserAcceptance.ps1 # isolated own listener; actual public catalogue reader, synthetic bootstrap, providers forbidden
   validation_host_capability_matrix_browser_contracts: Tests/Common/HostCapabilityMatrixBrowserAcceptance.ps1
   validation_host_capability_matrix_browser_fixture: Tests/Static/Fixtures/HostCapabilityMatrixBrowserAcceptanceChecks.ps1
+  validation_host_matrix_launch_details: Tests/Static/Invoke-HostMatrixLaunchDetailsChecks.ps1
+  validation_host_matrix_launch_console: Tests/Static/Fixtures/HostMatrixLaunchDetailsConsoleChecks.ps1 # actual catalogue/classifier, synthetic host facts, readonly console/help authority
+  validation_host_matrix_launch_ui: Tests/Static/Fixtures/HostMatrixLaunchDetailsUiChecks.cjs # actual two controllers, no automatic native query
+  validation_host_matrix_launch_browser: Tests/Static/Fixtures/HostMatrixLaunchDetailsBrowserChecks.ps1 # composed actual routes/public readers; rendered runner uses IncludeLaunchDetails
   external_runtime_capability_public: Public/Get-SqlServerLabExternalRuntimeCapability.ps1
   external_runtime_capability_core: Private/ExternalRuntimeCapability.ps1
   external_runtime_host_facts: Private/ContainerImageArtifact.ps1 # shared typed native/projected facts; UNKNOWN never grants support

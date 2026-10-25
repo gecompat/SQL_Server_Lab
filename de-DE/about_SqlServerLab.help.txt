@@ -123,6 +123,9 @@ COMMANDS
         Im geführten Browser steht dieselbe Übersicht unter Lab-Umgebungen.
         Übersicht ohne Hostabfrage lesen; für die bewusste aktuelle Readiness
         genau einen Provider wählen. Auswahlwechsel verwirft alte Ergebnisse.
+        Aufgelöste Container-Zeilen führen zur bestehenden exakten Varianten-
+        entscheidung weiter. Der Übergang liest nur Katalogoptionen; Hostprüfung
+        bleibt ausdrücklich getrennt. Hyper-V und C# haben keine solche Detailaktion.
         Vertrag: Documentation/Architecture/HOST_CAPABILITY_MATRIX.md.
 
     Get-SqlServerLabExternalRuntimeCapability

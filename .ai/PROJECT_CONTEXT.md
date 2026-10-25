@@ -568,6 +568,11 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   Öffnen liest nur SQL-Katalogversionen; aktuelle Readiness verlangt einen
   einzelnen bewusst gewählten Provider. Auswahlwechsel/Abbruch verwerfen
   alte und verspätete Ergebnisse ohne Persistierung.
+  Aufgelöste Linux-Container-Varianten führen in Konsole und Browser zur
+  bestehenden exakten External-Runtime-Entscheidung weiter; Übergang ohne
+  Hostabfrage, kein Variantenfallback und keine gecachte Freigabe. Die
+  bewusste cgroup-/Rootful-Prüfung bleibt auf ihre vorhandenen Grundlagen
+  begrenzt; Hyper-V und C# erhalten dadurch keine neue Unterstützung.
   Standard ohne Hostabfrage, bewusste Readiness einmal je gewähltem Provider.
   C# bleibt USER_DEFERRED; Kernel/Controller, WSL, Ressourcen, konkrete
   Launchanforderungen und Native-Sprachabnahmen bleiben offen.

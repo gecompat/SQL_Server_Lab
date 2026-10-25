@@ -65,11 +65,22 @@
       element('providers').appendChild(row);
     }
     for (const item of matrix.Capabilities) {
-      const row = document.createElement('tr'); row.setAttribute('aria-disabled','true');
+      const row = document.createElement('tr');
+      const canInspect = item.CatalogStatus === 'DECLARED_SUPPORTED' && ['docker','podman'].includes(item.Provider) && ['2019','2022','2025'].includes(matrix.SqlVersion);
+      row.setAttribute('aria-disabled',canInspect ? 'false' : 'true');
       cell(row,`${item.Provider} / ${item.TargetOperatingSystem}`);
       cell(row,`${item.Language} ${item.RuntimeVersion ?? ''}\n${item.VariantId ?? 'Keine passende Katalogvariante'}${item.ExplicitSelectionRequired ? '\nNur bewusste Variantenwahl' : ''}`);
       cell(row,`${item.CatalogStatus} / ${item.CatalogReasonCode}\nBenötigt: ${item.RequiredCapabilities.join(', ') || 'Nicht zugeordnet'}`);
       cell(row,`${states[item.Availability]}\n${reasonText(item.ReasonCode)}`); cell(row,steps[item.NextStep]); element('rows').appendChild(row);
+      const detail = document.createElement('td'), button = document.createElement('button');
+      button.type = 'button'; button.className = 'button secondary'; button.disabled = !canInspect;
+      button.textContent = canInspect ? 'Varianten- und Launchdetails öffnen' : item.Language === 'C#' ? 'Zurückgestellt' : 'Detailprüfung noch nicht verfügbar';
+      if (canInspect) button.addEventListener('click',() => {
+        const tuple = {SqlVersion:matrix.SqlVersion,Provider:item.Provider,SoftwareId:item.SoftwareId,RuntimeVersion:item.RuntimeVersion,VariantId:item.VariantId};
+        element('dialog').close(); clearResult();
+        document.dispatchEvent(new CustomEvent('sqlserverlab:external-runtime-request',{detail:tuple}));
+      });
+      detail.appendChild(button); row.appendChild(detail);
     }
     element('unassessed').textContent = 'Noch ungeprüft: SQL-Build, tatsächliches Gastbetriebssystem, Kernel/cgroup-Controller, gemeinsamer WSL-Kernel, Rootless/Launchmodus, Ressourcen, Zielrechte, historische Nachweise und SQL-Sprachausführung.';
     element('status').textContent = 'Übersicht gelesen. Keine Ausführungsfreigabe.';

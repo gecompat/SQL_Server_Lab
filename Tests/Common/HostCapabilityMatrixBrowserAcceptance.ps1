@@ -2,7 +2,8 @@
 . (Join-Path $PSScriptRoot ConnectionCenterCmsFullPageAcceptance.ps1)
 
 function Get-HostMatrixBrowserCases {
-    @(
+    param([switch]$IncludeLaunchDetails)
+    $cases=@(
         [pscustomobject]@{Action='ReadVersions';SqlVersion=$null;Provider=$null}
         [pscustomobject]@{Action='ReadMatrix';SqlVersion='2022';Provider='all'}
         [pscustomobject]@{Action='ReadMatrix';SqlVersion='2022';Provider='hyperv'}
@@ -10,10 +11,12 @@ function Get-HostMatrixBrowserCases {
         [pscustomobject]@{Action='ReadMatrix';SqlVersion='2016';Provider='podman'}
         [pscustomobject]@{Action='ReadVersions';SqlVersion=$null;Provider=$null}
     )
+    if($IncludeLaunchDetails){$cases+=@([pscustomobject]@{Action='ReadMatrix';SqlVersion='2022';Provider='docker'})}
+    $cases
 }
 
 function Get-HostMatrixBrowserProductParts {
-    param([string]$RepositoryRoot)
+    param([string]$RepositoryRoot,[switch]$IncludeLaunchDetails)
     $parts=Get-CmsFullPageProductParts $RepositoryRoot
     $paths=@('Private/VersionCatalog.ps1','Private/SoftwareCatalog.ps1','Private/ExternalRuntimeCapability.ps1',
         'Private/HostCapabilityMatrix.ps1','Private/HostCapabilityMatrixHttp.ps1','Public/Get-SqlServerLabHostCapabilityMatrix.ps1',
@@ -31,7 +34,13 @@ function Get-HostMatrixBrowserProductParts {
     $route=@($ast.FindAll({param($node)$node -is [Management.Automation.Language.IfStatementAst] -and
         $node.Clauses[0].Item1.Extent.Text -ceq "`$path -eq '/api/host-capability-matrix'"},$true))
     if($errors.Count -or $route.Count -ne 1) {throw 'HOST_MATRIX_BROWSER_ROUTE_BINDING'}
-    [pscustomobject]@{Assets=$parts.Assets;Sources=$sources;Dispatch=[scriptblock]::Create('foreach($iteration in 1){'+$route[0].Extent.Text+"`nthrow 'HOST_MATRIX_BROWSER_FALLTHROUGH'"+'}')}
+    $legacyDispatch=$null
+    if($IncludeLaunchDetails) {
+        . (Join-Path $PSScriptRoot ExternalRuntimeCapabilityCatalogBrowserAcceptance.ps1)
+        $legacy=Get-ExternalCatalogBrowserProductParts $RepositoryRoot;$legacyDispatch=$legacy.Dispatch
+        $sources=@(@($sources)+@($legacy.Sources)|Sort-Object Path -Unique)
+    }
+    [pscustomobject]@{Assets=$parts.Assets;Sources=$sources;Dispatch=[scriptblock]::Create('foreach($iteration in 1){'+$route[0].Extent.Text+"`nthrow 'HOST_MATRIX_BROWSER_FALLTHROUGH'"+'}');LegacyDispatch=$legacyDispatch}
 }
 
 function Assert-HostMatrixBrowserSources {
@@ -47,9 +56,9 @@ function Assert-HostMatrixBrowserSources {
 }
 
 function New-HostMatrixBrowserModule {
-    param([string]$RepositoryRoot)
-    New-Module -ArgumentList $RepositoryRoot -ScriptBlock {
-        param($root)
+    param([string]$RepositoryRoot,[switch]$IncludeLaunchDetails)
+    New-Module -ArgumentList $RepositoryRoot,([bool]$IncludeLaunchDetails) -ScriptBlock {
+        param($root,$includeLegacy)
         $script:ModuleRoot=$root;$script:CatalogsPath=Join-Path $root 'Catalogs'
         $script:VersionCatalog=Get-Content (Join-Path $root Catalogs/sql-server-versions.json) -Raw|ConvertFrom-Json
         $script:RegisteredProviders=@{}
@@ -60,6 +69,7 @@ function New-HostMatrixBrowserModule {
         foreach($path in @('Private/VersionCatalog.ps1','Private/SoftwareCatalog.ps1','Private/ExternalRuntimeCapability.ps1',
             'Private/HostCapabilityMatrix.ps1','Public/Get-SqlServerLabHostCapabilityMatrix.ps1','Private/HostCapabilityMatrixHttp.ps1')) {. (Join-Path $root $path)}
         $script:BrowserCalls=[Collections.Generic.List[object]]::new();$script:BrowserEffects=0
+        $script:BrowserLegacyCalls=[Collections.Generic.List[object]]::new()
         $script:BrowserOriginalPublic=(Get-Command Get-SqlServerLabHostCapabilityMatrix).ScriptBlock
         function Get-SqlServerLabHostCapabilityMatrix {
             param($SqlVersion,$Provider,[switch]$CheckProviderReadiness)
@@ -67,12 +77,40 @@ function New-HostMatrixBrowserModule {
             $script:BrowserCalls.Add([pscustomobject]@{SqlVersion=$SqlVersion;Provider=@($Provider);CheckProviderReadiness=[bool]$CheckProviderReadiness})
             & $script:BrowserOriginalPublic @PSBoundParameters
         }
+        if($includeLegacy) {
+            foreach($path in @('Private/ContainerImageArtifact.ps1','Public/Get-SqlServerLabExternalRuntimeCapability.ps1','Private/ExternalRuntimeCapabilityHttp.ps1')){. (Join-Path $root $path)}
+            $script:BrowserOriginalLegacy=(Get-Command Get-SqlServerLabExternalRuntimeCapability).ScriptBlock
+            function Get-SqlServerLabExternalRuntimeCapability {
+                param($SqlVersion,$Provider,$OperatingSystem,$SoftwareId,$RuntimeVersion,$VariantId,[switch]$CheckProviderReadiness,[switch]$IncludeRecordedEvidence)
+                if($CheckProviderReadiness -or $IncludeRecordedEvidence){$script:BrowserEffects++;throw 'HOST_MATRIX_BROWSER_LEGACY_OPTIN_FORBIDDEN'}
+                $script:BrowserLegacyCalls.Add([pscustomobject]@{SqlVersion=$SqlVersion;Provider=$Provider;SoftwareId=$SoftwareId;RuntimeVersion=$RuntimeVersion;VariantId=$VariantId;HostProbe=[bool]$CheckProviderReadiness;History=[bool]$IncludeRecordedEvidence})
+                & $script:BrowserOriginalLegacy @PSBoundParameters
+            }
+        }
         foreach($name in @('Get-LabDiagnosticReadiness','Invoke-LabDiagnosticReadinessProcess','Initialize-LabHostToolPath',
             'Invoke-LabDiagnosticBoundedProcess','Invoke-Sqlcmd','Start-Process','Get-VM','Get-VMHost','Get-LabStateRoot',
             'Get-LabDataRoot','Get-LabRunState','Write-LabEvent','Add-LabMessage','New-LabRunState','Get-LabSecret',
-            'Get-LabPreferencesSnapshot','Invoke-LabContainerCli','Invoke-SqlServerLabWorkflowAction','Invoke-LabExternalRuntimeImageBuild')) {
+            'Get-LabPreferencesSnapshot','Invoke-LabContainerCli','Invoke-SqlServerLabWorkflowAction','Invoke-LabExternalRuntimeImageBuild','Read-LabExternalRuntimeHostFacts')) {
             Set-Item ("Function:script:$name") {$script:BrowserEffects++;throw 'HOST_MATRIX_BROWSER_EFFECT_FORBIDDEN'}
         }
+    }
+}
+
+function Assert-HostMatrixLaunchBrowserRecord {
+    param($Payload,$View,[int]$Index)
+    $action=if($Index -eq 0){'ReadOptions'}elseif($Index -eq 1){'Evaluate'}else{throw 'HOST_MATRIX_BROWSER_EXTRA_LEGACY_ACTION'}
+    $names=@('Action','SqlVersion','Provider','OperatingSystem')
+    if($Index -eq 1){$names+=@('SoftwareId','RuntimeVersion','VariantId','CheckProviderReadiness')}
+    Assert-LabHostMatrixHttpShape $Payload $names
+    if($Payload.Action -cne $action -or $Payload.SqlVersion -cne '2022' -or $Payload.Provider -cne 'docker' -or $Payload.OperatingSystem -cne 'linux' -or
+        $View.ContractVersion -cne 'SqlServerLab.ExternalRuntimeCapabilityBrowser/1.0'){throw 'HOST_MATRIX_BROWSER_LEGACY_SCOPE'}
+    if($Index -eq 0) {
+        if($View.Status -cne 'OPTIONS' -or @($View.Options|Where-Object {$_.VariantId -ceq 'sql2022-python310-ubuntu2204-derived' -and $_.Decision.CatalogDecision.Status -ceq 'DECLARED_SUPPORTED'}).Count -ne 1){throw 'HOST_MATRIX_BROWSER_LEGACY_OPTIONS'}
+    } else {
+        if($Payload.SoftwareId -cne 'sql-python' -or $Payload.RuntimeVersion -cne '3.10' -or $Payload.VariantId -cne 'sql2022-python310-ubuntu2204-derived' -or
+            $Payload.CheckProviderReadiness -isnot [bool] -or $Payload.CheckProviderReadiness -or $View.Status -cne 'DECISION' -or
+            $View.Decision.CurrentReadiness.Status -cne 'NOT_CHECKED' -or $View.Decision.SqlLanguageExecution -cne 'NOT_CHECKED' -or
+            $View.Decision.MutationAllowed -or $View.Decision.ExecutionSupported -or $View.Decision.Actions.Count -ne 0){throw 'HOST_MATRIX_BROWSER_LEGACY_DECISION'}
     }
 }
 
@@ -106,11 +144,13 @@ function Assert-HostMatrixBrowserResult {
 }
 
 function Assert-HostMatrixBrowserCompletion {
-    param($Operator,[object[]]$Records,[string[]]$AssetPaths,[object[]]$Calls,[int]$ForbiddenEffects)
+    param($Operator,[object[]]$Records,[string[]]$AssetPaths,[object[]]$Calls,[int]$ForbiddenEffects,[switch]$IncludeLaunchDetails,[object[]]$LegacyCalls=@())
     $flags=@('FullDocument','AllScriptsLoaded','BootstrapRendered','AllProviderRowsRendered','HyperVRowsRendered','DeferredVisible',
         'BlockedRowsVisible','ExplicitVariantVisible','SingleProviderProbeEnabled','AllProviderProbeDisabled','SelectionClears','CloseReopenClears','NoScriptErrors')
+    if($IncludeLaunchDetails){$flags+=@('LaunchBridgeOpened','LaunchDecisionRendered')}
     Assert-LabHostMatrixHttpShape $Operator (@('Contract')+$flags)
-    if($Operator.Contract -cne 'SqlServerLab.HostMatrixBrowserOperator/1.0') {throw 'HOST_MATRIX_BROWSER_OPERATOR'}
+    $version=if($IncludeLaunchDetails){'1.1'}else{'1.0'}
+    if($Operator.Contract -cne "SqlServerLab.HostMatrixBrowserOperator/$version") {throw 'HOST_MATRIX_BROWSER_OPERATOR'}
     foreach($name in $flags) {if($Operator.$name -isnot [bool] -or -not $Operator.$name) {throw 'HOST_MATRIX_BROWSER_OPERATOR_FLAG'}}
     if($ForbiddenEffects -ne 0) {throw 'HOST_MATRIX_BROWSER_EFFECTS'}
     foreach($asset in $AssetPaths) {
@@ -119,8 +159,8 @@ function Assert-HostMatrixBrowserCompletion {
     foreach($path in @('/api/config','/api/commands','/api/jobs','/api/workflow','/api/tls-created-targets')) {
         if(@($Records | Where-Object {$_.Path -ceq $path -and $_.Method -ceq 'GET' -and $_.Status -eq 200}).Count -lt 1) {throw 'HOST_MATRIX_BROWSER_MISSING_BOOTSTRAP'}
     }
-    $actions=@($Records | Where-Object Path -CEQ '/api/host-capability-matrix');$cases=@(Get-HostMatrixBrowserCases)
-    if($actions.Count -ne $cases.Count -or $Calls.Count -ne 4) {throw 'HOST_MATRIX_BROWSER_CALL_COUNT'}
+    $actions=@($Records | Where-Object Path -CEQ '/api/host-capability-matrix');$cases=@(Get-HostMatrixBrowserCases -IncludeLaunchDetails:$IncludeLaunchDetails)
+    if($actions.Count -ne $cases.Count -or $Calls.Count -ne $(if($IncludeLaunchDetails){5}else{4})) {throw 'HOST_MATRIX_BROWSER_CALL_COUNT'}
     $callIndex=0
     for($index=0;$index -lt $cases.Count;$index++) {
         $record=$actions[$index];$case=$cases[$index]
@@ -132,5 +172,17 @@ function Assert-HostMatrixBrowserCompletion {
             if($call.SqlVersion -cne $case.SqlVersion -or ($call.Provider -join ',') -cne $expected -or
                 $call.CheckProviderReadiness -isnot [bool] -or $call.CheckProviderReadiness) {throw 'HOST_MATRIX_BROWSER_PUBLIC_SCOPE'}
         }
+    }
+    $legacy=@($Records|Where-Object Path -CEQ '/api/external-runtime-capability')
+    if($legacy.Count -ne $(if($IncludeLaunchDetails){2}else{0}) -or $LegacyCalls.Count -ne $(if($IncludeLaunchDetails){1}else{0})){throw 'HOST_MATRIX_BROWSER_LEGACY_COUNT'}
+    if($IncludeLaunchDetails) {
+        for($index=0;$index -lt 2;$index++) {
+            if($legacy[$index].Method -cne 'POST' -or $legacy[$index].Status -ne 200){throw 'HOST_MATRIX_BROWSER_LEGACY_STATUS'}
+            Assert-HostMatrixLaunchBrowserRecord $legacy[$index].Payload $legacy[$index].View $index
+        }
+        $call=$LegacyCalls[0]
+        if($call.SqlVersion -cne '2022' -or $call.Provider -cne 'docker' -or $call.SoftwareId -cne 'sql-python' -or
+            $call.RuntimeVersion -cne '3.10' -or $call.VariantId -cne 'sql2022-python310-ubuntu2204-derived' -or
+            $call.HostProbe -isnot [bool] -or $call.HostProbe -or $call.History -isnot [bool] -or $call.History){throw 'HOST_MATRIX_BROWSER_LEGACY_PUBLIC_BINDING'}
     }
 }

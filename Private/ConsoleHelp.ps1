@@ -85,6 +85,24 @@ function Get-LabConsoleHelpCatalog {
             Effects = 'Nur die zweite Auswahl prüft jeden Provider einmal begrenzt lesend. Kein Start und keine Ausführungsfreigabe; Escape bricht ab.'
             Command = 'Get-SqlServerLabHostCapabilityMatrix -SqlVersion 2022 -CheckProviderReadiness'
         }
+        'host-matrix-next' = @{
+            Title = 'Hostfähigkeiten: Nächster Schritt'
+            Purpose = 'Zum Hauptmenü zurückkehren oder eine katalogisierte Linux-Container-Sprachvariante näher prüfen.'
+            Effects = 'Diese Auswahl fragt keinen Provider ab. Die Detailprüfung verlangt eine eigene Umfangsauswahl.'
+            Command = 'Get-SqlServerLabExternalRuntimeCapability'
+        }
+        'host-matrix-launch-variant' = @{
+            Title = 'Container-Sprachvariante'
+            Purpose = 'Eine exakte aufgelöste Docker-/Podman-Variante aus der Matrix auswählen.'
+            Effects = 'Nur Auswahl; Escape beendet ohne Hostabfrage. Hyper-V und C# bleiben außerhalb dieser Vertiefung.'
+            Command = 'Get-SqlServerLabExternalRuntimeCapability'
+        }
+        'host-matrix-launch-probe' = @{
+            Title = 'Variantenprüfung: Umfang'
+            Purpose = 'Katalog-/Launchdeklaration oder bewusste aktuelle Linux-/cgroup-/Rootful-Prüfung wählen.'
+            Effects = 'Nur die zweite Auswahl liest einmal begrenzt Providerinfo. Kein Start, keine SQL-Abfrage und keine Hoständerung.'
+            Command = 'Get-SqlServerLabExternalRuntimeCapability -CheckProviderReadiness'
+        }
         'evaluation-refresh-run' = @{
             Title = 'SQL-Evaluation: Instanz auswählen'
             Purpose = 'Eine moderne registrierte Hyper-V-SQL-Instanz für einen reinen Ersatzentscheid auswählen.'
