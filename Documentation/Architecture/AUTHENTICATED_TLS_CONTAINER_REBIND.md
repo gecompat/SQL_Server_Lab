@@ -41,13 +41,15 @@ Dateiersatz bestehen unveränderliche Original-, Kandidaten- und Intentdateien.
 Quell-/Kandidatenhash, ACL, Authority und echte Native-Epoche werden vor und
 nach dem Ersatz geprüft; erst danach entsteht der Commit.
 
-Die Folge ist auf 64 explizite erfolgreiche Wiederbindungen pro Lab begrenzt.
+Die Folge ist auf 64 explizite Transaktionen pro Lab begrenzt; ausdrücklich
+zurückgenommene Transaktionen verbrauchen ebenfalls eine Position.
 Der Reader prüft geschlossene Dateiformen, vollständige Snapshots, eindeutige
 fortlaufende Sequenzen und die exakte Vorgängerhashkette bis zum aktuellen
 Record. Unvollständige, fremde, umgebundene oder widersprüchliche Inhalte
 ergeben Recoverybedarf, auch bei inzwischen unveränderter Epoche. Ein
-verlorener Reply beziehungsweise unklarer Schreibausgang erlaubt weder
-automatischen Retry noch Rollback. Es gibt keinen Recovery-Apply-Befehl.
+verlorener Reply beziehungsweise unklarer Schreibausgang erlaubt keinen
+automatischen Retry oder automatischen Rollback. Die unten beschriebene
+Recovery verlangt eine neue ausdrückliche Auswahl der exakten Transaktion.
 Die Serialisierung ist kooperativ und keine Zusage gegen einen feindlichen
 Hostadministrator oder denselben Benutzer mit beliebiger Codeausführung.
 Normale Qualifizierung, Export und Exportreadback prüfen vorhandene History
@@ -55,6 +57,61 @@ unter demselben Writer-Lock vor weiteren Clientprüfungen und erneut vor ihrer
 Erfolgsrückgabe. Ein installierter Kandidat ohne vollständigen Commit bleibt
 gesperrt. Nur der interne Kandidatenpfad mit seinem tatsächlich offenen,
 passenden Writer-Lock darf während der eigenen Transaktion qualifizieren.
+
+## Unvollständige Wiederbindung gezielt abschließen
+
+Nach `TLS_REBIND_RECOVERY_REQUIRED` zunächst den eigenen Zustand abfragen:
+
+```powershell
+$recovery = Get-SqlServerLabTlsBindingRecovery -RunId $lab.RunId -InstanceId primary -StateRoot $lab.StateRoot
+```
+
+Die Anzeige liest die vollständige geschützte Folge unter demselben Lock. Sie
+enthält die letzte offene Transaktions-ID und `PENDING` oder
+`ROLLBACK_PENDING`, aber keinen neuen SQL-Nachweis. Ohne offenen Intent lautet
+der Status `NO_PENDING_TRANSACTION`. Fehlende Originale, Hashwidersprüche,
+unbekannte Dateien oder fremde Bindungen bleiben gesperrt; die API errät keine
+verlorenen Daten und repariert keine beschädigten Journale.
+
+Bei einem vollständigen Original-/Kandidaten-/Intentnachweis kann die letzte
+offene Transaktion ausdrücklich fortgesetzt werden:
+
+```powershell
+Resolve-SqlServerLabTlsBindingRecovery -RunId $lab.RunId -InstanceId primary -StateRoot $lab.StateRoot -TransactionId $recovery.TransactionId -Action Complete -WhatIf
+Resolve-SqlServerLabTlsBindingRecovery -RunId $lab.RunId -InstanceId primary -StateRoot $lab.StateRoot -TransactionId $recovery.TransactionId -Action Complete
+```
+
+`Complete` prüft erneut Authority, ursprüngliche Runtime-Inkarnation und den
+exakten gespeicherten Kandidaten einschließlich beider strikter Clients. Ist
+der Kandidat bereits installiert, wird er nicht noch einmal ersetzt. Vor dem
+Dateiersatz unterbrochene Intents verwenden ausschließlich ihre gebundenen
+Original- und Kandidatenbytes. Erst ein frischer gültiger Nachweis, genaue
+Readbacks und der geschützte Commit ergeben `QUALIFIED_METADATA_COMMITTED`.
+
+Alternativ stellt `-Action Rollback` ausschließlich die eigenen vorherigen
+Metadaten wieder her. Der tatsächliche ersetzte Kandidat bleibt als eigene
+Sicherung erhalten. Vor dem ersten Ersatz ist keine Rückschreibung nötig.
+Der Abschluss `ROLLED_BACK_UNQUALIFIED` enthält ausdrücklich
+`QualificationStatus=NOT_EXECUTED`: die alte Start-Epoche passt nach einem
+Neustart weiterhin nicht zur Runtime. Ein späteres
+`Update-SqlServerLabTlsBinding` ist eine neue ausdrückliche Transaktion und
+verlangt erneut beide Clients. Zertifikat, Key, CA, Trust, SQL-Konfiguration
+und Container bleiben bei der Recovery unverändert.
+
+Ein dauerhafter Rollbackintent sperrt einen Wechsel zu `Complete`. Nach einem
+Abbruch während der Rücknahme zunächst erneut abfragen und dann ausdrücklich
+dieselbe Transaktion mit `Rollback` abgleichen. Ein bereits beobachteter
+Dateiersatz wird nicht wiederholt. Terminale wiederholte Requests liefern nur
+`ALREADY_COMMITTED` beziehungsweise `ALREADY_ROLLED_BACK` und keinen frischen
+Clientnachweis. Andere oder ältere Transaktions-IDs werden abgewiesen.
+`WhatIf` beendet Apply vor Authority-, Datei-, Runtime- und Clientzugriffen.
+
+Diese Recovery betrifft ausschließlich die Start-Epochen-Metadaten eigener
+Windows-/Docker-/Podman-Labs. Sie ist kein Zertifikatsrenewal und keine
+allgemeine Recovery für fremde Ziele, fehlende Dateien, geänderte Zertifikate
+oder eine erneut abweichende Runtime-Epoche. Die native Abnahme dieses neuen
+Recoverypfads ist vor seiner ausgeführten Belegung weiterhin offen; ältere
+Rebindabnahmen darunter belegen nur ihren damaligen Teilscope.
 
 ## Export und Betrieb
 

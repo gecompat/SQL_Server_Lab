@@ -479,6 +479,8 @@ Sync-SqlServerLabRunScopedContainerStore
         passwords and refreshes the test environment contract.
 
     Update-SqlServerLabTlsBinding
+    Get-SqlServerLabTlsBindingRecovery
+    Resolve-SqlServerLabTlsBindingRecovery
         Strictly qualifies an owned policy-bound Docker/Podman TLS run after
         restart and rebinds only its new start epoch; no certificate renewal.
 

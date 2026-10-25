@@ -4,16 +4,18 @@ param([Parameter(Mandatory)][string]$DataRoot,[Parameter(Mandatory)][string]$Con
     [Parameter(Mandatory)][string]$LocationId,[Parameter(Mandatory)][string]$CandidateId,
     [Parameter(Mandatory)][string]$EvidenceDirectory,[ValidateSet('docker','podman')][string]$Provider='docker',
     [ValidateSet('2025-CU9','2022-CU27','2019-CU32')][string]$Version='2025-CU9',[switch]$Execute,[switch]$KeepLab,[switch]$ExerciseRestartRebind,
-    [switch]$ExerciseLiveQualification,[string]$LiveStopFile)
+    [switch]$ExerciseLiveQualification,[string]$LiveStopFile,[switch]$ExerciseRebindRecovery)
 $ErrorActionPreference='Stop'
 if(-not $Execute){throw 'TLS_ACCEPTANCE_EXECUTE_REQUIRED: creates one own selected-provider and selected-version lab; no trust import.'}
 if($ExerciseRestartRebind -and $KeepLab){throw 'TLS_ACCEPTANCE_REBIND_REQUIRES_RESTART_AND_CLEANUP'}
+if($ExerciseRebindRecovery -and ($KeepLab -or $ExerciseRestartRebind -or $ExerciseLiveQualification)){throw 'TLS_ACCEPTANCE_RECOVERY_REQUIRES_EXCLUSIVE_SCENARIO_AND_CLEANUP'}
 if($ExerciseLiveQualification -and ($KeepLab -or $ExerciseRestartRebind)){throw 'TLS_ACCEPTANCE_LIVE_REQUIRES_EXCLUSIVE_SCENARIO_AND_CLEANUP'}
 if($LiveStopFile -and -not $ExerciseLiveQualification){throw 'TLS_ACCEPTANCE_LIVE_STOP_REQUIRES_LIVE_SCENARIO'}
 $repo=(Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 . (Join-Path $repo 'Tests/Common/AuthenticatedTlsAcceptanceCleanup.ps1')
 . (Join-Path $repo 'Tests/Common/AuthenticatedTlsAcceptanceSelection.ps1')
 . (Join-Path $repo 'Tests/Common/AuthenticatedTlsLiveQualificationAcceptance.ps1')
+. (Join-Path $repo 'Tests/Common/AuthenticatedTlsRebindRecoveryAcceptance.ps1')
 $expected=Get-OwnedTlsAcceptanceProfile $Version
 $module=Import-Module (Join-Path $repo 'SqlServerLab.psd1') -Force -PassThru
 $tool=& (Join-Path $repo 'Tools/Initialize-SqlServerLabHostTools.ps1') -Name $Provider
@@ -118,7 +120,9 @@ try{
             if(-not $blocked){throw 'TLS_ACCEPTANCE_RESTARTED_EXPORT_NOT_REJECTED'}
         } $lab $export
         $results.Add(@{Case='ACTUAL_RESTART_REJECTS_PRIOR_QUALIFICATION';Status='PASS'})
-        if($ExerciseRestartRebind){
+        if($ExerciseRebindRecovery){
+            Invoke-OwnedTlsRebindRecoveryScenario -Module $module -Lab $lab -Expected $expected -Export $export -EvidenceDirectory $evidence -Results $results
+        }elseif($ExerciseRestartRebind){
             $bindingPath=Join-Path $lab.StateRoot 'authenticated-tls-lab.json';$beforeBinding=(Get-FileHash -LiteralPath $bindingPath).Hash
             $null=Update-SqlServerLabTlsBinding -RunId $lab.RunId -InstanceId primary -StateRoot $lab.StateRoot -WhatIf
             if((Get-FileHash -LiteralPath $bindingPath).Hash -cne $beforeBinding -or (Test-Path -LiteralPath (Join-Path $lab.StateRoot 'authenticated-tls-rebind'))){throw 'TLS_ACCEPTANCE_REBIND_WHATIF_MUTATED'}
