@@ -14,18 +14,24 @@ trennt Regelübernahme, Lesepfadprüfung und geplante Restarbeiten.
 
 ## Aktuelle KI-Arbeitsgrenze für TLS-001
 
-Die autonome Fortsetzung betrifft derzeit Lab-Scopes. Weitere Entwicklung
-im Toolbelt bleibt gemäß der späteren separaten menschlichen Anweisung
-pausiert; der abgeschlossene Windows-V2-Cutover bleibt erhalten. Ein
-Lab-Teilabschluss hebt diese Pause nicht auf. Für eine Fortsetzung im
-Toolbelt ist eine neue direkte menschliche Anweisung maßgeblich.
+Die direkte menschliche Anweisung vom 2026-10-25 gibt die für TLS-001 nötige
+Toolbelt-Arbeit wieder frei. Die autonome Fortsetzung betrifft die gekoppelten
+Lab-/Toolbelt-Schritte innerhalb des bestehenden gemeinsamen Budgets; neue
+fachliche SQL-Funktionen im Toolbelt behalten ihren eigenen Freigabevertrag.
+Der abgeschlossene Windows-V2-Cutover bleibt erhalten.
 
 Die [endliche TLS-001-Abschlussübersicht](../Documentation/Project_Planning/TLS_001_COMPLETION_CHECKLIST.md)
 leitet den Pflichtrest aus den bestehenden Akzeptanzkriterien ab. Die
 Projektentscheidung vom 2026-10-25 akzeptiert V1/True und V2/False als
 Vertragsbasis; ein gemeinsamer neuer Exportvertrag ist keine zusätzliche
 Abschlussbedingung. Übrige Sicherheits-, Lifecycle-, Matrix- und
-Consumerpflichten sowie die Toolbelt-Pause bleiben bestehen.
+Consumerpflichten bleiben bestehen. Die
+[Consumerinventur](../Documentation/Project_Planning/TLS_001_CONSUMER_INVENTORY.md)
+ordnet die konkreten Reader-, direkten API- und noch offenen Plattformgrenzen zu.
+Ihr [begrenzter V1-Preflight](../Documentation/Project_Planning/TLS_001_CONSUMER_INVENTORY.md#begrenzter-echter-v1-preflight-vom-2026-10-25)
+belegt zehn Readerfamilien, zwei funktionale Windows-/Docker-Clientfälle und
+eigenen Cleanup. Der übergeordnete Kontroll-FAIL und fremde Bestandsänderungen
+bleiben getrennt erhalten; daraus folgt kein vollständiger TLS-001-Abschluss.
 
 ## Ausgewählte Arbeitsstände
 
