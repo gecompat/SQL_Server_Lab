@@ -119,6 +119,7 @@ $checks = @(
     'Invoke-LicenseProfileChecks.ps1',
     'Invoke-WorkflowUiChecks.ps1',
     'Invoke-TestEnvironmentChecks.ps1',
+    'Invoke-TestGroupGuidanceChecks.ps1',
     'Invoke-HyperVSqlAcceptanceEnvironmentChecks.ps1',
     'Invoke-HyperVWindowsBaselineAcceptanceChecks.ps1',
     'Invoke-DataRootChecks.ps1',
