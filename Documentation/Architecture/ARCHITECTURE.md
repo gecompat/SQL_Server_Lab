@@ -130,6 +130,7 @@ Get-SqlServerLabAiComputeInventory          # CPU, GPU und NPU read-only mit vol
 Get-SqlServerLabExternalRuntimeCapability   # External-Languages-Katalog und optionale Hostvoraussetzung getrennt bewerten
 Get-SqlServerLabSsisCatalogCapability      # Eigene Windows-SSISDB-Quelle read-only binden; keine Fixture oder Ausführung
 Get-SqlServerLabSsisPackageDiagnostic      # Hashgebundenes eigenes Paket im Gast laden und Komponenten-/Fehlercodes lesen; keine Ausführung
+Get-SqlServerLabSsisExecutionDiagnostic    # Gebundenen SQL-2025-Katalogkontext, Registrierungen und gegebenenfalls Worker lesend beobachten
 Install-SqlServerLabSsisComponent           # SSIS gezielt in einen eigenen vorbereiteten Windows-SQL-2025-Run nachinstallieren
 New-SqlServerLabSsisCatalogFixture         # Eigene Windows-2025-SSISDB-Fixture mit drei Analysefällen bereitstellen
 Remove-SqlServerLabSsisCatalogFixture      # Nur den quittierten eigenen SSISDB-Katalogordner entfernen

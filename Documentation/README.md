@@ -138,7 +138,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | Komponente | Status | Autoritative Dateien |
 |---|---|---|
 | PowerShell-Modul | implementiert | `SqlServerLab.psd1`, `SqlServerLab.psm1` |
-| Öffentliche API | 154 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
+| Öffentliche API | 155 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
 | Docker | implementiert | `Providers/Docker/DockerProvider.ps1` |
 | Podman | implementiert | `Providers/Podman/PodmanProvider.ps1` |
 | SQL Server External Languages | Container: Java für SQL 2019, Python/R/Java für SQL 2022/2025, jeweils Docker und Podman; Hyper-V/Windows: SQL-2022 Python/R/Java nativ akzeptiert, C# für SQL 2019–2025 sichtbar `PREVIEW` | `../Catalogs/software.json`, `../Tests/Integration/Invoke-ExternalRuntimeContainerAcceptance.ps1`, `../Tests/Integration/Invoke-ExternalRuntimeHyperVAcceptance.ps1` |
@@ -230,6 +230,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | `Get-SqlServerLabExternalRuntimeCapability` | External-Languages-Katalog und optionale aktuelle Hostvoraussetzung getrennt bewerten |
 | `Get-SqlServerLabSsisCatalogCapability` | Vorhandene eigene Windows-/Hyper-V-/SQL-2019/2022/2025-Quelle read-only auf SSISDB-Voraussetzungen binden; keine Fixture oder Ausführung |
 | `Get-SqlServerLabSsisPackageDiagnostic` | Komponenten und `LoadFromXML` eines hashgebundenen eigenen DTSX/ISPAC im Gast beobachten; [Vertrag](Architecture/SSIS_PACKAGE_DIAGNOSTIC.md) |
+| `Get-SqlServerLabSsisExecutionDiagnostic` | Vorhandene Ausführung, bekannte Dateien, Registrierungen und gegebenenfalls Worker im eigenen SQL-2025-Gast beobachten; [Vertrag](Architecture/SSIS_EXECUTION_DIAGNOSTIC.md) |
 | `Install-SqlServerLabSsisComponent` | Nur SSIS in einen gebundenen vorbereiteten Windows-SQL-2025-Run aus vorhandenen hashgebundenen Medien nachinstallieren |
 | `New-SqlServerLabSsisCatalogFixture` | Im gebundenen eigenen Run SSISDB mit Erfolg-, Fehler- und ungestarteter Ausführung bereitstellen |
 | `Remove-SqlServerLabSsisCatalogFixture` | Nur den quittierten eigenen SSISDB-Katalogordner aus einem gebundenen Run entfernen |
