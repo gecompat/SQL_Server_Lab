@@ -2,6 +2,14 @@
 $watchResults = & $module {
     $results=[Collections.Generic.List[object]]::new()
     function Check($name,$ok){$results.Add([pscustomobject]@{Name=$name;Success=[bool]$ok})}
+    $actualWatchConfiguration=Get-LabResourceWatchConfiguration
+    Check 'Current SqlPackage catalog binds the verified stable version' ($actualWatchConfiguration.SqlPackageVersion -eq '170.5.96.0')
+    # Keep historical synthetic source/parser cases independent of catalog updates.
+    function Get-LabResourceWatchConfiguration {
+        $configuration=$actualWatchConfiguration|Select-Object *
+        $configuration.SqlPackageVersion='170.4.83.3'
+        return $configuration
+    }
     $script:ResourceWatchCache=$null
     $now=[datetimeoffset]'2026-09-29T00:00:00Z'
     $fixture=''

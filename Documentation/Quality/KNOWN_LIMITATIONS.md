@@ -2519,10 +2519,20 @@ nicht auf Hyper-V beschränkt.
 
 Der providerneutrale Softwarekatalog und Capability Resolver normalisieren
 Python-, R-, Java- und C#-Anforderungen nach SQL-Version, Betriebssystem,
-Architektur und Provider. `sqlpackage` 170.4.83.3 ist für SQL-2022-Linux unter
+Architektur und Provider. `sqlpackage` 170.5.96.0 ist der aktuelle Katalogpin für SQL-2022-Linux unter
 Docker und Podman als separates, hashgebundenes Derived Tool Image verfügbar;
 mit kataloggebundenen Python-, R- oder Java-External-Runtimes wird es als
-gemeinsames Inhalts- und Receipt-gebundenes Derived Image aufgebaut. Weitere
+gemeinsames Inhalts- und Receipt-gebundenes Derived Image aufgebaut. Das neue
+self-contained Microsoft-Archiv enthält .NET 10; dessen SHA-256 wurde lokal
+gegen den versionierten Microsoft-Download geprüft und ist keine
+Herausgebersignatur. Die [getrennte native Docker-/Podman-Abnahme](SQLPACKAGE_170_5_96_ACCEPTANCE_2026-10-25.md)
+bestand mit je 30 Assertions einschließlich Versionsprobe, Restart,
+synthetischem BACPAC-/Attach-Roundtrip, kontrolliertem SQL-Fehlerjournal und
+eigenem Run-/Image-Cleanup. Weitere SQL-/OS-Pfade und kombinierte
+External-Runtime-Images wurden in dieser Welle nicht neu nativ ausgeführt.
+Ein ausdrücklicher alter Softwareversionspin wird als nicht katalogisiert
+abgelehnt und nicht still auf die neue Version umgeschrieben. Bestehende Runs
+und Images werden dadurch nicht automatisch geändert. Weitere
 SQL-Versionen und allgemeine Zusatzsoftware bleiben vor jeder
 Provisionierungsmutation abgelehnt. Unvollständig belegte Varianten, freie Commands, nicht gesperrte
 Zusatzpakete und der bisherige

@@ -66,7 +66,8 @@ $completeReport=& $module {
     $catalogVersions=@(Get-SqlServerVersions -Status SUPPORTED)
     $blocks=@(foreach($entry in $catalogVersions){$last=@($entry.docker.builds|Sort-Object {[version]$_.build} -Descending|Select-Object -First 1);'<h3>SQL Server '+$entry.id+'</h3><table><thead><tr><th>Build number or version</th><th>Service pack</th><th>Update</th><th>Knowledge Base number</th><th>Release date</th></tr></thead><tbody><tr><td>'+$last[0].build+'</td><td>None</td><td>'+$last[0].cu+'</td><td>'+$last[0].kb+'</td><td>January 1, 2026</td></tr></tbody></table>'})
     $fakeHtml=$blocks -join "`n"
-    $request={param($Uri)if($Uri -ceq $Url){return [pscustomobject]@{Content=$fakeHtml}};[pscustomobject]@{Content='<h2>Stable</h2><li>Build number: 170.4.83.3</li>'}}
+    $pinnedSqlPackage=(Get-LabResourceWatchConfiguration).SqlPackageVersion
+    $request={param($Uri)if($Uri -ceq $Url){return [pscustomobject]@{Content=$fakeHtml}};[pscustomobject]@{Content=('<h2>Stable</h2><li>Build number: '+$pinnedSqlPackage+'</li>')}}
     $view=Invoke-LabResourceWatchRefresh -WebRequestAction $request
     $script:ResourceWatchCache=$null
     $view

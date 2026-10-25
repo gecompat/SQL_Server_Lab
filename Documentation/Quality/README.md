@@ -5,6 +5,7 @@
 | [COST_EFFICIENT_DEVELOPMENT.md](COST_EFFICIENT_DEVELOPMENT.md) | verbindliche Local-first-, Log-, Teststufen- und Kontextkostenstrategie |
 | [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md) | verbindliche Grenzen des aktuellen Runtimepfads |
 | [LOCAL_VALIDATION_STRATEGY.md](LOCAL_VALIDATION_STRATEGY.md) | tatsächlich verfügbare lokale Prüfpfade und verbleibende Testlücken |
+| [SQLPACKAGE_170_5_96_ACCEPTANCE_2026-10-25.md](SQLPACKAGE_170_5_96_ACCEPTANCE_2026-10-25.md) | SqlPackage 170.5.96.0: getrennte native Docker-/Podman-Abnahme für SQL-2022-Linux mit Restart, BACPAC, Attach und eigenem Cleanup |
 | [TLS_UI_AUTHENTICATED_CREATION_ACCEPTANCE_2026-10-24.md](TLS_UI_AUTHENTICATED_CREATION_ACCEPTANCE_2026-10-24.md) | kompakte Windows-/Docker-/Podman-SQL-2025-CU9-Erstellung im Browser mit strikter Liveprüfung, Wiederbindung und eigenem UI-Remove; ursprüngliche FAILs erhalten |
 | [TLS_UI_AUTHENTICATED_PROFILES_ACCEPTANCE_2026-10-24.md](TLS_UI_AUTHENTICATED_PROFILES_ACCEPTANCE_2026-10-24.md) | zusätzliche kompakte authentifizierte Browser-Erstellung für SQL 2019 CU32 und 2022 CU27, jeweils Docker und Podman, strikte Clients und eigener Cleanup |
 | [TLS_UI_RESOURCE_PROFILES_ACCEPTANCE_2026-10-24.md](TLS_UI_RESOURCE_PROFILES_ACCEPTANCE_2026-10-24.md) | Standard-/Performanceprofile beider Erstellungsmodi für Windows, Docker/Podman und SQL 2019/2022/2025; 24 Laufzeitbelege, ursprünglicher Controller-FAIL mit getrenntem passivem Abschluss erhalten |
