@@ -129,6 +129,7 @@ jobs:
 
       - name: Podman SQL Server lifecycle / CLI acceptance
         id: runtime-acceptance
+        timeout-minutes: 75
         run: |
           $ErrorActionPreference = 'Stop'
           $logPath = Join-Path $env:SQL_SERVER_LAB_CI_OWN_STATE_ROOT 'podman-smoke-matrix.private.log'
@@ -265,6 +266,13 @@ jobs:
             if ($acquired) { $mutex.ReleaseMutex() }
             if ($null -ne $mutex) { $mutex.Dispose() }
           }
+
+      - name: Complete own test-resource cleanup
+        if: ${{ always() && env.SQL_SERVER_LAB_CI_OWN_STATE_ROOT != '' }}
+        timeout-minutes: 10
+        run: |
+          & pwsh -NoProfile -NonInteractive -File ./Tests/Integration/Complete-OwnedHostTestRoot.ps1 -StateRoot $env:SQL_SERVER_LAB_CI_OWN_STATE_ROOT
+          if ($LASTEXITCODE -ne 0) { throw 'OWNED_TEST_CLEANUP_RECOVERY_REQUIRED: protected runner-local state retained.' }
 
   owned-run-recovery:
     if: github.event_name == 'workflow_dispatch' && inputs.mode == 'owned-run-recovery'

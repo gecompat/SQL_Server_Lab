@@ -272,10 +272,22 @@ Ausführung in vor dem Prozessstart exklusiv erzeugte Dateien. Prozessende und
 Ausgabedrain bleiben zeitlich begrenzt. `EvidenceFailure` wird getrennt von
 Hauptfehler, Run-Cleanup und Profil-Cleanup transportiert; GitHub erhält nur
 feste Fehlercodes, keine lokalen Pfade, Rohlogs oder hochgeladenen Artefakte.
-VM- und Profilcleanup löschen keine Evidenz. Ein eigener späterer, exakt
-gebundener Retentions-/Cleanupauftrag ist erforderlich; dieser Slice fügt
-keine automatische Löschung hinzu. Ein harter Abbruch kann einen Marker oder
-Teilstreams ohne abschließenden Receipt hinterlassen: das ist kein PASS.
+VM- und Profilcleanup löschen keine Evidenz. Nach einem abschließenden Receipt
+ohne Cleanup- oder Evidencefehler archiviert der erhöhte Requestwrapper den
+eigenen Evidenceordner im geschützten Ordner `SqlServerLab-CSharpEvidenceArchive`
+auf dem Systemvolume. Damit bleibt die vorhandene strikte Prüfung sämtlicher
+Vorfahren erhalten; ein Benutzerprofil ist kein Ersatz für diese Custodygrenze.
+Dateianzahl, Größen und SHA256 jeder ZIP-Datei
+werden gegen sämtliche Originaldateien geprüft. Erst danach werden der exakt
+gebundene Stagingordner und der unveränderte verbrauchte Request entfernt.
+Die Archivbytes bleiben lokal und geschützt; keine Evidence wird hochgeladen.
+Vorhandene Archive werden nicht überschrieben. Ein eigener späterer
+Retentionsauftrag ist für das Entfernen dieser Archive erforderlich.
+Unbestätigtes Kindprozessende, Run- oder Profilcleanupfehler, fehlgeschlagene
+Recoveryrecords, fehlender Receipt und Hashdrift
+bewahren den ursprünglichen Recoveryzustand und verhindern PASS. Ein harter
+Abbruch kann einen Marker oder Teilstreams ohne abschließenden Receipt
+hinterlassen; daraus wird kein erfolgreicher Lauf abgeleitet.
 
 Der Lauf `36375779272` verlor seine checkout-/tempgebundenen Rohdiagnosen beim
 folgenden CI-Checkout. Sein konkreter Kindfehler und SQL-Versuchsstatus sind

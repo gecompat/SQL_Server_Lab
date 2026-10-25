@@ -229,6 +229,37 @@ mit Standard-Scopeidentitäten. Die Projektion ersetzt keine Löschautorität.
 
 ## Ressourcen und Cleanup
 
+Die Docker-, Podman- und Mixed-Workflows führen nach dem Native-Schritt einen
+separaten `always()`-Cleanup aus. Der Native-Schritt hat ein kürzeres Zeitlimit
+als der Job, damit die Bereinigung ein eigenes Zeitfenster erhält.
+`Complete-OwnedHostTestRoot.ps1` nimmt ausschließlich den expliziten, frisch
+erzeugten Policyroot dieses Jobs an. Er prüft sämtliche Runbindungen vor der
+ersten Mutation, entfernt eigene Runs einschließlich unbenutzter Autostarttasks
+und kontrolliert Container- und Volume-Abwesenheit am ursprünglichen Runtime-Pin.
+Ein persistenter Teststore wird nur über seine im Run gespeicherte ID und den
+öffentlichen Retained-Store-Plan entfernt; sein DataRoot muss im Policyroot liegen.
+Gemeinsame Entwickler-Labs und benachbarte Policyroots sind kein Cleanupziel.
+Die geschützten State- und Recoveryrecords werden nicht pauschal gelöscht.
+Nach bestätigtem Cleanup entfernt der Abschluss die eigenen temporären
+Nutzdaten unter `test-artifacts`, `dpf` und `dtr`. Die kleinen Policy- und
+Runbelege bleiben zur Zuordnung erhalten. Bei Fehlern bleiben auch die
+Nutzdaten für die gezielte Recovery bestehen.
+
+Der lokale Transfer-Preflight entfernt denselben eigenen persistenten Zielstore
+auch ohne expliziten CI-StateRoot. Eine Erstellung ohne zurückgegebene Run-ID
+oder eine fehlgeschlagene Bereinigung verhindert das Löschen des Recovery-State.
+Synthetische Evidence-Identity-Dateifixtures werden dagegen nach Erfolg und
+Fehler entfernt. `-KeepArtifacts` behält sie nur auf ausdrückliche Anforderung.
+Ihre Junctions werden als Verknüpfungen entfernt; Zielverzeichnisse außerhalb
+der Fixture bleiben erhalten. Ein Cleanupfehler ist ein Testfehler.
+
+Ein hart beendeter Runner oder ein ausgefallener Host kann auch einen
+`always()`-Schritt verhindern. Deshalb liegen die Policyroots aller drei
+Workflows außerhalb von `RUNNER_TEMP`. Fehlende Runtimebeobachtung, fremde
+Bindungen und blockierte Stores ergeben sichtbaren Recoverybedarf statt einer
+ungebundenen Prune-Operation. Der vorhandene einzelne Owned-Run-Recoveryweg
+bleibt für solche Unterbrechungen erforderlich.
+
 Alle vorbestehenden Container, Volumes, Netzwerke, Images, Tags, Tasks,
 Desktop-/HKCU-Einstellungen und Hostdienste bleiben erhalten. Eigene
 Container benötigen einen exklusiven Write-ahead-Intent, die tatsächliche
