@@ -569,6 +569,10 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   instrumentierten Effekte; eigener Listener und Tab geschlossen. Seitenbootstrap
   synthetisch; Hostprüfung, historischer Lookup, Installation und SQL ungenutzt.
   CORE-102-Matrix und native Provider-/SQL-Sprachabnahme bleiben offen.
+  Der aktuelle Dialog ergänzt die bewusste Aktion `ReadRecordedEvidence` mit
+  begrenzter historischer Zuordnung und Anzahl; kein PASS aus der Anzahl,
+  keine aktuelle Readiness, keine Rohrecords oder Referenzen. Die alte Abnahme
+  bleibt auf ihren damaligen Scope begrenzt; neue Browserprüfungen werden separat geführt.
   Vertrag: `Documentation/Architecture/EXTERNAL_RUNTIME_CAPABILITY.md`;
 
 - Geführte Podman-KI-Erstellung im Konsolenmenü mit vorhandenem lokalem

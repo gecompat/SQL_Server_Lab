@@ -12,6 +12,7 @@
         'Get-SqlServerLabExternalRuntimeCapability'
         'Get-SqlServerLabSsisCatalogCapability'
         'Get-SqlServerLabSsisPackageDiagnostic'
+        'Get-SqlServerLabSsisExecutionDiagnostic'
         'Install-SqlServerLabSsisComponent'
         'New-SqlServerLabSsisCatalogFixture'
         'Remove-SqlServerLabSsisCatalogFixture'
