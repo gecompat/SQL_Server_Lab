@@ -334,6 +334,13 @@ gesonderte qualifizierte CLI-/GUI-Anzeige bleiben im laufenden TLS-001-Scope.
 
 ## SSISDB: abgenommener Windows-Scope und Grenzen
 
+Die [Ausführungskontextdiagnose](../Architecture/SSIS_EXECUTION_DIAGNOSTIC.md)
+ist auf bestehende eigene Windows-/Hyper-V-/SQL-2025-Runs begrenzt. Sie
+beobachtet feste Metadaten und gegebenenfalls einen aktiven Workerkandidaten.
+Ein SDK-Ladeerfolg, vorhandene Dateien oder `OBSERVED` beweisen keine
+Komponentenaktivierung oder erfolgreiche Katalogausführung. Die native
+Kontextabnahme ist von der synthetischen Prüfung getrennt.
+
 Die [lesende Paketdiagnose](../Architecture/SSIS_PACKAGE_DIAGNOSTIC.md)
 ergänzt Komponentenbestand und `Package.LoadFromXML` in der zur registrierten
 SQL-Version gehörenden x64-Gast-Runtime. Sie ist keine Sandbox und akzeptiert
