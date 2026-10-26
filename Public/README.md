@@ -227,6 +227,11 @@ Einstieg. Zuerst die geladene SQL-Katalogversion wählen und die Übersicht ohne
 Hostabfrage lesen. Eine bewusste aktuelle Prüfung benötigt einen einzelnen
 Provider; die Gesamtübersicht prüft keinen Provider. Auswahlwechsel und
 Schließen verwerfen die Anzeige, ohne verspätete Ergebnisse zu übernehmen.
+Für eine aufgelöste Container-Sprachvariante führen Konsole und Browser zur
+bestehenden exakten Variantenentscheidung weiter. Der Browser liest dabei
+nur Katalogoptionen; die bewusste Linux-/cgroup-/Rootful-Prüfung bleibt eine
+eigene Aktion. Hyper-V, C# und fehlende Katalogvarianten bleiben ohne diese
+Vertiefung sichtbar.
 
 `Get-SqlServerLabExternalRuntimeCapability` trennt für einen expliziten
 Docker-/Podman-Linux-Manifestentwurf Katalogunterstützung von optionaler

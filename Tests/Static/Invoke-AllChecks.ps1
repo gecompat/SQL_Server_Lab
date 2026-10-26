@@ -100,6 +100,7 @@ $checks = @(
     'Invoke-DiagnosticBundleChecks.ps1',
     'Invoke-HostCapabilityMatrixChecks.ps1',
     'Invoke-HostCapabilityMatrixBrowserChecks.ps1',
+    'Invoke-HostMatrixLaunchDetailsChecks.ps1',
     'Invoke-SkillChecks.ps1',
     'Invoke-CapabilityInventoryChecks.ps1',
     'Invoke-PodmanBootstrapChecks.ps1',

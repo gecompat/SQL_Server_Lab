@@ -4,6 +4,11 @@ Die providerübergreifende Übersicht vor der Funktionsauswahl steht im
 [Hostmatrix-Vertrag](HOST_CAPABILITY_MATRIX.md). Sie ergänzt diesen engen
 Manifestvertrag um Installation und Bootstrap-Readiness für alle drei Provider;
 sie ersetzt keine der folgenden Launch-/cgroup-Entscheidungen.
+Die Matrix kann eine exakte katalogisierte Container-Variante jetzt in diese
+Detailansicht übernehmen. Browser und Konsole verwenden dabei weiterhin
+diese Public-Entscheidung; Öffnen beziehungsweise reine Deklaration bleiben
+ohne Hostabfrage. Kein Fallback auf eine andere Variante und keine
+Übernahme des Detailergebnisses als Matrix- oder Ausführungsfreigabe.
 
 `Get-SqlServerLabExternalRuntimeCapability` ist der enge CORE-102-Teilvertrag
 `SqlServerLab.ExternalRuntimeCapability/1.0`. Er bewertet eine zukünftige

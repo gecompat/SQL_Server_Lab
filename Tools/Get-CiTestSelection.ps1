@@ -203,6 +203,7 @@ end {
         @{ Pattern = '(?i)(HostToolResolution|Initialize-SqlServerLabHostTools|Initialize-PodmanRuntime|PodmanBootstrap)'; Checks = @('Invoke-HostToolResolutionChecks.ps1','Invoke-PodmanBootstrapChecks.ps1') },
         @{ Pattern = '(?i)(HostCapabilityMatrix|host-capability-matrix|HOST_CAPABILITY_MATRIX|Private/(DiagnosticBundleReadiness|ClientReadiness|SoftwareCatalog|VersionCatalog|ExternalRuntimeCapability)\.ps1|Tools/Read-SqlServerLabDiagnosticReadiness\.ps1|Catalogs/(software|sql-server-versions)\.json|Providers/[^/]+/provider\.json|Private/ConsoleHelp\.ps1|Public/Invoke-SqlServerLab\.ps1)'; Checks = @('Invoke-HostCapabilityMatrixChecks.ps1','Invoke-HostCapabilityMatrixBrowserChecks.ps1') },
         @{ Pattern = '^(?-i:Tools/Start-SqlServerLabUi\.ps1|Ui/(index\.html|app\.css)|Tests/Common/ConnectionCenterCms(FullPageAcceptance|InspectionBrowserAcceptance)\.ps1)$'; Checks = @('Invoke-HostCapabilityMatrixBrowserChecks.ps1') },
+        @{ Pattern = '(?i)(HostMatrixLaunchDetails|HostCapabilityMatrix|host-capability-matrix|ExternalRuntimeCapability|external-runtime-capability|Private/ConsoleHelp\.ps1|Ui/index\.html)'; Checks = @('Invoke-HostMatrixLaunchDetailsChecks.ps1') },
         @{ Pattern = '(?i)(ExternalRuntimeCapability|external-runtime-capability|Private/ManifestBuilder\.ps1)'; Checks = @('Invoke-ExternalRuntimeCapabilityChecks.ps1','Invoke-ExternalRuntimeCapabilityBrowserChecks.ps1','Invoke-SoftwareCatalogChecks.ps1','Invoke-ClientReadinessChecks.ps1','Invoke-ManifestBuilderChecks.ps1') },
         @{ Pattern = '(?i)(ClientReadiness|client-readiness|HostToolResolution|StorageContract|SqlServerLab\.ps[dm]1)'; Checks = @('Invoke-ClientReadinessChecks.ps1') },
         @{ Pattern = '(?i)(DiagnosticBundle|DiagnosticReadiness|diagnostic-bundle|DIAGNOSTIC_BUNDLE|ClientReadiness|StateMachine|DesiredState|StorageContract|CleanupEngine|Private/BatchWorkflow\.ps1|sql-server-versions)'; Checks = @('Invoke-DiagnosticBundleChecks.ps1') },
@@ -413,6 +414,12 @@ end {
             # Closed read-only browser projection; actual public API/worker keep
             # their own runtime classification. Dedicated suite bounds authority.
             $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -cmatch '^Private/HostCapabilityMatrixHttp\.ps1$'
+            # Read-only console continuation; command/member/redirection boundary
+            # is checked by the dedicated launch-details suite.
+            $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -cmatch '^Private/HostCapabilityMatrixConsole\.ps1$'
+            # Curated help data/console presentation; dedicated authority oracle
+            # retains only existing metadata getters and console rendering calls.
+            $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -cmatch '^Private/ConsoleHelp\.ps1$'
             $staticOnlyProductChange = $staticOnlyProductChange -or $aiExternalModelPlanPath
             $staticOnlyProductChange = $staticOnlyProductChange -or $aiSharedGatewayPlanPath
             $staticOnlyProductChange = $staticOnlyProductChange -or $aiComputeBenchmarkPath

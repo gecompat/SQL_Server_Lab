@@ -13,9 +13,9 @@ function setup(){
   elements.provider.value='all';const requests=[];
   const fixture={elements,requests,click:id=>elements[id].events.click(),change:(id,value)=>{elements[id].value=value;elements[id].events.change();},flush:()=>new Promise(resolve=>setImmediate(resolve))};
   const forbidden=()=>{throw new Error('PERSISTENCE_OR_LOOP_FORBIDDEN');};
-  const context={document:{querySelector:selector=>elements[selector.replace('#host-matrix-','')],createElement:node},
+  const context={document:{querySelector:selector=>elements[selector.replace('#host-matrix-','')],createElement:node,dispatchEvent(){}},
     sqlServerLabUiFetch:(url,options)=>new Promise((resolve,reject)=>requests.push({url,options,resolve,reject})),
-    localStorage:{getItem:forbidden,setItem:forbidden},sessionStorage:{getItem:forbidden,setItem:forbidden},setInterval:forbidden,setTimeout:forbidden,console};
+    localStorage:{getItem:forbidden,setItem:forbidden},sessionStorage:{getItem:forbidden,setItem:forbidden},setInterval:forbidden,setTimeout:forbidden,CustomEvent:class{constructor(type,options){this.type=type;this.detail=options.detail;}},console};
   vm.runInNewContext(fs.readFileSync(path.join(root,'Ui/host-capability-matrix.js'),'utf8'),context);
   return fixture;
 }
@@ -41,7 +41,7 @@ const text=value=>value.textContent+' '+value.children.map(text).join(' ');
   fixture.click('read');const request=JSON.parse(fixture.requests.at(-1).options.body);
   check(fixture.requests.at(-1).url==='/api/host-capability-matrix'&&request.Provider==='all'&&request.CheckProviderReadiness===false&&fixture.elements.read.disabled,'Default read is explicitly non-probing and busy controls are disabled');
   await answer(fixture,matrix());check(fixture.elements.rows.children.length===12&&fixture.elements.providers.children.length===3,'All providers and languages remain visible');
-  check(text(fixture.elements.rows).includes('C#')&&text(fixture.elements.rows).includes('Zurückgestellt')&&fixture.elements.rows.children.every(row=>row.attributes['aria-disabled']==='true'),'Deferred options remain visible without selectable execution');
+  check(text(fixture.elements.rows).includes('C#')&&text(fixture.elements.rows).includes('Zurückgestellt')&&fixture.elements.rows.children.filter(row=>text(row).includes('C#')).every(row=>row.attributes['aria-disabled']==='true'),'Deferred options remain visible without selectable execution');
   check(fixture.elements.scope.textContent.includes('NOT_CHECKED')&&fixture.elements.scope.textContent.includes('a'.repeat(64))&&fixture.elements.unassessed.textContent.includes('WSL'),'Scope, catalog binding and unassessed requirements remain visible');
   const before=fixture.requests.length;fixture.change('provider','docker');check(fixture.requests.length===before&&fixture.elements.rows.children.length===0&&!fixture.elements.probe.disabled,'Provider change clears previous facts and enables only an explicit single-provider probe');
   fixture.click('probe');check(JSON.parse(fixture.requests.at(-1).options.body).CheckProviderReadiness===true,'Host query requires its dedicated explicit action');

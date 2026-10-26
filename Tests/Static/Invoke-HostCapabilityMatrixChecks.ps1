@@ -111,6 +111,7 @@ $module=New-Module -ArgumentList $root -ScriptBlock {
         $script:consoleStep++
         if($script:consoleStep -eq $script:consoleCancel){return $null}
         if($ScreenId -eq 'host-matrix-sql'){return [pscustomobject]@{id='2022'}}
+        if($ScreenId -eq 'host-matrix-next'){return [pscustomobject]@{Action='Return'}}
         return $Items[$([int]$script:consoleProbe)].Data
     }
     function Add-LabMessage {throw 'HOST_MATRIX_JOURNAL_FORBIDDEN'}

@@ -125,6 +125,9 @@ COMMANDS
         The guided browser exposes the same overview under Lab-Umgebungen.
         Read the overview without host probes; explicitly select one provider
         for a current read-only readiness check. Changing selection clears results.
+        Resolved Linux container rows can continue to the existing exact variant
+        decision. The transition only rereads catalogue options; host probing
+        stays a separate explicit action. Hyper-V and deferred C# have no such action.
         Contract: Documentation/Architecture/HOST_CAPABILITY_MATRIX.md.
 
     Get-SqlServerLabExternalRuntimeCapability

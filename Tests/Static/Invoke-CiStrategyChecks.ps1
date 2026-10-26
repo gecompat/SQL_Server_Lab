@@ -22,6 +22,18 @@ foreach($path in @('Private/HostCapabilityMatrixHttp.ps1','Ui/host-capability-ma
     }
 }
 $hostProjection=& $selector -ChangedPath @('Private/HostCapabilityMatrixHttp.ps1')
+foreach($path in @('Private/HostCapabilityMatrixConsole.ps1','Private/ConsoleHelp.ps1','Ui/host-capability-matrix.js','Ui/external-runtime-capability.js','Private/ExternalRuntimeCapability.ps1','Public/Get-SqlServerLabExternalRuntimeCapability.ps1','Tests/Static/Fixtures/HostMatrixLaunchDetailsConsoleChecks.ps1','Tests/Static/Fixtures/HostMatrixLaunchDetailsUiChecks.cjs','Tests/Static/Invoke-HostMatrixLaunchDetailsChecks.ps1','Ui/index.html')) {
+    $selected=& $selector -ChangedPath @($path)
+    Add-CheckResult "Matrix/detail continuation dependency selects actual composed checks: $path" ('Invoke-HostMatrixLaunchDetailsChecks.ps1' -in $selected.StaticChecks)
+}
+$hostConsole=& $selector -ChangedPath @('Private/HostCapabilityMatrixConsole.ps1')
+Add-CheckResult 'Read-only console continuation retains contracts without mutation smokes' (
+    'Invoke-HostMatrixLaunchDetailsChecks.ps1' -in $hostConsole.StaticChecks -and
+    -not ($hostConsole.Docker -or $hostConsole.Podman -or $hostConsole.HyperV -or $hostConsole.Mixed -or $hostConsole.Adapter))
+$consoleHelp=& $selector -ChangedPath @('Private/ConsoleHelp.ps1')
+Add-CheckResult 'Curated help retains ConsoleUI and continuation authority checks without mutation smokes' (
+    'Invoke-ConsoleUiChecks.ps1' -in $consoleHelp.StaticChecks -and 'Invoke-HostMatrixLaunchDetailsChecks.ps1' -in $consoleHelp.StaticChecks -and
+    -not ($consoleHelp.Docker -or $consoleHelp.Podman -or $consoleHelp.HyperV -or $consoleHelp.Mixed -or $consoleHelp.Adapter))
 Add-CheckResult 'Read-only host HTTP projection retains its actual contract suite without provider mutation smokes' (
     'Invoke-HostCapabilityMatrixBrowserChecks.ps1' -in $hostProjection.StaticChecks -and
     -not ($hostProjection.Docker -or $hostProjection.Podman -or $hostProjection.HyperV -or $hostProjection.Mixed -or $hostProjection.Adapter))

@@ -109,6 +109,37 @@ weitere Hostprüfung. Es gibt keine Hintergrundprüfung oder Persistierung;
 Abbruch verwirft die Anzeige, eine bereits angeforderte lesende Prüfung
 läuft höchstens bis zur vorhandenen Workergrenze weiter.
 
+## Anschluss an konkrete Container-Launchdetails
+
+Für aufgelöste Docker-/Podman-Linux-Varianten mit SQL 2019, 2022 oder 2025
+öffnet **Varianten- und Launchdetails öffnen** die bestehende
+[External-Runtime-Entscheidung](EXTERNAL_RUNTIME_CAPABILITY.md). Die Matrix
+wird geschlossen und geleert. Provider, SQL-Version, Software-ID, Runtime-
+und Varianten-ID werden als geschlossenes Tupel übergeben. Die Zielansicht
+liest ihren Katalog erneut und wählt nur exakt diese weiterhin unterstützte
+Variante aus; fehlende oder geänderte Varianten führen zu keiner Ersatzwahl.
+Öffnen startet weder Hostprüfung noch Bewertung oder historischen Lookup.
+Die vorhandenen Aktionen für Bewertung beziehungsweise bewusste Hostprüfung
+bleiben getrennte Benutzerschritte.
+
+Cursor- und Fallback-Konsole bieten nach der lesbaren Matrixausgabe dieselbe
+Vertiefung über **Konkrete Container-Variante näher prüfen**. Nach exakter
+Variantenwahl wird zwischen reiner Katalog-/Launchdeklaration und bewusster
+aktueller Prüfung gewählt. Erst danach erfolgt genau ein Aufruf von
+`Get-SqlServerLabExternalRuntimeCapability` mit dem ausgewählten Tupel und
+ausdrücklichem Readiness-Switch. Zurück/Abbruch erfolgt vorher ohne Abfrage.
+Die Ausgabe bleibt nicht persistierend und wartet auf Bestätigung.
+
+Die bestehende Prüfung liest höchstens einmal begrenzt Providerinfo für
+Linux, cgroup-Version und Rootful. Sie verändert keine Runtime und prüft
+keine SQL-Sprachausführung. Ihr `READY` ist ausschließlich an diese
+Container-Grundlagen gebunden; Controller, WSL-Konflikte, Ressourcen und
+Zielrechte bleiben offen. Die Matrix übernimmt dieses getrennte Ergebnis
+nicht als gecachten Freigabestatus. Hyper-V-Zeilen, nicht aufgelöste Varianten
+und zurückgestelltes C# bleiben sichtbar und ohne diese Detailaktion.
+Abbruch oder Auswahlwechsel während der Katalogantwort verhindert die
+spätere Wiederherstellung einer übergebenen Auswahl.
+
 ## Frische, Grenzen und Fortsetzung
 
 `GeneratedAtUtc` und die einzelnen Beobachtungszeiten binden die Abfrage an

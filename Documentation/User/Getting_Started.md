@@ -615,6 +615,12 @@ zuvor Docker, Podman oder Hyper-V einzeln wählen. Alle Varianten einschließlic
 fehlender Katalogzuordnung und zurückgestelltem C# bleiben sichtbar.
 SQL-/Providerwechsel und Abbruch verwerfen die Anzeige; eine bereits laufende
 lesende Prüfung kann noch bis zu ihrer Zeitgrenze weiterlaufen.
+Für unterstützte Container-Zeilen öffnet **Varianten- und Launchdetails öffnen**
+die genaue Variante im vorhandenen External-Languages-Dialog. Erst dort
+bewusst die Katalogentscheidung oder Hostvoraussetzungen prüfen. Der Übergang
+selbst liest nur den Katalog und startet keine Hostabfrage. Fehlt die Variante
+inzwischen, wird keine andere ausgewählt. Die Konsole bietet denselben Weg
+nach der Matrixausgabe als **Konkrete Container-Variante näher prüfen** an.
 
 `Get-SqlServerLabExternalRuntimeCapability` und Dialog verwenden dieselbe
 Katalogentscheidung. Ohne bewusste Hostprüfung bleibt `CurrentReadiness`

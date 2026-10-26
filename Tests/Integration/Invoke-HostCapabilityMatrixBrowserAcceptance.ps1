@@ -8,7 +8,7 @@
     provider, SQL, State and secret operations are forbidden. Four-minute own listener.
 #>
 [CmdletBinding()]
-param([Parameter(Mandatory)][string]$EvidenceRoot,[ValidateRange(1025,65535)][int]$ListenerPort=19549)
+param([Parameter(Mandatory)][string]$EvidenceRoot,[ValidateRange(1025,65535)][int]$ListenerPort=19549,[switch]$IncludeLaunchDetails)
 $ErrorActionPreference='Stop'
 if($ListenerPort -eq 14336) {throw 'HOST_MATRIX_BROWSER_PRODUCT_PORT'}
 $repo=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
@@ -18,9 +18,9 @@ if([IO.Path]::GetDirectoryName($evidence) -cne $parent -or [IO.Path]::GetFileNam
     (Test-Path -LiteralPath $evidence)) {throw 'HOST_MATRIX_BROWSER_EVIDENCE_SCOPE'}
 Assert-CmsBrowserPath $evidence;$null=[IO.Directory]::CreateDirectory($evidence)
 Write-CmsBrowserEvidence (Join-Path $evidence owner.private.json) ([pscustomobject]@{Contract='SqlServerLab.HostMatrixBrowserOwner/1.0';Token=[guid]::NewGuid().ToString('N');Root=$evidence;Pid=$PID;StartedUtc=[DateTime]::UtcNow.ToString('o')})
-$parts=Get-HostMatrixBrowserProductParts $repo
+$parts=Get-HostMatrixBrowserProductParts $repo -IncludeLaunchDetails:$IncludeLaunchDetails
 . (Join-Path $repo Private/HostCapabilityMatrixHttp.ps1)
-$script:HostMatrixBrowserModule=New-HostMatrixBrowserModule $repo
+$script:HostMatrixBrowserModule=New-HostMatrixBrowserModule $repo -IncludeLaunchDetails:$IncludeLaunchDetails
 function Get-Module {param($Name) if($Name -cne 'SqlServerLab'){throw 'HOST_MATRIX_BROWSER_MODULE'};$script:HostMatrixBrowserModule}
 $script:HostMatrixBrowserResponse=$null;$script:HostMatrixBrowserResponses=0
 function Write-UiResponse {
@@ -28,7 +28,7 @@ function Write-UiResponse {
     $bytes=if($Body -is [byte[]]){,$Body}else{,[Text.Encoding]::UTF8.GetBytes([string]$Body)}
     $Context.Response.StatusCode=$StatusCode;$Context.Response.ContentType=$ContentType;$Context.Response.ContentLength64=$bytes.Length
     $Context.Response.OutputStream.Write($bytes,0,$bytes.Length);$script:HostMatrixBrowserResponses++
-    if($Context.Request.Url.AbsolutePath -ceq '/api/host-capability-matrix') {$script:HostMatrixBrowserResponse=[string]$Body}
+    if($Context.Request.Url.AbsolutePath -cin @('/api/host-capability-matrix','/api/external-runtime-capability')) {$script:HostMatrixBrowserResponse=[string]$Body}
 }
 $records=[Collections.Generic.List[object]]::new();$listener=[Net.HttpListener]::new();$listener.Prefixes.Add("http://127.0.0.1:$ListenerPort/")
 $completion=Join-Path $evidence browser-completed.private.json;$passed=$false;$failure=$null
@@ -44,7 +44,7 @@ try {
             if($records.Count -ge 512 -or -not [Net.IPAddress]::IsLoopback($context.Request.RemoteEndPoint.Address) -or $context.Request.Url.Query) {throw 'HOST_MATRIX_BROWSER_REQUEST_BOUNDARY'}
             $path=$context.Request.Url.AbsolutePath;$payload=$null;$view=$null;$beforeResponses=$script:HostMatrixBrowserResponses
             if($path -ceq '/api/host-capability-matrix') {
-                $caseIndex=@($records | Where-Object Path -CEQ $path).Count;$cases=@(Get-HostMatrixBrowserCases)
+                $caseIndex=@($records | Where-Object Path -CEQ $path).Count;$cases=@(Get-HostMatrixBrowserCases -IncludeLaunchDetails:$IncludeLaunchDetails)
                 if($caseIndex -ge $cases.Count) {throw 'HOST_MATRIX_BROWSER_EXTRA_ACTION'}
                 $bytes=Read-CmsBrowserBody $context.Request;$payload=[Text.Encoding]::UTF8.GetString($bytes)|ConvertFrom-Json -Depth 2
                 Assert-HostMatrixBrowserPayload $payload $cases[$caseIndex]
@@ -57,6 +57,16 @@ try {
                 if($count -ne $(if($payload.Action -ceq 'ReadMatrix'){1}else{0}) -or $context.Response.StatusCode -ne 200 -or -not $script:HostMatrixBrowserResponse) {throw 'HOST_MATRIX_BROWSER_DISPATCH'}
                 $view=$script:HostMatrixBrowserResponse|ConvertFrom-Json -Depth 20
                 Assert-HostMatrixBrowserResult $view $cases[$caseIndex]
+            } elseif($IncludeLaunchDetails -and $path -ceq '/api/external-runtime-capability') {
+                $index=@($records|Where-Object Path -CEQ $path).Count
+                $bytes=Read-CmsBrowserBody $context.Request;$payload=[Text.Encoding]::UTF8.GetString($bytes)|ConvertFrom-Json -Depth 2
+                $stream=[IO.MemoryStream]::new($bytes,$false);$original=$context;$request=$context.Request
+                $context=[pscustomobject]@{Response=$context.Response;Request=[pscustomobject]@{HttpMethod=$request.HttpMethod;ContentType=$request.ContentType;Headers=$request.Headers;Url=$request.Url;LocalEndPoint=$request.LocalEndPoint;InputStream=$stream}}
+                $Port=$ListenerPort;$script:HostMatrixBrowserResponse=$null
+                try {& $parts.LegacyDispatch} finally {$stream.Dispose();$context=$original}
+                $view=$script:HostMatrixBrowserResponse|ConvertFrom-Json -Depth 20
+                if($context.Response.StatusCode -ne 200){throw 'HOST_MATRIX_BROWSER_LEGACY_DISPATCH'}
+                Assert-HostMatrixLaunchBrowserRecord $payload $view $index
             } elseif($context.Request.HttpMethod -ceq 'GET' -and $parts.Assets.ContainsKey($path)) {
                 $asset=$parts.Assets[$path];Write-UiResponse $context $asset.Bytes $asset.ContentType
             } elseif($context.Request.HttpMethod -ceq 'GET' -and $path -cin @('/api/config','/api/commands','/api/jobs','/api/workflow','/api/tls-created-targets')) {
@@ -73,14 +83,16 @@ try {
     if((Get-Item -LiteralPath $completion).Length -gt 4096) {throw 'HOST_MATRIX_BROWSER_COMPLETION_LIMIT'}
     $operator=Get-Content -LiteralPath $completion -Raw|ConvertFrom-Json -Depth 4
     $calls=@(& $script:HostMatrixBrowserModule {@($script:BrowserCalls)});$effects=& $script:HostMatrixBrowserModule {$script:BrowserEffects}
-    Assert-HostMatrixBrowserCompletion $operator @($records) @($parts.Assets.Keys) $calls $effects
+    $legacyCalls=@(& $script:HostMatrixBrowserModule {@($script:BrowserLegacyCalls)})
+    Assert-HostMatrixBrowserCompletion $operator @($records) @($parts.Assets.Keys) $calls $effects -IncludeLaunchDetails:$IncludeLaunchDetails -LegacyCalls $legacyCalls
     Assert-HostMatrixBrowserSources $repo $parts.Sources
     $passed=$true
 } catch {$failure=$_} finally {
     $listener.Close()
     $calls=@(& $script:HostMatrixBrowserModule {@($script:BrowserCalls)});$effects=& $script:HostMatrixBrowserModule {$script:BrowserEffects}
     $failureCode=if($failure){if($failure.Exception.Message -cmatch '^HOST_MATRIX_BROWSER_[A-Z_]+$'){$failure.Exception.Message}else{'HOST_MATRIX_BROWSER_FIXTURE_FAILED'}}else{$null}
-    Write-CmsBrowserEvidence (Join-Path $evidence result.private.json) ([pscustomobject]@{Contract='SqlServerLab.HostMatrixBrowserAcceptance/1.0';Status=$(if($passed){'PASS'}else{'FAIL'});FailureCode=$failureCode;Sources=$parts.Sources;AssetPaths=@($parts.Assets.Keys);Requests=@($records);Calls=$calls;ForbiddenEffects=$effects;ListenerClosed=$true;Bootstrap='SYNTHETIC';Catalogue='ACTUAL_PUBLIC_READER';HostReadiness='NOT_EXECUTED';Provider='NOT_EXECUTED';Sql='NOT_EXECUTED';State='NOT_EXECUTED';Secret='NOT_EXECUTED';ProductModuleImport='NOT_EXECUTED'})
+    $legacyCalls=@(& $script:HostMatrixBrowserModule {@($script:BrowserLegacyCalls)})
+    Write-CmsBrowserEvidence (Join-Path $evidence result.private.json) ([pscustomobject]@{Contract='SqlServerLab.HostMatrixBrowserAcceptance/1.0';Status=$(if($passed){'PASS'}else{'FAIL'});FailureCode=$failureCode;Sources=$parts.Sources;AssetPaths=@($parts.Assets.Keys);Requests=@($records);Calls=$calls;LegacyCalls=$legacyCalls;LaunchDetailsIncluded=[bool]$IncludeLaunchDetails;ForbiddenEffects=$effects;ListenerClosed=$true;Bootstrap='SYNTHETIC';Catalogue='ACTUAL_PUBLIC_READER';HostReadiness='NOT_EXECUTED';Provider='NOT_EXECUTED';Sql='NOT_EXECUTED';State='NOT_EXECUTED';Secret='NOT_EXECUTED';ProductModuleImport='NOT_EXECUTED'})
     Remove-Module $script:HostMatrixBrowserModule -Force -ErrorAction SilentlyContinue
 }
 if($failure) {throw $failure}

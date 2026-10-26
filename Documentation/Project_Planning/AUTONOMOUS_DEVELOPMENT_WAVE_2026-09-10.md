@@ -931,7 +931,11 @@ Public-API und Hauptmenüfunktion in Cursor/Fallback implementiert:
 Katalogvarianten, Installation und optionale Bootstrap-Readiness bleiben
 getrennt; C# bleibt USER_DEFERRED. Der geführte Browser projiziert dieselbe
 Public-Matrix mit ausdrücklicher Einzelproviderprüfung und verwerfbarer
-Anzeige. Die umfassende Launch-/Kernel-/WSL-/
+Anzeige.
+Aufgelöste Container-Varianten führen außerdem zur bestehenden exakten
+Katalog-/Launchgrundlagenentscheidung weiter; deren Hostprüfung bleibt
+ausdrücklich getrennt, ohne Variantenfallback oder Ausführungsfreigabe.
+Die umfassende Launch-/Kernel-/WSL-/
 Ressourcenmatrix und scopegebundene Native-Sprachabnahmen
 bleiben offen. [Vertrag und gekoppelte Quellen](../Architecture/HOST_CAPABILITY_MATRIX.md).
 Ausgeführte Checks stehen ausschließlich in der Validierungsstrategie.

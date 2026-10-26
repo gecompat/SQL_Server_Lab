@@ -2335,6 +2335,53 @@ pro Testlauf; die neue Klassifizierung erhält einen eigenen unabhängigen
 Delta-Review. Dies ersetzt keine Provider-/SQL-Evidence durch Foundation-
 Integrität oder synthetische Tests.
 
+`Invoke-HostMatrixLaunchDetailsChecks.ps1` prüft den Anschluss an die
+vorhandene konkrete External-Runtime-Entscheidung: 17 Konsolenassertions
+mit tatsächlichem Katalogresolver und Hostclassifier bei synthetischen
+Hostfakten, 15 Assertions der beiden echten zusammengesetzten JavaScript-
+Controller und 15 Assertions des erweiterten Browser-Abnahmevertrags.
+Abbruch vor Abfrage, exaktes Tupel statt erster unterstützter Option,
+fehlende/verspätete Auswahl, gesperrte Hyper-V-/C#-/nicht aufgelöste Zeilen
+und ausschließlich ausdrückliche Hostprüfung sind getrennt geprüft.
+Die synthetische cgroup-2-Beobachtung trifft bei der verlangten cgroup 1
+den vorhandenen `CGROUP_VERSION_UNSUPPORTED`-Zweig; keine neue
+Kompatibilitätsentscheidung oder SQL-/Herstellerfreigabe.
+
+Der erweiterte Abnahmevertrag bindet 17 Produktassets und 56 Quellen
+einschließlich bestehender Rezepte, HTTP-Routen und Public-Reader. Fünf
+Matrix-Public-Aufrufe und eine konkrete Public-Variantenentscheidung werden
+scopegebunden erwartet; Host-/Historien-/State-/Secret-/SQL-Aufrufe sind
+gesperrt. Die statischen Vertragsläufe ersetzen keine gerenderte Abnahme.
+Die frühen Konsolen-Fixturefehler (Zähleralias im Modulscope und falsche
+Erwartung an den vorhandenen cgroup-Zweig) bleiben privat erhalten.
+
+Bei dieser Anschlusswelle lösten zunächst nur die geänderten lesenden
+Konsolen-/Hilfedateien die konservative Gesamtauswahl aus. Die exakt
+benannten `HostCapabilityMatrixConsole.ps1` und `ConsoleHelp.ps1` sind
+jetzt als UI-/Metadatengrenzen eingeordnet. 22 betroffene statische Suites
+bleiben ausgewählt. Die neue Autoritätsprüfung begrenzt die Konsole auf
+UI, nicht persistierende Ausgabe und zwei vorhandene lesende Public-
+Abfragen; Methodeneffekte und Dateiumleitungen sind ausgeschlossen.
+Die Hilfe behält nur ihre bestehenden Metadatagetter, konkreten
+Collection-/Textaufrufe und UI-Callbacks (`candidate.Test`, `FrameWriter`).
+Statische Dateikopie, Dateiumleitung und ein fremder Callback werden als
+nicht ausgeführte Gegenfälle abgewiesen. Die aufgerufenen Implementierungen
+und unbekannte Produktpfade behalten ihre bisherige Testauswahl. Keine
+Provider-/SQL-Mutationsfunktion wurde geändert; native Nachweise werden
+nicht aus synthetischer UI-Evidence abgeleitet. Der unabhängige Review
+bewertet diese Klassifizierung zusammen mit dem konkreten Code.
+
+Der vollständige unabhängige Review dieser Anschlusswelle fand keine
+Findings. Am 2026-10-26 (Wiener Zeit) bestand anschließend die gerenderte
+Abnahme mit unveränderter Vier-Minuten-Grenze: 17 tatsächlich geladene
+Assets, 56 unveränderte Quellen, fünf Matrix-Public-Aufrufe und eine
+tatsächliche konkrete Public-Katalogentscheidung. Neun lesende Fachaktionen
+führten vom Gesamtprofil über abgegrenzte Provider-/Versionsfälle zur exakt
+übernommenen Docker-/Python-Variante. Übergang und reine Bewertung blieben
+ohne Host-/Historienabfrage; die separate Hostaktion war sichtbar, wurde in
+dieser Abnahme aber nicht ausgeführt. Keine Skriptfehler oder verbotenen
+instrumentierten Effekte; eigener Listener und Tab geschlossen.
+
 `Invoke-ExternalRuntimeCapabilityChecks.ps1` durchläuft den tatsächlichen
 Public-Aufruf, Katalogresolver, Reducer und bestehenden Manifestdialog.
 Provider-Metadaten stammen aus dem Repository; native Prozessgrenzen werden

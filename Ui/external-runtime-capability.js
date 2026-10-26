@@ -56,10 +56,23 @@
         const d=view.Decision; element('result').textContent='Katalog: '+d.CatalogDecision.Status+' / '+d.CatalogDecision.ReasonCode+'\nHostvoraussetzungen: '+d.CurrentReadiness.Status+' / '+d.CurrentReadiness.ReasonCode+'\nSQL-Sprachausführung: NOT_CHECKED\nZielautorisierung: NOT_CHECKED\nHistorie: NOT_RECORDED / NOT_DEFINED\nKeine Ausführungsfreigabe.';
         element('status').textContent = 'Entscheidung gelesen.';
       }
+      return current;
     } catch {if(current===revision && element('dialog').open) {clear();element('status').textContent='Entscheidung nicht bestätigt. Eingaben prüfen und bewusst erneut lesen.';}}
     finally {if(current===revision){busy=false;controls();}}
   }
   element('open').addEventListener('click',()=>{clear();element('dialog').showModal();});
+  document.addEventListener('sqlserverlab:external-runtime-request',async event => {
+    const detail = event.detail;
+    if (!shape(detail,['SqlVersion','Provider','SoftwareId','RuntimeVersion','VariantId']) || Object.values(detail).some(value => typeof value !== 'string') ||
+        !['2019','2022','2025'].includes(detail.SqlVersion) || !['docker','podman'].includes(detail.Provider) ||
+        !['sql-python','sql-r','sql-java'].includes(detail.SoftwareId) || !/^\d{1,3}(\.\d{1,3}){0,3}$/.test(detail.RuntimeVersion) || !/^[a-z0-9][a-z0-9_-]{0,127}$/.test(detail.VariantId)) return;
+    const tuple = {...detail}; clear(); element('provider').value = tuple.Provider; element('sql').value = tuple.SqlVersion; element('dialog').showModal();
+    const completed = await request('ReadOptions');
+    if (completed !== revision || !element('dialog').open || element('provider').value !== tuple.Provider || element('sql').value !== tuple.SqlVersion) return;
+    const index = options.findIndex(option => option.SoftwareId === tuple.SoftwareId && option.RuntimeVersion === tuple.RuntimeVersion && option.VariantId === tuple.VariantId && option.Decision.CatalogDecision.Status === 'DECLARED_SUPPORTED');
+    if (index < 0) {element('choice').value = '';element('status').textContent = 'Variante aktuell nicht bestätigt. Katalog bewusst erneut lesen.';controls();return;}
+    element('choice').value = String(index); element('status').textContent = 'Variante aus Hostmatrix gewählt · Host: NOT_CHECKED'; controls();
+  });
   element('read').addEventListener('click',()=>request('ReadOptions'));
   element('evaluate').addEventListener('click',()=>request('Evaluate'));
   element('host').addEventListener('click',()=>request('Evaluate',true));
