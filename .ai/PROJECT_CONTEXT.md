@@ -35,6 +35,14 @@ bleiben getrennt erhalten; daraus folgt kein vollständiger TLS-001-Abschluss.
 
 ## Ausgewählte Arbeitsstände
 
+Der bestehende native Linux-/WSL-Planer ergänzt CORE-102 um
+[typisierte Voraussetzungen](../Documentation/Architecture/NATIVE_LINUX_HOST_PREREQUISITES.md):
+kanonische OS-/cgroup-/Rootful-Entscheidung, getrennte fehlende und unbekannte
+Controller, Gesamt- statt freier Ressourcen und begrenzter WSL-Kernelkontext.
+Unzureichende oder unbekannte Profilkapazität verhindert den kompatiblen
+Ausführungspfad. Neue SQL-Sprachnachweise, vollständige WSL-Workloadkompatibilität
+und zusätzliche Zusagen in Hostmatrix/API/Browser entstehen daraus nicht.
+
 Die [explizite Kopieraktion an der Labinstanz](../Documentation/Architecture/SQL_CONNECTION_SETTINGS.md#angezeigten-connection-string-kopieren)
 übernimmt ausschließlich den angezeigten Connection String samt vorhandenen
 Passwortplatzhaltern. 16 neue Komponentenfälle und die Rendererfixture mit
