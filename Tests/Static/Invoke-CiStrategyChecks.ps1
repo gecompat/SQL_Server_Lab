@@ -9,6 +9,11 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $failures = [System.Collections.Generic.List[string]]::new()
 $passed = 0
 $selector = Join-Path $repoRoot 'Tools/Get-CiTestSelection.ps1'
+foreach($path in @('Tests/Static/Fixtures/NativeLinuxHostPrerequisitesChecks.ps1','Private/ContainerImageArtifact.ps1','Catalogs/sql-server-versions.json')) {
+    foreach($normalized in @($path,$path.Replace('/','\'))) {
+        Add-CheckResult "Native Linux prerequisite dependency selects the actual existing suite: $normalized" ('Invoke-NativeLinuxContainerHostChecks.ps1' -in (& $selector -ChangedPath @($normalized)).StaticChecks)
+    }
+}
 foreach($path in @('Private/HostCapabilityMatrix.ps1','Private/HostCapabilityMatrixConsole.ps1','Public/Get-SqlServerLabHostCapabilityMatrix.ps1','Tests/Static/Invoke-HostCapabilityMatrixChecks.ps1','Private/DiagnosticBundleReadiness.ps1','Tools/Read-SqlServerLabDiagnosticReadiness.ps1','Private/SoftwareCatalog.ps1','Private/VersionCatalog.ps1','Private/ExternalRuntimeCapability.ps1','Catalogs/software.json','Catalogs/sql-server-versions.json','Providers/HyperV/provider.json','Private/ConsoleHelp.ps1','Public/Invoke-SqlServerLab.ps1')) {
     foreach($normalized in @($path,$path.Replace('/','\'))) {
         $selected=& $selector -ChangedPath @($normalized)

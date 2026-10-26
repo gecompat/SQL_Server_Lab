@@ -6397,3 +6397,9 @@ reproduzierte 163 PASS / 1 FAIL und bestand nach Korrektur mit 164 / 0.
 Die sechs betroffenen statischen Suites samt vollständigem Analyzer bestanden.
 Unveränderte übrige Checks und ihre Originalbelege bleiben getrennt.
 Dies schließt weder Zertifikatserneuerung noch weitere Recoveryprofile.
+
+## Native Linux-/WSL-Voraussetzungen aus CORE-102
+
+Der [Planvertrag](../Architecture/NATIVE_LINUX_HOST_PREREQUISITES.md) verwendet die bestehende NativeLinux-Suite samt gekoppelter Fixture `Tests/Static/Fixtures/NativeLinuxHostPrerequisitesChecks.ps1`. Die fokussierte lokale Windows-Ausführung bestand 85 Fälle mit dem tatsächlichen gemeinsamen Classifier und Planer, synthetischen Ressourcen-/Controllerfakten und dem tatsächlichen WSL-Dispatch bei synthetischem Transport. Geprüft sind UNKNOWN gegen MISSING, Profilunterschreitung als Sperre, ungültige Kapazität, kein nativer Fallback bei ungültigem JSON, Profilbindung und fehlende Ausführungsautorität. Das belegt keine neue echte Linux-/WSL-/SQL-Sprachausführung. Weitere Impacts und finale PR-Gates werden separat am stabilen Stand ausgeführt; nicht ausgeführte Plattformzweige bleiben ohne lokalen Nachweis.
+
+Die additive CI-Auswahl koppelt die neue Fixture, den tatsächlich aufgerufenen Container-Hostclassifier und den Ressourcenprofilkatalog an dieselbe bestehende Suite. Es entsteht keine zusätzliche Testsuite, Modellpipeline oder Read-only-Ausnahme; bisherige Providergates bleiben erhalten. Ein Implementierer und ein unabhängiger Reviewer auf einem günstigeren Modell genügen; weitere Modellaufrufe betreffen nur konkrete Findings. Logs bleiben privat, Auswahl, Counts und Hashes werden deterministisch lokal geprüft. Unveränderte grüne Prüfungen werden ohne neue Abhängigkeit nicht wiederholt; Token-/Geldkosten werden nicht aus Modellnamen geschätzt.
