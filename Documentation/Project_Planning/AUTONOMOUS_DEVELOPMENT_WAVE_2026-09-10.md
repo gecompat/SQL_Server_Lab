@@ -929,8 +929,10 @@ bleibt eine Implementierungsaufgabe offen; ein deaktivierter Eintrag genügt nic
 CORE-102 / #619: Der erste providerübergreifende Hostmatrix-Slice ist als
 Public-API und Hauptmenüfunktion in Cursor/Fallback implementiert:
 Katalogvarianten, Installation und optionale Bootstrap-Readiness bleiben
-getrennt; C# bleibt USER_DEFERRED. Die umfassende Launch-/Kernel-/WSL-/
-Ressourcenmatrix, Browserübersicht und scopegebundene Native-Sprachabnahmen
+getrennt; C# bleibt USER_DEFERRED. Der geführte Browser projiziert dieselbe
+Public-Matrix mit ausdrücklicher Einzelproviderprüfung und verwerfbarer
+Anzeige. Die umfassende Launch-/Kernel-/WSL-/
+Ressourcenmatrix und scopegebundene Native-Sprachabnahmen
 bleiben offen. [Vertrag und gekoppelte Quellen](../Architecture/HOST_CAPABILITY_MATRIX.md).
 Ausgeführte Checks stehen ausschließlich in der Validierungsstrategie.
 

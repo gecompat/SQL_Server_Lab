@@ -2283,6 +2283,58 @@ Review der Nullwertkorrektur fand keine weiteren Findings.
 Dies ist kein Native-, SQL- oder Sprachnachweis.
 [Matrixvertrag und offene Dimensionen](../Architecture/HOST_CAPABILITY_MATRIX.md).
 
+`Invoke-HostCapabilityMatrixBrowserChecks.ps1` ergänzt nach Reviewkorrekturen
+66 HTTP-Assertions am tatsächlichen Public-/Readiness-/Katalogpfad mit
+synthetischer Prozessgrenze, 43 Prüfungen am echten Browser-JavaScript mit
+Fake-DOM/Transport sowie 48
+Assertions des getrennten gerenderten Abnahmevertrags. Letztere binden alle
+17 aktuell deklarierten Produktassets und 34 Quellen, die extrahierte echte
+HTTP-Route und vier tatsächliche Public-Katalogaufrufe. Negative Fälle
+verhindern unbekannte/überschüssige Felder, freie Texte, Scope-/Booleanfehler,
+fehlende Assets/Beobachtungen, Quellendrift und versteckte Provider-Opt-ins.
+Diese statischen Läufe sind keine gerenderte Browser- oder Native-Abnahme.
+Die ersten Fixtureläufe scheiterten an der fehlenden Variante für SQL 2016;
+die im ersten Slice korrigierte Nullwertprojektion ist separat nachgewiesen.
+Der danach ausgeführte Abnahmevertrag bestand zunächst mit 39 Assertions.
+Der erste gerenderte Versuch scheiterte vor Fachaktionen am leeren Favicon-
+Buffer des Testlisteners; dessen tatsächlicher Writer ist nach der Korrektur
+mit leeren, binären und Textantworten geprüft. Der zweite Listener wurde vor
+UI-Aufrufen kontrolliert beendet, um drei neue Review-Findings zu korrigieren:
+String-Typguard für Action, konsistente Statusrelationen und gemessene
+Bootstrap-Vollständigkeit. Die nach diesen Korrekturen ausgeführten
+62/43/48 Prüfungen bestanden und
+die drei Review-Findings sind geschlossen. Beide Listener wurden geschlossen;
+die ursprünglichen Nachweise bleiben als FAIL erhalten.
+
+Der dritte gerenderte Versuch vom 2026-10-25 bestand mit unveränderter
+Vier-Minuten-Grenze: vollständige Produktseite, 17 tatsächlich geladene
+Assets und 34 unveränderte Quellbindungen, fünf gemessene synthetische
+Bootstrapreads, sechs Matrix-Routenaktionen und vier tatsächliche Public-
+Katalogaufrufe. Die Gesamtübersicht, Hyper-V/Windows, explizite SQL-2025-
+Varianten, fehlende SQL-2016-Zuordnung, zurückgestelltes C#, getrennte
+Probeauswahl sowie Auswahlwechsel und Schließen/Wiederöffnen wurden sichtbar
+geprüft. Keine Skriptfehler oder instrumentierten verbotenen Effekte;
+eigener Listener und Tab geschlossen. Bootstrap bleibt synthetisch,
+Provider-/SQL-/Sprachabfragen wurden nicht ausgeführt.
+
+Die Triggeranalyse dieser Welle fand genau einen Auslöser für alle fünf
+Runtime-Smokes: die neue `Private/HostCapabilityMatrixHttp.ps1` fiel als
+unbekannter Produktpfad in die konservative Gesamtauswahl. Sie wird jetzt
+als exakt benannte lesende GUI-Grenze eingeordnet. Die 18 betroffenen
+statischen Suites einschließlich Public-/HTTP-/JS-/Abnahmevertrag bleiben
+ausgewählt; der Adapter besitzt geprüfte Command-, konkrete Empfänger-/Member-
+und Konstruktorgrenzen ohne Dateiumleitung. Statische Dateikopien, Umleitungen
+und fremde Instanzaufrufe werden ausschließlich geparst und als Gegenfälle
+abgewiesen. Die Public-Matrix, ihre zugrunde liegenden Providerprüfungen und
+unbekannte angrenzende Produktdateien erhalten ihre bisherige Auswahl.
+Regressionen prüfen insbesondere alle fünf Native-Flags für die Public-API
+und einen unbekannten angrenzenden Executorpfad. Die erste Welle mit neuem
+Export und Menüeinbindung bleibt unverändert an alle fünf Runtime-Gates
+gebunden. Es gibt keine zusätzlichen Logs, Reviewketten oder Modellaufrufe
+pro Testlauf; die neue Klassifizierung erhält einen eigenen unabhängigen
+Delta-Review. Dies ersetzt keine Provider-/SQL-Evidence durch Foundation-
+Integrität oder synthetische Tests.
+
 `Invoke-ExternalRuntimeCapabilityChecks.ps1` durchläuft den tatsächlichen
 Public-Aufruf, Katalogresolver, Reducer und bestehenden Manifestdialog.
 Provider-Metadaten stammen aus dem Repository; native Prozessgrenzen werden

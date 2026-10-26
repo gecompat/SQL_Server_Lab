@@ -2515,7 +2515,9 @@ Docker/Podman beziehen sich auf Linux, Hyper-V auf das Windows-Gastziel.
 Erreichbarkeit bleibt `INCOMPLETE` für konkrete Sprachstarts. SQL-Build,
 Gastbeobachtung, Kernel/cgroup-Controller, WSL-Konflikte, Ressourcen, Rootless/
 Launchmodus, Zielrechte und Native-Sprachabnahme sind ausdrücklich ungeprüft.
-Die vollständige #619-Matrix und Browserübersicht bleiben offen; C# bleibt
+Die geführte Browserübersicht projiziert dieselbe begrenzte Public-Matrix;
+eine aktuelle Probe ist nur einzeln und bewusst möglich. Die vollständige
+#619-Matrix bleibt offen; C# bleibt
 `USER_DEFERRED`. [Vertrag](../Architecture/HOST_CAPABILITY_MATRIX.md).
 
 Der enge [CORE-102-Entscheid](../Architecture/EXTERNAL_RUNTIME_CAPABILITY.md)

@@ -230,7 +230,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | `Save-SqlServerLabLlamaCppModel` | Ein gewähltes GGUF bei Bedarf herunterladen, prüfen und atomisch im MediaRoot veröffentlichen |
 | `Get-SqlServerLabAiComputeInventory` | Lokale CPU-, GPU- und NPU-Geräte read-only inventarisieren und nur bei vollständiger Coverage hashen |
 | `Get-SqlServerLabExternalRuntimeCapability` | External-Languages-Katalog und optionale aktuelle Hostvoraussetzung getrennt bewerten |
-| `Get-SqlServerLabHostCapabilityMatrix` | Providerinstallation, Bootstrap-Readiness und Sprachkatalog getrennt vor der Funktionsauswahl anzeigen ([Vertrag](Architecture/HOST_CAPABILITY_MATRIX.md)) |
+| `Get-SqlServerLabHostCapabilityMatrix` | Providerinstallation, Bootstrap-Readiness und Sprachkatalog in API, Konsole und Browser vor der Funktionsauswahl anzeigen ([Vertrag](Architecture/HOST_CAPABILITY_MATRIX.md)) |
 | `Get-SqlServerLabSsisCatalogCapability` | Vorhandene eigene Windows-/Hyper-V-/SQL-2019/2022/2025-Quelle read-only auf SSISDB-Voraussetzungen binden; keine Fixture oder Ausführung |
 | `Get-SqlServerLabSsisPackageDiagnostic` | Komponenten und `LoadFromXML` eines hashgebundenen eigenen DTSX/ISPAC im Gast beobachten; [Vertrag](Architecture/SSIS_PACKAGE_DIAGNOSTIC.md) |
 | `Get-SqlServerLabSsisExecutionDiagnostic` | Vorhandene Ausführung, bekannte Dateien, Registrierungen und gegebenenfalls Worker im eigenen SQL-2025-Gast beobachten; [Vertrag](Architecture/SSIS_EXECUTION_DIAGNOSTIC.md) |

@@ -69,3 +69,7 @@ textarea { width: 100%; box-sizing: border-box; resize: vertical; border: 1px so
   gap: 1rem;
   padding: 1.5rem;
 }
+#host-matrix-dialog { width: min(96vw, 1200px); max-width: 1200px; }
+#host-matrix-dialog table { width: 100%; border-collapse: collapse; margin-block: 1rem; }
+#host-matrix-dialog th, #host-matrix-dialog td { padding: .5rem; text-align: left; vertical-align: top; border-bottom: 1px solid var(--border, #8794a5); white-space: pre-wrap; overflow-wrap: anywhere; }
+#host-matrix-scope { white-space: pre-wrap; overflow-wrap: anywhere; }

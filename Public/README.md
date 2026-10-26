@@ -222,6 +222,12 @@ Vertrag in Cursor- und Fallback-Konsole. Standardmäßig erfolgt keine Hostabfra
 Installation, Erreichbarkeit, Katalogunterstützung und ungeprüfte Launchanforderungen
 bleiben getrennt. [Scope und nächste Schritte](../Documentation/Architecture/HOST_CAPABILITY_MATRIX.md).
 
+Der geführte Browser bietet unter **Lab-Umgebungen** denselben Hostmatrix-
+Einstieg. Zuerst die geladene SQL-Katalogversion wählen und die Übersicht ohne
+Hostabfrage lesen. Eine bewusste aktuelle Prüfung benötigt einen einzelnen
+Provider; die Gesamtübersicht prüft keinen Provider. Auswahlwechsel und
+Schließen verwerfen die Anzeige, ohne verspätete Ergebnisse zu übernehmen.
+
 `Get-SqlServerLabExternalRuntimeCapability` trennt für einen expliziten
 Docker-/Podman-Linux-Manifestentwurf Katalogunterstützung von optionaler
 aktueller Hostbereitschaft. Standard ist `NOT_CHECKED` ohne Hostaufruf;
