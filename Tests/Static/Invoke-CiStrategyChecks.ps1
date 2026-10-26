@@ -9,6 +9,12 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $failures = [System.Collections.Generic.List[string]]::new()
 $passed = 0
 $selector = Join-Path $repoRoot 'Tools/Get-CiTestSelection.ps1'
+foreach($path in @('Private/ExternalRuntimeHostPrerequisites.ps1','Tests/Static/Fixtures/ExternalRuntimeHostPrerequisitesChecks.ps1','Tools/Common/NativeLinuxContainerHost.ps1')) {
+    foreach($normalized in @($path,$path.Replace('/','\'))) {
+        Add-CheckResult "Public prerequisite composition selects its actual capability suite: $normalized" ('Invoke-ExternalRuntimeCapabilityChecks.ps1' -in (& $selector -ChangedPath @($normalized)).StaticChecks)
+        Add-CheckResult "Public prerequisite composition also retains the native reducer suite: $normalized" ('Invoke-NativeLinuxContainerHostChecks.ps1' -in (& $selector -ChangedPath @($normalized)).StaticChecks)
+    }
+}
 foreach($path in @('Tests/Static/Fixtures/NativeLinuxHostPrerequisitesChecks.ps1','Private/ContainerImageArtifact.ps1','Catalogs/sql-server-versions.json')) {
     foreach($normalized in @($path,$path.Replace('/','\'))) {
         Add-CheckResult "Native Linux prerequisite dependency selects the actual existing suite: $normalized" ('Invoke-NativeLinuxContainerHostChecks.ps1' -in (& $selector -ChangedPath @($normalized)).StaticChecks)

@@ -52,7 +52,8 @@ auch bei anderem Distributionsnamen oder positiver Kernelconfig bestehen.
 Es entstehen keine Installationen, Runtime-/WSL-Starts oder -Stopps,
 Kerneländerungen, Defaultwechsel oder versteckten SQL-Tests. Reale Diagnosewerte
 bleiben lokal. Synthetische Prüfungen der bestehenden NativeLinux-Suite sind
-keine native Provider-/Sprachqualifikation. Die übergreifende
-[Hostmatrix](HOST_CAPABILITY_MATRIX.md) und die
-[öffentliche Detailentscheidung](EXTERNAL_RUNTIME_CAPABILITY.md) behalten ihren
-bisherigen Scope; die neuen Planbefunde sind dort noch keine zusätzliche Zusage.
+keine native Provider-/Sprachqualifikation. Die
+[öffentliche Detailentscheidung](EXTERNAL_RUNTIME_CAPABILITY.md) kann dieselben
+Befunde jetzt ausdrücklich mit `IncludeHostPrerequisites` abfragen. Die
+[Hostmatrix](HOST_CAPABILITY_MATRIX.md), Standard- und geführte Browserpfade
+behalten ihren bisherigen Scope; es entsteht keine zusätzliche Ausführungszusage.

@@ -24,10 +24,16 @@ function Get-SqlServerLabExternalRuntimeCapability {
         Bewusste einmalige read-only Hostprüfung; keine Runtime wird gestartet.
     .PARAMETER IncludeRecordedEvidence
         Opt-in: exakte historische Identität aus dem bestehenden Index; keine aktuelle Readiness.
+    .PARAMETER IncludeHostPrerequisites
+        Opt-in Version 1.2: Controller, Profil-Gesamtkapazitaet und Grenzen des gemeinsamen Kernels.
+        Ohne CheckProviderReadiness keine Hostabfrage; mit Pruefung weiterhin genau ein info-Aufruf.
+    .PARAMETER ResourceProfile
+        Vorhandenes Katalogprofil, nur mit IncludeHostPrerequisites ausgewertet; Default standard.
     .EXAMPLE
         Get-SqlServerLabExternalRuntimeCapability -SqlVersion 2022 -Provider docker -OperatingSystem linux -SoftwareId sql-python -RuntimeVersion 3.10 -VariantId sql2022-python310-ubuntu2204-derived
     .OUTPUTS
-        SqlServerLab.ExternalRuntimeCapability/1.0; mit IncludeRecordedEvidence Version 1.1, vollständige Antwort maximal 256 KiB UTF-8.
+        SqlServerLab.ExternalRuntimeCapability/1.0; mit IncludeRecordedEvidence 1.1;
+        mit IncludeHostPrerequisites 1.2, vollstaendige Antwort maximal 256 KiB UTF-8.
     #>
     [CmdletBinding()]
     param(
@@ -38,15 +44,26 @@ function Get-SqlServerLabExternalRuntimeCapability {
         [Parameter(Mandatory)][string]$RuntimeVersion,
         [Parameter(Mandatory)][string]$VariantId,
         [switch]$CheckProviderReadiness,
-        [switch]$IncludeRecordedEvidence
+        [switch]$IncludeRecordedEvidence,
+        [switch]$IncludeHostPrerequisites,
+        [ValidatePattern('^[a-z][a-z0-9-]{0,31}$')][string]$ResourceProfile='standard'
     )
     # Validate/catalog-resolve before optional native observation, never echo raw inputs/errors.
     $decision=New-LabExternalRuntimeCapabilityDecision -SqlVersion $SqlVersion -Provider $Provider -OperatingSystem $OperatingSystem `
         -SoftwareId $SoftwareId -RuntimeVersion $RuntimeVersion -VariantId $VariantId -IncludeRecordedEvidence:$IncludeRecordedEvidence
+    $requirements=$null;$observation=$null
+    if($IncludeHostPrerequisites){
+        try{$requirements=Get-LabResourceProfile -Name $ResourceProfile}catch{throw 'EXTERNAL_RUNTIME_RESOURCE_PROFILE_INVALID'}
+        $ResourceProfile=$ResourceProfile.ToLowerInvariant()
+    }
     if($CheckProviderReadiness -and $decision.CatalogDecision.Status -ceq 'DECLARED_SUPPORTED') {
-        $observation=Read-LabExternalRuntimeHostFacts -Provider $Provider
+        $observation=if($IncludeHostPrerequisites){Read-LabExternalRuntimeHostFacts -Provider $Provider -IncludeHostPrerequisites}
+            else{Read-LabExternalRuntimeHostFacts -Provider $Provider}
         $decision=New-LabExternalRuntimeCapabilityDecision -SqlVersion $SqlVersion -Provider $Provider -OperatingSystem $OperatingSystem `
             -SoftwareId $SoftwareId -RuntimeVersion $RuntimeVersion -VariantId $VariantId -IncludeRecordedEvidence:$IncludeRecordedEvidence -HostObservation $observation
+    }
+    if($IncludeHostPrerequisites){
+        return Add-LabExternalRuntimeHostPrerequisites -Decision $decision -ResourceProfile $ResourceProfile -Requirements $requirements -HostObservation $observation
     }
     return $decision
 }
