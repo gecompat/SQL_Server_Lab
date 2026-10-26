@@ -113,6 +113,8 @@
         'Read-SqlServerLabQualifiedTestEnvironment'
         'Test-SqlServerLabTlsQualification'
         'Update-SqlServerLabTlsBinding'
+        'Get-SqlServerLabTlsBindingRecovery'
+        'Resolve-SqlServerLabTlsBindingRecovery'
         'Start-SqlServerLabAutomatedTestEnvironment'
         'Stop-SqlServerLabAutomatedTestEnvironment'
         'Repair-SqlServerLabAutomatedTestEnvironment'

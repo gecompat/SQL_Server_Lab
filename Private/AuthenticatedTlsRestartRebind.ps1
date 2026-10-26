@@ -28,49 +28,7 @@ function Assert-LabTlsRestartCandidate {
 
 function Read-LabTlsRebindHistory {
     param([object]$Binding,[object]$Record,[byte[]]$CurrentBytes)
-    $directory=$Binding.Directory;$sid=$Binding.Native.UserSid
-    Assert-LabTlsCaPrivateAcl $directory $sid -Directory
-    $owner=Read-LabTlsBoundJson (Read-LabTlsCaPrivateFile (Join-Path $directory 'owner.json') $sid 4096) @('ContractVersion','RunId','InstanceId','ScopeId','AuditId','IdentitySha256')
-    if($owner.ContractVersion -cne 'SqlServerLab.TlsRebindStorage/0.1' -or $owner.RunId -cne $Record.RunId -or $owner.InstanceId -cne $Record.InstanceId -or
-        $owner.ScopeId -cne $Record.ScopeId -or $owner.AuditId -cne $Record.AuditId -or $owner.IdentitySha256 -cne (Get-LabTlsRebindIdentityDigest $Record)){throw 'TLS_REBIND_STORAGE_OWNER_CHANGED'}
-    $entries=@(Get-ChildItem -LiteralPath $directory -Force)
-    $transactions=@($entries|Where-Object PSIsContainer)
-    if($transactions.Count -gt 64 -or @($entries|Where-Object {-not $_.PSIsContainer -and $_.Name -cnotin @('owner.json','writer.lock')}).Count){throw 'TLS_REBIND_STORAGE_UNKNOWN'}
-    $history=@(foreach($transaction in $transactions){
-        if($transaction.Name -cnotmatch '\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z'){throw 'TLS_REBIND_STORAGE_UNKNOWN'}
-        Assert-LabTlsCaPrivateAcl $transaction.FullName $sid -Directory
-        $files=@(Get-ChildItem -LiteralPath $transaction.FullName -Force)
-        $expected=@('intent.json','original.json','candidate.json','source.json','commit.json')
-        if($files.Count -ne 5 -or @($files|Where-Object {$_.PSIsContainer -or $_.Name -cnotin $expected}).Count){throw 'TLS_REBIND_RECOVERY_REQUIRED'}
-        $intent=Read-LabTlsBoundJson (Read-LabTlsCaPrivateFile (Join-Path $transaction.FullName 'intent.json') $sid 4096) @('ContractVersion','TransactionId','Sequence','SourceSha256','CandidateSha256')
-        $commit=Read-LabTlsBoundJson (Read-LabTlsCaPrivateFile (Join-Path $transaction.FullName 'commit.json') $sid 4096) @('ContractVersion','TransactionId','SourceSha256','CandidateSha256','Status','QualifiedAt','ExpiresAt')
-        $qualifiedAt=[DateTimeOffset]::MinValue;$expiresAt=[DateTimeOffset]::MinValue
-        if($intent.ContractVersion -cne 'SqlServerLab.TlsRebindIntent/0.1' -or $intent.TransactionId -cne $transaction.Name -or
-            $intent.Sequence -isnot [long] -or $intent.Sequence -lt 1 -or $intent.Sequence -gt 64 -or
-            $intent.SourceSha256 -isnot [string] -or $intent.CandidateSha256 -isnot [string] -or
-            $intent.SourceSha256 -cnotmatch '\A[0-9a-f]{64}\z' -or $intent.CandidateSha256 -cnotmatch '\A[0-9a-f]{64}\z' -or
-            $commit.ContractVersion -cne 'SqlServerLab.TlsRebindCommit/0.1' -or $commit.TransactionId -cne $intent.TransactionId -or
-            $commit.Status -cne 'QUALIFIED_METADATA_COMMITTED' -or $commit.SourceSha256 -cne $intent.SourceSha256 -or $commit.CandidateSha256 -cne $intent.CandidateSha256 -or
-            -not [DateTimeOffset]::TryParseExact($commit.QualifiedAt,'o',[Globalization.CultureInfo]::InvariantCulture,[Globalization.DateTimeStyles]::None,[ref]$qualifiedAt) -or
-            -not [DateTimeOffset]::TryParseExact($commit.ExpiresAt,'o',[Globalization.CultureInfo]::InvariantCulture,[Globalization.DateTimeStyles]::None,[ref]$expiresAt) -or
-            $expiresAt -le $qualifiedAt -or ($expiresAt-$qualifiedAt).TotalMinutes -gt 15){throw 'TLS_REBIND_RECOVERY_REQUIRED'}
-        $original=Read-LabTlsCaPrivateFile (Join-Path $transaction.FullName 'original.json') $sid 32768
-        $candidate=Read-LabTlsCaPrivateFile (Join-Path $transaction.FullName 'candidate.json') $sid 32768
-        $source=Read-LabTlsCaPrivateFile (Join-Path $transaction.FullName 'source.json') $sid 32768
-        if((Get-LabTlsCaByteDigest $original) -cne $intent.SourceSha256 -or (Get-LabTlsCaByteDigest $source) -cne $intent.SourceSha256 -or
-            (Get-LabTlsCaByteDigest $candidate) -cne $intent.CandidateSha256){throw 'TLS_REBIND_RECOVERY_REQUIRED'}
-        $oldRecord=Read-LabTlsLabRecord $original;$newRecord=Read-LabTlsLabRecord $candidate
-        Assert-LabTlsRestartCandidate $oldRecord $newRecord
-        if((Get-LabTlsRebindIdentityDigest $newRecord) -cne $owner.IdentitySha256){throw 'TLS_REBIND_STORAGE_OWNER_CHANGED'}
-        $intent
-    })
-    $previous=$null;$sequence=0
-    foreach($intent in @($history|Sort-Object Sequence)){
-        if($intent.Sequence -ne ++$sequence -or ($previous -and $intent.SourceSha256 -cne $previous)){throw 'TLS_REBIND_HISTORY_CHAIN_INVALID'}
-        $previous=$intent.CandidateSha256
-    }
-    if($previous -and $previous -cne (Get-LabTlsCaByteDigest $CurrentBytes)){throw 'TLS_REBIND_COMMITTED_BINDING_CHANGED'}
-    return $sequence
+    return (Get-LabTlsRebindHistoryState $Binding $Record $CurrentBytes).Sequence
 }
 
 function Assert-LabTlsRebindCommitted {

@@ -10,6 +10,8 @@ function Update-SqlServerLabTlsBinding {
         aktualisiert. Zertifikat, Key, Provider, Image, Port und Trust bleiben gleich.
         Ein unveraenderter Start liefert UNCHANGED_ALREADY_BOUND ohne neuen Clientnachweis.
         Unklare Schreibausgaenge bleiben TLS_REBIND_RECOVERY_REQUIRED; kein automatischer Retry.
+        Get-SqlServerLabTlsBindingRecovery zeigt den eigenen offenen Intent.
+        Resolve-SqlServerLabTlsBindingRecovery verlangt danach eine neue explizite Auswahl.
     .PARAMETER RunId
         Exakte RunId des eigenen operativen TLS-Labs.
     .PARAMETER InstanceId

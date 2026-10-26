@@ -9,6 +9,12 @@ Snapshot enthält Zugangsdaten; der Reader öffnet keine SQL-Verbindung.
 
 Nach Neustart eines eigenen operativen TLS-Containers aktualisiert `Update-SqlServerLabTlsBinding -RunId $lab.RunId -InstanceId primary -StateRoot $lab.StateRoot` ausdrücklich dessen Startbindung nach beiden strikten Clients. Ein unveränderter Start ist kein neuer Nachweis; alte Exporte bleiben ungültig. [Vertrag, WhatIf und Recoverygrenze](../Documentation/Architecture/AUTHENTICATED_TLS_CONTAINER_REBIND.md).
 
+`Get-SqlServerLabTlsBindingRecovery` zeigt eine unvollständige eigene
+Transaktion. `Resolve-SqlServerLabTlsBindingRecovery` verlangt ihre exakte
+letzte ID und die ausdrückliche Wahl zwischen frischer Qualifikation mit
+beiden Clients und unqualifizierter Rücknahme eigener Metadaten. Auswahl,
+`WhatIf`, Sperrgrenzen und fehlende native Belege stehen im verlinkten Vertrag.
+
 `Set-SqlServerLabFeature` fügt einer eigenen laufenden Instanz `FullText` oder
 `FileStream` mit `-Enabled $true` hinzu; `$false` entfernt beziehungsweise
 deaktiviert die Funktion. Abhängige Daten blockieren Removal. `-Resume` bestätigt
