@@ -599,6 +599,15 @@ Der Wizard bietet unter `instances[].software` nur External-Runtime-Varianten
 an, die der Resolver fuer die bereits gewählte SQL-Version, den Provider und
 das Betriebssystem als `RESOLVED` freigibt. Der Softwaredialog zeigt zusätzlich
 abgelehnte Varianten mit festen Gründen und übernimmt diese nicht. API
+Vor der Funktionsauswahl öffnet das Hauptmenü **Hostfähigkeiten vor der
+Funktionsauswahl** eine Übersicht für Docker, Podman und Hyper-V. Zuerst die
+SQL-Katalogversion wählen, dann Katalogübersicht oder bewusste lesende
+Providerprüfung. Beide Konsolenmodi verwenden
+`Get-SqlServerLabHostCapabilityMatrix -SqlVersion 2022`; der Standard fragt
+keinen Provider ab. Python, R und Java bleiben nach Katalogvariante getrennt,
+C# bleibt zurückgestellt. Erreichbarkeit ist noch keine erfüllte Launch-
+oder Sprachvoraussetzung. [Grenzen und nächste Schritte](../Architecture/HOST_CAPABILITY_MATRIX.md).
+
 `Get-SqlServerLabExternalRuntimeCapability` und Dialog verwenden dieselbe
 Katalogentscheidung. Ohne bewusste Hostprüfung bleibt `CurrentReadiness`
 `NOT_CHECKED`; **Hostvoraussetzungen bewusst lesend prüfen** liest den Provider

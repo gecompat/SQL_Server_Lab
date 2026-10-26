@@ -840,6 +840,7 @@ abgewiesen. SQL-seitige Verifikation und freie Advanced-Eingaben bleiben
 | `Save-SqlServerLabLlamaCppModel` | Ein explizit ausgewähltes Katalogmodell bei Bedarf hashgeprüft unter der Medienwurzel ablegen |
 | `Get-SqlServerLabAiComputeInventory` | Lokale CPU-, GPU- und NPU-Geräte ohne Runtime-Start read-only inventarisieren |
 | `Get-SqlServerLabExternalRuntimeCapability` | Explizite Katalogentscheidung, optional begrenzte Hostprüfung oder exakte historische Identität; keine aktuelle SQL-Abnahme oder Mutation |
+| `Get-SqlServerLabHostCapabilityMatrix` | External-Languages-Übersicht für alle drei Provider; Installation, Erreichbarkeit und Katalog getrennt, ohne Ausführungsfreigabe ([Vertrag](Documentation/Architecture/HOST_CAPABILITY_MATRIX.md)) |
 | `Get-SqlServerLabSsisCatalogCapability` | Vorhandenen eigenen Windows-/Hyper-V-/SQL-2019/2022/2025-Run read-only an SSISDB-Voraussetzungen binden; keine Fixture, Verbindung oder Ausführung |
 | `Get-SqlServerLabSsisPackageDiagnostic` | Komponentenbestand und `LoadFromXML` eines hashgebundenen eigenen DTSX/ISPAC im Windows-Gast lesen; [Vertrag und Grenzen](Documentation/Architecture/SSIS_PACKAGE_DIAGNOSTIC.md) |
 | `Get-SqlServerLabSsisExecutionDiagnostic` | Festen SSISDB-Ausführungskontext, Dateien und Registrierungen eines eigenen Runs lesend beobachten; [Vertrag und Grenzen](Documentation/Architecture/SSIS_EXECUTION_DIAGNOSTIC.md) |

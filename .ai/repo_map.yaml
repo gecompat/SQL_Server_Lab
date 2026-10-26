@@ -519,6 +519,11 @@ sources_of_truth:
   validation_capability_evidence_identity: Tests/Static/Invoke-CapabilityEvidenceIdentityChecks.ps1
   validation_repository_capability_inventory: Tests/Static/Invoke-CapabilityInventoryChecks.ps1
   client_readiness_core: Private/ClientReadiness.ps1
+  host_capability_matrix_public: Public/Get-SqlServerLabHostCapabilityMatrix.ps1
+  host_capability_matrix_core: Private/HostCapabilityMatrix.ps1 # catalog resolver + shared bounded diagnostic readiness, no independent compatibility truth
+  host_capability_matrix_console: Private/HostCapabilityMatrixConsole.ps1 # main menu cursor/fallback uses same public API
+  host_capability_matrix_contract: Documentation/Architecture/HOST_CAPABILITY_MATRIX.md
+  validation_host_capability_matrix: Tests/Static/Invoke-HostCapabilityMatrixChecks.ps1 # synthetic profiles; no native SQL/language proof
   external_runtime_capability_public: Public/Get-SqlServerLabExternalRuntimeCapability.ps1
   external_runtime_capability_core: Private/ExternalRuntimeCapability.ps1
   external_runtime_host_facts: Private/ContainerImageArtifact.ps1 # shared typed native/projected facts; UNKNOWN never grants support

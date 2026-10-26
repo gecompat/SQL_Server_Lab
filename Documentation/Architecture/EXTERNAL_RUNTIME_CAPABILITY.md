@@ -1,5 +1,10 @@
 # External-Languages-Entscheidung für einen Manifestentwurf
 
+Die providerübergreifende Übersicht vor der Funktionsauswahl steht im
+[Hostmatrix-Vertrag](HOST_CAPABILITY_MATRIX.md). Sie ergänzt diesen engen
+Manifestvertrag um Installation und Bootstrap-Readiness für alle drei Provider;
+sie ersetzt keine der folgenden Launch-/cgroup-Entscheidungen.
+
 `Get-SqlServerLabExternalRuntimeCapability` ist der enge CORE-102-Teilvertrag
 `SqlServerLab.ExternalRuntimeCapability/1.0`. Er bewertet eine zukünftige
 Docker-/Podman-Linux-Instanz mit expliziter SQL-Katalogversion, Software-ID

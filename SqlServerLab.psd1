@@ -9,6 +9,7 @@
     PowerShellVersion = '7.2'
 
     FunctionsToExport = @(
+        'Get-SqlServerLabHostCapabilityMatrix'
         'Get-SqlServerLabExternalRuntimeCapability'
         'Get-SqlServerLabSsisCatalogCapability'
         'Get-SqlServerLabSsisPackageDiagnostic'

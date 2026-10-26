@@ -573,6 +573,13 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   automatische Wiederaufnahme und Cleanup werden nicht abgeleitet.
   Vertrag: `Documentation/Architecture/LOCAL_RELEASE_PUBLICATION.md`;
 
+- CORE-102 / #619 besitzt mit `Get-SqlServerLabHostCapabilityMatrix` eine
+  providerübergreifende Katalog-/Bootstrapübersicht vor der Funktionsauswahl.
+  Hauptmenü, Cursor und Fallback verwenden denselben Public-Vertrag;
+  Standard ohne Hostabfrage, bewusste Readiness einmal je gewähltem Provider.
+  C# bleibt USER_DEFERRED; Kernel/Controller, WSL, Ressourcen, konkrete
+  Launchanforderungen und Native-Sprachabnahmen bleiben offen.
+  Autorität: `Documentation/Architecture/HOST_CAPABILITY_MATRIX.md`.
 - Der geführte External-Languages-Browser-Katalogpfad besitzt eine getrennte
   gerenderte Abnahme auf `4007d414` vom 2026-10-07: zwölf Produktassets,
   36 tatsächliche Katalog-/Rezept-/Quellhashes, vier Optionsreads und vier

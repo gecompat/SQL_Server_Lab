@@ -65,12 +65,25 @@ function Get-LabConsoleHelpCatalog {
                 'templates' = @{ Purpose = 'Hyper-V: Vorlagen und Slots: vorhandene Fachabläufe auswählen; offene Funktionen bleiben kenntlich.'; Command = 'Get-SqlServerLabHyperVImageArtifact' }
                 'resources' = @{ Purpose = 'Ressourcen und Downloads: vorhandene Fachabläufe auswählen; offene Funktionen bleiben kenntlich.'; Command = 'Get-SqlServerLabResourcePlan' }
                 'hostmodels' = @{ Purpose = 'Host-Dienste und Modelle: vorhandene Fachabläufe auswählen; offene Funktionen bleiben kenntlich.'; Command = 'Invoke-SqlServerLab -Action Commands' }
+                'hostmatrix' = @{ Purpose = 'SQL-Sprachen und Provider getrennt beurteilen; die Standardübersicht fragt keine Runtime ab. Optionale Readiness ist rein lesend und erteilt keine Ausführungsfreigabe.'; Command = 'Get-SqlServerLabHostCapabilityMatrix -SqlVersion 2022' }
                 'connections' = @{ Purpose = 'Verbindungen und CMS: vorhandene Fachabläufe auswählen; offene Funktionen bleiben kenntlich.'; Command = 'Get-SqlServerLabConnectionCenter' }
                 'configuration' = @{ Purpose = 'SQL-Lab-Grundkonfiguration: vorhandene Fachabläufe auswählen; offene Funktionen bleiben kenntlich.'; Command = 'Invoke-SqlServerLab -Action Setup' }
                 'maintenance' = @{ Purpose = 'Wartung, Aufräumen und Recovery: vorhandene Fachabläufe auswählen; offene Funktionen bleiben kenntlich.'; Command = 'Get-SqlServerLabEvaluationWatch' }
                 'queue' = @{ Purpose = 'Vorgänge, Warteschlange und Wiederaufnahme: vorhandene Fachabläufe auswählen; offene Funktionen bleiben kenntlich.'; Command = 'Get-SqlServerLabQueue' }
                 'commands'       = @{ Purpose = 'Listet jeden exportierten Modulbefehl und fuehrt ihn mit seinem echten Parametersatz, Defaults und Validierungsgrenzen aus.'; Command = 'Invoke-SqlServerLab -Action Commands' }
             }
+        }
+        'host-matrix-sql' = @{
+            Title = 'Hostfähigkeiten: SQL-Version'
+            Purpose = 'Eine exakte geladene SQL-Katalogversion für die providerübergreifende Sprachübersicht auswählen.'
+            Effects = 'Nur Auswahl; keine Hostprüfung oder Mutation. Escape bricht ohne Providerabfrage ab.'
+            Command = 'Get-SqlServerLabHostCapabilityMatrix -SqlVersion 2022'
+        }
+        'host-matrix-probe' = @{
+            Title = 'Hostfähigkeiten: Prüfumfang'
+            Purpose = 'Katalogübersicht ohne Hostabfrage oder ausdrücklich lesende aktuelle Providerbereitschaft wählen.'
+            Effects = 'Nur die zweite Auswahl prüft jeden Provider einmal begrenzt lesend. Kein Start und keine Ausführungsfreigabe; Escape bricht ab.'
+            Command = 'Get-SqlServerLabHostCapabilityMatrix -SqlVersion 2022 -CheckProviderReadiness'
         }
         'evaluation-refresh-run' = @{
             Title = 'SQL-Evaluation: Instanz auswählen'

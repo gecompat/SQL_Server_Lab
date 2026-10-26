@@ -114,6 +114,14 @@ COMMANDS
         Historischer State und optionale Provider-Readiness sind getrennt;
         keine SQL-Probe, Rohlogs, Hostwerte, Secrets oder Mutation.
 
+    Get-SqlServerLabHostCapabilityMatrix -SqlVersion 2022
+        Providerübergreifende Sprachübersicht: geladener Katalog, Installation
+        und optionale aktuelle Bootstrap-Readiness bleiben getrennt. Standard
+        ohne Hostabfrage; -CheckProviderReadiness prüft jeden gewählten Provider
+        einmal lesend. Erreichbarkeit erteilt keine Ausführungsfreigabe. C# bleibt zurückgestellt.
+        Hauptmenü: Hostfähigkeiten vor der Funktionsauswahl (Cursor/Fallback).
+        Vertrag: Documentation/Architecture/HOST_CAPABILITY_MATRIX.md.
+
     Get-SqlServerLabExternalRuntimeCapability
     Get-SqlServerLabSsisCatalogCapability
     Get-SqlServerLabSsisPackageDiagnostic - Liest Komponenten und LoadFromXML eines hashgebundenen eigenen Gastpakets ohne Ausführung.

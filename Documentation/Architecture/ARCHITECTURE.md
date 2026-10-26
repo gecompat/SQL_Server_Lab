@@ -128,6 +128,7 @@ Get-SqlServerLabLlamaCppModel               # Kuratierte hashgebundene Generatio
 Save-SqlServerLabLlamaCppModel              # Gewähltes GGUF bei Bedarf geprüft im MediaRoot ablegen
 Get-SqlServerLabAiComputeInventory          # CPU, GPU und NPU read-only mit vollständiger Coverage inventarisieren
 Get-SqlServerLabExternalRuntimeCapability   # External-Languages-Katalog und optionale Hostvoraussetzung getrennt bewerten
+Get-SqlServerLabHostCapabilityMatrix        # Providerübergreifende Katalog-/Bootstrapübersicht ohne Launchfreigabe; HOST_CAPABILITY_MATRIX.md
 Get-SqlServerLabSsisCatalogCapability      # Eigene Windows-SSISDB-Quelle read-only binden; keine Fixture oder Ausführung
 Get-SqlServerLabSsisPackageDiagnostic      # Hashgebundenes eigenes Paket im Gast laden und Komponenten-/Fehlercodes lesen; keine Ausführung
 Get-SqlServerLabSsisExecutionDiagnostic    # Gebundenen SQL-2025-Katalogkontext, Registrierungen und gegebenenfalls Worker lesend beobachten

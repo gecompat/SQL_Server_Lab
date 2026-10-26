@@ -9,6 +9,11 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $failures = [System.Collections.Generic.List[string]]::new()
 $passed = 0
 $selector = Join-Path $repoRoot 'Tools/Get-CiTestSelection.ps1'
+foreach($path in @('Private/HostCapabilityMatrix.ps1','Private/HostCapabilityMatrixConsole.ps1','Public/Get-SqlServerLabHostCapabilityMatrix.ps1','Tests/Static/Invoke-HostCapabilityMatrixChecks.ps1','Private/DiagnosticBundleReadiness.ps1','Tools/Read-SqlServerLabDiagnosticReadiness.ps1','Private/SoftwareCatalog.ps1','Private/VersionCatalog.ps1','Private/ExternalRuntimeCapability.ps1','Catalogs/software.json','Catalogs/sql-server-versions.json','Providers/HyperV/provider.json','Private/ConsoleHelp.ps1','Public/Invoke-SqlServerLab.ps1')) {
+    foreach($normalized in @($path,$path.Replace('/','\'))) {
+        Add-CheckResult "Host matrix dependency selects its actual suite: $normalized" ('Invoke-HostCapabilityMatrixChecks.ps1' -in (& $selector -ChangedPath @($normalized)).StaticChecks)
+    }
+}
 foreach($path in @('Private/AuthenticatedTlsRebindRecovery.ps1','Public/Get-SqlServerLabTlsBindingRecovery.ps1',
     'Public/Resolve-SqlServerLabTlsBindingRecovery.ps1','Tests/Static/Fixtures/AuthenticatedTlsRebindRecoveryChecks.ps1',
     'Tests/Common/AuthenticatedTlsRebindRecoveryAcceptance.ps1')){
