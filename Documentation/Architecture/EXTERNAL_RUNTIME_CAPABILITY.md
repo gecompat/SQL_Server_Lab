@@ -71,6 +71,36 @@ verwendet Version 1.1 und die unten beschriebene exakte historische Identität.
 Ältere Referenzabnahmen werden weder umetikettiert noch zu aktueller Bereitschaft.
 Es entsteht keine zweite Registry und kein persistiertes Assessment.
 
+## Ausdrückliches Opt-in für weitere Hostvoraussetzungen
+
+`-IncludeHostPrerequisites` ergänzt Version `1.2` mit demselben typisierten
+Reducer wie der [native Planer](NATIVE_LINUX_HOST_PREREQUISITES.md).
+`-ResourceProfile` verwendet ein vorhandenes Katalogprofil (Default `standard`).
+Ohne `-CheckProviderReadiness` bleiben Beobachtungen `NOT_CHECKED`; es wird
+kein Provider abgefragt. Mit beiden Schaltern projiziert derselbe begrenzte
+`info --format`-Aufruf zusätzlich Controller und Engine-Gesamtkapazität.
+Es gibt keine zweite native Abfrage.
+
+`HostPrerequisites` trennt `COMPATIBLE`, `BLOCKED`, `UNKNOWN`, `UNAVAILABLE`,
+`CATALOG_BLOCKED` und `NOT_CHECKED`. Bekannte Profilunterschreitung und fehlende
+Controller blockieren; fehlende oder falsch typisierte Werte bleiben unbekannt.
+`CurrentReadiness.Scope` benennt OS, cgroup, Rootful, Controller und
+Profil-Gesamtkapazität. Der cgroup-Bedarf kommt aus dem tatsächlich aufgelösten
+SQL-/Launchrezept. Engine-Gesamtwerte sind keine freien oder reservierten
+Ressourcen. Providerkernelbindung und parallele WSL-Workloads bleiben ungeprüft.
+`FullLaunchReadiness=INCOMPLETE` und beide Authorityflags bleiben `false`.
+Rohinventar und freie Providertexte werden nicht übernommen.
+
+Standard `1.0`, reines historisches Opt-in `1.1` und deren Consumer bleiben
+unverändert. Beide Opt-ins zusammen verwenden `1.2`, ohne historische Evidence
+in aktuelle Bereitschaft umzudeuten. Das neue Opt-in ist über Public-API und
+allgemeinen Konsolenbefehlszugang erreichbar; geführte Browser-/Matrixansichten
+bieten es noch nicht an.
+
+```powershell
+Get-SqlServerLabExternalRuntimeCapability -SqlVersion 2022 -Provider docker -OperatingSystem linux -SoftwareId sql-python -RuntimeVersion 3.10 -VariantId sql2022-python310-ubuntu2204-derived -IncludeHostPrerequisites -CheckProviderReadiness -ResourceProfile standard
+```
+
 ## Manifestdialog
 
 Die vorhandene Softwareauswahl verwendet denselben Reducer. Sie zeigt auch

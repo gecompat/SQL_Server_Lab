@@ -151,3 +151,4 @@ $module=New-Module -ArgumentList $root -ScriptBlock {
 }
 try { & $module {} } finally {Remove-Module $module -ErrorAction SilentlyContinue}
 & (Join-Path $PSScriptRoot 'Fixtures/ExternalRuntimeCapabilityHostFactsChecks.ps1')
+& (Join-Path $PSScriptRoot 'Fixtures/ExternalRuntimeHostPrerequisitesChecks.ps1')

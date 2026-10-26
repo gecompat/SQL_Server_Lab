@@ -538,6 +538,8 @@ sources_of_truth:
   validation_host_matrix_launch_browser: Tests/Static/Fixtures/HostMatrixLaunchDetailsBrowserChecks.ps1 # composed actual routes/public readers; rendered runner uses IncludeLaunchDetails
   external_runtime_capability_public: Public/Get-SqlServerLabExternalRuntimeCapability.ps1
   external_runtime_capability_core: Private/ExternalRuntimeCapability.ps1
+  external_runtime_host_prerequisites: Private/ExternalRuntimeHostPrerequisites.ps1 # explicit public1.2; same native reducer, bounded projected info, no execution authority
+  validation_external_runtime_host_prerequisites: Tests/Static/Fixtures/ExternalRuntimeHostPrerequisitesChecks.ps1 # executed by existing capability suite, synthetic transport
   external_runtime_host_facts: Private/ContainerImageArtifact.ps1 # shared typed native/projected facts; UNKNOWN never grants support
   external_runtime_capability_http: Private/ExternalRuntimeCapabilityHttp.ps1 # default browser1.0; explicit ReadRecordedEvidence projects public1.1 metadata without host probe or authority
   external_runtime_capability_ui: Ui/external-runtime-capability.js

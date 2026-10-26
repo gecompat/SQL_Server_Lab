@@ -233,6 +233,13 @@ nur Katalogoptionen; die bewusste Linux-/cgroup-/Rootful-Prüfung bleibt eine
 eigene Aktion. Hyper-V, C# und fehlende Katalogvarianten bleiben ohne diese
 Vertiefung sichtbar.
 
+Das ausdrückliche `-IncludeHostPrerequisites` ergänzt Version 1.2 mit
+typisierten Controller-/Profilkapazitätsbefunden und unverändert ungeprüfter
+WSL-Workloadkompatibilität. Erst `-CheckProviderReadiness` fragt den Provider
+einmal lesend ab; `-ResourceProfile` verwendet den bestehenden Katalog.
+Standard 1.0 und historisches Opt-in 1.1 bleiben erhalten. Vollständiger
+[Teilvertrag](../Documentation/Architecture/EXTERNAL_RUNTIME_CAPABILITY.md).
+
 `Get-SqlServerLabExternalRuntimeCapability` trennt für einen expliziten
 Docker-/Podman-Linux-Manifestentwurf Katalogunterstützung von optionaler
 aktueller Hostbereitschaft. Standard ist `NOT_CHECKED` ohne Hostaufruf;

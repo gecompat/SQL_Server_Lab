@@ -2667,7 +2667,11 @@ unbekannt. Freier RAM, Reservierungen, Providerkernelbindung und parallele
 WSL-Workloadkompatibilität bleiben ungeprüft; auch ein kompatibler enger Plan
 ist keine vollständige Launch- oder Sprachfreigabe. Der
 [Teilvertrag](../Architecture/NATIVE_LINUX_HOST_PREREQUISITES.md) erweitert noch
-keine Zusage der übergeordneten Hostmatrix oder öffentlichen Detailansicht.
+keine Zusage der übergeordneten Hostmatrix. Die öffentliche Detail-API kann
+dieselben Teilbefunde ausdrücklich mit `IncludeHostPrerequisites` (Version 1.2)
+abfragen; Standard und geführte Browseransicht bleiben unverändert. Auch dieses
+Opt-in bestätigt weder freie/reservierte Ressourcen noch Providerkernelbindung,
+WSL-Workloadkompatibilität oder vollständige Launchbereitschaft.
 Unter WSL mit gespiegeltem Netzwerk überschreibt `WSLOUTPUT` außerdem die
 Paketmarkierung der Ubuntu-Podman-CNI-Portweiterleitung. Ein gesunder
 SQL-Container kann deshalb über seinen Loopbackport unerreichbar bleiben.

@@ -35,6 +35,15 @@ bleiben getrennt erhalten; daraus folgt kein vollständiger TLS-001-Abschluss.
 
 ## Ausgewählte Arbeitsstände
 
+Die öffentliche External-Runtime-Entscheidung bietet dieselben Controller- und
+Profil-Gesamtkapazitätsbefunde ausdrücklich über `IncludeHostPrerequisites`
+als Version 1.2 an. Ohne bewusste Providerprüfung kein nativer Aufruf; mit
+Prüfung derselbe einmalige begrenzte Info-Transport. Standard 1.0 und reines
+historisches Opt-in 1.1 bleiben erhalten. Freie/reservierte Ressourcen und
+WSL-Workloadkompatibilität bleiben offen; die geführte Oberfläche bietet das
+neue Opt-in noch nicht an. Maßgeblich ist der
+[API-Vertrag](../Documentation/Architecture/EXTERNAL_RUNTIME_CAPABILITY.md).
+
 Der bestehende native Linux-/WSL-Planer ergänzt CORE-102 um
 [typisierte Voraussetzungen](../Documentation/Architecture/NATIVE_LINUX_HOST_PREREQUISITES.md):
 kanonische OS-/cgroup-/Rootful-Entscheidung, getrennte fehlende und unbekannte
