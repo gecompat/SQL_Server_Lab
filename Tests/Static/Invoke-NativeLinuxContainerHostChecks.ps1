@@ -7,7 +7,9 @@ $root=Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 $count=0
 function Assert-Decision {
     param($Result,[string]$Status,[string]$Reason)
-    if($Result.Status -ne $Status -or ($Reason -and $Reason -notin $Result.Reasons) -or $Result.RequiresHyperV -or $Result.SqlLanguageEvidence -ne 'NOT_EXECUTED'){throw 'NATIVE_HOST_DECISION_INVALID'}
+    if($Result.Status -ne $Status -or ($Reason -and $Reason -notin $Result.Reasons) -or $Result.RequiresHyperV -or $Result.SqlLanguageEvidence -ne 'NOT_EXECUTED'){
+        throw "NATIVE_HOST_DECISION_INVALID: case $script:count expected $Status/$Reason; actual $($Result.Status)/$($Result.Reasons -join ',')"
+    }
     $script:count++
 }
 $docker=[pscustomobject]@{OSType='linux';CgroupVersion='1';SecurityOptions=@('name=seccomp');MemoryLimit=$true;PidsLimit=$true}
@@ -25,13 +27,13 @@ Assert-Decision (Get-NativeLinuxContainerHostDecision docker $null $true $false)
 $docker.CgroupVersion='2'
 Assert-Decision (Get-NativeLinuxContainerHostDecision docker $docker $true $true) BLOCKED CGROUP_VERSION_UNSUPPORTED
 $docker.CgroupVersion='garbage1'
-Assert-Decision (Get-NativeLinuxContainerHostDecision docker $docker $true $true) BLOCKED CGROUP_VERSION_UNSUPPORTED
+Assert-Decision (Get-NativeLinuxContainerHostDecision docker $docker $true $true) UNKNOWN PROVIDER_RESPONSE_INVALID
 $docker.CgroupVersion='1';$docker.SecurityOptions=@('name=rootless')
 Assert-Decision (Get-NativeLinuxContainerHostDecision docker $docker $true $true) BLOCKED ROOTFUL_PROVIDER_REQUIRED
 $podman.host.security.rootless=$true
 Assert-Decision (Get-NativeLinuxContainerHostDecision podman $podman $true $true) BLOCKED ROOTFUL_PROVIDER_REQUIRED
 $podman.host.security.rootless=$null
-Assert-Decision (Get-NativeLinuxContainerHostDecision podman $podman $true $true) BLOCKED ROOTFUL_STATUS_UNKNOWN
+Assert-Decision (Get-NativeLinuxContainerHostDecision podman $podman $true $true) UNKNOWN PROVIDER_RESPONSE_INVALID
 Assert-Decision (Get-NativeLinuxContainerHostDecision podman $podman $true $true '# CONFIG_MEMCG_V1 is not set') BLOCKED KERNEL_MEMCG_V1_DISABLED
 $docker.OSType='windows'
 Assert-Decision (Get-NativeLinuxContainerHostDecision docker $docker $true $true) BLOCKED LINUX_RUNTIME_REQUIRED
@@ -85,4 +87,5 @@ if($IsWindows){
     } $body
     $count+=2
 }
+. (Join-Path $PSScriptRoot 'Fixtures/NativeLinuxHostPrerequisitesChecks.ps1')
 Write-Output "PASS: $count native Linux container host checks"

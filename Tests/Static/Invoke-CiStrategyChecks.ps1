@@ -1,4 +1,4 @@
-﻿#Requires -Version 7.2
+#Requires -Version 7.2
 [CmdletBinding()]
 param()
 
@@ -43,6 +43,17 @@ foreach ($path in @('Private/AuthenticatedTlsRequest.ps1','Private/Authenticated
         'Invoke-AuthenticatedTlsLinuxSessionChecks.ps1' -in $selected.StaticChecks -and
         'Invoke-AuthenticatedTlsLinuxPeerChecks.ps1' -in $selected.StaticChecks -and
         'Invoke-AuthenticatedTlsLinuxContextRecordChecks.ps1' -in $selected.StaticChecks)
+}
+foreach($path in @('Private/ExternalRuntimeHostPrerequisites.ps1','Tests/Static/Fixtures/ExternalRuntimeHostPrerequisitesChecks.ps1','Tools/Common/NativeLinuxContainerHost.ps1')) {
+    foreach($normalized in @($path,$path.Replace('/','\'))) {
+        Add-CheckResult "Public prerequisite composition selects its actual capability suite: $normalized" ('Invoke-ExternalRuntimeCapabilityChecks.ps1' -in (& $selector -ChangedPath @($normalized)).StaticChecks)
+        Add-CheckResult "Public prerequisite composition also retains the native reducer suite: $normalized" ('Invoke-NativeLinuxContainerHostChecks.ps1' -in (& $selector -ChangedPath @($normalized)).StaticChecks)
+    }
+}
+foreach($path in @('Tests/Static/Fixtures/NativeLinuxHostPrerequisitesChecks.ps1','Private/ContainerImageArtifact.ps1','Catalogs/sql-server-versions.json')) {
+    foreach($normalized in @($path,$path.Replace('/','\'))) {
+        Add-CheckResult "Native Linux prerequisite dependency selects the actual existing suite: $normalized" ('Invoke-NativeLinuxContainerHostChecks.ps1' -in (& $selector -ChangedPath @($normalized)).StaticChecks)
+    }
 }
 foreach($path in @('Private/HostCapabilityMatrix.ps1','Private/HostCapabilityMatrixConsole.ps1','Public/Get-SqlServerLabHostCapabilityMatrix.ps1','Tests/Static/Invoke-HostCapabilityMatrixChecks.ps1','Private/DiagnosticBundleReadiness.ps1','Tools/Read-SqlServerLabDiagnosticReadiness.ps1','Private/SoftwareCatalog.ps1','Private/VersionCatalog.ps1','Private/ExternalRuntimeCapability.ps1','Catalogs/software.json','Catalogs/sql-server-versions.json','Providers/HyperV/provider.json','Private/ConsoleHelp.ps1','Public/Invoke-SqlServerLab.ps1')) {
     foreach($normalized in @($path,$path.Replace('/','\'))) {

@@ -10,12 +10,20 @@ function Get-LabExternalRuntimeCapabilityReason {
 }
 
 function Get-LabExternalRuntimeInfoArguments {
-    param([string]$Provider)
+    param([string]$Provider,[switch]$IncludeHostPrerequisites)
     $format=if($Provider -ceq 'docker') {
         '{"OperatingSystem":{{json .OSType}},"CgroupVersion":{{json .CgroupVersion}},"SecurityOptions":{{json .SecurityOptions}}}'
     } elseif($Provider -ceq 'podman') {
         '{"OperatingSystem":{{json .Host.OS}},"CgroupVersion":{{json .Host.CgroupVersion}},"Rootless":{{json .Host.Security.Rootless}}}'
     } else { throw 'EXTERNAL_RUNTIME_CAPABILITY_INPUT_INVALID' }
+    if($IncludeHostPrerequisites) {
+        $extra=if($Provider -ceq 'docker'){
+            ',"MemoryLimit":{{json .MemoryLimit}},"PidsLimit":{{json .PidsLimit}},"MemTotal":{{json .MemTotal}},"NCPU":{{json .NCPU}}}'
+        }else{
+            ',"CgroupsVersion":{{json .Host.CgroupsVersion}},"Controllers":{{json .Host.CgroupControllers}},"MemTotal":{{json .Host.MemTotal}},"Cpus":{{json .Host.CPUs}}}'
+        }
+        $format=$format.Substring(0,$format.Length-1)+$extra
+    }
     return @('info','--format',$format)
 }
 
@@ -30,7 +38,7 @@ function Invoke-LabExternalRuntimeInfoProcess {
 }
 
 function Read-LabExternalRuntimeHostFacts {
-    param([string]$Provider)
+    param([string]$Provider,[switch]$IncludeHostPrerequisites)
     $result=[pscustomobject]@{Status='UNAVAILABLE';ReasonCode='PROVIDER_PROBE_FAILED';Facts=$null}
     try {
         $resolution=@(Initialize-LabHostToolPath -Name $Provider)
@@ -39,7 +47,7 @@ function Read-LabExternalRuntimeHostFacts {
         if($invocation -isnot [string] -or -not [IO.Path]::IsPathFullyQualified($invocation)) {
             $result.ReasonCode='TOOL_NATIVE_PATH_REQUIRED';return $result
         }
-        $response=Invoke-LabExternalRuntimeInfoProcess -Invocation $invocation -ArgumentList (Get-LabExternalRuntimeInfoArguments -Provider $Provider)
+        $response=Invoke-LabExternalRuntimeInfoProcess -Invocation $invocation -ArgumentList (Get-LabExternalRuntimeInfoArguments -Provider $Provider -IncludeHostPrerequisites:$IncludeHostPrerequisites)
         if(-not $response.Success) {
             $result.ReasonCode=switch -CaseSensitive ($response.Reason) {
                 'DIAGNOSTIC_READINESS_TIMEOUT' {'PROVIDER_PROBE_TIMEOUT'}
@@ -50,7 +58,13 @@ function Read-LabExternalRuntimeHostFacts {
             }
             return $result
         }
-        $result.Facts=ConvertTo-LabExternalRuntimeHostFacts -Provider $Provider -Value $response.Value
+        if($IncludeHostPrerequisites) {
+            $converted=ConvertTo-LabExternalRuntimePrerequisiteObservation -Provider $Provider -Value $response.Value
+            $result.Facts=$converted.Facts
+            $result|Add-Member -NotePropertyName PrerequisiteRuntimeInfo -NotePropertyValue $converted.RuntimeInfo
+        }else{
+            $result.Facts=ConvertTo-LabExternalRuntimeHostFacts -Provider $Provider -Value $response.Value
+        }
         $result.Status='OBSERVED';$result.ReasonCode='NONE'
     } catch { $result.Status='UNAVAILABLE';$result.ReasonCode='PROVIDER_RESPONSE_INVALID';$result.Facts=$null }
     return $result

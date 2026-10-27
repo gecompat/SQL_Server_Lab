@@ -7,6 +7,14 @@ Start ohne Sprachisolation umgangen.
 
 ## Native Linux- und WSL-Hosts ohne Hyper-V-Verwaltung
 
+Der [Vertrag für Ressourcen, Controller und WSL-Kontext](../Architecture/NATIVE_LINUX_HOST_PREREQUISITES.md)
+beschreibt die getrennten Befunde des Planers. Mit `-ResourceProfile compact`,
+`standard` (Default) oder `performance` wird die Engine-Gesamtkapazität gegen
+das vorhandene Katalogprofil verglichen. Das ist keine Messung freien RAMs
+oder reservierbarer Kapazität. Fehlende Controllerangaben bleiben unbekannt;
+ausdrücklich fehlende Controller und bekannte Profilunterschreitungen blockieren.
+Ein anderer WSL-Distributionsname beweist keine Kernelunabhängigkeit.
+
 `Tools/Invoke-SqlServerLabNativeLinuxContainerHost.ps1` verwendet vorhandene
 Docker-/Podman-Runtimes direkt. `Plan` prüft den gewählten Provider mit Timeout
 und unterscheidet fehlendes Werkzeug, unerreichbare Runtime, falsche

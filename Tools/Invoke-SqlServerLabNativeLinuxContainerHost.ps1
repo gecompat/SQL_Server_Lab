@@ -17,6 +17,9 @@
     Absoluter Linux-Pfad fuer registriertes Lab_Data.
 .PARAMETER MediaRoot
     Absoluter Linux-Pfad fuer Lab_Base.
+.PARAMETER ResourceProfile
+    Vorhandenes Profil fuer den Vergleich mit der Engine-Gesamtkapazitaet.
+    Freier RAM, Reservierung und konkurrierende Workloads bleiben ungeprueft.
 .EXAMPLE
     ./Tools/Invoke-SqlServerLabNativeLinuxContainerHost.ps1 -Action Plan -Provider podman
 .EXAMPLE
@@ -31,7 +34,8 @@ param(
     [ValidateSet('Plan','Initialize','Test')][string]$Action='Plan',
     [ValidateSet('Native','Wsl')][string]$Backend='Native',
     [ValidateSet('docker','podman')][string]$Provider='docker',
-    [string]$Distribution,[string]$RepositoryRoot,[string]$DataRoot,[string]$MediaRoot
+    [string]$Distribution,[string]$RepositoryRoot,[string]$DataRoot,[string]$MediaRoot,
+    [ValidatePattern('^[a-z][a-z0-9-]{0,31}$')][string]$ResourceProfile='standard'
 )
 $ErrorActionPreference='Stop'
 $sourceRoot=Split-Path $PSScriptRoot -Parent
@@ -45,27 +49,43 @@ if($Backend -eq 'Wsl'){
     if($running.ExitCode -ne 0 -or $Distribution -cnotin $names){throw 'NATIVE_HOST_WSL_NOT_RUNNING: Start the selected distribution explicitly first.'}
     # Read the kernel before requiring PowerShell or a checkout inside the distro.
     $probe=Invoke-LinuxContainerHostNative wsl @('-d',$Distribution,'-u','root','--exec','sh','-c','if test -r /proc/config.gz; then zcat /proc/config.gz; else exit 3; fi') 20
-    if($probe.ExitCode -eq 0 -and $probe.Output -match '(?m)^# CONFIG_MEMCG_V1 is not set\s*$'){
+    $kernelEvidence=if($probe.ExitCode -eq 0){Get-NativeLinuxKernelMemoryV1Evidence $probe.Output}else{'UNKNOWN'}
+    if($kernelEvidence -ceq 'NOT_CHECKED'){$kernelEvidence='UNKNOWN'}
+    if($kernelEvidence -ceq 'MISSING'){
         if($Action -ne 'Plan'){throw 'NATIVE_HOST_KERNEL_MEMCG_V1_DISABLED: Kernel compatibility must be resolved before initialization.'}
-        [pscustomobject]@{Contract='SqlServerLab.NativeLinuxContainerHost/1.0';Provider=$Provider;
+        [pscustomobject]@{Contract='SqlServerLab.NativeLinuxContainerHost/1.1';Provider=$Provider;
             Status='BLOCKED';Reasons=@('KERNEL_MEMCG_V1_DISABLED');RuntimeCheck='NOT_EXECUTED';
+            SharedKernel=(Get-NativeLinuxSharedKernelEvidence -MemoryV1 MISSING -Context SELECTED_WSL_DISTRIBUTION);
+            FullLaunchReadiness='INCOMPLETE';ExecutionSupported=$false;MutationAllowed=$false;
             RequiresHyperV=$false;SqlLanguageEvidence='NOT_EXECUTED';HostChanges='NONE'}
         return
     }
     if(-not $RepositoryRoot -or -not $RepositoryRoot.StartsWith('/') -or $RepositoryRoot -match '[\r\n]'){throw 'NATIVE_HOST_WSL_REPOSITORY_REQUIRED'}
-    $payload=@{Action=$Action;Provider=$Provider;RepositoryRoot=$RepositoryRoot;DataRoot=$DataRoot;MediaRoot=$MediaRoot}
+    $payload=@{Action=$Action;Provider=$Provider;RepositoryRoot=$RepositoryRoot;DataRoot=$DataRoot;MediaRoot=$MediaRoot;ResourceProfile=$ResourceProfile}
     $json=[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes(($payload|ConvertTo-Json -Compress)))
-    $remote='$p=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('''+$json+'''))|ConvertFrom-Json -AsHashtable; & (Join-Path $p.RepositoryRoot ''Tools/Invoke-SqlServerLabNativeLinuxContainerHost.ps1'') @p'
+    $remote='$p=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('''+$json+'''))|ConvertFrom-Json -AsHashtable; if($p.Action -ceq ''Plan''){& (Join-Path $p.RepositoryRoot ''Tools/Invoke-SqlServerLabNativeLinuxContainerHost.ps1'') @p|ConvertTo-Json -Depth 15 -Compress}else{& (Join-Path $p.RepositoryRoot ''Tools/Invoke-SqlServerLabNativeLinuxContainerHost.ps1'') @p}'
     if($Action -ne 'Plan' -and -not $PSCmdlet.ShouldProcess($Distribution,"$Action native $Provider lab host")){return}
     $encoded=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($remote))
     $result=Invoke-LinuxContainerHostNative wsl @('-d',$Distribution,'-u','root','--exec','env','TEMP=/tmp','pwsh','-NoProfile','-OutputFormat','Text','-EncodedCommand',$encoded) $(if($Action -eq 'Test'){14400}else{120})
-    if($result.Output){Write-Output $result.Output}
+    if($Action -cne 'Plan' -and $result.Output){Write-Output $result.Output}
     if($result.ExitCode -ne 0){throw "NATIVE_HOST_WSL_OPERATION_FAILED: $($result.Error)"}
+    if($Action -ceq 'Plan') {
+        $plan=$result.Output|ConvertFrom-Json -Depth 15
+        if($plan -isnot [pscustomobject] -or $plan.Contract -cne 'SqlServerLab.NativeLinuxContainerHost/1.1' -or
+            $plan.Provider -cne $Provider -or $plan.ExecutionSupported -isnot [bool] -or $plan.ExecutionSupported -or
+            $plan.MutationAllowed -isnot [bool] -or $plan.MutationAllowed){throw 'NATIVE_HOST_WSL_PLAN_INVALID'}
+        $plan.SharedKernel=Get-NativeLinuxSharedKernelEvidence -MemoryV1 $kernelEvidence -Context SELECTED_WSL_DISTRIBUTION
+        $plan
+    }
     return
 }
 if($Distribution){throw 'NATIVE_HOST_DISTRIBUTION_REQUIRES_WSL_BACKEND'}
 if(-not $RepositoryRoot){$RepositoryRoot=$sourceRoot}
 if($Action -ne 'Plan' -and -not $IsLinux){throw 'NATIVE_HOST_LINUX_REQUIRED: On Windows select Wsl with an explicit distribution.'}
+$catalog=Get-Content (Join-Path $RepositoryRoot 'Catalogs/sql-server-versions.json') -Raw|ConvertFrom-Json
+$profileProperty=$catalog.profiles.PSObject.Properties[$ResourceProfile]
+if(-not $profileProperty -or $profileProperty.Name -cne $ResourceProfile){throw 'NATIVE_HOST_RESOURCE_PROFILE_UNKNOWN'}
+$resourceRequirements=$profileProperty.Value
 $resolved=@(& (Join-Path $RepositoryRoot 'Tools/Initialize-SqlServerLabHostTools.ps1') -Name $Provider)[0]
 $info=$null;$reachable=$false
 if($resolved.Available){
@@ -74,7 +94,8 @@ if($resolved.Available){
     if($result.ExitCode -eq 0){try{$info=$result.Output|ConvertFrom-Json;$reachable=$true}catch{$reachable=$false}}
 }
 $recipe=Get-Content (Join-Path $RepositoryRoot 'Images/ExternalLanguages/Linux/recipe.json') -Raw|ConvertFrom-Json
-$decision=Get-NativeLinuxContainerHostDecision -Provider $Provider -RuntimeInfo $info -ToolAvailable ([bool]$resolved.Available) -RuntimeReachable $reachable -RequiredCgroupVersion $recipe.launchContract.requiredCgroupVersion
+$decision=Get-NativeLinuxContainerHostDecision -Provider $Provider -RuntimeInfo $info -ToolAvailable ([bool]$resolved.Available) -RuntimeReachable $reachable -RequiredCgroupVersion $recipe.launchContract.requiredCgroupVersion -ResourceRequirements $resourceRequirements
+$decision | Add-Member -NotePropertyName ResourceProfile -NotePropertyValue $ResourceProfile
 if($Action -eq 'Plan'){$decision;return}
 if($decision.Status -ne 'COMPATIBLE'){throw "NATIVE_HOST_BLOCKED: $($decision.Reasons -join ',')"}
 $uid=Invoke-LinuxContainerHostNative id @('-u') 10

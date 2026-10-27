@@ -81,6 +81,8 @@ end {
         @{ Pattern = '(?i)(AiPodmanSetup|ai-podman-setup)'; Checks = @('Invoke-AiPodmanSetupChecks.ps1','Invoke-AiPodmanSetupProcessChecks.ps1','Invoke-AiPersistentRetrievalChecks.ps1','Invoke-ConsoleUiChecks.ps1') },
 
         @{ Pattern = '(?i)(LinuxContainerHost|linux-container-host|wsl-container-host|LINUX_CONTAINER_HOST|ExternalRuntimeContainerHyperVHost)'; Checks = @('Invoke-LinuxContainerHostChecks.ps1','Invoke-NativeLinuxContainerHostChecks.ps1','Invoke-ExternalRuntimeContainerImageChecks.ps1') },
+        @{ Pattern = '(?i)(NativeLinuxHostPrerequisites|ContainerImageArtifact|Catalogs[\\/]sql-server-versions\.json)'; Checks = @('Invoke-NativeLinuxContainerHostChecks.ps1') },
+        @{ Pattern = '(?i)(ExternalRuntimeHostPrerequisites|NativeLinuxContainerHost)'; Checks = @('Invoke-ExternalRuntimeCapabilityChecks.ps1','Invoke-NativeLinuxContainerHostChecks.ps1') },
         @{ Pattern = '(?i)(SqlVersionUpgrade|SQL_VERSION_UPGRADE_REFERENCE)'; Checks = @('Invoke-SqlVersionUpgradeScenarioChecks.ps1','Invoke-SqlVersionUpgradeSupervisorChecks.ps1','Invoke-BackupLibraryChecks.ps1') },
         @{ Pattern = '(?i)(ResourceAssessment|resource-assessment|New-SqlServerLab\.ps1|HyperVLabEnvironment|ReconcileContract|ManifestParser|lab-manifest)'; Checks = @('Invoke-ResourceAssessmentChecks.ps1','Invoke-MixedProviderLifecycleChecks.ps1') },
         @{ Pattern = '(?i)(HyperVNetworkReconnect|HyperVExistingNetwork|HyperVResourceAcceptanceSlotClone|HyperVLabEnvironment)'; Checks = @('Invoke-HyperVNetworkReconnectAcceptanceChecks.ps1') },
