@@ -41,6 +41,14 @@ function Stop-SqlServerLab {
 
     process {
         $stateRoot = if ([string]::IsNullOrWhiteSpace($StateRoot)) { Get-LabStateRoot } else { $StateRoot }
+        $runGuid = [guid]::Empty
+        if (-not [guid]::TryParse($RunId,[ref]$runGuid)) { throw 'LAB_RUN_ID_INVALID' }
+        $RunId = $runGuid.ToString('D')
+        $__environmentGroupsLock = Enter-LabEnvironmentGroupsLock -StateRoot $stateRoot
+        try {
+            $__environmentGroupsRegistry = Get-LabEnvironmentGroupsRegistry -StateRoot $stateRoot
+            Assert-LabEnvironmentGroupRunMutation -RunId $RunId -Action 'Stop' -Registry $__environmentGroupsRegistry -GroupOperationContext $script:LabEnvironmentGroupOperationContext
+
         if ((Test-LabAutomatedTestEnvironmentRun -RunId $RunId) -and
             -not [bool]$script:LabAutomatedTestEnvironmentGroupOperation) {
             throw 'TEST_ENVIRONMENT_GROUP_PROTECTED: Einzelnes Stoppen ist für die automatisch gestartete Testgruppe gesperrt.'
@@ -226,5 +234,7 @@ function Stop-SqlServerLab {
             Errors = $errors
             ProviderSubRuns = $providerResults
         }
-    }
+
+        } finally { Exit-LabEnvironmentGroupsLock -Mutex $__environmentGroupsLock }
+}
 }

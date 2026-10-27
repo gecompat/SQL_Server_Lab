@@ -4327,3 +4327,15 @@ gemeinsamen hostOnly-Infrastruktur und vor Standardswitch-Änderungen. Sie
 erlaubt weiterhin die eigene VM-/IPAM-/Gast-/SQL-Anlage. Fremde Netzänderungen
 werden nicht atomar ausgeschlossen; eine native Abnahme dieses erweiterten
 Pfads und die Windows-CSP-/Hyper-V-TLS-Abnahme stehen weiterhin aus.
+
+## Wiederverwendbare Lab-Umgebungsgruppen
+
+Die additive Gruppen-Registry speichert unabhängige Run-Referenzen mit
+Run-/Scope- und Verbindungsdatei-Bindung. Ein Run kann mehreren Gruppen
+zugeordnet werden; Gruppenentfernung stoppt oder entfernt keine Umgebung.
+Gruppenstart/-stop, persistente Nachfrage, gemeinsamer Mutex, Schutz vor
+direktem Stoppen/Restart/Remove/Clear beanspruchter Runs und fail-closed
+Partial-Recovery sind implementiert, aber noch nicht durch Tests oder
+Runtime-Evidence validiert. CLI-Menü/Browser-Bedienung und Linked-Server-
+Topologie-/SQL-Konfiguration sind nicht implementiert. Ein Gruppenstart ist
+daher noch kein qualifiziertes Linked-Server-Lab.

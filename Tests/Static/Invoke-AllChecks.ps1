@@ -164,6 +164,7 @@ $checks = @(
     'Invoke-InstanceIntentChecks.ps1',
     'Invoke-InstanceCapabilityAssessmentChecks.ps1',
     'Invoke-MixedProviderLifecycleChecks.ps1',
+    'Invoke-EnvironmentGroupLifecycleChecks.ps1',
     'Invoke-RuntimeStateSyncChecks.ps1',
     'Invoke-MaintenanceChecks.ps1',
     'Invoke-ProjectAdapterChecks.ps1',

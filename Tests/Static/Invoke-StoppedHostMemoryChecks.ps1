@@ -101,6 +101,10 @@ try {
 } finally { foreach($name in $savedEnvironment.Keys){[Environment]::SetEnvironmentVariable($name,$savedEnvironment[$name])} }
 & {
     . "$root/Private/WindowsPoolClaims.ps1"
+    function Enter-LabEnvironmentGroupsLock { param($StateRoot) return $null }
+    function Exit-LabEnvironmentGroupsLock { param($Mutex) }
+    function Get-LabEnvironmentGroupsRegistry { param($StateRoot) [pscustomobject]@{groups=@()} }
+    function Assert-LabEnvironmentGroupRunMutation { param($RunId,$Action,$Registry,$GroupOperationContext) }
     . "$root/Public/Stop-SqlServerLab.ps1"
     $testRoot=Join-Path ([IO.Path]::GetTempPath()) ('stop-memory-contract-'+[guid]::NewGuid().ToString('N'))
     $runId='00000000-0000-0000-0000-000000000123'

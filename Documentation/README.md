@@ -117,21 +117,22 @@ führt von dort zu Vertrag, Format und Evidence.
 1. [SQL-Server-zentrierte Scope-Entscheidung](Architecture/SQL_SERVER_CENTRIC_SCOPE_DECISION.md)
 2. [`Lab_Data` und native Runtime-Speicher](Architecture/LAB_DATA_AND_NATIVE_RUNTIME_STORAGE_DECISION.md)
 3. [Erweiterbarer Umgebungs- und Ausführungsvertrag](Architecture/EXTENSIBLE_ENVIRONMENT_AND_EXECUTION_CONTRACT.md)
-4. [Manifest- und Schnittstellenarchitektur](Architecture/MANIFEST_AND_INTERFACE_ARCHITECTURE.md)
-5. [Testdatenbank-Provisionierung und menügeführte Manifest-Erstellung](Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md)
-6. [Gemischter Container-Provider-Lifecycle](Architecture/MIXED_PROVIDER_LIFECYCLE.md)
-7. [Hyper-V-, Image-, Provisionierungs- und Netzwerkvertrag](Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md)
-8. [Vorlagenpool und automatisierte Manifeste](Architecture/TEMPLATE_POOL_AND_AUTOMATED_MANIFESTS.md)
-9. [Feste isolierte Labnetze](HowTo/LAB_NETWORKS.md)
-10. [Projektintegrationsvertrag](Architecture/PROJECT_INTEGRATION_CONTRACT.md)
-11. [Konsolidierter Entwicklungs- und Ausführungsplan](Project_Planning/DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md)
-12. [Konsolen-, Lifecycle- und Storage-Konsolidierungsplan aus der manuellen Abnahme](Project_Planning/CONSOLE_LIFECYCLE_AND_STORAGE_CONSOLIDATION_PLAN_2026-08-12.md)
-13. [Providerneutraler Batch-, Queue- und Resume-Workflow](Project_Planning/PROVIDER_NEUTRAL_BATCH_QUEUE_RESUME_WORKFLOW_2026-08-13.md)
-14. [Master-Umsetzungsplan](Project_Planning/MASTER_IMPLEMENTATION_PLAN.md)
-15. [Masterplan-Ergänzung](Project_Planning/MASTER_IMPLEMENTATION_PLAN_SCOPE_ADDENDUM.md)
-16. [Project-Adapter-Priorisierung](Project_Planning/PROJECT_ADAPTER_PRIORITIZATION.md)
-17. [Container-Netzwerkverschiebung bei IP-Konflikt](Project_Planning/CONTAINER_NETWORK_RENUMBERING_BACKLOG.md)
-18. [Zukünftige Anwendungsfälle](Architecture/FUTURE_USE_CASES_AND_EXTENSION_GUARDRAILS.md)
+4. [Wiederverwendbare Lab-Umgebungsgruppen](Architecture/LAB_ENVIRONMENT_GROUPS.md)
+5. [Manifest- und Schnittstellenarchitektur](Architecture/MANIFEST_AND_INTERFACE_ARCHITECTURE.md)
+6. [Testdatenbank-Provisionierung und menügeführte Manifest-Erstellung](Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md)
+7. [Gemischter Container-Provider-Lifecycle](Architecture/MIXED_PROVIDER_LIFECYCLE.md)
+8. [Hyper-V-, Image-, Provisionierungs- und Netzwerkvertrag](Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md)
+9. [Vorlagenpool und automatisierte Manifeste](Architecture/TEMPLATE_POOL_AND_AUTOMATED_MANIFESTS.md)
+10. [Feste isolierte Labnetze](HowTo/LAB_NETWORKS.md)
+11. [Projektintegrationsvertrag](Architecture/PROJECT_INTEGRATION_CONTRACT.md)
+12. [Konsolidierter Entwicklungs- und Ausführungsplan](Project_Planning/DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md)
+13. [Konsolen-, Lifecycle- und Storage-Konsolidierungsplan aus der manuellen Abnahme](Project_Planning/CONSOLE_LIFECYCLE_AND_STORAGE_CONSOLIDATION_PLAN_2026-08-12.md)
+14. [Providerneutraler Batch-, Queue- und Resume-Workflow](Project_Planning/PROVIDER_NEUTRAL_BATCH_QUEUE_RESUME_WORKFLOW_2026-08-13.md)
+15. [Master-Umsetzungsplan](Project_Planning/MASTER_IMPLEMENTATION_PLAN.md)
+16. [Masterplan-Ergänzung](Project_Planning/MASTER_IMPLEMENTATION_PLAN_SCOPE_ADDENDUM.md)
+17. [Project-Adapter-Priorisierung](Project_Planning/PROJECT_ADAPTER_PRIORITIZATION.md)
+18. [Container-Netzwerkverschiebung bei IP-Konflikt](Project_Planning/CONTAINER_NETWORK_RENUMBERING_BACKLOG.md)
+19. [Zukünftige Anwendungsfälle](Architecture/FUTURE_USE_CASES_AND_EXTENSION_GUARDRAILS.md)
 
 Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ein Feature bereits ausgeführt werden kann.
 
@@ -140,7 +141,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | Komponente | Status | Autoritative Dateien |
 |---|---|---|
 | PowerShell-Modul | implementiert | `SqlServerLab.psd1`, `SqlServerLab.psm1` |
-| Öffentliche API | 158 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
+| Öffentliche API | 165 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
 | Docker | implementiert | `Providers/Docker/DockerProvider.ps1` |
 | Podman | implementiert | `Providers/Podman/PodmanProvider.ps1` |
 | SQL Server External Languages | Container: Java für SQL 2019, Python/R/Java für SQL 2022/2025, jeweils Docker und Podman; Hyper-V/Windows: SQL-2022 Python/R/Java nativ akzeptiert, C# für SQL 2019–2025 sichtbar `PREVIEW` | `../Catalogs/software.json`, `../Tests/Integration/Invoke-ExternalRuntimeContainerAcceptance.ps1`, `../Tests/Integration/Invoke-ExternalRuntimeHyperVAcceptance.ps1` |
@@ -295,6 +296,13 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | `Get-SqlServerLabGeneratedWindowsAccess` | Automatisch generierten, run-lokal geschützten Windows-Administratorzugang eines Hyper-V-Slots gezielt abrufen |
 | `New-SqlServerLabWindowsSlotPool` | N Windows-Slots aus einer gültigen `OS_SEALED`-Baseline mit RAM-/Locale-Vertrag und unbeaufsichtigter OOBE erstellen oder fortsetzen |
 | `New-SqlServerLabAutomatedTestEnvironment` | Linux-Testumgebungen mit getrennten Zufallskennwörtern erstellen und nach Lab_Data exportieren |
+| `New-SqlServerLabEnvironmentGroup` | Leere Lab-Gruppe getrennt von der geschützten Testgruppe anlegen |
+| `Get-SqlServerLabEnvironmentGroup` | Lab-Gruppen und eine Run-/Scope-Bindung lesen; stale Zuordnungen werden markiert |
+| `Add-SqlServerLabEnvironmentGroupMember` | Vorhandenen Run mehreren Lab-Gruppen zuordnen |
+| `Remove-SqlServerLabEnvironmentGroupMember` | Einzelne Zuordnung ohne Runtime- oder Run-Änderung entfernen |
+| `Remove-SqlServerLabEnvironmentGroup` | Gruppe/Zuordnungen entfernen, ohne Runs zu stoppen oder zu löschen |
+| `Start-SqlServerLabEnvironmentGroup` | Alle gebundenen Runs idempotent starten und persistente Gruppenansprüche setzen |
+| `Stop-SqlServerLabEnvironmentGroup` | Gruppenansprüche lösen; gemeinsam beanspruchte Runs aktiv lassen |
 | `Export-SqlServerLabTestEnvironment` | Testzugänge nach gebundener Live-Health-Prüfung als dotenv, schema-validierbares JSON, portablen Agenten-Prompt und Markdown exportieren |
 | `Update-SqlServerLabTlsBinding` | Eigenen policygebundenen Docker-/Podman-TLS-Run nach Neustart strikt qualifizieren und ausschließlich seine Start-Epoche erneut binden |
 | `Get-SqlServerLabTlsBindingRecovery` | Eigene unvollständige Wiederbindung unter Lock ohne Clientnachweis anzeigen |

@@ -200,6 +200,13 @@ Get-SqlServerLabGeneratedSqlAccess      # Hyper-V-Generierte SQL-Accessdaten (Co
 New-SqlServerLabWindowsSlotPool         # N Windows-Slots mit unbeaufsichtigter OOBE erstellen/fortsetzen
 Get-SqlServerLabGeneratedWindowsAccess  # Generierten Windows-Administratorzugang gezielt abrufen
 New-SqlServerLabAutomatedTestEnvironment # Automatisierte Linux-Testumgebungen und Maschinenvertrag erzeugen
+New-SqlServerLabEnvironmentGroup          # Additive Gruppe für separat angelegte Runs anlegen
+Get-SqlServerLabEnvironmentGroup           # Gruppen und gebundene Run-/Scope-Referenzen lesen
+Add-SqlServerLabEnvironmentGroupMember    # Run-/Scope-gebundene Referenz mehreren Gruppen zuordnen
+Remove-SqlServerLabEnvironmentGroupMember # Einzelne Gruppenreferenz lösen, ohne Runtime-Lifecycle
+Remove-SqlServerLabEnvironmentGroup       # Gruppe und Referenzen entfernen, Runs erhalten
+Start-SqlServerLabEnvironmentGroup        # Gebundene Runs starten und Gruppenansprüche setzen
+Stop-SqlServerLabEnvironmentGroup         # Eigene Ansprüche lösen; gemeinsam genutzte Runs erhalten
 Export-SqlServerLabTestEnvironment      # TestUmgebung.env/JSON/JSON-Schema/Markdown unter Lab_Data aktualisieren
 Update-SqlServerLabTlsBinding          # Nach eigenem Containerneustart strikt qualifizieren und nur Start-Epoche erneut binden
 Get-SqlServerLabTlsBindingRecovery     # Letzte unvollständige eigene Wiederbindung ohne Apply anzeigen

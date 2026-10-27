@@ -6,6 +6,7 @@ Verbindliche Architekturdokumente fuer das SQL Server Lab.
 |---|---|
 | [HOST_CAPABILITY_MATRIX.md](HOST_CAPABILITY_MATRIX.md) | Providerübergreifende External-Languages-Übersicht in API, Konsole und Browser; getrennte Installation/Readiness und ungeprüfte Launchanforderungen |
 | [AUTHENTICATED_TLS_UI_CREATION.md](AUTHENTICATED_TLS_UI_CREATION.md) | Explizite False-Erstellung, private Auditallokation, Sitzungsreferenz und gezielter Lifecycle ohne Rootwahl im Browser |
+| [LAB_ENVIRONMENT_GROUPS.md](LAB_ENVIRONMENT_GROUPS.md) | Additive Many-to-many-Run-Zuordnung mit gemeinsamem Start-/Stop-Lifecycle und geteilten Run-Ansprüchen |
 | SQL_SERVER_CENTRIC_SCOPE_DECISION.md | SQL Server als Hauptzweck, Scope-Grenzen |
 | LAB_DATA_AND_NATIVE_RUNTIME_STORAGE_DECISION.md | Bindendes `Lab_Data`-Versprechen, native Runtime-Ausnahmen und Hosteingriffsgrenzen |
 | [AI_RAG_EXISTING_OLLAMA.md](AI_RAG_EXISTING_OLLAMA.md) | Vorhandene Host-Embeddings, explizite Cloudgeneration und exakte SQLsuche |

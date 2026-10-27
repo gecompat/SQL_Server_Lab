@@ -62,6 +62,14 @@ Erstellung, Verbindung und Cleanup. Die optionale Browserbedienung startet mit
 `./Tools/Start-SqlServerLabUi.ps1`;
 [Bedienung und Grenzen](Documentation/HowTo/WORKFLOW_UI.md) erläutern den Ablauf.
 
+Vorhandene Runs lassen sich über `New-SqlServerLabEnvironmentGroup`,
+`Get-SqlServerLabEnvironmentGroup`, `Add-SqlServerLabEnvironmentGroupMember`,
+`Remove-SqlServerLabEnvironmentGroupMember`,
+`Remove-SqlServerLabEnvironmentGroup`, `Start-SqlServerLabEnvironmentGroup`
+und `Stop-SqlServerLabEnvironmentGroup` in mehreren Lab-Gruppen gemeinsam
+verwenden. Der Gruppen-Lifecycle hält gemeinsam beanspruchte Runs aktiv;
+[Vertrag und Grenzen](Documentation/Architecture/LAB_ENVIRONMENT_GROUPS.md).
+
 **Sicherheit:** Lababläufe können Ressourcen, Konfigurationen und Daten verändern.
 Verwende isolierte Labs mit zulässigen synthetischen oder öffentlichen Samples.
 Produktionsbackups, Kundendaten und Secrets gehören nicht in das Repository.
