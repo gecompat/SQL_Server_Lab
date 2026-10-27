@@ -67,6 +67,7 @@ function New-LabTlsRebindResult {
 function Update-LabTlsRestartBinding {
     param([string]$RunId,[string]$InstanceId,[string]$StateRoot)
     $bound=Get-LabTlsOwnBinding $StateRoot $RunId $InstanceId
+    if($bound.Record.ContractVersion-ceq'SqlServerLab.AuthenticatedTlsLab/0.4'){throw 'TLS_LINUX_RESTART_REQUIRES_NEW_CLIENT_GENERATION'}
     $record=$bound.Record;$null=Get-LabTlsRebindIdentityDigest $record
     $provider=Get-LabTlsBindingProvider $record
     $budget=New-LabTlsRuntimeBudget -Provider $provider -StateRoot $StateRoot -Record $record

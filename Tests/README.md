@@ -1,5 +1,27 @@
 # Tests/ – lokale und Remote-Validierung
 
+Die [öffentliche Linux-Bindungsprüfung](Static/Invoke-AuthenticatedTlsLinuxPublicChecks.ps1)
+prüft neue Form, Eltern-/Kind-/Exportbindung und festen gehaltenen Quellsatz
+offline. Die [Transferprüfung](Static/Invoke-AuthenticatedTlsLinuxTransferChecks.ps1)
+prüft Pipe-, Deadline-, Lock- und Ausgabegrenzen mit echten lokalen
+Windowsprozessen. Beide starten weder Provider noch SQL.
+Die [lokale Bridgefixture](Static/Invoke-AuthenticatedTlsLinuxBridgeChecks.ps1)
+prüft den tatsächlichen Pipe-/Nonce-/Antwortablauf und Fehler-Cleanup mit
+lokalen Prozessen. Ihr Controllerverifier ist ein Stub; sie belegt weder
+Signaturprüfung noch Gast-Prozessende oder SQL-Login.
+
+Die [Linux-Sitzungsprüfung](Static/Invoke-AuthenticatedTlsLinuxSessionChecks.ps1)
+prüft den privaten Frische-, Replay-, Typ- und Zeitvertrag. Die
+[Linux-Metadatenprüfung](Static/Invoke-AuthenticatedTlsLinuxContextRecordChecks.ps1)
+prüft den geschlossenen runlokalen Client-Unterrecord. Beide laufen offline
+ohne Provider- oder SQL-Aufruf. Sie ersetzen weder Registrierung und
+Trustjournal noch die öffentliche Reader-/Consumerabnahme. Den ausgewählten
+Kontext und diese Entwicklungsgrenze erklärt der
+[Linux-Clientvertrag](../Documentation/Architecture/AUTHENTICATED_TLS_LINUX_CLIENT.md).
+Die [Peerprüfung](Static/Invoke-AuthenticatedTlsLinuxPeerChecks.ps1) koppelt
+den tatsächlichen Antwortproducer mit dem Peerparser und prüft die Ablehnung
+ohne gebundenen Bootstrap. Auch sie erzeugt keine native Sitzung.
+
 Die beiden vollständigen synthetischen HTTP-Fixtures für Containerports und
 Autostart laufen in eigenen begrenzten Prozessen mit festen Obergrenzen von
 180 beziehungsweise 240 Sekunden. Lokale Diagnosemessungen vom 2026-10-25

@@ -934,6 +934,26 @@ sources_of_truth:
   validation_authenticated_tls_backend_metadata: Tests/Static/Invoke-AuthenticatedTlsBackendChecks.ps1
   authenticated_tls_context_preview_contract: Documentation/Architecture/AUTHENTICATED_TLS_CONTEXT_PREVIEW.md
   authenticated_tls_context_preview: Private/AuthenticatedTlsContext.ps1 # current Windows token/profile/registry marker and on-disk client metadata; private snapshot, no registration or qualification
+  authenticated_tls_linux_client_contract: Documentation/Architecture/AUTHENTICATED_TLS_LINUX_CLIENT.md # selected Windows controller / owned isolated Linux client; development boundary, no native qualification
+  authenticated_tls_linux_session: Private/AuthenticatedTlsLinuxSession.ps1 # bounded private controller protocol; no transport/registration/SQL authority by itself
+  authenticated_tls_linux_peer: Private/AuthenticatedTlsLinuxPeer.ps1 # same-snapshot public bytes reader over an already supervised private channel; no channel creation from export
+  authenticated_tls_linux_context_record: Private/AuthenticatedTlsLinuxContextRecord.ps1 # closed run-local child metadata, unchanged Windows parent; no native observation
+  authenticated_tls_linux_client: Private/AuthenticatedTlsLinuxClient.ps1 # explicit 0.4 own child intent, actual isolation/trust/binary binding and removal before SQL; runtime qualification separate
+  authenticated_tls_linux_observer: Private/AuthenticatedTlsLinuxObserver.ps1 # fixed guest observation and clean process environment
+  authenticated_tls_linux_execution: Private/AuthenticatedTlsLinuxExecution.ps1 # owner-root serialization, durable pending execution and actual private PID namespace quiescence
+  authenticated_tls_linux_transfer: Private/AuthenticatedTlsLinuxTransfer.ps1 # bounded locked-source stdin, separate process/IO custody, no code selection from export
+  authenticated_tls_linux_qualification: Private/AuthenticatedTlsLinuxQualification.ps1 # actual two-stack Linux qualification and exact signed child/endpoint/context comparison
+  authenticated_tls_linux_bootstrap: Private/AuthenticatedTlsLinuxBootstrap.ps1 # caller-selected fixed transitive Lab/Toolbelt source closure, held originals and exact staged copies
+  authenticated_tls_linux_bridge: Private/AuthenticatedTlsLinuxBridge.ps1 # bounded foreground nonce exchange, per-open public verification, guest completion or own client reconciliation
+  public_authenticated_tls_linux_preflight: Public/Invoke-SqlServerLabLinuxPreflight.ps1 # Windows controller entry for dedicated read-only Toolbelt consumer; no feature adapter claim
+  authenticated_tls_linux_peer_module: SqlServerLab.LinuxPeer.psd1 # dedicated read-only public reader component; no authority outside a private live bootstrap
+  authenticated_tls_linux_peer_loader: Private/AuthenticatedTlsLinuxPeerModule.psm1 # fixed public-reader/parser/peer closure, no registry writer or CA/key code
+  validation_authenticated_tls_linux_session: Tests/Static/Invoke-AuthenticatedTlsLinuxSessionChecks.ps1 # deterministic replay/type/expiry/re-entry tests, no SQL/provider action
+  validation_authenticated_tls_linux_peer: Tests/Static/Invoke-AuthenticatedTlsLinuxPeerChecks.ps1 # actual producer/parser coupling and missing-bootstrap rejection, no native transport claim
+  validation_authenticated_tls_linux_context_record: Tests/Static/Invoke-AuthenticatedTlsLinuxContextRecordChecks.ps1 # closed scalar/topology/path metadata, no actual context registration
+  validation_authenticated_tls_linux_transfer: Tests/Static/Invoke-AuthenticatedTlsLinuxTransferChecks.ps1 # real local-process IO/timeout/lock/output checks; zero provider/SQL
+  validation_authenticated_tls_linux_public: Tests/Static/Invoke-AuthenticatedTlsLinuxPublicChecks.ps1 # closed 0.4/qualification/parent-child bindings, held source set and guest program parsing; no native proof
+  validation_authenticated_tls_linux_bridge: Tests/Static/Invoke-AuthenticatedTlsLinuxBridgeChecks.ps1 # actual local-process protocol, malformed PID/nonce/output and cleanup; controller verifier stub, no signature or native claim
   validation_authenticated_tls_context_preview: Tests/Static/Invoke-AuthenticatedTlsContextChecks.ps1 # coupled request/backend/pathguard and SqlReadiness application-selection contract; no SQL/provider execution
   authenticated_tls_registry_index_contract: Documentation/Architecture/AUTHENTICATED_TLS_REGISTRY_INDEX.md
   authenticated_tls_registry_index: Private/AuthenticatedTlsRegistryIndex.ps1 # bounded UTF8 reference/revision claims only, no native payload, I/O, registration or authority

@@ -27,7 +27,9 @@ function ConvertTo-LabTlsLiveQualificationResult {
         }
         $values[$name]=$value
     }
-    if($values.ContractVersion -cne 'SqlServerLab.TlsQualification/0.1' -or $values.Status -cne 'QUALIFIED' -or
+    $linuxVersion=$values.ContractVersion-ceq'SqlServerLab.TlsQualification/0.2'
+    if($linuxVersion-and($Qualification.ClientPlatform-isnot[string]-or$Qualification.ClientPlatform-cne'linux')){throw 'TLS_LIVE_QUALIFICATION_RESULT_INVALID'}
+    if($values.ContractVersion -cnotin @('SqlServerLab.TlsQualification/0.1','SqlServerLab.TlsQualification/0.2') -or $values.Status -cne 'QUALIFIED' -or
         $values.RunId -cne $RunId -or $values.InstanceId -cne $InstanceId -or
         $values.Provider -cnotin @('docker','podman') -or -not $values.Encrypt -or $values.TrustServerCertificate -or
         $values.Evidence -cne 'FRESH_NATIVE_SQLCLIENT_AND_ODBC_SQLCMD' -or $values.WireCertificateFingerprint -cne 'NOT_OBSERVED'){

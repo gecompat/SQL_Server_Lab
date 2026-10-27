@@ -109,6 +109,10 @@ function Remove-SqlServerLab {
         }
     }
 
+    # An explicitly allocated Linux child must be gone before its SQL namespace,
+    # secret and parent run can become REMOVED. Unknown cleanup blocks progress.
+    Remove-LabTlsLinuxClientIfPresent -StateRoot $StateRoot -RunId $RunId
+
     if ($state.state -eq 'CLEANED_UP') {
         $null = Set-LabRunState `
             -RunId $RunId `

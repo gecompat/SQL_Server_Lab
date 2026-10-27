@@ -50,7 +50,7 @@ end {
     }
 
     $hasPowerShell = Test-AnyPath '\.(ps1|psm1|psd1)$'
-    $hasProductCode = Test-AnyPath '^(Private|Public|Providers|Adapters|Catalogs|Schemas)/|^SqlServerLab\.(psd1|psm1)$|^Tools/Set-SqlServerLabFullText\.sh$'
+    $hasProductCode = Test-AnyPath '^(Private|Public|Providers|Adapters|Catalogs|Schemas)/|^SqlServerLab(?:\.LinuxPeer)?\.(psd1|psm1)$|^Tools/Set-SqlServerLabFullText\.sh$'
     $docsOnly = $allPaths.Count -gt 0 -and -not $hasProductCode -and -not $hasPowerShell -and
         -not (Test-AnyPath '^\.github/workflows/')
 
@@ -114,6 +114,14 @@ end {
         @{ Pattern = '^(?-i:Private/AuthenticatedTls(LiveQualification|Qualification|Lab|Authority|AuthorityBinding|Context|Backend|RegistryWriter|RegistryRoot|RegistryDocument|RegistryPayload|RegistryIndex|CaCandidate|RestartRebind|RebindRecovery)\.ps1|Private/DiagnosticBundleReader\.ps1|Public/Test-SqlServerLabTlsQualification\.ps1|Tests/Static/Invoke-AuthenticatedTlsLiveQualificationChecks\.ps1|Tests/Common/AuthenticatedTls(LiveQualificationAcceptance|AcceptanceSelection)\.ps1|Tests/Integration/Invoke-AuthenticatedTlsLabAcceptance\.ps1|Catalogs/sql-server-versions\.json)$'; Checks = @('Invoke-AuthenticatedTlsLiveQualificationChecks.ps1') },
         @{ Pattern = '(?i)(AuthenticatedTlsLiveQualification(?:Http)?\.ps1|WorkflowUiTlsLiveQualification\.ps1|TlsLiveQualification(?:Http|Ui)Checks|Ui/tls-live-qualification\.js)'; Checks = @('Invoke-WorkflowUiChecks.ps1','Invoke-AuthenticatedTlsLiveQualificationChecks.ps1') },
         @{ Pattern = '^(?-i:Private/ContainerOwnedHostIntegration\.ps1|Tests/Common/AuthenticatedTlsLinuxClient\.ps1|Tests/Integration/Invoke-AuthenticatedTlsLinuxAcceptance\.ps1|Tests/Integration/Fixtures/TlsLinuxClientProbe\.ps1|Tests/Static/Invoke-AuthenticatedTlsLinuxClientChecks\.ps1)$'; Checks = @('Invoke-AuthenticatedTlsLinuxClientChecks.ps1') },
+        @{ Pattern = '^(?-i:Private/AuthenticatedTlsLinux(Session|Peer)\.ps1|Tests/Static/Invoke-AuthenticatedTlsLinuxSessionChecks\.ps1)$'; Checks = @('Invoke-AuthenticatedTlsLinuxSessionChecks.ps1','Invoke-AuthenticatedTlsLinuxPeerChecks.ps1') },
+        @{ Pattern = '^(?-i:Public/Read-SqlServerLabQualifiedTestEnvironment\.ps1|Tests/Static/Invoke-AuthenticatedTlsLinuxPeerChecks\.ps1)$'; Checks = @('Invoke-AuthenticatedTlsLinuxPeerChecks.ps1') },
+        @{ Pattern = '^(?-i:Private/AuthenticatedTlsLinuxContextRecord\.ps1|Tests/Static/Invoke-AuthenticatedTlsLinuxContextRecordChecks\.ps1)$'; Checks = @('Invoke-AuthenticatedTlsLinuxContextRecordChecks.ps1') },
+        @{ Pattern = '^(?-i:Private/AuthenticatedTlsLinux(?:Client|Observer|Execution|Qualification|Bootstrap|Bridge|Transfer)\.ps1|Public/(?:New|Remove)-SqlServerLab\.ps1|Public/Invoke-SqlServerLabLinuxPreflight\.ps1|Tests/Static/Invoke-AuthenticatedTlsLinuxPublicChecks\.ps1)$'; Checks = @('Invoke-AuthenticatedTlsLinuxPublicChecks.ps1','Invoke-AuthenticatedTlsLinuxTransferChecks.ps1','Invoke-AuthenticatedTlsLabChecks.ps1','Invoke-OwnedHostIntegrationChecks.ps1') },
+        @{ Pattern = '^(?-i:Private/AuthenticatedTlsLinuxTransfer\.ps1|Tests/Static/Invoke-AuthenticatedTlsLinuxTransferChecks\.ps1)$'; Checks = @('Invoke-AuthenticatedTlsLinuxTransferChecks.ps1') },
+        @{ Pattern = '^(?-i:Private/AuthenticatedTlsLinux(?:Bridge|Bootstrap|Session)\.ps1|Tests/Static/Invoke-AuthenticatedTlsLinuxBridgeChecks\.ps1)$'; Checks = @('Invoke-AuthenticatedTlsLinuxBridgeChecks.ps1') },
+        @{ Pattern = '^(?-i:SqlServerLab\.LinuxPeer\.psd1|Private/AuthenticatedTlsLinuxPeerModule\.psm1)$'; Checks = @('Invoke-AuthenticatedTlsLinuxPublicChecks.ps1','Invoke-AuthenticatedTlsLinuxPeerChecks.ps1') },
+        @{ Pattern = '^(?-i:Private/AuthenticatedTls(Request|RegistryIndex|Lab)\.ps1)$'; Checks = @('Invoke-AuthenticatedTlsLinuxSessionChecks.ps1','Invoke-AuthenticatedTlsLinuxPeerChecks.ps1','Invoke-AuthenticatedTlsLinuxContextRecordChecks.ps1','Invoke-AuthenticatedTlsLinuxPublicChecks.ps1') },
         @{ Pattern = '^(?-i:Private/AuthenticatedTls(RestartRebind|RebindRecovery)\.ps1)$'; Checks = @('Invoke-AuthenticatedTlsLabChecks.ps1') },
         @{ Pattern = '^(?-i:Private/AuthenticatedTls(RestartRebind|RebindRecovery|Lab|Qualification|RegistryWriter|CaCandidate)\.ps1|Public/(Update-SqlServerLabTlsBinding|Get-SqlServerLabTlsBindingRecovery|Resolve-SqlServerLabTlsBindingRecovery)\.ps1|Tests/Static/Invoke-AuthenticatedTlsRestartRebindChecks\.ps1|Tests/Static/Fixtures/AuthenticatedTlsRebindRecoveryChecks\.ps1|Tests/Common/AuthenticatedTlsRebindRecoveryAcceptance\.ps1|Catalogs/sql-server-versions\.json)$'; Checks = @('Invoke-AuthenticatedTlsRestartRebindChecks.ps1') },
         @{ Pattern = '^(?-i:Public/(Update-SqlServerLabTlsBinding|Get-SqlServerLabTlsBindingRecovery|Resolve-SqlServerLabTlsBindingRecovery)\.ps1|SqlServerLab\.psd1)$'; Checks = @('Invoke-PublicCommandConsoleChecks.ps1','Invoke-ConsoleUiChecks.ps1','Invoke-WorkflowUiChecks.ps1') },
@@ -297,7 +305,7 @@ end {
             # because its basename resembles executable code.
             if ($runtimePath -match '(?i)(\.(md|txt|rst)$|^Documentation/)') { continue }
             $pathRuntime = [ordered]@{ Docker = $false; Podman = $false; Mixed = $false; HyperV = $false; Adapter = $false }
-            $pathHasProductCode = $runtimePath -match '^(Private|Public|Providers|Adapters|Catalogs|Schemas)/|^SqlServerLab\.(psd1|psm1)$'
+            $pathHasProductCode = $runtimePath -match '^(Private|Public|Providers|Adapters|Catalogs|Schemas)/|^SqlServerLab(?:\.LinuxPeer)?\.(psd1|psm1)$'
             if($runtimePath -cmatch '^Tools/Set-SqlServerLabFullText\.sh$'){$pathRuntime.Docker=$true;$pathRuntime.Podman=$true}
             if($runtimePath -cmatch '^(Private/SqlFeatures|Public/Set-SqlServerLabFeature|Tests/Integration/Invoke-SqlFeatureAcceptance)\.ps1$'){$pathRuntime.Docker=$true;$pathRuntime.Podman=$true;$pathRuntime.HyperV=$true}
             if ($runtimePath -match '(?i)^(Private/ContainerOwnedHostIntegration\.ps1|Tests/Common/OwnedHostTestScope\.ps1|Schemas/container-owned-host-integration\.schema\.json)$') {

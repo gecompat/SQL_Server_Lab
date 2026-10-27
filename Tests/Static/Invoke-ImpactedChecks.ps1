@@ -21,11 +21,73 @@ $failures = [System.Collections.Generic.List[string]]::new()
 $cacheEnabled = $env:GITHUB_ACTIONS -ne 'true'
 $reuse = $cacheEnabled -and $Development -and -not $NoReuse
 $evidenceRoot = Join-Path $repoRoot '.artifacts/test-runs/local-static-evidence'
+$logRootSafe=$true
 foreach ($part in @('.artifacts','.artifacts/test-runs','.artifacts/test-runs/local-static-evidence')) {
     $directory=Join-Path $repoRoot $part
-    if ((Test-Path -LiteralPath $directory) -and ((Get-Item -LiteralPath $directory -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { $cacheEnabled=$false; $reuse=$false }
+    if ((Test-Path -LiteralPath $directory) -and ((Get-Item -LiteralPath $directory -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { $cacheEnabled=$false; $reuse=$false; $logRootSafe=$false }
 }
-if ($cacheEnabled) { $null=New-Item -ItemType Directory -Path $evidenceRoot -Force }
+if (-not $logRootSafe) { throw 'STATIC_CHECK_LOG_ROOT_UNSAFE' }
+$null=New-Item -ItemType Directory -Path $evidenceRoot -Force
+
+function Invoke-StaticCheckChild {
+    param([string]$Invocation,[string[]]$ArgumentList,[Parameter(Mandatory)][string]$LogPath)
+    $info=[Diagnostics.ProcessStartInfo]::new($Invocation)
+    $info.UseShellExecute=$false;$info.CreateNoWindow=$true
+    $info.RedirectStandardOutput=$true;$info.RedirectStandardError=$true
+    foreach($argument in $ArgumentList){$info.ArgumentList.Add($argument)}
+    $process=[Diagnostics.Process]::new();$process.StartInfo=$info;$started=$false;$ended=$false
+    $log=$null;$stdout=$null;$stderr=$null;$outTask=$null;$errTask=$null;$primaryFailure=$null
+    try{
+        # Publish durable sidecar locations before the child can emit any bytes.
+        # Unbuffered write-through streams retain partial output if this host ends.
+        $log=[IO.FileStream]::new($LogPath,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::Read,1,[IO.FileOptions]::WriteThrough)
+        $header=[Text.Encoding]::UTF8.GetBytes("PARTIAL_LOGS: "+$LogPath+".stdout | "+$LogPath+".stderr"+[Environment]::NewLine)
+        $log.Write($header,0,$header.Length);$log.Flush($true)
+        $options=[IO.FileOptions]::Asynchronous -bor [IO.FileOptions]::WriteThrough
+        $stdout=[IO.FileStream]::new($LogPath+'.stdout',[IO.FileMode]::CreateNew,[IO.FileAccess]::ReadWrite,[IO.FileShare]::Read,1,$options)
+        $stderr=[IO.FileStream]::new($LogPath+'.stderr',[IO.FileMode]::CreateNew,[IO.FileAccess]::ReadWrite,[IO.FileShare]::Read,1,$options)
+        $started=$process.Start()
+        if(-not$started){throw 'STATIC_CHECK_CHILD_NOT_STARTED'}
+        $outTask=$process.StandardOutput.BaseStream.CopyToAsync($stdout)
+        $errTask=$process.StandardError.BaseStream.CopyToAsync($stderr)
+        while(-not$process.WaitForExit(100)){
+            foreach($task in @($outTask,$errTask)){
+                if($task.IsFaulted-or$task.IsCanceled){$null=$task.GetAwaiter().GetResult()}
+            }
+        }
+        $ended=$true
+        if(-not[Threading.Tasks.Task]::WaitAll([Threading.Tasks.Task[]]@($outTask,$errTask),5000)){throw 'STATIC_CHECK_CHILD_IO_INCOMPLETE'}
+        $null=$outTask.GetAwaiter().GetResult();$null=$errTask.GetAwaiter().GetResult()
+        $stdout.Flush($true);$stderr.Flush($true)
+        $log.Position=0;$log.SetLength(0)
+        $stdout.Position=0;$stdout.CopyTo($log)
+        $stderr.Position=0;$stderr.CopyTo($log)
+        $log.Flush($true)
+        return $process.ExitCode
+    }catch{$primaryFailure=$_.Exception;throw}finally{
+        $cleanupErrors=[Collections.Generic.List[Exception]]::new()
+        try{
+            if($started-and-not$ended){
+                if(-not$process.HasExited){$process.Kill($true)}
+                if(-not$process.WaitForExit(5000)){throw 'STATIC_CHECK_CHILD_TERMINATION_UNCONFIRMED'}
+                if($outTask-and$errTask){
+                    if(-not[Threading.Tasks.Task]::WaitAll([Threading.Tasks.Task[]]@($outTask,$errTask),5000)){throw 'STATIC_CHECK_CHILD_IO_INCOMPLETE'}
+                }
+            }
+        }catch{$cleanupErrors.Add($_.Exception)}
+        foreach($stream in @($stdout,$stderr,$log)){
+            if($stream){
+                try{$stream.Flush($true)}catch{$cleanupErrors.Add($_.Exception)}
+                try{$stream.Dispose()}catch{$cleanupErrors.Add($_.Exception)}
+            }
+        }
+        try{$process.Dispose()}catch{$cleanupErrors.Add($_.Exception)}
+        if($cleanupErrors.Count){
+            if($primaryFailure){$cleanupErrors.Insert(0,$primaryFailure)}
+            throw [AggregateException]::new('STATIC_CHECK_CHILD_CLEANUP_FAILED',$cleanupErrors.ToArray())
+        }
+    }
+}
 
 Write-Host "Betroffene statische Suites: $($selection.StaticChecks -join ', ')" -ForegroundColor Cyan
 foreach ($check in $selection.StaticChecks) {
@@ -52,10 +114,9 @@ foreach ($check in $selection.StaticChecks) {
             $command="& '$entry' -ChangedPath @(([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('$encodedPaths')) | ConvertFrom-Json))"
             $arguments=@('-NoLogo','-NoProfile','-EncodedCommand',[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($command)))
         }
+        $log=Join-Path $evidenceRoot ([guid]::NewGuid().ToString('N')+'.private.log')
+        $code=Invoke-StaticCheckChild -Invocation $pwsh.Source -ArgumentList $arguments -LogPath $log
         if ($binding) {
-            $log=Join-Path $evidenceRoot ([guid]::NewGuid().ToString('N')+'.private.log')
-            & $pwsh.Source @arguments *> $log
-            $code=$LASTEXITCODE
             $end=Get-LocalStaticEvidenceBinding -RepoRoot $repoRoot -Check $check -ChangedPath $ChangedPath -RunnerInvocation $pwsh.Source
             $stable=$end -ceq $binding
             $record=@{Schema='LOCAL_STATIC_EVIDENCE/v1';Status=if($code -eq 0 -and $stable){'EXECUTED_PASS'}else{'FAIL_OR_UNKNOWN'};
@@ -64,7 +125,11 @@ foreach ($check in $selection.StaticChecks) {
             Write-Host "$($record.Status): $check; private log: $log"
             if ($code -ne 0) { Get-Content -LiteralPath $log -Tail 20 | Out-Host }
             if (-not $stable) { $failures.Add("$check (source binding changed)") }
-        } else { & $pwsh.Source @arguments; $code=$LASTEXITCODE }
+        } else {
+            $status=if($code -eq 0){'EXECUTED_PASS'}else{'FAIL_OR_UNKNOWN'}
+            Write-Host "$status`: $check; private log: $log"
+            if ($code -ne 0) { Get-Content -LiteralPath $log -Tail 20 | Out-Host }
+        }
         if ($code -ne 0) { $failures.Add("$check (Exitcode $code)") }
     } finally { if ($lock) { $lock.Dispose() } }
 }

@@ -255,6 +255,9 @@ erreichbar. Die [Bedienanleitung](../HowTo/WORKFLOW_UI.md#tls-jetzt-prüfen)
 führt durch Serverkontext, Auswahl, Ergebnis und Fehlerhilfe. Die allgemeine
 UI-Mindestversion bleibt unverändert; die Liveprüfung benötigt Windows und
 PowerShell 7.5.
+Der zusätzliche [isolierte Linuxclient](../Architecture/AUTHENTICATED_TLS_LINUX_CLIENT.md)
+besitzt eine eigene ausdrückliche Erstellungs-/Consumergrenze und ist aktuell
+noch nicht nativ freigegeben.
 Weitere Kombinationen und offene Prüfwege stehen im
 [P1-Backlog TLS-001](../Project_Planning/NEW_SQL_LAB_USE_CASES_BACKLOG.md#tls-001--authentifizierte-tls-verbindungen-der-testumgebungen).
 

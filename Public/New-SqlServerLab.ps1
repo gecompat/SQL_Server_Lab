@@ -383,6 +383,12 @@ function New-SqlServerLab {
         Controller der registrierten CA-DataRoot-Bindung.
     .PARAMETER TlsLocationId
         Location der registrierten CA-DataRoot-Bindung.
+    .PARAMETER TlsClientPlatform
+        Windows (Default) oder ein eigener isolierter Linuxclient. Linux ist
+        eine ausdrueckliche neue DNS-localhost-Bindung, kein Wechsel alter Runs.
+    .PARAMETER TlsLinuxPowerShellPackage
+        Vorhandenes fest gepinntes PowerShell-7.6.6-linux-x64-Paket fuer den
+        eigenen Linuxclient. Keine automatische Installation oder Beschaffung.
     #>
     [CmdletBinding(DefaultParameterSetName = 'AdHoc')]
     param(
@@ -444,7 +450,9 @@ function New-SqlServerLab {
         [bool]$TrustServerCertificate = $true,
         [string]$TlsCandidateId,
         [string]$TlsControllerId,
-        [string]$TlsLocationId
+        [string]$TlsLocationId,
+        [ValidateSet('Windows','Linux')][string]$TlsClientPlatform='Windows',
+        [string]$TlsLinuxPowerShellPackage
     )
 
     $ErrorActionPreference = 'Stop'
@@ -452,7 +460,7 @@ function New-SqlServerLab {
     if (-not $TrustServerCertificate) {
         return New-LabAuthenticatedTlsEnvironment -Parameters $PSBoundParameters
     }
-    if ($TlsCandidateId -or $TlsControllerId -or $TlsLocationId) { throw 'TLS_LAB_FALSE_SELECTION_REQUIRED' }
+    if ($TlsCandidateId -or $TlsControllerId -or $TlsLocationId -or $PSBoundParameters.ContainsKey('TlsClientPlatform') -or $PSBoundParameters.ContainsKey('TlsLinuxPowerShellPackage')) { throw 'TLS_LAB_FALSE_SELECTION_REQUIRED' }
     Write-LabHeader 'SQL Server Lab - Neue Umgebung'
 
     if ($GenerateSaPassword -and $SaPassword) {
