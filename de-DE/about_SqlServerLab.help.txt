@@ -512,6 +512,10 @@ Sync-SqlServerLabRunScopedContainerStore
         Prüft denselben signierten V2-Bytesnapshot gegen Frist und aktuelle
         eigene Bindungen; enthält private Zugangsdaten, öffnet keine SQL-Verbindung.
 
+    Invoke-SqlServerLabLinuxPreflight
+        Dedizierter read-only Toolbelt-Preflight im ausdruecklich eigenen
+        Linuxclient. Entwicklung; separate native Abnahme erforderlich.
+
     Test-SqlServerLabTlsQualification
         Prüft ausdrücklich beide echten strikten Clientstacks am eigenen
         operativen Windows-/Docker-/Podman-TLS-Lab. Ergebnis ohne Secrets für

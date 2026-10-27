@@ -81,6 +81,24 @@ Reine Dokumentationsänderungen starten keine Runtime. Unbekannte produktive
 Änderungen verwenden die sichere Auswahl aus `Tools/Get-CiTestSelection.ps1`.
 Docker, Podman, Mixed und Hyper-V bleiben getrennte Nachweise.
 
+### SQL-Versionen nach tatsächlicher Abhängigkeit auswählen
+
+Generische Abläufe werden je betroffenem Implementierungs-, Provider- und
+Clientkontext an einem repräsentativen gepinnten SQL-Build geprüft. Weitere
+SQL-Versionen werden für denselben Ablauf nur ausgeführt, wenn ein anderer
+Codezweig, eine SQL-Fähigkeit, ein versionsabhängiger Engine-/Treibervertrag
+oder eine ausdrücklich noch fehlende Mindestabdeckung dies verlangt. Gleiche
+Befehlsfolge und gleiche Voraussetzungen bilden eine gemeinsame Testklasse.
+
+Versionstabellen, Buildbindungen, signierte Profilfelder und abweichende
+Recordformen werden weiterhin mit kleinen Offlinefällen geprüft. Sie erzeugen
+keine automatische Laufzeitmatrix. Eine offene Versionszelle der vereinbarten
+Mindestmatrix benötigt ihren gezielten Nachweis, keine Wiederholung sämtlicher
+UI-, Lifecycle-, Export-, Recovery- oder Consumerfälle. Die Laufzeitplanung
+nennt die geprüfte Grenze, den gewählten Repräsentanten, vorhandene Belege und
+den konkreten Grund für jede zusätzliche Versionsausführung. Wiederverwendung
+belegt keine bisher unbeobachtete Kombination.
+
 Die vollständige statische Regression und die vollständige Runtime-Matrix
 werden nicht nach jedem Zwischenfix ausgeführt. Sie bleiben für Nightly,
 Release, ausdrückliche Abnahme oder einen Scope vorbehalten, dessen geteilter

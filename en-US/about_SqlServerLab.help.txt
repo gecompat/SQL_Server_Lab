@@ -510,6 +510,10 @@ Sync-SqlServerLabRunScopedContainerStore
         Verifies the same signed V2 byte snapshot against expiry and current
         owned bindings; contains private credentials and opens no SQL connection.
 
+    Invoke-SqlServerLabLinuxPreflight
+        Dedicated read-only Toolbelt preflight in an explicitly owned Linux
+        client. In development; separate native qualification is required.
+
     Test-SqlServerLabTlsQualification
         Explicitly checks both real strict client stacks against an owned
         operational Windows/Docker/Podman TLS lab. Returns a secret-free

@@ -1,5 +1,16 @@
 # Lokale Validierungsstrategie
 
+## Versionsauswahl für neue Laufzeitnachweise
+
+Neue Abnahmen folgen der [Auswahl nach tatsächlicher Versionsabhängigkeit](COST_EFFICIENT_DEVELOPMENT.md#sql-versionen-nach-tatsächlicher-abhängigkeit-auswählen).
+Für gemeinsame Befehlsfolgen und Voraussetzungen genügt ein repräsentativer
+gepinnter SQL-Build je betroffener Implementierungs-, Provider- und Clientgrenze.
+Zusätzliche Versionen benötigen einen benannten fachlichen Unterschied oder
+eine noch fehlende vereinbarte Mindestabdeckung. Build-/Profilbindungen und
+Recordformen bleiben gezielte Offlinefälle. Die nachfolgenden historischen
+Nachweise behalten ihren damaligen Umfang und Quellstand; sie begründen keine
+automatische Wiederholung derselben breiten Matrix.
+
 ## Verbindungstext kopieren
 
 Die echte Clipboard-Komponente bestand 16 fokussierte Offlinefälle zu

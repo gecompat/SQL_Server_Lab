@@ -23,6 +23,13 @@ function Assert-LabTlsSqlCatalogProfile {
 
 function Get-LabTlsBindingSqlProfile {
     param([object]$Record)
+    if($Record.ContractVersion-ceq'SqlServerLab.AuthenticatedTlsLab/0.4'){
+        if($Record.ContractVersion-isnot[string]-or$Record.SqlProfileId-isnot[string]-or
+            $Record.SqlProfileId-cnotin@('2025-CU9','2022-CU27','2019-CU32')-or
+            $Record.ClientPlatform-isnot[string]-or$Record.ClientPlatform-cne'linux'-or
+            -not(Test-LabTlsRequestReference $Record.LinuxClientRef)){throw 'TLS_LAB_BINDING_SQL_PROFILE_INVALID'}
+        return Get-LabTlsSqlProfile $Record.SqlProfileId
+    }
     if($Record.ContractVersion -cin @('SqlServerLab.AuthenticatedTlsLab/0.1','SqlServerLab.AuthenticatedTlsLab/0.2') -and -not $Record.PSObject.Properties['SqlProfileId']){
         return Get-LabTlsSqlProfile '2025-CU9'
     }
@@ -52,8 +59,40 @@ function Read-LabTlsBoundJson {
     }finally{$document.Dispose()}
 }
 
+function Get-LabTlsRuntimeFailureSummary {
+    param(
+        [int]$ExitCode,[string]$StandardError,[int]$OutputLength,
+        [ValidateSet('unspecified','linux-client-create','linux-client-start','linux-client-layout','linux-client-trust-write','linux-client-observation','linux-client-namespace-check','linux-client-qualification')]
+        [string]$OperationStage='unspecified'
+    )
+    $class='STDERR_UNCLASSIFIED'
+    if(-not $StandardError){$class='STDERR_EMPTY'}
+    else{
+        foreach($rule in @(
+            @{Pattern='(?i)\bno such container\b';Class='CONTAINER_NOT_FOUND'},
+            @{Pattern='(?i)\bcontainer\b.*\bnot running\b';Class='CONTAINER_NOT_RUNNING'},
+            @{Pattern='(?i)address already in use|port is already allocated';Class='PORT_CONFLICT'},
+            @{Pattern='(?i)cannot connect to.*daemon|error during connect|is the docker daemon running';Class='DAEMON_UNREACHABLE'},
+            @{Pattern='(?i)unauthorized|authentication required|pull access denied';Class='REGISTRY_AUTHORIZATION'},
+            @{Pattern='(?i)no such image|manifest unknown';Class='IMAGE_NOT_FOUND'},
+            @{Pattern='(?i)permission denied|access is denied';Class='PERMISSION_DENIED'},
+            @{Pattern='(?i)\bx509\b|\btls\b|certificate';Class='TLS_CERTIFICATE'},
+            @{Pattern='(?i)network .* not found';Class='NETWORK_NOT_FOUND'},
+            @{Pattern='(?i)deadline exceeded|context canceled|timed out|timeout';Class='RUNTIME_TIMEOUT'},
+            @{Pattern='(?i)^\s*error response from daemon:';Class='DAEMON_REJECTED_REQUEST'}
+        )){
+            if($StandardError -match $rule.Pattern){$class=$rule.Class;break}
+        }
+    }
+    return "TLS_LAB_RUNTIME_COMMAND_FAILED|exitCode=$ExitCode|stderrClass=$class|stderrBytes=$([Text.Encoding]::UTF8.GetByteCount($StandardError))|stdoutChars=$OutputLength|operationStage=$OperationStage"
+}
+
 function Invoke-LabTlsContainer {
-    param([string[]]$Arguments,[string]$InputText,[object]$Budget)
+    param(
+        [string[]]$Arguments,[string]$InputText,[object]$Budget,
+        [ValidateSet('unspecified','linux-client-create','linux-client-start','linux-client-layout','linux-client-trust-write','linux-client-observation','linux-client-namespace-check','linux-client-qualification')]
+        [string]$OperationStage='unspecified'
+    )
     Assert-LabTlsRuntimeBudget $Budget 1
     if($InputText.Length -gt 16384){throw 'TLS_LAB_RUNTIME_INPUT_TOO_LARGE'}
     $start=New-LabTlsRuntimeProcessInfo -Arguments $Arguments -Budget $Budget
@@ -62,8 +101,8 @@ function Invoke-LabTlsContainer {
         $started=$process.Start();$stdout=$process.StandardOutput.ReadToEndAsync();$stderr=$process.StandardError.ReadToEndAsync()
         if($InputText){$write=$process.StandardInput.WriteAsync($InputText);if(-not $write.Wait(10000)){throw 'TLS_LAB_RUNTIME_INPUT_TIMEOUT'};$null=$write.GetAwaiter().GetResult()};$process.StandardInput.Close()
         if(-not $process.WaitForExit(45000)){throw 'TLS_LAB_RUNTIME_TIMEOUT'}
-        $output=$stdout.GetAwaiter().GetResult();$null=$stderr.GetAwaiter().GetResult()
-        if($process.ExitCode -ne 0 -or $output.Length -gt 1048576){throw 'TLS_LAB_RUNTIME_COMMAND_FAILED'}
+        $output=$stdout.GetAwaiter().GetResult();$errorText=$stderr.GetAwaiter().GetResult()
+        if($process.ExitCode -ne 0 -or $output.Length -gt 1048576){throw (Get-LabTlsRuntimeFailureSummary -ExitCode $process.ExitCode -StandardError $errorText -OutputLength $output.Length -OperationStage $OperationStage)}
         return $output.TrimEnd("`r","`n")
     }finally{
         if($started -and -not $process.HasExited){$process.Kill($true);$process.WaitForExit()};$process.Dispose()
@@ -80,7 +119,7 @@ function Assert-LabTlsRuntimeBudget {
 
 function Get-LabTlsRuntimePin {
     param([object]$Budget)
-    if($Budget.Record -and $Budget.Record.ContractVersion -cin @('SqlServerLab.AuthenticatedTlsLab/0.2','SqlServerLab.AuthenticatedTlsLab/0.3')){
+    if($Budget.Record -and $Budget.Record.ContractVersion -cin @('SqlServerLab.AuthenticatedTlsLab/0.2','SqlServerLab.AuthenticatedTlsLab/0.3','SqlServerLab.AuthenticatedTlsLab/0.4')){
         $recorded=Get-LabTlsRecordedRuntimePin $Budget.Record $Budget.StateRoot
         if($Budget.RuntimeContext){
             foreach($name in @('Provider','Invocation','Endpoint','IdentityPath','IdentitySha256','RuntimeScopeId','RoutingKey','IncarnationKey','MachineName')){
@@ -177,13 +216,13 @@ function New-LabTlsRuntimeBinding {
     param([object]$Policy,[object]$Context,[string]$StateRoot)
     return [pscustomobject]@{PolicyId=$Policy.PolicyId;PolicySha256=(Get-FileHash -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json')).Hash.ToLowerInvariant();
         RuntimeScopeId=$Context.RuntimeScopeId;RoutingKey=$Context.RoutingKey;IncarnationKey=$Context.IncarnationKey;
-        Invocation=$Context.Invocation;Endpoint=$Context.Endpoint;IdentityPath=[string]$Context.IdentityPath;IdentitySha256=[string]$Context.IdentitySha256;MachineName=[string]$Context.MachineName}
+        Invocation=$Context.Invocation;Endpoint=$Context.Endpoint;IdentityPath=[string]$Context.IdentityPath;IdentitySha256=[string]$Context.IdentitySha256;MachineName=$Context.MachineName}
 }
 
 function Get-LabTlsBindingProvider {
     param([object]$Record)
     if($Record.ContractVersion -ceq 'SqlServerLab.AuthenticatedTlsLab/0.1' -and -not $Record.PSObject.Properties['Provider']){return 'docker'}
-    if($Record.ContractVersion -cin @('SqlServerLab.AuthenticatedTlsLab/0.2','SqlServerLab.AuthenticatedTlsLab/0.3') -and $Record.Provider -cin @('docker','podman')){return [string]$Record.Provider}
+    if($Record.ContractVersion -cin @('SqlServerLab.AuthenticatedTlsLab/0.2','SqlServerLab.AuthenticatedTlsLab/0.3','SqlServerLab.AuthenticatedTlsLab/0.4') -and $Record.Provider -cin @('docker','podman')){return [string]$Record.Provider}
     throw 'TLS_LAB_BINDING_PROVIDER_INVALID'
 }
 
@@ -197,7 +236,10 @@ function Read-LabTlsLabRecord {
         $shape='SqlServerLab.AuthenticatedTlsLab/0.2'
         try{$record=Read-LabTlsBoundJson $Bytes @($fields+'Provider'+'RuntimeBinding')}catch{
             $shape='SqlServerLab.AuthenticatedTlsLab/0.3'
-            $record=Read-LabTlsBoundJson $Bytes @($fields+'Provider'+'RuntimeBinding'+'SqlProfileId')
+            try{$record=Read-LabTlsBoundJson $Bytes @($fields+'Provider'+'RuntimeBinding'+'SqlProfileId')}catch{
+                $shape='SqlServerLab.AuthenticatedTlsLab/0.4'
+                $record=Read-LabTlsBoundJson $Bytes @($fields+'Provider'+'RuntimeBinding'+'SqlProfileId'+'ClientPlatform'+'LinuxClientRef')
+            }
         }
     }
     if($record.ContractVersion -cne $shape){throw 'TLS_LAB_BINDING_SHAPE_INVALID'}
@@ -260,11 +302,11 @@ function Assert-LabTlsOwnContainer {
     $context=Get-LabTlsOwnedRuntimeContext -RunId $Record.RunId -StateRoot $StateRoot -Budget $Budget
     $imageId=$context.Inspect.Image;$configImage=$context.Inspect.Config.Image
     $expectedConfigImage='mcr.microsoft.com/mssql/server:2025-CU9-ubuntu-24.04'
-    if($Record.ContractVersion -cin @('SqlServerLab.AuthenticatedTlsLab/0.2','SqlServerLab.AuthenticatedTlsLab/0.3')){
+    if($Record.ContractVersion -cin @('SqlServerLab.AuthenticatedTlsLab/0.2','SqlServerLab.AuthenticatedTlsLab/0.3','SqlServerLab.AuthenticatedTlsLab/0.4')){
         $imageId=ConvertTo-LabTlsImageId $imageId;$configImage=ConvertTo-LabTlsImageId $configImage
         $expectedConfigImage=$Record.ImageId
     }
-    if(($Record.ContractVersion -cin @('SqlServerLab.AuthenticatedTlsLab/0.2','SqlServerLab.AuthenticatedTlsLab/0.3') -and -not $context.PolicyBound) -or
+    if(($Record.ContractVersion -cin @('SqlServerLab.AuthenticatedTlsLab/0.2','SqlServerLab.AuthenticatedTlsLab/0.3','SqlServerLab.AuthenticatedTlsLab/0.4') -and -not $context.PolicyBound) -or
         $context.Provider -cne $provider -or $context.ContainerId -cne $Record.ContainerId -or $context.Run.scopeId -cne $Record.ScopeId -or
         $imageId -cne $Record.ImageId -or $context.CurrentPort -ne $Record.Port -or -not $context.WasRunning -or
         $context.Instance.host -cne '127.0.0.1' -or $configImage -cne $expectedConfigImage){
@@ -280,7 +322,7 @@ function Get-LabTlsOwnBinding {
     $null=Assert-LabTlsLabRoot $root
     $bytes=Read-LabTlsCaPrivateFile (Join-Path $root 'authenticated-tls-lab.json') $native.UserSid 32768
     $record=Read-LabTlsLabRecord $bytes
-    if($record.ContractVersion -cin @('SqlServerLab.AuthenticatedTlsLab/0.2','SqlServerLab.AuthenticatedTlsLab/0.3')){$null=Get-LabTlsRecordedRuntimePin $record $root}
+    if($record.ContractVersion -cin @('SqlServerLab.AuthenticatedTlsLab/0.2','SqlServerLab.AuthenticatedTlsLab/0.3','SqlServerLab.AuthenticatedTlsLab/0.4')){$null=Get-LabTlsRecordedRuntimePin $record $root}
     if(-not (Test-LabTlsRequestReference $record.AuditId) -or
         $record.RunId -cne $RunId -or $record.InstanceId -cne $InstanceId -or
         $record.ServerPath -cne ('/var/opt/mssql/tls-'+$record.AuditId.Replace('-',''))){throw 'TLS_LAB_BINDING_INVALID'}
@@ -325,13 +367,17 @@ function Assert-LabTlsSqlCertificateBinding {
 
 function New-LabAuthenticatedTlsEnvironment {
     param([hashtable]$Parameters,[scriptblock]$AllocationObserver)
-    $allowed=@('TrustServerCertificate','TlsCandidateId','TlsControllerId','TlsLocationId','DataRoot','Version','Provider','Profile','Port','InstanceId',
+    $allowed=@('TrustServerCertificate','TlsCandidateId','TlsControllerId','TlsLocationId','TlsClientPlatform','TlsLinuxPowerShellPackage','DataRoot','Version','Provider','Profile','Port','InstanceId',
         'SaPassword','GenerateSaPassword','NonInteractive','Cpu','MemoryMB','SkipAssessment','AllowResourceOvercommit','AutoStart','LabName','Verbose','ErrorAction')
     if(@($Parameters.Keys|Where-Object {$_ -cnotin $allowed}).Count -or $Parameters.Version -cnotin @('2025-CU9','2022-CU27','2019-CU32') -or
         ($Parameters.ContainsKey('Provider') -and $Parameters.Provider -cnotin @('docker','podman')) -or
         ($Parameters.ContainsKey('InstanceId') -and $Parameters.InstanceId -cne 'primary') -or
         ($Parameters.ContainsKey('AutoStart') -and $Parameters.AutoStart -cne 'off') -or -not $Parameters.DataRoot){throw 'TLS_LAB_CAPABILITY_UNSUPPORTED: Windows, Docker or Podman, 2025-CU9, 2022-CU27 or 2019-CU32 and explicit DataRoot required; primary, autostart off; no manifest, mounts or existing StateRoot.'}
     foreach($key in @('TlsCandidateId','TlsControllerId','TlsLocationId')){if(-not (Test-LabTlsRequestReference $Parameters[$key])){throw 'TLS_LAB_CA_SELECTION_REQUIRED'}}
+    $linux=$Parameters.TlsClientPlatform -ceq 'Linux'
+    if($Parameters.ContainsKey('TlsClientPlatform') -and $Parameters.TlsClientPlatform -cnotin @('Windows','Linux')){throw 'TLS_LAB_CAPABILITY_UNSUPPORTED'}
+    if($linux){Assert-LabTlsLinuxPowerShellPackage $Parameters.TlsLinuxPowerShellPackage}
+    elseif($Parameters.ContainsKey('TlsLinuxPowerShellPackage')){throw 'TLS_LINUX_EXPLICIT_SELECTION_REQUIRED'}
     Assert-LabTlsCaCandidateCapability
     $profile=Get-LabTlsSqlProfile $Parameters.Version
     Assert-LabTlsSqlCatalogProfile $profile
@@ -340,6 +386,7 @@ function New-LabAuthenticatedTlsEnvironment {
     $format=if($provider -ceq 'docker'){'{{.ServerVersion}}'}else{'json'}
     $null=Invoke-LabTlsContainer @('info','--format',$format) -Budget $budget
     $expectedImageId=ConvertTo-LabTlsImageId (Invoke-LabTlsContainer @('image','inspect',$profile.Image,'--format','{{.Id}}') -Budget $budget).Trim()
+    if($linux){$null=ConvertTo-LabTlsImageId (Invoke-LabTlsContainer @('image','inspect','mcr.microsoft.com/mssql/server:2025-CU9-ubuntu-24.04','--format','{{.Id}}') -Budget $budget).Trim()}
     $authority=Register-LabTlsOperationalAuthority $Parameters.DataRoot $Parameters.TlsControllerId $Parameters.TlsLocationId $Parameters.TlsCandidateId
     if([DateTimeOffset]::ParseExact($authority.Authority.NotAfterUtc,'o',[Globalization.CultureInfo]::InvariantCulture) -le [DateTimeOffset]::UtcNow.AddDays(1)){throw 'TLS_LAB_CA_LIFETIME_INSUFFICIENT'}
     $sid=$authority.Native.UserSid;$audit=[guid]::NewGuid().ToString('D')
@@ -355,7 +402,7 @@ function New-LabAuthenticatedTlsEnvironment {
     $budget.StateRoot=$state
     $intent=[pscustomobject]@{AuditId=$audit;Status='OWNED_CREATE_PENDING';Cleanup='Remove-SqlServerLab only this StateRoot/run; retain recovery on unconfirmed cleanup'}
     Write-LabTlsCaPrivateFile (Join-Path $state 'intent.json') $sid (ConvertTo-LabTlsRegistryWriterBytes $intent)
-    $inner=@{};foreach($key in $Parameters.Keys){if($key -cnotin @('TrustServerCertificate','TlsCandidateId','TlsControllerId','TlsLocationId','DataRoot')){$inner[$key]=$Parameters[$key]}}
+    $inner=@{};foreach($key in $Parameters.Keys){if($key -cnotin @('TrustServerCertificate','TlsCandidateId','TlsControllerId','TlsLocationId','TlsClientPlatform','TlsLinuxPowerShellPackage','DataRoot')){$inner[$key]=$Parameters[$key]}}
     $inner.StateRoot=$state;$inner.Provider=$provider;$inner.InstanceId='primary';$inner.AutoStart='off'
     $run=$null
     try{
@@ -366,14 +413,17 @@ function New-LabAuthenticatedTlsEnvironment {
             AuthorityRef=$authority.Authority.Ref;ClientRef=$authority.Client.Ref;RegistrySha256=$authority.RegistrySha256;RunId=$run.RunId;InstanceId='primary';ScopeId=$context.Run.scopeId;
             ContainerId=$context.ContainerId;ImageId=$expectedImageId;Port=$context.CurrentPort;CertificateSha256='';CertificateDer='';NotAfterUtc='';StartedAt='';ServerPath=('/var/opt/mssql/tls-'+$audit.Replace('-',''))}
         if($profile.Version -cin @('2022-CU27','2019-CU32')){$record.ContractVersion='SqlServerLab.AuthenticatedTlsLab/0.3';$record.SqlProfileId=$profile.Version}
+        if($linux){$record.ContractVersion='SqlServerLab.AuthenticatedTlsLab/0.4';$record.SqlProfileId=$profile.Version;$record.ClientPlatform='linux';$record.LinuxClientRef=[guid]::NewGuid().ToString('D')}
         $budget.Record=[pscustomobject]$record
         $null=Assert-LabTlsOwnContainer ([pscustomobject]$record) $state $budget
         Write-LabTlsCaPrivateFile (Join-Path $state 'target-intent.json') $sid (ConvertTo-LabTlsRegistryWriterBytes ([pscustomobject]$record))
         $cid=$context.ContainerId;$path=$record.ServerPath
-        $command="umask 077; mkdir '$path' && openssl req -new -newkey rsa:3072 -nodes -sha256 -subj '/CN=SQL_Server_Lab Server Leaf' -keyout '$path/server.key' -out '$path/server.csr' -outform DER -addext 'subjectAltName=IP:127.0.0.1'"
+        $san=if($linux){'DNS:localhost'}else{'IP:127.0.0.1'}
+        $identity=if($linux){[pscustomobject]@{Kind='DNS';Value='localhost'}}else{[pscustomobject]@{Kind='IP';Value='127.0.0.1'}}
+        $command="umask 077; mkdir '$path' && openssl req -new -newkey rsa:3072 -nodes -sha256 -subj '/CN=SQL_Server_Lab Server Leaf' -keyout '$path/server.key' -out '$path/server.csr' -outform DER -addext 'subjectAltName=$san'"
         $null=Invoke-LabTlsContainer @('exec','--user','10001',$cid,'sh','-c',$command) -Budget $budget
         $csr=[Convert]::FromBase64String((Invoke-LabTlsContainer @('exec',$cid,'base64','-w0',($path+'/server.csr')) -Budget $budget))
-        $leaf=New-LabAuthenticatedTlsServerLeaf $Parameters.DataRoot $Parameters.TlsControllerId $Parameters.TlsLocationId CURRENT_WINDOWS_PROCESS $Parameters.TlsCandidateId $csr ([pscustomobject]@{Kind='IP';Value='127.0.0.1'}) ([int]1)
+        $leaf=New-LabAuthenticatedTlsServerLeaf $Parameters.DataRoot $Parameters.TlsControllerId $Parameters.TlsLocationId CURRENT_WINDOWS_PROCESS $Parameters.TlsCandidateId $csr $identity ([int]1)
         if(-not $leaf.Success){throw 'TLS_LAB_LEAF_ISSUANCE_REJECTED'}
         $record.CertificateSha256=$leaf.Value.CertificateSha256;$record.CertificateDer=[Convert]::ToBase64String($leaf.Value.CertificateDer);$record.NotAfterUtc=$leaf.Value.NotAfterUtc
         $pem=[Security.Cryptography.PemEncoding]::WriteString('CERTIFICATE',$leaf.Value.CertificateDer)
@@ -385,10 +435,14 @@ function New-LabAuthenticatedTlsEnvironment {
         $null=Start-SqlServerLab -RunId $run.RunId -StateRoot $state
         $context=Assert-LabTlsOwnContainer ([pscustomobject]$record) $state $budget;$record.StartedAt=$context.Inspect.State.StartedAt
         Write-LabTlsCaPrivateFile (Join-Path $state 'authenticated-tls-lab.json') $sid (ConvertTo-LabTlsRegistryWriterBytes ([pscustomobject]$record))
+        if($linux){Initialize-LabTlsLinuxClient -Bound (Get-LabTlsOwnBinding $state $run.RunId primary) -Package $Parameters.TlsLinuxPowerShellPackage -Budget $budget}
         $qualified=Test-LabAuthenticatedTlsEnvironment -RunId $run.RunId -InstanceId primary -StateRoot $state -Budget $budget
         # Store explicit flags only after both real stacks have succeeded.
         $context=Get-LabTlsOwnedRuntimeContext -RunId $run.RunId -StateRoot $state -Budget $budget
         $builder=[Data.SqlClient.SqlConnectionStringBuilder]::new($context.Instance.connectionString);$builder['Encrypt']=$true;$builder['TrustServerCertificate']=$false
+        if($linux){$builder['Data Source']="tcp:localhost,$($record.Port)"}
+        # A Linux namespace connection is published only through its signed
+        # export and supervised consumer. The host connection remains explicit.
         $context.Instance.connectionString=$builder.ConnectionString
         Write-LabArtifactJsonAtomic -Path $context.ConnectionPath -InputObject $context.Connection
         $run.Instances[0].ConnectionString=$builder.ConnectionString

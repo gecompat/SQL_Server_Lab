@@ -20,6 +20,12 @@ Ohne Providerangabe bleibt Docker der Standard. Manifest, vorhandener StateRoot,
 Provideraktionen abgelehnt. CA-Metadaten werden gemeinsam registriert;
 bestehende SQL-Ziele werden nicht übernommen oder umkonfiguriert.
 
+Die zusätzliche ausdrücklich gewählte
+[isolierte Linux-Clientform](AUTHENTICATED_TLS_LINUX_CLIENT.md) befindet sich
+in Entwicklung. Eigener Record 0.4, DNS-/Namespaceendpoint, runlokaler Kindclient
+und dedizierter Toolbelt-Preflight werden getrennt geprüft. Die bisherigen
+Windowsabnahmen belegen diese neue Form nicht.
+
 RSA-3072-Schlüssel und CSR entstehen als UID 10001 im eigenen Container.
 Der private SQL-Schlüssel verlässt ihn nicht. Der Signierer stellt ein Leaf
 für IP `127.0.0.1` mit einem Tag Gültigkeit aus. SQL erhält die exakten

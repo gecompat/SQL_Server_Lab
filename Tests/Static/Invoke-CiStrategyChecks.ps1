@@ -1,4 +1,4 @@
-﻿#Requires -Version 7.2
+#Requires -Version 7.2
 [CmdletBinding()]
 param()
 
@@ -9,6 +9,41 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $failures = [System.Collections.Generic.List[string]]::new()
 $passed = 0
 $selector = Join-Path $repoRoot 'Tools/Get-CiTestSelection.ps1'
+foreach ($case in @(
+    @{Path='Private/AuthenticatedTlsLinuxSession.ps1';Check='Invoke-AuthenticatedTlsLinuxSessionChecks.ps1'},
+    @{Path='Private/AuthenticatedTlsLinuxPeer.ps1';Check='Invoke-AuthenticatedTlsLinuxPeerChecks.ps1'},
+    @{Path='Private/AuthenticatedTlsLinuxContextRecord.ps1';Check='Invoke-AuthenticatedTlsLinuxContextRecordChecks.ps1'},
+    @{Path='Private/AuthenticatedTlsLinuxTransfer.ps1';Check='Invoke-AuthenticatedTlsLinuxTransferChecks.ps1'},
+    @{Path='Private/AuthenticatedTlsLinuxClient.ps1';Check='Invoke-AuthenticatedTlsLinuxPublicChecks.ps1'},
+    @{Path='Private/AuthenticatedTlsLinuxObserver.ps1';Check='Invoke-AuthenticatedTlsLinuxPublicChecks.ps1'},
+    @{Path='Private/AuthenticatedTlsLinuxExecution.ps1';Check='Invoke-AuthenticatedTlsLinuxPublicChecks.ps1'},
+    @{Path='Private/AuthenticatedTlsLinuxQualification.ps1';Check='Invoke-AuthenticatedTlsLinuxPublicChecks.ps1'},
+    @{Path='Private/AuthenticatedTlsLinuxBootstrap.ps1';Check='Invoke-AuthenticatedTlsLinuxPublicChecks.ps1'},
+    @{Path='Private/AuthenticatedTlsLinuxBridge.ps1';Check='Invoke-AuthenticatedTlsLinuxPublicChecks.ps1'},
+    @{Path='Tests/Static/Invoke-AuthenticatedTlsLinuxBridgeChecks.ps1';Check='Invoke-AuthenticatedTlsLinuxBridgeChecks.ps1'},
+    @{Path='Public/Invoke-SqlServerLabLinuxPreflight.ps1';Check='Invoke-AuthenticatedTlsLinuxPublicChecks.ps1'},
+    @{Path='SqlServerLab.LinuxPeer.psd1';Check='Invoke-AuthenticatedTlsLinuxPeerChecks.ps1'},
+    @{Path='Private/AuthenticatedTlsLinuxPeerModule.psm1';Check='Invoke-AuthenticatedTlsLinuxPeerChecks.ps1'}
+)) {
+    foreach ($path in @($case.Path, $case.Path.Replace('/','\'))) {
+        $selected = & $selector -ChangedPath @($path)
+        Add-CheckResult "Linux boundary selects its executable regression: $path" ($case.Check -in $selected.StaticChecks)
+        if($case.Path.StartsWith('Tests/',[StringComparison]::Ordinal)){
+            Add-CheckResult "Offline-only Linux fixture does not claim a provider effect: $path" (-not($selected.Docker -or $selected.Podman -or $selected.Mixed -or $selected.HyperV -or $selected.Adapter))
+        }else{
+            Add-CheckResult "Private Linux product code retains required provider gates: $path" ($selected.Docker -and $selected.Podman -and $selected.Mixed -and $selected.HyperV -and $selected.Adapter)
+        }
+    }
+    $selected = & $selector -ChangedPath @('Tests/Static/' + $case.Check)
+    Add-CheckResult "Offline Linux regression selects itself: $($case.Check)" ($case.Check -in $selected.StaticChecks)
+}
+foreach ($path in @('Private/AuthenticatedTlsRequest.ps1','Private/AuthenticatedTlsRegistryIndex.ps1','Private/AuthenticatedTlsLab.ps1')) {
+    $selected = & $selector -ChangedPath @($path)
+    Add-CheckResult "Shared JSON and identity dependency retains both Linux regressions: $path" (
+        'Invoke-AuthenticatedTlsLinuxSessionChecks.ps1' -in $selected.StaticChecks -and
+        'Invoke-AuthenticatedTlsLinuxPeerChecks.ps1' -in $selected.StaticChecks -and
+        'Invoke-AuthenticatedTlsLinuxContextRecordChecks.ps1' -in $selected.StaticChecks)
+}
 foreach($path in @('Private/ExternalRuntimeHostPrerequisites.ps1','Tests/Static/Fixtures/ExternalRuntimeHostPrerequisitesChecks.ps1','Tools/Common/NativeLinuxContainerHost.ps1')) {
     foreach($normalized in @($path,$path.Replace('/','\'))) {
         Add-CheckResult "Public prerequisite composition selects its actual capability suite: $normalized" ('Invoke-ExternalRuntimeCapabilityChecks.ps1' -in (& $selector -ChangedPath @($normalized)).StaticChecks)

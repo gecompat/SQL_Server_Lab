@@ -5,7 +5,8 @@ $repo=(Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 $passed=0;$failures=[Collections.Generic.List[string]]::new()
 Import-Module (Join-Path $repo 'SqlServerLab.psd1') -Force
 foreach($name in @('DiagnosticBundleReader','AuthenticatedTlsRequest','AuthenticatedTlsRegistryIndex','AuthenticatedTlsRegistryPayload','AuthenticatedTlsCaCandidate',
-    'AuthenticatedTlsContext','AuthenticatedTlsRegistryRoot','AuthenticatedTlsRegistryWriter','AuthenticatedTlsLab','AuthenticatedTlsQualification','AuthenticatedTlsRestartRebind','AuthenticatedTlsRebindRecovery','SqlReadiness')){. (Join-Path $repo "Private/$name.ps1")}
+    'AuthenticatedTlsContext','AuthenticatedTlsRegistryRoot','AuthenticatedTlsRegistryWriter','AuthenticatedTlsLab','AuthenticatedTlsQualification',
+    'AuthenticatedTlsLinuxObserver','AuthenticatedTlsLinuxQualification','AuthenticatedTlsLinuxExecution','AuthenticatedTlsRestartRebind','AuthenticatedTlsRebindRecovery','SqlReadiness')){. (Join-Path $repo "Private/$name.ps1")}
 . (Join-Path $repo 'Public/TestEnvironment.ps1')
 . (Join-Path $repo 'Public/Read-SqlServerLabQualifiedTestEnvironment.ps1')
 $script:ModuleRoot=$repo
@@ -17,6 +18,16 @@ $budget=New-LabTlsRuntimeBudget;$budget.DeadlineUtc=[datetime]::UtcNow.AddSecond
 Add-CheckResult 'Time ceiling rejects before native process start' (Test-TlsLabReject {Invoke-LabTlsContainer @('never-executed') -Budget $budget})
 $other=New-LabTlsRuntimeBudget
 Add-CheckResult 'Independent operations retain separate counters and deadlines' ($other.Commands -eq 0 -and $other.DeadlineUtc -gt [datetime]::UtcNow -and $budget.Commands -eq 1)
+$safeRuntimeFailure=Get-LabTlsRuntimeFailureSummary -ExitCode 17 -StandardError 'Error response from daemon: container synthetic-id is not running; password=synthetic-secret' -OutputLength 12 -OperationStage 'linux-client-qualification'
+Add-CheckResult 'Runtime failure keeps a safe category and fixed operation stage while omitting raw stderr' ($safeRuntimeFailure -match '^TLS_LAB_RUNTIME_COMMAND_FAILED\|exitCode=17\|stderrClass=CONTAINER_NOT_RUNNING\|stderrBytes=\d+\|stdoutChars=12\|operationStage=linux-client-qualification$' -and $safeRuntimeFailure -notmatch 'synthetic-secret|synthetic-id')
+$unknownRuntimeFailure=Get-LabTlsRuntimeFailureSummary -ExitCode 23 -StandardError 'unclassified diagnostic with synthetic-secret' -OutputLength 0
+Add-CheckResult 'Unknown runtime failure keeps an unspecified stage and omits raw stderr' ($unknownRuntimeFailure -match 'stderrClass=STDERR_UNCLASSIFIED' -and $unknownRuntimeFailure -match 'operationStage=unspecified' -and $unknownRuntimeFailure -notmatch 'unclassified diagnostic|synthetic-secret')
+Add-CheckResult 'Runtime failure stage rejects caller supplied text' (Test-TlsLabReject {Get-LabTlsRuntimeFailureSummary -ExitCode 1 -StandardError 'certificate' -OutputLength 0 -OperationStage 'password=synthetic-secret'})
+$observedParameters=(Get-Command Invoke-LabTlsLinuxObservedProgram).Parameters.Keys
+$expectedObservedParameters=@('Bound','Budget','ContainerId','Program','InputText')
+$missingObservedParameters=@($expectedObservedParameters|Where-Object{$observedParameters -cnotcontains $_})
+Add-CheckResult 'Linux observed program preserves the legacy five-argument hook signature' ($missingObservedParameters.Count -eq 0 -and $observedParameters -cnotcontains 'OperationStage')
+Add-CheckResult 'Linux observer maps only exact known programs to fixed stages' ((Get-LabTlsLinuxObservedOperationStage (Get-LabTlsLinuxObservationProgram)) -ceq 'linux-client-observation' -and (Get-LabTlsLinuxObservedOperationStage (Get-LabTlsLinuxQualificationProgram)) -ceq 'linux-client-qualification' -and (Get-LabTlsLinuxObservedOperationStage 'synthetic unknown program') -ceq 'unspecified')
 foreach($json in @('{"x":1,"X":2}','{"x":{"a":1,"A":2}}','{"x":1,}','{"x":/*comment*/1}','{"x":1,"y":2}')){
     Add-CheckResult 'Bound JSON rejects duplicate/alias/comment/trailing/unknown fields' (Test-TlsLabReject {Read-LabTlsBoundJson ([Text.Encoding]::UTF8.GetBytes($json)) @('x')})
 }
@@ -209,7 +220,7 @@ if($IsWindows){
         function Get-LabTlsRuntimePin {
             param($Budget)
             [pscustomobject]@{Provider=$Budget.Provider;Invocation='synthetic.exe';Endpoint='synthetic-endpoint';IdentityPath='';IdentitySha256='';
-                RuntimeScopeId=('runtime-scope-'+('f'*24));RoutingKey=('d'*64);IncarnationKey=('c'*64);MachineName=''}
+                RuntimeScopeId=('runtime-scope-'+('f'*24));RoutingKey=('d'*64);IncarnationKey=('c'*64);MachineName=$(if($Budget.Provider -ceq 'docker'){$null}else{'synthetic-machine'})}
         }
         function Initialize-LabOwnedHostPolicy {
             param($StateRoot,$RuntimePins,$ParentOperationId) $null=$RuntimePins
@@ -246,6 +257,9 @@ if($IsWindows){
         foreach($provider in @('docker','podman')){
             $record.Provider=$provider
             $created=New-LabAuthenticatedTlsEnvironment @{Version='2025-CU9';Provider=$provider;DataRoot=$fixture;TlsControllerId=$record.ControllerId;TlsLocationId=$record.LocationId;TlsCandidateId=$authority.Authority.CandidateId}
+            $createdRecord=Read-LabTlsLabRecord ([IO.File]::ReadAllBytes((Join-Path $created.StateRoot 'authenticated-tls-lab.json')))
+            $expectedMachineName=if($provider -ceq 'docker'){$null}else{'synthetic-machine'}
+            Add-CheckResult "$provider runtime binding preserves machine-name pin nullability" ($createdRecord.RuntimeBinding.MachineName -ceq $expectedMachineName)
             $settings=[Data.SqlClient.SqlConnectionStringBuilder]::new($created.Instances[0].ConnectionString)
             Add-CheckResult "Creator delegates explicit $provider and returns true/false in the public DTO" ($script:capturedProvider -ceq $provider -and $settings.Encrypt -and -not $settings.TrustServerCertificate)
             foreach($selectedVersion in @('2022-CU27','2019-CU32')){

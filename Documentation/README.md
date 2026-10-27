@@ -140,7 +140,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | Komponente | Status | Autoritative Dateien |
 |---|---|---|
 | PowerShell-Modul | implementiert | `SqlServerLab.psd1`, `SqlServerLab.psm1` |
-| Öffentliche API | 158 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
+| Öffentliche API | 159 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
 | Docker | implementiert | `Providers/Docker/DockerProvider.ps1` |
 | Podman | implementiert | `Providers/Podman/PodmanProvider.ps1` |
 | SQL Server External Languages | Container: Java für SQL 2019, Python/R/Java für SQL 2022/2025, jeweils Docker und Podman; Hyper-V/Windows: SQL-2022 Python/R/Java nativ akzeptiert, C# für SQL 2019–2025 sichtbar `PREVIEW` | `../Catalogs/software.json`, `../Tests/Integration/Invoke-ExternalRuntimeContainerAcceptance.ps1`, `../Tests/Integration/Invoke-ExternalRuntimeHyperVAcceptance.ps1` |
@@ -301,6 +301,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | `Resolve-SqlServerLabTlsBindingRecovery` | Exakte letzte eigene Wiederbindung frisch qualifizieren oder eigene Metadaten ausdrücklich unqualifiziert zurücknehmen |
 | `Read-SqlServerLabQualifiedTestEnvironment` | Privaten signierten V2-Bytesnapshot mit Frist und aktuellen eigenen Bindungen prüfen; öffnet keine SQL-Verbindung |
 | `Test-SqlServerLabTlsQualification` | Zwei echte strikte Clientverbindungen am eigenen operativen Container-Lab prüfen und ein Ergebnis ohne Secrets für den Beobachtungszeitpunkt zurückgeben; [Vertrag](Architecture/AUTHENTICATED_TLS_LIVE_QUALIFICATION.md) |
+| `Invoke-SqlServerLabLinuxPreflight` | Dedizierter read-only Toolbelt-Preflight im ausdrücklich eigenen Linuxclient; [Entwicklungs- und Abnahmegrenze](Architecture/AUTHENTICATED_TLS_LINUX_CLIENT.md) |
 | `Repair-SqlServerLabAutomatedTestEnvironment` | Ressourcen, Health, Autostart, Windows-Aktivierung und sprechende Container-/VM-Namen der registrierten Testgruppe sicher abgleichen |
 | `Start-SqlServerLabAutomatedTestEnvironment` | Registrierte Docker-, Podman- und Hyper-V-Mitglieder gruppenweise starten und den Live-Export bis `READY` prüfen |
 | `Stop-SqlServerLabAutomatedTestEnvironment` | Registrierte Docker-, Podman- und Hyper-V-Mitglieder nicht-destruktiv stoppen und den Live-Export fail-closed erneuern |

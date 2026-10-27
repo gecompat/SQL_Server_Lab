@@ -206,6 +206,7 @@ Get-SqlServerLabTlsBindingRecovery     # Letzte unvollständige eigene Wiederbin
 Resolve-SqlServerLabTlsBindingRecovery # Exakte eigene Transaktion qualifiziert abschließen oder Metadaten unqualifiziert zurücknehmen
 Read-SqlServerLabQualifiedTestEnvironment # Privaten V2-Bytesnapshot mit Signatur, Frist und aktuellen Bindungen prüfen
 Test-SqlServerLabTlsQualification      # Eigenes operatives Container-Lab mit beiden strikten Clients aktuell prüfen
+Invoke-SqlServerLabLinuxPreflight      # Dedizierter read-only Toolbelt-Preflight im ausdrücklich isolierten Linuxclient; eigene Abnahmegrenze
 Repair-SqlServerLabAutomatedTestEnvironment # Testgruppe inklusive sprechender Container-/VM-Namen kontrolliert reparieren
 Start-SqlServerLabAutomatedTestEnvironment # Registrierte Docker-/Podman-/Hyper-V-Mitglieder gruppenweise bereitstellen
 Stop-SqlServerLabAutomatedTestEnvironment # Registrierte Docker-/Podman-/Hyper-V-Mitglieder nicht-destruktiv stoppen
