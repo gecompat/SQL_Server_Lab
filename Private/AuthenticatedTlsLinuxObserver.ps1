@@ -14,9 +14,9 @@ function Binary([string]$Path){
     if($file.PSIsContainer-or$file.LinkType-or$file.Length-lt1){throw 'BINARY'}
     @{Path=$Path;Sha256=(Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant();Bytes=[long]$file.Length}
 }
-$home='/opt/tls-client';$ca=$home+'/ca.pem';$empty=$home+'/empty'
-if($env:HOME-cne$home-or$env:SSL_CERT_FILE-cne$ca-or$env:SSL_CERT_DIR-cne$empty){throw 'ENVIRONMENT'}
-foreach($path in @($home,$empty)){
+$clientHome='/opt/tls-client';$ca=$clientHome+'/ca.pem';$empty=$clientHome+'/empty'
+if($env:HOME-cne$clientHome-or$env:SSL_CERT_FILE-cne$ca-or$env:SSL_CERT_DIR-cne$empty){throw 'ENVIRONMENT'}
+foreach($path in @($clientHome,$empty)){
     if((Get-Item -LiteralPath $path -Force).LinkType){throw 'LINK'}
 }
 try{$caItem=Get-Item -LiteralPath $ca -Force}catch{
@@ -24,9 +24,9 @@ try{$caItem=Get-Item -LiteralPath $ca -Force}catch{
     [Console]::Error.WriteLine($(if($exception-is[UnauthorizedAccessException]){'TLS_LINUX_CA_PEM_ACCESS_DENIED'}else{'TLS_LINUX_CA_PEM_READ_FAILED'}));exit 1
 }
 if($caItem.LinkType){throw 'LINK'}
-$fs=& /usr/bin/stat -f -c '%T' -- $home
+$fs=& /usr/bin/stat -f -c '%T' -- $clientHome
 if($LASTEXITCODE-ne0-or$fs-cne'tmpfs'){throw 'FILESYSTEM'}
-$parent=Stat $home
+$parent=Stat $clientHome
 try{$file=Stat $ca}catch{[Console]::Error.WriteLine('TLS_LINUX_CA_PEM_STAT_FAILED');exit 1}
 $dir=Stat $empty
 try{$caPem=[IO.File]::ReadAllText($ca)}catch{
@@ -52,14 +52,14 @@ $result=@{
         Store='ISOLATED_CLIENT_CA_STORE';Path=$ca;CertificateSha256=$certificateHash
         FileSha256=(Get-FileHash -LiteralPath $ca -Algorithm SHA256).Hash.ToLowerInvariant()
         Bytes=$file.Bytes;Uid=$file.Uid;Mode=$file.Mode;FileSystem=$fs;Device=$file.Device;Inode=$file.Inode
-        ParentUid=$parent.Uid;ParentMode=$parent.Mode;Home=$home;Directory=$empty
+        ParentUid=$parent.Uid;ParentMode=$parent.Mode;Home=$clientHome;Directory=$empty
         DirectoryUid=$dir.Uid;DirectoryMode=$dir.Mode;DirectoryDevice=$dir.Device;DirectoryInode=$dir.Inode
         DirectoryEmpty=(@(Get-ChildItem -LiteralPath $empty -Force).Count-eq0)
-        UserStoreAbsent=(-not(Test-Path -LiteralPath ($home+'/.dotnet/corefx/cryptography/x509stores')))
+        UserStoreAbsent=(-not(Test-Path -LiteralPath ($clientHome+'/.dotnet/corefx/cryptography/x509stores')))
     }
     Binaries=@{
-        PowerShell=Binary ($home+'/pwsh/pwsh')
-        SqlClient=Binary ($home+'/pwsh/System.Data.SqlClient.dll')
+        PowerShell=Binary ($clientHome+'/pwsh/pwsh')
+        SqlClient=Binary ($clientHome+'/pwsh/System.Data.SqlClient.dll')
         Sqlcmd=Binary '/opt/mssql-tools18/bin/sqlcmd'
         OdbcDriver=Binary $drivers[0].FullName
     }

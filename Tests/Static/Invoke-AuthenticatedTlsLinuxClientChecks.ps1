@@ -6,8 +6,18 @@ param()
 $ErrorActionPreference='Stop'
 $repo=Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . (Join-Path $PSScriptRoot '../Common/CheckResult.ps1')
+. (Join-Path $repo 'Private/AuthenticatedTlsLinuxObserver.ps1')
 $passed=0;$failures=[Collections.Generic.List[string]]::new()
 $observerSource=Get-Content -LiteralPath (Join-Path $repo 'Private/AuthenticatedTlsLinuxObserver.ps1') -Raw
+$observerProgram=Get-LabTlsLinuxObservationProgram
+$observerTokens=$null;$observerParseErrors=$null
+$observerAst=[Management.Automation.Language.Parser]::ParseInput($observerProgram,'<Linux observer>',[ref]$observerTokens,[ref]$observerParseErrors)
+$homeAssignments=@($observerAst.FindAll({param($node)
+    $node-is[Management.Automation.Language.AssignmentStatementAst]-and
+    $node.Left-is[Management.Automation.Language.VariableExpressionAst]-and
+    $node.Left.VariablePath.UserPath-ieq'HOME'
+},$true))
+Add-CheckResult 'Linux observer avoids assigning to PowerShell automatic HOME' ($observerParseErrors.Count-eq0-and$homeAssignments.Count-eq0-and$observerProgram.Contains('$env:HOME-cne$clientHome'))
 Add-CheckResult 'Linux observer parses the exact CA PEM text with the same API as the TLS probe' (
     $observerSource.Contains('$caPem=[IO.File]::ReadAllText($ca)') -and
     $observerSource.Contains('X509Certificate2]::CreateFromPem($caPem)') -and
