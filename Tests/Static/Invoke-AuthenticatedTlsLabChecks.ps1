@@ -20,6 +20,11 @@ $other=New-LabTlsRuntimeBudget
 Add-CheckResult 'Independent operations retain separate counters and deadlines' ($other.Commands -eq 0 -and $other.DeadlineUtc -gt [datetime]::UtcNow -and $budget.Commands -eq 1)
 $safeRuntimeFailure=Get-LabTlsRuntimeFailureSummary -ExitCode 17 -StandardError 'Error response from daemon: container synthetic-id is not running; password=synthetic-secret' -OutputLength 12 -OperationStage 'linux-client-qualification'
 Add-CheckResult 'Runtime failure keeps a safe category and fixed operation stage while omitting raw stderr' ($safeRuntimeFailure -match '^TLS_LAB_RUNTIME_COMMAND_FAILED\|exitCode=17\|stderrClass=CONTAINER_NOT_RUNNING\|stderrBytes=\d+\|stdoutChars=12\|operationStage=linux-client-qualification$' -and $safeRuntimeFailure -notmatch 'synthetic-secret|synthetic-id')
+foreach($case in @(@('TLS_LINUX_CA_PEM_STAT_FAILED','TLS_CA_PEM_STAT_FAILED'),@('TLS_LINUX_CA_PEM_ACCESS_DENIED','TLS_CA_PEM_ACCESS_DENIED'),
+    @('TLS_LINUX_CA_PEM_READ_FAILED','TLS_CA_PEM_READ_FAILED'),@('TLS_LINUX_CA_PEM_PARSE_FAILED','TLS_CA_PEM_PARSE_FAILED'))){
+    $classified=Get-LabTlsRuntimeFailureSummary -ExitCode 1 -StandardError ($case[0]+' permission denied synthetic-private-detail') -OutputLength 0 -OperationStage 'linux-client-observation'
+    Add-CheckResult 'Runtime CA PEM failures keep exact bounded class without diagnostic text' ($classified -match ('stderrClass='+$case[1]+'\|') -and $classified -notmatch 'synthetic-private-detail|TLS_LINUX_CA_PEM')
+}
 $unknownRuntimeFailure=Get-LabTlsRuntimeFailureSummary -ExitCode 23 -StandardError 'unclassified diagnostic with synthetic-secret' -OutputLength 0
 Add-CheckResult 'Unknown runtime failure keeps an unspecified stage and omits raw stderr' ($unknownRuntimeFailure -match 'stderrClass=STDERR_UNCLASSIFIED' -and $unknownRuntimeFailure -match 'operationStage=unspecified' -and $unknownRuntimeFailure -notmatch 'unclassified diagnostic|synthetic-secret')
 Add-CheckResult 'Runtime failure stage rejects caller supplied text' (Test-TlsLabReject {Get-LabTlsRuntimeFailureSummary -ExitCode 1 -StandardError 'certificate' -OutputLength 0 -OperationStage 'password=synthetic-secret'})

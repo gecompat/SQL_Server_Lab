@@ -7,6 +7,15 @@ $ErrorActionPreference='Stop'
 $repo=Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . (Join-Path $PSScriptRoot '../Common/CheckResult.ps1')
 $passed=0;$failures=[Collections.Generic.List[string]]::new()
+$observerSource=Get-Content -LiteralPath (Join-Path $repo 'Private/AuthenticatedTlsLinuxObserver.ps1') -Raw
+Add-CheckResult 'Linux observer parses the exact CA PEM text with the same API as the TLS probe' (
+    $observerSource.Contains('$caPem=[IO.File]::ReadAllText($ca)') -and
+    $observerSource.Contains('X509Certificate2]::CreateFromPem($caPem)') -and
+    -not $observerSource.Contains('X509Certificate2]::CreateFromPemFile($ca)'))
+Add-CheckResult 'Linux observer emits fixed sanitized CA PEM stat, access, read and parse tokens' (
+    $observerSource.Contains('TLS_LINUX_CA_PEM_STAT_FAILED') -and $observerSource.Contains('TLS_LINUX_CA_PEM_ACCESS_DENIED') -and
+    $observerSource.Contains('TLS_LINUX_CA_PEM_READ_FAILED') -and $observerSource.Contains('TLS_LINUX_CA_PEM_PARSE_FAILED') -and
+    $observerSource.Contains("-- `$Path 2>`$null") -and $observerSource.Contains('$exception=$_.Exception;while($null-ne$exception.InnerException){$exception=$exception.InnerException}'))
 $module=New-Module -ArgumentList $repo -ScriptBlock {
     param($Root)
     . (Join-Path $Root 'Private/ContainerOwnedHostIntegration.ps1')

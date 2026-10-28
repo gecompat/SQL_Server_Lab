@@ -3,7 +3,7 @@ function Get-LabTlsLinuxObservationProgram {
     return @'
 $ErrorActionPreference='Stop'
 function Stat([string]$Path){
-    $text=& /usr/bin/stat -c '%u:%a:%d:%i:%s' -- $Path
+    $text=& /usr/bin/stat -c '%u:%a:%d:%i:%s' -- $Path 2>$null
     if($LASTEXITCODE-ne0){throw 'STAT'}
     $parts=$text.Split(':')
     if($parts.Count-ne5){throw 'STAT'}
@@ -16,13 +16,26 @@ function Binary([string]$Path){
 }
 $home='/opt/tls-client';$ca=$home+'/ca.pem';$empty=$home+'/empty'
 if($env:HOME-cne$home-or$env:SSL_CERT_FILE-cne$ca-or$env:SSL_CERT_DIR-cne$empty){throw 'ENVIRONMENT'}
-foreach($path in @($home,$ca,$empty)){
+foreach($path in @($home,$empty)){
     if((Get-Item -LiteralPath $path -Force).LinkType){throw 'LINK'}
 }
+try{$caItem=Get-Item -LiteralPath $ca -Force}catch{
+    $exception=$_.Exception;while($null-ne$exception.InnerException){$exception=$exception.InnerException}
+    [Console]::Error.WriteLine($(if($exception-is[UnauthorizedAccessException]){'TLS_LINUX_CA_PEM_ACCESS_DENIED'}else{'TLS_LINUX_CA_PEM_READ_FAILED'}));exit 1
+}
+if($caItem.LinkType){throw 'LINK'}
 $fs=& /usr/bin/stat -f -c '%T' -- $home
 if($LASTEXITCODE-ne0-or$fs-cne'tmpfs'){throw 'FILESYSTEM'}
-$parent=Stat $home;$file=Stat $ca;$dir=Stat $empty
-$cert=[Security.Cryptography.X509Certificates.X509Certificate2]::CreateFromPemFile($ca)
+$parent=Stat $home
+try{$file=Stat $ca}catch{[Console]::Error.WriteLine('TLS_LINUX_CA_PEM_STAT_FAILED');exit 1}
+$dir=Stat $empty
+try{$caPem=[IO.File]::ReadAllText($ca)}catch{
+    $exception=$_.Exception;while($null-ne$exception.InnerException){$exception=$exception.InnerException}
+    [Console]::Error.WriteLine($(if($exception-is[UnauthorizedAccessException]){'TLS_LINUX_CA_PEM_ACCESS_DENIED'}else{'TLS_LINUX_CA_PEM_READ_FAILED'}));exit 1
+}
+try{$cert=[Security.Cryptography.X509Certificates.X509Certificate2]::CreateFromPem($caPem)}catch{
+    [Console]::Error.WriteLine('TLS_LINUX_CA_PEM_PARSE_FAILED');exit 1
+}
 try{$certificateHash=[Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($cert.RawData)).ToLowerInvariant()}finally{$cert.Dispose()}
 $drivers=@(Get-ChildItem -LiteralPath /opt/microsoft/msodbcsql18/lib64 -Filter 'libmsodbcsql-18*.so.*' -File|Where-Object {-not $_.LinkType})
 if($drivers.Count-ne1){throw 'ODBC'}
