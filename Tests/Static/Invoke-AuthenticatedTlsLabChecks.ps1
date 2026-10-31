@@ -25,6 +25,12 @@ foreach($case in @(@('TLS_LINUX_CA_PEM_STAT_FAILED','TLS_CA_PEM_STAT_FAILED'),@(
     $classified=Get-LabTlsRuntimeFailureSummary -ExitCode 1 -StandardError ($case[0]+' permission denied synthetic-private-detail') -OutputLength 0 -OperationStage 'linux-client-observation'
     Add-CheckResult 'Runtime CA PEM failures keep exact bounded class without diagnostic text' ($classified -match ('stderrClass='+$case[1]+'\|') -and $classified -notmatch 'synthetic-private-detail|TLS_LINUX_CA_PEM')
 }
+foreach($case in @(@('SQLCLIENT_RESULT','TLS_SQLCLIENT_RESULT_INVALID'),@('SQLCMD_TIMEOUT','TLS_SQLCMD_TIMEOUT'),
+    @('ODBC_AMBIGUOUS','TLS_ODBC_AMBIGUOUS'),@('SQLCMD_RESULT','TLS_SQLCMD_RESULT_INVALID'))){
+    $classified=Get-LabTlsRuntimeFailureSummary -ExitCode 1 -StandardError ($case[0]+' synthetic-private-detail') -OutputLength 0 -OperationStage 'linux-client-qualification'
+    $pattern='^TLS_LAB_RUNTIME_COMMAND_FAILED\|exitCode=1\|stderrClass='+[regex]::Escape($case[1])+'\|stderrBytes=\d+\|stdoutChars=0\|operationStage=linux-client-qualification$'
+    Add-CheckResult 'Runtime Linux qualification markers map to fixed safe classes without raw diagnostics' ($classified -match $pattern -and $classified -notmatch 'synthetic-private-detail')
+}
 $unknownRuntimeFailure=Get-LabTlsRuntimeFailureSummary -ExitCode 23 -StandardError 'unclassified diagnostic with synthetic-secret' -OutputLength 0
 Add-CheckResult 'Unknown runtime failure keeps an unspecified stage and omits raw stderr' ($unknownRuntimeFailure -match 'stderrClass=STDERR_UNCLASSIFIED' -and $unknownRuntimeFailure -match 'operationStage=unspecified' -and $unknownRuntimeFailure -notmatch 'unclassified diagnostic|synthetic-secret')
 Add-CheckResult 'Runtime failure stage rejects caller supplied text' (Test-TlsLabReject {Get-LabTlsRuntimeFailureSummary -ExitCode 1 -StandardError 'certificate' -OutputLength 0 -OperationStage 'password=synthetic-secret'})
