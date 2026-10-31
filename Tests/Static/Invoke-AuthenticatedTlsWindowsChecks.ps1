@@ -5,6 +5,9 @@ $ErrorActionPreference='Stop'
 $repo=(Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 . (Join-Path $PSScriptRoot '../Common/CheckResult.ps1')
 $passed=0;$failures=[Collections.Generic.List[string]]::new()
+$importAst=[Management.Automation.Language.Parser]::ParseFile((Join-Path $repo 'Private/AuthenticatedTlsWindowsLab.ps1'),[ref]$null,[ref]$null)
+$moduleMinimum=[version](Import-PowerShellDataFile (Join-Path $repo 'SqlServerLab.psd1')).PowerShellVersion
+Add-CheckResult 'Windows TLS helper preserves the module import minimum; capability stays operation-bound' ($importAst.ScriptRequirements.RequiredPSVersion -eq $moduleMinimum)
 Import-Module (Join-Path $repo 'SqlServerLab.psd1') -Force
 foreach($name in @('DiagnosticBundleReader','AuthenticatedTlsRequest','AuthenticatedTlsRegistryIndex','AuthenticatedTlsRegistryPayload',
     'AuthenticatedTlsCaCandidate','AuthenticatedTlsContext','AuthenticatedTlsRegistryRoot','AuthenticatedTlsRegistryWriter',

@@ -1,4 +1,4 @@
-#Requires -Version 7.5
+#Requires -Version 7.2
 # Eigener Windows-SQL-2025-Run. Containerformen und historische native
 # Referenzen werden nicht als Windows-Export oder neue Ausführung umgedeutet.
 function Get-LabTlsWindowsProfile {

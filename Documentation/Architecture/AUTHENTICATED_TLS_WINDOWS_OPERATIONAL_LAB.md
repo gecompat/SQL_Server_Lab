@@ -31,6 +31,10 @@ anzugeben. Ein bereits identisch vertrauter CA-DER in CurrentUser/Root ist
 Voraussetzung; dieser Weg importiert keinen Hosttrust. Eine vorhandene VM
 wird nicht übernommen und bestehende Testsysteme werden nicht umkonfiguriert.
 
+Der allgemeine Modulimport bleibt bei PowerShell 7.2. Die höhere TLS-Anforderung
+wird am konkreten Aufruf geprüft; die private Datei erhöht nicht die
+Importmindestversion des gesamten Moduls.
+
 Verwenden Sie die vorhandenen registrierten Referenzen in einer erhöhten
 PowerShell 7.5. Die Funktion startet selbst keine UAC-Abfrage:
 

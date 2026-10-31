@@ -64,6 +64,29 @@ mit CRLF, nicht auf normalisierte Git-Blobs.
 
 ## Grenzen und Aufwand
 
+Die abschließende Importprüfung fand eine zu hohe dateiweite Versionsdirektive:
+Der Modulloader lädt die private Datei allgemein, während der Modulvertrag
+PowerShell 7.2 unterstützt. Die Direktive wurde von `7.5` auf `7.2` korrigiert;
+der vorhandene aufrufgebundene TLS-Capabilityguard verlangt weiterhin 7.5.
+Die neue statische Gegenprobe prüft die AST-Versionsanforderung gegen das
+Modulmanifest; die Windows-Suite bestand danach 47 Fälle, der Analyzer ohne Fehler.
+Ein zusätzlicher nativer Modulimport unter PowerShell 7.2 wurde nicht ausgeführt.
+
+Diese Integrationsänderung ist ausschließlich die erste `#Requires`-Zeile.
+Alle Funktionsbytes und die übrige importierbare Quellclosure bleiben gleich.
+Der ursprüngliche Native-Pin bleibt unverändert in der Toolbelt-Evidence;
+die native Ausführung fand bereits im verlangten Kontext 7.5+ statt.
+Damit entsteht kein behaupteter neuer SQL-/TLS-Lauf:
+
+| Windows-Arbeitsbaumbytes der privaten Datei | SHA-256 |
+|---|---|
+| Tatsächlich nativ ausgeführt, Direktive 7.5 | `5c383ab2da10eba5cc2e8b21c1b7fddcac32605f22ac14c986eea753f97c26ec` |
+| Integriert, ausschließlich Direktive 7.2 | `9991ed413e36f63ac54647920274e42c607d8e52fcb4836bf0b76817475b18b2` |
+
+Die übrigen 32 statischen Suites und Providerresultate bleiben an ihren
+ursprünglichen Frame gebunden. Der aktuelle PR-Head erhält weiterhin seinen
+eigenen vollständigen angeforderten CI-Gate; frühere grüne CI ersetzt ihn nicht.
+
 Ein ununterbrochener öffentlicher `New-SqlServerLab`-Neuaufbau mit dem korrigierten
 Aktivierungsintent wurde nicht erneut ausgeführt. Die Manifestwahl ist offline
 geprüft; der native Nachweis verwendet die gebundene Fortsetzung desselben Runs
