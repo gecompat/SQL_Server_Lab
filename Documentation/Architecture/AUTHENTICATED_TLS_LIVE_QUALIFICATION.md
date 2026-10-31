@@ -1,4 +1,4 @@
-# Aktuelle TLS-Prüfung eines eigenen Container-Labs
+# Aktuelle TLS-Prüfung eines eigenen Labs
 
 `Test-SqlServerLabTlsQualification` prüft ausdrücklich einen bereits erstellten
 eigenen operativen TLS-Run. Die Prüfung eignet sich vor der nächsten Verwendung
@@ -12,7 +12,12 @@ Der [operative TLS-Vertrag](AUTHENTICATED_TLS_OPERATIONAL_LAB.md) bleibt
 maßgeblich für Erstellung, geschützte eigene Bindung, registrierten
 Windows-Clientkontext und vorhandenen CurrentUser/Root-Trust. Unterstützt sind
 Windows mit PowerShell 7.5+, Docker oder Podman und die geschlossenen Profile
-SQL 2019 CU32, 2022 CU27 und 2025 CU9. `RunId`, `InstanceId` und der private
+SQL 2019 CU32, 2022 CU27 und 2025 CU9. Der zusätzliche
+[Windows-/Hyper-V-Vertrag](AUTHENTICATED_TLS_WINDOWS_OPERATIONAL_LAB.md)
+unterstützt einen eigenen Windows-SQL-2025-RTM-Run mit dem geschlossenen Profil
+`WINDOWS-2025-RTM`. Seine VM-, Boot- und SQL-Dienstbindungen werden frisch
+beobachtet; dafür werden keine Containerfelder erzeugt.
+`RunId`, `InstanceId` und der private
 `StateRoot` müssen genau zu diesem eigenen Lab gehören. Ein Standardlab ohne
 diese Bindung wird dadurch nicht zum authentifizierten Lab.
 

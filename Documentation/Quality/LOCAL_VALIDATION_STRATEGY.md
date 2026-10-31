@@ -1,5 +1,15 @@
 # Lokale Validierungsstrategie
 
+## Eigener Windows-TLS-Run für SSIS
+
+Die [Abnahme vom 2026-10-31](TLS_WINDOWS_OPERATIONAL_SSIS_ACCEPTANCE_2026-10-31.md)
+bestand als gebundener komponierter Windows-/Hyper-V-/SQL-2025-RTM-Pfad mit
+acht strikten Lab-Clientresultaten, signiertem V2-Export, 412 aktuellen
+SSIS-Assertions und eigenem Cleanup. Zwei ursprüngliche Aufbaufehler und ein
+Toolbelt-Cleanupfehler bleiben mit ihren gesonderten Recoveries erhalten.
+32 betroffene statische Suites bestanden. Durchgehende Neuerstellung,
+weitere Windowsprofile und der volle TLS-001-Abschluss bleiben getrennt.
+
 ## Versionsauswahl für neue Laufzeitnachweise
 
 Neue Abnahmen folgen der [Auswahl nach tatsächlicher Versionsabhängigkeit](COST_EFFICIENT_DEVELOPMENT.md#sql-versionen-nach-tatsächlicher-abhängigkeit-auswählen).

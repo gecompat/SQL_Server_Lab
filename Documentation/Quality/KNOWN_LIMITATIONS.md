@@ -101,9 +101,16 @@ Gesamtabschluss von TLS-001.
 
 Der [V2-Snapshotreader](../Architecture/AUTHENTICATED_TLS_V2_READER.md) ist auf
 den registrierten Windows-Benutzer-/Clientkontext und die operativen
-Docker-/Podman-Profile begrenzt. Er reserviert keine Runtime, verlängert
+Docker-/Podman-Profile sowie den zusätzlichen
+[Windows-/Hyper-V-Vertrag](../Architecture/AUTHENTICATED_TLS_WINDOWS_OPERATIONAL_LAB.md)
+für SQL 2025 RTM begrenzt. Der Windowsweg besitzt einen
+[komponierten nativen Referenznachweis](TLS_WINDOWS_OPERATIONAL_SSIS_ACCEPTANCE_2026-10-31.md)
+mit Consumer und Cleanup; ein ununterbrochener öffentlicher Neuaufbau nach
+der Aktivierungskorrektur bleibt nicht ausgeführt. Die bisherigen
+Containerbelege ersetzen diesen Nachweis nicht.
+Er reserviert keine Runtime, verlängert
 keine Qualifikation und ist allein kein Toolbelt-Livebeweis. Linux-V2-Consumer,
-öffentliche Hyper-V-False-/Exportlane und vollständige TLS-001-Matrix bleiben
+weitere Hyper-V-Profile und die vollständige TLS-001-Matrix bleiben
 getrennt. Die [native Windows-Consumer-Teilmatrix](TLS_V2_CONSUMER_CUTOVER_ACCEPTANCE_2026-10-22.md)
 bestand alle sechs operativen Containerprofile mit beiden echten Stacks,
 Signatur-Negativfall und eigenem Cleanup. Das ist kein Linux-Client-,

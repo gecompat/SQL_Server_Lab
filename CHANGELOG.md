@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10-31 – Eigener Windows-SQL-Run mit authentifiziertem TLS
+
+- Der ausdrücklich gewählte Hyper-V-/SQL-2025-RTM-Pfad verwendet ein
+  vorbereitetes Image, die vorhandene Windows-Aktivierung mit temporärer NIC
+  und den kanonischen SQL-CompleteImage-Schritt. Ein erhöhter Runner und eine
+  bereits qualifizierte CA-/Clientbindung sind erforderlich.
+- Die eigene Windowsbindung ergänzt strikte SqlClient-/ODBC-Prüfung,
+  signierten V2-Export und Snapshotreader. Bestehende VMs und Hosttrust werden
+  nicht übernommen oder verändert. Native Abnahme und Consumer bleiben ein
+  eigener Nachweis; die Container- und Browsermatrix wird nicht erweitert.
+  [Vertrag](Documentation/Architecture/AUTHENTICATED_TLS_WINDOWS_OPERATIONAL_LAB.md).
+
 ## 2026-10-07 – Einstieg, Dokumentationsquellen und Pester-Status
 
 - Der Einstieg führt Voraussetzungen, Setup und Bedienung zusammen;

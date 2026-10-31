@@ -992,6 +992,10 @@ sources_of_truth:
   authenticated_tls_authority: Private/AuthenticatedTlsAuthority.ps1
   authenticated_tls_lab: Private/AuthenticatedTlsLab.ps1 # explicit provider, original runtime pin, closed 0.1 Docker / 0.2 provider+policy / 0.3 SQL-profile bindings; coupled ContainerOwnedHostIntegration, RunArtifactRemoval and RetainedStoreRuntime
   authenticated_tls_qualification: Private/AuthenticatedTlsQualification.ps1 # ordinary qualification/export/readback also require committed restart-rebind history; coupled restart-rebind and positive signed-export suites
+  authenticated_tls_windows_operational_contract: Documentation/Architecture/AUTHENTICATED_TLS_WINDOWS_OPERATIONAL_LAB.md # new own Windows Hyper-V SQL2025 RTM False lane; signed V2 VM/boot/service binding, existing CA trust, no automatic rebind
+  evidence_authenticated_tls_windows_operational: Documentation/Quality/TLS_WINDOWS_OPERATIONAL_SSIS_ACCEPTANCE_2026-10-31.md # composed same-own-run activation/CompleteImage/TLS, eight strict client results, SSIS412, cleanup; no uninterrupted-create claim
+  authenticated_tls_windows_operational: Private/AuthenticatedTlsWindowsLab.ps1 # separate closed Windows record and qualification; coupled New-SqlServerLab, shared qualification/export/reader, SsisPrerequisite and HyperVLeaf
+  validation_authenticated_tls_windows_operational: Tests/Static/Invoke-AuthenticatedTlsWindowsChecks.ps1 # real own RSA/private export fixtures and synthetic native boundaries; native SQL/Hyper-V qualification separate
   authenticated_tls_live_qualification_contract: Documentation/Architecture/AUTHENTICATED_TLS_LIVE_QUALIFICATION.md
   public_authenticated_tls_live_qualification: Public/Test-SqlServerLabTlsQualification.ps1 # explicit own Windows D/P strict observation; no cache/export/secret output or certificate/key/trust mutation
   authenticated_tls_live_qualification: Private/AuthenticatedTlsLiveQualification.ps1 # closed scalar projection, same selected profile, both clients and bounded current observation; no UI qualification persistence

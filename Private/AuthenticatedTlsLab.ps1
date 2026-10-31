@@ -23,6 +23,7 @@ function Assert-LabTlsSqlCatalogProfile {
 
 function Get-LabTlsBindingSqlProfile {
     param([object]$Record)
+    if($Record.ContractVersion -ceq 'SqlServerLab.AuthenticatedTlsWindowsLab/0.1'){return Get-LabTlsWindowsProfile}
     if($Record.ContractVersion-ceq'SqlServerLab.AuthenticatedTlsLab/0.4'){
         if($Record.ContractVersion-isnot[string]-or$Record.SqlProfileId-isnot[string]-or
             $Record.SqlProfileId-cnotin@('2025-CU9','2022-CU27','2019-CU32')-or
@@ -221,6 +222,7 @@ function New-LabTlsRuntimeBinding {
 
 function Get-LabTlsBindingProvider {
     param([object]$Record)
+    if($Record.ContractVersion -ceq 'SqlServerLab.AuthenticatedTlsWindowsLab/0.1'){return 'hyperv'}
     if($Record.ContractVersion -ceq 'SqlServerLab.AuthenticatedTlsLab/0.1' -and -not $Record.PSObject.Properties['Provider']){return 'docker'}
     if($Record.ContractVersion -cin @('SqlServerLab.AuthenticatedTlsLab/0.2','SqlServerLab.AuthenticatedTlsLab/0.3','SqlServerLab.AuthenticatedTlsLab/0.4') -and $Record.Provider -cin @('docker','podman')){return [string]$Record.Provider}
     throw 'TLS_LAB_BINDING_PROVIDER_INVALID'
@@ -319,6 +321,12 @@ function Get-LabTlsOwnBinding {
     param([string]$StateRoot,[string]$RunId,[string]$InstanceId)
     $native=Get-LabTlsWindowsProcessFacts
     $root=Assert-LabDiagnosticPath ([IO.Path]::GetFullPath($StateRoot))
+    # Nur die eigene geschlossene Windowsform darf den separaten Runpfad
+    # verwenden. Bestehende Containerroots behalten ihre bisherigen Gates.
+    if((Test-LabTlsRequestReference $RunId) -and $InstanceId -ceq 'primary'){
+        $windowsPath=Get-LabTlsWindowsRecordPath $root $RunId $InstanceId
+        if(Test-Path -LiteralPath $windowsPath){return Get-LabTlsWindowsOwnBinding $root $RunId $InstanceId}
+    }
     $null=Assert-LabTlsLabRoot $root
     $bytes=Read-LabTlsCaPrivateFile (Join-Path $root 'authenticated-tls-lab.json') $native.UserSid 32768
     $record=Read-LabTlsLabRecord $bytes
@@ -335,6 +343,11 @@ function Get-LabTlsOwnBinding {
 
 function Assert-LabTlsSqlCertificateBinding {
     param([object]$Record,[string]$StateRoot,[object]$Budget)
+    if($Record.ContractVersion -ceq 'SqlServerLab.AuthenticatedTlsWindowsLab/0.1'){
+        $bound=Get-LabTlsWindowsOwnBinding $StateRoot $Record.RunId $Record.InstanceId
+        if((Get-LabTlsCaByteDigest (ConvertTo-LabTlsRegistryWriterBytes $Record)) -cne (Get-LabTlsCaByteDigest $bound.Bytes)){throw 'TLS_WINDOWS_RECORD_CHANGED'}
+        return Assert-LabTlsWindowsCertificateBinding $bound $Budget
+    }
     $context=Assert-LabTlsOwnContainer $Record $StateRoot $Budget
     if($context.Inspect.State.StartedAt -cne $Record.StartedAt){throw 'TLS_LAB_RESTART_REQUIRES_REBIND'}
     $cid=$context.ContainerId;$path=$Record.ServerPath

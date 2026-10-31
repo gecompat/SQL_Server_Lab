@@ -5,7 +5,7 @@ $repo=(Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 $passed=0;$failures=[Collections.Generic.List[string]]::new()
 Import-Module (Join-Path $repo 'SqlServerLab.psd1') -Force
 foreach($name in @('DiagnosticBundleReader','AuthenticatedTlsRequest','AuthenticatedTlsRegistryIndex','AuthenticatedTlsRegistryPayload','AuthenticatedTlsCaCandidate',
-    'AuthenticatedTlsContext','AuthenticatedTlsRegistryRoot','AuthenticatedTlsRegistryWriter','AuthenticatedTlsLab','AuthenticatedTlsQualification',
+    'AuthenticatedTlsContext','AuthenticatedTlsRegistryRoot','AuthenticatedTlsRegistryWriter','AuthenticatedTlsLab','AuthenticatedTlsWindowsLab','AuthenticatedTlsQualification',
     'AuthenticatedTlsLinuxObserver','AuthenticatedTlsLinuxQualification','AuthenticatedTlsLinuxExecution','AuthenticatedTlsRestartRebind','AuthenticatedTlsRebindRecovery','SqlReadiness')){. (Join-Path $repo "Private/$name.ps1")}
 . (Join-Path $repo 'Public/TestEnvironment.ps1')
 . (Join-Path $repo 'Public/Read-SqlServerLabQualifiedTestEnvironment.ps1')
