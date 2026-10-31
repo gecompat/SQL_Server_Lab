@@ -14,6 +14,13 @@ trennt Regelübernahme, Lesepfadprüfung und geplante Restarbeiten.
 
 ## Aktuelle KI-Arbeitsgrenze für TLS-001
 
+Benutzerauftrag vom 2026-10-31: Für die aktuelle SSIS-Qualifikation wird der
+[eigene Windows-TLS-Pfad](../Documentation/Architecture/AUTHENTICATED_TLS_WINDOWS_OPERATIONAL_LAB.md)
+ergänzt. Die Bereitstellung, Aktivierung und SQL-Spezialisierung bleiben im
+Lab; Toolbelt konsumiert den signierten V2-Snapshot. Bestehende Testsysteme,
+Hosttrust und vorbereitete Images bleiben erhalten. Dieser begrenzte Auftrag
+ist keine Freigabe zur Veröffentlichung oder zum gesamten TLS-001-Abschluss.
+
 Die direkte menschliche Anweisung vom 2026-10-25 gibt die für TLS-001 nötige
 Toolbelt-Arbeit wieder frei. Die autonome Fortsetzung betrifft die gekoppelten
 Lab-/Toolbelt-Schritte innerhalb des bestehenden gemeinsamen Budgets; neue

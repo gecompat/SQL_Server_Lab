@@ -10,13 +10,19 @@ Gültigkeit und Clientgeneration. Alte `0.1`-Payloads bleiben unverändert.
 Trustscope-Referenzen sind eindeutig und auch nach abgebrochenen Intents reserviert.
 Der Writer unterstützt lokale feste NTFS- und ReFS-Volumes; dieselben geschützten Journale, Sperren und nativen File.Replace-/Recoveryprüfungen gelten auf beiden. Die lokale ReFS-Writersuite bestand alle 45 Fälle einschließlich eigenem Cleanup. Der APIvertrag für den Dateiersatz ist bei [Microsoft](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-replacefilew) beschrieben.
 
-`New-SqlServerLab -TrustServerCertificate:$false` verlangt Windows mit
+Der zusätzliche [Windows-/Hyper-V-Pfad](AUTHENTICATED_TLS_WINDOWS_OPERATIONAL_LAB.md)
+verwendet die vorhandene Windows-Aktivierung und SQL-CompleteImage-Funktion
+für einen eigenen SQL-2025-RTM-Run. Er benötigt einen erhöhten Runner,
+ein vorbereitetes Image und dieselbe bestehende CA-/Clientbindung. Seine
+native Abnahme wird getrennt von den Containerprofilen ausgewiesen.
+
+Der Containerpfad `New-SqlServerLab -TrustServerCertificate:$false` verlangt Windows mit
 PowerShell 7.5+, ausdrücklich Docker oder Podman, den lokal vorhandenen Katalogstand `2025-CU9`, `2022-CU27` oder `2019-CU32`,
 `DataRoot`, `TlsControllerId`, `TlsLocationId` und `TlsCandidateId`.
 Der Pfad erzeugt einen eigenen StateRoot unter
 `State/authenticated-tls-labs/<AuditId>` und genau einen eigenen Run.
 Autostart bleibt zwingend `off`; `on` wird abgelehnt. Der Pfad aktiviert keinen globalen Host-Autostartkoordinator.
-Ohne Providerangabe bleibt Docker der Standard. Manifest, vorhandener StateRoot, Hostmounts und andere Provider werden vor
+Ohne Providerangabe bleibt Docker der Standard. Im Containerpfad werden Manifest, vorhandener StateRoot, Hostmounts und andere Provider vor
 Provideraktionen abgelehnt. CA-Metadaten werden gemeinsam registriert;
 bestehende SQL-Ziele werden nicht übernommen oder umkonfiguriert.
 

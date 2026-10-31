@@ -28,14 +28,15 @@ function ConvertTo-LabTlsLiveQualificationResult {
         $values[$name]=$value
     }
     $linuxVersion=$values.ContractVersion-ceq'SqlServerLab.TlsQualification/0.2'
+    $windowsVersion=$values.ContractVersion -ceq 'SqlServerLab.TlsQualification/0.3'
     if($linuxVersion-and($Qualification.ClientPlatform-isnot[string]-or$Qualification.ClientPlatform-cne'linux')){throw 'TLS_LIVE_QUALIFICATION_RESULT_INVALID'}
-    if($values.ContractVersion -cnotin @('SqlServerLab.TlsQualification/0.1','SqlServerLab.TlsQualification/0.2') -or $values.Status -cne 'QUALIFIED' -or
+    if($values.ContractVersion -cnotin @('SqlServerLab.TlsQualification/0.1','SqlServerLab.TlsQualification/0.2','SqlServerLab.TlsQualification/0.3') -or $values.Status -cne 'QUALIFIED' -or
         $values.RunId -cne $RunId -or $values.InstanceId -cne $InstanceId -or
-        $values.Provider -cnotin @('docker','podman') -or -not $values.Encrypt -or $values.TrustServerCertificate -or
+        ($windowsVersion -and $values.Provider -cne 'hyperv') -or (-not $windowsVersion -and $values.Provider -cnotin @('docker','podman')) -or -not $values.Encrypt -or $values.TrustServerCertificate -or
         $values.Evidence -cne 'FRESH_NATIVE_SQLCLIENT_AND_ODBC_SQLCMD' -or $values.WireCertificateFingerprint -cne 'NOT_OBSERVED'){
         throw 'TLS_LIVE_QUALIFICATION_RESULT_INVALID'
     }
-    $profile=Get-LabTlsSqlProfile ($values.SqlVersion+'-'+$values.Patch.ToUpperInvariant())
+    $profile=if($windowsVersion){Get-LabTlsWindowsProfile}else{Get-LabTlsSqlProfile ($values.SqlVersion+'-'+$values.Patch.ToUpperInvariant())}
     if($values.SqlVersion -cne $profile.SqlVersion -or $values.Patch -cne $profile.Patch -or $values.SqlBuild -cne $profile.SqlBuild){
         throw 'TLS_LIVE_QUALIFICATION_RESULT_INVALID'
     }
