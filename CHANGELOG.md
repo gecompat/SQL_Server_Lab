@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-11-01 – Gebundener nativer Windows-SQL-Hostclient
+
+- Ein separater Qualifikationshelper startet einen quellgebundenen Hostclient
+  mit der vorhandenen geschützten Windows-Anmeldung eines laufenden SQL-Runs.
+  Die API gibt kein Kennwort zurück und verändert keine Infrastruktur.
+- Microsoft-signierter PowerShell-Host, saubere explizite Modulbindung,
+  frischer VM-/Run-Binder, flüchtige Netzwerkanmeldung und eigener privater
+  Worker-/Ergebnisscope. Kein automatischer Retry und keine pauschale Abnahme
+  aus einem erfolgreichen Prozessstart. [Ablauf und Grenzen](Documentation/HowTo/WINDOWS_SQL_HOST_CLIENT_QUALIFICATION.md).
+
 ## 2026-10-31 – Eigener Windows-SQL-Run mit authentifiziertem TLS
 
 - Der ausdrücklich gewählte Hyper-V-/SQL-2025-RTM-Pfad verwendet ein
