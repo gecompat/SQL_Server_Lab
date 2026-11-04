@@ -403,3 +403,23 @@ ausgeführt; die neue native Runner-/Gesamtqualifikation bleibt bis zu ihren
 realen Nachweisen offen. Dieser stärkere native Gate ist durch die neu
 delegierte erhöhte Ausführung erforderlich und betrifft keine unabhängigen
 Docker-/Podman-Funktionen.
+
+### Frischer aktueller Toolbelt-Consumer
+
+Die zusätzliche SSIS-Abnahme nutzt denselben öffentlichen Labkoordinator und
+dessen Cleanupwachen. Ein fester Consumerhaken ergänzt den bestehenden
+Toolbelt-SQL-Test und dessen frischen Audit; ein weiterer allgemeiner
+Administratorrunner oder Modellaufruf pro Ergebnis ist nicht vorgesehen.
+Der vorhandene Selektor ordnet genau die neue Integration und ihre Gegenproben
+einer fokussierten statischen Suite zu. Vier echte Vor-Effekt-Abweisungen und
+die tatsächlich komponierte Methode ergeben 14 Offlineprüfungen; Syntax-,
+Privacy-, Dokumentations- und Selektorgates bleiben gekoppelt. Es gibt keinen
+zusätzlichen CI-Job und keine automatische neue native Matrix.
+
+Der Benutzer verlangt ausdrücklich einen frischen strikten TLS-Fall mit dem
+aktuellen SSIS-DLL. Deshalb ist ein neuer eigener Windows-Lauf erforderlich;
+frühere grüne TLS-/Docker-/Podman-Zellen werden nicht wiederholt. Die gemeinsame
+Welle zählt Aufbau, SQL-Verbraucher, Audits und Fehlerhistorie endlich. Vollständige
+Logs bleiben privat, Status und Quellbindungen werden lokal deterministisch
+ausgewertet. Modellkosten sind unbekannt; eine grüne Offlineprobe ersetzt
+weder die erhöhte Ausführungsfähigkeit noch die native Gesamtabnahme.
