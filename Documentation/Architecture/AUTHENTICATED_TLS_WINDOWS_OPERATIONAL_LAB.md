@@ -134,3 +134,34 @@ ein repräsentativer frischer Windows-SQL-2025-RTM-Run mit beiden echten strikte
 Clients, signiertem Export und Consumer; eigener Cleanup mit frischer Abwesenheit.
 Die versionsunabhängige Befehlsfolge wird nicht als neue SQL-2019/2022-Matrix
 ausgegeben. Neue Code-, Export- und native Consumerbelege sind eigene Gates.
+
+## Fester aktueller Toolbelt-Consumer
+
+[Der feste Abnahmeadapter](../../Tests/Integration/Invoke-ToolbeltSsisCurrentTlsAcceptance.ps1) ergänzt den
+vorhandenen öffentlichen Abnahmekoordinator um den freigegebenen aktuellen
+SSIS-SQL-Consumer. Das Lab besitzt weiterhin New, signierten Export, Remove und
+den separaten frischen VM-/Baseline-Audit. Toolbelt besitzt ausschließlich
+Installation, synthetische SQL-Objekte und den frischen SQL-Abschlussaudit.
+Es gibt keinen neuen Modul-Export oder allgemeinen erhöhten Befehlsrunner.
+
+Die ausdrücklich vom Operator gewählte, hashgebundene Konfiguration enthält
+den vertrauenswürdigen Toolbeltcheckout, dessen unveränderte aktuelle
+Gesamtabnahme und die exakten Releaseartefakte. Ein gleicher Bytesnapshot
+bindet Konfiguration und Hash; gehaltene Lesepins schützen Testquellen,
+Artefakte und das Consumer-Inputmanifest. Der fest ausgewählte SQL-Adapter
+verwendet vor jedem Open den vorhandenen strikten V2-Reader. Exportdaten
+wählen keinen Code oder Dateipfad für die Ausführung aus.
+
+Der Ablauf ist auf einen eigenen öffentlichen Windows-SQL-2025-RTM-Aufbau
+und 45 Minuten begrenzt. Ein fehlgeschlagener SQL-Lauf bleibt fehlgeschlagen;
+nur ein frischer erfolgreicher SQL-Audit erklärt das Consumerende für bekannt.
+Bei unbekanntem Ende bleibt die eigene VM zur Recovery erhalten. Der reguläre
+Supervisor verlangt zusätzlich den neuen Consumerfall und alle bisherigen
+Cleanup-/Fremdzustandswachen. Ein erhöhter Prozess derselben registrierten
+Identität ist Voraussetzung; das Skript erteilt keine Rechte und öffnet keine UAC.
+
+`-ValidateOnly` prüft Konfiguration, aktuellen DLL-/Quellstand und die tatsächlich
+komponierte Methode ohne Erhöhung, VM, SQL oder Zugangsdatenzugriff. Die
+statischen Gegenproben liegen im
+[zugehörigen statischen Check](../../Tests/Static/Invoke-ToolbeltSsisTlsAcceptanceChecks.ps1); eine grüne Offlineprobe
+ist kein nativer Consumer-Gesamtnachweis.
