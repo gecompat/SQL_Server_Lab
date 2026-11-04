@@ -5,8 +5,11 @@
 Der Benutzer hat diesen zusätzlichen Labumfang am 2026-10-31 ausdrücklich
 für die aktuelle SSIS-Qualifikation freigegeben. Der
 [komponierte native Referenznachweis](../Quality/TLS_WINDOWS_OPERATIONAL_SSIS_ACCEPTANCE_2026-10-31.md)
-bestand einschließlich Consumer und Cleanup. Ein ununterbrochener öffentlicher
-Neuaufbau wurde nach der Aktivierungskorrektur nicht erneut ausgeführt.
+bestand einschließlich Consumer und Cleanup. Der
+[öffentliche Neuaufbau vom 2026-11-04](../Quality/TLS_WINDOWS_PUBLIC_CREATE_ACCEPTANCE_2026-11-04.md)
+bestand ununterbrochen bis zur strikten TLS-Rückgabe, zum signierten Export und
+Reader. Der zusätzliche SQL-Consumer der Gesamtprobe scheiterte im Testadapter vor der Anmeldung;
+der Koordinator bleibt `FAIL`, der separate frische Cleanup-Audit ist bestanden.
 Die bisherige private
 [Hyper-V-Referenzabnahme](AUTHENTICATED_TLS_HYPERV_NATIVE_ACCEPTANCE.md)
 bleibt an ihren ursprünglichen Run und ihre damaligen Bytes gebunden.
@@ -30,6 +33,14 @@ Die vorhandenen CA-, Controller- und Locationreferenzen sind ausdrücklich
 anzugeben. Ein bereits identisch vertrauter CA-DER in CurrentUser/Root ist
 Voraussetzung; dieser Weg importiert keinen Hosttrust. Eine vorhandene VM
 wird nicht übernommen und bestehende Testsysteme werden nicht umkonfiguriert.
+
+Der erhöhte Runner muss tatsächlich denselben registrierten Datei-, Client-
+und Trustkontext sehen. Bei App-Virtualisierung genügt dieselbe Benutzeridentität
+nicht: Ein gewöhnliches Administrator-Terminal kann eine andere private
+Dateisicht besitzen. Eine fehlende CA-Ablage oder geänderte Clientmetadaten
+werden abgelehnt. Der [datierte Kontextnachweis](../Quality/TLS_WINDOWS_PUBLIC_CREATE_ACCEPTANCE_2026-11-04.md#ausführungskontext-und-vorlauf)
+beschreibt einen regulären Start im bereits vorhandenen Paketkontext;
+die tatsächlichen Capability- und Authorityprüfungen bleiben erforderlich.
 
 Der allgemeine Modulimport bleibt bei PowerShell 7.2. Die höhere TLS-Anforderung
 wird am konkreten Aufruf geprüft; die private Datei erhöht nicht die

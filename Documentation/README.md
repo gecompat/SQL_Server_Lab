@@ -61,7 +61,7 @@ führt von dort zu Vertrag, Format und Evidence.
   konkrete V1-/V2-Reader, direkte API-Nutzer und die verbleibenden Cutovergrenzen.
 - [Eigener Windows-SQL-Run mit authentifiziertem TLS](Architecture/AUTHENTICATED_TLS_WINDOWS_OPERATIONAL_LAB.md):
   erhöhter Runner, vorbereitete Images, vorhandene Aktivierung, strikte Clients
-  und signierter V2-Snapshot; getrennte native Abnahme.
+  und signierter V2-Snapshot; [öffentlicher Neuaufbau und offene Consumer-Gesamtprobe](Quality/TLS_WINDOWS_PUBLIC_CREATE_ACCEPTANCE_2026-11-04.md).
 - [Linux-TLS-Kryptomatrix](Quality/TLS_LINUX_CLIENT_MATRIX_ACCEPTANCE_2026-10-22.md):
   datierter Clientnachweis; kein öffentlicher Linux-Registry-/Exportpfad.
 - [Explizite TLS-Live-API](Quality/TLS_LIVE_QUALIFICATION_API_ACCEPTANCE_2026-10-23.md):
