@@ -374,3 +374,32 @@ ausgeführt. Ein Implementierer und derselbe unabhängige Reviewer beurteilen
 Produkt, neue Zulassungsgrenzen und tatsächliche Belegbindung. Vollständige
 Originallogs und private Kopien bleiben lokal. Das gemeinsame endliche Budget
 gilt auch für Korrekturen; tatsächliche Geld-/Tokenkosten bleiben unbekannt.
+
+## Befristeter erhöhter Windows-TLS-Runner
+
+Der ausdrücklich beauftragte Runner verwendet einen Implementierer und einen
+unabhängigen Review der stabilen Rechte-/Lifecycle-Grenze; weitere Reviewrunden
+bleiben auf konkrete Findings beschränkt. Seine fokussierte Suite prüft
+Protokoll, Quellen, Budgets und tatsächliche Consumer-Vorbereitung ohne Provider-
+oder SQL-Effekt. Der Selektor koppelt die neuen Tools und Integrationseinstiege
+an diese Suite sowie die bestehenden PowerShell-, Dokumentations- und Privacy-
+Gates. Die Selektoränderung behält den CiStrategy-Selbsttest. Es entsteht keine
+zusätzliche CI-Pipeline und kein privilegierter Installationslauf in PR-CI.
+
+Taskrechte, Mandatory-Integrity-Labels und der Start aus dem gewöhnlichen
+Prozess sind eigene native Sicherheitsgates; ein statischer grüner Check ersetzt
+sie nicht. Die fachliche Abnahme bleibt auf das betroffene Windows-/Hyper-V-/
+SQL-2025-RTM-Profil begrenzt. Frühere grüne Matrixzellen werden nicht wiederholt.
+Höchstens zwei neue serielle Versuche innerhalb der unverlängerbaren Lease
+teilen sich Ablauf, Diagnose und Cleanup; ein zweiter braucht einen neuen
+betroffenen Input oder Befund und bestätigten vorherigen Cleanup. Bereits
+verbrauchte ältere Wellen werden nicht zurückgesetzt.
+
+Quellen und Ergebnisse werden lokal deterministisch gebunden; in Review und
+Repository gelangen nur bereinigte Findings und Abnahmestände. Vollständige
+private Logs bleiben lokal. Tatsächliche Modell-/Geldkosten sind unbekannt.
+Die Installation wird erst nach den lokalen Gates und Sicherheitsreview
+ausgeführt; die neue native Runner-/Gesamtqualifikation bleibt bis zu ihren
+realen Nachweisen offen. Dieser stärkere native Gate ist durch die neu
+delegierte erhöhte Ausführung erforderlich und betrifft keine unabhängigen
+Docker-/Podman-Funktionen.

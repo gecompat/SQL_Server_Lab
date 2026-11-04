@@ -8,8 +8,7 @@ für die aktuelle SSIS-Qualifikation freigegeben. Der
 bestand einschließlich Consumer und Cleanup. Der
 [öffentliche Neuaufbau vom 2026-11-04](../Quality/TLS_WINDOWS_PUBLIC_CREATE_ACCEPTANCE_2026-11-04.md)
 bestand ununterbrochen bis zur strikten TLS-Rückgabe, zum signierten Export und
-Reader. Der zusätzliche SQL-Consumer der Gesamtprobe scheiterte im Testadapter vor der Anmeldung;
-der Koordinator bleibt `FAIL`, der separate frische Cleanup-Audit ist bestanden.
+Reader. Die damalige zusätzliche Consumer-Gesamtprobe blieb FAIL. Der [anschließende native Gesamtabschluss](../Quality/BOUNDED_WINDOWS_TLS_RUNNER_ACCEPTANCE_2026-11-04.md) belegt nun Consumer, regulären Koordinatoraudit und Cleanup mit PASS.
 Die bisherige private
 [Hyper-V-Referenzabnahme](AUTHENTICATED_TLS_HYPERV_NATIVE_ACCEPTANCE.md)
 bleibt an ihren ursprünglichen Run und ihre damaligen Bytes gebunden.

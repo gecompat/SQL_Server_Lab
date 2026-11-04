@@ -13,7 +13,7 @@ ergänzt den ununterbrochenen öffentlichen Neuaufbau mit beiden strikten Stacks
 signiertem Export und Reader. Sein zusätzlicher SQL-Consumer scheiterte vor der
 Anmeldung im Testadapter; Worker und Supervisor bleiben `FAIL`. Acht separate
 frische Cleanupprüfungen und elf Offlineassertions für die Adapterkorrektur
-bestanden. Der korrigierte vollständige Gesamtfall ist nicht nativ ausgeführt.
+bestanden. Dieser damalige Gesamtfall blieb unausgeführt. Der [neue native Abschluss](BOUNDED_WINDOWS_TLS_RUNNER_ACCEPTANCE_2026-11-04.md) belegt anschließend alle sieben Koordinatorabschnitte und 14 Sicherheitsprüfungen mit PASS und entfernter eigener Aufgabe, VM und Export.
 Weitere Windowsprofile und der volle TLS-001-Abschluss bleiben getrennt.
 
 ## Versionsauswahl für neue Laufzeitnachweise

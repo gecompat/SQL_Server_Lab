@@ -62,6 +62,7 @@ end {
     }
 
     $staticGroups = @(
+        @{ Pattern = '^(Tools/BoundedTlsRunner/.*\.ps1|Tests/Integration/Invoke-AuthenticatedTlsWindowsPublic(?:Acceptance|CleanupAudit)\.ps1|Tests/Static/Invoke-BoundedTlsRunnerChecks\.ps1)$'; Checks = @('Invoke-BoundedTlsRunnerChecks.ps1') },
         @{ Pattern = '^(Private/SqlFeatures\.ps1|Public/Set-SqlServerLabFeature\.ps1|Providers/HyperV/HyperVSqlFeatures\.ps1|Tools/Set-SqlServerLabFullText\.sh|Tests/(Static/Invoke-SqlFeatureChecks|Static/Fixtures/SqlFeature(?:Mutation|Readiness|Reconcile)Checks|Integration/Invoke-SqlFeatureAcceptance)\.ps1)$'; Checks = @('Invoke-SqlFeatureChecks.ps1') },
         @{ Pattern = '^(Public/(Update-SqlServerLabContainer|Set-SqlServerLabContainerAutoStart|Resume-SqlServerLabContainerAutoStart)|Private/(ExternalRuntimeReconcile|HyperV(?:ExternalRuntime|Resource|SqlConfiguration|SqlPort|Storage|TestDatabase)Reconcile))\.ps1$'; Checks = @('Invoke-SqlFeatureChecks.ps1') },
         @{ Pattern = '(?i)(HyperVSqlPortReconcile|hyperv-sql-port-reconcile|HyperVSqlPortMutationBoundary)'; Checks = @('Invoke-HyperVSqlPortReconcileChecks.ps1','Invoke-ReconcileActionContractChecks.ps1') },
