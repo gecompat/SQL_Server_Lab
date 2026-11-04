@@ -105,10 +105,14 @@ Docker-/Podman-Profile sowie den zusätzlichen
 [Windows-/Hyper-V-Vertrag](../Architecture/AUTHENTICATED_TLS_WINDOWS_OPERATIONAL_LAB.md)
 für SQL 2025 RTM begrenzt. Der Windowsweg besitzt einen
 [komponierten nativen Referenznachweis](TLS_WINDOWS_OPERATIONAL_SSIS_ACCEPTANCE_2026-10-31.md)
-mit Consumer und Cleanup; ein ununterbrochener öffentlicher Neuaufbau nach
-der Aktivierungskorrektur bleibt nicht ausgeführt. Die bisherigen
-Containerbelege ersetzen diesen Nachweis nicht.
-Er reserviert keine Runtime, verlängert
+mit Consumer und Cleanup. Der
+[Neuaufbau vom 2026-11-04](TLS_WINDOWS_PUBLIC_CREATE_ACCEPTANCE_2026-11-04.md)
+belegt erstmals den ununterbrochenen öffentlichen Aufbau bis zu beiden strikten
+Stacks, signiertem Export und Reader. Die zusätzliche SQL-Consumer-Anmeldung
+blieb wegen eines Testadapterfehlers unausgeführt; dieser Gesamtkoordinator
+bleibt `FAIL`. Der eigene Cleanup ist separat frisch geprüft. Ein korrigierter
+vollständiger Gesamtfall bleibt offen. Containerbelege ersetzen ihn nicht.
+Der Snapshotreader reserviert keine Runtime, verlängert
 keine Qualifikation und ist allein kein Toolbelt-Livebeweis. Linux-V2-Consumer,
 weitere Hyper-V-Profile und die vollständige TLS-001-Matrix bleiben
 getrennt. Die [native Windows-Consumer-Teilmatrix](TLS_V2_CONSUMER_CUTOVER_ACCEPTANCE_2026-10-22.md)

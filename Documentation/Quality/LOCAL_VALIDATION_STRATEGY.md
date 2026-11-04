@@ -7,8 +7,14 @@ bestand als gebundener komponierter Windows-/Hyper-V-/SQL-2025-RTM-Pfad mit
 acht strikten Lab-Clientresultaten, signiertem V2-Export, 412 aktuellen
 SSIS-Assertions und eigenem Cleanup. Zwei ursprüngliche Aufbaufehler und ein
 Toolbelt-Cleanupfehler bleiben mit ihren gesonderten Recoveries erhalten.
-32 betroffene statische Suites bestanden. Durchgehende Neuerstellung,
-weitere Windowsprofile und der volle TLS-001-Abschluss bleiben getrennt.
+32 betroffene statische Suites bestanden.
+Der [Nachweis vom 2026-11-04](TLS_WINDOWS_PUBLIC_CREATE_ACCEPTANCE_2026-11-04.md)
+ergänzt den ununterbrochenen öffentlichen Neuaufbau mit beiden strikten Stacks,
+signiertem Export und Reader. Sein zusätzlicher SQL-Consumer scheiterte vor der
+Anmeldung im Testadapter; Worker und Supervisor bleiben `FAIL`. Acht separate
+frische Cleanupprüfungen und elf Offlineassertions für die Adapterkorrektur
+bestanden. Der korrigierte vollständige Gesamtfall ist nicht nativ ausgeführt.
+Weitere Windowsprofile und der volle TLS-001-Abschluss bleiben getrennt.
 
 ## Versionsauswahl für neue Laufzeitnachweise
 
