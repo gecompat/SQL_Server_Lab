@@ -71,6 +71,27 @@ Namen. Existiert ausschließlich eine CMS-Registrierung für einen bereits als
 `-ReplaceRemovedCms` ersetzt werden. Laufende, angehaltene oder nicht eindeutig
 entfernte CMS-Registrierungen bleiben gesperrt.
 
+Eine Neuerstellung mit demselben Labnamen erhält einen neuen persistenten
+SQL-Systemstore und ein neu generiertes SA-Passwort. Alte Stores und deren
+Daten bleiben erhalten; der Labname übernimmt sie nicht automatisch. Die
+bisherige Registrierung wird erst nach erfolgreicher Neuerstellung ersetzt.
+Bei einem Provider- oder Provisionierungsfehler bleibt sie für einen erneuten
+Versuch erhalten.
+
+Nach regulärem Entfernen des alten CMS-Runs kann ein Podman-CMS beispielsweise
+so unter demselben Namen neu angelegt werden:
+
+```powershell
+Initialize-SqlServerLabCms -Provider podman -LabName Lab_CMS -ReplaceRemovedCms
+Sync-SqlServerLabCms
+```
+
+Das einmalig ausgegebene neue Passwort sicher ablegen und den lokalen
+CMS-Zugang in SSMS auf das neue Serverziel und Passwort aktualisieren.
+Die ausdrückliche Fortsetzung eines bestehenden SQL-Stores über
+`PersistentStorageId` ist ein eigener Ablauf und behält dessen SQL-Anmeldedaten;
+siehe [persistente Daten](../HowTo/PERSISTENT_DATA_AND_EVALUATION_REFRESH.md#6-optionale-runtime-anbindung).
+
 Die Ausgabeaktionen der Verbindungszentrale – Status, SSMS-Importhinweis,
 Export, Gruppenkonfiguration, Synchronisation und Vorschau – bleiben sichtbar,
 bis sie mit **Enter** oder **Escape** geschlossen werden.

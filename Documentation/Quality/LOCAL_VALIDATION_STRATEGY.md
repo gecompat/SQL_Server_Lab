@@ -3508,6 +3508,33 @@ bleiben bei Preview unveraendert; Apply registriert das Ziel und loest die
 Quell-Lease in derselben Revision. Copy-/Katalogfehler und Resume bleiben
 Bestandteil der Suite; diese Pruefung startet keine Container-Runtime.
 
+### Persistente Neuanlage mit wiederverwendetem Labnamen
+
+`Invoke-DataRootChecks.ps1` prüft getrennte SQL-System- und External-Stores
+zweier Neuanlagen mit demselben Namen für Docker und Podman. Die bestehende
+ConnectionCenterCms-Suite führt den echten Initialisierer mit synthetischen
+Provider-/Provisionierungsgrenzen aus: Fehler erhalten die terminale
+Registrierung, ein nicht entfernter Run blockiert den Ersatz und erfolgreiche
+Ersetzungen verwenden denselben Namen mit neu generierten Passwörtern.
+
+`Tests/Integration/Invoke-PersistentLabNameReuseAcceptance.ps1 -Provider
+docker|podman` ergänzt den öffentlichen SQL-2025-Erstellungspfad: Datenmarker
+im ersten Lab, reguläres Remove mit retained Store, gleicher Name mit neuem
+Passwort, frischer SQL-Systemzustand, Stop/Start und Ablehnung des alten
+Passworts. Autostart bleibt im isolierten Test ausgeschaltet. Der Test prüft
+Speicher-IDs vor der eigenen Volumeentfernung und vergleicht das abschließende
+Container-/Volumeinventar mit dem Ausgangszustand.
+
+Am 2026-11-05 bestanden beide Provider getrennt mit je acht Prüfungen und
+vollständigem eigenem Runtime-Cleanup. Ein ursprünglicher Podman-Versuch
+scheiterte an einer falschen Feldannahme im Testadapter; sein Container und
+sein retained Testvolume wurden anschließend gezielt bereinigt. Der
+ursprüngliche FAIL bleibt erhalten, ebenso sein lokaler Diagnoseordner nach
+abgewiesener Dateibereinigung. Die korrigierten Läufe sind neue Nachweise.
+CMS-Autostart, echte SSMS-Registrierung, weitere SQL-Versionen und Hyper-V sind
+durch diese gezielte Abnahme nicht qualifiziert. Die frühere Continue-/Clone-
+Abnahme bleibt auf ihren damaligen Stand begrenzt.
+
 Die drei Retained-Store-Suites `Invoke-RetainedStoreRemovalChecks.ps1`,
 `Invoke-RetainedStoreRuntimeChecks.ps1` und
 `Invoke-RetainedStoreRemovalConcurrencyChecks.ps1` prüfen Producer-Fixtures,

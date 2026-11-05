@@ -125,6 +125,38 @@ try {
         $backupDrive -and $backupDrive.containerPath -eq '/var/opt/mssql/backup' -and
         $backupDrive.hostPath -eq (Join-Path $temporaryRoot 'Labs/persistent-test/Instances/docker/primary/SqlServer/2025/backups')
     )
+    foreach ($provider in @('docker', 'podman')) {
+        $nameReuse = & $module {
+            param($root, $provider)
+            $storage = Get-LabPersistentInstanceStorage -DataRoot $root -LabName 'cms-name-reuse' `
+                -Provider $provider -InstanceId primary -SqlVersion 2025 -Create
+            $first = [PSCustomObject]@{ drives = @() }
+            $second = [PSCustomObject]@{ drives = @() }
+            $null = Add-LabPersistentContainerDrive -Instance $first -Storage $storage -IncludeExternalRuntimeState
+            $savedFirst = $first | ConvertTo-Json -Depth 10
+            $null = Add-LabPersistentContainerDrive -Instance $second -Storage $storage -IncludeExternalRuntimeState
+            [PSCustomObject]@{
+                First = @($first.drives)
+                Second = @($second.drives)
+                FirstUnchanged = ($savedFirst -ceq ($first | ConvertTo-Json -Depth 10))
+                Reloaded = @((($first | ConvertTo-Json -Depth 10) | ConvertFrom-Json).drives)
+            }
+        } $temporaryRoot $provider
+        $firstVolumes = @($nameReuse.First | Where-Object volumeName | ForEach-Object volumeName)
+        $secondVolumes = @($nameReuse.Second | Where-Object volumeName | ForEach-Object volumeName)
+        Add-CheckResult -Name "$provider-Neuanlage mit gleichem Namen bindet frische SQL- und External-Stores" -Success (
+            $firstVolumes.Count -eq 3 -and $secondVolumes.Count -eq 3 -and
+            @($secondVolumes | Where-Object { $_ -in $firstVolumes }).Count -eq 0
+        )
+        Add-CheckResult -Name "$provider-Namenswiederverwendung erhaelt alte Bindung und gespeicherte Volumeidentitaet" -Success (
+            $nameReuse.FirstUnchanged -and
+            @($nameReuse.Reloaded | Where-Object volumeName | Where-Object { $_.volumeName -notin $firstVolumes }).Count -eq 0 -and
+            @($nameReuse.First | Where-Object id -eq 'persistent-backups').Count -eq 1 -and
+            @($nameReuse.Second | Where-Object id -eq 'persistent-backups').Count -eq 1 -and
+            [string](@($nameReuse.First | Where-Object id -eq 'persistent-backups')[0].hostPath) -ceq
+                [string](@($nameReuse.Second | Where-Object id -eq 'persistent-backups')[0].hostPath)
+        )
+    }
     $runScopedDriveContract = & $module {
         $instance = [PSCustomObject]@{ drives = @([PSCustomObject]@{ id='data'; containerPath='/sqldata' }) }
         $null = Add-LabRunScopedContainerSystemDrive -Instance $instance -IncludeExternalRuntimeState

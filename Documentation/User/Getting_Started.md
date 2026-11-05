@@ -2342,7 +2342,12 @@ Repair-SqlServerLabPersistentStorageCatalog @repair
 
 Nach `RECOVERED` verwendet `New-SqlServerLab -PersistentData
 -PersistentStorageId $storageId -PersistentStorageAction CONTINUE` den bestehenden
-Store unter der erneut geprüften Runtime-Bindung. Ein identischer Repair liefert
+Store unter der erneut geprüften Runtime-Bindung und mit dessen bisherigen
+SQL-Anmeldedaten. Ohne `PersistentStorageId` legt eine neue Docker-/Podman-
+Umgebung auch bei gleichem Labnamen einen neuen Store an; das neue SA-Passwort
+initialisiert diesen frischen SQL-Systemzustand. Vorhandene Stores bleiben
+erhalten. Siehe auch [persistente Daten](../HowTo/PERSISTENT_DATA_AND_EVALUATION_REFRESH.md#6-optionale-runtime-anbindung).
+Ein identischer Repair liefert
 `NO_CHANGE`. Der Befehl ändert keine SQL-Daten, Volumes oder Labels.
 Run-scoped Stores, aktive Leases, fremde Ownership, Sidecars und unbekannte
 Runtime-Evidence bleiben blockiert. Ältere Runs ohne persistierte Drive-/UUID-
