@@ -31,6 +31,17 @@ foreach($case in @(@('SQLCLIENT_RESULT','TLS_SQLCLIENT_RESULT_INVALID'),@('SQLCM
     $pattern='^TLS_LAB_RUNTIME_COMMAND_FAILED\|exitCode=1\|stderrClass='+[regex]::Escape($case[1])+'\|stderrBytes=\d+\|stdoutChars=0\|operationStage=linux-client-qualification$'
     Add-CheckResult 'Runtime Linux qualification markers map to fixed safe classes without raw diagnostics' ($classified -match $pattern -and $classified -notmatch 'synthetic-private-detail')
 }
+foreach($stage in @('CONSTRUCT','OPEN','QUERY','CLEANUP')){foreach($category in @('PLATFORM_UNSUPPORTED','ASSEMBLY_UNAVAILABLE','AUTHENTICATION','TIMEOUT','NETWORK','SQL','UNCLASSIFIED')){
+    $token='TLS_SQLCLIENT_'+$stage+'_'+$category
+    $classified=Get-LabTlsRuntimeFailureSummary -ExitCode 1 -StandardError ($token+' synthetic-private-user password=synthetic-secret') -OutputLength 0 -OperationStage 'linux-client-qualification'
+    $class=([regex]::Match($classified,'\|stderrClass=([^|]+)\|')).Groups[1].Value
+    Add-CheckResult 'Runtime SqlClient exception categories stay bounded and omit diagnostics' ($class-ceq$token-and$classified -notmatch 'synthetic-private-user|synthetic-secret')
+}}
+foreach($variant in @('tls_sqlclient_open_sql','Tls_SqlClient_Open_Sql')){
+    $classified=Get-LabTlsRuntimeFailureSummary -ExitCode 1 -StandardError ($variant+' synthetic-private-user password=synthetic-secret') -OutputLength 0 -OperationStage 'linux-client-qualification'
+    $class=([regex]::Match($classified,'\|stderrClass=([^|]+)\|')).Groups[1].Value
+    Add-CheckResult 'Noncanonical SqlClient failure token casing stays unclassified' ($class-ceq'STDERR_UNCLASSIFIED'-and$classified -notmatch 'synthetic-private-user|synthetic-secret')
+}
 $unknownRuntimeFailure=Get-LabTlsRuntimeFailureSummary -ExitCode 23 -StandardError 'unclassified diagnostic with synthetic-secret' -OutputLength 0
 Add-CheckResult 'Unknown runtime failure keeps an unspecified stage and omits raw stderr' ($unknownRuntimeFailure -match 'stderrClass=STDERR_UNCLASSIFIED' -and $unknownRuntimeFailure -match 'operationStage=unspecified' -and $unknownRuntimeFailure -notmatch 'unclassified diagnostic|synthetic-secret')
 Add-CheckResult 'Runtime failure stage rejects caller supplied text' (Test-TlsLabReject {Get-LabTlsRuntimeFailureSummary -ExitCode 1 -StandardError 'certificate' -OutputLength 0 -OperationStage 'password=synthetic-secret'})
