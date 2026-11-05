@@ -204,12 +204,65 @@ try {
         $source -match 'CmsShowGeneratedPasswordInName = \$false' -and
         $source -match 'if \(\$null -eq \$saved\.CmsShowGeneratedPasswordInName\) \{ \$false \}')
 
-    Add-CheckResult -Name 'CMS-Ersatz entfernt nur eine explizit freigegebene terminale Registrierung' -Success (
-        $source -match '\[switch\]\$ReplaceRemovedCms' -and
-        $source -match 'CONNECTION_CENTER_CMS_REPLACEMENT_BLOCKED' -and
-        $source -match '\[string\]\$existingRun\.state -ne ''REMOVED''' -and
-        $source -match "'sql-connection-center-cms\.json'" -and
-        $source -match 'Remove-Item -LiteralPath \$configurationPath -Force -ErrorAction Stop')
+    $replacement = & {
+        param($sourcePath)
+        . $sourcePath
+        $fixtureRoot = Join-Path ([IO.Path]::GetTempPath()) ('sql-lab-cms-replacement-' + [Guid]::NewGuid().ToString('N'))
+        $configurationPath = Join-Path $fixtureRoot 'catalog/sql-connection-center-cms.json'
+        $null = New-Item -ItemType Directory -Path (Split-Path $configurationPath -Parent)
+        $original = '{"RunId":"11111111-1111-1111-1111-111111111111","Provider":"podman"}'
+        [IO.File]::WriteAllText($configurationPath, $original)
+        $probe = [PSCustomObject]@{ Available=$false; FailProvision=$false; State='REMOVED'; Creates=0; Writes=0; LabNames=@() }
+        function Get-LabRunState { param($RunId, $StateRoot) [PSCustomObject]@{ state=$probe.State } }
+        function Get-AvailableLabProviders { if ($probe.Available) { 'podman' } }
+        function Get-LabDataRootDefault { $fixtureRoot }
+        function Get-LabTimestamp { '2025-01-01T00:00:00Z' }
+        function New-SqlServerLab {
+            param($Version, $Provider, $Profile, $LabName, [switch]$PersistentData, $DataRoot, $AutoStart, $SaPassword, $StateRoot)
+            $probe.Creates++
+            $probe.LabNames += $LabName
+            if ($probe.FailProvision) { throw 'SYNTHETIC_PROVISION_FAILED' }
+            [PSCustomObject]@{ RunId=[Guid]::NewGuid().ToString('D') }
+        }
+        function Write-LabArtifactJsonAtomic {
+            param($Path, $InputObject)
+            $probe.Writes++
+            [IO.File]::WriteAllText($Path, ($InputObject | ConvertTo-Json -Depth 10))
+        }
+        try {
+            $arguments = @{ Provider='podman'; LabName='Lab_CMS'; ReplaceRemovedCms=$true; StateRoot=$fixtureRoot }
+            $providerBlocked = try { Initialize-SqlServerLabCms @arguments; $false } catch { $_.Exception.Message -match 'CONNECTION_CENTER_CMS_PROVIDER_UNAVAILABLE' }
+            $providerPreserved = $providerBlocked -and [IO.File]::ReadAllText($configurationPath) -ceq $original -and $probe.Creates -eq 0 -and $probe.Writes -eq 0
+            $probe.Available = $true
+            $probe.FailProvision = $true
+            $provisionBlocked = try { Initialize-SqlServerLabCms @arguments; $false } catch { $_.Exception.Message -eq 'SYNTHETIC_PROVISION_FAILED' }
+            $provisionPreserved = $provisionBlocked -and [IO.File]::ReadAllText($configurationPath) -ceq $original -and $probe.Writes -eq 0
+            $probe.FailProvision = $false
+            $probe.State = 'STOPPED'
+            $activeBlocked = try { Initialize-SqlServerLabCms @arguments; $false } catch { $_.Exception.Message -match 'CONNECTION_CENTER_CMS_REPLACEMENT_BLOCKED' }
+            $activePreserved = $activeBlocked -and $probe.Creates -eq 1 -and [IO.File]::ReadAllText($configurationPath) -ceq $original
+            $probe.State = 'REMOVED'
+            $first = Initialize-SqlServerLabCms @arguments
+            $second = Initialize-SqlServerLabCms @arguments
+            $saved = Get-LabConnectionCenterCmsConfiguration -StateRoot $fixtureRoot
+            [PSCustomObject]@{
+                ProviderPreserved=$providerPreserved; ProvisionPreserved=$provisionPreserved; ActivePreserved=$activePreserved
+                Replaced=($probe.Writes -eq 2 -and $saved.RunId -eq $second.Lab.RunId -and $first.Lab.RunId -ne $second.Lab.RunId)
+                NewPasswords=($first.Password -cne $second.Password -and @($probe.LabNames | Where-Object { $_ -cne 'Lab_CMS' }).Count -eq 0)
+            }
+        }
+        finally {
+            # Ausschliesslich das oben selbst angelegte Fixtureverzeichnis.
+            $expectedRoot = Join-Path ([IO.Path]::GetTempPath()) (Split-Path $fixtureRoot -Leaf)
+            if ([IO.Path]::GetFullPath($fixtureRoot) -cne [IO.Path]::GetFullPath($expectedRoot)) { throw 'CMS_REPLACEMENT_FIXTURE_SCOPE_INVALID' }
+            Remove-Item -LiteralPath $fixtureRoot -Recurse -Force
+        }
+    } $sourcePath
+    Add-CheckResult -Name 'CMS-Ersatz bewahrt Registrierung bei fehlendem Provider' -Success $replacement.ProviderPreserved
+    Add-CheckResult -Name 'CMS-Ersatz bewahrt Registrierung bei fehlgeschlagener Provisionierung' -Success $replacement.ProvisionPreserved
+    Add-CheckResult -Name 'CMS-Ersatz blockiert einen nicht terminalen Run vor der Neuanlage' -Success $replacement.ActivePreserved
+    Add-CheckResult -Name 'CMS-Ersatz registriert erst nach Erfolg und erlaubt denselben Namen mit neuem Passwort' -Success (
+        $replacement.Replaced -and $replacement.NewPasswords)
     Add-CheckResult -Name 'CMS-Initialisierung bindet den angeforderten Labnamen' -Success (
         $source -match '\[string\]\$LabName = ''sql-server-lab-cms''' -and
         $source -match 'New-SqlServerLab .* -LabName \$LabName')

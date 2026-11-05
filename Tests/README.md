@@ -1,5 +1,16 @@
 # Tests/ – lokale und Remote-Validierung
 
+`Integration/Invoke-PersistentLabNameReuseAcceptance.ps1 -Provider docker|podman`
+erstellt seriell zwei eigene persistente SQL-2025-Labs mit demselben Namen und
+verschiedenen SA-Passwörtern. Es prüft einen frischen SQL-Systemstore, die
+Ablehnung des alten Passworts und den Erhalt des bisherigen Stores. Ein bereits
+lokal vorhandenes SQL-2025-Image und ein bereiter Provider sind erforderlich.
+Autostart bleibt aus; eigener State und Data Root liegen unter einem eindeutigen
+Tempverzeichnis. Das abschließende Cleanup entfernt ausschließlich eigene Runs
+und ID-geprüfte Testvolumes und vergleicht das Container-/Volumeinventar mit
+dem Zustand vor der Abnahme. Offlinefälle liegen in den DataRoot- und
+ConnectionCenterCms-Suites; Hyper-V wird durch diesen Fall nicht qualifiziert.
+
 Die [öffentliche Linux-Bindungsprüfung](Static/Invoke-AuthenticatedTlsLinuxPublicChecks.ps1)
 prüft neue Form, Eltern-/Kind-/Exportbindung und festen gehaltenen Quellsatz
 offline. Die [Transferprüfung](Static/Invoke-AuthenticatedTlsLinuxTransferChecks.ps1)
