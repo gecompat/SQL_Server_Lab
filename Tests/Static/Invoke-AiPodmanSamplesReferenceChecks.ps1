@@ -191,12 +191,23 @@ if($Stage -eq 'CLEANUP'){
     [IO.File]::WriteAllText($statePath,($state|ConvertTo-Json -Compress))
     [IO.File]::WriteAllText((Join-Path $EvidenceRoot 'cleanup.handled'),'synthetic-resource-removed')
 }
+if($Stage -eq 'ACCEPTANCE' -and $mode -in @('fixed-failure','unclassified-failure')){
+    $failureCode=if($mode -eq 'fixed-failure'){'SAMPLES_RETRIEVAL_FAILED'}else{'NONE'}
+    $output=if($mode -eq 'fixed-failure'){'SAMPLES_RETRIEVAL_FAILED'}else{'private-unclassified-sentinel'}
+    [Console]::Out.WriteLine($output)
+    $failedReceipt=@{OperationId=$OperationId.ToString('D');Stage=$Stage;Status='FAILED';Assertions=0;FailureCode=$failureCode}
+    [IO.File]::WriteAllText((Join-Path $EvidenceRoot ($Stage+'.receipt.json')),($failedReceipt|ConvertTo-Json -Compress))
+    exit 9
+}
 [Console]::Out.WriteLine('private-stdout-sentinel');[Console]::Error.WriteLine('private-stderr-sentinel')
-$receipt=@{OperationId=$OperationId.ToString('D');Stage=$Stage;Status='COMPLETED';Assertions=1}
+$receipt=@{OperationId=$OperationId.ToString('D');Stage=$Stage;Status='COMPLETED';Assertions=1;FailureCode='NONE'}
 if($mode -eq 'forged' -and $Stage -eq 'ACCEPTANCE'){$receipt.OperationId=[guid]::NewGuid().ToString('D')}
+if($mode -eq 'array-receipt' -and $Stage -eq 'ACCEPTANCE'){
+    $receipt.OperationId=@();$receipt.Stage=@('ACCEPTANCE');$receipt.Status=@('COMPLETED');$receipt.FailureCode=@('NONE')
+}
 [IO.File]::WriteAllText((Join-Path $EvidenceRoot ($Stage+'.receipt.json')),($receipt|ConvertTo-Json -Compress))
 '@ | Set-Content $worker
-    foreach($mode in @('success','hang','forged','cleanup-hang')){
+    foreach($mode in @('success','hang','forged','array-receipt','cleanup-hang','fixed-failure','unclassified-failure')){
         $case=Join-Path $root $mode;$null=New-Item -ItemType Directory -Path $case
         [IO.File]::WriteAllText((Join-Path $case 'mode'),$mode)
         [IO.File]::WriteAllText((Join-Path $case 'fixture-operation.json'),(@{OperationId=$operation;NewStarted=$false}|ConvertTo-Json -Compress))
@@ -211,7 +222,10 @@ if($mode -eq 'forged' -and $Stage -eq 'ACCEPTANCE'){$receipt.OperationId=[guid]:
             success {$result.Primary.Status -ceq 'COMPLETED' -and $result.Cleanup.Status -ceq 'COMPLETED'}
             hang {$result.Primary.Reason -ceq 'TIMEOUT' -and $result.Primary.TerminationConfirmed -and $result.Cleanup.Status -ceq 'COMPLETED'}
             forged {$result.Primary.Status -ceq 'FAILED' -and $result.Cleanup.Status -ceq 'COMPLETED'}
+            array-receipt {$result.Primary.Status -ceq 'FAILED' -and $result.Primary.Reason -ceq 'SUPERVISOR_FAILED' -and $result.Cleanup.Status -ceq 'COMPLETED'}
             cleanup-hang {$result.Primary.Status -ceq 'COMPLETED' -and $result.Cleanup.Reason -ceq 'TIMEOUT'}
+            fixed-failure {$result.Primary.Status -ceq 'FAILED' -and $result.Primary.Reason -ceq 'SAMPLES_RETRIEVAL_FAILED' -and $result.Cleanup.Status -ceq 'COMPLETED'}
+            unclassified-failure {$result.Primary.Status -ceq 'FAILED' -and $result.Primary.Reason -ceq 'CHILD_FAILED' -and $result.Cleanup.Status -ceq 'COMPLETED'}
         }
         Add-CheckResult -Name ('Echter Child-Prozess: '+$mode) -Success ($expected -and $watch.Elapsed.TotalSeconds -lt 50) -Message ($result.Primary.Reason+'/'+$result.Cleanup.Reason)
         if($mode -cin @('hang','cleanup-hang')){
@@ -229,6 +243,10 @@ if($mode -eq 'forged' -and $Stage -eq 'ACCEPTANCE'){$receipt.OperationId=[guid]:
         Add-CheckResult -Name ('Synthetisches Arrange und Cleanup-Zustand: '+$mode) -Success ($arranged -and $cleanupStarted -and $stateExpected)
         $saved=Get-Content (Join-Path $case 'result.json') -Raw|ConvertFrom-Json
         Add-CheckResult -Name ('Getrennte persistente Ergebnisse: '+$mode) -Success ($saved.Primary.Reason -ceq $result.Primary.Reason -and $saved.Cleanup.Reason -ceq $result.Cleanup.Reason)
+        if($mode -eq 'unclassified-failure'){
+            $savedText=Get-Content (Join-Path $case 'result.json') -Raw
+            Add-CheckResult -Name 'Nicht klassifizierte Child-Ausgabe bleibt aus dem persistenten Ergebnis' -Success ($savedText -notmatch 'private-unclassified-sentinel' -and (Get-Content (Join-Path $case 'ACCEPTANCE.stdout.log') -Raw) -match 'private-unclassified-sentinel')
+        }
     }
     Add-CheckResult -Name 'Child-Streams bleiben in privaten Dateien' -Success ((Get-Content (Join-Path $root 'success/ACCEPTANCE.stdout.log') -Raw) -match 'private-stdout-sentinel' -and (Get-Content (Join-Path $root 'success/ACCEPTANCE.stderr.log') -Raw) -match 'private-stderr-sentinel')
 }

@@ -40,16 +40,30 @@ function Invoke-AiPodmanSamplesReferenceChild {
         else {
             $confirmed=$true;$reason='CHILD_FAILED'
             $path=Join-Path $EvidenceRoot ($Stage+'.receipt.json')
-            if($process.ExitCode -eq 0 -and (Test-Path -LiteralPath $path)){
+            if(Test-Path -LiteralPath $path){
                 $item=Get-Item -LiteralPath $path
-                if($item.Length -gt 1024 -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)){throw 'RECEIPT_INVALID'}
+                if($item.Length -gt 2048 -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)){throw 'RECEIPT_INVALID'}
                 $receipt=Get-Content -LiteralPath $path -Raw|ConvertFrom-Json -Depth 5
                 $properties=@($receipt.PSObject.Properties.Name)
-                if($properties.Count -ne 4 -or @($properties|Where-Object {$_ -cnotin @('OperationId','Stage','Status','Assertions')}).Count -or
+                if($properties.Count -ne 5 -or @($properties|Where-Object {$_ -cnotin @('OperationId','Stage','Status','Assertions','FailureCode')}).Count -or
+                    $receipt.OperationId -isnot [string] -or $receipt.Stage -isnot [string] -or
+                    $receipt.Status -isnot [string] -or $receipt.FailureCode -isnot [string] -or
                     $receipt.OperationId -cne $OperationId.ToString('D') -or $receipt.Stage -cne $Stage -or
-                    $receipt.Status -cne 'COMPLETED' -or $receipt.Assertions -isnot [long] -and $receipt.Assertions -isnot [int] -or
+                    $receipt.Assertions -isnot [long] -and $receipt.Assertions -isnot [int] -or
                     $receipt.Assertions -lt 0 -or $receipt.Assertions -gt 100){throw 'RECEIPT_INVALID'}
-                $status='COMPLETED';$reason='NONE';$assertions=[int]$receipt.Assertions
+                if($process.ExitCode -eq 0 -and $receipt.Status -ceq 'COMPLETED' -and $receipt.FailureCode -ceq 'NONE'){
+                    $status='COMPLETED';$reason='NONE';$assertions=[int]$receipt.Assertions
+                }
+                elseif($process.ExitCode -ne 0 -and $receipt.Status -ceq 'FAILED' -and
+                    @('SAMPLES_ALREADY_STARTED','SAMPLES_BINDING_INVALID','SAMPLES_CONTENT_INVALID','SAMPLES_MODEL_INVALID',
+                        'SAMPLES_NEW_FAILED','SAMPLES_RESTART_CONTENT_INVALID','SAMPLES_RESTART_FAILED',
+                        'SAMPLES_RESTART_RETRIEVAL_FAILED','SAMPLES_RETRIEVAL_FAILED','AI_PODMAN_SAMPLES_WORKER_FAILED') -ccontains $receipt.FailureCode){
+                    $reason=$receipt.FailureCode
+                }
+                elseif($process.ExitCode -ne 0 -and $receipt.Status -ceq 'FAILED' -and $receipt.FailureCode -ceq 'NONE'){
+                    $reason='CHILD_FAILED'
+                }
+                else {throw 'RECEIPT_INVALID'}
             }
         }
     }

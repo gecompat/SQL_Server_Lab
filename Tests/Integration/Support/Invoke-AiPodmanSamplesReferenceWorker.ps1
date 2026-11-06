@@ -4,7 +4,10 @@ param([Parameter(Mandatory)][string]$EvidenceRoot,[Parameter(Mandatory)][guid]$O
     [Parameter(Mandatory)][ValidateSet('ACCEPTANCE','CLEANUP')][string]$Stage)
 $ErrorActionPreference='Stop'
 $repoRoot=(Resolve-Path (Join-Path $PSScriptRoot '../../..')).Path
-$receipt=[ordered]@{OperationId=$OperationId.ToString('D');Stage=$Stage;Status='FAILED';Assertions=0}
+$receipt=[ordered]@{OperationId=$OperationId.ToString('D');Stage=$Stage;Status='FAILED';Assertions=0;FailureCode='NONE'}
+$failureCodes=@('SAMPLES_ALREADY_STARTED','SAMPLES_BINDING_INVALID','SAMPLES_CONTENT_INVALID','SAMPLES_MODEL_INVALID',
+    'SAMPLES_NEW_FAILED','SAMPLES_RESTART_CONTENT_INVALID','SAMPLES_RESTART_FAILED',
+    'SAMPLES_RESTART_RETRIEVAL_FAILED','SAMPLES_RETRIEVAL_FAILED')
 $exitCode=1
 try {
     $module=Import-Module (Join-Path $repoRoot 'SqlServerLab.psd1') -Force -PassThru
@@ -51,9 +54,10 @@ try {
     $receipt.Assertions=[int]$count;$receipt.Status='COMPLETED';$exitCode=0
 }
 catch {
-    # Only fixed test failure codes can reach even the private diagnostic stream.
-    if($_.Exception.Message -cmatch '^SAMPLES_[A-Z_]{1,64}$'){Write-Host $_.Exception.Message}
-    else{Write-Host 'AI_PODMAN_SAMPLES_WORKER_FAILED'}
+    # Only explicitly enumerated test failures cross into the sanitized receipt.
+    if($failureCodes -ccontains $_.Exception.Message){$receipt.FailureCode=$_.Exception.Message}
+    else{$receipt.FailureCode='AI_PODMAN_SAMPLES_WORKER_FAILED'}
+    Write-Host $receipt.FailureCode
 }
 finally {[IO.File]::WriteAllText((Join-Path $EvidenceRoot ($Stage+'.receipt.json')),($receipt|ConvertTo-Json -Compress))}
 exit $exitCode
