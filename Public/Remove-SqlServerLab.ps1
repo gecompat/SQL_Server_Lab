@@ -74,6 +74,8 @@ function Remove-SqlServerLab {
         $__environmentGroupsRegistry = Get-LabEnvironmentGroupsRegistry -StateRoot $StateRoot
         Assert-LabEnvironmentGroupRunMutation -RunId $RunId -Action 'Remove' -Registry $__environmentGroupsRegistry
         $__environmentGroupRunLock = Enter-LabEnvironmentGroupRunResourceLock -RunId $RunId -StateRoot $StateRoot
+        Exit-LabEnvironmentGroupsLock -Mutex $__environmentGroupsLock
+        $__environmentGroupsLock = $null
     Assert-LabWindowsPoolMutationAllowed -RunId $RunId -StateRoot $StateRoot -InvalidateEvidence
     if ((Test-LabAutomatedTestEnvironmentRun -RunId $RunId) -and -not $script:LabAutomatedTestEnvironmentGroupOperation) {
         throw 'TEST_ENVIRONMENT_GROUP_PROTECTED: Einzelnes Löschen ist gesperrt. Clear-SqlServerLabAutomatedTestEnvironment verwenden.'
@@ -382,6 +384,6 @@ function Remove-SqlServerLab {
 
     } finally {
         if ($null -ne $__environmentGroupRunLock) { Exit-LabEnvironmentGroupRunResourceLock -Mutex $__environmentGroupRunLock }
-        Exit-LabEnvironmentGroupsLock -Mutex $__environmentGroupsLock
+        if ($null -ne $__environmentGroupsLock) { Exit-LabEnvironmentGroupsLock -Mutex $__environmentGroupsLock }
     }
 }

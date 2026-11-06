@@ -30,7 +30,7 @@ try {
         }
         function Get-LabRunRuntimeStatus { param($Run,$StateRoot) $state=[string]$script:groupFixtureRuntime[[string]$Run.runId]; [PSCustomObject]@{State=$state;Instances=@([PSCustomObject]@{Id='primary';Provider='docker';State=$state})} }
         function Test-LabAutomatedTestEnvironmentRun { param($RunId,$OutputDirectory) $false }
-        function Assert-LabWindowsPoolMutationAllowed { param($RunId,$StateRoot,$InvalidateEvidence) if ($script:groupFixtureProtected -contains [string]$RunId) { throw 'WINDOWS_POOL_MEMBER_RESERVED' } }
+        function Assert-LabWindowsPoolMutationAllowed { param($RunId,$StateRoot,[switch]$InvalidateEvidence) if ($script:groupFixtureProtected -contains [string]$RunId) { throw 'WINDOWS_POOL_MEMBER_RESERVED' } }
         function Start-SqlServerLab {
             param($RunId,$TimeoutSeconds,$SkipReadyCheck,$StateRoot)
             $script:groupFixtureRuns[[string]$RunId].state='RUNNING'
@@ -82,14 +82,33 @@ try {
         function Sync-LabRunRuntimeState { param($Run,$StateRoot) [PSCustomObject]@{Run=$Run} }
         function Start-HyperVLabEnvironment { param($RunId,$StateRoot) $script:groupLockScopeObserved=(-not $script:groupRegistryLockHeld -and $script:groupRunLockHeld); $script:groupFixtureRuns[$RunId].state='RUNNING'; [PSCustomObject]@{RunId=$RunId;Status='RUNNING';Action='STARTED'} }
         function Stop-HyperVLabEnvironment { param($RunId,$StateRoot) $script:groupStopLockScopeObserved=(-not $script:groupRegistryLockHeld -and $script:groupRunLockHeld); $script:groupFixtureRuns[$RunId].state='STOPPED'; [PSCustomObject]@{RunId=$RunId;Status='STOPPED';Action='STOPPED'} }
+        function Remove-LabTlsLinuxClientIfPresent { param($StateRoot,$RunId) }
+        function Invoke-CleanupPlan { param($RunDir,$ScopeId) $script:groupRemoveLockScopeObserved=(-not $script:groupRegistryLockHeld -and $script:groupRunLockHeld); [PSCustomObject]@{Status='CLEANUP_SUCCEEDED';Steps=0;Errors=0;ProviderSubRuns=@()} }
+        function Get-LabProviderSubRuns { param($RunId,$StateRoot) @() }
+        function Resolve-LabHostTool { param($Name) [PSCustomObject]@{Available=$true} }
+        function Get-DockerLabContainers { param($RunId,$StateRoot) @() }
+        function Remove-LabSecrets { param($Path) }
+        function Write-LabHeader { param($Message) }
+        function Write-LabStatus { param($Label,$Value) }
+        function Write-LabInfo { param($Message) }
+        function Write-LabSuccess { param($Message) }
         . (Join-Path $repoRoot 'Public/Start-SqlServerLab.ps1')
         . (Join-Path $repoRoot 'Public/Stop-SqlServerLab.ps1')
+        . (Join-Path $repoRoot 'Public/Remove-SqlServerLab.ps1')
         $lockScopeStart=Start-SqlServerLab -RunId $scopeRunId -StateRoot $root
         $lockScopeStartReleased=(-not $script:groupRegistryLockHeld -and -not $script:groupRunLockHeld)
         $lockScopeStop=Stop-SqlServerLab -RunId $scopeRunId -StateRoot $root -Confirm:$false
         $lockScopeStopReleased=(-not $script:groupRegistryLockHeld -and -not $script:groupRunLockHeld)
 
-        [PSCustomObject]@{RunId=$runId;GroupA=$groupA;GroupB=$groupB;StartA=$startA;StartB=$startB;StopA=$stopA;StopB=$stopB;StateAfterA=$stateAfterA;StateAfterB=$stateAfterB;RemoveAfterStop=$removeAfterStop;GroupAfterRemove=$groupAfterRemove;AddAfterStop=$addAfterStop;GroupAfterAdd=$groupAfterAdd;LockScopeStart=$lockScopeStart;LockScopeObserved=$script:groupLockScopeObserved;LockScopeStartReleased=$lockScopeStartReleased;LockScopeStop=$lockScopeStop;StopLockScopeObserved=$script:groupStopLockScopeObserved;LockScopeStopReleased=$lockScopeStopReleased}
+        $removeRunId=[guid]::NewGuid().ToString('D'); $removeScopeId=[guid]::NewGuid().ToString('D')
+        $script:groupFixtureRuns[$removeRunId]=[PSCustomObject]@{runId=$removeRunId;scopeId=$removeScopeId;state='RUNNING';metadata=[PSCustomObject]@{windowsPoolMember=$null;ownedHostIntegration=$false}}
+        $removeRunDirectory=Join-Path (Join-Path $root 'runs') $removeRunId
+        $null=New-Item -ItemType Directory -Path $removeRunDirectory -Force
+        [ordered]@{runId=$removeRunId;scopeId=$removeScopeId;instances=@([ordered]@{id='primary';provider='docker'})} | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $removeRunDirectory 'connection-info.json') -Encoding utf8
+        $lockScopeRemove=Remove-SqlServerLab -RunId $removeRunId -StateRoot $root -Force -Confirm:$false
+        $lockScopeRemoveReleased=(-not $script:groupRegistryLockHeld -and -not $script:groupRunLockHeld)
+
+        [PSCustomObject]@{RunId=$runId;GroupA=$groupA;GroupB=$groupB;StartA=$startA;StartB=$startB;StopA=$stopA;StopB=$stopB;StateAfterA=$stateAfterA;StateAfterB=$stateAfterB;RemoveAfterStop=$removeAfterStop;GroupAfterRemove=$groupAfterRemove;AddAfterStop=$addAfterStop;GroupAfterAdd=$groupAfterAdd;LockScopeStart=$lockScopeStart;LockScopeObserved=$script:groupLockScopeObserved;LockScopeStartReleased=$lockScopeStartReleased;LockScopeStop=$lockScopeStop;StopLockScopeObserved=$script:groupStopLockScopeObserved;LockScopeStopReleased=$lockScopeStopReleased;LockScopeRemove=$lockScopeRemove;RemoveLockScopeObserved=$script:groupRemoveLockScopeObserved;LockScopeRemoveReleased=$lockScopeRemoveReleased}
     } $stateRoot
 
     Add-CheckResult -Name 'Ein Run kann in zwei Gruppen gebunden werden und nur einmal starten' -Success (
@@ -111,6 +130,8 @@ try {
         $result.LockScopeStart.Action -eq 'STARTED' -and $result.LockScopeObserved -and $result.LockScopeStartReleased)
     Add-CheckResult -Name 'Einzel-Stop gibt Registry-Sperre nach Claim-Prüfung frei und hält Run-Sperre bis zum Abschluss' -Success (
         $result.LockScopeStop.Action -eq 'STOPPED' -and $result.StopLockScopeObserved -and $result.LockScopeStopReleased)
+    Add-CheckResult -Name 'Einzel-Remove gibt Registry-Sperre vor Provider-Cleanup frei und hält Run-Sperre bis zum Abschluss' -Success (
+        $result.LockScopeRemove.Status -eq 'REMOVED' -and $result.RemoveLockScopeObserved -and $result.LockScopeRemoveReleased)
 }
 catch {
     Add-CheckResult -Name 'Environment-Group-Lifecycle-Testausführung' -Success $false -Message "$($_.Exception.Message) [$($_.ScriptStackTrace)]"
