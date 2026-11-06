@@ -209,10 +209,24 @@ try{
             $sessionSafe=Get-LabTlsSafePublicLinuxFailureCode ([Management.Automation.ErrorRecord]::new($session,'synthetic',[Management.Automation.ErrorCategory]::NotSpecified,$null))
             $qualification=[InvalidOperationException]::new('TLS_QUALIFICATION_SQLCMD_TIMEOUT')
             $qualificationSafe=Get-LabTlsSafePublicLinuxFailureCode ([Management.Automation.ErrorRecord]::new($qualification,'synthetic',[Management.Automation.ErrorCategory]::NotSpecified,$null))
+            $fixedLinuxCodes=@(
+                'TLS_LINUX_CLIENT_BINDING_INVALID','TLS_LINUX_CONTEXT_RECORD_INVALID',
+                'TLS_LINUX_EXPORT_BINDING_INVALID','TLS_LINUX_PEER_REJECTED',
+                'TLS_LINUX_PINNED_PACKAGE_INVALID','TLS_LINUX_PINNED_PACKAGE_REQUIRED',
+                'TLS_LINUX_PROCESS_RECOVERY_REQUIRED','TLS_LINUX_QUALIFICATION_BINDING_CHANGED',
+                'TLS_LINUX_TERMINATION_UNCONFIRMED','TLS_LINUX_TRANSFER_COMMAND_FAILED',
+                'TLS_LINUX_TRANSFER_INPUT_INVALID','TLS_LINUX_TRANSFER_OUTPUT_LIMIT',
+                'TLS_LINUX_TRANSFER_SOURCE_CHANGED','TLS_LINUX_TRANSFER_TIMEOUT'
+            )
+            $fixedLinuxResults=foreach($token in $fixedLinuxCodes){
+                $failure=[InvalidOperationException]::new($token)
+                Get-LabTlsSafePublicLinuxFailureCode ([Management.Automation.ErrorRecord]::new($failure,'synthetic',[Management.Automation.ErrorCategory]::NotSpecified,$null))
+            }
             $hostWithSecret=[InvalidOperationException]::new('TLS_CA_ACL_INVALID password=synthetic-secret')
             $hostSecretRejected=Get-LabTlsSafePublicLinuxFailureCode ([Management.Automation.ErrorRecord]::new($hostWithSecret,'synthetic',[Management.Automation.ErrorCategory]::NotSpecified,$null))
             @($safe,$sqlClientSafe,$redacted,$rejected,$tokenRejected,$longTokenRejected,$sqlClientRejected,$classRejected,
-                $bridgeProtocolSafe,$bridgeSecretRejected,$hostAclSafe,$bootstrapSafe,$sessionSafe,$qualificationSafe,$hostSecretRejected)
+                $bridgeProtocolSafe,$bridgeSecretRejected,$hostAclSafe,$bootstrapSafe,$sessionSafe,$qualificationSafe,$hostSecretRejected,
+                ($fixedLinuxCodes-join','),($fixedLinuxResults-join','))
         }
         Assert ($values[0]-ceq'TLS_LAB_RUNTIME_COMMAND_FAILED|exitCode=1|stderrClass=TLS_CA_PEM_PARSE_FAILED|stderrBytes=32|stdoutChars=0|operationStage=linux-client-observation') 'Safe summary was not preserved'
         Assert ($values[1]-ceq'TLS_LAB_RUNTIME_COMMAND_FAILED|exitCode=1|stderrClass=TLS_SQLCLIENT_OPEN_AUTHENTICATION|stderrBytes=32|stdoutChars=0|operationStage=linux-client-qualification') 'SQLClient summary class was not preserved'
@@ -221,6 +235,7 @@ try{
         Assert ($values[10]-ceq'TLS_CA_ACL_INVALID'-and$values[11]-ceq'TLS_LINUX_BOOTSTRAP_LIMIT'-and
             $values[12]-ceq'TLS_LINUX_SESSION_REJECTED'-and$values[13]-ceq'TLS_QUALIFICATION_SQLCMD_TIMEOUT') 'A fixed CA, bootstrap, session, or qualification code was not preserved'
         Assert ($values[14]-ceq'TLS_LINUX_CONSUMER_REJECTED_OR_RECOVERY_REQUIRED') 'A suffix on a safe CA token was exposed'
+        Assert ($values[15]-ceq$values[16]) 'A fixed Linux binding, transfer, or qualification code was not preserved'
         Assert (@($values[2..7]+$values[9]+$values[14]|Where-Object {$_-cne'TLS_LINUX_CONSUMER_REJECTED_OR_RECOVERY_REQUIRED'}).Count-eq0) 'Malformed or secret-bearing diagnostics were exposed'
     }
     Check 'Public preflight catch emits the safe category while hiding the inner exception' {
