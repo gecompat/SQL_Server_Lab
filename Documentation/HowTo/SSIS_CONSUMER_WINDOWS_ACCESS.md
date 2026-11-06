@@ -34,6 +34,12 @@ beschraenkt. `Get-SqlServerLabGeneratedSqlAccess` eignet sich weiterhin fuer
 den vorhandenen lesenden Analyzezugang; sein SA-Login ersetzt diese
 Windows-Authentifizierung fuer Katalogoperationen nicht.
 
+Ein eigener nativer Installer oder SSMS auf dem Host verwendet den
+[quellgebundenen Windows-SQL-Qualifikationsclient](WINDOWS_SQL_HOST_CLIENT_QUALIFICATION.md).
+Dieser separate Testhelper verbraucht die vorhandene geschützte Anmeldung
+innerhalb des Labmoduls, ohne das Kennwort zu exportieren. Der öffentliche
+SQL-Gastzugang und sein Vertrag bleiben unverändert.
+
 Der zusätzliche [Ausführungskontextdiagnoseweg](../Architecture/SSIS_EXECUTION_DIAGNOSTIC.md)
 verwendet dieselbe gebundene Windows-Anmeldung ausschließlich zum Lesen einer
 vorhandenen eigenen SQL-2025-Ausführung und ihrer Runtimeumgebung. Er startet

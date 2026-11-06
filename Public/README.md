@@ -22,6 +22,13 @@ ausschließlich einen bereits erreichten Zustand nach Antwortverlust. Neuanlage
 verwendet `New-SqlServerLab -FullText $true` beziehungsweise den manifestgebundenen
 `sqlFeatures`-Intent. [Vertrag und Providergrenzen](../Documentation/Architecture/SQL_OPTIONAL_FEATURES.md).
 
+Der [eigene Windows-TLS-Pfad](../Documentation/Architecture/AUTHENTICATED_TLS_WINDOWS_OPERATIONAL_LAB.md)
+ergänzt `New-SqlServerLab -Provider hyperv -Version 2025 -TrustServerCertificate:$false`
+um einen isolierten RTM-Run aus einem vorbereiteten Image. Er benötigt einen
+erhöhten Runner und bestehende CA-/Clientreferenzen; Aktivierung und
+SQL-CompleteImage verwenden die vorhandenen Labfunktionen. Seine native
+Abnahme ist von den Containerprofilen getrennt.
+
 ## Explizite Roots beim Hyper-V-SQL-Abschluss
 
 Ausdrueckliche Instanzcollations erreichen im Windows-Prepared-Pfad Setup und

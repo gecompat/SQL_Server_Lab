@@ -246,7 +246,11 @@ Bestehende gespeicherte Connection Strings werden nicht automatisch migriert.
 Der zusätzliche Modus mit `TrustServerCertificate=False` ist für eigene,
 [unter Windows betriebene Docker-/Podman-Labs](../Architecture/AUTHENTICATED_TLS_OPERATIONAL_LAB.md)
 und SQL 2019 CU32, 2022 CU27 oder 2025 CU9 mit bestehender qualifizierter
-CA-/Clientbindung verfügbar. Die Verbindungszentrale zeigt den konfigurierten
+CA-/Clientbindung verfügbar. Der zusätzliche
+[Windows-/Hyper-V-Weg](../Architecture/AUTHENTICATED_TLS_WINDOWS_OPERATIONAL_LAB.md)
+für SQL 2025 RTM verlangt einen erhöhten Runner und ein vorbereitetes Image;
+seine Abnahme ist von der Container- und Browsermatrix getrennt.
+Die Verbindungszentrale zeigt den konfigurierten
 TLS-Modus und dessen getrennten Prüfstatus an. Angezeigte Flags allein belegen
 keine Zertifikatsprüfung. Die [ausdrückliche Liveprüfung](../Architecture/AUTHENTICATED_TLS_LIVE_QUALIFICATION.md)
 des eigenen operativen Labs erfolgt mit `Test-SqlServerLabTlsQualification`;

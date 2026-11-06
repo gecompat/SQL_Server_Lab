@@ -6,7 +6,8 @@ function Test-SqlServerLabTlsQualification {
     .DESCRIPTION
         Verlangt Windows mit PowerShell 7.5+, den aktuellen registrierten
         Client-/Trustkontext und einen eigenen Docker-/Podman-TLS-Run mit
-        SQL 2019 CU32, 2022 CU27 oder 2025 CU9. Beide echten Clientstacks
+        SQL 2019 CU32, 2022 CU27 oder 2025 CU9 oder einen eigenen Windows-/Hyper-V-
+        TLS-Run mit SQL 2025 RTM. Beide echten Clientstacks
         verbinden strikt und pruefen SQL-Build sowie Transportverschluesselung.
         Ziel, Runtime, Zertifikat, Client, Registry und Trust werden frisch
         gebunden. Fehler fuehren weder zu True noch zu einem anderen Ziel.
