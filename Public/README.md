@@ -22,6 +22,13 @@ ausschließlich einen bereits erreichten Zustand nach Antwortverlust. Neuanlage
 verwendet `New-SqlServerLab -FullText $true` beziehungsweise den manifestgebundenen
 `sqlFeatures`-Intent. [Vertrag und Providergrenzen](../Documentation/Architecture/SQL_OPTIONAL_FEATURES.md).
 
+Der [eigene Windows-TLS-Pfad](../Documentation/Architecture/AUTHENTICATED_TLS_WINDOWS_OPERATIONAL_LAB.md)
+ergänzt `New-SqlServerLab -Provider hyperv -Version 2025 -TrustServerCertificate:$false`
+um einen isolierten RTM-Run aus einem vorbereiteten Image. Er benötigt einen
+erhöhten Runner und bestehende CA-/Clientreferenzen; Aktivierung und
+SQL-CompleteImage verwenden die vorhandenen Labfunktionen. Seine native
+Abnahme ist von den Containerprofilen getrennt.
+
 ## Explizite Roots beim Hyper-V-SQL-Abschluss
 
 Ausdrueckliche Instanzcollations erreichen im Windows-Prepared-Pfad Setup und
@@ -381,6 +388,7 @@ Vertrag. Vollständiger CORE-102 und Native-Abnahmen bleiben offen.
 | `Stop-SqlServerLabEnvironmentGroup` | `EnvironmentGroups.ps1` | Eigene Gruppenansprüche lösen; gemeinsam verwendete Runs bleiben aktiv |
 | `Export-SqlServerLabTestEnvironment` | `TestEnvironment.ps1` | Registrierte Testumgebungen mit gebundener Live-Health-Prüfung als dotenv, schema-validierbares JSON, portablen Agenten-Prompt und Markdown exportieren |
 | `Test-SqlServerLabTlsQualification` | `Test-SqlServerLabTlsQualification.ps1` | Eigene operative Windows-Containerbindung mit beiden echten strikten Clients aktuell prüfen; [Voraussetzungen, Ergebnis und Fehler](../Documentation/Architecture/AUTHENTICATED_TLS_LIVE_QUALIFICATION.md) |
+| `Invoke-SqlServerLabLinuxPreflight` | `Invoke-SqlServerLabLinuxPreflight.ps1` | Dedizierter read-only Toolbelt-Preflight im ausdrücklich eigenen Linuxclient; [Entwicklungs- und Abnahmegrenze](../Documentation/Architecture/AUTHENTICATED_TLS_LINUX_CLIENT.md) |
 | `Repair-SqlServerLabAutomatedTestEnvironment` | `TestEnvironment.ps1` | Linux-Ressourcen, Health und Autostart, Windows-Evaluationsaktivierung sowie sprechende Runtime-Namen abgleichen; Ports, Volumes und Run-IDs bleiben erhalten |
 | `Start-SqlServerLabAutomatedTestEnvironment` | `TestEnvironmentLifecycle.ps1` | Registrierte Mitglieder gruppenweise starten, Windows-Lizenz und SQL-Dienste live prüfen und den erneuerten Export bis `READY` validieren |
 | `Stop-SqlServerLabAutomatedTestEnvironment` | `TestEnvironmentLifecycle.ps1` | Registrierte Windows-Hyper-V-Mitglieder gruppenweise ausschalten, Hostkapazität freigeben und den Export fail-closed erneuern; keine Runs oder Registrierungen löschen |

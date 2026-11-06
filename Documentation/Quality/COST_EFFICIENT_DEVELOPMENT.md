@@ -81,6 +81,24 @@ Reine Dokumentationsänderungen starten keine Runtime. Unbekannte produktive
 Änderungen verwenden die sichere Auswahl aus `Tools/Get-CiTestSelection.ps1`.
 Docker, Podman, Mixed und Hyper-V bleiben getrennte Nachweise.
 
+### SQL-Versionen nach tatsächlicher Abhängigkeit auswählen
+
+Generische Abläufe werden je betroffenem Implementierungs-, Provider- und
+Clientkontext an einem repräsentativen gepinnten SQL-Build geprüft. Weitere
+SQL-Versionen werden für denselben Ablauf nur ausgeführt, wenn ein anderer
+Codezweig, eine SQL-Fähigkeit, ein versionsabhängiger Engine-/Treibervertrag
+oder eine ausdrücklich noch fehlende Mindestabdeckung dies verlangt. Gleiche
+Befehlsfolge und gleiche Voraussetzungen bilden eine gemeinsame Testklasse.
+
+Versionstabellen, Buildbindungen, signierte Profilfelder und abweichende
+Recordformen werden weiterhin mit kleinen Offlinefällen geprüft. Sie erzeugen
+keine automatische Laufzeitmatrix. Eine offene Versionszelle der vereinbarten
+Mindestmatrix benötigt ihren gezielten Nachweis, keine Wiederholung sämtlicher
+UI-, Lifecycle-, Export-, Recovery- oder Consumerfälle. Die Laufzeitplanung
+nennt die geprüfte Grenze, den gewählten Repräsentanten, vorhandene Belege und
+den konkreten Grund für jede zusätzliche Versionsausführung. Wiederverwendung
+belegt keine bisher unbeobachtete Kombination.
+
 Die vollständige statische Regression und die vollständige Runtime-Matrix
 werden nicht nach jedem Zwischenfix ausgeführt. Sie bleiben für Nightly,
 Release, ausdrückliche Abnahme oder einen Scope vorbehalten, dessen geteilter
@@ -356,3 +374,52 @@ ausgeführt. Ein Implementierer und derselbe unabhängige Reviewer beurteilen
 Produkt, neue Zulassungsgrenzen und tatsächliche Belegbindung. Vollständige
 Originallogs und private Kopien bleiben lokal. Das gemeinsame endliche Budget
 gilt auch für Korrekturen; tatsächliche Geld-/Tokenkosten bleiben unbekannt.
+
+## Befristeter erhöhter Windows-TLS-Runner
+
+Der ausdrücklich beauftragte Runner verwendet einen Implementierer und einen
+unabhängigen Review der stabilen Rechte-/Lifecycle-Grenze; weitere Reviewrunden
+bleiben auf konkrete Findings beschränkt. Seine fokussierte Suite prüft
+Protokoll, Quellen, Budgets und tatsächliche Consumer-Vorbereitung ohne Provider-
+oder SQL-Effekt. Der Selektor koppelt die neuen Tools und Integrationseinstiege
+an diese Suite sowie die bestehenden PowerShell-, Dokumentations- und Privacy-
+Gates. Die Selektoränderung behält den CiStrategy-Selbsttest. Es entsteht keine
+zusätzliche CI-Pipeline und kein privilegierter Installationslauf in PR-CI.
+
+Taskrechte, Mandatory-Integrity-Labels und der Start aus dem gewöhnlichen
+Prozess sind eigene native Sicherheitsgates; ein statischer grüner Check ersetzt
+sie nicht. Die fachliche Abnahme bleibt auf das betroffene Windows-/Hyper-V-/
+SQL-2025-RTM-Profil begrenzt. Frühere grüne Matrixzellen werden nicht wiederholt.
+Höchstens zwei neue serielle Versuche innerhalb der unverlängerbaren Lease
+teilen sich Ablauf, Diagnose und Cleanup; ein zweiter braucht einen neuen
+betroffenen Input oder Befund und bestätigten vorherigen Cleanup. Bereits
+verbrauchte ältere Wellen werden nicht zurückgesetzt.
+
+Quellen und Ergebnisse werden lokal deterministisch gebunden; in Review und
+Repository gelangen nur bereinigte Findings und Abnahmestände. Vollständige
+private Logs bleiben lokal. Tatsächliche Modell-/Geldkosten sind unbekannt.
+Die Installation wird erst nach den lokalen Gates und Sicherheitsreview
+ausgeführt; die neue native Runner-/Gesamtqualifikation bleibt bis zu ihren
+realen Nachweisen offen. Dieser stärkere native Gate ist durch die neu
+delegierte erhöhte Ausführung erforderlich und betrifft keine unabhängigen
+Docker-/Podman-Funktionen.
+
+### Frischer aktueller Toolbelt-Consumer
+
+Die zusätzliche SSIS-Abnahme nutzt denselben öffentlichen Labkoordinator und
+dessen Cleanupwachen. Ein fester Consumerhaken ergänzt den bestehenden
+Toolbelt-SQL-Test und dessen frischen Audit; ein weiterer allgemeiner
+Administratorrunner oder Modellaufruf pro Ergebnis ist nicht vorgesehen.
+Der vorhandene Selektor ordnet genau die neue Integration und ihre Gegenproben
+einer fokussierten statischen Suite zu. Vier echte Vor-Effekt-Abweisungen und
+die tatsächlich komponierte Methode ergeben 14 Offlineprüfungen; Syntax-,
+Privacy-, Dokumentations- und Selektorgates bleiben gekoppelt. Es gibt keinen
+zusätzlichen CI-Job und keine automatische neue native Matrix.
+
+Der Benutzer verlangt ausdrücklich einen frischen strikten TLS-Fall mit dem
+aktuellen SSIS-DLL. Deshalb ist ein neuer eigener Windows-Lauf erforderlich;
+frühere grüne TLS-/Docker-/Podman-Zellen werden nicht wiederholt. Die gemeinsame
+Welle zählt Aufbau, SQL-Verbraucher, Audits und Fehlerhistorie endlich. Vollständige
+Logs bleiben privat, Status und Quellbindungen werden lokal deterministisch
+ausgewertet. Modellkosten sind unbekannt; eine grüne Offlineprobe ersetzt
+weder die erhöhte Ausführungsfähigkeit noch die native Gesamtabnahme.

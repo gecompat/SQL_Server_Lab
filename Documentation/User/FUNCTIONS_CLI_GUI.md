@@ -245,6 +245,14 @@ Legende:
 
 ## Verbindungszentrale, SSMS und CMS
 
+Der zusätzliche [isolierte Linux-Preflight](../Architecture/AUTHENTICATED_TLS_LINUX_CLIENT.md)
+befindet sich in Entwicklung; bestehende Windows-/Browserabnahmen gelten
+dafür nicht.
+
+| Cmdlet | Kurzbeschreibung | Konsolenmenü | Browser-GUI |
+|---|---|---|---|
+| [Invoke-SqlServerLabLinuxPreflight](../../Public/Invoke-SqlServerLabLinuxPreflight.ps1) | Dedizierter read-only Toolbelt-Preflight im ausdrücklich eigenen Linuxclient; native Abnahme offen. | Vollständiger Befehlszugang | – |
+
 Die ausdrückliche TLS-Liveprüfung verwendet `Test-SqlServerLabTlsQualification`
 und die Aktion **Verbindungen und CMS → TLS jetzt prüfen** am einzelnen SQL-Ziel.
 Sie verbindet beide strikten Clients und zeigt eine aktuelle Beobachtung.

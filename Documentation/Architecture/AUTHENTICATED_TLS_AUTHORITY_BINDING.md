@@ -84,6 +84,27 @@ verlangt dieselbe frische Gesamtbindung, bevor es ausschließlich die Quittung
 schreibt. `RECOVER_ABORT`, Journalreservierung, Locks, Quell-CAS, ACLs und
 Originalsicherung bleiben erhalten. Ausgeführte Aktionen werden nie wiederholt.
 
+## Atomare Kontextrevision bei Metadatendrift
+
+Ein ausdrücklich ausgewählter erneuter Authority-Registrierungsvorgang darf
+eine geänderte Client- oder Signiermetadatenrevision nur dann fortschreiben,
+wenn Kontextidentität, Benutzer, Hostmarker, Profil, Controller und Location
+unverändert sind. Jeder geänderte Kontext erhält genau eine neue Generation;
+unveränderte Kontexte behalten ihre Generation. Die referenzierende Authority
+erhält ebenfalls genau eine neue Generation und bindet die tatsächlich
+aktuellen Kontextgenerationen. Der Vorgang schreibt das vollständige Dokument über
+dieselbe frische Writertransaktion mit Quellhash-CAS. Das erhält Referenzen,
+CA-Kandidat, Zertifikat, Ciphertext, Gültigkeit und den nicht eigenen
+Truststatus. Geänderte Ausführungsidentität, geteilte Kontexte, CA-/Trustdrift,
+ungültige Metadaten oder Generationen am Grenzwert sperren die Revision.
+
+Diese Metadatenfortschreibung qualifiziert weder Schlüssel noch TLS. Der
+Registrierungspfad führt seine bestehende verschlüsselte Schlüsselbesitzprobe
+aus; Schlüsselbytes und Truststore werden nicht geändert. Die Authority bleibt
+`PROFILE_BOUND_NOT_QUALIFIED`; erst der separate operative Ablauf kann nach
+frischer Gesamtbindung weitere Qualifikationsschritte ausführen. Ein bloßer
+Authority-Read führt niemals automatisch eine Revision aus.
+
 ## Nachweis und Aufwand
 
 Die Suite verwendet eine eigene kurzlebige echte Windows-CA mit DPAPI und

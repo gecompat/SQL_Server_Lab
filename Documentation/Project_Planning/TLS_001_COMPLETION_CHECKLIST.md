@@ -1,6 +1,6 @@
 # TLS-001: Abschlusskriterien und verbleibende Arbeit
 
-Stand: 2026-10-25. Gesamtstatus: **partial**.
+Stand: 2026-10-26. Gesamtstatus: **partial**.
 
 Diese Arbeitsübersicht leitet sich aus den D1–D4-Entscheidungen, Slices und
 sechs Akzeptanzkriterien des [kanonischen TLS-001-Backlogs](NEW_SQL_LAB_USE_CASES_BACKLOG.md#tls-001--authentifizierte-tls-verbindungen-der-testumgebungen)
@@ -36,6 +36,16 @@ und Linux-Clientkontexten, jeweils mit beiden Clientstacks. Rechnerisch sind
 das 18 Ziel-/Client-OS-Kombinationen, **keine 18 neuen Labs**. Ressourcen dürfen
 nur innerhalb ihrer tatsächlich geprüften eigenen Bindung zusammengesetzt
 genutzt werden; Ergebnisse verschiedener Quellstände bleiben getrennt.
+
+Die direkte Projektentscheidung vom 2026-10-26 begrenzt generische Abläufe auf
+einen repräsentativen gepinnten SQL-Build je tatsächlich anderer Implementierungs-,
+Provider- und Clientgrenze. Die Tabelle verlangt keine vollständige Wiederholung
+aller Funktionsfälle pro SQL-Generation. Fehlende Mindestzellen erhalten gezielte
+Versionsnachweise; gemeinsame UI-, Lifecycle-, Export-, Recovery- und Consumerlogik
+wird nach der [Versionsauswahl](../Quality/COST_EFFICIENT_DEVELOPMENT.md#sql-versionen-nach-tatsächlicher-abhängigkeit-auswählen)
+zusammengefasst. Versionsabhängige Metadatenprüfungen bleiben kleine Offlinefälle.
+Die laufende öffentliche Linux-Welle plant ausschließlich SQL 2025 CU9, getrennt
+mit Docker und Podman. Das ist eine Planung, kein neuer Laufzeitnachweis.
 
 | SQL-Generation | Docker / Windowsclient | Docker / Linuxclient | Podman / Windowsclient | Podman / Linuxclient | Hyper-V / Windowsclient | Hyper-V / Linuxclient |
 |---|---|---|---|---|---|---|

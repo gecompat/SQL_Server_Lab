@@ -113,6 +113,7 @@
         'Export-SqlServerLabTestEnvironment'
         'Read-SqlServerLabQualifiedTestEnvironment'
         'Test-SqlServerLabTlsQualification'
+        'Invoke-SqlServerLabLinuxPreflight'
         'Update-SqlServerLabTlsBinding'
         'Get-SqlServerLabTlsBindingRecovery'
         'Resolve-SqlServerLabTlsBindingRecovery'

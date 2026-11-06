@@ -11,7 +11,11 @@ die Exportdatei erneut zu lesen.
 Der Aufruf verlangt `RunId`, `InstanceId` und `StateRoot` des eigenen
 operativen TLS-Labs. Aktuell gilt Windows mit PowerShell 7.5+, derselbe
 registrierte Benutzer-/Client-/Trustkontext und Docker oder Podman mit
-SQL 2019 CU32, SQL 2022 CU27 oder SQL 2025 CU9. Linux-SQL-Ziele sind von
+SQL 2019 CU32, SQL 2022 CU27 oder SQL 2025 CU9. Zusätzlich gilt der
+[eigene Windows-/Hyper-V-Pfad](AUTHENTICATED_TLS_WINDOWS_OPERATIONAL_LAB.md)
+für SQL 2025 RTM. Dessen separate geschlossene Qualifikationsform bindet VM,
+Boot, SQL-Prozess und Zertifikat; sie wird nicht als Container interpretiert.
+Linux-SQL-Ziele sind von
 Linux-Clientprozessen zu unterscheiden; ein operativer Linux-Clientreader
 ist damit nicht implementiert. Die Modulimportgrenze bleibt PowerShell 7.2.
 

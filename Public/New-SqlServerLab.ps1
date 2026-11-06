@@ -371,6 +371,12 @@ function New-SqlServerLab {
         Standard true bei stets aktivierter Verschluesselung. False erstellt nur
         ein eigenes isoliertes Docker- oder Podman-Lab mit Version 2025-CU9, 2022-CU27 oder 2019-CU32 unter Windows;
         DataRoot und die drei Tls-CA-Referenzen sind dann erforderlich.
+        Alternativ erstellt Provider hyperv mit Version 2025 einen neuen eigenen
+        Windows-/SQL-2025-RTM-Run aus einem vorbereiteten Image. Auch dort sind
+        DataRoot, CA-Referenzen und bereits vorhandener CurrentUser-Trust Pflicht;
+        Zertifikat, Key und SQL-Dienstneustart betreffen ausschliesslich den neuen Run.
+        Die Windows-Erstellung benötigt wegen der Offline-OOBE-VHDX-Vorbereitung
+        einen bereits erhöhten Runner; der Befehl startet keine eigene UAC-Abfrage.
     .PARAMETER FullText
         Explizite Volltextauswahl für AdHoc-Container. true installiert das
         versionsgleiche FTS-Paket, false entfernt es; ohne Angabe bleibt der Default.
@@ -383,6 +389,12 @@ function New-SqlServerLab {
         Controller der registrierten CA-DataRoot-Bindung.
     .PARAMETER TlsLocationId
         Location der registrierten CA-DataRoot-Bindung.
+    .PARAMETER TlsClientPlatform
+        Windows (Default) oder ein eigener isolierter Linuxclient. Linux ist
+        eine ausdrueckliche neue DNS-localhost-Bindung, kein Wechsel alter Runs.
+    .PARAMETER TlsLinuxPowerShellPackage
+        Vorhandenes fest gepinntes PowerShell-7.6.6-linux-x64-Paket fuer den
+        eigenen Linuxclient. Keine automatische Installation oder Beschaffung.
     #>
     [CmdletBinding(DefaultParameterSetName = 'AdHoc')]
     param(
@@ -444,15 +456,20 @@ function New-SqlServerLab {
         [bool]$TrustServerCertificate = $true,
         [string]$TlsCandidateId,
         [string]$TlsControllerId,
-        [string]$TlsLocationId
+        [string]$TlsLocationId,
+        [ValidateSet('Windows','Linux')][string]$TlsClientPlatform='Windows',
+        [string]$TlsLinuxPowerShellPackage
     )
 
     $ErrorActionPreference = 'Stop'
     if ($RequireExistingHyperVNetwork -and -not $TrustServerCertificate) { throw 'HYPERV_EXISTING_NETWORK_AUTHENTICATED_TLS_UNSUPPORTED' }
     if (-not $TrustServerCertificate) {
+        if ($Provider -ceq 'hyperv') {
+            return New-LabAuthenticatedTlsWindowsEnvironment -Parameters $PSBoundParameters
+        }
         return New-LabAuthenticatedTlsEnvironment -Parameters $PSBoundParameters
     }
-    if ($TlsCandidateId -or $TlsControllerId -or $TlsLocationId) { throw 'TLS_LAB_FALSE_SELECTION_REQUIRED' }
+    if ($TlsCandidateId -or $TlsControllerId -or $TlsLocationId -or $PSBoundParameters.ContainsKey('TlsClientPlatform') -or $PSBoundParameters.ContainsKey('TlsLinuxPowerShellPackage')) { throw 'TLS_LAB_FALSE_SELECTION_REQUIRED' }
     Write-LabHeader 'SQL Server Lab - Neue Umgebung'
 
     if ($GenerateSaPassword -and $SaPassword) {
