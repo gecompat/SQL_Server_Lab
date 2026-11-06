@@ -16,6 +16,8 @@ try {
         $script:groupFixtureRuns = @{}
         $script:groupFixtureRuntime = @{}
         $script:groupFixtureSubRuns = @{}
+        $registryLockDefinition=(Get-Command Enter-LabEnvironmentGroupsLock -CommandType Function -ErrorAction Stop).Definition
+        $registryLockWaitsBoundedly=$registryLockDefinition -match 'WaitOne\(\[TimeSpan\]::FromSeconds\(10\)\)'
         $null = New-Item -ItemType Directory -Path $root -Force
         function Get-LabRunState { param($RunId,$StateRoot) $script:groupFixtureRuns[[string]$RunId] }
         function Set-LabRunState {
@@ -108,7 +110,7 @@ try {
         $lockScopeRemove=Remove-SqlServerLab -RunId $removeRunId -StateRoot $root -Force -Confirm:$false
         $lockScopeRemoveReleased=(-not $script:groupRegistryLockHeld -and -not $script:groupRunLockHeld)
 
-        [PSCustomObject]@{RunId=$runId;GroupA=$groupA;GroupB=$groupB;StartA=$startA;StartB=$startB;StopA=$stopA;StopB=$stopB;StateAfterA=$stateAfterA;StateAfterB=$stateAfterB;RemoveAfterStop=$removeAfterStop;GroupAfterRemove=$groupAfterRemove;AddAfterStop=$addAfterStop;GroupAfterAdd=$groupAfterAdd;LockScopeStart=$lockScopeStart;LockScopeObserved=$script:groupLockScopeObserved;LockScopeStartReleased=$lockScopeStartReleased;LockScopeStop=$lockScopeStop;StopLockScopeObserved=$script:groupStopLockScopeObserved;LockScopeStopReleased=$lockScopeStopReleased;LockScopeRemove=$lockScopeRemove;RemoveLockScopeObserved=$script:groupRemoveLockScopeObserved;LockScopeRemoveReleased=$lockScopeRemoveReleased}
+        [PSCustomObject]@{RunId=$runId;GroupA=$groupA;GroupB=$groupB;StartA=$startA;StartB=$startB;StopA=$stopA;StopB=$stopB;StateAfterA=$stateAfterA;StateAfterB=$stateAfterB;RemoveAfterStop=$removeAfterStop;GroupAfterRemove=$groupAfterRemove;AddAfterStop=$addAfterStop;GroupAfterAdd=$groupAfterAdd;LockScopeStart=$lockScopeStart;LockScopeObserved=$script:groupLockScopeObserved;LockScopeStartReleased=$lockScopeStartReleased;LockScopeStop=$lockScopeStop;StopLockScopeObserved=$script:groupStopLockScopeObserved;LockScopeStopReleased=$lockScopeStopReleased;LockScopeRemove=$lockScopeRemove;RemoveLockScopeObserved=$script:groupRemoveLockScopeObserved;LockScopeRemoveReleased=$lockScopeRemoveReleased;RegistryLockWaitsBoundedly=$registryLockWaitsBoundedly}
     } $stateRoot
 
     Add-CheckResult -Name 'Ein Run kann in zwei Gruppen gebunden werden und nur einmal starten' -Success (
@@ -132,6 +134,7 @@ try {
         $result.LockScopeStop.Action -eq 'STOPPED' -and $result.StopLockScopeObserved -and $result.LockScopeStopReleased)
     Add-CheckResult -Name 'Einzel-Remove gibt Registry-Sperre vor Provider-Cleanup frei und hält Run-Sperre bis zum Abschluss' -Success (
         $result.LockScopeRemove.Status -eq 'REMOVED' -and $result.RemoveLockScopeObserved -and $result.LockScopeRemoveReleased)
+    Add-CheckResult -Name 'Registry-Mutex wartet begrenzt auf parallele Run-Transaktionen' -Success $result.RegistryLockWaitsBoundedly
 }
 catch {
     Add-CheckResult -Name 'Environment-Group-Lifecycle-Testausführung' -Success $false -Message "$($_.Exception.Message) [$($_.ScriptStackTrace)]"

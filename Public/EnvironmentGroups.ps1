@@ -27,7 +27,9 @@ function Enter-LabEnvironmentGroupsLock {
     if ($IsWindows) { $name = 'Global\' + $name }
     $mutex = [Threading.Mutex]::new($false,$name)
     try {
-        try { $acquired = $mutex.WaitOne(0) } catch [Threading.AbandonedMutexException] { $acquired = $true }
+        # Registry critical sections are brief; wait through independent run transactions
+        # instead of failing a peer merely because it won the mutex by a few milliseconds.
+        try { $acquired = $mutex.WaitOne([TimeSpan]::FromSeconds(10)) } catch [Threading.AbandonedMutexException] { $acquired = $true }
         if (-not $acquired) { throw 'LAB_ENVIRONMENT_GROUPS_BUSY' }
         return $mutex
     }
