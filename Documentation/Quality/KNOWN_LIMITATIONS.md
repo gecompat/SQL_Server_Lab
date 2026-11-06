@@ -4346,7 +4346,8 @@ Run-/Scope- und Verbindungsdatei-Bindung. Ein Run kann mehreren Gruppen
 zugeordnet werden; Gruppenentfernung stoppt oder entfernt keine Umgebung.
 Gruppenstart/-stop, persistente Nachfrage, gemeinsamer Mutex, Schutz vor
 direktem Stoppen/Restart/Remove/Clear beanspruchter Runs und fail-closed
-Partial-Recovery sind implementiert, aber noch nicht durch Tests oder
-Runtime-Evidence validiert. CLI-Menü/Browser-Bedienung und Linked-Server-
-Topologie-/SQL-Konfiguration sind nicht implementiert. Ein Gruppenstart ist
-daher noch kein qualifiziertes Linked-Server-Lab.
+Partial-Recovery sind durch fokussierte und betroffene statische Vertragschecks
+validiert. Eine native Runtime-Abnahme für Gruppenmitglieder wurde noch nicht
+ausgeführt. CLI-Menü/Browser-Bedienung und Linked-Server-Topologie-/SQL-
+Konfiguration sind nicht implementiert. Ein Gruppenstart ist daher noch kein
+qualifiziertes Linked-Server-Lab.
