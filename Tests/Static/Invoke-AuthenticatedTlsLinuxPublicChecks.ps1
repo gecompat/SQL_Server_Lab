@@ -197,11 +197,17 @@ try{
             $sqlClientRejected=Get-LabTlsSafePublicLinuxFailureCode ([Management.Automation.ErrorRecord]::new($unknownSqlClient,'synthetic',[Management.Automation.ErrorCategory]::NotSpecified,$null))
             $classSecret=[InvalidOperationException]::new('TLS_LAB_RUNTIME_COMMAND_FAILED|exitCode=1|stderrClass=PASSWORD_SECRET|stderrBytes=32|stdoutChars=0|operationStage=linux-client-observation')
             $classRejected=Get-LabTlsSafePublicLinuxFailureCode ([Management.Automation.ErrorRecord]::new($classSecret,'synthetic',[Management.Automation.ErrorCategory]::NotSpecified,$null))
-            @($safe,$sqlClientSafe,$redacted,$rejected,$tokenRejected,$longTokenRejected,$sqlClientRejected,$classRejected)
+            $bridgeProtocol=[InvalidOperationException]::new('TLS_LINUX_BRIDGE_PROTOCOL')
+            $bridgeProtocolSafe=Get-LabTlsSafePublicLinuxFailureCode ([Management.Automation.ErrorRecord]::new($bridgeProtocol,'synthetic',[Management.Automation.ErrorCategory]::NotSpecified,$null))
+            $bridgeWithSecret=[InvalidOperationException]::new('TLS_LINUX_BRIDGE_PROTOCOL password=synthetic-secret')
+            $bridgeSecretRejected=Get-LabTlsSafePublicLinuxFailureCode ([Management.Automation.ErrorRecord]::new($bridgeWithSecret,'synthetic',[Management.Automation.ErrorCategory]::NotSpecified,$null))
+            @($safe,$sqlClientSafe,$redacted,$rejected,$tokenRejected,$longTokenRejected,$sqlClientRejected,$classRejected,$bridgeProtocolSafe,$bridgeSecretRejected)
         }
         Assert ($values[0]-ceq'TLS_LAB_RUNTIME_COMMAND_FAILED|exitCode=1|stderrClass=TLS_CA_PEM_PARSE_FAILED|stderrBytes=32|stdoutChars=0|operationStage=linux-client-observation') 'Safe summary was not preserved'
         Assert ($values[1]-ceq'TLS_LAB_RUNTIME_COMMAND_FAILED|exitCode=1|stderrClass=TLS_SQLCLIENT_OPEN_AUTHENTICATION|stderrBytes=32|stdoutChars=0|operationStage=linux-client-qualification') 'SQLClient summary class was not preserved'
-        Assert (@($values[2..7]|Where-Object {$_-cne'TLS_LINUX_CONSUMER_REJECTED_OR_RECOVERY_REQUIRED'}).Count-eq0) 'Malformed or secret-bearing diagnostics were exposed'
+        Assert ($values[8]-ceq'TLS_LINUX_BRIDGE_PROTOCOL') 'Safe bridge protocol code was not preserved'
+        Assert ($values[9]-ceq'TLS_LINUX_CONSUMER_REJECTED_OR_RECOVERY_REQUIRED') 'A suffix on a safe bridge token was exposed'
+        Assert (@($values[2..7]+$values[9]|Where-Object {$_-cne'TLS_LINUX_CONSUMER_REJECTED_OR_RECOVERY_REQUIRED'}).Count-eq0) 'Malformed or secret-bearing diagnostics were exposed'
     }
     Check 'Public preflight catch emits the safe category while hiding the inner exception' {
         $message=& $module {
@@ -217,10 +223,14 @@ try{
             $script:PublicFailure='TLS_LAB_RUNTIME_COMMAND_FAILED|exitCode=1|stderrClass=TLS_SQLCLIENT_OPEN_AUTHENTICATION|stderrBytes=32|stdoutChars=0|operationStage=linux-client-qualification'
             $sqlClientResult=$null
             try{Invoke-SqlServerLabLinuxPreflight -ExportBytes ([byte[]]@(1)) -StateRoot 'synthetic' -RunId 'synthetic' -InstanceId primary -ToolbeltRoot 'synthetic'}catch{$sqlClientResult=$_.Exception.Message}
-            @($caResult,$sqlClientResult)
+            $script:PublicFailure='TLS_LINUX_BRIDGE_PROTOCOL'
+            $bridgeProtocolResult=$null
+            try{Invoke-SqlServerLabLinuxPreflight -ExportBytes ([byte[]]@(1)) -StateRoot 'synthetic' -RunId 'synthetic' -InstanceId primary -ToolbeltRoot 'synthetic'}catch{$bridgeProtocolResult=$_.Exception.Message}
+            @($caResult,$sqlClientResult,$bridgeProtocolResult)
         }
         Assert ($message[0]-ceq'TLS_LAB_RUNTIME_COMMAND_FAILED|exitCode=1|stderrClass=TLS_CA_PEM_PARSE_FAILED|stderrBytes=32|stdoutChars=0|operationStage=linux-client-observation'-and
             $message[1]-ceq'TLS_LAB_RUNTIME_COMMAND_FAILED|exitCode=1|stderrClass=TLS_SQLCLIENT_OPEN_AUTHENTICATION|stderrBytes=32|stdoutChars=0|operationStage=linux-client-qualification' -and
+            $message[2]-ceq'TLS_LINUX_BRIDGE_PROTOCOL' -and
             ($message-join' ')-notmatch'synthetic-secret|C:\\private') 'Public catch did not preserve only the sanitized summaries'
     }
 }finally{Remove-Module $module;Remove-TestTemporaryDirectory -OwnedDirectory $owned}
