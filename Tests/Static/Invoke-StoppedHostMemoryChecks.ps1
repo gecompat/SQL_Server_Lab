@@ -103,6 +103,8 @@ try {
     . "$root/Private/WindowsPoolClaims.ps1"
     function Enter-LabEnvironmentGroupsLock { param($StateRoot) return $null }
     function Exit-LabEnvironmentGroupsLock { param($Mutex) }
+    function Enter-LabEnvironmentGroupRunResourceLock { param($RunId,$StateRoot) [pscustomobject]@{Mutexes=@()} }
+    function Exit-LabEnvironmentGroupRunResourceLock { param($Mutex) }
     function Get-LabEnvironmentGroupsRegistry { param($StateRoot) [pscustomobject]@{groups=@()} }
     function Assert-LabEnvironmentGroupRunMutation { param($RunId,$Action,$Registry,$GroupOperationContext) }
     . "$root/Public/Stop-SqlServerLab.ps1"

@@ -30,7 +30,14 @@ Die vereinbarte Lifecycle-Semantik lautet:
   ausdrücklich abgeglichen oder die Gruppe erfolgreich gestoppt wurde.
 
 Die CLI-Start-/Stop-Operationen speichern Zustandsübergänge und jeden
-Mitgliederschritt unter demselben StateRoot-Mutex wie die Registry. STARTING,
+Mitgliederschritt unter demselben StateRoot-Mutex wie die Registry. Der
+StateRoot-Mutex schützt Anspruchsprüfung und Registry-Übergänge; ein
+Run-Ressourcenmutex serialisiert die vollständige Runtimewirkung desselben
+Runs. Einzel-Start und Einzel-Stop geben den Registry-Mutex nach
+Anspruchsprüfung und Übernahme des Run-Mutex frei. Unabhängige Starts und Stops
+können dadurch parallel fortschreiten. Restart, Remove, Clear und
+Gruppen-Lifecycle behalten ihre bestehende übergreifende Serialisierung.
+STARTING,
 ACTIVE, STOPPING und RECOVERY_REQUIRED gelten konservativ als Ansprüche. Ein
 fehlgeschlagener oder unbestätigter Schritt behält den Gruppenanspruch; Start
 wiederholt RECOVERY_REQUIRED nicht. Stop kann die Gruppe kontrolliert
@@ -85,4 +92,6 @@ Lesen einer einzelnen Gruppe wird die gespeicherte Bindung als `CURRENT` oder
 `STALE` ausgewiesen. Die Gruppe ist an den kanonischen State-Root gebunden; ein
 anderer State-Root wird abgelehnt. Die Registry wird unter einem
 State-Root-weiten Mutex aktualisiert und atomar geschrieben. Derselbe Mutex
-serialisiert Gruppen- und Einzel-Lifecycle-Aktionen über die Runtimewirkung.
+serialisiert Anspruchsprüfung und Registry-Übergänge; ein Run-Ressourcenmutex
+serialisiert Gruppen- und Einzel-Lifecycle-Aktionen desselben Runs über die
+Runtimewirkung.

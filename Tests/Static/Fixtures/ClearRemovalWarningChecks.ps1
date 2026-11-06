@@ -19,6 +19,8 @@ $module=New-Module -ScriptBlock {
     foreach($definition in $Definitions){. ([scriptblock]::Create($definition))}
     function Enter-LabEnvironmentGroupsLock { param($StateRoot) return $null }
     function Exit-LabEnvironmentGroupsLock { param($Mutex) }
+    function Enter-LabEnvironmentGroupRunResourceLock { param($RunId,$StateRoot) [pscustomobject]@{Mutexes=@()} }
+    function Exit-LabEnvironmentGroupRunResourceLock { param($Mutex) }
     function Get-LabEnvironmentGroupsRegistry { param($StateRoot) [pscustomobject]@{groups=@()} }
     function Get-SqlServerLabCleanupAudit {[pscustomobject]@{Audit=[pscustomobject]@{HyperV=[pscustomobject]@{Status='NOT_INSTALLED'}}}}
     function Get-LabStateRoot {Join-Path ([IO.Path]::GetTempPath()) 'synthetic-clear-warning'}

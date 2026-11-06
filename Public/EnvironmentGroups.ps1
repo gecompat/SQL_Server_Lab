@@ -842,7 +842,9 @@ function Remove-SqlServerLabEnvironmentGroupMember {
     if (-not [guid]::TryParse($GroupId,[ref]$groupGuid)) { throw 'LAB_ENVIRONMENT_GROUP_ID_INVALID' }
     if (-not $PSCmdlet.ShouldProcess($runGuid.ToString('D'), 'Run-Zuordnung aus Lab-Umgebungsgruppe entfernen')) { return [PSCustomObject]@{Status='CANCELLED'} }
     $lock = Enter-LabEnvironmentGroupsLock -StateRoot $StateRoot
+    $runResourceLock = $null
     try {
+        $runResourceLock = Enter-LabEnvironmentGroupRunResourceLock -RunId $runGuid.ToString('D') -StateRoot $StateRoot
         $registry = Get-LabEnvironmentGroupsRegistry -StateRoot $StateRoot
         $groups = @($registry.groups | Where-Object { [string]$_.groupId -ieq $groupGuid.ToString('D') })
         if ($groups.Count -ne 1) { throw 'LAB_ENVIRONMENT_GROUP_NOT_FOUND' }
@@ -855,7 +857,10 @@ function Remove-SqlServerLabEnvironmentGroupMember {
         Write-LabEnvironmentGroupsRegistry -Registry $registry -StateRoot $StateRoot
         return [PSCustomObject]@{Status='REMOVED';GroupId=$group.groupId;RunId=$runGuid.ToString('D')}
     }
-    finally { Exit-LabEnvironmentGroupsLock -Mutex $lock }
+    finally {
+        if ($runResourceLock) { Exit-LabEnvironmentGroupRunResourceLock -Mutex $runResourceLock }
+        Exit-LabEnvironmentGroupsLock -Mutex $lock
+    }
 }
 
 <#

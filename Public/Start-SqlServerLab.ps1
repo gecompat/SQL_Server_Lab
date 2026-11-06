@@ -40,9 +40,13 @@ function Start-SqlServerLab {
         if (-not [guid]::TryParse($RunId,[ref]$runGuid)) { throw 'LAB_RUN_ID_INVALID' }
         $RunId = $runGuid.ToString('D')
         $__environmentGroupsLock = Enter-LabEnvironmentGroupsLock -StateRoot $stateRoot
+        $__environmentGroupRunLock = $null
         try {
             $__environmentGroupsRegistry = Get-LabEnvironmentGroupsRegistry -StateRoot $stateRoot
             Assert-LabEnvironmentGroupRunMutation -RunId $RunId -Action 'Start' -Registry $__environmentGroupsRegistry -GroupOperationContext $script:LabEnvironmentGroupOperationContext
+            $__environmentGroupRunLock = Enter-LabEnvironmentGroupRunResourceLock -RunId $RunId -StateRoot $stateRoot
+            Exit-LabEnvironmentGroupsLock -Mutex $__environmentGroupsLock
+            $__environmentGroupsLock = $null
 
         if ((Test-LabAutomatedTestEnvironmentRun -RunId $RunId) -and
             -not [bool]$script:LabAutomatedTestEnvironmentGroupOperation) {
@@ -324,6 +328,9 @@ function Start-SqlServerLab {
             ProviderSubRuns = $providerResults
         }
 
-        } finally { Exit-LabEnvironmentGroupsLock -Mutex $__environmentGroupsLock }
+        } finally {
+            if ($null -ne $__environmentGroupRunLock) { Exit-LabEnvironmentGroupRunResourceLock -Mutex $__environmentGroupRunLock }
+            if ($null -ne $__environmentGroupsLock) { Exit-LabEnvironmentGroupsLock -Mutex $__environmentGroupsLock }
+        }
 }
 }
