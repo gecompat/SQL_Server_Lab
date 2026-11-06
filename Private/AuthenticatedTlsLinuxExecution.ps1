@@ -59,6 +59,40 @@ function Get-LabTlsLinuxObservedOperationStage {
     return 'unspecified'
 }
 
+function Get-LabTlsSafePublicLinuxFailureCode {
+    param([System.Management.Automation.ErrorRecord]$ErrorRecord)
+    $exception=$ErrorRecord.Exception
+    $safeGuestTokens=@(
+        'TLS_LINUX_CA_PEM_STAT_FAILED','TLS_LINUX_CA_PEM_ACCESS_DENIED',
+        'TLS_LINUX_CA_PEM_READ_FAILED','TLS_LINUX_CA_PEM_PARSE_FAILED'
+    )
+    $safeRuntimeClasses=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    foreach($class in @(
+        'STDERR_UNCLASSIFIED','STDERR_EMPTY','CONTAINER_NOT_FOUND','CONTAINER_NOT_RUNNING',
+        'PORT_CONFLICT','DAEMON_UNREACHABLE','REGISTRY_AUTHORIZATION','IMAGE_NOT_FOUND',
+        'TLS_SQLCLIENT_RESULT_INVALID','TLS_SQLCMD_TIMEOUT','TLS_ODBC_AMBIGUOUS',
+        'TLS_SQLCMD_RESULT_INVALID','TLS_CA_PEM_STAT_FAILED','TLS_CA_PEM_ACCESS_DENIED',
+        'TLS_CA_PEM_READ_FAILED','TLS_CA_PEM_PARSE_FAILED','PERMISSION_DENIED',
+        'TLS_CERTIFICATE','NETWORK_NOT_FOUND','RUNTIME_TIMEOUT','DAEMON_REJECTED_REQUEST'
+    )){$null=$safeRuntimeClasses.Add($class)}
+    foreach($stage in @('CONSTRUCT','OPEN','QUERY','CLEANUP')){foreach($category in @('PLATFORM_UNSUPPORTED','ASSEMBLY_UNAVAILABLE','AUTHENTICATION','TIMEOUT','NETWORK','SQL','UNCLASSIFIED')){
+        $null=$safeRuntimeClasses.Add('TLS_SQLCLIENT_'+$stage+'_'+$category)
+    }}
+    while($null-ne$exception){
+        $message=[string]$exception.Message
+        if($message -cin $safeGuestTokens-or$message -cmatch '\ATLS_SQLCLIENT_(?:CONSTRUCT|OPEN|QUERY|CLEANUP)_(?:PLATFORM_UNSUPPORTED|ASSEMBLY_UNAVAILABLE|AUTHENTICATION|TIMEOUT|NETWORK|SQL|UNCLASSIFIED)\z'){
+            return $message
+        }
+        if($message -cmatch '\ATLS_LAB_RUNTIME_COMMAND_FAILED\|exitCode=(-?\d{1,10})\|stderrClass=([A-Z0-9_]{1,64})\|stderrBytes=(\d{1,10})\|stdoutChars=(\d{1,10})\|operationStage=(unspecified|linux-client-create|linux-client-start|linux-client-layout|linux-client-trust-write|linux-client-observation|linux-client-namespace-check|linux-client-qualification)\z'){
+            $exitCode=[long]$Matches[1];$stderrBytes=[long]$Matches[3];$stdoutChars=[long]$Matches[4]
+            if($safeRuntimeClasses.Contains($Matches[2])-and$exitCode-ge[int]::MinValue-and$exitCode-le[int]::MaxValue-and
+                $stderrBytes-ge0-and$stderrBytes-le1048576-and$stdoutChars-ge0-and$stdoutChars-le1048576){return $message}
+        }
+        $exception=$exception.InnerException
+    }
+    return 'TLS_LINUX_CONSUMER_REJECTED_OR_RECOVERY_REQUIRED'
+}
+
 function Invoke-LabTlsLinuxObservedProgram {
     param([object]$Bound,[object]$Budget,[string]$ContainerId,[string]$Program,[string]$InputText)
     $root=$Bound.StateRoot;$lease=Enter-LabTlsLinuxOperation $root
