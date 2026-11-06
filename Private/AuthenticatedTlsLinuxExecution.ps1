@@ -62,7 +62,31 @@ function Get-LabTlsLinuxObservedOperationStage {
 function Get-LabTlsSafePublicLinuxFailureCode {
     param([System.Management.Automation.ErrorRecord]$ErrorRecord)
     $exception=$ErrorRecord.Exception
-    $safeGuestTokens=@(
+    # These exact codes can originate at the Windows CA/export binding,
+    # Linux-client bootstrap, observer, or SQL qualification boundaries. They
+    # are fixed producer tokens; never expose arbitrary host/guest exception
+    # text through the public preflight wrapper.
+    $safePublicTokens=@(
+        'TLS_CA_STORAGE_INVALID','TLS_CA_ACL_INVALID','TLS_CA_FILE_INVALID',
+        'TLS_CA_METADATA_INVALID','TLS_CA_CERTIFICATE_INVALID','TLS_CA_KEY_INVALID',
+        'TLS_CA_BINDING_DRIFT','TLS_CA_CANDIDATE_BINDING_INVALID',
+        'TLS_QUALIFICATION_SQLCLIENT_RESULT_INVALID','TLS_QUALIFICATION_SQLCLIENT_FAILED',
+        'TLS_QUALIFICATION_SQLCMD_CHANGED','TLS_QUALIFICATION_SQLCMD_TIMEOUT',
+        'TLS_QUALIFICATION_SQLCMD_FAILED','TLS_QUALIFICATION_BINARY_CHANGED',
+        'TLS_QUALIFICATION_BINDING_CHANGED','TLS_QUALIFICATION_SECRET_UNAVAILABLE',
+        'TLS_EXPORT_EXPLICIT_SELECTION_REQUIRED','TLS_EXPORT_BYTES_INVALID',
+        'TLS_EXPORT_READBACK_INVALID','TLS_EXPORT_BINDING_CHANGED',
+        'TLS_LINUX_EXPLICIT_SELECTION_REQUIRED','TLS_LINUX_EXPORT_REJECTED',
+        'TLS_LINUX_CLIENT_INTENT_CHANGED','TLS_LINUX_CLIENT_ISOLATION_CHANGED',
+        'TLS_LINUX_NAMESPACE_OR_TRUST_CHANGED','TLS_LINUX_CLIENT_ALREADY_ALLOCATED',
+        'TLS_LINUX_STOCK_CLIENT_IMAGE_REQUIRED','TLS_LINUX_PARENT_CHANGED',
+        'TLS_LINUX_CLIENT_CHANGED','TLS_LINUX_CONTEXT_CHANGED',
+        'TLS_LINUX_MISSING_INTENT_RECOVERY_REQUIRED','TLS_LINUX_CLEANUP_BINDING_INVALID',
+        'TLS_LINUX_CLEANUP_RECOVERY_REQUIRED','TLS_LINUX_RECOVERY_REQUIRED',
+        'TLS_LINUX_OPERATION_BUSY','TLS_LINUX_CONTROLLER_SESSION_REQUIRED',
+        'TLS_LINUX_SOURCE_SCOPE_INVALID','TLS_LINUX_SOURCE_LIMIT',
+        'TLS_LINUX_SOURCE_COPY_CHANGED','TLS_LINUX_BOOTSTRAP_LIMIT',
+        'TLS_LINUX_SESSION_INVALID','TLS_LINUX_SESSION_REJECTED',
         'TLS_LINUX_CA_PEM_STAT_FAILED','TLS_LINUX_CA_PEM_ACCESS_DENIED',
         'TLS_LINUX_CA_PEM_READ_FAILED','TLS_LINUX_CA_PEM_PARSE_FAILED',
         'TLS_LINUX_BRIDGE_INPUT_TIMEOUT','TLS_LINUX_BRIDGE_TIMEOUT','TLS_LINUX_BRIDGE_OUTPUT_LIMIT',
@@ -84,7 +108,7 @@ function Get-LabTlsSafePublicLinuxFailureCode {
     }}
     while($null-ne$exception){
         $message=[string]$exception.Message
-        if($message -cin $safeGuestTokens-or$message -cmatch '\ATLS_SQLCLIENT_(?:CONSTRUCT|OPEN|QUERY|CLEANUP)_(?:PLATFORM_UNSUPPORTED|ASSEMBLY_UNAVAILABLE|AUTHENTICATION|TIMEOUT|NETWORK|SQL|UNCLASSIFIED)\z'){
+        if($message -cin $safePublicTokens-or$message -cmatch '\ATLS_SQLCLIENT_(?:CONSTRUCT|OPEN|QUERY|CLEANUP)_(?:PLATFORM_UNSUPPORTED|ASSEMBLY_UNAVAILABLE|AUTHENTICATION|TIMEOUT|NETWORK|SQL|UNCLASSIFIED)\z'){
             return $message
         }
         if($message -cmatch '\ATLS_LAB_RUNTIME_COMMAND_FAILED\|exitCode=(-?\d{1,10})\|stderrClass=([A-Z0-9_]{1,64})\|stderrBytes=(\d{1,10})\|stdoutChars=(\d{1,10})\|operationStage=(unspecified|linux-client-create|linux-client-start|linux-client-layout|linux-client-trust-write|linux-client-observation|linux-client-namespace-check|linux-client-qualification)\z'){

@@ -201,13 +201,27 @@ try{
             $bridgeProtocolSafe=Get-LabTlsSafePublicLinuxFailureCode ([Management.Automation.ErrorRecord]::new($bridgeProtocol,'synthetic',[Management.Automation.ErrorCategory]::NotSpecified,$null))
             $bridgeWithSecret=[InvalidOperationException]::new('TLS_LINUX_BRIDGE_PROTOCOL password=synthetic-secret')
             $bridgeSecretRejected=Get-LabTlsSafePublicLinuxFailureCode ([Management.Automation.ErrorRecord]::new($bridgeWithSecret,'synthetic',[Management.Automation.ErrorCategory]::NotSpecified,$null))
-            @($safe,$sqlClientSafe,$redacted,$rejected,$tokenRejected,$longTokenRejected,$sqlClientRejected,$classRejected,$bridgeProtocolSafe,$bridgeSecretRejected)
+            $hostAcl=[InvalidOperationException]::new('TLS_CA_ACL_INVALID')
+            $hostAclSafe=Get-LabTlsSafePublicLinuxFailureCode ([Management.Automation.ErrorRecord]::new($hostAcl,'synthetic',[Management.Automation.ErrorCategory]::NotSpecified,$null))
+            $bootstrap=[InvalidOperationException]::new('TLS_LINUX_BOOTSTRAP_LIMIT')
+            $bootstrapSafe=Get-LabTlsSafePublicLinuxFailureCode ([Management.Automation.ErrorRecord]::new($bootstrap,'synthetic',[Management.Automation.ErrorCategory]::NotSpecified,$null))
+            $session=[InvalidOperationException]::new('TLS_LINUX_SESSION_REJECTED')
+            $sessionSafe=Get-LabTlsSafePublicLinuxFailureCode ([Management.Automation.ErrorRecord]::new($session,'synthetic',[Management.Automation.ErrorCategory]::NotSpecified,$null))
+            $qualification=[InvalidOperationException]::new('TLS_QUALIFICATION_SQLCMD_TIMEOUT')
+            $qualificationSafe=Get-LabTlsSafePublicLinuxFailureCode ([Management.Automation.ErrorRecord]::new($qualification,'synthetic',[Management.Automation.ErrorCategory]::NotSpecified,$null))
+            $hostWithSecret=[InvalidOperationException]::new('TLS_CA_ACL_INVALID password=synthetic-secret')
+            $hostSecretRejected=Get-LabTlsSafePublicLinuxFailureCode ([Management.Automation.ErrorRecord]::new($hostWithSecret,'synthetic',[Management.Automation.ErrorCategory]::NotSpecified,$null))
+            @($safe,$sqlClientSafe,$redacted,$rejected,$tokenRejected,$longTokenRejected,$sqlClientRejected,$classRejected,
+                $bridgeProtocolSafe,$bridgeSecretRejected,$hostAclSafe,$bootstrapSafe,$sessionSafe,$qualificationSafe,$hostSecretRejected)
         }
         Assert ($values[0]-ceq'TLS_LAB_RUNTIME_COMMAND_FAILED|exitCode=1|stderrClass=TLS_CA_PEM_PARSE_FAILED|stderrBytes=32|stdoutChars=0|operationStage=linux-client-observation') 'Safe summary was not preserved'
         Assert ($values[1]-ceq'TLS_LAB_RUNTIME_COMMAND_FAILED|exitCode=1|stderrClass=TLS_SQLCLIENT_OPEN_AUTHENTICATION|stderrBytes=32|stdoutChars=0|operationStage=linux-client-qualification') 'SQLClient summary class was not preserved'
         Assert ($values[8]-ceq'TLS_LINUX_BRIDGE_PROTOCOL') 'Safe bridge protocol code was not preserved'
         Assert ($values[9]-ceq'TLS_LINUX_CONSUMER_REJECTED_OR_RECOVERY_REQUIRED') 'A suffix on a safe bridge token was exposed'
-        Assert (@($values[2..7]+$values[9]|Where-Object {$_-cne'TLS_LINUX_CONSUMER_REJECTED_OR_RECOVERY_REQUIRED'}).Count-eq0) 'Malformed or secret-bearing diagnostics were exposed'
+        Assert ($values[10]-ceq'TLS_CA_ACL_INVALID'-and$values[11]-ceq'TLS_LINUX_BOOTSTRAP_LIMIT'-and
+            $values[12]-ceq'TLS_LINUX_SESSION_REJECTED'-and$values[13]-ceq'TLS_QUALIFICATION_SQLCMD_TIMEOUT') 'A fixed CA, bootstrap, session, or qualification code was not preserved'
+        Assert ($values[14]-ceq'TLS_LINUX_CONSUMER_REJECTED_OR_RECOVERY_REQUIRED') 'A suffix on a safe CA token was exposed'
+        Assert (@($values[2..7]+$values[9]+$values[14]|Where-Object {$_-cne'TLS_LINUX_CONSUMER_REJECTED_OR_RECOVERY_REQUIRED'}).Count-eq0) 'Malformed or secret-bearing diagnostics were exposed'
     }
     Check 'Public preflight catch emits the safe category while hiding the inner exception' {
         $message=& $module {
@@ -226,11 +240,15 @@ try{
             $script:PublicFailure='TLS_LINUX_BRIDGE_PROTOCOL'
             $bridgeProtocolResult=$null
             try{Invoke-SqlServerLabLinuxPreflight -ExportBytes ([byte[]]@(1)) -StateRoot 'synthetic' -RunId 'synthetic' -InstanceId primary -ToolbeltRoot 'synthetic'}catch{$bridgeProtocolResult=$_.Exception.Message}
-            @($caResult,$sqlClientResult,$bridgeProtocolResult)
+            $script:PublicFailure='TLS_CA_ACL_INVALID'
+            $caAclResult=$null
+            try{Invoke-SqlServerLabLinuxPreflight -ExportBytes ([byte[]]@(1)) -StateRoot 'synthetic' -RunId 'synthetic' -InstanceId primary -ToolbeltRoot 'synthetic'}catch{$caAclResult=$_.Exception.Message}
+            @($caResult,$sqlClientResult,$bridgeProtocolResult,$caAclResult)
         }
         Assert ($message[0]-ceq'TLS_LAB_RUNTIME_COMMAND_FAILED|exitCode=1|stderrClass=TLS_CA_PEM_PARSE_FAILED|stderrBytes=32|stdoutChars=0|operationStage=linux-client-observation'-and
             $message[1]-ceq'TLS_LAB_RUNTIME_COMMAND_FAILED|exitCode=1|stderrClass=TLS_SQLCLIENT_OPEN_AUTHENTICATION|stderrBytes=32|stdoutChars=0|operationStage=linux-client-qualification' -and
             $message[2]-ceq'TLS_LINUX_BRIDGE_PROTOCOL' -and
+            $message[3]-ceq'TLS_CA_ACL_INVALID' -and
             ($message-join' ')-notmatch'synthetic-secret|C:\\private') 'Public catch did not preserve only the sanitized summaries'
     }
 }finally{Remove-Module $module;Remove-TestTemporaryDirectory -OwnedDirectory $owned}
