@@ -136,6 +136,7 @@ jobs:
           $scope=& .\Tools\Resolve-CiRuntimeScope.ps1 -Provider podman -Capabilities $env:SQL_SERVER_LAB_CI_CAPABILITIES -Mode $env:SQL_SERVER_LAB_CI_MODE
           $selectedCapabilities=@($scope.Capabilities)
           Write-Host ('REQUESTED capabilities: ' + ($selectedCapabilities -join ','))
+          $activeAcceptance = ''
           $mutexName = if ($IsWindows) { 'Global\SQL_Server_Lab_Runtime_Smoke' } else { 'SQL_Server_Lab_Runtime_Smoke' }
           $mutex = $null
           $acquired = $false
@@ -247,10 +248,12 @@ jobs:
               } else { Write-Host 'NOT_APPLICABLE capability: ai-vector' }
 
               if ('ai-samples' -cin $selectedCapabilities) {
+                $activeAcceptance = 'ai-samples'
                 & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-AiPodmanSamplesReferenceAcceptance.ps1 -StateRoot $env:SQL_SERVER_LAB_CI_OWN_STATE_ROOT `
                   -RuntimeMutexAlreadyHeld *>> $logPath
                 $aiSamplesExitCode = $LASTEXITCODE
                 if ($aiSamplesExitCode -ne 0) { throw "Podman AI-Sample-Referenz endete mit Exitcode $aiSamplesExitCode." }
+                $activeAcceptance = ''
               } else { Write-Host 'NOT_APPLICABLE capability: ai-samples' }
             }
             $completedCapabilities = if ($env:SQL_SERVER_LAB_CI_MODE -ceq 'cli-acceptance') { 'cli-acceptance' } else { $selectedCapabilities -join ',' }
@@ -259,6 +262,30 @@ jobs:
           }
           catch {
             try { $_ | Out-String | Add-Content -LiteralPath $logPath } catch { }
+            if ($activeAcceptance -ceq 'ai-samples') {
+              $safeFailureCode = 'UNAVAILABLE'
+              try {
+                $logItem = Get-Item -LiteralPath $logPath -ErrorAction Stop
+                if ($logItem.Length -le 1048576 -and ($logItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -eq 0) {
+                  $summaryLines = @(Get-Content -LiteralPath $logPath -ErrorAction Stop | Where-Object { $_ -clike 'PRIMARY=*' })
+                  if ($summaryLines.Count -eq 1) {
+                    $summary = [regex]::Match([string]$summaryLines[0], '\APRIMARY=(?<primaryStatus>COMPLETED|FAILED); PRIMARY_REASON=(?<primaryReason>[A-Z0-9_]+); CLEANUP=(?<cleanupStatus>COMPLETED|FAILED|NOT_EXECUTED); CLEANUP_REASON=(?<cleanupReason>[A-Z0-9_]+)\z')
+                    $allowedReasons = @('NONE','NOT_STARTED','START_FAILED','TIMEOUT','CHILD_FAILED','RECEIPT_INVALID',
+                      'SAMPLES_ALREADY_STARTED','SAMPLES_BINDING_INVALID','SAMPLES_CONTENT_INVALID','SAMPLES_MODEL_INVALID',
+                      'SAMPLES_NEW_FAILED','SAMPLES_RESTART_CONTENT_INVALID','SAMPLES_RESTART_FAILED',
+                      'SAMPLES_RESTART_RETRIEVAL_FAILED','SAMPLES_RETRIEVAL_FAILED','AI_PODMAN_SAMPLES_WORKER_FAILED',
+                      'SUPERVISOR_FAILED','TERMINATION_UNCONFIRMED','OUTPUT_FAILED')
+                    if ($summary.Success -and $summary.Groups['primaryReason'].Value -cin $allowedReasons -and
+                        $summary.Groups['cleanupReason'].Value -cin $allowedReasons) {
+                      $safeFailureCode = 'PRIMARY/{0}/{1};CLEANUP/{2}/{3}' -f `
+                        $summary.Groups['primaryStatus'].Value,$summary.Groups['primaryReason'].Value,
+                        $summary.Groups['cleanupStatus'].Value,$summary.Groups['cleanupReason'].Value
+                    }
+                  }
+                }
+              } catch { $safeFailureCode = 'UNAVAILABLE' }
+              Write-Host ("PODMAN_AI_SAMPLES_FAILURE_CODE=$safeFailureCode")
+            }
             Write-Host '::error title=PODMAN_RUNTIME_FAILED::PODMAN_RUNTIME_FAILED: Private diagnostics remain local on the runner.'
             exit 1
           }
