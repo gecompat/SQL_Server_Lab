@@ -43,6 +43,32 @@ function Exit-LabEnvironmentGroupsLock {
     $Mutex.Dispose()
 }
 
+function Enter-LabEnvironmentGroupLifecycleLock {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$GroupId,[string]$StateRoot)
+
+    $groupGuid = [guid]::Empty
+    if (-not [guid]::TryParse($GroupId,[ref]$groupGuid)) { throw 'LAB_ENVIRONMENT_GROUP_ID_INVALID' }
+    $path = Get-LabEnvironmentGroupsRegistryPath -StateRoot $StateRoot
+    $root = Get-LabCanonicalResourceRoot -StateRoot ([IO.Path]::GetDirectoryName($path))
+    $name = 'SqlServerLab.EnvironmentGroups.Lifecycle.' + (Get-LabWorkflowHash -Text $root -Length 64) + '.' + $groupGuid.ToString('N')
+    if ($IsWindows) { $name = 'Global\' + $name }
+    $mutex = [Threading.Mutex]::new($false,$name)
+    try {
+        try { $acquired = $mutex.WaitOne([TimeSpan]::FromSeconds(10)) } catch [Threading.AbandonedMutexException] { $acquired = $true }
+        if (-not $acquired) { throw 'LAB_ENVIRONMENT_GROUPS_BUSY' }
+        return $mutex
+    }
+    catch { $mutex.Dispose(); throw }
+}
+
+function Exit-LabEnvironmentGroupLifecycleLock {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Mutex)
+    $Mutex.ReleaseMutex()
+    $Mutex.Dispose()
+}
+
 function Enter-LabEnvironmentGroupRunResourceLock {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$RunId,[string]$StateRoot)
@@ -264,6 +290,15 @@ function Get-LabEnvironmentGroupRunClaims {
         [string]$_.groupId -ine $ExcludeGroupId -and [string]$_.lifecycleState -in $activeStates
     })) {
         foreach ($member in @($group.members | Where-Object { [string]$_.runId -ieq $RunId })) {
+            # A STOPPING group has atomically relinquished this run when it
+            # records RETAINED_SHARED while holding the run-resource mutex.
+            # Ignoring that released claim lets the next serialized stopper
+            # make progress instead of both groups retaining the run.
+            $operationMember = @($group.operation.members | Where-Object { [string]$_.runId -ieq $RunId }) | Select-Object -First 1
+            if ([string]$group.lifecycleState -eq 'STOPPING' -and $operationMember -and
+                [string]$operationMember.action -ceq 'RETAIN' -and [string]$operationMember.status -ceq 'RETAINED_SHARED') {
+                continue
+            }
             [PSCustomObject]@{ GroupId=[string]$group.groupId; GroupName=[string]$group.name; State=[string]$group.lifecycleState }
         }
     }
@@ -333,22 +368,56 @@ function Assert-LabEnvironmentGroupStoppedForMembershipChange {
 function Set-LabEnvironmentGroupOperationMemberState {
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory)]$Registry,
         [Parameter(Mandatory)][string]$GroupId,
+        [Parameter(Mandatory)][string]$OperationId,
         [Parameter(Mandatory)][string]$RunId,
         [Parameter(Mandatory)][string]$Status,
         [AllowNull()][string]$ReasonCode,
+        [ValidateSet('START','STOP','RETAIN')][string]$MemberAction,
         [string]$StateRoot
     )
 
-    $group = @($Registry.groups | Where-Object { [string]$_.groupId -ceq $GroupId }) | Select-Object -First 1
-    if (-not $group -or -not $group.operation) { throw 'LAB_ENVIRONMENT_GROUP_OPERATION_MISSING' }
-    $member = @($group.operation.members | Where-Object { [string]$_.runId -ieq $RunId }) | Select-Object -First 1
-    if (-not $member) { throw 'LAB_ENVIRONMENT_GROUP_OPERATION_MEMBER_MISSING' }
-    $member.status = $Status
-    $member.reasonCode = $ReasonCode
-    $group.operation.updatedAt = Get-LabTimestamp
-    Write-LabEnvironmentGroupsRegistry -Registry $Registry -StateRoot $StateRoot
+    $lock = Enter-LabEnvironmentGroupsLock -StateRoot $StateRoot
+    try {
+        $registry = Get-LabEnvironmentGroupsRegistry -StateRoot $StateRoot
+        $group = @($registry.groups | Where-Object { [string]$_.groupId -ceq $GroupId }) | Select-Object -First 1
+        if (-not $group -or -not $group.operation -or [string]$group.operation.operationId -cne $OperationId -or
+            [string]$group.operation.state -cne 'IN_PROGRESS') { throw 'LAB_ENVIRONMENT_GROUP_OPERATION_SUPERSEDED' }
+        $member = @($group.operation.members | Where-Object { [string]$_.runId -ieq $RunId }) | Select-Object -First 1
+        if (-not $member) { throw 'LAB_ENVIRONMENT_GROUP_OPERATION_MEMBER_MISSING' }
+        if ($PSBoundParameters.ContainsKey('MemberAction')) { $member.action = $MemberAction }
+        $member.status = $Status
+        $member.reasonCode = $ReasonCode
+        $group.operation.updatedAt = Get-LabTimestamp
+        Write-LabEnvironmentGroupsRegistry -Registry $registry -StateRoot $StateRoot
+        return $registry
+    }
+    finally { Exit-LabEnvironmentGroupsLock -Mutex $lock }
+}
+
+function Set-LabEnvironmentGroupLifecycleResult {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$GroupId,
+        [Parameter(Mandatory)][string]$OperationId,
+        [Parameter(Mandatory)][ValidateSet('ACTIVE','STOPPED','RECOVERY_REQUIRED')][string]$LifecycleState,
+        [Parameter(Mandatory)][ValidateSet('COMPLETED','RECOVERY_REQUIRED')][string]$OperationState,
+        [string]$StateRoot
+    )
+
+    $lock = Enter-LabEnvironmentGroupsLock -StateRoot $StateRoot
+    try {
+        $registry = Get-LabEnvironmentGroupsRegistry -StateRoot $StateRoot
+        $group = @($registry.groups | Where-Object { [string]$_.groupId -ceq $GroupId }) | Select-Object -First 1
+        if (-not $group -or -not $group.operation -or [string]$group.operation.operationId -cne $OperationId -or
+            [string]$group.operation.state -cne 'IN_PROGRESS') { throw 'LAB_ENVIRONMENT_GROUP_OPERATION_SUPERSEDED' }
+        $group.lifecycleState = $LifecycleState
+        $group.operation.state = $OperationState
+        $group.operation.updatedAt = Get-LabTimestamp
+        Write-LabEnvironmentGroupsRegistry -Registry $registry -StateRoot $StateRoot
+        return $registry
+    }
+    finally { Exit-LabEnvironmentGroupsLock -Mutex $lock }
 }
 
 function Invoke-LabEnvironmentGroupLifecycle {
@@ -366,21 +435,27 @@ function Invoke-LabEnvironmentGroupLifecycle {
     $groupGuid = [guid]::Empty
     if (-not [guid]::TryParse($GroupId,[ref]$groupGuid)) { throw 'LAB_ENVIRONMENT_GROUP_ID_INVALID' }
     $normalizedGroupId = $groupGuid.ToString('D')
-    $lock = Enter-LabEnvironmentGroupsLock -StateRoot $StateRoot
+    $lifecycleLock = Enter-LabEnvironmentGroupLifecycleLock -GroupId $normalizedGroupId -StateRoot $StateRoot
+    $lock = $null
     $groupOperationContext = $null
     try {
+        $lock = Enter-LabEnvironmentGroupsLock -StateRoot $StateRoot
         $registry = Get-LabEnvironmentGroupsRegistry -StateRoot $StateRoot
         $matches = @($registry.groups | Where-Object { [string]$_.groupId -ceq $normalizedGroupId })
         if ($matches.Count -ne 1) { throw 'LAB_ENVIRONMENT_GROUP_NOT_FOUND' }
         $group = $matches[0]
         $members = @($group.members | Sort-Object runId)
+        $initialLifecycleState = [string]$group.lifecycleState
+        $initialOperationId = if ($group.operation) { [string]$group.operation.operationId } else { $null }
+        Exit-LabEnvironmentGroupsLock -Mutex $lock
+        $lock = $null
         if ($Action -eq 'Stop' -and [string]$group.lifecycleState -eq 'STOPPED') {
             return [PSCustomObject]@{Status='ALREADY_STOPPED';GroupId=$normalizedGroupId;OperationId=$(if($group.operation){[string]$group.operation.operationId}else{$null})}
         }
         if ($members.Count -eq 0) { throw 'LAB_ENVIRONMENT_GROUP_EMPTY' }
 
-            foreach ($member in $members) {
-                $current = Get-LabEnvironmentGroupMemberBinding -RunId ([string]$member.runId) -StateRoot $StateRoot -AllowRecoveryState:($Action -eq 'Stop')
+        foreach ($member in $members) {
+            $current = Get-LabEnvironmentGroupMemberBinding -RunId ([string]$member.runId) -StateRoot $StateRoot -AllowRecoveryState:($Action -eq 'Stop')
             if ($current.scopeId -cne [string]$member.scopeId -or $current.connectionInfoSha256 -cne [string]$member.connectionInfoSha256 -or
                 (@($current.instanceIds) -join '|') -cne (@($member.instanceIds) -join '|')) { throw 'LAB_ENVIRONMENT_GROUP_MEMBER_BINDING_STALE' }
         }
@@ -422,6 +497,23 @@ function Invoke-LabEnvironmentGroupLifecycle {
             Assert-LabEnvironmentGroupRunJournalsSettled -RunId $runId -Connection $connection -StateRoot $StateRoot
         }
 
+        $lock = Enter-LabEnvironmentGroupsLock -StateRoot $StateRoot
+        $freshRegistry = Get-LabEnvironmentGroupsRegistry -StateRoot $StateRoot
+        $freshMatches = @($freshRegistry.groups | Where-Object { [string]$_.groupId -ceq $normalizedGroupId })
+        if ($freshMatches.Count -ne 1) { throw 'LAB_ENVIRONMENT_GROUP_OPERATION_SUPERSEDED' }
+        $freshGroup = $freshMatches[0]
+        $initialMemberKey = ConvertTo-Json -InputObject @($members | Sort-Object runId | ForEach-Object {
+            [ordered]@{runId=[string]$_.runId;scopeId=[string]$_.scopeId;connectionInfoSha256=[string]$_.connectionInfoSha256;instanceIds=@($_.instanceIds)}
+        }) -Depth 10 -Compress
+        $freshMemberKey = ConvertTo-Json -InputObject @($freshGroup.members | Sort-Object runId | ForEach-Object {
+            [ordered]@{runId=[string]$_.runId;scopeId=[string]$_.scopeId;connectionInfoSha256=[string]$_.connectionInfoSha256;instanceIds=@($_.instanceIds)}
+        }) -Depth 10 -Compress
+        $freshOperationId = if ($freshGroup.operation) { [string]$freshGroup.operation.operationId } else { $null }
+        if ([string]$freshGroup.lifecycleState -cne $initialLifecycleState -or $freshOperationId -cne $initialOperationId -or
+            $freshMemberKey -cne $initialMemberKey) { throw 'LAB_ENVIRONMENT_GROUP_OPERATION_SUPERSEDED' }
+        $registry = $freshRegistry
+        $group = $freshGroup
+        $members = @($group.members | Sort-Object runId)
         $operationId = [guid]::NewGuid().ToString('D')
         $memberOperations = foreach ($member in $members) {
             $memberAction = if ($Action -eq 'Start') { 'START' } else { 'STOP' }
@@ -432,15 +524,15 @@ function Invoke-LabEnvironmentGroupLifecycle {
             operationId=$operationId;action=$Action;state='IN_PROGRESS';startedAt=Get-LabTimestamp;updatedAt=Get-LabTimestamp;members=@($memberOperations)
         }
         Write-LabEnvironmentGroupsRegistry -Registry $registry -StateRoot $StateRoot
+        Exit-LabEnvironmentGroupsLock -Mutex $lock
+        $lock = $null
 
         try {
-            foreach ($member in $members) {
-                $runId = [string]$member.runId
+        foreach ($member in $members) {
+            $runId = [string]$member.runId
                 $protectionReason = Get-LabEnvironmentGroupMemberProtectionReason -RunId $runId -StateRoot $StateRoot
                 if ($Action -eq 'Stop' -and $protectionReason) {
-                    $operationMember = @($registry.groups | Where-Object { [string]$_.groupId -ceq $normalizedGroupId } | ForEach-Object { $_.operation.members } | Where-Object { [string]$_.runId -ieq $runId }) | Select-Object -First 1
-                    $operationMember.action = 'RETAIN'
-                    Set-LabEnvironmentGroupOperationMemberState -Registry $registry -GroupId $normalizedGroupId -RunId $runId -Status 'RETAINED_SHARED' -ReasonCode $protectionReason -StateRoot $StateRoot
+                    $null = Set-LabEnvironmentGroupOperationMemberState -GroupId $normalizedGroupId -OperationId $operationId -RunId $runId -Status 'RETAINED_SHARED' -ReasonCode $protectionReason -MemberAction RETAIN -StateRoot $StateRoot
                     continue
                 }
                 if ($Action -eq 'Start' -and $protectionReason) { throw "LAB_ENVIRONMENT_GROUP_MEMBER_PROTECTED: $runId ($protectionReason)" }
@@ -454,11 +546,11 @@ function Invoke-LabEnvironmentGroupLifecycle {
                     $memberRuntime = Sync-LabEnvironmentGroupMemberRuntime -RunId $runId -Action Start -StateRoot $StateRoot
                     $run = $memberRuntime.Run
                     if ([string]$run.state -eq 'RUNNING') {
-                        Set-LabEnvironmentGroupOperationMemberState -Registry $registry -GroupId $normalizedGroupId -RunId $runId -Status 'UNCHANGED' -ReasonCode 'ALREADY_RUNNING' -StateRoot $StateRoot
+                        $null = Set-LabEnvironmentGroupOperationMemberState -GroupId $normalizedGroupId -OperationId $operationId -RunId $runId -Status 'UNCHANGED' -ReasonCode 'ALREADY_RUNNING' -StateRoot $StateRoot
                         continue
                     }
                     if ([string]$run.state -ne 'STOPPED') { throw "LAB_ENVIRONMENT_GROUP_MEMBER_NOT_STARTABLE: $runId ($($run.state))" }
-                    Set-LabEnvironmentGroupOperationMemberState -Registry $registry -GroupId $normalizedGroupId -RunId $runId -Status 'IN_PROGRESS' -ReasonCode $null -StateRoot $StateRoot
+                    $null = Set-LabEnvironmentGroupOperationMemberState -GroupId $normalizedGroupId -OperationId $operationId -RunId $runId -Status 'IN_PROGRESS' -ReasonCode $null -StateRoot $StateRoot
                     $groupOperationContext = [PSCustomObject]@{GroupId=$normalizedGroupId;OperationId=$operationId;Action='Start';RunId=$runId}
                     $script:LabEnvironmentGroupOperationContext = $groupOperationContext
                     try { $result = Start-SqlServerLab -RunId $runId -TimeoutSeconds $TimeoutSeconds -SkipReadyCheck:$SkipReadyCheck -StateRoot $StateRoot }
@@ -466,7 +558,7 @@ function Invoke-LabEnvironmentGroupLifecycle {
                     $after = Get-LabRunState -RunId $runId -StateRoot $StateRoot
                     $afterRuntime = Get-LabRunRuntimeStatus -Run $after -StateRoot $StateRoot
                     if ([string]$after.state -cne 'RUNNING' -or [string]$afterRuntime.State -cne 'RUNNING' -or [string]$result.Status -in @('FAILED','ERROR') -or [int]$result.Errors -gt 0) { throw "LAB_ENVIRONMENT_GROUP_MEMBER_START_UNCONFIRMED: $runId ($($afterRuntime.State))" }
-                    Set-LabEnvironmentGroupOperationMemberState -Registry $registry -GroupId $normalizedGroupId -RunId $runId -Status 'STARTED' -ReasonCode $null -StateRoot $StateRoot
+                    $null = Set-LabEnvironmentGroupOperationMemberState -GroupId $normalizedGroupId -OperationId $operationId -RunId $runId -Status 'STARTED' -ReasonCode $null -StateRoot $StateRoot
                 }
                 else {
                     $memberRuntime = Sync-LabEnvironmentGroupMemberRuntime -RunId $runId -Action Stop -StateRoot $StateRoot
@@ -474,18 +566,16 @@ function Invoke-LabEnvironmentGroupLifecycle {
                     $claims = @(Get-LabEnvironmentGroupRunClaims -RunId $runId -Registry $freshRegistry -ExcludeGroupId $normalizedGroupId)
                     if ($claims.Count -gt 0) {
                         if ([string]$memberRuntime.Runtime.State -cne 'RUNNING') { throw "LAB_ENVIRONMENT_GROUP_SHARED_MEMBER_NOT_RUNNING: $runId ($($memberRuntime.Runtime.State))" }
-                        $operationMember = @($registry.groups | Where-Object { [string]$_.groupId -ceq $normalizedGroupId } | ForEach-Object { $_.operation.members } | Where-Object { [string]$_.runId -ieq $runId }) | Select-Object -First 1
-                        $operationMember.action = 'RETAIN'
-                        Set-LabEnvironmentGroupOperationMemberState -Registry $registry -GroupId $normalizedGroupId -RunId $runId -Status 'RETAINED_SHARED' -ReasonCode 'OTHER_ACTIVE_GROUP_CLAIM' -StateRoot $StateRoot
+                        $null = Set-LabEnvironmentGroupOperationMemberState -GroupId $normalizedGroupId -OperationId $operationId -RunId $runId -Status 'RETAINED_SHARED' -ReasonCode 'OTHER_ACTIVE_GROUP_CLAIM' -MemberAction RETAIN -StateRoot $StateRoot
                         continue
                     }
                     $run = $memberRuntime.Run
                     if ([string]$run.state -eq 'STOPPED') {
-                        Set-LabEnvironmentGroupOperationMemberState -Registry $registry -GroupId $normalizedGroupId -RunId $runId -Status 'STOPPED' -ReasonCode 'ALREADY_STOPPED' -StateRoot $StateRoot
+                        $null = Set-LabEnvironmentGroupOperationMemberState -GroupId $normalizedGroupId -OperationId $operationId -RunId $runId -Status 'STOPPED' -ReasonCode 'ALREADY_STOPPED' -StateRoot $StateRoot
                         continue
                     }
                     if ([string]$run.state -ne 'RUNNING') { throw "LAB_ENVIRONMENT_GROUP_MEMBER_NOT_STOPPABLE: $runId ($($run.state))" }
-                    Set-LabEnvironmentGroupOperationMemberState -Registry $registry -GroupId $normalizedGroupId -RunId $runId -Status 'IN_PROGRESS' -ReasonCode $null -StateRoot $StateRoot
+                    $null = Set-LabEnvironmentGroupOperationMemberState -GroupId $normalizedGroupId -OperationId $operationId -RunId $runId -Status 'IN_PROGRESS' -ReasonCode $null -StateRoot $StateRoot
                     $groupOperationContext = [PSCustomObject]@{GroupId=$normalizedGroupId;OperationId=$operationId;Action='Stop';RunId=$runId}
                     $script:LabEnvironmentGroupOperationContext = $groupOperationContext
                     try { $result = Stop-SqlServerLab -RunId $runId -Force:$Force -SkipHostMemoryRelease:$SkipHostMemoryRelease -StateRoot $StateRoot -Confirm:$false }
@@ -493,26 +583,28 @@ function Invoke-LabEnvironmentGroupLifecycle {
                     $after = Get-LabRunState -RunId $runId -StateRoot $StateRoot
                     $afterRuntime = Get-LabRunRuntimeStatus -Run $after -StateRoot $StateRoot
                     if ([string]$after.state -cne 'STOPPED' -or [string]$afterRuntime.State -cne 'STOPPED' -or [string]$result.Action -cne 'STOPPED' -or [int]$result.Errors -gt 0) { throw "LAB_ENVIRONMENT_GROUP_MEMBER_STOP_UNCONFIRMED: $runId ($($afterRuntime.State))" }
-                    Set-LabEnvironmentGroupOperationMemberState -Registry $registry -GroupId $normalizedGroupId -RunId $runId -Status 'STOPPED' -ReasonCode $null -StateRoot $StateRoot
+                    $null = Set-LabEnvironmentGroupOperationMemberState -GroupId $normalizedGroupId -OperationId $operationId -RunId $runId -Status 'STOPPED' -ReasonCode $null -StateRoot $StateRoot
                 }
                 }
                 finally { Exit-LabEnvironmentGroupRunResourceLock -Mutex $runResourceLock }
             }
-            $group.lifecycleState = if ($Action -eq 'Start') { 'ACTIVE' } else { 'STOPPED' }
-            $group.operation.state = 'COMPLETED'
-            $group.operation.updatedAt = Get-LabTimestamp
-            Write-LabEnvironmentGroupsRegistry -Registry $registry -StateRoot $StateRoot
+            $finalLifecycleState = if ($Action -eq 'Start') { 'ACTIVE' } else { 'STOPPED' }
+            $registry = Set-LabEnvironmentGroupLifecycleResult -GroupId $normalizedGroupId -OperationId $operationId `
+                -LifecycleState $finalLifecycleState -OperationState COMPLETED -StateRoot $StateRoot
+            $group = @($registry.groups | Where-Object { [string]$_.groupId -ceq $normalizedGroupId }) | Select-Object -First 1
             return [PSCustomObject]@{Status=if($Action -eq 'Start'){'STARTED'}else{'STOPPED'};GroupId=$normalizedGroupId;OperationId=$operationId;Members=@($group.operation.members)}
         }
         catch {
-            $group.lifecycleState = 'RECOVERY_REQUIRED'
-            $group.operation.state = 'RECOVERY_REQUIRED'
-            $group.operation.updatedAt = Get-LabTimestamp
-            try { Write-LabEnvironmentGroupsRegistry -Registry $registry -StateRoot $StateRoot } catch { }
+            try { $null = Set-LabEnvironmentGroupLifecycleResult -GroupId $normalizedGroupId -OperationId $operationId `
+                -LifecycleState RECOVERY_REQUIRED -OperationState RECOVERY_REQUIRED -StateRoot $StateRoot } catch { }
             throw
         }
     }
-    finally { $script:LabEnvironmentGroupOperationContext = $null; Exit-LabEnvironmentGroupsLock -Mutex $lock }
+    finally {
+        $script:LabEnvironmentGroupOperationContext = $null
+        if ($null -ne $lock) { Exit-LabEnvironmentGroupsLock -Mutex $lock }
+        Exit-LabEnvironmentGroupLifecycleLock -Mutex $lifecycleLock
+    }
 }
 
 function Get-LabEnvironmentGroupStateRootKey {
