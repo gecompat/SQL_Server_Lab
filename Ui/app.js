@@ -1154,14 +1154,16 @@ function canonicalSubmission(value) {
 function nonSecretSubmissionIdentity(action, endpoint, payload, descriptors) {
   // Only explicit logical target/configuration coordinates contribute. Unknown,
   // nested and sensitive values are omitted BEFORE hashing, never password verifiers.
-  const allowed = new Set(['runid', 'instanceid', 'buildid', 'artifactid', 'labname', 'provider', 'stateroot', 'dataroot', 'mediaroot', 'testdataroot']);
+  const allowed = new Set(['runid', 'instanceid', 'buildid', 'artifactid', 'groupid', 'labname', 'provider', 'stateroot', 'dataroot', 'mediaroot', 'testdataroot']);
   const targets = {};
   Object.entries(payload.parameters || {}).forEach(([name, value]) => {
     const normalized = name.toLowerCase();
     if (!allowed.has(normalized) || typeof value !== 'string') return;
     const descriptor = descriptors.find((item) => item.Name?.toLowerCase() === normalized);
     if (endpoint === '/api/commands' && (!descriptor || descriptor.Sensitive !== false || descriptor.IsCredential !== false || !/^System\.String$/.test(descriptor.TypeName))) return;
-    targets[normalized] = value;
+    targets[normalized] = normalized === 'groupid' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+      ? value.toLowerCase()
+      : value;
   });
   return { action, endpoint, parameterSet: endpoint === '/api/commands' ? payload.parameterSetName : '', targets };
 }
@@ -1554,6 +1556,53 @@ function openConfirmation(title, message, action, parameters, submitLabel = 'Ent
   $('#confirmation-message').textContent = message;
   $('#confirmation-submit').textContent = submitLabel;
   $('#confirmation-dialog').showModal();
+}
+
+function handleEnvironmentGroupLifecycleRequest(event) {
+  const detail = event?.detail;
+  const groupIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if (!detail || !['Start', 'Stop'].includes(detail.action) || typeof detail.groupId !== 'string' ||
+      !groupIdPattern.test(detail.groupId) || typeof detail.groupName !== 'string' ||
+      detail.groupName.length < 1 || detail.groupName.length > 80) {
+    showError(new Error('ENVIRONMENT_GROUP_ACTION_INVALID'));
+    return;
+  }
+
+  const commandName = detail.action === 'Start' ? 'Start-SqlServerLabEnvironmentGroup' : 'Stop-SqlServerLabEnvironmentGroup';
+  const commands = publicCommandCatalog.filter((item) => item && item.Name === commandName);
+  const command = commands.length === 1 ? commands[0] : null;
+  const parameterSets = Array.isArray(command?.ParameterSets) ? command.ParameterSets : [];
+  const defaults = parameterSets.filter((item) => item && item.IsDefault === true);
+  const parameterSet = defaults.length === 1 ? defaults[0] : null;
+  const descriptors = Array.isArray(parameterSet?.Parameters) ? parameterSet.Parameters : [];
+  const groupIdDescriptors = descriptors.filter((item) => item && item.Name === 'GroupId');
+  const mandatoryDescriptors = descriptors.filter((item) => item && item.Mandatory === true);
+  const mandatoryNames = Array.isArray(parameterSet?.MandatoryNames) ? parameterSet.MandatoryNames : [];
+  const safeGroupId = groupIdDescriptors.length === 1 && groupIdDescriptors[0].Mandatory === true &&
+    groupIdDescriptors[0].TypeName === 'System.String' && groupIdDescriptors[0].Sensitive === false &&
+    groupIdDescriptors[0].IsCredential === false;
+  const exactMandatoryShape = mandatoryDescriptors.length === 1 && mandatoryDescriptors[0].Name === 'GroupId' &&
+    mandatoryNames.length === 1 && mandatoryNames[0] === 'GroupId';
+  if (!command || command.RequiresConfirmation !== true || !parameterSet || !safeGroupId || !exactMandatoryShape) {
+    showError(new Error('ENVIRONMENT_GROUP_COMMAND_UNAVAILABLE'));
+    return;
+  }
+
+  const isStart = detail.action === 'Start';
+  const message = isStart
+    ? 'Gestoppte Mitglieder dieser Gruppe werden gestartet; danach wird ihre SQL-Bereitschaft geprüft. Bereits laufende Mitglieder bleiben unverändert. Bei einem unbestätigten Ergebnis zuerst Auftragsstatus und Gruppe erneut lesen; nicht blind wiederholen.'
+    : 'Es werden nur Mitglieder gestoppt, die keine andere aktive Gruppe benötigt. Gemeinsam verwendete Runs bleiben aktiv. Bei einem unbestätigten Ergebnis zuerst Auftragsstatus und Gruppe erneut lesen; nicht blind wiederholen.';
+  openConfirmation(
+    (isStart ? 'Gruppe starten: ' : 'Gruppe stoppen: ') + detail.groupName,
+    message,
+    '__PublicCommand',
+    { command, parameterSet, parameters: { GroupId: detail.groupId } },
+    isStart ? 'Gruppe starten' : 'Gruppe stoppen'
+  );
+}
+
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+  window.addEventListener('sqlserverlab:environment-group-lifecycle-request', handleEnvironmentGroupLifecycleRequest);
 }
 
 const persistentStoragePolicyLabels = {

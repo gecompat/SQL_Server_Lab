@@ -61,10 +61,16 @@ Mitglieder sicher abgeglichen hat. Die geführte PowerShell-CLI ist unter
 **Lab-Umgebungen > Umgebung auswählen und verwalten > Lab-Umgebungsgruppen
 verwalten** verfügbar. Sie erstellt leere Gruppen, bindet vorhandene Runs,
 startet und stoppt Gruppen und löst Zuordnungen. Die Workflow-UI zeigt die
-gespeicherten Gruppen und Run-Referenzen read-only an. Sie gibt weder Scope-
-IDs noch Verbindungs-Hashes aus und behauptet keinen aktuellen Runtime- oder
-SQL-Zustand. Mitgliedsänderungen, Lifecycle-Aktionen und die Reconcile-UI
-bleiben separate offene Arbeiten; die Registry allein beweist keine
+gespeicherten Gruppen und Run-Referenzen an. Bei gestoppten Gruppen startet
+sie Mitglieder über `Start-SqlServerLabEnvironmentGroup`; aktive oder
+wiederherzustellende Gruppen lassen sich über `Stop-SqlServerLabEnvironmentGroup`
+beenden. Beide Aktionen verwenden den katalogisierten öffentlichen Befehl,
+seine Einmal-Grant-Grenze und eine ausdrückliche UI-Bestätigung. Die Ansicht
+gibt weder Scope-IDs noch Verbindungs-Hashes aus und behauptet keinen aktuellen
+Runtime- oder SQL-Zustand. Bei einem unbestätigten Auftragsergebnis muss zuerst
+der Auftragsstatus und die Registry erneut gelesen werden; die UI wiederholt
+keinen Start oder Stop automatisch. Browser-Mitgliedsänderungen und die
+Reconcile-UI bleiben offene Arbeiten. Die Registry allein beweist keine
 Runtimebereitschaft. Die Gruppe erstellt auch kein gemeinsames
 Providernetz. Für einen Container-Linked-Server-Fall können zwei getrennte
 Runs mit demselben expliziten `NetworkName` angelegt und anschließend
