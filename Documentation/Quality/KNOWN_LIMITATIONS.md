@@ -4348,10 +4348,10 @@ Gruppenstart/-stop, persistente Nachfrage, gemeinsamer Mutex, Schutz vor
 direktem Stoppen/Restart/Remove/Clear beanspruchter Runs und fail-closed
 Partial-Recovery sind durch fokussierte und betroffene statische Vertragschecks
 validiert. Die geführte PowerShell-CLI verwaltet Gruppen. Die Browseransicht
-zeigt den gespeicherten Stand und startet oder stoppt Gruppen nach Bestätigung
-über den öffentlichen Befehlsweg; Mitgliedsänderungen und Reconcile bleiben
-offen. Eine begrenzte native Docker-/Podman-Abnahme belegt den
-SQL-2025-CU9-Linked-Server-Fall mit geteiltem Run und eigenem Cleanup. Weitere
-SQL-Versionen, Hyper-V, automatische Netzwerktopologie und das Einrichten eines
+zeigt den gespeicherten Stand, startet und stoppt Gruppen und bearbeitet
+Mitgliedschaften bei gestoppten Gruppen nach Bestätigung über den öffentlichen
+Befehlsweg. Der Reconcile bleibt offen. Eine begrenzte native Docker-/Podman-
+Abnahme belegt den SQL-2025-CU9-Linked-Server-Fall mit geteiltem Run und eigenem
+Cleanup. Weitere SQL-Versionen, Hyper-V, automatische Netzwerktopologie und das Einrichten eines
 SQL-Linked-Servers bleiben offen. Gruppenverwaltung allein ist daher kein
 qualifiziertes Linked-Server-Lab.

@@ -48,20 +48,51 @@
     return node;
   }
 
-  function addLifecycleAction(parent, label, action, group, className) {
+  function requestGroupCommand(group, action, runId) {
+    requestGeneration++;
+    dialog.close();
+    window.dispatchEvent(new CustomEvent('sqlserverlab:environment-group-command-request', {
+      detail: { action, groupId: group.groupId, groupName: group.name, ...(runId ? { runId } : {}) }
+    }));
+  }
+
+  function addGroupCommandAction(parent, label, action, group, className, runId) {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = className || 'button secondary';
     button.textContent = label;
-    button.addEventListener('click', () => {
-      requestGeneration++;
-      dialog.close();
-      window.dispatchEvent(new CustomEvent('sqlserverlab:environment-group-lifecycle-request', {
-        detail: { action, groupId: group.groupId, groupName: group.name }
-      }));
-    });
+    button.addEventListener('click', () => requestGroupCommand(group, action, runId));
     parent.appendChild(button);
     return button;
+  }
+
+  function addMembershipEditor(parent, group) {
+    const editor = document.createElement('div');
+    editor.className = 'form-grid';
+    const label = document.createElement('label');
+    label.textContent = 'Run-ID hinzufügen';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.maxLength = 36;
+    input.autocomplete = 'off';
+    input.spellcheck = false;
+    input.placeholder = 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx';
+    label.appendChild(input);
+    editor.appendChild(label);
+    const add = document.createElement('button');
+    add.type = 'button';
+    add.className = 'button secondary';
+    add.textContent = 'Run zuordnen';
+    add.addEventListener('click', () => {
+      const runId = input.value.trim();
+      if (!isGuid(runId)) {
+        status.textContent = 'Gültige Run-ID als GUID eingeben.';
+        return;
+      }
+      requestGroupCommand(group, 'AddMember', runId);
+    });
+    editor.appendChild(add);
+    parent.appendChild(editor);
   }
 
   function render(view) {
@@ -80,15 +111,23 @@
       if (group.members.length === 0) addText(card, 'p', 'Mitglieder: keine');
       else {
         const members = document.createElement('ul');
-        for (const member of group.members) addText(members, 'li', member.runId + ' · Instanzen: ' + member.instanceIds.join(', '));
+        for (const member of group.members) {
+          const row = document.createElement('li');
+          addText(row, 'span', member.runId + ' · Instanzen: ' + member.instanceIds.join(', '));
+          if (group.lifecycleState === 'STOPPED' && group.operation?.state !== 'IN_PROGRESS') {
+            addGroupCommandAction(row, 'Zuordnung lösen', 'RemoveMember', group, 'button secondary', member.runId);
+          }
+          members.appendChild(row);
+        }
         card.appendChild(members);
       }
       if (group.operation?.state === 'IN_PROGRESS') {
         addText(card, 'p', 'Ein Gruppenvorgang ist laut gespeichertem Status noch in Bearbeitung. Lies den Status erneut, bevor du eine weitere Aktion startest.', 'form-note');
       } else if (group.lifecycleState === 'STOPPED') {
+        addMembershipEditor(card, group);
         const actions = document.createElement('div');
         actions.className = 'dialog-actions';
-        const start = addLifecycleAction(actions, 'Gruppe starten', 'Start', group);
+        const start = addGroupCommandAction(actions, 'Gruppe starten', 'Start', group);
         start.disabled = group.members.length === 0;
         if (start.disabled) addText(card, 'p', 'Zum Starten muss die Gruppe mindestens einen Run enthalten.', 'form-note');
         card.appendChild(actions);
@@ -96,7 +135,7 @@
         const actions = document.createElement('div');
         actions.className = 'dialog-actions';
         const label = group.lifecycleState === 'RECOVERY_REQUIRED' ? 'Wiederherstellen und stoppen' : 'Gruppe stoppen';
-        addLifecycleAction(actions, label, 'Stop', group, 'button danger');
+        addGroupCommandAction(actions, label, 'Stop', group, 'button danger');
         card.appendChild(actions);
       }
       list.appendChild(card);

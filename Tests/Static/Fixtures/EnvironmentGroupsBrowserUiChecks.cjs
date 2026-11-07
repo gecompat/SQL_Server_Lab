@@ -21,6 +21,7 @@ function setup(){
 }
 function textTree(node){return [node.textContent,...(node.children||[]).map(textTree)].join('\n');}
 function findButton(node,label){for(const child of node.children||[]){if(child.tag==='button'&&child.textContent===label)return child;const nested=findButton(child,label);if(nested)return nested;}return null;}
+function findInput(node){for(const child of node.children||[]){if(child.tag==='input')return child;const nested=findInput(child);if(nested)return nested;}return null;}
 function actualFunction(source,name){const match=new RegExp('^(?:async )?function '+name+'\\(','m').exec(source);check(!!match,'actual app handler exists: '+name);const rest=source.slice(match.index),next=/\n(?:async )?function \w+\(/.exec(rest);return next?rest.slice(0,next.index):rest;}
 async function answer(f,payload,request=f.requests.at(-1)){request.resolve({ok:true,json:async()=>payload});await f.flush();}
 (async()=>{
@@ -28,7 +29,8 @@ async function answer(f,payload,request=f.requests.at(-1)){request.resolve({ok:t
   f.click('read');f.click('read');check(f.requests.length===1&&f.requests[0].url==='/api/environment-groups'&&f.requests[0].options===undefined&&f.get('read').disabled,'single GET only and no duplicate read');
   await answer(f,view());check(f.get('list').children.length===1&&textTree(f.get('list')).includes('<img src=x onerror=alert(1)>'),'group names render as literal text');
   const stopButton=findButton(f.get('list').children[0],'Gruppe stoppen');check(!!stopButton,'active group exposes stop action');stopButton.events.click();
-  check(f.events.length===1&&f.events[0].type==='sqlserverlab:environment-group-lifecycle-request'&&f.events[0].detail.action==='Stop'&&f.events[0].detail.groupId===groupId,'stop dispatches only the typed group action and stable ID');
+  check(f.events.length===1&&f.events[0].type==='sqlserverlab:environment-group-command-request'&&f.events[0].detail.action==='Stop'&&f.events[0].detail.groupId===groupId,'stop dispatches only the typed group action and stable ID');
+  check(!findButton(f.get('list').children[0],'Zuordnung lösen'),'active group cannot edit its membership');
   check(!f.get('dialog').open&&f.requests.length===1,'lifecycle action closes stale view and performs no direct network mutation');
   check(f.get('status').textContent.includes('nicht bestätigt')&&f.requests.every(r=>r.url==='/api/environment-groups'),'stored status is not presented as runtime confirmation');
 
@@ -36,10 +38,24 @@ async function answer(f,payload,request=f.requests.at(-1)){request.resolve({ok:t
   const startButton=findButton(f.get('list').children[0],'Gruppe starten');check(!!startButton,'stopped group exposes start action');startButton.events.click();
   check(f.events.length===1&&f.events[0].detail.action==='Start','start dispatches explicit start action');
 
+  f=setup();f.click('open');f.click('read');const stoppedForAdd=view();stoppedForAdd.groups[0].lifecycleState='STOPPED';stoppedForAdd.groups[0].operation=null;await answer(f,stoppedForAdd);
+  const addInput=findInput(f.get('list').children[0]);addInput.value='aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';findButton(f.get('list').children[0],'Run zuordnen').events.click();
+  check(f.events.length===1&&f.events[0].detail.action==='AddMember'&&f.events[0].detail.groupId===groupId&&f.events[0].detail.runId==='aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee','membership add dispatches only group and run IDs');
+  check(f.requests.length===1&&!f.get('dialog').open,'membership add uses confirmation handoff without direct HTTP mutation');
+
+  f=setup();f.click('open');f.click('read');const stoppedForRemove=view();stoppedForRemove.groups[0].lifecycleState='STOPPED';stoppedForRemove.groups[0].operation=null;await answer(f,stoppedForRemove);
+  findButton(f.get('list').children[0],'Zuordnung lösen').events.click();
+  check(f.events.length===1&&f.events[0].detail.action==='RemoveMember'&&f.events[0].detail.groupId===groupId&&f.events[0].detail.runId===run,'membership remove affects one group/run reference');
+
+  f=setup();f.click('open');f.click('read');const stoppedInvalidAdd=view();stoppedInvalidAdd.groups[0].lifecycleState='STOPPED';stoppedInvalidAdd.groups[0].operation=null;await answer(f,stoppedInvalidAdd);
+  findInput(f.get('list').children[0]).value='not-a-guid';findButton(f.get('list').children[0],'Run zuordnen').events.click();
+  check(f.events.length===0&&f.get('dialog').open&&f.get('status').textContent.includes('GUID'),'invalid run ID is rejected before event dispatch');
+
   f=setup();f.click('open');f.click('read');const inProgress=view();inProgress.groups[0].operation.state='IN_PROGRESS';await answer(f,inProgress);
-  check(!findButton(f.get('list').children[0],'Gruppe starten')&&!findButton(f.get('list').children[0],'Gruppe stoppen'),'in-progress operation offers no duplicate lifecycle action');
+  check(!findButton(f.get('list').children[0],'Gruppe starten')&&!findButton(f.get('list').children[0],'Gruppe stoppen')&&!findButton(f.get('list').children[0],'Run zuordnen')&&!findButton(f.get('list').children[0],'Zuordnung lösen'),'in-progress operation offers no duplicate action');
   f=setup();f.click('open');f.click('read');const emptyStopped=view();emptyStopped.groups[0].lifecycleState='STOPPED';emptyStopped.groups[0].members=[];emptyStopped.groups[0].operation=null;await answer(f,emptyStopped);
   check(findButton(f.get('list').children[0],'Gruppe starten')?.disabled===true,'empty stopped group cannot start');
+  check(!!findInput(f.get('list').children[0])&&!!findButton(f.get('list').children[0],'Run zuordnen'),'empty stopped group can receive its first member');
 
   f=setup();f.click('open');f.click('read');
   await answer(f,{contractVersion:'wrong',groups:[{name:'PRIVATE_CANARY'}]});
@@ -55,24 +71,31 @@ async function answer(f,payload,request=f.requests.at(-1)){request.resolve({ok:t
   for(const id of ['open','dialog','close','dismiss','read','status','list'])check((html.match(new RegExp('id="environment-groups-'+id+'"','g'))||[]).length===1,'HTML ID unique: '+id);
   check(/src="environment-groups\.js"/.test(html),'dedicated viewer script is loaded');
   const appSource=fs.readFileSync(path.join(root,'Ui/app.js'),'utf8');
-  check(/if \(typeof window !== 'undefined' && typeof window\.addEventListener === 'function'\)\s*\{\s*window\.addEventListener\('sqlserverlab:environment-group-lifecycle-request', handleEnvironmentGroupLifecycleRequest\);\s*\}/.test(appSource),'app listens for lifecycle action event when browser listener is available');
+  check(/if \(typeof window !== 'undefined' && typeof window\.addEventListener === 'function'\)\s*\{\s*window\.addEventListener\('sqlserverlab:environment-group-command-request', handleEnvironmentGroupCommandRequest\);\s*\}/.test(appSource),'app listens for group command events when browser listener is available');
   const confirmations=[],errors=[];
   const appContext=vm.createContext({publicCommandCatalog:[],window:{addEventListener(){}},showError:error=>errors.push(error.message),openConfirmation:(...args)=>confirmations.push(args)});
-  vm.runInContext(actualFunction(appSource,'handleEnvironmentGroupLifecycleRequest'),appContext);
-  const lifecycleSet={Name:'Default',IsDefault:true,MandatoryNames:['GroupId'],Parameters:[{Name:'GroupId',TypeName:'System.String',Mandatory:true,Sensitive:false,IsCredential:false},{Name:'WhatIf',TypeName:'System.Management.Automation.SwitchParameter',Mandatory:false,Sensitive:false,IsCredential:false}]};
-  for(const action of ['Start','Stop']){
-    const command={Name:action==='Start'?'Start-SqlServerLabEnvironmentGroup':'Stop-SqlServerLabEnvironmentGroup',RequiresConfirmation:true,ParameterSets:[lifecycleSet]};
-    appContext.publicCommandCatalog=[command];appContext.handleEnvironmentGroupLifecycleRequest({detail:{action,groupId,groupName:'Linked Server Demo'}});
+  vm.runInContext(actualFunction(appSource,'handleEnvironmentGroupCommandRequest'),appContext);
+  for(const action of ['Start','Stop','AddMember','RemoveMember']){
+    const expectedNames=['AddMember','RemoveMember'].includes(action)?['GroupId','RunId']:['GroupId'];
+    const lifecycleSet={Name:'Default',IsDefault:true,MandatoryNames:expectedNames,Parameters:[...expectedNames.map(Name=>({Name,TypeName:'System.String',Mandatory:true,Sensitive:false,IsCredential:false})),{Name:'WhatIf',TypeName:'System.Management.Automation.SwitchParameter',Mandatory:false,Sensitive:false,IsCredential:false}]};
+    const commandNames={Start:'Start-SqlServerLabEnvironmentGroup',Stop:'Stop-SqlServerLabEnvironmentGroup',AddMember:'Add-SqlServerLabEnvironmentGroupMember',RemoveMember:'Remove-SqlServerLabEnvironmentGroupMember'};
+    const command={Name:commandNames[action],RequiresConfirmation:true,ParameterSets:[lifecycleSet]};
+    appContext.publicCommandCatalog=[command];
+    const eventDetail={action,groupId,groupName:'Linked Server Demo',...(expectedNames.includes('RunId')?{runId:run}:{})};
+    appContext.handleEnvironmentGroupCommandRequest({detail:eventDetail});
     const confirmation=confirmations.at(-1);
     check(confirmation?.[2]==='__PublicCommand'&&confirmation?.[3]?.command===command,'actual app handler uses catalogued public command for '+action);
-    check(confirmation[3].parameterSet===lifecycleSet&&Object.keys(confirmation[3].parameters).join(',')==='GroupId'&&confirmation[3].parameters.GroupId===groupId,'actual app handler submits only GroupId using default parameter set for '+action);
-    check(confirmation[1].includes('nicht blind wiederholen')&&confirmation[4]===('Gruppe '+(action==='Start'?'starten':'stoppen')),'confirmation explains lifecycle and lost-response handling for '+action);
+    check(confirmation[3].parameterSet===lifecycleSet&&Object.keys(confirmation[3].parameters).sort().join(',')===expectedNames.slice().sort().join(',')&&confirmation[3].parameters.GroupId===groupId&&(!expectedNames.includes('RunId')||confirmation[3].parameters.RunId===run),'actual app handler submits only expected IDs for '+action);
+    check(confirmation[1].includes('nicht blind wiederholen')&&confirmation[4]===({Start:'Gruppe starten',Stop:'Gruppe stoppen',AddMember:'Run zuordnen',RemoveMember:'Zuordnung lösen'}[action]),'confirmation explains lifecycle and lost-response handling for '+action);
   }
   const confirmationCount=confirmations.length;
-  appContext.handleEnvironmentGroupLifecycleRequest({detail:{action:'Start',groupId:'bad-id',groupName:'Demo'}});
+  appContext.handleEnvironmentGroupCommandRequest({detail:{action:'Start',groupId:'bad-id',groupName:'Demo'}});
   check(confirmations.length===confirmationCount&&errors.at(-1)==='ENVIRONMENT_GROUP_ACTION_INVALID','invalid event is rejected with fixed error');
-  appContext.publicCommandCatalog=[{Name:'Stop-SqlServerLabEnvironmentGroup',RequiresConfirmation:true,ParameterSets:[{...lifecycleSet,MandatoryNames:['GroupId','Force'],Parameters:[...lifecycleSet.Parameters,{Name:'Force',TypeName:'System.Management.Automation.SwitchParameter',Mandatory:true,Sensitive:false,IsCredential:false}]}]}];
-  appContext.handleEnvironmentGroupLifecycleRequest({detail:{action:'Stop',groupId,groupName:'Demo'}});
+  appContext.handleEnvironmentGroupCommandRequest({detail:{action:'AddMember',groupId,groupName:'Demo',runId:'bad-id'}});
+  check(confirmations.length===confirmationCount&&errors.at(-1)==='ENVIRONMENT_GROUP_ACTION_INVALID','invalid member ID is rejected with fixed error');
+  const driftSet={Name:'Default',IsDefault:true,MandatoryNames:['GroupId','Force'],Parameters:[{Name:'GroupId',TypeName:'System.String',Mandatory:true,Sensitive:false,IsCredential:false},{Name:'Force',TypeName:'System.Management.Automation.SwitchParameter',Mandatory:true,Sensitive:false,IsCredential:false}]};
+  appContext.publicCommandCatalog=[{Name:'Stop-SqlServerLabEnvironmentGroup',RequiresConfirmation:true,ParameterSets:[driftSet]}];
+  appContext.handleEnvironmentGroupCommandRequest({detail:{action:'Stop',groupId,groupName:'Demo'}});
   check(confirmations.length===confirmationCount&&errors.at(-1)==='ENVIRONMENT_GROUP_COMMAND_UNAVAILABLE','changed command contract fails closed');
   console.log('ENVIRONMENT GROUPS BROWSER UI CHECKS: '+checks+' PASS; actual component and app handler with synthetic DOM/catalog');
 })().catch(error=>{console.error(error);process.exitCode=1;});

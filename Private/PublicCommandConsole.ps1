@@ -247,6 +247,43 @@ function ConvertFrom-LabPublicCommandWebValue {
     [Management.Automation.LanguagePrimitives]::ConvertTo($Value, $TargetType, [Globalization.CultureInfo]::InvariantCulture)
 }
 
+function ConvertTo-LabPublicCommandWebResult {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$CommandName,
+        [Parameter(Mandatory)][hashtable]$Parameters,
+        [AllowNull()][object[]]$Result
+    )
+
+    $expected = switch -CaseSensitive ($CommandName) {
+        'Add-SqlServerLabEnvironmentGroupMember' { 'ADDED'; break }
+        'Remove-SqlServerLabEnvironmentGroupMember' { 'REMOVED'; break }
+        default { return @($Result | ForEach-Object { ConvertTo-LabPublicCommandDisplayValue -Value $_ }) }
+    }
+    $groupGuid = [guid]::Empty
+    $runGuid = [guid]::Empty
+    if (-not [guid]::TryParse([string]$Parameters.GroupId, [ref]$groupGuid) -or
+        -not [guid]::TryParse([string]$Parameters.RunId, [ref]$runGuid) -or @($Result).Count -ne 1) {
+        throw 'PUBLIC_COMMAND_UI_RESULT_INVALID'
+    }
+
+    $item = @($Result)[0]
+    $status = [string]$item.Status
+    if ($status -ceq 'CANCELLED') {
+        return @([PSCustomObject]@{ Status = 'CANCELLED'; GroupId = $groupGuid.ToString('D'); RunId = $runGuid.ToString('D') })
+    }
+    $resultGroupGuid = [guid]::Empty
+    $resultRunGuid = [guid]::Empty
+    $memberRunId = if ($CommandName -ceq 'Add-SqlServerLabEnvironmentGroupMember') { [string]$item.Member.runId } else { [string]$item.RunId }
+    if ($status -cne $expected -or
+        -not [guid]::TryParse([string]$item.GroupId, [ref]$resultGroupGuid) -or
+        -not [guid]::TryParse($memberRunId, [ref]$resultRunGuid) -or
+        $resultGroupGuid -ne $groupGuid -or $resultRunGuid -ne $runGuid) {
+        throw 'PUBLIC_COMMAND_UI_RESULT_INVALID'
+    }
+    return @([PSCustomObject]@{ Status = $expected; GroupId = $groupGuid.ToString('D'); RunId = $runGuid.ToString('D') })
+}
+
 function Invoke-LabPublicCommandWebRequest {
     <# Führt ausschließlich einen exportierten Katalogbefehl mit seinem echten Parametersatz aus. #>
     [CmdletBinding()]
@@ -291,11 +328,12 @@ function Invoke-LabPublicCommandWebRequest {
         }
     }
     $result = @(& $catalogItem.Command @arguments)
+    $displayResult = @(ConvertTo-LabPublicCommandWebResult -CommandName $CommandName -Parameters $Parameters -Result $result)
     [PSCustomObject]@{
         Command = $CommandName
         ParameterSet = $ParameterSetName
         CompletedAt = (Get-Date).ToUniversalTime().ToString('o')
-        Result = @(ConvertTo-LabPublicCommandDisplayValue -Value $result)
+        Result = $displayResult
     }
 }
 

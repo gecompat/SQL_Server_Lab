@@ -1161,7 +1161,7 @@ function nonSecretSubmissionIdentity(action, endpoint, payload, descriptors) {
     if (!allowed.has(normalized) || typeof value !== 'string') return;
     const descriptor = descriptors.find((item) => item.Name?.toLowerCase() === normalized);
     if (endpoint === '/api/commands' && (!descriptor || descriptor.Sensitive !== false || descriptor.IsCredential !== false || !/^System\.String$/.test(descriptor.TypeName))) return;
-    targets[normalized] = normalized === 'groupid' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+    targets[normalized] = ['groupid', 'runid'].includes(normalized) && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
       ? value.toLowerCase()
       : value;
   });
@@ -1558,51 +1558,80 @@ function openConfirmation(title, message, action, parameters, submitLabel = 'Ent
   $('#confirmation-dialog').showModal();
 }
 
-function handleEnvironmentGroupLifecycleRequest(event) {
+function handleEnvironmentGroupCommandRequest(event) {
   const detail = event?.detail;
   const groupIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-  if (!detail || !['Start', 'Stop'].includes(detail.action) || typeof detail.groupId !== 'string' ||
+  const actionCommands = {
+    Start: { command: 'Start-SqlServerLabEnvironmentGroup', parameters: ['GroupId'] },
+    Stop: { command: 'Stop-SqlServerLabEnvironmentGroup', parameters: ['GroupId'] },
+    AddMember: { command: 'Add-SqlServerLabEnvironmentGroupMember', parameters: ['GroupId', 'RunId'] },
+    RemoveMember: { command: 'Remove-SqlServerLabEnvironmentGroupMember', parameters: ['GroupId', 'RunId'] }
+  };
+  const contract = detail && Object.prototype.hasOwnProperty.call(actionCommands, detail.action)
+    ? actionCommands[detail.action]
+    : null;
+  const requiresRunId = contract?.parameters.includes('RunId') === true;
+  if (!detail || !contract || typeof detail.groupId !== 'string' ||
       !groupIdPattern.test(detail.groupId) || typeof detail.groupName !== 'string' ||
-      detail.groupName.length < 1 || detail.groupName.length > 80) {
+      detail.groupName.length < 1 || detail.groupName.length > 80 ||
+      (requiresRunId && (typeof detail.runId !== 'string' || !groupIdPattern.test(detail.runId))) ||
+      (!requiresRunId && detail.runId !== undefined)) {
     showError(new Error('ENVIRONMENT_GROUP_ACTION_INVALID'));
     return;
   }
 
-  const commandName = detail.action === 'Start' ? 'Start-SqlServerLabEnvironmentGroup' : 'Stop-SqlServerLabEnvironmentGroup';
-  const commands = publicCommandCatalog.filter((item) => item && item.Name === commandName);
+  const commands = publicCommandCatalog.filter((item) => item && item.Name === contract.command);
   const command = commands.length === 1 ? commands[0] : null;
   const parameterSets = Array.isArray(command?.ParameterSets) ? command.ParameterSets : [];
   const defaults = parameterSets.filter((item) => item && item.IsDefault === true);
   const parameterSet = defaults.length === 1 ? defaults[0] : null;
   const descriptors = Array.isArray(parameterSet?.Parameters) ? parameterSet.Parameters : [];
-  const groupIdDescriptors = descriptors.filter((item) => item && item.Name === 'GroupId');
+  const expectedNames = contract.parameters;
+  const expectedDescriptors = expectedNames.map((name) => descriptors.filter((item) => item && item.Name === name));
   const mandatoryDescriptors = descriptors.filter((item) => item && item.Mandatory === true);
   const mandatoryNames = Array.isArray(parameterSet?.MandatoryNames) ? parameterSet.MandatoryNames : [];
-  const safeGroupId = groupIdDescriptors.length === 1 && groupIdDescriptors[0].Mandatory === true &&
-    groupIdDescriptors[0].TypeName === 'System.String' && groupIdDescriptors[0].Sensitive === false &&
-    groupIdDescriptors[0].IsCredential === false;
-  const exactMandatoryShape = mandatoryDescriptors.length === 1 && mandatoryDescriptors[0].Name === 'GroupId' &&
-    mandatoryNames.length === 1 && mandatoryNames[0] === 'GroupId';
-  if (!command || command.RequiresConfirmation !== true || !parameterSet || !safeGroupId || !exactMandatoryShape) {
+  const safeParameters = expectedDescriptors.every((matches) => matches.length === 1 && matches[0].Mandatory === true &&
+    matches[0].TypeName === 'System.String' && matches[0].Sensitive === false && matches[0].IsCredential === false);
+  const exactMandatoryShape = mandatoryDescriptors.length === expectedNames.length &&
+    mandatoryDescriptors.every((item) => expectedNames.includes(item.Name)) &&
+    mandatoryNames.length === expectedNames.length && expectedNames.every((name) => mandatoryNames.filter((item) => item === name).length === 1);
+  if (!command || command.RequiresConfirmation !== true || !parameterSet || typeof parameterSet.Name !== 'string' ||
+      parameterSet.Name.length === 0 || !safeParameters || !exactMandatoryShape) {
     showError(new Error('ENVIRONMENT_GROUP_COMMAND_UNAVAILABLE'));
     return;
   }
 
-  const isStart = detail.action === 'Start';
-  const message = isStart
-    ? 'Gestoppte Mitglieder dieser Gruppe werden gestartet; danach wird ihre SQL-Bereitschaft geprüft. Bereits laufende Mitglieder bleiben unverändert. Bei einem unbestätigten Ergebnis zuerst Auftragsstatus und Gruppe erneut lesen; nicht blind wiederholen.'
-    : 'Es werden nur Mitglieder gestoppt, die keine andere aktive Gruppe benötigt. Gemeinsam verwendete Runs bleiben aktiv. Bei einem unbestätigten Ergebnis zuerst Auftragsstatus und Gruppe erneut lesen; nicht blind wiederholen.';
+  const parameters = Object.fromEntries(expectedNames.map((name) => [name, name === 'GroupId' ? detail.groupId : detail.runId]));
+  const actionDetails = {
+    Start: {
+      title: 'Gruppe starten: ', label: 'Gruppe starten',
+      message: 'Gestoppte Mitglieder dieser Gruppe werden gestartet; danach wird ihre SQL-Bereitschaft geprüft. Bereits laufende Mitglieder bleiben unverändert.'
+    },
+    Stop: {
+      title: 'Gruppe stoppen: ', label: 'Gruppe stoppen',
+      message: 'Es werden nur Mitglieder gestoppt, die keine andere aktive Gruppe benötigt. Gemeinsam verwendete Runs bleiben aktiv.'
+    },
+    AddMember: {
+      title: 'Run zuordnen: ', label: 'Run zuordnen',
+      message: 'Der angegebene Run wird dieser gestoppten Gruppe zugeordnet. Derselbe Run darf weiteren Gruppen angehören; vorhandene Gruppen bleiben unverändert.'
+    },
+    RemoveMember: {
+      title: 'Zuordnung lösen: ', label: 'Zuordnung lösen',
+      message: 'Es wird nur die Zuordnung aus dieser gestoppten Gruppe entfernt. Der Run wird weder gestoppt noch gelöscht; andere Gruppenzuordnungen bleiben bestehen.'
+    }
+  };
+  const action = actionDetails[detail.action];
   openConfirmation(
-    (isStart ? 'Gruppe starten: ' : 'Gruppe stoppen: ') + detail.groupName,
-    message,
+    action.title + detail.groupName,
+    action.message + ' Bei einem unbestätigten Ergebnis zuerst Auftragsstatus und Gruppe erneut lesen; nicht blind wiederholen.',
     '__PublicCommand',
-    { command, parameterSet, parameters: { GroupId: detail.groupId } },
-    isStart ? 'Gruppe starten' : 'Gruppe stoppen'
+    { command, parameterSet, parameters },
+    action.label
   );
 }
 
 if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
-  window.addEventListener('sqlserverlab:environment-group-lifecycle-request', handleEnvironmentGroupLifecycleRequest);
+  window.addEventListener('sqlserverlab:environment-group-command-request', handleEnvironmentGroupCommandRequest);
 }
 
 const persistentStoragePolicyLabels = {
