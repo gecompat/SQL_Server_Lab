@@ -12,6 +12,15 @@ function Get-UiEnvironmentGroupsView {
                     state = [string]$group.operation.state
                     startedAt = [string]$group.operation.startedAt
                     updatedAt = [string]$group.operation.updatedAt
+                    members = @(
+                        foreach ($memberOperation in @($group.operation.members)) {
+                            [ordered]@{
+                                runId = [string]$memberOperation.runId
+                                action = [string]$memberOperation.action
+                                status = [string]$memberOperation.status
+                            }
+                        }
+                    )
                 }
             }
             [ordered]@{
@@ -35,7 +44,7 @@ function Get-UiEnvironmentGroupsView {
     )
 
     [ordered]@{
-        contractVersion = 'SqlServerLab.EnvironmentGroups.BrowserView/1.1'
+        contractVersion = 'SqlServerLab.EnvironmentGroups.BrowserView/1.2'
         groups = $projectedGroups
     }
 }
