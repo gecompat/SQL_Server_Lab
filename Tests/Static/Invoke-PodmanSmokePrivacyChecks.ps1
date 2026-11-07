@@ -156,6 +156,11 @@ function sqlcmd { & pwsh -NoLogo -NoProfile -File ./native-fixture.ps1; $global:
     Add-CheckResult -Name 'Cleanup failure exposes only its allowlisted cleanup code and remains failed' -Success (
         $result.ExitCode -ne 0 -and $result.Public -match 'PODMAN_AI_SAMPLES_FAILURE_CODE=PRIMARY/COMPLETED/NONE;CLEANUP/FAILED/SUPERVISOR_FAILED' -and
         $result.Public -notmatch 'SYNTHETIC_PRIVATE|PRIMARY_REASON' -and $result.Private -match 'SYNTHETIC_PRIVATE_SECRET')
+    $workerStageSummary = 'PRIMARY=FAILED; PRIMARY_REASON=AI_PODMAN_SAMPLES_WORKER_FAILED_AT_LAB_CREATE; CLEANUP=COMPLETED; CLEANUP_REASON=NONE'
+    $result = Invoke-WorkflowFixture -Script $safeFailureScript -Name 'ai-samples-worker-stage-code' -ExitCode 23 -FailureStage $aiSamplesStage -SafeSummary $workerStageSummary
+    Add-CheckResult -Name 'Allowlisted worker stage diagnosis is emitted without private details' -Success (
+        $result.ExitCode -ne 0 -and $result.Public -match 'PODMAN_AI_SAMPLES_FAILURE_CODE=PRIMARY/FAILED/AI_PODMAN_SAMPLES_WORKER_FAILED_AT_LAB_CREATE;CLEANUP/COMPLETED/NONE' -and
+        $result.Public -notmatch 'SYNTHETIC_PRIVATE|PRIMARY_REASON' -and $result.Private -match 'SYNTHETIC_PRIVATE_SECRET')
     $postAcceptanceFailureScript = $safeFailureScript.Replace(
         '"validated_capabilities=$completedCapabilities" | Out-File -LiteralPath $env:GITHUB_OUTPUT -Encoding utf8 -Append',
         "throw 'SYNTHETIC_PRIVATE_POST_ACCEPTANCE_FAILURE'")
