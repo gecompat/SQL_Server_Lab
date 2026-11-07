@@ -61,8 +61,9 @@ Mitglieder sicher abgeglichen hat. Die geführte PowerShell-CLI ist unter
 **Lab-Umgebungen > Umgebung auswählen und verwalten > Lab-Umgebungsgruppen
 verwalten** verfügbar. Sie erstellt leere Gruppen, bindet vorhandene Runs,
 startet und stoppt Gruppen und löst Zuordnungen. Die Workflow-UI zeigt die
-gespeicherten Gruppen und Run-Referenzen an. Bei gestoppten Gruppen startet
-sie Mitglieder über `Start-SqlServerLabEnvironmentGroup`; aktive oder
+gespeicherten Gruppen und Run-Referenzen an und kann leere Gruppen anlegen.
+Bei gestoppten Gruppen startet sie Mitglieder über
+`Start-SqlServerLabEnvironmentGroup`; aktive oder
 wiederherzustellende Gruppen lassen sich über `Stop-SqlServerLabEnvironmentGroup`
 beenden. In gestoppten Gruppen kann ein vorhandener Run per Run-ID zugeordnet
 oder eine einzelne Zuordnung gelöst werden. Derselbe Run darf mehreren Gruppen

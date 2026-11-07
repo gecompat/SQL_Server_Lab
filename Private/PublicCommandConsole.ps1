@@ -256,9 +256,27 @@ function ConvertTo-LabPublicCommandWebResult {
     )
 
     $expected = switch -CaseSensitive ($CommandName) {
+        'New-SqlServerLabEnvironmentGroup' { 'CREATED'; break }
         'Add-SqlServerLabEnvironmentGroupMember' { 'ADDED'; break }
         'Remove-SqlServerLabEnvironmentGroupMember' { 'REMOVED'; break }
         default { return @($Result | ForEach-Object { ConvertTo-LabPublicCommandDisplayValue -Value $_ }) }
+    }
+    if ($CommandName -ceq 'New-SqlServerLabEnvironmentGroup') {
+        if ([string]$Parameters.Name -cne ([string]$Parameters.Name).Trim() -or
+            [string]::IsNullOrWhiteSpace([string]$Parameters.Name) -or ([string]$Parameters.Name).Length -gt 80 -or
+            [string]$Parameters.Name -match '[\x00-\x1F\x7F]' -or
+            @($Result).Count -ne 1) { throw 'PUBLIC_COMMAND_UI_RESULT_INVALID' }
+        $item = @($Result)[0]
+        if ([string]$item.Status -ceq 'CANCELLED') {
+            return @([PSCustomObject]@{ Status = 'CANCELLED' })
+        }
+        $groupGuid = [guid]::Empty
+        if ([string]$item.Status -cne 'CREATED' -or
+            -not [guid]::TryParse([string]$item.Group.groupId, [ref]$groupGuid) -or
+            [string]$item.Group.name -cne [string]$Parameters.Name) {
+            throw 'PUBLIC_COMMAND_UI_RESULT_INVALID'
+        }
+        return @([PSCustomObject]@{ Status = 'CREATED'; GroupId = $groupGuid.ToString('D'); Name = [string]$Parameters.Name })
     }
     $groupGuid = [guid]::Empty
     $runGuid = [guid]::Empty
