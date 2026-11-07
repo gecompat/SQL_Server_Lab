@@ -75,7 +75,13 @@ ausdrückliche UI-Bestätigung. Die Ansicht gibt weder Scope-IDs noch
 Verbindungs-Hashes aus und behauptet keinen aktuellen Runtime- oder SQL-Zustand.
 Bei einem unbestätigten Auftragsergebnis muss zuerst der Auftragsstatus und die
 Registry erneut gelesen werden; die UI wiederholt keine Aktion automatisch.
-Die Reconcile-UI bleibt offen. Die Registry allein beweist keine
+Die Browseransicht weist zusätzlich den read-only Bindungsstatus `CURRENT` oder
+`STALE` je Mitglied aus. Der Vergleich verwendet nur die gespeicherten und
+aktuell lesbaren Run-, Scope-, Instanz- und Connection-Info-Metadaten; Scope-ID
+und Hash bleiben verborgen. `STALE` kann auch bedeuten, dass die Run-Bindung
+nicht lesbar ist. Der Status bestätigt keine Runtime- oder SQL-Bereitschaft und
+repariert keine Abweichung. Eine UI für Runtimeabweichungen und deren sichere
+Wiederherstellung bleibt offen. Die Registry allein beweist keine
 Runtimebereitschaft. Die Gruppe erstellt auch kein gemeinsames
 Providernetz. Für einen Container-Linked-Server-Fall können zwei getrennte
 Runs mit demselben expliziten `NetworkName` angelegt und anschließend

@@ -10,12 +10,12 @@ $script:throwRead=$false
 $script:fixtureGroups=@([pscustomobject]@{
     groupId='11111111-2222-4333-8444-555555555555';name='<img src=x onerror=alert(1)>';stateRootKey='PRIVATE_STATE_ROOT_KEY_CANARY';createdAt='2026-11-07T12:00:00Z';lifecycleState='ACTIVE'
     operation=[pscustomobject]@{operationId='22222222-3333-4444-8555-666666666666';action='Start';state='COMPLETED';startedAt='2026-11-07T12:00:00Z';updatedAt='2026-11-07T12:01:00Z';members=@()}
-    members=@([pscustomobject]@{runId='33333333-4444-4555-8666-777777777777';scopeId='44444444-5555-4666-8777-888888888888';instanceIds=@('MSSQLSERVER');connectionInfoSha256=('a'*64);assignedAt='2026-11-07T12:00:00Z'})
+    members=@([pscustomobject]@{runId='33333333-4444-4555-8666-777777777777';scopeId='44444444-5555-4666-8777-888888888888';instanceIds=@('MSSQLSERVER');connectionInfoSha256=('a'*64);bindingStatus='CURRENT';assignedAt='2026-11-07T12:00:00Z'})
 })
 function Get-SqlServerLabEnvironmentGroup {
-    param([string]$GroupId,[string]$StateRoot)
+    param([string]$GroupId,[string]$StateRoot,[switch]$IncludeBindingStatus)
     $script:groupReads++
-    if($PSBoundParameters.Count -gt 0){throw 'UNEXPECTED_PRIVATE_ARGUMENT'}
+    if($PSBoundParameters.Count -ne 1 -or -not $IncludeBindingStatus){throw 'UNEXPECTED_PRIVATE_ARGUMENT'}
     if($script:throwRead){throw 'PRIVATE_ERROR_CANARY'}
     return $script:fixtureGroups
 }
@@ -34,8 +34,9 @@ function Send([string]$Method) {
     return $script:response
 }
 $response=Send 'GET';$view=$response.Body|ConvertFrom-Json
-Check ($response.Status -eq 200 -and $response.ContentType -ceq 'application/json; charset=utf-8' -and $view.contractVersion -ceq 'SqlServerLab.EnvironmentGroups.BrowserView/1.0') 'GET returns versioned view'
+Check ($response.Status -eq 200 -and $response.ContentType -ceq 'application/json; charset=utf-8' -and $view.contractVersion -ceq 'SqlServerLab.EnvironmentGroups.BrowserView/1.1') 'GET returns versioned binding-status view'
 Check ($script:groupReads -eq 1 -and $view.groups.Count -eq 1 -and $view.groups[0].members[0].runId -ceq '33333333-4444-4555-8666-777777777777') 'GET reads registry through public reader and includes stored member references'
+Check ($view.groups[0].members[0].bindingStatus -ceq 'CURRENT') 'GET includes only the public current/stale binding result'
 Check ($response.Body -notmatch 'stateRootKey|scopeId|connectionInfoSha256|PRIVATE_STATE_ROOT_KEY_CANARY|PRIVATE_ERROR_CANARY') 'private state bindings and hashes are omitted'
 $readsBefore=$script:groupReads;$response=Send 'POST'
 Check ($response.Status -eq 405 -and $script:groupReads -eq $readsBefore -and $response.Body -ceq '{"code":"UI_METHOD_NOT_ALLOWED"}') 'non-GET method has no reader call'

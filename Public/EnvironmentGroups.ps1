@@ -759,40 +759,57 @@ function Read-LabEnvironmentGroupConnectionInfo {
 .DESCRIPTION
     Listet Gruppen oder liest eine Gruppe anhand ihrer stabilen GroupId. Beim
     Lesen einer einzelnen Gruppe wird jede gespeicherte Run-Bindung als
-    CURRENT oder STALE ausgewiesen. Es werden keine Runtimeaktionen ausgeführt.
+    CURRENT oder STALE ausgewiesen. Mit IncludeBindingStatus werden dieselben
+    Bindungsbefunde für alle gelisteten Gruppen gelesen. Das prüft nur die
+    gespeicherte Run-Bindung und führt keine Runtimeaktionen aus.
 .PARAMETER GroupId
     Optionale GUID der zu lesenden Gruppe. Ohne Angabe werden alle Gruppen gelistet.
 .PARAMETER StateRoot
     State-Root der Gruppen-Registry; ohne Angabe gilt der konfigurierte Standard.
+.PARAMETER IncludeBindingStatus
+    Weist beim Listen jeder gespeicherten Run-Bindung CURRENT oder STALE zu.
+    Der Status bestätigt weder Runtime- noch SQL-Bereitschaft.
 .EXAMPLE
     Get-SqlServerLabEnvironmentGroup
 .EXAMPLE
     Get-SqlServerLabEnvironmentGroup -GroupId $group.GroupId -StateRoot $stateRoot
+.EXAMPLE
+    Get-SqlServerLabEnvironmentGroup -IncludeBindingStatus
 .OUTPUTS
     System.Management.Automation.PSCustomObject. Gruppen-Metadaten und gebundene Mitglieder.
 #>
 function Get-SqlServerLabEnvironmentGroup {
     [CmdletBinding()]
-    param([string]$GroupId,[string]$StateRoot)
+    param([string]$GroupId,[string]$StateRoot,[switch]$IncludeBindingStatus)
 
     $lock = Enter-LabEnvironmentGroupsLock -StateRoot $StateRoot
     try {
         $registry = Get-LabEnvironmentGroupsRegistry -StateRoot $StateRoot
-        if ([string]::IsNullOrWhiteSpace($GroupId)) { return @($registry.groups | Sort-Object name,groupId) }
-        $id = [guid]::Empty
-        if (-not [guid]::TryParse($GroupId, [ref]$id)) { throw 'LAB_ENVIRONMENT_GROUP_ID_INVALID' }
-        $matches = @($registry.groups | Where-Object { [string]$_.groupId -ieq $id.ToString('D') })
-        if ($matches.Count -ne 1) { throw 'LAB_ENVIRONMENT_GROUP_NOT_FOUND' }
-        $group = $matches[0]
-        foreach ($member in @($group.members)) {
-            try {
-                $current = Get-LabEnvironmentGroupMemberBinding -RunId ([string]$member.runId) -StateRoot $StateRoot
-                $member | Add-Member -NotePropertyName bindingStatus -NotePropertyValue $(if ($current.scopeId -ceq [string]$member.scopeId -and $current.connectionInfoSha256 -ceq [string]$member.connectionInfoSha256 -and
-                    (@($current.instanceIds) -join '|') -ceq (@($member.instanceIds) -join '|')) { 'CURRENT' } else { 'STALE' }) -Force
-            }
-            catch { $member | Add-Member -NotePropertyName bindingStatus -NotePropertyValue 'STALE' -Force }
+        $singleGroup = -not [string]::IsNullOrWhiteSpace($GroupId)
+        if ($singleGroup) {
+            $id = [guid]::Empty
+            if (-not [guid]::TryParse($GroupId, [ref]$id)) { throw 'LAB_ENVIRONMENT_GROUP_ID_INVALID' }
+            $matches = @($registry.groups | Where-Object { [string]$_.groupId -ieq $id.ToString('D') })
+            if ($matches.Count -ne 1) { throw 'LAB_ENVIRONMENT_GROUP_NOT_FOUND' }
+            $groups = @($matches[0])
         }
-        return $group
+        else {
+            $groups = @($registry.groups | Sort-Object name,groupId)
+            if (-not $IncludeBindingStatus) { return $groups }
+        }
+        foreach ($group in $groups) {
+            foreach ($member in @($group.members)) {
+                try {
+                    $current = Get-LabEnvironmentGroupMemberBinding -RunId ([string]$member.runId) -StateRoot $StateRoot
+                    $status = if ($current.scopeId -ceq [string]$member.scopeId -and $current.connectionInfoSha256 -ceq [string]$member.connectionInfoSha256 -and
+                        (@($current.instanceIds) -join '|') -ceq (@($member.instanceIds) -join '|')) { 'CURRENT' } else { 'STALE' }
+                }
+                catch { $status = 'STALE' }
+                $member | Add-Member -NotePropertyName bindingStatus -NotePropertyValue $status -Force
+            }
+        }
+        if ($singleGroup) { return $groups[0] }
+        return $groups
     }
     finally { Exit-LabEnvironmentGroupsLock -Mutex $lock }
 }
