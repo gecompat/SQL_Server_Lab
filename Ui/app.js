@@ -1603,6 +1603,7 @@ function handleEnvironmentGroupCommandRequest(event) {
     Create: { command: 'New-SqlServerLabEnvironmentGroup', parameters: ['Name'] },
     Start: { command: 'Start-SqlServerLabEnvironmentGroup', parameters: ['GroupId'] },
     Stop: { command: 'Stop-SqlServerLabEnvironmentGroup', parameters: ['GroupId'] },
+    RemoveGroup: { command: 'Remove-SqlServerLabEnvironmentGroup', parameters: ['GroupId'] },
     AddMember: { command: 'Add-SqlServerLabEnvironmentGroupMember', parameters: ['GroupId', 'RunId'] },
     RemoveMember: { command: 'Remove-SqlServerLabEnvironmentGroupMember', parameters: ['GroupId', 'RunId'] }
   };
@@ -1656,6 +1657,10 @@ function handleEnvironmentGroupCommandRequest(event) {
     Stop: {
       title: 'Gruppe stoppen: ', label: 'Gruppe stoppen',
       message: 'Es werden nur Mitglieder gestoppt, die keine andere aktive Gruppe benötigt. Gemeinsam verwendete Runs bleiben aktiv.'
+    },
+    RemoveGroup: {
+      title: 'Lab-Umgebungsgruppe entfernen: ', label: 'Gruppe samt Zuordnungen entfernen',
+      message: 'Die gestoppte Gruppe und ihre Zuordnungen werden aus der Registry entfernt. Die Runs und ihre Runtime-Ressourcen bleiben unverändert.'
     },
     AddMember: {
       title: 'Run zuordnen: ', label: 'Run zuordnen',

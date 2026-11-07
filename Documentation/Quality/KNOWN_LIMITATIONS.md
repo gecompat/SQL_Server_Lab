@@ -4347,11 +4347,12 @@ zugeordnet werden; Gruppenentfernung stoppt oder entfernt keine Umgebung.
 Gruppenstart/-stop, persistente Nachfrage, gemeinsamer Mutex, Schutz vor
 direktem Stoppen/Restart/Remove/Clear beanspruchter Runs und fail-closed
 Partial-Recovery sind durch fokussierte und betroffene statische Vertragschecks
-validiert. Die geführte PowerShell-CLI verwaltet Gruppen. Die Browseransicht
-zeigt den gespeicherten Stand, kann leere Gruppen erstellen, startet und stoppt
-Gruppen und bearbeitet Mitgliedschaften bei gestoppten Gruppen nach Bestätigung
-über den öffentlichen Befehlsweg. Gruppen lassen sich weiterhin nur über die
-PowerShell-CLI entfernen. Der Reconcile bleibt offen. Eine begrenzte native Docker-/Podman-
+validiert. Die geführte PowerShell-CLI und Browseransicht verwalten Gruppen.
+Der Browser kann leere Gruppen erstellen, gestoppte Gruppen starten, stoppen,
+entfernen und deren Mitgliedschaften bearbeiten. Mutationen erfordern die
+Bestätigung über den öffentlichen Befehlsweg; Gruppenentfernung löst nur
+Zuordnungen und lässt Runs sowie Runtime-Ressourcen unverändert. Der Reconcile
+bleibt offen. Eine begrenzte native Docker-/Podman-
 Abnahme belegt den SQL-2025-CU9-Linked-Server-Fall mit geteiltem Run und eigenem
 Cleanup. Weitere SQL-Versionen, Hyper-V, automatische Netzwerktopologie und das Einrichten eines
 SQL-Linked-Servers bleiben offen. Gruppenverwaltung allein ist daher kein

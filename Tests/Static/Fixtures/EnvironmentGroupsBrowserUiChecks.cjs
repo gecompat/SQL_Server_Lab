@@ -30,6 +30,7 @@ async function answer(f,payload,request=f.requests.at(-1)){request.resolve({ok:t
   await answer(f,view());check(f.get('list').children.length===2&&textTree(f.get('list')).includes('<img src=x onerror=alert(1)>'),'group names render as literal text and creation form is separate');
   const stopButton=findButton(f.get('list').children[0],'Gruppe stoppen');check(!!stopButton,'active group exposes stop action');stopButton.events.click();
   check(f.events.length===1&&f.events[0].type==='sqlserverlab:environment-group-command-request'&&f.events[0].detail.action==='Stop'&&f.events[0].detail.groupId===groupId,'stop dispatches only the typed group action and stable ID');
+  check(!findButton(f.get('list').children[0],'Gruppe entfernen'),'active group cannot be removed');
   check(!findButton(f.get('list').children[0],'Zuordnung lösen'),'active group cannot edit its membership');
   check(!f.get('dialog').open&&f.requests.length===1,'lifecycle action closes stale view and performs no direct network mutation');
   check(f.get('status').textContent.includes('nicht bestätigt')&&f.requests.every(r=>r.url==='/api/environment-groups'),'stored status is not presented as runtime confirmation');
@@ -47,12 +48,17 @@ async function answer(f,payload,request=f.requests.at(-1)){request.resolve({ok:t
   findButton(f.get('list').children[0],'Zuordnung lösen').events.click();
   check(f.events.length===1&&f.events[0].detail.action==='RemoveMember'&&f.events[0].detail.groupId===groupId&&f.events[0].detail.runId===run,'membership remove affects one group/run reference');
 
+  f=setup();f.click('open');f.click('read');const stoppedForGroupRemove=view();stoppedForGroupRemove.groups[0].lifecycleState='STOPPED';stoppedForGroupRemove.groups[0].operation=null;await answer(f,stoppedForGroupRemove);
+  findButton(f.get('list').children[0],'Gruppe entfernen').events.click();
+  check(f.events.length===1&&f.events[0].detail.action==='RemoveGroup'&&f.events[0].detail.groupId===groupId&&f.events[0].detail.groupName===stoppedForGroupRemove.groups[0].name&&Object.keys(f.events[0].detail).length===3,'group removal dispatches only the stopped group identity');
+  check(f.requests.length===1&&!f.get('dialog').open,'group removal uses confirmation handoff without direct HTTP mutation');
+
   f=setup();f.click('open');f.click('read');const stoppedInvalidAdd=view();stoppedInvalidAdd.groups[0].lifecycleState='STOPPED';stoppedInvalidAdd.groups[0].operation=null;await answer(f,stoppedInvalidAdd);
   findInput(f.get('list').children[0]).value='not-a-guid';findButton(f.get('list').children[0],'Run zuordnen').events.click();
   check(f.events.length===0&&f.get('dialog').open&&f.get('status').textContent.includes('GUID'),'invalid run ID is rejected before event dispatch');
 
   f=setup();f.click('open');f.click('read');const inProgress=view();inProgress.groups[0].operation.state='IN_PROGRESS';await answer(f,inProgress);
-  check(!findButton(f.get('list').children[0],'Gruppe starten')&&!findButton(f.get('list').children[0],'Gruppe stoppen')&&!findButton(f.get('list').children[0],'Run zuordnen')&&!findButton(f.get('list').children[0],'Zuordnung lösen'),'in-progress operation offers no duplicate action');
+  check(!findButton(f.get('list').children[0],'Gruppe starten')&&!findButton(f.get('list').children[0],'Gruppe stoppen')&&!findButton(f.get('list').children[0],'Gruppe entfernen')&&!findButton(f.get('list').children[0],'Run zuordnen')&&!findButton(f.get('list').children[0],'Zuordnung lösen'),'in-progress operation offers no duplicate action');
   f=setup();f.click('open');f.click('read');const emptyStopped=view();emptyStopped.groups[0].lifecycleState='STOPPED';emptyStopped.groups[0].members=[];emptyStopped.groups[0].operation=null;await answer(f,emptyStopped);
   check(findButton(f.get('list').children[0],'Gruppe starten')?.disabled===true,'empty stopped group cannot start');
   check(!!findInput(f.get('list').children[0])&&!!findButton(f.get('list').children[0],'Run zuordnen'),'empty stopped group can receive its first member');
@@ -83,10 +89,10 @@ async function answer(f,payload,request=f.requests.at(-1)){request.resolve({ok:t
   const confirmations=[],errors=[];
   const appContext=vm.createContext({publicCommandCatalog:[],window:{addEventListener(){}},showError:error=>errors.push(error.message),openConfirmation:(...args)=>confirmations.push(args)});
   vm.runInContext(actualFunction(appSource,'handleEnvironmentGroupCommandRequest'),appContext);
-  for(const action of ['Create','Start','Stop','AddMember','RemoveMember']){
+  for(const action of ['Create','Start','Stop','RemoveGroup','AddMember','RemoveMember']){
     const expectedNames=action==='Create'?['Name']:['AddMember','RemoveMember'].includes(action)?['GroupId','RunId']:['GroupId'];
     const lifecycleSet={Name:'Default',IsDefault:true,MandatoryNames:expectedNames,Parameters:[...expectedNames.map(Name=>({Name,TypeName:'System.String',Mandatory:true,Sensitive:false,IsCredential:false})),{Name:'WhatIf',TypeName:'System.Management.Automation.SwitchParameter',Mandatory:false,Sensitive:false,IsCredential:false}]};
-    const commandNames={Create:'New-SqlServerLabEnvironmentGroup',Start:'Start-SqlServerLabEnvironmentGroup',Stop:'Stop-SqlServerLabEnvironmentGroup',AddMember:'Add-SqlServerLabEnvironmentGroupMember',RemoveMember:'Remove-SqlServerLabEnvironmentGroupMember'};
+    const commandNames={Create:'New-SqlServerLabEnvironmentGroup',Start:'Start-SqlServerLabEnvironmentGroup',Stop:'Stop-SqlServerLabEnvironmentGroup',RemoveGroup:'Remove-SqlServerLabEnvironmentGroup',AddMember:'Add-SqlServerLabEnvironmentGroupMember',RemoveMember:'Remove-SqlServerLabEnvironmentGroupMember'};
     const command={Name:commandNames[action],RequiresConfirmation:true,ParameterSets:[lifecycleSet]};
     appContext.publicCommandCatalog=[command];
     const eventDetail=action==='Create'?{action,name:'Linked Server Demo'}:{action,groupId,groupName:'Linked Server Demo',...(expectedNames.includes('RunId')?{runId:run}:{})};
@@ -96,7 +102,8 @@ async function answer(f,payload,request=f.requests.at(-1)){request.resolve({ok:t
     check(confirmation[3].parameterSet===lifecycleSet&&Object.keys(confirmation[3].parameters).sort().join(',')===expectedNames.slice().sort().join(',')&&
       (action==='Create'?confirmation[3].parameters.Name==='Linked Server Demo':confirmation[3].parameters.GroupId===groupId&&(!expectedNames.includes('RunId')||confirmation[3].parameters.RunId===run)),
       'actual app handler submits only expected parameters for '+action);
-    check(confirmation[1].includes('nicht blind wiederholen')&&confirmation[4]===({Create:'Gruppe erstellen',Start:'Gruppe starten',Stop:'Gruppe stoppen',AddMember:'Run zuordnen',RemoveMember:'Zuordnung lösen'}[action]),'confirmation explains lifecycle and lost-response handling for '+action);
+    check(confirmation[1].includes('nicht blind wiederholen')&&confirmation[4]===({Create:'Gruppe erstellen',Start:'Gruppe starten',Stop:'Gruppe stoppen',RemoveGroup:'Gruppe samt Zuordnungen entfernen',AddMember:'Run zuordnen',RemoveMember:'Zuordnung lösen'}[action]),'confirmation explains lifecycle and lost-response handling for '+action);
+    if(action==='RemoveGroup')check(confirmation[1].includes('Runs und ihre Runtime-Ressourcen bleiben unverändert'),'group removal confirmation makes run retention explicit');
   }
   const confirmationCount=confirmations.length;
   appContext.handleEnvironmentGroupCommandRequest({detail:{action:'Start',groupId:'bad-id',groupName:'Demo'}});
