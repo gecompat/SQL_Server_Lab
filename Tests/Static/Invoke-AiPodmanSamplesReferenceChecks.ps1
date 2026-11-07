@@ -29,10 +29,17 @@ try {
     $workerStageBlock=[regex]::Match($workerSource,'(?s)\$workerStages=@\((?<stages>.*?)\)')
     $workerStageNames=@([regex]::Matches($workerStageBlock.Groups['stages'].Value,"'(?<name>[A-Z0-9_]+)'")|ForEach-Object {$_.Groups['name'].Value})
     $workerStageCodes=@($workerStageNames|ForEach-Object {'AI_PODMAN_SAMPLES_WORKER_FAILED_AT_'+$_})
+    $hostBindingFailureCodes=@('AI_RAG_HOST_ENDPOINT_INVALID','AI_RAG_HOST_VERSION_UNSUPPORTED','AI_RAG_HOST_MODEL_IDENTITY_INVALID',
+        'AI_RAG_HOST_REMOTE_MODEL_FORBIDDEN','AI_RAG_HOST_CAPABILITY_INVALID','AI_RAG_HOST_DIMENSION_INVALID',
+        'AI_RAG_HOST_METADATA_FAILED','AI_RAG_HOST_MODEL_DRIFT')
     $stageCodesAligned=$workerStageBlock.Success -and $workerStageCodes.Count -gt 0 -and
         $workerSource -match '\$workerFailureCodes=@\(\$workerStages\|ForEach-Object \{''AI_PODMAN_SAMPLES_WORKER_FAILED_AT_''\+\$_\}\)' -and
         @($workerStageCodes|Where-Object {-not $supervisorSource.Contains("'$_'") -or -not $workflowSource.Contains("'$_'")}).Count -eq 0
     Add-CheckResult -Name 'Worker failure-stage codes are closed and synchronized across receipts and workflow output' -Success $stageCodesAligned
+    $hostBindingCodesAligned=@($hostBindingFailureCodes|Where-Object {
+        -not $workerSource.Contains("'$_'") -or -not $supervisorSource.Contains("'$_'") -or -not $workflowSource.Contains("'$_'")
+    }).Count -eq 0
+    Add-CheckResult -Name 'Host-model binding failure codes are fixed and synchronized across receipt, supervisor, and workflow' -Success $hostBindingCodesAligned
     $tokens=$null;$errors=$null
     $workerAst=[Management.Automation.Language.Parser]::ParseFile($workerPath,[ref]$tokens,[ref]$errors)
     $restartCommands=@($workerAst.FindAll({param($node) $node -is [Management.Automation.Language.CommandAst] -and $node.GetCommandName() -ceq 'Restart-SqlServerLab'},$true))
@@ -201,13 +208,18 @@ if($Stage -eq 'CLEANUP'){
     [IO.File]::WriteAllText($statePath,($state|ConvertTo-Json -Compress))
     [IO.File]::WriteAllText((Join-Path $EvidenceRoot 'cleanup.handled'),'synthetic-resource-removed')
 }
-if($Stage -eq 'ACCEPTANCE' -and $mode -in @('fixed-failure','unclassified-failure','stage-failure')){
+if($Stage -eq 'ACCEPTANCE' -and $mode -in @('fixed-failure','unclassified-failure','stage-failure','host-binding-failure')){
     $failureCode=switch($mode){
         'fixed-failure' {'SAMPLES_RETRIEVAL_FAILED'}
         'stage-failure' {'AI_PODMAN_SAMPLES_WORKER_FAILED_AT_LAB_CREATE'}
+        'host-binding-failure' {'AI_RAG_HOST_METADATA_FAILED'}
         default {'NONE'}
     }
-    $output=if($mode -eq 'fixed-failure'){'SAMPLES_RETRIEVAL_FAILED'}else{'private-unclassified-sentinel'}
+    $output=switch($mode){
+        'fixed-failure' {'SAMPLES_RETRIEVAL_FAILED'}
+        'host-binding-failure' {'AI_RAG_HOST_METADATA_FAILED'}
+        default {'private-unclassified-sentinel'}
+    }
     [Console]::Out.WriteLine($output)
     $failedReceipt=@{OperationId=$OperationId.ToString('D');Stage=$Stage;Status='FAILED';Assertions=0;FailureCode=$failureCode}
     [IO.File]::WriteAllText((Join-Path $EvidenceRoot ($Stage+'.receipt.json')),($failedReceipt|ConvertTo-Json -Compress))
@@ -221,7 +233,7 @@ if($mode -eq 'array-receipt' -and $Stage -eq 'ACCEPTANCE'){
 }
 [IO.File]::WriteAllText((Join-Path $EvidenceRoot ($Stage+'.receipt.json')),($receipt|ConvertTo-Json -Compress))
 '@ | Set-Content $worker
-    foreach($mode in @('success','hang','forged','array-receipt','cleanup-hang','fixed-failure','unclassified-failure','stage-failure')){
+    foreach($mode in @('success','hang','forged','array-receipt','cleanup-hang','fixed-failure','unclassified-failure','stage-failure','host-binding-failure')){
         $case=Join-Path $root $mode;$null=New-Item -ItemType Directory -Path $case
         [IO.File]::WriteAllText((Join-Path $case 'mode'),$mode)
         [IO.File]::WriteAllText((Join-Path $case 'fixture-operation.json'),(@{OperationId=$operation;NewStarted=$false}|ConvertTo-Json -Compress))
@@ -240,6 +252,7 @@ if($mode -eq 'array-receipt' -and $Stage -eq 'ACCEPTANCE'){
             cleanup-hang {$result.Primary.Status -ceq 'COMPLETED' -and $result.Cleanup.Reason -ceq 'TIMEOUT'}
             fixed-failure {$result.Primary.Status -ceq 'FAILED' -and $result.Primary.Reason -ceq 'SAMPLES_RETRIEVAL_FAILED' -and $result.Cleanup.Status -ceq 'COMPLETED'}
             stage-failure {$result.Primary.Status -ceq 'FAILED' -and $result.Primary.Reason -ceq 'AI_PODMAN_SAMPLES_WORKER_FAILED_AT_LAB_CREATE' -and $result.Cleanup.Status -ceq 'COMPLETED'}
+            host-binding-failure {$result.Primary.Status -ceq 'FAILED' -and $result.Primary.Reason -ceq 'AI_RAG_HOST_METADATA_FAILED' -and $result.Cleanup.Status -ceq 'COMPLETED'}
             unclassified-failure {$result.Primary.Status -ceq 'FAILED' -and $result.Primary.Reason -ceq 'CHILD_FAILED' -and $result.Cleanup.Status -ceq 'COMPLETED'}
         }
         Add-CheckResult -Name ('Echter Child-Prozess: '+$mode) -Success ($expected -and $watch.Elapsed.TotalSeconds -lt 50) -Message ($result.Primary.Reason+'/'+$result.Cleanup.Reason)
