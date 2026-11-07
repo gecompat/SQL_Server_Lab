@@ -10,7 +10,8 @@ $failureCodes=@('SAMPLES_ALREADY_STARTED','SAMPLES_BINDING_INVALID','SAMPLES_CON
     'SAMPLES_RESTART_RETRIEVAL_FAILED','SAMPLES_RETRIEVAL_FAILED',
     'AI_RAG_HOST_ENDPOINT_INVALID','AI_RAG_HOST_VERSION_UNSUPPORTED','AI_RAG_HOST_MODEL_IDENTITY_INVALID',
     'AI_RAG_HOST_REMOTE_MODEL_FORBIDDEN','AI_RAG_HOST_CAPABILITY_INVALID','AI_RAG_HOST_DIMENSION_INVALID',
-    'AI_RAG_HOST_METADATA_FAILED','AI_RAG_HOST_MODEL_DRIFT')
+    'AI_RAG_HOST_METADATA_FAILED','AI_RAG_HOST_MODEL_DRIFT',
+    'AI_RAG_HOST_METADATA_VERSION_FAILED','AI_RAG_HOST_METADATA_TAGS_FAILED','AI_RAG_HOST_METADATA_SHOW_FAILED')
 $workerStages=@('MODULE_IMPORT','WORKER_INVOCATION','SCENARIO_HELPER_LOAD','OPERATION_READ','RUNTIME_ASSERTION','ENDPOINT_PLAN','MODEL_BINDING',
     'OPERATION_RECORD_WRITE','LAB_CREATE','TRANSFER_BINDING','TRANSFER_BINDING_IDENTITY','INITIAL_CONTENT_EVIDENCE',
     'INITIAL_RETRIEVAL','RESTART','RESTART_TRANSFER_BINDING','RESTART_CONTENT_EVIDENCE','RESTART_RETRIEVAL',
@@ -40,7 +41,19 @@ try {
             $workerStage='ENDPOINT_PLAN'
             $endpoint=New-LabAiEndpointPlan -ModelKey ollama-embeddinggemma-latest -EndpointRef ollama-local -Lane local -LocalPort $record.LocalPort
             $workerStage='MODEL_BINDING'
-            $model=Get-LabAiHostModelBinding -Plan $endpoint
+            $metadataTransport={
+                param($Path,$Model)
+                $metadataStage=switch($Path){'/api/version'{'VERSION'}'/api/tags'{'TAGS'}'/api/show'{'SHOW'}default{$null}}
+                if(-not $metadataStage){throw 'AI_RAG_HOST_METADATA_FAILED'}
+                try {Invoke-LabAiHostMetadata -Port $endpoint.Port -Path $Path -Model $Model}
+                catch {
+                    if($_.Exception.Message -ceq 'AI_RAG_HOST_METADATA_FAILED'){
+                        throw ('AI_RAG_HOST_METADATA_'+$metadataStage+'_FAILED')
+                    }
+                    throw
+                }
+            }
+            $model=Get-LabAiHostModelBinding -Plan $endpoint -MetadataTransport $metadataTransport
             if($model.Model -cne 'embeddinggemma:latest' -or $model.Dimension -ne 768){throw 'SAMPLES_MODEL_INVALID'}
             if($record.NewStarted){throw 'SAMPLES_ALREADY_STARTED'}
             $record.NewStarted=$true

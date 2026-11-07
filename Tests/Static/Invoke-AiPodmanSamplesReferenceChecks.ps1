@@ -31,7 +31,8 @@ try {
     $workerStageCodes=@($workerStageNames|ForEach-Object {'AI_PODMAN_SAMPLES_WORKER_FAILED_AT_'+$_})
     $hostBindingFailureCodes=@('AI_RAG_HOST_ENDPOINT_INVALID','AI_RAG_HOST_VERSION_UNSUPPORTED','AI_RAG_HOST_MODEL_IDENTITY_INVALID',
         'AI_RAG_HOST_REMOTE_MODEL_FORBIDDEN','AI_RAG_HOST_CAPABILITY_INVALID','AI_RAG_HOST_DIMENSION_INVALID',
-        'AI_RAG_HOST_METADATA_FAILED','AI_RAG_HOST_MODEL_DRIFT')
+        'AI_RAG_HOST_METADATA_FAILED','AI_RAG_HOST_MODEL_DRIFT','AI_RAG_HOST_METADATA_VERSION_FAILED',
+        'AI_RAG_HOST_METADATA_TAGS_FAILED','AI_RAG_HOST_METADATA_SHOW_FAILED')
     $stageCodesAligned=$workerStageBlock.Success -and $workerStageCodes.Count -gt 0 -and
         $workerSource -match '\$workerFailureCodes=@\(\$workerStages\|ForEach-Object \{''AI_PODMAN_SAMPLES_WORKER_FAILED_AT_''\+\$_\}\)' -and
         @($workerStageCodes|Where-Object {-not $supervisorSource.Contains("'$_'") -or -not $workflowSource.Contains("'$_'")}).Count -eq 0
@@ -212,12 +213,12 @@ if($Stage -eq 'ACCEPTANCE' -and $mode -in @('fixed-failure','unclassified-failur
     $failureCode=switch($mode){
         'fixed-failure' {'SAMPLES_RETRIEVAL_FAILED'}
         'stage-failure' {'AI_PODMAN_SAMPLES_WORKER_FAILED_AT_LAB_CREATE'}
-        'host-binding-failure' {'AI_RAG_HOST_METADATA_FAILED'}
+        'host-binding-failure' {'AI_RAG_HOST_METADATA_VERSION_FAILED'}
         default {'NONE'}
     }
     $output=switch($mode){
         'fixed-failure' {'SAMPLES_RETRIEVAL_FAILED'}
-        'host-binding-failure' {'AI_RAG_HOST_METADATA_FAILED'}
+        'host-binding-failure' {'AI_RAG_HOST_METADATA_VERSION_FAILED'}
         default {'private-unclassified-sentinel'}
     }
     [Console]::Out.WriteLine($output)
@@ -252,7 +253,7 @@ if($mode -eq 'array-receipt' -and $Stage -eq 'ACCEPTANCE'){
             cleanup-hang {$result.Primary.Status -ceq 'COMPLETED' -and $result.Cleanup.Reason -ceq 'TIMEOUT'}
             fixed-failure {$result.Primary.Status -ceq 'FAILED' -and $result.Primary.Reason -ceq 'SAMPLES_RETRIEVAL_FAILED' -and $result.Cleanup.Status -ceq 'COMPLETED'}
             stage-failure {$result.Primary.Status -ceq 'FAILED' -and $result.Primary.Reason -ceq 'AI_PODMAN_SAMPLES_WORKER_FAILED_AT_LAB_CREATE' -and $result.Cleanup.Status -ceq 'COMPLETED'}
-            host-binding-failure {$result.Primary.Status -ceq 'FAILED' -and $result.Primary.Reason -ceq 'AI_RAG_HOST_METADATA_FAILED' -and $result.Cleanup.Status -ceq 'COMPLETED'}
+            host-binding-failure {$result.Primary.Status -ceq 'FAILED' -and $result.Primary.Reason -ceq 'AI_RAG_HOST_METADATA_VERSION_FAILED' -and $result.Cleanup.Status -ceq 'COMPLETED'}
             unclassified-failure {$result.Primary.Status -ceq 'FAILED' -and $result.Primary.Reason -ceq 'CHILD_FAILED' -and $result.Cleanup.Status -ceq 'COMPLETED'}
         }
         Add-CheckResult -Name ('Echter Child-Prozess: '+$mode) -Success ($expected -and $watch.Elapsed.TotalSeconds -lt 50) -Message ($result.Primary.Reason+'/'+$result.Cleanup.Reason)
