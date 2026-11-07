@@ -95,6 +95,13 @@ Andere Erstellungsoptionen benötigen eigene Nachweise.
 
 ## Vorhandene Umgebungen gemeinsam verwalten
 
+Unter **Lab-Umgebungen > Lab-Umgebungsgruppen ansehen** können Sie die
+gespeicherten Gruppen, ihre Run-IDs und Instanznamen read-only anzeigen. Die
+Ansicht liest nur die Registry des konfigurierten State-Roots. Der gespeicherte
+Lifecycle-Status bestätigt weder den aktuellen Providerzustand noch SQL-
+Bereitschaft. Die Anzeige nimmt keine Änderungen vor; Gruppenänderungen und
+Runtime-Abgleich bleiben separate Schritte.
+
 Öffnen Sie **Lab-Umgebungen > Umgebung auswählen und verwalten >
 Lab-Umgebungsgruppen verwalten**. Erstellen Sie eine leere Gruppe, wählen Sie
 sie aus und fügen Sie vorhandene RUNNING- oder STOPPED-Runs hinzu. Jede

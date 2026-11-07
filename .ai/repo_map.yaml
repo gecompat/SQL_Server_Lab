@@ -817,6 +817,7 @@ sources_of_truth:
   validation_hyperv_storage_acceptance_bootstrap: Tests/Integration/Invoke-HyperVStorageAcceptanceBootstrap.ps1
   runtime_limitations: Documentation/Quality/KNOWN_LIMITATIONS.md
   validation_capability_selection: Tools/Get-CiCapabilitySelection.ps1
+  validation_ci_test_selection: Tools/Get-CiTestSelection.ps1, Tests/Static/Invoke-CiStrategyChecks.ps1 # exact changed-path bindings; unknown product code keeps conservative provider fallback
   validation_development_scope: Tools/Get-StaticValidationScope.ps1
   validation_local_evidence: Tests/Common/LocalStaticEvidence.ps1
   validation_runtime_admission: Tools/Resolve-CiRuntimeScope.ps1
@@ -868,13 +869,15 @@ sources_of_truth:
   workflow_ui_specialized_body_validation: Tests/Static/Fixtures/WorkflowUiSpecializedBodyChecks.ps1 # eight internal adapters; retained character limits, byte ceilings, absolute deadline; synthetic sinks
   workflow_ui_job_status: Tools/WorkflowUiJobStatus.ps1 # bounded UI-owned batch reader; no store initialization or scheduling
   workflow_ui_job_status_validation: Tests/Static/Fixtures/WorkflowJobStatusChecks.ps1, Tests/Static/Fixtures/WorkflowJobStatusChecks.cjs
-  workflow_ui_assets: Ui/index.html, Ui/app.js, Ui/app.css
+  workflow_ui_assets: Ui/index.html, Ui/app.js, Ui/app.css, Ui/environment-groups.js
   workflow_ui_authenticated_creation: Tools/WorkflowUiTlsCreation.ps1, Private/AuthenticatedTlsUiCreation.ps1, Ui/tls-authenticated-creation.js # session-private allocation custody, closed SQL2019CU32/2022CU27/2025CU9 ticket/profile binding and exact scoped lifecycle, no browser root selection
   workflow_ui_authenticated_creation_validation: Tests/Static/Fixtures/WorkflowUiTlsCreationChecks.ps1, Tests/Static/Fixtures/WorkflowUiTlsCreationChecks.cjs # real request/allocation/worker/renderer boundaries with synthetic provider leaves; native proof separate
   workflow_ui_container_pins: Public/Get-SqlServerLabWorkflow.ps1, Ui/app.js, Catalogs/sql-server-versions.json # bounded scalar ContainerPinnedBuilds; legacy SQL2025 field retained
   workflow_ui_container_pins_validation: Tests/Static/Fixtures/ContainerPinnedVersionWorkflowChecks.ps1, Tests/Static/Fixtures/WorkflowContainerPinnedVersionUiChecks.cjs # WorkflowUI suite; actual projection and renderer with synthetic catalog/DOM leaves
   workflow_ui_command_catalog: Private/PublicCommandConsole.ps1
   workflow_ui_validation: Tests/Static/Invoke-WorkflowUiChecks.ps1, Tests/Static/Invoke-PublicCommandConsoleChecks.ps1
+  workflow_ui_environment_groups_browser: Private/EnvironmentGroupsBrowserHttp.ps1, Tools/Start-SqlServerLabUi.ps1
+  workflow_ui_environment_groups_browser_validation: Tests/Static/Fixtures/EnvironmentGroupsBrowserHttpChecks.ps1, Tests/Static/Fixtures/EnvironmentGroupsBrowserUiChecks.cjs # WorkflowUI; fixed read-only DTO, actual route/helper and actual JS with synthetic registry/DOM
   remote_hyperv_host_backlog: Documentation/Project_Planning/HYPERV_REMOTE_HOST_BACKLOG.md
   windows_locale_configuration_backlog: Documentation/Project_Planning/WINDOWS_LOCALE_CONFIGURATION_BACKLOG.md
   windows_slot_activation_backlog: Documentation/Project_Planning/WINDOWS_SLOT_ACTIVATION_BACKLOG.md
@@ -930,7 +933,7 @@ sources_of_truth:
   automated_test_environment_contract: Public/TestEnvironment.ps1
   reusable_environment_group_contract: Public/EnvironmentGroups.ps1
   reusable_environment_group_registry_schema: Schemas/environment-groups.schema.json
-  reusable_environment_group_behavior: Documentation/Architecture/LAB_ENVIRONMENT_GROUPS.md # persistent group lifecycle and shared-member stop retention; the guided PowerShell console delegates to the public API, while browser operation and reconcile UI remain open
+  reusable_environment_group_behavior: Documentation/Architecture/LAB_ENVIRONMENT_GROUPS.md # persistent group lifecycle and shared-member stop retention; guided PowerShell console mutates through the public API; browser exposes a read-only registry projection; lifecycle browser actions and reconcile UI remain open
   validation_environment_group_console: Tests/Static/Invoke-ConsoleUiChecks.ps1 # reachable group menu, confirmation on mutations, stopped-only membership editing, and shared-member API delegation
   acceptance_linked_server_environment_group: Tests/Integration/Invoke-LinkedServerEnvironmentGroupAcceptance.ps1 # two separately created SQL-2025-CU9 container runs share an explicit non-conflicting process-local subnet; second group reuses target run; OPENQUERY and shared-member stop retention with own cleanup
   authenticated_test_environment_tls_backlog: Documentation/Project_Planning/NEW_SQL_LAB_USE_CASES_BACKLOG.md # TLS-001: P1 directly after SSISDB; limited own Docker/Podman SQL2025 Windows TLS evidence exists; full client/version/provider qualification and consumer export remain open
