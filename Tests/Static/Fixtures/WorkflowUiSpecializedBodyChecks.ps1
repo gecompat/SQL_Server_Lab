@@ -77,7 +77,9 @@ try {
  Check 'Nur acht gueltige Requests erreichen den synthetischen Workflow-Sink' ($observed.Effects -eq 8 -and $observed.ProductModule -ceq 'NOT_IMPORTED')
  Check 'Trickle besitzt absolute Frist trotz weiteren Bytes' (@($results|Where-Object Mode -EQ trickle)[0].ElapsedMs -ge 4500 -and @($results|Where-Object Mode -EQ trickle)[0].ElapsedMs -lt 7000)
 } finally {
- $listener.Stop();$listener.Close();if($job){if($job.State -notin @('Completed','Stopped','Failed')){Stop-Job $job};Remove-Job $job -Force}
+ try { $listener.Stop() } catch [System.ObjectDisposedException] { }
+ try { $listener.Close() } catch [System.ObjectDisposedException] { }
+ if($job){if($job.State -notin @('Completed','Stopped','Failed')){Stop-Job $job};Remove-Job $job -Force}
 }
 Check 'Eigener Listener und Threadjob geschlossen' (-not $listener.IsListening -and @(Get-Job|Where-Object Id -EQ $job.Id).Count -eq 0)
 Write-Host "Ergebnis: $script:passed PASS, 0 FAIL"

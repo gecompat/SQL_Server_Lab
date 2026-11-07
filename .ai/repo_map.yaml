@@ -930,7 +930,8 @@ sources_of_truth:
   automated_test_environment_contract: Public/TestEnvironment.ps1
   reusable_environment_group_contract: Public/EnvironmentGroups.ps1
   reusable_environment_group_registry_schema: Schemas/environment-groups.schema.json
-  reusable_environment_group_behavior: Documentation/Architecture/LAB_ENVIRONMENT_GROUPS.md # persistent group lifecycle claims and shared-member stop retention are implemented in source; provider/runtime and console qualification remain open
+  reusable_environment_group_behavior: Documentation/Architecture/LAB_ENVIRONMENT_GROUPS.md # persistent group lifecycle and shared-member stop retention; the guided PowerShell console delegates to the public API, while browser operation and reconcile UI remain open
+  validation_environment_group_console: Tests/Static/Invoke-ConsoleUiChecks.ps1 # reachable group menu, confirmation on mutations, stopped-only membership editing, and shared-member API delegation
   acceptance_linked_server_environment_group: Tests/Integration/Invoke-LinkedServerEnvironmentGroupAcceptance.ps1 # two separately created SQL-2025-CU9 container runs share an explicit non-conflicting process-local subnet; second group reuses target run; OPENQUERY and shared-member stop retention with own cleanup
   authenticated_test_environment_tls_backlog: Documentation/Project_Planning/NEW_SQL_LAB_USE_CASES_BACKLOG.md # TLS-001: P1 directly after SSISDB; limited own Docker/Podman SQL2025 Windows TLS evidence exists; full client/version/provider qualification and consumer export remain open
   authenticated_test_environment_tls_ca_design: Documentation/Project_Planning/TLS_001_ISOLATED_CA_DESIGN.md # TLS-001a: user-selected isolated CA direction; explicit approved Windows CA trust and separate Docker/Podman Windows TLS evidence; broader lifecycle, registry and migration remain open

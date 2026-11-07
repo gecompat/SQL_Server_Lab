@@ -51,18 +51,23 @@ beim Gruppen-Stop als extern verwaltet behalten, damit die übrigen Mitglieder
 stoppen und der Gruppenanspruch anschließend freigegeben werden kann. Live-
 Nachbedingungen und gebundene, abgeschlossene Run-Journale sind Voraussetzung
 für den bestätigten Gruppenabschluss; unbekannte Runtimezustände bleiben
-gesperrt.
+gesperrt. Der Gruppenstart prüft die SQL-Bereitschaft jedes gestoppten Mitglieds,
+das er neu startet. Bereits laufende Mitglieder bleiben unverändert; für sie
+führt er keine erneute SQL-Bereitschaftsprüfung aus.
 
 Die Gruppenoperation ist kein atomarer Provider-Transaktionsmechanismus. Bei
 Teilfehlern bleibt sie ausdrücklich RECOVERY_REQUIRED, bis Stop die bekannten
-Mitglieder sicher abgeglichen hat. CLI-/Browser-Bedienung, Reconcile-UI und
-Provider-Runtime-Evidence für zusammengesetzte Gruppen bleiben separate offene
-Arbeiten; die Registry allein beweist keine Runtimebereitschaft. Die Gruppe
-erstellt auch kein gemeinsames Providernetz. Für einen Container-Linked-Server-
-Fall können zwei getrennte Runs mit demselben expliziten `NetworkName`
-angelegt und anschließend gruppiert werden. Run-Erstellung, Netzwerkerstellung
-und deren Cleanup bleiben getrennte Verantwortlichkeiten. Dieses Muster belegt
-weder Kerberos noch MSDTC oder eine TLS-Identitätsprüfung.
+Mitglieder sicher abgeglichen hat. Die geführte PowerShell-CLI ist unter
+**Lab-Umgebungen > Umgebung auswählen und verwalten > Lab-Umgebungsgruppen
+verwalten** verfügbar. Sie erstellt leere Gruppen, bindet vorhandene Runs,
+startet und stoppt Gruppen und löst Zuordnungen. Browser-Bedienung und
+Reconcile-UI bleiben separate offene Arbeiten; die Registry allein beweist
+keine Runtimebereitschaft. Die Gruppe erstellt auch kein gemeinsames
+Providernetz. Für einen Container-Linked-Server-Fall können zwei getrennte
+Runs mit demselben expliziten `NetworkName` angelegt und anschließend
+gruppiert werden. Run-Erstellung, Netzwerkerstellung und deren Cleanup bleiben
+getrennte Verantwortlichkeiten. Dieses Muster belegt weder Kerberos noch MSDTC
+oder eine TLS-Identitätsprüfung.
 
 ## API-Slice
 

@@ -1145,7 +1145,39 @@ Add-ConsoleUiCheck 'Befundliste erzeugt Hyper-V-gebundene Befunde nur bei tatsae
     $attentionSource.Contains('if ($hyperVAvailable) {')
 )
 $environmentMenuMatch = [regex]::Match($entrySource, 'function Show-LabEnvironmentMenu \{[\s\S]+?(?=\r?\nfunction Show-LabHyperVMenu)')
+$groupErrorHandlerMatch = [regex]::Match($batchConsoleSource, 'function Write-LabEnvironmentGroupConsoleError \{[\s\S]+?(?=\r?\nfunction Invoke-LabEnvironmentGroupsInteractive)')
 Add-ConsoleUiCheck 'Umgebungsmenue trennt geschuetzte Gruppe und Sammelcleanup von Einzelverwaltung' ($environmentMenuMatch.Success -and $environmentMenuMatch.Value -match "-Id 'Manage'" -and $environmentMenuMatch.Value -notmatch "-Id '(ClearAutomatedTestEnvironment|Clear|AutomatedTestEnvironmentLifecycle)'")
+Add-ConsoleUiCheck 'Lab-Umgebungsgruppen sind auch ohne vorhandene Runs erreichbar und an die Gruppen-API gebunden' (
+    $environmentMenuMatch.Success -and $environmentMenuMatch.Value -match "-Id 'EnvironmentGroups' -Label 'Lab-Umgebungsgruppen verwalten'" -and
+    $entrySource -match '\$ActionName -eq ''EnvironmentGroups''.+Invoke-LabEnvironmentGroupsInteractive' -and
+    $entrySource -match "ValidateSet\([^\r\n]*'EnvironmentGroups'" -and
+    $entrySource -match '\$Action -eq ''EnvironmentGroups''\) \{ Invoke-LabEnvironmentGroupsInteractive; return \}' -and
+    $standaloneEntrySource -match "ValidateSet\([^\r\n]*'EnvironmentGroups'" -and
+    $standaloneEntrySource -match 'EnvironmentGroups, SyncRuntime' -and
+    $batchConsoleSource -match 'function Invoke-LabEnvironmentGroupsInteractive' -and
+    $batchConsoleSource -match 'New-SqlServerLabEnvironmentGroup[\s\S]+?-Confirm' -and
+    $batchConsoleSource -match 'Add-SqlServerLabEnvironmentGroupMember[\s\S]+?-Confirm' -and
+    $batchConsoleSource -match 'Start-SqlServerLabEnvironmentGroup[\s\S]+?-Confirm' -and
+    $batchConsoleSource -match 'Stop-SqlServerLabEnvironmentGroup[\s\S]+?-Confirm' -and
+    $batchConsoleSource -match 'Remove-SqlServerLabEnvironmentGroupMember[\s\S]+?-Confirm' -and
+    $batchConsoleSource -match 'Remove-SqlServerLabEnvironmentGroup[\s\S]+?-Confirm' -and
+    $batchConsoleSource -match 'Get-LabEnvironmentGroupRuntimeStateForConsole -Run \$_\) -in @\(''RUNNING'', ''STOPPED''\)' -and
+    $batchConsoleSource -match 'Get-LabEnvironmentGroupMemberProtectionReason' -and
+    $batchConsoleSource -match 'ein Run darf auch anderen Gruppen angehoeren|Ein Run darf auch anderen Gruppen angehoeren'
+)
+Add-ConsoleUiCheck 'Gruppenfehler zeigen nur explizit freigegebene stabile Codes' (
+    $groupErrorHandlerMatch.Success -and
+    $groupErrorHandlerMatch.Value -match "'LAB_ENVIRONMENT_GROUPS_BUSY'" -and
+    $groupErrorHandlerMatch.Value -match '\$stableCodes' -and
+    $groupErrorHandlerMatch.Value -match '\[StringComparison\]::Ordinal' -and
+    $groupErrorHandlerMatch.Value -notmatch '\[A-Z0-9_\]\+' -and
+    $groupErrorHandlerMatch.Value -match "'UNEXPECTED_ERROR'"
+)
+Add-ConsoleUiCheck 'Gruppenstart verspricht SQL-Bereitschaft nur fuer neu gestartete Mitglieder' (
+    $consoleHelpSource -match 'Startet gestoppte Gruppenmitglieder seriell und prüft danach deren SQL-Bereitschaft' -and
+    $consoleHelpSource -match 'Bereits laufende Mitglieder bleiben unverändert; für sie erfolgt keine erneute SQL-Bereitschaftsprüfung' -and
+    (Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation/HowTo/WORKFLOW_UI.md') -Raw) -match 'Bereits laufende Mitglieder bleiben unverändert und werden dabei\s+nicht erneut auf SQL-Bereitschaft geprüft'
+)
 Add-ConsoleUiCheck 'Hyper-V-Umgebungsverwaltung liegt nur im umgebungszentrierten Menue' (
     $environmentMenuMatch.Value -match "-Id 'HyperVManage' -Label 'Hyper-V-Umgebung auswaehlen und verwalten'" -and
     $environmentMenuMatch.Value -match '\$hasHyperVRun' -and

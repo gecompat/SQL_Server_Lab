@@ -792,6 +792,201 @@ function Show-LabActionMessagesInteractive {
     }
 }
 
+function Get-LabEnvironmentGroupRuntimeStateForConsole {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Run)
+
+    $runtimeState = [string](Get-LabWorkflowValue -InputObject $Run.runtime -Name 'state' -Default '')
+    if (-not $runtimeState) { $runtimeState = [string](Get-LabWorkflowValue -InputObject $Run -Name 'state' -Default 'UNKNOWN') }
+    return $runtimeState.ToUpperInvariant()
+}
+
+function Write-LabEnvironmentGroupConsoleError {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$ErrorRecord)
+
+    $stableCodes = @(
+        'LAB_STATE_ROOT_REQUIRED'
+        'LAB_ENVIRONMENT_GROUPS_BUSY'
+        'LAB_ENVIRONMENT_GROUP_ACTIVE_MEMBER_NOT_RUNNING'
+        'LAB_ENVIRONMENT_GROUP_EMPTY'
+        'LAB_ENVIRONMENT_GROUP_ID_INVALID'
+        'LAB_ENVIRONMENT_GROUP_MEMBER_BINDING_STALE'
+        'LAB_ENVIRONMENT_GROUP_MEMBER_EXISTS'
+        'LAB_ENVIRONMENT_GROUP_MEMBER_NOT_FOUND'
+        'LAB_ENVIRONMENT_GROUP_MEMBER_NOT_STARTABLE'
+        'LAB_ENVIRONMENT_GROUP_MEMBER_NOT_STOPPABLE'
+        'LAB_ENVIRONMENT_GROUP_MEMBER_PROTECTED'
+        'LAB_ENVIRONMENT_GROUP_MEMBER_RUNTIME_PARTIAL'
+        'LAB_ENVIRONMENT_GROUP_MEMBER_RUNTIME_UNCONFIRMED'
+        'LAB_ENVIRONMENT_GROUP_MEMBER_RUNTIME_UNSUPPORTED'
+        'LAB_ENVIRONMENT_GROUP_MEMBER_START_UNCONFIRMED'
+        'LAB_ENVIRONMENT_GROUP_MEMBER_STATE_UNRECOVERABLE'
+        'LAB_ENVIRONMENT_GROUP_MEMBER_STOP_UNCONFIRMED'
+        'LAB_ENVIRONMENT_GROUP_MUST_BE_STOPPED'
+        'LAB_ENVIRONMENT_GROUP_NAME_EXISTS'
+        'LAB_ENVIRONMENT_GROUP_NAME_INVALID'
+        'LAB_ENVIRONMENT_GROUP_NOT_FOUND'
+        'LAB_ENVIRONMENT_GROUP_OPERATION_CONTEXT_INVALID'
+        'LAB_ENVIRONMENT_GROUP_OPERATION_MEMBER_MISSING'
+        'LAB_ENVIRONMENT_GROUP_OPERATION_SUPERSEDED'
+        'LAB_ENVIRONMENT_GROUP_PROVIDER_RUNTIME_UNCONFIRMED'
+        'LAB_ENVIRONMENT_GROUP_PROVIDER_RUNTIME_UNSUPPORTED'
+        'LAB_ENVIRONMENT_GROUP_PROVIDER_SET_UNSUPPORTED'
+        'LAB_ENVIRONMENT_GROUP_PROVIDER_STATE_UNRECOVERABLE'
+        'LAB_ENVIRONMENT_GROUP_RECOVERY_BLOCKED'
+        'LAB_ENVIRONMENT_GROUP_RECOVERY_REQUIRED'
+        'LAB_ENVIRONMENT_GROUP_RECOVERY_REVIEW_REQUIRED'
+        'LAB_ENVIRONMENT_GROUP_RUN_BINDING_CHANGED'
+        'LAB_ENVIRONMENT_GROUP_RUN_BINDING_INVALID'
+        'LAB_ENVIRONMENT_GROUP_RUN_BINDING_MISSING'
+        'LAB_ENVIRONMENT_GROUP_RUN_BUSY'
+        'LAB_ENVIRONMENT_GROUP_RUN_CLAIMED'
+        'LAB_ENVIRONMENT_GROUP_RUN_ID_INVALID'
+        'LAB_ENVIRONMENT_GROUP_RUN_IDENTITY_CONFLICT'
+        'LAB_ENVIRONMENT_GROUP_RUN_REFERENCED'
+        'LAB_ENVIRONMENT_GROUP_RUN_UNAVAILABLE'
+        'LAB_ENVIRONMENT_GROUP_SHARED_MEMBER_NOT_RUNNING'
+        'LAB_ENVIRONMENT_GROUP_STATE_INVALID'
+        'LAB_ENVIRONMENT_GROUP_STATE_ROOT_MISMATCH'
+    )
+    $message = [string]$ErrorRecord.Exception.Message
+    $code = 'UNEXPECTED_ERROR'
+    foreach ($candidate in $stableCodes) {
+        if ($message -ceq $candidate -or $message.StartsWith(($candidate + ':'), [StringComparison]::Ordinal)) {
+            $code = $candidate
+            break
+        }
+    }
+    Write-LabError "Lab-Umgebungsgruppe: $code"
+}
+
+function Invoke-LabEnvironmentGroupsInteractive {
+    <# .SYNOPSIS Verknuepft bestehende SQL-Lab-Runs und verwaltet deren Gruppen-Lifecycle. #>
+    [CmdletBinding()]
+    param()
+
+    while ($true) {
+        try {
+            $stateRoot = Get-LabStateRoot
+            $groups = @(Get-SqlServerLabEnvironmentGroup -StateRoot $stateRoot)
+        }
+        catch { Write-LabEnvironmentGroupConsoleError -ErrorRecord $_; return }
+
+        $items = [Collections.Generic.List[object]]::new()
+        $index = 0
+        foreach ($group in $groups) {
+            $index++
+            $items.Add((New-LabConsoleItem -Id "group-$index" -Label ([string]$group.name) `
+                -Value ("{0} · {1} Mitglied(er)" -f [string]$group.lifecycleState, @($group.members).Count) `
+                -Shortcut ([string]$index) -Data $group))
+        }
+        $items.Add((New-LabConsoleItem -Id 'create' -Label 'Neue leere Gruppe erstellen' -Value 'Startet oder erstellt keine Runs' -Shortcut 'n'))
+        $items.Add((New-LabConsoleItem -Id 'back' -Label 'Zurueck' -Shortcut '0'))
+        $selection = Invoke-LabConsoleMenu -ScreenId 'environment-groups' -Title 'Lab-Umgebungsgruppen' `
+            -Subtitle 'Gruppen referenzieren vorhandene Runs; ein Run kann mehreren Gruppen angehoeren.' `
+            -Items $items.ToArray() -Footer 'Pfeile: Navigation  Enter/Shortcut: Auswahl  Esc: Zurueck'
+        if ($selection.Status -ne 'Selected' -or [string]$selection.SelectedItem.Id -eq 'back') { return }
+
+        if ([string]$selection.SelectedItem.Id -eq 'create') {
+            $nameInput = Read-LabConsoleTextInput -Prompt 'Gruppenname (1–80 Zeichen)'
+            if ($nameInput.Status -ne 'Confirmed') { continue }
+            try {
+                $created = New-SqlServerLabEnvironmentGroup -Name ([string]$nameInput.Value) -StateRoot $stateRoot -Confirm
+                if ($created.Status -eq 'CREATED') { Write-LabSuccess "Gruppe '$($created.Group.name)' erstellt. Es wurden keine Runs gestartet." }
+            }
+            catch { Write-LabEnvironmentGroupConsoleError -ErrorRecord $_ }
+            continue
+        }
+
+        $selectedGroup = $selection.SelectedItem.Data
+        try { $group = Get-SqlServerLabEnvironmentGroup -GroupId ([string]$selectedGroup.groupId) -StateRoot $stateRoot }
+        catch { Write-LabEnvironmentGroupConsoleError -ErrorRecord $_; continue }
+
+        $members = @($group.members)
+        $lifecycleState = [string]$group.lifecycleState
+        $isStopped = $lifecycleState -eq 'STOPPED'
+        $canStop = $lifecycleState -in @('STARTING', 'ACTIVE', 'STOPPING', 'RECOVERY_REQUIRED')
+        foreach ($member in $members) {
+            $shortId = if ([string]$member.runId -and ([string]$member.runId).Length -gt 8) { ([string]$member.runId).Substring(0, 8) } else { [string]$member.runId }
+            $binding = if ([string]$member.bindingStatus -eq 'CURRENT') { 'Bindung aktuell' } else { 'Bindung veraltet oder nicht lesbar' }
+            Write-LabInfo ("Mitglied {0}… · {1}" -f $shortId, $binding)
+        }
+
+        $runs = @()
+        if ($isStopped) {
+            try {
+                $existingIds = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+                foreach ($member in $members) { $null = $existingIds.Add([string]$member.runId) }
+                $runs = @(Get-LabActiveRuns -StateRoot $stateRoot | Where-Object {
+                    (Get-LabEnvironmentGroupRuntimeStateForConsole -Run $_) -in @('RUNNING', 'STOPPED') -and
+                    -not $existingIds.Contains([string]$_.runId) -and
+                    -not (Get-LabEnvironmentGroupMemberProtectionReason -RunId ([string]$_.runId) -StateRoot $stateRoot)
+                })
+            }
+            catch { Write-LabEnvironmentGroupConsoleError -ErrorRecord $_; $runs = @() }
+        }
+
+        $actions = @(
+            New-LabConsoleItem -Id 'add' -Label 'Vorhandene Umgebungen hinzufuegen' -Value 'Ein Run darf auch anderen Gruppen angehoeren' -Shortcut '1' `
+                -Disabled:(-not $isStopped -or $runs.Count -eq 0) -DisabledReason $(if (-not $isStopped) { 'Mitglieder koennen nur bei gestoppter Gruppe geaendert werden.' } else { 'Keine bindbaren RUNNING- oder STOPPED-Runs vorhanden.' })
+            New-LabConsoleItem -Id 'start' -Label 'Gruppe starten' -Value 'Gestoppte Runs starten; SQL-Bereitschaft neu gestarteter Runs pruefen' -Shortcut '2' `
+                -Disabled:($lifecycleState -ne 'STOPPED' -or $members.Count -eq 0) -DisabledReason $(if ($lifecycleState -ne 'STOPPED') { "Gruppe ist $lifecycleState; zuerst Wiederherstellung oder Stop abschliessen." } else { 'Die Gruppe hat keine Mitglieder.' })
+            New-LabConsoleItem -Id 'stop' -Label 'Gruppe stoppen' -Value 'Gemeinsam beanspruchte Runs bleiben fuer andere aktive Gruppen an' -Shortcut '3' `
+                -Disabled:(-not $canStop) -DisabledReason 'Die Gruppe hat keinen aktiven oder wiederherzustellenden Lifecycle-Anspruch.'
+            New-LabConsoleItem -Id 'detach' -Label 'Mitglieder aus dieser Gruppe loesen' -Value 'Stoppt und entfernt keine Runs' -Shortcut '4' `
+                -Disabled:(-not $isStopped -or $members.Count -eq 0) -DisabledReason 'Mitglieder koennen nur aus einer gestoppten, nichtleeren Gruppe geloest werden.'
+            New-LabConsoleItem -Id 'remove' -Label 'Gruppe und Zuordnungen entfernen' -Value 'Stoppt und entfernt keine Runs' -Shortcut '5' `
+                -Disabled:(-not $isStopped) -DisabledReason 'Eine Gruppe kann nur im Zustand STOPPED entfernt werden.'
+            New-LabConsoleItem -Id 'back' -Label 'Zur Gruppenliste' -Shortcut '0'
+        )
+        $action = Show-LabSubMenu -ScreenId 'environment-group-actions' -Title ([string]$group.name) `
+            -Subtitle ("{0} · {1} Mitglied(er)" -f $lifecycleState, $members.Count) -Items $actions
+        if ([string]::IsNullOrWhiteSpace([string]$action) -or $action -eq 'back') { continue }
+
+        try {
+            switch ($action) {
+                'add' {
+                    $selectedRuns = @(Select-LabWorkflowItems -ScreenId 'environment-group-add-runs' -Title 'Vorhandene Runs zuordnen' `
+                        -Source $runs -Label { param($run) if ($run.metadata.name) { [string]$run.metadata.name } else { 'Unbenannte Umgebung' } } `
+                        -Value { param($run) "$(Get-LabEnvironmentGroupRuntimeStateForConsole -Run $run) · Run $(([string]$run.runId).Substring(0, 8))…" })
+                    $addedCount = 0
+                    foreach ($run in $selectedRuns) {
+                        $result = Add-SqlServerLabEnvironmentGroupMember -GroupId ([string]$group.groupId) -RunId ([string]$run.runId) -StateRoot $stateRoot -Confirm
+                        if ($result.Status -eq 'ADDED') { $addedCount++ }
+                    }
+                    if ($addedCount -gt 0) { Write-LabSuccess "$addedCount Run-Zuordnung(en) abgeschlossen." }
+                }
+                'start' {
+                    $result = Start-SqlServerLabEnvironmentGroup -GroupId ([string]$group.groupId) -StateRoot $stateRoot -Confirm
+                    if ($result.Status -in @('STARTED', 'ALREADY_ACTIVE')) { Write-LabSuccess 'Gruppenstart abgeschlossen; die API hat den Lifecycle-Nachweis geprueft.' }
+                }
+                'stop' {
+                    $result = Stop-SqlServerLabEnvironmentGroup -GroupId ([string]$group.groupId) -StateRoot $stateRoot -Confirm
+                    if ($result.Status -in @('STOPPED', 'ALREADY_STOPPED')) { Write-LabSuccess 'Gruppen-Stop abgeschlossen; gemeinsam benoetigte Mitglieder bleiben aktiv.' }
+                }
+                'detach' {
+                    $selectedMembers = @(Select-LabWorkflowItems -ScreenId 'environment-group-detach-members' -Title 'Run-Zuordnungen loesen' `
+                        -Source $members -Label { param($member) "Run $(([string]$member.runId).Substring(0, 8))…" } `
+                        -Value { param($member) if ([string]$member.bindingStatus -eq 'CURRENT') { 'Bindung aktuell' } else { 'Bindung veraltet oder nicht lesbar' } })
+                    $removedCount = 0
+                    foreach ($member in $selectedMembers) {
+                        $result = Remove-SqlServerLabEnvironmentGroupMember -GroupId ([string]$group.groupId) -RunId ([string]$member.runId) -StateRoot $stateRoot -Confirm
+                        if ($result.Status -eq 'REMOVED') { $removedCount++ }
+                    }
+                    if ($removedCount -gt 0) { Write-LabSuccess "$removedCount Run-Zuordnung(en) geloest. Die Runs wurden nicht gestoppt oder entfernt." }
+                }
+                'remove' {
+                    $result = Remove-SqlServerLabEnvironmentGroup -GroupId ([string]$group.groupId) -StateRoot $stateRoot -Confirm
+                    if ($result.Status -eq 'REMOVED') { Write-LabSuccess 'Gruppe und ihre Zuordnungen wurden entfernt; die Runs blieben unveraendert.' }
+                    break
+                }
+            }
+        }
+        catch { Write-LabEnvironmentGroupConsoleError -ErrorRecord $_ }
+    }
+}
+
 function Show-LabWorkspaceMenu {
     return Show-LabSubMenu -ScreenId 'labs-menu' -Title 'Lab-Umgebungen' -Subtitle 'Erstellen, auswählen und am gewählten Ziel arbeiten' -Items @(
         New-LabConsoleItem -Id CreateArea -Label 'Umgebung erstellen' -Shortcut 1
