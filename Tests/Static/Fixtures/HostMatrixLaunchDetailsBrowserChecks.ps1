@@ -21,7 +21,7 @@ function Invoke-Dispatch($Payload,[bool]$Legacy) {
 }
 try {
     Assert-HostMatrixBrowserSources $repo $parts.Sources
-    Check ($null -ne $parts.LegacyDispatch -and $parts.Sources.Count -gt 34 -and $parts.Assets.Count -eq 17) 'composed actual route, catalogue, recipe and all-asset bindings'
+    Check ($null -ne $parts.LegacyDispatch -and $parts.Sources.Count -gt 34 -and $parts.Assets.Count -eq 18) 'composed actual route, catalogue, recipe and all-asset bindings'
     $records=@(foreach($path in @($parts.Assets.Keys)+@('/api/config','/api/commands','/api/jobs','/api/workflow','/api/tls-created-targets')){[pscustomobject]@{Path=$path;Method='GET';Status=200;Payload=$null;View=$null}})
     foreach($case in @(Get-HostMatrixBrowserCases -IncludeLaunchDetails)) {
         $payload=if($case.Action -ceq 'ReadVersions'){[pscustomobject]@{Action='ReadVersions'}}else{[pscustomobject]@{Action='ReadMatrix';SqlVersion=$case.SqlVersion;Provider=$case.Provider;CheckProviderReadiness=$false}}

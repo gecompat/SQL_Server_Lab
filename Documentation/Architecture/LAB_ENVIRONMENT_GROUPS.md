@@ -60,9 +60,12 @@ Teilfehlern bleibt sie ausdrücklich RECOVERY_REQUIRED, bis Stop die bekannten
 Mitglieder sicher abgeglichen hat. Die geführte PowerShell-CLI ist unter
 **Lab-Umgebungen > Umgebung auswählen und verwalten > Lab-Umgebungsgruppen
 verwalten** verfügbar. Sie erstellt leere Gruppen, bindet vorhandene Runs,
-startet und stoppt Gruppen und löst Zuordnungen. Browser-Bedienung und
-Reconcile-UI bleiben separate offene Arbeiten; die Registry allein beweist
-keine Runtimebereitschaft. Die Gruppe erstellt auch kein gemeinsames
+startet und stoppt Gruppen und löst Zuordnungen. Die Workflow-UI zeigt die
+gespeicherten Gruppen und Run-Referenzen read-only an. Sie gibt weder Scope-
+IDs noch Verbindungs-Hashes aus und behauptet keinen aktuellen Runtime- oder
+SQL-Zustand. Mitgliedsänderungen, Lifecycle-Aktionen und die Reconcile-UI
+bleiben separate offene Arbeiten; die Registry allein beweist keine
+Runtimebereitschaft. Die Gruppe erstellt auch kein gemeinsames
 Providernetz. Für einen Container-Linked-Server-Fall können zwei getrennte
 Runs mit demselben expliziten `NetworkName` angelegt und anschließend
 gruppiert werden. Run-Erstellung, Netzwerkerstellung und deren Cleanup bleiben

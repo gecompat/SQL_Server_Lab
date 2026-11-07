@@ -130,6 +130,7 @@ Import-UiSqlServerLabModule -ModulePath $modulePath
 . (Join-Path $PSScriptRoot 'WorkflowUiCommandGrants.ps1')
 . (Join-Path $PSScriptRoot 'WorkflowUiTlsLiveQualification.ps1')
 . (Join-Path $PSScriptRoot 'WorkflowUiTlsCreation.ps1')
+. (Join-Path $PSScriptRoot '..\Private\EnvironmentGroupsBrowserHttp.ps1')
 
 function Get-UiCommandGrantCatalog {
     & (Get-Module SqlServerLab) { Get-LabPublicCommandWebCatalog }
@@ -907,6 +908,20 @@ try {
             if ($path -eq '/api/commands' -and $context.Request.HttpMethod -eq 'GET') {
                 $catalog = & (Get-Module SqlServerLab) { Get-LabPublicCommandWebCatalog }
                 Write-UiResponse -Context $context -Body (ConvertTo-Json -InputObject @($catalog) -Depth 12) -ContentType 'application/json; charset=utf-8'
+                continue
+            }
+            if ($path -eq '/api/environment-groups') {
+                if ($context.Request.HttpMethod -cne 'GET') {
+                    Write-UiResponse -Context $context -Body '{"code":"UI_METHOD_NOT_ALLOWED"}' -ContentType 'application/json; charset=utf-8' -StatusCode 405
+                    continue
+                }
+                try {
+                    $view = Get-UiEnvironmentGroupsView
+                    Write-UiResponse -Context $context -Body ($view | ConvertTo-Json -Depth 12 -Compress) -ContentType 'application/json; charset=utf-8'
+                }
+                catch {
+                    Write-UiResponse -Context $context -Body '{"code":"ENVIRONMENT_GROUPS_READ_UNCONFIRMED"}' -ContentType 'application/json; charset=utf-8' -StatusCode 500
+                }
                 continue
             }
             if ($path -eq '/api/jobs' -and $context.Request.HttpMethod -eq 'GET') {

@@ -259,6 +259,8 @@ end {
         @{ Pattern = '(?i)(ProjectAdapter|Adapters/|project-adapter)'; Checks = @('Invoke-ProjectAdapterChecks.ps1') },
         @{ Pattern = '(?i)(MixedProvider|ProviderSubRun|StateMachine)'; Checks = @('Invoke-MixedProviderLifecycleChecks.ps1') },
         @{ Pattern = '(?i)(EnvironmentGroups|environment-groups|SqlServerLabEnvironmentGroup)'; Checks = @('Invoke-EnvironmentGroupLifecycleChecks.ps1') },
+        @{ Pattern = '(?i)^Private/EnvironmentGroupsBrowserHttp\.ps1$'; Checks = @('Invoke-WorkflowUiChecks.ps1') },
+        @{ Pattern = '(?i)^Tests/Static/Fixtures/EnvironmentGroupsBrowser(HttpChecks\.ps1|UiChecks\.cjs)$'; Checks = @('Invoke-WorkflowUiChecks.ps1') },
         @{ Pattern = '(?i)(HyperVProvider|Providers/HyperV)'; Checks = @('Invoke-HyperVProviderChecks.ps1','Invoke-LabNetworkChecks.ps1') },
         @{ Pattern = '(?i)(JobProgress|HyperVGuestProgress|HyperVProvider|HyperVLabEnvironment|ExternalRuntimeWindows)'; Checks = @('Invoke-JobProgressChecks.ps1','Invoke-HyperVGuestProgressChecks.ps1') },
         @{ Pattern = '(?i)(HyperVSqlOwnershipInitialization|HyperVLabEnvironment|HyperVSqlConfigurationReconcile)'; Checks = @('Invoke-HyperVSqlOwnershipInitializationChecks.ps1') },
@@ -432,6 +434,9 @@ end {
             # Read-only console continuation; command/member/redirection boundary
             # is checked by the dedicated launch-details suite.
             $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -cmatch '^Private/HostCapabilityMatrixConsole\.ps1$'
+            # Synthetic registry/HTTP fixtures exercise this read-only browser
+            # projection without starting SQL or a provider runtime.
+            $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -cmatch '^Private/EnvironmentGroupsBrowserHttp\.ps1$'
             # Curated help data/console presentation; dedicated authority oracle
             # retains only existing metadata getters and console rendering calls.
             $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -cmatch '^Private/ConsoleHelp\.ps1$'
