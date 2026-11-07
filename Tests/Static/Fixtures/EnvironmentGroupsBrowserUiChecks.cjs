@@ -27,7 +27,7 @@ async function answer(f,payload,request=f.requests.at(-1)){request.resolve({ok:t
 (async()=>{
   let f=setup();f.click('open');check(f.get('dialog').open&&f.requests.length===0,'open is inert until explicit read');
   f.click('read');f.click('read');check(f.requests.length===1&&f.requests[0].url==='/api/environment-groups'&&f.requests[0].options===undefined&&f.get('read').disabled,'single GET only and no duplicate read');
-  await answer(f,view());check(f.get('list').children.length===1&&textTree(f.get('list')).includes('<img src=x onerror=alert(1)>'),'group names render as literal text');
+  await answer(f,view());check(f.get('list').children.length===2&&textTree(f.get('list')).includes('<img src=x onerror=alert(1)>'),'group names render as literal text and creation form is separate');
   const stopButton=findButton(f.get('list').children[0],'Gruppe stoppen');check(!!stopButton,'active group exposes stop action');stopButton.events.click();
   check(f.events.length===1&&f.events[0].type==='sqlserverlab:environment-group-command-request'&&f.events[0].detail.action==='Stop'&&f.events[0].detail.groupId===groupId,'stop dispatches only the typed group action and stable ID');
   check(!findButton(f.get('list').children[0],'Zuordnung lösen'),'active group cannot edit its membership');
@@ -57,6 +57,14 @@ async function answer(f,payload,request=f.requests.at(-1)){request.resolve({ok:t
   check(findButton(f.get('list').children[0],'Gruppe starten')?.disabled===true,'empty stopped group cannot start');
   check(!!findInput(f.get('list').children[0])&&!!findButton(f.get('list').children[0],'Run zuordnen'),'empty stopped group can receive its first member');
 
+  f=setup();f.click('open');f.click('read');await answer(f,{contractVersion:'SqlServerLab.EnvironmentGroups.BrowserView/1.0',groups:[]});
+  const createInput=findInput(f.get('list'));createInput.value='Linked Server Demo';findButton(f.get('list'),'Leere Gruppe erstellen').events.click();
+  check(f.events.length===1&&f.events[0].detail.action==='Create'&&f.events[0].detail.name==='Linked Server Demo'&&Object.keys(f.events[0].detail).length===2,'group creation dispatches only action and validated name');
+  check(!f.get('dialog').open&&f.requests.length===1,'group creation uses confirmation handoff without direct HTTP mutation');
+  f=setup();f.click('open');f.click('read');await answer(f,{contractVersion:'SqlServerLab.EnvironmentGroups.BrowserView/1.0',groups:[]});
+  findInput(f.get('list')).value='  ';findButton(f.get('list'),'Leere Gruppe erstellen').events.click();
+  check(f.events.length===0&&f.get('dialog').open&&f.get('status').textContent.includes('1 bis 80'),'blank group names are rejected locally');
+
   f=setup();f.click('open');f.click('read');
   await answer(f,{contractVersion:'wrong',groups:[{name:'PRIVATE_CANARY'}]});
   check(f.get('list').children.length===0&&f.get('status').textContent.includes('ENVIRONMENT_GROUPS_READ_UNCONFIRMED')&&!f.get('status').textContent.includes('PRIVATE_CANARY'),'malformed DTO fails closed with fixed status');
@@ -75,24 +83,28 @@ async function answer(f,payload,request=f.requests.at(-1)){request.resolve({ok:t
   const confirmations=[],errors=[];
   const appContext=vm.createContext({publicCommandCatalog:[],window:{addEventListener(){}},showError:error=>errors.push(error.message),openConfirmation:(...args)=>confirmations.push(args)});
   vm.runInContext(actualFunction(appSource,'handleEnvironmentGroupCommandRequest'),appContext);
-  for(const action of ['Start','Stop','AddMember','RemoveMember']){
-    const expectedNames=['AddMember','RemoveMember'].includes(action)?['GroupId','RunId']:['GroupId'];
+  for(const action of ['Create','Start','Stop','AddMember','RemoveMember']){
+    const expectedNames=action==='Create'?['Name']:['AddMember','RemoveMember'].includes(action)?['GroupId','RunId']:['GroupId'];
     const lifecycleSet={Name:'Default',IsDefault:true,MandatoryNames:expectedNames,Parameters:[...expectedNames.map(Name=>({Name,TypeName:'System.String',Mandatory:true,Sensitive:false,IsCredential:false})),{Name:'WhatIf',TypeName:'System.Management.Automation.SwitchParameter',Mandatory:false,Sensitive:false,IsCredential:false}]};
-    const commandNames={Start:'Start-SqlServerLabEnvironmentGroup',Stop:'Stop-SqlServerLabEnvironmentGroup',AddMember:'Add-SqlServerLabEnvironmentGroupMember',RemoveMember:'Remove-SqlServerLabEnvironmentGroupMember'};
+    const commandNames={Create:'New-SqlServerLabEnvironmentGroup',Start:'Start-SqlServerLabEnvironmentGroup',Stop:'Stop-SqlServerLabEnvironmentGroup',AddMember:'Add-SqlServerLabEnvironmentGroupMember',RemoveMember:'Remove-SqlServerLabEnvironmentGroupMember'};
     const command={Name:commandNames[action],RequiresConfirmation:true,ParameterSets:[lifecycleSet]};
     appContext.publicCommandCatalog=[command];
-    const eventDetail={action,groupId,groupName:'Linked Server Demo',...(expectedNames.includes('RunId')?{runId:run}:{})};
+    const eventDetail=action==='Create'?{action,name:'Linked Server Demo'}:{action,groupId,groupName:'Linked Server Demo',...(expectedNames.includes('RunId')?{runId:run}:{})};
     appContext.handleEnvironmentGroupCommandRequest({detail:eventDetail});
     const confirmation=confirmations.at(-1);
     check(confirmation?.[2]==='__PublicCommand'&&confirmation?.[3]?.command===command,'actual app handler uses catalogued public command for '+action);
-    check(confirmation[3].parameterSet===lifecycleSet&&Object.keys(confirmation[3].parameters).sort().join(',')===expectedNames.slice().sort().join(',')&&confirmation[3].parameters.GroupId===groupId&&(!expectedNames.includes('RunId')||confirmation[3].parameters.RunId===run),'actual app handler submits only expected IDs for '+action);
-    check(confirmation[1].includes('nicht blind wiederholen')&&confirmation[4]===({Start:'Gruppe starten',Stop:'Gruppe stoppen',AddMember:'Run zuordnen',RemoveMember:'Zuordnung lösen'}[action]),'confirmation explains lifecycle and lost-response handling for '+action);
+    check(confirmation[3].parameterSet===lifecycleSet&&Object.keys(confirmation[3].parameters).sort().join(',')===expectedNames.slice().sort().join(',')&&
+      (action==='Create'?confirmation[3].parameters.Name==='Linked Server Demo':confirmation[3].parameters.GroupId===groupId&&(!expectedNames.includes('RunId')||confirmation[3].parameters.RunId===run)),
+      'actual app handler submits only expected parameters for '+action);
+    check(confirmation[1].includes('nicht blind wiederholen')&&confirmation[4]===({Create:'Gruppe erstellen',Start:'Gruppe starten',Stop:'Gruppe stoppen',AddMember:'Run zuordnen',RemoveMember:'Zuordnung lösen'}[action]),'confirmation explains lifecycle and lost-response handling for '+action);
   }
   const confirmationCount=confirmations.length;
   appContext.handleEnvironmentGroupCommandRequest({detail:{action:'Start',groupId:'bad-id',groupName:'Demo'}});
   check(confirmations.length===confirmationCount&&errors.at(-1)==='ENVIRONMENT_GROUP_ACTION_INVALID','invalid event is rejected with fixed error');
   appContext.handleEnvironmentGroupCommandRequest({detail:{action:'AddMember',groupId,groupName:'Demo',runId:'bad-id'}});
   check(confirmations.length===confirmationCount&&errors.at(-1)==='ENVIRONMENT_GROUP_ACTION_INVALID','invalid member ID is rejected with fixed error');
+  appContext.handleEnvironmentGroupCommandRequest({detail:{action:'Create',name:' bad '}});
+  check(confirmations.length===confirmationCount&&errors.at(-1)==='ENVIRONMENT_GROUP_ACTION_INVALID','noncanonical create name is rejected with fixed error');
   const driftSet={Name:'Default',IsDefault:true,MandatoryNames:['GroupId','Force'],Parameters:[{Name:'GroupId',TypeName:'System.String',Mandatory:true,Sensitive:false,IsCredential:false},{Name:'Force',TypeName:'System.Management.Automation.SwitchParameter',Mandatory:true,Sensitive:false,IsCredential:false}]};
   appContext.publicCommandCatalog=[{Name:'Stop-SqlServerLabEnvironmentGroup',RequiresConfirmation:true,ParameterSets:[driftSet]}];
   appContext.handleEnvironmentGroupCommandRequest({detail:{action:'Stop',groupId,groupName:'Demo'}});
