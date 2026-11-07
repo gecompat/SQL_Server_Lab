@@ -99,7 +99,10 @@ Unter **Lab-Umgebungen > Lab-Umgebungsgruppen ansehen** können Sie die
 gespeicherten Gruppen, ihre Run-IDs und Instanznamen anzeigen. Die Ansicht liest
 nur die Registry des konfigurierten State-Roots. Der gespeicherte
 Lifecycle-Status bestätigt weder den aktuellen Providerzustand noch SQL-
-Bereitschaft. Scope-IDs und Verbindungs-Hashes werden nicht angezeigt.
+Bereitschaft. Scope-IDs und Verbindungs-Hashes werden nicht angezeigt. Nach
+einem Gruppenstart oder -stopp zeigt die Ansicht die zuletzt gespeicherte Aktion
+und den Status jedes Runs. Das ist ein Journalergebnis, keine Live-
+Runtimeprüfung.
 
 Bei einer gestoppten Gruppe startet **Gruppe starten** ihre Mitglieder über
 den bestehenden öffentlichen Befehl. Neu gestartete Runs durchlaufen danach

@@ -9,7 +9,7 @@ function element(tag='div'){
 }
 const run='33333333-4444-4555-8666-777777777777';
 const groupId='11111111-2222-4333-8444-555555555555';
-const view=(name='<img src=x onerror=alert(1)>')=>({contractVersion:'SqlServerLab.EnvironmentGroups.BrowserView/1.1',groups:[{groupId,name,createdAt:'2026-11-07T12:00:00Z',lifecycleState:'ACTIVE',operation:{action:'Start',state:'COMPLETED',startedAt:'2026-11-07T12:00:00Z',updatedAt:'2026-11-07T12:01:00Z'},members:[{runId:run,instanceIds:['MSSQLSERVER'],assignedAt:'2026-11-07T12:00:00Z',bindingStatus:'CURRENT'}]}]});
+const view=(name='<img src=x onerror=alert(1)>')=>({contractVersion:'SqlServerLab.EnvironmentGroups.BrowserView/1.2',groups:[{groupId,name,createdAt:'2026-11-07T12:00:00Z',lifecycleState:'ACTIVE',operation:{action:'Start',state:'COMPLETED',startedAt:'2026-11-07T12:00:00Z',updatedAt:'2026-11-07T12:01:00Z',members:[{runId:run,action:'START',status:'STARTED'}]},members:[{runId:run,instanceIds:['MSSQLSERVER'],assignedAt:'2026-11-07T12:00:00Z',bindingStatus:'CURRENT'}]}]});
 function setup(){
   const elements=new Map(['open','dialog','close','dismiss','read','status','list'].map(id=>['environment-groups-'+id,element(id)]));
   const requests=[],events=[];
@@ -29,6 +29,7 @@ async function answer(f,payload,request=f.requests.at(-1)){request.resolve({ok:t
   f.click('read');f.click('read');check(f.requests.length===1&&f.requests[0].url==='/api/environment-groups'&&f.requests[0].options===undefined&&f.get('read').disabled,'single GET only and no duplicate read');
   await answer(f,view());check(f.get('list').children.length===2&&textTree(f.get('list')).includes('<img src=x onerror=alert(1)>'),'group names render as literal text and creation form is separate');
   check(textTree(f.get('list')).includes('Bindung aktuell'),'current stored binding is shown without asserting runtime readiness');
+  check(textTree(f.get('list')).includes('Gespeicherte Ergebnisse je Run (keine Live-Runtimeprüfung):')&&textTree(f.get('list')).includes(run+' · START · STARTED'),'stored per-run operation result is shown with explicit non-live boundary');
   const stopButton=findButton(f.get('list').children[0],'Gruppe stoppen');check(!!stopButton,'active group exposes stop action');stopButton.events.click();
   check(f.events.length===1&&f.events[0].type==='sqlserverlab:environment-group-command-request'&&f.events[0].detail.action==='Stop'&&f.events[0].detail.groupId===groupId,'stop dispatches only the typed group action and stable ID');
   check(!findButton(f.get('list').children[0],'Gruppe entfernen'),'active group cannot be removed');
@@ -64,11 +65,11 @@ async function answer(f,payload,request=f.requests.at(-1)){request.resolve({ok:t
   check(findButton(f.get('list').children[0],'Gruppe starten')?.disabled===true,'empty stopped group cannot start');
   check(!!findInput(f.get('list').children[0])&&!!findButton(f.get('list').children[0],'Run zuordnen'),'empty stopped group can receive its first member');
 
-  f=setup();f.click('open');f.click('read');await answer(f,{contractVersion:'SqlServerLab.EnvironmentGroups.BrowserView/1.1',groups:[]});
+  f=setup();f.click('open');f.click('read');await answer(f,{contractVersion:'SqlServerLab.EnvironmentGroups.BrowserView/1.2',groups:[]});
   const createInput=findInput(f.get('list'));createInput.value='Linked Server Demo';findButton(f.get('list'),'Leere Gruppe erstellen').events.click();
   check(f.events.length===1&&f.events[0].detail.action==='Create'&&f.events[0].detail.name==='Linked Server Demo'&&Object.keys(f.events[0].detail).length===2,'group creation dispatches only action and validated name');
   check(!f.get('dialog').open&&f.requests.length===1,'group creation uses confirmation handoff without direct HTTP mutation');
-  f=setup();f.click('open');f.click('read');await answer(f,{contractVersion:'SqlServerLab.EnvironmentGroups.BrowserView/1.1',groups:[]});
+  f=setup();f.click('open');f.click('read');await answer(f,{contractVersion:'SqlServerLab.EnvironmentGroups.BrowserView/1.2',groups:[]});
   findInput(f.get('list')).value='  ';findButton(f.get('list'),'Leere Gruppe erstellen').events.click();
   check(f.events.length===0&&f.get('dialog').open&&f.get('status').textContent.includes('1 bis 80'),'blank group names are rejected locally');
 
@@ -79,6 +80,8 @@ async function answer(f,payload,request=f.requests.at(-1)){request.resolve({ok:t
   check(f.get('list').children.length===0&&f.get('status').textContent.includes('ENVIRONMENT_GROUPS_READ_UNCONFIRMED')&&!f.get('status').textContent.includes('PRIVATE_STATE_ROOT_CANARY'),'unexpected authority fields are rejected');
   f.click('read');const invalidBinding=view();invalidBinding.groups[0].members[0].bindingStatus='UNKNOWN';await answer(f,invalidBinding);
   check(f.get('list').children.length===0&&f.get('status').textContent.includes('ENVIRONMENT_GROUPS_READ_UNCONFIRMED'),'unknown binding status fails closed');
+  f.click('read');const invalidOperation=view();invalidOperation.groups[0].operation.members[0].status='SECRET_CANARY';await answer(f,invalidOperation);
+  check(f.get('list').children.length===0&&f.get('status').textContent.includes('ENVIRONMENT_GROUPS_READ_UNCONFIRMED'),'unknown persisted operation result fails closed');
   f=setup();f.click('open');f.click('read');const stale=view();stale.groups[0].members[0].bindingStatus='STALE';await answer(f,stale);
   check(textTree(f.get('list')).includes('Bindung veraltet oder nicht lesbar'),'stale or unreadable binding is surfaced as read-only status');
   f.click('read');f.requests.at(-1).reject(new Error('PRIVATE_ERROR_CANARY'));await f.flush();

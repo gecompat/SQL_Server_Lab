@@ -9,7 +9,7 @@ $script:groupReads=0
 $script:throwRead=$false
 $script:fixtureGroups=@([pscustomobject]@{
     groupId='11111111-2222-4333-8444-555555555555';name='<img src=x onerror=alert(1)>';stateRootKey='PRIVATE_STATE_ROOT_KEY_CANARY';createdAt='2026-11-07T12:00:00Z';lifecycleState='ACTIVE'
-    operation=[pscustomobject]@{operationId='22222222-3333-4444-8555-666666666666';action='Start';state='COMPLETED';startedAt='2026-11-07T12:00:00Z';updatedAt='2026-11-07T12:01:00Z';members=@()}
+    operation=[pscustomobject]@{operationId='22222222-3333-4444-8555-666666666666';action='Start';state='COMPLETED';startedAt='2026-11-07T12:00:00Z';updatedAt='2026-11-07T12:01:00Z';members=@([pscustomobject]@{runId='33333333-4444-4555-8666-777777777777';action='START';status='STARTED';reasonCode='PRIVATE_REASON_CANARY'})}
     members=@([pscustomobject]@{runId='33333333-4444-4555-8666-777777777777';scopeId='44444444-5555-4666-8777-888888888888';instanceIds=@('MSSQLSERVER');connectionInfoSha256=('a'*64);bindingStatus='CURRENT';assignedAt='2026-11-07T12:00:00Z'})
 })
 function Get-SqlServerLabEnvironmentGroup {
@@ -34,10 +34,11 @@ function Send([string]$Method) {
     return $script:response
 }
 $response=Send 'GET';$view=$response.Body|ConvertFrom-Json
-Check ($response.Status -eq 200 -and $response.ContentType -ceq 'application/json; charset=utf-8' -and $view.contractVersion -ceq 'SqlServerLab.EnvironmentGroups.BrowserView/1.1') 'GET returns versioned binding-status view'
+Check ($response.Status -eq 200 -and $response.ContentType -ceq 'application/json; charset=utf-8' -and $view.contractVersion -ceq 'SqlServerLab.EnvironmentGroups.BrowserView/1.2') 'GET returns versioned binding and operation-result view'
 Check ($script:groupReads -eq 1 -and $view.groups.Count -eq 1 -and $view.groups[0].members[0].runId -ceq '33333333-4444-4555-8666-777777777777') 'GET reads registry through public reader and includes stored member references'
 Check ($view.groups[0].members[0].bindingStatus -ceq 'CURRENT') 'GET includes only the public current/stale binding result'
-Check ($response.Body -notmatch 'stateRootKey|scopeId|connectionInfoSha256|PRIVATE_STATE_ROOT_KEY_CANARY|PRIVATE_ERROR_CANARY') 'private state bindings and hashes are omitted'
+Check ($view.groups[0].operation.members[0].status -ceq 'STARTED' -and $view.groups[0].operation.members[0].action -ceq 'START') 'GET includes stored per-run operation result'
+Check ($response.Body -notmatch 'stateRootKey|scopeId|connectionInfoSha256|operationId|reasonCode|PRIVATE_REASON_CANARY|PRIVATE_STATE_ROOT_KEY_CANARY|PRIVATE_ERROR_CANARY') 'private state bindings, operation details and hashes are omitted'
 $readsBefore=$script:groupReads;$response=Send 'POST'
 Check ($response.Status -eq 405 -and $script:groupReads -eq $readsBefore -and $response.Body -ceq '{"code":"UI_METHOD_NOT_ALLOWED"}') 'non-GET method has no reader call'
 $script:throwRead=$true;$response=Send 'GET'

@@ -81,7 +81,11 @@ aktuell lesbaren Run-, Scope-, Instanz- und Connection-Info-Metadaten; Scope-ID
 und Hash bleiben verborgen. `STALE` kann auch bedeuten, dass die Run-Bindung
 nicht lesbar ist. Der Status bestätigt keine Runtime- oder SQL-Bereitschaft und
 repariert keine Abweichung. Eine UI für Runtimeabweichungen und deren sichere
-Wiederherstellung bleibt offen. Die Registry allein beweist keine
+Wiederherstellung bleibt offen. Der Browser zeigt außerdem die zuletzt
+gespeicherten Vorgangsergebnisse pro Run mit Aktion und endlichem Status an.
+Das ist das Ergebnis des letzten Gruppenstarts oder -stopps, keine erneute
+Runtimebeobachtung. Interne Fehlerdetails, Scope-IDs und Hashwerte werden nicht
+ausgegeben. Die Registry allein beweist keine
 Runtimebereitschaft. Die Gruppe erstellt auch kein gemeinsames
 Providernetz. Für einen Container-Linked-Server-Fall können zwei getrennte
 Runs mit demselben expliziten `NetworkName` angelegt und anschließend

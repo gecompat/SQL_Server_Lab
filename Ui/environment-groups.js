@@ -16,6 +16,8 @@
   const lifecycleStates = new Set(['STOPPED', 'STARTING', 'ACTIVE', 'STOPPING', 'RECOVERY_REQUIRED']);
   const operationStates = new Set(['IN_PROGRESS', 'COMPLETED', 'RECOVERY_REQUIRED']);
   const operationActions = new Set(['Start', 'Stop']);
+  const operationMemberActions = new Set(['START', 'STOP', 'RETAIN']);
+  const operationMemberStatuses = new Set(['PENDING', 'IN_PROGRESS', 'STARTED', 'UNCHANGED', 'STOPPED', 'RETAINED_SHARED', 'FAILED', 'UNCONFIRMED']);
   const bindingStatuses = new Set(['CURRENT', 'STALE']);
   const hasOnlyKeys = (value, expected) => {
     const keys = Object.keys(value);
@@ -25,7 +27,7 @@
   function validView(value) {
     return value && typeof value === 'object' && !Array.isArray(value) &&
       hasOnlyKeys(value, ['contractVersion', 'groups']) &&
-      value.contractVersion === 'SqlServerLab.EnvironmentGroups.BrowserView/1.1' && Array.isArray(value.groups) &&
+      value.contractVersion === 'SqlServerLab.EnvironmentGroups.BrowserView/1.2' && Array.isArray(value.groups) &&
       value.groups.every((group) => group && typeof group === 'object' && !Array.isArray(group) &&
         hasOnlyKeys(group, ['groupId', 'name', 'createdAt', 'lifecycleState', 'operation', 'members']) &&
         isGuid(group.groupId) && typeof group.name === 'string' && group.name.length > 0 && group.name.length <= 80 &&
@@ -37,9 +39,12 @@
           new Set(member.instanceIds).size === member.instanceIds.length && typeof member.assignedAt === 'string' &&
           bindingStatuses.has(member.bindingStatus)) &&
         (group.operation === null || (group.operation && typeof group.operation === 'object' && !Array.isArray(group.operation) &&
-          hasOnlyKeys(group.operation, ['action', 'state', 'startedAt', 'updatedAt']) &&
+          hasOnlyKeys(group.operation, ['action', 'state', 'startedAt', 'updatedAt', 'members']) && Array.isArray(group.operation.members) &&
           operationActions.has(group.operation.action) && operationStates.has(group.operation.state) &&
-          typeof group.operation.startedAt === 'string' && typeof group.operation.updatedAt === 'string')));
+          typeof group.operation.startedAt === 'string' && typeof group.operation.updatedAt === 'string' &&
+          group.operation.members.every((member) => member && typeof member === 'object' && !Array.isArray(member) &&
+            hasOnlyKeys(member, ['runId', 'action', 'status']) && isGuid(member.runId) &&
+            operationMemberActions.has(member.action) && operationMemberStatuses.has(member.status)))));
   }
 
   function addText(parent, tag, value, className) {
@@ -145,7 +150,15 @@
       addText(card, 'h3', group.name);
       addText(card, 'p', 'Gespeicherter Status: ' + group.lifecycleState);
       addText(card, 'p', 'Gruppen-ID: ' + group.groupId);
-      if (group.operation) addText(card, 'p', 'Letzter Vorgang: ' + group.operation.action + ' · ' + group.operation.state);
+      if (group.operation) {
+        addText(card, 'p', 'Letzter Vorgang: ' + group.operation.action + ' · ' + group.operation.state);
+        if (group.operation.members.length > 0) {
+          addText(card, 'p', 'Gespeicherte Ergebnisse je Run (keine Live-Runtimeprüfung):', 'form-note');
+          const operationMembers = document.createElement('ul');
+          for (const member of group.operation.members) addText(operationMembers, 'li', member.runId + ' · ' + member.action + ' · ' + member.status);
+          card.appendChild(operationMembers);
+        }
+      }
       if (group.members.length === 0) addText(card, 'p', 'Mitglieder: keine');
       else {
         const members = document.createElement('ul');
