@@ -13,7 +13,7 @@ $passed = 0
 . (Join-Path $PSScriptRoot '../Common/CheckResult.ps1')
 
 function Invoke-WorkflowFixture {
-    param([string]$Script, [string]$Name, [int]$ExitCode, [string]$FailureStage = '')
+    param([string]$Script, [string]$Name, [int]$ExitCode, [string]$FailureStage = '', [string]$SafeSummary = '')
     $directory = Join-Path $root $Name
     $null = New-Item -ItemType Directory -Path $directory
     $driver = Join-Path $directory 'driver.ps1'
@@ -35,6 +35,7 @@ function Invoke-WorkflowFixture {
     $start.Environment['GITHUB_STEP_SUMMARY'] = Join-Path $directory 'summary.txt'
     $start.Environment['PRIVACY_FIXTURE_EXIT'] = [string]$ExitCode
     $start.Environment['PRIVACY_FIXTURE_STAGE'] = $FailureStage
+    $start.Environment['PRIVACY_FIXTURE_SAFE_SUMMARY'] = $SafeSummary
     $start.Environment['PRIVACY_FIXTURE_TRACE'] = Join-Path $directory 'trace.txt'
     $process = [Diagnostics.Process]::Start($start)
     try {
@@ -60,9 +61,10 @@ try {
     $blocks = @([regex]::Matches(($workflow -split '(?m)^  owned-run-recovery:')[0], '(?m)^        run: \|\r?\n(?<body>(?:^          [^\r\n]*\r?\n|^\r?\n)+)') | ForEach-Object {
         [regex]::Replace($_.Groups['body'].Value, '(?m)^          ', '')
     })
-    if ($blocks.Count -ne 2) { throw 'PODMAN_WORKFLOW_RUN_BLOCK_COUNT' }
+    if ($blocks.Count -ne 3) { throw 'PODMAN_WORKFLOW_RUN_BLOCK_COUNT' }
     $preflight = $blocks[0]
     $runtime = $blocks[1].Replace('SQL_Server_Lab_Runtime_Smoke', ('PodmanPrivacyFixture_' + [guid]::NewGuid().ToString('N')))
+    Add-CheckResult -Name 'Podman owned-run cleanup remains a distinct final workflow block' -Success ($blocks[2] -match 'Complete-OwnedHostTestRoot\.ps1' -and $blocks[2] -match 'OWNED_TEST_CLEANUP_RECOVERY_REQUIRED')
     $commands = @([regex]::Matches($runtime, 'Tests\\Integration\\(?<name>Invoke-[\w-]+\.ps1)') | ForEach-Object { $_.Groups['name'].Value })
     $expected = @('Invoke-ContainerCliAcceptance.ps1', 'Invoke-SmokeMatrix.ps1', 'Invoke-ContainerCollationAcceptance.ps1', 'Invoke-RestoreSmokeTest.ps1', 'Invoke-PointInTimeRecoveryAcceptance.ps1', 'Invoke-SqlVersionUpgradeAcceptance.ps1', 'Invoke-BatchWorkflowSmokeTest.ps1', 'Invoke-ContainerToolAcceptance.ps1', 'Invoke-PersistentStorageRemovalExecutorAcceptance.ps1', 'Invoke-ContainerDatabasePackageExportAcceptance.ps1', 'Invoke-PortableContainerTransferPreflightAcceptance.ps1', 'Invoke-PortableContainerTransferAcceptance.ps1', 'Invoke-AiVectorCoreAcceptance.ps1', 'Invoke-AiPodmanSamplesReferenceAcceptance.ps1')
     Add-CheckResult -Name 'Podman gate retains every acceptance in order and both modes' -Success (($commands -join '|') -ceq ($expected -join '|') -and $workflow -match 'default: lifecycle' -and $workflow -match '\- cli-acceptance')
@@ -103,7 +105,10 @@ Write-Output 'SYNTHETIC_PRIVATE_HOST sentinel.invalid'
 [Console]::Error.WriteLine('SYNTHETIC_PRIVATE_SECRET fixture-value')
 Write-Host 'SYNTHETIC_PRIVATE_INFORMATION'
 Add-Content -LiteralPath $env:PRIVACY_FIXTURE_TRACE -Value ([IO.Path]::GetFileName($PSCommandPath))
-if (-not $env:PRIVACY_FIXTURE_STAGE -or [IO.Path]::GetFileName($PSCommandPath) -eq $env:PRIVACY_FIXTURE_STAGE) { exit ([int]$env:PRIVACY_FIXTURE_EXIT) }
+if (-not $env:PRIVACY_FIXTURE_STAGE -or [IO.Path]::GetFileName($PSCommandPath) -eq $env:PRIVACY_FIXTURE_STAGE) {
+    if ($env:PRIVACY_FIXTURE_SAFE_SUMMARY) { Write-Host $env:PRIVACY_FIXTURE_SAFE_SUMMARY }
+    exit ([int]$env:PRIVACY_FIXTURE_EXIT)
+}
 exit 0
 '@
     foreach ($command in $commands) { [IO.File]::WriteAllText((Join-Path $root "Tests/Integration/$command"), $fixture) }
@@ -124,6 +129,47 @@ function sqlcmd { & pwsh -NoLogo -NoProfile -File ./native-fixture.ps1; $global:
     Add-CheckResult -Name 'Unexpected native-preflight exception remains private' -Success ($result.ExitCode -ne 0 -and $result.Public -notmatch 'SYNTHETIC_PRIVATE' -and $result.Private -match 'SYNTHETIC_PRIVATE_EXCEPTION')
     $result = Invoke-WorkflowFixture -Script ("function pwsh { throw 'SYNTHETIC_PRIVATE_EXCEPTION' }`n" + $runtime.Replace('${{ inputs.mode }}', 'lifecycle')) -Name 'runtime-exception' -ExitCode 0
     Add-CheckResult -Name 'Unexpected runtime invocation exception remains private' -Success ($result.ExitCode -ne 0 -and $result.Public -match 'PODMAN_RUNTIME_FAILED' -and $result.Public -notmatch 'SYNTHETIC_PRIVATE' -and $result.Private -match 'SYNTHETIC_PRIVATE_EXCEPTION')
+    $aiSamplesStage = 'Invoke-AiPodmanSamplesReferenceAcceptance.ps1'
+    $safeFailureSummary = 'PRIMARY=FAILED; PRIMARY_REASON=SAMPLES_NEW_FAILED; CLEANUP=COMPLETED; CLEANUP_REASON=NONE'
+    $safeFailureScript = $runtime.Replace('${{ inputs.mode }}', 'lifecycle')
+    $result = Invoke-WorkflowFixture -Script $safeFailureScript -Name 'ai-samples-safe-failure-code' -ExitCode 23 -FailureStage $aiSamplesStage -SafeSummary $safeFailureSummary
+    Add-CheckResult -Name 'AI sample failure emits only allowlisted result codes while raw streams remain private' -Success (
+        $result.ExitCode -ne 0 -and $result.Public -match 'PODMAN_AI_SAMPLES_FAILURE_CODE=PRIMARY/FAILED/SAMPLES_NEW_FAILED;CLEANUP/COMPLETED/NONE' -and
+        $result.Public -notmatch 'SYNTHETIC_PRIVATE|PRIMARY_REASON|SAMPLES_NEW_FAILED.*fixture-value' -and
+        $result.Private -match 'SYNTHETIC_PRIVATE_SECRET' -and $result.Trace[-1] -ceq $aiSamplesStage)
+    $result = Invoke-WorkflowFixture -Script $safeFailureScript -Name 'ai-samples-missing-result-code' -ExitCode 23 -FailureStage $aiSamplesStage
+    Add-CheckResult -Name 'Missing AI sample result remains a generic failed gate' -Success (
+        $result.ExitCode -ne 0 -and $result.Public -match 'PODMAN_AI_SAMPLES_FAILURE_CODE=UNAVAILABLE' -and
+        $result.Public -notmatch 'SYNTHETIC_PRIVATE|PRIMARY_REASON' -and $result.Private -match 'SYNTHETIC_PRIVATE_SECRET')
+    $secretSummary = 'PRIMARY=FAILED; PRIMARY_REASON=SAMPLES_NEW_FAILED_SECRET; CLEANUP=COMPLETED; CLEANUP_REASON=NONE'
+    $result = Invoke-WorkflowFixture -Script $safeFailureScript -Name 'ai-samples-secret-suffix-rejected' -ExitCode 23 -FailureStage $aiSamplesStage -SafeSummary $secretSummary
+    Add-CheckResult -Name 'Unknown or secret-suffixed AI sample codes are never emitted' -Success (
+        $result.ExitCode -ne 0 -and $result.Public -match 'PODMAN_AI_SAMPLES_FAILURE_CODE=UNAVAILABLE' -and
+        $result.Public -notmatch 'SYNTHETIC_PRIVATE|SAMPLES_NEW_FAILED_SECRET' -and $result.Private -match 'SYNTHETIC_PRIVATE_SECRET')
+    $duplicateSummary = $safeFailureSummary + "`n" + $safeFailureSummary
+    $result = Invoke-WorkflowFixture -Script $safeFailureScript -Name 'ai-samples-duplicate-result-rejected' -ExitCode 23 -FailureStage $aiSamplesStage -SafeSummary $duplicateSummary
+    Add-CheckResult -Name 'Duplicate AI sample result records are rejected as an array-spoof attempt' -Success (
+        $result.ExitCode -ne 0 -and $result.Public -match 'PODMAN_AI_SAMPLES_FAILURE_CODE=UNAVAILABLE' -and
+        $result.Public -notmatch 'SYNTHETIC_PRIVATE|SAMPLES_NEW_FAILED' -and $result.Private -match 'SYNTHETIC_PRIVATE_SECRET')
+    $cleanupFailureSummary = 'PRIMARY=COMPLETED; PRIMARY_REASON=NONE; CLEANUP=FAILED; CLEANUP_REASON=SUPERVISOR_FAILED'
+    $result = Invoke-WorkflowFixture -Script $safeFailureScript -Name 'ai-samples-cleanup-failure-code' -ExitCode 23 -FailureStage $aiSamplesStage -SafeSummary $cleanupFailureSummary
+    Add-CheckResult -Name 'Cleanup failure exposes only its allowlisted cleanup code and remains failed' -Success (
+        $result.ExitCode -ne 0 -and $result.Public -match 'PODMAN_AI_SAMPLES_FAILURE_CODE=PRIMARY/COMPLETED/NONE;CLEANUP/FAILED/SUPERVISOR_FAILED' -and
+        $result.Public -notmatch 'SYNTHETIC_PRIVATE|PRIMARY_REASON' -and $result.Private -match 'SYNTHETIC_PRIVATE_SECRET')
+    $workerStageSummary = 'PRIMARY=FAILED; PRIMARY_REASON=AI_PODMAN_SAMPLES_WORKER_FAILED_AT_LAB_CREATE; CLEANUP=COMPLETED; CLEANUP_REASON=NONE'
+    $result = Invoke-WorkflowFixture -Script $safeFailureScript -Name 'ai-samples-worker-stage-code' -ExitCode 23 -FailureStage $aiSamplesStage -SafeSummary $workerStageSummary
+    Add-CheckResult -Name 'Allowlisted worker stage diagnosis is emitted without private details' -Success (
+        $result.ExitCode -ne 0 -and $result.Public -match 'PODMAN_AI_SAMPLES_FAILURE_CODE=PRIMARY/FAILED/AI_PODMAN_SAMPLES_WORKER_FAILED_AT_LAB_CREATE;CLEANUP/COMPLETED/NONE' -and
+        $result.Public -notmatch 'SYNTHETIC_PRIVATE|PRIMARY_REASON' -and $result.Private -match 'SYNTHETIC_PRIVATE_SECRET')
+    $postAcceptanceFailureScript = $safeFailureScript.Replace(
+        '"validated_capabilities=$completedCapabilities" | Out-File -LiteralPath $env:GITHUB_OUTPUT -Encoding utf8 -Append',
+        "throw 'SYNTHETIC_PRIVATE_POST_ACCEPTANCE_FAILURE'")
+    $successfulSummary = 'PRIMARY=COMPLETED; PRIMARY_REASON=NONE; CLEANUP=COMPLETED; CLEANUP_REASON=NONE'
+    $result = Invoke-WorkflowFixture -Script $postAcceptanceFailureScript -Name 'post-ai-samples-output-failure' -ExitCode 0 -FailureStage $aiSamplesStage -SafeSummary $successfulSummary
+    Add-CheckResult -Name 'A later workflow output failure is not mislabeled as an AI sample failure' -Success (
+        $result.ExitCode -ne 0 -and $result.Public -match 'PODMAN_RUNTIME_FAILED' -and
+        $result.Public -notmatch 'PODMAN_AI_SAMPLES_FAILURE_CODE|SYNTHETIC_PRIVATE' -and
+        $result.Private -match 'SYNTHETIC_PRIVATE_POST_ACCEPTANCE_FAILURE')
     foreach ($mode in @('lifecycle', 'cli-acceptance')) {
         $script = $runtime.Replace('${{ inputs.mode }}', $mode)
         $result = Invoke-WorkflowFixture -Script $script -Name "$mode-success" -ExitCode 0

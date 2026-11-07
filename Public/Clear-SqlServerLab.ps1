@@ -41,9 +41,16 @@ function Clear-SqlServerLab {
         elseif ($ContainersOnly) { 'Alle regulären Lab-Container löschen' }
         else { 'Alle regulären Lab-Umgebungen löschen' }
     Write-LabHeader $operationTitle
-    $auditBefore = Get-SqlServerLabCleanupAudit
-
     $stateRoot = Get-LabStateRoot
+
+    $__environmentGroupsLock = Enter-LabEnvironmentGroupsLock -StateRoot $stateRoot
+    try {
+        $auditBefore = Get-SqlServerLabCleanupAudit
+        $__environmentGroupsRegistry = Get-LabEnvironmentGroupsRegistry -StateRoot $stateRoot
+        $__groupMemberRunIds = @($__environmentGroupsRegistry.groups | ForEach-Object { $_.members } | ForEach-Object { [string]$_.runId } | Sort-Object -Unique)
+        if ($__groupMemberRunIds.Count -gt 0) { throw 'LAB_ENVIRONMENT_GROUPS_REFERENCED: Gruppenmitglieder vor Clear aus allen Gruppen lösen.' }
+        $__activeGroupClaims = @($__environmentGroupsRegistry.groups | Where-Object { [string]$_.lifecycleState -in @('STARTING','ACTIVE','STOPPING','RECOVERY_REQUIRED') })
+        if ($__activeGroupClaims.Count -gt 0) { throw 'LAB_ENVIRONMENT_GROUPS_ACTIVE: Clear ist gesperrt, solange Gruppen Runs beanspruchen.' }
     $activeRuns = @(Get-LabActiveRuns -StateRoot $stateRoot)
     $protectedTestRunIds = @(Get-LabAutomatedTestEnvironmentRunIds)
     $cleanupRuns = @($activeRuns | Where-Object { [string]$_.runId -notin $protectedTestRunIds })
@@ -389,4 +396,6 @@ function Clear-SqlServerLab {
         AuditBefore = $auditBefore
         AuditAfter = $auditAfter
     }
+
+    } finally { Exit-LabEnvironmentGroupsLock -Mutex $__environmentGroupsLock }
 }

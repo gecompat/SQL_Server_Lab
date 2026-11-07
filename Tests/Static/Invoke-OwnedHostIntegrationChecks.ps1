@@ -273,6 +273,12 @@ $module = New-Module -ArgumentList $repoRoot,$fixtureRoot -ScriptBlock {
         . (Join-Path $Repository 'Private/Common.ps1')
         . (Join-Path $Repository 'Private/ResourceAssessment.ps1')
         . (Join-Path $Repository 'Private/ResourceAssessmentDecision.ps1')
+        function Enter-LabEnvironmentGroupsLock { param($StateRoot) return $null }
+        function Exit-LabEnvironmentGroupsLock { param($Mutex) }
+        function Enter-LabEnvironmentGroupRunResourceLock { param($RunId,$StateRoot) [pscustomobject]@{Mutexes=@()} }
+        function Exit-LabEnvironmentGroupRunResourceLock { param($Mutex) }
+        function Get-LabEnvironmentGroupsRegistry { param($StateRoot) [pscustomobject]@{groups=@()} }
+        function Assert-LabEnvironmentGroupRunMutation { param($RunId,$Action,$Registry,$GroupOperationContext) }
         . (Join-Path $Repository 'Public/Restart-SqlServerLab.ps1')
         $script:SchemasPath=Join-Path $Repository 'Schemas'
         $script:calls=[Collections.Generic.List[object]]::new()

@@ -1,6 +1,12 @@
 # Actual helper/Stop/Reconcile composition; all effects are isolated synthetic spies.
 & {
     . "$root/Private/StoppedHostMemory.ps1"
+    function Enter-LabEnvironmentGroupsLock { param($StateRoot) return $null }
+    function Exit-LabEnvironmentGroupsLock { param($Mutex) }
+    function Enter-LabEnvironmentGroupRunResourceLock { param($RunId,$StateRoot) [pscustomobject]@{Mutexes=@()} }
+    function Exit-LabEnvironmentGroupRunResourceLock { param($Mutex) }
+    function Get-LabEnvironmentGroupsRegistry { param($StateRoot) [pscustomobject]@{groups=@()} }
+    function Assert-LabEnvironmentGroupRunMutation { param($RunId,$Action,$Registry,$GroupOperationContext) }
     . "$root/Public/Stop-SqlServerLab.ps1"
     . "$root/Public/Invoke-SqlServerLabReconcileAction.ps1"
     $script:hostReads=0;$script:backendCalls=0;$script:providerCalls=0

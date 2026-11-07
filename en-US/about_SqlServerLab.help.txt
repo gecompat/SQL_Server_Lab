@@ -493,6 +493,29 @@ Sync-SqlServerLabRunScopedContainerStore
         Creates one or more Linux SQL test environments with separate random
         passwords and refreshes the test environment contract.
 
+    New-SqlServerLabEnvironmentGroup
+        Creates an empty group for independently created lab runs.
+
+    Get-SqlServerLabEnvironmentGroup
+        Reads groups and reports run bindings as CURRENT or STALE.
+
+    Add-SqlServerLabEnvironmentGroupMember
+        Assigns an existing run to one or more groups; it does not start the run.
+
+    Remove-SqlServerLabEnvironmentGroupMember
+        Removes a run association without changing the runtime or run.
+
+    Remove-SqlServerLabEnvironmentGroup
+        Removes a group and its associations without stopping or deleting runs.
+
+    Start-SqlServerLabEnvironmentGroup
+        Starts bound runs serially; partial failures retain the claim in
+        RECOVERY_REQUIRED and are never blindly retried.
+
+    Stop-SqlServerLabEnvironmentGroup
+        Stops only exclusively claimed runs. Shared members remain active while
+        another active group needs them.
+
     Update-SqlServerLabTlsBinding
         Strictly qualifies an owned policy-bound Docker/Podman TLS run after
         restart and rebinds only its new start epoch; no certificate renewal.

@@ -258,6 +258,7 @@ end {
         @{ Pattern = '(?i)(ArchiveProgress|SampleArtifact|sample-databases)'; Checks = @('Invoke-ArchiveProgressChecks.ps1','Invoke-SampleHandlerChecks.ps1','Invoke-SampleBaselineRegistryChecks.ps1','Invoke-SampleBaselineRuntimeChecks.ps1') },
         @{ Pattern = '(?i)(ProjectAdapter|Adapters/|project-adapter)'; Checks = @('Invoke-ProjectAdapterChecks.ps1') },
         @{ Pattern = '(?i)(MixedProvider|ProviderSubRun|StateMachine)'; Checks = @('Invoke-MixedProviderLifecycleChecks.ps1') },
+        @{ Pattern = '(?i)(EnvironmentGroups|environment-groups|SqlServerLabEnvironmentGroup)'; Checks = @('Invoke-EnvironmentGroupLifecycleChecks.ps1') },
         @{ Pattern = '(?i)(HyperVProvider|Providers/HyperV)'; Checks = @('Invoke-HyperVProviderChecks.ps1','Invoke-LabNetworkChecks.ps1') },
         @{ Pattern = '(?i)(JobProgress|HyperVGuestProgress|HyperVProvider|HyperVLabEnvironment|ExternalRuntimeWindows)'; Checks = @('Invoke-JobProgressChecks.ps1','Invoke-HyperVGuestProgressChecks.ps1') },
         @{ Pattern = '(?i)(HyperVSqlOwnershipInitialization|HyperVLabEnvironment|HyperVSqlConfigurationReconcile)'; Checks = @('Invoke-HyperVSqlOwnershipInitializationChecks.ps1') },
