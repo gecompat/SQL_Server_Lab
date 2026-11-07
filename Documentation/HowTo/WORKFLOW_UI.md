@@ -96,11 +96,25 @@ Andere Erstellungsoptionen benötigen eigene Nachweise.
 ## Vorhandene Umgebungen gemeinsam verwalten
 
 Unter **Lab-Umgebungen > Lab-Umgebungsgruppen ansehen** können Sie die
-gespeicherten Gruppen, ihre Run-IDs und Instanznamen read-only anzeigen. Die
-Ansicht liest nur die Registry des konfigurierten State-Roots. Der gespeicherte
+gespeicherten Gruppen, ihre Run-IDs und Instanznamen anzeigen. Die Ansicht liest
+nur die Registry des konfigurierten State-Roots. Der gespeicherte
 Lifecycle-Status bestätigt weder den aktuellen Providerzustand noch SQL-
-Bereitschaft. Die Anzeige nimmt keine Änderungen vor; Gruppenänderungen und
-Runtime-Abgleich bleiben separate Schritte.
+Bereitschaft. Scope-IDs und Verbindungs-Hashes werden nicht angezeigt.
+
+Bei einer gestoppten Gruppe startet **Gruppe starten** ihre Mitglieder über
+den bestehenden öffentlichen Befehl. Neu gestartete Runs durchlaufen danach
+die SQL-Bereitschaftsprüfung; bereits laufende Runs bleiben unverändert. Eine
+aktive oder wiederherzustellende Gruppe kann mit **Gruppe stoppen** gestoppt
+werden. Runs, die eine andere aktive Gruppe benötigt, bleiben dabei aktiv.
+Beide Aktionen zeigen vor dem Versand eine Bestätigung und erzeugen einen
+normalen UI-Auftrag. Bei einem unbestätigten Ergebnis prüfen Sie zuerst den
+Auftragsstatus und lesen danach die Gruppe erneut. Wiederholen Sie Start oder
+Stop nicht blind.
+
+Die Browseransicht ändert keine Mitgliedschaften. Zum Anlegen von Gruppen,
+Zuordnen oder Lösen vorhandener Runs verwenden Sie weiterhin **Lab-Umgebungen
+> Umgebung auswählen und verwalten > Lab-Umgebungsgruppen verwalten** in der
+PowerShell-Konsole. Der Browser führt auch keinen Reconcile aus.
 
 Öffnen Sie **Lab-Umgebungen > Umgebung auswählen und verwalten >
 Lab-Umgebungsgruppen verwalten**. Erstellen Sie eine leere Gruppe, wählen Sie
@@ -113,7 +127,8 @@ Zuordnungen und stoppt oder entfernt keine Runs.
 
 Der Gruppenstart startet gestoppte Mitglieder und prüft danach deren SQL-
 Bereitschaft. Bereits laufende Mitglieder bleiben unverändert und werden dabei
-nicht erneut auf SQL-Bereitschaft geprüft.
+nicht erneut auf SQL-Bereitschaft geprüft. Der gespeicherte Gruppenstatus
+bleibt eine Registry-Aussage und kein aktueller Runtime- oder SQL-Nachweis.
 Die Gruppe richtet weder ein gemeinsames Providernetz noch einen SQL-Linked-
 Server ein. Für einen Containerfall müssen die Umgebungen daher vorher separat
 erstellt und bei Bedarf mit demselben expliziten `NetworkName` an ein bereits

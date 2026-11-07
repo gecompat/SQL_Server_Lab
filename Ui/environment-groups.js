@@ -48,6 +48,22 @@
     return node;
   }
 
+  function addLifecycleAction(parent, label, action, group, className) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = className || 'button secondary';
+    button.textContent = label;
+    button.addEventListener('click', () => {
+      requestGeneration++;
+      dialog.close();
+      window.dispatchEvent(new CustomEvent('sqlserverlab:environment-group-lifecycle-request', {
+        detail: { action, groupId: group.groupId, groupName: group.name }
+      }));
+    });
+    parent.appendChild(button);
+    return button;
+  }
+
   function render(view) {
     list.replaceChildren();
     if (view.groups.length === 0) {
@@ -66,6 +82,22 @@
         const members = document.createElement('ul');
         for (const member of group.members) addText(members, 'li', member.runId + ' · Instanzen: ' + member.instanceIds.join(', '));
         card.appendChild(members);
+      }
+      if (group.operation?.state === 'IN_PROGRESS') {
+        addText(card, 'p', 'Ein Gruppenvorgang ist laut gespeichertem Status noch in Bearbeitung. Lies den Status erneut, bevor du eine weitere Aktion startest.', 'form-note');
+      } else if (group.lifecycleState === 'STOPPED') {
+        const actions = document.createElement('div');
+        actions.className = 'dialog-actions';
+        const start = addLifecycleAction(actions, 'Gruppe starten', 'Start', group);
+        start.disabled = group.members.length === 0;
+        if (start.disabled) addText(card, 'p', 'Zum Starten muss die Gruppe mindestens einen Run enthalten.', 'form-note');
+        card.appendChild(actions);
+      } else {
+        const actions = document.createElement('div');
+        actions.className = 'dialog-actions';
+        const label = group.lifecycleState === 'RECOVERY_REQUIRED' ? 'Wiederherstellen und stoppen' : 'Gruppe stoppen';
+        addLifecycleAction(actions, label, 'Stop', group, 'button danger');
+        card.appendChild(actions);
       }
       list.appendChild(card);
     }
