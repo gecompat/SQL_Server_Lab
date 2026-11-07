@@ -2,7 +2,7 @@ function Get-UiEnvironmentGroupsView {
     [CmdletBinding()]
     param()
 
-    $groups = @(Get-SqlServerLabEnvironmentGroup)
+    $groups = @(Get-SqlServerLabEnvironmentGroup -IncludeBindingStatus)
     $projectedGroups = @(
         foreach ($group in $groups) {
             $operation = $null
@@ -26,6 +26,7 @@ function Get-UiEnvironmentGroupsView {
                             runId = [string]$member.runId
                             instanceIds = @($member.instanceIds | ForEach-Object { [string]$_ })
                             assignedAt = [string]$member.assignedAt
+                            bindingStatus = [string]$member.bindingStatus
                         }
                     }
                 )
@@ -34,7 +35,7 @@ function Get-UiEnvironmentGroupsView {
     )
 
     [ordered]@{
-        contractVersion = 'SqlServerLab.EnvironmentGroups.BrowserView/1.0'
+        contractVersion = 'SqlServerLab.EnvironmentGroups.BrowserView/1.1'
         groups = $projectedGroups
     }
 }

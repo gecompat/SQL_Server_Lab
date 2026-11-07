@@ -16,6 +16,7 @@
   const lifecycleStates = new Set(['STOPPED', 'STARTING', 'ACTIVE', 'STOPPING', 'RECOVERY_REQUIRED']);
   const operationStates = new Set(['IN_PROGRESS', 'COMPLETED', 'RECOVERY_REQUIRED']);
   const operationActions = new Set(['Start', 'Stop']);
+  const bindingStatuses = new Set(['CURRENT', 'STALE']);
   const hasOnlyKeys = (value, expected) => {
     const keys = Object.keys(value);
     return keys.length === expected.length && expected.every((key) => Object.prototype.hasOwnProperty.call(value, key));
@@ -24,16 +25,17 @@
   function validView(value) {
     return value && typeof value === 'object' && !Array.isArray(value) &&
       hasOnlyKeys(value, ['contractVersion', 'groups']) &&
-      value.contractVersion === 'SqlServerLab.EnvironmentGroups.BrowserView/1.0' && Array.isArray(value.groups) &&
+      value.contractVersion === 'SqlServerLab.EnvironmentGroups.BrowserView/1.1' && Array.isArray(value.groups) &&
       value.groups.every((group) => group && typeof group === 'object' && !Array.isArray(group) &&
         hasOnlyKeys(group, ['groupId', 'name', 'createdAt', 'lifecycleState', 'operation', 'members']) &&
         isGuid(group.groupId) && typeof group.name === 'string' && group.name.length > 0 && group.name.length <= 80 &&
         typeof group.createdAt === 'string' && lifecycleStates.has(group.lifecycleState) && Array.isArray(group.members) &&
         group.members.every((member) => member && typeof member === 'object' && !Array.isArray(member) &&
-          hasOnlyKeys(member, ['runId', 'instanceIds', 'assignedAt']) &&
+          hasOnlyKeys(member, ['runId', 'instanceIds', 'assignedAt', 'bindingStatus']) &&
           isGuid(member.runId) && Array.isArray(member.instanceIds) && member.instanceIds.length > 0 &&
           member.instanceIds.every((id) => typeof id === 'string' && /^[A-Za-z][A-Za-z0-9_-]{0,63}$/.test(id)) &&
-          new Set(member.instanceIds).size === member.instanceIds.length && typeof member.assignedAt === 'string') &&
+          new Set(member.instanceIds).size === member.instanceIds.length && typeof member.assignedAt === 'string' &&
+          bindingStatuses.has(member.bindingStatus)) &&
         (group.operation === null || (group.operation && typeof group.operation === 'object' && !Array.isArray(group.operation) &&
           hasOnlyKeys(group.operation, ['action', 'state', 'startedAt', 'updatedAt']) &&
           operationActions.has(group.operation.action) && operationStates.has(group.operation.state) &&
@@ -149,7 +151,8 @@
         const members = document.createElement('ul');
         for (const member of group.members) {
           const row = document.createElement('li');
-          addText(row, 'span', member.runId + ' · Instanzen: ' + member.instanceIds.join(', '));
+          const bindingLabel = member.bindingStatus === 'CURRENT' ? 'Bindung aktuell' : 'Bindung veraltet oder nicht lesbar';
+          addText(row, 'span', member.runId + ' · Instanzen: ' + member.instanceIds.join(', ') + ' · ' + bindingLabel);
           if (group.lifecycleState === 'STOPPED' && group.operation?.state !== 'IN_PROGRESS') {
             addGroupCommandAction(row, 'Zuordnung lösen', 'RemoveMember', group, 'button secondary', member.runId);
           }

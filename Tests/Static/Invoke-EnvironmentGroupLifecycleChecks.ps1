@@ -97,6 +97,17 @@ try {
         $groupB=(New-SqlServerLabEnvironmentGroup -Name 'Shared B' -StateRoot $root).Group
         $null=Add-SqlServerLabEnvironmentGroupMember -GroupId $groupA.groupId -RunId $runId -StateRoot $root
         $null=Add-SqlServerLabEnvironmentGroupMember -GroupId $groupB.groupId -RunId $runId -StateRoot $root
+        $defaultGroupList=@(Get-SqlServerLabEnvironmentGroup -StateRoot $root)
+        $defaultListHasBindingStatus=$defaultGroupList[0].members[0].PSObject.Properties['bindingStatus'] -ne $null
+        $bindingGroupList=@(Get-SqlServerLabEnvironmentGroup -IncludeBindingStatus -StateRoot $root)
+        $sharedBindingStatuses=@($bindingGroupList | Where-Object { [string]$_.groupId -in @([string]$groupA.groupId,[string]$groupB.groupId) } | ForEach-Object { [string]$_.members[0].bindingStatus })
+        $connectionPath=Join-Path $runDirectory 'connection-info.json'
+        $originalConnectionBytes=[IO.File]::ReadAllBytes($connectionPath)
+        $driftedConnection=[Text.UTF8Encoding]::new($false).GetString($originalConnectionBytes).Replace('fixture-container','fixture-container-drift')
+        [IO.File]::WriteAllText($connectionPath,$driftedConnection,[Text.UTF8Encoding]::new($false))
+        $staleBindingGroupList=@(Get-SqlServerLabEnvironmentGroup -IncludeBindingStatus -StateRoot $root)
+        $staleSharedBindingStatuses=@($staleBindingGroupList | Where-Object { [string]$_.groupId -in @([string]$groupA.groupId,[string]$groupB.groupId) } | ForEach-Object { [string]$_.members[0].bindingStatus })
+        [IO.File]::WriteAllBytes($connectionPath,$originalConnectionBytes)
         $script:groupLockProbeEnabled=$true
         $script:groupConcurrentGroupName='Concurrent Registry Update'
         $startA=Start-SqlServerLabEnvironmentGroup -GroupId $groupA.groupId -StateRoot $root
@@ -185,12 +196,17 @@ try {
         $lockScopeRemove=Remove-SqlServerLab -RunId $removeRunId -StateRoot $root -Force -Confirm:$false
         $lockScopeRemoveReleased=(-not $script:groupRegistryLockHeld -and -not $script:groupRunLockHeld)
 
-        [PSCustomObject]@{RunId=$runId;GroupA=$groupA;GroupB=$groupB;StartA=$startA;StartB=$startB;ActiveNoOp=$activeNoOp;ActiveNoOpRegistryLockObserved=$script:groupActiveNoOpRegistryLockObserved;ActiveNoOpRunLockObserved=$script:groupActiveNoOpRunLockObserved;StopA=$stopA;StopB=$stopB;StateAfterA=$stateAfterA;StateAfterB=$stateAfterB;ClaimsAfterRetain=$claimsAfterRetain;RemoveAfterStop=$removeAfterStop;GroupAfterRemove=$groupAfterRemove;AddAfterStop=$addAfterStop;GroupAfterAdd=$groupAfterAdd;GroupCountAfterConcurrentWrite=$groupCountAfterConcurrentWrite;GroupLockScopeObserved=$script:groupStartLockScopeObserved;GroupStopLockScopeObserved=$script:groupStopLockScopeObserved;FailedStartObserved=$failedStartObserved;FailedGroupState=$failedGroup.lifecycleState;FailedGroupOperationState=$failedGroup.operation.state;FailedMemberState=@($failedGroup.operation.members|Where-Object{[string]$_.runId -ieq $failedRunId}|Select-Object -ExpandProperty status);FailedClaimCount=$failedClaims.Count;FailedClaimBlocked=$failedClaimBlocked;LockScopeStart=$lockScopeStart;LockScopeObserved=$script:groupLockScopeObserved;LockScopeStartReleased=$lockScopeStartReleased;LockScopeStop=$lockScopeStop;StopLockScopeObserved=$script:groupStopLockScopeObserved;LockScopeStopReleased=$lockScopeStopReleased;LockScopeRemove=$lockScopeRemove;RemoveLockScopeObserved=$script:groupRemoveLockScopeObserved;LockScopeRemoveReleased=$lockScopeRemoveReleased;RegistryLockWaitsBoundedly=$registryLockWaitsBoundedly}
+        [PSCustomObject]@{RunId=$runId;GroupA=$groupA;GroupB=$groupB;DefaultListHasBindingStatus=$defaultListHasBindingStatus;SharedBindingStatuses=$sharedBindingStatuses;StaleSharedBindingStatuses=$staleSharedBindingStatuses;StartA=$startA;StartB=$startB;ActiveNoOp=$activeNoOp;ActiveNoOpRegistryLockObserved=$script:groupActiveNoOpRegistryLockObserved;ActiveNoOpRunLockObserved=$script:groupActiveNoOpRunLockObserved;StopA=$stopA;StopB=$stopB;StateAfterA=$stateAfterA;StateAfterB=$stateAfterB;ClaimsAfterRetain=$claimsAfterRetain;RemoveAfterStop=$removeAfterStop;GroupAfterRemove=$groupAfterRemove;AddAfterStop=$addAfterStop;GroupAfterAdd=$groupAfterAdd;GroupCountAfterConcurrentWrite=$groupCountAfterConcurrentWrite;GroupLockScopeObserved=$script:groupStartLockScopeObserved;GroupStopLockScopeObserved=$script:groupStopLockScopeObserved;FailedStartObserved=$failedStartObserved;FailedGroupState=$failedGroup.lifecycleState;FailedGroupOperationState=$failedGroup.operation.state;FailedMemberState=@($failedGroup.operation.members|Where-Object{[string]$_.runId -ieq $failedRunId}|Select-Object -ExpandProperty status);FailedClaimCount=$failedClaims.Count;FailedClaimBlocked=$failedClaimBlocked;LockScopeStart=$lockScopeStart;LockScopeObserved=$script:groupLockScopeObserved;LockScopeStartReleased=$lockScopeStartReleased;LockScopeStop=$lockScopeStop;StopLockScopeObserved=$script:groupStopLockScopeObserved;LockScopeStopReleased=$lockScopeStopReleased;LockScopeRemove=$lockScopeRemove;RemoveLockScopeObserved=$script:groupRemoveLockScopeObserved;LockScopeRemoveReleased=$lockScopeRemoveReleased;RegistryLockWaitsBoundedly=$registryLockWaitsBoundedly}
     } $stateRoot $repoRoot
 
     Add-CheckResult -Name 'Ein Run kann in zwei Gruppen gebunden werden und nur einmal starten' -Success (
         $result.StartA.Status -eq 'STARTED' -and $result.StartB.Status -eq 'STARTED' -and
         @($result.StartB.Members | Where-Object { $_.status -eq 'UNCHANGED' }).Count -eq 1)
+    Add-CheckResult -Name 'Optionale Bindungsprüfung listet aktuelle gemeinsame Run-Bindungen ohne Änderung des Standard-Listverhaltens' -Success (
+        -not $result.DefaultListHasBindingStatus -and @($result.SharedBindingStatuses).Count -eq 2 -and
+        @($result.SharedBindingStatuses | Where-Object { $_ -ne 'CURRENT' }).Count -eq 0)
+    Add-CheckResult -Name 'Optionale Bindungsprüfung kennzeichnet geänderte Connection-Info-Metadaten als STALE' -Success (
+        @($result.StaleSharedBindingStatuses).Count -eq 2 -and @($result.StaleSharedBindingStatuses | Where-Object { $_ -ne 'STALE' }).Count -eq 0)
     Add-CheckResult -Name 'Gruppen-Stop behält ein gemeinsam beanspruchtes Mitglied aktiv' -Success (
         $result.StopA.Status -eq 'STOPPED' -and $result.StateAfterA -eq 'RUNNING' -and
         @($result.StopA.Members | Where-Object { $_.status -eq 'RETAINED_SHARED' }).Count -eq 1)
