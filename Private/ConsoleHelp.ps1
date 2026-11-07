@@ -316,7 +316,43 @@ function Get-LabConsoleHelpCatalog {
             Preconditions = @($stateRootPrecondition)
             Items   = @{
                 'HyperVManage' = @{ Purpose = 'Wählt eine vorhandene Hyper-V-Umgebung für Windows-, SQL-, Lifecycle-, Zugriffs- und Recovery-Aktionen aus.'; Command = 'Get-SqlServerLab / Invoke-SqlServerLabWorkflowAction' }
+                'EnvironmentGroups' = @{ Purpose = 'Öffnet die Verwaltung wiederverwendbarer Gruppen aus vorhandenen Runs.'; Effects = 'Erstellt keine Umgebung und ändert keinen Run, bevor eine Gruppenaktion ausgewählt und bestätigt wird.'; Command = 'Get-SqlServerLabEnvironmentGroup' }
             }
+        }
+        'environment-groups' = @{
+            Title = 'Lab-Umgebungsgruppen'
+            Purpose = 'Zeigt Gruppen im konfigurierten State-Root oder erstellt eine neue leere Gruppe.'
+            Effects = 'Lesen ändert nichts. Erstellen speichert nur die Gruppe und startet oder erstellt keine Runs; die API fordert ihre ShouldProcess-Bestätigung an.'
+            Command = 'Get-SqlServerLabEnvironmentGroup / New-SqlServerLabEnvironmentGroup'
+            Preconditions = @($stateRootPrecondition)
+        }
+        'environment-group-actions' = @{
+            Title = 'Aktionen für eine Lab-Umgebungsgruppe'
+            Purpose = 'Verknüpft vorhandene SQL-Runs und steuert Start, Stop und Zuordnungen innerhalb des Gruppen-Lifecycle-Vertrags.'
+            Effects = 'Jede Mutation verwendet die API-Bestätigung. Gemeinsame Runs bleiben für weitere aktive Gruppen erhalten; Gruppenentfernung stoppt oder entfernt keine Runs.'
+            Command = 'Start-SqlServerLabEnvironmentGroup / Stop-SqlServerLabEnvironmentGroup / Remove-SqlServerLabEnvironmentGroup'
+            Preconditions = @($stateRootPrecondition)
+            Items = @{
+                'add' = @{ Purpose = 'Ordnet RUNNING- oder STOPPED-Runs der gestoppten Gruppe zu; derselbe Run darf in weiteren Gruppen vorkommen.'; Effects = 'Revalidiert Run, Scope und Connection-Info-Bindung; geschützte Runs werden abgelehnt.'; Command = 'Add-SqlServerLabEnvironmentGroupMember' }
+                'start' = @{ Purpose = 'Startet gestoppte Gruppenmitglieder seriell und prüft danach deren SQL-Bereitschaft.'; Effects = 'Bereits laufende Mitglieder bleiben unverändert; für sie erfolgt keine erneute SQL-Bereitschaftsprüfung. Teilfehler verbleiben in RECOVERY_REQUIRED.'; Command = 'Start-SqlServerLabEnvironmentGroup' }
+                'stop' = @{ Purpose = 'Stoppt den Gruppen-Lifecycle und gibt nur nicht mehr gemeinsam beanspruchte Runs frei.'; Effects = 'Laufende Runs anderer aktiver Gruppen bleiben erhalten.'; Command = 'Stop-SqlServerLabEnvironmentGroup' }
+                'detach' = @{ Purpose = 'Löst ausgewählte Referenzen aus der gestoppten Gruppe.'; Effects = 'Stoppt oder entfernt den Run nicht.'; Command = 'Remove-SqlServerLabEnvironmentGroupMember' }
+                'remove' = @{ Purpose = 'Entfernt die gestoppte Gruppe und ihre Zuordnungen.'; Effects = 'Runs werden weder gestoppt noch entfernt.'; Command = 'Remove-SqlServerLabEnvironmentGroup' }
+            }
+        }
+        'environment-group-add-runs' = @{
+            Title = 'Vorhandene Runs zuordnen'
+            Purpose = 'Wählt RUNNING- oder STOPPED-Runs aus, die noch nicht in dieser Gruppe sind.'
+            Effects = 'Auswahl und Abbruch ändern nichts. Andere Gruppenzuordnungen bleiben zulässig; die bestätigte API-Prüfung bindet den Run vor dem Schreiben erneut.'
+            Command = 'Add-SqlServerLabEnvironmentGroupMember'
+            Preconditions = @($stateRootPrecondition)
+        }
+        'environment-group-detach-members' = @{
+            Title = 'Run-Zuordnungen lösen'
+            Purpose = 'Wählt Mitglieder der gestoppten Gruppe aus, deren Referenz gelöst werden soll.'
+            Effects = 'Auswahl und Abbruch ändern nichts. Die API-Bestätigung löst nur die ausgewählten Zuordnungen; Runs bleiben unverändert.'
+            Command = 'Remove-SqlServerLabEnvironmentGroupMember'
+            Preconditions = @($stateRootPrecondition)
         }
         'environment-actions' = @{
             Title   = 'Aktionen fuer die gewaehlte Umgebung'

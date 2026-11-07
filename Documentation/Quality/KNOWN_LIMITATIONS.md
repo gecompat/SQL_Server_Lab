@@ -4347,7 +4347,9 @@ zugeordnet werden; Gruppenentfernung stoppt oder entfernt keine Umgebung.
 Gruppenstart/-stop, persistente Nachfrage, gemeinsamer Mutex, Schutz vor
 direktem Stoppen/Restart/Remove/Clear beanspruchter Runs und fail-closed
 Partial-Recovery sind durch fokussierte und betroffene statische Vertragschecks
-validiert. Eine native Runtime-Abnahme für Gruppenmitglieder wurde noch nicht
-ausgeführt. CLI-Menü/Browser-Bedienung und Linked-Server-Topologie-/SQL-
-Konfiguration sind nicht implementiert. Ein Gruppenstart ist daher noch kein
+validiert. Die geführte PowerShell-CLI kann Gruppen verwalten; Browserbedienung
+bleibt offen. Eine begrenzte native Docker-/Podman-Abnahme belegt den
+SQL-2025-CU9-Linked-Server-Fall mit geteiltem Run und eigenem Cleanup. Weitere
+SQL-Versionen, Hyper-V, automatische Netzwerktopologie und das Einrichten eines
+SQL-Linked-Servers bleiben offen. Gruppenverwaltung allein ist daher kein
 qualifiziertes Linked-Server-Lab.

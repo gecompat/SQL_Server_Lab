@@ -93,6 +93,27 @@ ergänzt für alle drei SQL-Profile und beide Provider `standard`
 übrigen Optionen. Die kompakten Abnahmen bleiben ihre früheren Quellstände.
 Andere Erstellungsoptionen benötigen eigene Nachweise.
 
+## Vorhandene Umgebungen gemeinsam verwalten
+
+Öffnen Sie **Lab-Umgebungen > Umgebung auswählen und verwalten >
+Lab-Umgebungsgruppen verwalten**. Erstellen Sie eine leere Gruppe, wählen Sie
+sie aus und fügen Sie vorhandene RUNNING- oder STOPPED-Runs hinzu. Jede
+Zuordnung wird einzeln bestätigt. Ein Run darf mehreren Gruppen angehören;
+beim Stoppen einer Gruppe bleibt ein Run aktiv, solange eine andere aktive
+Gruppe ihn benötigt. Mitgliedsänderungen und das Entfernen einer Gruppe sind
+nur bei gestoppter Gruppe verfügbar. Das Entfernen der Gruppe löst nur ihre
+Zuordnungen und stoppt oder entfernt keine Runs.
+
+Der Gruppenstart startet gestoppte Mitglieder und prüft danach deren SQL-
+Bereitschaft. Bereits laufende Mitglieder bleiben unverändert und werden dabei
+nicht erneut auf SQL-Bereitschaft geprüft.
+Die Gruppe richtet weder ein gemeinsames Providernetz noch einen SQL-Linked-
+Server ein. Für einen Containerfall müssen die Umgebungen daher vorher separat
+erstellt und bei Bedarf mit demselben expliziten `NetworkName` an ein bereits
+vorhandenes gemeinsames Netz gebunden werden. Siehe den vollständigen
+[Gruppenvertrag](../Architecture/LAB_ENVIRONMENT_GROUPS.md) und dessen
+[begrenzte Docker-/Podman-Abnahme](../Architecture/LAB_ENVIRONMENT_GROUPS.md#api-slice).
+
 ## Authentifiziertes Container-Lab erstellen
 
 Für `Encrypt=True;TrustServerCertificate=False` öffnen Sie im Erstellungsdialog
