@@ -111,6 +111,27 @@ function fire(delay) { const entry = [...timers.entries()].find(([, item]) => it
   check(calls.filter(call => call.method === 'POST').length === unknownCalls, 'Unknown acceptance blocks same-group retry without another grant');
   await run("startPublicCommand(unknownGroupCommand, unknownGroupSet, { GroupId: '22222222-3333-4444-8555-666666666666' }, true)");
   check(calls.filter(call => call.method === 'POST').length === unknownCalls + 2, 'Unknown acceptance for one group does not block an independent group');
+  const membershipCommand = { Name: 'Add-SqlServerLabEnvironmentGroupMember' };
+  const membershipSet = { Name: 'Default', Parameters: [
+    { Name: 'GroupId', Sensitive: false, IsCredential: false, TypeName: 'System.String' },
+    { Name: 'RunId', Sensitive: false, IsCredential: false, TypeName: 'System.String' }
+  ] };
+  context.membershipCommand = membershipCommand; context.membershipSet = membershipSet;
+  let membershipGrant = 0, membershipReceipt = '';
+  responder = url => {
+    if (url === '/api/command-grants') { membershipReceipt = String(membershipGrant).padStart(32, '0'); return response({ grant: String.fromCharCode(100 + membershipGrant++).repeat(64), receiptId: membershipReceipt }); }
+    if (url === '/api/commands' && membershipGrant === 1) return Promise.reject(new Error('LOCAL_SYNTHETIC_UNKNOWN_MEMBERSHIP_ACCEPTANCE'));
+    if (url === '/api/commands') return response({ id: 'membership-command-' + membershipGrant, receiptId: membershipReceipt });
+    return response([]);
+  };
+  const memberGroup = 'aa111111-bbbb-4ccc-8ddd-eeeeeeeeeeee';
+  const sharedRun = 'bb222222-cccc-4ddd-8eee-ffffffffffff';
+  check(await run("startPublicCommand(membershipCommand, membershipSet, { GroupId: '" + memberGroup + "', RunId: '" + sharedRun + "' }, true).then(() => false, () => true)"), 'Unknown membership acceptance is retained as a failed confirmation');
+  const membershipPosts = calls.filter(call => call.method === 'POST').length;
+  await run("startPublicCommand(membershipCommand, membershipSet, { GroupId: '" + memberGroup.toUpperCase() + "', RunId: '" + sharedRun.toUpperCase() + "' }, true).then(() => false, () => true)");
+  check(calls.filter(call => call.method === 'POST').length === membershipPosts, 'Unknown membership acceptance blocks same group/run GUID retry');
+  await run("startPublicCommand(membershipCommand, membershipSet, { GroupId: 'cc333333-dddd-4eee-8fff-000000000000', RunId: '" + sharedRun + "' }, true)");
+  check(calls.filter(call => call.method === 'POST').length === membershipPosts + 2, 'The same run can be added to another group with an independent submission identity');
   responder = url => url === '/api/command-grants' ? response({grant:'a'.repeat(64),receiptId:'b'.repeat(32)}) : url === '/api/commands' ? response({id:'secret-command-own',receiptId:'b'.repeat(32)}) : response([]);
   await run("startPublicCommand({Name:'SecretCanary'},{Name:'SecretSet',Parameters:" + metadata + "},{RunId:'same-target',Password:'canary-first',Credential:{password:'canary-first'},DataRoot:'canary-first',Unknown:'canary-first'},true)"); await tick();
   const postsBeforeSecretChange = calls.filter(call => call.method === 'POST').length;

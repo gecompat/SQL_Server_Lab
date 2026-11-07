@@ -44,3 +44,51 @@ $byteEvidence=& $module {
     }
 }
 foreach($name in $byteEvidence.Keys){Add-CheckResult $name ([bool]$byteEvidence[$name])}
+
+$membershipWebEvidence=& $module {
+    $saved=@{}
+    foreach($name in @('Get-LabPublicCommandConsoleCatalog','Get-LabPublicCommandWebCatalog','Get-LabPublicCommandParameterDescriptor','Get-LabPublicCommandExecutionDescriptors','Add-SqlServerLabEnvironmentGroupMember','Remove-SqlServerLabEnvironmentGroupMember')){
+        $saved[$name]=(Get-Command $name -ErrorAction SilentlyContinue).ScriptBlock
+    }
+    $script:membershipCommand='Add-SqlServerLabEnvironmentGroupMember'
+    $script:membershipReceiptMode='VALID'
+    Set-Item Function:script:Add-SqlServerLabEnvironmentGroupMember -Value {
+        param([string]$GroupId,[string]$RunId)
+        [pscustomobject]@{Status='ADDED';GroupId=$(if($script:membershipReceiptMode -ceq 'MISMATCH'){'99999999-9999-4999-8999-999999999999'}else{$GroupId});Member=[pscustomobject]@{runId=$RunId;scopeId='PRIVATE_SCOPE_CANARY';connectionInfoSha256='PRIVATE_HASH_CANARY'}}
+    }
+    Set-Item Function:script:Remove-SqlServerLabEnvironmentGroupMember -Value {
+        param([string]$GroupId,[string]$RunId)
+        [pscustomobject]@{Status='REMOVED';GroupId=$GroupId;RunId=$RunId;scopeId='PRIVATE_SCOPE_CANARY';connectionInfoSha256='PRIVATE_HASH_CANARY'}
+    }
+    Set-Item Function:script:Get-LabPublicCommandConsoleCatalog -Value {
+        $command=Get-Command $script:membershipCommand
+        @([pscustomobject]@{Name=$script:membershipCommand;Command=$command;ParameterSets=@([pscustomobject]@{Name='Default';Metadata=$null})})
+    }
+    Set-Item Function:script:Get-LabPublicCommandWebCatalog -Value {@([pscustomobject]@{Name=$script:membershipCommand;RequiresConfirmation=$true})}
+    Set-Item Function:script:Get-LabPublicCommandParameterDescriptor -Value {
+        @(@('GroupId','RunId')|ForEach-Object {[pscustomobject]@{Name=$_;ParameterType=[string];Mandatory=$true;Attributes=@()}})
+    }
+    Set-Item Function:script:Get-LabPublicCommandExecutionDescriptors -Value {@()}
+    try{
+        $parameters=@{GroupId='11111111-2222-4333-8444-555555555555';RunId='33333333-4444-4555-8666-777777777777'}
+        $added=Invoke-LabPublicCommandWebRequest -CommandName 'Add-SqlServerLabEnvironmentGroupMember' -ParameterSetName 'Default' -Parameters $parameters -Confirmed
+        $addedJson=$added|ConvertTo-Json -Depth 10 -Compress
+        $script:membershipCommand='Remove-SqlServerLabEnvironmentGroupMember'
+        $removed=Invoke-LabPublicCommandWebRequest -CommandName 'Remove-SqlServerLabEnvironmentGroupMember' -ParameterSetName 'Default' -Parameters $parameters -Confirmed
+        $removedJson=$removed|ConvertTo-Json -Depth 10 -Compress
+        $script:membershipCommand='Add-SqlServerLabEnvironmentGroupMember';$script:membershipReceiptMode='MISMATCH'
+        $invalidCode=''
+        try{$null=Invoke-LabPublicCommandWebRequest -CommandName $script:membershipCommand -ParameterSetName 'Default' -Parameters $parameters -Confirmed}catch{$invalidCode=$_.Exception.Message}
+        [ordered]@{
+            'Actual web-command receipt projects Add to fixed public fields' = ($added.Result.Count -eq 1 -and $added.Result[0].Status -ceq 'ADDED' -and $added.Result[0].GroupId -ceq $parameters.GroupId -and $added.Result[0].RunId -ceq $parameters.RunId)
+            'Actual web-command receipt omits private Add member bindings' = ($addedJson -notmatch 'scopeId|connectionInfoSha256|PRIVATE_SCOPE_CANARY|PRIVATE_HASH_CANARY')
+            'Actual web-command receipt projects Remove to the same fixed fields' = ($removed.Result.Count -eq 1 -and $removed.Result[0].Status -ceq 'REMOVED' -and $removed.Result[0].GroupId -ceq $parameters.GroupId -and $removed.Result[0].RunId -ceq $parameters.RunId)
+            'Actual web-command receipt omits unexpected Remove fields' = ($removedJson -notmatch 'scopeId|connectionInfoSha256|PRIVATE_SCOPE_CANARY|PRIVATE_HASH_CANARY')
+            'Mismatched membership receipt fails closed without reflecting private data' = ($invalidCode -ceq 'PUBLIC_COMMAND_UI_RESULT_INVALID' -and $invalidCode -notmatch 'PRIVATE_')
+        }
+    }finally{
+        foreach($name in $saved.Keys){if($saved[$name]){Set-Item ('Function:script:'+$name) -Value $saved[$name]}}
+        Remove-Variable membershipCommand,membershipReceiptMode -Scope Script -ErrorAction SilentlyContinue
+    }
+}
+foreach($name in $membershipWebEvidence.Keys){Add-CheckResult $name ([bool]$membershipWebEvidence[$name])}

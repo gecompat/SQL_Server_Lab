@@ -106,15 +106,22 @@ den bestehenden öffentlichen Befehl. Neu gestartete Runs durchlaufen danach
 die SQL-Bereitschaftsprüfung; bereits laufende Runs bleiben unverändert. Eine
 aktive oder wiederherzustellende Gruppe kann mit **Gruppe stoppen** gestoppt
 werden. Runs, die eine andere aktive Gruppe benötigt, bleiben dabei aktiv.
-Beide Aktionen zeigen vor dem Versand eine Bestätigung und erzeugen einen
-normalen UI-Auftrag. Bei einem unbestätigten Ergebnis prüfen Sie zuerst den
-Auftragsstatus und lesen danach die Gruppe erneut. Wiederholen Sie Start oder
-Stop nicht blind.
+Bei einer gestoppten Gruppe können Sie außerdem eine vorhandene Run-ID
+zuordnen oder eine einzelne Zuordnung lösen. Derselbe Run kann in mehreren
+Gruppen liegen; Zuordnen, Lösen und Stoppen ändern die anderen Zuordnungen
+nicht. Das Lösen stoppt oder entfernt den Run nicht. Mitgliedschaften lassen
+sich nur in gestoppten Gruppen bearbeiten.
 
-Die Browseransicht ändert keine Mitgliedschaften. Zum Anlegen von Gruppen,
-Zuordnen oder Lösen vorhandener Runs verwenden Sie weiterhin **Lab-Umgebungen
-> Umgebung auswählen und verwalten > Lab-Umgebungsgruppen verwalten** in der
-PowerShell-Konsole. Der Browser führt auch keinen Reconcile aus.
+Alle Aktionen zeigen vor dem Versand eine Bestätigung und erzeugen einen
+normalen UI-Auftrag. Bei einem unbestätigten Ergebnis prüfen Sie zuerst den
+Auftragsstatus und lesen danach die Gruppe erneut. Wiederholen Sie eine Aktion
+nicht blind.
+
+Zum Anlegen oder Entfernen von Gruppen verwenden Sie weiterhin
+**Lab-Umgebungen > Umgebung auswählen und verwalten > Lab-Umgebungsgruppen
+verwalten** in der PowerShell-Konsole. Ein Reconcile ist weder in dieser
+Gruppenansicht noch in der Gruppenkonsole verfügbar; der Browser führt ihn
+ebenfalls nicht aus.
 
 Öffnen Sie **Lab-Umgebungen > Umgebung auswählen und verwalten >
 Lab-Umgebungsgruppen verwalten**. Erstellen Sie eine leere Gruppe, wählen Sie
