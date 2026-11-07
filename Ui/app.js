@@ -1151,16 +1151,54 @@ function canonicalSubmission(value) {
   return value;
 }
 
+function ordinalIgnoreCaseSubmissionKey(value) {
+  // StringComparer.OrdinalIgnoreCase uses simple invariant casing. JavaScript's
+  // full uppercase mapping expands some characters (for example Greek prosgegrammeni
+  // and ligatures), while a few compatibility letters must remain distinct.
+  const preserve = new Set([
+    0x00df, 0x0131, 0x0149, 0x017f, 0x019b, 0x01f0, 0x0264, 0x0390, 0x03b0,
+    0x0587, 0x1c8a, 0x1e96, 0x1e97, 0x1e98, 0x1e99, 0x1e9a, 0x1f50, 0x1f52,
+    0x1f54, 0x1f56, 0x1fb2, 0x1fb4, 0x1fb6, 0x1fb7, 0x1fbc, 0x1fc2, 0x1fc4,
+    0x1fc6, 0x1fc7, 0x1fcc, 0x1fd2, 0x1fd3, 0x1fd6, 0x1fd7, 0x1fe2, 0x1fe3,
+    0x1fe4, 0x1fe6, 0x1fe7, 0x1ff2, 0x1ff4, 0x1ff6, 0x1ff7, 0x1ffc, 0xa7cd,
+    0xa7cf, 0xa7d3, 0xa7d5, 0xa7db,
+    ...Array.from({ length: 7 }, (_, index) => 0xfb00 + index),
+    ...Array.from({ length: 5 }, (_, index) => 0xfb13 + index),
+    ...Array.from({ length: 0x16ed3 - 0x16ebb + 1 }, (_, index) => 0x16ebb + index)
+  ]);
+  return Array.from(value, character => {
+    const codePoint = character.codePointAt(0);
+    if (preserve.has(codePoint) || (codePoint >= 0x1f88 && codePoint <= 0x1f8f) ||
+        (codePoint >= 0x1f98 && codePoint <= 0x1f9f) || (codePoint >= 0x1fa8 && codePoint <= 0x1faf)) return character;
+    if ((codePoint >= 0x1f80 && codePoint <= 0x1f87) ||
+        (codePoint >= 0x1f90 && codePoint <= 0x1f97) || (codePoint >= 0x1fa0 && codePoint <= 0x1fa7)) {
+      return String.fromCodePoint(codePoint + 8);
+    }
+    if (codePoint === 0x1fb3) return String.fromCodePoint(0x1fbc);
+    if (codePoint === 0x1fc3) return String.fromCodePoint(0x1fcc);
+    if (codePoint === 0x1ff3) return String.fromCodePoint(0x1ffc);
+    const upper = character.toUpperCase();
+    return upper;
+  }).join('');
+}
+
 function nonSecretSubmissionIdentity(action, endpoint, payload, descriptors) {
   // Only explicit logical target/configuration coordinates contribute. Unknown,
   // nested and sensitive values are omitted BEFORE hashing, never password verifiers.
   const allowed = new Set(['runid', 'instanceid', 'buildid', 'artifactid', 'groupid', 'labname', 'provider', 'stateroot', 'dataroot', 'mediaroot', 'testdataroot']);
+  const groupCreateName = endpoint === '/api/commands' && action === 'Command: New-SqlServerLabEnvironmentGroup' &&
+    payload.commandName === 'New-SqlServerLabEnvironmentGroup';
   const targets = {};
   Object.entries(payload.parameters || {}).forEach(([name, value]) => {
     const normalized = name.toLowerCase();
-    if (!allowed.has(normalized) || typeof value !== 'string') return;
+    if ((!allowed.has(normalized) && !(groupCreateName && normalized === 'name')) || typeof value !== 'string') return;
     const descriptor = descriptors.find((item) => item.Name?.toLowerCase() === normalized);
     if (endpoint === '/api/commands' && (!descriptor || descriptor.Sensitive !== false || descriptor.IsCredential !== false || !/^System\.String$/.test(descriptor.TypeName))) return;
+    if (groupCreateName && normalized === 'name') {
+      if (!value || value !== value.trim() || value.length > 80 || /[\x00-\x1f\x7f]/.test(value)) return;
+      targets[normalized] = ordinalIgnoreCaseSubmissionKey(value);
+      return;
+    }
     targets[normalized] = ['groupid', 'runid'].includes(normalized) && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
       ? value.toLowerCase()
       : value;
@@ -1562,6 +1600,7 @@ function handleEnvironmentGroupCommandRequest(event) {
   const detail = event?.detail;
   const groupIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   const actionCommands = {
+    Create: { command: 'New-SqlServerLabEnvironmentGroup', parameters: ['Name'] },
     Start: { command: 'Start-SqlServerLabEnvironmentGroup', parameters: ['GroupId'] },
     Stop: { command: 'Stop-SqlServerLabEnvironmentGroup', parameters: ['GroupId'] },
     AddMember: { command: 'Add-SqlServerLabEnvironmentGroupMember', parameters: ['GroupId', 'RunId'] },
@@ -1571,11 +1610,14 @@ function handleEnvironmentGroupCommandRequest(event) {
     ? actionCommands[detail.action]
     : null;
   const requiresRunId = contract?.parameters.includes('RunId') === true;
-  if (!detail || !contract || typeof detail.groupId !== 'string' ||
-      !groupIdPattern.test(detail.groupId) || typeof detail.groupName !== 'string' ||
-      detail.groupName.length < 1 || detail.groupName.length > 80 ||
-      (requiresRunId && (typeof detail.runId !== 'string' || !groupIdPattern.test(detail.runId))) ||
-      (!requiresRunId && detail.runId !== undefined)) {
+  const validCreate = detail?.action === 'Create' && typeof detail.name === 'string' &&
+    detail.name.length >= 1 && detail.name.length <= 80 && detail.name === detail.name.trim() &&
+    !/[\x00-\x1f\x7f]/.test(detail.name) && detail.groupId === undefined && detail.groupName === undefined && detail.runId === undefined;
+  const validGroupAction = detail?.action !== 'Create' && typeof detail?.groupId === 'string' &&
+    groupIdPattern.test(detail.groupId) && typeof detail.groupName === 'string' &&
+    detail.groupName.length >= 1 && detail.groupName.length <= 80 && detail.name === undefined &&
+    (requiresRunId ? (typeof detail.runId === 'string' && groupIdPattern.test(detail.runId)) : detail.runId === undefined);
+  if (!detail || !contract || !(validCreate || validGroupAction)) {
     showError(new Error('ENVIRONMENT_GROUP_ACTION_INVALID'));
     return;
   }
@@ -1601,8 +1643,12 @@ function handleEnvironmentGroupCommandRequest(event) {
     return;
   }
 
-  const parameters = Object.fromEntries(expectedNames.map((name) => [name, name === 'GroupId' ? detail.groupId : detail.runId]));
+  const parameters = Object.fromEntries(expectedNames.map((name) => [name, name === 'Name' ? detail.name : name === 'GroupId' ? detail.groupId : detail.runId]));
   const actionDetails = {
+    Create: {
+      title: 'Lab-Umgebungsgruppe erstellen', label: 'Gruppe erstellen',
+      message: 'Es wird eine leere Lab-Umgebungsgruppe registriert. Runs oder Runtime-Ressourcen werden nicht verändert.'
+    },
     Start: {
       title: 'Gruppe starten: ', label: 'Gruppe starten',
       message: 'Gestoppte Mitglieder dieser Gruppe werden gestartet; danach wird ihre SQL-Bereitschaft geprüft. Bereits laufende Mitglieder bleiben unverändert.'
@@ -1622,7 +1668,7 @@ function handleEnvironmentGroupCommandRequest(event) {
   };
   const action = actionDetails[detail.action];
   openConfirmation(
-    action.title + detail.groupName,
+    action.title + (detail.groupName || ''),
     action.message + ' Bei einem unbestätigten Ergebnis zuerst Auftragsstatus und Gruppe erneut lesen; nicht blind wiederholen.',
     '__PublicCommand',
     { command, parameterSet, parameters },

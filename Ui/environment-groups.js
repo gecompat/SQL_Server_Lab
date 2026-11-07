@@ -56,6 +56,41 @@
     }));
   }
 
+  function requestGroupCreation(name) {
+    requestGeneration++;
+    dialog.close();
+    window.dispatchEvent(new CustomEvent('sqlserverlab:environment-group-command-request', {
+      detail: { action: 'Create', name }
+    }));
+  }
+
+  function addGroupCreationForm(parent) {
+    const editor = document.createElement('div');
+    editor.className = 'form-grid';
+    const label = document.createElement('label');
+    label.textContent = 'Neue Gruppe';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.maxLength = 80;
+    input.autocomplete = 'off';
+    label.appendChild(input);
+    editor.appendChild(label);
+    const create = document.createElement('button');
+    create.type = 'button';
+    create.className = 'button secondary';
+    create.textContent = 'Leere Gruppe erstellen';
+    create.addEventListener('click', () => {
+      const name = input.value.trim();
+      if (!name || name.length > 80 || /[\x00-\x1f\x7f]/.test(name)) {
+        status.textContent = 'Gruppenname muss 1 bis 80 Zeichen ohne Steuerzeichen enthalten.';
+        return;
+      }
+      requestGroupCreation(name);
+    });
+    editor.appendChild(create);
+    parent.appendChild(editor);
+  }
+
   function addGroupCommandAction(parent, label, action, group, className, runId) {
     const button = document.createElement('button');
     button.type = 'button';
@@ -99,6 +134,7 @@
     list.replaceChildren();
     if (view.groups.length === 0) {
       addText(list, 'p', 'Es sind keine Lab-Umgebungsgruppen registriert.', 'empty');
+      addGroupCreationForm(list);
       return;
     }
     for (const group of view.groups) {
@@ -140,6 +176,7 @@
       }
       list.appendChild(card);
     }
+    addGroupCreationForm(list);
   }
 
   async function readGroups() {
