@@ -69,13 +69,25 @@ function Get-LabTlsRuntimeFailureSummary {
     $class='STDERR_UNCLASSIFIED'
     if(-not $StandardError){$class='STDERR_EMPTY'}
     else{
-        foreach($rule in @(
+        if($StandardError -cmatch '\b(TLS_SQLCLIENT_(?:CONSTRUCT|OPEN|QUERY|CLEANUP)_(?:PLATFORM_UNSUPPORTED|ASSEMBLY_UNAVAILABLE|AUTHENTICATION|TIMEOUT|NETWORK|SQL|UNCLASSIFIED))\b'){
+            # This grammar is closed to guest-emitted type/stage tokens. The
+            # matched text contains no exception message, endpoint or secret.
+            $class=$Matches[1]
+        }else{foreach($rule in @(
             @{Pattern='(?i)\bno such container\b';Class='CONTAINER_NOT_FOUND'},
             @{Pattern='(?i)\bcontainer\b.*\bnot running\b';Class='CONTAINER_NOT_RUNNING'},
             @{Pattern='(?i)address already in use|port is already allocated';Class='PORT_CONFLICT'},
             @{Pattern='(?i)cannot connect to.*daemon|error during connect|is the docker daemon running';Class='DAEMON_UNREACHABLE'},
             @{Pattern='(?i)unauthorized|authentication required|pull access denied';Class='REGISTRY_AUTHORIZATION'},
             @{Pattern='(?i)no such image|manifest unknown';Class='IMAGE_NOT_FOUND'},
+            @{Pattern='\bSQLCLIENT_RESULT\b';Class='TLS_SQLCLIENT_RESULT_INVALID'},
+            @{Pattern='\bSQLCMD_TIMEOUT\b';Class='TLS_SQLCMD_TIMEOUT'},
+            @{Pattern='\bODBC_AMBIGUOUS\b';Class='TLS_ODBC_AMBIGUOUS'},
+            @{Pattern='\bSQLCMD_RESULT\b';Class='TLS_SQLCMD_RESULT_INVALID'},
+            @{Pattern='\bTLS_LINUX_CA_PEM_STAT_FAILED\b';Class='TLS_CA_PEM_STAT_FAILED'},
+            @{Pattern='\bTLS_LINUX_CA_PEM_ACCESS_DENIED\b';Class='TLS_CA_PEM_ACCESS_DENIED'},
+            @{Pattern='\bTLS_LINUX_CA_PEM_READ_FAILED\b';Class='TLS_CA_PEM_READ_FAILED'},
+            @{Pattern='\bTLS_LINUX_CA_PEM_PARSE_FAILED\b';Class='TLS_CA_PEM_PARSE_FAILED'},
             @{Pattern='(?i)permission denied|access is denied';Class='PERMISSION_DENIED'},
             @{Pattern='(?i)\bx509\b|\btls\b|certificate';Class='TLS_CERTIFICATE'},
             @{Pattern='(?i)network .* not found';Class='NETWORK_NOT_FOUND'},
@@ -83,7 +95,7 @@ function Get-LabTlsRuntimeFailureSummary {
             @{Pattern='(?i)^\s*error response from daemon:';Class='DAEMON_REJECTED_REQUEST'}
         )){
             if($StandardError -match $rule.Pattern){$class=$rule.Class;break}
-        }
+        }}
     }
     return "TLS_LAB_RUNTIME_COMMAND_FAILED|exitCode=$ExitCode|stderrClass=$class|stderrBytes=$([Text.Encoding]::UTF8.GetByteCount($StandardError))|stdoutChars=$OutputLength|operationStage=$OperationStage"
 }
