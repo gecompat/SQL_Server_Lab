@@ -257,6 +257,7 @@ function ConvertTo-LabPublicCommandWebResult {
 
     $expected = switch -CaseSensitive ($CommandName) {
         'New-SqlServerLabEnvironmentGroup' { 'CREATED'; break }
+        'Remove-SqlServerLabEnvironmentGroup' { 'REMOVED'; break }
         'Add-SqlServerLabEnvironmentGroupMember' { 'ADDED'; break }
         'Remove-SqlServerLabEnvironmentGroupMember' { 'REMOVED'; break }
         default { return @($Result | ForEach-Object { ConvertTo-LabPublicCommandDisplayValue -Value $_ }) }
@@ -277,6 +278,33 @@ function ConvertTo-LabPublicCommandWebResult {
             throw 'PUBLIC_COMMAND_UI_RESULT_INVALID'
         }
         return @([PSCustomObject]@{ Status = 'CREATED'; GroupId = $groupGuid.ToString('D'); Name = [string]$Parameters.Name })
+    }
+    if ($CommandName -ceq 'Remove-SqlServerLabEnvironmentGroup') {
+        $groupGuid = [guid]::Empty
+        if (-not [guid]::TryParse([string]$Parameters.GroupId, [ref]$groupGuid) -or @($Result).Count -ne 1) {
+            throw 'PUBLIC_COMMAND_UI_RESULT_INVALID'
+        }
+        $item = @($Result)[0]
+        if ([string]$item.Status -ceq 'CANCELLED') {
+            return @([PSCustomObject]@{ Status = 'CANCELLED'; GroupId = $groupGuid.ToString('D') })
+        }
+        $resultGroupGuid = [guid]::Empty
+        if ([string]$item.Status -cne 'REMOVED' -or
+            -not [guid]::TryParse([string]$item.GroupId, [ref]$resultGroupGuid) -or
+            $resultGroupGuid -ne $groupGuid -or
+            $null -eq $item.PSObject.Properties['DetachedMembers'] -or
+            $item.DetachedMembers -isnot [Array]) {
+            throw 'PUBLIC_COMMAND_UI_RESULT_INVALID'
+        }
+        $detachedMembers = @($item.DetachedMembers)
+        $memberIds = [Collections.Generic.HashSet[guid]]::new()
+        foreach ($memberId in $detachedMembers) {
+            $memberGuid = [guid]::Empty
+            if (-not [guid]::TryParse([string]$memberId, [ref]$memberGuid) -or -not $memberIds.Add($memberGuid)) {
+                throw 'PUBLIC_COMMAND_UI_RESULT_INVALID'
+            }
+        }
+        return @([PSCustomObject]@{ Status = 'REMOVED'; GroupId = $groupGuid.ToString('D'); DetachedMemberCount = $memberIds.Count })
     }
     $groupGuid = [guid]::Empty
     $runGuid = [guid]::Empty
@@ -345,6 +373,9 @@ function Invoke-LabPublicCommandWebRequest {
             throw "PUBLIC_COMMAND_UI_PARAMETER_REQUIRED: $($descriptor.Name)"
         }
     }
+    # The browser's one-shot confirmation is the user's ShouldProcess decision.
+    # Suppress a second interactive PowerShell prompt for that confirmed web call.
+    if ($webItem.SupportsShouldProcess -and $Confirmed) { $arguments['Confirm'] = $false }
     $result = @(& $catalogItem.Command @arguments)
     $displayResult = @(ConvertTo-LabPublicCommandWebResult -CommandName $CommandName -Parameters $Parameters -Result $result)
     [PSCustomObject]@{

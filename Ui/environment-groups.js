@@ -165,6 +165,7 @@
         actions.className = 'dialog-actions';
         const start = addGroupCommandAction(actions, 'Gruppe starten', 'Start', group);
         start.disabled = group.members.length === 0;
+        addGroupCommandAction(actions, 'Gruppe entfernen', 'RemoveGroup', group, 'button danger');
         if (start.disabled) addText(card, 'p', 'Zum Starten muss die Gruppe mindestens einen Run enthalten.', 'form-note');
         card.appendChild(actions);
       } else {

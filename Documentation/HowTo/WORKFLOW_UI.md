@@ -112,17 +112,18 @@ Gruppen liegen; Zuordnen, Lösen und Stoppen ändern die anderen Zuordnungen
 nicht. Das Lösen stoppt oder entfernt den Run nicht. Mitgliedschaften lassen
 sich nur in gestoppten Gruppen bearbeiten. Über **Leere Gruppe erstellen**
 können Sie außerdem eine neue Gruppe anlegen; dafür werden keine Runs oder
-Runtime-Ressourcen gestartet.
+Runtime-Ressourcen gestartet. **Gruppe entfernen** ist ebenfalls nur bei einer
+gestoppten Gruppe verfügbar und entfernt ausschließlich die Gruppe und ihre
+Zuordnungen, nicht die Runs oder Runtime-Ressourcen.
 
 Alle Aktionen zeigen vor dem Versand eine Bestätigung und erzeugen einen
 normalen UI-Auftrag. Bei einem unbestätigten Ergebnis prüfen Sie zuerst den
 Auftragsstatus und lesen danach die Gruppe erneut. Wiederholen Sie eine Aktion
 nicht blind.
 
-Zum Entfernen von Gruppen verwenden Sie weiterhin **Lab-Umgebungen > Umgebung
-auswählen und verwalten > Lab-Umgebungsgruppen verwalten** in der
-PowerShell-Konsole. Ein Reconcile ist weder in dieser Gruppenansicht noch in
-der Gruppenkonsole verfügbar; der Browser führt ihn ebenfalls nicht aus.
+Die PowerShell-Konsole bietet dieselben Gruppenaktionen. Ein Reconcile ist
+weder in dieser Gruppenansicht noch in der Gruppenkonsole verfügbar; der Browser
+führt ihn ebenfalls nicht aus.
 
 Öffnen Sie **Lab-Umgebungen > Umgebung auswählen und verwalten >
 Lab-Umgebungsgruppen verwalten**. Erstellen Sie eine leere Gruppe, wählen Sie
