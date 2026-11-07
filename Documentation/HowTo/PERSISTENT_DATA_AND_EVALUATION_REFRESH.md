@@ -118,12 +118,27 @@ Bibliothek nicht als direkt im Gast sichtbarer Ordner zu verstehen.
 Der Data Root wird in der Workflow-Oberfläche unter **Medienquellen** einmalig
 als lokaler Standard gespeichert. Beim Erstellen einer neuen Docker- oder
 Podman-Umgebung aktiviert die Option **Daten dauerhaft im konfigurierten Data
-Root speichern** ein stabil benanntes Runtime-Volume fuer `/var/opt/mssql`
+Root speichern** ein eigenes Runtime-Volume fuer `/var/opt/mssql`
 und bindet dessen Backup-Verzeichnis in den Data Root ein. Das ist bewusst:
 Ein direkter NTFS-Bind-Mount auf `/var/opt/mssql` kann mit SQL Server 2025 in
 Docker Desktop unter Windows abstuerzen. Das Runtime-Volume und der Data Root
 bleiben beim Entfernen der Umgebung erhalten; die Verknuepfung ist im
 Run-Metadatum sichtbar.
+
+Jede neue Docker-/Podman-Umgebung erhält einen neuen SQL-Systemstore, auch bei
+erneuter Verwendung desselben Labnamens. Damit gilt das bei der Neuanlage
+gewählte SA-Passwort; vorhandene Stores werden weder automatisch eingebunden
+noch gelöscht. Start und Recreate desselben Runs verwenden weiterhin die
+gespeicherte Volumeidentität. Die Backup-Verzeichnisse bleiben unter dem
+Labnamen im Data Root erreichbar.
+
+Soll ein vorhandener abgetrennter Instanzstore fortgesetzt werden, wählt man ihn
+ausdrücklich mit `New-SqlServerLab -PersistentData -PersistentStorageId <ID>
+-PersistentStorageAction CONTINUE`. Dabei bleiben SQL-Systemdaten und bisherige
+SQL-Anmeldedaten erhalten; `SaPassword` muss zu diesem Store passen. Auch ein
+`CLONE` übernimmt die SQL-Anmeldedaten der Quelle. Den Speicher nach einem
+verlorenen Katalogeintrag beschreibt
+[Getting Started](../User/Getting_Started.md#katalogbindung-eines-eigenen-retained-containerstores-wiederherstellen).
 
 Für reguläre Hyper-V-Umgebungen kann beim Erstellen oder nachträglich im
 ausgeschalteten Zustand eine langlebige Daten-VHDX angehängt werden. Nach dem

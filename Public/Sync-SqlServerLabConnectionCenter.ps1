@@ -288,6 +288,8 @@ function Initialize-SqlServerLabCms {
         Erstellt nach explizitem Aufruf einen kompakten Docker- oder Podman-Run
         mit persistentem Data Root. Das generierte SA-Passwort wird nur einmal
         im Ergebnis ausgegeben und danach run-lokal geschützt gespeichert.
+        Auch bei gleichem LabName entsteht ein neuer SQL-Systemstore mit neuem
+        Passwort. Vorhandene persistente Stores werden nicht verändert.
     .PARAMETER Provider
         Optionaler Containerprovider. Ohne Angabe wird Docker vor Podman bevorzugt.
     .PARAMETER LabName
@@ -319,11 +321,9 @@ function Initialize-SqlServerLabCms {
         if ([string]$existingRun.state -ne 'REMOVED') {
             throw "CONNECTION_CENTER_CMS_REPLACEMENT_BLOCKED: Run $($existing.RunId) ist nicht REMOVED."
         }
-        $configurationPath = Join-Path (Join-Path $StateRoot 'catalog') 'sql-connection-center-cms.json'
-        if (-not (Test-Path -LiteralPath $configurationPath -PathType Leaf)) {
-            throw 'CONNECTION_CENTER_CMS_CONFIGURATION_MISSING: Die CMS-Registrierung kann nicht gezielt ersetzt werden.'
-        }
-        Remove-Item -LiteralPath $configurationPath -Force -ErrorAction Stop
+        # Die terminale Registrierung bleibt bis zur erfolgreichen Neuanlage
+        # erhalten. Provider-/Provisionierungsfehler duerfen sie nicht austragen;
+        # der bestehende atomare Writer ersetzt sie erst nach New-SqlServerLab.
     }
     $available = @(Get-AvailableLabProviders)
     if (-not $Provider) {
