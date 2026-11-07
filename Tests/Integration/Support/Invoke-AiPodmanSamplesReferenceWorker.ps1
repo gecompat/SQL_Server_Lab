@@ -12,7 +12,11 @@ $failureCodes=@('SAMPLES_ALREADY_STARTED','SAMPLES_BINDING_INVALID','SAMPLES_CON
     'AI_RAG_HOST_REMOTE_MODEL_FORBIDDEN','AI_RAG_HOST_CAPABILITY_INVALID','AI_RAG_HOST_DIMENSION_INVALID',
     'AI_RAG_HOST_METADATA_FAILED','AI_RAG_HOST_MODEL_DRIFT',
     'AI_RAG_HOST_METADATA_VERSION_FAILED','AI_RAG_HOST_METADATA_TAGS_FAILED','AI_RAG_HOST_METADATA_SHOW_FAILED')
-$workerStages=@('MODULE_IMPORT','WORKER_INVOCATION','SCENARIO_HELPER_LOAD','OPERATION_READ','RUNTIME_ASSERTION','ENDPOINT_PLAN','MODEL_BINDING',
+$metadataDiagnosticFailureCodes=@('AI_RAG_HOST_METADATA_TIMEOUT_FAILED','AI_RAG_HOST_METADATA_TLS_FAILED',
+    'AI_RAG_HOST_METADATA_TRANSPORT_FAILED','AI_RAG_HOST_METADATA_HTTP_FAILED','AI_RAG_HOST_METADATA_JSON_FAILED',
+    'AI_RAG_HOST_METADATA_UNCLASSIFIED_FAILED')
+$failureCodes+= $metadataDiagnosticFailureCodes
+$workerStages=@('HOST_TOOL_INITIALIZATION','MODULE_IMPORT','WORKER_INVOCATION','SCENARIO_HELPER_LOAD','OPERATION_READ','RUNTIME_ASSERTION','ENDPOINT_PLAN','MODEL_BINDING',
     'OPERATION_RECORD_WRITE','LAB_CREATE','TRANSFER_BINDING','TRANSFER_BINDING_IDENTITY','INITIAL_CONTENT_EVIDENCE',
     'INITIAL_RETRIEVAL','RESTART','RESTART_TRANSFER_BINDING','RESTART_CONTENT_EVIDENCE','RESTART_RETRIEVAL',
     'MODEL_REVALIDATION','OWNED_RUN_CLEANUP')
@@ -21,6 +25,12 @@ $failureCodes+= $workerFailureCodes
 $workerStage='MODULE_IMPORT'
 $exitCode=1
 try {
+    $workerStage='HOST_TOOL_INITIALIZATION'
+    $resolution=@(& (Join-Path $repoRoot 'Tools/Initialize-SqlServerLabHostTools.ps1') -Name podman | Where-Object Name -ceq 'podman')[0]
+    if (-not $resolution -or -not $resolution.Available -or [string]::IsNullOrWhiteSpace([string]$resolution.Invocation) -or
+        -not [IO.Path]::IsPathFullyQualified([string]$resolution.Invocation)) { throw 'AI_PODMAN_SAMPLES_HOST_TOOL_UNAVAILABLE' }
+    $env:SQL_SERVER_LAB_PODMAN_PATH=[string]$resolution.Invocation
+    $workerStage='MODULE_IMPORT'
     $module=Import-Module (Join-Path $repoRoot 'SqlServerLab.psd1') -Force -PassThru
     $workerStage='WORKER_INVOCATION'
     $count=& $module {
@@ -45,11 +55,12 @@ try {
                 param($Path,$Model)
                 $metadataStage=switch($Path){'/api/version'{'VERSION'}'/api/tags'{'TAGS'}'/api/show'{'SHOW'}default{$null}}
                 if(-not $metadataStage){throw 'AI_RAG_HOST_METADATA_FAILED'}
-                try {Invoke-LabAiHostMetadata -Port $endpoint.Port -Path $Path -Model $Model}
+                try {Invoke-LabAiHostMetadata -Port $endpoint.Port -Path $Path -Model $Model -ExposeFailureCategory}
                 catch {
                     if($_.Exception.Message -ceq 'AI_RAG_HOST_METADATA_FAILED'){
                         throw ('AI_RAG_HOST_METADATA_'+$metadataStage+'_FAILED')
                     }
+                    if($metadataDiagnosticFailureCodes -ccontains $_.Exception.Message){throw $_}
                     throw
                 }
             }
