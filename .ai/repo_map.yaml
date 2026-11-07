@@ -931,6 +931,7 @@ sources_of_truth:
   reusable_environment_group_contract: Public/EnvironmentGroups.ps1
   reusable_environment_group_registry_schema: Schemas/environment-groups.schema.json
   reusable_environment_group_behavior: Documentation/Architecture/LAB_ENVIRONMENT_GROUPS.md # persistent group lifecycle claims and shared-member stop retention are implemented in source; provider/runtime and console qualification remain open
+  acceptance_linked_server_environment_group: Tests/Integration/Invoke-LinkedServerEnvironmentGroupAcceptance.ps1 # two separately created SQL-2025-CU9 container runs share an explicit non-conflicting process-local subnet; second group reuses target run; OPENQUERY and shared-member stop retention with own cleanup
   authenticated_test_environment_tls_backlog: Documentation/Project_Planning/NEW_SQL_LAB_USE_CASES_BACKLOG.md # TLS-001: P1 directly after SSISDB; limited own Docker/Podman SQL2025 Windows TLS evidence exists; full client/version/provider qualification and consumer export remain open
   authenticated_test_environment_tls_ca_design: Documentation/Project_Planning/TLS_001_ISOLATED_CA_DESIGN.md # TLS-001a: user-selected isolated CA direction; explicit approved Windows CA trust and separate Docker/Podman Windows TLS evidence; broader lifecycle, registry and migration remain open
   authenticated_tls_request_contract: Documentation/Architecture/AUTHENTICATED_TLS_REQUEST.md
@@ -2381,6 +2382,16 @@ validation:
       - provider_subrun_status
       - grouped_stop_start
       - grouped_cleanup
+  linked_server_environment_group_acceptance:
+    source: Tests/Integration/Invoke-LinkedServerEnvironmentGroupAcceptance.ps1
+    docker: '.\Tests\Integration\Invoke-LinkedServerEnvironmentGroupAcceptance.ps1 -Provider docker -EvidenceDirectory <new-path-outside-repository>'
+    podman: '.\Tests\Integration\Invoke-LinkedServerEnvironmentGroupAcceptance.ps1 -Provider podman -EvidenceDirectory <new-path-outside-repository>'
+    checks:
+      - two_independently_created_runs_on_one_explicit_provider_network
+      - one_target_run_bound_to_two_groups
+      - read_only_sql_server_openquery_with_synthetic_fixture
+      - shared_run_stays_running_until_last_group_stops
+      - exact_id_label_and_empty_endpoint_cleanup
   restore_smoke:
     source: Tests/Integration/Invoke-RestoreSmokeTest.ps1
     docker: '.\Tests\Integration\Invoke-RestoreSmokeTest.ps1 -Provider docker'

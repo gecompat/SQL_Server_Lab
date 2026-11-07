@@ -57,7 +57,12 @@ Die Gruppenoperation ist kein atomarer Provider-Transaktionsmechanismus. Bei
 Teilfehlern bleibt sie ausdrücklich RECOVERY_REQUIRED, bis Stop die bekannten
 Mitglieder sicher abgeglichen hat. CLI-/Browser-Bedienung, Reconcile-UI und
 Provider-Runtime-Evidence für zusammengesetzte Gruppen bleiben separate offene
-Arbeiten; die Registry allein beweist keine Runtimebereitschaft.
+Arbeiten; die Registry allein beweist keine Runtimebereitschaft. Die Gruppe
+erstellt auch kein gemeinsames Providernetz. Für einen Container-Linked-Server-
+Fall können zwei getrennte Runs mit demselben expliziten `NetworkName`
+angelegt und anschließend gruppiert werden. Run-Erstellung, Netzwerkerstellung
+und deren Cleanup bleiben getrennte Verantwortlichkeiten. Dieses Muster belegt
+weder Kerberos noch MSDTC oder eine TLS-Identitätsprüfung.
 
 ## API-Slice
 
@@ -73,6 +78,17 @@ Start-SqlServerLabEnvironmentGroup -GroupId $group.groupId
 Wird ein Run zusätzlich einer zweiten Gruppe zugeordnet, hält deren aktiver
 Anspruch ihn beim Stoppen der ersten Gruppe am Laufen. Die Gruppen-API
 konfiguriert selbst noch keinen SQL-Linked-Server.
+
+Der begrenzte native Vertrag dafür ist
+[`Invoke-LinkedServerEnvironmentGroupAcceptance.ps1`](../../Tests/Integration/Invoke-LinkedServerEnvironmentGroupAcceptance.ps1).
+Er legt genau zwei eigene Container-Runs auf einem frisch benannten gemeinsamen
+Netz an, weist den Ziel-Run zusätzlich einer zweiten Gruppe zu und prüft eine
+synthetische `OPENQUERY`-Abfrage über `MSOLEDBSQL`. Danach muss das Ziel beim
+Stop der ersten Gruppe weiterlaufen und erst nach Freigabe der zweiten Gruppe
+stoppen. Der Test entfernt nur seine beiden Runs, Gruppen und das zuvor nicht
+vorhandene, anhand Name, ID, Label und leerer Endpoints gebundene Netz. Seine
+Abnahme ist getrennt für Docker und Podman auszuführen; sie erweitert keine
+TLS-, Kerberos- oder Distributed-Transaction-Aussage.
 
 - `New-SqlServerLabEnvironmentGroup` erstellt eine leere Gruppe.
 - `Get-SqlServerLabEnvironmentGroup` listet Gruppen oder liest eine Gruppe nach
