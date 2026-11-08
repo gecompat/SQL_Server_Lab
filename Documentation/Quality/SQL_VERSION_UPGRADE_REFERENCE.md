@@ -3,6 +3,9 @@
 Status: `validated_reference`; die nativen Docker- und Podman-Abnahmen der
 korrigierten Passwortargumentbindung bestanden am 2026-09-21 auf `e7083492`.
 Die historischen Abnahmen auf `46340200` bleiben als frühere Evidence erhalten.
+Die spätere Query-Store-Ergänzung bestand getrennt unter beiden Providern am
+2026-11-08; Details und ihre engere Geltungsgrenze stehen in der
+[datierten Abnahme](SQL_VERSION_UPGRADE_QUERY_STORE_ACCEPTANCE_2026-11-08.md).
 
 Der feste Integrationstest erzeugt zwei neue eigene Runs auf demselben explizit
 gewählten Containerprovider. Er prüft einen Datenbanktransfer über die
@@ -126,6 +129,13 @@ entfernte eigene Runs und keine Runtime-Residuen. Beobachtete Restore-Dauern
 waren 3577.8575 ms (Docker) und 6837.2858 ms (Podman); sie sind keine
 Performance-Benchmarkwerte. Weitere Ablaufdauern schließen Controller-Bindung
 und SQL-Aufrufe ein und erlauben ebenfalls keinen Datenbank-Performancevergleich.
+
+Die aktualisierte Query-Store-Ergänzung bestand am 2026-11-08 getrennt unter
+Docker und Podman auf `35a1abc06bf8a16d11c34a35d4dbf7a790551daf`. Beide
+Receipts bestätigten die Quellenbaseline sowie die Zielbeobachtungen bei Level
+160 und 170 mit jeweils fünf Ausführungen; beide eigenen Cleanups wurden als
+`COMPLETED` gemeldet. Das ist ein aktueller Beleg genau dieser markierten
+synthetischen Abfrage, keine Performancefreigabe.
 
 Die private temporäre Evidence-Wurzel bleibt nach dem Runtime-Cleanup gemäß
 Runnervertrag erhalten; sie ist weder Repository-Evidence noch ein Nachweis,

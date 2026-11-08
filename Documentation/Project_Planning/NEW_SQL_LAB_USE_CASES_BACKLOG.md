@@ -97,9 +97,12 @@ Runtime-Residuen. Die Referenz ergänzt jetzt eine explizite Query-Store-Aufnahm
 für dieselbe markierte Count-Abfrage am Ziel bei Compatibility Level 160 und 170;
 der Receipt meldet Ausführungszahl, Plananzahl und beobachtete Dauerdifferenz
 ohne Performance-Schwelle. Die synthetischen Szenario- und Supervisorchecks
-bestanden am 2026-11-08; für Query-Store-Evidence am aktualisierten Stand sind
-noch getrennte Docker-/Podman-Läufe erforderlich. Anwendungs-/Planregressionen
-und weitere Versionspaare bleiben offen.
+bestanden am 2026-11-08. Die aktualisierte Query-Store-Evidence bestand danach
+getrennt unter Docker und Podman auf `35a1abc06bf8a16d11c34a35d4dbf7a790551daf`;
+beide eigenen Cleanups wurden bestätigt. Sie belegt fünf Beobachtungen je
+festgelegter Phase, aber keine Anwendungs-/Planregression. Weitere
+Versionspaare und fehlgeschlagene Releases bleiben offen; siehe die
+[datierte Abnahme](../Quality/SQL_VERSION_UPGRADE_QUERY_STORE_ACCEPTANCE_2026-11-08.md).
 
 Dieses Szenario besitzt den höchsten unmittelbaren Nutzen und verwendet bereits
 vorhandene SQL-Versionen, Restore, Query Store, Workloads und Provider. Der

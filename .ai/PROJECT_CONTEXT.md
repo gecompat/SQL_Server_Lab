@@ -510,8 +510,10 @@ kleine Beobachtung hat keinen Performance-Grenzwert und ersetzt keine
 Anwendungs-/Planregression.
 Die getrennten nativen Docker-/Podman-Referenzläufe bestanden am 2026-09-21 auf
 `46340200` mit eigener Operation-/Runtimebindung und Runtime-Cleanup. Die
-damaligen Läufe enthalten die neue Query-Store-Aufnahme nicht; dafür ist nach
-der Änderung ein neuer Provider-Nachweis erforderlich. Restore- und Query-Store-
+aktualisierte Query-Store-Aufnahme bestand getrennt unter beiden Providern am
+2026-11-08 auf `35a1abc06bf8a16d11c34a35d4dbf7a790551daf`, ebenfalls mit eigenem
+Cleanup. Die datierte [Abnahme](../Documentation/Quality/SQL_VERSION_UPGRADE_QUERY_STORE_ACCEPTANCE_2026-11-08.md)
+bindet fünf Beobachtungen je festgelegter Phase. Restore- und Query-Store-
 Dauern sind Beobachtungen, keine Performance-Benchmarks; allgemeine Migration
 bleibt unverändert.
 ## 1. Ziel
