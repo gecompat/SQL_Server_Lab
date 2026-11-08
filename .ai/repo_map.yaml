@@ -2550,9 +2550,10 @@ validation:
     validation: Tests/Static/Invoke-SqlVersionUpgradeScenarioChecks.ps1
     supervisor_validation: Tests/Static/Invoke-SqlVersionUpgradeSupervisorChecks.ps1
     contract: Documentation/Quality/SQL_VERSION_UPGRADE_REFERENCE.md
+    current_query_store_evidence: Documentation/Quality/SQL_VERSION_UPGRADE_QUERY_STORE_ACCEPTANCE_2026-11-08.md # Docker and Podman on 35a1abc; three observed phases with five executions each, own cleanup completed
     docker: '.\Tests\Integration\Invoke-SqlVersionUpgradeAcceptance.ps1 -Provider docker'
     podman: '.\Tests\Integration\Invoke-SqlVersionUpgradeAcceptance.ps1 -Provider podman'
-    execution_status: "validated_reference; native Docker and Podman passed 2026-09-21 on 46340200; runtime cleanup verified, private temporary evidence retained"
+    execution_status: "validated_reference; historical Docker and Podman passed 2026-09-21 on 46340200; updated Query Store evidence separately passed both providers 2026-11-08 on 35a1abc; own runtime cleanup completed, private temporary evidence retained"
     scope: "own SQL 2022 major16 compat160 with Query Store -> registered full BackupSetId -> new SQL 2025 major17 compat160 -> explicit compat170; fixed rows, aggregates, rollback, constraints, CHECKDB, marked Query Store observations at both target compatibility levels without a performance threshold, unchanged source; operation/runtime-bound bounded cleanup"
   relational_core_comparison:
     source: Private/RelationalCoreComparison.ps1
