@@ -7,20 +7,23 @@ SQL Server 2025 CU9 ausgeführt. Beide Läufe verwendeten den öffentlichen
 Harness
 [`Invoke-LinkedServerEnvironmentGroupAcceptance.ps1`](../../Tests/Integration/Invoke-LinkedServerEnvironmentGroupAcceptance.ps1).
 Der geprüfte Harness hatte SHA-256
-`1434F1EA093F0F1185B941A1A4168138E68CAAC8B9646635B2E8CF30B6CF8DA6`.
+`7AC7433CF23FDC47460C7D346946EAB1D6DBB4601F0E61361B61005387AC388A`.
 
 Jeder Lauf erstellte zwei unabhängige SQL-Runs auf einem nur für diesen Lauf
 erzeugten gemeinsamen Providernetz. Beide Runs wurden derselben Gruppe
 zugeordnet; der Ziel-Run wurde zusätzlich einer zweiten Gruppe zugeordnet. Der
 Harness legte auf dem Ziel einen synthetischen SQL-Endpunkt an und prüfte eine
-read-only `OPENQUERY`-Abfrage über `MSOLEDBSQL`.
+read-only `OPENQUERY`-Abfrage über `MSOLEDBSQL`. Eine absichtlich mit zwei
+verschiedenen expliziten Collations ausgewertete Vergleichsabfrage muss mit
+SQL-Fehler 468 abgewiesen werden. Derselbe Marker wird anschließend mit auf
+beiden Seiten vereinheitlichter Collation erfolgreich gelesen.
 
 ## Ergebnisse
 
-| Provider | SQL-Version | `OPENQUERY` | Gemeinsamer Run bleibt nach erstem Gruppen-Stop aktiv | eigener Cleanup |
-|---|---|---|---|---|
-| Docker | 2025 CU9 | PASS | PASS | PASS |
-| Podman | 2025 CU9 | PASS | PASS | PASS |
+| Provider | SQL-Version | `OPENQUERY` | Collation-Konflikt ergibt 468 | explizite Auflösung | gemeinsamer Run bleibt nach erstem Gruppen-Stop aktiv | eigener Cleanup |
+|---|---|---|---|---|---|---|
+| Docker | 2025 CU9 | PASS | PASS | PASS | PASS | PASS |
+| Podman | 2025 CU9 | PASS | PASS | PASS | PASS | PASS |
 
 Beide Läufe bestätigten, dass der gemeinsame Ziel-Run weiterläuft, solange die
 zweite Gruppe ihn beansprucht, und nach Auflösung des letzten Gruppenanspruchs
@@ -29,13 +32,15 @@ das eigene Providernetz entfernt. Die Harness-Belege bestätigten außerdem die
 Bindung der neuen Evidence- und State-Verzeichnisse sowie die Abwesenheit der
 eigenen Ressourcen nach dem Cleanup. Es gab keine Cleanup- oder Fixturefehler.
 
-Die privaten Laufbelege bleiben außerhalb des Repositories. Dieser Bericht
-enthält keine Run- oder Gruppen-IDs, Zugangsdaten, Hostpfade, Netzwerkinventare
-oder Rohdiagnosen.
+Die beiden erweiterten Laufbelege bestätigen außerdem die Fehlernummer 468
+für die kontrollierte inkompatible Collation. Die privaten Laufbelege bleiben
+außerhalb des Repositories. Dieser Bericht enthält keine Run- oder
+Gruppen-IDs, Zugangsdaten, Hostpfade, Netzwerkinventare oder Rohdiagnosen.
 
 ## Grenzen
 
 Der Nachweis gilt für die beiden ausgeführten Provider, SQL Server 2025 CU9 und
-die beschriebene synthetische Abfrage. Er belegt weder Collation-Konflikte noch
-TLS-Identitätsprüfung, Kerberos-Delegierung, MSDTC oder andere SQL-Versionen.
-Docker- und Podman-Ergebnisse bleiben getrennte Provider-Evidence.
+die beschriebene synthetische Abfrage samt kontrolliertem Collation-Konflikt
+und expliziter Auflösung. Er qualifiziert keine beliebigen Datenbank-
+Collations, TLS-Identitätsprüfung, Kerberos-Delegierung, MSDTC oder andere
+SQL-Versionen. Docker- und Podman-Ergebnisse bleiben getrennte Provider-Evidence.
