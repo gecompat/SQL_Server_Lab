@@ -104,12 +104,19 @@ function Get-LabEnvironmentGroupRuntimeObservation {
                     $connection = [System.Text.Encoding]::UTF8.GetString($connectionBytes) | ConvertFrom-Json -Depth 20 -ErrorAction Stop
                     $connectionIds = @($connection.instances | ForEach-Object { [string]$_.id } | Sort-Object)
                     if ($connectionHash -ceq $memberConnectionInfoSha256 -and (@($connectionIds) -join '|') -ceq (@($memberIds) -join '|')) {
+                        $runtimeObservationDeadlineUtc = [DateTimeOffset]::UtcNow.AddSeconds(30)
                         foreach ($instance in @($connection.instances | Sort-Object id)) {
                             $provider = ([string]$instance.provider).ToLowerInvariant()
                             try {
                                 $status = switch ($provider) {
-                                    'docker' { Get-DockerInstanceStatus -ContainerIdOrName ([string]$instance.containerId) -StateRoot $stateRoot }
-                                    'podman' { Get-PodmanInstanceStatus -ContainerIdOrName ([string]$instance.containerId) -StateRoot $stateRoot }
+                                    'docker' {
+                                        if ([DateTimeOffset]::UtcNow -lt $runtimeObservationDeadlineUtc) { Get-DockerInstanceStatus -ContainerIdOrName ([string]$instance.containerId) -StateRoot $stateRoot -TimeoutSeconds 30 -DeadlineUtc $runtimeObservationDeadlineUtc }
+                                        else { $null }
+                                    }
+                                    'podman' {
+                                        if ([DateTimeOffset]::UtcNow -lt $runtimeObservationDeadlineUtc) { Get-PodmanInstanceStatus -ContainerIdOrName ([string]$instance.containerId) -StateRoot $stateRoot -TimeoutSeconds 30 -DeadlineUtc $runtimeObservationDeadlineUtc }
+                                        else { $null }
+                                    }
                                     'hyperv' { Get-HyperVInstanceStatus -VMName ([string]$instance.vmName) -ExpectedRunId $runId -ExpectedScopeId ([string]$run.scopeId) }
                                     default { $null }
                                 }

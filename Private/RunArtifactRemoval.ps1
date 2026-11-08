@@ -40,7 +40,8 @@ function Get-LabRunArtifactRuntimeContext {
 }
 
 function Invoke-LabRunArtifactPinnedProcess {
-    param($Context,[string[]]$Arguments,[int]$TimeoutSeconds=20,[AllowNull()][AllowEmptyString()][string]$Invocation)
+    param($Context,[string[]]$Arguments,[int]$TimeoutSeconds=20,[AllowNull()][AllowEmptyString()][string]$Invocation,
+        [DateTimeOffset]$DeadlineUtc=[DateTimeOffset]::MinValue)
     $explicitInvocation=$null
     if($PSBoundParameters.ContainsKey('Invocation')){
         # Only the caller's explicit, already validated executable pin is used.
@@ -62,7 +63,8 @@ function Invoke-LabRunArtifactPinnedProcess {
             $comparison=if($IsWindows){[StringComparison]::OrdinalIgnoreCase}else{[StringComparison]::Ordinal}
             if(-not [string]::Equals($explicitInvocation,$policyInvocation,$comparison)){throw 'RUN_ARTIFACT_INVOCATION_POLICY_CHANGED'}
         }
-        $native=Invoke-LabOwnedHostPinnedCommand -StateRoot $Context.StateRoot -Provider $Context.Provider -Arguments $Arguments -TimeoutSeconds $TimeoutSeconds
+        $native=Invoke-LabOwnedHostPinnedCommand -StateRoot $Context.StateRoot -Provider $Context.Provider -Arguments $Arguments `
+            -TimeoutSeconds $TimeoutSeconds -DeadlineUtc $DeadlineUtc
     }
     else {
         $selectedInvocation=if($PSBoundParameters.ContainsKey('Invocation')){$explicitInvocation}else{Get-LabHostToolInvocation -Name $Context.Provider}
@@ -73,7 +75,13 @@ function Invoke-LabRunArtifactPinnedProcess {
             'CONTAINER_HOST','CONTAINER_CONNECTION','CONTAINER_SSHKEY','PODMAN_SSHKEY','PODMAN_CONNECTIONS_CONF','SSH_AUTH_SOCK','SSH_AGENT_PID')) { $null=$start.Environment.Remove($name) }
         $prefix=if ($Context.Provider -ceq 'docker') {@('--host',$Context.Endpoint)} else {@('--remote','--url',$Context.Endpoint,'--identity',$Context.IdentityPath)}
         foreach ($argument in @($prefix)+$Arguments) { $start.ArgumentList.Add($argument) }
-        $native=Invoke-LabOwnedHostNativeProcess -StartInfo $start -TimeoutSeconds $TimeoutSeconds
+        $effectiveTimeoutSeconds=$TimeoutSeconds
+        if($DeadlineUtc -ne [DateTimeOffset]::MinValue){
+            $remainingSeconds=[int][Math]::Floor(($DeadlineUtc-[DateTimeOffset]::UtcNow).TotalSeconds)
+            if($remainingSeconds -lt 1){throw 'LAB_NATIVE_OPERATION_TIMEOUT'}
+            $effectiveTimeoutSeconds=[Math]::Min($TimeoutSeconds,$remainingSeconds)
+        }
+        $native=Invoke-LabOwnedHostNativeProcess -StartInfo $start -TimeoutSeconds $effectiveTimeoutSeconds
     }
     $native
 }
