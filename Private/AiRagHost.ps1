@@ -2,9 +2,23 @@
 .SYNOPSIS
     Rein lesende Identitätsprüfung bestehender Loopback-Ollama-Modelle.
 #>
+function Get-LabAiHostMetadataTransportFailureCategory {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][Exception]$Exception)
+    $current=$Exception;$sawHttpRequest=$false
+    while($current){
+        if($current -is [Threading.Tasks.TaskCanceledException]){return 'TIMEOUT'}
+        if($current -is [Security.Authentication.AuthenticationException]){return 'TLS'}
+        if($current -is [Net.Http.HttpRequestException]){$sawHttpRequest=$true}
+        $current=$current.InnerException
+    }
+    if($sawHttpRequest){return 'TRANSPORT'}
+    'UNCLASSIFIED'
+}
+
 function Invoke-LabAiHostMetadata {
     [CmdletBinding()]
-    param([int]$Port,[ValidateSet('/api/version','/api/tags','/api/show')][string]$Path,[string]$Model)
+    param([int]$Port,[ValidateSet('/api/version','/api/tags','/api/show')][string]$Path,[string]$Model,[switch]$ExposeFailureCategory)
     $handler=[Net.Http.HttpClientHandler]::new()
     $handler.AllowAutoRedirect=$false
     $handler.UseProxy=$false
@@ -15,11 +29,34 @@ function Invoke-LabAiHostMetadata {
         $method=if($Path -eq '/api/show'){[Net.Http.HttpMethod]::Post}else{[Net.Http.HttpMethod]::Get}
         $message=[Net.Http.HttpRequestMessage]::new($method,"http://127.0.0.1:$Port$Path")
         if($Path -eq '/api/show'){$message.Content=[Net.Http.StringContent]::new((@{model=$Model}|ConvertTo-Json -Compress),[Text.Encoding]::UTF8,'application/json')}
-        $response=$client.SendAsync($message).GetAwaiter().GetResult()
-        if(-not $response.IsSuccessStatusCode){throw 'AI_RAG_HOST_METADATA_FAILED'}
-        return $response.Content.ReadAsStringAsync().GetAwaiter().GetResult()|ConvertFrom-Json -Depth 30 -ErrorAction Stop
+        try{$response=$client.SendAsync($message).GetAwaiter().GetResult()}
+        catch{
+            if($ExposeFailureCategory){$category=Get-LabAiHostMetadataTransportFailureCategory -Exception $_.Exception;throw "AI_RAG_HOST_METADATA_${category}_FAILED"}
+            throw 'AI_RAG_HOST_METADATA_FAILED'
+        }
+        if(-not $response.IsSuccessStatusCode){
+            if($ExposeFailureCategory){throw 'AI_RAG_HOST_METADATA_HTTP_FAILED'}
+            throw 'AI_RAG_HOST_METADATA_FAILED'
+        }
+        try{$body=$response.Content.ReadAsStringAsync().GetAwaiter().GetResult()}
+        catch{
+            if($ExposeFailureCategory){$category=Get-LabAiHostMetadataTransportFailureCategory -Exception $_.Exception;throw "AI_RAG_HOST_METADATA_${category}_FAILED"}
+            throw 'AI_RAG_HOST_METADATA_FAILED'
+        }
+        try{return $body|ConvertFrom-Json -Depth 30 -ErrorAction Stop}
+        catch{
+            if($ExposeFailureCategory){throw 'AI_RAG_HOST_METADATA_JSON_FAILED'}
+            throw 'AI_RAG_HOST_METADATA_FAILED'
+        }
     }
-    catch {throw 'AI_RAG_HOST_METADATA_FAILED'}
+    catch {
+        $safeCodes=@('AI_RAG_HOST_METADATA_FAILED','AI_RAG_HOST_METADATA_TIMEOUT_FAILED','AI_RAG_HOST_METADATA_TLS_FAILED',
+            'AI_RAG_HOST_METADATA_TRANSPORT_FAILED','AI_RAG_HOST_METADATA_HTTP_FAILED','AI_RAG_HOST_METADATA_JSON_FAILED',
+            'AI_RAG_HOST_METADATA_UNCLASSIFIED_FAILED')
+        if($safeCodes -ccontains $_.Exception.Message){throw $_.Exception.Message}
+        if($ExposeFailureCategory){throw 'AI_RAG_HOST_METADATA_UNCLASSIFIED_FAILED'}
+        throw 'AI_RAG_HOST_METADATA_FAILED'
+    }
     finally {if($response){$response.Dispose()};if($message){$message.Dispose()};$client.Dispose()}
 }
 

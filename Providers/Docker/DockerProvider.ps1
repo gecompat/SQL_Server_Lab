@@ -553,17 +553,24 @@ function New-DockerInstance {
 function Get-DockerInstanceStatus {
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory)][string]$ContainerIdOrName
-    , [string]$StateRoot)
-    $ownedHostPolicy = if ($StateRoot -and (((Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json')) -or (((Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-required')) -or (Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json'))))))) { Get-LabOwnedHostPolicy -StateRoot $StateRoot -Required } else { $null }
-
-
+        [Parameter(Mandatory)][string]$ContainerIdOrName,
+        [string]$StateRoot,
+        [ValidateRange(1,300)][int]$TimeoutSeconds = 30,
+        [DateTimeOffset]$DeadlineUtc = [DateTimeOffset]::MinValue
+    )
     try {
-        $dockerInvocation = Get-LabHostToolInvocation -Name docker
-        $inspect = $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider docker -StateRoot $StateRoot -Invocation $dockerInvocation -ArgumentList @('inspect', $ContainerIdOrName) } else { Invoke-LabContainerRuntimeCommand -Provider docker -StateRoot $StateRoot -Invocation $dockerInvocation -ArgumentList (@('inspect')+@($ContainerIdOrName))  }) 2>$null | ConvertFrom-Json -Depth 30
-        if ($LASTEXITCODE -ne 0 -or -not $inspect) {
-            $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider docker -StateRoot $StateRoot -Invocation $dockerInvocation -ArgumentList @('info') } else { Invoke-LabContainerRuntimeCommand -Provider docker -StateRoot $StateRoot -Invocation $dockerInvocation -ArgumentList (@('info'))  }) 1>$null 2>$null
-            $runtimeAvailable = $LASTEXITCODE -eq 0
+        if ($DeadlineUtc -eq [DateTimeOffset]::MinValue) { $DeadlineUtc = [DateTimeOffset]::UtcNow.AddSeconds($TimeoutSeconds) }
+        $inspectResult = Invoke-LabContainerRuntimeCommand -Provider docker -StateRoot $StateRoot `
+            -ArgumentList @('inspect', $ContainerIdOrName) -NativeResult -TimeoutSeconds $TimeoutSeconds -DeadlineUtc $DeadlineUtc
+        $inspect = if ($inspectResult.ExitCode -eq 0 -and @($inspectResult.Stdout).Count -gt 0) {
+            (@($inspectResult.Stdout) -join "`n") | ConvertFrom-Json -Depth 30 -ErrorAction Stop
+        }
+        else { $null }
+        if ($inspectResult.ExitCode -ne 0 -or -not $inspect) {
+            $runtimeAvailable = $false
+            $infoResult = Invoke-LabContainerRuntimeCommand -Provider docker -StateRoot $StateRoot `
+                -ArgumentList @('info') -NativeResult -TimeoutSeconds $TimeoutSeconds -DeadlineUtc $DeadlineUtc
+            $runtimeAvailable = $infoResult.ExitCode -eq 0
             return [PSCustomObject]@{
                 Available = $runtimeAvailable
                 Exists  = $false
@@ -595,7 +602,7 @@ function Get-DockerInstanceStatus {
             Healthy = $false
             AutoStart = $false
             Inspect  = $null
-            Raw     = $_.Exception.Message
+            Raw     = $null
         }
     }
 }

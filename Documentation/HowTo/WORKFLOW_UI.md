@@ -93,6 +93,73 @@ ergänzt für alle drei SQL-Profile und beide Provider `standard`
 übrigen Optionen. Die kompakten Abnahmen bleiben ihre früheren Quellstände.
 Andere Erstellungsoptionen benötigen eigene Nachweise.
 
+## Vorhandene Umgebungen gemeinsam verwalten
+
+Unter **Lab-Umgebungen > Lab-Umgebungsgruppen ansehen** können Sie die
+gespeicherten Gruppen, ihre Run-IDs und Instanznamen anzeigen. Die Ansicht liest
+nur die Registry des konfigurierten State-Roots. Der gespeicherte
+Lifecycle-Status bestätigt weder den aktuellen Providerzustand noch SQL-
+Bereitschaft. Bei einer aktuellen Mitgliedsbindung können Sie über
+**Runtimestatus live lesen** den Providerstatus des ausgewählten Runs abfragen.
+Die Anzeige vergleicht ihn mit dem gespeicherten `RUNNING`/`STOPPED` und meldet
+`CURRENT`, `DRIFT` oder `INDETERMINATE`. Das ist eine Momentaufnahme ohne
+SQL-Bereitschaftsprüfung und ohne Zustandsänderung. Bei veralteter Bindung wird
+kein Provider abgefragt. Scope-IDs, Verbindungs-Hashes sowie Container- und
+VM-IDs werden
+nicht angezeigt. Nach einem Gruppenstart oder -stopp zeigt die Ansicht die
+zuletzt gespeicherte Aktion und den Status jedes Runs. Das ist ein
+Journalergebnis, keine Live-Runtimeprüfung.
+
+Bei einer gestoppten Gruppe startet **Gruppe starten** ihre Mitglieder über
+den bestehenden öffentlichen Befehl. Neu gestartete Runs durchlaufen danach
+die SQL-Bereitschaftsprüfung; bereits laufende Runs bleiben unverändert. Eine
+aktive oder wiederherzustellende Gruppe kann mit **Gruppe stoppen** gestoppt
+werden. Runs, die eine andere aktive Gruppe benötigt, bleiben dabei aktiv.
+Bei einer gestoppten Gruppe können Sie außerdem eine vorhandene Run-ID
+zuordnen oder eine einzelne Zuordnung lösen. Derselbe Run kann in mehreren
+Gruppen liegen; Zuordnen, Lösen und Stoppen ändern die anderen Zuordnungen
+nicht. Das Lösen stoppt oder entfernt den Run nicht. Mitgliedschaften lassen
+sich nur in gestoppten Gruppen bearbeiten. Über **Leere Gruppe erstellen**
+können Sie außerdem eine neue Gruppe anlegen; dafür werden keine Runs oder
+Runtime-Ressourcen gestartet. **Gruppe entfernen** ist ebenfalls nur bei einer
+gestoppten Gruppe verfügbar und entfernt ausschließlich die Gruppe und ihre
+Zuordnungen, nicht die Runs oder Runtime-Ressourcen.
+
+Alle Aktionen zeigen vor dem Versand eine Bestätigung und erzeugen einen
+normalen UI-Auftrag. Bei einem unbestätigten Ergebnis prüfen Sie zuerst den
+Auftragsstatus und lesen danach die Gruppe erneut. Wiederholen Sie eine Aktion
+nicht blind.
+
+Die PowerShell-Konsole bietet dieselben Lifecycle- und Zuordnungsaktionen.
+Unter **Lab-Umgebungen > Umgebung auswählen und verwalten > Lab-Umgebungsgruppen
+verwalten** können Sie **Runtime-Zustand eines Mitglieds lesen** wählen und
+ein oder mehrere Mitglieder ausdrücklich auswählen. Die Ausgabe zeigt den
+gespeicherten und beobachteten Runtimezustand sowie `CURRENT`, `DRIFT` oder
+`INDETERMINATE`. Eine veraltete oder nicht lesbare Bindung fragt keinen Provider
+ab. Die Momentaufnahme ändert weder Gruppe noch Run und bestätigt keine
+SQL-Bereitschaft. Ein Reconcile ist weder in dieser Gruppenansicht noch in der
+Gruppenkonsole verfügbar; der Browser führt ihn ebenfalls nicht aus.
+
+Öffnen Sie **Lab-Umgebungen > Umgebung auswählen und verwalten >
+Lab-Umgebungsgruppen verwalten**. Erstellen Sie eine leere Gruppe, wählen Sie
+sie aus und fügen Sie vorhandene RUNNING- oder STOPPED-Runs hinzu. Jede
+Zuordnung wird einzeln bestätigt. Ein Run darf mehreren Gruppen angehören;
+beim Stoppen einer Gruppe bleibt ein Run aktiv, solange eine andere aktive
+Gruppe ihn benötigt. Mitgliedsänderungen und das Entfernen einer Gruppe sind
+nur bei gestoppter Gruppe verfügbar. Das Entfernen der Gruppe löst nur ihre
+Zuordnungen und stoppt oder entfernt keine Runs.
+
+Der Gruppenstart startet gestoppte Mitglieder und prüft danach deren SQL-
+Bereitschaft. Bereits laufende Mitglieder bleiben unverändert und werden dabei
+nicht erneut auf SQL-Bereitschaft geprüft. Der gespeicherte Gruppenstatus
+bleibt eine Registry-Aussage und kein aktueller Runtime- oder SQL-Nachweis.
+Die Gruppe richtet weder ein gemeinsames Providernetz noch einen SQL-Linked-
+Server ein. Für einen Containerfall müssen die Umgebungen daher vorher separat
+erstellt und bei Bedarf mit demselben expliziten `NetworkName` an ein bereits
+vorhandenes gemeinsames Netz gebunden werden. Siehe den vollständigen
+[Gruppenvertrag](../Architecture/LAB_ENVIRONMENT_GROUPS.md) und dessen
+[begrenzte Docker-/Podman-Abnahme](../Architecture/LAB_ENVIRONMENT_GROUPS.md#api-slice).
+
 ## Authentifiziertes Container-Lab erstellen
 
 Für `Encrypt=True;TrustServerCertificate=False` öffnen Sie im Erstellungsdialog

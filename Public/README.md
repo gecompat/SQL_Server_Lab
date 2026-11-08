@@ -379,6 +379,13 @@ Vertrag. Vollständiger CORE-102 und Native-Abnahmen bleiben offen.
 | `Get-SqlServerLabGeneratedWindowsAccess` | `Get-SqlServerLabGeneratedWindowsAccess.ps1` | Das automatisch erzeugte, run-lokal DPAPI-geschützte Windows-Administratorpasswort eines ausgewählten Hyper-V-Slots gezielt ausgeben |
 | `New-SqlServerLabWindowsSlotPool` | `New-SqlServerLabWindowsSlotPool.ps1` | Aus einer gültigen `OS_SEALED`-Baseline N resumierbare Windows-Slots mit abgefragtem RAM, Locale und vollständig unbeaufsichtigter OOBE erzeugen |
 | `New-SqlServerLabAutomatedTestEnvironment` | `TestEnvironment.ps1` | Linux-Testumgebungen mit getrennten Zufallskennwörtern erstellen und nach Lab_Data exportieren |
+| `New-SqlServerLabEnvironmentGroup` | `EnvironmentGroups.ps1` | Leere, von der geschützten Testgruppe getrennte Lab-Umgebungsgruppe erstellen |
+| `Get-SqlServerLabEnvironmentGroup` | `EnvironmentGroups.ps1` | Registrierte Lab-Umgebungsgruppen beziehungsweise eine Gruppe nach ID lesen |
+| `Add-SqlServerLabEnvironmentGroupMember` | `EnvironmentGroups.ps1` | Vorhandenen Run einer oder mehreren Gruppen zuordnen; bindet Run, Scope und Instanzen |
+| `Remove-SqlServerLabEnvironmentGroupMember` | `EnvironmentGroups.ps1` | Eine Run-Zuordnung entfernen, ohne den Run zu stoppen oder zu löschen |
+| `Remove-SqlServerLabEnvironmentGroup` | `EnvironmentGroups.ps1` | Eine Gruppe und ihre Zuordnungen entfernen; Runs bleiben bestehen |
+| `Start-SqlServerLabEnvironmentGroup` | `EnvironmentGroups.ps1` | Alle gebundenen Runs serialisiert starten und Gruppenansprüche persistieren |
+| `Stop-SqlServerLabEnvironmentGroup` | `EnvironmentGroups.ps1` | Eigene Gruppenansprüche lösen; gemeinsam verwendete Runs bleiben aktiv |
 | `Export-SqlServerLabTestEnvironment` | `TestEnvironment.ps1` | Registrierte Testumgebungen mit gebundener Live-Health-Prüfung als dotenv, schema-validierbares JSON, portablen Agenten-Prompt und Markdown exportieren |
 | `Test-SqlServerLabTlsQualification` | `Test-SqlServerLabTlsQualification.ps1` | Eigene operative Windows-Containerbindung mit beiden echten strikten Clients aktuell prüfen; [Voraussetzungen, Ergebnis und Fehler](../Documentation/Architecture/AUTHENTICATED_TLS_LIVE_QUALIFICATION.md) |
 | `Invoke-SqlServerLabLinuxPreflight` | `Invoke-SqlServerLabLinuxPreflight.ps1` | Dedizierter read-only Toolbelt-Preflight im ausdrücklich eigenen Linuxclient; [Entwicklungs- und Abnahmegrenze](../Documentation/Architecture/AUTHENTICATED_TLS_LINUX_CLIENT.md) |

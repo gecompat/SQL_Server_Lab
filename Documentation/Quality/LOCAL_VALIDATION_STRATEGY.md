@@ -2929,9 +2929,15 @@ mit `Invoke-SqlVersionUpgradeScenarioChecks.ps1` und
 die echten Kontrollflüsse, Disk-State-Operationssuche und eigene Child-Prozesse;
 SQL-/Providergrenzen sind synthetisch. Anschließend wählen tatsächliche geänderte
 und unversionierte Pfade über `Get-CiTestSelection.ps1` die betroffenen Checks.
+Die Referenz erfasst jetzt zusätzlich fünf markierte Ausführungen je Zielphase
+und liest Query-Store-Plananzahl sowie gewichtete mittlere Dauer aus. Die
+synthetische Suite validiert fehlende Zustände und ungültige Metrik-Receipts;
+SQL-Ausführung bleibt ein Runtime-Nachweis.
 Die native Abnahme erfolgt getrennt mit
 `Invoke-SqlVersionUpgradeAcceptance.ps1 -Provider docker` und `-Provider podman`.
-Beide Referenzläufe bestanden am 2026-09-21 auf `46340200`; der unabhängige
+Die historischen Referenzläufe bestanden am 2026-09-21 auf `46340200` und
+enthalten diese Query-Store-Ergänzung nicht; Docker und Podman benötigen einen
+neuen getrennten Lauf am aktualisierten Stand. Der unabhängige
 Nachlauf bestätigte je Provider zwei entfernte Own-Runs und keine Runtime-Residuen.
 CI-Hooks verwenden den vorhandenen Runtime-Lock. Die privaten temporären
 Evidence-Wurzeln bleiben gemäß Runnervertrag erhalten; Runtime-Cleanup belegt
@@ -4811,6 +4817,32 @@ und eigenem Cleanup. Beide Läufe verwendeten frische explizite
 Die zugehörigen elf statischen Suites und der Sample-Handler-Check bestanden;
 finale PR-Gates und weitere Versions-/Providerpfade bleiben getrennte Aussagen.
 
+Die [DACPAC-Erweiterung vom 2026-11-08](SQLPACKAGE_DACPAC_PUBLISH_ACCEPTANCE_2026-11-08.md)
+ergänzt denselben Container-Akzeptanzlauf um synthetisches Extract/Publish auf
+SQL 2022. Docker und Podman bestanden getrennt je 36 Assertions einschließlich
+zweitem Publish, erhaltener Zielzeile und eigenem Run-/Image-Cleanup. Das ist
+kein Nachweis für Drift-, Migrations- oder Release-Recovery-Verhalten.
+
+Der [DeployReport-Folgecheck vom 2026-11-08](SQLPACKAGE_DACPAC_DEPLOY_REPORT_ACCEPTANCE_2026-11-08.md)
+ergänzt den Lauf um je fünf Assertions pro Provider: gültiger XML-Report, keine
+geplanten Schemaoperationen nach dem ersten Publish und der synthetischen
+Datenänderung sowie Entfernung der temporären Berichtsdatei aus Host und Run.
+Docker und Podman bestanden getrennt mit je 41 Assertions. Das qualifiziert
+keine Driftkorrektur oder fehlgeschlagene Release-Recovery.
+
+Die [Driftfolgeabnahme vom 2026-11-08](SQLPACKAGE_DACPAC_DRIFT_REPORT_ACCEPTANCE_2026-11-08.md)
+behält den No-op-Fall bei und prüft zusätzlich getrennt unter Docker und
+Podman eine verlustfreie Spaltenbreiten-Drift, geplante DeployReport-
+Operationen, Wiederherstellung der DACPAC-Breite und Erhalt der Zielzeile.
+Die Erweiterung mit Script-SHA-256
+`1636B98645922142E6FF9DECCCFE7BC817CFE98DEB87E17B7E891BD4AFE0A7F4` prüfte
+anschließend je Provider einen zweiten Report mit null Operationen und ein
+weiteres erfolgreiches Publish mit erhaltener Schema-/Zielzeile. Beide eigenen
+Runs, Volumes und temporären Reports wurden entfernt. Das bereits vorhandene
+Docker-Derived-Image blieb unverändert; das in Podman neu angelegte Test-Tag
+wurde explizit entfernt. Der Scope belegt nur diesen synthetischen
+SQL-2022-Fall.
+
 ```powershell
 .\Tests\Static\Invoke-SampleHandlerChecks.ps1
 .\Tests\Static\Invoke-SoftwareCatalogChecks.ps1
@@ -5059,9 +5091,31 @@ beide Pfadschreibweisen und den weiterhin vollständigen Runtimefallback bei
 zusätzlichem unbekanntem Produktcode. Die unveränderte Offlinesuite bestand
 lokal am 2026-10-25 mit 40 `PASS` und null `FAIL`; Provider- und HTTP-Grenzen
 bleiben synthetisch. Das belegt weder reale Gruppen-Lifecycles noch einen
-vollständigen Windows-/Ubuntu-Nightly. Der Zusatzaufwand ist eine bestehende
-Offlinesuite pro Vollregression sowie bei einer Änderung des Gesamtrunners;
-es entsteht kein weiterer Vollregressions- oder Providerlauf pro Zwischenfix.
+vollständigen Windows-/Ubuntu-Nightly. Die neue Browser-Livebeobachtung testet
+synthetische Run-/Verbindungsmetadaten und gestubbte Docker-, Podman- und
+Hyper-V-Leser in `EnvironmentGroupsBrowserHttpChecks.ps1` und
+`EnvironmentGroupsBrowserUiChecks.cjs`. Diese Fokustests prüfen Bindung,
+Statusprojektion, Driftklassifikation und fail-closed Verhalten; sie starten
+keinen Provider und belegen keine native Browser-/Konsolen-/Runtimeabnahme.
+`ContainerProviderObservationTimeoutChecks.ps1` prüft getrennte stdout/stderr,
+Inspect-/Info-Fallback und die gemeinsame absolute 30-Sekunden-Frist
+synthetisch für Docker und Podman; ein Timeout wird als bereinigtes
+`UNAVAILABLE` abgebildet. Es startet keine Runtime. `Invoke-LabProgressNativeCommand`
+wird zusätzlich mit einem isolierten Kindprozess auf Fristablauf, bestätigte
+Beendigung und den Fehler bei nicht bestätigtem Abbruch geprüft.
+`Invoke-ConsoleUiChecks.ps1` prüft zusätzlich Menüpfad und bereinigte
+Konsolenausgabe derselben synthetischen Momentaufnahme. Die Providerleser
+behalten ihre getrennten Statusprüfungen. Die fokussierte HTTP-Fixture prüft
+den vollständigen Run-State-Fingerprint vor und nach dem Provideraufruf. Ein
+simulierter Lifecycle-Übergang mit unverändertem grobem Endzustand verwirft die
+gesamte Livebeobachtung als `UNKNOWN`/`INDETERMINATE`; eine geänderte
+Gruppenbindung verwirft sie als `STALE_BINDING`. Der Provideraufruf hält keinen
+Lifecycle-Mutex und die Fixture startet keinen Provider. Diese synthetischen
+Prüfungen belegen weder einen Timeout der Providerleser noch eine native
+Browser-, Konsolen- oder Runtimeabnahme. Der Zusatzaufwand ist
+eine bestehende Offlinesuite pro Vollregression sowie bei einer Änderung des
+Gesamtrunners; es entsteht kein weiterer Vollregressions- oder Providerlauf pro
+Zwischenfix.
 `CiStrategyNightlyAuthorizationChecks.ps1` führt extrahierte Guard-, Prozess-
 und Reportblöcke mit synthetischen Grenzen aus. Eine reale Shared-Abnahme
 wird dadurch weder ausgeführt noch nachgewiesen. CI-Infrastrukturänderungen
@@ -6430,6 +6484,17 @@ Dies schließt weder Zertifikatserneuerung noch weitere Recoveryprofile.
 Der [Planvertrag](../Architecture/NATIVE_LINUX_HOST_PREREQUISITES.md) verwendet die bestehende NativeLinux-Suite samt gekoppelter Fixture `Tests/Static/Fixtures/NativeLinuxHostPrerequisitesChecks.ps1`. Die fokussierte lokale Windows-Ausführung bestand 85 Fälle mit dem tatsächlichen gemeinsamen Classifier und Planer, synthetischen Ressourcen-/Controllerfakten und dem tatsächlichen WSL-Dispatch bei synthetischem Transport. Geprüft sind UNKNOWN gegen MISSING, Profilunterschreitung als Sperre, ungültige Kapazität, kein nativer Fallback bei ungültigem JSON, Profilbindung und fehlende Ausführungsautorität. Das belegt keine neue echte Linux-/WSL-/SQL-Sprachausführung. Weitere Impacts und finale PR-Gates werden separat am stabilen Stand ausgeführt; nicht ausgeführte Plattformzweige bleiben ohne lokalen Nachweis.
 
 Die additive CI-Auswahl koppelt die neue Fixture, den tatsächlich aufgerufenen Container-Hostclassifier und den Ressourcenprofilkatalog an dieselbe bestehende Suite. Es entsteht keine zusätzliche Testsuite, Modellpipeline oder Read-only-Ausnahme; bisherige Providergates bleiben erhalten. Ein Implementierer und ein unabhängiger Reviewer auf einem günstigeren Modell genügen; weitere Modellaufrufe betreffen nur konkrete Findings. Logs bleiben privat, Auswahl, Counts und Hashes werden deterministisch lokal geprüft. Unveränderte grüne Prüfungen werden ohne neue Abhängigkeit nicht wiederholt; Token-/Geldkosten werden nicht aus Modellnamen geschätzt.
+
+## Native Linked-Server-Umgebungsgruppen
+
+`Invoke-LinkedServerEnvironmentGroupAcceptance.ps1` ist getrennt für Docker
+und Podman auszuführen. Der SQL-2025-CU9-Vertrag prüft zwei eigene Runs,
+`OPENQUERY`, einen bewusst inkompatiblen expliziten Collation-Vergleich mit
+Fehler 468, dessen explizite Auflösung sowie den Erhalt eines gemeinsam
+beanspruchten Runs. Die native Abnahme vom 2026-11-08 bestand bei beiden
+Providern einschließlich eigenem Cleanup. Sie belegt keine beliebigen
+Collation-Kombinationen, TLS-Identität, Kerberos oder MSDTC. Private Evidence
+liegt außerhalb des Repositories.
 
 ## Ausdrückliche Public-Hostvoraussetzungen 1.2
 

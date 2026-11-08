@@ -18,7 +18,7 @@ const context = vm.createContext({ document, crypto: { subtle: { async digest(al
   showWorkspaceArea() {}, empty: value => value, migrationInventoryResult: () => '', testGroupResult: () => ''
 });
 vm.runInContext(source.slice(0, source.indexOf('function publicCommandAllowedValues')), context);
-for (const name of ['renderJobs','refreshJobs','readUiJobResponse','submitUiCommandBody','canonicalSubmission','nonSecretSubmissionIdentity','submitUiAction','startAction','startPublicCommand']) vm.runInContext(actualFunction(name), context);
+for (const name of ['renderJobs','refreshJobs','readUiJobResponse','submitUiCommandBody','canonicalSubmission','ordinalIgnoreCaseSubmissionKey','nonSecretSubmissionIdentity','submitUiAction','startAction','startPublicCommand']) vm.runInContext(actualFunction(name), context);
 const run = code => vm.runInContext(code, context);
 const html = () => document.querySelector('#jobs').innerHTML;
 const tick = () => new Promise(resolve => setImmediate(resolve));
@@ -66,10 +66,99 @@ function fire(delay) { const entry = [...timers.entries()].find(([, item]) => it
   const identityB = run("nonSecretSubmissionIdentity('Synthetic','/api/actions',{parameters:{BuildId:'same-target',GuestPassword:'canary-second',SaPassword:'canary-second',Nested:{Password:'canary-second'}}},[])");
   check(JSON.stringify(identityA) === JSON.stringify(identityB), 'Action password and nested secret changes cannot change retained identity');
   check(JSON.stringify(identityA) !== JSON.stringify(run("nonSecretSubmissionIdentity('Synthetic','/api/actions',{parameters:{BuildId:'other-target'}},[])")), 'Different nonsecret target keeps distinct submission identity');
-  const metadata = "[{Name:'RunId',Sensitive:false,IsCredential:false,TypeName:'System.String'},{Name:'Credential',Sensitive:true,IsCredential:true,TypeName:'System.Management.Automation.PSCredential'},{Name:'Password',Sensitive:true,IsCredential:false,TypeName:'System.String'},{Name:'DataRoot',Sensitive:true,IsCredential:false,TypeName:'System.String'}]";
-  const commandIdentityA = run("nonSecretSubmissionIdentity('Command: Synthetic','/api/commands',{parameterSetName:'SecretSet',parameters:{RunId:'same-target',Password:'canary-first',Credential:{password:'canary-first'},DataRoot:'canary-first',Unknown:'canary-first'}}," + metadata + ")");
-  const commandIdentityB = run("nonSecretSubmissionIdentity('Command: Synthetic','/api/commands',{parameterSetName:'SecretSet',parameters:{RunId:'same-target',Password:'canary-second',Credential:{password:'canary-second'},DataRoot:'canary-second',Unknown:'canary-second'}}," + metadata + ")");
+  const metadata = "[{Name:'RunId',Sensitive:false,IsCredential:false,TypeName:'System.String'},{Name:'GroupId',Sensitive:false,IsCredential:false,TypeName:'System.String'},{Name:'Credential',Sensitive:true,IsCredential:true,TypeName:'System.Management.Automation.PSCredential'},{Name:'Password',Sensitive:true,IsCredential:false,TypeName:'System.String'},{Name:'DataRoot',Sensitive:true,IsCredential:false,TypeName:'System.String'}]";
+  const commandIdentityA = run("nonSecretSubmissionIdentity('Command: Synthetic','/api/commands',{parameterSetName:'SecretSet',parameters:{RunId:'same-target',GroupId:'group-a',Password:'canary-first',Credential:{password:'canary-first'},DataRoot:'canary-first',Unknown:'canary-first'}}," + metadata + ")");
+  const commandIdentityB = run("nonSecretSubmissionIdentity('Command: Synthetic','/api/commands',{parameterSetName:'SecretSet',parameters:{RunId:'same-target',GroupId:'group-a',Password:'canary-second',Credential:{password:'canary-second'},DataRoot:'canary-second',Unknown:'canary-second'}}," + metadata + ")");
   check(JSON.stringify(commandIdentityA) === JSON.stringify(commandIdentityB), 'Generic metadata-sensitive values and unknown inputs are omitted before digest');
+  const commandIdentityOtherGroup = run("nonSecretSubmissionIdentity('Command: Synthetic','/api/commands',{parameterSetName:'SecretSet',parameters:{RunId:'same-target',GroupId:'group-b'}}," + metadata + ")");
+  check(JSON.stringify(commandIdentityA) !== JSON.stringify(commandIdentityOtherGroup), 'Distinct nonsecret GroupId values retain independent command identities');
+  const uuidGroup = 'aa111111-bbbb-4ccc-8ddd-eeeeeeeeeeee';
+  const uuidIdentity = run("nonSecretSubmissionIdentity('Command: Synthetic','/api/commands',{parameterSetName:'SecretSet',parameters:{GroupId:'" + uuidGroup + "'}}," + metadata + ")");
+  const upperUuidIdentity = run("nonSecretSubmissionIdentity('Command: Synthetic','/api/commands',{parameterSetName:'SecretSet',parameters:{GroupId:'" + uuidGroup.toUpperCase() + "'}}," + metadata + ")");
+  check(JSON.stringify(uuidIdentity) === JSON.stringify(upperUuidIdentity), 'Case variants of one GUID retain the same command identity');
+  const createNameMetadata = "[{Name:'Name',Sensitive:false,IsCredential:false,TypeName:'System.String'}]";
+  const createNameIdentity = name => run("nonSecretSubmissionIdentity('Command: New-SqlServerLabEnvironmentGroup','/api/commands',{commandName:'New-SqlServerLabEnvironmentGroup',parameterSetName:'Default',parameters:{Name:" + JSON.stringify(name) + "}}," + createNameMetadata + ")");
+  check(JSON.stringify(createNameIdentity('Linked Server Demo')) === JSON.stringify(createNameIdentity('linked server demo')), 'Group creation dedupe follows case-insensitive registry name identity');
+  check(JSON.stringify(createNameIdentity('Linked Server Demo')) !== JSON.stringify(createNameIdentity('Another Group')), 'Different group names retain independent creation identity');
+  check(run("ordinalIgnoreCaseSubmissionKey('ı') !== ordinalIgnoreCaseSubmissionKey('I')"), 'Ordinal group-name identity keeps dotless i distinct from I');
+  check(run("ordinalIgnoreCaseSubmissionKey('ᾀ') === ordinalIgnoreCaseSubmissionKey('ᾈ')"), 'Ordinal group-name identity applies Greek simple uppercase mappings');
+  check(run("ordinalIgnoreCaseSubmissionKey('ß') !== ordinalIgnoreCaseSubmissionKey('SS')"), 'Ordinal group-name identity does not expand sharp s');
+  check(run("ordinalIgnoreCaseSubmissionKey('ﬀ') !== ordinalIgnoreCaseSubmissionKey('FF')"), 'Ordinal group-name identity does not expand ligatures');
+  const genericNameIdentity = run("nonSecretSubmissionIdentity('Command: Synthetic','/api/commands',{commandName:'Synthetic',parameterSetName:'Default',parameters:{Name:'Linked Server Demo'}}," + createNameMetadata + ")");
+  check(Object.keys(genericNameIdentity.targets).length === 0, 'Name is not admitted to generic command submission identity');
+  const groupCommand = { Name: 'Start-SqlServerLabEnvironmentGroup' }, groupSet = { Name: 'Default', Parameters: [{ Name: 'GroupId', Sensitive: false, IsCredential: false, TypeName: 'System.String' }] };
+  context.groupCommand = groupCommand; context.groupSet = groupSet;
+  let groupGrant = 0, groupReceipt = '';
+  responder = url => {
+    if (url === '/api/command-grants') { groupReceipt = String(groupGrant).padStart(32, '0'); return response({ grant: String.fromCharCode(97 + groupGrant++).repeat(64), receiptId: groupReceipt }); }
+    if (url === '/api/commands') return response({ id: 'group-command-' + calls.length, receiptId: groupReceipt });
+    return response([]);
+  };
+  const groupA = run("startPublicCommand(groupCommand, groupSet, { GroupId: '11111111-2222-4333-8444-555555555555' }, true)");
+  await groupA;
+  const callsAfterGroupA = calls.filter(call => call.method === 'POST').length;
+  const groupB = run("startPublicCommand(groupCommand, groupSet, { GroupId: '22222222-3333-4444-8555-666666666666' }, true)");
+  await groupB;
+  check(calls.filter(call => call.method === 'POST').length === callsAfterGroupA + 2, 'Actual public submission does not let a prior GroupId block a different group');
+  const callsAfterGroupB = calls.filter(call => call.method === 'POST').length;
+  await run("startPublicCommand(groupCommand, groupSet, { GroupId: '22222222-3333-4444-8555-666666666666' }, true).then(() => false, () => true)");
+  check(calls.filter(call => call.method === 'POST').length === callsAfterGroupB, 'Actual public submission deduplicates the same group and action');
+
+  let unknownGrant = 0, unknownReceipt = '';
+  const unknownGroupCommand = { Name: 'Stop-SqlServerLabEnvironmentGroup' };
+  const unknownGroupSet = { Name: 'Default', Parameters: [{ Name: 'GroupId', Sensitive: false, IsCredential: false, TypeName: 'System.String' }] };
+  context.unknownGroupSet = unknownGroupSet; context.unknownGroupCommand = unknownGroupCommand;
+  responder = url => {
+    if (url === '/api/command-grants') { unknownReceipt = String(unknownGrant).padStart(32, '0'); return response({ grant: String.fromCharCode(99 + unknownGrant++).repeat(64), receiptId: unknownReceipt }); }
+    if (url === '/api/commands' && unknownGrant === 1) return Promise.reject(new Error('LOCAL_SYNTHETIC_UNKNOWN_ACCEPTANCE'));
+    if (url === '/api/commands') return response({ id: 'different-group-job', receiptId: unknownReceipt });
+    return response([]);
+  };
+  const unknownFailure = await run("startPublicCommand(unknownGroupCommand, unknownGroupSet, { GroupId: 'aa111111-bbbb-4ccc-8ddd-eeeeeeeeeeee' }, true).then(() => false, () => true)");
+  check(unknownFailure, 'Unknown acceptance is retained as a failed confirmation');
+  const unknownCalls = calls.filter(call => call.method === 'POST').length;
+  await run("startPublicCommand(unknownGroupCommand, unknownGroupSet, { GroupId: 'AA111111-BBBB-4CCC-8DDD-EEEEEEEEEEEE' }, true).then(() => false, () => true)");
+  check(calls.filter(call => call.method === 'POST').length === unknownCalls, 'Unknown acceptance blocks same-group retry without another grant');
+  await run("startPublicCommand(unknownGroupCommand, unknownGroupSet, { GroupId: '22222222-3333-4444-8555-666666666666' }, true)");
+  check(calls.filter(call => call.method === 'POST').length === unknownCalls + 2, 'Unknown acceptance for one group does not block an independent group');
+  const membershipCommand = { Name: 'Add-SqlServerLabEnvironmentGroupMember' };
+  const membershipSet = { Name: 'Default', Parameters: [
+    { Name: 'GroupId', Sensitive: false, IsCredential: false, TypeName: 'System.String' },
+    { Name: 'RunId', Sensitive: false, IsCredential: false, TypeName: 'System.String' }
+  ] };
+  context.membershipCommand = membershipCommand; context.membershipSet = membershipSet;
+  let membershipGrant = 0, membershipReceipt = '';
+  responder = url => {
+    if (url === '/api/command-grants') { membershipReceipt = String(membershipGrant).padStart(32, '0'); return response({ grant: String.fromCharCode(100 + membershipGrant++).repeat(64), receiptId: membershipReceipt }); }
+    if (url === '/api/commands' && membershipGrant === 1) return Promise.reject(new Error('LOCAL_SYNTHETIC_UNKNOWN_MEMBERSHIP_ACCEPTANCE'));
+    if (url === '/api/commands') return response({ id: 'membership-command-' + membershipGrant, receiptId: membershipReceipt });
+    return response([]);
+  };
+  const memberGroup = 'aa111111-bbbb-4ccc-8ddd-eeeeeeeeeeee';
+  const sharedRun = 'bb222222-cccc-4ddd-8eee-ffffffffffff';
+  check(await run("startPublicCommand(membershipCommand, membershipSet, { GroupId: '" + memberGroup + "', RunId: '" + sharedRun + "' }, true).then(() => false, () => true)"), 'Unknown membership acceptance is retained as a failed confirmation');
+  const membershipPosts = calls.filter(call => call.method === 'POST').length;
+  await run("startPublicCommand(membershipCommand, membershipSet, { GroupId: '" + memberGroup.toUpperCase() + "', RunId: '" + sharedRun.toUpperCase() + "' }, true).then(() => false, () => true)");
+  check(calls.filter(call => call.method === 'POST').length === membershipPosts, 'Unknown membership acceptance blocks same group/run GUID retry');
+  await run("startPublicCommand(membershipCommand, membershipSet, { GroupId: 'cc333333-dddd-4eee-8fff-000000000000', RunId: '" + sharedRun + "' }, true)");
+  check(calls.filter(call => call.method === 'POST').length === membershipPosts + 2, 'The same run can be added to another group with an independent submission identity');
+  const createGroupCommand = { Name: 'New-SqlServerLabEnvironmentGroup' };
+  const createGroupSet = { Name: 'Default', Parameters: [{ Name: 'Name', Sensitive: false, IsCredential: false, TypeName: 'System.String' }] };
+  context.createGroupCommand = createGroupCommand; context.createGroupSet = createGroupSet;
+  let createGrant = 0, createReceipt = '';
+  responder = url => {
+    if (url === '/api/command-grants') { createReceipt = String(createGrant).padStart(32, '0'); return response({ grant: String.fromCharCode(97 + createGrant++).repeat(64), receiptId: createReceipt }); }
+    if (url === '/api/commands' && createGrant === 1) return Promise.reject(new Error('LOCAL_SYNTHETIC_UNKNOWN_GROUP_CREATE'));
+    if (url === '/api/commands') return response({ id: 'created-group-' + createGrant, receiptId: createReceipt });
+    return response([]);
+  };
+  check(await run("startPublicCommand(createGroupCommand, createGroupSet, { Name: 'Linked Server Demo' }, true).then(() => false, () => true)"), 'Unknown group creation is retained as a failed confirmation');
+  const groupCreatePosts = calls.filter(call => call.method === 'POST').length;
+  await run("startPublicCommand(createGroupCommand, createGroupSet, { Name: 'linked server demo' }, true).then(() => false, () => true)");
+  check(calls.filter(call => call.method === 'POST').length === groupCreatePosts, 'Unknown group creation blocks same-name case-insensitive retry');
+  const differentGroupCreate = await run("startPublicCommand(createGroupCommand, createGroupSet, { Name: 'Another Group' }, true).then(() => 'ACCEPTED', error => error.message)");
+  check(differentGroupCreate === 'ACCEPTED', 'Different group name creates a distinct command');
+  check(calls.filter(call => call.method === 'POST').length === groupCreatePosts + 2, 'Unknown group creation for one name does not block a different group name');
   responder = url => url === '/api/command-grants' ? response({grant:'a'.repeat(64),receiptId:'b'.repeat(32)}) : url === '/api/commands' ? response({id:'secret-command-own',receiptId:'b'.repeat(32)}) : response([]);
   await run("startPublicCommand({Name:'SecretCanary'},{Name:'SecretSet',Parameters:" + metadata + "},{RunId:'same-target',Password:'canary-first',Credential:{password:'canary-first'},DataRoot:'canary-first',Unknown:'canary-first'},true)"); await tick();
   const postsBeforeSecretChange = calls.filter(call => call.method === 'POST').length;

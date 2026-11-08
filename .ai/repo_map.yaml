@@ -817,6 +817,7 @@ sources_of_truth:
   validation_hyperv_storage_acceptance_bootstrap: Tests/Integration/Invoke-HyperVStorageAcceptanceBootstrap.ps1
   runtime_limitations: Documentation/Quality/KNOWN_LIMITATIONS.md
   validation_capability_selection: Tools/Get-CiCapabilitySelection.ps1
+  validation_ci_test_selection: Tools/Get-CiTestSelection.ps1, Tests/Static/Invoke-CiStrategyChecks.ps1 # exact changed-path bindings; unknown product code keeps conservative provider fallback
   validation_development_scope: Tools/Get-StaticValidationScope.ps1
   validation_local_evidence: Tests/Common/LocalStaticEvidence.ps1
   validation_runtime_admission: Tools/Resolve-CiRuntimeScope.ps1
@@ -868,13 +869,16 @@ sources_of_truth:
   workflow_ui_specialized_body_validation: Tests/Static/Fixtures/WorkflowUiSpecializedBodyChecks.ps1 # eight internal adapters; retained character limits, byte ceilings, absolute deadline; synthetic sinks
   workflow_ui_job_status: Tools/WorkflowUiJobStatus.ps1 # bounded UI-owned batch reader; no store initialization or scheduling
   workflow_ui_job_status_validation: Tests/Static/Fixtures/WorkflowJobStatusChecks.ps1, Tests/Static/Fixtures/WorkflowJobStatusChecks.cjs
-  workflow_ui_assets: Ui/index.html, Ui/app.js, Ui/app.css
+  workflow_ui_assets: Ui/index.html, Ui/app.js, Ui/app.css, Ui/environment-groups.js
   workflow_ui_authenticated_creation: Tools/WorkflowUiTlsCreation.ps1, Private/AuthenticatedTlsUiCreation.ps1, Ui/tls-authenticated-creation.js # session-private allocation custody, closed SQL2019CU32/2022CU27/2025CU9 ticket/profile binding and exact scoped lifecycle, no browser root selection
   workflow_ui_authenticated_creation_validation: Tests/Static/Fixtures/WorkflowUiTlsCreationChecks.ps1, Tests/Static/Fixtures/WorkflowUiTlsCreationChecks.cjs # real request/allocation/worker/renderer boundaries with synthetic provider leaves; native proof separate
   workflow_ui_container_pins: Public/Get-SqlServerLabWorkflow.ps1, Ui/app.js, Catalogs/sql-server-versions.json # bounded scalar ContainerPinnedBuilds; legacy SQL2025 field retained
   workflow_ui_container_pins_validation: Tests/Static/Fixtures/ContainerPinnedVersionWorkflowChecks.ps1, Tests/Static/Fixtures/WorkflowContainerPinnedVersionUiChecks.cjs # WorkflowUI suite; actual projection and renderer with synthetic catalog/DOM leaves
   workflow_ui_command_catalog: Private/PublicCommandConsole.ps1
   workflow_ui_validation: Tests/Static/Invoke-WorkflowUiChecks.ps1, Tests/Static/Invoke-PublicCommandConsoleChecks.ps1
+  workflow_ui_environment_groups_surfaces: Private/EnvironmentGroupsBrowserHttp.ps1, Public/BatchConsole.ps1, Tools/Start-SqlServerLabUi.ps1
+  workflow_ui_environment_groups_browser_validation: Tests/Static/Fixtures/EnvironmentGroupsBrowserHttpChecks.ps1, Tests/Static/Fixtures/ContainerProviderObservationTimeoutChecks.ps1, Tests/Static/Fixtures/EnvironmentGroupsBrowserUiChecks.cjs # WorkflowUI; fixed DTO/route, bounded provider-reader deadline and actual renderer/action handler with synthetic registry, DOM and catalog
+  workflow_ui_environment_groups_console_validation: Tests/Static/Invoke-ConsoleUiChecks.ps1 # read-only member selection and sanitized observation formatter with synthetic DTO; no provider call
   remote_hyperv_host_backlog: Documentation/Project_Planning/HYPERV_REMOTE_HOST_BACKLOG.md
   windows_locale_configuration_backlog: Documentation/Project_Planning/WINDOWS_LOCALE_CONFIGURATION_BACKLOG.md
   windows_slot_activation_backlog: Documentation/Project_Planning/WINDOWS_SLOT_ACTIVATION_BACKLOG.md
@@ -925,9 +929,16 @@ sources_of_truth:
   validation_hyperv_guest_progress: Tests/Static/Invoke-HyperVGuestProgressChecks.ps1
   validation_hyperv_sql_ownership_initialization: Tests/Static/Invoke-HyperVSqlOwnershipInitializationChecks.ps1
   validation_direct_transfer_progress: Tests/Static/Invoke-TransferProgressChecks.ps1
-  validation_direct_action_progress: Tests/Static/Invoke-ActionProgressChecks.ps1
+  validation_direct_action_progress: Tests/Static/Invoke-ActionProgressChecks.ps1 # includes ContainerProviderObservationTimeoutChecks.ps1
   acceptance_direct_action_progress: Tests/Integration/Invoke-ActionProgressAcceptance.ps1
   automated_test_environment_contract: Public/TestEnvironment.ps1
+  reusable_environment_group_contract: Public/EnvironmentGroups.ps1
+  reusable_environment_group_registry_schema: Schemas/environment-groups.schema.json
+  reusable_environment_group_behavior: Documentation/Architecture/LAB_ENVIRONMENT_GROUPS.md # persistent group lifecycle and shared-member stop retention; read-only Docker/Podman observations share one absolute 30s per-run deadline including tool/policy resolution, then confirm bounded own-process-tree termination before sanitized UNAVAILABLE projection; full RunState fingerprint recheck holds no lifecycle lock; runtime reconcile remains open
+  reusable_environment_group_validation: Documentation/Quality/LOCAL_VALIDATION_STRATEGY.md # synthetic browser HTTP/UI and Docker/Podman deadline; Invoke-ActionProgressChecks verifies timeout child termination, Invoke-OwnedHostIntegrationChecks verifies absolute-deadline conversion; no provider or SQL runtime is started
+  validation_environment_group_console: Tests/Static/Invoke-ConsoleUiChecks.ps1 # reachable group menu, confirmation on mutations, stopped-only membership editing, and shared-member API delegation
+  acceptance_linked_server_environment_group: Tests/Integration/Invoke-LinkedServerEnvironmentGroupAcceptance.ps1 # two separately created SQL-2025-CU9 container runs share an explicit non-conflicting process-local subnet; second group reuses target run; OPENQUERY, SQL error 468 for explicit collation conflict, reconciled collation, and shared-member stop retention with own cleanup
+  evidence_linked_server_environment_group: Documentation/Quality/LINKED_SERVER_ENVIRONMENT_GROUP_ACCEPTANCE_2026-11-08.md # separate native Docker and Podman SQL-2025-CU9 observations; synthetic OPENQUERY, explicit collation conflict/reconciliation and shared-group lifecycle; not TLS/Kerberos/MSDTC
   authenticated_test_environment_tls_backlog: Documentation/Project_Planning/NEW_SQL_LAB_USE_CASES_BACKLOG.md # TLS-001: P1 directly after SSISDB; limited own Docker/Podman SQL2025 Windows TLS evidence exists; full client/version/provider qualification and consumer export remain open
   authenticated_test_environment_tls_ca_design: Documentation/Project_Planning/TLS_001_ISOLATED_CA_DESIGN.md # TLS-001a: user-selected isolated CA direction; explicit approved Windows CA trust and separate Docker/Podman Windows TLS evidence; broader lifecycle, registry and migration remain open
   authenticated_tls_request_contract: Documentation/Architecture/AUTHENTICATED_TLS_REQUEST.md
@@ -1475,6 +1486,7 @@ internal_components:
     validation: Tests/Static/Invoke-SoftwareCatalogChecks.ps1
     native_acceptance: Tests/Integration/Invoke-ContainerToolAcceptance.ps1
     current_sqlpackage_acceptance: Documentation/Quality/SQLPACKAGE_170_5_96_ACCEPTANCE_2026-10-25.md
+    current_dacpac_publish_acceptance: Documentation/Quality/SQLPACKAGE_DACPAC_DRIFT_REPORT_ACCEPTANCE_2026-11-08.md
     responsibilities:
       - "Python-, R- und Java-Anforderungen in providerneutrale Software-Intents normalisieren"
       - "SQL-Version, Betriebssystem, Architektur, Provider und Runtimevariante deterministisch aufloesen"
@@ -2378,6 +2390,18 @@ validation:
       - provider_subrun_status
       - grouped_stop_start
       - grouped_cleanup
+  linked_server_environment_group_acceptance:
+    source: Tests/Integration/Invoke-LinkedServerEnvironmentGroupAcceptance.ps1
+    docker: '.\Tests\Integration\Invoke-LinkedServerEnvironmentGroupAcceptance.ps1 -Provider docker -EvidenceDirectory <new-path-outside-repository>'
+    podman: '.\Tests\Integration\Invoke-LinkedServerEnvironmentGroupAcceptance.ps1 -Provider podman -EvidenceDirectory <new-path-outside-repository>'
+    checks:
+      - two_independently_created_runs_on_one_explicit_provider_network
+      - one_target_run_bound_to_two_groups
+      - read_only_sql_server_openquery_with_synthetic_fixture
+      - explicit_collation_conflict_rejected_with_sql_error_468
+      - explicit_collation_reconciliation_returns_synthetic_marker
+      - shared_run_stays_running_until_last_group_stops
+      - exact_id_label_and_empty_endpoint_cleanup
   restore_smoke:
     source: Tests/Integration/Invoke-RestoreSmokeTest.ps1
     docker: '.\Tests\Integration\Invoke-RestoreSmokeTest.ps1 -Provider docker'
@@ -2479,6 +2503,25 @@ validation:
       - attach_journal_and_sql_content_roundtrip
       - controlled_sql_failure_and_recovery_journal
       - scope_bound_cleanup
+  container_dacpac_publish_acceptance:
+    source: Tests/Integration/Invoke-ContainerToolAcceptance.ps1
+    docker: '.\Tests\Integration\Invoke-ContainerToolAcceptance.ps1 -Provider docker'
+    podman: '.\Tests\Integration\Invoke-ContainerToolAcceptance.ps1 -Provider podman'
+    evidence: Documentation/Quality/SQLPACKAGE_DACPAC_DRIFT_REPORT_ACCEPTANCE_2026-11-08.md
+    execution_status: "Docker und Podman am 2026-11-08 getrennt mit SQL 2022 und SqlPackage 170.5.96.0 bestanden; synthetisches Extract/Publish, No-op-Report, erkannte kontrollierte Spaltenbreiten-Drift, korrigierendes Publish, No-op nach Korrektur, weiteres idempotentes Publish mit erhaltener Schema-/Zielzeile und eigener Run-/Image-Cleanup"
+    checks:
+      - synthetic_dacpac_extract
+      - scope_bound_database_publish
+      - deploy_report_no_schema_operations
+      - deploy_report_detects_controlled_column_width_drift
+      - republish_restores_model_width_and_preserves_target_data
+      - deploy_report_after_drift_repair_has_zero_operations
+      - repeat_publish_after_drift_repair_preserves_schema_and_target_data
+      - repeat_publish_preserves_target_data
+      - block_possible_data_loss
+      - do_not_drop_objects_missing_from_source
+      - temporary_dacpac_and_owned_runtime_cleanup
+      - temporary_deploy_report_cleanup
   container_instance_store_acceptance:
     source: Tests/Integration/Invoke-ContainerInstanceStoreAcceptance.ps1
     docker: '.\Tests\Integration\Invoke-ContainerInstanceStoreAcceptance.ps1 -Provider docker'
@@ -2515,10 +2558,11 @@ validation:
     validation: Tests/Static/Invoke-SqlVersionUpgradeScenarioChecks.ps1
     supervisor_validation: Tests/Static/Invoke-SqlVersionUpgradeSupervisorChecks.ps1
     contract: Documentation/Quality/SQL_VERSION_UPGRADE_REFERENCE.md
+    current_query_store_evidence: Documentation/Quality/SQL_VERSION_UPGRADE_QUERY_STORE_ACCEPTANCE_2026-11-08.md # Docker and Podman on 35a1abc; three observed phases with five executions each, own cleanup completed
     docker: '.\Tests\Integration\Invoke-SqlVersionUpgradeAcceptance.ps1 -Provider docker'
     podman: '.\Tests\Integration\Invoke-SqlVersionUpgradeAcceptance.ps1 -Provider podman'
-    execution_status: "validated_reference; native Docker and Podman passed 2026-09-21 on 46340200; runtime cleanup verified, private temporary evidence retained"
-    scope: "own SQL 2022 major16 compat160 -> registered full BackupSetId -> new SQL 2025 major17 compat160 -> explicit compat170; fixed rows, aggregates, rollback, constraints, CHECKDB, unchanged source; operation/runtime-bound bounded cleanup"
+    execution_status: "validated_reference; historical Docker and Podman passed 2026-09-21 on 46340200; updated Query Store evidence separately passed both providers 2026-11-08 on 35a1abc; own runtime cleanup completed, private temporary evidence retained"
+    scope: "own SQL 2022 major16 compat160 with Query Store -> registered full BackupSetId -> new SQL 2025 major17 compat160 -> explicit compat170; fixed rows, aggregates, rollback, constraints, CHECKDB, marked Query Store observations at both target compatibility levels without a performance threshold, unchanged source; operation/runtime-bound bounded cleanup"
   relational_core_comparison:
     source: Private/RelationalCoreComparison.ps1
     public_command: Public/Test-SqlServerLabRelationalCoreComparison.ps1

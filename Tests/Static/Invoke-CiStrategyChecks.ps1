@@ -83,6 +83,25 @@ Add-CheckResult 'Curated help retains ConsoleUI and continuation authority check
 Add-CheckResult 'Read-only host HTTP projection retains its actual contract suite without provider mutation smokes' (
     'Invoke-HostCapabilityMatrixBrowserChecks.ps1' -in $hostProjection.StaticChecks -and
     -not ($hostProjection.Docker -or $hostProjection.Podman -or $hostProjection.HyperV -or $hostProjection.Mixed -or $hostProjection.Adapter))
+foreach ($path in @('Private/EnvironmentGroupsBrowserHttp.ps1','Private\EnvironmentGroupsBrowserHttp.ps1')) {
+    $groupBrowser = & $selector -ChangedPath @($path)
+    Add-CheckResult "Read-only environment-group browser projection selects UI and lifecycle contracts without runtime smokes: $path" (
+        'Invoke-ConsoleUiChecks.ps1' -in $groupBrowser.StaticChecks -and
+        'Invoke-WorkflowUiChecks.ps1' -in $groupBrowser.StaticChecks -and
+        'Invoke-EnvironmentGroupLifecycleChecks.ps1' -in $groupBrowser.StaticChecks -and
+        -not ($groupBrowser.Docker -or $groupBrowser.Podman -or $groupBrowser.HyperV -or $groupBrowser.Mixed -or $groupBrowser.Adapter))
+}
+foreach ($path in @('Tests/Static/Fixtures/EnvironmentGroupsBrowserHttpChecks.ps1','Tests/Static/Fixtures/EnvironmentGroupsBrowserUiChecks.cjs')) {
+    $groupBrowserFixture = & $selector -ChangedPath @($path)
+    Add-CheckResult "Environment-group browser fixture selects its executing WorkflowUI suite: $path" (
+        'Invoke-WorkflowUiChecks.ps1' -in $groupBrowserFixture.StaticChecks -and
+        -not ($groupBrowserFixture.Docker -or $groupBrowserFixture.Podman -or $groupBrowserFixture.HyperV -or $groupBrowserFixture.Mixed -or $groupBrowserFixture.Adapter))
+}
+$nearbyGroupBrowser = & $selector -ChangedPath @('Private/EnvironmentGroupsBrowserHttpOther.ps1')
+Add-CheckResult 'Unknown adjacent environment-group product code keeps conservative runtime fallback' (
+    'Invoke-WorkflowUiChecks.ps1' -notin $nearbyGroupBrowser.StaticChecks -and
+    $nearbyGroupBrowser.Docker -and $nearbyGroupBrowser.Podman -and $nearbyGroupBrowser.HyperV -and
+    $nearbyGroupBrowser.Mixed -and $nearbyGroupBrowser.Adapter)
 foreach($path in @('Public/Get-SqlServerLabHostCapabilityMatrix.ps1','Private/HostCapabilityMatrixExecutor.ps1')) {
     $selected=& $selector -ChangedPath @($path)
     Add-CheckResult "Underlying public API and unknown adjacent product source retain full native selection: $path" (

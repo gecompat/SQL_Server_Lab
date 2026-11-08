@@ -504,10 +504,18 @@ Die feste [SQL-Version-Upgrade-Referenz](../Documentation/Quality/SQL_VERSION_UP
 überträgt eine eigene synthetische SQL-2022-Datenbank über die öffentliche
 Backup-Bibliothek auf einen neuen SQL-2025-Container. Compatibility Level 160
 bleibt zunächst erhalten; der Wechsel auf 170 wird separat funktional geprüft.
+Die aktuelle Ergänzung zeichnet Query-Store-Ausführungen sowie Plan- und
+Dauermetriken derselben markierten Abfrage bei Ziellevel 160 und 170 auf. Diese
+kleine Beobachtung hat keinen Performance-Grenzwert und ersetzt keine
+Anwendungs-/Planregression.
 Die getrennten nativen Docker-/Podman-Referenzläufe bestanden am 2026-09-21 auf
 `46340200` mit eigener Operation-/Runtimebindung und Runtime-Cleanup. Die
-beobachteten Restore-Dauern sind kein Performance-Benchmark; allgemeine
-Migration bleibt unverändert.
+aktualisierte Query-Store-Aufnahme bestand getrennt unter beiden Providern am
+2026-11-08 auf `35a1abc06bf8a16d11c34a35d4dbf7a790551daf`, ebenfalls mit eigenem
+Cleanup. Die datierte [Abnahme](../Documentation/Quality/SQL_VERSION_UPGRADE_QUERY_STORE_ACCEPTANCE_2026-11-08.md)
+bindet fünf Beobachtungen je festgelegter Phase. Restore- und Query-Store-
+Dauern sind Beobachtungen, keine Performance-Benchmarks; allgemeine Migration
+bleibt unverändert.
 ## 1. Ziel
 
 Die [Sitzungsrichtlinie](../Documentation/Quality/COST_EFFICIENT_DEVELOPMENT.md)
@@ -833,6 +841,13 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 - BACPAC-Import für katalogisierte SQL-2022-Linux-Samples unter Docker und
   Podman über das gebundene SqlPackage-Tool, mit Versionsprobe vor Mutation,
   Trust-/Cache-Artifact, scoped temporärem Transfer, SQL-Roundtrip und Cleanup;
+- synthetischer DACPAC-Extract/Publish für SQL 2022 mit Docker und Podman;
+  ein DeployReport prüft vor der Wiederholungspublikation den No-op-Plan und
+  getrennte native Abnahmen belegen zusätzlich eine kontrollierte
+  Spaltenbreiten-Drift, ihre Erkennung und Korrektur bei erhaltenen Zieldaten,
+  einen No-op-Report und ein weiteres idempotentes Publish nach der Korrektur
+  sowie eigenen Cleanup. Allgemeine Driftkorrektur, Migration und fehlgeschlagene
+  Releases bleiben offen;
 - inhaltsadressierte `LAB_GENERATED`-Baselines für Single- und Multi-Output-
   Container- und run-gebundene Hyper-V-Samples einschließlich kompatibler
   Aufsetzpunktauswahl; Hyper-V exportiert nur aus der verifizierten Backup-

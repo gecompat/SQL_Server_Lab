@@ -30,6 +30,20 @@ param($Module,$RepoRoot)
     }
     $binding=Get-LabAiHostModelBinding -Plan $plan.EmbeddingPlan -MetadataTransport $metadata
     Check 'Vorhandenes lokales Modell bindet Version Dimension und Live-Digest' ($binding.Digest -ceq ('a'*64) -and $binding.Dimension -eq 768)
+    $metadataFailureCases=@(
+        @{Exception=[Threading.Tasks.TaskCanceledException]::new('private-timeout-sentinel');Expected='TIMEOUT'},
+        @{Exception=[Security.Authentication.AuthenticationException]::new('private-tls-sentinel');Expected='TLS'},
+        @{Exception=[Net.Http.HttpRequestException]::new('private-outer-sentinel',[Security.Authentication.AuthenticationException]::new('private-tls-sentinel'));Expected='TLS'},
+        @{Exception=[Net.Http.HttpRequestException]::new('private-transport-sentinel');Expected='TRANSPORT'},
+        @{Exception=[InvalidOperationException]::new('private-unclassified-sentinel');Expected='UNCLASSIFIED'}
+    )
+    foreach($failureCase in $metadataFailureCases){
+        $category=Get-LabAiHostMetadataTransportFailureCategory -Exception $failureCase.Exception
+        Check "Hostmetadaten ordnen $($failureCase.Expected) sicher ein" ($category -ceq $failureCase.Expected -and $category -notmatch 'private-')
+    }
+    $metadataFailureMessage=''
+    try{Invoke-LabAiHostMetadata -Port 70000 -Path '/api/version' -ExposeFailureCategory|Out-Null}catch{$metadataFailureMessage=$_.Exception.Message}
+    Check 'Unbekannte Hostmetadatenfehler geben weder Exception-Text noch URI weiter' ($metadataFailureMessage -ceq 'AI_RAG_HOST_METADATA_UNCLASSIFIED_FAILED')
     $nomicBase=$base.Clone();$nomicBase.EmbeddingModelKey='ollama-nomic-embed-text-v1-5'
     $nomicPlan=New-LabAiRagPlan @nomicBase
     Check 'Nomic v1.5 bindet das katalogisierte Suchprofil und die Live-Hostprüfung' (
@@ -119,6 +133,29 @@ param($Module,$RepoRoot)
         $redirect=Invoke-LabOllamaHttpTransport -BaseUri "http://127.0.0.1:$port" -Request @{Path='/api/embed';Body=@{model='synthetic';input=@('synthetic')};TimeoutSeconds=5}
         Check 'Realer HTTP-Transport folgt keinem Redirect' ($redirect.StatusCode -eq 307)
     }finally{$listener.Stop();$job|Wait-Job -Timeout 10|Out-Null;$job|Remove-Job -Force}
+    foreach($responseCase in @(
+        @{Name='HTTP';Status=503;Body='{"error":"private-http-sentinel"}';Expected='AI_RAG_HOST_METADATA_HTTP_FAILED';Forbidden='private-http-sentinel'},
+        @{Name='JSON';Status=200;Body='{"version":';Expected='AI_RAG_HOST_METADATA_JSON_FAILED';Forbidden='private-json-sentinel'}
+    )){
+        $listener=[Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback,0);$listener.Start();$port=$listener.LocalEndpoint.Port
+        $job=Start-ThreadJob -ArgumentList $listener,$responseCase.Status,$responseCase.Body -ScriptBlock {
+            param($Listener,$Status,$Body)
+            $socket=$Listener.AcceptTcpClient()
+            try{
+                $stream=$socket.GetStream();$reader=[IO.StreamReader]::new($stream,[Text.Encoding]::ASCII,$false,1024,$true)
+                while(($line=$reader.ReadLine()) -ne ''){if($null -eq $line){break}}
+                $bodyBytes=[Text.Encoding]::UTF8.GetBytes($Body)
+                $header=[Text.Encoding]::ASCII.GetBytes("HTTP/1.1 $Status Synthetic`r`nContent-Type: application/json`r`nContent-Length: $($bodyBytes.Length)`r`nConnection: close`r`n`r`n")
+                $stream.Write($header,0,$header.Length);$stream.Write($bodyBytes,0,$bodyBytes.Length);$stream.Flush()
+            }finally{$socket.Dispose()}
+        }
+        try{
+            $failureMessage=''
+            try{Invoke-LabAiHostMetadata -Port $port -Path '/api/version' -ExposeFailureCategory|Out-Null}catch{$failureMessage=$_.Exception.Message}
+            Check "Hostmetadaten klassifizieren $($responseCase.Name) ohne Rohdaten" (
+                $failureMessage -ceq $responseCase.Expected -and $failureMessage -notmatch [regex]::Escape($responseCase.Forbidden))
+        }finally{$listener.Stop();$job|Wait-Job -Timeout 10|Out-Null;$job|Remove-Job -Force}
+    }
     $credential=[SecureString]::new()
     try{
         $script:redirectAttempts=0

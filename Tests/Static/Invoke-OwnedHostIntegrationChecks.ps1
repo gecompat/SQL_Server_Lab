@@ -40,6 +40,25 @@ $module = New-Module -ArgumentList $repoRoot,$fixtureRoot -ScriptBlock {
         try { $null = & $Action } catch { $caught = $_.Exception.Message -ceq $Code }
         Assert-Own $caught $Name
     }
+    $absoluteDeadline = [DateTimeOffset]::UtcNow.AddSeconds(10)
+    $remainingTimeout = Get-LabContainerRuntimeTimeoutSeconds -TimeoutSeconds 30 -DeadlineUtc $absoluteDeadline
+    Assert-Own ($remainingTimeout -ge 9 -and $remainingTimeout -le 10) 'Absolute container deadline is converted to bounded remaining process time'
+    Assert-OwnThrows { Get-LabContainerRuntimeTimeoutSeconds -TimeoutSeconds 30 -DeadlineUtc ([DateTimeOffset]::UtcNow.AddSeconds(-1)) } `
+        'LAB_NATIVE_OPERATION_TIMEOUT' 'Expired absolute deadline prevents native process start'
+    . (Join-Path $repoRoot 'Private/RunArtifactRemoval.ps1')
+    $originalOwnedNativeProcess=(Get-Command Invoke-LabOwnedHostNativeProcess -CommandType Function).ScriptBlock
+    function Get-LabHostToolInvocation { 'synthetic-container-runtime' }
+    function Invoke-LabOwnedHostNativeProcess { throw 'UNEXPECTED_NATIVE_PROCESS_START' }
+    $artifactContext=[pscustomobject]@{Provider='docker';IdentityPath=$null;StateRoot=$null;Endpoint='synthetic-endpoint'}
+    try {
+        Assert-OwnThrows { Invoke-LabRunArtifactPinnedProcess -Context $artifactContext -Arguments @('inspect','synthetic-container') `
+            -DeadlineUtc ([DateTimeOffset]::UtcNow.AddSeconds(-1)) } 'LAB_NATIVE_OPERATION_TIMEOUT' `
+            'Expired absolute deadline survives artifact binding resolution and blocks process start'
+    }
+    finally {
+        Remove-Item Function:Get-LabHostToolInvocation -ErrorAction SilentlyContinue
+        Set-Item Function:Invoke-LabOwnedHostNativeProcess -Value $originalOwnedNativeProcess
+    }
     function Invoke-LabOwnedHostNativeProcess {
         param($StartInfo,$TimeoutSeconds,$MaximumBytes)
         $script:transportCalls++; $script:lastStart = $StartInfo
@@ -273,6 +292,12 @@ $module = New-Module -ArgumentList $repoRoot,$fixtureRoot -ScriptBlock {
         . (Join-Path $Repository 'Private/Common.ps1')
         . (Join-Path $Repository 'Private/ResourceAssessment.ps1')
         . (Join-Path $Repository 'Private/ResourceAssessmentDecision.ps1')
+        function Enter-LabEnvironmentGroupsLock { param($StateRoot) return $null }
+        function Exit-LabEnvironmentGroupsLock { param($Mutex) }
+        function Enter-LabEnvironmentGroupRunResourceLock { param($RunId,$StateRoot) [pscustomobject]@{Mutexes=@()} }
+        function Exit-LabEnvironmentGroupRunResourceLock { param($Mutex) }
+        function Get-LabEnvironmentGroupsRegistry { param($StateRoot) [pscustomobject]@{groups=@()} }
+        function Assert-LabEnvironmentGroupRunMutation { param($RunId,$Action,$Registry,$GroupOperationContext) }
         . (Join-Path $Repository 'Public/Restart-SqlServerLab.ps1')
         $script:SchemasPath=Join-Path $Repository 'Schemas'
         $script:calls=[Collections.Generic.List[object]]::new()

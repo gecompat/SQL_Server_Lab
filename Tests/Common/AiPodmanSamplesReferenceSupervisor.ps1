@@ -40,16 +40,47 @@ function Invoke-AiPodmanSamplesReferenceChild {
         else {
             $confirmed=$true;$reason='CHILD_FAILED'
             $path=Join-Path $EvidenceRoot ($Stage+'.receipt.json')
-            if($process.ExitCode -eq 0 -and (Test-Path -LiteralPath $path)){
+            if(Test-Path -LiteralPath $path){
                 $item=Get-Item -LiteralPath $path
-                if($item.Length -gt 1024 -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)){throw 'RECEIPT_INVALID'}
+                if($item.Length -gt 2048 -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)){throw 'RECEIPT_INVALID'}
                 $receipt=Get-Content -LiteralPath $path -Raw|ConvertFrom-Json -Depth 5
                 $properties=@($receipt.PSObject.Properties.Name)
-                if($properties.Count -ne 4 -or @($properties|Where-Object {$_ -cnotin @('OperationId','Stage','Status','Assertions')}).Count -or
+                if($properties.Count -ne 5 -or @($properties|Where-Object {$_ -cnotin @('OperationId','Stage','Status','Assertions','FailureCode')}).Count -or
+                    $receipt.OperationId -isnot [string] -or $receipt.Stage -isnot [string] -or
+                    $receipt.Status -isnot [string] -or $receipt.FailureCode -isnot [string] -or
                     $receipt.OperationId -cne $OperationId.ToString('D') -or $receipt.Stage -cne $Stage -or
-                    $receipt.Status -cne 'COMPLETED' -or $receipt.Assertions -isnot [long] -and $receipt.Assertions -isnot [int] -or
+                    $receipt.Assertions -isnot [long] -and $receipt.Assertions -isnot [int] -or
                     $receipt.Assertions -lt 0 -or $receipt.Assertions -gt 100){throw 'RECEIPT_INVALID'}
-                $status='COMPLETED';$reason='NONE';$assertions=[int]$receipt.Assertions
+                if($process.ExitCode -eq 0 -and $receipt.Status -ceq 'COMPLETED' -and $receipt.FailureCode -ceq 'NONE'){
+                    $status='COMPLETED';$reason='NONE';$assertions=[int]$receipt.Assertions
+                }
+                elseif($process.ExitCode -ne 0 -and $receipt.Status -ceq 'FAILED' -and
+                    @('SAMPLES_ALREADY_STARTED','SAMPLES_BINDING_INVALID','SAMPLES_CONTENT_INVALID','SAMPLES_MODEL_INVALID',
+                        'SAMPLES_NEW_FAILED','SAMPLES_RESTART_CONTENT_INVALID','SAMPLES_RESTART_FAILED',
+                        'SAMPLES_RESTART_RETRIEVAL_FAILED','SAMPLES_RETRIEVAL_FAILED',
+                        'AI_RAG_HOST_ENDPOINT_INVALID','AI_RAG_HOST_VERSION_UNSUPPORTED','AI_RAG_HOST_MODEL_IDENTITY_INVALID',
+                        'AI_RAG_HOST_REMOTE_MODEL_FORBIDDEN','AI_RAG_HOST_CAPABILITY_INVALID','AI_RAG_HOST_DIMENSION_INVALID',
+                        'AI_RAG_HOST_METADATA_FAILED','AI_RAG_HOST_MODEL_DRIFT','AI_RAG_HOST_METADATA_VERSION_FAILED',
+                        'AI_RAG_HOST_METADATA_TAGS_FAILED','AI_RAG_HOST_METADATA_SHOW_FAILED',
+                        'AI_RAG_HOST_METADATA_TIMEOUT_FAILED','AI_RAG_HOST_METADATA_TLS_FAILED','AI_RAG_HOST_METADATA_TRANSPORT_FAILED',
+                        'AI_RAG_HOST_METADATA_HTTP_FAILED','AI_RAG_HOST_METADATA_JSON_FAILED','AI_RAG_HOST_METADATA_UNCLASSIFIED_FAILED',
+                        'AI_PODMAN_SAMPLES_WORKER_FAILED',
+                        'AI_PODMAN_SAMPLES_WORKER_FAILED_AT_HOST_TOOL_INITIALIZATION','AI_PODMAN_SAMPLES_WORKER_FAILED_AT_MODULE_IMPORT','AI_PODMAN_SAMPLES_WORKER_FAILED_AT_WORKER_INVOCATION',
+                        'AI_PODMAN_SAMPLES_WORKER_FAILED_AT_SCENARIO_HELPER_LOAD','AI_PODMAN_SAMPLES_WORKER_FAILED_AT_OPERATION_READ',
+                        'AI_PODMAN_SAMPLES_WORKER_FAILED_AT_RUNTIME_ASSERTION','AI_PODMAN_SAMPLES_WORKER_FAILED_AT_ENDPOINT_PLAN',
+                        'AI_PODMAN_SAMPLES_WORKER_FAILED_AT_MODEL_BINDING','AI_PODMAN_SAMPLES_WORKER_FAILED_AT_OPERATION_RECORD_WRITE',
+                        'AI_PODMAN_SAMPLES_WORKER_FAILED_AT_LAB_CREATE','AI_PODMAN_SAMPLES_WORKER_FAILED_AT_TRANSFER_BINDING',
+                        'AI_PODMAN_SAMPLES_WORKER_FAILED_AT_TRANSFER_BINDING_IDENTITY','AI_PODMAN_SAMPLES_WORKER_FAILED_AT_INITIAL_CONTENT_EVIDENCE',
+                        'AI_PODMAN_SAMPLES_WORKER_FAILED_AT_INITIAL_RETRIEVAL','AI_PODMAN_SAMPLES_WORKER_FAILED_AT_RESTART',
+                        'AI_PODMAN_SAMPLES_WORKER_FAILED_AT_RESTART_TRANSFER_BINDING','AI_PODMAN_SAMPLES_WORKER_FAILED_AT_RESTART_CONTENT_EVIDENCE',
+                        'AI_PODMAN_SAMPLES_WORKER_FAILED_AT_RESTART_RETRIEVAL','AI_PODMAN_SAMPLES_WORKER_FAILED_AT_MODEL_REVALIDATION',
+                        'AI_PODMAN_SAMPLES_WORKER_FAILED_AT_OWNED_RUN_CLEANUP') -ccontains $receipt.FailureCode){
+                    $reason=$receipt.FailureCode
+                }
+                elseif($process.ExitCode -ne 0 -and $receipt.Status -ceq 'FAILED' -and $receipt.FailureCode -ceq 'NONE'){
+                    $reason='CHILD_FAILED'
+                }
+                else {throw 'RECEIPT_INVALID'}
             }
         }
     }

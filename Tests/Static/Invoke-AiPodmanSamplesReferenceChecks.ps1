@@ -23,6 +23,26 @@ try {
         $null=[Management.Automation.Language.Parser]::ParseFile($path,[ref]$tokens,[ref]$errors)
         Add-CheckResult -Name ('Syntax '+[IO.Path]::GetFileName($path)) -Success ($errors.Count -eq 0)
     }
+    $workerSource=Get-Content -LiteralPath $workerPath -Raw
+    $supervisorSource=Get-Content -LiteralPath (Join-Path $PSScriptRoot '../Common/AiPodmanSamplesReferenceSupervisor.ps1') -Raw
+    $workflowSource=Get-Content -LiteralPath (Join-Path $repoRoot '.github/workflows/runtime-smoke-podman.yml') -Raw
+    $workerStageBlock=[regex]::Match($workerSource,'(?s)\$workerStages=@\((?<stages>.*?)\)')
+    $workerStageNames=@([regex]::Matches($workerStageBlock.Groups['stages'].Value,"'(?<name>[A-Z0-9_]+)'")|ForEach-Object {$_.Groups['name'].Value})
+    $workerStageCodes=@($workerStageNames|ForEach-Object {'AI_PODMAN_SAMPLES_WORKER_FAILED_AT_'+$_})
+    $hostBindingFailureCodes=@('AI_RAG_HOST_ENDPOINT_INVALID','AI_RAG_HOST_VERSION_UNSUPPORTED','AI_RAG_HOST_MODEL_IDENTITY_INVALID',
+        'AI_RAG_HOST_REMOTE_MODEL_FORBIDDEN','AI_RAG_HOST_CAPABILITY_INVALID','AI_RAG_HOST_DIMENSION_INVALID',
+        'AI_RAG_HOST_METADATA_FAILED','AI_RAG_HOST_MODEL_DRIFT','AI_RAG_HOST_METADATA_VERSION_FAILED',
+        'AI_RAG_HOST_METADATA_TAGS_FAILED','AI_RAG_HOST_METADATA_SHOW_FAILED','AI_RAG_HOST_METADATA_TIMEOUT_FAILED',
+        'AI_RAG_HOST_METADATA_TLS_FAILED','AI_RAG_HOST_METADATA_TRANSPORT_FAILED','AI_RAG_HOST_METADATA_HTTP_FAILED',
+        'AI_RAG_HOST_METADATA_JSON_FAILED','AI_RAG_HOST_METADATA_UNCLASSIFIED_FAILED')
+    $stageCodesAligned=$workerStageBlock.Success -and $workerStageCodes.Count -gt 0 -and
+        $workerSource -match '\$workerFailureCodes=@\(\$workerStages\|ForEach-Object \{''AI_PODMAN_SAMPLES_WORKER_FAILED_AT_''\+\$_\}\)' -and
+        @($workerStageCodes|Where-Object {-not $supervisorSource.Contains("'$_'") -or -not $workflowSource.Contains("'$_'")}).Count -eq 0
+    Add-CheckResult -Name 'Worker failure-stage codes are closed and synchronized across receipts and workflow output' -Success $stageCodesAligned
+    $hostBindingCodesAligned=@($hostBindingFailureCodes|Where-Object {
+        -not $workerSource.Contains("'$_'") -or -not $supervisorSource.Contains("'$_'") -or -not $workflowSource.Contains("'$_'")
+    }).Count -eq 0
+    Add-CheckResult -Name 'Host-model binding failure codes are fixed and synchronized across receipt, supervisor, and workflow' -Success $hostBindingCodesAligned
     $tokens=$null;$errors=$null
     $workerAst=[Management.Automation.Language.Parser]::ParseFile($workerPath,[ref]$tokens,[ref]$errors)
     $restartCommands=@($workerAst.FindAll({param($node) $node -is [Management.Automation.Language.CommandAst] -and $node.GetCommandName() -ceq 'Restart-SqlServerLab'},$true))
@@ -191,12 +211,32 @@ if($Stage -eq 'CLEANUP'){
     [IO.File]::WriteAllText($statePath,($state|ConvertTo-Json -Compress))
     [IO.File]::WriteAllText((Join-Path $EvidenceRoot 'cleanup.handled'),'synthetic-resource-removed')
 }
+if($Stage -eq 'ACCEPTANCE' -and $mode -in @('fixed-failure','unclassified-failure','stage-failure','host-binding-failure')){
+    $failureCode=switch($mode){
+        'fixed-failure' {'SAMPLES_RETRIEVAL_FAILED'}
+        'stage-failure' {'AI_PODMAN_SAMPLES_WORKER_FAILED_AT_LAB_CREATE'}
+        'host-binding-failure' {'AI_RAG_HOST_METADATA_VERSION_FAILED'}
+        default {'NONE'}
+    }
+    $output=switch($mode){
+        'fixed-failure' {'SAMPLES_RETRIEVAL_FAILED'}
+        'host-binding-failure' {'AI_RAG_HOST_METADATA_VERSION_FAILED'}
+        default {'private-unclassified-sentinel'}
+    }
+    [Console]::Out.WriteLine($output)
+    $failedReceipt=@{OperationId=$OperationId.ToString('D');Stage=$Stage;Status='FAILED';Assertions=0;FailureCode=$failureCode}
+    [IO.File]::WriteAllText((Join-Path $EvidenceRoot ($Stage+'.receipt.json')),($failedReceipt|ConvertTo-Json -Compress))
+    exit 9
+}
 [Console]::Out.WriteLine('private-stdout-sentinel');[Console]::Error.WriteLine('private-stderr-sentinel')
-$receipt=@{OperationId=$OperationId.ToString('D');Stage=$Stage;Status='COMPLETED';Assertions=1}
+$receipt=@{OperationId=$OperationId.ToString('D');Stage=$Stage;Status='COMPLETED';Assertions=1;FailureCode='NONE'}
 if($mode -eq 'forged' -and $Stage -eq 'ACCEPTANCE'){$receipt.OperationId=[guid]::NewGuid().ToString('D')}
+if($mode -eq 'array-receipt' -and $Stage -eq 'ACCEPTANCE'){
+    $receipt.OperationId=@();$receipt.Stage=@('ACCEPTANCE');$receipt.Status=@('COMPLETED');$receipt.FailureCode=@('NONE')
+}
 [IO.File]::WriteAllText((Join-Path $EvidenceRoot ($Stage+'.receipt.json')),($receipt|ConvertTo-Json -Compress))
 '@ | Set-Content $worker
-    foreach($mode in @('success','hang','forged','cleanup-hang')){
+    foreach($mode in @('success','hang','forged','array-receipt','cleanup-hang','fixed-failure','unclassified-failure','stage-failure','host-binding-failure')){
         $case=Join-Path $root $mode;$null=New-Item -ItemType Directory -Path $case
         [IO.File]::WriteAllText((Join-Path $case 'mode'),$mode)
         [IO.File]::WriteAllText((Join-Path $case 'fixture-operation.json'),(@{OperationId=$operation;NewStarted=$false}|ConvertTo-Json -Compress))
@@ -211,7 +251,12 @@ if($mode -eq 'forged' -and $Stage -eq 'ACCEPTANCE'){$receipt.OperationId=[guid]:
             success {$result.Primary.Status -ceq 'COMPLETED' -and $result.Cleanup.Status -ceq 'COMPLETED'}
             hang {$result.Primary.Reason -ceq 'TIMEOUT' -and $result.Primary.TerminationConfirmed -and $result.Cleanup.Status -ceq 'COMPLETED'}
             forged {$result.Primary.Status -ceq 'FAILED' -and $result.Cleanup.Status -ceq 'COMPLETED'}
+            array-receipt {$result.Primary.Status -ceq 'FAILED' -and $result.Primary.Reason -ceq 'SUPERVISOR_FAILED' -and $result.Cleanup.Status -ceq 'COMPLETED'}
             cleanup-hang {$result.Primary.Status -ceq 'COMPLETED' -and $result.Cleanup.Reason -ceq 'TIMEOUT'}
+            fixed-failure {$result.Primary.Status -ceq 'FAILED' -and $result.Primary.Reason -ceq 'SAMPLES_RETRIEVAL_FAILED' -and $result.Cleanup.Status -ceq 'COMPLETED'}
+            stage-failure {$result.Primary.Status -ceq 'FAILED' -and $result.Primary.Reason -ceq 'AI_PODMAN_SAMPLES_WORKER_FAILED_AT_LAB_CREATE' -and $result.Cleanup.Status -ceq 'COMPLETED'}
+            host-binding-failure {$result.Primary.Status -ceq 'FAILED' -and $result.Primary.Reason -ceq 'AI_RAG_HOST_METADATA_VERSION_FAILED' -and $result.Cleanup.Status -ceq 'COMPLETED'}
+            unclassified-failure {$result.Primary.Status -ceq 'FAILED' -and $result.Primary.Reason -ceq 'CHILD_FAILED' -and $result.Cleanup.Status -ceq 'COMPLETED'}
         }
         Add-CheckResult -Name ('Echter Child-Prozess: '+$mode) -Success ($expected -and $watch.Elapsed.TotalSeconds -lt 50) -Message ($result.Primary.Reason+'/'+$result.Cleanup.Reason)
         if($mode -cin @('hang','cleanup-hang')){
@@ -229,6 +274,10 @@ if($mode -eq 'forged' -and $Stage -eq 'ACCEPTANCE'){$receipt.OperationId=[guid]:
         Add-CheckResult -Name ('Synthetisches Arrange und Cleanup-Zustand: '+$mode) -Success ($arranged -and $cleanupStarted -and $stateExpected)
         $saved=Get-Content (Join-Path $case 'result.json') -Raw|ConvertFrom-Json
         Add-CheckResult -Name ('Getrennte persistente Ergebnisse: '+$mode) -Success ($saved.Primary.Reason -ceq $result.Primary.Reason -and $saved.Cleanup.Reason -ceq $result.Cleanup.Reason)
+        if($mode -eq 'unclassified-failure'){
+            $savedText=Get-Content (Join-Path $case 'result.json') -Raw
+            Add-CheckResult -Name 'Nicht klassifizierte Child-Ausgabe bleibt aus dem persistenten Ergebnis' -Success ($savedText -notmatch 'private-unclassified-sentinel' -and (Get-Content (Join-Path $case 'ACCEPTANCE.stdout.log') -Raw) -match 'private-unclassified-sentinel')
+        }
     }
     Add-CheckResult -Name 'Child-Streams bleiben in privaten Dateien' -Success ((Get-Content (Join-Path $root 'success/ACCEPTANCE.stdout.log') -Raw) -match 'private-stdout-sentinel' -and (Get-Content (Join-Path $root 'success/ACCEPTANCE.stderr.log') -Raw) -match 'private-stderr-sentinel')
 }

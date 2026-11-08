@@ -1,12 +1,14 @@
 #Requires -Version 7.2
 <#
 .SYNOPSIS
-    Prueft den kataloggebundenen SqlPackage-Container-Tool-Pfad nativ.
+    Prueft kataloggebundene SqlPackage-Operationen im nativen Container-Lab.
 .DESCRIPTION
     Provisioniert einen isolierten SQL-2022-Manifest-Run mit SqlPackage,
-    prueft ausschliesslich den oeffentlichen read-only Versionsprobe-Command
-    vor und nach einem Restart und entfernt danach Run sowie test-eigenes
-    Derived Image wieder vollstaendig.
+    prueft Versionsprobe und Restart, synthetisches BACPAC-Extract/Import,
+    DACPAC-Extract/Publish, No-op- und kontrollierte Drift-DeployReports,
+    erneutes No-op-DeployReport und wiederholtes idempotentes Publish,
+    wiederholtes Publish mit Driftkorrektur sowie Container-Attach.
+    Run, temporäre Pakete und ein test-eigenes Derived Image werden entfernt.
 #>
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingConvertToSecureStringWithPlainText','',Justification='Nur zufaellig erzeugte synthetische Credentials fuer den eigenen isolierten Test-Run.')]
 [CmdletBinding()]
@@ -35,6 +37,9 @@ $imageName = $null
 $removeImageAfterTest = $false
 $bacpacSourcePath = $null
 $bacpacContainerPath = $null
+$dacpacContainerPath = $null
+$dacpacDeployReportContainerPath = $null
+$dacpacDeployReportHostPath = $null
 $attachPayloadRoot = $null
 $completed = $false
 $cleanupFailed = $false
@@ -51,6 +56,64 @@ function Assert-ContainerToolAcceptance {
         throw "CONTAINER_TOOL_ACCEPTANCE_FAILED: $Description$(if ($Evidence) { ": $Evidence" })"
     }
     Write-Host "PASS: $Description" -ForegroundColor Green
+}
+
+function Get-ContainerToolDacpacDeployReport {
+    param(
+        [Parameter(Mandatory)][string]$SourceDacpacPath,
+        [Parameter(Mandatory)][string]$DatabaseName,
+        [Parameter(Mandatory)][string]$ContainerReportPath,
+        [Parameter(Mandatory)][string]$HostReportPath
+    )
+
+    $script:dacpacDeployReportContainerPath = $ContainerReportPath
+    $script:dacpacDeployReportHostPath = $HostReportPath
+    $command = 'exec /opt/sql-server-lab/tools/sqlpackage/sqlpackage /Action:DeployReport "/SourceFile:$1" "/TargetServerName:localhost" "/TargetDatabaseName:$2" /TargetUser:sa /TargetTrustServerCertificate:True "/TargetPassword:$SQLSERVERLAB_SA_PASSWORD" "/OutputPath:$3" /p:BlockOnPossibleDataLoss=True /p:DropObjectsNotInSource=False'
+    $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($saPassword)
+    try {
+        $saPlain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
+        $output = @($(if ($requestedStateRoot) { Invoke-OwnedHostTestCommand -StateRoot $requestedStateRoot -Provider $Provider -Invocation $runtimeInvocation -Arguments @('exec','--env',"SQLSERVERLAB_SA_PASSWORD=$saPlain",'--user','mssql',$instance.ContainerName,'sh','-ceu',$command,'--',$SourceDacpacPath,$DatabaseName,$ContainerReportPath) } else { & $runtimeInvocation exec --env "SQLSERVERLAB_SA_PASSWORD=$saPlain" --user mssql $instance.ContainerName sh -ceu $command -- $SourceDacpacPath $DatabaseName $ContainerReportPath }) 2>&1)
+        Assert-ContainerToolAcceptance ($LASTEXITCODE -eq 0) 'SqlPackage erzeugt den DACPAC-DeployReport'
+    }
+    finally {
+        $saPlain = $null
+        [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+    }
+
+    try {
+        $(if ($requestedStateRoot) { Invoke-OwnedHostTestCommand -StateRoot $requestedStateRoot -Provider $Provider -Invocation $runtimeInvocation -Arguments @('cp',"$($instance.ContainerName):$ContainerReportPath",$HostReportPath) } else { & $runtimeInvocation cp "$($instance.ContainerName):$ContainerReportPath" $HostReportPath }) 1>$null
+        Assert-ContainerToolAcceptance ($LASTEXITCODE -eq 0 -and (Test-Path -LiteralPath $HostReportPath -PathType Leaf)) 'DeployReport wird als eigenes temporäres Testartefakt gelesen'
+        $settings = [Xml.XmlReaderSettings]::new()
+        $settings.DtdProcessing = [Xml.DtdProcessing]::Prohibit
+        $settings.XmlResolver = $null
+        $settings.MaxCharactersInDocument = 1048576
+        $reader = $null
+        try {
+            $reader = [Xml.XmlReader]::Create($HostReportPath,$settings)
+            $report = [Xml.XmlDocument]::new()
+            $report.XmlResolver = $null
+            $report.Load($reader)
+        }
+        finally {
+            if ($reader) { $reader.Dispose() }
+        }
+        $operationSections = @($report.SelectNodes("//*[local-name()='Operations']"))
+        $operations = @($report.SelectNodes("//*[local-name()='Operation']"))
+        Assert-ContainerToolAcceptance ($report.DocumentElement.LocalName -eq 'DeploymentReport' -and $operationSections.Count -le 1) 'DeployReport ist valides XML mit erwarteter Reportstruktur'
+        [PSCustomObject]@{ OperationCount = $operations.Count }
+    }
+    finally {
+        if (Test-Path -LiteralPath $HostReportPath) {
+            Remove-Item -LiteralPath $HostReportPath -Force
+        }
+        Assert-ContainerToolAcceptance (-not (Test-Path -LiteralPath $HostReportPath)) 'Hostkopie des DeployReports wird entfernt'
+        if ($runtimeInvocation -and $instance -and $ContainerReportPath) {
+            $(if ($requestedStateRoot) { Invoke-OwnedHostTestCommand -StateRoot $requestedStateRoot -Provider $Provider -Invocation $runtimeInvocation -Arguments @('exec','--user','mssql',$instance.ContainerName,'rm','-f','--',$ContainerReportPath) } else { & $runtimeInvocation exec --user mssql $instance.ContainerName rm -f -- $ContainerReportPath }) 1>$null
+            Assert-ContainerToolAcceptance ($LASTEXITCODE -eq 0) 'Temporärer DeployReport wird aus dem eigenen Run entfernt'
+        }
+        $script:dacpacDeployReportContainerPath = $null
+        $script:dacpacDeployReportHostPath = $null
+    }
 }
 
 try {
@@ -219,6 +282,171 @@ try {
     $residualBacpac = @($(if ($requestedStateRoot) { Invoke-OwnedHostTestCommand -StateRoot $requestedStateRoot -Provider $Provider -Invocation $runtimeInvocation -Arguments @('exec','--user','root',$instance.ContainerName,'sh','-ceu','test -z "$(find /tmp -maxdepth 1 -name ''sql-server-lab-bacpac-*.bacpac'' -print -quit)"') } else { & $runtimeInvocation exec --user root $instance.ContainerName sh -ceu 'test -z "$(find /tmp -maxdepth 1 -name ''sql-server-lab-bacpac-*.bacpac'' -print -quit)"' }) 2>&1)
     Assert-ContainerToolAcceptance ($LASTEXITCODE -eq 0) 'BACPAC-Import hinterlässt kein temporäres Containerartefakt'
 
+    # Erstes Schema-Deployment-Slice: Das gebundene SqlPackage extrahiert ein
+    # synthetisches Modell aus dem eigenen Run und publiziert es ausschließlich
+    # in eine explizit zuvor angelegte zweite Testdatenbank. Die Wiederholung
+    # darf bestehende Zieldaten nicht löschen.
+    $dacpacTargetDatabase = 'DacpacPublished'
+    & $module {
+        param($HostName, $PortNumber, $Password, $DatabaseName)
+        $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($Password)
+        try {
+            $plain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
+            Invoke-SqlQuery -HostName $HostName -Port $PortNumber -SaPlain $plain -Query "CREATE DATABASE [$DatabaseName];" -TimeoutSeconds 90 | Out-Null
+        }
+        finally {
+            $plain = $null
+            [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+        }
+    } $instance.Host ([int]$instance.Port) $saPassword $dacpacTargetDatabase
+    Assert-ContainerToolAcceptance $true 'DACPAC-Zieldatenbank wurde ausschließlich im eigenen Test-Run angelegt'
+
+    $dacpacContainerPath = "/tmp/sql-server-lab-dacpac-$([guid]::NewGuid().ToString('N')).dacpac"
+    $extractCommand = 'exec /opt/sql-server-lab/tools/sqlpackage/sqlpackage /Action:Extract "/SourceServerName:localhost" "/SourceDatabaseName:$1" /SourceUser:sa /SourceTrustServerCertificate:True "/SourcePassword:$SQLSERVERLAB_SA_PASSWORD" "/TargetFile:$2"'
+    $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($saPassword)
+    try {
+        $saPlain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
+        $extractOutput = @($(if ($requestedStateRoot) { Invoke-OwnedHostTestCommand -StateRoot $requestedStateRoot -Provider $Provider -Invocation $runtimeInvocation -Arguments @('exec','--env',"SQLSERVERLAB_SA_PASSWORD=$saPlain",'--user','mssql',$instance.ContainerName,'sh','-ceu',$extractCommand,'--',$sourceDatabase,$dacpacContainerPath) } else { & $runtimeInvocation exec --env "SQLSERVERLAB_SA_PASSWORD=$saPlain" --user mssql $instance.ContainerName sh -ceu $extractCommand -- $sourceDatabase $dacpacContainerPath }) 2>&1)
+        Assert-ContainerToolAcceptance ($LASTEXITCODE -eq 0) 'Kataloggebundenes SqlPackage extrahiert das synthetische Schema als DACPAC'
+    }
+    finally {
+        $saPlain = $null
+        [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+    }
+
+    $publishCommand = 'exec /opt/sql-server-lab/tools/sqlpackage/sqlpackage /Action:Publish "/SourceFile:$1" "/TargetServerName:localhost" "/TargetDatabaseName:$2" /TargetUser:sa /TargetTrustServerCertificate:True "/TargetPassword:$SQLSERVERLAB_SA_PASSWORD" /p:BlockOnPossibleDataLoss=True /p:DropObjectsNotInSource=False'
+    $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($saPassword)
+    try {
+        $saPlain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
+        $publishOutput = @($(if ($requestedStateRoot) { Invoke-OwnedHostTestCommand -StateRoot $requestedStateRoot -Provider $Provider -Invocation $runtimeInvocation -Arguments @('exec','--env',"SQLSERVERLAB_SA_PASSWORD=$saPlain",'--user','mssql',$instance.ContainerName,'sh','-ceu',$publishCommand,'--',$dacpacContainerPath,$dacpacTargetDatabase) } else { & $runtimeInvocation exec --env "SQLSERVERLAB_SA_PASSWORD=$saPlain" --user mssql $instance.ContainerName sh -ceu $publishCommand -- $dacpacContainerPath $dacpacTargetDatabase }) 2>&1)
+        Assert-ContainerToolAcceptance ($LASTEXITCODE -eq 0) 'SqlPackage publiziert das synthetische DACPAC in die gebundene Testdatenbank'
+    }
+    finally {
+        $saPlain = $null
+        [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+    }
+    $dacpacSchema = & $module {
+        param($HostName, $PortNumber, $Password, $DatabaseName)
+        $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($Password)
+        try {
+            $plain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
+            @(Invoke-SqlQuery -HostName $HostName -Port $PortNumber -SaPlain $plain -Database $DatabaseName -Query "SET NOCOUNT ON; SELECT CASE WHEN OBJECT_ID(N'dbo.BacpacProbe', N'U') IS NOT NULL THEN 'DACPAC_SCHEMA_PRESENT' ELSE 'DACPAC_SCHEMA_MISSING' END;")
+        }
+        finally {
+            $plain = $null
+            [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+        }
+    } $instance.Host ([int]$instance.Port) $saPassword $dacpacTargetDatabase
+    Assert-ContainerToolAcceptance (@($dacpacSchema | ForEach-Object { ([string]$_).Trim() }) -contains 'DACPAC_SCHEMA_PRESENT') 'DACPAC-Publish erzeugt das erwartete synthetische Tabellenschema'
+
+    & $module {
+        param($HostName, $PortNumber, $Password, $DatabaseName)
+        $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($Password)
+        try {
+            $plain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
+            Invoke-SqlQuery -HostName $HostName -Port $PortNumber -SaPlain $plain -Database $DatabaseName -Query "INSERT INTO dbo.BacpacProbe (Id, Marker) VALUES (99, N'dacpac-preserved');" -TimeoutSeconds 90 | Out-Null
+        }
+        finally {
+            $plain = $null
+            [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+        }
+    } $instance.Host ([int]$instance.Port) $saPassword $dacpacTargetDatabase
+    $noOpReport = Get-ContainerToolDacpacDeployReport -SourceDacpacPath $dacpacContainerPath -DatabaseName $dacpacTargetDatabase -ContainerReportPath "/tmp/sql-server-lab-dacpac-$([guid]::NewGuid().ToString('N')).noop.xml" -HostReportPath (Join-Path $testRoot 'dacpac-deploy-report-noop.xml')
+    Assert-ContainerToolAcceptance ($noOpReport.OperationCount -eq 0) 'DeployReport meldet nach Publish und Datenänderung keine Schemaoperationen'
+    $markerValuesFit = & $module {
+        param($HostName, $PortNumber, $Password, $DatabaseName)
+        $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($Password)
+        try {
+            $plain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
+            @(Invoke-SqlQuery -HostName $HostName -Port $PortNumber -SaPlain $plain -Database $DatabaseName -Query "SET NOCOUNT ON; SELECT CASE WHEN (SELECT MAX(LEN(Marker)) FROM dbo.BacpacProbe) <= 24 THEN 'DACPAC_MARKERS_FIT_NARROW_COLUMN' ELSE 'DACPAC_MARKERS_EXCEED_NARROW_COLUMN' END;")
+        }
+        finally {
+            $plain = $null
+            [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+        }
+    } $instance.Host ([int]$instance.Port) $saPassword $dacpacTargetDatabase
+    Assert-ContainerToolAcceptance (@($markerValuesFit | ForEach-Object { ([string]$_).Trim() }) -contains 'DACPAC_MARKERS_FIT_NARROW_COLUMN') 'Synthetische Zielwerte passen vor der Driftmutation in nvarchar(24)'
+    $schemaDrifted = & $module {
+        param($HostName, $PortNumber, $Password, $DatabaseName)
+        $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($Password)
+        try {
+            $plain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
+            Invoke-SqlQuery -HostName $HostName -Port $PortNumber -SaPlain $plain -Database $DatabaseName -Query 'ALTER TABLE dbo.BacpacProbe ALTER COLUMN Marker nvarchar(24) NOT NULL;' -TimeoutSeconds 90 | Out-Null
+            @(Invoke-SqlQuery -HostName $HostName -Port $PortNumber -SaPlain $plain -Database $DatabaseName -Query "SET NOCOUNT ON; SELECT CASE WHEN COL_LENGTH(N'dbo.BacpacProbe', N'Marker') = 48 AND (SELECT MAX(LEN(Marker)) FROM dbo.BacpacProbe) <= 24 THEN 'DACPAC_SCHEMA_DRIFTED' ELSE 'DACPAC_SCHEMA_NOT_DRIFTED' END;")
+        }
+        finally {
+            $plain = $null
+            [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+        }
+    } $instance.Host ([int]$instance.Port) $saPassword $dacpacTargetDatabase
+    Assert-ContainerToolAcceptance (@($schemaDrifted | ForEach-Object { ([string]$_).Trim() }) -contains 'DACPAC_SCHEMA_DRIFTED') 'Kontrollierte Spaltenbreiten-Drift wird nur in der eigenen Zieldatenbank erzeugt'
+    $driftReport = Get-ContainerToolDacpacDeployReport -SourceDacpacPath $dacpacContainerPath -DatabaseName $dacpacTargetDatabase -ContainerReportPath "/tmp/sql-server-lab-dacpac-$([guid]::NewGuid().ToString('N')).drift.xml" -HostReportPath (Join-Path $testRoot 'dacpac-deploy-report-drift.xml')
+    Assert-ContainerToolAcceptance ($driftReport.OperationCount -gt 0) 'DeployReport erkennt die kontrollierte Spaltenbreiten-Drift'
+    $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($saPassword)
+    try {
+        $saPlain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
+        $republishOutput = @($(if ($requestedStateRoot) { Invoke-OwnedHostTestCommand -StateRoot $requestedStateRoot -Provider $Provider -Invocation $runtimeInvocation -Arguments @('exec','--env',"SQLSERVERLAB_SA_PASSWORD=$saPlain",'--user','mssql',$instance.ContainerName,'sh','-ceu',$publishCommand,'--',$dacpacContainerPath,$dacpacTargetDatabase) } else { & $runtimeInvocation exec --env "SQLSERVERLAB_SA_PASSWORD=$saPlain" --user mssql $instance.ContainerName sh -ceu $publishCommand -- $dacpacContainerPath $dacpacTargetDatabase }) 2>&1)
+        Assert-ContainerToolAcceptance ($LASTEXITCODE -eq 0) 'Erneute DACPAC-Publikation bleibt erfolgreich'
+    }
+    finally {
+        $saPlain = $null
+        [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+    }
+    $dacpacSchemaRestored = & $module {
+        param($HostName, $PortNumber, $Password, $DatabaseName)
+        $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($Password)
+        try {
+            $plain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
+            @(Invoke-SqlQuery -HostName $HostName -Port $PortNumber -SaPlain $plain -Database $DatabaseName -Query "SET NOCOUNT ON; SELECT CASE WHEN COL_LENGTH(N'dbo.BacpacProbe', N'Marker') = 80 THEN 'DACPAC_SCHEMA_RESTORED' ELSE 'DACPAC_SCHEMA_NOT_RESTORED' END;")
+        }
+        finally {
+            $plain = $null
+            [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+        }
+    } $instance.Host ([int]$instance.Port) $saPassword $dacpacTargetDatabase
+    Assert-ContainerToolAcceptance (@($dacpacSchemaRestored | ForEach-Object { ([string]$_).Trim() }) -contains 'DACPAC_SCHEMA_RESTORED') 'Publish stellt nach erkannter Drift die DACPAC-Spaltenbreite wieder her'
+    $dacpacPreserved = & $module {
+        param($HostName, $PortNumber, $Password, $DatabaseName)
+        $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($Password)
+        try {
+            $plain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
+            @(Invoke-SqlQuery -HostName $HostName -Port $PortNumber -SaPlain $plain -Database $DatabaseName -Query "SET NOCOUNT ON; SELECT Marker FROM dbo.BacpacProbe WHERE Id = 99;")
+        }
+        finally {
+            $plain = $null
+            [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+        }
+    } $instance.Host ([int]$instance.Port) $saPassword $dacpacTargetDatabase
+    Assert-ContainerToolAcceptance (@($dacpacPreserved | ForEach-Object { ([string]$_).Trim() }) -contains 'dacpac-preserved') 'Erneute DACPAC-Publikation erhält vorhandene Zieldaten'
+    $postRepairNoOpReport = Get-ContainerToolDacpacDeployReport -SourceDacpacPath $dacpacContainerPath -DatabaseName $dacpacTargetDatabase -ContainerReportPath "/tmp/sql-server-lab-dacpac-$([guid]::NewGuid().ToString('N')).post-repair-noop.xml" -HostReportPath (Join-Path $testRoot 'dacpac-deploy-report-post-repair-noop.xml')
+    Assert-ContainerToolAcceptance ($postRepairNoOpReport.OperationCount -eq 0) 'DeployReport bleibt nach Driftkorrektur ohne weitere Schemaoperationen'
+    $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($saPassword)
+    try {
+        $saPlain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
+        $repeatPublishOutput = @($(if ($requestedStateRoot) { Invoke-OwnedHostTestCommand -StateRoot $requestedStateRoot -Provider $Provider -Invocation $runtimeInvocation -Arguments @('exec','--env',"SQLSERVERLAB_SA_PASSWORD=$saPlain",'--user','mssql',$instance.ContainerName,'sh','-ceu',$publishCommand,'--',$dacpacContainerPath,$dacpacTargetDatabase) } else { & $runtimeInvocation exec --env "SQLSERVERLAB_SA_PASSWORD=$saPlain" --user mssql $instance.ContainerName sh -ceu $publishCommand -- $dacpacContainerPath $dacpacTargetDatabase }) 2>&1)
+        Assert-ContainerToolAcceptance ($LASTEXITCODE -eq 0) 'Wiederholtes Publish nach Driftkorrektur bleibt erfolgreich'
+    }
+    finally {
+        $saPlain = $null
+        [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+    }
+    $postRepairState = & $module {
+        param($HostName, $PortNumber, $Password, $DatabaseName)
+        $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($Password)
+        try {
+            $plain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
+            @(Invoke-SqlQuery -HostName $HostName -Port $PortNumber -SaPlain $plain -Database $DatabaseName -Query "SET NOCOUNT ON; SELECT CASE WHEN COL_LENGTH(N'dbo.BacpacProbe', N'Marker') = 80 AND EXISTS (SELECT 1 FROM dbo.BacpacProbe WHERE Id = 99 AND Marker = N'dacpac-preserved') THEN 'DACPAC_POST_REPAIR_IDEMPOTENT' ELSE 'DACPAC_POST_REPAIR_CHANGED' END;")
+        }
+        finally {
+            $plain = $null
+            [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+        }
+    } $instance.Host ([int]$instance.Port) $saPassword $dacpacTargetDatabase
+    Assert-ContainerToolAcceptance (@($postRepairState | ForEach-Object { ([string]$_).Trim() }) -contains 'DACPAC_POST_REPAIR_IDEMPOTENT') 'Weiteres Publish nach Driftkorrektur erhält Schema und Zielzeile'
+    $(if ($requestedStateRoot) { Invoke-OwnedHostTestCommand -StateRoot $requestedStateRoot -Provider $Provider -Invocation $runtimeInvocation -Arguments @('exec','--user','mssql',$instance.ContainerName,'rm','-f','--',$dacpacContainerPath) } else { & $runtimeInvocation exec --user mssql $instance.ContainerName rm -f -- $dacpacContainerPath }) 1>$null
+    Assert-ContainerToolAcceptance ($LASTEXITCODE -eq 0) 'Temporäres DACPAC wird nach der Publish-Prüfung entfernt'
+    $dacpacContainerPath = $null
+
     $attachSourceDatabase = 'AttachNativeSource'
     $attachTargetDatabase = 'AttachNativeTarget'
     & $module {
@@ -325,10 +553,26 @@ try {
             status = 'PASS'; provider = $Provider; sqlVersion = '2022'
             tool = [ordered]@{ id = [string]$probe.ToolId; runtimeVersion = [string]$probe.RuntimeVersion; imageKey = [string]$instance.ContainerTools.ImageKey }
             bacpac = [ordered]@{ status = [string]$bacpacImport.Status; source = 'synthetic'; targetDatabase = $targetDatabase; dataRoundtrip = $true }
+            dacpac = [ordered]@{
+                status = 'PUBLISHED'; source = 'synthetic-schema-extract'; targetDatabase = $dacpacTargetDatabase
+                deployReport = 'NO_SCHEMA_OPERATIONS'
+                driftReport = 'OPERATIONS_PLANNED'; driftRecoveryPublish = 'PASS'
+                initialNoOpOperationCount = [int]$noOpReport.OperationCount
+                driftOperationCount = [int]$driftReport.OperationCount
+                postRepairNoOpOperationCount = [int]$postRepairNoOpReport.OperationCount
+                repeatPublish = 'PASS'; postRepairRepeatPublish = 'PASS'
+                schemaRestoredAfterDrift = $true; targetDataPreserved = $true
+                schemaAndTargetDataPreservedAfterRepeat = $true
+                blockOnPossibleDataLoss = $true; dropObjectsNotInSource = $false
+            }
             attach = [ordered]@{ status = [string]$attachResult.Status; source = 'synthetic-detached-mdf-ldf'; targetDatabase = $attachTargetDatabase; dataRoundtrip = $true; journalStatus = [string]$attachJournal.Status }
             attachRecovery = [ordered]@{ status = [string]$attachFailureJournal.Status; controlledSqlFailure = $attachFailureRejected; recovery = [string]$attachFailureJournal.Recovery }
             restart = [ordered]@{ status = [string]$restart.Status; probeStatus = [string]$postRestartProbe.Status }
-            cleanup = [ordered]@{ runStatus = [string]$cleanup.Status; reusableImageExplicitlyRemoved = $true }
+            cleanup = [ordered]@{
+                runStatus = [string]$cleanup.Status
+                reusableImageExplicitlyRemoved = [bool]$removeImageAfterTest
+                preexistingImagePreserved = -not [bool]$removeImageAfterTest
+            }
             completedAt = [DateTimeOffset]::UtcNow.ToString('o')
         } | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $EvidencePath -Encoding utf8
     }
@@ -352,6 +596,12 @@ finally {
     }
     if ($bacpacContainerPath -and -not $KeepOnFailure -and $runtimeInvocation -and $lab) {
         try { $(if ($requestedStateRoot) { Invoke-OwnedHostTestCommand -StateRoot $requestedStateRoot -Provider $Provider -Invocation $runtimeInvocation -Arguments @('exec','--user','root',$lab.Instances[0].ContainerName,'rm','-f','--',$bacpacContainerPath) } else { & $runtimeInvocation exec --user root $lab.Instances[0].ContainerName rm -f -- $bacpacContainerPath }) 1>$null 2>$null } catch { }
+    }
+    if ($dacpacContainerPath -and -not $KeepOnFailure -and $runtimeInvocation -and $lab) {
+        try { $(if ($requestedStateRoot) { Invoke-OwnedHostTestCommand -StateRoot $requestedStateRoot -Provider $Provider -Invocation $runtimeInvocation -Arguments @('exec','--user','root',$lab.Instances[0].ContainerName,'rm','-f','--',$dacpacContainerPath) } else { & $runtimeInvocation exec --user root $lab.Instances[0].ContainerName rm -f -- $dacpacContainerPath }) 1>$null 2>$null } catch { }
+    }
+    if ($dacpacDeployReportContainerPath -and -not $KeepOnFailure -and $runtimeInvocation -and $lab) {
+        try { $(if ($requestedStateRoot) { Invoke-OwnedHostTestCommand -StateRoot $requestedStateRoot -Provider $Provider -Invocation $runtimeInvocation -Arguments @('exec','--user','root',$lab.Instances[0].ContainerName,'rm','-f','--',$dacpacDeployReportContainerPath) } else { & $runtimeInvocation exec --user root $lab.Instances[0].ContainerName rm -f -- $dacpacDeployReportContainerPath }) 1>$null 2>$null } catch { }
     }
     if (-not $cleanupFailed -and ($completed -or -not $KeepOnFailure) -and (Test-Path -LiteralPath $testRoot)) {
         $resolved=[IO.Path]::GetFullPath($testRoot)

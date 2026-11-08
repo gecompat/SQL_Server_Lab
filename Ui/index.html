@@ -53,6 +53,7 @@
         </div>
       </div>
       <p>Beginnen Sie mit dem Ziel. Providerabhängige Schritte werden nur angeboten, wenn der Host sie unterstützt; andernfalls bleibt der Grund sichtbar.</p>
+      <button id="environment-groups-open" type="button" class="button secondary">Lab-Umgebungsgruppen ansehen</button>
       <div class="guided-workflow-grid">
         <a class="guided-workflow-card" href="#creation-workflow"><strong>Lab erstellen</strong><span>Container oder vorhandene Hyper-V-Vorlage verwenden</span></a>
         <a class="guided-workflow-card" href="#environment-inventory"><strong>Lab verwalten</strong><span>Status, Start, Stopp, Konfiguration und Entfernen</span></a>
@@ -992,6 +993,16 @@
     </div>
   </dialog>
   <script src="run-artifact-removal.js"></script>
+  <dialog id="environment-groups-dialog">
+    <div class="dialog-panel">
+      <div class="dialog-heading"><h2>Lab-Umgebungsgruppen</h2><button id="environment-groups-close" type="button" class="icon-button" aria-label="Schließen">×</button></div>
+      <p>Die gespeicherten Gruppenzuordnungen und ihr Lifecycle-Status stammen aus der Registry; sie bestätigen keinen aktuellen Runtime- oder SQL-Zustand. Je Mitglied zeigt die Ansicht außerdem den read-only Bindungsstatus CURRENT oder STALE aus den gespeicherten und aktuell lesbaren Run-Metadaten. Nur bei CURRENT kann die Runtime-Beobachtung ausdrücklich angefordert werden. Sie liest den Providerstatus, vergleicht ihn mit RUNNING/STOPPED aus dem gespeicherten Run-State und meldet CURRENT, DRIFT oder INDETERMINATE. Scope-IDs, Verbindungs-Hashes sowie Container- und VM-IDs bleiben verborgen; bei STALE wird kein Provider abgefragt. Die Beobachtung prüft keine SQL-Bereitschaft und ändert oder repariert keinen Zustand. Nach einem Gruppenstart oder -stopp zeigt die Ansicht außerdem die gespeicherten Ergebnisse pro Run als Aktion und Status. Erstellen, Starten, Stoppen, Entfernen und Mitgliedsänderungen laufen nach ausdrücklicher Bestätigung über den katalogisierten öffentlichen Befehl. Mitgliedschaften und Gruppen lassen sich nur bei gestoppten Gruppen bearbeiten; beim Entfernen bleiben Runs und Runtime-Ressourcen unverändert. Runtime-Reconcile bleibt ein getrennter Schritt.</p>
+      <p id="environment-groups-status" role="status" aria-live="polite">Noch keine Gruppen gelesen.</p>
+      <div id="environment-groups-list" class="list"></div>
+      <div class="dialog-actions"><button id="environment-groups-read" type="button" class="button secondary">Gruppen erneut lesen</button><button id="environment-groups-dismiss" type="button" class="button secondary">Schließen</button></div>
+    </div>
+  </dialog>
+  <script src="environment-groups.js"></script>
   <script src="tls-authenticated-creation.js"></script>
 </body>
 </html>

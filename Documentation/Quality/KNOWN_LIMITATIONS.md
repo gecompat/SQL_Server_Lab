@@ -718,7 +718,11 @@ Die getrennten nativen Docker-/Podman-Referenzläufe bestanden am 2026-09-21 auf
 Own-Runs und keine Runtime-Residuen. Die private temporäre Evidence-Wurzel
 bleibt gemäß Runnervertrag erhalten, daher ist kein vollständiges Löschen aller
 temporären Dateien behauptet. Offline-Mocks beweisen weiterhin weder SQL-Ausführung
-noch Providerparität. Weitere Versionspaare, Instanz-/Serverobjektmigration,
+noch Providerparität. Die aktuelle Query-Store-Ergänzung ist lokal synthetisch
+prüfbar; native Query-Store-Receipts auf dem aktualisierten Stand benötigen
+noch getrennte Docker-/Podman-Läufe. Ihre kleinen synthetischen Messungen sind
+keine Performance-Schwelle oder allgemeine Planregression. Weitere Versionspaare,
+Instanz-/Serverobjektmigration,
 TDE/FILESTREAM und Hyper-V sind nicht Gegenstand dieser Referenz.
 
 Der private CORE-102-[Instanzentscheid](../Architecture/INSTANCE_CAPABILITY_ASSESSMENT.md)
@@ -2575,8 +2579,25 @@ gegen den versionierten Microsoft-Download geprüft und ist keine
 Herausgebersignatur. Die [getrennte native Docker-/Podman-Abnahme](SQLPACKAGE_170_5_96_ACCEPTANCE_2026-10-25.md)
 bestand mit je 30 Assertions einschließlich Versionsprobe, Restart,
 synthetischem BACPAC-/Attach-Roundtrip, kontrolliertem SQL-Fehlerjournal und
-eigenem Run-/Image-Cleanup. Weitere SQL-/OS-Pfade und kombinierte
-External-Runtime-Images wurden in dieser Welle nicht neu nativ ausgeführt.
+eigenem Run-/Image-Cleanup. Eine spätere, eng begrenzte
+[DACPAC-Publish-Abnahme](SQLPACKAGE_DACPAC_PUBLISH_ACCEPTANCE_2026-11-08.md)
+ergänzte je 36 Assertions für SQL 2022 unter Docker und Podman: SqlPackage
+extrahierte ein synthetisches Modell, publizierte es zweimal in eine eigene
+Testdatenbank und erhielt eine zuvor angelegte Zielzeile. Die spätere
+[DeployReport-Abnahme](SQLPACKAGE_DACPAC_DEPLOY_REPORT_ACCEPTANCE_2026-11-08.md)
+ergänzte je 41 Assertions und einen No-op-Report ohne Schemaoperationen. Das
+prüft weder einen öffentlichen DACPAC-Deployment-Handler noch tatsächliche
+Schema-Drift oder deren Korrektur, Datenmigration, fehlgeschlagene Releases
+oder weitere SQL-Versionen. Die getrennte
+[Drift-Abnahme](SQLPACKAGE_DACPAC_DRIFT_REPORT_ACCEPTANCE_2026-11-08.md)
+ergänzt SQL 2022 unter Docker und Podman um eine kontrollierte
+Spaltenbreiten-Drift: der DeployReport plante Operationen, Publish stellte die
+ursprüngliche Breite wieder her und erhielt die synthetische Zielzeile. Ein
+zweiter Report blieb nach der Korrektur leer; ein weiteres Publish erhielt
+Schema und synthetische Zielzeile. Das belegt keine allgemeine Driftbehandlung,
+Datenmigration, fehlgeschlagene Release-Recovery oder weitere SQL-Versionen.
+Weitere SQL-/OS-Pfade und kombinierte External-Runtime-Images wurden in dieser
+Welle nicht neu nativ ausgeführt.
 Ein ausdrücklicher alter Softwareversionspin wird als nicht katalogisiert
 abgelehnt und nicht still auf die neue Version umgeschrieben. Bestehende Runs
 und Images werden dadurch nicht automatisch geändert. Weitere
@@ -4338,3 +4359,35 @@ gemeinsamen hostOnly-Infrastruktur und vor Standardswitch-Änderungen. Sie
 erlaubt weiterhin die eigene VM-/IPAM-/Gast-/SQL-Anlage. Fremde Netzänderungen
 werden nicht atomar ausgeschlossen; eine native Abnahme dieses erweiterten
 Pfads und die Windows-CSP-/Hyper-V-TLS-Abnahme stehen weiterhin aus.
+
+## Wiederverwendbare Lab-Umgebungsgruppen
+
+Die additive Gruppen-Registry speichert unabhängige Run-Referenzen mit
+Run-/Scope- und Verbindungsdatei-Bindung. Ein Run kann mehreren Gruppen
+zugeordnet werden; Gruppenentfernung stoppt oder entfernt keine Umgebung.
+Gruppenstart/-stop, persistente Nachfrage, gemeinsamer Mutex, Schutz vor
+direktem Stoppen/Restart/Remove/Clear beanspruchter Runs und fail-closed
+Partial-Recovery sind durch fokussierte und betroffene statische Vertragschecks
+validiert. Die geführte PowerShell-CLI und Browseransicht verwalten Gruppen.
+Der Browser kann leere Gruppen erstellen, gestoppte Gruppen starten, stoppen,
+entfernen und deren Mitgliedschaften bearbeiten. Mutationen erfordern die
+Bestätigung über den öffentlichen Befehlsweg; Gruppenentfernung löst nur
+Zuordnungen und lässt Runs sowie Runtime-Ressourcen unverändert. Bei aktueller
+Bindung kann der Browser den Providerstatus eines ausgewählten Mitglieds
+ausdrücklich und read-only gegen `RUNNING`/`STOPPED` abgleichen. Die geführte
+PowerShell-Gruppenkonsole bietet dieselbe ausdrücklich angeforderte
+Momentaufnahme pro Mitglied an. Beide Oberflächen prüfen keine SQL-Bereitschaft
+und führen weder Reparatur noch Runtime-Reconcile aus. Eine native UI-/Konsolen-
+Abnahme dieser Beobachtungen steht aus; der Reconcile
+bleibt offen. Eine begrenzte native Docker-/Podman-
+Abnahme belegt den SQL-2025-CU9-Linked-Server-Fall mit geteiltem Run und eigenem
+Cleanup. Weitere SQL-Versionen, Hyper-V, automatische Netzwerktopologie und das Einrichten eines
+SQL-Linked-Servers bleiben offen. Gruppenverwaltung allein ist daher kein
+qualifiziertes Linked-Server-Lab.
+
+Die native Docker-/Podman-Abnahme für SQL Server 2025 CU9 umfasst außerdem
+einen synthetischen Collation-Kontrollfall: zwei explizit verschiedene
+Collations führen erwartungsgemäß zu Fehler 468; eine explizite Angleichung
+liest danach denselben Marker. Das deckt keine allgemeine Collation-Kompatibilität
+zwischen beliebigen Datenbanken oder SQL-Builds ab. TLS-Identität,
+Kerberos-Delegierung und MSDTC bleiben separat offen.

@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sql-server-lab.local/schemas/environment-groups.schema.json",
+  "title": "SQL Server Lab Environment Groups Registry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contractVersion", "updatedAt", "groups"],
+  "properties": {
+    "contractVersion": { "const": "SqlServerLab.EnvironmentGroups/1.0" },
+    "updatedAt": { "type": "string", "format": "date-time" },
+    "groups": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["groupId", "name", "stateRootKey", "createdAt", "lifecycleState", "operation", "members"],
+        "properties": {
+          "groupId": { "type": "string", "format": "uuid" },
+          "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+          "stateRootKey": { "type": "string", "pattern": "^[A-Fa-f0-9]{64}$" },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "lifecycleState": { "enum": ["STOPPED", "STARTING", "ACTIVE", "STOPPING", "RECOVERY_REQUIRED"] },
+          "operation": {
+            "oneOf": [
+              { "type": "null" },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["operationId", "action", "state", "startedAt", "updatedAt", "members"],
+                "properties": {
+                  "operationId": { "type": "string", "format": "uuid" },
+                  "action": { "enum": ["Start", "Stop"] },
+                  "state": { "enum": ["IN_PROGRESS", "COMPLETED", "RECOVERY_REQUIRED"] },
+                  "startedAt": { "type": "string", "format": "date-time" },
+                  "updatedAt": { "type": "string", "format": "date-time" },
+                  "members": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["runId", "action", "status", "reasonCode"],
+                      "properties": {
+                        "runId": { "type": "string", "format": "uuid" },
+                        "action": { "enum": ["START", "STOP", "RETAIN"] },
+                        "status": { "enum": ["PENDING", "IN_PROGRESS", "STARTED", "UNCHANGED", "STOPPED", "RETAINED_SHARED", "FAILED", "UNCONFIRMED"] },
+                        "reasonCode": { "type": ["string", "null"] }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["runId", "scopeId", "instanceIds", "connectionInfoSha256", "assignedAt"],
+              "properties": {
+                "runId": { "type": "string", "format": "uuid" },
+                "scopeId": { "type": "string", "format": "uuid" },
+                "instanceIds": {
+                  "type": "array",
+                  "minItems": 1,
+                  "uniqueItems": true,
+                  "items": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$" }
+                },
+                "connectionInfoSha256": { "type": "string", "pattern": "^[A-Fa-f0-9]{64}$" },
+                "assignedAt": { "type": "string", "format": "date-time" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

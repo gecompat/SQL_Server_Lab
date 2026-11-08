@@ -64,7 +64,30 @@ Ein Kandidat erhält eine hohe Priorität, wenn er:
 | P2 | Stresstest-, Last- und Replay-Lab | Untersucht SQL-Server-Verhalten unter steigender Parallelität, Dauerlast und reproduzierter Workload; Werkzeugkandidaten: OStress, HammerDB, OStress Replay und JMeter | eine isolierte SQL-Instanz, synthetische Datenbank und separater Lastgenerator mit begrenztem Lastprofil | SQL-Ziele unter Docker, Podman und Hyper-V getrennt prüfen; Ausführungsplattform des Lastgenerators separat bewerten |
 | P3 | Data-Governance- und Audit-Lab | Demonstriert Temporal Tables, Ledger, Row-Level Security, Dynamic Data Masking, Audit und kontrollierte Schlüsselrotation | eine SQL-Instanz, synthetische Rollen und manipulationsprüfbare Ereignisfolge | je nach Feature-Capability unter allen drei Providern |
 | P3 | SQL-2025-JSON-, REST- und Hybrid-Search-Lab | Erprobt nativen JSON-Datentyp, JSON-Index, Regex/Fuzzy-Funktionen, externe REST-Aufrufe und optional die Kombination relationaler, JSON- und Vector-Suche | SQL Server 2025 plus lokaler HTTPS-Mock-Service; Vector-Lane referenziert den bestehenden Vector-Backlog | SQL-Kern unter Docker/Podman/Hyper-V; Preview-Funktionen immer getrennt ausgewiesen |
-| P3 | Linked-Server-, Collation- und Distributed-Transaction-Lab | Reproduziert Cross-Instance-Abfragen, Collation-Konflikte, Delegation und Transaktionsgrenzen, die in Einzelinstanz-Labs nicht sichtbar werden | zwei separat erstellte SQL-Umgebungen und ein Testclient; Umgebungen können nachträglich mehreren Lab-Gruppen zugeordnet werden. Gruppen sind Many-to-many-Referenzen auf unabhängige Runs: Start dedupliziert gemeinsame Mitglieder, und Stop einer Gruppe beendet keinen Run, den eine andere aktive Gruppe weiter benötigt. Entfernen einer Gruppe löst nur ihre Zuordnungen und gruppeneigene Konfiguration; explizites Run-Remove bleibt eine separate Aktion. Optional Domain Controller und MSDTC | Container für einfache Linked-Server-Fälle; Hyper-V/Windows für Kerberos und MSDTC |
+| P3 | Linked-Server-, Collation- und Distributed-Transaction-Lab | Reproduziert Cross-Instance-Abfragen, Collation-Konflikte, Delegation und Transaktionsgrenzen, die in Einzelinstanz-Labs nicht sichtbar werden | zwei separat erstellte SQL-Umgebungen und ein Testclient; Umgebungen können nachträglich mehreren Lab-Gruppen zugeordnet werden. Gruppen sind Many-to-many-Referenzen auf unabhängige Runs: Start dedupliziert gemeinsame Mitglieder, und Stop einer Gruppe beendet keinen Run, den eine andere aktive Gruppe weiter benötigt. Entfernen einer Gruppe löst nur Zuordnungen und gruppeneigene Konfiguration; Run-Remove bleibt eine separate Aktion. Optional Domain Controller und MSDTC | Container für einfache Linked-Server-Fälle; Hyper-V/Windows für Kerberos und MSDTC |
+
+Das P1-Schema-Deployment-Lab hat seinen ersten nativen DACPAC-Slice: Der
+kataloggebundene SqlPackage-Pfad extrahiert ein synthetisches Modell und
+publiziert es unter SQL 2022 getrennt mit Docker und Podman. Das wiederholte
+Publish erhielt eine vorher angelegte Zielzeile. Ein vorgelagerter
+`DeployReport` enthält nach dem ersten Publish und der Datenänderung keine
+Schemaoperationen. Die Folgeabnahme erkennt und korrigiert eine kontrollierte
+Spaltenbreiten-Drift; ihr erneuter Report bleibt ohne Operationen, und ein
+weiteres Publish erhält Schema und Zielzeile. Versionsfolge, allgemeine
+Schema-Drift, Datenmigration, fehlgeschlagene Releases, SQL 2019/2025 und
+Windows-Toolchains sind weiterhin offen; Details und Grenzen stehen im
+[Drift-Abnahmenachweis](../Quality/SQLPACKAGE_DACPAC_DRIFT_REPORT_ACCEPTANCE_2026-11-08.md).
+
+Die additive Gruppen-Registry, Run-Zuordnung und gemeinsame Lifecycle-Nachfrage
+sind implementiert. Die Linked-Server-Container-Lane bestand am
+2026-11-08 getrennt unter Docker und Podman mit SQL Server 2025 CU9; zwei
+separat erstellte Umgebungen wurden gruppiert, der Ziel-Run zusätzlich einer
+zweiten Gruppe zugeordnet und `OPENQUERY` sowie Shared-Member-Stop geprüft.
+Eine inkompatible explizite Collation wird mit Fehler 468 abgewiesen und eine
+explizite Collation-Angleichung besteht. TLS-Identität, Kerberos und MSDTC
+bleiben offen. Siehe
+[Lab-Umgebungsgruppen](../Architecture/LAB_ENVIRONMENT_GROUPS.md) und den
+[nativen Abnahmenachweis](../Quality/LINKED_SERVER_ENVIRONMENT_GROUP_ACCEPTANCE_2026-11-08.md).
 
 ## Empfohlene erste drei Vertical Slices
 
@@ -76,19 +99,28 @@ BackupSetId-Transfer, erhaltene Kompatibilität 160 vor separatem Wechsel auf 17
 feste funktionale Prüfungen, beobachtete Dauern und operationsgebundenes Cleanup.
 Die getrennte native Docker-/Podman-Abnahme bestand am 2026-09-21 auf `46340200`;
 der unabhängige Nachlauf bestätigte je Provider zwei entfernte Own-Runs und keine
-Runtime-Residuen. Query-Store-Auswertung, Anwendungs-/Planregressionen und weitere
-Versionspaare dieser breiteren Planung sind damit noch nicht umgesetzt.
+Runtime-Residuen. Die Referenz ergänzt jetzt eine explizite Query-Store-Aufnahme
+für dieselbe markierte Count-Abfrage am Ziel bei Compatibility Level 160 und 170;
+der Receipt meldet Ausführungszahl, Plananzahl und beobachtete Dauerdifferenz
+ohne Performance-Schwelle. Die synthetischen Szenario- und Supervisorchecks
+bestanden am 2026-11-08. Die aktualisierte Query-Store-Evidence bestand danach
+getrennt unter Docker und Podman auf `35a1abc06bf8a16d11c34a35d4dbf7a790551daf`;
+beide eigenen Cleanups wurden bestätigt. Sie belegt fünf Beobachtungen je
+festgelegter Phase, aber keine Anwendungs-/Planregression. Weitere
+Versionspaare und fehlgeschlagene Releases bleiben offen; siehe die
+[datierte Abnahme](../Quality/SQL_VERSION_UPGRADE_QUERY_STORE_ACCEPTANCE_2026-11-08.md).
 
 Dieses Szenario besitzt den höchsten unmittelbaren Nutzen und verwendet bereits
 vorhandene SQL-Versionen, Restore, Query Store, Workloads und Provider. Der
-erste Slice soll:
+implementierte erste Slice:
 
 1. dieselbe synthetische Datenbank unter einer Quell- und Zielversion starten;
 2. funktionale Vorher-/Nachher-Assertions ausführen;
 3. die Datenbank zunächst mit unverändertem Compatibility Level übernehmen;
 4. eine Query-Store-Baseline erfassen;
-5. erst danach das Ziel-Compatibility-Level aktivieren und Regressionen
-   vergleichen;
+5. erst danach das Ziel-Compatibility-Level aktivieren und dieselbe markierte
+   Abfrage erneut ausführen; die gemessene Dauerdifferenz wird ohne erfundene
+   Performance-Schwelle ausgewiesen;
 6. Ergebnis, Abweichungen und Cleanup maschinenlesbar berichten.
 
 Ein In-place-Upgrade ist eine spätere, Windows-/Hyper-V-spezifische Lane und

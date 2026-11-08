@@ -20,7 +20,7 @@
 function Invoke-SqlServerLab {
     [CmdletBinding()]
     param(
-        [ValidateSet('New', 'BatchPlan', 'Queue', 'Commands', 'AutomatedTestEnvironment', 'AutomatedTestEnvironmentLifecycle', 'ClearAutomatedTestEnvironment', 'Manifest', 'Status', 'SyncRuntime', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'CleanupAudit', 'RetainedStoreRemoval', 'RunArtifactRemoval', 'Script', 'Database', 'DatabaseBackup', 'DatabaseRestore', 'DatabasePackageExport', 'DatabasePackageAttach', 'DatabasePackageInventory', 'DatabaseMigrationDependency', 'Image', 'WindowsSlotPool', 'ReservePolicy', 'Setup', 'MediaRoot', 'MediaSourceOverride', 'RuntimeInstaller', 'OperatingSystemSources', 'CuResource', 'CuStatus', 'ResourceWatch', 'DataRoot', 'TestDataRoot', 'Rename', 'UpdateContainer', 'Resources', 'Manage', 'Install7Zip', 'Catalog', 'ConnectionCenter', 'Cms')]
+        [ValidateSet('New', 'BatchPlan', 'Queue', 'Commands', 'AutomatedTestEnvironment', 'AutomatedTestEnvironmentLifecycle', 'ClearAutomatedTestEnvironment', 'Manifest', 'Status', 'SyncRuntime', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'CleanupAudit', 'RetainedStoreRemoval', 'RunArtifactRemoval', 'Script', 'Database', 'DatabaseBackup', 'DatabaseRestore', 'DatabasePackageExport', 'DatabasePackageAttach', 'DatabasePackageInventory', 'DatabaseMigrationDependency', 'Image', 'WindowsSlotPool', 'ReservePolicy', 'Setup', 'MediaRoot', 'MediaSourceOverride', 'RuntimeInstaller', 'OperatingSystemSources', 'CuResource', 'CuStatus', 'ResourceWatch', 'DataRoot', 'TestDataRoot', 'Rename', 'UpdateContainer', 'Resources', 'Manage', 'EnvironmentGroups', 'Install7Zip', 'Catalog', 'ConnectionCenter', 'Cms')]
         [string]$Action,
 
         [ValidateSet('Auto', 'Fallback')]
@@ -42,6 +42,7 @@ function Invoke-SqlServerLab {
             if ($Action -eq 'BatchPlan') { Invoke-LabBatchComposerInteractive; return }
             if ($Action -eq 'Queue') { Invoke-LabQueueInteractive; return }
             if ($Action -eq 'Commands') { Manage-LabPublicCommandsInteractive; return }
+            if ($Action -eq 'EnvironmentGroups') { Invoke-LabEnvironmentGroupsInteractive; return }
             $null = Invoke-LabActionWithResult -ActionName $Action
         }
         catch { if (-not (Test-LabConsoleInputCancellation -InputObject $_)) { throw } }
@@ -152,6 +153,7 @@ function Invoke-LabMenuAction {
     if ($ActionName -eq 'ContainerPortPreview') { Invoke-LabContainerPortPreviewInteractive; return }
     if ($ActionName -eq 'ContainerAutoStartPreview') { Invoke-LabContainerAutoStartPreviewInteractive; return }
     if ($ActionName -eq 'HyperVAutoStart') { Invoke-LabHyperVAutoStartInteractive; return }
+    if ($ActionName -eq 'EnvironmentGroups') { Invoke-LabEnvironmentGroupsInteractive; return }
 
     if ($ActionName -eq 'HyperVManage') {
         Manage-LabHyperVEnvironmentInteractive
@@ -262,6 +264,7 @@ function Show-LabEnvironmentMenu {
         New-LabConsoleItem -Id 'UpdateContainer' -Label 'Container neu erstellen mit Port, CPU und Speicher' -Value 'Docker/Podman · Container wird ersetzt, Daten bleiben' -Shortcut 'u' `
             -Disabled:(-not $hasContainerRun) -DisabledReason 'Es existiert keine Docker- oder Podman-Umgebung. Hyper-V-Umgebungen werden ueber die Hyper-V-Verwaltung geaendert.'
         New-LabConsoleItem -Id 'CleanupAudit' -Label 'Wartungsbefunde und Zuordnung' -Shortcut 'a'
+        New-LabConsoleItem -Id 'EnvironmentGroups' -Label 'Lab-Umgebungsgruppen verwalten' -Value 'Vorhandene Runs gruppieren · gemeinsame Lifecycle-Nachfrage' -Shortcut 'g'
         New-LabConsoleItem -Id 'Remove' -Label 'Umgebung entfernen' -Shortcut '6' -Disabled:(-not $hasRuns) -DisabledReason 'Es existiert noch keine Umgebung, die entfernt werden koennte.'
         New-LabConsoleItem -Id 'back' -Label 'Zurueck' -Shortcut '0'
     )

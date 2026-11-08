@@ -2,6 +2,35 @@
 
 End-to-End-Test des gesamten Lab-Lifecycles.
 
+## Linked-Server-Szenario mit wiederverwendeten Gruppenmitgliedern
+
+`Invoke-LinkedServerEnvironmentGroupAcceptance.ps1` erstellt genau zwei neue
+SQL-Runs desselben ausgewählten Containerproviders auf einem frisch benannten
+gemeinsamen Providernetz. Eine Gruppe enthält beide Runs; eine zweite Gruppe
+verwendet den Ziel-Run erneut. Der Test erstellt auf dem Ziel einen synthetischen
+read-only Login und Marker, richtet auf der Quelle `MSOLEDBSQL` ein und prüft
+`OPENQUERY`. Nach dem Stop der ersten Gruppe muss der gemeinsam genutzte
+Ziel-Run weiterlaufen. Der Stop der zweiten Gruppe gibt den letzten Anspruch
+frei. Beide Runs, beide Gruppen und das zuvor fehlende Netz werden anhand ihrer
+eigenen IDs entfernt; bei unbestätigtem Gruppen-Cleanup bleiben abhängige Runs
+erhalten und der private lokale StateRoot dient der Recovery.
+Bei einem Subnetzkonflikt waehlt das Skript einen freien Bereich nur in seinem
+aktuellen PowerShell-Prozess und stellt den vorherigen Prozesswert wieder her;
+Benutzer- und Maschinenumgebung bleiben unveraendert.
+
+```powershell
+.\Tests\Integration\Invoke-LinkedServerEnvironmentGroupAcceptance.ps1 `
+  -Provider docker `
+  -Version 2025-CU9 `
+  -EvidenceDirectory $evidenceDirectory
+```
+
+Die Docker- und Podman-Nachweise sind getrennt. Der Ablauf verwendet für die
+Linked-Server-Verbindung `Encrypt=Optional;TrustServerCertificate=yes` in der
+OLE-DB-Provider-Syntax; er belegt deshalb weder Serveridentität noch striktes
+TLS. Kerberos, MSDTC, gemischte Provider und gruppeneigene Netzwerkkonfiguration
+sind nicht enthalten.
+
 ## Nativer KI-Compute-Benchmark
 
 `Invoke-AiComputeBenchmarkAcceptance.ps1` inventarisiert den aktuellen Host,
@@ -29,7 +58,10 @@ opt-in und benötigt ausdrücklich freigegebene lokale Pfade.
 `Invoke-SqlVersionUpgradeAcceptance.ps1 -Provider docker` beziehungsweise
 `-Provider podman` erzeugt zwei neue eigene Runs, überträgt eine feste synthetische
 Datenbank über öffentliche Backup-/Restore-Bibliotheksbefehle und prüft die
-Kompatibilitätsphasen 160 und 170 getrennt. Bounded Child-Supervision und
+Kompatibilitätsphasen 160 und 170 getrennt. Die Ziel-Datenbank erfasst für eine
+markierte Count-Abfrage Query-Store-Ausführungen, Plananzahl und gewichtete
+mittlere Dauer je Phase; die Differenz ist beobachtend und hat keinen
+Performance-Grenzwert. Bounded Child-Supervision und
 operationsgebundenes Cleanup gehören zum Test. Die getrennten Docker-/Podman-
 Referenzläufe bestanden am 2026-09-21 auf `46340200`; Runtime-Cleanup bestätigte
 je Provider zwei entfernte Own-Runs und keine Runtime-Residuen. Ablauf, lokale
@@ -154,8 +186,10 @@ Bei Abbruch bleibt sie liegen → .gitignore verhindert Commit.
 ## Invoke-ContainerToolAcceptance.ps1
 
 Der Docker-/Podman-Nachweis provisioniert einen isolierten SQL-2022-Run mit
-kataloggebundenem `SqlPackage`, prüft dessen BACPAC-Export/-Import und erzeugt
-danach ausschließlich im Test-Run eine Datenbank mit Marker. Die Quelldatenbank
+kataloggebundenem `SqlPackage`, prüft dessen BACPAC-Export/-Import und ein
+synthetisches DACPAC-Extract/Publish einschließlich wiederholtem Publish ohne
+Verlust vorhandener Zieldaten. Danach erzeugt er ausschließlich im Test-Run
+eine Datenbank mit Marker. Die Quelldatenbank
 wird sauber detachiert; ihre MDF/LDF werden als kontrollierte Testpayloads durch
 `Invoke-LabContainerAttach` wieder angehängt. Der Test verlangt `ONLINE`, den
 SQL-Inhaltsroundtrip und ein abgeschlossenes Container-Attach-Journal und

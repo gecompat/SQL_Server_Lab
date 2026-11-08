@@ -158,7 +158,7 @@ end {
         @{ Pattern = '(?i)(BatchWorkflow|BatchConsole|lab-batch)'; Checks = @('Invoke-BatchWorkflowChecks.ps1') },
         @{ Pattern = '(?i)(PublicCommandConsole|Invoke-PublicCommandConsoleChecks|ConsoleUi|ConsoleHelp|Invoke-SqlServerLab\.ps1|Start-SqlServerLabUi\.ps1|Ui[\\/]|Workflow)'; Checks = @('Invoke-PublicCommandConsoleChecks.ps1','Invoke-ConsoleUiChecks.ps1','Invoke-WorkflowUiChecks.ps1') },
         @{ Pattern = '(?i)^Tests/Static/Fixtures/SqlConnectionClipboardUiChecks\.cjs$'; Checks = @('Invoke-WorkflowUiChecks.ps1') },
-        @{ Pattern = '(?i)(ActionProgress|SqlReadiness|ArtifactResolver|Save-SqlServerLabMediaSource|VersionCatalog|ExternalRuntimeWindows|ContainerImageArtifact|ContainerToolImage|Private/Common\.ps1)'; Checks = @('Invoke-ActionProgressChecks.ps1') },
+        @{ Pattern = '(?i)(ActionProgress|ContainerProviderObservationTimeoutChecks|SqlReadiness|ArtifactResolver|Save-SqlServerLabMediaSource|VersionCatalog|ExternalRuntimeWindows|ContainerImageArtifact|ContainerToolImage|Private/Common\.ps1)'; Checks = @('Invoke-ActionProgressChecks.ps1') },
         @{ Pattern = '^(?-i:Private/SqlConnectionSettings\.ps1|Private/SqlReadiness\.ps1|Public/Invoke-SqlServerLab\.ps1|Public/Get-SqlServerLabWorkflow\.ps1|Tests/Static/Invoke-SqlConnectionSettingsChecks\.ps1)$'; Checks = @('Invoke-SqlConnectionSettingsChecks.ps1') },
         @{ Pattern = '(?i)(ConnectionCenter|CmsSync|ConnectionCenterCms)'; Checks = @('Invoke-ConnectionCenterCmsChecks.ps1','Invoke-ConsoleUiChecks.ps1') },
         @{ Pattern = '(?i)(ActionResult|Invoke-SqlServerLab\.ps1)'; Checks = @('Invoke-ActionResultChecks.ps1') },
@@ -258,6 +258,9 @@ end {
         @{ Pattern = '(?i)(ArchiveProgress|SampleArtifact|sample-databases)'; Checks = @('Invoke-ArchiveProgressChecks.ps1','Invoke-SampleHandlerChecks.ps1','Invoke-SampleBaselineRegistryChecks.ps1','Invoke-SampleBaselineRuntimeChecks.ps1') },
         @{ Pattern = '(?i)(ProjectAdapter|Adapters/|project-adapter)'; Checks = @('Invoke-ProjectAdapterChecks.ps1') },
         @{ Pattern = '(?i)(MixedProvider|ProviderSubRun|StateMachine)'; Checks = @('Invoke-MixedProviderLifecycleChecks.ps1') },
+        @{ Pattern = '(?i)(EnvironmentGroups|environment-groups|SqlServerLabEnvironmentGroup)'; Checks = @('Invoke-EnvironmentGroupLifecycleChecks.ps1') },
+        @{ Pattern = '(?i)^Private/EnvironmentGroupsBrowserHttp\.ps1$'; Checks = @('Invoke-ConsoleUiChecks.ps1','Invoke-WorkflowUiChecks.ps1') },
+        @{ Pattern = '(?i)^Tests/Static/Fixtures/EnvironmentGroupsBrowser(HttpChecks\.ps1|UiChecks\.cjs)$'; Checks = @('Invoke-WorkflowUiChecks.ps1') },
         @{ Pattern = '(?i)(HyperVProvider|Providers/HyperV)'; Checks = @('Invoke-HyperVProviderChecks.ps1','Invoke-LabNetworkChecks.ps1') },
         @{ Pattern = '(?i)(JobProgress|HyperVGuestProgress|HyperVProvider|HyperVLabEnvironment|ExternalRuntimeWindows)'; Checks = @('Invoke-JobProgressChecks.ps1','Invoke-HyperVGuestProgressChecks.ps1') },
         @{ Pattern = '(?i)(HyperVSqlOwnershipInitialization|HyperVLabEnvironment|HyperVSqlConfigurationReconcile)'; Checks = @('Invoke-HyperVSqlOwnershipInitializationChecks.ps1') },
@@ -322,8 +325,8 @@ end {
             if ($runtimePath -match '(?i)ContainerNetworkCleanup') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
             if ($runtimePath -match '(?i)TestGroupGuidance') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true; $pathRuntime.HyperV = $true }
             if ($runtimePath -match '(?i)(MaintenanceGuidance|PersistentStorageRecovery)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
-            if ($runtimePath -match '(?i)(^Providers/Docker/|runtime-smoke-docker\.yml|Invoke-Smoke(Matrix|Test)|Invoke-RestoreSmokeTest|BatchWorkflow|BatchConsole|lab-batch)') { $pathRuntime.Docker = $true }
-            if ($runtimePath -match '(?i)(^Providers/Podman/|runtime-smoke-podman\.yml|PodmanBootstrap|Initialize-PodmanRuntime)') { $pathRuntime.Podman = $true }
+            if ($runtimePath -match '(?i)(^Providers/Docker/|runtime-smoke-docker\.yml|Invoke-Smoke(Matrix|Test)|Invoke-RestoreSmokeTest|BatchWorkflow|BatchConsole|lab-batch|Invoke-LinkedServerEnvironmentGroupAcceptance)') { $pathRuntime.Docker = $true }
+            if ($runtimePath -match '(?i)(^Providers/Podman/|runtime-smoke-podman\.yml|PodmanBootstrap|Initialize-PodmanRuntime|Invoke-LinkedServerEnvironmentGroupAcceptance)') { $pathRuntime.Podman = $true }
             if ($runtimePath -match '(?i)(PointInTimeRecovery|point-in-time-recovery|PITR)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
             if ($runtimePath -match '(?i)(HostToolResolution|Initialize-SqlServerLabHostTools)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
             if ($runtimePath -match '(?i)SmtpTestServiceGateway') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
@@ -431,6 +434,9 @@ end {
             # Read-only console continuation; command/member/redirection boundary
             # is checked by the dedicated launch-details suite.
             $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -cmatch '^Private/HostCapabilityMatrixConsole\.ps1$'
+            # Synthetic registry/HTTP fixtures exercise this read-only browser
+            # projection without starting SQL or a provider runtime.
+            $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -cmatch '^Private/EnvironmentGroupsBrowserHttp\.ps1$'
             # Curated help data/console presentation; dedicated authority oracle
             # retains only existing metadata getters and console rendering calls.
             $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -cmatch '^Private/ConsoleHelp\.ps1$'

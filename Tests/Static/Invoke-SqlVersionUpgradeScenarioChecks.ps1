@@ -145,6 +145,18 @@ try {
         function Invoke-SqlUpgradeQuery {
             param($Binding,$StateRoot,$Query)
             $role=if($Binding.Version -ceq '2022'){'source'}else{'target'}
+            if($Query -match 'FROM sys.database_query_store_options') {
+                if($script:mode -ceq 'query-store-disabled'){return 'OFF|READ_WRITE|ALL'}
+                return 'READ_WRITE|READ_WRITE|ALL'
+            }
+            $queryStoreMarker=[regex]::Match($Query,'SQL_UPGRADE_QS_[a-f0-9]{32}_(?:SOURCE|TARGET)_(?:COMPAT160|COMPAT170)')
+            if($queryStoreMarker.Success -and $Query -match 'sys\.query_store_query_text') {
+                if($script:mode -ceq 'query-store-empty'){return 'malformed-query-store-observation'}
+                $duration=if($queryStoreMarker.Value -match '_TARGET_COMPAT170$'){150}elseif($queryStoreMarker.Value -match '_TARGET_COMPAT160$'){120}else{100}
+                return "ABCDEFABCDEFABCD|5|$duration.00|1"
+            }
+            if($queryStoreMarker.Success){return "$($queryStoreMarker.Value)|3"}
+            if($Query -match 'SET QUERY_STORE'){return}
             if($Query -match 'FROM sys.databases') {
                 $major=if($role -ceq 'source'){16}else{17}
                 if($script:mode -ceq 'source-version' -and $role -ceq 'source'){$major=15}
@@ -188,7 +200,7 @@ try {
         }
         function Invoke-LabTransferNative { param($Provider,$Arguments) if($script:mode -ceq 'residue'){return 'synthetic-residue'} }
         function Assert-LabTransferNoResidue { param($Binding) if($script:mode -ceq 'exact-residue'){throw 'SYNTHETIC_EXACT_RESIDUE'} }
-        foreach($mode in @('success','source-version','target-version','hash-failed','checksum','verify','encrypted','filestream','restore','compat','target-rows','source-changed','groups','aggregate','transaction','rollback','integrity','lost-source','lost-target','publish-target','runtime-drift','provider-drift','cleanup-target','residue','exact-residue','operation-drift')) {
+        foreach($mode in @('success','query-store-disabled','query-store-empty','source-version','target-version','hash-failed','checksum','verify','encrypted','filestream','restore','compat','target-rows','source-changed','groups','aggregate','transaction','rollback','integrity','lost-source','lost-target','publish-target','runtime-drift','provider-drift','cleanup-target','residue','exact-residue','operation-drift')) {
             $script:mode=$mode; $script:operation=$operation; $script:runtime='runtime-scope-'+('b'*24)
             $script:evidence=Join-Path $Root $mode; $null=New-Item -ItemType Directory $script:evidence
             $state=Join-Path $script:evidence 'state'
@@ -196,12 +208,19 @@ try {
             $script:events=[Collections.Generic.List[string]]::new();$script:integrity=[Collections.Generic.List[string]]::new()
             $script:removed=[Collections.Generic.List[string]]::new();$script:secrets=[Collections.Generic.List[Security.SecureString]]::new()
             $arguments=@{Provider='docker';OperationId=$operation;StateRoot=$state;EvidenceRoot=$script:evidence}
-            $faults=@{ 'source-version'='DATABASE_STATE_INVALID';'target-version'='TARGET_VERSION_INVALID';'hash-failed'='HASH_MISMATCH';checksum='BACKUP_EVIDENCE_INVALID';verify='BACKUP_EVIDENCE_INVALID';encrypted='BACKUP_EVIDENCE_INVALID';filestream='BACKUP_EVIDENCE_INVALID';restore='RESTORE_FAILED';compat='DATABASE_STATE_INVALID';'target-rows'='ROWS_DIFFER';'source-changed'='ROWS_DIFFER';groups='GROUPS_DIFFER';aggregate='AGGREGATE_DIFFER';transaction='TRANSACTION_FAILED';rollback='ROLLBACK_DIFFER';integrity='INTEGRITY_FAILED';'lost-source'='NEW_RESPONSE_LOST';'lost-target'='NEW_RESPONSE_LOST';'publish-target'='BINDING_PUBLISH_INTERRUPTED'}
+            $faults=@{ 'query-store-disabled'='QUERY_STORE_UNAVAILABLE';'query-store-empty'='QUERY_STORE_OBSERVATION_INVALID';'source-version'='DATABASE_STATE_INVALID';'target-version'='TARGET_VERSION_INVALID';'hash-failed'='HASH_MISMATCH';checksum='BACKUP_EVIDENCE_INVALID';verify='BACKUP_EVIDENCE_INVALID';encrypted='BACKUP_EVIDENCE_INVALID';filestream='BACKUP_EVIDENCE_INVALID';restore='RESTORE_FAILED';compat='DATABASE_STATE_INVALID';'target-rows'='ROWS_DIFFER';'source-changed'='ROWS_DIFFER';groups='GROUPS_DIFFER';aggregate='AGGREGATE_DIFFER';transaction='TRANSACTION_FAILED';rollback='ROLLBACK_DIFFER';integrity='INTEGRITY_FAILED';'lost-source'='NEW_RESPONSE_LOST';'lost-target'='NEW_RESPONSE_LOST';'publish-target'='BINDING_PUBLISH_INTERRUPTED'}
             if($faults.ContainsKey($mode)){Reject {Invoke-SqlUpgradeArrange @arguments} $faults[$mode]}
             else {
                 $result=Invoke-SqlUpgradeArrange @arguments
                 Check ($result.Status -ceq 'VERIFIED' -and $result.SourceMajor -eq 16 -and $result.TargetMajor -eq 17 -and
                     $script:compat.target -eq 170 -and $script:compat.source -eq 160 -and ($script:rows.source -join ';') -ceq ($script:rows.target -join ';')) 'Full orchestration verifies both target phases and unchanged source'
+                Check ($result.QueryStore.Assessment -ceq 'OBSERVED_ONLY_NO_PERFORMANCE_THRESHOLD' -and
+                    $result.QueryStore.SourceBaseline.ExecutionCount -eq 5 -and
+                    $result.QueryStore.TargetCompatibility160.ExecutionCount -eq 5 -and
+                    $result.QueryStore.TargetCompatibility170.ExecutionCount -eq 5 -and
+                    $result.QueryStore.TargetCompatibility170.QueryHash -ceq 'abcdefabcdefabcd' -and
+                    $result.QueryStore.AverageDurationDeltaMicroseconds -eq 30 -and
+                    $result.QueryStore.AverageDurationDeltaPercent -eq 25) 'Query Store reports versioned workload observations without a pass/fail performance threshold'
             }
             if ($mode -ceq 'publish-target') {
                 Check (-not (Test-Path (Join-Path $script:evidence 'target-binding.json')) -and
