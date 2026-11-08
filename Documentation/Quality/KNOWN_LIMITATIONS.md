@@ -2579,8 +2579,15 @@ gegen den versionierten Microsoft-Download geprüft und ist keine
 Herausgebersignatur. Die [getrennte native Docker-/Podman-Abnahme](SQLPACKAGE_170_5_96_ACCEPTANCE_2026-10-25.md)
 bestand mit je 30 Assertions einschließlich Versionsprobe, Restart,
 synthetischem BACPAC-/Attach-Roundtrip, kontrolliertem SQL-Fehlerjournal und
-eigenem Run-/Image-Cleanup. Weitere SQL-/OS-Pfade und kombinierte
-External-Runtime-Images wurden in dieser Welle nicht neu nativ ausgeführt.
+eigenem Run-/Image-Cleanup. Eine spätere, eng begrenzte
+[DACPAC-Publish-Abnahme](SQLPACKAGE_DACPAC_PUBLISH_ACCEPTANCE_2026-11-08.md)
+ergänzte je 36 Assertions für SQL 2022 unter Docker und Podman: SqlPackage
+extrahierte ein synthetisches Modell, publizierte es zweimal in eine eigene
+Testdatenbank und erhielt eine zuvor angelegte Zielzeile. Das prüft weder einen
+öffentlichen DACPAC-Deployment-Handler noch Schema-Drift, Datenmigration,
+fehlgeschlagene Releases oder weitere SQL-Versionen. Weitere SQL-/OS-Pfade
+und kombinierte External-Runtime-Images wurden in dieser Welle nicht neu nativ
+ausgeführt.
 Ein ausdrücklicher alter Softwareversionspin wird als nicht katalogisiert
 abgelehnt und nicht still auf die neue Version umgeschrieben. Bestehende Runs
 und Images werden dadurch nicht automatisch geändert. Weitere

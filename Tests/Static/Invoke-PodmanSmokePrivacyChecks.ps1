@@ -129,12 +129,23 @@ function sqlcmd { & pwsh -NoLogo -NoProfile -File ./native-fixture.ps1; $global:
     Add-CheckResult -Name 'Unexpected native-preflight exception remains private' -Success ($result.ExitCode -ne 0 -and $result.Public -notmatch 'SYNTHETIC_PRIVATE' -and $result.Private -match 'SYNTHETIC_PRIVATE_EXCEPTION')
     $result = Invoke-WorkflowFixture -Script ("function pwsh { throw 'SYNTHETIC_PRIVATE_EXCEPTION' }`n" + $runtime.Replace('${{ inputs.mode }}', 'lifecycle')) -Name 'runtime-exception' -ExitCode 0
     Add-CheckResult -Name 'Unexpected runtime invocation exception remains private' -Success ($result.ExitCode -ne 0 -and $result.Public -match 'PODMAN_RUNTIME_FAILED' -and $result.Public -notmatch 'SYNTHETIC_PRIVATE' -and $result.Private -match 'SYNTHETIC_PRIVATE_EXCEPTION')
+    foreach ($stageCase in @(
+        @{ Script = 'Invoke-ContainerToolAcceptance.ps1'; Name = 'tool' },
+        @{ Script = 'Invoke-ContainerDatabasePackageExportAcceptance.ps1'; Name = 'package' }
+    )) {
+        $result = Invoke-WorkflowFixture -Script $runtime.Replace('${{ inputs.mode }}', 'lifecycle') -Name ('acceptance-stage-' + $stageCase.Name) -ExitCode 23 -FailureStage $stageCase.Script
+        Add-CheckResult -Name "A failed $($stageCase.Name) acceptance reports only its safe stage name" -Success (
+            $result.ExitCode -ne 0 -and $result.Public -match ("PODMAN_ACCEPTANCE_FAILED=" + [regex]::Escape($stageCase.Name)) -and
+            $result.Public -match 'PODMAN_RUNTIME_FAILED' -and $result.Public -notmatch 'SYNTHETIC_PRIVATE' -and
+            $result.Private -match 'SYNTHETIC_PRIVATE_SECRET' -and $result.Trace[-1] -ceq $stageCase.Script)
+    }
     $aiSamplesStage = 'Invoke-AiPodmanSamplesReferenceAcceptance.ps1'
     $safeFailureSummary = 'PRIMARY=FAILED; PRIMARY_REASON=SAMPLES_NEW_FAILED; CLEANUP=COMPLETED; CLEANUP_REASON=NONE'
     $safeFailureScript = $runtime.Replace('${{ inputs.mode }}', 'lifecycle')
     $result = Invoke-WorkflowFixture -Script $safeFailureScript -Name 'ai-samples-safe-failure-code' -ExitCode 23 -FailureStage $aiSamplesStage -SafeSummary $safeFailureSummary
     Add-CheckResult -Name 'AI sample failure emits only allowlisted result codes while raw streams remain private' -Success (
-        $result.ExitCode -ne 0 -and $result.Public -match 'PODMAN_AI_SAMPLES_FAILURE_CODE=PRIMARY/FAILED/SAMPLES_NEW_FAILED;CLEANUP/COMPLETED/NONE' -and
+        $result.ExitCode -ne 0 -and $result.Public -match 'PODMAN_ACCEPTANCE_FAILED=ai-samples' -and
+        $result.Public -match 'PODMAN_AI_SAMPLES_FAILURE_CODE=PRIMARY/FAILED/SAMPLES_NEW_FAILED;CLEANUP/COMPLETED/NONE' -and
         $result.Public -notmatch 'SYNTHETIC_PRIVATE|PRIMARY_REASON|SAMPLES_NEW_FAILED.*fixture-value' -and
         $result.Private -match 'SYNTHETIC_PRIVATE_SECRET' -and $result.Trace[-1] -ceq $aiSamplesStage)
     $result = Invoke-WorkflowFixture -Script $safeFailureScript -Name 'ai-samples-missing-result-code' -ExitCode 23 -FailureStage $aiSamplesStage

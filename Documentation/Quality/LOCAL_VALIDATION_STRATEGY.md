@@ -4817,6 +4817,12 @@ und eigenem Cleanup. Beide Läufe verwendeten frische explizite
 Die zugehörigen elf statischen Suites und der Sample-Handler-Check bestanden;
 finale PR-Gates und weitere Versions-/Providerpfade bleiben getrennte Aussagen.
 
+Die [DACPAC-Erweiterung vom 2026-11-08](SQLPACKAGE_DACPAC_PUBLISH_ACCEPTANCE_2026-11-08.md)
+ergänzt denselben Container-Akzeptanzlauf um synthetisches Extract/Publish auf
+SQL 2022. Docker und Podman bestanden getrennt je 36 Assertions einschließlich
+zweitem Publish, erhaltener Zielzeile und eigenem Run-/Image-Cleanup. Das ist
+kein Nachweis für Drift-, Migrations- oder Release-Recovery-Verhalten.
+
 ```powershell
 .\Tests\Static\Invoke-SampleHandlerChecks.ps1
 .\Tests\Static\Invoke-SoftwareCatalogChecks.ps1
