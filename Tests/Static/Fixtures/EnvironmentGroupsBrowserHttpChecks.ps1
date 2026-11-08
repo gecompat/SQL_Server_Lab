@@ -72,7 +72,8 @@ $invalidRuntimeQuery=[System.Collections.Specialized.NameValueCollection]::new()
 $response=SendRuntime 'GET' $invalidRuntimeQuery
 Check ($response.Status -eq 400 -and $response.Body -ceq '{"code":"ENVIRONMENT_GROUP_RUNTIME_REQUEST_INVALID"}' -and $response.NoStore -and $script:runtimeCalls -eq $runtimeCallsBeforeRoute) 'runtime route rejects incomplete query without provider calls and disables caching'
 
-$runtimePath=Join-Path $env:TEMP ('SqlServerLabEnvironmentGroupsBrowserHttp-'+[guid]::NewGuid().ToString('N'))
+$tempRoot=[System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath())
+$runtimePath=Join-Path $tempRoot ('SqlServerLabEnvironmentGroupsBrowserHttp-'+[guid]::NewGuid().ToString('N'))
 $script:runtimeRoot=$runtimePath
 try {
     $runDirectory=Join-Path (Join-Path $runtimePath 'runs') $script:runId
@@ -106,7 +107,8 @@ try {
     Check ($failedRuntime.runtimeState -ceq 'UNAVAILABLE' -and ($failedRuntime|ConvertTo-Json -Depth 8) -notmatch 'PRIVATE_RUNTIME_CANARY') 'provider reader failure is sanitized'
 }
 finally {
-    if (([System.IO.Path]::GetFullPath($runtimePath)).StartsWith(([System.IO.Path]::GetFullPath($env:TEMP).TrimEnd('\')+'\'),[System.StringComparison]::OrdinalIgnoreCase)) {
+    $tempPrefix=$tempRoot.TrimEnd([System.IO.Path]::DirectorySeparatorChar,[System.IO.Path]::AltDirectorySeparatorChar)+[System.IO.Path]::DirectorySeparatorChar
+    if (([System.IO.Path]::GetFullPath($runtimePath)).StartsWith($tempPrefix,[System.StringComparison]::OrdinalIgnoreCase)) {
         Remove-Item -LiteralPath $runtimePath -Recurse -Force -ErrorAction SilentlyContinue
     }
 }
