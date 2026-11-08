@@ -71,6 +71,10 @@ jobs:
           catch {
             try { $_ | Out-String | Add-Content -LiteralPath $logPath } catch { }
             Set-ValidationClassification INFRASTRUCTURE_UNAVAILABLE
+            if (-not $preflightFailureCode -and $preflightStage -ceq 'OWNED_TEST_ROOT_INITIALIZATION') {
+              $rootFailureCode = Get-OwnedHostTestRootFailureCode -ErrorRecord $_
+              if ($rootFailureCode) { $preflightFailureCode = 'OWNED_TEST_ROOT_INITIALIZATION['+$rootFailureCode+']' }
+            }
             if (-not $preflightFailureCode) {
               $preflightFailureCode = switch ($preflightStage) {
                 'HOST_TOOL_RESOLUTION' {
