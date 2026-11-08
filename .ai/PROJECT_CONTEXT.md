@@ -841,6 +841,10 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 - BACPAC-Import für katalogisierte SQL-2022-Linux-Samples unter Docker und
   Podman über das gebundene SqlPackage-Tool, mit Versionsprobe vor Mutation,
   Trust-/Cache-Artifact, scoped temporärem Transfer, SQL-Roundtrip und Cleanup;
+- synthetischer DACPAC-Extract/Publish für SQL 2022 mit Docker und Podman;
+  ein DeployReport prüft vor der Wiederholungspublikation den No-op-Plan und
+  getrennte native Abnahmen belegen Datenerhalt und eigenen Cleanup. Echte
+  Driftkorrektur, Migration und fehlgeschlagene Releases bleiben offen;
 - inhaltsadressierte `LAB_GENERATED`-Baselines für Single- und Multi-Output-
   Container- und run-gebundene Hyper-V-Samples einschließlich kompatibler
   Aufsetzpunktauswahl; Hyper-V exportiert nur aus der verifizierten Backup-

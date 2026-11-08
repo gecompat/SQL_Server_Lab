@@ -1486,7 +1486,7 @@ internal_components:
     validation: Tests/Static/Invoke-SoftwareCatalogChecks.ps1
     native_acceptance: Tests/Integration/Invoke-ContainerToolAcceptance.ps1
     current_sqlpackage_acceptance: Documentation/Quality/SQLPACKAGE_170_5_96_ACCEPTANCE_2026-10-25.md
-    current_dacpac_publish_acceptance: Documentation/Quality/SQLPACKAGE_DACPAC_PUBLISH_ACCEPTANCE_2026-11-08.md
+    current_dacpac_publish_acceptance: Documentation/Quality/SQLPACKAGE_DACPAC_DEPLOY_REPORT_ACCEPTANCE_2026-11-08.md
     responsibilities:
       - "Python-, R- und Java-Anforderungen in providerneutrale Software-Intents normalisieren"
       - "SQL-Version, Betriebssystem, Architektur, Provider und Runtimevariante deterministisch aufloesen"
@@ -2505,15 +2505,17 @@ validation:
     source: Tests/Integration/Invoke-ContainerToolAcceptance.ps1
     docker: '.\Tests\Integration\Invoke-ContainerToolAcceptance.ps1 -Provider docker'
     podman: '.\Tests\Integration\Invoke-ContainerToolAcceptance.ps1 -Provider podman'
-    evidence: Documentation/Quality/SQLPACKAGE_DACPAC_PUBLISH_ACCEPTANCE_2026-11-08.md
-    execution_status: "Docker und Podman am 2026-11-08 getrennt mit SQL 2022 und SqlPackage 170.5.96.0 bestanden; synthetisches Extract/Publish, wiederholtes Publish mit erhaltener Zielzeile und eigener Run-/Image-Cleanup"
+    evidence: Documentation/Quality/SQLPACKAGE_DACPAC_DEPLOY_REPORT_ACCEPTANCE_2026-11-08.md
+    execution_status: "Docker und Podman am 2026-11-08 getrennt mit SQL 2022 und SqlPackage 170.5.96.0 bestanden; synthetisches Extract/Publish, DeployReport ohne Schemaoperationen, wiederholtes Publish mit erhaltener Zielzeile und eigener Run-/Image-Cleanup"
     checks:
       - synthetic_dacpac_extract
       - scope_bound_database_publish
+      - deploy_report_no_schema_operations
       - repeat_publish_preserves_target_data
       - block_possible_data_loss
       - do_not_drop_objects_missing_from_source
       - temporary_dacpac_and_owned_runtime_cleanup
+      - temporary_deploy_report_cleanup
   container_instance_store_acceptance:
     source: Tests/Integration/Invoke-ContainerInstanceStoreAcceptance.ps1
     docker: '.\Tests\Integration\Invoke-ContainerInstanceStoreAcceptance.ps1 -Provider docker'
