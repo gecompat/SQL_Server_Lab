@@ -259,7 +259,7 @@ end {
         @{ Pattern = '(?i)(ProjectAdapter|Adapters/|project-adapter)'; Checks = @('Invoke-ProjectAdapterChecks.ps1') },
         @{ Pattern = '(?i)(MixedProvider|ProviderSubRun|StateMachine)'; Checks = @('Invoke-MixedProviderLifecycleChecks.ps1') },
         @{ Pattern = '(?i)(EnvironmentGroups|environment-groups|SqlServerLabEnvironmentGroup)'; Checks = @('Invoke-EnvironmentGroupLifecycleChecks.ps1') },
-        @{ Pattern = '(?i)^Private/EnvironmentGroupsBrowserHttp\.ps1$'; Checks = @('Invoke-WorkflowUiChecks.ps1') },
+        @{ Pattern = '(?i)^Private/EnvironmentGroupsBrowserHttp\.ps1$'; Checks = @('Invoke-ConsoleUiChecks.ps1','Invoke-WorkflowUiChecks.ps1') },
         @{ Pattern = '(?i)^Tests/Static/Fixtures/EnvironmentGroupsBrowser(HttpChecks\.ps1|UiChecks\.cjs)$'; Checks = @('Invoke-WorkflowUiChecks.ps1') },
         @{ Pattern = '(?i)(HyperVProvider|Providers/HyperV)'; Checks = @('Invoke-HyperVProviderChecks.ps1','Invoke-LabNetworkChecks.ps1') },
         @{ Pattern = '(?i)(JobProgress|HyperVGuestProgress|HyperVProvider|HyperVLabEnvironment|ExternalRuntimeWindows)'; Checks = @('Invoke-JobProgressChecks.ps1','Invoke-HyperVGuestProgressChecks.ps1') },

@@ -83,27 +83,27 @@ try {
     [System.IO.File]::WriteAllBytes((Join-Path $runDirectory 'connection-info.json'),$connectionBytes)
     $script:fixtureGroups[0].members[0].connectionInfoSha256=[Convert]::ToHexString([System.Security.Cryptography.SHA256]::HashData($connectionBytes))
     $script:throwRead=$false
-    $runtimeView=Get-UiEnvironmentGroupRuntimeView -GroupId $script:fixtureGroups[0].groupId -RunId $script:runId
+    $runtimeView=Get-LabEnvironmentGroupRuntimeObservation -GroupId $script:fixtureGroups[0].groupId -RunId $script:runId
     Check ($runtimeView.savedState -ceq 'RUNNING' -and $runtimeView.runtimeState -ceq 'STOPPED' -and $runtimeView.reconciliation -ceq 'DRIFT') 'runtime reader compares saved and live state without mutation'
     Check ($runtimeView.instances[0].state -ceq 'STOPPED' -and $script:runtimeCalls -eq 1) 'runtime reader queries only the selected bound provider member'
     $runtimeBody=$runtimeView|ConvertTo-Json -Depth 8 -Compress
     Check ($runtimeBody -notmatch 'SYNTHETIC_CONTAINER_ID|containerId|scopeId|connectionInfoSha256|PRIVATE_RUNTIME_CANARY') 'runtime observation omits provider IDs, binding data and raw errors'
     $script:runtimeRaw='paused'
-    $pausedRuntime=Get-UiEnvironmentGroupRuntimeView -GroupId $script:fixtureGroups[0].groupId -RunId $script:runId
+    $pausedRuntime=Get-LabEnvironmentGroupRuntimeObservation -GroupId $script:fixtureGroups[0].groupId -RunId $script:runId
     Check ($pausedRuntime.runtimeState -ceq 'OTHER' -and $pausedRuntime.reconciliation -ceq 'INDETERMINATE' -and $pausedRuntime.instances[0].state -ceq 'OTHER') 'non-terminal container state is not misreported as stopped'
     $script:runtimeRaw='exited'
     $script:staleAfterRuntime=$true
-    $racedRuntime=Get-UiEnvironmentGroupRuntimeView -GroupId $script:fixtureGroups[0].groupId -RunId $script:runId
+    $racedRuntime=Get-LabEnvironmentGroupRuntimeObservation -GroupId $script:fixtureGroups[0].groupId -RunId $script:runId
     Check ($racedRuntime.runtimeState -ceq 'STALE_BINDING' -and $racedRuntime.reconciliation -ceq 'INDETERMINATE' -and $racedRuntime.instances.Count -eq 0) 'binding changed during provider read is discarded after fresh recheck'
     $script:staleAfterRuntime=$false
     $script:fixtureGroups[0].members[0].bindingStatus='CURRENT'
     $bytesBefore=$script:runtimeCalls
     $script:fixtureGroups[0].members[0].bindingStatus='STALE'
-    $staleRuntime=Get-UiEnvironmentGroupRuntimeView -GroupId $script:fixtureGroups[0].groupId -RunId $script:runId
+    $staleRuntime=Get-LabEnvironmentGroupRuntimeObservation -GroupId $script:fixtureGroups[0].groupId -RunId $script:runId
     Check ($staleRuntime.runtimeState -ceq 'STALE_BINDING' -and $script:runtimeCalls -eq $bytesBefore) 'stale member binding prevents provider observation'
     $script:fixtureGroups[0].members[0].bindingStatus='CURRENT'
     $script:throwRuntime=$true
-    $failedRuntime=Get-UiEnvironmentGroupRuntimeView -GroupId $script:fixtureGroups[0].groupId -RunId $script:runId
+    $failedRuntime=Get-LabEnvironmentGroupRuntimeObservation -GroupId $script:fixtureGroups[0].groupId -RunId $script:runId
     Check ($failedRuntime.runtimeState -ceq 'UNAVAILABLE' -and ($failedRuntime|ConvertTo-Json -Depth 8) -notmatch 'PRIVATE_RUNTIME_CANARY') 'provider reader failure is sanitized'
 }
 finally {

@@ -930,7 +930,7 @@ try {
                     continue
                 }
                 try {
-                    $view = & (Get-Module SqlServerLab) { param($groupId, $runId) Get-UiEnvironmentGroupRuntimeView -GroupId $groupId -RunId $runId } $groupGuid.ToString('D') $runGuid.ToString('D')
+                    $view = & (Get-Module SqlServerLab) { param($groupId, $runId) Get-LabEnvironmentGroupRuntimeObservation -GroupId $groupId -RunId $runId } $groupGuid.ToString('D') $runGuid.ToString('D')
                     Write-UiResponse -Context $context -Body ($view | ConvertTo-Json -Depth 8 -Compress) -ContentType 'application/json; charset=utf-8' -NoStore
                 }
                 catch {

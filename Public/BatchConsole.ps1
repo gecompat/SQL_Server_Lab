@@ -837,6 +837,7 @@ function Write-LabEnvironmentGroupConsoleError {
         'LAB_ENVIRONMENT_GROUP_RECOVERY_BLOCKED'
         'LAB_ENVIRONMENT_GROUP_RECOVERY_REQUIRED'
         'LAB_ENVIRONMENT_GROUP_RECOVERY_REVIEW_REQUIRED'
+        'ENVIRONMENT_GROUP_RUNTIME_REQUEST_INVALID'
         'LAB_ENVIRONMENT_GROUP_RUN_BINDING_CHANGED'
         'LAB_ENVIRONMENT_GROUP_RUN_BINDING_INVALID'
         'LAB_ENVIRONMENT_GROUP_RUN_BINDING_MISSING'
@@ -859,6 +860,39 @@ function Write-LabEnvironmentGroupConsoleError {
         }
     }
     Write-LabError "Lab-Umgebungsgruppe: $code"
+}
+
+function Format-LabEnvironmentGroupRuntimeObservation {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Observation)
+
+    $runId = ([string]$Observation.runId -replace '[^A-Fa-f0-9-]', '')
+    $shortRunId = if ($runId.Length -gt 8) { $runId.Substring(0, 8) } else { $runId }
+    $savedState = if ([string]$Observation.savedState -in @('UNKNOWN', 'OTHER', 'RUNNING', 'STOPPED')) { [string]$Observation.savedState } else { 'UNKNOWN' }
+    $runtimeState = if ([string]$Observation.runtimeState -in @('UNKNOWN', 'UNAVAILABLE', 'MISSING', 'OTHER', 'RUNNING', 'STOPPED', 'PARTIAL', 'STALE_BINDING')) { [string]$Observation.runtimeState } else { 'UNKNOWN' }
+    $reconciliation = if ([string]$Observation.reconciliation -in @('CURRENT', 'DRIFT', 'INDETERMINATE')) { [string]$Observation.reconciliation } else { 'INDETERMINATE' }
+    $lines = [Collections.Generic.List[string]]::new()
+    $lines.Add("Run $shortRunId…")
+    $lines.Add("Gespeichert: $savedState · Runtime: $runtimeState · Vergleich: $reconciliation")
+    $observedAt = ''
+    $observedAtValue = [datetime]::MinValue
+    if ([datetime]::TryParse([string]$Observation.observedAt, [ref]$observedAtValue)) {
+        $observedAt = ([datetime]$observedAtValue).ToUniversalTime().ToString('yyyy-MM-dd HH:mm:ssZ')
+    }
+    if ($observedAt) { $lines.Add("Beobachtet: $observedAt") }
+    $instances = @($Observation.instances)
+    if ($instances.Count -eq 0) {
+        $lines.Add('Keine Instanz beobachtet; Bindung ist veraltet, fehlt oder war nicht lesbar.')
+    }
+    foreach ($instance in $instances) {
+        $instanceId = ([string]$instance.instanceId -replace '[^A-Za-z0-9_.-]', '?')
+        if ($instanceId.Length -gt 64) { $instanceId = $instanceId.Substring(0, 64) }
+        $provider = if ([string]$instance.provider -in @('docker', 'podman', 'hyperv')) { [string]$instance.provider } else { 'unknown' }
+        $state = if ([string]$instance.state -in @('UNAVAILABLE', 'MISSING', 'OTHER', 'RUNNING', 'STOPPED')) { [string]$instance.state } else { 'UNKNOWN' }
+        $lines.Add("Instanz $instanceId ($provider): $state")
+    }
+    $lines.Add('Momentaufnahme: keine SQL-Bereitschaftsprüfung und keine Zustandsänderung.')
+    return $lines.ToArray()
 }
 
 function Invoke-LabEnvironmentGroupsInteractive {
@@ -900,7 +934,7 @@ function Invoke-LabEnvironmentGroupsInteractive {
         }
 
         $selectedGroup = $selection.SelectedItem.Data
-        try { $group = Get-SqlServerLabEnvironmentGroup -GroupId ([string]$selectedGroup.groupId) -StateRoot $stateRoot }
+        try { $group = Get-SqlServerLabEnvironmentGroup -GroupId ([string]$selectedGroup.groupId) -StateRoot $stateRoot -IncludeBindingStatus }
         catch { Write-LabEnvironmentGroupConsoleError -ErrorRecord $_; continue }
 
         $members = @($group.members)
@@ -938,6 +972,8 @@ function Invoke-LabEnvironmentGroupsInteractive {
                 -Disabled:(-not $isStopped -or $members.Count -eq 0) -DisabledReason 'Mitglieder koennen nur aus einer gestoppten, nichtleeren Gruppe geloest werden.'
             New-LabConsoleItem -Id 'remove' -Label 'Gruppe und Zuordnungen entfernen' -Value 'Stoppt und entfernt keine Runs' -Shortcut '5' `
                 -Disabled:(-not $isStopped) -DisabledReason 'Eine Gruppe kann nur im Zustand STOPPED entfernt werden.'
+            New-LabConsoleItem -Id 'observe' -Label 'Runtime-Zustand eines Mitglieds lesen' -Value 'Read-only; keine SQL-Bereitschaftsprüfung' -Shortcut '6' `
+                -Disabled:($members.Count -eq 0) -DisabledReason 'Die Gruppe hat keine Mitglieder.'
             New-LabConsoleItem -Id 'back' -Label 'Zur Gruppenliste' -Shortcut '0'
         )
         $action = Show-LabSubMenu -ScreenId 'environment-group-actions' -Title ([string]$group.name) `
@@ -980,6 +1016,19 @@ function Invoke-LabEnvironmentGroupsInteractive {
                     $result = Remove-SqlServerLabEnvironmentGroup -GroupId ([string]$group.groupId) -StateRoot $stateRoot -Confirm
                     if ($result.Status -eq 'REMOVED') { Write-LabSuccess 'Gruppe und ihre Zuordnungen wurden entfernt; die Runs blieben unveraendert.' }
                     break
+                }
+                'observe' {
+                    $selectedMembers = @(Select-LabWorkflowItems -ScreenId 'environment-group-runtime-members' -Title 'Mitglieder fuer Runtimebeobachtung' `
+                        -Source $members -Label { param($member) "Run $(([string]$member.runId).Substring(0, 8))…" } `
+                        -Value { param($member) if ([string]$member.bindingStatus -ceq 'CURRENT') { 'Bindung aktuell' } else { 'Bindung veraltet oder nicht lesbar' } })
+                    foreach ($member in $selectedMembers) {
+                        try {
+                            $observation = Get-LabEnvironmentGroupRuntimeObservation -GroupId ([string]$group.groupId) -RunId ([string]$member.runId) -StateRoot $stateRoot
+                            foreach ($line in @(Format-LabEnvironmentGroupRuntimeObservation -Observation $observation)) { Write-LabInfo $line }
+                        }
+                        catch { Write-LabEnvironmentGroupConsoleError -ErrorRecord $_ }
+                    }
+                    if ($selectedMembers.Count -gt 0) { Wait-LabConsoleAcknowledgement }
                 }
             }
         }

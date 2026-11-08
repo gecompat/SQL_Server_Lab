@@ -329,7 +329,7 @@ function Get-LabConsoleHelpCatalog {
         'environment-group-actions' = @{
             Title = 'Aktionen für eine Lab-Umgebungsgruppe'
             Purpose = 'Verknüpft vorhandene SQL-Runs und steuert Start, Stop und Zuordnungen innerhalb des Gruppen-Lifecycle-Vertrags.'
-            Effects = 'Jede Mutation verwendet die API-Bestätigung. Gemeinsame Runs bleiben für weitere aktive Gruppen erhalten; Gruppenentfernung stoppt oder entfernt keine Runs.'
+            Effects = 'Jede Mutation verwendet die API-Bestätigung. Die Runtimebeobachtung ist read-only; gemeinsame Runs bleiben für weitere aktive Gruppen erhalten und Gruppenentfernung stoppt oder entfernt keine Runs.'
             Command = 'Start-SqlServerLabEnvironmentGroup / Stop-SqlServerLabEnvironmentGroup / Remove-SqlServerLabEnvironmentGroup'
             Preconditions = @($stateRootPrecondition)
             Items = @{
@@ -338,6 +338,7 @@ function Get-LabConsoleHelpCatalog {
                 'stop' = @{ Purpose = 'Stoppt den Gruppen-Lifecycle und gibt nur nicht mehr gemeinsam beanspruchte Runs frei.'; Effects = 'Laufende Runs anderer aktiver Gruppen bleiben erhalten.'; Command = 'Stop-SqlServerLabEnvironmentGroup' }
                 'detach' = @{ Purpose = 'Löst ausgewählte Referenzen aus der gestoppten Gruppe.'; Effects = 'Stoppt oder entfernt den Run nicht.'; Command = 'Remove-SqlServerLabEnvironmentGroupMember' }
                 'remove' = @{ Purpose = 'Entfernt die gestoppte Gruppe und ihre Zuordnungen.'; Effects = 'Runs werden weder gestoppt noch entfernt.'; Command = 'Remove-SqlServerLabEnvironmentGroup' }
+                'observe' = @{ Purpose = 'Liest ausdrücklich den Runtimezustand ausgewählter Gruppenmitglieder.'; Effects = 'Fragt nur aktuelle Bindungen ab und ändert weder Registry noch Runtime; bestätigt keine SQL-Bereitschaft.'; Command = 'Get-LabEnvironmentGroupRuntimeObservation' }
             }
         }
         'environment-group-add-runs' = @{
@@ -352,6 +353,13 @@ function Get-LabConsoleHelpCatalog {
             Purpose = 'Wählt Mitglieder der gestoppten Gruppe aus, deren Referenz gelöst werden soll.'
             Effects = 'Auswahl und Abbruch ändern nichts. Die API-Bestätigung löst nur die ausgewählten Zuordnungen; Runs bleiben unverändert.'
             Command = 'Remove-SqlServerLabEnvironmentGroupMember'
+            Preconditions = @($stateRootPrecondition)
+        }
+        'environment-group-runtime-members' = @{
+            Title = 'Mitglieder für Runtimebeobachtung'
+            Purpose = 'Wählt Mitglieder aus, deren aktuelle Providerzustände ausdrücklich gelesen werden sollen.'
+            Effects = 'Auswahl und Abbruch ändern nichts. Veraltete oder nicht lesbare Bindungen lösen keine Providerabfrage aus.'
+            Command = 'Get-LabEnvironmentGroupRuntimeObservation'
             Preconditions = @($stateRootPrecondition)
         }
         'environment-actions' = @{

@@ -49,7 +49,7 @@ function Get-UiEnvironmentGroupsView {
     }
 }
 
-function Get-UiEnvironmentGroupRuntimeView {
+function Get-LabEnvironmentGroupRuntimeObservation {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$GroupId, [Parameter(Mandatory)][string]$RunId, [string]$StateRoot)
 
