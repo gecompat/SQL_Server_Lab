@@ -109,9 +109,12 @@ mit Consumer und Cleanup. Der
 [Neuaufbau vom 2026-11-04](TLS_WINDOWS_PUBLIC_CREATE_ACCEPTANCE_2026-11-04.md)
 belegt erstmals den ununterbrochenen öffentlichen Aufbau bis zu beiden strikten
 Stacks, signiertem Export und Reader. Die zusätzliche SQL-Consumer-Anmeldung
-blieb wegen eines Testadapterfehlers unausgeführt; dieser Gesamtkoordinator
-bleibt `FAIL`. Der eigene Cleanup ist separat frisch geprüft. Ein korrigierter
-vollständiger Gesamtfall war dort offen. Der [anschließende native Abschluss](BOUNDED_WINDOWS_TLS_RUNNER_ACCEPTANCE_2026-11-04.md) schließt ihn mit sieben Koordinatorabschnitten und 14 Sicherheitsprüfungen PASS; eigene Aufgabe, VM und Export sind entfernt. Ein real abgewarteter Leaseablauf bleibt separat.
+scheiterte im ursprünglichen Lauf an einem Fehler des privaten Testadapters;
+dieser historische Gesamtfall bleibt `FAIL`. Der [anschließende native
+Abschluss](BOUNDED_WINDOWS_TLS_RUNNER_ACCEPTANCE_2026-11-04.md) führte den
+korrigierten Gesamtfall aus und bestand den Consumer, alle sieben
+Koordinatorabschnitte sowie 14 Sicherheitsprüfungen; eigene Aufgabe, VM und
+Export sind entfernt. Ein real abgewarteter Leaseablauf bleibt separat.
 Der Snapshotreader reserviert keine Runtime, verlängert
 keine Qualifikation und ist allein kein Toolbelt-Livebeweis. Linux-V2-Consumer,
 weitere Hyper-V-Profile und die vollständige TLS-001-Matrix bleiben

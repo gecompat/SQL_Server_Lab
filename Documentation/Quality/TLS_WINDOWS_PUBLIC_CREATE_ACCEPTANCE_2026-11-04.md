@@ -102,10 +102,13 @@ unabhängige Beobachtung sämtlicher Diskpfade wird nicht behauptet.
 ## Verbleibender Umfang
 
 Die frühere Aussage „öffentlicher ununterbrochener Neuaufbau nicht ausgeführt“
-ist für den oben gebundenen Erstellungsabschnitt geschlossen. Offen bleibt die
-korrigierte frische Gesamtprobe mit zusätzlicher SQL-Consumer-Anmeldung und
-regulärem Koordinatorabschluss. Die auf ein eigenes Lab begrenzte Welle ist
-beendet; ihre Fehler und Verbräuche bleiben erhalten.
+ist für den oben gebundenen Erstellungsabschnitt geschlossen. Zum Stand dieses
+Nachweises war die korrigierte frische Gesamtprobe mit zusätzlicher
+SQL-Consumer-Anmeldung noch offen. Sie wurde später im
+[gebundenen Native-Runner-Nachweis](BOUNDED_WINDOWS_TLS_RUNNER_ACCEPTANCE_2026-11-04.md)
+bestanden. Der ursprüngliche Adapterfehler und sein Worker-/Supervisor-FAIL
+bleiben unverändert erhalten; die auf ein eigenes Lab begrenzte Welle wird
+nicht rückwirkend aufgewertet.
 
 Der [komponierte Nachweis vom 2026-10-31](TLS_WINDOWS_OPERATIONAL_SSIS_ACCEPTANCE_2026-10-31.md)
 bleibt unverändert an seinen damaligen Run und Consumer gebunden. Er wird weder
