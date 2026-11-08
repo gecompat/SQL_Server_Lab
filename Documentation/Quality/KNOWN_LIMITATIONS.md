@@ -2588,8 +2588,15 @@ Testdatenbank und erhielt eine zuvor angelegte Zielzeile. Die spätere
 ergänzte je 41 Assertions und einen No-op-Report ohne Schemaoperationen. Das
 prüft weder einen öffentlichen DACPAC-Deployment-Handler noch tatsächliche
 Schema-Drift oder deren Korrektur, Datenmigration, fehlgeschlagene Releases
-oder weitere SQL-Versionen. Weitere SQL-/OS-Pfade und kombinierte
-External-Runtime-Images wurden in dieser Welle nicht neu nativ ausgeführt.
+oder weitere SQL-Versionen. Die getrennte
+[Drift-Abnahme](SQLPACKAGE_DACPAC_DRIFT_REPORT_ACCEPTANCE_2026-11-08.md)
+ergänzt SQL 2022 unter Docker und Podman um eine kontrollierte
+Spaltenbreiten-Drift: der DeployReport plante Operationen, Publish stellte die
+ursprüngliche Breite wieder her und erhielt die synthetische Zielzeile. Das
+belegt keine allgemeine Driftbehandlung, Datenmigration, fehlgeschlagene
+Release-Recovery oder weitere SQL-Versionen. Weitere SQL-/OS-Pfade und
+kombinierte External-Runtime-Images wurden in dieser Welle nicht neu nativ
+ausgeführt.
 Ein ausdrücklicher alter Softwareversionspin wird als nicht katalogisiert
 abgelehnt und nicht still auf die neue Version umgeschrieben. Bestehende Runs
 und Images werden dadurch nicht automatisch geändert. Weitere
