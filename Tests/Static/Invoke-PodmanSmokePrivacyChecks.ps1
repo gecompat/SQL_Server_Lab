@@ -98,7 +98,7 @@ $env:RECOVERY_LOCATION='runner-work'
     # outcome guards and every acceptance invocation.
     [IO.File]::WriteAllText((Join-Path $root 'SqlServerLab.psd1'), "@{ModuleVersion='1.0';GUID='276bf358-475d-4abd-b56b-dc4f439b95fb'}")
     [IO.File]::WriteAllText((Join-Path $root 'Tests/Common/OwnedHostTestScope.ps1'), 'function Initialize-OwnedHostTestRoot { param($Module,$StateRoot,$Providers,$ParentOperationId) }')
-    [IO.File]::WriteAllText((Join-Path $root 'Tools/Initialize-SqlServerLabHostTools.ps1'), "param(`$Name); [pscustomobject]@{Available=`$true}")
+    [IO.File]::WriteAllText((Join-Path $root 'Tools/Initialize-SqlServerLabHostTools.ps1'), "param(`$Name); foreach(`$tool in `$Name){[pscustomobject]@{Name=`$tool;Available=(`$env:PRIVACY_FIXTURE_STAGE -cne 'tools-unavailable')}}")
     [IO.File]::WriteAllText((Join-Path $root 'Tools/Resolve-CiRuntimeScope.ps1'), "param(`$Provider,`$Capabilities,`$Mode); [pscustomobject]@{Capabilities=@('lifecycle','collation','restore','pitr','upgrade','batch','tool','removal','package','transfer-preflight','transfer','ai-vector','ai-samples')}")
     $fixture = @'
 Write-Output 'SYNTHETIC_PRIVATE_HOST sentinel.invalid'
@@ -123,8 +123,12 @@ function sqlcmd { & pwsh -NoLogo -NoProfile -File ./native-fixture.ps1; $global:
         Add-CheckResult -Name "Preflight $exitCode keeps all raw output local and preserves outcome" -Success (
             $result.Public -notmatch 'SYNTHETIC_PRIVATE' -and $result.Private -match 'SYNTHETIC_PRIVATE_HOST' -and $result.Private -match 'SYNTHETIC_PRIVATE_SECRET' -and
             (($exitCode -eq 0 -and $result.ExitCode -eq 0 -and $result.Public -match 'validation_classification=VALIDATED') -or
-            ($exitCode -ne 0 -and $result.ExitCode -ne 0 -and $result.Public -match 'INFRASTRUCTURE_UNAVAILABLE')))
+            ($exitCode -ne 0 -and $result.ExitCode -ne 0 -and $result.Public -match 'INFRASTRUCTURE_UNAVAILABLE: prerequisite=SQLCMD_NOT_USABLE')))
     }
+    $result = Invoke-WorkflowFixture -Script ($shim + "`n" + $preflight) -Name 'preflight-host-tool-unavailable' -ExitCode 0 -FailureStage 'tools-unavailable'
+    Add-CheckResult -Name 'Podman missing-host-tool diagnosis is specific and path-free' -Success (
+        $result.ExitCode -ne 0 -and $result.Public -match 'HOST_TOOLS_UNAVAILABLE\[podman\]' -and
+        $result.Public -notmatch 'SYNTHETIC_PRIVATE|[A-Za-z]:\\|/home/' -and $result.Private -match 'OWNED_HOST_TEST_TOOL_UNAVAILABLE')
     $result = Invoke-WorkflowFixture -Script ("function Import-Module { throw 'SYNTHETIC_PRIVATE_EXCEPTION' }`n" + $preflight) -Name 'preflight-exception' -ExitCode 0
     Add-CheckResult -Name 'Unexpected native-preflight exception remains private' -Success ($result.ExitCode -ne 0 -and $result.Public -notmatch 'SYNTHETIC_PRIVATE' -and $result.Private -match 'SYNTHETIC_PRIVATE_EXCEPTION')
     $result = Invoke-WorkflowFixture -Script ("function pwsh { throw 'SYNTHETIC_PRIVATE_EXCEPTION' }`n" + $runtime.Replace('${{ inputs.mode }}', 'lifecycle')) -Name 'runtime-exception' -ExitCode 0

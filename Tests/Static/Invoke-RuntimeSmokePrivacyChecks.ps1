@@ -103,7 +103,7 @@ try {
     $null=New-Item -ItemType Directory -Path (Join-Path $root 'Tests/Integration')
     $null=New-Item -ItemType Directory -Path (Join-Path $root 'Tests/Common'), (Join-Path $root 'Tools')
     [IO.File]::WriteAllText((Join-Path $root 'Tests/Common/OwnedHostTestScope.ps1'), 'function Initialize-OwnedHostTestRoot { param($Module,$StateRoot,$Providers,$ParentOperationId); $null=New-Item -ItemType Directory -Path $StateRoot }')
-    [IO.File]::WriteAllText((Join-Path $root 'Tools/Initialize-SqlServerLabHostTools.ps1'), 'param($Name); [pscustomobject]@{Available=($env:PRIVACY_FIXTURE_STAGE -cne ''tools-unavailable'')}')
+    [IO.File]::WriteAllText((Join-Path $root 'Tools/Initialize-SqlServerLabHostTools.ps1'), 'param($Name); foreach($tool in $Name){[pscustomobject]@{Name=$tool;Available=($env:PRIVACY_FIXTURE_STAGE -cne ''tools-unavailable'')}}')
     $mixed=@(Get-WorkflowBlocks 'runtime-smoke-mixed-providers.yml')
     $hyperv=@(
         Get-WorkflowBlocks 'runtime-smoke-hyperv.yml' 'Hyper-V preflight'
@@ -168,7 +168,7 @@ function Import-Module { [pscustomobject]@{Name='SyntheticFixtureModule'} }
         $result.Private -match 'SYNTHETIC_PRIVATE_SECRET' -and [string]::IsNullOrEmpty($result.RetainedPrivate))
     $result=Invoke-WorkflowFixture -Script ($shim+"`n"+$mixed[0]) -Name 'mixed-podman-failure' -ExitCode 0 -FailureStage 'tools-unavailable'
     Add-CheckResult -Name 'Mixed unavailable host tool stops before sqlcmd without raw forwarding' -Success (
-        $result.ExitCode -ne 0 -and $result.Public -match 'INFRASTRUCTURE_UNAVAILABLE' -and
+        $result.ExitCode -ne 0 -and $result.Public -match 'INFRASTRUCTURE_UNAVAILABLE: prerequisite=HOST_TOOLS_UNAVAILABLE\[docker,podman\]' -and
         $result.Public -notmatch 'SYNTHETIC_PRIVATE' -and $result.Private -match 'OWNED_HOST_TEST_TOOL_UNAVAILABLE' -and $result.Trace.Count -eq 0)
     $result=Invoke-WorkflowFixture -Script ("function Import-Module { throw 'SYNTHETIC_PRIVATE_EXCEPTION' }`n"+$mixed[0]) -Name 'mixed-preflight-exception' -ExitCode 0
     Add-CheckResult -Name 'Mixed unexpected preflight exception stays private' -Success ($result.ExitCode -ne 0 -and $result.Public -notmatch 'SYNTHETIC_PRIVATE' -and $result.Private -match 'SYNTHETIC_PRIVATE_EXCEPTION')
