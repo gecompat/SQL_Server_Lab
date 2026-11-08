@@ -144,6 +144,17 @@ vorhandene, anhand Name, ID, Label und leerer Endpoints gebundene Netz. Seine
 Abnahme ist getrennt für Docker und Podman auszuführen; sie erweitert keine
 TLS-, Kerberos- oder Distributed-Transaction-Aussage.
 
+Die Container-Lane wurde am 2026-11-08 mit SQL Server 2025 CU9 getrennt unter
+Docker und Podman nativ abgenommen. Beide Läufe bestätigten `OPENQUERY`, den
+gemeinsamen Ziel-Run in zwei Gruppen und dessen Erhalt nach dem Stop der ersten
+Gruppe. Der Ziel-Run stoppte erst nach dem Stop der zweiten Gruppe. Eigene Runs,
+Gruppen, Container, Volumes und Netzwerke wurden entfernt; die jeweilige
+Evidence- und State-Root-Bindung sowie die Abwesenheitsprüfungen waren bestätigt.
+Der [Abnahmenachweis](../Quality/LINKED_SERVER_ENVIRONMENT_GROUP_ACCEPTANCE_2026-11-08.md)
+grenzt die Aussage auf diese SQL-Version und die einfachen Containerfälle ein.
+Collation-Konflikte, TLS-Identität, Kerberos-Delegierung und MSDTC sind damit
+nicht belegt.
+
 - `New-SqlServerLabEnvironmentGroup` erstellt eine leere Gruppe.
 - `Get-SqlServerLabEnvironmentGroup` listet Gruppen oder liest eine Gruppe nach
   `GroupId`.
