@@ -11,9 +11,14 @@ Toolbelt-Cleanupfehler bleiben mit ihren gesonderten Recoveries erhalten.
 Der [Nachweis vom 2026-11-04](TLS_WINDOWS_PUBLIC_CREATE_ACCEPTANCE_2026-11-04.md)
 ergänzt den ununterbrochenen öffentlichen Neuaufbau mit beiden strikten Stacks,
 signiertem Export und Reader. Sein zusätzlicher SQL-Consumer scheiterte vor der
-Anmeldung im Testadapter; Worker und Supervisor bleiben `FAIL`. Acht separate
-frische Cleanupprüfungen und elf Offlineassertions für die Adapterkorrektur
-bestanden. Dieser damalige Gesamtfall blieb unausgeführt. Der [neue native Abschluss](BOUNDED_WINDOWS_TLS_RUNNER_ACCEPTANCE_2026-11-04.md) belegt anschließend alle sieben Koordinatorabschnitte und 14 Sicherheitsprüfungen mit PASS und entfernter eigener Aufgabe, VM und Export.
+Anmeldung im Testadapter; Worker und Supervisor bleiben als historische
+Originalergebnisse `FAIL`. Elf Offlineassertions prüften die Adapterkorrektur.
+Der spätere [gebundene Native-Runner-Abschluss](BOUNDED_WINDOWS_TLS_RUNNER_ACCEPTANCE_2026-11-04.md)
+führte den korrigierten Gesamtfall tatsächlich aus: SQL-Consumer,
+Koordinatorabschnitte und 14 Sicherheitsprüfungen bestanden; eigene Aufgabe,
+VM und Export wurden entfernt. Der ursprüngliche Lauf bleibt unverändert
+historisch, der korrigierte Lauf schließt genau den gebundenen Windows-/SQL-
+2025-RTM-Kontext.
 Weitere Windowsprofile und der volle TLS-001-Abschluss bleiben getrennt.
 
 ## Versionsauswahl für neue Laufzeitnachweise

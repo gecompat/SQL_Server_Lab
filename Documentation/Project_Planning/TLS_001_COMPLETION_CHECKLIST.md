@@ -1,11 +1,47 @@
 # TLS-001: Abschlusskriterien und verbleibende Arbeit
 
-Stand: 2026-10-26. Gesamtstatus: **partial**.
+Stand: 2026-11-08. Gesamtstatus: **partial**.
 
 Diese Arbeitsübersicht leitet sich aus den D1–D4-Entscheidungen, Slices und
 sechs Akzeptanzkriterien des [kanonischen TLS-001-Backlogs](NEW_SQL_LAB_USE_CASES_BACKLOG.md#tls-001--authentifizierte-tls-verbindungen-der-testumgebungen)
 ab. Sie ergänzt keine weiteren Pflichtachsen. Fachverträge und tatsächlich
 ausgeführte datierte Nachweise bleiben maßgeblich; eine Planung ist kein PASS.
+
+## Statusabgleich vom 2026-11-08
+
+Die nachfolgenden datierten Nachweise in der
+[Validierungsstrategie](../Quality/LOCAL_VALIDATION_STRATEGY.md) sind jünger
+als die ursprüngliche Erhebung dieser Liste und haben für ihren jeweils
+ausgewiesenen Umfang Vorrang:
+
+- Die Windows-/Hyper-V-/SQL-2025-RTM-SSIS-Qualifikation vom 2026-10-31 bestand
+  mit acht strikten Lab-Clientresultaten, signiertem V2-Export, 412 aktuellen
+  SSIS-Assertions und eigenem Cleanup. Sie schließt diesen SSIS-Kontext, nicht
+  TLS-001 insgesamt.
+- Der öffentliche Windows-Neuaufbau vom 2026-11-04 scheiterte beim zusätzlichen
+  SQL-Consumer vor der Anmeldung: Der private Testadapter setzte
+  `ConnectTimeout` als PowerShell-Property statt den Connection-String-Indexer
+  mit `Connect Timeout` zu verwenden. Dieser ursprüngliche Worker-/Supervisor-
+  `FAIL` bleibt erhalten. Der spätere gebundene Native-Runner führte den
+  korrigierten öffentlichen Gesamtfall tatsächlich erneut aus und bestand den
+  zusätzlichen SQL-Consumer, alle sieben Koordinatorabschnitte, die
+  Sicherheitsprüfungen und den Cleanup. Damit ist genau dieser Windows-/SQL-
+  2025-RTM-Kontext geschlossen; andere Identitäten, Versionen und TLS-Kriterien
+  bleiben offen.
+- Ältere erfolgreiche Provider-/Versionsnachweise bleiben auf ihre jeweiligen
+  Quellstände und Scopes begrenzt. Ein erfolgreiches Cleanup, ein privater
+  Hyper-V-Referenzlauf oder eine Kryptoprobe ersetzt keinen fehlenden
+  öffentlichen Consumer- oder Provider-Nachweis.
+
+Damit bleiben als konkrete Abschlussblöcke: die fehlende öffentliche
+Linux-Registry-/Reader-/Export-/Consumerlane; die öffentliche Hyper-V-False-/
+Exportlane und nicht belegte vereinbarte Hyper-V-Zellen; die fehlenden
+Linux-Clientkontexte an Windows-SQL-Zielen; reproduzierbare Zertifikatserneuerung
+mit Qualifikation und Recovery; noch offene Analyze-/Schulungs-Consumer-
+Preflights; sowie die kriteriumsgenaue Zuordnung der Nachweise und finalen
+Pflichtgates. Fehlende oder nicht zutreffende Kombinationen sind begründet als
+`UNSUPPORTED` oder `NOT_EXECUTED` auszuweisen, nicht durch zusätzliche
+Wiederholungen erfolgreicher Zellen zu verdecken.
 
 ## Endliche Abschlussliste
 
