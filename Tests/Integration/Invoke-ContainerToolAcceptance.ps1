@@ -537,7 +537,11 @@ try {
             attach = [ordered]@{ status = [string]$attachResult.Status; source = 'synthetic-detached-mdf-ldf'; targetDatabase = $attachTargetDatabase; dataRoundtrip = $true; journalStatus = [string]$attachJournal.Status }
             attachRecovery = [ordered]@{ status = [string]$attachFailureJournal.Status; controlledSqlFailure = $attachFailureRejected; recovery = [string]$attachFailureJournal.Recovery }
             restart = [ordered]@{ status = [string]$restart.Status; probeStatus = [string]$postRestartProbe.Status }
-            cleanup = [ordered]@{ runStatus = [string]$cleanup.Status; reusableImageExplicitlyRemoved = $true }
+            cleanup = [ordered]@{
+                runStatus = [string]$cleanup.Status
+                reusableImageExplicitlyRemoved = [bool]$removeImageAfterTest
+                preexistingImagePreserved = -not [bool]$removeImageAfterTest
+            }
             completedAt = [DateTimeOffset]::UtcNow.ToString('o')
         } | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $EvidencePath -Encoding utf8
     }

@@ -6,7 +6,7 @@ Am 2026-11-08 wurde der SQL-2022-Container-Akzeptanzlauf um einen begrenzten
 Driftfall erweitert. Docker und Podman liefen getrennt mit SqlPackage
 `170.5.96.0`. Beide Läufe verwendeten
 `Tests/Integration/Invoke-ContainerToolAcceptance.ps1` mit SHA-256
-`1CA4867CC096113AFC63E6BA7172BDA6F46D8C0F08A1999BA74F4D319FD3C2E2` auf
+`20AD865BB1DD307ECAF0AC01966AA358F3856E425103A48BC9EA3C25AA3754A6` auf
 Basiscommit `32946d27e4166e47099a97c1093166a49989fa56`.
 
 | Provider | Ergebnis | Erkannte Drift | Korrektur und Datenerhalt | Eigener Cleanup |
@@ -31,10 +31,11 @@ synthetische Zielzeile.
 
 Beide XML-Berichte werden mit deaktivierten DTDs und begrenzter Dokumentgröße
 eingelesen. Host- und Runkopien werden auch im Fehlerpfad entfernt; Run,
-Volume und ausschließlich das test-eigene Derived Image werden nach jedem
-Providerlauf bereinigt. Laufzeit-Receipts und vollständige Logs bleiben in
-ignorierten lokalen Testartefakten; keine Rohberichte oder Runtimewerte sind
-versioniert.
+Volume und temporäre Dateien wurden nach jedem Providerlauf bereinigt. Docker
+behielt sein bereits vorhandenes Derived Image unverändert; Podman entfernte
+das in diesem Lauf neu angelegte Test-Tag. Laufzeit-Receipts und vollständige
+Logs bleiben in ignorierten lokalen Testartefakten; keine Rohberichte oder
+Runtimewerte sind versioniert.
 
 ## Grenzen
 
