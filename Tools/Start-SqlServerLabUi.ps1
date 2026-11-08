@@ -153,12 +153,14 @@ function Write-UiResponse {
         [Parameter(Mandatory)]$Context,
         [Parameter(Mandatory)][string]$Body,
         [string]$ContentType = 'text/plain; charset=utf-8',
-        [int]$StatusCode = 200
+        [int]$StatusCode = 200,
+        [switch]$NoStore
     )
     $bytes = [Text.Encoding]::UTF8.GetBytes($Body)
     $Context.Response.StatusCode = $StatusCode
     $Context.Response.ContentType = $ContentType
     $Context.Response.ContentEncoding = [Text.Encoding]::UTF8
+    if ($NoStore) { $Context.Response.Headers['Cache-Control'] = 'no-store' }
     $Context.Response.ContentLength64 = $bytes.Length
     $Context.Response.OutputStream.Write($bytes, 0, $bytes.Length)
     $Context.Response.Close()
@@ -908,6 +910,32 @@ try {
             if ($path -eq '/api/commands' -and $context.Request.HttpMethod -eq 'GET') {
                 $catalog = & (Get-Module SqlServerLab) { Get-LabPublicCommandWebCatalog }
                 Write-UiResponse -Context $context -Body (ConvertTo-Json -InputObject @($catalog) -Depth 12) -ContentType 'application/json; charset=utf-8'
+                continue
+            }
+            if ($path -eq '/api/environment-groups/runtime') {
+                if ($context.Request.HttpMethod -cne 'GET') {
+                    Write-UiResponse -Context $context -Body '{"code":"UI_METHOD_NOT_ALLOWED"}' -ContentType 'application/json; charset=utf-8' -StatusCode 405 -NoStore
+                    continue
+                }
+                $query = $context.Request.QueryString
+                $queryKeys = @($query.AllKeys | Where-Object { $_ })
+                $groupValues = @($query.GetValues('groupId'))
+                $runValues = @($query.GetValues('runId'))
+                $groupGuid = [guid]::Empty
+                $runGuid = [guid]::Empty
+                if ($queryKeys.Count -ne 2 -or @($queryKeys | Where-Object { $_ -cnotin @('groupId', 'runId') }).Count -gt 0 -or
+                    $groupValues.Count -ne 1 -or $runValues.Count -ne 1 -or
+                    -not [guid]::TryParse([string]$groupValues[0], [ref]$groupGuid) -or -not [guid]::TryParse([string]$runValues[0], [ref]$runGuid)) {
+                    Write-UiResponse -Context $context -Body '{"code":"ENVIRONMENT_GROUP_RUNTIME_REQUEST_INVALID"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400 -NoStore
+                    continue
+                }
+                try {
+                    $view = & (Get-Module SqlServerLab) { param($groupId, $runId) Get-UiEnvironmentGroupRuntimeView -GroupId $groupId -RunId $runId } $groupGuid.ToString('D') $runGuid.ToString('D')
+                    Write-UiResponse -Context $context -Body ($view | ConvertTo-Json -Depth 8 -Compress) -ContentType 'application/json; charset=utf-8' -NoStore
+                }
+                catch {
+                    Write-UiResponse -Context $context -Body '{"code":"ENVIRONMENT_GROUP_RUNTIME_UNAVAILABLE"}' -ContentType 'application/json; charset=utf-8' -StatusCode 503 -NoStore
+                }
                 continue
             }
             if ($path -eq '/api/environment-groups') {

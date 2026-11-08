@@ -10,6 +10,7 @@ function element(tag='div'){
 const run='33333333-4444-4555-8666-777777777777';
 const groupId='11111111-2222-4333-8444-555555555555';
 const view=(name='<img src=x onerror=alert(1)>')=>({contractVersion:'SqlServerLab.EnvironmentGroups.BrowserView/1.2',groups:[{groupId,name,createdAt:'2026-11-07T12:00:00Z',lifecycleState:'ACTIVE',operation:{action:'Start',state:'COMPLETED',startedAt:'2026-11-07T12:00:00Z',updatedAt:'2026-11-07T12:01:00Z',members:[{runId:run,action:'START',status:'STARTED'}]},members:[{runId:run,instanceIds:['MSSQLSERVER'],assignedAt:'2026-11-07T12:00:00Z',bindingStatus:'CURRENT'}]}]});
+const runtimeView=(reconciliation='DRIFT')=>({contractVersion:'SqlServerLab.EnvironmentGroups.RuntimeObservation/1.0',groupId,runId:run,observedAt:'2026-11-08T12:00:00.0000000Z',savedState:'RUNNING',runtimeState:'STOPPED',reconciliation,instances:[{instanceId:'MSSQLSERVER',provider:'docker',state:'STOPPED'}]});
 function setup(){
   const elements=new Map(['open','dialog','close','dismiss','read','status','list'].map(id=>['environment-groups-'+id,element(id)]));
   const requests=[],events=[];
@@ -30,12 +31,18 @@ async function answer(f,payload,request=f.requests.at(-1)){request.resolve({ok:t
   await answer(f,view());check(f.get('list').children.length===2&&textTree(f.get('list')).includes('<img src=x onerror=alert(1)>'),'group names render as literal text and creation form is separate');
   check(textTree(f.get('list')).includes('Bindung aktuell'),'current stored binding is shown without asserting runtime readiness');
   check(textTree(f.get('list')).includes('Gespeicherte Ergebnisse je Run (keine Live-Runtimeprüfung):')&&textTree(f.get('list')).includes(run+' · START · STARTED'),'stored per-run operation result is shown with explicit non-live boundary');
+  const runtimeButton=findButton(f.get('list'),'Runtimestatus live lesen');
+  check(f.requests.length===1&&runtimeButton,'runtime observation is opt-in and does not run during group listing');
+  runtimeButton.events.click();
+  check(f.requests.length===2&&f.requests[1].url==='/api/environment-groups/runtime?groupId='+groupId+'&runId='+run&&f.requests[1].options.cache==='no-store'&&runtimeButton.disabled,'explicit runtime read is bound to the selected group and run without caching');
+  await answer(f,runtimeView());
+  check(textTree(f.get('list')).includes('DRIFT')&&textTree(f.get('list')).includes('Dies prüft keine SQL-Bereitschaft und ändert keinen Zustand.'),'live provider observation shows drift without implying SQL readiness or repair');
   const stopButton=findButton(f.get('list').children[0],'Gruppe stoppen');check(!!stopButton,'active group exposes stop action');stopButton.events.click();
   check(f.events.length===1&&f.events[0].type==='sqlserverlab:environment-group-command-request'&&f.events[0].detail.action==='Stop'&&f.events[0].detail.groupId===groupId,'stop dispatches only the typed group action and stable ID');
   check(!findButton(f.get('list').children[0],'Gruppe entfernen'),'active group cannot be removed');
   check(!findButton(f.get('list').children[0],'Zuordnung lösen'),'active group cannot edit its membership');
-  check(!f.get('dialog').open&&f.requests.length===1,'lifecycle action closes stale view and performs no direct network mutation');
-  check(f.get('status').textContent.includes('nicht bestätigt')&&f.requests.every(r=>r.url==='/api/environment-groups'),'stored status is not presented as runtime confirmation');
+  check(!f.get('dialog').open&&f.requests.length===2,'lifecycle action closes stale view and performs no direct network mutation');
+  check(f.get('status').textContent.includes('nicht bestätigt')&&f.requests.filter(r=>r.url==='/api/environment-groups').length===1,'stored status is not presented as runtime confirmation');
 
   f=setup();f.click('open');f.click('read');const stopped=view();stopped.groups[0].lifecycleState='STOPPED';stopped.groups[0].operation=null;await answer(f,stopped);
   const startButton=findButton(f.get('list').children[0],'Gruppe starten');check(!!startButton,'stopped group exposes start action');startButton.events.click();
@@ -82,6 +89,12 @@ async function answer(f,payload,request=f.requests.at(-1)){request.resolve({ok:t
   check(f.get('list').children.length===0&&f.get('status').textContent.includes('ENVIRONMENT_GROUPS_READ_UNCONFIRMED'),'unknown binding status fails closed');
   f.click('read');const invalidOperation=view();invalidOperation.groups[0].operation.members[0].status='SECRET_CANARY';await answer(f,invalidOperation);
   check(f.get('list').children.length===0&&f.get('status').textContent.includes('ENVIRONMENT_GROUPS_READ_UNCONFIRMED'),'unknown persisted operation result fails closed');
+  f=setup();f.click('open');f.click('read');await answer(f,view());findButton(f.get('list'),'Runtimestatus live lesen').events.click();
+  const invalidRuntime=runtimeView();invalidRuntime.runtimeState='PRIVATE_RUNTIME_CANARY';await answer(f,invalidRuntime);
+  check(textTree(f.get('list')).includes('ENVIRONMENT_GROUP_RUNTIME_UNAVAILABLE')&&!textTree(f.get('list')).includes('PRIVATE_RUNTIME_CANARY'),'unknown runtime state fails closed with sanitized error');
+  f=setup();f.click('open');f.click('read');await answer(f,view());findButton(f.get('list'),'Runtimestatus live lesen').events.click();
+  const contradictoryRuntime=runtimeView('CURRENT');await answer(f,contradictoryRuntime);
+  check(textTree(f.get('list')).includes('ENVIRONMENT_GROUP_RUNTIME_UNAVAILABLE')&&!textTree(f.get('list')).includes('Runtimebeobachtung: STOPPED'),'contradictory runtime summary fails closed');
   f=setup();f.click('open');f.click('read');const stale=view();stale.groups[0].members[0].bindingStatus='STALE';await answer(f,stale);
   check(textTree(f.get('list')).includes('Bindung veraltet oder nicht lesbar'),'stale or unreadable binding is surfaced as read-only status');
   f.click('read');f.requests.at(-1).reject(new Error('PRIVATE_ERROR_CANARY'));await f.flush();

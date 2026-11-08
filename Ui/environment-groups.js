@@ -12,6 +12,7 @@
 
   let requestGeneration = 0;
   let activeRequest = false;
+  let activeRuntimeRequest = false;
   const isGuid = (value) => typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
   const lifecycleStates = new Set(['STOPPED', 'STARTING', 'ACTIVE', 'STOPPING', 'RECOVERY_REQUIRED']);
   const operationStates = new Set(['IN_PROGRESS', 'COMPLETED', 'RECOVERY_REQUIRED']);
@@ -19,6 +20,11 @@
   const operationMemberActions = new Set(['START', 'STOP', 'RETAIN']);
   const operationMemberStatuses = new Set(['PENDING', 'IN_PROGRESS', 'STARTED', 'UNCHANGED', 'STOPPED', 'RETAINED_SHARED', 'FAILED', 'UNCONFIRMED']);
   const bindingStatuses = new Set(['CURRENT', 'STALE']);
+  const runtimeStates = new Set(['RUNNING', 'STOPPED', 'PARTIAL', 'MISSING', 'UNAVAILABLE', 'UNKNOWN', 'OTHER', 'STALE_BINDING']);
+  const savedStates = new Set(['RUNNING', 'STOPPED', 'OTHER', 'UNKNOWN']);
+  const reconciliationStates = new Set(['CURRENT', 'DRIFT', 'INDETERMINATE']);
+  const providerStates = new Set(['docker', 'podman', 'hyperv']);
+  const instanceRuntimeStates = new Set(['RUNNING', 'STOPPED', 'MISSING', 'UNAVAILABLE', 'OTHER']);
   const hasOnlyKeys = (value, expected) => {
     const keys = Object.keys(value);
     return keys.length === expected.length && expected.every((key) => Object.prototype.hasOwnProperty.call(value, key));
@@ -45,6 +51,34 @@
           group.operation.members.every((member) => member && typeof member === 'object' && !Array.isArray(member) &&
             hasOnlyKeys(member, ['runId', 'action', 'status']) && isGuid(member.runId) &&
             operationMemberActions.has(member.action) && operationMemberStatuses.has(member.status)))));
+  }
+
+  function validRuntimeView(value) {
+    if (!(value && typeof value === 'object' && !Array.isArray(value) &&
+      hasOnlyKeys(value, ['contractVersion', 'groupId', 'runId', 'observedAt', 'savedState', 'runtimeState', 'reconciliation', 'instances']) &&
+      value.contractVersion === 'SqlServerLab.EnvironmentGroups.RuntimeObservation/1.0' && isGuid(value.groupId) && isGuid(value.runId) &&
+      typeof value.observedAt === 'string' && Number.isFinite(Date.parse(value.observedAt)) && savedStates.has(value.savedState) && runtimeStates.has(value.runtimeState) &&
+      reconciliationStates.has(value.reconciliation) && Array.isArray(value.instances) &&
+      value.instances.every((instance) => instance && typeof instance === 'object' && !Array.isArray(instance) &&
+        hasOnlyKeys(instance, ['instanceId', 'provider', 'state']) && typeof instance.instanceId === 'string' &&
+        /^[A-Za-z][A-Za-z0-9_-]{0,63}$/.test(instance.instanceId) && providerStates.has(instance.provider) &&
+        instanceRuntimeStates.has(instance.state)))) return false;
+    if (value.runtimeState === 'STALE_BINDING' && value.instances.length !== 0) return false;
+    if (value.instances.length > 0) {
+      const states = value.instances.map((instance) => instance.state);
+      const expectedRuntime = states.includes('UNAVAILABLE') ? 'UNAVAILABLE'
+        : states.includes('MISSING') ? 'MISSING'
+          : states.includes('OTHER') ? 'OTHER'
+            : states.every((state) => state === 'RUNNING') ? 'RUNNING'
+              : states.every((state) => state === 'STOPPED') ? 'STOPPED'
+                : 'PARTIAL';
+      if (value.runtimeState !== expectedRuntime) return false;
+    } else if (!['UNKNOWN', 'MISSING', 'STALE_BINDING'].includes(value.runtimeState)) return false;
+    const comparable = ['RUNNING', 'STOPPED'].includes(value.savedState) && ['RUNNING', 'STOPPED'].includes(value.runtimeState);
+    const expectedReconciliation = comparable
+      ? (value.savedState === value.runtimeState ? 'CURRENT' : 'DRIFT')
+      : 'INDETERMINATE';
+    return value.reconciliation === expectedReconciliation;
   }
 
   function addText(parent, tag, value, className) {
@@ -108,6 +142,55 @@
     return button;
   }
 
+  function renderRuntimeObservation(parent, observation) {
+    parent.replaceChildren();
+    addText(parent, 'p', 'Gespeicherter Status: ' + observation.savedState + ' · Runtimebeobachtung: ' + observation.runtimeState + ' · Abgleich: ' + observation.reconciliation);
+    addText(parent, 'p', 'Momentaufnahme von ' + observation.observedAt + '. Dies prüft keine SQL-Bereitschaft und ändert keinen Zustand.', 'form-note');
+    if (observation.instances.length > 0) {
+      const instances = document.createElement('ul');
+      for (const instance of observation.instances) addText(instances, 'li', instance.instanceId + ' · ' + instance.provider + ' · ' + instance.state);
+      parent.appendChild(instances);
+    }
+  }
+
+  function addRuntimeObservationAction(parent, group, member) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'form-grid';
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'button secondary';
+    button.textContent = 'Runtimestatus live lesen';
+    const result = document.createElement('div');
+    button.addEventListener('click', async () => {
+      if (activeRequest || activeRuntimeRequest) return;
+      activeRuntimeRequest = true;
+      button.disabled = true;
+      const generation = ++requestGeneration;
+      result.replaceChildren();
+      addText(result, 'p', 'Providerstatus wird gelesen …', 'form-note');
+      try {
+        const query = '?groupId=' + encodeURIComponent(group.groupId) + '&runId=' + encodeURIComponent(member.runId);
+        const response = await sqlServerLabUiFetch('/api/environment-groups/runtime' + query, { cache: 'no-store' });
+        if (!response.ok) throw new Error('RUNTIME_READ_FAILED');
+        const observation = await response.json();
+        if (!validRuntimeView(observation) || observation.groupId !== group.groupId || observation.runId !== member.runId) throw new Error('RUNTIME_VIEW_INVALID');
+        if (generation !== requestGeneration || !dialog.open) return;
+        renderRuntimeObservation(result, observation);
+      } catch {
+        if (generation !== requestGeneration || !dialog.open) return;
+        result.replaceChildren();
+        addText(result, 'p', 'Runtimestatus konnte nicht sicher gelesen werden. Fehlercode: ENVIRONMENT_GROUP_RUNTIME_UNAVAILABLE', 'form-note');
+      } finally {
+        activeRuntimeRequest = false;
+        button.disabled = false;
+        if (generation !== requestGeneration && dialog.open) status.textContent = 'Runtimeanfrage veraltet; bitte Gruppenstatus erneut lesen.';
+      }
+    });
+    wrapper.appendChild(button);
+    wrapper.appendChild(result);
+    parent.appendChild(wrapper);
+  }
+
   function addMembershipEditor(parent, group) {
     const editor = document.createElement('div');
     editor.className = 'form-grid';
@@ -166,6 +249,7 @@
           const row = document.createElement('li');
           const bindingLabel = member.bindingStatus === 'CURRENT' ? 'Bindung aktuell' : 'Bindung veraltet oder nicht lesbar';
           addText(row, 'span', member.runId + ' · Instanzen: ' + member.instanceIds.join(', ') + ' · ' + bindingLabel);
+          if (member.bindingStatus === 'CURRENT') addRuntimeObservationAction(row, group, member);
           if (group.lifecycleState === 'STOPPED' && group.operation?.state !== 'IN_PROGRESS') {
             addGroupCommandAction(row, 'Zuordnung lösen', 'RemoveMember', group, 'button secondary', member.runId);
           }

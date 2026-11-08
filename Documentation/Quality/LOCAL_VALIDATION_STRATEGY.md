@@ -5059,9 +5059,16 @@ beide Pfadschreibweisen und den weiterhin vollständigen Runtimefallback bei
 zusätzlichem unbekanntem Produktcode. Die unveränderte Offlinesuite bestand
 lokal am 2026-10-25 mit 40 `PASS` und null `FAIL`; Provider- und HTTP-Grenzen
 bleiben synthetisch. Das belegt weder reale Gruppen-Lifecycles noch einen
-vollständigen Windows-/Ubuntu-Nightly. Der Zusatzaufwand ist eine bestehende
-Offlinesuite pro Vollregression sowie bei einer Änderung des Gesamtrunners;
-es entsteht kein weiterer Vollregressions- oder Providerlauf pro Zwischenfix.
+vollständigen Windows-/Ubuntu-Nightly. Die neue Browser-Livebeobachtung testet
+synthetische Run-/Verbindungsmetadaten und gestubbte Docker-, Podman- und
+Hyper-V-Leser in `EnvironmentGroupsBrowserHttpChecks.ps1` und
+`EnvironmentGroupsBrowserUiChecks.cjs`. Diese Fokustests prüfen Bindung,
+Statusprojektion, Driftklassifikation und fail-closed Verhalten; sie starten
+keinen Provider und belegen keine native Browser-/Runtimeabnahme. Die
+Providerleser behalten ihre getrennten Statusprüfungen. Der Zusatzaufwand ist
+eine bestehende Offlinesuite pro Vollregression sowie bei einer Änderung des
+Gesamtrunners; es entsteht kein weiterer Vollregressions- oder Providerlauf pro
+Zwischenfix.
 `CiStrategyNightlyAuthorizationChecks.ps1` führt extrahierte Guard-, Prozess-
 und Reportblöcke mit synthetischen Grenzen aus. Eine reale Shared-Abnahme
 wird dadurch weder ausgeführt noch nachgewiesen. CI-Infrastrukturänderungen

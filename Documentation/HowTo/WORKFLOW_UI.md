@@ -99,10 +99,16 @@ Unter **Lab-Umgebungen > Lab-Umgebungsgruppen ansehen** können Sie die
 gespeicherten Gruppen, ihre Run-IDs und Instanznamen anzeigen. Die Ansicht liest
 nur die Registry des konfigurierten State-Roots. Der gespeicherte
 Lifecycle-Status bestätigt weder den aktuellen Providerzustand noch SQL-
-Bereitschaft. Scope-IDs und Verbindungs-Hashes werden nicht angezeigt. Nach
-einem Gruppenstart oder -stopp zeigt die Ansicht die zuletzt gespeicherte Aktion
-und den Status jedes Runs. Das ist ein Journalergebnis, keine Live-
-Runtimeprüfung.
+Bereitschaft. Bei einer aktuellen Mitgliedsbindung können Sie über
+**Runtimestatus live lesen** den Providerstatus des ausgewählten Runs abfragen.
+Die Anzeige vergleicht ihn mit dem gespeicherten `RUNNING`/`STOPPED` und meldet
+`CURRENT`, `DRIFT` oder `INDETERMINATE`. Das ist eine Momentaufnahme ohne
+SQL-Bereitschaftsprüfung und ohne Zustandsänderung. Bei veralteter Bindung wird
+kein Provider abgefragt. Scope-IDs, Verbindungs-Hashes sowie Container- und
+VM-IDs werden
+nicht angezeigt. Nach einem Gruppenstart oder -stopp zeigt die Ansicht die
+zuletzt gespeicherte Aktion und den Status jedes Runs. Das ist ein
+Journalergebnis, keine Live-Runtimeprüfung.
 
 Bei einer gestoppten Gruppe startet **Gruppe starten** ihre Mitglieder über
 den bestehenden öffentlichen Befehl. Neu gestartete Runs durchlaufen danach
@@ -124,9 +130,10 @@ normalen UI-Auftrag. Bei einem unbestätigten Ergebnis prüfen Sie zuerst den
 Auftragsstatus und lesen danach die Gruppe erneut. Wiederholen Sie eine Aktion
 nicht blind.
 
-Die PowerShell-Konsole bietet dieselben Gruppenaktionen. Ein Reconcile ist
-weder in dieser Gruppenansicht noch in der Gruppenkonsole verfügbar; der Browser
-führt ihn ebenfalls nicht aus.
+Die PowerShell-Konsole bietet dieselben Lifecycle- und Zuordnungsaktionen,
+jedoch keine Live-Providerbeobachtung. Ein Reconcile ist weder in dieser
+Gruppenansicht noch in der Gruppenkonsole verfügbar; der Browser führt ihn
+ebenfalls nicht aus.
 
 Öffnen Sie **Lab-Umgebungen > Umgebung auswählen und verwalten >
 Lab-Umgebungsgruppen verwalten**. Erstellen Sie eine leere Gruppe, wählen Sie
