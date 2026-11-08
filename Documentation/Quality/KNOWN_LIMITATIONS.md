@@ -4384,3 +4384,10 @@ Abnahme belegt den SQL-2025-CU9-Linked-Server-Fall mit geteiltem Run und eigenem
 Cleanup. Weitere SQL-Versionen, Hyper-V, automatische Netzwerktopologie und das Einrichten eines
 SQL-Linked-Servers bleiben offen. Gruppenverwaltung allein ist daher kein
 qualifiziertes Linked-Server-Lab.
+
+Die native Docker-/Podman-Abnahme für SQL Server 2025 CU9 umfasst außerdem
+einen synthetischen Collation-Kontrollfall: zwei explizit verschiedene
+Collations führen erwartungsgemäß zu Fehler 468; eine explizite Angleichung
+liest danach denselben Marker. Das deckt keine allgemeine Collation-Kompatibilität
+zwischen beliebigen Datenbanken oder SQL-Builds ab. TLS-Identität,
+Kerberos-Delegierung und MSDTC bleiben separat offen.

@@ -1,12 +1,14 @@
 #Requires -Version 7.2
 <#
 .SYNOPSIS
-    Prüft zwei getrennte SQL-Runs als gruppiertes Linked-Server-Szenario.
+    Prüft gruppierte Linked-Server-Runs, Collation-Konflikt und explizite Auflösung.
 .DESCRIPTION
     Erstellt genau zwei eigene Docker- oder Podman-Runs auf demselben frisch
     benannten Container-Netz, bindet sie an eine sowie den Ziel-Run zusätzlich
     an eine zweite Umgebungsgruppe und prüft eine read-only SQL-Abfrage über
-    MSOLEDBSQL. Anschließend wird die geteilte Gruppen-Laufzeitnachfrage geprüft.
+    MSOLEDBSQL, erzwingt eine inkompatible Collation-Gegenprobe und prüft die
+    read-only Abfrage erneut mit explizit vereinheitlichter Collation.
+    Anschließend wird die geteilte Gruppen-Laufzeitnachfrage geprüft.
     Fehlerbelege enthalten nur die Operationsphase und strukturierte SQL-Fehlercodes.
     Falls das konfigurierte Provider-Subnetz mit einem bekannten Netz kollidiert,
     waehlt der Test einen freien /24-Bereich ausschliesslich im aktuellen Prozess
@@ -71,7 +73,8 @@ $knownArgumentParameters = @('connectionString','name','parameterName','password
 $knownFailureCodes = @(
     'UNIQUE_NETWORK_ABSENT_BEFORE_ARRANGE','SOURCE_RUN_CREATED','TARGET_RUN_CREATED','DISTINCT_SQL_CONTAINER_ENDPOINTS',
     'FIRST_GROUP_HAS_BOTH_RUNS','SECOND_GROUP_REUSES_TARGET_RUN','BOTH_GROUP_MEMBERS_RUNNING',
-    'OPENQUERY_RETURNED_SYNTHETIC_TARGET_MARKER','SHARED_TARGET_RETAINED_WHILE_SECOND_GROUP_ACTIVE','TARGET_STOPS_AFTER_LAST_GROUP_RELEASES',
+    'OPENQUERY_RETURNED_SYNTHETIC_TARGET_MARKER','OPENQUERY_COLLATION_CONFLICT_REJECTED','OPENQUERY_EXPLICIT_COLLATION_RECONCILED',
+    'SHARED_TARGET_RETAINED_WHILE_SECOND_GROUP_ACTIVE','TARGET_STOPS_AFTER_LAST_GROUP_RELEASES',
     'LINKED_SERVER_CREATE','LINKED_SERVER_EVIDENCE_DIRECTORY_MUST_BE_NEW','LINKED_SERVER_EVIDENCE_MUST_REMAIN_OUTSIDE_REPOSITORY',
     'LINKED_SERVER_FIRST_GROUP_START_FAILED','LINKED_SERVER_FIRST_GROUP_STOP_FAILED','LINKED_SERVER_GROUP_REMAINS_IN_RECOVERY',
     'LINKED_SERVER_GROUP_REMOVE_UNCONFIRMED','LINKED_SERVER_LOGIN_MAPPING','LINKED_SERVER_NETWORK_ABSENCE_UNCONFIRMED',
@@ -192,7 +195,7 @@ function Invoke-LinkedServerSql {
         [Parameter(Mandatory)]$Instance,
         [Parameter(Mandatory)][SecureString]$Password,
         [Parameter(Mandatory)][string]$Query,
-        [Parameter(Mandatory)][ValidateSet('TARGET_SQL_FIXTURE_CREATE','LINKED_SERVER_CREATE','LINKED_SERVER_LOGIN_MAPPING','OPENQUERY_EXECUTION','SOURCE_SQL_CLEANUP','TARGET_SQL_CLEANUP')][string]$OperationStage,
+        [Parameter(Mandatory)][ValidateSet('TARGET_SQL_FIXTURE_CREATE','LINKED_SERVER_CREATE','LINKED_SERVER_LOGIN_MAPPING','OPENQUERY_EXECUTION','OPENQUERY_COLLATION_CONFLICT_CONTROL','OPENQUERY_EXPLICIT_COLLATION_RECONCILIATION','SOURCE_SQL_CLEANUP','TARGET_SQL_CLEANUP')][string]$OperationStage,
         [System.Collections.IDictionary]$Parameters = @{},
         [switch]$Scalar
     )
@@ -432,6 +435,34 @@ SELECT marker FROM OPENQUERY([LINKED_SERVER_NAME], 'SELECT marker FROM LINKED_DA
     $actual = [string](Invoke-LinkedServerSql -Instance $sourceContext.Instance -Password $sourcePassword -OperationStage OPENQUERY_EXECUTION -Scalar -Query $linkedQuery)
     Assert-LinkedServerAcceptance ($actual -ceq $marker) 'OPENQUERY_RETURNED_SYNTHETIC_TARGET_MARKER'
 
+    $failureStage = 'OPENQUERY_COLLATION_CONFLICT_CONTROL'
+    $conflictingCollationQuery = @'
+SELECT CASE WHEN @marker COLLATE Latin1_General_100_BIN2 = remote.marker COLLATE SQL_Latin1_General_CP1_CI_AS THEN 1 ELSE 0 END
+FROM OPENQUERY([LINKED_SERVER_NAME], 'SELECT marker FROM LINKED_DATABASE.dbo.Probe') AS remote;
+'@
+    $conflictingCollationQuery = $conflictingCollationQuery.Replace('LINKED_SERVER_NAME', $linkedServerName).Replace('LINKED_DATABASE', $databaseName)
+    $collationConflictDetected = $false
+    try {
+        $null = Invoke-LinkedServerSql -Instance $sourceContext.Instance -Password $sourcePassword -OperationStage OPENQUERY_COLLATION_CONFLICT_CONTROL -Scalar -Query $conflictingCollationQuery -Parameters @{marker=$marker}
+    }
+    catch {
+        $collationSqlFailure = Find-LinkedServerSqlException -Exception $_.Exception
+        $collationSqlNumbers = if ($collationSqlFailure) { @($collationSqlFailure.Errors | ForEach-Object { [int]$_.Number }) } else { @() }
+        if (-not ($collationSqlNumbers -contains 468)) { throw }
+        $collationConflictDetected = $true
+    }
+    Assert-LinkedServerAcceptance $collationConflictDetected 'OPENQUERY_COLLATION_CONFLICT_REJECTED'
+
+    $failureStage = 'OPENQUERY_EXPLICIT_COLLATION_RECONCILIATION'
+    $reconciledCollationQuery = @'
+SELECT remote.marker
+FROM OPENQUERY([LINKED_SERVER_NAME], 'SELECT marker FROM LINKED_DATABASE.dbo.Probe') AS remote
+WHERE remote.marker COLLATE SQL_Latin1_General_CP1_CI_AS = @marker COLLATE SQL_Latin1_General_CP1_CI_AS;
+'@
+    $reconciledCollationQuery = $reconciledCollationQuery.Replace('LINKED_SERVER_NAME', $linkedServerName).Replace('LINKED_DATABASE', $databaseName)
+    $reconciledMarker = [string](Invoke-LinkedServerSql -Instance $sourceContext.Instance -Password $sourcePassword -OperationStage OPENQUERY_EXPLICIT_COLLATION_RECONCILIATION -Scalar -Query $reconciledCollationQuery -Parameters @{marker=$marker})
+    Assert-LinkedServerAcceptance ($reconciledMarker -ceq $marker) 'OPENQUERY_EXPLICIT_COLLATION_RECONCILED'
+
     Remove-LinkedServerSqlObjects
     $sqlCleanupPerformed = $true
     if ($sqlCleanupFailures.Count) { throw 'LINKED_SERVER_SQL_FIXTURE_CLEANUP_FAILED' }
@@ -600,12 +631,14 @@ finally {
 }
 
 $proof = [ordered]@{
-    ContractVersion='SqlServerLab.LinkedServerEnvironmentGroupAcceptance/1.0'
+    ContractVersion='SqlServerLab.LinkedServerEnvironmentGroupAcceptance/1.1'
     Status=if ($failure -or $cleanupFailures.Count -or $sqlCleanupFailures.Count) { 'FAIL' } else { 'PASS' }
     Provider=$Provider; Version=$Version; OwnRuns=@($runIdsToRemove)
     FirstGroupId=[string]$(if ($firstGroup) { $firstGroup.GroupId } else { '' })
     SecondGroupId=[string]$(if ($secondGroup) { $secondGroup.GroupId } else { '' })
     NetworkSubnet=$networkSubnet; SameNamedNetwork=($steps -contains 'DISTINCT_SQL_CONTAINER_ENDPOINTS'); LinkedServerQuery=if ($steps -contains 'OPENQUERY_RETURNED_SYNTHETIC_TARGET_MARKER') { 'PASS' } else { 'NOT_CONFIRMED' }
+    CollationConflict=if ($steps -contains 'OPENQUERY_COLLATION_CONFLICT_REJECTED') { 'REJECTED_ERROR_468' } else { 'NOT_CONFIRMED' }
+    ExplicitCollationResolution=if ($steps -contains 'OPENQUERY_EXPLICIT_COLLATION_RECONCILED') { 'PASS' } else { 'NOT_CONFIRMED' }
     SharedMemberStop=if ($steps -contains 'SHARED_TARGET_RETAINED_WHILE_SECOND_GROUP_ACTIVE') { 'PASS' } else { 'NOT_CONFIRMED' }
     Cleanup=if ($cleanupFailures.Count) { 'RECOVERY_REQUIRED' } else { 'CONFIRMED' }
     SqlFixtureCleanup=if (-not $sqlCleanupFailures.Count) { 'CONFIRMED' } elseif ($runCleanupConfirmed) { 'CONTAINED_BY_OWN_RUN_REMOVAL' } else { 'RECOVERY_REQUIRED' }

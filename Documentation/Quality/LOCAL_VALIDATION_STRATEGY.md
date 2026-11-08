@@ -6485,6 +6485,17 @@ Der [Planvertrag](../Architecture/NATIVE_LINUX_HOST_PREREQUISITES.md) verwendet 
 
 Die additive CI-Auswahl koppelt die neue Fixture, den tatsächlich aufgerufenen Container-Hostclassifier und den Ressourcenprofilkatalog an dieselbe bestehende Suite. Es entsteht keine zusätzliche Testsuite, Modellpipeline oder Read-only-Ausnahme; bisherige Providergates bleiben erhalten. Ein Implementierer und ein unabhängiger Reviewer auf einem günstigeren Modell genügen; weitere Modellaufrufe betreffen nur konkrete Findings. Logs bleiben privat, Auswahl, Counts und Hashes werden deterministisch lokal geprüft. Unveränderte grüne Prüfungen werden ohne neue Abhängigkeit nicht wiederholt; Token-/Geldkosten werden nicht aus Modellnamen geschätzt.
 
+## Native Linked-Server-Umgebungsgruppen
+
+`Invoke-LinkedServerEnvironmentGroupAcceptance.ps1` ist getrennt für Docker
+und Podman auszuführen. Der SQL-2025-CU9-Vertrag prüft zwei eigene Runs,
+`OPENQUERY`, einen bewusst inkompatiblen expliziten Collation-Vergleich mit
+Fehler 468, dessen explizite Auflösung sowie den Erhalt eines gemeinsam
+beanspruchten Runs. Die native Abnahme vom 2026-11-08 bestand bei beiden
+Providern einschließlich eigenem Cleanup. Sie belegt keine beliebigen
+Collation-Kombinationen, TLS-Identität, Kerberos oder MSDTC. Private Evidence
+liegt außerhalb des Repositories.
+
 ## Ausdrückliche Public-Hostvoraussetzungen 1.2
 
 Die bestehende ExternalRuntimeCapability-Suite führt die neue Fixture `ExternalRuntimeHostPrerequisitesChecks.ps1` aus. Fokussiert bestanden 55 synthetische Transportfälle: Standard 1.0 unverändert, Metadaten-Opt-in ohne Hostaufruf, genau ein begrenzter Info-Transport bei bewusster Prüfung, typisierte fehlende/unbekannte Controller und Profilkapazität, keine Rohinventardaten oder Authority, ungültiges Profil vor Probe und tatsächliche SQL-2025-v2-Rezeptbindung. Ein anfänglicher Fixture-Fail entstand durch StrictMode ohne die absichtlich ausgelassene vollständige Modulinitialisierung; der bestehende minimale Fixturevertrag und der anschließend tatsächlich geladene Public-Modulpfad sind separat geprüft. Das reale Modul lieferte Version 1.2 mit NOT_CHECKED ohne Hostprüfung; auch die Kombination mit historischem Opt-in blieb ohne aktuelle Bereitschaft oder Mutation. Das ist keine neue native SQL-/Sprachabnahme.

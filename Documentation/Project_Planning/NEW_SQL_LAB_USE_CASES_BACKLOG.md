@@ -79,11 +79,13 @@ Windows-Toolchains sind weiterhin offen; Details und Grenzen stehen im
 [Drift-Abnahmenachweis](../Quality/SQLPACKAGE_DACPAC_DRIFT_REPORT_ACCEPTANCE_2026-11-08.md).
 
 Die additive Gruppen-Registry, Run-Zuordnung und gemeinsame Lifecycle-Nachfrage
-sind implementiert. Die erste Linked-Server-Container-Lane bestand am
+sind implementiert. Die Linked-Server-Container-Lane bestand am
 2026-11-08 getrennt unter Docker und Podman mit SQL Server 2025 CU9; zwei
 separat erstellte Umgebungen wurden gruppiert, der Ziel-Run zusätzlich einer
 zweiten Gruppe zugeordnet und `OPENQUERY` sowie Shared-Member-Stop geprüft.
-Collation-Konflikte, TLS-Identität, Kerberos und MSDTC bleiben offen. Siehe
+Eine inkompatible explizite Collation wird mit Fehler 468 abgewiesen und eine
+explizite Collation-Angleichung besteht. TLS-Identität, Kerberos und MSDTC
+bleiben offen. Siehe
 [Lab-Umgebungsgruppen](../Architecture/LAB_ENVIRONMENT_GROUPS.md) und den
 [nativen Abnahmenachweis](../Quality/LINKED_SERVER_ENVIRONMENT_GROUP_ACCEPTANCE_2026-11-08.md).
 
