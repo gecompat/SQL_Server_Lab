@@ -5065,6 +5065,12 @@ Hyper-V-Leser in `EnvironmentGroupsBrowserHttpChecks.ps1` und
 `EnvironmentGroupsBrowserUiChecks.cjs`. Diese Fokustests prüfen Bindung,
 Statusprojektion, Driftklassifikation und fail-closed Verhalten; sie starten
 keinen Provider und belegen keine native Browser-/Konsolen-/Runtimeabnahme.
+`ContainerProviderObservationTimeoutChecks.ps1` prüft getrennte stdout/stderr,
+Inspect-/Info-Fallback und die gemeinsame absolute 30-Sekunden-Frist
+synthetisch für Docker und Podman; ein Timeout wird als bereinigtes
+`UNAVAILABLE` abgebildet. Es startet keine Runtime. `Invoke-LabProgressNativeCommand`
+wird zusätzlich mit einem isolierten Kindprozess auf Fristablauf, bestätigte
+Beendigung und den Fehler bei nicht bestätigtem Abbruch geprüft.
 `Invoke-ConsoleUiChecks.ps1` prüft zusätzlich Menüpfad und bereinigte
 Konsolenausgabe derselben synthetischen Momentaufnahme. Die Providerleser
 behalten ihre getrennten Statusprüfungen. Die fokussierte HTTP-Fixture prüft

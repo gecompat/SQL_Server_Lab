@@ -95,9 +95,15 @@ Die Browseransicht und die geführte PowerShell-Gruppenkonsole bieten diese
 Livebeobachtung nach ausdrücklicher Auswahl eines oder mehrerer Mitglieder an.
 Beide verwenden dieselbe gebundene read-only Providerabfrage und zeigen eine
 Momentaufnahme ohne SQL-Bereitschaftsnachweis. Sie hält während des
-Provideraufrufs keinen Lifecycle-Mutex: ein Runtimeleser kann ohne verlässlichen
-harten Timeout hängen und darf Start, Stop oder Remove nicht blockieren. Die
-Implementierung bindet die Beobachtung stattdessen an Fingerprints des
+Provideraufrufs keinen Lifecycle-Mutex: ein Runtimeleser darf Start, Stop oder
+Remove nicht blockieren. Docker- und Podman-Leser teilen ein absolutes Budget
+von höchstens 30 Sekunden pro ausgewähltem Run; Tool-, Policy- und
+Routenauflösung zählen dazu. Inspect und ein möglicher Verfügbarkeits-Fallback
+nutzen dieselbe Deadline. Nach einem Timeout wird ausschließlich der eigene
+Leserprozessbaum beendet; dessen Beendigung wird bis zu fünf Sekunden bestätigt.
+Eine nicht bestätigte Beendigung ist intern ein Prozessfehler; nach außen
+erscheint sie wie ein Timeout als `UNAVAILABLE`, ohne Prozessausgabe oder
+Fehlerdetails. Die Implementierung bindet die Beobachtung außerdem an Fingerprints des
 vollständigen gespeicherten Run-State vor und nach der Providerabfrage. Ändert
 sich der Run-State, werden gespeicherter Zustand, Providerstatus und
 Instanzdetails als `UNKNOWN`/`INDETERMINATE` verworfen. Ändert sich die

@@ -145,11 +145,24 @@ try {
     $records.Clear()
     $pwsh = (Get-Process -Id $PID).Path
     $native = Invoke-LabProgressNativeCommand -FilePath $pwsh -ArgumentList @('-NoProfile','-Command', 'Start-Sleep -Seconds 6; [Console]::Out.WriteLine("synthetic-output"); [Console]::Error.WriteLine("synthetic-error"); exit 7')
-    Assert-Progress ($native.ExitCode -eq 7 -and $native.Output.Count -eq 2) 'Native stdout, stderr und Exitcode bleiben erhalten'
+    Assert-Progress ($native.ExitCode -eq 7 -and $native.Output.Count -eq 2 -and $native.Stdout.Trim() -ceq 'synthetic-output' -and $native.Stderr.Trim() -ceq 'synthetic-error') 'Native stdout, stderr und Exitcode bleiben getrennt und erhalten'
     Assert-Progress ($records.Count -ge 2 -and $records[-1].Completed) 'Host-Heartbeat waehrend stillen nativen Prozesses'
     $rejected = $false
-    try { Invoke-LabProgressNativeCommand -FilePath $pwsh -ArgumentList @('-NoProfile','-Command','Start-Sleep -Seconds 30') -TimeoutSeconds 1 | Out-Null } catch { $rejected=$_.Exception.Message -eq 'LAB_NATIVE_OPERATION_TIMEOUT' }
-    Assert-Progress $rejected 'Nativer Timeout beendet den eigenen Prozess'
+    $timedOutPidPath = Join-Path $tempRoot 'timed-out-child.pid'
+    $escapedPidPath = $timedOutPidPath.Replace("'", "''")
+    $childCommand = "[IO.File]::WriteAllText('$escapedPidPath',[string]`$PID); Start-Sleep -Seconds 30"
+    try { Invoke-LabProgressNativeCommand -FilePath $pwsh -ArgumentList @('-NoProfile','-Command',$childCommand) -TimeoutSeconds 1 | Out-Null } catch { $rejected=$_.Exception.Message -eq 'LAB_NATIVE_OPERATION_TIMEOUT' }
+    $timedOutProcessExited = $false
+    if (Test-Path -LiteralPath $timedOutPidPath) {
+        $timedOutPid = [int][IO.File]::ReadAllText($timedOutPidPath)
+        $timedOutProcess = Get-Process -Id $timedOutPid -ErrorAction SilentlyContinue
+        $timedOutProcessExited = $null -eq $timedOutProcess
+        if ($timedOutProcess) {
+            $timedOutProcess.Kill()
+            $timedOutProcess.WaitForExit(5000) | Out-Null
+        }
+    }
+    Assert-Progress ($rejected -and $timedOutProcessExited) 'Nativer Timeout bestaetigt die Beendigung seines eigenen Kindprozesses'
 }
 finally {
     $listener.Stop()
@@ -162,3 +175,4 @@ finally {
     Remove-Item -LiteralPath $resolvedTemp -Recurse -Force
 }
 & (Join-Path $PSScriptRoot 'Fixtures/ActionProgressDownloadLimitChecks.ps1')
+& (Join-Path $PSScriptRoot 'Fixtures/ContainerProviderObservationTimeoutChecks.ps1')

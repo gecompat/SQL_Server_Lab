@@ -8,6 +8,8 @@ function Check([bool]$Value,[string]$Name) { if(-not $Value){throw "ENVIRONMENT_
 $script:groupReads=0
 $script:throwRead=$false
 $script:runtimeCalls=0
+$script:lastRuntimeTimeoutSeconds=0
+$script:lastRuntimeDeadlineUtc=[DateTimeOffset]::MinValue
 $script:throwRuntime=$false
 $script:staleAfterRuntime=$false
 $script:transitionDuringRuntime=$false
@@ -36,8 +38,8 @@ function Get-SqlServerLabEnvironmentGroup {
 }
 function Get-LabStateRoot { if($script:runtimeRoot){return $script:runtimeRoot}; throw 'RUNTIME_ROOT_NOT_SET' }
 function Get-LabRunState { param([string]$RunId,[string]$StateRoot); $script:fixtureRun }
-function Get-DockerInstanceStatus { param([string]$ContainerIdOrName,[string]$StateRoot); $script:runtimeCalls++;if($script:throwRuntime){throw 'PRIVATE_RUNTIME_CANARY'};if($script:staleAfterRuntime){$script:fixtureGroups[0].members[0].connectionInfoSha256=('b'*64);$script:fixtureGroups[0].members[0].bindingStatus='STALE'};if($script:transitionDuringRuntime){$script:fixtureRun.updatedAt='2026-11-07T12:02:00Z';$script:fixtureRun.stateHistory+=@([pscustomobject][ordered]@{state='STOPPED';timestamp='2026-11-07T12:02:00Z';reason='synthetic concurrent lifecycle stop'},[pscustomobject][ordered]@{state='RUNNING';timestamp='2026-11-07T12:02:01Z';reason='synthetic concurrent lifecycle restart'})};if($script:recoveryDuringRuntime){$script:fixtureRun.state='RECOVERY_REQUIRED';$script:fixtureRun.updatedAt='2026-11-07T12:04:00Z';$script:fixtureRun.stateHistory+=@([pscustomobject][ordered]@{state='RECOVERY_REQUIRED';timestamp='2026-11-07T12:04:00Z';reason='synthetic concurrent recovery transition'});$script:fixtureGroups[0].members[0].bindingStatus='STALE'};[pscustomobject]@{Available=$true;Exists=$true;Running=($script:runtimeRaw -ceq 'running');Raw=$script:runtimeRaw} }
-function Get-PodmanInstanceStatus { param([string]$ContainerIdOrName,[string]$StateRoot); throw 'UNEXPECTED_PROVIDER_READER' }
+function Get-DockerInstanceStatus { param([string]$ContainerIdOrName,[string]$StateRoot,[int]$TimeoutSeconds,[DateTimeOffset]$DeadlineUtc); $script:runtimeCalls++;$script:lastRuntimeTimeoutSeconds=$TimeoutSeconds;$script:lastRuntimeDeadlineUtc=$DeadlineUtc;if($script:throwRuntime){throw 'PRIVATE_RUNTIME_CANARY'};if($script:staleAfterRuntime){$script:fixtureGroups[0].members[0].connectionInfoSha256=('b'*64);$script:fixtureGroups[0].members[0].bindingStatus='STALE'};if($script:transitionDuringRuntime){$script:fixtureRun.updatedAt='2026-11-07T12:02:00Z';$script:fixtureRun.stateHistory+=@([pscustomobject][ordered]@{state='STOPPED';timestamp='2026-11-07T12:02:00Z';reason='synthetic concurrent lifecycle stop'},[pscustomobject][ordered]@{state='RUNNING';timestamp='2026-11-07T12:02:01Z';reason='synthetic concurrent lifecycle restart'})};if($script:recoveryDuringRuntime){$script:fixtureRun.state='RECOVERY_REQUIRED';$script:fixtureRun.updatedAt='2026-11-07T12:04:00Z';$script:fixtureRun.stateHistory+=@([pscustomobject][ordered]@{state='RECOVERY_REQUIRED';timestamp='2026-11-07T12:04:00Z';reason='synthetic concurrent recovery transition'});$script:fixtureGroups[0].members[0].bindingStatus='STALE'};[pscustomobject]@{Available=$true;Exists=$true;Running=($script:runtimeRaw -ceq 'running');Raw=$script:runtimeRaw} }
+function Get-PodmanInstanceStatus { param([string]$ContainerIdOrName,[string]$StateRoot,[int]$TimeoutSeconds,[DateTimeOffset]$DeadlineUtc); throw 'UNEXPECTED_PROVIDER_READER' }
 function Get-HyperVInstanceStatus { param([string]$VMName,[string]$ExpectedRunId,[string]$ExpectedScopeId); throw 'UNEXPECTED_PROVIDER_READER' }
 . $groupsPath
 $tokens=$null;$errors=$null
@@ -94,6 +96,7 @@ try {
     $runtimeView=Get-LabEnvironmentGroupRuntimeObservation -GroupId $script:fixtureGroups[0].groupId -RunId $script:runId
     Check ($runtimeView.savedState -ceq 'RUNNING' -and $runtimeView.runtimeState -ceq 'STOPPED' -and $runtimeView.reconciliation -ceq 'DRIFT') 'runtime reader compares saved and live state without mutation'
     Check ($runtimeView.instances[0].state -ceq 'STOPPED' -and $script:runtimeCalls -eq 1) 'runtime reader queries only the selected bound provider member'
+    Check ($script:lastRuntimeTimeoutSeconds -eq 30 -and $script:lastRuntimeDeadlineUtc -gt [DateTimeOffset]::UtcNow -and $script:lastRuntimeDeadlineUtc -le [DateTimeOffset]::UtcNow.AddSeconds(30)) 'runtime reader passes one bounded absolute deadline to the selected provider'
     $runtimeBody=$runtimeView|ConvertTo-Json -Depth 8 -Compress
     Check ($runtimeBody -notmatch 'SYNTHETIC_CONTAINER_ID|containerId|scopeId|connectionInfoSha256|PRIVATE_RUNTIME_CANARY') 'runtime observation omits provider IDs, binding data and raw errors'
     $script:runtimeRaw='paused'

@@ -196,11 +196,15 @@ function Invoke-LabProgressNativeCommand {
         $lines = @()
         if ($text.Length -gt 0) { $lines += @($text.TrimEnd("`r", "`n") -split '\r?\n') }
         if ($errorText.Length -gt 0) { $lines += @($errorText.TrimEnd("`r", "`n") -split '\r?\n') }
-        [pscustomobject]@{ ExitCode=$process.ExitCode; Output=$lines }
+        [pscustomobject]@{ ExitCode=$process.ExitCode; Output=$lines; Stdout=$text; Stderr=$errorText }
     }
     finally {
         try {
-            if ($started -and -not $process.HasExited) { $process.Kill($true); $null = $process.WaitForExit(5000) }
+            if ($started -and -not $process.HasExited) {
+                try { $process.Kill($true) }
+                catch { if (-not $process.HasExited) { throw 'LAB_NATIVE_OPERATION_TERMINATION_UNCONFIRMED' } }
+                if (-not $process.WaitForExit(5000) -and -not $process.HasExited) { throw 'LAB_NATIVE_OPERATION_TERMINATION_UNCONFIRMED' }
+            }
         }
         finally {
             $process.StartInfo.ArgumentList.Clear()

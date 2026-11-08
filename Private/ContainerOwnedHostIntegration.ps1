@@ -304,12 +304,25 @@ function Invoke-LabOwnedHostNativeProcess {
     }
 }
 
+function Get-LabContainerRuntimeTimeoutSeconds {
+    [CmdletBinding()]
+    param(
+        [ValidateRange(1,86400)][int]$TimeoutSeconds,
+        [DateTimeOffset]$DeadlineUtc = [DateTimeOffset]::MinValue
+    )
+    if ($DeadlineUtc -eq [DateTimeOffset]::MinValue) { return $TimeoutSeconds }
+    $remainingSeconds = [int][Math]::Floor(($DeadlineUtc - [DateTimeOffset]::UtcNow).TotalSeconds)
+    if ($remainingSeconds -lt 1) { throw 'LAB_NATIVE_OPERATION_TIMEOUT' }
+    return [Math]::Min($TimeoutSeconds, $remainingSeconds)
+}
+
 function Invoke-LabOwnedHostPinnedCommand {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$StateRoot,
         [Parameter(Mandatory)][ValidateSet('docker','podman')][string]$Provider,
         [Parameter(Mandatory)][AllowEmptyString()][string[]]$Arguments,
-        [ValidateRange(1,86400)][int]$TimeoutSeconds = 60)
+        [ValidateRange(1,86400)][int]$TimeoutSeconds = 60,
+        [DateTimeOffset]$DeadlineUtc = [DateTimeOffset]::MinValue)
     $policy = Get-LabOwnedHostPolicy -StateRoot $StateRoot -Required
     $pins = @($policy.RuntimePins | Where-Object { $_.Provider -ceq $Provider })
     if ($pins.Count -ne 1) { throw 'OWNED_HOST_PROVIDER_NOT_SELECTED' }
@@ -331,7 +344,8 @@ function Invoke-LabOwnedHostPinnedCommand {
     $prefix = if ($Provider -ceq 'docker') { @('--host', [string]$pin.Endpoint) }
         else { @('--remote', '--url', [string]$pin.Endpoint, '--identity', [string]$pin.IdentityPath) }
     foreach ($argument in @($prefix) + @($Arguments)) { $start.ArgumentList.Add($argument) }
-    return Invoke-LabOwnedHostNativeProcess -StartInfo $start -TimeoutSeconds $TimeoutSeconds
+    $effectiveTimeoutSeconds = Get-LabContainerRuntimeTimeoutSeconds -TimeoutSeconds $TimeoutSeconds -DeadlineUtc $DeadlineUtc
+    return Invoke-LabOwnedHostNativeProcess -StartInfo $start -TimeoutSeconds $effectiveTimeoutSeconds
 }
 
 function Invoke-LabContainerRuntimeCommand {
@@ -339,7 +353,7 @@ function Invoke-LabContainerRuntimeCommand {
     param([Parameter(Mandatory)][ValidateSet('docker','podman')][string]$Provider,
         [Parameter(Mandatory)][AllowEmptyString()][string[]]$ArgumentList,
         [string]$StateRoot, [string]$RunId, [string]$Invocation,
-        [ValidateRange(1,86400)][int]$TimeoutSeconds = 60, [switch]$NativeResult,
+        [ValidateRange(1,86400)][int]$TimeoutSeconds = 60, [DateTimeOffset]$DeadlineUtc = [DateTimeOffset]::MinValue, [switch]$NativeResult,
         [ValidateSet('ImageBuild','Transfer','Restore','Import','Cleanup','GuestWait','Extract','SqlReadiness','SqlQuery')][string]$Phase = 'Cleanup',
         [object]$Progress)
     if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
@@ -349,17 +363,19 @@ function Invoke-LabContainerRuntimeCommand {
     if (-not $policy) {
         $creation=$script:LabRunArtifactCreationBinding
         if ($creation -and $creation.StateRoot -ceq ([IO.Path]::GetFullPath($StateRoot)) -and $creation.Contexts.ContainsKey($Provider)) {
-            $result=Invoke-LabRunArtifactPinnedProcess -Context $creation.Contexts[$Provider] -Arguments $ArgumentList -TimeoutSeconds $TimeoutSeconds
+            $result=Invoke-LabRunArtifactPinnedProcess -Context $creation.Contexts[$Provider] -Arguments $ArgumentList `
+                -TimeoutSeconds $TimeoutSeconds -DeadlineUtc $DeadlineUtc
             $output=@($result.Stdout -split '\r?\n' | Where-Object {$_})+@($result.Stderr -split '\r?\n' | Where-Object {$_})
             Set-Variable -Name LASTEXITCODE -Value $result.ExitCode -Scope 1
-            if ($NativeResult) {return [pscustomobject]@{ExitCode=$result.ExitCode;Output=$output}}
+            if ($NativeResult) {return [pscustomobject]@{ExitCode=$result.ExitCode;Output=$output;Stdout=@($result.Stdout -split '\r?\n' | Where-Object {$_});Stderr=@($result.Stderr -split '\r?\n' | Where-Object {$_})}}
             foreach ($line in @($result.Stderr -split '\r?\n' | Where-Object {$_})) {Write-Error -Message $line -ErrorAction Continue}
             return @($result.Stdout -split '\r?\n' | Where-Object {$_})
         }
         if (-not $Invocation) { $Invocation = Get-LabHostToolInvocation -Name $Provider }
         if ($NativeResult) {
+            $effectiveTimeoutSeconds = Get-LabContainerRuntimeTimeoutSeconds -TimeoutSeconds $TimeoutSeconds -DeadlineUtc $DeadlineUtc
             return Invoke-LabProgressNativeCommand -FilePath $Invocation -ArgumentList $ArgumentList `
-                -Phase $Phase -TimeoutSeconds $TimeoutSeconds -Progress $Progress
+                -Phase $Phase -TimeoutSeconds $effectiveTimeoutSeconds -Progress $Progress
         }
         & $Invocation @ArgumentList
         Set-Variable -Name LASTEXITCODE -Value $LASTEXITCODE -Scope 1
@@ -390,12 +406,18 @@ function Invoke-LabContainerRuntimeCommand {
             }
         }
     }
-    $result = Invoke-LabOwnedHostPinnedCommand -StateRoot $StateRoot -Provider $Provider -Arguments $boundArguments -TimeoutSeconds $TimeoutSeconds
+    $result = Invoke-LabOwnedHostPinnedCommand -StateRoot $StateRoot -Provider $Provider -Arguments $boundArguments `
+        -TimeoutSeconds $TimeoutSeconds -DeadlineUtc $DeadlineUtc
     $output = @()
     if ($result.Stdout.Length) { $output += @($result.Stdout.TrimEnd("`r", "`n") -split '\r?\n') }
     if ($NativeResult) {
         if ($result.Stderr.Length) { $output += @($result.Stderr.TrimEnd("`r", "`n") -split '\r?\n') }
-        return [pscustomobject]@{ ExitCode=$result.ExitCode; Output=$output }
+        return [pscustomobject]@{
+            ExitCode = $result.ExitCode
+            Output = $output
+            Stdout = @($result.Stdout.TrimEnd("`r", "`n") -split '\r?\n' | Where-Object { $_ })
+            Stderr = @($result.Stderr.TrimEnd("`r", "`n") -split '\r?\n' | Where-Object { $_ })
+        }
     }
     Set-Variable -Name LASTEXITCODE -Value $result.ExitCode -Scope 1
     $global:LASTEXITCODE = $result.ExitCode
