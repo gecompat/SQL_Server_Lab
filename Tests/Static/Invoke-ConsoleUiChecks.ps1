@@ -1146,6 +1146,7 @@ Add-ConsoleUiCheck 'Befundliste erzeugt Hyper-V-gebundene Befunde nur bei tatsae
 )
 $environmentMenuMatch = [regex]::Match($entrySource, 'function Show-LabEnvironmentMenu \{[\s\S]+?(?=\r?\nfunction Show-LabHyperVMenu)')
 $groupErrorHandlerMatch = [regex]::Match($batchConsoleSource, 'function Write-LabEnvironmentGroupConsoleError \{[\s\S]+?(?=\r?\nfunction Invoke-LabEnvironmentGroupsInteractive)')
+$groupRuntimeFormatterMatch = [regex]::Match($batchConsoleSource, 'function Format-LabEnvironmentGroupRuntimeObservation \{[\s\S]+?(?=\r?\nfunction Invoke-LabEnvironmentGroupsInteractive)')
 Add-ConsoleUiCheck 'Umgebungsmenue trennt geschuetzte Gruppe und Sammelcleanup von Einzelverwaltung' ($environmentMenuMatch.Success -and $environmentMenuMatch.Value -match "-Id 'Manage'" -and $environmentMenuMatch.Value -notmatch "-Id '(ClearAutomatedTestEnvironment|Clear|AutomatedTestEnvironmentLifecycle)'")
 Add-ConsoleUiCheck 'Lab-Umgebungsgruppen sind auch ohne vorhandene Runs erreichbar und an die Gruppen-API gebunden' (
     $environmentMenuMatch.Success -and $environmentMenuMatch.Value -match "-Id 'EnvironmentGroups' -Label 'Lab-Umgebungsgruppen verwalten'" -and
@@ -1155,6 +1156,7 @@ Add-ConsoleUiCheck 'Lab-Umgebungsgruppen sind auch ohne vorhandene Runs erreichb
     $standaloneEntrySource -match "ValidateSet\([^\r\n]*'EnvironmentGroups'" -and
     $standaloneEntrySource -match 'EnvironmentGroups, SyncRuntime' -and
     $batchConsoleSource -match 'function Invoke-LabEnvironmentGroupsInteractive' -and
+    $batchConsoleSource -match 'Get-SqlServerLabEnvironmentGroup -GroupId \(\[string\]\$selectedGroup\.groupId\) -StateRoot \$stateRoot -IncludeBindingStatus' -and
     $batchConsoleSource -match 'New-SqlServerLabEnvironmentGroup[\s\S]+?-Confirm' -and
     $batchConsoleSource -match 'Add-SqlServerLabEnvironmentGroupMember[\s\S]+?-Confirm' -and
     $batchConsoleSource -match 'Start-SqlServerLabEnvironmentGroup[\s\S]+?-Confirm' -and
@@ -1163,7 +1165,32 @@ Add-ConsoleUiCheck 'Lab-Umgebungsgruppen sind auch ohne vorhandene Runs erreichb
     $batchConsoleSource -match 'Remove-SqlServerLabEnvironmentGroup[\s\S]+?-Confirm' -and
     $batchConsoleSource -match 'Get-LabEnvironmentGroupRuntimeStateForConsole -Run \$_\) -in @\(''RUNNING'', ''STOPPED''\)' -and
     $batchConsoleSource -match 'Get-LabEnvironmentGroupMemberProtectionReason' -and
+    $batchConsoleSource -match "-Id 'observe' -Label 'Runtime-Zustand eines Mitglieds lesen'" -and
+    $batchConsoleSource -match "'observe' \{[\s\S]+?Get-LabEnvironmentGroupRuntimeObservation[\s\S]+?Format-LabEnvironmentGroupRuntimeObservation" -and
+    $batchConsoleSource -match "'observe' \{[\s\S]+?Wait-LabConsoleAcknowledgement" -and
     $batchConsoleSource -match 'ein Run darf auch anderen Gruppen angehoeren|Ein Run darf auch anderen Gruppen angehoeren'
+)
+Add-ConsoleUiCheck 'Gruppen-Runtimebeobachtung formatiert nur begrenzte, bereinigte Momentaufnahmedaten' (
+    $groupRuntimeFormatterMatch.Success -and
+    $groupRuntimeFormatterMatch.Value -match 'keine SQL-Bereitschaftsprüfung und keine Zustandsänderung' -and
+    $groupRuntimeFormatterMatch.Value -match "@\('CURRENT', 'DRIFT', 'INDETERMINATE'\)"
+)
+$groupRuntimeObservationLines = @(Format-LabEnvironmentGroupRuntimeObservation -Observation ([pscustomobject]@{
+    runId='33333333-4444-4555-8666-777777777777'; savedState='RUNNING'; runtimeState='STOPPED'; reconciliation='DRIFT'
+    observedAt='2026-11-08T12:00:00.0000000Z'; rawError='PRIVATE_RUNTIME_CANARY'
+    instances=@([pscustomobject]@{instanceId="MSSQL`e[31mSERVER";provider='docker';state='STOPPED';rawError='PRIVATE_INSTANCE_CANARY'})
+}))
+Add-ConsoleUiCheck 'Gruppen-Runtimebeobachtung zeigt Drift und entfernt Steuerzeichen sowie Rohfehler' (
+    (@($groupRuntimeObservationLines | Where-Object { $_ -match 'Runtime: STOPPED.*Vergleich: DRIFT' }).Count -eq 1) -and
+    (@($groupRuntimeObservationLines | Where-Object { $_ -match 'Instanz MSSQL\?\?31mSERVER \(docker\): STOPPED' }).Count -eq 1) -and
+    (($groupRuntimeObservationLines -join "`n") -notmatch 'PRIVATE_(RUNTIME|INSTANCE)_CANARY|\x1b')
+)
+$staleGroupRuntimeObservationLines = @(Format-LabEnvironmentGroupRuntimeObservation -Observation ([pscustomobject]@{
+    runId='33333333-4444-4555-8666-777777777777'; savedState='UNKNOWN'; runtimeState='STALE_BINDING'; reconciliation='INDETERMINATE'; observedAt=''; instances=@()
+}))
+Add-ConsoleUiCheck 'Veraltete Gruppenbindung wird ohne Instanzdetails als nicht beobachtet ausgegeben' (
+    (@($staleGroupRuntimeObservationLines | Where-Object { $_ -match 'Runtime: STALE_BINDING.*Vergleich: INDETERMINATE' }).Count -eq 1) -and
+    (@($staleGroupRuntimeObservationLines | Where-Object { $_ -match 'Keine Instanz beobachtet' }).Count -eq 1)
 )
 Add-ConsoleUiCheck 'Gruppenfehler zeigen nur explizit freigegebene stabile Codes' (
     $groupErrorHandlerMatch.Success -and

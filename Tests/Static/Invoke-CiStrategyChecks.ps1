@@ -86,6 +86,7 @@ Add-CheckResult 'Read-only host HTTP projection retains its actual contract suit
 foreach ($path in @('Private/EnvironmentGroupsBrowserHttp.ps1','Private\EnvironmentGroupsBrowserHttp.ps1')) {
     $groupBrowser = & $selector -ChangedPath @($path)
     Add-CheckResult "Read-only environment-group browser projection selects UI and lifecycle contracts without runtime smokes: $path" (
+        'Invoke-ConsoleUiChecks.ps1' -in $groupBrowser.StaticChecks -and
         'Invoke-WorkflowUiChecks.ps1' -in $groupBrowser.StaticChecks -and
         'Invoke-EnvironmentGroupLifecycleChecks.ps1' -in $groupBrowser.StaticChecks -and
         -not ($groupBrowser.Docker -or $groupBrowser.Podman -or $groupBrowser.HyperV -or $groupBrowser.Mixed -or $groupBrowser.Adapter))

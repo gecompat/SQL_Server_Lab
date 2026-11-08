@@ -5064,8 +5064,10 @@ synthetische Run-/Verbindungsmetadaten und gestubbte Docker-, Podman- und
 Hyper-V-Leser in `EnvironmentGroupsBrowserHttpChecks.ps1` und
 `EnvironmentGroupsBrowserUiChecks.cjs`. Diese Fokustests prüfen Bindung,
 Statusprojektion, Driftklassifikation und fail-closed Verhalten; sie starten
-keinen Provider und belegen keine native Browser-/Runtimeabnahme. Die
-Providerleser behalten ihre getrennten Statusprüfungen. Der Zusatzaufwand ist
+keinen Provider und belegen keine native Browser-/Konsolen-/Runtimeabnahme.
+`Invoke-ConsoleUiChecks.ps1` prüft zusätzlich Menüpfad und bereinigte
+Konsolenausgabe derselben synthetischen Momentaufnahme. Die Providerleser
+behalten ihre getrennten Statusprüfungen. Der Zusatzaufwand ist
 eine bestehende Offlinesuite pro Vollregression sowie bei einer Änderung des
 Gesamtrunners; es entsteht kein weiterer Vollregressions- oder Providerlauf pro
 Zwischenfix.

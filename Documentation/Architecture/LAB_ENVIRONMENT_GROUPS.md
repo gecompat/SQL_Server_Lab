@@ -91,9 +91,12 @@ vergleichen. Das Ergebnis `CURRENT`, `DRIFT` oder `INDETERMINATE` ist eine
 Momentaufnahme, kein SQL-Bereitschaftsnachweis. Bei `STALE` wird kein Provider
 abgefragt. Die Beobachtung ändert oder repariert weder Registry noch Runtime;
 Container- und VM-IDs, Scope-IDs, Hashwerte und interne Fehlerdetails bleiben verborgen.
-Die PowerShell-Gruppenkonsole bietet diese Livebeobachtung nicht an. Ein
-Runtime-Reconcile oder eine sichere Wiederherstellung bleibt offen. Die
-Registry allein beweist keine Runtimebereitschaft. Die Gruppe erstellt auch kein gemeinsames
+Die Browseransicht und die geführte PowerShell-Gruppenkonsole bieten diese
+Livebeobachtung nach ausdrücklicher Auswahl eines oder mehrerer Mitglieder an.
+Beide verwenden dieselbe gebundene read-only Providerabfrage und zeigen eine
+Momentaufnahme ohne SQL-Bereitschaftsnachweis. Ein Runtime-Reconcile oder eine
+sichere Wiederherstellung bleibt offen. Die Registry allein beweist keine
+Runtimebereitschaft. Die Gruppe erstellt auch kein gemeinsames
 Providernetz. Für einen Container-Linked-Server-Fall können zwei getrennte
 Runs mit demselben expliziten `NetworkName` angelegt und anschließend
 gruppiert werden. Run-Erstellung, Netzwerkerstellung und deren Cleanup bleiben

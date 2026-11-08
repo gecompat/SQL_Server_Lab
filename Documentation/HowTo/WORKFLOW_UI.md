@@ -130,10 +130,15 @@ normalen UI-Auftrag. Bei einem unbestätigten Ergebnis prüfen Sie zuerst den
 Auftragsstatus und lesen danach die Gruppe erneut. Wiederholen Sie eine Aktion
 nicht blind.
 
-Die PowerShell-Konsole bietet dieselben Lifecycle- und Zuordnungsaktionen,
-jedoch keine Live-Providerbeobachtung. Ein Reconcile ist weder in dieser
-Gruppenansicht noch in der Gruppenkonsole verfügbar; der Browser führt ihn
-ebenfalls nicht aus.
+Die PowerShell-Konsole bietet dieselben Lifecycle- und Zuordnungsaktionen.
+Unter **Lab-Umgebungen > Umgebung auswählen und verwalten > Lab-Umgebungsgruppen
+verwalten** können Sie **Runtime-Zustand eines Mitglieds lesen** wählen und
+ein oder mehrere Mitglieder ausdrücklich auswählen. Die Ausgabe zeigt den
+gespeicherten und beobachteten Runtimezustand sowie `CURRENT`, `DRIFT` oder
+`INDETERMINATE`. Eine veraltete oder nicht lesbare Bindung fragt keinen Provider
+ab. Die Momentaufnahme ändert weder Gruppe noch Run und bestätigt keine
+SQL-Bereitschaft. Ein Reconcile ist weder in dieser Gruppenansicht noch in der
+Gruppenkonsole verfügbar; der Browser führt ihn ebenfalls nicht aus.
 
 Öffnen Sie **Lab-Umgebungen > Umgebung auswählen und verwalten >
 Lab-Umgebungsgruppen verwalten**. Erstellen Sie eine leere Gruppe, wählen Sie

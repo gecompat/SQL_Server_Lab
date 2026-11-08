@@ -4353,10 +4353,11 @@ entfernen und deren Mitgliedschaften bearbeiten. Mutationen erfordern die
 Bestätigung über den öffentlichen Befehlsweg; Gruppenentfernung löst nur
 Zuordnungen und lässt Runs sowie Runtime-Ressourcen unverändert. Bei aktueller
 Bindung kann der Browser den Providerstatus eines ausgewählten Mitglieds
-ausdrücklich und read-only gegen `RUNNING`/`STOPPED` abgleichen; die
-PowerShell-Gruppenkonsole bietet diese Beobachtung nicht. Sie prüft keine
-SQL-Bereitschaft und ist weder Reparatur noch Runtime-Reconcile. Eine native
-UI-Abnahme dieser neuen Beobachtung steht aus; der Reconcile
+ausdrücklich und read-only gegen `RUNNING`/`STOPPED` abgleichen. Die geführte
+PowerShell-Gruppenkonsole bietet dieselbe ausdrücklich angeforderte
+Momentaufnahme pro Mitglied an. Beide Oberflächen prüfen keine SQL-Bereitschaft
+und führen weder Reparatur noch Runtime-Reconcile aus. Eine native UI-/Konsolen-
+Abnahme dieser Beobachtungen steht aus; der Reconcile
 bleibt offen. Eine begrenzte native Docker-/Podman-
 Abnahme belegt den SQL-2025-CU9-Linked-Server-Fall mit geteiltem Run und eigenem
 Cleanup. Weitere SQL-Versionen, Hyper-V, automatische Netzwerktopologie und das Einrichten eines
