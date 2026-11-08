@@ -10,10 +10,17 @@ $script:throwRead=$false
 $script:runtimeCalls=0
 $script:throwRuntime=$false
 $script:staleAfterRuntime=$false
+$script:transitionDuringRuntime=$false
+$script:recoveryDuringRuntime=$false
 $script:runtimeRaw='exited'
 $script:runtimeRoot=$null
 $script:runId='33333333-4444-4555-8666-777777777777'
 $script:scopeId='44444444-5555-4666-8777-888888888888'
+$script:fixtureRun=[pscustomobject][ordered]@{
+    contractVersion='SqlServerLab.RunState/1.0';runId=$script:runId;scopeId=$script:scopeId;state='RUNNING'
+    stateHistory=@([pscustomobject][ordered]@{state='RUNNING';timestamp='2026-11-07T12:00:00Z';reason='synthetic initial state'})
+    createdAt='2026-11-07T12:00:00Z';updatedAt='2026-11-07T12:00:00Z';instances=@();providerSubRuns=@();metadata=[pscustomobject]@{};errors=@()
+}
 $script:fixtureGroups=@([pscustomobject]@{
     groupId='11111111-2222-4333-8444-555555555555';name='<img src=x onerror=alert(1)>';stateRootKey='PRIVATE_STATE_ROOT_KEY_CANARY';createdAt='2026-11-07T12:00:00Z';lifecycleState='ACTIVE'
     operation=[pscustomobject]@{operationId='22222222-3333-4444-8555-666666666666';action='Start';state='COMPLETED';startedAt='2026-11-07T12:00:00Z';updatedAt='2026-11-07T12:01:00Z';members=@([pscustomobject]@{runId='33333333-4444-4555-8666-777777777777';action='START';status='STARTED';reasonCode='PRIVATE_REASON_CANARY'})}
@@ -28,8 +35,8 @@ function Get-SqlServerLabEnvironmentGroup {
     return $script:fixtureGroups
 }
 function Get-LabStateRoot { if($script:runtimeRoot){return $script:runtimeRoot}; throw 'RUNTIME_ROOT_NOT_SET' }
-function Get-LabRunState { param([string]$RunId,[string]$StateRoot); [pscustomobject]@{runId=$RunId;scopeId=$script:scopeId;state='RUNNING'} }
-function Get-DockerInstanceStatus { param([string]$ContainerIdOrName,[string]$StateRoot); $script:runtimeCalls++;if($script:throwRuntime){throw 'PRIVATE_RUNTIME_CANARY'};if($script:staleAfterRuntime){$script:fixtureGroups[0].members[0].bindingStatus='STALE'};[pscustomobject]@{Available=$true;Exists=$true;Running=($script:runtimeRaw -ceq 'running');Raw=$script:runtimeRaw} }
+function Get-LabRunState { param([string]$RunId,[string]$StateRoot); $script:fixtureRun }
+function Get-DockerInstanceStatus { param([string]$ContainerIdOrName,[string]$StateRoot); $script:runtimeCalls++;if($script:throwRuntime){throw 'PRIVATE_RUNTIME_CANARY'};if($script:staleAfterRuntime){$script:fixtureGroups[0].members[0].connectionInfoSha256=('b'*64);$script:fixtureGroups[0].members[0].bindingStatus='STALE'};if($script:transitionDuringRuntime){$script:fixtureRun.updatedAt='2026-11-07T12:02:00Z';$script:fixtureRun.stateHistory+=@([pscustomobject][ordered]@{state='STOPPED';timestamp='2026-11-07T12:02:00Z';reason='synthetic concurrent lifecycle stop'},[pscustomobject][ordered]@{state='RUNNING';timestamp='2026-11-07T12:02:01Z';reason='synthetic concurrent lifecycle restart'})};if($script:recoveryDuringRuntime){$script:fixtureRun.state='RECOVERY_REQUIRED';$script:fixtureRun.updatedAt='2026-11-07T12:04:00Z';$script:fixtureRun.stateHistory+=@([pscustomobject][ordered]@{state='RECOVERY_REQUIRED';timestamp='2026-11-07T12:04:00Z';reason='synthetic concurrent recovery transition'});$script:fixtureGroups[0].members[0].bindingStatus='STALE'};[pscustomobject]@{Available=$true;Exists=$true;Running=($script:runtimeRaw -ceq 'running');Raw=$script:runtimeRaw} }
 function Get-PodmanInstanceStatus { param([string]$ContainerIdOrName,[string]$StateRoot); throw 'UNEXPECTED_PROVIDER_READER' }
 function Get-HyperVInstanceStatus { param([string]$VMName,[string]$ExpectedRunId,[string]$ExpectedScopeId); throw 'UNEXPECTED_PROVIDER_READER' }
 . $groupsPath
@@ -82,6 +89,7 @@ try {
     $connectionBytes=[System.Text.UTF8Encoding]::new($false).GetBytes(($connection|ConvertTo-Json -Depth 8 -Compress))
     [System.IO.File]::WriteAllBytes((Join-Path $runDirectory 'connection-info.json'),$connectionBytes)
     $script:fixtureGroups[0].members[0].connectionInfoSha256=[Convert]::ToHexString([System.Security.Cryptography.SHA256]::HashData($connectionBytes))
+    $script:currentConnectionHash=$script:fixtureGroups[0].members[0].connectionInfoSha256
     $script:throwRead=$false
     $runtimeView=Get-LabEnvironmentGroupRuntimeObservation -GroupId $script:fixtureGroups[0].groupId -RunId $script:runId
     Check ($runtimeView.savedState -ceq 'RUNNING' -and $runtimeView.runtimeState -ceq 'STOPPED' -and $runtimeView.reconciliation -ceq 'DRIFT') 'runtime reader compares saved and live state without mutation'
@@ -92,10 +100,27 @@ try {
     $pausedRuntime=Get-LabEnvironmentGroupRuntimeObservation -GroupId $script:fixtureGroups[0].groupId -RunId $script:runId
     Check ($pausedRuntime.runtimeState -ceq 'OTHER' -and $pausedRuntime.reconciliation -ceq 'INDETERMINATE' -and $pausedRuntime.instances[0].state -ceq 'OTHER') 'non-terminal container state is not misreported as stopped'
     $script:runtimeRaw='exited'
+    $script:transitionDuringRuntime=$true
+    $transitionedRuntime=Get-LabEnvironmentGroupRuntimeObservation -GroupId $script:fixtureGroups[0].groupId -RunId $script:runId
+    Check ($transitionedRuntime.savedState -ceq 'UNKNOWN' -and $transitionedRuntime.runtimeState -ceq 'UNKNOWN' -and $transitionedRuntime.reconciliation -ceq 'INDETERMINATE' -and $transitionedRuntime.instances.Count -eq 0) 'stop and restart during provider read discards the observation even when the coarse state returns to RUNNING'
+    $script:transitionDuringRuntime=$false
+    $script:fixtureRun.state='RUNNING'
+    $script:fixtureRun.updatedAt='2026-11-07T12:03:00Z'
+    $script:fixtureRun.stateHistory+=@([pscustomobject][ordered]@{state='RUNNING';timestamp='2026-11-07T12:03:00Z';reason='synthetic lifecycle resumed'})
+    $script:fixtureGroups[0].members[0].bindingStatus='CURRENT'
+    $script:recoveryDuringRuntime=$true
+    $recoveryTransitionRuntime=Get-LabEnvironmentGroupRuntimeObservation -GroupId $script:fixtureGroups[0].groupId -RunId $script:runId
+    Check ($recoveryTransitionRuntime.savedState -ceq 'UNKNOWN' -and $recoveryTransitionRuntime.runtimeState -ceq 'UNKNOWN' -and $recoveryTransitionRuntime.reconciliation -ceq 'INDETERMINATE' -and $recoveryTransitionRuntime.instances.Count -eq 0) 'recovery transition is not misclassified as a stale binding when the structural binding is unchanged'
+    $script:recoveryDuringRuntime=$false
+    $script:fixtureRun.state='RUNNING'
+    $script:fixtureRun.updatedAt='2026-11-07T12:05:00Z'
+    $script:fixtureRun.stateHistory+=@([pscustomobject][ordered]@{state='RUNNING';timestamp='2026-11-07T12:05:00Z';reason='synthetic recovery complete'})
+    $script:fixtureGroups[0].members[0].bindingStatus='CURRENT'
     $script:staleAfterRuntime=$true
     $racedRuntime=Get-LabEnvironmentGroupRuntimeObservation -GroupId $script:fixtureGroups[0].groupId -RunId $script:runId
     Check ($racedRuntime.runtimeState -ceq 'STALE_BINDING' -and $racedRuntime.reconciliation -ceq 'INDETERMINATE' -and $racedRuntime.instances.Count -eq 0) 'binding changed during provider read is discarded after fresh recheck'
     $script:staleAfterRuntime=$false
+    $script:fixtureGroups[0].members[0].connectionInfoSha256=$script:currentConnectionHash
     $script:fixtureGroups[0].members[0].bindingStatus='CURRENT'
     $bytesBefore=$script:runtimeCalls
     $script:fixtureGroups[0].members[0].bindingStatus='STALE'

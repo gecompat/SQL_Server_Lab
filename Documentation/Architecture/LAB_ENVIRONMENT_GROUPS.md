@@ -94,9 +94,18 @@ Container- und VM-IDs, Scope-IDs, Hashwerte und interne Fehlerdetails bleiben ve
 Die Browseransicht und die geführte PowerShell-Gruppenkonsole bieten diese
 Livebeobachtung nach ausdrücklicher Auswahl eines oder mehrerer Mitglieder an.
 Beide verwenden dieselbe gebundene read-only Providerabfrage und zeigen eine
-Momentaufnahme ohne SQL-Bereitschaftsnachweis. Ein Runtime-Reconcile oder eine
-sichere Wiederherstellung bleibt offen. Die Registry allein beweist keine
-Runtimebereitschaft. Die Gruppe erstellt auch kein gemeinsames
+Momentaufnahme ohne SQL-Bereitschaftsnachweis. Sie hält während des
+Provideraufrufs keinen Lifecycle-Mutex: ein Runtimeleser kann ohne verlässlichen
+harten Timeout hängen und darf Start, Stop oder Remove nicht blockieren. Die
+Implementierung bindet die Beobachtung stattdessen an Fingerprints des
+vollständigen gespeicherten Run-State vor und nach der Providerabfrage. Ändert
+sich der Run-State, werden gespeicherter Zustand, Providerstatus und
+Instanzdetails als `UNKNOWN`/`INDETERMINATE` verworfen. Ändert sich die
+Gruppenmitgliedschaft oder Connection-Info-Bindung, lautet das Ergebnis
+`STALE_BINDING`; auch dann werden Instanzdetails verworfen. Das ist eine
+begrenzte Momentaufnahme und keine Sperre gegen Änderungen nach der abschließenden
+Prüfung. Ein Runtime-Reconcile oder eine sichere Wiederherstellung bleibt offen.
+Die Registry allein beweist keine Runtimebereitschaft. Die Gruppe erstellt auch kein gemeinsames
 Providernetz. Für einen Container-Linked-Server-Fall können zwei getrennte
 Runs mit demselben expliziten `NetworkName` angelegt und anschließend
 gruppiert werden. Run-Erstellung, Netzwerkerstellung und deren Cleanup bleiben

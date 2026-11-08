@@ -5067,7 +5067,14 @@ Statusprojektion, Driftklassifikation und fail-closed Verhalten; sie starten
 keinen Provider und belegen keine native Browser-/Konsolen-/Runtimeabnahme.
 `Invoke-ConsoleUiChecks.ps1` prüft zusätzlich Menüpfad und bereinigte
 Konsolenausgabe derselben synthetischen Momentaufnahme. Die Providerleser
-behalten ihre getrennten Statusprüfungen. Der Zusatzaufwand ist
+behalten ihre getrennten Statusprüfungen. Die fokussierte HTTP-Fixture prüft
+den vollständigen Run-State-Fingerprint vor und nach dem Provideraufruf. Ein
+simulierter Lifecycle-Übergang mit unverändertem grobem Endzustand verwirft die
+gesamte Livebeobachtung als `UNKNOWN`/`INDETERMINATE`; eine geänderte
+Gruppenbindung verwirft sie als `STALE_BINDING`. Der Provideraufruf hält keinen
+Lifecycle-Mutex und die Fixture startet keinen Provider. Diese synthetischen
+Prüfungen belegen weder einen Timeout der Providerleser noch eine native
+Browser-, Konsolen- oder Runtimeabnahme. Der Zusatzaufwand ist
 eine bestehende Offlinesuite pro Vollregression sowie bei einer Änderung des
 Gesamtrunners; es entsteht kein weiterer Vollregressions- oder Providerlauf pro
 Zwischenfix.
