@@ -67,8 +67,13 @@ Ein Kandidat erhält eine hohe Priorität, wenn er:
 | P3 | Linked-Server-, Collation- und Distributed-Transaction-Lab | Reproduziert Cross-Instance-Abfragen, Collation-Konflikte, Delegation und Transaktionsgrenzen, die in Einzelinstanz-Labs nicht sichtbar werden | zwei separat erstellte SQL-Umgebungen und ein Testclient; Umgebungen können nachträglich mehreren Lab-Gruppen zugeordnet werden. Gruppen sind Many-to-many-Referenzen auf unabhängige Runs: Start dedupliziert gemeinsame Mitglieder, und Stop einer Gruppe beendet keinen Run, den eine andere aktive Gruppe weiter benötigt. Entfernen einer Gruppe löst nur Zuordnungen und gruppeneigene Konfiguration; Run-Remove bleibt eine separate Aktion. Optional Domain Controller und MSDTC | Container für einfache Linked-Server-Fälle; Hyper-V/Windows für Kerberos und MSDTC |
 
 Die additive Gruppen-Registry, Run-Zuordnung und gemeinsame Lifecycle-Nachfrage
-sind implementiert. Das Linked-Server-Lab und native Providerabnahmen bleiben
-offen. Siehe [Lab-Umgebungsgruppen](../Architecture/LAB_ENVIRONMENT_GROUPS.md).
+sind implementiert. Die erste Linked-Server-Container-Lane bestand am
+2026-11-08 getrennt unter Docker und Podman mit SQL Server 2025 CU9; zwei
+separat erstellte Umgebungen wurden gruppiert, der Ziel-Run zusätzlich einer
+zweiten Gruppe zugeordnet und `OPENQUERY` sowie Shared-Member-Stop geprüft.
+Collation-Konflikte, TLS-Identität, Kerberos und MSDTC bleiben offen. Siehe
+[Lab-Umgebungsgruppen](../Architecture/LAB_ENVIRONMENT_GROUPS.md) und den
+[nativen Abnahmenachweis](../Quality/LINKED_SERVER_ENVIRONMENT_GROUP_ACCEPTANCE_2026-11-08.md).
 
 ## Empfohlene erste drei Vertical Slices
 
