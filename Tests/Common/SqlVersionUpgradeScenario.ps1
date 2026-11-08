@@ -74,6 +74,53 @@ function Assert-SqlUpgradeDatabase {
     if ($result.Count -ne 1 -or $result[0] -cne "$Major|$Compatibility|ONLINE|0") { throw 'SQL_UPGRADE_DATABASE_STATE_INVALID' }
 }
 
+function Enable-SqlUpgradeQueryStore {
+    param($Binding,[string]$StateRoot,[string]$Database)
+    $null=Invoke-SqlUpgradeQuery -Binding $Binding -StateRoot $StateRoot -Query "ALTER DATABASE [$Database] SET QUERY_STORE=ON; ALTER DATABASE [$Database] SET QUERY_STORE (OPERATION_MODE=READ_WRITE, QUERY_CAPTURE_MODE=ALL);"
+    $state=@(Invoke-SqlUpgradeQuery -Binding $Binding -StateRoot $StateRoot -Query "USE [$Database]; SELECT CONCAT(actual_state_desc,N'|',desired_state_desc,N'|',query_capture_mode_desc) FROM sys.database_query_store_options;")
+    if ($state.Count -ne 1 -or $state[0] -cne 'READ_WRITE|READ_WRITE|ALL') { throw 'SQL_UPGRADE_QUERY_STORE_UNAVAILABLE' }
+}
+
+function Get-SqlUpgradeQueryStoreObservation {
+    param($Binding,[string]$StateRoot,[string]$Database,[ValidatePattern('^[a-f0-9]{32}_(SOURCE|TARGET)_(COMPAT160|COMPAT170)$')][string]$Marker)
+    $sqlMarker='SQL_UPGRADE_QS_'+$Marker
+    $probe="USE [$Database]; SELECT CONCAT(N'$sqlMarker',N'|',COUNT_BIG(*)) FROM dbo.Accounts;"
+    for ($index=0; $index -lt 5; $index++) {
+        $result=@(Invoke-SqlUpgradeQuery -Binding $Binding -StateRoot $StateRoot -Query $probe)
+        if ($result.Count -ne 1 -or $result[0] -cne "$sqlMarker|3") { throw 'SQL_UPGRADE_QUERY_STORE_WORKLOAD_INVALID' }
+    }
+    $query=@"
+USE [$Database];
+EXEC sys.sp_query_store_flush_db;
+SELECT CONCAT(CONVERT(varchar(64),q.query_hash,2),N'|',CONVERT(varchar(30),SUM(rs.count_executions)),N'|',
+    CONVERT(varchar(40),CONVERT(decimal(20,2),SUM(CONVERT(float,rs.avg_duration)*rs.count_executions)/NULLIF(SUM(rs.count_executions),0))),N'|',
+    CONVERT(varchar(20),COUNT(DISTINCT p.plan_id)))
+FROM sys.query_store_query_text AS qt
+JOIN sys.query_store_query AS q ON q.query_text_id=qt.query_text_id
+JOIN sys.query_store_plan AS p ON p.query_id=q.query_id
+JOIN sys.query_store_runtime_stats AS rs ON rs.plan_id=p.plan_id
+WHERE CHARINDEX(N'$sqlMarker',qt.query_sql_text)>0 AND rs.execution_type=0
+GROUP BY q.query_hash;
+"@
+    $rows=@(Invoke-SqlUpgradeQuery -Binding $Binding -StateRoot $StateRoot -Query $query)
+    if ($rows.Count -ne 1) { throw 'SQL_UPGRADE_QUERY_STORE_OBSERVATION_INVALID' }
+    $parts=@($rows[0].Split('|'))
+    $executionCount=[long]0; $averageDuration=[double]0; $planCount=[int]0
+    $culture=[Globalization.CultureInfo]::InvariantCulture
+    if ($parts.Count -ne 4 -or $parts[0] -cnotmatch '(?i)^[a-f0-9]{16,64}$' -or
+        -not [long]::TryParse($parts[1],[Globalization.NumberStyles]::Integer,$culture,[ref]$executionCount) -or
+        -not [double]::TryParse($parts[2],[Globalization.NumberStyles]::Float,$culture,[ref]$averageDuration) -or
+        -not [int]::TryParse($parts[3],[Globalization.NumberStyles]::Integer,$culture,[ref]$planCount) -or
+        $executionCount -lt 5 -or [double]::IsNaN($averageDuration) -or [double]::IsInfinity($averageDuration) -or
+        $averageDuration -lt 0 -or $planCount -lt 1) {
+        throw 'SQL_UPGRADE_QUERY_STORE_OBSERVATION_INVALID'
+    }
+    [pscustomobject][ordered]@{
+        Status='OBSERVED';Marker=$Marker;QueryHash=$parts[0].ToLowerInvariant();ExecutionCount=$executionCount
+        AverageDurationMicroseconds=$averageDuration;PlanCount=$planCount
+    }
+}
+
 function Test-SqlUpgradeWorkload {
     param($Binding,[string]$StateRoot,[string]$Database,[int]$Major,[int]$Compatibility)
     $clock=[Diagnostics.Stopwatch]::StartNew()
@@ -156,6 +203,7 @@ function Invoke-SqlUpgradeArrange {
     $source=New-SqlUpgradeOwnRun @parameters -Role source
     $sourceDb='UpgradeSource_'+$OperationId; $targetDb='UpgradeTarget_'+$OperationId
     $null=Invoke-SqlUpgradeQuery -Binding $source -StateRoot $StateRoot -Query "CREATE DATABASE [$sourceDb]; ALTER DATABASE [$sourceDb] SET COMPATIBILITY_LEVEL=160;"
+    Enable-SqlUpgradeQueryStore -Binding $source -StateRoot $StateRoot -Database $sourceDb
     $null=Invoke-SqlUpgradeQuery -Binding $source -StateRoot $StateRoot -Query @"
 USE [$sourceDb];
 CREATE TABLE dbo.Groups(Id int NOT NULL PRIMARY KEY,Label nvarchar(16) NOT NULL UNIQUE);
@@ -164,6 +212,7 @@ INSERT dbo.Groups VALUES(1,N'alpha'),(2,N'beta');
 INSERT dbo.Accounts VALUES(1,1,N'one',10.25),(2,1,N'two',20.75),(3,2,N'three',5.00);
 "@
     $sourceEvidence=Test-SqlUpgradeWorkload -Binding $source -StateRoot $StateRoot -Database $sourceDb -Major 16 -Compatibility 160
+    $sourceQueryStore=Get-SqlUpgradeQueryStoreObservation -Binding $source -StateRoot $StateRoot -Database $sourceDb -Marker ($OperationId+'_SOURCE_COMPAT160')
     $secret=$null
     try {
         $null=Assert-SqlUpgradeBinding -Expected $source -StateRoot $StateRoot
@@ -193,16 +242,26 @@ INSERT dbo.Accounts VALUES(1,1,N'one',10.25),(2,1,N'two',20.75),(3,2,N'three',5.
     finally { $restoreClock.Stop(); if ($secret) { $secret.Dispose() }; $secret=$null }
     if ($restore.Success -ne $true -or $restore.BackupSetId -cne $backup.BackupSetId -or
         $restore.BackupSourceKind -cne 'LIBRARY' -or $restore.Provider -cne $Provider) { throw 'SQL_UPGRADE_RESTORE_FAILED' }
+    Enable-SqlUpgradeQueryStore -Binding $target -StateRoot $StateRoot -Database $targetDb
     $retained=Test-SqlUpgradeWorkload -Binding $target -StateRoot $StateRoot -Database $targetDb -Major 17 -Compatibility 160
+    $retainedQueryStore=Get-SqlUpgradeQueryStoreObservation -Binding $target -StateRoot $StateRoot -Database $targetDb -Marker ($OperationId+'_TARGET_COMPAT160')
     $null=Assert-SqlUpgradeDatabase -Binding $source -StateRoot $StateRoot -Database $sourceDb -Major 16 -Compatibility 160
     $null=Invoke-SqlUpgradeQuery -Binding $target -StateRoot $StateRoot -Query "ALTER DATABASE [$targetDb] SET COMPATIBILITY_LEVEL=170;"
     $changed=Test-SqlUpgradeWorkload -Binding $target -StateRoot $StateRoot -Database $targetDb -Major 17 -Compatibility 170
+    $changedQueryStore=Get-SqlUpgradeQueryStoreObservation -Binding $target -StateRoot $StateRoot -Database $targetDb -Marker ($OperationId+'_TARGET_COMPAT170')
     $sourceAfter=Test-SqlUpgradeWorkload -Binding $source -StateRoot $StateRoot -Database $sourceDb -Major 16 -Compatibility 160
+    $queryStoreDelta=$changedQueryStore.AverageDurationMicroseconds-$retainedQueryStore.AverageDurationMicroseconds
+    $queryStoreDeltaPercent=if ($retainedQueryStore.AverageDurationMicroseconds -gt 0) { 100*$queryStoreDelta/$retainedQueryStore.AverageDurationMicroseconds } else { $null }
     [pscustomobject]@{
         Status='VERIFIED';SourceMajor=16;TargetMajor=17;PreservedCompatibility=160;ChangedCompatibility=170
         SourceMilliseconds=$sourceEvidence.ObservedMilliseconds;RestoreMilliseconds=$restoreClock.Elapsed.TotalMilliseconds
         Compatibility160Milliseconds=$retained.ObservedMilliseconds;Compatibility170Milliseconds=$changed.ObservedMilliseconds
         SourceAfterMilliseconds=$sourceAfter.ObservedMilliseconds
+        QueryStore=[pscustomobject][ordered]@{
+            Assessment='OBSERVED_ONLY_NO_PERFORMANCE_THRESHOLD';SourceBaseline=$sourceQueryStore
+            TargetCompatibility160=$retainedQueryStore;TargetCompatibility170=$changedQueryStore
+            AverageDurationDeltaMicroseconds=$queryStoreDelta;AverageDurationDeltaPercent=$queryStoreDeltaPercent
+        }
     }
 }
 
