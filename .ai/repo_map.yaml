@@ -2506,13 +2506,15 @@ validation:
     docker: '.\Tests\Integration\Invoke-ContainerToolAcceptance.ps1 -Provider docker'
     podman: '.\Tests\Integration\Invoke-ContainerToolAcceptance.ps1 -Provider podman'
     evidence: Documentation/Quality/SQLPACKAGE_DACPAC_DRIFT_REPORT_ACCEPTANCE_2026-11-08.md
-    execution_status: "Docker und Podman am 2026-11-08 getrennt mit SQL 2022 und SqlPackage 170.5.96.0 bestanden; synthetisches Extract/Publish, No-op-Report, erkannte kontrollierte Spaltenbreiten-Drift, korrigierendes Publish mit erhaltener Zielzeile und eigener Run-/Image-Cleanup"
+    execution_status: "Docker und Podman am 2026-11-08 getrennt mit SQL 2022 und SqlPackage 170.5.96.0 bestanden; synthetisches Extract/Publish, No-op-Report, erkannte kontrollierte Spaltenbreiten-Drift, korrigierendes Publish, No-op nach Korrektur, weiteres idempotentes Publish mit erhaltener Schema-/Zielzeile und eigener Run-/Image-Cleanup"
     checks:
       - synthetic_dacpac_extract
       - scope_bound_database_publish
       - deploy_report_no_schema_operations
       - deploy_report_detects_controlled_column_width_drift
       - republish_restores_model_width_and_preserves_target_data
+      - deploy_report_after_drift_repair_has_zero_operations
+      - repeat_publish_after_drift_repair_preserves_schema_and_target_data
       - repeat_publish_preserves_target_data
       - block_possible_data_loss
       - do_not_drop_objects_missing_from_source

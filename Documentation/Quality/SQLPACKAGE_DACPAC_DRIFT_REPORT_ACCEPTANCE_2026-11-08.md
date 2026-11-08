@@ -49,3 +49,20 @@ DACPAC-Deployment-Handler.
 Der frühere [No-op-DeployReport-Nachweis](SQLPACKAGE_DACPAC_DEPLOY_REPORT_ACCEPTANCE_2026-11-08.md)
 und die [erste DACPAC-Publish-Abnahme](SQLPACKAGE_DACPAC_PUBLISH_ACCEPTANCE_2026-11-08.md)
 bleiben als getrennte historische Quellstände erhalten.
+
+## Wiederholbarkeit nach Driftkorrektur
+
+Am 2026-11-08 wurde der bestehende SQL-2022-Container-Smoke erweitert und
+getrennt unter Docker und Podman ausgeführt. Der exakte Runner-Pin war
+`1636B98645922142E6FF9DECCCFE7BC817CFE98DEB87E17B7E891BD4AFE0A7F4`.
+Beide privaten Receipts zeigen dieselbe Folge: anfänglicher No-op-Report mit
+null Operationen, genau eine geplante Spaltenbreiten-Driftoperation, danach
+erneut null Operationen. Ein weiteres Publish blieb erfolgreich; die
+Modellbreite `nvarchar(40)` und die synthetische Zielzeile blieben erhalten.
+
+Beide Läufe endeten `PASS` und `REMOVED`. Docker bewahrte sein vorbestehendes
+Derived Image; Podman entfernte ausschließlich sein in diesem Test angelegtes
+Image-Tag. Die temporären Reports und DACPAC-Dateien wurden entfernt. Das
+ergänzt nur die Wiederholbarkeit nach dieser kontrollierten Reparatur; es
+qualifiziert keine allgemeine Release-Recovery, Datenmigration oder weitere
+SQL-/Providerkombination.

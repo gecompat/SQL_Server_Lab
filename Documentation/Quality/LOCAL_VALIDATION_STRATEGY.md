@@ -4834,9 +4834,13 @@ Die [Driftfolgeabnahme vom 2026-11-08](SQLPACKAGE_DACPAC_DRIFT_REPORT_ACCEPTANCE
 behält den No-op-Fall bei und prüft zusätzlich getrennt unter Docker und
 Podman eine verlustfreie Spaltenbreiten-Drift, geplante DeployReport-
 Operationen, Wiederherstellung der DACPAC-Breite und Erhalt der Zielzeile.
-Beide eigenen Runs, Volumes und temporären Reports wurden entfernt. Das bereits
-vorhandene Docker-Derived-Image blieb unverändert; das in Podman neu angelegte
-Test-Tag wurde explizit entfernt. Der Scope belegt nur diesen synthetischen
+Die Erweiterung mit Script-SHA-256
+`1636B98645922142E6FF9DECCCFE7BC817CFE98DEB87E17B7E891BD4AFE0A7F4` prüfte
+anschließend je Provider einen zweiten Report mit null Operationen und ein
+weiteres erfolgreiches Publish mit erhaltener Schema-/Zielzeile. Beide eigenen
+Runs, Volumes und temporären Reports wurden entfernt. Das bereits vorhandene
+Docker-Derived-Image blieb unverändert; das in Podman neu angelegte Test-Tag
+wurde explizit entfernt. Der Scope belegt nur diesen synthetischen
 SQL-2022-Fall.
 
 ```powershell

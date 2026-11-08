@@ -6,6 +6,7 @@
     Provisioniert einen isolierten SQL-2022-Manifest-Run mit SqlPackage,
     prueft Versionsprobe und Restart, synthetisches BACPAC-Extract/Import,
     DACPAC-Extract/Publish, No-op- und kontrollierte Drift-DeployReports,
+    erneutes No-op-DeployReport und wiederholtes idempotentes Publish,
     wiederholtes Publish mit Driftkorrektur sowie Container-Attach.
     Run, temporäre Pakete und ein test-eigenes Derived Image werden entfernt.
 #>
@@ -417,6 +418,31 @@ try {
         }
     } $instance.Host ([int]$instance.Port) $saPassword $dacpacTargetDatabase
     Assert-ContainerToolAcceptance (@($dacpacPreserved | ForEach-Object { ([string]$_).Trim() }) -contains 'dacpac-preserved') 'Erneute DACPAC-Publikation erhält vorhandene Zieldaten'
+    $postRepairNoOpReport = Get-ContainerToolDacpacDeployReport -SourceDacpacPath $dacpacContainerPath -DatabaseName $dacpacTargetDatabase -ContainerReportPath "/tmp/sql-server-lab-dacpac-$([guid]::NewGuid().ToString('N')).post-repair-noop.xml" -HostReportPath (Join-Path $testRoot 'dacpac-deploy-report-post-repair-noop.xml')
+    Assert-ContainerToolAcceptance ($postRepairNoOpReport.OperationCount -eq 0) 'DeployReport bleibt nach Driftkorrektur ohne weitere Schemaoperationen'
+    $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($saPassword)
+    try {
+        $saPlain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
+        $repeatPublishOutput = @($(if ($requestedStateRoot) { Invoke-OwnedHostTestCommand -StateRoot $requestedStateRoot -Provider $Provider -Invocation $runtimeInvocation -Arguments @('exec','--env',"SQLSERVERLAB_SA_PASSWORD=$saPlain",'--user','mssql',$instance.ContainerName,'sh','-ceu',$publishCommand,'--',$dacpacContainerPath,$dacpacTargetDatabase) } else { & $runtimeInvocation exec --env "SQLSERVERLAB_SA_PASSWORD=$saPlain" --user mssql $instance.ContainerName sh -ceu $publishCommand -- $dacpacContainerPath $dacpacTargetDatabase }) 2>&1)
+        Assert-ContainerToolAcceptance ($LASTEXITCODE -eq 0) 'Wiederholtes Publish nach Driftkorrektur bleibt erfolgreich'
+    }
+    finally {
+        $saPlain = $null
+        [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+    }
+    $postRepairState = & $module {
+        param($HostName, $PortNumber, $Password, $DatabaseName)
+        $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($Password)
+        try {
+            $plain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
+            @(Invoke-SqlQuery -HostName $HostName -Port $PortNumber -SaPlain $plain -Database $DatabaseName -Query "SET NOCOUNT ON; SELECT CASE WHEN COL_LENGTH(N'dbo.BacpacProbe', N'Marker') = 80 AND EXISTS (SELECT 1 FROM dbo.BacpacProbe WHERE Id = 99 AND Marker = N'dacpac-preserved') THEN 'DACPAC_POST_REPAIR_IDEMPOTENT' ELSE 'DACPAC_POST_REPAIR_CHANGED' END;")
+        }
+        finally {
+            $plain = $null
+            [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+        }
+    } $instance.Host ([int]$instance.Port) $saPassword $dacpacTargetDatabase
+    Assert-ContainerToolAcceptance (@($postRepairState | ForEach-Object { ([string]$_).Trim() }) -contains 'DACPAC_POST_REPAIR_IDEMPOTENT') 'Weiteres Publish nach Driftkorrektur erhält Schema und Zielzeile'
     $(if ($requestedStateRoot) { Invoke-OwnedHostTestCommand -StateRoot $requestedStateRoot -Provider $Provider -Invocation $runtimeInvocation -Arguments @('exec','--user','mssql',$instance.ContainerName,'rm','-f','--',$dacpacContainerPath) } else { & $runtimeInvocation exec --user mssql $instance.ContainerName rm -f -- $dacpacContainerPath }) 1>$null
     Assert-ContainerToolAcceptance ($LASTEXITCODE -eq 0) 'Temporäres DACPAC wird nach der Publish-Prüfung entfernt'
     $dacpacContainerPath = $null
@@ -531,7 +557,12 @@ try {
                 status = 'PUBLISHED'; source = 'synthetic-schema-extract'; targetDatabase = $dacpacTargetDatabase
                 deployReport = 'NO_SCHEMA_OPERATIONS'
                 driftReport = 'OPERATIONS_PLANNED'; driftRecoveryPublish = 'PASS'
-                repeatPublish = 'PASS'; targetDataPreserved = $true
+                initialNoOpOperationCount = [int]$noOpReport.OperationCount
+                driftOperationCount = [int]$driftReport.OperationCount
+                postRepairNoOpOperationCount = [int]$postRepairNoOpReport.OperationCount
+                repeatPublish = 'PASS'; postRepairRepeatPublish = 'PASS'
+                schemaRestoredAfterDrift = $true; targetDataPreserved = $true
+                schemaAndTargetDataPreservedAfterRepeat = $true
                 blockOnPossibleDataLoss = $true; dropObjectsNotInSource = $false
             }
             attach = [ordered]@{ status = [string]$attachResult.Status; source = 'synthetic-detached-mdf-ldf'; targetDatabase = $attachTargetDatabase; dataRoundtrip = $true; journalStatus = [string]$attachJournal.Status }
