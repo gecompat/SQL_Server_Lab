@@ -4830,6 +4830,15 @@ Datenänderung sowie Entfernung der temporären Berichtsdatei aus Host und Run.
 Docker und Podman bestanden getrennt mit je 41 Assertions. Das qualifiziert
 keine Driftkorrektur oder fehlgeschlagene Release-Recovery.
 
+Die [Driftfolgeabnahme vom 2026-11-08](SQLPACKAGE_DACPAC_DRIFT_REPORT_ACCEPTANCE_2026-11-08.md)
+behält den No-op-Fall bei und prüft zusätzlich getrennt unter Docker und
+Podman eine verlustfreie Spaltenbreiten-Drift, geplante DeployReport-
+Operationen, Wiederherstellung der DACPAC-Breite und Erhalt der Zielzeile.
+Beide eigenen Runs, Volumes und temporären Reports wurden entfernt. Das bereits
+vorhandene Docker-Derived-Image blieb unverändert; das in Podman neu angelegte
+Test-Tag wurde explizit entfernt. Der Scope belegt nur diesen synthetischen
+SQL-2022-Fall.
+
 ```powershell
 .\Tests\Static\Invoke-SampleHandlerChecks.ps1
 .\Tests\Static\Invoke-SoftwareCatalogChecks.ps1
