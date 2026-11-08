@@ -6,7 +6,7 @@ Am 2026-11-08 wurde der SQL-2022-Container-Akzeptanzlauf um einen begrenzten
 Driftfall erweitert. Docker und Podman liefen getrennt mit SqlPackage
 `170.5.96.0`. Beide Läufe verwendeten
 `Tests/Integration/Invoke-ContainerToolAcceptance.ps1` mit SHA-256
-`20952437432BAC334DA89BD0267A32E8DC57636CC08DFBBFC3003F6D4CC2B9F4` auf
+`1CA4867CC096113AFC63E6BA7172BDA6F46D8C0F08A1999BA74F4D319FD3C2E2` auf
 Basiscommit `32946d27e4166e47099a97c1093166a49989fa56`.
 
 | Provider | Ergebnis | Erkannte Drift | Korrektur und Datenerhalt | Eigener Cleanup |

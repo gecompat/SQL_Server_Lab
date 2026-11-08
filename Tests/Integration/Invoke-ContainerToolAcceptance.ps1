@@ -352,6 +352,19 @@ try {
     } $instance.Host ([int]$instance.Port) $saPassword $dacpacTargetDatabase
     $noOpReport = Get-ContainerToolDacpacDeployReport -SourceDacpacPath $dacpacContainerPath -DatabaseName $dacpacTargetDatabase -ContainerReportPath "/tmp/sql-server-lab-dacpac-$([guid]::NewGuid().ToString('N')).noop.xml" -HostReportPath (Join-Path $testRoot 'dacpac-deploy-report-noop.xml')
     Assert-ContainerToolAcceptance ($noOpReport.OperationCount -eq 0) 'DeployReport meldet nach Publish und Datenänderung keine Schemaoperationen'
+    $markerValuesFit = & $module {
+        param($HostName, $PortNumber, $Password, $DatabaseName)
+        $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($Password)
+        try {
+            $plain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
+            @(Invoke-SqlQuery -HostName $HostName -Port $PortNumber -SaPlain $plain -Database $DatabaseName -Query "SET NOCOUNT ON; SELECT CASE WHEN (SELECT MAX(LEN(Marker)) FROM dbo.BacpacProbe) <= 24 THEN 'DACPAC_MARKERS_FIT_NARROW_COLUMN' ELSE 'DACPAC_MARKERS_EXCEED_NARROW_COLUMN' END;")
+        }
+        finally {
+            $plain = $null
+            [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+        }
+    } $instance.Host ([int]$instance.Port) $saPassword $dacpacTargetDatabase
+    Assert-ContainerToolAcceptance (@($markerValuesFit | ForEach-Object { ([string]$_).Trim() }) -contains 'DACPAC_MARKERS_FIT_NARROW_COLUMN') 'Synthetische Zielwerte passen vor der Driftmutation in nvarchar(24)'
     $schemaDrifted = & $module {
         param($HostName, $PortNumber, $Password, $DatabaseName)
         $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($Password)
