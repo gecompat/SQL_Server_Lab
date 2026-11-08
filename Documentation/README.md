@@ -61,7 +61,7 @@ führt von dort zu Vertrag, Format und Evidence.
   konkrete V1-/V2-Reader, direkte API-Nutzer und die verbleibenden Cutovergrenzen.
 - [Eigener Windows-SQL-Run mit authentifiziertem TLS](Architecture/AUTHENTICATED_TLS_WINDOWS_OPERATIONAL_LAB.md):
   erhöhter Runner, vorbereitete Images, vorhandene Aktivierung, strikte Clients
-  und signierter V2-Snapshot; [öffentlicher Neuaufbau und offene Consumer-Gesamtprobe](Quality/TLS_WINDOWS_PUBLIC_CREATE_ACCEPTANCE_2026-11-04.md).
+  und signierter V2-Snapshot; [öffentlicher Neuaufbau samt korrigierter Consumer-Gesamtabnahme](Quality/BOUNDED_WINDOWS_TLS_RUNNER_ACCEPTANCE_2026-11-04.md); der ursprüngliche Adapterfehler bleibt im [ersten Teilnachweis](Quality/TLS_WINDOWS_PUBLIC_CREATE_ACCEPTANCE_2026-11-04.md) erhalten.
 - [Befristeter erhöhter Windows-TLS-Runner](Architecture/BOUNDED_WINDOWS_TLS_RUNNER.md):
   einmalige erhöhte Einrichtung, danach gebundene unbeaufsichtigte Abnahme;
   getrennte lokale und native Sicherheitsnachweise.
