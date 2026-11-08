@@ -933,7 +933,8 @@ sources_of_truth:
   automated_test_environment_contract: Public/TestEnvironment.ps1
   reusable_environment_group_contract: Public/EnvironmentGroups.ps1
   reusable_environment_group_registry_schema: Schemas/environment-groups.schema.json
-  reusable_environment_group_behavior: Documentation/Architecture/LAB_ENVIRONMENT_GROUPS.md # persistent group lifecycle and shared-member stop retention; browser shows read-only CURRENT/STALE member binding and stored per-run operation results, confirms public group actions through one-shot grants; runtime reconcile UI remains open
+  reusable_environment_group_behavior: Documentation/Architecture/LAB_ENVIRONMENT_GROUPS.md # persistent group lifecycle and shared-member stop retention; browser shows read-only CURRENT/STALE member binding, explicit per-member provider observation and stored per-run operation results, confirms public group actions through one-shot grants; runtime reconcile and console observation remain open
+  reusable_environment_group_validation: Documentation/Quality/LOCAL_VALIDATION_STRATEGY.md # synthetic browser HTTP/UI tests for explicit runtime observation; no provider or SQL runtime is started
   validation_environment_group_console: Tests/Static/Invoke-ConsoleUiChecks.ps1 # reachable group menu, confirmation on mutations, stopped-only membership editing, and shared-member API delegation
   acceptance_linked_server_environment_group: Tests/Integration/Invoke-LinkedServerEnvironmentGroupAcceptance.ps1 # two separately created SQL-2025-CU9 container runs share an explicit non-conflicting process-local subnet; second group reuses target run; OPENQUERY and shared-member stop retention with own cleanup
   authenticated_test_environment_tls_backlog: Documentation/Project_Planning/NEW_SQL_LAB_USE_CASES_BACKLOG.md # TLS-001: P1 directly after SSISDB; limited own Docker/Podman SQL2025 Windows TLS evidence exists; full client/version/provider qualification and consumer export remain open

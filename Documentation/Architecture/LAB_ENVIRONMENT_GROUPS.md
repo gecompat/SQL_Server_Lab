@@ -80,13 +80,20 @@ Die Browseransicht weist zusätzlich den read-only Bindungsstatus `CURRENT` oder
 aktuell lesbaren Run-, Scope-, Instanz- und Connection-Info-Metadaten; Scope-ID
 und Hash bleiben verborgen. `STALE` kann auch bedeuten, dass die Run-Bindung
 nicht lesbar ist. Der Status bestätigt keine Runtime- oder SQL-Bereitschaft und
-repariert keine Abweichung. Eine UI für Runtimeabweichungen und deren sichere
-Wiederherstellung bleibt offen. Der Browser zeigt außerdem die zuletzt
+repariert keine Abweichung. Die Runtimebeobachtung ist eine getrennte,
+ausdrücklich angeforderte Momentaufnahme. Sichere Wiederherstellung und
+Runtime-Reconcile bleiben offen. Der Browser zeigt außerdem die zuletzt
 gespeicherten Vorgangsergebnisse pro Run mit Aktion und endlichem Status an.
-Das ist das Ergebnis des letzten Gruppenstarts oder -stopps, keine erneute
-Runtimebeobachtung. Interne Fehlerdetails, Scope-IDs und Hashwerte werden nicht
-ausgegeben. Die Registry allein beweist keine
-Runtimebereitschaft. Die Gruppe erstellt auch kein gemeinsames
+Das ist das Ergebnis des letzten Gruppenstarts oder -stopps. Bei einer
+`CURRENT`-Bindung kann die Browseransicht zusätzlich pro Mitglied ausdrücklich
+den Providerstatus lesen und ihn mit dem gespeicherten `RUNNING`/`STOPPED`
+vergleichen. Das Ergebnis `CURRENT`, `DRIFT` oder `INDETERMINATE` ist eine
+Momentaufnahme, kein SQL-Bereitschaftsnachweis. Bei `STALE` wird kein Provider
+abgefragt. Die Beobachtung ändert oder repariert weder Registry noch Runtime;
+Container- und VM-IDs, Scope-IDs, Hashwerte und interne Fehlerdetails bleiben verborgen.
+Die PowerShell-Gruppenkonsole bietet diese Livebeobachtung nicht an. Ein
+Runtime-Reconcile oder eine sichere Wiederherstellung bleibt offen. Die
+Registry allein beweist keine Runtimebereitschaft. Die Gruppe erstellt auch kein gemeinsames
 Providernetz. Für einen Container-Linked-Server-Fall können zwei getrennte
 Runs mit demselben expliziten `NetworkName` angelegt und anschließend
 gruppiert werden. Run-Erstellung, Netzwerkerstellung und deren Cleanup bleiben
