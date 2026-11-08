@@ -844,9 +844,10 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 - synthetischer DACPAC-Extract/Publish für SQL 2022 mit Docker und Podman;
   ein DeployReport prüft vor der Wiederholungspublikation den No-op-Plan und
   getrennte native Abnahmen belegen zusätzlich eine kontrollierte
-  Spaltenbreiten-Drift, ihre Erkennung und Korrektur bei erhaltenen Zieldaten
-  sowie eigenen Cleanup. Allgemeine Driftkorrektur, Migration und
-  fehlgeschlagene Releases bleiben offen;
+  Spaltenbreiten-Drift, ihre Erkennung und Korrektur bei erhaltenen Zieldaten,
+  einen No-op-Report und ein weiteres idempotentes Publish nach der Korrektur
+  sowie eigenen Cleanup. Allgemeine Driftkorrektur, Migration und fehlgeschlagene
+  Releases bleiben offen;
 - inhaltsadressierte `LAB_GENERATED`-Baselines für Single- und Multi-Output-
   Container- und run-gebundene Hyper-V-Samples einschließlich kompatibler
   Aufsetzpunktauswahl; Hyper-V exportiert nur aus der verifizierten Backup-

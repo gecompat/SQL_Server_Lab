@@ -71,11 +71,12 @@ kataloggebundene SqlPackage-Pfad extrahiert ein synthetisches Modell und
 publiziert es unter SQL 2022 getrennt mit Docker und Podman. Das wiederholte
 Publish erhielt eine vorher angelegte Zielzeile. Ein vorgelagerter
 `DeployReport` enthält nach dem ersten Publish und der Datenänderung keine
-Schemaoperationen. Eine getrennte Folgeabnahme erkennt und korrigiert eine
-kontrollierte Spaltenbreiten-Drift und erhält die Zielzeile. Versionsfolge,
-allgemeine Schema-Drift, Datenmigration, fehlgeschlagene Releases,
-SQL 2019/2025 und Windows-Toolchains sind weiterhin offen; Details und Grenzen
-stehen im [Drift-Abnahmenachweis](../Quality/SQLPACKAGE_DACPAC_DRIFT_REPORT_ACCEPTANCE_2026-11-08.md).
+Schemaoperationen. Die Folgeabnahme erkennt und korrigiert eine kontrollierte
+Spaltenbreiten-Drift; ihr erneuter Report bleibt ohne Operationen, und ein
+weiteres Publish erhält Schema und Zielzeile. Versionsfolge, allgemeine
+Schema-Drift, Datenmigration, fehlgeschlagene Releases, SQL 2019/2025 und
+Windows-Toolchains sind weiterhin offen; Details und Grenzen stehen im
+[Drift-Abnahmenachweis](../Quality/SQLPACKAGE_DACPAC_DRIFT_REPORT_ACCEPTANCE_2026-11-08.md).
 
 Die additive Gruppen-Registry, Run-Zuordnung und gemeinsame Lifecycle-Nachfrage
 sind implementiert. Die erste Linked-Server-Container-Lane bestand am
