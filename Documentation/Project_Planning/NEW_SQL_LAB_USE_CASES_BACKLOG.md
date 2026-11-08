@@ -69,10 +69,12 @@ Ein Kandidat erhält eine hohe Priorität, wenn er:
 Das P1-Schema-Deployment-Lab hat seinen ersten nativen DACPAC-Slice: Der
 kataloggebundene SqlPackage-Pfad extrahiert ein synthetisches Modell und
 publiziert es unter SQL 2022 getrennt mit Docker und Podman. Das wiederholte
-Publish erhielt eine vorher angelegte Zielzeile. Versionsfolge, Drift,
+Publish erhielt eine vorher angelegte Zielzeile. Ein vorgelagerter
+`DeployReport` enthält nach dem ersten Publish und der Datenänderung keine
+Schemaoperationen. Versionsfolge, echte Schema-Drift und ihre Korrektur,
 Datenmigration, fehlgeschlagene Releases, SQL 2019/2025 und Windows-Toolchains
 sind weiterhin offen; Details und Grenzen stehen im
-[DACPAC-Abnahmenachweis](../Quality/SQLPACKAGE_DACPAC_PUBLISH_ACCEPTANCE_2026-11-08.md).
+[DeployReport-Abnahmenachweis](../Quality/SQLPACKAGE_DACPAC_DEPLOY_REPORT_ACCEPTANCE_2026-11-08.md).
 
 Die additive Gruppen-Registry, Run-Zuordnung und gemeinsame Lifecycle-Nachfrage
 sind implementiert. Die erste Linked-Server-Container-Lane bestand am

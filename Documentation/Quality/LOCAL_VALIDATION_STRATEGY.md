@@ -4823,6 +4823,13 @@ SQL 2022. Docker und Podman bestanden getrennt je 36 Assertions einschließlich
 zweitem Publish, erhaltener Zielzeile und eigenem Run-/Image-Cleanup. Das ist
 kein Nachweis für Drift-, Migrations- oder Release-Recovery-Verhalten.
 
+Der [DeployReport-Folgecheck vom 2026-11-08](SQLPACKAGE_DACPAC_DEPLOY_REPORT_ACCEPTANCE_2026-11-08.md)
+ergänzt den Lauf um je fünf Assertions pro Provider: gültiger XML-Report, keine
+geplanten Schemaoperationen nach dem ersten Publish und der synthetischen
+Datenänderung sowie Entfernung der temporären Berichtsdatei aus Host und Run.
+Docker und Podman bestanden getrennt mit je 41 Assertions. Das qualifiziert
+keine Driftkorrektur oder fehlgeschlagene Release-Recovery.
+
 ```powershell
 .\Tests\Static\Invoke-SampleHandlerChecks.ps1
 .\Tests\Static\Invoke-SoftwareCatalogChecks.ps1
