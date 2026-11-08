@@ -2929,9 +2929,15 @@ mit `Invoke-SqlVersionUpgradeScenarioChecks.ps1` und
 die echten Kontrollflüsse, Disk-State-Operationssuche und eigene Child-Prozesse;
 SQL-/Providergrenzen sind synthetisch. Anschließend wählen tatsächliche geänderte
 und unversionierte Pfade über `Get-CiTestSelection.ps1` die betroffenen Checks.
+Die Referenz erfasst jetzt zusätzlich fünf markierte Ausführungen je Zielphase
+und liest Query-Store-Plananzahl sowie gewichtete mittlere Dauer aus. Die
+synthetische Suite validiert fehlende Zustände und ungültige Metrik-Receipts;
+SQL-Ausführung bleibt ein Runtime-Nachweis.
 Die native Abnahme erfolgt getrennt mit
 `Invoke-SqlVersionUpgradeAcceptance.ps1 -Provider docker` und `-Provider podman`.
-Beide Referenzläufe bestanden am 2026-09-21 auf `46340200`; der unabhängige
+Die historischen Referenzläufe bestanden am 2026-09-21 auf `46340200` und
+enthalten diese Query-Store-Ergänzung nicht; Docker und Podman benötigen einen
+neuen getrennten Lauf am aktualisierten Stand. Der unabhängige
 Nachlauf bestätigte je Provider zwei entfernte Own-Runs und keine Runtime-Residuen.
 CI-Hooks verwenden den vorhandenen Runtime-Lock. Die privaten temporären
 Evidence-Wurzeln bleiben gemäß Runnervertrag erhalten; Runtime-Cleanup belegt

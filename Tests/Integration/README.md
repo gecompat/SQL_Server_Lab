@@ -58,7 +58,10 @@ opt-in und benötigt ausdrücklich freigegebene lokale Pfade.
 `Invoke-SqlVersionUpgradeAcceptance.ps1 -Provider docker` beziehungsweise
 `-Provider podman` erzeugt zwei neue eigene Runs, überträgt eine feste synthetische
 Datenbank über öffentliche Backup-/Restore-Bibliotheksbefehle und prüft die
-Kompatibilitätsphasen 160 und 170 getrennt. Bounded Child-Supervision und
+Kompatibilitätsphasen 160 und 170 getrennt. Die Ziel-Datenbank erfasst für eine
+markierte Count-Abfrage Query-Store-Ausführungen, Plananzahl und gewichtete
+mittlere Dauer je Phase; die Differenz ist beobachtend und hat keinen
+Performance-Grenzwert. Bounded Child-Supervision und
 operationsgebundenes Cleanup gehören zum Test. Die getrennten Docker-/Podman-
 Referenzläufe bestanden am 2026-09-21 auf `46340200`; Runtime-Cleanup bestätigte
 je Provider zwei entfernte Own-Runs und keine Runtime-Residuen. Ablauf, lokale

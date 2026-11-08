@@ -718,7 +718,11 @@ Die getrennten nativen Docker-/Podman-Referenzläufe bestanden am 2026-09-21 auf
 Own-Runs und keine Runtime-Residuen. Die private temporäre Evidence-Wurzel
 bleibt gemäß Runnervertrag erhalten, daher ist kein vollständiges Löschen aller
 temporären Dateien behauptet. Offline-Mocks beweisen weiterhin weder SQL-Ausführung
-noch Providerparität. Weitere Versionspaare, Instanz-/Serverobjektmigration,
+noch Providerparität. Die aktuelle Query-Store-Ergänzung ist lokal synthetisch
+prüfbar; native Query-Store-Receipts auf dem aktualisierten Stand benötigen
+noch getrennte Docker-/Podman-Läufe. Ihre kleinen synthetischen Messungen sind
+keine Performance-Schwelle oder allgemeine Planregression. Weitere Versionspaare,
+Instanz-/Serverobjektmigration,
 TDE/FILESTREAM und Hyper-V sind nicht Gegenstand dieser Referenz.
 
 Der private CORE-102-[Instanzentscheid](../Architecture/INSTANCE_CAPABILITY_ASSESSMENT.md)

@@ -504,10 +504,16 @@ Die feste [SQL-Version-Upgrade-Referenz](../Documentation/Quality/SQL_VERSION_UP
 überträgt eine eigene synthetische SQL-2022-Datenbank über die öffentliche
 Backup-Bibliothek auf einen neuen SQL-2025-Container. Compatibility Level 160
 bleibt zunächst erhalten; der Wechsel auf 170 wird separat funktional geprüft.
+Die aktuelle Ergänzung zeichnet Query-Store-Ausführungen sowie Plan- und
+Dauermetriken derselben markierten Abfrage bei Ziellevel 160 und 170 auf. Diese
+kleine Beobachtung hat keinen Performance-Grenzwert und ersetzt keine
+Anwendungs-/Planregression.
 Die getrennten nativen Docker-/Podman-Referenzläufe bestanden am 2026-09-21 auf
 `46340200` mit eigener Operation-/Runtimebindung und Runtime-Cleanup. Die
-beobachteten Restore-Dauern sind kein Performance-Benchmark; allgemeine
-Migration bleibt unverändert.
+damaligen Läufe enthalten die neue Query-Store-Aufnahme nicht; dafür ist nach
+der Änderung ein neuer Provider-Nachweis erforderlich. Restore- und Query-Store-
+Dauern sind Beobachtungen, keine Performance-Benchmarks; allgemeine Migration
+bleibt unverändert.
 ## 1. Ziel
 
 Die [Sitzungsrichtlinie](../Documentation/Quality/COST_EFFICIENT_DEVELOPMENT.md)

@@ -30,6 +30,13 @@ if (-not $CleanupOnly) {
         $observed[0].PreservedCompatibility -ne 160 -or $observed[0].ChangedCompatibility -ne 170) {
         throw 'SQL_UPGRADE_SQL_RECEIPT_INVALID'
     }
+    $queryStore=$observed[0].QueryStore
+    if (-not $queryStore -or $queryStore.Assessment -cne 'OBSERVED_ONLY_NO_PERFORMANCE_THRESHOLD' -or
+        $queryStore.SourceBaseline.Status -cne 'OBSERVED' -or $queryStore.SourceBaseline.Marker -cne ($OperationId+'_SOURCE_COMPAT160') -or
+        $queryStore.TargetCompatibility160.Status -cne 'OBSERVED' -or $queryStore.TargetCompatibility160.Marker -cne ($OperationId+'_TARGET_COMPAT160') -or
+        $queryStore.TargetCompatibility170.Status -cne 'OBSERVED' -or $queryStore.TargetCompatibility170.Marker -cne ($OperationId+'_TARGET_COMPAT170')) {
+        throw 'SQL_UPGRADE_SQL_RECEIPT_INVALID'
+    }
     $receipt=[ordered]@{
         OperationId=$OperationId; Provider=$Provider; Status='VERIFIED'
         SourceMajor=16; TargetMajor=17; PreservedCompatibility=160; ChangedCompatibility=170
@@ -40,5 +47,31 @@ if (-not $CleanupOnly) {
         if ([double]::IsNaN($value) -or [double]::IsInfinity($value) -or $value -lt 0) { throw 'SQL_UPGRADE_SQL_RECEIPT_INVALID' }
         $receipt[$field]=$value
     }
-    $receipt | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $EvidenceRoot 'sql-receipt.json')
+    $queryStoreReceipt=[ordered]@{Assessment='OBSERVED_ONLY_NO_PERFORMANCE_THRESHOLD';AverageDurationDeltaMicroseconds=$null;AverageDurationDeltaPercent=$null}
+    foreach ($entry in @(
+        @{Name='SourceBaseline';ExpectedMarker=($OperationId+'_SOURCE_COMPAT160')},
+        @{Name='TargetCompatibility160';ExpectedMarker=($OperationId+'_TARGET_COMPAT160')},
+        @{Name='TargetCompatibility170';ExpectedMarker=($OperationId+'_TARGET_COMPAT170')}
+    )) {
+        $sample=$queryStore.($entry.Name)
+        $average=[double]$sample.AverageDurationMicroseconds
+        if ($sample.Marker -cne $entry.ExpectedMarker -or $sample.QueryHash -cnotmatch '^[a-f0-9]{16,64}$' -or
+            [long]$sample.ExecutionCount -lt 5 -or [int]$sample.PlanCount -lt 1 -or
+            [double]::IsNaN($average) -or [double]::IsInfinity($average) -or $average -lt 0) { throw 'SQL_UPGRADE_SQL_RECEIPT_INVALID' }
+        $queryStoreReceipt[$entry.Name]=[ordered]@{
+            Status='OBSERVED';Marker=$entry.ExpectedMarker;QueryHash=[string]$sample.QueryHash
+            ExecutionCount=[long]$sample.ExecutionCount;AverageDurationMicroseconds=$average;PlanCount=[int]$sample.PlanCount
+        }
+    }
+    $delta=[double]$queryStore.AverageDurationDeltaMicroseconds
+    if ([double]::IsNaN($delta) -or [double]::IsInfinity($delta)) { throw 'SQL_UPGRADE_SQL_RECEIPT_INVALID' }
+    $queryStoreReceipt['AverageDurationDeltaMicroseconds']=$delta
+    $percent=$queryStore.AverageDurationDeltaPercent
+    if ($null -ne $percent) {
+        $percent=[double]$percent
+        if ([double]::IsNaN($percent) -or [double]::IsInfinity($percent)) { throw 'SQL_UPGRADE_SQL_RECEIPT_INVALID' }
+    }
+    $queryStoreReceipt['AverageDurationDeltaPercent']=$percent
+    $receipt['QueryStore']=$queryStoreReceipt
+    $receipt | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $EvidenceRoot 'sql-receipt.json')
 }

@@ -80,19 +80,25 @@ BackupSetId-Transfer, erhaltene Kompatibilität 160 vor separatem Wechsel auf 17
 feste funktionale Prüfungen, beobachtete Dauern und operationsgebundenes Cleanup.
 Die getrennte native Docker-/Podman-Abnahme bestand am 2026-09-21 auf `46340200`;
 der unabhängige Nachlauf bestätigte je Provider zwei entfernte Own-Runs und keine
-Runtime-Residuen. Query-Store-Auswertung, Anwendungs-/Planregressionen und weitere
-Versionspaare dieser breiteren Planung sind damit noch nicht umgesetzt.
+Runtime-Residuen. Die Referenz ergänzt jetzt eine explizite Query-Store-Aufnahme
+für dieselbe markierte Count-Abfrage am Ziel bei Compatibility Level 160 und 170;
+der Receipt meldet Ausführungszahl, Plananzahl und beobachtete Dauerdifferenz
+ohne Performance-Schwelle. Die synthetischen Szenario- und Supervisorchecks
+bestanden am 2026-11-08; für Query-Store-Evidence am aktualisierten Stand sind
+noch getrennte Docker-/Podman-Läufe erforderlich. Anwendungs-/Planregressionen
+und weitere Versionspaare bleiben offen.
 
 Dieses Szenario besitzt den höchsten unmittelbaren Nutzen und verwendet bereits
 vorhandene SQL-Versionen, Restore, Query Store, Workloads und Provider. Der
-erste Slice soll:
+implementierte erste Slice:
 
 1. dieselbe synthetische Datenbank unter einer Quell- und Zielversion starten;
 2. funktionale Vorher-/Nachher-Assertions ausführen;
 3. die Datenbank zunächst mit unverändertem Compatibility Level übernehmen;
 4. eine Query-Store-Baseline erfassen;
-5. erst danach das Ziel-Compatibility-Level aktivieren und Regressionen
-   vergleichen;
+5. erst danach das Ziel-Compatibility-Level aktivieren und dieselbe markierte
+   Abfrage erneut ausführen; die gemessene Dauerdifferenz wird ohne erfundene
+   Performance-Schwelle ausgewiesen;
 6. Ergebnis, Abweichungen und Cleanup maschinenlesbar berichten.
 
 Ein In-place-Upgrade ist eine spätere, Windows-/Hyper-V-spezifische Lane und
