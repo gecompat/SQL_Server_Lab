@@ -66,6 +66,14 @@ Ein Kandidat erhält eine hohe Priorität, wenn er:
 | P3 | SQL-2025-JSON-, REST- und Hybrid-Search-Lab | Erprobt nativen JSON-Datentyp, JSON-Index, Regex/Fuzzy-Funktionen, externe REST-Aufrufe und optional die Kombination relationaler, JSON- und Vector-Suche | SQL Server 2025 plus lokaler HTTPS-Mock-Service; Vector-Lane referenziert den bestehenden Vector-Backlog | SQL-Kern unter Docker/Podman/Hyper-V; Preview-Funktionen immer getrennt ausgewiesen |
 | P3 | Linked-Server-, Collation- und Distributed-Transaction-Lab | Reproduziert Cross-Instance-Abfragen, Collation-Konflikte, Delegation und Transaktionsgrenzen, die in Einzelinstanz-Labs nicht sichtbar werden | zwei separat erstellte SQL-Umgebungen und ein Testclient; Umgebungen können nachträglich mehreren Lab-Gruppen zugeordnet werden. Gruppen sind Many-to-many-Referenzen auf unabhängige Runs: Start dedupliziert gemeinsame Mitglieder, und Stop einer Gruppe beendet keinen Run, den eine andere aktive Gruppe weiter benötigt. Entfernen einer Gruppe löst nur Zuordnungen und gruppeneigene Konfiguration; Run-Remove bleibt eine separate Aktion. Optional Domain Controller und MSDTC | Container für einfache Linked-Server-Fälle; Hyper-V/Windows für Kerberos und MSDTC |
 
+Das P1-Schema-Deployment-Lab hat seinen ersten nativen DACPAC-Slice: Der
+kataloggebundene SqlPackage-Pfad extrahiert ein synthetisches Modell und
+publiziert es unter SQL 2022 getrennt mit Docker und Podman. Das wiederholte
+Publish erhielt eine vorher angelegte Zielzeile. Versionsfolge, Drift,
+Datenmigration, fehlgeschlagene Releases, SQL 2019/2025 und Windows-Toolchains
+sind weiterhin offen; Details und Grenzen stehen im
+[DACPAC-Abnahmenachweis](../Quality/SQLPACKAGE_DACPAC_PUBLISH_ACCEPTANCE_2026-11-08.md).
+
 Die additive Gruppen-Registry, Run-Zuordnung und gemeinsame Lifecycle-Nachfrage
 sind implementiert. Die erste Linked-Server-Container-Lane bestand am
 2026-11-08 getrennt unter Docker und Podman mit SQL Server 2025 CU9; zwei

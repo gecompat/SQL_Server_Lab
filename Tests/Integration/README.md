@@ -186,8 +186,10 @@ Bei Abbruch bleibt sie liegen → .gitignore verhindert Commit.
 ## Invoke-ContainerToolAcceptance.ps1
 
 Der Docker-/Podman-Nachweis provisioniert einen isolierten SQL-2022-Run mit
-kataloggebundenem `SqlPackage`, prüft dessen BACPAC-Export/-Import und erzeugt
-danach ausschließlich im Test-Run eine Datenbank mit Marker. Die Quelldatenbank
+kataloggebundenem `SqlPackage`, prüft dessen BACPAC-Export/-Import und ein
+synthetisches DACPAC-Extract/Publish einschließlich wiederholtem Publish ohne
+Verlust vorhandener Zieldaten. Danach erzeugt er ausschließlich im Test-Run
+eine Datenbank mit Marker. Die Quelldatenbank
 wird sauber detachiert; ihre MDF/LDF werden als kontrollierte Testpayloads durch
 `Invoke-LabContainerAttach` wieder angehängt. Der Test verlangt `ONLINE`, den
 SQL-Inhaltsroundtrip und ein abgeschlossenes Container-Attach-Journal und
