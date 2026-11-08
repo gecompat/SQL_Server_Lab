@@ -49,6 +49,20 @@ function Get-UiEnvironmentGroupsView {
     }
 }
 
+function Get-LabEnvironmentGroupRunStateFingerprint {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$RunState)
+
+    try {
+        $json = ConvertTo-Json -InputObject $RunState -Depth 40 -Compress -ErrorAction Stop
+        $bytes = [System.Text.UTF8Encoding]::new($false).GetBytes($json)
+        return [Convert]::ToHexString([System.Security.Cryptography.SHA256]::HashData($bytes))
+    }
+    catch {
+        return $null
+    }
+}
+
 function Get-LabEnvironmentGroupRuntimeObservation {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$GroupId, [Parameter(Mandatory)][string]$RunId, [string]$StateRoot)
@@ -67,6 +81,9 @@ function Get-LabEnvironmentGroupRuntimeObservation {
     $members = @($group.members | Where-Object { [string]$_.runId -ieq $runId })
     if ($members.Count -ne 1) { throw 'ENVIRONMENT_GROUP_MEMBER_NOT_FOUND' }
     $member = $members[0]
+    $memberScopeId = [string]$member.scopeId
+    $memberConnectionInfoSha256 = [string]$member.connectionInfoSha256
+    $memberIds = @($member.instanceIds | ForEach-Object { [string]$_ } | Sort-Object)
     $observedAt = [datetime]::UtcNow.ToString('o')
     $savedState = 'UNKNOWN'
     $runtimeState = 'UNKNOWN'
@@ -77,16 +94,16 @@ function Get-LabEnvironmentGroupRuntimeObservation {
         $runs = @(Get-LabRunState -RunId $runId -StateRoot $stateRoot)
         if ($runs.Count -eq 1 -and [string]$runs[0].runId -ceq $runId) {
             $run = $runs[0]
+            $runStateFingerprint = Get-LabEnvironmentGroupRunStateFingerprint -RunState $run
             $savedState = if ([string]$run.state -in @('RUNNING', 'STOPPED')) { [string]$run.state } else { 'OTHER' }
             $connectionPath = Join-Path (Join-Path (Join-Path $stateRoot 'runs') $runId) 'connection-info.json'
-            if (([string]$run.scopeId -ceq [string]$member.scopeId) -and (Test-Path -LiteralPath $connectionPath -PathType Leaf)) {
+            if ($runStateFingerprint -and ([string]$run.scopeId -ceq $memberScopeId) -and (Test-Path -LiteralPath $connectionPath -PathType Leaf)) {
                 try {
                     $connectionBytes = [System.IO.File]::ReadAllBytes($connectionPath)
                     $connectionHash = [Convert]::ToHexString([System.Security.Cryptography.SHA256]::HashData($connectionBytes))
                     $connection = [System.Text.Encoding]::UTF8.GetString($connectionBytes) | ConvertFrom-Json -Depth 20 -ErrorAction Stop
                     $connectionIds = @($connection.instances | ForEach-Object { [string]$_.id } | Sort-Object)
-                    $memberIds = @($member.instanceIds | ForEach-Object { [string]$_ } | Sort-Object)
-                    if ($connectionHash -ceq [string]$member.connectionInfoSha256 -and (@($connectionIds) -join '|') -ceq (@($memberIds) -join '|')) {
+                    if ($connectionHash -ceq $memberConnectionInfoSha256 -and (@($connectionIds) -join '|') -ceq (@($memberIds) -join '|')) {
                         foreach ($instance in @($connection.instances | Sort-Object id)) {
                             $provider = ([string]$instance.provider).ToLowerInvariant()
                             try {
@@ -125,17 +142,17 @@ function Get-LabEnvironmentGroupRuntimeObservation {
                         else { $reconciliation = 'INDETERMINATE' }
 
                         $bindingStillCurrent = $false
+                        $runStateStillCurrent = $false
                         try {
                             $latestGroup = Get-SqlServerLabEnvironmentGroup @groupParameters
                             $latestMembers = @($latestGroup.members | Where-Object { [string]$_.runId -ieq $runId })
-                            if ($latestMembers.Count -eq 1 -and [string]$latestMembers[0].bindingStatus -ceq 'CURRENT') {
+                            if ($latestMembers.Count -eq 1) {
                                 $latestMember = $latestMembers[0]
                                 $latestRuns = @(Get-LabRunState -RunId $runId -StateRoot $stateRoot)
                                 if ($latestRuns.Count -eq 1 -and [string]$latestRuns[0].runId -ceq $runId -and
                                     [string]$latestRuns[0].scopeId -ceq [string]$run.scopeId -and
-                                    [string]$latestRuns[0].state -ceq [string]$run.state -and
-                                    [string]$latestMember.scopeId -ceq [string]$member.scopeId -and
-                                    [string]$latestMember.connectionInfoSha256 -ceq [string]$member.connectionInfoSha256 -and
+                                    [string]$latestMember.scopeId -ceq $memberScopeId -and
+                                    [string]$latestMember.connectionInfoSha256 -ceq $memberConnectionInfoSha256 -and
                                     (@($latestMember.instanceIds | ForEach-Object { [string]$_ } | Sort-Object) -join '|') -ceq (@($member.instanceIds | ForEach-Object { [string]$_ } | Sort-Object) -join '|')) {
                                     $latestBytes = [System.IO.File]::ReadAllBytes($connectionPath)
                                     $latestHash = [Convert]::ToHexString([System.Security.Cryptography.SHA256]::HashData($latestBytes))
@@ -145,6 +162,8 @@ function Get-LabEnvironmentGroupRuntimeObservation {
                                         [string]$latestConnection.runId -ieq $runId -and
                                         [string]$latestConnection.scopeId -ceq [string]$run.scopeId -and
                                         (@($latestIds) -join '|') -ceq (@($memberIds) -join '|')
+                                    $latestRunStateFingerprint = Get-LabEnvironmentGroupRunStateFingerprint -RunState (Get-LabRunState -RunId $runId -StateRoot $stateRoot)
+                                    $runStateStillCurrent = $latestRunStateFingerprint -and $latestRunStateFingerprint -ceq $runStateFingerprint
                                 }
                             }
                         }
@@ -152,6 +171,12 @@ function Get-LabEnvironmentGroupRuntimeObservation {
                         if (-not $bindingStillCurrent) {
                             $savedState = 'UNKNOWN'
                             $runtimeState = 'STALE_BINDING'
+                            $reconciliation = 'INDETERMINATE'
+                            $instanceResults = @()
+                        }
+                        elseif (-not $runStateStillCurrent) {
+                            $savedState = 'UNKNOWN'
+                            $runtimeState = 'UNKNOWN'
                             $reconciliation = 'INDETERMINATE'
                             $instanceResults = @()
                         }
