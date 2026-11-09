@@ -58,6 +58,14 @@ Allocation- und Windows-Operationsjournale sowie terminaler Run-/Runtime-Abwesen
 als unveränderlichen Tombstone markieren; es löscht keine historische Referenz,
 CA-Datei, keinen privaten Schlüssel und keinen Trust. Details und fehlgeschlossene
 Fälle stehen im [Registrywriter-Vertrag](AUTHENTICATED_TLS_REGISTRY_WRITER.md).
+Historische TLS-Labrecords `0.1` sind laut ihrem geschlossenen Format nur
+Docker zugeordnet, speichern aber keine authentisierte Bindung an die damals
+verwendete Docker-Runtime. Ein Abwesenheitscheck gegen den heute ausgewählten
+Docker-Kontext beweist daher nicht, dass der ursprüngliche Daemon die
+Containerressource nicht mehr enthält. Solche Records sperren das Retirement
+mit `TLS_AUTHORITY_USE_UNCONFIRMED`, bis eine authentisierte ursprüngliche
+Runtimebindung verfügbar ist. Run-Desired-State und Connection-Info allein
+ersetzen diese Bindung nicht.
 
 ## Frische Beobachtung und Transaktion
 

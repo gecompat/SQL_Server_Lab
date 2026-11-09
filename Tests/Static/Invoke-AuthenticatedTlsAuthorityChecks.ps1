@@ -2,7 +2,7 @@
 $ErrorActionPreference='Stop'
 $repo=(Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 foreach($name in @('DiagnosticBundleReader','StorageContract','AuthenticatedTlsRequest','AuthenticatedTlsRegistryIndex','AuthenticatedTlsRegistryPayload',
-    'AuthenticatedTlsRegistryDocument','AuthenticatedTlsRegistryRoot','AuthenticatedTlsContext','AuthenticatedTlsBackend','AuthenticatedTlsCaCandidate','AuthenticatedTlsRegistryWriter','AuthenticatedTlsAuthorityBinding','AuthenticatedTlsAuthority')){. (Join-Path $repo "Private/$name.ps1")}
+    'AuthenticatedTlsRegistryDocument','AuthenticatedTlsRegistryRoot','AuthenticatedTlsContext','AuthenticatedTlsBackend','AuthenticatedTlsCaCandidate','AuthenticatedTlsRegistryWriter','AuthenticatedTlsAuthorityBinding','AuthenticatedTlsLab','AuthenticatedTlsAuthority')){. (Join-Path $repo "Private/$name.ps1")}
 . (Join-Path $PSScriptRoot '../Common/CheckResult.ps1')
 $script:authorityFixtureRuntimeExists=$false
 $script:authorityFixtureRuntimeByTarget=@{}
@@ -114,6 +114,40 @@ try{
         $labsRoot=Join-Path $root 'State/authenticated-tls-labs'
         $operationsRoot=Join-Path $root 'State/authenticated-tls-windows-operations'
         $null=New-Item -ItemType Directory -Path $labsRoot,$operationsRoot -Force
+        $legacyAudit='12121212-1212-4212-8212-121212121212';$legacyRun='13131313-1313-4313-8313-131313131313';$legacyScope='14141414-1414-4414-8414-141414141414'
+        $legacyAllocation=Join-Path $labsRoot $legacyAudit;Initialize-LabTlsCaPrivateDirectory $legacyAllocation $binding.Native.UserSid -NewOnly
+        $legacyContainer=('e'*64);$legacyContainerName='fixture-legacy-docker'
+        $legacyRecord=[ordered]@{ContractVersion='SqlServerLab.AuthenticatedTlsLab/0.1';AuditId=$legacyAudit;DataRoot=$root;ControllerId=$controller;LocationId=$location;
+            AuthorityRef=$binding.Authority.Ref;ClientRef=$binding.Client.Ref;RegistrySha256=$binding.RegistrySha256;RunId=$legacyRun;InstanceId='primary';ScopeId=$legacyScope;
+            ContainerId=$legacyContainer;ImageId=('f'*64);Port=14333;CertificateSha256=('a'*64);CertificateDer='AQID';NotAfterUtc=[DateTimeOffset]::UtcNow.AddDays(1).ToString('o');
+            StartedAt=[DateTimeOffset]::UtcNow.ToString('o');ServerPath='synthetic-server'}
+        Write-LabTlsCaPrivateFile (Join-Path $legacyAllocation 'authenticated-tls-lab.json') $binding.Native.UserSid (ConvertTo-LabTlsRegistryWriterBytes $legacyRecord)
+        Write-LabTlsCaPrivateFile (Join-Path $legacyAllocation 'intent.json') $binding.Native.UserSid (ConvertTo-LabTlsRegistryWriterBytes @{AuditId=$legacyAudit;Status='OWNED_CREATE_PENDING';Cleanup='Remove exact owned run; retain recovery if unconfirmed'})
+        Write-LabTlsCaPrivateFile (Join-Path $legacyAllocation 'target-intent.json') $binding.Native.UserSid (ConvertTo-LabTlsRegistryWriterBytes $legacyRecord)
+        $legacyRunDir=Join-Path $legacyAllocation ('runs/'+$legacyRun);Initialize-LabTlsCaPrivateDirectory $legacyRunDir $binding.Native.UserSid -NewOnly
+        Write-LabTlsCaPrivateFile (Join-Path $legacyRunDir 'run-state.json') $binding.Native.UserSid (ConvertTo-LabTlsRegistryWriterBytes @{
+            contractVersion='SqlServerLab.RunState/1.0';runId=$legacyRun;scopeId=$legacyScope;state='REMOVED';metadata=@{desiredState=@{Instances=@(@{Id='primary';Provider='docker'})}}})
+        $legacyConnection=@{runId=$legacyRun;scopeId=$legacyScope;instances=@(@{id='primary';provider='docker';containerId=$legacyContainer;containerName=$legacyContainerName})}
+        $legacyCleanup=[ordered]@{runId=$legacyRun;scopeId=$legacyScope;status='COMPLETED';steps=@(@{resourceType='container';provider='docker';action='remove';state='COMPLETED';resourceId=$legacyContainerName})}
+        Write-LabTlsCaPrivateFile (Join-Path $legacyRunDir 'connection-info.json') $binding.Native.UserSid (ConvertTo-LabTlsRegistryWriterBytes $legacyConnection)
+        Write-LabTlsCaPrivateFile (Join-Path $legacyRunDir 'cleanup-plan.json') $binding.Native.UserSid (ConvertTo-LabTlsRegistryWriterBytes $legacyCleanup)
+        $writerBinding=Get-LabTlsRegistryWriterBinding $root $controller $location;$writerState=Read-LabTlsRegistryWriterState $writerBinding
+        $legacyUseBlocked=$false
+        try{$null=Assert-LabTlsAuthorityRetirementUse $writerBinding $writerState $binding.Authority.Ref}
+        catch{$legacyUseBlocked=$_.Exception.Message -ceq 'TLS_AUTHORITY_USE_UNCONFIRMED'}
+        Add-CheckResult 'Legacy 0.1 Docker record blocks retirement without an authenticated original runtime binding' $legacyUseBlocked
+        $legacyRuntimeTargets=@{};$legacyRuntimeTargets[$legacyContainer]=$true;$legacyRuntimeTargets[$legacyContainerName]=$true
+        $script:authorityFixtureRuntimeByTarget=$legacyRuntimeTargets;$legacyLiveBlocked=$false
+        try{$null=Assert-LabTlsAuthorityRetirementUse $writerBinding $writerState $binding.Authority.Ref}
+        catch{$legacyLiveBlocked=$_.Exception.Message -ceq 'TLS_AUTHORITY_USE_UNCONFIRMED'}
+        Add-CheckResult 'Legacy 0.1 record remains blocked regardless of the currently selected Docker context' $legacyLiveBlocked
+        $script:authorityFixtureRuntimeByTarget=@{}
+        # This synthetic legacy allocation is deliberately unresolved; remove
+        # only this test-created fixture before later success-path checks.
+        $legacyAllocationFull=[IO.Path]::GetFullPath($legacyAllocation)
+        $labsRootFull=[IO.Path]::GetFullPath($labsRoot).TrimEnd([IO.Path]::DirectorySeparatorChar)+[IO.Path]::DirectorySeparatorChar
+        if(-not $legacyAllocationFull.StartsWith($labsRootFull,[StringComparison]::OrdinalIgnoreCase)){throw 'TLS_AUTHORITY_TEST_FIXTURE_PATH_INVALID'}
+        Remove-Item -LiteralPath $legacyAllocationFull -Recurse -Force
         $unknownOperation=Join-Path $operationsRoot '33333333-3333-4333-8333-333333333333'
         $null=New-Item -ItemType Directory -Path $unknownOperation
         [IO.File]::SetAttributes($unknownOperation,[IO.FileAttributes]::Hidden)

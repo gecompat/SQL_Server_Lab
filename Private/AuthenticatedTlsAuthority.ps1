@@ -349,7 +349,7 @@ function Assert-LabTlsAuthorityRetirementUse {
                 $sameRegistry=[string]::Equals($record.ControllerId,$Binding.Root.ControllerId,[StringComparison]::Ordinal) -and
                     [string]::Equals($record.LocationId,$Binding.Root.LocationId,[StringComparison]::Ordinal)
                 if(-not $sameRoot -or -not $sameRegistry){throw 'TLS_AUTHORITY_USE_UNCONFIRMED'}
-                if($record.ContractVersion -cnotin @('SqlServerLab.AuthenticatedTlsLab/0.2','SqlServerLab.AuthenticatedTlsLab/0.3','SqlServerLab.AuthenticatedTlsLab/0.4')){throw 'TLS_AUTHORITY_USE_UNCONFIRMED'}
+                if($record.ContractVersion -cnotin @('SqlServerLab.AuthenticatedTlsLab/0.1','SqlServerLab.AuthenticatedTlsLab/0.2','SqlServerLab.AuthenticatedTlsLab/0.3','SqlServerLab.AuthenticatedTlsLab/0.4')){throw 'TLS_AUTHORITY_USE_UNCONFIRMED'}
                 foreach($field in @('ContractVersion','AuditId','DataRoot','ControllerId','LocationId','AuthorityRef','ClientRef','RegistrySha256','RunId','InstanceId')){
                     if(-not $targetIntent.PSObject.Properties[$field] -or $targetIntent.$field -cne $record.$field){throw 'TLS_AUTHORITY_USE_UNCONFIRMED'}
                 }
@@ -360,9 +360,19 @@ function Assert-LabTlsAuthorityRetirementUse {
                 if(-not (Test-LabTlsRequestReference $record.AuditId) -or -not (Test-LabTlsRequestReference $record.RunId)){throw 'TLS_AUTHORITY_USE_UNCONFIRMED'}
                 $expectedRoot=[IO.Path]::GetFullPath((Join-Path $labsRoot $record.AuditId))
                 if(-not [string]::Equals([IO.Path]::GetFullPath($allocation.FullName),$expectedRoot,[StringComparison]::OrdinalIgnoreCase)){throw 'TLS_AUTHORITY_USE_UNCONFIRMED'}
-        $runtimeId=if($record.Provider -cin @('docker','podman')){$record.ContainerId}elseif($record.Provider -ceq 'hyperv'){$record.VmId}else{$null}
+        # The closed 0.1 record identifies Docker, but it predates durable
+        # runtime custody. A status query against today's Docker context cannot
+        # prove absence on the daemon that originally owned the container.
+        # Keep this authority in use-unconfirmed until an authenticated,
+        # original runtime binding is available; never substitute current
+        # provider selection for historical custody.
+        if($record.ContractVersion -ceq 'SqlServerLab.AuthenticatedTlsLab/0.1'){
+            throw 'TLS_AUTHORITY_USE_UNCONFIRMED'
+        }
+        $provider=Get-LabTlsBindingProvider $record
+        $runtimeId=if($provider -cin @('docker','podman')){$record.ContainerId}elseif($provider -ceq 'hyperv'){$record.VmId}else{$null}
         if($runtimeId -isnot [string] -or -not $runtimeId){throw 'TLS_AUTHORITY_USE_UNCONFIRMED'}
-        $expectedTarget=[pscustomobject]@{ScopeId=[string]$record.ScopeId;InstanceId=[string]$record.InstanceId;Provider=[string]$record.Provider;RuntimeId=$runtimeId}
+        $expectedTarget=[pscustomobject]@{ScopeId=[string]$record.ScopeId;InstanceId=[string]$record.InstanceId;Provider=$provider;RuntimeId=$runtimeId}
         $null=Assert-LabTlsAuthorityRunRetiredAndAbsent $record.RunId $expectedRoot $expectedTarget
             }catch{
                 if($_.Exception.Message -cmatch '\ATLS_AUTHORITY_(?:IN_USE|USE_UNCONFIRMED)\z'){throw}

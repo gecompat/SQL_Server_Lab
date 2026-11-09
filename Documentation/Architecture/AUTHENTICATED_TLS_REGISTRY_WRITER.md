@@ -16,9 +16,14 @@ Authority nur nach geschlossenem Nutzungsnachweis als unveränderlichen
 `RETIRED`-Tombstone fortschreiben. Sie entfernt weder Payloads noch historische
 Referenzen, CA-Schlüssel oder Trust. Unklare Allocation-/Windows-Journale,
 nicht terminal entfernte Runs, erreichbare Container oder VMs und ein geänderter
-Registryhead sperren die Mutation. Generische Updates und Recovery dürfen keine
-neuen Tombstones erzeugen; eine Recovery eines bereits installierten Retirement-
-Kandidaten wiederholt denselben Nutzungsnachweis. Die bestehende CA wird durch
+Registryhead sperren die Mutation. Alte `AuthenticatedTlsLab/0.1`-Records sind
+Docker-only, binden aber die ursprüngliche Docker-Runtime nicht dauerhaft.
+Deshalb bleibt ihr Retirement mit `TLS_AUTHORITY_USE_UNCONFIRMED` gesperrt;
+Run-Desired-State und Connection-Info allein beweisen keine Abwesenheit auf dem
+ursprünglichen Daemon.
+Generische Updates und Recovery dürfen keine neuen Tombstones erzeugen; eine
+Recovery eines bereits installierten Retirement-Kandidaten wiederholt denselben
+Nutzungsnachweis. Die bestehende CA wird durch
 diese Implementierung weder adoptiert noch qualifiziert.
 Keine öffentliche API, Keyöffnung, Zertifikats-, Truststore-, SQL- oder
 Provideraktion entsteht. `QualificationStatus=NOT_EXECUTED`, `Ready=false`
