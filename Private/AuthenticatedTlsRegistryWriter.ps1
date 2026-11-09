@@ -109,6 +109,7 @@ function Read-LabTlsRegistryWriterState {
     $terminalNames=@('ContractVersion','TransactionId','RegistryId','SourceSha256','CandidateSha256','Outcome')
     $intents=[Collections.Generic.List[object]]::new();$committed=[Collections.Generic.Dictionary[string,object]]::new([StringComparer]::Ordinal)
     $pending=[Collections.Generic.List[object]]::new();$reserved=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    $reservedTerminalHistory=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
     # Enumeration ist begrenzt und verwirft unbekannte Namen/Verzeichnisse.
     $entries=[Collections.Generic.List[object]]::new()
     foreach($entry in [IO.Directory]::EnumerateFileSystemEntries($dir)){
@@ -139,8 +140,6 @@ function Read-LabTlsRegistryWriterState {
             $source=Read-LabTlsCaPrivateFile $backup $sid 4194304
             if((Get-LabTlsCaByteDigest $source) -cne $intent.SourceSha256 -or -not (Read-LabAuthenticatedTlsRegistryDocument $source).Success){throw 'TLS_REGISTRY_SOURCE_INVALID'}
         }
-        foreach($record in $parsed.Value.RegistryDocument.Index.Records){$null=$reserved.Add($record.Ref)}
-        foreach($payload in $parsed.Value.RegistryDocument.Payloads){if($payload.Kind -ceq 'AUTHORITY'){$null=$reserved.Add($payload.TrustScopeRef)}}
         # Alte Journale behalten nur ihre Bindungen im Arbeitsspeicher.
         # Vollstaendige Base64-/Payloadkopien je Revision waeren unnoetig kumulativ.
         $intent.PSObject.Properties.Remove('CandidateBase64')
@@ -158,6 +157,16 @@ function Read-LabTlsRegistryWriterState {
             }
         }
         $intents.Add($item)
+        foreach($record in $parsed.Value.RegistryDocument.Index.Records){
+            $null=$reserved.Add($record.Ref)
+            if($null -ne $item.Terminal){$null=$reservedTerminalHistory.Add($record.Ref)}
+        }
+        foreach($payload in $parsed.Value.RegistryDocument.Payloads){
+            if($payload.Kind -ceq 'AUTHORITY'){
+                $null=$reserved.Add($payload.TrustScopeRef)
+                if($null -ne $item.Terminal){$null=$reservedTerminalHistory.Add($payload.TrustScopeRef)}
+            }
+        }
         if($item.Terminal -ceq 'COMMITTED'){$committed.Add($intent.SourceSha256,$item)}
         elseif($null -eq $item.Terminal){$pending.Add($item)}
     }
@@ -190,7 +199,43 @@ function Read-LabTlsRegistryWriterState {
         if($p.SourceSha256 -cne $head){throw 'TLS_REGISTRY_HISTORY_INVALID'}
         $status=if($digest -ceq $p.SourceSha256){'SOURCE_UNCHANGED'}elseif($digest -ceq $p.CandidateSha256){'CANDIDATE_INSTALLED'}else{'UNKNOWN'}
     }elseif($digest -cne $head -or $digest -ceq 'ABSENT'){throw 'TLS_REGISTRY_RECOVERY_REQUIRED'}
-    return [pscustomobject]@{Owner=$owner;Status=$status;Bytes=$bytes;Digest=$digest;Head=$head;Intents=$intents;Pending=$pending;Reserved=$reserved}
+    return [pscustomobject]@{Owner=$owner;Status=$status;Bytes=$bytes;Digest=$digest;Head=$head;Intents=$intents;Pending=$pending;
+        Reserved=$reserved;ReservedTerminalHistory=$reservedTerminalHistory}
+}
+
+function Get-LabTlsRegistrySnapshotAtDigest {
+    param([object]$Binding,[object]$State,[string]$ExpectedDigest)
+    if($ExpectedDigest -cnotmatch '\A[0-9a-f]{64}\z'){throw 'TLS_REGISTRY_HISTORY_REFERENCE_INVALID'}
+    if($State.Status -cne 'COMMITTED' -or $State.Pending.Count -ne 0){throw 'TLS_REGISTRY_RECOVERY_REQUIRED'}
+    if($State.Digest -ceq $ExpectedDigest){return ,$State.Bytes}
+    $matches=[Collections.Generic.List[byte[]]]::new()
+    foreach($item in $State.Intents){
+        if($item.Terminal -cne 'COMMITTED'){continue}
+        $intent=$item.Intent
+        if($intent.SourceSha256 -ceq $ExpectedDigest){
+            $sourcePath=Join-Path $Binding.Directory ($intent.TransactionId+'.source.json')
+            if(-not (Test-Path -LiteralPath $sourcePath -PathType Leaf)){continue}
+            $bytes=Read-LabTlsCaPrivateFile $sourcePath $Binding.Native.UserSid 4194304
+            if((Get-LabTlsCaByteDigest $bytes) -cne $ExpectedDigest -or -not (Read-LabAuthenticatedTlsRegistryDocument $bytes).Success){throw 'TLS_REGISTRY_HISTORY_INVALID'}
+            $matches.Add($bytes)
+        }
+        if($intent.CandidateSha256 -ceq $ExpectedDigest){
+            $intentPath=Join-Path $Binding.Directory ($intent.TransactionId+'.intent.json')
+            $full=Read-LabTlsRegistryWriterRecord $intentPath $Binding.Native.UserSid @('ContractVersion','TransactionId','RegistryId','RootDigest','ActorDigest','SourceSha256','CandidateSha256','CandidateBase64') 5611520
+            if($full.ContractVersion -cne 'SqlServerLab.TlsRegistryIntent/0.1' -or $full.TransactionId -cne $intent.TransactionId -or
+                $full.RegistryId -cne $State.Owner.RegistryId -or $full.RootDigest -cne $State.Owner.RootDigest -or
+                $full.ActorDigest -cne $State.Owner.ActorDigest -or $full.CandidateSha256 -cne $ExpectedDigest){throw 'TLS_REGISTRY_HISTORY_INVALID'}
+            $bytes=[Convert]::FromBase64String($full.CandidateBase64)
+            if((Get-LabTlsCaByteDigest $bytes) -cne $ExpectedDigest -or -not (Read-LabAuthenticatedTlsRegistryDocument $bytes).Success){throw 'TLS_REGISTRY_HISTORY_INVALID'}
+            $matches.Add($bytes)
+        }
+    }
+    if($matches.Count -lt 1){throw 'TLS_REGISTRY_HISTORY_UNAVAILABLE'}
+    $canonical=[Convert]::ToBase64String($matches[0])
+    foreach($bytes in $matches){
+        if((Get-LabTlsCaByteDigest $bytes) -cne $ExpectedDigest -or [Convert]::ToBase64String($bytes) -cne $canonical){throw 'TLS_REGISTRY_HISTORY_INVALID'}
+    }
+    return ,$matches[0]
 }
 
 function Write-LabTlsRegistryTerminal {
@@ -206,9 +251,44 @@ function Write-LabTlsRegistryTerminal {
 }
 
 function Assert-LabTlsRegistryFreshPayloads {
-    param([object]$Current,[object]$Candidate,[object]$Binding,[object]$Reserved,[string]$RetirementAuthorityRef,[switch]$AllowPendingIntentReferences)
+    param([object]$Current,[object]$Candidate,[object]$Binding,[object]$Reserved,[string]$RetirementAuthorityRef,[switch]$AllowPendingIntentReferences,[switch]$AppendOnly)
     $old=[Collections.Generic.Dictionary[string,object]]::new([StringComparer]::Ordinal)
     foreach($p in $Current.Payloads){$old.Add($p.Ref,$p)}
+    if($AppendOnly){
+        $currentRecords=[Collections.Generic.Dictionary[string,object]]::new([StringComparer]::Ordinal)
+        $candidateRecords=[Collections.Generic.Dictionary[string,object]]::new([StringComparer]::Ordinal)
+        foreach($record in $Current.Index.Records){$currentRecords.Add($record.Ref,$record)}
+        foreach($record in $Candidate.Index.Records){$candidateRecords.Add($record.Ref,$record)}
+        foreach($ref in $currentRecords.Keys){
+            if(-not $candidateRecords.ContainsKey($ref) -or $currentRecords[$ref].RevisionDigest -cne $candidateRecords[$ref].RevisionDigest -or
+                $currentRecords[$ref].IdentityDigest -cne $candidateRecords[$ref].IdentityDigest -or $currentRecords[$ref].Status -cne $candidateRecords[$ref].Status){
+                throw 'TLS_REGISTRY_APPEND_MUTATES_EXISTING'
+            }
+        }
+        $added=@($Candidate.Payloads|Where-Object {-not $old.ContainsKey($_.Ref)})
+        if($added.Count -ne 3 -or @($added|Where-Object {$_.Kind -ceq 'AUTHORITY'}).Count -ne 1 -or
+            @($added|Where-Object {$_.Kind -ceq 'CLIENT_CONTEXT'}).Count -ne 1 -or
+            @($added|Where-Object {$_.Kind -ceq 'SIGNER_CONTEXT'}).Count -ne 1){throw 'TLS_REGISTRY_APPEND_SHAPE_INVALID'}
+        $authority=$added|Where-Object {$_.Kind -ceq 'AUTHORITY'}
+        $signer=$added|Where-Object {$_.Kind -ceq 'SIGNER_CONTEXT'}
+        $client=$added|Where-Object {$_.Kind -ceq 'CLIENT_CONTEXT'}
+        if($authority.Status -cne 'ACTIVE' -or $authority.ContractVersion -cne 'SqlServerLab.AuthenticatedTlsRegistryPayload/0.2' -or
+            $authority.SignerContextRef -cne $signer.Ref -or $authority.SignerGeneration -ne $signer.Generation -or
+            $authority.ClientRef -cne $client.Ref -or $authority.ClientGeneration -ne $client.Generation){throw 'TLS_REGISTRY_APPEND_REFERENCE_INVALID'}
+        foreach($reference in @($authority.Ref,$authority.TrustScopeRef,$signer.Ref,$client.Ref)){
+            if($Reserved.Contains($reference)){throw 'TLS_REGISTRY_APPEND_REFERENCE_INVALID'}
+        }
+        foreach($p in @($signer,$client)){
+            if($p.Status -cne 'ACTIVE' -or $p.Actor.UserSid -cne $Binding.Native.UserSid -or $p.Actor.HostMarker -cne $Binding.Native.HostMarker -or
+                $p.Actor.ProfilePath -cne $Binding.Native.ProfilePath -or -not (Get-LabAuthenticatedTlsPayloadPreview (ConvertTo-LabTlsRegistryWriterBytes $p)).Success){
+                throw 'TLS_REGISTRY_APPEND_CONTEXT_INVALID'
+            }
+        }
+        $preview=Get-LabAuthenticatedTlsAuthorityPreview $Binding.Root.DataRoot $Binding.Root.ControllerId $Binding.Root.LocationId CURRENT_WINDOWS_PROCESS `
+            (ConvertTo-LabTlsRegistryWriterBytes $authority) (ConvertTo-LabTlsRegistryWriterBytes $signer) (ConvertTo-LabTlsRegistryWriterBytes $client)
+        if(-not $preview.Success -or $preview.Value.RootMetadataDigest -cne $Binding.Root.RootMetadataDigest){throw 'TLS_REGISTRY_APPEND_AUTHORITY_INVALID'}
+        return
+    }
     foreach($p in $Candidate.Payloads){
         # Existing tombstones may pass through unchanged. Creating one requires
         # the retirement-only writer operation and its separately checked use scan.
@@ -268,7 +348,7 @@ function Invoke-LabAuthenticatedTlsRegistryWrite {
     $lifecycleLock=$null;$lock=$null;$started=$false
     try{
         if(-not (Test-LabTlsCaCandidateInput $DataRoot $ControllerId $LocationId $Context) -or
-            -not (Test-LabTlsRequestEnum $Operation @('INITIALIZE','UPDATE','RETIRE_AUTHORITY','RECOVER_COMMIT','RECOVER_ABORT'))){throw 'TLS_REGISTRY_INPUT_INVALID'}
+            -not (Test-LabTlsRequestEnum $Operation @('INITIALIZE','UPDATE','APPEND_AUTHORITY','RETIRE_AUTHORITY','RECOVER_COMMIT','RECOVER_ABORT'))){throw 'TLS_REGISTRY_INPUT_INVALID'}
         foreach($digest in @($ExpectedRootDigest,$ExpectedActorDigest)){
             if($digest -isnot [string] -or $digest -cnotmatch '\A[0-9a-f]{64}\z'){throw 'TLS_REGISTRY_INPUT_INVALID'}
         }
@@ -276,6 +356,7 @@ function Invoke-LabAuthenticatedTlsRegistryWrite {
         # Keine auf Caller-Strings angehaengten ETS-Methoden aufrufen.
         $recover=Test-LabTlsRequestEnum $Operation @('RECOVER_COMMIT','RECOVER_ABORT')
         $retire=$Operation -ceq 'RETIRE_AUTHORITY'
+        $append=$Operation -ceq 'APPEND_AUTHORITY'
         if($recover){
             if(-not (Test-LabTlsRequestReference $TransactionId) -or $null -ne $CandidateBytes -or $RetirementAuthorityRef -or $RetirementCandidateId){throw 'TLS_REGISTRY_INPUT_INVALID'}
         }elseif($null -ne $TransactionId){throw 'TLS_REGISTRY_INPUT_INVALID'}
@@ -318,7 +399,7 @@ function Invoke-LabAuthenticatedTlsRegistryWrite {
                 Assert-LabTlsRegistryWriterBinding $b $ExpectedRootDigest $ExpectedActorDigest
                 if($Operation -ceq 'RECOVER_COMMIT'){
                     $recovered=(Read-LabAuthenticatedTlsRegistryDocument $state.Bytes).Value.RegistryDocument
-                    $retiredRefs=@();$freshnessSource=[pscustomobject]@{Payloads=@()}
+                    $retiredRefs=@();$freshnessSource=[pscustomobject]@{Payloads=@()};$retirementTransition=$null
                     if($intent.SourceSha256 -ceq 'ABSENT'){
                         if($recovered.Index.Revision -ne 0 -or $recovered.Payloads.Count -ne 0){throw 'TLS_REGISTRY_RECOVERY_INVALID'}
                     }else{
@@ -342,7 +423,19 @@ function Invoke-LabAuthenticatedTlsRegistryWrite {
                         if($confirmed.Status -cne 'CANDIDATE_INSTALLED' -or $confirmed.Digest -cne $state.Digest -or $confirmed.Pending.Count -ne 1 -or
                             $confirmed.Pending[0].Intent.TransactionId -cne $TransactionId){throw 'TLS_REGISTRY_SOURCE_CHANGED'}
                     }
-                    Assert-LabTlsRegistryFreshPayloads $freshnessSource $recovered $b $state.Reserved $(if($retiredRefs.Count -eq 1){$retiredRefs[0]}else{$null}) -AllowPendingIntentReferences
+                    $addedRecoveryPayloads=@()
+                    if($null -ne $retirementTransition){$addedRecoveryPayloads=@($recovered.Payloads|Where-Object {$retirementTransition.Value.Delta.AddedRefs -contains $_.Ref})}
+                    $recoveredAppendOnly=($null -ne $retirementTransition -and $retiredRefs.Count -eq 0 -and
+                        $retirementTransition.Value.Delta.UpdatedRefs.Count -eq 0 -and $retirementTransition.Value.Delta.RetiredRefs.Count -eq 0 -and
+                        $retirementTransition.Value.Delta.AddedRefs.Count -eq 3 -and $addedRecoveryPayloads.Count -eq 3 -and
+                        @($addedRecoveryPayloads|Where-Object Kind -CEQ 'AUTHORITY').Count -eq 1 -and
+                        @($addedRecoveryPayloads|Where-Object {$_.Kind -ceq 'AUTHORITY' -and $_.ContractVersion -ceq 'SqlServerLab.AuthenticatedTlsRegistryPayload/0.2'}).Count -eq 1 -and
+                        @($addedRecoveryPayloads|Where-Object Kind -CEQ 'CLIENT_CONTEXT').Count -eq 1 -and
+                        @($addedRecoveryPayloads|Where-Object Kind -CEQ 'SIGNER_CONTEXT').Count -eq 1)
+                    $reservedForRecovery=$state.Reserved
+                    if($recoveredAppendOnly){$reservedForRecovery=$state.ReservedTerminalHistory}
+                    Assert-LabTlsRegistryFreshPayloads $freshnessSource $recovered $b $reservedForRecovery $(if($retiredRefs.Count -eq 1){$retiredRefs[0]}else{$null}) `
+                        -AllowPendingIntentReferences -AppendOnly:$recoveredAppendOnly
                 }
                 # Recovery fuehrt keinen Ersatz aus. Sie bestaetigt nur exakt gelesene Bytes.
                 $started=$true
@@ -353,6 +446,8 @@ function Invoke-LabAuthenticatedTlsRegistryWrite {
             if($state.Status -cne 'COMMITTED' -or $state.Pending.Count -ne 0 -or $state.Intents.Count -ge 256){throw 'TLS_REGISTRY_RECOVERY_REQUIRED'}
             $transition=Test-LabAuthenticatedTlsRegistryDocumentTransition $state.Bytes $candidate
             if(-not $transition.Success){throw 'TLS_REGISTRY_TRANSITION_INVALID'}
+            if($append -and ($transition.Value.Delta.AddedRefs.Count -ne 3 -or $transition.Value.Delta.UpdatedRefs.Count -ne 0 -or
+                $transition.Value.Delta.RetiredRefs.Count -ne 0)){throw 'TLS_REGISTRY_APPEND_SHAPE_INVALID'}
             $before=(Read-LabAuthenticatedTlsRegistryDocument $state.Bytes).Value.RegistryDocument
             $retiredRefs=@($transition.Value.Delta.RetiredRefs)
             if($retire){
@@ -368,7 +463,7 @@ function Invoke-LabAuthenticatedTlsRegistryWrite {
                 if($confirmed.Status -cne 'COMMITTED' -or $confirmed.Pending.Count -ne 0 -or $confirmed.Digest -cne $state.Digest){throw 'TLS_REGISTRY_SOURCE_CHANGED'}
                 Assert-LabTlsRegistryWriterBinding $b $ExpectedRootDigest $ExpectedActorDigest
             }elseif($retiredRefs.Count -gt 0){throw 'TLS_REGISTRY_RETIREMENT_REQUIRES_GUARDED_OPERATION'}
-            Assert-LabTlsRegistryFreshPayloads $before $parsed.Value.RegistryDocument $b $state.Reserved $(if($retire){$RetirementAuthorityRef}else{$null})
+            Assert-LabTlsRegistryFreshPayloads $before $parsed.Value.RegistryDocument $b $state.Reserved $(if($retire){$RetirementAuthorityRef}else{$null}) -AppendOnly:$append
         }
         $id=[guid]::NewGuid().ToString('D');$candidateSha=Get-LabTlsCaByteDigest $candidate
         $intent=[ordered]@{ContractVersion='SqlServerLab.TlsRegistryIntent/0.1';TransactionId=$id;RegistryId=$owner.RegistryId;
@@ -382,7 +477,9 @@ function Invoke-LabAuthenticatedTlsRegistryWrite {
         if((Get-LabTlsCaByteDigest $readback) -cne $candidateSha -or -not (Read-LabAuthenticatedTlsRegistryDocument $readback).Success){throw 'TLS_REGISTRY_CANDIDATE_CHANGED'}
         Assert-LabTlsRegistryWriterBinding $b $ExpectedRootDigest $ExpectedActorDigest
         $registry=Join-Path $b.Directory 'registry.json'
-        if($Operation -cin @('UPDATE','RETIRE_AUTHORITY')){Assert-LabTlsRegistryFreshPayloads $before $parsed.Value.RegistryDocument $b $state.Reserved $(if($retire){$RetirementAuthorityRef}else{$null})}
+        if($Operation -cin @('UPDATE','APPEND_AUTHORITY','RETIRE_AUTHORITY')){
+            Assert-LabTlsRegistryFreshPayloads $before $parsed.Value.RegistryDocument $b $state.Reserved $(if($retire){$RetirementAuthorityRef}else{$null}) -AppendOnly:$append
+        }
         if($Operation -ceq 'INITIALIZE'){
             if(Test-Path -LiteralPath $registry){throw 'TLS_REGISTRY_SOURCE_CHANGED'}
             [IO.File]::Move($candidatePath,$registry)
@@ -398,7 +495,9 @@ function Invoke-LabAuthenticatedTlsRegistryWrite {
         $installed=Read-LabTlsCaPrivateFile $registry $b.Native.UserSid 4194304
         if((Get-LabTlsCaByteDigest $installed) -cne $candidateSha -or -not (Read-LabAuthenticatedTlsRegistryDocument $installed).Success){throw 'TLS_REGISTRY_READBACK_INVALID'}
         Assert-LabTlsRegistryWriterBinding $b $ExpectedRootDigest $ExpectedActorDigest
-        if($Operation -cin @('UPDATE','RETIRE_AUTHORITY')){Assert-LabTlsRegistryFreshPayloads $before $parsed.Value.RegistryDocument $b $state.Reserved $(if($retire){$RetirementAuthorityRef}else{$null})}
+        if($Operation -cin @('UPDATE','APPEND_AUTHORITY','RETIRE_AUTHORITY')){
+            Assert-LabTlsRegistryFreshPayloads $before $parsed.Value.RegistryDocument $b $state.Reserved $(if($retire){$RetirementAuthorityRef}else{$null}) -AppendOnly:$append
+        }
         Write-LabTlsRegistryTerminal $b ([pscustomobject]$intent) 'COMMITTED'
         $final=Read-LabTlsRegistryWriterState $b
         if($final.Status -cne 'COMMITTED' -or $final.Digest -cne $candidateSha){throw 'TLS_REGISTRY_COMMIT_INVALID'}

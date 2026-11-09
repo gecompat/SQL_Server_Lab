@@ -164,7 +164,7 @@ function Get-LabTlsWindowsOwnBinding {
     $bytes=Read-LabTlsCaPrivateFile $path $native.UserSid 32768
     $record=Read-LabTlsWindowsRecord $bytes
     if($record.RunId -cne $RunId -or $record.InstanceId -cne $InstanceId -or -not [string]::Equals($record.StateRoot,[IO.Path]::GetFullPath($StateRoot),[StringComparison]::OrdinalIgnoreCase)){throw 'TLS_WINDOWS_SELECTION_CHANGED'}
-    $authority=Get-LabTlsOperationalAuthority $record.DataRoot $record.ControllerId $record.LocationId $record.AuthorityRef $record.ClientRef
+    $authority=Get-LabTlsOperationalAuthority $record.DataRoot $record.ControllerId $record.LocationId $record.AuthorityRef $record.ClientRef $record.RegistrySha256
     if($authority.RegistrySha256 -cne $record.RegistrySha256){throw 'TLS_WINDOWS_AUTHORITY_CHANGED'}
     return [pscustomobject]@{Record=$record;Authority=$authority;Bytes=$bytes;StateRoot=$record.StateRoot}
 }

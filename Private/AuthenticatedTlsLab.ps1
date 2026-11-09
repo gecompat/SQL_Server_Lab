@@ -348,7 +348,7 @@ function Get-LabTlsOwnBinding {
         $record.ServerPath -cne ('/var/opt/mssql/tls-'+$record.AuditId.Replace('-',''))){throw 'TLS_LAB_BINDING_INVALID'}
     $expected=Join-Path $record.DataRoot ('State/authenticated-tls-labs/'+$record.AuditId)
     if(-not [string]::Equals($root,[IO.Path]::GetFullPath($expected),[StringComparison]::OrdinalIgnoreCase)){throw 'TLS_LAB_ROOT_CHANGED'}
-    $authority=Get-LabTlsOperationalAuthority $record.DataRoot $record.ControllerId $record.LocationId $record.AuthorityRef $record.ClientRef
+    $authority=Get-LabTlsOperationalAuthority $record.DataRoot $record.ControllerId $record.LocationId $record.AuthorityRef $record.ClientRef $record.RegistrySha256
     if($authority.RegistrySha256 -cne $record.RegistrySha256){throw 'TLS_LAB_REGISTRY_CHANGED'}
     return [pscustomobject]@{Record=$record;Authority=$authority;Bytes=$bytes;StateRoot=$root}
 }

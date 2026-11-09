@@ -2,8 +2,8 @@
 
 | Merkmal | Wert |
 |---|---|
-| Status | Private Metadatenlane mit nutzungsgebundener Authority-Retirement-Transaktion; keine TLS-Qualifikation |
-| Stand | 2026-10-17 |
+| Status | Private Metadatenlane mit additiver Authority-Registrierung, historischer Digestauflösung und nutzungsgebundener Retirement-Transaktion; keine TLS-Qualifikation |
+| Stand | 2026-11-09 |
 | Implementierung | [AuthenticatedTlsRegistryWriter.ps1](../../Private/AuthenticatedTlsRegistryWriter.ps1) |
 | Prüfung | [Invoke-AuthenticatedTlsRegistryWriterChecks.ps1](../../Tests/Static/Invoke-AuthenticatedTlsRegistryWriterChecks.ps1) |
 
@@ -28,6 +28,27 @@ diese Implementierung weder adoptiert noch qualifiziert.
 Keine öffentliche API, Keyöffnung, Zertifikats-, Truststore-, SQL- oder
 Provideraktion entsteht. `QualificationStatus=NOT_EXECUTED`, `Ready=false`
 und `MutationAllowed=false` bleiben erhalten.
+
+Eine neue Authority kann über `APPEND_AUTHORITY` neben vorhandenen Einträgen
+registriert werden. Der Übergang verlangt exakt drei neue Records: eine aktive
+`0.2`-Authority sowie eigene aktive Signer- und Clientkontexte. Bestehende
+Records müssen vollständig vorhanden und in Identitäts-, Revisionsdigest und
+Status unverändert bleiben. Die neue Dreiergruppe wird frisch gegen Kandidat,
+Actor, Rootmetadaten, Kontexte und ReadOnly-Trust geprüft. Alte Authorities
+werden bei diesem eng begrenzten Übergang nicht als betriebsbereit bewertet;
+normale Updates behalten ihre bisherige Frischeprüfung. `UPDATE` und
+`APPEND_AUTHORITY` dürfen keine Tombstones anlegen. Retirement bleibt an die
+unveränderte vollständige Nutzungsprüfung gebunden.
+
+Runrecords können eine frühere Registrydatei über ihren gespeicherten
+`RegistrySha256` anfordern. Der Reader löst sie nur aus einer abgeschlossenen,
+validierten Commitkette auf: aus der zugehörigen Originalsicherung oder den im
+Commitintent gespeicherten, exakt gehashten Kandidatenbytes. Offene, abgebrochene,
+abgetrennte oder mehrdeutige Historie genügt nicht. Diese Auflösung bewahrt die
+alte Metadatenbindung; sie stellt keine fehlenden CA-Dateien oder Schlüssel
+wieder her. Fehlt das alte Kandidatenmaterial, scheitern dessen frische
+Besitz-/Trustprüfungen weiterhin fail-closed. Neue Runs binden den aktuellen
+Head.
 
 ## Bindung und Ownership
 

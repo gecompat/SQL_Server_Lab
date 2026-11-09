@@ -4,7 +4,7 @@ param([string]$ChildRequestPath)
 $ErrorActionPreference='Stop'
 $repo=(Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 foreach($name in @('DiagnosticBundleReader','StorageContract','AuthenticatedTlsRequest','AuthenticatedTlsRegistryIndex','AuthenticatedTlsRegistryPayload',
-    'AuthenticatedTlsRegistryDocument','AuthenticatedTlsRegistryRoot','AuthenticatedTlsContext','AuthenticatedTlsBackend','AuthenticatedTlsCaCandidate','AuthenticatedTlsRegistryWriter')){
+    'AuthenticatedTlsRegistryDocument','AuthenticatedTlsRegistryRoot','AuthenticatedTlsContext','AuthenticatedTlsBackend','AuthenticatedTlsCaCandidate','AuthenticatedTlsRegistryWriter','AuthenticatedTlsAuthority')){
     . (Join-Path $repo "Private/$name.ps1")
 }
 function Get-TlsWriterFixturePayload {
@@ -51,7 +51,7 @@ if($ChildRequestPath){
     }
     function Write-LabTlsRegistryTerminal {
         param($Binding,$Intent,$Outcome)
-        if($script:childMode -ceq 'AFTER_REPLACE'){[Environment]::Exit(74)}
+        if($script:childMode -cin @('AFTER_REPLACE','UPDATE_THREE_CONTEXTS_AFTER_REPLACE')){[Environment]::Exit(74)}
         if($script:childMode -ceq 'INITIALIZE_AFTER_MOVE'){[Environment]::Exit(75)}
         & $realTerminal $Binding $Intent $Outcome
     }
@@ -66,7 +66,13 @@ if($ChildRequestPath){
         }finally{if($request.Mode -ceq 'HOLD_FILE'){$held.Stream.Dispose()}else{Exit-LabTlsRegistryWriterLock $held}}
         exit 0
     }
-    $candidate=if($request.Mode -ceq 'INITIALIZE_AFTER_MOVE'){Get-TlsWriterFixtureDocument 0}else{Get-TlsWriterFixtureDocument 1 @(Get-TlsWriterFixturePayload $request.Ref)}
+    $candidate=if($request.Mode -ceq 'INITIALIZE_AFTER_MOVE'){Get-TlsWriterFixtureDocument 0}
+        elseif($request.Mode -ceq 'UPDATE_THREE_CONTEXTS_AFTER_REPLACE'){
+            Get-TlsWriterFixtureDocument 1 @(
+                (New-LabTlsNativeContextPayload $controller $location 'CLIENT_CONTEXT' '99999999-9999-4999-8999-999999999991'),
+                (New-LabTlsNativeContextPayload $controller $location 'CLIENT_CONTEXT' '99999999-9999-4999-8999-999999999992'),
+                (New-LabTlsNativeContextPayload $controller $location 'CLIENT_CONTEXT' '99999999-9999-4999-8999-999999999993'))
+        }else{Get-TlsWriterFixtureDocument 1 @(Get-TlsWriterFixturePayload $request.Ref)}
     $operation=if($request.Mode -ceq 'INITIALIZE_AFTER_MOVE'){'INITIALIZE'}else{'UPDATE'}
     if($request.Mode -ceq 'PARALLEL'){
         [IO.File]::WriteAllText($request.ReadyPath,'READY')
@@ -213,6 +219,22 @@ try{
         $current=Get-TlsWriterFixturePreview $root
         Add-CheckResult 'TLS-W04 atomarer nativer Replace mit frischer Payload und Commit' ($r.Success -and $r.Value.Status -ceq 'METADATA_COMMITTED' -and
             $current.Success -and $current.Value.RegistryByteSha256 -ceq (Get-LabTlsCaByteDigest $candidate) -and -not $r.Value.Ready)
+        $historyRoot=New-TlsWriterFixture;$historyPreview=Initialize-TlsWriterFixture $historyRoot
+        $historyFirst=Get-TlsWriterFixturePayload 'aaaaaaaa-1111-4111-8111-111111111111'
+        $historyBytes1=Get-TlsWriterFixtureDocument 1 @($historyFirst)
+        $historyWrite1=Invoke-TlsWriterFixtureOperation $historyRoot $historyPreview.Value UPDATE $historyBytes1
+        $historyDigest1=Get-LabTlsCaByteDigest ([IO.File]::ReadAllBytes((Join-Path $historyRoot 'State/authenticated-tls/registry.json')))
+        $historyPreview2=Get-TlsWriterFixturePreview $historyRoot
+        $historySecond=Get-TlsWriterFixturePayload 'bbbbbbbb-2222-4222-8222-222222222222'
+        $historyWrite2=Invoke-TlsWriterFixtureOperation $historyRoot $historyPreview2.Value UPDATE (Get-TlsWriterFixtureDocument 2 @($historyFirst,$historySecond))
+        $historyBinding=Get-LabTlsRegistryWriterBinding $historyRoot $controller $location
+        $historyState=Read-LabTlsRegistryWriterState $historyBinding
+        $historyResolved=Get-LabTlsRegistrySnapshotAtDigest $historyBinding $historyState $historyDigest1
+        Add-CheckResult 'TLS-W04 historischer Commitdigest loest exakt gespeicherte Quellbytes auf' ($historyWrite1.Success -and $historyWrite2.Success -and
+            (Get-LabTlsCaByteDigest $historyResolved) -ceq $historyDigest1 -and [Convert]::ToBase64String($historyResolved) -ceq [Convert]::ToBase64String($historyBytes1))
+        $historyMiss=$false
+        try{$null=Get-LabTlsRegistrySnapshotAtDigest $historyBinding $historyState ('f'*64)}catch{$historyMiss=$_.Exception.Message -ceq 'TLS_REGISTRY_HISTORY_UNAVAILABLE'}
+        Add-CheckResult 'TLS-W04 nicht zur Commitkette gehoerender Digest wird abgelehnt' $historyMiss
         $before=Get-TlsWriterSnapshot $root
         $r=Invoke-TlsWriterFixtureOperation $root $preview.Value UPDATE $candidate
         Add-CheckResult 'TLS-W04 unveraenderter stale Client ohne Writes abgelehnt' (-not $r.Success -and (Get-TlsWriterSnapshot $root) -ceq $before)
@@ -304,6 +326,17 @@ try{
                 Add-CheckResult 'TLS-W06 neue Referenz nach Recovery schreibbar' $r.Success
             }
         }
+        $threeContextRoot=New-TlsWriterFixture;$threeContextInitial=Initialize-TlsWriterFixture $threeContextRoot
+        $threeContextChild=Start-TlsWriterFixtureChild $threeContextRoot $threeContextInitial.Value 'UPDATE_THREE_CONTEXTS_AFTER_REPLACE' 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+        $threeContextExit=Complete-TlsWriterFixtureChild $threeContextChild
+        $threeContextPending=Get-TlsWriterFixturePreview $threeContextRoot
+        $threeContextRecovery=Invoke-TlsWriterFixtureOperation $threeContextRoot $threeContextPending.Value RECOVER_COMMIT $null $threeContextPending.Value.PendingTransactionId
+        $threeContextFinal=Get-TlsWriterFixturePreview $threeContextRoot
+        $threeContextDocument=if($threeContextFinal.Success){(Read-LabAuthenticatedTlsRegistryDocument ([IO.File]::ReadAllBytes((Join-Path $threeContextRoot 'State/authenticated-tls/registry.json')))).Value.RegistryDocument}else{$null}
+        Add-CheckResult 'TLS-W06 AFTER_REPLACE recovery preserves a valid three-context UPDATE as UPDATE' ($threeContextExit -eq 74 -and
+            $threeContextPending.Success -and $threeContextPending.Value.Status -ceq 'CANDIDATE_INSTALLED' -and $threeContextRecovery.Success -and
+            $threeContextRecovery.Value.Status -ceq 'RECOVERY_COMMITTED' -and $threeContextFinal.Value.Status -ceq 'COMMITTED' -and
+            $threeContextDocument.Index.Revision -eq 1 -and @($threeContextDocument.Payloads|Where-Object Kind -CEQ 'CLIENT_CONTEXT').Count -eq 3)
         $root=New-TlsWriterFixture;$initial=Initialize-TlsWriterFixture $root
         foreach($mode in @('HOLD_LOCK','HOLD_FILE')){
             $holder=Start-TlsWriterFixtureChild $root $initial.Value $mode '66666666-6666-4666-8666-666666666666'

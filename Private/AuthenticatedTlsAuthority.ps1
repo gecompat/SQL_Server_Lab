@@ -62,19 +62,33 @@ function Assert-LabTlsOperationalAuthority {
 }
 
 function Get-LabTlsOperationalAuthority {
-    param([string]$DataRoot,[string]$ControllerId,[string]$LocationId,[string]$AuthorityRef,[string]$ClientRef)
+    param([string]$DataRoot,[string]$ControllerId,[string]$LocationId,[string]$AuthorityRef,[string]$ClientRef,[string]$ExpectedRegistrySha256)
     foreach($ref in @($ControllerId,$LocationId,$AuthorityRef,$ClientRef)){if(-not (Test-LabTlsRequestReference $ref)){throw 'TLS_AUTHORITY_REFERENCE_INVALID'}}
     $binding=Get-LabTlsRegistryWriterBinding $DataRoot $ControllerId $LocationId;$lock=$null
     try{
         $lock=Enter-LabTlsRegistryWriterLock $binding;$state=Read-LabTlsRegistryWriterState $binding
         if($state.Status -cne 'COMMITTED' -or $state.Pending.Count -ne 0){throw 'TLS_AUTHORITY_REGISTRY_UNCONFIRMED'}
-        $document=(Read-LabAuthenticatedTlsRegistryDocument $state.Bytes).Value.RegistryDocument
+        $registryBytes=[byte[]]$state.Bytes
+        if($ExpectedRegistrySha256){$registryBytes=Get-LabTlsRegistrySnapshotAtDigest $binding $state $ExpectedRegistrySha256}
+        $parsed=Read-LabAuthenticatedTlsRegistryDocument $registryBytes
+        if(-not $parsed.Success){throw 'TLS_AUTHORITY_REGISTRY_UNCONFIRMED'}
+        $document=$parsed.Value.RegistryDocument
         $authority=@($document.Payloads|Where-Object {$_.Kind -ceq 'AUTHORITY' -and $_.Ref -ceq $AuthorityRef})
         if($authority.Count -ne 1 -or $authority[0].ClientRef -cne $ClientRef){throw 'TLS_AUTHORITY_REFERENCE_INVALID'}
+        if($ExpectedRegistrySha256 -and $ExpectedRegistrySha256 -cne $state.Digest){
+            $currentDocument=(Read-LabAuthenticatedTlsRegistryDocument $state.Bytes).Value.RegistryDocument
+            $currentAuthority=@($currentDocument.Payloads|Where-Object {$_.Kind -ceq 'AUTHORITY' -and $_.Ref -ceq $AuthorityRef})
+            if($currentAuthority.Count -ne 1 -or $currentAuthority[0].Status -cne 'ACTIVE'){throw 'TLS_AUTHORITY_RETIRED'}
+            $historicalRecord=Get-LabTlsPayloadIndexRecord $authority[0]
+            $currentRecord=Get-LabTlsPayloadIndexRecord $currentAuthority[0]
+            if($currentRecord.IdentityDigest -cne $historicalRecord.IdentityDigest -or $currentRecord.RevisionDigest -cne $historicalRecord.RevisionDigest){
+                throw 'TLS_AUTHORITY_CHANGED'
+            }
+        }
         Assert-LabTlsOperationalAuthority $authority[0] $document $binding
         Assert-LabTlsRegistryWriterBinding $binding $binding.Root.RootMetadataDigest $binding.ActorDigest
         return [pscustomobject]@{Authority=$authority[0];Client=@($document.Payloads|Where-Object Ref -CEQ $ClientRef)[0];
-            RegistrySha256=$state.Digest;RootDigest=$binding.Root.RootMetadataDigest;ActorDigest=$binding.ActorDigest;Native=$binding.Native}
+            RegistrySha256=$(if($ExpectedRegistrySha256){$ExpectedRegistrySha256}else{$state.Digest});RootDigest=$binding.Root.RootMetadataDigest;ActorDigest=$binding.ActorDigest;Native=$binding.Native}
     }finally{Exit-LabTlsRegistryWriterLock $lock}
 }
 
@@ -111,15 +125,22 @@ function Register-LabTlsOperationalAuthority {
     $activeCandidateAuthorities=@($allCandidateAuthorities|Where-Object Status -CEQ 'ACTIVE')
     if($activeCandidateAuthorities.Count -gt 1){throw 'TLS_AUTHORITY_AMBIGUOUS'}
     if($allCandidateAuthorities.Count -gt 0 -and $activeCandidateAuthorities.Count -eq 0){throw 'TLS_AUTHORITY_CANDIDATE_RETIRED'}
+    $appendAuthority=($document.Payloads.Count -gt 0 -and $activeCandidateAuthorities.Count -eq 0)
     foreach($kind in @('CLIENT_CONTEXT','SIGNER_CONTEXT')){
         $fresh=$prototypes[$kind]
+        if($appendAuthority){$payloads.Add($fresh);$contexts[$kind]=$fresh;continue}
         $record=Get-LabTlsPayloadIndexRecord $fresh
-        $matching=@($payloads|Where-Object {$_.Kind -ceq $kind -and $_.Status -ceq 'ACTIVE' -and (Get-LabTlsPayloadIndexRecord $_).IdentityDigest -ceq $record.IdentityDigest})
-        if($matching.Count -gt 1){throw 'TLS_AUTHORITY_CONTEXT_AMBIGUOUS'}
         $expectedRef=if($activeCandidateAuthorities.Count -eq 1){if($kind -ceq 'CLIENT_CONTEXT'){$activeCandidateAuthorities[0].ClientRef}else{$activeCandidateAuthorities[0].SignerContextRef}}else{$null}
+        if($expectedRef){
+            $matching=@($payloads|Where-Object {$_.Kind -ceq $kind -and $_.Ref -ceq $expectedRef})
+            if($matching.Count -ne 1 -or $matching[0].Status -cne 'ACTIVE'){throw 'TLS_AUTHORITY_CONTEXT_IDENTITY_CHANGED'}
+        }else{
+            $matching=@($payloads|Where-Object {$_.Kind -ceq $kind -and $_.Status -ceq 'ACTIVE' -and (Get-LabTlsPayloadIndexRecord $_).IdentityDigest -ceq $record.IdentityDigest})
+        }
+        if($matching.Count -gt 1){throw 'TLS_AUTHORITY_CONTEXT_AMBIGUOUS'}
         if($matching.Count -eq 1){
-            if($expectedRef -and $matching[0].Ref -cne $expectedRef){throw 'TLS_AUTHORITY_CONTEXT_IDENTITY_CHANGED'}
             $oldRecord=Get-LabTlsPayloadIndexRecord $matching[0]
+            if($expectedRef -and $oldRecord.IdentityDigest -cne $record.IdentityDigest){throw 'TLS_AUTHORITY_CONTEXT_IDENTITY_CHANGED'}
             if($oldRecord.RevisionDigest -cne $record.RevisionDigest){
                 $fresh=New-LabTlsRevisedContextPayload $matching[0] $fresh
                 for($i=0;$i -lt $payloads.Count;$i++){if($payloads[$i].Ref -ceq $matching[0].Ref){$payloads[$i]=$fresh;break}}
@@ -166,7 +187,8 @@ function Register-LabTlsOperationalAuthority {
         Revision=[int]($revision+1);Records=@($payloads|ForEach-Object {Get-LabTlsPayloadIndexRecord $_})};Payloads=@($payloads.ToArray())}
     $candidateBytes=ConvertTo-LabTlsRegistryWriterBytes $next
     if(-not (Read-LabAuthenticatedTlsRegistryDocument $candidateBytes).Success){throw 'TLS_AUTHORITY_REGISTRY_REVISION_INVALID'}
-    $written=Invoke-LabAuthenticatedTlsRegistryWrite $DataRoot $ControllerId $LocationId CURRENT_WINDOWS_PROCESS UPDATE $binding.Root.RootMetadataDigest $binding.ActorDigest $state.Digest $candidateBytes
+    $writerOperation=if($appendAuthority){'APPEND_AUTHORITY'}else{'UPDATE'}
+    $written=Invoke-LabAuthenticatedTlsRegistryWrite $DataRoot $ControllerId $LocationId CURRENT_WINDOWS_PROCESS $writerOperation $binding.Root.RootMetadataDigest $binding.ActorDigest $state.Digest $candidateBytes
     if(-not $written.Success){throw 'TLS_AUTHORITY_REGISTRATION_UNCONFIRMED'}
     return Get-LabTlsOperationalAuthority $DataRoot $ControllerId $LocationId $authority.Ref $client.Ref
 }

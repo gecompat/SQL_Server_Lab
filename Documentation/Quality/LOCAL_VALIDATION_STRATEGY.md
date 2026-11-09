@@ -628,6 +628,19 @@ betroffenen Writer-/Dokumentations-/Modul-/Analyzerprüfungen erneut ausgeführt
 unveränderte CI-Strategieprüfungen werden nicht doppelt gestartet. Das
 Pflichtgate am veröffentlichten Head bleibt separat erforderlich.
 
+## Additive Authority und gebundene Registryhistorie vom 2026-11-09
+
+Die Registry-Writer- und Authority-Suiten prüfen jetzt auch die additive
+Registrierung einer neuen CA neben unveränderten alten Authoritypayloads. Die
+Authorityfixture entfernt ausschließlich ihren eigenen synthetischen alten
+Kandidaten und bestätigt, dass nur die neue Authority frisch benutzbar ist;
+historische Bytes bleiben auflösbar und alte fehlende Schlüssel bleiben
+gesperrt. Die Writersuite bestätigt die Auflösung eines früheren Registryhashes
+aus der abgeschlossenen Journalkette und weist einen nicht darin enthaltenen
+Digest ab. Das ist ein lokaler Metadaten-/DPAPI-Fixturenachweis. Er stellt kein
+fehlendes Produktionszertifikat oder CA-Schlüsselmaterial wieder her und ist
+kein Docker-/Podman- oder SQL-TLS-Lauf.
+
 Der unabhängige Quellreview fand anschließend eine ETS-Umleitung der
 Operationsauswahl. Eine eigene native Tempfixture reproduzierte den Fehler:
 Ein gültiger `UPDATE`-String mit angehängter `StartsWith`-Methode wählte den
