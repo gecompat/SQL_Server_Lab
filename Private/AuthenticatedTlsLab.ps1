@@ -390,7 +390,7 @@ function Assert-LabTlsSqlCertificateBinding {
     return $context
 }
 
-function New-LabAuthenticatedTlsEnvironment {
+function New-LabAuthenticatedTlsEnvironmentCore {
     param([hashtable]$Parameters,[scriptblock]$AllocationObserver)
     $allowed=@('TrustServerCertificate','TlsCandidateId','TlsControllerId','TlsLocationId','TlsClientPlatform','TlsLinuxPowerShellPackage','DataRoot','Version','Provider','Profile','Port','InstanceId',
         'SaPassword','GenerateSaPassword','NonInteractive','Cpu','MemoryMB','SkipAssessment','AllowResourceOvercommit','AutoStart','LabName','Verbose','ErrorAction')
@@ -492,5 +492,16 @@ function New-LabAuthenticatedTlsEnvironment {
             }
         }
         throw $failure
+    }
+}
+
+function New-LabAuthenticatedTlsEnvironment {
+    param([hashtable]$Parameters,[scriptblock]$AllocationObserver)
+    $binding=Get-LabTlsRegistryWriterBinding $Parameters.DataRoot $Parameters.TlsControllerId $Parameters.TlsLocationId
+    $lifecycleLock=Enter-LabTlsRegistryLifecycleLock $binding
+    try{
+        return New-LabAuthenticatedTlsEnvironmentCore $Parameters $AllocationObserver
+    }finally{
+        Exit-LabTlsRegistryLifecycleLock $lifecycleLock
     }
 }

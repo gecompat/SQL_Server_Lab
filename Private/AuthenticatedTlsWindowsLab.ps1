@@ -314,7 +314,7 @@ function Initialize-LabTlsWindowsOwnedRun {
     }
 }
 
-function New-LabAuthenticatedTlsWindowsEnvironment {
+function Assert-LabAuthenticatedTlsWindowsRequest {
     param([hashtable]$Parameters)
     $allowed=@('Version','Provider','TrustServerCertificate','TlsCandidateId','TlsControllerId','TlsLocationId','TlsClientPlatform','DataRoot','StateRoot','Profile','Cpu','MemoryMB','AutoStart','Port','InstanceId','LabName','NonInteractive','SkipAssessment','AllowResourceOvercommit','Verbose','ErrorAction')
     if(@($Parameters.Keys|Where-Object {$_ -cnotin $allowed}).Count -or $Parameters.Version -cne '2025' -or $Parameters.Provider -cne 'hyperv' -or -not $Parameters.DataRoot -or
@@ -325,6 +325,11 @@ function New-LabAuthenticatedTlsWindowsEnvironment {
     # tatsächliche Erhöhung verlangen; eine Hyper-V-Gruppenmitgliedschaft
     # allein erlaubt diesen Hostschritt nicht. Kein UAC-Start oder Retry hier.
     if(-not (Test-LabAdministrator)){throw 'TLS_WINDOWS_CREATE_ELEVATED_RUNNER_REQUIRED'}
+}
+
+function New-LabAuthenticatedTlsWindowsEnvironmentCore {
+    param([hashtable]$Parameters,[switch]$SelectionValidated)
+    if(-not $SelectionValidated){Assert-LabAuthenticatedTlsWindowsRequest $Parameters}
     Assert-LabTlsCaCandidateCapability
     $stateArgument=if($Parameters.ContainsKey('StateRoot')){$Parameters.StateRoot}else{$null}
     $state=Get-LabStateRoot -ExplicitPath $stateArgument
@@ -367,5 +372,18 @@ function New-LabAuthenticatedTlsWindowsEnvironment {
         if($run -and $ended){$removed=Remove-SqlServerLab -RunId $run.RunId -StateRoot $state -Force -Confirm:$false;if($removed.Status -cne 'REMOVED'){throw 'TLS_WINDOWS_FAILED_CLEANUP_RECOVERY_REQUIRED'}}
         if(-not $ended){throw [InvalidOperationException]::new('TLS_WINDOWS_CONSUMER_RECOVERY_REQUIRED',$failure)}
         throw [InvalidOperationException]::new(('TLS_WINDOWS_CREATE_FAILED_'+$phase.ToUpperInvariant()),$failure)
+    }
+}
+
+function New-LabAuthenticatedTlsWindowsEnvironment {
+    param([hashtable]$Parameters)
+    # Reject invalid or unprivileged requests before reading registry metadata.
+    Assert-LabAuthenticatedTlsWindowsRequest $Parameters
+    $binding=Get-LabTlsRegistryWriterBinding $Parameters.DataRoot $Parameters.TlsControllerId $Parameters.TlsLocationId
+    $lifecycleLock=Enter-LabTlsRegistryLifecycleLock $binding
+    try{
+        return New-LabAuthenticatedTlsWindowsEnvironmentCore $Parameters -SelectionValidated
+    }finally{
+        Exit-LabTlsRegistryLifecycleLock $lifecycleLock
     }
 }

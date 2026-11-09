@@ -170,3 +170,323 @@ function Register-LabTlsOperationalAuthority {
     if(-not $written.Success){throw 'TLS_AUTHORITY_REGISTRATION_UNCONFIRMED'}
     return Get-LabTlsOperationalAuthority $DataRoot $ControllerId $LocationId $authority.Ref $client.Ref
 }
+
+function Read-LabTlsAuthorityJournalJson {
+    param([string]$Path,[string]$UserSid,[int]$MaximumBytes,[int]$MaximumDepth,[string[]]$Fields)
+    $bytes=Read-LabTlsCaPrivateFile $Path $UserSid $MaximumBytes
+    try{$text=[Text.UTF8Encoding]::new($false,$true).GetString($bytes)}catch{throw 'TLS_AUTHORITY_USE_UNCONFIRMED'}
+    $options=[Text.Json.JsonDocumentOptions]::new();$options.MaxDepth=$MaximumDepth
+    try{$document=[Text.Json.JsonDocument]::Parse($text,$options)}catch{throw 'TLS_AUTHORITY_USE_UNCONFIRMED'}
+    try{
+        if($document.RootElement.ValueKind -ne [Text.Json.JsonValueKind]::Object){throw 'TLS_AUTHORITY_USE_UNCONFIRMED'}
+        $pending=[Collections.Generic.Stack[Text.Json.JsonElement]]::new();$pending.Push($document.RootElement);$nodes=0
+        while($pending.Count){if(++$nodes -gt 8192){throw 'TLS_AUTHORITY_USE_UNCONFIRMED'};$element=$pending.Pop()
+            if($element.ValueKind -eq [Text.Json.JsonValueKind]::Object){$keys=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+                foreach($property in $element.EnumerateObject()){if(-not $keys.Add($property.Name)){throw 'TLS_AUTHORITY_USE_UNCONFIRMED'};$pending.Push($property.Value)}}
+            elseif($element.ValueKind -eq [Text.Json.JsonValueKind]::Array){foreach($child in $element.EnumerateArray()){$pending.Push($child)}}
+        }
+        $value=$text|ConvertFrom-Json -Depth $MaximumDepth -ErrorAction Stop
+        if($null -ne $Fields){
+            $actual=@($value.PSObject.Properties.Name)
+            if($actual.Count -ne $Fields.Count -or @($actual|Where-Object {$_ -cnotin $Fields}).Count -or @($Fields|Where-Object {$_ -notin $actual}).Count){throw 'TLS_AUTHORITY_USE_UNCONFIRMED'}
+        }
+        return $value
+    }catch{if($_.Exception.Message -ceq 'TLS_AUTHORITY_USE_UNCONFIRMED'){throw};throw 'TLS_AUTHORITY_USE_UNCONFIRMED'}finally{$document.Dispose()}
+}
+
+function Assert-LabTlsAuthorityJournalStringFields {
+    param([object]$Value,[string[]]$Fields)
+    foreach($field in $Fields){if(-not $Value.PSObject.Properties[$field] -or $Value.$field -isnot [string]){throw 'TLS_AUTHORITY_USE_UNCONFIRMED'}}
+}
+
+function Assert-LabTlsAuthorityRunRetiredAndAbsent {
+    param([string]$RunId,[string]$StateRoot,[object]$ExpectedTarget)
+    if(-not (Test-LabTlsRequestReference $RunId) -or -not $StateRoot){throw 'TLS_AUTHORITY_USE_UNCONFIRMED'}
+    try{
+        $root=[IO.Path]::GetFullPath($StateRoot)
+        $runPath=Join-Path (Join-Path $root 'runs') ($RunId+'/run-state.json')
+        $run=Read-LabDiagnosticJson $runPath 1048576 20
+        if($run.contractVersion -isnot [string] -or $run.contractVersion -cne 'SqlServerLab.RunState/1.0' -or
+            $run.runId -isnot [string] -or $run.runId -cne $RunId -or $run.scopeId -isnot [string] -or $run.state -isnot [string]){throw 'TLS_AUTHORITY_USE_UNCONFIRMED'}
+        if($run.state -cne 'REMOVED'){throw 'TLS_AUTHORITY_IN_USE'}
+        $runDirectory=Join-Path (Join-Path $root 'runs') $RunId
+        $cleanupPath=Join-Path $runDirectory 'cleanup-plan.json'
+        if(-not (Test-Path -LiteralPath $cleanupPath -PathType Leaf)){throw 'TLS_AUTHORITY_USE_UNCONFIRMED'}
+        $cleanup=Read-LabDiagnosticJson $cleanupPath 65536 16
+        if($cleanup.status -isnot [string] -or $cleanup.runId -isnot [string] -or $cleanup.scopeId -isnot [string] -or
+            $cleanup.runId -cne $RunId -or $cleanup.scopeId -cne $run.scopeId){throw 'TLS_AUTHORITY_USE_UNCONFIRMED'}
+        if($cleanup.status -cne 'COMPLETED'){throw 'TLS_AUTHORITY_IN_USE'}
+        $connectionPath=Join-Path (Join-Path $root 'runs') ($RunId+'/connection-info.json')
+        $connection=Read-LabDiagnosticJson $connectionPath 262144 20
+        if($connection.runId -isnot [string] -or $connection.runId -cne $run.runId -or
+            $connection.scopeId -isnot [string] -or $connection.scopeId -cne $run.scopeId){throw 'TLS_AUTHORITY_USE_UNCONFIRMED'}
+        $instances=@($connection.instances)
+        $desiredInstances=@($run.metadata.desiredState.Instances)
+        if($instances.Count -lt 1 -or $instances.Count -gt 16 -or $desiredInstances.Count -ne $instances.Count){throw 'TLS_AUTHORITY_USE_UNCONFIRMED'}
+        if($null -ne $ExpectedTarget){
+            foreach($field in @('ScopeId','InstanceId','Provider','RuntimeId')){
+                if(-not $ExpectedTarget.PSObject.Properties[$field] -or $ExpectedTarget.$field -isnot [string] -or -not $ExpectedTarget.$field){throw 'TLS_AUTHORITY_USE_UNCONFIRMED'}
+            }
+            if($ExpectedTarget.ScopeId -cne $run.scopeId){throw 'TLS_AUTHORITY_USE_UNCONFIRMED'}
+            $selected=@($instances|Where-Object {$_.id -is [string] -and $_.id -ceq $ExpectedTarget.InstanceId})
+            if($selected.Count -ne 1){throw 'TLS_AUTHORITY_USE_UNCONFIRMED'}
+            $selectedInstance=$selected[0]
+            Assert-LabTlsAuthorityJournalStringFields $selectedInstance @('provider')
+            if($selectedInstance.provider -cne $ExpectedTarget.Provider){throw 'TLS_AUTHORITY_USE_UNCONFIRMED'}
+            $actualRuntimeId=if($selectedInstance.provider -cin @('docker','podman')){$selectedInstance.containerId}elseif($selectedInstance.provider -ceq 'hyperv'){$selectedInstance.vmId}else{$null}
+            if($actualRuntimeId -isnot [string] -or $actualRuntimeId -cne $ExpectedTarget.RuntimeId){throw 'TLS_AUTHORITY_USE_UNCONFIRMED'}
+        }
+        foreach($instance in $instances){
+            Assert-LabTlsAuthorityJournalStringFields $instance @('id','provider')
+            $provider=[string]$instance.provider
+            $desired=@($desiredInstances|Where-Object {$_.Id -is [string] -and $_.Id -ceq $instance.id -and $_.Provider -is [string] -and $_.Provider -ceq $provider})
+            if($desired.Count -ne 1){throw 'TLS_AUTHORITY_USE_UNCONFIRMED'}
+            if($provider -cin @('docker','podman')){
+                Assert-LabTlsAuthorityJournalStringFields $instance @('containerId','containerName')
+                $container=[string]$instance.containerId
+                if(-not $container -or $container.Length -gt 256){throw 'TLS_AUTHORITY_USE_UNCONFIRMED'}
+                $removed=@($cleanup.steps|Where-Object {$_.resourceType -ceq 'container' -and $_.provider -ceq $provider -and
+                    $_.action -ceq 'remove' -and $_.state -ceq 'COMPLETED' -and $_.resourceId -ceq $instance.containerName})
+                if($removed.Count -ne 1){throw 'TLS_AUTHORITY_USE_UNCONFIRMED'}
+                $names=@($container,[string]$instance.containerName|Select-Object -Unique)
+                foreach($targetName in $names){
+                    $status=if($provider -ceq 'docker'){Get-DockerInstanceStatus -ContainerIdOrName $targetName -StateRoot $root}else{Get-PodmanInstanceStatus -ContainerIdOrName $targetName -StateRoot $root}
+                    if(-not $status.Available){throw 'TLS_AUTHORITY_USE_UNCONFIRMED'}
+                    if($status.Exists){throw 'TLS_AUTHORITY_IN_USE'}
+                }
+            }elseif($provider -ceq 'hyperv'){
+                if($null -eq $ExpectedTarget){throw 'TLS_AUTHORITY_USE_UNCONFIRMED'}
+                Assert-LabTlsAuthorityJournalStringFields $instance @('vmId')
+                $vmId=[guid]::Empty
+                if(-not [guid]::TryParse([string]$instance.vmId,[ref]$vmId)){throw 'TLS_AUTHORITY_USE_UNCONFIRMED'}
+                try{$vm=@(Get-VM -Id $vmId -ErrorAction Stop)}catch{
+                    $knownNotFound=$_.CategoryInfo.Category -eq [Management.Automation.ErrorCategory]::ObjectNotFound -and
+                        $_.FullyQualifiedErrorId -ceq 'ObjectNotFound,Microsoft.HyperV.PowerShell.Commands.GetVM'
+                    if($knownNotFound){continue}
+                    throw 'TLS_AUTHORITY_USE_UNCONFIRMED'
+                }
+                if($vm.Count){throw 'TLS_AUTHORITY_IN_USE'}
+            }else{throw 'TLS_AUTHORITY_USE_UNCONFIRMED'}
+        }
+        return $true
+    }catch{
+        if($_.Exception.Message -cmatch '\ATLS_AUTHORITY_(?:IN_USE|USE_UNCONFIRMED)\z'){throw}
+        throw 'TLS_AUTHORITY_USE_UNCONFIRMED'
+    }
+}
+
+function Get-LabTlsAuthorityExpectedWindowsTarget {
+    param([object]$RunInfo,[object]$Record,[string]$OperationAuditId,[string]$DataRoot,[string]$ControllerId,[string]$LocationId,[string]$AuthorityRef,[string]$RegistrySha256)
+    foreach($field in @('AuditId','RunId','StateRoot','DataRoot','ControllerId','LocationId','AuthorityRef','RegistrySha256','InstanceId','ScopeId','VmId')){
+        if(-not $Record.PSObject.Properties[$field] -or $Record.$field -isnot [string] -or -not $Record.$field){throw 'TLS_AUTHORITY_USE_UNCONFIRMED'}
+    }
+    if($Record.AuditId -cne $OperationAuditId -or $Record.RunId -cne $RunInfo.RunId -or $Record.InstanceId -cne 'primary' -or
+        -not [string]::Equals([IO.Path]::GetFullPath($Record.StateRoot),[IO.Path]::GetFullPath($RunInfo.StateRoot),[StringComparison]::OrdinalIgnoreCase) -or
+        -not [string]::Equals([IO.Path]::GetFullPath($Record.DataRoot),[IO.Path]::GetFullPath($DataRoot),[StringComparison]::OrdinalIgnoreCase) -or
+        $Record.ControllerId -cne $ControllerId -or $Record.LocationId -cne $LocationId -or
+        -not (Test-LabTlsRequestReference $Record.ScopeId) -or -not (Test-LabTlsRequestReference $Record.VmId)) {throw 'TLS_AUTHORITY_USE_UNCONFIRMED'}
+    if($Record.AuthorityRef -cne $AuthorityRef -and $Record.RegistrySha256 -cne $RegistrySha256){return $null}
+    return [pscustomobject]@{ScopeId=$Record.ScopeId;InstanceId=$Record.InstanceId;Provider='hyperv';RuntimeId=$Record.VmId}
+}
+
+function Get-LabTlsAuthorityWindowsRunTarget {
+    param([object]$RunInfo,[string]$OperationAuditId,[object]$Binding,[object]$WriterState,[string]$AuthorityRef,[string]$DataRoot)
+    $recordPath=Get-LabTlsWindowsRecordPath ([string]$RunInfo.StateRoot) ([string]$RunInfo.RunId) primary
+    $recordBytes=Read-LabTlsCaPrivateFile $recordPath $Binding.Native.UserSid 32768
+    $record=Read-LabTlsWindowsRecord $recordBytes
+    return Get-LabTlsAuthorityExpectedWindowsTarget $RunInfo $record $OperationAuditId $DataRoot $Binding.Root.ControllerId $Binding.Root.LocationId $AuthorityRef $WriterState.Digest
+}
+
+function Assert-LabTlsAuthorityOrphanAllocationRetiredAndAbsent {
+    param([object]$Allocation,[string]$UserSid)
+    $allowed=@('catalog','owned-host-volumes','runs','scope-markers','config.json','intent.json','owned-host-policy.json','owned-host-required')
+    $entries=@(Get-ChildItem -LiteralPath $Allocation.FullName -Force -ErrorAction Stop)
+    if(@($entries|Where-Object {$_.Name -cnotin $allowed -or ($_.Attributes -band [IO.FileAttributes]::ReparsePoint)}).Count){throw 'TLS_AUTHORITY_USE_UNCONFIRMED'}
+    $intentPath=Join-Path $Allocation.FullName 'intent.json'
+    if(-not (Test-Path -LiteralPath $intentPath -PathType Leaf)){throw 'TLS_AUTHORITY_USE_UNCONFIRMED'}
+    $intent=Read-LabTlsAuthorityJournalJson $intentPath $UserSid 8192 4 @('AuditId','Status','Cleanup')
+    Assert-LabTlsAuthorityJournalStringFields $intent @('AuditId','Status','Cleanup')
+    if($intent.AuditId -cne $Allocation.Name -or $intent.Status -cne 'OWNED_CREATE_PENDING'){throw 'TLS_AUTHORITY_USE_UNCONFIRMED'}
+    $runsRoot=Join-Path $Allocation.FullName 'runs'
+    if(-not (Test-Path -LiteralPath $runsRoot -PathType Container)){throw 'TLS_AUTHORITY_IN_USE'}
+    $runDirectories=@(Get-ChildItem -LiteralPath $runsRoot -Force -ErrorAction Stop)
+    if($runDirectories.Count -lt 1 -or @($runDirectories|Where-Object {-not $_.PSIsContainer -or ($_.Attributes -band [IO.FileAttributes]::ReparsePoint)}).Count){throw 'TLS_AUTHORITY_USE_UNCONFIRMED'}
+    foreach($runDirectory in $runDirectories){
+        if(-not (Test-LabTlsRequestReference $runDirectory.Name)){throw 'TLS_AUTHORITY_USE_UNCONFIRMED'}
+        $null=Assert-LabTlsAuthorityRunRetiredAndAbsent $runDirectory.Name $Allocation.FullName
+    }
+}
+
+function Assert-LabTlsAuthorityRetirementUse {
+    param([object]$Binding,[object]$WriterState,[string]$AuthorityRef)
+    $dataRoot=[IO.Path]::GetFullPath($Binding.Root.DataRoot).TrimEnd('\')
+    $labsRoot=Join-Path $dataRoot 'State/authenticated-tls-labs'
+    if(Test-Path -LiteralPath $labsRoot){
+        $native=$Binding.Native
+        foreach($allocation in Get-ChildItem -LiteralPath $labsRoot -Force -ErrorAction Stop){
+            try{
+                if(-not $allocation.PSIsContainer -or ($allocation.Attributes -band [IO.FileAttributes]::ReparsePoint)){throw 'TLS_AUTHORITY_USE_UNCONFIRMED'}
+                if(-not (Test-LabTlsRequestReference $allocation.Name)){throw 'TLS_AUTHORITY_USE_UNCONFIRMED'}
+                $file=Join-Path $allocation.FullName 'authenticated-tls-lab.json'
+                # A directory without a published record may still contain a
+                # policy, intent, allocated run, or crash residue. Until its
+                # exact run cleanup is proven, it blocks authority retirement.
+                if(-not (Test-Path -LiteralPath $file -PathType Leaf)){
+                    $null=Assert-LabTlsAuthorityOrphanAllocationRetiredAndAbsent $allocation $native.UserSid
+                    continue
+                }
+                $bytes=Read-LabTlsCaPrivateFile $file $native.UserSid 32768
+                $record=Read-LabTlsLabRecord $bytes
+                $intentPath=Join-Path $allocation.FullName 'intent.json'
+                $targetIntentPath=Join-Path $allocation.FullName 'target-intent.json'
+                if(-not (Test-Path -LiteralPath $intentPath -PathType Leaf) -or -not (Test-Path -LiteralPath $targetIntentPath -PathType Leaf)){throw 'TLS_AUTHORITY_USE_UNCONFIRMED'}
+                $intent=Read-LabTlsAuthorityJournalJson $intentPath $native.UserSid 8192 4 @('AuditId','Status','Cleanup')
+                Assert-LabTlsAuthorityJournalStringFields $intent @('AuditId','Status','Cleanup')
+                if($intent.AuditId -cne $allocation.Name -or $intent.Status -cne 'OWNED_CREATE_PENDING'){throw 'TLS_AUTHORITY_USE_UNCONFIRMED'}
+                $targetIntent=Read-LabTlsAuthorityJournalJson $targetIntentPath $native.UserSid 32768 8 $null
+                Assert-LabTlsAuthorityJournalStringFields $targetIntent @('ContractVersion','AuditId','DataRoot','ControllerId','LocationId','AuthorityRef','ClientRef','RegistrySha256','RunId','InstanceId')
+                $sameRoot=[string]::Equals([IO.Path]::GetFullPath($record.DataRoot).TrimEnd('\'),$dataRoot,[StringComparison]::OrdinalIgnoreCase)
+                $sameRegistry=[string]::Equals($record.ControllerId,$Binding.Root.ControllerId,[StringComparison]::Ordinal) -and
+                    [string]::Equals($record.LocationId,$Binding.Root.LocationId,[StringComparison]::Ordinal)
+                if(-not $sameRoot -or -not $sameRegistry){throw 'TLS_AUTHORITY_USE_UNCONFIRMED'}
+                if($record.ContractVersion -cnotin @('SqlServerLab.AuthenticatedTlsLab/0.2','SqlServerLab.AuthenticatedTlsLab/0.3','SqlServerLab.AuthenticatedTlsLab/0.4')){throw 'TLS_AUTHORITY_USE_UNCONFIRMED'}
+                foreach($field in @('ContractVersion','AuditId','DataRoot','ControllerId','LocationId','AuthorityRef','ClientRef','RegistrySha256','RunId','InstanceId')){
+                    if(-not $targetIntent.PSObject.Properties[$field] -or $targetIntent.$field -cne $record.$field){throw 'TLS_AUTHORITY_USE_UNCONFIRMED'}
+                }
+                if($targetIntent.InstanceId -cne 'primary'){throw 'TLS_AUTHORITY_USE_UNCONFIRMED'}
+                $usesTarget=[string]::Equals($record.AuthorityRef,$AuthorityRef,[StringComparison]::Ordinal)
+                $usesCurrentDigest=[string]::Equals($record.RegistrySha256,$WriterState.Digest,[StringComparison]::Ordinal)
+                if(-not $usesTarget -and -not $usesCurrentDigest){continue}
+                if(-not (Test-LabTlsRequestReference $record.AuditId) -or -not (Test-LabTlsRequestReference $record.RunId)){throw 'TLS_AUTHORITY_USE_UNCONFIRMED'}
+                $expectedRoot=[IO.Path]::GetFullPath((Join-Path $labsRoot $record.AuditId))
+                if(-not [string]::Equals([IO.Path]::GetFullPath($allocation.FullName),$expectedRoot,[StringComparison]::OrdinalIgnoreCase)){throw 'TLS_AUTHORITY_USE_UNCONFIRMED'}
+        $runtimeId=if($record.Provider -cin @('docker','podman')){$record.ContainerId}elseif($record.Provider -ceq 'hyperv'){$record.VmId}else{$null}
+        if($runtimeId -isnot [string] -or -not $runtimeId){throw 'TLS_AUTHORITY_USE_UNCONFIRMED'}
+        $expectedTarget=[pscustomobject]@{ScopeId=[string]$record.ScopeId;InstanceId=[string]$record.InstanceId;Provider=[string]$record.Provider;RuntimeId=$runtimeId}
+        $null=Assert-LabTlsAuthorityRunRetiredAndAbsent $record.RunId $expectedRoot $expectedTarget
+            }catch{
+                if($_.Exception.Message -cmatch '\ATLS_AUTHORITY_(?:IN_USE|USE_UNCONFIRMED)\z'){throw}
+                throw 'TLS_AUTHORITY_USE_UNCONFIRMED'
+            }
+        }
+    }
+    $null=Assert-LabDiagnosticPath $labsRoot
+    $operationsRoot=Join-Path $dataRoot 'State/authenticated-tls-windows-operations'
+    if(Test-Path -LiteralPath $operationsRoot){
+        $null=Assert-LabDiagnosticPath $operationsRoot
+        foreach($directory in Get-ChildItem -LiteralPath $operationsRoot -Force -ErrorAction Stop){
+            try{
+                if(-not $directory.PSIsContainer -or ($directory.Attributes -band [IO.FileAttributes]::ReparsePoint)){throw 'TLS_AUTHORITY_USE_UNCONFIRMED'}
+                if($directory.Name -notmatch '\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z' -or
+                    ($directory.Attributes -band [IO.FileAttributes]::ReparsePoint)){throw 'TLS_AUTHORITY_USE_UNCONFIRMED'}
+                $operationEntries=@(Get-ChildItem -LiteralPath $directory.FullName -Force -ErrorAction Stop)
+                if(@($operationEntries|Where-Object {$_.PSIsContainer -or $_.Name -cnotin @('intent.json','create-manifest.json','run.json','ready.json','failure.json')}).Count){throw 'TLS_AUTHORITY_USE_UNCONFIRMED'}
+                $intentPath=Join-Path $directory.FullName 'intent.json'
+                if(-not (Test-Path -LiteralPath $intentPath -PathType Leaf)){throw 'TLS_AUTHORITY_USE_UNCONFIRMED'}
+                $intent=Read-LabTlsAuthorityJournalJson $intentPath $Binding.Native.UserSid 8192 4 @('ContractVersion','AuditId','Status')
+                Assert-LabTlsAuthorityJournalStringFields $intent @('ContractVersion','AuditId','Status')
+                if($intent.ContractVersion -cne 'SqlServerLab.WindowsTlsCreateIntent/0.1' -or $intent.AuditId -cne $directory.Name -or $intent.Status -cne 'NEW_OWN_RUN_PENDING'){throw 'TLS_AUTHORITY_USE_UNCONFIRMED'}
+                $failurePath=Join-Path $directory.FullName 'failure.json'
+                $readyPath=Join-Path $directory.FullName 'ready.json'
+                $runPath=Join-Path $directory.FullName 'run.json'
+                if(Test-Path -LiteralPath $readyPath -PathType Leaf){
+                    if(Test-Path -LiteralPath $failurePath -PathType Leaf){throw 'TLS_AUTHORITY_USE_UNCONFIRMED'}
+                    $ready=Read-LabTlsAuthorityJournalJson $readyPath $Binding.Native.UserSid 8192 4 @('Status','RunId','ClientChecks','ConsumerEnded')
+                    Assert-LabTlsAuthorityJournalStringFields $ready @('Status','RunId')
+                    if(($ready.ClientChecks -isnot [int] -and $ready.ClientChecks -isnot [long]) -or $ready.ConsumerEnded -isnot [bool] -or
+                        $ready.Status -cne 'READY' -or $ready.ClientChecks -ne 2 -or -not $ready.ConsumerEnded -or
+                        -not (Test-LabTlsRequestReference ([string]$ready.RunId))){throw 'TLS_AUTHORITY_USE_UNCONFIRMED'}
+                    if(-not (Test-Path -LiteralPath $runPath -PathType Leaf)){throw 'TLS_AUTHORITY_USE_UNCONFIRMED'}
+                    $runInfo=Read-LabTlsAuthorityJournalJson $runPath $Binding.Native.UserSid 8192 4 @('AuditId','RunId','StateRoot')
+                    Assert-LabTlsAuthorityJournalStringFields $runInfo @('AuditId','RunId','StateRoot')
+                    if($runInfo.AuditId -cne $directory.Name -or $runInfo.RunId -cne $ready.RunId){throw 'TLS_AUTHORITY_USE_UNCONFIRMED'}
+                    $expectedTarget=Get-LabTlsAuthorityWindowsRunTarget $runInfo $directory.Name $Binding $WriterState $AuthorityRef $dataRoot
+                    if($null -eq $expectedTarget){continue}
+                    $null=Assert-LabTlsAuthorityRunRetiredAndAbsent ([string]$runInfo.RunId) ([string]$runInfo.StateRoot) $expectedTarget
+                    continue
+                }
+                if(Test-Path -LiteralPath $failurePath -PathType Leaf){
+                    $failure=Read-LabTlsAuthorityJournalJson $failurePath $Binding.Native.UserSid 8192 4 @('Status','Phase','FailureCode','ConsumerEnded','Cleanup')
+                    Assert-LabTlsAuthorityJournalStringFields $failure @('Status','Phase','FailureCode','Cleanup')
+                    if($failure.ConsumerEnded -isnot [bool] -or $failure.Status -cne 'FAILED' -or -not $failure.ConsumerEnded -or $failure.Cleanup -cne 'OWN_RUN_ONLY'){throw 'TLS_AUTHORITY_IN_USE'}
+                    if(-not (Test-Path -LiteralPath $runPath -PathType Leaf)){throw 'TLS_AUTHORITY_USE_UNCONFIRMED'}
+                    $runInfo=Read-LabTlsAuthorityJournalJson $runPath $Binding.Native.UserSid 8192 4 @('AuditId','RunId','StateRoot')
+                    Assert-LabTlsAuthorityJournalStringFields $runInfo @('AuditId','RunId','StateRoot')
+                    if($runInfo.AuditId -cne $directory.Name){throw 'TLS_AUTHORITY_USE_UNCONFIRMED'}
+                    $expectedTarget=Get-LabTlsAuthorityWindowsRunTarget $runInfo $directory.Name $Binding $WriterState $AuthorityRef $dataRoot
+                    if($null -eq $expectedTarget){continue}
+                    $null=Assert-LabTlsAuthorityRunRetiredAndAbsent ([string]$runInfo.RunId) ([string]$runInfo.StateRoot) $expectedTarget
+                    continue
+                }
+                throw 'TLS_AUTHORITY_IN_USE'
+            }catch{
+                if($_.Exception.Message -cmatch '\ATLS_AUTHORITY_(?:IN_USE|USE_UNCONFIRMED)\z'){throw}
+                throw 'TLS_AUTHORITY_USE_UNCONFIRMED'
+            }
+        }
+    }
+}
+
+function Retire-LabTlsOperationalAuthority {
+    [CmdletBinding(SupportsShouldProcess)]
+    param(
+        [Parameter(Mandatory)][string]$DataRoot,
+        [Parameter(Mandatory)][string]$ControllerId,
+        [Parameter(Mandatory)][string]$LocationId,
+        [Parameter(Mandatory)][string]$AuthorityRef,
+        [Parameter(Mandatory)][string]$ExpectedCandidateId,
+        [Parameter(Mandatory)][ValidatePattern('^[0-9a-f]{64}$')][string]$ExpectedRegistrySha256
+    )
+    if(-not (Test-LabTlsCaCandidateInput $DataRoot $ControllerId $LocationId CURRENT_WINDOWS_PROCESS) -or
+        -not (Test-LabTlsRequestReference $AuthorityRef) -or -not (Test-LabTlsRequestReference $ExpectedCandidateId)){
+        throw 'TLS_AUTHORITY_RETIREMENT_INPUT_INVALID'
+    }
+    $binding=Get-LabTlsRegistryWriterBinding $DataRoot $ControllerId $LocationId
+    $lifecycleLock=Enter-LabTlsRegistryLifecycleLock $binding;$registryLock=$null
+    try{
+        $registryLock=Enter-LabTlsRegistryWriterLock $binding
+        $state=Read-LabTlsRegistryWriterState $binding
+        if($state.Status -cne 'COMMITTED' -or $state.Pending.Count -ne 0){throw 'TLS_AUTHORITY_REGISTRY_UNCONFIRMED'}
+        if($state.Digest -cne $ExpectedRegistrySha256){throw 'TLS_AUTHORITY_EXPECTED_REGISTRY_CHANGED'}
+        $parsed=Read-LabAuthenticatedTlsRegistryDocument $state.Bytes
+        if(-not $parsed.Success){throw 'TLS_AUTHORITY_REGISTRY_INVALID'}
+        $document=$parsed.Value.RegistryDocument
+        $targets=@($document.Payloads|Where-Object {$_.Kind -ceq 'AUTHORITY' -and $_.Ref -ceq $AuthorityRef -and $_.ContractVersion -ceq 'SqlServerLab.AuthenticatedTlsRegistryPayload/0.2'})
+        if($targets.Count -ne 1 -or $targets[0].Status -cne 'ACTIVE' -or $targets[0].CandidateId -cne $ExpectedCandidateId){throw 'TLS_AUTHORITY_RETIREMENT_TARGET_INVALID'}
+        if(-not $PSCmdlet.ShouldProcess($AuthorityRef,"Retire only this TLS authority at registry $ExpectedRegistrySha256")){
+            return [pscustomobject]@{Success=$true;Value=[pscustomobject]@{Status='CANCELLED';AuthorityRef=$AuthorityRef;RegistrySha256=$state.Digest;MutationAllowed=$false};ErrorCode=$null}
+        }
+        Exit-LabTlsRegistryWriterLock $registryLock;$registryLock=$null
+        $payloads=[Collections.Generic.List[object]]::new()
+        foreach($payload in $document.Payloads){
+            if([string]::Equals($payload.Ref,$AuthorityRef,[StringComparison]::Ordinal)){$payload.Status='RETIRED'}
+            $payloads.Add($payload)
+        }
+        $revision=[long]$document.Index.Revision
+        if($revision -ge [int]::MaxValue){throw 'TLS_AUTHORITY_REGISTRY_REVISION_OVERFLOW'}
+        $next=[pscustomobject]@{
+            ContractVersion=$document.ContractVersion
+            Index=[pscustomobject]@{ContractVersion=$document.Index.ContractVersion;ControllerId=$ControllerId;LocationId=$LocationId;
+                Revision=[int]($revision+1);Records=@($payloads|ForEach-Object {Get-LabTlsPayloadIndexRecord $_})}
+            Payloads=@($payloads.ToArray())
+        }
+        $candidateBytes=ConvertTo-LabTlsRegistryWriterBytes $next
+        if(-not (Test-LabAuthenticatedTlsRegistryDocumentTransition $state.Bytes $candidateBytes).Success){throw 'TLS_AUTHORITY_RETIREMENT_TRANSITION_INVALID'}
+        $written=Invoke-LabAuthenticatedTlsRegistryWrite $DataRoot $ControllerId $LocationId CURRENT_WINDOWS_PROCESS RETIRE_AUTHORITY `
+            $binding.Root.RootMetadataDigest $binding.ActorDigest $state.Digest $candidateBytes $null $AuthorityRef $ExpectedCandidateId
+        if(-not $written.Success){throw 'TLS_AUTHORITY_RETIREMENT_UNCONFIRMED'}
+        $final=Read-LabTlsRegistryWriterState $binding
+        if($final.Status -cne 'COMMITTED' -or $final.Pending.Count -ne 0){throw 'TLS_AUTHORITY_RETIREMENT_UNCONFIRMED'}
+        $after=Read-LabAuthenticatedTlsRegistryDocument $final.Bytes
+        if(-not $after.Success){throw 'TLS_AUTHORITY_RETIREMENT_UNCONFIRMED'}
+        $retired=@($after.Value.RegistryDocument.Payloads|Where-Object {$_.Kind -ceq 'AUTHORITY' -and $_.Ref -ceq $AuthorityRef -and $_.CandidateId -ceq $ExpectedCandidateId})
+        if($retired.Count -ne 1 -or $retired[0].Status -cne 'RETIRED'){throw 'TLS_AUTHORITY_RETIREMENT_UNCONFIRMED'}
+        return [pscustomobject]@{Success=$true;Value=[pscustomobject]@{Status='TOMBSTONE_COMMITTED';AuthorityRef=$AuthorityRef;CandidateId=$ExpectedCandidateId;
+            RegistrySha256=$final.Digest;Revision=$after.Value.RegistryDocument.Index.Revision;RemovalStatus='NONE';QualificationStatus='NOT_EXECUTED';Ready=$false;MutationAllowed=$false};ErrorCode=$null}
+    }catch{
+        throw
+    }finally{
+        Exit-LabTlsRegistryWriterLock $registryLock
+        Exit-LabTlsRegistryLifecycleLock $lifecycleLock
+    }
+}

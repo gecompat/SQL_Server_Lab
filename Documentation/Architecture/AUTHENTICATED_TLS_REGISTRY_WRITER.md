@@ -2,7 +2,7 @@
 
 | Merkmal | Wert |
 |---|---|
-| Status | Implementierte private Metadatenlane; keine TLS-Qualifikation |
+| Status | Private Metadatenlane mit nutzungsgebundener Authority-Retirement-Transaktion; keine TLS-Qualifikation |
 | Stand | 2026-10-17 |
 | Implementierung | [AuthenticatedTlsRegistryWriter.ps1](../../Private/AuthenticatedTlsRegistryWriter.ps1) |
 | Prüfung | [Invoke-AuthenticatedTlsRegistryWriterChecks.ps1](../../Tests/Static/Invoke-AuthenticatedTlsRegistryWriterChecks.ps1) |
@@ -11,8 +11,15 @@ Der Writer ergänzt die [lesende Rootbindung](AUTHENTICATED_TLS_REGISTRY_ROOT.md
 und die [vollständige Dokumentform](AUTHENTICATED_TLS_REGISTRY_DOCUMENT.md).
 Er registriert ausdrücklich ausgewählte aktive Client- und Signiermetadaten
 und die begrenzte [CA-/Trustscope-Metadatenform](AUTHENTICATED_TLS_AUTHORITY_BINDING.md).
-Retirement und Nutzungsauflösung bleiben gesperrt. Die bestehende CA wird
-durch diese Implementierung weder adoptiert noch qualifiziert.
+Eine private Retirement-Transaktion darf eine exakt ausgewählte aktive
+Authority nur nach geschlossenem Nutzungsnachweis als unveränderlichen
+`RETIRED`-Tombstone fortschreiben. Sie entfernt weder Payloads noch historische
+Referenzen, CA-Schlüssel oder Trust. Unklare Allocation-/Windows-Journale,
+nicht terminal entfernte Runs, erreichbare Container oder VMs und ein geänderter
+Registryhead sperren die Mutation. Generische Updates und Recovery dürfen keine
+neuen Tombstones erzeugen; eine Recovery eines bereits installierten Retirement-
+Kandidaten wiederholt denselben Nutzungsnachweis. Die bestehende CA wird durch
+diese Implementierung weder adoptiert noch qualifiziert.
 Keine öffentliche API, Keyöffnung, Zertifikats-, Truststore-, SQL- oder
 Provideraktion entsteht. `QualificationStatus=NOT_EXECUTED`, `Ready=false`
 und `MutationAllowed=false` bleiben erhalten.
@@ -54,8 +61,10 @@ Fehlender Owner, unbekannte Artefakte oder aufgeweichte ACLs sperren.
 
 ## Serialisierung und Dateiersatz
 
-Ein rootpfadgebundener `Global`-Mutex serialisiert auch die erstmalige Anlage
-über Windows-Sitzungen hinweg. Der zusätzliche persistente `writer.lock`
+Ein rootpfadgebundener `Global`-Lifecycle-Mutex serialisiert Registrywrites,
+TLS-Lab-Anlage und Authority-Retirement über Windows-Sitzungen hinweg. Darin
+serialisiert ein weiterer rootpfadgebundener Writer-Mutex auch die erstmalige Anlage.
+Der zusätzliche persistente `writer.lock`
 wird mit `FileShare.None` geöffnet. Beide Erwerbe warten nicht auf einen
 anderen Writer. Beim Prozessende werden die Handles frei; die Lockdatei
 bleibt als eigener regulärer Bestandteil erhalten. Ein verwaister Mutex
@@ -120,8 +129,9 @@ Ein Abbruch während der erstmaligen Anlage vor vollständigem Intent oder
 ein abgebrochener initialer Intent ohne installierte Registry bleibt
 gesperrt und benötigt eine gesonderte eigene Cleanup-/Recoveryentscheidung;
 kein stiller Bootstrap-Replay. Run-Removal entfernt diese gemeinsame Ablage
-nicht. Produktiv registrierte Kontexte, CA-Zuordnung, Key-/Trustentfernung
-und nutzungsgebundenes Retirement sind weiterhin getrennte offene Aufgaben.
+nicht. Die private Retirementtransaktion ändert ausschließlich Status und
+Indexrevision. Produktiv registrierte Kontexte, CA-Zuordnung,
+Key-/Trustentfernung und TLS-Qualifikation bleiben getrennte Operationen.
 
 ## Prüfung und Aufwand
 

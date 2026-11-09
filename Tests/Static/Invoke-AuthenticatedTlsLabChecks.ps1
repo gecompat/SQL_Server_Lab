@@ -235,6 +235,16 @@ if($IsWindows){
         $script:capturedAutoStart=$null;$script:capturedProvider=$null;$script:writtenConnection=$null
         $authority.Authority|Add-Member -NotePropertyName NotAfterUtc -NotePropertyValue ([datetime]::UtcNow.AddDays(3).ToString('O'))
         function Register-LabTlsOperationalAuthority {param($DataRoot,$ControllerId,$LocationId,$CandidateId) $null=$DataRoot,$ControllerId,$LocationId,$CandidateId;return $authority}
+        # This orchestration fixture intentionally has synthetic root metadata.
+        # Keep the production wrapper path exercised while isolating the lock
+        # identity; writer binding and native mutex behavior have dedicated tests.
+        function Get-LabTlsRegistryWriterBinding {
+            param($DataRoot,$ControllerId,$LocationId)
+            $null=$ControllerId,$LocationId
+            [pscustomobject]@{Directory=(Join-Path $DataRoot 'State/authenticated-tls')}
+        }
+        function Enter-LabTlsRegistryLifecycleLock {param($Binding) $null=$Binding;[pscustomobject]@{Held=$true}}
+        function Exit-LabTlsRegistryLifecycleLock {param($Lock) $null=$Lock}
         $script:fixtureImageId='sha256:'+('b'*64)
         function Invoke-LabTlsContainer {param($Arguments,$InputText) $null=$InputText;if($Arguments[0] -ceq 'image'){return $script:fixtureImageId};if($Arguments -contains 'base64'){return 'AQ=='};return ''}
         # Synthetic policy boundary for the creator orchestration. Actual policy
