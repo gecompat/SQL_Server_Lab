@@ -333,6 +333,25 @@ try{
             (Get-LabTlsOperationalAuthority $appendRoot $controller $location $appendNewBinding.Authority.Ref $appendNewBinding.Client.Ref $appendNewBinding.RegistrySha256).RegistrySha256 -ceq $appendState.Digest -and
             $repeatAppend.RegistrySha256 -ceq $appendState.Digest -and $repeatAppend.Authority.Ref -ceq $appendNewBinding.Authority.Ref -and
             $appendOldUseRejected -and -not (Test-Path -LiteralPath $appendOldCandidateDirectory))
+        $beforeAppendUpdate=Read-LabAuthenticatedTlsRegistryDocument ([IO.File]::ReadAllBytes($appendOldRegistry))
+        $beforeAppendOldAuthority=@($beforeAppendUpdate.Value.RegistryDocument.Payloads|Where-Object {$_.Kind -ceq 'AUTHORITY' -and $_.CandidateId -ceq $appendOld.Value.CandidateId})[0]
+        $beforeAppendOldRecord=Get-LabTlsPayloadIndexRecord $beforeAppendOldAuthority
+        $beforeAppendNewAuthority=@($beforeAppendUpdate.Value.RegistryDocument.Payloads|Where-Object {$_.Kind -ceq 'AUTHORITY' -and $_.CandidateId -ceq $appendNew.Value.CandidateId})[0]
+        $script:authorityFixtureClientMetadataDrift=$false
+        $appendContextUpdate=Register-LabTlsOperationalAuthority $appendRoot $controller $location $appendNew.Value.CandidateId
+        $script:authorityFixtureClientMetadataDrift=$true
+        $afterAppendUpdate=Read-LabAuthenticatedTlsRegistryDocument ([IO.File]::ReadAllBytes($appendOldRegistry))
+        $afterAppendOldAuthority=@($afterAppendUpdate.Value.RegistryDocument.Payloads|Where-Object {$_.Kind -ceq 'AUTHORITY' -and $_.CandidateId -ceq $appendOld.Value.CandidateId})[0]
+        $afterAppendNewAuthority=@($afterAppendUpdate.Value.RegistryDocument.Payloads|Where-Object {$_.Kind -ceq 'AUTHORITY' -and $_.CandidateId -ceq $appendNew.Value.CandidateId})[0]
+        $afterAppendOldRecord=Get-LabTlsPayloadIndexRecord $afterAppendOldAuthority
+        Add-CheckResult 'Updating the selected authority preserves unrelated missing-key history' ($afterAppendUpdate.Success -and
+            $afterAppendUpdate.Value.RegistryDocument.Index.Revision -eq ($beforeAppendUpdate.Value.RegistryDocument.Index.Revision+1) -and
+            $appendContextUpdate.Authority.Generation -eq ($beforeAppendNewAuthority.Generation+1) -and
+            $afterAppendNewAuthority.ClientGeneration -gt $beforeAppendNewAuthority.ClientGeneration -and
+            $afterAppendOldAuthority.Status -ceq 'ACTIVE' -and
+            [string]::Equals(($beforeAppendOldRecord|ConvertTo-Json -Compress),($afterAppendOldRecord|ConvertTo-Json -Compress),[StringComparison]::Ordinal) -and
+            -not (Test-Path -LiteralPath $appendOldCandidateDirectory))
+        $appendState=Read-LabTlsRegistryWriterState (Get-LabTlsRegistryWriterBinding $appendRoot $controller $location)
         $retirement=Retire-LabTlsOperationalAuthority $appendRoot $controller $location $appendOldBinding.Authority.Ref $appendOld.Value.CandidateId $appendState.Digest -Confirm:$false
         $retiredHistoryRejected=$false
         try{$null=Get-LabTlsOperationalAuthority $appendRoot $controller $location $appendOldBinding.Authority.Ref $appendOldBinding.Client.Ref $appendOldDigest}

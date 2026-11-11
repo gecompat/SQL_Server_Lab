@@ -303,8 +303,20 @@ function Assert-LabTlsRegistryFreshPayloads {
         if(-not $old.ContainsKey($p.Ref) -and $Reserved.Contains($p.Ref) -and -not $AllowPendingIntentReferences){throw 'TLS_REGISTRY_REF_RESERVED'}
         if($p.Kind -ceq 'AUTHORITY'){
             if(-not $old.ContainsKey($p.Ref) -and $Reserved.Contains($p.TrustScopeRef) -and -not $AllowPendingIntentReferences){throw 'TLS_REGISTRY_REF_RESERVED'}
+            if($old.ContainsKey($p.Ref)){
+                $priorRecord=Get-LabTlsPayloadIndexRecord $old[$p.Ref]
+                $candidateRecord=Get-LabTlsPayloadIndexRecord $p
+                if($priorRecord.Generation -eq $candidateRecord.Generation -and $priorRecord.Status -ceq $candidateRecord.Status -and
+                    $priorRecord.IdentityDigest -ceq $candidateRecord.IdentityDigest -and $priorRecord.RevisionDigest -ceq $candidateRecord.RevisionDigest -and
+                    $priorRecord.SignerContextRef -ceq $candidateRecord.SignerContextRef -and $priorRecord.SignerGeneration -eq $candidateRecord.SignerGeneration){
+                    # An unrelated metadata update must not require unavailable
+                    # historical CA material to be requalified. Every changed or
+                    # subsequently used authority still receives fresh validation.
+                    continue
+                }
+            }
             # Kein Upgrade ungebundener 0.1-CAs und kein Same-Generation-Skip:
-            # Kandidat, beide Kontexte und Store werden stets frisch gelesen.
+            # Geaenderte Kandidaten, beide Kontexte und Store werden frisch gelesen.
             if($p.ContractVersion -cne 'SqlServerLab.AuthenticatedTlsRegistryPayload/0.2') {throw 'TLS_REGISTRY_OPERATION_UNSUPPORTED'}
             $signer=@($Candidate.Payloads|Where-Object Ref -CEQ $p.SignerContextRef)
             $client=@($Candidate.Payloads|Where-Object Ref -CEQ $p.ClientRef)

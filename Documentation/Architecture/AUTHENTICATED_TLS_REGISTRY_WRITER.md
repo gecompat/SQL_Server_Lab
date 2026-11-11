@@ -3,7 +3,7 @@
 | Merkmal | Wert |
 |---|---|
 | Status | Private Metadatenlane mit additiver Authority-Registrierung, historischer Digestauflösung und nutzungsgebundener Retirement-Transaktion; keine TLS-Qualifikation |
-| Stand | 2026-11-09 |
+| Stand | 2026-11-11 |
 | Implementierung | [AuthenticatedTlsRegistryWriter.ps1](../../Private/AuthenticatedTlsRegistryWriter.ps1) |
 | Prüfung | [Invoke-AuthenticatedTlsRegistryWriterChecks.ps1](../../Tests/Static/Invoke-AuthenticatedTlsRegistryWriterChecks.ps1) |
 
@@ -35,8 +35,16 @@ registriert werden. Der Übergang verlangt exakt drei neue Records: eine aktive
 Records müssen vollständig vorhanden und in Identitäts-, Revisionsdigest und
 Status unverändert bleiben. Die neue Dreiergruppe wird frisch gegen Kandidat,
 Actor, Rootmetadaten, Kontexte und ReadOnly-Trust geprüft. Alte Authorities
-werden bei diesem eng begrenzten Übergang nicht als betriebsbereit bewertet;
-normale Updates behalten ihre bisherige Frischeprüfung. `UPDATE` und
+werden bei diesem eng begrenzten Übergang nicht als betriebsbereit bewertet.
+Bei `UPDATE` werden unveränderte Authorityrecords anhand ihrer vollständigen
+Indexbindung (Generation, Status, Identitäts- und Revisionsdigest sowie
+Signerreferenz/-generation) erhalten, ohne ihre Kandidatendateien erneut zu
+qualifizieren. Geänderte Authorityrecords und geänderte Kontextpayloads werden
+weiter frisch validiert. Dadurch blockiert fehlendes Material einer anderen,
+unverändert erhaltenen Authority keine Aktualisierung der ausgewählten CA.
+Diese alte Authority wird dadurch weder wiederhergestellt noch qualifiziert;
+ihre Verwendung prüft ihre Bindung weiterhin frisch und bleibt bei fehlendem
+Kandidatenmaterial gesperrt. `UPDATE` und
 `APPEND_AUTHORITY` dürfen keine Tombstones anlegen. Retirement bleibt an die
 unveränderte vollständige Nutzungsprüfung gebunden.
 

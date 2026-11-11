@@ -653,6 +653,16 @@ Fälle einschließlich Cleanup. Derselbe unabhängige Reviewer bestätigte die
 feste Enumwahl und beide neuen Regressionen; das Finding ist geschlossen.
 Er führte ausschließlich einen Quellreview aus, keine nativen Probes.
 
+## Authority-Update bei fehlendem historischem Kandidaten vom 2026-11-11
+
+Die Authority-Suite prüft jetzt zusätzlich eine Client-Kontextaktualisierung
+für die ausgewählte CA, während eine andere aktive historische Authority ohne
+ihre Kandidatendateien erhalten bleibt. Der ausgewählte Eintrag wird neu
+gebunden; der alte Authorityrecord bleibt unverändert und seine fehlenden
+Dateien bleiben fehlend. Die lokale Windows-Authority-Suite bestand 37/37
+Fälle, die gekoppelte Registry-Writer-Suite 50/50. Beide Ergebnisse sind
+lokale Metadaten-/DPAPI-Fixturbelege, keine Docker-/Podman- oder SQL-TLS-Läufe.
+
 ## Angegebene TLS-Werte in CLI und GUI vom 2026-10-17
 
 Die [native Parser-/CLI-Suite](../../Tests/Static/Invoke-SqlConnectionSettingsChecks.ps1)
