@@ -663,6 +663,30 @@ Dateien bleiben fehlend. Die lokale Windows-Authority-Suite bestand 37/37
 Fälle, die gekoppelte Registry-Writer-Suite 50/50. Beide Ergebnisse sind
 lokale Metadaten-/DPAPI-Fixturbelege, keine Docker-/Podman- oder SQL-TLS-Läufe.
 
+Die erste Implementierung ließ außerdem unveränderte Kandidaten mit vorhandenen
+Dateien die Trustdriftprüfung überspringen; die Windows-CI-Fixture reproduzierte
+dadurch drei Folgefehler. Der Writer überspringt die erneute Kandidatenprüfung
+jetzt nur, wenn eine exakte Pfadabfrage das unveränderte Kandidatenverzeichnis
+als fehlend bestätigt. Dateien, Reparse-Punkte und unbestimmbare Pfadzustände
+bleiben fail-closed. Vorhandene Kandidatendateien bleiben bei Trustdrift und
+vor Commit frisch gebunden. Die Regression prüft beide Pfade einschließlich
+Recovery und eine Datei anstelle des Kandidatenverzeichnisses.
+
+Der fehlgeschlagene Adapter-Installationsjob lief auf `ubuntu-26.04`, weil
+`ubuntu-latest` während der GitHub-Migration bereits dorthin aufgelöst wurde.
+Die [Microsoft-Installationsanleitung](https://learn.microsoft.com/en-us/sql/linux/quickstart-install-connect-ubuntu?view=sql-server-ver16)
+nennt Ubuntu 24.04 als unterstützte Release-Basis für SQL Server 2025; der
+Adapterjob ist deshalb auf `ubuntu-24.04` festgelegt. Das ist ein
+CI-Host-/Paketfeed-Fix und kein neuer Linux-TLS-Qualifikationsnachweis.
+
+Die korrigierte Writer-Regression bestand lokal mit Authority Binding 43/0,
+Authority 38/0 und Registry Writer 50/0. `Invoke-ImpactedChecks.ps1` führte
+anschließend alle neun betroffenen statischen Suites aus und meldete PASS.
+Die Runnerabweichung wurde auf `ubuntu-26.04` zurückgeführt; der Adapterjob
+verwendet jetzt das von Microsoft dokumentierte `ubuntu-24.04`. Diese
+Änderungen belegen weder den noch ausstehenden nativen Linux-TLS-Lauf noch
+ersetzen sie dessen PR-Gate.
+
 ## Angegebene TLS-Werte in CLI und GUI vom 2026-10-17
 
 Die [native Parser-/CLI-Suite](../../Tests/Static/Invoke-SqlConnectionSettingsChecks.ps1)

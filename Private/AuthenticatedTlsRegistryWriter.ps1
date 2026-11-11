@@ -309,10 +309,14 @@ function Assert-LabTlsRegistryFreshPayloads {
                 if($priorRecord.Generation -eq $candidateRecord.Generation -and $priorRecord.Status -ceq $candidateRecord.Status -and
                     $priorRecord.IdentityDigest -ceq $candidateRecord.IdentityDigest -and $priorRecord.RevisionDigest -ceq $candidateRecord.RevisionDigest -and
                     $priorRecord.SignerContextRef -ceq $candidateRecord.SignerContextRef -and $priorRecord.SignerGeneration -eq $candidateRecord.SignerGeneration){
-                    # An unrelated metadata update must not require unavailable
-                    # historical CA material to be requalified. Every changed or
-                    # subsequently used authority still receives fresh validation.
-                    continue
+                    # Preserve an unchanged historical record when its candidate
+                    # directory is absent. Existing material must still be
+                    # requalified so trust drift remains fail-closed.
+                    $candidatePaths=Get-LabTlsCaCandidatePaths $Binding.Native $Binding.Root.ControllerId $Binding.Root.LocationId $p.CandidateId
+                    $candidateItem=$null
+                    try{$candidateItem=Get-Item -LiteralPath $candidatePaths.Candidate -Force -ErrorAction Stop}
+                    catch [System.Management.Automation.ItemNotFoundException]{continue}
+                    if(-not $candidateItem.PSIsContainer -or ($candidateItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0){throw 'TLS_REGISTRY_PAYLOAD_STALE'}
                 }
             }
             # Kein Upgrade ungebundener 0.1-CAs und kein Same-Generation-Skip:

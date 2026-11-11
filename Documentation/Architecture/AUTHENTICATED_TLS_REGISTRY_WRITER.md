@@ -38,10 +38,15 @@ Actor, Rootmetadaten, Kontexte und ReadOnly-Trust geprüft. Alte Authorities
 werden bei diesem eng begrenzten Übergang nicht als betriebsbereit bewertet.
 Bei `UPDATE` werden unveränderte Authorityrecords anhand ihrer vollständigen
 Indexbindung (Generation, Status, Identitäts- und Revisionsdigest sowie
-Signerreferenz/-generation) erhalten, ohne ihre Kandidatendateien erneut zu
-qualifizieren. Geänderte Authorityrecords und geänderte Kontextpayloads werden
-weiter frisch validiert. Dadurch blockiert fehlendes Material einer anderen,
-unverändert erhaltenen Authority keine Aktualisierung der ausgewählten CA.
+Signerreferenz/-generation) nur dann ohne erneute Qualifikation erhalten, wenn
+eine exakte Pfadabfrage das Kandidatenverzeichnis als fehlend bestätigt.
+Vorhandene Dateien, Reparse-Punkte und unbestimmbare Pfadzustände werden
+abgelehnt. Bei vorhandenen echten Verzeichnissen werden auch unveränderte
+Authorities frisch validiert, damit Trustdrift weiterhin vor Intent und Commit
+fail-closed abgelehnt wird. Geänderte Authorityrecords und geänderte
+Kontextpayloads werden ebenfalls frisch validiert. Dadurch blockiert fehlendes
+Material einer anderen, unverändert erhaltenen Authority keine
+Metadatenaktualisierung der ausgewählten CA.
 Diese alte Authority wird dadurch weder wiederhergestellt noch qualifiziert;
 ihre Verwendung prüft ihre Bindung weiterhin frisch und bleibt bei fehlendem
 Kandidatenmaterial gesperrt. `UPDATE` und
@@ -80,9 +85,10 @@ die native Neubeobachtung noch die Autorität des konkreten Auftrags. Unter
 Sperre und unmittelbar vor Dateiersatz und Commit wird erneut geprüft.
 Geänderte aktive Payloads müssen den bestehenden intern frischen
 Prozess-/Binary-/Backendvergleich bestehen. Nicht geänderte Kontextgenerationen
-werden durch den vollständigen Dokumentübergang erhalten. Jede aktive `0.2`-CA
-prüft trotzdem Kandidat, beide Kontextgenerationen und ReadOnly-Trust frisch,
-vor Intent, Ersatz und Commit sowie bei `RECOVER_COMMIT`. Diskdigests
+werden durch den vollständigen Dokumentübergang erhalten. Bei vorhandenen
+Kandidatenverzeichnissen prüft jede aktive `0.2`-CA Kandidat, beide
+Kontextgenerationen und ReadOnly-Trust frisch vor Intent, Ersatz und Commit
+sowie bei `RECOVER_COMMIT`. Diskdigests
 bleiben Diskbeobachtungen; ein Registrycommit qualifiziert keine Clients.
 
 Genau `State/authenticated-tls` unter dem ausgewählten Root ist zulässig.

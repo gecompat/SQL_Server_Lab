@@ -352,6 +352,12 @@ try{
             [string]::Equals(($beforeAppendOldRecord|ConvertTo-Json -Compress),($afterAppendOldRecord|ConvertTo-Json -Compress),[StringComparison]::Ordinal) -and
             -not (Test-Path -LiteralPath $appendOldCandidateDirectory))
         $appendState=Read-LabTlsRegistryWriterState (Get-LabTlsRegistryWriterBinding $appendRoot $controller $location)
+        $driftRegistryDigest=$appendState.Digest;$driftRetirementRejected=$false
+        try{$null=Retire-LabTlsOperationalAuthority $appendRoot $controller $location $appendOldBinding.Authority.Ref $appendOld.Value.CandidateId $appendState.Digest -Confirm:$false}
+        catch{$driftRetirementRejected=$_.Exception.Message -ceq 'TLS_AUTHORITY_RETIREMENT_UNCONFIRMED'}
+        $driftRetirementState=Read-LabTlsRegistryWriterState (Get-LabTlsRegistryWriterBinding $appendRoot $controller $location)
+        Add-CheckResult 'Retirement fails closed when a retained authority has client drift' ($driftRetirementRejected -and $driftRetirementState.Digest -ceq $driftRegistryDigest)
+        $script:authorityFixtureClientMetadataDrift=$false
         $retirement=Retire-LabTlsOperationalAuthority $appendRoot $controller $location $appendOldBinding.Authority.Ref $appendOld.Value.CandidateId $appendState.Digest -Confirm:$false
         $retiredHistoryRejected=$false
         try{$null=Get-LabTlsOperationalAuthority $appendRoot $controller $location $appendOldBinding.Authority.Ref $appendOldBinding.Client.Ref $appendOldDigest}
