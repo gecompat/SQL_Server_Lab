@@ -1,11 +1,13 @@
 <#
 .SYNOPSIS
-    Ruft ein katalogisiertes Ollama-Modell lokal oder über die explizit freigegebene Cloud-Lane auf.
+    Ruft ein katalogisiertes Ollama-Modell lokal oder über eine explizit freigegebene Cloud-Lane auf.
 .DESCRIPTION
-    Sendet genau einen Prompt an die Ollama-Cloud-API. Das Modell ist kataloggebunden,
-    Cloud-Egress und Datenklassifikation sind explizit, Requests und Retries sind begrenzt.
-    Der API-Key wird erst nach ShouldProcess aus der lokalen .env-Datei gelesen und weder
-    in Plan, State, Prozessargumente, Fehler noch Ausgabe übernommen.
+    Sendet genau einen Prompt über die im Modellkatalog gebundene Ollama-API. Lokale
+    Gemma-4-Generierung verwendet /api/chat und liest message.content. Cloud-Egress
+    und Datenklassifikation sind explizit, Requests und Retries begrenzt. Der API-Key
+    wird erst nach ShouldProcess aus der lokalen .env-Datei gelesen und weder in Plan,
+    State, Prozessargumente, Fehler noch Ausgabe übernommen. WhatIf liefert den
+    geheimnisfreien Plan einschließlich GenerationApi und Think ohne Request.
 .PARAMETER ModelKey
     Katalogschlüssel des Ollama-Cloud-Modells.
 .PARAMETER InputText
@@ -27,7 +29,8 @@
 .PARAMETER RetryCount
     Begrenzte Wiederholungen bei Timeout, HTTP 408, 429 oder 5xx.
 .OUTPUTS
-    Sanitisiertes Ergebnis mit Modell-/Planidentität, Versuchszahl, Text und Warncodes.
+    Sanitisiertes Ergebnis mit Modell-/Planidentität, Versuchszahl, Text und Warncodes;
+    bei WhatIf ein geheimnisfreier Plan.
 .EXAMPLE
     Invoke-SqlServerLabAiModel -ModelKey ollama-gpt-oss-120b-cloud -InputText 'Antworte nur mit OK.' -DataClassification synthetic-only -AllowCloudEgress
 .EXAMPLE
@@ -57,7 +60,7 @@ function Invoke-SqlServerLabAiModel {
 
     $publicPlan = [PSCustomObject]@{
         Contract=$plan.Contract;Status=$plan.Status;Lane=$plan.Lane;EndpointRef=$plan.EndpointRef
-        TargetHost=$plan.TargetHost;ModelKey=$plan.ModelKey;Purpose=$plan.Purpose;Dimension=$plan.Dimension;InputProfile=$plan.InputProfile
+        TargetHost=$plan.TargetHost;ModelKey=$plan.ModelKey;Purpose=$plan.Purpose;GenerationApi=$plan.GenerationApi;Think=$plan.Think;Dimension=$plan.Dimension;InputProfile=$plan.InputProfile
         Port=$plan.Port;CredentialRef=$plan.CredentialRef;Egress=$plan.Egress;RequestBudget=$plan.RequestBudget
         Blockers=@($plan.Blockers);Warnings=@($plan.Warnings);PlanKey=$plan.PlanKey
     }

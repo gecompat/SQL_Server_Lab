@@ -102,6 +102,24 @@ belegt Dimension, Lizenz und den ausschließlich für Fragen vorgesehenen Präfi
 `VECTOR(1024)`. Die katalogisierte Mindestversion 0.34.2 ist der nachgewiesene
 Projektstand.
 
+Für lokale Generierung ist zusätzlich `ollama-gemma4-26b-local` für den
+vorhandenen Tag `gemma4:26b` katalogisiert. Der Projektfloor beträgt Ollama
+0.40.15; das Modell muss bereits installiert sein. Das Projekt lädt oder
+aktualisiert es nicht. Der Katalog verlangt dieselbe Live-Manifestdigest- und
+Completion-Capabilitybindung wie bei anderen lokalen Generationsmodellen. Die
+[Ollama-Modellseite](https://ollama.com/library/gemma4) weist für 26B einen
+Größenbereich von 16–19 GB aus; der Katalogwert von 17,5 GB ist eine Schätzung,
+keine Messung des lokalen Artefakts. Der Katalog bindet dieses Modell an
+`POST /api/chat` und `think: false`; beide Werte stehen im öffentlichen
+Endpointplan und gehen in dessen Planidentität ein. Die Antwort wird aus
+`message.content` gelesen. Fehlender Inhalt und Modellfehler ergeben feste
+Fehlercodes, ohne rohen Antworttext auszugeben. Die Offline-Vertragsprüfung
+verwendet einen synthetischen Transport und ruft kein Modell auf. Ollamas
+[Chat-API](https://docs.ollama.com/api/chat) dokumentiert `messages`, `think`
+und `message.content`. Googles [Gemma 4-Modellkarte](https://ai.google.dev/gemma/docs/core/model_card_4)
+nennt Apache 2.0. Katalogeintrag und WhatIf belegen weder Antwortqualität noch
+allgemeine Modellunterstützung; das bleibt ein gesonderter Qualifikationsschritt.
+
 Bei den katalogisierten vorhandenen Host-Embeddingmodellen oder expliziter
 Cloudgeneration liest der Controller vor
 Payload `/api/version`, `/api/tags` und `/api/show` am festen Loopback-Endpunkt.

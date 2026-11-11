@@ -149,6 +149,21 @@
       "source": "https://ollama.com/library/embeddinggemma"
     },
     {
+      "key": "ollama-gemma4-26b-local",
+      "provider": "ollama",
+      "lane": "local",
+      "purpose": "generation",
+      "model": "gemma4:26b",
+      "generationApi": "chat",
+      "think": false,
+      "status": "SUPPORTED",
+      "minimumOllamaVersion": "0.40.15",
+      "identityPolicy": "LIVE_MANIFEST_DIGEST_REQUIRED",
+      "estimatedSizeBytes": 17500000000,
+      "license": "Apache-2.0",
+      "source": "https://ollama.com/library/gemma4"
+    },
+    {
       "key": "ollama-gemma3-1b-local",
       "provider": "ollama",
       "lane": "local",

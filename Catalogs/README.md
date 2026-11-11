@@ -12,7 +12,7 @@ Die Kataloge sind maschinenlesbare Runtimeeingaben. Änderungen müssen mit Sche
 | `sql-server-media-sources.json` | Direkte Microsoft-Downloads, verifizierte Archiv-Fallbacks und manuelle Lizenzmedien für nicht-Azure SQL-Server-Basisversionen | `../Schemas/sql-server-media-sources.schema.json` |
 | `sample-databases.json` | Metadaten öffentlicher Testdatenbanken, Varianten, Lizenzen, URLs und Mindestversionen | `sample-databases.schema.json` → `../Schemas/sample-databases.schema.json` |
 | `software.json` | Providerneutrale SQL-bezogene Software- und External-Runtime-Varianten mit Support-, Integrity- und Verification-Metadaten | `../Schemas/software-catalog.schema.json` |
-| `ai-models.json` | Ollama-Modellidentitäten für Embedding, lokale Generierung und optionale Cloud-Generierung; Katalogunterstützung und native Nachweise bleiben getrennt | `../Schemas/ai-model-catalog.schema.json` |
+| `ai-models.json` | Ollama-Modellidentitäten für Embedding und lokale oder optionale Cloud-Generierung einschließlich modellgebundener API-/Think-Einstellungen; Katalogunterstützung und native Nachweise bleiben getrennt | `../Schemas/ai-model-catalog.schema.json` |
 
 ## Security-Tool-Katalog
 
