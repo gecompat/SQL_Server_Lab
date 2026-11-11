@@ -85,7 +85,10 @@ function Invoke-LabTlsLinuxConsumerBridge {
             }
             if($process.HasExited-and$done[0]-and$done[1]){
                 $confirmed=$true
-                if($process.ExitCode-ne0-or$null-eq$result-or$pending.Length-or$outputs[1].Length){throw 'TLS_LINUX_CONSUMER_FAILED'}
+                if($process.ExitCode-ne0){throw 'TLS_LINUX_CHILD_EXIT_NONZERO'}
+                if($pending.Length){throw 'TLS_LINUX_BRIDGE_PROTOCOL_BYTES_PENDING'}
+                if($null-eq$result){throw 'TLS_LINUX_RESULT_MISSING'}
+                if($outputs[1].Length){throw 'TLS_LINUX_CHILD_STDERR_NONEMPTY'}
                 break
             }
             Start-Sleep -Milliseconds 10
