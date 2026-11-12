@@ -628,6 +628,19 @@ betroffenen Writer-/Dokumentations-/Modul-/Analyzerprüfungen erneut ausgeführt
 unveränderte CI-Strategieprüfungen werden nicht doppelt gestartet. Das
 Pflichtgate am veröffentlichten Head bleibt separat erforderlich.
 
+## Additive Authority und gebundene Registryhistorie vom 2026-11-09
+
+Die Registry-Writer- und Authority-Suiten prüfen jetzt auch die additive
+Registrierung einer neuen CA neben unveränderten alten Authoritypayloads. Die
+Authorityfixture entfernt ausschließlich ihren eigenen synthetischen alten
+Kandidaten und bestätigt, dass nur die neue Authority frisch benutzbar ist;
+historische Bytes bleiben auflösbar und alte fehlende Schlüssel bleiben
+gesperrt. Die Writersuite bestätigt die Auflösung eines früheren Registryhashes
+aus der abgeschlossenen Journalkette und weist einen nicht darin enthaltenen
+Digest ab. Das ist ein lokaler Metadaten-/DPAPI-Fixturenachweis. Er stellt kein
+fehlendes Produktionszertifikat oder CA-Schlüsselmaterial wieder her und ist
+kein Docker-/Podman- oder SQL-TLS-Lauf.
+
 Der unabhängige Quellreview fand anschließend eine ETS-Umleitung der
 Operationsauswahl. Eine eigene native Tempfixture reproduzierte den Fehler:
 Ein gültiger `UPDATE`-String mit angehängter `StartsWith`-Methode wählte den
@@ -639,6 +652,40 @@ Fehlernachweis lokal erhalten. Die korrigierte native Suite bestand 45/45
 Fälle einschließlich Cleanup. Derselbe unabhängige Reviewer bestätigte die
 feste Enumwahl und beide neuen Regressionen; das Finding ist geschlossen.
 Er führte ausschließlich einen Quellreview aus, keine nativen Probes.
+
+## Authority-Update bei fehlendem historischem Kandidaten vom 2026-11-11
+
+Die Authority-Suite prüft jetzt zusätzlich eine Client-Kontextaktualisierung
+für die ausgewählte CA, während eine andere aktive historische Authority ohne
+ihre Kandidatendateien erhalten bleibt. Der ausgewählte Eintrag wird neu
+gebunden; der alte Authorityrecord bleibt unverändert und seine fehlenden
+Dateien bleiben fehlend. Die lokale Windows-Authority-Suite bestand 37/37
+Fälle, die gekoppelte Registry-Writer-Suite 50/50. Beide Ergebnisse sind
+lokale Metadaten-/DPAPI-Fixturbelege, keine Docker-/Podman- oder SQL-TLS-Läufe.
+
+Die erste Implementierung ließ außerdem unveränderte Kandidaten mit vorhandenen
+Dateien die Trustdriftprüfung überspringen; die Windows-CI-Fixture reproduzierte
+dadurch drei Folgefehler. Der Writer überspringt die erneute Kandidatenprüfung
+jetzt nur, wenn eine exakte Pfadabfrage das unveränderte Kandidatenverzeichnis
+als fehlend bestätigt. Dateien, Reparse-Punkte und unbestimmbare Pfadzustände
+bleiben fail-closed. Vorhandene Kandidatendateien bleiben bei Trustdrift und
+vor Commit frisch gebunden. Die Regression prüft beide Pfade einschließlich
+Recovery und eine Datei anstelle des Kandidatenverzeichnisses.
+
+Der fehlgeschlagene Adapter-Installationsjob lief auf `ubuntu-26.04`, weil
+`ubuntu-latest` während der GitHub-Migration bereits dorthin aufgelöst wurde.
+Die [Microsoft-Installationsanleitung](https://learn.microsoft.com/en-us/sql/linux/quickstart-install-connect-ubuntu?view=sql-server-ver16)
+nennt Ubuntu 24.04 als unterstützte Release-Basis für SQL Server 2025; der
+Adapterjob ist deshalb auf `ubuntu-24.04` festgelegt. Das ist ein
+CI-Host-/Paketfeed-Fix und kein neuer Linux-TLS-Qualifikationsnachweis.
+
+Die korrigierte Writer-Regression bestand lokal mit Authority Binding 43/0,
+Authority 38/0 und Registry Writer 50/0. `Invoke-ImpactedChecks.ps1` führte
+anschließend alle neun betroffenen statischen Suites aus und meldete PASS.
+Die Runnerabweichung wurde auf `ubuntu-26.04` zurückgeführt; der Adapterjob
+verwendet jetzt das von Microsoft dokumentierte `ubuntu-24.04`. Diese
+Änderungen belegen weder den noch ausstehenden nativen Linux-TLS-Lauf noch
+ersetzen sie dessen PR-Gate.
 
 ## Angegebene TLS-Werte in CLI und GUI vom 2026-10-17
 

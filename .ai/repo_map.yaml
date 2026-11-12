@@ -1003,9 +1003,10 @@ sources_of_truth:
   authenticated_tls_authority_binding: Private/AuthenticatedTlsAuthorityBinding.ps1 # private Windows candidate/ciphertext/DER + exact active client/signer + ReadOnly trust; NON_ATOMIC_READ, no keyopen/storewrite/TLS qualification
   validation_authenticated_tls_authority_binding: Tests/Static/Invoke-AuthenticatedTlsAuthorityBindingChecks.ps1 # own native temp CA/DPAPI/NTFS/actor/root/writer, injected positive trust/binaries; coupled payload/document/index/root/request/context/backend/CaCandidate/StorageContract/DiagnosticBundleReader
   authenticated_tls_registry_writer_contract: Documentation/Architecture/AUTHENTICATED_TLS_REGISTRY_WRITER.md
+  authenticated_tls_authority_retirement: Private/AuthenticatedTlsAuthority.ps1 # lifecycle-locked tombstone; validates TLS allocation/Windows journals and original runtime bindings; legacy 0.1 without durable Docker custody stays unconfirmed; append-only authority add preserves but does not revive stale prior entries
   authenticated_tls_operational_lab: Documentation/Architecture/AUTHENTICATED_TLS_OPERATIONAL_LAB.md # Windows Docker/Podman SQL2025 CU9, SQL2022 CU27 and SQL2019 CU32 explicit False lane and signed V2 export; provider proofs separate, V1/default true
-  authenticated_tls_authority: Private/AuthenticatedTlsAuthority.ps1
-  authenticated_tls_lab: Private/AuthenticatedTlsLab.ps1 # explicit provider, original runtime pin, closed 0.1 Docker / 0.2 provider+policy / 0.3 SQL-profile bindings; coupled ContainerOwnedHostIntegration, RunArtifactRemoval and RetainedStoreRuntime
+  authenticated_tls_authority: Private/AuthenticatedTlsAuthority.ps1 # append-only registration uses fresh isolated contexts and preserves existing payloads; guarded retirement checks TLS allocation/Windows journals and original runtime bindings; no missing-key restoration or TLS qualification
+  authenticated_tls_lab: Private/AuthenticatedTlsLab.ps1 # explicit provider, original runtime pin and root-scoped lifecycle lock; closed 0.1 Docker / 0.2 provider+policy / 0.3 SQL-profile bindings; coupled ContainerOwnedHostIntegration, RunArtifactRemoval and RetainedStoreRuntime
   authenticated_tls_qualification: Private/AuthenticatedTlsQualification.ps1 # ordinary qualification/export/readback also require committed restart-rebind history; coupled restart-rebind and positive signed-export suites
   authenticated_tls_windows_operational_contract: Documentation/Architecture/AUTHENTICATED_TLS_WINDOWS_OPERATIONAL_LAB.md # new own Windows Hyper-V SQL2025 RTM False lane; signed V2 VM/boot/service binding, existing CA trust, no automatic rebind
   evidence_authenticated_tls_windows_operational: Documentation/Quality/TLS_WINDOWS_OPERATIONAL_SSIS_ACCEPTANCE_2026-10-31.md # composed same-own-run activation/CompleteImage/TLS, eight strict client results, SSIS412, cleanup; no uninterrupted-create claim
@@ -1017,7 +1018,7 @@ sources_of_truth:
   bounded_windows_tls_runner_tools: Tools/BoundedTlsRunner/README.md # Prepare, elevated Install once, ordinary Ready/Run/Close; native qualification separate
   validation_bounded_windows_tls_runner: Tests/Static/Invoke-BoundedTlsRunnerChecks.ps1 # closed request/source/budget cases and real SqlClient preparation; native task/label/overall proof required
   acceptance_windows_tls_public: Tests/Integration/Invoke-AuthenticatedTlsWindowsPublicAcceptance.ps1 # source-bound unbroken own New, strict clients, V2 reader/consumer, public Remove and separate regular supervisor audit
-  authenticated_tls_windows_operational: Private/AuthenticatedTlsWindowsLab.ps1 # separate closed Windows record and qualification; coupled New-SqlServerLab, shared qualification/export/reader, SsisPrerequisite and HyperVLeaf
+  authenticated_tls_windows_operational: Private/AuthenticatedTlsWindowsLab.ps1 # separate closed Windows record and qualification with root-scoped lifecycle lock; coupled New-SqlServerLab, shared qualification/export/reader, SsisPrerequisite and HyperVLeaf
   validation_authenticated_tls_windows_operational: Tests/Static/Invoke-AuthenticatedTlsWindowsChecks.ps1 # real own RSA/private export fixtures and synthetic native boundaries; native SQL/Hyper-V qualification separate
   authenticated_tls_live_qualification_contract: Documentation/Architecture/AUTHENTICATED_TLS_LIVE_QUALIFICATION.md
   public_authenticated_tls_live_qualification: Public/Test-SqlServerLabTlsQualification.ps1 # explicit own Windows D/P strict observation; no cache/export/secret output or certificate/key/trust mutation
@@ -1041,7 +1042,7 @@ sources_of_truth:
   validation_authenticated_tls_rebind_recovery: Tests/Static/Fixtures/AuthenticatedTlsRebindRecoveryChecks.ps1 # real own ACL/replace/interruption fixtures executed by restart-rebind suite; no provider proof
   acceptance_authenticated_tls_rebind_recovery: Tests/Common/AuthenticatedTlsRebindRecoveryAcceptance.ps1 # explicit exclusive ExerciseRebindRecovery in shared new-own-lab harness; native proof required separately
   validation_authenticated_tls_restart_rebind: Tests/Static/Invoke-AuthenticatedTlsRestartRebindChecks.ps1 # real own Windows ACL/file/lock/replace fixtures with injected authority/provider/client boundaries; no native SQL claim
-  validation_authenticated_tls_authority: Tests/Static/Invoke-AuthenticatedTlsAuthorityChecks.ps1
+  validation_authenticated_tls_authority: Tests/Static/Invoke-AuthenticatedTlsAuthorityChecks.ps1 # additive fresh CA registration with stale old candidate retained as non-operational history; use-checked tombstone, unresolved allocation/operation blocking, crash-recovery guard; own synthetic native CA fixtures
   validation_authenticated_tls_lab: Tests/Static/Invoke-AuthenticatedTlsLabChecks.ps1
   validation_authenticated_tls_lab_provider: Tests/Static/Fixtures/AuthenticatedTlsLabProviderChecks.ps1 # executed by lab suite; injected provider/origin/process observations, no native SQL claim
   validation_authenticated_tls_lab_versions: Tests/Static/Fixtures/AuthenticatedTlsLabVersionChecks.ps1 # closed operational SQL2025CU9/SQL2022CU27/SQL2019CU32 profiles and historical-shape rejection; no native SQL claim
@@ -1050,8 +1051,8 @@ sources_of_truth:
   acceptance_authenticated_tls_export_cleanup: Tests/Common/AuthenticatedTlsAcceptanceCleanup.ps1 # fixed private exports of terminal owned acceptance runs only; no CA/key/trust dependency
   validation_authenticated_tls_export_cleanup: Tests/Static/Invoke-AuthenticatedTlsAcceptanceCleanupChecks.ps1
   schema_authenticated_tls_test_environment: Schemas/test-environment-authenticated.schema.json
-  authenticated_tls_registry_writer: Private/AuthenticatedTlsRegistryWriter.ps1 # private Windows NTFS client/signer + selected 0.2 CA metadata; fresh actor/volume, protected journals, cooperative locks and explicit recovery; no CA/trust/SQL qualification
-  validation_authenticated_tls_registry_writer: Tests/Static/Invoke-AuthenticatedTlsRegistryWriterChecks.ps1 # native own temp ACL/replace/process crash/concurrency/cleanup; coupled root/document/index/payload/request/context/backend/CA file helpers/StorageContract/DiagnosticBundleReader
+  authenticated_tls_registry_writer: Private/AuthenticatedTlsRegistryWriter.ps1 # private Windows NTFS client/signer + selected 0.2 CA metadata, strict APPEND_AUTHORITY and use-checked tombstone; committed hash-chain snapshots retain old run digest binding; no CA/trust/SQL qualification
+  validation_authenticated_tls_registry_writer: Tests/Static/Invoke-AuthenticatedTlsRegistryWriterChecks.ps1 # committed historical digest lookup from exact source bytes; native own temp ACL/replace/process crash/concurrency/cleanup; coupled root/document/index/payload/request/context/backend/CA file helpers/StorageContract/DiagnosticBundleReader
   authenticated_tls_ca_candidate_contract: Documentation/Architecture/AUTHENTICATED_TLS_CA_CANDIDATE.md
   authenticated_tls_ca_candidate: Private/AuthenticatedTlsCaCandidate.ps1 # private Windows PS>=7.5; protected RSA/DPAPI candidate, read-only CurrentUser Root preview; UNREGISTERED_UNQUALIFIED, no import/SQL/provider authority
   authenticated_tls_leaf_csr: Private/AuthenticatedTlsLeafCsr.ps1 # private Windows PS>=7.5; bounded RSA3072 SHA256 CSR proof, explicit SAN, candidate-bound DPAPI signing; public leaf only, no store/native target/SQL authority

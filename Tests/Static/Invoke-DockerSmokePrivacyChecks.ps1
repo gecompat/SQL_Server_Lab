@@ -60,7 +60,9 @@ try {
     $blocks = @([regex]::Matches($workflow, '(?m)^        run: \|\r?\n(?<body>(?:^          [^\r\n]*\r?\n|^\r?\n)+)') | ForEach-Object {
         [regex]::Replace($_.Groups['body'].Value, '(?m)^          ', '')
     })
-    if ($blocks.Count -ne 2) { throw 'DOCKER_WORKFLOW_RUN_BLOCK_COUNT' }
+    if ($blocks.Count -ne 3) { throw 'DOCKER_WORKFLOW_RUN_BLOCK_COUNT' }
+    Add-CheckResult -Name 'Docker owned-run cleanup remains a distinct final workflow block' -Success (
+        $blocks[2] -match 'Complete-OwnedHostTestRoot\.ps1' -and $blocks[2] -match 'OWNED_TEST_CLEANUP_RECOVERY_REQUIRED')
     $preflight = $blocks[0]
     $runtime = $blocks[1].Replace('SQL_Server_Lab_Runtime_Smoke', ('DockerPrivacyFixture_' + [guid]::NewGuid().ToString('N')))
     $commands = @([regex]::Matches($runtime, 'Tests\\Integration\\(?<name>Invoke-[\w-]+\.ps1)') | ForEach-Object { $_.Groups['name'].Value })
@@ -77,8 +79,12 @@ try {
     # Isolate readiness dependencies; execute actual workflow redirections,
     # outcome guards and every acceptance invocation.
     [IO.File]::WriteAllText((Join-Path $root 'SqlServerLab.psd1'), "@{ModuleVersion='1.0';GUID='276bf358-475d-4abd-b56b-dc4f439b95fb'}")
-    [IO.File]::WriteAllText((Join-Path $root 'Tests/Common/OwnedHostTestScope.ps1'), 'function Initialize-OwnedHostTestRoot { param($Module,$StateRoot,$Providers,$ParentOperationId) }')
-    [IO.File]::WriteAllText((Join-Path $root 'Tools/Initialize-SqlServerLabHostTools.ps1'), "param(`$Name); [pscustomobject]@{Available=`$true}")
+    $ownedScopeFixture = @'
+function Get-OwnedHostTestRootFailureCode { param($ErrorRecord); if (([string]$ErrorRecord.FullyQualifiedErrorId -split ',', 2)[0] -ceq 'OWNED_HOST_RUNTIME_INFO_UNVERIFIABLE') { return 'PROVIDER_RUNTIME_UNREACHABLE' }; return $null }
+function Initialize-OwnedHostTestRoot { param($Module,$StateRoot,$Providers,$ParentOperationId); if ($env:PRIVACY_FIXTURE_STAGE -ceq 'owned-root-failure') { throw 'OWNED_HOST_RUNTIME_INFO_UNVERIFIABLE' } }
+'@
+    [IO.File]::WriteAllText((Join-Path $root 'Tests/Common/OwnedHostTestScope.ps1'), $ownedScopeFixture)
+    [IO.File]::WriteAllText((Join-Path $root 'Tools/Initialize-SqlServerLabHostTools.ps1'), "param(`$Name); foreach(`$tool in `$Name){[pscustomobject]@{Name=`$tool;Available=(`$env:PRIVACY_FIXTURE_STAGE -cne 'tools-unavailable')}}")
     [IO.File]::WriteAllText((Join-Path $root 'Tools/Resolve-CiRuntimeScope.ps1'), "param(`$Provider,`$Capabilities,`$Mode); [pscustomobject]@{Capabilities=@('lifecycle','collation','restore','pitr','upgrade','batch','tool','removal','package','transfer-preflight','transfer','ai-vector')}")
     $fixture = @'
 Write-Output 'SYNTHETIC_PRIVATE_HOST sentinel.invalid'
@@ -99,8 +105,17 @@ function sqlcmd { & pwsh -NoLogo -NoProfile -File ./native-fixture.ps1; $global:
         Add-CheckResult -Name "Preflight $exitCode keeps all raw output local and preserves outcome" -Success (
             $result.Public -notmatch 'SYNTHETIC_PRIVATE' -and $result.Private -match 'SYNTHETIC_PRIVATE_HOST' -and $result.Private -match 'SYNTHETIC_PRIVATE_SECRET' -and
             (($exitCode -eq 0 -and $result.ExitCode -eq 0 -and $result.Public -match 'validation_classification=VALIDATED') -or
-            ($exitCode -ne 0 -and $result.ExitCode -ne 0 -and $result.Public -match 'INFRASTRUCTURE_UNAVAILABLE')))
+            ($exitCode -ne 0 -and $result.ExitCode -ne 0 -and $result.Public -match 'INFRASTRUCTURE_UNAVAILABLE: prerequisite=SQLCMD_NOT_USABLE')))
     }
+    $result = Invoke-WorkflowFixture -Script ($shim + "`n" + $preflight) -Name 'preflight-host-tool-unavailable' -ExitCode 0 -FailureStage 'tools-unavailable'
+    Add-CheckResult -Name 'Docker missing-host-tool diagnosis is specific and path-free' -Success (
+        $result.ExitCode -ne 0 -and $result.Public -match 'HOST_TOOLS_UNAVAILABLE\[docker\]' -and
+        $result.Public -notmatch 'SYNTHETIC_PRIVATE|[A-Za-z]:\\|/home/' -and $result.Private -match 'OWNED_HOST_TEST_TOOL_UNAVAILABLE')
+    $result = Invoke-WorkflowFixture -Script ($shim + "`n" + $preflight) -Name 'preflight-owned-root-failure' -ExitCode 0 -FailureStage 'owned-root-failure'
+    Add-CheckResult -Name 'Docker owned-root failure emits only its fixed safe category' -Success (
+        $result.ExitCode -ne 0 -and $result.Public -match 'OWNED_TEST_ROOT_INITIALIZATION\[PROVIDER_RUNTIME_UNREACHABLE\]' -and
+        $result.Public -notmatch 'SYNTHETIC_PRIVATE|OWNED_HOST_RUNTIME_INFO_UNVERIFIABLE|[A-Za-z]:\\|/home/' -and
+        $result.Private -match 'OWNED_HOST_RUNTIME_INFO_UNVERIFIABLE')
     $result = Invoke-WorkflowFixture -Script ("function Import-Module { throw 'SYNTHETIC_PRIVATE_EXCEPTION' }`n" + $preflight) -Name 'preflight-exception' -ExitCode 0
     Add-CheckResult -Name 'Unexpected native-preflight exception remains private' -Success ($result.ExitCode -ne 0 -and $result.Public -notmatch 'SYNTHETIC_PRIVATE' -and $result.Private -match 'SYNTHETIC_PRIVATE_EXCEPTION')
     $result = Invoke-WorkflowFixture -Script ("function pwsh { throw 'SYNTHETIC_PRIVATE_EXCEPTION' }`n" + $runtime.Replace('${{ inputs.mode }}', 'lifecycle')) -Name 'runtime-exception' -ExitCode 0

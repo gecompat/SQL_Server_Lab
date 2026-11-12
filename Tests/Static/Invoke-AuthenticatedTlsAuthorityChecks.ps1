@@ -2,9 +2,23 @@
 $ErrorActionPreference='Stop'
 $repo=(Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 foreach($name in @('DiagnosticBundleReader','StorageContract','AuthenticatedTlsRequest','AuthenticatedTlsRegistryIndex','AuthenticatedTlsRegistryPayload',
-    'AuthenticatedTlsRegistryDocument','AuthenticatedTlsRegistryRoot','AuthenticatedTlsContext','AuthenticatedTlsBackend','AuthenticatedTlsCaCandidate','AuthenticatedTlsRegistryWriter','AuthenticatedTlsAuthorityBinding','AuthenticatedTlsAuthority')){. (Join-Path $repo "Private/$name.ps1")}
+    'AuthenticatedTlsRegistryDocument','AuthenticatedTlsRegistryRoot','AuthenticatedTlsContext','AuthenticatedTlsBackend','AuthenticatedTlsCaCandidate','AuthenticatedTlsRegistryWriter','AuthenticatedTlsAuthorityBinding','AuthenticatedTlsLab','AuthenticatedTlsAuthority')){. (Join-Path $repo "Private/$name.ps1")}
 . (Join-Path $PSScriptRoot '../Common/CheckResult.ps1')
+$script:authorityFixtureRuntimeExists=$false
+$script:authorityFixtureRuntimeByTarget=@{}
+function Get-DockerInstanceStatus {param([string]$ContainerIdOrName,[string]$StateRoot) $exists=$script:authorityFixtureRuntimeExists;if($script:authorityFixtureRuntimeByTarget.ContainsKey($ContainerIdOrName)){$exists=[bool]$script:authorityFixtureRuntimeByTarget[$ContainerIdOrName]};return [pscustomobject]@{Available=$true;Exists=$exists;Running=$exists}}
+function Get-PodmanInstanceStatus {param([string]$ContainerIdOrName,[string]$StateRoot) $exists=$script:authorityFixtureRuntimeExists;if($script:authorityFixtureRuntimeByTarget.ContainsKey($ContainerIdOrName)){$exists=[bool]$script:authorityFixtureRuntimeByTarget[$ContainerIdOrName]};return [pscustomobject]@{Available=$true;Exists=$exists;Running=$exists}}
 $script:authorityFixtureContextPreview=(Get-Command Get-LabAuthenticatedTlsContextPreview).ScriptBlock
+$script:authorityFixtureRegistryTerminal=(Get-Command Write-LabTlsRegistryTerminal).ScriptBlock
+$script:authorityFixtureInterruptAfterRegistryReplace=$false
+function Write-LabTlsRegistryTerminal {
+    param([object]$Binding,[object]$Intent,[string]$Outcome)
+    if($script:authorityFixtureInterruptAfterRegistryReplace){
+        $script:authorityFixtureInterruptAfterRegistryReplace=$false
+        throw 'TLS_AUTHORITY_FIXTURE_AFTER_REPLACE'
+    }
+    & $script:authorityFixtureRegistryTerminal $Binding $Intent $Outcome
+}
 $script:authorityFixtureClientMetadataDrift=$false
 $script:authorityFixtureSignerMetadataDrift=$false
 function Get-LabAuthenticatedTlsContextPreview {
@@ -34,8 +48,9 @@ try{
         $candidate=New-LabAuthenticatedTlsCaCandidate $root $controller $location CURRENT_WINDOWS_PROCESS 3
         Add-CheckResult 'Own actual RSA/DPAPI CA fixture created' $candidate.Success
         if(-not $candidate.Success){throw 'FIXTURE_CA_FAILED'}
-        $id=$candidate.Value.CandidateId;$script:fixtureTrust=$true;$script:fixtureCertificateHash=$candidate.Value.CertificateSha256
-        function Get-LabTlsCaExistingTrust {param([byte[]]$Der) if($script:fixtureTrust -and (Get-LabTlsCaByteDigest $Der) -ceq $script:fixtureCertificateHash){return 'IDENTICAL_PREEXISTING_NOT_OWNED'};return 'ABSENT'}
+        $id=$candidate.Value.CandidateId;$script:fixtureTrust=$true;$script:fixtureCertificateHashes=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+        $null=$script:fixtureCertificateHashes.Add($candidate.Value.CertificateSha256)
+        function Get-LabTlsCaExistingTrust {param([byte[]]$Der) if($script:fixtureTrust -and $script:fixtureCertificateHashes.Contains((Get-LabTlsCaByteDigest $Der))){return 'IDENTICAL_PREEXISTING_NOT_OWNED'};return 'ABSENT'}
         $binding=Register-LabTlsOperationalAuthority $root $controller $location $id
         Add-CheckResult 'CA, signer, client and unique trustscope committed' ($binding.Authority.CandidateId -ceq $id -and $binding.Client.Ref -ceq $binding.Authority.ClientRef)
         $registry=Join-Path $root 'State/authenticated-tls/registry.json';$original=[IO.File]::ReadAllBytes($registry)
@@ -106,6 +121,249 @@ try{
         $restored=Get-LabTlsOperationalAuthority $root $controller $location $binding.Authority.Ref $binding.Client.Ref
         Add-CheckResult 'Trust restoration permits fresh proof of possession' ($restored.RegistrySha256 -ceq $binding.RegistrySha256)
         Add-CheckResult 'Reads and failed binds leave original registry bytes unchanged' ((Get-LabTlsCaByteDigest ([IO.File]::ReadAllBytes($registry))) -ceq (Get-LabTlsCaByteDigest $original))
+
+        $labsRoot=Join-Path $root 'State/authenticated-tls-labs'
+        $operationsRoot=Join-Path $root 'State/authenticated-tls-windows-operations'
+        $null=New-Item -ItemType Directory -Path $labsRoot,$operationsRoot -Force
+        $legacyAudit='12121212-1212-4212-8212-121212121212';$legacyRun='13131313-1313-4313-8313-131313131313';$legacyScope='14141414-1414-4414-8414-141414141414'
+        $legacyAllocation=Join-Path $labsRoot $legacyAudit;Initialize-LabTlsCaPrivateDirectory $legacyAllocation $binding.Native.UserSid -NewOnly
+        $legacyContainer=('e'*64);$legacyContainerName='fixture-legacy-docker'
+        $legacyRecord=[ordered]@{ContractVersion='SqlServerLab.AuthenticatedTlsLab/0.1';AuditId=$legacyAudit;DataRoot=$root;ControllerId=$controller;LocationId=$location;
+            AuthorityRef=$binding.Authority.Ref;ClientRef=$binding.Client.Ref;RegistrySha256=$binding.RegistrySha256;RunId=$legacyRun;InstanceId='primary';ScopeId=$legacyScope;
+            ContainerId=$legacyContainer;ImageId=('f'*64);Port=14333;CertificateSha256=('a'*64);CertificateDer='AQID';NotAfterUtc=[DateTimeOffset]::UtcNow.AddDays(1).ToString('o');
+            StartedAt=[DateTimeOffset]::UtcNow.ToString('o');ServerPath='synthetic-server'}
+        Write-LabTlsCaPrivateFile (Join-Path $legacyAllocation 'authenticated-tls-lab.json') $binding.Native.UserSid (ConvertTo-LabTlsRegistryWriterBytes $legacyRecord)
+        Write-LabTlsCaPrivateFile (Join-Path $legacyAllocation 'intent.json') $binding.Native.UserSid (ConvertTo-LabTlsRegistryWriterBytes @{AuditId=$legacyAudit;Status='OWNED_CREATE_PENDING';Cleanup='Remove exact owned run; retain recovery if unconfirmed'})
+        Write-LabTlsCaPrivateFile (Join-Path $legacyAllocation 'target-intent.json') $binding.Native.UserSid (ConvertTo-LabTlsRegistryWriterBytes $legacyRecord)
+        $legacyRunDir=Join-Path $legacyAllocation ('runs/'+$legacyRun);Initialize-LabTlsCaPrivateDirectory $legacyRunDir $binding.Native.UserSid -NewOnly
+        Write-LabTlsCaPrivateFile (Join-Path $legacyRunDir 'run-state.json') $binding.Native.UserSid (ConvertTo-LabTlsRegistryWriterBytes @{
+            contractVersion='SqlServerLab.RunState/1.0';runId=$legacyRun;scopeId=$legacyScope;state='REMOVED';metadata=@{desiredState=@{Instances=@(@{Id='primary';Provider='docker'})}}})
+        $legacyConnection=@{runId=$legacyRun;scopeId=$legacyScope;instances=@(@{id='primary';provider='docker';containerId=$legacyContainer;containerName=$legacyContainerName})}
+        $legacyCleanup=[ordered]@{runId=$legacyRun;scopeId=$legacyScope;status='COMPLETED';steps=@(@{resourceType='container';provider='docker';action='remove';state='COMPLETED';resourceId=$legacyContainerName})}
+        Write-LabTlsCaPrivateFile (Join-Path $legacyRunDir 'connection-info.json') $binding.Native.UserSid (ConvertTo-LabTlsRegistryWriterBytes $legacyConnection)
+        Write-LabTlsCaPrivateFile (Join-Path $legacyRunDir 'cleanup-plan.json') $binding.Native.UserSid (ConvertTo-LabTlsRegistryWriterBytes $legacyCleanup)
+        $writerBinding=Get-LabTlsRegistryWriterBinding $root $controller $location;$writerState=Read-LabTlsRegistryWriterState $writerBinding
+        $legacyUseBlocked=$false
+        try{$null=Assert-LabTlsAuthorityRetirementUse $writerBinding $writerState $binding.Authority.Ref}
+        catch{$legacyUseBlocked=$_.Exception.Message -ceq 'TLS_AUTHORITY_USE_UNCONFIRMED'}
+        Add-CheckResult 'Legacy 0.1 Docker record blocks retirement without an authenticated original runtime binding' $legacyUseBlocked
+        $legacyRuntimeTargets=@{};$legacyRuntimeTargets[$legacyContainer]=$true;$legacyRuntimeTargets[$legacyContainerName]=$true
+        $script:authorityFixtureRuntimeByTarget=$legacyRuntimeTargets;$legacyLiveBlocked=$false
+        try{$null=Assert-LabTlsAuthorityRetirementUse $writerBinding $writerState $binding.Authority.Ref}
+        catch{$legacyLiveBlocked=$_.Exception.Message -ceq 'TLS_AUTHORITY_USE_UNCONFIRMED'}
+        Add-CheckResult 'Legacy 0.1 record remains blocked regardless of the currently selected Docker context' $legacyLiveBlocked
+        $script:authorityFixtureRuntimeByTarget=@{}
+        # This synthetic legacy allocation is deliberately unresolved; remove
+        # only this test-created fixture before later success-path checks.
+        $legacyAllocationFull=[IO.Path]::GetFullPath($legacyAllocation)
+        $labsRootFull=[IO.Path]::GetFullPath($labsRoot).TrimEnd([IO.Path]::DirectorySeparatorChar)+[IO.Path]::DirectorySeparatorChar
+        if(-not $legacyAllocationFull.StartsWith($labsRootFull,[StringComparison]::OrdinalIgnoreCase)){throw 'TLS_AUTHORITY_TEST_FIXTURE_PATH_INVALID'}
+        Remove-Item -LiteralPath $legacyAllocationFull -Recurse -Force
+        $unknownOperation=Join-Path $operationsRoot '33333333-3333-4333-8333-333333333333'
+        $null=New-Item -ItemType Directory -Path $unknownOperation
+        [IO.File]::SetAttributes($unknownOperation,[IO.FileAttributes]::Hidden)
+        $blocked=$false
+        try{
+            $null=Retire-LabTlsOperationalAuthority $root $controller $location $binding.Authority.Ref $id $binding.RegistrySha256 -Confirm:$false
+        }catch{$blocked=$_.Exception.Message -ceq 'TLS_AUTHORITY_RETIREMENT_UNCONFIRMED'}
+        Add-CheckResult 'Unknown Windows operation blocks retirement without registry mutation' ($blocked -and
+            (Get-LabTlsCaByteDigest ([IO.File]::ReadAllBytes($registry))) -ceq $binding.RegistrySha256)
+        Remove-Item -LiteralPath $unknownOperation -Force
+        $typedOperation=Join-Path $operationsRoot '44444444-4444-4444-8444-444444444444'
+        $null=New-Item -ItemType Directory -Path $typedOperation
+        Write-LabTlsCaPrivateFile (Join-Path $typedOperation 'intent.json') $binding.Native.UserSid (ConvertTo-LabTlsRegistryWriterBytes @{ContractVersion='SqlServerLab.WindowsTlsCreateIntent/0.1';AuditId=[IO.Path]::GetFileName($typedOperation);Status='NEW_OWN_RUN_PENDING'})
+        Write-LabTlsCaPrivateFile (Join-Path $typedOperation 'ready.json') $binding.Native.UserSid (ConvertTo-LabTlsRegistryWriterBytes @{Status='READY';RunId='55555555-5555-4555-8555-555555555555';ClientChecks=2;ConsumerEnded='True'})
+        $typedBlocked=$false
+        try{$null=Retire-LabTlsOperationalAuthority $root $controller $location $binding.Authority.Ref $id $binding.RegistrySha256 -Confirm:$false}
+        catch{$typedBlocked=$_.Exception.Message -ceq 'TLS_AUTHORITY_RETIREMENT_UNCONFIRMED'}
+        Add-CheckResult 'String-encoded Windows terminal Boolean blocks retirement' ($typedBlocked -and
+            (Get-LabTlsCaByteDigest ([IO.File]::ReadAllBytes($registry))) -ceq $binding.RegistrySha256)
+        Remove-Item -LiteralPath $typedOperation -Recurse -Force
+        $pendingAllocation=Join-Path $labsRoot ([guid]::NewGuid().ToString('D'))
+        Initialize-LabTlsCaPrivateDirectory $pendingAllocation $binding.Native.UserSid -NewOnly
+        Write-LabTlsCaPrivateFile (Join-Path $pendingAllocation 'intent.json') $binding.Native.UserSid (ConvertTo-LabTlsRegistryWriterBytes @{AuditId=[IO.Path]::GetFileName($pendingAllocation);Status='OWNED_CREATE_PENDING'})
+        $allocationBlocked=$false
+        try{$null=Retire-LabTlsOperationalAuthority $root $controller $location $binding.Authority.Ref $id $binding.RegistrySha256 -Confirm:$false}
+        catch{$allocationBlocked=$_.Exception.Message -ceq 'TLS_AUTHORITY_RETIREMENT_UNCONFIRMED'}
+        Add-CheckResult 'Allocation without published run record blocks retirement without mutation' ($allocationBlocked -and
+            (Get-LabTlsCaByteDigest ([IO.File]::ReadAllBytes($registry))) -ceq $binding.RegistrySha256)
+        Remove-Item -LiteralPath $pendingAllocation -Recurse -Force
+        $manual=$parsedCurrent.Value.RegistryDocument|ConvertTo-Json -Depth 12|ConvertFrom-Json -Depth 12
+        $manual.Index.Revision=[int]$manual.Index.Revision+1
+        $manualAuthority=@($manual.Payloads|Where-Object {$_.Kind -ceq 'AUTHORITY' -and $_.Ref -ceq $binding.Authority.Ref})[0]
+        $manualAuthority.Status='RETIRED';$manual.Index.Records=@($manual.Payloads|ForEach-Object {Get-LabTlsPayloadIndexRecord $_})
+        $manualBytes=ConvertTo-LabTlsRegistryWriterBytes $manual;$writerBinding=Get-LabTlsRegistryWriterBinding $root $controller $location
+        $generic=Invoke-LabAuthenticatedTlsRegistryWrite $root $controller $location CURRENT_WINDOWS_PROCESS UPDATE `
+            $writerBinding.Root.RootMetadataDigest $writerBinding.ActorDigest $binding.RegistrySha256 $manualBytes
+        Add-CheckResult 'Generic registry UPDATE cannot create an unchecked tombstone' (-not $generic.Success -and
+            (Get-LabTlsCaByteDigest ([IO.File]::ReadAllBytes($registry))) -ceq $binding.RegistrySha256)
+        $orphanAllocation=Join-Path $labsRoot '66666666-6666-4666-8666-666666666666'
+        Initialize-LabTlsCaPrivateDirectory $orphanAllocation $binding.Native.UserSid -NewOnly
+        Write-LabTlsCaPrivateFile (Join-Path $orphanAllocation 'intent.json') $binding.Native.UserSid (ConvertTo-LabTlsRegistryWriterBytes @{
+            AuditId=[IO.Path]::GetFileName($orphanAllocation);Status='OWNED_CREATE_PENDING';Cleanup='Remove exact owned run; retain recovery if unconfirmed'})
+        $orphanRuns=Join-Path $orphanAllocation 'runs';Initialize-LabTlsCaPrivateDirectory $orphanRuns $binding.Native.UserSid -NewOnly
+        $orphanRun='77777777-7777-4777-8777-777777777777';$orphanRunDir=Join-Path $orphanRuns $orphanRun
+        Initialize-LabTlsCaPrivateDirectory $orphanRunDir $binding.Native.UserSid -NewOnly
+        $scope='88888888-8888-4888-8888-888888888888'
+        Write-LabTlsCaPrivateFile (Join-Path $orphanRunDir 'run-state.json') $binding.Native.UserSid (ConvertTo-LabTlsRegistryWriterBytes @{
+            contractVersion='SqlServerLab.RunState/1.0';runId=$orphanRun;scopeId=$scope;state='REMOVED';metadata=@{desiredState=@{Instances=@(@{Id='primary';Provider='docker'})}}})
+        $orphanConnection=@{runId=$orphanRun;scopeId=$scope;instances=@(@{id='primary';provider='docker';containerId='fixture-orphan-container';containerName='fixture-orphan-container'})}
+        $orphanCleanup=[ordered]@{runId=$orphanRun;scopeId=$scope;status='COMPLETED';steps=@(@{resourceType='container';provider='docker';action='remove';state='COMPLETED';resourceId='fixture-orphan-container'})}
+        Write-LabTlsCaPrivateFile (Join-Path $orphanRunDir 'cleanup-plan.json') $binding.Native.UserSid (ConvertTo-LabTlsRegistryWriterBytes $orphanCleanup)
+        Write-LabTlsCaPrivateFile (Join-Path $orphanRunDir 'connection-info.json') $binding.Native.UserSid (ConvertTo-LabTlsRegistryWriterBytes $orphanConnection)
+        $targetMismatchBlocked=$false
+        try{$null=Assert-LabTlsAuthorityRunRetiredAndAbsent $orphanRun $orphanAllocation ([pscustomobject]@{ScopeId=$scope;InstanceId='primary';Provider='docker';RuntimeId='fixture-original-container'})}
+        catch{$targetMismatchBlocked=$_.Exception.Message -ceq 'TLS_AUTHORITY_USE_UNCONFIRMED'}
+        Add-CheckResult 'Saved TLS target mismatch blocks runtime absence evidence' $targetMismatchBlocked
+        $windowsAudit='99999999-9999-4999-8999-999999999999';$windowsVm='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+        $windowsRunInfo=[pscustomobject]@{AuditId=$windowsAudit;RunId=$orphanRun;StateRoot=$orphanAllocation}
+        $windowsRecord=[pscustomobject]@{AuditId=$windowsAudit;RunId=$orphanRun;StateRoot=$orphanAllocation;DataRoot=$root;ControllerId=$controller;LocationId=$location;
+            AuthorityRef=$binding.Authority.Ref;RegistrySha256=$binding.RegistrySha256;InstanceId='primary';ScopeId=$scope;VmId=$windowsVm}
+        $windowsTarget=Get-LabTlsAuthorityExpectedWindowsTarget $windowsRunInfo $windowsRecord $windowsAudit $root $controller $location $binding.Authority.Ref $binding.RegistrySha256
+        Add-CheckResult 'READY Windows TLS operation supplies its saved VM target to retirement checks' ($windowsTarget.Provider -ceq 'hyperv' -and
+            $windowsTarget.ScopeId -ceq $scope -and $windowsTarget.InstanceId -ceq 'primary' -and $windowsTarget.RuntimeId -ceq $windowsVm)
+        $orphanConnection.instances[0].containerId='fixture-missing-container-id'
+        Remove-Item -LiteralPath (Join-Path $orphanRunDir 'connection-info.json') -Force
+        Write-LabTlsCaPrivateFile (Join-Path $orphanRunDir 'connection-info.json') $binding.Native.UserSid (ConvertTo-LabTlsRegistryWriterBytes $orphanConnection)
+        $script:authorityFixtureRuntimeByTarget=@{'fixture-missing-container-id'=$false;'fixture-orphan-container'=$true}
+        $staleNameBlocked=$false
+        try{$null=Retire-LabTlsOperationalAuthority $root $controller $location $binding.Authority.Ref $id $binding.RegistrySha256 -Confirm:$false}
+        catch{$staleNameBlocked=$_.Exception.Message -ceq 'TLS_AUTHORITY_RETIREMENT_UNCONFIRMED'}
+        Add-CheckResult 'Existing saved container name blocks absence when the recorded id is stale' ($staleNameBlocked -and
+            (Get-LabTlsCaByteDigest ([IO.File]::ReadAllBytes($registry))) -ceq $binding.RegistrySha256)
+        $script:authorityFixtureRuntimeByTarget=@{}
+        $script:authorityFixtureRuntimeExists=$true;$liveOrphanBlocked=$false
+        try{$null=Retire-LabTlsOperationalAuthority $root $controller $location $binding.Authority.Ref $id $binding.RegistrySha256 -Confirm:$false}
+        catch{$liveOrphanBlocked=$_.Exception.Message -ceq 'TLS_AUTHORITY_RETIREMENT_UNCONFIRMED'}
+        Add-CheckResult 'Recordless allocation with an existing runtime blocks retirement' ($liveOrphanBlocked -and
+            (Get-LabTlsCaByteDigest ([IO.File]::ReadAllBytes($registry))) -ceq $binding.RegistrySha256)
+        $script:authorityFixtureRuntimeExists=$false
+        $script:authorityFixtureRealTerminal=${function:Write-LabTlsRegistryTerminal};$script:authorityFixtureFailTerminal=$true
+        Set-Item Function:Write-LabTlsRegistryTerminal -Value {
+            param($Binding,$Intent,$Outcome)
+            if($script:authorityFixtureFailTerminal){$script:authorityFixtureFailTerminal=$false;throw 'FIXTURE_TERMINAL_CRASH'}
+            & $script:authorityFixtureRealTerminal $Binding $Intent $Outcome
+        }
+        $retirementCrash=$false
+        try{$null=Retire-LabTlsOperationalAuthority $root $controller $location $binding.Authority.Ref $id $binding.RegistrySha256 -Confirm:$false}
+        catch{$retirementCrash=$_.Exception.Message -ceq 'TLS_AUTHORITY_RETIREMENT_UNCONFIRMED'}
+        finally{Set-Item Function:Write-LabTlsRegistryTerminal -Value $script:authorityFixtureRealTerminal}
+        $pending=Read-LabTlsRegistryWriterState (Get-LabTlsRegistryWriterBinding $root $controller $location)
+        Add-CheckResult 'Interrupted tombstone install is retained for explicit recovery' ($retirementCrash -and $pending.Status -ceq 'CANDIDATE_INSTALLED' -and $pending.Pending.Count -eq 1)
+        $recoveryBlocker=Join-Path $labsRoot ([guid]::NewGuid().ToString('D'))
+        Initialize-LabTlsCaPrivateDirectory $recoveryBlocker $binding.Native.UserSid -NewOnly
+        Write-LabTlsCaPrivateFile (Join-Path $recoveryBlocker 'intent.json') $binding.Native.UserSid (ConvertTo-LabTlsRegistryWriterBytes @{AuditId=[IO.Path]::GetFileName($recoveryBlocker);Status='OWNED_CREATE_PENDING'})
+        $blockedRecovery=Invoke-LabAuthenticatedTlsRegistryWrite $root $controller $location CURRENT_WINDOWS_PROCESS RECOVER_COMMIT `
+            $writerBinding.Root.RootMetadataDigest $writerBinding.ActorDigest $pending.Digest $null $pending.Pending[0].Intent.TransactionId
+        $stillPending=Read-LabTlsRegistryWriterState (Get-LabTlsRegistryWriterBinding $root $controller $location)
+        Add-CheckResult 'New unresolved allocation blocks tombstone recovery without consuming its intent' (-not $blockedRecovery.Success -and
+            $stillPending.Status -ceq 'CANDIDATE_INSTALLED' -and $stillPending.Pending.Count -eq 1)
+        Remove-Item -LiteralPath $recoveryBlocker -Recurse -Force
+        $recover=Invoke-LabAuthenticatedTlsRegistryWrite $root $controller $location CURRENT_WINDOWS_PROCESS RECOVER_COMMIT `
+            $writerBinding.Root.RootMetadataDigest $writerBinding.ActorDigest $pending.Digest $null $pending.Pending[0].Intent.TransactionId
+        Add-CheckResult 'Retirement recovery repeats the use check and commits exact installed bytes' ($recover.Success -and $recover.Value.Status -ceq 'RECOVERY_COMMITTED')
+        $retiredState=Read-LabTlsRegistryWriterState (Get-LabTlsRegistryWriterBinding $root $controller $location)
+        $retired=[pscustomobject]@{Success=$recover.Success;Value=[pscustomobject]@{Status='TOMBSTONE_COMMITTED';AuthorityRef=$binding.Authority.Ref;
+            CandidateId=$id;RegistrySha256=$retiredState.Digest;Revision=(Read-LabAuthenticatedTlsRegistryDocument $retiredState.Bytes).Value.RegistryDocument.Index.Revision;
+            RemovalStatus='NONE';Ready=$false;MutationAllowed=$false}}
+        $retiredBytes=[IO.File]::ReadAllBytes($registry);$retiredDocument=Read-LabAuthenticatedTlsRegistryDocument $retiredBytes
+        $retiredAuthority=@($retiredDocument.Value.RegistryDocument.Payloads|Where-Object {$_.Kind -ceq 'AUTHORITY' -and $_.Ref -ceq $binding.Authority.Ref})
+        Add-CheckResult 'Use-checked tombstone commits while preserving authority identity and history' ($retired.Success -and
+            $retired.Value.Status -ceq 'TOMBSTONE_COMMITTED' -and $retired.Value.RemovalStatus -ceq 'NONE' -and
+            $retiredDocument.Success -and $retiredAuthority.Count -eq 1 -and $retiredAuthority[0].Status -ceq 'RETIRED' -and
+            $retiredAuthority[0].Generation -eq $binding.Authority.Generation -and
+            $retiredAuthority[0].IdentityDigest -ceq $binding.Authority.IdentityDigest -and
+            $retiredAuthority[0].RevisionDigest -ceq $binding.Authority.RevisionDigest -and
+            $retiredDocument.Value.RegistryDocument.Payloads.Count -eq $parsedCurrent.Value.RegistryDocument.Payloads.Count)
+        $staleRetirement=$false
+        try{$null=Retire-LabTlsOperationalAuthority $root $controller $location $binding.Authority.Ref $id $binding.RegistrySha256 -Confirm:$false}
+        catch{$staleRetirement=$_.Exception.Message -ceq 'TLS_AUTHORITY_EXPECTED_REGISTRY_CHANGED'}
+        Add-CheckResult 'Retirement compare-and-swap rejects a stale replay' ($staleRetirement -and
+            (Get-LabTlsCaByteDigest ([IO.File]::ReadAllBytes($registry))) -ceq $retired.Value.RegistrySha256)
+
+        $appendRoot=Join-Path $fixture 'append-data';$null=New-Item -ItemType Directory -Path (Join-Path $appendRoot 'Catalog'),(Join-Path $appendRoot 'State') -Force
+        $appendVolume=(Get-LabVolumeIdentity $appendRoot).VolumeId
+        [IO.File]::WriteAllText((Join-Path $appendRoot '.sql-server-lab-root.json'),(@{ContractVersion='SqlServerLab.DataRoot/2.0';ManagedBy='SQL_Server_Lab';ControllerId=$controller;VolumeId=$appendVolume;DataRoot=$appendRoot}|ConvertTo-Json -Compress))
+        [IO.File]::WriteAllText((Join-Path $appendRoot 'Catalog/storage-locations.json'),(@{ContractVersion='SqlServerLab.Storage/2.0';ControllerId=$controller;
+            LabDataLocations=@(@{LocationId=$location;ControllerId=$controller;VolumeId=$appendVolume;LabDataRoot=$appendRoot})}|ConvertTo-Json -Depth 5 -Compress))
+        $appendOld=New-LabAuthenticatedTlsCaCandidate $appendRoot $controller $location CURRENT_WINDOWS_PROCESS 3
+        $null=$script:fixtureCertificateHashes.Add($appendOld.Value.CertificateSha256)
+        $appendOldBinding=Register-LabTlsOperationalAuthority $appendRoot $controller $location $appendOld.Value.CandidateId
+        $appendOldRegistry=Join-Path $appendRoot 'State/authenticated-tls/registry.json';$appendOldBytes=[IO.File]::ReadAllBytes($appendOldRegistry)
+        $appendOldDigest=Get-LabTlsCaByteDigest $appendOldBytes
+        $appendNew=New-LabAuthenticatedTlsCaCandidate $appendRoot $controller $location CURRENT_WINDOWS_PROCESS 3
+        $null=$script:fixtureCertificateHashes.Add($appendNew.Value.CertificateSha256)
+        $appendOldCandidateDirectory=(Get-LabTlsCaCandidatePaths $appendOldBinding.Native $controller $location $appendOld.Value.CandidateId).Candidate
+        Remove-Item -LiteralPath $appendOldCandidateDirectory -Recurse -Force
+        $script:authorityFixtureInterruptAfterRegistryReplace=$true
+        $appendRegistrationInterrupted=$false
+        try{$null=Register-LabTlsOperationalAuthority $appendRoot $controller $location $appendNew.Value.CandidateId}
+        catch{$appendRegistrationInterrupted=$_.Exception.Message -ceq 'TLS_AUTHORITY_REGISTRATION_UNCONFIRMED'}
+        $pendingPreview=Get-LabAuthenticatedTlsRegistryWriterPreview $appendRoot $controller $location CURRENT_WINDOWS_PROCESS
+        $appendRecovery=Invoke-LabAuthenticatedTlsRegistryWrite $appendRoot $controller $location CURRENT_WINDOWS_PROCESS RECOVER_COMMIT `
+            $pendingPreview.Value.RootMetadataDigest $pendingPreview.Value.ActorDigest $pendingPreview.Value.RegistryByteSha256 $null $pendingPreview.Value.PendingTransactionId
+        $appendState=Read-LabTlsRegistryWriterState (Get-LabTlsRegistryWriterBinding $appendRoot $controller $location)
+        $appendDocument=(Read-LabAuthenticatedTlsRegistryDocument $appendState.Bytes).Value.RegistryDocument
+        $appendHistorical=Get-LabTlsRegistrySnapshotAtDigest (Get-LabTlsRegistryWriterBinding $appendRoot $controller $location) $appendState $appendOldDigest
+        $appendOldDocument=(Read-LabAuthenticatedTlsRegistryDocument $appendOldBytes).Value.RegistryDocument
+        $collisionDocument=(Read-LabAuthenticatedTlsRegistryDocument $appendState.Bytes).Value.RegistryDocument
+        $collisionAuthority=@($collisionDocument.Payloads|Where-Object {$_.Kind -ceq 'AUTHORITY' -and $_.CandidateId -ceq $appendNew.Value.CandidateId})[0]
+        $collisionAuthority.TrustScopeRef=$appendOldBinding.Client.Ref
+        $collisionDocument.Index.Records=@($collisionDocument.Payloads|ForEach-Object {Get-LabTlsPayloadIndexRecord $_})
+        $collisionCandidate=(Read-LabAuthenticatedTlsRegistryDocument (ConvertTo-LabTlsRegistryWriterBytes $collisionDocument)).Value.RegistryDocument
+        $priorReservations=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+        foreach($record in $appendOldDocument.Index.Records){$null=$priorReservations.Add($record.Ref)}
+        foreach($payload in $appendOldDocument.Payloads){if($payload.Kind -ceq 'AUTHORITY'){$null=$priorReservations.Add($payload.TrustScopeRef)}}
+        $reservedTrustScopeRejected=$false
+        try{Assert-LabTlsRegistryFreshPayloads $appendOldDocument $collisionCandidate (Get-LabTlsRegistryWriterBinding $appendRoot $controller $location) `
+            $priorReservations $null -AppendOnly}
+        catch{$reservedTrustScopeRejected=$_.Exception.Message -ceq 'TLS_REGISTRY_APPEND_REFERENCE_INVALID'}
+        Add-CheckResult 'Append rejects a new trust scope colliding with a reserved existing context reference' $reservedTrustScopeRejected
+        $appendOldUseRejected=$false
+        try{$null=Get-LabTlsOperationalAuthority $appendRoot $controller $location $appendOldBinding.Authority.Ref $appendOldBinding.Client.Ref $appendOldDigest}
+        catch{$appendOldUseRejected=$true}
+        $appendNewAuthority=@($appendDocument.Payloads|Where-Object {$_.Kind -ceq 'AUTHORITY' -and $_.CandidateId -ceq $appendNew.Value.CandidateId -and $_.Status -ceq 'ACTIVE'})
+        $appendNewBinding=Get-LabTlsOperationalAuthority $appendRoot $controller $location $appendNewAuthority[0].Ref $appendNewAuthority[0].ClientRef $appendState.Digest
+        $repeatAppend=Register-LabTlsOperationalAuthority $appendRoot $controller $location $appendNew.Value.CandidateId $appendState.Digest
+        Add-CheckResult 'Append AFTER_REPLACE recovery commits exact new authority refs while preserving missing-key history' ($appendRegistrationInterrupted -and
+            $pendingPreview.Success -and $pendingPreview.Value.Status -ceq 'CANDIDATE_INSTALLED' -and $appendRecovery.Success -and
+            $appendRecovery.Value.Status -ceq 'RECOVERY_COMMITTED' -and $appendNewBinding.RegistrySha256 -ceq $appendState.Digest -and
+            $appendDocument.Payloads.Count -eq 6 -and $appendDocument.Index.Revision -eq 2 -and @($appendDocument.Payloads|Where-Object {$_.Kind -ceq 'AUTHORITY' -and $_.Status -ceq 'ACTIVE'}).Count -eq 2 -and
+            (Get-LabTlsCaByteDigest $appendHistorical) -ceq $appendOldDigest -and [Convert]::ToBase64String($appendHistorical) -ceq [Convert]::ToBase64String($appendOldBytes) -and
+            (Get-LabTlsOperationalAuthority $appendRoot $controller $location $appendNewBinding.Authority.Ref $appendNewBinding.Client.Ref $appendNewBinding.RegistrySha256).RegistrySha256 -ceq $appendState.Digest -and
+            $repeatAppend.RegistrySha256 -ceq $appendState.Digest -and $repeatAppend.Authority.Ref -ceq $appendNewBinding.Authority.Ref -and
+            $appendOldUseRejected -and -not (Test-Path -LiteralPath $appendOldCandidateDirectory))
+        $beforeAppendUpdate=Read-LabAuthenticatedTlsRegistryDocument ([IO.File]::ReadAllBytes($appendOldRegistry))
+        $beforeAppendOldAuthority=@($beforeAppendUpdate.Value.RegistryDocument.Payloads|Where-Object {$_.Kind -ceq 'AUTHORITY' -and $_.CandidateId -ceq $appendOld.Value.CandidateId})[0]
+        $beforeAppendOldRecord=Get-LabTlsPayloadIndexRecord $beforeAppendOldAuthority
+        $beforeAppendNewAuthority=@($beforeAppendUpdate.Value.RegistryDocument.Payloads|Where-Object {$_.Kind -ceq 'AUTHORITY' -and $_.CandidateId -ceq $appendNew.Value.CandidateId})[0]
+        $script:authorityFixtureClientMetadataDrift=$false
+        $appendContextUpdate=Register-LabTlsOperationalAuthority $appendRoot $controller $location $appendNew.Value.CandidateId
+        $script:authorityFixtureClientMetadataDrift=$true
+        $afterAppendUpdate=Read-LabAuthenticatedTlsRegistryDocument ([IO.File]::ReadAllBytes($appendOldRegistry))
+        $afterAppendOldAuthority=@($afterAppendUpdate.Value.RegistryDocument.Payloads|Where-Object {$_.Kind -ceq 'AUTHORITY' -and $_.CandidateId -ceq $appendOld.Value.CandidateId})[0]
+        $afterAppendNewAuthority=@($afterAppendUpdate.Value.RegistryDocument.Payloads|Where-Object {$_.Kind -ceq 'AUTHORITY' -and $_.CandidateId -ceq $appendNew.Value.CandidateId})[0]
+        $afterAppendOldRecord=Get-LabTlsPayloadIndexRecord $afterAppendOldAuthority
+        Add-CheckResult 'Updating the selected authority preserves unrelated missing-key history' ($afterAppendUpdate.Success -and
+            $afterAppendUpdate.Value.RegistryDocument.Index.Revision -eq ($beforeAppendUpdate.Value.RegistryDocument.Index.Revision+1) -and
+            $appendContextUpdate.Authority.Generation -eq ($beforeAppendNewAuthority.Generation+1) -and
+            $afterAppendNewAuthority.ClientGeneration -gt $beforeAppendNewAuthority.ClientGeneration -and
+            $afterAppendOldAuthority.Status -ceq 'ACTIVE' -and
+            [string]::Equals(($beforeAppendOldRecord|ConvertTo-Json -Compress),($afterAppendOldRecord|ConvertTo-Json -Compress),[StringComparison]::Ordinal) -and
+            -not (Test-Path -LiteralPath $appendOldCandidateDirectory))
+        $appendState=Read-LabTlsRegistryWriterState (Get-LabTlsRegistryWriterBinding $appendRoot $controller $location)
+        $driftRegistryDigest=$appendState.Digest;$driftRetirementRejected=$false
+        try{$null=Retire-LabTlsOperationalAuthority $appendRoot $controller $location $appendOldBinding.Authority.Ref $appendOld.Value.CandidateId $appendState.Digest -Confirm:$false}
+        catch{$driftRetirementRejected=$_.Exception.Message -ceq 'TLS_AUTHORITY_RETIREMENT_UNCONFIRMED'}
+        $driftRetirementState=Read-LabTlsRegistryWriterState (Get-LabTlsRegistryWriterBinding $appendRoot $controller $location)
+        Add-CheckResult 'Retirement fails closed when a retained authority has client drift' ($driftRetirementRejected -and $driftRetirementState.Digest -ceq $driftRegistryDigest)
+        $script:authorityFixtureClientMetadataDrift=$false
+        $retirement=Retire-LabTlsOperationalAuthority $appendRoot $controller $location $appendOldBinding.Authority.Ref $appendOld.Value.CandidateId $appendState.Digest -Confirm:$false
+        $retiredHistoryRejected=$false
+        try{$null=Get-LabTlsOperationalAuthority $appendRoot $controller $location $appendOldBinding.Authority.Ref $appendOldBinding.Client.Ref $appendOldDigest}
+        catch{$retiredHistoryRejected=$_.Exception.Message -ceq 'TLS_AUTHORITY_RETIRED'}
+        Add-CheckResult 'Historical ACTIVE snapshot cannot restore an authority after current tombstone' ($retirement.Success -and
+            $retirement.Value.Status -ceq 'TOMBSTONE_COMMITTED' -and $retiredHistoryRejected)
     }
 }catch{
     Add-CheckResult ('Authority fixture failed: '+$_.Exception.Message) $false

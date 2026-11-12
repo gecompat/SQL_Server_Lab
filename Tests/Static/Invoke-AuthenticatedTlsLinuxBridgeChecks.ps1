@@ -68,7 +68,12 @@ foreach($stack in @('SYSTEM_DATA_SQLCLIENT','ODBC_SQLCMD')){
     if($reply.Status-cne'VERIFIED'){exit 7}
 }
 if($env:BRIDGE_FIXTURE_MODE-ceq'stderr'){[Console]::Error.Write('SYNTHETIC_PRIVATE_STDERR')}
+if($env:BRIDGE_FIXTURE_MODE-ceq'no-result'){exit 0}
+if($env:BRIDGE_FIXTURE_MODE-ceq'pending-result'){
+    [Console]::Out.Write('RESULT partial');[Console]::Out.Flush();exit 0
+}
 Send RESULT @{ContractVersion='Toolbelt.LinuxLabPreflight/0.1';Status='PASS';ClientChecks=2;SqlBuild='17.0.5005.3';SqlClient='PASS';Odbc='PASS';Encrypt=$true;TrustServerCertificate=$false}
+if($env:BRIDGE_FIXTURE_MODE-ceq'nonzero-after-result'){exit 7}
 '@
         $i=[Diagnostics.ProcessStartInfo]::new($script:Pwsh);$i.UseShellExecute=$false;$i.CreateNoWindow=$true
         $i.RedirectStandardInput=$true;$i.RedirectStandardOutput=$true;$i.RedirectStandardError=$true
@@ -79,7 +84,7 @@ Send RESULT @{ContractVersion='Toolbelt.LinuxLabPreflight/0.1';Status='PASS';Cli
     Export-ModuleMember -Function Read-SqlServerLabQualifiedTestEnvironment
 }
 $count=0
-foreach($mode in @('normal','malformed','oversize','wrong-ref','stderr','pid-string','pid-bool','pid-float','pid-zero','pid-overflow','pid-array')){
+foreach($mode in @('normal','malformed','oversize','wrong-ref','stderr','no-result','pending-result','nonzero-after-result','pid-string','pid-bool','pid-float','pid-zero','pid-overflow','pid-array')){
     & $module {
         param($Mode)
         $script:Mode=$Mode;$script:Expiry=[DateTimeOffset]::UtcNow.AddMinutes(14);$script:Removed=0;$script:Idles=0;$script:LeaseExits=0
@@ -88,6 +93,13 @@ foreach($mode in @('normal','malformed','oversize','wrong-ref','stderr','pid-str
         if($Mode-ceq'normal'){
             if($errorCode-or$result.Status-cne'PASS'-or$script:Removed-ne0-or$script:Idles-ne2){throw ('NORMAL_FAILED '+$errorCode+'; '+$trace)}
         }elseif(-not$errorCode-or$script:Removed-ne1){throw ('REJECTION_OR_OWN_CLEANUP_FAILED '+$Mode+' '+$errorCode)}
+        $expectedFailure=switch($Mode){
+            stderr {'TLS_LINUX_CHILD_STDERR_NONEMPTY'}
+            no-result {'TLS_LINUX_RESULT_MISSING'}
+            pending-result {'TLS_LINUX_BRIDGE_PROTOCOL_BYTES_PENDING'}
+            nonzero-after-result {'TLS_LINUX_CHILD_EXIT_NONZERO'}
+        }
+        if($expectedFailure-and$errorCode-cne$expectedFailure){throw ('FAILURE_CLASSIFICATION_MISMATCH '+$Mode+' '+$errorCode)}
         if($script:LeaseExits-ne1-or(Test-Path -LiteralPath (Join-Path $root 'linux-client-execution.json'))){throw 'LEASE_OR_MARKER_REMAINS'}
     } $mode
     $count++
