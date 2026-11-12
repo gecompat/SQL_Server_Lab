@@ -17,6 +17,8 @@
     "TargetHost": { "type": ["string", "null"], "pattern": "^[A-Za-z0-9.-]+$" },
     "ModelKey": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,95}$" },
     "Purpose": { "enum": ["embedding", "generation"] },
+    "GenerationApi": { "enum": ["generate", "chat"] },
+    "Think": { "type": ["boolean", "null"] },
     "Dimension": { "type": ["integer", "null"], "minimum": 1, "maximum": 1998 },
     "InputProfile": { "enum": ["raw", "nomic-search", "snowflake-search", null] },
     "Port": { "type": ["integer", "null"], "minimum": 1024, "maximum": 65535 },
