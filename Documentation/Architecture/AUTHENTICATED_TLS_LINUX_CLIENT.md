@@ -55,7 +55,13 @@ Der private Protokollkern begrenzt eine Sitzung auf höchstens fünf Minuten
 innerhalb der ursprünglichen Qualifikationsfrist, 16 seriell geprüfte Requests,
 2048 Requestbytes und einen einmaligen Request-Identifier. Fehlende, verspätete,
 wiederholte oder widersprüchliche Antworten sperren die Sitzung. Eine Antwort
-ist höchstens fünf Sekunden gültig und verlängert die Exportfrist nicht.
+ist höchstens 15 Sekunden ab Abschluss der aktuellen Controllerprüfung gültig
+und verlängert die Exportfrist nicht. Ihre Beobachtungszeit darf höchstens fünf
+Sekunden vor diesem Abschluss liegen; der Peer akzeptiert deshalb höchstens
+20 Sekunden zwischen Beobachtung und Ablaufzeit und verlangt, dass diese
+gesamte Gültigkeit länger als der gemessene Austausch dauert. So ist die
+Antwort bei Empfang noch nicht abgelaufen, ohne Controller- und Linuxuhr
+gegeneinander zu vergleichen.
 Der native Transport muss diese Antwort unmittelbar vor dem zugehörigen
 Client-Open prüfen. Diese Zahlen sind Protokollgrenzen, keine gemessene
 Laufzeit oder Transportgarantie.
@@ -64,7 +70,8 @@ UTC-Rücksprünge sperren die Sitzung; ein zusätzliches monotones Zeitbudget
 verhindert eine Verlängerung durch eine stehende oder verlangsamte Wanduhr.
 Der Controller verankert auch die unveränderliche Qualifikationsfrist beim
 Sitzungsstart und berechnet ihr Restfenster aus UTC und monoton verstrichener
-Zeit konservativ. Vor einer Antwort müssen mindestens 35 Sekunden verbleiben.
+Zeit konservativ. Der synchrone Verifier-Austausch ist auf zehn Sekunden
+begrenzt; vor einer Antwort müssen mindestens 40 Sekunden verbleiben.
 Der Peer zieht die gesamte gemessene Austauschzeit ab; unmittelbar vor Open
 müssen auf derselben weiterlaufenden monotonen Uhr noch 30 Sekunden bleiben.
 Dieses private Openfenster ist nicht serialisierbar und hängt nicht von der

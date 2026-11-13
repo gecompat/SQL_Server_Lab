@@ -3,7 +3,7 @@
 function Read-LabTlsLinuxVerificationReply {
     param([byte[]]$Bytes,[object]$Request,[DateTimeOffset]$SessionExpiresAt,[TimeSpan]$RoundTrip)
     if($RoundTrip -lt [TimeSpan]::Zero){throw 'TLS_LINUX_VERIFIER_REPLY_FRAME_REJECTED'}
-    if($RoundTrip.TotalSeconds -gt 5){throw 'TLS_LINUX_VERIFIER_REPLY_DEADLINE_EXCEEDED'}
+    if($RoundTrip.TotalSeconds -gt 10){throw 'TLS_LINUX_VERIFIER_REPLY_DEADLINE_EXCEEDED'}
     if($null -eq $Bytes -or $Bytes.Length -lt 1 -or $Bytes.Length -gt 2048){throw 'TLS_LINUX_VERIFIER_REPLY_FRAME_REJECTED'}
     try{
         $reply=Read-LabTlsBoundJson $Bytes @(
@@ -22,10 +22,11 @@ function Read-LabTlsLinuxVerificationReply {
         $verified=[DateTimeOffset]::ParseExact($reply.VerifiedAtUtc,'o',[Globalization.CultureInfo]::InvariantCulture)
         $expires=[DateTimeOffset]::ParseExact($reply.ExpiresAtUtc,'o',[Globalization.CultureInfo]::InvariantCulture)
     }catch{throw 'TLS_LINUX_VERIFIER_REPLY_TIME_REJECTED'}
-    if($expires -le $verified -or ($expires-$verified).TotalSeconds -gt 10 -or
+    $replyLifetime=$expires-$verified
+    if($replyLifetime -le $RoundTrip -or $replyLifetime.TotalSeconds -gt 20 -or
         $expires -gt $SessionExpiresAt){throw 'TLS_LINUX_VERIFIER_REPLY_TIME_REJECTED'}
     if(($reply.QualificationRemainingMilliseconds -isnot [int] -and $reply.QualificationRemainingMilliseconds -isnot [long]) -or
-        $reply.QualificationRemainingMilliseconds -lt 35000 -or $reply.QualificationRemainingMilliseconds -gt 900000 -or
+        $reply.QualificationRemainingMilliseconds -lt 40000 -or $reply.QualificationRemainingMilliseconds -gt 900000 -or
         $reply.QualificationRemainingMilliseconds-[Math]::Ceiling($RoundTrip.TotalMilliseconds) -lt 30000){throw 'TLS_LINUX_VERIFIER_REPLY_WINDOW_REJECTED'}
     # Freshness comes from an unpredictable nonce on the live private transport
     # and the monotonic exchange deadline, not subtraction of clocks on two OSes.

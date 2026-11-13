@@ -78,10 +78,22 @@ Check 'Both stacks require separate fresh calls and replies contain no export or
         $reply = Invoke-LabTlsLinuxSessionVerification $script:Session (Bytes $request)
         Assert ($reply.Status -ceq 'VERIFIED' -and $reply.RequestId -ceq $request.RequestId -and $reply.Stack -ceq $stack) 'Reply binding mismatch'
         Assert (@($reply.PSObject.Properties).Count -eq 11 -and $null -eq $reply.PSObject.Properties['ExportBytes']) 'Reply shape/private data mismatch'
-        Assert ($reply.QualificationRemainingMilliseconds -ge 35000 -and $reply.QualificationRemainingMilliseconds -le 180000) 'Controller open window mismatch'
-        Assert ([DateTimeOffset]::Parse($reply.ExpiresAtUtc) -eq $script:ClockNow.AddSeconds(5)) 'Expected five-second acknowledgement'
+        Assert ($reply.QualificationRemainingMilliseconds -ge 40000 -and $reply.QualificationRemainingMilliseconds -le 180000) 'Controller open window mismatch'
+        Assert ([DateTimeOffset]::Parse($reply.ExpiresAtUtc) -eq $script:ClockNow.AddSeconds(15)) 'Expected bounded fifteen-second acknowledgement'
     }
     Assert ($script:Calls -eq 2) 'Each stack must reverify'
+}
+Check 'Session reserves ten seconds for exchange and thirty seconds for login' {
+    $now=[DateTimeOffset]'2026-10-26T03:00:00Z'
+    $qExpires=$now.AddSeconds(41)
+    $session=New-LabTlsLinuxConsumerSession ([byte[]]@(1)) '11111111-1111-1111-1111-111111111111' ('b'*64) $now.AddSeconds(1) {throw 'UNUSED'} {$now} -QualificationExpiresAt $qExpires
+    Assert ($session.State -ceq 'OPEN') 'Exact forty-second reserve rejected'
+    Close-LabTlsLinuxConsumerSession $session
+}
+Check 'Session cannot consume the protected forty-second qualification reserve' {
+    $now=[DateTimeOffset]'2026-10-26T03:00:00Z';$rejected=$false
+    try{$null=New-LabTlsLinuxConsumerSession ([byte[]]@(1)) '11111111-1111-1111-1111-111111111111' ('b'*64) $now.AddSeconds(2) {throw 'UNUSED'} {$now} -QualificationExpiresAt $now.AddSeconds(41)}catch{$rejected=$_.Exception.Message -ceq 'TLS_LINUX_SESSION_INVALID'}
+    Assert $rejected 'Session reduced the protected qualification reserve'
 }
 Check 'Original byte mutation does not change session-owned snapshot' {
     New-Fixture

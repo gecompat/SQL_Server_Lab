@@ -72,21 +72,33 @@ foreach($field in @('ContractVersion','Status','SessionRef','RequestId','Stack',
     }
 }
 Check 'Missing reply key blocks' {Fixture;$script:reply.Remove('Status');Reject}
-foreach($value in @('35000',35000.5,$true,34999,900001,@(180000))){
+foreach($value in @('40000',40000.5,$true,39999,900001,@(180000))){
     Check 'Controller remaining budget must be a bounded scalar integer' {
         Fixture;$script:reply.QualificationRemainingMilliseconds=$value;Reject
     }
 }
-Check 'Five seconds of transit are deducted from the controller open window' {
-    Fixture;$script:reply.QualificationRemainingMilliseconds=35000
-    $r=Read-LabTlsLinuxVerificationReply ([Text.Encoding]::UTF8.GetBytes(($script:reply|ConvertTo-Json -Compress))) $script:request $script:deadline ([TimeSpan]::FromSeconds(5))
-    Assert ($r.QualificationRemainingMilliseconds-5000 -eq 30000) 'Conservative open window mismatch'
+Check 'Ten seconds of transit are deducted from the controller open window' {
+    Fixture;$script:reply.QualificationRemainingMilliseconds=40000
+    $script:reply.ExpiresAtUtc='2026-10-26T03:00:15.0000000+00:00'
+    $r=Read-LabTlsLinuxVerificationReply ([Text.Encoding]::UTF8.GetBytes(($script:reply|ConvertTo-Json -Compress))) $script:request $script:deadline ([TimeSpan]::FromSeconds(10))
+    Assert ($r.QualificationRemainingMilliseconds-10000 -eq 30000) 'Conservative open window mismatch'
 }
 Check 'Additional reply key blocks' {Fixture;$script:reply.Extra='forbidden';Reject}
 Check 'Reply cannot extend its controller session' {Fixture;$script:deadline=[DateTimeOffset]'2026-10-26T03:00:04Z';Reject}
 Check 'Reply cannot precede its observation' {Fixture;$script:reply.ExpiresAtUtc=$script:reply.VerifiedAtUtc;Reject}
-Check 'Reply lifetime has a closed upper bound' {Fixture;$script:reply.ExpiresAtUtc='2026-10-26T03:00:11.0000000+00:00';Reject}
-foreach($milliseconds in @(-1,5001)){
+Check 'Reply lifetime must outlast the complete measured exchange' {
+    Fixture;$script:reply.ExpiresAtUtc='2026-10-26T03:00:10.0000000+00:00'
+    $rejected=$false
+    try{$null=Read-LabTlsLinuxVerificationReply ([Text.Encoding]::UTF8.GetBytes(($script:reply|ConvertTo-Json -Compress))) $script:request $script:deadline ([TimeSpan]::FromSeconds(10))}catch{$rejected=$_.Exception.Message-ceq'TLS_LINUX_VERIFIER_REPLY_TIME_REJECTED'}
+    Assert $rejected 'A reply expiring at exchange completion is not safely usable'
+}
+Check 'Reply accepts the exact bounded maximum lifetime' {
+    Fixture;$script:reply.ExpiresAtUtc='2026-10-26T03:00:20.0000000+00:00'
+    $r=Read-LabTlsLinuxVerificationReply ([Text.Encoding]::UTF8.GetBytes(($script:reply|ConvertTo-Json -Compress))) $script:request $script:deadline ([TimeSpan]::Zero)
+    Assert ($r.Status -ceq 'VERIFIED') 'Exact maximum reply lifetime was rejected'
+}
+Check 'Reply lifetime has a closed upper bound' {Fixture;$script:reply.ExpiresAtUtc='2026-10-26T03:00:21.0000000+00:00';Reject}
+foreach($milliseconds in @(-1,10001)){
     Check ("Monotonic exchange budget rejects $milliseconds ms") {
         Fixture;$rejected=$false
         try{$null=Read-LabTlsLinuxVerificationReply ([Text.Encoding]::UTF8.GetBytes(($script:reply|ConvertTo-Json -Compress))) $script:request $script:deadline ([TimeSpan]::FromMilliseconds($milliseconds))}catch{$rejected=$true}
@@ -118,7 +130,7 @@ Check 'Verifier reply failures have closed, data-free diagnostic classes' {
     Fixture;$script:reply.RequestId=[guid]::NewGuid().ToString('D');RejectAs $codes.Binding {Read-Reply}
     Fixture;$script:reply.VerifiedAtUtc='invalid';RejectAs $codes.Time {Read-Reply}
     Fixture;$script:reply.QualificationRemainingMilliseconds=34999;RejectAs $codes.Window {Read-Reply}
-    Fixture;RejectAs $codes.Deadline {Read-LabTlsLinuxVerificationReply ([Text.Encoding]::UTF8.GetBytes(($script:reply|ConvertTo-Json -Compress))) $script:request $script:deadline ([TimeSpan]::FromMilliseconds(5001))}
+    Fixture;RejectAs $codes.Deadline {Read-LabTlsLinuxVerificationReply ([Text.Encoding]::UTF8.GetBytes(($script:reply|ConvertTo-Json -Compress))) $script:request $script:deadline ([TimeSpan]::FromMilliseconds(10001))}
     Fixture;RejectAs $codes.Frame {Read-LabTlsLinuxVerificationReply ([byte[]]::new(2049)) $script:request $script:deadline ([TimeSpan]::Zero)}
 }
 Check 'Public reader rejects absent bootstrap without invoking controller/native handlers' {

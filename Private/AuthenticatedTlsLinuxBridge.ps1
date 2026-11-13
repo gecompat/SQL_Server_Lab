@@ -20,7 +20,7 @@ function Invoke-LabTlsLinuxConsumerBridge {
         $initial=Read-LabTlsQualifiedExportSnapshot -ExportBytes $copy -FromBytes -StateRoot $StateRoot -RunId $RunId -InstanceId $InstanceId -Budget $budget -AllowLinuxController
         $expiry=[DateTimeOffset]::ParseExact($initial.Qualification.ExpiresAt,'o',[Globalization.CultureInfo]::InvariantCulture)
         $sessionEnd=[DateTimeOffset]::UtcNow.AddMinutes(2)
-        if($sessionEnd-gt$expiry.AddSeconds(-35)){$sessionEnd=$expiry.AddSeconds(-35)}
+        if($sessionEnd-gt$expiry.AddSeconds(-40)){$sessionEnd=$expiry.AddSeconds(-40)}
         $live=@{Root=$lease.Root;ProcessId=$PID;State='OPEN';InVerifier=$false;GuestPid=0;RunId=$RunId;InstanceId=$InstanceId;CurrentStack=$null;Session=$null}
         $verify={
             param($Bytes,$Stack,$ClientRef,$ContextDigest)
