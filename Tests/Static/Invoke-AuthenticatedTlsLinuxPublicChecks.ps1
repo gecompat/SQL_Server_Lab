@@ -199,6 +199,14 @@ try{
             $classRejected=Get-LabTlsSafePublicLinuxFailureCode ([Management.Automation.ErrorRecord]::new($classSecret,'synthetic',[Management.Automation.ErrorCategory]::NotSpecified,$null))
             $bridgeProtocol=[InvalidOperationException]::new('TLS_LINUX_BRIDGE_PROTOCOL')
             $bridgeProtocolSafe=Get-LabTlsSafePublicLinuxFailureCode ([Management.Automation.ErrorRecord]::new($bridgeProtocol,'synthetic',[Management.Automation.ErrorCategory]::NotSpecified,$null))
+            $bridgeExit=[InvalidOperationException]::new('TLS_LINUX_CHILD_EXIT_NONZERO|exitCode=7|hello=1|verifierRequests=2|resultSeen=1|stderrBytes=19')
+            $bridgeExitSafe=Get-LabTlsSafePublicLinuxFailureCode ([Management.Automation.ErrorRecord]::new($bridgeExit,'synthetic',[Management.Automation.ErrorCategory]::NotSpecified,$null))
+            $bridgeExitSecret=[InvalidOperationException]::new('TLS_LINUX_CHILD_EXIT_NONZERO|exitCode=7|hello=1|verifierRequests=2|resultSeen=1|stderrBytes=19 password=synthetic-secret')
+            $bridgeExitSecretRejected=Get-LabTlsSafePublicLinuxFailureCode ([Management.Automation.ErrorRecord]::new($bridgeExitSecret,'synthetic',[Management.Automation.ErrorCategory]::NotSpecified,$null))
+            $bridgeExitRange=[InvalidOperationException]::new('TLS_LINUX_CHILD_EXIT_NONZERO|exitCode=7|hello=1|verifierRequests=17|resultSeen=1|stderrBytes=19')
+            $bridgeExitRangeRejected=Get-LabTlsSafePublicLinuxFailureCode ([Management.Automation.ErrorRecord]::new($bridgeExitRange,'synthetic',[Management.Automation.ErrorCategory]::NotSpecified,$null))
+            $bridgeExitUnicode=[InvalidOperationException]::new('TLS_LINUX_CHILD_EXIT_NONZERO|exitCode=٧|hello=1|verifierRequests=2|resultSeen=1|stderrBytes=19')
+            $bridgeExitUnicodeRejected=Get-LabTlsSafePublicLinuxFailureCode ([Management.Automation.ErrorRecord]::new($bridgeExitUnicode,'synthetic',[Management.Automation.ErrorCategory]::NotSpecified,$null))
             $bridgeWithSecret=[InvalidOperationException]::new('TLS_LINUX_BRIDGE_PROTOCOL password=synthetic-secret')
             $bridgeSecretRejected=Get-LabTlsSafePublicLinuxFailureCode ([Management.Automation.ErrorRecord]::new($bridgeWithSecret,'synthetic',[Management.Automation.ErrorCategory]::NotSpecified,$null))
             $hostAcl=[InvalidOperationException]::new('TLS_CA_ACL_INVALID')
@@ -228,6 +236,7 @@ try{
             $hostSecretRejected=Get-LabTlsSafePublicLinuxFailureCode ([Management.Automation.ErrorRecord]::new($hostWithSecret,'synthetic',[Management.Automation.ErrorCategory]::NotSpecified,$null))
             @($safe,$sqlClientSafe,$redacted,$rejected,$tokenRejected,$longTokenRejected,$sqlClientRejected,$classRejected,
                 $bridgeProtocolSafe,$bridgeSecretRejected,$hostAclSafe,$bootstrapSafe,$sessionSafe,$qualificationSafe,$hostSecretRejected,
+                $bridgeExitSafe,$bridgeExitSecretRejected,$bridgeExitRangeRejected,$bridgeExitUnicodeRejected,
                 ($fixedLinuxCodes-join','),($fixedLinuxResults-join','))
         }
         Assert ($values[0]-ceq'TLS_LAB_RUNTIME_COMMAND_FAILED|exitCode=1|stderrClass=TLS_CA_PEM_PARSE_FAILED|stderrBytes=32|stdoutChars=0|operationStage=linux-client-observation') 'Safe summary was not preserved'
@@ -237,8 +246,10 @@ try{
         Assert ($values[10]-ceq'TLS_CA_ACL_INVALID'-and$values[11]-ceq'TLS_LINUX_BOOTSTRAP_LIMIT'-and
             $values[12]-ceq'TLS_LINUX_SESSION_REJECTED'-and$values[13]-ceq'TLS_QUALIFICATION_SQLCMD_TIMEOUT') 'A fixed CA, bootstrap, session, or qualification code was not preserved'
         Assert ($values[14]-ceq'TLS_LINUX_CONSUMER_REJECTED_OR_RECOVERY_REQUIRED') 'A suffix on a safe CA token was exposed'
-        Assert ($values[15]-ceq$values[16]) 'A fixed Linux binding, transfer, or qualification code was not preserved'
-        Assert (@($values[2..7]+$values[9]+$values[14]|Where-Object {$_-cne'TLS_LINUX_CONSUMER_REJECTED_OR_RECOVERY_REQUIRED'}).Count-eq0) 'Malformed or secret-bearing diagnostics were exposed'
+        Assert ($values[15]-ceq'TLS_LINUX_CHILD_EXIT_NONZERO|exitCode=7|hello=1|verifierRequests=2|resultSeen=1|stderrBytes=19') 'Safe bridge exit metadata was not preserved'
+        Assert ($values[16]-ceq'TLS_LINUX_CONSUMER_REJECTED_OR_RECOVERY_REQUIRED'-and$values[17]-ceq$values[16]-and$values[18]-ceq$values[16]) 'Malformed bridge exit metadata was exposed'
+        Assert ($values[19]-ceq$values[20]) 'A fixed Linux binding, transfer, or qualification code was not preserved'
+        Assert (@($values[2..7]+$values[9]+$values[14]+$values[16..18]|Where-Object {$_-cne'TLS_LINUX_CONSUMER_REJECTED_OR_RECOVERY_REQUIRED'}).Count-eq0) 'Malformed or secret-bearing diagnostics were exposed'
     }
     Check 'Public preflight catch emits the safe category while hiding the inner exception' {
         $message=& $module {

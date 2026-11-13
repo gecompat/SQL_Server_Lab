@@ -85,7 +85,16 @@ function Invoke-LabTlsLinuxConsumerBridge {
             }
             if($process.HasExited-and$done[0]-and$done[1]){
                 $confirmed=$true
-                if($process.ExitCode-ne0){throw 'TLS_LINUX_CHILD_EXIT_NONZERO'}
+                if($process.ExitCode-ne0){
+                    # Preserve only bounded protocol progress and byte counts.
+                    # Guest stderr itself can contain paths or credentials and
+                    # must never cross the public diagnostic boundary.
+                    $helloValue=if($hello){1}else{0}
+                    $resultValue=if($null-ne$result){1}else{0}
+                    $verifierRequests=[Math]::Min(16,[Math]::Max(0,[int]$session.Requests))
+                    throw ('TLS_LINUX_CHILD_EXIT_NONZERO|exitCode={0}|hello={1}|verifierRequests={2}|resultSeen={3}|stderrBytes={4}' -f
+                        [int]$process.ExitCode,$helloValue,$verifierRequests,$resultValue,[long]$outputs[1].Length)
+                }
                 if($pending.Length){throw 'TLS_LINUX_BRIDGE_PROTOCOL_BYTES_PENDING'}
                 if($null-eq$result){throw 'TLS_LINUX_RESULT_MISSING'}
                 if($outputs[1].Length){throw 'TLS_LINUX_CHILD_STDERR_NONEMPTY'}
