@@ -125,10 +125,11 @@ Schlüssel werden durch einen Consumerfehler nicht übernommen.
 
 Ein nicht erfolgreicher Bridge-Kindprozess liefert zusätzlich ausschließlich
 seinen numerischen Exitcode, den HELLO-Status, die Zahl der Controllerprüfungen,
-den RESULT-Status und die Anzahl der stderr-Bytes. Rohes Gast-stderr wird nie
-über die öffentliche Fehlergrenze ausgegeben. Diese Felder beschreiben den
-erreichten Protokollfortschritt; sie klassifizieren weder den Gastfehler noch
-ersetzen sie eine erneute Native-Abnahme.
+den RESULT-Status, eine feste stderr-Klasse und die Anzahl der stderr-Bytes.
+Rohes Gast-stderr wird nie über die öffentliche Fehlergrenze ausgegeben. Diese
+Felder beschreiben den erreichten Protokollfortschritt und eine geschlossene
+Fehlerklasse; sie ersetzen weder die vollständige Gastdiagnose noch eine
+erneute Native-Abnahme.
 
 ## Getrennte Abnahme
 

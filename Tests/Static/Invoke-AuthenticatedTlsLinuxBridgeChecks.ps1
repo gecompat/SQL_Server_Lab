@@ -73,7 +73,7 @@ if($env:BRIDGE_FIXTURE_MODE-ceq'pending-result'){
     [Console]::Out.Write('RESULT partial');[Console]::Out.Flush();exit 0
 }
 Send RESULT @{ContractVersion='Toolbelt.LinuxLabPreflight/0.1';Status='PASS';ClientChecks=2;SqlBuild='17.0.5005.3';SqlClient='PASS';Odbc='PASS';Encrypt=$true;TrustServerCertificate=$false}
-if($env:BRIDGE_FIXTURE_MODE-ceq'nonzero-after-result'){[Console]::Error.Write('secret');exit 7}
+if($env:BRIDGE_FIXTURE_MODE-ceq'nonzero-after-result'){[Console]::Error.Write('TLS_LINUX_CA_PEM_PARSE_FAILED secret');exit 7}
 '@
         $i=[Diagnostics.ProcessStartInfo]::new($script:Pwsh);$i.UseShellExecute=$false;$i.CreateNoWindow=$true
         $i.RedirectStandardInput=$true;$i.RedirectStandardOutput=$true;$i.RedirectStandardError=$true
@@ -97,7 +97,7 @@ foreach($mode in @('normal','malformed','oversize','wrong-ref','stderr','no-resu
             stderr {'TLS_LINUX_CHILD_STDERR_NONEMPTY'}
             no-result {'TLS_LINUX_RESULT_MISSING'}
             pending-result {'TLS_LINUX_BRIDGE_PROTOCOL_BYTES_PENDING'}
-            nonzero-after-result {'TLS_LINUX_CHILD_EXIT_NONZERO|exitCode=7|hello=1|verifierRequests=2|resultSeen=1|stderrBytes=6'}
+            nonzero-after-result {'TLS_LINUX_CHILD_EXIT_NONZERO|exitCode=7|hello=1|verifierRequests=2|resultSeen=1|stderrClass=TLS_CA_PEM_PARSE_FAILED|stderrBytes='+[Text.Encoding]::UTF8.GetByteCount('TLS_LINUX_CA_PEM_PARSE_FAILED secret')}
         }
         if($expectedFailure-and$errorCode-cne$expectedFailure){throw ('FAILURE_CLASSIFICATION_MISMATCH '+$Mode+' '+$errorCode)}
         if($Mode-ceq'nonzero-after-result'-and$errorCode-match'secret'){throw 'CHILD_STDERR_LEAKED'}

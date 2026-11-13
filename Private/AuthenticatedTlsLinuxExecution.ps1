@@ -117,11 +117,11 @@ function Get-LabTlsSafePublicLinuxFailureCode {
     }}
     while($null-ne$exception){
         $message=[string]$exception.Message
-        if($message -cmatch '\ATLS_LINUX_CHILD_EXIT_NONZERO\|exitCode=(-?[0-9]{1,10})\|hello=([01])\|verifierRequests=([0-9]{1,2})\|resultSeen=([01])\|stderrBytes=([0-9]{1,10})\z'){
-            $exitCode=[long]$Matches[1];$stderrBytes=[long]$Matches[5]
+        if($message -cmatch '\ATLS_LINUX_CHILD_EXIT_NONZERO\|exitCode=(-?[0-9]{1,10})\|hello=([01])\|verifierRequests=([0-9]{1,2})\|resultSeen=([01])\|stderrClass=([A-Z0-9_]{1,64})\|stderrBytes=([0-9]{1,10})\z'){
+            $exitCode=[long]$Matches[1];$stderrClass=$Matches[5];$stderrBytes=[long]$Matches[6]
             $verifierRequests=[int]$Matches[3]
             if($exitCode-ge[int]::MinValue-and$exitCode-le[int]::MaxValue-and$verifierRequests-ge0-and$verifierRequests-le16-and
-                $stderrBytes-ge0-and$stderrBytes-le1048576){return $message}
+                $safeRuntimeClasses.Contains($stderrClass)-and$stderrBytes-ge0-and$stderrBytes-le1048576){return $message}
         }
         if($message -cin $safePublicTokens-or$message -cmatch '\ATLS_SQLCLIENT_(?:CONSTRUCT|OPEN|QUERY|CLEANUP)_(?:PLATFORM_UNSUPPORTED|ASSEMBLY_UNAVAILABLE|AUTHENTICATION|TIMEOUT|NETWORK|SQL|UNCLASSIFIED)\z'){
             return $message

@@ -92,8 +92,21 @@ function Invoke-LabTlsLinuxConsumerBridge {
                     $helloValue=if($hello){1}else{0}
                     $resultValue=if($null-ne$result){1}else{0}
                     $verifierRequests=[Math]::Min(16,[Math]::Max(0,[int]$session.Requests))
-                    throw ('TLS_LINUX_CHILD_EXIT_NONZERO|exitCode={0}|hello={1}|verifierRequests={2}|resultSeen={3}|stderrBytes={4}' -f
-                        [int]$process.ExitCode,$helloValue,$verifierRequests,$resultValue,[long]$outputs[1].Length)
+                    $stderrLength=[long]$outputs[1].Length;$stderrClass='STDERR_UNCLASSIFIED';$stderrText=$null
+                    try{
+                        if($stderrLength-gt0){
+                            $stderrText=[Text.Encoding]::UTF8.GetString($outputs[1].GetBuffer(),0,[int]$stderrLength)
+                            try{
+                                $safeSummary=Get-LabTlsRuntimeFailureSummary -ExitCode ([int]$process.ExitCode) -StandardError $stderrText -OutputLength 0 -OperationStage 'linux-client-observation'
+                                if($safeSummary -cmatch '\|stderrClass=([A-Z0-9_]{1,64})\|'){$stderrClass=$Matches[1]}
+                            }catch{$stderrClass='STDERR_UNCLASSIFIED'}
+                        }
+                    }finally{
+                        $stderrText=$null
+                        if($stderrLength-gt0){[Array]::Clear($outputs[1].GetBuffer(),0,[int]$stderrLength);$outputs[1].SetLength(0)}
+                    }
+                    throw ('TLS_LINUX_CHILD_EXIT_NONZERO|exitCode={0}|hello={1}|verifierRequests={2}|resultSeen={3}|stderrClass={4}|stderrBytes={5}' -f
+                        [int]$process.ExitCode,$helloValue,$verifierRequests,$resultValue,$stderrClass,$stderrLength)
                 }
                 if($pending.Length){throw 'TLS_LINUX_BRIDGE_PROTOCOL_BYTES_PENDING'}
                 if($null-eq$result){throw 'TLS_LINUX_RESULT_MISSING'}
