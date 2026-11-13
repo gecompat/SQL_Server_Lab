@@ -28,6 +28,11 @@ function Reject {
     try{$null=Read-Reply}catch{$rejected=$true}
     Assert $rejected 'Expected reply rejection'
 }
+function RejectAs([string]$ExpectedCode,[scriptblock]$Read){
+    $actual=$null
+    try{$null=& $Read}catch{$actual=$_.Exception.Message}
+    Assert ($actual-ceq$ExpectedCode) ('Expected safe reply class '+$ExpectedCode)
+}
 Check 'Exact live request bindings accepted without producing a new export or authority' {
     Fixture
     $r=Read-Reply
@@ -95,6 +100,27 @@ Check 'Malformed or oversized frame never becomes a reply' {
         Assert $rejected 'Expected invalid frame rejection'
     }
 }
+Check 'Verifier reply failures have closed, data-free diagnostic classes' {
+    Fixture
+    $codes=[ordered]@{
+        Frame='TLS_LINUX_VERIFIER_REPLY_FRAME_REJECTED'
+        Schema='TLS_LINUX_VERIFIER_REPLY_SCHEMA_REJECTED'
+        Binding='TLS_LINUX_VERIFIER_REPLY_BINDING_REJECTED'
+        Time='TLS_LINUX_VERIFIER_REPLY_TIME_REJECTED'
+        Window='TLS_LINUX_VERIFIER_REPLY_WINDOW_REJECTED'
+        Deadline='TLS_LINUX_VERIFIER_REPLY_DEADLINE_EXCEEDED'
+    }
+    foreach($code in $codes.Values){
+        $envelope=[Text.Encoding]::UTF8.GetBytes((@{Schema='SqlServerLab.TlsLinuxPeerFailure/0.1';Status='FAIL';Code=$code}|ConvertTo-Json -Compress))
+        Assert ((Get-LabTlsLinuxBridgeFailureCode $envelope)-ceq$code) 'Safe reply class is not bridge-allowlisted'
+    }
+    Fixture;$script:reply.Status='REJECTED';RejectAs $codes.Schema {Read-Reply}
+    Fixture;$script:reply.RequestId=[guid]::NewGuid().ToString('D');RejectAs $codes.Binding {Read-Reply}
+    Fixture;$script:reply.VerifiedAtUtc='invalid';RejectAs $codes.Time {Read-Reply}
+    Fixture;$script:reply.QualificationRemainingMilliseconds=34999;RejectAs $codes.Window {Read-Reply}
+    Fixture;RejectAs $codes.Deadline {Read-LabTlsLinuxVerificationReply ([Text.Encoding]::UTF8.GetBytes(($script:reply|ConvertTo-Json -Compress))) $script:request $script:deadline ([TimeSpan]::FromMilliseconds(5001))}
+    Fixture;RejectAs $codes.Frame {Read-LabTlsLinuxVerificationReply ([byte[]]::new(2049)) $script:request $script:deadline ([TimeSpan]::Zero)}
+}
 Check 'Public reader rejects absent bootstrap without invoking controller/native handlers' {
     $m=New-Module -ArgumentList $repo -ScriptBlock {
         param($Root)
@@ -118,8 +144,21 @@ Check 'Public reader rejects absent bootstrap without invoking controller/native
 Check 'Linux reader preserves only closed stage codes and keeps Windows errors generic' {
     $m=New-Module -ArgumentList $repo -ScriptBlock {
         param($Root)
+        . (Join-Path $Root 'Private/AuthenticatedTlsLab.ps1')
         . (Join-Path $Root 'Public/Read-SqlServerLabQualifiedTestEnvironment.ps1')
         $script:Check={
+            $codes=@(
+                'TLS_LINUX_VERIFIER_EXCHANGE_REJECTED','TLS_LINUX_VERIFIER_REPLY_REJECTED',
+                'TLS_LINUX_VERIFIER_REPLY_FRAME_REJECTED','TLS_LINUX_VERIFIER_REPLY_SCHEMA_REJECTED',
+                'TLS_LINUX_VERIFIER_REPLY_BINDING_REJECTED','TLS_LINUX_VERIFIER_REPLY_TIME_REJECTED',
+                'TLS_LINUX_VERIFIER_REPLY_WINDOW_REJECTED','TLS_LINUX_VERIFIER_REPLY_DEADLINE_EXCEEDED'
+            )
+            foreach($code in $codes){
+                if((Get-LabTlsLinuxBridgeFailureCodes)-cnotcontains$code){throw 'BRIDGE_FAILURE_CODE_NOT_ALLOWLISTED'}
+                $record=[Management.Automation.ErrorRecord]::new([InvalidOperationException]::new($code),'synthetic',[Management.Automation.ErrorCategory]::NotSpecified,$null)
+                if((Get-LabTlsSafeLinuxPeerReadFailureCode $record -Linux)-cne$code){throw 'PUBLIC_READER_DROPPED_SAFE_REPLY_CLASS'}
+                if((Get-LabTlsSafeLinuxPeerReadFailureCode $record)-cne'TLS_EXPORT_READ_REJECTED'){throw 'WINDOWS_REVEALED_LINUX_FAILURE_CLASS'}
+            }
             $known=[InvalidOperationException]::new('TLS_LINUX_EXPORT_DOCUMENT_INVALID')
             $wrapped=[InvalidOperationException]::new('wrapper path=C:\private password=synthetic-secret',$known)
             $knownCode=Get-LabTlsSafeLinuxPeerReadFailureCode ([Management.Automation.ErrorRecord]::new($wrapped,'synthetic',[Management.Automation.ErrorCategory]::NotSpecified,$null)) -Linux
