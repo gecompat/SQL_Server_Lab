@@ -66,6 +66,22 @@ foreach($spoof in @($arraySchema,$arrayStatus,$lfCode)){
     $summary=Get-LabTlsRuntimeFailureSummary -ExitCode 1 -StandardError '' -OutputLength $spoof.Length -StandardOutput $spoof -OperationStage 'linux-client-observation'
     Add-CheckResult 'Linux probe failure code parser rejects array spoofing and trailing LF' ($summary -match '\|stderrClass=STDERR_EMPTY\|' -and $summary -notmatch 'TLS_LINUX_CLR_CLIENT_CERTIFICATE_OPEN')
 }
+$bridgeFailureBytes=[Text.Encoding]::UTF8.GetBytes((@{Schema='SqlServerLab.TlsLinuxPeerFailure/0.1';Status='FAIL';Code='TLS_CERTIFICATE'}|ConvertTo-Json -Compress))
+$bridgeFailureCode=Get-LabTlsLinuxBridgeFailureCode $bridgeFailureBytes
+$bridgeFailureForged=[Text.Encoding]::UTF8.GetBytes('{"Schema":"SqlServerLab.TlsLinuxPeerFailure/0.1","Status":"FAIL","Code":"TLS_CERTIFICATE","PrivateDetail":"synthetic-secret"}')
+$bridgeFailureDuplicate=[Text.Encoding]::UTF8.GetBytes('{"Schema":"SqlServerLab.TlsLinuxPeerFailure/0.1","Status":"FAIL","Code":"TLS_CERTIFICATE","Code":"TLS_CERTIFICATE"}')
+$bridgeFailureArray=[Text.Encoding]::UTF8.GetBytes('{"Schema":"SqlServerLab.TlsLinuxPeerFailure/0.1","Status":"FAIL","Code":["TLS_CERTIFICATE"]}')
+$bridgeFailureUnknown=[Text.Encoding]::UTF8.GetBytes('{"Schema":"SqlServerLab.TlsLinuxPeerFailure/0.1","Status":"FAIL","Code":"SYNTHETIC_PRIVATE_SECRET"}')
+Add-CheckResult 'Linux bridge failure envelope admits only one bounded safe code' ($bridgeFailureCode-ceq'TLS_CERTIFICATE' -and
+    -not(Get-LabTlsLinuxBridgeFailureCode $bridgeFailureForged) -and -not(Get-LabTlsLinuxBridgeFailureCode $bridgeFailureDuplicate) -and
+    -not(Get-LabTlsLinuxBridgeFailureCode $bridgeFailureArray) -and -not(Get-LabTlsLinuxBridgeFailureCode $bridgeFailureUnknown))
+try{throw [InvalidOperationException]::new('The certificate chain was issued by an authority that is not trusted; synthetic-private-detail')}catch{
+    $bridgeExceptionClass=Get-LabTlsLinuxBridgeFailureCodeFromError $_
+}
+try{throw [InvalidOperationException]::new('LAB_LINUX_SQLCLIENT_RESULT')}catch{
+    $bridgeKnownFailure=Get-LabTlsLinuxBridgeFailureCodeFromError $_
+}
+Add-CheckResult 'Linux bridge producer maps error records to safe fixed classes only' ($bridgeExceptionClass-ceq'TLS_CERTIFICATE' -and $bridgeKnownFailure-ceq'LAB_LINUX_SQLCLIENT_RESULT')
 foreach($variant in @('tls_sqlclient_open_sql','Tls_SqlClient_Open_Sql')){
     $classified=Get-LabTlsRuntimeFailureSummary -ExitCode 1 -StandardError ($variant+' synthetic-private-user password=synthetic-secret') -OutputLength 0 -OperationStage 'linux-client-qualification'
     $class=([regex]::Match($classified,'\|stderrClass=([^|]+)\|')).Groups[1].Value

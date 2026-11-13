@@ -115,6 +115,8 @@ function Get-LabTlsSafePublicLinuxFailureCode {
     foreach($stage in @('CONSTRUCT','OPEN','QUERY','CLEANUP')){foreach($category in @('PLATFORM_UNSUPPORTED','ASSEMBLY_UNAVAILABLE','AUTHENTICATION','TIMEOUT','NETWORK','SQL','UNCLASSIFIED')){
         $null=$safeRuntimeClasses.Add('TLS_SQLCLIENT_'+$stage+'_'+$category)
     }}
+    foreach($code in Get-LabTlsLinuxProbeFailureCodes){$null=$safeRuntimeClasses.Add($code)}
+    foreach($code in Get-LabTlsLinuxBridgeFailureCodes){$null=$safeRuntimeClasses.Add($code)}
     while($null-ne$exception){
         $message=[string]$exception.Message
         if($message -cmatch '\ATLS_LINUX_CHILD_EXIT_NONZERO\|exitCode=(-?[0-9]{1,10})\|hello=([01])\|verifierRequests=([0-9]{1,2})\|resultSeen=([01])\|stderrClass=([A-Z0-9_]{1,64})\|stderrBytes=([0-9]{1,10})\z'){

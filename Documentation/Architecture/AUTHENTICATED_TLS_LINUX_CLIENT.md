@@ -128,10 +128,15 @@ seinen numerischen Exitcode, den HELLO-Status, die Zahl der Controllerprüfungen
 den RESULT-Status, eine feste stderr-Klasse und die Anzahl der stderr-Bytes.
 Rohes Gast-stderr wird nie über die öffentliche Fehlergrenze ausgegeben. Diese
 Felder beschreiben den erreichten Protokollfortschritt und eine geschlossene
-Fehlerklasse. Ein versioniertes Fehler-JSON des Linux-Probes darf nur seinen
-fest erlaubten Fehlercode in diese Klasse übernehmen; `Facts` und übrige
-Ausgabefelder bleiben verworfen. Die Klasse ersetzt weder die vollständige
-Gastdiagnose noch eine erneute Native-Abnahme.
+Fehlerklasse. Der gebootstrapte Consumer sendet bei einem Fehler des Toolbelt-
+Preflights ein privates, Base64-codiertes `FAILURE`-Frame mit genau Schema,
+Status und Fehlercode. Der Controller nimmt es nur nach `HELLO` und mindestens
+einer gebundenen Verifieranfrage an, validiert Feldformen und eine feste
+Allowlist und verlangt einen Fehler-Exit. Roher Fehlertext und zusätzliche
+Felder werden verworfen. Das separate versionierte Fehler-JSON des Linux-Probes
+darf ebenfalls nur seinen fest erlaubten Fehlercode in die Fehlerklasse
+übernehmen; `Facts` und übrige Ausgabefelder bleiben verworfen. Die Klasse
+ersetzt weder die vollständige Gastdiagnose noch eine erneute Native-Abnahme.
 
 ## Getrennte Abnahme
 

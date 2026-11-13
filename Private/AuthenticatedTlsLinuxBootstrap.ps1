@@ -28,15 +28,22 @@ $context=[pscustomobject]@{ModuleFile=$moduleFile;StateRoot=$boot.StateRoot;RunI
 $hello=@{ContractVersion='SqlServerLab.LinuxPeerHello/0.1';SessionRef=$boot.SessionRef;ProcessId=$PID}
 [Console]::Out.WriteLine('HELLO '+[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes(($hello|ConvertTo-Json -Compress))))
 [Console]::Out.Flush()
+$failureCode=$null
 try{
     $result=& (Join-Path $PSScriptRoot 'toolbelt/Tests/CI/Invoke-LabLinuxPreflight.ps1') -ExportBytes $bytes -TlsContext $context
     if($channel.Requests-ne2-or$channel.State-cne'OPEN'){throw 'PROTOCOL'}
     [Console]::Out.WriteLine('RESULT '+[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes(($result|ConvertTo-Json -Compress))))
     [Console]::Out.Flush()
+}catch{
+    $failureFrame=& $module {param($ErrorRecord)New-LabTlsLinuxBridgeFailureFrame $ErrorRecord} $_
+    $failureCode=$failureFrame.Code
+    [Console]::Out.WriteLine($failureFrame.Frame)
+    [Console]::Out.Flush()
 }finally{
     $channel.State='CLOSED';[Array]::Clear($bytes,0,$bytes.Length)
     & $module {$script:SqlServerLabTlsLinuxPeerChannels.Clear()}
 }
+if($failureCode){exit 1}
 '@
 }
 

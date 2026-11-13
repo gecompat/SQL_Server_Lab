@@ -60,6 +60,27 @@ function Read-LabTlsBoundJson {
     }finally{$document.Dispose()}
 }
 
+function Get-LabTlsLinuxProbeFailureCodes {
+    $codes=[Collections.Generic.List[string]]::new()
+    $codes.AddRange([string[]]@(
+        'TLS_LINUX_CLR_PROBE_FAILED','TLS_LINUX_CLR_CHILD_FAILED','TLS_LINUX_CLR_RESULT_INVALID',
+        'TLS_LINUX_ODBC_POSITIVE_FAILED','TLS_LINUX_ODBC_CERTIFICATE_REJECTION_MISSING','TLS_LINUX_DRIVER_CHANGED',
+        'TLS_LINUX_SQLCMD_CHANGED','TLS_LINUX_PROBE_INPUT_INVALID','TLS_LINUX_TRUST_BYTES_CHANGED','TLS_LINUX_TRUST_PATH_INVALID',
+        'TLS_LINUX_PARENT_CONTEXT_INVALID','TLS_LINUX_NON_LOOPBACK_RESOLUTION','TLS_LINUX_CHILD_BOUND_EXCEEDED',
+        'TLS_LINUX_CHILD_OUTPUT_TOO_LARGE','TLS_LINUX_ODBC_AMBIGUOUS','TLS_LINUX_PROBE_UNCLASSIFIED'
+    ))
+    foreach($category in @('CERTIFICATE','LOGIN','LOGIN_TIMEOUT','QUERY_TIMEOUT','TIMEOUT','NETWORK','UNCLASSIFIED')){
+        $codes.Add('TLS_LINUX_ODBC_POSITIVE_EXIT_'+$category)
+    }
+    foreach($category in @('STDERR','SQL_RESULT','DRIVER_NOT_OBSERVED','DRIVER_MAPS_UNREADABLE','DRIVER_PATTERN_MISSING')){
+        $codes.Add('TLS_LINUX_ODBC_POSITIVE_'+$category)
+    }
+    foreach($category in @('PLATFORM_UNSUPPORTED','ASSEMBLY_UNAVAILABLE','CERTIFICATE','LOGIN','TIMEOUT','NETWORK','SQL_RESULT','UNCLASSIFIED')){
+        foreach($stage in @('CONSTRUCT','OPEN','QUERY')){$codes.Add('TLS_LINUX_CLR_CLIENT_'+$category+'_'+$stage)}
+    }
+    return $codes.ToArray()
+}
+
 function Get-LabTlsLinuxProbeFailureCode {
     param([AllowEmptyString()][string]$StandardOutput)
     if(-not $StandardOutput -or [Text.Encoding]::UTF8.GetByteCount($StandardOutput) -gt 65536){return $null}
@@ -67,25 +88,60 @@ function Get-LabTlsLinuxProbeFailureCode {
     if($record -isnot [System.Collections.IDictionary] -or
         $record.Schema -isnot [string] -or $record.Schema -cnotin @('SqlServerLab.TlsLinuxProbeFailure/1.0','SqlServerLab.TlsLinuxProbeFailure/2.1') -or
         $record.Status -isnot [string] -or $record.Status -cne 'FAIL' -or $record.Code -isnot [string]){return $null}
-    $allowed=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
-    foreach($code in @(
-        'TLS_LINUX_CLR_PROBE_FAILED','TLS_LINUX_CLR_CHILD_FAILED','TLS_LINUX_CLR_RESULT_INVALID',
-        'TLS_LINUX_ODBC_POSITIVE_FAILED','TLS_LINUX_ODBC_CERTIFICATE_REJECTION_MISSING','TLS_LINUX_DRIVER_CHANGED',
-        'TLS_LINUX_SQLCMD_CHANGED','TLS_LINUX_PROBE_INPUT_INVALID','TLS_LINUX_TRUST_BYTES_CHANGED','TLS_LINUX_TRUST_PATH_INVALID',
-        'TLS_LINUX_PARENT_CONTEXT_INVALID','TLS_LINUX_NON_LOOPBACK_RESOLUTION','TLS_LINUX_CHILD_BOUND_EXCEEDED',
-        'TLS_LINUX_CHILD_OUTPUT_TOO_LARGE','TLS_LINUX_ODBC_AMBIGUOUS','TLS_LINUX_PROBE_UNCLASSIFIED'
-    )){$null=$allowed.Add($code)}
-    foreach($category in @('CERTIFICATE','LOGIN','LOGIN_TIMEOUT','QUERY_TIMEOUT','TIMEOUT','NETWORK','UNCLASSIFIED')){
-        $null=$allowed.Add(('TLS_LINUX_ODBC_POSITIVE_EXIT_'+$category))
-    }
-    foreach($category in @('STDERR','SQL_RESULT','DRIVER_NOT_OBSERVED','DRIVER_MAPS_UNREADABLE','DRIVER_PATTERN_MISSING')){
-        $null=$allowed.Add(('TLS_LINUX_ODBC_POSITIVE_'+$category))
-    }
-    foreach($category in @('PLATFORM_UNSUPPORTED','ASSEMBLY_UNAVAILABLE','CERTIFICATE','LOGIN','TIMEOUT','NETWORK','SQL_RESULT','UNCLASSIFIED')){
-        foreach($stage in @('CONSTRUCT','OPEN','QUERY')){$null=$allowed.Add(('TLS_LINUX_CLR_CLIENT_'+$category+'_'+$stage))}
-    }
-    if($allowed.Contains($record.Code)){return $record.Code}
+    $allowed=Get-LabTlsLinuxProbeFailureCodes
+    if($allowed -ccontains $record.Code){return $record.Code}
     return $null
+}
+
+function Get-LabTlsLinuxBridgeFailureCodes {
+    return [string[]]@(
+        'STDERR_UNCLASSIFIED','TLS_CERTIFICATE','PERMISSION_DENIED','NETWORK_NOT_FOUND','RUNTIME_TIMEOUT','DAEMON_REJECTED_REQUEST',
+        'CONTAINER_NOT_FOUND','CONTAINER_NOT_RUNNING','PORT_CONFLICT','DAEMON_UNREACHABLE','REGISTRY_AUTHORIZATION','IMAGE_NOT_FOUND',
+        'TLS_SQLCLIENT_RESULT_INVALID','TLS_SQLCMD_TIMEOUT','TLS_ODBC_AMBIGUOUS','TLS_SQLCMD_RESULT_INVALID',
+        'TLS_CA_PEM_STAT_FAILED','TLS_CA_PEM_ACCESS_DENIED','TLS_CA_PEM_READ_FAILED','TLS_CA_PEM_PARSE_FAILED',
+        'LAB_LINUX_PEER_REQUIRED','LAB_LINUX_ENDPOINT_INVALID','LAB_LINUX_SQLCLIENT_CHANGED','LAB_LINUX_CONNECTION_INVALID',
+        'LAB_LINUX_SQLCLIENT_RESULT','LAB_LINUX_SQLCMD_CHANGED','LAB_LINUX_SQLCMD_TIMEOUT','LAB_LINUX_ODBC_AMBIGUOUS',
+        'LAB_LINUX_ODBC_RESULT','LAB_LINUX_CHILD_TERMINATION_UNCONFIRMED',
+        'LAB_QUALIFIED_CONTEXT_REQUIRED','LAB_QUALIFIED_CONTEXT_UNSUPPORTED','LAB_QUALIFIED_BYTES_INVALID',
+        'LAB_MODULE_REQUIRED','LAB_MODULE_READER_REQUIRED','LAB_SNAPSHOT_INVALID','LAB_QUALIFIED_EXPORT_REJECTED',
+        'LAB_QUALIFIED_CONNECT_WINDOW_EXPIRED'
+    )
+}
+
+function Get-LabTlsLinuxBridgeFailureCode {
+    param([AllowNull()][byte[]]$EnvelopeBytes)
+    if($null -eq $EnvelopeBytes -or $EnvelopeBytes.Length -lt 1 -or $EnvelopeBytes.Length -gt 4096){return $null}
+    try{$record=Read-LabTlsBoundJson $EnvelopeBytes @('Schema','Status','Code')}catch{return $null}
+    if($record.Schema -isnot [string] -or $record.Schema -cne 'SqlServerLab.TlsLinuxPeerFailure/0.1' -or
+        $record.Status -isnot [string] -or $record.Status -cne 'FAIL' -or $record.Code -isnot [string]){return $null}
+    if((Get-LabTlsLinuxBridgeFailureCodes) -ccontains $record.Code){return $record.Code}
+    return $null
+}
+
+function Get-LabTlsLinuxBridgeFailureCodeFromError {
+    param([System.Management.Automation.ErrorRecord]$ErrorRecord)
+    $known=Get-LabTlsLinuxBridgeFailureCodes
+    $exception=$ErrorRecord.Exception
+    while($null-ne$exception){
+        $message=[string]$exception.Message
+        if($message.Length-le65536){
+            if($known -ccontains $message){return $message}
+            try{
+                $summary=Get-LabTlsRuntimeFailureSummary -ExitCode 1 -StandardError $message -OutputLength 0 -OperationStage 'linux-client-observation'
+                if($summary -match '\|stderrClass=([A-Z0-9_]{1,64})\|' -and $known -ccontains $Matches[1]){return $Matches[1]}
+            }catch{}
+        }
+        $exception=$exception.InnerException
+    }
+    return 'STDERR_UNCLASSIFIED'
+}
+
+function New-LabTlsLinuxBridgeFailureFrame {
+    param([System.Management.Automation.ErrorRecord]$ErrorRecord)
+    $code=Get-LabTlsLinuxBridgeFailureCodeFromError $ErrorRecord
+    $failure=@{Schema='SqlServerLab.TlsLinuxPeerFailure/0.1';Status='FAIL';Code=$code}
+    $json=[Text.Encoding]::UTF8.GetBytes(($failure|ConvertTo-Json -Compress))
+    return [pscustomobject]@{Code=$code;Frame=('FAILURE '+[Convert]::ToBase64String($json))}
 }
 
 function Get-LabTlsRuntimeFailureSummary {

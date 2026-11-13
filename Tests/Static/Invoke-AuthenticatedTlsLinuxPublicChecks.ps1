@@ -176,6 +176,16 @@ try{
             $code=& $module {param($Name)& $Name} $program
             $errors=$null;$null=[Management.Automation.Language.Parser]::ParseInput($code,[ref]$null,[ref]$errors)
             Assert (@($errors).Count-eq0) 'Guest parse errors'
+            if($program-ceq'Get-LabTlsLinuxPeerEntryProgram'){
+                Assert ($code.Contains('$failureFrame=& $module {param($ErrorRecord)New-LabTlsLinuxBridgeFailureFrame $ErrorRecord} $_')) 'Peer entry must create its failure frame in the loaded module scope'
+                $frame=& $module {
+                    try{throw [InvalidOperationException]::new('certificate authority is not trusted; synthetic-private-detail')}catch{New-LabTlsLinuxBridgeFailureFrame $_}
+                }
+                Assert ($frame.Code-ceq'TLS_CERTIFICATE'-and$frame.Frame.StartsWith('FAILURE ',[StringComparison]::Ordinal)-and$frame.Frame -notmatch 'synthetic-private-detail') 'Peer entry failure frame must contain only its safe class'
+                $bytes=[Convert]::FromBase64String($frame.Frame.Substring(8))
+                $parsed=& $module {param($EnvelopeBytes)Get-LabTlsLinuxBridgeFailureCode $EnvelopeBytes} $bytes
+                Assert ($parsed-ceq'TLS_CERTIFICATE') 'Peer entry failure frame must satisfy the strict controller parser'
+            }
         }
     }
     Check 'Public Linux boundary preserves only fixed safe codes and canonical runtime summaries' {

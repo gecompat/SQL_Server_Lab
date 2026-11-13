@@ -66,6 +66,23 @@ foreach($stack in @('SYSTEM_DATA_SQLCLIENT','ODBC_SQLCMD')){
     if(-not$line.StartsWith('REPLY ')){exit 7}
     $reply=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($line.Substring(6)))|ConvertFrom-Json
     if($reply.Status-cne'VERIFIED'){exit 7}
+    if($env:BRIDGE_FIXTURE_MODE-ceq'failure-frame' -and $stack-ceq'SYSTEM_DATA_SQLCLIENT'){
+        Send FAILURE @{Schema='SqlServerLab.TlsLinuxPeerFailure/0.1';Status='FAIL';Code='TLS_CERTIFICATE'}
+        [Console]::Error.Write('synthetic-private-bridge-detail');exit 17
+    }
+    if($env:BRIDGE_FIXTURE_MODE-ceq'failure-frame-invalid' -and $stack-ceq'SYSTEM_DATA_SQLCLIENT'){
+        Send FAILURE @{Schema='SqlServerLab.TlsLinuxPeerFailure/0.1';Status='FAIL';Code='synthetic-private-password'}
+        exit 17
+    }
+    if($env:BRIDGE_FIXTURE_MODE-ceq'failure-frame-zero-exit' -and $stack-ceq'SYSTEM_DATA_SQLCLIENT'){
+        Send FAILURE @{Schema='SqlServerLab.TlsLinuxPeerFailure/0.1';Status='FAIL';Code='TLS_CERTIFICATE'}
+        exit 0
+    }
+    if($env:BRIDGE_FIXTURE_MODE-ceq'failure-frame-followed-by-result' -and $stack-ceq'SYSTEM_DATA_SQLCLIENT'){
+        Send FAILURE @{Schema='SqlServerLab.TlsLinuxPeerFailure/0.1';Status='FAIL';Code='TLS_CERTIFICATE'}
+        Send RESULT @{ContractVersion='Toolbelt.LinuxLabPreflight/0.1';Status='PASS';ClientChecks=2;SqlBuild='17.0.5005.3';SqlClient='PASS';Odbc='PASS';Encrypt=$true;TrustServerCertificate=$false}
+        exit 17
+    }
 }
 if($env:BRIDGE_FIXTURE_MODE-ceq'stderr'){[Console]::Error.Write('SYNTHETIC_PRIVATE_STDERR')}
 if($env:BRIDGE_FIXTURE_MODE-ceq'no-result'){exit 0}
@@ -84,7 +101,7 @@ if($env:BRIDGE_FIXTURE_MODE-ceq'nonzero-after-result'){[Console]::Error.Write('T
     Export-ModuleMember -Function Read-SqlServerLabQualifiedTestEnvironment
 }
 $count=0
-foreach($mode in @('normal','malformed','oversize','wrong-ref','stderr','no-result','pending-result','nonzero-after-result','pid-string','pid-bool','pid-float','pid-zero','pid-overflow','pid-array')){
+foreach($mode in @('normal','malformed','oversize','wrong-ref','stderr','no-result','pending-result','nonzero-after-result','failure-frame','failure-frame-invalid','failure-frame-zero-exit','failure-frame-followed-by-result','pid-string','pid-bool','pid-float','pid-zero','pid-overflow','pid-array')){
     & $module {
         param($Mode)
         $script:Mode=$Mode;$script:Expiry=[DateTimeOffset]::UtcNow.AddMinutes(14);$script:Removed=0;$script:Idles=0;$script:LeaseExits=0
@@ -98,9 +115,14 @@ foreach($mode in @('normal','malformed','oversize','wrong-ref','stderr','no-resu
             no-result {'TLS_LINUX_RESULT_MISSING'}
             pending-result {'TLS_LINUX_BRIDGE_PROTOCOL_BYTES_PENDING'}
             nonzero-after-result {'TLS_LINUX_CHILD_EXIT_NONZERO|exitCode=7|hello=1|verifierRequests=2|resultSeen=1|stderrClass=TLS_CA_PEM_PARSE_FAILED|stderrBytes='+[Text.Encoding]::UTF8.GetByteCount('TLS_LINUX_CA_PEM_PARSE_FAILED secret')}
+            failure-frame {'TLS_LINUX_CHILD_EXIT_NONZERO|exitCode=17|hello=1|verifierRequests=1|resultSeen=0|stderrClass=TLS_CERTIFICATE|stderrBytes='+[Text.Encoding]::UTF8.GetByteCount('synthetic-private-bridge-detail')}
+            failure-frame-invalid {'TLS_LINUX_BRIDGE_PROTOCOL'}
+            failure-frame-zero-exit {'TLS_LINUX_FAILURE_ENVELOPE_ZERO_EXIT'}
+            failure-frame-followed-by-result {'TLS_LINUX_BRIDGE_PROTOCOL'}
         }
         if($expectedFailure-and$errorCode-cne$expectedFailure){throw ('FAILURE_CLASSIFICATION_MISMATCH '+$Mode+' '+$errorCode)}
         if($Mode-ceq'nonzero-after-result'-and$errorCode-match'secret'){throw 'CHILD_STDERR_LEAKED'}
+        if($Mode-ceq'failure-frame'-and$errorCode-match'synthetic-private-bridge-detail|TLS_CERTIFICATE.*secret'){throw 'STRUCTURED_FAILURE_LEAKED_PRIVATE_DETAIL'}
         if($script:LeaseExits-ne1-or(Test-Path -LiteralPath (Join-Path $root 'linux-client-execution.json'))){throw 'LEASE_OR_MARKER_REMAINS'}
     } $mode
     $count++
