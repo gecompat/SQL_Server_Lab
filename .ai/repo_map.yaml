@@ -739,6 +739,7 @@ sources_of_truth:
   storage_residency_inventory_schema: Schemas/lab-storage-residency-inventory.schema.json
   cleanup_audit_findings: Private/CleanupAuditFindings.ps1
   persistent_storage_catalog: Private/PersistentStorageCatalog.ps1
+  persistent_lab_name_reuse_acceptance: Tests/Integration/Invoke-PersistentLabNameReuseAcceptance.ps1 # fresh SQL store per new Docker/Podman lab; retained predecessor, distinct passwords and own cleanup
   persistent_storage_artifact_sync: Public/Sync-SqlServerLabPersistentStorageArtifact.ps1
   persistent_storage_catalog_schema: Schemas/persistent-storage-catalog.schema.json
   persistent_storage_plan_schema: Schemas/persistent-storage-plan.schema.json
