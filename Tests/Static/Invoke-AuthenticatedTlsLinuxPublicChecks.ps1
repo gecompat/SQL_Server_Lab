@@ -229,7 +229,8 @@ try{
             $qualificationSafe=Get-LabTlsSafePublicLinuxFailureCode ([Management.Automation.ErrorRecord]::new($qualification,'synthetic',[Management.Automation.ErrorCategory]::NotSpecified,$null))
             $fixedLinuxCodes=@(
                 'TLS_LINUX_CLIENT_BINDING_INVALID','TLS_LINUX_CONTEXT_RECORD_INVALID',
-                'TLS_LINUX_EXPORT_BINDING_INVALID','TLS_LINUX_PEER_REJECTED',
+                'TLS_LINUX_EXPORT_BINDING_INVALID','TLS_LINUX_EXPORT_DOCUMENT_INVALID','TLS_LINUX_EXPORT_PAYLOAD_INVALID',
+                'TLS_LINUX_VERIFIER_REPLY_REJECTED','TLS_LINUX_PEER_REJECTED',
                 'TLS_LINUX_PINNED_PACKAGE_INVALID','TLS_LINUX_PINNED_PACKAGE_REQUIRED',
                 'TLS_LINUX_PROCESS_RECOVERY_REQUIRED','TLS_LINUX_QUALIFICATION_BINDING_CHANGED',
                 'TLS_LINUX_TERMINATION_UNCONFIRMED','TLS_LINUX_TRANSFER_COMMAND_FAILED',

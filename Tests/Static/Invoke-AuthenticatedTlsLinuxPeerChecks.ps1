@@ -115,5 +115,23 @@ Check 'Public reader rejects absent bootstrap without invoking controller/native
     }
     try{& $m {& $script:Check}}finally{Remove-Module $m -Force}
 }
+Check 'Linux reader preserves only closed stage codes and keeps Windows errors generic' {
+    $m=New-Module -ArgumentList $repo -ScriptBlock {
+        param($Root)
+        . (Join-Path $Root 'Public/Read-SqlServerLabQualifiedTestEnvironment.ps1')
+        $script:Check={
+            $known=[InvalidOperationException]::new('TLS_LINUX_EXPORT_DOCUMENT_INVALID')
+            $wrapped=[InvalidOperationException]::new('wrapper path=C:\private password=synthetic-secret',$known)
+            $knownCode=Get-LabTlsSafeLinuxPeerReadFailureCode ([Management.Automation.ErrorRecord]::new($wrapped,'synthetic',[Management.Automation.ErrorCategory]::NotSpecified,$null)) -Linux
+            $spoof=[InvalidOperationException]::new('TLS_LINUX_EXPORT_DOCUMENT_INVALID password=synthetic-secret')
+            $spoofCode=Get-LabTlsSafeLinuxPeerReadFailureCode ([Management.Automation.ErrorRecord]::new($spoof,'synthetic',[Management.Automation.ErrorCategory]::NotSpecified,$null)) -Linux
+            $windowsCode=Get-LabTlsSafeLinuxPeerReadFailureCode ([Management.Automation.ErrorRecord]::new($known,'synthetic',[Management.Automation.ErrorCategory]::NotSpecified,$null))
+            if($knownCode-cne'TLS_LINUX_EXPORT_DOCUMENT_INVALID' -or $spoofCode-cne'TLS_EXPORT_READ_REJECTED' -or $windowsCode-cne'TLS_EXPORT_READ_REJECTED'){
+                throw 'PUBLIC_READER_FAILURE_CLASSIFICATION_FAILED'
+            }
+        }
+    }
+    try{& $m {& $script:Check}}finally{Remove-Module $m -Force}
+}
 [pscustomobject]@{Suite='AuthenticatedTlsLinuxPeer';Passed=$passed;Failed=$failures.Count;ProviderActions=0;SqlLogins=0}|ConvertTo-Json -Compress
 if($failures.Count){throw 'TLS_LINUX_PEER_CHECKS_FAILED'}

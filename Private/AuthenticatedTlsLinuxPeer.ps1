@@ -30,7 +30,7 @@ function Read-LabTlsLinuxVerificationReply {
 
 function Read-LabTlsLinuxPeerSnapshot {
     param([byte[]]$ExportBytes,[string]$SessionRef,[string]$ClientStack,[string]$StateRoot,[string]$RunId,[string]$InstanceId)
-    $channel=$null;$copy=$null
+    $channel=$null;$copy=$null;$failureCode='TLS_LINUX_PEER_REJECTED'
     try{
         if(-not $IsLinux -or $SessionRef -cnotmatch '\A[0-9a-f]{64}\z' -or
             $ClientStack -cnotin @('SYSTEM_DATA_SQLCLIENT','ODBC_SQLCMD')){throw 'REJECT'}
@@ -53,14 +53,18 @@ function Read-LabTlsLinuxPeerSnapshot {
         $channel.Requests++;$channel.InFlight=$true
         $requestBytes=[Text.UTF8Encoding]::new($false).GetBytes(($request|ConvertTo-Json -Compress))
         $roundTrip=[Diagnostics.Stopwatch]::StartNew()
+        $failureCode='TLS_LINUX_VERIFIER_REPLY_REJECTED'
         $replyBytes=& $channel.Exchange $requestBytes
         $reply=Read-LabTlsLinuxVerificationReply $replyBytes $request $channel.ExpiresAt $roundTrip.Elapsed
         if($channel.State -cne 'OPEN' -or $channel.Lifetime.Elapsed -ge $channel.MaximumElapsed){throw 'REJECT'}
         # The controller has just checked the signature/schema and current
         # registered bindings of these exact bytes. This is not a file reread.
+        $failureCode='TLS_LINUX_EXPORT_DOCUMENT_INVALID'
         $doc=Read-LabTlsBoundJson $copy @('$schema','contractVersion','generatedAt','groupStatus','selectionRule','containsPlainTextSecrets','environments','qualification')
+        $failureCode='TLS_LINUX_EXPORT_PAYLOAD_INVALID'
         $bodyBytes=[Convert]::FromBase64String($doc.qualification.payload)
         $body=Read-LabTlsBoundJson $bodyBytes @('ContractVersion','EnvironmentSha256','Qualification')
+        $failureCode='TLS_LINUX_EXPORT_BINDING_INVALID'
         $q=$body.Qualification
         foreach($name in @('ClientRef','ClientContextDigest','ClientPlatform','ExpiresAt')){
             if($q.$name -isnot [string]){throw 'REJECT'}
@@ -84,7 +88,7 @@ function Read-LabTlsLinuxPeerSnapshot {
             $channel.State='BLOCKED'
             if($channel.ExportBytes -is [byte[]]){[Array]::Clear($channel.ExportBytes,0,$channel.ExportBytes.Length)}
         }
-        throw 'TLS_LINUX_PEER_REJECTED'
+        throw $failureCode
     }finally{
         if($null -ne $copy){[Array]::Clear($copy,0,$copy.Length)}
         if($null -ne $channel){$channel.InFlight=$false}

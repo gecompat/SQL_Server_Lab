@@ -138,6 +138,13 @@ darf ebenfalls nur seinen fest erlaubten Fehlercode in die Fehlerklasse
 übernehmen; `Facts` und übrige Ausgabefelder bleiben verworfen. Die Klasse
 ersetzt weder die vollständige Gastdiagnose noch eine erneute Native-Abnahme.
 
+Der Linux-Bytesreader erhält intern zusätzlich feste Fehlerklassen für
+Verifierantwort, Exportdokument, Payload und Bindung. Diese Klassen enthalten
+weder Exception-Text noch Pfade oder Exportdaten und passieren die Consumer-
+Grenze nur über eine geschlossene Allowlist. Sie zeigen den fehlgeschlagenen
+Prüfschritt, nicht die vollständige Ursache; unbekannte Fehler bleiben beim
+generischen Ablehnungscode. Der Windows-Reader bleibt unverändert.
+
 ## Getrennte Abnahme
 
 Der private Sitzungsprotokollkern allein registriert keinen Kontext, startet

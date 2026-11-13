@@ -1,4 +1,21 @@
 #Requires -Version 7.2
+function Get-LabTlsSafeLinuxPeerReadFailureCode {
+    param([System.Management.Automation.ErrorRecord]$ErrorRecord,[switch]$Linux)
+    if(-not$Linux){return 'TLS_EXPORT_READ_REJECTED'}
+    $safeLinuxReaderCodes=@(
+        'TLS_LINUX_VERIFIER_REPLY_REJECTED','TLS_LINUX_EXPORT_DOCUMENT_INVALID',
+        'TLS_LINUX_EXPORT_PAYLOAD_INVALID','TLS_LINUX_EXPORT_BINDING_INVALID',
+        'TLS_LINUX_PEER_REJECTED'
+    )
+    $exception=$ErrorRecord.Exception
+    while($null-ne$exception){
+        $message=[string]$exception.Message
+        if($safeLinuxReaderCodes-ccontains$message){return $message}
+        $exception=$exception.InnerException
+    }
+    return 'TLS_EXPORT_READ_REJECTED'
+}
+
 function Read-SqlServerLabQualifiedTestEnvironment {
     <#
     .SYNOPSIS
@@ -74,5 +91,5 @@ function Read-SqlServerLabQualifiedTestEnvironment {
         $platform=$snapshot.Qualification.PSObject.Properties['ClientPlatform']
         if($platform-and$platform.Value-ceq'linux'-and-not$linuxController){throw 'TLS_EXPORT_READ_REJECTED'}
         return $snapshot
-    } catch {throw 'TLS_EXPORT_READ_REJECTED'}
+    } catch {throw (Get-LabTlsSafeLinuxPeerReadFailureCode -ErrorRecord $_ -Linux:$IsLinux)}
 }
