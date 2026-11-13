@@ -37,6 +37,35 @@ foreach($stage in @('CONSTRUCT','OPEN','QUERY','CLEANUP')){foreach($category in 
     $class=([regex]::Match($classified,'\|stderrClass=([^|]+)\|')).Groups[1].Value
     Add-CheckResult 'Runtime SqlClient exception categories stay bounded and omit diagnostics' ($class-ceq$token-and$classified -notmatch 'synthetic-private-user|synthetic-secret')
 }}
+$probeFailure=@{Schema='SqlServerLab.TlsLinuxProbeFailure/2.1';Status='FAIL';Code='TLS_LINUX_CLR_CLIENT_CERTIFICATE_OPEN';Facts=@{DiagnosticKinds=@('CERTIFICATE');PrivateDetail='synthetic-private-detail';Password='synthetic-secret'}}|ConvertTo-Json -Compress -Depth 4
+$probeSummary=Get-LabTlsRuntimeFailureSummary -ExitCode 1 -StandardError 'synthetic certificate failure' -OutputLength $probeFailure.Length -StandardOutput $probeFailure -OperationStage 'linux-client-observation'
+Add-CheckResult 'Linux probe stdout preserves only its allowlisted failure code' ($probeSummary -match '\|stderrClass=TLS_LINUX_CLR_CLIENT_CERTIFICATE_OPEN\|' -and $probeSummary -notmatch 'synthetic-private-detail|synthetic-secret|DiagnosticKinds')
+$forgedProbeFailure=@{Schema='SqlServerLab.TlsLinuxProbeFailure/2.1';Status='FAIL';Code='TLS_LINUX_CLR_CLIENT_CERTIFICATE_OPEN|password=synthetic-secret'}|ConvertTo-Json -Compress -Depth 4
+$forgedProbeSummary=Get-LabTlsRuntimeFailureSummary -ExitCode 1 -StandardError 'certificate synthetic-private-detail' -OutputLength $forgedProbeFailure.Length -StandardOutput $forgedProbeFailure -OperationStage 'linux-client-observation'
+Add-CheckResult 'Linux probe stdout rejects appended private diagnostic text' ($forgedProbeSummary -match '\|stderrClass=TLS_CERTIFICATE\|' -and $forgedProbeSummary -notmatch 'synthetic-private-detail|synthetic-secret|TLS_LINUX_CLR_CLIENT')
+$unknownProbeFailure=@{Schema='SqlServerLab.TlsLinuxProbeFailure/2.1';Status='FAIL';Code='TLS_LINUX_PRIVATE_FAILURE password=synthetic-secret'}|ConvertTo-Json -Compress -Depth 4
+$unknownProbeSummary=Get-LabTlsRuntimeFailureSummary -ExitCode 1 -StandardError 'unclassified diagnostic synthetic-private-detail' -OutputLength $unknownProbeFailure.Length -StandardOutput $unknownProbeFailure -OperationStage 'linux-client-observation'
+Add-CheckResult 'Linux probe stdout rejects unknown failure tokens without leaking text' ($unknownProbeSummary -match '\|stderrClass=STDERR_UNCLASSIFIED\|' -and $unknownProbeSummary -notmatch 'synthetic-private-detail|synthetic-secret|TLS_LINUX_PRIVATE_FAILURE')
+$producerProbeCodes=@('TLS_LINUX_CLR_PROBE_FAILED','TLS_LINUX_CLR_CHILD_FAILED','TLS_LINUX_CLR_RESULT_INVALID',
+    'TLS_LINUX_ODBC_POSITIVE_FAILED','TLS_LINUX_ODBC_CERTIFICATE_REJECTION_MISSING','TLS_LINUX_DRIVER_CHANGED',
+    'TLS_LINUX_SQLCMD_CHANGED','TLS_LINUX_PROBE_INPUT_INVALID','TLS_LINUX_TRUST_BYTES_CHANGED','TLS_LINUX_TRUST_PATH_INVALID',
+    'TLS_LINUX_PARENT_CONTEXT_INVALID','TLS_LINUX_NON_LOOPBACK_RESOLUTION','TLS_LINUX_CHILD_BOUND_EXCEEDED',
+    'TLS_LINUX_CHILD_OUTPUT_TOO_LARGE','TLS_LINUX_ODBC_AMBIGUOUS','TLS_LINUX_PROBE_UNCLASSIFIED')
+foreach($category in @('CERTIFICATE','LOGIN','LOGIN_TIMEOUT','QUERY_TIMEOUT','TIMEOUT','NETWORK','UNCLASSIFIED')){$producerProbeCodes+=('TLS_LINUX_ODBC_POSITIVE_EXIT_'+$category)}
+foreach($category in @('STDERR','SQL_RESULT','DRIVER_NOT_OBSERVED','DRIVER_MAPS_UNREADABLE','DRIVER_PATTERN_MISSING')){$producerProbeCodes+=('TLS_LINUX_ODBC_POSITIVE_'+$category)}
+foreach($category in @('PLATFORM_UNSUPPORTED','ASSEMBLY_UNAVAILABLE','CERTIFICATE','LOGIN','TIMEOUT','NETWORK','SQL_RESULT','UNCLASSIFIED')){foreach($stage in @('CONSTRUCT','OPEN','QUERY')){$producerProbeCodes+=('TLS_LINUX_CLR_CLIENT_'+$category+'_'+$stage)}}
+foreach($code in $producerProbeCodes){
+    $record=@{Schema='SqlServerLab.TlsLinuxProbeFailure/2.1';Status='FAIL';Code=$code}|ConvertTo-Json -Compress
+    $summary=Get-LabTlsRuntimeFailureSummary -ExitCode 1 -StandardError 'safe test' -OutputLength $record.Length -StandardOutput $record -OperationStage 'linux-client-observation'
+    Add-CheckResult ('Linux probe producer failure code is allowlisted: '+$code) ($summary -match ('\|stderrClass='+[regex]::Escape($code)+'\|'))
+}
+$arraySchema=@{Schema=@('SqlServerLab.TlsLinuxProbeFailure/2.1');Status='FAIL';Code='TLS_LINUX_CLR_CLIENT_CERTIFICATE_OPEN'}|ConvertTo-Json -Compress
+$arrayStatus=@{Schema='SqlServerLab.TlsLinuxProbeFailure/2.1';Status=@('FAIL');Code='TLS_LINUX_CLR_CLIENT_CERTIFICATE_OPEN'}|ConvertTo-Json -Compress
+$lfCode=@{Schema='SqlServerLab.TlsLinuxProbeFailure/2.1';Status='FAIL';Code="TLS_LINUX_CLR_CLIENT_CERTIFICATE_OPEN`n"}|ConvertTo-Json -Compress
+foreach($spoof in @($arraySchema,$arrayStatus,$lfCode)){
+    $summary=Get-LabTlsRuntimeFailureSummary -ExitCode 1 -StandardError '' -OutputLength $spoof.Length -StandardOutput $spoof -OperationStage 'linux-client-observation'
+    Add-CheckResult 'Linux probe failure code parser rejects array spoofing and trailing LF' ($summary -match '\|stderrClass=STDERR_EMPTY\|' -and $summary -notmatch 'TLS_LINUX_CLR_CLIENT_CERTIFICATE_OPEN')
+}
 foreach($variant in @('tls_sqlclient_open_sql','Tls_SqlClient_Open_Sql')){
     $classified=Get-LabTlsRuntimeFailureSummary -ExitCode 1 -StandardError ($variant+' synthetic-private-user password=synthetic-secret') -OutputLength 0 -OperationStage 'linux-client-qualification'
     $class=([regex]::Match($classified,'\|stderrClass=([^|]+)\|')).Groups[1].Value

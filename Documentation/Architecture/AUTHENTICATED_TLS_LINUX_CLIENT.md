@@ -128,8 +128,10 @@ seinen numerischen Exitcode, den HELLO-Status, die Zahl der Controllerprüfungen
 den RESULT-Status, eine feste stderr-Klasse und die Anzahl der stderr-Bytes.
 Rohes Gast-stderr wird nie über die öffentliche Fehlergrenze ausgegeben. Diese
 Felder beschreiben den erreichten Protokollfortschritt und eine geschlossene
-Fehlerklasse; sie ersetzen weder die vollständige Gastdiagnose noch eine
-erneute Native-Abnahme.
+Fehlerklasse. Ein versioniertes Fehler-JSON des Linux-Probes darf nur seinen
+fest erlaubten Fehlercode in diese Klasse übernehmen; `Facts` und übrige
+Ausgabefelder bleiben verworfen. Die Klasse ersetzt weder die vollständige
+Gastdiagnose noch eine erneute Native-Abnahme.
 
 ## Getrennte Abnahme
 

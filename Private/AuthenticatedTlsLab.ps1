@@ -60,14 +60,44 @@ function Read-LabTlsBoundJson {
     }finally{$document.Dispose()}
 }
 
+function Get-LabTlsLinuxProbeFailureCode {
+    param([AllowEmptyString()][string]$StandardOutput)
+    if(-not $StandardOutput -or [Text.Encoding]::UTF8.GetByteCount($StandardOutput) -gt 65536){return $null}
+    try{$record=ConvertFrom-Json -InputObject $StandardOutput -AsHashtable -Depth 8 -DateKind String -ErrorAction Stop}catch{return $null}
+    if($record -isnot [System.Collections.IDictionary] -or
+        $record.Schema -isnot [string] -or $record.Schema -cnotin @('SqlServerLab.TlsLinuxProbeFailure/1.0','SqlServerLab.TlsLinuxProbeFailure/2.1') -or
+        $record.Status -isnot [string] -or $record.Status -cne 'FAIL' -or $record.Code -isnot [string]){return $null}
+    $allowed=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    foreach($code in @(
+        'TLS_LINUX_CLR_PROBE_FAILED','TLS_LINUX_CLR_CHILD_FAILED','TLS_LINUX_CLR_RESULT_INVALID',
+        'TLS_LINUX_ODBC_POSITIVE_FAILED','TLS_LINUX_ODBC_CERTIFICATE_REJECTION_MISSING','TLS_LINUX_DRIVER_CHANGED',
+        'TLS_LINUX_SQLCMD_CHANGED','TLS_LINUX_PROBE_INPUT_INVALID','TLS_LINUX_TRUST_BYTES_CHANGED','TLS_LINUX_TRUST_PATH_INVALID',
+        'TLS_LINUX_PARENT_CONTEXT_INVALID','TLS_LINUX_NON_LOOPBACK_RESOLUTION','TLS_LINUX_CHILD_BOUND_EXCEEDED',
+        'TLS_LINUX_CHILD_OUTPUT_TOO_LARGE','TLS_LINUX_ODBC_AMBIGUOUS','TLS_LINUX_PROBE_UNCLASSIFIED'
+    )){$null=$allowed.Add($code)}
+    foreach($category in @('CERTIFICATE','LOGIN','LOGIN_TIMEOUT','QUERY_TIMEOUT','TIMEOUT','NETWORK','UNCLASSIFIED')){
+        $null=$allowed.Add(('TLS_LINUX_ODBC_POSITIVE_EXIT_'+$category))
+    }
+    foreach($category in @('STDERR','SQL_RESULT','DRIVER_NOT_OBSERVED','DRIVER_MAPS_UNREADABLE','DRIVER_PATTERN_MISSING')){
+        $null=$allowed.Add(('TLS_LINUX_ODBC_POSITIVE_'+$category))
+    }
+    foreach($category in @('PLATFORM_UNSUPPORTED','ASSEMBLY_UNAVAILABLE','CERTIFICATE','LOGIN','TIMEOUT','NETWORK','SQL_RESULT','UNCLASSIFIED')){
+        foreach($stage in @('CONSTRUCT','OPEN','QUERY')){$null=$allowed.Add(('TLS_LINUX_CLR_CLIENT_'+$category+'_'+$stage))}
+    }
+    if($allowed.Contains($record.Code)){return $record.Code}
+    return $null
+}
+
 function Get-LabTlsRuntimeFailureSummary {
     param(
-        [int]$ExitCode,[string]$StandardError,[int]$OutputLength,
+        [int]$ExitCode,[string]$StandardError,[int]$OutputLength,[AllowEmptyString()][string]$StandardOutput='',
         [ValidateSet('unspecified','linux-client-create','linux-client-start','linux-client-layout','linux-client-trust-write','linux-client-observation','linux-client-namespace-check','linux-client-qualification')]
         [string]$OperationStage='unspecified'
     )
     $class='STDERR_UNCLASSIFIED'
-    if(-not $StandardError){$class='STDERR_EMPTY'}
+    $linuxProbeFailure=Get-LabTlsLinuxProbeFailureCode -StandardOutput $StandardOutput
+    if($linuxProbeFailure){$class=$linuxProbeFailure}
+    elseif(-not $StandardError){$class='STDERR_EMPTY'}
     else{
         if($StandardError -cmatch '\b(TLS_SQLCLIENT_(?:CONSTRUCT|OPEN|QUERY|CLEANUP)_(?:PLATFORM_UNSUPPORTED|ASSEMBLY_UNAVAILABLE|AUTHENTICATION|TIMEOUT|NETWORK|SQL|UNCLASSIFIED))\b'){
             # This grammar is closed to guest-emitted type/stage tokens. The
@@ -115,7 +145,7 @@ function Invoke-LabTlsContainer {
         if($InputText){$write=$process.StandardInput.WriteAsync($InputText);if(-not $write.Wait(10000)){throw 'TLS_LAB_RUNTIME_INPUT_TIMEOUT'};$null=$write.GetAwaiter().GetResult()};$process.StandardInput.Close()
         if(-not $process.WaitForExit(45000)){throw 'TLS_LAB_RUNTIME_TIMEOUT'}
         $output=$stdout.GetAwaiter().GetResult();$errorText=$stderr.GetAwaiter().GetResult()
-        if($process.ExitCode -ne 0 -or $output.Length -gt 1048576){throw (Get-LabTlsRuntimeFailureSummary -ExitCode $process.ExitCode -StandardError $errorText -OutputLength $output.Length -OperationStage $OperationStage)}
+        if($process.ExitCode -ne 0 -or $output.Length -gt 1048576){throw (Get-LabTlsRuntimeFailureSummary -ExitCode $process.ExitCode -StandardError $errorText -OutputLength $output.Length -StandardOutput $output -OperationStage $OperationStage)}
         return $output.TrimEnd("`r","`n")
     }finally{
         if($started -and -not $process.HasExited){$process.Kill($true);$process.WaitForExit()};$process.Dispose()
