@@ -4,6 +4,11 @@ $repo=(Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 . (Join-Path $PSScriptRoot '../Common/CheckResult.ps1')
 $passed=0;$failures=[Collections.Generic.List[string]]::new()
 Import-Module (Join-Path $repo 'SqlServerLab.psd1') -Force
+$publicNewLab=Get-Command -Name 'SqlServerLab\New-SqlServerLab' -ErrorAction Stop
+Add-CheckResult 'Public New-SqlServerLab exposes the optional TLS registry CAS precondition' $publicNewLab.Parameters.ContainsKey('TlsExpectedRegistrySha256')
+$plainTlsRejected=$false
+try{$null=SqlServerLab\New-SqlServerLab -TrustServerCertificate:$true -TlsExpectedRegistrySha256 ('a'*64)}catch{$plainTlsRejected=$_.Exception.Message -ceq 'TLS_EXPECTED_REGISTRY_REQUIRES_AUTHENTICATED_TLS'}
+Add-CheckResult 'Expected registry precondition is rejected for non-authenticated TLS before creation' $plainTlsRejected
 foreach($name in @('DiagnosticBundleReader','AuthenticatedTlsRequest','AuthenticatedTlsRegistryIndex','AuthenticatedTlsRegistryPayload','AuthenticatedTlsCaCandidate',
     'AuthenticatedTlsContext','AuthenticatedTlsRegistryRoot','AuthenticatedTlsRegistryWriter','AuthenticatedTlsLab','AuthenticatedTlsWindowsLab','AuthenticatedTlsQualification',
     'AuthenticatedTlsLinuxObserver','AuthenticatedTlsLinuxQualification','AuthenticatedTlsLinuxExecution','AuthenticatedTlsRestartRebind','AuthenticatedTlsRebindRecovery','SqlReadiness')){. (Join-Path $repo "Private/$name.ps1")}
@@ -277,9 +282,9 @@ if($IsWindows){
         # Exercise the creator's complete orchestration with explicitly synthetic
         # provider observations. These assertions guard the two review findings;
         # they do not claim native SQL or host-autostart acceptance.
-        $script:capturedAutoStart=$null;$script:capturedProvider=$null;$script:writtenConnection=$null
+        $script:capturedAutoStart=$null;$script:capturedProvider=$null;$script:writtenConnection=$null;$script:capturedExpectedRegistrySha256=$null
         $authority.Authority|Add-Member -NotePropertyName NotAfterUtc -NotePropertyValue ([datetime]::UtcNow.AddDays(3).ToString('O'))
-        function Register-LabTlsOperationalAuthority {param($DataRoot,$ControllerId,$LocationId,$CandidateId) $null=$DataRoot,$ControllerId,$LocationId,$CandidateId;return $authority}
+        function Register-LabTlsOperationalAuthority {param($DataRoot,$ControllerId,$LocationId,$CandidateId,$ExpectedRegistrySha256) $null=$DataRoot,$ControllerId,$LocationId,$CandidateId;$script:capturedExpectedRegistrySha256=$ExpectedRegistrySha256;return $authority}
         # This orchestration fixture intentionally has synthetic root metadata.
         # Keep the production wrapper path exercised while isolating the lock
         # identity; writer binding and native mutex behavior have dedicated tests.
@@ -306,6 +311,7 @@ if($IsWindows){
             [pscustomobject]@{PolicyId=$ParentOperationId}
         }
         function New-SqlServerLab {
+            [CmdletBinding()]
             param($StateRoot,$Provider,$Version,$InstanceId,$AutoStart)
             $script:capturedVersion=$Version;$script:capturedAutoStart=$AutoStart;$script:capturedProvider=$Provider
             [pscustomobject]@{RunId='synthetic-run';StateRoot=$StateRoot;Instances=@([pscustomobject]@{Id=$InstanceId;ConnectionString='Server=127.0.0.1,14333;Encrypt=True;TrustServerCertificate=True;Password=***'})}
@@ -333,12 +339,16 @@ if($IsWindows){
         function Write-LabArtifactJsonAtomic {param($Path,$InputObject) $null=$Path,$InputObject}
         foreach($provider in @('docker','podman')){
             $record.Provider=$provider
-            $created=New-LabAuthenticatedTlsEnvironment @{Version='2025-CU9';Provider=$provider;DataRoot=$fixture;TlsControllerId=$record.ControllerId;TlsLocationId=$record.LocationId;TlsCandidateId=$authority.Authority.CandidateId}
+            $expectedRegistrySha=if($provider -ceq 'docker'){('a'*64)}else{$null}
+            $createParameters=@{Version='2025-CU9';Provider=$provider;DataRoot=$fixture;TlsControllerId=$record.ControllerId;TlsLocationId=$record.LocationId;TlsCandidateId=$authority.Authority.CandidateId}
+            if($expectedRegistrySha){$createParameters.TlsExpectedRegistrySha256=$expectedRegistrySha}
+            $created=New-LabAuthenticatedTlsEnvironment $createParameters
             $createdRecord=Read-LabTlsLabRecord ([IO.File]::ReadAllBytes((Join-Path $created.StateRoot 'authenticated-tls-lab.json')))
             $expectedMachineName=if($provider -ceq 'docker'){$null}else{'synthetic-machine'}
             Add-CheckResult "$provider runtime binding preserves machine-name pin nullability" ($createdRecord.RuntimeBinding.MachineName -ceq $expectedMachineName)
             $settings=[Data.SqlClient.SqlConnectionStringBuilder]::new($created.Instances[0].ConnectionString)
             Add-CheckResult "Creator delegates explicit $provider and returns true/false in the public DTO" ($script:capturedProvider -ceq $provider -and $settings.Encrypt -and -not $settings.TrustServerCertificate)
+            if($provider -ceq 'docker'){Add-CheckResult 'Creator forwards the exact registry CAS precondition to authority registration' ($script:capturedExpectedRegistrySha256 -ceq $expectedRegistrySha)}
             foreach($selectedVersion in @('2022-CU27','2019-CU32')){
                 $createdVersion=New-LabAuthenticatedTlsEnvironment @{Version=$selectedVersion;Provider=$provider;DataRoot=$fixture;TlsControllerId=$record.ControllerId;TlsLocationId=$record.LocationId;TlsCandidateId=$authority.Authority.CandidateId}
                 $versionRecord=Read-LabTlsLabRecord ([IO.File]::ReadAllBytes((Join-Path $createdVersion.StateRoot 'authenticated-tls-lab.json')))

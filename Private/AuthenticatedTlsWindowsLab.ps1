@@ -316,7 +316,7 @@ function Initialize-LabTlsWindowsOwnedRun {
 
 function Assert-LabAuthenticatedTlsWindowsRequest {
     param([hashtable]$Parameters)
-    $allowed=@('Version','Provider','TrustServerCertificate','TlsCandidateId','TlsControllerId','TlsLocationId','TlsClientPlatform','DataRoot','StateRoot','Profile','Cpu','MemoryMB','AutoStart','Port','InstanceId','LabName','NonInteractive','SkipAssessment','AllowResourceOvercommit','Verbose','ErrorAction')
+    $allowed=@('Version','Provider','TrustServerCertificate','TlsCandidateId','TlsControllerId','TlsLocationId','TlsClientPlatform','TlsExpectedRegistrySha256','DataRoot','StateRoot','Profile','Cpu','MemoryMB','AutoStart','Port','InstanceId','LabName','NonInteractive','SkipAssessment','AllowResourceOvercommit','Verbose','ErrorAction')
     if(@($Parameters.Keys|Where-Object {$_ -cnotin $allowed}).Count -or $Parameters.Version -cne '2025' -or $Parameters.Provider -cne 'hyperv' -or -not $Parameters.DataRoot -or
         ($Parameters.ContainsKey('InstanceId') -and $Parameters.InstanceId -cne 'primary') -or ($Parameters.ContainsKey('AutoStart') -and $Parameters.AutoStart -cne 'off') -or
         ($Parameters.ContainsKey('TlsClientPlatform') -and $Parameters.TlsClientPlatform -cne 'Windows')){throw 'TLS_WINDOWS_CAPABILITY_UNSUPPORTED'}
@@ -340,7 +340,9 @@ function New-LabAuthenticatedTlsWindowsEnvironmentCore {
     # Aktivierungsdefaults. Die vorgeprüfte Image-ID wird ausdrücklich fixiert;
     # keine zweite automatische Imagewahl im nachfolgenden Erstellungsaufruf.
     $createManifest=New-LabTlsWindowsCreateManifest $Parameters $selection.Selected.artifactId $audit
-    $authority=Register-LabTlsOperationalAuthority $Parameters.DataRoot $Parameters.TlsControllerId $Parameters.TlsLocationId $Parameters.TlsCandidateId
+    if($Parameters.ContainsKey('TlsExpectedRegistrySha256') -and $Parameters.TlsExpectedRegistrySha256 -cnotmatch '\A[0-9a-fA-F]{64}\z'){throw 'TLS_AUTHORITY_EXPECTED_REGISTRY_INVALID'}
+    $expectedRegistrySha=if($Parameters.ContainsKey('TlsExpectedRegistrySha256')){[string]$Parameters.TlsExpectedRegistrySha256}else{$null}
+    $authority=Register-LabTlsOperationalAuthority -DataRoot $Parameters.DataRoot -ControllerId $Parameters.TlsControllerId -LocationId $Parameters.TlsLocationId -CandidateId $Parameters.TlsCandidateId -ExpectedRegistrySha256 $expectedRegistrySha
     $sid=$authority.Native.UserSid
     $operations=Join-Path $Parameters.DataRoot 'State/authenticated-tls-windows-operations'
     Initialize-LabTlsCaPrivateDirectory $operations $sid

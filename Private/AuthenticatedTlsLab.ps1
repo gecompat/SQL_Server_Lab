@@ -483,7 +483,7 @@ function Assert-LabTlsSqlCertificateBinding {
 
 function New-LabAuthenticatedTlsEnvironmentCore {
     param([hashtable]$Parameters,[scriptblock]$AllocationObserver)
-    $allowed=@('TrustServerCertificate','TlsCandidateId','TlsControllerId','TlsLocationId','TlsClientPlatform','TlsLinuxPowerShellPackage','DataRoot','Version','Provider','Profile','Port','InstanceId',
+    $allowed=@('TrustServerCertificate','TlsCandidateId','TlsControllerId','TlsLocationId','TlsClientPlatform','TlsLinuxPowerShellPackage','TlsExpectedRegistrySha256','DataRoot','Version','Provider','Profile','Port','InstanceId',
         'SaPassword','GenerateSaPassword','NonInteractive','Cpu','MemoryMB','SkipAssessment','AllowResourceOvercommit','AutoStart','LabName','Verbose','ErrorAction')
     if(@($Parameters.Keys|Where-Object {$_ -cnotin $allowed}).Count -or $Parameters.Version -cnotin @('2025-CU9','2022-CU27','2019-CU32') -or
         ($Parameters.ContainsKey('Provider') -and $Parameters.Provider -cnotin @('docker','podman')) -or
@@ -492,6 +492,7 @@ function New-LabAuthenticatedTlsEnvironmentCore {
     foreach($key in @('TlsCandidateId','TlsControllerId','TlsLocationId')){if(-not (Test-LabTlsRequestReference $Parameters[$key])){throw 'TLS_LAB_CA_SELECTION_REQUIRED'}}
     $linux=$Parameters.TlsClientPlatform -ceq 'Linux'
     if($Parameters.ContainsKey('TlsClientPlatform') -and $Parameters.TlsClientPlatform -cnotin @('Windows','Linux')){throw 'TLS_LAB_CAPABILITY_UNSUPPORTED'}
+    if($Parameters.ContainsKey('TlsExpectedRegistrySha256') -and $Parameters.TlsExpectedRegistrySha256 -cnotmatch '\A[0-9a-fA-F]{64}\z'){throw 'TLS_AUTHORITY_EXPECTED_REGISTRY_INVALID'}
     if($linux){Assert-LabTlsLinuxPowerShellPackage $Parameters.TlsLinuxPowerShellPackage}
     elseif($Parameters.ContainsKey('TlsLinuxPowerShellPackage')){throw 'TLS_LINUX_EXPLICIT_SELECTION_REQUIRED'}
     Assert-LabTlsCaCandidateCapability
@@ -503,7 +504,8 @@ function New-LabAuthenticatedTlsEnvironmentCore {
     $null=Invoke-LabTlsContainer @('info','--format',$format) -Budget $budget
     $expectedImageId=ConvertTo-LabTlsImageId (Invoke-LabTlsContainer @('image','inspect',$profile.Image,'--format','{{.Id}}') -Budget $budget).Trim()
     if($linux){$null=ConvertTo-LabTlsImageId (Invoke-LabTlsContainer @('image','inspect','mcr.microsoft.com/mssql/server:2025-CU9-ubuntu-24.04','--format','{{.Id}}') -Budget $budget).Trim()}
-    $authority=Register-LabTlsOperationalAuthority $Parameters.DataRoot $Parameters.TlsControllerId $Parameters.TlsLocationId $Parameters.TlsCandidateId
+    $expectedRegistrySha=if($Parameters.ContainsKey('TlsExpectedRegistrySha256')){[string]$Parameters.TlsExpectedRegistrySha256}else{$null}
+    $authority=Register-LabTlsOperationalAuthority -DataRoot $Parameters.DataRoot -ControllerId $Parameters.TlsControllerId -LocationId $Parameters.TlsLocationId -CandidateId $Parameters.TlsCandidateId -ExpectedRegistrySha256 $expectedRegistrySha
     if([DateTimeOffset]::ParseExact($authority.Authority.NotAfterUtc,'o',[Globalization.CultureInfo]::InvariantCulture) -le [DateTimeOffset]::UtcNow.AddDays(1)){throw 'TLS_LAB_CA_LIFETIME_INSUFFICIENT'}
     $sid=$authority.Native.UserSid;$audit=[guid]::NewGuid().ToString('D')
     $parent=Join-Path $Parameters.DataRoot 'State/authenticated-tls-labs'
@@ -518,7 +520,7 @@ function New-LabAuthenticatedTlsEnvironmentCore {
     $budget.StateRoot=$state
     $intent=[pscustomobject]@{AuditId=$audit;Status='OWNED_CREATE_PENDING';Cleanup='Remove-SqlServerLab only this StateRoot/run; retain recovery on unconfirmed cleanup'}
     Write-LabTlsCaPrivateFile (Join-Path $state 'intent.json') $sid (ConvertTo-LabTlsRegistryWriterBytes $intent)
-    $inner=@{};foreach($key in $Parameters.Keys){if($key -cnotin @('TrustServerCertificate','TlsCandidateId','TlsControllerId','TlsLocationId','TlsClientPlatform','TlsLinuxPowerShellPackage','DataRoot')){$inner[$key]=$Parameters[$key]}}
+    $inner=@{};foreach($key in $Parameters.Keys){if($key -cnotin @('TrustServerCertificate','TlsCandidateId','TlsControllerId','TlsLocationId','TlsClientPlatform','TlsLinuxPowerShellPackage','TlsExpectedRegistrySha256','DataRoot')){$inner[$key]=$Parameters[$key]}}
     $inner.StateRoot=$state;$inner.Provider=$provider;$inner.InstanceId='primary';$inner.AutoStart='off'
     $run=$null
     try{
