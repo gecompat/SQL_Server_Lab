@@ -3,7 +3,7 @@
 function Read-LabTlsLinuxVerificationReply {
     param([byte[]]$Bytes,[object]$Request,[DateTimeOffset]$SessionExpiresAt,[TimeSpan]$RoundTrip)
     if($RoundTrip -lt [TimeSpan]::Zero){throw 'TLS_LINUX_VERIFIER_REPLY_FRAME_REJECTED'}
-    if($RoundTrip.TotalSeconds -gt 10){throw 'TLS_LINUX_VERIFIER_REPLY_DEADLINE_EXCEEDED'}
+    if($RoundTrip.TotalSeconds -gt 15){throw 'TLS_LINUX_VERIFIER_REPLY_DEADLINE_EXCEEDED'}
     if($null -eq $Bytes -or $Bytes.Length -lt 1 -or $Bytes.Length -gt 2048){throw 'TLS_LINUX_VERIFIER_REPLY_FRAME_REJECTED'}
     try{
         $reply=Read-LabTlsBoundJson $Bytes @(

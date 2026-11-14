@@ -83,7 +83,7 @@ Check 'Both stacks require separate fresh calls and replies contain no export or
     }
     Assert ($script:Calls -eq 2) 'Each stack must reverify'
 }
-Check 'Session reserves ten seconds for exchange and thirty seconds for login' {
+Check 'Session enforces the minimum controller qualification runway' {
     $now=[DateTimeOffset]'2026-10-26T03:00:00Z'
     $qExpires=$now.AddSeconds(41)
     $session=New-LabTlsLinuxConsumerSession ([byte[]]@(1)) '11111111-1111-1111-1111-111111111111' ('b'*64) $now.AddSeconds(1) {throw 'UNUSED'} {$now} -QualificationExpiresAt $qExpires

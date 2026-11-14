@@ -70,12 +70,16 @@ UTC-Rücksprünge sperren die Sitzung; ein zusätzliches monotones Zeitbudget
 verhindert eine Verlängerung durch eine stehende oder verlangsamte Wanduhr.
 Der Controller verankert auch die unveränderliche Qualifikationsfrist beim
 Sitzungsstart und berechnet ihr Restfenster aus UTC und monoton verstrichener
-Zeit konservativ. Der synchrone Verifier-Austausch ist auf zehn Sekunden
-begrenzt; vor einer Antwort müssen mindestens 40 Sekunden verbleiben.
-Der Peer zieht die gesamte gemessene Austauschzeit ab; unmittelbar vor Open
-müssen auf derselben weiterlaufenden monotonen Uhr noch 30 Sekunden bleiben.
-Dieses private Openfenster ist nicht serialisierbar und hängt nicht von der
-Linux-Wanduhr oder deren Abstand zur Controlleruhr ab.
+Zeit konservativ. Der synchrone Verifier-Austausch ist auf 15 Sekunden
+begrenzt; das Controller-Antwortticket muss länger als der vollständige
+gemessene Roundtrip gültig bleiben und darf höchstens 20 Sekunden umfassen.
+Vor einer Antwort müssen mindestens 40 Sekunden Qualifikationsrestzeit
+verbleiben. Der Peer zieht die gesamte gemessene Austauschzeit ab und verlangt
+unmittelbar vor Open auf derselben weiterlaufenden monotonen Uhr noch 30
+Sekunden. Bei einem 15-Sekunden-Roundtrip muss die Antwort daher mindestens 45
+Sekunden ausweisen; kürzere Fenster werden abgewiesen. Das private Openfenster
+ist nicht serialisierbar und hängt nicht von der Linux-Wanduhr oder deren
+Abstand zur Controlleruhr ab.
 
 ## Explizite Bediengrenze
 

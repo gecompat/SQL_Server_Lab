@@ -17,7 +17,7 @@ function New-LabTlsLinuxConsumerSession {
         throw 'TLS_LINUX_SESSION_INVALID'
     }
     $qualificationRemaining=($QualificationExpiresAt-$now).TotalMilliseconds
-    # Ten seconds cover the bounded exchange; thirty remain for the login.
+    # The peer subtracts the full measured exchange and still requires thirty seconds for login.
     if($qualificationRemaining -lt 40000 -or $qualificationRemaining -gt 900000 -or
         $ExpiresAt -gt $QualificationExpiresAt.AddSeconds(-40)){throw 'TLS_LINUX_SESSION_INVALID'}
     return [pscustomobject]@{

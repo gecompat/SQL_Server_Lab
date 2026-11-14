@@ -83,6 +83,21 @@ Check 'Ten seconds of transit are deducted from the controller open window' {
     $r=Read-LabTlsLinuxVerificationReply ([Text.Encoding]::UTF8.GetBytes(($script:reply|ConvertTo-Json -Compress))) $script:request $script:deadline ([TimeSpan]::FromSeconds(10))
     Assert ($r.QualificationRemainingMilliseconds-10000 -eq 30000) 'Conservative open window mismatch'
 }
+Check 'Fifteen-second verifier transit is accepted only with a full post-transit login window' {
+    Fixture;$script:reply.QualificationRemainingMilliseconds=45000
+    $script:reply.ExpiresAtUtc='2026-10-26T03:00:20.0000000+00:00'
+    $r=Read-LabTlsLinuxVerificationReply ([Text.Encoding]::UTF8.GetBytes(($script:reply|ConvertTo-Json -Compress))) $script:request $script:deadline ([TimeSpan]::FromSeconds(15))
+    Assert ($r.QualificationRemainingMilliseconds-[Math]::Ceiling(15000)-eq30000) 'Fifteen-second transit must retain thirty seconds before open'
+}
+Check 'Fifteen-second verifier transit rejects a shorter controller permit' {
+    Fixture;$script:reply.ExpiresAtUtc='2026-10-26T03:00:15.0000000+00:00'
+    RejectAs 'TLS_LINUX_VERIFIER_REPLY_TIME_REJECTED' {Read-LabTlsLinuxVerificationReply ([Text.Encoding]::UTF8.GetBytes(($script:reply|ConvertTo-Json -Compress))) $script:request $script:deadline ([TimeSpan]::FromSeconds(15))}
+}
+Check 'Fifteen-second verifier transit rejects a short post-transit login window' {
+    Fixture;$script:reply.QualificationRemainingMilliseconds=44999
+    $script:reply.ExpiresAtUtc='2026-10-26T03:00:20.0000000+00:00'
+    RejectAs 'TLS_LINUX_VERIFIER_REPLY_WINDOW_REJECTED' {Read-LabTlsLinuxVerificationReply ([Text.Encoding]::UTF8.GetBytes(($script:reply|ConvertTo-Json -Compress))) $script:request $script:deadline ([TimeSpan]::FromSeconds(15))}
+}
 Check 'Additional reply key blocks' {Fixture;$script:reply.Extra='forbidden';Reject}
 Check 'Reply cannot extend its controller session' {Fixture;$script:deadline=[DateTimeOffset]'2026-10-26T03:00:04Z';Reject}
 Check 'Reply cannot precede its observation' {Fixture;$script:reply.ExpiresAtUtc=$script:reply.VerifiedAtUtc;Reject}
@@ -130,7 +145,7 @@ Check 'Verifier reply failures have closed, data-free diagnostic classes' {
     Fixture;$script:reply.RequestId=[guid]::NewGuid().ToString('D');RejectAs $codes.Binding {Read-Reply}
     Fixture;$script:reply.VerifiedAtUtc='invalid';RejectAs $codes.Time {Read-Reply}
     Fixture;$script:reply.QualificationRemainingMilliseconds=34999;RejectAs $codes.Window {Read-Reply}
-    Fixture;RejectAs $codes.Deadline {Read-LabTlsLinuxVerificationReply ([Text.Encoding]::UTF8.GetBytes(($script:reply|ConvertTo-Json -Compress))) $script:request $script:deadline ([TimeSpan]::FromMilliseconds(10001))}
+    Fixture;RejectAs $codes.Deadline {Read-LabTlsLinuxVerificationReply ([Text.Encoding]::UTF8.GetBytes(($script:reply|ConvertTo-Json -Compress))) $script:request $script:deadline ([TimeSpan]::FromMilliseconds(15001))}
     Fixture;RejectAs $codes.Frame {Read-LabTlsLinuxVerificationReply ([byte[]]::new(2049)) $script:request $script:deadline ([TimeSpan]::Zero)}
 }
 Check 'Public reader rejects absent bootstrap without invoking controller/native handlers' {
