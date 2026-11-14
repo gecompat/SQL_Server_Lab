@@ -34,7 +34,7 @@ Scope.
 | `lab-manifest.schema.json` | Struktur deklarativer Labdefinitionen |
 | `ai-scenario.schema.json` | Versioniertes, hashgebundenes SQL-KI-Szenariopaket mit Dataset, Schritten, Assertions, Evaluation und Cleanup |
 | `ai-model-catalog.schema.json` | Providerneutraler Modellkatalog für Ollama-Lane, Zweck, Dimension, Lizenz, Größe und verpflichtende Runtimeidentität |
-| `ai-endpoint-plan.schema.json` | Geheimnisfreier read-only Endpointplan mit Lane, Modell, Egress, Budget, Blockern und Warnungen |
+| `ai-endpoint-plan.schema.json` | Geheimnisfreier read-only Endpointplan mit Lane, Modell, GenerationApi-/Think-Einstellungen, Egress, Budget, Blockern und Warnungen |
 | `ai-external-model-plan.schema.json` | Hashgebundener, nicht ausführbarer SQL-External-Model-Plan für vorhandene OpenAI-kompatible HTTPS-Embedding-Endpunkte und CPU/GPU/NPU-Ziele |
 | `ai-compute-inventory.schema.json` | Datenschutzbegrenztes Windows-/Linux-Hostinventar mit expliziter CPU-/GPU-/NPU-Coverage und vollständigem Inventarhash |
 | `ai-compute-candidate-set.schema.json` | Hashgebundene, maximal 64 Einträge große Menge erlaubter Einzel-, Mehrgeräte- und gemischter Runtimekandidaten |

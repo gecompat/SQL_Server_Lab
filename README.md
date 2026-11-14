@@ -881,7 +881,7 @@ abgewiesen. SQL-seitige Verifikation und freie Advanced-Eingaben bleiben
 | `Start-SqlServerLabOvmsHttpsGateway` | Eigenen zeitlich begrenzten Windows-Loopback-HTTPS-Gateway vor einem verifizierten OVMS-v3-Upstream starten |
 | `Stop-SqlServerLabOvmsHttpsGateway` | Ausschließlich den sitzungsgebundenen OVMS-Gateway beenden und dessen API-Key-Datei entfernen |
 | `Invoke-SqlServerLabAiScenario` | Deklariertes, hashgebundenes SQL-KI-Szenario journalisiert ausführen |
-| `Invoke-SqlServerLabAiModel` | Katalogisiertes lokales Ollama-Modell oder die Cloud-Lane mit explizitem Egress und lokalem `.env`-Secret aufrufen |
+| `Invoke-SqlServerLabAiModel` | Katalogisiertes lokales Ollama-Modell oder die Cloud-Lane mit explizitem Egress und lokalem `.env`-Secret aufrufen; WhatIf bindet GenerationApi und Think an den Plan ([Vertrag](Documentation/Architecture/AI_RAG_EXISTING_OLLAMA.md)) |
 | `Measure-SqlServerLabAiRetrieval` | Manuelle Rangfolgen oder gebundene Golden-RAG-Ergebnisse deterministisch mit Recall@k, Precision@k, MRR und nDCG bewerten |
 | `Invoke-SqlServerLabAiRag` | Lokales AdHoc-/Golden-RAG; optional vorhandene Host-Embeddings mit ausdrücklich gewählter HTTPS-Cloudgeneration und exakter SQL-Server-2025-Vektorsuche ([Vertrag](Documentation/Architecture/AI_RAG_EXISTING_OLLAMA.md)) |
 | `Invoke-SqlServerLabAiPersistentRetrieval` | Persistentes Retrieval mit lokalem Host-Embedding, atomarem Caller-Dokument-Sync, explizitem Prune alter v1-Caller-Generationen, Nomic-Migration für Fixture- oder Caller-Bestand, atomaren Generationen und eigenem DB-Cleanup ([Vertrag](Documentation/Architecture/AI_PERSISTENT_RETRIEVAL.md)) |

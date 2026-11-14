@@ -81,10 +81,13 @@ function New-LabAiEndpointPlan {
         'cloud' { 'ollama.com' }
     }
     $credentialRef = if ($Lane -eq 'cloud') { 'SQL_SERVER_LAB_SECRET_OLLAMA' } else { $null }
+    $generationApi = if ($model.generationApi) { [string]$model.generationApi } else { 'generate' }
+    $think = if ($model.PSObject.Properties['think']) { [bool]$model.think } else { $null }
     $planIdentity = [ordered]@{
         Contract='SqlServerLab.AiEndpointPlan/1.0';Lane=$Lane;EndpointRef=$EndpointRef
         ModelKey=$ModelKey;Model=[string]$model.model;IdentityPolicy=[string]$model.identityPolicy
-        Purpose=[string]$model.purpose;Dimension=if ($model.dimension) { [int]$model.dimension } else { $null }
+        Purpose=[string]$model.purpose;GenerationApi=$generationApi;Think=$think
+        Dimension=if ($model.dimension) { [int]$model.dimension } else { $null }
         InputProfile=if ($model.inputProfile) { [string]$model.inputProfile } elseif ([string]$model.purpose -eq 'embedding') { 'raw' } else { $null }
         Port=if ($Lane -eq 'local') { $LocalPort } elseif ($stubUri) { $stubUri.Port } else { $null }
         ServerCertificateSha256=if ($StubServerCertificateSha256) { $StubServerCertificateSha256.ToLowerInvariant() } else { $null }
@@ -95,7 +98,8 @@ function New-LabAiEndpointPlan {
         Contract=[PSCustomObject]@{Name='SqlServerLab.AiEndpointPlan';Version='1.0'}
         Status=if ($blockers.Count) { 'BLOCKED' } else { 'NOT_PROBED' }
         Lane=$Lane;EndpointRef=$EndpointRef;TargetHost=if ($stubUri) { $stubUri.Host } else { $hostName };ModelKey=$ModelKey
-        Purpose=[string]$model.purpose;Dimension=if ($model.dimension) { [int]$model.dimension } else { $null }
+        Purpose=[string]$model.purpose;GenerationApi=$generationApi;Think=$think
+        Dimension=if ($model.dimension) { [int]$model.dimension } else { $null }
         InputProfile=$planIdentity.InputProfile
         Port=if ($Lane -eq 'local') { $LocalPort } elseif ($stubUri) { $stubUri.Port } else { $null }
         ServerCertificateSha256=if ($StubServerCertificateSha256) { $StubServerCertificateSha256.ToLowerInvariant() } else { $null }
@@ -233,11 +237,17 @@ function Invoke-LabAiEndpointRequest {
     if ($TrustedServerCertificate -and -not $Plan.ServerCertificateSha256) { throw 'AI_ENDPOINT_TLS_TRUST_UNEXPECTED' }
     if (-not $Transport -and [string]$Plan.Lane -eq 'stub' -and -not $Plan.InternalBaseUri) { throw 'AI_ENDPOINT_STUB_TRANSPORT_REQUIRED' }
     if (-not $Transport -and $Plan.ServerCertificateSha256 -and -not $TrustedServerCertificate) { throw 'AI_ENDPOINT_TLS_TRUST_REQUIRED' }
-    $path = if ([string]$Plan.Purpose -eq 'embedding') { '/api/embed' } else { '/api/generate' }
+    $path = if ([string]$Plan.Purpose -eq 'embedding') { '/api/embed' } elseif ([string]$Plan.GenerationApi -eq 'chat') { '/api/chat' } else { '/api/generate' }
     $body = if ([string]$Plan.Purpose -eq 'embedding') {
         [ordered]@{model=[string]$Plan.InternalModel;input=@($InputText)}
+    } elseif ([string]$Plan.GenerationApi -eq 'chat') {
+        $chatBody = [ordered]@{model=[string]$Plan.InternalModel;messages=@([ordered]@{role='user';content=$InputText});stream=$false;options=[ordered]@{num_predict=[int]$Plan.RequestBudget.MaximumOutputTokens}}
+        if ($null -ne $Plan.Think) { $chatBody.think=[bool]$Plan.Think }
+        $chatBody
     } else {
-        [ordered]@{model=[string]$Plan.InternalModel;prompt=$InputText;stream=$false;options=[ordered]@{num_predict=[int]$Plan.RequestBudget.MaximumOutputTokens}}
+        $generateBody = [ordered]@{model=[string]$Plan.InternalModel;prompt=$InputText;stream=$false;options=[ordered]@{num_predict=[int]$Plan.RequestBudget.MaximumOutputTokens}}
+        if ($null -ne $Plan.Think) { $generateBody.think=[bool]$Plan.Think }
+        $generateBody
     }
     $maximumAttempts = [Math]::Min([int]$Plan.RequestBudget.MaximumRequests, 1 + [int]$Plan.RequestBudget.RetryCount)
     $attempt = 0
@@ -284,6 +294,8 @@ function Invoke-LabAiEndpointRequest {
         if (@($vector | Where-Object { $_ -isnot [ValueType] }).Count -gt 0) { throw 'AI_ENDPOINT_EMBEDDING_RESPONSE_INVALID' }
         return [PSCustomObject]@{Status='SUCCEEDED';Purpose='embedding';ModelKey=[string]$Plan.ModelKey;PlanKey=[string]$Plan.PlanKey;Attempts=$attempt;Vector=$vector}
     }
-    if ([string]::IsNullOrWhiteSpace([string]$response.Body.response)) { throw 'AI_ENDPOINT_GENERATION_RESPONSE_INVALID' }
-    return [PSCustomObject]@{Status='SUCCEEDED';Purpose='generation';ModelKey=[string]$Plan.ModelKey;PlanKey=[string]$Plan.PlanKey;Attempts=$attempt;Text=[string]$response.Body.response}
+    if ($response.Body.PSObject.Properties['error'] -and -not [string]::IsNullOrWhiteSpace([string]$response.Body.error)) { throw 'AI_ENDPOINT_GENERATION_ERROR' }
+    $generatedText = if ([string]$Plan.GenerationApi -eq 'chat') { [string]$response.Body.message.content } else { [string]$response.Body.response }
+    if ([string]::IsNullOrWhiteSpace($generatedText)) { throw 'AI_ENDPOINT_GENERATION_RESPONSE_INVALID' }
+    return [PSCustomObject]@{Status='SUCCEEDED';Purpose='generation';ModelKey=[string]$Plan.ModelKey;PlanKey=[string]$Plan.PlanKey;Attempts=$attempt;Text=$generatedText}
 }

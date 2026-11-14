@@ -169,6 +169,54 @@ try {
     Add-CheckResult 'Alle aktuellen Embeddingmodelle deklarieren ihr Eingabeprofil explizit' (
         @($modelCatalog.models|Where-Object purpose -eq embedding|Where-Object inputProfile -notin @('raw','nomic-search','snowflake-search')).Count -eq 0)
 
+    $gemma4Entry=& $module { Get-LabAiModelCatalogEntry -ModelKey ollama-gemma4-26b-local }
+    $gemma4Plan=& $module { New-LabAiEndpointPlan -ModelKey ollama-gemma4-26b-local -EndpointRef ollama-local -Lane local -RetryCount 0 }
+    Add-CheckResult 'Gemma4 26B ist als lokales Generationsmodell mit Live-Digestbindung katalogisiert' (
+        $gemma4Entry.model -ceq 'gemma4:26b' -and $gemma4Entry.purpose -ceq 'generation' -and
+        $gemma4Entry.lane -ceq 'local' -and $gemma4Entry.identityPolicy -ceq 'LIVE_MANIFEST_DIGEST_REQUIRED' -and
+        $gemma4Plan.Status -ceq 'NOT_PROBED' -and $gemma4Plan.ModelKey -ceq 'ollama-gemma4-26b-local' -and
+        $gemma4Plan.InternalModel -ceq 'gemma4:26b' -and $gemma4Plan.Egress -ceq 'denied' -and
+        $gemma4Plan.GenerationApi -ceq 'chat' -and $gemma4Plan.Think -eq $false -and
+        $null -eq $gemma4Plan.CredentialRef -and $null -eq $gemma4Plan.Dimension)
+
+    $gemma4CapturedRequest=[Collections.Generic.List[object]]::new()
+    $gemma4ChatResult=& $module {
+        param($Plan,$CapturedRequest)
+        $transport={
+            param($Request)
+            $CapturedRequest.Add($Request)
+            [PSCustomObject]@{StatusCode=200;Body=[PSCustomObject]@{message=[PSCustomObject]@{content='synthetic chat result'}}}
+        }.GetNewClosure()
+        Invoke-LabAiEndpointRequest -Plan $Plan -InputText 'synthetic fixed prompt' -Transport $transport
+    } $gemma4Plan $gemma4CapturedRequest
+    $gemma4CapturedRequest=if($gemma4CapturedRequest.Count -gt 0){$gemma4CapturedRequest[0]}else{$null}
+    Add-CheckResult 'Gemma4 sendet Chat mit deaktiviertem Thinking und liest message.content' (
+        $gemma4ChatResult.Status -ceq 'SUCCEEDED' -and $gemma4ChatResult.Text -ceq 'synthetic chat result' -and
+        $null -ne $gemma4CapturedRequest -and $gemma4CapturedRequest.Path -ceq '/api/chat' -and $gemma4CapturedRequest.Body.model -ceq 'gemma4:26b' -and
+        $gemma4CapturedRequest.Body.messages.Count -eq 1 -and $gemma4CapturedRequest.Body.messages[0].role -ceq 'user' -and
+        $gemma4CapturedRequest.Body.messages[0].content -ceq 'synthetic fixed prompt' -and
+        $gemma4CapturedRequest.Body.think -eq $false -and $gemma4CapturedRequest.Body.stream -eq $false)
+    $gemma4InvalidResponseRejected=$false
+    try {
+        & $module {
+            param($Plan)
+            Invoke-LabAiEndpointRequest -Plan $Plan -InputText 'synthetic fixed prompt' -Transport {
+                [PSCustomObject]@{StatusCode=200;Body=[PSCustomObject]@{error='private synthetic server detail'}}
+            }
+        } $gemma4Plan
+    } catch { $gemma4InvalidResponseRejected=$_.Exception.Message -eq 'AI_ENDPOINT_GENERATION_ERROR' }
+    Add-CheckResult 'Modellfehlerdetails werden nicht ausgegeben oder gespeichert' $gemma4InvalidResponseRejected
+    $gemma4EmptyResponseRejected=$false
+    try {
+        & $module {
+            param($Plan)
+            Invoke-LabAiEndpointRequest -Plan $Plan -InputText 'synthetic fixed prompt' -Transport {
+                [PSCustomObject]@{StatusCode=200;Body=[PSCustomObject]@{message=[PSCustomObject]@{content=' '}}}
+            }
+        } $gemma4Plan
+    } catch { $gemma4EmptyResponseRejected=$_.Exception.Message -eq 'AI_ENDPOINT_GENERATION_RESPONSE_INVALID' }
+    Add-CheckResult 'Leerer Chat-Inhalt endet mit festem Responsefehler' $gemma4EmptyResponseRejected
+
     $stubPlan=& $module { New-LabAiEndpointPlan -ModelKey ollama-embeddinggemma-300m-q4 -EndpointRef deterministic-stub -Lane stub -RetryCount 1 }
     $httpsStubPlan=& $module {
         New-LabAiEndpointPlan -ModelKey ollama-embeddinggemma-300m-q4 -EndpointRef deterministic-https-stub -Lane stub `
@@ -188,7 +236,7 @@ try {
     $httpsStubProjection=[ordered]@{
         Contract=$httpsStubPlan.Contract;Status=$httpsStubPlan.Status;Lane=$httpsStubPlan.Lane
         EndpointRef=$httpsStubPlan.EndpointRef;TargetHost=$httpsStubPlan.TargetHost;ModelKey=$httpsStubPlan.ModelKey
-        Purpose=$httpsStubPlan.Purpose;Dimension=$httpsStubPlan.Dimension;InputProfile=$httpsStubPlan.InputProfile;Port=$httpsStubPlan.Port
+        Purpose=$httpsStubPlan.Purpose;GenerationApi=$httpsStubPlan.GenerationApi;Think=$httpsStubPlan.Think;Dimension=$httpsStubPlan.Dimension;InputProfile=$httpsStubPlan.InputProfile;Port=$httpsStubPlan.Port
         ServerCertificateSha256=$httpsStubPlan.ServerCertificateSha256;CredentialRef=$httpsStubPlan.CredentialRef
         Egress=$httpsStubPlan.Egress;RequestBudget=$httpsStubPlan.RequestBudget;Blockers=@($httpsStubPlan.Blockers)
         Warnings=@($httpsStubPlan.Warnings);PlanKey=$httpsStubPlan.PlanKey
@@ -302,6 +350,17 @@ try {
         (($publicLocalPlan | ConvertTo-Json -Depth 20) | Test-Json -SchemaFile $endpointSchema -ErrorAction SilentlyContinue) -and
         $publicLocalPlan.Port -eq 23456 -and $publicLocalPlan.InputProfile -ceq 'raw' -and
         $null -eq $publicLocalPlan.CredentialRef -and $publicLocalPlan.Egress -eq 'denied')
+
+    $gemma4PublicLocalPlan=& $module {
+        Invoke-SqlServerLabAiModel -ModelKey ollama-gemma4-26b-local -Lane local -LocalPort 23456 `
+            -InputText 'synthetisch' -DataClassification synthetic-only -RetryCount 0 -WhatIf
+    }
+    Add-CheckResult 'Gemma4 öffentlicher WhatIf-Plan bleibt lokal, credentialfrei und ohne Egress' (
+        (($gemma4PublicLocalPlan | ConvertTo-Json -Depth 20) | Test-Json -SchemaFile $endpointSchema -ErrorAction SilentlyContinue) -and
+        $gemma4PublicLocalPlan.Status -ceq 'NOT_PROBED' -and $gemma4PublicLocalPlan.ModelKey -ceq 'ollama-gemma4-26b-local' -and
+        $gemma4PublicLocalPlan.Port -eq 23456 -and $gemma4PublicLocalPlan.RequestBudget.RetryCount -eq 0 -and
+        $gemma4PublicLocalPlan.GenerationApi -ceq 'chat' -and $gemma4PublicLocalPlan.Think -eq $false -and
+        $null -eq $gemma4PublicLocalPlan.CredentialRef -and $gemma4PublicLocalPlan.Egress -ceq 'denied')
 
     $laneMismatch=& $module {
         New-LabAiEndpointPlan -ModelKey ollama-gpt-oss-120b-cloud -EndpointRef ollama-local -Lane local
