@@ -104,6 +104,10 @@ function Get-LabTlsLinuxBridgeFailureCodes {
         'TLS_LINUX_VERIFIER_REPLY_BINDING_REJECTED','TLS_LINUX_VERIFIER_REPLY_TIME_REJECTED',
         'TLS_LINUX_VERIFIER_REPLY_WINDOW_REJECTED','TLS_LINUX_VERIFIER_REPLY_DEADLINE_EXCEEDED',
         'TLS_LINUX_EXPORT_DOCUMENT_INVALID','TLS_LINUX_EXPORT_PAYLOAD_INVALID','TLS_LINUX_EXPORT_BINDING_INVALID',
+        'TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_CREATE','TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_START',
+        'TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_LAYOUT','TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_TRUST_WRITE',
+        'TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_OBSERVATION','TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_NAMESPACE_CHECK',
+        'TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_QUALIFICATION',
         'LAB_LINUX_PEER_REQUIRED','LAB_LINUX_ENDPOINT_INVALID','LAB_LINUX_SQLCLIENT_CHANGED','LAB_LINUX_CONNECTION_INVALID',
         'LAB_LINUX_SQLCLIENT_RESULT','LAB_LINUX_SQLCMD_CHANGED','LAB_LINUX_SQLCMD_TIMEOUT','LAB_LINUX_ODBC_AMBIGUOUS',
         'LAB_LINUX_ODBC_RESULT','LAB_LINUX_CHILD_TERMINATION_UNCONFIRMED',
@@ -139,6 +143,21 @@ function Get-LabTlsLinuxBridgeFailureCodeFromError {
         $exception=$exception.InnerException
     }
     return 'STDERR_UNCLASSIFIED'
+}
+
+function Get-LabTlsRuntimeTimeoutCode {
+    param([string]$OperationStage='unspecified')
+    switch -CaseSensitive ($OperationStage) {
+        'linux-client-create' { return 'TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_CREATE' }
+        'linux-client-start' { return 'TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_START' }
+        'linux-client-layout' { return 'TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_LAYOUT' }
+        'linux-client-trust-write' { return 'TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_TRUST_WRITE' }
+        'linux-client-observation' { return 'TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_OBSERVATION' }
+        'linux-client-namespace-check' { return 'TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_NAMESPACE_CHECK' }
+        'linux-client-qualification' { return 'TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_QUALIFICATION' }
+        'unspecified' { return 'TLS_LAB_RUNTIME_TIMEOUT' }
+        default { throw 'TLS_LAB_OPERATION_STAGE_INVALID' }
+    }
 }
 
 function New-LabTlsLinuxBridgeFailureFrame {
@@ -204,7 +223,7 @@ function Invoke-LabTlsContainer {
     try{
         $started=$process.Start();$stdout=$process.StandardOutput.ReadToEndAsync();$stderr=$process.StandardError.ReadToEndAsync()
         if($InputText){$write=$process.StandardInput.WriteAsync($InputText);if(-not $write.Wait(10000)){throw 'TLS_LAB_RUNTIME_INPUT_TIMEOUT'};$null=$write.GetAwaiter().GetResult()};$process.StandardInput.Close()
-        if(-not $process.WaitForExit(45000)){throw 'TLS_LAB_RUNTIME_TIMEOUT'}
+        if(-not $process.WaitForExit(45000)){throw (Get-LabTlsRuntimeTimeoutCode $OperationStage)}
         $output=$stdout.GetAwaiter().GetResult();$errorText=$stderr.GetAwaiter().GetResult()
         if($process.ExitCode -ne 0 -or $output.Length -gt 1048576){throw (Get-LabTlsRuntimeFailureSummary -ExitCode $process.ExitCode -StandardError $errorText -OutputLength $output.Length -StandardOutput $output -OperationStage $OperationStage)}
         return $output.TrimEnd("`r","`n")

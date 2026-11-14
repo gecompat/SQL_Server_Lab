@@ -199,5 +199,28 @@ Check 'Linux reader preserves only closed stage codes and keeps Windows errors g
     }
     try{& $m {& $script:Check}}finally{Remove-Module $m -Force}
 }
+if($IsWindows){Check 'Public reader carries timeout stage only after private controller binding' {
+    $m=New-Module -ArgumentList $repo -ScriptBlock {
+        param($Root)
+        . (Join-Path $Root 'Public/Read-SqlServerLabQualifiedTestEnvironment.ps1')
+        function Assert-LabTlsLinuxControllerSession { if($script:rejectBinding){throw 'TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_OBSERVATION'} }
+        function Read-LabTlsQualifiedExportSnapshot { throw $script:stageCode }
+        $script:invoke={
+            param([bool]$Controller,[bool]$RejectBinding)
+            $script:rejectBinding=$RejectBinding;$script:stageCode='TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_NAMESPACE_CHECK'
+            $arguments=@{ExportBytes=[byte[]]@(1);RunId='synthetic-run';InstanceId='primary';StateRoot='synthetic-root'}
+            if($Controller){$arguments.LinuxSessionRef='a'*64;$arguments.LinuxClientStack='SYSTEM_DATA_SQLCLIENT'}
+            try{$null=Read-SqlServerLabQualifiedTestEnvironment @arguments;'NO_ERROR'}catch{$_.Exception.Message}
+        }
+    }
+    try{
+        $bound=& $m {& $script:invoke $true $false}
+        $unbound=& $m {& $script:invoke $true $true}
+        $ordinary=& $m {& $script:invoke $false $false}
+        Add-CheckResult 'Bound controller preserves a fixed Linux timeout stage through the actual public catch' ($bound-ceq'TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_NAMESPACE_CHECK')
+        Add-CheckResult 'Controller binding failure keeps timeout detail generic' ($unbound-ceq'TLS_EXPORT_READ_REJECTED')
+        Add-CheckResult 'Ordinary Windows reader keeps timeout detail generic' ($ordinary-ceq'TLS_EXPORT_READ_REJECTED')
+    }finally{Remove-Module $m -Force}
+}}
 [pscustomobject]@{Suite='AuthenticatedTlsLinuxPeer';Passed=$passed;Failed=$failures.Count;ProviderActions=0;SqlLogins=0}|ConvertTo-Json -Compress
 if($failures.Count){throw 'TLS_LINUX_PEER_CHECKS_FAILED'}

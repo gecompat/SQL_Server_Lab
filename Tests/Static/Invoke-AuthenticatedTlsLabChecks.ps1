@@ -21,6 +21,24 @@ $budget=New-LabTlsRuntimeBudget;$budget.Commands=100
 Add-CheckResult 'Command ceiling rejects before native process start' (Test-TlsLabReject {Invoke-LabTlsContainer @('never-executed') -Budget $budget})
 $budget=New-LabTlsRuntimeBudget;$budget.DeadlineUtc=[datetime]::UtcNow.AddSeconds(-1)
 Add-CheckResult 'Time ceiling rejects before native process start' (Test-TlsLabReject {Invoke-LabTlsContainer @('never-executed') -Budget $budget})
+$timeoutStages=@{
+    'linux-client-create'='TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_CREATE'
+    'linux-client-start'='TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_START'
+    'linux-client-layout'='TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_LAYOUT'
+    'linux-client-trust-write'='TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_TRUST_WRITE'
+    'linux-client-observation'='TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_OBSERVATION'
+    'linux-client-namespace-check'='TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_NAMESPACE_CHECK'
+    'linux-client-qualification'='TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_QUALIFICATION'
+}
+foreach($stage in $timeoutStages.Keys){
+    $code=Get-LabTlsRuntimeTimeoutCode $stage
+    Add-CheckResult ('Runtime timeout preserves only the fixed safe stage token: '+$stage) ($code-ceq$timeoutStages[$stage] -and (Get-LabTlsLinuxBridgeFailureCodes)-ccontains$code)
+    $record=[Management.Automation.ErrorRecord]::new([InvalidOperationException]::new($code),'synthetic',[Management.Automation.ErrorCategory]::NotSpecified,$null)
+    Add-CheckResult ('Runtime timeout stage survives public privacy projection: '+$stage) ((Get-LabTlsSafePublicLinuxFailureCode $record)-ceq$code)
+    Add-CheckResult ('Runtime timeout stage survives Linux bridge projection: '+$stage) ((Get-LabTlsLinuxBridgeFailureCodeFromError $record)-ceq$code)
+}
+Add-CheckResult 'Unspecified runtime timeout keeps the legacy safe code' ((Get-LabTlsRuntimeTimeoutCode)-ceq'TLS_LAB_RUNTIME_TIMEOUT')
+Add-CheckResult 'Runtime timeout rejects caller supplied stage text' (Test-TlsLabReject {Get-LabTlsRuntimeTimeoutCode 'password=synthetic-secret'})
 $other=New-LabTlsRuntimeBudget
 Add-CheckResult 'Independent operations retain separate counters and deadlines' ($other.Commands -eq 0 -and $other.DeadlineUtc -gt [datetime]::UtcNow -and $budget.Commands -eq 1)
 $safeRuntimeFailure=Get-LabTlsRuntimeFailureSummary -ExitCode 17 -StandardError 'Error response from daemon: container synthetic-id is not running; password=synthetic-secret' -OutputLength 12 -OperationStage 'linux-client-qualification'

@@ -7,6 +7,10 @@ function Get-LabTlsSafeLinuxPeerReadFailureCode {
         'TLS_LINUX_VERIFIER_REPLY_FRAME_REJECTED','TLS_LINUX_VERIFIER_REPLY_SCHEMA_REJECTED',
         'TLS_LINUX_VERIFIER_REPLY_BINDING_REJECTED','TLS_LINUX_VERIFIER_REPLY_TIME_REJECTED',
         'TLS_LINUX_VERIFIER_REPLY_WINDOW_REJECTED','TLS_LINUX_VERIFIER_REPLY_DEADLINE_EXCEEDED',
+        'TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_CREATE','TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_START',
+        'TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_LAYOUT','TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_TRUST_WRITE',
+        'TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_OBSERVATION','TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_NAMESPACE_CHECK',
+        'TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_QUALIFICATION',
         'TLS_LINUX_EXPORT_DOCUMENT_INVALID',
         'TLS_LINUX_EXPORT_PAYLOAD_INVALID','TLS_LINUX_EXPORT_BINDING_INVALID',
         'TLS_LINUX_PEER_REJECTED'
@@ -75,6 +79,7 @@ function Read-SqlServerLabQualifiedTestEnvironment {
         [string]$LinuxSessionRef,
         [ValidateSet('SYSTEM_DATA_SQLCLIENT','ODBC_SQLCMD')][string]$LinuxClientStack='SYSTEM_DATA_SQLCLIENT'
     )
+    $boundLinuxController=$false
     try {
         if($PSVersionTable.PSVersion -lt [version]'7.5'){throw 'TLS_EXPORT_READ_REJECTED'}
         if(-not $IsWindows){
@@ -85,6 +90,7 @@ function Read-SqlServerLabQualifiedTestEnvironment {
         if($linuxController){
             if($PSCmdlet.ParameterSetName-cne'Bytes'){throw 'TLS_EXPORT_READ_REJECTED'}
             Assert-LabTlsLinuxControllerSession $StateRoot $RunId $InstanceId $ExportBytes $LinuxSessionRef $LinuxClientStack
+            $boundLinuxController=$true
         }
         $parameters=@{StateRoot=$StateRoot;RunId=$RunId;InstanceId=$InstanceId}
         if($linuxController){$parameters.AllowLinuxController=$true}
@@ -95,5 +101,5 @@ function Read-SqlServerLabQualifiedTestEnvironment {
         $platform=$snapshot.Qualification.PSObject.Properties['ClientPlatform']
         if($platform-and$platform.Value-ceq'linux'-and-not$linuxController){throw 'TLS_EXPORT_READ_REJECTED'}
         return $snapshot
-    } catch {throw (Get-LabTlsSafeLinuxPeerReadFailureCode -ErrorRecord $_ -Linux:$IsLinux)}
+    } catch {throw (Get-LabTlsSafeLinuxPeerReadFailureCode -ErrorRecord $_ -Linux:($IsLinux-or$boundLinuxController))}
 }
