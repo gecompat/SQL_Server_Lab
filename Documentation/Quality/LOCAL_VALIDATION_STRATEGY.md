@@ -256,6 +256,17 @@ Die drei Docker-Quellframes und der spätere Podman-Korrekturframe bleiben
 getrennte Nachweise. Der Schlussstand besitzt keinen erneut ausgeführten
 gemeinsamen Docker-/Podman-Linux-Nachweis.
 
+Ein späterer öffentlicher Linux-Consumerlauf endete beim Kindprozess mit
+Timeout, aber ohne wiederherstellbare innere Fehlermeldung. Die Diagnosebrücke
+bewahrt nun eine Phase nur aus einer exakt geformten, geheimnisfreien
+Runtime-Zusammenfassung mit gültigem nichtnulligem Exitcode, kanonischen
+Int32-Zählern und geschlossener Phasenliste. Die gezielte Peer-Suite bestand
+mit 59/0; sechs betroffene statische Suiten einschließlich Analyzer bestanden.
+Der unabhängige Review fand keine offenen Punkte. Das ist ein
+Diagnose-/Offline-Nachweis: der zugrunde liegende Runtimefehler und ein
+öffentlicher Linux-TLS-PASS bleiben offen; aus einer leeren stderr-Angabe wird
+keine SQL-, TLS- oder CA-Ursache abgeleitet.
+
 Die fokussierte Suite bestand zuletzt mit 364/0. Die 22 ausgewählten lokalen
 Integrationssuites und das vierteilige Korrekturdelta einschließlich vollständigem
 Analyzer bestanden; unabhängige Produkt- und Zulassungsreviews ohne offene
