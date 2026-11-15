@@ -87,7 +87,7 @@ try{
         Add-CheckResult 'Current revised metadata registration is idempotent' ($repeat.RegistrySha256 -ceq $signerRevised.RegistrySha256 -and $repeat.Authority.Generation -eq $signerRevised.Authority.Generation)
         $binding=$signerRevised;$parsed=$parsedCurrent;$original=$current
         foreach($field in @('CertificateSha256','EncryptedKeySha256','ClientRef','ClientGeneration','Store','NotAfterUtc')){
-            $bad=$parsed.Value.RegistryDocument|ConvertTo-Json -Depth 12|ConvertFrom-Json -Depth 12
+            $bad=$parsed.Value.RegistryDocument|ConvertTo-Json -Depth 12|ConvertFrom-Json -Depth 12 -DateKind String
             $authority=@($bad.Payloads|Where-Object Kind -CEQ AUTHORITY)[0]
             switch($field){
                 ClientGeneration {$authority.ClientGeneration=[int]$authority.ClientGeneration+1}
