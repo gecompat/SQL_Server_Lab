@@ -121,6 +121,16 @@ function Get-LabTlsLinuxBridgeFailureCodes {
     )
 }
 
+function Get-LabTlsLinuxExpectedNextFrame {
+    param([bool]$Hello,[int]$VerifierRequests,[bool]$ResultSeen,[string]$LastVerifiedStack)
+    if($ResultSeen){return 'none'}
+    if(-not$Hello){return 'HELLO'}
+    if($VerifierRequests-eq0){return 'VERIFY_SYSTEM_DATA_SQLCLIENT'}
+    if($VerifierRequests-eq1-and$LastVerifiedStack-ceq'SYSTEM_DATA_SQLCLIENT'){return 'VERIFY_ODBC_SQLCMD'}
+    if($VerifierRequests-eq2-and$LastVerifiedStack-ceq'ODBC_SQLCMD'){return 'RESULT'}
+    return 'none'
+}
+
 function Get-LabTlsLinuxBridgeFailureCode {
     param([AllowNull()][byte[]]$EnvelopeBytes)
     if($null -eq $EnvelopeBytes -or $EnvelopeBytes.Length -lt 1 -or $EnvelopeBytes.Length -gt 4096){return $null}

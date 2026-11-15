@@ -127,12 +127,16 @@ function Get-LabTlsSafePublicLinuxFailureCode {
     foreach($code in Get-LabTlsLinuxBridgeFailureCodes){$null=$safeRuntimeClasses.Add($code)}
     while($null-ne$exception){
         $message=[string]$exception.Message
-        if($message -cmatch '\ATLS_LINUX_CHILD_EXIT_NONZERO\|exitCode=(-?[0-9]{1,10})\|hello=([01])\|verifierRequests=([0-9]{1,2})\|resultSeen=([01])(?:\|lastVerifiedStack=(none|SYSTEM_DATA_SQLCLIENT|ODBC_SQLCMD))?\|stderrClass=([A-Z0-9_]{1,64})\|stderrBytes=([0-9]{1,10})\z'){
-            $exitCode=[long]$Matches[1];$stderrClass=$Matches[6];$stderrBytes=[long]$Matches[7]
+        if($message -cmatch '\ATLS_LINUX_CHILD_EXIT_NONZERO\|exitCode=(-?[0-9]{1,10})\|hello=([01])\|verifierRequests=([0-9]{1,2})\|resultSeen=([01])(?:\|lastVerifiedStack=(none|SYSTEM_DATA_SQLCLIENT|ODBC_SQLCMD))?(?:\|nextExpectedFrame=(HELLO|VERIFY_SYSTEM_DATA_SQLCLIENT|VERIFY_ODBC_SQLCMD|RESULT|none))?\|stderrClass=([A-Z0-9_]{1,64})\|stderrBytes=([0-9]{1,10})\z'){
+            $exitCode=[long]$Matches[1];$hello=$Matches[2]-ceq'1';$stderrClass=$Matches[7];$stderrBytes=[long]$Matches[8]
             $verifierRequests=[int]$Matches[3]
+            $resultSeen=$Matches[4]-ceq'1'
             $lastVerifiedStackPresent=$message.Contains('|lastVerifiedStack=')
             $lastVerifiedStackValid=(-not$lastVerifiedStackPresent-or$Matches[5]-cin @('none','SYSTEM_DATA_SQLCLIENT','ODBC_SQLCMD'))
-            if($exitCode-ge[int]::MinValue-and$exitCode-le[int]::MaxValue-and$verifierRequests-ge0-and$verifierRequests-le16-and$lastVerifiedStackValid-and
+            $nextExpectedFramePresent=$message.Contains('|nextExpectedFrame=')
+            $nextExpectedFrameValid=(-not$nextExpectedFramePresent-or
+                ($Matches[6]-ceq(Get-LabTlsLinuxExpectedNextFrame -Hello $hello -VerifierRequests $verifierRequests -ResultSeen $resultSeen -LastVerifiedStack ([string]$Matches[5]))))
+            if($exitCode-ge[int]::MinValue-and$exitCode-le[int]::MaxValue-and$verifierRequests-ge0-and$verifierRequests-le16-and$lastVerifiedStackValid-and$nextExpectedFrameValid-and
                 $safeRuntimeClasses.Contains($stderrClass)-and$stderrBytes-ge0-and$stderrBytes-le1048576){return $message}
         }
         if($message -cin $safePublicTokens-or$message -cmatch '\ATLS_SQLCLIENT_(?:CONSTRUCT|OPEN|QUERY|CLEANUP)_(?:PLATFORM_UNSUPPORTED|ASSEMBLY_UNAVAILABLE|AUTHENTICATION|TIMEOUT|NETWORK|SQL|UNCLASSIFIED)\z'){

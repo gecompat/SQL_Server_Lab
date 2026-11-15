@@ -103,6 +103,7 @@ function Invoke-LabTlsLinuxConsumerBridge {
                     $verifierRequests=[Math]::Min(16,[Math]::Max(0,[int]$session.Requests))
                     $lastVerifiedStack=[string]$session.LastVerifiedStack
                     if($lastVerifiedStack-cnotin @('SYSTEM_DATA_SQLCLIENT','ODBC_SQLCMD')){$lastVerifiedStack='none'}
+                    $nextExpectedFrame=Get-LabTlsLinuxExpectedNextFrame -Hello ([bool]$helloValue) -VerifierRequests $verifierRequests -ResultSeen ([bool]$resultValue) -LastVerifiedStack $lastVerifiedStack
                     $stderrLength=[long]$outputs[1].Length;$stderrClass=if($structuredFailureCode){$structuredFailureCode}else{'STDERR_UNCLASSIFIED'};$stderrText=$null
                     try{
                         if(-not$structuredFailureCode-and$stderrLength-gt0){
@@ -116,8 +117,8 @@ function Invoke-LabTlsLinuxConsumerBridge {
                         $stderrText=$null
                         if($stderrLength-gt0){[Array]::Clear($outputs[1].GetBuffer(),0,[int]$stderrLength);$outputs[1].SetLength(0)}
                     }
-                    throw ('TLS_LINUX_CHILD_EXIT_NONZERO|exitCode={0}|hello={1}|verifierRequests={2}|resultSeen={3}|lastVerifiedStack={4}|stderrClass={5}|stderrBytes={6}' -f
-                        [int]$process.ExitCode,$helloValue,$verifierRequests,$resultValue,$lastVerifiedStack,$stderrClass,$stderrLength)
+                    throw ('TLS_LINUX_CHILD_EXIT_NONZERO|exitCode={0}|hello={1}|verifierRequests={2}|resultSeen={3}|lastVerifiedStack={4}|nextExpectedFrame={5}|stderrClass={6}|stderrBytes={7}' -f
+                        [int]$process.ExitCode,$helloValue,$verifierRequests,$resultValue,$lastVerifiedStack,$nextExpectedFrame,$stderrClass,$stderrLength)
                 }
                 if($structuredFailureCode){throw 'TLS_LINUX_FAILURE_ENVELOPE_ZERO_EXIT'}
                 if($pending.Length){throw 'TLS_LINUX_BRIDGE_PROTOCOL_BYTES_PENDING'}
