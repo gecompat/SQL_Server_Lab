@@ -1014,6 +1014,10 @@ sources_of_truth:
   evidence_bounded_windows_tls_runner: Documentation/Quality/BOUNDED_WINDOWS_TLS_RUNNER_ACCEPTANCE_2026-11-04.md # corrected native SQL consumer and full coordinator7 PASS, native security14 PASS, own task/VM/export removed; actual expiry not waited
   acceptance_toolbelt_current_ssis_tls: Tests/Integration/Invoke-ToolbeltSsisCurrentTlsAcceptance.ps1 # Lab owns one fixed public lifecycle; pinned current Toolbelt SQL consumer and separate fresh SQL/VM audits
   validation_toolbelt_current_ssis_tls: Tests/Static/Invoke-ToolbeltSsisTlsAcceptanceChecks.ps1 # same composed acceptance body and pre-effect config/build rejections; no VM/SQL
+  acceptance_toolbelt_copy_ssis_tls: Tests/Integration/Invoke-ToolbeltSsisCopyColumnTlsAcceptance.ps1 # exact qualified Copy Column record/provider, same public own lifecycle and fresh SQL/Lab audits; native evidence separate
+  validation_toolbelt_copy_ssis_tls: Tests/Static/Invoke-ToolbeltSsisCopyColumnTlsChecks.ps1 # composition and pre-effect input rejection; no elevation/VM/SQL
+  validation_tls_context_reference_selection: Tests/Static/Invoke-AuthenticatedTlsContextSelectionChecks.ps1 # existing authority reference plus exact identity; duplicate/missing/foreign references fail closed without writes
+  toolbelt_copy_ssis_tls_reading_path: Documentation/Quality/SSIS_COPY_COLUMN_TLS_ACCEPTANCE.md # preparation, explicit context, limits and not-executed native status
   bounded_windows_tls_runner_contract: Documentation/Architecture/BOUNDED_WINDOWS_TLS_RUNNER.md # user-authorized same-actor highest InteractiveToken lease; fixed immutable source/workflow, two attempts/120min, no general commands or credentials
   bounded_windows_tls_runner_tools: Tools/BoundedTlsRunner/README.md # Prepare, elevated Install once, ordinary Ready/Run/Close; native qualification separate
   validation_bounded_windows_tls_runner: Tests/Static/Invoke-BoundedTlsRunnerChecks.ps1 # closed request/source/budget cases and real SqlClient preparation; native task/label/overall proof required
