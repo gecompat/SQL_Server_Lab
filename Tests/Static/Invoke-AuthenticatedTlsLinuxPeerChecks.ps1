@@ -187,6 +187,34 @@ Check 'Linux reader preserves only closed stage codes and keeps Windows errors g
                 if((Get-LabTlsSafeLinuxPeerReadFailureCode $record -Linux)-cne$code){throw 'PUBLIC_READER_DROPPED_SAFE_REPLY_CLASS'}
                 if((Get-LabTlsSafeLinuxPeerReadFailureCode $record)-cne'TLS_EXPORT_READ_REJECTED'){throw 'WINDOWS_REVEALED_LINUX_FAILURE_CLASS'}
             }
+            $timeoutStages=@{
+                'linux-client-create'='TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_CREATE'
+                'linux-client-start'='TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_START'
+                'linux-client-layout'='TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_LAYOUT'
+                'linux-client-trust-write'='TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_TRUST_WRITE'
+                'linux-client-observation'='TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_OBSERVATION'
+                'linux-client-namespace-check'='TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_NAMESPACE_CHECK'
+                'linux-client-qualification'='TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_QUALIFICATION'
+            }
+            foreach($entry in $timeoutStages.GetEnumerator()){
+                $runtimeSummary=Get-LabTlsRuntimeFailureSummary -ExitCode 137 -StandardError 'timed out' -OutputLength 0 -OperationStage $entry.Key
+                $summaryError=[Management.Automation.ErrorRecord]::new([InvalidOperationException]::new($runtimeSummary),'synthetic',[Management.Automation.ErrorCategory]::NotSpecified,$null)
+                if((Get-LabTlsLinuxBridgeFailureCodeFromError $summaryError)-cne$entry.Value){throw 'RUNTIME_TIMEOUT_STAGE_WAS_LOST'}
+            }
+            $invalidSummaries=@(
+                'TLS_LAB_RUNTIME_COMMAND_FAILED|exitCode=0|stderrClass=RUNTIME_TIMEOUT|stderrBytes=2|stdoutChars=0|operationStage=linux-client-observation',
+                'TLS_LAB_RUNTIME_COMMAND_FAILED|exitCode=1|stderrClass=RUNTIME_TIMEOUT|stderrBytes=2|stdoutChars=0|operationStage=unknown',
+                'TLS_LAB_RUNTIME_COMMAND_FAILED|exitCode=1|stderrClass=RUNTIME_TIMEOUT|stderrBytes=2|stdoutChars=0|operationStage=linux-client-observation password=synthetic-secret',
+                "TLS_LAB_RUNTIME_COMMAND_FAILED|exitCode=1|stderrClass=RUNTIME_TIMEOUT|stderrBytes=2|stdoutChars=0|operationStage=linux-client-observation`n",
+                'TLS_LAB_RUNTIME_COMMAND_FAILED|exitCode=1|stderrClass=RUNTIME_TIMEOUT|stderrBytes=٢|stdoutChars=0|operationStage=linux-client-observation',
+                'TLS_LAB_RUNTIME_COMMAND_FAILED|exitCode=1|stderrClass=RUNTIME_TIMEOUT|stderrBytes=2147483648|stdoutChars=0|operationStage=linux-client-observation',
+                'TLS_LAB_RUNTIME_COMMAND_FAILED|exitCode=1|stderrClass=RUNTIME_TIMEOUT|stderrBytes=02|stdoutChars=0|operationStage=linux-client-observation',
+                'TLS_LAB_RUNTIME_COMMAND_FAILED|exitCode=2147483648|stderrClass=RUNTIME_TIMEOUT|stderrBytes=2|stdoutChars=0|operationStage=linux-client-observation'
+            )
+            foreach($invalidSummary in $invalidSummaries){
+                $summaryError=[Management.Automation.ErrorRecord]::new([InvalidOperationException]::new($invalidSummary),'synthetic',[Management.Automation.ErrorCategory]::NotSpecified,$null)
+                if((Get-LabTlsLinuxBridgeFailureCodeFromError $summaryError)-cne'RUNTIME_TIMEOUT'){throw 'INVALID_RUNTIME_SUMMARY_WAS_NOT_GENERIC'}
+            }
             $known=[InvalidOperationException]::new('TLS_LINUX_EXPORT_DOCUMENT_INVALID')
             $wrapped=[InvalidOperationException]::new('wrapper path=C:\private password=synthetic-secret',$known)
             $knownCode=Get-LabTlsSafeLinuxPeerReadFailureCode ([Management.Automation.ErrorRecord]::new($wrapped,'synthetic',[Management.Automation.ErrorCategory]::NotSpecified,$null)) -Linux

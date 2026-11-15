@@ -136,6 +136,19 @@ function Get-LabTlsLinuxBridgeFailureCodeFromError {
         $message=[string]$exception.Message
         if($message.Length-le65536){
             if($known -ccontains $message){return $message}
+            # Preserve a Linux operation stage only when the incoming message
+            # is the exact closed summary emitted by this module. Arbitrary
+            # guest/exception text continues through the generic classifier.
+            if($message -cmatch '\ATLS_LAB_RUNTIME_COMMAND_FAILED\|exitCode=(0|-?[1-9][0-9]{0,9})\|stderrClass=([A-Z0-9_]{1,64})\|stderrBytes=(0|[1-9][0-9]{0,9})\|stdoutChars=(0|[1-9][0-9]{0,9})\|operationStage=(unspecified|linux-client-create|linux-client-start|linux-client-layout|linux-client-trust-write|linux-client-observation|linux-client-namespace-check|linux-client-qualification)\z'){
+                $summaryClass=$Matches[2]
+                $summaryStage=$Matches[5]
+                $exitCode=0;$stderrBytes=0;$stdoutChars=0
+                $countersValid=[int]::TryParse($Matches[1],[ref]$exitCode) -and [int]::TryParse($Matches[3],[ref]$stderrBytes) -and [int]::TryParse($Matches[4],[ref]$stdoutChars)
+                if($countersValid -and $exitCode-ne0 -and $summaryClass-ceq'RUNTIME_TIMEOUT'){
+                    try{$stageCode=Get-LabTlsRuntimeTimeoutCode -OperationStage $summaryStage}catch{$stageCode=$null}
+                    if($stageCode -and $known -ccontains $stageCode){return $stageCode}
+                }
+            }
             try{
                 $summary=Get-LabTlsRuntimeFailureSummary -ExitCode 1 -StandardError $message -OutputLength 0 -OperationStage 'linux-client-observation'
                 if($summary -match '\|stderrClass=([A-Z0-9_]{1,64})\|' -and $known -ccontains $Matches[1]){return $Matches[1]}
