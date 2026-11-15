@@ -185,6 +185,24 @@ try{
                 $bytes=[Convert]::FromBase64String($frame.Frame.Substring(8))
                 $parsed=& $module {param($EnvelopeBytes)Get-LabTlsLinuxBridgeFailureCode $EnvelopeBytes} $bytes
                 Assert ($parsed-ceq'TLS_CERTIFICATE') 'Peer entry failure frame must satisfy the strict controller parser'
+                $typedTimeout=& $module {
+                    try{throw [InvalidOperationException]::new('operation timed out; synthetic-private-detail',[TimeoutException]::new('synthetic-private-detail'))}catch{New-LabTlsLinuxBridgeFailureFrame $_}
+                }
+                $typedTimeoutBytes=[Convert]::FromBase64String($typedTimeout.Frame.Substring(8))
+                $typedTimeoutParsed=& $module {param($EnvelopeBytes)Get-LabTlsLinuxBridgeFailureCode $EnvelopeBytes} $typedTimeoutBytes
+                Assert ($typedTimeout.Code-ceq'RUNTIME_TIMEOUT_TIMEOUT_EXCEPTION'-and$typedTimeoutParsed-ceq$typedTimeout.Code-and$typedTimeout.Frame -notmatch 'synthetic-private-detail') 'Timeout exception kind must survive the private peer frame without raw details'
+                $socketTimeout=& $module {
+                    try{throw [InvalidOperationException]::new('network operation timed out; synthetic-private-detail',[Net.Sockets.SocketException]::new([Net.Sockets.SocketError]::TimedOut))}catch{New-LabTlsLinuxBridgeFailureFrame $_}
+                }
+                $socketTimeoutBytes=[Convert]::FromBase64String($socketTimeout.Frame.Substring(8))
+                $socketTimeoutParsed=& $module {param($EnvelopeBytes)Get-LabTlsLinuxBridgeFailureCode $EnvelopeBytes} $socketTimeoutBytes
+                Assert ($socketTimeout.Code-ceq'RUNTIME_TIMEOUT_SOCKET_TIMEOUT'-and$socketTimeoutParsed-ceq$socketTimeout.Code-and$socketTimeout.Frame -notmatch 'synthetic-private-detail') 'Socket timeout kind must survive the private peer frame without raw details'
+                $taskCancellation=& $module {
+                    try{throw [InvalidOperationException]::new('operation timeout; synthetic-private-detail',[Threading.Tasks.TaskCanceledException]::new('synthetic-private-detail'))}catch{New-LabTlsLinuxBridgeFailureFrame $_}
+                }
+                $taskCancellationBytes=[Convert]::FromBase64String($taskCancellation.Frame.Substring(8))
+                $taskCancellationParsed=& $module {param($EnvelopeBytes)Get-LabTlsLinuxBridgeFailureCode $EnvelopeBytes} $taskCancellationBytes
+                Assert ($taskCancellation.Code-ceq'RUNTIME_TIMEOUT_OPERATION_CANCELED'-and$taskCancellationParsed-ceq$taskCancellation.Code-and$taskCancellation.Frame -notmatch 'synthetic-private-detail') 'Task cancellation subtype must map to its base safe category without raw details'
             }
         }
     }

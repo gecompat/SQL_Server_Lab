@@ -95,7 +95,8 @@ function Get-LabTlsLinuxProbeFailureCode {
 
 function Get-LabTlsLinuxBridgeFailureCodes {
     return [string[]]@(
-        'STDERR_UNCLASSIFIED','TLS_CERTIFICATE','PERMISSION_DENIED','NETWORK_NOT_FOUND','RUNTIME_TIMEOUT','DAEMON_REJECTED_REQUEST',
+        'STDERR_UNCLASSIFIED','TLS_CERTIFICATE','PERMISSION_DENIED','NETWORK_NOT_FOUND','RUNTIME_TIMEOUT',
+        'RUNTIME_TIMEOUT_TIMEOUT_EXCEPTION','RUNTIME_TIMEOUT_SOCKET_TIMEOUT','RUNTIME_TIMEOUT_SQLCLIENT_TIMEOUT','RUNTIME_TIMEOUT_OPERATION_CANCELED','DAEMON_REJECTED_REQUEST',
         'CONTAINER_NOT_FOUND','CONTAINER_NOT_RUNNING','PORT_CONFLICT','DAEMON_UNREACHABLE','REGISTRY_AUTHORIZATION','IMAGE_NOT_FOUND',
         'TLS_SQLCLIENT_RESULT_INVALID','TLS_SQLCMD_TIMEOUT','TLS_ODBC_AMBIGUOUS','TLS_SQLCMD_RESULT_INVALID',
         'TLS_SQLCLIENT_OPEN_TIMEOUT','TLS_SQLCLIENT_QUERY_TIMEOUT',
@@ -151,12 +152,36 @@ function Get-LabTlsLinuxBridgeFailureCodeFromError {
             }
             try{
                 $summary=Get-LabTlsRuntimeFailureSummary -ExitCode 1 -StandardError $message -OutputLength 0 -OperationStage 'linux-client-observation'
-                if($summary -match '\|stderrClass=([A-Z0-9_]{1,64})\|' -and $known -ccontains $Matches[1]){return $Matches[1]}
+                if($summary -match '\|stderrClass=([A-Z0-9_]{1,64})\|' -and $known -ccontains $Matches[1]){
+                    if($Matches[1]-ceq'RUNTIME_TIMEOUT'){
+                        $timeoutCause=Get-LabTlsLinuxTimeoutCauseCode $ErrorRecord.Exception
+                        if($known-ccontains$timeoutCause){return $timeoutCause}
+                    }
+                    return $Matches[1]
+                }
             }catch{}
         }
         $exception=$exception.InnerException
     }
     return 'STDERR_UNCLASSIFIED'
+}
+
+function Get-LabTlsLinuxTimeoutCauseCode {
+    param([System.Exception]$Exception)
+    while($null-ne$Exception){
+        $type=$Exception.GetType().FullName
+        if($type-ceq'System.TimeoutException'){return 'RUNTIME_TIMEOUT_TIMEOUT_EXCEPTION'}
+        if($Exception-is[System.OperationCanceledException]){return 'RUNTIME_TIMEOUT_OPERATION_CANCELED'}
+        if($type-ceq'System.Net.Sockets.SocketException'){
+            if($Exception.SocketErrorCode-eq[Net.Sockets.SocketError]::TimedOut){return 'RUNTIME_TIMEOUT_SOCKET_TIMEOUT'}
+        }
+        if($type-ceq'System.Data.SqlClient.SqlException'){
+            $numberProperty=$Exception.GetType().GetProperty('Number',[Reflection.BindingFlags]'Instance,Public')
+            if($numberProperty){try{if([int]$numberProperty.GetValue($Exception)-eq-2){return 'RUNTIME_TIMEOUT_SQLCLIENT_TIMEOUT'}}catch{}}
+        }
+        $Exception=$Exception.InnerException
+    }
+    return 'RUNTIME_TIMEOUT'
 }
 
 function Get-LabTlsRuntimeTimeoutCode {
