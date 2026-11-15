@@ -115,8 +115,16 @@ function Register-LabTlsOperationalAuthority {
         $fresh=$prototypes[$kind]
         $record=Get-LabTlsPayloadIndexRecord $fresh
         $matching=@($payloads|Where-Object {$_.Kind -ceq $kind -and $_.Status -ceq 'ACTIVE' -and (Get-LabTlsPayloadIndexRecord $_).IdentityDigest -ceq $record.IdentityDigest})
-        if($matching.Count -gt 1){throw 'TLS_AUTHORITY_CONTEXT_AMBIGUOUS'}
         $expectedRef=if($activeCandidateAuthorities.Count -eq 1){if($kind -ceq 'CLIENT_CONTEXT'){$activeCandidateAuthorities[0].ClientRef}else{$activeCandidateAuthorities[0].SignerContextRef}}else{$null}
+        # Eine bestehende Authority bindet bereits eine konkrete Referenz.
+        # Identitätsgleiche Datensätze anderer Authorities dürfen diese Bindung
+        # weder ersetzen noch allein wegen ihrer Existenz unbrauchbar machen.
+        # Die Ref muss zusätzlich zur vollständigen aktuellen Identität passen.
+        if($expectedRef){
+            $matching=@($matching|Where-Object Ref -CEQ $expectedRef)
+            if($matching.Count -ne 1){throw 'TLS_AUTHORITY_CONTEXT_IDENTITY_CHANGED'}
+        }
+        if($matching.Count -gt 1){throw 'TLS_AUTHORITY_CONTEXT_AMBIGUOUS'}
         if($matching.Count -eq 1){
             if($expectedRef -and $matching[0].Ref -cne $expectedRef){throw 'TLS_AUTHORITY_CONTEXT_IDENTITY_CHANGED'}
             $oldRecord=Get-LabTlsPayloadIndexRecord $matching[0]

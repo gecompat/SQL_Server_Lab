@@ -63,6 +63,8 @@ end {
 
     $staticGroups = @(
         @{ Pattern = '^Tests/(Integration/Invoke-ToolbeltSsisCurrentTlsAcceptance|Static/Invoke-ToolbeltSsisTlsAcceptanceChecks)\.ps1$'; Checks = @('Invoke-ToolbeltSsisTlsAcceptanceChecks.ps1') },
+        @{ Pattern = '^Tests/(Integration/Invoke-ToolbeltSsisCopyColumnTlsAcceptance|Static/Invoke-ToolbeltSsisCopyColumnTlsChecks)\.ps1$'; Checks = @('Invoke-ToolbeltSsisCopyColumnTlsChecks.ps1') },
+        @{ Pattern = '^(Private/AuthenticatedTlsAuthority|Tests/Static/Invoke-AuthenticatedTlsContextSelectionChecks)\.ps1$'; Checks = @('Invoke-AuthenticatedTlsContextSelectionChecks.ps1') },
         @{ Pattern = '^(Tools/BoundedTlsRunner/.*\.ps1|Tests/Integration/Invoke-AuthenticatedTlsWindowsPublic(?:Acceptance|CleanupAudit)\.ps1|Tests/Static/Invoke-BoundedTlsRunnerChecks\.ps1)$'; Checks = @('Invoke-BoundedTlsRunnerChecks.ps1') },
         @{ Pattern = '^(Private/SqlFeatures\.ps1|Public/Set-SqlServerLabFeature\.ps1|Providers/HyperV/HyperVSqlFeatures\.ps1|Tools/Set-SqlServerLabFullText\.sh|Tests/(Static/Invoke-SqlFeatureChecks|Static/Fixtures/SqlFeature(?:Mutation|Readiness|Reconcile)Checks|Integration/Invoke-SqlFeatureAcceptance)\.ps1)$'; Checks = @('Invoke-SqlFeatureChecks.ps1') },
         @{ Pattern = '^(Public/(Update-SqlServerLabContainer|Set-SqlServerLabContainerAutoStart|Resume-SqlServerLabContainerAutoStart)|Private/(ExternalRuntimeReconcile|HyperV(?:ExternalRuntime|Resource|SqlConfiguration|SqlPort|Storage|TestDatabase)Reconcile))\.ps1$'; Checks = @('Invoke-SqlFeatureChecks.ps1') },
