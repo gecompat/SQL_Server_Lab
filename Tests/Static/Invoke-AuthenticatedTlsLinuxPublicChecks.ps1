@@ -203,6 +203,18 @@ try{
                 $taskCancellationBytes=[Convert]::FromBase64String($taskCancellation.Frame.Substring(8))
                 $taskCancellationParsed=& $module {param($EnvelopeBytes)Get-LabTlsLinuxBridgeFailureCode $EnvelopeBytes} $taskCancellationBytes
                 Assert ($taskCancellation.Code-ceq'RUNTIME_TIMEOUT_OPERATION_CANCELED'-and$taskCancellationParsed-ceq$taskCancellation.Code-and$taskCancellation.Frame -notmatch 'synthetic-private-detail') 'Task cancellation subtype must map to its base safe category without raw details'
+                $powershellTimeout=& $module {
+                    try{throw 'operation timed out; synthetic-private-detail'}catch{New-LabTlsLinuxBridgeFailureFrame $_}
+                }
+                $powershellTimeoutBytes=[Convert]::FromBase64String($powershellTimeout.Frame.Substring(8))
+                $powershellTimeoutParsed=& $module {param($EnvelopeBytes)Get-LabTlsLinuxBridgeFailureCode $EnvelopeBytes} $powershellTimeoutBytes
+                Assert ($powershellTimeout.Code-ceq'RUNTIME_TIMEOUT_POWERSHELL_RUNTIME_EXCEPTION'-and$powershellTimeoutParsed-ceq$powershellTimeout.Code-and$powershellTimeout.Frame -notmatch 'synthetic-private-detail') 'PowerShell runtime timeout wrapper must preserve a safe fixed type code without raw details'
+                $otherTypedTimeout=& $module {
+                    try{throw [InvalidOperationException]::new('operation timeout; synthetic-private-detail')}catch{New-LabTlsLinuxBridgeFailureFrame $_}
+                }
+                $otherTypedTimeoutBytes=[Convert]::FromBase64String($otherTypedTimeout.Frame.Substring(8))
+                $otherTypedTimeoutParsed=& $module {param($EnvelopeBytes)Get-LabTlsLinuxBridgeFailureCode $EnvelopeBytes} $otherTypedTimeoutBytes
+                Assert ($otherTypedTimeout.Code-ceq'RUNTIME_TIMEOUT_INVALID_OPERATION_EXCEPTION'-and$otherTypedTimeoutParsed-ceq$otherTypedTimeout.Code-and$otherTypedTimeout.Frame -notmatch 'synthetic-private-detail') 'Other typed timeout failure must preserve its safe exception category without raw details'
             }
         }
     }

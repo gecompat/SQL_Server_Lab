@@ -96,7 +96,9 @@ function Get-LabTlsLinuxProbeFailureCode {
 function Get-LabTlsLinuxBridgeFailureCodes {
     return [string[]]@(
         'STDERR_UNCLASSIFIED','TLS_CERTIFICATE','PERMISSION_DENIED','NETWORK_NOT_FOUND','RUNTIME_TIMEOUT',
-        'RUNTIME_TIMEOUT_TIMEOUT_EXCEPTION','RUNTIME_TIMEOUT_SOCKET_TIMEOUT','RUNTIME_TIMEOUT_SQLCLIENT_TIMEOUT','RUNTIME_TIMEOUT_OPERATION_CANCELED','DAEMON_REJECTED_REQUEST',
+        'RUNTIME_TIMEOUT_TIMEOUT_EXCEPTION','RUNTIME_TIMEOUT_SOCKET_TIMEOUT','RUNTIME_TIMEOUT_SQLCLIENT_TIMEOUT','RUNTIME_TIMEOUT_OPERATION_CANCELED',
+        'RUNTIME_TIMEOUT_HTTP_REQUEST_EXCEPTION','RUNTIME_TIMEOUT_WEB_EXCEPTION','RUNTIME_TIMEOUT_IO_EXCEPTION',
+        'RUNTIME_TIMEOUT_INVALID_OPERATION_EXCEPTION','RUNTIME_TIMEOUT_POWERSHELL_RUNTIME_EXCEPTION','RUNTIME_TIMEOUT_OTHER_EXCEPTION','DAEMON_REJECTED_REQUEST',
         'CONTAINER_NOT_FOUND','CONTAINER_NOT_RUNNING','PORT_CONFLICT','DAEMON_UNREACHABLE','REGISTRY_AUTHORIZATION','IMAGE_NOT_FOUND',
         'TLS_SQLCLIENT_RESULT_INVALID','TLS_SQLCMD_TIMEOUT','TLS_ODBC_AMBIGUOUS','TLS_SQLCMD_RESULT_INVALID',
         'TLS_SQLCLIENT_OPEN_TIMEOUT','TLS_SQLCLIENT_QUERY_TIMEOUT',
@@ -153,11 +155,12 @@ function Get-LabTlsLinuxBridgeFailureCodeFromError {
             try{
                 $summary=Get-LabTlsRuntimeFailureSummary -ExitCode 1 -StandardError $message -OutputLength 0 -OperationStage 'linux-client-observation'
                 if($summary -match '\|stderrClass=([A-Z0-9_]{1,64})\|' -and $known -ccontains $Matches[1]){
-                    if($Matches[1]-ceq'RUNTIME_TIMEOUT'){
+                    $summaryClass=$Matches[1]
+                    if($summaryClass-ceq'RUNTIME_TIMEOUT'-and$message -cnotmatch '\ATLS_LAB_RUNTIME_COMMAND_FAILED\|'){
                         $timeoutCause=Get-LabTlsLinuxTimeoutCauseCode $ErrorRecord.Exception
                         if($known-ccontains$timeoutCause){return $timeoutCause}
                     }
-                    return $Matches[1]
+                    return $summaryClass
                 }
             }catch{}
         }
@@ -168,6 +171,7 @@ function Get-LabTlsLinuxBridgeFailureCodeFromError {
 
 function Get-LabTlsLinuxTimeoutCauseCode {
     param([System.Exception]$Exception)
+    $fallback='RUNTIME_TIMEOUT_OTHER_EXCEPTION'
     while($null-ne$Exception){
         $type=$Exception.GetType().FullName
         if($type-ceq'System.TimeoutException'){return 'RUNTIME_TIMEOUT_TIMEOUT_EXCEPTION'}
@@ -179,9 +183,14 @@ function Get-LabTlsLinuxTimeoutCauseCode {
             $numberProperty=$Exception.GetType().GetProperty('Number',[Reflection.BindingFlags]'Instance,Public')
             if($numberProperty){try{if([int]$numberProperty.GetValue($Exception)-eq-2){return 'RUNTIME_TIMEOUT_SQLCLIENT_TIMEOUT'}}catch{}}
         }
+        if($type-ceq'System.Net.Http.HttpRequestException'){$fallback='RUNTIME_TIMEOUT_HTTP_REQUEST_EXCEPTION'}
+        elseif($type-ceq'System.Net.WebException'){$fallback='RUNTIME_TIMEOUT_WEB_EXCEPTION'}
+        elseif($type-ceq'System.IO.IOException'){$fallback='RUNTIME_TIMEOUT_IO_EXCEPTION'}
+        elseif($type-ceq'System.InvalidOperationException'){$fallback='RUNTIME_TIMEOUT_INVALID_OPERATION_EXCEPTION'}
+        elseif($type-ceq'System.Management.Automation.RuntimeException'-and$fallback-ceq'RUNTIME_TIMEOUT_OTHER_EXCEPTION'){$fallback='RUNTIME_TIMEOUT_POWERSHELL_RUNTIME_EXCEPTION'}
         $Exception=$Exception.InnerException
     }
-    return 'RUNTIME_TIMEOUT'
+    return $fallback
 }
 
 function Get-LabTlsRuntimeTimeoutCode {
