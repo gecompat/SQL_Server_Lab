@@ -161,9 +161,14 @@ Check 'Public reader rejects absent bootstrap without invoking controller/native
                 $p=@{ExportBytes=([byte[]]@(1));RunId='synthetic';InstanceId='primary';StateRoot='synthetic'}
                 if($mode -ceq 'explicit-session'){$p.LinuxSessionRef='a'*64}
                 if($IsWindows -and $mode -ceq 'missing-session'){continue}
-                $rejected=$false
-                try{$null=Read-SqlServerLabQualifiedTestEnvironment @p}catch{$rejected=$_.Exception.Message -ceq 'TLS_EXPORT_READ_REJECTED'}
-                if(-not $rejected -or $script:unsafeCalls-ne0){throw 'PUBLIC_READER_BOOTSTRAP_GUARD_FAILED'}
+                $actual=$null
+                try{$null=Read-SqlServerLabQualifiedTestEnvironment @p}catch{$actual=$_.Exception.Message}
+                $expected=if($IsLinux -and $mode -ceq 'explicit-session'){'TLS_LINUX_PEER_REJECTED'}else{'TLS_EXPORT_READ_REJECTED'}
+                # On Linux, a supplied but unbootstrapped opaque reference reaches
+                # only the private channel lookup and is classified as a closed
+                # peer failure. The absent-reference case remains the generic
+                # public-reader rejection. Neither case may reach the controller.
+                if($actual-cne$expected -or $script:unsafeCalls-ne0){throw 'PUBLIC_READER_BOOTSTRAP_GUARD_FAILED'}
             }
         }
     }
