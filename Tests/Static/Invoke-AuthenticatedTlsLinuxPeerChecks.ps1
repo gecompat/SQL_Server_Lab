@@ -55,6 +55,7 @@ Check 'Actual controller replies compose with the actual peer parser for both st
     foreach($stack in @('SYSTEM_DATA_SQLCLIENT','ODBC_SQLCMD')){
         $request=[pscustomobject]@{ContractVersion='SqlServerLab.LinuxClientVerificationRequest/0.1';SessionRef=$session.SessionRef;RequestId=[guid]::NewGuid().ToString('D');Stack=$stack;ExportSha256=$session.ExportSha256;ClientRef=$session.ClientRef;ContextDigest=$session.ContextDigest}
         $response=Invoke-LabTlsLinuxSessionVerification $session ([Text.Encoding]::UTF8.GetBytes(($request|ConvertTo-Json -Compress)))
+        Assert ($session.LastVerifiedStack -ceq $stack) 'Only a completed verifier exchange may advance the safe diagnostic checkpoint'
         $actual=Read-LabTlsLinuxVerificationReply ([Text.Encoding]::UTF8.GetBytes(($response|ConvertTo-Json -Compress))) $request $session.ExpiresAt ([TimeSpan]::FromMilliseconds(20))
         Assert ($actual.Stack -ceq $stack -and $actual.RequestId -ceq $request.RequestId) 'Producer/consumer mismatch'
     }

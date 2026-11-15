@@ -217,6 +217,10 @@ try{
             $bridgeExitRangeRejected=Get-LabTlsSafePublicLinuxFailureCode ([Management.Automation.ErrorRecord]::new($bridgeExitRange,'synthetic',[Management.Automation.ErrorCategory]::NotSpecified,$null))
             $bridgeExitUnicode=[InvalidOperationException]::new('TLS_LINUX_CHILD_EXIT_NONZERO|exitCode=٧|hello=1|verifierRequests=2|resultSeen=1|stderrClass=TLS_CA_PEM_PARSE_FAILED|stderrBytes=19')
             $bridgeExitUnicodeRejected=Get-LabTlsSafePublicLinuxFailureCode ([Management.Automation.ErrorRecord]::new($bridgeExitUnicode,'synthetic',[Management.Automation.ErrorCategory]::NotSpecified,$null))
+            $bridgeExitProgress=[InvalidOperationException]::new('TLS_LINUX_CHILD_EXIT_NONZERO|exitCode=1|hello=1|verifierRequests=1|resultSeen=0|lastVerifiedStack=SYSTEM_DATA_SQLCLIENT|stderrClass=RUNTIME_TIMEOUT|stderrBytes=0')
+            $bridgeExitProgressSafe=Get-LabTlsSafePublicLinuxFailureCode ([Management.Automation.ErrorRecord]::new($bridgeExitProgress,'synthetic',[Management.Automation.ErrorCategory]::NotSpecified,$null))
+            $bridgeExitProgressInvalid=[InvalidOperationException]::new('TLS_LINUX_CHILD_EXIT_NONZERO|exitCode=1|hello=1|verifierRequests=1|resultSeen=0|lastVerifiedStack=synthetic-secret|stderrClass=RUNTIME_TIMEOUT|stderrBytes=0')
+            $bridgeExitProgressInvalidSafe=Get-LabTlsSafePublicLinuxFailureCode ([Management.Automation.ErrorRecord]::new($bridgeExitProgressInvalid,'synthetic',[Management.Automation.ErrorCategory]::NotSpecified,$null))
             $bridgeWithSecret=[InvalidOperationException]::new('TLS_LINUX_BRIDGE_PROTOCOL password=synthetic-secret')
             $bridgeSecretRejected=Get-LabTlsSafePublicLinuxFailureCode ([Management.Automation.ErrorRecord]::new($bridgeWithSecret,'synthetic',[Management.Automation.ErrorCategory]::NotSpecified,$null))
             $hostAcl=[InvalidOperationException]::new('TLS_CA_ACL_INVALID')
@@ -248,7 +252,7 @@ try{
             @($safe,$sqlClientSafe,$redacted,$rejected,$tokenRejected,$longTokenRejected,$sqlClientRejected,$classRejected,
                 $bridgeProtocolSafe,$bridgeSecretRejected,$hostAclSafe,$bootstrapSafe,$sessionSafe,$qualificationSafe,$hostSecretRejected,
                 $bridgeExitSafe,$bridgeExitSecretRejected,$bridgeExitRangeRejected,$bridgeExitUnicodeRejected,
-                ($fixedLinuxCodes-join','),($fixedLinuxResults-join','))
+                ($fixedLinuxCodes-join','),($fixedLinuxResults-join','),$bridgeExitProgressSafe,$bridgeExitProgressInvalidSafe)
         }
         Assert ($values[0]-ceq'TLS_LAB_RUNTIME_COMMAND_FAILED|exitCode=1|stderrClass=TLS_CA_PEM_PARSE_FAILED|stderrBytes=32|stdoutChars=0|operationStage=linux-client-observation') 'Safe summary was not preserved'
         Assert ($values[1]-ceq'TLS_LAB_RUNTIME_COMMAND_FAILED|exitCode=1|stderrClass=TLS_SQLCLIENT_OPEN_AUTHENTICATION|stderrBytes=32|stdoutChars=0|operationStage=linux-client-qualification') 'SQLClient summary class was not preserved'
@@ -260,6 +264,8 @@ try{
         Assert ($values[15]-ceq'TLS_LINUX_CHILD_EXIT_NONZERO|exitCode=7|hello=1|verifierRequests=2|resultSeen=1|stderrClass=TLS_CA_PEM_PARSE_FAILED|stderrBytes=19') 'Safe bridge exit metadata was not preserved'
         Assert ($values[16]-ceq'TLS_LINUX_CONSUMER_REJECTED_OR_RECOVERY_REQUIRED'-and$values[17]-ceq$values[16]-and$values[18]-ceq$values[16]) 'Malformed bridge exit metadata was exposed'
         Assert ($values[19]-ceq$values[20]) 'A fixed Linux binding, transfer, or qualification code was not preserved'
+        Assert ($values[21]-ceq'TLS_LINUX_CHILD_EXIT_NONZERO|exitCode=1|hello=1|verifierRequests=1|resultSeen=0|lastVerifiedStack=SYSTEM_DATA_SQLCLIENT|stderrClass=RUNTIME_TIMEOUT|stderrBytes=0') 'Bound last-verified-stack diagnostic was not preserved'
+        Assert ($values[22]-ceq'TLS_LINUX_CONSUMER_REJECTED_OR_RECOVERY_REQUIRED') 'Unrecognized peer progress text was exposed'
         Assert (@($values[2..7]+$values[9]+$values[14]+$values[16..18]|Where-Object {$_-cne'TLS_LINUX_CONSUMER_REJECTED_OR_RECOVERY_REQUIRED'}).Count-eq0) 'Malformed or secret-bearing diagnostics were exposed'
     }
     Check 'Public preflight catch emits the safe category while hiding the inner exception' {

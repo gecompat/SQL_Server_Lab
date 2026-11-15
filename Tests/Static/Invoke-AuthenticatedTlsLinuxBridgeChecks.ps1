@@ -114,8 +114,8 @@ foreach($mode in @('normal','malformed','oversize','wrong-ref','stderr','no-resu
             stderr {'TLS_LINUX_CHILD_STDERR_NONEMPTY'}
             no-result {'TLS_LINUX_RESULT_MISSING'}
             pending-result {'TLS_LINUX_BRIDGE_PROTOCOL_BYTES_PENDING'}
-            nonzero-after-result {'TLS_LINUX_CHILD_EXIT_NONZERO|exitCode=7|hello=1|verifierRequests=2|resultSeen=1|stderrClass=TLS_CA_PEM_PARSE_FAILED|stderrBytes='+[Text.Encoding]::UTF8.GetByteCount('TLS_LINUX_CA_PEM_PARSE_FAILED secret')}
-            failure-frame {'TLS_LINUX_CHILD_EXIT_NONZERO|exitCode=17|hello=1|verifierRequests=1|resultSeen=0|stderrClass=TLS_CERTIFICATE|stderrBytes='+[Text.Encoding]::UTF8.GetByteCount('synthetic-private-bridge-detail')}
+            nonzero-after-result {'TLS_LINUX_CHILD_EXIT_NONZERO|exitCode=7|hello=1|verifierRequests=2|resultSeen=1|lastVerifiedStack=ODBC_SQLCMD|stderrClass=TLS_CA_PEM_PARSE_FAILED|stderrBytes='+[Text.Encoding]::UTF8.GetByteCount('TLS_LINUX_CA_PEM_PARSE_FAILED secret')}
+            failure-frame {'TLS_LINUX_CHILD_EXIT_NONZERO|exitCode=17|hello=1|verifierRequests=1|resultSeen=0|lastVerifiedStack=SYSTEM_DATA_SQLCLIENT|stderrClass=TLS_CERTIFICATE|stderrBytes='+[Text.Encoding]::UTF8.GetByteCount('synthetic-private-bridge-detail')}
             failure-frame-invalid {'TLS_LINUX_BRIDGE_PROTOCOL'}
             failure-frame-zero-exit {'TLS_LINUX_FAILURE_ENVELOPE_ZERO_EXIT'}
             failure-frame-followed-by-result {'TLS_LINUX_BRIDGE_PROTOCOL'}

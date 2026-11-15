@@ -136,10 +136,13 @@ Schlüssel werden durch einen Consumerfehler nicht übernommen.
 
 Ein nicht erfolgreicher Bridge-Kindprozess liefert zusätzlich ausschließlich
 seinen numerischen Exitcode, den HELLO-Status, die Zahl der Controllerprüfungen,
-den RESULT-Status, eine feste stderr-Klasse und die Anzahl der stderr-Bytes.
-Rohes Gast-stderr wird nie über die öffentliche Fehlergrenze ausgegeben. Diese
-Felder beschreiben den erreichten Protokollfortschritt und eine geschlossene
-Fehlerklasse. Der gebootstrapte Consumer sendet bei einem Fehler des Toolbelt-
+den RESULT-Status, den letzten erfolgreich verifizierten Clientstack (oder
+`none`), eine feste stderr-Klasse und die Anzahl der stderr-Bytes. Der Stackwert
+ist ein bestätigter Fortschrittsmeilenstein; er beweist nicht, welche interne
+Operation danach scheiterte oder zeitlich hängen blieb. Rohes Gast-stderr wird
+nie über die öffentliche Fehlergrenze ausgegeben. Diese Felder beschreiben den
+erreichten Protokollfortschritt und eine geschlossene Fehlerklasse. Der
+gebootstrapte Consumer sendet bei einem Fehler des Toolbelt-
 Preflights ein privates, Base64-codiertes `FAILURE`-Frame mit genau Schema,
 Status und Fehlercode. Der Controller nimmt es nur nach `HELLO` und mindestens
 einer gebundenen Verifieranfrage an, validiert Feldformen und eine feste
