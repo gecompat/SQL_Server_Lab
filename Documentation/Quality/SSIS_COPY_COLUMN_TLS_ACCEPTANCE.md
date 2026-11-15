@@ -42,8 +42,40 @@ Ein eigener begrenzter Lauf darf einen öffentlichen Neuaufbau, den festen
 SSIS-Consumer lokal/zentral und die getrennten Abschlussaudits umfassen.
 Er benötigt vorher definierte endliche Grenzen und Ressourcenownership.
 Ein PASS setzt einen tatsächlich erfolgreichen Gesamtkoordinator und erforderlichen
-Cleanup voraus. Der aktuelle native Lauf ist noch nicht ausgeführt; frühere
-PASS-Records qualifizieren ihre damaligen Artefakte. Keine Veröffentlichung/Tags.
+Cleanup voraus. Frühere PASS-Records qualifizieren ihre damaligen Artefakte.
+Keine Veröffentlichung/Tags.
+
+## Native Abnahme vom 2026-11-15
+
+Der separat genehmigte isolierte Aufbau bestand mit dem ANSI-korrigierten
+SSIS-Provider: öffentlicher ununterbrochener Windows-/Hyper-V-/SQL2025-RTM-
+Neuaufbau, beide strikten Clientstacks, signierter V2-Export und unveränderte
+Exportbytes vor jedem Consumer-Open. Der SSIS-Consumer bestand lokal/zentral
+auf CL170 mit 416 Assertions; sein frischer separater SQL-Audit ist PASS.
+Worker und Supervisor bestanden mit sechs beziehungsweise acht Fällen,
+einschließlich unabhängigem Lab-Abschlussaudit.
+Der [Toolbeltrecord](https://github.com/gecompat/SQL_Server_Toolbelt/blob/main/Modules/toolbelt.tsql.ssis-debug/Tests/Qualification/Tls.CopyColumn.SecurityCorrection.20261115.json)
+bindet Provider, Quellen und den begrenzten Umfang.
+
+Die ursprüngliche Revision des bestehenden Registers bleibt vor Commit
+gesperrt; unveränderte aktive Authorities werden weiterhin frisch geprüft.
+Der zusätzliche eigene Root verwendete eigene Controller-/Location-/Registry-
+und CA-Bindungen. Bestehende Authorities und Standardspeicher blieben erhalten.
+Genau ein ausdrücklich freigegebener CurrentUser/Root-Trust wurde vor der
+Methode importiert und nach belegtem Receiverende wieder entfernt; der eigene
+verschlüsselte CA-Schlüssel ist entfernt. Der frische separate Hostaudit ist
+PASS. Eine eigene VM und vier Testdatenbanken wurden entfernt. Der geschlossene
+Root und Originaljournale bleiben ausschließlich als private Evidenz erhalten.
+
+Zwei zusätzliche Setup-/Cleanupfindings bleiben mit ihren Originalen erhalten:
+Der Generator ist jetzt exakt an den isolierten Plan und die tatsächliche
+Authority gebunden; Cleanup schließt Dispatch und verlangt zuerst das Ende
+der eigenen Receiverinstanz. Beide Korrekturen sind unabhängig quellseitig
+akzeptiert; 30 gezielte SQL-freie Gegenproben und neun Receiverprüfungen bestanden.
+Die einmalige UAC wurde vom Benutzer bestätigt. Keine automatisierte Anmeldung
+oder Sicherheitsdialogbedienung. SQL-Anmeldung ist kein kombinierter Windows-/
+TLS-Anmeldeweg; ein Wire-Fingerprint wurde nicht beobachtet. Weder vollständige
+SSIS-Modulqualifikation noch neue ZIP-/SSMS-Abnahme werden daraus abgeleitet.
 
 ## Auswahlprüfung und Prüfkosten
 
