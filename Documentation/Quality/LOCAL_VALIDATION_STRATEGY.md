@@ -271,10 +271,13 @@ keine SQL-, TLS- oder CA-Ursache abgeleitet.
 
 Ordinal 144 bestätigt die offene Grenze: Docker mit SQL Server 2025 CU9 und
 Linux-Client 0.4 endete in `LINUX_PUBLIC_PREFLIGHT` mit Exitcode 1, nach einer
-SqlClient-Verifier-Anfrage und vor `RESULT`; stderr war leer. Der Descriptor
-band Toolbelt `25ff9fb9`; die später in PR #604 gemergte Phasendiagnostik war
-in diesem Lauf nicht enthalten. Deshalb ist die konkrete Laufzeitursache weiter
-unbekannt. Das eigene Lab wurde entfernt und der Inventarvergleich bestand.
+SqlClient-Verifier-Anfrage und vor dem erwarteten `VERIFY_ODBC_SQLCMD`. Der
+Terminal-`FailureCode` beginnt mit `TLS_LINUX_CHILD_EXIT_NONZERO`; die
+gemeldete `stderrClass` ist `RUNTIME_TIMEOUT_OTHER_EXCEPTION` bei null
+`stderrBytes`. Der Descriptor band Toolbelt `25ff9fb9`; die später in PR
+#604 gemergte Phasendiagnostik war in diesem Lauf nicht enthalten. Deshalb ist
+die konkrete Laufzeitursache weiter unbekannt. Das eigene Lab wurde entfernt
+und der Inventarvergleich bestand.
 Eine passive Custody-Freigabe wurde unabhängig ohne Findings bestätigt; der
 unveränderte Terminalnachweis bleibt `RECOVERY_REQUIRED` mit
 `WholeJobEmpty=false`. PR #604 verbessert die Diagnose für einen künftigen,

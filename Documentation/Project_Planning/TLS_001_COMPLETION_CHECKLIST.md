@@ -33,8 +33,10 @@ ausgewiesenen Umfang Vorrang:
   Hyper-V-Referenzlauf oder eine Kryptoprobe ersetzt keinen fehlenden
   öffentlichen Consumer- oder Provider-Nachweis.
 - Der öffentliche Linux-Lauf 144 vom 2026-11-16 scheiterte vor `RESULT`, nachdem
-  der SqlClient-Verifier genau eine Anfrage verarbeitet hatte; `stderr` blieb
-  leer, die konkrete Ursache ist unbekannt. Das Terminal bleibt
+  der SqlClient-Verifier genau eine Anfrage verarbeitet hatte. Der
+  Terminal-`FailureCode` beginnt mit `TLS_LINUX_CHILD_EXIT_NONZERO`; die
+  gemeldete `stderrClass` ist `RUNTIME_TIMEOUT_OTHER_EXCEPTION` bei null
+  `stderrBytes`. Die konkrete Ursache ist unbekannt. Das Terminal bleibt
   `RECOVERY_REQUIRED`; Cleanup und Inventarparität sind belegt, aber es gibt
   keinen Linux-TLS-PASS. Details stehen in der
   [Validierungsstrategie](../Quality/LOCAL_VALIDATION_STRATEGY.md#2026-11-16-ordinal-144).
