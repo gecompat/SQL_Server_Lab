@@ -267,6 +267,8 @@ Diagnose-/Offline-Nachweis: der zugrunde liegende Runtimefehler und ein
 öffentlicher Linux-TLS-PASS bleiben offen; aus einer leeren stderr-Angabe wird
 keine SQL-, TLS- oder CA-Ursache abgeleitet.
 
+### 2026-11-16: Ordinal 144
+
 Ordinal 144 bestätigt die offene Grenze: Docker mit SQL Server 2025 CU9 und
 Linux-Client 0.4 endete in `LINUX_PUBLIC_PREFLIGHT` mit Exitcode 1, nach einer
 SqlClient-Verifier-Anfrage und vor `RESULT`; stderr war leer. Der Descriptor

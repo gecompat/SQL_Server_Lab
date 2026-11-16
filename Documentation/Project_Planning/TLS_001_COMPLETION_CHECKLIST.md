@@ -1,6 +1,6 @@
 # TLS-001: Abschlusskriterien und verbleibende Arbeit
 
-Stand: 2026-11-08. Gesamtstatus: **partial**.
+Stand: 2026-11-16. Gesamtstatus: **partial**.
 
 Diese Arbeitsübersicht leitet sich aus den D1–D4-Entscheidungen, Slices und
 sechs Akzeptanzkriterien des [kanonischen TLS-001-Backlogs](NEW_SQL_LAB_USE_CASES_BACKLOG.md#tls-001--authentifizierte-tls-verbindungen-der-testumgebungen)
@@ -32,6 +32,12 @@ ausgewiesenen Umfang Vorrang:
   Quellstände und Scopes begrenzt. Ein erfolgreiches Cleanup, ein privater
   Hyper-V-Referenzlauf oder eine Kryptoprobe ersetzt keinen fehlenden
   öffentlichen Consumer- oder Provider-Nachweis.
+- Der öffentliche Linux-Lauf 144 vom 2026-11-16 scheiterte vor `RESULT`, nachdem
+  der SqlClient-Verifier genau eine Anfrage verarbeitet hatte; `stderr` blieb
+  leer, die konkrete Ursache ist unbekannt. Das Terminal bleibt
+  `RECOVERY_REQUIRED`; Cleanup und Inventarparität sind belegt, aber es gibt
+  keinen Linux-TLS-PASS. Details stehen in der
+  [Validierungsstrategie](../Quality/LOCAL_VALIDATION_STRATEGY.md#2026-11-16-ordinal-144).
 
 Damit bleiben als konkrete Abschlussblöcke: die fehlende öffentliche
 Linux-Registry-/Reader-/Export-/Consumerlane; die öffentliche Hyper-V-False-/
