@@ -38,12 +38,11 @@ function Get-LabTlsLinuxClientObservation {
     $program=Get-LabTlsLinuxObservationProgram
     $native=Invoke-LabTlsLinuxObservedProgram $Bound $Budget $client.Id $program $null
     $facts=Read-LabTlsBoundJson ([Text.Encoding]::UTF8.GetBytes($native)) @('NetNamespace','Trust','Binaries')
-    $ns=Invoke-LabTlsContainer @('exec',$r.ContainerId,'/usr/bin/readlink','/proc/self/ns/net') -Budget $Budget -OperationStage 'linux-client-namespace-check'
-    if($ns-cne$facts.NetNamespace-or$facts.Trust.CertificateSha256-cne$Bound.Authority.Authority.CertificateSha256){throw 'TLS_LINUX_NAMESPACE_OR_TRUST_CHANGED'}
+    $parentObservation=Assert-LabTlsSqlCertificateBinding $r $root $Budget -IncludeNetworkNamespace
+    if($parentObservation.NetworkNamespace-cne$facts.NetNamespace-or$facts.Trust.CertificateSha256-cne$Bound.Authority.Authority.CertificateSha256){throw 'TLS_LINUX_NAMESPACE_OR_TRUST_CHANGED'}
     # The child inspection is read-only and does not connect to SQL Server.
     # Check the current parent certificate/configuration last so the complete
     # client observation returns with the freshest possible server binding.
-    $null=Assert-LabTlsSqlCertificateBinding $r $root $Budget
     return [pscustomobject]@{Inspect=$client;Facts=$facts}
 }
 

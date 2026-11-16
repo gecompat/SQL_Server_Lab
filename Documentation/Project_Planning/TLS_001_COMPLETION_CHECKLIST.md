@@ -50,6 +50,12 @@ ausgewiesenen Umfang Vorrang:
   Inventarparität bestätigt. Ohne weiteren autorisierten Lauf bleibt die
   öffentliche Linux-Lane offen. Details stehen in der
   [Validierungsstrategie](../Quality/LOCAL_VALIDATION_STRATEGY.md#2026-11-16-ordinal-145).
+- Ein nachgelagertes Quell-Delta bündelt die schreibgeschützte Beobachtung von
+  Zertifikat, Schlüsselmodus, SQL-Konfiguration und Netzwerk-Namespace in
+  einem Containeraufruf. Die lokale Parser- und Linux-Vertragsprüfung deckt
+  die Begrenzung der Antwort ab; sie belegt weder die Ursache des Ordinal-145-
+  Timeouts noch einen Runtimeeffekt. Der Lauf bleibt fehlgeschlagen, sein Lab
+  wurde entfernt, und es gibt keinen Linux-TLS-PASS.
 
 Damit bleiben als konkrete Abschlussblöcke: die fehlende öffentliche
 Linux-Registry-/Reader-/Export-/Consumerlane; die öffentliche Hyper-V-False-/

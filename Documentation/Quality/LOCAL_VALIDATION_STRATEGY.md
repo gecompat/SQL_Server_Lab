@@ -312,6 +312,13 @@ wurde entfernt und die Inventarparität bestätigt. Der Run bleibt
 `RECOVERY_REQUIRED`; es gibt weiterhin keinen öffentlichen Linux-TLS-PASS.
 Eine weitere Wiederholung war nicht freigegeben.
 
+Der folgende offline geprüfte Quellstand reduziert die Roundtrips dieser
+Beobachtung: Zertifikat, Schlüsselmodus, SQL-Konfiguration und Netzwerk-Namespace
+werden in einem begrenzten schreibgeschützten Containeraufruf gelesen. Die
+synthetische Parser-/Vertragsprüfung deckt auch die von der Prozessgrenze
+entfernten Schluss-Newlines ab. Diese Änderung belegt nicht, dass sie das
+15-Sekunden-Timeout beseitigt; ein weiterer nativer Lauf war nicht autorisiert.
+
 ## V2-Consumer-Cutover vom 2026-10-22
 
 Die [native Windows-Consumer-Abnahme](TLS_V2_CONSUMER_CUTOVER_ACCEPTANCE_2026-10-22.md)

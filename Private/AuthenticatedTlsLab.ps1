@@ -581,7 +581,7 @@ function Get-LabTlsOwnBinding {
 }
 
 function Assert-LabTlsSqlCertificateBinding {
-    param([object]$Record,[string]$StateRoot,[object]$Budget)
+    param([object]$Record,[string]$StateRoot,[object]$Budget,[switch]$IncludeNetworkNamespace)
     if($Record.ContractVersion -ceq 'SqlServerLab.AuthenticatedTlsWindowsLab/0.1'){
         $bound=Get-LabTlsWindowsOwnBinding $StateRoot $Record.RunId $Record.InstanceId
         if((Get-LabTlsCaByteDigest (ConvertTo-LabTlsRegistryWriterBytes $Record)) -cne (Get-LabTlsCaByteDigest $bound.Bytes)){throw 'TLS_WINDOWS_RECORD_CHANGED'}
@@ -590,16 +590,20 @@ function Assert-LabTlsSqlCertificateBinding {
     $context=Assert-LabTlsOwnContainer $Record $StateRoot $Budget
     if($context.Inspect.State.StartedAt -cne $Record.StartedAt){throw 'TLS_LAB_RESTART_REQUIRES_REBIND'}
     $cid=$context.ContainerId;$path=$Record.ServerPath
-    $actual=Invoke-LabTlsContainer @('exec',$cid,'cat',($path+'/server.pem')) -Budget $Budget
+    $isLinuxRecord=$Record.ContractVersion-ceq'SqlServerLab.AuthenticatedTlsLab/0.4'-and
+        $null-ne$Record.PSObject.Properties['ClientPlatform']-and$Record.ClientPlatform-ceq'linux'
+    $operationStage=if($IncludeNetworkNamespace-or$isLinuxRecord){'linux-client-observation'}else{'unspecified'}
+    $observation=Get-LabTlsSqlCertificateObservation -ContainerId $cid -ServerPath $path -Budget $Budget -IncludeNetworkNamespace:$IncludeNetworkNamespace -OperationStage $operationStage
+    $actual=$observation.CertificatePem
     $cert=[Security.Cryptography.X509Certificates.X509Certificate2]::CreateFromPem($actual)
     try{
         if((Get-LabTlsCaByteDigest $cert.RawData) -cne $Record.CertificateSha256 -or
             [Convert]::ToBase64String($cert.RawData) -cne $Record.CertificateDer -or
             $cert.NotAfter.ToUniversalTime() -le [datetime]::UtcNow -or $cert.NotBefore.ToUniversalTime() -gt [datetime]::UtcNow){throw 'TLS_LAB_LEAF_CHANGED_OR_EXPIRED'}
     }finally{$cert.Dispose()}
-    $mode=Invoke-LabTlsContainer @('exec',$cid,'stat','-c','%a:%u',($path+'/server.key')) -Budget $Budget
+    $mode=$observation.KeyMode
     if($mode -cne '600:10001'){throw 'TLS_LAB_SERVER_KEY_PERMISSIONS_CHANGED'}
-    $config=Invoke-LabTlsContainer @('exec',$cid,'cat','/var/opt/mssql/mssql.conf') -Budget $Budget
+    $config=$observation.Configuration
     $network=$false;$sections=0;$settings=@{}
     foreach($line in ($config -split "`n")){
         $line=$line.Trim()
@@ -614,7 +618,68 @@ function Assert-LabTlsSqlCertificateBinding {
     $log=Invoke-LabTlsContainer @('logs','--since',$Record.StartedAt,$cid) -Budget $Budget
     $expected="The certificate [Certificate File:'$path/server.pem', Private Key File:'$path/server.key'] was successfully loaded for encryption."
     if(-not $log.Contains($expected,[StringComparison]::Ordinal)){throw 'TLS_LAB_SQL_CERTIFICATE_LOAD_UNCONFIRMED'}
+    if($IncludeNetworkNamespace){return [pscustomobject]@{Context=$context;NetworkNamespace=$observation.NetworkNamespace}}
     return $context
+}
+
+function ConvertFrom-LabTlsSqlCertificateObservation {
+    param([AllowEmptyString()][string]$Output,[switch]$IncludeNetworkNamespace)
+    if($Output.Length -gt 65536){throw 'TLS_LAB_SQL_OBSERVATION_INVALID'}
+    # Invoke-LabTlsContainer trims trailing newlines, so delimiters intentionally
+    # end at the marker token and leave the following newline with the next field.
+    $markers=@("`n__TLS_LAB_CERTIFICATE_END__","`n__TLS_LAB_KEY_MODE_END__","`n__TLS_LAB_CONFIGURATION_END__")
+    if($IncludeNetworkNamespace){$markers+=@("`n__TLS_LAB_NETWORK_NAMESPACE_END__")}
+    $positions=[Collections.Generic.List[int]]::new()
+    foreach($marker in $markers){
+        $index=$Output.IndexOf($marker,[StringComparison]::Ordinal)
+        if($index-lt0){throw 'TLS_LAB_SQL_OBSERVATION_INVALID'}
+        if($Output.IndexOf($marker,$index+$marker.Length,[StringComparison]::Ordinal)-ge0){throw 'TLS_LAB_SQL_OBSERVATION_INVALID'}
+        $positions.Add($index)
+    }
+    for($i=1;$i-lt$positions.Count;$i++){if($positions[$i]-le$positions[$i-1]){throw 'TLS_LAB_SQL_OBSERVATION_INVALID'}}
+    $parts=[Collections.Generic.List[string]]::new();$cursor=0
+    for($i=0;$i-lt$positions.Count;$i++){
+        $parts.Add($Output.Substring($cursor,$positions[$i]-$cursor))
+        $cursor=$positions[$i]+$markers[$i].Length
+    }
+    if($Output.Substring($cursor).Trim([char[]]"`r`n").Length-ne0){throw 'TLS_LAB_SQL_OBSERVATION_INVALID'}
+    $expectedCount=if($IncludeNetworkNamespace){4}else{3}
+    if($parts.Count-ne$expectedCount-or-not$parts[0]-or-not$parts[1].Trim()-or-not$parts[2].Trim()){throw 'TLS_LAB_SQL_OBSERVATION_INVALID'}
+    $mode=$parts[1].Trim()
+    if($mode -cnotmatch '\A[0-7]{3,4}:[0-9]{1,10}\z'){throw 'TLS_LAB_SQL_OBSERVATION_INVALID'}
+    $result=[ordered]@{CertificatePem=$parts[0];KeyMode=$mode;Configuration=$parts[2].Trim([char[]]"`r`n")}
+    if($IncludeNetworkNamespace){
+        $networkNamespace=$parts[3].Trim()
+        if($networkNamespace -cnotmatch '\Anet:\[[0-9]{1,10}\]\z'){throw 'TLS_LAB_SQL_OBSERVATION_INVALID'}
+        $result.NetworkNamespace=$networkNamespace
+    }
+    return [pscustomobject]$result
+}
+
+function Get-LabTlsSqlCertificateObservation {
+    param([string]$ContainerId,[string]$ServerPath,[object]$Budget,[switch]$IncludeNetworkNamespace,
+        [ValidateSet('unspecified','linux-client-observation')][string]$OperationStage='unspecified')
+    if($ContainerId -cnotmatch '\A[0-9a-f]{64}\z' -or $ServerPath -cnotmatch '\A/var/opt/mssql/tls-[0-9a-f]{32}\z'){
+        throw 'TLS_LAB_SQL_OBSERVATION_BINDING_INVALID'
+    }
+    $script=@'
+set -eu
+cat -- "$1"
+printf '\n__TLS_LAB_CERTIFICATE_END__\n'
+stat -c '%a:%u' -- "$2"
+printf '\n__TLS_LAB_KEY_MODE_END__\n'
+cat -- "$3"
+printf '\n__TLS_LAB_CONFIGURATION_END__\n'
+if [ "$4" = '1' ]; then
+    readlink /proc/self/ns/net
+    printf '\n__TLS_LAB_NETWORK_NAMESPACE_END__\n'
+fi
+'@
+    $script=$script.Replace("`r`n","`n")
+    $includeNamespace=if($IncludeNetworkNamespace){'1'}else{'0'}
+    $arguments=@('exec',$ContainerId,'/bin/sh','-c',$script,'tls-sql-observation',($ServerPath+'/server.pem'),($ServerPath+'/server.key'),'/var/opt/mssql/mssql.conf',$includeNamespace)
+    $output=Invoke-LabTlsContainer $arguments -Budget $Budget -OperationStage $OperationStage
+    return ConvertFrom-LabTlsSqlCertificateObservation $output -IncludeNetworkNamespace:$IncludeNetworkNamespace
 }
 
 function New-LabAuthenticatedTlsEnvironmentCore {

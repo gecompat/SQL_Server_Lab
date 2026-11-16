@@ -18,17 +18,36 @@ $module=New-Module -ArgumentList $repo,$owned.Path -ScriptBlock {
     $script:ProviderCalls=0
     $script:ClientBindingCalls=0
     $script:ObservationStages=[Collections.Generic.List[string]]::new()
+    $script:ContainerArguments=$null
+    $script:ContainerOperationStage=$null
     foreach($p in @('AuthenticatedTlsRequest.ps1','AuthenticatedTlsRegistryIndex.ps1','AuthenticatedTlsCaCandidate.ps1','DiagnosticBundleReader.ps1',
         'AuthenticatedTlsLab.ps1','AuthenticatedTlsQualification.ps1','AuthenticatedTlsLinuxClient.ps1','AuthenticatedTlsLinuxExecution.ps1','AuthenticatedTlsLinuxObserver.ps1','AuthenticatedTlsLinuxQualification.ps1','AuthenticatedTlsLinuxBootstrap.ps1')){
         . (Join-Path $Repo ('Private/'+$p))
     }
+    $script:ActualAssertLabTlsSqlCertificateBinding=(Get-Command Assert-LabTlsSqlCertificateBinding -CommandType Function).ScriptBlock
     function Get-LabTlsLinuxClientBinding {param($Bound,$Budget)$script:ClientBindingCalls++;$script:Client}
-    function Assert-LabTlsSqlCertificateBinding {param($Record,$StateRoot,$Budget)$script:ObservationStages.Add('parent-certificate')}
+    function Assert-LabTlsSqlCertificateBinding {
+        param($Record,$StateRoot,$Budget,[switch]$IncludeNetworkNamespace)
+        $script:ObservationStages.Add('parent-certificate')
+        if($IncludeNetworkNamespace){return [pscustomobject]@{Context=$script:ObservationInspect;NetworkNamespace=$script:ObservationFacts.NetNamespace}}
+        return $script:ObservationInspect
+    }
     function Get-LabOwnedHostContainerObservation {param($StateRoot,$Intent,$ContainerId)$script:ObservationStages.Add('client-inspect');$script:ObservationInspect}
     function Assert-LabOwnedHostContainerEffect {param($StateRoot,$RunId,$Provider,$ContainerId)$script:ObservationStages.Add('client-effect')}
     function Get-LabTlsLinuxObservationProgram {'synthetic-read-only-observer'}
     function Invoke-LabTlsLinuxObservedProgram {param($Bound,$Budget,$ContainerId,$Program,$InputText)$script:ObservationStages.Add('guest-observation');$script:ObservationFacts|ConvertTo-Json -Compress -Depth 8}
-    function Invoke-LabTlsContainer {param($Arguments,$Budget,$OperationStage)$script:ObservationStages.Add('sql-namespace');$script:ObservationFacts.NetNamespace}
+    function Invoke-LabTlsContainer {
+        param([string[]]$Arguments,$InputText,$Budget,$OperationStage)
+        $script:ObservationStages.Add('sql-namespace')
+        if($Arguments.Count-ge10-and$Arguments[0]-ceq'exec'-and$Arguments[2]-ceq'/bin/sh'){
+            $script:ContainerArguments=@($Arguments)
+            $script:ContainerOperationStage=$OperationStage
+            if($Arguments[9]-ceq'1'){return "CERTIFICATE`n__TLS_LAB_CERTIFICATE_END__`n600:10001`n__TLS_LAB_KEY_MODE_END__`n[network]`n__TLS_LAB_CONFIGURATION_END__`nnet:[4026533333]`n__TLS_LAB_NETWORK_NAMESPACE_END__"}
+            return "CERTIFICATE`n__TLS_LAB_CERTIFICATE_END__`n600:10001`n__TLS_LAB_KEY_MODE_END__`n[network]`n__TLS_LAB_CONFIGURATION_END__"
+        }
+        $script:ContainerOperationStage=$OperationStage
+        return $script:ObservationFacts.NetNamespace
+    }
     function Get-LabTlsOwnBinding {param($StateRoot,$RunId,$InstanceId)$script:Bound}
     function Get-LabOwnedHostRunPolicy {$script:ProviderCalls++;throw 'UNEXPECTED_PROVIDER'}
     function Remove-LabOwnedHostFailedContainer {$script:ProviderCalls++;throw 'UNEXPECTED_PROVIDER'}
@@ -99,7 +118,69 @@ try{
             $null=Get-LabTlsLinuxClientObservation $bound $null $intent $script:ObservationInspect.Id
             $script:ObservationStages -join ','
         }
-        Assert ($stages-ceq'client-inspect,client-effect,guest-observation,sql-namespace,parent-certificate') ('Unexpected observation order: '+$stages)
+        Assert ($stages-ceq'client-inspect,client-effect,guest-observation,parent-certificate') ('Unexpected observation order: '+$stages)
+    }
+    Check 'Batched Linux SQL observation parser binds all read-only fields and namespace' {
+        $parsed=& $module {
+            $text="CERTIFICATE`n__TLS_LAB_CERTIFICATE_END__`n600:10001`n__TLS_LAB_KEY_MODE_END__`n[network]`ntlscert = /var/opt/mssql/tls-11111111111111111111111111111111/server.pem`ntlskey = /var/opt/mssql/tls-11111111111111111111111111111111/server.key`nforceencryption = 1`n__TLS_LAB_CONFIGURATION_END__`nnet:[4026533333]`n__TLS_LAB_NETWORK_NAMESPACE_END__`n"
+            ConvertFrom-LabTlsSqlCertificateObservation $text -IncludeNetworkNamespace
+        }
+        Assert ($parsed.CertificatePem-ceq'CERTIFICATE'-and$parsed.KeyMode-ceq'600:10001'-and$parsed.Configuration.Contains('forceencryption = 1')-and$parsed.NetworkNamespace-ceq'net:[4026533333]') 'Batched observation fields did not round-trip'
+        $trimmed=& $module {
+            $text="CERTIFICATE`n__TLS_LAB_CERTIFICATE_END__`n600:10001`n__TLS_LAB_KEY_MODE_END__`n[network]`ntlscert = /var/opt/mssql/tls-11111111111111111111111111111111/server.pem`ntlskey = /var/opt/mssql/tls-11111111111111111111111111111111/server.key`nforceencryption = 1`n__TLS_LAB_CONFIGURATION_END__`nnet:[4026533333]`n__TLS_LAB_NETWORK_NAMESPACE_END__`n"
+            ConvertFrom-LabTlsSqlCertificateObservation $text.TrimEnd("`r","`n") -IncludeNetworkNamespace
+        }
+        Assert ($trimmed.NetworkNamespace-ceq'net:[4026533333]') 'Trailing newline normalization broke the final framed field'
+        & $module {
+            $text="CERTIFICATE`n__TLS_LAB_CERTIFICATE_END__`n600:10001`n__TLS_LAB_KEY_MODE_END__`n[network]`n__TLS_LAB_CONFIGURATION_END__`n"
+            $withoutNamespace=ConvertFrom-LabTlsSqlCertificateObservation $text
+            if($withoutNamespace.PSObject.Properties['NetworkNamespace']){throw 'UNEXPECTED_NETWORK_NAMESPACE'}
+        }
+        RejectCode {& $module {ConvertFrom-LabTlsSqlCertificateObservation "CERTIFICATE`n__TLS_LAB_CERTIFICATE_END__`n777:10001`n__TLS_LAB_KEY_MODE_END__`nconfig`n__TLS_LAB_CONFIGURATION_END__`n" -IncludeNetworkNamespace}} 'TLS_LAB_SQL_OBSERVATION_INVALID'
+        RejectCode {& $module {ConvertFrom-LabTlsSqlCertificateObservation "CERTIFICATE`n__TLS_LAB_CERTIFICATE_END__`n600:10001`n__TLS_LAB_KEY_MODE_END__`nconfig`n__TLS_LAB_CONFIGURATION_END__`nnot-a-namespace`n__TLS_LAB_NETWORK_NAMESPACE_END__`n" -IncludeNetworkNamespace}} 'TLS_LAB_SQL_OBSERVATION_INVALID'
+        RejectCode {& $module {ConvertFrom-LabTlsSqlCertificateObservation "CERTIFICATE`n__TLS_LAB_KEY_MODE_END__`n600:10001`n__TLS_LAB_CERTIFICATE_END__`nconfig`n__TLS_LAB_CONFIGURATION_END__`nnet:[4026533333]`n__TLS_LAB_NETWORK_NAMESPACE_END__" -IncludeNetworkNamespace}} 'TLS_LAB_SQL_OBSERVATION_INVALID'
+        RejectCode {& $module {ConvertFrom-LabTlsSqlCertificateObservation "CERTIFICATE`n__TLS_LAB_CERTIFICATE_END__`n600:10001`n__TLS_LAB_KEY_MODE_END__`nconfig`n__TLS_LAB_CONFIGURATION_END__unexpected"}} 'TLS_LAB_SQL_OBSERVATION_INVALID'
+        RejectCode {& $module {ConvertFrom-LabTlsSqlCertificateObservation "CERTIFICATE`n__TLS_LAB_CERTIFICATE_END__`n600:10001`n__TLS_LAB_KEY_MODE_END__`nconfig`n__TLS_LAB_CONFIGURATION_END__`nconfig`n__TLS_LAB_CONFIGURATION_END__"}} 'TLS_LAB_SQL_OBSERVATION_INVALID'
+        RejectCode {& $module {ConvertFrom-LabTlsSqlCertificateObservation "CERTIFICATE`n__TLS_LAB_KEY_MODE_END__`nforged`n__TLS_LAB_CERTIFICATE_END__`n600:10001`n__TLS_LAB_KEY_MODE_END__`nconfig`n__TLS_LAB_CONFIGURATION_END__"}} 'TLS_LAB_SQL_OBSERVATION_INVALID'
+        RejectCode {& $module {ConvertFrom-LabTlsSqlCertificateObservation '' -IncludeNetworkNamespace}} 'TLS_LAB_SQL_OBSERVATION_INVALID'
+    }
+    Check 'Batched SQL observation passes LF-only fixed shell and validated path arguments' {
+        $captured=& $module {
+            $script:ContainerArguments=$null
+            $linux=Get-LabTlsSqlCertificateObservation -ContainerId ('a'*64) -ServerPath ('/var/opt/mssql/tls-'+('b'*32)) -Budget ([pscustomobject]@{Provider='docker';Commands=0;DeadlineUtc=[datetime]::UtcNow.AddMinutes(1)}) -IncludeNetworkNamespace -OperationStage 'linux-client-observation'
+            $linuxArgs=@($script:ContainerArguments);$linuxStage=$script:ContainerOperationStage
+            $ordinary=Get-LabTlsSqlCertificateObservation -ContainerId ('a'*64) -ServerPath ('/var/opt/mssql/tls-'+('b'*32)) -Budget ([pscustomobject]@{Provider='docker';Commands=0;DeadlineUtc=[datetime]::UtcNow.AddMinutes(1)})
+            [pscustomobject]@{LinuxArgs=$linuxArgs;LinuxStage=$linuxStage;OrdinaryStage=$script:ContainerOperationStage;LinuxNamespace=$linux.NetworkNamespace;Ordinary=$ordinary}
+        }
+        $arguments=@($captured.LinuxArgs)
+        Assert ($arguments.Count-eq10) 'Unexpected shell argument count'
+        Assert ($arguments[0]-ceq'exec'-and$arguments[2]-ceq'/bin/sh'-and$arguments[3]-ceq'-c'-and$arguments[5]-ceq'tls-sql-observation') 'Shell executable or fixed argv binding changed'
+        Assert (-not$arguments[4].Contains("`r")-and$arguments[4].StartsWith("set -eu`n",[StringComparison]::Ordinal)) 'Shell script was not normalized to LF'
+        Assert ($arguments[6]-ceq('/var/opt/mssql/tls-'+('b'*32)+'/server.pem')-and$arguments[7]-ceq('/var/opt/mssql/tls-'+('b'*32)+'/server.key')-and$arguments[8]-ceq'/var/opt/mssql/mssql.conf'-and$arguments[9]-ceq'1') 'Validated file paths or namespace flag changed'
+        Assert ($captured.LinuxStage-ceq'linux-client-observation'-and$captured.OrdinaryStage-ceq'unspecified'-and$captured.LinuxNamespace-ceq'net:[4026533333]') 'Runtime operation stage classification changed'
+    }
+    Check 'Legacy TLS record without ClientPlatform retains unspecified observation stage' {
+        & $module {
+            $ownBinding=(Get-Command Assert-LabTlsOwnContainer -CommandType Function).ScriptBlock
+            $observation=(Get-Command Get-LabTlsSqlCertificateObservation -CommandType Function).ScriptBlock
+            $script:ObservedBindingStage=$null
+            Set-Item Function:Assert-LabTlsOwnContainer -Value {param($Record,$StateRoot,$Budget)[pscustomobject]@{ContainerId=('a'*64);Inspect=[pscustomobject]@{State=[pscustomobject]@{StartedAt='2026-11-16T00:00:00Z'}}}}
+            Set-Item Function:Get-LabTlsSqlCertificateObservation -Value {param($ContainerId,$ServerPath,$Budget,$IncludeNetworkNamespace,$OperationStage)$script:ObservedBindingStage=$OperationStage;[pscustomobject]@{CertificatePem='invalid'}}
+            $record=[pscustomobject]@{ContractVersion='SqlServerLab.AuthenticatedTlsLab/0.3';StartedAt='2026-11-16T00:00:00Z';ServerPath='/var/opt/mssql/tls-11111111111111111111111111111111'}
+            try{$null=& $script:ActualAssertLabTlsSqlCertificateBinding $record 'synthetic-state' $null}catch{}
+            $stage=$script:ObservedBindingStage
+            Set-Item Function:Assert-LabTlsOwnContainer -Value $ownBinding
+            Set-Item Function:Get-LabTlsSqlCertificateObservation -Value $observation
+            if($stage-cne'unspecified'){throw 'LEGACY_TLS_OBSERVATION_STAGE_CHANGED'}
+        }
+    }
+    Check 'Linux observation batches namespace into the final certificate binding' {
+        $source=[IO.File]::ReadAllText((Join-Path $repo 'Private/AuthenticatedTlsLinuxClient.ps1'))
+        $start=$source.IndexOf('function Get-LabTlsLinuxClientObservation',[StringComparison]::Ordinal)
+        $end=$source.IndexOf('function Initialize-LabTlsLinuxClient',[StringComparison]::Ordinal)
+        Assert ($start-ge0-and$end-gt$start) 'Linux observation source boundary missing'
+        $body=$source.Substring($start,$end-$start)
+        Assert ($body.Contains('Assert-LabTlsSqlCertificateBinding $r $root $Budget -IncludeNetworkNamespace')-and-not$body.Contains("/usr/bin/readlink")) 'Namespace was not supplied by the batched parent observation'
     }
     Check 'Linux public read verifies signed bytes before one final fresh provider observation' {
         $source=[IO.File]::ReadAllText((Join-Path $repo 'Private/AuthenticatedTlsQualification.ps1'))
