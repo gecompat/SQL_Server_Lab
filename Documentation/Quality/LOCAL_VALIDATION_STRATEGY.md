@@ -267,6 +267,17 @@ Diagnose-/Offline-Nachweis: der zugrunde liegende Runtimefehler und ein
 öffentlicher Linux-TLS-PASS bleiben offen; aus einer leeren stderr-Angabe wird
 keine SQL-, TLS- oder CA-Ursache abgeleitet.
 
+Ordinal 144 bestätigt die offene Grenze: Docker mit SQL Server 2025 CU9 und
+Linux-Client 0.4 endete in `LINUX_PUBLIC_PREFLIGHT` mit Exitcode 1, nach einer
+SqlClient-Verifier-Anfrage und vor `RESULT`; stderr war leer. Der Descriptor
+band Toolbelt `25ff9fb9`; die später in PR #604 gemergte Phasendiagnostik war
+in diesem Lauf nicht enthalten. Deshalb ist die konkrete Laufzeitursache weiter
+unbekannt. Das eigene Lab wurde entfernt und der Inventarvergleich bestand.
+Eine passive Custody-Freigabe wurde unabhängig ohne Findings bestätigt; der
+unveränderte Terminalnachweis bleibt `RECOVERY_REQUIRED` mit
+`WholeJobEmpty=false`. PR #604 verbessert die Diagnose für einen künftigen,
+aktuell gebundenen Lauf, belegt aber weder eine Ursache noch einen TLS-PASS.
+
 Die fokussierte Suite bestand zuletzt mit 364/0. Die 22 ausgewählten lokalen
 Integrationssuites und das vierteilige Korrekturdelta einschließlich vollständigem
 Analyzer bestanden; unabhängige Produkt- und Zulassungsreviews ohne offene
