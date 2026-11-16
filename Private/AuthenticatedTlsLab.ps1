@@ -94,7 +94,8 @@ function Get-LabTlsLinuxProbeFailureCode {
 }
 
 function Get-LabTlsLinuxBridgeFailureCodes {
-    return [string[]]@(
+    $codes=[Collections.Generic.List[string]]::new()
+    $codes.AddRange([string[]]@(
         'STDERR_UNCLASSIFIED','TLS_CERTIFICATE','PERMISSION_DENIED','NETWORK_NOT_FOUND','RUNTIME_TIMEOUT',
         'RUNTIME_TIMEOUT_TIMEOUT_EXCEPTION','RUNTIME_TIMEOUT_SOCKET_TIMEOUT','RUNTIME_TIMEOUT_SQLCLIENT_TIMEOUT','RUNTIME_TIMEOUT_OPERATION_CANCELED',
         'RUNTIME_TIMEOUT_HTTP_REQUEST_EXCEPTION','RUNTIME_TIMEOUT_WEB_EXCEPTION','RUNTIME_TIMEOUT_IO_EXCEPTION',
@@ -118,7 +119,12 @@ function Get-LabTlsLinuxBridgeFailureCodes {
         'LAB_QUALIFIED_CONTEXT_REQUIRED','LAB_QUALIFIED_CONTEXT_UNSUPPORTED','LAB_QUALIFIED_BYTES_INVALID',
         'LAB_MODULE_REQUIRED','LAB_MODULE_READER_REQUIRED','LAB_SNAPSHOT_INVALID','LAB_QUALIFIED_EXPORT_REJECTED',
         'LAB_QUALIFIED_CONNECT_WINDOW_EXPIRED'
-    )
+    ))
+    foreach($stage in @('CONSTRUCT','OPEN','QUERY','CLEANUP')){foreach($category in @('PLATFORM_UNSUPPORTED','ASSEMBLY_UNAVAILABLE','AUTHENTICATION','TIMEOUT','NETWORK','SQL','UNCLASSIFIED')){
+        if($category-ceq'TIMEOUT'-and$stage-cin@('OPEN','QUERY')){continue}
+        $codes.Add('TLS_SQLCLIENT_'+$stage+'_'+$category)
+    }}
+    return $codes.ToArray()
 }
 
 function Get-LabTlsLinuxExpectedNextFrame {

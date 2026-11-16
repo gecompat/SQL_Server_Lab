@@ -191,6 +191,21 @@ try{
                 $typedTimeoutBytes=[Convert]::FromBase64String($typedTimeout.Frame.Substring(8))
                 $typedTimeoutParsed=& $module {param($EnvelopeBytes)Get-LabTlsLinuxBridgeFailureCode $EnvelopeBytes} $typedTimeoutBytes
                 Assert ($typedTimeout.Code-ceq'RUNTIME_TIMEOUT_TIMEOUT_EXCEPTION'-and$typedTimeoutParsed-ceq$typedTimeout.Code-and$typedTimeout.Frame -notmatch 'synthetic-private-detail') 'Timeout exception kind must survive the private peer frame without raw details'
+                $phaseCodes=& $module {
+                    $codes=[Collections.Generic.List[string]]::new()
+                    foreach($stage in @('CONSTRUCT','OPEN','QUERY','CLEANUP')){foreach($category in @('PLATFORM_UNSUPPORTED','ASSEMBLY_UNAVAILABLE','AUTHENTICATION','TIMEOUT','NETWORK','SQL','UNCLASSIFIED')){
+                        $code='TLS_SQLCLIENT_'+$stage+'_'+$category
+                        $failure=[InvalidOperationException]::new($code+' synthetic-private-detail')
+                        $frame=New-LabTlsLinuxBridgeFailureFrame ([Management.Automation.ErrorRecord]::new($failure,'synthetic',[Management.Automation.ErrorCategory]::NotSpecified,$null))
+                        if($frame.Code-cne$code){throw 'SYNTHETIC_PHASE_FRAME_CODE_INVALID'}
+                        $bytes=[Convert]::FromBase64String($frame.Frame.Substring(8))
+                        if((Get-LabTlsLinuxBridgeFailureCode $bytes)-cne$code){throw 'SYNTHETIC_PHASE_FRAME_PARSE_INVALID'}
+                        if($frame.Frame -match 'synthetic-private-detail'){throw 'SYNTHETIC_PHASE_FRAME_LEAKED_DETAIL'}
+                        $codes.Add($code)
+                    }}
+                    return ,$codes.ToArray()
+                }
+                Assert (@($phaseCodes).Count-eq28-and@($phaseCodes|Sort-Object -Unique).Count-eq28) 'SqlClient phase and category codes must round-trip through the strict peer failure envelope'
                 $socketTimeout=& $module {
                     try{throw [InvalidOperationException]::new('network operation timed out; synthetic-private-detail',[Net.Sockets.SocketException]::new([Net.Sockets.SocketError]::TimedOut))}catch{New-LabTlsLinuxBridgeFailureFrame $_}
                 }
