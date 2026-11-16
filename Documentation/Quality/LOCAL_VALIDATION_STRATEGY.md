@@ -276,8 +276,10 @@ Terminal-`FailureCode` beginnt mit `TLS_LINUX_CHILD_EXIT_NONZERO`; die
 gemeldete `stderrClass` ist `RUNTIME_TIMEOUT_OTHER_EXCEPTION` bei null
 `stderrBytes`. Der Descriptor band Toolbelt `25ff9fb9`; die später in PR
 #604 gemergte Phasendiagnostik war in diesem Lauf nicht enthalten. Deshalb ist
-die konkrete Laufzeitursache weiter unbekannt. Das eigene Lab wurde entfernt
-und der Inventarvergleich bestand.
+die konkrete Laufzeitursache weiter unbekannt. Die erste Verifier-Anfrage
+bestätigt nur den qualifizierten Kontext, nicht eine erfolgreiche SQLClient-
+Verbindung oder -Abfrage. Das eigene Lab wurde entfernt und der
+Inventarvergleich bestand.
 Eine passive Custody-Freigabe wurde unabhängig ohne Findings bestätigt; der
 unveränderte Terminalnachweis bleibt `RECOVERY_REQUIRED` mit
 `WholeJobEmpty=false`. PR #604 verbessert die Diagnose für einen künftigen,
