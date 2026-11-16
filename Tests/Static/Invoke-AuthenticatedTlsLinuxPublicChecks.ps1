@@ -318,12 +318,15 @@ try{
             $script:PublicFailure='TLS_CA_ACL_INVALID'
             $caAclResult=$null
             try{Invoke-SqlServerLabLinuxPreflight -ExportBytes ([byte[]]@(1)) -StateRoot 'synthetic' -RunId 'synthetic' -InstanceId primary -ToolbeltRoot 'synthetic'}catch{$caAclResult=$_.Exception.Message}
-            @($caResult,$sqlClientResult,$bridgeProtocolResult,$caAclResult)
+            $script:PublicFailure='TLS_LAB_RUNTIME_RECOVERY_REQUIRED'
+            $runtimeRecoveryResult=$null
+            try{Invoke-SqlServerLabLinuxPreflight -ExportBytes ([byte[]]@(1)) -StateRoot 'synthetic' -RunId 'synthetic' -InstanceId primary -ToolbeltRoot 'synthetic'}catch{$runtimeRecoveryResult=$_.Exception.Message}
+            @($caResult,$sqlClientResult,$bridgeProtocolResult,$caAclResult,$runtimeRecoveryResult)
         }
         Assert ($message[0]-ceq'TLS_LAB_RUNTIME_COMMAND_FAILED|exitCode=1|stderrClass=TLS_CA_PEM_PARSE_FAILED|stderrBytes=32|stdoutChars=0|operationStage=linux-client-observation'-and
             $message[1]-ceq'TLS_LAB_RUNTIME_COMMAND_FAILED|exitCode=1|stderrClass=TLS_SQLCLIENT_OPEN_AUTHENTICATION|stderrBytes=32|stdoutChars=0|operationStage=linux-client-qualification' -and
             $message[2]-ceq'TLS_LINUX_BRIDGE_PROTOCOL' -and
-            $message[3]-ceq'TLS_CA_ACL_INVALID' -and
+            $message[3]-ceq'TLS_CA_ACL_INVALID' -and $message[4]-ceq'TLS_LAB_RUNTIME_RECOVERY_REQUIRED' -and
             ($message-join' ')-notmatch'synthetic-secret|C:\\private') 'Public catch did not preserve only the sanitized summaries'
     }
 }finally{Remove-Module $module;Remove-TestTemporaryDirectory -OwnedDirectory $owned}
