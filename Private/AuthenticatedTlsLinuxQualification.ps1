@@ -142,4 +142,5 @@ function Assert-LabTlsLinuxExportQualification {
         runId=$r.RunId;instanceId=$r.InstanceId;host='localhost';port=1433;database='master';username='sa';password=$Entry.password;encrypt=$true;trustServerCertificate=$false;autoStart='off';connectionString=$Entry.connectionString}
     if($Entry.password-isnot[string]-or-not$Entry.password-or$Entry.connectionString-isnot[string]){throw 'TLS_LINUX_EXPORT_BINDING_INVALID'}
     Assert-LabTlsLinuxObservedFields $entryExpected $Entry
+    return $client
 }

@@ -294,6 +294,24 @@ bleiben erhalten. Finale PR-Gates sind eine eigene Integrationsbedingung.
 Öffentliche Linux-Moduswahl/Registry/Export/Consumer, Hyper-V-False-/Exportlane,
 operatives Renewal, weitere Browser-/Trustkontexte und Wire-Fingerprint bleiben offen.
 
+### 2026-11-16: Ordinal 145
+
+Der einmalig freigegebene Docker-Lauf mit SQL Server 2025 CU9 und Linux-Client
+0.4 scheiterte erneut vor `RESULT`. Der Windows-Verifier verarbeitete die erste
+Anfrage für `SYSTEM_DATA_SQLCLIENT`; seine Antwort traf beim Linux-Peer jedoch
+erst nach dem unveränderten 15-Sekunden-Austauschlimit ein. Der sichere
+Abschluss meldet `TLS_LINUX_VERIFIER_REPLY_DEADLINE_EXCEEDED`, null
+`stderrBytes` und als nächsten erwarteten Frame `VERIFY_ODBC_SQLCMD`. Damit ist
+weder eine erfolgreiche Linux-SQLClient-Anmeldung noch die ODBC-Prüfung belegt.
+Die genaue langsame Teiloperation ist aus dem Terminalnachweis nicht ableitbar.
+
+Der korrigierte Quellstand vermeidet doppelte frische Linux-/SQL-Bindungsprüfungen;
+die betroffenen statischen Suites und die unabhängige Quellprüfung bestanden.
+Ordinal 145 bestätigt jedoch keinen Runtimeeffekt dieses Deltas. Das eigene Lab
+wurde entfernt und die Inventarparität bestätigt. Der Run bleibt
+`RECOVERY_REQUIRED`; es gibt weiterhin keinen öffentlichen Linux-TLS-PASS.
+Eine weitere Wiederholung war nicht freigegeben.
+
 ## V2-Consumer-Cutover vom 2026-10-22
 
 Die [native Windows-Consumer-Abnahme](TLS_V2_CONSUMER_CUTOVER_ACCEPTANCE_2026-10-22.md)

@@ -7,7 +7,7 @@ sechs Akzeptanzkriterien des [kanonischen TLS-001-Backlogs](NEW_SQL_LAB_USE_CASE
 ab. Sie ergänzt keine weiteren Pflichtachsen. Fachverträge und tatsächlich
 ausgeführte datierte Nachweise bleiben maßgeblich; eine Planung ist kein PASS.
 
-## Statusabgleich vom 2026-11-08
+## Statusabgleich vom 2026-11-16
 
 Die nachfolgenden datierten Nachweise in der
 [Validierungsstrategie](../Quality/LOCAL_VALIDATION_STRATEGY.md) sind jünger
@@ -40,6 +40,16 @@ ausgewiesenen Umfang Vorrang:
   `RECOVERY_REQUIRED`; Cleanup und Inventarparität sind belegt, aber es gibt
   keinen Linux-TLS-PASS. Details stehen in der
   [Validierungsstrategie](../Quality/LOCAL_VALIDATION_STRATEGY.md#2026-11-16-ordinal-144).
+- Ordinal 145 verwendete den lokal korrigierten Quellstand und scheiterte
+  ebenfalls vor `RESULT`: Der Verifier antwortete nach Verarbeitung der ersten
+  `SYSTEM_DATA_SQLCLIENT`-Anfrage, aber erst nach dem 15-Sekunden-Limit des
+  vollständigen Austauschs. `TLS_LINUX_VERIFIER_REPLY_DEADLINE_EXCEEDED` und
+  null stderr-Bytes grenzen den Befund ein, identifizieren aber nicht die
+  langsame Teiloperation. Statische Prüfungen und Quellreview bestanden; ein
+  Runtimeeffekt des Deltas ist nicht nachgewiesen. Das Lab wurde entfernt und
+  Inventarparität bestätigt. Ohne weiteren autorisierten Lauf bleibt die
+  öffentliche Linux-Lane offen. Details stehen in der
+  [Validierungsstrategie](../Quality/LOCAL_VALIDATION_STRATEGY.md#2026-11-16-ordinal-145).
 
 Damit bleiben als konkrete Abschlussblöcke: die fehlende öffentliche
 Linux-Registry-/Reader-/Export-/Consumerlane; die öffentliche Hyper-V-False-/

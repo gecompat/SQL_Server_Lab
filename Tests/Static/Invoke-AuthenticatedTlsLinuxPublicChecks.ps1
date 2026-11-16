@@ -16,11 +16,19 @@ $module=New-Module -ArgumentList $repo,$owned.Path -ScriptBlock {
     $script:ModuleRoot=$Repo
     $script:FixtureRoot=$FixtureRoot
     $script:ProviderCalls=0
+    $script:ClientBindingCalls=0
+    $script:ObservationStages=[Collections.Generic.List[string]]::new()
     foreach($p in @('AuthenticatedTlsRequest.ps1','AuthenticatedTlsRegistryIndex.ps1','AuthenticatedTlsCaCandidate.ps1','DiagnosticBundleReader.ps1',
         'AuthenticatedTlsLab.ps1','AuthenticatedTlsQualification.ps1','AuthenticatedTlsLinuxClient.ps1','AuthenticatedTlsLinuxExecution.ps1','AuthenticatedTlsLinuxObserver.ps1','AuthenticatedTlsLinuxQualification.ps1','AuthenticatedTlsLinuxBootstrap.ps1')){
         . (Join-Path $Repo ('Private/'+$p))
     }
-    function Get-LabTlsLinuxClientBinding {param($Bound,$Budget)$script:Client}
+    function Get-LabTlsLinuxClientBinding {param($Bound,$Budget)$script:ClientBindingCalls++;$script:Client}
+    function Assert-LabTlsSqlCertificateBinding {param($Record,$StateRoot,$Budget)$script:ObservationStages.Add('parent-certificate')}
+    function Get-LabOwnedHostContainerObservation {param($StateRoot,$Intent,$ContainerId)$script:ObservationStages.Add('client-inspect');$script:ObservationInspect}
+    function Assert-LabOwnedHostContainerEffect {param($StateRoot,$RunId,$Provider,$ContainerId)$script:ObservationStages.Add('client-effect')}
+    function Get-LabTlsLinuxObservationProgram {'synthetic-read-only-observer'}
+    function Invoke-LabTlsLinuxObservedProgram {param($Bound,$Budget,$ContainerId,$Program,$InputText)$script:ObservationStages.Add('guest-observation');$script:ObservationFacts|ConvertTo-Json -Compress -Depth 8}
+    function Invoke-LabTlsContainer {param($Arguments,$Budget,$OperationStage)$script:ObservationStages.Add('sql-namespace');$script:ObservationFacts.NetNamespace}
     function Get-LabTlsOwnBinding {param($StateRoot,$RunId,$InstanceId)$script:Bound}
     function Get-LabOwnedHostRunPolicy {$script:ProviderCalls++;throw 'UNEXPECTED_PROVIDER'}
     function Remove-LabOwnedHostFailedContainer {$script:ProviderCalls++;throw 'UNEXPECTED_PROVIDER'}
@@ -35,6 +43,8 @@ $module=New-Module -ArgumentList $repo,$owned.Path -ScriptBlock {
 }
 function Fixture {
     & $module {
+        $script:ClientBindingCalls=0
+        $script:ObservationStages.Clear()
         $id='11111111-1111-1111-1111-111111111111';$child='22222222-2222-2222-2222-222222222222'
         $r=[pscustomobject]@{ContractVersion='SqlServerLab.AuthenticatedTlsLab/0.4';SqlProfileId='2025-CU9';ClientPlatform='linux';LinuxClientRef=$child
             Provider='docker';RunId=$id;InstanceId='primary';ScopeId=$id;ContainerId=('a'*64);ImageId=('sha256:'+('b'*64));StartedAt='2026-10-26T03:00:00Z';CertificateSha256=('c'*64);NotAfterUtc='2026-10-27T03:00:00.0000000+00:00'}
@@ -71,8 +81,38 @@ try{
     }
     Check 'Fresh exact Linux qualification and entry compose with unchanged parent identity' {
         Fixture
-        & $module {Assert-LabTlsLinuxExportQualification $script:Bound $null $script:Q $script:Entry
+        $client=& $module {Assert-LabTlsLinuxExportQualification $script:Bound $null $script:Q $script:Entry
             if($script:Q.ParentControllerClientRef-ceq$script:Q.ClientRef){throw 'PARENT_COLLAPSED'}}
+        Assert ($client.Sha256-ceq('3'*64)-and(& $module {$script:ClientBindingCalls})-eq1) 'Fresh Linux binding was not returned exactly once'
+    }
+    Check 'Linux parent certificate observation follows fresh child trust and namespace checks' {
+        $stages=& $module {
+            $script:ObservationStages.Clear()
+            $parent='aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+            $script:ObservationFacts=[pscustomobject]@{NetNamespace='net:[4026533333]';Trust=[pscustomobject]@{CertificateSha256=('d'*64)};Binaries=[pscustomobject]@{}}
+            $script:ObservationInspect=[pscustomobject]@{Id='bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
+                State=[pscustomobject]@{Running=$true};Config=[pscustomobject]@{User='10001:0'}
+                HostConfig=[pscustomobject]@{ReadonlyRootfs=$true;Privileged=$false;NetworkMode=('container:'+$parent);Binds=$null;PortBindings=$null;SecurityOpt=@('no-new-privileges')}}
+            $record=[pscustomobject]@{RunId='11111111-1111-1111-1111-111111111111';InstanceId='primary';Provider='docker';ContainerId=$parent;CertificateSha256=('c'*64)}
+            $bound=[pscustomobject]@{Record=$record;StateRoot=$script:FixtureRoot;Authority=[pscustomobject]@{Authority=[pscustomobject]@{CertificateSha256=('d'*64)}}}
+            $intent=[pscustomobject]@{IntentId='22222222-2222-2222-2222-222222222222'}
+            $null=Get-LabTlsLinuxClientObservation $bound $null $intent $script:ObservationInspect.Id
+            $script:ObservationStages -join ','
+        }
+        Assert ($stages-ceq'client-inspect,client-effect,guest-observation,sql-namespace,parent-certificate') ('Unexpected observation order: '+$stages)
+    }
+    Check 'Linux public read verifies signed bytes before one final fresh provider observation' {
+        $source=[IO.File]::ReadAllText((Join-Path $repo 'Private/AuthenticatedTlsQualification.ps1'))
+        $start=$source.IndexOf('function Read-LabTlsQualifiedExportSnapshot',[StringComparison]::Ordinal)
+        $end=$source.IndexOf('function Test-LabTlsQualifiedExport',[StringComparison]::Ordinal)
+        Assert ($start-ge0-and$end-gt$start) 'Qualified snapshot reader source boundary missing'
+        $reader=$source.Substring($start,$end-$start)
+        $signature=$reader.IndexOf('VerifyData($signed',[StringComparison]::Ordinal)
+        $linuxBinding=$reader.IndexOf('$linuxClient=Assert-LabTlsLinuxExportQualification',[StringComparison]::Ordinal)
+        $certificateCalls=[regex]::Matches($reader,'Assert-LabTlsSqlCertificateBinding')
+        $certificateCall=$reader.IndexOf('$null=Assert-LabTlsSqlCertificateBinding',[StringComparison]::Ordinal)
+        $linuxElse=$reader.LastIndexOf('}else{',$certificateCall,[StringComparison]::Ordinal)
+        Assert ($signature-ge0-and$linuxBinding-gt$signature-and$certificateCalls.Count-eq1-and$certificateCall-gt$linuxBinding-and$linuxElse-gt$linuxBinding-and$certificateCall-gt$linuxElse) 'Linux read repeated or ran provider checks before signed static validation'
     }
     Fixture
     $fields=& $module {@($script:Q.PSObject.Properties|Where-Object {$_.Value-is[string]}|ForEach-Object {$_.Name})}
