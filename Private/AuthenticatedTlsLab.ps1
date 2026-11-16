@@ -277,16 +277,69 @@ function Invoke-LabTlsContainer {
     Assert-LabTlsRuntimeBudget $Budget 1
     if($InputText.Length -gt 16384){throw 'TLS_LAB_RUNTIME_INPUT_TOO_LARGE'}
     $start=New-LabTlsRuntimeProcessInfo -Arguments $Arguments -Budget $Budget
-    $process=[Diagnostics.Process]::new();$process.StartInfo=$start;$started=$false
+    $process=[Diagnostics.Process]::new();$process.StartInfo=$start;$started=$false;$succeeded=$false
+    $stdoutText=[Text.StringBuilder]::new();$stderrText=[Text.StringBuilder]::new()
+    $stdoutBuffer=[char[]]::new(8192);$stderrBuffer=[char[]]::new(8192)
+    $stdoutTask=$null;$stderrTask=$null;$stdinTask=$null;$stdoutDone=$false;$stderrDone=$false;$stdinDone=(-not [bool]$InputText);$pipeDrainTimedOut=$false
     try{
-        $started=$process.Start();$stdout=$process.StandardOutput.ReadToEndAsync();$stderr=$process.StandardError.ReadToEndAsync()
-        if($InputText){$write=$process.StandardInput.WriteAsync($InputText);if(-not $write.Wait(10000)){throw 'TLS_LAB_RUNTIME_INPUT_TIMEOUT'};$null=$write.GetAwaiter().GetResult()};$process.StandardInput.Close()
-        if(-not $process.WaitForExit(45000)){throw (Get-LabTlsRuntimeTimeoutCode $OperationStage)}
-        $output=$stdout.GetAwaiter().GetResult();$errorText=$stderr.GetAwaiter().GetResult()
-        if($process.ExitCode -ne 0 -or $output.Length -gt 1048576){throw (Get-LabTlsRuntimeFailureSummary -ExitCode $process.ExitCode -StandardError $errorText -OutputLength $output.Length -StandardOutput $output -OperationStage $OperationStage)}
+        Assert-LabTlsRuntimeBudget $Budget 0
+        if([datetime]::UtcNow -ge $Budget.DeadlineUtc){throw 'TLS_LAB_RUNTIME_TIME_BUDGET_EXCEEDED'}
+        $started=$process.Start();if(-not $started){throw 'TLS_LAB_RUNTIME_PROCESS_START_FAILED'}
+        $stdoutTask=$process.StandardOutput.ReadAsync($stdoutBuffer,0,$stdoutBuffer.Length)
+        $stderrTask=$process.StandardError.ReadAsync($stderrBuffer,0,$stderrBuffer.Length)
+        if($InputText){$stdinTask=$process.StandardInput.WriteAsync($InputText);$inputDeadline=[datetime]::UtcNow.AddSeconds(10);if($Budget.DeadlineUtc -lt $inputDeadline){$inputDeadline=[datetime]$Budget.DeadlineUtc}}
+        else{$process.StandardInput.Close()}
+        $commandDeadline=[datetime]::UtcNow.AddSeconds(45)
+        $budgetDeadline=[datetime]$Budget.DeadlineUtc
+        if($budgetDeadline -lt $commandDeadline){$commandDeadline=$budgetDeadline}
+        $pipeDrainDeadline=$null
+        while(-not $process.HasExited -or -not $stdoutDone -or -not $stderrDone -or -not $stdinDone){
+            $now=[datetime]::UtcNow
+            if($process.HasExited -and (-not $stdoutDone -or -not $stderrDone)){
+                if($null -eq $pipeDrainDeadline){$pipeDrainDeadline=$now.AddSeconds(5)}
+                if($now -ge $pipeDrainDeadline){$pipeDrainTimedOut=$true;throw 'TLS_LAB_RUNTIME_PIPE_DRAIN_TIMEOUT'}
+            }
+            if($now -ge $Budget.DeadlineUtc){if($process.HasExited -and (-not $stdoutDone -or -not $stderrDone)){$pipeDrainTimedOut=$true};throw (Get-LabTlsRuntimeTimeoutCode $OperationStage)}
+            if($now -ge $commandDeadline){if($process.HasExited -and (-not $stdoutDone -or -not $stderrDone)){$pipeDrainTimedOut=$true};throw (Get-LabTlsRuntimeTimeoutCode $OperationStage)}
+            if(-not $stdinDone -and $stdinTask.IsCompleted){$null=$stdinTask.GetAwaiter().GetResult();$process.StandardInput.Close();$stdinDone=$true}
+            if(-not $stdinDone -and $now -ge $inputDeadline){throw 'TLS_LAB_RUNTIME_INPUT_TIMEOUT'}
+            if(-not $stdoutDone -and $stdoutTask.IsCompleted){
+                $read=$stdoutTask.GetAwaiter().GetResult()
+                if($read -eq 0){$stdoutDone=$true}
+                else{
+                    if($stdoutText.Length+$read -gt 1048576){throw 'TLS_LAB_RUNTIME_OUTPUT_TOO_LARGE'}
+                    $null=$stdoutText.Append($stdoutBuffer,0,$read)
+                    $stdoutTask=$process.StandardOutput.ReadAsync($stdoutBuffer,0,$stdoutBuffer.Length)
+                }
+            }
+            if(-not $stderrDone -and $stderrTask.IsCompleted){
+                $read=$stderrTask.GetAwaiter().GetResult()
+                if($read -eq 0){$stderrDone=$true}
+                else{
+                    if($stderrText.Length+$read -gt 1048576){throw 'TLS_LAB_RUNTIME_OUTPUT_TOO_LARGE'}
+                    $null=$stderrText.Append($stderrBuffer,0,$read)
+                    $stderrTask=$process.StandardError.ReadAsync($stderrBuffer,0,$stderrBuffer.Length)
+                }
+            }
+            if(-not $process.HasExited){$null=$process.WaitForExit(25)}else{Start-Sleep -Milliseconds 10}
+        }
+        $output=$stdoutText.ToString();$errorText=$stderrText.ToString()
+        if($process.ExitCode -ne 0){throw (Get-LabTlsRuntimeFailureSummary -ExitCode $process.ExitCode -StandardError $errorText -OutputLength $output.Length -StandardOutput $output -OperationStage $OperationStage)}
+        $succeeded=$true
         return $output.TrimEnd("`r","`n")
     }finally{
-        if($started -and -not $process.HasExited){$process.Kill($true);$process.WaitForExit()};$process.Dispose()
+        $terminationUnconfirmed=$false
+        if($started -and -not $succeeded){
+            if($process.HasExited -and (-not $stdoutDone -or -not $stderrDone)){$pipeDrainTimedOut=$true}
+            try{if(-not $process.HasExited -or $pipeDrainTimedOut){$process.Kill($true)}}catch{$terminationUnconfirmed=$true}
+            try{if(-not $process.WaitForExit(5000)){$terminationUnconfirmed=$true}}catch{$terminationUnconfirmed=$true}
+        }
+        if($started){foreach($stream in @($process.StandardInput,$process.StandardOutput,$process.StandardError)){try{$stream.Dispose()}catch{}}}
+        foreach($task in @($stdinTask,$stdoutTask,$stderrTask)){
+            if($null -ne $task){try{if(-not $task.Wait(2000)){$terminationUnconfirmed=$true}}catch{if(-not $task.IsCompleted){$terminationUnconfirmed=$true}}}
+        }
+        $process.Dispose()
+        if($terminationUnconfirmed -or $pipeDrainTimedOut){throw 'TLS_LAB_RUNTIME_RECOVERY_REQUIRED'}
     }
 }
 

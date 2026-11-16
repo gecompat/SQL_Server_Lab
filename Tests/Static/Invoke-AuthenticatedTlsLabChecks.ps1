@@ -16,11 +16,110 @@ foreach($name in @('DiagnosticBundleReader','AuthenticatedTlsRequest','Authentic
 . (Join-Path $repo 'Public/Read-SqlServerLabQualifiedTestEnvironment.ps1')
 $script:ModuleRoot=$repo
 function Test-TlsLabReject {param([scriptblock]$Action) try{& $Action|Out-Null;return $false}catch{return $true}}
+function Get-AuthenticatedTlsTestProcessState {
+    param([int]$Id,[long]$StartTicks)
+    $process=$null
+    try{$process=[Diagnostics.Process]::GetProcessById($Id)}catch [ArgumentException]{return 'ABSENT'}catch{return 'UNKNOWN'}
+    try{
+        try{$observed=$process.StartTime.ToUniversalTime().Ticks}catch [InvalidOperationException]{return 'ABSENT'}catch{return 'UNKNOWN'}
+        if($observed -ne $StartTicks){return 'PID_REUSED'}
+        return 'PRESENT'
+    }finally{$process.Dispose()}
+}
+function Stop-AuthenticatedTlsTestProcess {
+    param([int]$Id,[long]$StartTicks)
+    $process=$null;$state='UNKNOWN'
+    try{$process=[Diagnostics.Process]::GetProcessById($Id)}catch [ArgumentException]{return 'ABSENT'}catch{throw 'TLS_TEST_CHILD_STATE_UNCONFIRMED'}
+    try{
+        try{$observed=$process.StartTime.ToUniversalTime().Ticks}catch [InvalidOperationException]{return 'ABSENT'}catch{throw 'TLS_TEST_CHILD_STATE_UNCONFIRMED'}
+        if($observed -ne $StartTicks){return 'PID_REUSED'}
+        if($process.HasExited){return 'ABSENT'}
+        try{$confirmed=$process.StartTime.ToUniversalTime().Ticks}catch [InvalidOperationException]{return 'ABSENT'}catch{throw 'TLS_TEST_CHILD_STATE_UNCONFIRMED'}
+        if($confirmed -ne $StartTicks){return 'PID_REUSED'}
+        $process.Kill($true)
+        if(-not $process.WaitForExit(5000)){throw 'TLS_TEST_CHILD_TERMINATION_UNCONFIRMED'}
+    }finally{$process.Dispose()}
+    $state=Get-AuthenticatedTlsTestProcessState -Id $Id -StartTicks $StartTicks
+    if($state -notin @('ABSENT','PID_REUSED')){throw 'TLS_TEST_CHILD_STATE_UNCONFIRMED'}
+    return $state
+}
 Add-CheckResult 'Native executor requires an explicit operation budget' (Test-TlsLabReject {Invoke-LabTlsContainer @('never-executed')})
 $budget=New-LabTlsRuntimeBudget;$budget.Commands=100
 Add-CheckResult 'Command ceiling rejects before native process start' (Test-TlsLabReject {Invoke-LabTlsContainer @('never-executed') -Budget $budget})
 $budget=New-LabTlsRuntimeBudget;$budget.DeadlineUtc=[datetime]::UtcNow.AddSeconds(-1)
 Add-CheckResult 'Time ceiling rejects before native process start' (Test-TlsLabReject {Invoke-LabTlsContainer @('never-executed') -Budget $budget})
+$runtimeBuilder=(Get-Item Function:New-LabTlsRuntimeProcessInfo).ScriptBlock
+$runtimePowerShell=(Get-Process -Id $PID).Path
+$runtimePipeRoot=$null;$runtimePipePidPath=$null
+try{
+    Set-Item Function:New-LabTlsRuntimeProcessInfo -Value {
+        param([string[]]$Arguments,[object]$Budget)
+        $start=[Diagnostics.ProcessStartInfo]::new($script:runtimePowerShell)
+        $start.UseShellExecute=$false;$start.CreateNoWindow=$true
+        $start.RedirectStandardOutput=$true;$start.RedirectStandardError=$true;$start.RedirectStandardInput=$true
+        foreach($argument in $Arguments){$start.ArgumentList.Add([string]$argument)}
+        return $start
+    }
+    $runtimeBudget=New-LabTlsRuntimeBudget -Provider docker
+    $runtimeBudget.RuntimeContext=[pscustomobject]@{Provider='docker';Invocation=$runtimePowerShell;Endpoint='synthetic';IdentityPath='';IdentitySha256=''}
+    $runtimeOutput=Invoke-LabTlsContainer @('-NoProfile','-Command',"[Console]::Out.Write('synthetic-bounded-output')") -Budget $runtimeBudget
+    Add-CheckResult 'Bounded TLS runtime process captures stdout without changing its content' ($runtimeOutput -ceq 'synthetic-bounded-output')
+
+    $runtimeBudget=New-LabTlsRuntimeBudget -Provider docker
+    $runtimeBudget.RuntimeContext=[pscustomobject]@{Provider='docker';Invocation=$runtimePowerShell;Endpoint='synthetic';IdentityPath='';IdentitySha256=''}
+    $runtimeInputText='i'*8192
+    $runtimeDuplexCommand="[Console]::Out.Write(('o' * 16384)); `$inputText=[Console]::In.ReadToEnd(); [Console]::Out.Write('INPUT=' + `$inputText.Length)"
+    $runtimeDuplexOutput=Invoke-LabTlsContainer @('-NoProfile','-Command',$runtimeDuplexCommand) $runtimeInputText -Budget $runtimeBudget
+    Add-CheckResult 'TLS runtime drains output while bounded stdin is written' ($runtimeDuplexOutput.EndsWith('INPUT=8192',[StringComparison]::Ordinal) -and $runtimeDuplexOutput.Length -eq 16394)
+
+    $runtimeBudget=New-LabTlsRuntimeBudget -Provider docker
+    $runtimeBudget.RuntimeContext=[pscustomobject]@{Provider='docker';Invocation=$runtimePowerShell;Endpoint='synthetic';IdentityPath='';IdentitySha256=''}
+    $runtimeBudget.DeadlineUtc=[datetime]::UtcNow.AddSeconds(2)
+    $runtimeWatch=[Diagnostics.Stopwatch]::StartNew();$runtimeTimeoutCode=$null
+    try{$null=Invoke-LabTlsContainer @('-NoProfile','-Command','Start-Sleep -Seconds 30') -Budget $runtimeBudget -OperationStage 'linux-client-observation'}catch{$runtimeTimeoutCode=$_.Exception.Message}
+    Add-CheckResult 'TLS runtime budget timeout kills and bounds the owned process' ($runtimeTimeoutCode -ceq 'TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_OBSERVATION' -and $runtimeWatch.Elapsed.TotalSeconds -lt 9)
+
+    $runtimeBudget=New-LabTlsRuntimeBudget -Provider docker
+    $runtimeBudget.RuntimeContext=[pscustomobject]@{Provider='docker';Invocation=$runtimePowerShell;Endpoint='synthetic';IdentityPath='';IdentitySha256=''}
+    $runtimeLargeOutputCode=$null
+    try{$null=Invoke-LabTlsContainer @('-NoProfile','-Command',"1..200 | ForEach-Object { [Console]::Out.Write(('x' * 8192)) }") -Budget $runtimeBudget}catch{$runtimeLargeOutputCode=$_.Exception.Message}
+    Add-CheckResult 'TLS runtime output is capped while the child is still producing output' ($runtimeLargeOutputCode -ceq 'TLS_LAB_RUNTIME_OUTPUT_TOO_LARGE')
+
+    $runtimePipeRoot=Join-Path ([IO.Path]::GetTempPath()) ('sql-tls-pipe-'+[guid]::NewGuid().ToString('N'))
+    $null=[IO.Directory]::CreateDirectory($runtimePipeRoot)
+    $runtimePipePidPath=Join-Path $runtimePipeRoot 'child-process.txt'
+    $runtimePipeProgram=@'
+$childStart=[Diagnostics.ProcessStartInfo]::new('__POWERSHELL__')
+$childStart.UseShellExecute=$false;$childStart.CreateNoWindow=$true
+$childStart.ArgumentList.Add('-NoProfile');$childStart.ArgumentList.Add('-Command');$childStart.ArgumentList.Add('Start-Sleep -Seconds 60')
+$child=[Diagnostics.Process]::Start($childStart)
+[IO.File]::WriteAllText('__PID_FILE__',([string]$child.Id+'|'+[string]$child.StartTime.ToUniversalTime().Ticks))
+'@
+    $runtimePipeProgram=$runtimePipeProgram.Replace('__POWERSHELL__',$runtimePowerShell.Replace("'","''")).Replace('__PID_FILE__',$runtimePipePidPath.Replace("'","''"))
+    $runtimeBudget=New-LabTlsRuntimeBudget -Provider docker
+    $runtimeBudget.RuntimeContext=[pscustomobject]@{Provider='docker';Invocation=$runtimePowerShell;Endpoint='synthetic';IdentityPath='';IdentitySha256=''}
+    $runtimePipeWatch=[Diagnostics.Stopwatch]::StartNew();$runtimePipeCode=$null
+    try{$null=Invoke-LabTlsContainer @('-NoProfile','-Command',$runtimePipeProgram) -Budget $runtimeBudget}catch{$runtimePipeCode=$_.Exception.Message}
+    $runtimeChildState='UNKNOWN';$runtimeChildGone=$false
+    if(Test-Path -LiteralPath $runtimePipePidPath){
+        $runtimeChildRecord=(Get-Content -LiteralPath $runtimePipePidPath -Raw).Split('|')
+        if($runtimeChildRecord.Count -eq 2){
+            $runtimeChildState=Get-AuthenticatedTlsTestProcessState -Id ([int]$runtimeChildRecord[0]) -StartTicks ([long]$runtimeChildRecord[1])
+            $runtimeChildGone=$runtimeChildState -in @('ABSENT','PID_REUSED')
+            if($runtimeChildState -eq 'PRESENT'){$null=Stop-AuthenticatedTlsTestProcess -Id ([int]$runtimeChildRecord[0]) -StartTicks ([long]$runtimeChildRecord[1]);$runtimeChildGone=$true}
+        }
+    }
+    Add-CheckResult 'TLS runtime requires recovery for a pipe-held child and test cleanup confirms its exact PID is gone' ($runtimePipeCode -ceq 'TLS_LAB_RUNTIME_RECOVERY_REQUIRED' -and $runtimeChildState -in @('PRESENT','ABSENT','PID_REUSED') -and $runtimeChildGone -and $runtimePipeWatch.Elapsed.TotalSeconds -lt 12)
+}finally{
+    if($runtimePipePidPath -and (Test-Path -LiteralPath $runtimePipePidPath)){
+        $record=(Get-Content -LiteralPath $runtimePipePidPath -Raw).Split('|')
+        if($record.Count -ne 2 -or $record[0] -cnotmatch '^\d+$' -or $record[1] -cnotmatch '^\d+$'){throw 'TLS_TEST_CHILD_EVIDENCE_INVALID'}
+        $null=Stop-AuthenticatedTlsTestProcess -Id ([int]$record[0]) -StartTicks ([long]$record[1])
+        [IO.File]::Delete($runtimePipePidPath)
+    }
+    if($runtimePipeRoot -and (Test-Path -LiteralPath $runtimePipeRoot)){[IO.Directory]::Delete($runtimePipeRoot)}
+    Set-Item Function:New-LabTlsRuntimeProcessInfo -Value $runtimeBuilder
+}
 $timeoutStages=@{
     'linux-client-create'='TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_CREATE'
     'linux-client-start'='TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_START'
