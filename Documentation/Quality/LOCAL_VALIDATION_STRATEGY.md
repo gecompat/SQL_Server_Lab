@@ -319,6 +319,29 @@ synthetische Parser-/Vertragsprüfung deckt auch die von der Prozessgrenze
 entfernten Schluss-Newlines ab. Diese Änderung belegt nicht, dass sie das
 15-Sekunden-Timeout beseitigt; ein weiterer nativer Lauf war nicht autorisiert.
 
+### 2026-11-17: Ordinal 146
+
+Der einmalig freigegebene Docker-Lauf mit SQL Server 2025 CU9 und Linux-Client
+0.4 endete in `LINUX_PUBLIC_PREFLIGHT` mit Exitcode 1. Nach einer
+`SYSTEM_DATA_SQLCLIENT`-Verifier-Anfrage wurde der Peer vor `RESULT` beendet;
+der Terminalnachweis klassifiziert den Konstruktorfehler als
+`TLS_SQLCLIENT_CONSTRUCT_UNCLASSIFIED` und enthält null `stderrBytes`. Die
+konkrete Exception und ihre Ursache sind daher nicht rekonstruierbar. Das Lab
+wurde entfernt, der Inventarvergleich bestand und die passive Custody wurde
+freigegeben. Der Lauf bleibt ein FAIL/`RECOVERY_REQUIRED`; er ist kein
+Linux-TLS-PASS.
+
+Der Quellvergleich fand eine begrenzte Diagnoselücke: die eingebettete
+Linux-Klassifikation behandelte `ArgumentException` und `FormatException` beim
+SqlClient-Konstruktor als `UNCLASSIFIED`, obwohl der Host bereits den
+geschlossenen Token `TLS_SQLCLIENT_CONSTRUCT_INVALID_ARGUMENT` akzeptiert.
+Der lokale Patch ergänzt diese Zuordnung und synthetische Tests für beide
+Exceptiontypen, innere Exceptions, unbekannte Konstruktorfehler und andere
+Phasen. Das behebt die Tokenlücke, beweist aber nicht, dass Ordinal 146 eine
+dieser Exceptiontypen hatte oder dass damit die Laufzeitursache gelöst ist.
+Die fokussierte Suite und die neun ausgewählten statischen Suites bestanden;
+ein öffentlicher Linux-TLS-PASS und die PR-Pflichtgates bleiben offen.
+
 ## V2-Consumer-Cutover vom 2026-10-22
 
 Die [native Windows-Consumer-Abnahme](TLS_V2_CONSUMER_CUTOVER_ACCEPTANCE_2026-10-22.md)

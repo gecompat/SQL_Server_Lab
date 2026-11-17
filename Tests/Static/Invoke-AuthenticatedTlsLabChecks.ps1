@@ -238,6 +238,30 @@ $expectedObservedParameters=@('Bound','Budget','ContainerId','Program','InputTex
 $missingObservedParameters=@($expectedObservedParameters|Where-Object{$observedParameters -cnotcontains $_})
 Add-CheckResult 'Linux observed program preserves the legacy five-argument hook signature' ($missingObservedParameters.Count -eq 0 -and $observedParameters -cnotcontains 'OperationStage')
 Add-CheckResult 'Linux observer maps only exact known programs to fixed stages' ((Get-LabTlsLinuxObservedOperationStage (Get-LabTlsLinuxObservationProgram)) -ceq 'linux-client-observation' -and (Get-LabTlsLinuxObservedOperationStage (Get-LabTlsLinuxQualificationProgram)) -ceq 'linux-client-qualification' -and (Get-LabTlsLinuxObservedOperationStage 'synthetic unknown program') -ceq 'unspecified')
+$guestQualificationProgram=Get-LabTlsLinuxQualificationProgram
+$guestTokens=$null;$guestParseErrors=$null
+$guestAst=[System.Management.Automation.Language.Parser]::ParseInput($guestQualificationProgram,[ref]$guestTokens,[ref]$guestParseErrors)
+$guestClassifier=@($guestAst.FindAll({param($node)$node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -ceq 'Get-TlsLinuxQualificationFailureToken'},$true))
+$guestClassifierPassed=$false
+if(@($guestParseErrors).Count-eq0 -and $guestClassifier.Count-eq1){
+    $guestClassifierText='param([string]$Stage,[System.Exception]$Exception)'+[Environment]::NewLine+$guestClassifier[0].Extent.Text+[Environment]::NewLine+'Get-TlsLinuxQualificationFailureToken -Stage $Stage -Exception $Exception'
+    $guestClassifierBlock=[scriptblock]::Create($guestClassifierText)
+    $privateDetail='synthetic-private-connection-detail'
+    $argumentCode=& $guestClassifierBlock -Stage CONSTRUCT -Exception ([ArgumentException]::new($privateDetail))
+    $formatCode=& $guestClassifierBlock -Stage CONSTRUCT -Exception ([FormatException]::new($privateDetail))
+    $wrappedArgumentCode=& $guestClassifierBlock -Stage CONSTRUCT -Exception ([InvalidOperationException]::new($privateDetail,[ArgumentException]::new($privateDetail)))
+    $unknownConstructCode=& $guestClassifierBlock -Stage CONSTRUCT -Exception ([InvalidOperationException]::new($privateDetail))
+    $wrongStageCode=& $guestClassifierBlock -Stage OPEN -Exception ([ArgumentException]::new($privateDetail))
+    $argumentSummary=Get-LabTlsRuntimeFailureSummary -ExitCode 1 -StandardError $argumentCode -OutputLength 0 -OperationStage 'linux-client-qualification'
+    $guestClassifierPassed=$argumentCode-ceq'TLS_SQLCLIENT_CONSTRUCT_INVALID_ARGUMENT' -and
+        $formatCode-ceq'TLS_SQLCLIENT_CONSTRUCT_INVALID_ARGUMENT' -and
+        $wrappedArgumentCode-ceq'TLS_SQLCLIENT_CONSTRUCT_INVALID_ARGUMENT' -and
+        $unknownConstructCode-ceq'TLS_SQLCLIENT_CONSTRUCT_UNCLASSIFIED' -and
+        $wrongStageCode-ceq'TLS_SQLCLIENT_OPEN_UNCLASSIFIED' -and
+        $argumentSummary-match'\|stderrClass=TLS_SQLCLIENT_CONSTRUCT_INVALID_ARGUMENT\|' -and
+        $argumentSummary-cnotmatch[regex]::Escape($privateDetail)
+}
+Add-CheckResult 'Embedded Linux SqlClient constructor emits only a closed invalid-argument token and keeps other stages closed' $guestClassifierPassed
 foreach($json in @('{"x":1,"X":2}','{"x":{"a":1,"A":2}}','{"x":1,}','{"x":/*comment*/1}','{"x":1,"y":2}')){
     Add-CheckResult 'Bound JSON rejects duplicate/alias/comment/trailing/unknown fields' (Test-TlsLabReject {Read-LabTlsBoundJson ([Text.Encoding]::UTF8.GetBytes($json)) @('x')})
 }

@@ -26,6 +26,7 @@ function Get-TlsLinuxQualificationFailureToken {
         if($type-ceq'System.Security.Authentication.AuthenticationException'){$category='AUTHENTICATION';break}
         if($type-ceq'System.TimeoutException'){$category='TIMEOUT';break}
         if($type-ceq'System.Net.Sockets.SocketException'){$category='NETWORK';break}
+        if($Stage-ceq'CONSTRUCT' -and ($Exception -is [ArgumentException] -or $Exception -is [FormatException])){$category='INVALID_ARGUMENT';break}
         if($type-ceq'System.Data.SqlClient.SqlException'){$category='SQL';break}
         $Exception=$Exception.InnerException
     }
