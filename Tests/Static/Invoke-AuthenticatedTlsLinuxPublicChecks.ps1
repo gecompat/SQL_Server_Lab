@@ -314,7 +314,7 @@ try{
                 Assert ($typedTimeout.Code-ceq'RUNTIME_TIMEOUT_TIMEOUT_EXCEPTION'-and$typedTimeoutParsed-ceq$typedTimeout.Code-and$typedTimeout.Frame -notmatch 'synthetic-private-detail') 'Timeout exception kind must survive the private peer frame without raw details'
                 $phaseCodes=& $module {
                     $codes=[Collections.Generic.List[string]]::new()
-                    foreach($stage in @('CONSTRUCT','OPEN','QUERY','CLEANUP')){foreach($category in @('PLATFORM_UNSUPPORTED','ASSEMBLY_UNAVAILABLE','AUTHENTICATION','TIMEOUT','NETWORK','SQL','UNCLASSIFIED')){
+                    foreach($stage in @('CONSTRUCT','OPEN','QUERY','CLEANUP')){$categories=@('PLATFORM_UNSUPPORTED','ASSEMBLY_UNAVAILABLE','AUTHENTICATION','TIMEOUT','NETWORK','SQL','UNCLASSIFIED');if($stage-ceq'CONSTRUCT'){$categories+= 'INVALID_ARGUMENT'};foreach($category in $categories){
                         $code='TLS_SQLCLIENT_'+$stage+'_'+$category
                         $failure=[InvalidOperationException]::new($code+' synthetic-private-detail')
                         $frame=New-LabTlsLinuxBridgeFailureFrame ([Management.Automation.ErrorRecord]::new($failure,'synthetic',[Management.Automation.ErrorCategory]::NotSpecified,$null))
@@ -326,7 +326,7 @@ try{
                     }}
                     return ,$codes.ToArray()
                 }
-                Assert (@($phaseCodes).Count-eq28-and@($phaseCodes|Sort-Object -Unique).Count-eq28) 'SqlClient phase and category codes must round-trip through the strict peer failure envelope'
+                Assert (@($phaseCodes).Count-eq29-and@($phaseCodes|Sort-Object -Unique).Count-eq29) 'SqlClient phase and category codes must round-trip through the strict peer failure envelope'
                 $socketTimeout=& $module {
                     try{throw [InvalidOperationException]::new('network operation timed out; synthetic-private-detail',[Net.Sockets.SocketException]::new([Net.Sockets.SocketError]::TimedOut))}catch{New-LabTlsLinuxBridgeFailureFrame $_}
                 }
@@ -387,6 +387,12 @@ try{
             $bridgeExitProgressSafe=Get-LabTlsSafePublicLinuxFailureCode ([Management.Automation.ErrorRecord]::new($bridgeExitProgress,'synthetic',[Management.Automation.ErrorCategory]::NotSpecified,$null))
             $bridgeExitProgressInvalid=[InvalidOperationException]::new('TLS_LINUX_CHILD_EXIT_NONZERO|exitCode=1|hello=1|verifierRequests=1|resultSeen=0|lastVerifiedStack=SYSTEM_DATA_SQLCLIENT|nextExpectedFrame=RESULT|stderrClass=RUNTIME_TIMEOUT|stderrBytes=0')
             $bridgeExitProgressInvalidSafe=Get-LabTlsSafePublicLinuxFailureCode ([Management.Automation.ErrorRecord]::new($bridgeExitProgressInvalid,'synthetic',[Management.Automation.ErrorCategory]::NotSpecified,$null))
+                $constructArgument=[InvalidOperationException]::new('TLS_SQLCLIENT_CONSTRUCT_INVALID_ARGUMENT')
+                $constructArgumentSafe=Get-LabTlsSafePublicLinuxFailureCode ([Management.Automation.ErrorRecord]::new($constructArgument,'synthetic',[Management.Automation.ErrorCategory]::NotSpecified,$null))
+                $invalidArgumentOtherStages=foreach($stage in @('OPEN','QUERY','CLEANUP')){
+                    $invalidStage=[InvalidOperationException]::new(('TLS_SQLCLIENT_'+$stage+'_INVALID_ARGUMENT'))
+                    Get-LabTlsSafePublicLinuxFailureCode ([Management.Automation.ErrorRecord]::new($invalidStage,'synthetic',[Management.Automation.ErrorCategory]::NotSpecified,$null))
+                }
             $bridgeWithSecret=[InvalidOperationException]::new('TLS_LINUX_BRIDGE_PROTOCOL password=synthetic-secret')
             $bridgeSecretRejected=Get-LabTlsSafePublicLinuxFailureCode ([Management.Automation.ErrorRecord]::new($bridgeWithSecret,'synthetic',[Management.Automation.ErrorCategory]::NotSpecified,$null))
             $hostAcl=[InvalidOperationException]::new('TLS_CA_ACL_INVALID')
@@ -418,7 +424,7 @@ try{
             @($safe,$sqlClientSafe,$redacted,$rejected,$tokenRejected,$longTokenRejected,$sqlClientRejected,$classRejected,
                 $bridgeProtocolSafe,$bridgeSecretRejected,$hostAclSafe,$bootstrapSafe,$sessionSafe,$qualificationSafe,$hostSecretRejected,
                 $bridgeExitSafe,$bridgeExitSecretRejected,$bridgeExitRangeRejected,$bridgeExitUnicodeRejected,
-                ($fixedLinuxCodes-join','),($fixedLinuxResults-join','),$bridgeExitProgressSafe,$bridgeExitProgressInvalidSafe)
+                ($fixedLinuxCodes-join','),($fixedLinuxResults-join','),$bridgeExitProgressSafe,$bridgeExitProgressInvalidSafe,$constructArgumentSafe,($invalidArgumentOtherStages-join','))
         }
         Assert ($values[0]-ceq'TLS_LAB_RUNTIME_COMMAND_FAILED|exitCode=1|stderrClass=TLS_CA_PEM_PARSE_FAILED|stderrBytes=32|stdoutChars=0|operationStage=linux-client-observation') 'Safe summary was not preserved'
         Assert ($values[1]-ceq'TLS_LAB_RUNTIME_COMMAND_FAILED|exitCode=1|stderrClass=TLS_SQLCLIENT_OPEN_AUTHENTICATION|stderrBytes=32|stdoutChars=0|operationStage=linux-client-qualification') 'SQLClient summary class was not preserved'
@@ -432,6 +438,8 @@ try{
         Assert ($values[19]-ceq$values[20]) 'A fixed Linux binding, transfer, or qualification code was not preserved'
         Assert ($values[21]-ceq'TLS_LINUX_CHILD_EXIT_NONZERO|exitCode=1|hello=1|verifierRequests=1|resultSeen=0|lastVerifiedStack=SYSTEM_DATA_SQLCLIENT|nextExpectedFrame=VERIFY_ODBC_SQLCMD|stderrClass=RUNTIME_TIMEOUT|stderrBytes=0') 'Bound next-protocol-frame diagnostic was not preserved'
         Assert ($values[22]-ceq'TLS_LINUX_CONSUMER_REJECTED_OR_RECOVERY_REQUIRED') 'Inconsistent peer progress was exposed'
+        Assert ($values[23]-ceq'TLS_SQLCLIENT_CONSTRUCT_INVALID_ARGUMENT') 'Safe SqlClient construction classification was not preserved through the public App boundary'
+        Assert ($values[24]-ceq'TLS_LINUX_CONSUMER_REJECTED_OR_RECOVERY_REQUIRED,TLS_LINUX_CONSUMER_REJECTED_OR_RECOVERY_REQUIRED,TLS_LINUX_CONSUMER_REJECTED_OR_RECOVERY_REQUIRED') 'Constructor-only argument category must not be accepted for other SQLClient phases'
         Assert (@($values[2..7]+$values[9]+$values[14]+$values[16..18]|Where-Object {$_-cne'TLS_LINUX_CONSUMER_REJECTED_OR_RECOVERY_REQUIRED'}).Count-eq0) 'Malformed or secret-bearing diagnostics were exposed'
     }
     Check 'Public preflight catch emits the safe category while hiding the inner exception' {

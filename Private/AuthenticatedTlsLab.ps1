@@ -124,6 +124,7 @@ function Get-LabTlsLinuxBridgeFailureCodes {
         if($category-ceq'TIMEOUT'-and$stage-cin@('OPEN','QUERY')){continue}
         $codes.Add('TLS_SQLCLIENT_'+$stage+'_'+$category)
     }}
+    $codes.Add('TLS_SQLCLIENT_CONSTRUCT_INVALID_ARGUMENT')
     return $codes.ToArray()
 }
 
@@ -243,7 +244,7 @@ function Get-LabTlsRuntimeFailureSummary {
     if($linuxProbeFailure){$class=$linuxProbeFailure}
     elseif(-not $StandardError){$class='STDERR_EMPTY'}
     else{
-        if($StandardError -cmatch '\b(TLS_SQLCLIENT_(?:CONSTRUCT|OPEN|QUERY|CLEANUP)_(?:PLATFORM_UNSUPPORTED|ASSEMBLY_UNAVAILABLE|AUTHENTICATION|TIMEOUT|NETWORK|SQL|UNCLASSIFIED))\b'){
+        if($StandardError -cmatch '\b(TLS_SQLCLIENT_CONSTRUCT_(?:PLATFORM_UNSUPPORTED|ASSEMBLY_UNAVAILABLE|AUTHENTICATION|TIMEOUT|NETWORK|SQL|UNCLASSIFIED|INVALID_ARGUMENT)|TLS_SQLCLIENT_(?:OPEN|QUERY|CLEANUP)_(?:PLATFORM_UNSUPPORTED|ASSEMBLY_UNAVAILABLE|AUTHENTICATION|TIMEOUT|NETWORK|SQL|UNCLASSIFIED))\b'){
             # This grammar is closed to guest-emitted type/stage tokens. The
             # matched text contains no exception message, endpoint or secret.
             $class=$Matches[1]

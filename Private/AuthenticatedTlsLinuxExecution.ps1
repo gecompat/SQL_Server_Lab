@@ -140,7 +140,7 @@ function Get-LabTlsSafePublicLinuxFailureCode {
             if($exitCode-ge[int]::MinValue-and$exitCode-le[int]::MaxValue-and$verifierRequests-ge0-and$verifierRequests-le16-and$lastVerifiedStackValid-and$nextExpectedFrameValid-and
                 $safeRuntimeClasses.Contains($stderrClass)-and$stderrBytes-ge0-and$stderrBytes-le1048576){return $message}
         }
-        if($message -cin $safePublicTokens-or$message -cmatch '\ATLS_SQLCLIENT_(?:CONSTRUCT|OPEN|QUERY|CLEANUP)_(?:PLATFORM_UNSUPPORTED|ASSEMBLY_UNAVAILABLE|AUTHENTICATION|TIMEOUT|NETWORK|SQL|UNCLASSIFIED)\z'){
+        if($message -cin $safePublicTokens-or$message -cmatch '\ATLS_SQLCLIENT_CONSTRUCT_(?:PLATFORM_UNSUPPORTED|ASSEMBLY_UNAVAILABLE|AUTHENTICATION|TIMEOUT|NETWORK|SQL|UNCLASSIFIED|INVALID_ARGUMENT)\z|\ATLS_SQLCLIENT_(?:OPEN|QUERY|CLEANUP)_(?:PLATFORM_UNSUPPORTED|ASSEMBLY_UNAVAILABLE|AUTHENTICATION|TIMEOUT|NETWORK|SQL|UNCLASSIFIED)\z'){
             return $message
         }
         if($message -cmatch '\ATLS_LAB_RUNTIME_COMMAND_FAILED\|exitCode=(-?\d{1,10})\|stderrClass=([A-Z0-9_]{1,64})\|stderrBytes=(\d{1,10})\|stdoutChars=(\d{1,10})\|operationStage=(unspecified|linux-client-create|linux-client-start|linux-client-layout|linux-client-trust-write|linux-client-observation|linux-client-namespace-check|linux-client-qualification)\z'){
