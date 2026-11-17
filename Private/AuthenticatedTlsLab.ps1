@@ -93,6 +93,10 @@ function Get-LabTlsLinuxProbeFailureCode {
     return $null
 }
 
+function Get-LabTlsLinuxConstructOperationNames {
+    return @('BUILDER_CREATE','DATA_SOURCE','INITIAL_CATALOG','USER_ID','PASSWORD','ENCRYPT','TRUST_CERT','POOLING','CONNECT_TIMEOUT','CONNECT_RETRY','SQL_CONNECTION','BUILDER_CLEAR')
+}
+
 function Get-LabTlsLinuxBridgeFailureCodes {
     $codes=[Collections.Generic.List[string]]::new()
     $codes.AddRange([string[]]@(
@@ -125,6 +129,11 @@ function Get-LabTlsLinuxBridgeFailureCodes {
         $codes.Add('TLS_SQLCLIENT_'+$stage+'_'+$category)
     }}
     $codes.Add('TLS_SQLCLIENT_CONSTRUCT_INVALID_ARGUMENT')
+    foreach($operation in Get-LabTlsLinuxConstructOperationNames){
+        foreach($category in @('PLATFORM_UNSUPPORTED','ASSEMBLY_UNAVAILABLE','AUTHENTICATION','TIMEOUT','NETWORK','SQL','UNCLASSIFIED','INVALID_ARGUMENT')){
+            $codes.Add('TLS_SQLCLIENT_CONSTRUCT_'+$category+'_AT_'+$operation)
+        }
+    }
     return $codes.ToArray()
 }
 
@@ -244,7 +253,7 @@ function Get-LabTlsRuntimeFailureSummary {
     if($linuxProbeFailure){$class=$linuxProbeFailure}
     elseif(-not $StandardError){$class='STDERR_EMPTY'}
     else{
-        if($StandardError -cmatch '\b(TLS_SQLCLIENT_CONSTRUCT_(?:PLATFORM_UNSUPPORTED|ASSEMBLY_UNAVAILABLE|AUTHENTICATION|TIMEOUT|NETWORK|SQL|UNCLASSIFIED|INVALID_ARGUMENT)|TLS_SQLCLIENT_(?:OPEN|QUERY|CLEANUP)_(?:PLATFORM_UNSUPPORTED|ASSEMBLY_UNAVAILABLE|AUTHENTICATION|TIMEOUT|NETWORK|SQL|UNCLASSIFIED))\b'){
+        if($StandardError -cmatch '\b(TLS_SQLCLIENT_CONSTRUCT_(?:PLATFORM_UNSUPPORTED|ASSEMBLY_UNAVAILABLE|AUTHENTICATION|TIMEOUT|NETWORK|SQL|UNCLASSIFIED|INVALID_ARGUMENT)(?:_AT_(?:BUILDER_CREATE|DATA_SOURCE|INITIAL_CATALOG|USER_ID|PASSWORD|ENCRYPT|TRUST_CERT|POOLING|CONNECT_TIMEOUT|CONNECT_RETRY|SQL_CONNECTION|BUILDER_CLEAR))?|TLS_SQLCLIENT_(?:OPEN|QUERY|CLEANUP)_(?:PLATFORM_UNSUPPORTED|ASSEMBLY_UNAVAILABLE|AUTHENTICATION|TIMEOUT|NETWORK|SQL|UNCLASSIFIED))\b'){
             # This grammar is closed to guest-emitted type/stage tokens. The
             # matched text contains no exception message, endpoint or secret.
             $class=$Matches[1]

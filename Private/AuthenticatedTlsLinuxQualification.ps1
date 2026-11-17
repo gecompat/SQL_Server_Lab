@@ -17,7 +17,11 @@ function Get-LabTlsLinuxQualificationProgram {
     return @'
 $ErrorActionPreference='Stop'
 function Get-TlsLinuxQualificationFailureToken {
-    param([ValidateSet('CONSTRUCT','OPEN','QUERY','CLEANUP')][string]$Stage,[System.Exception]$Exception)
+    param(
+        [ValidateSet('CONSTRUCT','OPEN','QUERY','CLEANUP')][string]$Stage,
+        [ValidateSet('NONE','BUILDER_CREATE','DATA_SOURCE','INITIAL_CATALOG','USER_ID','PASSWORD','ENCRYPT','TRUST_CERT','POOLING','CONNECT_TIMEOUT','CONNECT_RETRY','SQL_CONNECTION','BUILDER_CLEAR')][string]$ConstructOperation='NONE',
+        [System.Exception]$Exception
+    )
     $category='UNCLASSIFIED'
     while($null-ne$Exception){
         $type=$Exception.GetType().FullName
@@ -30,19 +34,29 @@ function Get-TlsLinuxQualificationFailureToken {
         if($type-ceq'System.Data.SqlClient.SqlException'){$category='SQL';break}
         $Exception=$Exception.InnerException
     }
+    if($Stage-ceq'CONSTRUCT' -and $ConstructOperation-cne'NONE'){
+        return ('TLS_SQLCLIENT_CONSTRUCT_'+$category+'_AT_'+$ConstructOperation)
+    }
     return ('TLS_SQLCLIENT_'+$Stage+'_'+$category)
 }
 $inputObject=[Console]::In.ReadToEnd()|ConvertFrom-Json
 $expected=$inputObject.SqlBuild
-$builder=$null;$connection=$null;$command=$null;$reader=$null;$failureToken=$null;$resultMatches=$false
+$builder=$null;$connection=$null;$command=$null;$reader=$null;$failureToken=$null;$resultMatches=$false;$constructOperation='BUILDER_CREATE'
 try{
     try{
         $builder=[Data.SqlClient.SqlConnectionStringBuilder]::new()
-        $builder['Data Source']='tcp:localhost,1433';$builder['Initial Catalog']='master';$builder['User ID']='sa';$builder['Password']=$inputObject.Password
-        $builder['Encrypt']=$true;$builder['TrustServerCertificate']=$false;$builder['Pooling']=$false;$builder['Connect Timeout']=10;$builder['ConnectRetryCount']=0
-        $connection=[Data.SqlClient.SqlConnection]::new($builder.ConnectionString)
-    }catch{$failureToken=Get-TlsLinuxQualificationFailureToken -Stage CONSTRUCT -Exception $_.Exception}
-    finally{if($builder){try{$builder.Clear()}catch{if(-not$failureToken){$failureToken='TLS_SQLCLIENT_CONSTRUCT_UNCLASSIFIED'}}}}
+        $constructOperation='DATA_SOURCE';$builder['Data Source']='tcp:localhost,1433'
+        $constructOperation='INITIAL_CATALOG';$builder['Initial Catalog']='master'
+        $constructOperation='USER_ID';$builder['User ID']='sa'
+        $constructOperation='PASSWORD';$builder['Password']=$inputObject.Password
+        $constructOperation='ENCRYPT';$builder['Encrypt']=$true
+        $constructOperation='TRUST_CERT';$builder['TrustServerCertificate']=$false
+        $constructOperation='POOLING';$builder['Pooling']=$false
+        $constructOperation='CONNECT_TIMEOUT';$builder['Connect Timeout']=10
+        $constructOperation='CONNECT_RETRY';$builder['ConnectRetryCount']=0
+        $constructOperation='SQL_CONNECTION';$connection=[Data.SqlClient.SqlConnection]::new($builder.ConnectionString)
+    }catch{$failureToken=Get-TlsLinuxQualificationFailureToken -Stage CONSTRUCT -ConstructOperation $constructOperation -Exception $_.Exception}
+    finally{if($builder){try{$builder.Clear()}catch{if(-not$failureToken){$failureToken=Get-TlsLinuxQualificationFailureToken -Stage CONSTRUCT -ConstructOperation BUILDER_CLEAR -Exception $_.Exception}}}}
     if(-not$failureToken){try{$connection.Open()}catch{$failureToken=Get-TlsLinuxQualificationFailureToken -Stage OPEN -Exception $_.Exception}}
     if(-not$failureToken){
         try{

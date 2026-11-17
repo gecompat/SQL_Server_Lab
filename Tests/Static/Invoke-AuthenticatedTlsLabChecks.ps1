@@ -244,7 +244,7 @@ $guestAst=[System.Management.Automation.Language.Parser]::ParseInput($guestQuali
 $guestClassifier=@($guestAst.FindAll({param($node)$node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -ceq 'Get-TlsLinuxQualificationFailureToken'},$true))
 $guestClassifierPassed=$false
 if(@($guestParseErrors).Count-eq0 -and $guestClassifier.Count-eq1){
-    $guestClassifierText='param([string]$Stage,[System.Exception]$Exception)'+[Environment]::NewLine+$guestClassifier[0].Extent.Text+[Environment]::NewLine+'Get-TlsLinuxQualificationFailureToken -Stage $Stage -Exception $Exception'
+    $guestClassifierText="param([string]`$Stage,[string]`$ConstructOperation='NONE',[System.Exception]`$Exception)"+[Environment]::NewLine+$guestClassifier[0].Extent.Text+[Environment]::NewLine+'Get-TlsLinuxQualificationFailureToken -Stage $Stage -ConstructOperation $ConstructOperation -Exception $Exception'
     $guestClassifierBlock=[scriptblock]::Create($guestClassifierText)
     $privateDetail='synthetic-private-connection-detail'
     $argumentCode=& $guestClassifierBlock -Stage CONSTRUCT -Exception ([ArgumentException]::new($privateDetail))
@@ -262,6 +262,34 @@ if(@($guestParseErrors).Count-eq0 -and $guestClassifier.Count-eq1){
         $argumentSummary-cnotmatch[regex]::Escape($privateDetail)
 }
 Add-CheckResult 'Embedded Linux SqlClient constructor emits only a closed invalid-argument token and keeps other stages closed' $guestClassifierPassed
+$phaseOperation='TRUST_CERT'
+$phaseCode=& $guestClassifierBlock -Stage CONSTRUCT -ConstructOperation $phaseOperation -Exception ([ArgumentException]::new($privateDetail))
+$phaseSummary=Get-LabTlsRuntimeFailureSummary -ExitCode 1 -StandardError $phaseCode -OutputLength 0 -OperationStage 'linux-client-qualification'
+$expectedPhaseCode='TLS_SQLCLIENT_CONSTRUCT_INVALID_ARGUMENT_AT_'+$phaseOperation
+Add-CheckResult 'Linux SqlClient constructor failure preserves a fixed operation phase without private exception text' (
+    $phaseCode-ceq$expectedPhaseCode -and $phaseSummary-match('\|stderrClass='+[regex]::Escape($expectedPhaseCode)+'\|') -and
+    $phaseSummary-cnotmatch[regex]::Escape($privateDetail) -and (Get-LabTlsLinuxBridgeFailureCodes)-ccontains$expectedPhaseCode)
+$allConstructPhases=@(Get-LabTlsLinuxConstructOperationNames|ForEach-Object{
+    $code=& $guestClassifierBlock -Stage CONSTRUCT -ConstructOperation $_ -Exception ([ArgumentException]::new($privateDetail))
+    [pscustomobject]@{Operation=$_;Code=$code;Allowed=(Get-LabTlsLinuxBridgeFailureCodes)-ccontains$code}
+})
+$longestConstructCode='TLS_SQLCLIENT_CONSTRUCT_PLATFORM_UNSUPPORTED_AT_INITIAL_CATALOG'
+$longestConstructSummary=Get-LabTlsRuntimeFailureSummary -ExitCode 1 -StandardError $longestConstructCode -OutputLength 0 -OperationStage 'linux-client-qualification'
+$allConstructCategories=@(foreach($operation in Get-LabTlsLinuxConstructOperationNames){foreach($category in @('PLATFORM_UNSUPPORTED','ASSEMBLY_UNAVAILABLE','AUTHENTICATION','TIMEOUT','NETWORK','SQL','UNCLASSIFIED','INVALID_ARGUMENT')){
+    $code='TLS_SQLCLIENT_CONSTRUCT_'+$category+'_AT_'+$operation
+    $summary=Get-LabTlsRuntimeFailureSummary -ExitCode 1 -StandardError $code -OutputLength 0 -OperationStage 'linux-client-qualification'
+    [pscustomobject]@{Code=$code;RoundTrip=($summary-match('\|stderrClass='+[regex]::Escape($code)+'\|'));Allowed=(Get-LabTlsLinuxBridgeFailureCodes)-ccontains$code}
+}})
+$unknownPhaseRejected=Test-TlsLabReject {
+    & $guestClassifierBlock -Stage CONSTRUCT -ConstructOperation 'PASSWORD=synthetic-secret' -Exception ([ArgumentException]::new($privateDetail))
+}
+Add-CheckResult 'Linux SqlClient constructor phase rejects noncanonical caller text' $unknownPhaseRejected
+Add-CheckResult 'Every closed Linux SqlClient constructor operation is recognized end to end' (
+    $allConstructPhases.Count-eq12 -and @($allConstructPhases|Where-Object{-not$_.Allowed -or $_.Code-cne('TLS_SQLCLIENT_CONSTRUCT_INVALID_ARGUMENT_AT_'+$_.Operation)}).Count-eq0)
+Add-CheckResult 'All closed constructor category and phase tokens fit the bridge class limit and round-trip' (
+    $allConstructCategories.Count-eq96 -and (($allConstructCategories|ForEach-Object{$_.Code.Length}|Measure-Object -Maximum).Maximum-eq63) -and
+    @($allConstructCategories|Where-Object{$_.Code.Length-gt64 -or -not$_.RoundTrip -or -not$_.Allowed}).Count-eq0 -and
+    $longestConstructSummary-match('\|stderrClass='+[regex]::Escape($longestConstructCode)+'\|'))
 foreach($json in @('{"x":1,"X":2}','{"x":{"a":1,"A":2}}','{"x":1,}','{"x":/*comment*/1}','{"x":1,"y":2}')){
     Add-CheckResult 'Bound JSON rejects duplicate/alias/comment/trailing/unknown fields' (Test-TlsLabReject {Read-LabTlsBoundJson ([Text.Encoding]::UTF8.GetBytes($json)) @('x')})
 }

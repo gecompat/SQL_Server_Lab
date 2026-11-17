@@ -110,6 +110,7 @@ function Get-LabTlsSafePublicLinuxFailureCode {
         'TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_QUALIFICATION'
     )
     $safeRuntimeClasses=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    $safeConstructFailureTokens=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
     foreach($class in @(
         'STDERR_UNCLASSIFIED','STDERR_EMPTY','CONTAINER_NOT_FOUND','CONTAINER_NOT_RUNNING',
         'PORT_CONFLICT','DAEMON_UNREACHABLE','REGISTRY_AUTHORIZATION','IMAGE_NOT_FOUND',
@@ -126,6 +127,9 @@ function Get-LabTlsSafePublicLinuxFailureCode {
     }}
     foreach($code in Get-LabTlsLinuxProbeFailureCodes){$null=$safeRuntimeClasses.Add($code)}
     foreach($code in Get-LabTlsLinuxBridgeFailureCodes){$null=$safeRuntimeClasses.Add($code)}
+    foreach($operation in Get-LabTlsLinuxConstructOperationNames){foreach($category in @('PLATFORM_UNSUPPORTED','ASSEMBLY_UNAVAILABLE','AUTHENTICATION','TIMEOUT','NETWORK','SQL','UNCLASSIFIED','INVALID_ARGUMENT')){
+        $null=$safeConstructFailureTokens.Add('TLS_SQLCLIENT_CONSTRUCT_'+$category+'_AT_'+$operation)
+    }}
     while($null-ne$exception){
         $message=[string]$exception.Message
         if($message -cmatch '\ATLS_LINUX_CHILD_EXIT_NONZERO\|exitCode=(-?[0-9]{1,10})\|hello=([01])\|verifierRequests=([0-9]{1,2})\|resultSeen=([01])(?:\|lastVerifiedStack=(none|SYSTEM_DATA_SQLCLIENT|ODBC_SQLCMD))?(?:\|nextExpectedFrame=(HELLO|VERIFY_SYSTEM_DATA_SQLCLIENT|VERIFY_ODBC_SQLCMD|RESULT|none))?\|stderrClass=([A-Z0-9_]{1,64})\|stderrBytes=([0-9]{1,10})\z'){
@@ -140,7 +144,7 @@ function Get-LabTlsSafePublicLinuxFailureCode {
             if($exitCode-ge[int]::MinValue-and$exitCode-le[int]::MaxValue-and$verifierRequests-ge0-and$verifierRequests-le16-and$lastVerifiedStackValid-and$nextExpectedFrameValid-and
                 $safeRuntimeClasses.Contains($stderrClass)-and$stderrBytes-ge0-and$stderrBytes-le1048576){return $message}
         }
-        if($message -cin $safePublicTokens-or$message -cmatch '\ATLS_SQLCLIENT_CONSTRUCT_(?:PLATFORM_UNSUPPORTED|ASSEMBLY_UNAVAILABLE|AUTHENTICATION|TIMEOUT|NETWORK|SQL|UNCLASSIFIED|INVALID_ARGUMENT)\z|\ATLS_SQLCLIENT_(?:OPEN|QUERY|CLEANUP)_(?:PLATFORM_UNSUPPORTED|ASSEMBLY_UNAVAILABLE|AUTHENTICATION|TIMEOUT|NETWORK|SQL|UNCLASSIFIED)\z'){
+        if($message -cin $safePublicTokens-or$safeConstructFailureTokens.Contains($message)-or$message -cmatch '\ATLS_SQLCLIENT_CONSTRUCT_(?:PLATFORM_UNSUPPORTED|ASSEMBLY_UNAVAILABLE|AUTHENTICATION|TIMEOUT|NETWORK|SQL|UNCLASSIFIED|INVALID_ARGUMENT)\z|\ATLS_SQLCLIENT_(?:OPEN|QUERY|CLEANUP)_(?:PLATFORM_UNSUPPORTED|ASSEMBLY_UNAVAILABLE|AUTHENTICATION|TIMEOUT|NETWORK|SQL|UNCLASSIFIED)\z'){
             return $message
         }
         if($message -cmatch '\ATLS_LAB_RUNTIME_COMMAND_FAILED\|exitCode=(-?\d{1,10})\|stderrClass=([A-Z0-9_]{1,64})\|stderrBytes=(\d{1,10})\|stdoutChars=(\d{1,10})\|operationStage=(unspecified|linux-client-create|linux-client-start|linux-client-layout|linux-client-trust-write|linux-client-observation|linux-client-namespace-check|linux-client-qualification)\z'){
