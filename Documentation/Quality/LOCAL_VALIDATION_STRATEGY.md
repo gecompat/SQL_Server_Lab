@@ -342,6 +342,27 @@ dieser Exceptiontypen hatte oder dass damit die Laufzeitursache gelöst ist.
 Die fokussierte Suite und die neun ausgewählten statischen Suites bestanden;
 ein öffentlicher Linux-TLS-PASS und die PR-Pflichtgates bleiben offen.
 
+### 2026-11-17: Ordinal 149
+
+Der einmalig freigegebene Docker-Lauf mit SQL Server 2025 CU9 und Linux-Client
+0.4 scheiterte bereits in `CREATE_LAB` mit `Cannot connect to CIM server. Das
+angeforderte Objekt ist nicht vorhanden.` Die Linux-TLS-Qualifikation wurde
+nicht erreicht; Ordinal 149 bleibt `RECOVERY_REQUIRED` und ist kein TLS-PASS.
+Der persistierte Produktlauf steht auf `CLEANED_UP`, sein Cleanupplan ist
+`COMPLETED` und der gebundene Inventarvergleich ist unverändert. Der Supervisor
+bestätigte `RunRemoved` nicht; dieser Wert bleibt deshalb `false`.
+
+Die Quellspur passt stark zur Windows-Routeninventur: `Ensure-LabDockerNetwork`
+ruft vor der Netzwerkanlage `Get-LabKnownIpv4Subnets` auf, dessen bisheriger
+Windowspfad `Get-NetRoute` verwendete. Eine unabhängige read-only Abfrage im
+Host reproduzierte denselben CIM-Fehler. Der Quellfix verwendet `Get-NetRoute`
+mit terminierendem Fehlerverhalten und fällt bei CIM-Ausfall auf die lesende
+Ausgabe von `route.exe PRINT -4` zurück. Unparsebare oder nicht verfügbare
+Routeninventur bleibt vor jeder Netzmutation fail-closed. Die fokussierte
+Netzwerksuite und alle acht ausgewählten statischen Suites bestanden danach;
+da der freigegebene Lauf bereits verbraucht war, wurde kein Providerlauf
+wiederholt. Der Fix ist statisch validiert, aber noch nicht nativ qualifiziert.
+
 ## V2-Consumer-Cutover vom 2026-10-22
 
 Die [native Windows-Consumer-Abnahme](TLS_V2_CONSUMER_CUTOVER_ACCEPTANCE_2026-10-22.md)

@@ -1462,6 +1462,7 @@ internal_components:
     responsibilities:
       - "providerneutrale Network- und Exposure-Intents mutationsfrei aufloesen"
       - "Container-NAT sowie Hyper-V-HostOnly und -Isolation an portable Bindings und Capabilities koppeln"
+      - "Windows-Hostrouten read-only über Get-NetRoute oder fail-closed über route.exe prüfen"
       - "Exposure-Konflikte, Legacy-Switch-Konflikte und nicht implementierte Providerkombinationen vor Mutation fail-closed ablehnen"
     validation: Tests/Static/Invoke-LabNetworkChecks.ps1
   - name: VersionCatalog
