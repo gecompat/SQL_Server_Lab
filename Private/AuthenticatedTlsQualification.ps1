@@ -203,7 +203,7 @@ function Read-LabTlsQualifiedExportSnapshot {
     $body=Read-LabTlsBoundJson $signed @('ContractVersion','EnvironmentSha256','Qualification')
     if($body.ContractVersion -cne 'SqlServerLab.SignedTlsExport/0.1' -or $body.EnvironmentSha256 -cne (Get-LabTlsCaByteDigest (ConvertTo-LabTlsRegistryWriterBytes $entry)) -or
         $entry.encrypt -isnot [bool] -or $entry.encrypt -ne $true -or $entry.trustServerCertificate -isnot [bool] -or $entry.trustServerCertificate -ne $false){return $false}
-    $q=$body.Qualification;$r=$bound.Record;$a=$bound.Authority
+    $q=$body.Qualification;$r=$bound.Record;$a=$bound.Authority;$linuxClient=$null
     $observedAt=Get-LabTlsQualifiedExportUtcNow
     $qualifiedAt=[DateTimeOffset]::Parse($q.QualifiedAt,[Globalization.CultureInfo]::InvariantCulture)
     $expiresAt=[DateTimeOffset]::Parse($q.ExpiresAt,[Globalization.CultureInfo]::InvariantCulture)
@@ -212,7 +212,6 @@ function Read-LabTlsQualifiedExportSnapshot {
         Assert-LabTlsWindowsExportQualification $bound $q $entry
         if($qualifiedAt -gt $observedAt -or $expiresAt -le $observedAt -or $expiresAt -le $qualifiedAt -or ($expiresAt-$qualifiedAt).TotalMinutes -gt 15){return $false}
     }elseif($linux){
-        Assert-LabTlsLinuxExportQualification $bound $Budget $q $entry
         if($qualifiedAt-gt$observedAt-or$expiresAt-le$observedAt-or($expiresAt-$qualifiedAt).TotalMinutes-gt15-or$expiresAt-le$qualifiedAt){return $false}
     }elseif($q.Provider -cne $provider -or $entry.provider -cne $provider -or
         $q.SqlVersion -cne $profile.SqlVersion -or $q.Patch -cne $profile.Patch -or $q.SqlBuild -cne $profile.SqlBuild -or
@@ -235,7 +234,16 @@ function Read-LabTlsQualifiedExportSnapshot {
     $builder=[Data.SqlClient.SqlConnectionStringBuilder]::new($entry.connectionString)
     $expectedSource=if($windows){"tcp:$($r.Host),$($r.Port)"}elseif($linux){'tcp:localhost,1433'}else{"tcp:127.0.0.1,$($r.Port)"}
     if(-not $builder.Encrypt -or $builder.TrustServerCertificate -or $builder.DataSource -cne $expectedSource -or $builder.Password -cne $entry.password){return $false}
-    $null=Assert-LabTlsSqlCertificateBinding $r $StateRoot $Budget
+    if($linux){
+        # This reader already performs the full fresh Linux client observation;
+        # that observation verifies the parent SQL certificate/configuration.
+        # Keep the expensive current-provider checks at the end of the readback,
+        # immediately before the snapshot is returned, and do not repeat them.
+        $linuxClient=Assert-LabTlsLinuxExportQualification $bound $Budget $q $entry
+        if($null-eq$linuxClient-or$linuxClient.Sha256-cne$q.ClientContextDigest){return $false}
+    }else{
+        $null=Assert-LabTlsSqlCertificateBinding $r $StateRoot $Budget
+    }
     $again=Get-LabTlsOwnBinding $StateRoot $RunId $InstanceId
     if((Get-LabTlsCaByteDigest $again.Bytes) -cne (Get-LabTlsCaByteDigest $bound.Bytes)){throw 'TLS_EXPORT_BINDING_CHANGED'}
     if(-not $windows){Assert-LabTlsRebindCommitted $again $StateRoot}

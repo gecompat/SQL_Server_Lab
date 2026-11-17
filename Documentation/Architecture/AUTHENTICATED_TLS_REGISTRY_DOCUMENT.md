@@ -54,7 +54,10 @@ erhalten vollständige aktuelle Metadaten und Referenzen. Eine retirierte CA
 darf ihre frühere Signiergeneration referenzieren, wie im Indexvertrag
 beschrieben. Das löst keine historische Signiererpayload auf und berechtigt
 nicht zur Entfernung tatsächlicher Keys, Trustanker oder gemeinsam genutzter
-Ressourcen. Diese Form ist kein Journal aller früheren Revisionen.
+Ressourcen. Diese Parserform ist kein Journal aller früheren Revisionen. Der
+separate geschützte Writer bewahrt und löst committed Registry-Bytes über seine
+hashgebundene Commitkette auf; diese Auflösung erteilt weder dem Parser noch
+einem historischen Authoritypayload Betriebsbereitschaft.
 
 Erfolg liefert genau `Success`, `Value`, `ErrorCode` mit frischer
 `RegistryDocument`-Projektion, `ContentDigest`, `Status=OFFLINE_REGISTRY_ONLY`,

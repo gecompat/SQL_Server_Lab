@@ -55,7 +55,13 @@ Der private Protokollkern begrenzt eine Sitzung auf höchstens fünf Minuten
 innerhalb der ursprünglichen Qualifikationsfrist, 16 seriell geprüfte Requests,
 2048 Requestbytes und einen einmaligen Request-Identifier. Fehlende, verspätete,
 wiederholte oder widersprüchliche Antworten sperren die Sitzung. Eine Antwort
-ist höchstens fünf Sekunden gültig und verlängert die Exportfrist nicht.
+ist höchstens 15 Sekunden ab Abschluss der aktuellen Controllerprüfung gültig
+und verlängert die Exportfrist nicht. Ihre Beobachtungszeit darf höchstens fünf
+Sekunden vor diesem Abschluss liegen; der Peer akzeptiert deshalb höchstens
+20 Sekunden zwischen Beobachtung und Ablaufzeit und verlangt, dass diese
+gesamte Gültigkeit länger als der gemessene Austausch dauert. So ist die
+Antwort bei Empfang noch nicht abgelaufen, ohne Controller- und Linuxuhr
+gegeneinander zu vergleichen.
 Der native Transport muss diese Antwort unmittelbar vor dem zugehörigen
 Client-Open prüfen. Diese Zahlen sind Protokollgrenzen, keine gemessene
 Laufzeit oder Transportgarantie.
@@ -64,11 +70,16 @@ UTC-Rücksprünge sperren die Sitzung; ein zusätzliches monotones Zeitbudget
 verhindert eine Verlängerung durch eine stehende oder verlangsamte Wanduhr.
 Der Controller verankert auch die unveränderliche Qualifikationsfrist beim
 Sitzungsstart und berechnet ihr Restfenster aus UTC und monoton verstrichener
-Zeit konservativ. Vor einer Antwort müssen mindestens 35 Sekunden verbleiben.
-Der Peer zieht die gesamte gemessene Austauschzeit ab; unmittelbar vor Open
-müssen auf derselben weiterlaufenden monotonen Uhr noch 30 Sekunden bleiben.
-Dieses private Openfenster ist nicht serialisierbar und hängt nicht von der
-Linux-Wanduhr oder deren Abstand zur Controlleruhr ab.
+Zeit konservativ. Der synchrone Verifier-Austausch ist auf 15 Sekunden
+begrenzt; das Controller-Antwortticket muss länger als der vollständige
+gemessene Roundtrip gültig bleiben und darf höchstens 20 Sekunden umfassen.
+Vor einer Antwort müssen mindestens 40 Sekunden Qualifikationsrestzeit
+verbleiben. Der Peer zieht die gesamte gemessene Austauschzeit ab und verlangt
+unmittelbar vor Open auf derselben weiterlaufenden monotonen Uhr noch 30
+Sekunden. Bei einem 15-Sekunden-Roundtrip muss die Antwort daher mindestens 45
+Sekunden ausweisen; kürzere Fenster werden abgewiesen. Das private Openfenster
+ist nicht serialisierbar und hängt nicht von der Linux-Wanduhr oder deren
+Abstand zur Controlleruhr ab.
 
 ## Explizite Bediengrenze
 
@@ -122,6 +133,31 @@ receiptgebundene Client kanonisch entfernt; unbestätigte Prozess-/IO-Enden
 halten Custody und Recoverymarker. Remove-SqlServerLab bestätigt den
 Client-Cleanup vor SQL-Cleanup. Elternrun, CA, Hosttrust und bestehende
 Schlüssel werden durch einen Consumerfehler nicht übernommen.
+
+Ein nicht erfolgreicher Bridge-Kindprozess liefert zusätzlich ausschließlich
+seinen numerischen Exitcode, den HELLO-Status, die Zahl der Controllerprüfungen,
+den RESULT-Status, den letzten erfolgreich verifizierten Clientstack (oder
+`none`), eine feste stderr-Klasse und die Anzahl der stderr-Bytes. Der Stackwert
+ist ein bestätigter Fortschrittsmeilenstein; er beweist nicht, welche interne
+Operation danach scheiterte oder zeitlich hängen blieb. Rohes Gast-stderr wird
+nie über die öffentliche Fehlergrenze ausgegeben. Diese Felder beschreiben den
+erreichten Protokollfortschritt und eine geschlossene Fehlerklasse. Der
+gebootstrapte Consumer sendet bei einem Fehler des Toolbelt-
+Preflights ein privates, Base64-codiertes `FAILURE`-Frame mit genau Schema,
+Status und Fehlercode. Der Controller nimmt es nur nach `HELLO` und mindestens
+einer gebundenen Verifieranfrage an, validiert Feldformen und eine feste
+Allowlist und verlangt einen Fehler-Exit. Roher Fehlertext und zusätzliche
+Felder werden verworfen. Das separate versionierte Fehler-JSON des Linux-Probes
+darf ebenfalls nur seinen fest erlaubten Fehlercode in die Fehlerklasse
+übernehmen; `Facts` und übrige Ausgabefelder bleiben verworfen. Die Klasse
+ersetzt weder die vollständige Gastdiagnose noch eine erneute Native-Abnahme.
+
+Der Linux-Bytesreader erhält intern zusätzlich feste Fehlerklassen für
+Verifierantwort, Exportdokument, Payload und Bindung. Diese Klassen enthalten
+weder Exception-Text noch Pfade oder Exportdaten und passieren die Consumer-
+Grenze nur über eine geschlossene Allowlist. Sie zeigen den fehlgeschlagenen
+Prüfschritt, nicht die vollständige Ursache; unbekannte Fehler bleiben beim
+generischen Ablehnungscode. Der Windows-Reader bleibt unverändert.
 
 ## Getrennte Abnahme
 

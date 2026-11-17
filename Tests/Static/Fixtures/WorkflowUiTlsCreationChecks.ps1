@@ -55,14 +55,27 @@ function Invoke-LabTlsContainer {param($Arguments,$InputText,$Budget) if($Argume
 function Register-LabTlsOperationalAuthority {param($DataRoot,$Controller,$Location,$Candidate) [pscustomobject]@{Authority=[pscustomobject]@{NotAfterUtc=[DateTimeOffset]::UtcNow.AddDays(3).ToString('o')};Native=[pscustomobject]@{UserSid='SYNTHETIC_SID'}}}
 function Initialize-LabTlsCaPrivateDirectory {param($Path,$UserSid)}
 function Get-LabTlsRuntimePin {param($Budget) [pscustomobject]@{Invocation='synthetic';Endpoint='synthetic';IdentityPath='';IdentitySha256=''}}
+$script:lifecycleLockAcquired=0;$script:lifecycleLockReleased=0
+function Get-LabTlsRegistryWriterBinding {param($DataRoot,$Controller,$Location)
+ if([IO.Path]::GetFullPath($DataRoot) -cne [IO.Path]::GetFullPath($script:syntheticRoot)){throw 'WRONG_SYNTHETIC_LOCK_ROOT'}
+ [pscustomobject]@{DataRoot=$DataRoot;Controller=$Controller;Location=$Location}
+}
+function Enter-LabTlsRegistryLifecycleLock {param($Binding)
+ if([IO.Path]::GetFullPath($Binding.DataRoot) -cne [IO.Path]::GetFullPath($script:syntheticRoot)){throw 'WRONG_SYNTHETIC_LOCK_BINDING'}
+ $script:lifecycleLockAcquired++;[pscustomobject]@{SyntheticLock='workflow-ui-tls-creation'}
+}
+function Exit-LabTlsRegistryLifecycleLock {param($Lock)
+ if($Lock.SyntheticLock -cne 'workflow-ui-tls-creation'){throw 'WRONG_SYNTHETIC_LOCK_TOKEN'}
+ $script:lifecycleLockReleased++
+}
 $script:policyEffects=0;$script:observed=$false
 function Initialize-LabOwnedHostPolicy {param($StateRoot,$RuntimePins,$ParentOperationId) $script:policyEffects++;if(-not $script:observed){throw 'EFFECT_BEFORE_CUSTODY'};throw 'SYNTHETIC_POLICY_BOUNDARY'}
 $script:syntheticRoot=Join-Path ([IO.Path]::GetTempPath()) ('synthetic-tls-no-io-'+[guid]::NewGuid().ToString('n'))
 $parameters=@{TrustServerCertificate=$false;Provider='docker';Version='2025-CU9';DataRoot=$script:syntheticRoot;TlsCandidateId=$p.TlsCandidateId;TlsControllerId=$p.TlsControllerId;TlsLocationId=$p.TlsLocationId}
 $failed=$false;try{New-LabAuthenticatedTlsEnvironment -Parameters $parameters -AllocationObserver {param($audit,$state) throw 'SYNTHETIC_CUSTODY_REJECTED'}|Out-Null}catch{$failed=$_.Exception.Message -ceq 'SYNTHETIC_CUSTODY_REJECTED'}
-Check 'custody failure before any policy/run effect' ($failed -and $script:policyEffects -eq 0)
+Check 'custody failure before any policy/run effect and lifecycle lock released' ($failed -and $script:policyEffects -eq 0 -and $script:lifecycleLockAcquired -eq 1 -and $script:lifecycleLockReleased -eq 1)
 $failed=$false;try{New-LabAuthenticatedTlsEnvironment -Parameters $parameters -AllocationObserver {param($audit,$state) if($state -cne (Join-Path $script:syntheticRoot ('State/authenticated-tls-labs/'+$audit))){throw 'WRONG_ALLOCATION'};$script:observed=$true}|Out-Null}catch{$failed=$_.Exception.Message -ceq 'SYNTHETIC_POLICY_BOUNDARY'}
-Check 'canonical allocation before policy boundary' ($failed -and $script:policyEffects -eq 1 -and $script:observed)
+Check 'canonical allocation before policy boundary and lifecycle lock released' ($failed -and $script:policyEffects -eq 1 -and $script:observed -and $script:lifecycleLockAcquired -eq 2 -and $script:lifecycleLockReleased -eq 2)
 # Exercise the actual UI wrapper and its callback, not only the hook in the
 # creator. Only native facts, file writes and the canonical provider leaf are
 # injected; a rejected private receipt must prevent that leaf's effects.

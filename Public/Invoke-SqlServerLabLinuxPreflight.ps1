@@ -48,5 +48,5 @@ function Invoke-SqlServerLabLinuxPreflight {
         $arguments.ExportBytes=if($PSCmdlet.ParameterSetName-ceq'Path'){Read-LabTlsCaPrivateFile $Path (Get-LabTlsWindowsProcessFacts).UserSid 65536}else{[byte[]]$ExportBytes.Clone()}
         try{Invoke-LabTlsLinuxConsumerBridge @arguments}finally{[Array]::Clear($arguments.ExportBytes,0,$arguments.ExportBytes.Length)}
     }
-    catch{throw 'TLS_LINUX_CONSUMER_REJECTED_OR_RECOVERY_REQUIRED'}
+    catch{throw (Get-LabTlsSafePublicLinuxFailureCode -ErrorRecord $_)}
 }

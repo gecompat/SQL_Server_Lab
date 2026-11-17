@@ -20,7 +20,7 @@ function Invoke-LabTlsLinuxConsumerBridge {
         $initial=Read-LabTlsQualifiedExportSnapshot -ExportBytes $copy -FromBytes -StateRoot $StateRoot -RunId $RunId -InstanceId $InstanceId -Budget $budget -AllowLinuxController
         $expiry=[DateTimeOffset]::ParseExact($initial.Qualification.ExpiresAt,'o',[Globalization.CultureInfo]::InvariantCulture)
         $sessionEnd=[DateTimeOffset]::UtcNow.AddMinutes(2)
-        if($sessionEnd-gt$expiry.AddSeconds(-35)){$sessionEnd=$expiry.AddSeconds(-35)}
+        if($sessionEnd-gt$expiry.AddSeconds(-40)){$sessionEnd=$expiry.AddSeconds(-40)}
         $live=@{Root=$lease.Root;ProcessId=$PID;State='OPEN';InVerifier=$false;GuestPid=0;RunId=$RunId;InstanceId=$InstanceId;CurrentStack=$null;Session=$null}
         $verify={
             param($Bytes,$Stack,$ClientRef,$ContextDigest)
@@ -46,7 +46,7 @@ function Invoke-LabTlsLinuxConsumerBridge {
         $line=[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes(($boot|ConvertTo-Json -Compress)))+[char]10
         $write=$process.StandardInput.WriteAsync($line)
         if(-not$write.Wait(5000)){throw 'TLS_LINUX_BRIDGE_INPUT_TIMEOUT'};$null=$write.GetAwaiter().GetResult();$line=$null;$boot=$null
-        $clock=[Diagnostics.Stopwatch]::StartNew();$total=0;$pending='';$hello=$false;$result=$null
+        $clock=[Diagnostics.Stopwatch]::StartNew();$total=0;$pending='';$hello=$false;$result=$null;$structuredFailureCode=$null
         while($true){
             if($clock.Elapsed.TotalSeconds-ge120-or[DateTimeOffset]::UtcNow-ge$session.ExpiresAt){throw 'TLS_LINUX_BRIDGE_TIMEOUT'}
             for($i=0;$i-lt2;$i++){
@@ -61,6 +61,7 @@ function Invoke-LabTlsLinuxConsumerBridge {
                     if($pending.Length-gt8192){throw 'TLS_LINUX_BRIDGE_PROTOCOL'}
                     while(($offset=$pending.IndexOf([char]10))-ge0){
                         $row=$pending.Substring(0,$offset).TrimEnd([char]13);$pending=$pending.Substring($offset+1)
+                        if($null-ne$structuredFailureCode){throw 'TLS_LINUX_BRIDGE_PROTOCOL'}
                         if($row.StartsWith('HELLO ',[StringComparison]::Ordinal)-and-not$hello-and$null-eq$result){
                             $h=Read-LabTlsBoundJson ([Convert]::FromBase64String($row.Substring(6))) @('ContractVersion','SessionRef','ProcessId')
                             if($h.ContractVersion-isnot[string]-or$h.ContractVersion-cne'SqlServerLab.LinuxPeerHello/0.1'-or
@@ -78,6 +79,13 @@ function Invoke-LabTlsLinuxConsumerBridge {
                             $result=Read-LabTlsBoundJson ([Convert]::FromBase64String($row.Substring(7))) @('ContractVersion','Status','ClientChecks','SqlBuild','SqlClient','Odbc','Encrypt','TrustServerCertificate')
                             $expected=[pscustomobject]@{ContractVersion='Toolbelt.LinuxLabPreflight/0.1';Status='PASS';ClientChecks=2;SqlBuild=$initial.Qualification.SqlBuild;SqlClient='PASS';Odbc='PASS';Encrypt=$true;TrustServerCertificate=$false}
                             Assert-LabTlsLinuxObservedFields $expected $result
+                        }elseif($row.StartsWith('FAILURE ',[StringComparison]::Ordinal)-and$hello-and$null-eq$result-and$session.Requests-ge1-and$session.Requests-le2){
+                            $encoded=$row.Substring(8)
+                            if($encoded.Length-gt5464){throw 'TLS_LINUX_BRIDGE_PROTOCOL'}
+                            try{$failureBytes=[Convert]::FromBase64String($encoded)}catch{throw 'TLS_LINUX_BRIDGE_PROTOCOL'}
+                            if([Convert]::ToBase64String($failureBytes)-cne$encoded){throw 'TLS_LINUX_BRIDGE_PROTOCOL'}
+                            $structuredFailureCode=Get-LabTlsLinuxBridgeFailureCode $failureBytes
+                            if(-not$structuredFailureCode){throw 'TLS_LINUX_BRIDGE_PROTOCOL'}
                         }else{throw 'TLS_LINUX_BRIDGE_PROTOCOL'}
                     }
                 }
@@ -85,7 +93,37 @@ function Invoke-LabTlsLinuxConsumerBridge {
             }
             if($process.HasExited-and$done[0]-and$done[1]){
                 $confirmed=$true
-                if($process.ExitCode-ne0-or$null-eq$result-or$pending.Length-or$outputs[1].Length){throw 'TLS_LINUX_CONSUMER_FAILED'}
+                if($process.ExitCode-ne0){
+                    # Preserve only bounded protocol progress and byte counts.
+                    # Guest stderr itself can contain paths or credentials and
+                    # must never cross the public diagnostic boundary.
+                    if($structuredFailureCode-and$pending.Length){throw 'TLS_LINUX_BRIDGE_PROTOCOL'}
+                    $helloValue=if($hello){1}else{0}
+                    $resultValue=if($null-ne$result){1}else{0}
+                    $verifierRequests=[Math]::Min(16,[Math]::Max(0,[int]$session.Requests))
+                    $lastVerifiedStack=[string]$session.LastVerifiedStack
+                    if($lastVerifiedStack-cnotin @('SYSTEM_DATA_SQLCLIENT','ODBC_SQLCMD')){$lastVerifiedStack='none'}
+                    $nextExpectedFrame=Get-LabTlsLinuxExpectedNextFrame -Hello ([bool]$helloValue) -VerifierRequests $verifierRequests -ResultSeen ([bool]$resultValue) -LastVerifiedStack $lastVerifiedStack
+                    $stderrLength=[long]$outputs[1].Length;$stderrClass=if($structuredFailureCode){$structuredFailureCode}else{'STDERR_UNCLASSIFIED'};$stderrText=$null
+                    try{
+                        if(-not$structuredFailureCode-and$stderrLength-gt0){
+                            $stderrText=[Text.Encoding]::UTF8.GetString($outputs[1].GetBuffer(),0,[int]$stderrLength)
+                            try{
+                                $safeSummary=Get-LabTlsRuntimeFailureSummary -ExitCode ([int]$process.ExitCode) -StandardError $stderrText -OutputLength 0 -OperationStage 'linux-client-observation'
+                                if($safeSummary -cmatch '\|stderrClass=([A-Z0-9_]{1,64})\|'){$stderrClass=$Matches[1]}
+                            }catch{$stderrClass='STDERR_UNCLASSIFIED'}
+                        }
+                    }finally{
+                        $stderrText=$null
+                        if($stderrLength-gt0){[Array]::Clear($outputs[1].GetBuffer(),0,[int]$stderrLength);$outputs[1].SetLength(0)}
+                    }
+                    throw ('TLS_LINUX_CHILD_EXIT_NONZERO|exitCode={0}|hello={1}|verifierRequests={2}|resultSeen={3}|lastVerifiedStack={4}|nextExpectedFrame={5}|stderrClass={6}|stderrBytes={7}' -f
+                        [int]$process.ExitCode,$helloValue,$verifierRequests,$resultValue,$lastVerifiedStack,$nextExpectedFrame,$stderrClass,$stderrLength)
+                }
+                if($structuredFailureCode){throw 'TLS_LINUX_FAILURE_ENVELOPE_ZERO_EXIT'}
+                if($pending.Length){throw 'TLS_LINUX_BRIDGE_PROTOCOL_BYTES_PENDING'}
+                if($null-eq$result){throw 'TLS_LINUX_RESULT_MISSING'}
+                if($outputs[1].Length){throw 'TLS_LINUX_CHILD_STDERR_NONEMPTY'}
                 break
             }
             Start-Sleep -Milliseconds 10

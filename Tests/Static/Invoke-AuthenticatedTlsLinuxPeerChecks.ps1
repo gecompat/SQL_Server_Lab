@@ -28,6 +28,11 @@ function Reject {
     try{$null=Read-Reply}catch{$rejected=$true}
     Assert $rejected 'Expected reply rejection'
 }
+function RejectAs([string]$ExpectedCode,[scriptblock]$Read){
+    $actual=$null
+    try{$null=& $Read}catch{$actual=$_.Exception.Message}
+    Assert ($actual-ceq$ExpectedCode) ('Expected safe reply class '+$ExpectedCode)
+}
 Check 'Exact live request bindings accepted without producing a new export or authority' {
     Fixture
     $r=Read-Reply
@@ -50,6 +55,7 @@ Check 'Actual controller replies compose with the actual peer parser for both st
     foreach($stack in @('SYSTEM_DATA_SQLCLIENT','ODBC_SQLCMD')){
         $request=[pscustomobject]@{ContractVersion='SqlServerLab.LinuxClientVerificationRequest/0.1';SessionRef=$session.SessionRef;RequestId=[guid]::NewGuid().ToString('D');Stack=$stack;ExportSha256=$session.ExportSha256;ClientRef=$session.ClientRef;ContextDigest=$session.ContextDigest}
         $response=Invoke-LabTlsLinuxSessionVerification $session ([Text.Encoding]::UTF8.GetBytes(($request|ConvertTo-Json -Compress)))
+        Assert ($session.LastVerifiedStack -ceq $stack) 'Only a completed verifier exchange may advance the safe diagnostic checkpoint'
         $actual=Read-LabTlsLinuxVerificationReply ([Text.Encoding]::UTF8.GetBytes(($response|ConvertTo-Json -Compress))) $request $session.ExpiresAt ([TimeSpan]::FromMilliseconds(20))
         Assert ($actual.Stack -ceq $stack -and $actual.RequestId -ceq $request.RequestId) 'Producer/consumer mismatch'
     }
@@ -67,21 +73,48 @@ foreach($field in @('ContractVersion','Status','SessionRef','RequestId','Stack',
     }
 }
 Check 'Missing reply key blocks' {Fixture;$script:reply.Remove('Status');Reject}
-foreach($value in @('35000',35000.5,$true,34999,900001,@(180000))){
+foreach($value in @('40000',40000.5,$true,39999,900001,@(180000))){
     Check 'Controller remaining budget must be a bounded scalar integer' {
         Fixture;$script:reply.QualificationRemainingMilliseconds=$value;Reject
     }
 }
-Check 'Five seconds of transit are deducted from the controller open window' {
-    Fixture;$script:reply.QualificationRemainingMilliseconds=35000
-    $r=Read-LabTlsLinuxVerificationReply ([Text.Encoding]::UTF8.GetBytes(($script:reply|ConvertTo-Json -Compress))) $script:request $script:deadline ([TimeSpan]::FromSeconds(5))
-    Assert ($r.QualificationRemainingMilliseconds-5000 -eq 30000) 'Conservative open window mismatch'
+Check 'Ten seconds of transit are deducted from the controller open window' {
+    Fixture;$script:reply.QualificationRemainingMilliseconds=40000
+    $script:reply.ExpiresAtUtc='2026-10-26T03:00:15.0000000+00:00'
+    $r=Read-LabTlsLinuxVerificationReply ([Text.Encoding]::UTF8.GetBytes(($script:reply|ConvertTo-Json -Compress))) $script:request $script:deadline ([TimeSpan]::FromSeconds(10))
+    Assert ($r.QualificationRemainingMilliseconds-10000 -eq 30000) 'Conservative open window mismatch'
+}
+Check 'Fifteen-second verifier transit is accepted only with a full post-transit login window' {
+    Fixture;$script:reply.QualificationRemainingMilliseconds=45000
+    $script:reply.ExpiresAtUtc='2026-10-26T03:00:20.0000000+00:00'
+    $r=Read-LabTlsLinuxVerificationReply ([Text.Encoding]::UTF8.GetBytes(($script:reply|ConvertTo-Json -Compress))) $script:request $script:deadline ([TimeSpan]::FromSeconds(15))
+    Assert ($r.QualificationRemainingMilliseconds-[Math]::Ceiling(15000)-eq30000) 'Fifteen-second transit must retain thirty seconds before open'
+}
+Check 'Fifteen-second verifier transit rejects a shorter controller permit' {
+    Fixture;$script:reply.ExpiresAtUtc='2026-10-26T03:00:15.0000000+00:00'
+    RejectAs 'TLS_LINUX_VERIFIER_REPLY_TIME_REJECTED' {Read-LabTlsLinuxVerificationReply ([Text.Encoding]::UTF8.GetBytes(($script:reply|ConvertTo-Json -Compress))) $script:request $script:deadline ([TimeSpan]::FromSeconds(15))}
+}
+Check 'Fifteen-second verifier transit rejects a short post-transit login window' {
+    Fixture;$script:reply.QualificationRemainingMilliseconds=44999
+    $script:reply.ExpiresAtUtc='2026-10-26T03:00:20.0000000+00:00'
+    RejectAs 'TLS_LINUX_VERIFIER_REPLY_WINDOW_REJECTED' {Read-LabTlsLinuxVerificationReply ([Text.Encoding]::UTF8.GetBytes(($script:reply|ConvertTo-Json -Compress))) $script:request $script:deadline ([TimeSpan]::FromSeconds(15))}
 }
 Check 'Additional reply key blocks' {Fixture;$script:reply.Extra='forbidden';Reject}
 Check 'Reply cannot extend its controller session' {Fixture;$script:deadline=[DateTimeOffset]'2026-10-26T03:00:04Z';Reject}
 Check 'Reply cannot precede its observation' {Fixture;$script:reply.ExpiresAtUtc=$script:reply.VerifiedAtUtc;Reject}
-Check 'Reply lifetime has a closed upper bound' {Fixture;$script:reply.ExpiresAtUtc='2026-10-26T03:00:11.0000000+00:00';Reject}
-foreach($milliseconds in @(-1,5001)){
+Check 'Reply lifetime must outlast the complete measured exchange' {
+    Fixture;$script:reply.ExpiresAtUtc='2026-10-26T03:00:10.0000000+00:00'
+    $rejected=$false
+    try{$null=Read-LabTlsLinuxVerificationReply ([Text.Encoding]::UTF8.GetBytes(($script:reply|ConvertTo-Json -Compress))) $script:request $script:deadline ([TimeSpan]::FromSeconds(10))}catch{$rejected=$_.Exception.Message-ceq'TLS_LINUX_VERIFIER_REPLY_TIME_REJECTED'}
+    Assert $rejected 'A reply expiring at exchange completion is not safely usable'
+}
+Check 'Reply accepts the exact bounded maximum lifetime' {
+    Fixture;$script:reply.ExpiresAtUtc='2026-10-26T03:00:20.0000000+00:00'
+    $r=Read-LabTlsLinuxVerificationReply ([Text.Encoding]::UTF8.GetBytes(($script:reply|ConvertTo-Json -Compress))) $script:request $script:deadline ([TimeSpan]::Zero)
+    Assert ($r.Status -ceq 'VERIFIED') 'Exact maximum reply lifetime was rejected'
+}
+Check 'Reply lifetime has a closed upper bound' {Fixture;$script:reply.ExpiresAtUtc='2026-10-26T03:00:21.0000000+00:00';Reject}
+foreach($milliseconds in @(-1,10001)){
     Check ("Monotonic exchange budget rejects $milliseconds ms") {
         Fixture;$rejected=$false
         try{$null=Read-LabTlsLinuxVerificationReply ([Text.Encoding]::UTF8.GetBytes(($script:reply|ConvertTo-Json -Compress))) $script:request $script:deadline ([TimeSpan]::FromMilliseconds($milliseconds))}catch{$rejected=$true}
@@ -95,6 +128,27 @@ Check 'Malformed or oversized frame never becomes a reply' {
         Assert $rejected 'Expected invalid frame rejection'
     }
 }
+Check 'Verifier reply failures have closed, data-free diagnostic classes' {
+    Fixture
+    $codes=[ordered]@{
+        Frame='TLS_LINUX_VERIFIER_REPLY_FRAME_REJECTED'
+        Schema='TLS_LINUX_VERIFIER_REPLY_SCHEMA_REJECTED'
+        Binding='TLS_LINUX_VERIFIER_REPLY_BINDING_REJECTED'
+        Time='TLS_LINUX_VERIFIER_REPLY_TIME_REJECTED'
+        Window='TLS_LINUX_VERIFIER_REPLY_WINDOW_REJECTED'
+        Deadline='TLS_LINUX_VERIFIER_REPLY_DEADLINE_EXCEEDED'
+    }
+    foreach($code in $codes.Values){
+        $envelope=[Text.Encoding]::UTF8.GetBytes((@{Schema='SqlServerLab.TlsLinuxPeerFailure/0.1';Status='FAIL';Code=$code}|ConvertTo-Json -Compress))
+        Assert ((Get-LabTlsLinuxBridgeFailureCode $envelope)-ceq$code) 'Safe reply class is not bridge-allowlisted'
+    }
+    Fixture;$script:reply.Status='REJECTED';RejectAs $codes.Schema {Read-Reply}
+    Fixture;$script:reply.RequestId=[guid]::NewGuid().ToString('D');RejectAs $codes.Binding {Read-Reply}
+    Fixture;$script:reply.VerifiedAtUtc='invalid';RejectAs $codes.Time {Read-Reply}
+    Fixture;$script:reply.QualificationRemainingMilliseconds=34999;RejectAs $codes.Window {Read-Reply}
+    Fixture;RejectAs $codes.Deadline {Read-LabTlsLinuxVerificationReply ([Text.Encoding]::UTF8.GetBytes(($script:reply|ConvertTo-Json -Compress))) $script:request $script:deadline ([TimeSpan]::FromMilliseconds(15001))}
+    Fixture;RejectAs $codes.Frame {Read-LabTlsLinuxVerificationReply ([byte[]]::new(2049)) $script:request $script:deadline ([TimeSpan]::Zero)}
+}
 Check 'Public reader rejects absent bootstrap without invoking controller/native handlers' {
     $m=New-Module -ArgumentList $repo -ScriptBlock {
         param($Root)
@@ -107,13 +161,101 @@ Check 'Public reader rejects absent bootstrap without invoking controller/native
                 $p=@{ExportBytes=([byte[]]@(1));RunId='synthetic';InstanceId='primary';StateRoot='synthetic'}
                 if($mode -ceq 'explicit-session'){$p.LinuxSessionRef='a'*64}
                 if($IsWindows -and $mode -ceq 'missing-session'){continue}
-                $rejected=$false
-                try{$null=Read-SqlServerLabQualifiedTestEnvironment @p}catch{$rejected=$_.Exception.Message -ceq 'TLS_EXPORT_READ_REJECTED'}
-                if(-not $rejected -or $script:unsafeCalls-ne0){throw 'PUBLIC_READER_BOOTSTRAP_GUARD_FAILED'}
+                $actual=$null
+                try{$null=Read-SqlServerLabQualifiedTestEnvironment @p}catch{$actual=$_.Exception.Message}
+                $expected=if($IsLinux -and $mode -ceq 'explicit-session'){'TLS_LINUX_PEER_REJECTED'}else{'TLS_EXPORT_READ_REJECTED'}
+                # On Linux, a supplied but unbootstrapped opaque reference reaches
+                # only the private channel lookup and is classified as a closed
+                # peer failure. The absent-reference case remains the generic
+                # public-reader rejection. Neither case may reach the controller.
+                if($actual-cne$expected -or $script:unsafeCalls-ne0){throw 'PUBLIC_READER_BOOTSTRAP_GUARD_FAILED'}
             }
         }
     }
     try{& $m {& $script:Check}}finally{Remove-Module $m -Force}
 }
+Check 'Linux reader preserves only closed stage codes and keeps Windows errors generic' {
+    $m=New-Module -ArgumentList $repo -ScriptBlock {
+        param($Root)
+        . (Join-Path $Root 'Private/AuthenticatedTlsLab.ps1')
+        . (Join-Path $Root 'Public/Read-SqlServerLabQualifiedTestEnvironment.ps1')
+        $script:Check={
+            $codes=@(
+                'TLS_LINUX_VERIFIER_EXCHANGE_REJECTED','TLS_LINUX_VERIFIER_REPLY_REJECTED',
+                'TLS_LINUX_VERIFIER_REPLY_FRAME_REJECTED','TLS_LINUX_VERIFIER_REPLY_SCHEMA_REJECTED',
+                'TLS_LINUX_VERIFIER_REPLY_BINDING_REJECTED','TLS_LINUX_VERIFIER_REPLY_TIME_REJECTED',
+                'TLS_LINUX_VERIFIER_REPLY_WINDOW_REJECTED','TLS_LINUX_VERIFIER_REPLY_DEADLINE_EXCEEDED',
+                'TLS_SQLCLIENT_OPEN_TIMEOUT','TLS_SQLCLIENT_QUERY_TIMEOUT'
+            )
+            foreach($code in $codes){
+                if((Get-LabTlsLinuxBridgeFailureCodes)-cnotcontains$code){throw 'BRIDGE_FAILURE_CODE_NOT_ALLOWLISTED'}
+                $record=[Management.Automation.ErrorRecord]::new([InvalidOperationException]::new($code),'synthetic',[Management.Automation.ErrorCategory]::NotSpecified,$null)
+                if((Get-LabTlsSafeLinuxPeerReadFailureCode $record -Linux)-cne$code){throw 'PUBLIC_READER_DROPPED_SAFE_REPLY_CLASS'}
+                if((Get-LabTlsSafeLinuxPeerReadFailureCode $record)-cne'TLS_EXPORT_READ_REJECTED'){throw 'WINDOWS_REVEALED_LINUX_FAILURE_CLASS'}
+            }
+            $timeoutStages=@{
+                'linux-client-create'='TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_CREATE'
+                'linux-client-start'='TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_START'
+                'linux-client-layout'='TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_LAYOUT'
+                'linux-client-trust-write'='TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_TRUST_WRITE'
+                'linux-client-observation'='TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_OBSERVATION'
+                'linux-client-namespace-check'='TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_NAMESPACE_CHECK'
+                'linux-client-qualification'='TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_QUALIFICATION'
+            }
+            foreach($entry in $timeoutStages.GetEnumerator()){
+                $runtimeSummary=Get-LabTlsRuntimeFailureSummary -ExitCode 137 -StandardError 'timed out' -OutputLength 0 -OperationStage $entry.Key
+                $summaryError=[Management.Automation.ErrorRecord]::new([InvalidOperationException]::new($runtimeSummary),'synthetic',[Management.Automation.ErrorCategory]::NotSpecified,$null)
+                if((Get-LabTlsLinuxBridgeFailureCodeFromError $summaryError)-cne$entry.Value){throw 'RUNTIME_TIMEOUT_STAGE_WAS_LOST'}
+            }
+            $invalidSummaries=@(
+                'TLS_LAB_RUNTIME_COMMAND_FAILED|exitCode=0|stderrClass=RUNTIME_TIMEOUT|stderrBytes=2|stdoutChars=0|operationStage=linux-client-observation',
+                'TLS_LAB_RUNTIME_COMMAND_FAILED|exitCode=1|stderrClass=RUNTIME_TIMEOUT|stderrBytes=2|stdoutChars=0|operationStage=unknown',
+                'TLS_LAB_RUNTIME_COMMAND_FAILED|exitCode=1|stderrClass=RUNTIME_TIMEOUT|stderrBytes=2|stdoutChars=0|operationStage=linux-client-observation password=synthetic-secret',
+                "TLS_LAB_RUNTIME_COMMAND_FAILED|exitCode=1|stderrClass=RUNTIME_TIMEOUT|stderrBytes=2|stdoutChars=0|operationStage=linux-client-observation`n",
+                'TLS_LAB_RUNTIME_COMMAND_FAILED|exitCode=1|stderrClass=RUNTIME_TIMEOUT|stderrBytes=٢|stdoutChars=0|operationStage=linux-client-observation',
+                'TLS_LAB_RUNTIME_COMMAND_FAILED|exitCode=1|stderrClass=RUNTIME_TIMEOUT|stderrBytes=2147483648|stdoutChars=0|operationStage=linux-client-observation',
+                'TLS_LAB_RUNTIME_COMMAND_FAILED|exitCode=1|stderrClass=RUNTIME_TIMEOUT|stderrBytes=02|stdoutChars=0|operationStage=linux-client-observation',
+                'TLS_LAB_RUNTIME_COMMAND_FAILED|exitCode=2147483648|stderrClass=RUNTIME_TIMEOUT|stderrBytes=2|stdoutChars=0|operationStage=linux-client-observation'
+            )
+            foreach($invalidSummary in $invalidSummaries){
+                $summaryError=[Management.Automation.ErrorRecord]::new([InvalidOperationException]::new($invalidSummary),'synthetic',[Management.Automation.ErrorCategory]::NotSpecified,$null)
+                if((Get-LabTlsLinuxBridgeFailureCodeFromError $summaryError)-cne'RUNTIME_TIMEOUT'){throw 'INVALID_RUNTIME_SUMMARY_WAS_NOT_GENERIC'}
+            }
+            $known=[InvalidOperationException]::new('TLS_LINUX_EXPORT_DOCUMENT_INVALID')
+            $wrapped=[InvalidOperationException]::new('wrapper path=C:\private password=synthetic-secret',$known)
+            $knownCode=Get-LabTlsSafeLinuxPeerReadFailureCode ([Management.Automation.ErrorRecord]::new($wrapped,'synthetic',[Management.Automation.ErrorCategory]::NotSpecified,$null)) -Linux
+            $spoof=[InvalidOperationException]::new('TLS_LINUX_EXPORT_DOCUMENT_INVALID password=synthetic-secret')
+            $spoofCode=Get-LabTlsSafeLinuxPeerReadFailureCode ([Management.Automation.ErrorRecord]::new($spoof,'synthetic',[Management.Automation.ErrorCategory]::NotSpecified,$null)) -Linux
+            $windowsCode=Get-LabTlsSafeLinuxPeerReadFailureCode ([Management.Automation.ErrorRecord]::new($known,'synthetic',[Management.Automation.ErrorCategory]::NotSpecified,$null))
+            if($knownCode-cne'TLS_LINUX_EXPORT_DOCUMENT_INVALID' -or $spoofCode-cne'TLS_EXPORT_READ_REJECTED' -or $windowsCode-cne'TLS_EXPORT_READ_REJECTED'){
+                throw 'PUBLIC_READER_FAILURE_CLASSIFICATION_FAILED'
+            }
+        }
+    }
+    try{& $m {& $script:Check}}finally{Remove-Module $m -Force}
+}
+if($IsWindows){Check 'Public reader carries timeout stage only after private controller binding' {
+    $m=New-Module -ArgumentList $repo -ScriptBlock {
+        param($Root)
+        . (Join-Path $Root 'Public/Read-SqlServerLabQualifiedTestEnvironment.ps1')
+        function Assert-LabTlsLinuxControllerSession { if($script:rejectBinding){throw 'TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_OBSERVATION'} }
+        function Read-LabTlsQualifiedExportSnapshot { throw $script:stageCode }
+        $script:invoke={
+            param([bool]$Controller,[bool]$RejectBinding)
+            $script:rejectBinding=$RejectBinding;$script:stageCode='TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_NAMESPACE_CHECK'
+            $arguments=@{ExportBytes=[byte[]]@(1);RunId='synthetic-run';InstanceId='primary';StateRoot='synthetic-root'}
+            if($Controller){$arguments.LinuxSessionRef='a'*64;$arguments.LinuxClientStack='SYSTEM_DATA_SQLCLIENT'}
+            try{$null=Read-SqlServerLabQualifiedTestEnvironment @arguments;'NO_ERROR'}catch{$_.Exception.Message}
+        }
+    }
+    try{
+        $bound=& $m {& $script:invoke $true $false}
+        $unbound=& $m {& $script:invoke $true $true}
+        $ordinary=& $m {& $script:invoke $false $false}
+        Add-CheckResult 'Bound controller preserves a fixed Linux timeout stage through the actual public catch' ($bound-ceq'TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_NAMESPACE_CHECK')
+        Add-CheckResult 'Controller binding failure keeps timeout detail generic' ($unbound-ceq'TLS_EXPORT_READ_REJECTED')
+        Add-CheckResult 'Ordinary Windows reader keeps timeout detail generic' ($ordinary-ceq'TLS_EXPORT_READ_REJECTED')
+    }finally{Remove-Module $m -Force}
+}}
 [pscustomobject]@{Suite='AuthenticatedTlsLinuxPeer';Passed=$passed;Failed=$failures.Count;ProviderActions=0;SqlLogins=0}|ConvertTo-Json -Compress
 if($failures.Count){throw 'TLS_LINUX_PEER_CHECKS_FAILED'}

@@ -49,6 +49,23 @@ function Invoke-OwnedHostTestCommand {
     $result.Output
 }
 
+function Get-OwnedHostTestRootFailureCode {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][System.Management.Automation.ErrorRecord]$ErrorRecord)
+    $safeCodes = @{
+        'OWNED_HOST_TEST_PIN_DISCOVERY_FAILED' = 'PROVIDER_PIN_DISCOVERY_FAILED'
+        'OWNED_HOST_TEST_DOCKER_CONTEXT_UNRESOLVED' = 'DOCKER_CONTEXT_UNRESOLVED'
+        'OWNED_HOST_TEST_PODMAN_CONNECTION_UNRESOLVED' = 'PODMAN_CONNECTION_UNRESOLVED'
+        'OWNED_HOST_RUNTIME_INFO_UNVERIFIABLE' = 'PROVIDER_RUNTIME_UNREACHABLE'
+        'OWNED_HOST_LOCAL_MACHINE_UNVERIFIABLE' = 'PODMAN_MACHINE_UNREACHABLE'
+        'OWNED_HOST_LOCAL_MACHINE_BINDING_UNVERIFIABLE' = 'PODMAN_MACHINE_BINDING_UNVERIFIABLE'
+        'OWNED_HOST_RUNTIME_INFO_INCOMPLETE' = 'PROVIDER_RUNTIME_INFO_INCOMPLETE'
+    }
+    $failureId = ([string]$ErrorRecord.FullyQualifiedErrorId -split ',', 2)[0]
+    if ($safeCodes.ContainsKey($failureId)) { return $safeCodes[$failureId] }
+    return $null
+}
+
 function Initialize-OwnedHostTestRoot {
     [CmdletBinding()]
     param([Parameter(Mandatory)]$Module,[Parameter(Mandatory)][string]$StateRoot,

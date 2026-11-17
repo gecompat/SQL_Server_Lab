@@ -2,8 +2,8 @@
 
 | Merkmal | Wert |
 |---|---|
-| Status | Implementierte private Metadatenlane; keine TLS-Qualifikation |
-| Stand | 2026-10-17 |
+| Status | Private Metadatenlane mit additiver Authority-Registrierung, historischer Digestauflösung und nutzungsgebundener Retirement-Transaktion; keine TLS-Qualifikation |
+| Stand | 2026-11-11 |
 | Implementierung | [AuthenticatedTlsRegistryWriter.ps1](../../Private/AuthenticatedTlsRegistryWriter.ps1) |
 | Prüfung | [Invoke-AuthenticatedTlsRegistryWriterChecks.ps1](../../Tests/Static/Invoke-AuthenticatedTlsRegistryWriterChecks.ps1) |
 
@@ -11,11 +11,57 @@ Der Writer ergänzt die [lesende Rootbindung](AUTHENTICATED_TLS_REGISTRY_ROOT.md
 und die [vollständige Dokumentform](AUTHENTICATED_TLS_REGISTRY_DOCUMENT.md).
 Er registriert ausdrücklich ausgewählte aktive Client- und Signiermetadaten
 und die begrenzte [CA-/Trustscope-Metadatenform](AUTHENTICATED_TLS_AUTHORITY_BINDING.md).
-Retirement und Nutzungsauflösung bleiben gesperrt. Die bestehende CA wird
-durch diese Implementierung weder adoptiert noch qualifiziert.
+Eine private Retirement-Transaktion darf eine exakt ausgewählte aktive
+Authority nur nach geschlossenem Nutzungsnachweis als unveränderlichen
+`RETIRED`-Tombstone fortschreiben. Sie entfernt weder Payloads noch historische
+Referenzen, CA-Schlüssel oder Trust. Unklare Allocation-/Windows-Journale,
+nicht terminal entfernte Runs, erreichbare Container oder VMs und ein geänderter
+Registryhead sperren die Mutation. Alte `AuthenticatedTlsLab/0.1`-Records sind
+Docker-only, binden aber die ursprüngliche Docker-Runtime nicht dauerhaft.
+Deshalb bleibt ihr Retirement mit `TLS_AUTHORITY_USE_UNCONFIRMED` gesperrt;
+Run-Desired-State und Connection-Info allein beweisen keine Abwesenheit auf dem
+ursprünglichen Daemon.
+Generische Updates und Recovery dürfen keine neuen Tombstones erzeugen; eine
+Recovery eines bereits installierten Retirement-Kandidaten wiederholt denselben
+Nutzungsnachweis. Die bestehende CA wird durch
+diese Implementierung weder adoptiert noch qualifiziert.
 Keine öffentliche API, Keyöffnung, Zertifikats-, Truststore-, SQL- oder
 Provideraktion entsteht. `QualificationStatus=NOT_EXECUTED`, `Ready=false`
 und `MutationAllowed=false` bleiben erhalten.
+
+Eine neue Authority kann über `APPEND_AUTHORITY` neben vorhandenen Einträgen
+registriert werden. Der Übergang verlangt exakt drei neue Records: eine aktive
+`0.2`-Authority sowie eigene aktive Signer- und Clientkontexte. Bestehende
+Records müssen vollständig vorhanden und in Identitäts-, Revisionsdigest und
+Status unverändert bleiben. Die neue Dreiergruppe wird frisch gegen Kandidat,
+Actor, Rootmetadaten, Kontexte und ReadOnly-Trust geprüft. Alte Authorities
+werden bei diesem eng begrenzten Übergang nicht als betriebsbereit bewertet.
+Bei `UPDATE` werden unveränderte Authorityrecords anhand ihrer vollständigen
+Indexbindung (Generation, Status, Identitäts- und Revisionsdigest sowie
+Signerreferenz/-generation) nur dann ohne erneute Qualifikation erhalten, wenn
+eine exakte Pfadabfrage das Kandidatenverzeichnis als fehlend bestätigt.
+Vorhandene Dateien, Reparse-Punkte und unbestimmbare Pfadzustände werden
+abgelehnt. Bei vorhandenen echten Verzeichnissen werden auch unveränderte
+Authorities frisch validiert, damit Trustdrift weiterhin vor Intent und Commit
+fail-closed abgelehnt wird. Geänderte Authorityrecords und geänderte
+Kontextpayloads werden ebenfalls frisch validiert. Dadurch blockiert fehlendes
+Material einer anderen, unverändert erhaltenen Authority keine
+Metadatenaktualisierung der ausgewählten CA.
+Diese alte Authority wird dadurch weder wiederhergestellt noch qualifiziert;
+ihre Verwendung prüft ihre Bindung weiterhin frisch und bleibt bei fehlendem
+Kandidatenmaterial gesperrt. `UPDATE` und
+`APPEND_AUTHORITY` dürfen keine Tombstones anlegen. Retirement bleibt an die
+unveränderte vollständige Nutzungsprüfung gebunden.
+
+Runrecords können eine frühere Registrydatei über ihren gespeicherten
+`RegistrySha256` anfordern. Der Reader löst sie nur aus einer abgeschlossenen,
+validierten Commitkette auf: aus der zugehörigen Originalsicherung oder den im
+Commitintent gespeicherten, exakt gehashten Kandidatenbytes. Offene, abgebrochene,
+abgetrennte oder mehrdeutige Historie genügt nicht. Diese Auflösung bewahrt die
+alte Metadatenbindung; sie stellt keine fehlenden CA-Dateien oder Schlüssel
+wieder her. Fehlt das alte Kandidatenmaterial, scheitern dessen frische
+Besitz-/Trustprüfungen weiterhin fail-closed. Neue Runs binden den aktuellen
+Head.
 
 ## Bindung und Ownership
 
@@ -39,9 +85,10 @@ die native Neubeobachtung noch die Autorität des konkreten Auftrags. Unter
 Sperre und unmittelbar vor Dateiersatz und Commit wird erneut geprüft.
 Geänderte aktive Payloads müssen den bestehenden intern frischen
 Prozess-/Binary-/Backendvergleich bestehen. Nicht geänderte Kontextgenerationen
-werden durch den vollständigen Dokumentübergang erhalten. Jede aktive `0.2`-CA
-prüft trotzdem Kandidat, beide Kontextgenerationen und ReadOnly-Trust frisch,
-vor Intent, Ersatz und Commit sowie bei `RECOVER_COMMIT`. Diskdigests
+werden durch den vollständigen Dokumentübergang erhalten. Bei vorhandenen
+Kandidatenverzeichnissen prüft jede aktive `0.2`-CA Kandidat, beide
+Kontextgenerationen und ReadOnly-Trust frisch vor Intent, Ersatz und Commit
+sowie bei `RECOVER_COMMIT`. Diskdigests
 bleiben Diskbeobachtungen; ein Registrycommit qualifiziert keine Clients.
 
 Genau `State/authenticated-tls` unter dem ausgewählten Root ist zulässig.
@@ -54,8 +101,10 @@ Fehlender Owner, unbekannte Artefakte oder aufgeweichte ACLs sperren.
 
 ## Serialisierung und Dateiersatz
 
-Ein rootpfadgebundener `Global`-Mutex serialisiert auch die erstmalige Anlage
-über Windows-Sitzungen hinweg. Der zusätzliche persistente `writer.lock`
+Ein rootpfadgebundener `Global`-Lifecycle-Mutex serialisiert Registrywrites,
+TLS-Lab-Anlage und Authority-Retirement über Windows-Sitzungen hinweg. Darin
+serialisiert ein weiterer rootpfadgebundener Writer-Mutex auch die erstmalige Anlage.
+Der zusätzliche persistente `writer.lock`
 wird mit `FileShare.None` geöffnet. Beide Erwerbe warten nicht auf einen
 anderen Writer. Beim Prozessende werden die Handles frei; die Lockdatei
 bleibt als eigener regulärer Bestandteil erhalten. Ein verwaister Mutex
@@ -120,8 +169,9 @@ Ein Abbruch während der erstmaligen Anlage vor vollständigem Intent oder
 ein abgebrochener initialer Intent ohne installierte Registry bleibt
 gesperrt und benötigt eine gesonderte eigene Cleanup-/Recoveryentscheidung;
 kein stiller Bootstrap-Replay. Run-Removal entfernt diese gemeinsame Ablage
-nicht. Produktiv registrierte Kontexte, CA-Zuordnung, Key-/Trustentfernung
-und nutzungsgebundenes Retirement sind weiterhin getrennte offene Aufgaben.
+nicht. Die private Retirementtransaktion ändert ausschließlich Status und
+Indexrevision. Produktiv registrierte Kontexte, CA-Zuordnung,
+Key-/Trustentfernung und TLS-Qualifikation bleiben getrennte Operationen.
 
 ## Prüfung und Aufwand
 

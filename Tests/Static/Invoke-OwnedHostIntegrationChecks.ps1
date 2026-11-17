@@ -771,6 +771,12 @@ $module = New-Module -ArgumentList $repoRoot,$fixtureRoot -ScriptBlock {
         Assert-Own (($policy|ConvertTo-Json -Depth 12)|Test-Json -SchemaFile $ownedSchema) 'Persisted policy satisfies its closed typed schema'
         Assert-Own (($allocatedState.metadata.ownedHostIntegration|ConvertTo-Json -Depth 12)|Test-Json -SchemaFile $ownedSchema) 'Actual allocated run reference satisfies its closed typed schema'
         . (Join-Path $repoRoot 'Tests/Common/OwnedHostTestScope.ps1')
+        $runtimeFailureRecord = try { throw 'OWNED_HOST_RUNTIME_INFO_UNVERIFIABLE' } catch { $_ }
+        Assert-Own ((Get-OwnedHostTestRootFailureCode -ErrorRecord $runtimeFailureRecord) -ceq 'PROVIDER_RUNTIME_UNREACHABLE') `
+            'Root-init known runtime failure maps to a fixed safe category'
+        $unknownFailureRecord = try { throw 'SYNTHETIC_PRIVATE_PATH C:\private\host' } catch { $_ }
+        Assert-Own ($null -eq (Get-OwnedHostTestRootFailureCode -ErrorRecord $unknownFailureRecord)) `
+            'Unknown root-init detail has no public category'
         $artifact = Get-OwnedHostTestArtifactRoot -StateRoot $root -Name 'synthetic-evidence'
         Assert-Own (Test-OwnedHostTestEvidenceBinding -StateRoot $root -EvidenceRoot $artifact) 'Own coordinator accepts actual child evidence under the selected root'
         Assert-Own (-not (Test-OwnedHostTestEvidenceBinding -StateRoot $root -EvidenceRoot $fixtureRoot)) 'Own coordinator rejects cross-root evidence before a supervisor runs'

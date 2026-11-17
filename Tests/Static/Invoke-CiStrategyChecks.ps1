@@ -44,6 +44,11 @@ foreach ($path in @('Private/AuthenticatedTlsRequest.ps1','Private/Authenticated
         'Invoke-AuthenticatedTlsLinuxPeerChecks.ps1' -in $selected.StaticChecks -and
         'Invoke-AuthenticatedTlsLinuxContextRecordChecks.ps1' -in $selected.StaticChecks)
 }
+$tlsLinuxBridgeFailureSource = & $selector -ChangedPath @('Private/AuthenticatedTlsLab.ps1')
+Add-CheckResult 'TLS Linux bridge failure-code source selects its direct bridge regression and retains provider gates' (
+    'Invoke-AuthenticatedTlsLinuxBridgeChecks.ps1' -in $tlsLinuxBridgeFailureSource.StaticChecks -and
+    $tlsLinuxBridgeFailureSource.Docker -and $tlsLinuxBridgeFailureSource.Podman -and
+    $tlsLinuxBridgeFailureSource.Mixed -and $tlsLinuxBridgeFailureSource.HyperV -and $tlsLinuxBridgeFailureSource.Adapter)
 foreach($path in @('Private/ExternalRuntimeHostPrerequisites.ps1','Tests/Static/Fixtures/ExternalRuntimeHostPrerequisitesChecks.ps1','Tools/Common/NativeLinuxContainerHost.ps1')) {
     foreach($normalized in @($path,$path.Replace('/','\'))) {
         Add-CheckResult "Public prerequisite composition selects its actual capability suite: $normalized" ('Invoke-ExternalRuntimeCapabilityChecks.ps1' -in (& $selector -ChangedPath @($normalized)).StaticChecks)

@@ -102,8 +102,12 @@ try {
     $rootCreated=$true
     $null=New-Item -ItemType Directory -Path (Join-Path $root 'Tests/Integration')
     $null=New-Item -ItemType Directory -Path (Join-Path $root 'Tests/Common'), (Join-Path $root 'Tools')
-    [IO.File]::WriteAllText((Join-Path $root 'Tests/Common/OwnedHostTestScope.ps1'), 'function Initialize-OwnedHostTestRoot { param($Module,$StateRoot,$Providers,$ParentOperationId); $null=New-Item -ItemType Directory -Path $StateRoot }')
-    [IO.File]::WriteAllText((Join-Path $root 'Tools/Initialize-SqlServerLabHostTools.ps1'), 'param($Name); [pscustomobject]@{Available=($env:PRIVACY_FIXTURE_STAGE -cne ''tools-unavailable'')}')
+    $ownedScopeFixture = @'
+function Get-OwnedHostTestRootFailureCode { param($ErrorRecord); if (([string]$ErrorRecord.FullyQualifiedErrorId -split ',', 2)[0] -ceq 'OWNED_HOST_RUNTIME_INFO_UNVERIFIABLE') { return 'PROVIDER_RUNTIME_UNREACHABLE' }; return $null }
+function Initialize-OwnedHostTestRoot { param($Module,$StateRoot,$Providers,$ParentOperationId); if ($env:PRIVACY_FIXTURE_STAGE -ceq 'owned-root-failure') { throw 'OWNED_HOST_RUNTIME_INFO_UNVERIFIABLE' }; $null=New-Item -ItemType Directory -Path $StateRoot }
+'@
+    [IO.File]::WriteAllText((Join-Path $root 'Tests/Common/OwnedHostTestScope.ps1'), $ownedScopeFixture)
+    [IO.File]::WriteAllText((Join-Path $root 'Tools/Initialize-SqlServerLabHostTools.ps1'), 'param($Name); foreach($tool in $Name){[pscustomobject]@{Name=$tool;Available=($env:PRIVACY_FIXTURE_STAGE -cne ''tools-unavailable'')}}')
     $mixed=@(Get-WorkflowBlocks 'runtime-smoke-mixed-providers.yml')
     $hyperv=@(
         Get-WorkflowBlocks 'runtime-smoke-hyperv.yml' 'Hyper-V preflight'
@@ -168,8 +172,13 @@ function Import-Module { [pscustomobject]@{Name='SyntheticFixtureModule'} }
         $result.Private -match 'SYNTHETIC_PRIVATE_SECRET' -and [string]::IsNullOrEmpty($result.RetainedPrivate))
     $result=Invoke-WorkflowFixture -Script ($shim+"`n"+$mixed[0]) -Name 'mixed-podman-failure' -ExitCode 0 -FailureStage 'tools-unavailable'
     Add-CheckResult -Name 'Mixed unavailable host tool stops before sqlcmd without raw forwarding' -Success (
-        $result.ExitCode -ne 0 -and $result.Public -match 'INFRASTRUCTURE_UNAVAILABLE' -and
+        $result.ExitCode -ne 0 -and $result.Public -match 'INFRASTRUCTURE_UNAVAILABLE: prerequisite=HOST_TOOLS_UNAVAILABLE\[docker,podman\]' -and
         $result.Public -notmatch 'SYNTHETIC_PRIVATE' -and $result.Private -match 'OWNED_HOST_TEST_TOOL_UNAVAILABLE' -and $result.Trace.Count -eq 0)
+    $result=Invoke-WorkflowFixture -Script ($shim+"`n"+$mixed[0]) -Name 'mixed-owned-root-failure' -ExitCode 0 -FailureStage 'owned-root-failure'
+    Add-CheckResult -Name 'Mixed owned-root failure emits only its fixed safe category' -Success (
+        $result.ExitCode -ne 0 -and $result.Public -match 'OWNED_TEST_ROOT_INITIALIZATION\[PROVIDER_RUNTIME_UNREACHABLE\]' -and
+        $result.Public -notmatch 'SYNTHETIC_PRIVATE|OWNED_HOST_RUNTIME_INFO_UNVERIFIABLE|[A-Za-z]:\\|/home/' -and
+        $result.Private -match 'OWNED_HOST_RUNTIME_INFO_UNVERIFIABLE')
     $result=Invoke-WorkflowFixture -Script ("function Import-Module { throw 'SYNTHETIC_PRIVATE_EXCEPTION' }`n"+$mixed[0]) -Name 'mixed-preflight-exception' -ExitCode 0
     Add-CheckResult -Name 'Mixed unexpected preflight exception stays private' -Success ($result.ExitCode -ne 0 -and $result.Public -notmatch 'SYNTHETIC_PRIVATE' -and $result.Private -match 'SYNTHETIC_PRIVATE_EXCEPTION')
     $bashShim=@'

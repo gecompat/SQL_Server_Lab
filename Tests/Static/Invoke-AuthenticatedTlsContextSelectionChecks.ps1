@@ -41,6 +41,7 @@ foreach($pair in @(@('CLIENT_CONTEXT','Client'),@('SIGNER_CONTEXT','Signer'))){
  foreach($suffix in @('A','B')){$payloads.Add(@{Kind=$pair[0];Status='ACTIVE';Identity='ContosoIdentity';Ref=($pair[1]+$suffix);Revision='old';Generation=1})}
  $prototypes[$pair[0]]=@{Kind=$pair[0];Status='ACTIVE';Identity='ContosoIdentity';Ref='NewRef';Revision='new';Generation=1}
 }
+$appendAuthority=$false
 foreach($kind in @('CLIENT_CONTEXT','SIGNER_CONTEXT')){. $mutation}
 if($contexts.CLIENT_CONTEXT.Ref -cne 'ClientA' -or $contexts.SIGNER_CONTEXT.Ref -cne 'SignerA'){throw 'TLS_SELECTION_REVISION_REBOUND'};$checks++
 if($updatedContextRefs.Count -ne 2 -or $payloads.Count -ne 4 -or @($payloads|Where-Object {$_.Ref -cin @('ClientA','SignerA') -and $_.Generation -eq 2 -and $_.Revision -ceq 'new'}).Count -ne 2){throw 'TLS_SELECTION_SELECTED_REVISION_MISSING'};$checks++

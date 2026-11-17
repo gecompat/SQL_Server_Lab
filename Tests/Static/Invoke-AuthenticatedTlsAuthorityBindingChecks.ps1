@@ -148,6 +148,7 @@ try{
         $r=Invoke-AuthorityWrite UPDATE (New-AuthorityDocument 2 @($signer,$client,$ca))
         Add-CheckResult 'TLS-A05 echte private CA-Metadaten-Commitlane ohne Key-/Storewrite' ($r.Success -and $r.Value.Status -ceq 'METADATA_COMMITTED' -and -not $r.Value.Ready)
         if(-not $r.Success){throw 'FIXTURE_CA_WRITE_FAILED'}
+        $caPath=$binding.Paths.Candidate;$caRecord=Get-LabTlsPayloadIndexRecord $ca
         $extra=Copy-AuthorityFixture $signer;$extra.Ref='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
         $next=New-AuthorityDocument 3 @($signer,$client,$ca,$extra)
         $before=Get-AuthoritySnapshot;$script:trust='ABSENT'
@@ -169,6 +170,21 @@ try{
         $r=Invoke-AuthorityWrite RECOVER_COMMIT $null $pending.Value.PendingTransactionId
         Add-CheckResult 'TLS-A06 expliziter Recoverycommit nach frischer Bindung' ($r.Success -and $r.Value.Status -ceq 'RECOVERY_COMMITTED')
         Add-CheckResult 'TLS-A06 Bindung und Writer oeffnen keinen privaten Key' ($script:keyCalls -eq 0)
+        $otherSigner=Copy-AuthorityFixture $signer;$otherSigner.Ref='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
+        Remove-Item -LiteralPath $caPath -Recurse -Force
+        if(Test-Path -LiteralPath $caPath){throw 'FIXTURE_HISTORICAL_CA_NOT_REMOVED'}
+        $metadataUpdate=New-AuthorityDocument 4 @($signer,$client,$ca,$extra,$otherSigner)
+        [IO.File]::WriteAllBytes($caPath,([byte[]]@(1,2,3)))
+        $wrongTypeBefore=Get-AuthoritySnapshot
+        $wrongTypeUpdate=Invoke-AuthorityWrite UPDATE $metadataUpdate
+        Add-CheckResult 'TLS-A05 Datei statt fehlendem Kandidaten blockiert Metadata-Update' `
+            (-not $wrongTypeUpdate.Success -and (Get-AuthoritySnapshot) -ceq $wrongTypeBefore)
+        Remove-Item -LiteralPath $caPath -Force
+        $r=Invoke-AuthorityWrite UPDATE $metadataUpdate
+        $afterDocument=Read-LabAuthenticatedTlsRegistryDocument ([IO.File]::ReadAllBytes((Join-Path $root 'State/authenticated-tls/registry.json')))
+        $afterLegacy=@($afterDocument.Value.RegistryDocument.Index.Records|Where-Object Ref -CEQ $ca.Ref)
+        Add-CheckResult 'TLS-A05 fehlender unveraenderter historischer Kandidat blockiert Metadata-Update nicht' `
+            ($r.Success -and $afterLegacy.Count -eq 1 -and (ConvertTo-Json -InputObject $afterLegacy[0] -Compress) -ceq (ConvertTo-Json -InputObject $caRecord -Compress) -and -not (Test-Path -LiteralPath $caPath))
         Write-Host 'TLS-A native eigene Temp-CA/NTFS/DPAPI/Registry; positive Trust- und Binaerwerte INJECTED, keine TLS-Qualifikation.'
     }
 }finally{

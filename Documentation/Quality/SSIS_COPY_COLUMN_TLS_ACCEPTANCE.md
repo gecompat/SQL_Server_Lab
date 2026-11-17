@@ -8,18 +8,26 @@ vollständigen C7-ZIP-Nachweise bleiben historisch. Sie verwendet denselben öff
 frischen SQL-/Lab-Cleanup-Audits wie die frühere Current-Build-Methode.
 Der alte Adapter und seine historischen Records bleiben unverändert.
 
-Für eine bestehende Authority verwendet die kanonische Registrierung deren
-bereits gebundene Client-/Signerreferenzen zusätzlich zur vollständigen
+Bei der erneuten Registrierung derselben aktiven Authority verwendet `UPDATE`
+deren bereits gebundene Client-/Signerreferenzen zusätzlich zur vollständigen
 Prozessidentität. Identitätsgleiche, aber getrennt referenzierte Kontexte einer
-anderen Authority bleiben unverändert. Eine neue Authority ohne Referenzbindung
-weist eine mehrdeutige Auswahl weiterhin ab. Fehlende, doppelte oder nicht zur
-aktuellen Identität passende gebundene Referenzen sind ebenfalls gesperrt.
-Diese Auswahlkorrektur ersetzt nicht die vollständige Frischeprüfung des
-[Registry-Writers](../Architecture/AUTHENTICATED_TLS_REGISTRY_WRITER.md).
-Vor jedem Commit müssen auch unveränderte aktive Authorities frisch passen.
-Verschiedene Laufzeitbindungen können deshalb eine Revision weiterhin sperren;
-weder das Überspringen fremder Datensätze noch deren Anpassung an den
-ausgewählten Prozess ist Bestandteil dieser Abnahmemethode.
+anderen Authority bleiben unverändert. Eine fehlende, doppelte oder nicht zur
+aktuellen Identität passende gebundene Referenz wird abgewiesen.
+
+Für einen neuen Kandidaten verwendet `APPEND_AUTHORITY` dagegen frische,
+separate Client- und Signerreferenzen. Identitätsgleiche Kontexte bestehender
+Authorities machen diesen Append nicht mehrdeutig und werden nicht umgebunden.
+Vorhandene Records bleiben unverändert; die neue Authority und ihre beiden
+Kontexte werden frisch gegen Kandidat, Actor, Rootmetadaten und ReadOnly-Trust
+geprüft. Bestehende Authorities gelten dadurch nicht als betriebsbereit.
+Die Frischeprüfung des [Registry-Writers](../Architecture/AUTHENTICATED_TLS_REGISTRY_WRITER.md)
+unterscheidet diese Append-Transaktion von `UPDATE`: Bei `UPDATE` müssen
+unveränderte Authorities mit vorhandenem Kandidatenverzeichnis frisch passen;
+ein nachweislich fehlendes Verzeichnis darf nur nach vollständiger
+Indexbindung unverändert erhalten bleiben. Verschiedene Laufzeitbindungen
+können eine solche Aktualisierung daher weiterhin sperren. Weder das
+Überspringen fremder Records noch deren Anpassung an den ausgewählten Prozess
+ist Bestandteil dieser Abnahmemethode.
 Die [Auswahlgegenproben](../../Tests/Static/Invoke-AuthenticatedTlsContextSelectionChecks.ps1)
 prüfen beide Kontextarten ohne Registry-/CA-/VM-/SQL-Effekte.
 
