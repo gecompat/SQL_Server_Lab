@@ -510,12 +510,23 @@ Für den bereits registrierten CMS bietet der Verbindungsbereich eine ausdrückl
 lesende Prüfung mit Zeitpunkt und markierten Metadatenzählern. Registrierung
 lesen und Dialog schließen führen keine SQL-Prüfung aus. Der gemeinsame
 [CMS-Vertrag](../Architecture/CMS_READONLY_INSPECTION.md) begrenzt Provider,
-Bindung und unbekannte Ergebnisse. CMS-Setup und Synchronisation im Browser
-sowie weitere geführte Browser-Gruppenaktionen,
+Bindung und unbekannte Ergebnisse. CMS-Setup und Synchronisation im Browser,
 operative Slots, vollständiges Provider-Setup und Fremdstart-/weiterer
 Hostdienst- sowie Modell-Lifecycle bleiben offen. Der eigene llama.cpp-
 Sitzungsstop besitzt den unten beschriebenen Fachdialog. Der Navigationseinstieg ist keine Abnahme
 dieser fehlenden Funktionen.
+
+Die geführten Gruppenaktionen sind davon getrennt: Der Gruppenbereich erlaubt
+leere Gruppen anzulegen, Runs hinzuzufügen oder einzeln zu lösen, Gruppen zu
+starten, zu stoppen und zu entfernen. Ein Run kann mehreren Gruppen angehören;
+beim Stop einer Gruppe bleibt er aktiv, solange eine andere aktive Gruppe ihn
+beansprucht. Diese Aktionen erzeugen bestätigte, typisierte Aufträge und sind
+für die bestehenden sieben Gruppen-Cmdlets abgedeckt. Die Gruppe erstellt
+weder ein gemeinsames Providernetz noch den SQL-Linked-Server; diese
+Vorbereitung bleibt eine getrennte Run-Konfiguration. Der native Docker- und
+Podman-Nachweis des Mehrgruppen-/Linked-Server-Falls ist in der [datierten
+Abnahme](../Quality/LINKED_SERVER_ENVIRONMENT_GROUP_ACCEPTANCE_2026-11-08.md)
+ausgewiesen.
 
 Der Arbeitsbereich **Alle Funktionen** wird aus demselben Export- und
 Parameterkatalog erzeugt wie **Alle öffentlichen Befehle** in

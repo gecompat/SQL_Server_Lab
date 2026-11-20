@@ -38,13 +38,18 @@ eines Cmdlets:
 ## Exportreferenz-Audit
 
 Ein mechanischer Abgleich des Manifests mit
-`Documentation/User/FUNCTIONS_CLI_GUI.md` findet 113 der 166 Exportnamen und
-53 dort nicht referenzierte Exporte. Das ist ein Referenzabgleich, keine
-vollständige Prüfung, ob die 113 Treffer tatsächlich korrekt geführt,
-ausführbar oder providerabgenommen sind. Die folgenden 53 Funktionen bleiben
-einzeln `NOT_ASSESSED`, bis Menüdispatch, GUI-Aktion, öffentliche Parameter
-und Evidence anhand der Implementierung geprüft wurden. Der generierte
-Expertenkatalog allein ändert ihren Status nicht.
+`Documentation/User/FUNCTIONS_CLI_GUI.md` findet 120 der 166 Exportnamen und
+46 dort nicht referenzierte Exporte. Das ist ein Referenzabgleich, keine
+vollständige Prüfung, ob die 120 Treffer tatsächlich korrekt geführt,
+ausführbar oder providerabgenommen sind. Die folgende Inventarliste hält die
+46 nicht referenzierten Namen einzeln fest. Die sieben Environment-Group-
+Operationen aus dem vorherigen Abgleich sind jetzt in der Funktionsübersicht
+enthalten und unten separat quellengestützt als `GUIDED_BOTH` bewertet. Von
+den verbleibenden 46 Einträgen bleiben die drei TLS-001-Exporte `DEFERRED`; die
+übrigen 43 bleiben `NOT_ASSESSED`, bis
+Menüdispatch, GUI-Aktion, öffentliche Parameter und Evidence anhand der
+Implementierung geprüft wurden. Der generierte Expertenkatalog allein ändert
+ihren Status nicht.
 
 | Funktionsfamilie | Nicht einzeln in der Funktionsübersicht referenzierte Exporte | Status |
 |---|---|---|
@@ -57,7 +62,6 @@ Expertenkatalog allein ändert ihren Status nicht.
 | Transfer und Vergleich | `Invoke-SqlServerLabPortableContainerTransferPreflight`; `Invoke-SqlServerLabPortableContainerTransfer`; `Test-SqlServerLabRelationalCoreComparison` | `NOT_ASSESSED` |
 | Autostart und Netzwerk | `Get-SqlServerLabContainerAutoStartPlan`; `Get-SqlServerLabHyperVAutoStartPlan`; `Set-SqlServerLabHyperVAutoStart`; `Resume-SqlServerLabHyperVAutoStart`; `Set-SqlServerLabContainerAutoStart`; `Resume-SqlServerLabContainerAutoStart`; `Move-SqlServerLabContainerNetwork` | `NOT_ASSESSED` |
 | SQL-Features und Zielumgebung | `Set-SqlServerLabFeature`; `Read-SqlServerLabQualifiedTestEnvironment` | `NOT_ASSESSED` |
-| Environment Groups | `Get-SqlServerLabEnvironmentGroup`; `New-SqlServerLabEnvironmentGroup`; `Add-SqlServerLabEnvironmentGroupMember`; `Remove-SqlServerLabEnvironmentGroupMember`; `Remove-SqlServerLabEnvironmentGroup`; `Start-SqlServerLabEnvironmentGroup`; `Stop-SqlServerLabEnvironmentGroup` | `NOT_ASSESSED`; weitere geführte Browser-Gruppenaktionen sind als Lücke dokumentiert |
 | Run-Artefakt-Retention | `Get-SqlServerLabRunArtifactRemovalPlan`; `Invoke-SqlServerLabRunArtifactRemoval` | `NOT_ASSESSED` |
 | Persistentes KI-Retrieval und Security-Tools | `Invoke-SqlServerLabAiPersistentRetrieval`; `Get-SqlServerLabSecurityToolPlan` | `NOT_ASSESSED` |
 | TLS-001, zurückgestellt | `Update-SqlServerLabTlsBinding`; `Get-SqlServerLabTlsBindingRecovery`; `Resolve-SqlServerLabTlsBindingRecovery` | `DEFERRED`; bestehender Zustand bleibt erhalten, keine neue Abdeckungs- oder Runtimearbeit ohne dokumentierten Anwendungsfall |
@@ -66,6 +70,31 @@ Die 53 Namen wurden unmittelbar gegen `FunctionsToExport` im Manifest
 abgeglichen; die Familiengruppierung ist nur eine Lesbarkeitshilfe. Sie ist
 keine Behauptung, dass eine Familie einen gemeinsamen Aufrufer oder denselben
 Nachweis besitzt.
+
+## Geprüfte Operationen: Environment Groups
+
+Der Abgleich von CLI-Router, Konsolenmenü, Browserdialog, typed HTTP route und
+den fokussierten Vertragsprüfungen bestätigt für die sieben öffentlichen
+Gruppenoperationen geführte Aktionen in beiden Oberflächen. Das schließt nur
+diese Operationsgruppe ein; es behauptet keine vollständige Gesamtmatrix.
+
+| Operation | Geführter CLI-Pfad | Geführter GUI-Pfad | Vertrag und Nachweis | Provider-/Versions-Evidence |
+|---|---|---|---|---|
+| Gruppen lesen und Bindungsstatus anzeigen | Lab-Umgebungen → Umgebung auswählen und verwalten → Lab-Umgebungsgruppen verwalten → Runtime-Zustand eines Mitglieds lesen | Lab-Umgebungen → Lab-Umgebungsgruppen ansehen → Gruppen erneut lesen; optional Runtimestatus live lesen | `Get-SqlServerLabEnvironmentGroup`; `Invoke-EnvironmentGroupLifecycleChecks.ps1`; `EnvironmentGroupsBrowserHttpChecks.ps1`; `EnvironmentGroupsBrowserUiChecks.cjs` | Containerbeobachtung und Gruppenstatus getrennt; kein SQL-Readiness-Nachweis |
+| Leere Gruppe anlegen | gleicher CLI-Pfad → Lab-Umgebungsgruppen verwalten → Gruppe erstellen | gleicher GUI-Pfad → Leere Gruppe erstellen | `New-SqlServerLabEnvironmentGroup`; Lifecycle-/Browser-HTTP-/Browser-UI-Fokustests; UI bestätigt vor dem Auftrag | kein Provideraufruf |
+| Vorhandenen Run zuordnen | gleicher CLI-Pfad → Gruppe wählen → Run-ID hinzufügen | gleicher GUI-Pfad → gestoppte Gruppe → Run zuordnen | `Add-SqlServerLabEnvironmentGroupMember`; Lifecycle-/Browser-HTTP-/Browser-UI-Fokustests; synthetischer Mehrgruppenfall | Docker und Podman Mehrgruppen-Lifecycle separat am 2026-11-08 nativ abgenommen |
+| Einzelne Zuordnung lösen | gleicher CLI-Pfad → Gruppe wählen → Zuordnung lösen | gleicher GUI-Pfad → gestoppte Gruppe → Zuordnung lösen | `Remove-SqlServerLabEnvironmentGroupMember`; Lifecycle-/Browser-HTTP-/Browser-UI-Fokustests; andere Gruppen und Run bleiben gebunden | kein eigener UI-Runtime-Smoke; Cleanup der eigenen Container-Runs ist im verknüpften Szenario belegt |
+| Gruppe samt Zuordnungen entfernen | gleicher CLI-Pfad → gestoppte Gruppe → Gruppe entfernen | gleicher GUI-Pfad → gestoppte Gruppe → Gruppe entfernen | `Remove-SqlServerLabEnvironmentGroup`; Lifecycle-/Browser-HTTP-/Browser-UI-Fokustests; Entfernen stoppt/entfernt keine Runs | kein eigener Provider-Lifecycle; siehe Cleanup-Grenze im Testvertrag |
+| Gruppe starten | gleicher CLI-Pfad → Gruppe wählen → Gruppe starten | gleicher GUI-Pfad → Gruppe starten | `Start-SqlServerLabEnvironmentGroup`; Lifecycle-/Browser-HTTP-/Browser-UI-Fokustests; neue Starts werden SQL-bereitschaftsgeprüft | Docker und Podman, SQL 2025 CU9: je `OPENQUERY`, Gruppenstart und Cleanup bestanden |
+| Gruppe stoppen | gleicher CLI-Pfad → Gruppe wählen → Gruppe stoppen | gleicher GUI-Pfad → Gruppe stoppen / Wiederherstellen und stoppen | `Stop-SqlServerLabEnvironmentGroup`; Lifecycle-/Browser-HTTP-/Browser-UI-Fokustests; bei weiterem Gruppenanspruch bleibt der Run aktiv | Docker und Podman, SQL 2025 CU9: geteilter Ziel-Run blieb nach Stop der ersten Gruppe aktiv und stoppte nach Freigabe des letzten Anspruchs |
+
+Die CLI- und GUI-Prüfungen verwenden synthetische Registry-/DOM-/HTTP-
+Fixtures; sie beweisen keine native Ausführung der jeweiligen Oberfläche mit
+echten Laufzeitressourcen. Die native Linked-Server-Gruppenabnahme belegt das
+Produktverhalten für die gebundenen Docker-/Podman-Zellen, aber keine
+GUI-Automation, TLS-Identitätsprüfung, Kerberos-, MSDTC- oder gruppeneigene
+Netzwerkkonfiguration. Details stehen in der [datierten Abnahme](LINKED_SERVER_ENVIRONMENT_GROUP_ACCEPTANCE_2026-11-08.md)
+und dem [Gruppenvertrag](../Architecture/LAB_ENVIRONMENT_GROUPS.md).
 
 ## Bereichsinventar
 
@@ -78,7 +107,7 @@ nicht alle Operationen des Bereichs einzeln auf einen CLI-Menüpfad, GUI-Aktion,
 | Fachbereich | Geführter CLI-Einstieg | GUI-Bereich | Vorhandene Grundlage | Bewertung |
 |---|---|---|---|---|
 | Lab-Umgebungen, Run-Lifecycle, Datenbanken, Samples und Skripte | Lab-Umgebungen | Lab-Umgebungen | Workflow-Einstieg; ausgewählte öffentliche Cmdlet-Zuordnungen; Container-/Hyper-V-Abnahmen in der [CLI-Akzeptanzmatrix](CLI_ACCEPTANCE_MATRIX.md) | `TEILWEISE`; vollständige Operations- und Änderungsmatrix offen |
-| Geschützte Testsystem-Matrix und Gruppenaktionen | Testsystem-Matrix | Geschützte Testsystem-Matrix | Gruppen-/Power-Dialog und vorhandene statische Verträge | `KNOWN_GAP` für weitere geführte Browser-Gruppenaktionen; übrige Zuordnung `NOT_ASSESSED` |
+| Geschützte Testsystem-Matrix | Testsystem-Matrix | Geschützte Testsystem-Matrix | Gruppen-/Power-Dialog und vorhandene statische Verträge | `TEILWEISE`; vollständige Operationszuordnung und weitere geführte Aktionen `NOT_ASSESSED` |
 | Hyper-V-Vorlagen, Windows-Images und operative Slots | Hyper-V: Vorlagen und Slots | Hyper-V: Vorlagen und Slots | Image-/Poolinventar und einzelne gebundene Workflows | `KNOWN_GAP` für operative Slots und vollständiges Provider-Setup; native Nachweise bleiben funktions- und versionsgebunden |
 | Ressourcen, Medien, Downloads und Speicher | Ressourcen und Downloads | Ressourcen und Downloads | Ressourcen-/Medienkataloge, ausgewählte Plan-/Apply-Dialoge | `TEILWEISE`; vollständige Operationszuordnung und Providerbelege offen |
 | Host-Dienste und Modelle | Host-Dienste und Modelle | Host-Dienste und Modelle | Einzelne Modell-/Hostservice-Dialoge und öffentliche Befehle | `KNOWN_GAP` für Fremdstart und weiteren Hostdienst-/Modell-Lifecycle |
@@ -132,7 +161,7 @@ SQL-CUs abgeleitet.
    Funktionssuite, erforderlichen getrennten Runtime-Nachweisen und grüner
    Pflicht-CI kann ein Release gebaut werden.
 
-Der offene Docker-Fehler für PR #864 ist ein eigener Release-Blocker und darf
+Der offene Podman-Fehler für PR #864 ist ein eigener Release-Blocker und darf
 nicht als TLS-Befund oder erfolgreicher Provider-Nachweis umgedeutet werden.
 TLS-001 ist entsprechend der Projektentscheidung zurückgestellt; diese
 Matrix autorisiert weder TLS-Runtime-Läufe noch Änderungen an CA oder Trust.

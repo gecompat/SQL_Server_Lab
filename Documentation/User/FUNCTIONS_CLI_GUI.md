@@ -308,6 +308,29 @@ und deren Prüfstatus bleiben davon getrennt.
 | [`Repair-SqlServerLabAutomatedTestEnvironment`](../../Public/TestEnvironment.ps1) | Gleicht Ressourcen, Health, Autostart, Windows-Aktivierung und Runtime-Namen sicher ab. | über den Testumgebungs-Workflow-Core | – |
 | [`Clear-SqlServerLabAutomatedTestEnvironment`](../../Public/TestEnvironment.ps1) | Entfernt alle Runs der geschützten Testgruppe und deren Exporte. | Geschützte Testsystem-Matrix → Testgruppe entfernen | – |
 
+## Wiederverwendbare Lab-Umgebungsgruppen
+
+Diese additiven Gruppen verknüpfen bereits separat erstellte Runs; sie erstellen
+weder die Runs noch ein gemeinsames Providernetz oder einen SQL-Linked-Server.
+Ein Run darf mehreren Gruppen angehören. Beim Stop einer Gruppe bleibt er
+aktiv, solange eine andere aktive Gruppe ihn beansprucht. Vollständiger
+Lifecycle-, CLI-/GUI- und Providervertrag: [Lab-Umgebungsgruppen](../Architecture/LAB_ENVIRONMENT_GROUPS.md).
+
+| Cmdlet | Kurzbeschreibung | Konsolenmenü | Browser-GUI |
+|---|---|---|---|
+| [`Get-SqlServerLabEnvironmentGroup`](../../Public/EnvironmentGroups.ps1) | Listet Gruppen und gebundene Run-Referenzen; optionale Bindungsprüfung unterscheidet aktuelle und veraltete Verweise. | Lab-Umgebungen → Umgebung auswählen und verwalten → Lab-Umgebungsgruppen verwalten | Lab-Umgebungen → Lab-Umgebungsgruppen ansehen |
+| [`New-SqlServerLabEnvironmentGroup`](../../Public/EnvironmentGroups.ps1) | Legt eine leere Gruppe an; startet keine Run- oder Providerressource. | gleicher CLI-Pfad → Gruppe erstellen | gleicher GUI-Pfad → Leere Gruppe erstellen |
+| [`Add-SqlServerLabEnvironmentGroupMember`](../../Public/EnvironmentGroups.ps1) | Fügt einer gestoppten Gruppe einen vorhandenen Run hinzu; derselbe Run kann weiteren Gruppen angehören. | gleicher CLI-Pfad → Gruppe wählen → Run-ID hinzufügen | gleicher GUI-Pfad → gestoppte Gruppe → Run zuordnen |
+| [`Remove-SqlServerLabEnvironmentGroupMember`](../../Public/EnvironmentGroups.ps1) | Löst eine einzelne Gruppenreferenz; stoppt oder entfernt den Run nicht. | gleicher CLI-Pfad → Gruppe wählen → Zuordnung lösen | gleicher GUI-Pfad → gestoppte Gruppe → Zuordnung lösen |
+| [`Start-SqlServerLabEnvironmentGroup`](../../Public/EnvironmentGroups.ps1) | Startet gestoppte Mitglieder und prüft für neu gestartete Runs SQL-Bereitschaft; bereits laufende Mitglieder bleiben unverändert. | gleicher CLI-Pfad → Gruppe wählen → Gruppe starten | gleicher GUI-Pfad → Gruppe starten |
+| [`Stop-SqlServerLabEnvironmentGroup`](../../Public/EnvironmentGroups.ps1) | Löst den Lifecycle-Anspruch der Gruppe; gemeinsam genutzte Runs bleiben bei einem weiteren aktiven Gruppenanspruch aktiv. | gleicher CLI-Pfad → Gruppe wählen → Gruppe stoppen | gleicher GUI-Pfad → Gruppe stoppen / Wiederherstellen und stoppen |
+| [`Remove-SqlServerLabEnvironmentGroup`](../../Public/EnvironmentGroups.ps1) | Entfernt eine gestoppte Gruppe und ihre Referenzen, nicht deren Runs. | gleicher CLI-Pfad → gestoppte Gruppe → Gruppe entfernen | gleicher GUI-Pfad → gestoppte Gruppe → Gruppe entfernen |
+
+Die geführten UI-Aktionen verlangen eine ausdrückliche Bestätigung. Sie
+behaupten keine SQL-Linked-Server-Konfiguration, TLS-Identitätsprüfung oder
+Runtime-Reconcile. Der getrennte native Docker-/Podman-Nachweis des
+Mehrgruppen-Lifecycle steht in der [datierten Abnahme](../Quality/LINKED_SERVER_ENVIRONMENT_GROUP_ACCEPTANCE_2026-11-08.md).
+
 ## Maintenance und Persistent Storage
 
 | Cmdlet | Kurzbeschreibung | Konsolenmenü | Browser-GUI |
