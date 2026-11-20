@@ -134,7 +134,9 @@ Die aktuelle [CLI-Abnahmematrix](../Quality/CLI_ACCEPTANCE_MATRIX.md) ordnet
 wichtige Befehlsgruppen und Provider-Smokes zu. Sie ist keine vollständige
 Inventarliste aller 166 Exporte und keine GUI-Abnahmematrix. Die Abschlussarbeit
 beginnt mit einer nachprüfbaren Operationsmatrix mit mindestens diesen
-getrennten Feldern:
+getrennten Feldern. Die erste quellengestützte Bereichsinventur steht in der
+[CLI-/GUI-Funktionsabdeckung](../Quality/CLI_GUI_FUNCTION_COVERAGE.md); sie ist
+`INCOMPLETE` und ersetzt die noch ausstehende Operationsmatrix nicht.
 
 - fachliche Operation und betroffene vorhandene Labs;
 - geführter CLI-Menüpfad und geführter GUI-Arbeitsbereich;

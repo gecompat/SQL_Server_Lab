@@ -5,7 +5,8 @@ Funktionsgruppen und Runtime-Smokes. Sie beweist keine vollständige geführte
 CLI-/GUI-Abdeckung aller exportierten Cmdlets. Die Expertenbefehlsliste ist ein
 parametrisierter Ausführungszugang, kein Ersatz für fachliche Menünavigation.
 Der vollständige Bestands- und Abnahmescope steht im
-[Backlog zur Funktionsabdeckung](../Project_Planning/CROSS_CUTTING_PLATFORM_CAPABILITIES_BACKLOG.md#bestandsaufnahme-am-2026-11-20).
+[Backlog zur Funktionsabdeckung](../Project_Planning/CROSS_CUTTING_PLATFORM_CAPABILITIES_BACKLOG.md#bestandsaufnahme-am-2026-11-20)
+und in der noch unvollständigen [CLI-/GUI-Bereichsinventur](CLI_GUI_FUNCTION_COVERAGE.md).
 
 | Merkmal | Festlegung |
 |---|---|
