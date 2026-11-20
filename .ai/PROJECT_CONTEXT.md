@@ -12,33 +12,39 @@ datierte Abnahmen belegen ausschließlich ihren ausgewiesenen Stand.
 Die [Foundation-Upgradebewertung](../Documentation/Quality/FOUNDATION_1_25_UPGRADE_ASSESSMENT.md)
 trennt Regelübernahme, Lesepfadprüfung und geplante Restarbeiten.
 
-## Aktuelle KI-Arbeitsgrenze für TLS-001
+## Aktuelle Arbeitsgrenze für TLS-001
 
-Benutzerauftrag vom 2026-10-31: Für die aktuelle SSIS-Qualifikation wird der
-[eigene Windows-TLS-Pfad](../Documentation/Architecture/AUTHENTICATED_TLS_WINDOWS_OPERATIONAL_LAB.md)
-ergänzt. Die Bereitstellung, Aktivierung und SQL-Spezialisierung bleiben im
-Lab; Toolbelt konsumiert den signierten V2-Snapshot. Bestehende Testsysteme,
-Hosttrust und vorbereitete Images bleiben erhalten. Dieser begrenzte Auftrag
-ist keine Freigabe zur Veröffentlichung oder zum gesamten TLS-001-Abschluss.
+Projektentscheidung vom 2026-11-18: Weitere TLS-001-Arbeit ist zurückgestellt,
+bis ein konkreter SQL_Server_Lab-Anwendungsfall einen SQL Server mit geprüfter
+Zertifikatsidentität benötigt. Bis dahin werden keine neuen TLS-001-
+Implementierungen, Runtime-Läufe, Consumer-Cutovers oder Release-Schritte
+begonnen. Bestehende Implementierungen, Zertifikate, Truststores, Evidence und
+offene Arbeitsstände bleiben erhalten; die Zurückstellung behauptet keinen
+vollständigen TLS-001-Abschluss.
 
-Die direkte menschliche Anweisung vom 2026-10-25 gibt die für TLS-001 nötige
-Toolbelt-Arbeit wieder frei. Die autonome Fortsetzung betrifft die gekoppelten
-Lab-/Toolbelt-Schritte innerhalb des bestehenden gemeinsamen Budgets; neue
-fachliche SQL-Funktionen im Toolbelt behalten ihren eigenen Freigabevertrag.
-Der abgeschlossene Windows-V2-Cutover bleibt erhalten.
+Der Wiederaufnahmeauslöser ist ein dokumentierter Anwendungsfall mit
+Verbraucher, SQL-Ziel, notwendiger Identitätsprüfung und Provider-/Clientkontext.
+Die offene Restliste ist keine pauschale Freigabe, jede Matrixzelle abzuarbeiten.
+Diese Entscheidung betrifft Client-zu-SQL-Server-TLS. Die getrennte Verbindung
+SQL Server zu External-Model-Endpunkten über HTTPS bleibt vom dafür geltenden
+[Backlog](../Documentation/Project_Planning/AI_EXTERNAL_MODEL_ACCELERATION_BACKLOG.md)
+und der [SQL-HTTPS-Referenz](../Documentation/Architecture/AI_SQL_HTTPS_BRIDGE.md)
+bestimmt.
 
-Die [endliche TLS-001-Abschlussübersicht](../Documentation/Project_Planning/TLS_001_COMPLETION_CHECKLIST.md)
-leitet den Pflichtrest aus den bestehenden Akzeptanzkriterien ab. Die
-Projektentscheidung vom 2026-10-25 akzeptiert V1/True und V2/False als
-Vertragsbasis; ein gemeinsamer neuer Exportvertrag ist keine zusätzliche
-Abschlussbedingung. Übrige Sicherheits-, Lifecycle-, Matrix- und
-Consumerpflichten bleiben bestehen. Die
-[Consumerinventur](../Documentation/Project_Planning/TLS_001_CONSUMER_INVENTORY.md)
-ordnet die konkreten Reader-, direkten API- und noch offenen Plattformgrenzen zu.
-Ihr [begrenzter V1-Preflight](../Documentation/Project_Planning/TLS_001_CONSUMER_INVENTORY.md#begrenzter-echter-v1-preflight-vom-2026-10-25)
-belegt zehn Readerfamilien, zwei funktionale Windows-/Docker-Clientfälle und
-eigenen Cleanup. Der übergeordnete Kontroll-FAIL und fremde Bestandsänderungen
-bleiben getrennt erhalten; daraus folgt kein vollständiger TLS-001-Abschluss.
+Der [TLS-001-Status](../Documentation/Project_Planning/TLS_001_COMPLETION_CHECKLIST.md)
+bleibt als historische/technische Übersicht erhalten; er erteilt während der
+Zurückstellung keine Ausführungsfreigabe.
+
+## Funktionsabdeckung und Release
+
+Die vollständige fachliche CLI-/GUI-Abdeckung ist ein akzeptierter, noch nicht
+abgeschlossener Bedarf. Das Produkt exportiert 166 öffentliche Funktionen;
+Konsolen- und Browser-Expertenkatalog stellen die 165 übrigen Cmdlets bereit.
+Dieser Katalog ersetzt keine geführte Navigation für fachliche Aufgaben. Die
+[Bestandsaufnahme und Abnahmekriterien](../Documentation/Project_Planning/CROSS_CUTTING_PLATFORM_CAPABILITIES_BACKLOG.md#vollständige-cli-abdeckung-aller-lab-funktionen)
+bleiben dafür maßgeblich. Eine Release-Erstellung setzt einen konsistenten
+Quellstand und die dafür erforderlichen grünen Prüfungen voraus; offene oder
+fehlgeschlagene Pflichtprüfungen bleiben Release-Blocker.
 
 ## Ausgewählte Arbeitsstände
 

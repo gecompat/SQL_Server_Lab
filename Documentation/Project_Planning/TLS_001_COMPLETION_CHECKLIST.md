@@ -1,6 +1,20 @@
 # TLS-001: Abschlusskriterien und verbleibende Arbeit
 
-Stand: 2026-11-08. Gesamtstatus: **partial**.
+Stand: 2026-11-18. Implementierungsstatus: **partial**; weitere Arbeit ist
+gemäß aktueller Projektentscheidung **zurückgestellt**.
+
+Die Zurückstellung gilt, bis ein konkreter SQL_Server_Lab-Anwendungsfall einen
+SQL Server mit geprüfter Zertifikatsidentität benötigt. Bis dahin werden keine
+neuen TLS-001-Läufe, Implementierungen, Consumer-Cutovers oder Release-Schritte
+begonnen. Bestehende Funktionen, Zertifikate, Truststores, Belege und lokale
+Arbeitsstände bleiben erhalten. Die offenen Kriterien unten dokumentieren den
+technischen Rest, sind aber keine aktuelle Ausführungsfreigabe.
+
+Diese Entscheidung betrifft die authentifizierte Verbindung vom Client zum
+SQL Server. Sie betrifft nicht die getrennte HTTPS/TLS-Verbindung vom SQL
+Server zu einem External-Model-Endpunkt; dafür gelten der
+[KI-External-Model-Backlog](AI_EXTERNAL_MODEL_ACCELERATION_BACKLOG.md) und die
+[SQL-HTTPS-Referenz](../Architecture/AI_SQL_HTTPS_BRIDGE.md).
 
 Diese Arbeitsübersicht leitet sich aus den D1–D4-Entscheidungen, Slices und
 sechs Akzeptanzkriterien des [kanonischen TLS-001-Backlogs](NEW_SQL_LAB_USE_CASES_BACKLOG.md#tls-001--authentifizierte-tls-verbindungen-der-testumgebungen)

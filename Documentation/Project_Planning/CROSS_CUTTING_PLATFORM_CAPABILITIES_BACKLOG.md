@@ -118,6 +118,45 @@ Konsolenmenüs und weitere Produktoberflächen. Vorhandene CLI-/UI-Pläne werden
 wiederverwendet; eine vollständige Lückenanalyse ist mit diesem Eintrag noch
 nicht durchgeführt.
 
+### Bestandsaufnahme am 2026-11-20
+
+Der aktuelle Modulmanifest-Stand exportiert 166 öffentliche Funktionen aus
+137 Skriptdateien unter `Public/`. Konsolen- und Browseroberfläche bieten einen
+Expertenkatalog der 165 Cmdlets neben dem zentralen Menüeinstieg mit
+Parametersätzen und Eingabeverträgen. Das
+belegt den generischen Befehlszugang, aber keine fachlich geführte Navigation
+für jede Benutzeroperation. Die CLI hat zusätzlich gegliederte Arbeitsmenüs;
+die GUI hat spezialisierte Arbeitsbereiche. Ihre vollständige Zuordnung zu
+allen Produktoperationen ist noch nicht erstellt und wird hier nicht als
+abgeschlossen dargestellt.
+
+Die aktuelle [CLI-Abnahmematrix](../Quality/CLI_ACCEPTANCE_MATRIX.md) ordnet
+wichtige Befehlsgruppen und Provider-Smokes zu. Sie ist keine vollständige
+Inventarliste aller 166 Exporte und keine GUI-Abnahmematrix. Die Abschlussarbeit
+beginnt mit einer nachprüfbaren Operationsmatrix mit mindestens diesen
+getrennten Feldern:
+
+- fachliche Operation und betroffene vorhandene Labs;
+- geführter CLI-Menüpfad und geführter GUI-Arbeitsbereich;
+- öffentlicher, parametrisierter PowerShell-Vertrag;
+- Status als `GUIDED_BOTH`, `GUIDED_CLI_ONLY`, `GUIDED_GUI_ONLY`,
+  `EXPERT_CATALOG_ONLY`, `PUBLIC_API_ONLY`, `UNSUPPORTED` oder `NOT_APPLICABLE`;
+- Voraussetzungen, Provider-/Versionsgrenzen, erforderliche Bestätigung,
+  Vorschau/WhatIf und Recovery-Vertrag;
+- statischer Vertragsnachweis und getrennte Runtime-Evidence je unterstütztem
+  Provider, einschließlich explizitem `NOT_EXECUTED`.
+
+Die Matrix wird aus Modulmanifest, Menüaktionen, GUI-Aktionen, vorhandenen
+fachlichen Verträgen und Testselektoren abgeglichen. Ein reiner Export- oder
+Cmdlet-Katalogeintrag zählt nicht als geführte Bedienung. Anschließend werden
+Lücken in zusammenhängenden vertikalen Slices geschlossen; jeder Slice führt
+dieselbe geprüfte Fachaktion über CLI und GUI aus und erhält passende Hilfe,
+Eingabevalidierung, Bestätigung, Fehler-/Recoveryanzeige und Regressionstests.
+Erst nach Abschluss der vereinbarten Matrix, relevanter Prüfungen und grüner
+Pflicht-CI kann ein Release vorbereitet werden. Ein breites „alle Funktionen
+bestanden“ darf nicht aus einer bloßen Aufzählung, statischen Suite oder einem
+einzelnen Provider-Smoke abgeleitet werden.
+
 Die frühere Zurückstellung des Podman-/WSL-Sprachpfads ist durch die getrennte
 SQL-2025-Abnahme der expliziten `shared-user-v2`-Varianten vom 2026-09-27 im
 belegten rootful-Scope überholt. Gemeinsames Worker-Konto und geänderte Isolation
