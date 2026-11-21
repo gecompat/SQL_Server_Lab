@@ -408,6 +408,8 @@ function Get-SqlServerLabWorkflow {
                 ArtifactId = [string]$_.artifactId; OperatingSystem = [string]$_.operatingSystem.id
                 Version = [string]$_.operatingSystem.version; Edition = [string]$_.operatingSystem.edition
                 InstallationType = [string]$_.operatingSystem.installationType; DisplayName = [string]$_.displayName; PublishedAt = [string]$_.registeredAt
+                Language = if ($_.operatingSystem.language) { [string]$_.operatingSystem.language } else { 'en-US' }
+                SlotPoolEligible = Test-LabWindowsSlotPoolArtifactEligibility -Artifact $_
                 EvaluationStatus = if ($inventoryItem) { [string]$inventoryItem.Evaluation.Status } else { 'UNKNOWN' }
                 RefreshAction = if ($inventoryItem) { [string]$inventoryItem.Refresh.Action } else { 'UNKNOWN' }
                 AutomaticFallbackEligible = if ($inventoryItem) { [bool]$inventoryItem.ManifestFallback.Eligible } else { $false }

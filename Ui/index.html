@@ -90,7 +90,8 @@
       <h2>Hyper-V: Vorlagen und Slots</h2>
       <button id="hyperv-storage-preview-open" type="button" class="button secondary">Hyper-V-Zielpfade und freien Speicher anzeigen</button>
       <button id="templates-reserve" type="button" class="button secondary">Slotreserve: Policy und Kandidaten</button>
-      <p>Vorlagen vorbereiten und Bestände prüfen. Slot-Reservierung und vollständige Gruppenplanung besitzen noch keinen geführten Browserdialog; die Konsole bietet die vorhandene Einzel-/Batch-Vorbereitung.</p>
+      <button id="windows-slot-pool-open" type="button" class="button secondary">Windows-OS-Slot-Pool vorbereiten</button>
+      <p>Windows-Vorlagen vorbereiten, Slotreserve prüfen oder aus einer geeigneten Baseline einen Windows-Slot-Pool anlegen.</p>
       <div class="workflow-actions">
         <button class="button primary" data-open-build="sql-fresh" data-provider-capability="hyperv">Neues SQL-Prepared-Image</button>
         <button class="button secondary" data-open-build="windows" data-provider-capability="hyperv">Erweitert: Windows-OS-Baseline</button>
@@ -1352,6 +1353,27 @@
       </div>
     </form>
   </dialog>
+  <dialog id="windows-slot-pool-dialog">
+    <form id="windows-slot-pool-form">
+      <h2>Windows-OS-Slot-Pool vorbereiten</h2>
+      <label>Versiegelte Windows-Baseline<select id="windows-slot-pool-baseline" required></select></label>
+      <label>Pool-ID<input id="windows-slot-pool-id" type="text" maxlength="36" autocomplete="off" required></label>
+      <p class="form-note">Für eine Fortsetzung verwende dieselbe Pool-ID, Baseline und Konfiguration.</p>
+      <label>Namenspräfix<input id="windows-slot-pool-prefix" type="text" maxlength="53" value="windows-sql-slot" required></label>
+      <label>Erste Slotnummer<input id="windows-slot-pool-start" type="number" min="1" max="9999" value="1" required></label>
+      <label>Slotanzahl<input id="windows-slot-pool-count" type="number" min="1" max="100" value="1" required></label>
+      <label>vCPU pro Slot<input id="windows-slot-pool-cpu" type="number" min="1" max="64" value="4" required></label>
+      <label>Minimum-RAM in MB<input id="windows-slot-pool-memory-min" type="number" min="512" max="1048576" value="1024" required></label>
+      <label>Start-RAM in MB<input id="windows-slot-pool-memory-start" type="number" min="512" max="1048576" value="2048" required></label>
+      <label>Maximum-RAM in MB<input id="windows-slot-pool-memory-max" type="number" min="512" max="1048576" value="4096" required></label>
+      <p id="windows-slot-pool-status" role="status"></p>
+      <div class="dialog-actions">
+        <button id="windows-slot-pool-next" type="submit" class="button primary" disabled>Weiter zur Bestätigung</button>
+        <button id="windows-slot-pool-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </form>
+  </dialog>
+  <script src="windows-slot-pool.js"></script>
   <dialog id="sql-guest-evidence-dialog">
     <div class="panel">
       <h2>SQL-Editionsbeleg im Gast aktualisieren</h2>

@@ -760,6 +760,7 @@ sources_of_truth:
   validation_initial_setup_writeability: Tests/Static/Fixtures/InitialSetupWriteabilityChecks.ps1
   slot_reserve_guidance: Private/SlotReserveGuidance.ps1
   windows_pool_claims: Private/WindowsPoolClaims.ps1
+  windows_slot_pool_browser: Public/Get-SqlServerLabWorkflow.ps1, Public/New-SqlServerLabWindowsSlotPool.ps1, Ui/windows-slot-pool.js, Tests/Static/Fixtures/WorkflowSqlTargetChecks.cjs
   windows_pool_member_schema: Schemas/windows-pool-member.schema.json
   windows_pool_claim_contract: Documentation/Architecture/WINDOWS_POOL_MEMBERSHIP_AND_CLAIMS.md
   validation_windows_pool_claims: Tests/Static/Invoke-WindowsPoolClaimChecks.ps1

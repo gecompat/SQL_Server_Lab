@@ -80,6 +80,8 @@ function Get-LabPublicCommandParameterDescriptor {
     @($ParameterSet.Parameters|Where-Object {$_.Name -notin $common}|ForEach-Object {
         $name=[string]$_.Name
         $type=[type]$_.ParameterType
+        $generatesWindowsAccess = $Command.Name -ceq 'New-SqlServerLabWindowsSlotPool' -and
+            $name -ceq 'GenerateAdministratorPasswords' -and $type -eq [switch]
         [PSCustomObject]@{
             Name=$name
             ParameterType=$type
@@ -88,7 +90,8 @@ function Get-LabPublicCommandParameterDescriptor {
             Position=[int]$_.Position
             DefaultExpression=$(if($defaults.ContainsKey($name)){$defaults[$name]}elseif($_.IsMandatory){'<kein Standard>'}else{'<Befehlsstandard>'})
             AllowedValues=(Get-LabPublicCommandAllowedValueText -Parameter $_)
-            Sensitive=($type -eq [Security.SecureString] -or $type -eq [Management.Automation.PSCredential] -or $type -eq [byte[]] -or $name -match '(?i)(password|secret|credential|exportbytes)')
+            Sensitive=($type -eq [Security.SecureString] -or $type -eq [Management.Automation.PSCredential] -or $type -eq [byte[]] -or
+                (-not $generatesWindowsAccess -and $name -match '(?i)(password|secret|credential|exportbytes)'))
             IsCredential=($type -eq [Management.Automation.PSCredential])
             Attributes=@($_.Attributes)
         }

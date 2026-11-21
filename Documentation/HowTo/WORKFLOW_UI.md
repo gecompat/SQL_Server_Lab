@@ -993,6 +993,21 @@ Dialog liest den Speicherkatalog ohne UAC und reserviert keinen Speicher.
 Fehlt das Ziel oder ist es nicht lesbar, prüfe die Registrierung unter
 **Grundkonfiguration**.
 
+## Windows-OS-Slot-Pool vorbereiten
+
+Öffne **Hyper-V: Vorlagen und Slots → Windows-OS-Slot-Pool vorbereiten**
+auf dem Hyper-V-Host mit Administratorrechten. Wähle eine versiegelte,
+geeignete Windows-Baseline, Pool-ID, Slotnummern und Ressourcen. Der Host
+prüft die gewählte Baseline einschließlich Integrität und Restlaufzeit vor
+der Anlage. Die VMs werden für die Ersteinrichtung gestartet und danach
+gestoppt. Falls die Evaluation online aktiviert werden muss, darf der
+Auftrag dafür vorübergehend einen externen Netzwerkadapter verwenden.
+
+Die Passwörter erzeugt und schützt der Host pro Slot. Den Status findest
+du unter **Vorgänge**. Für die Fortsetzung benötigst du dieselbe Pool-ID,
+Baseline und Konfiguration. Für die CLI-Varianten einschließlich eigener
+Locale- und Passwortwahl siehe die [Funktionsübersicht](../User/FUNCTIONS_CLI_GUI.md).
+
 ## Zentrale Slotreservepolicy (`HV-401` bis `HV-508`, `CORE-107/111`)
 
 **Grundkonfiguration** und **Hyper-V: Vorlagen und Slots** öffnen denselben

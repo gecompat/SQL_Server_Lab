@@ -76,7 +76,7 @@ const context = vm.createContext({ document, console, URLSearchParams,
 const fetchRequests = [];
 const run = (code) => vm.runInContext(code, context, { timeout: 5000 });
 run(source);
-for (const asset of ['manifest-check.js', 'ssms-registration-export.js', 'cms-management.js', 'resource-plan.js', 'llama-model-catalog.js']) {
+for (const asset of ['manifest-check.js', 'ssms-registration-export.js', 'cms-management.js', 'resource-plan.js', 'llama-model-catalog.js', 'windows-slot-pool.js']) {
   if (html.includes('<script src="' + asset + '"></script>')) run(fs.readFileSync(path.join(root, 'Ui', asset), 'utf8'));
 }
 run('const actualQueueBackgroundAction = queueBackgroundAction; queueBackgroundAction = (action, parameters) => queued.push({action, parameters});');
@@ -902,6 +902,48 @@ async function main() {
     assert.deepEqual(JSON.parse(JSON.stringify(run('pendingConfirmation.parameters.parameters'))),
       {Id:modelFixture.Id, MediaRoot:'C:/synthetic/Lab_Base', ExpectedModelSha256:modelFixture.Sha256, ExpectedModelRevision:modelFixture.Revision});
     assert.equal(modelReads.length,1);
+  });
+  run("$('#confirmation-dialog').close(); pendingConfirmation = null;");
+  const poolArtifact = 'hyperv-os-sealed-' + 'f'.repeat(64);
+  const poolFields = {
+    PoolId: '22222222-2222-2222-2222-222222222222',
+    ArtifactId: poolArtifact, InstallationType: 'core', UiLanguage: 'en-US',
+    NamePrefix: 'fixture-slot', Count: 2, StartIndex: 3, ProcessorCount: 4,
+    MemoryMinimumMB: 1024, MemoryStartupMB: 2048, MemoryMaximumMB: 4096,
+    GenerateAdministratorPasswords: true,
+  };
+  context.poolFixture={ArtifactId:poolArtifact, DisplayName:'Synthetic Core', InstallationType:'core', Language:'en-US', SlotPoolEligible:true};
+  context.poolFixtureFields=Object.keys(poolFields);
+  run("workflow.Host={HyperV:{Available:true},IsElevated:false}; workflow.WindowsBaselines=[poolFixture,{...poolFixture,ArtifactId:'hyperv-os-sealed-'+'e'.repeat(64),SlotPoolEligible:false}];");
+  await resourceEvent('windows-slot-pool-open');
+  check('Windows pool refuses non-elevated host and never dispatches on open',()=>{
+    assert.equal(node('windows-slot-pool-baseline').options.length,1);
+    assert.equal(node('windows-slot-pool-next').disabled,true);
+    assert.equal(run('pendingConfirmation'),null);
+  });
+  await resourceEvent('windows-slot-pool-close');
+  run("workflow.Host.IsElevated=true; publicCommandCatalog=[{Name:'New-SqlServerLabWindowsSlotPool',RequiresConfirmation:true,ParameterSets:[{Name:'GeneratedPassword',Parameters:poolFixtureFields.map(Name=>({Name,Sensitive:false,IsCredential:false,TypeName:Name==='GenerateAdministratorPasswords'?'System.Management.Automation.SwitchParameter':'System.String',Mandatory:['Count','GenerateAdministratorPasswords'].includes(Name)}))}]}];");
+  await resourceEvent('windows-slot-pool-open');
+  node('windows-slot-pool-baseline').value=poolArtifact;
+  await resourceEvent('windows-slot-pool-baseline','change');
+  for (const [field,value] of Object.entries({id:poolFields.PoolId,prefix:poolFields.NamePrefix,count:'2',start:'3',cpu:'4','memory-min':'1024','memory-start':'8192','memory-max':'4096'})) {
+    node('windows-slot-pool-'+field).value=value;
+  }
+  await resourceEvent('windows-slot-pool-form','submit');
+  check('Windows pool filters expired baseline and refuses invalid memory ranges',()=>{
+    assert.equal(node('windows-slot-pool-baseline').options.length,2);
+    assert.match(node('windows-slot-pool-status').textContent,/RAM-Werte/);
+    assert.equal(run('pendingConfirmation'),null);
+  });
+  node('windows-slot-pool-memory-start').value='2048';
+  await resourceEvent('windows-slot-pool-form','submit');
+  check('Windows pool confirmation binds exact plan inputs and generated credentials',()=>{
+    const dispatch=run('pendingConfirmation.parameters');
+    assert.equal(dispatch.command.Name,'New-SqlServerLabWindowsSlotPool');
+    assert.equal(dispatch.parameterSet.Name,'GeneratedPassword');
+    assert.deepEqual(JSON.parse(JSON.stringify(dispatch.parameters)),poolFields);
+    assert.match(node('confirmation-message').textContent,/Slots 3 bis 4/);
+    assert.match(node('confirmation-message').textContent,/temporären externen Netzwerkadapter/);
   });
   run("$('#confirmation-dialog').close(); pendingConfirmation = null;");
   const cmsRequests=[];
