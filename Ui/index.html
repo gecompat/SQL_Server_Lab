@@ -165,6 +165,7 @@
         <button id="automation-api-plan-open" type="button" class="button secondary">Automatisierungsschnittstelle ansehen</button>
         <button id="hyperv-recovery-points-open" type="button" class="button secondary">Hyper-V-Wiederherstellungspunkte lesen</button>
         <button id="diagnostic-bundle-open" type="button" class="button secondary">Gespeicherten Diagnosebefund lesen</button>
+        <button id="run-state-upgrade-plan-open" type="button" class="button secondary">Format eines Run-States prüfen</button>
         <button id="evaluation-trigger-open" type="button" class="button secondary">Fristen zeitgesteuert prüfen</button>
         <button id="sql-guest-evidence-open" type="button" class="button secondary">SQL-Editionsbeleg im Gast aktualisieren</button>
         <button id="evaluation-refresh-open" type="button" class="button secondary">SQL-Evaluation: Ersatzentscheid</button>
@@ -1026,6 +1027,23 @@
       </div>
     </form>
   </dialog>
+  <dialog id="run-state-upgrade-plan-dialog">
+    <form id="run-state-upgrade-plan-form">
+      <h2>Run-State-Format prüfen</h2>
+      <p class="form-note">Zeigt Format, geplante Felder und Blocker. Die Prüfung ändert die State-Datei nicht.</p>
+      <label>Lab auswählen<select id="run-state-upgrade-plan-target" required></select></label>
+      <p id="run-state-upgrade-plan-status" role="status"></p>
+      <dl id="run-state-upgrade-plan-result" hidden>
+        <dt>Format</dt><dd id="run-state-upgrade-plan-version"></dd>
+        <dt>Geplante Felder</dt><dd id="run-state-upgrade-plan-changes"></dd>
+        <dt>Blocker</dt><dd id="run-state-upgrade-plan-blockers"></dd>
+      </dl>
+      <div class="dialog-actions">
+        <button id="run-state-upgrade-plan-close" type="button" class="button secondary">Schließen</button>
+        <button id="run-state-upgrade-plan-read" type="submit" class="button primary">Format prüfen</button>
+      </div>
+    </form>
+  </dialog>
   <dialog id="ai-scenario-plan-dialog">
     <form id="ai-scenario-plan-form">
       <h2>Vector-Core-Szenarioplan</h2>
@@ -1246,6 +1264,7 @@
   <script src="hyperv-recovery-point-plan.js"></script>
   <script src="diagnostic-bundle.js"></script>
   <script src="ai-scenario-plan.js"></script>
+  <script src="run-state-upgrade-plan.js"></script>
   <script src="portable-lab-import-plan.js"></script>
 
   <dialog id="external-runtime-dialog">

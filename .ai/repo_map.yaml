@@ -589,6 +589,7 @@ sources_of_truth:
   validation_instance_capability_assessment: Tests/Static/Invoke-InstanceCapabilityAssessmentChecks.ps1
   run_state_upgrade_plan_contract: Private/StateUpgrade.ps1
   run_state_upgrade_plan_public: Public/Get-SqlServerLabRunStateUpgradePlan.ps1
+  run_state_upgrade_plan_guidance: Private/RunStateUpgradePlanConsole.ps1, Ui/run-state-upgrade-plan.js
   validation_run_state_upgrade_plan: Tests/Static/Invoke-RunStateUpgradeChecks.ps1
   portable_lab_import_preflight_contract: Private/PortableLabImport.ps1 # target-bound portable container transfer preflight; BackupSetId and integrity evidence only
   portable_lab_import_preflight_public: Public/Get-SqlServerLabPortableLabImportPlan.ps1

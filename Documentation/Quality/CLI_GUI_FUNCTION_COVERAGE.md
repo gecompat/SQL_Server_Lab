@@ -125,6 +125,7 @@ und dem [Gruppenvertrag](../Architecture/LAB_ENVIRONMENT_GROUPS.md).
 | Vorhandene Hyper-V-Checkpoints lesen (`Get-SqlServerLabHyperVRecoveryPointPlan`) | Wartung, Aufräumen und Recovery → Hyper-V-Wiederherstellungspunkte lesen | Wartung → Hyper-V-Wiederherstellungspunkte lesen | `GUIDED_BOTH` für das Checkpoint-Inventar. Synthetische Menü- und HTTP-Bindung geprüft. Native Oberflächenabnahme `NOT_EXECUTED`. |
 | Gespeicherten Diagnosebefund lesen (`Get-SqlServerLabDiagnosticBundle -SkipReadiness`) | Wartung, Aufräumen und Recovery → Gespeicherten Diagnosebefund lesen | Wartung → Gespeicherten Diagnosebefund lesen | `GUIDED_BOTH` für gebundene Metadaten im Standard-Lab_Data. Native Provider- und SQL-Readiness sind hier `NOT_EXECUTED`. |
 | Vector-Core-Szenarioplan lesen (`Get-SqlServerLabAiScenario`) | Lab-Umgebungen → Datenbanken, Samples und Skripte → SQL Server 2025 KI → Szenarioplan | Host-Dienste und Modelle → Vector-Core-Szenarioplan lesen | `GUIDED_BOTH` für `vector-core-ci/1.0`, entweder aus dem Katalog oder gegen den gespeicherten KI-Intent einer laufend registrierten Docker-/Podman-Instanz. Das Szenario wird nicht ausgeführt. |
+| Run-State-Format prüfen (`Get-SqlServerLabRunStateUpgradePlan`) | Wartung, Aufräumen und Recovery → Format eines Run-States prüfen | Wartung → Format eines Run-States prüfen | `GUIDED_BOTH` für die lesende Vorschau eines registrierten Runs. Der getrennte Upgrade-Befehl bleibt auf synthetische Legacy-States begrenzt. |
 
 ## Bereichsinventar
 

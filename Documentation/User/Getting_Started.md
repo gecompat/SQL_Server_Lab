@@ -2420,6 +2420,11 @@ Recovery und den Aufräumstatus. Die Ansicht führt keine SQL- oder
 Providerprüfung durch und erstellt keinen Export. Im Browser muss der
 ausgewählte State zum Standard-Lab_Data gehören.
 
+Über **Wartung → Format eines Run-States prüfen** siehst du, ob das aktuelle
+Format bereits passt und welche Felder ein Upgrade ändern würde. Das Menü
+führt kein Upgrade aus. Der getrennte Upgrade-Befehl ist für ausdrücklich
+markierte synthetische Legacy-States vorgesehen.
+
 Öffne unter **Wartung → Automatisierungsschnittstelle ansehen** einen
 Fachbereich. Dort stehen der öffentliche Planbefehl, seine Pflichtparameter
 und der separate Aktionsbefehl, sofern vorhanden. Die Ansicht beschreibt

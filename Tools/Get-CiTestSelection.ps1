@@ -197,6 +197,7 @@ end {
         @{ Pattern = '(?i)(AiVectorIndexAcceptance|Fixtures[\\/]VectorIndex[\\/])'; Checks = @('Invoke-AiScenarioChecks.ps1','Invoke-ContainerVolumeContractChecks.ps1') },
         @{ Pattern = '(?i)(^Private/Ai[^/]*\.ps1$|^Public/[^/]*SqlServerLabAi[^/]*\.ps1$|^Schemas/ai-[^/]*\.schema\.json$)'; Checks = @('Invoke-AiScenarioChecks.ps1','Invoke-ManifestBuilderChecks.ps1','Invoke-ProviderCapabilityChecks.ps1') },
         @{ Pattern = '(?i)(StateUpgrade|state-upgrade|StateMachine)'; Checks = @('Invoke-RunStateUpgradeChecks.ps1') },
+        @{ Pattern = '(?i)(RunStateUpgradePlanUiChecks|Ui/run-state-upgrade-plan\.js)'; Checks = @('Invoke-WorkflowUiChecks.ps1') },
         @{ Pattern = '(?i)(AutomationApiPlan|automation-api-plan|Get-SqlServerLabAutomationPlan)'; Checks = @('Invoke-AutomationApiPlanChecks.ps1') },
         @{ Pattern = '(?i)(AutomationApiPlanUi|Ui/automation-api-plan\.js)'; Checks = @('Invoke-WorkflowUiChecks.ps1') },
         @{ Pattern = '(?i)(CollationCatalog(Http|Browser|Ui)|Ui[\\/]collation-catalog\.js)'; Checks = @('Invoke-CollationCatalogBrowserChecks.ps1','Invoke-CollationCatalogChecks.ps1','Invoke-CollationRuntimeEvidenceChecks.ps1','Invoke-ReviewedBrowserCompositionChecks.ps1','Invoke-WorkflowUiChecks.ps1') },

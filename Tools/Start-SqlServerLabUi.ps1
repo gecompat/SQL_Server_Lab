@@ -1022,6 +1022,22 @@ try {
                 finally { $bodyRead=$null; $package=$null }
                 continue
             }
+            if ($path -ceq '/api/run-state-upgrade-plan') {
+                try {
+                    $query = $context.Request.QueryString
+                    $identities = @($query.GetValues('runId'))
+                    if ($context.Request.HttpMethod -cne 'GET' -or $context.Request.HasEntityBody -or
+                        $query.Count -ne 1 -or $identities.Count -ne 1 -or $identities[0].Length -ne 36) {
+                        throw 'RUN_STATE_UPGRADE_GUIDANCE_REQUEST_INVALID'
+                    }
+                    $view = & (Get-Module SqlServerLab) { param($id) Get-LabRunStateUpgradePlanView -RunId $id } $identities[0]
+                    Write-UiResponse -Context $context -Body ($view | ConvertTo-Json -Depth 8 -Compress) -ContentType 'application/json; charset=utf-8'
+                }
+                catch {
+                    Write-UiResponse -Context $context -Body '{"Code":"RUN_STATE_UPGRADE_GUIDANCE_UNAVAILABLE"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                }
+                continue
+            }
             if ($path -ceq '/api/ai-scenario-plan') {
                 try {
                     $query = $context.Request.QueryString
