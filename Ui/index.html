@@ -131,6 +131,10 @@
       <button id="llama-runtime-inventory-read" type="button" class="button secondary">Vorhandene llama.cpp-Pakete prüfen</button>
       <p id="llama-runtime-inventory-status" role="status"></p>
       <ul id="llama-runtime-inventory-items" hidden></ul>
+      <button id="ai-compute-inventory-read" type="button" class="button secondary">CPU, GPU und NPU erfassen</button>
+      <p id="ai-compute-inventory-status" role="status"></p>
+      <button id="ai-runtime-capability-read" type="button" class="button secondary">llama.cpp-Eignung prüfen</button>
+      <p id="ai-runtime-capability-status" role="status"></p>
       <button id="llama-start-plan-open" type="button" class="button secondary">llama.cpp: reine Startvorschau</button>
       <button id="llama-start-open" type="button" class="button secondary">llama.cpp: eigene Sitzung starten</button>
     </section>
@@ -242,6 +246,8 @@
       <section class="panel compact">
         <div class="section-heading"><div><p class="eyebrow">CONTAINER</p><h2>Aktive Lab-Umgebungen</h2></div></div>
       <button id="autostart-preview-open" type="button" class="button secondary">Container-Autostart vorprüfen · PLAN_ONLY</button>
+      <button id="autostart-change-open" type="button" class="button secondary">Container-Autostart ändern</button>
+      <button id="autostart-recovery-open" type="button" class="button secondary">Container-Autostart-Recovery fortsetzen</button>
       <button id="port-preview-open" type="button" class="button secondary">SQL-Hostport vorprüfen · PLAN_ONLY</button>
       <div id="active-labs" class="list"></div>
       </section>
@@ -262,6 +268,9 @@
 
     <section class="panel" data-workspace-area="labs">
       <div class="section-heading"><div><p class="eyebrow">HYPER-V</p><h2>Reguläre Hyper-V-Umgebungen</h2></div></div>
+      <button id="hyperv-autostart-open" type="button" class="button secondary">Hyper-V-Autostart ändern</button>
+      <button id="ssis-execution-open" type="button" class="button secondary">SSISDB-Ausführung beobachten</button>
+      <button id="ssis-package-open" type="button" class="button secondary">SSIS-Paketladediagnose</button>
       <div id="hyperv-labs" class="cards"></div>
     </section>
 
@@ -610,6 +619,37 @@
   </dialog>
   <script src="container-autostart-preview.js"></script>
 
+  <dialog id="autostart-change-dialog">
+    <div class="read-only-dialog-content">
+      <div class="dialog-heading"><h2>Container-Autostart ändern</h2></div>
+      <label>Registrierte laufende SQL-Instanz<select id="autostart-change-target" disabled></select></label>
+      <label>Zielpolicy<select id="autostart-change-policy"><option value="on">on</option><option value="off">off</option></select></label>
+      <p id="autostart-change-status" role="status"></p>
+      <label><input id="autostart-change-confirm" type="checkbox" disabled> Angezeigte Änderung bestätigen</label>
+      <div class="dialog-actions">
+        <button id="autostart-change-read" type="button" class="button secondary">Ziele neu lesen</button>
+        <button id="autostart-change-plan" type="button" class="button secondary" disabled>Änderung prüfen</button>
+        <button id="autostart-change-apply" type="button" class="button primary" disabled>Autostart ändern</button>
+        <button id="autostart-change-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="autostart-recovery-dialog">
+    <div class="read-only-dialog-content">
+      <div class="dialog-heading"><h2>Container-Autostart-Recovery fortsetzen</h2></div>
+      <p>Die gewählte Journaloperation prüft den Container erneut und schreibt anschließend Lab-State. Die Restartpolicy wird dabei nicht erneut gesetzt.</p>
+      <label>Offene Journaloperation<select id="autostart-recovery-target" disabled></select></label>
+      <label><input id="autostart-recovery-confirm" type="checkbox" disabled> Ausgewählte Operation bewusst fortsetzen</label>
+      <p id="autostart-recovery-status" role="status"></p>
+      <div class="dialog-actions">
+        <button id="autostart-recovery-read" type="button" class="button secondary">Neu lesen</button>
+        <button id="autostart-recovery-apply" type="button" class="button primary" disabled>Recovery fortsetzen</button>
+        <button id="autostart-recovery-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </div>
+  </dialog>
+
   <dialog id="port-preview-dialog">
     <div class="read-only-dialog-content">
       <div class="dialog-heading"><h2>SQL-Hostport vorprüfen</h2><button id="port-preview-close" type="button" class="icon-button" aria-label="Schließen">×</button></div>
@@ -883,6 +923,58 @@
   <script src="tls-live-qualification.js"></script>
   <script src="sql-connection-clipboard.js"></script>
   <script src="app.js"></script>
+  <script src="ai-compute-overview.js"></script>
+  <dialog id="ssis-execution-dialog">
+    <form id="ssis-execution-form">
+      <h2>SSISDB-Ausführung beobachten</h2>
+      <p>Für ein laufendes eigenes Hyper-V-Lab mit SQL Server 2025. Execution-ID, Projekt-LSN und Katalog-GUID müssen aus demselben SSISDB-Beleg stammen.</p>
+      <label>Run-ID<input name="RunId" required maxlength="36" autocomplete="off" spellcheck="false"></label>
+      <label>Instanz-ID<input name="InstanceId" required value="primary" maxlength="64" autocomplete="off" spellcheck="false"></label>
+      <label>Execution-ID<input name="ExecutionId" required inputmode="numeric" pattern="[1-9][0-9]{0,18}" maxlength="19" autocomplete="off"></label>
+      <label>Projekt-LSN<input name="ProjectLsn" required inputmode="numeric" pattern="[1-9][0-9]{0,18}" maxlength="19" autocomplete="off"></label>
+      <label>SSISDB-Katalog-GUID<input name="CatalogDatabaseGuid" required maxlength="36" autocomplete="off" spellcheck="false"></label>
+      <p id="ssis-execution-status" role="status"></p>
+      <div class="build-actions">
+        <button id="ssis-execution-read" type="submit" class="button primary">Metadaten lesen</button>
+        <button id="ssis-execution-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </form>
+  </dialog>
+  <script src="ssis-execution-diagnostic.js"></script>
+  <dialog id="ssis-package-dialog">
+    <form id="ssis-package-form" autocomplete="off">
+      <h2>SSIS-Paketladediagnose</h2>
+      <p>Für ein laufendes eigenes Hyper-V-Windows-Lab. Bei der Deserialisierung können installierte Komponenten Code laden. Verwende ausschließlich ein eigenes, vertrauenswürdiges synthetisches Paket.</p>
+      <label>Run-ID<input name="RunId" required maxlength="36" spellcheck="false"></label>
+      <label>Instanz-ID<input name="InstanceId" required value="primary" maxlength="64" spellcheck="false"></label>
+      <label>Absoluter lokaler DTSX-/ISPAC-Pfad<input type="password" name="PackagePath" required maxlength="512" autocomplete="off"></label>
+      <label>DTSX-Name im ISPAC-Stammverzeichnis<input name="PackageName" maxlength="133" spellcheck="false"></label>
+      <label>Erwarteter SHA-256 aus dem Paketbeleg<input name="ExpectedSha256" required pattern="[a-fA-F0-9]{64}" maxlength="64" spellcheck="false"></label>
+      <label><input type="checkbox" name="TrustConfirmed" required> Ich bestätige Paketursprung und Bindung an den Beleg.</label>
+      <p id="ssis-package-status" role="status"></p>
+      <div class="build-actions">
+        <button id="ssis-package-read" type="submit" class="button primary">Paketladung prüfen</button>
+        <button id="ssis-package-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </form>
+  </dialog>
+  <script src="ssis-package-diagnostic.js"></script>
+  <dialog id="hyperv-autostart-dialog">
+    <div class="panel">
+      <h2>Hyper-V-Autostart ändern</h2>
+      <label>Hyper-V-Lab<select id="hyperv-autostart-run"><option value="">Hyper-V-Lab auswählen</option></select></label>
+      <label>Aktion<select id="hyperv-autostart-mode"><option value="change">Startpolicy ändern</option><option value="recovery">Autostart-Recovery fortsetzen</option></select></label>
+      <label>Gewünschte Startpolicy<select id="hyperv-autostart-desired"><option value="off">Aus</option><option value="on">Ein</option></select></label>
+      <p id="hyperv-autostart-status" role="status"></p>
+      <label><input type="checkbox" id="hyperv-autostart-confirm" disabled> Angezeigten Vorgang bestätigen</label>
+      <div class="build-actions">
+        <button id="hyperv-autostart-plan" type="button" class="button secondary" disabled>Vorgang vorprüfen</button>
+        <button id="hyperv-autostart-apply" type="button" class="button primary" disabled>Vorgang ausführen</button>
+        <button id="hyperv-autostart-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </div>
+  </dialog>
+  <script src="hyperv-autostart.js"></script>
   <dialog id="evaluation-refresh-dialog">
     <div class="maintenance-dialog-content">
       <h2>SQL-Evaluation: Ersatzentscheid</h2>

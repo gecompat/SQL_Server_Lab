@@ -22,6 +22,13 @@ try {
     Add-CheckResult 'Probe-Reihenfolge ändert Inventarhash und Geräte-IDs nicht' ($reordered.InventorySha256 -ceq $inventory.InventorySha256 -and (($reordered.Devices.DeviceId -join ',') -ceq ($inventory.Devices.DeviceId -join ',')))
     $incomplete=Inventory (Probe @($devices[0],$devices[1]) @((Coverage CPU),(Coverage GPU),(Coverage NPU UNAVAILABLE)))
     Add-CheckResult 'Fehlende NPU-Coverage fällt geschlossen ohne Inventarhash aus' ($incomplete.Status -ceq 'INCOMPLETE' -and $null -eq $incomplete.InventorySha256 -and 'AI_COMPUTE_INVENTORY_NPU_UNAVAILABLE' -in $incomplete.Blockers)
+    $view = & $module { param($receipt) ConvertTo-LabAiComputeInventoryView -Inventory $receipt } $incomplete
+    Add-CheckResult 'Geführte Inventur zeigt NPU als unbekannt und entfernt Geräteidentitäten' (
+        $view.Status -ceq 'INCOMPLETE' -and $view.Items[0].Count -eq 1 -and $view.Items[1].Count -eq 1 -and
+        $null -eq $view.Items[2].Count -and ($view | ConvertTo-Json -Depth 5) -notmatch 'DeviceId|VendorId|ProductId|InventorySha256|NVIDIA'
+    )
+    $viewComplete = & $module { param($receipt) ConvertTo-LabAiComputeInventoryView -Inventory $receipt } $inventory
+    Add-CheckResult 'Geführte Inventur zählt mehrere verifizierte GPUs' ($viewComplete.Status -ceq 'COMPLETE' -and $viewComplete.Items[1].Count -eq 2)
     $noCpu=Inventory (Probe @($devices[1]) @((Coverage CPU),(Coverage GPU),(Coverage NPU)))
     Add-CheckResult 'Fehlende CPU bleibt trotz erfolgreicher Probe unvollständig' ($noCpu.Status -ceq 'INCOMPLETE' -and 'AI_COMPUTE_INVENTORY_CPU_MISSING' -in $noCpu.Blockers)
     $duplicateSource=Probe @($devices[0],(Device GPU CPU0 10de 2c58 duplicate))

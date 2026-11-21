@@ -4252,7 +4252,11 @@ Die statische Batch-Workflow-Prüfung hält zusätzlich die zustandsrootgebunden
 Workflow-Sperre in einem eigenen PowerShell-Kindprozess. Sie verlangt, dass
 eine Batch-Zusammenfassung bis zur Freigabe wartet und danach erfolgreich
 abschließt. Zwei parallele Zusammenfassungen müssen anschließend denselben
-vollständigen Batchzustand mit allen terminalen Operationen erhalten. Dieser
+vollständigen Batchzustand mit allen terminalen Operationen erhalten.
+Ein weiterer Test hält beim Lesen einer synthetischen Workflow-Datei den
+Dateihandle offen. Der Schreibprozess wartet auf deren Freigabe und ersetzt
+den Datensatz erst danach. Beide Prozesse sehen jeweils eine vollständige
+Version. Dieser
 synthetische Nachweis belegt die lokale Dateisynchronisation, nicht die
 Provider-Provisionierung oder extern verursachte Dateisperren.
 

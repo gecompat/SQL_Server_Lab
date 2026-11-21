@@ -1,5 +1,20 @@
 # Funktionsübersicht für CLI und Browser-GUI
 
+## Container-Autostart
+
+Unter **Lab-Umgebungen → Docker-/Podman-Autostart ändern** zeigen
+`Get-SqlServerLabContainerAutoStartPlan` und
+`Set-SqlServerLabContainerAutoStart` die aktuelle und die gewünschte Policy.
+Die Änderung bindet den frisch gelesenen Plan und erfordert eine ausdrückliche
+Bestätigung. Die Restartpolicy kann damit ohne Neustart gesetzt werden.
+Im Browser heißt der Einstieg **Lab verwalten → Container-Autostart ändern**.
+
+Mit **Docker-/Podman-Autostart-Recovery fortsetzen** bestätigt der Benutzer
+eine konkrete Journaloperation. `Resume-SqlServerLabContainerAutoStart`
+prüft diese Operation und den Container erneut, bevor es Lab-State schreibt.
+Der [Bedienungsablauf](../HowTo/WORKFLOW_UI.md#docker-und-podman-autostart-ändern)
+beschreibt die Schritte in CLI und Browser.
+
 ## Container-Autostart nur vorprüfen
 
 Die Autostartvorschau verwendet in API, CLI und Browser denselben öffentlichen
@@ -337,6 +352,9 @@ Mehrgruppen-Lifecycle steht in der [datierten Abnahme](../Quality/LINKED_SERVER_
 | Cmdlet | Kurzbeschreibung | Konsolenmenü | Browser-GUI |
 |---|---|---|---|
 | [`Get-SqlServerLabCleanupAudit`](../../Public/Get-SqlServerLabCleanupAudit.ps1) | Klassifiziert `Lab_Data`, Storage-Residency, Runtime-Scopes und auffällige Objekte read-only. | Wartung, Aufräumen und Recovery → Cleanup-Audit | – |
+| [`Get-SqlServerLabEvaluationRefreshPlan`](../../Public/Get-SqlServerLabEvaluationRefreshPlan.ps1) | Liest für eine ausgewählte SQL-Instanz den Ersatz- oder Migrationsentscheid. | Wartung, Aufräumen und Recovery → SQL-Evaluation: Ersatz- und Migrationsentscheid | Wartung und Recovery → SQL-Evaluation: Ersatzentscheid |
+| [`Get-SqlServerLabRunArtifactRemovalPlan`](../../Public/Get-SqlServerLabRunArtifactRemovalPlan.ps1) | Prüft die Metadaten genau eines entfernten Runs und erstellt eine gebundene Vorschau. | Wartung, Aufräumen und Recovery → Artefakte eines entfernten Runs | Wartung und Recovery → Run-Artefakte prüfen |
+| [`Invoke-SqlServerLabRunArtifactRemoval`](../../Public/Invoke-SqlServerLabRunArtifactRemoval.ps1) | Entfernt nach Bestätigung die geprüften Run-Metadaten oder setzt eine begonnene Entfernung fort. | Derselbe Dialog → Vorschau und Bestätigung | Derselbe Dialog → Vorschau und Bestätigung |
 | [`Get-SqlServerLabMaintenancePlan`](../../Public/Maintenance.ps1) | Inventarisiert State und Runtime-Ressourcen read-only und trennt sichere von freizugebenden Aktionen. | – | – |
 | [`Invoke-SqlServerLabMaintenance`](../../Public/Maintenance.ps1) | Führt einen revalidierten Maintenance-Plan aus und lässt fremde Ressourcen unangetastet. | – | – |
 | [`Get-SqlServerLabPersistentStorageRemovalPlan`](../../Public/Get-SqlServerLabPersistentStorageRemovalPlan.ps1) | Plant Retention-, Backup-, Package- und Bindungsfolgen einer Run-Entfernung anhand stabiler Storage-IDs. | über interne Storage-Verwaltungsflüsse | direkt: Vorschau vor dem Entfernen persistenter Container-Labs |
@@ -383,6 +401,14 @@ Bibliotheks-Recovery blockiert den erneuten Export ausdrücklich.
 | Cmdlet | Kurzbeschreibung | Konsolenmenü | Browser-GUI |
 |---|---|---|---|
 | [`Test-SqlServerLabPrerequisite`](../../Private/ResourceAssessment.ps1) | Prüft Provider, RAM, Storage und Ports ohne Mutation. | über die Erstellungs- und Provider-Preflights | über Core: Provisionierungs-Preflights |
+| `Set-SqlServerLabFeature` | Installiert oder entfernt Volltext und schaltet FILESTREAM für unterstützte Windows-Instanzen. Eine bestätigte Änderung startet SQL Server neu. | Lab-Umgebungen → Datenbanken, Samples und Skripte → Volltext und FILESTREAM ändern | Lab verwalten → SQL-Funktionen an der gewählten Instanz |
+| `Get-SqlServerLabHyperVAutoStartPlan` / `Set-SqlServerLabHyperVAutoStart` | Zeigt den gebundenen Ist- und Zielwert und übernimmt die Policy nach Bestätigung. | Lab-Umgebungen → Hyper-V-Autostart ändern | Lab verwalten → Reguläre Hyper-V-Umgebungen → Hyper-V-Autostart ändern |
+| `Resume-SqlServerLabHyperVAutoStart` | Schließt die Zustandsablage für eine bereits verifizierte Autostart-Policy am selben Run ab. | Lab-Umgebungen → Hyper-V-Autostart-Recovery fortsetzen | Lab verwalten → Reguläre Hyper-V-Umgebungen → Hyper-V-Autostart ändern → Autostart-Recovery fortsetzen |
+| [`Get-SqlServerLabAiRuntimeCapability`](../../Public/Get-SqlServerLabAiRuntimeCapability.ps1) | Prüft vorhandene llama.cpp-Paketdateien und zeigt passende erkannte Geräte nach Backend und Geräteklasse. | Host-Dienste und Modelle → llama.cpp-Eignung prüfen | Host-Dienste und Modelle → llama.cpp-Eignung prüfen |
+| [`Get-SqlServerLabAiComputeCandidate`](../../Public/Get-SqlServerLabAiComputeCandidate.ps1) | Ermittelt erlaubte Geräte-Sets. Die geführte Ansicht zeigt deren Anzahl je Backend und Geräteklasse. | Host-Dienste und Modelle → llama.cpp-Eignung prüfen | Host-Dienste und Modelle → llama.cpp-Eignung prüfen |
+| [`Get-SqlServerLabAiComputeInventory`](../../Public/Get-SqlServerLabAiComputeInventory.ps1) | Erfasst CPU, GPU und NPU lesend. Die geführte Übersicht zeigt je Geräteklasse die Anzahl oder einen unbekannten Befund. | Host-Dienste und Modelle → CPU, GPU und NPU erfassen | Host-Dienste und Modelle → CPU, GPU und NPU erfassen |
+| [`Get-SqlServerLabHostCapabilityMatrix`](../../Public/Get-SqlServerLabHostCapabilityMatrix.ps1) | Zeigt SQL-Sprachvarianten und optional die beobachtete Providerbereitschaft. | Hauptmenü → Hostfähigkeiten vor der Funktionsauswahl | Lab erstellen → Hostfähigkeiten vor der Funktionsauswahl |
+| [`Get-SqlServerLabExternalRuntimeCapability`](../../Public/Get-SqlServerLabExternalRuntimeCapability.ps1) | Zeigt den Katalogbefund für eine Sprachvariante und optional die lesend geprüften Container-Grundlagen. | Hostfähigkeiten → Konkrete Container-Variante näher prüfen | Lab erstellen → Python / R / Java: Katalog und Hostvoraussetzungen |
 | [`Test-SqlServerLabAdapter`](../../Public/Test-SqlServerLabAdapter.ps1) | Prüft einen Project Adapter gegen Schema, Pfadgrenzen und optional eine Run-Instanz. | – | – |
 | [`Install-SqlServerLabAdapter`](../../Public/Install-SqlServerLabAdapter.ps1) | Führt einen validierten Adapter-Entrypoint ohne Lifecycle-Seiteneffekt aus. | – | – |
 | [`Install-SqlServerLab7Zip`](../../Public/Install-SqlServerLab7Zip.ps1) | Installiert 7-Zip nur nach explizitem Aufruf über `winget` für katalogisierte `.7z`-Backups. | Systemstatus und Einstellungen → 7-Zip | – |
@@ -561,7 +587,7 @@ bleiben getrennte Verträge; die Native-Nachweise der geführten CLI-/Browser-St
 
 ## Geführter eigener llama.cpp-Start in der CLI
 
-Unter „Alle öffentlichen Befehle“ → „llama.cpp: eigene Sitzung starten“ erfasst
+Unter **Host-Dienste und Modelle → Eigene llama.cpp-Sitzung geführt starten** erfasst
 die CLI fünfzehn explizite Eingaben einschließlich optionalem öffentlichen
 CA-PEM. Pfade und API-Key werden maskiert, der API-Key als SecureString erfasst.
 Vor der Bestätigung bleiben Eingaben im RAM; Dateien, TLS, Port und Runtime
@@ -584,6 +610,12 @@ NOT_CHECKED. Der geführte Browser-Start ist separat implementiert; seine Native
 Die neue Führung ist synthetisch geprüft; reale Start-/Modell-/TLS-/Compute-
 und Cleanup-Abnahme dieses Dialogs ist nicht ausgeführt. Bestehende native
 Referenznachweise ersetzen diese Abnahme nicht.
+
+Der öffentliche Startbefehl für Skripte ist `Start-SqlServerLabLlamaCppRuntime`.
+Mit `Stop-SqlServerLabLlamaCppRuntime` beendet ein Skript eine eigene Sitzung
+desselben Modulhosts. In **Host-Dienste und Modelle** bietet der geführte
+Sitzungsstopp in CLI und Browser zusätzlich eine gebundene Vorschau und
+eine Bestätigung. Die Vorschau berücksichtigt geschützte Verbraucher.
 
 ## Geführter eigener llama.cpp-Start im Browser
 
@@ -625,6 +657,11 @@ Konsole und Browser ruft diesen gleichen Provisionierungsvertrag auf.
 Das [Beispiel](../../Schemas/example-ssis-catalog-fixture.json) verlangt die
 Anpassung der lokalen Medien-/Artifactwerte; Zugangsdaten bleiben separate
 geschützte Parameter. Die vollständige Rückgabe enthält `SsisCatalogFixture`.
+
+| Befehl | Geführte CLI | Browser-GUI |
+|---|---|---|
+| `Get-SqlServerLabSsisExecutionDiagnostic` | Lab-Umgebungen → SSIS-Diagnose eines bestehenden Windows-Labs → Bestehende SQL-2025-SSISDB-Ausführung read-only beobachten | Lab verwalten → Reguläre Hyper-V-Umgebungen → SSISDB-Ausführung beobachten |
+| `Get-SqlServerLabSsisPackageDiagnostic` | Lab-Umgebungen → SSIS-Diagnose eines bestehenden Windows-Labs → Eigenes DTSX/ISPAC im Gast laden und Komponenten beobachten | Lab verwalten → Reguläre Hyper-V-Umgebungen → SSIS-Paketladediagnose |
 
 `Get-SqlServerLabSsisCatalogCapability` ist über **Alle öffentlichen Befehle** in CLI und Browser erreichbar und prüft ausschließlich eine bereits laufende, eigene Windows-/Hyper-V-Quelle read-only. Der Befehl startet keine VM, erstellt keine SSISDB und startet keine Pakete.
 

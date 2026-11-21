@@ -5,10 +5,11 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const root = path.resolve(__dirname, '../../..');
-const app = fs.readFileSync(path.join(root, 'Ui/app.js'), 'utf8');
+const app = fs.readFileSync(path.join(root, 'Ui/ai-compute-overview.js'), 'utf8');
 const markup = fs.readFileSync(path.join(root, 'Ui/index.html'), 'utf8');
 const start = app.indexOf('async function readLlamaRuntimeInventory()');
-const end = app.indexOf("$('#llama-session-open').addEventListener", start);
+const listener = "$('#llama-runtime-inventory-read').addEventListener('click', readLlamaRuntimeInventory);";
+const end = app.indexOf(listener, start) + listener.length;
 assert.ok(start >= 0 && end > start);
 const elements = Object.fromEntries(['read', 'status', 'items'].map(id => {
   const selector = '#llama-runtime-inventory-' + id;

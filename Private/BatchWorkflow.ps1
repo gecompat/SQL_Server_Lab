@@ -175,6 +175,26 @@ function Get-LabOperationStatePath {
     return Join-Path (Join-Path $root 'operations') ((ConvertTo-LabWorkflowSlug -Text $OperationId -Fallback 'operation') + '.json')
 }
 
+function Invoke-WithLabWorkflowFileLock {
+    param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][scriptblock]$Action)
+
+    $identity = [IO.Path]::GetFullPath($Path)
+    if ($IsWindows) { $identity = $identity.ToLowerInvariant() }
+    $name = 'SqlServerLab.WorkflowFile.' + (Get-LabWorkflowHash -Text $identity -Length 24)
+    $mutex = [Threading.Mutex]::new($false, $name)
+    $acquired = $false
+    try {
+        try { $acquired = $mutex.WaitOne([TimeSpan]::FromSeconds(30)) }
+        catch [Threading.AbandonedMutexException] { $acquired = $true }
+        if (-not $acquired) { throw 'WORKFLOW_FILE_LOCK_TIMEOUT' }
+        & $Action
+    }
+    finally {
+        if ($acquired) { $mutex.ReleaseMutex() }
+        $mutex.Dispose()
+    }
+}
+
 function Read-LabWorkflowJson {
     [CmdletBinding()]
     param(
@@ -182,10 +202,11 @@ function Read-LabWorkflowJson {
         [string]$Path
     )
 
-    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
-        return $null
+    Invoke-WithLabWorkflowFileLock -Path $Path -Action {
+        if (Test-Path -LiteralPath $Path -PathType Leaf) {
+            Get-Content -LiteralPath $Path -Raw -Encoding utf8 -ErrorAction Stop | ConvertFrom-Json
+        }
     }
-    return Get-Content -LiteralPath $Path -Raw -Encoding utf8 | ConvertFrom-Json
 }
 
 function Write-LabBatchState {
@@ -198,7 +219,10 @@ function Write-LabBatchState {
     )
 
     $Batch.updatedAt = Get-LabWorkflowUtcNow
-    Write-LabArtifactJsonAtomic -Path (Get-LabBatchStatePath -BatchId $Batch.batchId -StateRoot $StateRoot) -InputObject $Batch
+    $path = Get-LabBatchStatePath -BatchId $Batch.batchId -StateRoot $StateRoot
+    Invoke-WithLabWorkflowFileLock -Path $path -Action {
+        Write-LabArtifactJsonAtomic -Path $path -InputObject $Batch
+    }
     return $Batch
 }
 
@@ -212,7 +236,10 @@ function Write-LabOperationState {
     )
 
     $Operation.updatedAt = Get-LabWorkflowUtcNow
-    Write-LabArtifactJsonAtomic -Path (Get-LabOperationStatePath -OperationId $Operation.operationId -StateRoot $StateRoot) -InputObject $Operation
+    $path = Get-LabOperationStatePath -OperationId $Operation.operationId -StateRoot $StateRoot
+    Invoke-WithLabWorkflowFileLock -Path $path -Action {
+        Write-LabArtifactJsonAtomic -Path $path -InputObject $Operation
+    }
     return $Operation
 }
 
@@ -1599,7 +1626,10 @@ function Write-LabSchedulerSettings {
     )
 
     $root = Initialize-LabWorkflowStore -StateRoot $StateRoot
-    Write-LabArtifactJsonAtomic -Path (Join-Path $root 'scheduler\settings.json') -InputObject $Settings
+    $path = Join-Path $root 'scheduler\settings.json'
+    Invoke-WithLabWorkflowFileLock -Path $path -Action {
+        Write-LabArtifactJsonAtomic -Path $path -InputObject $Settings
+    }
     return $Settings
 }
 

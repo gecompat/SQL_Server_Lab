@@ -68,7 +68,7 @@ function Set-SqlServerLabFeature {
         $field=if($Feature -eq 'FullText'){'fullText'}else{'fileStream'}
         $null=Resolve-LabSqlFeatureIntent -Intent ([pscustomobject]@{$field=$Enabled}) -Provider $context.Provider -SqlVersion $context.SqlVersion
         $path=Join-Path $context.RunDirectory ("sql-feature-$InstanceId-$Feature.json")
-        foreach($name in @('container-reconcile-journal.json','container-autostart-journal.json','external-runtime-refresh.json','hyperv-sql-configuration-reconcile.local.journal.json','hyperv-sql-port-reconcile.local.journal.json','hyperv-resource-reconcile.local.journal.json','hyperv-storage-reconcile.local.journal.json','hyperv-external-runtime-reconcile.local.journal.json','hyperv-test-database-reconcile.local.journal.json')){
+        foreach($name in @('container-reconcile-journal.json','container-autostart-journal.json','hyperv-autostart-journal.json','external-runtime-refresh.json','hyperv-sql-configuration-reconcile.local.journal.json','hyperv-sql-port-reconcile.local.journal.json','hyperv-resource-reconcile.local.journal.json','hyperv-storage-reconcile.local.journal.json','hyperv-external-runtime-reconcile.local.journal.json','hyperv-test-database-reconcile.local.journal.json')){
             $otherPath=Join-Path $context.RunDirectory $name
             if(Test-Path -LiteralPath $otherPath -PathType Leaf){
                 $other=Get-Content -LiteralPath $otherPath -Raw|ConvertFrom-Json

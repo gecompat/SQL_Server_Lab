@@ -604,6 +604,9 @@ $tlsLiveQualificationJobs = @{}
 $tlsCreationStore = New-UiTlsCreationStore
 $persistentJobs = @{}
 $runArtifactRemovalPreviews = @{}
+$containerAutoStartRecoverySelections = @{}
+$containerAutoStartChangeStore = @{}
+$hyperVAutoStartBrowserStore = @{}
 
 try {
     $commandGrantStore = New-UiCommandGrantStore -Session $operatorSession
@@ -705,6 +708,55 @@ try {
                     $view=Get-UiTlsLiveQualificationJob -Records $tlsLiveQualificationJobs -Id $Matches[1]
                     Write-UiResponse -Context $context -Body ($view|ConvertTo-Json -Depth 5 -Compress) -ContentType 'application/json; charset=utf-8'
                 }catch{Write-UiResponse -Context $context -Body '{"Code":"TLS_LIVE_HTTP_REJECTED"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400}
+                continue
+            }
+            if ($path -ceq '/api/hyperv-autostart') {
+                try {
+                    $request = $context.Request
+                    if ($request.HttpMethod -cne 'POST' -or $request.ContentType -cnotmatch '^application/json(?:;\s*charset=utf-8)?$' -or
+                        $request.Url.Query -or [string]$request.Headers['Origin'] -cne $request.Url.GetLeftPart([UriPartial]::Authority)) {
+                        throw 'HYPERV_AUTOSTART_BROWSER_INVALID'
+                    }
+                    $body = Read-UiSpecializedJsonRequestBody -Request $request -MaxCharacters 1024 -LimitErrorCode 'HYPERV_AUTOSTART_BROWSER_INVALID'
+                    $view = & (Get-Module SqlServerLab) {
+                        param($store, $json) Invoke-LabHyperVAutoStartBrowser -Store $store -Json $json
+                    } $hyperVAutoStartBrowserStore $body
+                    Write-UiResponse -Context $context -Body ($view | ConvertTo-Json -Depth 4 -Compress) -ContentType 'application/json; charset=utf-8'
+                }
+                catch {
+                    if (Write-UiBodyFailureResponse -Context $context -ErrorRecord $_) { continue }
+                    Write-UiResponse -Context $context -Body '{"Code":"HYPERV_AUTOSTART_BROWSER_UNAVAILABLE"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                }
+                continue
+            }
+            if ($path -cin @('/api/container-autostart-recovery', '/api/container-autostart-change')) {
+                try {
+                    $request = $context.Request
+                    if ($request.Url.Query) { throw 'AUTOSTART_BROWSER_QUERY_INVALID' }
+                    $module = Get-Module SqlServerLab
+                    $recovery = $path -ceq '/api/container-autostart-recovery'
+                    if ($request.HttpMethod -ceq 'GET' -and -not $request.HasEntityBody) {
+                        $view = if ($recovery) {
+                            & $module { param($selections) Read-LabContainerAutoStartRecoveryBrowser -Selections $selections } $containerAutoStartRecoverySelections
+                        } else {
+                            & $module { param($store) Read-LabContainerAutoStartChangeBrowser -Store $store } $containerAutoStartChangeStore
+                        }
+                    }
+                    elseif ($request.HttpMethod -ceq 'POST' -and [string]$request.Headers['Origin'] -ceq $url.TrimEnd('/')) {
+                        $body = Read-UiSpecializedJsonRequestBody -Request $request -MaxCharacters 1024 -LimitErrorCode 'AUTOSTART_BROWSER_BODY_LIMIT'
+                        $view = if ($recovery) {
+                            & $module { param($selections, $body) Invoke-LabContainerAutoStartRecoveryBrowser -Selections $selections -Body $body } $containerAutoStartRecoverySelections $body
+                        } else {
+                            & $module { param($store, $body) Invoke-LabContainerAutoStartChangeBrowser -Store $store -Body $body } $containerAutoStartChangeStore $body
+                        }
+                    }
+                    else { throw 'AUTOSTART_BROWSER_REQUEST_INVALID' }
+                    Write-UiResponse -Context $context -Body ($view | ConvertTo-Json -Depth 4 -Compress) -ContentType 'application/json; charset=utf-8'
+                }
+                catch {
+                    if (Write-UiBodyFailureResponse -Context $context -ErrorRecord $_) { continue }
+                    Write-UiResponse -Context $context -Body '{"Code":"AUTOSTART_BROWSER_UNCONFIRMED"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                }
                 continue
             }
             if ($path -eq '/api/container-autostart-preview') {
@@ -883,6 +935,53 @@ try {
                 }catch{
                     if (Write-UiBodyFailureResponse -Context $context -ErrorRecord $_) { continue }
                     Write-UiResponse -Context $context -Body 'LLAMA_INSTALL_UNCONFIRMED: Ergebnis nicht bestätigt; frisch vorprüfen. Keine automatische Wiederholung oder Prerequisiteinstallation.' -StatusCode 400
+                }
+                continue
+            }
+            if ($path -cin @('/api/ssis-execution-diagnostic', '/api/ssis-package-diagnostic')) {
+                try {
+                    $request = $context.Request
+                    if ($request.HttpMethod -cne 'POST' -or $request.ContentType -cnotmatch '^application/json(?:;\s*charset=utf-8)?$' -or
+                        $request.Url.Query -or [string]$request.Headers['Origin'] -cne $request.Url.GetLeftPart([UriPartial]::Authority)) {
+                        throw 'SSIS_EXECUTION_DIAGNOSTIC_HTTP_INVALID'
+                    }
+                    $body = Read-UiSpecializedJsonRequestBody -Request $request -MaxCharacters 1024 -LimitErrorCode 'SSIS_EXECUTION_DIAGNOSTIC_HTTP_INVALID'
+                    $view = & (Get-Module SqlServerLab) {
+                        param($json, $route)
+                        if ($route -ceq '/api/ssis-package-diagnostic') { Invoke-LabSsisPackageDiagnosticBrowser -Json $json }
+                        else { Invoke-LabSsisExecutionDiagnosticBrowser -Json $json }
+                    } $body $path
+                    Write-UiResponse -Context $context -Body ($view | ConvertTo-Json -Depth 4 -Compress) -ContentType 'application/json; charset=utf-8'
+                }
+                catch {
+                    if (Write-UiBodyFailureResponse -Context $context -ErrorRecord $_) { continue }
+                    Write-UiResponse -Context $context -Body '{"Code":"SSIS_DIAGNOSTIC_UNAVAILABLE"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                }
+                continue
+            }
+            if ($path -ceq '/api/ai-compute-inventory') {
+                try {
+                    if ($context.Request.HttpMethod -cne 'GET' -or $context.Request.HasEntityBody -or $context.Request.Url.Query) {
+                        throw 'AI_COMPUTE_INVENTORY_REQUEST_INVALID'
+                    }
+                    $view = & (Get-Module SqlServerLab) { Get-LabAiComputeInventoryView }
+                    Write-UiResponse -Context $context -Body ($view | ConvertTo-Json -Depth 4 -Compress) -ContentType 'application/json; charset=utf-8'
+                }
+                catch {
+                    Write-UiResponse -Context $context -Body '{"Code":"AI_COMPUTE_INVENTORY_UNAVAILABLE"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                }
+                continue
+            }
+            if ($path -ceq '/api/ai-runtime-capability') {
+                try {
+                    if ($context.Request.HttpMethod -cne 'GET' -or $context.Request.HasEntityBody -or $context.Request.Url.Query) {
+                        throw 'AI_RUNTIME_CAPABILITY_REQUEST_INVALID'
+                    }
+                    $view = & (Get-Module SqlServerLab) { Get-LabAiRuntimeCapabilityView }
+                    Write-UiResponse -Context $context -Body ($view | ConvertTo-Json -Depth 4 -Compress) -ContentType 'application/json; charset=utf-8'
+                }
+                catch {
+                    Write-UiResponse -Context $context -Body '{"Code":"AI_RUNTIME_CAPABILITY_UNAVAILABLE"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400
                 }
                 continue
             }

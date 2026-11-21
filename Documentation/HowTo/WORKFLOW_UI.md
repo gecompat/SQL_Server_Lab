@@ -338,6 +338,35 @@ sind bestanden. Der Browserlauf vom 2026-10-06 prüfte echte Loopback-HTTP-
 Antworten, drei Vorschauaufrufe und eigenen Cleanup. Core77-Evidence ist
 separat; Apply/Recovery und Scope A bleiben offen.
 
+### Docker und Podman Autostart ändern
+
+Wähle unter **Lab-Umgebungen → Docker-/Podman-Autostart ändern** das
+registrierte Lab, die SQL-Instanz und die Policy `on` oder `off`.
+Prüfe die angezeigte Ist- und Zielpolicy. Bei einem unveränderten Plan endet
+der Dialog direkt. Bei einer Änderung bestätigt der Benutzer den aktuellen
+Plan. Erhält die CLI keine sichere Quittung, prüfe den aktuellen Zustand und
+offene Recovery vor einer erneuten Änderung.
+
+Im Browser öffnet **Lab verwalten → Container-Autostart ändern** denselben
+Ablauf. Nach **Änderung prüfen** zeigt der Dialog Ist- und Zielpolicy. Erst
+das Kontrollkästchen und **Autostart ändern** führen den gebundenen Plan aus.
+Eine andere Instanz oder Policy erfordert eine neue Vorschau. Der Server
+nimmt die Bestätigung einmal und innerhalb von fünf Minuten nach dem Lesen
+der Ziele an.
+
+**Docker-/Podman-Autostart-Recovery fortsetzen** liest die passenden
+Journaloperationen. Bestätige die gewünschte Operation. Wird das Journal
+zwischen Auswahl und Ausführung ersetzt, liest der Benutzer die Auswahl
+erneut. Die Wiederaufnahme prüft Containeridentität, Laufzustand und
+Restartpolicy. Anschließend schreibt sie Lab-State.
+
+Im Browser liegt **Container-Autostart-Recovery fortsetzen** unter **Lab
+verwalten**. Wähle die Journaloperation aus der Liste und bestätige sie mit
+dem Kontrollkästchen. Die Auswahl gilt fünf Minuten und kann einmal
+verwendet werden. Nach Ablauf oder einem unbestätigten Ergebnis lies
+den aktuellen Zustand erneut. Die separate Autostartvorschau bleibt der
+Einstieg zur lesenden Prüfung der Restartpolicy.
+
 ### SQL-Hostport nur vorprüfen
 
 Unter **Lab verwalten → SQL-Hostport vorprüfen · PLAN_ONLY** werden ausschließlich
@@ -375,7 +404,11 @@ Wiederöffnen wurden beobachtet, eigener Listener und Tab geschlossen.
 
 ### Evaluation-Ersatzentscheid
 
-Unter **Wartung, Aufräumen und Recovery → SQL-Evaluation: Ersatzentscheid**
+In der CLI öffnet **Wartung, Aufräumen und Recovery → SQL-Evaluation: Ersatz-
+und Migrationsentscheid** dieselbe lesende Vorschau. Wähle das registrierte
+Lab_Data, die SQL-Instanz und die Entscheidungsart.
+
+Im Browser unter **Wartung und Recovery → SQL-Evaluation: Ersatzentscheid**
 ein vorhandenes registriertes `Lab_Data` eingeben und **Registrierte Instanzen
 lesen** wählen. Eine gebundene einzelne Hyper-V-SQL-Instanz und Slotersatz,
 Rekonstruktion oder Instanzmigration auswählen, dann **Vorschau lesen (keine

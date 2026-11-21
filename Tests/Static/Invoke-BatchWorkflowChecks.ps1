@@ -30,6 +30,8 @@ try {
     Import-Module $modulePath -Force -ErrorAction Stop
     $module = Get-Module SqlServerLab
 
+    & (Join-Path $PSScriptRoot 'Fixtures/BatchWorkflowFileLockChecks.ps1') -ModulePath $modulePath -Root (Join-Path $testRoot 'file-lock-proof')
+
     $batch = New-SqlServerLabBatch -Name 'Expansion' -StateRoot $testRoot -Items @(
         [pscustomobject]@{ id = 'slot'; kind = 'Test'; count = 3; intent = [pscustomobject]@{ DelayMilliseconds = 150; ResourceClass = 'RuntimeNormal' } }
     )
@@ -240,7 +242,9 @@ if (-not $lock) { throw 'BATCH_SUMMARY_LOCK_ACQUISITION_FAILED' }
     $abandoned.worker = [pscustomobject]@{ host = [Environment]::MachineName; processId = 2147483000; heartbeatAt = [DateTime]::UtcNow.AddMinutes(-1).ToString('o') }
     & $module { param($Operation, $Root) Write-LabOperationState -Operation $Operation -StateRoot $Root | Out-Null } $abandoned $testRoot
     & $module { param($Root) Invoke-SqlServerLabScheduler -UntilIdle -StateRoot $Root | Out-Null } $testRoot
-    Assert-Check ((Get-SqlServerLabOperation -OperationId $abandoned.operationId -StateRoot $testRoot).status -eq 'Completed') 'Verlassener Worker wurde nicht am persistenten Schritt fortgesetzt.'
+    $recovered = Get-SqlServerLabOperation -OperationId $abandoned.operationId -StateRoot $testRoot
+    $details = 'Status={0}; Code={1}; Type={2}; Step={3}' -f $recovered.status, $recovered.error.code, $recovered.error.type, $recovered.error.stepId
+    Assert-Check ($recovered.status -eq 'Completed') ("Verlassener Worker wurde nicht am persistenten Schritt fortgesetzt. " + $details)
 
     $operationContext = & $module {
         Invoke-WithLabWorkflowOperationContext -OperationId 'op-context-check' -ScriptBlock {

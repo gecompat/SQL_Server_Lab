@@ -40,7 +40,19 @@ try {
             $connection.instances[0].autostart='off';$desiredInstance.AutoStart='off'
             $journalPath=Get-LabContainerAutoStartJournalPath -RunDirectory $runDirectory;$recovery=Get-Content -LiteralPath $journalPath -Raw|ConvertFrom-Json -Depth 60
             $recovery.Status='RECOVERY_REQUIRED';$recovery.Recovery.Status='RESUME_STATE_COMMIT';$recovery|ConvertTo-Json -Depth 60|Set-Content -LiteralPath $journalPath -Encoding utf8
-            $beforeRecovery=$script:commands.Count;$recovered=Resume-SqlServerLabContainerAutoStart -RunId $runId -InstanceId primary -StateRoot $state -Confirm:$false
+            $beforeRecovery = $script:commands.Count
+            try {
+                $null = Resume-SqlServerLabContainerAutoStart -RunId $runId -InstanceId primary -StateRoot $state -ExpectedOperationId ([guid]::NewGuid().ToString('D')) -Confirm:$false
+                throw 'AUTOSTART_APPLY_STALE_RECOVERY_ACCEPTED'
+            }
+            catch {
+                if ($_.Exception.Message -cne 'AUTOSTART_APPLY_RECOVERY_JOURNAL_CHANGED') { throw }
+            }
+            if ($script:commands.Count -ne $beforeRecovery -or $connection.instances[0].autostart -cne 'off' -or
+                $desiredInstance.AutoStart -cne 'off' -or (Get-Content -LiteralPath $journalPath -Raw | ConvertFrom-Json).Status -cne 'RECOVERY_REQUIRED') {
+                throw 'AUTOSTART_APPLY_STALE_RECOVERY_SIDE_EFFECT'
+            }
+            $recovered = Resume-SqlServerLabContainerAutoStart -RunId $runId -InstanceId primary -StateRoot $state -ExpectedOperationId $recovery.OperationId -Confirm:$false
             if($recovered.Status-ne'RECOVERY_SUCCEEDED' -or $script:commands.Count-ne$beforeRecovery -or $connection.instances[0].autostart-ne'on' -or $desiredInstance.AutoStart-ne'on' -or $script:lastJournal.Status-ne'COMPLETED'){throw 'AUTOSTART_APPLY_RECOVERY'}
             $noOpPlan=Get-SqlServerLabContainerAutoStartPlan -RunId $runId -InstanceId primary -AutoStart on -StateRoot $state
             $before=$script:commands.Count;$noOp=Set-SqlServerLabContainerAutoStart -RunId $runId -InstanceId primary -AutoStart on -ExpectedAutoStartPlanKey $noOpPlan.PlanKey -StateRoot $state -Confirm:$false

@@ -1043,8 +1043,12 @@ function Show-LabWorkspaceMenu {
         New-LabConsoleItem -Id DatabaseArea -Label 'Datenbanken, Samples und Skripte' -Shortcut 3
         New-LabConsoleItem -Id AiArea -Label 'SQL-2025-KI-Szenarien und Demos' -Shortcut 4
         New-LabConsoleItem -Id ContainerPortPreview -Label 'SQL-Hostport vorprüfen' -Value 'PLAN_ONLY · keine Änderung oder Reservierung' -Shortcut 5
+        New-LabConsoleItem -Id ContainerAutoStart -Label 'Docker-/Podman-Autostart ändern' -Value 'Gebundener Plan · Neustartfrei · Bestätigung erforderlich' -Shortcut 7
+        New-LabConsoleItem -Id ContainerAutoStartRecovery -Label 'Docker-/Podman-Autostart-Recovery fortsetzen' -Value 'Nur verifizierte Statepersistenz · kein Provider-Replay' -Shortcut r
         New-LabConsoleItem -Id ContainerAutoStartPreview -Label 'Container-Autostart vorprüfen' -Value 'PLAN_ONLY · keine Änderung oder Hostloginprüfung' -Shortcut 6
-        New-LabConsoleItem -Id HyperVAutoStart -Label 'Hyper-V-Autostart ändern' -Value 'Gebundener Plan · Bestätigung erforderlich' -Shortcut 7
+        New-LabConsoleItem -Id HyperVAutoStart -Label 'Hyper-V-Autostart ändern' -Value 'Gebundener Plan · Bestätigung erforderlich' -Shortcut 8
+        New-LabConsoleItem -Id HyperVAutoStartRecovery -Label 'Hyper-V-Autostart-Recovery fortsetzen' -Value 'Verifizierte Statepersistenz' -Shortcut h
+        New-LabConsoleItem -Id SsisDiagnostics -Label 'SSIS-Diagnose eines bestehenden Windows-Labs' -Value 'Ausführungsmetadaten oder bestätigte Paketladediagnose' -Shortcut 9
         New-LabConsoleItem -Id back -Label 'Zurück' -Shortcut 0
     )
 }
@@ -1079,6 +1083,9 @@ function Show-LabHostModelsMenu {
         New-LabConsoleItem -Id AiModel -Label 'Vorhandenes Ollama-Modell aufrufen' -Value 'lokal oder explizit freigegebene Cloud-Lane' -Shortcut 2
         New-LabConsoleItem -Id HostServiceLifecycle -Label 'Eigene llama.cpp-Sitzung auswählen und stoppen'
         New-LabConsoleItem -Id LlamaRuntimeInventory -Label 'Vorhandene llama.cpp-Pakete prüfen' -Value 'Dateibefund · Backend und Build' -Shortcut 3
+        New-LabConsoleItem -Id HostServiceStart -Label 'Eigene llama.cpp-Sitzung geführt starten' -Value 'Eingaben prüfen und Start bestätigen' -Shortcut 4
+        New-LabConsoleItem -Id AiComputeInventory -Label 'CPU, GPU und NPU erfassen' -Value 'Lesende Geräteübersicht' -Shortcut 5
+        New-LabConsoleItem -Id AiRuntimeCapability -Label 'llama.cpp-Eignung prüfen' -Value 'Paketdateien und erkannte Geräte' -Shortcut 6
         New-LabConsoleItem -Id ModelLifecycle -Label 'Modell laden, entladen oder wechseln' -Disabled -DisabledReason 'Ein gemeinsamer geführter Load-/Unload-/Wechselvertrag ist noch offen. Der Datei-Download ist kein geladenes Modell.'
         New-LabConsoleItem -Id back -Label 'Zurück' -Shortcut 0
     )
@@ -1162,6 +1169,7 @@ function Show-LabMaintenanceMenu {
         New-LabConsoleItem -Id Messages -Label 'Meldungen dieser Sitzung' -Value 'Warnungen und Fehler · kopierbar · Journalpfad' -Shortcut 6
         New-LabConsoleItem -Id RetainedStoreRemoval -Label 'Behaltenen SQL-Speicher löschen' -Value 'gesonderter bestätigter Entfernungsplan' -Shortcut l
         New-LabConsoleItem -Id RunArtifactRemoval -Label 'Artefakte eines entfernten Runs' -Value 'Einzelauswahl · Vorschau · bestätigte Entfernung / Resume' -Shortcut r
+        New-LabConsoleItem -Id EvaluationRefreshPlan -Label 'SQL-Evaluation: Ersatz- und Migrationsentscheid' -Value 'Lesende Vorschau' -Shortcut v
         New-LabConsoleItem -Id Clear -Label 'Alle regulären Lab-Umgebungen löschen' -Value 'Auch laufende und gestoppte · Datenverlust möglich' -Shortcut a `
             -Help 'Löscht alle nicht geschützten Lab-Umgebungen im aktuellen State-Root, zusätzlich verwaiste Lab-Container, Builder und Lab-Datenverzeichnisse. Keine reine Bereinigung verwaister Reste. Vor der Löschung folgt eine Bestätigung mit Standard Nein.'
         New-LabConsoleItem -Id back -Label 'Zurueck' -Shortcut 0

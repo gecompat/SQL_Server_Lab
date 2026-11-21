@@ -262,7 +262,7 @@ bleiben getrennte Verträge; der geführte Browser-Start ist separat implementie
 
 ## Geführter eigener llama.cpp-Start in der CLI
 
-Unter „Alle öffentlichen Befehle“ → „llama.cpp: eigene Sitzung starten“ erfasst
+Unter **Host-Dienste und Modelle → Eigene llama.cpp-Sitzung geführt starten** erfasst
 die CLI fünfzehn explizite Eingaben einschließlich optionalem öffentlichen
 CA-PEM. Pfade und API-Key werden maskiert, der API-Key als SecureString erfasst.
 Vor der Bestätigung bleiben Eingaben im RAM; Dateien, TLS, Port und Runtime

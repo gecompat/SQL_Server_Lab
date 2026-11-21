@@ -581,8 +581,10 @@ oder den zuvor beobachteten Hostzustand erneut abzufragen.
 ## Container-Autostart nur vorprüfen
 
 Die Container-Autostartvorschau bleibt PLAN_ONLY, einschließlich No-op.
-UNKNOWN/DRIFTED sperrt; es gibt keine Apply-/Recoveryaktion oder
-CAS-/Reservierungsautorität. Endpoint, SQL, Backup und Hostlogin bleiben
+UNKNOWN/DRIFTED sperrt. Die Vorschau selbst hat keine
+CAS- oder Reservierungsautorität. Änderung und Wiederaufnahme haben
+[eigene Dialoge mit Bestätigung](../HowTo/WORKFLOW_UI.md#docker-und-podman-autostart-ändern).
+Endpoint, SQL, Backup und Hostlogin bleiben in der Vorschau
 NOT_CHECKED. Nur moderne registrierte laufende Docker-/Podman-SQL-Instanzen
 mit begrenzter Loopbacktopologie und darstellbaren Mounts sind zulässig.
 Der [öffentliche Vertrag](../../Public/README.md#container-autostart-nur-vorprüfen)

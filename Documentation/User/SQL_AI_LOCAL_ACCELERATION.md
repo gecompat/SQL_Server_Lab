@@ -267,12 +267,26 @@ Mehr-GPU-Kandidaten. Die Katalogstufe ersetzt diese Messung nicht.
 ### Benchmarkgebundene Gerätewahl
 
 `Get-SqlServerLabAiComputeInventory` liest den lokalen Host ohne Runtime-Start.
+In CLI und Browser führt **Host-Dienste und Modelle → CPU, GPU und NPU
+erfassen** zur Geräteübersicht. Sie zeigt pro Geräteklasse die erfasste
+Anzahl. **Unbekannt** bedeutet, dass die Geräteklasse nicht verlässlich
+erfasst werden konnte. **0** bedeutet, dass die Prüfung kein Gerät gefunden
+hat. Die Runtime-Eignung und der Benchmark werden separat ermittelt.
 Unter Windows verwendet es CIM für CPU und Displaygeräte sowie die vorhandene
 `ComputeAccelerator`-PnP-Klasse für NPUs. Unter Linux liest es `/proc/cpuinfo`,
 DRM-sysfs und `/sys/class/accel`. Rohe PnP-Instanz- und PCI-Buspfade werden nur
 zum Deduplizieren verwendet und nicht ausgegeben. Wenn CPU-, GPU- oder
 NPU-Coverage nicht verfügbar ist, bleibt das Receipt `INCOMPLETE` und besitzt
 keinen verwendbaren Inventarhash.
+
+In CLI und Browser zeigt **Host-Dienste und Modelle → llama.cpp-Eignung prüfen**,
+welche Backends für welche erkannten Geräteklassen infrage kommen. Die
+Prüfung benötigt ein vollständiges Inventar und bis zu 16 Pakete aus der
+konfigurierten Suche. Sie hasht die Paketdateien und startet keine Runtime.
+Die Übersicht zeigt außerdem die Anzahl der erlaubten Gerätekombinationen
+pro Backend und Geräteklasse. Überschreitet die Prüfung die Eingabe- oder
+Kandidatenobergrenze, bleibt die Eignung sichtbar und die Oberfläche meldet
+die erreichte Grenze. Geräteausführung und Benchmark bleiben eigene Prüfungen.
 
 ```powershell
 $inventory = Get-SqlServerLabAiComputeInventory

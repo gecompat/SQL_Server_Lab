@@ -172,6 +172,8 @@ sources_of_truth:
   ai_compute_selection_contract: Private/AiComputeSelection.ps1
   ai_compute_inventory_contract: Private/AiComputeInventory.ps1
   ai_compute_inventory_api: Public/Get-SqlServerLabAiComputeInventory.ps1
+  ai_compute_inventory_guidance: Private/AiComputeInventoryGuidance.ps1, Public/BatchConsole.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/ai-compute-overview.js
+  ai_runtime_capability_guidance: Private/AiComputeInventoryGuidance.ps1, Public/BatchConsole.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/ai-compute-overview.js
   ai_compute_candidate_api: Public/Get-SqlServerLabAiComputeCandidate.ps1
   ai_compute_inventory_schema: Schemas/ai-compute-inventory.schema.json
   ai_compute_candidate_set_schema: Schemas/ai-compute-candidate-set.schema.json
@@ -238,7 +240,7 @@ sources_of_truth:
   ai_ovms_https_gateway_start: Public/Start-SqlServerLabOvmsHttpsGateway.ps1
   ai_ovms_https_gateway_stop: Public/Stop-SqlServerLabOvmsHttpsGateway.ps1
   acceptance_ai_ovms_https_gateway: Tests/Integration/Invoke-AiOvmsHttpsGatewayAcceptance.ps1
-  llama_cpp_guided_start_cli: Private/LlamaCppStartConsole.ps1
+  llama_cpp_guided_start_cli: Private/LlamaCppStartConsole.ps1, Public/BatchConsole.ps1, Public/Invoke-SqlServerLab.ps1
   llama_cpp_guided_start_browser: Private/LlamaCppStartHttp.ps1, Ui/llama-start.js
   validation_llama_cpp_guided_start_browser: Tests/Static/Invoke-LlamaCppStartBrowserChecks.ps1, Tests/Static/Fixtures/LlamaCppStartHttpChecks.ps1, Tests/Static/Fixtures/LlamaCppStartUiChecks.cjs
   validation_reviewed_browser_composition: Tests/Static/Invoke-ReviewedBrowserCompositionChecks.ps1 # combined dedicated routes, HTML IDs, 135 exports and retained CLI dispatch; synthetic only
@@ -277,7 +279,7 @@ sources_of_truth:
   acceptance_llama_cpp_sql: Tests/Integration/Invoke-LlamaCppSqlAcceptance.ps1
   ai_external_model_runtime_schema: Schemas/llama-cpp-runtime.schema.json
   validation_llama_cpp_runtime: Tests/Static/Invoke-LlamaCppRuntimeChecks.ps1
-  llama_cpp_runtime_inventory_surfaces: Private/LlamaCppRuntimeInventory.ps1, Public/BatchConsole.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/app.js
+  llama_cpp_runtime_inventory_surfaces: Private/LlamaCppRuntimeInventory.ps1, Public/BatchConsole.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/ai-compute-overview.js
   validation_llama_cpp_runtime_inventory_browser: Tests/Static/Fixtures/LlamaCppRuntimeInventoryUiChecks.cjs, Tests/Static/Invoke-WorkflowUiChecks.ps1
   ai_external_model_runtime_api: Public/Get-SqlServerLabLlamaCppRuntime.ps1
   ai_external_model_runtime_contract: Private/AiExternalModelAcceleration.ps1
@@ -469,11 +471,18 @@ sources_of_truth:
   validation_release_artifact: Tests/Static/Invoke-ReleaseArtifactChecks.ps1
   client_readiness: Tools/Test-SqlServerLabClientReadiness.ps1
   ssis_catalog_capability_public: Public/Get-SqlServerLabSsisCatalogCapability.ps1
+  sql_feature_console: Private/SqlFeatureConsole.ps1, Public/Invoke-SqlServerLab.ps1, Private/ConsoleHelp.ps1
+  validation_sql_feature_console: Tests/Static/Fixtures/SqlFeatureConsoleChecks.ps1, Tests/Static/Invoke-SqlFeatureChecks.ps1
+  ssis_diagnostic_console: Private/SsisDiagnosticsConsole.ps1, Public/BatchConsole.ps1, Public/Invoke-SqlServerLab.ps1
+  validation_ssis_diagnostic_console: Tests/Static/Invoke-SsisDiagnosticsConsoleChecks.ps1
+  ssis_execution_diagnostic_browser: Private/SsisDiagnosticsBrowser.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/ssis-execution-diagnostic.js
+  validation_ssis_execution_browser: Tests/Static/Fixtures/SsisExecutionDiagnosticUiChecks.cjs, Tests/Static/Invoke-SsisDiagnosticsConsoleChecks.ps1
   ssis_execution_diagnostic_public: Public/Get-SqlServerLabSsisExecutionDiagnostic.ps1
   ssis_execution_diagnostic_projection: Private/SsisExecutionDiagnostic.ps1
   ssis_execution_diagnostic_guest: Providers/HyperV/HyperVSsisExecutionDiagnostic.ps1
   ssis_execution_diagnostic_contract: Documentation/Architecture/SSIS_EXECUTION_DIAGNOSTIC.md
   validation_ssis_execution_diagnostic: Tests/Static/Invoke-SsisExecutionDiagnosticChecks.ps1
+  ssis_package_diagnostic_browser: Private/SsisDiagnosticsBrowser.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/ssis-package-diagnostic.js
   ssis_package_diagnostic_public: Public/Get-SqlServerLabSsisPackageDiagnostic.ps1
   ssis_package_diagnostic_artifact_and_binding: Private/SsisPackageDiagnostic.ps1
   ssis_package_diagnostic_guest: Providers/HyperV/HyperVSsisPackageDiagnostic.ps1
@@ -618,6 +627,13 @@ sources_of_truth:
   guided_container_autostart_preview_cli: Public/Invoke-SqlServerLab.ps1 # registered metadata-only selection, one public PLAN_ONLY call, strict scalar DTO, no Apply
   guided_container_autostart_preview_menu: Public/BatchConsole.ps1, Private/ConsoleHelp.ps1 # Lab-Umgebungen / Container-Autostart vorprüfen
   validation_guided_container_autostart_preview: Tests/Static/Fixtures/ContainerAutoStartPreviewConsoleChecks.ps1 # existing ContainerReconcile suite; actual menu/dual router/module/public route, synthetic inspect only
+  guided_container_autostart_change: Public/Invoke-SqlServerLab.ps1, Public/BatchConsole.ps1, Private/ConsoleHelp.ps1
+  guided_container_autostart_change_browser: Private/ContainerAutoStartChangeBrowser.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/app.js
+  validation_guided_container_autostart_change_browser: Tests/Static/Fixtures/ContainerAutoStartChangeBrowserChecks.ps1, Tests/Static/Fixtures/ContainerAutoStartChangeBrowserUiChecks.cjs
+  guided_container_autostart_recovery: Public/Resume-SqlServerLabContainerAutoStart.ps1 # optional confirmed journal operation ID, rechecked under the run mutex
+  guided_container_autostart_recovery_browser: Private/ContainerAutoStartRecoveryBrowser.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/app.js
+  validation_guided_container_autostart_recovery_browser: Tests/Static/Fixtures/ContainerAutoStartRecoveryBrowserChecks.ps1, Tests/Static/Fixtures/ContainerAutoStartRecoveryBrowserUiChecks.cjs
+  validation_guided_container_autostart_change_and_recovery: Tests/Static/Invoke-ContainerAutoStartChecks.ps1, Tests/Static/Invoke-ContainerAutoStartConsoleChecks.ps1
   acceptance_guided_container_autostart_preview_cli: Tests/Integration/Invoke-ContainerAutoStartPreviewAcceptance.ps1 # explicit ConsoleOnly; own scope/custody/mutex, three actual CLI/public calls; Docker/Podman PASS 2026-10-05 on 960b5452, own cleanup/protection confirmed; no Apply
   guided_container_autostart_preview_http: Private/ContainerAutoStartPreviewHttp.ps1 # server-bound metadata, strict scalar projection, one public PLAN_ONLY call, no client StateRoot/native IDs
   guided_container_autostart_preview_browser: Ui/container-autostart-preview.js # separate on/off dialog; UNKNOWN/DRIFTED/counts, late-response veto, no Apply
@@ -659,6 +675,9 @@ sources_of_truth:
   validation_hyperv_sql_completion_boundary: Tests/Static/Fixtures/HyperVSqlCompletionBoundaryChecks.ps1 # existing HyperVLabEnvironment suite; actual public function/caller AST/transport, synthetic native leaves only
   validation_hyperv_sql_public_entry: Tests/Static/Fixtures/HyperVSqlPublicEntryChecks.ps1 # explicit roots and opt-in ExpectedVmId on actual public actions; synthetic core boundaries
   validation_hyperv_sql_vm_binding: Tests/Static/Fixtures/HyperVSqlVmBindingChecks.ps1 # actual Complete/HostSQL/WMI/network/receipt/restart/readiness/port/transport with synthetic native leaves; no guest bodies
+  hyperv_autostart_browser: Private/HyperVAutoStartBrowser.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/hyperv-autostart.js, Tests/Static/Fixtures/HyperVAutoStartBrowserUiChecks.cjs
+  hyperv_autostart_recovery: Private/HyperVAutoStartApply.ps1, Private/DiagnosticBundleReader.ps1, Public/Set-SqlServerLabHyperVAutoStart.ps1, Public/Resume-SqlServerLabHyperVAutoStart.ps1
+  validation_hyperv_autostart: Tests/Static/Fixtures/HyperVAutoStartApplyChecks.ps1, Tests/Static/Invoke-HyperVLabEnvironmentChecks.ps1
   hyperv_host_sql_lease_binding: Private/HyperVLabEnvironment.ps1 # actual root/run/scope/instance/network/active-IPAM binding before static guest network dispatch
   validation_hyperv_sql_completion_regression: Tests/Static/Fixtures/HyperVLabEnvironmentCompletionRegressionChecks.ps1 # HyperVLabEnvironment suite; original transport ParamBlock, closed body; no native/guest/SQL execution
   validation_hyperv_immutable_run_reader: Tests/Static/Fixtures/HyperVImmutableRunReaderChecks.ps1 # actual internal reader; opt-in strict VM-ID without rename write; public setup propagation/native qualification remain open
@@ -1096,7 +1115,7 @@ sources_of_truth:
   validation_test_environment_contract: Tests/Static/Invoke-TestEnvironmentChecks.ps1
   validation_test_environment_group_lifecycle: Tests/Integration/Invoke-TestEnvironmentGroupLifecycle.ps1
   validation_manifest_builder: Tests/Static/Invoke-ManifestBuilderChecks.ps1
-  validation_batch_workflow: Tests/Static/Invoke-BatchWorkflowChecks.ps1
+  validation_batch_workflow: Tests/Static/Invoke-BatchWorkflowChecks.ps1, Tests/Static/Fixtures/BatchWorkflowFileLockChecks.ps1
   validation_runtime_matrix: Tests/Integration/Invoke-SmokeMatrix.ps1
   cli_acceptance_matrix: Documentation/Quality/CLI_ACCEPTANCE_MATRIX.md
   public_command_console: Private/PublicCommandConsole.ps1
@@ -1731,7 +1750,7 @@ providers:
     evaluation_watch: "Public/Get-SqlServerLabEvaluationWatch.ps1, Private/SqlGuestEvaluationEvidence.ps1 und Public/Invoke-SqlServerLabEvaluationWatchTrigger.ps1; read-only Windows-/SQL-Imagebewertung und persistierte Windows-Instanzfrist mit optionaler lokaler Ereignis-Deduplizierung sowie explizit begrenztem foreground-Zeittrigger ohne Windows-Aufgabe, Lizenz-, Image-, Run-, Runtime- oder Netzwerkmutation; SQL-Gastfristen werden ausschließlich aus einem schema- und bindungsvalidierten, frischen runlokalen Receipt projektiert. Separater SQL-2025-Hyper-V-Capture schreibt ausschließlich NO_DEADLINE-Evidence; Der native Developer-Lauf 35563036235 bestand mit Receiptkette, unverändertem State/Parent und vollständigem Cleanup; positive Deadline-Abnahme bleibt offen."
     validation_evaluation_watch: Tests/Static/Invoke-EvaluationWatchChecks.ps1
     evaluation_refresh_plan: "Public/Get-SqlServerLabEvaluationRefreshPlan.ps1 und Private/EvaluationRefreshPlan.ps1; reine drei-Modi-Entscheidung für eine moderne registrierte Hyper-V-SQL-Instanz unter explicit DataRoot. DiagnosticBundleReader und SqlGuestEvaluationEvidence binden gespeicherte Evidence; gemeinsame Watch-Fristklassifikation ist keine Live-Lizenzprüfung. Immer BLOCKED/Actions0/Mutationfalse, keine Inventory-/Target-/Transferauthority. FULL_INSTANCE_EVALUATION_REFRESH_BACKLOG bleibt kanonisch. Tests/Static/Invoke-EvaluationRefreshPlanChecks.ps1 prüft die tatsächliche Komposition synthetisch."
-    evaluation_refresh_plan_cli: "Private/EvaluationRefreshPlanConsole.ps1; geführte RAM-Vorschau unter Alle öffentlichen Befehle, expliziter registrierter Root/64 Run-Verzeichnisse, D-Snapshotautorität und öffentlicher Plan; Cancel zeroDispatch. Tests/Static/Invoke-EvaluationRefreshPlanConsoleChecks.ps1 prüft actualCLI/Core/Reader ohne Runtime."
+    evaluation_refresh_plan_cli: "Private/EvaluationRefreshPlanConsole.ps1; geführte Vorschau unter Wartung, Aufräumen und Recovery oder Alle öffentlichen Befehle; expliziter registrierter Root/64 Run-Verzeichnisse, D-Snapshotautorität und öffentlicher Plan. Tests/Static/Invoke-EvaluationRefreshPlanConsoleChecks.ps1 prüft Menüdispatch und Core ohne Runtime."
     evaluation_refresh_plan_browser: "Private/EvaluationRefreshPlanHttp.ps1, Ui/evaluation-refresh-plan.js und dedicated POST /api/evaluation-refresh-plan; geführte RAM-Vorschau im Wartungsbereich. CLI-Metadatenreader/64 Run-Verzeichnisse und D-Snapshot/PublicPlan bleiben Autorität; feste Read/Preview-Shapes, Auswahlrevalidierung, getrennte Windows-/SQL-Evidence, BLOCKED/Actions0. Tests/Static/Invoke-EvaluationRefreshPlanHttpChecks.ps1 prüft tatsächlichen HTTP/Core/Route- und JS-Dialogpfad ohne Runtime."
     navigation_areas: "Public/Invoke-SqlServerLab.ps1; Public/BatchConsole.ps1; Private/ConsoleHelp.ps1; Ui/index.html; Ui/app.js; Ui/app.css. Neun fachliche Bereiche mit vorhandenen Handlern, getrennten Experten-/Meldungseinstiegen und expliziten offenen Fachdialogen. Tests/Static/Fixtures/NavigationAreaChecks.ps1 und WorkflowSqlTargetChecks.cjs prüfen echte Navigation, Dispatch, Zurück, Abbruch und Refresh."
     evaluation_watch_guided_view: "Private/EvaluationWatchView.ps1; read-only Fachansicht im Wartungsmenü und über den GET-Endpunkt /api/evaluation-watch. Beide Oberflächen zeigen dieselbe Projektion ohne Ereignisregistrierung, Runtimeprobe oder Gastzugriff; Tests/Static/Fixtures/EvaluationWatchViewChecks.ps1 und WorkflowSqlTargetChecks.cjs prüfen importierte Handler, Abbruch und Ergebniszustände."

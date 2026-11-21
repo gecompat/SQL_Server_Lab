@@ -52,6 +52,30 @@ function Get-LabConsoleHelpCatalog {
             Effects = 'Nach vollständiger Auswahl einmal PLAN_ONLY anzeigen. CanApply=false; keine Reservierung oder Mutation. Hostlogin, Endpoint, SQL und Backup bleiben NOT_CHECKED. Zurück oder q vor dem Planaufruf ändern nichts.'
             Command = 'Get-SqlServerLabReconcilePlan'
         }
+        'container-autostart-apply-run' = @{
+            Title = 'Container-Lab für Autostartänderung auswählen'
+            Purpose = 'Wählt nur registrierte, laufende, ungeschützte Docker-/Podman-SQL-Labs aus dem angegebenen Lab_Data.'
+            Effects = 'Nur lokale Metadaten lesen. Geschützte Testgruppen, CMS, gestoppte Labs und ungültige Bindungen werden nicht angeboten. Zurück beendet ohne Provideraktion.'
+            Command = 'Get-SqlServerLabContainerAutoStartPlan'
+        }
+        'container-autostart-apply-instance' = @{
+            Title = 'SQL-Instanz und Wunsch für Autostartänderung auswählen'
+            Purpose = 'Wählt die im vorherigen Menü gebundene Docker-/Podman-Instanz und on/off; Auswahldaten aus einer unbestätigten Menüantwort werden nicht als Autorität verwendet.'
+            Effects = 'Liest einen frischen gebundenen Plan. Zeigt Ist-/Wunschpolicy, keinen Containerneustart und keine Datenwirkung; erst eine ausdrückliche Bestätigung ruft den Executor mit derselben Planbindung auf. Bei Abbruch bleibt alles unverändert.'
+            Command = 'Set-SqlServerLabContainerAutoStart'
+        }
+        'container-autostart-recovery-run' = @{
+            Title = 'Container-Lab mit offener Autostart-Recovery auswählen'
+            Purpose = 'Filtert registrierte, als RUNNING geführte, ungeschützte Docker-/Podman-SQL-Labs auf ein schema-valides, an Run, Scope, Instanz und Provider gebundenes POLICY_MUTATED- oder RECOVERY_REQUIRED-Journal.'
+            Effects = 'Liest nur Lab-State und Journalmetadaten. Vor der ausdrücklichen Bestätigung gibt es keine Runtimeabfrage oder Speicherung. Danach prüft Resume die konkrete Container-ID, den Laufzustand und die Restartpolicy erneut; ein Providerbefehl wird nie wiederholt. Unklare oder ungültige Journale werden nicht angeboten.'
+            Command = 'Resume-SqlServerLabContainerAutoStart'
+        }
+        'container-autostart-recovery-instance' = @{
+            Title = 'SQL-Instanz mit offener Autostart-Recovery auswählen'
+            Purpose = 'Wählt genau eine lokal gebundene Recovery-Instanz aus dem zuvor ausgewählten Lab.'
+            Effects = 'Zeigt Journalstatus und Zielpolicy aus dem validierten Journal. Der Resume-Befehl prüft Container-ID, Laufzustand und Restartpolicy erneut; nur danach darf er Lab-State persistieren. Zurück beendet ohne Schreibzugriff.'
+            Command = 'Resume-SqlServerLabContainerAutoStart'
+        }
         'main-menu' = @{
             Title   = 'Hauptmenue'
             Purpose = 'Einstieg in alle Bereiche des Labs. Die Auswahl oeffnet nur einen Unterbereich und veraendert nichts.'
@@ -162,6 +186,10 @@ function Get-LabConsoleHelpCatalog {
         'testmatrix-menu' = @{ Title = 'Geschützte Testsystem-Matrix'; Purpose = 'Vorhandene Fachabläufe auswählen. Nicht implementierte Abläufe sind deaktiviert und begründet.'; Effects = 'Die Bereichsauswahl ändert nichts. Zurück und Esc verlassen den Bereich.'; Command = 'New-SqlServerLabAutomatedTestEnvironment' }
         'resources-menu' = @{ Title = 'Ressourcen und Downloads'; Purpose = 'Vorhandene Fachabläufe auswählen. Nicht implementierte Abläufe sind deaktiviert und begründet.'; Effects = 'Die Bereichsauswahl ändert nichts. Zurück und Esc verlassen den Bereich.'; Command = 'Get-SqlServerLabResourcePlan' }
         'hostmodels-menu' = @{ Title = 'Host-Dienste und Modelle'; Purpose = 'Vorhandene Fachabläufe auswählen, etwa installierte llama.cpp-Pakete prüfen oder eine eigene Sitzung stoppen.'; Effects = 'Die Paketübersicht liest Backend und Build aus lokalen Dateibefunden. Zurück und Esc verlassen den Bereich.'; Command = 'Get-SqlServerLabLlamaCppRuntime' }
+        'sql-feature-target' = @{ Title = 'SQL-Instanz für Funktionsänderung'; Purpose = 'Eine registrierte Instanz der gewählten laufenden Umgebung auswählen.'; Effects = 'Erst die Bestätigung einer konkreten Funktion ändert SQL Server.'; Command = 'Set-SqlServerLabFeature' }
+        'sql-feature-operation' = @{ Title = 'SQL-Funktion ändern'; Purpose = 'Volltext installieren oder entfernen. Hyper-V bietet zusätzlich FILESTREAM.'; Effects = 'Bei einer bestätigten Änderung startet SQL neu. Abhängige Datenbanken können die Entfernung verhindern.'; Command = 'Set-SqlServerLabFeature' }
+        'ssis-diagnostic-kind' = @{ Title = 'SSIS-Diagnose'; Purpose = 'Ausführungsmetadaten aus SSISDB beobachten oder ein vertrauenswürdiges Paket im eigenen Windows-Lab laden.'; Effects = 'Die Diagnose bindet den vorhandenen Run und prüft die Angaben aus dem Beleg. Die Paketladung benötigt eine separate Vertrauensbestätigung.'; Command = 'Get-SqlServerLabSsisExecutionDiagnostic' }
+        'ssis-diagnostic-package-format' = @{ Title = 'SSIS-Paketformat'; Purpose = 'DTSX oder den exakten Paketnamen im ISPAC-Stammverzeichnis wählen.'; Effects = 'Die Paketbytes werden am erwarteten SHA-256 geprüft. Bei der Deserialisierung können installierte Komponenten Code laden.'; Command = 'Get-SqlServerLabSsisPackageDiagnostic' }
         'llama-guided-start-choice' = @{ Title = 'llama.cpp: eigener Start'; Purpose = 'Explizite Backend-, Geräteart- und Poolingwerte wählen; noch keine Bereitschaft geprüft.'; Effects = 'Nur RAM. Maskierte Pfade/Key: Esc, im Fallback Ctrl+C. Abbruch startet nichts.'; Command = 'Start-SqlServerLabLlamaCppRuntime' }
         'llama-guided-start-confirm' = @{ Title = 'Eigene llama.cpp-Sitzung starten'; Purpose = 'Explizite Eingaben und eigene Worker-/Key-/Lease-Auswirkungen bewusst bestätigen.'; Effects = 'Erst Bestätigung ruft vorhandenen Public-Start auf. Natürliche Confirm bleibt aktiv. WhatIf prüft keine Bereitschaft. Unbestätigtes Ergebnis kann eine aktive eigene Sitzung bedeuten; kein AutoStop/Retry. SQL bleibt NOT_CHECKED.'; Command = 'Start-SqlServerLabLlamaCppRuntime' }
         'llama-start-plan-choice' = @{ Title = 'llama.cpp-Startvorschau'; Purpose = 'Backend, Accelerator und Pooling ausdrücklich wählen; keine Geräteprüfung.'; Effects = 'Nur RAM-Eingaben. Esc/Zurück ruft keinen Plan und keine Runtime auf.'; Command = 'Get-SqlServerLabLlamaCppStartPlan' }
