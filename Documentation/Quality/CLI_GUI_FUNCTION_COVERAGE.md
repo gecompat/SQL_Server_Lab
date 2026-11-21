@@ -198,7 +198,11 @@ SQL-CUs abgeleitet.
    Funktionssuite, erforderlichen getrennten Runtime-Nachweisen und grüner
    Pflicht-CI kann ein Release gebaut werden.
 
-Der offene Podman-Fehler für PR #864 ist ein eigener Release-Blocker und darf
-nicht als TLS-Befund oder erfolgreicher Provider-Nachweis umgedeutet werden.
-TLS-001 ist entsprechend der Projektentscheidung zurückgestellt; diese
-Matrix autorisiert weder TLS-Runtime-Läufe noch Änderungen an CA oder Trust.
+Beim historischen Podman-Gate von PR #864 scheiterte der KI-Samples-Test.
+Sein eigener Cleanup war erfolgreich. Am 21.11.2026 bestand der übernommene
+CMS-Fix zur Wiederverwendung persistenter Labnamen auf dem aktuellen
+Entwicklungsstand je acht gezielte native Prüfungen mit Docker und Podman.
+Beide Abnahmen bestätigen das abschließende Inventar. Die Freigabe des
+integrierten Stands benötigt dessen eigene grüne Pflicht-CI.
+
+TLS-001 bleibt nach Projektentscheidung zurückgestellt.
