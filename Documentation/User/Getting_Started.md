@@ -2293,6 +2293,15 @@ und Hyper-V bleiben offen.
 
 ## Eine read-only Datenbank in einen neuen Container-Run übertragen
 
+Die CLI unter **Datenbanken, Samples und Skripte** und der Browser unter
+**Lab-Umgebungen → Datenbankpakete** bieten **Backupmedium am Zielcontainer
+vorprüfen** und **SQL-2025-Datenbank in neuen Container übertragen**.
+Beide Aktionen wählen ein registriertes Quellbackup aus dem konfigurierten
+Lab_Data. Die Vorprüfung verwendet eine bestehende Zielinstanz mit
+Backup-Mount. Beim Transfer wird ein eigener Ziel-Run erstellt. Bewahre die
+angezeigte Vorgangs-ID auf und verwende für die Wiederaufnahme dieselbe
+Auswahl. Im Browser steht der Befund im Live-Log.
+
 `Invoke-SqlServerLabPortableContainerTransfer` erstellt selbst einen eigenen
 SQL-2025-Linux-Ziel-Run beim Provider der Quelle (Docker oder Podman). Die Quelle
 muss bereits ONLINE/READ_ONLY sein; auch das registrierte Backup muss aus diesem

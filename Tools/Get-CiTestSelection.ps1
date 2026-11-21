@@ -202,6 +202,7 @@ end {
         @{ Pattern = '(?i)(PortableContainerTransferExecutor(?!Runtime)|portable-container-transfer-executor(?!-runtime))'; Checks = @('Invoke-PortableContainerTransferExecutorChecks.ps1') },
         @{ Pattern = '(?i)(PortableContainerTransferExecutorRuntime|Invoke-SqlServerLabPortableContainerTransfer|portable-container-transfer-journal|Invoke-PortableContainerTransferAcceptance)'; Checks = @('Invoke-PortableContainerTransferExecutorRuntimeChecks.ps1','Invoke-RelationalCoreComparisonChecks.ps1') },
         @{ Pattern = '(?i)(PortableContainerTransferPreflight|portable-container-transfer-preflight|TransferPreflightAcceptanceCleanup)'; Checks = @('Invoke-PortableContainerTransferPreflightChecks.ps1','Invoke-PortableContainerTransferExecutorChecks.ps1','Invoke-TransferPreflightAcceptanceCleanupChecks.ps1') },
+        @{ Pattern = '(?i)(PortableContainerTransferConsole|PortableContainerTransferUi|Ui/portable-container-transfer\.js)'; Checks = @('Invoke-PortableContainerTransferPreflightChecks.ps1','Invoke-WorkflowUiChecks.ps1') },
         @{ Pattern = '(?i)(RelationalCoreComparison|relational-core-comparison)'; Checks = @('Invoke-RelationalCoreComparisonChecks.ps1') },
         @{ Pattern = '(?i)(RelationalCoreComparisonUi|Ui/relational-core-comparison\.js)'; Checks = @('Invoke-WorkflowUiChecks.ps1') },
         @{ Pattern = '(?i)(EvaluationWatch|evaluation-watch|SqlGuestEvaluationEvidence|sql-guest-evaluation-evidence)'; Checks = @('Invoke-EvaluationWatchChecks.ps1') },

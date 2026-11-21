@@ -167,6 +167,10 @@ function Invoke-LabMenuAction {
     if ($ActionName -eq 'SsisDiagnostics') { Invoke-LabSsisDiagnosticsInteractive; return }
     if ($ActionName -eq 'SqlGuestEvaluationEvidence') { Invoke-LabSqlGuestEvaluationCaptureInteractive; return }
     if ($ActionName -eq 'RelationalCompare') { Invoke-LabRelationalComparisonInteractive; return }
+    if ($ActionName -in @('PortableTransferPreflight', 'PortableTransfer')) {
+        Invoke-LabPortableContainerTransferInteractive -Preflight:($ActionName -eq 'PortableTransferPreflight')
+        return
+    }
     if ($ActionName -eq 'EvaluationRefreshPlan') { Invoke-LabEvaluationRefreshPlanInteractive; return }
     if ($ActionName -eq 'HostServiceStart') { Invoke-LabLlamaCppStartInteractive; return }
     if ($ActionName -eq 'LlamaRuntimeInventory') { Show-LabLlamaCppRuntimeInventoryInteractive; return }
@@ -350,6 +354,8 @@ function Show-LabDatabaseMenu {
         New-LabConsoleItem -Id 'DatabasePackageInventory' -Label 'Datenbankpakete anzeigen' -Value 'read-only · stabile Paket-ID · pfadfrei' -Shortcut 'p'
         New-LabConsoleItem -Id 'DatabaseMigrationDependency' -Label 'Migrationsabhängigkeiten prüfen' -Value 'read-only · Counts · keine Exportmutation' -Shortcut 'g'
         New-LabConsoleItem -Id 'RelationalCompare' -Label 'Zwei Containerdatenbanken vergleichen' -Value 'Docker/Podman · RELATIONAL_CORE/1.0 · read-only' -Shortcut 'v'
+        New-LabConsoleItem -Id 'PortableTransferPreflight' -Label 'Backupmedium am Zielcontainer vorprüfen' -Value 'Temporäres Staging · kein Restore'
+        New-LabConsoleItem -Id 'PortableTransfer' -Label 'SQL-2025-Datenbank in neuen Container übertragen' -Value 'Registriertes Backup · eigener neuer Run'
         New-LabConsoleItem -Id 'ConnectionCenter' -Label 'Verbindungszentrale und SSMS-Endpunkte' -Shortcut 'c'
         New-LabConsoleItem -Id 'AiArea' -Label 'SQL Server 2025 KI' -Value 'Szenarien · Ollama lokal/Cloud · RAG · read-only Diagnose' -Shortcut 'a'
         New-LabConsoleItem -Id 'Catalog' -Label 'Lab-Katalog prüfen' -Value 'Katalogdatei validieren; kein CMS-Zugang' -Shortcut 'k'

@@ -1,4 +1,4 @@
-function Get-LabRelationalComparisonConsoleTargets {
+function Get-LabContainerSqlConsoleTargets {
     $stateRoot = Get-LabStateRoot
     foreach ($run in Get-LabActiveRuns -StateRoot $stateRoot -NoWrite) {
         $runId = [guid]::Empty
@@ -13,6 +13,7 @@ function Get-LabRelationalComparisonConsoleTargets {
             [pscustomobject]@{
                 RunId = $runId.ToString('D')
                 InstanceId = $instanceId
+                Provider = [string]$instance.provider
                 Label = '{0} · {1} · {2}' -f ($run.metadata.name ?? $runId), $instanceId, $instance.provider
             }
         }
@@ -21,7 +22,7 @@ function Get-LabRelationalComparisonConsoleTargets {
 
 function Invoke-LabRelationalComparisonInteractive {
     try {
-        $targets = @(Get-LabRelationalComparisonConsoleTargets)
+        $targets = @(Get-LabContainerSqlConsoleTargets)
         if ($targets.Count -lt 2) {
             Write-LabInfo 'Für den Vergleich sind zwei registrierte, laufende SQL-Containerinstanzen nötig.'
             $null = Wait-LabConsoleAcknowledgement

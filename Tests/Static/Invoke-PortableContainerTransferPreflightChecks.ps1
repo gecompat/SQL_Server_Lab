@@ -11,6 +11,7 @@ Add-CheckResult 'Preflight-Datei hat eindeutige Funktionsdefinitionen und einen 
 $schemas=@('portable-container-transfer-preflight-request.schema.json','portable-container-transfer-preflight-result.schema.json','portable-container-transfer-preflight-journal.schema.json');foreach($schema in $schemas){Add-CheckResult "Schema ist valide: $schema" ((Get-Content -LiteralPath (Join-Path $repoRoot "Schemas/$schema") -Raw -Encoding utf8|Test-Json))}
 Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue;$module=Import-Module (Join-Path $repoRoot 'SqlServerLab.psd1') -Force -PassThru
 try{
+ & (Join-Path $PSScriptRoot 'Fixtures/PortableContainerTransferConsoleChecks.ps1') -Module $module
  $sourceRun='11111111-1111-1111-1111-111111111111';$targetRun='22222222-2222-2222-2222-222222222222';$backupId='33333333-3333-3333-3333-333333333333';$root=Join-Path ([IO.Path]::GetTempPath()) "sql-server-lab-transfer-preflight-$([guid]::NewGuid().ToString('N'))";New-Item -ItemType Directory -Path $root -Force|Out-Null
  $selection=@([pscustomobject]@{SourceDatabaseName='SourceDb';TargetDatabaseName='TargetDb';BackupSetId=$backupId})
  $result=Invoke-SqlServerLabPortableContainerTransferPreflight -SourceRunId $sourceRun -SourceInstanceId source -TargetRunId $targetRun -TargetInstanceId target -DatabaseTransfers $selection -DataRoot $root -StateRoot $root

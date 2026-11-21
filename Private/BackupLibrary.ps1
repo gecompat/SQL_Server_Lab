@@ -312,6 +312,8 @@ function Get-LabDatabaseBackupSelection {
             BackupSetId = [string]$record.BackupSetId
             Availability = $availability
             DatabaseName = [string]$record.DatabaseName
+            SourceRunId = [string]$record.Source.RunId
+            SourceInstanceId = [string]$record.Source.InstanceId
             SourceProvider = [string]$record.Source.Provider
             SourceSqlMajorVersion = [string]$record.Source.SqlMajorVersion
             Bytes = [long]$record.Artifact.Bytes

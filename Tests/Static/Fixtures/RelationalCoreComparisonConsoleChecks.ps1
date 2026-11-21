@@ -27,11 +27,11 @@ $ErrorActionPreference = 'Stop'
                     $LiteralPath -notlike "*\$($source.RunId)\connection-info.json") { throw 'UNEXPECTED_CATALOG_PATH' }
                 '{"instances":[{"id":"primary","provider":"docker"},{"id":"dup","provider":"podman"},{"id":"dup","provider":"podman"},{"id":"guest","provider":"hyperv"}]}'
             }
-            $visible = @(Get-LabRelationalComparisonConsoleTargets)
+            $visible = @(Get-LabContainerSqlConsoleTargets)
             if ($visible.Count -ne 1 -or $visible[0].InstanceId -ne 'primary') { throw 'GUIDED_COMPARISON_DISCOVERY_INVALID' }
             Write-Host 'PASS: Die Instanzauswahl liest nur gültige laufende Container-Runs und blendet doppelte IDs aus.'
         }
-        function Get-LabRelationalComparisonConsoleTargets { $source; $target }
+        function Get-LabContainerSqlConsoleTargets { $source; $target }
         function Select-LabConsoleDataItem {
             param($ScreenId, $Title, $Items)
             if ($ScreenId -ceq 'relational-compare-Source' -and $Items.Count -eq 2) { return $Items[0].Data }

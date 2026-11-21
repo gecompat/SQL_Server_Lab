@@ -297,6 +297,10 @@
       <div id="database-package-details" class="selection-details" aria-live="polite">Die Auswahl erfolgt ausschließlich über die stabile DatabasePackageId; Hostpfade und Hashes werden nicht an den Browser übertragen.</div>
       <div class="build-actions"><button id="database-package-attach" type="button" class="button primary" disabled>Paketkopie prüfen und attachen</button></div>
       <div class="build-actions"><button id="relational-compare-open" type="button" class="button secondary">Zwei Containerdatenbanken vergleichen</button></div>
+      <div class="build-actions">
+        <button id="portable-media-open" type="button" class="button secondary">Backupmedium am Zielcontainer vorprüfen</button>
+        <button id="portable-transfer-open" type="button" class="button secondary">SQL-2025-Datenbank in neuen Container übertragen</button>
+      </div>
       <p class="form-note">Die Inventur hasht große Objekte nicht bei jedem Refresh und zeigt nur sanitisierte Migrationskategorien und Warnungen. Beim Attach werden Paket, scopegebundener Ziel-Run, SQL-Version, FILESTREAM/TDE und das live von SQL Server gemeldete Default-Data-Ziel frisch revalidiert; ein freier Pfad kann nicht eingegeben werden.</p>
     </section>
 
@@ -1016,6 +1020,21 @@
       </div>
     </form>
   </dialog>
+  <dialog id="portable-transfer-dialog">
+    <form id="portable-transfer-form">
+      <h2 id="portable-transfer-title"></h2>
+      <p id="portable-transfer-notice" class="form-note"></p>
+      <label>Registriertes Quellbackup<select id="portable-transfer-backup" required></select></label>
+      <label id="portable-transfer-target-field">Vorhandene Zielinstanz<select id="portable-transfer-target"></select></label>
+      <label>Zieldatenbankname<input id="portable-transfer-database" required pattern="[A-Za-z][A-Za-z0-9_]{0,127}" maxlength="128"></label>
+      <label id="portable-transfer-intent-field">Vorgangs-ID für Start oder Wiederaufnahme<input id="portable-transfer-intent" maxlength="36"></label>
+      <p id="portable-transfer-status" role="status"></p>
+      <div class="dialog-actions">
+        <button id="portable-transfer-next" type="submit" class="button primary">Weiter zur Bestätigung</button>
+        <button id="portable-transfer-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </form>
+  </dialog>
   <dialog id="relational-compare-dialog">
     <form id="relational-compare-form">
       <h2>Zwei Containerdatenbanken vergleichen</h2>
@@ -1061,6 +1080,7 @@
   <script src="evaluation-watch-trigger.js"></script>
   <script src="relational-core-comparison.js"></script>
   <script src="ovms-upstream.js"></script>
+  <script src="portable-container-transfer.js"></script>
 
   <dialog id="external-runtime-dialog">
     <div class="read-only-dialog-content">
