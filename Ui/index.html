@@ -135,6 +135,7 @@
       <p id="ai-compute-inventory-status" role="status"></p>
       <button id="ai-runtime-capability-read" type="button" class="button secondary">llama.cpp-Eignung prüfen</button>
       <p id="ai-runtime-capability-status" role="status"></p>
+      <button id="ovms-upstream-open" type="button" class="button secondary">Lokalen OVMS-Embedding-Dienst prüfen</button>
       <button id="llama-start-plan-open" type="button" class="button secondary">llama.cpp: reine Startvorschau</button>
       <button id="llama-start-open" type="button" class="button secondary">llama.cpp: eigene Sitzung starten</button>
     </section>
@@ -999,6 +1000,22 @@
     </div>
   </dialog>
   <script src="evaluation-refresh-plan.js"></script>
+  <dialog id="ovms-upstream-dialog">
+    <form id="ovms-upstream-form">
+      <h2>Lokalen OVMS-Embedding-Dienst prüfen</h2>
+      <p class="form-note">Ein synthetischer Request an den bereits laufenden OVMS-Dienst. Das Ergebnis meldet die geprüfte Embedding-Dimension.</p>
+      <label>Loopback-Adresse<select id="ovms-upstream-address"><option value="127.0.0.1">127.0.0.1 (IPv4)</option><option value="[::1]">::1 (IPv6)</option></select></label>
+      <label>OVMS-Port<input id="ovms-upstream-port" type="number" min="1024" max="65535" value="9000" required></label>
+      <label>Exakter OVMS-Modellname<input id="ovms-upstream-model" maxlength="256" required></label>
+      <label>Erwartete Embedding-Dimension<input id="ovms-upstream-dimension" type="number" min="1" max="1998" required></label>
+      <label>Timeout in Sekunden<input id="ovms-upstream-timeout" type="number" min="1" max="300" value="30" required></label>
+      <p id="ovms-upstream-status" role="status"></p>
+      <div class="dialog-actions">
+        <button type="submit" class="button primary">Weiter zur Bestätigung</button>
+        <button id="ovms-upstream-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </form>
+  </dialog>
   <dialog id="relational-compare-dialog">
     <form id="relational-compare-form">
       <h2>Zwei Containerdatenbanken vergleichen</h2>
@@ -1043,6 +1060,7 @@
   <script src="sql-guest-evaluation-evidence.js"></script>
   <script src="evaluation-watch-trigger.js"></script>
   <script src="relational-core-comparison.js"></script>
+  <script src="ovms-upstream.js"></script>
 
   <dialog id="external-runtime-dialog">
     <div class="read-only-dialog-content">

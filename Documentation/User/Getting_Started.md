@@ -2397,6 +2397,11 @@ gespeicherter Fristen öffne **Fristen zeitgesteuert prüfen**. In der CLI
 liegt diese Aktion unter **Windows-/SQL-Evaluationsfristen**. Gib Intervall
 und Anzahl an. Das lokale Speichern neuer Warnereignisse ist optional.
 
+Wenn OVMS bereits lokal läuft, öffne **Host-Dienste und Modelle →
+Lokalen OVMS-Embedding-Dienst prüfen**. Wähle IPv4 oder IPv6, gib Port,
+Modellname und erwartete Embedding-Dimension ein und bestätige den
+synthetischen Request. In der Browseroberfläche steht der Befund im Live-Log.
+
 Lokale Windows-llama.cpp-Pakete für SQL Server 2025 lassen sich vor der
 Modellauswahl mit `Get-SqlServerLabLlamaCppRuntime -SearchRoot 'C:\Pfad\llama'`
 rein lesend erkennen. Hashes sind dafür nicht erforderlich. Die Ausgabe belegt

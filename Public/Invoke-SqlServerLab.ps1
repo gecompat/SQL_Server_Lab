@@ -171,6 +171,7 @@ function Invoke-LabMenuAction {
     if ($ActionName -eq 'HostServiceStart') { Invoke-LabLlamaCppStartInteractive; return }
     if ($ActionName -eq 'LlamaRuntimeInventory') { Show-LabLlamaCppRuntimeInventoryInteractive; return }
     if ($ActionName -eq 'AiRuntimeCapability') { Show-LabAiRuntimeCapabilityInteractive; return }
+    if ($ActionName -eq 'OvmsUpstream') { Invoke-LabOvmsUpstreamInteractive; return }
     if ($ActionName -eq 'AiComputeInventory') { Show-LabAiComputeInventoryInteractive; return }
     if ($ActionName -eq 'HyperVAutoStartRecovery') { Invoke-LabHyperVAutoStartRecoveryInteractive; return }
     if ($ActionName -eq 'HyperVAutoStart') { Invoke-LabHyperVAutoStartInteractive; return }
