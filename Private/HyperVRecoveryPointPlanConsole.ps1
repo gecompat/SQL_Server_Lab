@@ -2,7 +2,7 @@ function Show-LabHyperVRecoveryPointPlanInteractive {
     $stateRoot = Get-LabStateRoot
     $runs = @(Get-LabActiveRuns -StateRoot $stateRoot -NoWrite | Where-Object { $_.metadata.workflowKind -ceq 'hyperv-lab' })
     if (-not $runs.Count) {
-        Write-LabInfo 'Kein registriertes Hyper-V-Lab gefunden.'
+        Write-Host 'Kein registriertes Hyper-V-Lab gefunden.'
         $null = Wait-LabConsoleAcknowledgement
         return
     }
@@ -21,14 +21,14 @@ function Show-LabHyperVRecoveryPointPlanInteractive {
         switch ($plan.Status) {
             'READY' {
                 foreach ($point in $plan.RecoveryPoints) {
-                    Write-LabInfo ('{0} · {1} · {2}' -f $point.CreatedAt, $point.Kind, $point.RecoveryPointId)
+                    Write-Host ('{0} · {1} · {2}' -f $point.CreatedAt, $point.Kind, $point.RecoveryPointId)
                 }
             }
-            'NO_ACTION' { Write-LabInfo 'Für dieses Lab sind keine Checkpoints vorhanden.' }
-            'BLOCKED' { Write-LabWarning ('Inventar nicht verfügbar ({0}).' -f ($plan.Blockers -join ', ')) }
+            'NO_ACTION' { Write-Host 'Für dieses Lab sind keine Checkpoints vorhanden.' }
+            'BLOCKED' { Write-Host ('Inventar nicht verfügbar ({0}).' -f ($plan.Blockers -join ', ')) -ForegroundColor Yellow }
             default { throw 'HYPERV_RECOVERY_POINT_PLAN_INVALID' }
         }
     }
-    catch { Write-LabError 'Die Wiederherstellungspunkte des gewählten Labs konnten nicht gelesen werden.' }
+    catch { Write-Host 'Die Wiederherstellungspunkte des gewählten Labs konnten nicht gelesen werden.' -ForegroundColor Red }
     $null = Wait-LabConsoleAcknowledgement
 }

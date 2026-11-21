@@ -123,6 +123,7 @@ und dem [Gruppenvertrag](../Architecture/LAB_ENVIRONMENT_GROUPS.md).
 | Metadaten eines entfernten Runs prüfen und entfernen (`Get-SqlServerLabRunArtifactRemovalPlan`, `Invoke-SqlServerLabRunArtifactRemoval`) | Wartung, Aufräumen und Recovery → Artefakte eines entfernten Runs | Wartung und Recovery → Run-Artefakte prüfen | `GUIDED_BOTH`. Dieselben Cmdlets für gebundene Vorschau, bestätigte Entfernung und Fortsetzung. Workflow-UI und CLI-Vertragsfälle mit synthetischem State. |
 | Evaluationsersatz oder Migration vorprüfen (`Get-SqlServerLabEvaluationRefreshPlan`) | Wartung, Aufräumen und Recovery → SQL-Evaluation: Ersatz- und Migrationsentscheid | Wartung und Recovery → SQL-Evaluation: Ersatzentscheid | `GUIDED_BOTH` für die lesende Vorschau. Synthetische CLI-, HTTP- und Browserfälle. Die Vorschau führt keine Übernahme aus. |
 | Vorhandene Hyper-V-Checkpoints lesen (`Get-SqlServerLabHyperVRecoveryPointPlan`) | Wartung, Aufräumen und Recovery → Hyper-V-Wiederherstellungspunkte lesen | Wartung → Hyper-V-Wiederherstellungspunkte lesen | `GUIDED_BOTH` für das Checkpoint-Inventar. Synthetische Menü- und HTTP-Bindung geprüft. Native Oberflächenabnahme `NOT_EXECUTED`. |
+| Gespeicherten Diagnosebefund lesen (`Get-SqlServerLabDiagnosticBundle -SkipReadiness`) | Wartung, Aufräumen und Recovery → Gespeicherten Diagnosebefund lesen | Wartung → Gespeicherten Diagnosebefund lesen | `GUIDED_BOTH` für gebundene Metadaten im Standard-Lab_Data. Native Provider- und SQL-Readiness sind hier `NOT_EXECUTED`. |
 
 ## Bereichsinventar
 

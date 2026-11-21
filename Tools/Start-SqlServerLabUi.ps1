@@ -1022,6 +1022,39 @@ try {
                 finally { $bodyRead=$null; $package=$null }
                 continue
             }
+            if ($path -ceq '/api/diagnostic-bundle') {
+                try {
+                    $query = $context.Request.QueryString
+                    $runIds = @($query.GetValues('runId'))
+                    $instanceIds = @($query.GetValues('instanceId'))
+                    $providers = @($query.GetValues('provider'))
+                    $requestedRun = [guid]::Empty
+                    if ($context.Request.HttpMethod -cne 'GET' -or $context.Request.HasEntityBody -or $query.Count -ne 3 -or
+                        $runIds.Count -ne 1 -or -not [guid]::TryParseExact($runIds[0], 'D', [ref]$requestedRun) -or
+                        $requestedRun -eq [guid]::Empty -or $instanceIds.Count -ne 1 -or
+                        [string]$instanceIds[0] -cnotmatch '\A[A-Za-z][A-Za-z0-9_-]{0,63}\z' -or
+                        $providers.Count -ne 1 -or $providers[0] -cnotin @('docker','podman','hyperv')) {
+                        throw 'DIAGNOSTIC_BUNDLE_UI_REQUEST_INVALID'
+                    }
+                    $bundle = & (Get-Module SqlServerLab) {
+                        param($RunId,$InstanceId,$Provider)
+                        $dataRoot = Get-LabDataRootDefault
+                        if (-not $dataRoot) { throw 'DIAGNOSTIC_BUNDLE_UI_ROOT_MISSING' }
+                        $pathComparison = if ($IsWindows) { [StringComparison]::OrdinalIgnoreCase } else { [StringComparison]::Ordinal }
+                        if (-not [string]::Equals(
+                            [IO.Path]::TrimEndingDirectorySeparator([IO.Path]::GetFullPath((Get-LabStateRoot))),
+                            [IO.Path]::GetFullPath((Join-Path $dataRoot 'State')), $pathComparison)) {
+                            throw 'DIAGNOSTIC_BUNDLE_UI_ROOT_MISMATCH'
+                        }
+                        Get-SqlServerLabDiagnosticBundle -RunId $RunId -InstanceId $InstanceId -Provider $Provider -DataRoot $dataRoot -SkipReadiness
+                    } $requestedRun.ToString('D') $instanceIds[0] $providers[0]
+                    Write-UiResponse -Context $context -Body ($bundle | ConvertTo-Json -Depth 12 -Compress) -ContentType 'application/json; charset=utf-8'
+                }
+                catch {
+                    Write-UiResponse -Context $context -Body '{"Code":"DIAGNOSTIC_BUNDLE_UNAVAILABLE"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                }
+                continue
+            }
             if ($path -ceq '/api/hyperv-recovery-point-plan') {
                 try {
                     $query = $context.Request.QueryString

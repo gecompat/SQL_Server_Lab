@@ -171,6 +171,7 @@ function Invoke-LabMenuAction {
     if ($ActionName -eq 'ContainerNetworkPlan') { Show-LabContainerNetworkMigrationPlanInteractive; return }
     if ($ActionName -eq 'AutomationApiPlan') { Show-LabAutomationApiPlanInteractive; return }
     if ($ActionName -eq 'HyperVRecoveryPointPlan') { Show-LabHyperVRecoveryPointPlanInteractive; return }
+    if ($ActionName -eq 'DiagnosticBundle') { Show-LabDiagnosticBundleInteractive; return }
     if ($ActionName -in @('PortableTransferPreflight', 'PortableTransfer')) {
         Invoke-LabPortableContainerTransferInteractive -Preflight:($ActionName -eq 'PortableTransferPreflight')
         return

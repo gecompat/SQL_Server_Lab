@@ -2408,6 +2408,12 @@ Konsole und im Browser ein registriertes Lab auswählen und Checkpoint-ID,
 Typ und Erstellungszeit lesen. Die Ansicht bietet Inventar und Blocker.
 Checkpoint-Erstellung, SQL-Quiesce und Restore sind noch nicht implementiert.
 
+**Wartung → Gespeicherten Diagnosebefund lesen** zeigt für eine Instanz im
+registrierten Standard-Lab_Data den gespeicherten Zustand, die Fehleranzahl,
+Recovery und den Aufräumstatus. Die Ansicht führt keine SQL- oder
+Providerprüfung durch und erstellt keinen Export. Im Browser muss der
+ausgewählte State zum Standard-Lab_Data gehören.
+
 Öffne unter **Wartung → Automatisierungsschnittstelle ansehen** einen
 Fachbereich. Dort stehen der öffentliche Planbefehl, seine Pflichtparameter
 und der separate Aktionsbefehl, sofern vorhanden. Die Ansicht beschreibt

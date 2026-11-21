@@ -323,6 +323,12 @@ function Get-LabConsoleHelpCatalog {
             Effects = 'Die Ansicht beschreibt die Schnittstelle. Sie startet keinen Vorgang und greift auf keinen Lab-State zu.'
             Command = 'Get-SqlServerLabAutomationPlan'
         }
+        'diagnostic-bundle-instance' = @{
+            Title = 'Gespeicherter Diagnosebefund'
+            Purpose = 'Die Instanz im registrierten Standard-Lab_Data auswählen.'
+            Effects = 'Die Ansicht liest gespeicherte Zustands- und Recovery-Evidence. Sie erstellt keinen Export und führt keine Liveprobe aus.'
+            Command = 'Get-SqlServerLabDiagnosticBundle'
+        }
         'relational-compare-Source' = @{
             Title = 'Quelle für Datenbankvergleich'
             Purpose = 'Eine laufende verwaltete Docker- oder Podman-Instanz mit einer ONLINE- und READ_ONLY-Datenbank auswählen.'

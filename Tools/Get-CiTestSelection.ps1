@@ -236,6 +236,7 @@ end {
         @{ Pattern = '(?i)(ExternalRuntimeCapability|external-runtime-capability|Private/ManifestBuilder\.ps1)'; Checks = @('Invoke-ExternalRuntimeCapabilityChecks.ps1','Invoke-ExternalRuntimeCapabilityBrowserChecks.ps1','Invoke-SoftwareCatalogChecks.ps1','Invoke-ClientReadinessChecks.ps1','Invoke-ManifestBuilderChecks.ps1') },
         @{ Pattern = '(?i)(ClientReadiness|client-readiness|HostToolResolution|StorageContract|SqlServerLab\.ps[dm]1)'; Checks = @('Invoke-ClientReadinessChecks.ps1') },
         @{ Pattern = '(?i)(DiagnosticBundle|DiagnosticReadiness|diagnostic-bundle|DIAGNOSTIC_BUNDLE|ClientReadiness|StateMachine|DesiredState|StorageContract|CleanupEngine|Private/BatchWorkflow\.ps1|sql-server-versions)'; Checks = @('Invoke-DiagnosticBundleChecks.ps1') },
+        @{ Pattern = '(?i)(DiagnosticBundleUiChecks|Ui/diagnostic-bundle\.js)'; Checks = @('Invoke-WorkflowUiChecks.ps1') },
         @{ Pattern = '(?i)(^\.agents/skills/|Invoke-SkillChecks|REPOSITORY_AGENT_SKILLS_BACKLOG|SqlServerLab\.psd1)'; Checks = @('Invoke-SkillChecks.ps1','Invoke-DocumentationChecks.ps1','Invoke-PrivacyScannerChecks.ps1') },
         @{ Pattern = '(?i)(CapabilityInventory|capability-evidence-index|ProviderCapability|provider\.json|SqlServerLab\.ps[dm]1)'; Checks = @('Invoke-CapabilityInventoryChecks.ps1') },
         @{ Pattern = '(?i)(CapabilityEvidence|capability-evidence-index|CapabilityInventory|ExternalRuntimeCapability|TestTemporaryDirectory)'; Checks = @('Invoke-CapabilityEvidenceIdentityChecks.ps1','Invoke-TestTemporaryDirectoryChecks.ps1') },

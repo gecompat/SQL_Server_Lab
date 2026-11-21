@@ -1172,6 +1172,7 @@ function Show-LabMaintenanceMenu {
         New-LabConsoleItem -Id ContainerNetworkPlan -Label 'Lab-Netz auf Subnetzkonflikt prüfen' -Value 'Docker oder Podman · lesende Vorschau'
         New-LabConsoleItem -Id AutomationApiPlan -Label 'Automatisierungsschnittstelle ansehen' -Value 'Fachverträge und Pflichtparameter'
         New-LabConsoleItem -Id HyperVRecoveryPointPlan -Label 'Hyper-V-Wiederherstellungspunkte lesen' -Value 'Checkpoint-Inventar eines registrierten Labs'
+        New-LabConsoleItem -Id DiagnosticBundle -Label 'Gespeicherten Diagnosebefund lesen' -Value 'Instanzzustand, Recovery und Cleanup im Standard-Lab_Data'
         New-LabConsoleItem -Id Messages -Label 'Meldungen dieser Sitzung' -Value 'Warnungen und Fehler · kopierbar · Journalpfad' -Shortcut 6
         New-LabConsoleItem -Id RetainedStoreRemoval -Label 'Behaltenen SQL-Speicher löschen' -Value 'gesonderter bestätigter Entfernungsplan' -Shortcut l
         New-LabConsoleItem -Id RunArtifactRemoval -Label 'Artefakte eines entfernten Runs' -Value 'Einzelauswahl · Vorschau · bestätigte Entfernung / Resume' -Shortcut r
