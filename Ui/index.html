@@ -563,8 +563,9 @@
     <form id="sql-feature-form" method="dialog">
       <div class="dialog-heading"><div><p class="eyebrow">SQL-FUNKTIONEN</p><h2>Funktion hinzufügen oder entfernen</h2></div><button type="button" class="icon-button" value="cancel" formnovalidate aria-label="Schließen">×</button></div>
       <input id="sql-feature-run" type="hidden"><input id="sql-feature-instance" type="hidden">
+      <p id="sql-feature-target" class="form-note"></p>
       <label>Funktion<select id="sql-feature-name"><option value="FullText">Volltextsuche</option><option id="sql-feature-filestream-option" value="FileStream">FILESTREAM (T-SQL)</option></select></label>
-      <label>Zielzustand<select id="sql-feature-enabled"><option value="true">Hinzufügen / einschalten</option><option value="false">Entfernen / ausschalten</option></select></label>
+      <label>Zielzustand<select id="sql-feature-enabled" required><option value="">Bitte auswählen</option><option value="true">Nachinstallieren / aktivieren</option><option value="false">Deaktivieren / Komponente entfernen</option></select></label>
       <p id="sql-feature-note" class="form-note"></p>
       <label id="sql-feature-password-label">SA-Passwort (optional bei gespeichertem Zugang)<input id="sql-feature-password" type="password" autocomplete="current-password"></label>
       <p class="form-note">SQL wird bei einer Änderung neu gestartet. Abhängige Indizes oder FILESTREAM-Daten blockieren das Entfernen. Es werden keine Daten gelöscht.</p>

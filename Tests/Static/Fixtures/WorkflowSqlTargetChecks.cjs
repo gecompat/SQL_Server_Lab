@@ -1199,25 +1199,40 @@ async function main() {
     assert.deepEqual(JSON.parse(run("JSON.stringify(collectHyperVSqlFeatureParameters({Workload:'sql'}))")), {});
   });
   for (const provider of ['docker', 'podman', 'hyperv']) {
-    const button = { dataset: { run: 'synthetic-feature-run', instance: 'secondary', provider } };
+    const button = { dataset: { run: 'synthetic-feature-run', instance: 'secondary', provider, labName: 'SQL-Lab' } };
     const event = { target: { closest: selector => selector === '[data-sql-features]' ? button : null } };
     for (const handler of documentEvents.get('click') || []) handler(event);
     check(provider + ' feature dialog carries exact target and FILESTREAM capability', () => {
       assert.equal(node('sql-feature-run').value, 'synthetic-feature-run');
       assert.equal(node('sql-feature-instance').value, 'secondary');
+      assert.equal(node('sql-feature-target').textContent, 'SQL-Lab · secondary');
+      assert.equal(node('sql-feature-enabled').value, '');
       assert.equal(node('sql-feature-filestream-option').disabled, provider !== 'hyperv');
       assert.equal(node('sql-feature-password-label').hidden, provider === 'hyperv');
     });
-    node('sql-feature-name').value = provider === 'hyperv' ? 'FileStream' : 'FullText';
-    node('sql-feature-enabled').value = 'false';
-    for (const handler of node('sql-feature-form').events.get('submit') || []) handler({ submitter: { value: 'default' }, preventDefault() {} });
-    check(provider + ' feature removal dispatches boolean false and selected instance', () => {
-      const request = context.queued.at(-1);
-      assert.equal(request.action, 'SetSqlFeature');
-      assert.equal(request.parameters.InstanceId, 'secondary');
-      assert.equal(request.parameters.SqlFeatureEnabled, false);
-      assert.equal(request.parameters.SqlFeature, provider === 'hyperv' ? 'FileStream' : 'FullText');
-    });
+    const submitFeature = () => {
+      for (const handler of node('sql-feature-form').events.get('submit') || []) handler({ submitter: { value: 'default' }, preventDefault() {} });
+    };
+    const queueBefore = context.queued.length;
+    submitFeature();
+    check(provider + ' dispatches nothing without an explicit choice', () => assert.equal(context.queued.length, queueBefore));
+    for (const enabled of [true, false]) {
+      node('sql-feature-enabled').value = String(enabled);
+      submitFeature();
+      check(provider + ' binds FullText ' + enabled + ' to the selected instance', () => {
+        const request = context.queued.at(-1);
+        assert.equal(request.action, 'SetSqlFeature');
+        assert.equal(request.parameters.RunId, 'synthetic-feature-run');
+        assert.equal(request.parameters.InstanceId, 'secondary');
+        assert.equal(request.parameters.SqlFeatureEnabled, enabled);
+        assert.equal(request.parameters.SqlFeature, 'FullText');
+      });
+    }
+    if (provider === 'hyperv') {
+      node('sql-feature-name').value = 'FileStream';
+      submitFeature();
+      check('Hyper-V keeps the FILESTREAM action', () => assert.equal(context.queued.at(-1).parameters.SqlFeature, 'FileStream'));
+    }
   }
   const queuedBeforeCancel = context.queued.length;
   for (const handler of node('sql-feature-form').events.get('submit') || []) handler({ submitter: { value: 'cancel' }, preventDefault() {} });

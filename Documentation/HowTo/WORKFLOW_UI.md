@@ -912,6 +912,20 @@ Invoke-SqlServerLabWorkflowAction `
 Ein Reattach bindet nur den Datenträger. Vorhandene Datenbankdateien werden
 erst über eine ausdrückliche Restore- oder Attach-Aktion online gebracht.
 
+### Volltextsuche für eine vorhandene Umgebung ändern
+
+Wähle in der CLI unter **Lab-Umgebungen → Umgebung auswählen und verwalten**
+das laufende Lab und dann **Volltextsuche ändern**. Hat das Lab mehrere
+SQL-Instanzen, wähle die betroffene Instanz. Im Browser steht die Aktion
+unter **Lab verwalten** direkt an der laufenden SQL-Instanz. Bei Hyper-V
+heißt sie **Volltextsuche / FILESTREAM**.
+
+Wähle **Nachinstallieren** oder **Deaktivieren** und bestätige die Änderung.
+Beim Deaktivieren entfernt das Lab die Volltextkomponente. Abhängige
+Volltextindizes sperren diesen Schritt. Eine tatsächliche Änderung startet
+SQL Server neu. Unter Hyper-V müssen passende, verifizierte SQL-Medien im
+konfigurierten Media Root verfügbar sein.
+
 ### SMTP-Testdienst prüfen
 
 Öffne **Lab-Umgebungen → SMTP-Testdienst prüfen** und wähle ein

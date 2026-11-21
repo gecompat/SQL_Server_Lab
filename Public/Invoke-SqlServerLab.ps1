@@ -5761,6 +5761,9 @@ function Manage-LabHyperVEnvironmentInteractive {
         elseif ($persistentStoragePending) { New-LabConsoleItem -Id 'i' -Label 'Daten-VHDX initialisieren' -Shortcut 'i' }
         if ($isSqlLab) {
             New-LabConsoleItem -Id 'c' -Label 'SQL CompleteImage ausführen' -Shortcut 'c' -Value 'MSSQLSERVER vervollständigen'
+            New-LabConsoleItem -Id 'fulltext' -Label 'Volltextsuche ändern' -Shortcut 'f' -Value 'Nachinstallieren oder deaktivieren' `
+                -Disabled:([string]$selectedLab.Run.state -cne 'RUNNING' -or -not $selectedLab.Instance.id) `
+                -DisabledReason 'Die registrierte SQL-Instanz muss laufen und eindeutig zugeordnet sein.'
             New-LabConsoleItem -Id 'h' -Label 'Host-SSMS einrichten' -Shortcut 'h' -Value 'Netzwerk, SQL-TCP und Host-Verbindung'
             New-LabConsoleItem -Id 'q' -Label 'SQL-Instanzen prüfen' -Shortcut 'q'
             New-LabConsoleItem -Id 'w' -Label 'SQL-WMI reparieren' -Shortcut 'w'
@@ -5810,6 +5813,10 @@ function Manage-LabHyperVEnvironmentInteractive {
             'p' { $result = Stop-HyperVLabEnvironment -RunId $runId; Write-LabSuccess "VM gestoppt: $($result.VMName)" }
             'resources' { Set-LabResourcesInteractive -RunId $runId }
             'windows-access' { Show-LabGeneratedWindowsAccessInteractive -RunId $runId }
+            'fulltext' {
+                if (-not $selectedLab.Instance.id) { throw 'SQL_FEATURE_RUNNING_INSTANCE_REQUIRED' }
+                Invoke-LabSqlFeatureInteractive -RunId $runId -InstanceId ([string]$selectedLab.Instance.id) -FullTextOnly
+            }
             'd' {
                 if ($persistentStorage) { Write-LabWarning 'Für diese Umgebung ist bereits eine Daten-VHDX angehängt.'; return }
                 $dataRoot = Get-LabDataRootDefault
@@ -6814,6 +6821,8 @@ function Manage-LabEnvironmentInteractive {
     $actionItems = @(
         New-LabConsoleItem -Id 'lifecycle' -Label 'Starten oder stoppen' -Value 'abhängig vom aktuellen Zustand' -Shortcut 's'
         New-LabConsoleItem -Id 'resources' -Label 'CPU und Speicher aendern' -Value 'Docker-/Podman-Limits' -Shortcut 'r'
+        New-LabConsoleItem -Id 'fulltext' -Label 'Volltextsuche ändern' -Shortcut 'f' -Value 'Nachinstallieren oder deaktivieren' `
+            -Disabled:([string]$synced.Runtime.State -ne 'RUNNING') -DisabledReason 'Die SQL-Umgebung muss laufen.'
         New-LabConsoleItem -Id 'external-runtime' -Label 'External Languages installieren oder aendern' `
             -Value $externalRuntimeValue -Shortcut 'x' -Disabled:(-not $externalRuntimeEligible) `
             -DisabledReason $externalRuntimeDisabledReason
@@ -6835,6 +6844,7 @@ function Manage-LabEnvironmentInteractive {
         switch ($action) {
             's' { if ([string]$synced.Runtime.State -eq 'RUNNING') { Stop-SqlServerLab -RunId $runId } else { Start-SqlServerLab -RunId $runId } }
             'r' { Set-LabResourcesInteractive -RunId $runId }
+            'f' { Invoke-LabSqlFeatureInteractive -RunId $runId -FullTextOnly }
             'x' {
                 $externalRuntimeResult = Manage-LabExternalRuntimeInteractive -RunId $runId
                 $explicitlyChanged = [bool]($externalRuntimeResult -and $externalRuntimeResult.MutationAllowed)
