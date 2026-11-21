@@ -14,6 +14,10 @@ Windows-Labs → Eigenes DTSX/ISPAC im Gast laden und Komponenten beobachten**
 zur Paketladediagnose. Der Dialog erfasst Run, Instanz, Paket und erwarteten
 SHA-256. Er maskiert den lokalen Paketpfad und verlangt vor dem Gastaufruf
 eine Bestätigung, dass das Paket vertrauenswürdig und an den Beleg gebunden ist.
+In der Browser-GUI führt **Lab verwalten → Reguläre Hyper-V-Umgebungen →
+SSIS-Paketladediagnose** zur selben Diagnose. Das Formular maskiert den
+lokalen Paketpfad, verwirft die Eingaben bei der Übermittlung und zeigt den
+Ladestatus sowie numerische Ereigniscodes.
 
 Der Aufrufer liefert ein eigenes vertrauenswürdiges synthetisches DTSX oder
 ISPAC und den erwarteten SHA-256 aus seiner bisherigen lokalen Receipt.

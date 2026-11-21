@@ -117,4 +117,5 @@ function Invoke-LabSsisDiagnosticsInteractive {
     }finally{
         $arguments.Clear();$result=$null;$path=$null;$hash=$null;$packageName=$null
     }
+    $null=Wait-LabConsoleAcknowledgement
 }

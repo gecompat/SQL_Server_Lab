@@ -918,7 +918,7 @@ try {
                 }
                 continue
             }
-            if ($path -ceq '/api/ssis-execution-diagnostic') {
+            if ($path -cin @('/api/ssis-execution-diagnostic', '/api/ssis-package-diagnostic')) {
                 try {
                     $request = $context.Request
                     if ($request.HttpMethod -cne 'POST' -or $request.ContentType -cnotmatch '^application/json(?:;\s*charset=utf-8)?$' -or
@@ -926,12 +926,16 @@ try {
                         throw 'SSIS_EXECUTION_DIAGNOSTIC_HTTP_INVALID'
                     }
                     $body = Read-UiSpecializedJsonRequestBody -Request $request -MaxCharacters 1024 -LimitErrorCode 'SSIS_EXECUTION_DIAGNOSTIC_HTTP_INVALID'
-                    $view = & (Get-Module SqlServerLab) { param($json) Invoke-LabSsisExecutionDiagnosticBrowser -Json $json } $body
+                    $view = & (Get-Module SqlServerLab) {
+                        param($json, $route)
+                        if ($route -ceq '/api/ssis-package-diagnostic') { Invoke-LabSsisPackageDiagnosticBrowser -Json $json }
+                        else { Invoke-LabSsisExecutionDiagnosticBrowser -Json $json }
+                    } $body $path
                     Write-UiResponse -Context $context -Body ($view | ConvertTo-Json -Depth 4 -Compress) -ContentType 'application/json; charset=utf-8'
                 }
                 catch {
                     if (Write-UiBodyFailureResponse -Context $context -ErrorRecord $_) { continue }
-                    Write-UiResponse -Context $context -Body '{"Code":"SSIS_EXECUTION_DIAGNOSTIC_UNAVAILABLE"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                    Write-UiResponse -Context $context -Body '{"Code":"SSIS_DIAGNOSTIC_UNAVAILABLE"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400
                 }
                 continue
             }

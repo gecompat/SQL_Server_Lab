@@ -35,6 +35,7 @@ function Write-LabInfo {param($Message);$script:messages.Add([string]$Message)}
 function Write-LabWarning {param($Message);$script:messages.Add([string]$Message)}
 function Get-SqlServerLabSsisPackageDiagnostic {param($RunId,$InstanceId,$IspacPath,$PackageName,$PackagePath,$ExpectedSha256,$TimeoutSeconds);$script:dispatches.Add([pscustomobject]@{Kind='Package';Args=$PSBoundParameters});[pscustomobject]@{Status='OBSERVED';ReasonCode='NONE';Observation=[pscustomobject]@{Runtime=[pscustomobject]@{FileVersion='17.0.1000.7'};LoadStatus='RETURNED';Events=@([pscustomobject]@{Kind='WARNING';Code=123})}}}
 function Get-SqlServerLabSsisExecutionDiagnostic {param($RunId,$InstanceId,$ExecutionId,$ExpectedProjectLsn,$ExpectedCatalogDatabaseGuid,$TimeoutSeconds);$script:dispatches.Add([pscustomobject]@{Kind='Execution';Args=$PSBoundParameters});[pscustomobject]@{Status='OBSERVED';ReasonCode='NONE';Observation=[pscustomobject]@{Snapshot=[pscustomobject]@{ObservedExecutionStatus=7};Worker=[pscustomobject]@{Status='NOT_REPORTED'};ErrorCodes=@()}}}
+function Wait-LabConsoleAcknowledgement {}
 function Get-CommandInfo {param($Name);$null}
 function Get-LabConsoleTextInput {param($Prompt,$Default,[switch]$MaskInput);$null}
 
@@ -84,7 +85,7 @@ try{
     Import-SsisConsoleFunction 'Public/Invoke-SqlServerLab.ps1' 'Invoke-SqlServerLab'
     Invoke-SqlServerLab -Action SsisDiagnostics -ConsoleMode Fallback
     Assert-SsisConsole ($routed-eq2) 'Direct CLI action opens the guided SSIS flow'
-    . (Join-Path $repo 'Private/SsisExecutionDiagnosticBrowser.ps1')
+    . (Join-Path $repo 'Private/SsisDiagnosticsBrowser.ps1')
     $inputJson='{"RunId":"11111111-1111-1111-1111-111111111111","InstanceId":"primary","ExecutionId":"9007199254740993","ProjectLsn":"9007199254740995","CatalogDatabaseGuid":"22222222-2222-2222-2222-222222222222"}'
     $dispatches.Clear()
     $view=Invoke-LabSsisExecutionDiagnosticBrowser -Json $inputJson
@@ -96,5 +97,28 @@ try{
         try { $null=Invoke-LabSsisExecutionDiagnosticBrowser -Json $invalid } catch { $rejected=$true }
         Assert-SsisConsole ($rejected -and $dispatches.Count -eq 1) 'Malformed browser inputs are rejected before dispatch'
     }
+    $packageJson = @{
+        RunId='11111111-1111-1111-1111-111111111111'; InstanceId='primary'; PackagePath=$packagePath
+        PackageName=''; ExpectedSha256=('A' * 64); TrustConfirmed=$true
+    }
+    $dispatches.Clear()
+    $packageView = Invoke-LabSsisPackageDiagnosticBrowser -Json ($packageJson | ConvertTo-Json -Compress)
+    Assert-SsisConsole ($dispatches.Count -eq 1 -and $dispatches[0].Args.PackagePath -ceq $packagePath -and
+        $packageView.EventCodes[0] -eq 123 -and ($packageView | ConvertTo-Json) -notmatch 'secret-name|AAAAAAAA') 'Browser binds trusted DTSX input and keeps artifact details private'
+    $packageJson.PackagePath = Join-Path ([IO.Path]::GetTempPath()) 'synthetic.ispac'
+    $packageJson.PackageName = 'Test.dtsx'
+    $view = Invoke-LabSsisPackageDiagnosticBrowser -Json ($packageJson | ConvertTo-Json -Compress)
+    Assert-SsisConsole ($dispatches.Count -eq 2 -and $dispatches[1].Args.PackageName -ceq 'Test.dtsx' -and
+        $dispatches[1].Args.IspacPath -ceq $packageJson.PackagePath) 'Browser binds the ISPAC member to the selected package'
+    foreach($value in @($false, 'true')){
+        $packageJson.TrustConfirmed = $value
+        $rejected = $false
+        try { $null = Invoke-LabSsisPackageDiagnosticBrowser -Json ($packageJson | ConvertTo-Json -Compress) } catch { $rejected = $true }
+        Assert-SsisConsole ($rejected -and $dispatches.Count -eq 2) 'Package request requires explicit boolean confirmation'
+    }
+    function Get-SqlServerLabSsisPackageDiagnostic { [CmdletBinding()]param([string]$RunId,[string]$InstanceId,[string]$IspacPath,[string]$PackageName,[string]$ExpectedSha256) [pscustomobject]@{ Status='INCONCLUSIVE'; Observation=$null } }
+    $packageJson.TrustConfirmed = $true
+    $unobserved = Invoke-LabSsisPackageDiagnosticBrowser -Json ($packageJson | ConvertTo-Json -Compress)
+    Assert-SsisConsole ($unobserved.Status -ceq 'INCONCLUSIVE' -and $null -eq $unobserved.LoadStatus -and $unobserved.EventCodes.Count -eq 0) 'Missing guest observation is an empty inconclusive summary'
     Write-Host ('SSIS_DIAGNOSTICS_CONSOLE_CHECKS: '+$checks+' PASS; 0 FAIL')
 } catch { throw }

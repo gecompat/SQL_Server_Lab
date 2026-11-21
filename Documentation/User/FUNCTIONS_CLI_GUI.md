@@ -658,7 +658,7 @@ geschützte Parameter. Die vollständige Rückgabe enthält `SsisCatalogFixture`
 | Befehl | Geführte CLI | Browser-GUI |
 |---|---|---|
 | `Get-SqlServerLabSsisExecutionDiagnostic` | Lab-Umgebungen → SSIS-Diagnose eines bestehenden Windows-Labs → Bestehende SQL-2025-SSISDB-Ausführung read-only beobachten | Lab verwalten → Reguläre Hyper-V-Umgebungen → SSISDB-Ausführung beobachten |
-| `Get-SqlServerLabSsisPackageDiagnostic` | Lab-Umgebungen → SSIS-Diagnose eines bestehenden Windows-Labs → Eigenes DTSX/ISPAC im Gast laden und Komponenten beobachten | Expertenkatalog |
+| `Get-SqlServerLabSsisPackageDiagnostic` | Lab-Umgebungen → SSIS-Diagnose eines bestehenden Windows-Labs → Eigenes DTSX/ISPAC im Gast laden und Komponenten beobachten | Lab verwalten → Reguläre Hyper-V-Umgebungen → SSIS-Paketladediagnose |
 
 `Get-SqlServerLabSsisCatalogCapability` ist über **Alle öffentlichen Befehle** in CLI und Browser erreichbar und prüft ausschließlich eine bereits laufende, eigene Windows-/Hyper-V-Quelle read-only. Der Befehl startet keine VM, erstellt keine SSISDB und startet keine Pakete.
 

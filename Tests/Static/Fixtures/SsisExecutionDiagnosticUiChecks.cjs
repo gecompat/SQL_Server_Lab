@@ -56,5 +56,40 @@ vm.runInNewContext(source, {
   await form.submit(event);
   assert.match(status.textContent, /fehlgeschlagen/);
   assert.doesNotMatch(status.textContent, /PRIVATE_CANARY/);
-  console.log('SSIS EXECUTION BROWSER UI: PASS');
+  const trusted = { checked: false };
+  const packageElements = new Map();
+  const packageValues = { RunId: inputs.RunId, InstanceId: 'primary', PackagePath: '/private/secret-name.dtsx',
+    PackageName: '', ExpectedSha256: 'A'.repeat(64) };
+  let packageCalls = 0;
+  let resets = 0;
+  const packageElement = id => {
+    if (!packageElements.has(id)) packageElements.set(id, {
+      disabled: false, open: false, textContent: '', reset() { trusted.checked = false; resets++; },
+      elements: { namedItem: field => field === 'TrustConfirmed' ? trusted : { value: packageValues[field] } },
+      addEventListener(event, callback) { this[event] = callback; },
+      showModal() { this.open = true; },
+    });
+    return packageElements.get(id);
+  };
+  const packageSource = fs.readFileSync(path.join(root, 'Ui/ssis-package-diagnostic.js'), 'utf8');
+  vm.runInNewContext(packageSource, {
+    document: { getElementById: packageElement },
+    sqlServerLabUiFetch(url, options) {
+      assert.equal(url, '/api/ssis-package-diagnostic');
+      assert.deepEqual(JSON.parse(options.body), { ...packageValues, TrustConfirmed: true });
+      assert.equal(trusted.checked, false);
+      assert.equal(resets, 2);
+      packageCalls++;
+      return { ok: true, json: async () => ({ Status: 'LOAD_FAILED', LoadStatus: 'FAILED', EventCodes: [123] }) };
+    },
+  });
+  packageElement('ssis-package-open').click();
+  await packageElement('ssis-package-form').submit(event);
+  assert.equal(packageCalls, 0);
+  trusted.checked = true;
+  await packageElement('ssis-package-form').submit(event);
+  assert.equal(packageCalls, 1);
+  assert.match(packageElement('ssis-package-status').textContent, /Paketladung fehlgeschlagen · Ereigniscodes 123/);
+  assert.doesNotMatch(packageElement('ssis-package-status').textContent, /secret-name/);
+  console.log('SSIS DIAGNOSTICS BROWSER UI: PASS');
 })().catch(error => { console.error(error); process.exitCode = 1; });
