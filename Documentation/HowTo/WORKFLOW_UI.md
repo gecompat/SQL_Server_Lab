@@ -966,6 +966,17 @@ SQL-2025-Prüfungen des neuen Plan-/Workflow-Apply-/No-op-/Driftpfads samt
 SQL-Probe und bestätigtem Own-Runtime-Cleanup. Das belegt Container-CPU/RAM,
 keinen Hyper-V-Apply und keine weiteren Eigenschaften oder Versionspaare.
 
+## Hyper-V-Speicherziel vor einem Build prüfen
+
+Wähle in Konsole oder Browser **Hyper-V: Vorlagen und Slots →
+Hyper-V-Zielpfade und freien Speicher anzeigen**. Du siehst das
+registrierte Lab_Data-Standardziel, die Klassenpfade für Runs, Builds,
+Images, Staging und Recovery sowie den freien Speicher zum Lesezeitpunkt.
+Liegt das Ziel auf dem Systemvolume, weist die Anzeige darauf hin. Der
+Dialog liest den Speicherkatalog ohne UAC und reserviert keinen Speicher.
+Fehlt das Ziel oder ist es nicht lesbar, prüfe die Registrierung unter
+**Grundkonfiguration**.
+
 ## Zentrale Slotreservepolicy (`HV-401` bis `HV-508`, `CORE-107/111`)
 
 **Grundkonfiguration** und **Hyper-V: Vorlagen und Slots** öffnen denselben

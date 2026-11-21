@@ -88,6 +88,7 @@
 
     <section class="panel" data-workspace-area="templates" hidden>
       <h2>Hyper-V: Vorlagen und Slots</h2>
+      <button id="hyperv-storage-preview-open" type="button" class="button secondary">Hyper-V-Zielpfade und freien Speicher anzeigen</button>
       <button id="templates-reserve" type="button" class="button secondary">Slotreserve: Policy und Kandidaten</button>
       <p>Vorlagen vorbereiten und Bestände prüfen. Slot-Reservierung und vollständige Gruppenplanung besitzen noch keinen geführten Browserdialog; die Konsole bietet die vorhandene Einzel-/Batch-Vorbereitung.</p>
       <div class="workflow-actions">
@@ -1398,6 +1399,16 @@
     </div>
   </dialog>
   <script src="environment-groups.js"></script>
+  <dialog id="hyperv-storage-preview-dialog">
+    <div class="dialog-panel">
+      <div class="dialog-heading"><h2>Hyper-V-Zielpfade und freier Speicher</h2><button id="hyperv-storage-preview-close" type="button" class="icon-button" aria-label="Schließen">×</button></div>
+      <p>Registriertes Lab_Data-Standardziel für neue Hyper-V-Ressourcen. Die Anzeige liest die aktuelle Kapazität. Sie reserviert keinen Speicher.</p>
+      <p id="hyperv-storage-preview-status" role="status" aria-live="polite"></p>
+      <pre id="hyperv-storage-preview-result" hidden></pre>
+      <button id="hyperv-storage-preview-refresh" type="button" class="button secondary">Erneut lesen</button>
+    </div>
+  </dialog>
+  <script src="hyperv-storage-preview.js"></script>
   <script src="tls-authenticated-creation.js"></script>
 </body>
 </html>

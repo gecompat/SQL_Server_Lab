@@ -281,7 +281,7 @@ function Get-LabConsoleHelpCatalog {
             Title   = 'Infrastruktur und Medien'
             Purpose = 'Buendelt den Hyper-V-Bestand und die Medien-, Speicher- und Testdatenverwaltung.'
             Effects = 'Die Auswahl oeffnet nur einen Unterbereich. Downloads, Builds und Verschiebungen werden dort einzeln bestaetigt.'
-            Related = @('Hyper-V-Aktionen fordern bei Bedarf automatisch eine UAC-Erhoehung an.')
+            Related = @('Hyper-V-Aktionen fordern bei Bedarf automatisch eine UAC-Erhoehung an.', 'Hyper-V-Zielpfade und freien Speicher anzeigen liest das registrierte Standardziel ohne UAC.')
             Command = 'Get-SqlServerLabResourcePlan'
             Preconditions = @($dataRootPrecondition)
         }

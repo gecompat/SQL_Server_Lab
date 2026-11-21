@@ -67,6 +67,55 @@ try {
             [string]$_.ResourceRootPattern -notmatch '<20-character-resource-key>$'
         }).Count -eq 0
     )
+    $routes = [Management.Automation.Language.Parser]::ParseFile(
+        (Join-Path $repoRoot 'Tools/Start-SqlServerLabUi.ps1'), [ref]$null, [ref]$null)
+    $previewRoute = $routes.Find({
+        param($node)
+        $node -is [Management.Automation.Language.IfStatementAst] -and
+            $node.Clauses[0].Item1.Extent.Text -ceq '$path -ceq ''/api/hyperv-storage-preview'''
+    }, $true)
+    $previewHandler = [scriptblock]::Create('foreach ($once in @(1)) ' + $previewRoute.Clauses[0].Item2.Extent.Text)
+    $results = & {
+        $responses = [Collections.Generic.List[object]]::new()
+        function Write-UiResponse {
+            param($Context, $Body, $ContentType, $StatusCode = 200)
+            $responses.Add([pscustomobject]@{ Status = $StatusCode; View = $Body | ConvertFrom-Json })
+        }
+        $request = [pscustomobject]@{ HttpMethod = 'GET'; HasEntityBody = $false; Url = [uri]'http://localhost/api/hyperv-storage-preview' }
+        $context = [pscustomobject]@{ Request = $request }
+        & $previewHandler
+        $request.Url = [uri]'http://localhost/api/hyperv-storage-preview?dataRoot=foreign'
+        & $previewHandler
+        $request.Url = [uri]'http://localhost/api/hyperv-storage-preview'
+        $request.HttpMethod = 'POST'
+        & $previewHandler
+        $request.HttpMethod = 'GET'
+        $request.HasEntityBody = $true
+        & $previewHandler
+        $responses.ToArray()
+    }
+    Add-CheckResult -Name 'Browser-Preview liest nur das registrierte Standardziel und projiziert keine internen IDs' -Success (
+        $results.Count -eq 4 -and $results[0].Status -eq 200 -and $results[0].View.LabDataRoot -ceq $dataRoot -and
+        @($results[0].View.Targets).Count -eq 5 -and
+        ($results[0].View.PSObject.Properties.Name -join ',') -ceq 'LabDataRoot,FreeBytes,SystemVolume,Targets' -and
+        @($results[1..3] | Where-Object {
+            $_.Status -ne 400 -or $_.View.Code -cne 'HYPERV_STORAGE_PREVIEW_REQUEST_INVALID'
+        }).Count -eq 0
+    )
+    $consolePreview = & $module {
+        $observations = [Collections.Generic.List[object]]::new()
+        function Test-HyperVAvailable { [pscustomobject]@{ Available = $false; Message = 'Synthetic' } }
+        function Show-LabSubMenu { param($ScreenId, $Title, $Subtitle, $Items) $Items }
+        function Write-LabHyperVResourceLocationPreview { param($Preview) $observations.Add($Preview) }
+        function Wait-LabConsoleAcknowledgement { param($Prompt) $observations.Add($Prompt) }
+        $entry = @(Show-LabHyperVMenu | Where-Object Id -ceq 'HyperVStoragePreview')
+        if ($entry.Count -ne 1 -or $entry[0].Disabled) { return $false }
+        Invoke-LabMenuAction -ActionName $entry[0].Id
+        return ($observations.Count -eq 2 -and
+            $observations[0].ContractVersion -ceq 'SqlServerLab.HyperVResourceLocationPreview/1.0' -and
+            @($observations[0].Targets).Count -eq 5 -and $observations[1] -like '*Zurück zu Hyper-V')
+    }
+    Add-CheckResult -Name 'Geführte Konsole zeigt das Standardziel auch bei nicht verfügbarem Hyper-V' -Success $consolePreview
     $tamperedPreview = $preview | ConvertTo-Json -Depth 12 | ConvertFrom-Json -Depth 12
     $tamperedPreview.Targets[0].ClassRoot = Join-Path $temporaryParent 'foreign'
     $previewTamperRejected = try {
