@@ -82,37 +82,53 @@ function Get-LabPreferencesDigest {
 function Get-LabPreferencesSnapshot {
     [CmdletBinding()]
     param([string]$Path)
-    $path = Get-LabPreferencesAuthority -Path $Path
-    $identity = if ($IsWindows) { $path.ToUpperInvariant() } else { $path }
-    $text = $null
-    $document = [ordered]@{ schemaVersion = 1 }
-    if (Test-Path -LiteralPath $path) {
-        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw 'PREFERENCES_INVALID' }
-        try {
-            $text = [IO.File]::ReadAllText($path)
-            $document = ConvertFrom-Json -InputObject $text -AsHashtable -Depth 30 -ErrorAction Stop
-            if ($document -isnot [Collections.IDictionary]) { throw 'invalid' }
+    $canonical = Get-LabPreferencesAuthority -Path $Path
+    $existedBeforeLock = [IO.File]::Exists($canonical)
+    # On Windows, replacement can fail while another process holds the old
+    # file open. Take the writer's mutex before opening any authority file.
+    Invoke-WithLabPreferencesAuthorityLock -CanonicalPath $canonical -Body {
+        $path = Get-LabPreferencesAuthority -Path $Path
+        if ($path -cne $canonical) { throw 'PREFERENCES_PREVIEW_STALE' }
+        # A migration may retire the predecessor while this reader waits.
+        # Keep that transition distinct from a previously missing authority.
+        if ($existedBeforeLock -and -not [IO.File]::Exists($path)) { throw 'PREFERENCES_PREVIEW_STALE' }
+        $identity = if ($IsWindows) { $path.ToUpperInvariant() } else { $path }
+        $text = $null
+        $document = [ordered]@{ schemaVersion = 1 }
+        if (Test-Path -LiteralPath $path) {
+            if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw 'PREFERENCES_INVALID' }
+            try {
+                $text = [IO.File]::ReadAllText($path)
+                $document = ConvertFrom-Json -InputObject $text -AsHashtable -Depth 30 -ErrorAction Stop
+                if ($document -isnot [Collections.IDictionary]) { throw 'invalid' }
+            }
+            catch { throw 'PREFERENCES_INVALID' }
         }
-        catch { throw 'PREFERENCES_INVALID' }
-    }
-    $authorityEvidence = $identity
-    $parent = Split-Path -Parent $path
-    if ((Split-Path -Leaf $parent) -eq 'Catalog') {
-        $dataRoot = Split-Path -Parent $parent
-        foreach ($authorityFile in @((Join-Path $dataRoot '.sql-server-lab-root.json'), (Join-Path $parent 'storage-locations.json'))) {
-            $authorityEvidence += "`n" + $(if (Test-Path -LiteralPath $authorityFile -PathType Leaf) { [IO.File]::ReadAllText($authorityFile) } else { 'MISSING' })
+        $authorityEvidence = $identity
+        $parent = Split-Path -Parent $path
+        if ((Split-Path -Leaf $parent) -eq 'Catalog') {
+            $dataRoot = Split-Path -Parent $parent
+            foreach ($authorityFile in @((Join-Path $dataRoot '.sql-server-lab-root.json'), (Join-Path $parent 'storage-locations.json'))) {
+                $authorityEvidence += "`n" + $(if (Test-Path -LiteralPath $authorityFile -PathType Leaf) { [IO.File]::ReadAllText($authorityFile) } else { 'MISSING' })
+            }
         }
+        [pscustomobject]@{ Path=$path; Document=$document; Exists=($null -ne $text); AuthorityKey=(Get-LabPreferencesDigest -Text $authorityEvidence)
+            Key=(Get-LabPreferencesDigest -Text ($authorityEvidence + "`n" + $(if ($null -eq $text) { 'MISSING' } else { 'PRESENT:' + $text }))) }
     }
-    [pscustomobject]@{ Path=$path; Document=$document; Exists=($null -ne $text); AuthorityKey=(Get-LabPreferencesDigest -Text $authorityEvidence)
-        Key=(Get-LabPreferencesDigest -Text ($authorityEvidence + "`n" + $(if ($null -eq $text) { 'MISSING' } else { 'PRESENT:' + $text }))) }
 }
 
 function Invoke-WithLabPreferencesLock {
     [CmdletBinding()]
     param([Parameter(Mandatory)][Alias('Path')][string[]]$PreferencePath, [Parameter(Mandatory)][scriptblock]$Body)
-    $authorities = @($PreferencePath | ForEach-Object {
-        $canonical = Get-LabPreferencesAuthority -Path $_
-        if ($IsWindows) { $canonical.ToUpperInvariant() } else { $canonical }
+    $paths = @($PreferencePath | ForEach-Object { Get-LabPreferencesAuthority -Path $_ })
+    Invoke-WithLabPreferencesAuthorityLock -CanonicalPath $paths -Body $Body
+}
+
+function Invoke-WithLabPreferencesAuthorityLock {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string[]]$CanonicalPath, [Parameter(Mandatory)][scriptblock]$Body)
+    $authorities = @($CanonicalPath | ForEach-Object {
+        if ($IsWindows) { $_.ToUpperInvariant() } else { $_ }
     } | Sort-Object -CaseSensitive -Unique)
     $locks = [Collections.Generic.List[object]]::new()
     $deadline = [datetime]::UtcNow.AddSeconds(10)

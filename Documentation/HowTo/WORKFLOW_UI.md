@@ -1000,9 +1000,10 @@ Vorschau und Abbruch schreiben nichts. Erst das ausdrückliche Speichern prüft
 Speicherautorität und bisherigen Preferences-Inhalt erneut. Die Policy liegt
 als `slotReservePolicy` in derselben durch `Get-LabProjectPreferencesPath`
 aufgelösten lokalen Preferences-Datei wie die bestehenden Einstellungen.
-Alle Writer verwenden einen gemeinsamen dateigebundenen Lock und atomaren
-Merge; andere Felder bleiben erhalten. Ungültiges JSON und ungültige Policies
-werden nicht automatisch repariert. Ein Wechsel des globalen Datenroots
+Leser und Writer verwenden dieselbe dateigebundene Sperre. Der atomare
+Merge erhält andere Felder. Entfernt eine Migration die vorher vorhandene
+Datei, kann ein wartender Writer sie nicht erneut anlegen. Ungültiges JSON
+und ungültige Policies werden nicht automatisch repariert. Ein Wechsel des globalen Datenroots
 migriert keine Preferences; die anschließend aufgelöste Authority wird neu gelesen.
 
 Die Bestandsansicht liest registrierte Hyper-V-Kandidaten und gebundene aktive
