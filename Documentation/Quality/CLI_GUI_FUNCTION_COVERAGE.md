@@ -180,6 +180,13 @@ aus lokaler JSON-Eingabe. Der bestätigte Sync bindet den erwarteten und
 den neuen Dokumentbestand an dieselbe Collection. CLI- und Browser-Fixtures
 prüfen die Grenze der JSON-Eingabe, ihre Bindung und den Bestätigungsschritt.
 
+Die native Abnahme `Invoke-AiPersistentRetrievalAcceptance.ps1` führte
+am 21.11.2026 auf Docker und Podman je 30 Prüfungen mit SQL Server 2025
+und dem vorhandenen lokalen Embeddingmodell aus. Sie prüfte unter anderem
+Synchronisation, Wiederanlauf, Retention und die Bereinigung von
+Test-Datenbanken und Test-Runs. CLI- und Browser-Dispatch haben eigene
+synthetische Prüfungen.
+
 Die Bereiche und dokumentierten Grenzen entsprechen der neun Bereiche
 umfassenden Navigation in der [Workflow-Oberfläche](../HowTo/WORKFLOW_UI.md).
 `TEILWEISE` bedeutet, dass die Oberfläche passende Einstiege enthält, aber
@@ -204,6 +211,14 @@ nicht alle Operationen des Bereichs einzeln auf einen CLI-Menüpfad, GUI-Aktion,
 Der geführte Browserdialog **Verbindungen und CMS → CMS bereitstellen**
 deckt das Erstellen und Übernehmen ab. Synthetische UI- und
 Adapterprüfungen prüfen Auswahl, Bestätigung und Änderungsschutz.
+
+Am 21.11.2026 bestanden Neuanlage und Übernahme über den gemeinsamen
+Workflow-Adapter jeweils mit einem eigenen SQL-Server-2025-Run unter
+Docker und Podman. Ohne Bestätigung blieb die Registrierung unverändert.
+Bei der Übernahme wurde eine veraltete Vorschau abgewiesen. Die
+Auftragsquittungen enthielten keine Zugangsdaten. Die Abnahme entfernte
+ihre Container und bei der Neuanlage auch den eigenen persistenten Speicher.
+Der Browserversand wurde separat mit synthetischen Antworten geprüft.
 
 | Aktion | CLI-Menü | Browser-GUI | Öffentlicher Vertrag / Nachweis | Grenze |
 |---|---|---|---|---|
