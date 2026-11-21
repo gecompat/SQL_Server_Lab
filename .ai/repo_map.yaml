@@ -1115,7 +1115,7 @@ sources_of_truth:
   validation_test_environment_contract: Tests/Static/Invoke-TestEnvironmentChecks.ps1
   validation_test_environment_group_lifecycle: Tests/Integration/Invoke-TestEnvironmentGroupLifecycle.ps1
   validation_manifest_builder: Tests/Static/Invoke-ManifestBuilderChecks.ps1
-  validation_batch_workflow: Tests/Static/Invoke-BatchWorkflowChecks.ps1
+  validation_batch_workflow: Tests/Static/Invoke-BatchWorkflowChecks.ps1, Tests/Static/Fixtures/BatchWorkflowFileLockChecks.ps1
   validation_runtime_matrix: Tests/Integration/Invoke-SmokeMatrix.ps1
   cli_acceptance_matrix: Documentation/Quality/CLI_ACCEPTANCE_MATRIX.md
   public_command_console: Private/PublicCommandConsole.ps1
