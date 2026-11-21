@@ -73,6 +73,7 @@
         <button id="external-runtime-open" type="button" class="button secondary">Python / R / Java: Katalog und Hostvoraussetzungen</button>
         <button id="host-matrix-open" type="button" class="button secondary">Hostfähigkeiten vor der Funktionsauswahl</button>
         <button id="run-manifest" class="button secondary">Container-Manifest prüfen oder ausführen</button>
+        <button id="container-tool-check-open" type="button" class="button secondary">SqlPackage-Version im Container prüfen</button>
         <button id="new-hyperv-lab" class="button secondary">Neue Windows-/SQL-Hyper-V-Umgebung</button>
         <button id="new-hyperv-existing-vm-lab" class="button secondary">Windows-VM als Hyper-V-Basis</button>
       </div>
@@ -581,6 +582,17 @@
     </form>
   </dialog>
 
+  <dialog id="container-tool-check-dialog">
+    <form id="container-tool-check-form">
+      <h2>SqlPackage-Version im Container prüfen</h2>
+      <label>SQL-Containerinstanz<select id="container-tool-check-target" required></select></label>
+      <p id="container-tool-check-status" role="status"></p>
+      <div class="dialog-actions">
+        <button id="container-tool-check-close" type="button" class="button secondary">Schließen</button>
+        <button id="container-tool-check-submit" type="submit" class="button primary">Versionsprüfung vorbereiten</button>
+      </div>
+    </form>
+  </dialog>
   <dialog id="manifest-run-dialog">
     <form id="manifest-run-form" method="dialog">
       <div class="dialog-heading"><div><p class="eyebrow">CONTAINER-MANIFEST</p><h2>Manifest prüfen oder Umgebung erstellen</h2></div><button type="button" class="icon-button" value="cancel" formnovalidate aria-label="Schließen">×</button></div>
@@ -958,6 +970,7 @@
   <script src="manifest-check.js"></script>
   <script src="ssms-registration-export.js"></script>
   <script src="cms-sync.js"></script>
+  <script src="container-tool-check.js"></script>
   <script src="ai-compute-overview.js"></script>
   <dialog id="ssis-execution-dialog">
     <form id="ssis-execution-form">

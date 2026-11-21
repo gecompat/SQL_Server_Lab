@@ -67,6 +67,11 @@ die vorhandene Windows-Benutzerzwischenablage bleiben getrennte Nachweise.
 
 ## Container-Lab erstellen
 
+Über **SqlPackage-Version im Container prüfen** kannst du anschließend die
+Version des bereits provisionierten Tools in einer laufenden Docker- oder
+Podman-Instanz abfragen. Wähle die Instanz und bestätige die Versionsprobe.
+Das Ergebnis steht im Live-Log. Die Probe installiert keine Software.
+
 Starten Sie die Oberfläche gemäß [Start](#start) mit einem bereiten Provider
 und den dort beschriebenen Datenroot-Einstellungen. Öffnen Sie
 **Neue Container-Umgebung** und wählen Sie Provider, SQL-Version, Profil und

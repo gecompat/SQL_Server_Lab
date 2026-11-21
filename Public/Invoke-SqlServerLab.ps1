@@ -174,6 +174,7 @@ function Invoke-LabMenuAction {
     if ($ActionName -eq 'DiagnosticBundle') { Show-LabDiagnosticBundleInteractive; return }
     if ($ActionName -eq 'RunStateUpgradePlan') { Show-LabRunStateUpgradePlanInteractive; return }
     if ($ActionName -eq 'ManifestCheck') { Show-LabManifestCheckInteractive; return }
+    if ($ActionName -eq 'ContainerToolCheck') { Invoke-LabContainerToolCheckInteractive; return }
     if ($ActionName -in @('PortableTransferPreflight', 'PortableTransfer')) {
         Invoke-LabPortableContainerTransferInteractive -Preflight:($ActionName -eq 'PortableTransferPreflight')
         return
@@ -354,6 +355,7 @@ function Show-LabDatabaseMenu {
     $items = @(
         New-LabConsoleItem -Id 'Manifest' -Label 'Container-Manifest erstellen und pruefen' -Shortcut 'm'
         New-LabConsoleItem -Id 'ManifestCheck' -Label 'Vorhandenes Lab-Manifest prüfen' -Value 'Schema und Fachregeln lesen'
+        New-LabConsoleItem -Id 'ContainerToolCheck' -Label 'SqlPackage-Version im Container prüfen' -Value 'Nur provisioniertes SqlPackage'
         New-LabConsoleItem -Id 'Database' -Label 'Datenbank anlegen' -Shortcut '8'
         New-LabConsoleItem -Id 'Script' -Label 'SQL-Skript ausfuehren' -Shortcut '9'
         New-LabConsoleItem -Id 'DatabaseBackup' -Label 'Datenbank sichern' -Value 'CHECKSUM · VERIFYONLY · Lab_Data-Bibliothek' -Shortcut 'b'
