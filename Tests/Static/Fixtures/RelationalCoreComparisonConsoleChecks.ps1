@@ -12,6 +12,25 @@ $ErrorActionPreference = 'Stop'
         }
         $source = [pscustomobject]@{ RunId = '11111111-1111-1111-1111-111111111111'; InstanceId = 'primary'; Label = 'Docker' }
         $target = [pscustomobject]@{ RunId = '22222222-2222-2222-2222-222222222222'; InstanceId = 'other'; Label = 'Podman' }
+        & {
+            function Get-LabStateRoot { $PSScriptRoot }
+            function Get-LabActiveRuns {
+                param($StateRoot, [switch]$NoWrite)
+                if (-not $NoWrite) { throw 'DISCOVERY_MUST_NOT_WRITE' }
+                [pscustomobject]@{ state='RUNNING'; runId=$source.RunId; metadata=@{name='Docker'} }
+                [pscustomobject]@{ state='STOPPED'; runId=$target.RunId; metadata=@{name='Podman'} }
+                [pscustomobject]@{ state='RUNNING'; runId='bad-id'; metadata=@{name='invalid'} }
+            }
+            function Get-Content {
+                [CmdletBinding()] param($LiteralPath, [switch]$Raw, $Encoding)
+                if ($LiteralPath -notlike "*/$($source.RunId)/connection-info.json" -and
+                    $LiteralPath -notlike "*\$($source.RunId)\connection-info.json") { throw 'UNEXPECTED_CATALOG_PATH' }
+                '{"instances":[{"id":"primary","provider":"docker"},{"id":"dup","provider":"podman"},{"id":"dup","provider":"podman"},{"id":"guest","provider":"hyperv"}]}'
+            }
+            $visible = @(Get-LabRelationalComparisonConsoleTargets)
+            if ($visible.Count -ne 1 -or $visible[0].InstanceId -ne 'primary') { throw 'GUIDED_COMPARISON_DISCOVERY_INVALID' }
+            Write-Host 'PASS: Die Instanzauswahl liest nur gültige laufende Container-Runs und blendet doppelte IDs aus.'
+        }
         function Get-LabRelationalComparisonConsoleTargets { $source; $target }
         function Select-LabConsoleDataItem {
             param($ScreenId, $Title, $Items)
