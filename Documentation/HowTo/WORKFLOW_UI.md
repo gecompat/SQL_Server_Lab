@@ -471,6 +471,15 @@ Details: [Installervertrag](../Architecture/LLAMA_CPP_INSTALLER.md).
 
 ### Wartungsbefunde und Katalogzuordnung
 
+Im Wartungsbereich lassen sich auch gespeicherte Diagnosebefunde,
+Run-State-Formate und vorhandene Hyper-V-Checkpoints lesen. Wähle das Lab
+oder die Instanz im jeweiligen Dialog und bestätige die Leseaktion.
+**Gespeicherten Diagnosebefund lesen** zeigt historische Werte aus dem
+registrierten Standard-Lab_Data. **Format eines Run-States prüfen** zeigt
+geplante Felder und Blocker. **Hyper-V-Wiederherstellungspunkte lesen**
+zeigt vorhandene Checkpoints. Die Ansichten führen keinen Upgrade- oder
+Restore-Vorgang aus.
+
 Im Wartungsbereich öffnet „Wartungsbefunde und Zuordnung“ denselben Fachablauf
 wie die CLI-Aktion `CleanupAudit`. Erst „Befunde lesen“ ruft das Audit mit
 `-NoWrite` auf. Einträge zeigen Herkunft, Nutzung, Löschbarkeit und nächsten
