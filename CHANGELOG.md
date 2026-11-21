@@ -1,5 +1,29 @@
 # Changelog
 
+## 2026-11-21 – Geführte Lab- und Wartungsabläufe
+
+- CLI und Browser bieten geführte Aktionen für den Autostart regulärer
+  Container- und Hyper-V-Labs, die Recovery betroffener Vorgänge sowie
+  SQL Full-Text, FILESTREAM und SSIS-Diagnose im jeweils unterstützten Scope.
+- Die Datenbank-Workflows ergänzen einen relationalen Vergleich, eine
+  Einzelbackup-Vorprüfung, den portablen Containertransfer, die Prüfung
+  eines lokalen Lab-Manifests und die SqlPackage-Versionsabfrage in einer
+  ausgewählten Containerinstanz.
+- Im Browser lassen sich gespeicherte reguläre Verbindungen als
+  kennwortfreie SSMS-Datei herunterladen und geeignete registrierte
+  Docker-/Podman-CMS nach Bestätigung synchronisieren.
+- Die Hyper-V-Speichervorschau zeigt registrierte Klassenpfade und den
+  freien Speicher. Der Wartungsplan liest den Status nach einer
+  VM-Umbenennung mit dem aktuellen Namen und erhält den gespeicherten
+  Verbindungsbeleg.
+- Die geführte llama.cpp-Paketübersicht, die Auswahl und Messung von
+  Gerätekombinationen sowie die Vorschauen für SQL-Evaluation,
+  Hyper-V-Wiederherstellungspunkte und Run-State-Formate stehen im
+  jeweiligen Fachmenü. Die dokumentierte Abdeckung nennt die dafür
+  geprüften Pfade und verbleibenden Lücken.
+  [Bedienung](Documentation/HowTo/WORKFLOW_UI.md) ·
+  [Abdeckung](Documentation/Quality/CLI_GUI_FUNCTION_COVERAGE.md)
+
 ## 2026-11-01 – Gebundener nativer Windows-SQL-Hostclient
 
 - Ein separater Qualifikationshelper startet einen quellgebundenen Hostclient

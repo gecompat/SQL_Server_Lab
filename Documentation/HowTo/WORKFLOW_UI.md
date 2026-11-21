@@ -966,6 +966,27 @@ SQL-2025-Prüfungen des neuen Plan-/Workflow-Apply-/No-op-/Driftpfads samt
 SQL-Probe und bestätigtem Own-Runtime-Cleanup. Das belegt Container-CPU/RAM,
 keinen Hyper-V-Apply und keine weiteren Eigenschaften oder Versionspaare.
 
+## Schnellen Wartungsplan lesen
+
+Unter **Wartung, Aufräumen und Recovery → Schnellen Wartungsplan lesen**
+zeigt die Vorschau den Zustand von Docker, Podman und Hyper-V sowie die
+Anzahl der für den beobachteten Zustand vorgeschlagenen Aktionen. Im
+Browser beginnt die Inventur mit **Plan lesen**. Ein nicht erreichbarer
+Provider erscheint als `UNAVAILABLE`. Diese Übersicht führt keine
+Aktion aus. Für die Zuordnung einzelner Objekte nutze **Wartungsbefunde
+und Zuordnung**.
+
+## Hyper-V-Speicherziel vor einem Build prüfen
+
+Wähle in Konsole oder Browser **Hyper-V: Vorlagen und Slots →
+Hyper-V-Zielpfade und freien Speicher anzeigen**. Du siehst das
+registrierte Lab_Data-Standardziel, die Klassenpfade für Runs, Builds,
+Images, Staging und Recovery sowie den freien Speicher zum Lesezeitpunkt.
+Liegt das Ziel auf dem Systemvolume, weist die Anzeige darauf hin. Der
+Dialog liest den Speicherkatalog ohne UAC und reserviert keinen Speicher.
+Fehlt das Ziel oder ist es nicht lesbar, prüfe die Registrierung unter
+**Grundkonfiguration**.
+
 ## Zentrale Slotreservepolicy (`HV-401` bis `HV-508`, `CORE-107/111`)
 
 **Grundkonfiguration** und **Hyper-V: Vorlagen und Slots** öffnen denselben
@@ -979,9 +1000,10 @@ Vorschau und Abbruch schreiben nichts. Erst das ausdrückliche Speichern prüft
 Speicherautorität und bisherigen Preferences-Inhalt erneut. Die Policy liegt
 als `slotReservePolicy` in derselben durch `Get-LabProjectPreferencesPath`
 aufgelösten lokalen Preferences-Datei wie die bestehenden Einstellungen.
-Alle Writer verwenden einen gemeinsamen dateigebundenen Lock und atomaren
-Merge; andere Felder bleiben erhalten. Ungültiges JSON und ungültige Policies
-werden nicht automatisch repariert. Ein Wechsel des globalen Datenroots
+Leser und Writer verwenden dieselbe dateigebundene Sperre. Der atomare
+Merge erhält andere Felder. Entfernt eine Migration die vorher vorhandene
+Datei, kann ein wartender Writer sie nicht erneut anlegen. Ungültiges JSON
+und ungültige Policies werden nicht automatisch repariert. Ein Wechsel des globalen Datenroots
 migriert keine Preferences; die anschließend aufgelöste Authority wird neu gelesen.
 
 Die Bestandsansicht liest registrierte Hyper-V-Kandidaten und gebundene aktive

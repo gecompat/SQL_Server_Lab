@@ -1150,6 +1150,40 @@ try {
                 }
                 continue
             }
+            if ($path -ceq '/api/runtime-maintenance-preview') {
+                if ($context.Request.HttpMethod -cne 'GET' -or $context.Request.HasEntityBody -or $context.Request.Url.Query) {
+                    Write-UiResponse -Context $context -Body '{"Code":"RUNTIME_MAINTENANCE_PREVIEW_REQUEST_INVALID"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                    continue
+                }
+                try {
+                    $view = & (Get-Module SqlServerLab) { Get-LabRuntimeMaintenancePreview -ErrorAction Stop }
+                    Write-UiResponse -Context $context -Body ($view | ConvertTo-Json -Depth 5 -Compress) -ContentType 'application/json; charset=utf-8'
+                }
+                catch {
+                    Write-UiResponse -Context $context -Body '{"Code":"RUNTIME_MAINTENANCE_PREVIEW_UNAVAILABLE"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                }
+                continue
+            }
+            if ($path -ceq '/api/hyperv-storage-preview') {
+                if ($context.Request.HttpMethod -cne 'GET' -or $context.Request.HasEntityBody -or $context.Request.Url.Query) {
+                    Write-UiResponse -Context $context -Body '{"Code":"HYPERV_STORAGE_PREVIEW_REQUEST_INVALID"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                    continue
+                }
+                try {
+                    $preview = Get-SqlServerLabHyperVResourcePreview -ErrorAction Stop
+                    $view = [pscustomobject]@{
+                        LabDataRoot = $preview.LabDataRoot
+                        FreeBytes = [string]$preview.ObservedFreeBytes
+                        SystemVolume = $preview.SystemVolume
+                        Targets = @($preview.Targets | Select-Object ResourceClass, ClassRoot)
+                    }
+                    Write-UiResponse -Context $context -Body ($view | ConvertTo-Json -Depth 4 -Compress) -ContentType 'application/json; charset=utf-8'
+                }
+                catch {
+                    Write-UiResponse -Context $context -Body '{"Code":"HYPERV_STORAGE_PREVIEW_UNAVAILABLE"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                }
+                continue
+            }
             if ($path -ceq '/api/hyperv-recovery-point-plan') {
                 try {
                     $query = $context.Request.QueryString

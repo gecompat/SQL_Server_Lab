@@ -61,13 +61,56 @@ try {
     try { Set-LabProjectPreferenceValue -Name unrelated -Value 'bad' } catch { }
     Set-Item Function:Write-LabArtifactJsonAtomic $writer
     Assert-Policy ([IO.File]::ReadAllText($script:PreferenceTestPath) -ceq $before) 'aborted write preserves predecessor'
+    $readerReady = Join-Path $fixture 'reader-at-lock.marker'
+    $readerCustody = [pscustomobject]@{ Job = $null }
+    try {
+        Invoke-WithLabPreferencesLock -Path $script:PreferenceTestPath -Body {
+            $readerCustody.Job = Start-Job -ArgumentList $repoRoot,$script:PreferenceTestPath,$readerReady -ScriptBlock {
+                param($repo,$target,$ready)
+                $ErrorActionPreference = 'Stop'
+                . (Join-Path $repo 'Private/LabPreferences.ps1')
+                $realAuthorityLock = ${function:Invoke-WithLabPreferencesAuthorityLock}
+                function Invoke-WithLabPreferencesAuthorityLock {
+                    param($CanonicalPath,$Body)
+                    [IO.File]::WriteAllText($ready,'attempted')
+                    & $realAuthorityLock -CanonicalPath $CanonicalPath -Body $Body
+                }
+                (Get-LabPreferencesSnapshot -Path $target).Document['readerObservation']
+            }
+            $startupDeadline = [DateTime]::UtcNow.AddSeconds(10)
+            while (-not (Test-Path -LiteralPath $readerReady -PathType Leaf) -and
+                $readerCustody.Job.State -cin @('NotStarted','Running') -and [DateTime]::UtcNow -lt $startupDeadline) {
+                Start-Sleep -Milliseconds 25
+            }
+            Assert-Policy ((Test-Path -LiteralPath $readerReady -PathType Leaf) -and $readerCustody.Job.State -ceq 'Running') 'reader reaches the same held authority lock'
+            $document = (Get-LabPreferencesSnapshot).Document
+            $document['readerObservation'] = 'after-replacement'
+            Write-LabArtifactJsonAtomic -Path $script:PreferenceTestPath -InputObject $document
+        }
+        $null = Wait-Job $readerCustody.Job -Timeout 15
+        Assert-Policy ($readerCustody.Job.State -ceq 'Completed') 'reader finishes after writer releases'
+        $observed = Receive-Job $readerCustody.Job -ErrorAction Stop
+        Assert-Policy ($observed -ceq 'after-replacement') 'reader sees exactly the committed successor'
+    }
+    finally {
+        if ($readerCustody.Job) {
+            Stop-Job $readerCustody.Job
+            Remove-Job $readerCustody.Job
+        }
+    }
     $jobs=@(1..4 | ForEach-Object { Start-Job -ArgumentList $repoRoot,$script:PreferenceTestPath,$_ -ScriptBlock {
         param($repo,$target,$index)
         $ErrorActionPreference='Stop'
         . (Join-Path $repo 'Private/LabPreferences.ps1'); . (Join-Path $repo 'Private/ArtifactResolver.ps1')
         function Get-LabProjectPreferencesPath { $target }
         function Get-LabTimestamp { [datetime]::UtcNow.ToString('o') }
-        Set-LabProjectPreferenceValue -Name ('writer'+$index) -Value ('synthetic'+$index)
+        try { Set-LabProjectPreferenceValue -Name ('writer'+$index) -Value ('synthetic'+$index) }
+        catch {
+            if ($_.Exception.Message -cmatch '^PREFERENCES_[A-Z_]+$') { throw }
+            $cause = $_.Exception
+            while ($cause.InnerException) { $cause = $cause.InnerException }
+            throw ('PREFERENCES_WRITER_HRESULT_' + $cause.HResult.ToString('X8'))
+        }
     } })
     $null=$jobs | Wait-Job -Timeout 30
     try {
@@ -83,7 +126,7 @@ try {
                     State=[string]$job.State
                     ChildStates=@($children | ForEach-Object { [string]$_.State })
                     ExceptionTypes=@(@($errors | ForEach-Object { $_.Exception.GetType().Name }) + @($reasons | ForEach-Object { $_.GetType().Name }) | Sort-Object -Unique)
-                    PreferenceCodes=@($errors | ForEach-Object { if ($_.Exception.Message -cmatch '^PREFERENCES_[A-Z_]+$') { $_.Exception.Message } } | Sort-Object -Unique)
+                    PreferenceCodes=@($errors | ForEach-Object { if ($_.Exception.Message -cmatch '^PREFERENCES_[A-Z0-9_]+$') { $_.Exception.Message } } | Sort-Object -Unique)
                 }
             })
             throw ('PARALLEL_WRITER_NOT_COMPLETED: '+($diagnostics | ConvertTo-Json -Depth 6 -Compress))

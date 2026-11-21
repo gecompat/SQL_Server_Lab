@@ -188,7 +188,7 @@ function Get-LabMaintenancePlanCore {
     )
 
     if (-not $StateRoot) { $StateRoot=Get-LabStateRoot }
-    $runs=@(Get-LabActiveRuns -StateRoot $StateRoot)
+    $runs=@(Get-LabActiveRuns -StateRoot $StateRoot -NoWrite)
     $knownRunIds=@($runs | ForEach-Object { [string]$_.runId })
     $docker=Get-LabMaintenanceContainerInventory -Provider docker
     $podman=Get-LabMaintenanceContainerInventory -Provider podman
@@ -198,7 +198,7 @@ function Get-LabMaintenancePlanCore {
     $actions=[Collections.Generic.List[object]]::new()
 
     foreach($run in $runs) {
-        $runtime=Get-LabRunRuntimeStatus -Run $run -StateRoot $StateRoot
+        $runtime=Get-LabRunRuntimeStatus -Run $run -StateRoot $StateRoot -NoWrite
         $stored=[string]$run.state; $actual=[string]$runtime.State
         $runFingerprint=Get-LabMaintenanceHash -Value (@([string]$run.runId,[string]$run.scopeId,$stored,$actual,[string]$run.updatedAt) -join '|')
         if($actual -in @('RUNNING','STOPPED') -and $stored -in @('RUNNING','STOPPED') -and $actual -ne $stored) {
@@ -275,6 +275,39 @@ function Get-LabMaintenancePlanCore {
         }
         FullAudit=$fullAudit
     }
+}
+
+function Get-LabRuntimeMaintenancePreview {
+    [CmdletBinding()]
+    param()
+
+    $plan = Get-SqlServerLabMaintenancePlan -Mode Runtime -ErrorAction Stop
+    return [pscustomobject]@{
+        ContractVersion = 'SqlServerLab.RuntimeMaintenancePreview/1.0'
+        Status = $plan.Status
+        Providers = @($plan.Providers | Select-Object Provider, Status)
+        Summary = $plan.Summary | Select-Object Actions, SafeAutomatic, ScopedCleanup, LegacyApproval, ReviewOnly
+    }
+}
+
+function Show-LabRuntimeMaintenancePreviewInteractive {
+    [CmdletBinding()]
+    param()
+
+    try {
+        $view = Get-LabRuntimeMaintenancePreview
+        Write-LabStatus -Label 'Wartungsvorschau' -Value $view.Status
+        foreach ($provider in $view.Providers) {
+            Write-Host ('  {0}: {1}' -f $provider.Provider, $provider.Status)
+        }
+        Write-Host ('  Vorgeschlagene Aktionen: {0}' -f $view.Summary.Actions)
+        Write-Host ('  State-Abgleich und abgelaufene Testressourcen: {0}' -f $view.Summary.SafeAutomatic)
+        Write-Host ('  Gebundener Cleanup: {0} · Legacy-Freigabe: {1} · Weitere Prüfung: {2}' -f
+            $view.Summary.ScopedCleanup, $view.Summary.LegacyApproval, $view.Summary.ReviewOnly)
+        Write-Host '  Diese Vorschau meldet die beobachteten Befunde. Sie führt keine Aktionen aus.'
+    }
+    catch { Write-Host '  Der schnelle Wartungsplan konnte nicht gelesen werden.' -ForegroundColor Yellow }
+    Wait-LabConsoleAcknowledgement -Prompt 'Enter oder Escape: Zurück zu Wartung'
 }
 
 function Remove-LabStaleTestTempArtifacts {

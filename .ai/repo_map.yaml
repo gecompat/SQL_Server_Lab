@@ -826,6 +826,7 @@ sources_of_truth:
   lab_data_native_runtime_storage_decision: Documentation/Architecture/LAB_DATA_AND_NATIVE_RUNTIME_STORAGE_DECISION.md
   cleanup_audit_schema: Schemas/lab-cleanup-audit.schema.json
   hyperv_resource_binding_contract: Private/HyperVResourceBinding.ps1
+  hyperv_storage_preview_guidance: Public/Invoke-SqlServerLab.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/hyperv-storage-preview.js
   hyperv_resource_preview_command: Public/Get-SqlServerLabHyperVResourcePreview.ps1
   hyperv_resource_binding_schema: Schemas/hyperv-resource-binding.schema.json
   hyperv_resource_migration_contract: Private/HyperVResourceMigration.ps1
@@ -1661,6 +1662,7 @@ internal_components:
     container_runtime_scope: Private/ContainerRuntimeScope.ps1
     maintenance_core: Private/Maintenance.ps1
     maintenance_guidance: Private/MaintenanceGuidance.ps1
+    runtime_maintenance_preview: Private/Maintenance.ps1, Public/BatchConsole.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/runtime-maintenance-preview.js
     maintenance_guidance_checks: Tests/Static/Invoke-MaintenanceGuidanceChecks.ps1
     maintenance_commands: Public/Maintenance.ps1
     maintenance_schema: Schemas/lab-maintenance-plan.schema.json

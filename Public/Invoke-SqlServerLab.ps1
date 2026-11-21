@@ -171,7 +171,19 @@ function Invoke-LabMenuAction {
     if ($ActionName -eq 'ContainerNetworkPlan') { Show-LabContainerNetworkMigrationPlanInteractive; return }
     if ($ActionName -eq 'AutomationApiPlan') { Show-LabAutomationApiPlanInteractive; return }
     if ($ActionName -eq 'HyperVRecoveryPointPlan') { Show-LabHyperVRecoveryPointPlanInteractive; return }
+    if ($ActionName -eq 'HyperVStoragePreview') {
+        try {
+            $preview = Get-SqlServerLabHyperVResourcePreview -ErrorAction Stop
+            $null = Write-LabHyperVResourceLocationPreview -Preview $preview
+        }
+        catch {
+            Write-LabWarning 'Hyper-V-Zielpfade sind nicht lesbar. Prüfe die Lab_Data-Registrierung unter Grundkonfiguration.'
+        }
+        Wait-LabConsoleAcknowledgement -Prompt 'Enter oder Escape: Zurück zu Hyper-V'
+        return
+    }
     if ($ActionName -eq 'DiagnosticBundle') { Show-LabDiagnosticBundleInteractive; return }
+    if ($ActionName -eq 'RuntimeMaintenancePreview') { Show-LabRuntimeMaintenancePreviewInteractive; return }
     if ($ActionName -eq 'RunStateUpgradePlan') { Show-LabRunStateUpgradePlanInteractive; return }
     if ($ActionName -eq 'ManifestCheck') { Show-LabManifestCheckInteractive; return }
     if ($ActionName -eq 'ContainerToolCheck') { Invoke-LabContainerToolCheckInteractive; return }
@@ -331,7 +343,10 @@ function Show-LabHyperVMenu {
         New-LabConsoleItem -Id 'back' -Label 'Zurueck' -Shortcut '0'
     )
 
-    $items += New-LabConsoleItem -Id 'ReservePolicy' -Label 'Slotreserve: Policy und Kandidaten' -Shortcut 'r'
+    $items += @(
+        New-LabConsoleItem -Id 'HyperVStoragePreview' -Label 'Hyper-V-Zielpfade und freien Speicher anzeigen' -Value 'Registriertes Standardziel · lesend' -Shortcut 's'
+        New-LabConsoleItem -Id 'ReservePolicy' -Label 'Slotreserve: Policy und Kandidaten' -Shortcut 'r'
+    )
     return Show-LabSubMenu -ScreenId 'hyperv-menu' -Title 'Hyper-V: Vorlagen und Slots' -Subtitle 'OS-/SQL-Vorlagen und operative Slotvorbereitung' -Items $items
 }
 
