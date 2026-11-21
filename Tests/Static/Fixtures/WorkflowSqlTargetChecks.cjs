@@ -26,6 +26,7 @@ class Element {
   scrollIntoView() { this.scrolled = true; }
   click() { if (this.id === 'a') downloads.push({ file: this.download, url: this.href }); }
   append(child) { this.children.push(child); }
+  add(option) { this.options.push(option); }
   replaceChildren(...children) { this.children = children; }
   get childElementCount() { return this.children.length; }
   querySelectorAll(selector) {
@@ -66,6 +67,7 @@ const document = {
 };
 const clipboardMounts = [];
 const context = vm.createContext({ document, console, URLSearchParams,
+  Option: class { constructor(text, value) { this.text = text; this.value = value; } },
   URL: Object.assign(class extends URL {}, { createObjectURL: () => 'blob:synthetic-test', revokeObjectURL() {} }),
   crypto: require('node:crypto').webcrypto, TextEncoder, AbortController,
   window: { setInterval() {}, setTimeout() {}, clearTimeout() {}, alert() {},
@@ -74,7 +76,7 @@ const context = vm.createContext({ document, console, URLSearchParams,
 const fetchRequests = [];
 const run = (code) => vm.runInContext(code, context, { timeout: 5000 });
 run(source);
-for (const asset of ['manifest-check.js', 'ssms-registration-export.js', 'cms-management.js', 'resource-plan.js']) {
+for (const asset of ['manifest-check.js', 'ssms-registration-export.js', 'cms-management.js', 'resource-plan.js', 'llama-model-catalog.js']) {
   if (html.includes('<script src="' + asset + '"></script>')) run(fs.readFileSync(path.join(root, 'Ui', asset), 'utf8'));
 }
 run('const actualQueueBackgroundAction = queueBackgroundAction; queueBackgroundAction = (action, parameters) => queued.push({action, parameters});');
@@ -883,6 +885,23 @@ async function main() {
     assert.equal(resourceRequest.action,'__PublicCommand');
     assert.equal(resourceRequest.parameters.command.Name,'Get-SqlServerLabResourcePlan');
     assert.equal(JSON.stringify(resourceRequest.parameters.parameters),JSON.stringify({ResourceKind:'Software',SummaryOnly:true}));
+  });
+  run("$('#confirmation-dialog').close(); pendingConfirmation = null;");
+  const modelReads=[];
+  const modelFixture={Contract:'SqlServerLab.LlamaCppModel/1.0', Id:'synthetic-gguf', DisplayName:'Synthetic model', DirectDownload:true,
+    Purpose:'generation', Quantization:'Q4', License:'Apache-2.0', Publisher:'Synthetic publisher', Sha256:'d'.repeat(64), Revision:'e'.repeat(40), SizeBytes:2000000000};
+  context.sqlServerLabUiFetch=async(route,options)=>{modelReads.push({route,options}); return {ok:true,json:async()=>[modelFixture]};};
+  run("workflow.Defaults = {MediaRoot:'C:/synthetic/Lab_Base'}; publicCommandCatalog = [{Name:'Save-SqlServerLabLlamaCppModel',RequiresConfirmation:true,ParameterSets:[{Name:'__AllParameterSets',Parameters:['Id','MediaRoot','ExpectedModelSha256','ExpectedModelRevision'].map(Name=>({Name,Sensitive:false,IsCredential:false}))}]}];");
+  await resourceEvent('llama-model-catalog-open');
+  check('Model catalog reads metadata without starting a download',()=>{assert.equal(modelReads.length,1);assert.equal(modelReads[0].route,'/api/llama-model-catalog');assert.equal(node('llama-model-catalog-download').disabled,true);});
+  node('llama-model-catalog-selection').value=modelFixture.Id;
+  await resourceEvent('llama-model-catalog-selection','change');
+  await resourceEvent('llama-model-catalog-form','submit');
+  check('Model download confirmation binds exact selected size, licence, repository pin and configured destination',()=>{
+    assert.match(node('confirmation-message').textContent,/2 GB.*Apache-2.0/);
+    assert.deepEqual(JSON.parse(JSON.stringify(run('pendingConfirmation.parameters.parameters'))),
+      {Id:modelFixture.Id, MediaRoot:'C:/synthetic/Lab_Base', ExpectedModelSha256:modelFixture.Sha256, ExpectedModelRevision:modelFixture.Revision});
+    assert.equal(modelReads.length,1);
   });
   run("$('#confirmation-dialog').close(); pendingConfirmation = null;");
   const cmsRequests=[];

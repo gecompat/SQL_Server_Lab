@@ -132,6 +132,7 @@
       <p>Eigene llama.cpp-Sitzungen dieses UI-Modulhosts können geführt gestartet und bewusst gestoppt werden. Der geführte Start ist synthetisch geprüft; der native Nachweis steht noch aus. Fremdstarts, Restart sowie Load, Warmup, Unload und Modellwechsel bleiben offen. Der vorhandene erweiterte Secret-Preflight unten steuert keinen Dienst.</p>
       <button id="llama-session-open" type="button" class="button secondary">Eigene llama.cpp-Sitzung stoppen</button>
       <button id="llama-runtime-inventory-read" type="button" class="button secondary">Vorhandene llama.cpp-Pakete prüfen</button>
+      <button id="llama-model-catalog-open" type="button" class="button secondary">llama.cpp-Modelle anzeigen und herunterladen</button>
       <p id="llama-runtime-inventory-status" role="status"></p>
       <ul id="llama-runtime-inventory-items" hidden></ul>
       <button id="ai-compute-inventory-read" type="button" class="button secondary">CPU, GPU und NPU erfassen</button>
@@ -1003,6 +1004,19 @@
   <script src="tls-live-qualification.js"></script>
   <script src="sql-connection-clipboard.js"></script>
   <script src="app.js"></script>
+  <dialog id="llama-model-catalog-dialog">
+    <form id="llama-model-catalog-form">
+      <h2>llama.cpp-Modelle anzeigen und herunterladen</h2>
+      <label>Modell<select id="llama-model-catalog-selection" required></select></label>
+      <p id="llama-model-catalog-details"></p>
+      <p id="llama-model-catalog-status" role="status"></p>
+      <div class="dialog-actions">
+        <button id="llama-model-catalog-download" type="submit" class="button primary" disabled>Weiter zur Bestätigung</button>
+        <button id="llama-model-catalog-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </form>
+  </dialog>
+  <script src="llama-model-catalog.js"></script>
   <dialog id="resource-plan-dialog">
     <form id="resource-plan-form">
       <h2>Lokalen Ressourcenbedarf prüfen</h2>

@@ -1080,6 +1080,13 @@ Retrieval](../User/Getting_Started.md#persistentes-retrieval) erklärt den
 Unterschied zwischen dem Löschen alter Generationen und der gesamten
 Collection-Datenbank.
 
+Unter **Host-Dienste und Modelle** kannst du in CLI und Browser ein
+llama.cpp-Generationsmodell aus dem lokalen Katalog auswählen. Prüfe
+Modellgröße, Lizenz und Medienordner vor der Bestätigung. Die Auswahl bindet
+Katalogrevision und SHA-256. Der Download wird nach erfolgreicher Prüfung
+unter `AI/Models` im Medienordner abgelegt. Das Ergebnis steht im Browser
+unter **Vorgänge**. Start und Modellnutzung erfolgen in getrennten Schritten.
+
 Der geführte eigene llama.cpp-Sitzungsstop ist unter „Host-Dienste und Modelle“
 über Auswahl, Vorschau, Abbruch und bewusste Bestätigung erreichbar. Die
 Verbraucher-Coverage bleibt UNKNOWN; deklarierte geschützte Verbraucher sperren

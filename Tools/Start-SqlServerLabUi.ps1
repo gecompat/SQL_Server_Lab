@@ -1265,6 +1265,15 @@ try {
                 finally { $bodyRead = $null; $modelPath = $null; $options = $null }
                 continue
             }
+            if ($path -ceq '/api/llama-model-catalog' -and $context.Request.HttpMethod -ceq 'GET') {
+                try {
+                    $catalog = @(Get-SqlServerLabLlamaCppModel -ErrorAction Stop)
+                    Write-UiResponse -Context $context -Body (ConvertTo-Json -InputObject $catalog -Depth 8 -Compress) -ContentType 'application/json; charset=utf-8' -NoStore
+                } catch {
+                    Write-UiResponse -Context $context -Body '{"Code":"LLAMA_MODEL_CATALOG_UNAVAILABLE"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400 -NoStore
+                }
+                continue
+            }
             if ($path -ceq '/api/llama-runtime-inventory') {
                 try {
                     $view = & (Get-Module SqlServerLab) { param($request) Invoke-LabLlamaCppRuntimeInventoryHttpRequest -Request $request } $context.Request

@@ -549,7 +549,8 @@ function Manage-LabLlamaCppModelsInteractive {
     Write-LabStatus -Label 'Ziel' -Value (Join-Path $mediaRoot ('AI/Models/' + [string]$model.FileName))
     if (-not (Read-LabConfirm -Prompt '  Modelldatei herunterladen oder vorhandene Datei prüfen?' -Default $false)) { return }
     try {
-        $result = Save-SqlServerLabLlamaCppModel -Id ([string]$model.Id) -MediaRoot $mediaRoot -Confirm:$false
+        $result = Save-SqlServerLabLlamaCppModel -Id ([string]$model.Id) -MediaRoot $mediaRoot `
+            -ExpectedModelSha256 $model.Sha256 -ExpectedModelRevision $model.Revision -Confirm:$false
         if ([string]$result.Status -ceq 'ALREADY_PRESENT') {
             Write-LabSuccess "Modell ist bereits vollständig geprüft vorhanden: $($result.Path)"
         }
