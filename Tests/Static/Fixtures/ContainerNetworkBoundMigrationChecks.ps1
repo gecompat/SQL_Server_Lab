@@ -26,12 +26,13 @@ try {
             [pscustomobject]@{Id=$script:migrationMember;WasRunning=$true
                 Aliases=@(if (-not $script:migrationRejectAlias) { 'lab-alias' })}
         }
-        function Invoke-LabContainerRuntimeCommand {
-            param($Provider,$ArgumentList,$Invocation,$StateRoot,[switch]$NativeResult,$TimeoutSeconds)
-            if ($Provider -cne 'docker' -or $Invocation -cne 'synthetic-network-runtime' -or
-                -not $NativeResult -or $TimeoutSeconds -ne 90 -or -not $StateRoot) {
+        function Invoke-LabRunArtifactPinnedProcess {
+            param($Context,$Arguments,$Invocation,$TimeoutSeconds)
+            if ($Context.Provider -cne 'docker' -or $Context.Endpoint -cne 'npipe://synthetic-network-runtime' -or
+                $Invocation -cne 'synthetic-network-runtime' -or $TimeoutSeconds -ne 90) {
                 throw 'UNEXPECTED_MIGRATION_ROUTE'
             }
+            $ArgumentList = $Arguments
             $script:migrationNativeSteps.Add($ArgumentList -join ' ')
             $exitCode = 0
             $stdout = ''
@@ -73,6 +74,10 @@ try {
             } else { throw 'UNEXPECTED_MIGRATION_COMMAND' }
             [pscustomobject]@{ExitCode=$exitCode;Stdout=$stdout}
         }
+        $route = @{
+            Provider='docker'; StateRoot=$null; Binding=('a'*64); Invocation='synthetic-network-runtime'
+            Context=[pscustomobject]@{ Provider='docker'; Endpoint='npipe://synthetic-network-runtime' }
+        }
 
         $plan = [pscustomobject]@{
             ConfiguredSubnet='172.26.0.0/16'
@@ -82,7 +87,8 @@ try {
                 Name='synthetic-member';WasRunning=$true;Aliases=@('lab-alias')})
         }
         $successfulRoot = Join-Path $Root 'success'
-        $result = Invoke-LabBoundContainerNetworkMigration -Provider docker -StateRoot $successfulRoot -Plan $plan
+        $route.StateRoot=$successfulRoot
+        $result = Invoke-LabBoundContainerNetworkMigration -Route $route -Plan $plan
         $journal = Read-LabWorkflowJson -Path (Get-LabContainerNetworkMigrationJournalPath -Provider docker -StateRoot $successfulRoot)
         $aliasStep = @($script:migrationNativeSteps | Where-Object { $_ -ceq ('network connect --alias lab-alias '+$script:migrationNewNetwork+' '+$script:migrationMember) })
         $temporaryStep = @($script:migrationNativeSteps | Where-Object { $_ -clike 'network create --driver bridge --subnet 198.18.1.0/24 *-migration-*' })
@@ -108,7 +114,8 @@ try {
         $script:migrationNativeSteps.Clear()
         $script:migrationFailDisconnect = $true
         $failedRoot = Join-Path $Root 'failed'
-        $failure = try { Invoke-LabBoundContainerNetworkMigration -Provider docker -StateRoot $failedRoot -Plan $plan | Out-Null; '' }
+        $route.StateRoot=$failedRoot
+        $failure = try { Invoke-LabBoundContainerNetworkMigration -Route $route -Plan $plan | Out-Null; '' }
             catch { $_.Exception.Message }
         $failed = Read-LabWorkflowJson -Path (Get-LabContainerNetworkMigrationJournalPath -Provider docker -StateRoot $failedRoot)
         $blocked = New-LabContainerNetworkMigrationPlan -Provider docker -StateRoot $failedRoot
@@ -122,7 +129,8 @@ try {
         $script:migrationFailDisconnect = $false
         $script:migrationRejectAlias = $true
         $aliasRoot = Join-Path $Root 'alias'
-        $failure = try { Invoke-LabBoundContainerNetworkMigration -Provider docker -StateRoot $aliasRoot -Plan $plan | Out-Null; '' }
+        $route.StateRoot=$aliasRoot
+        $failure = try { Invoke-LabBoundContainerNetworkMigration -Route $route -Plan $plan | Out-Null; '' }
             catch { $_.Exception.Message }
         $aliasJournal = Read-LabWorkflowJson -Path (Get-LabContainerNetworkMigrationJournalPath -Provider docker -StateRoot $aliasRoot)
         if ($failure -cne 'LAB_NETWORK_MIGRATION_POSTCONDITION_UNCONFIRMED' -or $aliasJournal.Status -cne 'RECOVERY_REQUIRED') {

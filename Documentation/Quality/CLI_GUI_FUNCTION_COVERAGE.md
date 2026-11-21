@@ -171,9 +171,9 @@ IPv4-Zielsubnetz. Die automatische Vorschau lässt die Netzkonfiguration im
 Prozess unverändert. Der öffentliche
 PowerShell-Befehl kann den `ExpectedPlanKey` zurückgeben und bei der
 Ausführung prüfen. Der Plan bindet Provider, Netz-ID, Subnetze und
-registrierte Container. Fremde, geschützte und nicht eindeutig zugeordnete
+registrierte Container sowie eine verifizierte lokale Runtime. Fremde, geschützte und nicht eindeutig zugeordnete
 Ressourcen sowie eine offene Recovery sperren die Ausführung. Der
-synthetisch geprüfte Executor verwendet unveränderliche Runtime-IDs und
+synthetisch geprüfte Executor verwendet unveränderliche IDs an einem gebundenen Provider-Endpunkt und
 kontrolliert Power und Aliasse nach der Mutation. Eine native
 Migrationsabnahme und eine geführte Recovery bleiben offen.
 

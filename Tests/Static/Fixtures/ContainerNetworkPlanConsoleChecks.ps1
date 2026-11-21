@@ -30,6 +30,14 @@ $ErrorActionPreference = 'Stop'
             }
         }
         function Get-LabKnownIpv4Subnets { param($Provider,$ExcludeNetworkId) @('172.26.0.0/16') }
+        function Get-LabContainerNetworkMigrationRoute { param($Provider,$StateRoot) @{Binding=$script:syntheticRuntimeBinding} }
+        function Invoke-LabContainerNetworkMigrationStep {
+            param($Route,$Arguments,$FailureCode)
+            $id = if ($script:syntheticNetworkMode -eq 'network-replaced') { 'b'*64 } else { 'a'*64 }
+            if (($Arguments -join ' ') -cne ('network inspect '+$id)) { throw 'UNEXPECTED_BOUND_NETWORK_READ' }
+            $boundId = if ($script:syntheticNetworkMode -eq 'different-runtime') { 'f'*64 } else { $id }
+            [pscustomobject]@{Stdout=(ConvertTo-Json -InputObject @(@{Name='LabNetwork';Id=$boundId}) -Compress)}
+        }
         function Resolve-LabAvailableContainerNetwork { param($Provider,$Network,[switch]$PlanOnly)
             if (-not $PlanOnly) { throw 'PREVIEW_ATTEMPTED_PROCESS_CHANGE' }
             [pscustomobject]@{Subnet='198.18.0.0/24'}
@@ -44,6 +52,7 @@ $ErrorActionPreference = 'Stop'
         function Select-LabConsoleDataItem { param($ScreenId,$Title,$Items) $Items[0].Data }
         function Read-LabConsoleTextInput { param($Prompt) [pscustomobject]@{Status='Confirmed';Value=''} }
         function Wait-LabConsoleAcknowledgement { $null }
+        $script:syntheticRuntimeBinding = 'a'*64
         foreach ($sample in @(
             @{Mode='unavailable'; Expected='nicht eindeutig geprüft'; Probes=1},
             @{Mode='missing'; Expected='kein Lab-Netz gefunden'; Probes=1},
@@ -77,6 +86,7 @@ $ErrorActionPreference = 'Stop'
             catch { if ($_.Exception.Message -cne $case.Code) { throw } }
         }
         foreach ($example in @(@{ Mode='unmanaged'; Reason='LAB_NETWORK_MIGRATION_UNVERIFIED_NETWORK' },
+                               @{ Mode='different-runtime'; Reason='LAB_NETWORK_MIGRATION_RUNTIME_UNVERIFIED' },
                                @{ Mode='foreign-member'; Reason='LAB_NETWORK_MIGRATION_UNVERIFIED_MEMBER' })) {
             $script:syntheticNetworkMode=$example.Mode
             $blocked=Move-SqlServerLabContainerNetwork -Provider docker -Confirm:$false
@@ -88,10 +98,15 @@ $ErrorActionPreference = 'Stop'
         $staleVeto = try { Move-SqlServerLabContainerNetwork -Provider docker -ExpectedPlanKey $key -Confirm:$false | Out-Null; $false }
             catch { $_.Exception.Message -ceq 'LAB_NETWORK_MIGRATION_PREVIEW_CHANGED' }
         if (-not $staleVeto) { throw 'REPLACED_NETWORK_ACCEPTED' }
+        $script:syntheticNetworkMode='conflict'
+        $script:syntheticRuntimeBinding='e'*64
+        $staleRuntimeVeto = try { Move-SqlServerLabContainerNetwork -Provider docker -ExpectedPlanKey $key -Confirm:$false | Out-Null; $false }
+            catch { $_.Exception.Message -ceq 'LAB_NETWORK_MIGRATION_PREVIEW_CHANGED' }
+        if (-not $staleRuntimeVeto) { throw 'REPLACED_RUNTIME_ACCEPTED' }
         Write-Host 'PASS: Vorschau unterscheidet fehlendes Netz von Lesefehlern und sperrt fremde oder ausgetauschte Ressourcen.'
     }
     finally {
         $global:LASTEXITCODE = $previousExit
-        Remove-Variable -Name syntheticNetworkMode,syntheticNetworkProbes,syntheticNetworkRoot -Scope Script
+        Remove-Variable -Name syntheticNetworkMode,syntheticNetworkProbes,syntheticNetworkRoot,syntheticRuntimeBinding -Scope Script
     }
 }

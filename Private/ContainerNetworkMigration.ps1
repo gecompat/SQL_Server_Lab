@@ -54,12 +54,13 @@ function Get-LabManagedContainersOnNetwork {
     param(
         [Parameter(Mandatory)][ValidateSet('docker','podman')][string]$Provider,
         [Parameter(Mandatory)][string]$NetworkName,
-        [Parameter(Mandatory)][string]$StateRoot
+        [Parameter(Mandatory)][string]$StateRoot,
+        [Parameter(Mandatory)][hashtable]$Route
     )
 
-    $runtime = Get-LabHostToolInvocation -Name $Provider
-    $ids = @(& $runtime ps -a --no-trunc -q --filter "network=$NetworkName" 2>$null)
-    if ($LASTEXITCODE -ne 0) { throw "LAB_NETWORK_MIGRATION_CONTAINER_LIST_FAILED: $Provider" }
+    $listing = Invoke-LabContainerNetworkMigrationStep -Route $Route -Arguments @('ps','-a','--no-trunc','-q','--filter',"network=$NetworkName") `
+        -FailureCode 'LAB_NETWORK_MIGRATION_CONTAINER_LIST_FAILED'
+    $ids = @(($listing.Stdout -join "`n") -split '\r?\n' | Where-Object { $_ })
     if (@($ids | Where-Object { $_ -cnotmatch '^[a-f0-9]{64}$' }).Count -or
         @($ids | Sort-Object -Unique).Count -ne $ids.Count) { throw 'LAB_NETWORK_MIGRATION_MEMBERSHIP_INVALID' }
     if (-not $ids.Count) { return }
@@ -71,8 +72,9 @@ function Get-LabManagedContainersOnNetwork {
     })
     $containers = @()
     foreach ($id in $ids) {
-        $raw = @(& $runtime inspect $id 2>$null) -join [Environment]::NewLine
-        if ($LASTEXITCODE -ne 0 -or -not $raw) { throw 'LAB_NETWORK_MIGRATION_MEMBER_CHANGED' }
+        $read = Invoke-LabContainerNetworkMigrationStep -Route $Route -Arguments @('inspect',$id) -FailureCode 'LAB_NETWORK_MIGRATION_MEMBER_CHANGED'
+        $raw = $read.Stdout -join [Environment]::NewLine
+        if (-not $raw) { throw 'LAB_NETWORK_MIGRATION_MEMBER_CHANGED' }
         $inspections = @($raw | ConvertFrom-Json -Depth 50 -ErrorAction Stop)
         if ($inspections.Count -ne 1 -or [string]$inspections[0].Id -cne $id) { throw 'LAB_NETWORK_MIGRATION_MEMBER_CHANGED' }
         $inspect = $inspections[0]
@@ -117,9 +119,22 @@ function Get-LabManagedContainersOnNetwork {
     return @($containers | Sort-Object RunId, Name)
 }
 
+function Get-LabContainerNetworkMigrationRoute {
+    param([string]$Provider,[string]$StateRoot)
+
+    $context = Get-LabRunArtifactRuntimeContext -Provider $Provider -StateRoot $StateRoot
+    if ($context.StateRoot) { throw 'LAB_NETWORK_MIGRATION_OWNED_HOST_BLOCKED' }
+    $invocation = Get-LabHostToolInvocation -Name $Provider
+    $incarnation = Get-LabRunArtifactRuntimeIncarnation -Context $context -StateRoot $StateRoot -Invocation $invocation
+    @{
+        Provider=$Provider; StateRoot=$StateRoot; Context=$context; Invocation=$invocation; Incarnation=$incarnation
+        Binding=Get-LabWorkflowHash -Text (($context.RuntimeScopeId,$context.RoutingKey,$incarnation) -join '|') -Length 64
+    }
+}
+
 function New-LabContainerNetworkMigrationPlan {
     [CmdletBinding()]
-    param([Parameter(Mandatory)][ValidateSet('docker','podman')][string]$Provider, [string]$StateRoot, [string]$TargetSubnet)
+    param([Parameter(Mandatory)][ValidateSet('docker','podman')][string]$Provider, [string]$StateRoot, [string]$TargetSubnet, [hashtable]$Route)
 
     if ($TargetSubnet) {
         try { $TargetSubnet = (ConvertTo-LabIpv4Subnet -Subnet $TargetSubnet).Cidr }
@@ -171,7 +186,16 @@ function New-LabContainerNetworkMigrationPlan {
         (Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json'))) {
         $blocker = 'LAB_NETWORK_MIGRATION_OWNED_HOST_BLOCKED'
     } else {
-        try { $containers = @(Get-LabManagedContainersOnNetwork -Provider $Provider -NetworkName $network.Name -StateRoot $StateRoot) }
+        try {
+            if (-not $Route) { $Route = Get-LabContainerNetworkMigrationRoute -Provider $Provider -StateRoot $StateRoot }
+            $bound = Invoke-LabContainerNetworkMigrationStep -Route $Route -Arguments @('network','inspect',$actual.Id) -FailureCode 'LAB_NETWORK_MIGRATION_RUNTIME_UNVERIFIED'
+            $boundNetwork = @(($bound.Stdout -join "`n") | ConvertFrom-Json -Depth 30)
+            if ($boundNetwork.Count -ne 1 -or $boundNetwork[0].Id -cne $actual.Id -or $boundNetwork[0].Name -cne $network.Name) {
+                throw 'LAB_NETWORK_MIGRATION_RUNTIME_UNVERIFIED'
+            }
+        }
+        catch { return New-LabContainerNetworkMigrationBlockedPlan -Provider $Provider -Reason 'LAB_NETWORK_MIGRATION_RUNTIME_UNVERIFIED' }
+        try { $containers = @(Get-LabManagedContainersOnNetwork -Provider $Provider -NetworkName $network.Name -StateRoot $StateRoot -Route $Route) }
         catch {
             if ($_.Exception.Message -cnotmatch '^LAB_NETWORK_MIGRATION_(UNVERIFIED_MEMBER|MEMBER_CHANGED|MEMBERSHIP_INVALID|PROTECTED_MEMBER|PENDING_RECOVERY|STATIC_ADDRESS)$') { throw }
             $blocker = $_.Exception.Message
@@ -190,13 +214,14 @@ function New-LabContainerNetworkMigrationPlan {
         $desired
     } else { Resolve-LabAvailableContainerNetwork -Provider $Provider -Network $network -PlanOnly }
     $binding = [ordered]@{Root=(Get-LabCanonicalResourceRoot -StateRoot $StateRoot);DataRoot=(Get-LabDataRootDefault)
-        Provider=$Provider;NetworkId=$actual.Id;Name=$network.Name
+        Provider=$Provider;RuntimeBinding=$Route.Binding;NetworkId=$actual.Id;Name=$network.Name
         ConfiguredSubnet=$network.Subnet;OldSubnet=$actualSubnet;NewSubnet=$target.Subnet
         Members=@($containers | Select-Object Id,RunId,ScopeId,InstanceId,WasRunning,Aliases)}
     return [PSCustomObject]@{
         Contract=[PSCustomObject]@{Name='SqlServerLab.ContainerNetworkMigrationPlan';Version='1.0'}; Provider=$Provider
         Status='MIGRATION_REQUIRED'; IsNoOp=$false; Actions=@([PSCustomObject]@{Operation='MigrateManagedContainers';Provider=$Provider})
         PlanKey=Get-LabWorkflowHash -Text ($binding | ConvertTo-Json -Depth 8 -Compress) -Length 64
+        RuntimeBinding=$Route.Binding
         ConfiguredSubnet=$network.Subnet
         Actual=[PSCustomObject]@{Name=$network.Name;Subnet=$actualSubnet;Id=$actual.Id}; Desired=[PSCustomObject]@{Name=$network.Name;Subnet=$target.Subnet}
         ManagedContainers=@($containers | Select-Object RunId,Name,WasRunning,Id,Aliases)
@@ -254,16 +279,20 @@ function Invoke-LabContainerNetworkMigration {
         $dataRoot = Get-LabDataRootDefault
         if ($dataRoot) { $testGroupLock = Enter-LabTestGroupLock -OutputDirectory (Join-Path $dataRoot 'Exports') }
         $groupsLock = Enter-LabEnvironmentGroupsLock -StateRoot $StateRoot
-        $plan = New-LabContainerNetworkMigrationPlan -Provider $Provider -StateRoot $StateRoot -TargetSubnet $TargetSubnet
+        $route = Get-LabContainerNetworkMigrationRoute -Provider $Provider -StateRoot $StateRoot
+        $plan = New-LabContainerNetworkMigrationPlan -Provider $Provider -StateRoot $StateRoot -TargetSubnet $TargetSubnet -Route $route
         if ($plan.IsNoOp -or $plan.PlanKey -cne $ExpectedPlanKey) { throw 'LAB_NETWORK_MIGRATION_PREVIEW_CHANGED' }
         foreach ($runId in @($plan.ManagedContainers.RunId | Sort-Object -Unique)) {
             $runLocks.Add((Enter-LabEnvironmentGroupRunResourceLock -RunId $runId -StateRoot $StateRoot))
         }
-        $plan = New-LabContainerNetworkMigrationPlan -Provider $Provider -StateRoot $StateRoot -TargetSubnet $TargetSubnet
+        $plan = New-LabContainerNetworkMigrationPlan -Provider $Provider -StateRoot $StateRoot -TargetSubnet $TargetSubnet -Route $route
         if ($plan.IsNoOp -or $plan.PlanKey -cne $ExpectedPlanKey) { throw 'LAB_NETWORK_MIGRATION_PREVIEW_CHANGED' }
+        if ((Get-LabRunArtifactRuntimeIncarnation -Context $route.Context -StateRoot $StateRoot -Invocation $route.Invocation) -cne $route.Incarnation) {
+            throw 'LAB_NETWORK_MIGRATION_RUNTIME_UNVERIFIED'
+        }
         Exit-LabEnvironmentGroupsLock -Mutex $groupsLock
         $groupsLock = $null
-        Invoke-LabBoundContainerNetworkMigration -Provider $Provider -StateRoot $StateRoot -Plan $plan
+        Invoke-LabBoundContainerNetworkMigration -Route $route -Plan $plan
     }
     finally {
         for ($index = $runLocks.Count - 1; $index -ge 0; $index--) {
@@ -279,7 +308,7 @@ function Invoke-LabContainerNetworkMigration {
 function Invoke-LabContainerNetworkMigrationStep {
     param([hashtable]$Route, [string[]]$Arguments, [string]$FailureCode)
 
-    $result = Invoke-LabContainerRuntimeCommand @Route -ArgumentList $Arguments -NativeResult -TimeoutSeconds 90
+    $result = Invoke-LabRunArtifactPinnedProcess -Context $Route.Context -Invocation $Route.Invocation -Arguments $Arguments -TimeoutSeconds 90
     if ($result.ExitCode -ne 0) { throw $FailureCode }
     $result
 }
@@ -302,15 +331,15 @@ function Get-LabCreatedContainerMigrationNetwork {
 }
 
 function Invoke-LabBoundContainerNetworkMigration {
-    param([string]$Provider, [string]$StateRoot, $Plan)
+    param([hashtable]$Route, $Plan)
 
-    $runtime = Get-LabHostToolInvocation -Name $Provider
-    $route = @{ Provider=$Provider; StateRoot=$StateRoot; Invocation=$runtime }
+    $provider = $Route.Provider
+    $stateRoot = $Route.StateRoot
     $journalPath = Get-LabContainerNetworkMigrationJournalPath -StateRoot $StateRoot -Provider $Provider
     if (-not (Test-LabPathWithinRoot -Root $StateRoot -Path $journalPath).Valid) { throw 'LAB_NETWORK_MIGRATION_JOURNAL_PATH_UNSAFE' }
     $temporaryName = "$($plan.Actual.Name)-migration-$([guid]::NewGuid().ToString('N').Substring(0,8))"
     $temporaryNetwork = Resolve-LabTemporaryContainerNetwork -Provider $Provider -Name $temporaryName -DesiredNetwork $plan.Desired
-    $journal = [PSCustomObject]@{ ContractVersion='SqlServerLab.ContainerNetworkMigrationJournal/1.0'; OperationId=[guid]::NewGuid().ToString('D'); Provider=$Provider; Status='PREPARED'; ConfiguredSubnet=$plan.ConfiguredSubnet; OldNetwork=$plan.Actual; NewNetwork=$plan.Desired; TemporaryNetwork=$temporaryNetwork; Containers=$plan.ManagedContainers; UpdatedAt=Get-LabTimestamp; Error=$null }
+    $journal = [PSCustomObject]@{ ContractVersion='SqlServerLab.ContainerNetworkMigrationJournal/1.0'; OperationId=[guid]::NewGuid().ToString('D'); Provider=$Provider; RuntimeBinding=$Route.Binding; Status='PREPARED'; ConfiguredSubnet=$plan.ConfiguredSubnet; OldNetwork=$plan.Actual; NewNetwork=$plan.Desired; TemporaryNetwork=$temporaryNetwork; Containers=$plan.ManagedContainers; UpdatedAt=Get-LabTimestamp; Error=$null }
     $labels = @('--label','sql-server-lab.network=managed','--label',"sql-server-lab.migration-id=$($journal.OperationId)")
     Write-LabArtifactJsonAtomic -Path $journalPath -InputObject $journal
     try {
@@ -342,7 +371,7 @@ function Invoke-LabBoundContainerNetworkMigration {
         }
         $null = Invoke-LabContainerNetworkMigrationStep -Route $route -Arguments @('network','rm',$journal.TemporaryNetwork.Id) -FailureCode 'LAB_NETWORK_MIGRATION_TEMPORARY_NETWORK_REMOVE_FAILED'
         $observedNetwork = Get-LabCreatedContainerMigrationNetwork -Route $route -Network $plan.Desired -OperationId $journal.OperationId
-        $observedMembers = @(Get-LabManagedContainersOnNetwork -Provider $Provider -NetworkName $observedNetwork.Name -StateRoot $StateRoot)
+        $observedMembers = @(Get-LabManagedContainersOnNetwork -Provider $Provider -NetworkName $observedNetwork.Name -StateRoot $StateRoot -Route $Route)
         if ($observedNetwork.Id -cne $journal.NewNetwork.Id -or $observedMembers.Count -ne @($plan.ManagedContainers).Count) {
             throw 'LAB_NETWORK_MIGRATION_POSTCONDITION_UNCONFIRMED'
         }

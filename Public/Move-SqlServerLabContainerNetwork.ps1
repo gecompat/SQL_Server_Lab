@@ -26,7 +26,7 @@ function Move-SqlServerLabContainerNetwork {
 
         Zeigt eine erforderliche Podman-Netzmigration ohne Runtime-Mutation.
     #>
-    [CmdletBinding(SupportsShouldProcess)]
+    [CmdletBinding(SupportsShouldProcess, ConfirmImpact='High')]
     param(
         [Parameter(Mandatory)][ValidateSet('docker','podman')][string]$Provider,
         [ValidatePattern('^[a-f0-9]{64}$')][string]$ExpectedPlanKey,
