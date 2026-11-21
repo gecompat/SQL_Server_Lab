@@ -1049,6 +1049,7 @@ function Show-LabWorkspaceMenu {
         New-LabConsoleItem -Id HyperVAutoStart -Label 'Hyper-V-Autostart ändern' -Value 'Gebundener Plan · Bestätigung erforderlich' -Shortcut 8
         New-LabConsoleItem -Id HyperVAutoStartRecovery -Label 'Hyper-V-Autostart-Recovery fortsetzen' -Value 'Verifizierte Statepersistenz' -Shortcut h
         New-LabConsoleItem -Id SsisDiagnostics -Label 'SSIS-Diagnose eines bestehenden Windows-Labs' -Value 'Ausführungsmetadaten oder bestätigte Paketladediagnose' -Shortcut 9
+        New-LabConsoleItem -Id SmtpStatusGuidance -Label 'SMTP-Testdienst prüfen' -Value 'Gebundener Mailpit-Receiver · lesend'
         New-LabConsoleItem -Id back -Label 'Zurück' -Shortcut 0
     )
 }

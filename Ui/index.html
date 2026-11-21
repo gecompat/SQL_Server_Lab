@@ -54,6 +54,7 @@
       </div>
       <p>Beginnen Sie mit dem Ziel. Providerabhängige Schritte werden nur angeboten, wenn der Host sie unterstützt; andernfalls bleibt der Grund sichtbar.</p>
       <button id="environment-groups-open" type="button" class="button secondary">Lab-Umgebungsgruppen ansehen</button>
+      <button id="smtp-status-open" type="button" class="button secondary">SMTP-Testdienst prüfen</button>
       <div class="guided-workflow-grid">
         <a class="guided-workflow-card" href="#creation-workflow"><strong>Lab erstellen</strong><span>Container oder vorhandene Hyper-V-Vorlage verwenden</span></a>
         <a class="guided-workflow-card" href="#environment-inventory"><strong>Lab verwalten</strong><span>Status, Start, Stopp, Konfiguration und Entfernen</span></a>
@@ -1193,6 +1194,18 @@
     </form>
   </dialog>
 
+  <dialog id="smtp-status-dialog">
+    <form id="smtp-status-form">
+      <h2>SMTP-Testdienst prüfen</h2>
+      <label>Lab mit Mailpit<select id="smtp-status-lab" required></select></label>
+      <p id="smtp-status-result" role="status"></p>
+      <div class="dialog-actions">
+        <button id="smtp-status-close" type="button" class="button secondary">Schließen</button>
+        <button id="smtp-status-read" type="submit" class="button primary" disabled>Receiver prüfen</button>
+      </div>
+    </form>
+  </dialog>
+
   <dialog id="diagnostic-bundle-dialog">
     <form id="diagnostic-bundle-form">
       <h2>Gespeicherter Diagnosebefund</h2>
@@ -1430,6 +1443,7 @@
   <script src="hyperv-recovery-point-plan.js"></script>
   <script src="diagnostic-bundle.js"></script>
   <script src="license-profile-status.js"></script>
+  <script src="smtp-status.js"></script>
   <script src="ai-scenario-plan.js"></script>
   <script src="run-state-upgrade-plan.js"></script>
   <script src="portable-lab-import-plan.js"></script>

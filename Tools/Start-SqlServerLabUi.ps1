@@ -1143,6 +1143,15 @@ try {
                     -StatusCode $license.StatusCode -ContentType 'application/json; charset=utf-8' -NoStore
                 continue
             }
+            if ($path -ceq '/api/smtp-status') {
+                $smtp = & (Get-Module SqlServerLab) {
+                    param($method,$query)
+                    Invoke-LabSmtpStatusGuidanceRequest -Method $method -Query $query
+                } $context.Request.HttpMethod $context.Request.QueryString
+                Write-UiResponse -Context $context -Body ($smtp.View | ConvertTo-Json -Depth 5 -Compress) `
+                    -StatusCode $smtp.StatusCode -ContentType 'application/json; charset=utf-8' -NoStore
+                continue
+            }
             if ($path -ceq '/api/diagnostic-bundle') {
                 try {
                     $query = $context.Request.QueryString

@@ -330,6 +330,12 @@ function Get-LabConsoleHelpCatalog {
             Effects = 'DPAPI-Leseprüfung für das gewählte Profil. Der Product Key wird nicht angezeigt.'
             Command = 'Test-SqlServerLabLicenseProfile'
         }
+        'smtp-status-target' = @{
+            Title = 'SMTP-Testdienst prüfen'
+            Purpose = 'Ein registriertes Lab mit SMTP-Testdienst auswählen und den Mailpit-Receiver prüfen.'
+            Effects = 'Liest die Runtime-Bindung und den Containerzustand. Öffnet keinen WebMail-Zugang.'
+            Command = 'Get-SqlServerLabSmtpTestServiceStatus'
+        }
         'diagnostic-bundle-instance' = @{
             Title = 'Gespeicherter Diagnosebefund'
             Purpose = 'Die Instanz im registrierten Standard-Lab_Data auswählen.'

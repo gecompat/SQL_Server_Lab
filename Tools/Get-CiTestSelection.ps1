@@ -75,6 +75,7 @@ end {
         @{ Pattern = '^(Private/SmtpTestServicePlan\.ps1|Tests/Static/Invoke-SmtpTestServicePlanChecks\.ps1)$'; Checks = @('Invoke-SmtpTestServicePlanChecks.ps1') },
         @{ Pattern = '^(Private/SmtpTestServiceProvision\.ps1|Tests/Static/Invoke-SmtpTestServiceProvisionChecks\.ps1)$'; Checks = @('Invoke-SmtpTestServiceProvisionChecks.ps1') },
         @{ Pattern = '^(Private/SmtpTestServiceJournal\.ps1|Tests/Static/Invoke-SmtpTestServiceJournalChecks\.ps1)$'; Checks = @('Invoke-SmtpTestServiceJournalChecks.ps1') },
+        @{ Pattern = '(?i)(SmtpTestService(StatusGuidance|WebMail)|smtp-status\.js|SmtpStatusGuidanceUiChecks\.cjs)'; Checks = @('Invoke-SmtpTestServiceWebMailChecks.ps1','Invoke-WorkflowUiChecks.ps1') },
         @{ Pattern = '(?i)(SaPasswordPolicy|SecretProvider|Public[\\/]New-SqlServerLab\.ps1|Public[\\/]Invoke-SqlServerLab\.ps1|DockerProvider|PodmanProvider|ContainerOwnedHostIntegration)'; Checks = @('Invoke-SaPasswordPolicyChecks.ps1') },
         @{ Pattern = '(?i)(OwnedHost|owned-host|ContainerAutoStart|ContainerToolImage|ResourceAssessment|Restart-SqlServerLab|runtime-smoke-(docker|podman|mixed-providers))'; Checks = @('Invoke-OwnedHostIntegrationChecks.ps1') },
         @{ Pattern = '(?i)(Manage-LocalEvidenceArchive|LOCAL_EVIDENCE_ARCHIVES|Invoke-LocalEvidenceArchiveChecks)'; Checks = @('Invoke-LocalEvidenceArchiveChecks.ps1') },
