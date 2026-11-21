@@ -1584,7 +1584,8 @@ function Invoke-LabAiModelInteractive {
             Write-LabError 'Ungültiger Port.'
             return
         }
-        $result = Invoke-SqlServerLabAiModel -ModelKey $model -InputText $prompt -DataClassification synthetic-only -Lane local -LocalPort $localPort -Confirm
+        $timeout = Read-LabIntegerIntentValue -Prompt 'Zeitlimit einschließlich Modellstart (Sekunden)' -Default 180 -Minimum 1 -Maximum 230
+        $result = Invoke-SqlServerLabAiModel -ModelKey $model -InputText $prompt -DataClassification synthetic-only -Lane local -LocalPort $localPort -TimeoutSeconds $timeout -Confirm
     }
     Write-LabStatus -Label 'Modell' -Value "$($result.ModelKey) · $($result.Status)" -Color $(if ($result.Status -eq 'SUCCEEDED') { 'Green' } else { 'Yellow' })
     Write-Host "  $($result.Text)" -ForegroundColor White

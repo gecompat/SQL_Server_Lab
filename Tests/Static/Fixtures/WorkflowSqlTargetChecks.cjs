@@ -948,7 +948,7 @@ async function main() {
   run("$('#confirmation-dialog').close(); pendingConfirmation = null;");
   const localModelReads=[];
   const localModel={Id:'ollama-gemma3-1b-local',Name:'gemma3:1b'};
-  const localModelRequestFields=['ModelKey','InputText','DataClassification','Lane','LocalPort','RetryCount'];
+  const localModelRequestFields=['ModelKey','InputText','DataClassification','Lane','LocalPort','TimeoutSeconds','RetryCount'];
   context.localModelRequestFields=localModelRequestFields;
   context.sqlServerLabUiFetch=async (route,options)=>{localModelReads.push({route,options});return {ok:true,json:async()=>[localModel]};};
   run("publicCommandCatalog=[{Name:'Invoke-SqlServerLabAiModel',RequiresConfirmation:true,ParameterSets:[{Name:'__AllParameterSets',Parameters:localModelRequestFields.map(Name=>({Name,Sensitive:false,IsCredential:false,Mandatory:['ModelKey','InputText','DataClassification'].includes(Name)}))}]}];");
@@ -962,18 +962,24 @@ async function main() {
   node('ollama-local-generation-model').value=localModel.Id;
   await resourceEvent('ollama-local-generation-model','change');
   node('ollama-local-generation-port').value='65536';
+  node('ollama-local-generation-timeout').value='180';
   node('ollama-local-generation-prompt').value='synthetic browser request';
   await resourceEvent('ollama-local-generation-form','submit');
   check('Ollama guided entry rejects an out-of-range port before confirmation',()=>assert.equal(run('pendingConfirmation'),null));
   node('ollama-local-generation-port').value='11434';
+  node('ollama-local-generation-timeout').value='231';
+  await resourceEvent('ollama-local-generation-form','submit');
+  check('Ollama guided entry rejects out-of-range startup timeout',()=>assert.equal(run('pendingConfirmation'),null));
+  node('ollama-local-generation-timeout').value='180';
   await resourceEvent('ollama-local-generation-form','submit');
   check('Ollama confirms one fixed local-lane request without displaying the input text',()=>{
     const dispatch=run('pendingConfirmation.parameters');
     assert.deepEqual(JSON.parse(JSON.stringify(dispatch.parameters)),{
-      ModelKey:localModel.Id, InputText:'synthetic browser request', DataClassification:'synthetic-only', Lane:'local', LocalPort:11434, RetryCount:0,
+      ModelKey:localModel.Id, InputText:'synthetic browser request', DataClassification:'synthetic-only', Lane:'local', LocalPort:11434, TimeoutSeconds:180, RetryCount:0,
     });
     assert.equal(node('ollama-local-generation-prompt').value,'');
     assert.match(node('confirmation-message').textContent,/127\.0\.0\.1:11434/);
+    assert.match(node('confirmation-message').textContent,/180 Sekunden/);
     assert.doesNotMatch(node('confirmation-message').textContent,/synthetic browser request/);
     assert.equal(localModelReads.length,1);
   });

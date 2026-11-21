@@ -1012,6 +1012,7 @@
       <p>Das Modell muss im lokalen Ollama-Dienst installiert sein. Verwende für diese Abfrage synthetische Daten.</p>
       <label>Modell<select id="ollama-local-generation-model" required></select></label>
       <label>Lokaler Port<input id="ollama-local-generation-port" type="number" value="11434" min="1024" max="65535" required></label>
+      <label>Zeitlimit einschließlich Modellstart (Sekunden)<input id="ollama-local-generation-timeout" type="number" value="180" min="1" max="230" required></label>
       <label>Prompt<textarea id="ollama-local-generation-prompt" rows="5" maxlength="8192" required autocomplete="off"></textarea></label>
       <p id="ollama-local-generation-status" role="status"></p>
       <div class="dialog-actions">

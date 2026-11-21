@@ -1105,6 +1105,7 @@ unter **Vorgänge**. Start und Modellnutzung erfolgen in getrennten Schritten.
 Über **Host-Dienste und Modelle → Lokales Ollama-Modell aufrufen** kannst
 du ein katalogisiertes Generationsmodell wählen, das im lokalen Ollama-Dienst
 bereitsteht. Gib dessen Loopback-Port und einen synthetischen Prompt ein.
+Das Zeitlimit umfasst Modellstart und Antwort. Standard sind 180 Sekunden.
 Erst nach Bestätigung sendet der Browserauftrag eine Abfrage an den lokalen
 Dienst. Die Antwort steht unter **Vorgänge**. Für die ausdrücklich
 freizugebende Cloud-Lane gibt es weiterhin den CLI-Einstieg.

@@ -51,14 +51,17 @@
     event.preventDefault();
     const value = element('port').value;
     const port = /^[0-9]+$/.test(value) ? Number(value) : NaN;
+    const timeoutValue = element('timeout').value;
+    const timeout = /^[0-9]+$/.test(timeoutValue) ? Number(timeoutValue) : NaN;
     const model = models.get(selection.value);
     if (next.disabled || !model) return;
-    if (!Number.isInteger(port) || port < 1024 || port > 65535 || !prompt.value.trim() || prompt.value.length > 8192) {
-      status.textContent = 'Gib einen gültigen lokalen Port und einen Prompt mit höchstens 8192 Zeichen ein.';
+    if (!Number.isInteger(port) || port < 1024 || port > 65535 || !Number.isInteger(timeout) || timeout < 1 || timeout > 230 ||
+        !prompt.value.trim() || prompt.value.length > 8192) {
+      status.textContent = 'Gib einen gültigen lokalen Port, 1–230 Sekunden Zeitlimit und einen Prompt mit höchstens 8192 Zeichen ein.';
       return;
     }
     const parameters = { ModelKey: selection.value, InputText: prompt.value, DataClassification: 'synthetic-only',
-      Lane: 'local', LocalPort: port, RetryCount: 0 };
+      Lane: 'local', LocalPort: port, TimeoutSeconds: timeout, RetryCount: 0 };
     const commands = publicCommandCatalog.filter(command => command?.Name === 'Invoke-SqlServerLabAiModel');
     const command = commands.length === 1 ? commands[0] : null;
     const sets = command?.ParameterSets;
@@ -72,7 +75,7 @@
     }
     dialog.close();
     openConfirmation('Lokalen Modellaufruf bestätigen',
-      model + ' · 127.0.0.1:' + port + '\nSende genau eine Abfrage mit synthetischen Daten. Die Antwort steht unter Vorgänge.',
+      model + ' · 127.0.0.1:' + port + ' · ' + timeout + ' Sekunden Zeitlimit\nSende genau eine Abfrage mit synthetischen Daten. Die Antwort steht unter Vorgänge.',
       '__PublicCommand', { command, parameterSet, parameters }, 'Lokal ausführen');
   });
 })();
