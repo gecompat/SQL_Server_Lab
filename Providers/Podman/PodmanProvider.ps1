@@ -299,7 +299,7 @@ function New-PodmanInstance {
     try {
         return Invoke-LabPortAllocationLock -Action {
             $automaticPort = $Port -eq 0
-            $range = Get-LabAutomaticSqlPortRange
+            $range = if ($automaticPort) { Get-LabAutomaticSqlPortRange }
             $nextPort = if ($automaticPort) { $range.Start } else { $Port }
             $selectedPort = $null
             $output = $null

@@ -54,8 +54,8 @@ Add-CheckResult -Name 'Automatische Portsuche bevorzugt den bisherigen Bereich u
     $podmanRange.min -eq $range.Start -and $podmanRange.max -eq $range.End
 )
 Add-CheckResult -Name 'Docker und Podman nutzen dieselbe Bereichsgrenze auch nach einem Bindungskonflikt' -Success (
-    $dockerSource -match '\$range = Get-LabAutomaticSqlPortRange[\s\S]+Find-AvailablePort -RangeStart \$nextPort -RangeEnd \$range.End[\s\S]+\$selectedPort -ge \$range.End' -and
-    $podmanSource -match '\$range = Get-LabAutomaticSqlPortRange[\s\S]+Find-PodmanAvailablePort -RangeStart \$nextPort -RangeEnd \$range.End[\s\S]+\$selectedPort -ge \$range.End'
+    $dockerSource -match '\$range = if \(\$automaticPort\) \{ Get-LabAutomaticSqlPortRange \}[\s\S]+Find-AvailablePort -RangeStart \$nextPort -RangeEnd \$range.End[\s\S]+\$selectedPort -ge \$range.End' -and
+    $podmanSource -match '\$range = if \(\$automaticPort\) \{ Get-LabAutomaticSqlPortRange \}[\s\S]+Find-PodmanAvailablePort -RangeStart \$nextPort -RangeEnd \$range.End[\s\S]+\$selectedPort -ge \$range.End'
 )
 $prerequisite = & $module {
     param($Candidate)
