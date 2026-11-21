@@ -183,6 +183,7 @@ sources_of_truth:
   ai_runtime_capability_schema: Schemas/ai-runtime-capability-set.schema.json
   validation_ai_runtime_capability: Tests/Static/Invoke-AiRuntimeCapabilityChecks.ps1
   ai_compute_selection_api: Public/Get-SqlServerLabAiComputeSelection.ps1
+  ai_compute_selection_guidance: Private/AiComputeSelectionConsole.ps1, Ui/ai-compute-selection.js
   ai_compute_selection_schema: Schemas/ai-compute-selection.schema.json
   validation_ai_compute_selection: Tests/Static/Invoke-AiComputeSelectionChecks.ps1
   ai_compute_benchmark_contract: Private/AiComputeBenchmark.ps1
@@ -209,6 +210,7 @@ sources_of_truth:
   validation_ai_shared_gateway_storage: Tests/Static/Invoke-AiSharedGatewayStorageChecks.ps1
   ai_shared_gateway_upstream_contract: Private/AiSharedGatewayUpstream.ps1
   ai_shared_gateway_upstream_api: Public/Test-SqlServerLabAiSharedGatewayUpstream.ps1
+  ai_ovms_upstream_guidance: Private/OvmsUpstreamConsole.ps1, Ui/ovms-upstream.js, Public/Test-SqlServerLabOvmsUpstreamEndpoint.ps1
   ai_shared_gateway_session_contract: Private/AiSharedGatewaySession.ps1
   ai_shared_gateway_session_worker: Tools/Invoke-AiSharedGatewaySessionWorker.ps1
   ai_shared_gateway_session_start: Public/Start-SqlServerLabAiSharedGatewaySession.ps1
@@ -296,6 +298,7 @@ sources_of_truth:
   validation_ai_external_model_hyperv_binding: Tests/Static/Invoke-AiExternalModelHyperVBindingChecks.ps1
   ai_external_model_acceleration_howto: Documentation/User/SQL_AI_LOCAL_ACCELERATION.md
   ai_persistent_retrieval_api: Public/Invoke-SqlServerLabAiPersistentRetrieval.ps1
+  ai_persistent_retrieval_fixture_guidance: Private/AiPersistentRetrievalConsole.ps1, Ui/ai-persistent-retrieval-fixture.js
   ai_podman_setup: Private/AiPodmanSetup.ps1
   ai_podman_setup_process: Private/AiPodmanSetupProcess.ps1
   ai_podman_setup_worker: Tools/Invoke-AiPodmanSetupWorker.ps1
@@ -458,6 +461,7 @@ sources_of_truth:
   validation_sql_observability_evidence: Tests/Static/Invoke-SqlObservabilityEvidenceChecks.ps1
   acceptance_sql_observability_evidence_container: Tests/Integration/Invoke-ContainerSqlObservabilityAcceptance.ps1
   sql_guest_evaluation_evidence_contract: Private/SqlGuestEvaluationEvidence.ps1
+  sql_guest_evaluation_capture_guidance: Private/SqlGuestEvaluationCaptureConsole.ps1, Public/BatchConsole.ps1, Ui/sql-guest-evaluation-evidence.js
   sql_guest_evaluation_capture_contract: Private/SqlGuestEvaluationCapture.ps1
   sql_guest_evaluation_capture_public: Public/Update-SqlServerLabSqlGuestEvaluationEvidence.ps1
   sql_guest_evaluation_capture_architecture: Documentation/Architecture/SQL_GUEST_EVALUATION_CAPTURE.md
@@ -601,6 +605,7 @@ sources_of_truth:
   validation_portable_container_transfer_executor: Tests/Static/Invoke-PortableContainerTransferExecutorChecks.ps1
   portable_container_transfer_preflight_contract: Private/PortableContainerTransferPreflight.ps1 # operation-bound backup staging and SQL media preflight; transfer remains blocked
   portable_container_transfer_preflight_public: Public/Invoke-SqlServerLabPortableContainerTransferPreflight.ps1
+  portable_container_transfer_guidance: Private/PortableContainerTransferConsole.ps1, Ui/portable-container-transfer.js, Private/BackupLibrary.ps1
   portable_container_transfer_preflight_request_schema: Schemas/portable-container-transfer-preflight-request.schema.json
   portable_container_transfer_preflight_result_schema: Schemas/portable-container-transfer-preflight-result.schema.json
   portable_container_transfer_preflight_journal_schema: Schemas/portable-container-transfer-preflight-journal.schema.json
@@ -661,6 +666,7 @@ sources_of_truth:
   validation_container_reconcile: Tests/Static/Invoke-ContainerReconcileChecks.ps1
   validation_container_recreate_mount_boundary: Tests/Static/Fixtures/ContainerRecreateMountChecks.ps1
   hyperv_network_reconcile_contract: Private/HyperVNetworkReconcile.ps1
+  container_network_preview_guidance: Public/Move-SqlServerLabContainerNetwork.ps1, Private/ContainerNetworkMigration.ps1, Private/ContainerNetworkMigrationConsole.ps1, Ui/container-network-plan.js
   hyperv_network_reconcile_journal_schema: Schemas/hyperv-network-reconcile-journal.schema.json
   validation_hyperv_network_reconcile: Tests/Static/Invoke-HyperVNetworkReconcileChecks.ps1
   validation_hyperv_network_reconnect_helper: Tests/Common/HyperVNetworkReconnectAcceptance.ps1
@@ -760,6 +766,7 @@ sources_of_truth:
   storage_residency_inventory_schema: Schemas/lab-storage-residency-inventory.schema.json
   cleanup_audit_findings: Private/CleanupAuditFindings.ps1
   persistent_storage_catalog: Private/PersistentStorageCatalog.ps1
+  persistent_lab_name_reuse_acceptance: Tests/Integration/Invoke-PersistentLabNameReuseAcceptance.ps1 # fresh SQL store per new Docker/Podman lab; retained predecessor, distinct passwords and own cleanup
   persistent_storage_artifact_sync: Public/Sync-SqlServerLabPersistentStorageArtifact.ps1
   persistent_storage_catalog_schema: Schemas/persistent-storage-catalog.schema.json
   persistent_storage_plan_schema: Schemas/persistent-storage-plan.schema.json
@@ -1749,6 +1756,7 @@ providers:
     image_artifact_inventory: "Public/Get-SqlServerLabHyperVImageArtifact.ps1 und Get-SqlServerLabWorkflow.ps1; pfadfreie read-only Registry-, Workflow-, Evaluierungs-, manueller Refresh- und Referenzsicht, optionale Parent-Hash-Pruefung ohne Refresh- oder Loeschautoritaet"
     evaluation_watch: "Public/Get-SqlServerLabEvaluationWatch.ps1, Private/SqlGuestEvaluationEvidence.ps1 und Public/Invoke-SqlServerLabEvaluationWatchTrigger.ps1; read-only Windows-/SQL-Imagebewertung und persistierte Windows-Instanzfrist mit optionaler lokaler Ereignis-Deduplizierung sowie explizit begrenztem foreground-Zeittrigger ohne Windows-Aufgabe, Lizenz-, Image-, Run-, Runtime- oder Netzwerkmutation; SQL-Gastfristen werden ausschließlich aus einem schema- und bindungsvalidierten, frischen runlokalen Receipt projektiert. Separater SQL-2025-Hyper-V-Capture schreibt ausschließlich NO_DEADLINE-Evidence; Der native Developer-Lauf 35563036235 bestand mit Receiptkette, unverändertem State/Parent und vollständigem Cleanup; positive Deadline-Abnahme bleibt offen."
     validation_evaluation_watch: Tests/Static/Invoke-EvaluationWatchChecks.ps1
+    evaluation_watch_guided_trigger: "Private/EvaluationWatchView.ps1 und Ui/evaluation-watch-trigger.js; Intervall, Prüfanzahl und optionale lokale Ereignisse; Browser nutzt den vorhandenen öffentlichen Kommandoauftrag nach Bestätigung."
     evaluation_refresh_plan: "Public/Get-SqlServerLabEvaluationRefreshPlan.ps1 und Private/EvaluationRefreshPlan.ps1; reine drei-Modi-Entscheidung für eine moderne registrierte Hyper-V-SQL-Instanz unter explicit DataRoot. DiagnosticBundleReader und SqlGuestEvaluationEvidence binden gespeicherte Evidence; gemeinsame Watch-Fristklassifikation ist keine Live-Lizenzprüfung. Immer BLOCKED/Actions0/Mutationfalse, keine Inventory-/Target-/Transferauthority. FULL_INSTANCE_EVALUATION_REFRESH_BACKLOG bleibt kanonisch. Tests/Static/Invoke-EvaluationRefreshPlanChecks.ps1 prüft die tatsächliche Komposition synthetisch."
     evaluation_refresh_plan_cli: "Private/EvaluationRefreshPlanConsole.ps1; geführte Vorschau unter Wartung, Aufräumen und Recovery oder Alle öffentlichen Befehle; expliziter registrierter Root/64 Run-Verzeichnisse, D-Snapshotautorität und öffentlicher Plan. Tests/Static/Invoke-EvaluationRefreshPlanConsoleChecks.ps1 prüft Menüdispatch und Core ohne Runtime."
     evaluation_refresh_plan_browser: "Private/EvaluationRefreshPlanHttp.ps1, Ui/evaluation-refresh-plan.js und dedicated POST /api/evaluation-refresh-plan; geführte RAM-Vorschau im Wartungsbereich. CLI-Metadatenreader/64 Run-Verzeichnisse und D-Snapshot/PublicPlan bleiben Autorität; feste Read/Preview-Shapes, Auswahlrevalidierung, getrennte Windows-/SQL-Evidence, BLOCKED/Actions0. Tests/Static/Invoke-EvaluationRefreshPlanHttpChecks.ps1 prüft tatsächlichen HTTP/Core/Route- und JS-Dialogpfad ohne Runtime."
@@ -2591,6 +2599,7 @@ validation:
   relational_core_comparison:
     source: Private/RelationalCoreComparison.ps1
     public_command: Public/Test-SqlServerLabRelationalCoreComparison.ps1
+    guided_surfaces: Private/RelationalCoreComparisonConsole.ps1, Ui/relational-core-comparison.js
     schema: Schemas/relational-core-comparison.schema.json
     validation: Tests/Static/Invoke-RelationalCoreComparisonChecks.ps1
     contract: "RELATIONAL_CORE/1.0, read-only, live managed container and RuntimeScope binding, no secrets or raw values, transfer executor BLOCKED"

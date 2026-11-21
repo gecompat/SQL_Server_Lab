@@ -307,9 +307,63 @@ function Get-LabConsoleHelpCatalog {
         'evaluation-watch-menu' = @{
             Title = 'Windows-/SQL-Evaluationsfristen'
             Purpose = 'Liest gespeicherte Vorlagen- und Instanzfristen im konfigurierten State-Root. Eintrag auswählen, um Quelle, Aktualität und nächsten Schritt zu sehen.'
-            Effects = 'Read-only: kein Gastzugriff, kein Start und keine Ereignisregistrierung. Unbekannte oder veraltete Evidence ist keine gültige Fristaussage.'
-            Command = 'Get-SqlServerLabEvaluationWatch'
+            Effects = 'Einzelnes Lesen ist read-only. Die zeitgesteuerte Prüfung schreibt nur auf ausdrücklichen Wunsch neue lokale Warnereignisse. Kein Gastzugriff oder Start.'
+            Command = 'Get-SqlServerLabEvaluationWatch / Invoke-SqlServerLabEvaluationWatchTrigger'
             Related = @('Warnfrist 30 Tage, kritische Restlaufzeit 7 Tage.', 'Windows-Instanzen werden im registrierten Zustand RUNNING, SQL-Instanzen in RUNNING und STOPPED berücksichtigt. Keine vollständige Hostinventur.')
+        }
+        'container-network-provider' = @{
+            Title = 'Lab-Netz prüfen'
+            Purpose = 'Docker oder Podman für die Subnetzprüfung auswählen.'
+            Effects = 'Liest den Providerbestand. Die Vorschau verändert keine Netze oder Container.'
+            Command = 'Move-SqlServerLabContainerNetwork -WhatIf'
+        }
+        'relational-compare-Source' = @{
+            Title = 'Quelle für Datenbankvergleich'
+            Purpose = 'Eine laufende verwaltete Docker- oder Podman-Instanz mit einer ONLINE- und READ_ONLY-Datenbank auswählen.'
+            Effects = 'Die Auswahl ändert nichts. Der bestätigte Vergleich meldet Status, Zählwerte und Befundcodes.'
+            Command = 'Test-SqlServerLabRelationalCoreComparison'
+        }
+        'relational-compare-Target' = @{
+            Title = 'Ziel für Datenbankvergleich'
+            Purpose = 'Eine zweite laufende verwaltete Containerinstanz für den Vergleich auswählen.'
+            Effects = 'Der Vergleich liest beide Datenbanken. Er überträgt keine Daten und verändert ihre Einstellungen nicht.'
+            Command = 'Test-SqlServerLabRelationalCoreComparison'
+        }
+        'portable-transfer-backup' = @{
+            Title = 'Verifiziertes Quellbackup'
+            Purpose = 'Ein registriertes SQL-2025-Backup auswählen, dessen Quellinstanz laufend registriert ist.'
+            Effects = 'Die Auswahl ändert nichts. Je nach bestätigter Aktion wird das Backup temporär geprüft oder in einen neuen eigenen Run übertragen.'
+            Command = 'Invoke-SqlServerLabPortableContainerTransferPreflight / Invoke-SqlServerLabPortableContainerTransfer'
+        }
+        'portable-transfer-target' = @{
+            Title = 'Vorhandene Zielinstanz für Medienvorprüfung'
+            Purpose = 'Einen laufenden zweiten Container mit gebundenem Backup-Mount auswählen.'
+            Effects = 'Die bestätigte Vorprüfung legt temporäre Dateien an und entfernt diese wieder. Sie führt keinen Restore aus.'
+            Command = 'Invoke-SqlServerLabPortableContainerTransferPreflight'
+        }
+        'ovms-loopback' = @{
+            Title = 'Lokale OVMS-Adresse'
+            Purpose = 'Die numerische IPv4- oder IPv6-Loopback-Adresse des bestehenden OVMS-Dienstes auswählen.'
+            Effects = 'Die Prüfung sendet nach Bestätigung genau einen synthetischen Request. OVMS muss bereits laufen.'
+            Command = 'Test-SqlServerLabOvmsUpstreamEndpoint'
+        }
+        'ai-compute-receipt-choice' = @{
+            Title = 'KI-Gerätekombination aus Messbelegen wählen'
+            Purpose = 'Den schnellsten gemessenen Kandidaten neu bestimmen oder eine geeignete Kombination fixieren.'
+            Effects = 'Liest die ausgewählten JSON-Belege und berechnet die Auswahl. Startet weder Modell noch Benchmark.'
+            Command = 'Get-SqlServerLabAiComputeSelection'
+        }
+        'persistent-fixture-target' = @{
+            Title = 'Zielinstanz für persistente Retrieval-Demo'
+            Purpose = 'Eine laufende SQL-2025-Containerinstanz für die synthetische Sammlung wählen.'
+            Effects = 'Die Auswahl ändert nichts. Der spätere Schritt kann Beispieldaten in SQL schreiben und lokales Ollama aufrufen.'
+            Command = 'Invoke-SqlServerLabAiPersistentRetrieval'
+        }
+        'persistent-fixture-action' = @{
+            Title = 'Synthetische Retrieval-Collection'
+            Purpose = 'Initiales Laden, Aktualisieren, Beispielfrage oder Modellmigration wählen. Die Collection-ID verbindet die Schritte.'
+            Effects = 'Nach Bestätigung schreibt oder liest der Auftrag im gewählten SQL-2025-Container und verwendet ein vorhandenes lokales Ollama-Modell.'
+            Command = 'Invoke-SqlServerLabAiPersistentRetrieval'
         }
         'settings-menu' = @{
             Title   = 'Einstellungen'

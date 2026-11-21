@@ -149,6 +149,7 @@ try {
         $networkSource -match 'Where-Object \{ \$_ -ne \$existingContract\.Subnet \}')
     $migrationSource = Get-Content (Join-Path $repoRoot 'Private/ContainerNetworkMigration.ps1') -Raw
     $migrationCommand = Get-Command Move-SqlServerLabContainerNetwork -Module SqlServerLab
+    & (Join-Path $PSScriptRoot 'Fixtures/ContainerNetworkPlanConsoleChecks.ps1') -Module $module
     Add-CheckResult -Name 'Container-Netzmigration ist explizit, providergebunden und auf gelabelte Labcontainer begrenzt' -Success (
         $migrationCommand.Parameters.ContainsKey('Provider') -and $migrationCommand.Parameters.ContainsKey('WhatIf') -and
         $migrationSource -match "label=sql-server-lab.run-id" -and $migrationSource -match "sql-server-lab.scope-id" -and

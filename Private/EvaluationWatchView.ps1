@@ -80,6 +80,34 @@ function Get-LabEvaluationWatchView {
     }
 }
 
+function Invoke-LabEvaluationWatchTriggerInteractive {
+    $parameters = @{}
+    foreach ($field in @(
+        @{ Name = 'IntervalSeconds'; Label = 'Sekunden zwischen Prüfungen'; Maximum = 86400; Default = '60' },
+        @{ Name = 'MaximumChecks'; Label = 'Anzahl Prüfungen'; Maximum = 1440; Default = '2' }
+    )) {
+        do {
+            $inputResult = Read-LabConsoleTextInput -Prompt "$($field.Label) (1–$($field.Maximum))" -Default $field.Default
+            if ($inputResult.Status -ne 'Confirmed') { return }
+            $value = 0
+            $valid = [int]::TryParse($inputResult.Value, [ref]$value) -and $value -ge 1 -and $value -le $field.Maximum
+            if (-not $valid) { Write-LabError "Bitte eine ganze Zahl von 1 bis $($field.Maximum) eingeben." }
+        } until ($valid)
+        $parameters[$field.Name] = $value
+    }
+    $parameters.RecordEvents = Read-LabConfirm -Prompt 'Neue Warnereignisse lokal speichern?' -Default $false
+    $waitSeconds = [long]$parameters.IntervalSeconds * ($parameters.MaximumChecks - 1)
+    if (-not (Read-LabConfirm -Prompt "Fristenprüfung im Vordergrund starten? $($parameters.MaximumChecks) Prüfungen, $waitSeconds Sekunden Wartezeit insgesamt. Ctrl+C bricht ab." -Default $false)) { return }
+    try {
+        $result = Invoke-SqlServerLabEvaluationWatchTrigger @parameters -ErrorAction Stop
+        Write-LabSuccess ("Prüfungen: {0}. Fällige Ereignisse über alle Prüfungen: {1}. Neu gespeichert: {2}." -f $result.CheckCount, $result.TotalDueEventCount, $result.TotalNewEventCount)
+    }
+    catch {
+        Write-LabError 'Die Fristenprüfung wurde nicht vollständig abgeschlossen. Bereits erfasste lokale Ereignisse können erhalten sein.'
+    }
+    $null = Wait-LabConsoleAcknowledgement
+}
+
 function Show-LabEvaluationWatchInteractive {
     [CmdletBinding()]
     param()
@@ -89,6 +117,7 @@ function Show-LabEvaluationWatchInteractive {
     while ($true) {
         $items = @(
             New-LabConsoleItem -Id 'read' -Label 'Evaluationsfristen lesen / aktualisieren' -Shortcut 'r'
+            New-LabConsoleItem -Id 'trigger' -Label 'Fristen zeitgesteuert prüfen' -Shortcut 't'
             if ($view) {
                 foreach ($row in $view.Rows) {
                     New-LabConsoleItem -Id ('entry-' + $row.Id) -Label $row.Label -Value $row.Summary -Data $row
@@ -100,6 +129,7 @@ function Show-LabEvaluationWatchInteractive {
         if ($selection.Status -eq 'Cancelled') { return }
         if ($selection.Status -ne 'Selected') { continue }
         if ($selection.SelectedItem.Id -eq 'back') { return }
+        if ($selection.SelectedItem.Id -eq 'trigger') { Invoke-LabEvaluationWatchTriggerInteractive; continue }
         if ($selection.SelectedItem.Id -eq 'read') {
             try {
                 $view = Get-LabEvaluationWatchView

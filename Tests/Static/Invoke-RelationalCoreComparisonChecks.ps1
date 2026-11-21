@@ -52,4 +52,5 @@ $characterization=& $module {
 Add-RelationalCoreCheck 'Byte-Charakterisierung trennt NULL, leer, Unicode, Leerzeichen und Binärdaten' ($characterization.NullDistinct -and $characterization.EmptyDistinctFromSpace -and $characterization.UnicodeExact -and $characterization.BinaryExact)
 Add-RelationalCoreCheck 'Charakterisierung blockiert Decimal, Sondertabellen, unzulässige PKs, max/versteckte Spalten und fehlendes READ_ONLY' ($characterization.DecimalBlocked -and $characterization.AllowedTable -and $characterization.UnsupportedPkBlocked -and $characterization.MaxColumnBlocked -and $characterization.HiddenColumnBlocked -and $characterization.SpecialTableBlocked -and $characterization.UnsupportedTableResultCodes -and $characterization.MissingReadOnlyBlocked -and $characterization.WrongIdentityBlocked)
 if($failures.Count){throw "RELATIONAL_CORE_COMPARISON_CHECKS_FAILED: $($failures -join '; ')"}
+& (Join-Path $PSScriptRoot 'Fixtures/RelationalCoreComparisonConsoleChecks.ps1') -Module $module
 Write-Host 'Relational-Core-Comparison-Vertrag: PASS' -ForegroundColor Green

@@ -135,6 +135,9 @@
       <p id="ai-compute-inventory-status" role="status"></p>
       <button id="ai-runtime-capability-read" type="button" class="button secondary">llama.cpp-Eignung prüfen</button>
       <p id="ai-runtime-capability-status" role="status"></p>
+      <button id="compute-selection-open" type="button" class="button secondary">KI-Gerätekombination aus Messbelegen wählen</button>
+      <button id="ovms-upstream-open" type="button" class="button secondary">Lokalen OVMS-Embedding-Dienst prüfen</button>
+      <button id="persistent-fixture-open" type="button" class="button secondary">Persistente Retrieval-Demo</button>
       <button id="llama-start-plan-open" type="button" class="button secondary">llama.cpp: reine Startvorschau</button>
       <button id="llama-start-open" type="button" class="button secondary">llama.cpp: eigene Sitzung starten</button>
     </section>
@@ -156,6 +159,9 @@
       <p>Befunde vor einer Änderung prüfen. Die Konsole bietet zusätzlich Providerstatus, Cleanup-Audit und Runtime-Abgleich; vollständige geführte Recovery-Parität bleibt offen.</p>
       <div class="workflow-actions">
         <button id="evaluation-watch-open" type="button" class="button secondary">Evaluationsfristen lesen</button>
+        <button id="container-network-plan-open" type="button" class="button secondary">Lab-Netz auf Subnetzkonflikt prüfen</button>
+        <button id="evaluation-trigger-open" type="button" class="button secondary">Fristen zeitgesteuert prüfen</button>
+        <button id="sql-guest-evidence-open" type="button" class="button secondary">SQL-Editionsbeleg im Gast aktualisieren</button>
         <button id="evaluation-refresh-open" type="button" class="button secondary">SQL-Evaluation: Ersatzentscheid</button>
         <button id="maintenance-open" type="button" class="button secondary">Wartungsbefunde und Zuordnung</button>
         <button id="clear-all-labs" class="button danger">Alle regulären Lab-Umgebungen löschen</button>
@@ -293,6 +299,11 @@
       <label>Gebundenes Hyper-V-SQL-Ziel<select id="database-package-target"><option value="">Kein laufendes SQL-Ziel verfügbar</option></select></label>
       <div id="database-package-details" class="selection-details" aria-live="polite">Die Auswahl erfolgt ausschließlich über die stabile DatabasePackageId; Hostpfade und Hashes werden nicht an den Browser übertragen.</div>
       <div class="build-actions"><button id="database-package-attach" type="button" class="button primary" disabled>Paketkopie prüfen und attachen</button></div>
+      <div class="build-actions"><button id="relational-compare-open" type="button" class="button secondary">Zwei Containerdatenbanken vergleichen</button></div>
+      <div class="build-actions">
+        <button id="portable-media-open" type="button" class="button secondary">Backupmedium am Zielcontainer vorprüfen</button>
+        <button id="portable-transfer-open" type="button" class="button secondary">SQL-2025-Datenbank in neuen Container übertragen</button>
+      </div>
       <p class="form-note">Die Inventur hasht große Objekte nicht bei jedem Refresh und zeigt nur sanitisierte Migrationskategorien und Warnungen. Beim Attach werden Paket, scopegebundener Ziel-Run, SQL-Version, FILESTREAM/TDE und das live von SQL Server gemeldete Default-Data-Ziel frisch revalidiert; ein freier Pfad kann nicht eingegeben werden.</p>
     </section>
 
@@ -996,6 +1007,133 @@
     </div>
   </dialog>
   <script src="evaluation-refresh-plan.js"></script>
+  <dialog id="compute-selection-dialog">
+    <form id="compute-selection-form">
+      <h2>KI-Gerätekombination aus Messbelegen wählen</h2>
+      <p class="form-note">Wähle den Kandidatensatz und das Ergebnis des Benchmark-Satzes für dasselbe Inventar. Die Auswahl startet kein Modell und keine neue Messung.</p>
+      <label>Kandidatensatz (JSON)<input id="compute-selection-candidates" type="file" accept=".json,application/json" required></label>
+      <label>Benchmark-Satz (JSON)<input id="compute-selection-benchmarks" type="file" accept=".json,application/json" required></label>
+      <label>Auswahl<select id="compute-selection-choice"><option value="">Schnellsten gemessenen Kandidaten wählen</option></select></label>
+      <p id="compute-selection-status" role="status"></p>
+      <div class="dialog-actions">
+        <button id="compute-selection-next" type="submit" class="button primary">Weiter zur Bestätigung</button>
+        <button id="compute-selection-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="persistent-fixture-dialog">
+    <form id="persistent-fixture-form">
+      <h2>Persistente Retrieval-Demo</h2>
+      <p class="form-note">Schreibt oder liest die synthetische Sammlung in einem SQL-2025-Container. Das verwendete Ollama-Modell muss lokal verfügbar sein. Bewahre die Collection-ID für weitere Schritte auf.</p>
+      <label>SQL-2025-Instanz<select id="persistent-fixture-target" required></select></label>
+      <label>Schritt<select id="persistent-fixture-action">
+        <option value="initial">Beispieldaten anlegen</option>
+        <option value="delta">Beispieldaten aktualisieren</option>
+        <option value="backup">Beispielfrage zu Backups stellen</option>
+        <option value="cleanup">Beispielfrage zur Bereinigung stellen</option>
+        <option value="migrate">Beispielsammlung auf Nomic Embed v2 umstellen</option>
+      </select></label>
+      <label>Collection-ID<input id="persistent-fixture-collection" maxlength="36" required></label>
+      <label id="persistent-fixture-resume-field"><input id="persistent-fixture-resume" type="checkbox"> Begonnenen Auftrag mit derselben ID fortsetzen</label>
+      <p id="persistent-fixture-status" role="status"></p>
+      <div class="dialog-actions">
+        <button id="persistent-fixture-next" type="submit" class="button primary">Weiter zur Bestätigung</button>
+        <button id="persistent-fixture-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="container-network-plan-dialog">
+    <form id="container-network-plan-form">
+      <h2>Lab-Netz auf Subnetzkonflikt prüfen</h2>
+      <p class="form-note">Die lesende Vorschau zeigt, ob eine Migration erforderlich ist, und nennt die betroffenen Container.</p>
+      <label>Provider<select id="container-network-plan-provider"><option value="docker">Docker</option><option value="podman">Podman</option></select></label>
+      <p id="container-network-plan-status" role="status"></p>
+      <div class="dialog-actions">
+        <button type="submit" class="button primary">Weiter zur Bestätigung</button>
+        <button id="container-network-plan-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="ovms-upstream-dialog">
+    <form id="ovms-upstream-form">
+      <h2>Lokalen OVMS-Embedding-Dienst prüfen</h2>
+      <p class="form-note">Ein synthetischer Request an den bereits laufenden OVMS-Dienst. Das Ergebnis meldet die geprüfte Embedding-Dimension.</p>
+      <label>Loopback-Adresse<select id="ovms-upstream-address"><option value="127.0.0.1">127.0.0.1 (IPv4)</option><option value="[::1]">::1 (IPv6)</option></select></label>
+      <label>OVMS-Port<input id="ovms-upstream-port" type="number" min="1024" max="65535" value="9000" required></label>
+      <label>Exakter OVMS-Modellname<input id="ovms-upstream-model" maxlength="256" required></label>
+      <label>Erwartete Embedding-Dimension<input id="ovms-upstream-dimension" type="number" min="1" max="1998" required></label>
+      <label>Timeout in Sekunden<input id="ovms-upstream-timeout" type="number" min="1" max="300" value="30" required></label>
+      <p id="ovms-upstream-status" role="status"></p>
+      <div class="dialog-actions">
+        <button type="submit" class="button primary">Weiter zur Bestätigung</button>
+        <button id="ovms-upstream-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="portable-transfer-dialog">
+    <form id="portable-transfer-form">
+      <h2 id="portable-transfer-title"></h2>
+      <p id="portable-transfer-notice" class="form-note"></p>
+      <label>Registriertes Quellbackup<select id="portable-transfer-backup" required></select></label>
+      <label id="portable-transfer-target-field">Vorhandene Zielinstanz<select id="portable-transfer-target"></select></label>
+      <label>Zieldatenbankname<input id="portable-transfer-database" required pattern="[A-Za-z][A-Za-z0-9_]{0,127}" maxlength="128"></label>
+      <label id="portable-transfer-intent-field">Vorgangs-ID für Start oder Wiederaufnahme<input id="portable-transfer-intent" maxlength="36"></label>
+      <p id="portable-transfer-status" role="status"></p>
+      <div class="dialog-actions">
+        <button id="portable-transfer-next" type="submit" class="button primary">Weiter zur Bestätigung</button>
+        <button id="portable-transfer-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="relational-compare-dialog">
+    <form id="relational-compare-form">
+      <h2>Zwei Containerdatenbanken vergleichen</h2>
+      <p class="form-note">Wähle zwei registrierte SQL-Containerinstanzen mit Datenbanken im Zustand ONLINE und READ_ONLY. Der Vergleich zeigt Status, Zählwerte und Befundcodes.</p>
+      <label>Quellinstanz<select id="relational-compare-source" required></select></label>
+      <label>Quelldatenbank<input id="relational-compare-source-name" required pattern="[A-Za-z][A-Za-z0-9_]{0,127}" maxlength="128"></label>
+      <label>Zielinstanz<select id="relational-compare-target" required></select></label>
+      <label>Zieldatenbank<input id="relational-compare-target-name" required pattern="[A-Za-z][A-Za-z0-9_]{0,127}" maxlength="128"></label>
+      <p id="relational-compare-status" role="status"></p>
+      <div class="dialog-actions">
+        <button id="relational-compare-next" type="submit" class="button primary">Weiter zur Bestätigung</button>
+        <button id="relational-compare-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="evaluation-trigger-dialog">
+    <form id="evaluation-trigger-form">
+      <h2>Fristen zeitgesteuert prüfen</h2>
+      <p class="form-note">Prüft gespeicherte Fristen im laufenden UI-Prozess mit 30 Tagen Warnschwelle und 7 Tagen kritischer Schwelle.</p>
+      <label>Sekunden zwischen Prüfungen<input id="evaluation-trigger-interval" type="number" min="1" max="86400" value="60" required></label>
+      <label>Anzahl Prüfungen<input id="evaluation-trigger-count" type="number" min="1" max="1440" value="2" required></label>
+      <label><input id="evaluation-trigger-record" type="checkbox"> Neue Warnereignisse lokal speichern</label>
+      <p id="evaluation-trigger-status" role="status"></p>
+      <div class="dialog-actions">
+        <button type="submit" class="button primary">Weiter zur Bestätigung</button>
+        <button id="evaluation-trigger-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="sql-guest-evidence-dialog">
+    <div class="panel">
+      <h2>SQL-Editionsbeleg im Gast aktualisieren</h2>
+      <p>Die Edition wird für ein eigenes laufendes Hyper-V-Lab mit SQL Server 2025 und verwalteter Anmeldung erfasst.</p>
+      <label>SQL-2025-Lab<select id="sql-guest-evidence-run"><option value="">Lab auswählen</option></select></label>
+      <p id="sql-guest-evidence-status" role="status"></p>
+      <div class="build-actions">
+        <button id="sql-guest-evidence-next" type="button" class="button primary" disabled>Weiter zur Bestätigung</button>
+        <button id="sql-guest-evidence-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </div>
+  </dialog>
+  <script src="sql-guest-evaluation-evidence.js"></script>
+  <script src="evaluation-watch-trigger.js"></script>
+  <script src="relational-core-comparison.js"></script>
+  <script src="ovms-upstream.js"></script>
+  <script src="portable-container-transfer.js"></script>
+  <script src="container-network-plan.js"></script>
+  <script src="ai-persistent-retrieval-fixture.js"></script>
+  <script src="ai-compute-selection.js"></script>
 
   <dialog id="external-runtime-dialog">
     <div class="read-only-dialog-content">

@@ -6,6 +6,7 @@ $repoRoot=(Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 $temporaryRoot=Join-Path ([IO.Path]::GetTempPath()) ('sql-lab-persistent-check-'+[guid]::NewGuid().ToString('N'))
 $module=Import-Module (Join-Path $repoRoot 'SqlServerLab.psd1') -Force -PassThru
 try{
+    & (Join-Path $PSScriptRoot 'Fixtures/AiPersistentRetrievalFixtureConsoleChecks.ps1') -Module $module
     $checks=& $module {
         param($Root)
         $checks=[Collections.Generic.List[object]]::new()

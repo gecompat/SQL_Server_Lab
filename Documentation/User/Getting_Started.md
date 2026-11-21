@@ -2235,7 +2235,20 @@ Auflösung beim tatsächlichen Dienststart bleibt separat nachzuweisen.
 
 `Test-SqlServerLabRelationalCoreComparison` vergleicht explizit benannte, bereits laufende verwaltete Docker-/Podman-Datenbankpaare. Der Befehl nimmt keine Endpunkte, Connection Strings, SQL-Texte oder Kennwörter an. Ein Paar enthält nur die stabile Paar-ID sowie Quell- und Ziel-RunId, InstanceId und Datenbankname. Der Vergleich kann `MATCH`, `DIFFERENT` oder `UNSUPPORTED` feststellen; er ändert keine Datenbank und führt keinen Transfer aus.
 
+Öffne **Zwei Containerdatenbanken vergleichen** in der CLI unter
+**Datenbanken, Samples und Skripte** oder im Browser unter
+**Lab-Umgebungen → Datenbankpakete**. Wähle die beiden Instanzen, trage die
+Datenbanknamen ein und bestätige den Vergleich. Die Datenbanken müssen
+`ONLINE` und `READ_ONLY` sein. Im Browser erscheint der Befund im Live-Log.
+
 ## Persistentes Retrieval
+
+Die **Persistente Retrieval-Demo** ist in der CLI unter **SQL-2025-KI-Szenarien
+und Demos** und im Browser unter **Host-Dienste und Modelle** erreichbar.
+Wähle eine laufende SQL-2025-Containerinstanz und lege die Beispieldaten an.
+Bewahre die Collection-ID auf. Verwende sie für die Aktualisierung, die
+Beispielfragen oder die Migration auf Nomic Embed v2 wieder. Die Demo nutzt
+das bereits laufende lokale Ollama, im Browser steht der Befund im Live-Log.
 
 `Invoke-SqlServerLabAiPersistentRetrieval` verwendet einen vorhandenen
 SQL-2025-Docker-/Podman-Run mit verwaltetem SA-Secret und ein bereits laufendes
@@ -2286,6 +2299,15 @@ Zielmodelle, Dimensionen, automatische Generation-Retention, Prune nach Modellmi
 und Hyper-V bleiben offen.
 
 ## Eine read-only Datenbank in einen neuen Container-Run übertragen
+
+Die CLI unter **Datenbanken, Samples und Skripte** und der Browser unter
+**Lab-Umgebungen → Datenbankpakete** bieten **Backupmedium am Zielcontainer
+vorprüfen** und **SQL-2025-Datenbank in neuen Container übertragen**.
+Beide Aktionen wählen ein registriertes Quellbackup aus dem konfigurierten
+Lab_Data. Die Vorprüfung verwendet eine bestehende Zielinstanz mit
+Backup-Mount. Beim Transfer wird ein eigener Ziel-Run erstellt. Bewahre die
+angezeigte Vorgangs-ID auf und verwende für die Wiederaufnahme dieselbe
+Auswahl. Im Browser steht der Befund im Live-Log.
 
 `Invoke-SqlServerLabPortableContainerTransfer` erstellt selbst einen eigenen
 SQL-2025-Linux-Ziel-Run beim Provider der Quelle (Docker oder Podman). Die Quelle
@@ -2360,13 +2382,26 @@ Repair-SqlServerLabPersistentStorageCatalog @repair
 
 Nach `RECOVERED` verwendet `New-SqlServerLab -PersistentData
 -PersistentStorageId $storageId -PersistentStorageAction CONTINUE` den bestehenden
-Store unter der erneut geprüften Runtime-Bindung. Ein identischer Repair liefert
+Store unter der erneut geprüften Runtime-Bindung und mit dessen bisherigen
+SQL-Anmeldedaten. Ohne `PersistentStorageId` legt eine neue Docker-/Podman-
+Umgebung auch bei gleichem Labnamen einen neuen Store an; das neue SA-Passwort
+initialisiert diesen frischen SQL-Systemzustand. Vorhandene Stores bleiben
+erhalten. Siehe auch [persistente Daten](../HowTo/PERSISTENT_DATA_AND_EVALUATION_REFRESH.md#6-optionale-runtime-anbindung).
+Ein identischer Repair liefert
 `NO_CHANGE`. Der Befehl ändert keine SQL-Daten, Volumes oder Labels.
 Run-scoped Stores, aktive Leases, fremde Ownership, Sidecars und unbekannte
 Runtime-Evidence bleiben blockiert. Ältere Runs ohne persistierte Drive-/UUID-
 Evidence werden nicht nachträglich ergänzt; UUID-lose historische Intents bleiben
 lesbar. Der SQL-2025-Referenzfall ist unter Docker und Podman getrennt mit
 Serverobjekt, Datenmarker nach Continue, unveränderten Labels und Cleanup belegt.
+
+### Container-Lab-Netz prüfen
+
+Für Docker oder Podman kannst du unter **Wartung → Lab-Netz auf
+Subnetzkonflikt prüfen** eine lesende Vorschau starten. Sie zeigt, ob das
+Lab-Netz fehlt, konfliktfrei ist oder eine Migration benötigt. Im Browser
+steht der Befund im Live-Log. Die Ausführung einer Netzmigration ist ein
+separater Expertenbefehl und kann SQL-Verbindungen unterbrechen.
 
 ### SQL-Gast-Edition und Evaluation-Evidence
 
@@ -2383,6 +2418,26 @@ Get-SqlServerLabEvaluationWatch -StateRoot $stateRoot
 Der Capture beobachtet keine Ablaufzeit: Developer ergibt für 24 Stunden
 `NOT_APPLICABLE`, Evaluation ohne Frist bleibt `UNKNOWN`. Fehler bewahren den
 alten Receipt. [Bindung, Grenzen und Nachweise](../Architecture/SQL_GUEST_EVALUATION_CAPTURE.md).
+
+In der CLI und im Browser findest du unter **Wartung** die Aktion
+**SQL-Editionsbeleg im Gast aktualisieren**. Wähle das laufende Hyper-V-Lab
+mit SQL Server 2025 und bestätige die Aktualisierung. Für mehrere Prüfungen
+gespeicherter Fristen öffne **Fristen zeitgesteuert prüfen**. In der CLI
+liegt diese Aktion unter **Windows-/SQL-Evaluationsfristen**. Gib Intervall
+und Anzahl an. Das lokale Speichern neuer Warnereignisse ist optional.
+
+Wenn OVMS bereits lokal läuft, öffne **Host-Dienste und Modelle →
+Lokalen OVMS-Embedding-Dienst prüfen**. Wähle IPv4 oder IPv6, gib Port,
+Modellname und erwartete Embedding-Dimension ein und bestätige den
+synthetischen Request. In der Browseroberfläche steht der Befund im Live-Log.
+
+Für **KI-Gerätekombination aus Messbelegen wählen** speichere die Ergebnisse
+von `Get-SqlServerLabAiComputeCandidate` und
+`Measure-SqlServerLabAiComputeCandidateSet` aus derselben Messung als
+JSON-Dateien (`ConvertTo-Json -Depth 30`). Wähle beide Dateien unter
+**Host-Dienste und Modelle**. Du kannst die gemessene Rangfolge neu berechnen
+oder eine geeignete Gerätekombination fixieren. Die Auswahl startet keine
+Messung. In der Browseroberfläche steht sie im Live-Log.
 
 Lokale Windows-llama.cpp-Pakete für SQL Server 2025 lassen sich vor der
 Modellauswahl mit `Get-SqlServerLabLlamaCppRuntime -SearchRoot 'C:\Pfad\llama'`

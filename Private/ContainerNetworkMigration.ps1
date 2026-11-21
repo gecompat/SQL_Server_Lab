@@ -34,8 +34,14 @@ function New-LabContainerNetworkMigrationPlan {
     if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
     $network = Get-LabRuntimeNetwork -Provider $Provider
     $runtime = Get-LabHostToolInvocation -Name $Provider
-    $inspect = @(& $runtime network inspect $network.Name 2>$null | ConvertFrom-Json -Depth 50)[0]
-    if (-not $inspect) { return [PSCustomObject]@{ Contract=[PSCustomObject]@{Name='SqlServerLab.ContainerNetworkMigrationPlan';Version='1.0'}; Provider=$Provider; Status='NO_NETWORK'; IsNoOp=$true; Actions=@(); Warnings=@() } }
+    $names = @(& $runtime network ls --format '{{.Name}}' 2>$null)
+    if ($LASTEXITCODE -ne 0) { throw "LAB_NETWORK_MIGRATION_NETWORK_LIST_FAILED: $Provider" }
+    if ($network.Name -cnotin $names) { return [PSCustomObject]@{ Contract=[PSCustomObject]@{Name='SqlServerLab.ContainerNetworkMigrationPlan';Version='1.0'}; Provider=$Provider; Status='NO_NETWORK'; IsNoOp=$true; Actions=@(); Warnings=@() } }
+    $inspectJson = @(& $runtime network inspect $network.Name 2>$null) -join "`n"
+    if ($LASTEXITCODE -ne 0 -or -not $inspectJson) { throw "LAB_NETWORK_MIGRATION_NETWORK_INSPECT_FAILED: $Provider" }
+    $inspections = @($inspectJson | ConvertFrom-Json -Depth 50 -ErrorAction Stop)
+    if ($inspections.Count -ne 1 -or -not $inspections[0]) { throw "LAB_NETWORK_MIGRATION_NETWORK_INSPECT_FAILED: $Provider" }
+    $inspect = $inspections[0]
     $actualSubnet = if ($Provider -eq 'docker') { [string]@($inspect.IPAM.Config)[0].Subnet } else { [string](Get-LabPodmanNetworkContractFromInspect -Inspect $inspect).Subnet }
     $actual = [PSCustomObject]@{ Provider=$Provider; Name=$network.Name; Subnet=$actualSubnet; Intent='nat'; NatName=$null }
     try {
