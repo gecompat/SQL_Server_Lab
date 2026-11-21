@@ -185,6 +185,7 @@ function Get-LabConsoleHelpCatalog {
         'labs-menu' = @{ Title = 'Lab-Umgebungen'; Purpose = 'Vorhandene Fachabläufe auswählen. Nicht implementierte Abläufe sind deaktiviert und begründet.'; Effects = 'Die Bereichsauswahl ändert nichts. Zurück und Esc verlassen den Bereich.'; Command = 'New-SqlServerLab' }
         'testmatrix-menu' = @{ Title = 'Geschützte Testsystem-Matrix'; Purpose = 'Vorhandene Fachabläufe auswählen. Nicht implementierte Abläufe sind deaktiviert und begründet.'; Effects = 'Die Bereichsauswahl ändert nichts. Zurück und Esc verlassen den Bereich.'; Command = 'New-SqlServerLabAutomatedTestEnvironment' }
         'resources-menu' = @{ Title = 'Ressourcen und Downloads'; Purpose = 'Vorhandene Fachabläufe auswählen. Nicht implementierte Abläufe sind deaktiviert und begründet.'; Effects = 'Die Bereichsauswahl ändert nichts. Zurück und Esc verlassen den Bereich.'; Command = 'Get-SqlServerLabResourcePlan' }
+        'resource-plan-selection' = @{ Title = 'Lokaler Ressourcenbedarf'; Purpose = 'Die Prüfung auf Beispieldaten, Windows-/Hyper-V-Laufzeitmedien oder beide Arten eingrenzen.'; Effects = 'Die gewählte Prüfung liest die konfigurierten Ordner und zeigt den Beschaffungsbedarf. Sie lädt nichts herunter.'; Command = 'Get-SqlServerLabResourcePlan' }
         'hostmodels-menu' = @{ Title = 'Host-Dienste und Modelle'; Purpose = 'Vorhandene Fachabläufe auswählen, etwa installierte llama.cpp-Pakete prüfen oder eine eigene Sitzung stoppen.'; Effects = 'Die Paketübersicht liest Backend und Build aus lokalen Dateibefunden. Zurück und Esc verlassen den Bereich.'; Command = 'Get-SqlServerLabLlamaCppRuntime' }
         'sql-feature-target' = @{ Title = 'SQL-Instanz für Funktionsänderung'; Purpose = 'Eine registrierte Instanz der gewählten laufenden Umgebung auswählen.'; Effects = 'Erst die Bestätigung einer konkreten Funktion ändert SQL Server.'; Command = 'Set-SqlServerLabFeature' }
         'sql-feature-operation' = @{ Title = 'SQL-Funktion ändern'; Purpose = 'Volltext installieren oder entfernen. Hyper-V bietet zusätzlich FILESTREAM.'; Effects = 'Bei einer bestätigten Änderung startet SQL neu. Abhängige Datenbanken können die Entfernung verhindern.'; Command = 'Set-SqlServerLabFeature' }
@@ -390,15 +391,15 @@ function Get-LabConsoleHelpCatalog {
             Command = 'Measure-SqlServerLabAiComputeCandidate / Measure-SqlServerLabAiComputeCandidateSet'
         }
         'persistent-fixture-target' = @{
-            Title = 'Zielinstanz für persistente Retrieval-Demo'
-            Purpose = 'Eine laufende SQL-2025-Containerinstanz für die synthetische Sammlung wählen.'
-            Effects = 'Die Auswahl ändert nichts. Der spätere Schritt kann Beispieldaten in SQL schreiben und lokales Ollama aufrufen.'
+            Title = 'Zielinstanz für persistentes Retrieval'
+            Purpose = 'Eine laufende SQL-2025-Containerinstanz für die gewählte Collection auswählen.'
+            Effects = 'Die Auswahl ändert nichts. Der spätere Schritt kann in SQL schreiben oder eine eigene Collection löschen.'
             Command = 'Invoke-SqlServerLabAiPersistentRetrieval'
         }
         'persistent-fixture-action' = @{
-            Title = 'Synthetische Retrieval-Collection'
-            Purpose = 'Initiales Laden, Aktualisieren, Beispielfrage oder Modellmigration wählen. Die Collection-ID verbindet die Schritte.'
-            Effects = 'Nach Bestätigung schreibt oder liest der Auftrag im gewählten SQL-2025-Container und verwendet ein vorhandenes lokales Ollama-Modell.'
+            Title = 'Persistente Retrieval-Collections'
+            Purpose = 'Beispieldaten verwenden oder eine vorhandene eigene Collection anhand ihrer ID pflegen.'
+            Effects = 'Löschen erfordert eine Bestätigung und einen geprüften Besitznachweis. Die Löschaktionen benötigen kein Embeddingmodell.'
             Command = 'Invoke-SqlServerLabAiPersistentRetrieval'
         }
         'settings-menu' = @{

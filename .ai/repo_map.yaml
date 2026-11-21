@@ -398,6 +398,11 @@ sources_of_truth:
   acceptance_smtp_quota_gateway_image: Tests/Integration/Invoke-SmtpTestServiceGatewayImageAcceptance.ps1
   acceptance_smtp_quota_gateway_receiver: Tests/Integration/Invoke-SmtpTestServiceGatewayReceiverAcceptance.ps1
   connection_center_cms: Public/Sync-SqlServerLabConnectionCenter.ps1
+  cms_management_state: Private/CmsManagement.ps1 # safe browser projection and state-bound operation plan; no secret/path disclosure
+  cms_management_validation: Tests/Static/Fixtures/CmsManagementChecks.ps1, Tests/Static/Invoke-ConnectionCenterCmsChecks.ps1
+  cms_management_browser_contract: Public/Invoke-SqlServerLabWorkflowAction.ps1, Tools/Start-SqlServerLabUi.ps1 # explicit confirmation for create/adopt/sync; generated SA secret is not returned to browser
+  cms_management_browser_ui: Ui/index.html, Ui/cms-management.js, Tests/Static/Fixtures/WorkflowSqlTargetChecks.cjs
+  cms_management_browser_validation: Tests/Static/Invoke-ConnectionCenterCmsChecks.ps1, Tests/Static/Fixtures/WorkflowSqlTargetChecks.cjs, Tests/Static/Fixtures/WorkflowUiSpecializedBodyChecks.ps1
   tls_connection_default_core: Private/SqlReadiness.ps1
   sql_connection_settings_contract: Documentation/Architecture/SQL_CONNECTION_SETTINGS.md
   sql_connection_settings_core: Private/SqlConnectionSettings.ps1 # native parser, explicit nullable TLS flags and closed configuration-only qualification status; no credentials, connection or live qualification
@@ -668,6 +673,7 @@ sources_of_truth:
   validation_podman_ci_privacy: Tests/Static/Invoke-PodmanSmokePrivacyChecks.ps1
   validation_runtime_ci_privacy: Tests/Static/Invoke-RuntimeSmokePrivacyChecks.ps1
   media_source_guidance: Private/MediaSourceGuidance.ps1 # fixed six SQL2022/2025 bootstrapper identities; existing Preferences/catalog byte authority
+  resource_plan_guidance: Public/Get-SqlServerLabResourcePlan.ps1, Private/ResourcePlanConsole.ps1, Ui/resource-plan.js
   validation_media_source_guidance: Tests/Static/Invoke-MediaSourceGuidanceChecks.ps1
   container_reconcile_journal_schema: Schemas/container-reconcile-journal.schema.json
   validation_container_reconcile: Tests/Static/Invoke-ContainerReconcileChecks.ps1

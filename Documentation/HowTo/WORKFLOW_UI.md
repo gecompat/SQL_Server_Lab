@@ -572,9 +572,15 @@ Für den bereits registrierten CMS bietet der Verbindungsbereich eine ausdrückl
 lesende Prüfung mit Zeitpunkt und markierten Metadatenzählern. Registrierung
 lesen und Dialog schließen führen keine SQL-Prüfung aus. Der gemeinsame
 [CMS-Vertrag](../Architecture/CMS_READONLY_INSPECTION.md) begrenzt Provider,
-Bindung und unbekannte Ergebnisse. CMS-Setup und Synchronisation im Browser,
-operative Slots, vollständiges Provider-Setup und Fremdstart-/weiterer
-Hostdienst- sowie Modell-Lifecycle bleiben offen. Der eigene llama.cpp-
+Bindung und unbekannte Ergebnisse. Unter **CMS bereitstellen** erstellst du
+einen neuen persistenten SQL-2025-CMS über Docker oder Podman oder übernimmst
+einen geeigneten Run mit gespeichertem SA-Kennwort. Bestätige die Auswahl
+und prüfe das Ergebnis unter **Vorgänge**. Der Synchronisationsschritt
+bleibt bei der gebundenen Prüfung des registrierten CMS. Die
+[Anleitung zur Verbindungszentrale](../User/SQL_CONNECTION_CENTER.md)
+beschreibt die Voraussetzungen und den Zugang. Operative Slots, vollständiges
+Provider-Setup und Fremdstart-/weiterer Hostdienst- sowie Modell-Lifecycle
+bleiben offen. Der eigene llama.cpp-
 Sitzungsstop besitzt den unten beschriebenen Fachdialog. Der Navigationseinstieg ist keine Abnahme
 dieser fehlenden Funktionen.
 
@@ -1025,6 +1031,15 @@ CLI: `Invoke-SqlServerLab -Action ReservePolicy`. Nichtinteraktiv bietet
 -ConfirmSlotReserve`. Die Browserroute `/api/slot-reserve` führt denselben
 Core direkt aus; Lesen und Vorschau werden nicht in die Batchqueue eingereiht.
 
+## Lokaler Bedarf an Beispieldaten und Laufzeitmedien
+
+Öffne in CLI oder Browser **Ressourcen und Downloads → Lokalen
+Ressourcenbedarf prüfen**. Wähle Beispieldaten, Windows-/Hyper-V-Laufzeitmedien
+oder beide. Für jede Ressource siehst du die Zahl der vorhandenen und
+benötigten Dateien sowie den vorgesehenen Beschaffungsweg. Die Prüfung
+liest die konfigurierten Ordner und startet keinen Download. Im Browser
+steht das Ergebnis unter **Vorgänge**.
+
 ## Ressourcenstand: CUs und SqlPackage
 
 Unter **Ressourcen → Ressourcenstand prüfen** liest das Öffnen ausschließlich
@@ -1055,6 +1070,15 @@ mit begrenzter Parserauswertung. Komprimierte Antworten werden abgewiesen.
 Der bestehende öffentliche CU-Befehl und monatliche CU-Workflow behalten ihren
 bisherigen Transportvertrag. Kein Download, Katalogupdate, Issue oder Agentstart
 wird durch den Ressourcenstand ausgelöst.
+
+Unter **Host-Dienste und Modelle → Persistente Retrieval-Collections**
+kannst du Beispieldaten verwenden oder eigene Dokumente aus einer lokalen
+JSON-Datei anlegen, abfragen, synchronisieren oder migrieren. Prüfe bei
+den Löschaktionen Run-ID, Instanz sowie
+Collection-ID, bevor du bestätigst. Die [Anleitung zum persistenten
+Retrieval](../User/Getting_Started.md#persistentes-retrieval) erklärt den
+Unterschied zwischen dem Löschen alter Generationen und der gesamten
+Collection-Datenbank.
 
 Der geführte eigene llama.cpp-Sitzungsstop ist unter „Host-Dienste und Modelle“
 über Auswahl, Vorschau, Abbruch und bewusste Bestätigung erreichbar. Die

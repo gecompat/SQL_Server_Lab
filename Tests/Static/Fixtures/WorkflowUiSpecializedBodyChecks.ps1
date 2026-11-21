@@ -8,7 +8,12 @@ $errors=$null;$tokens=$null
 $server=Join-Path $repo 'Tools/Start-SqlServerLabUi.ps1'
 $ast=[Management.Automation.Language.Parser]::ParseFile($server,[ref]$tokens,[ref]$errors)
 Check 'Server ist syntaktisch gueltig' ($errors.Count -eq 0)
-$names=@('CmsInspection','InitialSetup','SlotReserve','ResourceWatch','LlamaInstaller','LlamaSession','Maintenance','MediaOverride')
+$serverSource = Get-Content -LiteralPath $server -Raw
+$managementRouteStart = $serverSource.IndexOf("if (`$path -eq '/api/cms-management'", [StringComparison]::Ordinal)
+$setupRouteStart = $serverSource.IndexOf("if (`$path -eq '/api/initial-setup'", [StringComparison]::Ordinal)
+$managementRoute = if ($managementRouteStart -ge 0 -and $setupRouteStart -gt $managementRouteStart) { $serverSource.Substring($managementRouteStart, $setupRouteStart - $managementRouteStart) } else { '' }
+Check 'CMS-Management-Statusantworten sind nicht cachebar' ([regex]::Matches($managementRoute, '-NoStore').Count -eq 2)
+$names=@('CmsInspection','CmsManagement','InitialSetup','SlotReserve','ResourceWatch','LlamaInstaller','LlamaSession','Maintenance','MediaOverride')
 $adapters=@(foreach($name in $names){$fn=$ast.Find({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -ceq ('Invoke-Ui'+$name+'Request')},$true);Check ('Kein synchroner Reader im Adapter '+$name) ($null -ne $fn -and $fn.Extent.Text -notmatch 'ReadBlock|StreamReader');$fn.Extent.Text})
 $paths=@('/api/cms-inspection','/api/initial-setup','/api/slot-reserve','/api/resource-watch','/api/llama-installer','/api/llama-sessions','/api/maintenance','/api/media-overrides')
 $limits=@(4096,16384,16384,1024,1024,1024,1024,16384)

@@ -123,6 +123,7 @@
       <button id="media-sources" class="button secondary">Medienquellen und Ablage anzeigen</button>
       <button id="media-override-open" class="button secondary">SQL-2022/2025-Bootstrapperquellen bearbeiten</button>
       <button id="resource-watch-open" class="button secondary">Ressourcenstand: CUs und SqlPackage</button>
+      <button id="resource-plan-open" type="button" class="button secondary">Lokalen Ressourcenbedarf prüfen</button>
       <button id="llama-installer-open" type="button" class="button secondary">llama.cpp-Runtime installieren / prüfen</button>
     </section>
     <section class="panel" data-workspace-area="hostmodels" hidden>
@@ -140,17 +141,18 @@
       <button id="compute-selection-open" type="button" class="button secondary">KI-Gerätekombination aus Messbelegen wählen</button>
       <button id="compute-benchmark-open" type="button" class="button secondary">llama.cpp-Gerätekombinationen messen</button>
       <button id="ovms-upstream-open" type="button" class="button secondary">Lokalen OVMS-Embedding-Dienst prüfen</button>
-      <button id="persistent-fixture-open" type="button" class="button secondary">Persistente Retrieval-Demo</button>
+      <button id="persistent-fixture-open" type="button" class="button secondary">Persistente Retrieval-Collections</button>
       <button id="ai-scenario-plan-open" type="button" class="button secondary">Vector-Core-Szenarioplan lesen</button>
       <button id="llama-start-plan-open" type="button" class="button secondary">llama.cpp: reine Startvorschau</button>
       <button id="llama-start-open" type="button" class="button secondary">llama.cpp: eigene Sitzung starten</button>
     </section>
     <section class="panel" data-workspace-area="connections" hidden>
       <h2>Verbindungen und CMS</h2>
-        <p>Endpunkte und angegebene TLS-Optionen aus derselben registrierten Lab-Ansicht. Fehlende Werte bleiben unbekannt; die Anzeige ist kein Verbindungs- oder Zertifikatsnachweis. CMS-Einrichtung und Synchronisation sind in der Konsole geführt verfügbar. Ein vollständiger CMS-Fachdialog im Browser bleibt offen.</p>
+      <p>Gespeicherte Endpunkte anzeigen, SSMS-Registrierungen exportieren und einen verwalteten CMS bereitstellen oder prüfen.</p>
       <button id="cms-inspection-open" class="button secondary">Registrierten CMS lesend prüfen</button>
       <button id="ssms-registration-download" type="button" class="button secondary">SSMS-Registrierungen herunterladen</button>
       <p id="ssms-registration-status" role="status"></p>
+      <button id="cms-management-open" class="button secondary">CMS bereitstellen</button>
       <button id="component-relations-open" class="button secondary">SQL-Komponenten: geführte Vorschau</button>
       <div id="connection-endpoints" class="list"></div>
     </section>
@@ -819,6 +821,38 @@
       <button id="cms-inspection-close" type="button" class="button secondary">Schließen</button>
     </form>
   </dialog>
+
+  <dialog id="cms-management-dialog">
+    <form method="dialog">
+      <h2>CMS bereitstellen</h2>
+      <p>Erstelle einen persistenten CMS oder registriere einen geeigneten laufenden Docker-/Podman-Run mit geschütztem SA-Kennwort. Nach einer unbestätigten Aktion lies den Status erneut.</p>
+      <p id="cms-management-status" role="status" aria-live="polite">CMS-Status wird gelesen …</p>
+      <p id="cms-management-summary"></p>
+      <button id="cms-management-read" type="button" class="button secondary">Status erneut lesen</button>
+      <section id="cms-management-create" hidden>
+        <h3>Neuen CMS-Run erstellen</h3>
+        <p>Erstellt eine neue persistente SQL Server 2025-CMS-Umgebung im konfigurierten Data Root. Das generierte SA-Passwort bleibt im lokalen Run geschützt und wird nicht an den Browser zurückgegeben. Zugangsdaten können anschließend über den geführten Konsolenweg angezeigt werden.</p>
+        <label>Provider
+          <select id="cms-management-provider"></select>
+        </label>
+        <label>Lab-Name
+          <input id="cms-management-lab-name" type="text" maxlength="80" value="sql-server-lab-cms" autocomplete="off">
+        </label>
+        <label><input id="cms-management-create-confirm" type="checkbox"> Ich bestätige, einen neuen persistenten SQL Server 2025-Run anzulegen.</label>
+        <button id="cms-management-create-submit" type="button" class="button primary">CMS-Run erstellen</button>
+      </section>
+      <section id="cms-management-adopt" hidden>
+        <h3>Vorhandenen SQL-Run übernehmen</h3>
+        <p>Wähle einen laufenden Run mit genau einer SQL-Instanz und lokal gespeichertem SA-Kennwort.</p>
+        <label>SQL-Umgebung
+          <select id="cms-management-candidate"></select>
+        </label>
+        <label><input id="cms-management-adopt-confirm" type="checkbox"> Ich bestätige, den ausgewählten Run als verwalteten CMS zu registrieren.</label>
+        <button id="cms-management-adopt-submit" type="button" class="button primary">SQL-Run übernehmen</button>
+      </section>
+      <button id="cms-management-close" type="button" class="button secondary">Schließen</button>
+    </form>
+  </dialog>
   <dialog id="resource-watch-dialog">
     <div class="read-only-dialog-content">
       <h2>Ressourcenstand prüfen</h2>
@@ -969,9 +1003,29 @@
   <script src="tls-live-qualification.js"></script>
   <script src="sql-connection-clipboard.js"></script>
   <script src="app.js"></script>
+  <dialog id="resource-plan-dialog">
+    <form id="resource-plan-form">
+      <h2>Lokalen Ressourcenbedarf prüfen</h2>
+      <p>Prüft die konfigurierten Speicherorte und zeigt fehlende Dateien unter Vorgänge. Die Prüfung startet keine Downloads.</p>
+      <label>Ressourcen
+        <select id="resource-plan-kind">
+          <option value="All">Beispieldaten und Laufzeitmedien</option>
+          <option value="Sample">Nur Beispieldaten</option>
+          <option value="Software">Nur Windows-/Hyper-V-Laufzeitmedien</option>
+        </select>
+      </label>
+      <p id="resource-plan-status" role="status"></p>
+      <div class="dialog-actions">
+        <button type="submit" class="button primary">Weiter zur Prüfung</button>
+        <button id="resource-plan-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </form>
+  </dialog>
+  <script src="resource-plan.js"></script>
   <script src="manifest-check.js"></script>
   <script src="ssms-registration-export.js"></script>
   <script src="cms-sync.js"></script>
+  <script src="cms-management.js"></script>
   <script src="container-tool-check.js"></script>
   <script src="ai-compute-overview.js"></script>
   <dialog id="ssis-execution-dialog">
@@ -1180,8 +1234,8 @@
   </dialog>
   <dialog id="persistent-fixture-dialog">
     <form id="persistent-fixture-form">
-      <h2>Persistente Retrieval-Demo</h2>
-      <p class="form-note">Schreibt oder liest die synthetische Sammlung in einem SQL-2025-Container. Das verwendete Ollama-Modell muss lokal verfügbar sein. Bewahre die Collection-ID für weitere Schritte auf.</p>
+      <h2>Persistente Retrieval-Collections</h2>
+      <p class="form-note">Beispieldaten und eigene Dokumente verwenden ein lokales Ollama-Modell. Bestätige schreibende Schritte für die ausgewählte Collection.</p>
       <label>SQL-2025-Instanz<select id="persistent-fixture-target" required></select></label>
       <label>Schritt<select id="persistent-fixture-action">
         <option value="initial">Beispieldaten anlegen</option>
@@ -1189,9 +1243,22 @@
         <option value="backup">Beispielfrage zu Backups stellen</option>
         <option value="cleanup">Beispielfrage zur Bereinigung stellen</option>
         <option value="migrate">Beispielsammlung auf Nomic Embed v2 umstellen</option>
+        <option value="own-apply">Eigene Dokumente aus JSON anlegen</option>
+        <option value="own-query">Eigene Collection mit freier Frage abfragen</option>
+        <option value="own-sync">Eigene Collection mit JSON synchronisieren</option>
+        <option value="own-migrate">Eigene Collection auf Nomic Embed v2 umstellen</option>
+        <option value="prune">Alte Generationen einer eigenen Collection löschen</option>
+        <option value="remove">Datenbank einer eigenen Collection löschen</option>
       </select></label>
       <label>Collection-ID<input id="persistent-fixture-collection" maxlength="36" required></label>
+      <label id="persistent-fixture-document-field" hidden>Lokale JSON-Datei
+        <input id="persistent-fixture-document" type="file" accept=".json" disabled required>
+        <small id="persistent-fixture-document-help"></small>
+      </label>
       <label id="persistent-fixture-resume-field"><input id="persistent-fixture-resume" type="checkbox"> Begonnenen Auftrag mit derselben ID fortsetzen</label>
+      <label id="persistent-fixture-retention-field" hidden>Jüngste Generationen behalten
+        <input id="persistent-fixture-retention" type="number" min="1" max="31" step="1" value="2" disabled required>
+      </label>
       <p id="persistent-fixture-status" role="status"></p>
       <div class="dialog-actions">
         <button id="persistent-fixture-next" type="submit" class="button primary">Weiter zur Bestätigung</button>

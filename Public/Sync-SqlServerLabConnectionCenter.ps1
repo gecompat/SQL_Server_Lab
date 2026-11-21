@@ -317,20 +317,25 @@ function Initialize-SqlServerLabCms {
         Ersetzt ausschließlich eine vorhandene CMS-Registrierung, deren gebundener
         Run bereits den terminalen Status REMOVED trägt. Andere CMS-Registrierungen
         bleiben ohne Änderung blockierend.
+    .PARAMETER SuppressGeneratedPasswordReturn
+        Speichert das generierte Passwort wie üblich geschützt im Run, gibt es
+        aber nicht als Klartext im Ergebnis zurück.
     .PARAMETER StateRoot
         Optionaler State Root. Ohne Angabe wird der konfigurierte Standard verwendet.
     .OUTPUTS
-        PSCustomObject mit CMS-Konfiguration, Run-Information und einmaligem Passwort.
+        PSCustomObject mit CMS-Konfiguration und Run-Information; Password ist bei SuppressGeneratedPasswordReturn null.
     #>
     [CmdletBinding()]
     param(
         [ValidateSet('docker', 'podman')][string]$Provider,
         [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_.-]{0,79}$')][string]$LabName = 'sql-server-lab-cms',
         [switch]$ReplaceRemovedCms,
+        [switch]$SuppressGeneratedPasswordReturn,
         [string]$StateRoot
     )
 
     if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
+    return Invoke-WithLabCmsManagementLock -StateRoot $StateRoot -ScriptBlock {
     $existing = Get-LabConnectionCenterCmsConfiguration -StateRoot $StateRoot
     if ($existing) {
         if (-not $ReplaceRemovedCms) {
@@ -354,21 +359,28 @@ function Initialize-SqlServerLabCms {
     $dataRoot = Get-LabDataRootDefault
     if (-not $dataRoot) { throw 'CONNECTION_CENTER_CMS_DATA_ROOT_REQUIRED: Für einen dauerhaften CMS zuerst einen Data Root konfigurieren.' }
     $password = New-LabConnectionCenterPassword
-    $lab = New-SqlServerLab -Version '2025' -Provider $Provider -Profile compact -LabName $LabName -PersistentData -DataRoot $dataRoot -AutoStart on -SaPassword $password -StateRoot $StateRoot
-    $configuration = [PSCustomObject]@{
-        ContractVersion = 'SqlServerLab.ConnectionCenterCms/1.0'
-        RunId = [string]$lab.RunId
-        Provider = $Provider
-        CreatedAt = Get-LabTimestamp
-        Purpose = 'Central Management Server'
-        AutoStart = 'on'
-        PasswordOrigin = 'Generated'
+    try {
+        $lab = New-SqlServerLab -Version '2025' -Provider $Provider -Profile compact -LabName $LabName -PersistentData -DataRoot $dataRoot -AutoStart on -SaPassword $password -StateRoot $StateRoot
+        $configuration = [PSCustomObject]@{
+            ContractVersion = 'SqlServerLab.ConnectionCenterCms/1.0'
+            RunId = [string]$lab.RunId
+            Provider = $Provider
+            CreatedAt = Get-LabTimestamp
+            Purpose = 'Central Management Server'
+            AutoStart = 'on'
+            PasswordOrigin = 'Generated'
+        }
+        Set-LabConnectionCenterCmsConfiguration -Configuration $configuration -StateRoot $StateRoot | Out-Null
+        $plain = $null
+        if (-not $SuppressGeneratedPasswordReturn) {
+            $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($password)
+            try { $plain = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr) }
+            finally { [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
+        }
+        return [PSCustomObject]@{ Configuration = $configuration; Lab = $lab; Password = $plain }
     }
-    Set-LabConnectionCenterCmsConfiguration -Configuration $configuration -StateRoot $StateRoot | Out-Null
-    $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($password)
-    try { $plain = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr) }
-    finally { [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
-    return [PSCustomObject]@{ Configuration = $configuration; Lab = $lab; Password = $plain }
+    finally { if ($password) { $password.Dispose() } }
+    }
 }
 
 function Get-LabConnectionCenterCmsEnvironmentCandidates {
@@ -378,7 +390,7 @@ function Get-LabConnectionCenterCmsEnvironmentCandidates {
     if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
     $protectedRunIds = @(Get-LabAutomatedTestEnvironmentRunIds)
     $candidates = @()
-    foreach ($run in @(Get-LabActiveRuns -StateRoot $StateRoot)) {
+    foreach ($run in @(Get-LabActiveRuns -StateRoot $StateRoot -NoWrite)) {
         if ([string]$run.runId -in $protectedRunIds) { continue }
         $connectionPath = Join-Path (Join-Path (Join-Path $StateRoot 'runs') ([string]$run.runId)) 'connection-info.json'
         if (-not (Test-Path -LiteralPath $connectionPath -PathType Leaf)) { continue }
@@ -422,6 +434,7 @@ function Register-SqlServerLabCmsEnvironment {
     )
 
     if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
+    return Invoke-WithLabCmsManagementLock -StateRoot $StateRoot -ScriptBlock {
     $existing = Get-LabConnectionCenterCmsConfiguration -StateRoot $StateRoot
     if ($existing) { throw "CONNECTION_CENTER_CMS_ALREADY_CONFIGURED: Run $($existing.RunId) ist bereits als CMS registriert." }
     $candidate = @(Get-LabConnectionCenterCmsEnvironmentCandidates -StateRoot $StateRoot | Where-Object RunId -eq $RunId | Select-Object -First 1)
@@ -433,8 +446,10 @@ function Register-SqlServerLabCmsEnvironment {
         $null = Save-LabSecret -Path $runDirectory -Name 'sa-password' -Secret $SaPassword
         $passwordOrigin = 'ProvidedForCms'
     }
-    elseif (-not (Get-LabSecret -Path $runDirectory -Name 'sa-password')) {
-        throw 'CONNECTION_CENTER_CMS_SECRET_REQUIRED: Fuer die CMS-Synchronisation ist das SA-Passwort dieser Umgebung erforderlich.'
+    else {
+        $savedPassword = Get-LabSecret -Path $runDirectory -Name 'sa-password'
+        if (-not $savedPassword) { throw 'CONNECTION_CENTER_CMS_SECRET_REQUIRED: Fuer die CMS-Synchronisation ist das SA-Passwort dieser Umgebung erforderlich.' }
+        if ($savedPassword -is [SecureString]) { $savedPassword.Dispose() }
     }
 
     $configuration = [pscustomobject]@{
@@ -449,6 +464,7 @@ function Register-SqlServerLabCmsEnvironment {
     }
     Set-LabConnectionCenterCmsConfiguration -Configuration $configuration -StateRoot $StateRoot | Out-Null
     return [pscustomobject]@{ Configuration = $configuration; Run = $candidate[0].Run }
+    }
 }
 
 function Add-LabSsmsTextNode {

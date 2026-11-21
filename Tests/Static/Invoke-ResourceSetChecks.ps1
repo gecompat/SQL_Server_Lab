@@ -59,6 +59,39 @@ try {
     Add-CheckResult -Name 'Read-only Plan erzeugt weder Media-, Testdaten- noch State-Root' -Success (
         -not (Test-Path -LiteralPath $mediaRoot) -and -not (Test-Path -LiteralPath $stateRoot)
     )
+    $softwareView = @(Get-SqlServerLabResourcePlan @defaultArguments -ResourceKind Software -SummaryOnly)
+    $visibleKeys = @('Contract','ResourceId','Kind','Status','Acquisition','ArtifactCount','ReadyCount','TrustStatus','DownloadSizeMB','SourceStatus')
+    Add-CheckResult -Name 'Geführte Softwareansicht bleibt beim Katalog und verbirgt Pfade und Hashwerte' -Success (
+        $softwareView.Count -eq @($defaultIds -like 'software:*').Count -and $softwareView.Count -gt 0 -and
+        @($softwareView | Where-Object Kind -cne 'software').Count -eq 0 -and
+        @($softwareView | ForEach-Object { $_.PSObject.Properties.Name } | Where-Object { $_ -cnotin $visibleKeys }).Count -eq 0
+    )
+    $console = & $module {
+        param($Arguments)
+        $calls = [Collections.Generic.List[string]]::new()
+        function Select-LabConsoleDataItem { param($ScreenId,$Title,$Items) ($Items | Where-Object Id -eq 'sample').Data }
+        function Write-LabInfo { param($Message) $calls.Add($Message) }
+        function Write-LabError { param($Message) throw $Message }
+        function Wait-LabConsoleAcknowledgement { }
+        $oldMedia = $env:SQL_SERVER_LAB_MEDIA_ROOT
+        $oldTest = $env:SQL_SERVER_LAB_TEST_DATA_ROOT
+        $oldState = $env:SQL_SERVER_LAB_STATE
+        try {
+            $env:SQL_SERVER_LAB_MEDIA_ROOT = $Arguments.MediaRoot
+            $env:SQL_SERVER_LAB_TEST_DATA_ROOT = $Arguments.TestDataRoot
+            $env:SQL_SERVER_LAB_STATE = $Arguments.StateRoot
+            Invoke-LabMenuAction -ActionName ResourcePlan
+        } finally {
+            $env:SQL_SERVER_LAB_MEDIA_ROOT = $oldMedia
+            $env:SQL_SERVER_LAB_TEST_DATA_ROOT = $oldTest
+            $env:SQL_SERVER_LAB_STATE = $oldState
+        }
+        $calls.ToArray()
+    } $defaultArguments
+    Add-CheckResult -Name 'Geführtes Ressourcenmenü gibt ausschließlich ausgewählte Beispieldaten aus' -Success (
+        @($console).Count -eq @($defaultIds -like 'sample:*').Count -and @($console).Count -gt 0 -and
+        @($console | Where-Object { $_ -cnotmatch '^sample:' }).Count -eq 0
+    )
 
     $repositoryRejected = $false
     try { $null = Get-SqlServerLabResourcePlan -ResourceId 'sample:northwind:script' -MediaRoot $repoRoot }

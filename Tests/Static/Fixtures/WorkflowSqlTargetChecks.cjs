@@ -74,7 +74,7 @@ const context = vm.createContext({ document, console, URLSearchParams,
 const fetchRequests = [];
 const run = (code) => vm.runInContext(code, context, { timeout: 5000 });
 run(source);
-for (const asset of ['manifest-check.js', 'ssms-registration-export.js']) {
+for (const asset of ['manifest-check.js', 'ssms-registration-export.js', 'cms-management.js', 'resource-plan.js']) {
   if (html.includes('<script src="' + asset + '"></script>')) run(fs.readFileSync(path.join(root, 'Ui', asset), 'utf8'));
 }
 run('const actualQueueBackgroundAction = queueBackgroundAction; queueBackgroundAction = (action, parameters) => queued.push({action, parameters});');
@@ -873,6 +873,18 @@ async function main() {
   let releaseWatch;context.sqlServerLabUiFetch=()=>new Promise(resolve=>{releaseWatch=resolve;});
   const pendingWatch=resourceEvent('resource-watch-read');await resourceEvent('resource-watch-close');releaseWatch({ok:true,json:async()=>({Result:{Status:'NEW',Items:[watchItem]}})});await pendingWatch;
   check('Resource watch closed dialog ignores late response',()=>assert.match(node('resource-watch-status').textContent,/UNCLEAR/));
+  await resourceEvent('resource-plan-open');
+  check('Guided resource plan opens without starting an operation',()=>assert.equal(node('resource-plan-dialog').open,true));
+  run("publicCommandCatalog = [{ Name: 'Get-SqlServerLabResourcePlan', ParameterSets: [{Name:'__AllParameterSets', Parameters:['ResourceKind','SummaryOnly'].map(Name=>({Name,Sensitive:false,IsCredential:false}))}]}]");
+  node('resource-plan-kind').value='Software';
+  await resourceEvent('resource-plan-form','submit');
+  const resourceRequest=run('pendingConfirmation');
+  check('Guided resource plan confirms only selected kind and safe summary',()=>{
+    assert.equal(resourceRequest.action,'__PublicCommand');
+    assert.equal(resourceRequest.parameters.command.Name,'Get-SqlServerLabResourcePlan');
+    assert.equal(JSON.stringify(resourceRequest.parameters.parameters),JSON.stringify({ResourceKind:'Software',SummaryOnly:true}));
+  });
+  run("$('#confirmation-dialog').close(); pendingConfirmation = null;");
   const cmsRequests=[];
   const cmsBase={ContractVersion:'SqlServerLab.CmsInspection/1.0',Status:'NOT_CHECKED',Code:'CMS_INSPECTION_NOT_CHECKED',RunId:'11111111-1111-1111-1111-111111111111',InstanceId:'primary',Provider:'docker',SelectionKey:'a'.repeat(64),SqlMajor:null,ManagedGroupCount:null,ManagedServerCount:null,ObservedAt:null};
   let cmsMode='ready';
@@ -903,6 +915,62 @@ async function main() {
   cmsMode='ready';await resourceEvent('cms-inspection-read');
   let releaseCms;context.sqlServerLabUiFetch=()=>new Promise(resolve=>{releaseCms=resolve;});const pendingCms=resourceEvent('cms-inspection-check');await resourceEvent('cms-inspection-close');releaseCms({ok:true,json:async()=>({Result:{...cmsBase,Status:'OBSERVED',SqlMajor:17,ManagedGroupCount:3,ManagedServerCount:5,ObservedAt:'2026-10-01T12:00:00Z'}})});await pendingCms;
   check('CMS close ignores late inspection without retry or queue mutation',()=>{assert.equal(node('cms-inspection-dialog').open,false);assert.equal(node('cms-inspection-result').textContent,'');assert.equal(node('cms-inspection-check').disabled,true);});
+  const cmsAvailable={ContractVersion:'SqlServerLab.CmsManagement/1.0',Status:'NOT_CONFIGURED',PlanKey:'c'.repeat(64),Cms:null,Providers:['docker','podman'],DataRootConfigured:true,CanCreate:true,CanAdopt:true,Candidates:[{RunId:'11111111-2222-4333-8444-555555555555',Name:'synthetic lab',Provider:'docker'}]};
+  let cmsManagementState=cmsAvailable;
+  const cmsManagementCalls=[];
+  let cmsManagementReads=0;
+  context.sqlServerLabUiFetch=async(url,options)=>{
+    if(url==='/api/cms-management'){cmsManagementReads++;return {ok:true,json:async()=>({Result:cmsManagementState})};}
+    if(url==='/api/jobs')return {ok:true,json:async()=>[]};
+    return {ok:true,status:202,json:async()=>({id:'cms-job-1',action:'InitializeCms'})};
+  };
+  context.window.cmsManagementCalls=cmsManagementCalls;
+  run('startAction = async (action, parameters) => { window.cmsManagementCalls.push({action,parameters:{...parameters}}); return {id:"cms-job-1"}; };');
+  await resourceEvent('cms-management-open');
+  await waitForActualBoundary(()=>node('cms-management-status').textContent==='Kein verwalteter CMS ist registriert.','CMS management state should render');
+  check('CMS management offers guided create/adopt from safe registration state',()=>{assert.equal(node('cms-management-create').hidden,false);assert.equal(node('cms-management-adopt').hidden,false);assert.match(node('cms-management-summary').textContent,/Data Root/);});
+  check('CMS create waits for explicit confirmation',()=>assert.equal(node('cms-management-create-submit').disabled,true));
+  node('cms-management-create-confirm').checked=true;await resourceEvent('cms-management-create-confirm','change');
+  await resourceEvent('cms-management-read');
+  await waitForActualBoundary(()=>cmsManagementReads===2 && !node('cms-management-read').disabled,'CMS management reread should complete');
+  check('CMS status reread invalidates old explicit confirmation',()=>{assert.equal(node('cms-management-create-confirm').checked,false);assert.equal(node('cms-management-create-submit').disabled,true);});
+  node('cms-management-provider').value='docker';
+  node('cms-management-lab-name').value='sql-server-lab-cms';
+  node('cms-management-create-confirm').checked=true;await resourceEvent('cms-management-create-confirm','change');
+  await resourceEvent('cms-management-create-submit');
+  await waitForActualBoundary(()=>cmsManagementCalls.length===1,'CMS create action should be accepted');
+  await waitForActualBoundary(()=>node('cms-management-status').textContent.startsWith('Aktion angenommen.'),'CMS create action should settle before the next dialog read');
+  check('CMS create submits exact provider, name, binding and confirmation',()=>{assert.equal(cmsManagementCalls[0].action,'InitializeCms');assert.equal(JSON.stringify(cmsManagementCalls[0].parameters),JSON.stringify({Provider:'docker',LabName:'sql-server-lab-cms',ExpectedPlanKey:'c'.repeat(64),ConfirmCmsOperation:true,ReplaceRemovedCms:false}));});
+  await resourceEvent('cms-management-open');
+  await waitForActualBoundary(()=>node('cms-management-status').textContent==='Kein verwalteter CMS ist registriert.','CMS adoption state should render');
+  node('cms-management-candidate').value='11111111-2222-4333-8444-555555555555';
+  check('CMS adoption waits for explicit confirmation',()=>assert.equal(node('cms-management-adopt-submit').disabled,true));
+  node('cms-management-adopt-confirm').checked=true;await resourceEvent('cms-management-adopt-confirm','change');
+  await resourceEvent('cms-management-adopt-submit');
+  await waitForActualBoundary(()=>cmsManagementCalls.length===2,'CMS adoption action should be accepted');
+  await waitForActualBoundary(()=>node('cms-management-status').textContent.startsWith('Aktion angenommen.'),'CMS adoption action should settle before the next status read');
+  check('CMS adoption submits only selected run, plan, and confirmation',()=>{assert.equal(cmsManagementCalls[1].action,'AdoptCms');assert.equal(JSON.stringify(cmsManagementCalls[1].parameters),JSON.stringify({RunId:'11111111-2222-4333-8444-555555555555',ExpectedPlanKey:'c'.repeat(64),ConfirmCmsOperation:true}));});
+  cmsManagementState={...cmsAvailable,Status:'CONFIGURED',CanCreate:false,CanAdopt:false,Candidates:[],Cms:{RunId:'11111111-2222-4333-8444-555555555555',Provider:'docker',State:'RUNNING'}};
+  await resourceEvent('cms-management-read');
+  await waitForActualBoundary(()=>node('cms-management-status').textContent==='Ein verwalteter CMS ist registriert.','CMS registered state should render');
+  check('Running CMS blocks create and adoption',()=>{assert.equal(node('cms-management-create-submit').disabled,true);assert.equal(node('cms-management-adopt-submit').disabled,true);});
+  run('startAction = () => new Promise(resolve => { window.resolveLateCmsAction = resolve; });');
+  const cmsRegistered=cmsManagementState;
+  cmsManagementState=cmsAvailable;
+  await resourceEvent('cms-management-read');
+  await waitForActualBoundary(()=>cmsManagementReads===5 && !node('cms-management-read').disabled,'CMS late-response setup state should render');
+  node('cms-management-provider').value='docker';
+  node('cms-management-create-confirm').checked=true;await resourceEvent('cms-management-create-confirm','change');
+  await resourceEvent('cms-management-create-submit');
+  await waitForActualBoundary(()=>typeof context.window.resolveLateCmsAction==='function','CMS late response should be pending');
+  await resourceEvent('cms-management-close');
+  cmsManagementState=cmsRegistered;
+  await resourceEvent('cms-management-open');
+  await waitForActualBoundary(()=>cmsManagementReads===6 && node('cms-management-status').textContent==='Ein verwalteter CMS ist registriert.','new CMS dialog state should render');
+  context.window.resolveLateCmsAction({id:'old-cms-job'});
+  await new Promise(resolve=>setTimeout(resolve,10));
+  check('Late CMS action response cannot replace state or busy controls of reopened dialog',()=>{assert.equal(node('cms-management-status').textContent,'Ein verwalteter CMS ist registriert.');assert.equal(node('cms-management-create-submit').disabled,true);});
+  check('CMS UI exposes no password control',()=>{assert.equal(html.includes('cms-management-adopt-password'),false);assert.match(html,/wird nicht an den Browser zurückgegeben/);});
   const maintenanceCalls=[];
   const maintenanceRow={Id:'fixture',CandidateId:'a'.repeat(64),Label:'docker · SQL-Speicher',Fields:[{Label:'Herkunft',Value:'Unbekannt <script>marker</script>'}]};
   let maintenanceMode='ready';

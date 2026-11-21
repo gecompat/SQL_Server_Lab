@@ -12,6 +12,8 @@
 - Im Browser lassen sich gespeicherte reguläre Verbindungen als
   kennwortfreie SSMS-Datei herunterladen und geeignete registrierte
   Docker-/Podman-CMS nach Bestätigung synchronisieren.
+- CLI und Browser führen das bestätigte Löschen alter Generationen und
+  ganzer Datenbanken eigener Retrieval-Collections.
 - Die Hyper-V-Speichervorschau zeigt registrierte Klassenpfade und den
   freien Speicher. Der Wartungsplan liest den Status nach einer
   VM-Umbenennung mit dem aktuellen Namen und erhält den gespeicherten

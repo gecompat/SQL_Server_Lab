@@ -441,6 +441,13 @@ function Invoke-UiCmsInspectionRequest {
     Invoke-SqlServerLabWorkflowAction -Action InspectCms -ExpectedPlanKey $payload.parameters.ExpectedPlanKey
 }
 
+function Invoke-UiCmsManagementRequest {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Request)
+    if ($Request.HttpMethod -cne 'GET') { throw 'CMS_MANAGEMENT_REQUEST_INVALID' }
+    Invoke-SqlServerLabWorkflowAction -Action GetCmsManagementState
+}
+
 function Invoke-UiInitialSetupRequest {
     [CmdletBinding()]
     param([Parameter(Mandatory)]$Request)
@@ -883,6 +890,16 @@ try {
                 catch {
                     if (Write-UiBodyFailureResponse -Context $context -ErrorRecord $_) { continue }
                     Write-UiResponse -Context $context -Body 'CMS_INSPECTION_REQUEST_FAILED: Registrierung und Auswahl erneut lesen.' -StatusCode 400
+                }
+                continue
+            }
+            if ($path -eq '/api/cms-management' -and $context.Request.HttpMethod -eq 'GET') {
+                try {
+                    $result = Invoke-UiCmsManagementRequest -Request $context.Request
+                    Write-UiResponse -Context $context -Body ($result | ConvertTo-Json -Depth 8 -Compress) -ContentType 'application/json; charset=utf-8' -NoStore
+                }
+                catch {
+                    Write-UiResponse -Context $context -Body '{"Code":"CMS_MANAGEMENT_STATE_UNAVAILABLE"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400 -NoStore
                 }
                 continue
             }
@@ -1442,13 +1459,17 @@ try {
                 $body = $bodyRead.Body
                 $request = $body | ConvertFrom-Json -Depth 8
                 $action = [string]$request.action
+                if ($action -in @('InitializeCms','AdoptCms')) {
+                    try { & (Get-Module SqlServerLab) { param($json,$name) Assert-LabCmsManagementWorkflowJsonShape -Json $json -Action $name } $body $action }
+                    catch { throw 'CMS_MANAGEMENT_REQUEST_INVALID' }
+                }
                 if ($action -in @('NewContainerLab','NewContainerLabFromManifest')) {
                     try {
                         & (Get-Module SqlServerLab) { param($json,$a) Assert-LabSaPasswordWorkflowJsonShape -Json $json -Action $a } $body $action
                     }
                     catch { throw 'UI_SA_PASSWORD_REQUEST_INVALID' }
                 }
-                if ($action -in @('GetCmsInspectionState','InspectCms','GetLlamaSessions','PlanLlamaSessionStop','StopLlamaSession','GetResourceWatchState', 'RefreshResourceWatch', 'GetMediaOverrideState', 'PlanMediaOverride', 'ApplyMediaOverride', 'GetSlotReserveState', 'PlanSlotReserve', 'ApplySlotReserve', 'PlanWindowsPoolMember', 'ApplyWindowsPoolMember', 'CancelWindowsPoolMember', 'GetInitialSetupState', 'PlanInitialSetup', 'ApplyInitialSetup', 'RefreshSetupProvider', 'PlanSetupWriteability', 'ProbeSetupWriteability', 'RefreshSetupCapacity')) { throw 'INITIAL_SETUP_DIRECT_ENDPOINT_REQUIRED' }
+                if ($action -in @('GetCmsInspectionState','InspectCms','GetCmsManagementState','GetLlamaSessions','PlanLlamaSessionStop','StopLlamaSession','GetResourceWatchState', 'RefreshResourceWatch', 'GetMediaOverrideState', 'PlanMediaOverride', 'ApplyMediaOverride', 'GetSlotReserveState', 'PlanSlotReserve', 'ApplySlotReserve', 'PlanWindowsPoolMember', 'ApplyWindowsPoolMember', 'CancelWindowsPoolMember', 'GetInitialSetupState', 'PlanInitialSetup', 'ApplyInitialSetup', 'RefreshSetupProvider', 'PlanSetupWriteability', 'ProbeSetupWriteability', 'RefreshSetupCapacity')) { throw 'INITIAL_SETUP_DIRECT_ENDPOINT_REQUIRED' }
                 $parameters = @{}
                 if ($request.parameters) {
                     foreach ($property in $request.parameters.PSObject.Properties) {

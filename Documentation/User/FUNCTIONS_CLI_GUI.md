@@ -127,9 +127,11 @@ Ressourcen/Downloads, Host-Dienste/Modelle, Verbindungen/CMS,
 Grundkonfiguration, Wartung/Recovery und Vorgänge sind eigene Einstiege.
 Expertenbefehle und Meldungen bleiben separat. Browserbereiche zeigen nur die
 zugehörigen vorhandenen Fachdialoge; Zurück erhält Eingaben und die
-Aktualisierung erhält den gewählten Bereich. Fehlende Browserdialoge für
-CMS und operative Slots sowie Fremdstart-/weiterer Hostdienst- und
-Modell-Lifecycle bleiben sichtbar offen. Der geführte Stop einer eigenen
+Aktualisierung erhält den gewählten Bereich. CMS-Erstellen, Übernehmen und
+Synchronisieren besitzen nun einen begrenzten geführten Browserdialog; dessen
+native Management-Abnahme steht noch aus. Fehlende Browserdialoge für operative
+Slots sowie Fremdstart-/weiterer Hostdienst- und Modell-Lifecycle bleiben
+sichtbar offen. Der geführte Stop einer eigenen
 llama.cpp-Modulsitzung besitzt einen gemeinsamen CLI-/Browserdialog und einen
 engen synthetischen nativen Prozessnachweis. Ein Katalogfilter ersetzt keinen
 Fachdialog.
@@ -284,7 +286,8 @@ und deren Prüfstatus bleiben davon getrennt.
 | [`Sync-SqlServerLabConnectionCenter`](../../Public/Sync-SqlServerLabConnectionCenter.ps1) | Aktualisiert den Endpunktkatalog der Verbindungszentrale atomar. | Verbindungszentrale; zusätzlich nach endpunktrelevanten Lifecycle-Aktionen | – |
 | [`Export-SqlServerLabSsmsRegistration`](../../Public/Sync-SqlServerLabConnectionCenter.ps1) | Erzeugt einen kennwortfreien SSMS-`.regsrvr`-Export. Der Browser exportiert bis zu 500 gespeicherte reguläre Endpunkte. | Verbindungszentrale → SSMS-Export | Verbindungen und CMS → SSMS-Registrierungen herunterladen |
 | [`Export-SqlServerLabCmsSyncScript`](../../Public/Sync-SqlServerLabConnectionCenter.ps1) | Erzeugt ein idempotentes CMS-Synchronisationsskript. | Verbindungszentrale → CMS-Skript | – |
-| [`Initialize-SqlServerLabCms`](../../Public/Sync-SqlServerLabConnectionCenter.ps1) | Erstellt nach expliziter Auswahl einen kompakten persistenten Docker-/Podman-CMS. `-LabName` benennt ihn. `-ReplaceRemovedCms` ersetzt ausschließlich eine terminal entfernte CMS-Registrierung. Das generierte Kennwort steht bei der Erstellung in der Konsolenausgabe und fehlt im Lab-Meldungsjournal. | Verbindungszentrale → CMS initialisieren | – |
+| [`Initialize-SqlServerLabCms`](../../Public/Sync-SqlServerLabConnectionCenter.ps1) | Erstellt nach expliziter Auswahl einen kompakten persistenten Docker-/Podman-CMS. `-LabName` benennt ihn. `-ReplaceRemovedCms` ersetzt ausschließlich eine terminal entfernte CMS-Registrierung. Das generierte Kennwort bleibt lokal geschützt. | Verbindungszentrale → CMS initialisieren | Verbindungen und CMS → CMS bereitstellen → Neuen CMS-Run erstellen |
+| `Register-SqlServerLabCmsEnvironment` (interne Fachfunktion) | Registriert einen geeigneten bestehenden Run als verwalteten CMS. Die Browser-Aktion nutzt ein bereits lokal gespeichertes Kennwort. | Verbindungszentrale → bestehenden Run übernehmen | Verbindungen und CMS → CMS bereitstellen → Vorhandenen SQL-Run übernehmen |
 | [`Sync-SqlServerLabCms`](../../Public/Sync-SqlServerLabConnectionCenter.ps1) | Gleicht den verwalteten lokalen CMS mit dem aktuellen Katalog ab. | Verbindungszentrale und automatischer Abgleich nach Lifecycle-Aktionen | Verbindungen und CMS → Registrierten CMS lesend prüfen → CMS synchronisieren. Für laufende Docker-/Podman-CMS ohne Kennwortalias. |
 
 ## Reconcile und GUI-Adapter
@@ -415,7 +418,7 @@ Bibliotheks-Recovery blockiert den erneuten Export ausdrücklich.
 | `Measure-SqlServerLabAiComputeCandidate` | Misst eine ausgewählte Gerätekombination mit einem vorhandenen llama-bench-Paket und einer lokalen GGUF-Datei. | Host-Dienste und Modelle → llama.cpp-Gerätekombinationen messen → Einzelkandidat | Host-Dienste und Modelle → llama.cpp-Gerätekombinationen messen → Modell und Messkandidaten prüfen → Einzelkandidat |
 | `Measure-SqlServerLabAiComputeCandidateSet` | Misst alle geeigneten Gerätekombinationen im ausgewählten lokalen Paketbestand seriell mit demselben Profil und liefert die Auswahl. | Host-Dienste und Modelle → llama.cpp-Gerätekombinationen messen → Alle geeigneten Kandidaten | Host-Dienste und Modelle → llama.cpp-Gerätekombinationen messen → Modell und Messkandidaten prüfen → Alle geeigneten Kandidaten |
 | `Test-SqlServerLabOvmsUpstreamEndpoint` | Prüft den bereits laufenden lokalen OVMS-Dienst mit einem synthetischen HTTP-Request. Die Eingaben sind Loopback-Adresse, Port, Modellname, Embedding-Dimension und Timeout. | Host-Dienste und Modelle → Lokalen OVMS-Embedding-Dienst prüfen | Host-Dienste und Modelle → Lokalen OVMS-Embedding-Dienst prüfen. Das Ergebnis steht im Live-Log. |
-| `Invoke-SqlServerLabAiPersistentRetrieval` | Die geführte Demo legt eine synthetische Generation an, aktualisiert sie, stellt zwei feste Fragen oder migriert sie auf Nomic Embed v2. Eigene Dokumente, Sync, Prune und Remove verwenden die PowerShell-API oder den Expertenkatalog. | SQL-2025-KI-Szenarien und Demos → Persistente Retrieval-Demo | Host-Dienste und Modelle → Persistente Retrieval-Demo. Das Ergebnis steht im Live-Log. |
+| `Invoke-SqlServerLabAiPersistentRetrieval` | Beispieldaten verwenden oder eigene Dokumente aus JSON anlegen, abfragen, synchronisieren und auf Nomic Embed v2 migrieren. Alte Generationen oder die gesamte Datenbank einer eigenen Collection mit bestehender ID und ausdrücklicher Bestätigung löschen. [JSON-Format](Getting_Started.md#persistentes-retrieval) | SQL-2025-KI-Szenarien und Demos → Persistente Retrieval-Collections | Host-Dienste und Modelle → Persistente Retrieval-Collections. Das Ergebnis steht im Live-Log. |
 | [`Get-SqlServerLabAiComputeCandidate`](../../Public/Get-SqlServerLabAiComputeCandidate.ps1) | Ermittelt erlaubte Geräte-Sets. Die geführte Ansicht zeigt deren Anzahl je Backend und Geräteklasse. | Host-Dienste und Modelle → llama.cpp-Eignung prüfen | Host-Dienste und Modelle → llama.cpp-Eignung prüfen |
 | [`Get-SqlServerLabAiComputeInventory`](../../Public/Get-SqlServerLabAiComputeInventory.ps1) | Erfasst CPU, GPU und NPU lesend. Die geführte Übersicht zeigt je Geräteklasse die Anzahl oder einen unbekannten Befund. | Host-Dienste und Modelle → CPU, GPU und NPU erfassen | Host-Dienste und Modelle → CPU, GPU und NPU erfassen |
 | [`Get-SqlServerLabHostCapabilityMatrix`](../../Public/Get-SqlServerLabHostCapabilityMatrix.ps1) | Zeigt SQL-Sprachvarianten und optional die beobachtete Providerbereitschaft. | Hauptmenü → Hostfähigkeiten vor der Funktionsauswahl | Lab erstellen → Hostfähigkeiten vor der Funktionsauswahl |
@@ -430,7 +433,7 @@ Bibliotheks-Recovery blockiert den erneuten Export ausdrücklich.
 |---|---|---|---|
 | [`Get-SqlServerLabCuStatus`](../../Public/Get-SqlServerLabCuStatus.ps1) | Vergleicht Microsoft-Learn-Buildtabellen read-only mit dem lokalen CU-Katalog. | Ressourcen und Downloads → aktuelle CUs prüfen | – |
 | [`Save-SqlServerLabCuResource`](../../Public/Save-SqlServerLabCuResource.ps1) | Lädt einen katalogisierten Windows-CU verifiziert in den Media Root oder einen exakten Linux-MCR-Tag in Docker/Podman. | Medien, Testdaten und Speicher → CU herunterladen oder prüfen | – |
-| [`Get-SqlServerLabResourcePlan`](../../Public/Get-SqlServerLabResourcePlan.ps1) | Plant fehlende Samples und Windows-/Hyper-V-External-Runtime-Medien read-only. | – | – |
+| [`Get-SqlServerLabResourcePlan`](../../Public/Get-SqlServerLabResourcePlan.ps1) | Ermittelt je Katalogressource die bereitstehenden Dateien und den Beschaffungsweg. Die geführte Ansicht zeigt eine Zusammenfassung ohne lokale Pfade und Hashes. | Ressourcen und Downloads → Lokalen Ressourcenbedarf prüfen | Ressourcen und Downloads → Lokalen Ressourcenbedarf prüfen. Ergebnis unter Vorgänge. |
 | [`Save-SqlServerLabResourceSet`](../../Public/Save-SqlServerLabResourceSet.ps1) | Stellt ausgewählte Ressourcen aus Cache, Altbestand oder katalogisierter HTTP(S)-Quelle hashverifiziert bereit. | – | – |
 | [`Save-SqlServerLabMediaSource`](../../Public/Save-SqlServerLabMediaSource.ps1) | Lädt ein katalogisiertes SQL-Basismedium oder einen Bootstrapper atomar nach Größen-, Hash- und Signaturprüfung. | über Hyper-V-Medien- und Image-Flows | – |
 

@@ -1073,6 +1073,7 @@ function Show-LabResourceMenu {
         New-LabConsoleItem -Id MediaSourceOverride -Label 'SQL-2022/2025-Bootstrapperquellen bearbeiten / zurücksetzen' -Shortcut 6
         New-LabConsoleItem -Id ResourceWatch -Label 'Ressourcenstand: CUs und SqlPackage' -Value 'Sitzungsbefund · Quellenprüfung erst nach Auswahl' -Shortcut 7
         New-LabConsoleItem -Id RuntimeInstaller -Label 'llama.cpp-Runtime installieren / prüfen' -Value 'Experimentell · Windows x64 CPU · keine Modelle oder Dienste' -Shortcut 8
+        New-LabConsoleItem -Id ResourcePlan -Label 'Lokalen Ressourcenbedarf prüfen' -Shortcut 9
         New-LabConsoleItem -Id back -Label 'Zurück' -Shortcut 0
     )
 }

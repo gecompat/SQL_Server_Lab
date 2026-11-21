@@ -168,8 +168,14 @@ Ausführung weiterhin `KNOWN_GAP`: Die CLI und der Browser führen nur die
 Vorschau gebundene Revision und kann laufende SQL-Container unterbrechen.
 
 Beim persistenten KI-Retrieval führen beide Oberflächen die synthetische
-Demo. Eigene Dokumente, Sync, Prune und die Entfernung einer Collection
-bleiben als geführte Aktionen offen (`KNOWN_GAP`).
+Demo sowie `Prune` und `Remove`. Die Löschaktionen binden die ausgewählte
+SQL-2025-Containerinstanz und eine vorhandene Collection-ID. Der Core
+prüft den Besitz der Datenbank. Die CLI- und Browser-Fixtures prüfen die
+Parameterübergabe und die Bestätigungsgrenze. Für eigene Dokumente führen
+beide Oberflächen Anlage, freie Abfrage, Synchronisation und Migration
+aus lokaler JSON-Eingabe. Der bestätigte Sync bindet den erwarteten und
+den neuen Dokumentbestand an dieselbe Collection. CLI- und Browser-Fixtures
+prüfen die Grenze der JSON-Eingabe, ihre Bindung und den Bestätigungsschritt.
 
 Die Bereiche und dokumentierten Grenzen entsprechen der neun Bereiche
 umfassenden Navigation in der [Workflow-Oberfläche](../HowTo/WORKFLOW_UI.md).
@@ -182,13 +188,24 @@ nicht alle Operationen des Bereichs einzeln auf einen CLI-Menüpfad, GUI-Aktion,
 | Lab-Umgebungen, Run-Lifecycle, Datenbanken, Samples und Skripte | Lab-Umgebungen | Lab-Umgebungen | Workflow-Einstieg; ausgewählte öffentliche Cmdlet-Zuordnungen; Container-/Hyper-V-Abnahmen in der [CLI-Akzeptanzmatrix](CLI_ACCEPTANCE_MATRIX.md) | `TEILWEISE`; vollständige Operations- und Änderungsmatrix offen |
 | Geschützte Testsystem-Matrix | Testsystem-Matrix | Geschützte Testsystem-Matrix | Gruppen-/Power-Dialog und vorhandene statische Verträge | `TEILWEISE`; vollständige Operationszuordnung und weitere geführte Aktionen `NOT_ASSESSED` |
 | Hyper-V-Vorlagen, Windows-Images und operative Slots | Hyper-V: Vorlagen und Slots | Hyper-V: Vorlagen und Slots | Image-/Poolinventar und einzelne gebundene Workflows | `KNOWN_GAP` für operative Slots und vollständiges Provider-Setup; native Nachweise bleiben funktions- und versionsgebunden |
-| Ressourcen, Medien, Downloads und Speicher | Ressourcen und Downloads | Ressourcen und Downloads | Ressourcen-/Medienkataloge, ausgewählte Plan-/Apply-Dialoge | `TEILWEISE`; vollständige Operationszuordnung und Providerbelege offen |
+| Ressourcen, Medien, Downloads und Speicher | Ressourcen und Downloads | Ressourcen und Downloads | Kataloge, ausgewählte Plan-/Apply-Dialoge und geführte Bedarfsprüfung aus den konfigurierten Ordnern. `Invoke-ResourceSetChecks.ps1` und `WorkflowSqlTargetChecks.cjs` prüfen die Filterung und Übergabe ohne Download. | `TEILWEISE`; vollständige Operationszuordnung und Providerbelege offen |
 | Host-Dienste und Modelle | Host-Dienste und Modelle | Host-Dienste und Modelle | Einzelne Modell-/Hostservice-Dialoge und öffentliche Befehle | `KNOWN_GAP` für Fremdstart und weiteren Hostdienst-/Modell-Lifecycle |
-| Verbindungen, Registrierungen und CMS | Verbindungen und CMS | Verbindungen und CMS | Gespeicherter SSMS-Export, lesende CMS-Inspection und gebundener CMS-Abgleich im Browser. Der Core-Abgleich ist mit Docker und Podman abgenommen. | `KNOWN_GAP` für CMS-Setup im Browser; vollständige Operationszuordnung offen |
+| Verbindungen, Registrierungen und CMS | Verbindungen und CMS | Verbindungen und CMS | Gespeicherter SSMS-Export, lesende CMS-Inspection, gebundener CMS-Abgleich und geführtes CMS-Bereitstellen im Browser. Der Core-Abgleich ist mit Docker und Podman abgenommen. | `TEILWEISE`; native Browser-Abnahme und vollständige Operationszuordnung offen |
 | SQL-Lab-Grundkonfiguration | Grundkonfiguration | SQL-Lab-Grundkonfiguration | Gemeinsamer Plan-/Apply-Pfad für dokumentierte Einstellungen | `TEILWEISE`; nicht jede öffentliche Konfigurationsoperation einzeln abgebildet |
 | Wartung, Aufräumen und Recovery | Wartung, Aufräumen und Recovery | Wartung/Recovery | Read-only-Pläne, bestätigte Aktionen und Recovery-Verträge je Slice | `TEILWEISE`; komplette Funktions- und Fehlerpfadzuordnung offen |
 | Vorgänge, Queue und Scheduler | Vorgänge, Queue und Benutzeraktionen | Vorgänge | Batch-/Queue-Einstiege und Workflow-Aktionen | `TEILWEISE`; jede Operation und ihre Abbruch-/Recoverypfade noch einzeln abzugleichen |
 | Expertenbefehle und Meldungen | Alle öffentlichen Befehle / Meldungen | Alle Funktionen / Meldungen | Generierter Export-/Parametersatzkatalog; Konsolen- und Workflow-UI-Prüfungen | `EXPERT_CATALOG_ONLY` als Fachführung; Katalogvollständigkeit ist separat statisch prüfbar |
+
+### Geprüfte Teilmenge: CMS-Management
+
+Der geführte Browserdialog **Verbindungen und CMS → CMS bereitstellen**
+deckt das Erstellen und Übernehmen ab. Synthetische UI- und
+Adapterprüfungen prüfen Auswahl, Bestätigung und Änderungsschutz.
+
+| Aktion | CLI-Menü | Browser-GUI | Öffentlicher Vertrag / Nachweis | Grenze |
+|---|---|---|---|---|
+| Verwalteten CMS erstellen | Verbindungszentrale → CMS verwalten und synchronisieren → CMS automatisch erstellen | Verbindungen und CMS → CMS bereitstellen → Neuen CMS-Run erstellen | `Initialize-SqlServerLabCms`, `Invoke-ConnectionCenterCmsChecks.ps1`, `WorkflowSqlTargetChecks.cjs` | SQL Server 2025 über Docker/Podman. Der Browser erhält keine Zugangsdaten. |
+| Bestehenden Run übernehmen | gleicher CMS-Menüpfad → bestehenden Run übernehmen | gleicher Dialog → Vorhandenen SQL-Run übernehmen | interne Fachaktion `Register-SqlServerLabCmsEnvironment`, CMS-State-/Payload-Prüfungen und Workflow-UI-Suite | Geeigneter laufender Docker-/Podman-Run, eine SQL-Instanz und gespeichertes SA-Kennwort. Die Übernahme prüft die aktuelle Containerbindung. |
 
 Die Bezeichnungen stammen aus dem bestehenden Navigationsvertrag. Ein
 vorhandener Fachdialog oder Runtime-Smoke darf nur für genau die darin
