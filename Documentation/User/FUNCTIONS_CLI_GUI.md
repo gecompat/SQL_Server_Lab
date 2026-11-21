@@ -606,6 +606,10 @@ und Cleanup-Abnahme dieses Dialogs ist nicht ausgeführt. Bestehende native
 Referenznachweise ersetzen diese Abnahme nicht.
 
 Der öffentliche Startbefehl für Skripte ist `Start-SqlServerLabLlamaCppRuntime`.
+Mit `Stop-SqlServerLabLlamaCppRuntime` beendet ein Skript eine eigene Sitzung
+desselben Modulhosts. In **Host-Dienste und Modelle** bietet der geführte
+Sitzungsstopp in CLI und Browser zusätzlich eine gebundene Vorschau und
+eine Bestätigung. Die Vorschau berücksichtigt geschützte Verbraucher.
 
 ## Geführter eigener llama.cpp-Start im Browser
 
