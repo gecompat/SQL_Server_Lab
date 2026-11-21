@@ -918,6 +918,19 @@ try {
                 }
                 continue
             }
+            if ($path -ceq '/api/ai-compute-inventory') {
+                try {
+                    if ($context.Request.HttpMethod -cne 'GET' -or $context.Request.HasEntityBody -or $context.Request.Url.Query) {
+                        throw 'AI_COMPUTE_INVENTORY_REQUEST_INVALID'
+                    }
+                    $view = & (Get-Module SqlServerLab) { Get-LabAiComputeInventoryView }
+                    Write-UiResponse -Context $context -Body ($view | ConvertTo-Json -Depth 4 -Compress) -ContentType 'application/json; charset=utf-8'
+                }
+                catch {
+                    Write-UiResponse -Context $context -Body '{"Code":"AI_COMPUTE_INVENTORY_UNAVAILABLE"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                }
+                continue
+            }
             if ($path -ceq '/api/llama-runtime-inventory') {
                 try {
                     $view = & (Get-Module SqlServerLab) { param($request) Invoke-LabLlamaCppRuntimeInventoryHttpRequest -Request $request } $context.Request

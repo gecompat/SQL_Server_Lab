@@ -267,6 +267,11 @@ Mehr-GPU-Kandidaten. Die Katalogstufe ersetzt diese Messung nicht.
 ### Benchmarkgebundene Gerätewahl
 
 `Get-SqlServerLabAiComputeInventory` liest den lokalen Host ohne Runtime-Start.
+In CLI und Browser führt **Host-Dienste und Modelle → CPU, GPU und NPU
+erfassen** zur Geräteübersicht. Sie zeigt pro Geräteklasse die erfasste
+Anzahl. **Unbekannt** bedeutet, dass die Geräteklasse nicht verlässlich
+erfasst werden konnte. **0** bedeutet, dass die Prüfung kein Gerät gefunden
+hat. Die Runtime-Eignung und der Benchmark werden separat ermittelt.
 Unter Windows verwendet es CIM für CPU und Displaygeräte sowie die vorhandene
 `ComputeAccelerator`-PnP-Klasse für NPUs. Unter Linux liest es `/proc/cpuinfo`,
 DRM-sysfs und `/sys/class/accel`. Rohe PnP-Instanz- und PCI-Buspfade werden nur

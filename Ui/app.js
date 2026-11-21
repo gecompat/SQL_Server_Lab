@@ -3704,6 +3704,32 @@ async function readLlamaRuntimeInventory() {
 }
 $('#llama-runtime-inventory-read').addEventListener('click', readLlamaRuntimeInventory);
 
+$('#ai-compute-inventory-read').addEventListener('click', async () => {
+  const button = $('#ai-compute-inventory-read');
+  const status = $('#ai-compute-inventory-status');
+  if (button.disabled) return;
+  button.disabled = true;
+  status.textContent = 'Geräte werden erfasst …';
+  try {
+    const response = await sqlServerLabUiFetch('/api/ai-compute-inventory', { cache: 'no-store' });
+    if (!response.ok) throw new Error('INVENTORY_UNAVAILABLE');
+    const view = await response.json();
+    const kinds = ['CPU', 'GPU', 'NPU'];
+    if (!['COMPLETE', 'INCOMPLETE'].includes(view?.Status) || !['Windows', 'Linux', 'Unsupported'].includes(view.Platform) ||
+        !Array.isArray(view.Items) || view.Items.length !== kinds.length || !view.Items.every((item, index) =>
+          item?.Kind === kinds[index] && ((item.Count === null && view.Status === 'INCOMPLETE') ||
+            (Number.isSafeInteger(item.Count) && item.Count >= 0)))) throw new Error('INVENTORY_INVALID');
+    const coverage = view.Status === 'COMPLETE' ? 'vollständig' : 'unvollständig';
+    status.textContent = view.Platform + ' · Erfassung ' + coverage + ' · ' +
+      view.Items.map(item => item.Kind + ': ' + (item.Count ?? 'unbekannt')).join(' · ') +
+      '. Runtime-Eignung und Leistung werden separat geprüft.';
+  } catch {
+    status.textContent = 'Die Geräteinventur ist nicht verfügbar.';
+  } finally {
+    button.disabled = false;
+  }
+});
+
 $('#llama-session-open').addEventListener('click', () => {
   llamaSessionRevision++; llamaSessionBusy = false; llamaSessionView = null; invalidateLlamaSessionPlan();
   $('#llama-session-dialog').showModal(); return requestLlamaSession();
