@@ -66,6 +66,56 @@ try {
     Add-CheckResult -Name 'Maintenance-Plan erfüllt sein JSON-Schema' -Success (
         Test-Json -Json ($plan|ConvertTo-Json -Depth 30) -Schema $schema)
 
+    $previewRoot = Join-Path ([IO.Path]::GetTempPath()) ('sql-lab-maintenance-preview-' + [guid]::NewGuid().ToString('N'))
+    $runId = 'c36cc4de-a090-4992-abf5-a54dae913095'
+    $scopeId = '9efeb4b3-b5df-4974-84d5-49e9220ed99e'
+    $vmId = 'f2f7cc26-de26-43ac-94e3-567fb0d790e7'
+    $runPath = Join-Path $previewRoot "runs/$runId"
+    $statePath = Join-Path $runPath 'run-state.json'
+    $connectionPath = Join-Path $runPath 'connection-info.json'
+    $null = New-Item -ItemType Directory -Path $runPath
+    try {
+        [IO.File]::WriteAllText($statePath, (@{
+            runId=$runId; scopeId=$scopeId; state='RUNNING'; metadata=@{workflowKind='hyperv-lab'}
+        } | ConvertTo-Json -Depth 4 -Compress))
+        [IO.File]::WriteAllText($connectionPath, (@{
+            instances=@(@{id='primary'; provider='hyperv'; vmName='synthetic-old'; vmId=$vmId})
+        } | ConvertTo-Json -Depth 4 -Compress))
+        $before = @(Get-FileHash -LiteralPath $statePath,$connectionPath | Select-Object -ExpandProperty Hash)
+        $preview = & $module {
+            param($PreviewFixtureRoot, $PreviewFixtureRunId, $PreviewFixtureScopeId, $PreviewFixtureVmId)
+            function Get-HyperVLabVMs {
+                param($RunId, $ScopeId)
+                if ($RunId -ceq $PreviewFixtureRunId -and $ScopeId -ceq $PreviewFixtureScopeId) {
+                    [pscustomobject]@{ VMName='synthetic-renamed'; VMId=$PreviewFixtureVmId }
+                }
+            }
+            function Get-HyperVInstanceStatus {
+                param($VMName, $ExpectedRunId, $ExpectedScopeId)
+                if ($VMName -ceq 'synthetic-renamed' -and $ExpectedRunId -ceq $PreviewFixtureRunId -and $ExpectedScopeId -ceq $PreviewFixtureScopeId) {
+                    [pscustomobject]@{ Exists=$true; State='Off' }
+                }
+            }
+            function Get-LabMaintenanceContainerInventory { param($Provider) [pscustomobject]@{Provider=$Provider;Status='AVAILABLE';Resources=@()} }
+            function Get-LabMaintenanceHyperVInventory { [pscustomobject]@{Provider='hyperv';Status='AVAILABLE';Resources=@()} }
+            function Get-LabMaintenanceTempInventory { [pscustomobject]@{Resources=@()} }
+            Get-SqlServerLabMaintenancePlan -StateRoot $PreviewFixtureRoot
+        } $previewRoot $runId $scopeId $vmId
+        $after = @(Get-FileHash -LiteralPath $statePath,$connectionPath | Select-Object -ExpandProperty Hash)
+        $action = @($preview.Actions | Where-Object ActionType -eq 'SYNC_RUNTIME_STATE')
+        Add-CheckResult -Name 'Maintenance-Preview liest eine umbenannte Hyper-V-VM und bewahrt beide Belege bytegenau' -Success (
+            $action.Count -eq 1 -and $action[0].RunId -ceq $runId -and
+            $action[0].TargetState -ceq 'STOPPED' -and ($before -join '|') -ceq ($after -join '|')
+        )
+    }
+    finally {
+        [IO.File]::Delete($connectionPath)
+        [IO.File]::Delete($statePath)
+        [IO.Directory]::Delete($runPath)
+        [IO.Directory]::Delete((Join-Path $previewRoot 'runs'))
+        [IO.Directory]::Delete($previewRoot)
+    }
+
     $clearSource=Get-Content (Join-Path $repoRoot 'Public\Clear-SqlServerLab.ps1') -Raw -Encoding utf8
     Add-CheckResult -Name 'StateOnly schützt vorhandene Hyper-V-Ressourcen' -Success (
         $clearSource -match 'Audit\.HyperV\.Resources' -and $clearSource -match 'runtimeResourcesForRun')

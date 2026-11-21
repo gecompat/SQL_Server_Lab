@@ -1055,8 +1055,9 @@ Der geführte Wartungsdialog (`CORE-105/106/109`, `PSR-011`) verwendet deshalb
 ausschließlich `Get-SqlServerLabCleanupAudit -NoWrite` für seine Befunde,
 keinen allgemeinen Maintenance-Plan/-Apply. Der ältere Modus `Safe` umfasst
 auch nach seinem Vertrag freigegebene abgelaufene Test-Orphans; er ist keine
-reine Zuordnungsreparatur. Seine Hyper-V-Statuskette kann zudem bestehende
-Connection-Metadaten reparieren und ist kein geeigneter NoWrite-Previewpfad.
+reine Zuordnungsreparatur. Der separate Wartungsplan ermittelt nach einer
+Hyper-V-Umbenennung den aktuellen VM-Namen für die Statusabfrage und
+belässt den gespeicherten Verbindungsbeleg unverändert.
 Im neuen Dialog bleibt fehlende Herkunft unbekannt. Unlesbare Run-States
 erzeugen einen Teilinventurhinweis ohne Warnjournal und sperren Katalogrepair.
 Nur fehlende moderne Container-Store-Katalogzuordnungen werden nach eigener

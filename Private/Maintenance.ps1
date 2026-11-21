@@ -198,7 +198,7 @@ function Get-LabMaintenancePlanCore {
     $actions=[Collections.Generic.List[object]]::new()
 
     foreach($run in $runs) {
-        $runtime=Get-LabRunRuntimeStatus -Run $run -StateRoot $StateRoot
+        $runtime=Get-LabRunRuntimeStatus -Run $run -StateRoot $StateRoot -NoWrite
         $stored=[string]$run.state; $actual=[string]$runtime.State
         $runFingerprint=Get-LabMaintenanceHash -Value (@([string]$run.runId,[string]$run.scopeId,$stored,$actual,[string]$run.updatedAt) -join '|')
         if($actual -in @('RUNNING','STOPPED') -and $stored -in @('RUNNING','STOPPED') -and $actual -ne $stored) {
