@@ -8,6 +8,10 @@ function Add-CheckResult { param([string]$Name,[bool]$Success) $results.Add([PSC
 Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue
 $module = Import-Module (Join-Path $repoRoot 'SqlServerLab.psd1') -Force -PassThru
 try {
+    & (Join-Path $PSScriptRoot 'Fixtures/AutomationApiPlanConsoleChecks.ps1') -Module $module -Repository $repoRoot
+    $readOnlyPlans = @(foreach($action in @('PortableLabImport','HyperVRecoveryPoint')) { Get-SqlServerLabAutomationPlan -Action $action })
+    Add-CheckResult 'Planverträge ohne Aktionsbefehl liefern null und bleiben READY' (
+        $readOnlyPlans.Count -eq 2 -and @($readOnlyPlans | Where-Object { $_.Status -ceq 'READY' -and $null -eq $_.Result.ActionCommand }).Count -eq 2)
     $result = & $module {
         function script:Get-LabTimestamp { '2026-09-12T00:00:00.0000000Z' }
         $before = Get-LabAutomationApiPlan -Action Reconcile | ConvertTo-Json -Depth 20 -Compress

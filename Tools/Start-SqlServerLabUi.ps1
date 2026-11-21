@@ -985,6 +985,22 @@ try {
                 }
                 continue
             }
+            if ($path -ceq '/api/automation-plan') {
+                try {
+                    $query = $context.Request.QueryString
+                    $actions = @($query.GetValues('action'))
+                    if ($context.Request.HttpMethod -cne 'GET' -or $context.Request.HasEntityBody -or $query.Count -ne 1 -or
+                        $actions.Count -ne 1 -or [string]$actions[0] -cnotmatch '^[A-Za-z]{1,40}$') {
+                        throw 'AUTOMATION_API_PLAN_REQUEST_INVALID'
+                    }
+                    $plan = Get-SqlServerLabAutomationPlan -Action $actions[0] -ErrorAction Stop
+                    Write-UiResponse -Context $context -Body ($plan | ConvertTo-Json -Depth 8 -Compress) -ContentType 'application/json; charset=utf-8'
+                }
+                catch {
+                    Write-UiResponse -Context $context -Body '{"Code":"AUTOMATION_API_PLAN_UNAVAILABLE"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                }
+                continue
+            }
             if ($path -ceq '/api/ai-compute-benchmark-options') {
                 try {
                     if ($context.Request.HttpMethod -cne 'POST' -or -not $context.Request.HasEntityBody -or $context.Request.Url.Query) {

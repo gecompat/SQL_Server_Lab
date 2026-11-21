@@ -317,6 +317,12 @@ function Get-LabConsoleHelpCatalog {
             Effects = 'Liest den Providerbestand. Die Vorschau verändert keine Netze oder Container.'
             Command = 'Move-SqlServerLabContainerNetwork -WhatIf'
         }
+        'automation-api-plan-choice' = @{
+            Title = 'Automatisierungsschnittstelle ansehen'
+            Purpose = 'Einen vorhandenen fachlichen Planvertrag und dessen Pflichtparameter nachschlagen.'
+            Effects = 'Die Ansicht beschreibt die Schnittstelle. Sie startet keinen Vorgang und greift auf keinen Lab-State zu.'
+            Command = 'Get-SqlServerLabAutomationPlan'
+        }
         'relational-compare-Source' = @{
             Title = 'Quelle für Datenbankvergleich'
             Purpose = 'Eine laufende verwaltete Docker- oder Podman-Instanz mit einer ONLINE- und READ_ONLY-Datenbank auswählen.'

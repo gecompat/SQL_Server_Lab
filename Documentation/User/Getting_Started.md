@@ -2395,6 +2395,13 @@ Evidence werden nicht nachträglich ergänzt; UUID-lose historische Intents blei
 lesbar. Der SQL-2025-Referenzfall ist unter Docker und Podman getrennt mit
 Serverobjekt, Datenmarker nach Continue, unveränderten Labels und Cleanup belegt.
 
+### Automatisierungsschnittstelle nachschlagen
+
+Öffne unter **Wartung → Automatisierungsschnittstelle ansehen** einen
+Fachbereich. Dort stehen der öffentliche Planbefehl, seine Pflichtparameter
+und der separate Aktionsbefehl, sofern vorhanden. Die Ansicht beschreibt
+die Schnittstelle für Skripte. Du kannst sie ohne laufenden Lab-Run öffnen.
+
 ### Container-Lab-Netz prüfen
 
 Für Docker oder Podman kannst du unter **Wartung → Lab-Netz auf

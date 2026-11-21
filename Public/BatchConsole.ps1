@@ -1170,6 +1170,7 @@ function Show-LabMaintenanceMenu {
         New-LabConsoleItem -Id CuStatus -Label 'Aktuelle SQL-Server-CUs bei Microsoft pruefen' -Value 'read-only · Netzzugriff auf die katalogisierten Quellen' -Shortcut 5
         New-LabConsoleItem -Id EvaluationWatch -Label 'Windows-/SQL-Evaluationsfristen' -Value 'gespeicherte Evidence · read-only · kein Gastzugriff' -Shortcut e
         New-LabConsoleItem -Id ContainerNetworkPlan -Label 'Lab-Netz auf Subnetzkonflikt prüfen' -Value 'Docker oder Podman · lesende Vorschau'
+        New-LabConsoleItem -Id AutomationApiPlan -Label 'Automatisierungsschnittstelle ansehen' -Value 'Fachverträge und Pflichtparameter'
         New-LabConsoleItem -Id Messages -Label 'Meldungen dieser Sitzung' -Value 'Warnungen und Fehler · kopierbar · Journalpfad' -Shortcut 6
         New-LabConsoleItem -Id RetainedStoreRemoval -Label 'Behaltenen SQL-Speicher löschen' -Value 'gesonderter bestätigter Entfernungsplan' -Shortcut l
         New-LabConsoleItem -Id RunArtifactRemoval -Label 'Artefakte eines entfernten Runs' -Value 'Einzelauswahl · Vorschau · bestätigte Entfernung / Resume' -Shortcut r

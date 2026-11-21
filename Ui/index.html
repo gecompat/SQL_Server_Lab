@@ -161,6 +161,7 @@
       <div class="workflow-actions">
         <button id="evaluation-watch-open" type="button" class="button secondary">Evaluationsfristen lesen</button>
         <button id="container-network-plan-open" type="button" class="button secondary">Lab-Netz auf Subnetzkonflikt prüfen</button>
+        <button id="automation-api-plan-open" type="button" class="button secondary">Automatisierungsschnittstelle ansehen</button>
         <button id="evaluation-trigger-open" type="button" class="button secondary">Fristen zeitgesteuert prüfen</button>
         <button id="sql-guest-evidence-open" type="button" class="button secondary">SQL-Editionsbeleg im Gast aktualisieren</button>
         <button id="evaluation-refresh-open" type="button" class="button secondary">SQL-Evaluation: Ersatzentscheid</button>
@@ -1008,6 +1009,31 @@
     </div>
   </dialog>
   <script src="evaluation-refresh-plan.js"></script>
+  <dialog id="automation-api-plan-dialog">
+    <form id="automation-api-plan-form">
+      <h2>Automatisierungsschnittstelle ansehen</h2>
+      <p class="form-note">Zeigt den öffentlichen Planvertrag, seine Pflichtparameter und einen vorhandenen separaten Aktionsbefehl.</p>
+      <label>Fachbereich<select id="automation-api-plan-action">
+        <option value="Reconcile">Ressourcenabgleich</option>
+        <option value="Maintenance">Wartung</option>
+        <option value="PersistentStorageRemoval">Entfernung persistenten Speichers</option>
+        <option value="RunStateUpgrade">Upgrade eines synthetischen Run-States</option>
+        <option value="PortableLabImport">Portabler Lab-Import</option>
+        <option value="HyperVRecoveryPoint">Hyper-V-Wiederherstellungspunkt</option>
+      </select></label>
+      <p id="automation-api-plan-status" role="status"></p>
+      <dl id="automation-api-plan-result" hidden>
+        <dt>Fachplan</dt><dd id="automation-api-plan-command"></dd>
+        <dt>Vertrag</dt><dd id="automation-api-plan-contract"></dd>
+        <dt>Pflichtparameter</dt><dd id="automation-api-plan-required"></dd>
+        <dt>Separater Aktionsbefehl</dt><dd id="automation-api-plan-execution"></dd>
+      </dl>
+      <div class="dialog-actions">
+        <button type="submit" class="button primary">Schnittstelle lesen</button>
+        <button id="automation-api-plan-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </form>
+  </dialog>
   <dialog id="compute-benchmark-dialog">
     <form id="compute-benchmark-form">
       <h2>llama.cpp-Gerätekombinationen messen</h2>
@@ -1151,6 +1177,7 @@
   <script src="ai-persistent-retrieval-fixture.js"></script>
   <script src="ai-compute-selection.js"></script>
   <script src="ai-compute-benchmark.js"></script>
+  <script src="automation-api-plan.js"></script>
 
   <dialog id="external-runtime-dialog">
     <div class="read-only-dialog-content">

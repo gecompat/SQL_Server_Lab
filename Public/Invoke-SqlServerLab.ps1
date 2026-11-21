@@ -168,6 +168,7 @@ function Invoke-LabMenuAction {
     if ($ActionName -eq 'SqlGuestEvaluationEvidence') { Invoke-LabSqlGuestEvaluationCaptureInteractive; return }
     if ($ActionName -eq 'RelationalCompare') { Invoke-LabRelationalComparisonInteractive; return }
     if ($ActionName -eq 'ContainerNetworkPlan') { Show-LabContainerNetworkMigrationPlanInteractive; return }
+    if ($ActionName -eq 'AutomationApiPlan') { Show-LabAutomationApiPlanInteractive; return }
     if ($ActionName -in @('PortableTransferPreflight', 'PortableTransfer')) {
         Invoke-LabPortableContainerTransferInteractive -Preflight:($ActionName -eq 'PortableTransferPreflight')
         return
