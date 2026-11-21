@@ -1,8 +1,11 @@
 function Get-LabContainerSqlConsoleTargets {
+    param([switch]$IncludeStopped)
+
     $stateRoot = Get-LabStateRoot
     foreach ($run in Get-LabActiveRuns -StateRoot $stateRoot -NoWrite) {
         $runId = [guid]::Empty
-        if ($run.state -ne 'RUNNING' -or -not [guid]::TryParseExact([string]$run.runId, 'D', [ref]$runId)) { continue }
+        if (($run.state -ne 'RUNNING' -and (-not $IncludeStopped -or $run.state -ne 'STOPPED')) -or
+            -not [guid]::TryParseExact([string]$run.runId, 'D', [ref]$runId)) { continue }
         $connectionPath = Join-Path $stateRoot 'runs' $runId 'connection-info.json'
         try { $connection = Get-Content -LiteralPath $connectionPath -Raw -Encoding utf8 -ErrorAction Stop | ConvertFrom-Json -Depth 20 -ErrorAction Stop }
         catch { continue }

@@ -985,6 +985,43 @@ try {
                 }
                 continue
             }
+            if ($path -ceq '/api/portable-lab-import-plan') {
+                try {
+                    if ($context.Request.HttpMethod -cne 'POST' -or -not $context.Request.HasEntityBody -or $context.Request.Url.Query) {
+                        throw 'PORTABLE_IMPORT_PLAN_REQUEST_INVALID'
+                    }
+                    $bodyRead = Read-UiJsonRequestBody -Request $context.Request -MaxBytes 327680
+                    if (-not $bodyRead.Allowed) { throw 'PORTABLE_IMPORT_PLAN_REQUEST_INVALID' }
+                    $document = [Text.Json.JsonDocument]::Parse([string]$bodyRead.Body)
+                    try {
+                        $root = $document.RootElement
+                        Assert-UiCommandJsonUnique $root
+                        if ($root.ValueKind -ne [Text.Json.JsonValueKind]::Object -or
+                            (@(@($root.EnumerateObject()).Name | Sort-Object) -join ',') -cne 'Package,TargetProvider,TargetRunId' -or
+                            $root.GetProperty('Package').ValueKind -ne [Text.Json.JsonValueKind]::Object) {
+                            throw 'PORTABLE_IMPORT_PLAN_REQUEST_INVALID'
+                        }
+                        $provider = $root.GetProperty('TargetProvider').GetString()
+                        $runId = $root.GetProperty('TargetRunId').GetString()
+                        $guid = [guid]::Empty
+                        if ($provider -cnotin @('docker','podman') -or -not [guid]::TryParseExact($runId,'D',[ref]$guid) -or $guid -eq [guid]::Empty) {
+                            throw 'PORTABLE_IMPORT_PLAN_REQUEST_INVALID'
+                        }
+                        $package = $root.GetProperty('Package').GetRawText() | ConvertFrom-Json -Depth 20 -ErrorAction Stop
+                    }
+                    finally { $document.Dispose() }
+                    $plan = & (Get-Module SqlServerLab) {
+                        param($Package,$Provider,$RunId)
+                        Get-LabPortableLabImportPlan -Package $Package -TargetProvider $Provider -TargetRunId $RunId -ErrorAction Stop
+                    } $package $provider $guid.ToString('D')
+                    Write-UiResponse -Context $context -Body ($plan | ConvertTo-Json -Depth 12 -Compress) -ContentType 'application/json; charset=utf-8'
+                }
+                catch {
+                    Write-UiResponse -Context $context -Body '{"Code":"PORTABLE_IMPORT_PLAN_UNAVAILABLE"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                }
+                finally { $bodyRead=$null; $package=$null }
+                continue
+            }
             if ($path -ceq '/api/automation-plan') {
                 try {
                     $query = $context.Request.QueryString

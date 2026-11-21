@@ -305,6 +305,7 @@
       <div class="build-actions">
         <button id="portable-media-open" type="button" class="button secondary">Backupmedium am Zielcontainer vorprüfen</button>
         <button id="portable-transfer-open" type="button" class="button secondary">SQL-2025-Datenbank in neuen Container übertragen</button>
+        <button id="portable-import-plan-open" type="button" class="button secondary">Portables Lab-Paket prüfen</button>
       </div>
       <p class="form-note">Die Inventur hasht große Objekte nicht bei jedem Refresh und zeigt nur sanitisierte Migrationskategorien und Warnungen. Beim Attach werden Paket, scopegebundener Ziel-Run, SQL-Version, FILESTREAM/TDE und das live von SQL Server gemeldete Default-Data-Ziel frisch revalidiert; ein freier Pfad kann nicht eingegeben werden.</p>
     </section>
@@ -1009,6 +1010,19 @@
     </div>
   </dialog>
   <script src="evaluation-refresh-plan.js"></script>
+  <dialog id="portable-import-plan-dialog">
+    <form id="portable-import-plan-form">
+      <h2>Portables Lab-Paket prüfen</h2>
+      <p class="form-note">Liest die Backupreferenzen eines Pakets und bindet sie an einen vorhandenen Docker- oder Podman-Run.</p>
+      <label>Lab-Paket (JSON)<input id="portable-import-plan-file" type="file" accept=".json,application/json" required></label>
+      <label>Ziel-Run und Provider<select id="portable-import-plan-target" required></select></label>
+      <p id="portable-import-plan-status" role="status"></p>
+      <div class="dialog-actions">
+        <button id="portable-import-plan-read" type="submit" class="button primary">Importplan lesen</button>
+        <button id="portable-import-plan-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </form>
+  </dialog>
   <dialog id="automation-api-plan-dialog">
     <form id="automation-api-plan-form">
       <h2>Automatisierungsschnittstelle ansehen</h2>
@@ -1178,6 +1192,7 @@
   <script src="ai-compute-selection.js"></script>
   <script src="ai-compute-benchmark.js"></script>
   <script src="automation-api-plan.js"></script>
+  <script src="portable-lab-import-plan.js"></script>
 
   <dialog id="external-runtime-dialog">
     <div class="read-only-dialog-content">

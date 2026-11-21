@@ -347,6 +347,12 @@ function Get-LabConsoleHelpCatalog {
             Effects = 'Die bestätigte Vorprüfung legt temporäre Dateien an und entfernt diese wieder. Sie führt keinen Restore aus.'
             Command = 'Invoke-SqlServerLabPortableContainerTransferPreflight'
         }
+        'portable-import-plan-target' = @{
+            Title = 'Ziel-Run für Importplan'
+            Purpose = 'Einen registrierten laufenden oder gestoppten Docker- oder Podman-Run für die Paketprüfung auswählen.'
+            Effects = 'Die Vorschau prüft Backupreferenzen und Zielbindung lesend. Sie verändert weder Run noch Backup.'
+            Command = 'Get-SqlServerLabPortableLabImportPlan'
+        }
         'ovms-loopback' = @{
             Title = 'Lokale OVMS-Adresse'
             Purpose = 'Die numerische IPv4- oder IPv6-Loopback-Adresse des bestehenden OVMS-Dienstes auswählen.'

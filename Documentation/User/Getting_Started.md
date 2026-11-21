@@ -2309,6 +2309,12 @@ Backup-Mount. Beim Transfer wird ein eigener Ziel-Run erstellt. Bewahre die
 angezeigte Vorgangs-ID auf und verwende für die Wiederaufnahme dieselbe
 Auswahl. Im Browser steht der Befund im Live-Log.
 
+**Portables Lab-Paket prüfen** wertet im selben Bereich eine
+`SqlServerLab.PortableLabPackage/1.1`-JSON-Datei für einen registrierten
+laufenden oder gestoppten Docker-/Podman-Run aus. Die Übersicht zeigt die
+Anzahl der Backupreferenzen und etwaige Blocker. Dieser Plan bereitet die
+Prüfung vor. Der eigentliche Datenbanktransfer hat einen separaten Einstieg.
+
 `Invoke-SqlServerLabPortableContainerTransfer` erstellt selbst einen eigenen
 SQL-2025-Linux-Ziel-Run beim Provider der Quelle (Docker oder Podman). Die Quelle
 muss bereits ONLINE/READ_ONLY sein; auch das registrierte Backup muss aus diesem
