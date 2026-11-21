@@ -2383,6 +2383,14 @@ Evidence werden nicht nachträglich ergänzt; UUID-lose historische Intents blei
 lesbar. Der SQL-2025-Referenzfall ist unter Docker und Podman getrennt mit
 Serverobjekt, Datenmarker nach Continue, unveränderten Labels und Cleanup belegt.
 
+### Container-Lab-Netz prüfen
+
+Für Docker oder Podman kannst du unter **Wartung → Lab-Netz auf
+Subnetzkonflikt prüfen** eine lesende Vorschau starten. Sie zeigt, ob das
+Lab-Netz fehlt, konfliktfrei ist oder eine Migration benötigt. Im Browser
+steht der Befund im Live-Log. Die Ausführung einer Netzmigration ist ein
+separater Expertenbefehl und kann SQL-Verbindungen unterbrechen.
+
 ### SQL-Gast-Edition und Evaluation-Evidence
 
 Ein laufender eigener SQL-2025-Hyper-V-Run aus einem Prepared-Image kann seine

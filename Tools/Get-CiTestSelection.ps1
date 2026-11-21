@@ -236,6 +236,7 @@ end {
         @{ Pattern = '(?i)(OwnedHostTestCleanup|Complete-OwnedHostTestRoot|runtime-smoke-(docker|podman|mixed-providers))'; Checks = @('Invoke-OwnedHostTestCleanupChecks.ps1') },
         @{ Pattern = '(?i)(CSharpNativeEvidenceArchive|CSharpNativeRequestAcceptance)'; Checks = @('Invoke-CSharpNativeEvidenceArchiveChecks.ps1') },
         @{ Pattern = '(?i)(LabNetwork|PortAllocation)'; Checks = @('Invoke-LabNetworkChecks.ps1','Invoke-PortAllocationChecks.ps1') },
+        @{ Pattern = '(?i)(ContainerNetworkMigration|ContainerNetworkPlan|container-network-plan|Move-SqlServerLabContainerNetwork)'; Checks = @('Invoke-LabNetworkChecks.ps1','Invoke-WorkflowUiChecks.ps1') },
         @{ Pattern = '(?i)(LabPreferences|PersistentLabData|StorageContract|StorageFilePlacement|HyperVResourceBinding|HyperVResourceMigration|HyperVImageMigration|hyperv-(resource-(binding|migration)|image-migration)|lab-storage-(intent|bound-plan|runtime-receipt)|SecretProvider|TestEnvironment)'; Checks = @('Invoke-DataRootChecks.ps1','Invoke-HyperVResourceBindingChecks.ps1','Invoke-HyperVImageMigrationChecks.ps1','Invoke-HyperVResourceMigrationChecks.ps1','Invoke-StorageMigrationChecks.ps1','Invoke-StorageFilePlacementChecks.ps1','Invoke-TestEnvironmentChecks.ps1') },
         @{ Pattern = '(?i)(LicenseProfile|license-profile)'; Checks = @('Invoke-LicenseProfileChecks.ps1','Invoke-PrivacyScannerChecks.ps1','Invoke-HyperVSqlImageBuilderChecks.ps1') },
         @{ Pattern = '(?i)(VersionCatalog|sql-server-versions|CuResource)'; Checks = @('Invoke-VersionCatalogChecks.ps1') },

@@ -157,6 +157,7 @@
       <p>Befunde vor einer Änderung prüfen. Die Konsole bietet zusätzlich Providerstatus, Cleanup-Audit und Runtime-Abgleich; vollständige geführte Recovery-Parität bleibt offen.</p>
       <div class="workflow-actions">
         <button id="evaluation-watch-open" type="button" class="button secondary">Evaluationsfristen lesen</button>
+        <button id="container-network-plan-open" type="button" class="button secondary">Lab-Netz auf Subnetzkonflikt prüfen</button>
         <button id="evaluation-trigger-open" type="button" class="button secondary">Fristen zeitgesteuert prüfen</button>
         <button id="sql-guest-evidence-open" type="button" class="button secondary">SQL-Editionsbeleg im Gast aktualisieren</button>
         <button id="evaluation-refresh-open" type="button" class="button secondary">SQL-Evaluation: Ersatzentscheid</button>
@@ -1004,6 +1005,18 @@
     </div>
   </dialog>
   <script src="evaluation-refresh-plan.js"></script>
+  <dialog id="container-network-plan-dialog">
+    <form id="container-network-plan-form">
+      <h2>Lab-Netz auf Subnetzkonflikt prüfen</h2>
+      <p class="form-note">Die lesende Vorschau zeigt, ob eine Migration erforderlich ist, und nennt die betroffenen Container.</p>
+      <label>Provider<select id="container-network-plan-provider"><option value="docker">Docker</option><option value="podman">Podman</option></select></label>
+      <p id="container-network-plan-status" role="status"></p>
+      <div class="dialog-actions">
+        <button type="submit" class="button primary">Weiter zur Bestätigung</button>
+        <button id="container-network-plan-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </form>
+  </dialog>
   <dialog id="ovms-upstream-dialog">
     <form id="ovms-upstream-form">
       <h2>Lokalen OVMS-Embedding-Dienst prüfen</h2>
@@ -1081,6 +1094,7 @@
   <script src="relational-core-comparison.js"></script>
   <script src="ovms-upstream.js"></script>
   <script src="portable-container-transfer.js"></script>
+  <script src="container-network-plan.js"></script>
 
   <dialog id="external-runtime-dialog">
     <div class="read-only-dialog-content">

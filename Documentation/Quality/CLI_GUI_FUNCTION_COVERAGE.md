@@ -38,15 +38,15 @@ eines Cmdlets:
 ## Exportreferenz-Audit
 
 Ein mechanischer Abgleich des Manifests mit
-`Documentation/User/FUNCTIONS_CLI_GUI.md` findet 146 der 166 Exportnamen und
-20 dort nicht referenzierte Exporte. Das ist ein Referenzabgleich, keine
-vollständige Prüfung, ob die 146 Treffer tatsächlich korrekt geführt,
+`Documentation/User/FUNCTIONS_CLI_GUI.md` findet 147 der 166 Exportnamen und
+19 dort nicht referenzierte Exporte. Das ist ein Referenzabgleich, keine
+vollständige Prüfung, ob die 147 Treffer tatsächlich korrekt geführt,
 ausführbar oder providerabgenommen sind. Die folgende Inventarliste hält die
-20 nicht referenzierten Namen einzeln fest. Die sieben Environment-Group-
+19 nicht referenzierten Namen einzeln fest. Die sieben Environment-Group-
 Operationen aus dem vorherigen Abgleich sind jetzt in der Funktionsübersicht
 enthalten und unten separat quellengestützt als `GUIDED_BOTH` bewertet. Von
-den verbleibenden 20 Einträgen sind vier TLS-001-Exporte `DEFERRED`,
-10 Exporte als `KNOWN_GAP`, einer als `EXPERT_CATALOG_ONLY` und 5 als
+den verbleibenden 19 Einträgen sind vier TLS-001-Exporte `DEFERRED`,
+10 Exporte als `KNOWN_GAP`, einer als `EXPERT_CATALOG_ONLY` und 4 als
 `NOT_ASSESSED` bewertet.
 Die Bewertung folgt aus Menüdispatch, GUI-Aktion, öffentlichen Parametern
 und den vorhandenen Nachweisen. Der Expertenkatalog allein erfüllt die
@@ -57,12 +57,11 @@ geführte Abdeckung nicht.
 | KI-Compute-Auswahl und Messung | `Get-SqlServerLabAiComputeSelection`; `Measure-SqlServerLabAiComputeCandidate`; `Measure-SqlServerLabAiComputeCandidateSet` | `KNOWN_GAP`; API und Expertenkatalog sind vorhanden. Geführte Auswahl und Messung fehlen. |
 | Shared Gateway | `Get-SqlServerLabAiSharedGatewayPlan`; `Test-SqlServerLabAiSharedGatewayPreflight`; `Register-SqlServerLabAiSharedGatewayStorage`; `Test-SqlServerLabAiSharedGatewayUpstream`; `Start-SqlServerLabAiSharedGatewaySession`; `Stop-SqlServerLabAiSharedGatewaySession`; `Get-SqlServerLabAiSharedGatewayStatus` | `KNOWN_GAP` für diese sieben Fachaktionen. Der vorhandene Dialog zum Dienst-Preflight nimmt einen bereits erstellten Gateway-Plan entgegen. |
 | Modell-/Gateway-Lifecycle | `Test-SqlServerLabAiExternalModelEndpoint`; `Start-SqlServerLabOvmsHttpsGateway`; `Stop-SqlServerLabOvmsHttpsGateway` | `NOT_ASSESSED`; vorhandene Workflow-Dokumentation weist Lifecycle-Lücken aus |
-| Container-Netzwerk | `Move-SqlServerLabContainerNetwork` | `NOT_ASSESSED` |
 | Persistentes KI-Retrieval | `Invoke-SqlServerLabAiPersistentRetrieval` | `NOT_ASSESSED` |
 | Security-Tool-Katalog | `Get-SqlServerLabSecurityToolPlan` | `EXPERT_CATALOG_ONLY`. Die produktive Allowlist ist leer, der lokale Resolver blockiert alle Anfragen. [Katalogvertrag und Freigabestand](../Project_Planning/SECURITY_TOOL_ACQUISITION_BACKLOG.md). |
 | TLS-001, zurückgestellt | `Update-SqlServerLabTlsBinding`; `Get-SqlServerLabTlsBindingRecovery`; `Resolve-SqlServerLabTlsBindingRecovery`; `Read-SqlServerLabQualifiedTestEnvironment` | `DEFERRED`; bestehender Zustand bleibt erhalten, keine neue Abdeckungs- oder Runtimearbeit ohne dokumentierten Anwendungsfall |
 
-Die 48 Namen (20 ohne Referenz sowie 28 einzeln geprüfte Exporte)
+Die 47 Namen (19 ohne Referenz sowie 28 einzeln geprüfte Exporte)
 wurden unmittelbar gegen `FunctionsToExport` im Manifest
 abgeglichen; die Familiengruppierung ist nur eine Lesbarkeitshilfe. Sie ist
 keine Behauptung, dass eine Familie einen gemeinsamen Aufrufer oder denselben
@@ -127,6 +126,11 @@ und dem [Gruppenvertrag](../Architecture/LAB_ENVIRONMENT_GROUPS.md).
 | Evaluationsersatz oder Migration vorprüfen (`Get-SqlServerLabEvaluationRefreshPlan`) | Wartung, Aufräumen und Recovery → SQL-Evaluation: Ersatz- und Migrationsentscheid | Wartung und Recovery → SQL-Evaluation: Ersatzentscheid | `GUIDED_BOTH` für die lesende Vorschau. Synthetische CLI-, HTTP- und Browserfälle. Die Vorschau führt keine Übernahme aus. |
 
 ## Bereichsinventar
+
+Die Netzmigration über `Move-SqlServerLabContainerNetwork` ist bei der
+Ausführung weiterhin `KNOWN_GAP`: Die CLI und der Browser führen nur die
+`-WhatIf`-Vorschau. Die bestehende Ausführung hat keine an die bestätigte
+Vorschau gebundene Revision und kann laufende SQL-Container unterbrechen.
 
 Die Bereiche und dokumentierten Grenzen entsprechen der neun Bereiche
 umfassenden Navigation in der [Workflow-Oberfläche](../HowTo/WORKFLOW_UI.md).
