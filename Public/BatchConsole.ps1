@@ -1081,6 +1081,7 @@ function Show-LabHostModelsMenu {
         New-LabConsoleItem -Id AiModel -Label 'Vorhandenes Ollama-Modell aufrufen' -Value 'lokal oder explizit freigegebene Cloud-Lane' -Shortcut 2
         New-LabConsoleItem -Id HostServiceLifecycle -Label 'Eigene llama.cpp-Sitzung auswählen und stoppen'
         New-LabConsoleItem -Id LlamaRuntimeInventory -Label 'Vorhandene llama.cpp-Pakete prüfen' -Value 'Dateibefund · Backend und Build' -Shortcut 3
+        New-LabConsoleItem -Id HostServiceStart -Label 'Eigene llama.cpp-Sitzung geführt starten' -Value 'Eingaben prüfen und Start bestätigen' -Shortcut 4
         New-LabConsoleItem -Id ModelLifecycle -Label 'Modell laden, entladen oder wechseln' -Disabled -DisabledReason 'Ein gemeinsamer geführter Load-/Unload-/Wechselvertrag ist noch offen. Der Datei-Download ist kein geladenes Modell.'
         New-LabConsoleItem -Id back -Label 'Zurück' -Shortcut 0
     )

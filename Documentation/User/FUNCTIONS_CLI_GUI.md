@@ -580,7 +580,7 @@ bleiben getrennte Verträge; die Native-Nachweise der geführten CLI-/Browser-St
 
 ## Geführter eigener llama.cpp-Start in der CLI
 
-Unter „Alle öffentlichen Befehle“ → „llama.cpp: eigene Sitzung starten“ erfasst
+Unter **Host-Dienste und Modelle → Eigene llama.cpp-Sitzung geführt starten** erfasst
 die CLI fünfzehn explizite Eingaben einschließlich optionalem öffentlichen
 CA-PEM. Pfade und API-Key werden maskiert, der API-Key als SecureString erfasst.
 Vor der Bestätigung bleiben Eingaben im RAM; Dateien, TLS, Port und Runtime
@@ -603,6 +603,8 @@ NOT_CHECKED. Der geführte Browser-Start ist separat implementiert; seine Native
 Die neue Führung ist synthetisch geprüft; reale Start-/Modell-/TLS-/Compute-
 und Cleanup-Abnahme dieses Dialogs ist nicht ausgeführt. Bestehende native
 Referenznachweise ersetzen diese Abnahme nicht.
+
+Der öffentliche Startbefehl für Skripte ist `Start-SqlServerLabLlamaCppRuntime`.
 
 ## Geführter eigener llama.cpp-Start im Browser
 

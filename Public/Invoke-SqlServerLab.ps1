@@ -20,7 +20,7 @@
 function Invoke-SqlServerLab {
     [CmdletBinding()]
     param(
-        [ValidateSet('New', 'BatchPlan', 'Queue', 'Commands', 'AutomatedTestEnvironment', 'AutomatedTestEnvironmentLifecycle', 'ClearAutomatedTestEnvironment', 'Manifest', 'Status', 'SyncRuntime', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'CleanupAudit', 'RetainedStoreRemoval', 'RunArtifactRemoval', 'EvaluationRefreshPlan', 'ContainerAutoStart', 'ContainerAutoStartRecovery', 'Script', 'Database', 'DatabaseBackup', 'DatabaseRestore', 'DatabasePackageExport', 'DatabasePackageAttach', 'DatabasePackageInventory', 'DatabaseMigrationDependency', 'Image', 'WindowsSlotPool', 'ReservePolicy', 'Setup', 'MediaRoot', 'MediaSourceOverride', 'RuntimeInstaller', 'OperatingSystemSources', 'CuResource', 'CuStatus', 'ResourceWatch', 'DataRoot', 'TestDataRoot', 'Rename', 'UpdateContainer', 'Resources', 'Manage', 'EnvironmentGroups', 'Install7Zip', 'Catalog', 'ConnectionCenter', 'Cms')]
+        [ValidateSet('New', 'BatchPlan', 'Queue', 'Commands', 'AutomatedTestEnvironment', 'AutomatedTestEnvironmentLifecycle', 'ClearAutomatedTestEnvironment', 'Manifest', 'Status', 'SyncRuntime', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'CleanupAudit', 'RetainedStoreRemoval', 'RunArtifactRemoval', 'EvaluationRefreshPlan', 'HostServiceStart', 'ContainerAutoStart', 'ContainerAutoStartRecovery', 'Script', 'Database', 'DatabaseBackup', 'DatabaseRestore', 'DatabasePackageExport', 'DatabasePackageAttach', 'DatabasePackageInventory', 'DatabaseMigrationDependency', 'Image', 'WindowsSlotPool', 'ReservePolicy', 'Setup', 'MediaRoot', 'MediaSourceOverride', 'RuntimeInstaller', 'OperatingSystemSources', 'CuResource', 'CuStatus', 'ResourceWatch', 'DataRoot', 'TestDataRoot', 'Rename', 'UpdateContainer', 'Resources', 'Manage', 'EnvironmentGroups', 'Install7Zip', 'Catalog', 'ConnectionCenter', 'Cms')]
         [string]$Action,
 
         [ValidateSet('Auto', 'Fallback')]
@@ -45,6 +45,7 @@ function Invoke-SqlServerLab {
             if ($Action -eq 'ContainerAutoStart') { Invoke-LabContainerAutoStartInteractive; return }
             if ($Action -eq 'ContainerAutoStartRecovery') { Invoke-LabContainerAutoStartRecoveryInteractive; return }
             if ($Action -eq 'EvaluationRefreshPlan') { Invoke-LabEvaluationRefreshPlanInteractive; return }
+            if ($Action -eq 'HostServiceStart') { Invoke-LabLlamaCppStartInteractive; return }
             if ($Action -eq 'EnvironmentGroups') { Invoke-LabEnvironmentGroupsInteractive; return }
             $null = Invoke-LabActionWithResult -ActionName $Action
         }
@@ -158,6 +159,7 @@ function Invoke-LabMenuAction {
     if ($ActionName -eq 'ContainerAutoStart') { Invoke-LabContainerAutoStartInteractive; return }
     if ($ActionName -eq 'ContainerAutoStartRecovery') { Invoke-LabContainerAutoStartRecoveryInteractive; return }
     if ($ActionName -eq 'EvaluationRefreshPlan') { Invoke-LabEvaluationRefreshPlanInteractive; return }
+    if ($ActionName -eq 'HostServiceStart') { Invoke-LabLlamaCppStartInteractive; return }
     if ($ActionName -eq 'LlamaRuntimeInventory') { Show-LabLlamaCppRuntimeInventoryInteractive; return }
     if ($ActionName -eq 'HyperVAutoStart') { Invoke-LabHyperVAutoStartInteractive; return }
     if ($ActionName -eq 'EnvironmentGroups') { Invoke-LabEnvironmentGroupsInteractive; return }
@@ -1673,6 +1675,7 @@ function Invoke-LabAction {
         'ReservePolicy' { Show-LabSlotReserveInteractive }
         'MediaSourceOverride' { Show-LabMediaOverrideInteractive }
         'HostServiceLifecycle' { Show-LabLlamaCppSessionStopInteractive }
+        'HostServiceStart' { Invoke-LabLlamaCppStartInteractive }
         'LlamaRuntimeInventory' { Show-LabLlamaCppRuntimeInventoryInteractive }
         'RuntimeInstaller' { Show-LabLlamaInstallerInteractive }
         'Setup' {
