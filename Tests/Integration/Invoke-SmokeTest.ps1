@@ -353,9 +353,12 @@ try {
         -Condition ($script:Lab.Instances[0].Provider -eq $Provider) `
         -Message "Ergebnis: $($script:Lab.Instances[0].Provider)"
 
+    $providerCatalogPath = Join-Path (Split-Path -Parent $modulePath) "Providers/$Provider/provider.json"
+    $automaticPortRange = (Get-Content -LiteralPath $providerCatalogPath -Raw -ErrorAction Stop | ConvertFrom-Json).portRange
     Assert-True `
         -Name 'Port im Lab-Bereich' `
-        -Condition ($script:Lab.Instances[0].Port -ge 14330 -and $script:Lab.Instances[0].Port -le 14399) `
+        -Condition ($null -ne $automaticPortRange -and $script:Lab.Instances[0].Port -ge $automaticPortRange.min -and
+            $script:Lab.Instances[0].Port -le $automaticPortRange.max) `
         -Message "Port: $($script:Lab.Instances[0].Port)"
 
     $visibleContainer = $(if ($StateRoot) { Invoke-OwnedHostTestCommand -StateRoot $StateRoot -Provider $Provider -Invocation $script:ContainerRuntime -Arguments @('ps','-q','--filter',"name=$($script:Lab.Instances[0].ContainerName)") } else { & $script:ContainerRuntime ps -q --filter "name=$($script:Lab.Instances[0].ContainerName)" }) 2>$null
