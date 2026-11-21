@@ -1741,8 +1741,9 @@ Add-ConsoleUiCheck 'Flache Bereichsmenues bieten mehr als eine Handlungsmoeglich
     ([regex]::Matches([regex]::Match($batchConsoleSource, "function Show-LabMaintenanceMenu \{[\s\S]+?(?=\r?\nfunction )").Value, 'New-LabConsoleItem')).Count -ge 7
 )
 
+$databaseMenuSource = [regex]::Match($mainMenuSource, "function Show-LabDatabaseMenu \{[\s\S]+?(?=\r?\nfunction )").Value
 Add-ConsoleUiCheck 'SQL-2025-KI bleibt im Lab-Bereich der neunteiligen Menuestruktur erreichbar' (
-    $mainMenuSource -match "function Show-LabDatabaseMenu[\s\S]{0,1600}?New-LabConsoleItem -Id 'AiArea'" -and
+    $databaseMenuSource -match "New-LabConsoleItem -Id 'AiArea'" -and
     $batchConsoleSource -match "'Ai' \{ Show-LabAiMenu \}" -and
     $batchConsoleSource -match "\`$action -eq 'AiArea'.+Invoke-LabAreaMenuInteractive -Area Ai" -and
     $mainMenuSource -match "function Show-LabAiMenu[\s\S]{0,2500}?New-LabConsoleItem -Id 'AiScenarioPlan'" -and
@@ -1750,7 +1751,6 @@ Add-ConsoleUiCheck 'SQL-2025-KI bleibt im Lab-Bereich der neunteiligen Menuestru
     $mainMenuSource -match "function Show-LabAiMenu[\s\S]{0,3000}?New-LabConsoleItem -Id 'AiGoldenRagEvaluation'" -and
     $mainMenuSource -match "function Show-LabAiMenu[\s\S]{0,3000}?New-LabConsoleItem -Id 'AiGuidedDemo'"
 )
-$databaseMenuSource = [regex]::Match($mainMenuSource, "function Show-LabDatabaseMenu \{[\s\S]+?(?=\r?\nfunction )").Value
 $databaseReadOnlyActions = @('DatabasePackageInventory', 'DatabaseMigrationDependency')
 $databaseMutationActions = @('DatabaseBackup', 'DatabaseRestore', 'DatabasePackageExport', 'DatabasePackageAttach')
 $databaseRequiredActions = @($databaseReadOnlyActions + $databaseMutationActions)

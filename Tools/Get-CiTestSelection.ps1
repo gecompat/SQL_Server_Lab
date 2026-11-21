@@ -91,6 +91,7 @@ end {
         @{ Pattern = '(?i)(ResourceAssessment|resource-assessment|New-SqlServerLab\.ps1|HyperVLabEnvironment|ReconcileContract|ManifestParser|lab-manifest)'; Checks = @('Invoke-ResourceAssessmentChecks.ps1','Invoke-MixedProviderLifecycleChecks.ps1') },
         @{ Pattern = '(?i)(HyperVNetworkReconnect|HyperVExistingNetwork|HyperVResourceAcceptanceSlotClone|HyperVLabEnvironment)'; Checks = @('Invoke-HyperVNetworkReconnectAcceptanceChecks.ps1') },
         @{ Pattern = '(?i)(AiPersistentRetrieval|ai-persistent-retrieval|Scenarios/Ai/persistent-retrieval/)'; Checks = @('Invoke-AiPersistentRetrievalChecks.ps1','Invoke-AiPersistentRetrievalMigrationChecks.ps1') },
+        @{ Pattern = '(?i)(AiPersistentRetrievalFixtureUi|Ui/ai-persistent-retrieval-fixture\.js)'; Checks = @('Invoke-WorkflowUiChecks.ps1') },
         @{ Pattern = '(?i)(AiRagContainerAcceptance)'; Checks = @('Invoke-AiRagContainerAcceptanceChecks.ps1') },
         @{ Pattern = '(?i)(AiSqlHttpsBridge|ai-sql-https-bridge)'; Checks = @('Invoke-AiSqlHttpsBridgeChecks.ps1') },
         @{ Pattern = '(?i)(AiExternalModelAcceleration|AiExternalModelHyperVBinding|AiExternalModelPlan|AiExternalModelEndpoint|AiExternalModelArtifact|OvmsUpstream|OvmsHttpsGateway|ai-(external-model-(plan|endpoint|artifact|sql)|ovms-(upstream|https-gateway)))'; Checks = @('Invoke-AiExternalModelAccelerationChecks.ps1','Invoke-AiExternalModelHyperVBindingChecks.ps1') },

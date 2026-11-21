@@ -136,6 +136,7 @@
       <button id="ai-runtime-capability-read" type="button" class="button secondary">llama.cpp-Eignung prüfen</button>
       <p id="ai-runtime-capability-status" role="status"></p>
       <button id="ovms-upstream-open" type="button" class="button secondary">Lokalen OVMS-Embedding-Dienst prüfen</button>
+      <button id="persistent-fixture-open" type="button" class="button secondary">Persistente Retrieval-Demo</button>
       <button id="llama-start-plan-open" type="button" class="button secondary">llama.cpp: reine Startvorschau</button>
       <button id="llama-start-open" type="button" class="button secondary">llama.cpp: eigene Sitzung starten</button>
     </section>
@@ -1005,6 +1006,27 @@
     </div>
   </dialog>
   <script src="evaluation-refresh-plan.js"></script>
+  <dialog id="persistent-fixture-dialog">
+    <form id="persistent-fixture-form">
+      <h2>Persistente Retrieval-Demo</h2>
+      <p class="form-note">Schreibt oder liest die synthetische Sammlung in einem SQL-2025-Container. Das verwendete Ollama-Modell muss lokal verfügbar sein. Bewahre die Collection-ID für weitere Schritte auf.</p>
+      <label>SQL-2025-Instanz<select id="persistent-fixture-target" required></select></label>
+      <label>Schritt<select id="persistent-fixture-action">
+        <option value="initial">Beispieldaten anlegen</option>
+        <option value="delta">Beispieldaten aktualisieren</option>
+        <option value="backup">Beispielfrage zu Backups stellen</option>
+        <option value="cleanup">Beispielfrage zur Bereinigung stellen</option>
+        <option value="migrate">Beispielsammlung auf Nomic Embed v2 umstellen</option>
+      </select></label>
+      <label>Collection-ID<input id="persistent-fixture-collection" maxlength="36" required></label>
+      <label id="persistent-fixture-resume-field"><input id="persistent-fixture-resume" type="checkbox"> Begonnenen Auftrag mit derselben ID fortsetzen</label>
+      <p id="persistent-fixture-status" role="status"></p>
+      <div class="dialog-actions">
+        <button id="persistent-fixture-next" type="submit" class="button primary">Weiter zur Bestätigung</button>
+        <button id="persistent-fixture-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </form>
+  </dialog>
   <dialog id="container-network-plan-dialog">
     <form id="container-network-plan-form">
       <h2>Lab-Netz auf Subnetzkonflikt prüfen</h2>
@@ -1095,6 +1117,7 @@
   <script src="ovms-upstream.js"></script>
   <script src="portable-container-transfer.js"></script>
   <script src="container-network-plan.js"></script>
+  <script src="ai-persistent-retrieval-fixture.js"></script>
 
   <dialog id="external-runtime-dialog">
     <div class="read-only-dialog-content">

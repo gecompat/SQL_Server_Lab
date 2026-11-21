@@ -477,6 +477,7 @@ function Show-LabAiMenu {
         New-LabConsoleItem -Id 'AiGoldenRagEvaluation' -Label 'Golden-RAG ausführen und bewerten' -Value 'versionierter Datensatz · echter SQL-Lauf · blockierende Metriken' -Shortcut '7' `
             -Disabled:(-not $sql2025Target.Available) -DisabledReason ([string]$sql2025Target.Reason)
         New-LabConsoleItem -Id 'AiGuidedDemo' -Label 'Geführte KI-Demos' -Value 'Vector · Retrieval · Golden-RAG · read-only Agent' -Shortcut '8'
+        New-LabConsoleItem -Id 'PersistentFixture' -Label 'Persistente Retrieval-Demo' -Value 'Synthetische Sammlung · lokales Ollama'
         New-LabConsoleItem -Id 'back' -Label 'Zurueck' -Shortcut '0'
     )
 }
@@ -1783,6 +1784,7 @@ function Invoke-LabAction {
         'AiRetrievalEvaluation' { Invoke-LabAiRetrievalEvaluationInteractive }
         'AiGoldenRagEvaluation' { Invoke-LabAiGoldenRagEvaluationInteractive }
         'AiGuidedDemo' { Invoke-LabAiGuidedDemoInteractive }
+        'PersistentFixture' { Invoke-LabAiPersistentFixtureInteractive }
         'DatabaseBackup' { Invoke-LabDatabaseBackupInteractive }
         'DatabaseRestore' { Invoke-LabDatabaseRestoreInteractive }
         'DatabasePackageExport' { Invoke-LabDatabasePackageExportInteractive }

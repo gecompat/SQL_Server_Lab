@@ -38,15 +38,15 @@ eines Cmdlets:
 ## Exportreferenz-Audit
 
 Ein mechanischer Abgleich des Manifests mit
-`Documentation/User/FUNCTIONS_CLI_GUI.md` findet 147 der 166 Exportnamen und
-19 dort nicht referenzierte Exporte. Das ist ein Referenzabgleich, keine
-vollständige Prüfung, ob die 147 Treffer tatsächlich korrekt geführt,
+`Documentation/User/FUNCTIONS_CLI_GUI.md` findet 148 der 166 Exportnamen und
+18 dort nicht referenzierte Exporte. Das ist ein Referenzabgleich, keine
+vollständige Prüfung, ob die 148 Treffer tatsächlich korrekt geführt,
 ausführbar oder providerabgenommen sind. Die folgende Inventarliste hält die
-19 nicht referenzierten Namen einzeln fest. Die sieben Environment-Group-
+18 nicht referenzierten Namen einzeln fest. Die sieben Environment-Group-
 Operationen aus dem vorherigen Abgleich sind jetzt in der Funktionsübersicht
 enthalten und unten separat quellengestützt als `GUIDED_BOTH` bewertet. Von
-den verbleibenden 19 Einträgen sind vier TLS-001-Exporte `DEFERRED`,
-10 Exporte als `KNOWN_GAP`, einer als `EXPERT_CATALOG_ONLY` und 4 als
+den verbleibenden 18 Einträgen sind vier TLS-001-Exporte `DEFERRED`,
+10 Exporte als `KNOWN_GAP`, einer als `EXPERT_CATALOG_ONLY` und 3 als
 `NOT_ASSESSED` bewertet.
 Die Bewertung folgt aus Menüdispatch, GUI-Aktion, öffentlichen Parametern
 und den vorhandenen Nachweisen. Der Expertenkatalog allein erfüllt die
@@ -57,11 +57,10 @@ geführte Abdeckung nicht.
 | KI-Compute-Auswahl und Messung | `Get-SqlServerLabAiComputeSelection`; `Measure-SqlServerLabAiComputeCandidate`; `Measure-SqlServerLabAiComputeCandidateSet` | `KNOWN_GAP`; API und Expertenkatalog sind vorhanden. Geführte Auswahl und Messung fehlen. |
 | Shared Gateway | `Get-SqlServerLabAiSharedGatewayPlan`; `Test-SqlServerLabAiSharedGatewayPreflight`; `Register-SqlServerLabAiSharedGatewayStorage`; `Test-SqlServerLabAiSharedGatewayUpstream`; `Start-SqlServerLabAiSharedGatewaySession`; `Stop-SqlServerLabAiSharedGatewaySession`; `Get-SqlServerLabAiSharedGatewayStatus` | `KNOWN_GAP` für diese sieben Fachaktionen. Der vorhandene Dialog zum Dienst-Preflight nimmt einen bereits erstellten Gateway-Plan entgegen. |
 | Modell-/Gateway-Lifecycle | `Test-SqlServerLabAiExternalModelEndpoint`; `Start-SqlServerLabOvmsHttpsGateway`; `Stop-SqlServerLabOvmsHttpsGateway` | `NOT_ASSESSED`; vorhandene Workflow-Dokumentation weist Lifecycle-Lücken aus |
-| Persistentes KI-Retrieval | `Invoke-SqlServerLabAiPersistentRetrieval` | `NOT_ASSESSED` |
 | Security-Tool-Katalog | `Get-SqlServerLabSecurityToolPlan` | `EXPERT_CATALOG_ONLY`. Die produktive Allowlist ist leer, der lokale Resolver blockiert alle Anfragen. [Katalogvertrag und Freigabestand](../Project_Planning/SECURITY_TOOL_ACQUISITION_BACKLOG.md). |
 | TLS-001, zurückgestellt | `Update-SqlServerLabTlsBinding`; `Get-SqlServerLabTlsBindingRecovery`; `Resolve-SqlServerLabTlsBindingRecovery`; `Read-SqlServerLabQualifiedTestEnvironment` | `DEFERRED`; bestehender Zustand bleibt erhalten, keine neue Abdeckungs- oder Runtimearbeit ohne dokumentierten Anwendungsfall |
 
-Die 47 Namen (19 ohne Referenz sowie 28 einzeln geprüfte Exporte)
+Die 46 Namen (18 ohne Referenz sowie 28 einzeln geprüfte Exporte)
 wurden unmittelbar gegen `FunctionsToExport` im Manifest
 abgeglichen; die Familiengruppierung ist nur eine Lesbarkeitshilfe. Sie ist
 keine Behauptung, dass eine Familie einen gemeinsamen Aufrufer oder denselben
@@ -131,6 +130,10 @@ Die Netzmigration über `Move-SqlServerLabContainerNetwork` ist bei der
 Ausführung weiterhin `KNOWN_GAP`: Die CLI und der Browser führen nur die
 `-WhatIf`-Vorschau. Die bestehende Ausführung hat keine an die bestätigte
 Vorschau gebundene Revision und kann laufende SQL-Container unterbrechen.
+
+Beim persistenten KI-Retrieval führen beide Oberflächen die synthetische
+Demo. Eigene Dokumente, Sync, Prune und die Entfernung einer Collection
+bleiben als geführte Aktionen offen (`KNOWN_GAP`).
 
 Die Bereiche und dokumentierten Grenzen entsprechen der neun Bereiche
 umfassenden Navigation in der [Workflow-Oberfläche](../HowTo/WORKFLOW_UI.md).

@@ -54,7 +54,7 @@ function setup(fragment = '#sql-lab-operator=' + 'a'.repeat(64), origin = 'http:
   check(assets[0] === 'operator-transport.js', 'Capabilitybootstrap steht vor dem ersten aktiven Komponentenasset');
   const confirmationAssets = [
     'sql-guest-evaluation-evidence.js', 'evaluation-watch-trigger.js', 'relational-core-comparison.js',
-    'ovms-upstream.js', 'portable-container-transfer.js', 'container-network-plan.js',
+    'ovms-upstream.js', 'portable-container-transfer.js', 'container-network-plan.js', 'ai-persistent-retrieval-fixture.js',
   ];
   for (const asset of assets.slice(1)) {
     const text = fs.readFileSync(path.join(root, 'Ui', asset), 'utf8');

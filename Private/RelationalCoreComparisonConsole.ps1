@@ -14,6 +14,7 @@ function Get-LabContainerSqlConsoleTargets {
                 RunId = $runId.ToString('D')
                 InstanceId = $instanceId
                 Provider = [string]$instance.provider
+                SqlVersion = [string]($instance.sqlVersion ?? $instance.version)
                 Label = '{0} · {1} · {2}' -f ($run.metadata.name ?? $runId), $instanceId, $instance.provider
             }
         }
@@ -37,7 +38,8 @@ function Invoke-LabRelationalComparisonInteractive {
                 if ($target -eq $source) { continue }
                 New-LabConsoleItem -Id "target-$index" -Label $target.Label -Data $target
             })
-            $selected = Select-LabConsoleDataItem -ScreenId "relational-compare-$side" -Title "$label für Datenbankvergleich auswählen" -Items $items
+            $screen = if ($side -eq 'Source') { 'relational-compare-Source' } else { 'relational-compare-Target' }
+            $selected = Select-LabConsoleDataItem -ScreenId $screen -Title "$label für Datenbankvergleich auswählen" -Items $items
             if (-not $selected) { return }
             if ($side -eq 'Source') { $source = $selected }
             do {

@@ -2243,6 +2243,13 @@ Datenbanknamen ein und bestätige den Vergleich. Die Datenbanken müssen
 
 ## Persistentes Retrieval
 
+Die **Persistente Retrieval-Demo** ist in der CLI unter **SQL-2025-KI-Szenarien
+und Demos** und im Browser unter **Host-Dienste und Modelle** erreichbar.
+Wähle eine laufende SQL-2025-Containerinstanz und lege die Beispieldaten an.
+Bewahre die Collection-ID auf. Verwende sie für die Aktualisierung, die
+Beispielfragen oder die Migration auf Nomic Embed v2 wieder. Die Demo nutzt
+das bereits laufende lokale Ollama, im Browser steht der Befund im Live-Log.
+
 `Invoke-SqlServerLabAiPersistentRetrieval` verwendet einen vorhandenen
 SQL-2025-Docker-/Podman-Run mit verwaltetem SA-Secret und ein bereits laufendes
 lokales `embeddinggemma:latest` oder mit explizitem

@@ -297,6 +297,7 @@ sources_of_truth:
   validation_ai_external_model_hyperv_binding: Tests/Static/Invoke-AiExternalModelHyperVBindingChecks.ps1
   ai_external_model_acceleration_howto: Documentation/User/SQL_AI_LOCAL_ACCELERATION.md
   ai_persistent_retrieval_api: Public/Invoke-SqlServerLabAiPersistentRetrieval.ps1
+  ai_persistent_retrieval_fixture_guidance: Private/AiPersistentRetrievalConsole.ps1, Ui/ai-persistent-retrieval-fixture.js
   ai_podman_setup: Private/AiPodmanSetup.ps1
   ai_podman_setup_process: Private/AiPodmanSetupProcess.ps1
   ai_podman_setup_worker: Tools/Invoke-AiPodmanSetupWorker.ps1
