@@ -7,6 +7,21 @@ und die Prüfung eines bereits authentifizierten TLS-Labs sind getrennte Abläuf
 
 ## Verbindungen anzeigen
 
+Unter **Verbindungen und CMS → SSMS-Registrierungen herunterladen** erhältst
+du eine kennwortfreie `.regsrvr`-Datei mit bis zu 500 gespeicherten
+regulären Endpunkten. Importiere die Datei in SSMS unter **Ansicht →
+Registrierte Server → Aufgaben → Importieren**. Die Browseraktion verwendet
+gespeicherten Zustand und führt keinen Runtime-Abgleich durch. Der
+Lab_Data-Standard muss für die Zuordnung der geschützten Testsysteme lesbar
+sein.
+
+Öffne **Registrierten CMS lesend prüfen** und wähle **CMS synchronisieren**,
+um einen laufenden lokalen Docker-/Podman-CMS abzugleichen. Nach der
+Bestätigung aktualisiert der Auftrag den Endpunktkatalog und den vom Lab
+verwalteten CMS-Baum. Ein geänderter Registrierungs- oder Runtime-Befund
+bricht den Auftrag ab. Lies die Registrierung anschließend erneut. Der
+Browserauftrag unterstützt keine CMS-Konfiguration mit Kennwortaliasen.
+
 Unter **Verbindungen und CMS** zeigt jede SQL-Zielkarte ihre angegebenen
 **Connection Settings**: `Encrypt` und `TrustServerCertificate`. Der neue
 Standard bleibt jeweils `True`. Explizites `False` bleibt sichtbar; fehlende
@@ -51,6 +66,11 @@ TLS-Modi. Sie prüft einen isolierten Headless-Browser; weitere Profile und
 die vorhandene Windows-Benutzerzwischenablage bleiben getrennte Nachweise.
 
 ## Container-Lab erstellen
+
+Über **SqlPackage-Version im Container prüfen** kannst du anschließend die
+Version des bereits provisionierten Tools in einer laufenden Docker- oder
+Podman-Instanz abfragen. Wähle die Instanz und bestätige die Versionsprobe.
+Das Ergebnis steht im Live-Log. Die Probe installiert keine Software.
 
 Starten Sie die Oberfläche gemäß [Start](#start) mit einem bereiten Provider
 und den dort beschriebenen Datenroot-Einstellungen. Öffnen Sie

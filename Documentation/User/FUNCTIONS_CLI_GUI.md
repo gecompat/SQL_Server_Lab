@@ -282,10 +282,10 @@ und deren Prüfstatus bleiben davon getrennt.
 |---|---|---|---|
 | [`Get-SqlServerLabConnectionCenter`](../../Public/Sync-SqlServerLabConnectionCenter.ps1) | Liefert eine passwortfreie Endpunktübersicht für SSMS, CMS und Exporte. | Lab-Umgebungen → Datenbanken, Samples und Skripte → Verbindungszentrale | – |
 | [`Sync-SqlServerLabConnectionCenter`](../../Public/Sync-SqlServerLabConnectionCenter.ps1) | Aktualisiert den Endpunktkatalog der Verbindungszentrale atomar. | Verbindungszentrale; zusätzlich nach endpunktrelevanten Lifecycle-Aktionen | – |
-| [`Export-SqlServerLabSsmsRegistration`](../../Public/Sync-SqlServerLabConnectionCenter.ps1) | Erzeugt einen kennwortfreien SSMS-`.regsrvr`-Export. | Verbindungszentrale → SSMS-Export | – |
+| [`Export-SqlServerLabSsmsRegistration`](../../Public/Sync-SqlServerLabConnectionCenter.ps1) | Erzeugt einen kennwortfreien SSMS-`.regsrvr`-Export. Der Browser exportiert bis zu 500 gespeicherte reguläre Endpunkte. | Verbindungszentrale → SSMS-Export | Verbindungen und CMS → SSMS-Registrierungen herunterladen |
 | [`Export-SqlServerLabCmsSyncScript`](../../Public/Sync-SqlServerLabConnectionCenter.ps1) | Erzeugt ein idempotentes CMS-Synchronisationsskript. | Verbindungszentrale → CMS-Skript | – |
 | [`Initialize-SqlServerLabCms`](../../Public/Sync-SqlServerLabConnectionCenter.ps1) | Erstellt nach expliziter Auswahl einen kompakten persistenten Docker-/Podman-CMS. `-LabName` benennt ihn. `-ReplaceRemovedCms` ersetzt ausschließlich eine terminal entfernte CMS-Registrierung. Das generierte Kennwort steht bei der Erstellung in der Konsolenausgabe und fehlt im Lab-Meldungsjournal. | Verbindungszentrale → CMS initialisieren | – |
-| [`Sync-SqlServerLabCms`](../../Public/Sync-SqlServerLabConnectionCenter.ps1) | Gleicht den verwalteten lokalen CMS mit dem aktuellen Katalog ab. | Verbindungszentrale; zusätzlich nach endpunktrelevanten Lifecycle-Aktionen | – |
+| [`Sync-SqlServerLabCms`](../../Public/Sync-SqlServerLabConnectionCenter.ps1) | Gleicht den verwalteten lokalen CMS mit dem aktuellen Katalog ab. | Verbindungszentrale und automatischer Abgleich nach Lifecycle-Aktionen | Verbindungen und CMS → Registrierten CMS lesend prüfen → CMS synchronisieren. Für laufende Docker-/Podman-CMS ohne Kennwortalias. |
 
 ## Reconcile und GUI-Adapter
 
@@ -300,7 +300,7 @@ und deren Prüfstatus bleiben davon getrennt.
 | Cmdlet | Kurzbeschreibung | Konsolenmenü | Browser-GUI |
 |---|---|---|---|
 | [`New-SqlServerLabManifest`](../../Public/New-SqlServerLabManifest.ps1) | Erstellt ein Manifest schema-gesteuert interaktiv oder aus einem Objekt. | Lab-Umgebungen → Datenbanken, Samples und Skripte → Container-Manifest | über Adapter: `CreateContainerManifest` |
-| [`Test-SqlServerLabManifest`](../../Public/New-SqlServerLabManifest.ps1) | Prüft Schema, Kataloge und Runtime-Grenzen ohne Provisionierung. | im Manifest-Wizard über den gemeinsamen Core | – |
+| [`Test-SqlServerLabManifest`](../../Public/New-SqlServerLabManifest.ps1) | Prüft Schema, Kataloge und Runtime-Grenzen ohne Provisionierung. | Datenbanken, Samples und Skripte → Vorhandenes Lab-Manifest prüfen | Lab erstellen → Container-Manifest prüfen oder ausführen → Manifest prüfen |
 | [`New-SqlServerLab`](../../Public/New-SqlServerLab.ps1) | Erstellt eine Umgebung ad hoc oder per Manifest und kann einen detached Containerstore fortsetzen oder klonen. | Umgebungen planen und erstellen | über Adapter: `NewContainerLab`, `NewContainerLabFromManifest` |
 | [`Get-SqlServerLab`](../../Public/Get-SqlServerLab.ps1) | Zeigt State, Live-Status und sanitisierte Tool-Metadaten je Provider. | Lab-Umgebungen → Umgebung auswählen und verwalten → Status | über Core: Browserstatus stammt aus `Get-SqlServerLabWorkflow`, nicht aus diesem Export |
 | [`Get-SqlServerLabGeneratedSqlAccess`](../../Public/Get-SqlServerLabGeneratedSqlAccess.ps1) | Gibt generierte Hyper-V-SA-Zugangsdaten und den Connection String gezielt zurück. | Lab-Umgebungen → Umgebung auswählen und verwalten → Status/Zugang anzeigen | –; die GUI zeigt Connection Strings, aber keine gespeicherten Passwörter |
@@ -394,7 +394,7 @@ Bibliotheks-Recovery blockiert den erneuten Export ausdrücklich.
 | [`Measure-SqlServerLabAiRetrieval`](../../Public/Measure-SqlServerLabAiRetrieval.ps1) | Bewertet manuelle Retrieval-IDs oder ein hashgebundenes, tatsächlich ausgeführtes Golden-RAG deterministisch mit Recall@k, Precision@k, MRR und nDCG. | Lab-Umgebungen → Datenbanken, Samples und Skripte → SQL Server 2025 KI → Retrieval bewerten / Golden-RAG / Geführte KI-Demos → Retrieval-Metriken | – |
 | [`Invoke-SqlServerLabAiRag`](../../Public/Invoke-SqlServerLabAiRag.ps1) | Führt lokale Ollama-Embeddings, exakte SQL-2025-Vektorsuche und quellgebundene Generierung ad hoc oder aus einem versionierten Golden-Fall aus. | Lab-Umgebungen → Datenbanken, Samples und Skripte → SQL Server 2025 KI → lokales SQL-RAG / Golden-RAG / Geführte KI-Demos → Golden-RAG | – |
 | [`Invoke-SqlServerLabAiDiagnosticAgent`](../../Public/Invoke-SqlServerLabAiDiagnosticAgent.ps1) | Führt maximal vier katalogisierte SELECT-Diagnosen unter einer kurzlebigen Least-Privilege-Identität aus und fasst sie lokal zusammen. | Lab-Umgebungen → Datenbanken, Samples und Skripte → SQL Server 2025 KI → read-only Diagnose / Geführte KI-Demos → read-only Agent | – |
-| [`Test-SqlServerLabContainerTool`](../../Public/Test-SqlServerLabContainerTool.ps1) | Prüft kataloggebundenes SqlPackage per run- und scopegebundener read-only Versionsprobe. | – | – |
+| [`Test-SqlServerLabContainerTool`](../../Public/Test-SqlServerLabContainerTool.ps1) | Prüft kataloggebundenes SqlPackage per run- und scopegebundener read-only Versionsprobe. | Datenbanken, Samples und Skripte → SqlPackage-Version im Container prüfen | Lab erstellen → SqlPackage-Version im Container prüfen |
 
 ## Voraussetzungen, Adapter und Hilfswerkzeuge
 

@@ -130,6 +130,23 @@ und dem [Gruppenvertrag](../Architecture/LAB_ENVIRONMENT_GROUPS.md).
 | Vector-Core-Szenarioplan lesen (`Get-SqlServerLabAiScenario`) | Lab-Umgebungen → Datenbanken, Samples und Skripte → SQL Server 2025 KI → Szenarioplan | Host-Dienste und Modelle → Vector-Core-Szenarioplan lesen | `GUIDED_BOTH` für `vector-core-ci/1.0`, entweder aus dem Katalog oder gegen den gespeicherten KI-Intent einer laufend registrierten Docker-/Podman-Instanz. Das Szenario wird nicht ausgeführt. |
 | Run-State-Format prüfen (`Get-SqlServerLabRunStateUpgradePlan`) | Wartung, Aufräumen und Recovery → Format eines Run-States prüfen | Wartung → Format eines Run-States prüfen | `GUIDED_BOTH` für die lesende Vorschau eines registrierten Runs. Der getrennte Upgrade-Befehl bleibt auf synthetische Legacy-States begrenzt. |
 
+## Geprüfte Operationen: Manifest, Registrierungen und Containerwerkzeuge
+
+| Operation | Geführter CLI-Pfad | Geführter GUI-Pfad | Vertrag und Nachweis |
+|---|---|---|---|
+| Vorhandenes Manifest prüfen (`Test-SqlServerLabManifest`) | Lab-Umgebungen → Datenbanken, Samples und Skripte → Vorhandenes Lab-Manifest prüfen | Lab erstellen → Container-Manifest prüfen oder ausführen → Manifest prüfen | `GUIDED_BOTH` für eine ausgewählte lokale Manifestdatei. Schema und Fachregeln greifen vor der Provisionierung. Manifest-Builder-, HTTP- und Browserprüfungen decken Erfolg, ungültige Eingaben und die Secret-Grenze ab. |
+| SSMS-Registrierungen exportieren (`Export-SqlServerLabSsmsRegistration`) | Verbindungszentrale → SSMS-Export | Verbindungen und CMS → SSMS-Registrierungen herunterladen | `GUIDED_BOTH` für gespeicherte reguläre Endpunkte. Der Browser liefert bis zu 500 Einträge als kennwortfreie `.regsrvr` ohne Providerabfrage. CMS-Vertrags- und Browserprüfungen decken Auswahl und Download ab. |
+| Registrierten CMS abgleichen (`Sync-SqlServerLabCms`) | Verbindungszentrale → CMS verwalten und synchronisieren → CMS jetzt synchronisieren | Verbindungen und CMS → Registrierten CMS lesend prüfen → CMS synchronisieren | `GUIDED_BOTH` für vorhandene Docker-/Podman-CMS ohne Kennwortalias. Der Browser bestätigt die zuletzt gelesene Registrierung. Der Core prüft Run und Container, führt den verwalteten SQL-Abgleich aus und lässt unverwaltete Registrierungen bestehen. Synthetische Prüfungen decken auch veraltete Auswahlen ab. |
+| SqlPackage-Version abfragen (`Test-SqlServerLabContainerTool`) | Lab-Umgebungen → Datenbanken, Samples und Skripte → SqlPackage-Version im Container prüfen | Lab erstellen → SqlPackage-Version im Container prüfen | `GUIDED_BOTH` für kataloggebundenes SqlPackage in einer ausgewählten Docker-/Podman-Instanz. Die Versionsabfrage bindet die geprüfte Container-ID. Softwarekatalog- und Browserprüfungen decken Fehlerpfade und die read-only Weiterleitung ab. |
+
+Am 21.11.2026 bestand `Invoke-ConnectionCenterCmsInspectionAcceptance.ps1
+-IncludeBoundSync -Version 2025` auf Quellrevision `f4b81ac1` separat
+mit Docker und Podman. Die Abnahme bestätigte den SQL-Abgleich,
+die Abweisung einer veralteten Auswahl, den Erhalt unverwalteter
+Registrierungen und das Aufräumen der beiden eigenen Test-Labs. Die
+Browserbestätigung ist synthetisch geprüft. SSMS und Verbindungen zu
+Mitgliedsservern waren außerhalb dieser Abnahme.
+
 ## Bereichsinventar
 
 Die Netzmigration über `Move-SqlServerLabContainerNetwork` ist bei der
@@ -154,7 +171,7 @@ nicht alle Operationen des Bereichs einzeln auf einen CLI-Menüpfad, GUI-Aktion,
 | Hyper-V-Vorlagen, Windows-Images und operative Slots | Hyper-V: Vorlagen und Slots | Hyper-V: Vorlagen und Slots | Image-/Poolinventar und einzelne gebundene Workflows | `KNOWN_GAP` für operative Slots und vollständiges Provider-Setup; native Nachweise bleiben funktions- und versionsgebunden |
 | Ressourcen, Medien, Downloads und Speicher | Ressourcen und Downloads | Ressourcen und Downloads | Ressourcen-/Medienkataloge, ausgewählte Plan-/Apply-Dialoge | `TEILWEISE`; vollständige Operationszuordnung und Providerbelege offen |
 | Host-Dienste und Modelle | Host-Dienste und Modelle | Host-Dienste und Modelle | Einzelne Modell-/Hostservice-Dialoge und öffentliche Befehle | `KNOWN_GAP` für Fremdstart und weiteren Hostdienst-/Modell-Lifecycle |
-| Verbindungen, Registrierungen und CMS | Verbindungen und CMS | Verbindungen und CMS | Lesende Verbindungssicht und CMS-Inspection; ausgewählte Cmdlet-Abnahmen | `KNOWN_GAP` für CMS-Setup und -Synchronisation im Browser; vollständige Operationszuordnung offen |
+| Verbindungen, Registrierungen und CMS | Verbindungen und CMS | Verbindungen und CMS | Gespeicherter SSMS-Export, lesende CMS-Inspection und gebundener CMS-Abgleich im Browser. Der Core-Abgleich ist mit Docker und Podman abgenommen. | `KNOWN_GAP` für CMS-Setup im Browser; vollständige Operationszuordnung offen |
 | SQL-Lab-Grundkonfiguration | Grundkonfiguration | SQL-Lab-Grundkonfiguration | Gemeinsamer Plan-/Apply-Pfad für dokumentierte Einstellungen | `TEILWEISE`; nicht jede öffentliche Konfigurationsoperation einzeln abgebildet |
 | Wartung, Aufräumen und Recovery | Wartung, Aufräumen und Recovery | Wartung/Recovery | Read-only-Pläne, bestätigte Aktionen und Recovery-Verträge je Slice | `TEILWEISE`; komplette Funktions- und Fehlerpfadzuordnung offen |
 | Vorgänge, Queue und Scheduler | Vorgänge, Queue und Benutzeraktionen | Vorgänge | Batch-/Queue-Einstiege und Workflow-Aktionen | `TEILWEISE`; jede Operation und ihre Abbruch-/Recoverypfade noch einzeln abzugleichen |
