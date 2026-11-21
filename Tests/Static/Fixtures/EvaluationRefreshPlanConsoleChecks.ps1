@@ -4,6 +4,14 @@ $repo=(Resolve-Path (Join-Path $PSScriptRoot '../../..')).Path
 $root=Join-Path $repo ('.artifacts/evaluation-refresh-cli-fixtures/'+[guid]::NewGuid().ToString('N'))
 $checks=0
 function Assert-ConsoleRefresh($value,$label){if(-not$value){throw ('REFRESH_CONSOLE_CHECK_FAILED: '+$label)};$script:checks++;Write-Host ('PASS: '+$label)}
+function Import-RefreshNamedFunction([string]$relative,[string]$name){
+    $tokens=$null;$parseErrors=$null
+    $ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $repo $relative),[ref]$tokens,[ref]$parseErrors)
+    if($parseErrors.Count){throw 'FIXTURE_PARSE_FAILED'}
+    $matches=@($ast.EndBlock.Statements|Where-Object {$_ -is [Management.Automation.Language.FunctionDefinitionAst] -and $_.Name -ceq $name})
+    if($matches.Count-ne1){throw ('FIXTURE_FUNCTION_NOT_UNIQUE: '+$name)}
+    . ([scriptblock]::Create(($matches[0].Extent.Text-replace'^function ','function script:')))
+}
 try {
     # Reuse only the canonical synthetic arrange statements, not its green cases.
     $tokens=$null;$errorsFound=$null
@@ -72,6 +80,22 @@ try {
     function Invoke-LabComponentRelationPlanInteractive {$script:componentCalls++}
     Reset-ConsoleRefresh @('evaluation-refresh-preview','legacy','component-relations-preview','CANCEL');Manage-LabPublicCommandsInteractive
     Assert-ConsoleRefresh ($guidedCalls-eq1-and$legacyCalls-eq1-and$componentCalls-eq1) 'Actual common menu preserves legacy and component routes'
+
+    Import-RefreshNamedFunction 'Public/BatchConsole.ps1' 'Show-LabMaintenanceMenu'
+    Import-RefreshNamedFunction 'Public/Invoke-SqlServerLab.ps1' 'Invoke-LabMenuAction'
+    function New-LabConsoleItem {param($Id,$Label,$Value,$Shortcut,$Disabled,$DisabledReason,$Help);[pscustomobject]@{Id=$Id;Label=$Label;Value=$Value;Shortcut=$Shortcut;Disabled=$Disabled;DisabledReason=$DisabledReason;Help=$Help}}
+    function Show-LabSubMenu {param($ScreenId,$Title,$Subtitle,$Items);return $Items}
+    $maintenanceItems=@(Show-LabMaintenanceMenu)
+    Assert-ConsoleRefresh (@($maintenanceItems|Where-Object Id -CEQ 'EvaluationRefreshPlan').Count-eq1) 'Maintenance menu exposes the dedicated evaluation decision'
+    $script:menuActionCalls=0
+    function Invoke-LabEvaluationRefreshPlanInteractive {$script:menuActionCalls++}
+    Invoke-LabMenuAction -ActionName EvaluationRefreshPlan
+    Assert-ConsoleRefresh ($menuActionCalls-eq1) 'Maintenance menu action dispatches the guided evaluation flow'
+
+    Import-RefreshNamedFunction 'Public/Invoke-SqlServerLab.ps1' 'Invoke-SqlServerLab'
+    function New-LabQueueStatusProvider {param($Height);return {}}
+    Invoke-SqlServerLab -Action EvaluationRefreshPlan -ConsoleMode Fallback
+    Assert-ConsoleRefresh ($menuActionCalls-eq2) 'Direct Action supports the same guided evaluation flow'
     Write-Host ('EVALUATION_REFRESH_CONSOLE_CHECKS: '+$checks+' PASS; 0 FAIL')
 } finally {
     $resolved=[IO.Path]::GetFullPath($root);$expected=[IO.Path]::GetFullPath((Join-Path $repo '.artifacts/evaluation-refresh-cli-fixtures'))

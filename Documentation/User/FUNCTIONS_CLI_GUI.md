@@ -351,6 +351,7 @@ Mehrgruppen-Lifecycle steht in der [datierten Abnahme](../Quality/LINKED_SERVER_
 | Cmdlet | Kurzbeschreibung | Konsolenmenü | Browser-GUI |
 |---|---|---|---|
 | [`Get-SqlServerLabCleanupAudit`](../../Public/Get-SqlServerLabCleanupAudit.ps1) | Klassifiziert `Lab_Data`, Storage-Residency, Runtime-Scopes und auffällige Objekte read-only. | Wartung, Aufräumen und Recovery → Cleanup-Audit | – |
+| [`Get-SqlServerLabEvaluationRefreshPlan`](../../Public/Get-SqlServerLabEvaluationRefreshPlan.ps1) | Liest für eine ausgewählte SQL-Instanz den Ersatz- oder Migrationsentscheid. | Wartung, Aufräumen und Recovery → SQL-Evaluation: Ersatz- und Migrationsentscheid | Wartung und Recovery → SQL-Evaluation: Ersatzentscheid |
 | [`Get-SqlServerLabRunArtifactRemovalPlan`](../../Public/Get-SqlServerLabRunArtifactRemovalPlan.ps1) | Prüft die Metadaten genau eines entfernten Runs und erstellt eine gebundene Vorschau. | Wartung, Aufräumen und Recovery → Artefakte eines entfernten Runs | Wartung und Recovery → Run-Artefakte prüfen |
 | [`Invoke-SqlServerLabRunArtifactRemoval`](../../Public/Invoke-SqlServerLabRunArtifactRemoval.ps1) | Entfernt nach Bestätigung die geprüften Run-Metadaten oder setzt eine begonnene Entfernung fort. | Derselbe Dialog → Vorschau und Bestätigung | Derselbe Dialog → Vorschau und Bestätigung |
 | [`Get-SqlServerLabMaintenancePlan`](../../Public/Maintenance.ps1) | Inventarisiert State und Runtime-Ressourcen read-only und trennt sichere von freizugebenden Aktionen. | – | – |

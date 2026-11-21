@@ -1164,6 +1164,7 @@ function Show-LabMaintenanceMenu {
         New-LabConsoleItem -Id Messages -Label 'Meldungen dieser Sitzung' -Value 'Warnungen und Fehler · kopierbar · Journalpfad' -Shortcut 6
         New-LabConsoleItem -Id RetainedStoreRemoval -Label 'Behaltenen SQL-Speicher löschen' -Value 'gesonderter bestätigter Entfernungsplan' -Shortcut l
         New-LabConsoleItem -Id RunArtifactRemoval -Label 'Artefakte eines entfernten Runs' -Value 'Einzelauswahl · Vorschau · bestätigte Entfernung / Resume' -Shortcut r
+        New-LabConsoleItem -Id EvaluationRefreshPlan -Label 'SQL-Evaluation: Ersatz- und Migrationsentscheid' -Value 'Lesende Vorschau' -Shortcut v
         New-LabConsoleItem -Id Clear -Label 'Alle regulären Lab-Umgebungen löschen' -Value 'Auch laufende und gestoppte · Datenverlust möglich' -Shortcut a `
             -Help 'Löscht alle nicht geschützten Lab-Umgebungen im aktuellen State-Root, zusätzlich verwaiste Lab-Container, Builder und Lab-Datenverzeichnisse. Keine reine Bereinigung verwaister Reste. Vor der Löschung folgt eine Bestätigung mit Standard Nein.'
         New-LabConsoleItem -Id back -Label 'Zurueck' -Shortcut 0

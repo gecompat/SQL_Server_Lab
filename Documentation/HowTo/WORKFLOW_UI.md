@@ -397,7 +397,11 @@ Wiederöffnen wurden beobachtet, eigener Listener und Tab geschlossen.
 
 ### Evaluation-Ersatzentscheid
 
-Unter **Wartung, Aufräumen und Recovery → SQL-Evaluation: Ersatzentscheid**
+In der CLI öffnet **Wartung, Aufräumen und Recovery → SQL-Evaluation: Ersatz-
+und Migrationsentscheid** dieselbe lesende Vorschau. Wähle das registrierte
+Lab_Data, die SQL-Instanz und die Entscheidungsart.
+
+Im Browser unter **Wartung und Recovery → SQL-Evaluation: Ersatzentscheid**
 ein vorhandenes registriertes `Lab_Data` eingeben und **Registrierte Instanzen
 lesen** wählen. Eine gebundene einzelne Hyper-V-SQL-Instanz und Slotersatz,
 Rekonstruktion oder Instanzmigration auswählen, dann **Vorschau lesen (keine
