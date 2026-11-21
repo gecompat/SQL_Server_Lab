@@ -299,13 +299,14 @@ function New-PodmanInstance {
     try {
         return Invoke-LabPortAllocationLock -Action {
             $automaticPort = $Port -eq 0
-            $nextPort = if ($automaticPort) { 14330 } else { $Port }
+            $range = Get-LabAutomaticSqlPortRange
+            $nextPort = if ($automaticPort) { $range.Start } else { $Port }
             $selectedPort = $null
             $output = $null
 
             while ($true) {
                 $selectedPort = if ($automaticPort) {
-                    Find-PodmanAvailablePort -RangeStart $nextPort -RangeEnd 14399
+                    Find-PodmanAvailablePort -RangeStart $nextPort -RangeEnd $range.End
                 }
                 else {
                     $Port
@@ -372,7 +373,7 @@ function New-PodmanInstance {
                 $outputText = ($output | Out-String).Trim()
                 if ($ownedHostPolicy) { Remove-LabOwnedHostFailedContainer -StateRoot $StateRoot -Intent $ownedContainerIntent }
                 $bindConflict = $outputText -match '(?i)(address already in use|port is already allocated|cannot bind tcp port)'
-                if (-not $automaticPort -or -not $bindConflict -or $selectedPort -ge 14399) {
+                if (-not $automaticPort -or -not $bindConflict -or $selectedPort -ge $range.End) {
                     $logHint = if ($providerLogPath) { " Diagnoselog: $providerLogPath" } else { '' }
                     throw "Podman-Container konnte nicht erstellt werden: $outputText$logHint"
                 }

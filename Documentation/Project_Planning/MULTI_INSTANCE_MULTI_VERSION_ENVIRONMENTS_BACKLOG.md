@@ -10,7 +10,7 @@ gleicher oder unterschiedlicher SQL-Server-Versionen in einem Run; Docker und
 Podman dürfen dabei gemischt sein.
 
 Die Containerlaufzeiten vergeben pro Instanz einen eindeutigen, ausschließlich
-an Loopback gebundenen Hostport im Bereich 14330–14399 oder weisen eine
+an Loopback gebundenen Hostport im automatischen Bereich 14330–15399 oder weisen eine
 ausdrückliche Kollision vor dem Start ab. Containername, Volumes, Labels,
 Connection-Info, ProviderSubRun und Cleanup sind an Run, Scope und Instanz-ID
 gebunden.
