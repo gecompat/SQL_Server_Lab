@@ -1036,6 +1036,30 @@ function Invoke-LabEnvironmentGroupsInteractive {
     }
 }
 
+function Show-LabWorkflowOverviewInteractive {
+    try {
+        $summary = (Get-SqlServerLabWorkflow -ErrorAction Stop).Summary
+        $fields = [ordered]@{
+            ActiveContainerLabs='Registrierte Container-Labs'
+            WindowsBaselines='Windows-Baselines'
+            SqlPreparedImages='SQL-Prepared-Images'
+            PendingWindowsBuilds='Offene Windows-Builds'
+            PendingSqlBuilds='Offene SQL-Builds'
+            ActiveBatches='Aktive Batches'
+            QueueLength='Vorgänge in der Queue'
+            WaitingUserGates='Wartet auf Eingabe'
+        }
+        if (-not $summary -or @($fields.Keys | Where-Object { $summary.$_ -isnot [int] -or $summary.$_ -lt 0 }).Count) {
+            throw 'LAB_WORKFLOW_OVERVIEW_INCOMPLETE'
+        }
+        foreach ($field in $fields.GetEnumerator()) {
+            Write-LabStatus -Label $field.Value -Value ([string]$summary.($field.Key))
+        }
+    }
+    catch { Write-LabError 'Die Lab-Übersicht konnte nicht vollständig gelesen werden.' }
+    $null = Wait-LabConsoleAcknowledgement
+}
+
 function Show-LabWorkspaceMenu {
     return Show-LabSubMenu -ScreenId 'labs-menu' -Title 'Lab-Umgebungen' -Subtitle 'Erstellen, auswählen und am gewählten Ziel arbeiten' -Items @(
         New-LabConsoleItem -Id CreateArea -Label 'Umgebung erstellen' -Shortcut 1
@@ -1049,6 +1073,7 @@ function Show-LabWorkspaceMenu {
         New-LabConsoleItem -Id HyperVAutoStart -Label 'Hyper-V-Autostart ändern' -Value 'Gebundener Plan · Bestätigung erforderlich' -Shortcut 8
         New-LabConsoleItem -Id HyperVAutoStartRecovery -Label 'Hyper-V-Autostart-Recovery fortsetzen' -Value 'Verifizierte Statepersistenz' -Shortcut h
         New-LabConsoleItem -Id SsisDiagnostics -Label 'SSIS-Diagnose eines bestehenden Windows-Labs' -Value 'Ausführungsmetadaten oder bestätigte Paketladediagnose' -Shortcut 9
+        New-LabConsoleItem -Id WorkflowOverview -Label 'Lab-Übersicht und offene Arbeiten' -Value 'Registrierte Labs, Vorlagen, Builds und Queue'
         New-LabConsoleItem -Id SmtpStatusGuidance -Label 'SMTP-Testdienst prüfen' -Value 'Gebundener Mailpit-Receiver · lesend'
         New-LabConsoleItem -Id back -Label 'Zurück' -Shortcut 0
     )

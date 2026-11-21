@@ -183,6 +183,7 @@ function Invoke-LabMenuAction {
         return
     }
     if ($ActionName -eq 'DiagnosticBundle') { Show-LabDiagnosticBundleInteractive; return }
+    if ($ActionName -eq 'WorkflowOverview') { Show-LabWorkflowOverviewInteractive; return }
     if ($ActionName -eq 'LicenseProfileStatus') { Show-LabLicenseProfileStatusInteractive; return }
     if ($ActionName -eq 'SmtpStatusGuidance') { Show-LabSmtpStatusGuidanceInteractive; return }
     if ($ActionName -eq 'RuntimeMaintenancePreview') { Show-LabRuntimeMaintenancePreviewInteractive; return }
