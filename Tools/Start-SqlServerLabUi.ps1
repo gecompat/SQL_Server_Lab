@@ -1134,6 +1134,15 @@ try {
                 }
                 continue
             }
+            if ($path -ceq '/api/license-profile-status') {
+                $license = & (Get-Module SqlServerLab) {
+                    param($method,$query)
+                    Invoke-LabLicenseProfileStatusRequest -Method $method -Query $query
+                } $context.Request.HttpMethod $context.Request.QueryString
+                Write-UiResponse -Context $context -Body ($license.View | ConvertTo-Json -Depth 5 -Compress) `
+                    -StatusCode $license.StatusCode -ContentType 'application/json; charset=utf-8' -NoStore
+                continue
+            }
             if ($path -ceq '/api/diagnostic-bundle') {
                 try {
                     $query = $context.Request.QueryString

@@ -165,6 +165,12 @@ und für SqlPackage und brach beide vor dem Versand ab.
 
 ## Bereichsinventar
 
+**Grundkonfiguration → Lokale Lizenzprofile prüfen** bietet auf Windows
+in CLI und Browser die Profilübersicht und die lokale Formatprüfung.
+Ausgaben enthalten Produkt, Version, Edition und Kanal sowie einen
+strukturellen Befund. Onlineaktivierung und Änderungen an Profilen sind
+eigene Operationen.
+
 Die Netzmigration über `Move-SqlServerLabContainerNetwork` ist bei der
 Ausführung weiterhin `KNOWN_GAP`: Die CLI und der Browser führen nur die
 `-WhatIf`-Vorschau. Die bestehende Ausführung hat keine an die bestätigte

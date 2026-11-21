@@ -324,6 +324,12 @@ function Get-LabConsoleHelpCatalog {
             Effects = 'Die Ansicht beschreibt die Schnittstelle. Sie startet keinen Vorgang und greift auf keinen Lab-State zu.'
             Command = 'Get-SqlServerLabAutomationPlan'
         }
+        'license-profile-status' = @{
+            Title = 'Lizenzprofil lokal prüfen'
+            Purpose = 'Produkt, Edition und Kanal anzeigen und ein Profil für die lokale Formatprüfung auswählen.'
+            Effects = 'DPAPI-Leseprüfung für das gewählte Profil. Der Product Key wird nicht angezeigt.'
+            Command = 'Test-SqlServerLabLicenseProfile'
+        }
         'diagnostic-bundle-instance' = @{
             Title = 'Gespeicherter Diagnosebefund'
             Purpose = 'Die Instanz im registrierten Standard-Lab_Data auswählen.'

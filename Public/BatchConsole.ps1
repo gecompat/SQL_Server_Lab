@@ -1104,6 +1104,7 @@ function Show-LabConfigurationMenu {
         New-LabConsoleItem -Id Status -Label 'Providerstatus und Voraussetzungen anzeigen' -Shortcut 5
         New-LabConsoleItem -Id ProviderSetup -Label 'Späteren Provider geführt einrichten' -Disabled -DisabledReason 'Ein vollständiger Assistent für zusätzliche Provider ist noch offen; vorhandene Provider werden weiterhin erkannt.'
         New-LabConsoleItem -Id ReservePolicy -Label 'Slotreserve: Policy und Kandidaten' -Shortcut 7
+        New-LabConsoleItem -Id LicenseProfileStatus -Label 'Lokale Lizenzprofile prüfen' -Value 'Produkt und Edition · gespeicherter Schlüsselstatus · ohne Onlineaktivierung' -Shortcut 8
         New-LabConsoleItem -Id back -Label 'Zurück' -Shortcut 0
     )
 }

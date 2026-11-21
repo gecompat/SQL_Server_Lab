@@ -442,8 +442,8 @@ Bibliotheks-Recovery blockiert den erneuten Export ausdrücklich.
 | Cmdlet | Kurzbeschreibung | Konsolenmenü | Browser-GUI |
 |---|---|---|---|
 | [`Set-SqlServerLabLicenseProfile`](../../Public/LicenseProfile.ps1) | Speichert einen optionalen Product Key versions- und editionsgebunden als DPAPI-geschütztes lokales Secret. | – | – |
-| [`Get-SqlServerLabLicenseProfile`](../../Public/LicenseProfile.ps1) | Listet ausschließlich geheimnisfreie Profilmetadaten und Secret-Verfügbarkeit auf. | Hyper-V-SQL-Image-Build → Lizenzprofil auswählen | – |
-| [`Test-SqlServerLabLicenseProfile`](../../Public/LicenseProfile.ps1) | Prüft Metadaten, Secret und lokales Format ohne Onlineaktivierung. | – | – |
+| [`Get-SqlServerLabLicenseProfile`](../../Public/LicenseProfile.ps1) | Listet ausschließlich Produkt, Version, Edition, Kanal und Verfügbarkeit der Schlüsseldatei. | Grundkonfiguration → Lokale Lizenzprofile prüfen | Grundkonfiguration → Lokale Lizenzprofile prüfen |
+| [`Test-SqlServerLabLicenseProfile`](../../Public/LicenseProfile.ps1) | Prüft Metadaten und lokales Schlüsselformat eines gewählten Profils ohne Onlineaktivierung. | Grundkonfiguration → Lokale Lizenzprofile prüfen | Grundkonfiguration → Lokale Lizenzprofile prüfen |
 | [`Remove-SqlServerLabLicenseProfile`](../../Public/LicenseProfile.ps1) | Entfernt ein exakt benanntes lokales Profil samt geschütztem Secret. | – | – |
 
 ## Browser-GUI-Funktionsbereiche

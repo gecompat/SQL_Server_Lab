@@ -361,6 +361,7 @@ sources_of_truth:
   validation_ai_ollama_container: Tests/Integration/Invoke-AiOllamaContainerAcceptance.ps1
   validation_ai_rag_container: Tests/Integration/Invoke-AiRagContainerAcceptance.ps1
   license_profile_contract: Private/LicenseProfile.ps1
+  license_profile_status_guidance: Private/LicenseProfileStatusGuidance.ps1
   license_profile_schema: Schemas/license-profile.schema.json
   validation_license_profile: Tests/Static/Invoke-LicenseProfileChecks.ps1
   batch_manifest_structure: Schemas/lab-batch.schema.json

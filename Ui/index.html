@@ -164,6 +164,7 @@
       <p>Lab_Base und registrierte Lab_Data-Roots prüfen, fehlende Roots ergänzen und den globalen Standard wählen. Provider lassen sich ausdrücklich erneut prüfen. Installation und Datenmigration bleiben getrennte Schritte. Die Advisory-Reservepolicy hat einen eigenen Vorschau-/Speicherdialog.</p>
       <button id="configuration-storage" type="button" class="button secondary">Grundkonfiguration und Provider öffnen</button>
       <button id="configuration-reserve" type="button" class="button secondary">Slotreserve: Policy und Kandidaten</button>
+      <button id="license-profile-status-open" type="button" class="button secondary">Lokale Lizenzprofile prüfen</button>
     </section>
     <section class="panel" data-workspace-area="maintenance" hidden>
       <h2>Wartung, Aufräumen und Recovery</h2>
@@ -1179,6 +1180,19 @@
       </div>
     </form>
   </dialog>
+  <dialog id="license-profile-status-dialog">
+    <form id="license-profile-status-form">
+      <h2>Lokale Lizenzprofile prüfen</h2>
+      <p class="form-note">Die Prüfung bestätigt keine Onlineaktivierung und zeigt keinen Product Key.</p>
+      <label>Profil<select id="license-profile-status-selection" required></select></label>
+      <p id="license-profile-status-result" role="status"></p>
+      <div class="dialog-actions">
+        <button id="license-profile-status-close" type="button" class="button secondary">Schließen</button>
+        <button id="license-profile-status-read" type="submit" class="button primary" disabled>Profil lokal prüfen</button>
+      </div>
+    </form>
+  </dialog>
+
   <dialog id="diagnostic-bundle-dialog">
     <form id="diagnostic-bundle-form">
       <h2>Gespeicherter Diagnosebefund</h2>
@@ -1415,6 +1429,7 @@
   <script src="automation-api-plan.js"></script>
   <script src="hyperv-recovery-point-plan.js"></script>
   <script src="diagnostic-bundle.js"></script>
+  <script src="license-profile-status.js"></script>
   <script src="ai-scenario-plan.js"></script>
   <script src="run-state-upgrade-plan.js"></script>
   <script src="portable-lab-import-plan.js"></script>
