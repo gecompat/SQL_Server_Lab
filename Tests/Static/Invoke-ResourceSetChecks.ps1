@@ -66,6 +66,11 @@ try {
         @($softwareView | Where-Object Kind -cne 'software').Count -eq 0 -and
         @($softwareView | ForEach-Object { $_.PSObject.Properties.Name } | Where-Object { $_ -cnotin $visibleKeys }).Count -eq 0
     )
+    # The menu discovers its configured root, which must already exist.
+    # Keep it separate from the paths whose absence the read-only API proves.
+    $consoleMediaRoot = Join-Path $temporaryRoot 'configured-media'
+    $null = [IO.Directory]::CreateDirectory($consoleMediaRoot)
+    $consoleArguments = @{ MediaRoot=$consoleMediaRoot; TestDataRoot=(Join-Path $consoleMediaRoot 'Testdaten'); StateRoot=$stateRoot }
     $console = & $module {
         param($Arguments)
         $calls = [Collections.Generic.List[string]]::new()
@@ -80,6 +85,9 @@ try {
             $env:SQL_SERVER_LAB_MEDIA_ROOT = $Arguments.MediaRoot
             $env:SQL_SERVER_LAB_TEST_DATA_ROOT = $Arguments.TestDataRoot
             $env:SQL_SERVER_LAB_STATE = $Arguments.StateRoot
+            if ((Get-LabMediaRootDefault) -cne (Resolve-Path -LiteralPath $Arguments.MediaRoot).Path) {
+                throw 'RESOURCE_SET_MENU_FIXTURE_ROOT_NOT_SELECTED'
+            }
             Invoke-LabMenuAction -ActionName ResourcePlan
         } finally {
             $env:SQL_SERVER_LAB_MEDIA_ROOT = $oldMedia
@@ -87,10 +95,11 @@ try {
             $env:SQL_SERVER_LAB_STATE = $oldState
         }
         $calls.ToArray()
-    } $defaultArguments
+    } $consoleArguments
     Add-CheckResult -Name 'Geführtes Ressourcenmenü gibt ausschließlich ausgewählte Beispieldaten aus' -Success (
         @($console).Count -eq @($defaultIds -like 'sample:*').Count -and @($console).Count -gt 0 -and
-        @($console | Where-Object { $_ -cnotmatch '^sample:' }).Count -eq 0
+        @($console | Where-Object { $_ -cnotmatch '^sample:' }).Count -eq 0 -and
+        @(Get-ChildItem -LiteralPath $consoleMediaRoot -Force).Count -eq 0
     )
 
     $repositoryRejected = $false
