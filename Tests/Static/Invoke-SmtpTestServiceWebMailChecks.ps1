@@ -23,6 +23,19 @@ try {
     $wrongStatus=Get-SqlServerLabSmtpTestServiceStatus -RunId $runId -StateRoot $root
     & $module {param($json)Set-Item -Path function:Invoke-LabSmtpRuntime -Value {param($Provider,$StateRoot,$RunId,$Arguments)[pscustomobject]@{ExitCode=0;Output=@($json)}}.GetNewClosure()} $inspect
     $access=Open-SqlServerLabSmtpTestServiceWebMail -RunId $runId -StateRoot $root -NoBrowser -Confirm:$false -LifetimeMinutes 1
+    Start-Sleep -Milliseconds 1300
+    $httpSettings = [Net.Http.HttpClientHandler]::new()
+    $httpSettings.AllowAutoRedirect = $false
+    $httpSettings.UseProxy = $false
+    $http = [Net.Http.HttpClient]::new($httpSettings)
+    $http.Timeout = [TimeSpan]::FromSeconds(4)
+    try {
+        try { $entry = $http.GetAsync([uri]$access.Url).GetAwaiter().GetResult() }
+        catch { throw 'SMTP_WEBMAIL_IDLE_ENTRY_NOT_CONFIRMED' }
+        try { $idleEntry = [int]$entry.StatusCode -eq 302 -and $entry.Headers.Contains('Set-Cookie') }
+        finally { $entry.Dispose() }
+    }
+    finally { $http.Dispose() }
     Get-Job -ErrorAction SilentlyContinue|Where-Object Name -like 'sql-lab-smtp-webmail-*'|ForEach-Object {Stop-Job -Job $_ -ErrorAction SilentlyContinue;Remove-Job -Job $_ -Force -ErrorAction SilentlyContinue}
     $checks=@(
         ([string]$binding.Provider -ceq 'docker')
@@ -33,7 +46,8 @@ try {
         ([string]$wrongStatus.Reason -ceq 'SMTP_WEBMAIL_RUNTIME_BINDING_INVALID')
         ([string]$access.Status -ceq 'OPENED')
         ([string]$access.Url -match '^http://127\.0\.0\.1:\d+/launch/[a-f0-9]{64}$')
+        ($idleEntry)
     )
     if(@($checks|Where-Object {$_}).Count-ne$checks.Count){throw 'SMTP_WEBMAIL_CHECK_FAILED'}
-    Write-Host 'SMTP WebMail: PASS (8/8)'
+    Write-Host "SMTP WebMail: PASS ($($checks.Count)/$($checks.Count))"
 } finally {Get-Job -ErrorAction SilentlyContinue|Where-Object Name -like 'sql-lab-smtp-webmail-*'|ForEach-Object {Stop-Job -Job $_ -ErrorAction SilentlyContinue;Remove-Job -Job $_ -Force -ErrorAction SilentlyContinue};Remove-Item -LiteralPath $root -Force -Recurse -ErrorAction SilentlyContinue}

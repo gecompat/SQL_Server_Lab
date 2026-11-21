@@ -66,10 +66,12 @@ function Start-LabSmtpTestServiceWebMailProxy {
         Write-Output ([pscustomobject]@{Ready=$true;Url=('http://127.0.0.1:'+$proxyPort+'/launch/'+$launchToken);ExpiresAt=(Get-Date).ToUniversalTime().AddMinutes($lifetimeMinutes).ToString('o')})
         $until=[datetime]::UtcNow.AddMinutes($lifetimeMinutes)
         try {
+            $pending = $listener.GetContextAsync()
             while($listener.IsListening -and [datetime]::UtcNow -lt $until) {
-                $pending=$listener.BeginGetContext($null,$null)
-                if(-not $pending.AsyncWaitHandle.WaitOne(500)){continue}
-                $context=$listener.EndGetContext($pending); $request=$context.Request; $response=$context.Response
+                if (-not $pending.Wait(500)) { continue }
+                $context = $pending.GetAwaiter().GetResult()
+                $pending = $listener.GetContextAsync()
+                $request=$context.Request; $response=$context.Response
                 try {
                     $path=[string]$request.Url.AbsolutePath
                     if($path -eq ('/launch/'+$launchToken)) { $response.StatusCode=302; $response.RedirectLocation='/'; $response.AppendCookie([Net.Cookie]::new('sql_lab_smtp_webmail',$sessionToken,'/','127.0.0.1')); $response.Close(); continue }
