@@ -353,7 +353,8 @@ try {
         -Condition ($script:Lab.Instances[0].Provider -eq $Provider) `
         -Message "Ergebnis: $($script:Lab.Instances[0].Provider)"
 
-    $providerCatalogPath = Join-Path (Split-Path -Parent $modulePath) "Providers/$Provider/provider.json"
+    $providerFolder = if ($Provider -eq 'docker') { 'Docker' } else { 'Podman' }
+    $providerCatalogPath = Join-Path (Split-Path -Parent $modulePath) "Providers/$providerFolder/provider.json"
     $automaticPortRange = (Get-Content -LiteralPath $providerCatalogPath -Raw -ErrorAction Stop | ConvertFrom-Json).portRange
     Assert-True `
         -Name 'Port im Lab-Bereich' `
