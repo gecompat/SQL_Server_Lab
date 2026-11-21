@@ -300,7 +300,7 @@ und deren Prüfstatus bleiben davon getrennt.
 | Cmdlet | Kurzbeschreibung | Konsolenmenü | Browser-GUI |
 |---|---|---|---|
 | [`New-SqlServerLabManifest`](../../Public/New-SqlServerLabManifest.ps1) | Erstellt ein Manifest schema-gesteuert interaktiv oder aus einem Objekt. | Lab-Umgebungen → Datenbanken, Samples und Skripte → Container-Manifest | über Adapter: `CreateContainerManifest` |
-| [`Test-SqlServerLabManifest`](../../Public/New-SqlServerLabManifest.ps1) | Prüft Schema, Kataloge und Runtime-Grenzen ohne Provisionierung. | im Manifest-Wizard über den gemeinsamen Core | – |
+| [`Test-SqlServerLabManifest`](../../Public/New-SqlServerLabManifest.ps1) | Prüft Schema, Kataloge und Runtime-Grenzen ohne Provisionierung. | Datenbanken, Samples und Skripte → Vorhandenes Lab-Manifest prüfen | Lab erstellen → Container-Manifest prüfen oder ausführen → Manifest prüfen |
 | [`New-SqlServerLab`](../../Public/New-SqlServerLab.ps1) | Erstellt eine Umgebung ad hoc oder per Manifest und kann einen detached Containerstore fortsetzen oder klonen. | Umgebungen planen und erstellen | über Adapter: `NewContainerLab`, `NewContainerLabFromManifest` |
 | [`Get-SqlServerLab`](../../Public/Get-SqlServerLab.ps1) | Zeigt State, Live-Status und sanitisierte Tool-Metadaten je Provider. | Lab-Umgebungen → Umgebung auswählen und verwalten → Status | über Core: Browserstatus stammt aus `Get-SqlServerLabWorkflow`, nicht aus diesem Export |
 | [`Get-SqlServerLabGeneratedSqlAccess`](../../Public/Get-SqlServerLabGeneratedSqlAccess.ps1) | Gibt generierte Hyper-V-SA-Zugangsdaten und den Connection String gezielt zurück. | Lab-Umgebungen → Umgebung auswählen und verwalten → Status/Zugang anzeigen | –; die GUI zeigt Connection Strings, aber keine gespeicherten Passwörter |

@@ -1027,6 +1027,30 @@ try {
                 finally { $bodyRead=$null; $package=$null }
                 continue
             }
+            if ($path -ceq '/api/manifest-check') {
+                try {
+                    if ($context.Request.HttpMethod -cne 'POST' -or -not $context.Request.HasEntityBody -or $context.Request.Url.Query) {
+                        throw 'MANIFEST_CHECK_REQUEST_INVALID'
+                    }
+                    $read = Read-UiJsonRequestBody -Request $context.Request -MaxBytes 24576
+                    if (-not $read.Allowed) { throw 'MANIFEST_CHECK_REQUEST_INVALID' }
+                    $document = [Text.Json.JsonDocument]::Parse([string]$read.Body)
+                    try {
+                        $properties = @($document.RootElement.EnumerateObject())
+                        if ($properties.Count -ne 1 -or $properties[0].Name -cne 'Path' -or
+                            $properties[0].Value.ValueKind -ne [Text.Json.JsonValueKind]::String) { throw 'MANIFEST_CHECK_REQUEST_INVALID' }
+                        $manifestPath = $properties[0].Value.GetString()
+                    }
+                    finally { $document.Dispose() }
+                    $view = & (Get-Module SqlServerLab) { param($file) Get-LabManifestCheckView -Path $file } $manifestPath
+                    Write-UiResponse -Context $context -Body ($view | ConvertTo-Json -Depth 8 -Compress) -ContentType 'application/json; charset=utf-8'
+                }
+                catch {
+                    Write-UiResponse -Context $context -Body '{"Code":"MANIFEST_CHECK_UNAVAILABLE"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                }
+                finally { $read=$null; $manifestPath=$null }
+                continue
+            }
             if ($path -ceq '/api/run-state-upgrade-plan') {
                 try {
                     $query = $context.Request.QueryString

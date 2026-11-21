@@ -136,6 +136,22 @@ check('Real batch overview shows typed progress and ignores invalid records', ()
   run('renderBatchOverview([])');
   assert.equal(node('batch-overview-table').hidden, true);
 });
+check('Manifest check sends only a local path and does not provision a lab', () => {
+  const requestCount = fetchRequests.length;
+  click(node('run-manifest'));
+  assert.ok(node('manifest-run-dialog').open);
+  node('manifest-run-path').value = '/synthetic/manifest.json';
+  node('manifest-run-password').value = 'synthetic-unused-password';
+  click(node('manifest-run-check'));
+  assert.equal(fetchRequests.length, requestCount + 1);
+  const [url, options] = fetchRequests.at(-1);
+  assert.equal(url, '/api/manifest-check');
+  assert.equal(options.method, 'POST');
+  assert.deepEqual(JSON.parse(options.body), { Path: '/synthetic/manifest.json' });
+  assert.equal(context.queued.length, 0);
+  node('manifest-run-dialog').close();
+  node('manifest-run-password').value = '';
+});
 check('Global resources retain the existing sources dialog; cancel dispatches nothing', () => {
   for (const id of ['media-sources']) {
     click(node(id)); assert.ok(node('media-sources-dialog').open);
