@@ -232,6 +232,7 @@ sources_of_truth:
   ai_shared_gateway_upstream_schema: Schemas/ai-shared-gateway-upstream-receipt.schema.json
   validation_ai_shared_gateway_upstream: Tests/Static/Invoke-AiSharedGatewayUpstreamChecks.ps1
   ai_model_catalog: Catalogs/ai-models.json
+  local_ollama_generation_guidance: Private/AiEndpoint.ps1, Public/Invoke-SqlServerLab.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/ollama-local-generation.js, Tests/Static/Fixtures/WorkflowSqlTargetChecks.cjs
   ai_model_catalog_schema: Schemas/ai-model-catalog.schema.json
   ai_endpoint_plan_schema: Schemas/ai-endpoint-plan.schema.json
   ai_runtime_journal_schema: Schemas/ai-runtime-journal.schema.json

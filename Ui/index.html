@@ -129,11 +129,12 @@
     </section>
     <section class="panel" data-workspace-area="hostmodels" hidden>
       <h2>Host-Dienste und Modelle</h2>
-      <p>Hier verwaltest du lokale Runtime-Pakete und Modelldateien. Vorhandene Ollama-Modelle kannst du über die Konsole aufrufen.</p>
+      <p>Hier verwaltest du lokale Runtime-Pakete und Modelldateien und rufst vorhandene Ollama-Modelle auf.</p>
       <p>Eigene llama.cpp-Sitzungen dieses UI-Modulhosts können geführt gestartet und bewusst gestoppt werden. Der geführte Start ist synthetisch geprüft; der native Nachweis steht noch aus. Fremdstarts, Restart sowie Load, Warmup, Unload und Modellwechsel bleiben offen. Der vorhandene erweiterte Secret-Preflight unten steuert keinen Dienst.</p>
       <button id="llama-session-open" type="button" class="button secondary">Eigene llama.cpp-Sitzung stoppen</button>
       <button id="llama-runtime-inventory-read" type="button" class="button secondary">Vorhandene llama.cpp-Pakete prüfen</button>
       <button id="llama-model-catalog-open" type="button" class="button secondary">llama.cpp-Modelle anzeigen und herunterladen</button>
+      <button id="ollama-local-generation-open" type="button" class="button secondary">Lokales Ollama-Modell aufrufen</button>
       <p id="llama-runtime-inventory-status" role="status"></p>
       <ul id="llama-runtime-inventory-items" hidden></ul>
       <button id="ai-compute-inventory-read" type="button" class="button secondary">CPU, GPU und NPU erfassen</button>
@@ -1005,6 +1006,21 @@
   <script src="tls-live-qualification.js"></script>
   <script src="sql-connection-clipboard.js"></script>
   <script src="app.js"></script>
+  <dialog id="ollama-local-generation-dialog">
+    <form id="ollama-local-generation-form">
+      <h2>Lokales Ollama-Modell aufrufen</h2>
+      <p>Das Modell muss im lokalen Ollama-Dienst installiert sein. Verwende für diese Abfrage synthetische Daten.</p>
+      <label>Modell<select id="ollama-local-generation-model" required></select></label>
+      <label>Lokaler Port<input id="ollama-local-generation-port" type="number" value="11434" min="1024" max="65535" required></label>
+      <label>Prompt<textarea id="ollama-local-generation-prompt" rows="5" maxlength="8192" required autocomplete="off"></textarea></label>
+      <p id="ollama-local-generation-status" role="status"></p>
+      <div class="dialog-actions">
+        <button id="ollama-local-generation-next" type="submit" class="button primary" disabled>Weiter zur Bestätigung</button>
+        <button id="ollama-local-generation-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </form>
+  </dialog>
+  <script src="ollama-local-generation.js"></script>
   <dialog id="llama-model-catalog-dialog">
     <form id="llama-model-catalog-form">
       <h2>llama.cpp-Modelle anzeigen und herunterladen</h2>

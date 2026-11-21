@@ -1571,10 +1571,20 @@ function Invoke-LabAiModelInteractive {
         $result = Invoke-SqlServerLabAiModel -ModelKey 'ollama-gpt-oss-120b-cloud' -InputText $prompt -DataClassification $classification -Lane cloud -AllowCloudEgress -Confirm
     }
     else {
+        $model = Select-LabConsoleDataItem -ScreenId 'ollama-local-generation' -Title 'Lokales Ollama-Modell auswählen' -Items @(
+            foreach ($item in Get-LabAiLocalGenerationCatalog) {
+                New-LabConsoleItem -Id $item.Id -Label $item.Name -Data $item.Id
+            }
+        )
+        if (-not $model) { return }
         $port = Read-Host '  Lokaler Ollama-Port [11434]'
-        if ([string]::IsNullOrWhiteSpace($port)) { $port = 11434 }
-        if ([string]$port -notmatch '^\d+$' -or [int]$port -lt 1024 -or [int]$port -gt 65535) { Write-LabError 'Ungültiger Port.'; return }
-        $result = Invoke-SqlServerLabAiModel -ModelKey 'ollama-gemma3-1b-local' -InputText $prompt -DataClassification synthetic-only -Lane local -LocalPort ([int]$port) -Confirm
+        if ([string]::IsNullOrWhiteSpace($port)) { $port = '11434' }
+        $localPort = 0
+        if ($port -notmatch '^\d+$' -or -not [int]::TryParse($port, [ref]$localPort) -or $localPort -lt 1024 -or $localPort -gt 65535) {
+            Write-LabError 'Ungültiger Port.'
+            return
+        }
+        $result = Invoke-SqlServerLabAiModel -ModelKey $model -InputText $prompt -DataClassification synthetic-only -Lane local -LocalPort $localPort -Confirm
     }
     Write-LabStatus -Label 'Modell' -Value "$($result.ModelKey) · $($result.Status)" -Color $(if ($result.Status -eq 'SUCCEEDED') { 'Green' } else { 'Yellow' })
     Write-Host "  $($result.Text)" -ForegroundColor White

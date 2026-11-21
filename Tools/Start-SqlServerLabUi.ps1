@@ -1265,6 +1265,17 @@ try {
                 finally { $bodyRead = $null; $modelPath = $null; $options = $null }
                 continue
             }
+            if ($path -ceq '/api/ollama-local-generation' -and $context.Request.HttpMethod -ceq 'GET') {
+                try {
+                    if ($context.Request.Url.Query) { throw 'OLLAMA_LOCAL_CATALOG_REQUEST_INVALID' }
+                    $models = @(& (Get-Module SqlServerLab) { Get-LabAiLocalGenerationCatalog })
+                    $json = ConvertTo-Json -InputObject $models -Depth 4 -Compress
+                    Write-UiResponse -Context $context -Body $json -ContentType 'application/json; charset=utf-8'
+                } catch {
+                    Write-UiResponse -Context $context -Body '{"Code":"OLLAMA_LOCAL_CATALOG_UNAVAILABLE"}' -ContentType 'application/json; charset=utf-8' -StatusCode 503
+                }
+                continue
+            }
             if ($path -ceq '/api/llama-model-catalog' -and $context.Request.HttpMethod -ceq 'GET') {
                 try {
                     $catalog = @(Get-SqlServerLabLlamaCppModel -ErrorAction Stop)

@@ -76,7 +76,7 @@ const context = vm.createContext({ document, console, URLSearchParams,
 const fetchRequests = [];
 const run = (code) => vm.runInContext(code, context, { timeout: 5000 });
 run(source);
-for (const asset of ['manifest-check.js', 'ssms-registration-export.js', 'cms-management.js', 'resource-plan.js', 'llama-model-catalog.js', 'windows-slot-pool.js']) {
+for (const asset of ['manifest-check.js', 'ssms-registration-export.js', 'cms-management.js', 'resource-plan.js', 'llama-model-catalog.js', 'windows-slot-pool.js', 'ollama-local-generation.js']) {
   if (html.includes('<script src="' + asset + '"></script>')) run(fs.readFileSync(path.join(root, 'Ui', asset), 'utf8'));
 }
 run('const actualQueueBackgroundAction = queueBackgroundAction; queueBackgroundAction = (action, parameters) => queued.push({action, parameters});');
@@ -944,6 +944,38 @@ async function main() {
     assert.deepEqual(JSON.parse(JSON.stringify(dispatch.parameters)),poolFields);
     assert.match(node('confirmation-message').textContent,/Slots 3 bis 4/);
     assert.match(node('confirmation-message').textContent,/temporären externen Netzwerkadapter/);
+  });
+  run("$('#confirmation-dialog').close(); pendingConfirmation = null;");
+  const localModelReads=[];
+  const localModel={Id:'ollama-gemma3-1b-local',Name:'gemma3:1b'};
+  const localModelRequestFields=['ModelKey','InputText','DataClassification','Lane','LocalPort','RetryCount'];
+  context.localModelRequestFields=localModelRequestFields;
+  context.sqlServerLabUiFetch=async (route,options)=>{localModelReads.push({route,options});return {ok:true,json:async()=>[localModel]};};
+  run("publicCommandCatalog=[{Name:'Invoke-SqlServerLabAiModel',RequiresConfirmation:true,ParameterSets:[{Name:'__AllParameterSets',Parameters:localModelRequestFields.map(Name=>({Name,Sensitive:false,IsCredential:false,Mandatory:['ModelKey','InputText','DataClassification'].includes(Name)}))}]}];");
+  await resourceEvent('ollama-local-generation-open');
+  check('Ollama dialog reads only catalog metadata when opened',()=>{
+    assert.equal(localModelReads.length,1);
+    assert.equal(localModelReads[0].route,'/api/ollama-local-generation');
+    assert.equal(localModelReads[0].options.body,undefined);
+    assert.equal(node('ollama-local-generation-next').disabled,true);
+  });
+  node('ollama-local-generation-model').value=localModel.Id;
+  await resourceEvent('ollama-local-generation-model','change');
+  node('ollama-local-generation-port').value='65536';
+  node('ollama-local-generation-prompt').value='synthetic browser request';
+  await resourceEvent('ollama-local-generation-form','submit');
+  check('Ollama guided entry rejects an out-of-range port before confirmation',()=>assert.equal(run('pendingConfirmation'),null));
+  node('ollama-local-generation-port').value='11434';
+  await resourceEvent('ollama-local-generation-form','submit');
+  check('Ollama confirms one fixed local-lane request without displaying the input text',()=>{
+    const dispatch=run('pendingConfirmation.parameters');
+    assert.deepEqual(JSON.parse(JSON.stringify(dispatch.parameters)),{
+      ModelKey:localModel.Id, InputText:'synthetic browser request', DataClassification:'synthetic-only', Lane:'local', LocalPort:11434, RetryCount:0,
+    });
+    assert.equal(node('ollama-local-generation-prompt').value,'');
+    assert.match(node('confirmation-message').textContent,/127\.0\.0\.1:11434/);
+    assert.doesNotMatch(node('confirmation-message').textContent,/synthetic browser request/);
+    assert.equal(localModelReads.length,1);
   });
   run("$('#confirmation-dialog').close(); pendingConfirmation = null;");
   const cmsRequests=[];

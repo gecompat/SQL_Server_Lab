@@ -1102,6 +1102,13 @@ Katalogrevision und SHA-256. Der Download wird nach erfolgreicher Prüfung
 unter `AI/Models` im Medienordner abgelegt. Das Ergebnis steht im Browser
 unter **Vorgänge**. Start und Modellnutzung erfolgen in getrennten Schritten.
 
+Über **Host-Dienste und Modelle → Lokales Ollama-Modell aufrufen** kannst
+du ein katalogisiertes Generationsmodell wählen, das im lokalen Ollama-Dienst
+bereitsteht. Gib dessen Loopback-Port und einen synthetischen Prompt ein.
+Erst nach Bestätigung sendet der Browserauftrag eine Abfrage an den lokalen
+Dienst. Die Antwort steht unter **Vorgänge**. Für die ausdrücklich
+freizugebende Cloud-Lane gibt es weiterhin den CLI-Einstieg.
+
 Der geführte eigene llama.cpp-Sitzungsstop ist unter „Host-Dienste und Modelle“
 über Auswahl, Vorschau, Abbruch und bewusste Bestätigung erreichbar. Die
 Verbraucher-Coverage bleibt UNKNOWN; deklarierte geschützte Verbraucher sperren
