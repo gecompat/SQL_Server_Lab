@@ -918,7 +918,7 @@ Wähle in der CLI unter **Lab-Umgebungen → Umgebung auswählen und verwalten**
 das laufende Lab und dann **Volltextsuche ändern**. Hat das Lab mehrere
 SQL-Instanzen, wähle die betroffene Instanz. Im Browser steht die Aktion
 unter **Lab verwalten** direkt an der laufenden SQL-Instanz. Bei Hyper-V
-heißt sie **Volltextsuche / FILESTREAM**.
+heißt sie **Volltextsuche / FILESTREAM** und gilt für die registrierte SQL-Standardinstanz.
 
 Wähle **Nachinstallieren** oder **Deaktivieren** und bestätige die Änderung.
 Beim Deaktivieren entfernt das Lab die Volltextkomponente. Abhängige

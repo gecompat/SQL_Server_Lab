@@ -912,7 +912,7 @@ function renderHyperVLabs(items) {
       : '';
     const resource = resourceForInstance(item.Resources, item.InstanceId);
     const actions = [
-      (running && isSqlLab) ? '<button class="button secondary" data-sql-features="true" data-run="' + escapeHtml(item.RunId) + '" data-instance="' + escapeHtml(sqlOperationInstanceId) + '" data-provider="hyperv" data-lab-name="' + escapeHtml(item.Name || item.RunId) + '">Volltextsuche / FILESTREAM</button>' : '',
+      (running && isSqlLab && item.InstanceId) ? '<button class="button secondary" data-sql-features="true" data-run="' + escapeHtml(item.RunId) + '" data-instance="' + escapeHtml(item.InstanceId) + '" data-provider="hyperv" data-lab-name="' + escapeHtml(item.Name || item.RunId) + '">Volltextsuche / FILESTREAM</button>' : '',
       '<button class="button secondary" data-hyperv-action="' + (running ? 'StopLabReconcile' : 'StartLabReconcile') + '" data-run="' + escapeHtml(item.RunId) + '">' + (running ? 'Stoppen' : 'Starten') + '</button>',
       '<button class="button secondary" data-lab-resources="true" data-run="' + escapeHtml(item.RunId) + '" data-provider="hyperv" data-memory="' + escapeHtml(resource?.MemoryStartupMB || resource?.memoryStartupMB || '') + '" data-cpu="' + escapeHtml(resource?.ProcessorCount || resource?.processorCount || '') + '" data-requires-stopped="true">CPU / Speicher ändern</button>',
       (!running && !persistent) ? '<button class="button secondary" data-hyperv-action="EnableHyperVLabPersistentData" data-run="' + escapeHtml(item.RunId) + '">Daten-VHDX anhängen</button>' : '',

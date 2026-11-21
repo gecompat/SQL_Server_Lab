@@ -1198,6 +1198,15 @@ async function main() {
   check('Default SQL template choices leave feature intent absent', () => {
     assert.deepEqual(JSON.parse(run("JSON.stringify(collectHyperVSqlFeatureParameters({Workload:'sql'}))")), {});
   });
+  check('Hyper-V feature action binds the registered instance instead of a discovered named instance', () => {
+    const lab = { RunId: 'feature-vm', InstanceId: 'registered', Workload: 'sql', State: 'RUNNING',
+      VMState: 'Running', SqlInstances: [{ InstanceId: 'REPORTING', Name: 'REPORTING', IsDefault: false }] };
+    run('renderHyperVLabs(' + JSON.stringify([lab]) + ')');
+    assert.match(node('hyperv-labs').innerHTML, /data-sql-features="true" data-run="feature-vm" data-instance="registered"/);
+    delete lab.InstanceId;
+    run('renderHyperVLabs(' + JSON.stringify([lab]) + ')');
+    assert.doesNotMatch(node('hyperv-labs').innerHTML, /data-sql-features/);
+  });
   for (const provider of ['docker', 'podman', 'hyperv']) {
     const button = { dataset: { run: 'synthetic-feature-run', instance: 'secondary', provider, labName: 'SQL-Lab' } };
     const event = { target: { closest: selector => selector === '[data-sql-features]' ? button : null } };
