@@ -605,6 +605,7 @@ $tlsCreationStore = New-UiTlsCreationStore
 $persistentJobs = @{}
 $runArtifactRemovalPreviews = @{}
 $containerAutoStartRecoverySelections = @{}
+$containerAutoStartChangeStore = @{}
 
 try {
     $commandGrantStore = New-UiCommandGrantStore -Session $operatorSession
@@ -708,24 +709,33 @@ try {
                 }catch{Write-UiResponse -Context $context -Body '{"Code":"TLS_LIVE_HTTP_REJECTED"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400}
                 continue
             }
-            if ($path -ceq '/api/container-autostart-recovery') {
+            if ($path -cin @('/api/container-autostart-recovery', '/api/container-autostart-change')) {
                 try {
                     $request = $context.Request
-                    if ($request.Url.Query) { throw 'AUTOSTART_RECOVERY_BROWSER_QUERY_INVALID' }
+                    if ($request.Url.Query) { throw 'AUTOSTART_BROWSER_QUERY_INVALID' }
                     $module = Get-Module SqlServerLab
+                    $recovery = $path -ceq '/api/container-autostart-recovery'
                     if ($request.HttpMethod -ceq 'GET' -and -not $request.HasEntityBody) {
-                        $view = & $module { param($selections) Read-LabContainerAutoStartRecoveryBrowser -Selections $selections } $containerAutoStartRecoverySelections
+                        $view = if ($recovery) {
+                            & $module { param($selections) Read-LabContainerAutoStartRecoveryBrowser -Selections $selections } $containerAutoStartRecoverySelections
+                        } else {
+                            & $module { param($store) Read-LabContainerAutoStartChangeBrowser -Store $store } $containerAutoStartChangeStore
+                        }
                     }
                     elseif ($request.HttpMethod -ceq 'POST' -and [string]$request.Headers['Origin'] -ceq $url.TrimEnd('/')) {
-                        $body = Read-UiSpecializedJsonRequestBody -Request $request -MaxCharacters 1024 -LimitErrorCode 'AUTOSTART_RECOVERY_BROWSER_BODY_LIMIT'
-                        $view = & $module { param($selections, $body) Invoke-LabContainerAutoStartRecoveryBrowser -Selections $selections -Body $body } $containerAutoStartRecoverySelections $body
+                        $body = Read-UiSpecializedJsonRequestBody -Request $request -MaxCharacters 1024 -LimitErrorCode 'AUTOSTART_BROWSER_BODY_LIMIT'
+                        $view = if ($recovery) {
+                            & $module { param($selections, $body) Invoke-LabContainerAutoStartRecoveryBrowser -Selections $selections -Body $body } $containerAutoStartRecoverySelections $body
+                        } else {
+                            & $module { param($store, $body) Invoke-LabContainerAutoStartChangeBrowser -Store $store -Body $body } $containerAutoStartChangeStore $body
+                        }
                     }
-                    else { throw 'AUTOSTART_RECOVERY_BROWSER_REQUEST_INVALID' }
+                    else { throw 'AUTOSTART_BROWSER_REQUEST_INVALID' }
                     Write-UiResponse -Context $context -Body ($view | ConvertTo-Json -Depth 4 -Compress) -ContentType 'application/json; charset=utf-8'
                 }
                 catch {
                     if (Write-UiBodyFailureResponse -Context $context -ErrorRecord $_) { continue }
-                    Write-UiResponse -Context $context -Body '{"Code":"AUTOSTART_RECOVERY_BROWSER_UNCONFIRMED"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                    Write-UiResponse -Context $context -Body '{"Code":"AUTOSTART_BROWSER_UNCONFIRMED"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400
                 }
                 continue
             }

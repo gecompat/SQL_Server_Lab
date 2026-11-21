@@ -170,6 +170,13 @@ UNKNOWN/DRIFTED, Mountcounts und NOT_CHECKED bleiben sichtbar. Schließen,
 Bearbeitung und neue Requests verwerfen späte Antworten; ein versandter Read
 darf fertiglaufen.
 
+Die getrennten Fachaktionen **Container-Autostart ändern** und
+**Container-Autostart-Recovery fortsetzen** verwenden
+`Get-SqlServerLabContainerAutoStartPlan`, `Set-SqlServerLabContainerAutoStart`
+bzw. `Resume-SqlServerLabContainerAutoStart`. Die Oberfläche bindet den
+bestätigten Plan oder die konkrete Journaloperation im Server.
+[Bedienung und Fehlerpfade](../Documentation/HowTo/WORKFLOW_UI.md#docker-und-podman-autostart-ändern).
+
 Die [Validierungsstrategie](../Documentation/Quality/LOCAL_VALIDATION_STRATEGY.md#getrennte-autostart-core-abnahme)
 enthält die getrennte Core-, CLI- und Browser-/HTTP-Abnahmehistorie.
 [Bekannte Grenzen](../Documentation/Quality/KNOWN_LIMITATIONS.md#container-autostart-nur-vorprüfen)

@@ -8,7 +8,7 @@ const root = path.resolve(__dirname, '../../..');
 const app = fs.readFileSync(path.join(root, 'Ui/app.js'), 'utf8');
 const html = fs.readFileSync(path.join(root, 'Ui/index.html'), 'utf8');
 const start = app.indexOf('function setupContainerAutoStartRecovery()');
-const end = app.indexOf('async function readLlamaRuntimeInventory()', start);
+const end = app.indexOf('setupContainerAutoStartRecovery();', start) + 'setupContainerAutoStartRecovery();'.length;
 assert.ok(start >= 0 && end > start);
 const elements = {};
 for (const name of ['open', 'dialog', 'target', 'confirm', 'status', 'read', 'apply', 'close']) {

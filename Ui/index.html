@@ -242,6 +242,7 @@
       <section class="panel compact">
         <div class="section-heading"><div><p class="eyebrow">CONTAINER</p><h2>Aktive Lab-Umgebungen</h2></div></div>
       <button id="autostart-preview-open" type="button" class="button secondary">Container-Autostart vorprüfen · PLAN_ONLY</button>
+      <button id="autostart-change-open" type="button" class="button secondary">Container-Autostart ändern</button>
       <button id="autostart-recovery-open" type="button" class="button secondary">Container-Autostart-Recovery fortsetzen</button>
       <button id="port-preview-open" type="button" class="button secondary">SQL-Hostport vorprüfen · PLAN_ONLY</button>
       <div id="active-labs" class="list"></div>
@@ -610,6 +611,22 @@
     </div>
   </dialog>
   <script src="container-autostart-preview.js"></script>
+
+  <dialog id="autostart-change-dialog">
+    <div class="read-only-dialog-content">
+      <div class="dialog-heading"><h2>Container-Autostart ändern</h2></div>
+      <label>Registrierte laufende SQL-Instanz<select id="autostart-change-target" disabled></select></label>
+      <label>Zielpolicy<select id="autostart-change-policy"><option value="on">on</option><option value="off">off</option></select></label>
+      <p id="autostart-change-status" role="status"></p>
+      <label><input id="autostart-change-confirm" type="checkbox" disabled> Angezeigte Änderung bestätigen</label>
+      <div class="dialog-actions">
+        <button id="autostart-change-read" type="button" class="button secondary">Ziele neu lesen</button>
+        <button id="autostart-change-plan" type="button" class="button secondary" disabled>Änderung prüfen</button>
+        <button id="autostart-change-apply" type="button" class="button primary" disabled>Autostart ändern</button>
+        <button id="autostart-change-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </div>
+  </dialog>
 
   <dialog id="autostart-recovery-dialog">
     <div class="read-only-dialog-content">

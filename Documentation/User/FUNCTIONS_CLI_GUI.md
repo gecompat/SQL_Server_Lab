@@ -7,6 +7,7 @@ Unter **Lab-Umgebungen → Docker-/Podman-Autostart ändern** zeigen
 `Set-SqlServerLabContainerAutoStart` die aktuelle und die gewünschte Policy.
 Die Änderung bindet den frisch gelesenen Plan und erfordert eine ausdrückliche
 Bestätigung. Die Restartpolicy kann damit ohne Neustart gesetzt werden.
+Im Browser heißt der Einstieg **Lab verwalten → Container-Autostart ändern**.
 
 Mit **Docker-/Podman-Autostart-Recovery fortsetzen** bestätigt der Benutzer
 eine konkrete Journaloperation. `Resume-SqlServerLabContainerAutoStart`

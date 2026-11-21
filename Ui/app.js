@@ -3566,6 +3566,108 @@ function setupContainerAutoStartRecovery() {
 }
 setupContainerAutoStartRecovery();
 
+function setupContainerAutoStartChange() {
+  const el = name => $('#autostart-change-' + name);
+  const dialog = el('dialog');
+  const target = el('target');
+  const policy = el('policy');
+  const confirm = el('confirm');
+  const status = el('status');
+  let targets = new Set();
+  let plan = null;
+  let busy = '';
+  let revision = 0;
+  const isToken = value => typeof value === 'string' && /^[a-f0-9]{32}$/.test(value);
+
+  function updateControls() {
+    target.disabled = !!busy || targets.size === 0;
+    policy.disabled = !!busy;
+    confirm.disabled = !!busy || !plan;
+    el('plan').disabled = !!busy || !targets.has(target.value);
+    el('apply').disabled = !!busy || !plan || !confirm.checked;
+    el('read').disabled = !!busy;
+    el('close').disabled = busy === 'Apply';
+  }
+
+  function invalidate() {
+    plan = null;
+    confirm.checked = false;
+    updateControls();
+  }
+
+  async function request(action) {
+    if (busy || !dialog.open) return;
+    if (action === 'Plan' && !targets.has(target.value)) return;
+    if (action === 'Apply' && (!plan || !confirm.checked)) return;
+    const selection = action === 'Apply' ? plan : target.value;
+    const desired = policy.value;
+    const current = ++revision;
+    busy = action;
+    invalidate();
+    if (action !== 'Plan') { targets.clear(); target.replaceChildren(); }
+    updateControls();
+    status.textContent = action === 'Apply' ? 'Bestätigte Änderung wird ausgeführt …' : 'Ergebnis wird gelesen …';
+    try {
+      const body = action === 'Plan' ? { Action: action, AutoStart: desired, Selection: selection } :
+        { Action: action, Confirmed: true, Selection: selection };
+      const response = await sqlServerLabUiFetch('/api/container-autostart-change', action === 'Read' ?
+        { cache: 'no-store' } : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      if (!response.ok) throw new Error('AUTOSTART_UNCONFIRMED');
+      const view = await response.json();
+      if (current !== revision || !dialog.open) return;
+      if (action === 'Read') {
+        if (!Array.isArray(view?.Items) || view.Items.length > 4096 || !view.Items.every(item =>
+          isToken(item?.Selection) && typeof item.RunId === 'string' && /^[0-9a-f-]{36}$/.test(item.RunId) &&
+          typeof item.InstanceId === 'string' && /^[A-Za-z][A-Za-z0-9_-]{0,63}$/.test(item.InstanceId) &&
+          ['docker', 'podman'].includes(item.Provider))) throw new Error('AUTOSTART_UNCONFIRMED');
+        targets = new Set(view.Items.map(item => item.Selection));
+        if (targets.size !== view.Items.length) throw new Error('AUTOSTART_UNCONFIRMED');
+        for (const item of view.Items) {
+          const option = document.createElement('option');
+          option.value = item.Selection;
+          option.textContent = item.RunId + ' · ' + item.InstanceId + ' · ' + item.Provider;
+          target.append(option);
+        }
+        target.selectedIndex = -1;
+        status.textContent = targets.size ? 'Instanz und Zielpolicy auswählen und Änderung prüfen.' : 'Keine passende laufende SQL-Instanz gefunden.';
+      } else if (action === 'Plan') {
+        if (!view || typeof view.NoChange !== 'boolean' || !['ON', 'OFF'].includes(view.Current) ||
+            view.Desired !== desired.toUpperCase() || (view.NoChange ? view.Selection !== null : !isToken(view.Selection))) {
+          throw new Error('AUTOSTART_UNCONFIRMED');
+        }
+        plan = view.Selection;
+        status.textContent = 'Aktuell ' + view.Current + ' · Ziel ' + view.Desired +
+          (view.NoChange ? ' · Bereits eingestellt.' : ' · Änderung ohne Containerneustart. Bestätigung erforderlich.');
+      } else {
+        if (view?.Status !== 'SUCCEEDED') throw new Error('AUTOSTART_UNCONFIRMED');
+        status.textContent = 'Autostart geändert.';
+      }
+    } catch {
+      if (current === revision && dialog.open) {
+        if (action !== 'Plan') { targets.clear(); target.replaceChildren(); }
+        status.textContent = action === 'Apply' ? 'Ergebnis unbestätigt. Aktuellen Zustand und offene Recovery prüfen.' :
+          'Ziel oder Plan konnte nicht sicher gelesen werden.';
+      }
+    } finally {
+      if (current === revision) { busy = ''; updateControls(); }
+    }
+  }
+
+  el('open').addEventListener('click', () => { dialog.showModal(); return request('Read'); });
+  for (const control of [target, policy]) control.addEventListener('change', () => {
+    invalidate();
+    status.textContent = 'Auswahl geändert. Aktuelle Vorschau lesen.';
+  });
+  confirm.addEventListener('change', updateControls);
+  el('read').addEventListener('click', () => request('Read'));
+  el('plan').addEventListener('click', () => request('Plan'));
+  el('apply').addEventListener('click', () => request('Apply'));
+  el('close').addEventListener('click', () => { if (busy !== 'Apply') dialog.close(); });
+  dialog.addEventListener('cancel', event => { if (busy === 'Apply') event.preventDefault(); });
+  dialog.addEventListener('close', () => { revision++; busy = ''; targets.clear(); target.replaceChildren(); invalidate(); });
+}
+setupContainerAutoStartChange();
+
 async function readLlamaRuntimeInventory() {
   const button = $('#llama-runtime-inventory-read');
   const status = $('#llama-runtime-inventory-status');

@@ -347,6 +347,13 @@ der Dialog direkt. Bei einer Änderung bestätigt der Benutzer den aktuellen
 Plan. Erhält die CLI keine sichere Quittung, prüfe den aktuellen Zustand und
 offene Recovery vor einer erneuten Änderung.
 
+Im Browser öffnet **Lab verwalten → Container-Autostart ändern** denselben
+Ablauf. Nach **Änderung prüfen** zeigt der Dialog Ist- und Zielpolicy. Erst
+das Kontrollkästchen und **Autostart ändern** führen den gebundenen Plan aus.
+Eine andere Instanz oder Policy erfordert eine neue Vorschau. Der Server
+nimmt die Bestätigung einmal und innerhalb von fünf Minuten nach dem Lesen
+der Ziele an.
+
 **Docker-/Podman-Autostart-Recovery fortsetzen** liest die passenden
 Journaloperationen. Bestätige die gewünschte Operation. Wird das Journal
 zwischen Auswahl und Ausführung ersetzt, liest der Benutzer die Auswahl

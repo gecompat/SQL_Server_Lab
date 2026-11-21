@@ -6336,6 +6336,20 @@ function Assert-LabContainerAutoStartPlanConsoleContract {
     }
 }
 
+function Invoke-LabConfirmedContainerAutoStartChange {
+    param([Parameter(Mandatory)]$Target, [string]$AutoStart, [string]$PlanKey)
+
+    $result = Set-SqlServerLabContainerAutoStart -RunId $Target.RunId -InstanceId $Target.InstanceId -AutoStart $AutoStart -ExpectedAutoStartPlanKey $PlanKey -StateRoot $Target.StateRoot -Confirm:$false
+    if (-not $result -or $result.RunId -isnot [string] -or $result.InstanceId -isnot [string] -or $result.Provider -isnot [string] -or
+        $result.Status -isnot [string] -or $result.Changed -isnot [bool] -or $result.NoChange -isnot [bool] -or $result.AutoStart -isnot [string] -or
+        $result.RunId -cne $Target.RunId -or $result.InstanceId -cne $Target.InstanceId -or
+        $result.Provider -cne $Target.Provider -or $result.Status -cne 'SUCCEEDED' -or
+        $result.AutoStart -cne $AutoStart -or -not $result.Changed -or $result.NoChange) {
+        throw 'AUTOSTART_APPLY_RESULT_INVALID'
+    }
+    [pscustomobject]@{ Status = 'SUCCEEDED' }
+}
+
 function Invoke-LabContainerAutoStartInteractive {
     <#
     .SYNOPSIS Ändert nach Vorschau und ausdrücklicher Bestätigung die Container-Restartpolicy.
@@ -6372,14 +6386,7 @@ function Invoke-LabContainerAutoStartInteractive {
         if($plan.NoChange){Write-LabInfo 'NO_OP · keine Änderung.';$null=Wait-LabConsoleAcknowledgement;return}
         if(-not(Read-LabConfirm -Prompt 'Den gebundenen Autostartplan jetzt ausführen?' -Default $false)){return}
 
-        $result=Set-SqlServerLabContainerAutoStart -RunId $selected.RunId -InstanceId $selected.InstanceId -AutoStart $desired -ExpectedAutoStartPlanKey $plan.PlanKey -StateRoot $selected.StateRoot -Confirm:$false
-        if(-not $result -or $result.RunId -isnot [string] -or $result.InstanceId -isnot [string] -or $result.Provider -isnot [string] -or
-            $result.Status -isnot [string] -or $result.Changed -isnot [bool] -or $result.NoChange -isnot [bool] -or $result.AutoStart -isnot [string] -or
-            $result.RunId -cne $selected.RunId -or $result.InstanceId -cne $selected.InstanceId -or
-            $result.Provider -cne $selected.Provider -or $result.Status -cne 'SUCCEEDED' -or
-            $result.AutoStart -cne $desired -or -not $result.Changed -or $result.NoChange) {
-            throw 'AUTOSTART_APPLY_CONSOLE_RESULT_INVALID'
-        }
+        $result = Invoke-LabConfirmedContainerAutoStartChange -Target $selected -AutoStart $desired -PlanKey $plan.PlanKey
         Write-LabSuccess ('Container-Autostart: {0}.' -f $result.Status)
         $null=Wait-LabConsoleAcknowledgement
     }

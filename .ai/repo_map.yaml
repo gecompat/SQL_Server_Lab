@@ -619,6 +619,8 @@ sources_of_truth:
   guided_container_autostart_preview_menu: Public/BatchConsole.ps1, Private/ConsoleHelp.ps1 # Lab-Umgebungen / Container-Autostart vorprüfen
   validation_guided_container_autostart_preview: Tests/Static/Fixtures/ContainerAutoStartPreviewConsoleChecks.ps1 # existing ContainerReconcile suite; actual menu/dual router/module/public route, synthetic inspect only
   guided_container_autostart_change: Public/Invoke-SqlServerLab.ps1, Public/BatchConsole.ps1, Private/ConsoleHelp.ps1
+  guided_container_autostart_change_browser: Private/ContainerAutoStartChangeBrowser.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/app.js
+  validation_guided_container_autostart_change_browser: Tests/Static/Fixtures/ContainerAutoStartChangeBrowserChecks.ps1, Tests/Static/Fixtures/ContainerAutoStartChangeBrowserUiChecks.cjs
   guided_container_autostart_recovery: Public/Resume-SqlServerLabContainerAutoStart.ps1 # optional confirmed journal operation ID, rechecked under the run mutex
   guided_container_autostart_recovery_browser: Private/ContainerAutoStartRecoveryBrowser.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/app.js
   validation_guided_container_autostart_recovery_browser: Tests/Static/Fixtures/ContainerAutoStartRecoveryBrowserChecks.ps1, Tests/Static/Fixtures/ContainerAutoStartRecoveryBrowserUiChecks.cjs
