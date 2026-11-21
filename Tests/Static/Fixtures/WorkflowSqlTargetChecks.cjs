@@ -13,6 +13,7 @@ class Element {
     this.id = id; this.value = ''; this.textContent = ''; this.innerHTML = '';
     this.hidden = false; this.disabled = false; this.open = false; this.dataset = {};
     this.events = new Map(); this.selectedOptions = []; this.options = [];
+    this.children = [];
     this.classList = { add() {}, remove() {}, toggle() {} };
   }
   addEventListener(type, callback) { this.events.set(type, [...(this.events.get(type) || []), callback]); }
@@ -22,6 +23,9 @@ class Element {
   removeAttribute(name) { delete this[name]; }
   closest(selector) { return this.id === 'jobs' && selector === '.panel' ? workspaceElements.find((item) => item.dataset.workspaceArea === 'messages') : null; }
   scrollIntoView() { this.scrolled = true; }
+  append(child) { this.children.push(child); }
+  replaceChildren(...children) { this.children = children; }
+  get childElementCount() { return this.children.length; }
   querySelectorAll(selector) {
     if (this.id === 'initial-setup-dialog' && selector === '[value="cancel"]') return [nodes.get('initial-setup-close'), nodes.get('initial-setup-close-bottom')];
     return this.id === 'container-operation-dialog' && selector === 'input[type="password"]'
@@ -43,6 +47,7 @@ for (const match of html.matchAll(/<button\b[^>]*\bdata-provider-capability="hyp
 }
 const documentEvents = new Map();
 const document = {
+  createElement(tag) { return new Element(tag); },
   querySelector(selector) {
     if (!selector.startsWith('#')) return null;
     const element = nodes.get(selector.slice(1));
@@ -117,6 +122,19 @@ check('Real workflow refresh preserves selected area and draft input when Hyper-
   assert.ok(hyperVButtons.length >= 3);
   assert.ok(hyperVButtons.every((button) => button.disabled && button.title));
   assert.equal(node('connection-endpoints').innerHTML.includes('Keine registrierten'), true);
+});
+check('Real batch overview shows typed progress and ignores invalid records', () => {
+  run('renderBatchOverview(' + JSON.stringify([
+    { BatchId: 'batch-20261121133701-aabb0034', Status: 'Running', Percent: 25, Total: 4, Failed: 1, Cancelled: 0 },
+    { BatchId: 'invalid-id', Status: 'Running', Percent: 25, Total: 4, Failed: 1, Cancelled: 0 }
+  ]) + ')');
+  const rows = node('batch-overview-rows');
+  assert.equal(rows.children.length, 1);
+  assert.deepEqual(rows.children[0].children.map(cell => cell.textContent),
+    ['batch-20261121133701-aabb0034', 'Läuft', '25 %', '4', '1', '0']);
+  assert.equal(node('batch-overview-table').hidden, false);
+  run('renderBatchOverview([])');
+  assert.equal(node('batch-overview-table').hidden, true);
 });
 check('Global resources retain the existing sources dialog; cancel dispatches nothing', () => {
   for (const id of ['media-sources']) {
