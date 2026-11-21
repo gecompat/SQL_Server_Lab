@@ -183,6 +183,7 @@ function Invoke-LabMenuAction {
         return
     }
     if ($ActionName -eq 'DiagnosticBundle') { Show-LabDiagnosticBundleInteractive; return }
+    if ($ActionName -eq 'RuntimeMaintenancePreview') { Show-LabRuntimeMaintenancePreviewInteractive; return }
     if ($ActionName -eq 'RunStateUpgradePlan') { Show-LabRunStateUpgradePlanInteractive; return }
     if ($ActionName -eq 'ManifestCheck') { Show-LabManifestCheckInteractive; return }
     if ($ActionName -eq 'ContainerToolCheck') { Invoke-LabContainerToolCheckInteractive; return }

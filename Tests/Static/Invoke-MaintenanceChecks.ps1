@@ -21,6 +21,8 @@ try {
         $now=[DateTimeOffset]::UtcNow.AddHours(-2).ToString('o')
         function Get-LabStateRoot { 'synthetic-state' }
         function Get-LabActiveRuns {
+            param([switch]$NoWrite)
+            if (-not $NoWrite) { throw 'MAINTENANCE_RUN_INVENTORY_MUST_BE_READ_ONLY' }
             @(
                 [pscustomobject]@{runId='11111111-1111-1111-1111-111111111111';scopeId='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';state='RUNNING';updatedAt=$now},
                 [pscustomobject]@{runId='22222222-2222-2222-2222-222222222222';scopeId='bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';state='STOPPED';updatedAt=$now},
@@ -65,6 +67,75 @@ try {
     $schema=Get-Content (Join-Path $repoRoot 'Schemas\lab-maintenance-plan.schema.json') -Raw -Encoding utf8
     Add-CheckResult -Name 'Maintenance-Plan erfüllt sein JSON-Schema' -Success (
         Test-Json -Json ($plan|ConvertTo-Json -Depth 30) -Schema $schema)
+
+    $guidedPlan = & $module {
+        param($SyntheticPlan)
+        function Get-SqlServerLabMaintenancePlan {
+            [CmdletBinding()] param($Mode)
+            if ($Mode -cne 'Runtime') { throw 'MAINTENANCE_GUIDANCE_MODE_INVALID' }
+            $SyntheticPlan
+        }
+        Get-LabRuntimeMaintenancePreview
+    } $plan
+    Add-CheckResult -Name 'Geführter Wartungsplan projiziert Providerstatus und Zähler ohne Aktions- oder Pfaddaten' -Success (
+        $guidedPlan.ContractVersion -ceq 'SqlServerLab.RuntimeMaintenancePreview/1.0' -and
+        $guidedPlan.Status -ceq $plan.Status -and @($guidedPlan.Providers).Count -eq 3 -and
+        $guidedPlan.Summary.Actions -eq $plan.Actions.Count -and $guidedPlan.Summary.LegacyApproval -eq 1 -and
+        ($guidedPlan | ConvertTo-Json -Depth 6 -Compress) -notmatch 'synthetic-temp|lab-orphan|ResourceId|RunId|ForeignResources'
+    )
+    $guidedConsole = & $module {
+        param($SyntheticView)
+        function Show-LabSubMenu { param($ScreenId,$Title,$Subtitle,$Items) $Items }
+        function Get-LabRuntimeMaintenancePreview { $SyntheticView }
+        function Wait-LabConsoleAcknowledgement { param($Prompt) Write-Output 'ACKNOWLEDGED' }
+        $items = @(Show-LabMaintenanceMenu)
+        $entry = @($items | Where-Object Id -ceq 'RuntimeMaintenancePreview')
+        if ($entry.Count -ne 1 -or @($items | Where-Object Shortcut -ceq $entry[0].Shortcut).Count -ne 1) { return $false }
+        $output = (Invoke-LabMenuAction -ActionName $entry[0].Id 6>&1) -join [Environment]::NewLine
+        return $output -match 'Vorgeschlagene Aktionen: \d+' -and $output -match 'ACKNOWLEDGED'
+    } $guidedPlan
+    Add-CheckResult -Name 'Schneller Wartungsplan ist per eigener Menüauswahl erreichbar und kehrt nach Bestätigung zurück' -Success $guidedConsole
+    $routeAst = [Management.Automation.Language.Parser]::ParseFile(
+        (Join-Path $repoRoot 'Tools/Start-SqlServerLabUi.ps1'), [ref]$null, [ref]$null)
+    $route = $routeAst.Find({
+        param($node)
+        $node -is [Management.Automation.Language.IfStatementAst] -and
+            $node.Clauses[0].Item1.Extent.Text -ceq '$path -ceq ''/api/runtime-maintenance-preview'''
+    }, $true)
+    $handler = [scriptblock]::Create('foreach ($once in @(1)) ' + $route.Clauses[0].Item2.Extent.Text)
+    $guidedHttp = & {
+        $responses = [Collections.Generic.List[object]]::new()
+        $reads = [Collections.Generic.List[string]]::new()
+        function Write-UiResponse {
+            param($Context,$Body,$ContentType,$StatusCode=200)
+            $responses.Add([pscustomobject]@{ Status=$StatusCode; Body=$Body | ConvertFrom-Json })
+        }
+        function Get-Module {
+            param($Name)
+            $reads.Add($Name)
+            {
+                param($Action)
+                if ($Action.ToString().Trim() -cne 'Get-LabRuntimeMaintenancePreview -ErrorAction Stop') {
+                    throw 'MAINTENANCE_PREVIEW_UNEXPECTED_DISPATCH'
+                }
+                $guidedPlan
+            }
+        }
+        $request = [pscustomobject]@{ HttpMethod='GET'; HasEntityBody=$false; Url=[uri]'http://localhost/api/runtime-maintenance-preview' }
+        $context = [pscustomobject]@{ Request=$request }
+        & $handler
+        $request.Url = [uri]'http://localhost/api/runtime-maintenance-preview?mode=Full'
+        & $handler
+        $request.Url = [uri]'http://localhost/api/runtime-maintenance-preview'
+        $request.HttpMethod = 'POST'
+        & $handler
+        $reads.Count -eq 1 -and $reads[0] -ceq 'SqlServerLab' -and $responses.Count -eq 3 -and
+            $responses[0].Status -eq 200 -and $responses[0].Body.ContractVersion -ceq $guidedPlan.ContractVersion -and
+            @($responses[1..2] | Where-Object {
+                $_.Status -ne 400 -or $_.Body.Code -cne 'RUNTIME_MAINTENANCE_PREVIEW_REQUEST_INVALID'
+            }).Count -eq 0
+    }
+    Add-CheckResult -Name 'Wartungsvorschau-Route akzeptiert GET ohne Scope- oder Modusparameter' -Success $guidedHttp
 
     $previewRoot = Join-Path ([IO.Path]::GetTempPath()) ('sql-lab-maintenance-preview-' + [guid]::NewGuid().ToString('N'))
     $runId = 'c36cc4de-a090-4992-abf5-a54dae913095'

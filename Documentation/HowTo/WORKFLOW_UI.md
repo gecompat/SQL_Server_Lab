@@ -966,6 +966,16 @@ SQL-2025-Prüfungen des neuen Plan-/Workflow-Apply-/No-op-/Driftpfads samt
 SQL-Probe und bestätigtem Own-Runtime-Cleanup. Das belegt Container-CPU/RAM,
 keinen Hyper-V-Apply und keine weiteren Eigenschaften oder Versionspaare.
 
+## Schnellen Wartungsplan lesen
+
+Unter **Wartung, Aufräumen und Recovery → Schnellen Wartungsplan lesen**
+zeigt die Vorschau den Zustand von Docker, Podman und Hyper-V sowie die
+Anzahl der für den beobachteten Zustand vorgeschlagenen Aktionen. Im
+Browser beginnt die Inventur mit **Plan lesen**. Ein nicht erreichbarer
+Provider erscheint als `UNAVAILABLE`. Diese Übersicht führt keine
+Aktion aus. Für die Zuordnung einzelner Objekte nutze **Wartungsbefunde
+und Zuordnung**.
+
 ## Hyper-V-Speicherziel vor einem Build prüfen
 
 Wähle in Konsole oder Browser **Hyper-V: Vorlagen und Slots →
