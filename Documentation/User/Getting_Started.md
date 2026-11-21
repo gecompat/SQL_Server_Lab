@@ -2426,6 +2426,14 @@ Lokalen OVMS-Embedding-Dienst prüfen**. Wähle IPv4 oder IPv6, gib Port,
 Modellname und erwartete Embedding-Dimension ein und bestätige den
 synthetischen Request. In der Browseroberfläche steht der Befund im Live-Log.
 
+Für **KI-Gerätekombination aus Messbelegen wählen** speichere die Ergebnisse
+von `Get-SqlServerLabAiComputeCandidate` und
+`Measure-SqlServerLabAiComputeCandidateSet` aus derselben Messung als
+JSON-Dateien (`ConvertTo-Json -Depth 30`). Wähle beide Dateien unter
+**Host-Dienste und Modelle**. Du kannst die gemessene Rangfolge neu berechnen
+oder eine geeignete Gerätekombination fixieren. Die Auswahl startet keine
+Messung. In der Browseroberfläche steht sie im Live-Log.
+
 Lokale Windows-llama.cpp-Pakete für SQL Server 2025 lassen sich vor der
 Modellauswahl mit `Get-SqlServerLabLlamaCppRuntime -SearchRoot 'C:\Pfad\llama'`
 rein lesend erkennen. Hashes sind dafür nicht erforderlich. Die Ausgabe belegt

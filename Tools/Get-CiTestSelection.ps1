@@ -97,6 +97,7 @@ end {
         @{ Pattern = '(?i)(AiExternalModelAcceleration|AiExternalModelHyperVBinding|AiExternalModelPlan|AiExternalModelEndpoint|AiExternalModelArtifact|OvmsUpstream|OvmsHttpsGateway|ai-(external-model-(plan|endpoint|artifact|sql)|ovms-(upstream|https-gateway)))'; Checks = @('Invoke-AiExternalModelAccelerationChecks.ps1','Invoke-AiExternalModelHyperVBindingChecks.ps1') },
         @{ Pattern = '(?i)(OvmsUpstreamUi|Ui/ovms-upstream\.js)'; Checks = @('Invoke-WorkflowUiChecks.ps1') },
         @{ Pattern = '(?i)(AiComputeInventory|AiComputeCandidate|ai-compute-(inventory|candidate))'; Checks = @('Invoke-AiComputeInventoryChecks.ps1','Invoke-AiComputeSelectionChecks.ps1') },
+        @{ Pattern = '(?i)(AiComputeSelection|ai-compute-selection)'; Checks = @('Invoke-AiComputeSelectionChecks.ps1','Invoke-WorkflowUiChecks.ps1') },
         @{ Pattern = '(?i)(AiRuntimeCapability|ai-runtime-capability|LlamaCppRuntime)'; Checks = @('Invoke-AiRuntimeCapabilityChecks.ps1','Invoke-LlamaCppRuntimeChecks.ps1','Invoke-AiComputeInventoryChecks.ps1','Invoke-AiComputeSelectionChecks.ps1') },
         @{ Pattern = '(?i)(AiComputeSelection|ai-compute-selection)'; Checks = @('Invoke-AiComputeSelectionChecks.ps1') },
         @{ Pattern = '(?i)(AiComputeBenchmark|Measure-SqlServerLabAiComputeCandidate|ai-compute-benchmark)'; Checks = @('Invoke-AiComputeBenchmarkChecks.ps1','Invoke-AiComputeBenchmarkAcceptanceChecks.ps1','Invoke-AiComputeSelectionChecks.ps1','Invoke-AiRuntimeCapabilityChecks.ps1','Invoke-LlamaCppRuntimeChecks.ps1') },

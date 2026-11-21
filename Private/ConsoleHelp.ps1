@@ -347,6 +347,12 @@ function Get-LabConsoleHelpCatalog {
             Effects = 'Die Prüfung sendet nach Bestätigung genau einen synthetischen Request. OVMS muss bereits laufen.'
             Command = 'Test-SqlServerLabOvmsUpstreamEndpoint'
         }
+        'ai-compute-receipt-choice' = @{
+            Title = 'KI-Gerätekombination aus Messbelegen wählen'
+            Purpose = 'Den schnellsten gemessenen Kandidaten neu bestimmen oder eine geeignete Kombination fixieren.'
+            Effects = 'Liest die ausgewählten JSON-Belege und berechnet die Auswahl. Startet weder Modell noch Benchmark.'
+            Command = 'Get-SqlServerLabAiComputeSelection'
+        }
         'persistent-fixture-target' = @{
             Title = 'Zielinstanz für persistente Retrieval-Demo'
             Purpose = 'Eine laufende SQL-2025-Containerinstanz für die synthetische Sammlung wählen.'

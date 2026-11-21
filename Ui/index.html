@@ -135,6 +135,7 @@
       <p id="ai-compute-inventory-status" role="status"></p>
       <button id="ai-runtime-capability-read" type="button" class="button secondary">llama.cpp-Eignung prüfen</button>
       <p id="ai-runtime-capability-status" role="status"></p>
+      <button id="compute-selection-open" type="button" class="button secondary">KI-Gerätekombination aus Messbelegen wählen</button>
       <button id="ovms-upstream-open" type="button" class="button secondary">Lokalen OVMS-Embedding-Dienst prüfen</button>
       <button id="persistent-fixture-open" type="button" class="button secondary">Persistente Retrieval-Demo</button>
       <button id="llama-start-plan-open" type="button" class="button secondary">llama.cpp: reine Startvorschau</button>
@@ -1006,6 +1007,20 @@
     </div>
   </dialog>
   <script src="evaluation-refresh-plan.js"></script>
+  <dialog id="compute-selection-dialog">
+    <form id="compute-selection-form">
+      <h2>KI-Gerätekombination aus Messbelegen wählen</h2>
+      <p class="form-note">Wähle den Kandidatensatz und das Ergebnis des Benchmark-Satzes für dasselbe Inventar. Die Auswahl startet kein Modell und keine neue Messung.</p>
+      <label>Kandidatensatz (JSON)<input id="compute-selection-candidates" type="file" accept=".json,application/json" required></label>
+      <label>Benchmark-Satz (JSON)<input id="compute-selection-benchmarks" type="file" accept=".json,application/json" required></label>
+      <label>Auswahl<select id="compute-selection-choice"><option value="">Schnellsten gemessenen Kandidaten wählen</option></select></label>
+      <p id="compute-selection-status" role="status"></p>
+      <div class="dialog-actions">
+        <button id="compute-selection-next" type="submit" class="button primary">Weiter zur Bestätigung</button>
+        <button id="compute-selection-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </form>
+  </dialog>
   <dialog id="persistent-fixture-dialog">
     <form id="persistent-fixture-form">
       <h2>Persistente Retrieval-Demo</h2>
@@ -1118,6 +1133,7 @@
   <script src="portable-container-transfer.js"></script>
   <script src="container-network-plan.js"></script>
   <script src="ai-persistent-retrieval-fixture.js"></script>
+  <script src="ai-compute-selection.js"></script>
 
   <dialog id="external-runtime-dialog">
     <div class="read-only-dialog-content">

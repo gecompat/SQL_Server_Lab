@@ -183,6 +183,7 @@ sources_of_truth:
   ai_runtime_capability_schema: Schemas/ai-runtime-capability-set.schema.json
   validation_ai_runtime_capability: Tests/Static/Invoke-AiRuntimeCapabilityChecks.ps1
   ai_compute_selection_api: Public/Get-SqlServerLabAiComputeSelection.ps1
+  ai_compute_selection_guidance: Private/AiComputeSelectionConsole.ps1, Ui/ai-compute-selection.js
   ai_compute_selection_schema: Schemas/ai-compute-selection.schema.json
   validation_ai_compute_selection: Tests/Static/Invoke-AiComputeSelectionChecks.ps1
   ai_compute_benchmark_contract: Private/AiComputeBenchmark.ps1

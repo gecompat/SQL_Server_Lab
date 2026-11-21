@@ -23,6 +23,9 @@ try {
     $npuBench=Benchmark npu ('2'*64) 18 55 800
     $multiBench=Benchmark cuda-multi ('3'*64) 42 35 5000
     $selection=Get-SqlServerLabAiComputeSelection -WorkloadKey sql-ai-generation -ModelSha256 $model -BenchmarkProfileSha256 $profile -InventorySha256 $inventory -Candidate @($blocked,$npu,$cpu,$multi) -Benchmark @($npuBench,$multiBench,$cpuBench)
+    $menuCandidates = [pscustomobject]@{Contract='SqlServerLab.AiComputeCandidateSet/1.0';Status='COMPLETE';InventorySha256=$inventory;Candidates=@($cpu,$npu)}
+    $menuBenchmarks = [pscustomobject]@{Contract='SqlServerLab.AiComputeBenchmarkSet/1.0';Status='SELECTED';Selection=$selection;Benchmarks=@($cpuBench,$npuBench)}
+    & (Join-Path $PSScriptRoot 'Fixtures/AiComputeSelectionConsoleChecks.ps1') -Module $module -CandidateSet $menuCandidates -BenchmarkSet $menuBenchmarks
     Add-CheckResult 'Auto ist Standard und wählt höchsten Durchsatz aus vollständiger Evidence' ($selection.SelectionMode -ceq 'AUTO_FASTEST' -and $selection.CandidateId -ceq 'cuda-multi' -and $selection.SelectedBenchmark.ThroughputPerSecond -eq 42)
     Add-CheckResult 'Mehr-GPU- und gemischter Gerätesatz bleibt vollständig gebunden' ($selection.Devices.Count -eq 3 -and @($selection.Devices|Where-Object Kind -eq GPU).Count -eq 2 -and @($selection.Devices|Where-Object Kind -eq CPU).Count -eq 1)
     Add-CheckResult 'Ungeeignete Option wird mit Blocker sichtbar ausgeschlossen' ($selection.ExcludedCandidates.Count -eq 1 -and $selection.ExcludedCandidates[0].CandidateId -ceq 'unsupported')
