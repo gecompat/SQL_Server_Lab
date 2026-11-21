@@ -471,6 +471,8 @@ sources_of_truth:
   validation_release_artifact: Tests/Static/Invoke-ReleaseArtifactChecks.ps1
   client_readiness: Tools/Test-SqlServerLabClientReadiness.ps1
   ssis_catalog_capability_public: Public/Get-SqlServerLabSsisCatalogCapability.ps1
+  sql_feature_console: Private/SqlFeatureConsole.ps1, Public/Invoke-SqlServerLab.ps1, Private/ConsoleHelp.ps1
+  validation_sql_feature_console: Tests/Static/Fixtures/SqlFeatureConsoleChecks.ps1, Tests/Static/Invoke-SqlFeatureChecks.ps1
   ssis_diagnostic_console: Private/SsisDiagnosticsConsole.ps1, Public/BatchConsole.ps1, Public/Invoke-SqlServerLab.ps1
   validation_ssis_diagnostic_console: Tests/Static/Invoke-SsisDiagnosticsConsoleChecks.ps1
   ssis_execution_diagnostic_browser: Private/SsisDiagnosticsBrowser.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/ssis-execution-diagnostic.js

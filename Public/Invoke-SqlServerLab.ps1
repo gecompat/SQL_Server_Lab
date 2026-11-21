@@ -20,7 +20,7 @@
 function Invoke-SqlServerLab {
     [CmdletBinding()]
     param(
-        [ValidateSet('New', 'BatchPlan', 'Queue', 'Commands', 'AutomatedTestEnvironment', 'AutomatedTestEnvironmentLifecycle', 'ClearAutomatedTestEnvironment', 'Manifest', 'Status', 'SyncRuntime', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'CleanupAudit', 'RetainedStoreRemoval', 'RunArtifactRemoval', 'EvaluationRefreshPlan', 'SsisDiagnostics', 'HostServiceStart', 'ContainerAutoStart', 'ContainerAutoStartRecovery', 'HyperVAutoStart', 'HyperVAutoStartRecovery', 'Script', 'Database', 'DatabaseBackup', 'DatabaseRestore', 'DatabasePackageExport', 'DatabasePackageAttach', 'DatabasePackageInventory', 'DatabaseMigrationDependency', 'Image', 'WindowsSlotPool', 'ReservePolicy', 'Setup', 'MediaRoot', 'MediaSourceOverride', 'RuntimeInstaller', 'OperatingSystemSources', 'CuResource', 'CuStatus', 'ResourceWatch', 'DataRoot', 'TestDataRoot', 'Rename', 'UpdateContainer', 'Resources', 'Manage', 'EnvironmentGroups', 'Install7Zip', 'Catalog', 'ConnectionCenter', 'Cms')]
+        [ValidateSet('New', 'BatchPlan', 'Queue', 'Commands', 'AutomatedTestEnvironment', 'AutomatedTestEnvironmentLifecycle', 'ClearAutomatedTestEnvironment', 'Manifest', 'Status', 'SyncRuntime', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'CleanupAudit', 'RetainedStoreRemoval', 'RunArtifactRemoval', 'EvaluationRefreshPlan', 'SsisDiagnostics', 'HostServiceStart', 'ContainerAutoStart', 'ContainerAutoStartRecovery', 'HyperVAutoStart', 'HyperVAutoStartRecovery', 'SqlFeature', 'Script', 'Database', 'DatabaseBackup', 'DatabaseRestore', 'DatabasePackageExport', 'DatabasePackageAttach', 'DatabasePackageInventory', 'DatabaseMigrationDependency', 'Image', 'WindowsSlotPool', 'ReservePolicy', 'Setup', 'MediaRoot', 'MediaSourceOverride', 'RuntimeInstaller', 'OperatingSystemSources', 'CuResource', 'CuStatus', 'ResourceWatch', 'DataRoot', 'TestDataRoot', 'Rename', 'UpdateContainer', 'Resources', 'Manage', 'EnvironmentGroups', 'Install7Zip', 'Catalog', 'ConnectionCenter', 'Cms')]
         [string]$Action,
 
         [ValidateSet('Auto', 'Fallback')]
@@ -46,6 +46,7 @@ function Invoke-SqlServerLab {
             if ($Action -eq 'ContainerAutoStartRecovery') { Invoke-LabContainerAutoStartRecoveryInteractive; return }
             if ($Action -eq 'HyperVAutoStart') { Invoke-LabHyperVAutoStartInteractive; return }
             if ($Action -eq 'HyperVAutoStartRecovery') { Invoke-LabHyperVAutoStartRecoveryInteractive; return }
+            if ($Action -eq 'SqlFeature') { Invoke-LabSqlFeatureInteractive; return }
             if ($Action -eq 'SsisDiagnostics') { Invoke-LabSsisDiagnosticsInteractive; return }
             if ($Action -eq 'EvaluationRefreshPlan') { Invoke-LabEvaluationRefreshPlanInteractive; return }
             if ($Action -eq 'HostServiceStart') { Invoke-LabLlamaCppStartInteractive; return }
@@ -161,6 +162,7 @@ function Invoke-LabMenuAction {
     if ($ActionName -eq 'ContainerAutoStartPreview') { Invoke-LabContainerAutoStartPreviewInteractive; return }
     if ($ActionName -eq 'ContainerAutoStart') { Invoke-LabContainerAutoStartInteractive; return }
     if ($ActionName -eq 'ContainerAutoStartRecovery') { Invoke-LabContainerAutoStartRecoveryInteractive; return }
+    if ($ActionName -eq 'SqlFeature') { Invoke-LabSqlFeatureInteractive; return }
     if ($ActionName -eq 'SsisDiagnostics') { Invoke-LabSsisDiagnosticsInteractive; return }
     if ($ActionName -eq 'EvaluationRefreshPlan') { Invoke-LabEvaluationRefreshPlanInteractive; return }
     if ($ActionName -eq 'HostServiceStart') { Invoke-LabLlamaCppStartInteractive; return }
@@ -338,6 +340,7 @@ function Show-LabDatabaseMenu {
         New-LabConsoleItem -Id 'Script' -Label 'SQL-Skript ausfuehren' -Shortcut '9'
         New-LabConsoleItem -Id 'DatabaseBackup' -Label 'Datenbank sichern' -Value 'CHECKSUM · VERIFYONLY · Lab_Data-Bibliothek' -Shortcut 'b'
         New-LabConsoleItem -Id 'DatabaseRestore' -Label 'Datenbank wiederherstellen' -Value 'verifiziertes BackupSet · Konfliktprüfung · Cleanup' -Shortcut 'r'
+        New-LabConsoleItem -Id 'SqlFeature' -Label 'Volltext und FILESTREAM ändern' -Value 'Laufende SQL-Instanz · SQL-Neustart bei Änderung' -Shortcut 'f'
         New-LabConsoleItem -Id 'DatabasePackageExport' -Label 'Datenbankpaket exportieren' -Value 'Docker/Podman · exklusiv offline · verifiziert' -Shortcut 'x'
         New-LabConsoleItem -Id 'DatabasePackageAttach' -Label 'Datenbankpaket anhängen' -Value 'Hyper-V · COPY_THEN_ATTACH · Recovery' -Shortcut 'h'
         New-LabConsoleItem -Id 'DatabasePackageInventory' -Label 'Datenbankpakete anzeigen' -Value 'read-only · stabile Paket-ID · pfadfrei' -Shortcut 'p'
@@ -1721,6 +1724,7 @@ function Invoke-LabAction {
         }
         'RetainedStoreRemoval' { Invoke-LabRetainedStoreRemovalInteractive }
         'RunArtifactRemoval' { Invoke-LabRunArtifactRemovalInteractive }
+        'SqlFeature' { Invoke-LabSqlFeatureInteractive }
         'SsisDiagnostics' { Invoke-LabSsisDiagnosticsInteractive }
         'EvaluationRefreshPlan' { Invoke-LabEvaluationRefreshPlanInteractive }
         'CleanupAudit' {
