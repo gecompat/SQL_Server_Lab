@@ -75,7 +75,8 @@ function ConvertFrom-LabConnectionStringTarget {
     if (-not [string]::IsNullOrWhiteSpace($ConnectionString)) {
         try {
             $builder = [System.Data.Common.DbConnectionStringBuilder]::new()
-            $builder.ConnectionString = $ConnectionString
+            # Use the CLR setter. PowerShell also adapts this builder as a dictionary.
+            $builder.PSBase.ConnectionString = $ConnectionString
             foreach ($key in @('Server', 'Data Source', 'Address', 'Addr', 'Network Address')) {
                 if ($builder.ContainsKey($key) -and -not [string]::IsNullOrWhiteSpace([string]$builder[$key])) {
                     return [string]$builder[$key]
@@ -102,19 +103,32 @@ function Get-SqlServerLabConnectionCenter {
         Strings werden nicht zurückgegeben.
     .PARAMETER StateRoot
         Optionaler State Root. Ohne Angabe wird der konfigurierte Standard verwendet.
+    .PARAMETER StoredOnly
+        Liest nur registrierte reguläre Endpunkte und den gespeicherten Zustand
+        ohne Runtime-Abgleich. Geschützte Testsysteme werden ausgelassen.
     .OUTPUTS
         PSCustomObject mit Gruppenregel und bekannten SQL-Endpunkten.
     #>
     [CmdletBinding()]
-    param([string]$StateRoot)
+    param([string]$StateRoot, [switch]$StoredOnly)
 
     if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
     $configuration = Get-LabConnectionCenterConfiguration -StateRoot $StateRoot
     $entries = @()
-    $testRunIds = @(Get-LabAutomatedTestEnvironmentRunIds)
+    $testRunIds = @(if ($StoredOnly) {
+        $registry = Get-LabTestEnvironmentRegistry
+        if ($registry.environments -isnot [array]) { throw 'TEST_ENVIRONMENT_REGISTRY_INVALID' }
+        foreach ($environment in $registry.environments) {
+            $id = [guid]::Empty
+            if ($environment.runId -isnot [string] -or -not [guid]::TryParseExact($environment.runId, 'D', [ref]$id) -or $id -eq [guid]::Empty) {
+                throw 'TEST_ENVIRONMENT_REGISTRY_INVALID'
+            }
+            $id.ToString('D')
+        }
+    } else { Get-LabAutomatedTestEnvironmentRunIds })
     $testEntriesByRunId = @{}
     $testGroupReady = $false
-    if ($testRunIds.Count -gt 0) {
+    if (-not $StoredOnly -and $testRunIds.Count -gt 0) {
         try {
             $testRegistry = Get-LabTestEnvironmentRegistry
             $resolvedTestEntries = @(Get-LabTestEnvironmentResolvedEntries -Registry $testRegistry -StateRoot $StateRoot)
@@ -126,7 +140,7 @@ function Get-SqlServerLabConnectionCenter {
         }
         catch { $testGroupReady = $false }
     }
-    foreach ($run in @(Get-LabActiveRuns -StateRoot $StateRoot)) {
+    foreach ($run in @(Get-LabActiveRuns -StateRoot $StateRoot -NoWrite:$StoredOnly)) {
         $runId = [string]$run.runId
         $isAutomatedTestEnvironment = $runId -in $testRunIds
         if ($isAutomatedTestEnvironment -and -not $testGroupReady) { continue }
@@ -136,7 +150,12 @@ function Get-SqlServerLabConnectionCenter {
         try { $connection = Get-Content -LiteralPath $connectionPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20 }
         catch { continue }
         $runtimeState = 'UNKNOWN'
-        try { $runtimeState = [string](Sync-LabRunRuntimeState -Run $run -StateRoot $StateRoot).Runtime.State } catch { }
+        if ($StoredOnly) {
+            if ([string]$run.state -cin @('RUNNING','STOPPED')) { $runtimeState = [string]$run.state }
+        }
+        else {
+            try { $runtimeState = [string](Sync-LabRunRuntimeState -Run $run -StateRoot $StateRoot).Runtime.State } catch { }
+        }
         foreach ($instance in @($connection.instances)) {
             $target = ConvertFrom-LabConnectionStringTarget -ConnectionString ([string]$instance.connectionString) -Instance $instance
             if ([string]::IsNullOrWhiteSpace($target)) { continue }
@@ -501,7 +520,15 @@ function New-LabSsmsRegistrationLines {
         $serverSegment = ConvertTo-LabSsmsAliasSegment ('{0}-{1}' -f $serverName, $entry.Server)
         $serverAlias = "$labAlias/RegisteredServer/$serverSegment"
         $serverReferences.Add('<sfc:Reference sml:ref="true"><sml:Uri>{0}</sml:Uri></sfc:Reference>' -f $serverAlias)
-        $connectionString = 'Data Source={0};Initial Catalog=master;User ID={1};Encrypt=True;TrustServerCertificate=True;Pooling=False;MultipleActiveResultSets=False' -f $entry.Server, $entry.Login
+        $builder = [System.Data.SqlClient.SqlConnectionStringBuilder]::new()
+        $builder['Data Source'] = [string]$entry.Server
+        $builder['Initial Catalog'] = 'master'
+        $builder['User ID'] = [string]$entry.Login
+        $builder['Encrypt'] = $true
+        $builder['TrustServerCertificate'] = $true
+        $builder['Pooling'] = $false
+        $builder['MultipleActiveResultSets'] = $false
+        $connectionString = $builder.PSBase.ConnectionString
         $serverPayload = '<RegisteredServers:RegisteredServer xmlns:RegisteredServers="http://schemas.microsoft.com/sqlserver/RegisteredServers/2007/08" xmlns:sfc="http://schemas.microsoft.com/sqlserver/sfc/serialization/2007/08" xmlns:sml="http://schemas.serviceml.org/sml/2007/02" xmlns:xs="http://www.w3.org/2001/XMLSchema"><RegisteredServers:Parent><sfc:Reference sml:ref="true"><sml:Uri>{0}</sml:Uri></sfc:Reference></RegisteredServers:Parent><RegisteredServers:Name type="string">{1}</RegisteredServers:Name><RegisteredServers:Description type="string">{2}</RegisteredServers:Description><RegisteredServers:ServerName type="string">{3}</RegisteredServers:ServerName><RegisteredServers:UseCustomConnectionColor type="boolean">false</RegisteredServers:UseCustomConnectionColor><RegisteredServers:CustomConnectionColorArgb type="int">0</RegisteredServers:CustomConnectionColorArgb><RegisteredServers:ServerType type="ServerType">DatabaseEngine</RegisteredServers:ServerType><RegisteredServers:ConnectionStringWithEncryptedPassword type="string">{4}</RegisteredServers:ConnectionStringWithEncryptedPassword><RegisteredServers:CredentialPersistenceType type="CredentialPersistenceType">None</RegisteredServers:CredentialPersistenceType><RegisteredServers:OtherParams type="string" /><RegisteredServers:AuthenticationType type="int">0</RegisteredServers:AuthenticationType><RegisteredServers:ActiveDirectoryUserId type="string" /><RegisteredServers:ActiveDirectoryTenant type="string" /></RegisteredServers:RegisteredServer>' -f $labAlias, (ConvertTo-LabSsmsXmlText $serverName), (ConvertTo-LabSsmsXmlText $entry.Description), (ConvertTo-LabSsmsXmlText $entry.Server), (ConvertTo-LabSsmsXmlText $connectionString)
         Add-LabSsmsSfcDocument -Lines $lines -Alias $serverAlias -Payload $serverPayload
     }

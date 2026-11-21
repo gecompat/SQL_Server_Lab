@@ -1129,9 +1129,10 @@ sources_of_truth:
   validation_test_environment_contract: Tests/Static/Invoke-TestEnvironmentChecks.ps1
   validation_test_environment_group_lifecycle: Tests/Integration/Invoke-TestEnvironmentGroupLifecycle.ps1
   validation_manifest_builder: Tests/Static/Invoke-ManifestBuilderChecks.ps1
-  manifest_check_guidance: Private/ManifestCheckGuidance.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/app.js
+  manifest_check_guidance: Private/ManifestCheckGuidance.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/manifest-check.js
   validation_batch_workflow: Tests/Static/Invoke-BatchWorkflowChecks.ps1, Tests/Static/Fixtures/BatchWorkflowFileLockChecks.ps1
   batch_browser_overview: Private/BatchBrowserOverview.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/app.js, Tests/Static/Fixtures/WorkflowInventoryCacheChecks.ps1
+  ssms_browser_registration: Private/ConnectionCenterBrowserExport.ps1, Public/Sync-SqlServerLabConnectionCenter.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/ssms-registration-export.js
   validation_runtime_matrix: Tests/Integration/Invoke-SmokeMatrix.ps1
   cli_acceptance_matrix: Documentation/Quality/CLI_ACCEPTANCE_MATRIX.md
   public_command_console: Private/PublicCommandConsole.ps1

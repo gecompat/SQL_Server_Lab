@@ -147,6 +147,8 @@
       <h2>Verbindungen und CMS</h2>
         <p>Endpunkte und angegebene TLS-Optionen aus derselben registrierten Lab-Ansicht. Fehlende Werte bleiben unbekannt; die Anzeige ist kein Verbindungs- oder Zertifikatsnachweis. CMS-Einrichtung und Synchronisation sind in der Konsole geführt verfügbar. Ein vollständiger CMS-Fachdialog im Browser bleibt offen.</p>
       <button id="cms-inspection-open" class="button secondary">Registrierten CMS lesend prüfen</button>
+      <button id="ssms-registration-download" type="button" class="button secondary">SSMS-Registrierungen herunterladen</button>
+      <p id="ssms-registration-status" role="status"></p>
       <button id="component-relations-open" class="button secondary">SQL-Komponenten: geführte Vorschau</button>
       <div id="connection-endpoints" class="list"></div>
     </section>
@@ -951,6 +953,8 @@
   <script src="tls-live-qualification.js"></script>
   <script src="sql-connection-clipboard.js"></script>
   <script src="app.js"></script>
+  <script src="manifest-check.js"></script>
+  <script src="ssms-registration-export.js"></script>
   <script src="ai-compute-overview.js"></script>
   <dialog id="ssis-execution-dialog">
     <form id="ssis-execution-form">

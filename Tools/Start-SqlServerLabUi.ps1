@@ -864,6 +864,20 @@ try {
                 }
                 continue
             }
+            if ($path -ceq '/api/ssms-registration') {
+                try {
+                    if ($context.Request.HttpMethod -cne 'GET' -or $context.Request.HasEntityBody -or $context.Request.Url.Query) {
+                        throw 'SSMS_REGISTRATION_REQUEST_INVALID'
+                    }
+                    $registration = & (Get-Module SqlServerLab) { Get-LabSsmsRegistrationDownload }
+                    Write-UiResponse -Context $context -Body $registration -ContentType 'application/xml; charset=utf-8' -NoStore
+                }
+                catch {
+                    Write-UiResponse -Context $context -Body '{"Code":"SSMS_REGISTRATION_UNAVAILABLE"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400 -NoStore
+                }
+                finally { $registration=$null }
+                continue
+            }
             if ($path -eq '/api/cms-inspection') {
                 try {$result=Invoke-UiCmsInspectionRequest -Request $context.Request;Write-UiResponse -Context $context -Body ($result|ConvertTo-Json -Depth 6) -ContentType 'application/json; charset=utf-8'}
                 catch {

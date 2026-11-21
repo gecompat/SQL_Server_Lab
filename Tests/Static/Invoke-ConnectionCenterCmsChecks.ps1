@@ -62,6 +62,33 @@ try {
         $registrationNodes.Count -eq 1 -and $registrationConnection.ShouldSerialize('Encrypt') -and
         $registrationConnection['Encrypt'] -and $registrationConnection.ShouldSerialize('TrustServerCertificate') -and
         $registrationConnection['TrustServerCertificate'] -and -not $registrationConnection.ShouldSerialize('Password'))
+    $storedExport = & {
+        . (Join-Path $repoRoot 'Private/ConnectionCenterBrowserExport.ps1')
+        $ownRun = '11111111-1111-4111-8111-111111111111'
+        $protectedRun = '22222222-2222-4222-8222-222222222222'
+        function Get-LabStateRoot { [IO.Path]::GetTempPath() }
+        function Get-LabTimestamp { '2026-11-21T00:00:00Z' }
+        function Get-LabConnectionCenterConfiguration { param($StateRoot) @{RootGroupName='Synthetic'} }
+        function Get-LabTestEnvironmentRegistry { @{environments=@(@{runId=$protectedRun})} }
+        function Get-LabActiveRuns {
+            param($StateRoot,[switch]$NoWrite)
+            if (-not $NoWrite) { throw 'SSMS_EXPORT_MUST_NOT_LOG' }
+            @{runId=$ownRun;state='RUNNING';metadata=@{name='ordinary fixture'}}
+            @{runId=$protectedRun;state='STOPPED';metadata=@{name='protected fixture'}}
+        }
+        function Test-Path { param($LiteralPath,$PathType) $LiteralPath -like "*$ownRun*connection-info.json" }
+        function Get-Content {
+            param($LiteralPath,[switch]$Raw,$Encoding)
+            '{"instances":[{"id":"primary","provider":"docker","connectionString":"Data Source=127.0.0.1,14331;Password=SYNTHETIC_SSMS_PASSWORD"}]}'
+        }
+        function Sync-LabRunRuntimeState { throw 'SSMS_EXPORT_MUST_NOT_PROBE' }
+        $document = Get-LabSsmsRegistrationDownload
+        $xml = [xml]$document
+        $nodes = @($xml.SelectNodes('//*[local-name()="ConnectionStringWithEncryptedPassword"]'))
+        $nodes.Count -eq 1 -and $document -match 'ordinary fixture' -and $document -notmatch 'protected fixture|SYNTHETIC_SSMS_PASSWORD' -and
+            -not ([Data.SqlClient.SqlConnectionStringBuilder]::new($nodes[0].InnerText).ShouldSerialize('Password'))
+    }
+    Add-CheckResult -Name 'Browser-SSMS-Export liest reguläre Endpunkte ohne Runtime oder Kennwort' -Success $storedExport
 
     $dockerClientTarget = ConvertTo-LabCmsServerTarget -Server '127.0.0.1,15433' -CmsProvider docker
     $podmanClientTarget = ConvertTo-LabCmsServerTarget -Server 'localhost,15434' -CmsProvider podman

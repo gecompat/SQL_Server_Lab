@@ -8,6 +8,7 @@ const root = path.resolve(__dirname, '../../..');
 const html = fs.readFileSync(path.join(root, 'Ui/index.html'), 'utf8');
 const source = fs.readFileSync(process.argv[2] || path.join(root, 'Ui/app.js'), 'utf8');
 const nodes = new Map();
+const downloads = [];
 class Element {
   constructor(id) {
     this.id = id; this.value = ''; this.textContent = ''; this.innerHTML = '';
@@ -23,6 +24,7 @@ class Element {
   removeAttribute(name) { delete this[name]; }
   closest(selector) { return this.id === 'jobs' && selector === '.panel' ? workspaceElements.find((item) => item.dataset.workspaceArea === 'messages') : null; }
   scrollIntoView() { this.scrolled = true; }
+  click() { if (this.id === 'a') downloads.push({ file: this.download, url: this.href }); }
   append(child) { this.children.push(child); }
   replaceChildren(...children) { this.children = children; }
   get childElementCount() { return this.children.length; }
@@ -64,6 +66,7 @@ const document = {
 };
 const clipboardMounts = [];
 const context = vm.createContext({ document, console, URLSearchParams,
+  URL: Object.assign(class extends URL {}, { createObjectURL: () => 'blob:synthetic-test', revokeObjectURL() {} }),
   crypto: require('node:crypto').webcrypto, TextEncoder, AbortController,
   window: { setInterval() {}, setTimeout() {}, clearTimeout() {}, alert() {},
     sqlServerLabConnectionClipboard: { mount(element) { clipboardMounts.push(element.id); } } },
@@ -71,6 +74,9 @@ const context = vm.createContext({ document, console, URLSearchParams,
 const fetchRequests = [];
 const run = (code) => vm.runInContext(code, context, { timeout: 5000 });
 run(source);
+for (const asset of ['manifest-check.js', 'ssms-registration-export.js']) {
+  if (html.includes('<script src="' + asset + '"></script>')) run(fs.readFileSync(path.join(root, 'Ui', asset), 'utf8'));
+}
 run('const actualQueueBackgroundAction = queueBackgroundAction; queueBackgroundAction = (action, parameters) => queued.push({action, parameters});');
 let passed = 0;
 function check(name, body) { body(); passed++; console.log('PASS ' + name); }
@@ -1049,6 +1055,18 @@ async function main() {
   const queuedBeforeCancel = context.queued.length;
   for (const handler of node('sql-feature-form').events.get('submit') || []) handler({ submitter: { value: 'cancel' }, preventDefault() {} });
   check('Feature cancel dispatches no mutation', () => assert.equal(context.queued.length, queuedBeforeCancel));
+  const beforeSsms = fetchRequests.length;
+  context.sqlServerLabUiFetch = async (...args) => {
+    fetchRequests.push(args);
+    return { ok: true, headers: { get: () => 'application/xml; charset=utf-8' }, blob: async () => ({ size: 128 }) };
+  };
+  for (const handler of node('ssms-registration-download').events.get('click') || []) await handler();
+  check('SSMS registration uses a local read and downloads a fixed extension', () => {
+    assert.equal(fetchRequests.length, beforeSsms + 1);
+    assert.equal(fetchRequests.at(-1)[0], '/api/ssms-registration');
+    assert.equal(fetchRequests.at(-1)[1].method, undefined);
+    assert.deepEqual(downloads, [{ file: 'sql-server-lab.regsrvr', url: 'blob:synthetic-test' }]);
+  });
   console.log('WORKFLOW SQL TARGET, EVALUATION AND SETUP: ' + passed + ' PASS');
 }
 main().catch((error) => { console.error(error); process.exitCode = 1; });

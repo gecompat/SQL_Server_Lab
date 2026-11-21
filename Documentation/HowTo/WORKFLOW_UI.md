@@ -7,6 +7,14 @@ und die Prüfung eines bereits authentifizierten TLS-Labs sind getrennte Abläuf
 
 ## Verbindungen anzeigen
 
+Unter **Verbindungen und CMS → SSMS-Registrierungen herunterladen** erhältst
+du eine kennwortfreie `.regsrvr`-Datei mit bis zu 500 gespeicherten
+regulären Endpunkten. Importiere die Datei in SSMS unter **Ansicht →
+Registrierte Server → Aufgaben → Importieren**. Die Browseraktion verwendet
+gespeicherten Zustand und führt keinen Runtime-Abgleich durch. Der
+Lab_Data-Standard muss für die Zuordnung der geschützten Testsysteme lesbar
+sein.
+
 Unter **Verbindungen und CMS** zeigt jede SQL-Zielkarte ihre angegebenen
 **Connection Settings**: `Encrypt` und `TrustServerCertificate`. Der neue
 Standard bleibt jeweils `True`. Explizites `False` bleibt sichtbar; fehlende
