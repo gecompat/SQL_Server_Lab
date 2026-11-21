@@ -3316,6 +3316,10 @@ als `DETACHED` frei. Erfolgreich provisionierte Benutzerdatenbanken erhalten
 stabile aktive `DATABASE`-Referenzen; Lease-Freigabe löst sie atomar mit der
 Run-Referenz, und eine erneute Lease blockiert verbliebene aktive
 Datenbankreferenzen. Runtime-Abweichungen bleiben `RECOVERY_REQUIRED`.
+Neue Docker-/Podman-Labs mit `-PersistentData` binden auch bei gleichem Labnamen
+einen neuen SQL-Systemstore mit dem neuen SA-Passwort. Alte Stores bleiben
+erhalten; eine ausdrückliche Auswahl über `PersistentStorageId` mit `CONTINUE`
+oder `CLONE` behält dagegen die SQL-Anmeldedaten des bisherigen Stores.
 Reguläre Hyper-V-Labs reservieren ihre persistente Daten-VHDX inzwischen vor
 der ersten VHDX-Mutation controllerweit als `INCOMPLETE` mit stabiler
 `PersistentStorageId`, portabler `Lab_Data`-Bindung, aktiver Run-Referenz und
