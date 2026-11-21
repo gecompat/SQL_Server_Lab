@@ -86,15 +86,25 @@ try {
     $guidedConsole = & $module {
         param($SyntheticView)
         function Show-LabSubMenu { param($ScreenId,$Title,$Subtitle,$Items) $Items }
-        function Get-LabRuntimeMaintenancePreview { $SyntheticView }
+        $unavailableFixture = $false
+        function Get-LabRuntimeMaintenancePreview {
+            if ($unavailableFixture) { throw 'SYNTHETIC_PREVIEW_UNAVAILABLE' }
+            $SyntheticView
+        }
+        function Write-LabInfo { throw 'MAINTENANCE_PREVIEW_SESSION_WRITE' }
+        function Write-LabWarning { throw 'MAINTENANCE_PREVIEW_SESSION_WRITE' }
         function Wait-LabConsoleAcknowledgement { param($Prompt) Write-Output 'ACKNOWLEDGED' }
         $items = @(Show-LabMaintenanceMenu)
         $entry = @($items | Where-Object Id -ceq 'RuntimeMaintenancePreview')
         if ($entry.Count -ne 1 -or @($items | Where-Object Shortcut -ceq $entry[0].Shortcut).Count -ne 1) { return $false }
         $output = (Invoke-LabMenuAction -ActionName $entry[0].Id 6>&1) -join [Environment]::NewLine
-        return $output -match 'Vorgeschlagene Aktionen: \d+' -and $output -match 'ACKNOWLEDGED'
+        $unavailableFixture = $true
+        $failure = (Invoke-LabMenuAction -ActionName $entry[0].Id 6>&1) -join [Environment]::NewLine
+        return $output -match 'Vorgeschlagene Aktionen: \d+' -and $output -match 'ACKNOWLEDGED' -and
+            $failure -match 'konnte nicht gelesen werden' -and $failure -match 'ACKNOWLEDGED' -and
+            $failure -notmatch 'SYNTHETIC_PREVIEW_UNAVAILABLE'
     } $guidedPlan
-    Add-CheckResult -Name 'Schneller Wartungsplan ist per eigener Menüauswahl erreichbar und kehrt nach Bestätigung zurück' -Success $guidedConsole
+    Add-CheckResult -Name 'Geführte Wartungsvorschau meldet Ergebnis oder Fehler ohne Sitzungsjournal und wartet auf Bestätigung' -Success $guidedConsole
     $routeAst = [Management.Automation.Language.Parser]::ParseFile(
         (Join-Path $repoRoot 'Tools/Start-SqlServerLabUi.ps1'), [ref]$null, [ref]$null)
     $route = $routeAst.Find({

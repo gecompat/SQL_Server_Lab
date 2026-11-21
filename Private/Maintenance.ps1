@@ -304,9 +304,9 @@ function Show-LabRuntimeMaintenancePreviewInteractive {
         Write-Host ('  State-Abgleich und abgelaufene Testressourcen: {0}' -f $view.Summary.SafeAutomatic)
         Write-Host ('  Gebundener Cleanup: {0} · Legacy-Freigabe: {1} · Weitere Prüfung: {2}' -f
             $view.Summary.ScopedCleanup, $view.Summary.LegacyApproval, $view.Summary.ReviewOnly)
-        Write-LabInfo 'Diese Vorschau meldet die beobachteten Befunde. Sie führt keine Aktionen aus.'
+        Write-Host '  Diese Vorschau meldet die beobachteten Befunde. Sie führt keine Aktionen aus.'
     }
-    catch { Write-LabWarning 'Der schnelle Wartungsplan konnte nicht gelesen werden.' }
+    catch { Write-Host '  Der schnelle Wartungsplan konnte nicht gelesen werden.' -ForegroundColor Yellow }
     Wait-LabConsoleAcknowledgement -Prompt 'Enter oder Escape: Zurück zu Wartung'
 }
 
