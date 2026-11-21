@@ -2235,6 +2235,12 @@ Auflösung beim tatsächlichen Dienststart bleibt separat nachzuweisen.
 
 `Test-SqlServerLabRelationalCoreComparison` vergleicht explizit benannte, bereits laufende verwaltete Docker-/Podman-Datenbankpaare. Der Befehl nimmt keine Endpunkte, Connection Strings, SQL-Texte oder Kennwörter an. Ein Paar enthält nur die stabile Paar-ID sowie Quell- und Ziel-RunId, InstanceId und Datenbankname. Der Vergleich kann `MATCH`, `DIFFERENT` oder `UNSUPPORTED` feststellen; er ändert keine Datenbank und führt keinen Transfer aus.
 
+Öffne **Zwei Containerdatenbanken vergleichen** in der CLI unter
+**Datenbanken, Samples und Skripte** oder im Browser unter
+**Lab-Umgebungen → Datenbankpakete**. Wähle die beiden Instanzen, trage die
+Datenbanknamen ein und bestätige den Vergleich. Die Datenbanken müssen
+`ONLINE` und `READ_ONLY` sein. Im Browser erscheint der Befund im Live-Log.
+
 ## Persistentes Retrieval
 
 `Invoke-SqlServerLabAiPersistentRetrieval` verwendet einen vorhandenen

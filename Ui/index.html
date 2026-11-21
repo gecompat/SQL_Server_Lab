@@ -295,6 +295,7 @@
       <label>Gebundenes Hyper-V-SQL-Ziel<select id="database-package-target"><option value="">Kein laufendes SQL-Ziel verfügbar</option></select></label>
       <div id="database-package-details" class="selection-details" aria-live="polite">Die Auswahl erfolgt ausschließlich über die stabile DatabasePackageId; Hostpfade und Hashes werden nicht an den Browser übertragen.</div>
       <div class="build-actions"><button id="database-package-attach" type="button" class="button primary" disabled>Paketkopie prüfen und attachen</button></div>
+      <div class="build-actions"><button id="relational-compare-open" type="button" class="button secondary">Zwei Containerdatenbanken vergleichen</button></div>
       <p class="form-note">Die Inventur hasht große Objekte nicht bei jedem Refresh und zeigt nur sanitisierte Migrationskategorien und Warnungen. Beim Attach werden Paket, scopegebundener Ziel-Run, SQL-Version, FILESTREAM/TDE und das live von SQL Server gemeldete Default-Data-Ziel frisch revalidiert; ein freier Pfad kann nicht eingegeben werden.</p>
     </section>
 
@@ -998,6 +999,21 @@
     </div>
   </dialog>
   <script src="evaluation-refresh-plan.js"></script>
+  <dialog id="relational-compare-dialog">
+    <form id="relational-compare-form">
+      <h2>Zwei Containerdatenbanken vergleichen</h2>
+      <p class="form-note">Wähle zwei registrierte SQL-Containerinstanzen mit Datenbanken im Zustand ONLINE und READ_ONLY. Der Vergleich zeigt Status, Zählwerte und Befundcodes.</p>
+      <label>Quellinstanz<select id="relational-compare-source" required></select></label>
+      <label>Quelldatenbank<input id="relational-compare-source-name" required pattern="[A-Za-z][A-Za-z0-9_]{0,127}" maxlength="128"></label>
+      <label>Zielinstanz<select id="relational-compare-target" required></select></label>
+      <label>Zieldatenbank<input id="relational-compare-target-name" required pattern="[A-Za-z][A-Za-z0-9_]{0,127}" maxlength="128"></label>
+      <p id="relational-compare-status" role="status"></p>
+      <div class="dialog-actions">
+        <button id="relational-compare-next" type="submit" class="button primary">Weiter zur Bestätigung</button>
+        <button id="relational-compare-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </form>
+  </dialog>
   <dialog id="evaluation-trigger-dialog">
     <form id="evaluation-trigger-form">
       <h2>Fristen zeitgesteuert prüfen</h2>
@@ -1026,6 +1042,7 @@
   </dialog>
   <script src="sql-guest-evaluation-evidence.js"></script>
   <script src="evaluation-watch-trigger.js"></script>
+  <script src="relational-core-comparison.js"></script>
 
   <dialog id="external-runtime-dialog">
     <div class="read-only-dialog-content">

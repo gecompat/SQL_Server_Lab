@@ -202,6 +202,7 @@ end {
         @{ Pattern = '(?i)(PortableContainerTransferExecutorRuntime|Invoke-SqlServerLabPortableContainerTransfer|portable-container-transfer-journal|Invoke-PortableContainerTransferAcceptance)'; Checks = @('Invoke-PortableContainerTransferExecutorRuntimeChecks.ps1','Invoke-RelationalCoreComparisonChecks.ps1') },
         @{ Pattern = '(?i)(PortableContainerTransferPreflight|portable-container-transfer-preflight|TransferPreflightAcceptanceCleanup)'; Checks = @('Invoke-PortableContainerTransferPreflightChecks.ps1','Invoke-PortableContainerTransferExecutorChecks.ps1','Invoke-TransferPreflightAcceptanceCleanupChecks.ps1') },
         @{ Pattern = '(?i)(RelationalCoreComparison|relational-core-comparison)'; Checks = @('Invoke-RelationalCoreComparisonChecks.ps1') },
+        @{ Pattern = '(?i)(RelationalCoreComparisonUi|Ui/relational-core-comparison\.js)'; Checks = @('Invoke-WorkflowUiChecks.ps1') },
         @{ Pattern = '(?i)(EvaluationWatch|evaluation-watch|SqlGuestEvaluationEvidence|sql-guest-evaluation-evidence)'; Checks = @('Invoke-EvaluationWatchChecks.ps1') },
         @{ Pattern = '(?i)(EvaluationRefreshPlan|evaluation-refresh-plan)'; Checks = @('Invoke-EvaluationRefreshPlanChecks.ps1','Invoke-EvaluationWatchChecks.ps1') },
         @{ Pattern = '(?i)(EvaluationRefreshPlanConsole|evaluation-refresh-cli)'; Checks = @('Invoke-EvaluationRefreshPlanConsoleChecks.ps1','Invoke-PublicCommandConsoleChecks.ps1','Invoke-ConsoleUiChecks.ps1') },

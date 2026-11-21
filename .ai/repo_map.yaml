@@ -2593,6 +2593,7 @@ validation:
   relational_core_comparison:
     source: Private/RelationalCoreComparison.ps1
     public_command: Public/Test-SqlServerLabRelationalCoreComparison.ps1
+    guided_surfaces: Private/RelationalCoreComparisonConsole.ps1, Ui/relational-core-comparison.js
     schema: Schemas/relational-core-comparison.schema.json
     validation: Tests/Static/Invoke-RelationalCoreComparisonChecks.ps1
     contract: "RELATIONAL_CORE/1.0, read-only, live managed container and RuntimeScope binding, no secrets or raw values, transfer executor BLOCKED"
