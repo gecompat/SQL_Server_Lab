@@ -336,6 +336,12 @@ function Get-LabConsoleHelpCatalog {
             Effects = 'Liest die Runtime-Bindung und den Containerzustand. Öffnet keinen WebMail-Zugang.'
             Command = 'Get-SqlServerLabSmtpTestServiceStatus'
         }
+        'smtp-webmail-action' = @{
+            Title = 'Lokaler Mailpit-Zugang'
+            Purpose = 'WebMail für das ausgewählte SMTP-Lab öffnen.'
+            Effects = 'Öffnet einen lokal begrenzten Zugang zum Lesen und Löschen von Testmails für 15 Minuten.'
+            Command = 'Open-SqlServerLabSmtpTestServiceWebMail'
+        }
         'diagnostic-bundle-instance' = @{
             Title = 'Gespeicherter Diagnosebefund'
             Purpose = 'Die Instanz im registrierten Standard-Lab_Data auswählen.'

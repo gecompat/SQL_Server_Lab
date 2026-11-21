@@ -920,9 +920,10 @@ prüfen** liest die gebundene Mailpit-Runtime. Der Befund zeigt, ob der
 Receiver läuft, gestoppt ist oder gerade nicht eindeutig geprüft werden
 kann. Die geführte Konsole bietet denselben Einstieg.
 
-Mit einem laufenden Receiver kannst du anschließend die Testzustellung
-separat prüfen. Die Statusabfrage liest keine Testmails und öffnet keinen
-WebMail-Zugang.
+Bei einem laufenden Receiver ist **WebMail im Standardbrowser öffnen**
+verfügbar. Die Aktion öffnet für 15 Minuten einen lokalen Mailpit-Zugang
+zum Lesen und Löschen von Testmails. Der Startlink erscheint in keinem
+Ergebnisprotokoll. Die Zustellung selbst prüfst du separat.
 
 ## Namen in Runtime und Oberfläche
 

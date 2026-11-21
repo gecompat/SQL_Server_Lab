@@ -174,7 +174,9 @@ eigene Operationen.
 In **Lab-Umgebungen → SMTP-Testdienst prüfen** zeigen CLI und Browser
 registrierte SMTP-Labs an und prüfen den ausgewählten Mailpit-Receiver.
 Die Prüfung verifiziert die Runtime-Bindung und den Containerzustand.
-Mailzustellung und das Öffnen eines WebMail-Zugangs sind eigene Aktionen.
+Bei einem bestätigten laufenden Receiver öffnen beide Oberflächen den
+lokalen WebMail-Zugang ausdrücklich für 15 Minuten. Das Protokoll zeigt
+keinen Startlink. Die Mailzustellung bleibt eine getrennte Prüfung.
 
 Die Netzmigration über `Move-SqlServerLabContainerNetwork` ist bei der
 Ausführung weiterhin `KNOWN_GAP`: Die CLI und der Browser führen nur die

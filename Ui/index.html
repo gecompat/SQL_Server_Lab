@@ -1199,8 +1199,10 @@
       <h2>SMTP-Testdienst prüfen</h2>
       <label>Lab mit Mailpit<select id="smtp-status-lab" required></select></label>
       <p id="smtp-status-result" role="status"></p>
+      <p id="smtp-status-webmail-notice" class="form-note" hidden>Der lokale Zugang erlaubt 15 Minuten lang das Lesen und Löschen von Testmails.</p>
       <div class="dialog-actions">
         <button id="smtp-status-close" type="button" class="button secondary">Schließen</button>
+        <button id="smtp-status-webmail" type="button" class="button secondary" hidden disabled>WebMail im Standardbrowser öffnen</button>
         <button id="smtp-status-read" type="submit" class="button primary" disabled>Receiver prüfen</button>
       </div>
     </form>

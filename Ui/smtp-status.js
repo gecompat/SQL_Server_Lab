@@ -5,6 +5,8 @@
   const selection = el('lab');
   const result = el('result');
   const read = el('read');
+  const webMail = el('webmail');
+  const webMailNotice = el('webmail-notice');
   const contract = 'SqlServerLab.SmtpStatusGuidance/1.0';
   const runPattern = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/;
   const descriptions = {
@@ -14,6 +16,14 @@
   };
   let revision = 0;
   let candidates = new Set();
+  let readyRun = '';
+
+  function clearWebMail() {
+    readyRun = '';
+    webMail.hidden = true;
+    webMail.disabled = true;
+    webMailNotice.hidden = true;
+  }
 
   async function readJson(path) {
     const response = await sqlServerLabUiFetch(path, { cache: 'no-store' });
@@ -26,6 +36,7 @@
   el('open').addEventListener('click', async () => {
     const current = ++revision;
     candidates = new Set();
+    clearWebMail();
     selection.replaceChildren();
     read.disabled = true;
     result.textContent = 'Registrierte Labs werden gelesen.';
@@ -51,9 +62,10 @@
     }
   });
   el('close').addEventListener('click', () => dialog.close());
-  dialog.addEventListener('close', () => { revision++; });
+  dialog.addEventListener('close', () => { revision++; clearWebMail(); });
   selection.addEventListener('change', () => {
     revision++;
+    clearWebMail();
     read.disabled = !candidates.has(selection.value);
     result.textContent = 'Prüfe den Receiver des ausgewählten Labs.';
   });
@@ -62,6 +74,7 @@
     const runId = selection.value;
     if (!dialog.open || read.disabled || !candidates.has(runId)) return;
     const current = ++revision;
+    clearWebMail();
     read.disabled = true;
     result.textContent = 'Der gebundene Mailpit-Receiver wird geprüft.';
     try {
@@ -71,8 +84,37 @@
         throw new Error('SMTP_STATUS_RESPONSE_INVALID');
       }
       result.textContent = status.Provider + ' · ' + descriptions[status.Status];
+      if (status.Status === 'READY') {
+        readyRun = runId;
+        webMail.hidden = false;
+        webMail.disabled = false;
+        webMailNotice.hidden = false;
+      }
     } catch {
       if (current === revision && dialog.open) result.textContent = 'Der ausgewählte SMTP-Testdienst konnte nicht eindeutig geprüft werden.';
+    } finally {
+      if (current === revision && dialog.open) read.disabled = false;
+    }
+  });
+  webMail.addEventListener('click', async () => {
+    const runId = selection.value;
+    if (!dialog.open || webMail.disabled || runId !== readyRun) return;
+    const current = ++revision;
+    webMail.disabled = true;
+    read.disabled = true;
+    result.textContent = 'WebMail wird im Standardbrowser geöffnet.';
+    try {
+      const response = await sqlServerLabUiFetch('/api/smtp-webmail/open', {
+        method: 'POST', cache: 'no-store', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ RunId: runId, Confirmed: true })
+      });
+      if (!response.ok) throw new Error('SMTP_WEBMAIL_OPEN_UNAVAILABLE');
+      const receipt = await response.json();
+      if (receipt?.ContractVersion !== 'SqlServerLab.GuidedSmtpWebMailOpen/1.0' ||
+          receipt.RunId !== runId || receipt.Status !== 'OPENED') throw new Error('SMTP_WEBMAIL_OPEN_UNCONFIRMED');
+      if (current === revision && dialog.open) result.textContent = 'WebMail wurde im Standardbrowser geöffnet.';
+    } catch {
+      if (current === revision && dialog.open) result.textContent = 'WebMail konnte nicht geöffnet werden. Prüfe den Receiver erneut.';
     } finally {
       if (current === revision && dialog.open) read.disabled = false;
     }

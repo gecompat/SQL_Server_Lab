@@ -22,6 +22,7 @@ try {
         function Get-LabStateRoot { param($ExplicitPath) if ($ExplicitPath) { $ExplicitPath } else { $path } }
         function Select-LabConsoleDataItem { param($ScreenId,$Title,$Items) $Items[0].Data }
         function Wait-LabConsoleAcknowledgement {}
+        function Show-LabSubMenu { 'back' }
         $listing = Get-LabSmtpStatusGuidance -StateRoot $path
         $receipt = Get-LabSmtpStatusGuidance -StateRoot $path -RunId $target
         $console = @(Invoke-LabMenuAction -ActionName SmtpStatusGuidance 6>&1) -join [Environment]::NewLine
@@ -36,8 +37,23 @@ try {
             Get-LabSmtpStatusGuidance -StateRoot $path -RunId 'dddddddd-dddd-dddd-dddd-dddddddddddd' | Out-Null
             $false
         } catch { $_.Exception.Message -ceq 'SMTP_STATUS_SELECTION_UNAVAILABLE' }
+        $script:fixtureWebMailCalls = 0
+        function Open-SqlServerLabSmtpTestServiceWebMail {
+            param($RunId,$StateRoot,[switch]$Confirm)
+            if ($RunId -cne $target -or $StateRoot -cne $path -or $Confirm) { throw 'SYNTHETIC_OPEN_NOT_BOUND' }
+            $script:fixtureWebMailCalls++
+            [pscustomobject]@{Status='OPENED';BrowserStarted=$true;Url='synthetic-capability-url'}
+        }
+        try {
+            $rejected = Invoke-LabGuidedSmtpWebMailRequest -Json (@{RunId=$target;Confirmed=$false} | ConvertTo-Json -Compress)
+            $staleOpen = Invoke-LabGuidedSmtpWebMailRequest -Json (@{RunId='dddddddd-dddd-dddd-dddd-dddddddddddd';Confirmed=$true} | ConvertTo-Json -Compress)
+            $opened = Invoke-LabGuidedSmtpWebMailRequest -Json (@{RunId=$target;Confirmed=$true} | ConvertTo-Json -Compress)
+            $openCount = $script:fixtureWebMailCalls
+        }
+        finally { Remove-Variable fixtureWebMailCalls -Scope Script }
         [pscustomobject]@{Listing=$listing; Receipt=$receipt; Console=$console; StaleBlocked=$stale
-            HttpList=$httpList; HttpStatus=$httpStatus; HttpPost=$httpPost.StatusCode; HttpDuplicate=$httpDuplicate.StatusCode}
+            HttpList=$httpList; HttpStatus=$httpStatus; HttpPost=$httpPost.StatusCode; HttpDuplicate=$httpDuplicate.StatusCode
+            Opened=$opened; Rejected=$rejected.StatusCode; StaleOpen=$staleOpen.StatusCode; OpenCount=$openCount}
     } $root $runId
     $binding=& $module {param($id,$state)Get-LabSmtpTestServiceWebMailBinding -RunId $id -StateRoot $state} $runId $root
     $wrongScope=$false;$wrong=$inspect.Replace($scopeId,'cccccccc-cccc-cccc-cccc-cccccccccccc')
@@ -72,6 +88,9 @@ try {
         ($guided.HttpList.StatusCode -eq 200 -and $guided.HttpList.View.Candidates[0].RunId -ceq $runId)
         ($guided.HttpStatus.StatusCode -eq 200 -and $guided.HttpStatus.View.Status -ceq 'READY' -and $guided.HttpStatus.View.RunId -ceq $runId)
         ($guided.HttpPost -eq 405 -and $guided.HttpDuplicate -eq 400)
+        ($guided.Rejected -eq 400 -and $guided.StaleOpen -eq 503 -and $guided.OpenCount -eq 1 -and
+            $guided.Opened.StatusCode -eq 200 -and $guided.Opened.View.Status -ceq 'OPENED' -and
+            ($guided.Opened | ConvertTo-Json -Depth 5) -cnotmatch 'synthetic-capability-url')
         (@($status.SupportedActions).Count -eq 2)
         ([string]$wrongStatus.Reason -ceq 'SMTP_WEBMAIL_RUNTIME_BINDING_INVALID')
         ([string]$access.Status -ceq 'OPENED')

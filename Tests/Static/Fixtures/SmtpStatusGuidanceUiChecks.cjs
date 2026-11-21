@@ -25,8 +25,11 @@ vm.runInNewContext(fs.readFileSync(path.resolve(__dirname, '../../../Ui/smtp-sta
   document: { getElementById: element, createElement: () => ({}) },
   URLSearchParams,
   sqlServerLabUiFetch(url, options) {
-    assert.equal(options.method, undefined);
     assert.equal(options.cache, 'no-store');
+    if (url === '/api/smtp-webmail/open') {
+      assert.equal(options.method, 'POST');
+      assert.deepEqual(JSON.parse(options.body), { RunId: secondRun, Confirmed: true });
+    } else assert.equal(options.method, undefined);
     return new Promise(resolve => calls.push({ url, resolve }));
   }
 });
@@ -39,6 +42,7 @@ const reply = (index, data) => calls[index].resolve({ ok: true, json: async () =
   assert.equal(calls[0].url, '/api/smtp-status');
   reply(0, { Candidates: [{ RunId: firstRun, Name: '<synthetic>' }, { RunId: secondRun, Name: 'Second' }] });
   await listing;
+  assert.equal(el('webmail').disabled, true);
   assert.equal(el('lab').children.length, 2);
   assert.match(el('lab').children[0].textContent, /<synthetic>/);
   const stale = submit();
@@ -52,9 +56,16 @@ const reply = (index, data) => calls[index].resolve({ ok: true, json: async () =
   await stale;
   assert.match(el('result').textContent, /docker.*läuft/);
   assert.doesNotMatch(el('result').textContent, /synthetic-url|podman/);
+  const opening = el('webmail').click();
+  await el('webmail').click();
+  assert.equal(calls.length, 4);
+  assert.equal(calls[3].url, '/api/smtp-webmail/open');
+  reply(3, { ContractVersion: 'SqlServerLab.GuidedSmtpWebMailOpen/1.0', RunId: secondRun, Status: 'OPENED' });
+  await opening;
+  assert.match(el('result').textContent, /Standardbrowser geöffnet/);
   el('lab').value = 'unregistered';
   el('lab').change();
   await submit();
-  assert.equal(calls.length, 3);
+  assert.equal(calls.length, 4);
   console.log('SMTP STATUS BROWSER UI: PASS');
 })().catch(error => { console.error(error.message); process.exitCode = 1; });

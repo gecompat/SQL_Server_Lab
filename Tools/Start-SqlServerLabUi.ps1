@@ -1152,6 +1152,25 @@ try {
                     -StatusCode $smtp.StatusCode -ContentType 'application/json; charset=utf-8' -NoStore
                 continue
             }
+            if ($path -ceq '/api/smtp-webmail/open') {
+                if ($context.Request.HttpMethod -cne 'POST' -or $context.Request.Url.Query -or
+                    [string]$context.Request.Headers['Origin'] -cne $url.TrimEnd('/')) {
+                    Write-UiResponse -Context $context -Body 'SMTP_WEBMAIL_OPEN_REQUEST_INVALID' -StatusCode 400 -NoStore
+                    continue
+                }
+                $bodyRead = Read-UiJsonRequestBody -Request $context.Request -MaxBytes 1024
+                if (-not $bodyRead.Allowed) {
+                    Write-UiResponse -Context $context -Body 'SMTP_WEBMAIL_OPEN_REQUEST_INVALID' -StatusCode 400 -NoStore
+                    continue
+                }
+                $smtpOpen = & (Get-Module SqlServerLab) {
+                    param($json)
+                    Invoke-LabGuidedSmtpWebMailRequest -Json $json
+                } $bodyRead.Body
+                Write-UiResponse -Context $context -Body ($smtpOpen.View | ConvertTo-Json -Depth 4 -Compress) `
+                    -StatusCode $smtpOpen.StatusCode -ContentType 'application/json; charset=utf-8' -NoStore
+                continue
+            }
             if ($path -ceq '/api/diagnostic-bundle') {
                 try {
                     $query = $context.Request.QueryString
