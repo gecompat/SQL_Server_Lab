@@ -1171,7 +1171,7 @@ function Show-LabMaintenanceMenu {
             -Help 'Vergleicht den gespeicherten State mit der tatsaechlichen Runtime. Fehlende Objekte werden als Recovery ausgewiesen; es wird nichts geloescht.'
         New-LabConsoleItem -Id CuStatus -Label 'Aktuelle SQL-Server-CUs bei Microsoft pruefen' -Value 'read-only · Netzzugriff auf die katalogisierten Quellen' -Shortcut 5
         New-LabConsoleItem -Id EvaluationWatch -Label 'Windows-/SQL-Evaluationsfristen' -Value 'gespeicherte Evidence · read-only · kein Gastzugriff' -Shortcut e
-        New-LabConsoleItem -Id ContainerNetworkPlan -Label 'Lab-Netz auf Subnetzkonflikt prüfen' -Value 'Docker oder Podman · lesende Vorschau'
+        New-LabConsoleItem -Id ContainerNetworkPlan -Label 'Lab-Netz auf Subnetzkonflikt prüfen' -Value 'Docker oder Podman · Vorschau und bestätigter Migrationsplan'
         New-LabConsoleItem -Id AutomationApiPlan -Label 'Automatisierungsschnittstelle ansehen' -Value 'Fachverträge und Pflichtparameter'
         New-LabConsoleItem -Id HyperVRecoveryPointPlan -Label 'Hyper-V-Wiederherstellungspunkte lesen' -Value 'Checkpoint-Inventar eines registrierten Labs'
         New-LabConsoleItem -Id DiagnosticBundle -Label 'Gespeicherten Diagnosebefund lesen' -Value 'Instanzzustand, Recovery und Cleanup im Standard-Lab_Data'

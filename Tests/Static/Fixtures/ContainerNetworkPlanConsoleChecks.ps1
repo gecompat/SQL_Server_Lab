@@ -6,6 +6,8 @@ $ErrorActionPreference = 'Stop'
     try {
         $script:syntheticNetworkMode = 'unavailable'
         $script:syntheticNetworkProbes = [Collections.Generic.List[string]]::new()
+        $script:syntheticNetworkApplies = [Collections.Generic.List[object]]::new()
+        $script:syntheticNetworkConfirmed = $false
         $script:syntheticNetworkRoot = Join-Path ([IO.Path]::GetTempPath()) ('sql-lab-network-plan-'+[guid]::NewGuid().ToString('N'))
         function Get-LabStateRoot { $script:syntheticNetworkRoot }
         function Get-LabRuntimeNetwork { param($Provider) [pscustomobject]@{Name='LabNetwork';Subnet='172.26.0.0/16'} }
@@ -48,7 +50,17 @@ $ErrorActionPreference = 'Stop'
             [pscustomobject]@{Id=('c'*64);RunId='11111111-1111-1111-1111-111111111111';ScopeId='22222222-2222-2222-2222-222222222222';
                 InstanceId='primary';Name='Synthetic';WasRunning=$true;Aliases=@('synthetic')}
         }
-        function Invoke-LabContainerNetworkMigration { throw 'PREVIEW_ATTEMPTED_MUTATION' }
+        function Invoke-LabContainerNetworkMigration {
+            param($Provider,$StateRoot,$ExpectedPlanKey,$TargetSubnet)
+            if (-not $script:syntheticNetworkConfirmed) { throw 'PREVIEW_ATTEMPTED_MUTATION' }
+            $script:syntheticNetworkApplies.Add([pscustomobject]@{ Provider=$Provider; PlanKey=$ExpectedPlanKey; TargetSubnet=$TargetSubnet })
+            [pscustomobject]@{Status='SUCCEEDED';MigratedContainers=1}
+        }
+        function Read-LabConfirm {
+            param($Prompt,$Default)
+            if ($Default) { throw 'NETWORK_CONFIRMATION_DEFAULTED_TRUE' }
+            $script:syntheticNetworkConfirmed
+        }
         function Select-LabConsoleDataItem { param($ScreenId,$Title,$Items) $Items[0].Data }
         function Read-LabConsoleTextInput { param($Prompt) [pscustomobject]@{Status='Confirmed';Value=''} }
         function Wait-LabConsoleAcknowledgement { $null }
@@ -74,6 +86,23 @@ $ErrorActionPreference = 'Stop'
             throw 'WEB_NETWORK_PREVIEW_INVALID'
         }
         $key = $browser.Result[0].PlanKey
+        $query = [Collections.Specialized.NameValueCollection]::new()
+        $query.Add('provider','docker')
+        $apiPreview = Invoke-LabContainerNetworkPlanRequest -Method GET -Query $query
+        $apiDenied = Invoke-LabContainerNetworkPlanRequest -Method POST -Query $query
+        if ($apiDenied.StatusCode -ne 400 -or $apiPreview.StatusCode -ne 200 -or $apiPreview.View.PlanKey -cne $key -or
+            $apiPreview.View.ContainerCount -ne 1 -or $apiPreview.View.Contains('ManagedContainers')) {
+            throw 'NETWORK_GUIDE_HTTP_RECEIPT_INVALID'
+        }
+        Invoke-LabMenuAction -ActionName ContainerNetworkPlan 6>$null
+        if ($script:syntheticNetworkApplies.Count) { throw 'CANCELLED_NETWORK_APPLY_PERFORMED' }
+        $script:syntheticNetworkConfirmed = $true
+        $applied = @(Invoke-LabMenuAction -ActionName ContainerNetworkPlan 6>&1) -join "`n"
+        $script:syntheticNetworkConfirmed = $false
+        if ($script:syntheticNetworkApplies.Count -ne 1 -or $script:syntheticNetworkApplies[0].PlanKey -cne $key -or
+            $script:syntheticNetworkApplies[0].TargetSubnet -cne '198.18.0.0/24' -or $applied -notmatch 'Netzmigration abgeschlossen') {
+            throw 'CONFIRMED_NETWORK_APPLY_NOT_BOUND'
+        }
         $explicit = Move-SqlServerLabContainerNetwork -Provider docker -TargetSubnet '198.18.2.0/24' -WhatIf
         if ($explicit.Status -cne 'MIGRATION_REQUIRED' -or $explicit.Desired.Subnet -cne '198.18.2.0/24' -or $explicit.PlanKey -ceq $key) {
             throw 'EXPLICIT_NETWORK_TARGET_NOT_BOUND'
@@ -107,6 +136,6 @@ $ErrorActionPreference = 'Stop'
     }
     finally {
         $global:LASTEXITCODE = $previousExit
-        Remove-Variable -Name syntheticNetworkMode,syntheticNetworkProbes,syntheticNetworkRoot,syntheticRuntimeBinding -Scope Script
+        Remove-Variable -Name syntheticNetworkMode,syntheticNetworkProbes,syntheticNetworkRoot,syntheticRuntimeBinding,syntheticNetworkApplies,syntheticNetworkConfirmed -Scope Script
     }
 }

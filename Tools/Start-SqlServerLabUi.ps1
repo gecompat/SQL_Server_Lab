@@ -1134,6 +1134,15 @@ try {
                 }
                 continue
             }
+            if ($path -ceq '/api/container-network-migration') {
+                $network = & (Get-Module SqlServerLab) {
+                    param($method,$query)
+                    Invoke-LabContainerNetworkPlanRequest -Method $method -Query $query
+                } $context.Request.HttpMethod $context.Request.QueryString
+                Write-UiResponse -Context $context -Body ($network.View | ConvertTo-Json -Depth 5 -Compress) `
+                    -StatusCode $network.StatusCode -ContentType 'application/json; charset=utf-8' -NoStore
+                continue
+            }
             if ($path -ceq '/api/diagnostic-bundle') {
                 try {
                     $query = $context.Request.QueryString

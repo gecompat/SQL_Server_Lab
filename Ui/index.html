@@ -1306,8 +1306,9 @@
       <label>IPv4-Zielsubnetz (optional)<input id="container-network-plan-subnet" type="text" maxlength="18" placeholder="198.18.2.0/24" autocomplete="off"></label>
       <p id="container-network-plan-status" role="status"></p>
       <div class="dialog-actions">
-        <button type="submit" class="button primary">Weiter zur Bestätigung</button>
+        <button id="container-network-plan-read" type="submit" class="button primary">Vorschau lesen</button>
         <button id="container-network-plan-close" type="button" class="button secondary">Schließen</button>
+        <button id="container-network-plan-apply" type="button" class="button secondary" hidden disabled>Gebundenen Plan ausführen</button>
       </div>
     </form>
   </dialog>

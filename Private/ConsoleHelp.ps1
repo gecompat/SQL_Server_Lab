@@ -315,7 +315,7 @@ function Get-LabConsoleHelpCatalog {
         'container-network-provider' = @{
             Title = 'Lab-Netz prüfen'
             Purpose = 'Docker oder Podman für die Subnetzprüfung auswählen.'
-            Effects = 'Liest den Providerbestand. Die Vorschau verändert keine Netze oder Container.'
+            Effects = 'Liest den Providerbestand. Erst eine weitere Bestätigung führt den gebundenen Plan aus. SQL-Verbindungen können dabei unterbrochen werden.'
             Command = 'Move-SqlServerLabContainerNetwork -WhatIf'
         }
         'automation-api-plan-choice' = @{

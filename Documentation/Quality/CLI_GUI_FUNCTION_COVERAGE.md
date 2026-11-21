@@ -165,17 +165,17 @@ und für SqlPackage und brach beide vor dem Versand ab.
 
 ## Bereichsinventar
 
-Die geführte Netzmigration bleibt für die Ausführung ein `KNOWN_GAP`.
 CLI und Browser bieten die lesende `-WhatIf`-Vorschau mit optionalem
 IPv4-Zielsubnetz. Die automatische Vorschau lässt die Netzkonfiguration im
-Prozess unverändert. Der öffentliche
-PowerShell-Befehl kann den `ExpectedPlanKey` zurückgeben und bei der
-Ausführung prüfen. Der Plan bindet Provider, Netz-ID, Subnetze und
+Prozess unverändert. Die getrennte Bestätigung übergibt den gebundenen
+Plan an den öffentlichen Befehl. Dieser prüft den `ExpectedPlanKey`
+vor jeder Mutation. Der Plan bindet Provider, Netz-ID, Subnetze und
 registrierte Container sowie eine verifizierte lokale Runtime. Fremde, geschützte und nicht eindeutig zugeordnete
 Ressourcen sowie eine offene Recovery sperren die Ausführung. Der
 synthetisch geprüfte Executor verwendet unveränderliche IDs an einem gebundenen Provider-Endpunkt und
 kontrolliert Power und Aliasse nach der Mutation. Eine native
-Migrationsabnahme und eine geführte Recovery bleiben offen.
+Migrationsabnahme und eine geführte Recovery bleiben offen. Der Bereich
+bleibt deshalb ein `KNOWN_GAP` für die vollständige Abnahme.
 
 Beim persistenten KI-Retrieval führen beide Oberflächen die synthetische
 Demo sowie `Prune` und `Remove`. Die Löschaktionen binden die ausgewählte

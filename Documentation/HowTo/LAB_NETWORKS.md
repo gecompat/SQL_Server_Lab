@@ -68,7 +68,9 @@ Bedarf gib ein konfliktfreies IPv4-Ziel in CIDR-Schreibweise ein.
 Die Vorschau zeigt das bisherige und das geplante Subnetz sowie die
 gebundenen Container. Bei einer gesperrten Migration prüfe den
 angezeigten Befund. Eine offene Recovery kann weitere
-Ausführungsversuche sperren. Während einer ausgeführten Migration
+Ausführungsversuche sperren. Bestätige die Ausführung erst, wenn die
+angezeigten Container für die Migration freigegeben sind. Eine
+veraltete Vorschau muss neu gelesen werden. Während der Migration
 können die betroffenen SQL-Verbindungen unterbrochen werden.
 
 Aktive VPN-Routen werden automatisch erkannt. Für VPN-Präfixe, die nur bei
