@@ -128,6 +128,9 @@
       <p>Runtimeinstallation, laufender Dienst, gespeicherte Modelldatei und geladenes Modell sind getrennte Zustände. In der Konsole sind Modellkatalog/Download und vorhandene Ollama-Modellaufrufe verfügbar.</p>
       <p>Eigene llama.cpp-Sitzungen dieses UI-Modulhosts können geführt gestartet und bewusst gestoppt werden. Der geführte Start ist synthetisch geprüft; der native Nachweis steht noch aus. Fremdstarts, Restart sowie Load, Warmup, Unload und Modellwechsel bleiben offen. Der vorhandene erweiterte Secret-Preflight unten steuert keinen Dienst.</p>
       <button id="llama-session-open" type="button" class="button secondary">Eigene llama.cpp-Sitzung stoppen</button>
+      <button id="llama-runtime-inventory-read" type="button" class="button secondary">Vorhandene llama.cpp-Pakete prüfen</button>
+      <p id="llama-runtime-inventory-status" role="status"></p>
+      <ul id="llama-runtime-inventory-items" hidden></ul>
       <button id="llama-start-plan-open" type="button" class="button secondary">llama.cpp: reine Startvorschau</button>
       <button id="llama-start-open" type="button" class="button secondary">llama.cpp: eigene Sitzung starten</button>
     </section>

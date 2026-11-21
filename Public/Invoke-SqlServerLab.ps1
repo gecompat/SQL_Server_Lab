@@ -152,6 +152,7 @@ function Invoke-LabMenuAction {
     if ($ActionName -eq 'queue') { Invoke-LabQueueInteractive; return }
     if ($ActionName -eq 'ContainerPortPreview') { Invoke-LabContainerPortPreviewInteractive; return }
     if ($ActionName -eq 'ContainerAutoStartPreview') { Invoke-LabContainerAutoStartPreviewInteractive; return }
+    if ($ActionName -eq 'LlamaRuntimeInventory') { Show-LabLlamaCppRuntimeInventoryInteractive; return }
     if ($ActionName -eq 'HyperVAutoStart') { Invoke-LabHyperVAutoStartInteractive; return }
     if ($ActionName -eq 'EnvironmentGroups') { Invoke-LabEnvironmentGroupsInteractive; return }
 
@@ -1666,6 +1667,7 @@ function Invoke-LabAction {
         'ReservePolicy' { Show-LabSlotReserveInteractive }
         'MediaSourceOverride' { Show-LabMediaOverrideInteractive }
         'HostServiceLifecycle' { Show-LabLlamaCppSessionStopInteractive }
+        'LlamaRuntimeInventory' { Show-LabLlamaCppRuntimeInventoryInteractive }
         'RuntimeInstaller' { Show-LabLlamaInstallerInteractive }
         'Setup' {
             Invoke-LabInitialSetupInteractive

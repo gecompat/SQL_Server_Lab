@@ -3473,6 +3473,42 @@ async function requestLlamaSession(action = 'read') {
     $('#llama-session-status').textContent = 'Stop nicht bestätigt. Neu lesen und vorprüfen; eigene Recovery separat prüfen. Keine automatische Wiederholung.';
   } finally { if (revision === llamaSessionRevision) { llamaSessionBusy = false; llamaSessionStopping = false; updateLlamaSessionControls(); } }
 }
+async function readLlamaRuntimeInventory() {
+  const button = $('#llama-runtime-inventory-read');
+  const status = $('#llama-runtime-inventory-status');
+  const items = $('#llama-runtime-inventory-items');
+  if (button.disabled) return;
+  button.disabled = true;
+  status.textContent = 'Paketdateien werden geprüft …';
+  items.hidden = true;
+  items.replaceChildren();
+  try {
+    const response = await sqlServerLabUiFetch('/api/llama-runtime-inventory', { cache: 'no-store' });
+    if (!response.ok) throw new Error('INVENTORY_UNAVAILABLE');
+    const view = await response.json();
+    const backends = ['Unknown', 'Ambiguous', 'LlamaCppCuda', 'LlamaCppOpenVino', 'LlamaCppRocm', 'LlamaCppVulkan', 'LlamaCppSycl'];
+    if (view?.EvidenceStatus !== 'FILES_ONLY' || !['COMPLETED', 'PARTIAL'].includes(view.ScanStatus) ||
+        !Array.isArray(view.Items) || !view.Items.every(item => backends.includes(item?.Backend) &&
+          (item.Build === null || (typeof item.Build === 'string' && /^\d{1,19}$/.test(item.Build))))) {
+      throw new Error('INVENTORY_INVALID');
+    }
+    for (const item of view.Items) {
+      const row = document.createElement('li');
+      row.textContent = 'Backend ' + item.Backend + ' · Build ' + (item.Build ?? 'unbekannt');
+      items.append(row);
+    }
+    items.hidden = view.Items.length === 0;
+    const scope = view.ScanStatus === 'PARTIAL' ? 'Suche unvollständig. ' : '';
+    status.textContent = scope + (view.Items.length ? view.Items.length + ' Paketdateibefunde. ' : 'Keine Paketdateien gefunden. ') +
+      'Paketursprung, Geräteverfügbarkeit und SQL-Embedding-Bereitschaft bleiben ungeprüft.';
+  } catch {
+    status.textContent = 'Paketübersicht nicht verfügbar. Konfigurierte Suchverzeichnisse und Suchgrenzen prüfen.';
+  } finally {
+    button.disabled = false;
+  }
+}
+$('#llama-runtime-inventory-read').addEventListener('click', readLlamaRuntimeInventory);
+
 $('#llama-session-open').addEventListener('click', () => {
   llamaSessionRevision++; llamaSessionBusy = false; llamaSessionView = null; invalidateLlamaSessionPlan();
   $('#llama-session-dialog').showModal(); return requestLlamaSession();
