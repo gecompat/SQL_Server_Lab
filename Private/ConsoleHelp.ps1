@@ -324,6 +324,12 @@ function Get-LabConsoleHelpCatalog {
             Effects = 'Die Ansicht beschreibt die Schnittstelle. Sie startet keinen Vorgang und greift auf keinen Lab-State zu.'
             Command = 'Get-SqlServerLabAutomationPlan'
         }
+        'smtp-status-target' = @{
+            Title = 'SMTP-Testdienst prüfen'
+            Purpose = 'Ein registriertes Lab mit SMTP-Testdienst auswählen und den Mailpit-Receiver prüfen.'
+            Effects = 'Liest die Runtime-Bindung und den Containerzustand. Öffnet keinen WebMail-Zugang.'
+            Command = 'Get-SqlServerLabSmtpTestServiceStatus'
+        }
         'diagnostic-bundle-instance' = @{
             Title = 'Gespeicherter Diagnosebefund'
             Purpose = 'Die Instanz im registrierten Standard-Lab_Data auswählen.'

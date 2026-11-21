@@ -912,6 +912,18 @@ Invoke-SqlServerLabWorkflowAction `
 Ein Reattach bindet nur den Datenträger. Vorhandene Datenbankdateien werden
 erst über eine ausdrückliche Restore- oder Attach-Aktion online gebracht.
 
+### SMTP-Testdienst prüfen
+
+Öffne **Lab-Umgebungen → SMTP-Testdienst prüfen** und wähle ein
+registriertes Docker- oder Podman-Lab mit SMTP-Testdienst. **Receiver
+prüfen** liest die gebundene Mailpit-Runtime. Der Befund zeigt, ob der
+Receiver läuft, gestoppt ist oder gerade nicht eindeutig geprüft werden
+kann. Die geführte Konsole bietet denselben Einstieg.
+
+Mit einem laufenden Receiver kannst du anschließend die Testzustellung
+separat prüfen. Die Statusabfrage liest keine Testmails und öffnet keinen
+WebMail-Zugang.
+
 ## Namen in Runtime und Oberfläche
 
 Der frei wählbare Projektname ist zugleich der führende Teil der Runtime-Namen.

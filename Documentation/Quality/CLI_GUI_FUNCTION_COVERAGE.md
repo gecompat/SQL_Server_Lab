@@ -165,6 +165,11 @@ und für SqlPackage und brach beide vor dem Versand ab.
 
 ## Bereichsinventar
 
+In **Lab-Umgebungen → SMTP-Testdienst prüfen** zeigen CLI und Browser
+registrierte SMTP-Labs an und prüfen den ausgewählten Mailpit-Receiver.
+Die Prüfung verifiziert die Runtime-Bindung und den Containerzustand.
+Mailzustellung und das Öffnen eines WebMail-Zugangs sind eigene Aktionen.
+
 Die Netzmigration über `Move-SqlServerLabContainerNetwork` ist bei der
 Ausführung weiterhin `KNOWN_GAP`: Die CLI und der Browser führen nur die
 `-WhatIf`-Vorschau. Die bestehende Ausführung hat keine an die bestätigte

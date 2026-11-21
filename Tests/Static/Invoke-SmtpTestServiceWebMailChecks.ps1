@@ -10,13 +10,27 @@ $runId='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';$scopeId='bbbbbbbb-bbbb-bbbb-bbbb-
 $module=Import-Module (Join-Path $repoRoot 'SqlServerLab.psd1') -Force -PassThru
 try {
     $runDirectory=Join-Path (Join-Path $root 'runs') $runId;New-Item -ItemType Directory -Path (Join-Path $runDirectory 'smtp-test-service') -Force|Out-Null
-    [pscustomobject]@{runId=$runId;scopeId=$scopeId;state='RUNNING';providerSubRuns=@([pscustomobject]@{provider='docker'})}|ConvertTo-Json -Depth 8|Set-Content (Join-Path $runDirectory 'run-state.json') -Encoding utf8
+    [pscustomobject]@{runId=$runId;scopeId=$scopeId;state='RUNNING';metadata=@{name='SMTP fixture'};providerSubRuns=@([pscustomobject]@{provider='docker'})}|ConvertTo-Json -Depth 8|Set-Content (Join-Path $runDirectory 'run-state.json') -Encoding utf8
     [pscustomobject]@{smtpTestService=[pscustomobject]@{ServiceId=$serviceId;SenderInstanceIds=@('primary');Receiver=[pscustomobject]@{Host='127.0.0.1';Port=18025}}}|ConvertTo-Json -Depth 8|Set-Content (Join-Path $runDirectory 'connection-info.json') -Encoding utf8
     [pscustomobject]@{ContractVersion='SqlServerLab.SmtpTestServiceJournal/1.0';Status='READY';RunId=$runId;ScopeId=$scopeId;Provider='docker';ServiceId=$serviceId;Resources=[pscustomobject]@{ReceiverContainerName='receiver';ReceiverContainerId='receiver-id'}}|ConvertTo-Json -Depth 8|Set-Content (Join-Path (Join-Path $runDirectory 'smtp-test-service') ($scopeId+'-'+$serviceId+'.json')) -Encoding utf8
     & $module {param($path,$name)$secret=ConvertTo-SecureString 'synthetic-password' -AsPlainText -Force;try{Save-LabSecret -Path $path -Name $name -Secret $secret}finally{$secret.Dispose()}} $runDirectory ('smtp-'+$serviceId+'-ui-password')
     $inspect=[pscustomobject]@{Id='receiver-id';Config=[pscustomobject]@{Labels=[pscustomobject]@{'sql-server-lab.run-id'=$runId;'sql-server-lab.scope-id'=$scopeId;'sql-server-lab.smtp-service-id'=$serviceId}};NetworkSettings=[pscustomobject]@{Ports=[pscustomobject]@{'8025/tcp'=@([pscustomobject]@{HostIp='127.0.0.1';HostPort=18025})}};State=[pscustomobject]@{Running=$true}}|ConvertTo-Json -Depth 12 -Compress
     & $module {param($json)Set-Item -Path function:Invoke-LabSmtpRuntime -Value {param($Provider,$StateRoot,$RunId,$Arguments)[pscustomobject]@{ExitCode=0;Output=@($json)}}.GetNewClosure()} $inspect
     $status=Get-SqlServerLabSmtpTestServiceStatus -RunId $runId -StateRoot $root
+    $guided = & $module {
+        param($path,$target)
+        function Get-LabStateRoot { param($ExplicitPath) if ($ExplicitPath) { $ExplicitPath } else { $path } }
+        function Select-LabConsoleDataItem { param($ScreenId,$Title,$Items) $Items[0].Data }
+        function Wait-LabConsoleAcknowledgement {}
+        $listing = Get-LabSmtpStatusGuidance -StateRoot $path
+        $receipt = Get-LabSmtpStatusGuidance -StateRoot $path -RunId $target
+        $console = @(Invoke-LabMenuAction -ActionName SmtpStatusGuidance 6>&1) -join [Environment]::NewLine
+        $stale = try {
+            Get-LabSmtpStatusGuidance -StateRoot $path -RunId 'dddddddd-dddd-dddd-dddd-dddddddddddd' | Out-Null
+            $false
+        } catch { $_.Exception.Message -ceq 'SMTP_STATUS_SELECTION_UNAVAILABLE' }
+        [pscustomobject]@{Listing=$listing; Receipt=$receipt; Console=$console; StaleBlocked=$stale}
+    } $root $runId
     $binding=& $module {param($id,$state)Get-LabSmtpTestServiceWebMailBinding -RunId $id -StateRoot $state} $runId $root
     $wrongScope=$false;$wrong=$inspect.Replace($scopeId,'cccccccc-cccc-cccc-cccc-cccccccccccc')
     & $module {param($json)Set-Item -Path function:Invoke-LabSmtpRuntime -Value {param($Provider,$StateRoot,$RunId,$Arguments)[pscustomobject]@{ExitCode=0;Output=@($json)}}.GetNewClosure()} $wrong
@@ -29,11 +43,16 @@ try {
         ([string]$status.Status -ceq 'READY')
         ([bool]$status.WebMailAvailable)
         ([string]$status.WebMailKind -ceq 'Mailpit')
+        (@($guided.Listing.Candidates).Count -eq 1 -and $guided.Listing.Candidates[0].RunId -ceq $runId -and $guided.Listing.Candidates[0].Name -ceq 'SMTP fixture')
+        ($guided.Receipt.Status -ceq 'READY' -and $guided.Receipt.RunId -ceq $runId -and
+            ($guided | ConvertTo-Json -Depth 6 -Compress) -cnotmatch 'synthetic-password|127\.0\.0\.1|ScopeId|ReceiverContainerId|ExpiresAt')
+        ($guided.StaleBlocked)
+        ($guided.Console -match 'Mailpit: RUNNING' -and $guided.Console -match 'Zustellung von Testmails')
         (@($status.SupportedActions).Count -eq 2)
         ([string]$wrongStatus.Reason -ceq 'SMTP_WEBMAIL_RUNTIME_BINDING_INVALID')
         ([string]$access.Status -ceq 'OPENED')
         ([string]$access.Url -match '^http://127\.0\.0\.1:\d+/launch/[a-f0-9]{64}$')
     )
     if(@($checks|Where-Object {$_}).Count-ne$checks.Count){throw 'SMTP_WEBMAIL_CHECK_FAILED'}
-    Write-Host 'SMTP WebMail: PASS (8/8)'
+    Write-Host "SMTP WebMail und Statusführung: PASS ($($checks.Count)/$($checks.Count))"
 } finally {Get-Job -ErrorAction SilentlyContinue|Where-Object Name -like 'sql-lab-smtp-webmail-*'|ForEach-Object {Stop-Job -Job $_ -ErrorAction SilentlyContinue;Remove-Job -Job $_ -Force -ErrorAction SilentlyContinue};Remove-Item -LiteralPath $root -Force -Recurse -ErrorAction SilentlyContinue}

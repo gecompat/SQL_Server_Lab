@@ -6,9 +6,15 @@ function Get-LabSmtpTestServiceWebMailBinding {
 
     if ($RunId -notmatch '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$') { throw 'SMTP_WEBMAIL_RUN_INVALID' }
     $root = Get-LabStateRoot -ExplicitPath $StateRoot
-    $run = Get-LabRunState -RunId $RunId -StateRoot $root
     $runDirectory = Join-Path (Join-Path $root 'runs') $RunId
+    $statePath = Join-Path $runDirectory 'run-state.json'
     $connectionPath = Join-Path $runDirectory 'connection-info.json'
+    if (-not (Test-LabPathWithinRoot -Root $root -Path $statePath).Valid -or
+        -not (Test-LabPathWithinRoot -Root $root -Path $connectionPath).Valid) { throw 'SMTP_WEBMAIL_BINDING_INVALID' }
+    $run = Get-LabRunState -RunId $RunId -StateRoot $root
+    if ([string]$run.runId -cne $RunId -or [string]$run.scopeId -cnotmatch '^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$') {
+        throw 'SMTP_WEBMAIL_BINDING_INVALID'
+    }
     if (-not (Test-Path -LiteralPath $connectionPath -PathType Leaf)) { throw 'SMTP_WEBMAIL_NOT_CONFIGURED' }
     $connection = Get-Content -LiteralPath $connectionPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20
     $service = $connection.smtpTestService
@@ -17,6 +23,7 @@ function Get-LabSmtpTestServiceWebMailBinding {
     $providers = @($run.providerSubRuns | ForEach-Object { [string]$_.provider } | Select-Object -Unique)
     if ($providers.Count -ne 1 -or $providers[0] -cnotin @('docker','podman')) { throw 'SMTP_WEBMAIL_SCOPE_UNSUPPORTED' }
     $journalPath = Join-Path (Join-Path $runDirectory 'smtp-test-service') (([string]$run.scopeId)+'-'+([string]$service.ServiceId)+'.json')
+    if (-not (Test-LabPathWithinRoot -Root $root -Path $journalPath).Valid) { throw 'SMTP_WEBMAIL_BINDING_INVALID' }
     if (-not (Test-Path -LiteralPath $journalPath -PathType Leaf)) { throw 'SMTP_WEBMAIL_JOURNAL_MISSING' }
     $journal = Get-Content -LiteralPath $journalPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20
     if ($journal.ContractVersion -cne 'SqlServerLab.SmtpTestServiceJournal/1.0' -or $journal.Status -cne 'READY' -or
