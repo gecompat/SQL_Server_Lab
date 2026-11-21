@@ -13,11 +13,14 @@ function Assert-Check {
 }
 
 function Wait-TestFile {
-    param([string]$Path, [int]$TimeoutSeconds = 10)
+    param([string]$Path, [int]$TimeoutSeconds = 45, [Diagnostics.Process]$OwnerProcess)
 
     $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
     while ([DateTime]::UtcNow -lt $deadline) {
         if (Test-Path -LiteralPath $Path -PathType Leaf) { return $true }
+        if ($OwnerProcess -and $OwnerProcess.HasExited) {
+            throw "BATCH_WORKFLOW_LOCK_CHILD_EXITED_BEFORE_READY: $($OwnerProcess.ExitCode)"
+        }
         Start-Sleep -Milliseconds 25
     }
     return Test-Path -LiteralPath $Path -PathType Leaf
@@ -72,7 +75,8 @@ $lock = & $module {
     param($Root, $Ready, $Release)
     Invoke-WithLabWorkflowLock -StateRoot $Root -ScriptBlock {
         New-Item -ItemType File -Path $Ready -Force | Out-Null
-        $deadline = [DateTime]::UtcNow.AddSeconds(10)
+        # The summary worker imports the complete module before trying the lock.
+        $deadline = [DateTime]::UtcNow.AddSeconds(60)
         while (-not (Test-Path -LiteralPath $Release -PathType Leaf)) {
             if ([DateTime]::UtcNow -ge $deadline) {
                 throw 'BATCH_SUMMARY_LOCK_RELEASE_TIMEOUT'
@@ -94,7 +98,7 @@ if (-not $lock) { throw 'BATCH_SUMMARY_LOCK_ACQUISITION_FAILED' }
         }
         if ($IsWindows) { $lockStart.WindowStyle = 'Hidden' }
         $lockProcess = Start-Process @lockStart
-        Assert-Check (Wait-TestFile -Path $lockReadyPath) 'Der Kindprozess hat die Workflow-Sperre nicht erworben.'
+        Assert-Check (Wait-TestFile -Path $lockReadyPath -OwnerProcess $lockProcess) 'Der Kindprozess hat die Workflow-Sperre nicht innerhalb von 45 Sekunden erworben.'
 
         $summaryJob = Start-ThreadJob -ArgumentList $modulePath, $testRoot, $batch.batchId, $summaryEnteredPath, $summaryCompletedPath -ScriptBlock {
             param($ModulePath, $Root, $BatchId, $EnteredPath, $CompletedPath)
