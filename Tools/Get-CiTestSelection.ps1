@@ -162,6 +162,7 @@ end {
         @{ Pattern = '(?i)(PersistentStorageRemoval|persistent-storage-removal)'; Checks = @('Invoke-PersistentStorageRemovalPlanChecks.ps1','Invoke-PersistentStorageRemovalExecutorChecks.ps1','Invoke-WorkflowUiChecks.ps1') },
         @{ Pattern = '(?i)(RetainedStore|retained-store|PersistentStorageCatalog|PersistentStorageRecovery|ContainerInstanceStore)'; Checks = @('Invoke-RetainedStoreRemovalChecks.ps1','Invoke-RetainedStoreRuntimeChecks.ps1','Invoke-RetainedStoreRemovalConcurrencyChecks.ps1','Invoke-PersistentStorageCatalogChecks.ps1','Invoke-PersistentStorageRecoveryChecks.ps1','Invoke-ContainerInstanceStoreChecks.ps1') },
         @{ Pattern = '(?i)(BatchWorkflow|BatchConsole|lab-batch)'; Checks = @('Invoke-BatchWorkflowChecks.ps1') },
+        @{ Pattern = '(?i)BatchBrowserOverview'; Checks = @('Invoke-WorkflowUiChecks.ps1') },
         @{ Pattern = '(?i)(PublicCommandConsole|Invoke-PublicCommandConsoleChecks|ConsoleUi|ConsoleHelp|Invoke-SqlServerLab\.ps1|Start-SqlServerLabUi\.ps1|Ui[\\/]|Workflow)'; Checks = @('Invoke-PublicCommandConsoleChecks.ps1','Invoke-ConsoleUiChecks.ps1','Invoke-WorkflowUiChecks.ps1') },
         @{ Pattern = '(?i)^Tests/Static/Fixtures/SqlConnectionClipboardUiChecks\.cjs$'; Checks = @('Invoke-WorkflowUiChecks.ps1') },
         @{ Pattern = '(?i)(ActionProgress|ContainerProviderObservationTimeoutChecks|SqlReadiness|ArtifactResolver|Save-SqlServerLabMediaSource|VersionCatalog|ExternalRuntimeWindows|ContainerImageArtifact|ContainerToolImage|Private/Common\.ps1)'; Checks = @('Invoke-ActionProgressChecks.ps1') },

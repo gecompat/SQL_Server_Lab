@@ -741,6 +741,11 @@ blockiert vor der ersten Hyper-V-Mutation.
 
 ## Workflow
 
+Unter **Vorgänge, Warteschlange und Wiederaufnahme → Fortschritt
+gespeicherter Batches** zeigt der Browser bei bis zu 50 Batches den Status,
+den Fortschritt und die Zahl der fehlgeschlagenen oder abgebrochenen
+Vorgänge. Die Ansicht überträgt keine Batch-Eingaben oder Quelldateipfade.
+
 1. SQL-Prepared-Image: Windows- und SQL-ISO auswählen und Windows einmal in
    einer frischen Builder-VM installieren. Nach der sichtbaren Bestätigung der
    Windows-Installation führt die Oberfläche SQL `PrepareImage`, benötigte

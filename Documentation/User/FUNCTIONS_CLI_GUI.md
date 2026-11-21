@@ -214,7 +214,7 @@ Legende:
 | Cmdlet | Kurzbeschreibung | Konsolenmenü | Browser-GUI |
 |---|---|---|---|
 | [`New-SqlServerLabBatch`](../../Public/BatchWorkflow.ps1) | Validiert und expandiert einen Einzel- oder Mengenbatch und reiht ihn persistent ein. | Vorgänge, Queue und Benutzeraktionen → Composer | direkt: Composer und persistente Einreihung von Browseraktionen |
-| [`Get-SqlServerLabBatch`](../../Public/BatchWorkflow.ps1) | Liest Batchplan, Abhängigkeiten, Fortschritt und Cleanup-Scope. | Vorgänge, Queue und Benutzeraktionen | direkt: Workflow-Inventur |
+| [`Get-SqlServerLabBatch`](../../Public/BatchWorkflow.ps1) | Liest Batchplan, Abhängigkeiten, Fortschritt und Cleanup-Scope. | Vorgänge, Queue und Benutzeraktionen | Vorgänge, Warteschlange und Wiederaufnahme → Fortschritt gespeicherter Batches |
 | [`Get-SqlServerLabQueue`](../../Public/BatchWorkflow.ps1) | Zeigt Worker, Locks, Blockierungen und User-Gates. | Statusbanner und Queue | direkt: Queue-Ansicht und Workflow-Inventur |
 | [`Get-SqlServerLabOperation`](../../Public/BatchWorkflow.ps1) | Liest Schritte, Receipts, Events und Ergebnis eines Kindvorgangs. | Queue → Vorgangsdetails | direkt: Workflow-Inventur |
 | [`Confirm-SqlServerLabOperationUserAction`](../../Public/BatchWorkflow.ps1) | Prüft ein User-Gate technisch und setzt nur eine erfolgreiche Position fort. | Queue → Benutzeraktion bestätigen | direkt: User-Gate bestätigen |
