@@ -136,6 +136,7 @@
       <button id="ai-runtime-capability-read" type="button" class="button secondary">llama.cpp-Eignung prüfen</button>
       <p id="ai-runtime-capability-status" role="status"></p>
       <button id="compute-selection-open" type="button" class="button secondary">KI-Gerätekombination aus Messbelegen wählen</button>
+      <button id="compute-benchmark-open" type="button" class="button secondary">llama.cpp-Gerätekombinationen messen</button>
       <button id="ovms-upstream-open" type="button" class="button secondary">Lokalen OVMS-Embedding-Dienst prüfen</button>
       <button id="persistent-fixture-open" type="button" class="button secondary">Persistente Retrieval-Demo</button>
       <button id="llama-start-plan-open" type="button" class="button secondary">llama.cpp: reine Startvorschau</button>
@@ -1007,6 +1008,21 @@
     </div>
   </dialog>
   <script src="evaluation-refresh-plan.js"></script>
+  <dialog id="compute-benchmark-dialog">
+    <form id="compute-benchmark-form">
+      <h2>llama.cpp-Gerätekombinationen messen</h2>
+      <p class="form-note">Prüft vorhandene Pakete mit llama-bench. Starte die Messung nur mit Paketen, denen du vertraust. Ein vollständiger Satz läuft seriell.</p>
+      <label>Absoluter lokaler Pfad zur GGUF-Datei<input id="compute-benchmark-model" maxlength="4096" required></label>
+      <button id="compute-benchmark-read" type="button" class="button secondary">Modell und Messkandidaten prüfen</button>
+      <label>Kandidat<select id="compute-benchmark-candidate" required></select></label>
+      <label>Messprofil<select id="compute-benchmark-mode"><option value="Generation">Textgeneration · 128 Ausgabetokens</option><option value="Embedding">Embedding · 512 Eingabetokens</option></select></label>
+      <p id="compute-benchmark-status" role="status"></p>
+      <div class="dialog-actions">
+        <button id="compute-benchmark-next" type="submit" class="button primary" disabled>Weiter zur Bestätigung</button>
+        <button id="compute-benchmark-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </form>
+  </dialog>
   <dialog id="compute-selection-dialog">
     <form id="compute-selection-form">
       <h2>KI-Gerätekombination aus Messbelegen wählen</h2>
@@ -1134,6 +1150,7 @@
   <script src="container-network-plan.js"></script>
   <script src="ai-persistent-retrieval-fixture.js"></script>
   <script src="ai-compute-selection.js"></script>
+  <script src="ai-compute-benchmark.js"></script>
 
   <dialog id="external-runtime-dialog">
     <div class="read-only-dialog-content">

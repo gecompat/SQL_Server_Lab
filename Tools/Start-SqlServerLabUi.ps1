@@ -985,6 +985,34 @@ try {
                 }
                 continue
             }
+            if ($path -ceq '/api/ai-compute-benchmark-options') {
+                try {
+                    if ($context.Request.HttpMethod -cne 'POST' -or -not $context.Request.HasEntityBody -or $context.Request.Url.Query) {
+                        throw 'AI_COMPUTE_BENCHMARK_OPTIONS_REQUEST_INVALID'
+                    }
+                    $bodyRead = Read-UiJsonRequestBody -Request $context.Request -MaxBytes 24576
+                    if (-not $bodyRead.Allowed) { throw 'AI_COMPUTE_BENCHMARK_OPTIONS_REQUEST_INVALID' }
+                    $document = [Text.Json.JsonDocument]::Parse([string]$bodyRead.Body)
+                    try {
+                        $root = $document.RootElement
+                        if ($root.ValueKind -ne [Text.Json.JsonValueKind]::Object -or
+                            @($root.EnumerateObject()).Count -ne 1 -or @($root.EnumerateObject()).Name -cne 'ModelPath' -or
+                            $root.GetProperty('ModelPath').ValueKind -ne [Text.Json.JsonValueKind]::String) {
+                            throw 'AI_COMPUTE_BENCHMARK_OPTIONS_REQUEST_INVALID'
+                        }
+                        $modelPath = $root.GetProperty('ModelPath').GetString()
+                    }
+                    finally { $document.Dispose() }
+                    if ([string]::IsNullOrWhiteSpace($modelPath) -or $modelPath.Length -gt 4096) { throw 'AI_COMPUTE_BENCHMARK_OPTIONS_REQUEST_INVALID' }
+                    $options = & (Get-Module SqlServerLab) { param($modelPath) Get-LabAiComputeBenchmarkOptions -ModelPath $modelPath } $modelPath
+                    Write-UiResponse -Context $context -Body ($options | ConvertTo-Json -Depth 12 -Compress) -ContentType 'application/json; charset=utf-8'
+                }
+                catch {
+                    Write-UiResponse -Context $context -Body '{"Code":"AI_COMPUTE_BENCHMARK_OPTIONS_UNAVAILABLE"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                }
+                finally { $bodyRead = $null; $modelPath = $null; $options = $null }
+                continue
+            }
             if ($path -ceq '/api/llama-runtime-inventory') {
                 try {
                     $view = & (Get-Module SqlServerLab) { param($request) Invoke-LabLlamaCppRuntimeInventoryHttpRequest -Request $request } $context.Request

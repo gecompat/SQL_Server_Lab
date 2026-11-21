@@ -2439,6 +2439,13 @@ JSON-Dateien (`ConvertTo-Json -Depth 30`). Wähle beide Dateien unter
 oder eine geeignete Gerätekombination fixieren. Die Auswahl startet keine
 Messung. In der Browseroberfläche steht sie im Live-Log.
 
+Für eine neue Messung öffne **Host-Dienste und Modelle →
+llama.cpp-Gerätekombinationen messen**. Wähle eine lokale GGUF-Datei und
+die einzelne Kombination oder den vollständigen Satz. Die Auswahl basiert
+auf dem erkannten Inventar und vorhandenen llama.cpp-Paketen mit llama-bench.
+Bestätige den Start nur für Pakete, denen du vertraust. Der vollständige Satz
+läuft seriell und die Browseroberfläche zeigt die Ergebnisse im Live-Log.
+
 Lokale Windows-llama.cpp-Pakete für SQL Server 2025 lassen sich vor der
 Modellauswahl mit `Get-SqlServerLabLlamaCppRuntime -SearchRoot 'C:\Pfad\llama'`
 rein lesend erkennen. Hashes sind dafür nicht erforderlich. Die Ausgabe belegt

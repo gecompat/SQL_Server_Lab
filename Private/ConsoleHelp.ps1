@@ -353,6 +353,18 @@ function Get-LabConsoleHelpCatalog {
             Effects = 'Liest die ausgewählten JSON-Belege und berechnet die Auswahl. Startet weder Modell noch Benchmark.'
             Command = 'Get-SqlServerLabAiComputeSelection'
         }
+        'ai-compute-benchmark-candidate' = @{
+            Title = 'llama.cpp-Gerätekombinationen messen'
+            Purpose = 'Eine geeignete Gerätekombination oder alle Kandidaten aus vorhandenen lokalen Paketen auswählen.'
+            Effects = 'Nach Bestätigung startet llama-bench mit dem ausgewählten GGUF. Ein kompletter Satz wird seriell gemessen.'
+            Command = 'Measure-SqlServerLabAiComputeCandidate / Measure-SqlServerLabAiComputeCandidateSet'
+        }
+        'ai-compute-benchmark-mode' = @{
+            Title = 'Messprofil wählen'
+            Purpose = 'Textgeneration mit 128 Ausgabetokens oder Embedding mit 512 Eingabetokens wählen.'
+            Effects = 'Das Profil gilt für alle ausgewählten Kandidaten und bestimmt die Vergleichbarkeit.'
+            Command = 'Measure-SqlServerLabAiComputeCandidate / Measure-SqlServerLabAiComputeCandidateSet'
+        }
         'persistent-fixture-target' = @{
             Title = 'Zielinstanz für persistente Retrieval-Demo'
             Purpose = 'Eine laufende SQL-2025-Containerinstanz für die synthetische Sammlung wählen.'

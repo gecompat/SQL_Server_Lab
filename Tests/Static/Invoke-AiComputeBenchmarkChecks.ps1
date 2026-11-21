@@ -20,6 +20,17 @@ try {
     $runtime=@(Get-SqlServerLabLlamaCppRuntime -SearchRoot $package)[0]
     $capabilities=Get-SqlServerLabAiRuntimeCapability -Inventory $inventory -Runtime $runtime
     $candidateSet=Get-SqlServerLabAiComputeCandidate -Inventory $inventory -RuntimeCapability $capabilities.Capabilities
+    $guidedOptions = & $module {
+        param($FixtureInventory, $FixtureRuntime, $FixtureModel)
+        function Get-SqlServerLabAiComputeInventory { [CmdletBinding()] param() $FixtureInventory }
+        function Get-SqlServerLabLlamaCppRuntime { [CmdletBinding()] param() $FixtureRuntime }
+        Get-LabAiComputeBenchmarkOptions -ModelPath $FixtureModel
+    } $inventory $runtime $model
+    Add-CheckResult 'Geführte Optionsprüfung bindet lokale Paketdateien, Modellpfad und vollständigen Kandidatensatz' (
+        $guidedOptions.ModelPath -eq $model -and $guidedOptions.Packages.Count -eq 1 -and
+        $guidedOptions.Packages[0].Directory -eq $package -and
+        $guidedOptions.CandidateSet.CandidateSetSha256 -ceq $candidateSet.CandidateSetSha256)
+    & (Join-Path $PSScriptRoot 'Fixtures/AiComputeBenchmarkConsoleChecks.ps1') -Module $module -Repository $repoRoot
     $receipts=[Collections.Generic.List[object]]::new()
     foreach($candidate in @($candidateSet.Candidates|Where-Object Eligible)){
         $bindings=[Collections.Generic.List[object]]::new();$gpuOrdinal=0

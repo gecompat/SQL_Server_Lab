@@ -38,15 +38,15 @@ eines Cmdlets:
 ## Exportreferenz-Audit
 
 Ein mechanischer Abgleich des Manifests mit
-`Documentation/User/FUNCTIONS_CLI_GUI.md` findet 149 der 166 Exportnamen und
-17 dort nicht referenzierte Exporte. Das ist ein Referenzabgleich, keine
-vollständige Prüfung, ob die 149 Treffer tatsächlich korrekt geführt,
+`Documentation/User/FUNCTIONS_CLI_GUI.md` findet 151 der 166 Exportnamen und
+15 dort nicht referenzierte Exporte. Das ist ein Referenzabgleich, keine
+vollständige Prüfung, ob die 151 Treffer tatsächlich korrekt geführt,
 ausführbar oder providerabgenommen sind. Die folgende Inventarliste hält die
-17 nicht referenzierten Namen einzeln fest. Die sieben Environment-Group-
+15 nicht referenzierten Namen einzeln fest. Die sieben Environment-Group-
 Operationen aus dem vorherigen Abgleich sind jetzt in der Funktionsübersicht
 enthalten und unten separat quellengestützt als `GUIDED_BOTH` bewertet. Von
-den verbleibenden 17 Einträgen sind vier TLS-001-Exporte `DEFERRED`,
-9 Exporte als `KNOWN_GAP`, einer als `EXPERT_CATALOG_ONLY` und 3 als
+den verbleibenden 15 Einträgen sind vier TLS-001-Exporte `DEFERRED`,
+7 Exporte als `KNOWN_GAP`, einer als `EXPERT_CATALOG_ONLY` und 3 als
 `NOT_ASSESSED` bewertet.
 Die Bewertung folgt aus Menüdispatch, GUI-Aktion, öffentlichen Parametern
 und den vorhandenen Nachweisen. Der Expertenkatalog allein erfüllt die
@@ -54,13 +54,12 @@ geführte Abdeckung nicht.
 
 | Funktionsfamilie | Nicht einzeln in der Funktionsübersicht referenzierte Exporte | Status |
 |---|---|---|
-| KI-Compute-Messung | `Measure-SqlServerLabAiComputeCandidate`; `Measure-SqlServerLabAiComputeCandidateSet` | `KNOWN_GAP`; API und Expertenkatalog sind vorhanden. Die Messung ist noch nicht geführt. |
 | Shared Gateway | `Get-SqlServerLabAiSharedGatewayPlan`; `Test-SqlServerLabAiSharedGatewayPreflight`; `Register-SqlServerLabAiSharedGatewayStorage`; `Test-SqlServerLabAiSharedGatewayUpstream`; `Start-SqlServerLabAiSharedGatewaySession`; `Stop-SqlServerLabAiSharedGatewaySession`; `Get-SqlServerLabAiSharedGatewayStatus` | `KNOWN_GAP` für diese sieben Fachaktionen. Der vorhandene Dialog zum Dienst-Preflight nimmt einen bereits erstellten Gateway-Plan entgegen. |
 | Modell-/Gateway-Lifecycle | `Test-SqlServerLabAiExternalModelEndpoint`; `Start-SqlServerLabOvmsHttpsGateway`; `Stop-SqlServerLabOvmsHttpsGateway` | `NOT_ASSESSED`; vorhandene Workflow-Dokumentation weist Lifecycle-Lücken aus |
 | Security-Tool-Katalog | `Get-SqlServerLabSecurityToolPlan` | `EXPERT_CATALOG_ONLY`. Die produktive Allowlist ist leer, der lokale Resolver blockiert alle Anfragen. [Katalogvertrag und Freigabestand](../Project_Planning/SECURITY_TOOL_ACQUISITION_BACKLOG.md). |
 | TLS-001, zurückgestellt | `Update-SqlServerLabTlsBinding`; `Get-SqlServerLabTlsBindingRecovery`; `Resolve-SqlServerLabTlsBindingRecovery`; `Read-SqlServerLabQualifiedTestEnvironment` | `DEFERRED`; bestehender Zustand bleibt erhalten, keine neue Abdeckungs- oder Runtimearbeit ohne dokumentierten Anwendungsfall |
 
-Die 45 Namen (17 ohne Referenz sowie 28 einzeln geprüfte Exporte)
+Die 43 Namen (15 ohne Referenz sowie 28 einzeln geprüfte Exporte)
 wurden unmittelbar gegen `FunctionsToExport` im Manifest
 abgeglichen; die Familiengruppierung ist nur eine Lesbarkeitshilfe. Sie ist
 keine Behauptung, dass eine Familie einen gemeinsamen Aufrufer oder denselben
