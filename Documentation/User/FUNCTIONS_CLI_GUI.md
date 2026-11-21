@@ -1,5 +1,19 @@
 # Funktionsübersicht für CLI und Browser-GUI
 
+## Container-Autostart
+
+Unter **Lab-Umgebungen → Docker-/Podman-Autostart ändern** zeigen
+`Get-SqlServerLabContainerAutoStartPlan` und
+`Set-SqlServerLabContainerAutoStart` die aktuelle und die gewünschte Policy.
+Die Änderung bindet den frisch gelesenen Plan und erfordert eine ausdrückliche
+Bestätigung. Die Restartpolicy kann damit ohne Neustart gesetzt werden.
+
+Mit **Docker-/Podman-Autostart-Recovery fortsetzen** bestätigt der Benutzer
+eine konkrete Journaloperation. `Resume-SqlServerLabContainerAutoStart`
+prüft diese Operation und den Container erneut, bevor es Lab-State schreibt.
+Der [Bedienungsablauf](../HowTo/WORKFLOW_UI.md#docker-und-podman-autostart-ändern)
+beschreibt die Schritte und die Grenzen der Browseransicht.
+
 ## Container-Autostart nur vorprüfen
 
 Die Autostartvorschau verwendet in API, CLI und Browser denselben öffentlichen

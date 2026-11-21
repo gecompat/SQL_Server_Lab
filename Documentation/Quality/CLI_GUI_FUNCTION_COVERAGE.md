@@ -38,15 +38,15 @@ eines Cmdlets:
 ## Exportreferenz-Audit
 
 Ein mechanischer Abgleich des Manifests mit
-`Documentation/User/FUNCTIONS_CLI_GUI.md` findet 121 der 166 Exportnamen und
-45 dort nicht referenzierte Exporte. Das ist ein Referenzabgleich, keine
-vollständige Prüfung, ob die 121 Treffer tatsächlich korrekt geführt,
+`Documentation/User/FUNCTIONS_CLI_GUI.md` findet 124 der 166 Exportnamen und
+42 dort nicht referenzierte Exporte. Das ist ein Referenzabgleich, keine
+vollständige Prüfung, ob die 124 Treffer tatsächlich korrekt geführt,
 ausführbar oder providerabgenommen sind. Die folgende Inventarliste hält die
-45 nicht referenzierten Namen einzeln fest. Die sieben Environment-Group-
+42 nicht referenzierten Namen einzeln fest. Die sieben Environment-Group-
 Operationen aus dem vorherigen Abgleich sind jetzt in der Funktionsübersicht
 enthalten und unten separat quellengestützt als `GUIDED_BOTH` bewertet. Von
-den verbleibenden 45 Einträgen bleiben die drei TLS-001-Exporte `DEFERRED`; die
-übrigen 42 bleiben `NOT_ASSESSED`, bis
+den verbleibenden 42 Einträgen bleiben die drei TLS-001-Exporte `DEFERRED`; die
+übrigen 39 bleiben `NOT_ASSESSED`, bis
 Menüdispatch, GUI-Aktion, öffentliche Parameter und Evidence anhand der
 Implementierung geprüft wurden. Der generierte Expertenkatalog allein ändert
 ihren Status nicht.
@@ -60,13 +60,14 @@ ihren Status nicht.
 | Modell-/Gateway-Lifecycle | `Start-SqlServerLabLlamaCppRuntime`; `Stop-SqlServerLabLlamaCppRuntime`; `Test-SqlServerLabAiExternalModelEndpoint`; `Test-SqlServerLabOvmsUpstreamEndpoint`; `Start-SqlServerLabOvmsHttpsGateway`; `Stop-SqlServerLabOvmsHttpsGateway` | `NOT_ASSESSED`; vorhandene Workflow-Dokumentation weist Lifecycle-Lücken aus |
 | Evaluation und Watch | `Get-SqlServerLabEvaluationRefreshPlan`; `Update-SqlServerLabSqlGuestEvaluationEvidence`; `Invoke-SqlServerLabEvaluationWatchTrigger` | `NOT_ASSESSED` |
 | Transfer und Vergleich | `Invoke-SqlServerLabPortableContainerTransferPreflight`; `Invoke-SqlServerLabPortableContainerTransfer`; `Test-SqlServerLabRelationalCoreComparison` | `NOT_ASSESSED` |
-| Autostart und Netzwerk | `Get-SqlServerLabContainerAutoStartPlan`; `Get-SqlServerLabHyperVAutoStartPlan`; `Set-SqlServerLabHyperVAutoStart`; `Resume-SqlServerLabHyperVAutoStart`; `Set-SqlServerLabContainerAutoStart`; `Resume-SqlServerLabContainerAutoStart`; `Move-SqlServerLabContainerNetwork` | `NOT_ASSESSED` |
+| Autostart und Netzwerk | `Get-SqlServerLabHyperVAutoStartPlan`; `Set-SqlServerLabHyperVAutoStart`; `Resume-SqlServerLabHyperVAutoStart`; `Move-SqlServerLabContainerNetwork` | `NOT_ASSESSED` |
 | SQL-Features und Zielumgebung | `Set-SqlServerLabFeature`; `Read-SqlServerLabQualifiedTestEnvironment` | `NOT_ASSESSED` |
 | Run-Artefakt-Retention | `Get-SqlServerLabRunArtifactRemovalPlan`; `Invoke-SqlServerLabRunArtifactRemoval` | `NOT_ASSESSED` |
 | Persistentes KI-Retrieval und Security-Tools | `Invoke-SqlServerLabAiPersistentRetrieval`; `Get-SqlServerLabSecurityToolPlan` | `NOT_ASSESSED` |
 | TLS-001, zurückgestellt | `Update-SqlServerLabTlsBinding`; `Get-SqlServerLabTlsBindingRecovery`; `Resolve-SqlServerLabTlsBindingRecovery` | `DEFERRED`; bestehender Zustand bleibt erhalten, keine neue Abdeckungs- oder Runtimearbeit ohne dokumentierten Anwendungsfall |
 
-Die 53 Namen (45 ohne Referenz, sieben Gruppenoperationen und die Paketübersicht) wurden unmittelbar gegen `FunctionsToExport` im Manifest
+Die 53 Namen (42 ohne Referenz, sieben Gruppenoperationen, die Paketübersicht
+und drei Container-Autostart-Befehle) wurden unmittelbar gegen `FunctionsToExport` im Manifest
 abgeglichen; die Familiengruppierung ist nur eine Lesbarkeitshilfe. Sie ist
 keine Behauptung, dass eine Familie einen gemeinsamen Aufrufer oder denselben
 Nachweis besitzt.
@@ -101,6 +102,13 @@ und dem [Gruppenvertrag](../Architecture/LAB_ENVIRONMENT_GROUPS.md).
 | Operation | Geführter CLI-Pfad | Geführter GUI-Pfad | Vertrag und Nachweis | Provider-/Versions-Evidence |
 |---|---|---|---|---|
 | Vorhandene Runtime-Paketdateien suchen (`Get-SqlServerLabLlamaCppRuntime`) | Host-Dienste und Modelle → Vorhandene llama.cpp-Pakete prüfen | Derselbe Bereich und dieselbe Aktion | `GUIDED_BOTH`. Lesen aus den konfigurierten Suchwurzeln und Anzeige von Backend, Build und unvollständiger Suche. `Invoke-LlamaCppRuntimeChecks.ps1` und einmaliger HTTP-Aufruf im Browserfixture. Freie Suchwurzeln bleiben ein PowerShell-Parameter. | Synthetische Paketdateien. Kein Modell-, Geräte-, SQL- oder Providerlauf für diese reine Dateisuche erforderlich. |
+
+## Geprüfte Operationen: Container-Autostart
+
+| Operation | Geführter CLI-Pfad | Geführter GUI-Pfad | Vertrag und Nachweis | Provider-/Versions-Evidence |
+|---|---|---|---|---|
+| Startpolicy lesen und ändern (`Get-SqlServerLabContainerAutoStartPlan`, `Set-SqlServerLabContainerAutoStart`) | Lab-Umgebungen → Docker-/Podman-Autostart ändern | Reine Vorschau, Apply ist offen | `GUIDED_CLI_ONLY` für den bestätigten Apply. Der Plan bindet die Zielpolicy. Der Executor bestätigt die Änderung mit dem gebundenen Ergebnis. `Invoke-ContainerAutoStartChecks.ps1` | Synthetische Vertragsfälle. Native CLI-Abnahme `NOT_EXECUTED`. |
+| Journaloperation fortsetzen (`Resume-SqlServerLabContainerAutoStart`) | Lab-Umgebungen → Docker-/Podman-Autostart-Recovery fortsetzen | Geführte Wiederaufnahme ist offen | `GUIDED_CLI_ONLY`. Die Journaloperation wird unter der Sperre erneut geprüft. `Invoke-ContainerAutoStartChecks.ps1` prüft auch den Austausch des Journals. | Synthetische Vertragsfälle. Native CLI-Abnahme `NOT_EXECUTED`. |
 
 ## Bereichsinventar
 

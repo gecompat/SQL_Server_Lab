@@ -338,6 +338,22 @@ sind bestanden. Der Browserlauf vom 2026-10-06 prüfte echte Loopback-HTTP-
 Antworten, drei Vorschauaufrufe und eigenen Cleanup. Core77-Evidence ist
 separat; Apply/Recovery und Scope A bleiben offen.
 
+### Docker und Podman Autostart ändern
+
+Wähle unter **Lab-Umgebungen → Docker-/Podman-Autostart ändern** das
+registrierte Lab, die SQL-Instanz und die Policy `on` oder `off`.
+Prüfe die angezeigte Ist- und Zielpolicy. Bei einem unveränderten Plan endet
+der Dialog direkt. Bei einer Änderung bestätigt der Benutzer den aktuellen
+Plan. Erhält die CLI keine sichere Quittung, prüfe den aktuellen Zustand und
+offene Recovery vor einer erneuten Änderung.
+
+**Docker-/Podman-Autostart-Recovery fortsetzen** liest die passenden
+Journaloperationen. Bestätige die gewünschte Operation. Wird das Journal
+zwischen Auswahl und Ausführung ersetzt, liest der Benutzer die Auswahl
+erneut. Die Wiederaufnahme prüft Containeridentität, Laufzustand und
+Restartpolicy. Anschließend schreibt sie Lab-State. Die Browseransicht bietet
+weiterhin die reine Vorschau an.
+
 ### SQL-Hostport nur vorprüfen
 
 Unter **Lab verwalten → SQL-Hostport vorprüfen · PLAN_ONLY** werden ausschließlich

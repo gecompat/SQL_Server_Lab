@@ -618,6 +618,9 @@ sources_of_truth:
   guided_container_autostart_preview_cli: Public/Invoke-SqlServerLab.ps1 # registered metadata-only selection, one public PLAN_ONLY call, strict scalar DTO, no Apply
   guided_container_autostart_preview_menu: Public/BatchConsole.ps1, Private/ConsoleHelp.ps1 # Lab-Umgebungen / Container-Autostart vorprüfen
   validation_guided_container_autostart_preview: Tests/Static/Fixtures/ContainerAutoStartPreviewConsoleChecks.ps1 # existing ContainerReconcile suite; actual menu/dual router/module/public route, synthetic inspect only
+  guided_container_autostart_change: Public/Invoke-SqlServerLab.ps1, Public/BatchConsole.ps1, Private/ConsoleHelp.ps1
+  guided_container_autostart_recovery: Public/Resume-SqlServerLabContainerAutoStart.ps1 # optional confirmed journal operation ID, rechecked under the run mutex
+  validation_guided_container_autostart_change_and_recovery: Tests/Static/Invoke-ContainerAutoStartChecks.ps1, Tests/Static/Invoke-ContainerAutoStartConsoleChecks.ps1
   acceptance_guided_container_autostart_preview_cli: Tests/Integration/Invoke-ContainerAutoStartPreviewAcceptance.ps1 # explicit ConsoleOnly; own scope/custody/mutex, three actual CLI/public calls; Docker/Podman PASS 2026-10-05 on 960b5452, own cleanup/protection confirmed; no Apply
   guided_container_autostart_preview_http: Private/ContainerAutoStartPreviewHttp.ps1 # server-bound metadata, strict scalar projection, one public PLAN_ONLY call, no client StateRoot/native IDs
   guided_container_autostart_preview_browser: Ui/container-autostart-preview.js # separate on/off dialog; UNKNOWN/DRIFTED/counts, late-response veto, no Apply

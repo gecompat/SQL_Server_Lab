@@ -290,4 +290,5 @@ if ($failures.Count -gt 0) {
     $failures | ForEach-Object { Write-Host "  - $_" -ForegroundColor Red }
     exit 1
 }
+& (Join-Path $PSScriptRoot 'Invoke-ContainerAutoStartConsoleChecks.ps1')
 Write-Host "Container Autostart Checks: PASS ($passed)" -ForegroundColor Green

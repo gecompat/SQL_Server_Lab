@@ -52,6 +52,30 @@ function Get-LabConsoleHelpCatalog {
             Effects = 'Nach vollständiger Auswahl einmal PLAN_ONLY anzeigen. CanApply=false; keine Reservierung oder Mutation. Hostlogin, Endpoint, SQL und Backup bleiben NOT_CHECKED. Zurück oder q vor dem Planaufruf ändern nichts.'
             Command = 'Get-SqlServerLabReconcilePlan'
         }
+        'container-autostart-apply-run' = @{
+            Title = 'Container-Lab für Autostartänderung auswählen'
+            Purpose = 'Wählt nur registrierte, laufende, ungeschützte Docker-/Podman-SQL-Labs aus dem angegebenen Lab_Data.'
+            Effects = 'Nur lokale Metadaten lesen. Geschützte Testgruppen, CMS, gestoppte Labs und ungültige Bindungen werden nicht angeboten. Zurück beendet ohne Provideraktion.'
+            Command = 'Get-SqlServerLabContainerAutoStartPlan'
+        }
+        'container-autostart-apply-instance' = @{
+            Title = 'SQL-Instanz und Wunsch für Autostartänderung auswählen'
+            Purpose = 'Wählt die im vorherigen Menü gebundene Docker-/Podman-Instanz und on/off; Auswahldaten aus einer unbestätigten Menüantwort werden nicht als Autorität verwendet.'
+            Effects = 'Liest einen frischen gebundenen Plan. Zeigt Ist-/Wunschpolicy, keinen Containerneustart und keine Datenwirkung; erst eine ausdrückliche Bestätigung ruft den Executor mit derselben Planbindung auf. Bei Abbruch bleibt alles unverändert.'
+            Command = 'Set-SqlServerLabContainerAutoStart'
+        }
+        'container-autostart-recovery-run' = @{
+            Title = 'Container-Lab mit offener Autostart-Recovery auswählen'
+            Purpose = 'Filtert registrierte, als RUNNING geführte, ungeschützte Docker-/Podman-SQL-Labs auf ein schema-valides, an Run, Scope, Instanz und Provider gebundenes POLICY_MUTATED- oder RECOVERY_REQUIRED-Journal.'
+            Effects = 'Liest nur Lab-State und Journalmetadaten. Vor der ausdrücklichen Bestätigung gibt es keine Runtimeabfrage oder Speicherung. Danach prüft Resume die konkrete Container-ID, den Laufzustand und die Restartpolicy erneut; ein Providerbefehl wird nie wiederholt. Unklare oder ungültige Journale werden nicht angeboten.'
+            Command = 'Resume-SqlServerLabContainerAutoStart'
+        }
+        'container-autostart-recovery-instance' = @{
+            Title = 'SQL-Instanz mit offener Autostart-Recovery auswählen'
+            Purpose = 'Wählt genau eine lokal gebundene Recovery-Instanz aus dem zuvor ausgewählten Lab.'
+            Effects = 'Zeigt Journalstatus und Zielpolicy aus dem validierten Journal. Der Resume-Befehl prüft Container-ID, Laufzustand und Restartpolicy erneut; nur danach darf er Lab-State persistieren. Zurück beendet ohne Schreibzugriff.'
+            Command = 'Resume-SqlServerLabContainerAutoStart'
+        }
         'main-menu' = @{
             Title   = 'Hauptmenue'
             Purpose = 'Einstieg in alle Bereiche des Labs. Die Auswahl oeffnet nur einen Unterbereich und veraendert nichts.'
