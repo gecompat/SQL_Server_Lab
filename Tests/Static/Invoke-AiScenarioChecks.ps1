@@ -44,6 +44,31 @@ try {
 
         $catalogPlan=Get-SqlServerLabAiScenario -ScenarioId vector-core-ci
         $runPlan=Get-SqlServerLabAiScenario -ScenarioId vector-core-ci -RunId $runId -StateRoot $TemporaryRoot
+        $browserPlanPassed = & {
+            function Get-LabStateRoot { $TemporaryRoot }
+            $tokens=$null; $parseErrors=$null
+            $ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $script:ModuleRoot 'Tools/Start-SqlServerLabUi.ps1'),[ref]$tokens,[ref]$parseErrors)
+            $route=$ast.Find({param($node) $node -is [Management.Automation.Language.IfStatementAst] -and
+                $node.Clauses[0].Item1.Extent.Text -ceq '$path -ceq ''/api/ai-scenario-plan'''},$true)
+            if ($parseErrors.Count -or -not $route) { return $false }
+            $routeScript=[scriptblock]::Create('foreach ($once in @(1)) '+$route.Clauses[0].Item2.Extent.Text)
+            $query=[Collections.Specialized.NameValueCollection]::new()
+            $context=[pscustomobject]@{Request=[pscustomobject]@{HttpMethod='GET';HasEntityBody=$false;QueryString=$query}}
+            $responses=[Collections.Generic.List[object]]::new()
+            function Write-UiResponse { param($Context,$Body,$ContentType,$StatusCode=200) $responses.Add(@{Status=$StatusCode;Body=$Body}) }
+            & $routeScript
+            $query.Add('runId',$runId)
+            $query.Add('instanceId','primary')
+            & $routeScript
+            $query.Add('instanceId','hyperv-ai')
+            & $routeScript
+            $catalogView=$responses[0].Body | ConvertFrom-Json
+            $boundView=$responses[1].Body | ConvertFrom-Json
+            $responses.Count -eq 3 -and $responses[0].Status -eq 200 -and $responses[1].Status -eq 200 -and $responses[2].Status -eq 400 -and
+                $catalogView.Status -ceq 'CATALOG_SUPPORTED' -and $null -eq $catalogView.RunId -and $null -eq $catalogView.InstanceId -and
+                $boundView.Status -ceq 'READY' -and $boundView.RunId -ceq $runId -and $boundView.InstanceId -ceq 'primary' -and
+                $responses[1].Body -notmatch '192\.0\.2\.10|127\.0\.0\.1|synthetic-ai-target|LastEvidence|Dataset'
+        }
         $password=[SecureString]::new()
         $whatIf=Invoke-SqlServerLabAiScenario -ScenarioId vector-core-ci -RunId $runId -StateRoot $TemporaryRoot -SaPassword $password -WhatIf
         $journalPath=Get-LabAiScenarioJournalPath -RunDirectory $runDirectory -ScenarioId vector-core-ci -Version 1.0 -InstanceId primary
@@ -94,6 +119,7 @@ try {
         $hyperVTarget=Resolve-LabRunInstance -RunId $runId -InstanceId hyperv-ai -StateRoot $TemporaryRoot
         [PSCustomObject]@{
             ManifestSchemaResult=$manifestSchemaResult;Resolved=$resolved;Desired=$desired;CatalogPlan=$catalogPlan;RunPlan=$runPlan;WhatIf=$whatIf
+            BrowserPlanPassed=$browserPlanPassed
             JournalAbsent=-not (Test-Path -LiteralPath $journalPath)
             AiPersistedCases=$aiPersistedCases
             EgressRejected=(-not $egressValidation.IsValid -and @($egressValidation.Errors) -match "Cloud-Modell.*benötigt 'explicit'")
@@ -119,6 +145,7 @@ try {
         (($result.CatalogPlan|ConvertTo-Json -Depth 30) -notmatch 'InternalDefinition|ScriptPath|ScenarioDirectory'))
     Add-CheckResult 'Run-Plan bindet Manifestintent, SQL 2025 und Docker-Capability zu READY' (
         $result.RunPlan.Status -eq 'READY' -and $result.RunPlan.Provider -eq 'docker' -and $result.RunPlan.SqlVersion -eq '2025')
+    Add-CheckResult 'Browser liefert nur Katalog- oder eindeutig gebundenen Szenarioplan' $result.BrowserPlanPassed
     Add-CheckResult 'WhatIf bleibt mutationsfrei und erzeugt kein Journal' (
         $result.WhatIf.Status -eq 'PLAN_ONLY' -and $result.JournalAbsent)
     Add-CheckResult 'Persistierte KI-Intents bleiben geschlossen, lokal plan-key-gebunden und vor Target-/Journalzugriff fail-closed' (

@@ -139,6 +139,7 @@
       <button id="compute-benchmark-open" type="button" class="button secondary">llama.cpp-Gerätekombinationen messen</button>
       <button id="ovms-upstream-open" type="button" class="button secondary">Lokalen OVMS-Embedding-Dienst prüfen</button>
       <button id="persistent-fixture-open" type="button" class="button secondary">Persistente Retrieval-Demo</button>
+      <button id="ai-scenario-plan-open" type="button" class="button secondary">Vector-Core-Szenarioplan lesen</button>
       <button id="llama-start-plan-open" type="button" class="button secondary">llama.cpp: reine Startvorschau</button>
       <button id="llama-start-open" type="button" class="button secondary">llama.cpp: eigene Sitzung starten</button>
     </section>
@@ -1025,6 +1026,23 @@
       </div>
     </form>
   </dialog>
+  <dialog id="ai-scenario-plan-dialog">
+    <form id="ai-scenario-plan-form">
+      <h2>Vector-Core-Szenarioplan</h2>
+      <p class="form-note">Liest für SQL Server 2025 die Anforderungen aus dem Katalog und prüft auf Wunsch den gespeicherten KI-Intent einer Instanz.</p>
+      <label>Planumfang<select id="ai-scenario-plan-target"></select></label>
+      <p id="ai-scenario-plan-status" role="status"></p>
+      <dl id="ai-scenario-plan-result" hidden>
+        <dt>Planstatus</dt><dd id="ai-scenario-plan-verdict"></dd>
+        <dt>Fähigkeiten</dt><dd id="ai-scenario-plan-capabilities"></dd>
+        <dt>Blocker</dt><dd id="ai-scenario-plan-blockers"></dd>
+      </dl>
+      <div class="dialog-actions">
+        <button id="ai-scenario-plan-close" type="button" class="button secondary">Schließen</button>
+        <button id="ai-scenario-plan-read" type="submit" class="button primary">Plan lesen</button>
+      </div>
+    </form>
+  </dialog>
   <dialog id="diagnostic-bundle-dialog">
     <form id="diagnostic-bundle-form">
       <h2>Gespeicherter Diagnosebefund</h2>
@@ -1227,6 +1245,7 @@
   <script src="automation-api-plan.js"></script>
   <script src="hyperv-recovery-point-plan.js"></script>
   <script src="diagnostic-bundle.js"></script>
+  <script src="ai-scenario-plan.js"></script>
   <script src="portable-lab-import-plan.js"></script>
 
   <dialog id="external-runtime-dialog">

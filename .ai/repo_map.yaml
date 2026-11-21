@@ -163,6 +163,7 @@ sources_of_truth:
   validation_security_tool_catalog: Tests/Static/Invoke-SecurityToolCatalogChecks.ps1
   ai_scenario_contract: Private/AiScenario.ps1
   ai_scenario_inventory: Public/Get-SqlServerLabAiScenario.ps1
+  ai_scenario_plan_guidance: Ui/ai-scenario-plan.js
   ai_scenario_execution: Public/Invoke-SqlServerLabAiScenario.ps1
   ai_vector_core_scenario: Scenarios/Ai/vector-core-ci/1.0/scenario.json
   validation_ai_vector_index: Tests/Integration/Invoke-AiVectorIndexAcceptance.ps1

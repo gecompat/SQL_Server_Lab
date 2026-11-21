@@ -1022,6 +1022,42 @@ try {
                 finally { $bodyRead=$null; $package=$null }
                 continue
             }
+            if ($path -ceq '/api/ai-scenario-plan') {
+                try {
+                    $query = $context.Request.QueryString
+                    $runIds = @($query.GetValues('runId'))
+                    $instanceIds = @($query.GetValues('instanceId'))
+                    $requestedRun = [guid]::Empty
+                    if ($context.Request.HttpMethod -cne 'GET' -or $context.Request.HasEntityBody -or
+                        ($query.Count -ne 0 -and ($query.Count -ne 2 -or $runIds.Count -ne 1 -or $instanceIds.Count -ne 1 -or
+                            -not [guid]::TryParseExact($runIds[0], 'D', [ref]$requestedRun) -or $requestedRun -eq [guid]::Empty -or
+                            [string]$instanceIds[0] -cnotmatch '\A[A-Za-z][A-Za-z0-9_-]{0,63}\z'))) {
+                        throw 'AI_SCENARIO_PLAN_UI_REQUEST_INVALID'
+                    }
+                    $arguments = @{ ScenarioId='vector-core-ci'; Version='1.0'; ErrorAction='Stop' }
+                    if ($query.Count) {
+                        $arguments.RunId = $requestedRun.ToString('D')
+                        $arguments.InstanceId = $instanceIds[0]
+                    }
+                    $plan = Get-SqlServerLabAiScenario @arguments
+                    $codes = @(foreach ($blocker in $plan.Blockers) {
+                        if ([string]$blocker -cmatch '\A((?:AI_SCENARIO|DESIRED_STATE)_[A-Z_]{1,80})(?=:|\z)') { $Matches[1] }
+                        else { 'AI_SCENARIO_PLAN_BLOCKED' }
+                    })
+                    $view = [pscustomobject]@{
+                        ScenarioId=$plan.ScenarioId; Version=$plan.Version; Status=$plan.Status
+                        RunId=if ($query.Count) { $plan.RunId } else { $null }
+                        InstanceId=if ($query.Count) { $plan.InstanceId } else { $null }
+                        PlanKey=$plan.PlanKey; Blockers=@($codes | Sort-Object -Unique)
+                        RequiredCapabilities=@($plan.RequiredCapabilities)
+                    }
+                    Write-UiResponse -Context $context -Body ($view | ConvertTo-Json -Depth 8 -Compress) -ContentType 'application/json; charset=utf-8'
+                }
+                catch {
+                    Write-UiResponse -Context $context -Body '{"Code":"AI_SCENARIO_PLAN_UNAVAILABLE"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                }
+                continue
+            }
             if ($path -ceq '/api/diagnostic-bundle') {
                 try {
                     $query = $context.Request.QueryString

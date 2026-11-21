@@ -1451,6 +1451,12 @@ State, Secrets, konkrete Hostpfade und Connection Information dürfen nicht in G
 
 ### SQL-2025-Vector-Core-Szenario
 
+Im Browser zeigt **Host-Dienste und Modelle → Vector-Core-Szenarioplan lesen**
+die Kataloganforderungen für `vector-core-ci/1.0`. Wenn du eine laufend
+registrierte SQL-2025-Instanz auf Docker oder Podman auswählst, prüft die
+Ansicht den gespeicherten KI-Intent und zeigt die Blockercodes. Der Dialog
+führt das Szenario nicht aus.
+
 `Schemas/example-ai-vector-core.json` zeigt den neuen KI-Manifestvertrag. Er
 verwendet nur synthetische Daten, feste Vektoren und `egress: denied`:
 
