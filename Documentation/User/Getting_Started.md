@@ -221,7 +221,9 @@ $lab.Instances[0].ContainerName
 $lab.Instances[0].ConnectionString
 ```
 
-Der Port wird standardmäßig im Bereich `14330` bis `14399` automatisch vergeben.
+Die automatische Vergabe sucht ab Port `14330`. Wenn dort alle bisherigen
+Standardports bis `14399` belegt oder durch das Betriebssystem reserviert sind,
+sucht sie bis `15399` weiter. Den vergebenen Port zeigt die Verbindungsinfo.
 
 ## 7. Verbindung mit SSMS
 

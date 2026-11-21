@@ -163,6 +163,12 @@ function Test-LabEndpointBinding {
     }
 }
 
+function Get-LabAutomaticSqlPortRange {
+    # Prefer the original range. The bounded extension handles system exclusions
+    # such as Windows NAT reserving the entire original range.
+    [pscustomobject]@{ Start = 14330; End = 15399 }
+}
+
 function Find-LabAvailablePort {
     [CmdletBinding()]
     param(

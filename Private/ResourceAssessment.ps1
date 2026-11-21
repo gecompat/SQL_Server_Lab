@@ -303,16 +303,17 @@ function Test-PortAvailability {
     $portsNeeded = $Instances.Count
     if ($portsNeeded -eq 0) { $portsNeeded = 1 }
 
-    # Verfuegbare Ports im Lab-Bereich zaehlen
+    $range = Get-LabAutomaticSqlPortRange
     $available = 0
-    for ($port = 14330; $port -le 14399; $port++) {
+    for ($port = $range.Start; $port -le $range.End; $port++) {
+        $listener = $null
         try {
-            $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, $port)
+            $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Any, $port)
             $listener.Start()
-            $listener.Stop()
             $available++
             if ($available -ge $portsNeeded) { break }
         } catch { }
+        finally { if ($listener) { $listener.Stop() } }
     }
 
     $status = if ($available -ge $portsNeeded) { 'RESOURCE_OK' } else { 'RESOURCE_HARD_BLOCK' }
@@ -320,7 +321,7 @@ function Test-PortAvailability {
     return [PSCustomObject]@{
         Category = 'Ports'
         Status   = $status
-        Message  = "Verfuegbar: $available, Benoetigt: $portsNeeded (Bereich 14330-14399)"
+        Message  = "Verfuegbar: $available, Benoetigt: $portsNeeded (Bereich $($range.Start)-$($range.End))"
         Value    = @{ Available = $available; Required = $portsNeeded }
     }
 }

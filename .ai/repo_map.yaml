@@ -277,6 +277,8 @@ sources_of_truth:
   acceptance_llama_cpp_sql: Tests/Integration/Invoke-LlamaCppSqlAcceptance.ps1
   ai_external_model_runtime_schema: Schemas/llama-cpp-runtime.schema.json
   validation_llama_cpp_runtime: Tests/Static/Invoke-LlamaCppRuntimeChecks.ps1
+  llama_cpp_runtime_inventory_surfaces: Private/LlamaCppRuntimeInventory.ps1, Public/BatchConsole.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/app.js
+  validation_llama_cpp_runtime_inventory_browser: Tests/Static/Fixtures/LlamaCppRuntimeInventoryUiChecks.cjs, Tests/Static/Invoke-WorkflowUiChecks.ps1
   ai_external_model_runtime_api: Public/Get-SqlServerLabLlamaCppRuntime.ps1
   ai_external_model_runtime_contract: Private/AiExternalModelAcceleration.ps1
   ai_external_model_artifact_api: Public/Test-SqlServerLabAiExternalModelArtifact.ps1
@@ -708,7 +710,7 @@ sources_of_truth:
   validation_hyperv_external_runtime_reconcile_ci_acceptance: Tests/Integration/Invoke-HyperVExternalRuntimeReconcileCiAcceptance.ps1
   validation_hyperv_external_runtime_reconcile_ci_stage_diagnostics: Tests/Common/HyperVExternalRuntimeAcceptanceStageDiagnostics.ps1
   validation_hyperv_external_runtime_reconcile_ci_acceptance_static: Tests/Static/Invoke-HyperVExternalRuntimeReconcileCiAcceptanceChecks.ps1
-  port_allocation_contract: Private/PortAllocation.ps1
+  port_allocation_contract: Private/PortAllocation.ps1 # shared automatic SQL range for Docker, Podman and resource preflight
   storage_contract: Private/StorageContract.ps1
   initial_setup_contract: Private/InitialSetup.ps1
   initial_setup_capacity_contract: Private/InitialSetupCapacity.ps1

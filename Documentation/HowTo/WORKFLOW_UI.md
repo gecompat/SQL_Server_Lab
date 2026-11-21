@@ -975,6 +975,17 @@ Die GUI muss im selben PowerShell-Modulhost wie der bestehende Start geöffnet
 werden; sie lädt den exakten vorhandenen Modulpfad ohne Force-Reload weiter.
 Details und Workflow-Aktionen: [Sitzungsstop](../Architecture/LLAMA_CPP_OWNED_RUNTIME.md).
 
+### Vorhandene llama.cpp-Pakete prüfen
+
+Wähle in CLI oder Browser **Host-Dienste und Modelle → Vorhandene
+llama.cpp-Pakete prüfen**. Die Suche verwendet `SQL_SERVER_LAB_LLAMA_ROOT`
+und das Verzeichnis des ersten `llama-server`-Fundes im Prozess-PATH.
+Backend und Build stammen aus den gefundenen Paketdateien. Bei einer
+unlesbaren Suchwurzel zeigt die Oberfläche an, dass die Suche unvollständig
+war. Paketursprung, verfügbare Geräte und SQL-Embedding-Bereitschaft bleiben
+ungeprüft. Für eine Suche in ausdrücklich angegebenen Verzeichnissen verwendet
+ein Skript `Get-SqlServerLabLlamaCppRuntime -SearchRoot <Verzeichnis>`.
+
 ### Reine llama.cpp-Dateivorschau im Browser
 
 Unter „Host-Dienste und Modelle“ → „llama.cpp: reine Startvorschau“ werden

@@ -35,7 +35,7 @@
   "defaultPort": 14330,
   "portRange": {
     "min": 14330,
-    "max": 14399
+    "max": 15399
   },
   "labels": {
     "prefix": "sql-server-lab",

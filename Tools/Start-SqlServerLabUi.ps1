@@ -886,6 +886,16 @@ try {
                 }
                 continue
             }
+            if ($path -ceq '/api/llama-runtime-inventory') {
+                try {
+                    $view = & (Get-Module SqlServerLab) { param($request) Invoke-LabLlamaCppRuntimeInventoryHttpRequest -Request $request } $context.Request
+                    Write-UiResponse -Context $context -Body ($view | ConvertTo-Json -Depth 4 -Compress) -ContentType 'application/json; charset=utf-8'
+                }
+                catch {
+                    Write-UiResponse -Context $context -Body 'LLAMA_RUNTIME_INVENTORY_UNAVAILABLE' -StatusCode 400
+                }
+                continue
+            }
             if ($path -eq '/api/llama-sessions') {
                 try {
                     $view=Invoke-UiLlamaSessionRequest -Request $context.Request
