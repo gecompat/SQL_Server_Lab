@@ -62,6 +62,29 @@ Eine spätere oder anders gebundene Antwort verändert die geschlossene Ansicht
 nicht. Wiederholung erfordert eine neue bewusste Auswahl. CLI-Fallback und
 Cursoroberfläche benutzen denselben Core.
 
+## Separater bestätigter CMS-Abgleich
+
+Der Browser bietet die Aktion **CMS synchronisieren** neben der
+Leseprüfung an. Er übergibt den zuletzt gelesenen Registrierungsschlüssel
+an `Sync-SqlServerLabCms -ExpectedRegistrationKey` über die gemeinsame
+Aktionsbestätigung. Dieser Pfad setzt einen registrierten laufenden
+Docker- oder Podman-CMS ohne Kennwortalias voraus.
+
+Der Abgleich hält die Sperre des zugeordneten Runs. Er prüft Registrierung,
+Container-ID, lokale Runtime und veröffentlichten SQL-Port vor und nach
+der Script-Erzeugung. Die Vorbereitung aktualisiert den lokalen
+Endpunktkatalog. Der verwaltete Baum in `msdb` wird erst nach der erneuten
+Bindungsprüfung und der Prüfung der SQL-Hauptversion auf derselben
+Verbindung aktualisiert. Das SQL-Skript bleibt im Arbeitsspeicher.
+Unverwaltete Einträge bleiben erhalten. Die Rückgabe nennt Ergebnis, Run,
+Provider und Anzahl der Einträge.
+
+Die [Bedienung](../HowTo/WORKFLOW_UI.md#verbindungen-anzeigen) und der
+[Abdeckungsnachweis](../Quality/CLI_GUI_FUNCTION_COVERAGE.md#geprüfte-operationen-manifest-registrierungen-und-containerwerkzeuge)
+trennen Browserbestätigung und native SQL-Abnahme.
+
+## Nachweise zur lesenden Prüfung
+
 Ein separater test-only Browserharness
 `Tests/Integration/Invoke-ConnectionCenterCmsInspectionBrowserAcceptance.ps1` liefert das exakte
 Produktmarkup, den CMS-Block aus `Ui/app.js`, CSS und die tatsächliche

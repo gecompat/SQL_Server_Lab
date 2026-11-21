@@ -131,6 +131,12 @@ und dem [Gruppenvertrag](../Architecture/LAB_ENVIRONMENT_GROUPS.md).
 | Run-State-Format prüfen (`Get-SqlServerLabRunStateUpgradePlan`) | Wartung, Aufräumen und Recovery → Format eines Run-States prüfen | Wartung → Format eines Run-States prüfen | `GUIDED_BOTH` für die lesende Vorschau eines registrierten Runs. Der getrennte Upgrade-Befehl bleibt auf synthetische Legacy-States begrenzt. |
 | Registrierte Hyper-V-Zielpfade und Kapazität lesen (`Get-SqlServerLabHyperVResourcePreview`) | Hyper-V: Vorlagen und Slots → Hyper-V-Zielpfade und freien Speicher anzeigen | Derselbe Bereich und dieselbe Aktion | `GUIDED_BOTH` für das registrierte Standardziel. Der Browser prüft keine frei eingegebenen Pfade. Vertrags- und Browserprüfungen verwenden einen isolierten lokalen Speicherkatalog. |
 
+Am 21.11.2026 bestand der Menüpfad in einer nummerierten PowerShell-Konsole
+mit einem eigenen lokalen Speicherfixture. Der Katalog blieb unverändert.
+Ein Headless-Edge-Test mit vollständiger Produktseite und synthetischem
+Endpunkt bestätigte Navigation, Klassenausgabe, Fehleranzeige und Schließen.
+Die Vorschau erfordert für diese Prüfung keinen Start einer Hyper-V-VM.
+
 ## Geprüfte Operationen: Manifest, Registrierungen und Containerwerkzeuge
 
 | Operation | Geführter CLI-Pfad | Geführter GUI-Pfad | Vertrag und Nachweis |
@@ -147,6 +153,11 @@ die Abweisung einer veralteten Auswahl, den Erhalt unverwalteter
 Registrierungen und das Aufräumen der beiden eigenen Test-Labs. Die
 Browserbestätigung ist synthetisch geprüft. SSMS und Verbindungen zu
 Mitgliedsservern waren außerhalb dieser Abnahme.
+
+Auf Quellrevision `3c60cef0` wurden in Edge Manifestprüfung und
+SSMS-Download anhand synthetischer HTTP-Antworten geprüft. Der Test
+beobachtete zudem die zielgebundenen Bestätigungen für den CMS-Abgleich
+und für SqlPackage und brach beide vor dem Versand ab.
 
 ## Bereichsinventar
 
