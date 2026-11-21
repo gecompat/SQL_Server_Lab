@@ -1022,6 +1022,26 @@ try {
                 finally { $bodyRead=$null; $package=$null }
                 continue
             }
+            if ($path -ceq '/api/hyperv-recovery-point-plan') {
+                try {
+                    $query = $context.Request.QueryString
+                    $runIds = @($query.GetValues('runId'))
+                    $instanceIds = @($query.GetValues('instanceId'))
+                    $requestedRun = [guid]::Empty
+                    if ($context.Request.HttpMethod -cne 'GET' -or $context.Request.HasEntityBody -or $query.Count -ne 2 -or
+                        $runIds.Count -ne 1 -or -not [guid]::TryParseExact($runIds[0], 'D', [ref]$requestedRun) -or
+                        $requestedRun -eq [guid]::Empty -or $instanceIds.Count -ne 1 -or
+                        [string]$instanceIds[0] -cnotmatch '\A[A-Za-z][A-Za-z0-9_-]{0,127}\z') {
+                        throw 'HYPERV_RECOVERY_POINT_REQUEST_INVALID'
+                    }
+                    $plan = Get-SqlServerLabHyperVRecoveryPointPlan -RunId $requestedRun.ToString('D') -InstanceId $instanceIds[0] -ErrorAction Stop
+                    Write-UiResponse -Context $context -Body ($plan | ConvertTo-Json -Depth 8 -Compress) -ContentType 'application/json; charset=utf-8'
+                }
+                catch {
+                    Write-UiResponse -Context $context -Body '{"Code":"HYPERV_RECOVERY_POINT_UNAVAILABLE"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                }
+                continue
+            }
             if ($path -ceq '/api/automation-plan') {
                 try {
                     $query = $context.Request.QueryString

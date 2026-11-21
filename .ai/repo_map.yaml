@@ -615,6 +615,7 @@ sources_of_truth:
   hyperv_recovery_point_plan_contract: Private/RecoveryPointPlan.ps1
   hyperv_recovery_point_plan_public: Public/Get-SqlServerLabHyperVRecoveryPointPlan.ps1
   hyperv_recovery_point_plan_schema: Schemas/hyperv-recovery-point-plan.schema.json
+  hyperv_recovery_point_plan_guidance: Private/HyperVRecoveryPointPlanConsole.ps1, Ui/hyperv-recovery-point-plan.js
   validation_hyperv_recovery_point_plan: Tests/Static/Invoke-HyperVRecoveryPointPlanChecks.ps1
   automation_api_plan_contract: Private/AutomationApiPlan.ps1
   automation_api_plan_public: Public/Get-SqlServerLabAutomationPlan.ps1

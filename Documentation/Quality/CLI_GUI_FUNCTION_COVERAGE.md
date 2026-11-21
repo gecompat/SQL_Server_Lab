@@ -122,6 +122,7 @@ und dem [Gruppenvertrag](../Architecture/LAB_ENVIRONMENT_GROUPS.md).
 | CPU, GPU und NPU erfassen (`Get-SqlServerLabAiComputeInventory`) | Host-Dienste und Modelle → CPU, GPU und NPU erfassen | Derselbe Bereich und dieselbe Aktion | `GUIDED_BOTH` für die Übersicht. Synthetische vollständige und partielle Gerätebefunde in Inventar- und Browserfixtures. Keine Geräte- oder Runtimequalifikation. |
 | Metadaten eines entfernten Runs prüfen und entfernen (`Get-SqlServerLabRunArtifactRemovalPlan`, `Invoke-SqlServerLabRunArtifactRemoval`) | Wartung, Aufräumen und Recovery → Artefakte eines entfernten Runs | Wartung und Recovery → Run-Artefakte prüfen | `GUIDED_BOTH`. Dieselben Cmdlets für gebundene Vorschau, bestätigte Entfernung und Fortsetzung. Workflow-UI und CLI-Vertragsfälle mit synthetischem State. |
 | Evaluationsersatz oder Migration vorprüfen (`Get-SqlServerLabEvaluationRefreshPlan`) | Wartung, Aufräumen und Recovery → SQL-Evaluation: Ersatz- und Migrationsentscheid | Wartung und Recovery → SQL-Evaluation: Ersatzentscheid | `GUIDED_BOTH` für die lesende Vorschau. Synthetische CLI-, HTTP- und Browserfälle. Die Vorschau führt keine Übernahme aus. |
+| Vorhandene Hyper-V-Checkpoints lesen (`Get-SqlServerLabHyperVRecoveryPointPlan`) | Wartung, Aufräumen und Recovery → Hyper-V-Wiederherstellungspunkte lesen | Wartung → Hyper-V-Wiederherstellungspunkte lesen | `GUIDED_BOTH` für das Checkpoint-Inventar. Synthetische Menü- und HTTP-Bindung geprüft. Native Oberflächenabnahme `NOT_EXECUTED`. |
 
 ## Bereichsinventar
 

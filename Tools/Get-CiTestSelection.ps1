@@ -227,6 +227,7 @@ end {
         @{ Pattern = '(?i)(SsisOwnedInstall|Private/HyperVLabEnvironment\.ps1|SSIS_ETL_DATA_WAREHOUSE_BACKLOG)'; Checks = @('Invoke-SsisOwnedInstallChecks.ps1') },
         @{ Pattern = '(?i)(SqlObservabilityEvidence|sql-observability-evidence)'; Checks = @('Invoke-SqlObservabilityEvidenceChecks.ps1') },
         @{ Pattern = '(?i)(RecoveryPointPlan|recovery-point-plan)'; Checks = @('Invoke-HyperVRecoveryPointPlanChecks.ps1') },
+        @{ Pattern = '(?i)Ui/hyperv-recovery-point-plan\.js'; Checks = @('Invoke-WorkflowUiChecks.ps1') },
         @{ Pattern = '(?i)(HyperVPersistentDataDrive|hyperv-persistent-data)'; Checks = @('Invoke-HyperVPersistentDataDriveChecks.ps1','Invoke-HyperVProviderChecks.ps1') },
         @{ Pattern = '(?i)(HostToolResolution|Initialize-SqlServerLabHostTools|Initialize-PodmanRuntime|PodmanBootstrap)'; Checks = @('Invoke-HostToolResolutionChecks.ps1','Invoke-PodmanBootstrapChecks.ps1') },
         @{ Pattern = '(?i)(HostCapabilityMatrix|host-capability-matrix|HOST_CAPABILITY_MATRIX|Private/(DiagnosticBundleReadiness|ClientReadiness|SoftwareCatalog|VersionCatalog|ExternalRuntimeCapability)\.ps1|Tools/Read-SqlServerLabDiagnosticReadiness\.ps1|Catalogs/(software|sql-server-versions)\.json|Providers/[^/]+/provider\.json|Private/ConsoleHelp\.ps1|Public/Invoke-SqlServerLab\.ps1)'; Checks = @('Invoke-HostCapabilityMatrixChecks.ps1','Invoke-HostCapabilityMatrixBrowserChecks.ps1') },

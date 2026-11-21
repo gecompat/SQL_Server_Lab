@@ -162,6 +162,7 @@
         <button id="evaluation-watch-open" type="button" class="button secondary">Evaluationsfristen lesen</button>
         <button id="container-network-plan-open" type="button" class="button secondary">Lab-Netz auf Subnetzkonflikt prüfen</button>
         <button id="automation-api-plan-open" type="button" class="button secondary">Automatisierungsschnittstelle ansehen</button>
+        <button id="hyperv-recovery-points-open" type="button" class="button secondary">Hyper-V-Wiederherstellungspunkte lesen</button>
         <button id="evaluation-trigger-open" type="button" class="button secondary">Fristen zeitgesteuert prüfen</button>
         <button id="sql-guest-evidence-open" type="button" class="button secondary">SQL-Editionsbeleg im Gast aktualisieren</button>
         <button id="evaluation-refresh-open" type="button" class="button secondary">SQL-Evaluation: Ersatzentscheid</button>
@@ -1023,6 +1024,19 @@
       </div>
     </form>
   </dialog>
+  <dialog id="hyperv-recovery-points-dialog">
+    <form id="hyperv-recovery-points-form">
+      <h2>Hyper-V-Wiederherstellungspunkte</h2>
+      <p class="form-note">Zeigt vorhandene Checkpoints des gewählten Labs. Die Ansicht hat keine Restore-Funktion.</p>
+      <label>Lab auswählen<select id="hyperv-recovery-points-target" required></select></label>
+      <p id="hyperv-recovery-points-status" role="status"></p>
+      <ul id="hyperv-recovery-points-result" hidden></ul>
+      <div class="dialog-actions">
+        <button id="hyperv-recovery-points-close" type="button" class="button secondary">Schließen</button>
+        <button id="hyperv-recovery-points-read" type="submit" class="button primary">Checkpoints lesen</button>
+      </div>
+    </form>
+  </dialog>
   <dialog id="automation-api-plan-dialog">
     <form id="automation-api-plan-form">
       <h2>Automatisierungsschnittstelle ansehen</h2>
@@ -1192,6 +1206,7 @@
   <script src="ai-compute-selection.js"></script>
   <script src="ai-compute-benchmark.js"></script>
   <script src="automation-api-plan.js"></script>
+  <script src="hyperv-recovery-point-plan.js"></script>
   <script src="portable-lab-import-plan.js"></script>
 
   <dialog id="external-runtime-dialog">
