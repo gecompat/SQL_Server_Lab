@@ -1133,6 +1133,7 @@ sources_of_truth:
   validation_batch_workflow: Tests/Static/Invoke-BatchWorkflowChecks.ps1, Tests/Static/Fixtures/BatchWorkflowFileLockChecks.ps1
   batch_browser_overview: Private/BatchBrowserOverview.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/app.js, Tests/Static/Fixtures/WorkflowInventoryCacheChecks.ps1
   ssms_browser_registration: Private/ConnectionCenterBrowserExport.ps1, Public/Sync-SqlServerLabConnectionCenter.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/ssms-registration-export.js
+  cms_registration_bound_sync: Private/CmsBoundSync.ps1, Public/Sync-SqlServerLabConnectionCenter.ps1, Ui/cms-sync.js, Tests/Static/Fixtures/CmsBoundSyncChecks.ps1
   validation_runtime_matrix: Tests/Integration/Invoke-SmokeMatrix.ps1
   cli_acceptance_matrix: Documentation/Quality/CLI_ACCEPTANCE_MATRIX.md
   public_command_console: Private/PublicCommandConsole.ps1

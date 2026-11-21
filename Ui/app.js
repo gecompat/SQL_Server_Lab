@@ -3712,6 +3712,7 @@ let cmsInspectionBusy = false;
 let cmsInspectionView = null;
 function updateCmsInspectionControls() {
   $('#cms-inspection-read').disabled = cmsInspectionBusy;
+  window.sqlServerLabCmsSync?.update();
   $('#cms-inspection-check').disabled = cmsInspectionBusy || !cmsInspectionView || cmsInspectionView.Status !== 'NOT_CHECKED' || !/^[a-f0-9]{64}$/.test(cmsInspectionView.SelectionKey || '') || !['docker', 'podman'].includes(cmsInspectionView.Provider);
 }
 function renderCmsInspection(view) {

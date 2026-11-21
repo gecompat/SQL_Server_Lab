@@ -764,7 +764,8 @@ function Invoke-LabCmsSqlInMemory {
         [Parameter(Mandatory)][ValidateRange(1, 65535)][int]$Port,
         [Parameter(Mandatory)][SecureString]$SaPassword,
         [Parameter(Mandatory)][string]$Query,
-        [int]$TimeoutSeconds = 300
+        [int]$TimeoutSeconds = 300,
+        [ValidateRange(15,17)][int]$ExpectedSqlMajor
     )
 
     $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword)
@@ -789,6 +790,11 @@ function Invoke-LabCmsSqlInMemory {
         $command.CommandText = $Query
         $command.CommandTimeout = $TimeoutSeconds
         $connection.Open()
+        if ($PSBoundParameters.ContainsKey('ExpectedSqlMajor')) {
+            $command.CommandText = "SELECT CONVERT(int, SERVERPROPERTY('ProductMajorVersion'));"
+            if ([int]$command.ExecuteScalar() -ne $ExpectedSqlMajor) { throw 'CMS_SYNC_SQL_MAJOR_MISMATCH' }
+            $command.CommandText = $Query
+        }
         $null = $command.ExecuteNonQuery()
         $stopwatch.Stop()
         return [PSCustomObject]@{
@@ -1048,11 +1054,24 @@ function Sync-SqlServerLabCms {
         Optionaler State Root. Ohne Angabe wird der konfigurierte Standard verwendet.
     .PARAMETER Quiet
         Unterdrückt die Erfolgsmeldung für automatische Lifecycle-Synchronisationen.
+    .PARAMETER ExpectedRegistrationKey
+        Bindet den geführten Abgleich an die zuvor gelesene Registrierung eines
+        laufenden Docker-/Podman-CMS. Kennwortalias-Konfigurationen bleiben hier
+        gesperrt. Das Ergebnis enthält Status und Anzahl ohne SQL-Skript.
     .OUTPUTS
         PSCustomObject mit Pfad und Anzahl synchronisierter Endpunkte oder `$null` ohne CMS.
     #>
-    [CmdletBinding()]
-    param([string]$StateRoot, [switch]$Quiet)
+    [CmdletBinding(DefaultParameterSetName='Default')]
+    param(
+        [Parameter(ParameterSetName='Default')][string]$StateRoot,
+        [Parameter(ParameterSetName='Default')][switch]$Quiet,
+        [Parameter(Mandatory,ParameterSetName='RegistrationBound')]
+        [ValidatePattern('\A[a-f0-9]{64}\z')][string]$ExpectedRegistrationKey
+    )
+
+    if ($PSBoundParameters.ContainsKey('ExpectedRegistrationKey')) {
+        return Invoke-LabCmsBoundSync -ExpectedRegistrationKey $ExpectedRegistrationKey
+    }
 
     if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
     $configuration = Get-LabConnectionCenterCmsConfiguration -StateRoot $StateRoot

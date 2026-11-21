@@ -794,12 +794,14 @@
   <dialog id="cms-inspection-dialog">
     <form method="dialog">
       <h2>Registrierten CMS lesend prüfen</h2>
-      <p>Diese Prüfung liest nur den bereits verwalteten CMS. Sie richtet nichts ein und synchronisiert keine Server. Mitgliedsverbindungen und SSMS-Zugriff bleiben ungeprüft.</p>
+      <p>Prüfe den registrierten CMS oder synchronisiere nach Bestätigung die vom Lab verwalteten Einträge. Die Prüfung liest nur CMS-Metadaten.</p>
       <p id="cms-inspection-status" role="status"></p>
       <p id="cms-inspection-target"></p>
       <p id="cms-inspection-result"></p>
       <button id="cms-inspection-read" type="button" class="button secondary">Registrierung erneut lesen</button>
       <button id="cms-inspection-check" type="button" class="button primary">Diesen CMS jetzt prüfen</button>
+      <button id="cms-sync-open" type="button" class="button secondary" disabled>CMS synchronisieren</button>
+      <p id="cms-sync-status" role="status"></p>
       <button id="cms-inspection-close" type="button" class="button secondary">Schließen</button>
     </form>
   </dialog>
@@ -955,6 +957,7 @@
   <script src="app.js"></script>
   <script src="manifest-check.js"></script>
   <script src="ssms-registration-export.js"></script>
+  <script src="cms-sync.js"></script>
   <script src="ai-compute-overview.js"></script>
   <dialog id="ssis-execution-dialog">
     <form id="ssis-execution-form">

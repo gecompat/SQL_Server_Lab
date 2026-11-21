@@ -6,18 +6,22 @@
     Requires an already reachable Docker or Podman runtime. The exact fresh
     sql-lab-cms-inspection-<GUID N> parent receives separate parent/State policies.
     Registration and synthetic CMS metadata are arrangement, completed before
-    inspection. This does not test sync, SSMS, member connections or least privilege.
+    inspection. SSMS, member connections and least privilege are separate.
     Unreturned creation, custody drift or failed acceptance retains the parent.
 .PARAMETER Version
     Exact catalog base version: 2019, 2022 or 2025 (default). Each invocation
     owns one fresh run and checks the corresponding SQL major 15, 16 or 17.
+.PARAMETER IncludeBoundSync
+    After the read-only cases, explicitly synchronize only this invocation's
+    own CMS. Check stale selection veto and preserve the unmanaged controls.
 #>
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)][ValidateSet('docker','podman')][string]$Provider,
     [Parameter(Mandatory)][string]$DataRoot,
     [Parameter(Mandatory)][ValidatePattern('^[a-f0-9]{32}$')][string]$ParentOperationId,
-    [ValidateSet('2019','2022','2025')][string]$Version='2025'
+    [ValidateSet('2019','2022','2025')][string]$Version='2025',
+    [switch]$IncludeBoundSync
 )
 $ErrorActionPreference='Stop'
 $repo=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
@@ -27,6 +31,7 @@ $root=Assert-CmsInspectionAcceptanceLayout -DataRoot $DataRoot -RepositoryRoot $
 $mutex=$null;$locked=$false;$module=$null;$scope=$null;$custody=$null;$evidence=$null
 $unreturnedCreation=$false;$completed=$false;$primaryError=$null;$cleanupError=$null;$cleanup=$null;$readiness=$null
 $observations=[Collections.Generic.List[object]]::new()
+$syncStatus='NOT_EXECUTED'
 $oldState=$env:SQL_SERVER_LAB_STATE;$oldData=$env:SQL_SERVER_LAB_DATA_ROOT
 try {
     $mutex=[Threading.Mutex]::new($false,$(if($IsWindows){'Global\SQL_Server_Lab_Runtime_Smoke'}else{'SQL_Server_Lab_Runtime_Smoke'}))
@@ -94,6 +99,29 @@ try {
     if(($sqlBefore|ConvertTo-Json -Compress) -cne ($sqlAfter|ConvertTo-Json -Compress) -or
         ($before|ConvertTo-Json -Depth 5 -Compress) -cne ($after|ConvertTo-Json -Depth 5 -Compress)){throw 'CMS_ACCEPTANCE_INSPECTION_WRITE'}
     [pscustomobject]@{Before=$before;After=$after;Equal=$true;CmsTablesBefore=$sqlBefore;CmsTablesAfter=$sqlAfter;CmsTablesEqual=$true}|ConvertTo-Json -Depth 8|Set-Content -LiteralPath (Join-Path $evidence readonly-bindings.private.json) -Encoding utf8
+    if($IncludeBoundSync){
+        $syncStatus='UNCONFIRMED'
+        Assert-CmsInspectionAcceptanceRoute $module $scope $Provider
+        $staleSync=try{Sync-SqlServerLabCms -ExpectedRegistrationKey $wrongKey | Out-Null;$false}
+            catch{$_.Exception.Message -ceq 'CMS_BOUND_SYNC_SELECTION_CHANGED'}
+        $staleSql=Invoke-CmsInspectionAcceptanceSql $module $scope $custody -Version $Version
+        if(-not $staleSync -or ($staleSql|ConvertTo-Json -Compress) -cne ($sqlAfter|ConvertTo-Json -Compress)){
+            throw 'CMS_ACCEPTANCE_BOUND_SYNC_STALE_WRITE'
+        }
+        $unmanagedBefore=Invoke-CmsInspectionAcceptanceSql $module $scope $custody -Version $Version -UnmanagedOnly
+        $selection=(Invoke-SqlServerLabWorkflowAction -Action GetCmsInspectionState).Result
+        Assert-CmsInspectionAcceptanceResult $selection $custody $Provider $view.SelectionKey NOT_CHECKED CMS_INSPECTION_NOT_CHECKED -Version $Version
+        $synced=Sync-SqlServerLabCms -ExpectedRegistrationKey $selection.SelectionKey
+        $syncedSql=Invoke-CmsInspectionAcceptanceSql $module $scope $custody -Version $Version
+        $unmanagedAfter=Invoke-CmsInspectionAcceptanceSql $module $scope $custody -Version $Version -UnmanagedOnly
+        if($synced.Status -cne 'SYNCHRONIZED' -or $synced.RunId -cne $custody.RunId -or $synced.Provider -cne $Provider -or
+            $synced.Entries -ne 0 -or ($syncedSql|ConvertTo-Json -Compress) -ceq ($sqlAfter|ConvertTo-Json -Compress) -or
+            ($unmanagedBefore|ConvertTo-Json -Compress) -cne ($unmanagedAfter|ConvertTo-Json -Compress)){
+            throw 'CMS_ACCEPTANCE_BOUND_SYNC_POSTCONDITION'
+        }
+        $observations.Add([pscustomobject]@{Stage='BOUND_SYNC';Status=$synced.Status;StaleSelectionVeto=$true;UnmanagedControlsEqual=$true})
+        $syncStatus='PASS'
+    }
     $completed=$true
 }catch{$primaryError=$_}
 finally{
@@ -109,7 +137,7 @@ $status=if($primaryError -or $cleanupError -or -not $completed -or $cleanup.Stat
 $receipt=[pscustomobject]@{Contract='SqlServerLab.CmsNativeAcceptance/1.0';Provider=$Provider;SqlVersion=$Version;Status=$status;Readiness=$(if($readiness){$readiness.Status}else{'NOT_EXECUTED'});
     Observations=@($observations);StaleSelectionVeto=$(if($completed){'PASS'}else{'NOT_CONFIRMED'});ReadonlyFilesAndCmsTables=$(if($completed){'PASS'}else{'NOT_CONFIRMED'});
     Cleanup=$cleanup;UnreturnedCreation=$unreturnedCreation;PrimaryFailure=[bool]$primaryError;CleanupFailure=[bool]$cleanupError;
-    Sync='NOT_EXECUTED';Ssms='NOT_EXECUTED';MemberConnections='NOT_EXECUTED';LeastPrivilege='NOT_EXECUTED';AtomicFilesystemProof=$false}
+    Sync=$syncStatus;Ssms='NOT_EXECUTED';MemberConnections='NOT_EXECUTED';LeastPrivilege='NOT_EXECUTED';AtomicFilesystemProof=$false}
 try{
     if($evidence){& $module {param($Path)$null=Assert-LabOwnedHostPath $Path} $evidence;$receipt|ConvertTo-Json -Depth 8|Set-Content -LiteralPath (Join-Path $evidence result.private.json) -Encoding utf8}
 }finally{if($module){Remove-Module $module -Force}}

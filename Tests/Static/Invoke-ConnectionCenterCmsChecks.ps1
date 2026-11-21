@@ -356,6 +356,8 @@ try {
     & (Join-Path $PSScriptRoot 'Fixtures/ConnectionCenterCmsNativeBrowserAcceptanceChecks.ps1')
     Add-CheckResult -Name 'CMS-Native-Browser: gebundener Moduldispatch und vier lesende Aktionen' -Success $true
     Add-CheckResult -Name 'CMS-Seitenbootstrap: tatsächliche Assets und synthetische Lesegrenzen' -Success $true
+    & (Join-Path $PSScriptRoot 'Fixtures/CmsBoundSyncChecks.ps1') -Repository $repoRoot
+    Add-CheckResult -Name 'CMS-Abgleich bindet Registrierung und Runtime vor Secretzugriff und SQL' -Success $true
 }
 catch {
     Add-CheckResult -Name 'Connection-Center-CMS-Vertragspruefung' -Success $false -Message $_.Exception.Message

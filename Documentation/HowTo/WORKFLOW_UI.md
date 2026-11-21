@@ -15,6 +15,13 @@ gespeicherten Zustand und führt keinen Runtime-Abgleich durch. Der
 Lab_Data-Standard muss für die Zuordnung der geschützten Testsysteme lesbar
 sein.
 
+Öffne **Registrierten CMS lesend prüfen** und wähle **CMS synchronisieren**,
+um einen laufenden lokalen Docker-/Podman-CMS abzugleichen. Nach der
+Bestätigung aktualisiert der Auftrag den Endpunktkatalog und den vom Lab
+verwalteten CMS-Baum. Ein geänderter Registrierungs- oder Runtime-Befund
+bricht den Auftrag ab. Lies die Registrierung anschließend erneut. Der
+Browserauftrag unterstützt keine CMS-Konfiguration mit Kennwortaliasen.
+
 Unter **Verbindungen und CMS** zeigt jede SQL-Zielkarte ihre angegebenen
 **Connection Settings**: `Encrypt` und `TrustServerCertificate`. Der neue
 Standard bleibt jeweils `True`. Explizites `False` bleibt sichtbar; fehlende

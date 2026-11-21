@@ -107,10 +107,10 @@ function Assert-CmsInspectionAcceptanceRoute {
 }
 
 function Invoke-CmsInspectionAcceptanceSql {
-    param($Module,$Scope,$Custody,[switch]$Arrange,[ValidateSet('2019','2022','2025')][string]$Version='2025')
+    param($Module,$Scope,$Custody,[switch]$Arrange,[ValidateSet('2019','2022','2025')][string]$Version='2025',[switch]$UnmanagedOnly)
     Assert-CmsInspectionAcceptanceRoute $Module $Scope $Custody.Provider
     & $Module {
-        param($Scope,$Custody,$Arrange,[string]$Version='2025')
+        param($Scope,$Custody,$Arrange,[string]$Version='2025',$UnmanagedOnly)
         $selection=Get-LabCmsInspectionSelection -StateRoot $Scope.StateRoot
         if(-not $selection -or $selection.RunId -cne $Custody.RunId -or
             $selection.Run.scopeId -cne $Custody.ScopeId -or $selection.Provider -cne $Custody.Provider -or
@@ -173,6 +173,12 @@ COMMIT;
 SELECT COALESCE((SELECT * FROM dbo.sysmanagement_shared_server_groups ORDER BY server_group_id FOR JSON PATH, INCLUDE_NULL_VALUES), N'[]'),
        COALESCE((SELECT * FROM dbo.sysmanagement_shared_registered_servers ORDER BY server_id FOR JSON PATH, INCLUDE_NULL_VALUES), N'[]');
 '@
+            if($UnmanagedOnly){
+                $command.CommandText=@'
+SELECT COALESCE((SELECT * FROM dbo.sysmanagement_shared_server_groups WHERE description=N'Synthetic unmanaged fixture' ORDER BY server_group_id FOR JSON PATH, INCLUDE_NULL_VALUES), N'[]'),
+       COALESCE((SELECT * FROM dbo.sysmanagement_shared_registered_servers WHERE description=N'Synthetic unmanaged fixture' ORDER BY server_id FOR JSON PATH, INCLUDE_NULL_VALUES), N'[]');
+'@
+            }
             $reader=$command.ExecuteReader()
             if(-not $reader.Read()){throw 'CMS_ACCEPTANCE_SQL_SNAPSHOT'}
             $hashes=@(foreach($i in 0,1){
@@ -183,7 +189,7 @@ SELECT COALESCE((SELECT * FROM dbo.sysmanagement_shared_server_groups ORDER BY s
             if($reader.Read() -or $reader.NextResult()){throw 'CMS_ACCEPTANCE_SQL_SNAPSHOT'}
             [pscustomobject]@{GroupsSha256=$hashes[0];ServersSha256=$hashes[1]}
         }finally{if($reader){$reader.Dispose()};if($command){$command.Dispose()};if($connection){$connection.Dispose()};if($secret){$secret.Dispose()}}
-    } $Scope $Custody ([bool]$Arrange) $Version
+    } $Scope $Custody ([bool]$Arrange) $Version ([bool]$UnmanagedOnly)
 }
 
 function Assert-CmsInspectionAcceptanceResult {

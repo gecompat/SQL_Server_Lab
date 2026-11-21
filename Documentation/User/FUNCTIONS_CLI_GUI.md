@@ -285,7 +285,7 @@ und deren Prüfstatus bleiben davon getrennt.
 | [`Export-SqlServerLabSsmsRegistration`](../../Public/Sync-SqlServerLabConnectionCenter.ps1) | Erzeugt einen kennwortfreien SSMS-`.regsrvr`-Export. Der Browser exportiert bis zu 500 gespeicherte reguläre Endpunkte. | Verbindungszentrale → SSMS-Export | Verbindungen und CMS → SSMS-Registrierungen herunterladen |
 | [`Export-SqlServerLabCmsSyncScript`](../../Public/Sync-SqlServerLabConnectionCenter.ps1) | Erzeugt ein idempotentes CMS-Synchronisationsskript. | Verbindungszentrale → CMS-Skript | – |
 | [`Initialize-SqlServerLabCms`](../../Public/Sync-SqlServerLabConnectionCenter.ps1) | Erstellt nach expliziter Auswahl einen kompakten persistenten Docker-/Podman-CMS. `-LabName` benennt ihn. `-ReplaceRemovedCms` ersetzt ausschließlich eine terminal entfernte CMS-Registrierung. Das generierte Kennwort steht bei der Erstellung in der Konsolenausgabe und fehlt im Lab-Meldungsjournal. | Verbindungszentrale → CMS initialisieren | – |
-| [`Sync-SqlServerLabCms`](../../Public/Sync-SqlServerLabConnectionCenter.ps1) | Gleicht den verwalteten lokalen CMS mit dem aktuellen Katalog ab. | Verbindungszentrale; zusätzlich nach endpunktrelevanten Lifecycle-Aktionen | – |
+| [`Sync-SqlServerLabCms`](../../Public/Sync-SqlServerLabConnectionCenter.ps1) | Gleicht den verwalteten lokalen CMS mit dem aktuellen Katalog ab. | Verbindungszentrale und automatischer Abgleich nach Lifecycle-Aktionen | Verbindungen und CMS → Registrierten CMS lesend prüfen → CMS synchronisieren. Für laufende Docker-/Podman-CMS ohne Kennwortalias. |
 
 ## Reconcile und GUI-Adapter
 
