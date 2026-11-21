@@ -152,7 +152,8 @@ try {
     & (Join-Path $PSScriptRoot 'Fixtures/ContainerNetworkPlanConsoleChecks.ps1') -Module $module
     Add-CheckResult -Name 'Container-Netzmigration ist explizit, providergebunden und auf gelabelte Labcontainer begrenzt' -Success (
         $migrationCommand.Parameters.ContainsKey('Provider') -and $migrationCommand.Parameters.ContainsKey('WhatIf') -and
-        $migrationSource -match "label=sql-server-lab.run-id" -and $migrationSource -match "sql-server-lab.scope-id" -and
+        $migrationCommand.Parameters.ContainsKey('ExpectedPlanKey') -and
+        $migrationSource -match "sql-server-lab.run-id" -and $migrationSource -match "sql-server-lab.scope-id" -and
         $migrationSource -match 'LAB_NETWORK_MIGRATION_OLD_NETWORK_REMOVE_FAILED' -and
         $migrationSource -match "Status='RECOVERY_REQUIRED'")
     $temporaryNetwork = & $module {
