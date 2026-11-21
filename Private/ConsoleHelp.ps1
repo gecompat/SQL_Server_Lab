@@ -329,6 +329,12 @@ function Get-LabConsoleHelpCatalog {
             Effects = 'Die Ansicht liest gespeicherte Zustands- und Recovery-Evidence. Sie erstellt keinen Export und führt keine Liveprobe aus.'
             Command = 'Get-SqlServerLabDiagnosticBundle'
         }
+        'container-tool-check' = @{
+            Title = 'SqlPackage-Version im Container prüfen'
+            Purpose = 'Eine registrierte laufende SQL-Instanz auf Docker oder Podman auswählen.'
+            Effects = 'Führt ausschließlich die Versionsabfrage des bereits provisionierten SqlPackage aus.'
+            Command = 'Test-SqlServerLabContainerTool'
+        }
         'relational-compare-Source' = @{
             Title = 'Quelle für Datenbankvergleich'
             Purpose = 'Eine laufende verwaltete Docker- oder Podman-Instanz mit einer ONLINE- und READ_ONLY-Datenbank auswählen.'

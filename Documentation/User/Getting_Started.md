@@ -456,6 +456,14 @@ Cmdlets.
 
 ## 11. Manifest-Modus
 
+Wähle **Vorhandenes Lab-Manifest prüfen** im Konsolenmenü **Datenbanken,
+Samples und Skripte** oder **Lab erstellen → Container-Manifest prüfen oder
+ausführen → Manifest prüfen** im Browser. Beide Wege prüfen die gewählte
+lokale Datei gegen Schema und Fachregeln. Die Vorschau braucht kein
+SA-Kennwort und erstellt keine Umgebung. Sie unterstützt absolute lokale
+Manifestpfade ohne Dateiverknüpfungen. Für vollständige Fehlerdetails steht
+`Test-SqlServerLabManifest -Path` in der Konsole zur Verfügung.
+
 ### Manifest interaktiv erstellen
 
 ```powershell

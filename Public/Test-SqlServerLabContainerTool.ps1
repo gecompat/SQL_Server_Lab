@@ -30,13 +30,20 @@ function Test-SqlServerLabContainerTool {
     $target = Resolve-LabRunInstance -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot
     if ([string]$target.Provider -notin @('docker','podman')) { throw "CONTAINER_TOOL_PROVIDER_UNSUPPORTED: $($target.Provider)" }
     $runtime = Get-LabHostToolInvocation -Name ([string]$target.Provider)
-    $inspect = @(($(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider ([string]$target.Provider) -StateRoot $StateRoot -RunId $RunId -Invocation $runtime -ArgumentList @('inspect', $target.ContainerName) } else { & $runtime inspect $target.ContainerName }) 2>$null | ConvertFrom-Json -Depth 30))[0]
+    $inspectJson = @($(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider ([string]$target.Provider) -StateRoot $StateRoot -RunId $RunId -Invocation $runtime -ArgumentList @('inspect', $target.ContainerName) } else { & $runtime inspect $target.ContainerName }) 2>$null) -join "`n"
+    if ($LASTEXITCODE -ne 0 -or -not $inspectJson) { throw 'CONTAINER_TOOL_INSPECTION_FAILED' }
+    try { $records = @($inspectJson | ConvertFrom-Json -Depth 30 -ErrorAction Stop) }
+    catch { throw 'CONTAINER_TOOL_INSPECTION_FAILED' }
+    if ($records.Count -ne 1) { throw 'CONTAINER_TOOL_INSPECTION_FAILED' }
+    $inspect = $records[0]
     if (-not $inspect -or [string]$inspect.Config.Labels.'sql-server-lab.run-id' -ne $RunId -or
         [string]$inspect.Config.Labels.'sql-server-lab.scope-id' -ne [string]$run.scopeId -or
         [string]$inspect.Config.Labels.'sql-server-lab.instance-id' -ne $InstanceId) { throw 'CONTAINER_TOOL_OWNERSHIP_MISMATCH' }
+    $containerId = [string]$inspect.Id
+    if ($containerId -cnotmatch '\A[a-f0-9]{64}\z') { throw 'CONTAINER_TOOL_OWNERSHIP_MISMATCH' }
     if ([string]$inspect.State.Status -ne 'running' -or [string]$inspect.Config.Labels.'sql-server-lab.container-tool.ids' -ne 'sqlpackage') { throw 'CONTAINER_TOOL_NOT_READY' }
-    $ownedContainerId = if ($ownedHostPolicy) { Resolve-LabOwnedHostContainerEffect -StateRoot $StateRoot -Provider $target.Provider -ContainerIdOrName $target.ContainerName -RunId $RunId } else { $target.ContainerName }
-    $output = @($(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider ([string]$target.Provider) -StateRoot $StateRoot -RunId $RunId -Invocation $runtime -ArgumentList @('exec', '--user', 'mssql', $ownedContainerId, '/opt/sql-server-lab/tools/sqlpackage/sqlpackage', '/Version') } else { & $runtime exec --user mssql $target.ContainerName /opt/sql-server-lab/tools/sqlpackage/sqlpackage /Version }) 2>&1)
+    $ownedContainerId = if ($ownedHostPolicy) { Resolve-LabOwnedHostContainerEffect -StateRoot $StateRoot -Provider $target.Provider -ContainerIdOrName $containerId -RunId $RunId } else { $containerId }
+    $output = @($(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider ([string]$target.Provider) -StateRoot $StateRoot -RunId $RunId -Invocation $runtime -ArgumentList @('exec', '--user', 'mssql', $ownedContainerId, '/opt/sql-server-lab/tools/sqlpackage/sqlpackage', '/Version') } else { & $runtime exec --user mssql $containerId /opt/sql-server-lab/tools/sqlpackage/sqlpackage /Version }) 2>&1)
     if ($LASTEXITCODE -ne 0 -or (@($output) -join "`n") -notmatch '(?<version>[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)') { throw 'CONTAINER_TOOL_VERSION_PROBE_FAILED' }
     [PSCustomObject]@{ RunId=$RunId; InstanceId=$InstanceId; Provider=[string]$target.Provider; ToolId='sqlpackage'; RuntimeVersion=[string]$Matches.version; Status='PASS' }
 }
