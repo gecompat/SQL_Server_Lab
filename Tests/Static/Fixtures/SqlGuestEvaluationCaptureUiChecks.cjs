@@ -50,3 +50,40 @@ assert.equal(confirmations.length, 1);
 assert.equal(confirmations[0][2], '__PublicCommand');
 assert.deepEqual(JSON.parse(JSON.stringify(confirmations[0][3].parameters)), { RunId: runId });
 console.log('SQL GUEST EVALUATION BROWSER UI: PASS');
+
+const triggerSource = fs.readFileSync(path.join(root, 'Ui/evaluation-watch-trigger.js'), 'utf8');
+const triggerField = (Name, TypeName) => ({ Name, TypeName, Sensitive: false, IsCredential: false, Mandatory: false });
+const switchField = triggerField('RecordEvents', 'System.Management.Automation.SwitchParameter');
+const triggerCommand = {
+  Name: 'Invoke-SqlServerLabEvaluationWatchTrigger', RequiresConfirmation: true,
+  ParameterSets: [{ Name: '__AllParameterSets', Parameters: [
+    triggerField('IntervalSeconds', 'System.Int32'), triggerField('MaximumChecks', 'System.Int32'), switchField,
+  ] }],
+};
+const trigger = id => element('evaluation-trigger-' + id);
+trigger('form').reset = () => { trigger('interval').valueAsNumber = 60; trigger('count').valueAsNumber = 2; trigger('record').checked = false; };
+confirmations.length = 0;
+vm.runInNewContext(triggerSource, {
+  document: { getElementById: element }, publicCommandCatalog: [triggerCommand],
+  openConfirmation(...values) { confirmations.push(values); },
+});
+trigger('open').click();
+const submitTrigger = () => trigger('form').submit({ preventDefault() {} });
+trigger('count').valueAsNumber = 1441;
+submitTrigger();
+assert.equal(confirmations.length, 0);
+trigger('count').valueAsNumber = 2;
+switchField.Sensitive = true;
+submitTrigger();
+assert.equal(confirmations.length, 0);
+assert.match(trigger('status').textContent, /nicht verfügbar/);
+switchField.Sensitive = false;
+submitTrigger();
+assert.equal(confirmations[0][2], '__PublicCommand');
+assert.deepEqual(JSON.parse(JSON.stringify(confirmations[0][3].parameters)), { IntervalSeconds: '60', MaximumChecks: '2' });
+trigger('open').click();
+trigger('record').checked = true;
+submitTrigger();
+assert.equal(confirmations[1][3].parameters.RecordEvents, true);
+assert.match(confirmations[1][1], /lokal gespeichert/);
+console.log('EVALUATION WATCH TRIGGER BROWSER UI: PASS');

@@ -207,6 +207,7 @@ end {
         @{ Pattern = '(?i)(EvaluationRefreshPlanConsole|evaluation-refresh-cli)'; Checks = @('Invoke-EvaluationRefreshPlanConsoleChecks.ps1','Invoke-PublicCommandConsoleChecks.ps1','Invoke-ConsoleUiChecks.ps1') },
         @{ Pattern = '(?i)(EvaluationRefreshPlanHttp|EvaluationRefreshPlanUi|evaluation-refresh-plan\.js|evaluation-refresh-browser)'; Checks = @('Invoke-EvaluationRefreshPlanHttpChecks.ps1') },
         @{ Pattern = '(?i)(SqlGuestEvaluationCaptureUi|Ui/sql-guest-evaluation-evidence\.js)'; Checks = @('Invoke-WorkflowUiChecks.ps1') },
+        @{ Pattern = '(?i)Ui/evaluation-watch-trigger\.js'; Checks = @('Invoke-WorkflowUiChecks.ps1') },
         @{ Pattern = '(?i)(SqlGuestEvaluationCapture|Update-SqlServerLabSqlGuestEvaluationEvidence)'; Checks = @('Invoke-SqlGuestEvaluationCaptureChecks.ps1','Invoke-EvaluationWatchChecks.ps1','Invoke-HyperVGuestProgressChecks.ps1') },
         @{ Pattern = '(?i)WindowsSqlHostClient'; Checks = @('Invoke-WindowsSqlHostClientChecks.ps1') },
         @{ Pattern = '(?i)(WindowsSqlScript|WindowsSqlConsumer|Invoke-SqlServerLabScript)'; Checks = @('Invoke-WindowsSqlScriptChecks.ps1','Invoke-SsisPrerequisiteChecks.ps1','Invoke-HyperVGuestProgressChecks.ps1','Invoke-PublicCommandConsoleChecks.ps1') },

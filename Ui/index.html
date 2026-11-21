@@ -156,6 +156,7 @@
       <p>Befunde vor einer Änderung prüfen. Die Konsole bietet zusätzlich Providerstatus, Cleanup-Audit und Runtime-Abgleich; vollständige geführte Recovery-Parität bleibt offen.</p>
       <div class="workflow-actions">
         <button id="evaluation-watch-open" type="button" class="button secondary">Evaluationsfristen lesen</button>
+        <button id="evaluation-trigger-open" type="button" class="button secondary">Fristen zeitgesteuert prüfen</button>
         <button id="sql-guest-evidence-open" type="button" class="button secondary">SQL-Editionsbeleg im Gast aktualisieren</button>
         <button id="evaluation-refresh-open" type="button" class="button secondary">SQL-Evaluation: Ersatzentscheid</button>
         <button id="maintenance-open" type="button" class="button secondary">Wartungsbefunde und Zuordnung</button>
@@ -997,6 +998,20 @@
     </div>
   </dialog>
   <script src="evaluation-refresh-plan.js"></script>
+  <dialog id="evaluation-trigger-dialog">
+    <form id="evaluation-trigger-form">
+      <h2>Fristen zeitgesteuert prüfen</h2>
+      <p class="form-note">Prüft gespeicherte Fristen im laufenden UI-Prozess mit 30 Tagen Warnschwelle und 7 Tagen kritischer Schwelle.</p>
+      <label>Sekunden zwischen Prüfungen<input id="evaluation-trigger-interval" type="number" min="1" max="86400" value="60" required></label>
+      <label>Anzahl Prüfungen<input id="evaluation-trigger-count" type="number" min="1" max="1440" value="2" required></label>
+      <label><input id="evaluation-trigger-record" type="checkbox"> Neue Warnereignisse lokal speichern</label>
+      <p id="evaluation-trigger-status" role="status"></p>
+      <div class="dialog-actions">
+        <button type="submit" class="button primary">Weiter zur Bestätigung</button>
+        <button id="evaluation-trigger-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </form>
+  </dialog>
   <dialog id="sql-guest-evidence-dialog">
     <div class="panel">
       <h2>SQL-Editionsbeleg im Gast aktualisieren</h2>
@@ -1010,6 +1025,7 @@
     </div>
   </dialog>
   <script src="sql-guest-evaluation-evidence.js"></script>
+  <script src="evaluation-watch-trigger.js"></script>
 
   <dialog id="external-runtime-dialog">
     <div class="read-only-dialog-content">

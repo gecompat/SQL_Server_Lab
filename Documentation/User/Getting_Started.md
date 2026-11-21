@@ -2384,6 +2384,13 @@ Der Capture beobachtet keine Ablaufzeit: Developer ergibt für 24 Stunden
 `NOT_APPLICABLE`, Evaluation ohne Frist bleibt `UNKNOWN`. Fehler bewahren den
 alten Receipt. [Bindung, Grenzen und Nachweise](../Architecture/SQL_GUEST_EVALUATION_CAPTURE.md).
 
+In der CLI und im Browser findest du unter **Wartung** die Aktion
+**SQL-Editionsbeleg im Gast aktualisieren**. Wähle das laufende Hyper-V-Lab
+mit SQL Server 2025 und bestätige die Aktualisierung. Für mehrere Prüfungen
+gespeicherter Fristen öffne **Fristen zeitgesteuert prüfen**. In der CLI
+liegt diese Aktion unter **Windows-/SQL-Evaluationsfristen**. Gib Intervall
+und Anzahl an. Das lokale Speichern neuer Warnereignisse ist optional.
+
 Lokale Windows-llama.cpp-Pakete für SQL Server 2025 lassen sich vor der
 Modellauswahl mit `Get-SqlServerLabLlamaCppRuntime -SearchRoot 'C:\Pfad\llama'`
 rein lesend erkennen. Hashes sind dafür nicht erforderlich. Die Ausgabe belegt
