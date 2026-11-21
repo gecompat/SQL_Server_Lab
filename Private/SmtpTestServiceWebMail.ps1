@@ -39,7 +39,7 @@ function Get-LabSmtpTestServiceWebMailRuntimeStatus {
     param([Parameter(Mandatory)]$Binding)
     $status = [pscustomobject][ordered]@{ Status='UNAVAILABLE'; ReceiverStatus='UNAVAILABLE'; GatewayStatus='NOT_OBSERVED'; Reason='SMTP_WEBMAIL_RUNTIME_UNAVAILABLE' }
     try {
-        $result = Invoke-LabSmtpRuntime -Provider $Binding.Provider -StateRoot $Binding.StateRoot -RunId $Binding.RunId -Arguments @('inspect',$Binding.ReceiverContainerName)
+        $result = Invoke-LabSmtpRuntime -Provider $Binding.Provider -StateRoot $Binding.StateRoot -RunId $Binding.RunId -Arguments @('inspect',$Binding.ReceiverContainerName) -TimeoutSeconds 10
         $items = @((($result.Output -join "`n") | ConvertFrom-Json -Depth 30))
         if ($items.Count -ne 1) { throw 'SMTP_WEBMAIL_RUNTIME_UNAVAILABLE' }
         $item = $items[0]; $labels = $item.Config.Labels; $ports = @($item.NetworkSettings.Ports.'8025/tcp')

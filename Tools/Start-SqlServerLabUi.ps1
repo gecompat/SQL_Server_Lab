@@ -1135,22 +1135,12 @@ try {
                 continue
             }
             if ($path -ceq '/api/smtp-status') {
-                if ($context.Request.HttpMethod -cne 'GET') {
-                    Write-UiResponse -Context $context -Body 'SMTP_STATUS_REQUEST_INVALID' -StatusCode 405 -NoStore
-                    continue
-                }
-                $query = $context.Request.QueryString
-                $runId = [string]$query['runId']
-                if (@($query.AllKeys | Where-Object { $_ -cne 'runId' }).Count -or
-                    ($query.Count -and $runId -cnotmatch '^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$')) {
-                    Write-UiResponse -Context $context -Body 'SMTP_STATUS_REQUEST_INVALID' -StatusCode 400 -NoStore
-                    continue
-                }
-                try {
-                    $view = & (Get-Module SqlServerLab) { param($id) Get-LabSmtpStatusGuidance -RunId $id } $runId
-                    Write-UiResponse -Context $context -Body ($view | ConvertTo-Json -Depth 5 -Compress) -ContentType 'application/json; charset=utf-8' -NoStore
-                }
-                catch { Write-UiResponse -Context $context -Body 'SMTP_STATUS_UNAVAILABLE' -StatusCode 503 -NoStore }
+                $smtp = & (Get-Module SqlServerLab) {
+                    param($method,$query)
+                    Invoke-LabSmtpStatusGuidanceRequest -Method $method -Query $query
+                } $context.Request.HttpMethod $context.Request.QueryString
+                Write-UiResponse -Context $context -Body ($smtp.View | ConvertTo-Json -Depth 5 -Compress) `
+                    -StatusCode $smtp.StatusCode -ContentType 'application/json; charset=utf-8' -NoStore
                 continue
             }
             if ($path -ceq '/api/diagnostic-bundle') {

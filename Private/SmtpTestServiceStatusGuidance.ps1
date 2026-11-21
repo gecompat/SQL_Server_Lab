@@ -30,6 +30,19 @@ function Get-LabSmtpStatusGuidance {
     }
 }
 
+function Invoke-LabSmtpStatusGuidanceRequest {
+    param([string]$Method, [Collections.Specialized.NameValueCollection]$Query)
+
+    if ($Method -cne 'GET') { return @{StatusCode=405; View=@{Code='SMTP_STATUS_REQUEST_INVALID'}} }
+    $runId = [string]$Query['runId']
+    if (@($Query.AllKeys | Where-Object { $_ -cne 'runId' }).Count -or
+        ($Query.Count -and $runId -cnotmatch '^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$')) {
+        return @{StatusCode=400; View=@{Code='SMTP_STATUS_REQUEST_INVALID'}}
+    }
+    try { return @{StatusCode=200; View=(Get-LabSmtpStatusGuidance -RunId $runId)} }
+    catch { return @{StatusCode=503; View=@{Code='SMTP_STATUS_UNAVAILABLE'}} }
+}
+
 function Show-LabSmtpStatusGuidanceInteractive {
     $stateRoot = Get-LabStateRoot
     $items = @(foreach ($run in @(Get-LabSmtpStatusGuidanceCandidates -StateRoot $stateRoot)) {

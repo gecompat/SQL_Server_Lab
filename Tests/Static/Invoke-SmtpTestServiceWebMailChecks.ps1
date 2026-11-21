@@ -25,11 +25,19 @@ try {
         $listing = Get-LabSmtpStatusGuidance -StateRoot $path
         $receipt = Get-LabSmtpStatusGuidance -StateRoot $path -RunId $target
         $console = @(Invoke-LabMenuAction -ActionName SmtpStatusGuidance 6>&1) -join [Environment]::NewLine
+        $query = [Collections.Specialized.NameValueCollection]::new()
+        $httpList = Invoke-LabSmtpStatusGuidanceRequest -Method GET -Query $query
+        $query.Add('runId',$target)
+        $httpStatus = Invoke-LabSmtpStatusGuidanceRequest -Method GET -Query $query
+        $httpPost = Invoke-LabSmtpStatusGuidanceRequest -Method POST -Query $query
+        $query.Add('runId',$target)
+        $httpDuplicate = Invoke-LabSmtpStatusGuidanceRequest -Method GET -Query $query
         $stale = try {
             Get-LabSmtpStatusGuidance -StateRoot $path -RunId 'dddddddd-dddd-dddd-dddd-dddddddddddd' | Out-Null
             $false
         } catch { $_.Exception.Message -ceq 'SMTP_STATUS_SELECTION_UNAVAILABLE' }
-        [pscustomobject]@{Listing=$listing; Receipt=$receipt; Console=$console; StaleBlocked=$stale}
+        [pscustomobject]@{Listing=$listing; Receipt=$receipt; Console=$console; StaleBlocked=$stale
+            HttpList=$httpList; HttpStatus=$httpStatus; HttpPost=$httpPost.StatusCode; HttpDuplicate=$httpDuplicate.StatusCode}
     } $root $runId
     $binding=& $module {param($id,$state)Get-LabSmtpTestServiceWebMailBinding -RunId $id -StateRoot $state} $runId $root
     $wrongScope=$false;$wrong=$inspect.Replace($scopeId,'cccccccc-cccc-cccc-cccc-cccccccccccc')
@@ -48,6 +56,9 @@ try {
             ($guided | ConvertTo-Json -Depth 6 -Compress) -cnotmatch 'synthetic-password|127\.0\.0\.1|ScopeId|ReceiverContainerId|ExpiresAt')
         ($guided.StaleBlocked)
         ($guided.Console -match 'Mailpit: RUNNING' -and $guided.Console -match 'Zustellung von Testmails')
+        ($guided.HttpList.StatusCode -eq 200 -and $guided.HttpList.View.Candidates[0].RunId -ceq $runId)
+        ($guided.HttpStatus.StatusCode -eq 200 -and $guided.HttpStatus.View.Status -ceq 'READY' -and $guided.HttpStatus.View.RunId -ceq $runId)
+        ($guided.HttpPost -eq 405 -and $guided.HttpDuplicate -eq 400)
         (@($status.SupportedActions).Count -eq 2)
         ([string]$wrongStatus.Reason -ceq 'SMTP_WEBMAIL_RUNTIME_BINDING_INVALID')
         ([string]$access.Status -ceq 'OPENED')
