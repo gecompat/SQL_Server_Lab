@@ -7,6 +7,7 @@ $script:featureCalls = @()
 $script:chosenTarget = 'container'
 $script:accepted = $false
 $script:bound = $false
+$script:allowInstanceSelection = $false
 $script:operation = ''
 
 function Get-LabActiveRuns { [pscustomobject]@{ state = 'RUNNING'; runId = '11111111-1111-1111-1111-111111111111' } }
@@ -27,7 +28,7 @@ function New-LabConsoleItem {
 function Invoke-LabConsoleMenu {
     param($ScreenId,$Title,$Items,$Subtitle)
     if ($ScreenId -ceq 'sql-feature-target') {
-        if ($script:bound) { throw 'SQL_FEATURE_BOUND_INSTANCE_RESELECTED' }
+        if ($script:bound -and -not $script:allowInstanceSelection) { throw 'SQL_FEATURE_BOUND_INSTANCE_RESELECTED' }
         $selected = $script:chosenTarget
     } elseif ($script:bound) {
         if ('filestream-on' -cin $Items.Id) { throw 'SQL_FEATURE_BOUND_FULLTEXT_SHOULD_NOT_OFFER_FILESTREAM' }
@@ -78,5 +79,21 @@ if ($script:featureCalls.Count -ne 4 -or $script:featureCalls[2].RunId -cne $sel
     -not $script:featureCalls[2].Enabled -or $script:featureCalls[3].RunId -cne $selectedRun -or
     $script:featureCalls[3].InstanceId -cne 'container' -or $script:featureCalls[3].Enabled) {
     throw 'SQL_FEATURE_SELECTED_ENVIRONMENT_BINDING_FAILED'
+}
+$script:allowInstanceSelection = $true
+$script:chosenTarget = 'container'
+$script:operation = 'fulltext-on'
+Invoke-LabSqlFeatureInteractive -RunId $selectedRun -FullTextOnly
+$selected = $script:featureCalls[-1]
+if ($script:featureCalls.Count -ne 5 -or $selected.RunId -cne $selectedRun -or
+    $selected.InstanceId -cne 'container' -or $selected.Feature -cne 'FullText' -or -not $selected.Enabled) {
+    throw 'SQL_FEATURE_TEST_CONTAINER_BOUND_RUN_INSTANCE_SELECTION_FAILED'
+}
+$script:allowInstanceSelection = $false
+$invalidRejected = $false
+try { Invoke-LabSqlFeatureInteractive -RunId $selectedRun -InstanceId missing -FullTextOnly }
+catch { $invalidRejected = $_.Exception.Message -ceq 'SQL-Funktion konnte nicht bestätigt werden (SQL_FEATURE_RUNNING_INSTANCE_REQUIRED).' }
+if (-not $invalidRejected -or $script:featureCalls.Count -ne 5) {
+    throw 'SQL_FEATURE_TEST_INVALID_INSTANCE_MUST_NOT_FALL_BACK'
 }
 Write-Host 'SQL FEATURE CONSOLE: PASS'
