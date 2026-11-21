@@ -6388,8 +6388,8 @@ function Get-LabContainerAutoStartRecoveryTargets {
         try {
             $runDirectory = Join-Path (Join-Path $target.StateRoot 'runs') ([string]$target.RunId)
             $journalPath = Get-LabContainerAutoStartJournalPath -RunDirectory $runDirectory
-            if (-not (Test-Path -LiteralPath $journalPath -PathType Leaf)) { continue }
-            $journal = Get-Content -LiteralPath $journalPath -Raw -Encoding utf8 -ErrorAction Stop | ConvertFrom-Json -Depth 60 -ErrorAction Stop
+            $journal = Read-LabDiagnosticJson -Path $journalPath -Optional -MaximumDepth 60
+            if (-not $journal) { continue }
             Assert-LabContainerAutoStartJournal -Journal $journal
             if ([string]$journal.RunId -cne [string]$target.RunId -or [string]$journal.ScopeId -cne [string]$target.ScopeId -or
                 [string]$journal.InstanceId -cne [string]$target.InstanceId -or [string]$journal.Provider -cne [string]$target.Provider -or
@@ -6403,6 +6403,19 @@ function Get-LabContainerAutoStartRecoveryTargets {
         }
         catch { continue } # Unklare oder ungueltige Journale werden nie zur Recovery angeboten.
     }
+}
+
+function Invoke-LabConfirmedContainerAutoStartRecovery {
+    param([Parameter(Mandatory)]$Target)
+
+    $result = Resume-SqlServerLabContainerAutoStart -RunId $Target.RunId -InstanceId $Target.InstanceId -StateRoot $Target.StateRoot -ExpectedOperationId $Target.OperationId -Confirm:$false
+    if (-not $result -or $result.RunId -isnot [string] -or $result.InstanceId -isnot [string] -or $result.Provider -isnot [string] -or
+        $result.Status -isnot [string] -or $result.Changed -isnot [bool] -or $result.OperationId -isnot [string] -or
+        $result.RunId -cne $Target.RunId -or $result.InstanceId -cne $Target.InstanceId -or $result.Provider -cne $Target.Provider -or
+        $result.Status -cne 'RECOVERY_SUCCEEDED' -or -not $result.Changed -or $result.OperationId -cne $Target.OperationId) {
+        throw 'AUTOSTART_RECOVERY_RESULT_INVALID'
+    }
+    [pscustomobject]@{ Status = 'RECOVERY_SUCCEEDED' }
 }
 
 function Invoke-LabContainerAutoStartRecoveryInteractive {
@@ -6435,13 +6448,7 @@ function Invoke-LabContainerAutoStartRecoveryInteractive {
         }
         Write-LabInfo ('Recovery: {0} · Zielpolicy {1}. Der Resume-Befehl liest Container-ID, Laufzustand und Policy erneut; er wiederholt keinen Providerbefehl und schreibt nur Lab-State.' -f $selected.RecoveryStatus,$selected.TargetAutoStart)
         if (-not (Read-LabConfirm -Prompt 'Verifizierte Autostart-Statepersistenz jetzt wiederaufnehmen?' -Default $false)) { return }
-        $result = Resume-SqlServerLabContainerAutoStart -RunId $selected.RunId -InstanceId $selected.InstanceId -StateRoot $selected.StateRoot -ExpectedOperationId $selected.OperationId -Confirm:$false
-        if (-not $result -or $result.RunId -isnot [string] -or $result.InstanceId -isnot [string] -or $result.Provider -isnot [string] -or
-            $result.Status -isnot [string] -or $result.Changed -isnot [bool] -or $result.OperationId -isnot [string] -or
-            $result.RunId -cne $selected.RunId -or $result.InstanceId -cne $selected.InstanceId -or $result.Provider -cne $selected.Provider -or
-            $result.Status -cne 'RECOVERY_SUCCEEDED' -or -not $result.Changed -or $result.OperationId -cne $selected.OperationId) {
-            throw 'AUTOSTART_RECOVERY_CONSOLE_RESULT_INVALID'
-        }
+        $null = Invoke-LabConfirmedContainerAutoStartRecovery -Target $selected
         Write-LabSuccess 'Container-Autostart-Recovery: RECOVERY_SUCCEEDED · Statepersistenz verifiziert; kein Provider-Replay.'
         $null = Wait-LabConsoleAcknowledgement
     }

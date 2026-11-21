@@ -242,6 +242,7 @@
       <section class="panel compact">
         <div class="section-heading"><div><p class="eyebrow">CONTAINER</p><h2>Aktive Lab-Umgebungen</h2></div></div>
       <button id="autostart-preview-open" type="button" class="button secondary">Container-Autostart vorprüfen · PLAN_ONLY</button>
+      <button id="autostart-recovery-open" type="button" class="button secondary">Container-Autostart-Recovery fortsetzen</button>
       <button id="port-preview-open" type="button" class="button secondary">SQL-Hostport vorprüfen · PLAN_ONLY</button>
       <div id="active-labs" class="list"></div>
       </section>
@@ -609,6 +610,21 @@
     </div>
   </dialog>
   <script src="container-autostart-preview.js"></script>
+
+  <dialog id="autostart-recovery-dialog">
+    <div class="read-only-dialog-content">
+      <div class="dialog-heading"><h2>Container-Autostart-Recovery fortsetzen</h2></div>
+      <p>Die gewählte Journaloperation prüft den Container erneut und schreibt anschließend Lab-State. Die Restartpolicy wird dabei nicht erneut gesetzt.</p>
+      <label>Offene Journaloperation<select id="autostart-recovery-target" disabled></select></label>
+      <label><input id="autostart-recovery-confirm" type="checkbox" disabled> Ausgewählte Operation bewusst fortsetzen</label>
+      <p id="autostart-recovery-status" role="status"></p>
+      <div class="dialog-actions">
+        <button id="autostart-recovery-read" type="button" class="button secondary">Neu lesen</button>
+        <button id="autostart-recovery-apply" type="button" class="button primary" disabled>Recovery fortsetzen</button>
+        <button id="autostart-recovery-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </div>
+  </dialog>
 
   <dialog id="port-preview-dialog">
     <div class="read-only-dialog-content">

@@ -3473,6 +3473,99 @@ async function requestLlamaSession(action = 'read') {
     $('#llama-session-status').textContent = 'Stop nicht bestätigt. Neu lesen und vorprüfen; eigene Recovery separat prüfen. Keine automatische Wiederholung.';
   } finally { if (revision === llamaSessionRevision) { llamaSessionBusy = false; llamaSessionStopping = false; updateLlamaSessionControls(); } }
 }
+function setupContainerAutoStartRecovery() {
+  const el = name => $('#autostart-recovery-' + name);
+  const dialog = el('dialog');
+  const target = el('target');
+  const confirm = el('confirm');
+  const status = el('status');
+  let choices = [];
+  let busy = false;
+  let applying = false;
+  let revision = 0;
+
+  function updateControls() {
+    const selected = choices.includes(target.value);
+    target.disabled = busy || !choices.length;
+    confirm.disabled = busy || !selected;
+    el('apply').disabled = busy || !selected || !confirm.checked;
+    el('read').disabled = busy;
+    el('close').disabled = applying;
+  }
+
+  function clearSelection() {
+    choices = [];
+    target.replaceChildren();
+    confirm.checked = false;
+  }
+
+  async function request(apply = false) {
+    if (busy || !dialog.open || (apply && (!confirm.checked || !choices.includes(target.value)))) return;
+    const selected = target.value;
+    const current = ++revision;
+    busy = true;
+    applying = apply;
+    clearSelection();
+    updateControls();
+    status.textContent = apply ? 'Bestätigte Recovery wird ausgeführt …' : 'Offene Journaloperationen werden gelesen …';
+    try {
+      const options = { cache: 'no-store' };
+      if (apply) {
+        options.method = 'POST';
+        options.headers = { 'Content-Type': 'application/json' };
+        options.body = JSON.stringify({ Confirmed: true, Selection: selected });
+      }
+      const response = await sqlServerLabUiFetch('/api/container-autostart-recovery', options);
+      if (!response.ok) throw new Error('RECOVERY_UNCONFIRMED');
+      const view = await response.json();
+      if (current !== revision || !dialog.open) return;
+      if (apply) {
+        if (view?.Status !== 'RECOVERY_SUCCEEDED') throw new Error('RECOVERY_UNCONFIRMED');
+        status.textContent = 'Recovery abgeschlossen. Der Lab-State wurde aktualisiert.';
+        return;
+      }
+      if (!Array.isArray(view?.Items) || view.Items.length > 64 || !view.Items.every(item =>
+        typeof item?.Selection === 'string' && /^[a-f0-9]{32}$/.test(item.Selection) &&
+        typeof item.RunId === 'string' && /^[0-9a-f-]{36}$/.test(item.RunId) &&
+        typeof item.InstanceId === 'string' && /^[A-Za-z][A-Za-z0-9_-]{0,63}$/.test(item.InstanceId) &&
+        ['docker', 'podman'].includes(item.Provider) && ['on', 'off'].includes(item.TargetAutoStart))) {
+        throw new Error('RECOVERY_UNCONFIRMED');
+      }
+      choices = view.Items.map(item => item.Selection);
+      if (new Set(choices).size !== choices.length) throw new Error('RECOVERY_UNCONFIRMED');
+      for (const item of view.Items) {
+        const option = document.createElement('option');
+        option.value = item.Selection;
+        option.textContent = item.RunId + ' · ' + item.InstanceId + ' · ' + item.Provider + ' · Zielpolicy ' + item.TargetAutoStart;
+        target.append(option);
+      }
+      target.selectedIndex = -1;
+      status.textContent = choices.length ? 'Journaloperation auswählen und bestätigen.' : 'Keine passende offene Journaloperation gefunden.';
+    } catch {
+      if (current === revision && dialog.open) {
+        clearSelection();
+        status.textContent = apply ? 'Ergebnis unbestätigt. Aktuellen Zustand und offene Recovery prüfen.' : 'Journaloperationen konnten nicht sicher gelesen werden.';
+      }
+    } finally {
+      if (current === revision) {
+        busy = false;
+        applying = false;
+        updateControls();
+      }
+    }
+  }
+
+  el('open').addEventListener('click', () => { dialog.showModal(); return request(); });
+  el('read').addEventListener('click', () => request());
+  target.addEventListener('change', () => { confirm.checked = false; updateControls(); });
+  confirm.addEventListener('change', updateControls);
+  el('apply').addEventListener('click', () => request(true));
+  el('close').addEventListener('click', () => { if (!applying) dialog.close(); });
+  dialog.addEventListener('cancel', event => { if (applying) event.preventDefault(); });
+  dialog.addEventListener('close', () => { revision++; busy = false; applying = false; clearSelection(); updateControls(); });
+}
+setupContainerAutoStartRecovery();
+
 async function readLlamaRuntimeInventory() {
   const button = $('#llama-runtime-inventory-read');
   const status = $('#llama-runtime-inventory-status');

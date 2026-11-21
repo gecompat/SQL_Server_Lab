@@ -351,8 +351,14 @@ offene Recovery vor einer erneuten Änderung.
 Journaloperationen. Bestätige die gewünschte Operation. Wird das Journal
 zwischen Auswahl und Ausführung ersetzt, liest der Benutzer die Auswahl
 erneut. Die Wiederaufnahme prüft Containeridentität, Laufzustand und
-Restartpolicy. Anschließend schreibt sie Lab-State. Die Browseransicht bietet
-weiterhin die reine Vorschau an.
+Restartpolicy. Anschließend schreibt sie Lab-State.
+
+Im Browser liegt **Container-Autostart-Recovery fortsetzen** unter **Lab
+verwalten**. Wähle die Journaloperation aus der Liste und bestätige sie mit
+dem Kontrollkästchen. Die Auswahl gilt fünf Minuten und kann einmal
+verwendet werden. Nach Ablauf oder einem unbestätigten Ergebnis lies
+den aktuellen Zustand erneut. Die separate Autostartvorschau bleibt der
+Einstieg zur lesenden Prüfung der Restartpolicy.
 
 ### SQL-Hostport nur vorprüfen
 

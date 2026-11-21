@@ -604,6 +604,7 @@ $tlsLiveQualificationJobs = @{}
 $tlsCreationStore = New-UiTlsCreationStore
 $persistentJobs = @{}
 $runArtifactRemovalPreviews = @{}
+$containerAutoStartRecoverySelections = @{}
 
 try {
     $commandGrantStore = New-UiCommandGrantStore -Session $operatorSession
@@ -705,6 +706,27 @@ try {
                     $view=Get-UiTlsLiveQualificationJob -Records $tlsLiveQualificationJobs -Id $Matches[1]
                     Write-UiResponse -Context $context -Body ($view|ConvertTo-Json -Depth 5 -Compress) -ContentType 'application/json; charset=utf-8'
                 }catch{Write-UiResponse -Context $context -Body '{"Code":"TLS_LIVE_HTTP_REJECTED"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400}
+                continue
+            }
+            if ($path -ceq '/api/container-autostart-recovery') {
+                try {
+                    $request = $context.Request
+                    if ($request.Url.Query) { throw 'AUTOSTART_RECOVERY_BROWSER_QUERY_INVALID' }
+                    $module = Get-Module SqlServerLab
+                    if ($request.HttpMethod -ceq 'GET' -and -not $request.HasEntityBody) {
+                        $view = & $module { param($selections) Read-LabContainerAutoStartRecoveryBrowser -Selections $selections } $containerAutoStartRecoverySelections
+                    }
+                    elseif ($request.HttpMethod -ceq 'POST' -and [string]$request.Headers['Origin'] -ceq $url.TrimEnd('/')) {
+                        $body = Read-UiSpecializedJsonRequestBody -Request $request -MaxCharacters 1024 -LimitErrorCode 'AUTOSTART_RECOVERY_BROWSER_BODY_LIMIT'
+                        $view = & $module { param($selections, $body) Invoke-LabContainerAutoStartRecoveryBrowser -Selections $selections -Body $body } $containerAutoStartRecoverySelections $body
+                    }
+                    else { throw 'AUTOSTART_RECOVERY_BROWSER_REQUEST_INVALID' }
+                    Write-UiResponse -Context $context -Body ($view | ConvertTo-Json -Depth 4 -Compress) -ContentType 'application/json; charset=utf-8'
+                }
+                catch {
+                    if (Write-UiBodyFailureResponse -Context $context -ErrorRecord $_) { continue }
+                    Write-UiResponse -Context $context -Body '{"Code":"AUTOSTART_RECOVERY_BROWSER_UNCONFIRMED"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                }
                 continue
             }
             if ($path -eq '/api/container-autostart-preview') {

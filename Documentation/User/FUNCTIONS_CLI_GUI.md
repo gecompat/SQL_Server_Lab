@@ -12,7 +12,7 @@ Mit **Docker-/Podman-Autostart-Recovery fortsetzen** bestätigt der Benutzer
 eine konkrete Journaloperation. `Resume-SqlServerLabContainerAutoStart`
 prüft diese Operation und den Container erneut, bevor es Lab-State schreibt.
 Der [Bedienungsablauf](../HowTo/WORKFLOW_UI.md#docker-und-podman-autostart-ändern)
-beschreibt die Schritte und die Grenzen der Browseransicht.
+beschreibt die Schritte in CLI und Browser.
 
 ## Container-Autostart nur vorprüfen
 

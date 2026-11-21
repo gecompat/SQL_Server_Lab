@@ -47,6 +47,9 @@ function Resume-SqlServerLabContainerAutoStart {
     try {
         try { $acquired=$mutex.WaitOne(0) } catch [Threading.AbandonedMutexException] { $acquired=$true }
         if(-not $acquired){throw 'AUTOSTART_APPLY_BUSY'}
+        if ($PSBoundParameters.ContainsKey('ExpectedOperationId')) {
+            Assert-LabResourceChangeAllowed -RunId $RunId -StateRoot $StateRoot
+        }
         $context=Get-LabContainerReconcileContext -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot
         $path=Get-LabContainerAutoStartJournalPath -RunDirectory $context.RunDirectory
         if(-not(Test-Path -LiteralPath $path -PathType Leaf)){throw 'AUTOSTART_APPLY_RECOVERY_JOURNAL_MISSING'}
