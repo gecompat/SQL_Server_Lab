@@ -54,6 +54,15 @@ try {
         $freshState = Get-LabRunState -RunId $freshRun.RunId -StateRoot $StateRoot
         $snapshotBeforePlanning = & $getStateSnapshot $StateRoot
         $freshPlan = Get-SqlServerLabRunStateUpgradePlan -RunId $freshRun.RunId -StateRoot $StateRoot
+        $guided = & {
+            function Get-LabStateRoot { $StateRoot }
+            $view = Get-LabRunStateUpgradePlanView -RunId $freshRun.RunId
+            $invalid = try { Get-LabRunStateUpgradePlanView -RunId '../foreign' | Out-Null; $false }
+                catch { $_.Exception.Message -ceq 'RUN_STATE_UPGRADE_GUIDANCE_TARGET_INVALID' }
+            $view.RunId -ceq $freshRun.RunId -and $view.Status -ceq 'NO_ACTION' -and
+                $view.Source -ceq 'SqlServerLab.RunState/1.0' -and $view.Target -ceq $view.Source -and $invalid -and
+                (($view | ConvertTo-Json -Compress) -notmatch 'SourceStateSha256|PlanId|ScopeId')
+        }
         $freshExecution = Invoke-SqlServerLabRunStateUpgrade -RunId $freshRun.RunId -StateRoot $StateRoot -Confirm:$false
         $freshRepeat = Get-SqlServerLabRunStateUpgradePlan -RunId $freshRun.RunId -StateRoot $StateRoot
         $legacy = Get-SqlServerLabRunStateUpgradePlan -RunId $LegacyRunId -StateRoot $StateRoot
@@ -95,11 +104,12 @@ try {
         $unsupported | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $unsupportedPath -Encoding utf8
         $unsupportedPlan = Get-SqlServerLabRunStateUpgradePlan -RunId $CurrentRunId -StateRoot $StateRoot
         [PSCustomObject]@{
-            FreshState=$freshState;FreshPlan=$freshPlan;FreshExecution=$freshExecution;FreshRepeat=$freshRepeat
+            FreshState=$freshState;FreshPlan=$freshPlan;FreshExecution=$freshExecution;FreshRepeat=$freshRepeat;Guided=$guided
             Legacy=$legacy;Current=$current;CurrentRepeat=$currentRepeat;ExplicitLegacy=$explicitLegacy;MissingVersion=$missingVersion;MalformedVersion=$malformedVersion;AlternateCurrent=$alternateCurrent;SnapshotBeforePlanning=$snapshotBeforePlanning;SnapshotAfterPlanning=$snapshotAfterPlanning;ExpectedCurrentSourceHash=$expectedCurrentSourceHash;ExpectedCurrentPlanId=$expectedCurrentPlanId;ExpectedAlternateSourceHash=$expectedAlternateSourceHash;Blocked=$blocked;Unmarked=$unmarked;LegacyWhatIf=$legacyWhatIf;LegacyExecution=$legacyExecution;LegacyAfter=$legacyAfter;LegacyJournal=$legacyCompletedJournal;LegacyResume=$legacyResume;LegacyResumedJournal=$legacyCompletedResumeJournal;ResumeSourceChanged=$resumeSourceChanged;Unsupported=$unsupportedPlan
         }
     } $temporaryRoot $legacyRunId $currentRunId $blockedRunId $unmarkedRunId $explicitLegacyRunId $missingVersionRunId $malformedVersionRunId $alternateCurrentRunId
 
+    Add-CheckResult -Name 'Geführte State-Formatprüfung bindet die Run-ID und gibt keine internen Referenzen aus' -Success $results.Guided
     Add-CheckResult -Name 'Frisch erzeugter Run-State persistiert den aktuellen Vertrag ohne Legacy-Markierung' -Success (
         $results.FreshState.contractVersion -eq 'SqlServerLab.RunState/1.0' -and
         $results.FreshState.state -eq 'INITIALIZING' -and

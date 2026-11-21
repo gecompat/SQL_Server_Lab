@@ -1088,6 +1088,7 @@ function Show-LabHostModelsMenu {
         New-LabConsoleItem -Id AiRuntimeCapability -Label 'llama.cpp-Eignung prüfen' -Value 'Paketdateien und erkannte Geräte' -Shortcut 6
         New-LabConsoleItem -Id OvmsUpstream -Label 'Lokalen OVMS-Embedding-Dienst prüfen' -Value 'Ein synthetischer HTTP-Request über Loopback' -Shortcut 7
         New-LabConsoleItem -Id AiComputeSelection -Label 'KI-Gerätekombination aus Messbelegen wählen' -Value 'Vorhandene Kandidaten und Benchmarkwerte · lesend' -Shortcut 8
+        New-LabConsoleItem -Id AiComputeBenchmark -Label 'llama.cpp-Gerätekombinationen messen' -Value 'Ein Kandidat oder vollständiger Satz · CPU/GPU/NPU' -Shortcut 9
         New-LabConsoleItem -Id ModelLifecycle -Label 'Modell laden, entladen oder wechseln' -Disabled -DisabledReason 'Ein gemeinsamer geführter Load-/Unload-/Wechselvertrag ist noch offen. Der Datei-Download ist kein geladenes Modell.'
         New-LabConsoleItem -Id back -Label 'Zurück' -Shortcut 0
     )
@@ -1169,6 +1170,10 @@ function Show-LabMaintenanceMenu {
         New-LabConsoleItem -Id CuStatus -Label 'Aktuelle SQL-Server-CUs bei Microsoft pruefen' -Value 'read-only · Netzzugriff auf die katalogisierten Quellen' -Shortcut 5
         New-LabConsoleItem -Id EvaluationWatch -Label 'Windows-/SQL-Evaluationsfristen' -Value 'gespeicherte Evidence · read-only · kein Gastzugriff' -Shortcut e
         New-LabConsoleItem -Id ContainerNetworkPlan -Label 'Lab-Netz auf Subnetzkonflikt prüfen' -Value 'Docker oder Podman · lesende Vorschau'
+        New-LabConsoleItem -Id AutomationApiPlan -Label 'Automatisierungsschnittstelle ansehen' -Value 'Fachverträge und Pflichtparameter'
+        New-LabConsoleItem -Id HyperVRecoveryPointPlan -Label 'Hyper-V-Wiederherstellungspunkte lesen' -Value 'Checkpoint-Inventar eines registrierten Labs'
+        New-LabConsoleItem -Id DiagnosticBundle -Label 'Gespeicherten Diagnosebefund lesen' -Value 'Instanzzustand, Recovery und Cleanup im Standard-Lab_Data'
+        New-LabConsoleItem -Id RunStateUpgradePlan -Label 'Format eines Run-States prüfen' -Value 'Lesender Upgrade-Plan'
         New-LabConsoleItem -Id Messages -Label 'Meldungen dieser Sitzung' -Value 'Warnungen und Fehler · kopierbar · Journalpfad' -Shortcut 6
         New-LabConsoleItem -Id RetainedStoreRemoval -Label 'Behaltenen SQL-Speicher löschen' -Value 'gesonderter bestätigter Entfernungsplan' -Shortcut l
         New-LabConsoleItem -Id RunArtifactRemoval -Label 'Artefakte eines entfernten Runs' -Value 'Einzelauswahl · Vorschau · bestätigte Entfernung / Resume' -Shortcut r

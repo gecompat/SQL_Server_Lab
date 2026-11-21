@@ -85,7 +85,7 @@ function Get-LabAutomationApiPlan {
         Result = [PSCustomObject][ordered]@{
             ContractVersion = 'SqlServerLab.AutomationApiResult/1.0'
             Status = 'NOT_EXECUTED'
-            ActionCommand = if ($selected) { [string]$selected.ActionCommand } else { $null }
+            ActionCommand = if ($selected -and $selected.ActionCommand) { [string]$selected.ActionCommand } else { $null }
             ExecutionImplemented = $false
         }
         Blockers = @($blockers)

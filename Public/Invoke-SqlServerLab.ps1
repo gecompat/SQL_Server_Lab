@@ -167,7 +167,12 @@ function Invoke-LabMenuAction {
     if ($ActionName -eq 'SsisDiagnostics') { Invoke-LabSsisDiagnosticsInteractive; return }
     if ($ActionName -eq 'SqlGuestEvaluationEvidence') { Invoke-LabSqlGuestEvaluationCaptureInteractive; return }
     if ($ActionName -eq 'RelationalCompare') { Invoke-LabRelationalComparisonInteractive; return }
+    if ($ActionName -eq 'PortableImportPlan') { Show-LabPortableImportPlanInteractive; return }
     if ($ActionName -eq 'ContainerNetworkPlan') { Show-LabContainerNetworkMigrationPlanInteractive; return }
+    if ($ActionName -eq 'AutomationApiPlan') { Show-LabAutomationApiPlanInteractive; return }
+    if ($ActionName -eq 'HyperVRecoveryPointPlan') { Show-LabHyperVRecoveryPointPlanInteractive; return }
+    if ($ActionName -eq 'DiagnosticBundle') { Show-LabDiagnosticBundleInteractive; return }
+    if ($ActionName -eq 'RunStateUpgradePlan') { Show-LabRunStateUpgradePlanInteractive; return }
     if ($ActionName -in @('PortableTransferPreflight', 'PortableTransfer')) {
         Invoke-LabPortableContainerTransferInteractive -Preflight:($ActionName -eq 'PortableTransferPreflight')
         return
@@ -178,6 +183,7 @@ function Invoke-LabMenuAction {
     if ($ActionName -eq 'AiRuntimeCapability') { Show-LabAiRuntimeCapabilityInteractive; return }
     if ($ActionName -eq 'OvmsUpstream') { Invoke-LabOvmsUpstreamInteractive; return }
     if ($ActionName -eq 'AiComputeSelection') { Invoke-LabAiComputeSelectionInteractive; return }
+    if ($ActionName -eq 'AiComputeBenchmark') { Invoke-LabAiComputeBenchmarkInteractive; return }
     if ($ActionName -eq 'AiComputeInventory') { Show-LabAiComputeInventoryInteractive; return }
     if ($ActionName -eq 'HyperVAutoStartRecovery') { Invoke-LabHyperVAutoStartRecoveryInteractive; return }
     if ($ActionName -eq 'HyperVAutoStart') { Invoke-LabHyperVAutoStartInteractive; return }
@@ -358,6 +364,7 @@ function Show-LabDatabaseMenu {
         New-LabConsoleItem -Id 'RelationalCompare' -Label 'Zwei Containerdatenbanken vergleichen' -Value 'Docker/Podman · RELATIONAL_CORE/1.0 · read-only' -Shortcut 'v'
         New-LabConsoleItem -Id 'PortableTransferPreflight' -Label 'Backupmedium am Zielcontainer vorprüfen' -Value 'Temporäres Staging · kein Restore'
         New-LabConsoleItem -Id 'PortableTransfer' -Label 'SQL-2025-Datenbank in neuen Container übertragen' -Value 'Registriertes Backup · eigener neuer Run'
+        New-LabConsoleItem -Id 'PortableImportPlan' -Label 'Portables Lab-Paket prüfen' -Value 'Lesender Importplan'
         New-LabConsoleItem -Id 'ConnectionCenter' -Label 'Verbindungszentrale und SSMS-Endpunkte' -Shortcut 'c'
         New-LabConsoleItem -Id 'AiArea' -Label 'SQL Server 2025 KI' -Value 'Szenarien · Ollama lokal/Cloud · RAG · read-only Diagnose' -Shortcut 'a'
         New-LabConsoleItem -Id 'Catalog' -Label 'Lab-Katalog prüfen' -Value 'Katalogdatei validieren; kein CMS-Zugang' -Shortcut 'k'

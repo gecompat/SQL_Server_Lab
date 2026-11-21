@@ -163,6 +163,7 @@ sources_of_truth:
   validation_security_tool_catalog: Tests/Static/Invoke-SecurityToolCatalogChecks.ps1
   ai_scenario_contract: Private/AiScenario.ps1
   ai_scenario_inventory: Public/Get-SqlServerLabAiScenario.ps1
+  ai_scenario_plan_guidance: Ui/ai-scenario-plan.js
   ai_scenario_execution: Public/Invoke-SqlServerLabAiScenario.ps1
   ai_vector_core_scenario: Scenarios/Ai/vector-core-ci/1.0/scenario.json
   validation_ai_vector_index: Tests/Integration/Invoke-AiVectorIndexAcceptance.ps1
@@ -187,6 +188,7 @@ sources_of_truth:
   ai_compute_selection_schema: Schemas/ai-compute-selection.schema.json
   validation_ai_compute_selection: Tests/Static/Invoke-AiComputeSelectionChecks.ps1
   ai_compute_benchmark_contract: Private/AiComputeBenchmark.ps1
+  ai_compute_benchmark_guidance: Private/AiComputeBenchmarkConsole.ps1, Ui/ai-compute-benchmark.js, Tools/Start-SqlServerLabUi.ps1
   ai_compute_benchmark_api: Public/Measure-SqlServerLabAiComputeCandidate.ps1
   ai_compute_benchmark_schema: Schemas/ai-compute-benchmark.schema.json
   ai_compute_benchmark_set_api: Public/Measure-SqlServerLabAiComputeCandidateSet.ps1
@@ -571,6 +573,7 @@ sources_of_truth:
   validation_external_runtime_host_facts: Tests/Static/Fixtures/ExternalRuntimeCapabilityHostFactsChecks.ps1 # existing Capability suite; synthetic facts and actual consumer guards, no provider proof
   validation_client_readiness: Tests/Static/Invoke-ClientReadinessChecks.ps1
   diagnostic_bundle_public: Public/Get-SqlServerLabDiagnosticBundle.ps1
+  diagnostic_bundle_guidance: Private/DiagnosticBundleConsole.ps1, Ui/diagnostic-bundle.js
   diagnostic_bundle_reader: Private/DiagnosticBundleReader.ps1 # full recorded selector; container CU bound to VersionCatalog exact tag/build, not native SQL evidence
   diagnostic_bundle_readiness: Private/DiagnosticBundleReadiness.ps1
   diagnostic_bundle_readiness_child: Tools/Read-SqlServerLabDiagnosticReadiness.ps1
@@ -586,6 +589,7 @@ sources_of_truth:
   validation_instance_capability_assessment: Tests/Static/Invoke-InstanceCapabilityAssessmentChecks.ps1
   run_state_upgrade_plan_contract: Private/StateUpgrade.ps1
   run_state_upgrade_plan_public: Public/Get-SqlServerLabRunStateUpgradePlan.ps1
+  run_state_upgrade_plan_guidance: Private/RunStateUpgradePlanConsole.ps1, Ui/run-state-upgrade-plan.js
   validation_run_state_upgrade_plan: Tests/Static/Invoke-RunStateUpgradeChecks.ps1
   portable_lab_import_preflight_contract: Private/PortableLabImport.ps1 # target-bound portable container transfer preflight; BackupSetId and integrity evidence only
   portable_lab_import_preflight_public: Public/Get-SqlServerLabPortableLabImportPlan.ps1
@@ -606,6 +610,7 @@ sources_of_truth:
   portable_container_transfer_preflight_contract: Private/PortableContainerTransferPreflight.ps1 # operation-bound backup staging and SQL media preflight; transfer remains blocked
   portable_container_transfer_preflight_public: Public/Invoke-SqlServerLabPortableContainerTransferPreflight.ps1
   portable_container_transfer_guidance: Private/PortableContainerTransferConsole.ps1, Ui/portable-container-transfer.js, Private/BackupLibrary.ps1
+  portable_lab_import_plan_guidance: Private/PortableLabImportConsole.ps1, Ui/portable-lab-import-plan.js
   portable_container_transfer_preflight_request_schema: Schemas/portable-container-transfer-preflight-request.schema.json
   portable_container_transfer_preflight_result_schema: Schemas/portable-container-transfer-preflight-result.schema.json
   portable_container_transfer_preflight_journal_schema: Schemas/portable-container-transfer-preflight-journal.schema.json
@@ -613,10 +618,12 @@ sources_of_truth:
   hyperv_recovery_point_plan_contract: Private/RecoveryPointPlan.ps1
   hyperv_recovery_point_plan_public: Public/Get-SqlServerLabHyperVRecoveryPointPlan.ps1
   hyperv_recovery_point_plan_schema: Schemas/hyperv-recovery-point-plan.schema.json
+  hyperv_recovery_point_plan_guidance: Private/HyperVRecoveryPointPlanConsole.ps1, Ui/hyperv-recovery-point-plan.js
   validation_hyperv_recovery_point_plan: Tests/Static/Invoke-HyperVRecoveryPointPlanChecks.ps1
   automation_api_plan_contract: Private/AutomationApiPlan.ps1
   automation_api_plan_public: Public/Get-SqlServerLabAutomationPlan.ps1
   automation_api_plan_schema: Schemas/automation-api-plan.schema.json
+  automation_api_plan_guidance: Private/AutomationApiPlanConsole.ps1, Ui/automation-api-plan.js
   validation_automation_api_plan: Tests/Static/Invoke-AutomationApiPlanChecks.ps1
   cleanup_contract: Private/CleanupEngine.ps1
   validation_cleanup_volume_ownership: Tests/Static/Invoke-CleanupVolumeOwnershipChecks.ps1
@@ -1123,6 +1130,7 @@ sources_of_truth:
   validation_test_environment_group_lifecycle: Tests/Integration/Invoke-TestEnvironmentGroupLifecycle.ps1
   validation_manifest_builder: Tests/Static/Invoke-ManifestBuilderChecks.ps1
   validation_batch_workflow: Tests/Static/Invoke-BatchWorkflowChecks.ps1, Tests/Static/Fixtures/BatchWorkflowFileLockChecks.ps1
+  batch_browser_overview: Private/BatchBrowserOverview.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/app.js, Tests/Static/Fixtures/WorkflowInventoryCacheChecks.ps1
   validation_runtime_matrix: Tests/Integration/Invoke-SmokeMatrix.ps1
   cli_acceptance_matrix: Documentation/Quality/CLI_ACCEPTANCE_MATRIX.md
   public_command_console: Private/PublicCommandConsole.ps1

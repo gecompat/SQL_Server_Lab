@@ -700,6 +700,7 @@ function renderWorkflow(data) {
   renderContainerVersionOptions(data);
   renderConnectionEndpoints(data);
   renderOperationQueue(data.Queue);
+  renderBatchOverview(data.Batches);
   // Der Quellen-Dialog kann vor dem ersten API-Refresh geöffnet werden. In
   // diesem Fall das anfangs leere Feld nachträglich füllen, aber eine bereits
   // vom Benutzer eingegebene Pfadänderung niemals überschreiben.
@@ -767,6 +768,30 @@ function renderWorkflow(data) {
     else button.removeAttribute('title');
   });
   document.querySelectorAll('[data-lab-resources][data-provider="hyperv"]').forEach((button) => { button.disabled = hyperVDisabled; });
+}
+
+function renderBatchOverview(batches) {
+  const labels = {
+    Draft: 'Entwurf', Validated: 'Validiert', Queued: 'Vorgemerkt', Running: 'Läuft',
+    Waiting: 'Wartet', CleanupQueued: 'Bereinigung vorgemerkt', Completed: 'Abgeschlossen',
+    CompletedWithErrors: 'Mit Fehlern abgeschlossen', Cancelled: 'Abgebrochen'
+  };
+  const rows = $('#batch-overview-rows');
+  rows.replaceChildren();
+  for (const batch of Array.isArray(batches) ? batches : []) {
+    if (typeof batch?.BatchId !== 'string' || !/^batch-\d{14}-[0-9a-f]{8}$/.test(batch.BatchId) || !Object.hasOwn(labels, batch.Status) ||
+        !Number.isFinite(batch.Percent) || batch.Percent < 0 || batch.Percent > 100 ||
+        ![batch.Total, batch.Failed, batch.Cancelled].every(value => Number.isInteger(value) && value >= 0)) continue;
+    const row = document.createElement('tr');
+    for (const value of [batch.BatchId, labels[batch.Status], batch.Percent + ' %', batch.Total, batch.Failed, batch.Cancelled]) {
+      const cell = document.createElement('td');
+      cell.textContent = String(value);
+      row.append(cell);
+    }
+    rows.append(row);
+  }
+  $('#batch-overview-table').hidden = !rows.childElementCount;
+  $('#batch-overview-status').textContent = rows.childElementCount ? 'Bis zu 50 zuletzt angelegte Batches.' : 'Keine Batchstände verfügbar.';
 }
 
 function renderOperationQueue(queue) {

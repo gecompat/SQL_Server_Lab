@@ -38,15 +38,15 @@ eines Cmdlets:
 ## Exportreferenz-Audit
 
 Ein mechanischer Abgleich des Manifests mit
-`Documentation/User/FUNCTIONS_CLI_GUI.md` findet 149 der 166 Exportnamen und
-17 dort nicht referenzierte Exporte. Das ist ein Referenzabgleich, keine
-vollständige Prüfung, ob die 149 Treffer tatsächlich korrekt geführt,
+`Documentation/User/FUNCTIONS_CLI_GUI.md` findet 151 der 166 Exportnamen und
+15 dort nicht referenzierte Exporte. Das ist ein Referenzabgleich, keine
+vollständige Prüfung, ob die 151 Treffer tatsächlich korrekt geführt,
 ausführbar oder providerabgenommen sind. Die folgende Inventarliste hält die
-17 nicht referenzierten Namen einzeln fest. Die sieben Environment-Group-
+15 nicht referenzierten Namen einzeln fest. Die sieben Environment-Group-
 Operationen aus dem vorherigen Abgleich sind jetzt in der Funktionsübersicht
 enthalten und unten separat quellengestützt als `GUIDED_BOTH` bewertet. Von
-den verbleibenden 17 Einträgen sind vier TLS-001-Exporte `DEFERRED`,
-9 Exporte als `KNOWN_GAP`, einer als `EXPERT_CATALOG_ONLY` und 3 als
+den verbleibenden 15 Einträgen sind vier TLS-001-Exporte `DEFERRED`,
+7 Exporte als `KNOWN_GAP`, einer als `EXPERT_CATALOG_ONLY` und 3 als
 `NOT_ASSESSED` bewertet.
 Die Bewertung folgt aus Menüdispatch, GUI-Aktion, öffentlichen Parametern
 und den vorhandenen Nachweisen. Der Expertenkatalog allein erfüllt die
@@ -54,13 +54,12 @@ geführte Abdeckung nicht.
 
 | Funktionsfamilie | Nicht einzeln in der Funktionsübersicht referenzierte Exporte | Status |
 |---|---|---|
-| KI-Compute-Messung | `Measure-SqlServerLabAiComputeCandidate`; `Measure-SqlServerLabAiComputeCandidateSet` | `KNOWN_GAP`; API und Expertenkatalog sind vorhanden. Die Messung ist noch nicht geführt. |
 | Shared Gateway | `Get-SqlServerLabAiSharedGatewayPlan`; `Test-SqlServerLabAiSharedGatewayPreflight`; `Register-SqlServerLabAiSharedGatewayStorage`; `Test-SqlServerLabAiSharedGatewayUpstream`; `Start-SqlServerLabAiSharedGatewaySession`; `Stop-SqlServerLabAiSharedGatewaySession`; `Get-SqlServerLabAiSharedGatewayStatus` | `KNOWN_GAP` für diese sieben Fachaktionen. Der vorhandene Dialog zum Dienst-Preflight nimmt einen bereits erstellten Gateway-Plan entgegen. |
 | Modell-/Gateway-Lifecycle | `Test-SqlServerLabAiExternalModelEndpoint`; `Start-SqlServerLabOvmsHttpsGateway`; `Stop-SqlServerLabOvmsHttpsGateway` | `NOT_ASSESSED`; vorhandene Workflow-Dokumentation weist Lifecycle-Lücken aus |
 | Security-Tool-Katalog | `Get-SqlServerLabSecurityToolPlan` | `EXPERT_CATALOG_ONLY`. Die produktive Allowlist ist leer, der lokale Resolver blockiert alle Anfragen. [Katalogvertrag und Freigabestand](../Project_Planning/SECURITY_TOOL_ACQUISITION_BACKLOG.md). |
 | TLS-001, zurückgestellt | `Update-SqlServerLabTlsBinding`; `Get-SqlServerLabTlsBindingRecovery`; `Resolve-SqlServerLabTlsBindingRecovery`; `Read-SqlServerLabQualifiedTestEnvironment` | `DEFERRED`; bestehender Zustand bleibt erhalten, keine neue Abdeckungs- oder Runtimearbeit ohne dokumentierten Anwendungsfall |
 
-Die 45 Namen (17 ohne Referenz sowie 28 einzeln geprüfte Exporte)
+Die 15 Namen ohne Referenz und die einzeln geprüften Exporte unten
 wurden unmittelbar gegen `FunctionsToExport` im Manifest
 abgeglichen; die Familiengruppierung ist nur eine Lesbarkeitshilfe. Sie ist
 keine Behauptung, dass eine Familie einen gemeinsamen Aufrufer oder denselben
@@ -118,11 +117,18 @@ und dem [Gruppenvertrag](../Architecture/LAB_ENVIRONMENT_GROUPS.md).
 | llama.cpp-Eignung prüfen (`Get-SqlServerLabAiRuntimeCapability`) | Host-Dienste und Modelle → llama.cpp-Eignung prüfen | Derselbe Bereich und dieselbe Aktion | `GUIDED_BOTH` für die Prüfung vorhandener Paketdateien gegen die Geräteinventur. Runtime-Ausführung und Leistungsnachweise erfolgen separat. |
 | SSIS-Ausführungsmetadaten (`Get-SqlServerLabSsisExecutionDiagnostic`) | Lab-Umgebungen → SSIS-Diagnose eines bestehenden Windows-Labs | Lab verwalten → Reguläre Hyper-V-Umgebungen → SSISDB-Ausführung beobachten | `GUIDED_BOTH`. Menü, Belegbindung und Browserdarstellung sind synthetisch geprüft. Native Abnahme der neuen Bedienpfade `NOT_EXECUTED`. |
 | SSIS-Paketladediagnose (`Get-SqlServerLabSsisPackageDiagnostic`) | Lab-Umgebungen → SSIS-Diagnose eines bestehenden Windows-Labs | Lab verwalten → Reguläre Hyper-V-Umgebungen → SSIS-Paketladediagnose | `GUIDED_BOTH`. Auswahl, Belegbindung und Vertrauensbestätigung sind synthetisch geprüft. Native Abnahme der neuen Bedienpfade `NOT_EXECUTED`. |
-| Erlaubte Gerätekombinationen anzeigen (`Get-SqlServerLabAiComputeCandidate`) | Host-Dienste und Modelle → llama.cpp-Eignung prüfen | Derselbe Bereich und dieselbe Aktion | `GUIDED_BOTH` für die aggregierte Anzahl je Backend und Geräteklasse aus der gebundenen Prüfung. Prüfgrenzen werden sichtbar. Auswahl und Benchmarks stehen separat aus. |
+| Erlaubte Gerätekombinationen anzeigen (`Get-SqlServerLabAiComputeCandidate`) | Host-Dienste und Modelle → llama.cpp-Eignung prüfen | Derselbe Bereich und dieselbe Aktion | `GUIDED_BOTH` für die aggregierte Anzahl je Backend und Geräteklasse aus der gebundenen Prüfung. |
+| Gerätekombinationen messen (`Measure-SqlServerLabAiComputeCandidate`, `Measure-SqlServerLabAiComputeCandidateSet`) | Host-Dienste und Modelle → llama.cpp-Gerätekombinationen messen | Derselbe Bereich und dieselbe Aktion | `GUIDED_BOTH` für ein lokal gebundenes GGUF und installierte llama-bench-Kandidaten. Geführte Einzel- und Serienauswahl synthetisch geprüft. Neue Hardwaremessung `NOT_EXECUTED`. |
+| Portables Lab-Paket prüfen (`Get-SqlServerLabPortableLabImportPlan`) | Datenbanken, Samples und Skripte → Portables Lab-Paket prüfen | Lab-Umgebungen → Datenbankpakete → Portables Lab-Paket prüfen | `GUIDED_BOTH` für die JSON-Prüfung gegen einen registrierten Docker-/Podman-Run. Katalog, Schema und Zielbindung synthetisch geprüft. |
+| Automatisierungsvertrag lesen (`Get-SqlServerLabAutomationPlan`) | Wartung, Aufräumen und Recovery → Automatisierungsschnittstelle ansehen | Wartung → Automatisierungsschnittstelle ansehen | `GUIDED_BOTH` für sechs Fachverträge und deren Pflichtparameter. Die Ansicht führt keinen Fachvorgang aus. |
 | SQL-Editionsbeleg aktualisieren (`Update-SqlServerLabSqlGuestEvaluationEvidence`) | Wartung, Aufräumen und Recovery → SQL-Editionsbeleg im Gast aktualisieren | Wartung → SQL-Editionsbeleg im Gast aktualisieren | `GUIDED_BOTH` für geeignete eigene laufende Hyper-V-Labs mit SQL Server 2025. Auswahl und Bestätigung sind synthetisch geprüft. Native Abnahme der neuen Bedienpfade `NOT_EXECUTED`. |
 | CPU, GPU und NPU erfassen (`Get-SqlServerLabAiComputeInventory`) | Host-Dienste und Modelle → CPU, GPU und NPU erfassen | Derselbe Bereich und dieselbe Aktion | `GUIDED_BOTH` für die Übersicht. Synthetische vollständige und partielle Gerätebefunde in Inventar- und Browserfixtures. Keine Geräte- oder Runtimequalifikation. |
 | Metadaten eines entfernten Runs prüfen und entfernen (`Get-SqlServerLabRunArtifactRemovalPlan`, `Invoke-SqlServerLabRunArtifactRemoval`) | Wartung, Aufräumen und Recovery → Artefakte eines entfernten Runs | Wartung und Recovery → Run-Artefakte prüfen | `GUIDED_BOTH`. Dieselben Cmdlets für gebundene Vorschau, bestätigte Entfernung und Fortsetzung. Workflow-UI und CLI-Vertragsfälle mit synthetischem State. |
 | Evaluationsersatz oder Migration vorprüfen (`Get-SqlServerLabEvaluationRefreshPlan`) | Wartung, Aufräumen und Recovery → SQL-Evaluation: Ersatz- und Migrationsentscheid | Wartung und Recovery → SQL-Evaluation: Ersatzentscheid | `GUIDED_BOTH` für die lesende Vorschau. Synthetische CLI-, HTTP- und Browserfälle. Die Vorschau führt keine Übernahme aus. |
+| Vorhandene Hyper-V-Checkpoints lesen (`Get-SqlServerLabHyperVRecoveryPointPlan`) | Wartung, Aufräumen und Recovery → Hyper-V-Wiederherstellungspunkte lesen | Wartung → Hyper-V-Wiederherstellungspunkte lesen | `GUIDED_BOTH` für das Checkpoint-Inventar. Synthetische Menü- und HTTP-Bindung geprüft. Native Oberflächenabnahme `NOT_EXECUTED`. |
+| Gespeicherten Diagnosebefund lesen (`Get-SqlServerLabDiagnosticBundle -SkipReadiness`) | Wartung, Aufräumen und Recovery → Gespeicherten Diagnosebefund lesen | Wartung → Gespeicherten Diagnosebefund lesen | `GUIDED_BOTH` für gebundene Metadaten im Standard-Lab_Data. Native Provider- und SQL-Readiness sind hier `NOT_EXECUTED`. |
+| Vector-Core-Szenarioplan lesen (`Get-SqlServerLabAiScenario`) | Lab-Umgebungen → Datenbanken, Samples und Skripte → SQL Server 2025 KI → Szenarioplan | Host-Dienste und Modelle → Vector-Core-Szenarioplan lesen | `GUIDED_BOTH` für `vector-core-ci/1.0`, entweder aus dem Katalog oder gegen den gespeicherten KI-Intent einer laufend registrierten Docker-/Podman-Instanz. Das Szenario wird nicht ausgeführt. |
+| Run-State-Format prüfen (`Get-SqlServerLabRunStateUpgradePlan`) | Wartung, Aufräumen und Recovery → Format eines Run-States prüfen | Wartung → Format eines Run-States prüfen | `GUIDED_BOTH` für die lesende Vorschau eines registrierten Runs. Der getrennte Upgrade-Befehl bleibt auf synthetische Legacy-States begrenzt. |
 
 ## Bereichsinventar
 

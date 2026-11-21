@@ -136,8 +136,10 @@
       <button id="ai-runtime-capability-read" type="button" class="button secondary">llama.cpp-Eignung prüfen</button>
       <p id="ai-runtime-capability-status" role="status"></p>
       <button id="compute-selection-open" type="button" class="button secondary">KI-Gerätekombination aus Messbelegen wählen</button>
+      <button id="compute-benchmark-open" type="button" class="button secondary">llama.cpp-Gerätekombinationen messen</button>
       <button id="ovms-upstream-open" type="button" class="button secondary">Lokalen OVMS-Embedding-Dienst prüfen</button>
       <button id="persistent-fixture-open" type="button" class="button secondary">Persistente Retrieval-Demo</button>
+      <button id="ai-scenario-plan-open" type="button" class="button secondary">Vector-Core-Szenarioplan lesen</button>
       <button id="llama-start-plan-open" type="button" class="button secondary">llama.cpp: reine Startvorschau</button>
       <button id="llama-start-open" type="button" class="button secondary">llama.cpp: eigene Sitzung starten</button>
     </section>
@@ -160,6 +162,10 @@
       <div class="workflow-actions">
         <button id="evaluation-watch-open" type="button" class="button secondary">Evaluationsfristen lesen</button>
         <button id="container-network-plan-open" type="button" class="button secondary">Lab-Netz auf Subnetzkonflikt prüfen</button>
+        <button id="automation-api-plan-open" type="button" class="button secondary">Automatisierungsschnittstelle ansehen</button>
+        <button id="hyperv-recovery-points-open" type="button" class="button secondary">Hyper-V-Wiederherstellungspunkte lesen</button>
+        <button id="diagnostic-bundle-open" type="button" class="button secondary">Gespeicherten Diagnosebefund lesen</button>
+        <button id="run-state-upgrade-plan-open" type="button" class="button secondary">Format eines Run-States prüfen</button>
         <button id="evaluation-trigger-open" type="button" class="button secondary">Fristen zeitgesteuert prüfen</button>
         <button id="sql-guest-evidence-open" type="button" class="button secondary">SQL-Editionsbeleg im Gast aktualisieren</button>
         <button id="evaluation-refresh-open" type="button" class="button secondary">SQL-Evaluation: Ersatzentscheid</button>
@@ -173,6 +179,14 @@
         <span id="queue-count" class="count"></span>
       </div>
       <p>Wartende Benutzeraktionen geben Worker frei. Read-only-Probes melden nur einen Kandidaten; fortgesetzt wird ausschließlich nach Bestätigung.</p>
+      <details id="batch-overview">
+        <summary>Fortschritt gespeicherter Batches</summary>
+        <p id="batch-overview-status" role="status"></p>
+        <table id="batch-overview-table" hidden>
+          <thead><tr><th>Batch-ID</th><th>Status</th><th>Fortschritt</th><th>Vorgänge</th><th>Fehler</th><th>Abgebrochen</th></tr></thead>
+          <tbody id="batch-overview-rows"></tbody>
+        </table>
+      </details>
       <div id="operation-queue" class="cards"></div>
     </section>
 
@@ -303,6 +317,7 @@
       <div class="build-actions">
         <button id="portable-media-open" type="button" class="button secondary">Backupmedium am Zielcontainer vorprüfen</button>
         <button id="portable-transfer-open" type="button" class="button secondary">SQL-2025-Datenbank in neuen Container übertragen</button>
+        <button id="portable-import-plan-open" type="button" class="button secondary">Portables Lab-Paket prüfen</button>
       </div>
       <p class="form-note">Die Inventur hasht große Objekte nicht bei jedem Refresh und zeigt nur sanitisierte Migrationskategorien und Warnungen. Beim Attach werden Paket, scopegebundener Ziel-Run, SQL-Version, FILESTREAM/TDE und das live von SQL Server gemeldete Default-Data-Ziel frisch revalidiert; ein freier Pfad kann nicht eingegeben werden.</p>
     </section>
@@ -1007,6 +1022,124 @@
     </div>
   </dialog>
   <script src="evaluation-refresh-plan.js"></script>
+  <dialog id="portable-import-plan-dialog">
+    <form id="portable-import-plan-form">
+      <h2>Portables Lab-Paket prüfen</h2>
+      <p class="form-note">Liest die Backupreferenzen eines Pakets und bindet sie an einen vorhandenen Docker- oder Podman-Run.</p>
+      <label>Lab-Paket (JSON)<input id="portable-import-plan-file" type="file" accept=".json,application/json" required></label>
+      <label>Ziel-Run und Provider<select id="portable-import-plan-target" required></select></label>
+      <p id="portable-import-plan-status" role="status"></p>
+      <div class="dialog-actions">
+        <button id="portable-import-plan-read" type="submit" class="button primary">Importplan lesen</button>
+        <button id="portable-import-plan-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="run-state-upgrade-plan-dialog">
+    <form id="run-state-upgrade-plan-form">
+      <h2>Run-State-Format prüfen</h2>
+      <p class="form-note">Zeigt Format, geplante Felder und Blocker. Die Prüfung ändert die State-Datei nicht.</p>
+      <label>Lab auswählen<select id="run-state-upgrade-plan-target" required></select></label>
+      <p id="run-state-upgrade-plan-status" role="status"></p>
+      <dl id="run-state-upgrade-plan-result" hidden>
+        <dt>Format</dt><dd id="run-state-upgrade-plan-version"></dd>
+        <dt>Geplante Felder</dt><dd id="run-state-upgrade-plan-changes"></dd>
+        <dt>Blocker</dt><dd id="run-state-upgrade-plan-blockers"></dd>
+      </dl>
+      <div class="dialog-actions">
+        <button id="run-state-upgrade-plan-close" type="button" class="button secondary">Schließen</button>
+        <button id="run-state-upgrade-plan-read" type="submit" class="button primary">Format prüfen</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="ai-scenario-plan-dialog">
+    <form id="ai-scenario-plan-form">
+      <h2>Vector-Core-Szenarioplan</h2>
+      <p class="form-note">Liest für SQL Server 2025 die Anforderungen aus dem Katalog und prüft auf Wunsch den gespeicherten KI-Intent einer Instanz.</p>
+      <label>Planumfang<select id="ai-scenario-plan-target"></select></label>
+      <p id="ai-scenario-plan-status" role="status"></p>
+      <dl id="ai-scenario-plan-result" hidden>
+        <dt>Planstatus</dt><dd id="ai-scenario-plan-verdict"></dd>
+        <dt>Fähigkeiten</dt><dd id="ai-scenario-plan-capabilities"></dd>
+        <dt>Blocker</dt><dd id="ai-scenario-plan-blockers"></dd>
+      </dl>
+      <div class="dialog-actions">
+        <button id="ai-scenario-plan-close" type="button" class="button secondary">Schließen</button>
+        <button id="ai-scenario-plan-read" type="submit" class="button primary">Plan lesen</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="diagnostic-bundle-dialog">
+    <form id="diagnostic-bundle-form">
+      <h2>Gespeicherter Diagnosebefund</h2>
+      <p class="form-note">Liest Zustand, Fehleranzahl und Aufräumstatus aus dem Standard-Lab_Data. Die Ansicht führt keine Liveprüfung aus.</p>
+      <label>Lab-Instanz<select id="diagnostic-bundle-target" required></select></label>
+      <p id="diagnostic-bundle-status" role="status"></p>
+      <dl id="diagnostic-bundle-result" hidden>
+        <dt>Gespeicherter Zustand</dt><dd id="diagnostic-bundle-state"></dd>
+        <dt>Recovery</dt><dd id="diagnostic-bundle-recovery"></dd>
+        <dt>Fehleranzahl</dt><dd id="diagnostic-bundle-errors"></dd>
+        <dt>Aufräumstatus</dt><dd id="diagnostic-bundle-cleanup"></dd>
+      </dl>
+      <div class="dialog-actions">
+        <button id="diagnostic-bundle-close" type="button" class="button secondary">Schließen</button>
+        <button id="diagnostic-bundle-read" type="submit" class="button primary">Befund lesen</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="hyperv-recovery-points-dialog">
+    <form id="hyperv-recovery-points-form">
+      <h2>Hyper-V-Wiederherstellungspunkte</h2>
+      <p class="form-note">Zeigt vorhandene Checkpoints des gewählten Labs. Die Ansicht hat keine Restore-Funktion.</p>
+      <label>Lab auswählen<select id="hyperv-recovery-points-target" required></select></label>
+      <p id="hyperv-recovery-points-status" role="status"></p>
+      <ul id="hyperv-recovery-points-result" hidden></ul>
+      <div class="dialog-actions">
+        <button id="hyperv-recovery-points-close" type="button" class="button secondary">Schließen</button>
+        <button id="hyperv-recovery-points-read" type="submit" class="button primary">Checkpoints lesen</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="automation-api-plan-dialog">
+    <form id="automation-api-plan-form">
+      <h2>Automatisierungsschnittstelle ansehen</h2>
+      <p class="form-note">Zeigt den öffentlichen Planvertrag, seine Pflichtparameter und einen vorhandenen separaten Aktionsbefehl.</p>
+      <label>Fachbereich<select id="automation-api-plan-action">
+        <option value="Reconcile">Ressourcenabgleich</option>
+        <option value="Maintenance">Wartung</option>
+        <option value="PersistentStorageRemoval">Entfernung persistenten Speichers</option>
+        <option value="RunStateUpgrade">Upgrade eines synthetischen Run-States</option>
+        <option value="PortableLabImport">Portabler Lab-Import</option>
+        <option value="HyperVRecoveryPoint">Hyper-V-Wiederherstellungspunkt</option>
+      </select></label>
+      <p id="automation-api-plan-status" role="status"></p>
+      <dl id="automation-api-plan-result" hidden>
+        <dt>Fachplan</dt><dd id="automation-api-plan-command"></dd>
+        <dt>Vertrag</dt><dd id="automation-api-plan-contract"></dd>
+        <dt>Pflichtparameter</dt><dd id="automation-api-plan-required"></dd>
+        <dt>Separater Aktionsbefehl</dt><dd id="automation-api-plan-execution"></dd>
+      </dl>
+      <div class="dialog-actions">
+        <button type="submit" class="button primary">Schnittstelle lesen</button>
+        <button id="automation-api-plan-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="compute-benchmark-dialog">
+    <form id="compute-benchmark-form">
+      <h2>llama.cpp-Gerätekombinationen messen</h2>
+      <p class="form-note">Prüft vorhandene Pakete mit llama-bench. Starte die Messung nur mit Paketen, denen du vertraust. Ein vollständiger Satz läuft seriell.</p>
+      <label>Absoluter lokaler Pfad zur GGUF-Datei<input id="compute-benchmark-model" maxlength="4096" required></label>
+      <button id="compute-benchmark-read" type="button" class="button secondary">Modell und Messkandidaten prüfen</button>
+      <label>Kandidat<select id="compute-benchmark-candidate" required></select></label>
+      <label>Messprofil<select id="compute-benchmark-mode"><option value="Generation">Textgeneration · 128 Ausgabetokens</option><option value="Embedding">Embedding · 512 Eingabetokens</option></select></label>
+      <p id="compute-benchmark-status" role="status"></p>
+      <div class="dialog-actions">
+        <button id="compute-benchmark-next" type="submit" class="button primary" disabled>Weiter zur Bestätigung</button>
+        <button id="compute-benchmark-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </form>
+  </dialog>
   <dialog id="compute-selection-dialog">
     <form id="compute-selection-form">
       <h2>KI-Gerätekombination aus Messbelegen wählen</h2>
@@ -1134,6 +1267,13 @@
   <script src="container-network-plan.js"></script>
   <script src="ai-persistent-retrieval-fixture.js"></script>
   <script src="ai-compute-selection.js"></script>
+  <script src="ai-compute-benchmark.js"></script>
+  <script src="automation-api-plan.js"></script>
+  <script src="hyperv-recovery-point-plan.js"></script>
+  <script src="diagnostic-bundle.js"></script>
+  <script src="ai-scenario-plan.js"></script>
+  <script src="run-state-upgrade-plan.js"></script>
+  <script src="portable-lab-import-plan.js"></script>
 
   <dialog id="external-runtime-dialog">
     <div class="read-only-dialog-content">

@@ -267,6 +267,28 @@ try {
         $source -match '\[string\]\$LabName = ''sql-server-lab-cms''' -and
         $source -match 'New-SqlServerLab .* -LabName \$LabName')
 
+    $passwordProjection = & {
+        $canary = 'synthetic-generated-password-for-journal-check'
+        $messages = [Collections.Generic.List[string]]::new()
+        function Get-LabConnectionCenterCmsConfiguration { param($StateRoot) $null }
+        function Write-LabInfo { param($Message) $messages.Add($Message) }
+        function Write-LabWarning { param($Message) $messages.Add($Message) }
+        function Write-LabSuccess { param($Message) $messages.Add($Message) }
+        function Get-AvailableLabProviders { 'docker' }
+        function Get-LabConnectionCenterCmsEnvironmentCandidates { param($StateRoot) @() }
+        function New-LabConsoleItem {
+            param($Id,$Label,$Value,$Shortcut,[switch]$Disabled,$DisabledReason)
+            @{ Id=$Id }
+        }
+        function Invoke-LabConsoleMenu { param($ScreenId,$Title,$Subtitle,$Items,$Footer) @{Status='Selected'; SelectedItem=@{Id='create'}} }
+        function Read-LabConfirm { param($Prompt,$Default) $true }
+        function Initialize-SqlServerLabCms { param($StateRoot) @{Configuration=@{RunId='synthetic-cms-run'}; Password=$canary} }
+        function Sync-SqlServerLabCms { param($StateRoot) $null }
+        $console = Invoke-LabCmsInteractive -StateRoot ([IO.Path]::GetTempPath()) 6>&1 | Out-String
+        $console.Contains($canary) -and -not ($messages -join ' ').Contains($canary)
+    }
+    Add-CheckResult -Name 'Einmaliges CMS-Kennwort erscheint nur in der Konsole und bleibt aus dem Meldungsjournal' -Success $passwordProjection
+
     Add-CheckResult -Name 'CMS-Menue warnt vor Klartext und bewahrt manuelle Passwoerter' -Success (
         $source -match "Generiertes Passwort im CMS-Namen anzeigen" -and
         $source -match 'Klartext in CMS-Namen, SSMS-Ansichten, Screenshots und CMS-Backups' -and

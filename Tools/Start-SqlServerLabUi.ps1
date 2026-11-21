@@ -410,7 +410,12 @@ function Get-UiWorkflowInventoryResponse {
             $InformationPreference = 'SilentlyContinue'
             $WarningPreference = 'SilentlyContinue'
             Import-Module $JobModulePath -Force 6>$null
-            Get-SqlServerLabWorkflow -MediaRoot $JobMediaRoot
+            $snapshot = Get-SqlServerLabWorkflow -MediaRoot $JobMediaRoot
+            $snapshot.Batches = @(& (Get-Module SqlServerLab) {
+                param($Batches)
+                Get-LabBrowserBatchOverview -Batches $Batches
+            } $snapshot.Batches)
+            $snapshot
         }
     }
     return [PSCustomObject]@{
@@ -983,6 +988,192 @@ try {
                 catch {
                     Write-UiResponse -Context $context -Body '{"Code":"AI_RUNTIME_CAPABILITY_UNAVAILABLE"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400
                 }
+                continue
+            }
+            if ($path -ceq '/api/portable-lab-import-plan') {
+                try {
+                    if ($context.Request.HttpMethod -cne 'POST' -or -not $context.Request.HasEntityBody -or $context.Request.Url.Query) {
+                        throw 'PORTABLE_IMPORT_PLAN_REQUEST_INVALID'
+                    }
+                    $bodyRead = Read-UiJsonRequestBody -Request $context.Request -MaxBytes 327680
+                    if (-not $bodyRead.Allowed) { throw 'PORTABLE_IMPORT_PLAN_REQUEST_INVALID' }
+                    $document = [Text.Json.JsonDocument]::Parse([string]$bodyRead.Body)
+                    try {
+                        $root = $document.RootElement
+                        Assert-UiCommandJsonUnique $root
+                        if ($root.ValueKind -ne [Text.Json.JsonValueKind]::Object -or
+                            (@(@($root.EnumerateObject()).Name | Sort-Object) -join ',') -cne 'Package,TargetProvider,TargetRunId' -or
+                            $root.GetProperty('Package').ValueKind -ne [Text.Json.JsonValueKind]::Object) {
+                            throw 'PORTABLE_IMPORT_PLAN_REQUEST_INVALID'
+                        }
+                        $provider = $root.GetProperty('TargetProvider').GetString()
+                        $runId = $root.GetProperty('TargetRunId').GetString()
+                        $guid = [guid]::Empty
+                        if ($provider -cnotin @('docker','podman') -or -not [guid]::TryParseExact($runId,'D',[ref]$guid) -or $guid -eq [guid]::Empty) {
+                            throw 'PORTABLE_IMPORT_PLAN_REQUEST_INVALID'
+                        }
+                        $package = $root.GetProperty('Package').GetRawText() | ConvertFrom-Json -Depth 20 -ErrorAction Stop
+                    }
+                    finally { $document.Dispose() }
+                    $plan = & (Get-Module SqlServerLab) {
+                        param($Package,$Provider,$RunId)
+                        Get-LabPortableLabImportPlan -Package $Package -TargetProvider $Provider -TargetRunId $RunId -ErrorAction Stop
+                    } $package $provider $guid.ToString('D')
+                    Write-UiResponse -Context $context -Body ($plan | ConvertTo-Json -Depth 12 -Compress) -ContentType 'application/json; charset=utf-8'
+                }
+                catch {
+                    Write-UiResponse -Context $context -Body '{"Code":"PORTABLE_IMPORT_PLAN_UNAVAILABLE"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                }
+                finally { $bodyRead=$null; $package=$null }
+                continue
+            }
+            if ($path -ceq '/api/run-state-upgrade-plan') {
+                try {
+                    $query = $context.Request.QueryString
+                    $identities = @($query.GetValues('runId'))
+                    if ($context.Request.HttpMethod -cne 'GET' -or $context.Request.HasEntityBody -or
+                        $query.Count -ne 1 -or $identities.Count -ne 1 -or $identities[0].Length -ne 36) {
+                        throw 'RUN_STATE_UPGRADE_GUIDANCE_REQUEST_INVALID'
+                    }
+                    $view = & (Get-Module SqlServerLab) { param($id) Get-LabRunStateUpgradePlanView -RunId $id } $identities[0]
+                    Write-UiResponse -Context $context -Body ($view | ConvertTo-Json -Depth 8 -Compress) -ContentType 'application/json; charset=utf-8'
+                }
+                catch {
+                    Write-UiResponse -Context $context -Body '{"Code":"RUN_STATE_UPGRADE_GUIDANCE_UNAVAILABLE"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                }
+                continue
+            }
+            if ($path -ceq '/api/ai-scenario-plan') {
+                try {
+                    $query = $context.Request.QueryString
+                    $runIds = @($query.GetValues('runId'))
+                    $instanceIds = @($query.GetValues('instanceId'))
+                    $requestedRun = [guid]::Empty
+                    if ($context.Request.HttpMethod -cne 'GET' -or $context.Request.HasEntityBody -or
+                        ($query.Count -ne 0 -and ($query.Count -ne 2 -or $runIds.Count -ne 1 -or $instanceIds.Count -ne 1 -or
+                            -not [guid]::TryParseExact($runIds[0], 'D', [ref]$requestedRun) -or $requestedRun -eq [guid]::Empty -or
+                            [string]$instanceIds[0] -cnotmatch '\A[A-Za-z][A-Za-z0-9_-]{0,63}\z'))) {
+                        throw 'AI_SCENARIO_PLAN_UI_REQUEST_INVALID'
+                    }
+                    $arguments = @{ ScenarioId='vector-core-ci'; Version='1.0'; ErrorAction='Stop' }
+                    if ($query.Count) {
+                        $arguments.RunId = $requestedRun.ToString('D')
+                        $arguments.InstanceId = $instanceIds[0]
+                    }
+                    $plan = Get-SqlServerLabAiScenario @arguments
+                    $codes = @(foreach ($blocker in $plan.Blockers) {
+                        if ([string]$blocker -cmatch '\A((?:AI_SCENARIO|DESIRED_STATE)_[A-Z_]{1,80})(?=:|\z)') { $Matches[1] }
+                        else { 'AI_SCENARIO_PLAN_BLOCKED' }
+                    })
+                    $view = [pscustomobject]@{
+                        ScenarioId=$plan.ScenarioId; Version=$plan.Version; Status=$plan.Status
+                        RunId=if ($query.Count) { $plan.RunId } else { $null }
+                        InstanceId=if ($query.Count) { $plan.InstanceId } else { $null }
+                        PlanKey=$plan.PlanKey; Blockers=@($codes | Sort-Object -Unique)
+                        RequiredCapabilities=@($plan.RequiredCapabilities)
+                    }
+                    Write-UiResponse -Context $context -Body ($view | ConvertTo-Json -Depth 8 -Compress) -ContentType 'application/json; charset=utf-8'
+                }
+                catch {
+                    Write-UiResponse -Context $context -Body '{"Code":"AI_SCENARIO_PLAN_UNAVAILABLE"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                }
+                continue
+            }
+            if ($path -ceq '/api/diagnostic-bundle') {
+                try {
+                    $query = $context.Request.QueryString
+                    $runIds = @($query.GetValues('runId'))
+                    $instanceIds = @($query.GetValues('instanceId'))
+                    $providers = @($query.GetValues('provider'))
+                    $requestedRun = [guid]::Empty
+                    if ($context.Request.HttpMethod -cne 'GET' -or $context.Request.HasEntityBody -or $query.Count -ne 3 -or
+                        $runIds.Count -ne 1 -or -not [guid]::TryParseExact($runIds[0], 'D', [ref]$requestedRun) -or
+                        $requestedRun -eq [guid]::Empty -or $instanceIds.Count -ne 1 -or
+                        [string]$instanceIds[0] -cnotmatch '\A[A-Za-z][A-Za-z0-9_-]{0,63}\z' -or
+                        $providers.Count -ne 1 -or $providers[0] -cnotin @('docker','podman','hyperv')) {
+                        throw 'DIAGNOSTIC_BUNDLE_UI_REQUEST_INVALID'
+                    }
+                    $bundle = & (Get-Module SqlServerLab) {
+                        param($RunId,$InstanceId,$Provider)
+                        $dataRoot = Get-LabDataRootDefault
+                        if (-not $dataRoot) { throw 'DIAGNOSTIC_BUNDLE_UI_ROOT_MISSING' }
+                        $pathComparison = if ($IsWindows) { [StringComparison]::OrdinalIgnoreCase } else { [StringComparison]::Ordinal }
+                        if (-not [string]::Equals(
+                            [IO.Path]::TrimEndingDirectorySeparator([IO.Path]::GetFullPath((Get-LabStateRoot))),
+                            [IO.Path]::GetFullPath((Join-Path $dataRoot 'State')), $pathComparison)) {
+                            throw 'DIAGNOSTIC_BUNDLE_UI_ROOT_MISMATCH'
+                        }
+                        Get-SqlServerLabDiagnosticBundle -RunId $RunId -InstanceId $InstanceId -Provider $Provider -DataRoot $dataRoot -SkipReadiness
+                    } $requestedRun.ToString('D') $instanceIds[0] $providers[0]
+                    Write-UiResponse -Context $context -Body ($bundle | ConvertTo-Json -Depth 12 -Compress) -ContentType 'application/json; charset=utf-8'
+                }
+                catch {
+                    Write-UiResponse -Context $context -Body '{"Code":"DIAGNOSTIC_BUNDLE_UNAVAILABLE"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                }
+                continue
+            }
+            if ($path -ceq '/api/hyperv-recovery-point-plan') {
+                try {
+                    $query = $context.Request.QueryString
+                    $runIds = @($query.GetValues('runId'))
+                    $instanceIds = @($query.GetValues('instanceId'))
+                    $requestedRun = [guid]::Empty
+                    if ($context.Request.HttpMethod -cne 'GET' -or $context.Request.HasEntityBody -or $query.Count -ne 2 -or
+                        $runIds.Count -ne 1 -or -not [guid]::TryParseExact($runIds[0], 'D', [ref]$requestedRun) -or
+                        $requestedRun -eq [guid]::Empty -or $instanceIds.Count -ne 1 -or
+                        [string]$instanceIds[0] -cnotmatch '\A[A-Za-z][A-Za-z0-9_-]{0,127}\z') {
+                        throw 'HYPERV_RECOVERY_POINT_REQUEST_INVALID'
+                    }
+                    $plan = Get-SqlServerLabHyperVRecoveryPointPlan -RunId $requestedRun.ToString('D') -InstanceId $instanceIds[0] -ErrorAction Stop
+                    Write-UiResponse -Context $context -Body ($plan | ConvertTo-Json -Depth 8 -Compress) -ContentType 'application/json; charset=utf-8'
+                }
+                catch {
+                    Write-UiResponse -Context $context -Body '{"Code":"HYPERV_RECOVERY_POINT_UNAVAILABLE"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                }
+                continue
+            }
+            if ($path -ceq '/api/automation-plan') {
+                try {
+                    $query = $context.Request.QueryString
+                    $actions = @($query.GetValues('action'))
+                    if ($context.Request.HttpMethod -cne 'GET' -or $context.Request.HasEntityBody -or $query.Count -ne 1 -or
+                        $actions.Count -ne 1 -or [string]$actions[0] -cnotmatch '^[A-Za-z]{1,40}$') {
+                        throw 'AUTOMATION_API_PLAN_REQUEST_INVALID'
+                    }
+                    $plan = Get-SqlServerLabAutomationPlan -Action $actions[0] -ErrorAction Stop
+                    Write-UiResponse -Context $context -Body ($plan | ConvertTo-Json -Depth 8 -Compress) -ContentType 'application/json; charset=utf-8'
+                }
+                catch {
+                    Write-UiResponse -Context $context -Body '{"Code":"AUTOMATION_API_PLAN_UNAVAILABLE"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                }
+                continue
+            }
+            if ($path -ceq '/api/ai-compute-benchmark-options') {
+                try {
+                    if ($context.Request.HttpMethod -cne 'POST' -or -not $context.Request.HasEntityBody -or $context.Request.Url.Query) {
+                        throw 'AI_COMPUTE_BENCHMARK_OPTIONS_REQUEST_INVALID'
+                    }
+                    $bodyRead = Read-UiJsonRequestBody -Request $context.Request -MaxBytes 24576
+                    if (-not $bodyRead.Allowed) { throw 'AI_COMPUTE_BENCHMARK_OPTIONS_REQUEST_INVALID' }
+                    $document = [Text.Json.JsonDocument]::Parse([string]$bodyRead.Body)
+                    try {
+                        $root = $document.RootElement
+                        if ($root.ValueKind -ne [Text.Json.JsonValueKind]::Object -or
+                            @($root.EnumerateObject()).Count -ne 1 -or @($root.EnumerateObject()).Name -cne 'ModelPath' -or
+                            $root.GetProperty('ModelPath').ValueKind -ne [Text.Json.JsonValueKind]::String) {
+                            throw 'AI_COMPUTE_BENCHMARK_OPTIONS_REQUEST_INVALID'
+                        }
+                        $modelPath = $root.GetProperty('ModelPath').GetString()
+                    }
+                    finally { $document.Dispose() }
+                    if ([string]::IsNullOrWhiteSpace($modelPath) -or $modelPath.Length -gt 4096) { throw 'AI_COMPUTE_BENCHMARK_OPTIONS_REQUEST_INVALID' }
+                    $options = & (Get-Module SqlServerLab) { param($modelPath) Get-LabAiComputeBenchmarkOptions -ModelPath $modelPath } $modelPath
+                    Write-UiResponse -Context $context -Body ($options | ConvertTo-Json -Depth 12 -Compress) -ContentType 'application/json; charset=utf-8'
+                }
+                catch {
+                    Write-UiResponse -Context $context -Body '{"Code":"AI_COMPUTE_BENCHMARK_OPTIONS_UNAVAILABLE"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                }
+                finally { $bodyRead = $null; $modelPath = $null; $options = $null }
                 continue
             }
             if ($path -ceq '/api/llama-runtime-inventory') {

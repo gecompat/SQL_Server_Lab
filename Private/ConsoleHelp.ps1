@@ -317,6 +317,18 @@ function Get-LabConsoleHelpCatalog {
             Effects = 'Liest den Providerbestand. Die Vorschau verändert keine Netze oder Container.'
             Command = 'Move-SqlServerLabContainerNetwork -WhatIf'
         }
+        'automation-api-plan-choice' = @{
+            Title = 'Automatisierungsschnittstelle ansehen'
+            Purpose = 'Einen vorhandenen fachlichen Planvertrag und dessen Pflichtparameter nachschlagen.'
+            Effects = 'Die Ansicht beschreibt die Schnittstelle. Sie startet keinen Vorgang und greift auf keinen Lab-State zu.'
+            Command = 'Get-SqlServerLabAutomationPlan'
+        }
+        'diagnostic-bundle-instance' = @{
+            Title = 'Gespeicherter Diagnosebefund'
+            Purpose = 'Die Instanz im registrierten Standard-Lab_Data auswählen.'
+            Effects = 'Die Ansicht liest gespeicherte Zustands- und Recovery-Evidence. Sie erstellt keinen Export und führt keine Liveprobe aus.'
+            Command = 'Get-SqlServerLabDiagnosticBundle'
+        }
         'relational-compare-Source' = @{
             Title = 'Quelle für Datenbankvergleich'
             Purpose = 'Eine laufende verwaltete Docker- oder Podman-Instanz mit einer ONLINE- und READ_ONLY-Datenbank auswählen.'
@@ -341,6 +353,12 @@ function Get-LabConsoleHelpCatalog {
             Effects = 'Die bestätigte Vorprüfung legt temporäre Dateien an und entfernt diese wieder. Sie führt keinen Restore aus.'
             Command = 'Invoke-SqlServerLabPortableContainerTransferPreflight'
         }
+        'portable-import-plan-target' = @{
+            Title = 'Ziel-Run für Importplan'
+            Purpose = 'Einen registrierten laufenden oder gestoppten Docker- oder Podman-Run für die Paketprüfung auswählen.'
+            Effects = 'Die Vorschau prüft Backupreferenzen und Zielbindung lesend. Sie verändert weder Run noch Backup.'
+            Command = 'Get-SqlServerLabPortableLabImportPlan'
+        }
         'ovms-loopback' = @{
             Title = 'Lokale OVMS-Adresse'
             Purpose = 'Die numerische IPv4- oder IPv6-Loopback-Adresse des bestehenden OVMS-Dienstes auswählen.'
@@ -352,6 +370,18 @@ function Get-LabConsoleHelpCatalog {
             Purpose = 'Den schnellsten gemessenen Kandidaten neu bestimmen oder eine geeignete Kombination fixieren.'
             Effects = 'Liest die ausgewählten JSON-Belege und berechnet die Auswahl. Startet weder Modell noch Benchmark.'
             Command = 'Get-SqlServerLabAiComputeSelection'
+        }
+        'ai-compute-benchmark-candidate' = @{
+            Title = 'llama.cpp-Gerätekombinationen messen'
+            Purpose = 'Eine geeignete Gerätekombination oder alle Kandidaten aus vorhandenen lokalen Paketen auswählen.'
+            Effects = 'Nach Bestätigung startet llama-bench mit dem ausgewählten GGUF. Ein kompletter Satz wird seriell gemessen.'
+            Command = 'Measure-SqlServerLabAiComputeCandidate / Measure-SqlServerLabAiComputeCandidateSet'
+        }
+        'ai-compute-benchmark-mode' = @{
+            Title = 'Messprofil wählen'
+            Purpose = 'Textgeneration mit 128 Ausgabetokens oder Embedding mit 512 Eingabetokens wählen.'
+            Effects = 'Das Profil gilt für alle ausgewählten Kandidaten und bestimmt die Vergleichbarkeit.'
+            Command = 'Measure-SqlServerLabAiComputeCandidate / Measure-SqlServerLabAiComputeCandidateSet'
         }
         'persistent-fixture-target' = @{
             Title = 'Zielinstanz für persistente Retrieval-Demo'

@@ -1451,6 +1451,12 @@ State, Secrets, konkrete Hostpfade und Connection Information dürfen nicht in G
 
 ### SQL-2025-Vector-Core-Szenario
 
+Im Browser zeigt **Host-Dienste und Modelle → Vector-Core-Szenarioplan lesen**
+die Kataloganforderungen für `vector-core-ci/1.0`. Wenn du eine laufend
+registrierte SQL-2025-Instanz auf Docker oder Podman auswählst, prüft die
+Ansicht den gespeicherten KI-Intent und zeigt die Blockercodes. Der Dialog
+führt das Szenario nicht aus.
+
 `Schemas/example-ai-vector-core.json` zeigt den neuen KI-Manifestvertrag. Er
 verwendet nur synthetische Daten, feste Vektoren und `egress: denied`:
 
@@ -2309,6 +2315,12 @@ Backup-Mount. Beim Transfer wird ein eigener Ziel-Run erstellt. Bewahre die
 angezeigte Vorgangs-ID auf und verwende für die Wiederaufnahme dieselbe
 Auswahl. Im Browser steht der Befund im Live-Log.
 
+**Portables Lab-Paket prüfen** wertet im selben Bereich eine
+`SqlServerLab.PortableLabPackage/1.1`-JSON-Datei für einen registrierten
+laufenden oder gestoppten Docker-/Podman-Run aus. Die Übersicht zeigt die
+Anzahl der Backupreferenzen und etwaige Blocker. Dieser Plan bereitet die
+Prüfung vor. Der eigentliche Datenbanktransfer hat einen separaten Einstieg.
+
 `Invoke-SqlServerLabPortableContainerTransfer` erstellt selbst einen eigenen
 SQL-2025-Linux-Ziel-Run beim Provider der Quelle (Docker oder Podman). Die Quelle
 muss bereits ONLINE/READ_ONLY sein; auch das registrierte Backup muss aus diesem
@@ -2395,6 +2407,29 @@ Evidence werden nicht nachträglich ergänzt; UUID-lose historische Intents blei
 lesbar. Der SQL-2025-Referenzfall ist unter Docker und Podman getrennt mit
 Serverobjekt, Datenmarker nach Continue, unveränderten Labels und Cleanup belegt.
 
+### Automatisierungsschnittstelle nachschlagen
+
+Unter **Wartung → Hyper-V-Wiederherstellungspunkte lesen** kannst du in der
+Konsole und im Browser ein registriertes Lab auswählen und Checkpoint-ID,
+Typ und Erstellungszeit lesen. Die Ansicht bietet Inventar und Blocker.
+Checkpoint-Erstellung, SQL-Quiesce und Restore sind noch nicht implementiert.
+
+**Wartung → Gespeicherten Diagnosebefund lesen** zeigt für eine Instanz im
+registrierten Standard-Lab_Data den gespeicherten Zustand, die Fehleranzahl,
+Recovery und den Aufräumstatus. Die Ansicht führt keine SQL- oder
+Providerprüfung durch und erstellt keinen Export. Im Browser muss der
+ausgewählte State zum Standard-Lab_Data gehören.
+
+Über **Wartung → Format eines Run-States prüfen** siehst du, ob das aktuelle
+Format bereits passt und welche Felder ein Upgrade ändern würde. Das Menü
+führt kein Upgrade aus. Der getrennte Upgrade-Befehl ist für ausdrücklich
+markierte synthetische Legacy-States vorgesehen.
+
+Öffne unter **Wartung → Automatisierungsschnittstelle ansehen** einen
+Fachbereich. Dort stehen der öffentliche Planbefehl, seine Pflichtparameter
+und der separate Aktionsbefehl, sofern vorhanden. Die Ansicht beschreibt
+die Schnittstelle für Skripte. Du kannst sie ohne laufenden Lab-Run öffnen.
+
 ### Container-Lab-Netz prüfen
 
 Für Docker oder Podman kannst du unter **Wartung → Lab-Netz auf
@@ -2438,6 +2473,13 @@ JSON-Dateien (`ConvertTo-Json -Depth 30`). Wähle beide Dateien unter
 **Host-Dienste und Modelle**. Du kannst die gemessene Rangfolge neu berechnen
 oder eine geeignete Gerätekombination fixieren. Die Auswahl startet keine
 Messung. In der Browseroberfläche steht sie im Live-Log.
+
+Für eine neue Messung öffne **Host-Dienste und Modelle →
+llama.cpp-Gerätekombinationen messen**. Wähle eine lokale GGUF-Datei und
+die einzelne Kombination oder den vollständigen Satz. Die Auswahl basiert
+auf dem erkannten Inventar und vorhandenen llama.cpp-Paketen mit llama-bench.
+Bestätige den Start nur für Pakete, denen du vertraust. Der vollständige Satz
+läuft seriell und die Browseroberfläche zeigt die Ergebnisse im Live-Log.
 
 Lokale Windows-llama.cpp-Pakete für SQL Server 2025 lassen sich vor der
 Modellauswahl mit `Get-SqlServerLabLlamaCppRuntime -SearchRoot 'C:\Pfad\llama'`

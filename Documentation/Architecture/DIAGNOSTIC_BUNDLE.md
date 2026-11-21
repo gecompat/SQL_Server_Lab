@@ -1,5 +1,10 @@
 # Read-only Diagnosebundle
 
+Die Konsole und der Browser bieten **Wartung → Gespeicherten Diagnosebefund
+lesen** für Instanzen im registrierten Standard-Lab_Data an. Der geführte
+Weg liest gespeicherte Evidence mit `-SkipReadiness`. Live-Readiness ist
+weiterhin eine getrennte, explizite Auswahl am Cmdlet.
+
 `Get-SqlServerLabDiagnosticBundle` liefert `SqlServerLab.DiagnosticBundle/1.0`
 mit Ergebnisversion `1.0` für genau einen ausdrücklich angeforderten modernen
 Run und eine Instanz. Das geschlossene
