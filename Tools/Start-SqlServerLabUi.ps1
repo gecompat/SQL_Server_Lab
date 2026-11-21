@@ -918,6 +918,23 @@ try {
                 }
                 continue
             }
+            if ($path -ceq '/api/ssis-execution-diagnostic') {
+                try {
+                    $request = $context.Request
+                    if ($request.HttpMethod -cne 'POST' -or $request.ContentType -cnotmatch '^application/json(?:;\s*charset=utf-8)?$' -or
+                        $request.Url.Query -or [string]$request.Headers['Origin'] -cne $request.Url.GetLeftPart([UriPartial]::Authority)) {
+                        throw 'SSIS_EXECUTION_DIAGNOSTIC_HTTP_INVALID'
+                    }
+                    $body = Read-UiSpecializedJsonRequestBody -Request $request -MaxCharacters 1024 -LimitErrorCode 'SSIS_EXECUTION_DIAGNOSTIC_HTTP_INVALID'
+                    $view = & (Get-Module SqlServerLab) { param($json) Invoke-LabSsisExecutionDiagnosticBrowser -Json $json } $body
+                    Write-UiResponse -Context $context -Body ($view | ConvertTo-Json -Depth 4 -Compress) -ContentType 'application/json; charset=utf-8'
+                }
+                catch {
+                    if (Write-UiBodyFailureResponse -Context $context -ErrorRecord $_) { continue }
+                    Write-UiResponse -Context $context -Body '{"Code":"SSIS_EXECUTION_DIAGNOSTIC_UNAVAILABLE"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                }
+                continue
+            }
             if ($path -ceq '/api/ai-compute-inventory') {
                 try {
                     if ($context.Request.HttpMethod -cne 'GET' -or $context.Request.HasEntityBody -or $context.Request.Url.Query) {

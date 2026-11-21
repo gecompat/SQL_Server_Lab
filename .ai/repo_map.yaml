@@ -473,6 +473,8 @@ sources_of_truth:
   ssis_catalog_capability_public: Public/Get-SqlServerLabSsisCatalogCapability.ps1
   ssis_diagnostic_console: Private/SsisDiagnosticsConsole.ps1, Public/BatchConsole.ps1, Public/Invoke-SqlServerLab.ps1
   validation_ssis_diagnostic_console: Tests/Static/Invoke-SsisDiagnosticsConsoleChecks.ps1
+  ssis_execution_diagnostic_browser: Private/SsisExecutionDiagnosticBrowser.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/ssis-execution-diagnostic.js
+  validation_ssis_execution_browser: Tests/Static/Fixtures/SsisExecutionDiagnosticUiChecks.cjs, Tests/Static/Invoke-SsisDiagnosticsConsoleChecks.ps1
   ssis_execution_diagnostic_public: Public/Get-SqlServerLabSsisExecutionDiagnostic.ps1
   ssis_execution_diagnostic_projection: Private/SsisExecutionDiagnostic.ps1
   ssis_execution_diagnostic_guest: Providers/HyperV/HyperVSsisExecutionDiagnostic.ps1

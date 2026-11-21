@@ -84,5 +84,17 @@ try{
     Import-SsisConsoleFunction 'Public/Invoke-SqlServerLab.ps1' 'Invoke-SqlServerLab'
     Invoke-SqlServerLab -Action SsisDiagnostics -ConsoleMode Fallback
     Assert-SsisConsole ($routed-eq2) 'Direct CLI action opens the guided SSIS flow'
+    . (Join-Path $repo 'Private/SsisExecutionDiagnosticBrowser.ps1')
+    $inputJson='{"RunId":"11111111-1111-1111-1111-111111111111","InstanceId":"primary","ExecutionId":"9007199254740993","ProjectLsn":"9007199254740995","CatalogDatabaseGuid":"22222222-2222-2222-2222-222222222222"}'
+    $dispatches.Clear()
+    $view=Invoke-LabSsisExecutionDiagnosticBrowser -Json $inputJson
+    Assert-SsisConsole ($dispatches.Count -eq 1 -and $dispatches[0].Args.ExecutionId -eq [long]9007199254740993) 'Browser preserves exact Int64 receipt values'
+    Assert-SsisConsole ($view.Status -ceq 'OBSERVED' -and $view.ExecutionStatus -eq 7 -and $view.ErrorCodes.Count -eq 0 -and
+        @($view.PSObject.Properties.Name).Count -eq 5 -and ($view | ConvertTo-Json) -notmatch '11111111|22222222') 'Browser emits only the projected diagnostic summary'
+    foreach($invalid in @($inputJson.Replace('"9007199254740993"','9007199254740993'), $inputJson.Replace('"primary"', '"primary","InstanceId":"other"'), $inputJson.Replace('"primary"', '"primary","StateRoot":"private"'))){
+        $rejected=$false
+        try { $null=Invoke-LabSsisExecutionDiagnosticBrowser -Json $invalid } catch { $rejected=$true }
+        Assert-SsisConsole ($rejected -and $dispatches.Count -eq 1) 'Malformed browser inputs are rejected before dispatch'
+    }
     Write-Host ('SSIS_DIAGNOSTICS_CONSOLE_CHECKS: '+$checks+' PASS; 0 FAIL')
 } catch { throw }

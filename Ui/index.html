@@ -268,6 +268,7 @@
 
     <section class="panel" data-workspace-area="labs">
       <div class="section-heading"><div><p class="eyebrow">HYPER-V</p><h2>Reguläre Hyper-V-Umgebungen</h2></div></div>
+      <button id="ssis-execution-open" type="button" class="button secondary">SSISDB-Ausführung beobachten</button>
       <div id="hyperv-labs" class="cards"></div>
     </section>
 
@@ -921,6 +922,23 @@
   <script src="sql-connection-clipboard.js"></script>
   <script src="app.js"></script>
   <script src="ai-compute-overview.js"></script>
+  <dialog id="ssis-execution-dialog">
+    <form id="ssis-execution-form">
+      <h2>SSISDB-Ausführung beobachten</h2>
+      <p>Für ein laufendes eigenes Hyper-V-Lab mit SQL Server 2025. Execution-ID, Projekt-LSN und Katalog-GUID müssen aus demselben SSISDB-Beleg stammen.</p>
+      <label>Run-ID<input name="RunId" required maxlength="36" autocomplete="off" spellcheck="false"></label>
+      <label>Instanz-ID<input name="InstanceId" required value="primary" maxlength="64" autocomplete="off" spellcheck="false"></label>
+      <label>Execution-ID<input name="ExecutionId" required inputmode="numeric" pattern="[1-9][0-9]{0,18}" maxlength="19" autocomplete="off"></label>
+      <label>Projekt-LSN<input name="ProjectLsn" required inputmode="numeric" pattern="[1-9][0-9]{0,18}" maxlength="19" autocomplete="off"></label>
+      <label>SSISDB-Katalog-GUID<input name="CatalogDatabaseGuid" required maxlength="36" autocomplete="off" spellcheck="false"></label>
+      <p id="ssis-execution-status" role="status"></p>
+      <div class="build-actions">
+        <button id="ssis-execution-read" type="submit" class="button primary">Metadaten lesen</button>
+        <button id="ssis-execution-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </form>
+  </dialog>
+  <script src="ssis-execution-diagnostic.js"></script>
   <dialog id="evaluation-refresh-dialog">
     <div class="maintenance-dialog-content">
       <h2>SQL-Evaluation: Ersatzentscheid</h2>

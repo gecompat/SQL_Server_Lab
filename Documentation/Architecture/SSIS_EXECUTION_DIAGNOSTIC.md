@@ -13,7 +13,11 @@ Setup, keine Reparatur und keine Loggingänderung aus.
 In der geführten CLI öffnet **Lab-Umgebungen → SSIS-Diagnose eines bestehenden
 Windows-Labs → Bestehende SQL-2025-SSISDB-Ausführung read-only beobachten** den
 Dialog. Er fragt die Run- und Belegkennungen einzeln ab und zeigt eine kompakte
-Übersicht über Katalogstatus, Worker und numerische Fehlercodes.
+Übersicht über Katalogstatus, Worker und numerische Fehlercodes. In der
+Browser-GUI liegt derselbe Metadatenweg unter **Lab verwalten → Reguläre
+Hyper-V-Umgebungen → SSISDB-Ausführung beobachten**. Die drei Belegwerte
+werden getrennt erfasst. Der Browser zeigt Status, Worker-Zustand und
+numerische Fehlercodes.
 
 Execution-ID, Projekt-LSN und Katalogdatenbankkennung stammen aus derselben
 privaten Consumer-Receipt.
