@@ -38,15 +38,15 @@ eines Cmdlets:
 ## Exportreferenz-Audit
 
 Ein mechanischer Abgleich des Manifests mit
-`Documentation/User/FUNCTIONS_CLI_GUI.md` findet 140 der 166 Exportnamen und
-26 dort nicht referenzierte Exporte. Das ist ein Referenzabgleich, keine
-vollständige Prüfung, ob die 140 Treffer tatsächlich korrekt geführt,
+`Documentation/User/FUNCTIONS_CLI_GUI.md` findet 141 der 166 Exportnamen und
+25 dort nicht referenzierte Exporte. Das ist ein Referenzabgleich, keine
+vollständige Prüfung, ob die 141 Treffer tatsächlich korrekt geführt,
 ausführbar oder providerabgenommen sind. Die folgende Inventarliste hält die
-26 nicht referenzierten Namen einzeln fest. Die sieben Environment-Group-
+25 nicht referenzierten Namen einzeln fest. Die sieben Environment-Group-
 Operationen aus dem vorherigen Abgleich sind jetzt in der Funktionsübersicht
 enthalten und unten separat quellengestützt als `GUIDED_BOTH` bewertet. Von
-den verbleibenden 26 Einträgen sind vier TLS-001-Exporte `DEFERRED`,
-10 Exporte als `KNOWN_GAP`, einer als `EXPERT_CATALOG_ONLY` und 11 als
+den verbleibenden 25 Einträgen sind vier TLS-001-Exporte `DEFERRED`,
+10 Exporte als `KNOWN_GAP`, einer als `EXPERT_CATALOG_ONLY` und 10 als
 `NOT_ASSESSED` bewertet.
 Die Bewertung folgt aus Menüdispatch, GUI-Aktion, öffentlichen Parametern
 und den vorhandenen Nachweisen. Der Expertenkatalog allein erfüllt die
@@ -57,14 +57,14 @@ geführte Abdeckung nicht.
 | KI-Compute-Auswahl und Messung | `Get-SqlServerLabAiComputeSelection`; `Measure-SqlServerLabAiComputeCandidate`; `Measure-SqlServerLabAiComputeCandidateSet` | `KNOWN_GAP`; API und Expertenkatalog sind vorhanden. Geführte Auswahl und Messung fehlen. |
 | Shared Gateway | `Get-SqlServerLabAiSharedGatewayPlan`; `Test-SqlServerLabAiSharedGatewayPreflight`; `Register-SqlServerLabAiSharedGatewayStorage`; `Test-SqlServerLabAiSharedGatewayUpstream`; `Start-SqlServerLabAiSharedGatewaySession`; `Stop-SqlServerLabAiSharedGatewaySession`; `Get-SqlServerLabAiSharedGatewayStatus` | `KNOWN_GAP` für diese sieben Fachaktionen. Der vorhandene Dialog zum Dienst-Preflight nimmt einen bereits erstellten Gateway-Plan entgegen. |
 | Modell-/Gateway-Lifecycle | `Test-SqlServerLabAiExternalModelEndpoint`; `Test-SqlServerLabOvmsUpstreamEndpoint`; `Start-SqlServerLabOvmsHttpsGateway`; `Stop-SqlServerLabOvmsHttpsGateway` | `NOT_ASSESSED`; vorhandene Workflow-Dokumentation weist Lifecycle-Lücken aus |
-| Evaluation und Watch | `Update-SqlServerLabSqlGuestEvaluationEvidence`; `Invoke-SqlServerLabEvaluationWatchTrigger` | `NOT_ASSESSED` |
+| Evaluation und Watch | `Invoke-SqlServerLabEvaluationWatchTrigger` | `NOT_ASSESSED` |
 | Transfer und Vergleich | `Invoke-SqlServerLabPortableContainerTransferPreflight`; `Invoke-SqlServerLabPortableContainerTransfer`; `Test-SqlServerLabRelationalCoreComparison` | `NOT_ASSESSED` |
 | Container-Netzwerk | `Move-SqlServerLabContainerNetwork` | `NOT_ASSESSED` |
 | Persistentes KI-Retrieval | `Invoke-SqlServerLabAiPersistentRetrieval` | `NOT_ASSESSED` |
 | Security-Tool-Katalog | `Get-SqlServerLabSecurityToolPlan` | `EXPERT_CATALOG_ONLY`. Die produktive Allowlist ist leer, der lokale Resolver blockiert alle Anfragen. [Katalogvertrag und Freigabestand](../Project_Planning/SECURITY_TOOL_ACQUISITION_BACKLOG.md). |
 | TLS-001, zurückgestellt | `Update-SqlServerLabTlsBinding`; `Get-SqlServerLabTlsBindingRecovery`; `Resolve-SqlServerLabTlsBindingRecovery`; `Read-SqlServerLabQualifiedTestEnvironment` | `DEFERRED`; bestehender Zustand bleibt erhalten, keine neue Abdeckungs- oder Runtimearbeit ohne dokumentierten Anwendungsfall |
 
-Die 53 Namen (26 ohne Referenz sowie 27 einzeln geprüfte Exporte)
+Die 53 Namen (25 ohne Referenz sowie 28 einzeln geprüfte Exporte)
 wurden unmittelbar gegen `FunctionsToExport` im Manifest
 abgeglichen; die Familiengruppierung ist nur eine Lesbarkeitshilfe. Sie ist
 keine Behauptung, dass eine Familie einen gemeinsamen Aufrufer oder denselben
@@ -123,6 +123,7 @@ und dem [Gruppenvertrag](../Architecture/LAB_ENVIRONMENT_GROUPS.md).
 | SSIS-Ausführungsmetadaten (`Get-SqlServerLabSsisExecutionDiagnostic`) | Lab-Umgebungen → SSIS-Diagnose eines bestehenden Windows-Labs | Lab verwalten → Reguläre Hyper-V-Umgebungen → SSISDB-Ausführung beobachten | `GUIDED_BOTH`. Menü, Belegbindung und Browserdarstellung sind synthetisch geprüft. Native Abnahme der neuen Bedienpfade `NOT_EXECUTED`. |
 | SSIS-Paketladediagnose (`Get-SqlServerLabSsisPackageDiagnostic`) | Lab-Umgebungen → SSIS-Diagnose eines bestehenden Windows-Labs | Lab verwalten → Reguläre Hyper-V-Umgebungen → SSIS-Paketladediagnose | `GUIDED_BOTH`. Auswahl, Belegbindung und Vertrauensbestätigung sind synthetisch geprüft. Native Abnahme der neuen Bedienpfade `NOT_EXECUTED`. |
 | Erlaubte Gerätekombinationen anzeigen (`Get-SqlServerLabAiComputeCandidate`) | Host-Dienste und Modelle → llama.cpp-Eignung prüfen | Derselbe Bereich und dieselbe Aktion | `GUIDED_BOTH` für die aggregierte Anzahl je Backend und Geräteklasse aus der gebundenen Prüfung. Prüfgrenzen werden sichtbar. Auswahl und Benchmarks stehen separat aus. |
+| SQL-Editionsbeleg aktualisieren (`Update-SqlServerLabSqlGuestEvaluationEvidence`) | Wartung, Aufräumen und Recovery → SQL-Editionsbeleg im Gast aktualisieren | Wartung → SQL-Editionsbeleg im Gast aktualisieren | `GUIDED_BOTH` für geeignete eigene laufende Hyper-V-Labs mit SQL Server 2025. Auswahl und Bestätigung sind synthetisch geprüft. Native Abnahme der neuen Bedienpfade `NOT_EXECUTED`. |
 | CPU, GPU und NPU erfassen (`Get-SqlServerLabAiComputeInventory`) | Host-Dienste und Modelle → CPU, GPU und NPU erfassen | Derselbe Bereich und dieselbe Aktion | `GUIDED_BOTH` für die Übersicht. Synthetische vollständige und partielle Gerätebefunde in Inventar- und Browserfixtures. Keine Geräte- oder Runtimequalifikation. |
 | Metadaten eines entfernten Runs prüfen und entfernen (`Get-SqlServerLabRunArtifactRemovalPlan`, `Invoke-SqlServerLabRunArtifactRemoval`) | Wartung, Aufräumen und Recovery → Artefakte eines entfernten Runs | Wartung und Recovery → Run-Artefakte prüfen | `GUIDED_BOTH`. Dieselben Cmdlets für gebundene Vorschau, bestätigte Entfernung und Fortsetzung. Workflow-UI und CLI-Vertragsfälle mit synthetischem State. |
 | Evaluationsersatz oder Migration vorprüfen (`Get-SqlServerLabEvaluationRefreshPlan`) | Wartung, Aufräumen und Recovery → SQL-Evaluation: Ersatz- und Migrationsentscheid | Wartung und Recovery → SQL-Evaluation: Ersatzentscheid | `GUIDED_BOTH` für die lesende Vorschau. Synthetische CLI-, HTTP- und Browserfälle. Die Vorschau führt keine Übernahme aus. |

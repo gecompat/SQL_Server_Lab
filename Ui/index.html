@@ -156,6 +156,7 @@
       <p>Befunde vor einer Änderung prüfen. Die Konsole bietet zusätzlich Providerstatus, Cleanup-Audit und Runtime-Abgleich; vollständige geführte Recovery-Parität bleibt offen.</p>
       <div class="workflow-actions">
         <button id="evaluation-watch-open" type="button" class="button secondary">Evaluationsfristen lesen</button>
+        <button id="sql-guest-evidence-open" type="button" class="button secondary">SQL-Editionsbeleg im Gast aktualisieren</button>
         <button id="evaluation-refresh-open" type="button" class="button secondary">SQL-Evaluation: Ersatzentscheid</button>
         <button id="maintenance-open" type="button" class="button secondary">Wartungsbefunde und Zuordnung</button>
         <button id="clear-all-labs" class="button danger">Alle regulären Lab-Umgebungen löschen</button>
@@ -996,6 +997,19 @@
     </div>
   </dialog>
   <script src="evaluation-refresh-plan.js"></script>
+  <dialog id="sql-guest-evidence-dialog">
+    <div class="panel">
+      <h2>SQL-Editionsbeleg im Gast aktualisieren</h2>
+      <p>Die Edition wird für ein eigenes laufendes Hyper-V-Lab mit SQL Server 2025 und verwalteter Anmeldung erfasst.</p>
+      <label>SQL-2025-Lab<select id="sql-guest-evidence-run"><option value="">Lab auswählen</option></select></label>
+      <p id="sql-guest-evidence-status" role="status"></p>
+      <div class="build-actions">
+        <button id="sql-guest-evidence-next" type="button" class="button primary" disabled>Weiter zur Bestätigung</button>
+        <button id="sql-guest-evidence-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </div>
+  </dialog>
+  <script src="sql-guest-evaluation-evidence.js"></script>
 
   <dialog id="external-runtime-dialog">
     <div class="read-only-dialog-content">

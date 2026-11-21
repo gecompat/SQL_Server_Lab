@@ -401,6 +401,7 @@ Bibliotheks-Recovery blockiert den erneuten Export ausdrücklich.
 | Cmdlet | Kurzbeschreibung | Konsolenmenü | Browser-GUI |
 |---|---|---|---|
 | [`Test-SqlServerLabPrerequisite`](../../Private/ResourceAssessment.ps1) | Prüft Provider, RAM, Storage und Ports ohne Mutation. | über die Erstellungs- und Provider-Preflights | über Core: Provisionierungs-Preflights |
+| `Update-SqlServerLabSqlGuestEvaluationEvidence` | Liest die Edition im gebundenen SQL-2025-Gast und aktualisiert den lokalen Beleg für die Evaluationsansicht. | Wartung, Aufräumen und Recovery → SQL-Editionsbeleg im Gast aktualisieren | Wartung → SQL-Editionsbeleg im Gast aktualisieren |
 | `Set-SqlServerLabFeature` | Installiert oder entfernt Volltext und schaltet FILESTREAM für unterstützte Windows-Instanzen. Eine bestätigte Änderung startet SQL Server neu. | Lab-Umgebungen → Datenbanken, Samples und Skripte → Volltext und FILESTREAM ändern | Lab verwalten → SQL-Funktionen an der gewählten Instanz |
 | `Get-SqlServerLabHyperVAutoStartPlan` / `Set-SqlServerLabHyperVAutoStart` | Zeigt den gebundenen Ist- und Zielwert und übernimmt die Policy nach Bestätigung. | Lab-Umgebungen → Hyper-V-Autostart ändern | Lab verwalten → Reguläre Hyper-V-Umgebungen → Hyper-V-Autostart ändern |
 | `Resume-SqlServerLabHyperVAutoStart` | Schließt die Zustandsablage für eine bereits verifizierte Autostart-Policy am selben Run ab. | Lab-Umgebungen → Hyper-V-Autostart-Recovery fortsetzen | Lab verwalten → Reguläre Hyper-V-Umgebungen → Hyper-V-Autostart ändern → Autostart-Recovery fortsetzen |

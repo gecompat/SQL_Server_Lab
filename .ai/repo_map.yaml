@@ -458,6 +458,7 @@ sources_of_truth:
   validation_sql_observability_evidence: Tests/Static/Invoke-SqlObservabilityEvidenceChecks.ps1
   acceptance_sql_observability_evidence_container: Tests/Integration/Invoke-ContainerSqlObservabilityAcceptance.ps1
   sql_guest_evaluation_evidence_contract: Private/SqlGuestEvaluationEvidence.ps1
+  sql_guest_evaluation_capture_guidance: Private/SqlGuestEvaluationCaptureConsole.ps1, Public/BatchConsole.ps1, Ui/sql-guest-evaluation-evidence.js
   sql_guest_evaluation_capture_contract: Private/SqlGuestEvaluationCapture.ps1
   sql_guest_evaluation_capture_public: Public/Update-SqlServerLabSqlGuestEvaluationEvidence.ps1
   sql_guest_evaluation_capture_architecture: Documentation/Architecture/SQL_GUEST_EVALUATION_CAPTURE.md
