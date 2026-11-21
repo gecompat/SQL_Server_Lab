@@ -283,7 +283,10 @@ In CLI und Browser zeigt **Host-Dienste und Modelle → llama.cpp-Eignung prüfe
 welche Backends für welche erkannten Geräteklassen infrage kommen. Die
 Prüfung benötigt ein vollständiges Inventar und bis zu 16 Pakete aus der
 konfigurierten Suche. Sie hasht die Paketdateien und startet keine Runtime.
-Geräteausführung und Benchmark bleiben eigene Prüfungen.
+Die Übersicht zeigt außerdem die Anzahl der erlaubten Gerätekombinationen
+pro Backend und Geräteklasse. Überschreitet die Prüfung die Eingabe- oder
+Kandidatenobergrenze, bleibt die Eignung sichtbar und die Oberfläche meldet
+die erreichte Grenze. Geräteausführung und Benchmark bleiben eigene Prüfungen.
 
 ```powershell
 $inventory = Get-SqlServerLabAiComputeInventory

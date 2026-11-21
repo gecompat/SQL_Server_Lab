@@ -86,11 +86,14 @@
           const backends = ['LlamaCppCpu', 'LlamaCppCuda', 'LlamaCppRocm', 'LlamaCppVulkan', 'LlamaCppSycl', 'LlamaCppOpenVino'];
           if (!Array.isArray(view.Items) || view.Items.length < 1 || view.Items.length > 8 ||
               !view.Items.every(row => backends.includes(row?.Backend) &&
-                ['CPU', 'GPU', 'NPU'].includes(row.Kind) && typeof row.Eligible === 'boolean')) {
+                ['CPU', 'GPU', 'NPU'].includes(row.Kind) && typeof row.Eligible === 'boolean' &&
+                (row.CombinationCount === null ||
+                  (Number.isInteger(row.CombinationCount) && row.CombinationCount >= 0 && row.CombinationCount <= 64)))) {
             throw new Error('CAPABILITY_INVALID');
           }
           status.textContent = view.Items.map(row =>
-            row.Backend + ' · ' + row.Kind + ' · ' + (row.Eligible ? 'passendes Gerät gefunden' : 'kein passendes Gerät gefunden')
+            row.Backend + ' · ' + row.Kind + ' · ' + (row.Eligible ? 'passendes Gerät gefunden' : 'kein passendes Gerät gefunden') +
+            ' · ' + (row.CombinationCount === null ? 'Prüfgrenze der Gerätekombinationen erreicht' : row.CombinationCount + ' Gerätekombinationen')
           ).join(' | ') + '. Es wurde keine Runtime ausgeführt.';
           break;
         }

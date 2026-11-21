@@ -28,7 +28,20 @@ try {
     Add-CheckResult 'Geführte Prüfung trennt Geräteklassen und blendet Paketidentitäten aus' (
         $guided.Status -ceq 'FILES_HASHED_NOT_EXECUTED' -and $guided.Items.Count -eq 6 -and
         @($guided.Items | Where-Object Backend -CEQ LlamaCppOpenVino).Count -eq 3 -and
+        ($guided.Items | Where-Object Backend -CEQ LlamaCppVulkan).CombinationCount -eq 3 -and
         ($guided | ConvertTo-Json -Depth 6) -notmatch 'RuntimeSha256|Invocation|VendorIds'
+    )
+    $crowded = Inventory @((Device CPU cpu0 8086 cpu 'Intel CPU'); foreach($i in 1..7) { Device GPU "gpu$i" 10de nvidia "GPU $i" })
+    $limited = & $module {
+        param($testInventory, $testRuntime)
+        function Get-SqlServerLabAiComputeInventory { [CmdletBinding()]param() $testInventory }
+        function Get-SqlServerLabLlamaCppRuntime { [CmdletBinding()]param() $testRuntime }
+        Get-LabAiRuntimeCapabilityView
+    } $crowded $runtime
+    Add-CheckResult 'Überschreiten der Kandidatengrenze lässt Eignung sichtbar und blendet teilweise Mengen aus' (
+        $limited.Status -ceq 'FILES_HASHED_NOT_EXECUTED' -and
+        @($limited.Items | Where-Object { $null -ne $_.CombinationCount }).Count -eq 0 -and
+        ($limited.Items | Where-Object Backend -CEQ LlamaCppCuda).Eligible
     )
     $noPackages = & $module {
         param($testInventory)

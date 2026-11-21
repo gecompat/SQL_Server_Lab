@@ -66,12 +66,29 @@ function Get-LabAiRuntimeCapabilityView {
     if ($capability.EvidenceStatus -cne 'FILES_HASHED_NOT_EXECUTED') {
         throw 'AI_RUNTIME_CAPABILITY_VIEW_INVALID'
     }
+    $combinationCounts = @{}
+    $combinationsAvailable = $capability.Capabilities.Count -le 16
+    if ($combinationsAvailable) {
+        try {
+            $candidateSet = Get-SqlServerLabAiComputeCandidate -Inventory $inventory -RuntimeCapability $capability.Capabilities -ErrorAction Stop
+            foreach ($candidate in $candidateSet.Candidates) {
+                $key = $candidate.Backend + '/' + $candidate.Devices[0].Kind
+                $combinationCounts[$key]++
+            }
+        }
+        catch {
+            if ($_.Exception.Message -cne 'AI_COMPUTE_CANDIDATE_SET_TOO_LARGE') { throw }
+            $combinationsAvailable = $false
+        }
+    }
+
     $items = foreach ($group in $capability.Capabilities | Group-Object Backend, { $_.DeviceKinds[0] }) {
         $row = $group.Group[0]
         [pscustomobject]@{
             Backend = $row.Backend
             Kind = $row.DeviceKinds[0]
             Eligible = @($group.Group | Where-Object Eligible).Count -gt 0
+            CombinationCount = if ($combinationsAvailable) { [int]$combinationCounts[$row.Backend + '/' + $row.DeviceKinds[0]] } else { $null }
         }
     }
     [pscustomobject]@{ Status = 'FILES_HASHED_NOT_EXECUTED'; Items = @($items) }
@@ -87,7 +104,9 @@ function Show-LabAiRuntimeCapabilityInteractive {
             FILES_HASHED_NOT_EXECUTED {
                 foreach ($row in $view.Items) {
                     $result = if ($row.Eligible) { 'passendes Gerät gefunden' } else { 'kein passendes Gerät gefunden' }
-                    Write-LabInfo ('{0} · {1} · {2}' -f $row.Backend, $row.Kind, $result)
+                    $combinations = if ($null -eq $row.CombinationCount) { 'Prüfgrenze der Gerätekombinationen erreicht' }
+                                    else { '{0} Gerätekombinationen' -f $row.CombinationCount }
+                    Write-LabInfo ('{0} · {1} · {2} · {3}' -f $row.Backend, $row.Kind, $result, $combinations)
                 }
                 Write-LabInfo 'Paketdateien wurden geprüft. Es wurde keine Runtime ausgeführt.'
             }

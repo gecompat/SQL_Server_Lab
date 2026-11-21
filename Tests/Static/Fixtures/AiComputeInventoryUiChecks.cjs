@@ -39,9 +39,10 @@ vm.runInNewContext(app.slice(capabilityStart, capabilityEnd), {
 (async () => {
   await capabilityButton.click();
   assert.match(capabilityStatus.textContent, /Keine llama.cpp-Pakete/);
-  capability = { Status: 'FILES_HASHED_NOT_EXECUTED', Items: [{ Backend: 'LlamaCppOpenVino', Kind: 'NPU', Eligible: false }] };
+  capability = { Status: 'FILES_HASHED_NOT_EXECUTED', Items: [{ Backend: 'LlamaCppOpenVino', Kind: 'NPU', Eligible: false, CombinationCount: 0 }] };
   await capabilityButton.click();
   assert.match(capabilityStatus.textContent, /LlamaCppOpenVino · NPU · kein passendes Gerät gefunden/);
+  assert.match(capabilityStatus.textContent, /0 Gerätekombinationen/);
   assert.match(capabilityStatus.textContent, /keine Runtime ausgeführt/);
   capability.Items[0].Backend = 'PRIVATE_CANARY';
   await capabilityButton.click();
