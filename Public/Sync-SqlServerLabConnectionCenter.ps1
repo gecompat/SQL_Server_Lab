@@ -1100,7 +1100,7 @@ function Invoke-LabCmsInteractive {
             if (-not (Read-LabConfirm -Prompt '  Persistenten kompakten CMS jetzt erstellen?' -Default $false)) { return }
             $result = Initialize-SqlServerLabCms -StateRoot $StateRoot
             Write-LabSuccess "CMS erstellt: Run $($result.Configuration.RunId)"
-            Write-LabWarning "Einmaliges CMS-SA-Passwort (jetzt kopieren): $($result.Password)"
+            Write-Host "Einmaliges CMS-SA-Passwort (jetzt kopieren): $($result.Password)" -ForegroundColor Yellow
             $null = Sync-SqlServerLabCms -StateRoot $StateRoot
         }
         elseif ([string]$menu.SelectedItem.Id -eq 'adopt') {
