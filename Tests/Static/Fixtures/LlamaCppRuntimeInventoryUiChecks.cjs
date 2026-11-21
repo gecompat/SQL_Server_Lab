@@ -5,7 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const root = path.resolve(__dirname, '../../..');
-const app = fs.readFileSync(path.join(root, 'Ui/app.js'), 'utf8');
+const app = fs.readFileSync(path.join(root, 'Ui/ai-compute-overview.js'), 'utf8');
 const markup = fs.readFileSync(path.join(root, 'Ui/index.html'), 'utf8');
 const start = app.indexOf('async function readLlamaRuntimeInventory()');
 const listener = "$('#llama-runtime-inventory-read').addEventListener('click', readLlamaRuntimeInventory);";

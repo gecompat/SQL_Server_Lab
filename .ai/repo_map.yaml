@@ -172,8 +172,8 @@ sources_of_truth:
   ai_compute_selection_contract: Private/AiComputeSelection.ps1
   ai_compute_inventory_contract: Private/AiComputeInventory.ps1
   ai_compute_inventory_api: Public/Get-SqlServerLabAiComputeInventory.ps1
-  ai_compute_inventory_guidance: Private/AiComputeInventoryGuidance.ps1, Public/BatchConsole.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/app.js
-  ai_runtime_capability_guidance: Private/AiComputeInventoryGuidance.ps1, Public/BatchConsole.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/app.js
+  ai_compute_inventory_guidance: Private/AiComputeInventoryGuidance.ps1, Public/BatchConsole.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/ai-compute-overview.js
+  ai_runtime_capability_guidance: Private/AiComputeInventoryGuidance.ps1, Public/BatchConsole.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/ai-compute-overview.js
   ai_compute_candidate_api: Public/Get-SqlServerLabAiComputeCandidate.ps1
   ai_compute_inventory_schema: Schemas/ai-compute-inventory.schema.json
   ai_compute_candidate_set_schema: Schemas/ai-compute-candidate-set.schema.json
@@ -279,7 +279,7 @@ sources_of_truth:
   acceptance_llama_cpp_sql: Tests/Integration/Invoke-LlamaCppSqlAcceptance.ps1
   ai_external_model_runtime_schema: Schemas/llama-cpp-runtime.schema.json
   validation_llama_cpp_runtime: Tests/Static/Invoke-LlamaCppRuntimeChecks.ps1
-  llama_cpp_runtime_inventory_surfaces: Private/LlamaCppRuntimeInventory.ps1, Public/BatchConsole.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/app.js
+  llama_cpp_runtime_inventory_surfaces: Private/LlamaCppRuntimeInventory.ps1, Public/BatchConsole.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/ai-compute-overview.js
   validation_llama_cpp_runtime_inventory_browser: Tests/Static/Fixtures/LlamaCppRuntimeInventoryUiChecks.cjs, Tests/Static/Invoke-WorkflowUiChecks.ps1
   ai_external_model_runtime_api: Public/Get-SqlServerLabLlamaCppRuntime.ps1
   ai_external_model_runtime_contract: Private/AiExternalModelAcceleration.ps1

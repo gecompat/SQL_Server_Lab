@@ -4,9 +4,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const root = path.resolve(__dirname, '../../..');
-const app = fs.readFileSync(path.join(root, 'Ui/app.js'), 'utf8');
+const app = fs.readFileSync(path.join(root, 'Ui/ai-compute-overview.js'), 'utf8');
 const start = app.indexOf("$('#ai-compute-inventory-read').addEventListener");
-const end = app.indexOf("$('#llama-session-open').addEventListener", start);
+const end = app.indexOf("$('#ai-runtime-capability-read').addEventListener", start);
 assert.ok(start >= 0 && end > start);
 const button = { disabled: false, addEventListener(name, handler) { assert.equal(name, 'click'); this.click = handler; } };
 const status = {};
@@ -26,7 +26,7 @@ const capabilityButton = { ...button };
 const capabilityStatus = {};
 let capability = { Status: 'NO_PACKAGES', Items: [] };
 const capabilityStart = app.indexOf("$('#ai-runtime-capability-read').addEventListener");
-const capabilityEnd = app.indexOf("$('#llama-session-selection').addEventListener", capabilityStart);
+const capabilityEnd = app.indexOf("})();", capabilityStart);
 assert.ok(capabilityStart >= 0 && capabilityEnd > capabilityStart);
 vm.runInNewContext(app.slice(capabilityStart, capabilityEnd), {
   $: selector => selector === '#ai-runtime-capability-read' ? capabilityButton : capabilityStatus,
@@ -43,6 +43,10 @@ vm.runInNewContext(app.slice(capabilityStart, capabilityEnd), {
   await capabilityButton.click();
   assert.match(capabilityStatus.textContent, /LlamaCppOpenVino · NPU · kein passendes Gerät gefunden/);
   assert.match(capabilityStatus.textContent, /keine Runtime ausgeführt/);
+  capability.Items[0].Backend = 'PRIVATE_CANARY';
+  await capabilityButton.click();
+  assert.match(capabilityStatus.textContent, /nicht ermittelt/);
+  assert.doesNotMatch(capabilityStatus.textContent, /PRIVATE_CANARY/);
   assert.equal(capabilityButton.disabled, false);
   assert.equal(calls, 0);
   const reading = button.click();
