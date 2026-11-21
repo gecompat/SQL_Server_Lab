@@ -20,7 +20,7 @@
 function Invoke-SqlServerLab {
     [CmdletBinding()]
     param(
-        [ValidateSet('New', 'BatchPlan', 'Queue', 'Commands', 'AutomatedTestEnvironment', 'AutomatedTestEnvironmentLifecycle', 'ClearAutomatedTestEnvironment', 'Manifest', 'Status', 'SyncRuntime', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'CleanupAudit', 'RetainedStoreRemoval', 'RunArtifactRemoval', 'EvaluationRefreshPlan', 'SsisDiagnostics', 'HostServiceStart', 'ContainerAutoStart', 'ContainerAutoStartRecovery', 'Script', 'Database', 'DatabaseBackup', 'DatabaseRestore', 'DatabasePackageExport', 'DatabasePackageAttach', 'DatabasePackageInventory', 'DatabaseMigrationDependency', 'Image', 'WindowsSlotPool', 'ReservePolicy', 'Setup', 'MediaRoot', 'MediaSourceOverride', 'RuntimeInstaller', 'OperatingSystemSources', 'CuResource', 'CuStatus', 'ResourceWatch', 'DataRoot', 'TestDataRoot', 'Rename', 'UpdateContainer', 'Resources', 'Manage', 'EnvironmentGroups', 'Install7Zip', 'Catalog', 'ConnectionCenter', 'Cms')]
+        [ValidateSet('New', 'BatchPlan', 'Queue', 'Commands', 'AutomatedTestEnvironment', 'AutomatedTestEnvironmentLifecycle', 'ClearAutomatedTestEnvironment', 'Manifest', 'Status', 'SyncRuntime', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'CleanupAudit', 'RetainedStoreRemoval', 'RunArtifactRemoval', 'EvaluationRefreshPlan', 'SsisDiagnostics', 'HostServiceStart', 'ContainerAutoStart', 'ContainerAutoStartRecovery', 'HyperVAutoStart', 'HyperVAutoStartRecovery', 'Script', 'Database', 'DatabaseBackup', 'DatabaseRestore', 'DatabasePackageExport', 'DatabasePackageAttach', 'DatabasePackageInventory', 'DatabaseMigrationDependency', 'Image', 'WindowsSlotPool', 'ReservePolicy', 'Setup', 'MediaRoot', 'MediaSourceOverride', 'RuntimeInstaller', 'OperatingSystemSources', 'CuResource', 'CuStatus', 'ResourceWatch', 'DataRoot', 'TestDataRoot', 'Rename', 'UpdateContainer', 'Resources', 'Manage', 'EnvironmentGroups', 'Install7Zip', 'Catalog', 'ConnectionCenter', 'Cms')]
         [string]$Action,
 
         [ValidateSet('Auto', 'Fallback')]
@@ -44,6 +44,8 @@ function Invoke-SqlServerLab {
             if ($Action -eq 'Commands') { Manage-LabPublicCommandsInteractive; return }
             if ($Action -eq 'ContainerAutoStart') { Invoke-LabContainerAutoStartInteractive; return }
             if ($Action -eq 'ContainerAutoStartRecovery') { Invoke-LabContainerAutoStartRecoveryInteractive; return }
+            if ($Action -eq 'HyperVAutoStart') { Invoke-LabHyperVAutoStartInteractive; return }
+            if ($Action -eq 'HyperVAutoStartRecovery') { Invoke-LabHyperVAutoStartRecoveryInteractive; return }
             if ($Action -eq 'SsisDiagnostics') { Invoke-LabSsisDiagnosticsInteractive; return }
             if ($Action -eq 'EvaluationRefreshPlan') { Invoke-LabEvaluationRefreshPlanInteractive; return }
             if ($Action -eq 'HostServiceStart') { Invoke-LabLlamaCppStartInteractive; return }
@@ -165,6 +167,7 @@ function Invoke-LabMenuAction {
     if ($ActionName -eq 'LlamaRuntimeInventory') { Show-LabLlamaCppRuntimeInventoryInteractive; return }
     if ($ActionName -eq 'AiRuntimeCapability') { Show-LabAiRuntimeCapabilityInteractive; return }
     if ($ActionName -eq 'AiComputeInventory') { Show-LabAiComputeInventoryInteractive; return }
+    if ($ActionName -eq 'HyperVAutoStartRecovery') { Invoke-LabHyperVAutoStartRecoveryInteractive; return }
     if ($ActionName -eq 'HyperVAutoStart') { Invoke-LabHyperVAutoStartInteractive; return }
     if ($ActionName -eq 'EnvironmentGroups') { Invoke-LabEnvironmentGroupsInteractive; return }
 
@@ -1790,6 +1793,7 @@ function Invoke-LabAction {
         'ContainerAutoStartPreview' { Invoke-LabContainerAutoStartPreviewInteractive }
         'ContainerAutoStart' { Invoke-LabContainerAutoStartInteractive }
         'ContainerAutoStartRecovery' { Invoke-LabContainerAutoStartRecoveryInteractive }
+        'HyperVAutoStartRecovery' { Invoke-LabHyperVAutoStartRecoveryInteractive }
         'HyperVAutoStart' { Invoke-LabHyperVAutoStartInteractive }
         'Rename' { Rename-LabEnvironmentInteractive }
         'New' { Invoke-LabNewEnvironmentInteractive }
@@ -6475,12 +6479,43 @@ function Invoke-LabContainerAutoStartRecoveryInteractive {
     catch { Write-LabError 'AUTOSTART_RECOVERY_CONSOLE_UNAVAILABLE: Ziel, Journal oder aktueller Containerzustand konnte nicht sicher bestätigt werden.'; $null = Wait-LabConsoleAcknowledgement }
 }
 
+function Get-LabHyperVAutoStartConsoleRuns {
+    @(
+        Get-LabActiveRuns | Where-Object {
+            $_.metadata.workflowKind -ceq 'hyperv-lab' -and $_.state -cin @('RUNNING', 'STOPPED')
+        }
+    )
+}
+
+function Invoke-LabHyperVAutoStartRecoveryInteractive {
+    try {
+        $runs = @(Get-LabHyperVAutoStartConsoleRuns)
+        if (-not $runs.Count) { Write-LabInfo 'Keine registrierten laufenden oder gestoppten Hyper-V-Labs verfügbar.'; return }
+        $runId = Select-LabRun -Runs $runs -Prompt 'Hyper-V-Lab für Autostart-Recovery' -DisableAutomatedTestEnvironments -DisableSystemServices
+        if (-not $runId) { return }
+        $lab = Get-HyperVLabWorkflowRun -RunId $runId
+        $journal = Read-LabHyperVAutoStartJournal -Lab $lab
+        if (-not $journal -or $journal.Status -ceq 'COMPLETED') {
+            Write-LabInfo 'Für dieses Lab ist keine Autostart-Recovery offen.'
+        } else {
+            $recovery = Get-LabHyperVAutoStartRecoveryPlan -RunId $runId -StateRoot $lab.StateRoot -ExpectedRecoveryOperationId $journal.OperationId
+            $journal = $recovery.Journal
+            Write-LabInfo ('Autostart-Recovery · Status {0} · Ziel {1}' -f $journal.Status, $journal.Target.AutoStart)
+            if (-not (Read-LabConfirm -Prompt 'Verifizierte Autostart-Policy ausschließlich im Lab-State nachtragen?' -Default $false)) { return }
+            $result = Resume-SqlServerLabHyperVAutoStart -RunId $runId -StateRoot $lab.StateRoot -ExpectedRecoveryOperationId $journal.OperationId -Confirm:$false
+            Write-LabSuccess ('Hyper-V-Autostart-Recovery: {0}.' -f $result.Status)
+        }
+    }
+    catch { Write-LabError 'Die Hyper-V-Autostart-Recovery konnte nicht sicher bestätigt werden. Prüfe das gewählte Lab und den aktuellen Zustand.' }
+    $null = Wait-LabConsoleAcknowledgement
+}
+
 function Invoke-LabHyperVAutoStartInteractive {
     [CmdletBinding()]
     param()
     try {
-        $runs=@(Get-LabActiveRuns|Where-Object{[string]$_.state -in @('RUNNING','STOPPED')})
-        if(-not $runs.Count){Write-LabInfo 'Keine registrierten laufenden oder gestoppten Labs verfügbar.';return}
+        $runs = @(Get-LabHyperVAutoStartConsoleRuns)
+        if (-not $runs.Count) { Write-LabInfo 'Keine registrierten laufenden oder gestoppten Hyper-V-Labs verfügbar.'; return }
         $runId=Select-LabRun -Runs $runs -Prompt 'Hyper-V-Lab für Autostart' -DisableAutomatedTestEnvironments -DisableSystemServices
         if(-not $runId){return};$null=Get-HyperVLabWorkflowRun -RunId $runId
         $input=Read-LabConsoleTextInput -Prompt 'Gewünschter Hyper-V-Autostart (on/off; q = zurück)'

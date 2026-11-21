@@ -2022,6 +2022,22 @@ Provider-/Namensfolge. Ein Run mit `RECOVERY_REQUIRED` bleibt sichtbar, weil
 sein Cleanup noch zu pruefen ist. Fehlt seine Runtime, zeigt die Detailansicht
 keine gespeicherten SQL-Verbindungsdaten als nutzbaren Zugang an.
 
+## Hyper-V-Autostart und Recovery
+
+In **Lab-Umgebungen → Hyper-V-Autostart ändern** ein eigenes laufendes oder
+gestopptes Hyper-V-Lab wählen und die gewünschte Policy vorprüfen. Die Änderung
+erfolgt erst nach Bestätigung. Im Browser führt **Lab verwalten → Reguläre
+Hyper-V-Umgebungen → Hyper-V-Autostart ändern** zum selben Ablauf.
+Reservierte Windows-Pool-Slots und laufende
+Ressourcenmigrationen sperren die Änderung.
+
+Ein offenes Journal sperrt einen neuen Plan. **Lab-Umgebungen →
+Hyper-V-Autostart-Recovery fortsetzen** führt denselben Run und denselben
+Vorgang nach Bestätigung weiter. Im Browser steht **Autostart-Recovery
+fortsetzen** als Aktion im Autostart-Dialog bereit. Die Recovery prüft die aktuelle VM und ihre
+Autostart-Policy und schließt bei passender Bindung die Zustandsablage ab.
+Das Lab behält seinen aktuellen Power-Zustand.
+
 ## Container-Autostart nur vorprüfen
 
 In der CLI **Lab-Umgebungen → Container-Autostart vorprüfen** oder im Browser

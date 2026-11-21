@@ -38,15 +38,16 @@ eines Cmdlets:
 ## Exportreferenz-Audit
 
 Ein mechanischer Abgleich des Manifests mit
-`Documentation/User/FUNCTIONS_CLI_GUI.md` findet 136 der 166 Exportnamen und
-30 dort nicht referenzierte Exporte. Das ist ein Referenzabgleich, keine
-vollständige Prüfung, ob die 136 Treffer tatsächlich korrekt geführt,
+`Documentation/User/FUNCTIONS_CLI_GUI.md` findet 139 der 166 Exportnamen und
+27 dort nicht referenzierte Exporte. Das ist ein Referenzabgleich, keine
+vollständige Prüfung, ob die 139 Treffer tatsächlich korrekt geführt,
 ausführbar oder providerabgenommen sind. Die folgende Inventarliste hält die
-30 nicht referenzierten Namen einzeln fest. Die sieben Environment-Group-
+27 nicht referenzierten Namen einzeln fest. Die sieben Environment-Group-
 Operationen aus dem vorherigen Abgleich sind jetzt in der Funktionsübersicht
 enthalten und unten separat quellengestützt als `GUIDED_BOTH` bewertet. Von
-den verbleibenden 30 Einträgen sind drei TLS-001-Exporte `DEFERRED`,
-10 Exporte als `KNOWN_GAP` bestätigt und 17 noch `NOT_ASSESSED`.
+den verbleibenden 27 Einträgen sind vier TLS-001-Exporte `DEFERRED`,
+10 Exporte als `KNOWN_GAP`, einer als `EXPERT_CATALOG_ONLY` und 12 als
+`NOT_ASSESSED` bewertet.
 Die Bewertung folgt aus Menüdispatch, GUI-Aktion, öffentlichen Parametern
 und den vorhandenen Nachweisen. Der Expertenkatalog allein erfüllt die
 geführte Abdeckung nicht.
@@ -58,12 +59,13 @@ geführte Abdeckung nicht.
 | Modell-/Gateway-Lifecycle | `Test-SqlServerLabAiExternalModelEndpoint`; `Test-SqlServerLabOvmsUpstreamEndpoint`; `Start-SqlServerLabOvmsHttpsGateway`; `Stop-SqlServerLabOvmsHttpsGateway` | `NOT_ASSESSED`; vorhandene Workflow-Dokumentation weist Lifecycle-Lücken aus |
 | Evaluation und Watch | `Update-SqlServerLabSqlGuestEvaluationEvidence`; `Invoke-SqlServerLabEvaluationWatchTrigger` | `NOT_ASSESSED` |
 | Transfer und Vergleich | `Invoke-SqlServerLabPortableContainerTransferPreflight`; `Invoke-SqlServerLabPortableContainerTransfer`; `Test-SqlServerLabRelationalCoreComparison` | `NOT_ASSESSED` |
-| Autostart und Netzwerk | `Get-SqlServerLabHyperVAutoStartPlan`; `Set-SqlServerLabHyperVAutoStart`; `Resume-SqlServerLabHyperVAutoStart`; `Move-SqlServerLabContainerNetwork` | `NOT_ASSESSED` |
-| SQL-Features und Zielumgebung | `Set-SqlServerLabFeature`; `Read-SqlServerLabQualifiedTestEnvironment` | `NOT_ASSESSED` |
-| Persistentes KI-Retrieval und Security-Tools | `Invoke-SqlServerLabAiPersistentRetrieval`; `Get-SqlServerLabSecurityToolPlan` | `NOT_ASSESSED` |
-| TLS-001, zurückgestellt | `Update-SqlServerLabTlsBinding`; `Get-SqlServerLabTlsBindingRecovery`; `Resolve-SqlServerLabTlsBindingRecovery` | `DEFERRED`; bestehender Zustand bleibt erhalten, keine neue Abdeckungs- oder Runtimearbeit ohne dokumentierten Anwendungsfall |
+| Container-Netzwerk | `Move-SqlServerLabContainerNetwork` | `NOT_ASSESSED` |
+| SQL-Features | `Set-SqlServerLabFeature` | `NOT_ASSESSED` |
+| Persistentes KI-Retrieval | `Invoke-SqlServerLabAiPersistentRetrieval` | `NOT_ASSESSED` |
+| Security-Tool-Katalog | `Get-SqlServerLabSecurityToolPlan` | `EXPERT_CATALOG_ONLY`. Die produktive Allowlist ist leer, der lokale Resolver blockiert alle Anfragen. [Katalogvertrag und Freigabestand](../Project_Planning/SECURITY_TOOL_ACQUISITION_BACKLOG.md). |
+| TLS-001, zurückgestellt | `Update-SqlServerLabTlsBinding`; `Get-SqlServerLabTlsBindingRecovery`; `Resolve-SqlServerLabTlsBindingRecovery`; `Read-SqlServerLabQualifiedTestEnvironment` | `DEFERRED`; bestehender Zustand bleibt erhalten, keine neue Abdeckungs- oder Runtimearbeit ohne dokumentierten Anwendungsfall |
 
-Die 53 Namen (30 ohne Referenz sowie 23 einzeln geprüfte Exporte)
+Die 53 Namen (27 ohne Referenz sowie 26 einzeln geprüfte Exporte)
 wurden unmittelbar gegen `FunctionsToExport` im Manifest
 abgeglichen; die Familiengruppierung ist nur eine Lesbarkeitshilfe. Sie ist
 keine Behauptung, dass eine Familie einen gemeinsamen Aufrufer oder denselben
@@ -106,6 +108,8 @@ und dem [Gruppenvertrag](../Architecture/LAB_ENVIRONMENT_GROUPS.md).
 
 | Operation | Geführter CLI-Pfad | Geführter GUI-Pfad | Vertrag und Nachweis | Provider-/Versions-Evidence |
 |---|---|---|---|---|
+| Hyper-V-Autostart (`Get-SqlServerLabHyperVAutoStartPlan`, `Set-SqlServerLabHyperVAutoStart`) | Lab-Umgebungen → Hyper-V-Autostart ändern | Lab verwalten → Reguläre Hyper-V-Umgebungen → Hyper-V-Autostart ändern | `GUIDED_BOTH`. Gebundene Vorschau, Bestätigung und einmalige Browserfreigabe sind synthetisch geprüft. Native Abnahme der neuen Absicherung `NOT_EXECUTED`. |
+| Hyper-V-Autostart-Recovery (`Resume-SqlServerLabHyperVAutoStart`) | Lab-Umgebungen → Hyper-V-Autostart-Recovery fortsetzen | Lab verwalten → Reguläre Hyper-V-Umgebungen → Hyper-V-Autostart ändern → Autostart-Recovery fortsetzen | `GUIDED_BOTH`. Synthetische Fälle prüfen die Journalbindung und Statepersistenz. Native Abnahme des neuen Bedienpfads `NOT_EXECUTED`. |
 | Startpolicy lesen und ändern (`Get-SqlServerLabContainerAutoStartPlan`, `Set-SqlServerLabContainerAutoStart`) | Lab-Umgebungen → Docker-/Podman-Autostart ändern | Lab verwalten → Container-Autostart ändern | `GUIDED_BOTH`. Der Plan bindet die Zielpolicy. Der Browser bestätigt nur die zuletzt geprüfte Änderung über eine einmalige Auswahl. `Invoke-ContainerAutoStartChecks.ps1` und Browserfixtures. | Synthetische Vertragsfälle. Native CLI- und GUI-Abnahme `NOT_EXECUTED`. |
 | Journaloperation fortsetzen (`Resume-SqlServerLabContainerAutoStart`) | Lab-Umgebungen → Docker-/Podman-Autostart-Recovery fortsetzen | Lab verwalten → Container-Autostart-Recovery fortsetzen | `GUIDED_BOTH`. Die Journaloperation wird unter der Sperre erneut geprüft. Die Browserauswahl ist einmalig und läuft nach fünf Minuten ab. `Invoke-ContainerAutoStartChecks.ps1` und Browserfixtures. | Synthetische Vertragsfälle. Native CLI- und GUI-Abnahme `NOT_EXECUTED`. |
 

@@ -18,18 +18,22 @@ function Resume-SqlServerLabHyperVAutoStart {
     .DESCRIPTION Does not issue a second Set-VM mutation.
     .PARAMETER RunId Registered Hyper-V run with the recovery journal.
     .PARAMETER StateRoot Optional managed state root.
+    .PARAMETER ExpectedRecoveryOperationId Operation shown by the operator's recovery preview.
     #>
-    [CmdletBinding(SupportsShouldProcess)]param([Parameter(Mandatory)][string]$RunId,[string]$StateRoot)
+    [CmdletBinding(SupportsShouldProcess)]
+    param([Parameter(Mandatory)][string]$RunId,[string]$StateRoot,[guid]$ExpectedRecoveryOperationId)
     $mutex=[Threading.Mutex]::new($false,"Global\SQL_Server_Lab_HyperV_AutoStart_$($RunId.Replace('-',''))");$acquired=$false
     try {$acquired=$mutex.WaitOne([TimeSpan]::FromMinutes(5));if(-not $acquired){throw 'HYPERV_AUTOSTART_LOCK_TIMEOUT'}
-        $lab=Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot;$path=Get-LabHyperVAutoStartJournalPath -RunDirectory $lab.RunDirectory
-        if(-not(Test-Path -LiteralPath $path -PathType Leaf)){throw 'HYPERV_AUTOSTART_RECOVERY_JOURNAL_MISSING'}
-        $journal=Get-Content -LiteralPath $path -Raw -Encoding utf8|ConvertFrom-Json -Depth 30
-        if(-not(($journal|ConvertTo-Json -Depth 30)|Test-Json -SchemaFile (Join-Path $script:SchemasPath 'hyperv-autostart-journal.schema.json') -ErrorAction SilentlyContinue)){throw 'HYPERV_AUTOSTART_JOURNAL_SCHEMA_INVALID'}
-        if([string]$journal.RunId-ne$RunId -or [string]$journal.ScopeId-ne[string]$lab.Run.scopeId -or [string]$journal.InstanceId-ne[string]$lab.Instance.id -or [string]$journal.Status-cnotin@('POLICY_MUTATED','RECOVERY_REQUIRED')){throw 'HYPERV_AUTOSTART_RECOVERY_JOURNAL_INVALID'}
-        $plan=Get-LabHyperVAutoStartApplyPlan -RunId $RunId -AutoStart ([string]$journal.Target.AutoStart) -StateRoot $StateRoot
-        if([string]$plan.Managed.VM.Id-ne[string]$journal.Runtime.VMId -or [string]$plan.Managed.VM.State-ne[string]$journal.Before.State -or [string]$plan.Managed.VM.AutomaticStartAction-ne[string]$journal.Target.AutomaticStartAction){throw 'HYPERV_AUTOSTART_RECOVERY_READBACK_CHANGED'}
+        $parameters = @{ RunId = $RunId; StateRoot = $StateRoot }
+        if ($PSBoundParameters.ContainsKey('ExpectedRecoveryOperationId')) { $parameters.ExpectedRecoveryOperationId = $ExpectedRecoveryOperationId }
+        $recovery = Get-LabHyperVAutoStartRecoveryPlan @parameters
+        $plan = $recovery.Plan
+        $journal = $recovery.Journal
+        $lab = $plan.Lab
+        $path = Get-LabHyperVAutoStartJournalPath -RunDirectory $lab.RunDirectory
         if(-not $PSCmdlet.ShouldProcess([string]$lab.Instance.vmName,'Autostart-Statepersistenz wiederaufnehmen')){return}
+        $null = Assert-LabHyperVResourceMigrationLifecycleAllowed -RunId $RunId -Operation 'SET_AUTOSTART' -StateRoot $plan.Lab.StateRoot
+        Assert-LabWindowsPoolMutationAllowed -RunId $RunId -StateRoot $plan.Lab.StateRoot -InvalidateEvidence
         Complete-LabHyperVAutoStartState -Plan $plan -Journal $journal;$journal.Status='STATE_COMMITTED';$journal.Recovery.Status='NOT_REQUIRED';$null=Write-LabHyperVAutoStartJournal $journal $path;$journal.Status='COMPLETED';$null=Write-LabHyperVAutoStartJournal $journal $path
         [pscustomobject]@{RunId=$RunId;InstanceId=$lab.Instance.id;Provider='hyperv';Changed=$true;Status='RECOVERY_SUCCEEDED';OperationId=$journal.OperationId}
     } finally {if($acquired){$mutex.ReleaseMutex()};$mutex.Dispose()}

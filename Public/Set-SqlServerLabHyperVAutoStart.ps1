@@ -30,8 +30,12 @@ function Set-SqlServerLabHyperVAutoStart {
     try { $acquired=$mutex.WaitOne([TimeSpan]::FromMinutes(5));if(-not $acquired){throw 'HYPERV_AUTOSTART_LOCK_TIMEOUT'}
         $plan=Get-LabHyperVAutoStartApplyPlan -RunId $RunId -AutoStart $AutoStart -StateRoot $StateRoot
         if($plan.PlanKey-ne$ExpectedAutoStartPlanKey){throw 'HYPERV_AUTOSTART_STALE_OR_UNAVAILABLE: Vorschau erneut lesen.'}
+        $previous = Read-LabHyperVAutoStartJournal -Lab $plan.Lab
+        if ($previous -and $previous.Status -cne 'COMPLETED') { throw 'HYPERV_AUTOSTART_RECOVERY_REQUIRED' }
         if($plan.NoChange){return [pscustomobject]@{RunId=$RunId;InstanceId=$plan.Lab.Instance.id;Provider='hyperv';Changed=$false;Status='NO_OP'}}
         if(-not $PSCmdlet.ShouldProcess([string]$plan.Lab.Instance.vmName,"Autostart auf '$AutoStart' ändern")){return}
+        $null = Assert-LabHyperVResourceMigrationLifecycleAllowed -RunId $RunId -Operation 'SET_AUTOSTART' -StateRoot $plan.Lab.StateRoot
+        Assert-LabWindowsPoolMutationAllowed -RunId $RunId -StateRoot $plan.Lab.StateRoot -InvalidateEvidence
         $path=Get-LabHyperVAutoStartJournalPath -RunDirectory $plan.Lab.RunDirectory;$target=if($AutoStart-eq'on'){'Start'}else{'Nothing'}
         $journal=[pscustomobject]@{ContractVersion='SqlServerLab.HyperVAutoStartJournal/1.0';OperationId=[guid]::NewGuid().ToString('D');RunId=$RunId;ScopeId=[string]$plan.Lab.Run.scopeId;InstanceId=[string]$plan.Lab.Instance.id;Provider='hyperv';Status='PREPARED';Before=[pscustomobject]@{AutoStart=$plan.CurrentAutoStart;AutomaticStartAction=[string]$plan.Managed.VM.AutomaticStartAction;State=[string]$plan.Managed.VM.State;PersistedAutoStart=[string]$plan.DesiredInstance.AutoStart};Target=[pscustomobject]@{AutoStart=$AutoStart;AutomaticStartAction=$target};Runtime=[pscustomobject]@{VMId=[string]$plan.Managed.VM.Id};Recovery=[pscustomobject]@{Status='RESUME_STATE_COMMIT';Attempts=0;ErrorCode=$null};UpdatedAt=Get-LabTimestamp};$null=Write-LabHyperVAutoStartJournal $journal $path
         $null=Set-VM -VM $plan.Managed.VM -AutomaticStartAction $target -ErrorAction Stop;$journal.Status='POLICY_MUTATED';$null=Write-LabHyperVAutoStartJournal $journal $path

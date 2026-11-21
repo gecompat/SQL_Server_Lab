@@ -272,7 +272,8 @@ end {
         @{ Pattern = '(?i)(SessionTransferProgress|SqlStorageOperations|HyperVDatabasePackage)'; Checks = @('Invoke-SessionTransferProgressChecks.ps1','Invoke-SampleBaselineRuntimeChecks.ps1') },
         @{ Pattern = '(?i)(SqlStorageOperations)'; Checks = @('Invoke-StorageFilePlacementChecks.ps1','Invoke-HyperVTestDatabaseReconcileChecks.ps1') },
         @{ Pattern = '(?i)(BlockingActionProgress|ActionProgress|HyperVLegacyWindowsEvaluationTemplate)'; Checks = @('Invoke-BlockingActionProgressChecks.ps1','Invoke-HyperVImageBuilderChecks.ps1') },
-        @{ Pattern = '(?i)(HyperVLabEnvironment)'; Checks = @('Invoke-HyperVLabEnvironmentChecks.ps1') },
+        @{ Pattern = '(?i)(HyperVAutoStartBrowser|Ui/hyperv-autostart\.js)'; Checks = @('Invoke-WorkflowUiChecks.ps1') },
+        @{ Pattern = '(?i)(HyperVLabEnvironment|HyperVAutoStart|hyperv-autostart)'; Checks = @('Invoke-HyperVLabEnvironmentChecks.ps1') },
         @{ Pattern = '(?i)(WindowsActivationNetwork|HyperVLabEnvironment)'; Checks = @('Invoke-WindowsActivationNetworkChecks.ps1') },
         @{ Pattern = '(?i)(WindowsActivation|HyperVLabEnvironment|HyperVProvider|ManifestParser|ManifestBuilder|DesiredState|lab-manifest|BatchWorkflow|WindowsSlotPool|TestEnvironment|Invoke-SqlServerLab)'; Checks = @('Invoke-WindowsActivationIntentChecks.ps1') },
         @{ Pattern = '(?i)(WindowsLocale|windows-locale|lab-manifest|ManifestParser|ManifestBuilder|DesiredState|HyperVImageRegistry|HyperVLabEnvironment|BatchWorkflow|New-SqlServerLab|Invoke-SqlServerLabWorkflowAction)'; Checks = @('Invoke-WindowsLocaleChecks.ps1') },
@@ -377,7 +378,7 @@ end {
             if ($runtimePath -match '(?i)(DatabasePackage|database-package)') { $pathRuntime.HyperV = $true }
             if ($runtimePath -match '(?i)(DatabaseMigrationDependency|database-migration-dependency)') { $pathRuntime.Mixed = $true; $pathRuntime.HyperV = $true }
             if ($runtimePath -match '(?i)(runtime-smoke-mixed-providers\.yml|MixedProvider|ProviderCapability|DesiredState|ReconcileContract|ProviderSubRun)') { $pathRuntime.Mixed = $true }
-            if ($runtimePath -match '(?i)(^Providers/HyperV/|runtime-smoke-hyperv\.yml|/HyperV|^Private/HyperV|HyperVSmokeTest|^Private/ExternalRuntimeWindows|Images/ExternalLanguages/Windows|ExternalRuntimeHyperVAcceptance)') { $pathRuntime.HyperV = $true }
+            if ($runtimePath -match '(?i)(^Providers/HyperV/|runtime-smoke-hyperv\.yml|/HyperV|^Private/HyperV|HyperVAutoStart|HyperVSmokeTest|^Private/ExternalRuntimeWindows|Images/ExternalLanguages/Windows|ExternalRuntimeHyperVAcceptance)') { $pathRuntime.HyperV = $true }
             if ($runtimePath -match '(?i)^Public/New-SqlServerLab\.ps1$') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true; $pathRuntime.HyperV = $true }
             if ($runtimePath -match '(?i)(ResourceAssessment|resource-assessment)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true; $pathRuntime.HyperV = $true; $pathRuntime.Mixed = $true }
             if ($runtimePath -match '(?i)(^Adapters/|ProjectAdapter|adapter-smoke|project-adapter)') { $pathRuntime.Adapter = $true }
