@@ -32,6 +32,7 @@ function Get-SqlServerLabHyperVAutoStartPlan {
     )
 
     $plan = Get-LabHyperVAutoStartApplyPlan -RunId $RunId -AutoStart $AutoStart -StateRoot $StateRoot
+    Assert-LabSqlFeatureRecoveryClear -RunId $RunId -StateRoot $plan.Lab.StateRoot
     $previous = Read-LabHyperVAutoStartJournal -Lab $plan.Lab
     if ($previous -and $previous.Status -cne 'COMPLETED') { throw 'HYPERV_AUTOSTART_RECOVERY_REQUIRED' }
     $null = Assert-LabHyperVResourceMigrationLifecycleAllowed -RunId $RunId -Operation 'SET_AUTOSTART' -StateRoot $plan.Lab.StateRoot

@@ -25,6 +25,7 @@ $ErrorActionPreference = 'Stop'
     $syntheticRunDirectory = Join-Path ([IO.Path]::GetTempPath()) ("sql-lab-hyperv-autostart-synthetic-$([guid]::NewGuid().ToString('N'))")
     $null = New-Item -ItemType Directory -Path $syntheticRunDirectory -Force
 
+    function Get-LabStateRoot { [IO.Path]::GetTempPath() }
     function Assert-LabWindowsPoolMutationAllowed {
         param($RunId,$StateRoot,[switch]$InvalidateEvidence)
         if ($script:autostartBlockPool) { throw 'WINDOWS_POOL_MEMBER_RESERVED' }

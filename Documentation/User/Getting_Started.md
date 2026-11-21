@@ -2029,7 +2029,7 @@ gestopptes Hyper-V-Lab wählen und die gewünschte Policy vorprüfen. Die Änder
 erfolgt erst nach Bestätigung. Im Browser führt **Lab verwalten → Reguläre
 Hyper-V-Umgebungen → Hyper-V-Autostart ändern** zum selben Ablauf.
 Reservierte Windows-Pool-Slots und laufende
-Ressourcenmigrationen sperren die Änderung.
+Ressourcenmigrationen sowie offene SQL-Feature-Recoveries sperren die Änderung.
 
 Ein offenes Journal sperrt einen neuen Plan. **Lab-Umgebungen →
 Hyper-V-Autostart-Recovery fortsetzen** führt denselben Run und denselben
