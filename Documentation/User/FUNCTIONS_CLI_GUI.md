@@ -351,6 +351,8 @@ Mehrgruppen-Lifecycle steht in der [datierten Abnahme](../Quality/LINKED_SERVER_
 | Cmdlet | Kurzbeschreibung | Konsolenmenü | Browser-GUI |
 |---|---|---|---|
 | [`Get-SqlServerLabCleanupAudit`](../../Public/Get-SqlServerLabCleanupAudit.ps1) | Klassifiziert `Lab_Data`, Storage-Residency, Runtime-Scopes und auffällige Objekte read-only. | Wartung, Aufräumen und Recovery → Cleanup-Audit | – |
+| [`Get-SqlServerLabRunArtifactRemovalPlan`](../../Public/Get-SqlServerLabRunArtifactRemovalPlan.ps1) | Prüft die Metadaten genau eines entfernten Runs und erstellt eine gebundene Vorschau. | Wartung, Aufräumen und Recovery → Artefakte eines entfernten Runs | Wartung und Recovery → Run-Artefakte prüfen |
+| [`Invoke-SqlServerLabRunArtifactRemoval`](../../Public/Invoke-SqlServerLabRunArtifactRemoval.ps1) | Entfernt nach Bestätigung die geprüften Run-Metadaten oder setzt eine begonnene Entfernung fort. | Derselbe Dialog → Vorschau und Bestätigung | Derselbe Dialog → Vorschau und Bestätigung |
 | [`Get-SqlServerLabMaintenancePlan`](../../Public/Maintenance.ps1) | Inventarisiert State und Runtime-Ressourcen read-only und trennt sichere von freizugebenden Aktionen. | – | – |
 | [`Invoke-SqlServerLabMaintenance`](../../Public/Maintenance.ps1) | Führt einen revalidierten Maintenance-Plan aus und lässt fremde Ressourcen unangetastet. | – | – |
 | [`Get-SqlServerLabPersistentStorageRemovalPlan`](../../Public/Get-SqlServerLabPersistentStorageRemovalPlan.ps1) | Plant Retention-, Backup-, Package- und Bindungsfolgen einer Run-Entfernung anhand stabiler Storage-IDs. | über interne Storage-Verwaltungsflüsse | direkt: Vorschau vor dem Entfernen persistenter Container-Labs |
@@ -397,6 +399,8 @@ Bibliotheks-Recovery blockiert den erneuten Export ausdrücklich.
 | Cmdlet | Kurzbeschreibung | Konsolenmenü | Browser-GUI |
 |---|---|---|---|
 | [`Test-SqlServerLabPrerequisite`](../../Private/ResourceAssessment.ps1) | Prüft Provider, RAM, Storage und Ports ohne Mutation. | über die Erstellungs- und Provider-Preflights | über Core: Provisionierungs-Preflights |
+| [`Get-SqlServerLabHostCapabilityMatrix`](../../Public/Get-SqlServerLabHostCapabilityMatrix.ps1) | Zeigt SQL-Sprachvarianten und optional die beobachtete Providerbereitschaft. | Hauptmenü → Hostfähigkeiten vor der Funktionsauswahl | Lab erstellen → Hostfähigkeiten vor der Funktionsauswahl |
+| [`Get-SqlServerLabExternalRuntimeCapability`](../../Public/Get-SqlServerLabExternalRuntimeCapability.ps1) | Zeigt den Katalogbefund für eine Sprachvariante und optional die lesend geprüften Container-Grundlagen. | Hostfähigkeiten → Konkrete Container-Variante näher prüfen | Lab erstellen → Python / R / Java: Katalog und Hostvoraussetzungen |
 | [`Test-SqlServerLabAdapter`](../../Public/Test-SqlServerLabAdapter.ps1) | Prüft einen Project Adapter gegen Schema, Pfadgrenzen und optional eine Run-Instanz. | – | – |
 | [`Install-SqlServerLabAdapter`](../../Public/Install-SqlServerLabAdapter.ps1) | Führt einen validierten Adapter-Entrypoint ohne Lifecycle-Seiteneffekt aus. | – | – |
 | [`Install-SqlServerLab7Zip`](../../Public/Install-SqlServerLab7Zip.ps1) | Installiert 7-Zip nur nach explizitem Aufruf über `winget` für katalogisierte `.7z`-Backups. | Systemstatus und Einstellungen → 7-Zip | – |
