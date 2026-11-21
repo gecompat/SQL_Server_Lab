@@ -8,7 +8,7 @@ $ErrorActionPreference = 'Stop'
         $script:syntheticNetworkProbes = [Collections.Generic.List[string]]::new()
         $script:syntheticNetworkRoot = Join-Path ([IO.Path]::GetTempPath()) ('sql-lab-network-plan-'+[guid]::NewGuid().ToString('N'))
         function Get-LabStateRoot { $script:syntheticNetworkRoot }
-        function Get-LabRuntimeNetwork { param($Provider) [pscustomobject]@{Name='LabNetwork'} }
+        function Get-LabRuntimeNetwork { param($Provider) [pscustomobject]@{Name='LabNetwork';Subnet='172.26.0.0/16'} }
         function Get-LabHostToolInvocation {
             param($Name)
             {
@@ -29,9 +29,11 @@ $ErrorActionPreference = 'Stop'
                 throw 'UNEXPECTED_RUNTIME_CALL'
             }
         }
-        function Get-LabKnownIpv4Subnets { param($Provider) @('172.26.0.0/16') }
-        function Assert-LabRuntimeNetworkAvailable { param($Network,$KnownSubnets) throw 'LAB_NETWORK_SUBNET_CONFLICT: synthetic' }
-        function Resolve-LabAvailableContainerNetwork { param($Provider,$Network) [pscustomobject]@{Subnet='198.18.0.0/24'} }
+        function Get-LabKnownIpv4Subnets { param($Provider,$ExcludeNetworkId) @('172.26.0.0/16') }
+        function Resolve-LabAvailableContainerNetwork { param($Provider,$Network,[switch]$PlanOnly)
+            if (-not $PlanOnly) { throw 'PREVIEW_ATTEMPTED_PROCESS_CHANGE' }
+            [pscustomobject]@{Subnet='198.18.0.0/24'}
+        }
         function Get-LabManagedContainersOnNetwork {
             param($Provider,$NetworkName,$StateRoot)
             if ($script:syntheticNetworkMode -eq 'foreign-member') { throw 'LAB_NETWORK_MIGRATION_UNVERIFIED_MEMBER' }
@@ -40,6 +42,7 @@ $ErrorActionPreference = 'Stop'
         }
         function Invoke-LabContainerNetworkMigration { throw 'PREVIEW_ATTEMPTED_MUTATION' }
         function Select-LabConsoleDataItem { param($ScreenId,$Title,$Items) $Items[0].Data }
+        function Read-LabConsoleTextInput { param($Prompt) [pscustomobject]@{Status='Confirmed';Value=''} }
         function Wait-LabConsoleAcknowledgement { $null }
         foreach ($sample in @(
             @{Mode='unavailable'; Expected='nicht eindeutig geprüft'; Probes=1},
@@ -62,6 +65,17 @@ $ErrorActionPreference = 'Stop'
             throw 'WEB_NETWORK_PREVIEW_INVALID'
         }
         $key = $browser.Result[0].PlanKey
+        $explicit = Move-SqlServerLabContainerNetwork -Provider docker -TargetSubnet '198.18.2.0/24' -WhatIf
+        if ($explicit.Status -cne 'MIGRATION_REQUIRED' -or $explicit.Desired.Subnet -cne '198.18.2.0/24' -or $explicit.PlanKey -ceq $key) {
+            throw 'EXPLICIT_NETWORK_TARGET_NOT_BOUND'
+        }
+        foreach ($case in @(
+            @{Subnet='172.26.2.0/24';Code='LAB_NETWORK_MIGRATION_TARGET_CONFLICT'},
+            @{Subnet='198.300.2.0/24';Code='LAB_NETWORK_MIGRATION_TARGET_INVALID'}
+        )) {
+            try { Move-SqlServerLabContainerNetwork -Provider docker -TargetSubnet $case.Subnet -WhatIf | Out-Null; throw 'UNSAFE_TARGET_ACCEPTED' }
+            catch { if ($_.Exception.Message -cne $case.Code) { throw } }
+        }
         foreach ($example in @(@{ Mode='unmanaged'; Reason='LAB_NETWORK_MIGRATION_UNVERIFIED_NETWORK' },
                                @{ Mode='foreign-member'; Reason='LAB_NETWORK_MIGRATION_UNVERIFIED_MEMBER' })) {
             $script:syntheticNetworkMode=$example.Mode

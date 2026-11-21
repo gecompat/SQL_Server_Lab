@@ -4,8 +4,10 @@ function Show-LabContainerNetworkMigrationPlanInteractive {
         New-LabConsoleItem -Id 'podman' -Label 'Podman' -Data 'podman'
     )
     if (-not $provider) { return }
+    $target = Read-LabConsoleTextInput -Prompt 'IPv4-Zielsubnetz in CIDR-Schreibweise (leer für automatische Auswahl)'
+    if ($target.Status -ne 'Confirmed') { return }
     try {
-        $plan = Move-SqlServerLabContainerNetwork -Provider $provider -WhatIf -ErrorAction Stop
+        $plan = Move-SqlServerLabContainerNetwork -Provider $provider -TargetSubnet ([string]$target.Value).Trim() -WhatIf -ErrorAction Stop
         switch -CaseSensitive ($plan.Status) {
             'NO_NETWORK' { Write-LabInfo 'Für den Provider wurde kein Lab-Netz gefunden.' }
             'NO_CONFLICT' { Write-LabInfo 'Das Lab-Netz hat keinen erkannten Subnetzkonflikt.' }
@@ -21,6 +23,14 @@ function Show-LabContainerNetworkMigrationPlanInteractive {
             default { throw 'CONTAINER_NETWORK_PLAN_UNRECOGNIZED' }
         }
     }
-    catch { Write-LabError 'Das Lab-Netz konnte nicht eindeutig geprüft werden. Prüfe die Erreichbarkeit des Providers.' }
+    catch {
+        if ($_.Exception.Message -ceq 'LAB_NETWORK_MIGRATION_TARGET_INVALID') {
+            Write-LabError 'Das Zielsubnetz muss ein IPv4-Netz in CIDR-Schreibweise sein.'
+        } elseif ($_.Exception.Message -ceq 'LAB_NETWORK_MIGRATION_TARGET_CONFLICT') {
+            Write-LabError 'Das gewählte Zielsubnetz überschneidet sich mit einem bekannten Netz.'
+        } else {
+            Write-LabError 'Das Lab-Netz konnte nicht eindeutig geprüft werden. Prüfe die Provider-Erreichbarkeit und Netzkonfiguration.'
+        }
+    }
     $null = Wait-LabConsoleAcknowledgement
 }

@@ -1303,6 +1303,7 @@
       <h2>Lab-Netz auf Subnetzkonflikt prüfen</h2>
       <p class="form-note">Die lesende Vorschau zeigt, ob eine Migration erforderlich ist, und nennt die betroffenen Container.</p>
       <label>Provider<select id="container-network-plan-provider"><option value="docker">Docker</option><option value="podman">Podman</option></select></label>
+      <label>IPv4-Zielsubnetz (optional)<input id="container-network-plan-subnet" type="text" maxlength="18" placeholder="198.18.2.0/24" autocomplete="off"></label>
       <p id="container-network-plan-status" role="status"></p>
       <div class="dialog-actions">
         <button type="submit" class="button primary">Weiter zur Bestätigung</button>

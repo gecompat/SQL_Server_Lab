@@ -6,6 +6,7 @@ const vm = require('node:vm');
 const items = new Map();
 const item = id => {
   if (!items.has(id)) items.set(id, {
+    value: '',
     addEventListener(event, callback) { this[event] = callback; },
     showModal() {},
     close() {},
@@ -15,6 +16,7 @@ const item = id => {
 };
 const provider = { Name: 'Provider', TypeName: 'System.String', Mandatory: true, Sensitive: false, IsCredential: false };
 const preview = { Name: 'WhatIf', TypeName: 'System.Management.Automation.SwitchParameter', Mandatory: false, Sensitive: false, IsCredential: false };
+const target = { Name: 'TargetSubnet', TypeName: 'System.String', Mandatory: false, Sensitive: false, IsCredential: false };
 const command = { Name: 'Move-SqlServerLabContainerNetwork', RequiresConfirmation: true, SupportsShouldProcess: true,
   ParameterSets: [{ Name: '__AllParameterSets', Parameters: [provider, preview] }] };
 const calls = [];
@@ -37,4 +39,13 @@ command.ParameterSets[0].Parameters.push(preview);
 submit();
 assert.equal(calls[0][2], '__PublicCommand');
 assert.deepEqual(JSON.parse(JSON.stringify(calls[0][3].parameters)), { Provider: 'podman', WhatIf: true });
+el('subnet').value = 'invalid';
+submit();
+assert.equal(calls.length, 1);
+el('subnet').value = '198.18.2.0/24';
+submit();
+assert.equal(calls.length, 1, 'Explicit subnet requires a typed field');
+command.ParameterSets[0].Parameters.push(target);
+submit();
+assert.deepEqual(JSON.parse(JSON.stringify(calls[1][3].parameters)), { Provider: 'podman', WhatIf: true, TargetSubnet: '198.18.2.0/24' });
 console.log('CONTAINER NETWORK PLAN BROWSER UI: PASS');

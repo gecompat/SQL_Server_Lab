@@ -165,10 +165,17 @@ und für SqlPackage und brach beide vor dem Versand ab.
 
 ## Bereichsinventar
 
-Die Netzmigration über `Move-SqlServerLabContainerNetwork` ist bei der
-Ausführung weiterhin `KNOWN_GAP`: Die CLI und der Browser führen nur die
-`-WhatIf`-Vorschau. Die bestehende Ausführung hat keine an die bestätigte
-Vorschau gebundene Revision und kann laufende SQL-Container unterbrechen.
+Die geführte Netzmigration bleibt für die Ausführung ein `KNOWN_GAP`.
+CLI und Browser bieten die lesende `-WhatIf`-Vorschau mit optionalem
+IPv4-Zielsubnetz. Die automatische Vorschau lässt die Netzkonfiguration im
+Prozess unverändert. Der öffentliche
+PowerShell-Befehl kann den `ExpectedPlanKey` zurückgeben und bei der
+Ausführung prüfen. Der Plan bindet Provider, Netz-ID, Subnetze und
+registrierte Container. Fremde, geschützte und nicht eindeutig zugeordnete
+Ressourcen sowie eine offene Recovery sperren die Ausführung. Der
+synthetisch geprüfte Executor verwendet unveränderliche Runtime-IDs und
+kontrolliert Power und Aliasse nach der Mutation. Eine native
+Migrationsabnahme und eine geführte Recovery bleiben offen.
 
 Beim persistenten KI-Retrieval führen beide Oberflächen die synthetische
 Demo sowie `Prune` und `Remove`. Die Löschaktionen binden die ausgewählte
