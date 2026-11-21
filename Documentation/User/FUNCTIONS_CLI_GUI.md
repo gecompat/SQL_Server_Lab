@@ -654,6 +654,11 @@ Das [Beispiel](../../Schemas/example-ssis-catalog-fixture.json) verlangt die
 Anpassung der lokalen Medien-/Artifactwerte; Zugangsdaten bleiben separate
 geschützte Parameter. Die vollständige Rückgabe enthält `SsisCatalogFixture`.
 
+| Befehl | Geführte CLI | Browser-GUI |
+|---|---|---|
+| `Get-SqlServerLabSsisExecutionDiagnostic` | Lab-Umgebungen → SSIS-Diagnose eines bestehenden Windows-Labs → Bestehende SQL-2025-SSISDB-Ausführung read-only beobachten | Expertenkatalog |
+| `Get-SqlServerLabSsisPackageDiagnostic` | Lab-Umgebungen → SSIS-Diagnose eines bestehenden Windows-Labs → Eigenes DTSX/ISPAC im Gast laden und Komponenten beobachten | Expertenkatalog |
+
 `Get-SqlServerLabSsisCatalogCapability` ist über **Alle öffentlichen Befehle** in CLI und Browser erreichbar und prüft ausschließlich eine bereits laufende, eigene Windows-/Hyper-V-Quelle read-only. Der Befehl startet keine VM, erstellt keine SSISDB und startet keine Pakete.
 
 `Install-SqlServerLabSsisComponent` ist der bestätigungspflichtige zweite Schritt. Er ergänzt nur Integration Services auf einem bereits laufenden eigenen Windows-SQL-2025-Run aus der vorhandenen hashgebundenen ISO; die vorhandene SQL-Engine bleibt bestehen. CLI und Browser zeigen denselben generischen Parameterdialog mit Run-, Instanz- und Medienbindung. Nach erfolgreichem Neustart zeigt die Receipt nur Versionen und Cleanup-Scope.

@@ -10,6 +10,11 @@ Setup, keine Reparatur und keine Loggingänderung aus.
 
 ## Vorbereitung und Aufruf
 
+In der geführten CLI öffnet **Lab-Umgebungen → SSIS-Diagnose eines bestehenden
+Windows-Labs → Bestehende SQL-2025-SSISDB-Ausführung read-only beobachten** den
+Dialog. Er fragt die Run- und Belegkennungen einzeln ab und zeigt eine kompakte
+Übersicht über Katalogstatus, Worker und numerische Fehlercodes.
+
 Execution-ID, Projekt-LSN und Katalogdatenbankkennung stammen aus derselben
 privaten Consumer-Receipt.
 Die Katalogdatenbankkennung bezeichnet dabei wie im Analyze-Consumervertrag

@@ -9,6 +9,12 @@ gelten nur für die tatsächlich geprüfte Kombination; siehe
 
 ## Eingabe und Bindung
 
+In der geführten CLI führt **Lab-Umgebungen → SSIS-Diagnose eines bestehenden
+Windows-Labs → Eigenes DTSX/ISPAC im Gast laden und Komponenten beobachten**
+zur Paketladediagnose. Der Dialog erfasst Run, Instanz, Paket und erwarteten
+SHA-256. Er maskiert den lokalen Paketpfad und verlangt vor dem Gastaufruf
+eine Bestätigung, dass das Paket vertrauenswürdig und an den Beleg gebunden ist.
+
 Der Aufrufer liefert ein eigenes vertrauenswürdiges synthetisches DTSX oder
 ISPAC und den erwarteten SHA-256 aus seiner bisherigen lokalen Receipt.
 Der Befehl ist keine Sandbox: installierte Komponenten können bei der
