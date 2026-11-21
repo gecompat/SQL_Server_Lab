@@ -7,6 +7,8 @@
     Registered Hyper-V run identifier.
 .PARAMETER StateRoot
     Optional managed state root.
+.PARAMETER ExpectedRecoveryOperationId
+    Optional identifier of the operation shown in the confirmed recovery preview.
 .EXAMPLE
     Resume-SqlServerLabHyperVAutoStart -RunId $runId
 .OUTPUTS
