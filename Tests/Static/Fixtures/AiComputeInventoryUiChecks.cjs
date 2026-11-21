@@ -22,7 +22,28 @@ vm.runInNewContext(app.slice(start, end), {
     return { ok: true, json: async () => view };
   },
 });
+const capabilityButton = { ...button };
+const capabilityStatus = {};
+let capability = { Status: 'NO_PACKAGES', Items: [] };
+const capabilityStart = app.indexOf("$('#ai-runtime-capability-read').addEventListener");
+const capabilityEnd = app.indexOf("$('#llama-session-selection').addEventListener", capabilityStart);
+assert.ok(capabilityStart >= 0 && capabilityEnd > capabilityStart);
+vm.runInNewContext(app.slice(capabilityStart, capabilityEnd), {
+  $: selector => selector === '#ai-runtime-capability-read' ? capabilityButton : capabilityStatus,
+  sqlServerLabUiFetch(url, options) {
+    assert.equal(url, '/api/ai-runtime-capability');
+    assert.equal(options.method, undefined);
+    return { ok: true, json: async () => capability };
+  },
+});
 (async () => {
+  await capabilityButton.click();
+  assert.match(capabilityStatus.textContent, /Keine llama.cpp-Pakete/);
+  capability = { Status: 'FILES_HASHED_NOT_EXECUTED', Items: [{ Backend: 'LlamaCppOpenVino', Kind: 'NPU', Eligible: false }] };
+  await capabilityButton.click();
+  assert.match(capabilityStatus.textContent, /LlamaCppOpenVino · NPU · kein passendes Gerät gefunden/);
+  assert.match(capabilityStatus.textContent, /keine Runtime ausgeführt/);
+  assert.equal(capabilityButton.disabled, false);
   assert.equal(calls, 0);
   const reading = button.click();
   await button.click();

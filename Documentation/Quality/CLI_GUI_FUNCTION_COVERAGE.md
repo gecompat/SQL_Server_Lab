@@ -38,15 +38,15 @@ eines Cmdlets:
 ## Exportreferenz-Audit
 
 Ein mechanischer Abgleich des Manifests mit
-`Documentation/User/FUNCTIONS_CLI_GUI.md` findet 132 der 166 Exportnamen und
-34 dort nicht referenzierte Exporte. Das ist ein Referenzabgleich, keine
-vollständige Prüfung, ob die 132 Treffer tatsächlich korrekt geführt,
+`Documentation/User/FUNCTIONS_CLI_GUI.md` findet 133 der 166 Exportnamen und
+33 dort nicht referenzierte Exporte. Das ist ein Referenzabgleich, keine
+vollständige Prüfung, ob die 133 Treffer tatsächlich korrekt geführt,
 ausführbar oder providerabgenommen sind. Die folgende Inventarliste hält die
-34 nicht referenzierten Namen einzeln fest. Die sieben Environment-Group-
+33 nicht referenzierten Namen einzeln fest. Die sieben Environment-Group-
 Operationen aus dem vorherigen Abgleich sind jetzt in der Funktionsübersicht
 enthalten und unten separat quellengestützt als `GUIDED_BOTH` bewertet. Von
-den verbleibenden 34 Einträgen sind drei TLS-001-Exporte `DEFERRED`,
-12 Exporte als `KNOWN_GAP` bestätigt und 19 noch `NOT_ASSESSED`.
+den verbleibenden 33 Einträgen sind drei TLS-001-Exporte `DEFERRED`,
+11 Exporte als `KNOWN_GAP` bestätigt und 19 noch `NOT_ASSESSED`.
 Die Bewertung folgt aus Menüdispatch, GUI-Aktion, öffentlichen Parametern
 und den vorhandenen Nachweisen. Der Expertenkatalog allein erfüllt die
 geführte Abdeckung nicht.
@@ -54,7 +54,7 @@ geführte Abdeckung nicht.
 | Funktionsfamilie | Nicht einzeln in der Funktionsübersicht referenzierte Exporte | Status |
 |---|---|---|
 | SSIS-Diagnose | `Get-SqlServerLabSsisPackageDiagnostic`; `Get-SqlServerLabSsisExecutionDiagnostic` | `NOT_ASSESSED` |
-| KI-Compute-Auswahl und Messung | `Get-SqlServerLabAiRuntimeCapability`; `Get-SqlServerLabAiComputeCandidate`; `Get-SqlServerLabAiComputeSelection`; `Measure-SqlServerLabAiComputeCandidate`; `Measure-SqlServerLabAiComputeCandidateSet` | `KNOWN_GAP`; API und Expertenkatalog sind vorhanden. Die geführte Eignungsprüfung, Auswahl und Messung fehlen. |
+| KI-Compute-Auswahl und Messung | `Get-SqlServerLabAiComputeCandidate`; `Get-SqlServerLabAiComputeSelection`; `Measure-SqlServerLabAiComputeCandidate`; `Measure-SqlServerLabAiComputeCandidateSet` | `KNOWN_GAP`; API und Expertenkatalog sind vorhanden. Geführte Kandidatenermittlung, Auswahl und Messung fehlen. |
 | Shared Gateway | `Get-SqlServerLabAiSharedGatewayPlan`; `Test-SqlServerLabAiSharedGatewayPreflight`; `Register-SqlServerLabAiSharedGatewayStorage`; `Test-SqlServerLabAiSharedGatewayUpstream`; `Start-SqlServerLabAiSharedGatewaySession`; `Stop-SqlServerLabAiSharedGatewaySession`; `Get-SqlServerLabAiSharedGatewayStatus` | `KNOWN_GAP` für diese sieben Fachaktionen. Der vorhandene Dialog zum Dienst-Preflight nimmt einen bereits erstellten Gateway-Plan entgegen. |
 | Modell-/Gateway-Lifecycle | `Test-SqlServerLabAiExternalModelEndpoint`; `Test-SqlServerLabOvmsUpstreamEndpoint`; `Start-SqlServerLabOvmsHttpsGateway`; `Stop-SqlServerLabOvmsHttpsGateway` | `NOT_ASSESSED`; vorhandene Workflow-Dokumentation weist Lifecycle-Lücken aus |
 | Evaluation und Watch | `Update-SqlServerLabSqlGuestEvaluationEvidence`; `Invoke-SqlServerLabEvaluationWatchTrigger` | `NOT_ASSESSED` |
@@ -64,7 +64,7 @@ geführte Abdeckung nicht.
 | Persistentes KI-Retrieval und Security-Tools | `Invoke-SqlServerLabAiPersistentRetrieval`; `Get-SqlServerLabSecurityToolPlan` | `NOT_ASSESSED` |
 | TLS-001, zurückgestellt | `Update-SqlServerLabTlsBinding`; `Get-SqlServerLabTlsBindingRecovery`; `Resolve-SqlServerLabTlsBindingRecovery` | `DEFERRED`; bestehender Zustand bleibt erhalten, keine neue Abdeckungs- oder Runtimearbeit ohne dokumentierten Anwendungsfall |
 
-Die 53 Namen (34 ohne Referenz sowie 19 einzeln geprüfte Exporte)
+Die 53 Namen (33 ohne Referenz sowie 20 einzeln geprüfte Exporte)
 wurden unmittelbar gegen `FunctionsToExport` im Manifest
 abgeglichen; die Familiengruppierung ist nur eine Lesbarkeitshilfe. Sie ist
 keine Behauptung, dass eine Familie einen gemeinsamen Aufrufer oder denselben
@@ -116,6 +116,7 @@ und dem [Gruppenvertrag](../Architecture/LAB_ENVIRONMENT_GROUPS.md).
 |---|---|---|---|
 | Provider- und Sprachübersicht (`Get-SqlServerLabHostCapabilityMatrix`) | Hauptmenü → Hostfähigkeiten vor der Funktionsauswahl | Lab erstellen → Hostfähigkeiten vor der Funktionsauswahl | `GUIDED_BOTH` für Katalog und explizite Lesebeobachtung. Hostmatrix-Vertrags- und Browser-Suites. |
 | Sprachvariante prüfen (`Get-SqlServerLabExternalRuntimeCapability`) | Hostfähigkeiten → Konkrete Container-Variante näher prüfen | Lab erstellen → Python / R / Java: Katalog und Hostvoraussetzungen | `GUIDED_BOTH` für die geführte katalogisierte Docker-/Podman-Linux-Auswahl. Hostmatrix-Launchdetails und External-Runtime-Browser-Suites. SQL-Sprachausführung bleibt getrennt. |
+| llama.cpp-Eignung prüfen (`Get-SqlServerLabAiRuntimeCapability`) | Host-Dienste und Modelle → llama.cpp-Eignung prüfen | Derselbe Bereich und dieselbe Aktion | `GUIDED_BOTH` für die Prüfung vorhandener Paketdateien gegen die Geräteinventur. Runtime-Ausführung und Leistungsnachweise erfolgen separat. |
 | CPU, GPU und NPU erfassen (`Get-SqlServerLabAiComputeInventory`) | Host-Dienste und Modelle → CPU, GPU und NPU erfassen | Derselbe Bereich und dieselbe Aktion | `GUIDED_BOTH` für die Übersicht. Synthetische vollständige und partielle Gerätebefunde in Inventar- und Browserfixtures. Keine Geräte- oder Runtimequalifikation. |
 | Metadaten eines entfernten Runs prüfen und entfernen (`Get-SqlServerLabRunArtifactRemovalPlan`, `Invoke-SqlServerLabRunArtifactRemoval`) | Wartung, Aufräumen und Recovery → Artefakte eines entfernten Runs | Wartung und Recovery → Run-Artefakte prüfen | `GUIDED_BOTH`. Dieselben Cmdlets für gebundene Vorschau, bestätigte Entfernung und Fortsetzung. Workflow-UI und CLI-Vertragsfälle mit synthetischem State. |
 | Evaluationsersatz oder Migration vorprüfen (`Get-SqlServerLabEvaluationRefreshPlan`) | Wartung, Aufräumen und Recovery → SQL-Evaluation: Ersatz- und Migrationsentscheid | Wartung und Recovery → SQL-Evaluation: Ersatzentscheid | `GUIDED_BOTH` für die lesende Vorschau. Synthetische CLI-, HTTP- und Browserfälle. Die Vorschau führt keine Übernahme aus. |

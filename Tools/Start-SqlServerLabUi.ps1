@@ -931,6 +931,19 @@ try {
                 }
                 continue
             }
+            if ($path -ceq '/api/ai-runtime-capability') {
+                try {
+                    if ($context.Request.HttpMethod -cne 'GET' -or $context.Request.HasEntityBody -or $context.Request.Url.Query) {
+                        throw 'AI_RUNTIME_CAPABILITY_REQUEST_INVALID'
+                    }
+                    $view = & (Get-Module SqlServerLab) { Get-LabAiRuntimeCapabilityView }
+                    Write-UiResponse -Context $context -Body ($view | ConvertTo-Json -Depth 4 -Compress) -ContentType 'application/json; charset=utf-8'
+                }
+                catch {
+                    Write-UiResponse -Context $context -Body '{"Code":"AI_RUNTIME_CAPABILITY_UNAVAILABLE"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                }
+                continue
+            }
             if ($path -ceq '/api/llama-runtime-inventory') {
                 try {
                     $view = & (Get-Module SqlServerLab) { param($request) Invoke-LabLlamaCppRuntimeInventoryHttpRequest -Request $request } $context.Request

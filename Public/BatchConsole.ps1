@@ -1083,6 +1083,7 @@ function Show-LabHostModelsMenu {
         New-LabConsoleItem -Id LlamaRuntimeInventory -Label 'Vorhandene llama.cpp-Pakete prüfen' -Value 'Dateibefund · Backend und Build' -Shortcut 3
         New-LabConsoleItem -Id HostServiceStart -Label 'Eigene llama.cpp-Sitzung geführt starten' -Value 'Eingaben prüfen und Start bestätigen' -Shortcut 4
         New-LabConsoleItem -Id AiComputeInventory -Label 'CPU, GPU und NPU erfassen' -Value 'Lesende Geräteübersicht' -Shortcut 5
+        New-LabConsoleItem -Id AiRuntimeCapability -Label 'llama.cpp-Eignung prüfen' -Value 'Paketdateien und erkannte Geräte' -Shortcut 6
         New-LabConsoleItem -Id ModelLifecycle -Label 'Modell laden, entladen oder wechseln' -Disabled -DisabledReason 'Ein gemeinsamer geführter Load-/Unload-/Wechselvertrag ist noch offen. Der Datei-Download ist kein geladenes Modell.'
         New-LabConsoleItem -Id back -Label 'Zurück' -Shortcut 0
     )

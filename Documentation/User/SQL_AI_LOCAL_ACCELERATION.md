@@ -279,6 +279,12 @@ zum Deduplizieren verwendet und nicht ausgegeben. Wenn CPU-, GPU- oder
 NPU-Coverage nicht verfügbar ist, bleibt das Receipt `INCOMPLETE` und besitzt
 keinen verwendbaren Inventarhash.
 
+In CLI und Browser zeigt **Host-Dienste und Modelle → llama.cpp-Eignung prüfen**,
+welche Backends für welche erkannten Geräteklassen infrage kommen. Die
+Prüfung benötigt ein vollständiges Inventar und bis zu 16 Pakete aus der
+konfigurierten Suche. Sie hasht die Paketdateien und startet keine Runtime.
+Geräteausführung und Benchmark bleiben eigene Prüfungen.
+
 ```powershell
 $inventory = Get-SqlServerLabAiComputeInventory
 $runtimes = Get-SqlServerLabLlamaCppRuntime -SearchRoot $runtimeRoots

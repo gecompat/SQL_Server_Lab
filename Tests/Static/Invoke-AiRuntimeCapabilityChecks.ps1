@@ -19,6 +19,24 @@ try {
     Add-CheckResult 'Mehrbackend-Paket leitet CPU, CUDA, Vulkan und drei OpenVINO-Lanes ab' ($set.Capabilities.Count -eq 6 -and @($set.Capabilities|Where-Object Backend -eq LlamaCppOpenVino).Count -eq 3)
     Add-CheckResult 'Herstellerbindung trennt NVIDIA-CUDA von Intel-GPU und Intel-NPU' (@($set.Capabilities|Where-Object {$_.Backend -eq 'LlamaCppCuda' -and $_.VendorIds[0] -eq '10de' -and $_.MaximumDeviceCount -eq 1}).Count -eq 1 -and @($set.Capabilities|Where-Object {$_.Backend -eq 'LlamaCppOpenVino' -and $_.DeviceKinds[0] -eq 'NPU' -and $_.VendorIds[0] -eq '8086'}).Count -eq 1)
     Add-CheckResult 'Capability-Receipt entspricht Schema und enthält keine lokalen Pfade' (($set|ConvertTo-Json -Depth 20|Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/ai-runtime-capability-set.schema.json')) -and ($set|ConvertTo-Json -Depth 20) -notmatch [regex]::Escape($fixture))
+    $guided = & $module {
+        param($testInventory, $testRuntime)
+        function Get-SqlServerLabAiComputeInventory { [CmdletBinding()]param() $testInventory }
+        function Get-SqlServerLabLlamaCppRuntime { [CmdletBinding()]param() $testRuntime }
+        Get-LabAiRuntimeCapabilityView
+    } $inventory @($runtime, $runtime)
+    Add-CheckResult 'Geführte Prüfung trennt Geräteklassen und blendet Paketidentitäten aus' (
+        $guided.Status -ceq 'FILES_HASHED_NOT_EXECUTED' -and $guided.Items.Count -eq 6 -and
+        @($guided.Items | Where-Object Backend -CEQ LlamaCppOpenVino).Count -eq 3 -and
+        ($guided | ConvertTo-Json -Depth 6) -notmatch 'RuntimeSha256|Invocation|VendorIds'
+    )
+    $noPackages = & $module {
+        param($testInventory)
+        function Get-SqlServerLabAiComputeInventory { [CmdletBinding()]param() $testInventory }
+        function Get-SqlServerLabLlamaCppRuntime { [CmdletBinding()]param() }
+        Get-LabAiRuntimeCapabilityView
+    } $inventory
+    Add-CheckResult 'Geführte Prüfung meldet fehlende Pakete ohne Runtime-Start' ($noPackages.Status -ceq 'NO_PACKAGES' -and $noPackages.Items.Count -eq 0)
     $candidates=Get-SqlServerLabAiComputeCandidate -Inventory $inventory -RuntimeCapability $set.Capabilities
     Add-CheckResult 'Abgeleitete Lanes erzeugen CPU-, NPU-, Einzel- und Mehr-GPU-Kandidaten' ($candidates.Candidates.Count -eq 8 -and @($candidates.Candidates|Where-Object {$_.Backend -eq 'LlamaCppVulkan' -and $_.Devices.Count -eq 2}).Count -eq 1)
     $vulkan=@($candidates.Candidates|Where-Object {$_.Backend -eq 'LlamaCppVulkan' -and $_.Devices.Count -eq 2})[0]

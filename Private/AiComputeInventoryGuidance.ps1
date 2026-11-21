@@ -46,3 +46,53 @@ function Show-LabAiComputeInventoryInteractive {
     catch { Write-LabError 'Die Geräteinventur ist nicht verfügbar.' }
     $null = Wait-LabConsoleAcknowledgement
 }
+
+function Get-LabAiRuntimeCapabilityView {
+    $inventory = Get-SqlServerLabAiComputeInventory -WarningAction SilentlyContinue -ErrorAction Stop
+    if ($inventory.Status -cne 'COMPLETE') {
+        return [pscustomobject]@{ Status = 'INVENTORY_INCOMPLETE'; Items = @() }
+    }
+
+    $warnings = @()
+    $packages = @(Get-SqlServerLabLlamaCppRuntime -WarningAction SilentlyContinue -WarningVariable warnings -ErrorAction Stop)
+    if ($warnings.Count -or $packages.Count -gt 16) {
+        return [pscustomobject]@{ Status = 'PACKAGE_SCAN_INCOMPLETE'; Items = @() }
+    }
+    if ($packages.Count -eq 0) {
+        return [pscustomobject]@{ Status = 'NO_PACKAGES'; Items = @() }
+    }
+
+    $capability = Get-SqlServerLabAiRuntimeCapability -Inventory $inventory -Runtime $packages -ErrorAction Stop
+    if ($capability.EvidenceStatus -cne 'FILES_HASHED_NOT_EXECUTED') {
+        throw 'AI_RUNTIME_CAPABILITY_VIEW_INVALID'
+    }
+    $items = foreach ($group in $capability.Capabilities | Group-Object Backend, { $_.DeviceKinds[0] }) {
+        $row = $group.Group[0]
+        [pscustomobject]@{
+            Backend = $row.Backend
+            Kind = $row.DeviceKinds[0]
+            Eligible = @($group.Group | Where-Object Eligible).Count -gt 0
+        }
+    }
+    [pscustomobject]@{ Status = 'FILES_HASHED_NOT_EXECUTED'; Items = @($items) }
+}
+
+function Show-LabAiRuntimeCapabilityInteractive {
+    try {
+        $view = Get-LabAiRuntimeCapabilityView
+        switch ($view.Status) {
+            INVENTORY_INCOMPLETE { Write-LabInfo 'Die Geräteinventur ist unvollständig. Die Eignung kann nicht ermittelt werden.' }
+            PACKAGE_SCAN_INCOMPLETE { Write-LabInfo 'Die Paketsuche ist unvollständig oder hat mehr als 16 Kandidaten. Die Eignung kann nicht ermittelt werden.' }
+            NO_PACKAGES { Write-LabInfo 'Keine llama.cpp-Pakete gefunden. Prüfe die Paketübersicht im selben Menü.' }
+            FILES_HASHED_NOT_EXECUTED {
+                foreach ($row in $view.Items) {
+                    $result = if ($row.Eligible) { 'passendes Gerät gefunden' } else { 'kein passendes Gerät gefunden' }
+                    Write-LabInfo ('{0} · {1} · {2}' -f $row.Backend, $row.Kind, $result)
+                }
+                Write-LabInfo 'Paketdateien wurden geprüft. Es wurde keine Runtime ausgeführt.'
+            }
+        }
+    }
+    catch { Write-LabError 'Die Runtime-Eignung kann nicht ermittelt werden.' }
+    $null = Wait-LabConsoleAcknowledgement
+}

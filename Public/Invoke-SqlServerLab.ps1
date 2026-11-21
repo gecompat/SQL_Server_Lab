@@ -161,6 +161,7 @@ function Invoke-LabMenuAction {
     if ($ActionName -eq 'EvaluationRefreshPlan') { Invoke-LabEvaluationRefreshPlanInteractive; return }
     if ($ActionName -eq 'HostServiceStart') { Invoke-LabLlamaCppStartInteractive; return }
     if ($ActionName -eq 'LlamaRuntimeInventory') { Show-LabLlamaCppRuntimeInventoryInteractive; return }
+    if ($ActionName -eq 'AiRuntimeCapability') { Show-LabAiRuntimeCapabilityInteractive; return }
     if ($ActionName -eq 'AiComputeInventory') { Show-LabAiComputeInventoryInteractive; return }
     if ($ActionName -eq 'HyperVAutoStart') { Invoke-LabHyperVAutoStartInteractive; return }
     if ($ActionName -eq 'EnvironmentGroups') { Invoke-LabEnvironmentGroupsInteractive; return }
@@ -1678,6 +1679,7 @@ function Invoke-LabAction {
         'HostServiceLifecycle' { Show-LabLlamaCppSessionStopInteractive }
         'HostServiceStart' { Invoke-LabLlamaCppStartInteractive }
         'LlamaRuntimeInventory' { Show-LabLlamaCppRuntimeInventoryInteractive }
+        'AiRuntimeCapability' { Show-LabAiRuntimeCapabilityInteractive }
         'AiComputeInventory' { Show-LabAiComputeInventoryInteractive }
         'RuntimeInstaller' { Show-LabLlamaInstallerInteractive }
         'Setup' {

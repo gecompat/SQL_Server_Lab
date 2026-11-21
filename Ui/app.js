@@ -3734,6 +3734,41 @@ $('#llama-session-open').addEventListener('click', () => {
   llamaSessionRevision++; llamaSessionBusy = false; llamaSessionView = null; invalidateLlamaSessionPlan();
   $('#llama-session-dialog').showModal(); return requestLlamaSession();
 });
+$('#ai-runtime-capability-read').addEventListener('click', async () => {
+  const button = $('#ai-runtime-capability-read');
+  const status = $('#ai-runtime-capability-status');
+  if (button.disabled) return;
+  button.disabled = true;
+  status.textContent = 'Paketdateien und Geräte werden geprüft …';
+  try {
+    const response = await sqlServerLabUiFetch('/api/ai-runtime-capability', { cache: 'no-store' });
+    if (!response.ok) throw new Error('CAPABILITY_UNAVAILABLE');
+    const view = await response.json();
+    switch (view.Status) {
+      case 'INVENTORY_INCOMPLETE':
+        status.textContent = 'Die Geräteinventur ist unvollständig. Die Eignung kann nicht ermittelt werden.';
+        break;
+      case 'PACKAGE_SCAN_INCOMPLETE':
+        status.textContent = 'Die Paketsuche ist unvollständig oder hat mehr als 16 Kandidaten.';
+        break;
+      case 'NO_PACKAGES':
+        status.textContent = 'Keine llama.cpp-Pakete gefunden. Prüfe die Paketübersicht.';
+        break;
+      case 'FILES_HASHED_NOT_EXECUTED':
+        status.textContent = view.Items.map(row =>
+          row.Backend + ' · ' + row.Kind + ' · ' + (row.Eligible ? 'passendes Gerät gefunden' : 'kein passendes Gerät gefunden')
+        ).join(' | ') + '. Es wurde keine Runtime ausgeführt.';
+        break;
+      default:
+        throw new Error('CAPABILITY_INVALID');
+    }
+  } catch {
+    status.textContent = 'Die Runtime-Eignung kann nicht ermittelt werden.';
+  } finally {
+    button.disabled = false;
+  }
+});
+
 $('#llama-session-selection').addEventListener('change', () => { llamaSessionRevision++; invalidateLlamaSessionPlan(); });
 $('#llama-session-confirm').addEventListener('change', updateLlamaSessionControls);
 $('#llama-session-read').addEventListener('click', () => requestLlamaSession());
