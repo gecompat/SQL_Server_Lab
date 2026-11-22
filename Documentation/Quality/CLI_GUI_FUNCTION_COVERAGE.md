@@ -261,6 +261,19 @@ erreichte Podman die SQL-Bereitschaft innerhalb des Zeitlimits nicht.
 Die native Abnahme belegt die getrennte Anlage je Provider. Der
 Browserversand ist separat synthetisch geprüft.
 
+### Native Abnahme der Windows-Testgruppe
+
+Der manuelle Hyper-V-Workflow mit Modus `windows-test-group-acceptance`
+prüft auf Key18 eine lokale SQL-Server-2025-Prepared-Vorlage mit Build
+`17.0.1000.7`. Bei mehreren geeigneten Vorlagen nutzt er den jüngsten
+registrierten Eintrag. Die Artefakt-ID bleibt im lokalen Prüfprotokoll.
+Ein eigener State Root und ein eigenes Exportverzeichnis trennen den Test von
+der regulären Testsystem-Matrix. Der Test legt ein Mitglied an, stoppt es,
+prüft den Wiederanlauf über die Reparatur und entfernt es über die
+Gruppenaktion. Er prüft anschließend den Bestand der Hyper-V-VM-IDs und die
+Abwesenheit der eigenen Child-Datenträger. Der Browser- und Menüversand wird
+weiterhin separat geprüft.
+
 ### Geprüfte Teilmenge: CMS-Management
 
 Der geführte Browserdialog **Verbindungen und CMS → CMS bereitstellen**

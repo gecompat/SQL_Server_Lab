@@ -62,7 +62,7 @@ function Get-LabTestGroupWindowsArtifact {
 }
 
 function Get-LabTestGroupManagementPlan {
-    param([ValidateSet('CreateWindows','Repair','Remove','Export')][string]$Operation, [string]$ArtifactId)
+    param([ValidateSet('CreateWindows','Repair','Remove','Export')][string]$Operation, [string]$ArtifactId, [string]$OutputDirectory)
 
     $root = Get-LabStateRoot
     if ($Operation -eq 'CreateWindows' -and -not $ArtifactId) {
@@ -70,7 +70,7 @@ function Get-LabTestGroupManagementPlan {
     }
     if (($Operation -eq 'CreateWindows' -and $ArtifactId -cnotmatch '^hyperv-[a-z0-9-]{1,96}-[a-f0-9]{64}$') -or
         ($Operation -ne 'CreateWindows' -and $ArtifactId)) { throw 'TEST_GROUP_MANAGEMENT_TARGET_INVALID' }
-    $directory = Get-LabTestEnvironmentExportDirectory
+    $directory = Get-LabTestEnvironmentExportDirectory -OutputDirectory $OutputDirectory
     $lock = Enter-LabTestGroupLock -OutputDirectory $directory
     try {
         Assert-LabTestGroupExportPaths -Directory $directory
@@ -148,12 +148,12 @@ function Get-LabTestGroupManagementPlan {
 }
 
 function Invoke-LabTestGroupManagementPlan {
-    param([ValidateSet('CreateWindows','Repair','Remove','Export')][string]$Operation, [string]$ArtifactId, [string]$ExpectedPlanKey)
+    param([ValidateSet('CreateWindows','Repair','Remove','Export')][string]$Operation, [string]$ArtifactId, [string]$ExpectedPlanKey, [string]$OutputDirectory)
 
     if ($ExpectedPlanKey -cnotmatch '^[a-f0-9]{64}$') { throw 'TEST_GROUP_MANAGEMENT_PREVIEW_REQUIRED' }
     if ($Operation -eq 'CreateWindows' -and -not $ArtifactId) { throw 'TEST_GROUP_MANAGEMENT_TARGET_INVALID' }
     $root = Get-LabStateRoot
-    $directory = Get-LabTestEnvironmentExportDirectory
+    $directory = Get-LabTestEnvironmentExportDirectory -OutputDirectory $OutputDirectory
     $lock = Enter-LabTestGroupLock -OutputDirectory $directory
     $groupsLock = $null
     $runLocks = [Collections.Generic.List[object]]::new()
@@ -167,7 +167,7 @@ function Invoke-LabTestGroupManagementPlan {
                 $runLocks.Add((Enter-LabEnvironmentGroupRunResourceLock -RunId $id -StateRoot $root))
             }
         }
-        $plan = Get-LabTestGroupManagementPlan -Operation $Operation -ArtifactId $ArtifactId
+        $plan = Get-LabTestGroupManagementPlan -Operation $Operation -ArtifactId $ArtifactId -OutputDirectory $directory
         if (-not $plan.CanApply -or $plan.PlanKey -cne $ExpectedPlanKey) { throw 'TEST_GROUP_MANAGEMENT_PREVIEW_CHANGED' }
         if ($Operation -eq 'Export') {
             try {
