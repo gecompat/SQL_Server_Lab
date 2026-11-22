@@ -571,7 +571,8 @@ dann den Auftrag.
   SQL-Prepared-Vorlage. SQL-Version und Build stammen aus der Vorlage.
   Hyper-V, ein konfiguriertes Lab_Data und eine geeignete Vorlage müssen
   vorhanden sein. Die Windows-Einrichtung nutzt ein generiertes Kennwort,
-  das im Browser nicht erscheint. Der Auftrag meldet die Registrierung
+  das im Browser nicht erscheint. Die Windows-Aktivierung kann vorübergehend
+  einen externen Netzwerkadapter verwenden. Der Auftrag meldet die Registrierung
   und getrennt davon die Bereitschaft der Gruppe. Für Anlage aus
   Installationsmedien oder die manuelle Windows-Einrichtung nutze
   **Testgruppe erstellen oder konfigurieren → Windows hinzufügen**

@@ -11,7 +11,7 @@
   const confirm = el('confirm');
   const actions = { CreateWindows: 'CreateWindowsTestGroupMember', Repair: 'RepairTestGroup', Remove: 'RemoveTestGroup' };
   const effects = {
-    CreateWindows: 'Klon einer freigegebenen SQL-Prepared-Vorlage mit automatischer Windows-Einrichtung. Die Testgruppe prüft die Windows-Aktivierung.',
+    CreateWindows: 'Klon einer freigegebenen SQL-Prepared-Vorlage mit automatischer Windows-Einrichtung. Die Windows-Aktivierung kann vorübergehend einen externen Netzwerkadapter verwenden.',
     Repair: 'Kann Container ersetzen, Windows-VMs neu starten und für die Windows-Aktivierung vorübergehend einen externen Netzwerkadapter verwenden.',
     Remove: 'Entfernt alle aufgeführten Umgebungen samt ihren zugeordneten Ressourcen und Gruppenexporten. Dieser Vorgang ist endgültig.'
   };
@@ -59,7 +59,7 @@
       const view = await get({ operation: selected });
       if (revision !== current || !dialog.open) return;
       if (view.Operation !== selected || !Array.isArray(view.Artifacts)) throw new Error('TEST_GROUP_MANAGEMENT_PLAN_UNAVAILABLE');
-      const choices = view.Artifacts.map(item => new Option('SQL Server ' + item.SqlVersion + ' · ' + item.Build, item.ArtifactId));
+      const choices = view.Artifacts.map(item => new Option('SQL Server ' + item.SqlVersion + ' · ' + item.Build + ' · Vorlage ' + item.ArtifactId.slice(-8), item.ArtifactId));
       image.replaceChildren(new Option('Bitte auswählen', ''), ...choices);
       image.disabled = !choices.length;
       if (!choices.length) status.textContent = 'Keine geeignete SQL-Prepared-Vorlage verfügbar.';

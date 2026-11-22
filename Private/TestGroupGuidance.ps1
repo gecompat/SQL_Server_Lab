@@ -39,16 +39,25 @@ function Assert-LabTestGroupExportPaths {
 }
 
 function Get-LabTestGroupWindowsArtifact {
-    param([string]$StateRoot, [string]$ArtifactId)
+    param([string]$StateRoot, [string]$ArtifactId, [switch]$VerifyIntegrity)
 
     if (-not (Test-HyperVAvailable).Available) { return }
-    foreach ($artifact in @(Get-HyperVImageArtifact -ArtifactId $ArtifactId -StateRoot $StateRoot -SkipIntegrityCheck)) {
+    foreach ($artifact in @(Get-HyperVImageArtifact -ArtifactId $ArtifactId -StateRoot $StateRoot -SkipIntegrityCheck:(-not $VerifyIntegrity))) {
         if (-not $artifact -or $artifact.artifactState -cne 'SQL_PREPARED_SEALED' -or
             [string]$artifact.artifactId -cnotmatch '^hyperv-[a-z0-9-]{1,96}-[a-f0-9]{64}$' -or
             [string]$artifact.sql.version -cnotin @('2019','2022','2025') -or
-            [string]$artifact.sql.build -cnotmatch '^\d+\.\d+\.\d+\.\d+$' -or
-            -not (Test-HyperVImageArtifactChildValidationEligibility -Artifact $artifact).Eligible) { continue }
-        [pscustomobject]@{ ArtifactId=[string]$artifact.artifactId; SqlVersion=[string]$artifact.sql.version; Build=[string]$artifact.sql.build }
+            -not (Test-HyperVImageArtifactChildValidationEligibility -Artifact $artifact).Eligible -or
+            -not (Test-HyperVImageArtifactEvaluationEligibility -Artifact $artifact -MinimumEvaluationDaysRemaining 0).Eligible) { continue }
+        $match = [regex]::Match([string]$artifact.sql.build, '^(?<version>[0-9]{1,4}(?:\.[0-9]{1,6}){3})(?: \(\([A-Za-z0-9_. -]+\)\.[0-9]{6}-[0-9]{4}\))?$')
+        if (-not $match.Success) { continue }
+        $version = [version]$match.Groups['version'].Value
+        $major = Get-HyperVSqlMajorVersionFromVersion -SqlVersion ([string]$artifact.sql.version)
+        # SQL Setup FileVersion can use year + major*10 instead of product major + minor.
+        if ($version.Major -eq [int]$artifact.sql.version -and $version.Minor -eq ($major * 10)) {
+            $version = [version]::new($major, 0, $version.Build, $version.Revision)
+        }
+        if ($version.Major -ne $major) { continue }
+        [pscustomobject]@{ ArtifactId=[string]$artifact.artifactId; SqlVersion=[string]$artifact.sql.version; Build=$version.ToString() }
     }
 }
 
@@ -140,9 +149,9 @@ function Invoke-LabTestGroupManagementPlan {
             $password = New-HyperVSqlUnattendedPassword
             $stage = 'IMAGE'
             try {
-                $image = Get-HyperVImageArtifact -ArtifactId $ArtifactId -StateRoot $root 3>$null 4>$null 5>$null 6>$null
-                if (-not $image -or $image.artifactId -cne $ArtifactId -or $image.artifactState -cne 'SQL_PREPARED_SEALED' -or
-                    [string]$image.sql.version -cne $plan.SqlVersion -or [string]$image.sql.build -cne $plan.Build) {
+                $images = @(Get-LabTestGroupWindowsArtifact -ArtifactId $ArtifactId -StateRoot $root -VerifyIntegrity 3>$null 4>$null 5>$null 6>$null)
+                if ($images.Count -ne 1 -or $images[0].ArtifactId -cne $ArtifactId -or
+                    $images[0].SqlVersion -cne $plan.SqlVersion -or $images[0].Build -cne $plan.Build) {
                     throw 'TEST_GROUP_WINDOWS_IMAGE_CHANGED'
                 }
                 $stage = 'INTENT'

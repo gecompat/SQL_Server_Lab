@@ -334,7 +334,7 @@ try {
             [CmdletBinding()]
             param($ArtifactId,$StateRoot,[switch]$SkipIntegrityCheck)
             if (-not $ArtifactId -or $ArtifactId -ceq $script:groupWindowsId) {
-                [pscustomobject]@{ artifactId=$script:groupWindowsId; artifactState='SQL_PREPARED_SEALED'; sql=@{version='2025';build='17.0.1000.1'} }
+                [pscustomobject]@{ artifactId=$script:groupWindowsId; artifactState='SQL_PREPARED_SEALED'; sql=@{version='2025';build='2025.0170.1000.07 ((SQL2025_RTM).251021-1808)'} }
             }
             if (-not $ArtifactId) {
                 [pscustomobject]@{ artifactId=('hyperv-os-' + ('b' * 64)); artifactState='OS_SEALED'; sql=$null }
@@ -359,7 +359,8 @@ try {
             $script:groupWindowsCalls += 'Provision'
         }
         $catalog = Get-LabTestGroupManagementPlan -Operation CreateWindows
-        Check-Group ($catalog.Artifacts.Count -eq 1 -and $catalog.Artifacts[0].ArtifactId -ceq $script:groupWindowsId) 'Windows list did not restrict itself to eligible prepared images'
+        Check-Group ($catalog.Artifacts.Count -eq 1 -and $catalog.Artifacts[0].ArtifactId -ceq $script:groupWindowsId -and
+            $catalog.Artifacts[0].Build -ceq '17.0.1000.7') 'Windows list did not parse the SQL Setup version of the eligible prepared image'
         $windows = Get-LabTestGroupManagementPlan -Operation CreateWindows -ArtifactId $script:groupWindowsId
         Reject-Group { Invoke-LabTestGroupManagementPlan -Operation CreateWindows -ArtifactId $script:groupWindowsId -ExpectedPlanKey ('b'*64) }
         Check-Group (-not $script:groupWindowsCalls.Count) 'Windows preview or stale submission invoked a provider'
