@@ -282,6 +282,8 @@ try {
             Check-Group ($script:groupUiAction -eq 'StopTestGroupPower' -and $script:groupUiParameters.ExpectedPlanKey -eq ('a'*64) -and $jobs.Count -eq 1 -and $script:groupUiResponse.id -eq 'synthetic-group-job') 'Real HTTP route failed one-shot job binding'
         } finally { $stream.Dispose() }
         $script:groupCreateCalls = 0
+        $script:groupExpectedPatch = 'latest'
+        $script:groupExpectedKey = 'LINUX_PODMAN_2025'
         $script:groupCreateRuntime = 'runtime-one'
         function Get-LabContainerRuntimeScope { [pscustomobject]@{ Status='AVAILABLE'; RuntimeId=$script:groupCreateRuntime } }
         function New-SqlServerLabAutomatedTestEnvironment {
@@ -289,8 +291,8 @@ try {
             param($Specification,$Provider,$OutputDirectory,$StateRoot)
             $script:groupCreateCalls++
             if ($Specification.Count -ne 1 -or $Specification[0].Platform -cne 'linux' -or
-                $Specification[0].SqlVersion -cne '2025' -or $Specification[0].Patch -cne 'latest' -or
-                $Specification[0].Key -cne 'LINUX_PODMAN_2025' -or $Provider -cne 'podman') {
+                $Specification[0].SqlVersion -cne '2025' -or $Specification[0].Patch -cne $script:groupExpectedPatch -or
+                $Specification[0].Key -cne $script:groupExpectedKey -or $Provider -cne 'podman') {
                 throw 'CREATE_FIXTURE_TARGET_MISMATCH'
             }
             $registered = [pscustomobject]@{ Key=$Specification[0].Key; RunId=[guid]::NewGuid().ToString('D'); RegistrationState='REGISTERED' }
@@ -325,6 +327,17 @@ try {
             ($created | ConvertTo-Json -Depth 5) -cnotmatch 'synthetic-not-for-receipt') 'Linux creation did not report the bound registration safely'
         Reject-Group { Invoke-SqlServerLabWorkflowAction -Action CreateLinuxTestGroupMember -Provider podman -SqlVersion 2025 -ExpectedPlanKey $createPlan.PlanKey }
         Check-Group ($script:groupCreateCalls -eq 1) 'Completed Linux creation replayed with the same preview'
+        $catalog = Get-LabTestGroupLinuxCreatePlan
+        Check-Group ('cu9' -cin $catalog.Patches['2025']) 'Linux group catalog missed the selectable pinned patch'
+        Reject-Group { Get-LabTestGroupLinuxCreatePlan -Provider podman -SqlVersion 2025 -Patch cu999999 }
+        $latest = Get-LabTestGroupLinuxCreatePlan -Provider podman -SqlVersion 2025
+        $pinned = Get-LabTestGroupLinuxCreatePlan -Provider podman -SqlVersion 2025 -Patch cu9
+        Reject-Group { Invoke-SqlServerLabWorkflowAction -Action CreateLinuxTestGroupMember -Provider podman -SqlVersion 2025 -TestGroupPatch cu9 -ExpectedPlanKey $latest.PlanKey }
+        Check-Group ($script:groupCreateCalls -eq 1 -and $pinned.PlanKey -cne $latest.PlanKey) 'Pin was interchangeable with a preview for the current catalog patch'
+        $script:groupExpectedPatch = 'cu9'
+        $script:groupExpectedKey = 'LINUX_PODMAN_2025_CU9'
+        $created = Invoke-SqlServerLabWorkflowAction -Action CreateLinuxTestGroupMember -Provider podman -SqlVersion 2025 -TestGroupPatch cu9 -ExpectedPlanKey $pinned.PlanKey 6>$null
+        Check-Group ($script:groupCreateCalls -eq 2 -and $created.Result.Key -ceq $script:groupExpectedKey) 'Confirmed pinned patch did not reach the group creation plan'
         $script:groupWindowsId = 'hyperv-prepared-' + ('a' * 64)
         $script:groupWindowsRun = [guid]::NewGuid().ToString('D')
         $script:groupWindowsCalls = @()

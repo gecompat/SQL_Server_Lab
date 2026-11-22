@@ -1582,8 +1582,9 @@ try {
                 }
                 $hasTransientSecret = $parameters.ContainsKey('GuestPassword') -or $parameters.ContainsKey('SaPassword')
                 # A confirmed power plan is a one-shot request: never replay it through batch recovery.
-                if ($action -eq 'CreateLinuxTestGroupMember' -and ($parameters.Count -ne 3 -or
+                if ($action -eq 'CreateLinuxTestGroupMember' -and ($parameters.Count -notin @(3,4) -or
                     $parameters['Provider'] -isnot [string] -or $parameters['SqlVersion'] -isnot [string] -or
+                    ($parameters.Count -eq 4 -and $parameters['TestGroupPatch'] -isnot [string]) -or
                     $parameters['ExpectedPlanKey'] -isnot [string])) { throw 'TEST_GROUP_LINUX_CREATE_ACTION_INVALID' }
                 $groupManagement = $action -in @('CreateWindowsTestGroupMember','RepairTestGroup','RemoveTestGroup')
                 if ($groupManagement) {

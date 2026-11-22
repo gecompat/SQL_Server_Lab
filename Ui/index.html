@@ -1582,7 +1582,8 @@
       <div class="dialog-heading"><h2>Linux-Testumgebung hinzufügen</h2><button id="test-group-create-close" type="button" class="icon-button" aria-label="Schließen">×</button></div>
       <label>Provider<select id="test-group-create-provider" required><option value="">Bitte auswählen</option><option value="docker">Docker</option><option value="podman">Podman</option></select></label>
       <label>SQL-Version<select id="test-group-create-version" required disabled></select></label>
-      <p>Verwendet den aktuellen Patch aus dem Lab-Katalog. Die neue Umgebung wird Teil der geschützten Testgruppe und erhält ein automatisch erzeugtes Kennwort.</p>
+      <label>Patch<select id="test-group-create-patch" required disabled></select></label>
+      <p>Die neue Umgebung wird Teil der geschützten Testgruppe und erhält ein automatisch erzeugtes Kennwort.</p>
       <p id="test-group-create-status" role="status" aria-live="polite"></p>
       <label><input id="test-group-create-confirm" type="checkbox" disabled> Genau die angezeigte Umgebung anlegen und den Gruppenexport aktualisieren</label>
       <div class="dialog-actions"><button id="test-group-create-preview" type="submit" class="button secondary" disabled>Vorschau lesen</button><button id="test-group-create-apply" type="button" class="button primary" disabled>Testumgebung anlegen</button></div>

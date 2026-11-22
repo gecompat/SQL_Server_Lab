@@ -221,7 +221,10 @@ Ist er angegeben, wird der Download strikt dagegen verifiziert.
 .PARAMETER ExpectedCatalogRevision
     Erwartete Katalogrevision aus der getrennten Retained-Store-Löschvorschau.
 .PARAMETER ExpectedPlanKey
-    Fingerprint der bestätigten Retained-Store-, CPU/RAM- oder Gruppen-Powervorschau.
+    Fingerprint der bestätigten Retained-Store-, CPU/RAM- oder Testgruppen-Vorschau.
+.PARAMETER TestGroupPatch
+    Für CreateLinuxTestGroupMember: aktueller Katalogpatch (`latest`) oder der
+    in der Vorschau gebundene katalogisierte CU, beispielsweise `cu9`.
 .PARAMETER GuestUserName
     Lokaler Administratorname im Gast für PowerShell Direct.
 .PARAMETER GuestPassword
@@ -362,6 +365,7 @@ function Invoke-SqlServerLabWorkflowAction {
         [object[]]$PersistentStorageSelection,
         [ValidateRange(0,2147483647)][int]$ExpectedCatalogRevision,
         [ValidatePattern('^[a-f0-9]{64}$')][string]$ExpectedPlanKey,
+        [ValidatePattern('^(?:latest|cu[1-9][0-9]{0,5})$')][string]$TestGroupPatch,
         [ValidateRange(32, 4096)][int]$PersistentDataDiskGB = 128,
         [ValidatePattern('^windows-(server-)?[0-9]+(?:-r2)?$')][string]$OperatingSystemId = 'windows-server-2025',
         [string]$WindowsMediaPath,
@@ -529,7 +533,7 @@ function Invoke-SqlServerLabWorkflowAction {
     }
 
     if ($Action -eq 'CreateLinuxTestGroupMember') {
-        $result = Invoke-LabTestGroupLinuxCreatePlan -Provider $Provider -SqlVersion $SqlVersion -ExpectedPlanKey $ExpectedPlanKey
+        $result = Invoke-LabTestGroupLinuxCreatePlan -Provider $Provider -SqlVersion $SqlVersion -Patch $TestGroupPatch -ExpectedPlanKey $ExpectedPlanKey
         Write-Information ("Testumgebung {0} wurde registriert. Gruppenbereitschaft: {1}." -f $result.Key,$result.GroupReady) -InformationAction Continue
         return [pscustomobject]@{ Action=$Action; CompletedAt=Get-LabTimestamp; Result=$result }
     }

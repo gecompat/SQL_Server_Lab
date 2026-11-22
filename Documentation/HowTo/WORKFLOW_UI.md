@@ -549,18 +549,16 @@ Gruppenbereitsteller mit SQL-Prüfung behält seine eigene Semantik.
 ### Linux-Testumgebung zur geschützten Testgruppe hinzufügen
 
 Öffne **Geschützte Testsystem-Matrix → Linux-Testumgebung hinzufügen**.
-Wähle Docker oder Podman und eine unterstützte SQL-Version. Der Browser
-verwendet den aktuellen Patch aus dem Lab-Katalog. Lies die Vorschau und
-bestätige den angezeigten Gruppeneintrag. Das Lab erzeugt ein eigenes
+Wähle Docker oder Podman, die SQL-Version und den Patch. Die Auswahl
+enthält den aktuellen Patch und die für diese Version verfügbaren
+katalogisierten CUs. Lies die Vorschau und bestätige den angezeigten
+Gruppeneintrag. Das Lab erzeugt ein eigenes
 Kennwort, registriert die Umgebung und aktualisiert den geschützten Export
 unter dem konfigurierten Lab_Data. Der Browser zeigt das Kennwort nicht an.
 
 Eine geänderte Runtime oder Gruppenregistrierung macht die Vorschau
 ungültig. Nach einem unbestätigten Auftrag prüfe zuerst den Gruppenstatus.
 Eine offene Vormerkung für dasselbe Ziel sperrt eine weitere Anlage.
-Für die Auswahl eines einzelnen Linux-Patches verwende das Konsolenmenü
-der Testsystem-Matrix.
-
 ### Windows hinzufügen, Testgruppe reparieren oder entfernen
 
 Öffne **Geschützte Testsystem-Matrix → Windows anlegen, Gruppe reparieren

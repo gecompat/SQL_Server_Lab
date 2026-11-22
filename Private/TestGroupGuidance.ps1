@@ -196,14 +196,27 @@ function Invoke-LabTestGroupManagementPlan {
 }
 
 function Get-LabTestGroupLinuxCreatePlan {
-    param([string]$Provider, [string]$SqlVersion, [string]$OutputDirectory, [string]$StateRoot)
+    param([string]$Provider, [string]$SqlVersion, [string]$OutputDirectory, [string]$StateRoot, [string]$Patch = 'latest')
 
     $versions = @(Get-SqlServerVersions -Status SUPPORTED | Where-Object { $_.docker.image } |
         ForEach-Object { [string]$_.id } | Where-Object { $_ -cmatch '^20\d{2}$' } | Sort-Object -Unique)
-    if (-not $Provider -and -not $SqlVersion) { return [pscustomobject]@{ Versions=$versions } }
+    if (-not $Provider -and -not $SqlVersion) {
+        $patches = [ordered]@{}
+        foreach ($version in $versions) {
+            $patches[$version] = @(Get-SqlServerBuilds -VersionId $version | Where-Object { $_.tag -and $_.cu -match '^CU[1-9][0-9]{0,5}$' } |
+                ForEach-Object { ([string]$_.cu).ToLowerInvariant() } | Select-Object -Unique)
+        }
+        return [pscustomobject]@{ Versions=$versions; Patches=$patches }
+    }
     if ($Provider -cnotin @('docker','podman') -or $SqlVersion -cnotin $versions) {
         throw 'TEST_GROUP_LINUX_CREATE_TARGET_INVALID'
     }
+    if (-not $Patch) { $Patch = 'latest' }
+    if ($Patch -cnotmatch '^(?:latest|cu[1-9][0-9]{0,5})$') { throw 'TEST_GROUP_LINUX_CREATE_PATCH_INVALID' }
+    $versionId = if ($Patch -ceq 'latest') { $SqlVersion } else { "$SqlVersion-$($Patch.ToUpperInvariant())" }
+    try { $image = Get-SqlServerDockerImage -VersionId $versionId -ErrorAction Stop }
+    catch { throw 'TEST_GROUP_LINUX_CREATE_PATCH_UNAVAILABLE' }
+    if ($image -cnotmatch '^mcr\.microsoft\.com/mssql/server:[A-Za-z0-9_.-]+$') { throw 'TEST_GROUP_LINUX_CREATE_PATCH_UNAVAILABLE' }
     $directory = Get-LabTestEnvironmentExportDirectory -OutputDirectory $OutputDirectory
     if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
     $lock = Enter-LabTestGroupLock -OutputDirectory $directory
@@ -211,13 +224,13 @@ function Get-LabTestGroupLinuxCreatePlan {
         Assert-LabTestGroupExportPaths -Directory $directory
         $scope = Get-LabContainerRuntimeScope -Provider $Provider -StateRoot $StateRoot
         if ($scope.Status -cne 'AVAILABLE' -or -not $scope.RuntimeId) { throw 'TEST_GROUP_LINUX_CREATE_RUNTIME_UNAVAILABLE' }
-        $image = Get-SqlServerDockerImage -VersionId $SqlVersion
         $registry = Get-LabTestEnvironmentRegistry -OutputDirectory $directory
         $registryPath = Get-LabTestEnvironmentRegistryPath -OutputDirectory $directory
         $registryHash = if (Test-Path -LiteralPath $registryPath -PathType Leaf) {
             (Get-FileHash -LiteralPath $registryPath -Algorithm SHA256).Hash
         } else { 'absent' }
-        $initialKey = ConvertTo-LabTestEnvironmentKey -Platform linux -SqlVersion $SqlVersion -Patch latest -Name "linux-$Provider-$SqlVersion"
+        $name = if ($Patch -ceq 'latest') { "linux-$Provider-$SqlVersion" } else { "linux-$Provider-$SqlVersion-$Patch" }
+        $initialKey = ConvertTo-LabTestEnvironmentKey -Platform linux -SqlVersion $SqlVersion -Patch $Patch -Name $name
         if (@($registry.environments | Where-Object {
             ($_.key -eq $initialKey -or $_.key -like "${initialKey}_*") -and -not $_.runId
         }).Count) { throw 'TEST_GROUP_LINUX_CREATE_PENDING' }
@@ -232,24 +245,24 @@ function Get-LabTestGroupLinuxCreatePlan {
             Directory=(Get-LabCanonicalResourceRoot -StateRoot $directory)
             StateRoot=(Get-LabCanonicalResourceRoot -StateRoot $StateRoot)
             RegistryHash=$registryHash; RuntimeId=$scope.RuntimeId; Provider=$Provider
-            SqlVersion=$SqlVersion; Image=$image; Key=$key
+            SqlVersion=$SqlVersion; Patch=$Patch; Image=$image; Key=$key
         }
         [pscustomobject]@{
-            Provider=$Provider; SqlVersion=$SqlVersion; Patch='latest'; Key=$key
+            Provider=$Provider; SqlVersion=$SqlVersion; Patch=$Patch; Key=$key
             PlanKey=(Get-LabWorkflowHash -Text ($binding | ConvertTo-Json -Compress) -Length 64)
         }
     } finally { Exit-LabTestGroupLock -Mutex $lock }
 }
 
 function Invoke-LabTestGroupLinuxCreatePlan {
-    param([string]$Provider, [string]$SqlVersion, [string]$ExpectedPlanKey)
+    param([string]$Provider, [string]$SqlVersion, [string]$ExpectedPlanKey, [string]$Patch = 'latest')
 
     if (-not $ExpectedPlanKey) { throw 'TEST_GROUP_LINUX_CREATE_PREVIEW_REQUIRED' }
     $directory = Get-LabTestEnvironmentExportDirectory
     $root = Get-LabStateRoot
     $lock = Enter-LabTestGroupLock -OutputDirectory $directory
     try {
-        $plan = Get-LabTestGroupLinuxCreatePlan -Provider $Provider -SqlVersion $SqlVersion -OutputDirectory $directory -StateRoot $root
+        $plan = Get-LabTestGroupLinuxCreatePlan -Provider $Provider -SqlVersion $SqlVersion -Patch $Patch -OutputDirectory $directory -StateRoot $root
         if ($plan.PlanKey -cne $ExpectedPlanKey) { throw 'TEST_GROUP_LINUX_CREATE_PREVIEW_CHANGED' }
         $specification = [pscustomobject]@{ Platform='linux'; SqlVersion=$SqlVersion; Patch=$plan.Patch; Key=$plan.Key; InstanceId='primary' }
         try {
@@ -268,13 +281,14 @@ function Invoke-LabTestGroupLinuxCreatePlan {
 function Invoke-LabTestGroupLinuxCreatePlanRequest {
     param([Collections.Specialized.NameValueCollection]$Query)
 
-    if ($Query.Count -gt 0 -and ($Query.Count -ne 2 -or
-        @($Query.AllKeys | Where-Object { $_ -cnotin @('provider','sqlVersion') }).Count -or
+    if ($Query.Count -gt 0 -and ($Query.Count -notin @(2,3) -or
+        @($Query.AllKeys | Where-Object { $_ -cnotin @('provider','sqlVersion','patch') }).Count -or
         @($Query.GetValues('provider')).Count -ne 1 -or @($Query.GetValues('sqlVersion')).Count -ne 1 -or
+        ($Query.Count -eq 3 -and (@($Query.GetValues('patch')).Count -ne 1 -or [string]$Query['patch'] -cnotmatch '^(?:latest|cu[1-9][0-9]{0,5})$')) -or
         [string]$Query['provider'] -cnotin @('docker','podman') -or [string]$Query['sqlVersion'] -cnotmatch '^20\d{2}$')) {
         throw 'TEST_GROUP_LINUX_CREATE_TARGET_INVALID'
     }
-    Get-LabTestGroupLinuxCreatePlan -Provider $Query['provider'] -SqlVersion $Query['sqlVersion']
+    Get-LabTestGroupLinuxCreatePlan -Provider $Query['provider'] -SqlVersion $Query['sqlVersion'] -Patch $Query['patch']
 }
 
 function Get-LabTestGroupRuntimeSnapshot {
