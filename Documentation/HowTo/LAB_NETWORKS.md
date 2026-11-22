@@ -36,6 +36,13 @@ den Vorgang mit `LAB_NETWORK_SUBNET_CONFLICT`; ein bestehendes Netz mit
 abweichendem Subnetz oder einem abweichenden Netzwerkmodus endet mit
 `LAB_NETWORK_CONTRACT_MISMATCH`.
 
+Docker und Podman prüfen die SQL-Hostportbelegung unmittelbar vor dem
+Containerstart unter derselben hostweiten Sperre. Bei parallelen
+Containerstarts wartet jeder neue Start bis zu 120 Sekunden auf diese
+Sperre, etwa wenn die Runtime die Portveröffentlichung erst beim zweiten
+Startversuch bestätigt. Ist die Sperre danach noch belegt, endet dieser
+Start mit `PORT_ALLOCATION_LOCK_TIMEOUT`.
+
 ## Konfiguration
 
 Die Defaults lassen sich vor der ersten Anlage pro Prozess oder dauerhaft als
