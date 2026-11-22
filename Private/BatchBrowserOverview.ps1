@@ -25,6 +25,85 @@ function Get-LabBrowserBatchOverview {
     }
 }
 
+function Save-LabBrowserBatchDraft {
+    param([object]$Request, [string]$StateRoot)
+
+    $names = @($Request.PSObject.Properties.Name)
+    if ($names.Count -ne 4 -or @($names | Where-Object { $_ -cnotin @('command','name','priority','items') }).Count -or
+        $Request.command -isnot [string] -or $Request.command -cne 'SaveGuidedDraft' -or
+        $Request.name -isnot [string] -or $Request.name -cnotmatch '\A[^\s\p{C}][^\p{C}]{0,63}\z' -or
+        $Request.priority -isnot [string] -or $Request.priority -cnotin @('High','Normal','Low') -or
+        $Request.items -isnot [array] -or $Request.items.Count -lt 1 -or $Request.items.Count -gt 100) {
+        throw 'BROWSER_BATCH_DRAFT_INVALID'
+    }
+
+    $expandedCount = 0
+    $items = @(foreach ($position in $Request.items) {
+        if ($position -isnot [pscustomobject] -or $position.kind -isnot [string] -or
+            $position.kind -cnotin @('SqlEnvironment','SqlWindowsEnvironment','WindowsEnvironment') -or
+            $position.name -isnot [string] -or $position.name -cnotmatch '\A[a-z][a-z0-9-]{0,39}\z' -or
+            $position.count -isnot [long] -or $position.count -lt 1 -or $position.count -gt 100) {
+            throw 'BROWSER_BATCH_DRAFT_INVALID'
+        }
+        $expandedCount += $position.count
+        if ($expandedCount -gt 100) { throw 'BROWSER_BATCH_DRAFT_INVALID' }
+
+        $common = @('kind','name','count')
+        $intent = [ordered]@{ LabName=$position.name; ProviderPreference='Auto' }
+        if ($position.kind -cne 'WindowsEnvironment') {
+            if ($position.version -isnot [string] -or $position.version -cnotmatch '\A\d{4}\z') {
+                throw 'BROWSER_BATCH_DRAFT_INVALID'
+            }
+            $sqlVersion = Get-SqlServerVersion -VersionId $position.version
+            if ($null -eq $sqlVersion -or $sqlVersion.status -cne 'SUPPORTED') { throw 'BROWSER_BATCH_DRAFT_INVALID' }
+        }
+        if ($position.kind -ceq 'SqlEnvironment') {
+            $allowed = $common + @('version','provider','secretReference')
+            if (-not $sqlVersion.docker -or
+                $position.provider -isnot [string] -or $position.provider -cnotin @('Auto','docker','podman') -or
+                $position.secretReference -isnot [string] -or
+                $position.secretReference -cnotmatch '\ASQL_SERVER_LAB_SECRET_[A-Z0-9_]{1,64}\z') {
+                throw 'BROWSER_BATCH_DRAFT_INVALID'
+            }
+            $intent.OperatingSystem = 'Linux'
+            $intent.Version = $position.version
+            $intent.ProviderPreference = $position.provider
+            $intent.SaPasswordEnvironmentVariable = $position.secretReference
+        }
+        else {
+            $allowed = $common + @('operatingSystem','variant','cpu','memoryMB')
+            if ($position.operatingSystem -isnot [string] -or $position.operatingSystem -cnotin @('Windows Server 2022','Windows Server 2025') -or
+                $position.variant -isnot [string] -or $position.variant -cnotin @('Desktop','Core') -or
+                $position.cpu -isnot [long] -or $position.cpu -lt 1 -or $position.cpu -gt 128 -or
+                $position.memoryMB -isnot [long] -or $position.memoryMB -lt 512 -or $position.memoryMB -gt 262144) {
+                throw 'BROWSER_BATCH_DRAFT_INVALID'
+            }
+            $intent.OperatingSystem = $position.operatingSystem
+            $intent.Variant = $position.variant
+            $intent.Cpu = [int]$position.cpu
+            $intent.MemoryMB = [int]$position.memoryMB
+            $intent.RequiresUserSetup = $true
+            if ($position.kind -ceq 'SqlWindowsEnvironment') {
+                $allowed += 'version'
+                $intent.SqlVersion = $position.version
+            }
+        }
+        $itemNames = @($position.PSObject.Properties.Name)
+        if ($itemNames.Count -ne $allowed.Count -or @($itemNames | Where-Object { $_ -cnotin $allowed }).Count) {
+            throw 'BROWSER_BATCH_DRAFT_INVALID'
+        }
+        New-LabComposerItem -Kind $position.kind -Name $position.name -Count $position.count -Intent ([pscustomobject]$intent)
+    })
+
+    $batch = New-SqlServerLabBatch -Name $Request.name -Priority $Request.priority -Items $items -StateRoot $StateRoot -Queue:$false
+    [pscustomobject]@{
+        BatchId=[string]$batch.batchId
+        Status=[string]$batch.status
+        Positions=@($batch.items).Count
+        Dependencies=@($batch.sharedDependencies).Count
+    }
+}
+
 function Get-LabBrowserBatchStopSnapshot {
     param([string]$BatchId, [string]$StateRoot)
 

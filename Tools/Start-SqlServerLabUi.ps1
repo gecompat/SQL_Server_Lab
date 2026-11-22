@@ -1469,6 +1469,30 @@ try {
                 }
                 $body = $bodyRead.Body
                 $request = $body | ConvertFrom-Json -Depth 30
+                if ($request.command -ceq 'SaveGuidedDraft') {
+                    if ($body.Length -gt 32768) {
+                        Write-UiResponse -Context $context -Body 'BROWSER_BATCH_DRAFT_INVALID' -StatusCode 400
+                        continue
+                    }
+                    try {
+                        $document = [Text.Json.JsonDocument]::Parse($body)
+                        try { Assert-UiCommandJsonUnique $document.RootElement } finally { $document.Dispose() }
+                        $draft = & (Get-Module SqlServerLab) {
+                            param($DraftRequest)
+                            Save-LabBrowserBatchDraft -Request $DraftRequest -StateRoot ([IO.Path]::GetFullPath((Get-LabStateRoot)))
+                        } $request
+                    }
+                    catch {
+                        if ($_.Exception.Message -cin @('BROWSER_BATCH_DRAFT_INVALID','UI_COMMAND_REQUEST_INVALID')) {
+                            Write-UiResponse -Context $context -Body 'BROWSER_BATCH_DRAFT_INVALID' -StatusCode 400
+                        } else {
+                            Write-UiResponse -Context $context -Body 'Entwurf unbestätigt. Batchübersicht und Providerbereitschaft prüfen.' -StatusCode 409
+                        }
+                        continue
+                    }
+                    Write-UiResponse -Context $context -Body ($draft | ConvertTo-Json -Depth 5) -ContentType 'application/json; charset=utf-8' -StatusCode 201
+                    continue
+                }
                 $batch = New-SqlServerLabBatch -Name ([string]$request.name) -Priority $(if ($request.priority) { [string]$request.priority } else { 'Normal' }) -Defaults $request.defaults -Items @($request.items) -Queue:$false
                 Write-UiResponse -Context $context -Body ($batch | ConvertTo-Json -Depth 30) -ContentType 'application/json; charset=utf-8' -StatusCode 201
                 continue

@@ -526,10 +526,18 @@ function Get-LabConsoleHelpCatalog {
             Purpose = 'Stellt mehrere Umgebungen als gemeinsamen Batch zusammen und uebergibt ihn an die Queue.'
             Effects = 'Bis zur Uebergabe entsteht keine Runtime-Ressource.'
             Related = @(
-                'Ein nur gespeicherter Batch bleibt Draft und wird nicht ausgefuehrt.',
+                'Ein nur gespeicherter Batch bleibt validiert und startet erst nach der Übergabe.',
                 'Fuer eine einzelne Umgebung ist der direkte Weg ueber das Erstellen-Menue schneller.'
             )
             Command = 'New-SqlServerLabBatch'
+            Preconditions = @($stateRootPrecondition)
+        }
+        'batch-submit-saved' = @{
+            Title = 'Gespeicherten Batch prüfen und einreihen'
+            Purpose = 'Liest einen validierten Entwurf und zeigt seinen Plan vor der Übergabe an die Warteschlange.'
+            Effects = 'Erst die Bestätigung eines unveränderten Plans reiht die Positionen ein und fordert den Scheduler an.'
+            Related = @('Die im Entwurf verwendeten Kennwortvariablen müssen in dieser Konsolensitzung gesetzt sein.')
+            Command = 'Get-SqlServerLabBatch'
             Preconditions = @($stateRootPrecondition)
         }
         'batch-sa-secret' = @{

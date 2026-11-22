@@ -823,6 +823,22 @@ blockiert vor der ersten Hyper-V-Mutation.
 
 ## Workflow
 
+Unter **Vorgänge → Batch mit mehreren Umgebungen planen** kannst du mehrere
+Gruppen hinzufügen und ihre jeweilige Anzahl einstellen. Zur Auswahl stehen
+SQL Server unter Linux und Windows sowie eine reine Windows-Umgebung.
+Für Linux gibst du den Namen einer `SQL_SERVER_LAB_SECRET_*`-Prozessvariable
+an. Ihr Kennwortwert wird im Browserformular nicht eingegeben.
+
+**Entwurf validieren und speichern** zeigt die Batch-ID, die Anzahl der
+Umgebungen und die Zahl gemeinsamer Abhängigkeiten. In der Konsolensitzung
+müssen die verwendeten Kennwortvariablen gesetzt sein. Öffne dort
+**Vorgänge, Queue und Benutzeraktionen → Gespeicherten Batch prüfen und
+einreihen**, wähle die Batch-ID und bestätige den Plan.
+
+Über **Hintergrundscheduler anfordern** und eine Bestätigung kannst du die
+aktuelle Warteschlange bedienen. Ob Vorgänge tatsächlich anlaufen, siehst du
+anschließend bei ihrem Status.
+
 Unter **Vorgänge, Warteschlange und Wiederaufnahme → Fortschritt
 gespeicherter Batches** zeigt der Browser bei bis zu 50 Batches den Status,
 den Fortschritt und die Zahl der fehlgeschlagenen oder abgebrochenen
