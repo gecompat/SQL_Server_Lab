@@ -54,5 +54,20 @@ const respond = data => ({ ok: true, json: async () => data });
   await malformed;
   assert.equal(el('result').hidden, true);
   assert.match(el('status').textContent, /konnte nicht gelesen/);
+  const app = fs.readFileSync(path.resolve(__dirname, '../../../Ui/app.js'), 'utf8');
+  const fullBinding = app.split(/\r?\n/).find(line => line.startsWith("$('#full-maintenance-preview-open').addEventListener("));
+  assert.ok(fullBinding);
+  const fullCalls = [];
+  vm.runInNewContext(fullBinding, {
+    $: selector => item(selector.slice(1)),
+    startAction(action, parameters) {
+      fullCalls.push({ action, keys: Object.keys(parameters) });
+      return Promise.resolve();
+    },
+    showError(error) { throw error; }
+  });
+  assert.equal(fullCalls.length, 0);
+  await item('full-maintenance-preview-open').click();
+  assert.deepEqual(fullCalls, [{ action: 'ReadFullMaintenancePreview', keys: [] }]);
   console.log('RUNTIME MAINTENANCE PREVIEW BROWSER UI: PASS');
 })().catch(error => { console.error(error.message); process.exitCode = 1; });

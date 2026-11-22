@@ -105,6 +105,34 @@ try {
             $failure -notmatch 'SYNTHETIC_PREVIEW_UNAVAILABLE'
     } $guidedPlan
     Add-CheckResult -Name 'Geführte Wartungsvorschau meldet Ergebnis oder Fehler ohne Sitzungsjournal und wartet auf Bestätigung' -Success $guidedConsole
+    $fullPreview = & $module {
+        param($SyntheticPlan)
+        function Get-SqlServerLabMaintenancePlan {
+            [CmdletBinding()] param($Mode)
+            if ($Mode -cne 'Full') { throw 'FULL_MODE_REQUIRED' }
+            $SyntheticPlan.FullAudit = [pscustomobject]@{
+                Summary = [pscustomobject]@{
+                    ResidualCount = 3; UnverifiableProviders = 1; ManagedImages = 2; RuntimeBackingStores = 1
+                    HyperVProtectionIssues = 2; HyperVUntrackedFiles = 1; RawPath = 'synthetic-private-audit-path'
+                }
+                Items = @('synthetic-private-audit-row')
+            }
+            $SyntheticPlan
+        }
+        function Show-LabSubMenu { param($ScreenId,$Title,$Subtitle,$Items) $Items }
+        function Wait-LabConsoleAcknowledgement { param($Prompt) Write-Output 'ACKNOWLEDGED' }
+        $action = Invoke-SqlServerLabWorkflowAction -Action ReadFullMaintenancePreview -ErrorAction Stop
+        $entry = @(Show-LabMaintenanceMenu | Where-Object Id -ceq 'FullMaintenancePreview')
+        if ($entry.Count -ne 1) { return $false }
+        $console = (Invoke-LabMenuAction -ActionName $entry[0].Id 6>&1) -join [Environment]::NewLine
+        $rejected = $false
+        try { $null = Invoke-SqlServerLabWorkflowAction -Action ReadFullMaintenancePreview -Provider docker }
+        catch { $rejected = $_.Exception.Message -ceq 'FULL_MAINTENANCE_PREVIEW_ARGUMENTS_INVALID' }
+        return $rejected -and $action.Result.FullAudit.ResidualCount -eq 3 -and
+            $console -match 'Befunde im Speicher- und Cleanup-Audit: 3' -and $console -match 'ACKNOWLEDGED' -and
+            ($action | ConvertTo-Json -Depth 7 -Compress) -notmatch 'synthetic-private-audit|ResourceId|RunId'
+    } $plan
+    Add-CheckResult -Name 'Vollständiger Wartungsplan wird in CLI und Workflow lesend und ohne rohe Auditdaten geführt' -Success $fullPreview
     $routeAst = [Management.Automation.Language.Parser]::ParseFile(
         (Join-Path $repoRoot 'Tools/Start-SqlServerLabUi.ps1'), [ref]$null, [ref]$null)
     $route = $routeAst.Find({
@@ -146,6 +174,33 @@ try {
             }).Count -eq 0
     }
     Add-CheckResult -Name 'Wartungsvorschau-Route akzeptiert GET ohne Scope- oder Modusparameter' -Success $guidedHttp
+    $actionRoute = $routeAst.Find({
+        param($node)
+        $node -is [Management.Automation.Language.IfStatementAst] -and
+            $node.Clauses[0].Item1.Extent.Text -ceq '$path -eq ''/api/actions'' -and $context.Request.HttpMethod -eq ''POST'''
+    }, $true)
+    $actionHandler = [scriptblock]::Create('foreach ($once in @(1)) ' + $actionRoute.Clauses[0].Item2.Extent.Text)
+    $fullHttp = & {
+        $jobs = @{}
+        $requestJson = '{"action":"ReadFullMaintenancePreview","parameters":{}}'
+        function Read-UiJsonRequestBody { param($Request) @{ Allowed=$true; Body=$requestJson } }
+        function New-SqlServerLabBatch { throw 'PERSISTENT_JOB_FOR_READ_FORBIDDEN' }
+        function Start-UiWorkflowJob {
+            param($Action,$Parameters)
+            if ($Action -cne 'ReadFullMaintenancePreview' -or $Parameters.Count) { throw 'UNEXPECTED_JOB' }
+            [pscustomobject]@{ Id='full-preview'; Action=$Action; Job=[pscustomobject]@{ State='Running' } }
+        }
+        function Write-UiResponse { param($Context,$Body,$ContentType,$StatusCode) [pscustomobject]@{ StatusCode=$StatusCode; Body=$Body | ConvertFrom-Json } }
+        $accepted = & $actionHandler
+        $busy = $invalid = $false
+        try { $null = & $actionHandler }
+        catch { $busy = $_.Exception.Message -ceq 'FULL_MAINTENANCE_PREVIEW_IN_PROGRESS' }
+        $requestJson = '{"action":"ReadFullMaintenancePreview","parameters":{"Provider":"docker"}}'
+        try { $null = & $actionHandler }
+        catch { $invalid = $_.Exception.Message -ceq 'FULL_MAINTENANCE_PREVIEW_ARGUMENTS_INVALID' }
+        $accepted.StatusCode -eq 202 -and $accepted.Body.id -ceq 'full-preview' -and $jobs.Count -eq 1 -and $busy -and $invalid
+    }
+    Add-CheckResult -Name 'Vollständige Browser-Inventur bleibt ein einzelner flüchtiger Job ohne Zielparameter' -Success $fullHttp
 
     $previewRoot = Join-Path ([IO.Path]::GetTempPath()) ('sql-lab-maintenance-preview-' + [guid]::NewGuid().ToString('N'))
     $runId = 'c36cc4de-a090-4992-abf5-a54dae913095'

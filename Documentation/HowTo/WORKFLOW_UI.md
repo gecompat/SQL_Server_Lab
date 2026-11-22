@@ -1062,6 +1062,13 @@ Provider erscheint als `UNAVAILABLE`. Diese Übersicht führt keine
 Aktion aus. Für die Zuordnung einzelner Objekte nutze **Wartungsbefunde
 und Zuordnung**.
 
+**Vollständigen Wartungsplan lesen** prüft zusätzlich den Speicherbestand
+und vorhandene Cleanup-Befunde. Die Übersicht zeigt Zähler für verwaltete
+Vorlagen, Provider-Datenspeicher und Hyper-V-Befunde. Im Browser läuft die
+Inventur im Hintergrund und das Ergebnis erscheint im Auftragsprotokoll.
+Der vollständige Scan kann länger dauern. Er speichert keinen Auditbericht
+und führt keine der vorgeschlagenen Aktionen aus.
+
 ## Hyper-V-Speicherziel vor einem Build prüfen
 
 Wähle in Konsole oder Browser **Hyper-V: Vorlagen und Slots →
