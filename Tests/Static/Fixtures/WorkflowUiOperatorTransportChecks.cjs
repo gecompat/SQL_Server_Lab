@@ -64,6 +64,11 @@ function setup(fragment = '#sql-lab-operator=' + 'a'.repeat(64), origin = 'http:
         'Exact Clipboard-only asset has no network API: ' + asset);
       continue;
     }
+    if (asset === 'test-group-view.js') {
+      check(!/\b(fetch|sqlServerLabUiFetch|XMLHttpRequest|WebSocket|EventSource|sendBeacon|startAction|queueBackgroundAction|submitUiAction|openConfirmation)\b/.test(text),
+        'Testgruppenansicht rendert vorhandene Ergebnisse ohne Netzwerk oder Aktionsauftrag: ' + asset);
+      continue;
+    }
     if (confirmationAssets.includes(asset)) {
       check(!/\b(fetch|sqlServerLabUiFetch|XMLHttpRequest|WebSocket|EventSource|sendBeacon)\b/.test(text) &&
         /openConfirmation\s*\(/.test(text) && /'__PublicCommand'/.test(text),
