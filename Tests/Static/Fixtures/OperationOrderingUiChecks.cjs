@@ -6,20 +6,38 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const source = fs.readFileSync(path.resolve(__dirname, '../../../Ui/app.js'), 'utf8');
-const start = source.indexOf('const operationPriorityLabels = ');
+const start = source.indexOf('let queueBatchId = ');
 const end = source.indexOf('function renderActiveLabs(', start);
 assert.ok(start >= 0 && end > start);
 
 const handlers = new Map();
-const document = { addEventListener: (name, handler) => handlers.set(name, handler) };
+function element(tag) {
+  return {
+    tag, dataset: {}, attributes: {}, children: [], text: '',
+    get childElementCount() { return this.children.length; },
+    get textContent() { return this.text; },
+    set textContent(value) { this.text = value; this.children = []; },
+    append(child) { this.children.push(child); },
+    replaceChildren() { this.children = []; },
+    setAttribute(name, value) { this.attributes[name] = value; }
+  };
+}
+
+const document = { addEventListener: (name, handler) => handlers.set(name, handler), createElement: element };
 const queueElement = { innerHTML: 'previous rendering' };
+const elements = new Map([
+  ['#operation-queue', queueElement],
+  ['#batch-overview-rows', element('tbody')],
+  ['#batch-overview-table', element('table')],
+  ['#batch-overview-status', element('p')]
+]);
 const requests = [];
 const errors = [];
 let refreshes = 0;
 let resolveRequest;
 const context = vm.createContext({
   document,
-  $: selector => selector === '#operation-queue' ? queueElement : {},
+  $: selector => elements.get(selector) || {},
   statusClass: () => 'neutral',
   empty: message => message,
   escapeHtml: value => String(value).replaceAll('&', '&amp;').replaceAll('"', '&quot;'),
@@ -32,8 +50,11 @@ const context = vm.createContext({
 });
 vm.runInContext(source.slice(start, end), context);
 
-const first = { operationId: 'operation-first', status: 'Queued', priority: 'Normal', queuePosition: 1 };
-const second = { operationId: 'operation-second', status: 'Paused', priority: 'Normal', queuePosition: 2 };
+const firstBatchId = 'batch-20261122170000-01234567';
+const secondBatchId = 'batch-20261122170100-23456789';
+const closedBatchId = 'batch-20261122170200-3456789a';
+const first = { batchId: firstBatchId, operationId: 'operation-first', status: 'Queued', priority: 'Normal', queuePosition: 1 };
+const second = { batchId: secondBatchId, operationId: 'operation-second', status: 'Paused', priority: 'Normal', queuePosition: 2 };
 const waiting = [first, second];
 const markup = item => context.renderOperationOrderingControls(item, waiting);
 
@@ -59,6 +80,34 @@ assert.doesNotMatch(context.renderOperationOrderingControls(first, [first, { ...
 assert.match(markup({ ...first, operationId: 'id"quoted' }), /data-operation-priority="id&quot;quoted"/);
 
 (async () => {
+  const batchRow = (BatchId, Status) => ({ BatchId, Status, Percent: 0, Total: 1, Failed: 0, Cancelled: 0 });
+  context.workflow = {
+    Queue: { items: waiting },
+    Batches: [batchRow(firstBatchId, 'Queued'), batchRow(secondBatchId, 'Waiting'), batchRow(closedBatchId, 'Completed')]
+  };
+  context.renderBatchOverview(context.workflow.Batches, context.workflow.Queue);
+  const rows = elements.get('#batch-overview-rows');
+  const status = elements.get('#batch-overview-status');
+  const filter = rows.children[0].children[0].children[0];
+  assert.equal(filter.dataset.queueBatch, firstBatchId);
+  assert.equal(filter.attributes['aria-pressed'], 'false');
+  assert.equal(rows.children[2].children[0].childElementCount, 0);
+  const clickFilter = button => handlers.get('click')({ target: { closest: selector => selector === '[data-queue-batch]' ? button : null } });
+  await clickFilter(filter);
+  assert.match(queueElement.innerHTML, /operation-first/);
+  assert.doesNotMatch(queueElement.innerHTML, /operation-second/);
+  assert.match(queueElement.innerHTML, /data-operation-command="MoveDown"/);
+  assert.equal(rows.children[0].children[0].children[0].attributes['aria-pressed'], 'true');
+  document.activeElement = { matches: selector => selector === '[data-queue-batch]' };
+  context.renderBatchOverview([], { items: [] }, true);
+  assert.equal(rows.childElementCount, 3);
+  document.activeElement = null;
+  context.renderOperationQueue({ items: [second] });
+  assert.match(queueElement.innerHTML, /Keine offenen Vorgänge in diesem Batch/);
+  await clickFilter(status.children[0]);
+  assert.match(queueElement.innerHTML, /operation-second/);
+  assert.equal(requests.length, 0);
+
   const select = { dataset: { operationPriority: first.operationId, currentPriority: 'Normal' }, value: 'Normal' };
   const change = () => handlers.get('change')({ target: { closest: () => select } });
   await change();

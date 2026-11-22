@@ -828,6 +828,11 @@ gespeicherter Batches** zeigt der Browser bei bis zu 50 Batches den Status,
 den Fortschritt und die Zahl der fehlgeschlagenen oder abgebrochenen
 Vorgänge. Die Ansicht überträgt keine Batch-Eingaben oder Quelldateipfade.
 
+Wähle die ID eines Batches mit offenen Vorgängen, um seine Vorgangskarten
+anzuzeigen. Mit **Alle Vorgänge anzeigen** löst du die Auswahl. Der Filter
+ändert nur die Ansicht. Prioritäts- und Reihenfolgeänderungen verwenden
+weiterhin die gesamte Warteschlange.
+
 Für wartende Vorgänge kannst du bei mindestens zwei verfügbaren Einträgen
 die **Priorität** auf Hoch, Normal oder Niedrig setzen. **Nach oben** und
 **Nach unten** erscheinen, wenn in derselben Priorität ein entsprechender
