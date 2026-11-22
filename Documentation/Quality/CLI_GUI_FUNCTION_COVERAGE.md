@@ -170,6 +170,25 @@ SSMS-Download anhand synthetischer HTTP-Antworten geprüft. Der Test
 beobachtete zudem die zielgebundenen Bestätigungen für den CMS-Abgleich
 und für SqlPackage und brach beide vor dem Versand ab.
 
+
+## Geprüfte Teilmenge: Warteschlange und Batchsteuerung
+
+`Invoke-BatchWorkflowChecks.ps1` prüft den persistenten Fachkern in einem
+isolierten State-Verzeichnis. Die Browserprüfung
+`OperationOrderingUiChecks.cjs` belegt den Dispatch für Priorität und
+Umreihen. Beide Prüfungen laufen ohne neue Provider-Labs.
+
+| Operation | CLI-Menü | Browser-GUI | Vertrag und Stand |
+| --- | --- | --- | --- |
+| `batch.compose` · `New-SqlServerLabBatch` | SQL- oder Windows-Umgebung zusammenstellen → mehrere Positionen | Browseraktionen können einzelne persistente Batches annehmen | `GUIDED_CLI_ONLY` für den interaktiven Mehrfach-Composer. Die technische Browser-API allein stellt keinen Composer bereit. |
+| `batch.list` · `Get-SqlServerLabBatch` | Vorgänge → Batch für den Stopp auswählen | Vorgänge → Fortschritt gespeicherter Batches | Der Browser zeigt bis zu 50 Batchstände mit Zählern. Das Menü liest Batches für die Auswahl. Es bietet keine getrennte Detailübersicht pro Batch. |
+| `queue.read` · `Get-SqlServerLabQueue`, `Get-SqlServerLabOperation` | Vorgänge → Queue-Übersicht und Details | Vorgänge → Karte des offenen Vorgangs | Die Queue begrenzt die Karten auf offene Vorgänge. Die Einzelansicht der CLI zeigt mehr Felder. |
+| `queue.gate.confirm` · `Confirm-SqlServerLabOperationUserAction` | Vorgänge → Benutzeraktionen öffnen → Erledigt, prüfen und fortsetzen | Vorgänge → Erledigt, prüfen und fortsetzen | Der Core setzt einen Vorgang erst nach erfolgreicher technischer Prüfung fort. Bei Windows-Setup dient das Gastkonto nur der Prüfung. Die Auswahl mehrerer Kandidaten bleibt ein CLI-Menüpfad. |
+| `queue.suspend`, `queue.resume` · `Suspend-SqlServerLabOperation`, `Resume-SqlServerLabOperation` | Vorgänge → Vorgang pausieren oder freigeben | Vorgänge → Pausieren oder Freigeben | Der Core persistiert die Entscheidung. Pausieren ist für wartende und blockierte Einträge verfügbar, Freigeben für pausierte. |
+| `queue.stop` · `Stop-SqlServerLabOperation` | Vorgänge → Vorgang endgültig stoppen und aufräumen | Vorgänge → Stoppen + Cleanup | Beide Bedienpfade verlangen Bestätigung. Bei einem laufenden Vorgang wird der Stopp am nächsten sicheren Ende eines atomaren Schritts verarbeitet. |
+| `batch.stop` · `Stop-SqlServerLabBatch` | Vorgänge → Batch stoppen oder vollständig zurückbauen | Keine geführte Batch-Aktion | `GUIDED_CLI_ONLY`. Der Standard erfasst unfertige Positionen. Die CLI listet und bestätigt den vollständigen Rückbau einschließlich fertiger Ressourcen separat. |
+| `queue.run` · `Invoke-SqlServerLabScheduler` | Vorgänge → Scheduler jetzt ausführen | Hintergrundhost im bestehenden Workflow | `GUIDED_CLI_ONLY` für den ausdrücklichen Start aus der Warteschlangenansicht. Eine angenommene Browseraktion belegt keinen laufenden Worker. |
+
 ## Bereichsinventar
 
 **Grundkonfiguration → Lokale Lizenzprofile prüfen** bietet auf Windows
