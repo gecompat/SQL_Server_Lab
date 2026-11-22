@@ -668,6 +668,21 @@ try {
                 catch { Write-UiResponse -Context $context -Body 'TEST_GROUP_READ_UNAVAILABLE: Gruppe erneut lesen; keine Aktion ausgeführt.' -StatusCode 503 }
                 continue
             }
+            if ($path -eq '/api/test-group-management' -and $context.Request.HttpMethod -eq 'GET') {
+                $query = $context.Request.QueryString
+                try {
+                    $operation = [string]$query['operation']
+                    if ($operation -cnotin @('CreateWindows','Repair','Remove','Export') -or
+                        @($query.AllKeys | Where-Object { $_ -cnotin @('operation','artifactId') }).Count -or
+                        @($query.GetValues('operation')).Count -ne 1 -or
+                        ($query.Count -gt 1 -and ($operation -cne 'CreateWindows' -or @($query.GetValues('artifactId')).Count -ne 1 -or -not $query['artifactId']))) {
+                        throw 'TEST_GROUP_MANAGEMENT_REQUEST_INVALID'
+                    }
+                    $view = & (Get-Module SqlServerLab) { param($op,$id) Get-LabTestGroupManagementPlan -Operation $op -ArtifactId $id } $operation $query['artifactId']
+                    Write-UiResponse -Context $context -Body ($view | ConvertTo-Json -Depth 6) -ContentType 'application/json; charset=utf-8'
+                } catch { Write-UiResponse -Context $context -Body 'TEST_GROUP_MANAGEMENT_PLAN_UNAVAILABLE' -StatusCode 422 }
+                continue
+            }
             if ($path -eq '/api/test-group-linux-create' -and $context.Request.HttpMethod -eq 'GET') {
                 try {
                     $view = & (Get-Module SqlServerLab) { param($query) Invoke-LabTestGroupLinuxCreatePlanRequest -Query $query } $context.Request.QueryString
@@ -1567,10 +1582,19 @@ try {
                 }
                 $hasTransientSecret = $parameters.ContainsKey('GuestPassword') -or $parameters.ContainsKey('SaPassword')
                 # A confirmed power plan is a one-shot request: never replay it through batch recovery.
-                if ($action -eq 'CreateLinuxTestGroupMember' -and ($parameters.Count -ne 3 -or
+                if ($action -eq 'CreateLinuxTestGroupMember' -and ($parameters.Count -notin @(3,4) -or
                     $parameters['Provider'] -isnot [string] -or $parameters['SqlVersion'] -isnot [string] -or
+                    ($parameters.Count -eq 4 -and $parameters['TestGroupPatch'] -isnot [string]) -or
                     $parameters['ExpectedPlanKey'] -isnot [string])) { throw 'TEST_GROUP_LINUX_CREATE_ACTION_INVALID' }
-                if (-not $hasTransientSecret -and $action -notin @('Refresh','StartTestGroupPower','StopTestGroupPower','CreateLinuxTestGroupMember')) {
+                $groupManagement = $action -in @('CreateWindowsTestGroupMember','RepairTestGroup','RemoveTestGroup','ExportTestGroup')
+                if ($groupManagement) {
+                    $expectedCount = if ($action -eq 'CreateWindowsTestGroupMember') { 2 } else { 1 }
+                    if ($parameters.Count -ne $expectedCount -or $parameters['ExpectedPlanKey'] -isnot [string] -or
+                        ($expectedCount -eq 2 -and $parameters['ArtifactId'] -isnot [string])) {
+                        throw 'TEST_GROUP_MANAGEMENT_ACTION_INVALID'
+                    }
+                }
+                if (-not $hasTransientSecret -and -not $groupManagement -and $action -notin @('Refresh','StartTestGroupPower','StopTestGroupPower','CreateLinuxTestGroupMember')) {
                     # Retain terminal cards for this server session; bound reads without evicting results.
                     if ($persistentJobs.Count -ge 256) { throw 'UI_JOB_STATUS_CAPACITY_REACHED' }
                     $batchStateRoot = & (Get-Module SqlServerLab) { Get-LabStateRoot }

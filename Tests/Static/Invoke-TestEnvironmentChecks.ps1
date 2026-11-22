@@ -305,6 +305,11 @@ try {
         $menuText -notmatch 'WindowsProductKey=\$windowsActivation.ProductKey' -and
         $menuText -notmatch 'RequiresFreshSqlInstall=\$true; ForceNewWindowsSlot=\$true'
     )
+    Add-CheckResult -Name 'Windows-Testmatrix registriert die unmittelbar gemeldete Run-ID einer neuen VM' -Success (
+        $menuText -match 'CreatedWindowsSlotRunId -NotePropertyValue \(\[string\]\$lab\.RunId\)' -and
+        $menuText -match 'Register-LabTestEnvironmentRun -RunId \$boundRunId -Platform windows' -and
+        $menuText -notmatch '\$_.metadata.name -eq \[string\]\$request.Name'
+    )
     Add-CheckResult -Name 'Windows-Testslots verwenden den gemeinsamen Aktivierungsentscheid und identitaetsgebundene NIC-Bereinigung' -Success (
         $hyperVLabText -match 'function Get-HyperVWindowsSlotLicenseStatus' -and
         $hyperVLabText -match 'function Resolve-HyperVWindowsActivationExternalSwitch' -and

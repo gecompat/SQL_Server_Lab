@@ -20,7 +20,7 @@
 function Invoke-SqlServerLab {
     [CmdletBinding()]
     param(
-        [ValidateSet('New', 'BatchPlan', 'Queue', 'Commands', 'AutomatedTestEnvironment', 'AutomatedTestEnvironmentLifecycle', 'ClearAutomatedTestEnvironment', 'Manifest', 'Status', 'SyncRuntime', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'CleanupAudit', 'RetainedStoreRemoval', 'RunArtifactRemoval', 'EvaluationRefreshPlan', 'SqlGuestEvaluationEvidence', 'SsisDiagnostics', 'HostServiceStart', 'ContainerAutoStart', 'ContainerAutoStartRecovery', 'HyperVAutoStart', 'HyperVAutoStartRecovery', 'SqlFeature', 'Script', 'Database', 'DatabaseBackup', 'DatabaseRestore', 'DatabasePackageExport', 'DatabasePackageAttach', 'DatabasePackageInventory', 'DatabaseMigrationDependency', 'Image', 'WindowsSlotPool', 'ReservePolicy', 'Setup', 'MediaRoot', 'MediaSourceOverride', 'RuntimeInstaller', 'OperatingSystemSources', 'CuResource', 'CuStatus', 'ResourceWatch', 'DataRoot', 'TestDataRoot', 'Rename', 'UpdateContainer', 'Resources', 'Manage', 'EnvironmentGroups', 'Install7Zip', 'Catalog', 'ConnectionCenter', 'Cms')]
+        [ValidateSet('New', 'BatchPlan', 'Queue', 'Commands', 'AutomatedTestEnvironment', 'AutomatedTestEnvironmentLifecycle', 'ClearAutomatedTestEnvironment', 'RepairAutomatedTestEnvironment', 'Manifest', 'Status', 'SyncRuntime', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'CleanupAudit', 'RetainedStoreRemoval', 'RunArtifactRemoval', 'EvaluationRefreshPlan', 'SqlGuestEvaluationEvidence', 'SsisDiagnostics', 'HostServiceStart', 'ContainerAutoStart', 'ContainerAutoStartRecovery', 'HyperVAutoStart', 'HyperVAutoStartRecovery', 'SqlFeature', 'Script', 'Database', 'DatabaseBackup', 'DatabaseRestore', 'DatabasePackageExport', 'DatabasePackageAttach', 'DatabasePackageInventory', 'DatabaseMigrationDependency', 'Image', 'WindowsSlotPool', 'ReservePolicy', 'Setup', 'MediaRoot', 'MediaSourceOverride', 'RuntimeInstaller', 'OperatingSystemSources', 'CuResource', 'CuStatus', 'ResourceWatch', 'DataRoot', 'TestDataRoot', 'Rename', 'UpdateContainer', 'Resources', 'Manage', 'EnvironmentGroups', 'Install7Zip', 'Catalog', 'ConnectionCenter', 'Cms')]
         [string]$Action,
 
         [ValidateSet('Auto', 'Fallback')]
@@ -1862,6 +1862,7 @@ function Invoke-LabAction {
         'AutomatedTestEnvironment' { Invoke-LabAutomatedTestEnvironmentInteractive }
         'AutomatedTestEnvironmentLifecycle' { Invoke-LabTestGroupPowerInteractive }
         'ClearAutomatedTestEnvironment' { Invoke-LabClearAutomatedTestEnvironmentInteractive }
+        'RepairAutomatedTestEnvironment' { Invoke-LabRepairAutomatedTestEnvironmentInteractive }
 
         'Status' {
             Show-LabEnvironmentStatusSelectionInteractive
@@ -2821,6 +2822,35 @@ function Invoke-LabNewEnvironmentInteractive {
     }
 }
 
+function Invoke-LabRepairAutomatedTestEnvironmentInteractive {
+    [CmdletBinding()]
+    param()
+
+    $action = 'RepairAutomatedTestEnvironment'
+    try {
+        $plan = Get-LabTestGroupManagementPlan -Operation Repair
+        foreach ($member in $plan.Members) {
+            $binding = if ($member.Verified) { $member.Power } else { 'Bindung unklar' }
+            Write-LabInfo "$($member.Key) · $($member.Target) · $binding"
+        }
+        if (-not $plan.CanApply) {
+            Write-LabInfo 'Reparatur gesperrt. Prüfe die Registrierung und den Runtime-Zustand in der Testsystem-Matrix.'
+            return New-LabActionResult -Action $action -Status NoChange
+        }
+        Write-LabInfo 'Container können ersetzt und Windows-VMs neu gestartet werden. Die Windows-Aktivierung kann vorübergehend einen externen Netzwerkadapter verwenden.'
+        if (-not (Read-LabConfirm -Prompt 'Angezeigte Testgruppe reparieren?' -Default $false)) {
+            return New-LabActionResult -Action $action -Status Cancelled
+        }
+        $result = Invoke-LabTestGroupManagementPlan -Operation Repair -ExpectedPlanKey $plan.PlanKey
+        Write-LabSuccess "Testgruppe bereit ($($result.Count) Mitglieder)."
+        return New-LabActionResult -Action $action -Status Changed
+    }
+    catch {
+        Write-LabError 'Reparatur unbestätigt. Prüfe den Gruppenstatus vor einer weiteren Aktion.'
+        return New-LabActionResult -Action $action -Status Failed -ErrorCode TEST_GROUP_MANAGEMENT_UNCONFIRMED
+    }
+}
+
 function Invoke-LabClearAutomatedTestEnvironmentInteractive {
     <# .SYNOPSIS Entfernt ausschließlich die vollständige automatisierte Testgruppe. #>
     [CmdletBinding()]
@@ -2950,7 +2980,6 @@ function Invoke-LabAutomatedTestEnvironmentInteractive {
                     continue
                 }
                 Write-LabInfo "Erstelle $($request.Key) über Hyper-V. Nur Windows-OOBE und erste Anmeldung können manuell erforderlich sein."
-                $before = @(Get-LabActiveRuns | ForEach-Object { [string]$_.runId })
                 $intent = [PSCustomObject]@{
                     Contract='SqlServerLab.AutomatedTestIntent/1.0'; TestAutomation=$true
                     TestEnvironmentKey=$request.Key; TestEnvironmentPatch=$request.Patch
@@ -2963,19 +2992,12 @@ function Invoke-LabAutomatedTestEnvironmentInteractive {
                     WindowsActivationRequired=$true
                 }
                 Invoke-LabNewHyperVSqlEnvironmentWorkflowInteractive -Intent $intent
-                $reusedRunId = if ($intent.PSObject.Properties['ReusedWindowsSlotRunId']) { [string]$intent.ReusedWindowsSlotRunId } else { $null }
-                $createdRun = if ($reusedRunId) {
-                    @(Get-LabActiveRuns | Where-Object { [string]$_.runId -eq $reusedRunId } | Select-Object -First 1)[0]
-                }
-                else {
-                    @(Get-LabActiveRuns | Where-Object {
-                        [string]$_.runId -notin $before -and [string]$_.metadata.name -eq [string]$request.Name
-                    } | Sort-Object createdAt -Descending | Select-Object -First 1)[0]
-                }
-                if (-not $createdRun) { throw 'TEST_ENVIRONMENT_HYPERV_RUN_NOT_CREATED' }
-                $null = Rename-LabAutomatedTestEnvironmentRuntime -RunId ([string]$createdRun.runId) `
+                $boundRunId = if ($intent.PSObject.Properties['ReusedWindowsSlotRunId']) { [string]$intent.ReusedWindowsSlotRunId }
+                    elseif ($intent.PSObject.Properties['CreatedWindowsSlotRunId']) { [string]$intent.CreatedWindowsSlotRunId }
+                if (-not $boundRunId) { throw 'TEST_ENVIRONMENT_HYPERV_RUN_NOT_CREATED' }
+                $null = Rename-LabAutomatedTestEnvironmentRuntime -RunId $boundRunId `
                     -InstanceId ([string]$request.InstanceId) -Key ([string]$request.Key)
-                $null = Register-LabTestEnvironmentRun -RunId ([string]$createdRun.runId) -Platform windows `
+                $null = Register-LabTestEnvironmentRun -RunId $boundRunId -Platform windows `
                     -SqlVersion ([string]$request.SqlVersion) -Patch ([string]$request.Patch) -InstanceId ([string]$request.InstanceId) -Name ([string]$request.Key)
             }
             catch { Write-LabError "$($request.Key) konnte nicht vollständig erstellt werden: $($_.Exception.Message)" }
@@ -5449,6 +5471,9 @@ function New-LabHyperVEnvironmentInteractive {
             $lab = New-HyperVLabEnvironment -ArtifactId $artifact.artifactId -LabName $name -InstanceId $instanceId `
                 -MemoryStartupMB ([int]$memory) -ProcessorCount ([int]$cpu) -AutoStart $autoStart `
                 -SwitchName $switch.SwitchName -Isolated:$switch.Isolated -AdditionalDrives $additionalDrives
+            if ($Intent -and $Intent.TestAutomation) {
+                $Intent | Add-Member -NotePropertyName CreatedWindowsSlotRunId -NotePropertyValue ([string]$lab.RunId)
+            }
             Write-LabSuccess "Windows-Slot erstellt: $($lab.VMName) (Run $($lab.RunId))"
             Write-LabInfo 'Windows-Slot wird jetzt automatisch gestartet und VMConnect geöffnet.'
             $null = Start-HyperVLabEnvironment -RunId $lab.RunId

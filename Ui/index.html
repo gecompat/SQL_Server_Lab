@@ -85,7 +85,8 @@
       <p>Zusammengehörige Testumgebungen werden als geschützte Gruppe verwaltet. Einzellab-Aktionen ersetzen diesen Gruppenvertrag nicht.</p>
       <button id="test-group-open" type="button" class="button secondary">Gruppe ansehen · Power-Start/Stop</button>
       <button id="test-group-create-open" type="button" class="button secondary">Linux-Testumgebung hinzufügen</button>
-      <p>Power steuert Container und VMs. SQL-Bereitschaft wird dabei nicht geprüft. Für Windows-Testumgebungen sowie Reparatur und Entfernen verwende die Konsole.</p>
+      <button id="test-group-management-open" type="button" class="button secondary">Testgruppe verwalten</button>
+      <p>Power steuert Container und VMs. SQL-Bereitschaft wird dabei nicht geprüft.</p>
     </section>
 
     <section class="panel" data-workspace-area="templates" hidden>
@@ -1581,13 +1582,31 @@
       <div class="dialog-heading"><h2>Linux-Testumgebung hinzufügen</h2><button id="test-group-create-close" type="button" class="icon-button" aria-label="Schließen">×</button></div>
       <label>Provider<select id="test-group-create-provider" required><option value="">Bitte auswählen</option><option value="docker">Docker</option><option value="podman">Podman</option></select></label>
       <label>SQL-Version<select id="test-group-create-version" required disabled></select></label>
-      <p>Verwendet den aktuellen Patch aus dem Lab-Katalog. Die neue Umgebung wird Teil der geschützten Testgruppe und erhält ein automatisch erzeugtes Kennwort.</p>
+      <label>Patch<select id="test-group-create-patch" required disabled></select></label>
+      <p>Die neue Umgebung wird Teil der geschützten Testgruppe und erhält ein automatisch erzeugtes Kennwort.</p>
       <p id="test-group-create-status" role="status" aria-live="polite"></p>
       <label><input id="test-group-create-confirm" type="checkbox" disabled> Genau die angezeigte Umgebung anlegen und den Gruppenexport aktualisieren</label>
       <div class="dialog-actions"><button id="test-group-create-preview" type="submit" class="button secondary" disabled>Vorschau lesen</button><button id="test-group-create-apply" type="button" class="button primary" disabled>Testumgebung anlegen</button></div>
     </form>
   </dialog>
   <script src="test-group-create.js"></script>
+  <dialog id="test-group-management-dialog">
+    <form id="test-group-management-form" class="dialog-panel">
+      <div class="dialog-heading"><h2>Geschützte Testgruppe verwalten</h2><button id="test-group-management-close" type="button" class="icon-button" aria-label="Schließen">×</button></div>
+      <label>Aktion<select id="test-group-management-operation">
+        <option value="">Bitte auswählen</option><option value="CreateWindows">Windows-Testumgebung aus SQL-Vorlage anlegen</option>
+        <option value="Repair">Ganze Testgruppe reparieren</option><option value="Remove">Ganze Testgruppe entfernen</option>
+        <option value="Export">Gruppenexport aktualisieren</option>
+      </select></label>
+      <label id="test-group-management-image-field" hidden>SQL-Vorlage<select id="test-group-management-image"></select></label>
+      <p id="test-group-management-effect"></p>
+      <p id="test-group-management-status" role="status" aria-live="polite"></p>
+      <ul id="test-group-management-targets"></ul>
+      <label><input id="test-group-management-confirm" type="checkbox" disabled> Die angezeigte Aktion für alle aufgeführten Ziele bestätigen</label>
+      <div class="dialog-actions"><button id="test-group-management-read" type="submit" class="button secondary" disabled>Vorschau lesen</button><button id="test-group-management-apply" type="button" class="button primary" disabled>Bestätigte Aktion ausführen</button></div>
+    </form>
+  </dialog>
+  <script src="test-group-management.js"></script>
   <script src="tls-authenticated-creation.js"></script>
 </body>
 </html>

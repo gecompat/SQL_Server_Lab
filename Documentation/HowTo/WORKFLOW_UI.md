@@ -549,17 +549,51 @@ Gruppenbereitsteller mit SQL-Prüfung behält seine eigene Semantik.
 ### Linux-Testumgebung zur geschützten Testgruppe hinzufügen
 
 Öffne **Geschützte Testsystem-Matrix → Linux-Testumgebung hinzufügen**.
-Wähle Docker oder Podman und eine unterstützte SQL-Version. Der Browser
-verwendet den aktuellen Patch aus dem Lab-Katalog. Lies die Vorschau und
-bestätige den angezeigten Gruppeneintrag. Das Lab erzeugt ein eigenes
+Wähle Docker oder Podman, die SQL-Version und den Patch. Die Auswahl
+enthält den aktuellen Patch und die für diese Version verfügbaren
+katalogisierten CUs. Lies die Vorschau und bestätige den angezeigten
+Gruppeneintrag. Das Lab erzeugt ein eigenes
 Kennwort, registriert die Umgebung und aktualisiert den geschützten Export
 unter dem konfigurierten Lab_Data. Der Browser zeigt das Kennwort nicht an.
 
 Eine geänderte Runtime oder Gruppenregistrierung macht die Vorschau
 ungültig. Nach einem unbestätigten Auftrag prüfe zuerst den Gruppenstatus.
 Eine offene Vormerkung für dasselbe Ziel sperrt eine weitere Anlage.
-Windows-Ziele und die Auswahl einzelner Patches bleiben im Konsolenmenü
-der Testsystem-Matrix verfügbar.
+### Windows hinzufügen, Testgruppe reparieren oder entfernen
+
+Öffne **Geschützte Testsystem-Matrix → Testgruppe verwalten**.
+Wähle die Aktion, lies die Vorschau und bestätige erst
+dann den Auftrag.
+
+- **Windows anlegen** klont eine für die Nutzung freigegebene
+  SQL-Prepared-Vorlage. SQL-Version und Build stammen aus der Vorlage.
+  Hyper-V, ein konfiguriertes Lab_Data, eine geeignete Vorlage und ein
+  aus einer erhöhten PowerShell gestarteter Oberflächenserver sind für
+  die Anlage erforderlich. Die Windows-Einrichtung nutzt ein generiertes Kennwort,
+  das im Browser nicht erscheint. Die Windows-Aktivierung kann vorübergehend
+  einen externen Netzwerkadapter verwenden. Der Auftrag meldet die Registrierung
+  und getrennt davon die Bereitschaft der Gruppe. Für Anlage aus
+  Installationsmedien oder die manuelle Windows-Einrichtung nutze
+  **Testgruppe erstellen oder konfigurieren → Windows hinzufügen**
+  im Konsolenmenü.
+- **Gruppe reparieren** gleicht Runtime-Namen, Ressourcen, Readiness und
+  Windows-Aktivierung ab. Die Reparatur kann Container ersetzen,
+  Windows-VMs neu starten und vorübergehend einen externen
+  Netzwerkadapter für die Windows-Aktivierung verwenden.
+- **Gruppe entfernen** entfernt alle angezeigten Mitglieder, die ihnen
+  zugeordneten Ressourcen und die Gruppenexporte dauerhaft. Sichere
+  benötigte SQL-Daten vor der Bestätigung.
+- **Gruppenexport aktualisieren** schreibt die vorhandenen lokalen
+  TestUmgebung-Dateien unter Lab_Data neu. Der Browser meldet die Anzahl
+  registrierter und bereiter Mitglieder. Die Dateien enthalten lokale
+  SQL-Zugangsdaten und bleiben im geschützten Exportordner.
+
+Reparatur und Entfernen im Browser setzen eine vollständig gebundene
+Testgruppe voraus. Unklare Registrierungen, fremde Gruppenreferenzen,
+reservierte Windows-Slots und offene Recovery-Journale können die
+Vorschau sperren. Bei einer geänderten Bindung oder einem unbestätigten
+Ergebnis prüfe zuerst die Testsystem-Matrix und lies anschließend eine
+neue Vorschau. Für Reparatur gibt es dort auch einen Konsolenmenüpunkt.
 
 ### Funktionsbereiche der Browser-Oberfläche
 

@@ -3587,8 +3587,11 @@ Gruppenaktionen separat in der Testmatrix. Browserbereiche verbergen inaktive
 Inventare und ersetzen die früheren Katalogfilter-Verweise durch konkrete
 vorhandene Dialoge oder eine ausdrückliche Lückenbeschreibung.
 
-Offen bleiben über Power-Start/Stop hinausgehende Browserdialoge für Testgruppen, CMS und
-operative Slotreservierung und Auffüllung, späteres Provider-Setup,
+Die geschützte Testsystem-Matrix bietet im Browser jetzt die Windows-Anlage
+aus einer freigegebenen SQL-Prepared-Vorlage sowie Reparatur und Entfernen mit
+gebundener Vorschau. Die Medienanlage und manuelle Windows-Einrichtung sind
+im Konsolenmenü verfügbar. Offen bleiben unter anderem weitere operative
+Slotabläufe, späteres Provider-Setup,
 weitere Runtimeinstaller-Lanes sowie Fremdstart-/weiterer Hostdienst- und Modell-Lifecycle. Vorhandene
 Gruppenschutzverträge gelten unverändert. Der neue Gruppen-Powerdialog nutzt
 exakte Runtime-IDs und eine gemeinsame Sperre mit Registrierung sowie

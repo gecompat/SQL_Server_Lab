@@ -58,7 +58,7 @@ try {
             $entries += @{key=$provider.ToUpperInvariant();runId=$id;platform='linux';instanceId='primary';sqlVersion='2025';patch='cu9';registrationState='REGISTERED'}
         }
         $registryPath = Get-LabTestEnvironmentRegistryPath
-        @{contractVersion='SqlServerLab.TestEnvironmentRegistry/1.0';environments=$entries} | ConvertTo-Json -Depth 10 | Set-Content $registryPath
+        @{contractVersion='SqlServerLab.TestEnvironmentRegistry/1.0';updatedAt=(Get-LabTimestamp);environments=$entries} | ConvertTo-Json -Depth 10 | Set-Content $registryPath
         $script:groupChecks = 0
         function Check-Group { param($Condition,$Message) if (-not $Condition) { throw $Message }; $script:groupChecks++ }
         function Reject-Group { param([scriptblock]$Action) try { & $Action; throw 'EXPECTED_REJECTION_MISSING' } catch { if ($_.Exception.Message -eq 'EXPECTED_REJECTION_MISSING') { throw } }; $script:groupChecks++ }
@@ -194,6 +194,44 @@ try {
         $plan = Get-LabTestGroupPowerPlan
         $result = Invoke-SqlServerLabWorkflowAction -Action StartTestGroupPower -ExpectedPlanKey $plan.PlanKey 6>$null
         Check-Group ($result.Result.Status -eq 'COMPLETED' -and $script:groupCalls.Count -eq 2) 'Real workflow adapter missed shared bound executor'
+        $script:groupMaintenanceCalls = @()
+        function Repair-SqlServerLabAutomatedTestEnvironment {
+            [CmdletBinding(SupportsShouldProcess)]
+            param([switch]$Force,$OutputDirectory,$StateRoot)
+            $script:groupMaintenanceCalls += 'Repair'
+            [pscustomobject]@{Status='READY'; Details='synthetic-private-maintenance'}
+        }
+        function Clear-SqlServerLabAutomatedTestEnvironment {
+            [CmdletBinding(SupportsShouldProcess)]
+            param([switch]$Force,$OutputDirectory,$StateRoot)
+            $script:groupMaintenanceCalls += 'Remove'
+            [pscustomobject]@{Status='REMOVED'; Removed=2; Details='synthetic-private-maintenance'}
+        }
+        $repair = Get-LabTestGroupManagementPlan -Operation Repair
+        Check-Group ($repair.CanApply -and $repair.Members.Count -eq 2 -and -not $script:groupMaintenanceCalls.Count) 'Repair preview did not stay read-only'
+        Check-Group (-not (Get-LabTestGroupManagementPlan -Operation Remove).CanApply) 'Remove without cleanup plans was admitted'
+        foreach ($provider in @('docker','podman')) {
+            $id = $script:groupRuns[$provider]
+            $cleanupPath = Join-Path (Get-LabStateRoot) "runs/$id/cleanup-plan.json"
+            @{runId=$id;scopeId=$script:groupScope;steps=@(@{state='PENDING';provider=$provider})} | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $cleanupPath
+        }
+        $remove = Get-LabTestGroupManagementPlan -Operation Remove
+        Check-Group ($remove.CanApply -and $remove.PlanKey -cne $repair.PlanKey -and ($remove | ConvertTo-Json -Depth 5) -cnotmatch $script:groupScope) 'Remove leaked raw binding or accepted the repair key'
+        Reject-Group { Invoke-LabTestGroupManagementPlan -Operation Remove -ExpectedPlanKey $repair.PlanKey }
+        Add-Content -LiteralPath $cleanupPath ' '
+        Reject-Group { Invoke-LabTestGroupManagementPlan -Operation Remove -ExpectedPlanKey $remove.PlanKey }
+        Check-Group (-not $script:groupMaintenanceCalls.Count) 'Invalid preview reached a maintenance actuator'
+        $remove = Get-LabTestGroupManagementPlan -Operation Remove
+        $result = Invoke-SqlServerLabWorkflowAction -Action RemoveTestGroup -ExpectedPlanKey $remove.PlanKey 6>$null
+        Check-Group ($result.Result.Status -ceq 'REMOVED' -and $result.Result.Count -eq 2 -and ($result | ConvertTo-Json -Depth 5) -cnotmatch 'synthetic-private-maintenance') 'Remove adapter did not sanitize result'
+        $result = Invoke-SqlServerLabWorkflowAction -Action RepairTestGroup -ExpectedPlanKey $repair.PlanKey 6>$null
+        Check-Group ($result.Result.Status -ceq 'READY' -and ($script:groupMaintenanceCalls -join ',') -ceq 'Remove,Repair') 'Repair adapter did not dispatch to the tested maintenance boundary'
+        function Read-LabConfirm { param($Prompt,$Default) return $false }
+        $cli = Invoke-LabActionWithResult -ActionName RepairAutomatedTestEnvironment
+        Check-Group ($cli.Status -ceq 'Cancelled' -and $script:groupMaintenanceCalls.Count -eq 2) 'Repair CLI cancellation reached the actuator'
+        function Read-LabConfirm { param($Prompt,$Default) return $true }
+        $cli = Invoke-LabActionWithResult -ActionName RepairAutomatedTestEnvironment 6>$null
+        Check-Group ($cli.Status -ceq 'Changed' -and ($script:groupMaintenanceCalls -join ',') -ceq 'Remove,Repair,Repair') 'Repair CLI did not apply the preview after explicit confirmation'
         $script:groupVm = [pscustomobject]@{ Id=[guid]::NewGuid().ToString(); Name='synthetic-group-vm'; State='Off'; Notes=($script:HyperVLabNotesPrefix + (@{provider='hyperv';runId=$script:groupRuns.docker;scopeId=$script:groupScope;instanceId='primary'} | ConvertTo-Json -Compress)) }
         function Get-VM { param($Name,$ErrorAction) $script:groupVm }
         function Start-VM { param($VM,$ErrorAction) $VM.State='Running' }
@@ -244,6 +282,8 @@ try {
             Check-Group ($script:groupUiAction -eq 'StopTestGroupPower' -and $script:groupUiParameters.ExpectedPlanKey -eq ('a'*64) -and $jobs.Count -eq 1 -and $script:groupUiResponse.id -eq 'synthetic-group-job') 'Real HTTP route failed one-shot job binding'
         } finally { $stream.Dispose() }
         $script:groupCreateCalls = 0
+        $script:groupExpectedPatch = 'latest'
+        $script:groupExpectedKey = 'LINUX_PODMAN_2025'
         $script:groupCreateRuntime = 'runtime-one'
         function Get-LabContainerRuntimeScope { [pscustomobject]@{ Status='AVAILABLE'; RuntimeId=$script:groupCreateRuntime } }
         function New-SqlServerLabAutomatedTestEnvironment {
@@ -251,8 +291,8 @@ try {
             param($Specification,$Provider,$OutputDirectory,$StateRoot)
             $script:groupCreateCalls++
             if ($Specification.Count -ne 1 -or $Specification[0].Platform -cne 'linux' -or
-                $Specification[0].SqlVersion -cne '2025' -or $Specification[0].Patch -cne 'latest' -or
-                $Specification[0].Key -cne 'LINUX_PODMAN_2025' -or $Provider -cne 'podman') {
+                $Specification[0].SqlVersion -cne '2025' -or $Specification[0].Patch -cne $script:groupExpectedPatch -or
+                $Specification[0].Key -cne $script:groupExpectedKey -or $Provider -cne 'podman') {
                 throw 'CREATE_FIXTURE_TARGET_MISMATCH'
             }
             $registered = [pscustomobject]@{ Key=$Specification[0].Key; RunId=[guid]::NewGuid().ToString('D'); RegistrationState='REGISTERED' }
@@ -287,6 +327,84 @@ try {
             ($created | ConvertTo-Json -Depth 5) -cnotmatch 'synthetic-not-for-receipt') 'Linux creation did not report the bound registration safely'
         Reject-Group { Invoke-SqlServerLabWorkflowAction -Action CreateLinuxTestGroupMember -Provider podman -SqlVersion 2025 -ExpectedPlanKey $createPlan.PlanKey }
         Check-Group ($script:groupCreateCalls -eq 1) 'Completed Linux creation replayed with the same preview'
+        $catalog = Get-LabTestGroupLinuxCreatePlan
+        Check-Group ('cu9' -cin $catalog.Patches['2025']) 'Linux group catalog missed the selectable pinned patch'
+        Reject-Group { Get-LabTestGroupLinuxCreatePlan -Provider podman -SqlVersion 2025 -Patch cu999999 }
+        $latest = Get-LabTestGroupLinuxCreatePlan -Provider podman -SqlVersion 2025
+        $pinned = Get-LabTestGroupLinuxCreatePlan -Provider podman -SqlVersion 2025 -Patch cu9
+        Reject-Group { Invoke-SqlServerLabWorkflowAction -Action CreateLinuxTestGroupMember -Provider podman -SqlVersion 2025 -TestGroupPatch cu9 -ExpectedPlanKey $latest.PlanKey }
+        Check-Group ($script:groupCreateCalls -eq 1 -and $pinned.PlanKey -cne $latest.PlanKey) 'Pin was interchangeable with a preview for the current catalog patch'
+        $script:groupExpectedPatch = 'cu9'
+        $script:groupExpectedKey = 'LINUX_PODMAN_2025_CU9'
+        $created = Invoke-SqlServerLabWorkflowAction -Action CreateLinuxTestGroupMember -Provider podman -SqlVersion 2025 -TestGroupPatch cu9 -ExpectedPlanKey $pinned.PlanKey 6>$null
+        Check-Group ($script:groupCreateCalls -eq 2 -and $created.Result.Key -ceq $script:groupExpectedKey) 'Confirmed pinned patch did not reach the group creation plan'
+        $script:groupWindowsId = 'hyperv-prepared-' + ('a' * 64)
+        $script:groupWindowsRun = [guid]::NewGuid().ToString('D')
+        $script:groupWindowsCalls = @()
+        $script:groupWindowsElevated = $false
+        function Test-LabAdministrator { $script:groupWindowsElevated }
+        function Test-HyperVAvailable { [pscustomobject]@{ Available=$true } }
+        function Test-HyperVImageArtifactChildValidationEligibility { [pscustomobject]@{ Eligible=$true } }
+        function Get-HyperVImageArtifact {
+            [CmdletBinding()]
+            param($ArtifactId,$StateRoot,[switch]$SkipIntegrityCheck)
+            if (-not $ArtifactId -or $ArtifactId -ceq $script:groupWindowsId) {
+                [pscustomobject]@{ artifactId=$script:groupWindowsId; artifactState='SQL_PREPARED_SEALED'; sql=@{version='2025';build='2025.0170.1000.07 ((SQL2025_RTM).251021-1808)'} }
+            }
+            if (-not $ArtifactId) {
+                [pscustomobject]@{ artifactId=('hyperv-os-' + ('b' * 64)); artifactState='OS_SEALED'; sql=$null }
+            }
+        }
+        function Export-SqlServerLabTestEnvironment { [pscustomobject]@{GroupStatus='INCOMPLETE'} }
+        function Sync-LabAutomatedTestEnvironmentConnectionCenter { }
+        function New-HyperVLabEnvironment {
+            param($ArtifactId,$LabName,$InstanceId,$MemoryStartupMB,$ProcessorCount,$AutoStart,$StateRoot)
+            if ($ArtifactId -cne $script:groupWindowsId -or $InstanceId -cne 'primary') { throw 'FIXTURE_WINDOWS_TARGET_MISMATCH' }
+            $script:groupWindowsCalls += 'Clone'
+            [pscustomobject]@{RunId=$script:groupWindowsRun; Private='synthetic-private-windows'}
+        }
+        function Set-LabWindowsTestEnvironmentActivationIntent {
+            param($RunId,$StateRoot)
+            if ($RunId -cne $script:groupWindowsRun) { throw 'FIXTURE_WINDOWS_RUN_MISMATCH' }
+            $script:groupWindowsCalls += 'Intent'
+        }
+        function Invoke-HyperVLabUnattendedProvision {
+            param($RunId,$AdministratorPassword,$PasswordSource,$StateRoot)
+            if ($RunId -cne $script:groupWindowsRun -or $AdministratorPassword -isnot [securestring] -or $PasswordSource -cne 'generated') { throw 'FIXTURE_WINDOWS_PROVISION_MISMATCH' }
+            $script:groupWindowsCalls += 'Provision'
+        }
+        $catalog = Get-LabTestGroupManagementPlan -Operation CreateWindows
+        Check-Group ($catalog.Artifacts.Count -eq 1 -and $catalog.Artifacts[0].ArtifactId -ceq $script:groupWindowsId -and
+            $catalog.Artifacts[0].Build -ceq '17.0.1000.7') 'Windows list did not parse the SQL Setup version of the eligible prepared image'
+        $blocked = Get-LabTestGroupManagementPlan -Operation CreateWindows -ArtifactId $script:groupWindowsId
+        Check-Group (-not $blocked.CanApply -and -not $blocked.PlanKey -and
+            $blocked.Reason -ceq 'TEST_GROUP_WINDOWS_ELEVATION_REQUIRED') 'Non-elevated Windows preview could authorize unattended VHDX provisioning'
+        $script:groupWindowsElevated = $true
+        $windows = Get-LabTestGroupManagementPlan -Operation CreateWindows -ArtifactId $script:groupWindowsId
+        $script:groupWindowsElevated = $false
+        Reject-Group { Invoke-LabTestGroupManagementPlan -Operation CreateWindows -ArtifactId $script:groupWindowsId -ExpectedPlanKey $windows.PlanKey }
+        $script:groupWindowsElevated = $true
+        Reject-Group { Invoke-LabTestGroupManagementPlan -Operation CreateWindows -ArtifactId $script:groupWindowsId -ExpectedPlanKey ('b'*64) }
+        Check-Group (-not $script:groupWindowsCalls.Count) 'Windows preview or stale submission invoked a provider'
+        $created = Invoke-SqlServerLabWorkflowAction -Action CreateWindowsTestGroupMember -ArtifactId $script:groupWindowsId -ExpectedPlanKey $windows.PlanKey 6>$null
+        Check-Group ($created.Result.Status -ceq 'REGISTERED' -and -not $created.Result.GroupReady -and
+            ($script:groupWindowsCalls -join ',') -ceq 'Clone,Intent,Provision' -and
+            @((Get-LabTestEnvironmentRegistry).environments | Where-Object runId -ceq $script:groupWindowsRun).Count -eq 1 -and
+            ($created | ConvertTo-Json -Depth 5) -cnotmatch 'synthetic-private-windows') 'Windows adapter did not register and provision exactly the selected clone'
+        Reject-Group { Invoke-LabTestGroupManagementPlan -Operation CreateWindows -ArtifactId $script:groupWindowsId -ExpectedPlanKey $windows.PlanKey }
+        $script:groupExportCalls = 0
+        function Export-SqlServerLabTestEnvironment {
+            [CmdletBinding()]
+            param($OutputDirectory,$StateRoot)
+            $script:groupExportCalls++
+            [pscustomobject]@{GroupStatus='INCOMPLETE';Entries=2;Ready=1;EnvPath='synthetic-private-export'}
+        }
+        $exportPlan = Get-LabTestGroupManagementPlan -Operation Export
+        Check-Group ($exportPlan.CanApply -and -not $script:groupExportCalls) 'Export preview invoked the writer'
+        Reject-Group { Invoke-LabTestGroupManagementPlan -Operation Export -ExpectedPlanKey $windows.PlanKey }
+        $export = Invoke-SqlServerLabWorkflowAction -Action ExportTestGroup -ExpectedPlanKey $exportPlan.PlanKey 6>$null
+        Check-Group ($script:groupExportCalls -eq 1 -and $export.Result.Status -ceq 'INCOMPLETE' -and $export.Result.ReadyCount -eq 1 -and
+            ($export | ConvertTo-Json -Depth 5) -cnotmatch 'synthetic-private-export') 'Export adapter leaked paths or hid incomplete readiness'
         $prior = Get-LabTestEnvironmentRegistry
         $prior.environments = @($prior.environments) + @([pscustomobject]@{key='LINUX_PODMAN_2025_2';runId=$null;registrationState='PROVISIONING_PENDING'})
         Write-LabArtifactJsonAtomic -Path $registryPath -InputObject $prior

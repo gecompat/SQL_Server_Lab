@@ -32,7 +32,7 @@ function Get-LabActionPrivilegeClass {
     switch ($Action) {
         { $_ -in @('Image', 'WindowsSlotPool') } { 'Administrator' }
         { $_ -in @(
-            'New', 'AutomatedTestEnvironment', 'ClearAutomatedTestEnvironment',
+            'New', 'AutomatedTestEnvironment', 'ClearAutomatedTestEnvironment', 'RepairAutomatedTestEnvironment',
             'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'Script', 'Database',
             'Rename', 'UpdateContainer', 'Resources', 'Manage', 'Install7Zip'
         ) } { 'RuntimeAccess' }
