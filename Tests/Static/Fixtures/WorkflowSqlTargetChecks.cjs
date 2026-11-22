@@ -75,6 +75,9 @@ const context = vm.createContext({ document, console, URLSearchParams,
   sqlServerLabUiFetch: (...args) => { fetchRequests.push(args); return args[0] === '/api/jobs' ? Promise.resolve({ ok: true, json: async () => [] }) : new Promise(() => {}); }, setTimeout() {}, clearTimeout() {}, queued: [] });
 const fetchRequests = [];
 const run = (code) => vm.runInContext(code, context, { timeout: 5000 });
+if (html.includes('<script src="test-group-view.js"></script>')) {
+  run(fs.readFileSync(path.join(root, 'Ui', 'test-group-view.js'), 'utf8'));
+}
 run(source);
 for (const asset of ['manifest-check.js', 'ssms-registration-export.js', 'cms-management.js', 'resource-plan.js', 'llama-model-catalog.js', 'windows-slot-pool.js', 'ollama-local-generation.js']) {
   if (html.includes('<script src="' + asset + '"></script>')) run(fs.readFileSync(path.join(root, 'Ui', asset), 'utf8'));
@@ -777,7 +780,7 @@ async function main() {
   });
   const groupRequests = [];
   let groupMode = 'ready';
-  const groupPlan = { Group: 'Registrierte Testgruppe', Total: 2, PowerStatus: 'MIXED', PowerAction: 'Start', CanApply: true, NoChange: false, PlanKey: 'a'.repeat(64), Notice: 'Nur Power; SQL nicht geprüft.', Members: [{ Key: 'DOCKER', Provider: 'docker', Power: 'STOPPED', Desired: 'RUNNING', Change: 'START' }, { Key: 'PODMAN', Provider: 'podman', Power: 'RUNNING', Desired: 'RUNNING', Change: 'NO_OP' }] };
+  const groupPlan = { Group: 'Registrierte Testgruppe', Total: 2, PowerStatus: 'MIXED', PowerAction: 'Start', CanApply: true, NoChange: false, PlanKey: 'a'.repeat(64), Notice: 'Nur Power; SQL nicht geprüft.', Members: [{ Key: 'DOCKER', Provider: 'docker', RegistrationLabel: 'Linux · SQL Server 2025 · CU9 · Registriert', Power: 'STOPPED', Desired: 'RUNNING', Change: 'START' }, { Key: 'PODMAN', Provider: 'podman', Power: 'RUNNING', Desired: 'RUNNING', Change: 'NO_OP' }] };
   context.sqlServerLabUiFetch = async (url, options = {}) => {
     groupRequests.push({ url, options });
     if (url.startsWith('/api/test-group?')) return { ok: groupMode !== 'error', json: async () => ({ ...groupPlan, PowerAction: new URLSearchParams(url.split('?')[1]).get('powerAction'), CanApply: groupMode !== 'unknown', NoChange: groupMode === 'noop', Total: groupMode === 'empty' ? 0 : 2 }) };
@@ -787,6 +790,13 @@ async function main() {
   };
   await resourceEvent('test-group-open');
   check('Group dialog uses read-only shared preview and explicit group selection', () => { assert.equal(groupRequests.length, 1); assert.equal(node('test-group-apply').disabled, true); assert.match(node('test-group-status').textContent, /nicht geprüft/); });
+  check('Group separates registered target details from power and SQL readiness', () => {
+    const members = node('test-group-members').innerHTML;
+    assert.match(members, /Linux · SQL Server 2025 · CU9 · Registriert/);
+    assert.match(members, /docker · STOPPED → RUNNING/);
+    assert.doesNotMatch(members, /undefined|null/);
+    assert.match(node('test-group-status').textContent, /SQL-Bereitschaft: nicht geprüft/);
+  });
   node('test-group-selection').value = 'registered'; await resourceEvent('test-group-selection', 'change');
   await resourceEvent('test-group-apply');
   check('Group selection alone does not authorize power action', () => assert.equal(groupRequests.filter(r => r.url === '/api/actions').length, 0));

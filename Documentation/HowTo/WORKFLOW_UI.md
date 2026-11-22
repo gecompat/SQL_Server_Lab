@@ -527,7 +527,9 @@ Resume dieselbe OperationId. Die native Löschabnahme bleibt gesondert offen.
 Im Bereich Testsystem-Matrix öffnet „Gruppe ansehen · Power-Start/Stop“ die
 tatsächlich registrierte Gruppe des kanonischen Exportroots. Nach der Auswahl
 zeigen Mitglieder und Gesamtstatus den gemessenen Container-/VM-Powerzustand.
-SQL-Bereitschaft bleibt ausdrücklich **nicht geprüft**. Starten oder Stoppen
+CLI und Browser zeigen je Mitglied zusätzlich Plattform, SQL-Version,
+Patchziel und den gespeicherten Registrierungsstand. Auch vorgemerkte
+Mitglieder sind sichtbar. SQL-Bereitschaft bleibt **nicht geprüft**. Starten oder Stoppen
 betrifft die gesamte Gruppe; die Ist-/Zielvorschau muss gesondert bestätigt
 werden. Eine neue Auswahl oder Aktualisierung verwirft die Bestätigung.
 

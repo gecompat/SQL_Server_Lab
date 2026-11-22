@@ -1008,6 +1008,7 @@
   </dialog>
   <script src="tls-live-qualification.js"></script>
   <script src="sql-connection-clipboard.js"></script>
+  <script src="test-group-view.js"></script>
   <script src="app.js"></script>
   <dialog id="ollama-local-generation-dialog">
     <form id="ollama-local-generation-form">
@@ -1333,10 +1334,12 @@
       <h2>Lab-Netz auf Subnetzkonflikt prüfen</h2>
       <p class="form-note">Die lesende Vorschau zeigt, ob eine Migration erforderlich ist, und nennt die betroffenen Container.</p>
       <label>Provider<select id="container-network-plan-provider"><option value="docker">Docker</option><option value="podman">Podman</option></select></label>
+      <label>IPv4-Zielsubnetz (optional)<input id="container-network-plan-subnet" type="text" maxlength="18" placeholder="198.18.2.0/24" autocomplete="off"></label>
       <p id="container-network-plan-status" role="status"></p>
       <div class="dialog-actions">
-        <button type="submit" class="button primary">Weiter zur Bestätigung</button>
+        <button id="container-network-plan-read" type="submit" class="button primary">Vorschau lesen</button>
         <button id="container-network-plan-close" type="button" class="button secondary">Schließen</button>
+        <button id="container-network-plan-apply" type="button" class="button secondary" hidden disabled>Gebundenen Plan ausführen</button>
       </div>
     </form>
   </dialog>

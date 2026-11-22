@@ -55,7 +55,7 @@ try {
             $null = New-Item -ItemType Directory -Path $runPath -Force
             @{runId=$id;scopeId=$script:groupScope;state='STOPPED';metadata=@{};providerSubRuns=@(@{provider=$provider;state='STOPPED'})} | ConvertTo-Json -Depth 10 | Set-Content (Join-Path $runPath 'run-state.json')
             @{instances=@(@{id='primary';provider=$provider;containerId=$script:groupIds[$provider]})} | ConvertTo-Json -Depth 10 | Set-Content (Join-Path $runPath 'connection-info.json')
-            $entries += @{key=$provider.ToUpperInvariant();runId=$id;platform='linux';instanceId='primary';sqlVersion='2025'}
+            $entries += @{key=$provider.ToUpperInvariant();runId=$id;platform='linux';instanceId='primary';sqlVersion='2025';patch='cu9';registrationState='REGISTERED'}
         }
         $registryPath = Get-LabTestEnvironmentRegistryPath
         @{contractVersion='SqlServerLab.TestEnvironmentRegistry/1.0';environments=$entries} | ConvertTo-Json -Depth 10 | Set-Content $registryPath
@@ -65,6 +65,21 @@ try {
         $before = (Get-FileHash $registryPath).Hash
         $plan = Get-LabTestGroupPowerPlan
         Check-Group ($plan.CanApply -and $plan.Total -eq 2 -and $plan.PowerStatus -eq 'STOPPED' -and $plan.SqlReadiness -eq 'NOT_CHECKED') 'Measured group preview failed'
+        Check-Group ($plan.Members[0].RegistrationLabel -ceq 'Linux · SQL Server 2025 · CU9 · Registriert') 'Registration details missing from bound preview'
+        $originalRegistry = Get-Content -LiteralPath $registryPath -Raw
+        $pendingRegistry = $originalRegistry | ConvertFrom-Json
+        $pendingRegistry.environments += [pscustomobject]@{key='WINDOWS';runId='';platform='windows';instanceId='primary';sqlVersion='2022';patch='latest';registrationState='PROVISIONING_PENDING'}
+        try {
+            $pendingRegistry | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $registryPath
+            $pending = Get-LabTestGroupPowerPlan
+            Check-Group ($pending.Total -eq 3 -and -not $pending.CanApply -and $pending.Members[2].Power -eq 'UNKNOWN' -and
+                $pending.Members[2].RegistrationLabel -ceq 'Windows · SQL Server 2022 · Aktueller Patch laut Katalog · Vorgemerkt') 'Pending record was hidden or authorized'
+        }
+        finally { Set-Content -LiteralPath $registryPath -Value $originalRegistry -NoNewline }
+        $legacyLabel = Get-LabTestGroupRegistrationLabel -Entry ([pscustomobject]@{platform='linux';sqlVersion='2025';runId=$entries[0].runId})
+        Check-Group ($legacyLabel -ceq 'Linux · SQL Server 2025 · Patch unbekannt · Registriert') 'Legacy record was not preserved'
+        $unknownLabel = Get-LabTestGroupRegistrationLabel -Entry ([pscustomobject]@{platform='unexpected';sqlVersion='sensitive';runId='';patch='sensitive';registrationState='unexpected'})
+        Check-Group ($unknownLabel -ceq 'Plattform unbekannt · SQL-Version unbekannt · Patch unbekannt · Registrierung unklar') 'Malformed metadata was exposed as a registration'
         $cancel = Invoke-LabTestGroupPowerPlan -PowerAction Start -ExpectedPlanKey $plan.PlanKey
         Check-Group ($cancel.Status -eq 'CANCELLED' -and -not $script:groupCalls.Count) 'Cancel mutated'
         $stopPlan = Get-LabTestGroupPowerPlan -PowerAction Stop
@@ -165,6 +180,7 @@ try {
         $script:groupCalls = @(); $cli = Invoke-LabActionWithResult -ActionName AutomatedTestEnvironmentLifecycle
         Check-Group (-not $script:groupCalls.Count -and -not $script:groupChoices.Count -and $cli.Status -eq 'Cancelled' -and $cli.ConnectionCenterImpact -eq 'None') 'CLI refresh/no-op/cancel/back mutated or misrouted'
         Check-Group ($script:groupFrames.Count -ge 4 -and @($script:groupFrames | Where-Object { ($_.Lines -join ' ') -notmatch 'DOCKER.*STOPPED' -or ($_.Lines -join ' ') -notmatch 'PODMAN.*STOPPED' }).Count -eq 0) 'Cursor frames lost persistent group members or F5 refresh'
+        Check-Group (@($script:groupFrames | Where-Object { ($_.Lines -join ' ') -notmatch 'Linux · SQL Server 2025 · CU9 · Registriert' }).Count -eq 0) 'Console did not display the registered target'
         $script:groupFallback=$true
         @('invalid','3','2','0') | ForEach-Object { $script:groupChoices.Enqueue($_) }
         $fallbackOutput = @(Invoke-LabActionWithResult -ActionName AutomatedTestEnvironmentLifecycle 6>&1)

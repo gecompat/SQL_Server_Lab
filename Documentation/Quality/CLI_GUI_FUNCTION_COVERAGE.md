@@ -184,10 +184,29 @@ Bei einem bestätigten laufenden Receiver öffnen beide Oberflächen den
 lokalen WebMail-Zugang ausdrücklich für 15 Minuten. Das Protokoll zeigt
 keinen Startlink. Die Mailzustellung bleibt eine getrennte Prüfung.
 
-Die Netzmigration über `Move-SqlServerLabContainerNetwork` ist bei der
-Ausführung weiterhin `KNOWN_GAP`: Die CLI und der Browser führen nur die
-`-WhatIf`-Vorschau. Die bestehende Ausführung hat keine an die bestätigte
-Vorschau gebundene Revision und kann laufende SQL-Container unterbrechen.
+CLI und Browser bieten die lesende `-WhatIf`-Vorschau mit optionalem
+IPv4-Zielsubnetz. Die automatische Vorschau lässt die Netzkonfiguration im
+Prozess unverändert. Die getrennte Bestätigung übergibt den gebundenen
+Plan an den öffentlichen Befehl. Dieser prüft den `ExpectedPlanKey`
+vor jeder Mutation. Der Plan bindet Provider, Netz-ID, Subnetze und
+registrierte Container sowie eine verifizierte lokale Runtime. Fremde, geschützte und nicht eindeutig zugeordnete
+Ressourcen sowie eine offene Recovery sperren die Ausführung. Der
+synthetisch geprüfte Executor verwendet unveränderliche IDs an einem gebundenen Provider-Endpunkt und
+kontrolliert Power und Aliasse nach der Mutation.
+
+Am 22.11.2026 wurde die Migration auf Stand `27a67f4f` mit je einer
+eigenen SQL-2025-CU9-Instanz (`17.0.5005.3`) unter Docker und Podman
+ausgeführt. Die synthetischen SQL-Daten blieben nach beiden Netzwechseln
+lesbar. Podman bestand auch den automatischen Cleanup und den gesamten
+Vorher-/Nachher-Inventarvergleich. Beim Docker-Lauf brach der ursprüngliche
+Cleanup an der Konsolenbestätigung ab. Die anschließende gezielte
+Bereinigung entfernte denselben Run und sein Netz. Der vor dieser
+Bereinigung erfasste Fremdbestand blieb erhalten. CLI- und Browser-Dispatch
+sind separat mit synthetischen Antworten geprüft. Bei einer unterbrochenen
+Migration zeigt dieselbe Vorschau den gespeicherten Recovery-Befund mit
+letzter protokollierter Phase und bekanntem Fehlercode. Synthetische
+Vertragsfälle prüfen das unveränderte Journal und den gesperrten
+Ausführungspfad. Eine geführte Ausführung der Recovery bleibt offen.
 
 Beim persistenten KI-Retrieval führen beide Oberflächen die synthetische
 Demo sowie `Prune` und `Remove`. Die Löschaktionen binden die ausgewählte
@@ -215,7 +234,7 @@ nicht alle Operationen des Bereichs einzeln auf einen CLI-Menüpfad, GUI-Aktion,
 | Fachbereich | Geführter CLI-Einstieg | GUI-Bereich | Vorhandene Grundlage | Bewertung |
 |---|---|---|---|---|
 | Lab-Umgebungen, Run-Lifecycle, Datenbanken, Samples und Skripte | Lab-Umgebungen | Lab-Umgebungen | Workflow-Einstieg; ausgewählte öffentliche Cmdlet-Zuordnungen; Container-/Hyper-V-Abnahmen in der [CLI-Akzeptanzmatrix](CLI_ACCEPTANCE_MATRIX.md) | `TEILWEISE`; vollständige Operations- und Änderungsmatrix offen |
-| Geschützte Testsystem-Matrix | Testsystem-Matrix | Geschützte Testsystem-Matrix | Gruppen-/Power-Dialog und vorhandene statische Verträge | `TEILWEISE`; vollständige Operationszuordnung und weitere geführte Aktionen `NOT_ASSESSED` |
+| Geschützte Testsystem-Matrix | Testsystem-Matrix | Geschützte Testsystem-Matrix | Registrierte SQL-Ziele, Vormerkungen und gemessenen Powerzustand anzeigen. Gruppen-Start und -Stopp mit gebundener Vorschau. | `TEILWEISE`; Browserpfade für Erstellen, Reparieren und Entfernen sind offen. |
 | Hyper-V-Vorlagen, Windows-Images und operative Slots | Hyper-V: Vorlagen und Slots | Hyper-V: Vorlagen und Slots | Image-/Poolinventar und einzelne gebundene Workflows | `KNOWN_GAP` für operative Slots und vollständiges Provider-Setup; native Nachweise bleiben funktions- und versionsgebunden |
 | Ressourcen, Medien, Downloads und Speicher | Ressourcen und Downloads | Ressourcen und Downloads | Kataloge, ausgewählte Plan-/Apply-Dialoge und geführte Bedarfsprüfung aus den konfigurierten Ordnern. `Invoke-ResourceSetChecks.ps1` und `WorkflowSqlTargetChecks.cjs` prüfen die Filterung und Übergabe ohne Download. | `TEILWEISE`; vollständige Operationszuordnung und Providerbelege offen |
 | Host-Dienste und Modelle | Host-Dienste und Modelle | Host-Dienste und Modelle | Einzelne Modell-/Hostservice-Dialoge und öffentliche Befehle | `KNOWN_GAP` für Fremdstart und weiteren Hostdienst-/Modell-Lifecycle |

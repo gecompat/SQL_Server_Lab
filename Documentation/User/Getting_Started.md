@@ -2481,9 +2481,12 @@ die Schnittstelle für Skripte. Du kannst sie ohne laufenden Lab-Run öffnen.
 
 Für Docker oder Podman kannst du unter **Wartung → Lab-Netz auf
 Subnetzkonflikt prüfen** eine lesende Vorschau starten. Sie zeigt, ob das
-Lab-Netz fehlt, konfliktfrei ist oder eine Migration benötigt. Im Browser
-steht der Befund im Live-Log. Die Ausführung einer Netzmigration ist ein
-separater Expertenbefehl und kann SQL-Verbindungen unterbrechen.
+Lab-Netz fehlt, konfliktfrei ist oder eine Migration benötigt. Eine
+offene Recovery sperrt die Ausführung. Der Dialog zeigt die letzte
+protokollierte Phase und den Fehlercode, soweit bekannt. Die Ausführung
+einer gebundenen Netzmigration braucht eine getrennte Bestätigung und
+kann SQL-Verbindungen unterbrechen. Der
+[Netzwerkleitfaden](../HowTo/LAB_NETWORKS.md) erklärt die Voraussetzungen.
 
 ### SQL-Gast-Edition und Evaluation-Evidence
 

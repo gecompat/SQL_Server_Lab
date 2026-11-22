@@ -684,6 +684,7 @@ sources_of_truth:
   validation_container_recreate_mount_boundary: Tests/Static/Fixtures/ContainerRecreateMountChecks.ps1
   hyperv_network_reconcile_contract: Private/HyperVNetworkReconcile.ps1
   container_network_preview_guidance: Public/Move-SqlServerLabContainerNetwork.ps1, Private/ContainerNetworkMigration.ps1, Private/ContainerNetworkMigrationConsole.ps1, Ui/container-network-plan.js
+  container_network_migration_binding: Tests/Static/Invoke-LabNetworkChecks.ps1, Tests/Static/Fixtures/ContainerNetworkPlanConsoleChecks.ps1, Tests/Static/Fixtures/ContainerNetworkBoundMigrationChecks.ps1
   hyperv_network_reconcile_journal_schema: Schemas/hyperv-network-reconcile-journal.schema.json
   validation_hyperv_network_reconcile: Tests/Static/Invoke-HyperVNetworkReconcileChecks.ps1
   validation_hyperv_network_reconnect_helper: Tests/Common/HyperVNetworkReconnectAcceptance.ps1
@@ -1126,6 +1127,7 @@ sources_of_truth:
   authenticated_tls_trust_import: Private/AuthenticatedTlsTrustImport.ps1 # private Windows CurrentUser Root public-DER lane, exact approval + protected intent/commit/cooperative lock; no removal/registration/TLS qualification
   validation_authenticated_tls_trust_import: Tests/Static/Invoke-AuthenticatedTlsTrustImportChecks.ps1 # coupled candidate/root/request/payload/context/pathguard; own real private file/ACL/lock fixtures + injected store boundaries, native store mutation NOT_EXECUTED
   test_group_power_guidance: Private/TestGroupGuidance.ps1
+  test_group_browser_view: Ui/test-group-view.js
   validation_test_group_power_guidance: Tests/Static/Invoke-TestGroupGuidanceChecks.ps1
   validation_test_group_full_regression: Tests/Static/Invoke-AllChecks.ps1 # exact-once group suite registration; selection and registry protected by Invoke-CiStrategyChecks.ps1
   validation_nightly_authorization: Tests/Static/Fixtures/CiStrategyNightlyAuthorizationChecks.ps1
