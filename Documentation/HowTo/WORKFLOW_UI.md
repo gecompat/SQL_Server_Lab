@@ -833,6 +833,8 @@ die **Priorität** auf Hoch, Normal oder Niedrig setzen. **Nach oben** und
 **Nach unten** erscheinen, wenn in derselben Priorität ein entsprechender
 Nachbar vorhanden ist. Die Browseransicht liest die Queue nach der Änderung
 neu. Laufende Vorgänge zeigen keine Reihenfolgensteuerung.
+Während du die Priorität auswählst, bleibt das Feld bei automatischen
+Aktualisierungen bedienbar.
 
 1. SQL-Prepared-Image: Windows- und SQL-ISO auswählen und Windows einmal in
    einer frischen Builder-VM installieren. Nach der sichtbaren Bestätigung der

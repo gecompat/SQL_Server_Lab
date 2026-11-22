@@ -11,12 +11,17 @@ const end = source.indexOf('function renderActiveLabs(', start);
 assert.ok(start >= 0 && end > start);
 
 const handlers = new Map();
+const document = { addEventListener: (name, handler) => handlers.set(name, handler) };
+const queueElement = { innerHTML: 'previous rendering' };
 const requests = [];
 const errors = [];
 let refreshes = 0;
 let resolveRequest;
 const context = vm.createContext({
-  document: { addEventListener: (name, handler) => handlers.set(name, handler) },
+  document,
+  $: selector => selector === '#operation-queue' ? queueElement : {},
+  statusClass: () => 'neutral',
+  empty: message => message,
   escapeHtml: value => String(value).replaceAll('&', '&amp;').replaceAll('"', '&quot;'),
   sqlServerLabUiFetch(url, init) {
     requests.push({ url, method: init.method, ...JSON.parse(init.body) });
@@ -31,6 +36,15 @@ const first = { operationId: 'operation-first', status: 'Queued', priority: 'Nor
 const second = { operationId: 'operation-second', status: 'Paused', priority: 'Normal', queuePosition: 2 };
 const waiting = [first, second];
 const markup = item => context.renderOperationOrderingControls(item, waiting);
+
+document.activeElement = { matches: selector => selector === '[data-operation-priority]' };
+context.renderOperationQueue({ items: waiting }, true);
+assert.equal(queueElement.innerHTML, 'previous rendering');
+context.renderOperationQueue({ items: waiting });
+assert.match(queueElement.innerHTML, /data-operation-priority/);
+document.activeElement = null;
+context.renderOperationQueue({ items: [] }, true);
+assert.match(queueElement.innerHTML, /Keine offenen/);
 
 assert.match(markup(first), /data-operation-command="MoveDown"/);
 assert.doesNotMatch(markup(first), /data-operation-command="MoveUp"/);

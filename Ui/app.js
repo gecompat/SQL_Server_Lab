@@ -695,11 +695,11 @@ function renderContainerVersionOptions(data) {
   }
 }
 
-function renderWorkflow(data) {
+function renderWorkflow(data, background = false) {
   workflow = data;
   renderContainerVersionOptions(data);
   renderConnectionEndpoints(data);
-  renderOperationQueue(data.Queue);
+  renderOperationQueue(data.Queue, background);
   renderBatchOverview(data.Batches);
   // Der Quellen-Dialog kann vor dem ersten API-Refresh geöffnet werden. In
   // diesem Fall das anfangs leere Feld nachträglich füllen, aber eine bereits
@@ -815,7 +815,8 @@ function renderOperationOrderingControls(item, waitingItems) {
   return priority + up + down;
 }
 
-function renderOperationQueue(queue) {
+function renderOperationQueue(queue, background = false) {
+  if (background && document.activeElement?.matches('[data-operation-priority]')) return;
   const items = queue?.items || [];
   const waitingItems = items.filter(item => item.status !== 'Running');
   $('#queue-count').textContent = (queue?.runningWorkers || 0) + '/' + (queue?.maxWorkers || 2) + ' Worker · ' + items.length + ' offen';
@@ -1040,7 +1041,7 @@ async function refresh(mediaRoot, background = false) {
   if (background && (window.sqlServerLabTlsLiveQualification?.isPending() ||
       window.sqlServerLabTlsLiveQualification?.getGeneration?.() !== tlsGeneration)) return;
   if (Object.prototype.hasOwnProperty.call(payload, 'Refreshing')) {
-    if (payload.Snapshot) renderWorkflow(payload.Snapshot);
+    if (payload.Snapshot) renderWorkflow(payload.Snapshot, background);
     else {
       $('#host-status').textContent = 'Inventar wird geladen …';
       $('#host-status').className = 'chip neutral';
@@ -1055,7 +1056,7 @@ async function refresh(mediaRoot, background = false) {
     }
     return;
   }
-  renderWorkflow(payload);
+  renderWorkflow(payload, background);
 }
 
 async function refreshUiConfig() {
