@@ -770,161 +770,6 @@ function renderWorkflow(data, background = false) {
   document.querySelectorAll('[data-lab-resources][data-provider="hyperv"]').forEach((button) => { button.disabled = hyperVDisabled; });
 }
 
-let queueBatchId = '';
-
-function renderBatchOverview(batches, queue, background = false) {
-  if (background && document.activeElement?.matches('[data-queue-batch]')) return;
-  const openBatches = new Set((queue?.items || []).map(item => item.batchId));
-  const labels = {
-    Draft: 'Entwurf', Validated: 'Validiert', Queued: 'Vorgemerkt', Running: 'Läuft',
-    Waiting: 'Wartet', CleanupQueued: 'Bereinigung vorgemerkt', Completed: 'Abgeschlossen',
-    CompletedWithErrors: 'Mit Fehlern abgeschlossen', Cancelled: 'Abgebrochen'
-  };
-  const rows = $('#batch-overview-rows');
-  rows.replaceChildren();
-  for (const batch of Array.isArray(batches) ? batches : []) {
-    if (typeof batch?.BatchId !== 'string' || !/^batch-\d{14}-[0-9a-f]{8}$/.test(batch.BatchId) || !Object.hasOwn(labels, batch.Status) ||
-        !Number.isFinite(batch.Percent) || batch.Percent < 0 || batch.Percent > 100 ||
-        ![batch.Total, batch.Failed, batch.Cancelled].every(value => Number.isInteger(value) && value >= 0)) continue;
-    const row = document.createElement('tr');
-    const batchCell = document.createElement('td');
-    if (openBatches.has(batch.BatchId)) {
-      const show = document.createElement('button');
-      show.type = 'button';
-      show.className = 'button secondary';
-      show.dataset.queueBatch = batch.BatchId;
-      show.textContent = batch.BatchId;
-      show.setAttribute('aria-label', 'Offene Vorgänge für ' + batch.BatchId + ' anzeigen');
-      show.setAttribute('aria-pressed', String(queueBatchId === batch.BatchId));
-      batchCell.append(show);
-    } else {
-      batchCell.textContent = batch.BatchId;
-    }
-    row.append(batchCell);
-    for (const value of [labels[batch.Status], batch.Percent + ' %', batch.Total, batch.Failed, batch.Cancelled]) {
-      const cell = document.createElement('td');
-      cell.textContent = String(value);
-      row.append(cell);
-    }
-    rows.append(row);
-  }
-  $('#batch-overview-table').hidden = !rows.childElementCount;
-  const status = $('#batch-overview-status');
-  status.textContent = rows.childElementCount ? 'Offene Vorgänge nach Batch filtern. Bis zu 50 zuletzt angelegte Batches.' : 'Keine Batchstände verfügbar.';
-  if (queueBatchId) {
-    status.textContent = 'Offene Vorgänge für ' + queueBatchId + ' ';
-    const reset = document.createElement('button');
-    reset.type = 'button';
-    reset.className = 'button secondary';
-    reset.dataset.queueBatch = '';
-    reset.textContent = 'Alle Vorgänge anzeigen';
-    status.append(reset);
-  }
-}
-
-const operationPriorityLabels = { High: 'Hoch', Normal: 'Normal', Low: 'Niedrig' };
-const operationOrderingInFlight = new Set();
-
-function renderOperationOrderingControls(item, waitingItems) {
-  if (item.status === 'Running' || waitingItems.length < 2 || !Object.hasOwn(operationPriorityLabels, item.priority)) return '';
-  const operationId = escapeHtml(item.operationId);
-  const disabled = operationOrderingInFlight.has(item.operationId) ? ' disabled' : '';
-  const options = Object.entries(operationPriorityLabels).map(([value, label]) =>
-    '<option value="' + value + '"' + (value === item.priority ? ' selected' : '') + '>' + label + '</option>'
-  ).join('');
-  const priority = '<label>Priorität<select data-operation-priority="' + operationId +
-    '" data-current-priority="' + item.priority + '"' + disabled + '>' + options + '</select></label>';
-  const peers = waitingItems.filter(peer => peer.priority === item.priority);
-  const position = peers.findIndex(peer => peer.operationId === item.operationId);
-  const move = (command, label) => '<button type="button" class="button secondary" data-operation-command="' + command +
-    '" data-operation="' + operationId + '"' + disabled + '>' + label + '</button>';
-  const up = position > 0 ? move('MoveUp', 'Nach oben') : '';
-  const down = position >= 0 && position < peers.length - 1 ? move('MoveDown', 'Nach unten') : '';
-  return priority + up + down;
-}
-
-function renderOperationQueue(queue, background = false) {
-  if (background && document.activeElement?.matches('[data-operation-priority]')) return;
-  const allItems = queue?.items || [];
-  const items = queueBatchId ? allItems.filter(item => item.batchId === queueBatchId) : allItems;
-  const waitingItems = allItems.filter(item => item.status !== 'Running');
-  $('#queue-count').textContent = (queue?.runningWorkers || 0) + '/' + (queue?.maxWorkers || 2) + ' Worker · ' + items.length + (queueBatchId ? ' offen im Batch' : ' offen');
-  $('#operation-queue').innerHTML = items.length ? items.map((item) => {
-    const gate = item.userGate;
-    const gateDetails = gate ? '<div class="operation-gate"><strong>' + escapeHtml(gate.reason) + '</strong><ol>' + (gate.instructions || []).map((step) => '<li>' + escapeHtml(step) + '</li>').join('') + '</ol><span>Erwartet: ' + escapeHtml(gate.expectedResult) + '</span></div>' : '';
-    const confirmation = ['WaitingForUser', 'CandidateSatisfied'].includes(item.status)
-      ? '<button class="button primary" data-operation-command="Confirm" data-operation="' + escapeHtml(item.operationId) + '" data-verification="' + escapeHtml(gate?.verification?.type || '') + '">Erledigt - prüfen und fortsetzen</button>'
-      : '';
-    const pause = item.status === 'Paused'
-      ? '<button class="button secondary" data-operation-command="Resume" data-operation="' + escapeHtml(item.operationId) + '">Freigeben</button>'
-      : (item.status === 'Queued' || item.status === 'WaitingForDependency' ? '<button class="button secondary" data-operation-command="Suspend" data-operation="' + escapeHtml(item.operationId) + '">Pausieren</button>' : '');
-    return '<article class="build-card operation-card"><div class="build-card-top"><div><div class="build-title">' + escapeHtml(item.title) + '</div><div class="build-meta">' + escapeHtml(item.priority + ' · ' + item.resourceClass + ' · ' + item.provider) + '</div></div><span class="status ' + statusClass(item.status) + '">' + escapeHtml(item.status) + '</span></div><progress max="100" value="' + escapeHtml(item.progress || 0) + '"></progress>' + gateDetails + '<div class="build-actions">' + confirmation + pause + renderOperationOrderingControls(item, waitingItems) + '<button class="button danger" data-operation-command="StopCleanup" data-operation="' + escapeHtml(item.operationId) + '">Stoppen + Cleanup</button></div><div class="build-meta">' + escapeHtml(item.blockedReason || item.operationId) + '</div></article>';
-  }).join('') : empty(queueBatchId ? 'Keine offenen Vorgänge in diesem Batch.' : 'Keine offenen persistenten Vorgänge.');
-}
-
-async function runOperationCommand(operationId, command, verificationType) {
-  const payload = { operationId, command };
-  if (command === 'Confirm' && verificationType === 'HyperVWindowsSetup') {
-    $('#credential-action').value = '__ConfirmOperation';
-    $('#credential-build').value = operationId;
-    $('#credential-title').textContent = 'Windows-Aktion prüfen und fortsetzen';
-    $('#credential-note').textContent = 'Das eingerichtete Windows-Konto wird nur für diese PowerShell-Direct-Prüfung verwendet und nicht gespeichert oder protokolliert.';
-    $('#credential-sa-password-label').hidden = true;
-    $('#credential-dialog').showModal();
-    return;
-  }
-  if (command === 'StopCleanup') {
-    openConfirmation('Vorgang stoppen und aufräumen', 'Diesen Vorgang wirklich aufräumen? Nur sein persistierter Scope wird entfernt; veröffentlichte Images bleiben unverändert.', '__OperationStopCleanup', { operationId }, 'Stoppen + Cleanup');
-    return;
-  }
-  const ordering = ['MoveUp', 'MoveDown', 'PriorityHigh', 'PriorityNormal', 'PriorityLow'].includes(command);
-  if (ordering && operationOrderingInFlight.has(operationId)) {
-    throw new Error('Die Reihenfolge dieses Vorgangs wird bereits geändert.');
-  }
-  if (ordering) operationOrderingInFlight.add(operationId);
-  try {
-    const response = await sqlServerLabUiFetch('/api/operations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-    if (!response.ok) throw new Error(await response.text());
-  } finally {
-    if (ordering) operationOrderingInFlight.delete(operationId);
-  }
-  await refresh();
-}
-
-document.addEventListener('change', async (event) => {
-  const select = event.target.closest('[data-operation-priority]');
-  if (!select || select.disabled || !Object.hasOwn(operationPriorityLabels, select.value) ||
-      select.value === select.dataset.currentPriority) return;
-  select.disabled = true;
-  try {
-    await runOperationCommand(select.dataset.operationPriority, 'Priority' + select.value);
-  } catch (error) {
-    select.value = select.dataset.currentPriority;
-    showError(error);
-  } finally {
-    select.disabled = false;
-  }
-});
-
-document.addEventListener('click', async (event) => {
-  const batchFilter = event.target.closest('[data-queue-batch]');
-  if (batchFilter) {
-    const selected = batchFilter.dataset.queueBatch;
-    const batches = Array.isArray(workflow?.Batches) ? workflow.Batches : [];
-    if (typeof selected !== 'string' || (selected && !batches.some(batch => batch?.BatchId === selected))) return;
-    queueBatchId = queueBatchId === selected ? '' : selected;
-    renderOperationQueue(workflow?.Queue);
-    renderBatchOverview(batches, workflow?.Queue);
-    return;
-  }
-  const button = event.target.closest('[data-operation-command]');
-  if (!button) return;
-  button.disabled = true;
-  try { await runOperationCommand(button.dataset.operation, button.dataset.operationCommand, button.dataset.verification); }
-  catch (error) { window.alert(error.message); }
-  finally { button.disabled = false; }
-});
-
 function renderActiveLabs(items) {
   $('#active-labs').innerHTML = items.length ? items.map((item) => {
     const running = item.State === 'RUNNING';
@@ -3098,6 +2943,12 @@ $('#confirmation-form').addEventListener('submit', async (event) => {
     }
     catch (error) { showError(error); }
     finally { submit.disabled = false; }
+    return;
+  }
+  if (confirmation.action === '__BatchStop') {
+    $('#confirmation-dialog').close();
+    try { await applyBrowserBatchStop(confirmation.parameters); }
+    catch (error) { showError(error); }
     return;
   }
   if (confirmation.action === '__OperationStopCleanup') {

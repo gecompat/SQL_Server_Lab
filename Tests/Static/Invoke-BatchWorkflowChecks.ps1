@@ -335,6 +335,68 @@ if (-not $lock) { throw 'BATCH_SUMMARY_LOCK_ACQUISITION_FAILED' }
         }
     }
 
+    $browserStop = & $module {
+        param($Root)
+        $batch = New-SqlServerLabBatch -Name 'Synthetic browser batch stop' -StateRoot $Root -Items @(
+            [pscustomobject]@{ id='done'; kind='Test'; intent=[pscustomobject]@{} }
+            [pscustomobject]@{ id='pending'; kind='Test'; intent=[pscustomobject]@{} }
+        )
+        $neighbor = New-SqlServerLabBatch -Name 'Unselected synthetic batch' -StateRoot $Root -Items @(
+            [pscustomobject]@{ id='neighbor'; kind='Test'; intent=[pscustomobject]@{} }
+        )
+        $done = Get-SqlServerLabOperation -OperationId $batch.operationIds[0] -StateRoot $Root
+        $done.status = 'Completed'
+        Write-LabOperationState -Operation $done -StateRoot $Root | Out-Null
+        $null = Update-LabBatchSummary -BatchId $batch.batchId -StateRoot $Root
+        $donePath = Get-LabOperationStatePath -OperationId $done.operationId -StateRoot $Root
+        $doneHash = (Get-FileHash -LiteralPath $donePath).Hash
+        $pendingPath = Get-LabOperationStatePath -OperationId $batch.operationIds[1] -StateRoot $Root
+        $pendingHash = (Get-FileHash -LiteralPath $pendingPath).Hash
+        $neighborPath = Get-LabOperationStatePath -OperationId $neighbor.operationIds[0] -StateRoot $Root
+        $neighborHash = (Get-FileHash -LiteralPath $neighborPath).Hash
+
+        $preview = New-LabBrowserBatchStopPreview -BatchId $batch.batchId -StateRoot $Root
+        $before = (Get-FileHash -LiteralPath $pendingPath).Hash -ceq $pendingHash
+        $wrongRoot = $false
+        try {
+            $null = Invoke-LabBrowserBatchStopPreview -BatchId $batch.batchId -PreviewId $preview.PreviewId -StateRoot (Join-Path $Root 'wrong-root')
+        } catch { $wrongRoot = $_.Exception.Message -ceq 'BROWSER_BATCH_STOP_PREVIEW_REQUIRED' }
+        $script:LabBrowserBatchStopPreview.Expires = [datetime]::UtcNow.AddSeconds(-1)
+        $expired = $false
+        try {
+            $null = Invoke-LabBrowserBatchStopPreview -BatchId $batch.batchId -PreviewId $preview.PreviewId -StateRoot $Root
+        } catch { $expired = $_.Exception.Message -ceq 'BROWSER_BATCH_STOP_PREVIEW_REQUIRED' }
+        $preview = New-LabBrowserBatchStopPreview -BatchId $batch.batchId -StateRoot $Root
+        $null = Suspend-SqlServerLabOperation -OperationId $batch.operationIds[1] -StateRoot $Root
+        $stale = $false
+        try {
+            $null = Invoke-LabBrowserBatchStopPreview -BatchId $batch.batchId -PreviewId $preview.PreviewId -StateRoot $Root
+        } catch { $stale = $_.Exception.Message -ceq 'BROWSER_BATCH_STOP_PREVIEW_STALE' }
+        $paused = (Get-SqlServerLabOperation -OperationId $batch.operationIds[1] -StateRoot $Root).status -ceq 'Paused'
+
+        $preview = New-LabBrowserBatchStopPreview -BatchId $batch.batchId -StateRoot $Root
+        $result = Invoke-LabBrowserBatchStopPreview -BatchId $batch.batchId -PreviewId $preview.PreviewId -StateRoot $Root
+        $replayed = $false
+        try {
+            $null = Invoke-LabBrowserBatchStopPreview -BatchId $batch.batchId -PreviewId $preview.PreviewId -StateRoot $Root
+        } catch { $replayed = $_.Exception.Message -ceq 'BROWSER_BATCH_STOP_PREVIEW_REQUIRED' }
+        [pscustomobject]@{
+            PreviewReadOnly = $before
+            OneTarget = $preview.Pending -eq 1 -and $preview.Running -eq 0
+            WrongRootRejected = $wrongRoot
+            ExpiredRejected = $expired
+            StaleRejectedWithoutStop = $stale -and $paused
+            OneRequested = $result.Requested -eq 1
+            ExactQueued = (Get-SqlServerLabOperation -OperationId $batch.operationIds[1] -StateRoot $Root).status -ceq 'CleanupQueued'
+            ReplayRejected = $replayed
+            CompletedAndNeighborPreserved = (Get-FileHash -LiteralPath $donePath).Hash -ceq $doneHash -and
+                (Get-FileHash -LiteralPath $neighborPath).Hash -ceq $neighborHash
+        }
+    } (Join-Path $testRoot 'browser-batch-stop')
+    foreach ($check in $browserStop.PSObject.Properties) {
+        Assert-Check ($check.Value -eq $true) "Browser batch stop: $($check.Name)"
+    }
+
     $abandoned = Get-SqlServerLabOperation -OperationId $controlOperations[0].operationId -StateRoot $testRoot
     $abandoned.status = 'Running'
     $abandoned.worker = [pscustomobject]@{ host = [Environment]::MachineName; processId = 2147483000; heartbeatAt = [DateTime]::UtcNow.AddMinutes(-1).ToString('o') }

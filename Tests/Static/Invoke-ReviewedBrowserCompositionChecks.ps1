@@ -30,7 +30,7 @@ try {
     foreach($family in @('evaluation-refresh','llama-start','llama-start-plan','external-runtime','collation')){
         Check (@($ids|Where-Object {$_ -ceq "$family-dialog"}).Count -eq 1 -and @($ids|Where-Object {$_ -ceq "$family-open"}).Count -eq 1) "Dialog and opener retained $family"
     }
-    foreach($scriptName in @('app.js','evaluation-refresh-plan.js','llama-start.js','llama-start-plan.js','external-runtime-capability.js','collation-catalog.js','component-relations.js')){
+    foreach($scriptName in @('app.js','operation-queue.js','evaluation-refresh-plan.js','llama-start.js','llama-start-plan.js','external-runtime-capability.js','collation-catalog.js','component-relations.js')){
         Check ([regex]::Matches($html,'src="'+[regex]::Escape($scriptName)+'"').Count -eq 1) "Script included once $scriptName"
     }
     Check ($html.Contains('Worker teilen ein gemeinsames Konto und besitzen Netzwerkzugriff') -and $html.Contains('Abbruch verwirft nur die Anzeige')) 'Complete shared-worker warning and truthful cancellation retained'
