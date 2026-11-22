@@ -173,9 +173,18 @@ vor jeder Mutation. Der Plan bindet Provider, Netz-ID, Subnetze und
 registrierte Container sowie eine verifizierte lokale Runtime. Fremde, geschützte und nicht eindeutig zugeordnete
 Ressourcen sowie eine offene Recovery sperren die Ausführung. Der
 synthetisch geprüfte Executor verwendet unveränderliche IDs an einem gebundenen Provider-Endpunkt und
-kontrolliert Power und Aliasse nach der Mutation. Eine native
-Migrationsabnahme und eine geführte Recovery bleiben offen. Der Bereich
-bleibt deshalb ein `KNOWN_GAP` für die vollständige Abnahme.
+kontrolliert Power und Aliasse nach der Mutation.
+
+Am 22.11.2026 wurde die Migration auf Stand `27a67f4f` mit je einer
+eigenen SQL-2025-CU9-Instanz (`17.0.5005.3`) unter Docker und Podman
+ausgeführt. Die synthetischen SQL-Daten blieben nach beiden Netzwechseln
+lesbar. Podman bestand auch den automatischen Cleanup und den gesamten
+Vorher-/Nachher-Inventarvergleich. Beim Docker-Lauf brach der ursprüngliche
+Cleanup an der Konsolenbestätigung ab. Die anschließende gezielte
+Bereinigung entfernte denselben Run und sein Netz. Der vor dieser
+Bereinigung erfasste Fremdbestand blieb erhalten. CLI- und Browser-Dispatch
+sind separat mit synthetischen Antworten geprüft. Eine geführte Recovery
+für unterbrochene Migrationen bleibt offen.
 
 Beim persistenten KI-Retrieval führen beide Oberflächen die synthetische
 Demo sowie `Prune` und `Remove`. Die Löschaktionen binden die ausgewählte
