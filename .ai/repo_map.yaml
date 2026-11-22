@@ -1131,6 +1131,7 @@ sources_of_truth:
   test_group_linux_creation: Ui/test-group-create.js # catalog and group/Runtime-bound Linux creation via one-shot workflow action
   test_group_management: Ui/test-group-management.js # one-shot Windows prepared-image creation, group repair and group removal
   validation_test_group_power_guidance: Tests/Static/Invoke-TestGroupGuidanceChecks.ps1
+  validation_test_group_windows_native: Tests/Integration/Invoke-HyperVTestGroupLifecycleAcceptance.ps1 # trusted Key18 dispatch, separate state and group export, one owned SQL 2025 Prepared child
   validation_test_group_full_regression: Tests/Static/Invoke-AllChecks.ps1 # exact-once group suite registration; selection and registry protected by Invoke-CiStrategyChecks.ps1
   validation_nightly_authorization: Tests/Static/Fixtures/CiStrategyNightlyAuthorizationChecks.ps1
   automated_test_environment_windows_lifecycle: Public/TestEnvironmentLifecycle.ps1

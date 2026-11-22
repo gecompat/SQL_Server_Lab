@@ -209,6 +209,10 @@ try {
         }
         $repair = Get-LabTestGroupManagementPlan -Operation Repair
         Check-Group ($repair.CanApply -and $repair.Members.Count -eq 2 -and -not $script:groupMaintenanceCalls.Count) 'Repair preview did not stay read-only'
+        $separateExports = Join-Path (Split-Path $registryPath -Parent) 'separate-exports'
+        $separateRepair = Get-LabTestGroupManagementPlan -Operation Repair -OutputDirectory $separateExports
+        Check-Group (-not $separateRepair.CanApply -and -not $separateRepair.Members.Count -and -not (Test-Path -LiteralPath $separateExports)) 'Isolated repair preview fell back to the default group or created exports'
+        Reject-Group { Invoke-LabTestGroupManagementPlan -Operation Repair -ExpectedPlanKey $repair.PlanKey -OutputDirectory $separateExports }
         Check-Group (-not (Get-LabTestGroupManagementPlan -Operation Remove).CanApply) 'Remove without cleanup plans was admitted'
         foreach ($provider in @('docker','podman')) {
             $id = $script:groupRuns[$provider]
