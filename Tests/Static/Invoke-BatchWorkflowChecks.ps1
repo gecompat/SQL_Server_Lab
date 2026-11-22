@@ -237,6 +237,23 @@ if (-not $lock) { throw 'BATCH_SUMMARY_LOCK_ACQUISITION_FAILED' }
     Assert-Check ((Get-SqlServerLabOperation -OperationId $controlOperations[0].operationId -StateRoot $testRoot).priority -eq 'Low') 'Batch-Prioritaet wurde nicht weitergegeben.'
     Assert-Check ((Get-SqlServerLabOperation -OperationId $controlOperations[1].operationId -StateRoot $testRoot).priority -eq 'High') 'Individuell ueberschriebene Prioritaet wurde unzulaessig ersetzt.'
 
+    $reorderedPeers = & $module {
+        $ordered = @(foreach ($index in 1..64) {
+            [pscustomobject]@{ operationId="peer-$index"; priority='Normal'; status='Queued'; queuePosition=1 }
+        })
+        function Get-SqlServerLabOperation {
+            param($OperationId, $StateRoot)
+            if ($OperationId) { return $ordered | Where-Object operationId -eq $OperationId }
+            return $ordered
+        }
+        function Write-LabOperationState { param($Operation, $StateRoot) return $Operation }
+        function Add-LabOperationEvent { param($Operation, $Type, $Message, $StateRoot) }
+        $null = Move-SqlServerLabOperation -OperationId 'peer-1' -Direction Down
+        ($ordered | Sort-Object queuePosition).operationId
+    }
+    $expectedPeers = @('peer-2', 'peer-1') + @(3..64 | ForEach-Object {"peer-$_"})
+    Assert-Check (($reorderedPeers -join ',') -ceq ($expectedPeers -join ',')) 'Moving one operation changed the relative order of tied operations across batches.'
+
     $stopRoot = Join-Path $testRoot 'stop-completion-boundary'
     $stopBatch = New-SqlServerLabBatch -Name 'Synthetic stop boundary' -StateRoot $stopRoot -Items @(
         [pscustomobject]@{ id='finishing'; kind='Test'; intent=[pscustomobject]@{} }

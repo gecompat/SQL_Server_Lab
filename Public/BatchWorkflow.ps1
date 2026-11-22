@@ -473,7 +473,7 @@ function Move-SqlServerLabOperation {
     if ($operation.status -eq 'Running' -or (Test-LabOperationTerminal -Status $operation.status)) {
         throw 'Nur wartende, pausierte oder eingereihte Vorgänge können umgereiht werden.'
     }
-    $peers = @(Get-SqlServerLabOperation -StateRoot $StateRoot | Where-Object { $_.priority -eq $operation.priority -and $_.status -ne 'Running' -and -not (Test-LabOperationTerminal -Status $_.status) } | Sort-Object queuePosition)
+    $peers = @(Get-SqlServerLabOperation -StateRoot $StateRoot | Where-Object { $_.priority -eq $operation.priority -and $_.status -ne 'Running' -and -not (Test-LabOperationTerminal -Status $_.status) })
     $current = [Array]::IndexOf([string[]]@($peers.operationId), $OperationId)
     $target = if ($PSCmdlet.ParameterSetName -eq 'Position') { [Math]::Min($peers.Count - 1, $Position - 1) } elseif ($Direction -eq 'Up') { [Math]::Max(0, $current - 1) } else { [Math]::Min($peers.Count - 1, $current + 1) }
     if ($target -ne $current) {

@@ -4287,6 +4287,9 @@ Version. Dieser
 synthetische Nachweis belegt die lokale Dateisynchronisation, nicht die
 Provider-Provisionierung oder extern verursachte Dateisperren.
 
+Ein synthetischer Fall prüft 64 gleich nummerierte Vorgänge. Beim
+Umreihen bleiben alle anderen Vorgänge in der sichtbaren Reihenfolge.
+
 Ein statischer Vertragsfall liefert beim Stopp eine veraltete Liste
 unfertiger Positionen. Er prüft, dass ein inzwischen abgeschlossener
 Vorgang bytegleich erhalten bleibt und die noch unfertige Position zur
