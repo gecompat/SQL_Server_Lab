@@ -243,6 +243,57 @@ try {
             . ([scriptblock]::Create('foreach ($once in @(1)) { ' + $route.Extent.Text + ' }'))
             Check-Group ($script:groupUiAction -eq 'StopTestGroupPower' -and $script:groupUiParameters.ExpectedPlanKey -eq ('a'*64) -and $jobs.Count -eq 1 -and $script:groupUiResponse.id -eq 'synthetic-group-job') 'Real HTTP route failed one-shot job binding'
         } finally { $stream.Dispose() }
+        $script:groupCreateCalls = 0
+        $script:groupCreateRuntime = 'runtime-one'
+        function Get-LabContainerRuntimeScope { [pscustomobject]@{ Status='AVAILABLE'; RuntimeId=$script:groupCreateRuntime } }
+        function New-SqlServerLabAutomatedTestEnvironment {
+            [CmdletBinding()]
+            param($Specification,$Provider,$OutputDirectory,$StateRoot)
+            $script:groupCreateCalls++
+            if ($Specification.Count -ne 1 -or $Specification[0].Platform -cne 'linux' -or
+                $Specification[0].SqlVersion -cne '2025' -or $Specification[0].Patch -cne 'latest' -or
+                $Specification[0].Key -cne 'LINUX_PODMAN_2025' -or $Provider -cne 'podman') {
+                throw 'CREATE_FIXTURE_TARGET_MISMATCH'
+            }
+            $registered = [pscustomobject]@{ Key=$Specification[0].Key; RunId=[guid]::NewGuid().ToString('D'); RegistrationState='REGISTERED' }
+            $data = Get-LabTestEnvironmentRegistry -OutputDirectory $OutputDirectory
+            $data.environments = @($data.environments) + @($registered)
+            Write-LabArtifactJsonAtomic -Path (Get-LabTestEnvironmentRegistryPath -OutputDirectory $OutputDirectory) -InputObject $data
+            [pscustomobject]@{ Status='INCOMPLETE'; Errors=@(); Environments=@([pscustomobject]@{ RunId=$registered.RunId; Secret='synthetic-not-for-receipt' }) }
+        }
+        $beforeRegistry = (Get-FileHash -LiteralPath $registryPath).Hash
+        Check-Group ('2025' -cin (Get-LabTestGroupLinuxCreatePlan).Versions) 'Linux group create catalog missed supported version'
+        $unregisteredDirectory = Join-Path $Root 'unregistered-exports'
+        $firstPlan = Get-LabTestGroupLinuxCreatePlan -Provider docker -SqlVersion 2025 -OutputDirectory $unregisteredDirectory
+        Check-Group ($firstPlan.Key -ceq 'LINUX_DOCKER_2025' -and -not (Test-Path -LiteralPath $unregisteredDirectory)) 'Empty group preview created state'
+        Reject-Group { Get-LabTestGroupLinuxCreatePlan -Provider hyperv -SqlVersion 2025 }
+        $createPlan = Get-LabTestGroupLinuxCreatePlan -Provider podman -SqlVersion 2025
+        Check-Group ($createPlan.Key -ceq 'LINUX_PODMAN_2025' -and $script:groupCreateCalls -eq 0 -and
+            (Get-FileHash -LiteralPath $registryPath).Hash -ceq $beforeRegistry) 'Linux plan changed the group before confirmation'
+        $query = [Collections.Specialized.NameValueCollection]::new()
+        $query.Add('provider','podman')
+        $query.Add('sqlVersion','2025')
+        $httpPreview = Invoke-LabTestGroupLinuxCreatePlanRequest -Query $query
+        Check-Group ($httpPreview.PlanKey -ceq $createPlan.PlanKey -and $httpPreview.Provider -ceq 'podman' -and
+            $script:groupCreateCalls -eq 0) 'Read-only Linux creation HTTP route did not return the bound preview'
+        $query.Add('provider','docker')
+        Reject-Group { Invoke-LabTestGroupLinuxCreatePlanRequest -Query $query }
+        $script:groupCreateRuntime = 'runtime-replaced'
+        Reject-Group { Invoke-SqlServerLabWorkflowAction -Action CreateLinuxTestGroupMember -Provider podman -SqlVersion 2025 -ExpectedPlanKey $createPlan.PlanKey }
+        Check-Group ($script:groupCreateCalls -eq 0) 'Stale Linux plan entered execution'
+        $createPlan = Get-LabTestGroupLinuxCreatePlan -Provider podman -SqlVersion 2025
+        $created = Invoke-SqlServerLabWorkflowAction -Action CreateLinuxTestGroupMember -Provider podman -SqlVersion 2025 -ExpectedPlanKey $createPlan.PlanKey 6>$null
+        Check-Group ($created.Result.Status -ceq 'REGISTERED' -and -not $created.Result.GroupReady -and $script:groupCreateCalls -eq 1 -and
+            ($created | ConvertTo-Json -Depth 5) -cnotmatch 'synthetic-not-for-receipt') 'Linux creation did not report the bound registration safely'
+        Reject-Group { Invoke-SqlServerLabWorkflowAction -Action CreateLinuxTestGroupMember -Provider podman -SqlVersion 2025 -ExpectedPlanKey $createPlan.PlanKey }
+        Check-Group ($script:groupCreateCalls -eq 1) 'Completed Linux creation replayed with the same preview'
+        $prior = Get-LabTestEnvironmentRegistry
+        $prior.environments = @($prior.environments) + @([pscustomobject]@{key='LINUX_PODMAN_2025_2';runId=$null;registrationState='PROVISIONING_PENDING'})
+        Write-LabArtifactJsonAtomic -Path $registryPath -InputObject $prior
+        Reject-Group { Get-LabTestGroupLinuxCreatePlan -Provider podman -SqlVersion 2025 }
+        $exportTarget = Join-Path (Split-Path -Parent $registryPath) 'TestUmgebung.env'
+        $null = New-Item -ItemType Directory -Path $exportTarget
+        Reject-Group { Get-LabTestGroupLinuxCreatePlan -Provider docker -SqlVersion 2025 }
         Write-Host "Test group guidance: $script:groupChecks PASS, 0 FAIL"
     } $testRoot
 }

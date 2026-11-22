@@ -51,6 +51,7 @@ for (const match of html.matchAll(/<button\b[^>]*\bdata-provider-capability="hyp
 const documentEvents = new Map();
 const document = {
   createElement(tag) { return new Element(tag); },
+  getElementById(id) { return nodes.get(id) || null; },
   querySelector(selector) {
     if (!selector.startsWith('#')) return null;
     const element = nodes.get(selector.slice(1));
@@ -79,7 +80,7 @@ if (html.includes('<script src="test-group-view.js"></script>')) {
   run(fs.readFileSync(path.join(root, 'Ui', 'test-group-view.js'), 'utf8'));
 }
 run(source);
-for (const asset of ['manifest-check.js', 'ssms-registration-export.js', 'cms-management.js', 'resource-plan.js', 'llama-model-catalog.js', 'windows-slot-pool.js', 'ollama-local-generation.js']) {
+for (const asset of ['manifest-check.js', 'ssms-registration-export.js', 'cms-management.js', 'resource-plan.js', 'llama-model-catalog.js', 'windows-slot-pool.js', 'ollama-local-generation.js', 'test-group-create.js']) {
   if (html.includes('<script src="' + asset + '"></script>')) run(fs.readFileSync(path.join(root, 'Ui', asset), 'utf8'));
 }
 run('const actualQueueBackgroundAction = queueBackgroundAction; queueBackgroundAction = (action, parameters) => queued.push({action, parameters});');
@@ -808,6 +809,51 @@ async function main() {
   });
   run('renderJobs([{ Id: "group-result", Action: "StartTestGroupPower", State: "Completed", Lines: [\'[TESTGROUP] {"Status":"PARTIAL","Details":[{"Key":"DOCKER","Status":"RUNNING","Action":"START"},{"Key":"PODMAN","Status":"UNCONFIRMED","Action":"START"}]}\'] }])');
   check('Group job renders partial outcome per member with retry boundary', () => { assert.match(node('jobs').innerHTML, /PARTIAL/); assert.match(node('jobs').innerHTML, /UNCONFIRMED/); assert.match(node('jobs').innerHTML, /neuer Vorschau/); });
+  const previousGroupFetch = context.sqlServerLabUiFetch;
+  const createRequests = [];
+  const createPlan = { Provider: 'podman', SqlVersion: '2025', Patch: 'latest', Key: 'LINUX_PODMAN_2025', PlanKey: 'b'.repeat(64) };
+  context.sqlServerLabUiFetch = async (url, options = {}) => {
+    if (url.startsWith('/api/test-group-linux-create') || url === '/api/actions') {
+      createRequests.push({ url, options });
+      if (url === '/api/test-group-linux-create') return { ok: true, json: async () => ({ Versions: ['2022','2025'] }) };
+      if (url.includes('?')) return { ok: true, json: async () => createPlan };
+      if (url === '/api/actions') return { ok: true, json: async () => ({ id: 'group-create-job' }) };
+    }
+    return previousGroupFetch(url, options);
+  };
+  node('test-group-create-form').reset = () => {
+    node('test-group-create-provider').value = '';
+    node('test-group-create-version').value = '';
+  };
+  await resourceEvent('test-group-create-open');
+  node('test-group-create-provider').value = 'podman';
+  node('test-group-create-version').value = '2025';
+  await resourceEvent('test-group-create-version', 'change');
+  await resourceEvent('test-group-create-form', 'submit');
+  await resourceEvent('test-group-create-apply');
+  check('Linux group creation previews only and requires its own confirmation', () => {
+    assert.equal(createRequests.length, 2);
+    assert.equal(createRequests[1].url, '/api/test-group-linux-create?provider=podman&sqlVersion=2025');
+    assert.match(node('test-group-create-status').textContent, /LINUX_PODMAN_2025/);
+  });
+  await resourceEvent('test-group-create-version', 'change');
+  node('test-group-create-confirm').checked = true;
+  await resourceEvent('test-group-create-confirm', 'change');
+  await resourceEvent('test-group-create-apply');
+  check('Changing Linux group options invalidates the preview', () => assert.equal(createRequests.length, 2));
+  await resourceEvent('test-group-create-form', 'submit');
+  node('test-group-create-confirm').checked = true;
+  await resourceEvent('test-group-create-confirm', 'change');
+  await resourceEvent('test-group-create-apply');
+  await resourceEvent('test-group-create-apply');
+  check('Confirmed Linux creation sends the exact provider, version and plan only once', () => {
+    const actions = createRequests.filter(r => r.url === '/api/actions');
+    assert.equal(actions.length, 1);
+    assert.deepEqual(JSON.parse(actions[0].options.body), { action: 'CreateLinuxTestGroupMember', parameters: {
+      Provider: createPlan.Provider, SqlVersion: createPlan.SqlVersion, ExpectedPlanKey: createPlan.PlanKey
+    }});
+  });
+  context.sqlServerLabUiFetch = previousGroupFetch;
   for (const mode of ['noop', 'unknown', 'empty', 'error']) {
     groupMode = mode; await resourceEvent('test-group-open');
     node('test-group-selection').value = 'registered'; node('test-group-confirm').checked = true; await resourceEvent('test-group-confirm','change'); await resourceEvent('test-group-apply');

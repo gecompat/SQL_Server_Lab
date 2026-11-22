@@ -668,6 +668,14 @@ try {
                 catch { Write-UiResponse -Context $context -Body 'TEST_GROUP_READ_UNAVAILABLE: Gruppe erneut lesen; keine Aktion ausgeführt.' -StatusCode 503 }
                 continue
             }
+            if ($path -eq '/api/test-group-linux-create' -and $context.Request.HttpMethod -eq 'GET') {
+                try {
+                    $view = & (Get-Module SqlServerLab) { param($query) Invoke-LabTestGroupLinuxCreatePlanRequest -Query $query } $context.Request.QueryString
+                    Write-UiResponse -Context $context -Body ($view | ConvertTo-Json -Depth 4) -ContentType 'application/json; charset=utf-8'
+                }
+                catch { Write-UiResponse -Context $context -Body 'TEST_GROUP_LINUX_CREATE_PLAN_UNAVAILABLE' -StatusCode 422 }
+                continue
+            }
             if ($path -eq '/api/run-artifact-removal') {
                 try {
                     $view=& (Get-Module SqlServerLab) { param($request,$listenerPort,$previews) Invoke-LabRunArtifactRemovalHttpRequest -Request $request -ListenerPort $listenerPort -Previews $previews } $context.Request $Port $runArtifactRemovalPreviews
@@ -1559,7 +1567,10 @@ try {
                 }
                 $hasTransientSecret = $parameters.ContainsKey('GuestPassword') -or $parameters.ContainsKey('SaPassword')
                 # A confirmed power plan is a one-shot request: never replay it through batch recovery.
-                if (-not $hasTransientSecret -and $action -notin @('Refresh','StartTestGroupPower','StopTestGroupPower')) {
+                if ($action -eq 'CreateLinuxTestGroupMember' -and ($parameters.Count -ne 3 -or
+                    $parameters['Provider'] -isnot [string] -or $parameters['SqlVersion'] -isnot [string] -or
+                    $parameters['ExpectedPlanKey'] -isnot [string])) { throw 'TEST_GROUP_LINUX_CREATE_ACTION_INVALID' }
+                if (-not $hasTransientSecret -and $action -notin @('Refresh','StartTestGroupPower','StopTestGroupPower','CreateLinuxTestGroupMember')) {
                     # Retain terminal cards for this server session; bound reads without evicting results.
                     if ($persistentJobs.Count -ge 256) { throw 'UI_JOB_STATUS_CAPACITY_REACHED' }
                     $batchStateRoot = & (Get-Module SqlServerLab) { Get-LabStateRoot }

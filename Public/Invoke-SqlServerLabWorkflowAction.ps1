@@ -291,7 +291,7 @@ function Invoke-SqlServerLabWorkflowAction {
         [Parameter(Mandatory)]
         [ValidateSet(
             'Refresh',
-            'StartTestGroupPower', 'StopTestGroupPower',
+            'StartTestGroupPower', 'StopTestGroupPower', 'CreateLinuxTestGroupMember',
             'GetInitialSetupState', 'PlanInitialSetup', 'ApplyInitialSetup', 'RefreshSetupProvider', 'PlanSetupWriteability', 'ProbeSetupWriteability', 'RefreshSetupCapacity',
             'GetSlotReserveState', 'PlanSlotReserve', 'ApplySlotReserve',
             'PlanWindowsPoolMember', 'ApplyWindowsPoolMember', 'CancelWindowsPoolMember',
@@ -517,6 +517,12 @@ function Invoke-SqlServerLabWorkflowAction {
         $power = if ($Action -eq 'StartTestGroupPower') { 'Start' } else { 'Stop' }
         $result = Invoke-LabTestGroupPowerPlan -PowerAction $power -ExpectedPlanKey $ExpectedPlanKey -Confirmed
         Write-Information ('[TESTGROUP] ' + ($result | ConvertTo-Json -Depth 8 -Compress)) -InformationAction Continue
+        return [pscustomobject]@{ Action=$Action; CompletedAt=Get-LabTimestamp; Result=$result }
+    }
+
+    if ($Action -eq 'CreateLinuxTestGroupMember') {
+        $result = Invoke-LabTestGroupLinuxCreatePlan -Provider $Provider -SqlVersion $SqlVersion -ExpectedPlanKey $ExpectedPlanKey
+        Write-Information ("Testumgebung {0} wurde registriert. Gruppenbereitschaft: {1}." -f $result.Key,$result.GroupReady) -InformationAction Continue
         return [pscustomobject]@{ Action=$Action; CompletedAt=Get-LabTimestamp; Result=$result }
     }
 
