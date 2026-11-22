@@ -567,8 +567,9 @@ dann den Auftrag.
 
 - **Windows anlegen** klont eine für die Nutzung freigegebene
   SQL-Prepared-Vorlage. SQL-Version und Build stammen aus der Vorlage.
-  Hyper-V, ein konfiguriertes Lab_Data und eine geeignete Vorlage müssen
-  vorhanden sein. Die Windows-Einrichtung nutzt ein generiertes Kennwort,
+  Hyper-V, ein konfiguriertes Lab_Data, eine geeignete Vorlage und ein
+  aus einer erhöhten PowerShell gestarteter Oberflächenserver sind für
+  die Anlage erforderlich. Die Windows-Einrichtung nutzt ein generiertes Kennwort,
   das im Browser nicht erscheint. Die Windows-Aktivierung kann vorübergehend
   einen externen Netzwerkadapter verwenden. Der Auftrag meldet die Registrierung
   und getrennt davon die Bereitschaft der Gruppe. Für Anlage aus

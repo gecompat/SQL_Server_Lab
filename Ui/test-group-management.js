@@ -98,7 +98,9 @@
         plan = view;
         confirm.disabled = false;
       }
-      status.textContent = plan ? 'Vorschau bereit.' : 'Aktion gesperrt. Prüfe Registrierung und Runtime-Bindung in der Testsystem-Matrix.';
+      status.textContent = plan ? 'Vorschau bereit.' : view.Reason === 'TEST_GROUP_WINDOWS_ELEVATION_REQUIRED' ?
+        'Für die unbeaufsichtigte Windows-Anlage muss die Oberfläche aus einer erhöhten PowerShell gestartet werden.' :
+        'Aktion gesperrt. Prüfe Registrierung und Runtime-Bindung in der Testsystem-Matrix.';
     } catch {
       if (revision === current && dialog.open) status.textContent = 'Vorschau nicht verfügbar.';
     } finally {

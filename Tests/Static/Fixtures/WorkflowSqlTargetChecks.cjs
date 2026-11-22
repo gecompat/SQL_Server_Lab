@@ -872,6 +872,7 @@ async function main() {
   const pendingGroup = resourceEvent('test-group-open'); await resourceEvent('test-group-close'); releaseGroup({ ok: true, json: async () => groupPlan }); await pendingGroup;
   check('Closed group dialog rejects delayed preview', () => assert.equal(node('test-group-apply').disabled, true));
   const managementRequests = [];
+  let windowsManagementElevated = true;
   const preparedImage = 'hyperv-prepared-' + 'a'.repeat(64);
   const managementKey = 'c'.repeat(64);
   context.sqlServerLabUiFetch = async (url, options) => {
@@ -884,7 +885,8 @@ async function main() {
       }
       return {ok:true, json:async() => ({
         Operation, ArtifactId, Key:'WINDOWS_2025', SqlVersion:'2025', Build:'17.0.1000.1',
-        CanApply:Operation !== 'Repair', PlanKey:managementKey,
+        CanApply:Operation !== 'Repair' && (Operation !== 'CreateWindows' || windowsManagementElevated), PlanKey:managementKey,
+        Reason:Operation === 'CreateWindows' && !windowsManagementElevated ? 'TEST_GROUP_WINDOWS_ELEVATION_REQUIRED' : null,
         Members:[{Key:'DOCKER', Target:'Linux · SQL Server 2025', Verified:true, Power:'STOPPED'}]
       })};
     }
@@ -939,6 +941,18 @@ async function main() {
   await resourceEvent('test-group-management-apply');
   check('Group export sends only its fresh plan', () => {
     assert.deepEqual(managementRequests[1],{action:'ExportTestGroup',parameters:{ExpectedPlanKey:managementKey}});
+  });
+  windowsManagementElevated = false;
+  await resourceEvent('test-group-management-open');
+  await changeManagement('CreateWindows');
+  node('test-group-management-image').value = preparedImage;
+  await resourceEvent('test-group-management-image','change');
+  await resourceEvent('test-group-management-form','submit');
+  await resourceEvent('test-group-management-apply');
+  check('Windows setup without elevation explains the prerequisite and blocks apply', () => {
+    assert.match(node('test-group-management-status').textContent,/erhöhten PowerShell/);
+    assert.equal(node('test-group-management-apply').disabled,true);
+    assert.equal(managementRequests.length,2);
   });
   const mediaRequests = [];
   const mediaItem = { Id: 'sql-server-2025-enterprise-developer-bootstrapper', DisplayName: '<Bootstrapper>', RepositoryUrl: 'https://download.microsoft.com/download/default/SQL2025-SSEI-EntDev.exe', EffectiveUrl: 'https://download.microsoft.com/download/default/SQL2025-SSEI-EntDev.exe', Provenance: 'REPOSITORY_DEFAULT', ExpectedBytes: 21, ExpectedSha256: 'a'.repeat(64) };

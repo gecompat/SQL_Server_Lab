@@ -107,9 +107,12 @@ function Get-LabTestGroupManagementPlan {
             $registryPath = Get-LabTestEnvironmentRegistryPath -OutputDirectory $directory
             $registryHash = if (Test-Path -LiteralPath $registryPath -PathType Leaf) { (Get-FileHash -LiteralPath $registryPath).Hash } else { 'absent' }
             $binding = @($Operation,$root,$directory,$registryHash,$ArtifactId,$image.SqlVersion,$image.Build,$key) | ConvertTo-Json -Compress
+            $elevated = Test-LabAdministrator
             return [pscustomobject]@{
-                Operation=$Operation; CanApply=$true; ArtifactId=$ArtifactId; SqlVersion=$image.SqlVersion; Build=$image.Build
-                Patch=$patch; Key=$key; PlanKey=(Get-LabWorkflowHash -Text $binding -Length 64)
+                Operation=$Operation; CanApply=$elevated; ArtifactId=$ArtifactId; SqlVersion=$image.SqlVersion; Build=$image.Build
+                Patch=$patch; Key=$key
+                PlanKey=if ($elevated) { Get-LabWorkflowHash -Text $binding -Length 64 }
+                Reason=if (-not $elevated) { 'TEST_GROUP_WINDOWS_ELEVATION_REQUIRED' }
             }
         }
         $view = Get-LabTestGroupPowerPlan -PowerAction Stop -StateRoot $root -OutputDirectory $directory

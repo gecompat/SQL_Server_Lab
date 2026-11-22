@@ -341,6 +341,8 @@ try {
         $script:groupWindowsId = 'hyperv-prepared-' + ('a' * 64)
         $script:groupWindowsRun = [guid]::NewGuid().ToString('D')
         $script:groupWindowsCalls = @()
+        $script:groupWindowsElevated = $false
+        function Test-LabAdministrator { $script:groupWindowsElevated }
         function Test-HyperVAvailable { [pscustomobject]@{ Available=$true } }
         function Test-HyperVImageArtifactChildValidationEligibility { [pscustomobject]@{ Eligible=$true } }
         function Get-HyperVImageArtifact {
@@ -374,7 +376,14 @@ try {
         $catalog = Get-LabTestGroupManagementPlan -Operation CreateWindows
         Check-Group ($catalog.Artifacts.Count -eq 1 -and $catalog.Artifacts[0].ArtifactId -ceq $script:groupWindowsId -and
             $catalog.Artifacts[0].Build -ceq '17.0.1000.7') 'Windows list did not parse the SQL Setup version of the eligible prepared image'
+        $blocked = Get-LabTestGroupManagementPlan -Operation CreateWindows -ArtifactId $script:groupWindowsId
+        Check-Group (-not $blocked.CanApply -and -not $blocked.PlanKey -and
+            $blocked.Reason -ceq 'TEST_GROUP_WINDOWS_ELEVATION_REQUIRED') 'Non-elevated Windows preview could authorize unattended VHDX provisioning'
+        $script:groupWindowsElevated = $true
         $windows = Get-LabTestGroupManagementPlan -Operation CreateWindows -ArtifactId $script:groupWindowsId
+        $script:groupWindowsElevated = $false
+        Reject-Group { Invoke-LabTestGroupManagementPlan -Operation CreateWindows -ArtifactId $script:groupWindowsId -ExpectedPlanKey $windows.PlanKey }
+        $script:groupWindowsElevated = $true
         Reject-Group { Invoke-LabTestGroupManagementPlan -Operation CreateWindows -ArtifactId $script:groupWindowsId -ExpectedPlanKey ('b'*64) }
         Check-Group (-not $script:groupWindowsCalls.Count) 'Windows preview or stale submission invoked a provider'
         $created = Invoke-SqlServerLabWorkflowAction -Action CreateWindowsTestGroupMember -ArtifactId $script:groupWindowsId -ExpectedPlanKey $windows.PlanKey 6>$null
