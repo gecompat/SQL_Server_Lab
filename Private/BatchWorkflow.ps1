@@ -1398,6 +1398,51 @@ function Invoke-LabOperationCleanup {
     }
 }
 
+function Publish-LabOperationWorkerBoundary {
+    param(
+        [object]$Operation,
+        [string]$StateRoot,
+        [string]$Type,
+        [string]$Message,
+        [AllowNull()][object]$Data,
+        [scriptblock]$PrepareStep
+    )
+
+    $path = Get-LabOperationStatePath -OperationId $Operation.operationId -StateRoot $StateRoot
+    Invoke-WithLabWorkflowFileLock -Path $path -Action {
+        $current = Read-LabWorkflowJson -Path $path
+        if ($null -eq $current) { throw 'WORKFLOW_OPERATION_STATE_MISSING' }
+
+        # A stop accepted during the provider step also appended an event.
+        $Operation.events = @($current.events)
+        $Operation.eventSequence = $current.eventSequence
+        $Operation.cancelRequested = [bool]$current.cancelRequested
+        $Operation.cleanupRequested = [bool]$current.cleanupRequested
+        $stop = $Operation.cancelRequested -and ($Type -ne 'Failed' -or $Operation.cleanupRequested)
+
+        if (-not $stop) {
+            if ($PrepareStep) { & $PrepareStep }
+            Add-LabOperationEvent -Operation $Operation -Type $Type -Message $Message -Data $Data -StateRoot $StateRoot | Out-Null
+        }
+        else {
+            if ($Type -in @('StepCompleted','Failed')) {
+                Add-LabOperationEvent -Operation $Operation -Type $Type -Message $Message -Data $Data -StateRoot $StateRoot | Out-Null
+            }
+            $Operation.worker = $null
+            $Operation.status = if ($Operation.cleanupRequested) { 'CleanupQueued' } else { 'Cancelled' }
+            $Operation.completedAt = if ($Operation.cleanupRequested) { $null } else { Get-LabWorkflowUtcNow }
+            $notice = if ($Operation.cleanupRequested) {
+                'Stopp an der sicheren Schrittgrenze. Die scopegebundene Bereinigung wurde eingereiht.'
+            } else {
+                'Stopp an der sicheren Schrittgrenze. Ressourcen bleiben erhalten.'
+            }
+            Add-LabOperationEvent -Operation $Operation -Type 'CancellationBoundaryReached' -Message $notice -StateRoot $StateRoot | Out-Null
+        }
+        Write-LabOperationState -Operation $Operation -StateRoot $StateRoot | Out-Null
+        return $stop
+    }
+}
+
 function Invoke-LabOperationExecution {
     [CmdletBinding()]
     param(
@@ -1411,8 +1456,10 @@ function Invoke-LabOperationExecution {
     if ($null -eq $operation) {
         throw "Vorgang '$OperationId' wurde nicht gefunden."
     }
+    if (Test-LabOperationTerminal -Status $operation.status) { return $operation }
+    $executingCleanup = $operation.cleanupRequested -or $operation.status -eq 'CleanupQueued'
     try {
-        if ($operation.cleanupRequested -or $operation.status -eq 'CleanupQueued') {
+        if ($executingCleanup) {
             $operation.status = 'Running'
             Add-LabOperationEvent -Operation $operation -Type 'CleanupStarted' -Message 'Scopegebundene Bereinigung wurde gestartet.' -StateRoot $StateRoot | Out-Null
             Write-LabOperationState -Operation $operation -StateRoot $StateRoot | Out-Null
@@ -1431,29 +1478,21 @@ function Invoke-LabOperationExecution {
             $operation.startedAt = Get-LabWorkflowUtcNow
         }
         $operation.worker = [pscustomobject]@{ host = [Environment]::MachineName; processId = $PID; startedAt = Get-LabWorkflowUtcNow; heartbeatAt = Get-LabWorkflowUtcNow }
-        Add-LabOperationEvent -Operation $operation -Type 'Started' -Message 'Vorgang wurde von einem Scheduler-Worker übernommen.' -StateRoot $StateRoot | Out-Null
-        Write-LabOperationState -Operation $operation -StateRoot $StateRoot | Out-Null
+        $stopped = Publish-LabOperationWorkerBoundary -Operation $operation -StateRoot $StateRoot -Type 'Started' -Message 'Vorgang wurde von einem Scheduler-Worker übernommen.'
 
-        while ([int]$operation.currentStep -lt @($operation.steps).Count) {
-            if ([bool]$operation.cancelRequested) {
-                $operation.cleanupRequested = $true
-                $operation.status = 'CleanupQueued'
-                Add-LabOperationEvent -Operation $operation -Type 'CancellationBoundaryReached' -Message 'Der laufende atomare Schritt ist beendet; Cleanup wurde eingereiht.' -StateRoot $StateRoot | Out-Null
-                Write-LabOperationState -Operation $operation -StateRoot $StateRoot | Out-Null
-                Update-LabBatchSummary -BatchId $operation.batchId -StateRoot $StateRoot | Out-Null
-                return $operation
-            }
+        while (-not $stopped -and [int]$operation.currentStep -lt @($operation.steps).Count) {
             $index = [int]$operation.currentStep
             $step = $operation.steps[$index]
             if ($step.status -eq 'Completed') {
                 $operation.currentStep = $index + 1
                 continue
             }
-            $step.status = 'Running'
-            $step.startedAt = Get-LabWorkflowUtcNow
-            $operation.worker.heartbeatAt = Get-LabWorkflowUtcNow
-            Add-LabOperationEvent -Operation $operation -Type 'StepStarted' -Message $step.title -Data ([pscustomobject]@{ stepId = $step.id; action = $step.action }) -StateRoot $StateRoot | Out-Null
-            Write-LabOperationState -Operation $operation -StateRoot $StateRoot | Out-Null
+            $stopped = Publish-LabOperationWorkerBoundary -Operation $operation -StateRoot $StateRoot -Type 'StepStarted' -Message $step.title -Data ([pscustomobject]@{ stepId = $step.id; action = $step.action }) -PrepareStep {
+                $step.status = 'Running'
+                $step.startedAt = Get-LabWorkflowUtcNow
+                $operation.worker.heartbeatAt = Get-LabWorkflowUtcNow
+            }
+            if ($stopped) { break }
             $outcome = Invoke-LabOperationStepAction -Operation $operation -Step $step -StateRoot $StateRoot
             if (-not [string]::IsNullOrWhiteSpace([string](Get-LabWorkflowValue -InputObject $outcome -Name 'runId' -Default ''))) {
                 $operation.runId = [string]$outcome.runId
@@ -1470,8 +1509,7 @@ function Invoke-LabOperationExecution {
                 $operation.probe.intervalSeconds = 30
                 $operation.probe.nextProbeAt = [DateTime]::UtcNow.AddSeconds(30).ToString('o')
                 $operation.worker = $null
-                Add-LabOperationEvent -Operation $operation -Type 'UserActionRequired' -Message $outcome.gate.reason -Data $outcome.gate -StateRoot $StateRoot | Out-Null
-                Write-LabOperationState -Operation $operation -StateRoot $StateRoot | Out-Null
+                $null = Publish-LabOperationWorkerBoundary -Operation $operation -StateRoot $StateRoot -Type 'UserActionRequired' -Message $outcome.gate.reason -Data $outcome.gate
                 Update-LabBatchSummary -BatchId $operation.batchId -StateRoot $StateRoot | Out-Null
                 return $operation
             }
@@ -1483,18 +1521,18 @@ function Invoke-LabOperationExecution {
             }
             $operation.currentStep = $index + 1
             $operation.progress = [Math]::Round((100 * [int]$operation.currentStep / [Math]::Max(1, @($operation.steps).Count)), 1)
-            Add-LabOperationEvent -Operation $operation -Type 'StepCompleted' -Message $step.title -Data $step.receipt -StateRoot $StateRoot | Out-Null
-            Write-LabOperationState -Operation $operation -StateRoot $StateRoot | Out-Null
+            $stopped = Publish-LabOperationWorkerBoundary -Operation $operation -StateRoot $StateRoot -Type 'StepCompleted' -Message $step.title -Data $step.receipt
         }
-        $operation.status = 'Completed'
-        $operation.progress = 100
-        $operation.completedAt = Get-LabWorkflowUtcNow
-        $operation.worker = $null
-        if ($null -eq $operation.result) {
-            $operation.result = [pscustomobject]@{ runId = $operation.runId; changed = $true }
+        if (-not $stopped) {
+            $operation.status = 'Completed'
+            $operation.progress = 100
+            $operation.completedAt = Get-LabWorkflowUtcNow
+            $operation.worker = $null
+            if ($null -eq $operation.result) {
+                $operation.result = [pscustomobject]@{ runId = $operation.runId; changed = $true }
+            }
+            $null = Publish-LabOperationWorkerBoundary -Operation $operation -StateRoot $StateRoot -Type 'Completed' -Message 'Vorgang wurde erfolgreich abgeschlossen.' -Data $operation.result
         }
-        Add-LabOperationEvent -Operation $operation -Type 'Completed' -Message 'Vorgang wurde erfolgreich abgeschlossen.' -Data $operation.result -StateRoot $StateRoot | Out-Null
-        Write-LabOperationState -Operation $operation -StateRoot $StateRoot | Out-Null
         Update-LabBatchSummary -BatchId $operation.batchId -StateRoot $StateRoot | Out-Null
         return $operation
     }
@@ -1512,8 +1550,13 @@ function Invoke-LabOperationExecution {
             $operation.steps[[int]$operation.currentStep].status = 'Failed'
             $operation.steps[[int]$operation.currentStep].error = $operation.error
         }
-        Add-LabOperationEvent -Operation $operation -Type 'Failed' -Message $operation.error.message -Data $operation.error -StateRoot $StateRoot | Out-Null
-        Write-LabOperationState -Operation $operation -StateRoot $StateRoot | Out-Null
+        if ($executingCleanup) {
+            # A failed cleanup stays failed until a caller explicitly requests recovery.
+            Add-LabOperationEvent -Operation $operation -Type 'Failed' -Message $operation.error.message -Data $operation.error -StateRoot $StateRoot | Out-Null
+            Write-LabOperationState -Operation $operation -StateRoot $StateRoot | Out-Null
+        } else {
+            $null = Publish-LabOperationWorkerBoundary -Operation $operation -StateRoot $StateRoot -Type 'Failed' -Message $operation.error.message -Data $operation.error
+        }
         Update-LabBatchSummary -BatchId $operation.batchId -StateRoot $StateRoot | Out-Null
         return $operation
     }
