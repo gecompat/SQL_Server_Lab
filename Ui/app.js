@@ -3277,7 +3277,12 @@ function invalidateTestGroupPlan() {
 }
 function renderTestGroupPlan(plan) {
   $('#test-group-status').textContent = plan.Total + ' Mitglieder · Power: ' + plan.PowerStatus + ' · SQL-Bereitschaft: nicht geprüft';
-  $('#test-group-members').innerHTML = (plan.Members || []).map(member => '<div>' + escapeHtml(member.Key + ' · ' + member.Provider + ' · ' + member.Power + ' → ' + member.Desired + ' · ' + member.Change + (member.Reason ? ' · ' + member.Reason : '')) + '</div>').join('');
+  $('#test-group-members').innerHTML = (plan.Members || []).map(member => {
+    const runtime = [member.Provider, member.Power + ' → ' + member.Desired, member.Change, member.Reason].filter(Boolean).join(' · ');
+    return '<div><strong>' + escapeHtml(member.Key) + '</strong>' +
+      (member.RegistrationLabel ? '<div>' + escapeHtml(member.RegistrationLabel) + '</div>' : '') +
+      '<div>' + escapeHtml(runtime) + '</div></div>';
+  }).join('');
   $('#test-group-notice').textContent = plan.Notice;
 }
 async function readTestGroupPlan() {

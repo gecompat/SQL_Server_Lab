@@ -57,6 +57,29 @@ function Get-LabTestGroupRuntimeSnapshot {
     return $power
 }
 
+function Get-LabTestGroupRegistrationLabel {
+    param([Parameter(Mandatory)]$Entry)
+
+    $platform = switch -CaseSensitive ([string]$Entry.platform) {
+        'linux' { 'Linux' }
+        'windows' { 'Windows' }
+        default { 'Plattform unbekannt' }
+    }
+    $version = [string]$Entry.sqlVersion
+    $patch = if ($Entry.PSObject.Properties['patch']) { [string]$Entry.patch } else { '' }
+    $registrationState = if ($Entry.PSObject.Properties['registrationState']) { [string]$Entry.registrationState } else { '' }
+    $versionLabel = if ($version -cmatch '^20[0-9]{2}$') { "SQL Server $version" } else { 'SQL-Version unbekannt' }
+    $patchLabel = if ($patch -match '^(?:rtm|cu[1-9][0-9]{0,5})$') { $patch.ToUpperInvariant() }
+        elseif ($patch -ceq 'latest') { 'Aktueller Patch laut Katalog' }
+        else { 'Patch unbekannt' }
+    $registered = [guid]::Empty
+    $status = if ($registrationState -ceq 'PROVISIONING_PENDING' -and -not $Entry.runId) { 'Vorgemerkt' }
+        elseif ([guid]::TryParseExact([string]$Entry.runId, 'D', [ref]$registered) -and $registered -ne [guid]::Empty -and
+            (-not $registrationState -or $registrationState -ceq 'REGISTERED')) { 'Registriert' }
+        else { 'Registrierung unklar' }
+    return "$platform · $versionLabel · $patchLabel · $status"
+}
+
 function Get-LabTestGroupPowerPlan {
     [CmdletBinding()]
     param([ValidateSet('Start','Stop')][string]$PowerAction = 'Start', [string]$StateRoot, [string]$OutputDirectory)
@@ -71,7 +94,7 @@ function Get-LabTestGroupPowerPlan {
         $target = if ($PowerAction -eq 'Start') { 'RUNNING' } else { 'STOPPED' }
         $members = @(); $bindings = @(); $seenKeys = @{}; $seenRuns = @{}
         foreach ($entry in @($registry.environments | Sort-Object key)) {
-            $member = [pscustomobject]@{ Key=[string]$entry.key; RunId=[string]$entry.runId; ScopeId=''; InstanceId=[string]$entry.instanceId; Provider=''; RuntimeId=''; VMName=''; Power='UNKNOWN'; Desired=$target; SqlReadiness='NOT_CHECKED'; Change='BLOCKED'; Reason='' }
+            $member = [pscustomobject]@{ Key=[string]$entry.key; RegistrationLabel=(Get-LabTestGroupRegistrationLabel -Entry $entry); RunId=[string]$entry.runId; ScopeId=''; InstanceId=[string]$entry.instanceId; Provider=''; RuntimeId=''; VMName=''; Power='UNKNOWN'; Desired=$target; SqlReadiness='NOT_CHECKED'; Change='BLOCKED'; Reason='' }
             try {
                 if (-not $member.Key -or $seenKeys.ContainsKey($member.Key) -or $seenRuns.ContainsKey($member.RunId) -or
                     $member.RunId -notmatch '^[a-fA-F0-9-]{36}$' -or -not $member.InstanceId) { throw 'TEST_GROUP_MEMBER_AMBIGUOUS' }
@@ -189,7 +212,7 @@ function Invoke-LabTestGroupPowerInteractive {
         while ($true) {
             $view = Get-LabTestGroupPowerPlan
             $menu = Invoke-LabConsoleMenu -ScreenId 'test-group-power' -Title 'Gruppenweite Poweraktion' -Subtitle ("Power: {0} · SQL-Bereitschaft nicht geprüft. {1}" -f $view.PowerStatus,$view.Notice) -Items @(
-                foreach ($member in $view.Members) { New-LabConsoleItem -Id ('member-' + $member.Key) -Label ("{0} · {1} · Power {2} · {3}" -f $member.Key,$member.Provider,$member.Power,$member.Reason) -Disabled -DisabledReason 'Mitglied der gruppenweiten Aktion' }
+                foreach ($member in $view.Members) { New-LabConsoleItem -Id ('member-' + $member.Key) -Label ("{0} · {1} · Power {2} · {3}" -f $member.Key,$member.Provider,$member.Power,$member.RegistrationLabel) -Disabled -DisabledReason $(if ($member.Reason) { $member.Reason } else { 'Mitglied der gruppenweiten Aktion' }) }
                 New-LabConsoleItem -Id Start -Label 'Gesamte Gruppe: Power starten' -Shortcut 1
                 New-LabConsoleItem -Id Stop -Label 'Gesamte Gruppe: Power stoppen' -Shortcut 2
                 New-LabConsoleItem -Id refresh -Label 'Status erneut lesen' -Shortcut 3
