@@ -21,6 +21,21 @@ function Add-ConsoleUiCheck {
 Write-Host "`nSQL_Server_Lab - Console UI Checks" -ForegroundColor Cyan
 $statusLine = @(& { Write-LabStatus -Label 'Nicht pruefbare Provider' -Value '0' } 6>&1) -join ''
 Add-ConsoleUiCheck 'Statuszeilen trennen auch lange Labels sichtbar vom Wert' ($statusLine -match 'Provider\s+0')
+$overview = @(& {
+    function Get-SqlServerLabWorkflow {
+        [CmdletBinding()]
+        param()
+        [pscustomobject]@{
+            Summary=[pscustomobject]@{ActiveContainerLabs=3;WindowsBaselines=2;SqlPreparedImages=1;PendingWindowsBuilds=4
+                PendingSqlBuilds=5;ActiveBatches=6;QueueLength=7;WaitingUserGates=8}
+            ActiveLabs=@([pscustomobject]@{ConnectionString='synthetic-connection-sentinel'})
+        }
+    }
+    function Wait-LabConsoleAcknowledgement {}
+    Show-LabWorkflowOverviewInteractive
+} 6>&1) -join "`n"
+Add-ConsoleUiCheck 'Workflow-Übersicht zeigt echte Zähler und keine Verbindungsdaten' (
+    $overview -match 'Container-Labs\s+3' -and $overview -match 'Queue\s+7' -and $overview -notmatch 'synthetic-connection-sentinel')
 $previousConsoleMode = $script:LabConsoleMode
 $script:LabConsoleMode = 'Fallback'
 $forcedFallbackCapability = Test-LabConsoleCapability

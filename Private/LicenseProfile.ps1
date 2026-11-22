@@ -171,7 +171,10 @@ function Resolve-LabLicenseProfile {
         if ([string]$profile.edition -ne $expectedEdition) { throw "LICENSE_PROFILE_EDITION_MISMATCH: $Id" }
     }
     $secret = Get-LabLicenseProfileSecret -Id $Id -StateRoot $StateRoot
-    if (-not (Test-LabProductKeyFormat -Key $secret)) { throw "LICENSE_PROFILE_KEY_FORMAT_INVALID: $Id" }
+    try {
+        if (-not (Test-LabProductKeyFormat -Key $secret)) { throw "LICENSE_PROFILE_KEY_FORMAT_INVALID: $Id" }
+    }
+    finally { $secret.Dispose() }
     return $profile
 }
 

@@ -67,6 +67,9 @@ try {
             StringArray=@(ConvertFrom-LabPublicCommandInput -Text '["a","b"]' -TargetType ([string[]]))
             Hashtable=(ConvertFrom-LabPublicCommandInput -Text '{"a":1}' -TargetType ([hashtable]))
             Sanitized=(ConvertTo-LabPublicCommandDisplayValue -Value ([pscustomobject]@{Name='lab';Password='sensitive';Nested=[pscustomobject]@{ConnectionString='Server=x;Password=secret';Value=42}}))
+            SanitizedWebMail=@(ConvertTo-LabPublicCommandWebResult -CommandName Open-SqlServerLabSmtpTestServiceWebMail -Parameters @{} -Result @(
+                [pscustomobject]@{ContractVersion='SqlServerLab.SmtpTestServiceWebMailAccess/1.0'; Url='synthetic-capability-url'; Status='OPENED'; BrowserStarted=$true}
+            ))
             WebNames=@($webCatalog.Name)
             WebJson=($webCatalog|ConvertTo-Json -Depth 12)
             WebCmsCount=@($webCatalog|Where-Object Area -eq 'CMS').Count
@@ -133,6 +136,9 @@ try {
         $evidence.Sanitized.Name -ceq 'lab' -and $evidence.Sanitized.Password -ceq '<geschuetzt>' -and
         $evidence.Sanitized.Nested.ConnectionString -ceq '<geschuetzt>' -and $evidence.Sanitized.Nested.Value -eq 42
     )
+    Add-CheckResult 'Generische Ausgabe protokolliert keinen WebMail-Zugangslink' (
+        $evidence.SanitizedWebMail.Count -eq 1 -and $evidence.SanitizedWebMail[0].Url -ceq '<geschuetzt>' -and
+        $evidence.SanitizedWebMail[0].Status -ceq 'OPENED' -and $evidence.SanitizedWebMail[0].BrowserStarted -eq $true)
     Add-CheckResult 'GUI und CLI verwenden denselben vollständigen Exportkatalog' (
         @($expectedCatalog|Where-Object {$_ -notin $evidence.WebNames}).Count -eq 0 -and
         @($evidence.WebNames|Where-Object {$_ -notin $expectedCatalog}).Count -eq 0 -and

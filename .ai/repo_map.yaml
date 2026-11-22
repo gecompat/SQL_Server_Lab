@@ -361,6 +361,7 @@ sources_of_truth:
   validation_ai_ollama_container: Tests/Integration/Invoke-AiOllamaContainerAcceptance.ps1
   validation_ai_rag_container: Tests/Integration/Invoke-AiRagContainerAcceptance.ps1
   license_profile_contract: Private/LicenseProfile.ps1
+  license_profile_status_guidance: Private/LicenseProfileStatusGuidance.ps1
   license_profile_schema: Schemas/license-profile.schema.json
   validation_license_profile: Tests/Static/Invoke-LicenseProfileChecks.ps1
   batch_manifest_structure: Schemas/lab-batch.schema.json
@@ -390,6 +391,7 @@ sources_of_truth:
     validation_smtp_service_provisioning: Tests/Static/Invoke-SmtpTestServiceProvisionChecks.ps1
   smtp_webmail_binding: Private/SmtpTestServiceWebMail.ps1
   smtp_webmail_status_api: Public/Get-SqlServerLabSmtpTestServiceStatus.ps1
+  smtp_guided_status: Private/SmtpTestServiceStatusGuidance.ps1
   smtp_webmail_access_api: Public/Open-SqlServerLabSmtpTestServiceWebMail.ps1
   validation_smtp_webmail: Tests/Static/Invoke-SmtpTestServiceWebMailChecks.ps1
   smtp_service_database_mail_acceptance: Tests/Integration/Invoke-SmtpTestServiceDatabaseMailAcceptance.ps1

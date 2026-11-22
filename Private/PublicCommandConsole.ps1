@@ -53,17 +53,21 @@ function ConvertTo-LabPublicCommandDisplayValue {
     if($Value -is [Security.SecureString] -or $Value -is [Management.Automation.PSCredential] -or $Value -is [byte[]]){return '<geschuetzt>'}
     if($Value -is [string] -or $Value.GetType().IsPrimitive -or $Value -is [datetime] -or $Value -is [guid]){return $Value}
     if($Depth -ge 8){return '<maximale Anzeigetiefe erreicht>'}
+    $sensitiveProperties = '(?i)(password|secret|credential|token|connectionstring|exportbytes)'
     if($Value -is [Collections.IDictionary]){
+        if ([string]$Value['ContractVersion'] -ceq 'SqlServerLab.SmtpTestServiceWebMailAccess/1.0') { $sensitiveProperties += '|^Url$' }
         $copy=[ordered]@{}
         foreach($key in @($Value.Keys)){
-            $copy[[string]$key]=if([string]$key -match '(?i)(password|secret|credential|token|connectionstring|exportbytes)'){'<geschuetzt>'}else{ConvertTo-LabPublicCommandDisplayValue -Value $Value[$key] -Depth ($Depth+1)}
+            $copy[[string]$key]=if([string]$key -match $sensitiveProperties){'<geschuetzt>'}else{ConvertTo-LabPublicCommandDisplayValue -Value $Value[$key] -Depth ($Depth+1)}
         }
         return [pscustomobject]$copy
     }
     if($Value -is [Collections.IEnumerable]){return @($Value|ForEach-Object {ConvertTo-LabPublicCommandDisplayValue -Value $_ -Depth ($Depth+1)})}
+    $contractProperty = $Value.PSObject.Properties['ContractVersion']
+    if ($null -ne $contractProperty -and [string]$contractProperty.Value -ceq 'SqlServerLab.SmtpTestServiceWebMailAccess/1.0') { $sensitiveProperties += '|^Url$' }
     $copy=[ordered]@{}
     foreach($property in @($Value.PSObject.Properties|Where-Object MemberType -in @('Property','NoteProperty'))){
-        $copy[$property.Name]=if($property.Name -match '(?i)(password|secret|credential|token|connectionstring|exportbytes)'){'<geschuetzt>'}else{ConvertTo-LabPublicCommandDisplayValue -Value $property.Value -Depth ($Depth+1)}
+        $copy[$property.Name]=if($property.Name -match $sensitiveProperties){'<geschuetzt>'}else{ConvertTo-LabPublicCommandDisplayValue -Value $property.Value -Depth ($Depth+1)}
     }
     [pscustomobject]$copy
 }

@@ -324,6 +324,24 @@ function Get-LabConsoleHelpCatalog {
             Effects = 'Die Ansicht beschreibt die Schnittstelle. Sie startet keinen Vorgang und greift auf keinen Lab-State zu.'
             Command = 'Get-SqlServerLabAutomationPlan'
         }
+        'license-profile-status' = @{
+            Title = 'Lizenzprofil lokal prüfen'
+            Purpose = 'Produkt, Edition und Kanal anzeigen und ein Profil für die lokale Formatprüfung auswählen.'
+            Effects = 'DPAPI-Leseprüfung für das gewählte Profil. Der Product Key wird nicht angezeigt.'
+            Command = 'Test-SqlServerLabLicenseProfile'
+        }
+        'smtp-status-target' = @{
+            Title = 'SMTP-Testdienst prüfen'
+            Purpose = 'Ein registriertes Lab mit SMTP-Testdienst auswählen und den Mailpit-Receiver prüfen.'
+            Effects = 'Liest die Runtime-Bindung und den Containerzustand. Öffnet keinen WebMail-Zugang.'
+            Command = 'Get-SqlServerLabSmtpTestServiceStatus'
+        }
+        'smtp-webmail-action' = @{
+            Title = 'Lokaler Mailpit-Zugang'
+            Purpose = 'WebMail für das ausgewählte SMTP-Lab öffnen.'
+            Effects = 'Öffnet einen lokal begrenzten Zugang zum Lesen und Löschen von Testmails für 15 Minuten.'
+            Command = 'Open-SqlServerLabSmtpTestServiceWebMail'
+        }
         'diagnostic-bundle-instance' = @{
             Title = 'Gespeicherter Diagnosebefund'
             Purpose = 'Die Instanz im registrierten Standard-Lab_Data auswählen.'

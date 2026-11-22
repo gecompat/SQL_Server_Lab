@@ -914,6 +914,33 @@ Invoke-SqlServerLabWorkflowAction `
 Ein Reattach bindet nur den Datenträger. Vorhandene Datenbankdateien werden
 erst über eine ausdrückliche Restore- oder Attach-Aktion online gebracht.
 
+### Volltextsuche für eine vorhandene Umgebung ändern
+
+Wähle in der CLI unter **Lab-Umgebungen → Umgebung auswählen und verwalten**
+das laufende Lab und dann **Volltextsuche ändern**. Hat das Lab mehrere
+SQL-Instanzen, wähle die betroffene Instanz. Im Browser steht die Aktion
+unter **Lab verwalten** direkt an der laufenden SQL-Instanz. Bei Hyper-V
+heißt sie **Volltextsuche / FILESTREAM** und gilt für die registrierte SQL-Standardinstanz.
+
+Wähle **Nachinstallieren** oder **Deaktivieren** und bestätige die Änderung.
+Beim Deaktivieren entfernt das Lab die Volltextkomponente. Abhängige
+Volltextindizes sperren diesen Schritt. Eine tatsächliche Änderung startet
+SQL Server neu. Unter Hyper-V müssen passende, verifizierte SQL-Medien im
+konfigurierten Media Root verfügbar sein.
+
+### SMTP-Testdienst prüfen
+
+Öffne **Lab-Umgebungen → SMTP-Testdienst prüfen** und wähle ein
+registriertes Docker- oder Podman-Lab mit SMTP-Testdienst. **Receiver
+prüfen** liest die gebundene Mailpit-Runtime. Der Befund zeigt, ob der
+Receiver läuft, gestoppt ist oder gerade nicht eindeutig geprüft werden
+kann. Die geführte Konsole bietet denselben Einstieg.
+
+Bei einem laufenden Receiver ist **WebMail im Standardbrowser öffnen**
+verfügbar. Die Aktion öffnet für 15 Minuten einen lokalen Mailpit-Zugang
+zum Lesen und Löschen von Testmails. Der Startlink erscheint in keinem
+Ergebnisprotokoll. Die Zustellung selbst prüfst du separat.
+
 ## Namen in Runtime und Oberfläche
 
 Der frei wählbare Projektname ist zugleich der führende Teil der Runtime-Namen.
