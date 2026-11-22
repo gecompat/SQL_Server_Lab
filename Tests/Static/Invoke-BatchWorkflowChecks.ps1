@@ -237,6 +237,41 @@ if (-not $lock) { throw 'BATCH_SUMMARY_LOCK_ACQUISITION_FAILED' }
     Assert-Check ((Get-SqlServerLabOperation -OperationId $controlOperations[0].operationId -StateRoot $testRoot).priority -eq 'Low') 'Batch-Prioritaet wurde nicht weitergegeben.'
     Assert-Check ((Get-SqlServerLabOperation -OperationId $controlOperations[1].operationId -StateRoot $testRoot).priority -eq 'High') 'Individuell ueberschriebene Prioritaet wurde unzulaessig ersetzt.'
 
+    $stopRoot = Join-Path $testRoot 'stop-completion-boundary'
+    $stopBatch = New-SqlServerLabBatch -Name 'Synthetic stop boundary' -StateRoot $stopRoot -Items @(
+        [pscustomobject]@{ id='finishing'; kind='Test'; intent=[pscustomobject]@{} }
+        [pscustomobject]@{ id='waiting'; kind='Test'; intent=[pscustomobject]@{} }
+    )
+    $stopResult = & $module {
+        param($BatchId, $Root)
+        $readOperation = ${function:Get-SqlServerLabOperation}
+        $snapshot = @(& $readOperation -BatchId $BatchId -StateRoot $Root)
+        $finishing = & $readOperation -OperationId $snapshot[0].operationId -StateRoot $Root
+        $finishing.status = 'Completed'
+        Write-LabOperationState -Operation $finishing -StateRoot $Root | Out-Null
+        $completedPath = Get-LabOperationStatePath -OperationId $finishing.operationId -StateRoot $Root
+        $completedHash = (Get-FileHash -LiteralPath $completedPath).Hash
+
+        function Get-SqlServerLabOperation {
+            param($BatchId, $OperationId, $StateRoot)
+            if ($BatchId -and -not $OperationId) { return $snapshot }
+            & $readOperation -OperationId $OperationId -BatchId $BatchId -StateRoot $StateRoot
+        }
+
+        Stop-SqlServerLabBatch -BatchId $BatchId -StateRoot $Root -Cleanup -Confirm:$false | Out-Null
+        $waitingStatus = (& $readOperation -OperationId $snapshot[1].operationId -StateRoot $Root).status
+        $completedPreserved = (Get-FileHash -LiteralPath $completedPath).Hash -ceq $completedHash
+        Stop-SqlServerLabBatch -BatchId $BatchId -StateRoot $Root -Cleanup -IncludeCompleted -Confirm:$false | Out-Null
+        [pscustomobject]@{
+            CompletedPreserved = $completedPreserved
+            WaitingStatus = $waitingStatus
+            ExplicitCleanupStatus = (& $readOperation -OperationId $finishing.operationId -StateRoot $Root).status
+        }
+    } $stopBatch.batchId $stopRoot
+    Assert-Check $stopResult.CompletedPreserved 'Default batch cleanup modified an operation completed after the candidate snapshot.'
+    Assert-Check ($stopResult.WaitingStatus -ceq 'CleanupQueued') 'Default batch cleanup failed to queue the unfinished operation.'
+    Assert-Check ($stopResult.ExplicitCleanupStatus -ceq 'CleanupQueued') 'Explicit include-completed cleanup lost its existing behavior.'
+
     $abandoned = Get-SqlServerLabOperation -OperationId $controlOperations[0].operationId -StateRoot $testRoot
     $abandoned.status = 'Running'
     $abandoned.worker = [pscustomobject]@{ host = [Environment]::MachineName; processId = 2147483000; heartbeatAt = [DateTime]::UtcNow.AddMinutes(-1).ToString('o') }

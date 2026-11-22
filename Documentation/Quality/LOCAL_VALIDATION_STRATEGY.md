@@ -4287,6 +4287,12 @@ Version. Dieser
 synthetische Nachweis belegt die lokale Dateisynchronisation, nicht die
 Provider-Provisionierung oder extern verursachte Dateisperren.
 
+Ein statischer Vertragsfall liefert beim Stopp eine veraltete Liste
+unfertiger Positionen. Er prüft, dass ein inzwischen abgeschlossener
+Vorgang bytegleich erhalten bleibt und die noch unfertige Position zur
+Bereinigung eingereiht wird. Ein getrennt bestätigter vollständiger
+Rückbau kann auch den abgeschlossenen Vorgang zur Bereinigung einreihen.
+
 Die getrennten nativen Batch-Referenzläufe vom 2026-09-21 bestanden mit dem
 unveränderten Runtime-Commit `85dcd126`: Docker und Podman meldeten jeweils
 zwölf Assertions sowie `CLEANUP_SUCCEEDED` mit zwei Schritten und null Fehlern.
