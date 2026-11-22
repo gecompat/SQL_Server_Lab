@@ -75,6 +75,9 @@ const context = vm.createContext({ document, console, URLSearchParams,
   sqlServerLabUiFetch: (...args) => { fetchRequests.push(args); return args[0] === '/api/jobs' ? Promise.resolve({ ok: true, json: async () => [] }) : new Promise(() => {}); }, setTimeout() {}, clearTimeout() {}, queued: [] });
 const fetchRequests = [];
 const run = (code) => vm.runInContext(code, context, { timeout: 5000 });
+if (html.includes('<script src="test-group-view.js"></script>')) {
+  run(fs.readFileSync(path.join(root, 'Ui', 'test-group-view.js'), 'utf8'));
+}
 run(source);
 for (const asset of ['manifest-check.js', 'ssms-registration-export.js', 'cms-management.js', 'resource-plan.js', 'llama-model-catalog.js', 'windows-slot-pool.js', 'ollama-local-generation.js']) {
   if (html.includes('<script src="' + asset + '"></script>')) run(fs.readFileSync(path.join(root, 'Ui', asset), 'utf8'));
