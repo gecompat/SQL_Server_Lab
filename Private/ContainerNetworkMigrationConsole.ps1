@@ -11,7 +11,12 @@ function Show-LabContainerNetworkMigrationPlanInteractive {
         switch -CaseSensitive ($plan.Status) {
             'NO_NETWORK' { Write-LabInfo 'Für den Provider wurde kein Lab-Netz gefunden.' }
             'NO_CONFLICT' { Write-LabInfo 'Das Lab-Netz hat keinen erkannten Subnetzkonflikt.' }
-            'MIGRATION_BLOCKED' { Write-LabInfo ('Die Migration ist gesperrt. Prüfe Netzbesitz, Containerbindungen und Recovery. Befund {0}.' -f $plan.Reason) }
+            'MIGRATION_BLOCKED' {
+                Write-LabInfo ('Die Migration ist gesperrt. Prüfe Netzbesitz, Containerbindungen und Recovery. Befund {0}.' -f $plan.Reason)
+                if ($plan.Recovery) {
+                    Write-LabInfo ('Gespeichertes Recovery-Journal · Letzte protokollierte Phase {0} · Fehlercode {1}.' -f $plan.Recovery.LastRecordedPhase,$plan.Recovery.FailureCode)
+                }
+            }
             'MIGRATION_REQUIRED' {
                 Write-LabInfo ('Subnetz: {0} → {1}. Betroffene verwaltete Container: {2}.' -f $plan.Actual.Subnet, $plan.Desired.Subnet, @($plan.ManagedContainers).Count)
                 foreach ($container in $plan.ManagedContainers) {
@@ -65,6 +70,7 @@ function Invoke-LabContainerNetworkPlanRequest {
             $view.ContainerCount = @($plan.ManagedContainers).Count
         } elseif ($plan.Status -ceq 'MIGRATION_BLOCKED') {
             $view.Code = $plan.Reason
+            if ($plan.Recovery) { $view.Recovery = $plan.Recovery }
         }
         return @{StatusCode=200;View=$view}
     }
