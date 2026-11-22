@@ -695,12 +695,12 @@ function renderContainerVersionOptions(data) {
   }
 }
 
-function renderWorkflow(data) {
+function renderWorkflow(data, background = false) {
   workflow = data;
   renderContainerVersionOptions(data);
   renderConnectionEndpoints(data);
-  renderOperationQueue(data.Queue);
-  renderBatchOverview(data.Batches);
+  renderOperationQueue(data.Queue, background);
+  renderBatchOverview(data.Batches, data.Queue, background);
   // Der Quellen-Dialog kann vor dem ersten API-Refresh geöffnet werden. In
   // diesem Fall das anfangs leere Feld nachträglich füllen, aber eine bereits
   // vom Benutzer eingegebene Pfadänderung niemals überschreiben.
@@ -770,7 +770,11 @@ function renderWorkflow(data) {
   document.querySelectorAll('[data-lab-resources][data-provider="hyperv"]').forEach((button) => { button.disabled = hyperVDisabled; });
 }
 
-function renderBatchOverview(batches) {
+let queueBatchId = '';
+
+function renderBatchOverview(batches, queue, background = false) {
+  if (background && document.activeElement?.matches('[data-queue-batch]')) return;
+  const openBatches = new Set((queue?.items || []).map(item => item.batchId));
   const labels = {
     Draft: 'Entwurf', Validated: 'Validiert', Queued: 'Vorgemerkt', Running: 'Läuft',
     Waiting: 'Wartet', CleanupQueued: 'Bereinigung vorgemerkt', Completed: 'Abgeschlossen',
@@ -783,7 +787,21 @@ function renderBatchOverview(batches) {
         !Number.isFinite(batch.Percent) || batch.Percent < 0 || batch.Percent > 100 ||
         ![batch.Total, batch.Failed, batch.Cancelled].every(value => Number.isInteger(value) && value >= 0)) continue;
     const row = document.createElement('tr');
-    for (const value of [batch.BatchId, labels[batch.Status], batch.Percent + ' %', batch.Total, batch.Failed, batch.Cancelled]) {
+    const batchCell = document.createElement('td');
+    if (openBatches.has(batch.BatchId)) {
+      const show = document.createElement('button');
+      show.type = 'button';
+      show.className = 'button secondary';
+      show.dataset.queueBatch = batch.BatchId;
+      show.textContent = batch.BatchId;
+      show.setAttribute('aria-label', 'Offene Vorgänge für ' + batch.BatchId + ' anzeigen');
+      show.setAttribute('aria-pressed', String(queueBatchId === batch.BatchId));
+      batchCell.append(show);
+    } else {
+      batchCell.textContent = batch.BatchId;
+    }
+    row.append(batchCell);
+    for (const value of [labels[batch.Status], batch.Percent + ' %', batch.Total, batch.Failed, batch.Cancelled]) {
       const cell = document.createElement('td');
       cell.textContent = String(value);
       row.append(cell);
@@ -791,12 +809,46 @@ function renderBatchOverview(batches) {
     rows.append(row);
   }
   $('#batch-overview-table').hidden = !rows.childElementCount;
-  $('#batch-overview-status').textContent = rows.childElementCount ? 'Bis zu 50 zuletzt angelegte Batches.' : 'Keine Batchstände verfügbar.';
+  const status = $('#batch-overview-status');
+  status.textContent = rows.childElementCount ? 'Offene Vorgänge nach Batch filtern. Bis zu 50 zuletzt angelegte Batches.' : 'Keine Batchstände verfügbar.';
+  if (queueBatchId) {
+    status.textContent = 'Offene Vorgänge für ' + queueBatchId + ' ';
+    const reset = document.createElement('button');
+    reset.type = 'button';
+    reset.className = 'button secondary';
+    reset.dataset.queueBatch = '';
+    reset.textContent = 'Alle Vorgänge anzeigen';
+    status.append(reset);
+  }
 }
 
-function renderOperationQueue(queue) {
-  const items = queue?.items || [];
-  $('#queue-count').textContent = (queue?.runningWorkers || 0) + '/' + (queue?.maxWorkers || 2) + ' Worker · ' + items.length + ' offen';
+const operationPriorityLabels = { High: 'Hoch', Normal: 'Normal', Low: 'Niedrig' };
+const operationOrderingInFlight = new Set();
+
+function renderOperationOrderingControls(item, waitingItems) {
+  if (item.status === 'Running' || waitingItems.length < 2 || !Object.hasOwn(operationPriorityLabels, item.priority)) return '';
+  const operationId = escapeHtml(item.operationId);
+  const disabled = operationOrderingInFlight.has(item.operationId) ? ' disabled' : '';
+  const options = Object.entries(operationPriorityLabels).map(([value, label]) =>
+    '<option value="' + value + '"' + (value === item.priority ? ' selected' : '') + '>' + label + '</option>'
+  ).join('');
+  const priority = '<label>Priorität<select data-operation-priority="' + operationId +
+    '" data-current-priority="' + item.priority + '"' + disabled + '>' + options + '</select></label>';
+  const peers = waitingItems.filter(peer => peer.priority === item.priority);
+  const position = peers.findIndex(peer => peer.operationId === item.operationId);
+  const move = (command, label) => '<button type="button" class="button secondary" data-operation-command="' + command +
+    '" data-operation="' + operationId + '"' + disabled + '>' + label + '</button>';
+  const up = position > 0 ? move('MoveUp', 'Nach oben') : '';
+  const down = position >= 0 && position < peers.length - 1 ? move('MoveDown', 'Nach unten') : '';
+  return priority + up + down;
+}
+
+function renderOperationQueue(queue, background = false) {
+  if (background && document.activeElement?.matches('[data-operation-priority]')) return;
+  const allItems = queue?.items || [];
+  const items = queueBatchId ? allItems.filter(item => item.batchId === queueBatchId) : allItems;
+  const waitingItems = allItems.filter(item => item.status !== 'Running');
+  $('#queue-count').textContent = (queue?.runningWorkers || 0) + '/' + (queue?.maxWorkers || 2) + ' Worker · ' + items.length + (queueBatchId ? ' offen im Batch' : ' offen');
   $('#operation-queue').innerHTML = items.length ? items.map((item) => {
     const gate = item.userGate;
     const gateDetails = gate ? '<div class="operation-gate"><strong>' + escapeHtml(gate.reason) + '</strong><ol>' + (gate.instructions || []).map((step) => '<li>' + escapeHtml(step) + '</li>').join('') + '</ol><span>Erwartet: ' + escapeHtml(gate.expectedResult) + '</span></div>' : '';
@@ -806,8 +858,8 @@ function renderOperationQueue(queue) {
     const pause = item.status === 'Paused'
       ? '<button class="button secondary" data-operation-command="Resume" data-operation="' + escapeHtml(item.operationId) + '">Freigeben</button>'
       : (item.status === 'Queued' || item.status === 'WaitingForDependency' ? '<button class="button secondary" data-operation-command="Suspend" data-operation="' + escapeHtml(item.operationId) + '">Pausieren</button>' : '');
-    return '<article class="build-card operation-card"><div class="build-card-top"><div><div class="build-title">' + escapeHtml(item.title) + '</div><div class="build-meta">' + escapeHtml(item.priority + ' · ' + item.resourceClass + ' · ' + item.provider) + '</div></div><span class="status ' + statusClass(item.status) + '">' + escapeHtml(item.status) + '</span></div><progress max="100" value="' + escapeHtml(item.progress || 0) + '"></progress>' + gateDetails + '<div class="build-actions">' + confirmation + pause + '<button class="button secondary" data-operation-command="MoveUp" data-operation="' + escapeHtml(item.operationId) + '">Nach oben</button><button class="button danger" data-operation-command="StopCleanup" data-operation="' + escapeHtml(item.operationId) + '">Stoppen + Cleanup</button></div><div class="build-meta">' + escapeHtml(item.blockedReason || item.operationId) + '</div></article>';
-  }).join('') : empty('Keine offenen persistenten Vorgänge.');
+    return '<article class="build-card operation-card"><div class="build-card-top"><div><div class="build-title">' + escapeHtml(item.title) + '</div><div class="build-meta">' + escapeHtml(item.priority + ' · ' + item.resourceClass + ' · ' + item.provider) + '</div></div><span class="status ' + statusClass(item.status) + '">' + escapeHtml(item.status) + '</span></div><progress max="100" value="' + escapeHtml(item.progress || 0) + '"></progress>' + gateDetails + '<div class="build-actions">' + confirmation + pause + renderOperationOrderingControls(item, waitingItems) + '<button class="button danger" data-operation-command="StopCleanup" data-operation="' + escapeHtml(item.operationId) + '">Stoppen + Cleanup</button></div><div class="build-meta">' + escapeHtml(item.blockedReason || item.operationId) + '</div></article>';
+  }).join('') : empty(queueBatchId ? 'Keine offenen Vorgänge in diesem Batch.' : 'Keine offenen persistenten Vorgänge.');
 }
 
 async function runOperationCommand(operationId, command, verificationType) {
@@ -825,12 +877,46 @@ async function runOperationCommand(operationId, command, verificationType) {
     openConfirmation('Vorgang stoppen und aufräumen', 'Diesen Vorgang wirklich aufräumen? Nur sein persistierter Scope wird entfernt; veröffentlichte Images bleiben unverändert.', '__OperationStopCleanup', { operationId }, 'Stoppen + Cleanup');
     return;
   }
-  const response = await sqlServerLabUiFetch('/api/operations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-  if (!response.ok) throw new Error(await response.text());
+  const ordering = ['MoveUp', 'MoveDown', 'PriorityHigh', 'PriorityNormal', 'PriorityLow'].includes(command);
+  if (ordering && operationOrderingInFlight.has(operationId)) {
+    throw new Error('Die Reihenfolge dieses Vorgangs wird bereits geändert.');
+  }
+  if (ordering) operationOrderingInFlight.add(operationId);
+  try {
+    const response = await sqlServerLabUiFetch('/api/operations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    if (!response.ok) throw new Error(await response.text());
+  } finally {
+    if (ordering) operationOrderingInFlight.delete(operationId);
+  }
   await refresh();
 }
 
+document.addEventListener('change', async (event) => {
+  const select = event.target.closest('[data-operation-priority]');
+  if (!select || select.disabled || !Object.hasOwn(operationPriorityLabels, select.value) ||
+      select.value === select.dataset.currentPriority) return;
+  select.disabled = true;
+  try {
+    await runOperationCommand(select.dataset.operationPriority, 'Priority' + select.value);
+  } catch (error) {
+    select.value = select.dataset.currentPriority;
+    showError(error);
+  } finally {
+    select.disabled = false;
+  }
+});
+
 document.addEventListener('click', async (event) => {
+  const batchFilter = event.target.closest('[data-queue-batch]');
+  if (batchFilter) {
+    const selected = batchFilter.dataset.queueBatch;
+    const batches = Array.isArray(workflow?.Batches) ? workflow.Batches : [];
+    if (typeof selected !== 'string' || (selected && !batches.some(batch => batch?.BatchId === selected))) return;
+    queueBatchId = queueBatchId === selected ? '' : selected;
+    renderOperationQueue(workflow?.Queue);
+    renderBatchOverview(batches, workflow?.Queue);
+    return;
+  }
   const button = event.target.closest('[data-operation-command]');
   if (!button) return;
   button.disabled = true;
@@ -994,7 +1080,7 @@ async function refresh(mediaRoot, background = false) {
   if (background && (window.sqlServerLabTlsLiveQualification?.isPending() ||
       window.sqlServerLabTlsLiveQualification?.getGeneration?.() !== tlsGeneration)) return;
   if (Object.prototype.hasOwnProperty.call(payload, 'Refreshing')) {
-    if (payload.Snapshot) renderWorkflow(payload.Snapshot);
+    if (payload.Snapshot) renderWorkflow(payload.Snapshot, background);
     else {
       $('#host-status').textContent = 'Inventar wird geladen …';
       $('#host-status').className = 'chip neutral';
@@ -1009,7 +1095,7 @@ async function refresh(mediaRoot, background = false) {
     }
     return;
   }
-  renderWorkflow(payload);
+  renderWorkflow(payload, background);
 }
 
 async function refreshUiConfig() {

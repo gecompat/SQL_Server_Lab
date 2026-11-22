@@ -828,6 +828,19 @@ gespeicherter Batches** zeigt der Browser bei bis zu 50 Batches den Status,
 den Fortschritt und die Zahl der fehlgeschlagenen oder abgebrochenen
 Vorgänge. Die Ansicht überträgt keine Batch-Eingaben oder Quelldateipfade.
 
+Wähle die ID eines Batches mit offenen Vorgängen, um seine Vorgangskarten
+anzuzeigen. Mit **Alle Vorgänge anzeigen** löst du die Auswahl. Der Filter
+ändert nur die Ansicht. Prioritäts- und Reihenfolgeänderungen verwenden
+weiterhin die gesamte Warteschlange.
+
+Für wartende Vorgänge kannst du bei mindestens zwei verfügbaren Einträgen
+die **Priorität** auf Hoch, Normal oder Niedrig setzen. **Nach oben** und
+**Nach unten** erscheinen, wenn in derselben Priorität ein entsprechender
+Nachbar vorhanden ist. Die Browseransicht liest die Queue nach der Änderung
+neu. Laufende Vorgänge zeigen keine Reihenfolgensteuerung.
+Während du die Priorität auswählst, bleibt das Feld bei automatischen
+Aktualisierungen bedienbar.
+
 1. SQL-Prepared-Image: Windows- und SQL-ISO auswählen und Windows einmal in
    einer frischen Builder-VM installieren. Nach der sichtbaren Bestätigung der
    Windows-Installation führt die Oberfläche SQL `PrepareImage`, benötigte
