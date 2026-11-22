@@ -17,6 +17,7 @@ Write-Host ''
 Write-Host 'SQL_Server_Lab - Connection Center CMS Checks' -ForegroundColor Cyan
 
 try {
+    . (Join-Path $repoRoot 'Private/CmsManagement.ps1')
     . $sourcePath
     $entries = @(
         [PSCustomObject]@{ Provider='docker'; RuntimeState='RUNNING' }
@@ -272,9 +273,12 @@ try {
             $first = Initialize-SqlServerLabCms @arguments
             $second = Initialize-SqlServerLabCms @arguments
             $saved = Get-LabConnectionCenterCmsConfiguration -StateRoot $fixtureRoot
+            $replaced = $probe.Writes -eq 2 -and $saved.RunId -eq $second.Lab.RunId -and $first.Lab.RunId -ne $second.Lab.RunId
+            $browser = Initialize-SqlServerLabCms @arguments -SuppressGeneratedPasswordReturn
             [PSCustomObject]@{
                 ProviderPreserved=$providerPreserved; ProvisionPreserved=$provisionPreserved; ActivePreserved=$activePreserved
-                Replaced=($probe.Writes -eq 2 -and $saved.RunId -eq $second.Lab.RunId -and $first.Lab.RunId -ne $second.Lab.RunId)
+                Replaced=$replaced
+                BrowserPasswordSuppressed=($null -eq $browser.Password -and $browser.Configuration.RunId -ceq $browser.Lab.RunId)
                 NewPasswords=($first.Password -cne $second.Password -and @($probe.LabNames | Where-Object { $_ -cne 'Lab_CMS' }).Count -eq 0)
             }
         }
@@ -290,9 +294,14 @@ try {
     Add-CheckResult -Name 'CMS-Ersatz blockiert einen nicht terminalen Run vor der Neuanlage' -Success $replacement.ActivePreserved
     Add-CheckResult -Name 'CMS-Ersatz registriert erst nach Erfolg und erlaubt denselben Namen mit neuem Passwort' -Success (
         $replacement.Replaced -and $replacement.NewPasswords)
+    Add-CheckResult -Name 'CMS-Erstellung kann das generierte Kennwort für den Browser unterdrücken' -Success $replacement.BrowserPasswordSuppressed
     Add-CheckResult -Name 'CMS-Initialisierung bindet den angeforderten Labnamen' -Success (
         $source -match '\[string\]\$LabName = ''sql-server-lab-cms''' -and
         $source -match 'New-SqlServerLab .* -LabName \$LabName')
+    Add-CheckResult -Name 'CMS-Browserpfad unterdrueckt die Kennwortrueckgabe und gibt SecureString frei' -Success (
+        $source -match '\[switch\]\$SuppressGeneratedPasswordReturn' -and
+        $source -match 'if \(-not \$SuppressGeneratedPasswordReturn\)' -and
+        $source -match 'finally \{ if \(\$password\) \{ \$password\.Dispose\(\) \} \}')
 
     $passwordProjection = & {
         $canary = 'synthetic-generated-password-for-journal-check'
@@ -346,6 +355,8 @@ try {
     Add-CheckResult -Name 'CMS-In-Memory-Executor schreibt weder Query- noch Skriptdatei' -Success (
         $source -match 'function Invoke-LabCmsSqlInMemory' -and
         [regex]::Match($source, 'function Invoke-LabCmsSqlInMemory[\s\S]+?(?=\r?\nfunction Export-SqlServerLabCmsSyncScript)').Value -notmatch 'WriteAllText|WriteAllLines|GetTempFileName|sqlcmd')
+    & (Join-Path $PSScriptRoot 'Fixtures/CmsManagementChecks.ps1')
+    Add-CheckResult -Name 'CMS-Browserverwaltung: Statusprojektion, Bindung und Requestgrenzen' -Success $true
     & (Join-Path $PSScriptRoot 'Fixtures/CmsInspectionChecks.ps1')
     Add-CheckResult -Name 'CMS-readonly: echte Core-/HTTP-/CLI-/Workergrenzen' -Success $true
     & (Join-Path $PSScriptRoot 'Fixtures/ConnectionCenterCmsInspectionAcceptanceChecks.ps1')

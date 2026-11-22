@@ -185,6 +185,7 @@ function Get-LabConsoleHelpCatalog {
         'labs-menu' = @{ Title = 'Lab-Umgebungen'; Purpose = 'Vorhandene Fachabläufe auswählen. Nicht implementierte Abläufe sind deaktiviert und begründet.'; Effects = 'Die Bereichsauswahl ändert nichts. Zurück und Esc verlassen den Bereich.'; Command = 'New-SqlServerLab' }
         'testmatrix-menu' = @{ Title = 'Geschützte Testsystem-Matrix'; Purpose = 'Vorhandene Fachabläufe auswählen. Nicht implementierte Abläufe sind deaktiviert und begründet.'; Effects = 'Die Bereichsauswahl ändert nichts. Zurück und Esc verlassen den Bereich.'; Command = 'New-SqlServerLabAutomatedTestEnvironment' }
         'resources-menu' = @{ Title = 'Ressourcen und Downloads'; Purpose = 'Vorhandene Fachabläufe auswählen. Nicht implementierte Abläufe sind deaktiviert und begründet.'; Effects = 'Die Bereichsauswahl ändert nichts. Zurück und Esc verlassen den Bereich.'; Command = 'Get-SqlServerLabResourcePlan' }
+        'resource-plan-selection' = @{ Title = 'Lokaler Ressourcenbedarf'; Purpose = 'Die Prüfung auf Beispieldaten, Windows-/Hyper-V-Laufzeitmedien oder beide Arten eingrenzen.'; Effects = 'Die gewählte Prüfung liest die konfigurierten Ordner und zeigt den Beschaffungsbedarf. Sie lädt nichts herunter.'; Command = 'Get-SqlServerLabResourcePlan' }
         'hostmodels-menu' = @{ Title = 'Host-Dienste und Modelle'; Purpose = 'Vorhandene Fachabläufe auswählen, etwa installierte llama.cpp-Pakete prüfen oder eine eigene Sitzung stoppen.'; Effects = 'Die Paketübersicht liest Backend und Build aus lokalen Dateibefunden. Zurück und Esc verlassen den Bereich.'; Command = 'Get-SqlServerLabLlamaCppRuntime' }
         'sql-feature-target' = @{ Title = 'SQL-Instanz für Funktionsänderung'; Purpose = 'Eine registrierte Instanz der gewählten laufenden Umgebung auswählen.'; Effects = 'Erst die Bestätigung einer konkreten Funktion ändert SQL Server.'; Command = 'Set-SqlServerLabFeature' }
         'sql-feature-operation' = @{ Title = 'SQL-Funktion ändern'; Purpose = 'Volltext installieren oder entfernen. Hyper-V bietet zusätzlich FILESTREAM.'; Effects = 'Bei einer bestätigten Änderung startet SQL neu. Abhängige Datenbanken können die Entfernung verhindern.'; Command = 'Set-SqlServerLabFeature' }
@@ -390,15 +391,15 @@ function Get-LabConsoleHelpCatalog {
             Command = 'Measure-SqlServerLabAiComputeCandidate / Measure-SqlServerLabAiComputeCandidateSet'
         }
         'persistent-fixture-target' = @{
-            Title = 'Zielinstanz für persistente Retrieval-Demo'
-            Purpose = 'Eine laufende SQL-2025-Containerinstanz für die synthetische Sammlung wählen.'
-            Effects = 'Die Auswahl ändert nichts. Der spätere Schritt kann Beispieldaten in SQL schreiben und lokales Ollama aufrufen.'
+            Title = 'Zielinstanz für persistentes Retrieval'
+            Purpose = 'Eine laufende SQL-2025-Containerinstanz für die gewählte Collection auswählen.'
+            Effects = 'Die Auswahl ändert nichts. Der spätere Schritt kann in SQL schreiben oder eine eigene Collection löschen.'
             Command = 'Invoke-SqlServerLabAiPersistentRetrieval'
         }
         'persistent-fixture-action' = @{
-            Title = 'Synthetische Retrieval-Collection'
-            Purpose = 'Initiales Laden, Aktualisieren, Beispielfrage oder Modellmigration wählen. Die Collection-ID verbindet die Schritte.'
-            Effects = 'Nach Bestätigung schreibt oder liest der Auftrag im gewählten SQL-2025-Container und verwendet ein vorhandenes lokales Ollama-Modell.'
+            Title = 'Persistente Retrieval-Collections'
+            Purpose = 'Beispieldaten verwenden oder eine vorhandene eigene Collection anhand ihrer ID pflegen.'
+            Effects = 'Löschen erfordert eine Bestätigung und einen geprüften Besitznachweis. Die Löschaktionen benötigen kein Embeddingmodell.'
             Command = 'Invoke-SqlServerLabAiPersistentRetrieval'
         }
         'settings-menu' = @{
@@ -693,6 +694,7 @@ function Get-LabConsoleHelpCatalog {
     $catalog['ai-menu'].Preconditions += 'Für die neue Testumgebung: laufendes Podman und ausgewähltes lokales embeddinggemma:latest (768) oder bge-m3:latest (1024). Ist Podman nicht einsatzbereit, bleibt der Menüpunkt mit stabilem ReasonCode und konkreter Abhilfe sichtbar, aber deaktiviert.'
     $catalog['ai-menu'].Preconditions += 'Szenarioausführung, SQL-RAG, SQL-Diagnose und Golden-RAG benötigen eine als RUNNING registrierte SQL-Server-2025-Instanz. Ohne passendes Ziel bleiben diese Einträge sichtbar und nennen AI_SQL_2025_TARGET_UNAVAILABLE samt Abhilfe; Plan, Modellaufruf und Offline-Retrieval bleiben verfügbar.'
     $catalog['ai-menu'].Effects += ' Neue Umgebung nur nach Vorschau und Bestätigung; SQL-Daten bleiben erhalten. Fehlerbereinigung betrifft ausschließlich den gerade neu erstellten eigenen Run.'
+    $catalog['ollama-local-generation'] = @{ Title='Lokales Ollama-Modell'; Purpose='Wählt ein katalogisiertes lokales Generationsmodell.'; Effects='Die Auswahl sendet nichts. Der bestätigte Aufruf benötigt ein bereits installiertes Modell und einen lokalen Ollama-Dienst.'; Command='Invoke-SqlServerLabAiModel' }
     $catalog['test-group-select'] = @{ Title='Testgruppe auswählen'; Purpose='Wählt die tatsächlich registrierte Gruppe im kanonischen Exportroot.'; Effects='Nur lesen; keine Runtime- oder SQL-Aktion.' }
     $catalog['test-group-power'] = @{ Title='Gruppenweite Poweraktion'; Purpose='Zeigt Ist/Ziel je Mitglied; SQL-Bereitschaft bleibt nicht geprüft.'; Effects='Nur Container-/VM-Power nach Vorschau und Bestätigung. Keine Export-, CMS-, Lizenz- oder Hostspeicheraktion. Abbruch/No-op mutieren nicht; Teilfehler benötigen eine neue Vorschau.' }
     $catalog['resource-change-instance'] = @{

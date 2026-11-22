@@ -4128,6 +4128,11 @@ erfasst.
 ## Registrierter CMS: begrenzte Leseprüfung
 
 Der optionale gemeinsame CLI-/GUI-Inspektor liest nur den explizit ausgewählten bestehenden CMS und markierte msdb-Zähler. Hyper-V ist ohne nicht reparierende native Probe nicht unterstützt. Counts beweisen weder Hierarchiekonsistenz noch Synchronisationsfrische, Mitgliedszugriffe oder SSMS. Frische Datei-/Runtime-/Portchecks sind keine atomare physische Endpointbindung. Reale CMS-SQL-/Authnachweise sind getrennt von Offline- und allgemeinen Core-Smokes; siehe [Vertrag](../Architecture/CMS_READONLY_INSPECTION.md).
+
+Die Browser-Bereitstellung beschränkt die Übernahme auf laufende
+Docker-/Podman-Runs mit einer gebundenen SQL-Instanz und bereits lokal
+geschütztem SA-Kennwort. Zugangsanzeige und zusätzliche
+Kennworteingabe stehen über den Konsolenweg zur Verfügung.
 Ein privater abweichender StateRoot im bisherigen CMS-Menü erhält keine Freigabe für die neue aktive-Registrierungsprüfung; es gibt keine implizite Umleitung auf einen anderen CMS.
 Der isolierte CMS-Worker-/SQL-Harness arrangiert ausschließlich einen frischen
 eigenen CMS mit synthetischen Metadaten, optional an `-Version` 2019/2022/2025

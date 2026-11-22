@@ -234,16 +234,19 @@ $selected = Save-SqlServerLabLlamaCppModel `
 $selected.Path
 ```
 
-Dieselbe Auswahl ist ohne manuelle Cmdlet-Eingabe unter **Datenbanken und
-Verbindungen → SQL Server 2025 KI → llama.cpp-Modelle anzeigen oder herunterladen**
-erreichbar. Das Menü zeigt Zweck, Hardwarestufe, Quantisierung, Größe und
-Lizenz; die Detailansicht ergänzt die vollständige Revision. Ist
-`Lab_Base` nicht konfiguriert, bleiben alle Modelle sichtbar, sind jedoch mit
-dem konkreten Einrichtungshinweis deaktiviert. Nach der Auswahl folgt eine
-Bestätigung; erst dann wird die Modelldatei heruntergeladen oder ein vorhandener Cache
-vollständig revalidiert. Dieser Vorgang startet keine Runtime und lädt kein
-Modell in den Arbeitsspeicher. Ein fehlender oder unbekannter Modellzweck
-deaktiviert den Download.
+In der CLI findest du die Auswahl unter **Host-Dienste und Modelle →
+llama.cpp-Modellkatalog und Dateien**. Das Menü zeigt Zweck, Hardwarestufe,
+Quantisierung, Größe und Lizenz. Die Detailansicht zeigt die vollständige
+Revision. Ohne konfigurierten Medienordner (`Lab_Base`) oder bei unbekanntem
+Modellzweck bleibt der Download deaktiviert. Nach der Bestätigung lädt die
+CLI die gebundene Datei herunter oder prüft den vorhandenen Cache vollständig.
+Die Runtime und geladene Modelle ändern sich dabei nicht.
+
+Im Browser findest du die Auswahl unter **Host-Dienste und Modelle →
+llama.cpp-Modelle anzeigen und herunterladen**. Die Bestätigung zeigt
+Modellgröße, Lizenz und den konfigurierten Medienordner. Der Download ist
+an die gelesene Revision und SHA-256 gebunden. Das Ergebnis steht unter
+**Vorgänge**.
 
 | Stufe | Katalog-ID | Datei | Zweck |
 |---|---|---:|---|

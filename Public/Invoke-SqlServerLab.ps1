@@ -504,7 +504,7 @@ function Show-LabAiMenu {
         New-LabConsoleItem -Id 'AiGoldenRagEvaluation' -Label 'Golden-RAG ausführen und bewerten' -Value 'versionierter Datensatz · echter SQL-Lauf · blockierende Metriken' -Shortcut '7' `
             -Disabled:(-not $sql2025Target.Available) -DisabledReason ([string]$sql2025Target.Reason)
         New-LabConsoleItem -Id 'AiGuidedDemo' -Label 'Geführte KI-Demos' -Value 'Vector · Retrieval · Golden-RAG · read-only Agent' -Shortcut '8'
-        New-LabConsoleItem -Id 'PersistentFixture' -Label 'Persistente Retrieval-Demo' -Value 'Synthetische Sammlung · lokales Ollama'
+        New-LabConsoleItem -Id 'PersistentFixture' -Label 'Persistente Retrieval-Collections' -Value 'Beispielsammlung und Pflege eigener Collections'
         New-LabConsoleItem -Id 'back' -Label 'Zurueck' -Shortcut '0'
     )
 }
@@ -549,7 +549,8 @@ function Manage-LabLlamaCppModelsInteractive {
     Write-LabStatus -Label 'Ziel' -Value (Join-Path $mediaRoot ('AI/Models/' + [string]$model.FileName))
     if (-not (Read-LabConfirm -Prompt '  Modelldatei herunterladen oder vorhandene Datei prüfen?' -Default $false)) { return }
     try {
-        $result = Save-SqlServerLabLlamaCppModel -Id ([string]$model.Id) -MediaRoot $mediaRoot -Confirm:$false
+        $result = Save-SqlServerLabLlamaCppModel -Id ([string]$model.Id) -MediaRoot $mediaRoot `
+            -ExpectedModelSha256 $model.Sha256 -ExpectedModelRevision $model.Revision -Confirm:$false
         if ([string]$result.Status -ceq 'ALREADY_PRESENT') {
             Write-LabSuccess "Modell ist bereits vollständig geprüft vorhanden: $($result.Path)"
         }
@@ -1570,10 +1571,21 @@ function Invoke-LabAiModelInteractive {
         $result = Invoke-SqlServerLabAiModel -ModelKey 'ollama-gpt-oss-120b-cloud' -InputText $prompt -DataClassification $classification -Lane cloud -AllowCloudEgress -Confirm
     }
     else {
+        $model = Select-LabConsoleDataItem -ScreenId 'ollama-local-generation' -Title 'Lokales Ollama-Modell auswählen' -Items @(
+            foreach ($item in Get-LabAiLocalGenerationCatalog) {
+                New-LabConsoleItem -Id $item.Id -Label $item.Name -Data $item.Id
+            }
+        )
+        if (-not $model) { return }
         $port = Read-Host '  Lokaler Ollama-Port [11434]'
-        if ([string]::IsNullOrWhiteSpace($port)) { $port = 11434 }
-        if ([string]$port -notmatch '^\d+$' -or [int]$port -lt 1024 -or [int]$port -gt 65535) { Write-LabError 'Ungültiger Port.'; return }
-        $result = Invoke-SqlServerLabAiModel -ModelKey 'ollama-gemma3-1b-local' -InputText $prompt -DataClassification synthetic-only -Lane local -LocalPort ([int]$port) -Confirm
+        if ([string]::IsNullOrWhiteSpace($port)) { $port = '11434' }
+        $localPort = 0
+        if ($port -notmatch '^\d+$' -or -not [int]::TryParse($port, [ref]$localPort) -or $localPort -lt 1024 -or $localPort -gt 65535) {
+            Write-LabError 'Ungültiger Port.'
+            return
+        }
+        $timeout = Read-LabIntegerIntentValue -Prompt 'Zeitlimit einschließlich Modellstart (Sekunden)' -Default 180 -Minimum 1 -Maximum 230
+        $result = Invoke-SqlServerLabAiModel -ModelKey $model -InputText $prompt -DataClassification synthetic-only -Lane local -LocalPort $localPort -TimeoutSeconds $timeout -Confirm
     }
     Write-LabStatus -Label 'Modell' -Value "$($result.ModelKey) · $($result.Status)" -Color $(if ($result.Status -eq 'SUCCEEDED') { 'Green' } else { 'Yellow' })
     Write-Host "  $($result.Text)" -ForegroundColor White
@@ -1756,6 +1768,7 @@ function Invoke-LabAction {
             Invoke-LabCuResourceInteractive
         }
         'ResourceWatch' { Show-LabResourceWatchInteractive }
+        'ResourcePlan' { Show-LabResourcePlanInteractive }
         'CuStatus' {
             Show-LabCuStatusInteractive
         }

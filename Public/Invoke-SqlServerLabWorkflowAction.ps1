@@ -6,7 +6,11 @@
     Workflow-Oberflaeche. Gastpasswoerter dienen nur dem unmittelbaren Aufruf
     und werden weder in Build-State noch Log-Ausgabe gespeichert.
 .PARAMETER ExpectedPlanKey
-    Servergebundener Auswahlsschlüssel; InspectCms akzeptiert nur die frisch gelesene CMS-Registrierung.
+    Servergebundener Auswahlsschlüssel; InspectCms akzeptiert nur die frisch gelesene CMS-Registrierung. CMS-Management-Aktionen verlangen den unveränderten Schlüssel aus dem Statusdialog.
+.PARAMETER ConfirmCmsOperation
+    Bestätigt ausdrücklich die zuvor angezeigte CMS-Erstellung oder Übernahme.
+.PARAMETER ReplaceRemovedCms
+    Erlaubt nur beim CMS-Erstellen den Ersatz einer eindeutig terminal entfernten CMS-Registrierung; andere Zustände bleiben gesperrt.
 .PARAMETER Action
     Eindeutige, zulässige Workflow-Aktion.
     GetResourceWatchState liest nur Katalog und Sitzungscache. RefreshResourceWatch
@@ -294,7 +298,7 @@ function Invoke-SqlServerLabWorkflowAction {
             'GetLlamaSessions', 'PlanLlamaSessionStop', 'StopLlamaSession',
             'GetMediaOverrideState', 'PlanMediaOverride', 'ApplyMediaOverride',
             'GetResourceWatchState', 'RefreshResourceWatch',
-            'GetCmsInspectionState', 'InspectCms',
+            'GetCmsInspectionState', 'InspectCms', 'GetCmsManagementState', 'InitializeCms', 'AdoptCms',
             'RepairHyperVWindowsActivation',
             'SetMediaRoot', 'SetDataRoot', 'SetTestDataRoot',
             'NewContainerLab', 'CreateContainerManifest', 'NewContainerLabFromManifest', 'SetSqlFeature', 'RenameLab', 'SetLabResources', 'StartContainerLab', 'StopContainerLab', 'StartLabReconcile', 'StopLabReconcile', 'RestartContainerLab', 'RemoveContainerLab', 'ClearAllLabs',
@@ -344,6 +348,8 @@ function Invoke-SqlServerLabWorkflowAction {
         [switch]$ConfirmMediaSource,
         [switch]$ConfirmSlotReserve,
         [switch]$ConfirmSetup,
+        [switch]$ConfirmCmsOperation,
+        [switch]$ReplaceRemovedCms,
         [ValidateSet('docker', 'podman', 'hyperv')][string]$SetupProvider,
         [ValidateRange(1,64)][decimal]$ResourceCpu,
         [string]$TestDataRoot,
@@ -450,6 +456,33 @@ function Invoke-SqlServerLabWorkflowAction {
     }
     if ($Action -in @('GetCmsInspectionState','InspectCms')) {
         $result=if($Action -ceq 'GetCmsInspectionState'){Get-LabCmsInspectionState}else{Invoke-LabCmsInspection -ExpectedPlanKey $ExpectedPlanKey}
+        return [pscustomobject]@{Action=$Action;CompletedAt=Get-LabTimestamp;Result=$result}
+    }
+    if ($Action -in @('GetCmsManagementState','InitializeCms','AdoptCms')) {
+        if ($Action -ceq 'GetCmsManagementState') {
+            $result = Invoke-WithLabCmsManagementLock -StateRoot $StateRoot -ScriptBlock { Get-LabCmsManagementState -StateRoot $StateRoot }
+        }
+        else {
+            if ($null -ne $SaPassword) { throw 'CMS_MANAGEMENT_REQUEST_INVALID' }
+            $result = Invoke-WithLabCmsManagementLock -StateRoot $StateRoot -ScriptBlock {
+                if (-not $ConfirmCmsOperation) { throw 'CMS_MANAGEMENT_CONFIRMATION_REQUIRED' }
+                $state = Assert-LabCmsManagementPlanKey -ExpectedPlanKey $ExpectedPlanKey -StateRoot $StateRoot
+                if ($Action -ceq 'InitializeCms') {
+                    $replaceRemoved = $state.Cms -and $state.Cms.State -ceq 'REMOVED'
+                    if (-not $state.CanCreate -or $Provider -cnotin $state.Providers -or $replaceRemoved -ne $ReplaceRemovedCms.IsPresent) { throw 'CMS_MANAGEMENT_CREATE_UNAVAILABLE' }
+                    $name = if ($LabName) { $LabName } else { 'sql-server-lab-cms' }
+                    try {
+                        $created = Initialize-SqlServerLabCms -Provider $Provider -LabName $name -ReplaceRemovedCms:$ReplaceRemovedCms -SuppressGeneratedPasswordReturn -StateRoot $StateRoot -ErrorAction Stop 3>$null 4>$null 5>$null 6>$null
+                    } catch { throw 'CMS_MANAGEMENT_CREATE_UNCONFIRMED' }
+                    return [pscustomobject]@{ Status='CREATED'; RunId=[string]$created.Configuration.RunId; Provider=[string]$created.Configuration.Provider }
+                }
+                if (-not $state.CanAdopt -or @($state.Candidates | Where-Object RunId -ceq $RunId).Count -ne 1) { throw 'CMS_MANAGEMENT_ADOPTION_UNAVAILABLE' }
+                try {
+                    $registration = Invoke-LabCmsManagementAdoption -RunId $RunId -ExpectedPlanKey $ExpectedPlanKey -StateRoot $StateRoot 3>$null 4>$null 5>$null 6>$null
+                } catch { throw 'CMS_MANAGEMENT_ADOPTION_UNCONFIRMED' }
+                [pscustomobject][ordered]@{ Status='ADOPTED'; RunId=[string]$registration.Configuration.RunId; Provider=[string]$registration.Configuration.Provider }
+            }
+        }
         return [pscustomobject]@{Action=$Action;CompletedAt=Get-LabTimestamp;Result=$result}
     }
     if($Action -in @('PlanWindowsPoolMember','ApplyWindowsPoolMember','CancelWindowsPoolMember')){

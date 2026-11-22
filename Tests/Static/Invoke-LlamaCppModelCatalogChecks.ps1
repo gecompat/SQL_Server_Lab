@@ -24,6 +24,14 @@ try {
     Add-CheckResult 'Unbekannte Modell-ID fällt geschlossen aus' ($notFound -ceq 'LLAMA_MODEL_NOT_FOUND: missing')
     Add-CheckResult 'Öffentliche Downloadfunktion unterstützt WhatIf ohne Medienmutation' (
         @(Save-SqlServerLabLlamaCppModel -Id qwen3-4b-q4_k_m -MediaRoot (Join-Path $root 'missing') -WhatIf).Count -eq 0)
+    $selected = Get-SqlServerLabLlamaCppModel -Id qwen3-4b-q4_k_m
+    $staleRejected = $false
+    try {
+        $null = Save-SqlServerLabLlamaCppModel -Id $selected.Id -MediaRoot $root -ExpectedModelSha256 ('f' * 64) -ExpectedModelRevision $selected.Revision -Confirm:$false
+    } catch { $staleRejected = $_.Exception.Message -ceq 'LLAMA_MODEL_SELECTION_CHANGED' }
+    Add-CheckResult 'Staler Kataloghash verhindert jede Download- oder Dateiwirkung' ($staleRejected -and -not (Test-Path -LiteralPath $root))
+    $validReceipt = @(Save-SqlServerLabLlamaCppModel -Id $selected.Id -MediaRoot $root -ExpectedModelSha256 $selected.Sha256 -ExpectedModelRevision $selected.Revision -WhatIf)
+    Add-CheckResult 'Bestätigter Hash und Revision erlauben weiterhin WhatIf' ($validReceipt.Count -eq 0 -and -not (Test-Path -LiteralPath $root))
 
     $null=New-Item -ItemType Directory -Path $root -Force
     $payload=[byte[]](0x47,0x47,0x55,0x46,1,2,3,4,5,6,7,8)
@@ -108,8 +116,8 @@ try {
             $script:modelMenuConfirm
         }
         function Save-SqlServerLabLlamaCppModel {
-            param($Id,$MediaRoot,[switch]$Confirm)
-            $script:modelMenuSaveCount++;$script:modelMenuSaved=[pscustomobject]@{Id=$Id;MediaRoot=$MediaRoot;Confirm=[bool]$Confirm}
+            param($Id,$MediaRoot,$ExpectedModelSha256,$ExpectedModelRevision,[switch]$Confirm)
+            $script:modelMenuSaveCount++;$script:modelMenuSaved=[pscustomobject]@{Id=$Id;MediaRoot=$MediaRoot;Confirm=[bool]$Confirm;Hash=$ExpectedModelSha256;Revision=$ExpectedModelRevision}
             [pscustomobject]@{Status='ALREADY_PRESENT';Path=(Join-Path $MediaRoot 'AI/Models/synthetic.gguf')}
         }
         function Write-LabStatus { param($Label,$Value) $script:modelMenuStatus[$Label]=$Value }
@@ -151,6 +159,7 @@ try {
         $consoleEvidence.Invalid.Count -eq 3 -and @($consoleEvidence.Invalid|Where-Object {-not $_.Disabled -or $_.Reason -notmatch 'Zweck unbekannt.*Download nicht verfügbar' -or $_.Count -ne 1}).Count -eq 0)
     Add-CheckResult 'KI-Menü lädt die explizite Modellauswahl direkt in den konfigurierten Media Root' (
         $consoleEvidence.Saved.Id -ceq 'qwen2.5-1.5b-instruct-q4_0' -and $consoleEvidence.Saved.MediaRoot -ceq $root -and
+        $consoleEvidence.Saved.Hash -ceq $models[0].Sha256 -and $consoleEvidence.Saved.Revision -ceq $models[0].Revision -and
         -not $consoleEvidence.Saved.Confirm -and $consoleEvidence.Acknowledged -eq 1)
 }
 finally {

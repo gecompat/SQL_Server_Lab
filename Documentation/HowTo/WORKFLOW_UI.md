@@ -572,9 +572,15 @@ Für den bereits registrierten CMS bietet der Verbindungsbereich eine ausdrückl
 lesende Prüfung mit Zeitpunkt und markierten Metadatenzählern. Registrierung
 lesen und Dialog schließen führen keine SQL-Prüfung aus. Der gemeinsame
 [CMS-Vertrag](../Architecture/CMS_READONLY_INSPECTION.md) begrenzt Provider,
-Bindung und unbekannte Ergebnisse. CMS-Setup und Synchronisation im Browser,
-operative Slots, vollständiges Provider-Setup und Fremdstart-/weiterer
-Hostdienst- sowie Modell-Lifecycle bleiben offen. Der eigene llama.cpp-
+Bindung und unbekannte Ergebnisse. Unter **CMS bereitstellen** erstellst du
+einen neuen persistenten SQL-2025-CMS über Docker oder Podman oder übernimmst
+einen geeigneten Run mit gespeichertem SA-Kennwort. Bestätige die Auswahl
+und prüfe das Ergebnis unter **Vorgänge**. Der Synchronisationsschritt
+bleibt bei der gebundenen Prüfung des registrierten CMS. Die
+[Anleitung zur Verbindungszentrale](../User/SQL_CONNECTION_CENTER.md)
+beschreibt die Voraussetzungen und den Zugang. Operative Slots, vollständiges
+Provider-Setup und Fremdstart-/weiterer Hostdienst- sowie Modell-Lifecycle
+bleiben offen. Der eigene llama.cpp-
 Sitzungsstop besitzt den unten beschriebenen Fachdialog. Der Navigationseinstieg ist keine Abnahme
 dieser fehlenden Funktionen.
 
@@ -987,6 +993,21 @@ Dialog liest den Speicherkatalog ohne UAC und reserviert keinen Speicher.
 Fehlt das Ziel oder ist es nicht lesbar, prüfe die Registrierung unter
 **Grundkonfiguration**.
 
+## Windows-OS-Slot-Pool vorbereiten
+
+Öffne **Hyper-V: Vorlagen und Slots → Windows-OS-Slot-Pool vorbereiten**
+auf dem Hyper-V-Host mit Administratorrechten. Wähle eine versiegelte,
+geeignete Windows-Baseline, Pool-ID, Slotnummern und Ressourcen. Der Host
+prüft die gewählte Baseline einschließlich Integrität und Restlaufzeit vor
+der Anlage. Die VMs werden für die Ersteinrichtung gestartet und danach
+gestoppt. Falls die Evaluation online aktiviert werden muss, darf der
+Auftrag dafür vorübergehend einen externen Netzwerkadapter verwenden.
+
+Die Passwörter erzeugt und schützt der Host pro Slot. Den Status findest
+du unter **Vorgänge**. Für die Fortsetzung benötigst du dieselbe Pool-ID,
+Baseline und Konfiguration. Für die CLI-Varianten einschließlich eigener
+Locale- und Passwortwahl siehe die [Funktionsübersicht](../User/FUNCTIONS_CLI_GUI.md).
+
 ## Zentrale Slotreservepolicy (`HV-401` bis `HV-508`, `CORE-107/111`)
 
 **Grundkonfiguration** und **Hyper-V: Vorlagen und Slots** öffnen denselben
@@ -1025,6 +1046,15 @@ CLI: `Invoke-SqlServerLab -Action ReservePolicy`. Nichtinteraktiv bietet
 -ConfirmSlotReserve`. Die Browserroute `/api/slot-reserve` führt denselben
 Core direkt aus; Lesen und Vorschau werden nicht in die Batchqueue eingereiht.
 
+## Lokaler Bedarf an Beispieldaten und Laufzeitmedien
+
+Öffne in CLI oder Browser **Ressourcen und Downloads → Lokalen
+Ressourcenbedarf prüfen**. Wähle Beispieldaten, Windows-/Hyper-V-Laufzeitmedien
+oder beide. Für jede Ressource siehst du die Zahl der vorhandenen und
+benötigten Dateien sowie den vorgesehenen Beschaffungsweg. Die Prüfung
+liest die konfigurierten Ordner und startet keinen Download. Im Browser
+steht das Ergebnis unter **Vorgänge**.
+
 ## Ressourcenstand: CUs und SqlPackage
 
 Unter **Ressourcen → Ressourcenstand prüfen** liest das Öffnen ausschließlich
@@ -1055,6 +1085,30 @@ mit begrenzter Parserauswertung. Komprimierte Antworten werden abgewiesen.
 Der bestehende öffentliche CU-Befehl und monatliche CU-Workflow behalten ihren
 bisherigen Transportvertrag. Kein Download, Katalogupdate, Issue oder Agentstart
 wird durch den Ressourcenstand ausgelöst.
+
+Unter **Host-Dienste und Modelle → Persistente Retrieval-Collections**
+kannst du Beispieldaten verwenden oder eigene Dokumente aus einer lokalen
+JSON-Datei anlegen, abfragen, synchronisieren oder migrieren. Prüfe bei
+den Löschaktionen Run-ID, Instanz sowie
+Collection-ID, bevor du bestätigst. Die [Anleitung zum persistenten
+Retrieval](../User/Getting_Started.md#persistentes-retrieval) erklärt den
+Unterschied zwischen dem Löschen alter Generationen und der gesamten
+Collection-Datenbank.
+
+Unter **Host-Dienste und Modelle** kannst du in CLI und Browser ein
+llama.cpp-Generationsmodell aus dem lokalen Katalog auswählen. Prüfe
+Modellgröße, Lizenz und Medienordner vor der Bestätigung. Die Auswahl bindet
+Katalogrevision und SHA-256. Der Download wird nach erfolgreicher Prüfung
+unter `AI/Models` im Medienordner abgelegt. Das Ergebnis steht im Browser
+unter **Vorgänge**. Start und Modellnutzung erfolgen in getrennten Schritten.
+
+Über **Host-Dienste und Modelle → Lokales Ollama-Modell aufrufen** kannst
+du ein katalogisiertes Generationsmodell wählen, das im lokalen Ollama-Dienst
+bereitsteht. Gib dessen Loopback-Port und einen synthetischen Prompt ein.
+Das Zeitlimit umfasst Modellstart und Antwort. Standard sind 180 Sekunden.
+Erst nach Bestätigung sendet der Browserauftrag eine Abfrage an den lokalen
+Dienst. Die Antwort steht unter **Vorgänge**. Für die ausdrücklich
+freizugebende Cloud-Lane gibt es weiterhin den CLI-Einstieg.
 
 Der geführte eigene llama.cpp-Sitzungsstop ist unter „Host-Dienste und Modelle“
 über Auswahl, Vorschau, Abbruch und bewusste Bestätigung erreichbar. Die

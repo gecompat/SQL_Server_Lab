@@ -95,6 +95,8 @@ und dem [Gruppenvertrag](../Architecture/LAB_ENVIRONMENT_GROUPS.md).
 | Operation | Geführter CLI-Pfad | Geführter GUI-Pfad | Vertrag und Nachweis | Provider-/Versions-Evidence |
 |---|---|---|---|---|
 | Vorhandene Runtime-Paketdateien suchen (`Get-SqlServerLabLlamaCppRuntime`) | Host-Dienste und Modelle → Vorhandene llama.cpp-Pakete prüfen | Derselbe Bereich und dieselbe Aktion | `GUIDED_BOTH`. Lesen aus den konfigurierten Suchwurzeln und Anzeige von Backend, Build und unvollständiger Suche. `Invoke-LlamaCppRuntimeChecks.ps1` und einmaliger HTTP-Aufruf im Browserfixture. Freie Suchwurzeln bleiben ein PowerShell-Parameter. | Synthetische Paketdateien. Kein Modell-, Geräte-, SQL- oder Providerlauf für diese reine Dateisuche erforderlich. |
+| GGUF-Katalog lesen und Modell beschaffen (`Get-SqlServerLabLlamaCppModel`, `Save-SqlServerLabLlamaCppModel`) | Host-Dienste und Modelle → llama.cpp-Modellkatalog und Dateien | Host-Dienste und Modelle → llama.cpp-Modelle anzeigen und herunterladen | `GUIDED_BOTH`. Der Download bindet Revision und Hash aus der bestätigten Auswahl. Katalog-, Download- und Browser-Fixtures prüfen Status, Bindung und Fehlerfälle. | Synthetische Datei- und Downloadprüfungen. Vollständige Katalogdownloads bleiben als nicht ausgeführt dokumentiert. |
+| Lokales Generationsmodell aufrufen (`Invoke-SqlServerLabAiModel`) | Host-Dienste und Modelle → Vorhandenes Ollama-Modell aufrufen → lokal | Host-Dienste und Modelle → Lokales Ollama-Modell aufrufen | `GUIDED_BOTH` für synthetische Prompts an den ausgewählten Loopback-Port. Die Browser-Fixture prüft Ziel, Bestätigung und Eingabegrenzen. | Cloud-Lane `GUIDED_CLI_ONLY`. Katalogeinträge belegen keine installierten Modelle. |
 | Eigene llama.cpp-Sitzung starten (`Start-SqlServerLabLlamaCppRuntime`) | Host-Dienste und Modelle → Eigene llama.cpp-Sitzung geführt starten | Host-Dienste und Modelle → llama.cpp: eigene Sitzung starten | `GUIDED_BOTH`. Eingabe und Bestätigung führen zum bestehenden öffentlichen Start. CLI- und Browser-Vertragssuiten. | Synthetische Fälle. Native Abnahme des geführten Starts `NOT_EXECUTED`. |
 | Eigene llama.cpp-Sitzung stoppen (`Stop-SqlServerLabLlamaCppRuntime`) | Host-Dienste und Modelle → Eigene llama.cpp-Sitzung auswählen und stoppen | Host-Dienste und Modelle → Eigene llama.cpp-Sitzung stoppen | `GUIDED_BOTH`. Beide Dialoge bestätigen eine gebundene Stop-Vorschau und nutzen denselben Core wie das Cmdlet. Geschützte Verbraucher sperren den geführten Stopp. `Invoke-LlamaCppSessionGuidanceChecks.ps1`. | Nativer Prozess- und Cleanup-Nachweis am 30.09.2026 im dokumentierten Scope. SQL- und Modellbetrieb sind separat. |
 
@@ -130,6 +132,7 @@ und dem [Gruppenvertrag](../Architecture/LAB_ENVIRONMENT_GROUPS.md).
 | Vector-Core-Szenarioplan lesen (`Get-SqlServerLabAiScenario`) | Lab-Umgebungen → Datenbanken, Samples und Skripte → SQL Server 2025 KI → Szenarioplan | Host-Dienste und Modelle → Vector-Core-Szenarioplan lesen | `GUIDED_BOTH` für `vector-core-ci/1.0`, entweder aus dem Katalog oder gegen den gespeicherten KI-Intent einer laufend registrierten Docker-/Podman-Instanz. Das Szenario wird nicht ausgeführt. |
 | Run-State-Format prüfen (`Get-SqlServerLabRunStateUpgradePlan`) | Wartung, Aufräumen und Recovery → Format eines Run-States prüfen | Wartung → Format eines Run-States prüfen | `GUIDED_BOTH` für die lesende Vorschau eines registrierten Runs. Der getrennte Upgrade-Befehl bleibt auf synthetische Legacy-States begrenzt. |
 | Registrierte Hyper-V-Zielpfade und Kapazität lesen (`Get-SqlServerLabHyperVResourcePreview`) | Hyper-V: Vorlagen und Slots → Hyper-V-Zielpfade und freien Speicher anzeigen | Derselbe Bereich und dieselbe Aktion | `GUIDED_BOTH` für das registrierte Standardziel. Der Browser prüft keine frei eingegebenen Pfade. Vertrags- und Browserprüfungen verwenden einen isolierten lokalen Speicherkatalog. |
+| Windows-Slot-Pool vorbereiten (`New-SqlServerLabWindowsSlotPool`) | Hyper-V: Vorlagen und Slots → Windows-OS-Slot-Pool automatisch erstellen | Hyper-V: Vorlagen und Slots → Windows-OS-Slot-Pool vorbereiten | `GUIDED_BOTH` für automatisch erzeugte, geschützte Passwörter. Browser-Fixtures prüfen Baseline-Auswahl, Ressourcenwerte und Bestätigung. Der Browser-Pfad legt im Test keine nativen VMs an. |
 | Schnellen Wartungsplan lesen (`Get-SqlServerLabMaintenancePlan -Mode Runtime`) | Wartung, Aufräumen und Recovery → Schnellen Wartungsplan lesen | Derselbe Bereich und dieselbe Aktion | `GUIDED_BOTH` für Providerstatus und Zähler. Vertrags- und Browserprüfungen prüfen die lesende Projektion ohne Objekt- oder Pfaddaten. Vollständiger Plan und Apply bleiben separate PowerShell-Operationen. |
 
 Am 21.11.2026 bestand der Menüpfad in einer nummerierten PowerShell-Konsole
@@ -168,8 +171,21 @@ Ausführung weiterhin `KNOWN_GAP`: Die CLI und der Browser führen nur die
 Vorschau gebundene Revision und kann laufende SQL-Container unterbrechen.
 
 Beim persistenten KI-Retrieval führen beide Oberflächen die synthetische
-Demo. Eigene Dokumente, Sync, Prune und die Entfernung einer Collection
-bleiben als geführte Aktionen offen (`KNOWN_GAP`).
+Demo sowie `Prune` und `Remove`. Die Löschaktionen binden die ausgewählte
+SQL-2025-Containerinstanz und eine vorhandene Collection-ID. Der Core
+prüft den Besitz der Datenbank. Die CLI- und Browser-Fixtures prüfen die
+Parameterübergabe und die Bestätigungsgrenze. Für eigene Dokumente führen
+beide Oberflächen Anlage, freie Abfrage, Synchronisation und Migration
+aus lokaler JSON-Eingabe. Der bestätigte Sync bindet den erwarteten und
+den neuen Dokumentbestand an dieselbe Collection. CLI- und Browser-Fixtures
+prüfen die Grenze der JSON-Eingabe, ihre Bindung und den Bestätigungsschritt.
+
+Die native Abnahme `Invoke-AiPersistentRetrievalAcceptance.ps1` führte
+am 21.11.2026 auf Docker und Podman je 30 Prüfungen mit SQL Server 2025
+und dem vorhandenen lokalen Embeddingmodell aus. Sie prüfte unter anderem
+Synchronisation, Wiederanlauf, Retention und die Bereinigung von
+Test-Datenbanken und Test-Runs. CLI- und Browser-Dispatch haben eigene
+synthetische Prüfungen.
 
 Die Bereiche und dokumentierten Grenzen entsprechen der neun Bereiche
 umfassenden Navigation in der [Workflow-Oberfläche](../HowTo/WORKFLOW_UI.md).
@@ -182,13 +198,32 @@ nicht alle Operationen des Bereichs einzeln auf einen CLI-Menüpfad, GUI-Aktion,
 | Lab-Umgebungen, Run-Lifecycle, Datenbanken, Samples und Skripte | Lab-Umgebungen | Lab-Umgebungen | Workflow-Einstieg; ausgewählte öffentliche Cmdlet-Zuordnungen; Container-/Hyper-V-Abnahmen in der [CLI-Akzeptanzmatrix](CLI_ACCEPTANCE_MATRIX.md) | `TEILWEISE`; vollständige Operations- und Änderungsmatrix offen |
 | Geschützte Testsystem-Matrix | Testsystem-Matrix | Geschützte Testsystem-Matrix | Gruppen-/Power-Dialog und vorhandene statische Verträge | `TEILWEISE`; vollständige Operationszuordnung und weitere geführte Aktionen `NOT_ASSESSED` |
 | Hyper-V-Vorlagen, Windows-Images und operative Slots | Hyper-V: Vorlagen und Slots | Hyper-V: Vorlagen und Slots | Image-/Poolinventar und einzelne gebundene Workflows | `KNOWN_GAP` für operative Slots und vollständiges Provider-Setup; native Nachweise bleiben funktions- und versionsgebunden |
-| Ressourcen, Medien, Downloads und Speicher | Ressourcen und Downloads | Ressourcen und Downloads | Ressourcen-/Medienkataloge, ausgewählte Plan-/Apply-Dialoge | `TEILWEISE`; vollständige Operationszuordnung und Providerbelege offen |
+| Ressourcen, Medien, Downloads und Speicher | Ressourcen und Downloads | Ressourcen und Downloads | Kataloge, ausgewählte Plan-/Apply-Dialoge und geführte Bedarfsprüfung aus den konfigurierten Ordnern. `Invoke-ResourceSetChecks.ps1` und `WorkflowSqlTargetChecks.cjs` prüfen die Filterung und Übergabe ohne Download. | `TEILWEISE`; vollständige Operationszuordnung und Providerbelege offen |
 | Host-Dienste und Modelle | Host-Dienste und Modelle | Host-Dienste und Modelle | Einzelne Modell-/Hostservice-Dialoge und öffentliche Befehle | `KNOWN_GAP` für Fremdstart und weiteren Hostdienst-/Modell-Lifecycle |
-| Verbindungen, Registrierungen und CMS | Verbindungen und CMS | Verbindungen und CMS | Gespeicherter SSMS-Export, lesende CMS-Inspection und gebundener CMS-Abgleich im Browser. Der Core-Abgleich ist mit Docker und Podman abgenommen. | `KNOWN_GAP` für CMS-Setup im Browser; vollständige Operationszuordnung offen |
+| Verbindungen, Registrierungen und CMS | Verbindungen und CMS | Verbindungen und CMS | Gespeicherter SSMS-Export, lesende CMS-Inspection, gebundener CMS-Abgleich und geführtes CMS-Bereitstellen im Browser. Der Core-Abgleich ist mit Docker und Podman abgenommen. | `TEILWEISE`; native Browser-Abnahme und vollständige Operationszuordnung offen |
 | SQL-Lab-Grundkonfiguration | Grundkonfiguration | SQL-Lab-Grundkonfiguration | Gemeinsamer Plan-/Apply-Pfad für dokumentierte Einstellungen | `TEILWEISE`; nicht jede öffentliche Konfigurationsoperation einzeln abgebildet |
 | Wartung, Aufräumen und Recovery | Wartung, Aufräumen und Recovery | Wartung/Recovery | Read-only-Pläne, bestätigte Aktionen und Recovery-Verträge je Slice | `TEILWEISE`; komplette Funktions- und Fehlerpfadzuordnung offen |
 | Vorgänge, Queue und Scheduler | Vorgänge, Queue und Benutzeraktionen | Vorgänge | Batch-/Queue-Einstiege und Workflow-Aktionen | `TEILWEISE`; jede Operation und ihre Abbruch-/Recoverypfade noch einzeln abzugleichen |
 | Expertenbefehle und Meldungen | Alle öffentlichen Befehle / Meldungen | Alle Funktionen / Meldungen | Generierter Export-/Parametersatzkatalog; Konsolen- und Workflow-UI-Prüfungen | `EXPERT_CATALOG_ONLY` als Fachführung; Katalogvollständigkeit ist separat statisch prüfbar |
+
+### Geprüfte Teilmenge: CMS-Management
+
+Der geführte Browserdialog **Verbindungen und CMS → CMS bereitstellen**
+deckt das Erstellen und Übernehmen ab. Synthetische UI- und
+Adapterprüfungen prüfen Auswahl, Bestätigung und Änderungsschutz.
+
+Am 21.11.2026 bestanden Neuanlage und Übernahme über den gemeinsamen
+Workflow-Adapter jeweils mit einem eigenen SQL-Server-2025-Run unter
+Docker und Podman. Ohne Bestätigung blieb die Registrierung unverändert.
+Bei der Übernahme wurde eine veraltete Vorschau abgewiesen. Die
+Auftragsquittungen enthielten keine Zugangsdaten. Die Abnahme entfernte
+ihre Container und bei der Neuanlage auch den eigenen persistenten Speicher.
+Der Browserversand wurde separat mit synthetischen Antworten geprüft.
+
+| Aktion | CLI-Menü | Browser-GUI | Öffentlicher Vertrag / Nachweis | Grenze |
+|---|---|---|---|---|
+| Verwalteten CMS erstellen | Verbindungszentrale → CMS verwalten und synchronisieren → CMS automatisch erstellen | Verbindungen und CMS → CMS bereitstellen → Neuen CMS-Run erstellen | `Initialize-SqlServerLabCms`, `Invoke-ConnectionCenterCmsChecks.ps1`, `WorkflowSqlTargetChecks.cjs` | SQL Server 2025 über Docker/Podman. Der Browser erhält keine Zugangsdaten. |
+| Bestehenden Run übernehmen | gleicher CMS-Menüpfad → bestehenden Run übernehmen | gleicher Dialog → Vorhandenen SQL-Run übernehmen | interne Fachaktion `Register-SqlServerLabCmsEnvironment`, CMS-State-/Payload-Prüfungen und Workflow-UI-Suite | Geeigneter laufender Docker-/Podman-Run, eine SQL-Instanz und gespeichertes SA-Kennwort. Die Übernahme prüft die aktuelle Containerbindung. |
 
 Die Bezeichnungen stammen aus dem bestehenden Navigationsvertrag. Ein
 vorhandener Fachdialog oder Runtime-Smoke darf nur für genau die darin

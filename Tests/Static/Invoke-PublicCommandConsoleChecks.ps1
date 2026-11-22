@@ -28,6 +28,9 @@ try {
         $hyperVPlanWeb=@($webCatalog|Where-Object Name -ceq 'Get-SqlServerLabHyperVAutoStartPlan')
         $hyperVSetWeb=@($webCatalog|Where-Object Name -ceq 'Set-SqlServerLabHyperVAutoStart')
         $hyperVSetDescriptors=@($hyperVSetWeb[0].ParameterSets[0].Parameters)
+        $slotPoolWeb=$webCatalog|Where-Object Name -ceq 'New-SqlServerLabWindowsSlotPool'
+        $slotGenerated=$slotPoolWeb.ParameterSets|Where-Object Name -ceq 'GeneratedPassword'
+        $slotSupplied=$slotPoolWeb.ParameterSets|Where-Object Name -ceq 'UserPassword'
         $confirmationError=''
         try { Invoke-LabPublicCommandWebRequest -CommandName $whatIfCommand.Name -ParameterSetName $whatIfCommand.ParameterSets[0].Name -Parameters @{} } catch { $confirmationError=$_.Exception.Message }
         $unknownError=''
@@ -45,6 +48,10 @@ try {
             HyperVPlanWeb=$hyperVPlanWeb.Count; HyperVSetWeb=$hyperVSetWeb.Count
             HyperVSetConfirmation=$hyperVSetWeb[0].RequiresConfirmation
             HyperVSetMandatory=@($hyperVSetDescriptors|Where-Object Mandatory|ForEach-Object Name)
+            SlotPoolConfirmation=$slotPoolWeb.RequiresConfirmation
+            SlotPoolGenerated=@($slotGenerated.Parameters|Where-Object Name -ceq 'GenerateAdministratorPasswords')
+            SlotPoolSupplied=@($slotSupplied.Parameters|Where-Object Name -ceq 'AdministratorPassword')
+            SlotPoolGeneratedNames=@($slotGenerated.Parameters.Name)
             PortDescriptorNames=@($portDescriptors.Name)
             PortRange=($portDescriptors|Where-Object Name -eq 'Port').AllowedValues
             Names=@($catalog.Name)
@@ -88,6 +95,14 @@ try {
     Add-CheckResult 'Hyper-V-Autostartplan und bestätigter Executor erscheinen im gemeinsamen GUI-Katalog' (
         $evidence.HyperVPlanWeb -eq 1 -and $evidence.HyperVSetWeb -eq 1 -and $evidence.HyperVSetConfirmation -eq $true -and
         (@($evidence.HyperVSetMandatory|Sort-Object) -join '|') -ceq 'AutoStart|ExpectedAutoStartPlanKey|RunId'
+    )
+    Add-CheckResult 'Windows-Pool erlaubt den Generierungsschalter und schützt das eingegebene Passwort' (
+        $evidence.SlotPoolConfirmation -eq $true -and
+        $evidence.SlotPoolGenerated.Count -eq 1 -and $evidence.SlotPoolGenerated[0].Mandatory -eq $true -and
+        $evidence.SlotPoolGenerated[0].TypeName -ceq 'System.Management.Automation.SwitchParameter' -and
+        $evidence.SlotPoolGenerated[0].Sensitive -eq $false -and
+        'AdministratorPassword' -notin $evidence.SlotPoolGeneratedNames -and
+        $evidence.SlotPoolSupplied.Count -eq 1 -and $evidence.SlotPoolSupplied[0].Sensitive -eq $true
     )
     Add-CheckResult 'Jeder Modulexport erscheint exakt einmal im vollständigen Konsolenkatalog' (
         @($expectedCatalog|Where-Object {$_ -notin $evidence.Names}).Count -eq 0 -and

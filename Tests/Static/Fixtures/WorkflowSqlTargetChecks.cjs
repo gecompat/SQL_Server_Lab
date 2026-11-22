@@ -26,6 +26,7 @@ class Element {
   scrollIntoView() { this.scrolled = true; }
   click() { if (this.id === 'a') downloads.push({ file: this.download, url: this.href }); }
   append(child) { this.children.push(child); }
+  add(option) { this.options.push(option); }
   replaceChildren(...children) { this.children = children; }
   get childElementCount() { return this.children.length; }
   querySelectorAll(selector) {
@@ -66,6 +67,7 @@ const document = {
 };
 const clipboardMounts = [];
 const context = vm.createContext({ document, console, URLSearchParams,
+  Option: class { constructor(text, value) { this.text = text; this.value = value; } },
   URL: Object.assign(class extends URL {}, { createObjectURL: () => 'blob:synthetic-test', revokeObjectURL() {} }),
   crypto: require('node:crypto').webcrypto, TextEncoder, AbortController,
   window: { setInterval() {}, setTimeout() {}, clearTimeout() {}, alert() {},
@@ -74,7 +76,7 @@ const context = vm.createContext({ document, console, URLSearchParams,
 const fetchRequests = [];
 const run = (code) => vm.runInContext(code, context, { timeout: 5000 });
 run(source);
-for (const asset of ['manifest-check.js', 'ssms-registration-export.js']) {
+for (const asset of ['manifest-check.js', 'ssms-registration-export.js', 'cms-management.js', 'resource-plan.js', 'llama-model-catalog.js', 'windows-slot-pool.js', 'ollama-local-generation.js']) {
   if (html.includes('<script src="' + asset + '"></script>')) run(fs.readFileSync(path.join(root, 'Ui', asset), 'utf8'));
 }
 run('const actualQueueBackgroundAction = queueBackgroundAction; queueBackgroundAction = (action, parameters) => queued.push({action, parameters});');
@@ -873,6 +875,115 @@ async function main() {
   let releaseWatch;context.sqlServerLabUiFetch=()=>new Promise(resolve=>{releaseWatch=resolve;});
   const pendingWatch=resourceEvent('resource-watch-read');await resourceEvent('resource-watch-close');releaseWatch({ok:true,json:async()=>({Result:{Status:'NEW',Items:[watchItem]}})});await pendingWatch;
   check('Resource watch closed dialog ignores late response',()=>assert.match(node('resource-watch-status').textContent,/UNCLEAR/));
+  await resourceEvent('resource-plan-open');
+  check('Guided resource plan opens without starting an operation',()=>assert.equal(node('resource-plan-dialog').open,true));
+  run("publicCommandCatalog = [{ Name: 'Get-SqlServerLabResourcePlan', ParameterSets: [{Name:'__AllParameterSets', Parameters:['ResourceKind','SummaryOnly'].map(Name=>({Name,Sensitive:false,IsCredential:false}))}]}]");
+  node('resource-plan-kind').value='Software';
+  await resourceEvent('resource-plan-form','submit');
+  const resourceRequest=run('pendingConfirmation');
+  check('Guided resource plan confirms only selected kind and safe summary',()=>{
+    assert.equal(resourceRequest.action,'__PublicCommand');
+    assert.equal(resourceRequest.parameters.command.Name,'Get-SqlServerLabResourcePlan');
+    assert.equal(JSON.stringify(resourceRequest.parameters.parameters),JSON.stringify({ResourceKind:'Software',SummaryOnly:true}));
+  });
+  run("$('#confirmation-dialog').close(); pendingConfirmation = null;");
+  const modelReads=[];
+  const modelFixture={Contract:'SqlServerLab.LlamaCppModel/1.0', Id:'synthetic-gguf', DisplayName:'Synthetic model', DirectDownload:true,
+    Purpose:'generation', Quantization:'Q4', License:'Apache-2.0', Publisher:'Synthetic publisher', Sha256:'d'.repeat(64), Revision:'e'.repeat(40), SizeBytes:2000000000};
+  context.sqlServerLabUiFetch=async(route,options)=>{modelReads.push({route,options}); return {ok:true,json:async()=>[modelFixture]};};
+  run("workflow.Defaults = {MediaRoot:'C:/synthetic/Lab_Base'}; publicCommandCatalog = [{Name:'Save-SqlServerLabLlamaCppModel',RequiresConfirmation:true,ParameterSets:[{Name:'__AllParameterSets',Parameters:['Id','MediaRoot','ExpectedModelSha256','ExpectedModelRevision'].map(Name=>({Name,Sensitive:false,IsCredential:false}))}]}];");
+  await resourceEvent('llama-model-catalog-open');
+  check('Model catalog reads metadata without starting a download',()=>{assert.equal(modelReads.length,1);assert.equal(modelReads[0].route,'/api/llama-model-catalog');assert.equal(node('llama-model-catalog-download').disabled,true);});
+  node('llama-model-catalog-selection').value=modelFixture.Id;
+  await resourceEvent('llama-model-catalog-selection','change');
+  await resourceEvent('llama-model-catalog-form','submit');
+  check('Model download confirmation binds exact selected size, licence, repository pin and configured destination',()=>{
+    assert.match(node('confirmation-message').textContent,/2 GB.*Apache-2.0/);
+    assert.deepEqual(JSON.parse(JSON.stringify(run('pendingConfirmation.parameters.parameters'))),
+      {Id:modelFixture.Id, MediaRoot:'C:/synthetic/Lab_Base', ExpectedModelSha256:modelFixture.Sha256, ExpectedModelRevision:modelFixture.Revision});
+    assert.equal(modelReads.length,1);
+  });
+  run("$('#confirmation-dialog').close(); pendingConfirmation = null;");
+  const poolArtifact = 'hyperv-os-sealed-' + 'f'.repeat(64);
+  const poolFields = {
+    PoolId: '22222222-2222-2222-2222-222222222222',
+    ArtifactId: poolArtifact, InstallationType: 'core', UiLanguage: 'en-US',
+    NamePrefix: 'fixture-slot', Count: 2, StartIndex: 3, ProcessorCount: 4,
+    MemoryMinimumMB: 1024, MemoryStartupMB: 2048, MemoryMaximumMB: 4096,
+    GenerateAdministratorPasswords: true,
+  };
+  context.poolFixture={ArtifactId:poolArtifact, DisplayName:'Synthetic Core', InstallationType:'core', Language:'en-US', SlotPoolEligible:true};
+  context.poolFixtureFields=Object.keys(poolFields);
+  run("workflow.Host={HyperV:{Available:true},IsElevated:false}; workflow.WindowsBaselines=[poolFixture,{...poolFixture,ArtifactId:'hyperv-os-sealed-'+'e'.repeat(64),SlotPoolEligible:false}];");
+  await resourceEvent('windows-slot-pool-open');
+  check('Windows pool refuses non-elevated host and never dispatches on open',()=>{
+    assert.equal(node('windows-slot-pool-baseline').options.length,1);
+    assert.equal(node('windows-slot-pool-next').disabled,true);
+    assert.equal(run('pendingConfirmation'),null);
+  });
+  await resourceEvent('windows-slot-pool-close');
+  run("workflow.Host.IsElevated=true; publicCommandCatalog=[{Name:'New-SqlServerLabWindowsSlotPool',RequiresConfirmation:true,ParameterSets:[{Name:'GeneratedPassword',Parameters:poolFixtureFields.map(Name=>({Name,Sensitive:false,IsCredential:false,TypeName:Name==='GenerateAdministratorPasswords'?'System.Management.Automation.SwitchParameter':'System.String',Mandatory:['Count','GenerateAdministratorPasswords'].includes(Name)}))}]}];");
+  await resourceEvent('windows-slot-pool-open');
+  node('windows-slot-pool-baseline').value=poolArtifact;
+  await resourceEvent('windows-slot-pool-baseline','change');
+  for (const [field,value] of Object.entries({id:poolFields.PoolId,prefix:poolFields.NamePrefix,count:'2',start:'3',cpu:'4','memory-min':'1024','memory-start':'8192','memory-max':'4096'})) {
+    node('windows-slot-pool-'+field).value=value;
+  }
+  await resourceEvent('windows-slot-pool-form','submit');
+  check('Windows pool filters expired baseline and refuses invalid memory ranges',()=>{
+    assert.equal(node('windows-slot-pool-baseline').options.length,2);
+    assert.match(node('windows-slot-pool-status').textContent,/RAM-Werte/);
+    assert.equal(run('pendingConfirmation'),null);
+  });
+  node('windows-slot-pool-memory-start').value='2048';
+  await resourceEvent('windows-slot-pool-form','submit');
+  check('Windows pool confirmation binds exact plan inputs and generated credentials',()=>{
+    const dispatch=run('pendingConfirmation.parameters');
+    assert.equal(dispatch.command.Name,'New-SqlServerLabWindowsSlotPool');
+    assert.equal(dispatch.parameterSet.Name,'GeneratedPassword');
+    assert.deepEqual(JSON.parse(JSON.stringify(dispatch.parameters)),poolFields);
+    assert.match(node('confirmation-message').textContent,/Slots 3 bis 4/);
+    assert.match(node('confirmation-message').textContent,/temporären externen Netzwerkadapter/);
+  });
+  run("$('#confirmation-dialog').close(); pendingConfirmation = null;");
+  const localModelReads=[];
+  const localModel={Id:'ollama-gemma3-1b-local',Name:'gemma3:1b'};
+  const localModelRequestFields=['ModelKey','InputText','DataClassification','Lane','LocalPort','TimeoutSeconds','RetryCount'];
+  context.localModelRequestFields=localModelRequestFields;
+  context.sqlServerLabUiFetch=async (route,options)=>{localModelReads.push({route,options});return {ok:true,json:async()=>[localModel]};};
+  run("publicCommandCatalog=[{Name:'Invoke-SqlServerLabAiModel',RequiresConfirmation:true,ParameterSets:[{Name:'__AllParameterSets',Parameters:localModelRequestFields.map(Name=>({Name,Sensitive:false,IsCredential:false,Mandatory:['ModelKey','InputText','DataClassification'].includes(Name)}))}]}];");
+  await resourceEvent('ollama-local-generation-open');
+  check('Ollama dialog reads only catalog metadata when opened',()=>{
+    assert.equal(localModelReads.length,1);
+    assert.equal(localModelReads[0].route,'/api/ollama-local-generation');
+    assert.equal(localModelReads[0].options.body,undefined);
+    assert.equal(node('ollama-local-generation-next').disabled,true);
+  });
+  node('ollama-local-generation-model').value=localModel.Id;
+  await resourceEvent('ollama-local-generation-model','change');
+  node('ollama-local-generation-port').value='65536';
+  node('ollama-local-generation-timeout').value='180';
+  node('ollama-local-generation-prompt').value='synthetic browser request';
+  await resourceEvent('ollama-local-generation-form','submit');
+  check('Ollama guided entry rejects an out-of-range port before confirmation',()=>assert.equal(run('pendingConfirmation'),null));
+  node('ollama-local-generation-port').value='11434';
+  node('ollama-local-generation-timeout').value='231';
+  await resourceEvent('ollama-local-generation-form','submit');
+  check('Ollama guided entry rejects out-of-range startup timeout',()=>assert.equal(run('pendingConfirmation'),null));
+  node('ollama-local-generation-timeout').value='180';
+  await resourceEvent('ollama-local-generation-form','submit');
+  check('Ollama confirms one fixed local-lane request without displaying the input text',()=>{
+    const dispatch=run('pendingConfirmation.parameters');
+    assert.deepEqual(JSON.parse(JSON.stringify(dispatch.parameters)),{
+      ModelKey:localModel.Id, InputText:'synthetic browser request', DataClassification:'synthetic-only', Lane:'local', LocalPort:11434, TimeoutSeconds:180, RetryCount:0,
+    });
+    assert.equal(node('ollama-local-generation-prompt').value,'');
+    assert.match(node('confirmation-message').textContent,/127\.0\.0\.1:11434/);
+    assert.match(node('confirmation-message').textContent,/180 Sekunden/);
+    assert.doesNotMatch(node('confirmation-message').textContent,/synthetic browser request/);
+    assert.equal(localModelReads.length,1);
+  });
+  run("$('#confirmation-dialog').close(); pendingConfirmation = null;");
   const cmsRequests=[];
   const cmsBase={ContractVersion:'SqlServerLab.CmsInspection/1.0',Status:'NOT_CHECKED',Code:'CMS_INSPECTION_NOT_CHECKED',RunId:'11111111-1111-1111-1111-111111111111',InstanceId:'primary',Provider:'docker',SelectionKey:'a'.repeat(64),SqlMajor:null,ManagedGroupCount:null,ManagedServerCount:null,ObservedAt:null};
   let cmsMode='ready';
@@ -903,6 +1014,62 @@ async function main() {
   cmsMode='ready';await resourceEvent('cms-inspection-read');
   let releaseCms;context.sqlServerLabUiFetch=()=>new Promise(resolve=>{releaseCms=resolve;});const pendingCms=resourceEvent('cms-inspection-check');await resourceEvent('cms-inspection-close');releaseCms({ok:true,json:async()=>({Result:{...cmsBase,Status:'OBSERVED',SqlMajor:17,ManagedGroupCount:3,ManagedServerCount:5,ObservedAt:'2026-10-01T12:00:00Z'}})});await pendingCms;
   check('CMS close ignores late inspection without retry or queue mutation',()=>{assert.equal(node('cms-inspection-dialog').open,false);assert.equal(node('cms-inspection-result').textContent,'');assert.equal(node('cms-inspection-check').disabled,true);});
+  const cmsAvailable={ContractVersion:'SqlServerLab.CmsManagement/1.0',Status:'NOT_CONFIGURED',PlanKey:'c'.repeat(64),Cms:null,Providers:['docker','podman'],DataRootConfigured:true,CanCreate:true,CanAdopt:true,Candidates:[{RunId:'11111111-2222-4333-8444-555555555555',Name:'synthetic lab',Provider:'docker'}]};
+  let cmsManagementState=cmsAvailable;
+  const cmsManagementCalls=[];
+  let cmsManagementReads=0;
+  context.sqlServerLabUiFetch=async(url,options)=>{
+    if(url==='/api/cms-management'){cmsManagementReads++;return {ok:true,json:async()=>({Result:cmsManagementState})};}
+    if(url==='/api/jobs')return {ok:true,json:async()=>[]};
+    return {ok:true,status:202,json:async()=>({id:'cms-job-1',action:'InitializeCms'})};
+  };
+  context.window.cmsManagementCalls=cmsManagementCalls;
+  run('startAction = async (action, parameters) => { window.cmsManagementCalls.push({action,parameters:{...parameters}}); return {id:"cms-job-1"}; };');
+  await resourceEvent('cms-management-open');
+  await waitForActualBoundary(()=>node('cms-management-status').textContent==='Kein verwalteter CMS ist registriert.','CMS management state should render');
+  check('CMS management offers guided create/adopt from safe registration state',()=>{assert.equal(node('cms-management-create').hidden,false);assert.equal(node('cms-management-adopt').hidden,false);assert.match(node('cms-management-summary').textContent,/Data Root/);});
+  check('CMS create waits for explicit confirmation',()=>assert.equal(node('cms-management-create-submit').disabled,true));
+  node('cms-management-create-confirm').checked=true;await resourceEvent('cms-management-create-confirm','change');
+  await resourceEvent('cms-management-read');
+  await waitForActualBoundary(()=>cmsManagementReads===2 && !node('cms-management-read').disabled,'CMS management reread should complete');
+  check('CMS status reread invalidates old explicit confirmation',()=>{assert.equal(node('cms-management-create-confirm').checked,false);assert.equal(node('cms-management-create-submit').disabled,true);});
+  node('cms-management-provider').value='docker';
+  node('cms-management-lab-name').value='sql-server-lab-cms';
+  node('cms-management-create-confirm').checked=true;await resourceEvent('cms-management-create-confirm','change');
+  await resourceEvent('cms-management-create-submit');
+  await waitForActualBoundary(()=>cmsManagementCalls.length===1,'CMS create action should be accepted');
+  await waitForActualBoundary(()=>node('cms-management-status').textContent.startsWith('Aktion angenommen.'),'CMS create action should settle before the next dialog read');
+  check('CMS create submits exact provider, name, binding and confirmation',()=>{assert.equal(cmsManagementCalls[0].action,'InitializeCms');assert.equal(JSON.stringify(cmsManagementCalls[0].parameters),JSON.stringify({Provider:'docker',LabName:'sql-server-lab-cms',ExpectedPlanKey:'c'.repeat(64),ConfirmCmsOperation:true,ReplaceRemovedCms:false}));});
+  await resourceEvent('cms-management-open');
+  await waitForActualBoundary(()=>node('cms-management-status').textContent==='Kein verwalteter CMS ist registriert.','CMS adoption state should render');
+  node('cms-management-candidate').value='11111111-2222-4333-8444-555555555555';
+  check('CMS adoption waits for explicit confirmation',()=>assert.equal(node('cms-management-adopt-submit').disabled,true));
+  node('cms-management-adopt-confirm').checked=true;await resourceEvent('cms-management-adopt-confirm','change');
+  await resourceEvent('cms-management-adopt-submit');
+  await waitForActualBoundary(()=>cmsManagementCalls.length===2,'CMS adoption action should be accepted');
+  await waitForActualBoundary(()=>node('cms-management-status').textContent.startsWith('Aktion angenommen.'),'CMS adoption action should settle before the next status read');
+  check('CMS adoption submits only selected run, plan, and confirmation',()=>{assert.equal(cmsManagementCalls[1].action,'AdoptCms');assert.equal(JSON.stringify(cmsManagementCalls[1].parameters),JSON.stringify({RunId:'11111111-2222-4333-8444-555555555555',ExpectedPlanKey:'c'.repeat(64),ConfirmCmsOperation:true}));});
+  cmsManagementState={...cmsAvailable,Status:'CONFIGURED',CanCreate:false,CanAdopt:false,Candidates:[],Cms:{RunId:'11111111-2222-4333-8444-555555555555',Provider:'docker',State:'RUNNING'}};
+  await resourceEvent('cms-management-read');
+  await waitForActualBoundary(()=>node('cms-management-status').textContent==='Ein verwalteter CMS ist registriert.','CMS registered state should render');
+  check('Running CMS blocks create and adoption',()=>{assert.equal(node('cms-management-create-submit').disabled,true);assert.equal(node('cms-management-adopt-submit').disabled,true);});
+  run('startAction = () => new Promise(resolve => { window.resolveLateCmsAction = resolve; });');
+  const cmsRegistered=cmsManagementState;
+  cmsManagementState=cmsAvailable;
+  await resourceEvent('cms-management-read');
+  await waitForActualBoundary(()=>cmsManagementReads===5 && !node('cms-management-read').disabled,'CMS late-response setup state should render');
+  node('cms-management-provider').value='docker';
+  node('cms-management-create-confirm').checked=true;await resourceEvent('cms-management-create-confirm','change');
+  await resourceEvent('cms-management-create-submit');
+  await waitForActualBoundary(()=>typeof context.window.resolveLateCmsAction==='function','CMS late response should be pending');
+  await resourceEvent('cms-management-close');
+  cmsManagementState=cmsRegistered;
+  await resourceEvent('cms-management-open');
+  await waitForActualBoundary(()=>cmsManagementReads===6 && node('cms-management-status').textContent==='Ein verwalteter CMS ist registriert.','new CMS dialog state should render');
+  context.window.resolveLateCmsAction({id:'old-cms-job'});
+  await new Promise(resolve=>setTimeout(resolve,10));
+  check('Late CMS action response cannot replace state or busy controls of reopened dialog',()=>{assert.equal(node('cms-management-status').textContent,'Ein verwalteter CMS ist registriert.');assert.equal(node('cms-management-create-submit').disabled,true);});
+  check('CMS UI exposes no password control',()=>{assert.equal(html.includes('cms-management-adopt-password'),false);assert.match(html,/wird nicht an den Browser zurückgegeben/);});
   const maintenanceCalls=[];
   const maintenanceRow={Id:'fixture',CandidateId:'a'.repeat(64),Label:'docker · SQL-Speicher',Fields:[{Label:'Herkunft',Value:'Unbekannt <script>marker</script>'}]};
   let maintenanceMode='ready';

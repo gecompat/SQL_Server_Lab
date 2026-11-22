@@ -2257,12 +2257,51 @@ Datenbanknamen ein und bestätige den Vergleich. Die Datenbanken müssen
 
 ## Persistentes Retrieval
 
-Die **Persistente Retrieval-Demo** ist in der CLI unter **SQL-2025-KI-Szenarien
+**Persistente Retrieval-Collections** ist in der CLI unter **SQL-2025-KI-Szenarien
 und Demos** und im Browser unter **Host-Dienste und Modelle** erreichbar.
 Wähle eine laufende SQL-2025-Containerinstanz und lege die Beispieldaten an.
 Bewahre die Collection-ID auf. Verwende sie für die Aktualisierung, die
 Beispielfragen oder die Migration auf Nomic Embed v2 wieder. Die Demo nutzt
 das bereits laufende lokale Ollama, im Browser steht der Befund im Live-Log.
+
+Wähle für die Pflege dieselbe SQL-Instanz und gib die vorhandene Collection-ID
+ein. Bei **Alte Generationen einer eigenen Collection löschen** wählst du
+zwischen 1 und 31 jüngsten Generationen. Die aktive Generation bleibt
+erhalten. Das funktioniert für abgeschlossene, selbst verwaltete
+Collections mit Journalversion 1. **Datenbank einer eigenen Collection
+löschen** entfernt die gesamte zugehörige Datenbank. Prüfe Ziel und ID vor
+der Bestätigung. Beide Aktionen prüfen den Besitznachweis und benötigen kein
+Ollama-Modell.
+
+Für eigene Dokumente wähle im selben Menü **Eigene Dokumente aus JSON
+anlegen**, **Eigene Collection mit freier Frage abfragen**, **Eigene
+Collection mit JSON synchronisieren** oder **Eigene Collection auf Nomic
+Embed v2 umstellen**. Gib in der CLI den absoluten lokalen Dateipfad ein
+oder wähle die Datei im Browser aus. Der Pfad und der Dateiinhalt
+erscheinen nicht in der Bestätigung. Prüfe die Run-ID, Collection-ID und
+Dokumentanzahl.
+
+Die UTF-8-Datei darf bis zu 512 KiB groß sein. `Documents` enthält 1 bis
+16 Einträge, jeder mit eindeutiger `Id` und bis zu 4000 Zeichen im Feld
+`Content`. Eine Abfrage benötigt zusätzlich `Question` mit bis zu 1000
+Zeichen. Für Sync muss `ExpectedDocuments` den vollständigen erwarteten
+alten Bestand enthalten und `Documents` den vollständigen neuen
+Bestand. Beispiel für einen Sync mit je einem Dokument
+
+```json
+{
+  "ExpectedDocuments": [{"Id": "restore-test", "Content": "Alte Anleitung"}],
+  "Documents": [{"Id": "restore-test", "Content": "Aktuelle Anleitung"}]
+}
+```
+
+Bei Anlage, Abfrage und Sync kann die Datei zusätzlich einen
+`EmbeddingModelKey` aus dem unten beschriebenen Modellkatalog angeben.
+Bei Wiederaufnahme, Abfrage und Sync muss er zur Collection passen. Für
+die Migration auf Nomic Embed v2 gelten zusätzlich die Eingabegrenzen
+dieses Modells. Dokumente und Fragen gehen ausschließlich an den
+lokalen Workflow und das lokale Ollama. Die Bestätigung zeigt nur die
+Zielbindung und die Anzahl. Abfrageergebnisse können Treffer-IDs enthalten.
 
 `Invoke-SqlServerLabAiPersistentRetrieval` verwendet einen vorhandenen
 SQL-2025-Docker-/Podman-Run mit verwaltetem SA-Secret und ein bereits laufendes

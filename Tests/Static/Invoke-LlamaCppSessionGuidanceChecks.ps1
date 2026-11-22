@@ -103,7 +103,14 @@ try {
         $probe=Start-LockProbe Stop
         try {
             $watch=[Diagnostics.Stopwatch]::StartNew()
-            while(-not(Test-Path (Join-Path $Root 'stop-ready'))){if($probe.HasExited -or $watch.Elapsed.TotalSeconds -gt 20){throw 'LOCK_STOP_READY_TIMEOUT'};Start-Sleep -Milliseconds 20}
+            $readyPath = Join-Path $Root 'stop-ready'
+            # This measures PowerShell/module startup. The publication-lock
+            # assertion below still starts only after the child reports ready.
+            while (-not [IO.File]::Exists($readyPath)) {
+                if ($probe.HasExited) { throw "LOCK_STOP_PROBE_EXIT_BEFORE_READY: $($probe.ExitCode)" }
+                if ($watch.Elapsed.TotalSeconds -ge 60) { throw 'LOCK_STOP_READY_TIMEOUT' }
+                Start-Sleep -Milliseconds 20
+            }
             $publicationLock=Enter-LabAiSharedGatewayLifecycleLock -StateRoot $Root
             try {[IO.File]::WriteAllText((Join-Path $Root 'stop-go'),'GO');Complete-LockProbe $probe 'STOP_LOCKED';$probe=$null} finally {Exit-LabAiSharedGatewayLifecycleLock $publicationLock}
         } finally {if($probe){if(-not $probe.HasExited){$probe.Kill();$null=$probe.WaitForExit(5000)};$probe.Dispose()}}
