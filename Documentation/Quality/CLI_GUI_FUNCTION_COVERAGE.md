@@ -139,7 +139,7 @@ und dem [Gruppenvertrag](../Architecture/LAB_ENVIRONMENT_GROUPS.md).
 | Run-State-Format prüfen (`Get-SqlServerLabRunStateUpgradePlan`) | Wartung, Aufräumen und Recovery → Format eines Run-States prüfen | Wartung → Format eines Run-States prüfen | `GUIDED_BOTH` für die lesende Vorschau eines registrierten Runs. Der getrennte Upgrade-Befehl bleibt auf synthetische Legacy-States begrenzt. |
 | Registrierte Hyper-V-Zielpfade und Kapazität lesen (`Get-SqlServerLabHyperVResourcePreview`) | Hyper-V: Vorlagen und Slots → Hyper-V-Zielpfade und freien Speicher anzeigen | Derselbe Bereich und dieselbe Aktion | `GUIDED_BOTH` für das registrierte Standardziel. Der Browser prüft keine frei eingegebenen Pfade. Vertrags- und Browserprüfungen verwenden einen isolierten lokalen Speicherkatalog. |
 | Windows-Slot-Pool vorbereiten (`New-SqlServerLabWindowsSlotPool`) | Hyper-V: Vorlagen und Slots → Windows-OS-Slot-Pool automatisch erstellen | Hyper-V: Vorlagen und Slots → Windows-OS-Slot-Pool vorbereiten | `GUIDED_BOTH` für automatisch erzeugte, geschützte Passwörter. Browser-Fixtures prüfen Baseline-Auswahl, Ressourcenwerte und Bestätigung. Der Browser-Pfad legt im Test keine nativen VMs an. |
-| Schnellen Wartungsplan lesen (`Get-SqlServerLabMaintenancePlan -Mode Runtime`) | Wartung, Aufräumen und Recovery → Schnellen Wartungsplan lesen | Derselbe Bereich und dieselbe Aktion | `GUIDED_BOTH` für Providerstatus und Zähler. Vertrags- und Browserprüfungen prüfen die lesende Projektion ohne Objekt- oder Pfaddaten. Vollständiger Plan und Apply bleiben separate PowerShell-Operationen. |
+| Wartungsplan lesen (`Get-SqlServerLabMaintenancePlan`) | Wartung, Aufräumen und Recovery → Schnellen oder vollständigen Wartungsplan lesen | Derselbe Bereich und dieselben Aktionen | `GUIDED_BOTH` für Providerstatus und Zähler. Der vollständige Plan ergänzt Zähler aus dem lesenden Speicher- und Cleanup-Audit. Beide Ansichten lassen Objekt- und Pfaddaten aus. Apply ist eine separate PowerShell-Operation. |
 
 Am 21.11.2026 bestand der Menüpfad in einer nummerierten PowerShell-Konsole
 mit einem eigenen lokalen Speicherfixture. Der Katalog blieb unverändert.
@@ -155,6 +155,7 @@ Die Vorschau erfordert für diese Prüfung keinen Start einer Hyper-V-VM.
 | SSMS-Registrierungen exportieren (`Export-SqlServerLabSsmsRegistration`) | Verbindungszentrale → SSMS-Export | Verbindungen und CMS → SSMS-Registrierungen herunterladen | `GUIDED_BOTH` für gespeicherte reguläre Endpunkte. Der Browser liefert bis zu 500 Einträge als kennwortfreie `.regsrvr` ohne Providerabfrage. CMS-Vertrags- und Browserprüfungen decken Auswahl und Download ab. |
 | Registrierten CMS abgleichen (`Sync-SqlServerLabCms`) | Verbindungszentrale → CMS verwalten und synchronisieren → CMS jetzt synchronisieren | Verbindungen und CMS → Registrierten CMS lesend prüfen → CMS synchronisieren | `GUIDED_BOTH` für vorhandene Docker-/Podman-CMS ohne Kennwortalias. Der Browser bestätigt die zuletzt gelesene Registrierung. Der Core prüft Run und Container, führt den verwalteten SQL-Abgleich aus und lässt unverwaltete Registrierungen bestehen. Synthetische Prüfungen decken auch veraltete Auswahlen ab. |
 | SqlPackage-Version abfragen (`Test-SqlServerLabContainerTool`) | Lab-Umgebungen → Datenbanken, Samples und Skripte → SqlPackage-Version im Container prüfen | Lab erstellen → SqlPackage-Version im Container prüfen | `GUIDED_BOTH` für kataloggebundenes SqlPackage in einer ausgewählten Docker-/Podman-Instanz. Die Versionsabfrage bindet die geprüfte Container-ID. Softwarekatalog- und Browserprüfungen decken Fehlerpfade und die read-only Weiterleitung ab. |
+| Wartende Vorgänge priorisieren und umreihen (`Set-SqlServerLabOperationPriority`, `Move-SqlServerLabOperation`) | Vorgänge, Queue und Benutzeraktionen → Priorität ändern oder Vorgang umreihen | Vorgänge, Warteschlange und Wiederaufnahme → Priorität, Nach oben oder Nach unten am Vorgang | `GUIDED_BOTH` für wartende Vorgänge. Die Browserprüfung deckt angezeigte Optionen, gebundene Vorgangs-ID, laufende Vorgänge und parallele Bedienung desselben Vorgangs ab. |
 
 Am 21.11.2026 bestand `Invoke-ConnectionCenterCmsInspectionAcceptance.ps1
 -IncludeBoundSync -Version 2025` auf Quellrevision `f4b81ac1` separat
@@ -168,6 +169,25 @@ Auf Quellrevision `3c60cef0` wurden in Edge Manifestprüfung und
 SSMS-Download anhand synthetischer HTTP-Antworten geprüft. Der Test
 beobachtete zudem die zielgebundenen Bestätigungen für den CMS-Abgleich
 und für SqlPackage und brach beide vor dem Versand ab.
+
+
+## Geprüfte Teilmenge: Warteschlange und Batchsteuerung
+
+`Invoke-BatchWorkflowChecks.ps1` prüft den persistenten Fachkern in einem
+isolierten State-Verzeichnis. Die Browserprüfung
+`OperationOrderingUiChecks.cjs` belegt den Dispatch für Priorität und
+Umreihen. Beide Prüfungen laufen ohne neue Provider-Labs.
+
+| Operation | CLI-Menü | Browser-GUI | Vertrag und Stand |
+| --- | --- | --- | --- |
+| `batch.compose` · `New-SqlServerLabBatch` | SQL- oder Windows-Umgebung zusammenstellen → mehrere Positionen | Browseraktionen können einzelne persistente Batches annehmen | `GUIDED_CLI_ONLY` für den interaktiven Mehrfach-Composer. Die technische Browser-API allein stellt keinen Composer bereit. |
+| `batch.list` · `Get-SqlServerLabBatch` | Vorgänge → Batch für den Stopp auswählen | Vorgänge → Fortschritt gespeicherter Batches | Der Browser zeigt bis zu 50 Batchstände mit Zählern. Das Menü liest Batches für die Auswahl. Es bietet keine getrennte Detailübersicht pro Batch. |
+| `queue.read` · `Get-SqlServerLabQueue`, `Get-SqlServerLabOperation` | Vorgänge → Queue-Übersicht und Details | Vorgänge → Karte des offenen Vorgangs | Die Queue begrenzt die Karten auf offene Vorgänge. Die Einzelansicht der CLI zeigt mehr Felder. |
+| `queue.gate.confirm` · `Confirm-SqlServerLabOperationUserAction` | Vorgänge → Benutzeraktionen öffnen → Erledigt, prüfen und fortsetzen | Vorgänge → Erledigt, prüfen und fortsetzen | Der Core setzt einen Vorgang erst nach erfolgreicher technischer Prüfung fort. Bei Windows-Setup dient das Gastkonto nur der Prüfung. Die Auswahl mehrerer Kandidaten bleibt ein CLI-Menüpfad. |
+| `queue.suspend`, `queue.resume` · `Suspend-SqlServerLabOperation`, `Resume-SqlServerLabOperation` | Vorgänge → Vorgang pausieren oder freigeben | Vorgänge → Pausieren oder Freigeben | Der Core persistiert die Entscheidung. Pausieren ist für wartende und blockierte Einträge verfügbar, Freigeben für pausierte. |
+| `queue.stop` · `Stop-SqlServerLabOperation` | Vorgänge → Vorgang endgültig stoppen und aufräumen | Vorgänge → Stoppen + Cleanup | Beide Bedienpfade verlangen Bestätigung. Der Worker übernimmt eine gespeicherte Stoppanforderung an der nächsten sicheren Schrittgrenze. Er reiht die Bereinigung nur mit der gewählten Cleanup-Option ein. |
+| `batch.stop` · `Stop-SqlServerLabBatch` | Vorgänge → Batch stoppen oder vollständig zurückbauen | Keine geführte Batch-Aktion | `GUIDED_CLI_ONLY`. Der Standard prüft vor dem Einreihen der Bereinigung den aktuellen Kindzustand unter der Dateisperre und erhält inzwischen abgeschlossene Positionen. Die CLI listet und bestätigt den vollständigen Rückbau einschließlich fertiger Ressourcen separat. |
+| `queue.run` · `Invoke-SqlServerLabScheduler` | Vorgänge → Scheduler jetzt ausführen | Hintergrundhost im bestehenden Workflow | `GUIDED_CLI_ONLY` für den ausdrücklichen Start aus der Warteschlangenansicht. Eine angenommene Browseraktion belegt keinen laufenden Worker. |
 
 ## Bereichsinventar
 
@@ -234,7 +254,7 @@ nicht alle Operationen des Bereichs einzeln auf einen CLI-Menüpfad, GUI-Aktion,
 | Fachbereich | Geführter CLI-Einstieg | GUI-Bereich | Vorhandene Grundlage | Bewertung |
 |---|---|---|---|---|
 | Lab-Umgebungen, Run-Lifecycle, Datenbanken, Samples und Skripte | Lab-Umgebungen | Lab-Umgebungen | Workflow-Einstieg; ausgewählte öffentliche Cmdlet-Zuordnungen; Container-/Hyper-V-Abnahmen in der [CLI-Akzeptanzmatrix](CLI_ACCEPTANCE_MATRIX.md) | `TEILWEISE`; vollständige Operations- und Änderungsmatrix offen |
-| Geschützte Testsystem-Matrix | Testsystem-Matrix | Geschützte Testsystem-Matrix | Registrierte SQL-Ziele, Vormerkungen und Powerzustand anzeigen. Gruppen-Power, Linux-Anlage, vorbereitete Windows-Anlage, Export, Reparatur und Entfernen. | `TEILWEISE`; Linux-Anlage mit aktuellem oder gezielt gewähltem katalogisiertem Patch. Windows-Anlage aus freigegebener SQL-Prepared-Vorlage. Windows-Medienpfade bleiben im Konsolenmenü. |
+| Geschützte Testsystem-Matrix | Testsystem-Matrix | Geschützte Testsystem-Matrix | Registrierte SQL-Ziele, Vormerkungen und Powerzustand anzeigen. Gruppen-Power, Linux-Anlage, vorbereitete Windows-Anlage, Export, Reparatur und Entfernen. | `TEILWEISE`; Linux-Anlage mit aktuellem oder gezielt gewähltem katalogisiertem Patch. Im Browser führt die Matrix auch zur Vorbereitung einer Windows-/SQL-Vorlage aus ISOs. Der direkte manuelle Medienpfad bleibt im Konsolenmenü. |
 | Hyper-V-Vorlagen, Windows-Images und operative Slots | Hyper-V: Vorlagen und Slots | Hyper-V: Vorlagen und Slots | Image-/Poolinventar und einzelne gebundene Workflows | `KNOWN_GAP` für operative Slots und vollständiges Provider-Setup; native Nachweise bleiben funktions- und versionsgebunden |
 | Ressourcen, Medien, Downloads und Speicher | Ressourcen und Downloads | Ressourcen und Downloads | Kataloge, ausgewählte Plan-/Apply-Dialoge und geführte Bedarfsprüfung aus den konfigurierten Ordnern. `Invoke-ResourceSetChecks.ps1` und `WorkflowSqlTargetChecks.cjs` prüfen die Filterung und Übergabe ohne Download. | `TEILWEISE`; vollständige Operationszuordnung und Providerbelege offen |
 | Host-Dienste und Modelle | Host-Dienste und Modelle | Host-Dienste und Modelle | Einzelne Modell-/Hostservice-Dialoge und öffentliche Befehle | `KNOWN_GAP` für Fremdstart und weiteren Hostdienst-/Modell-Lifecycle |
@@ -273,6 +293,12 @@ prüft den Wiederanlauf über die Reparatur und entfernt es über die
 Gruppenaktion. Er prüft anschließend den Bestand der Hyper-V-VM-IDs und die
 Abwesenheit der eigenen Child-Datenträger. Der Browser- und Menüversand wird
 weiterhin separat geprüft.
+
+Am 22.11.2026 bestand dieser Ablauf auf Key18 für SQL Server 2025
+(`17.0.1000.7`) auf Commit `9d21a819`. Nach Anlage und Reparatur
+war SQL jeweils bereit. Der Lauf endete im Zustand `REMOVED`, der
+Child-Datenträger fehlte und der Bestand fremder Hyper-V-VMs blieb gleich.
+[Key18-Abnahmeprotokoll](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45024970153/job/137215913050)
 
 ### Geprüfte Teilmenge: CMS-Management
 

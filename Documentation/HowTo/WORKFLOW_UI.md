@@ -572,10 +572,13 @@ dann den Auftrag.
   die Anlage erforderlich. Die Windows-Einrichtung nutzt ein generiertes Kennwort,
   das im Browser nicht erscheint. Die Windows-Aktivierung kann vorübergehend
   einen externen Netzwerkadapter verwenden. Der Auftrag meldet die Registrierung
-  und getrennt davon die Bereitschaft der Gruppe. Für Anlage aus
-  Installationsmedien oder die manuelle Windows-Einrichtung nutze
-  **Testgruppe erstellen oder konfigurieren → Windows hinzufügen**
-  im Konsolenmenü.
+  und getrennt davon die Bereitschaft der Gruppe. Wenn noch keine geeignete
+  Vorlage vorhanden ist, öffne in der Matrix **Windows-/SQL-Vorlage aus
+  ISOs vorbereiten** und folge dem [Vorlagen-Workflow](#workflow). Wähle
+  die veröffentlichte Vorlage danach unter **Testgruppe verwalten →
+  Windows anlegen**. Der direkte manuelle Medienpfad ist im Konsolenmenü
+  unter **Testgruppe erstellen oder konfigurieren → Windows hinzufügen**
+  erreichbar.
 - **Gruppe reparieren** gleicht Runtime-Namen, Ressourcen, Readiness und
   Windows-Aktivierung ab. Die Reparatur kann Container ersetzen,
   Windows-VMs neu starten und vorübergehend einen externen
@@ -825,6 +828,19 @@ gespeicherter Batches** zeigt der Browser bei bis zu 50 Batches den Status,
 den Fortschritt und die Zahl der fehlgeschlagenen oder abgebrochenen
 Vorgänge. Die Ansicht überträgt keine Batch-Eingaben oder Quelldateipfade.
 
+Wähle die ID eines Batches mit offenen Vorgängen, um seine Vorgangskarten
+anzuzeigen. Mit **Alle Vorgänge anzeigen** löst du die Auswahl. Der Filter
+ändert nur die Ansicht. Prioritäts- und Reihenfolgeänderungen verwenden
+weiterhin die gesamte Warteschlange.
+
+Für wartende Vorgänge kannst du bei mindestens zwei verfügbaren Einträgen
+die **Priorität** auf Hoch, Normal oder Niedrig setzen. **Nach oben** und
+**Nach unten** erscheinen, wenn in derselben Priorität ein entsprechender
+Nachbar vorhanden ist. Die Browseransicht liest die Queue nach der Änderung
+neu. Laufende Vorgänge zeigen keine Reihenfolgensteuerung.
+Während du die Priorität auswählst, bleibt das Feld bei automatischen
+Aktualisierungen bedienbar.
+
 1. SQL-Prepared-Image: Windows- und SQL-ISO auswählen und Windows einmal in
    einer frischen Builder-VM installieren. Nach der sichtbaren Bestätigung der
    Windows-Installation führt die Oberfläche SQL `PrepareImage`, benötigte
@@ -1061,6 +1077,13 @@ Browser beginnt die Inventur mit **Plan lesen**. Ein nicht erreichbarer
 Provider erscheint als `UNAVAILABLE`. Diese Übersicht führt keine
 Aktion aus. Für die Zuordnung einzelner Objekte nutze **Wartungsbefunde
 und Zuordnung**.
+
+**Vollständigen Wartungsplan lesen** prüft zusätzlich den Speicherbestand
+und vorhandene Cleanup-Befunde. Die Übersicht zeigt Zähler für verwaltete
+Vorlagen, Provider-Datenspeicher und Hyper-V-Befunde. Im Browser läuft die
+Inventur im Hintergrund und das Ergebnis erscheint im Auftragsprotokoll.
+Der vollständige Scan kann länger dauern. Er speichert keinen Auditbericht
+und führt keine der vorgeschlagenen Aktionen aus.
 
 ## Hyper-V-Speicherziel vor einem Build prüfen
 

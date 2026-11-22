@@ -293,7 +293,7 @@ function Invoke-SqlServerLabWorkflowAction {
     param(
         [Parameter(Mandatory)]
         [ValidateSet(
-            'Refresh',
+            'Refresh', 'ReadFullMaintenancePreview',
             'StartTestGroupPower', 'StopTestGroupPower', 'CreateLinuxTestGroupMember',
             'CreateWindowsTestGroupMember', 'RepairTestGroup', 'RemoveTestGroup', 'ExportTestGroup',
             'GetInitialSetupState', 'PlanInitialSetup', 'ApplyInitialSetup', 'RefreshSetupProvider', 'PlanSetupWriteability', 'ProbeSetupWriteability', 'RefreshSetupCapacity',
@@ -514,6 +514,14 @@ function Invoke-SqlServerLabWorkflowAction {
                 [pscustomobject]@{ Provider=$SetupProvider; Check=(Get-LabClientRuntimeReadiness -Provider $SetupProvider) }
             }
         }
+        return [pscustomobject]@{ Action=$Action; CompletedAt=Get-LabTimestamp; Result=$result }
+    }
+
+    if ($Action -eq 'ReadFullMaintenancePreview') {
+        $workflowArguments = @($PSBoundParameters.Keys | Where-Object { $_ -ne 'Action' -and $_ -notin [System.Management.Automation.PSCmdlet]::CommonParameters })
+        if ($workflowArguments.Count) { throw 'FULL_MAINTENANCE_PREVIEW_ARGUMENTS_INVALID' }
+        try { $result = Get-LabRuntimeMaintenancePreview -Mode Full -ErrorAction Stop }
+        catch { throw 'FULL_MAINTENANCE_PREVIEW_UNAVAILABLE' }
         return [pscustomobject]@{ Action=$Action; CompletedAt=Get-LabTimestamp; Result=$result }
     }
 

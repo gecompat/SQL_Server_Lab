@@ -279,15 +279,46 @@ function Get-LabMaintenancePlanCore {
 
 function Get-LabRuntimeMaintenancePreview {
     [CmdletBinding()]
-    param()
+    param([ValidateSet('Runtime','Full')][string]$Mode='Runtime')
 
-    $plan = Get-SqlServerLabMaintenancePlan -Mode Runtime -ErrorAction Stop
-    return [pscustomobject]@{
+    $plan = Get-SqlServerLabMaintenancePlan -Mode $Mode -ErrorAction Stop
+    $view = [pscustomobject]@{
         ContractVersion = 'SqlServerLab.RuntimeMaintenancePreview/1.0'
         Status = $plan.Status
         Providers = @($plan.Providers | Select-Object Provider, Status)
         Summary = $plan.Summary | Select-Object Actions, SafeAutomatic, ScopedCleanup, LegacyApproval, ReviewOnly
     }
+    if ($Mode -eq 'Full') {
+        $audit = $plan.FullAudit.Summary
+        if (-not $audit) { throw 'FULL_MAINTENANCE_AUDIT_UNAVAILABLE' }
+        $view | Add-Member -NotePropertyName FullAudit -NotePropertyValue ($audit |
+            Select-Object ResidualCount, UnverifiableProviders, ManagedImages, RuntimeBackingStores, HyperVProtectionIssues, HyperVUntrackedFiles)
+    }
+    return $view
+}
+
+function Format-LabFullMaintenancePreview {
+    param([Parameter(Mandatory)]$View)
+
+    'Wartungsstatus: {0}' -f $View.Status
+    foreach ($provider in $View.Providers) {
+        '{0}: {1}' -f $provider.Provider, $provider.Status
+    }
+    'Vorgeschlagene Aktionen: {0}' -f $View.Summary.Actions
+    'Befunde im Speicher- und Cleanup-Audit: {0}' -f $View.FullAudit.ResidualCount
+    'Verwaltete Vorlagen: {0} · Provider-Datenspeicher: {1}' -f $View.FullAudit.ManagedImages, $View.FullAudit.RuntimeBackingStores
+    'Hyper-V-Schutzbefunde: {0} · Nicht zugeordnete Dateien: {1}' -f $View.FullAudit.HyperVProtectionIssues, $View.FullAudit.HyperVUntrackedFiles
+    'Nicht verifizierbare Provider: {0}' -f $View.FullAudit.UnverifiableProviders
+}
+
+function Show-LabFullMaintenancePreviewInteractive {
+    try {
+        foreach ($line in @(Format-LabFullMaintenancePreview -View (Get-LabRuntimeMaintenancePreview -Mode Full))) {
+            Write-Host "  $line"
+        }
+    }
+    catch { Write-Host '  Der vollständige Wartungsplan konnte nicht gelesen werden.' -ForegroundColor Yellow }
+    Wait-LabConsoleAcknowledgement -Prompt 'Enter oder Escape: Zurück zu Wartung'
 }
 
 function Show-LabRuntimeMaintenancePreviewInteractive {
