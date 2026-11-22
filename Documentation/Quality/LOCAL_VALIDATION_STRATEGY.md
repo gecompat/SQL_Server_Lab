@@ -4303,6 +4303,15 @@ Cleanup endet der Vorgang als `Cancelled`, mit Cleanup als `CleanupQueued`.
 Ein gesonderter Fehlerfall prüft den ursprünglichen Schrittfehler und
 verhindert einen automatischen erneuten Versuch nach fehlgeschlagenem Cleanup.
 
+Die Browser-Vorschau für den Standardabbruch bindet einen übergebenen
+Batch und dessen unfertige Positionen an den aktuellen State-Root.
+`Invoke-BatchWorkflowChecks.ps1` prüft lesende Vorschau, geänderte Auswahl,
+abweichendes Root, Wiederholung einer verbrauchten Vorschau und unveränderte
+fertige und unbeteiligte Positionen. `WorkflowJobStatusChecks.ps1` prüft
+den HTTP-Dispatch mit verpflichtender Bestätigung und fester Cleanup-Grenze.
+`OperationOrderingUiChecks.cjs` prüft Vorschau und Bestätigung im Browser.
+Diese Fälle starten keine Providerressourcen.
+
 Die getrennten nativen Batch-Referenzläufe vom 2026-09-21 bestanden mit dem
 unveränderten Runtime-Commit `85dcd126`: Docker und Podman meldeten jeweils
 zwölf Assertions sowie `CLEANUP_SUCCEEDED` mit zwei Schritten und null Fehlern.

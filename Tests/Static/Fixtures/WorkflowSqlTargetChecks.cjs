@@ -79,6 +79,7 @@ const run = (code) => vm.runInContext(code, context, { timeout: 5000 });
 if (html.includes('<script src="test-group-view.js"></script>')) {
   run(fs.readFileSync(path.join(root, 'Ui', 'test-group-view.js'), 'utf8'));
 }
+run(fs.readFileSync(path.join(root, 'Ui', 'operation-queue.js'), 'utf8'));
 run(source);
 for (const asset of ['manifest-check.js', 'ssms-registration-export.js', 'cms-management.js', 'resource-plan.js', 'llama-model-catalog.js', 'windows-slot-pool.js', 'ollama-local-generation.js', 'test-group-create.js', 'test-group-management.js']) {
   if (html.includes('<script src="' + asset + '"></script>')) run(fs.readFileSync(path.join(root, 'Ui', asset), 'utf8'));
