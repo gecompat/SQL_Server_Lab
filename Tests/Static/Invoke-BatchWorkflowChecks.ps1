@@ -51,6 +51,35 @@ try {
     $expandedOperations = @(Get-SqlServerLabOperation -BatchId $batch.batchId -StateRoot $testRoot)
     Assert-Check (@($expandedOperations | Where-Object status -eq 'Completed').Count -eq 3) 'Expandierte Vorgaenge wurden nicht abgeschlossen.'
 
+    $hostRoot = Join-Path $testRoot 'scheduler state'
+    $hostBatch = New-SqlServerLabBatch -Name 'Isolated scheduler host' -StateRoot $hostRoot -Items @(
+        [pscustomobject]@{ id = 'host-probe'; kind = 'NoOp' }
+    )
+    $hostProcess = & $module { param($Root) Start-SqlServerLabOperationHost -StateRoot $Root -PassThru } $hostRoot
+    Assert-Check ($hostProcess -is [Diagnostics.Process]) 'Isolierter Scheduler hat keinen eigenen Prozess geliefert.'
+    try {
+        $deadline = [DateTime]::UtcNow.AddSeconds(45)
+        do {
+            $hostOperation = Get-SqlServerLabOperation -OperationId $hostBatch.operationIds[0] -StateRoot $hostRoot
+            if ($hostProcess.HasExited -or $hostOperation.status -in @('Completed','Failed')) { break }
+            Start-Sleep -Milliseconds 250
+        } while ([DateTime]::UtcNow -lt $deadline)
+        Assert-Check (-not $hostProcess.HasExited -and $hostOperation.status -eq 'Completed') 'Der Hintergrundscheduler verarbeitet keinen Vorgang aus einem Zustandspfad mit Leerzeichen.'
+    }
+    finally {
+        try {
+            if (-not $hostProcess.HasExited) {
+                [IO.File]::WriteAllText((Join-Path $hostRoot 'scheduler/stop-host.request'), '')
+                if (-not $hostProcess.WaitForExit(12000)) {
+                    $hostProcess.Kill($true)
+                    $null = $hostProcess.WaitForExit(5000)
+                    throw 'Der isolierte Scheduler wurde nicht regulär beendet.'
+                }
+            }
+        }
+        finally { $hostProcess.Dispose() }
+    }
+
     $lockFixtureRoot = Join-Path $testRoot ('workflow-lock-' + [Guid]::NewGuid().ToString('N'))
     $lockReadyPath = Join-Path $lockFixtureRoot 'holder-ready'
     $lockReleasePath = Join-Path $lockFixtureRoot 'holder-release'

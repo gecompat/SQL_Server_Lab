@@ -10,6 +10,7 @@ const source = fs.readFileSync(path.join(uiRoot, 'app.js'), 'utf8');
 const queueSource = fs.readFileSync(path.join(uiRoot, 'operation-queue.js'), 'utf8');
 const html = fs.readFileSync(path.join(uiRoot, 'index.html'), 'utf8');
 assert.match(html, /<script src="operation-queue\.js"><\/script>\s+<script src="app\.js"><\/script>/);
+assert.match(html, /id="operation-host-start" type="button"/);
 
 const handlers = new Map();
 function element(tag) {
@@ -30,6 +31,7 @@ const elements = new Map([
   ['#confirmation-form', { addEventListener: (name, handler) => handlers.set(name, handler) }],
   ['#confirmation-dialog', { close() {} }],
   ['#notice', element('p')],
+  ['#operation-host-start', element('button')],
   ['#operation-queue', queueElement],
   ['#batch-overview-rows', element('tbody')],
   ['#batch-overview-table', element('table')],
@@ -171,6 +173,31 @@ assert.match(markup({ ...first, operationId: 'id"quoted' }), /data-operation-pri
   await submit;
   assert.equal(context.pendingConfirmation, null);
   assert.match(elements.get('#notice').textContent, /Stopp für 2 Positionen angenommen/);
+
+  const schedulerButton = elements.get('#operation-host-start');
+  const clickScheduler = () => handlers.get('click')({ target: {
+    closest: selector => selector === '#operation-host-start' ? schedulerButton : null
+  } });
+  const countBeforeScheduler = requests.length;
+  await clickScheduler();
+  const schedulerConfirmation = confirmations.at(-1);
+  assert.equal(schedulerConfirmation.action, '__StartOperationHost');
+  assert.match(schedulerConfirmation.message, /alle freigegebenen Vorgänge/);
+  context.pendingConfirmation = schedulerConfirmation;
+  await handlers.get('submit')({ submitter: { value: 'cancel' }, preventDefault() {} });
+  assert.equal(requests.length, countBeforeScheduler);
+
+  context.pendingConfirmation = schedulerConfirmation;
+  const requestScheduler = handlers.get('submit')({ preventDefault() {} });
+  assert.equal(schedulerButton.disabled, true);
+  assert.deepEqual(requests.at(-1), { url: '/api/operations', method: 'POST', command: 'StartOperationHost', confirmed: true });
+  await clickScheduler();
+  assert.equal(confirmations.at(-1), schedulerConfirmation);
+  resolveRequest({ ok: true, json: async () => ({ state: 'Requested' }) });
+  await requestScheduler;
+  assert.equal(schedulerButton.disabled, false);
+  assert.match(elements.get('#notice').textContent, /^Scheduler angefordert/);
+  assert.equal(requests.length, countBeforeScheduler + 1);
   console.log('OPERATION ORDERING UI: PASS');
 })().catch(error => {
   console.error(error.message);

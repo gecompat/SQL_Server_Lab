@@ -1481,6 +1481,24 @@ try {
                 }
                 $body = $bodyRead.Body
                 $request = $body | ConvertFrom-Json -Depth 12
+                if ($request.command -ceq 'StartOperationHost') {
+                    $names = @($request.PSObject.Properties.Name)
+                    if ($body.Length -gt 256 -or $names.Count -ne 2 -or
+                        @($names | Where-Object { $_ -cnotin @('command','confirmed') }).Count -or
+                        $request.command -isnot [string] -or $request.confirmed -isnot [bool] -or -not $request.confirmed) {
+                        Write-UiResponse -Context $context -Body 'OPERATION_HOST_CONFIRMATION_REQUIRED' -StatusCode 400
+                        continue
+                    }
+                    $document = [Text.Json.JsonDocument]::Parse($body)
+                    try { Assert-UiCommandJsonUnique $document.RootElement } finally { $document.Dispose() }
+                    $root = & (Get-Module SqlServerLab) { [IO.Path]::GetFullPath((Get-LabStateRoot)) }
+                    if ((Invoke-UiOperationHostStart -StateRoot $root) -ne 'Requested') {
+                        Write-UiResponse -Context $context -Body 'OPERATION_HOST_START_FAILED: Status prüfen und bei Bedarf erneut anfordern.' -StatusCode 503
+                        continue
+                    }
+                    Write-UiResponse -Context $context -Body '{"state":"Requested"}' -ContentType 'application/json; charset=utf-8' -StatusCode 202
+                    continue
+                }
                 if ($request.command -cin @('BatchStopPreview','BatchStopApply')) {
                     $isPreview = $request.command -ceq 'BatchStopPreview'
                     $names = @($request.PSObject.Properties.Name)

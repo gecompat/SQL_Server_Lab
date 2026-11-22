@@ -136,5 +136,16 @@ try {
     Check ($ResponseCode -eq 200 -and $result.Requested -eq 2 -and $calls.Count -eq 2 -and
         $calls[1].PreviewId -ceq $preview.PreviewId -and $calls[1].Root -ceq $root -and
         (& $module { $script:HostRoots[0] }) -ceq $root) 'Confirmed batch stop and host request use the exact batch and root'
+    & $module { $script:HostRoots = @() }
+    Invoke-BatchStopBody @{command='StartOperationHost';confirmed=$false}
+    Check ($ResponseCode -eq 400 -and (& $module { $script:HostRoots.Count }) -eq 0) 'Guided scheduler request without confirmation starts nothing'
+    Invoke-BatchStopBody @{command='StartOperationHost';confirmed=$true;stateRoot='another-root'}
+    Check ($ResponseCode -eq 400 -and (& $module { $script:HostRoots.Count }) -eq 0) 'Guided scheduler request cannot pick a different state root'
+    Invoke-BatchStopBody @{command='StartOperationHost';confirmed=$true}
+    Check ($ResponseCode -eq 202 -and ($ResponseBody | ConvertFrom-Json).state -ceq 'Requested' -and
+        (& $module { $script:HostRoots.Count }) -eq 1 -and (& $module { $script:HostRoots[0] }) -ceq $root) 'Confirmed scheduler request resolves the server state root and reports only acceptance'
+    & $module { $script:FailHost=$true }
+    Invoke-BatchStopBody @{command='StartOperationHost';confirmed=$true}
+    Check ($ResponseCode -eq 503 -and $ResponseBody -cnotmatch 'PRIVATE_HOST|StateRoot') 'Scheduler start failure carries neither a false success nor private details'
 } finally { Remove-Module $module -Force }
 Write-Host "RESULT: $passed PASS; real actions/hosts/providers/listeners=0; synthetic evidence retained in ignored test scope"

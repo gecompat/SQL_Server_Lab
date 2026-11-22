@@ -916,9 +916,16 @@ function Start-SqlServerLabOperationHost {
     }
     $modulePath = $ExecutionContext.SessionState.Module.Path
     $hostScript = Join-Path (Split-Path -Parent $modulePath) 'Tools\Start-SqlServerLabOperationHost.ps1'
-    $arguments = @('-NoLogo', '-NoProfile', '-File', $hostScript, '-ModulePath', $modulePath, '-StateRoot', $root)
-    $process = Start-Process -FilePath (Get-Process -Id $PID).Path -ArgumentList $arguments -WindowStyle Hidden -PassThru
+    $startInfo = [Diagnostics.ProcessStartInfo]::new((Get-Process -Id $PID).Path)
+    $startInfo.UseShellExecute = $false
+    $startInfo.CreateNoWindow = $true
+    foreach ($argument in @('-NoLogo', '-NoProfile', '-File', $hostScript, '-ModulePath', $modulePath, '-StateRoot', $root)) {
+        $startInfo.ArgumentList.Add($argument)
+    }
+    $process = [Diagnostics.Process]::Start($startInfo)
+    if ($null -eq $process) { throw 'OPERATION_HOST_NOT_STARTED' }
     if ($PassThru) {
         return $process
     }
+    $process.Dispose()
 }
