@@ -270,6 +270,9 @@ function Start-UiWorkflowJob {
             }
             Write-Output "[START] $JobAction"
             $result = Invoke-SqlServerLabWorkflowAction -Action $JobAction @invokeParameters
+            if ($JobAction -eq 'ReadFullMaintenancePreview') {
+                & (Get-Module SqlServerLab) { param($View) Format-LabFullMaintenancePreview -View $View } $result.Result
+            }
             if ($JobAction -eq 'InspectContainerDatabaseMigrationDependencies') {
                 $inventory = $result.Result
                 $summary = [ordered]@{
@@ -1581,6 +1584,12 @@ try {
                     catch { throw 'UI_SA_PASSWORD_PREFLIGHT_FAILED' }
                 }
                 $hasTransientSecret = $parameters.ContainsKey('GuestPassword') -or $parameters.ContainsKey('SaPassword')
+                if ($action -eq 'ReadFullMaintenancePreview') {
+                    if ($parameters.Count -ne 0) { throw 'FULL_MAINTENANCE_PREVIEW_ARGUMENTS_INVALID' }
+                    if (@($jobs.Values | Where-Object {
+                        $_.Action -eq $action -and $_.Job.State -in @('NotStarted','Running')
+                    }).Count) { throw 'FULL_MAINTENANCE_PREVIEW_IN_PROGRESS' }
+                }
                 # A confirmed power plan is a one-shot request: never replay it through batch recovery.
                 if ($action -eq 'CreateLinuxTestGroupMember' -and ($parameters.Count -notin @(3,4) -or
                     $parameters['Provider'] -isnot [string] -or $parameters['SqlVersion'] -isnot [string] -or
@@ -1594,7 +1603,7 @@ try {
                         throw 'TEST_GROUP_MANAGEMENT_ACTION_INVALID'
                     }
                 }
-                if (-not $hasTransientSecret -and -not $groupManagement -and $action -notin @('Refresh','StartTestGroupPower','StopTestGroupPower','CreateLinuxTestGroupMember')) {
+                if (-not $hasTransientSecret -and -not $groupManagement -and $action -notin @('Refresh','StartTestGroupPower','StopTestGroupPower','CreateLinuxTestGroupMember','ReadFullMaintenancePreview')) {
                     # Retain terminal cards for this server session; bound reads without evicting results.
                     if ($persistentJobs.Count -ge 256) { throw 'UI_JOB_STATUS_CAPACITY_REACHED' }
                     $batchStateRoot = & (Get-Module SqlServerLab) { Get-LabStateRoot }

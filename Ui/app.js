@@ -2853,6 +2853,7 @@ function resetMaintenanceView() {
   $('#maintenance-selection').disabled = true;
   renderMaintenanceSelection();
 }
+$('#full-maintenance-preview-open').addEventListener('click', () => startAction('ReadFullMaintenancePreview', {}).catch(showError));
 $('#maintenance-open').addEventListener('click', () => {
   maintenanceRequest++; maintenanceBusy = false; resetMaintenanceView();
   $('#maintenance-read').disabled = false;

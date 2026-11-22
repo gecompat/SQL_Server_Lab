@@ -249,6 +249,9 @@ Add-CheckResult -Name 'SQL-Prepared-Images verwenden standardmäßig frische Win
     $scriptText -match "kind === 'sql-fresh'" -and
     $scriptText -match "ProvisioningMode === 'fresh-windows-media'"
 )
+Add-CheckResult -Name 'Testsystem-Matrix führt zum bestehenden Hyper-V-ISO-Dialog' -Success (
+    $htmlText -match '(?s)<section[^>]+data-workspace-area="testmatrix"[^>]*>(?:(?!</section>).)*data-open-build="sql-fresh"\s+data-provider-capability="hyperv"[^>]*>Windows-/SQL-Vorlage aus ISOs vorbereiten</button>'
+)
 Add-CheckResult -Name 'UI und Konsole erlauben jede veröffentlichte erkannte Windows-OS-Baseline' -Success (
     $consoleText -match "artifactState -eq 'OS_SEALED'.*windows-\(server-\)\?\[0-9\]\+" -and
     $workflowText -match 'Windows \$\(\$_\.operatingSystem\.version\)'
