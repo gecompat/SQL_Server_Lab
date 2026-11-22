@@ -27,6 +27,165 @@ function Exit-LabTestGroupLock {
     if ($Mutex) { $Mutex.ReleaseMutex(); $Mutex.Dispose() }
 }
 
+function Assert-LabTestGroupExportPaths {
+    param([string]$Directory)
+
+    foreach ($name in @('TestUmgebung.registry.json','TestUmgebung.schema.json','TestUmgebung.prompt.md','TestUmgebung.json','TestUmgebung.env','TestUmgebung.md')) {
+        $path = Join-Path $Directory $name
+        if (-not (Test-LabPathWithinRoot -Root $Directory -Path $path).Valid -or (Test-Path -LiteralPath $path -PathType Container)) {
+            throw 'TEST_GROUP_EXPORT_PATH_UNSAFE'
+        }
+    }
+}
+
+function Get-LabTestGroupWindowsArtifact {
+    param([string]$StateRoot, [string]$ArtifactId)
+
+    if (-not (Test-HyperVAvailable).Available) { return }
+    foreach ($artifact in @(Get-HyperVImageArtifact -ArtifactId $ArtifactId -StateRoot $StateRoot -SkipIntegrityCheck)) {
+        if (-not $artifact -or $artifact.artifactState -cne 'SQL_PREPARED_SEALED' -or
+            [string]$artifact.artifactId -cnotmatch '^hyperv-[a-z0-9-]{1,96}-[a-f0-9]{64}$' -or
+            [string]$artifact.sql.version -cnotin @('2019','2022','2025') -or
+            [string]$artifact.sql.build -cnotmatch '^\d+\.\d+\.\d+\.\d+$' -or
+            -not (Test-HyperVImageArtifactChildValidationEligibility -Artifact $artifact).Eligible) { continue }
+        [pscustomobject]@{ ArtifactId=[string]$artifact.artifactId; SqlVersion=[string]$artifact.sql.version; Build=[string]$artifact.sql.build }
+    }
+}
+
+function Get-LabTestGroupManagementPlan {
+    param([ValidateSet('CreateWindows','Repair','Remove')][string]$Operation, [string]$ArtifactId)
+
+    $root = Get-LabStateRoot
+    if ($Operation -eq 'CreateWindows' -and -not $ArtifactId) {
+        return [pscustomobject]@{ Operation=$Operation; Artifacts=@(Get-LabTestGroupWindowsArtifact -StateRoot $root) }
+    }
+    if (($Operation -eq 'CreateWindows' -and $ArtifactId -cnotmatch '^hyperv-[a-z0-9-]{1,96}-[a-f0-9]{64}$') -or
+        ($Operation -ne 'CreateWindows' -and $ArtifactId)) { throw 'TEST_GROUP_MANAGEMENT_TARGET_INVALID' }
+    $directory = Get-LabTestEnvironmentExportDirectory
+    $lock = Enter-LabTestGroupLock -OutputDirectory $directory
+    try {
+        Assert-LabTestGroupExportPaths -Directory $directory
+        if ($Operation -eq 'CreateWindows') {
+            $image = @(Get-LabTestGroupWindowsArtifact -StateRoot $root -ArtifactId $ArtifactId)
+            if ($image.Count -ne 1 -or $image[0].ArtifactId -cne $ArtifactId) { throw 'TEST_GROUP_WINDOWS_IMAGE_UNAVAILABLE' }
+            $image = $image[0]
+            $build = @(Get-SqlServerBuilds -VersionId $image.SqlVersion | Where-Object build -EQ $image.Build | Select-Object -First 1)
+            $patch = if ($build.Count -and $build[0].cu -match '^CU[1-9][0-9]*$') { ([string]$build[0].cu).ToLowerInvariant() } else { "build-$($image.Build)" }
+            $key = ConvertTo-LabTestEnvironmentKey -Platform windows -SqlVersion $image.SqlVersion -Patch $patch
+            $registry = Get-LabTestEnvironmentRegistry -OutputDirectory $directory
+            if ($key -in @($registry.environments | ForEach-Object { $_.key })) { throw 'TEST_GROUP_WINDOWS_TARGET_ALREADY_REGISTERED' }
+            $registryPath = Get-LabTestEnvironmentRegistryPath -OutputDirectory $directory
+            $registryHash = if (Test-Path -LiteralPath $registryPath -PathType Leaf) { (Get-FileHash -LiteralPath $registryPath).Hash } else { 'absent' }
+            $binding = @($Operation,$root,$directory,$registryHash,$ArtifactId,$image.SqlVersion,$image.Build,$key) | ConvertTo-Json -Compress
+            return [pscustomobject]@{
+                Operation=$Operation; CanApply=$true; ArtifactId=$ArtifactId; SqlVersion=$image.SqlVersion; Build=$image.Build
+                Patch=$patch; Key=$key; PlanKey=(Get-LabWorkflowHash -Text $binding -Length 64)
+            }
+        }
+        $view = Get-LabTestGroupPowerPlan -PowerAction Stop -StateRoot $root -OutputDirectory $directory
+        $environmentGroups = Get-LabEnvironmentGroupsRegistry -StateRoot $root
+        $cleanupHashes = [Collections.Generic.List[string]]::new()
+        $members = @(foreach ($member in $view.Members) {
+            $safe = $member.Change -ne 'BLOCKED'
+            if ($safe) {
+                try {
+                    # Repair can stop or replace a member as well. Protect all group references.
+                    Assert-LabEnvironmentGroupRunMutation -RunId $member.RunId -Action Remove -Registry $environmentGroups
+                    Assert-LabWindowsPoolMutationAllowed -RunId $member.RunId -StateRoot $root
+                    if ($Operation -eq 'Remove') {
+                        $runDirectory = Join-Path $root "runs/$($member.RunId)"
+                        $path = Join-Path $runDirectory 'cleanup-plan.json'
+                        if (-not (Test-LabPathWithinRoot -Root $root -Path $path).Valid) { throw 'TEST_GROUP_CLEANUP_PATH_UNSAFE' }
+                        $bytes = [IO.File]::ReadAllBytes($path)
+                        $cleanup = [Text.Encoding]::UTF8.GetString($bytes).TrimStart([char]0xFEFF) | ConvertFrom-Json -Depth 20 -ErrorAction Stop
+                        if ($cleanup.runId -cne $member.RunId -or $cleanup.scopeId -cne $member.ScopeId -or -not $cleanup.steps.Count) { throw 'TEST_GROUP_CLEANUP_BINDING' }
+                        if (-not (Test-LabHyperVCleanupPlanProtection -Plan $cleanup -RunDir $runDirectory -ScopeId $member.ScopeId).Valid) { throw 'TEST_GROUP_CLEANUP_BINDING' }
+                        $cleanupHashes.Add([Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($bytes)))
+                    }
+                } catch { $safe = $false }
+            }
+            [pscustomobject]@{ Key=$member.Key; Target=$member.RegistrationLabel; Power=$member.Power; Verified=[bool]$safe }
+        })
+        $allowed = $view.CanApply -and @($members | Where-Object { -not $_.Verified }).Count -eq 0
+        [pscustomobject]@{
+            Operation=$Operation; CanApply=[bool]$allowed; Members=$members
+            PlanKey=if ($allowed) { Get-LabWorkflowHash -Text ((@($Operation,$view.PlanKey) + $cleanupHashes.ToArray()) -join '|') -Length 64 }
+        }
+    } finally { Exit-LabTestGroupLock -Mutex $lock }
+}
+
+function Invoke-LabTestGroupManagementPlan {
+    param([ValidateSet('CreateWindows','Repair','Remove')][string]$Operation, [string]$ArtifactId, [string]$ExpectedPlanKey)
+
+    if ($ExpectedPlanKey -cnotmatch '^[a-f0-9]{64}$') { throw 'TEST_GROUP_MANAGEMENT_PREVIEW_REQUIRED' }
+    if ($Operation -eq 'CreateWindows' -and -not $ArtifactId) { throw 'TEST_GROUP_MANAGEMENT_TARGET_INVALID' }
+    $root = Get-LabStateRoot
+    $directory = Get-LabTestEnvironmentExportDirectory
+    $lock = Enter-LabTestGroupLock -OutputDirectory $directory
+    $groupsLock = $null
+    $runLocks = [Collections.Generic.List[object]]::new()
+    try {
+        if ($Operation -ne 'CreateWindows') {
+            $groupsLock = Enter-LabEnvironmentGroupsLock -StateRoot $root
+            $registry = Get-LabTestEnvironmentRegistry -OutputDirectory $directory
+            foreach ($id in @($registry.environments | ForEach-Object { [string]$_.runId } | Sort-Object -Unique)) {
+                $guid = [guid]::Empty
+                if (-not [guid]::TryParseExact($id,'D',[ref]$guid) -or $guid.ToString('D') -cne $id) { throw 'TEST_GROUP_MANAGEMENT_MEMBER_UNVERIFIED' }
+                $runLocks.Add((Enter-LabEnvironmentGroupRunResourceLock -RunId $id -StateRoot $root))
+            }
+        }
+        $plan = Get-LabTestGroupManagementPlan -Operation $Operation -ArtifactId $ArtifactId
+        if (-not $plan.CanApply -or $plan.PlanKey -cne $ExpectedPlanKey) { throw 'TEST_GROUP_MANAGEMENT_PREVIEW_CHANGED' }
+        if ($Operation -eq 'CreateWindows') {
+            $password = New-HyperVSqlUnattendedPassword
+            $stage = 'IMAGE'
+            try {
+                $image = Get-HyperVImageArtifact -ArtifactId $ArtifactId -StateRoot $root 3>$null 4>$null 5>$null 6>$null
+                if (-not $image -or $image.artifactId -cne $ArtifactId -or $image.artifactState -cne 'SQL_PREPARED_SEALED' -or
+                    [string]$image.sql.version -cne $plan.SqlVersion -or [string]$image.sql.build -cne $plan.Build) {
+                    throw 'TEST_GROUP_WINDOWS_IMAGE_CHANGED'
+                }
+                $stage = 'INTENT'
+                $null = Register-LabTestEnvironmentIntent -Platform windows -SqlVersion $plan.SqlVersion -Patch $plan.Patch -InstanceId primary -Name $plan.Key -OutputDirectory $directory
+                $stage = 'PENDING_EXPORT'
+                $null = Export-SqlServerLabTestEnvironment -OutputDirectory $directory -StateRoot $root 3>$null 4>$null 5>$null 6>$null
+                $stage = 'CLONE'
+                $lab = New-HyperVLabEnvironment -ArtifactId $ArtifactId -LabName (Get-LabAutomatedTestEnvironmentDisplayName -Key $plan.Key) `
+                    -InstanceId primary -MemoryStartupMB 4096 -ProcessorCount 4 -AutoStart on -StateRoot $root 3>$null 4>$null 5>$null 6>$null
+                $stage = 'REGISTRATION'
+                $null = Register-LabTestEnvironmentRun -RunId $lab.RunId -Platform windows -SqlVersion $plan.SqlVersion -Patch $plan.Patch -InstanceId primary -Name $plan.Key -OutputDirectory $directory
+                $stage = 'PROVISION'
+                Set-LabWindowsTestEnvironmentActivationIntent -RunId $lab.RunId -StateRoot $root
+                $null = Invoke-HyperVLabUnattendedProvision -RunId $lab.RunId -AdministratorPassword $password -PasswordSource generated -StateRoot $root 3>$null 4>$null 5>$null 6>$null
+                $stage = 'EXPORT'
+                $export = Export-SqlServerLabTestEnvironment -OutputDirectory $directory -StateRoot $root 3>$null 4>$null 5>$null 6>$null
+                $null = Sync-LabAutomatedTestEnvironmentConnectionCenter -StateRoot $root 3>$null 4>$null 5>$null 6>$null
+                return [pscustomobject]@{ Status='REGISTERED'; Key=$plan.Key; GroupReady=($export.GroupStatus -ceq 'READY') }
+            } catch { throw "TEST_GROUP_WINDOWS_CREATE_UNCONFIRMED: $stage" }
+            finally { $password.Dispose() }
+        }
+        try {
+            $arguments = @{Force=$true; Confirm=$false; StateRoot=$root; OutputDirectory=$directory; ErrorAction='Stop'}
+            $result = if ($Operation -eq 'Remove') {
+                Clear-SqlServerLabAutomatedTestEnvironment @arguments 3>$null 4>$null 5>$null 6>$null
+            } else {
+                Repair-SqlServerLabAutomatedTestEnvironment @arguments 3>$null 4>$null 5>$null 6>$null
+            }
+        } catch { throw 'TEST_GROUP_MANAGEMENT_UNCONFIRMED' }
+        if ($Operation -eq 'Remove' -and $result.Status -ceq 'REMOVED') {
+            return [pscustomobject]@{ Status='REMOVED'; Count=[int]$result.Removed }
+        }
+        if ($Operation -eq 'Repair' -and $result.Status -ceq 'READY') {
+            return [pscustomobject]@{ Status='READY'; Count=$plan.Members.Count }
+        }
+        throw 'TEST_GROUP_MANAGEMENT_UNCONFIRMED'
+    } finally {
+        for ($i = $runLocks.Count - 1; $i -ge 0; $i--) { Exit-LabEnvironmentGroupRunResourceLock -Mutex $runLocks[$i] }
+        if ($groupsLock) { Exit-LabEnvironmentGroupsLock -Mutex $groupsLock }
+        Exit-LabTestGroupLock -Mutex $lock
+    }
+}
+
 function Get-LabTestGroupLinuxCreatePlan {
     param([string]$Provider, [string]$SqlVersion, [string]$OutputDirectory, [string]$StateRoot)
 
@@ -40,12 +199,7 @@ function Get-LabTestGroupLinuxCreatePlan {
     if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
     $lock = Enter-LabTestGroupLock -OutputDirectory $directory
     try {
-        foreach ($name in @('TestUmgebung.registry.json','TestUmgebung.schema.json','TestUmgebung.prompt.md','TestUmgebung.json','TestUmgebung.env','TestUmgebung.md')) {
-            $path = Join-Path $directory $name
-            if (-not (Test-LabPathWithinRoot -Root $directory -Path $path).Valid -or (Test-Path -LiteralPath $path -PathType Container)) {
-                throw 'TEST_GROUP_LINUX_CREATE_EXPORT_PATH_UNSAFE'
-            }
-        }
+        Assert-LabTestGroupExportPaths -Directory $directory
         $scope = Get-LabContainerRuntimeScope -Provider $Provider -StateRoot $StateRoot
         if ($scope.Status -cne 'AVAILABLE' -or -not $scope.RuntimeId) { throw 'TEST_GROUP_LINUX_CREATE_RUNTIME_UNAVAILABLE' }
         $image = Get-SqlServerDockerImage -VersionId $SqlVersion
@@ -158,6 +312,7 @@ function Get-LabTestGroupRegistrationLabel {
     $versionLabel = if ($version -cmatch '^20[0-9]{2}$') { "SQL Server $version" } else { 'SQL-Version unbekannt' }
     $patchLabel = if ($patch -match '^(?:rtm|cu[1-9][0-9]{0,5})$') { $patch.ToUpperInvariant() }
         elseif ($patch -ceq 'latest') { 'Aktueller Patch laut Katalog' }
+        elseif ($patch -cmatch '^build-\d+\.\d+\.\d+\.\d+$') { "Build $($patch.Substring(6))" }
         else { 'Patch unbekannt' }
     $registered = [guid]::Empty
     $status = if ($registrationState -ceq 'PROVISIONING_PENDING' -and -not $Entry.runId) { 'Vorgemerkt' }
@@ -188,6 +343,8 @@ function Get-LabTestGroupPowerPlan {
                 $seenKeys[$member.Key] = $true; $seenRuns[$member.RunId] = $true
                 $runDirectory = Join-Path (Join-Path $root 'runs') $member.RunId
                 $runPath = Join-Path $runDirectory 'run-state.json'; $connectionPath = Join-Path $runDirectory 'connection-info.json'
+                if (-not (Test-LabPathWithinRoot -Root $root -Path $runPath).Valid -or
+                    -not (Test-LabPathWithinRoot -Root $root -Path $connectionPath).Valid) { throw 'TEST_GROUP_MEMBER_PATH_UNSAFE' }
                 $run = Get-Content -LiteralPath $runPath -Raw -ErrorAction Stop | ConvertFrom-Json -Depth 50 -ErrorAction Stop
                 $connection = Get-Content -LiteralPath $connectionPath -Raw -ErrorAction Stop | ConvertFrom-Json -Depth 50 -ErrorAction Stop
                 if ([string]$run.runId -ne $member.RunId -or -not $run.scopeId -or [string]$run.state -notin @('RUNNING','STOPPED')) { throw 'TEST_GROUP_LIFECYCLE_BLOCKED' }

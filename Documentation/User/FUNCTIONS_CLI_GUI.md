@@ -324,8 +324,9 @@ und deren Prüfstatus bleiben davon getrennt.
 | [`Export-SqlServerLabTestEnvironment`](../../Public/TestEnvironment.ps1) | Exportiert registrierte, live geprüfte Testumgebungen als dotenv, JSON, Agenten-Prompt und Markdown. | Geschützte Testsystem-Matrix → Testgruppe konfigurieren → Export | – |
 | [`Start-SqlServerLabAutomatedTestEnvironment`](../../Public/TestEnvironmentLifecycle.ps1) | Startet die registrierten Mitglieder als Gruppe und prüft sie bis `READY`. | Geschützte Testsystem-Matrix → Testgruppe starten | – |
 | [`Stop-SqlServerLabAutomatedTestEnvironment`](../../Public/TestEnvironmentLifecycle.ps1) | Stoppt die registrierten Mitglieder nicht destruktiv und erneuert den Export fail-closed. | Geschützte Testsystem-Matrix → Testgruppe stoppen | – |
-| [`Repair-SqlServerLabAutomatedTestEnvironment`](../../Public/TestEnvironment.ps1) | Gleicht Ressourcen, Health, Autostart, Windows-Aktivierung und Runtime-Namen sicher ab. | über den Testumgebungs-Workflow-Core | – |
-| [`Clear-SqlServerLabAutomatedTestEnvironment`](../../Public/TestEnvironment.ps1) | Entfernt alle Runs der geschützten Testgruppe und deren Exporte. | Geschützte Testsystem-Matrix → Testgruppe entfernen | – |
+| Windows-Testumgebung aus SQL-Prepared-Vorlage | Klont und registriert eine freigegebene Hyper-V-Vorlage mit SQL-Version und Build. | Geschützte Testsystem-Matrix → Testgruppe erstellen oder konfigurieren → Windows hinzufügen | [Geschützte Testsystem-Matrix → Windows anlegen](../HowTo/WORKFLOW_UI.md#windows-hinzufügen-testgruppe-reparieren-oder-entfernen) |
+| [`Repair-SqlServerLabAutomatedTestEnvironment`](../../Public/TestEnvironment.ps1) | Gleicht Ressourcen, Health, Autostart, Windows-Aktivierung und Runtime-Namen sicher ab. | Geschützte Testsystem-Matrix → Testgruppe reparieren | [Geschützte Testsystem-Matrix → Gruppe reparieren](../HowTo/WORKFLOW_UI.md#windows-hinzufügen-testgruppe-reparieren-oder-entfernen) |
+| [`Clear-SqlServerLabAutomatedTestEnvironment`](../../Public/TestEnvironment.ps1) | Entfernt alle Runs der geschützten Testgruppe und deren Exporte. | Geschützte Testsystem-Matrix → Testgruppe entfernen | [Geschützte Testsystem-Matrix → Gruppe entfernen](../HowTo/WORKFLOW_UI.md#windows-hinzufügen-testgruppe-reparieren-oder-entfernen) |
 
 ## Wiederverwendbare Lab-Umgebungsgruppen
 

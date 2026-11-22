@@ -1129,6 +1129,7 @@ sources_of_truth:
   test_group_power_guidance: Private/TestGroupGuidance.ps1
   test_group_browser_view: Ui/test-group-view.js
   test_group_linux_creation: Ui/test-group-create.js # catalog and group/Runtime-bound Linux creation via one-shot workflow action
+  test_group_management: Ui/test-group-management.js # one-shot Windows prepared-image creation, group repair and group removal
   validation_test_group_power_guidance: Tests/Static/Invoke-TestGroupGuidanceChecks.ps1
   validation_test_group_full_regression: Tests/Static/Invoke-AllChecks.ps1 # exact-once group suite registration; selection and registry protected by Invoke-CiStrategyChecks.ps1
   validation_nightly_authorization: Tests/Static/Fixtures/CiStrategyNightlyAuthorizationChecks.ps1

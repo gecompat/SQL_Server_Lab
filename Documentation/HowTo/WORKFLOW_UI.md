@@ -558,8 +558,38 @@ unter dem konfigurierten Lab_Data. Der Browser zeigt das Kennwort nicht an.
 Eine geänderte Runtime oder Gruppenregistrierung macht die Vorschau
 ungültig. Nach einem unbestätigten Auftrag prüfe zuerst den Gruppenstatus.
 Eine offene Vormerkung für dasselbe Ziel sperrt eine weitere Anlage.
-Windows-Ziele und die Auswahl einzelner Patches bleiben im Konsolenmenü
-der Testsystem-Matrix verfügbar.
+Für die Auswahl eines einzelnen Linux-Patches verwende das Konsolenmenü
+der Testsystem-Matrix.
+
+### Windows hinzufügen, Testgruppe reparieren oder entfernen
+
+Öffne **Geschützte Testsystem-Matrix → Windows anlegen, Gruppe reparieren
+oder entfernen**. Wähle die Aktion, lies die Vorschau und bestätige erst
+dann den Auftrag.
+
+- **Windows anlegen** klont eine für die Nutzung freigegebene
+  SQL-Prepared-Vorlage. SQL-Version und Build stammen aus der Vorlage.
+  Hyper-V, ein konfiguriertes Lab_Data und eine geeignete Vorlage müssen
+  vorhanden sein. Die Windows-Einrichtung nutzt ein generiertes Kennwort,
+  das im Browser nicht erscheint. Der Auftrag meldet die Registrierung
+  und getrennt davon die Bereitschaft der Gruppe. Für Anlage aus
+  Installationsmedien oder die manuelle Windows-Einrichtung nutze
+  **Testgruppe erstellen oder konfigurieren → Windows hinzufügen**
+  im Konsolenmenü.
+- **Gruppe reparieren** gleicht Runtime-Namen, Ressourcen, Readiness und
+  Windows-Aktivierung ab. Die Reparatur kann Container ersetzen,
+  Windows-VMs neu starten und vorübergehend einen externen
+  Netzwerkadapter für die Windows-Aktivierung verwenden.
+- **Gruppe entfernen** entfernt alle angezeigten Mitglieder, die ihnen
+  zugeordneten Ressourcen und die Gruppenexporte dauerhaft. Sichere
+  benötigte SQL-Daten vor der Bestätigung.
+
+Reparatur und Entfernen im Browser setzen eine vollständig gebundene
+Testgruppe voraus. Unklare Registrierungen, fremde Gruppenreferenzen,
+reservierte Windows-Slots und offene Recovery-Journale können die
+Vorschau sperren. Bei einer geänderten Bindung oder einem unbestätigten
+Ergebnis prüfe zuerst die Testsystem-Matrix und lies anschließend eine
+neue Vorschau. Für Reparatur gibt es dort auch einen Konsolenmenüpunkt.
 
 ### Funktionsbereiche der Browser-Oberfläche
 

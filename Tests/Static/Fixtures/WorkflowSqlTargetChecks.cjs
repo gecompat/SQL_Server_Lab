@@ -80,7 +80,7 @@ if (html.includes('<script src="test-group-view.js"></script>')) {
   run(fs.readFileSync(path.join(root, 'Ui', 'test-group-view.js'), 'utf8'));
 }
 run(source);
-for (const asset of ['manifest-check.js', 'ssms-registration-export.js', 'cms-management.js', 'resource-plan.js', 'llama-model-catalog.js', 'windows-slot-pool.js', 'ollama-local-generation.js', 'test-group-create.js']) {
+for (const asset of ['manifest-check.js', 'ssms-registration-export.js', 'cms-management.js', 'resource-plan.js', 'llama-model-catalog.js', 'windows-slot-pool.js', 'ollama-local-generation.js', 'test-group-create.js', 'test-group-management.js']) {
   if (html.includes('<script src="' + asset + '"></script>')) run(fs.readFileSync(path.join(root, 'Ui', asset), 'utf8'));
 }
 run('const actualQueueBackgroundAction = queueBackgroundAction; queueBackgroundAction = (action, parameters) => queued.push({action, parameters});');
@@ -866,6 +866,61 @@ async function main() {
   context.sqlServerLabUiFetch = () => new Promise(resolve => { releaseGroup = resolve; });
   const pendingGroup = resourceEvent('test-group-open'); await resourceEvent('test-group-close'); releaseGroup({ ok: true, json: async () => groupPlan }); await pendingGroup;
   check('Closed group dialog rejects delayed preview', () => assert.equal(node('test-group-apply').disabled, true));
+  const managementRequests = [];
+  const preparedImage = 'hyperv-prepared-' + 'a'.repeat(64);
+  const managementKey = 'c'.repeat(64);
+  context.sqlServerLabUiFetch = async (url, options) => {
+    if (url.startsWith('/api/test-group-management?')) {
+      const query = new URLSearchParams(url.split('?')[1]);
+      const Operation = query.get('operation');
+      const ArtifactId = query.get('artifactId');
+      if (Operation === 'CreateWindows' && !ArtifactId) {
+        return {ok:true, json:async() => ({Operation, Artifacts:[{ArtifactId:preparedImage, SqlVersion:'2025', Build:'17.0.1000.1'}]})};
+      }
+      return {ok:true, json:async() => ({
+        Operation, ArtifactId, Key:'WINDOWS_2025', SqlVersion:'2025', Build:'17.0.1000.1',
+        CanApply:Operation !== 'Repair', PlanKey:managementKey,
+        Members:[{Key:'DOCKER', Target:'Linux · SQL Server 2025', Verified:true, Power:'STOPPED'}]
+      })};
+    }
+    if (url === '/api/actions') {
+      managementRequests.push(JSON.parse(options.body));
+      return {ok:true, json:async() => ({id:'management-fixture', state:'RUNNING'})};
+    }
+    return {ok:true, json:async() => ({})};
+  };
+  const changeManagement = async value => {
+    node('test-group-management-operation').value = value;
+    await resourceEvent('test-group-management-operation','change');
+  };
+  await resourceEvent('test-group-management-open');
+  await changeManagement('CreateWindows');
+  node('test-group-management-image').value = preparedImage;
+  await resourceEvent('test-group-management-image','change');
+  await resourceEvent('test-group-management-form','submit');
+  await resourceEvent('test-group-management-apply');
+  check('Prepared Windows preview needs explicit confirmation', () => {
+    assert.match(node('test-group-management-status').textContent, /Vorschau bereit/);
+    assert.equal(managementRequests.length,0);
+  });
+  await changeManagement('Repair');
+  await resourceEvent('test-group-management-form','submit');
+  node('test-group-management-confirm').checked = true;
+  await resourceEvent('test-group-management-confirm','change');
+  await resourceEvent('test-group-management-apply');
+  check('Blocked repair cannot reuse Windows preview or be submitted', () => {
+    assert.equal(node('test-group-management-apply').disabled,true);
+    assert.equal(managementRequests.length,0);
+  });
+  await changeManagement('Remove');
+  await resourceEvent('test-group-management-form','submit');
+  node('test-group-management-confirm').checked = true;
+  await resourceEvent('test-group-management-confirm','change');
+  await resourceEvent('test-group-management-apply');
+  await resourceEvent('test-group-management-apply');
+  check('Removal submits only the fresh one-shot plan', () => {
+    assert.deepEqual(managementRequests,[{action:'RemoveTestGroup',parameters:{ExpectedPlanKey:managementKey}}]);
+  });
   const mediaRequests = [];
   const mediaItem = { Id: 'sql-server-2025-enterprise-developer-bootstrapper', DisplayName: '<Bootstrapper>', RepositoryUrl: 'https://download.microsoft.com/download/default/SQL2025-SSEI-EntDev.exe', EffectiveUrl: 'https://download.microsoft.com/download/default/SQL2025-SSEI-EntDev.exe', Provenance: 'REPOSITORY_DEFAULT', ExpectedBytes: 21, ExpectedSha256: 'a'.repeat(64) };
   const mediaItems = [mediaItem, ...[

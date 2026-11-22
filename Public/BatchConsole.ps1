@@ -1085,6 +1085,7 @@ function Show-LabTestMatrixMenu {
         New-LabConsoleItem -Id AutomatedTestEnvironment -Label 'Geschützte Testgruppe erstellen oder konfigurieren' -Shortcut 1
         New-LabConsoleItem -Id AutomatedTestEnvironmentLifecycle -Label 'Testgruppe ansehen: Power-Start/Stop' -Value 'SQL-Bereitschaft getrennt, Vorschau vor Aktion' -Shortcut 2
         New-LabConsoleItem -Id ClearAutomatedTestEnvironment -Label 'Geschützte Testgruppe entfernen' -Shortcut 3 -Disabled:(-not $state.Available) -DisabledReason 'Keine registrierte Testgruppe vorhanden.'
+        New-LabConsoleItem -Id RepairAutomatedTestEnvironment -Label 'Geschützte Testgruppe reparieren' -Shortcut 4 -Disabled:(-not $state.Available) -DisabledReason 'Keine registrierte Testgruppe vorhanden.'
         New-LabConsoleItem -Id back -Label 'Zurück' -Shortcut 0
     )
 }
