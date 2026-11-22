@@ -4293,6 +4293,13 @@ Vorgang bytegleich erhalten bleibt und die noch unfertige Position zur
 Bereinigung eingereiht wird. Ein getrennt bestätigter vollständiger
 Rückbau kann auch den abgeschlossenen Vorgang zur Bereinigung einreihen.
 
+Weitere synthetische Fälle speichern während des ersten von zwei
+Workerschritten eine Stoppanforderung. Nach dem ersten Schritt bleibt
+deren Ereignis erhalten und der zweite Schritt beginnt nicht. Ohne
+Cleanup endet der Vorgang als `Cancelled`, mit Cleanup als `CleanupQueued`.
+Ein gesonderter Fehlerfall prüft den ursprünglichen Schrittfehler und
+verhindert einen automatischen erneuten Versuch nach fehlgeschlagenem Cleanup.
+
 Die getrennten nativen Batch-Referenzläufe vom 2026-09-21 bestanden mit dem
 unveränderten Runtime-Commit `85dcd126`: Docker und Podman meldeten jeweils
 zwölf Assertions sowie `CLEANUP_SUCCEEDED` mit zwei Schritten und null Fehlern.

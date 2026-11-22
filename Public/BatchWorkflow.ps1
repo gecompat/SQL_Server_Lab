@@ -570,32 +570,34 @@ function Stop-LabWorkflowOperation {
 
     $root = Initialize-LabWorkflowStore -StateRoot $StateRoot
     $path = Get-LabOperationStatePath -OperationId $OperationId -StateRoot $root
-    $result = Invoke-WithLabWorkflowFileLock -Path $path -Action {
-        $operation = Get-SqlServerLabOperation -OperationId $OperationId -StateRoot $root
-        if ((Test-LabOperationTerminal -Status $operation.status) -and
-            ($UnfinishedOnly -or -not $Cleanup -or $operation.status -eq 'Cancelled')) {
-            return [pscustomobject]@{ Operation = $operation; Changed = $false }
-        }
+    $result = Invoke-WithLabWorkflowLock -StateRoot $root -ScriptBlock {
+        Invoke-WithLabWorkflowFileLock -Path $path -Action {
+            $operation = Get-SqlServerLabOperation -OperationId $OperationId -StateRoot $root
+            if ((Test-LabOperationTerminal -Status $operation.status) -and
+                ($UnfinishedOnly -or -not $Cleanup -or $operation.status -eq 'Cancelled')) {
+                return [pscustomobject]@{ Operation = $operation; Changed = $false }
+            }
 
-        $operation.cancelRequested = $true
-        if ($operation.status -eq 'Running') {
-            $operation.cleanupRequested = [bool]$Cleanup
-            Add-LabOperationEvent -Operation $operation -Type 'CancellationRequested' -Message 'Stopp wurde angefordert; der aktuelle atomare Schritt läuft bis zur sicheren Grenze.' -StateRoot $root | Out-Null
+            $operation.cancelRequested = $true
+            if ($operation.status -eq 'Running') {
+                $operation.cleanupRequested = [bool]$Cleanup
+                Add-LabOperationEvent -Operation $operation -Type 'CancellationRequested' -Message 'Stopp wurde angefordert; der aktuelle atomare Schritt läuft bis zur sicheren Grenze.' -StateRoot $root | Out-Null
+            }
+            elseif ($Cleanup) {
+                $operation.cleanupRequested = $true
+                $operation.status = 'CleanupQueued'
+                Add-LabOperationEvent -Operation $operation -Type 'CleanupQueued' -Message 'Vorgang wurde gestoppt und zur scopegebundenen Bereinigung eingereiht.' -StateRoot $root | Out-Null
+            }
+            else {
+                $operation.status = 'Cancelled'
+                $operation.completedAt = Get-LabWorkflowUtcNow
+                Add-LabOperationEvent -Operation $operation -Type 'Cancelled' -Message 'Vorgang wurde endgültig gestoppt; Ressourcen wurden nicht automatisch entfernt.' -StateRoot $root | Out-Null
+            }
+            Write-LabOperationState -Operation $operation -StateRoot $root | Out-Null
+            [pscustomobject]@{ Operation = $operation; Changed = $true }
         }
-        elseif ($Cleanup) {
-            $operation.cleanupRequested = $true
-            $operation.status = 'CleanupQueued'
-            Add-LabOperationEvent -Operation $operation -Type 'CleanupQueued' -Message 'Vorgang wurde gestoppt und zur scopegebundenen Bereinigung eingereiht.' -StateRoot $root | Out-Null
-        }
-        else {
-            $operation.status = 'Cancelled'
-            $operation.completedAt = Get-LabWorkflowUtcNow
-            Add-LabOperationEvent -Operation $operation -Type 'Cancelled' -Message 'Vorgang wurde endgültig gestoppt; Ressourcen wurden nicht automatisch entfernt.' -StateRoot $root | Out-Null
-        }
-        Write-LabOperationState -Operation $operation -StateRoot $root | Out-Null
-        [pscustomobject]@{ Operation = $operation; Changed = $true }
     }
-    # Summary reads other operations and must run after releasing this lock.
+    # Summary reads other operations and must run after releasing their locks.
     if ($result.Changed) {
         Update-LabBatchSummary -BatchId $result.Operation.batchId -StateRoot $root | Out-Null
     }

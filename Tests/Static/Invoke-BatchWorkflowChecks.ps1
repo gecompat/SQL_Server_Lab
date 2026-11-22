@@ -272,6 +272,52 @@ if (-not $lock) { throw 'BATCH_SUMMARY_LOCK_ACQUISITION_FAILED' }
     Assert-Check ($stopResult.WaitingStatus -ceq 'CleanupQueued') 'Default batch cleanup failed to queue the unfinished operation.'
     Assert-Check ($stopResult.ExplicitCleanupStatus -ceq 'CleanupQueued') 'Explicit include-completed cleanup lost its existing behavior.'
 
+    foreach ($scenario in @(
+        @{ Name='cancel-only'; Cleanup=$false; StepFails=$false; Expected='Cancelled' }
+        @{ Name='queue-cleanup'; Cleanup=$true; StepFails=$false; Expected='CleanupQueued' }
+        @{ Name='cleanup-after-step-failure'; Cleanup=$true; StepFails=$true; Expected='CleanupQueued' }
+    )) {
+        $workerRoot = Join-Path $stopRoot $scenario.Name
+        $workerBatch = New-SqlServerLabBatch -Name $scenario.Name -StateRoot $workerRoot -Items @(
+            [pscustomobject]@{ id='step-boundary'; kind='Test'; intent=[pscustomobject]@{RequireUserAction=$true} }
+        )
+        $workerProof = & $module {
+            param($Id, $Root, $Case)
+            $executed = [Collections.Generic.List[string]]::new()
+            function Invoke-LabOperationStepAction {
+                param($Operation, $Step, $StateRoot)
+                $executed.Add($Step.id)
+                Stop-SqlServerLabOperation -OperationId $Operation.operationId -StateRoot $StateRoot -Cleanup:$Case.Cleanup -Confirm:$false | Out-Null
+                if ($Case.StepFails) { throw 'SYNTHETIC_STEP_FAILURE' }
+                return [pscustomobject]@{ state='Completed' }
+            }
+            function Invoke-LabOperationCleanup { throw 'SYNTHETIC_CLEANUP_FAILURE' }
+
+            $null = Invoke-LabOperationExecution -OperationId $Id -StateRoot $Root
+            $pending = Get-SqlServerLabOperation -OperationId $Id -StateRoot $Root
+            $cleanupFailure = $null
+            if ($Case.StepFails -and $pending.status -ceq 'CleanupQueued') {
+                $cleanupFailure = Invoke-LabOperationExecution -OperationId $Id -StateRoot $Root
+            }
+            [pscustomobject]@{
+                Pending = $pending
+                Steps = $executed.ToArray()
+                CleanupFailure = $cleanupFailure
+            }
+        } $workerBatch.operationIds[0] $workerRoot $scenario
+
+        Assert-Check ($workerProof.Pending.status -ceq $scenario.Expected -and $workerProof.Pending.cancelRequested -and
+            $workerProof.Pending.cleanupRequested -eq $scenario.Cleanup -and $null -eq $workerProof.Pending.worker) 'Worker lost a confirmed stop request at a step boundary.'
+        Assert-Check ($workerProof.Steps.Count -eq 1 -and $workerProof.Steps[0] -ceq 'execute') 'Worker started another step after a confirmed stop.'
+        Assert-Check ('CancellationRequested' -cin $workerProof.Pending.events.type -and
+            $workerProof.Pending.events[-1].type -ceq 'CancellationBoundaryReached') 'Worker publication lost the stop events.'
+        if ($scenario.StepFails) {
+            Assert-Check ($workerProof.Pending.error.message -ceq 'SYNTHETIC_STEP_FAILURE' -and
+                $workerProof.CleanupFailure.status -ceq 'Failed' -and
+                $workerProof.CleanupFailure.error.message -ceq 'SYNTHETIC_CLEANUP_FAILURE') 'Failed step or cleanup lost its failure evidence or was silently retried.'
+        }
+    }
+
     $abandoned = Get-SqlServerLabOperation -OperationId $controlOperations[0].operationId -StateRoot $testRoot
     $abandoned.status = 'Running'
     $abandoned.worker = [pscustomobject]@{ host = [Environment]::MachineName; processId = 2147483000; heartbeatAt = [DateTime]::UtcNow.AddMinutes(-1).ToString('o') }
