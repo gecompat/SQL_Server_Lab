@@ -74,8 +74,13 @@ Für ein bestehendes Docker- oder Podman-Lab-Netz findest du unter
 Bedarf gib ein konfliktfreies IPv4-Ziel in CIDR-Schreibweise ein.
 Die Vorschau zeigt das bisherige und das geplante Subnetz sowie die
 gebundenen Container. Bei einer gesperrten Migration prüfe den
-angezeigten Befund. Eine offene Recovery kann weitere
-Ausführungsversuche sperren. Bestätige die Ausführung erst, wenn die
+angezeigten Befund. Eine offene Recovery sperrt weitere
+Ausführungsversuche. CLI und Browser zeigen die letzte protokollierte
+Phase und den Fehlercode, soweit sie aus dem Journal bekannt sind. Die
+Phase kann hinter dem tatsächlichen Zustand des Providers liegen. Die
+Vorschau lässt das Journal und die Runtime unverändert. Erhalte das
+Journal zur Diagnose und führe keine neue Migration aus, bis der Befund
+geklärt ist. Bestätige die Ausführung erst, wenn die
 angezeigten Container für die Migration freigegeben sind. Eine
 veraltete Vorschau muss neu gelesen werden. Während der Migration
 können die betroffenen SQL-Verbindungen unterbrochen werden.

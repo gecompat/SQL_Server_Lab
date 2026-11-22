@@ -202,8 +202,11 @@ Vorher-/Nachher-Inventarvergleich. Beim Docker-Lauf brach der ursprüngliche
 Cleanup an der Konsolenbestätigung ab. Die anschließende gezielte
 Bereinigung entfernte denselben Run und sein Netz. Der vor dieser
 Bereinigung erfasste Fremdbestand blieb erhalten. CLI- und Browser-Dispatch
-sind separat mit synthetischen Antworten geprüft. Eine geführte Recovery
-für unterbrochene Migrationen bleibt offen.
+sind separat mit synthetischen Antworten geprüft. Bei einer unterbrochenen
+Migration zeigt dieselbe Vorschau den gespeicherten Recovery-Befund mit
+letzter protokollierter Phase und bekanntem Fehlercode. Synthetische
+Vertragsfälle prüfen das unveränderte Journal und den gesperrten
+Ausführungspfad. Eine geführte Ausführung der Recovery bleibt offen.
 
 Beim persistenten KI-Retrieval führen beide Oberflächen die synthetische
 Demo sowie `Prune` und `Remove`. Die Löschaktionen binden die ausgewählte

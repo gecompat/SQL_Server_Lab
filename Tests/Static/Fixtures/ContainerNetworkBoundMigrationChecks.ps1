@@ -117,13 +117,47 @@ try {
         $route.StateRoot=$failedRoot
         $failure = try { Invoke-LabBoundContainerNetworkMigration -Route $route -Plan $plan | Out-Null; '' }
             catch { $_.Exception.Message }
-        $failed = Read-LabWorkflowJson -Path (Get-LabContainerNetworkMigrationJournalPath -Provider docker -StateRoot $failedRoot)
+        $failedPath = Get-LabContainerNetworkMigrationJournalPath -Provider docker -StateRoot $failedRoot
+        $failed = Read-LabWorkflowJson -Path $failedPath
+        $before = (Get-FileHash -LiteralPath $failedPath -Algorithm SHA256).Hash
+        $stepCount = $script:migrationNativeSteps.Count
         $blocked = New-LabContainerNetworkMigrationPlan -Provider docker -StateRoot $failedRoot
         if ($failure -cne 'LAB_NETWORK_MIGRATION_DISCONNECT_FAILED' -or $failed.Status -cne 'RECOVERY_REQUIRED' -or
             $failed.TemporaryNetwork.Id -cne $script:migrationTemporaryNetwork -or
             @($script:migrationNativeSteps | Where-Object { $_ -like 'network rm *' }).Count -or
-            $blocked.Reason -cne 'LAB_NETWORK_MIGRATION_PENDING_RECOVERY') {
+            $blocked.Reason -cne 'LAB_NETWORK_MIGRATION_PENDING_RECOVERY' -or
+            $blocked.Recovery.LastRecordedPhase -cne 'TEMPORARY_NETWORK_READY' -or
+            $blocked.Recovery.FailureCode -cne $failure -or
+            $stepCount -ne $script:migrationNativeSteps.Count -or
+            $before -cne (Get-FileHash -LiteralPath $failedPath -Algorithm SHA256).Hash) {
             throw 'BOUND_MIGRATION_RECOVERY_GUARD'
+        }
+        function Get-LabStateRoot { $failedRoot }
+        function Read-LabConfirm { throw 'BLOCKED_RECOVERY_OFFERED_MUTATION' }
+        function Select-LabConsoleDataItem { 'docker' }
+        function Read-LabConsoleTextInput { [pscustomobject]@{Status='Confirmed';Value=''} }
+        function Wait-LabConsoleAcknowledgement { }
+        $query = [Collections.Specialized.NameValueCollection]::new()
+        $query.Add('provider','docker')
+        $http = Invoke-LabContainerNetworkPlanRequest -Method GET -Query $query
+        $console = @(Show-LabContainerNetworkMigrationPlanInteractive 6>&1) -join "`n"
+        if ($http.StatusCode -ne 200 -or $http.View.Status -cne 'MIGRATION_BLOCKED' -or
+            $http.View.Recovery.FailureCode -cne $failure -or
+            $http.View.Recovery.PSObject.Properties.Name.Count -ne 2 -or $http.View.Contains('PlanKey') -or
+            $console -notmatch 'TEMPORARY_NETWORK_READY.*LAB_NETWORK_MIGRATION_DISCONNECT_FAILED') {
+            throw 'BOUND_MIGRATION_RECOVERY_VIEW_NOT_GUIDED'
+        }
+        $failed.PSObject.Properties.Remove('LastRecordedPhase')
+        $failed.Error = 'LAB_NETWORK_MIGRATION_UNKNOWN_PRIVATE_DETAIL'
+        Write-LabArtifactJsonAtomic -Path $failedPath -InputObject $failed
+        $legacy = New-LabContainerNetworkMigrationPlan -Provider docker -StateRoot $failedRoot
+        if ($legacy.Recovery.LastRecordedPhase -cne 'UNKNOWN' -or $legacy.Recovery.FailureCode -cne 'UNKNOWN') {
+            throw 'BOUND_MIGRATION_UNKNOWN_JOURNAL_FIELD_DISCLOSED'
+        }
+        Set-Content -LiteralPath $failedPath -Value '{' -Encoding utf8
+        $unreadable = New-LabContainerNetworkMigrationPlan -Provider docker -StateRoot $failedRoot
+        if ($unreadable.Reason -cne 'LAB_NETWORK_MIGRATION_PENDING_RECOVERY' -or $unreadable.Recovery.FailureCode -cne 'UNKNOWN') {
+            throw 'BOUND_MIGRATION_UNREADABLE_JOURNAL_NOT_BLOCKED'
         }
 
         $script:migrationFailDisconnect = $false

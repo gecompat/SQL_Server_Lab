@@ -5,12 +5,45 @@ function Get-LabContainerNetworkMigrationJournalPath {
 }
 
 function New-LabContainerNetworkMigrationBlockedPlan {
-    param([string]$Provider, [string]$Reason)
+    param([string]$Provider, [string]$Reason, $Recovery)
 
     [PSCustomObject]@{
         Contract=[PSCustomObject]@{Name='SqlServerLab.ContainerNetworkMigrationPlan';Version='1.0'}
         Provider=$Provider; Status='MIGRATION_BLOCKED'; IsNoOp=$true; Actions=@(); Warnings=@($Reason); Reason=$Reason
+        Recovery=$Recovery
     }
+}
+
+function Get-LabContainerNetworkMigrationRecoveryView {
+    param($Journal, [string]$Provider)
+
+    $phases = @('PREPARED','TEMPORARY_NETWORK_READY','MANAGED_CONTAINERS_DETACHED','CANONICAL_NETWORK_READY')
+    $phase = 'UNKNOWN'
+    $code = 'UNKNOWN'
+    if ($Journal -and $Journal.PSObject.Properties['ContractVersion'] -and
+        $Journal.PSObject.Properties['Provider'] -and $Journal.PSObject.Properties['Status'] -and
+        $Journal.ContractVersion -is [string] -and $Journal.ContractVersion -ceq 'SqlServerLab.ContainerNetworkMigrationJournal/1.0' -and
+        $Journal.Provider -is [string] -and $Journal.Provider -ceq $Provider -and $Journal.Status -is [string]) {
+        if ($Journal.Status -cin $phases) {
+            $phase = $Journal.Status
+        } elseif ($Journal.Status -ceq 'RECOVERY_REQUIRED') {
+            if ($Journal.PSObject.Properties['LastRecordedPhase'] -and $Journal.LastRecordedPhase -is [string] -and
+                $Journal.LastRecordedPhase -cin $phases) {
+                $phase = $Journal.LastRecordedPhase
+            }
+            $knownFailures = @(
+                'TEMPORARY_NETWORK_CREATE_FAILED','CREATE_UNCONFIRMED','STOP_FAILED','CONNECT_FAILED',
+                'DISCONNECT_FAILED','OLD_NETWORK_REMOVE_FAILED','CANONICAL_NETWORK_CREATE_FAILED',
+                'RECONNECT_FAILED','TEMPORARY_DISCONNECT_FAILED','START_FAILED','TEMPORARY_NETWORK_REMOVE_FAILED',
+                'POSTCONDITION_UNCONFIRMED','CONTAINER_LIST_FAILED','MEMBER_CHANGED','MEMBERSHIP_INVALID',
+                'UNVERIFIED_MEMBER','PROTECTED_MEMBER','PENDING_RECOVERY','STATIC_ADDRESS','UNCONFIRMED'
+            ) | ForEach-Object { "LAB_NETWORK_MIGRATION_$_" }
+            if ($Journal.PSObject.Properties['Error'] -and $Journal.Error -is [string] -and $Journal.Error -cin $knownFailures) {
+                $code = $Journal.Error
+            }
+        }
+    }
+    [pscustomobject]@{ LastRecordedPhase=$phase; FailureCode=$code }
 }
 
 function Test-LabSettledContainerNetworkMigration {
@@ -147,10 +180,14 @@ function New-LabContainerNetworkMigrationPlan {
     }
     if (Test-Path -LiteralPath $journalPath) {
         try { $journal = Read-LabWorkflowJson -Path $journalPath }
-        catch { return New-LabContainerNetworkMigrationBlockedPlan -Provider $Provider -Reason 'LAB_NETWORK_MIGRATION_PENDING_RECOVERY' }
-        if ($journal.ContractVersion -cne 'SqlServerLab.ContainerNetworkMigrationJournal/1.0' -or
+        catch { $journal = $null }
+        if (-not $journal -or -not $journal.PSObject.Properties['ContractVersion'] -or
+            -not $journal.PSObject.Properties['Provider'] -or -not $journal.PSObject.Properties['Status'] -or
+            $journal.ContractVersion -isnot [string] -or $journal.Provider -isnot [string] -or $journal.Status -isnot [string] -or
+            $journal.ContractVersion -cne 'SqlServerLab.ContainerNetworkMigrationJournal/1.0' -or
             $journal.Provider -cne $Provider -or $journal.Status -cne 'COMPLETED') {
-            return New-LabContainerNetworkMigrationBlockedPlan -Provider $Provider -Reason 'LAB_NETWORK_MIGRATION_PENDING_RECOVERY'
+            $recovery = Get-LabContainerNetworkMigrationRecoveryView -Journal $journal -Provider $Provider
+            return New-LabContainerNetworkMigrationBlockedPlan -Provider $Provider -Reason 'LAB_NETWORK_MIGRATION_PENDING_RECOVERY' -Recovery $recovery
         }
     }
     $network = Get-LabRuntimeNetwork -Provider $Provider
@@ -342,11 +379,13 @@ function Invoke-LabBoundContainerNetworkMigration {
     $journal = [PSCustomObject]@{ ContractVersion='SqlServerLab.ContainerNetworkMigrationJournal/1.0'; OperationId=[guid]::NewGuid().ToString('D'); Provider=$Provider; RuntimeBinding=$Route.Binding; Status='PREPARED'; ConfiguredSubnet=$plan.ConfiguredSubnet; OldNetwork=$plan.Actual; NewNetwork=$plan.Desired; TemporaryNetwork=$temporaryNetwork; Containers=$plan.ManagedContainers; UpdatedAt=Get-LabTimestamp; Error=$null }
     $labels = @('--label','sql-server-lab.network=managed','--label',"sql-server-lab.migration-id=$($journal.OperationId)")
     Write-LabArtifactJsonAtomic -Path $journalPath -InputObject $journal
+    $lastRecordedPhase = 'PREPARED'
     try {
         $temporaryCreate = @('network','create','--driver','bridge','--subnet',$temporaryNetwork.Subnet) + $labels + @($temporaryNetwork.Name)
         $null = Invoke-LabContainerNetworkMigrationStep -Route $route -Arguments $temporaryCreate -FailureCode 'LAB_NETWORK_MIGRATION_TEMPORARY_NETWORK_CREATE_FAILED'
         $journal.TemporaryNetwork = Get-LabCreatedContainerMigrationNetwork -Route $route -Network $temporaryNetwork -OperationId $journal.OperationId
         $journal.Status='TEMPORARY_NETWORK_READY';$journal.UpdatedAt=Get-LabTimestamp;Write-LabArtifactJsonAtomic -Path $journalPath -InputObject $journal
+        $lastRecordedPhase = 'TEMPORARY_NETWORK_READY'
         foreach ($container in @($plan.ManagedContainers)) {
             if ($container.WasRunning) {
                 $null = Invoke-LabContainerNetworkMigrationStep -Route $route -Arguments @('stop',$container.Id) -FailureCode 'LAB_NETWORK_MIGRATION_STOP_FAILED'
@@ -355,11 +394,13 @@ function Invoke-LabBoundContainerNetworkMigration {
             $null = Invoke-LabContainerNetworkMigrationStep -Route $route -Arguments @('network','disconnect',$plan.Actual.Id,$container.Id) -FailureCode 'LAB_NETWORK_MIGRATION_DISCONNECT_FAILED'
         }
         $journal.Status='MANAGED_CONTAINERS_DETACHED';$journal.UpdatedAt=Get-LabTimestamp;Write-LabArtifactJsonAtomic -Path $journalPath -InputObject $journal
+        $lastRecordedPhase = 'MANAGED_CONTAINERS_DETACHED'
         $null = Invoke-LabContainerNetworkMigrationStep -Route $route -Arguments @('network','rm',$plan.Actual.Id) -FailureCode 'LAB_NETWORK_MIGRATION_OLD_NETWORK_REMOVE_FAILED'
         $canonicalCreate = @('network','create','--driver','bridge','--subnet',$plan.Desired.Subnet) + $labels + @($plan.Desired.Name)
         $null = Invoke-LabContainerNetworkMigrationStep -Route $route -Arguments $canonicalCreate -FailureCode 'LAB_NETWORK_MIGRATION_CANONICAL_NETWORK_CREATE_FAILED'
         $journal.NewNetwork = Get-LabCreatedContainerMigrationNetwork -Route $route -Network $plan.Desired -OperationId $journal.OperationId
         $journal.Status='CANONICAL_NETWORK_READY';$journal.UpdatedAt=Get-LabTimestamp;Write-LabArtifactJsonAtomic -Path $journalPath -InputObject $journal
+        $lastRecordedPhase = 'CANONICAL_NETWORK_READY'
         foreach ($container in @($plan.ManagedContainers)) {
             $connect = @('network','connect')
             foreach ($alias in $container.Aliases) { $connect += @('--alias',$alias) }
@@ -386,6 +427,7 @@ function Invoke-LabBoundContainerNetworkMigration {
         return [PSCustomObject]@{Status='SUCCEEDED';Provider=$Provider;Changed=$true;MigratedContainers=@($plan.ManagedContainers).Count;SqlReadiness='NOT_CHECKED';Plan=$plan}
     }
     catch {
+        $journal | Add-Member -NotePropertyName LastRecordedPhase -NotePropertyValue $lastRecordedPhase
         $journal.Status='RECOVERY_REQUIRED'
         $journal.Error=if ($_.Exception.Message -cmatch '^LAB_NETWORK_MIGRATION_[A-Z_]+$') { $_.Exception.Message }
             else { 'LAB_NETWORK_MIGRATION_UNCONFIRMED' }

@@ -64,5 +64,14 @@ const reply = (index, view) => calls[index].resolve({ ok: true, json: async () =
   });
   el('apply').click();
   assert.equal(confirmations.length, 1);
+  el('open').click();
+  const recovery = submit();
+  reply(2, { ...receipt, Status: 'MIGRATION_BLOCKED', Code: 'LAB_NETWORK_MIGRATION_PENDING_RECOVERY',
+    Recovery: { LastRecordedPhase: 'TEMPORARY_NETWORK_READY', FailureCode: 'LAB_NETWORK_MIGRATION_DISCONNECT_FAILED' } });
+  await recovery;
+  assert.match(el('status').textContent, /TEMPORARY_NETWORK_READY.*LAB_NETWORK_MIGRATION_DISCONNECT_FAILED/);
+  assert.equal(el('apply').hidden, true);
+  el('apply').click();
+  assert.equal(confirmations.length, 1);
   console.log('CONTAINER NETWORK PLAN BROWSER UI: PASS');
 })().catch(error => { console.error(error.message); process.exitCode = 1; });

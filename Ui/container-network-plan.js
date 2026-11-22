@@ -57,12 +57,24 @@
       const response = await sqlServerLabUiFetch('/api/container-network-migration?' + query, { cache: 'no-store' });
       const view = await response.json();
       if (revision !== current || !dialog.open) return;
-      if (!response.ok || view.Status === 'MIGRATION_BLOCKED') {
+      if (!response.ok) {
         status.textContent = Object.hasOwn(messages, view.Code) ? messages[view.Code] : 'Das Lab-Netz konnte nicht eindeutig geprüft werden.';
         return;
       }
       if (view.ContractVersion !== 'SqlServerLab.GuidedContainerNetworkPlan/1.0' || view.Provider !== provider) {
         throw new Error('CONTAINER_NETWORK_PLAN_INVALID');
+      }
+      if (view.Status === 'MIGRATION_BLOCKED') {
+        status.textContent = Object.hasOwn(messages, view.Code) ? messages[view.Code] : 'Die Migration ist gesperrt.';
+        if (view.Code === 'LAB_NETWORK_MIGRATION_PENDING_RECOVERY' && view.Recovery) {
+          const phase = view.Recovery.LastRecordedPhase;
+          const code = view.Recovery.FailureCode;
+          if (['PREPARED', 'TEMPORARY_NETWORK_READY', 'MANAGED_CONTAINERS_DETACHED', 'CANONICAL_NETWORK_READY', 'UNKNOWN'].includes(phase) &&
+              /^(?:LAB_NETWORK_MIGRATION_[A-Z_]+|UNKNOWN)$/.test(code)) {
+            status.textContent += ' Letzte protokollierte Phase ' + phase + ' · Fehlercode ' + code + '.';
+          }
+        }
+        return;
       }
       if (Object.hasOwn(messages, view.Status)) { status.textContent = messages[view.Status]; return; }
       if (view.Status !== 'MIGRATION_REQUIRED' || !/^[a-f0-9]{64}$/.test(view.PlanKey) ||
