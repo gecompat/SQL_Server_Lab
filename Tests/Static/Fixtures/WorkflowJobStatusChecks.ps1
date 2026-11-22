@@ -77,6 +77,17 @@ $module = New-Module -Name SqlServerLab -ArgumentList $root -ScriptBlock {
         [pscustomobject]@{BatchId='batch-20261122203000-12345678';Status='Validated';Positions=3;Dependencies=1}
     }
     $script:BatchStopCalls = [Collections.Generic.List[object]]::new()
+    $script:BatchSubmitCalls = [Collections.Generic.List[object]]::new()
+    function New-LabBrowserBatchSubmitPreview {
+        param($BatchId,$StateRoot)
+        $script:BatchSubmitCalls.Add([pscustomobject]@{Stage='Preview';Batch=$BatchId;Root=$StateRoot})
+        [pscustomobject]@{BatchId=$BatchId;PreviewId=('b'*32);Positions=2;Docker=1;Podman=0;HyperV=1;Dependencies=0}
+    }
+    function Invoke-LabBrowserBatchSubmitPreview {
+        param($BatchId,$PreviewId,$StateRoot)
+        $script:BatchSubmitCalls.Add([pscustomobject]@{Stage='Apply';Batch=$BatchId;Root=$StateRoot;PreviewId=$PreviewId})
+        [pscustomobject]@{BatchId=$BatchId;Status='Queued'}
+    }
     function New-LabBrowserBatchStopPreview {
         param($BatchId,$StateRoot)
         $script:BatchStopCalls.Add([pscustomobject]@{Stage='Preview'; Batch=$BatchId; Root=$StateRoot})
@@ -154,6 +165,18 @@ try {
     & $module { $script:FailHost=$true }
     Invoke-BatchStopBody @{command='StartOperationHost';confirmed=$true}
     Check ($ResponseCode -eq 503 -and $ResponseBody -cnotmatch 'PRIVATE_HOST|StateRoot') 'Scheduler start failure carries neither a false success nor private details'
+
+    & $module { $script:HostRoots = @() }
+    Invoke-BatchStopBody @{command='BatchSubmitPreview';batchId=$batchId}
+    $submitPreview = $ResponseBody | ConvertFrom-Json
+    Check ($ResponseCode -eq 200 -and $submitPreview.Positions -eq 2 -and
+        (& $module { $script:HostRoots.Count }) -eq 0) 'Saved batch preview returns counts without starting an operation host'
+    Invoke-BatchStopBody @{command='BatchSubmitApply';batchId=$batchId;previewId=$submitPreview.PreviewId;confirmed=$false}
+    Check ($ResponseCode -eq 400 -and (& $module { $script:BatchSubmitCalls.Count }) -eq 1) 'Saved batch submission requires positive confirmation'
+    Invoke-BatchStopBody @{command='BatchSubmitApply';batchId=$batchId;previewId=$submitPreview.PreviewId;confirmed=$true}
+    Check ($ResponseCode -eq 503 -and $ResponseBody -cmatch 'Batch eingereiht' -and
+        (& $module { $script:BatchSubmitCalls[1].PreviewId }) -ceq $submitPreview.PreviewId -and
+        (& $module { $script:HostRoots[0] }) -ceq $root) 'Saved batch submission binds preview and root and preserves accepted state if host launch fails'
 
     & $module { $script:HostRoots = @() }
     $draftRoute = Route '/api/batches'

@@ -2951,6 +2951,12 @@ $('#confirmation-form').addEventListener('submit', async (event) => {
     catch (error) { showError(error); }
     return;
   }
+  if (confirmation.action === '__BatchSubmit') {
+    $('#confirmation-dialog').close();
+    try { await applyBrowserBatchSubmission(confirmation.parameters); }
+    catch (error) { showError(error); }
+    return;
+  }
   if (confirmation.action === '__BatchStop') {
     $('#confirmation-dialog').close();
     try { await applyBrowserBatchStop(confirmation.parameters); }

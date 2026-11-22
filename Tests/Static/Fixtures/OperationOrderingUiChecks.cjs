@@ -137,7 +137,7 @@ assert.match(markup({ ...first, operationId: 'id"quoted' }), /data-operation-pri
   assert.doesNotMatch(queueElement.innerHTML, /operation-second/);
   assert.match(queueElement.innerHTML, /data-operation-command="MoveDown"/);
   assert.equal(rows.children[0].children[0].children[0].attributes['aria-pressed'], 'true');
-  document.activeElement = { matches: selector => selector === '[data-queue-batch]' };
+  document.activeElement = { matches: selector => selector.includes('[data-queue-batch]') };
   context.renderBatchOverview([], { items: [] }, true);
   assert.equal(rows.childElementCount, 3);
   document.activeElement = null;
@@ -264,6 +264,28 @@ assert.match(markup({ ...first, operationId: 'id"quoted' }), /data-operation-pri
   assert.equal(browserDraftForm.resetCalled, true);
   assert.match(elements.get('#batch-draft-status').textContent, /gespeichert · 3 Umgebungen · 1 gemeinsame Abhängigkeiten/);
   assert.equal(positions.childElementCount, 1);
+
+  context.renderBatchOverview([batchRow(firstBatchId, 'Validated')], context.workflow.Queue);
+  const submitDraft = rows.children[0].children[0].children[1];
+  assert.equal(submitDraft.dataset.batchSubmit, firstBatchId);
+  const beginDraftSubmit = handlers.get('click')({ target: {
+    closest: selector => selector === '[data-batch-submit]' ? submitDraft : null
+  } });
+  assert.deepEqual(requests.at(-1), { url: '/api/operations', method: 'POST', command: 'BatchSubmitPreview', batchId: firstBatchId });
+  resolveRequest({ ok: true, json: async () =>
+    ({ BatchId: firstBatchId, PreviewId: previewId, Positions: 3, Docker: 2, Podman: 0, HyperV: 1, Dependencies: 1 }) });
+  await beginDraftSubmit;
+  assert.equal(confirmations.at(-1).action, '__BatchSubmit');
+  assert.match(confirmations.at(-1).message, /Docker 2, Podman 0, Hyper-V 1/);
+  assert.ok(!requests.some(request => request.command === 'BatchSubmitApply'));
+  context.pendingConfirmation = confirmations.at(-1);
+  const applyDraft = handlers.get('submit')({ preventDefault() {} });
+  assert.deepEqual(requests.at(-1), {
+    url: '/api/operations', method: 'POST', command: 'BatchSubmitApply', batchId: firstBatchId, previewId, confirmed: true
+  });
+  resolveRequest({ ok: true, json: async () => ({ BatchId: firstBatchId, Status: 'Queued' }) });
+  await applyDraft;
+  assert.match(elements.get('#notice').textContent, /^Batch eingereiht/);
 
   completed = true;
   console.log('OPERATION ORDERING UI: PASS');
