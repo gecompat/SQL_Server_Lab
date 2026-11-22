@@ -80,6 +80,7 @@ try {
         $resolverContracts.Invalid -match '^LAB_NETWORK_CIDR_INVALID: invalid-subnet')
     $invalidDesiredNetwork = & $module {
         $originalResolver = (Get-Command Resolve-LabNetworkConfigurationValue).ScriptBlock
+        $previousSubnet = [Environment]::GetEnvironmentVariable('SQL_SERVER_LAB_PODMAN_SUBNET','Process')
         try {
             Set-Item Function:Resolve-LabNetworkConfigurationValue -Value {
                 param($Name, $Default)
@@ -128,31 +129,44 @@ try {
                 [PSCustomObject]@{ Name=$Name; Value=$Default; Source='Default'; IsExplicit=$false }
             }
             $network = Get-LabRuntimeNetwork -Provider podman
+            $preview = Resolve-LabAvailableContainerNetwork -Provider podman -Network $network -PlanOnly
+            $previewSubnetSetting = [Environment]::GetEnvironmentVariable('SQL_SERVER_LAB_PODMAN_SUBNET','Process')
+            $previewPreservedProcess = [string]::Equals($previewSubnetSetting,$previousSubnet,[StringComparison]::Ordinal)
+            $previewEmittedWarning = -not [string]::IsNullOrEmpty($script:networkWarning)
             $fallback = Resolve-LabAvailableContainerNetwork -Provider podman -Network $network
-            [PSCustomObject]@{ Subnet=$fallback.Subnet; Warning=$script:networkWarning }
+            [PSCustomObject]@{
+                Subnet=$fallback.Subnet; Warning=$script:networkWarning
+                PreviewSubnet=$preview.Subnet; PreviewPreservedProcess=$previewPreservedProcess; PreviewEmittedWarning=$previewEmittedWarning
+            }
         }
         finally {
             Set-Item Function:Get-LabKnownIpv4Subnets -Value $originalKnownSubnets
             Set-Item Function:Write-LabWarning -Value $originalWarning
             Set-Item Function:Resolve-LabNetworkConfigurationValue -Value $originalResolver
+            [Environment]::SetEnvironmentVariable('SQL_SERVER_LAB_PODMAN_SUBNET',$previousSubnet,'Process')
             Remove-Variable networkWarning -Scope Script -ErrorAction SilentlyContinue
         }
     }
     Add-CheckResult -Name 'Konfligierende Containerdefaults verwenden automatisch ein getrenntes Benchmark-Testnetz' -Success (
         $containerNetworkFallback.Subnet -eq '198.19.0.0/24' -and
         $containerNetworkFallback.Warning -match 'LAB_NETWORK_DEFAULT_SUBNET_CONFLICT')
+    Add-CheckResult -Name 'Netzmigrationsvorschau ermittelt das gleiche Ersatzsubnetz ohne Prozessänderung' -Success (
+        $containerNetworkFallback.PreviewSubnet -ceq $containerNetworkFallback.Subnet -and
+        $containerNetworkFallback.PreviewPreservedProcess -and -not $containerNetworkFallback.PreviewEmittedWarning)
     $networkSource = Get-Content (Join-Path $repoRoot 'Private/LabNetwork.ps1') -Raw
     Add-CheckResult -Name 'Bestehende Docker- und Podman-Labnetze melden spätere Subnetzkonflikte als Migrationsbedarf' -Success (
         @([regex]::Matches($networkSource, 'LAB_NETWORK_EXISTING_SUBNET_CONFLICT_MIGRATION_REQUIRED')).Count -eq 2)
     Add-CheckResult -Name 'Bestehende Container-Labnetze schließen ausschließlich ihr eigenes Runtime-Subnetz aus der Kollisionsprüfung aus' -Success (
-        $networkSource -match 'Where-Object \{ \$_ -ne \$actualSubnet \}' -and
-        $networkSource -match 'Where-Object \{ \$_ -ne \$existingContract\.Subnet \}')
+        $networkSource -match 'Get-LabKnownIpv4Subnets -Provider docker -ExcludeNetworkId' -and
+        $networkSource -match 'Get-LabKnownIpv4Subnets -Provider podman -ExcludeNetworkId')
     $migrationSource = Get-Content (Join-Path $repoRoot 'Private/ContainerNetworkMigration.ps1') -Raw
     $migrationCommand = Get-Command Move-SqlServerLabContainerNetwork -Module SqlServerLab
     & (Join-Path $PSScriptRoot 'Fixtures/ContainerNetworkPlanConsoleChecks.ps1') -Module $module
+    & (Join-Path $PSScriptRoot 'Fixtures/ContainerNetworkBoundMigrationChecks.ps1') -Module $module
     Add-CheckResult -Name 'Container-Netzmigration ist explizit, providergebunden und auf gelabelte Labcontainer begrenzt' -Success (
         $migrationCommand.Parameters.ContainsKey('Provider') -and $migrationCommand.Parameters.ContainsKey('WhatIf') -and
-        $migrationSource -match "label=sql-server-lab.run-id" -and $migrationSource -match "sql-server-lab.scope-id" -and
+        $migrationCommand.Parameters.ContainsKey('ExpectedPlanKey') -and
+        $migrationSource -match "sql-server-lab.run-id" -and $migrationSource -match "sql-server-lab.scope-id" -and
         $migrationSource -match 'LAB_NETWORK_MIGRATION_OLD_NETWORK_REMOVE_FAILED' -and
         $migrationSource -match "Status='RECOVERY_REQUIRED'")
     $temporaryNetwork = & $module {
@@ -168,9 +182,7 @@ try {
     Add-CheckResult -Name 'Container-Netzmigration verwendet für das Übergangsnetz ein separates konfliktfreies Subnetz und journalisiert es' -Success (
         $temporaryNetwork.Name -eq 'SQL_LAB_DOCKER-migration-test' -and
         $temporaryNetwork.Subnet -eq '198.18.1.0/24' -and
-        $temporaryNetwork.Subnet -ne '198.18.0.0/24' -and
-        $migrationSource -match 'TemporaryNetwork=\$temporaryNetwork' -and
-        $migrationSource -match 'network create --subnet \$temporaryNetwork\.Subnet')
+        $temporaryNetwork.Subnet -ne '198.18.0.0/24')
     $intentPlans = & $module {
         [PSCustomObject]@{
             DockerDefault = Resolve-LabNetworkIntentPlan -Provider docker

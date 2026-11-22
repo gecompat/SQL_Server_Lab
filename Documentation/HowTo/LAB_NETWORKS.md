@@ -62,6 +62,17 @@ neue Prozesse erhalten bleiben, hinterlegt der Betreiber sie selbst als
 bindend und wird bei Konflikt nicht ersetzt. Ungültige ausdrücklich gesetzte
 Werte werden vor jeder Netzmutation abgewiesen.
 
+Für ein bestehendes Docker- oder Podman-Lab-Netz findest du unter
+**Wartung → Lab-Netz auf Subnetzkonflikt prüfen** die Vorschau. Bei
+Bedarf gib ein konfliktfreies IPv4-Ziel in CIDR-Schreibweise ein.
+Die Vorschau zeigt das bisherige und das geplante Subnetz sowie die
+gebundenen Container. Bei einer gesperrten Migration prüfe den
+angezeigten Befund. Eine offene Recovery kann weitere
+Ausführungsversuche sperren. Bestätige die Ausführung erst, wenn die
+angezeigten Container für die Migration freigegeben sind. Eine
+veraltete Vorschau muss neu gelesen werden. Während der Migration
+können die betroffenen SQL-Verbindungen unterbrochen werden.
+
 Aktive VPN-Routen werden automatisch erkannt. Für VPN-Präfixe, die nur bei
 einer getrennten Verbindung existieren, kann der Betreiber sie dauerhaft als
 lokale Reservierung hinterlegen. Die durch Komma oder Semikolon getrennten

@@ -684,6 +684,7 @@ sources_of_truth:
   validation_container_recreate_mount_boundary: Tests/Static/Fixtures/ContainerRecreateMountChecks.ps1
   hyperv_network_reconcile_contract: Private/HyperVNetworkReconcile.ps1
   container_network_preview_guidance: Public/Move-SqlServerLabContainerNetwork.ps1, Private/ContainerNetworkMigration.ps1, Private/ContainerNetworkMigrationConsole.ps1, Ui/container-network-plan.js
+  container_network_migration_binding: Tests/Static/Invoke-LabNetworkChecks.ps1, Tests/Static/Fixtures/ContainerNetworkPlanConsoleChecks.ps1, Tests/Static/Fixtures/ContainerNetworkBoundMigrationChecks.ps1
   hyperv_network_reconcile_journal_schema: Schemas/hyperv-network-reconcile-journal.schema.json
   validation_hyperv_network_reconcile: Tests/Static/Invoke-HyperVNetworkReconcileChecks.ps1
   validation_hyperv_network_reconnect_helper: Tests/Common/HyperVNetworkReconnectAcceptance.ps1
