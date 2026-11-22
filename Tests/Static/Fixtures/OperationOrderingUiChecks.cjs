@@ -5,10 +5,11 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const source = fs.readFileSync(path.resolve(__dirname, '../../../Ui/app.js'), 'utf8');
-const start = source.indexOf('let queueBatchId = ');
-const end = source.indexOf('function renderActiveLabs(', start);
-assert.ok(start >= 0 && end > start);
+const uiRoot = path.resolve(__dirname, '../../../Ui');
+const source = fs.readFileSync(path.join(uiRoot, 'app.js'), 'utf8');
+const queueSource = fs.readFileSync(path.join(uiRoot, 'operation-queue.js'), 'utf8');
+const html = fs.readFileSync(path.join(uiRoot, 'index.html'), 'utf8');
+assert.match(html, /<script src="operation-queue\.js"><\/script>\s+<script src="app\.js"><\/script>/);
 
 const handlers = new Map();
 function element(tag) {
@@ -26,6 +27,9 @@ function element(tag) {
 const document = { addEventListener: (name, handler) => handlers.set(name, handler), createElement: element };
 const queueElement = { innerHTML: 'previous rendering' };
 const elements = new Map([
+  ['#confirmation-form', { addEventListener: (name, handler) => handlers.set(name, handler) }],
+  ['#confirmation-dialog', { close() {} }],
+  ['#notice', element('p')],
   ['#operation-queue', queueElement],
   ['#batch-overview-rows', element('tbody')],
   ['#batch-overview-table', element('table')],
@@ -33,6 +37,7 @@ const elements = new Map([
 ]);
 const requests = [];
 const errors = [];
+const confirmations = [];
 let refreshes = 0;
 let resolveRequest;
 const context = vm.createContext({
@@ -46,9 +51,14 @@ const context = vm.createContext({
     return new Promise(resolve => { resolveRequest = resolve; });
   },
   refresh: async () => { refreshes++; },
+  openConfirmation: (_, message, action, parameters) => confirmations.push({ message, action, parameters }),
   showError: error => errors.push(error.message)
 });
-vm.runInContext(source.slice(start, end), context);
+vm.runInContext(queueSource, context);
+const submitStart = source.indexOf("$('#confirmation-form').addEventListener");
+const submitEnd = source.indexOf("$('#artifact-name-form').addEventListener", submitStart);
+assert.ok(submitStart >= 0 && submitEnd > submitStart);
+vm.runInContext(source.slice(submitStart, submitEnd), context);
 
 const firstBatchId = 'batch-20261122170000-01234567';
 const secondBatchId = 'batch-20261122170100-23456789';
@@ -138,6 +148,29 @@ assert.match(markup({ ...first, operationId: 'id"quoted' }), /data-operation-pri
   resolveRequest({ ok: true });
   await movePending;
   assert.equal(requests.at(-1).command, 'MoveDown');
+
+  const stopButton = rows.children[0].children[0].children[1];
+  assert.equal(stopButton.dataset.batchStop, firstBatchId);
+  const startStop = handlers.get('click')({ target: { closest: selector => selector === '[data-batch-stop]' ? stopButton : null } });
+  assert.equal(stopButton.disabled, true);
+  assert.deepEqual(requests.at(-1), { url: '/api/operations', method: 'POST', command: 'BatchStopPreview', batchId: firstBatchId });
+
+  const previewId = '1'.repeat(32);
+  resolveRequest({ ok: true, json: async () => ({ BatchId: firstBatchId, PreviewId: previewId, Pending: 2, Running: 1 }) });
+  await startStop;
+  assert.equal(stopButton.disabled, false);
+  assert.equal(confirmations.length, 1);
+  assert.equal(confirmations[0].action, '__BatchStop');
+  assert.match(confirmations[0].message, /2 unfertige Positionen, davon 1 laufend/);
+  assert.ok(!requests.some(request => request.command === 'BatchStopApply'));
+
+  context.pendingConfirmation = confirmations[0];
+  const submit = handlers.get('submit')({ preventDefault() {} });
+  assert.deepEqual(requests.at(-1), { url: '/api/operations', method: 'POST', command: 'BatchStopApply', batchId: firstBatchId, previewId, confirmed: true });
+  resolveRequest({ ok: true, json: async () => ({ BatchId: firstBatchId, Requested: 2 }) });
+  await submit;
+  assert.equal(context.pendingConfirmation, null);
+  assert.match(elements.get('#notice').textContent, /Stopp für 2 Positionen angenommen/);
   console.log('OPERATION ORDERING UI: PASS');
 })().catch(error => {
   console.error(error.message);

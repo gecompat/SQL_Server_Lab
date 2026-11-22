@@ -833,6 +833,14 @@ anzuzeigen. Mit **Alle Vorgänge anzeigen** löst du die Auswahl. Der Filter
 ändert nur die Ansicht. Prioritäts- und Reihenfolgeänderungen verwenden
 weiterhin die gesamte Warteschlange.
 
+Bei einem übergebenen Batch mit offenen Vorgängen öffnet **Unfertige
+Positionen stoppen** eine Vorschau mit Anzahl der Zielpositionen und der
+bereits laufenden Schritte. Bestätige erst danach den Stopp und das Einreihen
+der scopegebundenen Bereinigung. Fertige Positionen bleiben erhalten.
+Eine geänderte oder abgelaufene Vorschau erfordert einen neuen Aufruf.
+Ob die Bereinigung abgeschlossen ist, steht anschließend bei den Vorgängen.
+Den vollständigen Batch-Rückbau führt das Konsolenmenü.
+
 Für wartende Vorgänge kannst du bei mindestens zwei verfügbaren Einträgen
 die **Priorität** auf Hoch, Normal oder Niedrig setzen. **Nach oben** und
 **Nach unten** erscheinen, wenn in derselben Priorität ein entsprechender

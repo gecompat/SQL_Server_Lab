@@ -4,6 +4,7 @@ Set-StrictMode -Version Latest
 $repo = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 . (Join-Path $repo 'Tools/WorkflowUiJobStatus.ps1')
 . (Join-Path $repo 'Tools/WorkflowUiJsonBody.ps1')
+. (Join-Path $repo 'Tools/WorkflowUiCommandGrants.ps1')
 $passed = 0
 function Check($Value, [string]$Name) { if (-not $Value) { throw $Name }; $script:passed++; Write-Host "PASS: $Name" }
 $root = Join-Path $repo ('.artifacts/test-runs/ui-job-status-' + [guid]::NewGuid().ToString('n'))
@@ -68,6 +69,17 @@ $module = New-Module -Name SqlServerLab -ArgumentList $root -ScriptBlock {
     function Get-LabStateRoot { $script:DefaultRoot }
     function Start-SqlServerLabOperationHost { param($StateRoot) $script:HostRoots+=@($StateRoot); if ($script:FailHost) { throw 'PRIVATE_HOST_START_ERROR' } }
     function Submit-SqlServerLabBatch { param($BatchId) [pscustomobject]@{id=$BatchId} }
+    $script:BatchStopCalls = [Collections.Generic.List[object]]::new()
+    function New-LabBrowserBatchStopPreview {
+        param($BatchId,$StateRoot)
+        $script:BatchStopCalls.Add([pscustomobject]@{Stage='Preview'; Batch=$BatchId; Root=$StateRoot})
+        [pscustomobject]@{BatchId=$BatchId; PreviewId=('a'*32); Pending=2; Running=1}
+    }
+    function Invoke-LabBrowserBatchStopPreview {
+        param($BatchId,$PreviewId,$StateRoot)
+        $script:BatchStopCalls.Add([pscustomobject]@{Stage='Apply'; Batch=$BatchId; Root=$StateRoot; PreviewId=$PreviewId})
+        [pscustomobject]@{BatchId=$BatchId; Requested=2}
+    }
 }
 Import-Module $module
 try {
@@ -102,5 +114,27 @@ try {
     Check ($ResponseCode -eq 503 -and $ResponseBody -match '^OPERATION_HOST_START_FAILED:' -and $ResponseBody -notmatch 'PRIVATE_HOST') 'Operation control host failure is explicit, without rewriting queued operation state'
     & $module { $script:FailHost=$false }
     Check ((Invoke-UiOperationHostStart -StateRoot $root) -ceq 'Requested') 'Successful host request does not claim live worker or execution'
+
+    & $module { param($Root) $script:DefaultRoot = $Root; $script:HostRoots = @() } $root
+    $operationRoute = Route '/api/operations'
+    $batchId = 'batch-20261122194200-01234567'
+    function Invoke-BatchStopBody($RequestBody) {
+        $context.Request.InputStream = [IO.MemoryStream]::new([Text.Encoding]::UTF8.GetBytes(($RequestBody | ConvertTo-Json -Compress)))
+        & $operationRoute
+    }
+    Invoke-BatchStopBody @{command='BatchStopPreview';batchId=$batchId}
+    $preview = $ResponseBody | ConvertFrom-Json
+    Check ($ResponseCode -eq 200 -and $preview.Pending -eq 2 -and $preview.BatchId -ceq $batchId -and
+        (& $module { $script:HostRoots.Count }) -eq 0) 'Batch stop preview uses bound authority without starting the operation host'
+    Invoke-BatchStopBody @{command='BatchStopApply';batchId=$batchId;previewId=$preview.PreviewId;confirmed=$false}
+    Check ($ResponseCode -eq 400 -and (& $module { $script:BatchStopCalls.Count }) -eq 1) 'Batch stop apply requires affirmative confirmation'
+    Invoke-BatchStopBody @{command='BatchStopApply';batchId=$batchId;previewId=$preview.PreviewId;confirmed=$true;includeCompleted=$true}
+    Check ($ResponseCode -eq 400 -and (& $module { $script:BatchStopCalls.Count }) -eq 1) 'Guided batch stop cannot widen scope to completed positions'
+    Invoke-BatchStopBody @{command='BatchStopApply';batchId=$batchId;previewId=$preview.PreviewId;confirmed=$true}
+    $result = $ResponseBody | ConvertFrom-Json
+    $calls = @(& $module { $script:BatchStopCalls })
+    Check ($ResponseCode -eq 200 -and $result.Requested -eq 2 -and $calls.Count -eq 2 -and
+        $calls[1].PreviewId -ceq $preview.PreviewId -and $calls[1].Root -ceq $root -and
+        (& $module { $script:HostRoots[0] }) -ceq $root) 'Confirmed batch stop and host request use the exact batch and root'
 } finally { Remove-Module $module -Force }
 Write-Host "RESULT: $passed PASS; real actions/hosts/providers/listeners=0; synthetic evidence retained in ignored test scope"
