@@ -672,7 +672,7 @@ try {
                 $query = $context.Request.QueryString
                 try {
                     $operation = [string]$query['operation']
-                    if ($operation -cnotin @('CreateWindows','Repair','Remove') -or
+                    if ($operation -cnotin @('CreateWindows','Repair','Remove','Export') -or
                         @($query.AllKeys | Where-Object { $_ -cnotin @('operation','artifactId') }).Count -or
                         @($query.GetValues('operation')).Count -ne 1 -or
                         ($query.Count -gt 1 -and ($operation -cne 'CreateWindows' -or @($query.GetValues('artifactId')).Count -ne 1 -or -not $query['artifactId']))) {
@@ -1586,7 +1586,7 @@ try {
                     $parameters['Provider'] -isnot [string] -or $parameters['SqlVersion'] -isnot [string] -or
                     ($parameters.Count -eq 4 -and $parameters['TestGroupPatch'] -isnot [string]) -or
                     $parameters['ExpectedPlanKey'] -isnot [string])) { throw 'TEST_GROUP_LINUX_CREATE_ACTION_INVALID' }
-                $groupManagement = $action -in @('CreateWindowsTestGroupMember','RepairTestGroup','RemoveTestGroup')
+                $groupManagement = $action -in @('CreateWindowsTestGroupMember','RepairTestGroup','RemoveTestGroup','ExportTestGroup')
                 if ($groupManagement) {
                     $expectedCount = if ($action -eq 'CreateWindowsTestGroupMember') { 2 } else { 1 }
                     if ($parameters.Count -ne $expectedCount -or $parameters['ExpectedPlanKey'] -isnot [string] -or

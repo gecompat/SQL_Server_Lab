@@ -926,6 +926,20 @@ async function main() {
   check('Removal submits only the fresh one-shot plan', () => {
     assert.deepEqual(managementRequests,[{action:'RemoveTestGroup',parameters:{ExpectedPlanKey:managementKey}}]);
   });
+  await resourceEvent('test-group-management-open');
+  await changeManagement('Export');
+  await resourceEvent('test-group-management-form','submit');
+  await resourceEvent('test-group-management-apply');
+  check('Group export warns about local credentials and needs confirmation', () => {
+    assert.match(node('test-group-management-effect').textContent,/Zugangsdaten/);
+    assert.equal(managementRequests.length,1);
+  });
+  node('test-group-management-confirm').checked = true;
+  await resourceEvent('test-group-management-confirm','change');
+  await resourceEvent('test-group-management-apply');
+  check('Group export sends only its fresh plan', () => {
+    assert.deepEqual(managementRequests[1],{action:'ExportTestGroup',parameters:{ExpectedPlanKey:managementKey}});
+  });
   const mediaRequests = [];
   const mediaItem = { Id: 'sql-server-2025-enterprise-developer-bootstrapper', DisplayName: '<Bootstrapper>', RepositoryUrl: 'https://download.microsoft.com/download/default/SQL2025-SSEI-EntDev.exe', EffectiveUrl: 'https://download.microsoft.com/download/default/SQL2025-SSEI-EntDev.exe', Provenance: 'REPOSITORY_DEFAULT', ExpectedBytes: 21, ExpectedSha256: 'a'.repeat(64) };
   const mediaItems = [mediaItem, ...[

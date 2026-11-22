@@ -561,8 +561,8 @@ ungültig. Nach einem unbestätigten Auftrag prüfe zuerst den Gruppenstatus.
 Eine offene Vormerkung für dasselbe Ziel sperrt eine weitere Anlage.
 ### Windows hinzufügen, Testgruppe reparieren oder entfernen
 
-Öffne **Geschützte Testsystem-Matrix → Windows anlegen, Gruppe reparieren
-oder entfernen**. Wähle die Aktion, lies die Vorschau und bestätige erst
+Öffne **Geschützte Testsystem-Matrix → Testgruppe verwalten**.
+Wähle die Aktion, lies die Vorschau und bestätige erst
 dann den Auftrag.
 
 - **Windows anlegen** klont eine für die Nutzung freigegebene
@@ -582,6 +582,10 @@ dann den Auftrag.
 - **Gruppe entfernen** entfernt alle angezeigten Mitglieder, die ihnen
   zugeordneten Ressourcen und die Gruppenexporte dauerhaft. Sichere
   benötigte SQL-Daten vor der Bestätigung.
+- **Gruppenexport aktualisieren** schreibt die vorhandenen lokalen
+  TestUmgebung-Dateien unter Lab_Data neu. Der Browser meldet die Anzahl
+  registrierter und bereiter Mitglieder. Die Dateien enthalten lokale
+  SQL-Zugangsdaten und bleiben im geschützten Exportordner.
 
 Reparatur und Entfernen im Browser setzen eine vollständig gebundene
 Testgruppe voraus. Unklare Registrierungen, fremde Gruppenreferenzen,

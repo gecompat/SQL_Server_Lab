@@ -383,6 +383,19 @@ try {
             @((Get-LabTestEnvironmentRegistry).environments | Where-Object runId -ceq $script:groupWindowsRun).Count -eq 1 -and
             ($created | ConvertTo-Json -Depth 5) -cnotmatch 'synthetic-private-windows') 'Windows adapter did not register and provision exactly the selected clone'
         Reject-Group { Invoke-LabTestGroupManagementPlan -Operation CreateWindows -ArtifactId $script:groupWindowsId -ExpectedPlanKey $windows.PlanKey }
+        $script:groupExportCalls = 0
+        function Export-SqlServerLabTestEnvironment {
+            [CmdletBinding()]
+            param($OutputDirectory,$StateRoot)
+            $script:groupExportCalls++
+            [pscustomobject]@{GroupStatus='INCOMPLETE';Entries=2;Ready=1;EnvPath='synthetic-private-export'}
+        }
+        $exportPlan = Get-LabTestGroupManagementPlan -Operation Export
+        Check-Group ($exportPlan.CanApply -and -not $script:groupExportCalls) 'Export preview invoked the writer'
+        Reject-Group { Invoke-LabTestGroupManagementPlan -Operation Export -ExpectedPlanKey $windows.PlanKey }
+        $export = Invoke-SqlServerLabWorkflowAction -Action ExportTestGroup -ExpectedPlanKey $exportPlan.PlanKey 6>$null
+        Check-Group ($script:groupExportCalls -eq 1 -and $export.Result.Status -ceq 'INCOMPLETE' -and $export.Result.ReadyCount -eq 1 -and
+            ($export | ConvertTo-Json -Depth 5) -cnotmatch 'synthetic-private-export') 'Export adapter leaked paths or hid incomplete readiness'
         $prior = Get-LabTestEnvironmentRegistry
         $prior.environments = @($prior.environments) + @([pscustomobject]@{key='LINUX_PODMAN_2025_2';runId=$null;registrationState='PROVISIONING_PENDING'})
         Write-LabArtifactJsonAtomic -Path $registryPath -InputObject $prior

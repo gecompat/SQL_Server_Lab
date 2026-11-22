@@ -62,7 +62,7 @@ function Get-LabTestGroupWindowsArtifact {
 }
 
 function Get-LabTestGroupManagementPlan {
-    param([ValidateSet('CreateWindows','Repair','Remove')][string]$Operation, [string]$ArtifactId)
+    param([ValidateSet('CreateWindows','Repair','Remove','Export')][string]$Operation, [string]$ArtifactId)
 
     $root = Get-LabStateRoot
     if ($Operation -eq 'CreateWindows' -and -not $ArtifactId) {
@@ -74,6 +74,27 @@ function Get-LabTestGroupManagementPlan {
     $lock = Enter-LabTestGroupLock -OutputDirectory $directory
     try {
         Assert-LabTestGroupExportPaths -Directory $directory
+        if ($Operation -eq 'Export') {
+            $registryPath = Get-LabTestEnvironmentRegistryPath -OutputDirectory $directory
+            $registry = Get-LabTestEnvironmentRegistry -OutputDirectory $directory
+            $members = @(foreach ($entry in $registry.environments) {
+                $id = [string]$entry.runId
+                $guid = [guid]::Empty
+                $safe = if ($id) {
+                    if ([guid]::TryParseExact($id,'D',[ref]$guid) -and $guid.ToString('D') -ceq $id) {
+                        $sources = @('run-state.json','connection-info.json','secrets/sa-password.secret','secrets/generated-sql-sa-password.secret')
+                        @($sources | Where-Object { -not (Test-LabPathWithinRoot -Root $root -Path (Join-Path $root "runs/$id/$_")).Valid }).Count -eq 0
+                    } else { $false }
+                } else { $entry.registrationState -ceq 'PROVISIONING_PENDING' }
+                [pscustomobject]@{ Key=$entry.key; Target=(Get-LabTestGroupRegistrationLabel -Entry $entry); Verified=[bool]$safe }
+            })
+            $allowed = $members.Count -gt 0 -and @($members | Where-Object { -not $_.Verified }).Count -eq 0
+            $planKey = if ($allowed) {
+                $hash = (Get-FileHash -LiteralPath $registryPath -ErrorAction Stop).Hash
+                Get-LabWorkflowHash -Text ((@($Operation,$root,$directory,$hash) | ConvertTo-Json -Compress)) -Length 64
+            }
+            return [pscustomobject]@{ Operation=$Operation; CanApply=$allowed; Members=$members; PlanKey=$planKey }
+        }
         if ($Operation -eq 'CreateWindows') {
             $image = @(Get-LabTestGroupWindowsArtifact -StateRoot $root -ArtifactId $ArtifactId)
             if ($image.Count -ne 1 -or $image[0].ArtifactId -cne $ArtifactId) { throw 'TEST_GROUP_WINDOWS_IMAGE_UNAVAILABLE' }
@@ -124,7 +145,7 @@ function Get-LabTestGroupManagementPlan {
 }
 
 function Invoke-LabTestGroupManagementPlan {
-    param([ValidateSet('CreateWindows','Repair','Remove')][string]$Operation, [string]$ArtifactId, [string]$ExpectedPlanKey)
+    param([ValidateSet('CreateWindows','Repair','Remove','Export')][string]$Operation, [string]$ArtifactId, [string]$ExpectedPlanKey)
 
     if ($ExpectedPlanKey -cnotmatch '^[a-f0-9]{64}$') { throw 'TEST_GROUP_MANAGEMENT_PREVIEW_REQUIRED' }
     if ($Operation -eq 'CreateWindows' -and -not $ArtifactId) { throw 'TEST_GROUP_MANAGEMENT_TARGET_INVALID' }
@@ -134,7 +155,7 @@ function Invoke-LabTestGroupManagementPlan {
     $groupsLock = $null
     $runLocks = [Collections.Generic.List[object]]::new()
     try {
-        if ($Operation -ne 'CreateWindows') {
+        if ($Operation -in @('Repair','Remove')) {
             $groupsLock = Enter-LabEnvironmentGroupsLock -StateRoot $root
             $registry = Get-LabTestEnvironmentRegistry -OutputDirectory $directory
             foreach ($id in @($registry.environments | ForEach-Object { [string]$_.runId } | Sort-Object -Unique)) {
@@ -145,6 +166,13 @@ function Invoke-LabTestGroupManagementPlan {
         }
         $plan = Get-LabTestGroupManagementPlan -Operation $Operation -ArtifactId $ArtifactId
         if (-not $plan.CanApply -or $plan.PlanKey -cne $ExpectedPlanKey) { throw 'TEST_GROUP_MANAGEMENT_PREVIEW_CHANGED' }
+        if ($Operation -eq 'Export') {
+            try {
+                $export = Export-SqlServerLabTestEnvironment -OutputDirectory $directory -StateRoot $root -ErrorAction Stop 3>$null 4>$null 5>$null 6>$null
+                if ($export.GroupStatus -cnotin @('READY','INCOMPLETE')) { throw 'TEST_GROUP_EXPORT_RESULT_INVALID' }
+                return [pscustomobject]@{ Status=$export.GroupStatus; Count=[int]$export.Entries; ReadyCount=[int]$export.Ready }
+            } catch { throw 'TEST_GROUP_EXPORT_UNCONFIRMED' }
+        }
         if ($Operation -eq 'CreateWindows') {
             $password = New-HyperVSqlUnattendedPassword
             $stage = 'IMAGE'

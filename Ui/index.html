@@ -85,7 +85,7 @@
       <p>Zusammengehörige Testumgebungen werden als geschützte Gruppe verwaltet. Einzellab-Aktionen ersetzen diesen Gruppenvertrag nicht.</p>
       <button id="test-group-open" type="button" class="button secondary">Gruppe ansehen · Power-Start/Stop</button>
       <button id="test-group-create-open" type="button" class="button secondary">Linux-Testumgebung hinzufügen</button>
-      <button id="test-group-management-open" type="button" class="button secondary">Windows anlegen, Gruppe reparieren oder entfernen</button>
+      <button id="test-group-management-open" type="button" class="button secondary">Testgruppe verwalten</button>
       <p>Power steuert Container und VMs. SQL-Bereitschaft wird dabei nicht geprüft.</p>
     </section>
 
@@ -1596,6 +1596,7 @@
       <label>Aktion<select id="test-group-management-operation">
         <option value="">Bitte auswählen</option><option value="CreateWindows">Windows-Testumgebung aus SQL-Vorlage anlegen</option>
         <option value="Repair">Ganze Testgruppe reparieren</option><option value="Remove">Ganze Testgruppe entfernen</option>
+        <option value="Export">Gruppenexport aktualisieren</option>
       </select></label>
       <label id="test-group-management-image-field" hidden>SQL-Vorlage<select id="test-group-management-image"></select></label>
       <p id="test-group-management-effect"></p>

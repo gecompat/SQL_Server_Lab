@@ -295,7 +295,7 @@ function Invoke-SqlServerLabWorkflowAction {
         [ValidateSet(
             'Refresh',
             'StartTestGroupPower', 'StopTestGroupPower', 'CreateLinuxTestGroupMember',
-            'CreateWindowsTestGroupMember', 'RepairTestGroup', 'RemoveTestGroup',
+            'CreateWindowsTestGroupMember', 'RepairTestGroup', 'RemoveTestGroup', 'ExportTestGroup',
             'GetInitialSetupState', 'PlanInitialSetup', 'ApplyInitialSetup', 'RefreshSetupProvider', 'PlanSetupWriteability', 'ProbeSetupWriteability', 'RefreshSetupCapacity',
             'GetSlotReserveState', 'PlanSlotReserve', 'ApplySlotReserve',
             'PlanWindowsPoolMember', 'ApplyWindowsPoolMember', 'CancelWindowsPoolMember',
@@ -525,8 +525,8 @@ function Invoke-SqlServerLabWorkflowAction {
         return [pscustomobject]@{ Action=$Action; CompletedAt=Get-LabTimestamp; Result=$result }
     }
 
-    if ($Action -in @('CreateWindowsTestGroupMember','RepairTestGroup','RemoveTestGroup')) {
-        $operation = @{CreateWindowsTestGroupMember='CreateWindows'; RepairTestGroup='Repair'; RemoveTestGroup='Remove'}[$Action]
+    if ($Action -in @('CreateWindowsTestGroupMember','RepairTestGroup','RemoveTestGroup','ExportTestGroup')) {
+        $operation = @{CreateWindowsTestGroupMember='CreateWindows'; RepairTestGroup='Repair'; RemoveTestGroup='Remove'; ExportTestGroup='Export'}[$Action]
         $result = Invoke-LabTestGroupManagementPlan -Operation $operation -ArtifactId $ArtifactId -ExpectedPlanKey $ExpectedPlanKey
         Write-Information ("Testgruppenaktion {0} abgeschlossen. Ergebnis {1}." -f $operation,$result.Status) -InformationAction Continue
         return [pscustomobject]@{ Action=$Action; CompletedAt=Get-LabTimestamp; Result=$result }

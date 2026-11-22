@@ -9,11 +9,12 @@
   const read = el('read');
   const apply = el('apply');
   const confirm = el('confirm');
-  const actions = { CreateWindows: 'CreateWindowsTestGroupMember', Repair: 'RepairTestGroup', Remove: 'RemoveTestGroup' };
+  const actions = { CreateWindows: 'CreateWindowsTestGroupMember', Repair: 'RepairTestGroup', Remove: 'RemoveTestGroup', Export: 'ExportTestGroup' };
   const effects = {
     CreateWindows: 'Klon einer freigegebenen SQL-Prepared-Vorlage mit automatischer Windows-Einrichtung. Die Windows-Aktivierung kann vorübergehend einen externen Netzwerkadapter verwenden.',
     Repair: 'Kann Container ersetzen, Windows-VMs neu starten und für die Windows-Aktivierung vorübergehend einen externen Netzwerkadapter verwenden.',
-    Remove: 'Entfernt alle aufgeführten Umgebungen samt ihren zugeordneten Ressourcen und Gruppenexporten. Dieser Vorgang ist endgültig.'
+    Remove: 'Entfernt alle aufgeführten Umgebungen samt ihren zugeordneten Ressourcen und Gruppenexporten. Dieser Vorgang ist endgültig.',
+    Export: 'Aktualisiert die lokalen Gruppenexporte unter Lab_Data. Die Exportdateien enthalten Zugangsdaten und gehören in den geschützten lokalen Ordner.'
   };
   let revision = 0;
   let plan = null;
@@ -86,7 +87,8 @@
         throw new Error('TEST_GROUP_MANAGEMENT_PLAN_UNAVAILABLE');
       }
       const rows = selected === 'CreateWindows' ? [view.Key + ' · SQL Server ' + view.SqlVersion + ' · ' + view.Build] :
-        view.Members.map(member => member.Key + ' · ' + member.Target + ' · ' + (member.Verified ? member.Power : 'Bindung unklar'));
+        view.Members.map(member => member.Key + ' · ' + member.Target +
+          (!member.Verified ? ' · Bindung unklar' : member.Power ? ' · ' + member.Power : ''));
       for (const row of rows) {
         const item = document.createElement('li');
         item.textContent = row;
