@@ -263,13 +263,15 @@ function Wait-SqlReady {
                 $runtimeDiagnostic = Get-LabContainerReadinessDiagnostic -Provider $Provider -ContainerIdOrName $ContainerIdOrName -StateRoot $StateRoot
                 $nextRuntimeCheckSeconds = $stopwatch.Elapsed.TotalSeconds + 2
                 if ($runtimeDiagnostic -and -not $runtimeDiagnostic.Running) {
-                    $stopwatch.Stop()
-                    $runtimeDiagnostic = Get-LabContainerReadinessDiagnostic -Provider $Provider -ContainerIdOrName $ContainerIdOrName -IncludeLogs -StateRoot $StateRoot
-                    return [PSCustomObject]@{
-                        Ready        = $false
-                        MajorVersion = $null
-                        Duration     = $stopwatch.Elapsed
-                        Message      = "SQL-Container wurde vor der Bereitschaft beendet. $($runtimeDiagnostic.Message)"
+                    $confirmed = Get-LabContainerReadinessDiagnostic -Provider $Provider -ContainerIdOrName $ContainerIdOrName -IncludeLogs -StateRoot $StateRoot
+                    if ($confirmed -and $confirmed.Status -in @('exited','dead','stopped','removing','paused','restarting')) {
+                        $stopwatch.Stop()
+                        return [PSCustomObject]@{
+                            Ready        = $false
+                            MajorVersion = $null
+                            Duration     = $stopwatch.Elapsed
+                            Message      = "SQL-Container wurde vor der Bereitschaft beendet. $($confirmed.Message)"
+                        }
                     }
                 }
             }

@@ -27,6 +27,93 @@ function Exit-LabTestGroupLock {
     if ($Mutex) { $Mutex.ReleaseMutex(); $Mutex.Dispose() }
 }
 
+function Get-LabTestGroupLinuxCreatePlan {
+    param([string]$Provider, [string]$SqlVersion, [string]$OutputDirectory, [string]$StateRoot)
+
+    $versions = @(Get-SqlServerVersions -Status SUPPORTED | Where-Object { $_.docker.image } |
+        ForEach-Object { [string]$_.id } | Where-Object { $_ -cmatch '^20\d{2}$' } | Sort-Object -Unique)
+    if (-not $Provider -and -not $SqlVersion) { return [pscustomobject]@{ Versions=$versions } }
+    if ($Provider -cnotin @('docker','podman') -or $SqlVersion -cnotin $versions) {
+        throw 'TEST_GROUP_LINUX_CREATE_TARGET_INVALID'
+    }
+    $directory = Get-LabTestEnvironmentExportDirectory -OutputDirectory $OutputDirectory
+    if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
+    $lock = Enter-LabTestGroupLock -OutputDirectory $directory
+    try {
+        foreach ($name in @('TestUmgebung.registry.json','TestUmgebung.schema.json','TestUmgebung.prompt.md','TestUmgebung.json','TestUmgebung.env','TestUmgebung.md')) {
+            $path = Join-Path $directory $name
+            if (-not (Test-LabPathWithinRoot -Root $directory -Path $path).Valid -or (Test-Path -LiteralPath $path -PathType Container)) {
+                throw 'TEST_GROUP_LINUX_CREATE_EXPORT_PATH_UNSAFE'
+            }
+        }
+        $scope = Get-LabContainerRuntimeScope -Provider $Provider -StateRoot $StateRoot
+        if ($scope.Status -cne 'AVAILABLE' -or -not $scope.RuntimeId) { throw 'TEST_GROUP_LINUX_CREATE_RUNTIME_UNAVAILABLE' }
+        $image = Get-SqlServerDockerImage -VersionId $SqlVersion
+        $registry = Get-LabTestEnvironmentRegistry -OutputDirectory $directory
+        $registryPath = Get-LabTestEnvironmentRegistryPath -OutputDirectory $directory
+        $registryHash = if (Test-Path -LiteralPath $registryPath -PathType Leaf) {
+            (Get-FileHash -LiteralPath $registryPath -Algorithm SHA256).Hash
+        } else { 'absent' }
+        $initialKey = ConvertTo-LabTestEnvironmentKey -Platform linux -SqlVersion $SqlVersion -Patch latest -Name "linux-$Provider-$SqlVersion"
+        if (@($registry.environments | Where-Object {
+            ($_.key -eq $initialKey -or $_.key -like "${initialKey}_*") -and -not $_.runId
+        }).Count) { throw 'TEST_GROUP_LINUX_CREATE_PENDING' }
+        $registeredKeys = @($registry.environments | ForEach-Object { [string]$_.key })
+        $key = $initialKey
+        $suffix = 2
+        while ($key -in $registeredKeys) {
+            $key = "${initialKey}_$suffix"
+            $suffix++
+        }
+        $binding = [ordered]@{
+            Directory=(Get-LabCanonicalResourceRoot -StateRoot $directory)
+            StateRoot=(Get-LabCanonicalResourceRoot -StateRoot $StateRoot)
+            RegistryHash=$registryHash; RuntimeId=$scope.RuntimeId; Provider=$Provider
+            SqlVersion=$SqlVersion; Image=$image; Key=$key
+        }
+        [pscustomobject]@{
+            Provider=$Provider; SqlVersion=$SqlVersion; Patch='latest'; Key=$key
+            PlanKey=(Get-LabWorkflowHash -Text ($binding | ConvertTo-Json -Compress) -Length 64)
+        }
+    } finally { Exit-LabTestGroupLock -Mutex $lock }
+}
+
+function Invoke-LabTestGroupLinuxCreatePlan {
+    param([string]$Provider, [string]$SqlVersion, [string]$ExpectedPlanKey)
+
+    if (-not $ExpectedPlanKey) { throw 'TEST_GROUP_LINUX_CREATE_PREVIEW_REQUIRED' }
+    $directory = Get-LabTestEnvironmentExportDirectory
+    $root = Get-LabStateRoot
+    $lock = Enter-LabTestGroupLock -OutputDirectory $directory
+    try {
+        $plan = Get-LabTestGroupLinuxCreatePlan -Provider $Provider -SqlVersion $SqlVersion -OutputDirectory $directory -StateRoot $root
+        if ($plan.PlanKey -cne $ExpectedPlanKey) { throw 'TEST_GROUP_LINUX_CREATE_PREVIEW_CHANGED' }
+        $specification = [pscustomobject]@{ Platform='linux'; SqlVersion=$SqlVersion; Patch=$plan.Patch; Key=$plan.Key; InstanceId='primary' }
+        try {
+            $created = New-SqlServerLabAutomatedTestEnvironment -Specification @($specification) -Provider $Provider `
+                -OutputDirectory $directory -StateRoot $root -ErrorAction Stop 3>$null 4>$null 5>$null 6>$null
+        } catch { throw 'TEST_GROUP_LINUX_CREATE_UNCONFIRMED' }
+        if (@($created.Errors).Count -or @($created.Environments).Count -ne 1) { throw 'TEST_GROUP_LINUX_CREATE_UNCONFIRMED' }
+        $registry = Get-LabTestEnvironmentRegistry -OutputDirectory $directory
+        $record = @($registry.environments | Where-Object key -CEQ $plan.Key)
+        if ($record.Count -ne 1 -or -not $record[0].runId -or $record[0].runId -cne [string]$created.Environments[0].RunId -or
+            $record[0].registrationState -cne 'REGISTERED') { throw 'TEST_GROUP_LINUX_CREATE_UNCONFIRMED' }
+        [pscustomobject]@{ Status='REGISTERED'; Key=$plan.Key; SqlVersion=$SqlVersion; Provider=$Provider; GroupReady=($created.Status -ceq 'READY') }
+    } finally { Exit-LabTestGroupLock -Mutex $lock }
+}
+
+function Invoke-LabTestGroupLinuxCreatePlanRequest {
+    param([Collections.Specialized.NameValueCollection]$Query)
+
+    if ($Query.Count -gt 0 -and ($Query.Count -ne 2 -or
+        @($Query.AllKeys | Where-Object { $_ -cnotin @('provider','sqlVersion') }).Count -or
+        @($Query.GetValues('provider')).Count -ne 1 -or @($Query.GetValues('sqlVersion')).Count -ne 1 -or
+        [string]$Query['provider'] -cnotin @('docker','podman') -or [string]$Query['sqlVersion'] -cnotmatch '^20\d{2}$')) {
+        throw 'TEST_GROUP_LINUX_CREATE_TARGET_INVALID'
+    }
+    Get-LabTestGroupLinuxCreatePlan -Provider $Query['provider'] -SqlVersion $Query['sqlVersion']
+}
+
 function Get-LabTestGroupRuntimeSnapshot {
     # Only native reads; no workflow discovery, repair, export or SQL probe.
     param([Parameter(Mandatory)]$Member)

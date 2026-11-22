@@ -84,7 +84,8 @@
       <h2>Geschützte Testsystem-Matrix</h2>
       <p>Zusammengehörige Testumgebungen werden als geschützte Gruppe verwaltet. Einzellab-Aktionen ersetzen diesen Gruppenvertrag nicht.</p>
       <button id="test-group-open" type="button" class="button secondary">Gruppe ansehen · Power-Start/Stop</button>
-      <p>Power steuert Container und VMs. SQL-Bereitschaft wird nicht geprüft. Erstellen, Reparatur und Entfernen bleiben separate Konsolenfunktionen.</p>
+      <button id="test-group-create-open" type="button" class="button secondary">Linux-Testumgebung hinzufügen</button>
+      <p>Power steuert Container und VMs. SQL-Bereitschaft wird dabei nicht geprüft. Für Windows-Testumgebungen sowie Reparatur und Entfernen verwende die Konsole.</p>
     </section>
 
     <section class="panel" data-workspace-area="templates" hidden>
@@ -1575,6 +1576,18 @@
     </div>
   </dialog>
   <script src="runtime-maintenance-preview.js"></script>
+  <dialog id="test-group-create-dialog">
+    <form id="test-group-create-form" class="dialog-panel">
+      <div class="dialog-heading"><h2>Linux-Testumgebung hinzufügen</h2><button id="test-group-create-close" type="button" class="icon-button" aria-label="Schließen">×</button></div>
+      <label>Provider<select id="test-group-create-provider" required><option value="">Bitte auswählen</option><option value="docker">Docker</option><option value="podman">Podman</option></select></label>
+      <label>SQL-Version<select id="test-group-create-version" required disabled></select></label>
+      <p>Verwendet den aktuellen Patch aus dem Lab-Katalog. Die neue Umgebung wird Teil der geschützten Testgruppe und erhält ein automatisch erzeugtes Kennwort.</p>
+      <p id="test-group-create-status" role="status" aria-live="polite"></p>
+      <label><input id="test-group-create-confirm" type="checkbox" disabled> Genau die angezeigte Umgebung anlegen und den Gruppenexport aktualisieren</label>
+      <div class="dialog-actions"><button id="test-group-create-preview" type="submit" class="button secondary" disabled>Vorschau lesen</button><button id="test-group-create-apply" type="button" class="button primary" disabled>Testumgebung anlegen</button></div>
+    </form>
+  </dialog>
+  <script src="test-group-create.js"></script>
   <script src="tls-authenticated-creation.js"></script>
 </body>
 </html>

@@ -234,7 +234,7 @@ nicht alle Operationen des Bereichs einzeln auf einen CLI-Menüpfad, GUI-Aktion,
 | Fachbereich | Geführter CLI-Einstieg | GUI-Bereich | Vorhandene Grundlage | Bewertung |
 |---|---|---|---|---|
 | Lab-Umgebungen, Run-Lifecycle, Datenbanken, Samples und Skripte | Lab-Umgebungen | Lab-Umgebungen | Workflow-Einstieg; ausgewählte öffentliche Cmdlet-Zuordnungen; Container-/Hyper-V-Abnahmen in der [CLI-Akzeptanzmatrix](CLI_ACCEPTANCE_MATRIX.md) | `TEILWEISE`; vollständige Operations- und Änderungsmatrix offen |
-| Geschützte Testsystem-Matrix | Testsystem-Matrix | Geschützte Testsystem-Matrix | Registrierte SQL-Ziele, Vormerkungen und gemessenen Powerzustand anzeigen. Gruppen-Start und -Stopp mit gebundener Vorschau. | `TEILWEISE`; Browserpfade für Erstellen, Reparieren und Entfernen sind offen. |
+| Geschützte Testsystem-Matrix | Testsystem-Matrix | Geschützte Testsystem-Matrix | Registrierte SQL-Ziele, Vormerkungen und gemessenen Powerzustand anzeigen. Gruppen-Start und -Stopp sowie Linux-Anlage mit gebundener Vorschau. | `TEILWEISE`; Linux-Anlage mit Katalogpatch. Windows-Anlage, Reparatur und Entfernen bleiben im Browser offen. |
 | Hyper-V-Vorlagen, Windows-Images und operative Slots | Hyper-V: Vorlagen und Slots | Hyper-V: Vorlagen und Slots | Image-/Poolinventar und einzelne gebundene Workflows | `KNOWN_GAP` für operative Slots und vollständiges Provider-Setup; native Nachweise bleiben funktions- und versionsgebunden |
 | Ressourcen, Medien, Downloads und Speicher | Ressourcen und Downloads | Ressourcen und Downloads | Kataloge, ausgewählte Plan-/Apply-Dialoge und geführte Bedarfsprüfung aus den konfigurierten Ordnern. `Invoke-ResourceSetChecks.ps1` und `WorkflowSqlTargetChecks.cjs` prüfen die Filterung und Übergabe ohne Download. | `TEILWEISE`; vollständige Operationszuordnung und Providerbelege offen |
 | Host-Dienste und Modelle | Host-Dienste und Modelle | Host-Dienste und Modelle | Einzelne Modell-/Hostservice-Dialoge und öffentliche Befehle | `KNOWN_GAP` für Fremdstart und weiteren Hostdienst-/Modell-Lifecycle |
@@ -243,6 +243,23 @@ nicht alle Operationen des Bereichs einzeln auf einen CLI-Menüpfad, GUI-Aktion,
 | Wartung, Aufräumen und Recovery | Wartung, Aufräumen und Recovery | Wartung/Recovery | Read-only-Pläne, bestätigte Aktionen und Recovery-Verträge je Slice | `TEILWEISE`; komplette Funktions- und Fehlerpfadzuordnung offen |
 | Vorgänge, Queue und Scheduler | Vorgänge, Queue und Benutzeraktionen | Vorgänge | Batch-/Queue-Einstiege und Workflow-Aktionen | `TEILWEISE`; jede Operation und ihre Abbruch-/Recoverypfade noch einzeln abzugleichen |
 | Expertenbefehle und Meldungen | Alle öffentlichen Befehle / Meldungen | Alle Funktionen / Meldungen | Generierter Export-/Parametersatzkatalog; Konsolen- und Workflow-UI-Prüfungen | `EXPERT_CATALOG_ONLY` als Fachführung; Katalogvollständigkeit ist separat statisch prüfbar |
+
+### Geprüfte Teilmenge: Linux-Testumgebung anlegen
+
+**Geschützte Testsystem-Matrix → Linux-Testumgebung hinzufügen** führt im
+Browser eine einzelne SQL-Version mit dem katalogisierten aktuellen Patch
+über die vorhandene Gruppenanlage aus. Vorschau, Eingabeänderung, Abbruch,
+Bestätigung und gesperrte Wiederholung sind synthetisch geprüft. Der
+Workflow liefert nur den registrierten Schlüssel und die Gruppenbereitschaft.
+
+Am 22.11.2026 registrierte der Workflow-Adapter auf `b3a3c850` ein
+eigenes Docker-Lab und in einem getrennten Lauf ein eigenes Podman-Lab
+mit SQL Server 2025. Beide Gruppenexporte meldeten Bereitschaft.
+Die jeweiligen Bereinigungen entfernten die eigenen Ressourcen und
+bestätigten den unveränderten Bestand. Beim früheren kombinierten Lauf
+erreichte Podman die SQL-Bereitschaft innerhalb des Zeitlimits nicht.
+Die native Abnahme belegt die getrennte Anlage je Provider. Der
+Browserversand ist separat synthetisch geprüft.
 
 ### Geprüfte Teilmenge: CMS-Management
 

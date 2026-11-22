@@ -546,6 +546,23 @@ eines gestarteten Containers oder Gasts kann Dienste starten. Persistierte
 Run-/Exportstatus werden hier nicht neu geschrieben. Der bestehende öffentliche
 Gruppenbereitsteller mit SQL-Prüfung behält seine eigene Semantik.
 
+### Linux-Testumgebung zur geschützten Testgruppe hinzufügen
+
+Öffne **Geschützte Testsystem-Matrix → Linux-Testumgebung hinzufügen**.
+Wähle Docker oder Podman und eine unterstützte SQL-Version. Der Browser
+verwendet den aktuellen Patch aus dem Lab-Katalog. Lies die Vorschau und
+bestätige den angezeigten Gruppeneintrag. Das Lab erzeugt ein eigenes
+Kennwort, registriert die Umgebung und aktualisiert den geschützten Export
+unter dem konfigurierten Lab_Data. Der Browser zeigt das Kennwort nicht an.
+
+Eine geänderte Runtime oder Gruppenregistrierung macht die Vorschau
+ungültig. Nach einem unbestätigten Auftrag prüfe zuerst den Gruppenstatus.
+Eine offene Vormerkung für dasselbe Ziel sperrt eine weitere Anlage.
+Windows-Ziele und die Auswahl einzelner Patches bleiben im Konsolenmenü
+der Testsystem-Matrix verfügbar.
+
+### Funktionsbereiche der Browser-Oberfläche
+
 Die lokale Browser-Oberfläche fasst vorhandene Windows-OS-Baselines,
 Windows-Builder, SQL-Prepared-Images, Abnahmeumgebungen und aktive
 Container-Labs in einer Sicht zusammen. Sie zeigt pro Build den nächsten

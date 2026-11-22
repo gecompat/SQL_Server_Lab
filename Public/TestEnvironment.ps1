@@ -956,6 +956,7 @@ function New-SqlServerLabAutomatedTestEnvironment {
         [string]$StateRoot
     )
 
+    if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
     foreach ($spec in $Specification) {
         if (([string]$spec.Platform).ToLowerInvariant() -ne 'linux') {
             throw 'TEST_ENVIRONMENT_WINDOWS_INTERACTIVE_MENU_REQUIRED'
@@ -998,8 +999,11 @@ function New-SqlServerLabAutomatedTestEnvironment {
             $lab = New-SqlServerLab -Version $versionId -Provider $selectedProvider -Profile standard -LabName $name `
                 -InstanceId $request.InstanceId -Cpu 4 -MemoryMB 4096 -ServerConfig $serverConfig `
                 -GenerateSaPassword -NonInteractive -AutoStart on -StateRoot $StateRoot
-            $null = Rename-LabAutomatedTestEnvironmentRuntime -RunId $lab.RunId -InstanceId $request.InstanceId `
-                -Key $request.Key -StateRoot $StateRoot
+            # An isolated host policy binds the native create name to an immutable receipt.
+            if (-not (Get-LabOwnedHostRunPolicy -RunId $lab.RunId -StateRoot $StateRoot)) {
+                $null = Rename-LabAutomatedTestEnvironmentRuntime -RunId $lab.RunId -InstanceId $request.InstanceId `
+                    -Key $request.Key -StateRoot $StateRoot
+            }
             $null = Register-LabTestEnvironmentRun -RunId $lab.RunId -Platform linux -SqlVersion $version -Patch $patch `
                 -InstanceId $request.InstanceId -Name $request.Key -OutputDirectory $OutputDirectory
             $results += $lab

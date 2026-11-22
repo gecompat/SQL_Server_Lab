@@ -320,7 +320,7 @@ und deren Prüfstatus bleiben davon getrennt.
 
 | Cmdlet | Kurzbeschreibung | Konsolenmenü | Browser-GUI |
 |---|---|---|---|
-| [`New-SqlServerLabAutomatedTestEnvironment`](../../Public/TestEnvironment.ps1) | Erstellt Linux-Testumgebungen mit getrennten Zufallskennwörtern und exportiert sie nach `Lab_Data`. | Geschützte Testsystem-Matrix → Testgruppe erstellen oder konfigurieren | – |
+| [`New-SqlServerLabAutomatedTestEnvironment`](../../Public/TestEnvironment.ps1) | Erstellt Linux-Testumgebungen mit getrennten Zufallskennwörtern und exportiert sie nach `Lab_Data`. | Geschützte Testsystem-Matrix → Testgruppe erstellen oder konfigurieren | Geschützte Testsystem-Matrix → Linux-Testumgebung hinzufügen. Einzelne SQL-Version und aktueller Patch aus dem Lab-Katalog. |
 | [`Export-SqlServerLabTestEnvironment`](../../Public/TestEnvironment.ps1) | Exportiert registrierte, live geprüfte Testumgebungen als dotenv, JSON, Agenten-Prompt und Markdown. | Geschützte Testsystem-Matrix → Testgruppe konfigurieren → Export | – |
 | [`Start-SqlServerLabAutomatedTestEnvironment`](../../Public/TestEnvironmentLifecycle.ps1) | Startet die registrierten Mitglieder als Gruppe und prüft sie bis `READY`. | Geschützte Testsystem-Matrix → Testgruppe starten | – |
 | [`Stop-SqlServerLabAutomatedTestEnvironment`](../../Public/TestEnvironmentLifecycle.ps1) | Stoppt die registrierten Mitglieder nicht destruktiv und erneuert den Export fail-closed. | Geschützte Testsystem-Matrix → Testgruppe stoppen | – |
