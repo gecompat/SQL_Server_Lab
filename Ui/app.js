@@ -865,7 +865,7 @@ function renderActiveLabs(items) {
         ? '<div class="build-meta"><strong>Backup-Arbeitsbereich:</strong> Host ' + escapeHtml(instance.PersistentStorage.backupHostPath) + ' → SQL ' + escapeHtml(instance.PersistentStorage.backupGuestPath || '/var/opt/mssql/backup') + '</div>'
         : '';
       const operations = running && instance.Port ? [
-        '<button class="button secondary" data-sql-features="true" data-run="' + escapeHtml(item.RunId) + '" data-instance="' + escapeHtml(instance.Id) + '" data-provider="' + escapeHtml(provider) + '">SQL-Funktionen</button>',
+        '<button class="button secondary" data-sql-features="true" data-run="' + escapeHtml(item.RunId) + '" data-instance="' + escapeHtml(instance.Id) + '" data-provider="' + escapeHtml(provider) + '" data-lab-name="' + escapeHtml(item.Name || item.RunId) + '">Volltextsuche ändern</button>',
         '<button class="button secondary" data-container-operation="CreateContainerDatabase" data-container-operation-kind="container" data-run="' + escapeHtml(item.RunId) + '" data-instance="' + escapeHtml(instance.Id) + '" data-container-operation-host="' + escapeHtml(instance.Host || '127.0.0.1') + '" data-sql-version="' + escapeHtml(instance.SqlVersion) + '" data-port="' + escapeHtml(instance.Port) + '">Datenbank anlegen</button>',
         '<button class="button secondary" data-container-operation="InspectContainerDatabaseMigrationDependencies" data-container-operation-kind="container" data-run="' + escapeHtml(item.RunId) + '" data-instance="' + escapeHtml(instance.Id) + '">Migrationsabhängigkeiten prüfen</button>',
         '<button class="button secondary" data-container-operation="ExportContainerDatabasePackage" data-container-operation-kind="container" data-run="' + escapeHtml(item.RunId) + '" data-instance="' + escapeHtml(instance.Id) + '">Datenbank paketieren</button>',
@@ -912,7 +912,7 @@ function renderHyperVLabs(items) {
       : '';
     const resource = resourceForInstance(item.Resources, item.InstanceId);
     const actions = [
-      (running && isSqlLab) ? '<button class="button secondary" data-sql-features="true" data-run="' + escapeHtml(item.RunId) + '" data-instance="' + escapeHtml(sqlOperationInstanceId) + '" data-provider="hyperv">SQL-Funktionen</button>' : '',
+      (running && isSqlLab && item.InstanceId) ? '<button class="button secondary" data-sql-features="true" data-run="' + escapeHtml(item.RunId) + '" data-instance="' + escapeHtml(item.InstanceId) + '" data-provider="hyperv" data-lab-name="' + escapeHtml(item.Name || item.RunId) + '">Volltextsuche / FILESTREAM</button>' : '',
       '<button class="button secondary" data-hyperv-action="' + (running ? 'StopLabReconcile' : 'StartLabReconcile') + '" data-run="' + escapeHtml(item.RunId) + '">' + (running ? 'Stoppen' : 'Starten') + '</button>',
       '<button class="button secondary" data-lab-resources="true" data-run="' + escapeHtml(item.RunId) + '" data-provider="hyperv" data-memory="' + escapeHtml(resource?.MemoryStartupMB || resource?.memoryStartupMB || '') + '" data-cpu="' + escapeHtml(resource?.ProcessorCount || resource?.processorCount || '') + '" data-requires-stopped="true">CPU / Speicher ändern</button>',
       (!running && !persistent) ? '<button class="button secondary" data-hyperv-action="EnableHyperVLabPersistentData" data-run="' + escapeHtml(item.RunId) + '">Daten-VHDX anhängen</button>' : '',
@@ -1894,8 +1894,9 @@ document.addEventListener('click', async (event) => {
     const windows = featureButton.dataset.provider === 'hyperv';
     $('#sql-feature-run').value = featureButton.dataset.run;
     $('#sql-feature-instance').value = featureButton.dataset.instance;
+    $('#sql-feature-target').textContent = (featureButton.dataset.labName || featureButton.dataset.run) + ' · ' + featureButton.dataset.instance;
     $('#sql-feature-name').value = 'FullText';
-    $('#sql-feature-enabled').value = 'true';
+    $('#sql-feature-enabled').value = '';
     $('#sql-feature-filestream-option').disabled = !windows;
     $('#sql-feature-note').textContent = windows ? 'Windows/Hyper-V: Volltext und FILESTREAM-T-SQL-Zugriff. Volltextänderungen benötigen das verifizierte SQL-Medium im konfigurierten Media Root.' : 'Docker/Podman: Volltextsuche verfügbar. FILESTREAM wird von SQL Server auf Linux nicht unterstützt.';
     $('#sql-feature-password-label').hidden = windows;
@@ -2478,7 +2479,9 @@ $('#manifest-form').addEventListener('submit', async (event) => {
 $('#sql-feature-form').addEventListener('submit', async (event) => {
   if (event.submitter?.value === 'cancel') return;
   event.preventDefault();
-  const parameters = { RunId: $('#sql-feature-run').value, InstanceId: $('#sql-feature-instance').value, SqlFeature: $('#sql-feature-name').value, SqlFeatureEnabled: $('#sql-feature-enabled').value === 'true' };
+  const desired = $('#sql-feature-enabled').value;
+  if (desired !== 'true' && desired !== 'false') return;
+  const parameters = { RunId: $('#sql-feature-run').value, InstanceId: $('#sql-feature-instance').value, SqlFeature: $('#sql-feature-name').value, SqlFeatureEnabled: desired === 'true' };
   if ($('#sql-feature-password').value) parameters.SaPassword = $('#sql-feature-password').value;
   queueBackgroundAction('SetSqlFeature', parameters, $('#sql-feature-dialog'), () => { $('#sql-feature-password').value = ''; });
 });

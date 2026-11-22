@@ -1,5 +1,11 @@
 # Optionale Lizenzprofile für Windows und SQL Server
 
+Unter **Grundkonfiguration → Lokale Lizenzprofile prüfen** zeigen Konsole
+und Browser die registrierten Profile und den Zustand ihrer Schlüsseldateien.
+Wähle ein Profil für die lokale Prüfung von Metadaten und Schlüsselformat.
+Ein positiver Befund bestätigt die strukturelle Verwendbarkeit des Profils.
+Der Product Key bleibt verborgen, und es wird kein Aktivierungsdienst kontaktiert.
+
 Lizenzprofile sind eine **zusätzliche** lokale Möglichkeit. Alle bisherigen
 schlüssellosen Wege bleiben erhalten:
 
