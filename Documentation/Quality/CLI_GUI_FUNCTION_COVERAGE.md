@@ -244,6 +244,23 @@ nicht alle Operationen des Bereichs einzeln auf einen CLI-Menüpfad, GUI-Aktion,
 | Vorgänge, Queue und Scheduler | Vorgänge, Queue und Benutzeraktionen | Vorgänge | Batch-/Queue-Einstiege und Workflow-Aktionen | `TEILWEISE`; jede Operation und ihre Abbruch-/Recoverypfade noch einzeln abzugleichen |
 | Expertenbefehle und Meldungen | Alle öffentlichen Befehle / Meldungen | Alle Funktionen / Meldungen | Generierter Export-/Parametersatzkatalog; Konsolen- und Workflow-UI-Prüfungen | `EXPERT_CATALOG_ONLY` als Fachführung; Katalogvollständigkeit ist separat statisch prüfbar |
 
+### Geprüfte Teilmenge: Linux-Testumgebung anlegen
+
+**Geschützte Testsystem-Matrix → Linux-Testumgebung hinzufügen** führt im
+Browser eine einzelne SQL-Version mit dem katalogisierten aktuellen Patch
+über die vorhandene Gruppenanlage aus. Vorschau, Eingabeänderung, Abbruch,
+Bestätigung und gesperrte Wiederholung sind synthetisch geprüft. Der
+Workflow liefert nur den registrierten Schlüssel und die Gruppenbereitschaft.
+
+Am 22.11.2026 registrierte der Workflow-Adapter auf `b3a3c850` ein
+eigenes Docker-Lab und in einem getrennten Lauf ein eigenes Podman-Lab
+mit SQL Server 2025. Beide Gruppenexporte meldeten Bereitschaft.
+Die jeweiligen Bereinigungen entfernten die eigenen Ressourcen und
+bestätigten den unveränderten Bestand. Beim früheren kombinierten Lauf
+erreichte Podman die SQL-Bereitschaft innerhalb des Zeitlimits nicht.
+Die native Abnahme belegt die getrennte Anlage je Provider. Der
+Browserversand ist separat synthetisch geprüft.
+
 ### Geprüfte Teilmenge: CMS-Management
 
 Der geführte Browserdialog **Verbindungen und CMS → CMS bereitstellen**
