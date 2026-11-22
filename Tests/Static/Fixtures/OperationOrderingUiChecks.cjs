@@ -11,8 +11,16 @@ const queueSource = fs.readFileSync(path.join(uiRoot, 'operation-queue.js'), 'ut
 const html = fs.readFileSync(path.join(uiRoot, 'index.html'), 'utf8');
 assert.match(html, /<script src="operation-queue\.js"><\/script>\s+<script src="app\.js"><\/script>/);
 assert.match(html, /id="operation-host-start" type="button"/);
+assert.match(html, /<button type="button"[^>]*data-confirmation-cancel>Abbrechen<\/button>/);
 
 const handlers = new Map();
+let completed = false;
+process.once('beforeExit', () => {
+  if (!completed && !process.exitCode) {
+    console.error('OPERATION ORDERING UI did not complete its assertions');
+    process.exitCode = 1;
+  }
+});
 function element(tag) {
   return {
     tag, dataset: {}, attributes: {}, children: [], text: '',
@@ -27,9 +35,13 @@ function element(tag) {
 
 const document = { addEventListener: (name, handler) => handlers.set(name, handler), createElement: element };
 const queueElement = { innerHTML: 'previous rendering' };
+const confirmationDialog = {
+  id: 'confirmation-dialog', open: true, querySelectorAll: () => [],
+  close() { this.open = false; }
+};
 const elements = new Map([
   ['#confirmation-form', { addEventListener: (name, handler) => handlers.set(name, handler) }],
-  ['#confirmation-dialog', { close() {} }],
+  ['#confirmation-dialog', confirmationDialog],
   ['#notice', element('p')],
   ['#operation-host-start', element('button')],
   ['#operation-queue', queueElement],
@@ -57,6 +69,10 @@ const context = vm.createContext({
   showError: error => errors.push(error.message)
 });
 vm.runInContext(queueSource, context);
+const cancelStart = source.indexOf('function cancelDialog(');
+const cancelEnd = source.indexOf("document.addEventListener('click',", cancelStart);
+assert.ok(cancelStart >= 0 && cancelEnd > cancelStart);
+vm.runInContext(source.slice(cancelStart, cancelEnd), context);
 const submitStart = source.indexOf("$('#confirmation-form').addEventListener");
 const submitEnd = source.indexOf("$('#artifact-name-form').addEventListener", submitStart);
 assert.ok(submitStart >= 0 && submitEnd > submitStart);
@@ -184,7 +200,10 @@ assert.match(markup({ ...first, operationId: 'id"quoted' }), /data-operation-pri
   assert.equal(schedulerConfirmation.action, '__StartOperationHost');
   assert.match(schedulerConfirmation.message, /alle freigegebenen Vorgänge/);
   context.pendingConfirmation = schedulerConfirmation;
-  await handlers.get('submit')({ submitter: { value: 'cancel' }, preventDefault() {} });
+  confirmationDialog.open = true;
+  context.cancelDialog(confirmationDialog);
+  assert.equal(context.pendingConfirmation, null);
+  assert.equal(confirmationDialog.open, false);
   assert.equal(requests.length, countBeforeScheduler);
 
   context.pendingConfirmation = schedulerConfirmation;
@@ -198,6 +217,7 @@ assert.match(markup({ ...first, operationId: 'id"quoted' }), /data-operation-pri
   assert.equal(schedulerButton.disabled, false);
   assert.match(elements.get('#notice').textContent, /^Scheduler angefordert/);
   assert.equal(requests.length, countBeforeScheduler + 1);
+  completed = true;
   console.log('OPERATION ORDERING UI: PASS');
 })().catch(error => {
   console.error(error.message);
