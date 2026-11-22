@@ -10,8 +10,17 @@ const source = fs.readFileSync(path.join(uiRoot, 'app.js'), 'utf8');
 const queueSource = fs.readFileSync(path.join(uiRoot, 'operation-queue.js'), 'utf8');
 const html = fs.readFileSync(path.join(uiRoot, 'index.html'), 'utf8');
 assert.match(html, /<script src="operation-queue\.js"><\/script>\s+<script src="app\.js"><\/script>/);
+assert.match(html, /id="operation-host-start" type="button"/);
+assert.match(html, /<button type="button"[^>]*data-confirmation-cancel>Abbrechen<\/button>/);
 
 const handlers = new Map();
+let completed = false;
+process.once('beforeExit', () => {
+  if (!completed && !process.exitCode) {
+    console.error('OPERATION ORDERING UI did not complete its assertions');
+    process.exitCode = 1;
+  }
+});
 function element(tag) {
   return {
     tag, dataset: {}, attributes: {}, children: [], text: '',
@@ -26,10 +35,15 @@ function element(tag) {
 
 const document = { addEventListener: (name, handler) => handlers.set(name, handler), createElement: element };
 const queueElement = { innerHTML: 'previous rendering' };
+const confirmationDialog = {
+  id: 'confirmation-dialog', open: true, querySelectorAll: () => [],
+  close() { this.open = false; }
+};
 const elements = new Map([
   ['#confirmation-form', { addEventListener: (name, handler) => handlers.set(name, handler) }],
-  ['#confirmation-dialog', { close() {} }],
+  ['#confirmation-dialog', confirmationDialog],
   ['#notice', element('p')],
+  ['#operation-host-start', element('button')],
   ['#operation-queue', queueElement],
   ['#batch-overview-rows', element('tbody')],
   ['#batch-overview-table', element('table')],
@@ -55,6 +69,10 @@ const context = vm.createContext({
   showError: error => errors.push(error.message)
 });
 vm.runInContext(queueSource, context);
+const cancelStart = source.indexOf('function cancelDialog(');
+const cancelEnd = source.indexOf("document.addEventListener('click',", cancelStart);
+assert.ok(cancelStart >= 0 && cancelEnd > cancelStart);
+vm.runInContext(source.slice(cancelStart, cancelEnd), context);
 const submitStart = source.indexOf("$('#confirmation-form').addEventListener");
 const submitEnd = source.indexOf("$('#artifact-name-form').addEventListener", submitStart);
 assert.ok(submitStart >= 0 && submitEnd > submitStart);
@@ -171,6 +189,35 @@ assert.match(markup({ ...first, operationId: 'id"quoted' }), /data-operation-pri
   await submit;
   assert.equal(context.pendingConfirmation, null);
   assert.match(elements.get('#notice').textContent, /Stopp für 2 Positionen angenommen/);
+
+  const schedulerButton = elements.get('#operation-host-start');
+  const clickScheduler = () => handlers.get('click')({ target: {
+    closest: selector => selector === '#operation-host-start' ? schedulerButton : null
+  } });
+  const countBeforeScheduler = requests.length;
+  await clickScheduler();
+  const schedulerConfirmation = confirmations.at(-1);
+  assert.equal(schedulerConfirmation.action, '__StartOperationHost');
+  assert.match(schedulerConfirmation.message, /alle freigegebenen Vorgänge/);
+  context.pendingConfirmation = schedulerConfirmation;
+  confirmationDialog.open = true;
+  context.cancelDialog(confirmationDialog);
+  assert.equal(context.pendingConfirmation, null);
+  assert.equal(confirmationDialog.open, false);
+  assert.equal(requests.length, countBeforeScheduler);
+
+  context.pendingConfirmation = schedulerConfirmation;
+  const requestScheduler = handlers.get('submit')({ preventDefault() {} });
+  assert.equal(schedulerButton.disabled, true);
+  assert.deepEqual(requests.at(-1), { url: '/api/operations', method: 'POST', command: 'StartOperationHost', confirmed: true });
+  await clickScheduler();
+  assert.equal(confirmations.at(-1), schedulerConfirmation);
+  resolveRequest({ ok: true, json: async () => ({ state: 'Requested' }) });
+  await requestScheduler;
+  assert.equal(schedulerButton.disabled, false);
+  assert.match(elements.get('#notice').textContent, /^Scheduler angefordert/);
+  assert.equal(requests.length, countBeforeScheduler + 1);
+  completed = true;
   console.log('OPERATION ORDERING UI: PASS');
 })().catch(error => {
   console.error(error.message);

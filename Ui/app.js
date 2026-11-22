@@ -2945,6 +2945,12 @@ $('#confirmation-form').addEventListener('submit', async (event) => {
     finally { submit.disabled = false; }
     return;
   }
+  if (confirmation.action === '__StartOperationHost') {
+    $('#confirmation-dialog').close();
+    try { await requestOperationHost(); }
+    catch (error) { showError(error); }
+    return;
+  }
   if (confirmation.action === '__BatchStop') {
     $('#confirmation-dialog').close();
     try { await applyBrowserBatchStop(confirmation.parameters); }

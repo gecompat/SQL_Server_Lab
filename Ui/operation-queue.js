@@ -133,6 +133,27 @@ async function applyBrowserBatchStop(parameters) {
     : 'Keine unfertige Position musste gestoppt werden.';
 }
 
+async function requestOperationHost() {
+  const button = $('#operation-host-start');
+  if (button.disabled) return;
+  button.disabled = true;
+  try {
+    const response = await sqlServerLabUiFetch('/api/operations', { method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ command: 'StartOperationHost', confirmed: true }) });
+    if (!response.ok) throw new Error(await response.text());
+    if ((await response.json()).state !== 'Requested') {
+      throw new Error('Scheduler-Anforderung unbestätigt. Bitte die Warteschlange prüfen.');
+    }
+    await refresh();
+    const notice = $('#notice');
+    notice.hidden = false;
+    notice.textContent = 'Scheduler angefordert. Die Warteschlange zeigt, sobald Vorgänge anlaufen.';
+  } finally {
+    button.disabled = false;
+  }
+}
+
 async function runOperationCommand(operationId, command, verificationType) {
   const payload = { operationId, command };
   if (command === 'Confirm' && verificationType === 'HyperVWindowsSetup') {
@@ -178,6 +199,15 @@ document.addEventListener('change', async (event) => {
 });
 
 document.addEventListener('click', async (event) => {
+  const hostStart = event.target.closest('#operation-host-start');
+  if (hostStart) {
+    if (!hostStart.disabled) {
+      openConfirmation('Hintergrundscheduler anfordern',
+        'Der Scheduler kann alle freigegebenen Vorgänge der aktuellen Warteschlange ausführen.',
+        '__StartOperationHost', {}, 'Scheduler anfordern');
+    }
+    return;
+  }
   const batchStop = event.target.closest('[data-batch-stop]');
   if (batchStop) {
     if (batchStop.disabled) return;
