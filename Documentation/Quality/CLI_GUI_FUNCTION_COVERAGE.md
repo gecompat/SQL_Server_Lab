@@ -155,6 +155,7 @@ Die Vorschau erfordert für diese Prüfung keinen Start einer Hyper-V-VM.
 | SSMS-Registrierungen exportieren (`Export-SqlServerLabSsmsRegistration`) | Verbindungszentrale → SSMS-Export | Verbindungen und CMS → SSMS-Registrierungen herunterladen | `GUIDED_BOTH` für gespeicherte reguläre Endpunkte. Der Browser liefert bis zu 500 Einträge als kennwortfreie `.regsrvr` ohne Providerabfrage. CMS-Vertrags- und Browserprüfungen decken Auswahl und Download ab. |
 | Registrierten CMS abgleichen (`Sync-SqlServerLabCms`) | Verbindungszentrale → CMS verwalten und synchronisieren → CMS jetzt synchronisieren | Verbindungen und CMS → Registrierten CMS lesend prüfen → CMS synchronisieren | `GUIDED_BOTH` für vorhandene Docker-/Podman-CMS ohne Kennwortalias. Der Browser bestätigt die zuletzt gelesene Registrierung. Der Core prüft Run und Container, führt den verwalteten SQL-Abgleich aus und lässt unverwaltete Registrierungen bestehen. Synthetische Prüfungen decken auch veraltete Auswahlen ab. |
 | SqlPackage-Version abfragen (`Test-SqlServerLabContainerTool`) | Lab-Umgebungen → Datenbanken, Samples und Skripte → SqlPackage-Version im Container prüfen | Lab erstellen → SqlPackage-Version im Container prüfen | `GUIDED_BOTH` für kataloggebundenes SqlPackage in einer ausgewählten Docker-/Podman-Instanz. Die Versionsabfrage bindet die geprüfte Container-ID. Softwarekatalog- und Browserprüfungen decken Fehlerpfade und die read-only Weiterleitung ab. |
+| Wartende Vorgänge priorisieren und umreihen (`Set-SqlServerLabOperationPriority`, `Move-SqlServerLabOperation`) | Vorgänge, Queue und Benutzeraktionen → Priorität ändern oder Vorgang umreihen | Vorgänge, Warteschlange und Wiederaufnahme → Priorität, Nach oben oder Nach unten am Vorgang | `GUIDED_BOTH` für wartende Vorgänge. Die Browserprüfung deckt angezeigte Optionen, gebundene Vorgangs-ID, laufende Vorgänge und parallele Bedienung desselben Vorgangs ab. |
 
 Am 21.11.2026 bestand `Invoke-ConnectionCenterCmsInspectionAcceptance.ps1
 -IncludeBoundSync -Version 2025` auf Quellrevision `f4b81ac1` separat
@@ -273,6 +274,12 @@ prüft den Wiederanlauf über die Reparatur und entfernt es über die
 Gruppenaktion. Er prüft anschließend den Bestand der Hyper-V-VM-IDs und die
 Abwesenheit der eigenen Child-Datenträger. Der Browser- und Menüversand wird
 weiterhin separat geprüft.
+
+Am 22.11.2026 bestand dieser Ablauf auf Key18 für SQL Server 2025
+(`17.0.1000.7`) auf Commit `9d21a819`. Nach Anlage und Reparatur
+war SQL jeweils bereit. Der Lauf endete im Zustand `REMOVED`, der
+Child-Datenträger fehlte und der Bestand fremder Hyper-V-VMs blieb gleich.
+[Key18-Abnahmeprotokoll](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45024970153/job/137215913050)
 
 ### Geprüfte Teilmenge: CMS-Management
 
