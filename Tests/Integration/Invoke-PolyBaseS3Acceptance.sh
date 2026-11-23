@@ -8,6 +8,23 @@ if [[ "$(printenv GITHUB_ACTIONS)" != true || "$(printenv RUNNER_ENVIRONMENT)" !
   exit 2
 fi
 
+consumer_sql=''
+case $# in
+  0) ;;
+  1)
+    if [[ "$1" != '--verify-consumer-contract' || "$GITHUB_REPOSITORY" != 'gecompat/SQL_Server_Lab' ]]; then exit 2; fi
+    consumer_sql='lab-contract'
+    ;;
+  2)
+    if [[ "$1" != '--consumer-sql' || "$GITHUB_REPOSITORY" != 'gecompat/SQL_Server_Analyze' ]]; then exit 2; fi
+    consumer_sql="$(realpath -e -- "$2")"
+    if [[ "$consumer_sql" != "$(realpath -e -- "$RUNNER_TEMP")/"*/wi0009-consumer.sql ||
+          ! -f "$consumer_sql" || ! -s "$consumer_sql" || -L "$2" ]] ||
+          (( $(stat -c %s -- "$consumer_sql") > 33554432 )); then exit 2; fi
+    ;;
+  *) exit 2 ;;
+esac
+
 readonly label='io.gecompat.sql-server-lab.polybase-probe'
 readonly scope="polybase-$(openssl rand -hex 8)"
 readonly root="$(mktemp -d "$RUNNER_TEMP/$scope.XXXXXX")"
@@ -24,6 +41,7 @@ sql_id=''
 volume_created=''
 stage='initialization'
 engine_result=''
+consumer_result=''
 
 cleanup() {
   local rc=$? cleanup_rc=0 id
@@ -79,6 +97,7 @@ cleanup() {
     printf 'POLYBASE_S3_FAILED_STAGE=%s\n' "$stage" >&2
   else
     printf '%s\n' "$engine_result"
+    if [[ -n "$consumer_result" ]]; then printf '%s\n' "$consumer_result"; fi
   fi
   exit "$rc"
 }
@@ -267,3 +286,48 @@ if ! sql <"$root/read.sql" >"$root/sql-results" 2>"$root/sql-error"; then
   exit 1
 fi
 engine_result="$(grep -Fx 'POLYBASE_S3_NATIVE=PASS|SQL2025_CU9|CSV_ROWS=2|COLUMNS=2|READ_ONLY_KEY=1' "$root/sql-results")"
+
+if [[ -n "$consumer_sql" ]]; then
+  stage='consumer_network_isolation'
+  docker network disconnect "$network_id" "$sql_id"
+  [[ "$(docker container inspect --format '{{len .NetworkSettings.Networks}}' "$sql_id")" == 0 ]]
+  if [[ "$consumer_sql" == 'lab-contract' ]]; then
+    consumer_sql="$root/wi0009-consumer.sql"
+    cat >"$consumer_sql" <<'SQL'
+USE [ExamplePolyBaseProbe];
+GO
+SET NOCOUNT ON;
+IF NOT EXISTS (SELECT 1 FROM sys.external_tables WHERE object_id=OBJECT_ID(N'dbo.ExampleExternal'))
+    THROW 50002,'Native external table is unavailable to the SQL consumer.',1;
+SELECT 'POLYBASE_S3_CONSUMER=PASS';
+GO
+SQL
+  fi
+  stage='consumer_sql_input'
+  # Bind validation and execution to the same private UTF-8 byte stream.
+  python3 - "$consumer_sql" "$root/validated-consumer.sql" <<'PY'
+import pathlib
+import re
+import sys
+
+with pathlib.Path(sys.argv[1]).open('rb') as source:
+    raw = source.read(32 * 1024 * 1024 + 1)
+if not raw or len(raw) > 32 * 1024 * 1024 or b'\0' in raw:
+    raise SystemExit(2)
+try:
+    sql = raw.decode('utf-8')
+except UnicodeError:
+    raise SystemExit(2) from None
+directives = re.compile(r'^(?::|!!|(?:ED|EXIT|QUIT|RESET)(?:[\s(]|$))', re.IGNORECASE)
+if any(directives.match(line.lstrip().lstrip('\ufeff').lstrip()) for line in sql.splitlines()):
+    raise SystemExit(2)
+pathlib.Path(sys.argv[2]).write_bytes(raw)
+PY
+  stage='sql_catalog_consumer'
+  if ! sql -x <"$root/validated-consumer.sql" >"$root/consumer-results" 2>"$root/consumer-error"; then
+    sed -nE 's/^Msg ([0-9]+),.*/POLYBASE_CONSUMER_SQL_ERROR=\1/p' "$root/consumer-error" | sort -u >&2
+    exit 1
+  fi
+  consumer_result="$(grep -Fx 'POLYBASE_S3_CONSUMER=PASS' "$root/consumer-results")"
+  [[ "$consumer_result" == 'POLYBASE_S3_CONSUMER=PASS' ]]
+fi

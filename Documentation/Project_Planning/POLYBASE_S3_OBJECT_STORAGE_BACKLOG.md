@@ -243,3 +243,13 @@ zugehörigen Workflowlauf.
 - automatische Migration fremder Buckets oder Bestandsdaten;
 - direkte HDFS-/Hadoop-Konnektivität unter der Bezeichnung dieses S3-Pfads;
 - Cloud-Provisionierung oder automatisch erzeugte öffentliche Endpunkte.
+
+Ein nachgelagerter SQL-Vertrag kann die aktuelle native Katalog-Fixture
+im selben isolierten SQL-Container verwenden. Vor dem Verbraucheraufruf
+trennt die Fixture den SQL-Container vom Testnetz. Die Lab-CI prüft den Anschluss
+durch Lesen von `sys.external_tables`. Ein Analyze-Aufruf kann dafür genau
+eine gebundene SQL-Datei aus dem temporären Runner-Verzeichnis einreichen.
+Der Anschluss weist SQLCMD-Direktiven ab und deaktiviert Variablenersetzung.
+Die Prüfung
+veröffentlicht nur einen festen Erfolgsmarker oder numerische SQL-Fehlercodes.
+Ein erfolgreicher Lab-Anschluss ist noch kein Nachweis für ein Analyze-Modul.

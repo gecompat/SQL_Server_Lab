@@ -28,4 +28,4 @@ jobs:
       - name: Check fixture script syntax
         run: bash -n Tests/Integration/Invoke-PolyBaseS3Acceptance.sh
       - name: Verify native HTTPS external-table data and metadata
-        run: timeout --signal=TERM --kill-after=60s 18m bash Tests/Integration/Invoke-PolyBaseS3Acceptance.sh
+        run: timeout --signal=TERM --kill-after=60s 18m bash Tests/Integration/Invoke-PolyBaseS3Acceptance.sh --verify-consumer-contract
