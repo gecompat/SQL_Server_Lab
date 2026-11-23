@@ -540,6 +540,34 @@ if (-not $lock) { throw 'BATCH_SUMMARY_LOCK_ACQUISITION_FAILED' }
         Assert-Check ($check.Value -eq $true) "Browser batch stop: $($check.Name)"
     }
 
+    & $module {
+        param($Root)
+        $batch = New-SqlServerLabBatch -Name 'Synthetic rollback' -StateRoot $Root -Items @([pscustomobject]@{ id='done'; kind='Test'; intent=@{} })
+        $operation = Get-SqlServerLabOperation -OperationId $batch.operationIds[0] -StateRoot $Root
+        $operation.status = 'Completed'
+        Write-LabOperationState -Operation $operation -StateRoot $Root | Out-Null
+        Update-LabBatchSummary -BatchId $batch.batchId -StateRoot $Root | Out-Null
+        $call = @{BatchId=$batch.batchId; StateRoot=$Root}
+        $preview = New-LabBrowserBatchStopPreview @call -Rollback
+        if ($preview.Finished -ne 1 -or $preview.Pending -ne 1) { throw 'Rollback preview misses the completed position.' }
+        try {
+            Invoke-LabBrowserBatchStopPreview @call -PreviewId $preview.PreviewId | Out-Null
+            throw 'Rollback preview accepted as standard stop.'
+        } catch { if ($_.Exception.Message -cne 'BROWSER_BATCH_STOP_PREVIEW_REQUIRED') { throw } }
+        $operation.title = 'Changed after preview'
+        Write-LabOperationState -Operation $operation -StateRoot $Root | Out-Null
+        try {
+            Invoke-LabBrowserBatchStopPreview @call -PreviewId $preview.PreviewId -Rollback | Out-Null
+            throw 'Stale rollback accepted.'
+        } catch { if ($_.Exception.Message -cne 'BROWSER_BATCH_STOP_PREVIEW_STALE') { throw } }
+        if ((Get-SqlServerLabOperation -OperationId $operation.operationId -StateRoot $Root).status -cne 'Completed') { throw 'Stale rollback changed state.' }
+        $fresh = New-LabBrowserBatchStopPreview @call -Rollback
+        $receipt = Invoke-LabBrowserBatchStopPreview @call -PreviewId $fresh.PreviewId -Rollback
+        if ($receipt.Requested -ne 1 -or (Get-SqlServerLabOperation -OperationId $operation.operationId -StateRoot $Root).status -cne 'CleanupQueued') {
+            throw 'Confirmed rollback did not queue the completed position.'
+        }
+    } (Join-Path $testRoot 'browser-batch-rollback')
+
     $abandoned = Get-SqlServerLabOperation -OperationId $controlOperations[0].operationId -StateRoot $testRoot
     $abandoned.status = 'Running'
     $abandoned.worker = [pscustomobject]@{ host = [Environment]::MachineName; processId = 2147483000; heartbeatAt = [DateTime]::UtcNow.AddMinutes(-1).ToString('o') }

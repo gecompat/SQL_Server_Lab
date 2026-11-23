@@ -89,13 +89,13 @@ $module = New-Module -Name SqlServerLab -ArgumentList $root -ScriptBlock {
         [pscustomobject]@{BatchId=$BatchId;Status='Queued'}
     }
     function New-LabBrowserBatchStopPreview {
-        param($BatchId,$StateRoot)
-        $script:BatchStopCalls.Add([pscustomobject]@{Stage='Preview'; Batch=$BatchId; Root=$StateRoot})
+        param($BatchId,$StateRoot,[switch]$Rollback)
+        $script:BatchStopCalls.Add([pscustomobject]@{Stage='Preview'; Batch=$BatchId; Root=$StateRoot; Rollback=[bool]$Rollback})
         [pscustomobject]@{BatchId=$BatchId; PreviewId=('a'*32); Pending=2; Running=1}
     }
     function Invoke-LabBrowserBatchStopPreview {
-        param($BatchId,$PreviewId,$StateRoot)
-        $script:BatchStopCalls.Add([pscustomobject]@{Stage='Apply'; Batch=$BatchId; Root=$StateRoot; PreviewId=$PreviewId})
+        param($BatchId,$PreviewId,$StateRoot,[switch]$Rollback)
+        $script:BatchStopCalls.Add([pscustomobject]@{Stage='Apply'; Batch=$BatchId; Root=$StateRoot; PreviewId=$PreviewId; Rollback=[bool]$Rollback})
         [pscustomobject]@{BatchId=$BatchId; Requested=2}
     }
 }
@@ -154,6 +154,14 @@ try {
     Check ($ResponseCode -eq 200 -and $result.Requested -eq 2 -and $calls.Count -eq 2 -and
         $calls[1].PreviewId -ceq $preview.PreviewId -and $calls[1].Root -ceq $root -and
         (& $module { $script:HostRoots[0] }) -ceq $root) 'Confirmed batch stop and host request use the exact batch and root'
+    & $module { $script:HostRoots = @() }
+    Invoke-BatchStopBody @{command='BatchRollbackPreview';batchId=$batchId}
+    $rollbackPreview = $ResponseBody | ConvertFrom-Json
+    Check ($ResponseCode -eq 200 -and (& $module { $script:BatchStopCalls[2].Rollback -and $script:HostRoots.Count -eq 0 })) 'Rollback preview is explicit and starts no host'
+    Invoke-BatchStopBody @{command='BatchRollbackApply';batchId=$batchId;previewId=$rollbackPreview.PreviewId;confirmed=$false}
+    Check ($ResponseCode -eq 400 -and (& $module { $script:BatchStopCalls.Count }) -eq 3) 'Rollback requires affirmative confirmation'
+    Invoke-BatchStopBody @{command='BatchRollbackApply';batchId=$batchId;previewId=$rollbackPreview.PreviewId;confirmed=$true}
+    Check ($ResponseCode -eq 200 -and (& $module { $script:BatchStopCalls[3].Rollback -and $script:BatchStopCalls[3].Root -ceq $script:HostRoots[0] })) 'Confirmed rollback dispatch uses the bound root'
     & $module { $script:HostRoots = @() }
     Invoke-BatchStopBody @{command='StartOperationHost';confirmed=$false}
     Check ($ResponseCode -eq 400 -and (& $module { $script:HostRoots.Count }) -eq 0) 'Guided scheduler request without confirmation starts nothing'
