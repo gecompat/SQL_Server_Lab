@@ -23,11 +23,15 @@ $cases=@(foreach($entry in @(
     [pscustomobject]@{Name=$entry.Name;Text=$calls[0].Extent.Text}
 })
 $transport=Get-BoundaryFunctionAst (Join-Path $RepoRoot 'Providers/HyperV/HyperVProvider.ps1') 'Invoke-HyperVPowerShellDirect'
+$slotPlan = Get-BoundaryFunctionAst $environment 'Get-LabHyperVSqlSlotBrowserPlan'
+$slotInstall = Get-BoundaryFunctionAst $environment 'Invoke-HyperVLabSqlSlotInstall'
 $module=New-Module -Name ('SqlCompletionBoundary_'+[guid]::NewGuid().ToString('N')) -ScriptBlock {
-    param($PublicPath,$TransportText)
+    param($PublicPath,$TransportText,$SlotPlanText,$SlotInstallText)
     . $PublicPath
     . ([scriptblock]::Create($TransportText))
-} -ArgumentList (Join-Path $RepoRoot 'Public/Invoke-SqlServerLabWorkflowAction.ps1'),$transport.Extent.Text
+    . ([scriptblock]::Create($SlotPlanText))
+    . ([scriptblock]::Create($SlotInstallText))
+} -ArgumentList (Join-Path $RepoRoot 'Public/Invoke-SqlServerLabWorkflowAction.ps1'),$transport.Extent.Text,$slotPlan.Extent.Text,$slotInstall.Extent.Text
 try{
     $result=& $module {
         param($Cases)
@@ -39,6 +43,75 @@ try{
         function Write-LabSuccess {}
         function Test-HyperVAvailable {[pscustomobject]@{Available=$true;Message='synthetic'}}
         Set-Variable -Name IsWindows -Scope Script -Value $true -Force
+        & {
+            function Get-LabMediaRootDefault { 'synthetic-media' }
+            function Get-LabTimestamp { '2026-11-23T00:00:00Z' }
+            function Get-LabWindowsPoolPlanKey {
+                param($Plan)
+                [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes(($Plan | ConvertTo-Json -Depth 20 -Compress)))).ToLowerInvariant()
+            }
+            $script:slotCalls = 0
+            $runId = [guid]::NewGuid().ToString()
+            $scopeId = [guid]::NewGuid().ToString()
+            $vmId = [guid]::NewGuid().ToString()
+            $member = [pscustomobject]@{ state='CONSUMED'; runId=$runId; scopeId=$scopeId; vmId=$vmId; instanceId='primary'; revision=1 }
+            $run = [pscustomobject]@{ runId=$runId; scopeId=$scopeId; state='STOPPED'; metadata=[pscustomobject]@{windowsPoolMember=$member} }
+            $plan = [pscustomobject]@{ deploymentMode='adhoc-install'; networkMode='host-access'; state='PLANNED'; sqlVersion='2025'; mediaEdition='Enterprise'; features=@('SQLENGINE','FULLTEXT'); sqlMediaPath='synthetic-private-path' }
+            $instance = [pscustomobject]@{ id='primary'; vmId=$vmId; sqlDeploymentPlan=$plan }
+            $preview = Get-LabHyperVSqlSlotBrowserPlan -Run $run -Instance $instance -StateRoot synthetic-root -MediaRoot synthetic-media -VmState Off
+            Check ($preview.State -ceq 'PLANNED' -and $preview.PlanKey -cmatch '^[a-f0-9]{64}$' -and
+                ($preview | ConvertTo-Json) -cnotmatch 'synthetic-private-path|synthetic-root|synthetic-media') 'Browser slot preview projects safe fields'
+            Check (-not (Get-LabHyperVSqlSlotBrowserPlan -Run $run -Instance $instance -StateRoot synthetic-root -MediaRoot synthetic-media -VmState Running)) 'First setup requires a stopped VM'
+            $plan.state = 'PATCH_PENDING'
+            $resume = Get-LabHyperVSqlSlotBrowserPlan -Run $run -Instance $instance -StateRoot synthetic-root -MediaRoot synthetic-media -VmState Running
+            Check ($resume.State -ceq 'PATCH_PENDING' -and $resume.PlanKey -cne $preview.PlanKey) 'Resume is bound to the saved phase and actual VM state'
+            $member.state = 'CLAIMED'
+            Check (-not (Get-LabHyperVSqlSlotBrowserPlan -Run $run -Instance $instance -StateRoot synthetic-root -MediaRoot synthetic-media -VmState Off)) 'A protected pool claim has no install action'
+            $member.state = 'CONSUMED'
+            $syntheticLab = [pscustomobject]@{ Run=$run; Instance=$instance }
+            $script:networkChecks = 0
+            $script:effectChecks = 0
+            function Get-LabWorkflowHash {
+                param($Text,$Length)
+                [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($Text)))
+            }
+            function Get-HyperVLabWorkflowRun {
+                param($RunId,$StateRoot,$ExpectedVmId,[switch]$NoWrite)
+                if (-not $NoWrite -or $RunId -cne $run.runId -or $StateRoot -cne 'synthetic-root') { throw 'SYNTHETIC_UNBOUND_READ' }
+                $syntheticLab
+            }
+            function Assert-HyperVLabSqlVmBinding {
+                param($Lab,$ExpectedVmId)
+                if ($ExpectedVmId -ne [guid]$Lab.Instance.vmId) { throw 'SYNTHETIC_VM_BINDING_FAILED' }
+                [pscustomobject]@{VM=[pscustomobject]@{Id=$ExpectedVmId;State='Running'}}
+            }
+            function Assert-HyperVLabSqlExistingNetwork { $script:networkChecks++ }
+            function Assert-LabWindowsPoolMutationAllowed {
+                $script:effectChecks++
+                throw 'SYNTHETIC_FIRST_EFFECT_BOUNDARY'
+            }
+            foreach ($case in @(
+                @{ Key=$preview.PlanKey; Code='HYPERV_LAB_SQL_INSTALL_PREVIEW_STALE'; Checks=0 },
+                @{ Key=$resume.PlanKey; Code='SYNTHETIC_FIRST_EFFECT_BOUNDARY'; Checks=1 })) {
+                $observed = $null
+                try { $null = Invoke-HyperVLabSqlSlotInstall -RunId $runId -StateRoot synthetic-root -MediaRoot synthetic-media -ExpectedPlanKey $case.Key }
+                catch { $observed = $_.Exception.Message }
+                Check ($observed -ceq $case.Code -and $script:networkChecks -eq $case.Checks -and $script:effectChecks -eq $case.Checks) ('Install core validates the current plan and network before effects: ' + $case.Code)
+            }
+            function Invoke-HyperVLabSqlSlotInstall {
+                param($RunId,$MediaRoot,$ExpectedPlanKey,[switch]$RequireExistingNetwork)
+                $script:slotCalls++
+                if (-not $RequireExistingNetwork -or $MediaRoot -cne 'synthetic-media' -or $ExpectedPlanKey -cne $resume.PlanKey) { throw 'SYNTHETIC_BOUNDARY_FAILED' }
+                [pscustomobject]@{RunId=$RunId;State='SQL_SLOT_READY';GeneratedSqlAccess='SYNTHETIC_SECRET_MUST_NOT_BE_RETURNED'}
+            }
+            $slot = Invoke-SqlServerLabWorkflowAction -Action InstallHyperVLabSqlSlot -RunId $runId -ExpectedPlanKey $resume.PlanKey
+            Check ($script:slotCalls -eq 1 -and $slot.Result.State -ceq 'SQL_SLOT_READY' -and
+                ($slot | ConvertTo-Json -Depth 4) -cnotmatch 'GeneratedSqlAccess|SYNTHETIC_SECRET') 'Slot action installs against the bound default and returns only its public receipt'
+            $rejected = $false
+            try { $null = Invoke-SqlServerLabWorkflowAction -Action InstallHyperVLabSqlSlot -RunId $runId -ExpectedPlanKey $resume.PlanKey -MediaRoot foreign }
+            catch { $rejected = $_.Exception.Message -ceq 'HYPERV_LAB_SQL_INSTALL_PREVIEW_REQUIRED' }
+            Check ($rejected -and $script:slotCalls -eq 1) 'Slot action rejects a caller-supplied media root before delegation'
+        }
         $script:completionCalls=0
         function Complete-HyperVLabSqlImage {
             param($RunId,$Credential,$SqlSaPassword,$StateRoot='synthetic-default-state',$MediaRoot='synthetic-default-media')

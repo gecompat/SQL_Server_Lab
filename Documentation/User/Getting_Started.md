@@ -2558,6 +2558,9 @@ nichts. Registrierte Kandidaten sind keine bestätigte freie Reserve; ohne
 Poolmitgliedschaft und Claims bleiben Defizit und Auffüllzahl unbekannt. Der
 Dialog erstellt keine Slots und aktiviert keine automatische Auffüllung.
 Einzelheiten im [Bedienvertrag](../HowTo/WORKFLOW_UI.md).
+Nach der Übernahme eines Poolmitglieds kannst du dessen gespeicherten
+SQL-Ausbau in **Lab verwalten → Reguläre Hyper-V-Umgebungen** starten oder
+aus einem unterstützten Wiederaufnahmezustand fortsetzen.
 Der nicht interaktive Adapter `Invoke-SqlServerLabWorkflowAction` bindet
 `PlanWindowsPoolMember` über die expliziten Parameter `RunId` und `StateRoot`.
 Die Vorschau autorisiert erst nach separater Bestätigung die eigene Mitgliedaktion;

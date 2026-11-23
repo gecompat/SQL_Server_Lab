@@ -1680,6 +1680,14 @@ try {
                     catch { throw 'UI_SA_PASSWORD_PREFLIGHT_FAILED' }
                 }
                 $hasTransientSecret = $parameters.ContainsKey('GuestPassword') -or $parameters.ContainsKey('SaPassword')
+                if ($action -ieq 'InstallHyperVLabSqlSlot') {
+                    $slotRun = [guid]::Empty
+                    if ($action -cne 'InstallHyperVLabSqlSlot' -or $parameters.Count -ne 2 -or
+                        $parameters['RunId'] -isnot [string] -or -not [guid]::TryParseExact($parameters['RunId'], 'D', [ref]$slotRun) -or $slotRun -eq [guid]::Empty -or
+                        $parameters['ExpectedPlanKey'] -isnot [string] -or $parameters['ExpectedPlanKey'] -cnotmatch '^[a-f0-9]{64}$') {
+                        throw 'HYPERV_LAB_SQL_INSTALL_BROWSER_REQUEST_INVALID'
+                    }
+                }
                 if ($action -eq 'ReadFullMaintenancePreview') {
                     if ($parameters.Count -ne 0) { throw 'FULL_MAINTENANCE_PREVIEW_ARGUMENTS_INVALID' }
                     if (@($jobs.Values | Where-Object {
@@ -1704,7 +1712,7 @@ try {
                     if ($persistentJobs.Count -ge 256) { throw 'UI_JOB_STATUS_CAPACITY_REACHED' }
                     $batchStateRoot = & (Get-Module SqlServerLab) { Get-LabStateRoot }
                     $resourceClass = if ($action -match 'WindowsBuild|SqlBuild|HyperVLab|HyperVImage') { 'HyperVHeavy' } elseif ($action -match 'MediaRoot|DataRoot|Storage') { 'ExclusiveStorage' } else { 'LifecycleLight' }
-                    $targetId = if ($parameters.ContainsKey('BuildId')) { [string]$parameters.BuildId } elseif ($parameters.ContainsKey('ArtifactId')) { [string]$parameters.ArtifactId } elseif ($parameters.ContainsKey('LabName')) { [string]$parameters.LabName } else { $action }
+                    $targetId = if ($action -ceq 'InstallHyperVLabSqlSlot') { $slotRun.ToString() } elseif ($parameters.ContainsKey('BuildId')) { [string]$parameters.BuildId } elseif ($parameters.ContainsKey('ArtifactId')) { [string]$parameters.ArtifactId } elseif ($parameters.ContainsKey('LabName')) { [string]$parameters.LabName } else { $action }
                     $batch = New-SqlServerLabBatch -StateRoot $batchStateRoot -Name "Browser: $action" -Items @([pscustomobject]@{
                         id = ("ui-$action-" + [guid]::NewGuid().ToString('n').Substring(0, 6)).ToLowerInvariant()
                         kind = 'Action'

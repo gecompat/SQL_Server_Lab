@@ -197,25 +197,34 @@ function Get-SqlServerLabWorkflow {
             try {
                 $connectionPath = Join-Path (Join-Path (Join-Path $stateRoot 'runs') ([string]$run.runId)) 'connection-info.json'
                 if (Test-Path -LiteralPath $connectionPath -PathType Leaf) {
-                    $connectionInfo = Get-Content -LiteralPath $connectionPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 8
+                    $connectionInfo = Get-Content -LiteralPath $connectionPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20
                 }
             }
             catch { }
             try { $resources = Get-LabEnvironmentResources -RunId ([string]$run.runId) -StateRoot $stateRoot } catch { }
             $instance = @($connectionInfo.instances | Where-Object { $_.provider -eq 'hyperv' }) | Select-Object -First 1
             $vmState = 'Unknown'
+            $runtimeVmId = $null
             $exists = $false
             $autoStart = if ($instance -and $instance.autostart) { [string]$instance.autostart } else { 'off' }
             if ($instance -and $instance.vmName) {
                 try {
                     $status = Get-HyperVInstanceStatus -VMName ([string]$instance.vmName) -ExpectedRunId ([string]$run.runId) -ExpectedScopeId ([string]$run.scopeId)
                     $vmState = [string]$status.State; $exists = [bool]$status.Exists
+                    $runtimeVmId = [string]$status.VMId
                     if ($status.PSObject.Properties['AutoStart']) { $autoStart = [string]$status.AutoStart }
                 }
                 catch { $vmState = 'Unavailable' }
             }
             $workload = if ($instance -and $instance.workload) { [string]$instance.workload } elseif ($run.metadata.workload) { [string]$run.metadata.workload } elseif ($instance -and $instance.sqlVersion) { 'sql' } else { 'windows' }
             $isSqlLab = $workload -eq 'sql'
+            $standaloneSqlSlot = $instance.sqlDeploymentPlan.deploymentMode -in @('adhoc-install', 'sql-pool-slot')
+            $sqlCompletionState = if ($standaloneSqlSlot) {
+                if ($instance.sqlDeploymentPlan.state -ceq 'SQL_SLOT_READY') { 'COMPLETE' } else { 'PENDING_SLOT_INSTALL' }
+            }
+            elseif (-not $isSqlLab) { 'NOT_APPLICABLE' }
+            elseif ($instance.sqlCompletion) { [string]$instance.sqlCompletion.state }
+            else { 'PENDING_COMPLETE_IMAGE' }
             [PSCustomObject]@{
                 RunId = [string]$run.runId; Name = [string]$run.metadata.name; State = [string]$run.state
                 VMName = if ($instance) { [string]$instance.vmName } else { $null }; VMState = $vmState; Exists = $exists
@@ -224,8 +233,11 @@ function Get-SqlServerLabWorkflow {
                 Workload = $workload
                 SqlVersion = if ($instance) { [string]$instance.sqlVersion } else { $null }
                 SqlEdition = if ($instance) { [string]$instance.sqlEdition } else { $null }
-                SqlCompleted = [bool]($isSqlLab -and $instance -and $instance.sqlCompletion -and [string]$instance.sqlCompletion.state -eq 'COMPLETE')
-                SqlCompletionState = if (-not $isSqlLab) { 'NOT_APPLICABLE' } elseif ($instance -and $instance.sqlCompletion) { [string]$instance.sqlCompletion.state } else { 'PENDING_COMPLETE_IMAGE' }
+                SqlSlotInstall = if ($exists -and $runtimeVmId -and $runtimeVmId -eq [string]$instance.vmId) {
+                    Get-LabHyperVSqlSlotBrowserPlan -Run $run -Instance $instance -StateRoot $stateRoot -MediaRoot $MediaRoot -VmState $vmState
+                } else { $null }
+                SqlCompleted = $sqlCompletionState -ceq 'COMPLETE'
+                SqlCompletionState = $sqlCompletionState
                 ConnectionString = if ($isSqlLab -and $instance) { [string]$instance.connectionString } else { $null }
                 ConnectionSettings = if ($isSqlLab -and $instance) { Get-LabSqlConnectionSettings -ConnectionString ([string]$instance.connectionString) } else { $null }
                 TlsQualificationStatus = if ($isSqlLab -and $instance) { Get-LabSqlConnectionQualificationStatus -ConnectionString ([string]$instance.connectionString) } else { $null }
