@@ -780,6 +780,28 @@ async function main() {
   check('Delayed member preview after close cancels server token without displaying or applying', () => {
     assert.equal(memberRequests.at(-1).action, 'CancelWindowsPoolMember'); assert.equal(node('slot-member-plan').hidden, true);
   });
+  context.sqlServerLabUiFetch = immediateMemberFetch;
+  await resourceEvent('configuration-reserve');
+  node('slot-member-run').value = 'own-member'; node('slot-member-action').value = 'Consume';
+  node('slot-member-version').value = '2022'; node('slot-member-edition').value = 'Eval';
+  node('slot-member-media').value = ' SQL/2022/Eval/setup.iso ';
+  node('slot-member-cpu').value = '6'; node('slot-member-memory').value = '0';
+  node('slot-member-fulltext').checked = false; node('slot-member-replication').checked = true;
+  await resourceEvent('slot-member-form', 'submit');
+  check('Pool consumption sends an explicit edition and only the selected optional features', () => {
+    assert.deepEqual(memberRequests.at(-1), { action: 'PlanWindowsPoolMember', parameters: {
+      RunId: 'own-member', SlotReserveOperation: 'Consume',
+      SlotReserveSqlPlan: { SqlVersion: '2022', DeploymentMode: 'adhoc-install', MediaEdition: 'Eval',
+        SqlMediaPath: 'SQL/2022/Eval/setup.iso', SqlFeatures: ['SQLENGINE','REPLICATION'], ProcessorCount: 6, MemoryStartupMB: 0 }
+    } });
+  });
+  node('slot-member-fulltext').checked = true;
+  await resourceEvent('slot-member-fulltext', 'input'); await resourceEvent('slot-member-apply');
+  check('Changing SQL features cancels the confirmed-plan token', () => {
+    assert.equal(memberRequests.at(-1).action, 'CancelWindowsPoolMember');
+    assert.equal(node('slot-member-apply').disabled, true);
+  });
+  await resourceEvent('slot-reserve-close');
   const groupRequests = [];
   let groupMode = 'ready';
   const groupPlan = { Group: 'Registrierte Testgruppe', Total: 2, PowerStatus: 'MIXED', PowerAction: 'Start', CanApply: true, NoChange: false, PlanKey: 'a'.repeat(64), Notice: 'Nur Power; SQL nicht geprüft.', Members: [{ Key: 'DOCKER', Provider: 'docker', RegistrationLabel: 'Linux · SQL Server 2025 · CU9 · Registriert', Power: 'STOPPED', Desired: 'RUNNING', Change: 'START' }, { Key: 'PODMAN', Provider: 'podman', Power: 'RUNNING', Desired: 'RUNNING', Change: 'NO_OP' }] };

@@ -950,7 +950,11 @@
         <fieldset id="slot-member-sql" hidden>
           <legend>Verbindlicher SQL-Ausbauplan</legend>
           <label>SQL-Version<select id="slot-member-version"><option>2025</option><option>2022</option><option>2019</option><option>2017</option><option>2016</option></select></label>
+          <label>Edition des SQL-Mediums<select id="slot-member-edition"><option>Enterprise</option><option value="Eval">Evaluation</option><option>Standard</option></select></label>
           <label>Ausdrücklich ausgewähltes lokales SQL-Medium / Media-ID<input id="slot-member-media" type="text"></label>
+          <label><input id="slot-member-fulltext" type="checkbox" checked> Volltextsuche</label>
+          <label><input id="slot-member-replication" type="checkbox" checked> Replikation</label>
+          <label><input id="slot-member-analytics" type="checkbox"> Advanced Analytics</label>
           <label>vCPU<input id="slot-member-cpu" type="number" min="1" max="64" value="4"></label>
           <label>Startspeicher MB (0: beibehalten)<input id="slot-member-memory" type="number" min="0" max="1048576" value="0"></label>
         </fieldset>
