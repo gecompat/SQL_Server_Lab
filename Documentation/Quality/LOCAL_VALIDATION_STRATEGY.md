@@ -256,6 +256,35 @@ Die drei Docker-Quellframes und der spätere Podman-Korrekturframe bleiben
 getrennte Nachweise. Der Schlussstand besitzt keinen erneut ausgeführten
 gemeinsamen Docker-/Podman-Linux-Nachweis.
 
+Ein späterer öffentlicher Linux-Consumerlauf endete beim Kindprozess mit
+Timeout, aber ohne wiederherstellbare innere Fehlermeldung. Die Diagnosebrücke
+bewahrt nun eine Phase nur aus einer exakt geformten, geheimnisfreien
+Runtime-Zusammenfassung mit gültigem nichtnulligem Exitcode, kanonischen
+Int32-Zählern und geschlossener Phasenliste. Die gezielte Peer-Suite bestand
+mit 59/0; sechs betroffene statische Suiten einschließlich Analyzer bestanden.
+Der unabhängige Review fand keine offenen Punkte. Das ist ein
+Diagnose-/Offline-Nachweis: der zugrunde liegende Runtimefehler und ein
+öffentlicher Linux-TLS-PASS bleiben offen; aus einer leeren stderr-Angabe wird
+keine SQL-, TLS- oder CA-Ursache abgeleitet.
+
+### 2026-11-16: Ordinal 144
+
+Ordinal 144 bestätigt die offene Grenze: Docker mit SQL Server 2025 CU9 und
+Linux-Client 0.4 endete in `LINUX_PUBLIC_PREFLIGHT` mit Exitcode 1, nach einer
+SqlClient-Verifier-Anfrage und vor dem erwarteten `VERIFY_ODBC_SQLCMD`. Der
+Terminal-`FailureCode` beginnt mit `TLS_LINUX_CHILD_EXIT_NONZERO`; die
+gemeldete `stderrClass` ist `RUNTIME_TIMEOUT_OTHER_EXCEPTION` bei null
+`stderrBytes`. Der Descriptor band Toolbelt `25ff9fb9`; die später in PR
+#604 gemergte Phasendiagnostik war in diesem Lauf nicht enthalten. Deshalb ist
+die konkrete Laufzeitursache weiter unbekannt. Die erste Verifier-Anfrage
+bestätigt nur den qualifizierten Kontext, nicht eine erfolgreiche SQLClient-
+Verbindung oder -Abfrage. Das eigene Lab wurde entfernt und der
+Inventarvergleich bestand.
+Eine passive Custody-Freigabe wurde unabhängig ohne Findings bestätigt; der
+unveränderte Terminalnachweis bleibt `RECOVERY_REQUIRED` mit
+`WholeJobEmpty=false`. PR #604 verbessert die Diagnose für einen künftigen,
+aktuell gebundenen Lauf, belegt aber weder eine Ursache noch einen TLS-PASS.
+
 Die fokussierte Suite bestand zuletzt mit 364/0. Die 22 ausgewählten lokalen
 Integrationssuites und das vierteilige Korrekturdelta einschließlich vollständigem
 Analyzer bestanden; unabhängige Produkt- und Zulassungsreviews ohne offene
@@ -264,6 +293,106 @@ ursprüngliche Native-FAILs und fehlgeschlagene globale Bestandsvergleiche
 bleiben erhalten. Finale PR-Gates sind eine eigene Integrationsbedingung.
 Öffentliche Linux-Moduswahl/Registry/Export/Consumer, Hyper-V-False-/Exportlane,
 operatives Renewal, weitere Browser-/Trustkontexte und Wire-Fingerprint bleiben offen.
+
+### 2026-11-16: Ordinal 145
+
+Der einmalig freigegebene Docker-Lauf mit SQL Server 2025 CU9 und Linux-Client
+0.4 scheiterte erneut vor `RESULT`. Der Windows-Verifier verarbeitete die erste
+Anfrage für `SYSTEM_DATA_SQLCLIENT`; seine Antwort traf beim Linux-Peer jedoch
+erst nach dem unveränderten 15-Sekunden-Austauschlimit ein. Der sichere
+Abschluss meldet `TLS_LINUX_VERIFIER_REPLY_DEADLINE_EXCEEDED`, null
+`stderrBytes` und als nächsten erwarteten Frame `VERIFY_ODBC_SQLCMD`. Damit ist
+weder eine erfolgreiche Linux-SQLClient-Anmeldung noch die ODBC-Prüfung belegt.
+Die genaue langsame Teiloperation ist aus dem Terminalnachweis nicht ableitbar.
+
+Der korrigierte Quellstand vermeidet doppelte frische Linux-/SQL-Bindungsprüfungen;
+die betroffenen statischen Suites und die unabhängige Quellprüfung bestanden.
+Ordinal 145 bestätigt jedoch keinen Runtimeeffekt dieses Deltas. Das eigene Lab
+wurde entfernt und die Inventarparität bestätigt. Der Run bleibt
+`RECOVERY_REQUIRED`; es gibt weiterhin keinen öffentlichen Linux-TLS-PASS.
+Eine weitere Wiederholung war nicht freigegeben.
+
+Der folgende offline geprüfte Quellstand reduziert die Roundtrips dieser
+Beobachtung: Zertifikat, Schlüsselmodus, SQL-Konfiguration und Netzwerk-Namespace
+werden in einem begrenzten schreibgeschützten Containeraufruf gelesen. Die
+synthetische Parser-/Vertragsprüfung deckt auch die von der Prozessgrenze
+entfernten Schluss-Newlines ab. Diese Änderung belegt nicht, dass sie das
+15-Sekunden-Timeout beseitigt; ein weiterer nativer Lauf war nicht autorisiert.
+
+### 2026-11-17: Ordinal 146
+
+Der einmalig freigegebene Docker-Lauf mit SQL Server 2025 CU9 und Linux-Client
+0.4 endete in `LINUX_PUBLIC_PREFLIGHT` mit Exitcode 1. Nach einer
+`SYSTEM_DATA_SQLCLIENT`-Verifier-Anfrage wurde der Peer vor `RESULT` beendet;
+der Terminalnachweis klassifiziert den Konstruktorfehler als
+`TLS_SQLCLIENT_CONSTRUCT_UNCLASSIFIED` und enthält null `stderrBytes`. Die
+konkrete Exception und ihre Ursache sind daher nicht rekonstruierbar. Das Lab
+wurde entfernt, der Inventarvergleich bestand und die passive Custody wurde
+freigegeben. Der Lauf bleibt ein FAIL/`RECOVERY_REQUIRED`; er ist kein
+Linux-TLS-PASS.
+
+Der Quellvergleich fand eine begrenzte Diagnoselücke: die eingebettete
+Linux-Klassifikation behandelte `ArgumentException` und `FormatException` beim
+SqlClient-Konstruktor als `UNCLASSIFIED`, obwohl der Host bereits den
+geschlossenen Token `TLS_SQLCLIENT_CONSTRUCT_INVALID_ARGUMENT` akzeptiert.
+Der lokale Patch ergänzt diese Zuordnung und synthetische Tests für beide
+Exceptiontypen, innere Exceptions, unbekannte Konstruktorfehler und andere
+Phasen. Das behebt die Tokenlücke, beweist aber nicht, dass Ordinal 146 eine
+dieser Exceptiontypen hatte oder dass damit die Laufzeitursache gelöst ist.
+Die fokussierte Suite und die neun ausgewählten statischen Suites bestanden;
+ein öffentlicher Linux-TLS-PASS und die PR-Pflichtgates bleiben offen.
+
+### 2026-11-17: Ordinal 149
+
+Der einmalig freigegebene Docker-Lauf mit SQL Server 2025 CU9 und Linux-Client
+0.4 scheiterte bereits in `CREATE_LAB` mit `Cannot connect to CIM server. Das
+angeforderte Objekt ist nicht vorhanden.` Die Linux-TLS-Qualifikation wurde
+nicht erreicht; Ordinal 149 bleibt `RECOVERY_REQUIRED` und ist kein TLS-PASS.
+Der persistierte Produktlauf steht auf `CLEANED_UP`, sein Cleanupplan ist
+`COMPLETED` und der gebundene Inventarvergleich ist unverändert. Der Supervisor
+bestätigte `RunRemoved` nicht; dieser Wert bleibt deshalb `false`.
+
+Die Quellspur passt stark zur Windows-Routeninventur: `Ensure-LabDockerNetwork`
+ruft vor der Netzwerkanlage `Get-LabKnownIpv4Subnets` auf, dessen bisheriger
+Windowspfad `Get-NetRoute` verwendete. Eine unabhängige read-only Abfrage im
+Host reproduzierte denselben CIM-Fehler. Der Quellfix verwendet `Get-NetRoute`
+mit terminierendem Fehlerverhalten und fällt bei CIM-Ausfall auf die lesende
+Ausgabe von `route.exe PRINT -4` zurück. Unparsebare oder nicht verfügbare
+Routeninventur bleibt vor jeder Netzmutation fail-closed. Die fokussierte
+Netzwerksuite und alle acht ausgewählten statischen Suites bestanden danach;
+da der freigegebene Lauf bereits verbraucht war, wurde kein Providerlauf
+wiederholt. Der Fix ist statisch validiert, aber noch nicht nativ qualifiziert.
+
+### 2026-11-17: Ordinal 150
+
+Der öffentliche Docker-Neuaufbau mit SQL Server 2025 CU9 (`17.0.5005.3`)
+und Linux-Client 0.4 erzeugte einen signierten V2-Export. Der dedizierte
+Toolbelt-Preflight bestand mit `System.Data.SqlClient` und ODBC/sqlcmd bei
+aktiver Verschlüsselung und `TrustServerCertificate=False`. Der bestehende
+Windows-Reader wies den Export für den Linux-Namespace zurück. Der eigene
+Lauf wurde entfernt, der Inventarvergleich bestand und der Hosttrust blieb
+unverändert.
+
+Der native Nachweis bindet Lab `2d0ecd19` und Toolbelt `54bca9b7`. Das originale
+Terminal bleibt `PASS_PENDING_POSTEXIT_CUSTODY_REVIEW`. Die getrennte,
+unabhängig geprüfte Beobachtung nach Prozessende und der gebundene
+Ledger-Abschluss bestätigen den finalen PASS. Frühere Fehlversuche behalten
+ihren ursprünglichen Status. Dieser Nachweis deckt den öffentlichen
+Docker-/Linux-Preflight ab.
+
+### 2026-11-23: Öffentlicher Podman-Preflight
+
+Ein eigener Podman-Lauf mit SQL Server 2025 CU9 (`17.0.5005.3`) und
+Linux-Client 0.4 bestand den öffentlichen Aufbau, den signierten V2-Export
+und den dedizierten Toolbelt-Preflight mit beiden Clientstacks. Der gebundene
+Preflight erzwingt CA- und Namensprüfung mit `TrustServerCertificate=False`.
+Der Lauf wurde über die öffentliche API entfernt. Frische Abfragen bestätigten
+denselben Providerbestand und dieselbe registrierte TLS-Authority. Der Lauf
+verwendete Lab `22afd720` und Toolbelt `cb33713e`. Es gab einen Dispatch.
+
+Die beiden nativen Linux-Ergebnisse gelten für die ausgewiesenen Docker- und
+Podman-Profile. Weitere Plattformen, Clientstacks und Buildstände behalten
+ihre jeweiligen Nachweisgrenzen.
 
 ## V2-Consumer-Cutover vom 2026-10-22
 
@@ -628,6 +757,19 @@ betroffenen Writer-/Dokumentations-/Modul-/Analyzerprüfungen erneut ausgeführt
 unveränderte CI-Strategieprüfungen werden nicht doppelt gestartet. Das
 Pflichtgate am veröffentlichten Head bleibt separat erforderlich.
 
+## Additive Authority und gebundene Registryhistorie vom 2026-11-09
+
+Die Registry-Writer- und Authority-Suiten prüfen jetzt auch die additive
+Registrierung einer neuen CA neben unveränderten alten Authoritypayloads. Die
+Authorityfixture entfernt ausschließlich ihren eigenen synthetischen alten
+Kandidaten und bestätigt, dass nur die neue Authority frisch benutzbar ist;
+historische Bytes bleiben auflösbar und alte fehlende Schlüssel bleiben
+gesperrt. Die Writersuite bestätigt die Auflösung eines früheren Registryhashes
+aus der abgeschlossenen Journalkette und weist einen nicht darin enthaltenen
+Digest ab. Das ist ein lokaler Metadaten-/DPAPI-Fixturenachweis. Er stellt kein
+fehlendes Produktionszertifikat oder CA-Schlüsselmaterial wieder her und ist
+kein Docker-/Podman- oder SQL-TLS-Lauf.
+
 Der unabhängige Quellreview fand anschließend eine ETS-Umleitung der
 Operationsauswahl. Eine eigene native Tempfixture reproduzierte den Fehler:
 Ein gültiger `UPDATE`-String mit angehängter `StartsWith`-Methode wählte den
@@ -639,6 +781,40 @@ Fehlernachweis lokal erhalten. Die korrigierte native Suite bestand 45/45
 Fälle einschließlich Cleanup. Derselbe unabhängige Reviewer bestätigte die
 feste Enumwahl und beide neuen Regressionen; das Finding ist geschlossen.
 Er führte ausschließlich einen Quellreview aus, keine nativen Probes.
+
+## Authority-Update bei fehlendem historischem Kandidaten vom 2026-11-11
+
+Die Authority-Suite prüft jetzt zusätzlich eine Client-Kontextaktualisierung
+für die ausgewählte CA, während eine andere aktive historische Authority ohne
+ihre Kandidatendateien erhalten bleibt. Der ausgewählte Eintrag wird neu
+gebunden; der alte Authorityrecord bleibt unverändert und seine fehlenden
+Dateien bleiben fehlend. Die lokale Windows-Authority-Suite bestand 37/37
+Fälle, die gekoppelte Registry-Writer-Suite 50/50. Beide Ergebnisse sind
+lokale Metadaten-/DPAPI-Fixturbelege, keine Docker-/Podman- oder SQL-TLS-Läufe.
+
+Die erste Implementierung ließ außerdem unveränderte Kandidaten mit vorhandenen
+Dateien die Trustdriftprüfung überspringen; die Windows-CI-Fixture reproduzierte
+dadurch drei Folgefehler. Der Writer überspringt die erneute Kandidatenprüfung
+jetzt nur, wenn eine exakte Pfadabfrage das unveränderte Kandidatenverzeichnis
+als fehlend bestätigt. Dateien, Reparse-Punkte und unbestimmbare Pfadzustände
+bleiben fail-closed. Vorhandene Kandidatendateien bleiben bei Trustdrift und
+vor Commit frisch gebunden. Die Regression prüft beide Pfade einschließlich
+Recovery und eine Datei anstelle des Kandidatenverzeichnisses.
+
+Der fehlgeschlagene Adapter-Installationsjob lief auf `ubuntu-26.04`, weil
+`ubuntu-latest` während der GitHub-Migration bereits dorthin aufgelöst wurde.
+Die [Microsoft-Installationsanleitung](https://learn.microsoft.com/en-us/sql/linux/quickstart-install-connect-ubuntu?view=sql-server-ver16)
+nennt Ubuntu 24.04 als unterstützte Release-Basis für SQL Server 2025; der
+Adapterjob ist deshalb auf `ubuntu-24.04` festgelegt. Das ist ein
+CI-Host-/Paketfeed-Fix und kein neuer Linux-TLS-Qualifikationsnachweis.
+
+Die korrigierte Writer-Regression bestand lokal mit Authority Binding 43/0,
+Authority 38/0 und Registry Writer 50/0. `Invoke-ImpactedChecks.ps1` führte
+anschließend alle neun betroffenen statischen Suites aus und meldete PASS.
+Die Runnerabweichung wurde auf `ubuntu-26.04` zurückgeführt; der Adapterjob
+verwendet jetzt das von Microsoft dokumentierte `ubuntu-24.04`. Diese
+Änderungen belegen weder den noch ausstehenden nativen Linux-TLS-Lauf noch
+ersetzen sie dessen PR-Gate.
 
 ## Angegebene TLS-Werte in CLI und GUI vom 2026-10-17
 

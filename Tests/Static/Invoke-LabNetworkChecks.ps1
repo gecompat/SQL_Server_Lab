@@ -116,6 +116,66 @@ try {
     )
     $overlap = & $module { [PSCustomObject]@{ Overlap = Test-LabIpv4SubnetOverlap -Left '172.26.0.0/16' -Right '172.26.12.0/24'; Separate = Test-LabIpv4SubnetOverlap -Left '172.26.0.0/16' -Right '172.27.0.0/16' } }
     Add-CheckResult -Name 'CIDR-Pruefung erkennt Ueberlappungen' -Success ($overlap.Overlap -and -not $overlap.Separate)
+    $routeTable = & $module {
+        $lines = @(
+            'IPv4-Routentabelle',
+            'Netzwerkziel Netzwerkmaske Gateway Schnittstelle Metrik',
+            '0.0.0.0 0.0.0.0 10.1.0.1 10.1.0.2 10',
+            '127.0.0.0 255.0.0.0 Auf Verbindung 127.0.0.1 331',
+            '169.254.0.0 255.255.0.0 Auf Verbindung 169.254.1.3 281',
+            '10.20.30.44 255.255.255.0 Auf Verbindung 10.20.30.1 20',
+            '192.168.5.0 255.255.255.0 192.168.5.1 192.168.5.2 25',
+            '10.20.31.77 255.255.255.255 Auf Verbindung 10.20.31.77 20',
+            'Ständige Routen:',
+            '203.0.113.0 255.255.255.0 192.0.2.1 10',
+            '0.0.0.0 0.0.0.0 192.0.2.1 Default',
+            '0.0.0.0 0.0.0.0 192.0.2.2 Standard'
+        )
+        $parsed = @(ConvertFrom-LabWindowsIpv4RouteTable -Lines $lines)
+        [PSCustomObject]@{
+            Prefixes = $parsed
+            HostRouteOverlaps = Test-LabIpv4SubnetOverlap -Left '10.20.31.0/24' -Right '10.20.31.77/32'
+            DefaultRouteOverlaps = Test-LabIpv4SubnetOverlap -Left '10.20.31.0/24' -Right '0.0.0.0/0'
+        }
+    }
+    Add-CheckResult -Name 'Windows-Routenparser erhält direkte, geroutete und Hostpräfixe, ignoriert Default-/Loopback-/Link-Local-Routen' -Success (
+        ($routeTable.Prefixes -join '|') -ceq '10.20.30.0/24|10.20.31.77/32|192.168.5.0/24|203.0.113.0/24' -and
+        $routeTable.HostRouteOverlaps -and $routeTable.DefaultRouteOverlaps)
+    $routeFallback = & $module {
+        $originalRouteTable = (Get-Command Get-LabWindowsIpv4RouteTableText).ScriptBlock
+        try {
+            Set-Item Function:Get-NetRoute -Value { throw 'SYNTHETIC_CIM_UNAVAILABLE' }
+            Set-Item Function:Get-LabWindowsIpv4RouteTableText -Value {
+                @('IPv4-Routentabelle','10.20.30.44 255.255.255.0 Auf Verbindung 10.20.30.1 20')
+            }
+            [PSCustomObject]@{ Prefixes = @(Get-LabWindowsIpv4RouteSubnets) }
+        }
+        finally {
+            Remove-Item Function:Get-NetRoute -ErrorAction SilentlyContinue
+            Set-Item Function:Get-LabWindowsIpv4RouteTableText -Value $originalRouteTable
+        }
+    }
+    Add-CheckResult -Name 'CIM-Ausfall fällt auf die lesende Windows-Routentabelle zurück' -Success (
+        @($routeFallback.Prefixes).Count -eq 1 -and [string]$routeFallback.Prefixes[0] -ceq '10.20.30.0/24')
+    $invalidRouteTableFailsClosed = & $module {
+        try {
+            $null = ConvertFrom-LabWindowsIpv4RouteTable -Lines @('10.20.30.0 255.0.255.0 10.20.30.1 10.20.30.2 20')
+            $false
+        }
+        catch { $_.Exception.Message -ceq 'LAB_NETWORK_ROUTE_NETMASK_INVALID' }
+    }
+    Add-CheckResult -Name 'Nicht zusammenhängende Windows-Netzmaske blockiert vor der Netzmutation' -Success $invalidRouteTableFailsClosed
+    $mixedRouteTableFailsClosed = & $module {
+        try {
+            $null = ConvertFrom-LabWindowsIpv4RouteTable -Lines @(
+                '10.20.30.0 255.255.255.0 10.20.30.1 10.20.30.2 20',
+                '10.20.31.0 255.255.255.0'
+            )
+            $false
+        }
+        catch { $_.Exception.Message -ceq 'LAB_NETWORK_ROUTE_TABLE_INVALID' }
+    }
+    Add-CheckResult -Name 'Teilweise unlesbare IPv4-Routentabelle blockiert fail-closed' -Success $mixedRouteTableFailsClosed
     $containerNetworkFallback = & $module {
         $originalKnownSubnets = (Get-Command Get-LabKnownIpv4Subnets).ScriptBlock
         $originalWarning = (Get-Command Write-LabWarning).ScriptBlock
@@ -228,13 +288,29 @@ try {
         $blocked = Resolve-LabHyperVNetworkBoundPlan -Intent nat
         function Get-NetNat { @() }
         $ready = Resolve-LabHyperVNetworkBoundPlan -Intent nat
-        [PSCustomObject]@{ Blocked=$blocked; Ready=$ready }
+        function Get-VMSwitch { [PSCustomObject]@{ Name='SQL_LAB_HYPERV_NAT'; SwitchType='Internal' } }
+        function Get-NetIPAddress { [PSCustomObject]@{ IPAddress='172.29.0.1'; PrefixLength=24; PrefixOrigin='Manual' } }
+        function Get-NetNat { [PSCustomObject]@{ Name='SQL_LAB_HYPERV_NAT'; InternalIPInterfaceAddressPrefix='172.29.0.0/24' } }
+        function Get-LabKnownIpv4Subnets { param($Provider) @('172.29.0.0/24','172.29.0.1/32','172.29.0.255/32') }
+        $ownedHostRoutes = Resolve-LabHyperVNetworkBoundPlan -Intent nat
+        function Get-LabKnownIpv4Subnets { param($Provider) @('172.29.0.0/24','172.29.0.1/32','172.29.0.255/32','172.29.0.99/32') }
+        $foreignHostRoute = Resolve-LabHyperVNetworkBoundPlan -Intent nat
+        function Get-VMSwitch { $null }
+        function Get-NetIPAddress { @() }
+        function Get-LabKnownIpv4Subnets { param($Provider) @('172.29.0.1/32') }
+        $unownedHostRoute = Resolve-LabHyperVNetworkBoundPlan -Intent nat
+        [PSCustomObject]@{ Blocked=$blocked; Ready=$ready; OwnedHostRoutes=$ownedHostRoutes; ForeignHostRoute=$foreignHostRoute; UnownedHostRoute=$unownedHostRoute }
     }
     Add-CheckResult -Name 'Hyper-V-NAT-Plan erkennt fremdes WinNAT mutationsfrei und ignoriert die Default-Route' -Success (
         $hyperVNatPlans.Blocked.Status -eq 'BLOCKED' -and
         $hyperVNatPlans.Blocked.Blockers -contains 'LAB_NETWORK_HYPERV_NAT_PREFIX_CONFLICT' -and
         $hyperVNatPlans.Ready.Status -eq 'READY' -and
-        $hyperVNatPlans.Ready.Actions -contains 'create-shared-winnat'
+        $hyperVNatPlans.Ready.Actions -contains 'create-shared-winnat' -and
+        $hyperVNatPlans.OwnedHostRoutes.Status -eq 'READY' -and
+        $hyperVNatPlans.ForeignHostRoute.Status -eq 'BLOCKED' -and
+        $hyperVNatPlans.ForeignHostRoute.Blockers -contains 'LAB_NETWORK_HYPERV_SUBNET_CONFLICT' -and
+        $hyperVNatPlans.UnownedHostRoute.Status -eq 'BLOCKED' -and
+        $hyperVNatPlans.UnownedHostRoute.Blockers -contains 'LAB_NETWORK_HYPERV_SUBNET_CONFLICT'
     )
     $hyperVNatApply = & $module {
         $script:natApplyCalls = [Collections.Generic.List[string]]::new()

@@ -8,6 +8,16 @@ liegen; DPAPI-Reopen mit Sign/Verify bestätigt den Besitz des CA-Schlüssels.
 Die bestehende Registry-Payload `0.2` bindet Kandidat, CA-/verschlüsselte Keybytes,
 Gültigkeit und Clientgeneration. Alte `0.1`-Payloads bleiben unverändert.
 Trustscope-Referenzen sind eindeutig und auch nach abgebrochenen Intents reserviert.
+
+Eine vorhandene, aber nicht mehr lesbare CA blockiert keine eng begrenzte
+Registrierung einer neuen CA: `APPEND_AUTHORITY` erhält alle alten
+Registrypayloads unverändert und bindet die neue Authority samt frischen
+Kontexten. Runrecords bleiben an ihren ursprünglichen committed Registrydigest
+gebunden. Die Writerhistorie kann diese Metadaten wieder auflösen, stellt aber
+kein fehlendes Zertifikat oder CA-Schlüsselmaterial wieder her. Ein alter Run
+mit fehlendem Kandidatenmaterial bleibt deshalb für TLS-Qualifikation und
+Wiederbindung gesperrt; ein Retirement unbekannt genutzter Authorities bleibt
+ebenfalls gesperrt.
 Der Writer unterstützt lokale feste NTFS- und ReFS-Volumes; dieselben geschützten Journale, Sperren und nativen File.Replace-/Recoveryprüfungen gelten auf beiden. Die lokale ReFS-Writersuite bestand alle 45 Fälle einschließlich eigenem Cleanup. Der APIvertrag für den Dateiersatz ist bei [Microsoft](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-replacefilew) beschrieben.
 
 Der zusätzliche [Windows-/Hyper-V-Pfad](AUTHENTICATED_TLS_WINDOWS_OPERATIONAL_LAB.md)
@@ -27,10 +37,10 @@ Provideraktionen abgelehnt. CA-Metadaten werden gemeinsam registriert;
 bestehende SQL-Ziele werden nicht übernommen oder umkonfiguriert.
 
 Die zusätzliche ausdrücklich gewählte
-[isolierte Linux-Clientform](AUTHENTICATED_TLS_LINUX_CLIENT.md) befindet sich
-in Entwicklung. Eigener Record 0.4, DNS-/Namespaceendpoint, runlokaler Kindclient
-und dedizierter Toolbelt-Preflight werden getrennt geprüft. Die bisherigen
-Windowsabnahmen belegen diese neue Form nicht.
+[isolierte Linux-Clientform](AUTHENTICATED_TLS_LINUX_CLIENT.md) ist im
+öffentlichen Docker- und Podman-Fall mit SQL Server 2025 CU9 separat nativ belegt.
+Der Nachweis umfasst Record 0.4, den DNS-/Namespaceendpoint, den runlokalen
+Kindclient und den dedizierten Toolbelt-Preflight.
 
 RSA-3072-Schlüssel und CSR entstehen als UID 10001 im eigenen Container.
 Der private SQL-Schlüssel verlässt ihn nicht. Der Signierer stellt ein Leaf

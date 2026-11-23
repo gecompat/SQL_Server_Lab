@@ -164,7 +164,7 @@ function Get-LabTlsWindowsOwnBinding {
     $bytes=Read-LabTlsCaPrivateFile $path $native.UserSid 32768
     $record=Read-LabTlsWindowsRecord $bytes
     if($record.RunId -cne $RunId -or $record.InstanceId -cne $InstanceId -or -not [string]::Equals($record.StateRoot,[IO.Path]::GetFullPath($StateRoot),[StringComparison]::OrdinalIgnoreCase)){throw 'TLS_WINDOWS_SELECTION_CHANGED'}
-    $authority=Get-LabTlsOperationalAuthority $record.DataRoot $record.ControllerId $record.LocationId $record.AuthorityRef $record.ClientRef
+    $authority=Get-LabTlsOperationalAuthority $record.DataRoot $record.ControllerId $record.LocationId $record.AuthorityRef $record.ClientRef $record.RegistrySha256
     if($authority.RegistrySha256 -cne $record.RegistrySha256){throw 'TLS_WINDOWS_AUTHORITY_CHANGED'}
     return [pscustomobject]@{Record=$record;Authority=$authority;Bytes=$bytes;StateRoot=$record.StateRoot}
 }
@@ -314,9 +314,9 @@ function Initialize-LabTlsWindowsOwnedRun {
     }
 }
 
-function New-LabAuthenticatedTlsWindowsEnvironment {
+function Assert-LabAuthenticatedTlsWindowsRequest {
     param([hashtable]$Parameters)
-    $allowed=@('Version','Provider','TrustServerCertificate','TlsCandidateId','TlsControllerId','TlsLocationId','TlsClientPlatform','DataRoot','StateRoot','Profile','Cpu','MemoryMB','AutoStart','Port','InstanceId','LabName','NonInteractive','SkipAssessment','AllowResourceOvercommit','Verbose','ErrorAction')
+    $allowed=@('Version','Provider','TrustServerCertificate','TlsCandidateId','TlsControllerId','TlsLocationId','TlsClientPlatform','TlsExpectedRegistrySha256','DataRoot','StateRoot','Profile','Cpu','MemoryMB','AutoStart','Port','InstanceId','LabName','NonInteractive','SkipAssessment','AllowResourceOvercommit','Verbose','ErrorAction')
     if(@($Parameters.Keys|Where-Object {$_ -cnotin $allowed}).Count -or $Parameters.Version -cne '2025' -or $Parameters.Provider -cne 'hyperv' -or -not $Parameters.DataRoot -or
         ($Parameters.ContainsKey('InstanceId') -and $Parameters.InstanceId -cne 'primary') -or ($Parameters.ContainsKey('AutoStart') -and $Parameters.AutoStart -cne 'off') -or
         ($Parameters.ContainsKey('TlsClientPlatform') -and $Parameters.TlsClientPlatform -cne 'Windows')){throw 'TLS_WINDOWS_CAPABILITY_UNSUPPORTED'}
@@ -325,6 +325,11 @@ function New-LabAuthenticatedTlsWindowsEnvironment {
     # tatsächliche Erhöhung verlangen; eine Hyper-V-Gruppenmitgliedschaft
     # allein erlaubt diesen Hostschritt nicht. Kein UAC-Start oder Retry hier.
     if(-not (Test-LabAdministrator)){throw 'TLS_WINDOWS_CREATE_ELEVATED_RUNNER_REQUIRED'}
+}
+
+function New-LabAuthenticatedTlsWindowsEnvironmentCore {
+    param([hashtable]$Parameters,[switch]$SelectionValidated)
+    if(-not $SelectionValidated){Assert-LabAuthenticatedTlsWindowsRequest $Parameters}
     Assert-LabTlsCaCandidateCapability
     $stateArgument=if($Parameters.ContainsKey('StateRoot')){$Parameters.StateRoot}else{$null}
     $state=Get-LabStateRoot -ExplicitPath $stateArgument
@@ -335,7 +340,9 @@ function New-LabAuthenticatedTlsWindowsEnvironment {
     # Aktivierungsdefaults. Die vorgeprüfte Image-ID wird ausdrücklich fixiert;
     # keine zweite automatische Imagewahl im nachfolgenden Erstellungsaufruf.
     $createManifest=New-LabTlsWindowsCreateManifest $Parameters $selection.Selected.artifactId $audit
-    $authority=Register-LabTlsOperationalAuthority $Parameters.DataRoot $Parameters.TlsControllerId $Parameters.TlsLocationId $Parameters.TlsCandidateId
+    if($Parameters.ContainsKey('TlsExpectedRegistrySha256') -and $Parameters.TlsExpectedRegistrySha256 -cnotmatch '\A[0-9a-fA-F]{64}\z'){throw 'TLS_AUTHORITY_EXPECTED_REGISTRY_INVALID'}
+    $expectedRegistrySha=if($Parameters.ContainsKey('TlsExpectedRegistrySha256')){[string]$Parameters.TlsExpectedRegistrySha256}else{$null}
+    $authority=Register-LabTlsOperationalAuthority -DataRoot $Parameters.DataRoot -ControllerId $Parameters.TlsControllerId -LocationId $Parameters.TlsLocationId -CandidateId $Parameters.TlsCandidateId -ExpectedRegistrySha256 $expectedRegistrySha
     $sid=$authority.Native.UserSid
     $operations=Join-Path $Parameters.DataRoot 'State/authenticated-tls-windows-operations'
     Initialize-LabTlsCaPrivateDirectory $operations $sid
@@ -367,5 +374,18 @@ function New-LabAuthenticatedTlsWindowsEnvironment {
         if($run -and $ended){$removed=Remove-SqlServerLab -RunId $run.RunId -StateRoot $state -Force -Confirm:$false;if($removed.Status -cne 'REMOVED'){throw 'TLS_WINDOWS_FAILED_CLEANUP_RECOVERY_REQUIRED'}}
         if(-not $ended){throw [InvalidOperationException]::new('TLS_WINDOWS_CONSUMER_RECOVERY_REQUIRED',$failure)}
         throw [InvalidOperationException]::new(('TLS_WINDOWS_CREATE_FAILED_'+$phase.ToUpperInvariant()),$failure)
+    }
+}
+
+function New-LabAuthenticatedTlsWindowsEnvironment {
+    param([hashtable]$Parameters)
+    # Reject invalid or unprivileged requests before reading registry metadata.
+    Assert-LabAuthenticatedTlsWindowsRequest $Parameters
+    $binding=Get-LabTlsRegistryWriterBinding $Parameters.DataRoot $Parameters.TlsControllerId $Parameters.TlsLocationId
+    $lifecycleLock=Enter-LabTlsRegistryLifecycleLock $binding
+    try{
+        return New-LabAuthenticatedTlsWindowsEnvironmentCore $Parameters -SelectionValidated
+    }finally{
+        Exit-LabTlsRegistryLifecycleLock $lifecycleLock
     }
 }

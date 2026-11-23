@@ -60,22 +60,218 @@ function Read-LabTlsBoundJson {
     }finally{$document.Dispose()}
 }
 
+function Get-LabTlsLinuxProbeFailureCodes {
+    $codes=[Collections.Generic.List[string]]::new()
+    $codes.AddRange([string[]]@(
+        'TLS_LINUX_CLR_PROBE_FAILED','TLS_LINUX_CLR_CHILD_FAILED','TLS_LINUX_CLR_RESULT_INVALID',
+        'TLS_LINUX_ODBC_POSITIVE_FAILED','TLS_LINUX_ODBC_CERTIFICATE_REJECTION_MISSING','TLS_LINUX_DRIVER_CHANGED',
+        'TLS_LINUX_SQLCMD_CHANGED','TLS_LINUX_PROBE_INPUT_INVALID','TLS_LINUX_TRUST_BYTES_CHANGED','TLS_LINUX_TRUST_PATH_INVALID',
+        'TLS_LINUX_PARENT_CONTEXT_INVALID','TLS_LINUX_NON_LOOPBACK_RESOLUTION','TLS_LINUX_CHILD_BOUND_EXCEEDED',
+        'TLS_LINUX_CHILD_OUTPUT_TOO_LARGE','TLS_LINUX_ODBC_AMBIGUOUS','TLS_LINUX_PROBE_UNCLASSIFIED'
+    ))
+    foreach($category in @('CERTIFICATE','LOGIN','LOGIN_TIMEOUT','QUERY_TIMEOUT','TIMEOUT','NETWORK','UNCLASSIFIED')){
+        $codes.Add('TLS_LINUX_ODBC_POSITIVE_EXIT_'+$category)
+    }
+    foreach($category in @('STDERR','SQL_RESULT','DRIVER_NOT_OBSERVED','DRIVER_MAPS_UNREADABLE','DRIVER_PATTERN_MISSING')){
+        $codes.Add('TLS_LINUX_ODBC_POSITIVE_'+$category)
+    }
+    foreach($category in @('PLATFORM_UNSUPPORTED','ASSEMBLY_UNAVAILABLE','CERTIFICATE','LOGIN','TIMEOUT','NETWORK','SQL_RESULT','UNCLASSIFIED')){
+        foreach($stage in @('CONSTRUCT','OPEN','QUERY')){$codes.Add('TLS_LINUX_CLR_CLIENT_'+$category+'_'+$stage)}
+    }
+    return $codes.ToArray()
+}
+
+function Get-LabTlsLinuxProbeFailureCode {
+    param([AllowEmptyString()][string]$StandardOutput)
+    if(-not $StandardOutput -or [Text.Encoding]::UTF8.GetByteCount($StandardOutput) -gt 65536){return $null}
+    try{$record=ConvertFrom-Json -InputObject $StandardOutput -AsHashtable -Depth 8 -DateKind String -ErrorAction Stop}catch{return $null}
+    if($record -isnot [System.Collections.IDictionary] -or
+        $record.Schema -isnot [string] -or $record.Schema -cnotin @('SqlServerLab.TlsLinuxProbeFailure/1.0','SqlServerLab.TlsLinuxProbeFailure/2.1') -or
+        $record.Status -isnot [string] -or $record.Status -cne 'FAIL' -or $record.Code -isnot [string]){return $null}
+    $allowed=Get-LabTlsLinuxProbeFailureCodes
+    if($allowed -ccontains $record.Code){return $record.Code}
+    return $null
+}
+
+function Get-LabTlsLinuxConstructOperationNames {
+    return @('BUILDER_CREATE','DATA_SOURCE','INITIAL_CATALOG','USER_ID','PASSWORD','ENCRYPT','TRUST_CERT','POOLING','CONNECT_TIMEOUT','CONNECT_RETRY','SQL_CONNECTION','BUILDER_CLEAR')
+}
+
+function Get-LabTlsLinuxBridgeFailureCodes {
+    $codes=[Collections.Generic.List[string]]::new()
+    $codes.AddRange([string[]]@(
+        'STDERR_UNCLASSIFIED','TLS_CERTIFICATE','PERMISSION_DENIED','NETWORK_NOT_FOUND','RUNTIME_TIMEOUT',
+        'RUNTIME_TIMEOUT_TIMEOUT_EXCEPTION','RUNTIME_TIMEOUT_SOCKET_TIMEOUT','RUNTIME_TIMEOUT_SQLCLIENT_TIMEOUT','RUNTIME_TIMEOUT_OPERATION_CANCELED',
+        'RUNTIME_TIMEOUT_HTTP_REQUEST_EXCEPTION','RUNTIME_TIMEOUT_WEB_EXCEPTION','RUNTIME_TIMEOUT_IO_EXCEPTION',
+        'RUNTIME_TIMEOUT_INVALID_OPERATION_EXCEPTION','RUNTIME_TIMEOUT_POWERSHELL_RUNTIME_EXCEPTION','RUNTIME_TIMEOUT_OTHER_EXCEPTION','DAEMON_REJECTED_REQUEST',
+        'CONTAINER_NOT_FOUND','CONTAINER_NOT_RUNNING','PORT_CONFLICT','DAEMON_UNREACHABLE','REGISTRY_AUTHORIZATION','IMAGE_NOT_FOUND',
+        'TLS_SQLCLIENT_RESULT_INVALID','TLS_SQLCMD_TIMEOUT','TLS_ODBC_AMBIGUOUS','TLS_SQLCMD_RESULT_INVALID',
+        'TLS_SQLCLIENT_OPEN_TIMEOUT','TLS_SQLCLIENT_QUERY_TIMEOUT',
+        'TLS_CA_PEM_STAT_FAILED','TLS_CA_PEM_ACCESS_DENIED','TLS_CA_PEM_READ_FAILED','TLS_CA_PEM_PARSE_FAILED',
+        'TLS_LINUX_VERIFIER_EXCHANGE_REJECTED','TLS_LINUX_VERIFIER_REPLY_REJECTED',
+        'TLS_LINUX_VERIFIER_REPLY_FRAME_REJECTED','TLS_LINUX_VERIFIER_REPLY_SCHEMA_REJECTED',
+        'TLS_LINUX_VERIFIER_REPLY_BINDING_REJECTED','TLS_LINUX_VERIFIER_REPLY_TIME_REJECTED',
+        'TLS_LINUX_VERIFIER_REPLY_WINDOW_REJECTED','TLS_LINUX_VERIFIER_REPLY_DEADLINE_EXCEEDED',
+        'TLS_LINUX_EXPORT_DOCUMENT_INVALID','TLS_LINUX_EXPORT_PAYLOAD_INVALID','TLS_LINUX_EXPORT_BINDING_INVALID',
+        'TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_CREATE','TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_START',
+        'TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_LAYOUT','TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_TRUST_WRITE',
+        'TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_OBSERVATION','TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_NAMESPACE_CHECK',
+        'TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_QUALIFICATION',
+        'LAB_LINUX_PEER_REQUIRED','LAB_LINUX_ENDPOINT_INVALID','LAB_LINUX_SQLCLIENT_CHANGED','LAB_LINUX_CONNECTION_INVALID',
+        'LAB_LINUX_SQLCLIENT_RESULT','LAB_LINUX_SQLCMD_CHANGED','LAB_LINUX_SQLCMD_TIMEOUT','LAB_LINUX_ODBC_AMBIGUOUS',
+        'LAB_LINUX_ODBC_RESULT','LAB_LINUX_CHILD_TERMINATION_UNCONFIRMED',
+        'LAB_QUALIFIED_CONTEXT_REQUIRED','LAB_QUALIFIED_CONTEXT_UNSUPPORTED','LAB_QUALIFIED_BYTES_INVALID',
+        'LAB_MODULE_REQUIRED','LAB_MODULE_READER_REQUIRED','LAB_SNAPSHOT_INVALID','LAB_QUALIFIED_EXPORT_REJECTED',
+        'LAB_QUALIFIED_CONNECT_WINDOW_EXPIRED'
+    ))
+    foreach($stage in @('CONSTRUCT','OPEN','QUERY','CLEANUP')){foreach($category in @('PLATFORM_UNSUPPORTED','ASSEMBLY_UNAVAILABLE','AUTHENTICATION','TIMEOUT','NETWORK','SQL','UNCLASSIFIED')){
+        if($category-ceq'TIMEOUT'-and$stage-cin@('OPEN','QUERY')){continue}
+        $codes.Add('TLS_SQLCLIENT_'+$stage+'_'+$category)
+    }}
+    $codes.Add('TLS_SQLCLIENT_CONSTRUCT_INVALID_ARGUMENT')
+    foreach($operation in Get-LabTlsLinuxConstructOperationNames){
+        foreach($category in @('PLATFORM_UNSUPPORTED','ASSEMBLY_UNAVAILABLE','AUTHENTICATION','TIMEOUT','NETWORK','SQL','UNCLASSIFIED','INVALID_ARGUMENT')){
+            $codes.Add('TLS_SQLCLIENT_CONSTRUCT_'+$category+'_AT_'+$operation)
+        }
+    }
+    return $codes.ToArray()
+}
+
+function Get-LabTlsLinuxExpectedNextFrame {
+    param([bool]$Hello,[int]$VerifierRequests,[bool]$ResultSeen,[string]$LastVerifiedStack)
+    if($ResultSeen){return 'none'}
+    if(-not$Hello){return 'HELLO'}
+    if($VerifierRequests-eq0){return 'VERIFY_SYSTEM_DATA_SQLCLIENT'}
+    if($VerifierRequests-eq1-and$LastVerifiedStack-ceq'SYSTEM_DATA_SQLCLIENT'){return 'VERIFY_ODBC_SQLCMD'}
+    if($VerifierRequests-eq2-and$LastVerifiedStack-ceq'ODBC_SQLCMD'){return 'RESULT'}
+    return 'none'
+}
+
+function Get-LabTlsLinuxBridgeFailureCode {
+    param([AllowNull()][byte[]]$EnvelopeBytes)
+    if($null -eq $EnvelopeBytes -or $EnvelopeBytes.Length -lt 1 -or $EnvelopeBytes.Length -gt 4096){return $null}
+    try{$record=Read-LabTlsBoundJson $EnvelopeBytes @('Schema','Status','Code')}catch{return $null}
+    if($record.Schema -isnot [string] -or $record.Schema -cne 'SqlServerLab.TlsLinuxPeerFailure/0.1' -or
+        $record.Status -isnot [string] -or $record.Status -cne 'FAIL' -or $record.Code -isnot [string]){return $null}
+    if((Get-LabTlsLinuxBridgeFailureCodes) -ccontains $record.Code){return $record.Code}
+    return $null
+}
+
+function Get-LabTlsLinuxBridgeFailureCodeFromError {
+    param([System.Management.Automation.ErrorRecord]$ErrorRecord)
+    $known=Get-LabTlsLinuxBridgeFailureCodes
+    $exception=$ErrorRecord.Exception
+    while($null-ne$exception){
+        $message=[string]$exception.Message
+        if($message.Length-le65536){
+            if($known -ccontains $message){return $message}
+            # Preserve a Linux operation stage only when the incoming message
+            # is the exact closed summary emitted by this module. Arbitrary
+            # guest/exception text continues through the generic classifier.
+            if($message -cmatch '\ATLS_LAB_RUNTIME_COMMAND_FAILED\|exitCode=(0|-?[1-9][0-9]{0,9})\|stderrClass=([A-Z0-9_]{1,64})\|stderrBytes=(0|[1-9][0-9]{0,9})\|stdoutChars=(0|[1-9][0-9]{0,9})\|operationStage=(unspecified|linux-client-create|linux-client-start|linux-client-layout|linux-client-trust-write|linux-client-observation|linux-client-namespace-check|linux-client-qualification)\z'){
+                $summaryClass=$Matches[2]
+                $summaryStage=$Matches[5]
+                $exitCode=0;$stderrBytes=0;$stdoutChars=0
+                $countersValid=[int]::TryParse($Matches[1],[ref]$exitCode) -and [int]::TryParse($Matches[3],[ref]$stderrBytes) -and [int]::TryParse($Matches[4],[ref]$stdoutChars)
+                if($countersValid -and $exitCode-ne0 -and $summaryClass-ceq'RUNTIME_TIMEOUT'){
+                    try{$stageCode=Get-LabTlsRuntimeTimeoutCode -OperationStage $summaryStage}catch{$stageCode=$null}
+                    if($stageCode -and $known -ccontains $stageCode){return $stageCode}
+                }
+            }
+            try{
+                $summary=Get-LabTlsRuntimeFailureSummary -ExitCode 1 -StandardError $message -OutputLength 0 -OperationStage 'linux-client-observation'
+                if($summary -match '\|stderrClass=([A-Z0-9_]{1,64})\|' -and $known -ccontains $Matches[1]){
+                    $summaryClass=$Matches[1]
+                    if($summaryClass-ceq'RUNTIME_TIMEOUT'-and$message -cnotmatch '\ATLS_LAB_RUNTIME_COMMAND_FAILED\|'){
+                        $timeoutCause=Get-LabTlsLinuxTimeoutCauseCode $ErrorRecord.Exception
+                        if($known-ccontains$timeoutCause){return $timeoutCause}
+                    }
+                    return $summaryClass
+                }
+            }catch{}
+        }
+        $exception=$exception.InnerException
+    }
+    return 'STDERR_UNCLASSIFIED'
+}
+
+function Get-LabTlsLinuxTimeoutCauseCode {
+    param([System.Exception]$Exception)
+    $fallback='RUNTIME_TIMEOUT_OTHER_EXCEPTION'
+    while($null-ne$Exception){
+        $type=$Exception.GetType().FullName
+        if($type-ceq'System.TimeoutException'){return 'RUNTIME_TIMEOUT_TIMEOUT_EXCEPTION'}
+        if($Exception-is[System.OperationCanceledException]){return 'RUNTIME_TIMEOUT_OPERATION_CANCELED'}
+        if($type-ceq'System.Net.Sockets.SocketException'){
+            if($Exception.SocketErrorCode-eq[Net.Sockets.SocketError]::TimedOut){return 'RUNTIME_TIMEOUT_SOCKET_TIMEOUT'}
+        }
+        if($type-ceq'System.Data.SqlClient.SqlException'){
+            $numberProperty=$Exception.GetType().GetProperty('Number',[Reflection.BindingFlags]'Instance,Public')
+            if($numberProperty){try{if([int]$numberProperty.GetValue($Exception)-eq-2){return 'RUNTIME_TIMEOUT_SQLCLIENT_TIMEOUT'}}catch{}}
+        }
+        if($type-ceq'System.Net.Http.HttpRequestException'){$fallback='RUNTIME_TIMEOUT_HTTP_REQUEST_EXCEPTION'}
+        elseif($type-ceq'System.Net.WebException'){$fallback='RUNTIME_TIMEOUT_WEB_EXCEPTION'}
+        elseif($type-ceq'System.IO.IOException'){$fallback='RUNTIME_TIMEOUT_IO_EXCEPTION'}
+        elseif($type-ceq'System.InvalidOperationException'){$fallback='RUNTIME_TIMEOUT_INVALID_OPERATION_EXCEPTION'}
+        elseif($type-ceq'System.Management.Automation.RuntimeException'-and$fallback-ceq'RUNTIME_TIMEOUT_OTHER_EXCEPTION'){$fallback='RUNTIME_TIMEOUT_POWERSHELL_RUNTIME_EXCEPTION'}
+        $Exception=$Exception.InnerException
+    }
+    return $fallback
+}
+
+function Get-LabTlsRuntimeTimeoutCode {
+    param([string]$OperationStage='unspecified')
+    switch -CaseSensitive ($OperationStage) {
+        'linux-client-create' { return 'TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_CREATE' }
+        'linux-client-start' { return 'TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_START' }
+        'linux-client-layout' { return 'TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_LAYOUT' }
+        'linux-client-trust-write' { return 'TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_TRUST_WRITE' }
+        'linux-client-observation' { return 'TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_OBSERVATION' }
+        'linux-client-namespace-check' { return 'TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_NAMESPACE_CHECK' }
+        'linux-client-qualification' { return 'TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_QUALIFICATION' }
+        'unspecified' { return 'TLS_LAB_RUNTIME_TIMEOUT' }
+        default { throw 'TLS_LAB_OPERATION_STAGE_INVALID' }
+    }
+}
+
+function New-LabTlsLinuxBridgeFailureFrame {
+    param([System.Management.Automation.ErrorRecord]$ErrorRecord)
+    $code=Get-LabTlsLinuxBridgeFailureCodeFromError $ErrorRecord
+    $failure=@{Schema='SqlServerLab.TlsLinuxPeerFailure/0.1';Status='FAIL';Code=$code}
+    $json=[Text.Encoding]::UTF8.GetBytes(($failure|ConvertTo-Json -Compress))
+    return [pscustomobject]@{Code=$code;Frame=('FAILURE '+[Convert]::ToBase64String($json))}
+}
+
 function Get-LabTlsRuntimeFailureSummary {
     param(
-        [int]$ExitCode,[string]$StandardError,[int]$OutputLength,
+        [int]$ExitCode,[string]$StandardError,[int]$OutputLength,[AllowEmptyString()][string]$StandardOutput='',
         [ValidateSet('unspecified','linux-client-create','linux-client-start','linux-client-layout','linux-client-trust-write','linux-client-observation','linux-client-namespace-check','linux-client-qualification')]
         [string]$OperationStage='unspecified'
     )
     $class='STDERR_UNCLASSIFIED'
-    if(-not $StandardError){$class='STDERR_EMPTY'}
+    $linuxProbeFailure=Get-LabTlsLinuxProbeFailureCode -StandardOutput $StandardOutput
+    if($linuxProbeFailure){$class=$linuxProbeFailure}
+    elseif(-not $StandardError){$class='STDERR_EMPTY'}
     else{
-        foreach($rule in @(
+        if($StandardError -cmatch '\b(TLS_SQLCLIENT_CONSTRUCT_(?:PLATFORM_UNSUPPORTED|ASSEMBLY_UNAVAILABLE|AUTHENTICATION|TIMEOUT|NETWORK|SQL|UNCLASSIFIED|INVALID_ARGUMENT)(?:_AT_(?:BUILDER_CREATE|DATA_SOURCE|INITIAL_CATALOG|USER_ID|PASSWORD|ENCRYPT|TRUST_CERT|POOLING|CONNECT_TIMEOUT|CONNECT_RETRY|SQL_CONNECTION|BUILDER_CLEAR))?|TLS_SQLCLIENT_(?:OPEN|QUERY|CLEANUP)_(?:PLATFORM_UNSUPPORTED|ASSEMBLY_UNAVAILABLE|AUTHENTICATION|TIMEOUT|NETWORK|SQL|UNCLASSIFIED))\b'){
+            # This grammar is closed to guest-emitted type/stage tokens. The
+            # matched text contains no exception message, endpoint or secret.
+            $class=$Matches[1]
+        }else{foreach($rule in @(
             @{Pattern='(?i)\bno such container\b';Class='CONTAINER_NOT_FOUND'},
             @{Pattern='(?i)\bcontainer\b.*\bnot running\b';Class='CONTAINER_NOT_RUNNING'},
             @{Pattern='(?i)address already in use|port is already allocated';Class='PORT_CONFLICT'},
             @{Pattern='(?i)cannot connect to.*daemon|error during connect|is the docker daemon running';Class='DAEMON_UNREACHABLE'},
             @{Pattern='(?i)unauthorized|authentication required|pull access denied';Class='REGISTRY_AUTHORIZATION'},
             @{Pattern='(?i)no such image|manifest unknown';Class='IMAGE_NOT_FOUND'},
+            @{Pattern='\bSQLCLIENT_RESULT\b';Class='TLS_SQLCLIENT_RESULT_INVALID'},
+            @{Pattern='\bSQLCMD_TIMEOUT\b';Class='TLS_SQLCMD_TIMEOUT'},
+            @{Pattern='\bODBC_AMBIGUOUS\b';Class='TLS_ODBC_AMBIGUOUS'},
+            @{Pattern='\bSQLCMD_RESULT\b';Class='TLS_SQLCMD_RESULT_INVALID'},
+            @{Pattern='\bTLS_LINUX_CA_PEM_STAT_FAILED\b';Class='TLS_CA_PEM_STAT_FAILED'},
+            @{Pattern='\bTLS_LINUX_CA_PEM_ACCESS_DENIED\b';Class='TLS_CA_PEM_ACCESS_DENIED'},
+            @{Pattern='\bTLS_LINUX_CA_PEM_READ_FAILED\b';Class='TLS_CA_PEM_READ_FAILED'},
+            @{Pattern='\bTLS_LINUX_CA_PEM_PARSE_FAILED\b';Class='TLS_CA_PEM_PARSE_FAILED'},
             @{Pattern='(?i)permission denied|access is denied';Class='PERMISSION_DENIED'},
             @{Pattern='(?i)\bx509\b|\btls\b|certificate';Class='TLS_CERTIFICATE'},
             @{Pattern='(?i)network .* not found';Class='NETWORK_NOT_FOUND'},
@@ -83,7 +279,7 @@ function Get-LabTlsRuntimeFailureSummary {
             @{Pattern='(?i)^\s*error response from daemon:';Class='DAEMON_REJECTED_REQUEST'}
         )){
             if($StandardError -match $rule.Pattern){$class=$rule.Class;break}
-        }
+        }}
     }
     return "TLS_LAB_RUNTIME_COMMAND_FAILED|exitCode=$ExitCode|stderrClass=$class|stderrBytes=$([Text.Encoding]::UTF8.GetByteCount($StandardError))|stdoutChars=$OutputLength|operationStage=$OperationStage"
 }
@@ -97,16 +293,69 @@ function Invoke-LabTlsContainer {
     Assert-LabTlsRuntimeBudget $Budget 1
     if($InputText.Length -gt 16384){throw 'TLS_LAB_RUNTIME_INPUT_TOO_LARGE'}
     $start=New-LabTlsRuntimeProcessInfo -Arguments $Arguments -Budget $Budget
-    $process=[Diagnostics.Process]::new();$process.StartInfo=$start;$started=$false
+    $process=[Diagnostics.Process]::new();$process.StartInfo=$start;$started=$false;$succeeded=$false
+    $stdoutText=[Text.StringBuilder]::new();$stderrText=[Text.StringBuilder]::new()
+    $stdoutBuffer=[char[]]::new(8192);$stderrBuffer=[char[]]::new(8192)
+    $stdoutTask=$null;$stderrTask=$null;$stdinTask=$null;$stdoutDone=$false;$stderrDone=$false;$stdinDone=(-not [bool]$InputText);$pipeDrainTimedOut=$false
     try{
-        $started=$process.Start();$stdout=$process.StandardOutput.ReadToEndAsync();$stderr=$process.StandardError.ReadToEndAsync()
-        if($InputText){$write=$process.StandardInput.WriteAsync($InputText);if(-not $write.Wait(10000)){throw 'TLS_LAB_RUNTIME_INPUT_TIMEOUT'};$null=$write.GetAwaiter().GetResult()};$process.StandardInput.Close()
-        if(-not $process.WaitForExit(45000)){throw 'TLS_LAB_RUNTIME_TIMEOUT'}
-        $output=$stdout.GetAwaiter().GetResult();$errorText=$stderr.GetAwaiter().GetResult()
-        if($process.ExitCode -ne 0 -or $output.Length -gt 1048576){throw (Get-LabTlsRuntimeFailureSummary -ExitCode $process.ExitCode -StandardError $errorText -OutputLength $output.Length -OperationStage $OperationStage)}
+        Assert-LabTlsRuntimeBudget $Budget 0
+        if([datetime]::UtcNow -ge $Budget.DeadlineUtc){throw 'TLS_LAB_RUNTIME_TIME_BUDGET_EXCEEDED'}
+        $started=$process.Start();if(-not $started){throw 'TLS_LAB_RUNTIME_PROCESS_START_FAILED'}
+        $stdoutTask=$process.StandardOutput.ReadAsync($stdoutBuffer,0,$stdoutBuffer.Length)
+        $stderrTask=$process.StandardError.ReadAsync($stderrBuffer,0,$stderrBuffer.Length)
+        if($InputText){$stdinTask=$process.StandardInput.WriteAsync($InputText);$inputDeadline=[datetime]::UtcNow.AddSeconds(10);if($Budget.DeadlineUtc -lt $inputDeadline){$inputDeadline=[datetime]$Budget.DeadlineUtc}}
+        else{$process.StandardInput.Close()}
+        $commandDeadline=[datetime]::UtcNow.AddSeconds(45)
+        $budgetDeadline=[datetime]$Budget.DeadlineUtc
+        if($budgetDeadline -lt $commandDeadline){$commandDeadline=$budgetDeadline}
+        $pipeDrainDeadline=$null
+        while(-not $process.HasExited -or -not $stdoutDone -or -not $stderrDone -or -not $stdinDone){
+            $now=[datetime]::UtcNow
+            if($process.HasExited -and (-not $stdoutDone -or -not $stderrDone)){
+                if($null -eq $pipeDrainDeadline){$pipeDrainDeadline=$now.AddSeconds(5)}
+                if($now -ge $pipeDrainDeadline){$pipeDrainTimedOut=$true;throw 'TLS_LAB_RUNTIME_PIPE_DRAIN_TIMEOUT'}
+            }
+            if($now -ge $Budget.DeadlineUtc){if($process.HasExited -and (-not $stdoutDone -or -not $stderrDone)){$pipeDrainTimedOut=$true};throw (Get-LabTlsRuntimeTimeoutCode $OperationStage)}
+            if($now -ge $commandDeadline){if($process.HasExited -and (-not $stdoutDone -or -not $stderrDone)){$pipeDrainTimedOut=$true};throw (Get-LabTlsRuntimeTimeoutCode $OperationStage)}
+            if(-not $stdinDone -and $stdinTask.IsCompleted){$null=$stdinTask.GetAwaiter().GetResult();$process.StandardInput.Close();$stdinDone=$true}
+            if(-not $stdinDone -and $now -ge $inputDeadline){throw 'TLS_LAB_RUNTIME_INPUT_TIMEOUT'}
+            if(-not $stdoutDone -and $stdoutTask.IsCompleted){
+                $read=$stdoutTask.GetAwaiter().GetResult()
+                if($read -eq 0){$stdoutDone=$true}
+                else{
+                    if($stdoutText.Length+$read -gt 1048576){throw 'TLS_LAB_RUNTIME_OUTPUT_TOO_LARGE'}
+                    $null=$stdoutText.Append($stdoutBuffer,0,$read)
+                    $stdoutTask=$process.StandardOutput.ReadAsync($stdoutBuffer,0,$stdoutBuffer.Length)
+                }
+            }
+            if(-not $stderrDone -and $stderrTask.IsCompleted){
+                $read=$stderrTask.GetAwaiter().GetResult()
+                if($read -eq 0){$stderrDone=$true}
+                else{
+                    if($stderrText.Length+$read -gt 1048576){throw 'TLS_LAB_RUNTIME_OUTPUT_TOO_LARGE'}
+                    $null=$stderrText.Append($stderrBuffer,0,$read)
+                    $stderrTask=$process.StandardError.ReadAsync($stderrBuffer,0,$stderrBuffer.Length)
+                }
+            }
+            if(-not $process.HasExited){$null=$process.WaitForExit(25)}else{Start-Sleep -Milliseconds 10}
+        }
+        $output=$stdoutText.ToString();$errorText=$stderrText.ToString()
+        if($process.ExitCode -ne 0){throw (Get-LabTlsRuntimeFailureSummary -ExitCode $process.ExitCode -StandardError $errorText -OutputLength $output.Length -StandardOutput $output -OperationStage $OperationStage)}
+        $succeeded=$true
         return $output.TrimEnd("`r","`n")
     }finally{
-        if($started -and -not $process.HasExited){$process.Kill($true);$process.WaitForExit()};$process.Dispose()
+        $terminationUnconfirmed=$false
+        if($started -and -not $succeeded){
+            if($process.HasExited -and (-not $stdoutDone -or -not $stderrDone)){$pipeDrainTimedOut=$true}
+            try{if(-not $process.HasExited -or $pipeDrainTimedOut){$process.Kill($true)}}catch{$terminationUnconfirmed=$true}
+            try{if(-not $process.WaitForExit(5000)){$terminationUnconfirmed=$true}}catch{$terminationUnconfirmed=$true}
+        }
+        if($started){foreach($stream in @($process.StandardInput,$process.StandardOutput,$process.StandardError)){try{$stream.Dispose()}catch{}}}
+        foreach($task in @($stdinTask,$stdoutTask,$stderrTask)){
+            if($null -ne $task){try{if(-not $task.Wait(2000)){$terminationUnconfirmed=$true}}catch{if(-not $task.IsCompleted){$terminationUnconfirmed=$true}}}
+        }
+        $process.Dispose()
+        if($terminationUnconfirmed -or $pipeDrainTimedOut){throw 'TLS_LAB_RUNTIME_RECOVERY_REQUIRED'}
     }
 }
 
@@ -336,13 +585,13 @@ function Get-LabTlsOwnBinding {
         $record.ServerPath -cne ('/var/opt/mssql/tls-'+$record.AuditId.Replace('-',''))){throw 'TLS_LAB_BINDING_INVALID'}
     $expected=Join-Path $record.DataRoot ('State/authenticated-tls-labs/'+$record.AuditId)
     if(-not [string]::Equals($root,[IO.Path]::GetFullPath($expected),[StringComparison]::OrdinalIgnoreCase)){throw 'TLS_LAB_ROOT_CHANGED'}
-    $authority=Get-LabTlsOperationalAuthority $record.DataRoot $record.ControllerId $record.LocationId $record.AuthorityRef $record.ClientRef
+    $authority=Get-LabTlsOperationalAuthority $record.DataRoot $record.ControllerId $record.LocationId $record.AuthorityRef $record.ClientRef $record.RegistrySha256
     if($authority.RegistrySha256 -cne $record.RegistrySha256){throw 'TLS_LAB_REGISTRY_CHANGED'}
     return [pscustomobject]@{Record=$record;Authority=$authority;Bytes=$bytes;StateRoot=$root}
 }
 
 function Assert-LabTlsSqlCertificateBinding {
-    param([object]$Record,[string]$StateRoot,[object]$Budget)
+    param([object]$Record,[string]$StateRoot,[object]$Budget,[switch]$IncludeNetworkNamespace)
     if($Record.ContractVersion -ceq 'SqlServerLab.AuthenticatedTlsWindowsLab/0.1'){
         $bound=Get-LabTlsWindowsOwnBinding $StateRoot $Record.RunId $Record.InstanceId
         if((Get-LabTlsCaByteDigest (ConvertTo-LabTlsRegistryWriterBytes $Record)) -cne (Get-LabTlsCaByteDigest $bound.Bytes)){throw 'TLS_WINDOWS_RECORD_CHANGED'}
@@ -351,16 +600,20 @@ function Assert-LabTlsSqlCertificateBinding {
     $context=Assert-LabTlsOwnContainer $Record $StateRoot $Budget
     if($context.Inspect.State.StartedAt -cne $Record.StartedAt){throw 'TLS_LAB_RESTART_REQUIRES_REBIND'}
     $cid=$context.ContainerId;$path=$Record.ServerPath
-    $actual=Invoke-LabTlsContainer @('exec',$cid,'cat',($path+'/server.pem')) -Budget $Budget
+    $isLinuxRecord=$Record.ContractVersion-ceq'SqlServerLab.AuthenticatedTlsLab/0.4'-and
+        $null-ne$Record.PSObject.Properties['ClientPlatform']-and$Record.ClientPlatform-ceq'linux'
+    $operationStage=if($IncludeNetworkNamespace-or$isLinuxRecord){'linux-client-observation'}else{'unspecified'}
+    $observation=Get-LabTlsSqlCertificateObservation -ContainerId $cid -ServerPath $path -Budget $Budget -IncludeNetworkNamespace:$IncludeNetworkNamespace -OperationStage $operationStage
+    $actual=$observation.CertificatePem
     $cert=[Security.Cryptography.X509Certificates.X509Certificate2]::CreateFromPem($actual)
     try{
         if((Get-LabTlsCaByteDigest $cert.RawData) -cne $Record.CertificateSha256 -or
             [Convert]::ToBase64String($cert.RawData) -cne $Record.CertificateDer -or
             $cert.NotAfter.ToUniversalTime() -le [datetime]::UtcNow -or $cert.NotBefore.ToUniversalTime() -gt [datetime]::UtcNow){throw 'TLS_LAB_LEAF_CHANGED_OR_EXPIRED'}
     }finally{$cert.Dispose()}
-    $mode=Invoke-LabTlsContainer @('exec',$cid,'stat','-c','%a:%u',($path+'/server.key')) -Budget $Budget
+    $mode=$observation.KeyMode
     if($mode -cne '600:10001'){throw 'TLS_LAB_SERVER_KEY_PERMISSIONS_CHANGED'}
-    $config=Invoke-LabTlsContainer @('exec',$cid,'cat','/var/opt/mssql/mssql.conf') -Budget $Budget
+    $config=$observation.Configuration
     $network=$false;$sections=0;$settings=@{}
     foreach($line in ($config -split "`n")){
         $line=$line.Trim()
@@ -375,12 +628,73 @@ function Assert-LabTlsSqlCertificateBinding {
     $log=Invoke-LabTlsContainer @('logs','--since',$Record.StartedAt,$cid) -Budget $Budget
     $expected="The certificate [Certificate File:'$path/server.pem', Private Key File:'$path/server.key'] was successfully loaded for encryption."
     if(-not $log.Contains($expected,[StringComparison]::Ordinal)){throw 'TLS_LAB_SQL_CERTIFICATE_LOAD_UNCONFIRMED'}
+    if($IncludeNetworkNamespace){return [pscustomobject]@{Context=$context;NetworkNamespace=$observation.NetworkNamespace}}
     return $context
 }
 
-function New-LabAuthenticatedTlsEnvironment {
+function ConvertFrom-LabTlsSqlCertificateObservation {
+    param([AllowEmptyString()][string]$Output,[switch]$IncludeNetworkNamespace)
+    if($Output.Length -gt 65536){throw 'TLS_LAB_SQL_OBSERVATION_INVALID'}
+    # Invoke-LabTlsContainer trims trailing newlines, so delimiters intentionally
+    # end at the marker token and leave the following newline with the next field.
+    $markers=@("`n__TLS_LAB_CERTIFICATE_END__","`n__TLS_LAB_KEY_MODE_END__","`n__TLS_LAB_CONFIGURATION_END__")
+    if($IncludeNetworkNamespace){$markers+=@("`n__TLS_LAB_NETWORK_NAMESPACE_END__")}
+    $positions=[Collections.Generic.List[int]]::new()
+    foreach($marker in $markers){
+        $index=$Output.IndexOf($marker,[StringComparison]::Ordinal)
+        if($index-lt0){throw 'TLS_LAB_SQL_OBSERVATION_INVALID'}
+        if($Output.IndexOf($marker,$index+$marker.Length,[StringComparison]::Ordinal)-ge0){throw 'TLS_LAB_SQL_OBSERVATION_INVALID'}
+        $positions.Add($index)
+    }
+    for($i=1;$i-lt$positions.Count;$i++){if($positions[$i]-le$positions[$i-1]){throw 'TLS_LAB_SQL_OBSERVATION_INVALID'}}
+    $parts=[Collections.Generic.List[string]]::new();$cursor=0
+    for($i=0;$i-lt$positions.Count;$i++){
+        $parts.Add($Output.Substring($cursor,$positions[$i]-$cursor))
+        $cursor=$positions[$i]+$markers[$i].Length
+    }
+    if($Output.Substring($cursor).Trim([char[]]"`r`n").Length-ne0){throw 'TLS_LAB_SQL_OBSERVATION_INVALID'}
+    $expectedCount=if($IncludeNetworkNamespace){4}else{3}
+    if($parts.Count-ne$expectedCount-or-not$parts[0]-or-not$parts[1].Trim()-or-not$parts[2].Trim()){throw 'TLS_LAB_SQL_OBSERVATION_INVALID'}
+    $mode=$parts[1].Trim()
+    if($mode -cnotmatch '\A[0-7]{3,4}:[0-9]{1,10}\z'){throw 'TLS_LAB_SQL_OBSERVATION_INVALID'}
+    $result=[ordered]@{CertificatePem=$parts[0];KeyMode=$mode;Configuration=$parts[2].Trim([char[]]"`r`n")}
+    if($IncludeNetworkNamespace){
+        $networkNamespace=$parts[3].Trim()
+        if($networkNamespace -cnotmatch '\Anet:\[[0-9]{1,10}\]\z'){throw 'TLS_LAB_SQL_OBSERVATION_INVALID'}
+        $result.NetworkNamespace=$networkNamespace
+    }
+    return [pscustomobject]$result
+}
+
+function Get-LabTlsSqlCertificateObservation {
+    param([string]$ContainerId,[string]$ServerPath,[object]$Budget,[switch]$IncludeNetworkNamespace,
+        [ValidateSet('unspecified','linux-client-observation')][string]$OperationStage='unspecified')
+    if($ContainerId -cnotmatch '\A[0-9a-f]{64}\z' -or $ServerPath -cnotmatch '\A/var/opt/mssql/tls-[0-9a-f]{32}\z'){
+        throw 'TLS_LAB_SQL_OBSERVATION_BINDING_INVALID'
+    }
+    $script=@'
+set -eu
+cat -- "$1"
+printf '\n__TLS_LAB_CERTIFICATE_END__\n'
+stat -c '%a:%u' -- "$2"
+printf '\n__TLS_LAB_KEY_MODE_END__\n'
+cat -- "$3"
+printf '\n__TLS_LAB_CONFIGURATION_END__\n'
+if [ "$4" = '1' ]; then
+    readlink /proc/self/ns/net
+    printf '\n__TLS_LAB_NETWORK_NAMESPACE_END__\n'
+fi
+'@
+    $script=$script.Replace("`r`n","`n")
+    $includeNamespace=if($IncludeNetworkNamespace){'1'}else{'0'}
+    $arguments=@('exec',$ContainerId,'/bin/sh','-c',$script,'tls-sql-observation',($ServerPath+'/server.pem'),($ServerPath+'/server.key'),'/var/opt/mssql/mssql.conf',$includeNamespace)
+    $output=Invoke-LabTlsContainer $arguments -Budget $Budget -OperationStage $OperationStage
+    return ConvertFrom-LabTlsSqlCertificateObservation $output -IncludeNetworkNamespace:$IncludeNetworkNamespace
+}
+
+function New-LabAuthenticatedTlsEnvironmentCore {
     param([hashtable]$Parameters,[scriptblock]$AllocationObserver)
-    $allowed=@('TrustServerCertificate','TlsCandidateId','TlsControllerId','TlsLocationId','TlsClientPlatform','TlsLinuxPowerShellPackage','DataRoot','Version','Provider','Profile','Port','InstanceId',
+    $allowed=@('TrustServerCertificate','TlsCandidateId','TlsControllerId','TlsLocationId','TlsClientPlatform','TlsLinuxPowerShellPackage','TlsExpectedRegistrySha256','DataRoot','Version','Provider','Profile','Port','InstanceId',
         'SaPassword','GenerateSaPassword','NonInteractive','Cpu','MemoryMB','SkipAssessment','AllowResourceOvercommit','AutoStart','LabName','Verbose','ErrorAction')
     if(@($Parameters.Keys|Where-Object {$_ -cnotin $allowed}).Count -or $Parameters.Version -cnotin @('2025-CU9','2022-CU27','2019-CU32') -or
         ($Parameters.ContainsKey('Provider') -and $Parameters.Provider -cnotin @('docker','podman')) -or
@@ -389,6 +703,7 @@ function New-LabAuthenticatedTlsEnvironment {
     foreach($key in @('TlsCandidateId','TlsControllerId','TlsLocationId')){if(-not (Test-LabTlsRequestReference $Parameters[$key])){throw 'TLS_LAB_CA_SELECTION_REQUIRED'}}
     $linux=$Parameters.TlsClientPlatform -ceq 'Linux'
     if($Parameters.ContainsKey('TlsClientPlatform') -and $Parameters.TlsClientPlatform -cnotin @('Windows','Linux')){throw 'TLS_LAB_CAPABILITY_UNSUPPORTED'}
+    if($Parameters.ContainsKey('TlsExpectedRegistrySha256') -and $Parameters.TlsExpectedRegistrySha256 -cnotmatch '\A[0-9a-fA-F]{64}\z'){throw 'TLS_AUTHORITY_EXPECTED_REGISTRY_INVALID'}
     if($linux){Assert-LabTlsLinuxPowerShellPackage $Parameters.TlsLinuxPowerShellPackage}
     elseif($Parameters.ContainsKey('TlsLinuxPowerShellPackage')){throw 'TLS_LINUX_EXPLICIT_SELECTION_REQUIRED'}
     Assert-LabTlsCaCandidateCapability
@@ -400,7 +715,8 @@ function New-LabAuthenticatedTlsEnvironment {
     $null=Invoke-LabTlsContainer @('info','--format',$format) -Budget $budget
     $expectedImageId=ConvertTo-LabTlsImageId (Invoke-LabTlsContainer @('image','inspect',$profile.Image,'--format','{{.Id}}') -Budget $budget).Trim()
     if($linux){$null=ConvertTo-LabTlsImageId (Invoke-LabTlsContainer @('image','inspect','mcr.microsoft.com/mssql/server:2025-CU9-ubuntu-24.04','--format','{{.Id}}') -Budget $budget).Trim()}
-    $authority=Register-LabTlsOperationalAuthority $Parameters.DataRoot $Parameters.TlsControllerId $Parameters.TlsLocationId $Parameters.TlsCandidateId
+    $expectedRegistrySha=if($Parameters.ContainsKey('TlsExpectedRegistrySha256')){[string]$Parameters.TlsExpectedRegistrySha256}else{$null}
+    $authority=Register-LabTlsOperationalAuthority -DataRoot $Parameters.DataRoot -ControllerId $Parameters.TlsControllerId -LocationId $Parameters.TlsLocationId -CandidateId $Parameters.TlsCandidateId -ExpectedRegistrySha256 $expectedRegistrySha
     if([DateTimeOffset]::ParseExact($authority.Authority.NotAfterUtc,'o',[Globalization.CultureInfo]::InvariantCulture) -le [DateTimeOffset]::UtcNow.AddDays(1)){throw 'TLS_LAB_CA_LIFETIME_INSUFFICIENT'}
     $sid=$authority.Native.UserSid;$audit=[guid]::NewGuid().ToString('D')
     $parent=Join-Path $Parameters.DataRoot 'State/authenticated-tls-labs'
@@ -415,7 +731,7 @@ function New-LabAuthenticatedTlsEnvironment {
     $budget.StateRoot=$state
     $intent=[pscustomobject]@{AuditId=$audit;Status='OWNED_CREATE_PENDING';Cleanup='Remove-SqlServerLab only this StateRoot/run; retain recovery on unconfirmed cleanup'}
     Write-LabTlsCaPrivateFile (Join-Path $state 'intent.json') $sid (ConvertTo-LabTlsRegistryWriterBytes $intent)
-    $inner=@{};foreach($key in $Parameters.Keys){if($key -cnotin @('TrustServerCertificate','TlsCandidateId','TlsControllerId','TlsLocationId','TlsClientPlatform','TlsLinuxPowerShellPackage','DataRoot')){$inner[$key]=$Parameters[$key]}}
+    $inner=@{};foreach($key in $Parameters.Keys){if($key -cnotin @('TrustServerCertificate','TlsCandidateId','TlsControllerId','TlsLocationId','TlsClientPlatform','TlsLinuxPowerShellPackage','TlsExpectedRegistrySha256','DataRoot')){$inner[$key]=$Parameters[$key]}}
     $inner.StateRoot=$state;$inner.Provider=$provider;$inner.InstanceId='primary';$inner.AutoStart='off'
     $run=$null
     try{
@@ -480,5 +796,16 @@ function New-LabAuthenticatedTlsEnvironment {
             }
         }
         throw $failure
+    }
+}
+
+function New-LabAuthenticatedTlsEnvironment {
+    param([hashtable]$Parameters,[scriptblock]$AllocationObserver)
+    $binding=Get-LabTlsRegistryWriterBinding $Parameters.DataRoot $Parameters.TlsControllerId $Parameters.TlsLocationId
+    $lifecycleLock=Enter-LabTlsRegistryLifecycleLock $binding
+    try{
+        return New-LabAuthenticatedTlsEnvironmentCore $Parameters $AllocationObserver
+    }finally{
+        Exit-LabTlsRegistryLifecycleLock $lifecycleLock
     }
 }

@@ -6,7 +6,51 @@ param()
 $ErrorActionPreference='Stop'
 $repo=Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . (Join-Path $PSScriptRoot '../Common/CheckResult.ps1')
+. (Join-Path $repo 'Private/AuthenticatedTlsLinuxObserver.ps1')
+. (Join-Path $repo 'Private/AuthenticatedTlsLinuxQualification.ps1')
 $passed=0;$failures=[Collections.Generic.List[string]]::new()
+$observerSource=Get-Content -LiteralPath (Join-Path $repo 'Private/AuthenticatedTlsLinuxObserver.ps1') -Raw
+$observerProgram=Get-LabTlsLinuxObservationProgram
+$observerTokens=$null;$observerParseErrors=$null
+$observerAst=[Management.Automation.Language.Parser]::ParseInput($observerProgram,'<Linux observer>',[ref]$observerTokens,[ref]$observerParseErrors)
+$homeAssignments=@($observerAst.FindAll({param($node)
+    $node-is[Management.Automation.Language.AssignmentStatementAst]-and
+    $node.Left-is[Management.Automation.Language.VariableExpressionAst]-and
+    $node.Left.VariablePath.UserPath-ieq'HOME'
+},$true))
+Add-CheckResult 'Linux observer avoids assigning to PowerShell automatic HOME' ($observerParseErrors.Count-eq0-and$homeAssignments.Count-eq0-and$observerProgram.Contains('$env:HOME-cne$clientHome'))
+Add-CheckResult 'Linux observer parses the exact CA PEM text with the same API as the TLS probe' (
+    $observerSource.Contains('$caPem=[IO.File]::ReadAllText($ca)') -and
+    $observerSource.Contains('X509Certificate2]::CreateFromPem($caPem)') -and
+    -not $observerSource.Contains('X509Certificate2]::CreateFromPemFile($ca)'))
+Add-CheckResult 'Linux observer emits fixed sanitized CA PEM stat, access, read and parse tokens' (
+    $observerSource.Contains('TLS_LINUX_CA_PEM_STAT_FAILED') -and $observerSource.Contains('TLS_LINUX_CA_PEM_ACCESS_DENIED') -and
+    $observerSource.Contains('TLS_LINUX_CA_PEM_READ_FAILED') -and $observerSource.Contains('TLS_LINUX_CA_PEM_PARSE_FAILED') -and
+    $observerSource.Contains("-- `$Path 2>`$null") -and $observerSource.Contains('$exception=$_.Exception;while($null-ne$exception.InnerException){$exception=$exception.InnerException}'))
+$qualificationProgram=Get-LabTlsLinuxQualificationProgram
+$qualificationTokens=$null;$qualificationParseErrors=$null
+$qualificationAst=[Management.Automation.Language.Parser]::ParseInput($qualificationProgram,'<Linux qualification>',[ref]$qualificationTokens,[ref]$qualificationParseErrors)
+$qualificationFailureFunction=$qualificationAst.Find({param($node) $node-is[Management.Automation.Language.FunctionDefinitionAst]-and$node.Name-ceq'Get-TlsLinuxQualificationFailureToken'},$true)
+Add-CheckResult 'Linux qualification guest program parses and contains its bounded exception classifier' ($qualificationParseErrors.Count-eq0-and$null-ne$qualificationFailureFunction)
+Add-CheckResult 'Linux qualification uses the canonical connection-string keywords with strict TLS settings' (
+    $qualificationProgram -cmatch "\`$builder\['Data Source'\]='tcp:localhost,1433'" -and
+    $qualificationProgram -cmatch "\`$builder\['Initial Catalog'\]='master'" -and
+    $qualificationProgram -cmatch "\`$builder\['User ID'\]='sa'" -and
+    $qualificationProgram -cmatch "\`$builder\['Encrypt'\]=\`$true" -and
+    $qualificationProgram -cmatch "\`$builder\['TrustServerCertificate'\]=\`$false" -and
+    $qualificationProgram -cmatch "\`$builder\['ConnectRetryCount'\]=0")
+if($qualificationFailureFunction){
+    $qualificationFailureScript=[scriptblock]::Create("param([string]`$Stage,[System.Exception]`$Exception)`n"+$qualificationFailureFunction.Extent.Text+"`nGet-TlsLinuxQualificationFailureToken -Stage `$Stage -Exception `$Exception")
+    foreach($case in @(
+        @{Exception=[System.Security.Authentication.AuthenticationException]::new('synthetic-secret');Category='AUTHENTICATION'},
+        @{Exception=[System.TimeoutException]::new('synthetic-secret');Category='TIMEOUT'},
+        @{Exception=[System.Net.Sockets.SocketException]::new([System.Net.Sockets.SocketError]::ConnectionRefused);Category='NETWORK'},
+        @{Exception=[System.InvalidOperationException]::new('synthetic-secret');Category='UNCLASSIFIED'}
+    )){foreach($stage in @('OPEN','QUERY','CLEANUP')){
+        $code=& $qualificationFailureScript $stage $case.Exception
+        Add-CheckResult 'Linux SqlClient failure classifier emits only fixed stage and exception type category' ($code-ceq('TLS_SQLCLIENT_'+$stage+'_'+$case.Category)-and$code-notmatch'synthetic-secret')
+    }}
+}
 $module=New-Module -ArgumentList $repo -ScriptBlock {
     param($Root)
     . (Join-Path $Root 'Private/ContainerOwnedHostIntegration.ps1')

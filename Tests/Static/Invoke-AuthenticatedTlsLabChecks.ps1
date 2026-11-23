@@ -4,6 +4,11 @@ $repo=(Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 . (Join-Path $PSScriptRoot '../Common/CheckResult.ps1')
 $passed=0;$failures=[Collections.Generic.List[string]]::new()
 Import-Module (Join-Path $repo 'SqlServerLab.psd1') -Force
+$publicNewLab=Get-Command -Name 'SqlServerLab\New-SqlServerLab' -ErrorAction Stop
+Add-CheckResult 'Public New-SqlServerLab exposes the optional TLS registry CAS precondition' $publicNewLab.Parameters.ContainsKey('TlsExpectedRegistrySha256')
+$plainTlsRejected=$false
+try{$null=SqlServerLab\New-SqlServerLab -TrustServerCertificate:$true -TlsExpectedRegistrySha256 ('a'*64)}catch{$plainTlsRejected=$_.Exception.Message -ceq 'TLS_EXPECTED_REGISTRY_REQUIRES_AUTHENTICATED_TLS'}
+Add-CheckResult 'Expected registry precondition is rejected for non-authenticated TLS before creation' $plainTlsRejected
 foreach($name in @('DiagnosticBundleReader','AuthenticatedTlsRequest','AuthenticatedTlsRegistryIndex','AuthenticatedTlsRegistryPayload','AuthenticatedTlsCaCandidate',
     'AuthenticatedTlsContext','AuthenticatedTlsRegistryRoot','AuthenticatedTlsRegistryWriter','AuthenticatedTlsLab','AuthenticatedTlsWindowsLab','AuthenticatedTlsQualification',
     'AuthenticatedTlsLinuxObserver','AuthenticatedTlsLinuxQualification','AuthenticatedTlsLinuxExecution','AuthenticatedTlsRestartRebind','AuthenticatedTlsRebindRecovery','SqlReadiness')){. (Join-Path $repo "Private/$name.ps1")}
@@ -11,15 +16,220 @@ foreach($name in @('DiagnosticBundleReader','AuthenticatedTlsRequest','Authentic
 . (Join-Path $repo 'Public/Read-SqlServerLabQualifiedTestEnvironment.ps1')
 $script:ModuleRoot=$repo
 function Test-TlsLabReject {param([scriptblock]$Action) try{& $Action|Out-Null;return $false}catch{return $true}}
+function Get-AuthenticatedTlsTestProcessState {
+    param([int]$Id,[long]$StartTicks)
+    if(-not $IsWindows){return 'UNSUPPORTED'}
+    $process=$null
+    try{$process=[Diagnostics.Process]::GetProcessById($Id)}catch [ArgumentException]{return 'ABSENT'}catch{return 'UNKNOWN'}
+    try{
+        # Pin the kernel process object before reading StartTime: that property
+        # is cached by Process, while a live handle prevents PID reuse from
+        # changing the object examined by a later cleanup action.
+        try{$null=$process.Handle}catch [InvalidOperationException]{return 'ABSENT'}catch{return 'UNKNOWN'}
+        try{$observed=$process.StartTime.ToUniversalTime().Ticks}catch [InvalidOperationException]{return 'ABSENT'}catch{return 'UNKNOWN'}
+        if($observed -ne $StartTicks){return 'PID_REUSED'}
+        return 'PRESENT'
+    }finally{$process.Dispose()}
+}
+function Stop-AuthenticatedTlsTestProcess {
+    param([int]$Id,[long]$StartTicks)
+    if(-not $IsWindows){throw 'TLS_TEST_CHILD_TERMINATION_UNSUPPORTED'}
+    $process=$null;$state='UNKNOWN'
+    try{$process=[Diagnostics.Process]::GetProcessById($Id)}catch [ArgumentException]{return 'ABSENT'}catch{throw 'TLS_TEST_CHILD_STATE_UNCONFIRMED'}
+    try{
+        # Hold the OS handle through identity verification, Kill, and WaitForExit.
+        # StartTime alone is cached and cannot protect against PID reuse.
+        try{$null=$process.Handle}catch [InvalidOperationException]{return 'ABSENT'}catch{throw 'TLS_TEST_CHILD_STATE_UNCONFIRMED'}
+        try{$observed=$process.StartTime.ToUniversalTime().Ticks}catch [InvalidOperationException]{return 'ABSENT'}catch{throw 'TLS_TEST_CHILD_STATE_UNCONFIRMED'}
+        if($observed -ne $StartTicks){return 'PID_REUSED'}
+        if($process.HasExited){return 'ABSENT'}
+        try{$confirmed=$process.StartTime.ToUniversalTime().Ticks}catch [InvalidOperationException]{return 'ABSENT'}catch{throw 'TLS_TEST_CHILD_STATE_UNCONFIRMED'}
+        if($confirmed -ne $StartTicks){return 'PID_REUSED'}
+        $process.Kill($true)
+        if(-not $process.WaitForExit(5000)){throw 'TLS_TEST_CHILD_TERMINATION_UNCONFIRMED'}
+    }finally{$process.Dispose()}
+    $state=Get-AuthenticatedTlsTestProcessState -Id $Id -StartTicks $StartTicks
+    if($state -notin @('ABSENT','PID_REUSED')){throw 'TLS_TEST_CHILD_STATE_UNCONFIRMED'}
+    return $state
+}
+$stopProcessSource=(Get-Item Function:Stop-AuthenticatedTlsTestProcess).Definition
+$handlePosition=$stopProcessSource.IndexOf('$process.Handle',[StringComparison]::Ordinal)
+$identityPosition=$stopProcessSource.IndexOf('$process.StartTime',[StringComparison]::Ordinal)
+$killPosition=$stopProcessSource.IndexOf('$process.Kill($true)',[StringComparison]::Ordinal)
+$disposePosition=$stopProcessSource.IndexOf('$process.Dispose()',[StringComparison]::Ordinal)
+$platformGuardPosition=$stopProcessSource.IndexOf("if(-not `$IsWindows){throw 'TLS_TEST_CHILD_TERMINATION_UNSUPPORTED'}",[StringComparison]::Ordinal)
+$processLookupPosition=$stopProcessSource.IndexOf('[Diagnostics.Process]::GetProcessById',[StringComparison]::Ordinal)
+Add-CheckResult 'TLS test cleanup is Windows-only and pins its process handle through termination' ($platformGuardPosition-ge0-and$processLookupPosition-gt$platformGuardPosition-and$handlePosition-ge0-and$identityPosition-gt$handlePosition-and$killPosition-gt$identityPosition-and$disposePosition-gt$killPosition)
 Add-CheckResult 'Native executor requires an explicit operation budget' (Test-TlsLabReject {Invoke-LabTlsContainer @('never-executed')})
 $budget=New-LabTlsRuntimeBudget;$budget.Commands=100
 Add-CheckResult 'Command ceiling rejects before native process start' (Test-TlsLabReject {Invoke-LabTlsContainer @('never-executed') -Budget $budget})
 $budget=New-LabTlsRuntimeBudget;$budget.DeadlineUtc=[datetime]::UtcNow.AddSeconds(-1)
 Add-CheckResult 'Time ceiling rejects before native process start' (Test-TlsLabReject {Invoke-LabTlsContainer @('never-executed') -Budget $budget})
+$runtimeBuilder=(Get-Item Function:New-LabTlsRuntimeProcessInfo).ScriptBlock
+$runtimePowerShell=(Get-Process -Id $PID).Path
+$runtimePipeRoot=$null;$runtimePipePidPath=$null
+try{
+    Set-Item Function:New-LabTlsRuntimeProcessInfo -Value {
+        param([string[]]$Arguments,[object]$Budget)
+        $start=[Diagnostics.ProcessStartInfo]::new($script:runtimePowerShell)
+        $start.UseShellExecute=$false;$start.CreateNoWindow=$true
+        $start.RedirectStandardOutput=$true;$start.RedirectStandardError=$true;$start.RedirectStandardInput=$true
+        foreach($argument in $Arguments){$start.ArgumentList.Add([string]$argument)}
+        return $start
+    }
+    $runtimeBudget=New-LabTlsRuntimeBudget -Provider docker
+    $runtimeBudget.RuntimeContext=[pscustomobject]@{Provider='docker';Invocation=$runtimePowerShell;Endpoint='synthetic';IdentityPath='';IdentitySha256=''}
+    $runtimeOutput=Invoke-LabTlsContainer @('-NoProfile','-Command',"[Console]::Out.Write('synthetic-bounded-output')") -Budget $runtimeBudget
+    Add-CheckResult 'Bounded TLS runtime process captures stdout without changing its content' ($runtimeOutput -ceq 'synthetic-bounded-output')
+
+    $runtimeBudget=New-LabTlsRuntimeBudget -Provider docker
+    $runtimeBudget.RuntimeContext=[pscustomobject]@{Provider='docker';Invocation=$runtimePowerShell;Endpoint='synthetic';IdentityPath='';IdentitySha256=''}
+    $runtimeInputText='i'*8192
+    $runtimeDuplexCommand="[Console]::Out.Write(('o' * 16384)); `$inputText=[Console]::In.ReadToEnd(); [Console]::Out.Write('INPUT=' + `$inputText.Length)"
+    $runtimeDuplexOutput=Invoke-LabTlsContainer @('-NoProfile','-Command',$runtimeDuplexCommand) $runtimeInputText -Budget $runtimeBudget
+    Add-CheckResult 'TLS runtime drains output while bounded stdin is written' ($runtimeDuplexOutput.EndsWith('INPUT=8192',[StringComparison]::Ordinal) -and $runtimeDuplexOutput.Length -eq 16394)
+
+    $runtimeBudget=New-LabTlsRuntimeBudget -Provider docker
+    $runtimeBudget.RuntimeContext=[pscustomobject]@{Provider='docker';Invocation=$runtimePowerShell;Endpoint='synthetic';IdentityPath='';IdentitySha256=''}
+    $runtimeBudget.DeadlineUtc=[datetime]::UtcNow.AddSeconds(2)
+    $runtimeWatch=[Diagnostics.Stopwatch]::StartNew();$runtimeTimeoutCode=$null
+    try{$null=Invoke-LabTlsContainer @('-NoProfile','-Command','Start-Sleep -Seconds 30') -Budget $runtimeBudget -OperationStage 'linux-client-observation'}catch{$runtimeTimeoutCode=$_.Exception.Message}
+    Add-CheckResult 'TLS runtime budget timeout kills and bounds the owned process' ($runtimeTimeoutCode -ceq 'TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_OBSERVATION' -and $runtimeWatch.Elapsed.TotalSeconds -lt 9)
+
+    $runtimeBudget=New-LabTlsRuntimeBudget -Provider docker
+    $runtimeBudget.RuntimeContext=[pscustomobject]@{Provider='docker';Invocation=$runtimePowerShell;Endpoint='synthetic';IdentityPath='';IdentitySha256=''}
+    $runtimeLargeOutputCode=$null
+    try{$null=Invoke-LabTlsContainer @('-NoProfile','-Command',"1..200 | ForEach-Object { [Console]::Out.Write(('x' * 8192)) }") -Budget $runtimeBudget}catch{$runtimeLargeOutputCode=$_.Exception.Message}
+    Add-CheckResult 'TLS runtime output is capped while the child is still producing output' ($runtimeLargeOutputCode -ceq 'TLS_LAB_RUNTIME_OUTPUT_TOO_LARGE')
+
+    if($IsWindows){
+        $runtimePipeRoot=Join-Path ([IO.Path]::GetTempPath()) ('sql-tls-pipe-'+[guid]::NewGuid().ToString('N'))
+        $null=[IO.Directory]::CreateDirectory($runtimePipeRoot)
+        $runtimePipePidPath=Join-Path $runtimePipeRoot 'child-process.txt'
+        $runtimePipeProgram=@'
+$childStart=[Diagnostics.ProcessStartInfo]::new('__POWERSHELL__')
+$childStart.UseShellExecute=$false;$childStart.CreateNoWindow=$true
+$childStart.ArgumentList.Add('-NoProfile');$childStart.ArgumentList.Add('-Command');$childStart.ArgumentList.Add('Start-Sleep -Seconds 60')
+$child=[Diagnostics.Process]::Start($childStart)
+[IO.File]::WriteAllText('__PID_FILE__',([string]$child.Id+'|'+[string]$child.StartTime.ToUniversalTime().Ticks))
+'@
+        $runtimePipeProgram=$runtimePipeProgram.Replace('__POWERSHELL__',$runtimePowerShell.Replace("'","''")).Replace('__PID_FILE__',$runtimePipePidPath.Replace("'","''"))
+        $runtimeBudget=New-LabTlsRuntimeBudget -Provider docker
+        $runtimeBudget.RuntimeContext=[pscustomobject]@{Provider='docker';Invocation=$runtimePowerShell;Endpoint='synthetic';IdentityPath='';IdentitySha256=''}
+        $runtimePipeWatch=[Diagnostics.Stopwatch]::StartNew();$runtimePipeCode=$null
+        try{$null=Invoke-LabTlsContainer @('-NoProfile','-Command',$runtimePipeProgram) -Budget $runtimeBudget}catch{$runtimePipeCode=$_.Exception.Message}
+        $runtimeChildState='UNKNOWN';$runtimeChildGone=$false
+        if(Test-Path -LiteralPath $runtimePipePidPath){
+            $runtimeChildRecord=(Get-Content -LiteralPath $runtimePipePidPath -Raw).Split('|')
+            if($runtimeChildRecord.Count -eq 2){
+                $runtimeChildState=Get-AuthenticatedTlsTestProcessState -Id ([int]$runtimeChildRecord[0]) -StartTicks ([long]$runtimeChildRecord[1])
+                $runtimeChildGone=$runtimeChildState -in @('ABSENT','PID_REUSED')
+                if($runtimeChildState -eq 'PRESENT'){$null=Stop-AuthenticatedTlsTestProcess -Id ([int]$runtimeChildRecord[0]) -StartTicks ([long]$runtimeChildRecord[1]);$runtimeChildGone=$true}
+            }
+        }
+        Add-CheckResult 'TLS runtime requires recovery for a pipe-held child and test cleanup confirms its exact PID is gone' ($runtimePipeCode -ceq 'TLS_LAB_RUNTIME_RECOVERY_REQUIRED' -and $runtimeChildState -in @('PRESENT','ABSENT','PID_REUSED') -and $runtimeChildGone -and $runtimePipeWatch.Elapsed.TotalSeconds -lt 12)
+    }else{
+        Write-Host '  SKIP  Pipe-held descendant cleanup requires stable Windows process handles'
+    }
+}finally{
+    if($runtimePipePidPath -and (Test-Path -LiteralPath $runtimePipePidPath)){
+        $record=(Get-Content -LiteralPath $runtimePipePidPath -Raw).Split('|')
+        if($record.Count -ne 2 -or $record[0] -cnotmatch '^\d+$' -or $record[1] -cnotmatch '^\d+$'){throw 'TLS_TEST_CHILD_EVIDENCE_INVALID'}
+        $null=Stop-AuthenticatedTlsTestProcess -Id ([int]$record[0]) -StartTicks ([long]$record[1])
+        [IO.File]::Delete($runtimePipePidPath)
+    }
+    if($runtimePipeRoot -and (Test-Path -LiteralPath $runtimePipeRoot)){[IO.Directory]::Delete($runtimePipeRoot)}
+    Set-Item Function:New-LabTlsRuntimeProcessInfo -Value $runtimeBuilder
+}
+$timeoutStages=@{
+    'linux-client-create'='TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_CREATE'
+    'linux-client-start'='TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_START'
+    'linux-client-layout'='TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_LAYOUT'
+    'linux-client-trust-write'='TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_TRUST_WRITE'
+    'linux-client-observation'='TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_OBSERVATION'
+    'linux-client-namespace-check'='TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_NAMESPACE_CHECK'
+    'linux-client-qualification'='TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_QUALIFICATION'
+}
+foreach($stage in $timeoutStages.Keys){
+    $code=Get-LabTlsRuntimeTimeoutCode $stage
+    Add-CheckResult ('Runtime timeout preserves only the fixed safe stage token: '+$stage) ($code-ceq$timeoutStages[$stage] -and (Get-LabTlsLinuxBridgeFailureCodes)-ccontains$code)
+    $record=[Management.Automation.ErrorRecord]::new([InvalidOperationException]::new($code),'synthetic',[Management.Automation.ErrorCategory]::NotSpecified,$null)
+    Add-CheckResult ('Runtime timeout stage survives public privacy projection: '+$stage) ((Get-LabTlsSafePublicLinuxFailureCode $record)-ceq$code)
+    Add-CheckResult ('Runtime timeout stage survives Linux bridge projection: '+$stage) ((Get-LabTlsLinuxBridgeFailureCodeFromError $record)-ceq$code)
+}
+Add-CheckResult 'Unspecified runtime timeout keeps the legacy safe code' ((Get-LabTlsRuntimeTimeoutCode)-ceq'TLS_LAB_RUNTIME_TIMEOUT')
+Add-CheckResult 'Runtime timeout rejects caller supplied stage text' (Test-TlsLabReject {Get-LabTlsRuntimeTimeoutCode 'password=synthetic-secret'})
 $other=New-LabTlsRuntimeBudget
 Add-CheckResult 'Independent operations retain separate counters and deadlines' ($other.Commands -eq 0 -and $other.DeadlineUtc -gt [datetime]::UtcNow -and $budget.Commands -eq 1)
 $safeRuntimeFailure=Get-LabTlsRuntimeFailureSummary -ExitCode 17 -StandardError 'Error response from daemon: container synthetic-id is not running; password=synthetic-secret' -OutputLength 12 -OperationStage 'linux-client-qualification'
 Add-CheckResult 'Runtime failure keeps a safe category and fixed operation stage while omitting raw stderr' ($safeRuntimeFailure -match '^TLS_LAB_RUNTIME_COMMAND_FAILED\|exitCode=17\|stderrClass=CONTAINER_NOT_RUNNING\|stderrBytes=\d+\|stdoutChars=12\|operationStage=linux-client-qualification$' -and $safeRuntimeFailure -notmatch 'synthetic-secret|synthetic-id')
+foreach($case in @(@('TLS_LINUX_CA_PEM_STAT_FAILED','TLS_CA_PEM_STAT_FAILED'),@('TLS_LINUX_CA_PEM_ACCESS_DENIED','TLS_CA_PEM_ACCESS_DENIED'),
+    @('TLS_LINUX_CA_PEM_READ_FAILED','TLS_CA_PEM_READ_FAILED'),@('TLS_LINUX_CA_PEM_PARSE_FAILED','TLS_CA_PEM_PARSE_FAILED'))){
+    $classified=Get-LabTlsRuntimeFailureSummary -ExitCode 1 -StandardError ($case[0]+' permission denied synthetic-private-detail') -OutputLength 0 -OperationStage 'linux-client-observation'
+    Add-CheckResult 'Runtime CA PEM failures keep exact bounded class without diagnostic text' ($classified -match ('stderrClass='+$case[1]+'\|') -and $classified -notmatch 'synthetic-private-detail|TLS_LINUX_CA_PEM')
+}
+foreach($case in @(@('SQLCLIENT_RESULT','TLS_SQLCLIENT_RESULT_INVALID'),@('SQLCMD_TIMEOUT','TLS_SQLCMD_TIMEOUT'),
+    @('ODBC_AMBIGUOUS','TLS_ODBC_AMBIGUOUS'),@('SQLCMD_RESULT','TLS_SQLCMD_RESULT_INVALID'))){
+    $classified=Get-LabTlsRuntimeFailureSummary -ExitCode 1 -StandardError ($case[0]+' synthetic-private-detail') -OutputLength 0 -OperationStage 'linux-client-qualification'
+    $pattern='^TLS_LAB_RUNTIME_COMMAND_FAILED\|exitCode=1\|stderrClass='+[regex]::Escape($case[1])+'\|stderrBytes=\d+\|stdoutChars=0\|operationStage=linux-client-qualification$'
+    Add-CheckResult 'Runtime Linux qualification markers map to fixed safe classes without raw diagnostics' ($classified -match $pattern -and $classified -notmatch 'synthetic-private-detail')
+}
+foreach($stage in @('CONSTRUCT','OPEN','QUERY','CLEANUP')){foreach($category in @('PLATFORM_UNSUPPORTED','ASSEMBLY_UNAVAILABLE','AUTHENTICATION','TIMEOUT','NETWORK','SQL','UNCLASSIFIED')){
+    $token='TLS_SQLCLIENT_'+$stage+'_'+$category
+    $classified=Get-LabTlsRuntimeFailureSummary -ExitCode 1 -StandardError ($token+' synthetic-private-user password=synthetic-secret') -OutputLength 0 -OperationStage 'linux-client-qualification'
+    $class=([regex]::Match($classified,'\|stderrClass=([^|]+)\|')).Groups[1].Value
+    Add-CheckResult 'Runtime SqlClient exception categories stay bounded and omit diagnostics' ($class-ceq$token-and$classified -notmatch 'synthetic-private-user|synthetic-secret')
+}}
+$probeFailure=@{Schema='SqlServerLab.TlsLinuxProbeFailure/2.1';Status='FAIL';Code='TLS_LINUX_CLR_CLIENT_CERTIFICATE_OPEN';Facts=@{DiagnosticKinds=@('CERTIFICATE');PrivateDetail='synthetic-private-detail';Password='synthetic-secret'}}|ConvertTo-Json -Compress -Depth 4
+$probeSummary=Get-LabTlsRuntimeFailureSummary -ExitCode 1 -StandardError 'synthetic certificate failure' -OutputLength $probeFailure.Length -StandardOutput $probeFailure -OperationStage 'linux-client-observation'
+Add-CheckResult 'Linux probe stdout preserves only its allowlisted failure code' ($probeSummary -match '\|stderrClass=TLS_LINUX_CLR_CLIENT_CERTIFICATE_OPEN\|' -and $probeSummary -notmatch 'synthetic-private-detail|synthetic-secret|DiagnosticKinds')
+$forgedProbeFailure=@{Schema='SqlServerLab.TlsLinuxProbeFailure/2.1';Status='FAIL';Code='TLS_LINUX_CLR_CLIENT_CERTIFICATE_OPEN|password=synthetic-secret'}|ConvertTo-Json -Compress -Depth 4
+$forgedProbeSummary=Get-LabTlsRuntimeFailureSummary -ExitCode 1 -StandardError 'certificate synthetic-private-detail' -OutputLength $forgedProbeFailure.Length -StandardOutput $forgedProbeFailure -OperationStage 'linux-client-observation'
+Add-CheckResult 'Linux probe stdout rejects appended private diagnostic text' ($forgedProbeSummary -match '\|stderrClass=TLS_CERTIFICATE\|' -and $forgedProbeSummary -notmatch 'synthetic-private-detail|synthetic-secret|TLS_LINUX_CLR_CLIENT')
+$unknownProbeFailure=@{Schema='SqlServerLab.TlsLinuxProbeFailure/2.1';Status='FAIL';Code='TLS_LINUX_PRIVATE_FAILURE password=synthetic-secret'}|ConvertTo-Json -Compress -Depth 4
+$unknownProbeSummary=Get-LabTlsRuntimeFailureSummary -ExitCode 1 -StandardError 'unclassified diagnostic synthetic-private-detail' -OutputLength $unknownProbeFailure.Length -StandardOutput $unknownProbeFailure -OperationStage 'linux-client-observation'
+Add-CheckResult 'Linux probe stdout rejects unknown failure tokens without leaking text' ($unknownProbeSummary -match '\|stderrClass=STDERR_UNCLASSIFIED\|' -and $unknownProbeSummary -notmatch 'synthetic-private-detail|synthetic-secret|TLS_LINUX_PRIVATE_FAILURE')
+$producerProbeCodes=@('TLS_LINUX_CLR_PROBE_FAILED','TLS_LINUX_CLR_CHILD_FAILED','TLS_LINUX_CLR_RESULT_INVALID',
+    'TLS_LINUX_ODBC_POSITIVE_FAILED','TLS_LINUX_ODBC_CERTIFICATE_REJECTION_MISSING','TLS_LINUX_DRIVER_CHANGED',
+    'TLS_LINUX_SQLCMD_CHANGED','TLS_LINUX_PROBE_INPUT_INVALID','TLS_LINUX_TRUST_BYTES_CHANGED','TLS_LINUX_TRUST_PATH_INVALID',
+    'TLS_LINUX_PARENT_CONTEXT_INVALID','TLS_LINUX_NON_LOOPBACK_RESOLUTION','TLS_LINUX_CHILD_BOUND_EXCEEDED',
+    'TLS_LINUX_CHILD_OUTPUT_TOO_LARGE','TLS_LINUX_ODBC_AMBIGUOUS','TLS_LINUX_PROBE_UNCLASSIFIED')
+foreach($category in @('CERTIFICATE','LOGIN','LOGIN_TIMEOUT','QUERY_TIMEOUT','TIMEOUT','NETWORK','UNCLASSIFIED')){$producerProbeCodes+=('TLS_LINUX_ODBC_POSITIVE_EXIT_'+$category)}
+foreach($category in @('STDERR','SQL_RESULT','DRIVER_NOT_OBSERVED','DRIVER_MAPS_UNREADABLE','DRIVER_PATTERN_MISSING')){$producerProbeCodes+=('TLS_LINUX_ODBC_POSITIVE_'+$category)}
+foreach($category in @('PLATFORM_UNSUPPORTED','ASSEMBLY_UNAVAILABLE','CERTIFICATE','LOGIN','TIMEOUT','NETWORK','SQL_RESULT','UNCLASSIFIED')){foreach($stage in @('CONSTRUCT','OPEN','QUERY')){$producerProbeCodes+=('TLS_LINUX_CLR_CLIENT_'+$category+'_'+$stage)}}
+foreach($code in $producerProbeCodes){
+    $record=@{Schema='SqlServerLab.TlsLinuxProbeFailure/2.1';Status='FAIL';Code=$code}|ConvertTo-Json -Compress
+    $summary=Get-LabTlsRuntimeFailureSummary -ExitCode 1 -StandardError 'safe test' -OutputLength $record.Length -StandardOutput $record -OperationStage 'linux-client-observation'
+    Add-CheckResult ('Linux probe producer failure code is allowlisted: '+$code) ($summary -match ('\|stderrClass='+[regex]::Escape($code)+'\|'))
+}
+$arraySchema=@{Schema=@('SqlServerLab.TlsLinuxProbeFailure/2.1');Status='FAIL';Code='TLS_LINUX_CLR_CLIENT_CERTIFICATE_OPEN'}|ConvertTo-Json -Compress
+$arrayStatus=@{Schema='SqlServerLab.TlsLinuxProbeFailure/2.1';Status=@('FAIL');Code='TLS_LINUX_CLR_CLIENT_CERTIFICATE_OPEN'}|ConvertTo-Json -Compress
+$lfCode=@{Schema='SqlServerLab.TlsLinuxProbeFailure/2.1';Status='FAIL';Code="TLS_LINUX_CLR_CLIENT_CERTIFICATE_OPEN`n"}|ConvertTo-Json -Compress
+foreach($spoof in @($arraySchema,$arrayStatus,$lfCode)){
+    $summary=Get-LabTlsRuntimeFailureSummary -ExitCode 1 -StandardError '' -OutputLength $spoof.Length -StandardOutput $spoof -OperationStage 'linux-client-observation'
+    Add-CheckResult 'Linux probe failure code parser rejects array spoofing and trailing LF' ($summary -match '\|stderrClass=STDERR_EMPTY\|' -and $summary -notmatch 'TLS_LINUX_CLR_CLIENT_CERTIFICATE_OPEN')
+}
+$bridgeFailureBytes=[Text.Encoding]::UTF8.GetBytes((@{Schema='SqlServerLab.TlsLinuxPeerFailure/0.1';Status='FAIL';Code='TLS_CERTIFICATE'}|ConvertTo-Json -Compress))
+$bridgeFailureCode=Get-LabTlsLinuxBridgeFailureCode $bridgeFailureBytes
+$bridgeFailureForged=[Text.Encoding]::UTF8.GetBytes('{"Schema":"SqlServerLab.TlsLinuxPeerFailure/0.1","Status":"FAIL","Code":"TLS_CERTIFICATE","PrivateDetail":"synthetic-secret"}')
+$bridgeFailureDuplicate=[Text.Encoding]::UTF8.GetBytes('{"Schema":"SqlServerLab.TlsLinuxPeerFailure/0.1","Status":"FAIL","Code":"TLS_CERTIFICATE","Code":"TLS_CERTIFICATE"}')
+$bridgeFailureArray=[Text.Encoding]::UTF8.GetBytes('{"Schema":"SqlServerLab.TlsLinuxPeerFailure/0.1","Status":"FAIL","Code":["TLS_CERTIFICATE"]}')
+$bridgeFailureUnknown=[Text.Encoding]::UTF8.GetBytes('{"Schema":"SqlServerLab.TlsLinuxPeerFailure/0.1","Status":"FAIL","Code":"SYNTHETIC_PRIVATE_SECRET"}')
+Add-CheckResult 'Linux bridge failure envelope admits only one bounded safe code' ($bridgeFailureCode-ceq'TLS_CERTIFICATE' -and
+    -not(Get-LabTlsLinuxBridgeFailureCode $bridgeFailureForged) -and -not(Get-LabTlsLinuxBridgeFailureCode $bridgeFailureDuplicate) -and
+    -not(Get-LabTlsLinuxBridgeFailureCode $bridgeFailureArray) -and -not(Get-LabTlsLinuxBridgeFailureCode $bridgeFailureUnknown))
+try{throw [InvalidOperationException]::new('The certificate chain was issued by an authority that is not trusted; synthetic-private-detail')}catch{
+    $bridgeExceptionClass=Get-LabTlsLinuxBridgeFailureCodeFromError $_
+}
+try{throw [InvalidOperationException]::new('LAB_LINUX_SQLCLIENT_RESULT')}catch{
+    $bridgeKnownFailure=Get-LabTlsLinuxBridgeFailureCodeFromError $_
+}
+Add-CheckResult 'Linux bridge producer maps error records to safe fixed classes only' ($bridgeExceptionClass-ceq'TLS_CERTIFICATE' -and $bridgeKnownFailure-ceq'LAB_LINUX_SQLCLIENT_RESULT')
+foreach($variant in @('tls_sqlclient_open_sql','Tls_SqlClient_Open_Sql')){
+    $classified=Get-LabTlsRuntimeFailureSummary -ExitCode 1 -StandardError ($variant+' synthetic-private-user password=synthetic-secret') -OutputLength 0 -OperationStage 'linux-client-qualification'
+    $class=([regex]::Match($classified,'\|stderrClass=([^|]+)\|')).Groups[1].Value
+    Add-CheckResult 'Noncanonical SqlClient failure token casing stays unclassified' ($class-ceq'STDERR_UNCLASSIFIED'-and$classified -notmatch 'synthetic-private-user|synthetic-secret')
+}
 $unknownRuntimeFailure=Get-LabTlsRuntimeFailureSummary -ExitCode 23 -StandardError 'unclassified diagnostic with synthetic-secret' -OutputLength 0
 Add-CheckResult 'Unknown runtime failure keeps an unspecified stage and omits raw stderr' ($unknownRuntimeFailure -match 'stderrClass=STDERR_UNCLASSIFIED' -and $unknownRuntimeFailure -match 'operationStage=unspecified' -and $unknownRuntimeFailure -notmatch 'unclassified diagnostic|synthetic-secret')
 Add-CheckResult 'Runtime failure stage rejects caller supplied text' (Test-TlsLabReject {Get-LabTlsRuntimeFailureSummary -ExitCode 1 -StandardError 'certificate' -OutputLength 0 -OperationStage 'password=synthetic-secret'})
@@ -28,6 +238,58 @@ $expectedObservedParameters=@('Bound','Budget','ContainerId','Program','InputTex
 $missingObservedParameters=@($expectedObservedParameters|Where-Object{$observedParameters -cnotcontains $_})
 Add-CheckResult 'Linux observed program preserves the legacy five-argument hook signature' ($missingObservedParameters.Count -eq 0 -and $observedParameters -cnotcontains 'OperationStage')
 Add-CheckResult 'Linux observer maps only exact known programs to fixed stages' ((Get-LabTlsLinuxObservedOperationStage (Get-LabTlsLinuxObservationProgram)) -ceq 'linux-client-observation' -and (Get-LabTlsLinuxObservedOperationStage (Get-LabTlsLinuxQualificationProgram)) -ceq 'linux-client-qualification' -and (Get-LabTlsLinuxObservedOperationStage 'synthetic unknown program') -ceq 'unspecified')
+$guestQualificationProgram=Get-LabTlsLinuxQualificationProgram
+$guestTokens=$null;$guestParseErrors=$null
+$guestAst=[System.Management.Automation.Language.Parser]::ParseInput($guestQualificationProgram,[ref]$guestTokens,[ref]$guestParseErrors)
+$guestClassifier=@($guestAst.FindAll({param($node)$node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -ceq 'Get-TlsLinuxQualificationFailureToken'},$true))
+$guestClassifierPassed=$false
+if(@($guestParseErrors).Count-eq0 -and $guestClassifier.Count-eq1){
+    $guestClassifierText="param([string]`$Stage,[string]`$ConstructOperation='NONE',[System.Exception]`$Exception)"+[Environment]::NewLine+$guestClassifier[0].Extent.Text+[Environment]::NewLine+'Get-TlsLinuxQualificationFailureToken -Stage $Stage -ConstructOperation $ConstructOperation -Exception $Exception'
+    $guestClassifierBlock=[scriptblock]::Create($guestClassifierText)
+    $privateDetail='synthetic-private-connection-detail'
+    $argumentCode=& $guestClassifierBlock -Stage CONSTRUCT -Exception ([ArgumentException]::new($privateDetail))
+    $formatCode=& $guestClassifierBlock -Stage CONSTRUCT -Exception ([FormatException]::new($privateDetail))
+    $wrappedArgumentCode=& $guestClassifierBlock -Stage CONSTRUCT -Exception ([InvalidOperationException]::new($privateDetail,[ArgumentException]::new($privateDetail)))
+    $unknownConstructCode=& $guestClassifierBlock -Stage CONSTRUCT -Exception ([InvalidOperationException]::new($privateDetail))
+    $wrongStageCode=& $guestClassifierBlock -Stage OPEN -Exception ([ArgumentException]::new($privateDetail))
+    $argumentSummary=Get-LabTlsRuntimeFailureSummary -ExitCode 1 -StandardError $argumentCode -OutputLength 0 -OperationStage 'linux-client-qualification'
+    $guestClassifierPassed=$argumentCode-ceq'TLS_SQLCLIENT_CONSTRUCT_INVALID_ARGUMENT' -and
+        $formatCode-ceq'TLS_SQLCLIENT_CONSTRUCT_INVALID_ARGUMENT' -and
+        $wrappedArgumentCode-ceq'TLS_SQLCLIENT_CONSTRUCT_INVALID_ARGUMENT' -and
+        $unknownConstructCode-ceq'TLS_SQLCLIENT_CONSTRUCT_UNCLASSIFIED' -and
+        $wrongStageCode-ceq'TLS_SQLCLIENT_OPEN_UNCLASSIFIED' -and
+        $argumentSummary-match'\|stderrClass=TLS_SQLCLIENT_CONSTRUCT_INVALID_ARGUMENT\|' -and
+        $argumentSummary-cnotmatch[regex]::Escape($privateDetail)
+}
+Add-CheckResult 'Embedded Linux SqlClient constructor emits only a closed invalid-argument token and keeps other stages closed' $guestClassifierPassed
+$phaseOperation='TRUST_CERT'
+$phaseCode=& $guestClassifierBlock -Stage CONSTRUCT -ConstructOperation $phaseOperation -Exception ([ArgumentException]::new($privateDetail))
+$phaseSummary=Get-LabTlsRuntimeFailureSummary -ExitCode 1 -StandardError $phaseCode -OutputLength 0 -OperationStage 'linux-client-qualification'
+$expectedPhaseCode='TLS_SQLCLIENT_CONSTRUCT_INVALID_ARGUMENT_AT_'+$phaseOperation
+Add-CheckResult 'Linux SqlClient constructor failure preserves a fixed operation phase without private exception text' (
+    $phaseCode-ceq$expectedPhaseCode -and $phaseSummary-match('\|stderrClass='+[regex]::Escape($expectedPhaseCode)+'\|') -and
+    $phaseSummary-cnotmatch[regex]::Escape($privateDetail) -and (Get-LabTlsLinuxBridgeFailureCodes)-ccontains$expectedPhaseCode)
+$allConstructPhases=@(Get-LabTlsLinuxConstructOperationNames|ForEach-Object{
+    $code=& $guestClassifierBlock -Stage CONSTRUCT -ConstructOperation $_ -Exception ([ArgumentException]::new($privateDetail))
+    [pscustomobject]@{Operation=$_;Code=$code;Allowed=(Get-LabTlsLinuxBridgeFailureCodes)-ccontains$code}
+})
+$longestConstructCode='TLS_SQLCLIENT_CONSTRUCT_PLATFORM_UNSUPPORTED_AT_INITIAL_CATALOG'
+$longestConstructSummary=Get-LabTlsRuntimeFailureSummary -ExitCode 1 -StandardError $longestConstructCode -OutputLength 0 -OperationStage 'linux-client-qualification'
+$allConstructCategories=@(foreach($operation in Get-LabTlsLinuxConstructOperationNames){foreach($category in @('PLATFORM_UNSUPPORTED','ASSEMBLY_UNAVAILABLE','AUTHENTICATION','TIMEOUT','NETWORK','SQL','UNCLASSIFIED','INVALID_ARGUMENT')){
+    $code='TLS_SQLCLIENT_CONSTRUCT_'+$category+'_AT_'+$operation
+    $summary=Get-LabTlsRuntimeFailureSummary -ExitCode 1 -StandardError $code -OutputLength 0 -OperationStage 'linux-client-qualification'
+    [pscustomobject]@{Code=$code;RoundTrip=($summary-match('\|stderrClass='+[regex]::Escape($code)+'\|'));Allowed=(Get-LabTlsLinuxBridgeFailureCodes)-ccontains$code}
+}})
+$unknownPhaseRejected=Test-TlsLabReject {
+    & $guestClassifierBlock -Stage CONSTRUCT -ConstructOperation 'PASSWORD=synthetic-secret' -Exception ([ArgumentException]::new($privateDetail))
+}
+Add-CheckResult 'Linux SqlClient constructor phase rejects noncanonical caller text' $unknownPhaseRejected
+Add-CheckResult 'Every closed Linux SqlClient constructor operation is recognized end to end' (
+    $allConstructPhases.Count-eq12 -and @($allConstructPhases|Where-Object{-not$_.Allowed -or $_.Code-cne('TLS_SQLCLIENT_CONSTRUCT_INVALID_ARGUMENT_AT_'+$_.Operation)}).Count-eq0)
+Add-CheckResult 'All closed constructor category and phase tokens fit the bridge class limit and round-trip' (
+    $allConstructCategories.Count-eq96 -and (($allConstructCategories|ForEach-Object{$_.Code.Length}|Measure-Object -Maximum).Maximum-eq63) -and
+    @($allConstructCategories|Where-Object{$_.Code.Length-gt64 -or -not$_.RoundTrip -or -not$_.Allowed}).Count-eq0 -and
+    $longestConstructSummary-match('\|stderrClass='+[regex]::Escape($longestConstructCode)+'\|'))
 foreach($json in @('{"x":1,"X":2}','{"x":{"a":1,"A":2}}','{"x":1,}','{"x":/*comment*/1}','{"x":1,"y":2}')){
     Add-CheckResult 'Bound JSON rejects duplicate/alias/comment/trailing/unknown fields' (Test-TlsLabReject {Read-LabTlsBoundJson ([Text.Encoding]::UTF8.GetBytes($json)) @('x')})
 }
@@ -210,9 +472,19 @@ if($IsWindows){
         # Exercise the creator's complete orchestration with explicitly synthetic
         # provider observations. These assertions guard the two review findings;
         # they do not claim native SQL or host-autostart acceptance.
-        $script:capturedAutoStart=$null;$script:capturedProvider=$null;$script:writtenConnection=$null
+        $script:capturedAutoStart=$null;$script:capturedProvider=$null;$script:writtenConnection=$null;$script:capturedExpectedRegistrySha256=$null
         $authority.Authority|Add-Member -NotePropertyName NotAfterUtc -NotePropertyValue ([datetime]::UtcNow.AddDays(3).ToString('O'))
-        function Register-LabTlsOperationalAuthority {param($DataRoot,$ControllerId,$LocationId,$CandidateId) $null=$DataRoot,$ControllerId,$LocationId,$CandidateId;return $authority}
+        function Register-LabTlsOperationalAuthority {param($DataRoot,$ControllerId,$LocationId,$CandidateId,$ExpectedRegistrySha256) $null=$DataRoot,$ControllerId,$LocationId,$CandidateId;$script:capturedExpectedRegistrySha256=$ExpectedRegistrySha256;return $authority}
+        # This orchestration fixture intentionally has synthetic root metadata.
+        # Keep the production wrapper path exercised while isolating the lock
+        # identity; writer binding and native mutex behavior have dedicated tests.
+        function Get-LabTlsRegistryWriterBinding {
+            param($DataRoot,$ControllerId,$LocationId)
+            $null=$ControllerId,$LocationId
+            [pscustomobject]@{Directory=(Join-Path $DataRoot 'State/authenticated-tls')}
+        }
+        function Enter-LabTlsRegistryLifecycleLock {param($Binding) $null=$Binding;[pscustomobject]@{Held=$true}}
+        function Exit-LabTlsRegistryLifecycleLock {param($Lock) $null=$Lock}
         $script:fixtureImageId='sha256:'+('b'*64)
         function Invoke-LabTlsContainer {param($Arguments,$InputText) $null=$InputText;if($Arguments[0] -ceq 'image'){return $script:fixtureImageId};if($Arguments -contains 'base64'){return 'AQ=='};return ''}
         # Synthetic policy boundary for the creator orchestration. Actual policy
@@ -229,6 +501,7 @@ if($IsWindows){
             [pscustomobject]@{PolicyId=$ParentOperationId}
         }
         function New-SqlServerLab {
+            [CmdletBinding()]
             param($StateRoot,$Provider,$Version,$InstanceId,$AutoStart)
             $script:capturedVersion=$Version;$script:capturedAutoStart=$AutoStart;$script:capturedProvider=$Provider
             [pscustomobject]@{RunId='synthetic-run';StateRoot=$StateRoot;Instances=@([pscustomobject]@{Id=$InstanceId;ConnectionString='Server=127.0.0.1,14333;Encrypt=True;TrustServerCertificate=True;Password=***'})}
@@ -256,12 +529,16 @@ if($IsWindows){
         function Write-LabArtifactJsonAtomic {param($Path,$InputObject) $null=$Path,$InputObject}
         foreach($provider in @('docker','podman')){
             $record.Provider=$provider
-            $created=New-LabAuthenticatedTlsEnvironment @{Version='2025-CU9';Provider=$provider;DataRoot=$fixture;TlsControllerId=$record.ControllerId;TlsLocationId=$record.LocationId;TlsCandidateId=$authority.Authority.CandidateId}
+            $expectedRegistrySha=if($provider -ceq 'docker'){('a'*64)}else{$null}
+            $createParameters=@{Version='2025-CU9';Provider=$provider;DataRoot=$fixture;TlsControllerId=$record.ControllerId;TlsLocationId=$record.LocationId;TlsCandidateId=$authority.Authority.CandidateId}
+            if($expectedRegistrySha){$createParameters.TlsExpectedRegistrySha256=$expectedRegistrySha}
+            $created=New-LabAuthenticatedTlsEnvironment $createParameters
             $createdRecord=Read-LabTlsLabRecord ([IO.File]::ReadAllBytes((Join-Path $created.StateRoot 'authenticated-tls-lab.json')))
             $expectedMachineName=if($provider -ceq 'docker'){$null}else{'synthetic-machine'}
             Add-CheckResult "$provider runtime binding preserves machine-name pin nullability" ($createdRecord.RuntimeBinding.MachineName -ceq $expectedMachineName)
             $settings=[Data.SqlClient.SqlConnectionStringBuilder]::new($created.Instances[0].ConnectionString)
             Add-CheckResult "Creator delegates explicit $provider and returns true/false in the public DTO" ($script:capturedProvider -ceq $provider -and $settings.Encrypt -and -not $settings.TrustServerCertificate)
+            if($provider -ceq 'docker'){Add-CheckResult 'Creator forwards the exact registry CAS precondition to authority registration' ($script:capturedExpectedRegistrySha256 -ceq $expectedRegistrySha)}
             foreach($selectedVersion in @('2022-CU27','2019-CU32')){
                 $createdVersion=New-LabAuthenticatedTlsEnvironment @{Version=$selectedVersion;Provider=$provider;DataRoot=$fixture;TlsControllerId=$record.ControllerId;TlsLocationId=$record.LocationId;TlsCandidateId=$authority.Authority.CandidateId}
                 $versionRecord=Read-LabTlsLabRecord ([IO.File]::ReadAllBytes((Join-Path $createdVersion.StateRoot 'authenticated-tls-lab.json')))

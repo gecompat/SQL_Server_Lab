@@ -59,6 +59,104 @@ function Get-LabTlsLinuxObservedOperationStage {
     return 'unspecified'
 }
 
+function Get-LabTlsSafePublicLinuxFailureCode {
+    param([System.Management.Automation.ErrorRecord]$ErrorRecord)
+    $exception=$ErrorRecord.Exception
+    # These exact codes can originate at the Windows CA/export binding,
+    # Linux-client bootstrap, observer, or SQL qualification boundaries. They
+    # are fixed producer tokens; never expose arbitrary host/guest exception
+    # text through the public preflight wrapper.
+    $safePublicTokens=@(
+        'TLS_CA_STORAGE_INVALID','TLS_CA_ACL_INVALID','TLS_CA_FILE_INVALID',
+        'TLS_CA_METADATA_INVALID','TLS_CA_CERTIFICATE_INVALID','TLS_CA_KEY_INVALID',
+        'TLS_CA_BINDING_DRIFT','TLS_CA_CANDIDATE_BINDING_INVALID',
+        'TLS_QUALIFICATION_SQLCLIENT_RESULT_INVALID','TLS_QUALIFICATION_SQLCLIENT_FAILED',
+        'TLS_QUALIFICATION_SQLCMD_CHANGED','TLS_QUALIFICATION_SQLCMD_TIMEOUT',
+        'TLS_QUALIFICATION_SQLCMD_FAILED','TLS_QUALIFICATION_BINARY_CHANGED',
+        'TLS_QUALIFICATION_BINDING_CHANGED','TLS_QUALIFICATION_SECRET_UNAVAILABLE',
+        'TLS_EXPORT_EXPLICIT_SELECTION_REQUIRED','TLS_EXPORT_BYTES_INVALID',
+        'TLS_EXPORT_READBACK_INVALID','TLS_EXPORT_BINDING_CHANGED',
+        'TLS_LINUX_EXPLICIT_SELECTION_REQUIRED','TLS_LINUX_EXPORT_REJECTED',
+        'TLS_LINUX_CLIENT_INTENT_CHANGED','TLS_LINUX_CLIENT_ISOLATION_CHANGED',
+        'TLS_LINUX_NAMESPACE_OR_TRUST_CHANGED','TLS_LINUX_CLIENT_ALREADY_ALLOCATED',
+        'TLS_LINUX_STOCK_CLIENT_IMAGE_REQUIRED','TLS_LINUX_PARENT_CHANGED',
+        'TLS_LINUX_CLIENT_CHANGED','TLS_LINUX_CONTEXT_CHANGED',
+        'TLS_LINUX_MISSING_INTENT_RECOVERY_REQUIRED','TLS_LINUX_CLEANUP_BINDING_INVALID',
+        'TLS_LINUX_CLEANUP_RECOVERY_REQUIRED','TLS_LINUX_RECOVERY_REQUIRED',
+        'TLS_LINUX_OPERATION_BUSY','TLS_LINUX_CONTROLLER_SESSION_REQUIRED',
+        'TLS_LINUX_SOURCE_SCOPE_INVALID','TLS_LINUX_SOURCE_LIMIT',
+        'TLS_LINUX_SOURCE_COPY_CHANGED','TLS_LINUX_BOOTSTRAP_LIMIT',
+        'TLS_LINUX_SESSION_INVALID','TLS_LINUX_SESSION_REJECTED',
+        'TLS_LINUX_CLIENT_BINDING_INVALID','TLS_LINUX_CONTEXT_RECORD_INVALID',
+        'TLS_LINUX_EXPORT_BINDING_INVALID','TLS_LINUX_EXPORT_DOCUMENT_INVALID','TLS_LINUX_EXPORT_PAYLOAD_INVALID',
+        'TLS_LINUX_VERIFIER_REPLY_REJECTED','TLS_LINUX_PEER_REJECTED',
+        'TLS_LINUX_PINNED_PACKAGE_INVALID','TLS_LINUX_PINNED_PACKAGE_REQUIRED',
+        'TLS_LINUX_PROCESS_RECOVERY_REQUIRED','TLS_LINUX_QUALIFICATION_BINDING_CHANGED',
+        'TLS_LINUX_TERMINATION_UNCONFIRMED','TLS_LINUX_TRANSFER_COMMAND_FAILED',
+        'TLS_LINUX_TRANSFER_INPUT_INVALID','TLS_LINUX_TRANSFER_OUTPUT_LIMIT',
+        'TLS_LINUX_TRANSFER_SOURCE_CHANGED','TLS_LINUX_TRANSFER_TIMEOUT',
+        'TLS_LINUX_CA_PEM_STAT_FAILED','TLS_LINUX_CA_PEM_ACCESS_DENIED',
+        'TLS_LINUX_CA_PEM_READ_FAILED','TLS_LINUX_CA_PEM_PARSE_FAILED',
+        'TLS_LINUX_BRIDGE_INPUT_TIMEOUT','TLS_LINUX_BRIDGE_TIMEOUT','TLS_LINUX_BRIDGE_OUTPUT_LIMIT',
+        'TLS_LINUX_BRIDGE_PROTOCOL','TLS_LINUX_BRIDGE_TERMINATION_UNCONFIRMED',
+        'TLS_LINUX_CONSUMER_FAILED','TLS_LINUX_CHILD_EXIT_NONZERO','TLS_LINUX_BRIDGE_PROTOCOL_BYTES_PENDING',
+        'TLS_LINUX_RESULT_MISSING','TLS_LINUX_CHILD_STDERR_NONEMPTY',
+        'TLS_LINUX_SOURCE_CHANGED','TLS_LINUX_CLIENT_CLEANUP_RECOVERY_REQUIRED',
+        'TLS_LINUX_GUEST_TERMINATION_UNCONFIRMED',
+        'TLS_LAB_RUNTIME_RECOVERY_REQUIRED',
+        'TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_CREATE','TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_START',
+        'TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_LAYOUT','TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_TRUST_WRITE',
+        'TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_OBSERVATION','TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_NAMESPACE_CHECK',
+        'TLS_LAB_RUNTIME_TIMEOUT_LINUX_CLIENT_QUALIFICATION'
+    )
+    $safeRuntimeClasses=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    $safeConstructFailureTokens=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    foreach($class in @(
+        'STDERR_UNCLASSIFIED','STDERR_EMPTY','CONTAINER_NOT_FOUND','CONTAINER_NOT_RUNNING',
+        'PORT_CONFLICT','DAEMON_UNREACHABLE','REGISTRY_AUTHORIZATION','IMAGE_NOT_FOUND',
+        'TLS_SQLCLIENT_RESULT_INVALID','TLS_SQLCMD_TIMEOUT','TLS_ODBC_AMBIGUOUS',
+        'TLS_SQLCMD_RESULT_INVALID','TLS_CA_PEM_STAT_FAILED','TLS_CA_PEM_ACCESS_DENIED',
+        'TLS_CA_PEM_READ_FAILED','TLS_CA_PEM_PARSE_FAILED','PERMISSION_DENIED',
+        'TLS_CERTIFICATE','NETWORK_NOT_FOUND','RUNTIME_TIMEOUT','RUNTIME_TIMEOUT_TIMEOUT_EXCEPTION',
+        'RUNTIME_TIMEOUT_SOCKET_TIMEOUT','RUNTIME_TIMEOUT_SQLCLIENT_TIMEOUT','RUNTIME_TIMEOUT_OPERATION_CANCELED',
+        'RUNTIME_TIMEOUT_HTTP_REQUEST_EXCEPTION','RUNTIME_TIMEOUT_WEB_EXCEPTION','RUNTIME_TIMEOUT_IO_EXCEPTION',
+        'RUNTIME_TIMEOUT_INVALID_OPERATION_EXCEPTION','RUNTIME_TIMEOUT_POWERSHELL_RUNTIME_EXCEPTION','RUNTIME_TIMEOUT_OTHER_EXCEPTION','DAEMON_REJECTED_REQUEST'
+    )){$null=$safeRuntimeClasses.Add($class)}
+    foreach($stage in @('CONSTRUCT','OPEN','QUERY','CLEANUP')){foreach($category in @('PLATFORM_UNSUPPORTED','ASSEMBLY_UNAVAILABLE','AUTHENTICATION','TIMEOUT','NETWORK','SQL','UNCLASSIFIED')){
+        $null=$safeRuntimeClasses.Add('TLS_SQLCLIENT_'+$stage+'_'+$category)
+    }}
+    foreach($code in Get-LabTlsLinuxProbeFailureCodes){$null=$safeRuntimeClasses.Add($code)}
+    foreach($code in Get-LabTlsLinuxBridgeFailureCodes){$null=$safeRuntimeClasses.Add($code)}
+    foreach($operation in Get-LabTlsLinuxConstructOperationNames){foreach($category in @('PLATFORM_UNSUPPORTED','ASSEMBLY_UNAVAILABLE','AUTHENTICATION','TIMEOUT','NETWORK','SQL','UNCLASSIFIED','INVALID_ARGUMENT')){
+        $null=$safeConstructFailureTokens.Add('TLS_SQLCLIENT_CONSTRUCT_'+$category+'_AT_'+$operation)
+    }}
+    while($null-ne$exception){
+        $message=[string]$exception.Message
+        if($message -cmatch '\ATLS_LINUX_CHILD_EXIT_NONZERO\|exitCode=(-?[0-9]{1,10})\|hello=([01])\|verifierRequests=([0-9]{1,2})\|resultSeen=([01])(?:\|lastVerifiedStack=(none|SYSTEM_DATA_SQLCLIENT|ODBC_SQLCMD))?(?:\|nextExpectedFrame=(HELLO|VERIFY_SYSTEM_DATA_SQLCLIENT|VERIFY_ODBC_SQLCMD|RESULT|none))?\|stderrClass=([A-Z0-9_]{1,64})\|stderrBytes=([0-9]{1,10})\z'){
+            $exitCode=[long]$Matches[1];$hello=$Matches[2]-ceq'1';$stderrClass=$Matches[7];$stderrBytes=[long]$Matches[8]
+            $verifierRequests=[int]$Matches[3]
+            $resultSeen=$Matches[4]-ceq'1'
+            $lastVerifiedStackPresent=$message.Contains('|lastVerifiedStack=')
+            $lastVerifiedStackValid=(-not$lastVerifiedStackPresent-or$Matches[5]-cin @('none','SYSTEM_DATA_SQLCLIENT','ODBC_SQLCMD'))
+            $nextExpectedFramePresent=$message.Contains('|nextExpectedFrame=')
+            $nextExpectedFrameValid=(-not$nextExpectedFramePresent-or
+                ($Matches[6]-ceq(Get-LabTlsLinuxExpectedNextFrame -Hello $hello -VerifierRequests $verifierRequests -ResultSeen $resultSeen -LastVerifiedStack ([string]$Matches[5]))))
+            if($exitCode-ge[int]::MinValue-and$exitCode-le[int]::MaxValue-and$verifierRequests-ge0-and$verifierRequests-le16-and$lastVerifiedStackValid-and$nextExpectedFrameValid-and
+                $safeRuntimeClasses.Contains($stderrClass)-and$stderrBytes-ge0-and$stderrBytes-le1048576){return $message}
+        }
+        if($message -cin $safePublicTokens-or$safeConstructFailureTokens.Contains($message)-or$message -cmatch '\ATLS_SQLCLIENT_CONSTRUCT_(?:PLATFORM_UNSUPPORTED|ASSEMBLY_UNAVAILABLE|AUTHENTICATION|TIMEOUT|NETWORK|SQL|UNCLASSIFIED|INVALID_ARGUMENT)\z|\ATLS_SQLCLIENT_(?:OPEN|QUERY|CLEANUP)_(?:PLATFORM_UNSUPPORTED|ASSEMBLY_UNAVAILABLE|AUTHENTICATION|TIMEOUT|NETWORK|SQL|UNCLASSIFIED)\z'){
+            return $message
+        }
+        if($message -cmatch '\ATLS_LAB_RUNTIME_COMMAND_FAILED\|exitCode=(-?\d{1,10})\|stderrClass=([A-Z0-9_]{1,64})\|stderrBytes=(\d{1,10})\|stdoutChars=(\d{1,10})\|operationStage=(unspecified|linux-client-create|linux-client-start|linux-client-layout|linux-client-trust-write|linux-client-observation|linux-client-namespace-check|linux-client-qualification)\z'){
+            $exitCode=[long]$Matches[1];$stderrBytes=[long]$Matches[3];$stdoutChars=[long]$Matches[4]
+            if($safeRuntimeClasses.Contains($Matches[2])-and$exitCode-ge[int]::MinValue-and$exitCode-le[int]::MaxValue-and
+                $stderrBytes-ge0-and$stderrBytes-le1048576-and$stdoutChars-ge0-and$stdoutChars-le1048576){return $message}
+        }
+        $exception=$exception.InnerException
+    }
+    return 'TLS_LINUX_CONSUMER_REJECTED_OR_RECOVERY_REQUIRED'
+}
+
 function Invoke-LabTlsLinuxObservedProgram {
     param([object]$Bound,[object]$Budget,[string]$ContainerId,[string]$Program,[string]$InputText)
     $root=$Bound.StateRoot;$lease=Enter-LabTlsLinuxOperation $root

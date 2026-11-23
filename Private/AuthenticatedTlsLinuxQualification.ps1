@@ -16,21 +16,63 @@ function Get-LabTlsLinuxExportUsageText {
 function Get-LabTlsLinuxQualificationProgram {
     return @'
 $ErrorActionPreference='Stop'
+function Get-TlsLinuxQualificationFailureToken {
+    param(
+        [ValidateSet('CONSTRUCT','OPEN','QUERY','CLEANUP')][string]$Stage,
+        [ValidateSet('NONE','BUILDER_CREATE','DATA_SOURCE','INITIAL_CATALOG','USER_ID','PASSWORD','ENCRYPT','TRUST_CERT','POOLING','CONNECT_TIMEOUT','CONNECT_RETRY','SQL_CONNECTION','BUILDER_CLEAR')][string]$ConstructOperation='NONE',
+        [System.Exception]$Exception
+    )
+    $category='UNCLASSIFIED'
+    while($null-ne$Exception){
+        $type=$Exception.GetType().FullName
+        if($type-ceq'System.PlatformNotSupportedException'){$category='PLATFORM_UNSUPPORTED';break}
+        if($type-cin@('System.TypeLoadException','System.IO.FileNotFoundException','System.IO.FileLoadException')){$category='ASSEMBLY_UNAVAILABLE';break}
+        if($type-ceq'System.Security.Authentication.AuthenticationException'){$category='AUTHENTICATION';break}
+        if($type-ceq'System.TimeoutException'){$category='TIMEOUT';break}
+        if($type-ceq'System.Net.Sockets.SocketException'){$category='NETWORK';break}
+        if($Stage-ceq'CONSTRUCT' -and ($Exception -is [ArgumentException] -or $Exception -is [FormatException])){$category='INVALID_ARGUMENT';break}
+        if($type-ceq'System.Data.SqlClient.SqlException'){$category='SQL';break}
+        $Exception=$Exception.InnerException
+    }
+    if($Stage-ceq'CONSTRUCT' -and $ConstructOperation-cne'NONE'){
+        return ('TLS_SQLCLIENT_CONSTRUCT_'+$category+'_AT_'+$ConstructOperation)
+    }
+    return ('TLS_SQLCLIENT_'+$Stage+'_'+$category)
+}
 $inputObject=[Console]::In.ReadToEnd()|ConvertFrom-Json
 $expected=$inputObject.SqlBuild
-$builder=[Data.SqlClient.SqlConnectionStringBuilder]::new()
-$builder.DataSource='tcp:localhost,1433';$builder.InitialCatalog='master';$builder.UserID='sa';$builder.Password=$inputObject.Password
-$builder.Encrypt=$true;$builder.TrustServerCertificate=$false;$builder.Pooling=$false;$builder.ConnectTimeout=10;$builder.ConnectRetryCount=0
-$connection=[Data.SqlClient.SqlConnection]::new($builder.ConnectionString);$builder.Clear()
+$builder=$null;$connection=$null;$command=$null;$reader=$null;$failureToken=$null;$resultMatches=$false;$constructOperation='BUILDER_CREATE'
 try{
-    $connection.Open()
-    $command=$connection.CreateCommand();$command.CommandTimeout=10
-    $command.CommandText="SET NOCOUNT ON; SELECT CONVERT(varchar(32),SERVERPROPERTY('ProductVersion')),encrypt_option FROM sys.dm_exec_connections WHERE session_id=@@SPID"
     try{
-        $reader=$command.ExecuteReader()
-        try{if(-not$reader.Read()-or$reader.GetString(0)-cne$expected-or$reader.GetString(1)-cne'TRUE'-or$reader.Read()){throw 'SQLCLIENT_RESULT'}}finally{$reader.Dispose()}
-    }finally{$command.Dispose()}
-}finally{$connection.Dispose()}
+        $builder=[Data.SqlClient.SqlConnectionStringBuilder]::new()
+        $constructOperation='DATA_SOURCE';$builder['Data Source']='tcp:localhost,1433'
+        $constructOperation='INITIAL_CATALOG';$builder['Initial Catalog']='master'
+        $constructOperation='USER_ID';$builder['User ID']='sa'
+        $constructOperation='PASSWORD';$builder['Password']=$inputObject.Password
+        $constructOperation='ENCRYPT';$builder['Encrypt']=$true
+        $constructOperation='TRUST_CERT';$builder['TrustServerCertificate']=$false
+        $constructOperation='POOLING';$builder['Pooling']=$false
+        $constructOperation='CONNECT_TIMEOUT';$builder['Connect Timeout']=10
+        $constructOperation='CONNECT_RETRY';$builder['ConnectRetryCount']=0
+        $constructOperation='SQL_CONNECTION';$connection=[Data.SqlClient.SqlConnection]::new($builder.ConnectionString)
+    }catch{$failureToken=Get-TlsLinuxQualificationFailureToken -Stage CONSTRUCT -ConstructOperation $constructOperation -Exception $_.Exception}
+    finally{if($builder){try{$builder.Clear()}catch{if(-not$failureToken){$failureToken=Get-TlsLinuxQualificationFailureToken -Stage CONSTRUCT -ConstructOperation BUILDER_CLEAR -Exception $_.Exception}}}}
+    if(-not$failureToken){try{$connection.Open()}catch{$failureToken=Get-TlsLinuxQualificationFailureToken -Stage OPEN -Exception $_.Exception}}
+    if(-not$failureToken){
+        try{
+            $command=$connection.CreateCommand();$command.CommandTimeout=10
+            $command.CommandText="SET NOCOUNT ON; SELECT CONVERT(varchar(32),SERVERPROPERTY('ProductVersion')),encrypt_option FROM sys.dm_exec_connections WHERE session_id=@@SPID"
+            $reader=$command.ExecuteReader()
+            $resultMatches=$reader.Read() -and $reader.GetString(0)-ceq$expected -and $reader.GetString(1)-ceq'TRUE' -and -not$reader.Read()
+        }catch{$failureToken=Get-TlsLinuxQualificationFailureToken -Stage QUERY -Exception $_.Exception}
+    }
+}finally{
+    if($reader){try{$reader.Dispose()}catch{if(-not$failureToken){$failureToken='TLS_SQLCLIENT_QUERY_UNCLASSIFIED'}}}
+    if($command){try{$command.Dispose()}catch{if(-not$failureToken){$failureToken='TLS_SQLCLIENT_QUERY_UNCLASSIFIED'}}}
+    if($connection){try{$connection.Dispose()}catch{if(-not$failureToken){$failureToken='TLS_SQLCLIENT_CLEANUP_UNCLASSIFIED'}}}
+}
+if($failureToken){[Console]::Error.WriteLine($failureToken);exit 1}
+if(-not$resultMatches){throw 'SQLCLIENT_RESULT'}
 $info=[Diagnostics.ProcessStartInfo]::new('/opt/mssql-tools18/bin/sqlcmd')
 $info.UseShellExecute=$false;$info.RedirectStandardOutput=$true;$info.RedirectStandardError=$true
 foreach($key in @($info.Environment.Keys)){if($key.StartsWith('SQLCMD',[StringComparison]::OrdinalIgnoreCase)){$null=$info.Environment.Remove($key)}}
@@ -115,4 +157,5 @@ function Assert-LabTlsLinuxExportQualification {
         runId=$r.RunId;instanceId=$r.InstanceId;host='localhost';port=1433;database='master';username='sa';password=$Entry.password;encrypt=$true;trustServerCertificate=$false;autoStart='off';connectionString=$Entry.connectionString}
     if($Entry.password-isnot[string]-or-not$Entry.password-or$Entry.connectionString-isnot[string]){throw 'TLS_LINUX_EXPORT_BINDING_INVALID'}
     Assert-LabTlsLinuxObservedFields $entryExpected $Entry
+    return $client
 }

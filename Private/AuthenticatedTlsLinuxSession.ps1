@@ -17,12 +17,12 @@ function New-LabTlsLinuxConsumerSession {
         throw 'TLS_LINUX_SESSION_INVALID'
     }
     $qualificationRemaining=($QualificationExpiresAt-$now).TotalMilliseconds
-    # Five seconds cover the bounded exchange; thirty remain for the login.
-    if($qualificationRemaining -lt 35000 -or $qualificationRemaining -gt 900000 -or
-        $ExpiresAt -gt $QualificationExpiresAt.AddSeconds(-35)){throw 'TLS_LINUX_SESSION_INVALID'}
+    # The peer subtracts the full measured exchange and still requires thirty seconds for login.
+    if($qualificationRemaining -lt 40000 -or $qualificationRemaining -gt 900000 -or
+        $ExpiresAt -gt $QualificationExpiresAt.AddSeconds(-40)){throw 'TLS_LINUX_SESSION_INVALID'}
     return [pscustomobject]@{
         SessionRef = [Convert]::ToHexString([Security.Cryptography.RandomNumberGenerator]::GetBytes(32)).ToLowerInvariant()
-        State = 'OPEN'; InFlight = $false; Requests = 0
+        State = 'OPEN'; InFlight = $false; Requests = 0; LastVerifiedStack = $null
         RequestIds = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
         ExportBytes = [byte[]]$ExportBytes.Clone()
         ExportSha256 = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($ExportBytes)).ToLowerInvariant()
@@ -107,8 +107,10 @@ function Invoke-LabTlsLinuxSessionVerification {
         $remaining=[long][Math]::Floor([Math]::Min(
             ($qualificationExpires-$after).TotalMilliseconds,
             ($Session.QualificationRemainingAtCreationMilliseconds-$Session.Lifetime.Elapsed.TotalMilliseconds)))
-        if($remaining -lt 35000){throw 'REJECT'}
-        $permitExpires = $after.AddSeconds(5)
+        if($remaining -lt 40000){throw 'REJECT'}
+        # Completed controller-verified checkpoint; not the peer's next operation.
+        $Session.LastVerifiedStack = $request.Stack
+        $permitExpires = $after.AddSeconds(15)
         if ($permitExpires -gt $Session.ExpiresAt) { $permitExpires = $Session.ExpiresAt }
         # An acknowledgement on the live private transport, not another export,
         # signature, or runtime lease.

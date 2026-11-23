@@ -66,9 +66,31 @@ foreach($stack in @('SYSTEM_DATA_SQLCLIENT','ODBC_SQLCMD')){
     if(-not$line.StartsWith('REPLY ')){exit 7}
     $reply=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($line.Substring(6)))|ConvertFrom-Json
     if($reply.Status-cne'VERIFIED'){exit 7}
+    if($env:BRIDGE_FIXTURE_MODE-ceq'failure-frame' -and $stack-ceq'SYSTEM_DATA_SQLCLIENT'){
+        Send FAILURE @{Schema='SqlServerLab.TlsLinuxPeerFailure/0.1';Status='FAIL';Code='TLS_CERTIFICATE'}
+        [Console]::Error.Write('synthetic-private-bridge-detail');exit 17
+    }
+    if($env:BRIDGE_FIXTURE_MODE-ceq'failure-frame-invalid' -and $stack-ceq'SYSTEM_DATA_SQLCLIENT'){
+        Send FAILURE @{Schema='SqlServerLab.TlsLinuxPeerFailure/0.1';Status='FAIL';Code='synthetic-private-password'}
+        exit 17
+    }
+    if($env:BRIDGE_FIXTURE_MODE-ceq'failure-frame-zero-exit' -and $stack-ceq'SYSTEM_DATA_SQLCLIENT'){
+        Send FAILURE @{Schema='SqlServerLab.TlsLinuxPeerFailure/0.1';Status='FAIL';Code='TLS_CERTIFICATE'}
+        exit 0
+    }
+    if($env:BRIDGE_FIXTURE_MODE-ceq'failure-frame-followed-by-result' -and $stack-ceq'SYSTEM_DATA_SQLCLIENT'){
+        Send FAILURE @{Schema='SqlServerLab.TlsLinuxPeerFailure/0.1';Status='FAIL';Code='TLS_CERTIFICATE'}
+        Send RESULT @{ContractVersion='Toolbelt.LinuxLabPreflight/0.1';Status='PASS';ClientChecks=2;SqlBuild='17.0.5005.3';SqlClient='PASS';Odbc='PASS';Encrypt=$true;TrustServerCertificate=$false}
+        exit 17
+    }
 }
 if($env:BRIDGE_FIXTURE_MODE-ceq'stderr'){[Console]::Error.Write('SYNTHETIC_PRIVATE_STDERR')}
+if($env:BRIDGE_FIXTURE_MODE-ceq'no-result'){exit 0}
+if($env:BRIDGE_FIXTURE_MODE-ceq'pending-result'){
+    [Console]::Out.Write('RESULT partial');[Console]::Out.Flush();exit 0
+}
 Send RESULT @{ContractVersion='Toolbelt.LinuxLabPreflight/0.1';Status='PASS';ClientChecks=2;SqlBuild='17.0.5005.3';SqlClient='PASS';Odbc='PASS';Encrypt=$true;TrustServerCertificate=$false}
+if($env:BRIDGE_FIXTURE_MODE-ceq'nonzero-after-result'){[Console]::Error.Write('TLS_LINUX_CA_PEM_PARSE_FAILED secret');exit 7}
 '@
         $i=[Diagnostics.ProcessStartInfo]::new($script:Pwsh);$i.UseShellExecute=$false;$i.CreateNoWindow=$true
         $i.RedirectStandardInput=$true;$i.RedirectStandardOutput=$true;$i.RedirectStandardError=$true
@@ -79,7 +101,7 @@ Send RESULT @{ContractVersion='Toolbelt.LinuxLabPreflight/0.1';Status='PASS';Cli
     Export-ModuleMember -Function Read-SqlServerLabQualifiedTestEnvironment
 }
 $count=0
-foreach($mode in @('normal','malformed','oversize','wrong-ref','stderr','pid-string','pid-bool','pid-float','pid-zero','pid-overflow','pid-array')){
+foreach($mode in @('normal','malformed','oversize','wrong-ref','stderr','no-result','pending-result','nonzero-after-result','failure-frame','failure-frame-invalid','failure-frame-zero-exit','failure-frame-followed-by-result','pid-string','pid-bool','pid-float','pid-zero','pid-overflow','pid-array')){
     & $module {
         param($Mode)
         $script:Mode=$Mode;$script:Expiry=[DateTimeOffset]::UtcNow.AddMinutes(14);$script:Removed=0;$script:Idles=0;$script:LeaseExits=0
@@ -88,6 +110,26 @@ foreach($mode in @('normal','malformed','oversize','wrong-ref','stderr','pid-str
         if($Mode-ceq'normal'){
             if($errorCode-or$result.Status-cne'PASS'-or$script:Removed-ne0-or$script:Idles-ne2){throw ('NORMAL_FAILED '+$errorCode+'; '+$trace)}
         }elseif(-not$errorCode-or$script:Removed-ne1){throw ('REJECTION_OR_OWN_CLEANUP_FAILED '+$Mode+' '+$errorCode)}
+        $expectedFailure=switch($Mode){
+            stderr {'TLS_LINUX_CHILD_STDERR_NONEMPTY'}
+            no-result {'TLS_LINUX_RESULT_MISSING'}
+            pending-result {'TLS_LINUX_BRIDGE_PROTOCOL_BYTES_PENDING'}
+            nonzero-after-result {'TLS_LINUX_CHILD_EXIT_NONZERO|exitCode=7|hello=1|verifierRequests=2|resultSeen=1|lastVerifiedStack=ODBC_SQLCMD|nextExpectedFrame=none|stderrClass=TLS_CA_PEM_PARSE_FAILED|stderrBytes='+[Text.Encoding]::UTF8.GetByteCount('TLS_LINUX_CA_PEM_PARSE_FAILED secret')}
+            failure-frame {'TLS_LINUX_CHILD_EXIT_NONZERO|exitCode=17|hello=1|verifierRequests=1|resultSeen=0|lastVerifiedStack=SYSTEM_DATA_SQLCLIENT|nextExpectedFrame=VERIFY_ODBC_SQLCMD|stderrClass=TLS_CERTIFICATE|stderrBytes='+[Text.Encoding]::UTF8.GetByteCount('synthetic-private-bridge-detail')}
+            failure-frame-invalid {'TLS_LINUX_BRIDGE_PROTOCOL'}
+            failure-frame-zero-exit {'TLS_LINUX_FAILURE_ENVELOPE_ZERO_EXIT'}
+            failure-frame-followed-by-result {'TLS_LINUX_BRIDGE_PROTOCOL'}
+        }
+        if($expectedFailure-and$errorCode-cne$expectedFailure){throw ('FAILURE_CLASSIFICATION_MISMATCH '+$Mode+' '+$errorCode)}
+        if($Mode-ceq'nonzero-after-result'-and$errorCode-match'secret'){throw 'CHILD_STDERR_LEAKED'}
+        if($Mode-ceq'failure-frame'-and$errorCode-match'synthetic-private-bridge-detail|TLS_CERTIFICATE.*secret'){throw 'STRUCTURED_FAILURE_LEAKED_PRIVATE_DETAIL'}
+        foreach($case in @(
+            @{Hello=$false;Requests=0;Result=$false;Stack='none';Expected='HELLO'},
+            @{Hello=$true;Requests=0;Result=$false;Stack='none';Expected='VERIFY_SYSTEM_DATA_SQLCLIENT'},
+            @{Hello=$true;Requests=1;Result=$false;Stack='SYSTEM_DATA_SQLCLIENT';Expected='VERIFY_ODBC_SQLCMD'},
+            @{Hello=$true;Requests=2;Result=$false;Stack='ODBC_SQLCMD';Expected='RESULT'},
+            @{Hello=$true;Requests=2;Result=$true;Stack='ODBC_SQLCMD';Expected='none'}
+        )){if((Get-LabTlsLinuxExpectedNextFrame -Hello $case.Hello -VerifierRequests $case.Requests -ResultSeen $case.Result -LastVerifiedStack $case.Stack)-cne$case.Expected){throw 'NEXT_EXPECTED_FRAME_CLASSIFICATION_MISMATCH'}}
         if($script:LeaseExits-ne1-or(Test-Path -LiteralPath (Join-Path $root 'linux-client-execution.json'))){throw 'LEASE_OR_MARKER_REMAINS'}
     } $mode
     $count++

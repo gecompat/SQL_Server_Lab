@@ -31,7 +31,15 @@ jedem Aufruf auf seinen vorherigen Wert zurückgesetzt.
 ## Kollisionsschutz
 
 Vor der erstmaligen Anlage prüft die Runtime die IPv4-Hostrouten und die
-vorhandenen Netze der jeweiligen Container-Runtime. Jede Ueberlappung beendet
+vorhandenen Netze der jeweiligen Container-Runtime. Unter Windows liest sie
+die Hostrouten zuerst über `Get-NetRoute`; ist die CIM-Abfrage nicht verfügbar,
+verwendet sie die lesende Ausgabe von `route.exe PRINT -4`. Kann keine der
+beiden Quellen zuverlässig ausgewertet werden, bricht sie vor einer
+Netzmutation mit `LAB_NETWORK_HOST_ROUTE_INVENTORY_UNAVAILABLE` ab. Der
+Fallback berücksichtigt aktive und persistente Routen; persistente
+Vier-Spalten-Default-Routen mit der Metrik `Default` oder `Standard` werden
+erkannt und danach wie andere Default-Routen ausgeschlossen. Eine beschädigte
+IPv4-Routenzeile bleibt fail-closed. Jede Ueberlappung beendet
 den Vorgang mit `LAB_NETWORK_SUBNET_CONFLICT`; ein bestehendes Netz mit
 abweichendem Subnetz oder einem abweichenden Netzwerkmodus endet mit
 `LAB_NETWORK_CONTRACT_MISMATCH`.

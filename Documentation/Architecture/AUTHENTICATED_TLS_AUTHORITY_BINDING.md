@@ -2,7 +2,7 @@
 
 | Merkmal | Wert |
 |---|---|
-| Stand | 2026-10-17 |
+| Stand | 2026-11-09 |
 | Status | `METADATA_BOUND_NOT_TLS_QUALIFIED`; `Ready=false`, `MutationAllowed=false` |
 | Implementierung | [AuthenticatedTlsAuthorityBinding.ps1](../../Private/AuthenticatedTlsAuthorityBinding.ps1) |
 | Prüfung | [Invoke-AuthenticatedTlsAuthorityBindingChecks.ps1](../../Tests/Static/Invoke-AuthenticatedTlsAuthorityBindingChecks.ps1) |
@@ -52,7 +52,20 @@ Das Gesamtdokument fordert zusätzlich zur Signierkante eine passende
 Clientpayload. Aktiv bedeutet exakt aktive Generation; retirierte Offlineformen
 dürfen eine frühere Generation referenzieren. Aktive `0.2`-Authorities dürfen
 weder TrustScopeRef noch CandidateId noch CertificateSha256 doppelt belegen.
-Retirement und eine Erweiterung auf mehrere Clients sind hier nicht schreibbar.
+Eine Erweiterung auf mehrere Clients ist hier nicht schreibbar. Das separate
+private Retirement kann eine aktive Authority nach geschlossener Prüfung aller
+Allocation- und Windows-Operationsjournale sowie terminaler Run-/Runtime-Abwesenheit
+als unveränderlichen Tombstone markieren; es löscht keine historische Referenz,
+CA-Datei, keinen privaten Schlüssel und keinen Trust. Details und fehlgeschlossene
+Fälle stehen im [Registrywriter-Vertrag](AUTHENTICATED_TLS_REGISTRY_WRITER.md).
+Historische TLS-Labrecords `0.1` sind laut ihrem geschlossenen Format nur
+Docker zugeordnet, speichern aber keine authentisierte Bindung an die damals
+verwendete Docker-Runtime. Ein Abwesenheitscheck gegen den heute ausgewählten
+Docker-Kontext beweist daher nicht, dass der ursprüngliche Daemon die
+Containerressource nicht mehr enthält. Solche Records sperren das Retirement
+mit `TLS_AUTHORITY_USE_UNCONFIRMED`, bis eine authentisierte ursprüngliche
+Runtimebindung verfügbar ist. Run-Desired-State und Connection-Info allein
+ersetzen diese Bindung nicht.
 
 ## Frische Beobachtung und Transaktion
 

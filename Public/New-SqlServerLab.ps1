@@ -397,6 +397,10 @@ function New-SqlServerLab {
     .PARAMETER TlsLinuxPowerShellPackage
         Vorhandenes fest gepinntes PowerShell-7.6.6-linux-x64-Paket fuer den
         eigenen Linuxclient. Keine automatische Installation oder Beschaffung.
+    .PARAMETER TlsExpectedRegistrySha256
+        Optionaler CAS-Vorbedingungsdigest fuer die TLS-Registry. Wird nur bei
+        authentifiziertem TLS akzeptiert und verhindert eine Reparatur gegen
+        einen zwischen Diagnose und Registrierung geaenderten Registry-Stand.
     #>
     [CmdletBinding(DefaultParameterSetName = 'AdHoc')]
     param(
@@ -460,10 +464,12 @@ function New-SqlServerLab {
         [string]$TlsControllerId,
         [string]$TlsLocationId,
         [ValidateSet('Windows','Linux')][string]$TlsClientPlatform='Windows',
-        [string]$TlsLinuxPowerShellPackage
+        [string]$TlsLinuxPowerShellPackage,
+        [ValidatePattern('(?i)^[0-9a-f]{64}$')][string]$TlsExpectedRegistrySha256
     )
 
     $ErrorActionPreference = 'Stop'
+    if ($TlsExpectedRegistrySha256 -and $TrustServerCertificate) { throw 'TLS_EXPECTED_REGISTRY_REQUIRES_AUTHENTICATED_TLS' }
     if ($RequireExistingHyperVNetwork -and -not $TrustServerCertificate) { throw 'HYPERV_EXISTING_NETWORK_AUTHENTICATED_TLS_UNSUPPORTED' }
     if (-not $TrustServerCertificate) {
         if ($Provider -ceq 'hyperv') {

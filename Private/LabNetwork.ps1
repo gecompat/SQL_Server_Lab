@@ -49,12 +49,34 @@ function ConvertTo-LabIpv4Subnet {
     return [PSCustomObject]@{ Cidr = "$address/$prefix"; PrefixLength = $prefix; Network = [uint32]$network; Mask = [uint32]$mask }
 }
 
+function ConvertTo-LabIpv4NetworkRange {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Cidr)
+
+    if ($Cidr -notmatch '^([^/]+)/(\d{1,2})$') { throw 'LAB_NETWORK_ROUTE_PREFIX_INVALID' }
+    try { $address = [System.Net.IPAddress]::Parse($Matches[1]) }
+    catch { throw 'LAB_NETWORK_ROUTE_PREFIX_INVALID' }
+    if ($address.AddressFamily -ne [System.Net.Sockets.AddressFamily]::InterNetwork) {
+        throw 'LAB_NETWORK_ROUTE_PREFIX_INVALID'
+    }
+    $prefix = [int]$Matches[2]
+    if ($prefix -lt 0 -or $prefix -gt 32) { throw 'LAB_NETWORK_ROUTE_PREFIX_INVALID' }
+    $mask = if ($prefix -eq 0) { [uint32]0 } else { [uint32]([uint32]::MaxValue -shl (32 - $prefix)) }
+    $network = (ConvertTo-LabIpv4UInt32 -Address $address) -band $mask
+    return [PSCustomObject]@{
+        Cidr = "$(ConvertFrom-LabIpv4UInt32 -Value $network)/$prefix"
+        PrefixLength = $prefix
+        Network = [uint32]$network
+        Mask = [uint32]$mask
+    }
+}
+
 function Test-LabIpv4SubnetOverlap {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$Left, [Parameter(Mandatory)][string]$Right)
 
-    $leftSubnet = ConvertTo-LabIpv4Subnet -Subnet $Left
-    $rightSubnet = ConvertTo-LabIpv4Subnet -Subnet $Right
+    $leftSubnet = ConvertTo-LabIpv4NetworkRange -Cidr $Left
+    $rightSubnet = ConvertTo-LabIpv4NetworkRange -Cidr $Right
     return (($leftSubnet.Network -band $rightSubnet.Mask) -eq $rightSubnet.Network) -or
         (($rightSubnet.Network -band $leftSubnet.Mask) -eq $leftSubnet.Network)
 }
@@ -307,6 +329,119 @@ function Get-LabRuntimeNetwork {
     }
 }
 
+function ConvertFrom-LabWindowsIpv4RouteTable {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][AllowEmptyCollection()][string[]]$Lines)
+
+    $subnets = [System.Collections.Generic.List[string]]::new()
+    $persistentRouteSection = $false
+    foreach ($line in $Lines) {
+        $trimmedLine = ([string]$line).Trim()
+        if ($trimmedLine -match '(?i)^(?:persistent|permanent)\s+routes?\s*:\s*$' -or
+            $trimmedLine -match '(?i)^(?:ständige|staendige|permanente)\s+routen\s*:\s*$') {
+            $persistentRouteSection = $true
+            continue
+        }
+        $tokens = $trimmedLine -split '\s+'
+        if ($tokens[0] -notmatch '^\d+(?:\.\d+){0,3}$') { continue }
+        if ($persistentRouteSection -and $tokens.Count -eq 4) {
+            if ($tokens[-1] -notmatch '^(?:\d+|Default|Standard)$' -or
+                $tokens[0] -notmatch '^\d{1,3}(?:\.\d{1,3}){3}$' -or
+                $tokens[1] -notmatch '^\d{1,3}(?:\.\d{1,3}){3}$' -or
+                $tokens[2] -notmatch '^\d{1,3}(?:\.\d{1,3}){3}$') {
+                throw 'LAB_NETWORK_ROUTE_TABLE_INVALID'
+            }
+            try {
+                $persistentGateway = [System.Net.IPAddress]::Parse($tokens[2])
+                if ($persistentGateway.AddressFamily -ne [System.Net.Sockets.AddressFamily]::InterNetwork) {
+                    throw 'LAB_NETWORK_ROUTE_TABLE_INVALID'
+                }
+            }
+            catch { throw 'LAB_NETWORK_ROUTE_TABLE_INVALID' }
+        }
+        else {
+            if ($tokens.Count -lt 5 -or $tokens[-1] -notmatch '^\d+$' -or
+                $tokens[-2] -notmatch '^\d{1,3}(?:\.\d{1,3}){3}$' -or
+                $tokens[0] -notmatch '^\d{1,3}(?:\.\d{1,3}){3}$' -or
+                $tokens[1] -notmatch '^\d{1,3}(?:\.\d{1,3}){3}$') {
+                throw 'LAB_NETWORK_ROUTE_TABLE_INVALID'
+            }
+        }
+
+        try {
+            $destination = [System.Net.IPAddress]::Parse($tokens[0])
+            $maskAddress = [System.Net.IPAddress]::Parse($tokens[1])
+            $interfaceAddress = [System.Net.IPAddress]::Parse($tokens[-2])
+        }
+        catch { throw 'LAB_NETWORK_ROUTE_TABLE_INVALID' }
+        if ($destination.AddressFamily -ne [System.Net.Sockets.AddressFamily]::InterNetwork -or
+            $maskAddress.AddressFamily -ne [System.Net.Sockets.AddressFamily]::InterNetwork -or
+            $interfaceAddress.AddressFamily -ne [System.Net.Sockets.AddressFamily]::InterNetwork) {
+            throw 'LAB_NETWORK_ROUTE_TABLE_INVALID'
+        }
+
+        $prefix = 0
+        $zeroBitSeen = $false
+        foreach ($octet in $maskAddress.GetAddressBytes()) {
+            for ($bit = 128; $bit -gt 0; $bit = [int]($bit / 2)) {
+                if (($octet -band $bit) -ne 0) {
+                    if ($zeroBitSeen) { throw 'LAB_NETWORK_ROUTE_NETMASK_INVALID' }
+                    $prefix++
+                }
+                else { $zeroBitSeen = $true }
+            }
+        }
+
+        if ($prefix -eq 0) { continue }
+        $route = ConvertTo-LabIpv4NetworkRange -Cidr "$destination/$prefix"
+        if ($route.Cidr -in @('127.0.0.0/8', '169.254.0.0/16')) { continue }
+        $subnets.Add([string]$route.Cidr)
+    }
+
+    if ($subnets.Count -eq 0) { throw 'LAB_NETWORK_ROUTE_TABLE_UNPARSEABLE' }
+    return @($subnets | Sort-Object -Unique)
+}
+
+function Get-LabWindowsIpv4RouteTableText {
+    [CmdletBinding()]
+    param()
+
+    $routeExecutable = Join-Path ([Environment]::SystemDirectory) 'route.exe'
+    if (-not (Test-Path -LiteralPath $routeExecutable -PathType Leaf)) {
+        throw 'LAB_NETWORK_ROUTE_TABLE_COMMAND_UNAVAILABLE'
+    }
+    $lines = @(& $routeExecutable PRINT -4 2>&1 | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) })
+    $exitCode = $LASTEXITCODE
+    if ($exitCode -ne 0) { throw "LAB_NETWORK_ROUTE_TABLE_COMMAND_FAILED: $exitCode" }
+    return [string[]]@($lines | ForEach-Object { [string]$_ })
+}
+
+function Get-LabWindowsIpv4RouteSubnets {
+    [CmdletBinding()]
+    param()
+
+    if (Get-Command Get-NetRoute -ErrorAction SilentlyContinue) {
+        try {
+            $routes = @(Get-NetRoute -AddressFamily IPv4 -ErrorAction Stop)
+            if ($routes.Count -gt 0) {
+                $subnets = [System.Collections.Generic.List[string]]::new()
+                foreach ($entry in $routes) {
+                    $route = ConvertTo-LabIpv4NetworkRange -Cidr ([string]$entry.DestinationPrefix)
+                    if ($route.PrefixLength -eq 0 -or $route.Cidr -in @('127.0.0.0/8', '169.254.0.0/16')) { continue }
+                    $subnets.Add([string]$route.Cidr)
+                }
+                if ($subnets.Count -gt 0) { return @($subnets | Sort-Object -Unique) }
+            }
+        }
+        catch {
+            Write-Verbose 'Get-NetRoute failed; falling back to the read-only Windows route table.'
+        }
+    }
+
+    try { return ConvertFrom-LabWindowsIpv4RouteTable -Lines @(Get-LabWindowsIpv4RouteTableText) }
+    catch { throw "LAB_NETWORK_HOST_ROUTE_INVENTORY_UNAVAILABLE: $($_.Exception.Message)" }
+}
+
 function Get-LabKnownIpv4Subnets {
     [CmdletBinding()]
     param([ValidateSet('docker', 'podman', 'hyperv')][string]$Provider, [string]$ExcludeNetworkId)
@@ -323,13 +458,8 @@ function Get-LabKnownIpv4Subnets {
             }
         }
     }
-    if ($IsWindows -and (Get-Command Get-NetRoute -ErrorAction SilentlyContinue)) {
-        Get-NetRoute -AddressFamily IPv4 -ErrorAction SilentlyContinue |
-            ForEach-Object {
-                $prefix = [string]$_.DestinationPrefix
-                if ($prefix -match '^\d+\.\d+\.\d+\.\d+/(\d+)$' -and [int]$Matches[1] -gt 0 -and
-                    $prefix -notin @('127.0.0.0/8', '169.254.0.0/16')) { $subnets.Add($prefix) }
-            }
+    if ($IsWindows) {
+        foreach ($prefix in @(Get-LabWindowsIpv4RouteSubnets)) { $subnets.Add([string]$prefix) }
     }
     if ($Provider -in @('docker', 'hyperv')) {
         $dockerResolution = Resolve-LabHostTool -Name docker
@@ -366,6 +496,7 @@ function Assert-LabRuntimeNetworkAvailable {
 
     foreach ($candidate in @($KnownSubnets | Where-Object { $_ })) {
         try {
+            if ((ConvertTo-LabIpv4NetworkRange -Cidr $candidate).PrefixLength -eq 0) { continue }
             if (Test-LabIpv4SubnetOverlap -Left $Network.Subnet -Right $candidate) {
                 throw "LAB_NETWORK_SUBNET_CONFLICT: $($Network.Name) $($Network.Subnet) ueberlappt $candidate"
             }
@@ -743,10 +874,19 @@ function Resolve-LabHyperVNetworkBoundPlan {
         $matchingHostAddress = @($addresses | Where-Object {
             [string]$_.IPAddress -eq $network.HostAddress -and [int]$_.PrefixLength -eq $network.PrefixLength
         }).Count -eq 1
-        $ownsExactPrefix = ($switch -and $matchingHostAddress) -or ($namedNat.Count -eq 1)
+        $ownsConnectedHostRoutes = $switch -and $matchingHostAddress
+        $ownsExactPrefix = $ownsConnectedHostRoutes -or ($namedNat.Count -eq 1)
         foreach ($candidate in $known) {
             if ($candidate -eq $network.Subnet -and $ownsExactPrefix) { continue }
             try {
+                $candidateRange = ConvertTo-LabIpv4NetworkRange -Cidr $candidate
+                if ($candidateRange.PrefixLength -eq 0) { continue }
+                if ($ownsConnectedHostRoutes -and $candidateRange.PrefixLength -eq 32) {
+                    $networkRange = ConvertTo-LabIpv4NetworkRange -Cidr $network.Subnet
+                    $broadcast = [uint32]([uint64]$networkRange.Network + ([uint64][uint32]::MaxValue - [uint64]$networkRange.Mask))
+                    $ownedHostRoutes = @("$($network.HostAddress)/32", "$(ConvertFrom-LabIpv4UInt32 -Value $broadcast)/32")
+                    if ($candidate -in $ownedHostRoutes) { continue }
+                }
                 if (Test-LabIpv4SubnetOverlap -Left $network.Subnet -Right $candidate) {
                     $blockers.Add('LAB_NETWORK_HYPERV_SUBNET_CONFLICT'); break
                 }
