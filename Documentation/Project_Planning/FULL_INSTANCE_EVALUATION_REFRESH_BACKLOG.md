@@ -40,8 +40,10 @@ Gast-Receipt. Ein ungebundenes DependencyInventory wird nicht angenommen.
 Vollständiger Refresh, Zielauswahl, Export, Keytransfer, Cutover, Rückfall und
 Gleichwertigkeit bleiben Backlog; der Datenbankplan bleibt `DATABASE_FILES_ONLY`.
 
-Die CLI bietet **Alle öffentlichen Befehle → SQL-Evaluation: Ersatzentscheid**
-als geführte reine Vorschau. Unter einem ausdrücklich eingegebenen registrierten
+Die CLI bietet **Wartung, Aufräumen und Recovery → SQL-Evaluation: Ersatz-
+und Migrationsentscheid** als geführte reine Vorschau. Derselbe Dialog ist
+auch unter **Alle öffentlichen Befehle → SQL-Evaluation: Ersatzentscheid**
+erreichbar. Unter einem ausdrücklich eingegebenen registrierten
 Root sind höchstens 64 Run-Verzeichnisse und nur eine vollständig gebundene
 moderne Hyper-V-SQL-Instanz auswählbar. Die Auswahl wird vor dem öffentlichen
 Plan erneut geprüft; Abbruch speichert nichts und ruft keinen Plan auf.

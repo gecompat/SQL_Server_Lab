@@ -2,7 +2,7 @@
 
 | Merkmal | Wert |
 |---|---|
-| Status | `IMPLEMENTED_PRIVATE_REQUEST_VALIDATOR` – interner Formbaustein; native Fixtureverwaltung bleibt geplant |
+| Status | `IMPLEMENTED_PRIVATE_REQUEST_VALIDATOR`. Der interne Formbaustein ist mit PR #743 bei `a6a574e9` integriert. Native Fixtureverwaltung bleibt geplant. |
 | Scope | `FSF-I02`, Revision `0.1`, Stand 2026-10-11 |
 | Freigabe und Auftrag | ausdrücklich durch den Repository-Eigentümer am 2026-10-11: FSF-I02 implementieren, eigener Branch/PR, parallele Welle schützen |
 | Grundlage | FSF-01 Revision `0.2`, FSF-02 bis FSF-06 jeweils Revision `0.1`; alle freigegeben |
