@@ -1,0 +1,31 @@
+name: PolyBase S3 acceptance (GitHub-hosted)
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'Tests/Integration/Invoke-PolyBaseS3Acceptance.sh'
+      - '.github/workflows/polybase-s3-acceptance.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'Tests/Integration/Invoke-PolyBaseS3Acceptance.sh'
+      - '.github/workflows/polybase-s3-acceptance.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  acceptance:
+    name: Native SQL Server 2025 external CSV read
+    if: github.repository == 'gecompat/SQL_Server_Lab' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 21
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Check fixture script syntax
+        run: bash -n Tests/Integration/Invoke-PolyBaseS3Acceptance.sh
+      - name: Verify native HTTPS external-table data and metadata
+        run: timeout --signal=TERM --kill-after=60s 18m bash Tests/Integration/Invoke-PolyBaseS3Acceptance.sh
