@@ -12,12 +12,19 @@ $result=& $module {
     function Assert-Pool($condition,$name){if(-not $condition){throw "WINDOWS_POOL_CHECK_FAILED: $name"};$script:PoolCheckCount++}
     function Assert-PoolThrows([scriptblock]$body,[string]$code){$failed=$false;$observed=$null;try{& $body}catch{$observed=$_.Exception.Message;$failed=$observed -like ($code+'*')};Assert-Pool $failed ($code+'; actual='+$observed)}
     $ciRunner=Join-Path $repoRoot 'Tests/Integration/Invoke-WindowsPoolClaimCiAcceptance.ps1'
+    $workflow = Get-Content -LiteralPath (Join-Path $repoRoot '.github/workflows/runtime-smoke-hyperv.yml') -Raw
+    $steps = $workflow -split '(?m)^      - name: '
+    $poolStep = @($steps | Where-Object { $_ -match "(?m)^        if: inputs\.mode == 'windows-pool-claim-acceptance'\r?$" })
+    Assert-Pool ($poolStep.Count -eq 1 -and $poolStep[0] -match '(?m)^          SQL_SERVER_LAB_RESOURCE_LIFECYCLE: run\r?$') 'pool dispatch supplies run lifecycle'
+    Assert-Pool (@($steps | Where-Object { $_ -match '(?m)^          SQL_SERVER_LAB_RESOURCE_LIFECYCLE: run\r?$' }).Count -eq 1 -and
+        $workflow -match '(?m)^  SQL_SERVER_LAB_RESOURCE_LIFECYCLE: test\r?$') 'default workflow and other modes retain test lifecycle'
     $ciEnvironment=@{
         GITHUB_EVENT_NAME='workflow_dispatch'; GITHUB_REF='refs/heads/main'; GITHUB_REPOSITORY='gecompat/SQL_Server_Lab'
         GITHUB_SHA=(& git -C $repoRoot rev-parse HEAD)
         SQL_SERVER_LAB_CI_EVENT_REPOSITORY='gecompat/SQL_Server_Lab'; SQL_SERVER_LAB_CI_POOL_CONFIRM='true'
         SQL_SERVER_LAB_CI_POOL_SQL_MEDIA='SQL/2025/Eval/synthetic.iso'; SQL_SERVER_LAB_CI_POOL_MEDIA_EDITION='Eval'
         SQL_SERVER_LAB_CI_POOL_IMAGE_ID='hyperv-os-sealed-'+('a'*64)
+        SQL_SERVER_LAB_RESOURCE_LIFECYCLE='run'
     }
     if($LASTEXITCODE){throw 'SYNTHETIC_CI_CHECKOUT_UNAVAILABLE'}
     $originalEnvironment=@{}
@@ -28,6 +35,7 @@ $result=& $module {
             @{Key='GITHUB_REF';Value='refs/heads/untrusted';Code='WINDOWS_POOL_CI_SCOPE_INVALID'},
             @{Key='SQL_SERVER_LAB_CI_POOL_CONFIRM';Value='false';Code='WINDOWS_POOL_CI_SCOPE_INVALID'},
             @{Key='GITHUB_SHA';Value=('0'*40);Code='WINDOWS_POOL_CI_CHECKOUT_INVALID'},
+            @{Key='SQL_SERVER_LAB_RESOURCE_LIFECYCLE';Value='test';Code='WINDOWS_POOL_CI_RUN_LIFECYCLE_REQUIRED'},
             @{Key='SQL_SERVER_LAB_CI_POOL_SQL_MEDIA';Value='SQL/2025/../synthetic.iso';Code='WINDOWS_POOL_CI_MEDIA_SELECTION_REQUIRED'},
             @{Key='SQL_SERVER_LAB_CI_POOL_IMAGE_ID';Value='foreign-artifact';Code='WINDOWS_POOL_CI_IMAGE_SELECTION_INVALID'}
         )

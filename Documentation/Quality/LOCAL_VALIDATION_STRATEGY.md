@@ -5679,8 +5679,10 @@ Auf Key18 steht der Modus `windows-pool-claim-acceptance` im Workflow
 die Medienedition und die ausdrückliche Bestätigung für ein eigenes
 Mitglied an. Bei mehreren passenden Windows-2025-Desktop-Baselines muss
 eine konkrete Artefakt-ID ausgewählt werden. Der Job prüft den Checkout,
-die erhöhte Sitzung und das vorhandene Hostnetzwerk. Er verwendet eine
-eigene State Root und hält Rohlog und Receipt lokal auf Key18.
+die erhöhte Sitzung und das vorhandene Hostnetzwerk. Dieser Schritt legt
+das Poolmitglied mit dem regulären Lifecycle `run` an, den der Poolvertrag
+verlangt. Die übrigen Smoke-Modi behalten `test` als Standard. Der Harness
+verwendet eine eigene State Root und hält Rohlog und Receipt lokal auf Key18.
 Ein vorbereiteter Harness ist kein ausgeführter Providerbeleg. Er benötigt
 eine eigene Evidence und bestätigt weder SQL-Reserve noch automatische Auffüllung.
 
