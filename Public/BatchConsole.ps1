@@ -585,23 +585,20 @@ function Invoke-LabValidatedBatchSubmitInteractive {
     $selection = Invoke-LabConsoleMenu -ScreenId 'batch-submit-saved' -Title 'Gespeicherten Batch auswählen' -Items $items
     if ($selection.Status -ne 'Selected') { return }
     $review = $drafts | Where-Object batchId -CEQ $selection.SelectedItem.Id | Select-Object -First 1
-    if ($null -eq $review -or -not (Show-LabBatchReviewInteractive -Batch $review)) { return }
+    if ($null -eq $review) { return }
 
-    $signature = Get-LabWorkflowHash -Text ($review | ConvertTo-Json -Depth 50 -Compress) -Length 64
     try {
-        $submitted = Invoke-WithLabWorkflowLock -StateRoot $root -ScriptBlock {
-            $current = Get-SqlServerLabBatch -BatchId $review.batchId -StateRoot $root
-            $currentSignature = Get-LabWorkflowHash -Text ($current | ConvertTo-Json -Depth 50 -Compress) -Length 64
-            if ($current.status -cne 'Validated' -or $currentSignature -cne $signature) {
-                throw 'Der Batch wurde geändert. Bitte erneut auswählen und prüfen.'
-            }
-            Submit-SqlServerLabBatch -BatchId $review.batchId -StateRoot $root
-        }
+        $signature = Get-LabBatchReviewSignature -Batch $review -StateRoot $root
+        if (-not (Show-LabBatchReviewInteractive -Batch $review)) { return }
+        $submitted = Submit-LabReviewedBatch -BatchId $review.batchId -StateRoot $root -Signature $signature
         Write-LabSuccess "Batch '$($submitted.batchId)' wurde eingereiht."
         try { Start-SqlServerLabOperationHost -StateRoot $root }
         catch { Write-LabWarning 'Der Batch ist eingereiht. Scheduler bei Bedarf über das Menü starten.' }
     }
-    catch { Write-LabError $_.Exception.Message }
+    catch {
+        if ($_.Exception.Message -ceq 'BATCH_REVIEW_STALE') { Write-LabError 'Der Batch wurde geändert. Bitte erneut auswählen und prüfen.' }
+        else { Write-LabError $_.Exception.Message }
+    }
 }
 
 function Invoke-LabQueueInteractive {

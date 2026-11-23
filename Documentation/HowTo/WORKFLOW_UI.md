@@ -830,10 +830,12 @@ Für Linux gibst du den Namen einer `SQL_SERVER_LAB_SECRET_*`-Prozessvariable
 an. Ihr Kennwortwert wird im Browserformular nicht eingegeben.
 
 **Entwurf validieren und speichern** zeigt die Batch-ID, die Anzahl der
-Umgebungen und die Zahl gemeinsamer Abhängigkeiten. In der Konsolensitzung
-müssen die verwendeten Kennwortvariablen gesetzt sein. Öffne dort
-**Vorgänge, Queue und Benutzeraktionen → Gespeicherten Batch prüfen und
-einreihen**, wähle die Batch-ID und bestätige den Plan.
+Umgebungen und die Zahl gemeinsamer Abhängigkeiten. Öffne in der
+Batchübersicht **Entwurf prüfen und einreihen**, kontrolliere die Zahlen
+und bestätige den Plan. Für Linux-Positionen müssen die hinterlegten
+Kennwortvariablen im laufenden Browser-Serverprozess verfügbar sein. In der
+Konsolensitzung geht derselbe Ablauf über **Vorgänge, Queue und
+Benutzeraktionen → Gespeicherten Batch prüfen und einreihen**.
 
 Über **Hintergrundscheduler anfordern** und eine Bestätigung kannst du die
 aktuelle Warteschlange bedienen. Ob Vorgänge tatsächlich anlaufen, siehst du

@@ -1523,15 +1523,17 @@ try {
                     Write-UiResponse -Context $context -Body '{"state":"Requested"}' -ContentType 'application/json; charset=utf-8' -StatusCode 202
                     continue
                 }
-                if ($request.command -cin @('BatchStopPreview','BatchStopApply')) {
-                    $isPreview = $request.command -ceq 'BatchStopPreview'
+                if ($request.command -cin @('BatchStopPreview','BatchStopApply','BatchSubmitPreview','BatchSubmitApply')) {
+                    $isSubmit = $request.command -cin @('BatchSubmitPreview','BatchSubmitApply')
+                    $isPreview = $request.command -cin @('BatchStopPreview','BatchSubmitPreview')
                     $names = @($request.PSObject.Properties.Name)
                     $required = if ($isPreview) { @('command','batchId') } else { @('command','batchId','previewId','confirmed') }
                     if ($body.Length -gt 1024 -or $names.Count -ne $required.Count -or
                         @($names | Where-Object { $_ -cnotin $required }).Count -or
                         $request.batchId -isnot [string] -or $request.batchId -cnotmatch '\Abatch-\d{14}-[0-9a-f]{8}\z' -or
                         (-not $isPreview -and ($request.previewId -isnot [string] -or $request.confirmed -isnot [bool] -or -not $request.confirmed))) {
-                        Write-UiResponse -Context $context -Body 'BROWSER_BATCH_STOP_REQUEST_INVALID' -StatusCode 400
+                        $code = if ($isSubmit) { 'BROWSER_BATCH_SUBMIT_REQUEST_INVALID' } else { 'BROWSER_BATCH_STOP_REQUEST_INVALID' }
+                        Write-UiResponse -Context $context -Body $code -StatusCode 400
                         continue
                     }
                     $document = [Text.Json.JsonDocument]::Parse($body)
@@ -1542,19 +1544,31 @@ try {
                     $previewId = if ($isPreview) { '' } else { $request.previewId }
                     try {
                         $batchResult = & $labModule {
-                            param($Preview, $BatchId, $PreviewId, $Root)
-                            if ($Preview) { New-LabBrowserBatchStopPreview -BatchId $BatchId -StateRoot $Root }
+                            param($Submit, $Preview, $BatchId, $PreviewId, $Root)
+                            if ($Submit -and $Preview) { New-LabBrowserBatchSubmitPreview -BatchId $BatchId -StateRoot $Root }
+                            elseif ($Submit) { Invoke-LabBrowserBatchSubmitPreview -BatchId $BatchId -PreviewId $PreviewId -StateRoot $Root }
+                            elseif ($Preview) { New-LabBrowserBatchStopPreview -BatchId $BatchId -StateRoot $Root }
                             else { Invoke-LabBrowserBatchStopPreview -BatchId $BatchId -PreviewId $PreviewId -StateRoot $Root }
-                        } $isPreview $request.batchId $previewId $batchRoot
+                        } $isSubmit $isPreview $request.batchId $previewId $batchRoot
                     }
                     catch {
+                        if ($isSubmit -and $_.Exception.Message -cmatch '^BATCH_SA_PASSWORD_ENVIRONMENT_VARIABLE_(MISSING|REQUIRED):') {
+                            Write-UiResponse -Context $context -Body 'Eine benötigte SQL-Kennwortvariable fehlt in der Sitzung der Browseroberfläche.' -StatusCode 409
+                            continue
+                        }
                         if ($_.Exception.Message -cnotin @('BROWSER_BATCH_STOP_BATCH_UNAVAILABLE','BROWSER_BATCH_STOP_BATCH_INVALID',
-                            'BROWSER_BATCH_STOP_NO_TARGETS','BROWSER_BATCH_STOP_PREVIEW_REQUIRED','BROWSER_BATCH_STOP_PREVIEW_STALE')) { throw }
+                            'BROWSER_BATCH_STOP_NO_TARGETS','BROWSER_BATCH_STOP_PREVIEW_REQUIRED','BROWSER_BATCH_STOP_PREVIEW_STALE',
+                            'BATCH_REVIEW_INVALID','BATCH_REVIEW_STALE','BATCH_REVIEW_PREVIEW_REQUIRED')) { throw }
                         Write-UiResponse -Context $context -Body 'Der Batch oder die Vorschau hat sich geändert. Status lesen und bei Bedarf eine neue Vorschau öffnen.' -StatusCode 409
                         continue
                     }
-                    if (-not $isPreview -and $batchResult.Requested -gt 0 -and (Invoke-UiOperationHostStart -StateRoot $batchRoot) -eq 'Failed') {
-                        Write-UiResponse -Context $context -Body 'OPERATION_HOST_START_FAILED: Stopp angenommen. Status prüfen; keine automatische Wiederholung.' -StatusCode 503
+                    if (-not $isPreview -and ($isSubmit -or $batchResult.Requested -gt 0) -and (Invoke-UiOperationHostStart -StateRoot $batchRoot) -eq 'Failed') {
+                        $message = if ($isSubmit) {
+                            'OPERATION_HOST_START_FAILED: Batch eingereiht. Status prüfen; keine automatische Wiederholung.'
+                        } else {
+                            'OPERATION_HOST_START_FAILED: Stopp angenommen. Status prüfen; keine automatische Wiederholung.'
+                        }
+                        Write-UiResponse -Context $context -Body $message -StatusCode 503
                         continue
                     }
                     Write-UiResponse -Context $context -Body ($batchResult | ConvertTo-Json -Depth 5) -ContentType 'application/json; charset=utf-8'
