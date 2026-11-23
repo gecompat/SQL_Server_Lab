@@ -244,6 +244,30 @@ $module = New-Module -ArgumentList $repoRoot,$fixtureRoot -ScriptBlock {
         Assert-Own ($result.Received.StateRoot -ceq 'synthetic-owned-root' -and $result.Received.DataRoot -ceq 'synthetic-owned-data' -and $result.Received.PersistentData) "Actual preflight $reply preserves New arguments"
     }
 
+    $deadlineEvidence = New-Module -ArgumentList $repoRoot -ScriptBlock {
+        param($Repository)
+        . (Join-Path $Repository 'Tests/Common/OwnedHostTestScope.ps1')
+        function Get-OwnedHostTestTransport { return { param($Body) & $Body @args } }
+        function Get-LabOwnedHostPolicy {
+            param($StateRoot,[switch]$Required)
+            if (-not $Required -or $StateRoot -cne 'synthetic-owned-root') { throw 'SYNTHETIC_SCOPE_UNVERIFIED' }
+        }
+        function Invoke-LabContainerRuntimeCommand {
+            param($StateRoot,$Provider,$Invocation,$ArgumentList,$TimeoutSeconds,[switch]$NativeResult)
+            if (-not $NativeResult -or $Provider -cne 'podman' -or $StateRoot -cne 'synthetic-owned-root' -or $ArgumentList[0] -cne 'exec') {
+                throw 'SYNTHETIC_SCOPE_UNVERIFIED'
+            }
+            [pscustomobject]@{ ExitCode=0; Output=$TimeoutSeconds }
+        }
+        Export-ModuleMember -Function @()
+    }
+    $limits = & $deadlineEvidence {
+        $arguments = @{ StateRoot='synthetic-owned-root'; Provider='podman'; Invocation='synthetic'; Arguments=@('exec') }
+        Invoke-OwnedHostTestCommand @arguments
+        Invoke-OwnedHostTestCommand @arguments -TimeoutSeconds 180
+    }
+    Assert-Own (($limits -join ',') -ceq '60,180') 'Only the explicit tool test command overrides the owned transport deadline'
+
     $initializerEvidence=New-Module -ArgumentList $repoRoot,$fixtureRoot -ScriptBlock {
         param($Repository,$Fixture)
         . (Join-Path $Repository 'Tests/Common/OwnedHostTestScope.ps1')

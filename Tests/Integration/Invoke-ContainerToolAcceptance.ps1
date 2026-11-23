@@ -25,6 +25,9 @@ if ($requestedStateRoot) { Assert-OwnedHostTestRoot -StateRoot $requestedStateRo
 
 
 $ErrorActionPreference = 'Stop'
+# Leave the generic transport deadline for ordinary container operations.
+# SqlPackage can spend more than a minute on extraction or repeated publish.
+$sqlPackageCommandTimeoutSeconds = 180
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $modulePath = Join-Path $repoRoot 'SqlServerLab.psd1'
 $testRoot=if ($requestedStateRoot) { Get-OwnedHostTestArtifactRoot -StateRoot $requestedStateRoot -Name 'sql-server-lab-container-tool' } else { Join-Path ([IO.Path]::GetTempPath()) "sql-server-lab-container-tool-$Provider-$([guid]::NewGuid().ToString('N'))" }
@@ -72,7 +75,7 @@ function Get-ContainerToolDacpacDeployReport {
     $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($saPassword)
     try {
         $saPlain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
-        $output = @($(if ($requestedStateRoot) { Invoke-OwnedHostTestCommand -StateRoot $requestedStateRoot -Provider $Provider -Invocation $runtimeInvocation -Arguments @('exec','--env',"SQLSERVERLAB_SA_PASSWORD=$saPlain",'--user','mssql',$instance.ContainerName,'sh','-ceu',$command,'--',$SourceDacpacPath,$DatabaseName,$ContainerReportPath) } else { & $runtimeInvocation exec --env "SQLSERVERLAB_SA_PASSWORD=$saPlain" --user mssql $instance.ContainerName sh -ceu $command -- $SourceDacpacPath $DatabaseName $ContainerReportPath }) 2>&1)
+        $output = @($(if ($requestedStateRoot) { Invoke-OwnedHostTestCommand -StateRoot $requestedStateRoot -Provider $Provider -Invocation $runtimeInvocation -TimeoutSeconds $sqlPackageCommandTimeoutSeconds -Arguments @('exec','--env',"SQLSERVERLAB_SA_PASSWORD=$saPlain",'--user','mssql',$instance.ContainerName,'sh','-ceu',$command,'--',$SourceDacpacPath,$DatabaseName,$ContainerReportPath) } else { & $runtimeInvocation exec --env "SQLSERVERLAB_SA_PASSWORD=$saPlain" --user mssql $instance.ContainerName sh -ceu $command -- $SourceDacpacPath $DatabaseName $ContainerReportPath }) 2>&1)
         Assert-ContainerToolAcceptance ($LASTEXITCODE -eq 0) 'SqlPackage erzeugt den DACPAC-DeployReport'
     }
     finally {
@@ -245,7 +248,7 @@ try {
     $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($saPassword)
     try {
         $saPlain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
-        $exportOutput = @($(if ($requestedStateRoot) { Invoke-OwnedHostTestCommand -StateRoot $requestedStateRoot -Provider $Provider -Invocation $runtimeInvocation -Arguments @('exec','--env',"SQLSERVERLAB_SA_PASSWORD=$saPlain",'--user','mssql',$instance.ContainerName,'sh','-ceu',$exportCommand,'--',$sourceDatabase,$bacpacContainerPath) } else { & $runtimeInvocation exec --env "SQLSERVERLAB_SA_PASSWORD=$saPlain" --user mssql $instance.ContainerName sh -ceu $exportCommand -- $sourceDatabase $bacpacContainerPath }) 2>&1)
+        $exportOutput = @($(if ($requestedStateRoot) { Invoke-OwnedHostTestCommand -StateRoot $requestedStateRoot -Provider $Provider -Invocation $runtimeInvocation -TimeoutSeconds $sqlPackageCommandTimeoutSeconds -Arguments @('exec','--env',"SQLSERVERLAB_SA_PASSWORD=$saPlain",'--user','mssql',$instance.ContainerName,'sh','-ceu',$exportCommand,'--',$sourceDatabase,$bacpacContainerPath) } else { & $runtimeInvocation exec --env "SQLSERVERLAB_SA_PASSWORD=$saPlain" --user mssql $instance.ContainerName sh -ceu $exportCommand -- $sourceDatabase $bacpacContainerPath }) 2>&1)
         Assert-ContainerToolAcceptance ($LASTEXITCODE -eq 0) 'Kataloggebundenes SqlPackage exportiert ein synthetisches BACPAC ohne Host-Tool'
     }
     finally {
@@ -306,7 +309,12 @@ try {
     $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($saPassword)
     try {
         $saPlain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
-        $extractOutput = @($(if ($requestedStateRoot) { Invoke-OwnedHostTestCommand -StateRoot $requestedStateRoot -Provider $Provider -Invocation $runtimeInvocation -Arguments @('exec','--env',"SQLSERVERLAB_SA_PASSWORD=$saPlain",'--user','mssql',$instance.ContainerName,'sh','-ceu',$extractCommand,'--',$sourceDatabase,$dacpacContainerPath) } else { & $runtimeInvocation exec --env "SQLSERVERLAB_SA_PASSWORD=$saPlain" --user mssql $instance.ContainerName sh -ceu $extractCommand -- $sourceDatabase $dacpacContainerPath }) 2>&1)
+        $extractOutput = @($(if ($requestedStateRoot) {
+            Invoke-OwnedHostTestCommand -StateRoot $requestedStateRoot -Provider $Provider -Invocation $runtimeInvocation -TimeoutSeconds $sqlPackageCommandTimeoutSeconds `
+                -Arguments @('exec','--env',"SQLSERVERLAB_SA_PASSWORD=$saPlain",'--user','mssql',$instance.ContainerName,'sh','-ceu',$extractCommand,'--',$sourceDatabase,$dacpacContainerPath)
+        } else {
+            & $runtimeInvocation exec --env "SQLSERVERLAB_SA_PASSWORD=$saPlain" --user mssql $instance.ContainerName sh -ceu $extractCommand -- $sourceDatabase $dacpacContainerPath
+        }) 2>&1)
         Assert-ContainerToolAcceptance ($LASTEXITCODE -eq 0) 'Kataloggebundenes SqlPackage extrahiert das synthetische Schema als DACPAC'
     }
     finally {
@@ -318,7 +326,7 @@ try {
     $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($saPassword)
     try {
         $saPlain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
-        $publishOutput = @($(if ($requestedStateRoot) { Invoke-OwnedHostTestCommand -StateRoot $requestedStateRoot -Provider $Provider -Invocation $runtimeInvocation -Arguments @('exec','--env',"SQLSERVERLAB_SA_PASSWORD=$saPlain",'--user','mssql',$instance.ContainerName,'sh','-ceu',$publishCommand,'--',$dacpacContainerPath,$dacpacTargetDatabase) } else { & $runtimeInvocation exec --env "SQLSERVERLAB_SA_PASSWORD=$saPlain" --user mssql $instance.ContainerName sh -ceu $publishCommand -- $dacpacContainerPath $dacpacTargetDatabase }) 2>&1)
+        $publishOutput = @($(if ($requestedStateRoot) { Invoke-OwnedHostTestCommand -StateRoot $requestedStateRoot -Provider $Provider -Invocation $runtimeInvocation -TimeoutSeconds $sqlPackageCommandTimeoutSeconds -Arguments @('exec','--env',"SQLSERVERLAB_SA_PASSWORD=$saPlain",'--user','mssql',$instance.ContainerName,'sh','-ceu',$publishCommand,'--',$dacpacContainerPath,$dacpacTargetDatabase) } else { & $runtimeInvocation exec --env "SQLSERVERLAB_SA_PASSWORD=$saPlain" --user mssql $instance.ContainerName sh -ceu $publishCommand -- $dacpacContainerPath $dacpacTargetDatabase }) 2>&1)
         Assert-ContainerToolAcceptance ($LASTEXITCODE -eq 0) 'SqlPackage publiziert das synthetische DACPAC in die gebundene Testdatenbank'
     }
     finally {
@@ -385,7 +393,7 @@ try {
     $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($saPassword)
     try {
         $saPlain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
-        $republishOutput = @($(if ($requestedStateRoot) { Invoke-OwnedHostTestCommand -StateRoot $requestedStateRoot -Provider $Provider -Invocation $runtimeInvocation -Arguments @('exec','--env',"SQLSERVERLAB_SA_PASSWORD=$saPlain",'--user','mssql',$instance.ContainerName,'sh','-ceu',$publishCommand,'--',$dacpacContainerPath,$dacpacTargetDatabase) } else { & $runtimeInvocation exec --env "SQLSERVERLAB_SA_PASSWORD=$saPlain" --user mssql $instance.ContainerName sh -ceu $publishCommand -- $dacpacContainerPath $dacpacTargetDatabase }) 2>&1)
+        $republishOutput = @($(if ($requestedStateRoot) { Invoke-OwnedHostTestCommand -StateRoot $requestedStateRoot -Provider $Provider -Invocation $runtimeInvocation -TimeoutSeconds $sqlPackageCommandTimeoutSeconds -Arguments @('exec','--env',"SQLSERVERLAB_SA_PASSWORD=$saPlain",'--user','mssql',$instance.ContainerName,'sh','-ceu',$publishCommand,'--',$dacpacContainerPath,$dacpacTargetDatabase) } else { & $runtimeInvocation exec --env "SQLSERVERLAB_SA_PASSWORD=$saPlain" --user mssql $instance.ContainerName sh -ceu $publishCommand -- $dacpacContainerPath $dacpacTargetDatabase }) 2>&1)
         Assert-ContainerToolAcceptance ($LASTEXITCODE -eq 0) 'Erneute DACPAC-Publikation bleibt erfolgreich'
     }
     finally {
@@ -423,7 +431,7 @@ try {
     $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($saPassword)
     try {
         $saPlain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
-        $repeatPublishOutput = @($(if ($requestedStateRoot) { Invoke-OwnedHostTestCommand -StateRoot $requestedStateRoot -Provider $Provider -Invocation $runtimeInvocation -Arguments @('exec','--env',"SQLSERVERLAB_SA_PASSWORD=$saPlain",'--user','mssql',$instance.ContainerName,'sh','-ceu',$publishCommand,'--',$dacpacContainerPath,$dacpacTargetDatabase) } else { & $runtimeInvocation exec --env "SQLSERVERLAB_SA_PASSWORD=$saPlain" --user mssql $instance.ContainerName sh -ceu $publishCommand -- $dacpacContainerPath $dacpacTargetDatabase }) 2>&1)
+        $repeatPublishOutput = @($(if ($requestedStateRoot) { Invoke-OwnedHostTestCommand -StateRoot $requestedStateRoot -Provider $Provider -Invocation $runtimeInvocation -TimeoutSeconds $sqlPackageCommandTimeoutSeconds -Arguments @('exec','--env',"SQLSERVERLAB_SA_PASSWORD=$saPlain",'--user','mssql',$instance.ContainerName,'sh','-ceu',$publishCommand,'--',$dacpacContainerPath,$dacpacTargetDatabase) } else { & $runtimeInvocation exec --env "SQLSERVERLAB_SA_PASSWORD=$saPlain" --user mssql $instance.ContainerName sh -ceu $publishCommand -- $dacpacContainerPath $dacpacTargetDatabase }) 2>&1)
         Assert-ContainerToolAcceptance ($LASTEXITCODE -eq 0) 'Wiederholtes Publish nach Driftkorrektur bleibt erfolgreich'
     }
     finally {

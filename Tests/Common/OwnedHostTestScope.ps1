@@ -37,13 +37,14 @@ function Test-OwnedHostTestEvidenceBinding {
 function Invoke-OwnedHostTestCommand {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$StateRoot,[Parameter(Mandatory)][string]$Provider,
-        [Parameter(Mandatory)][string]$Invocation,[Parameter(Mandatory)][string[]]$Arguments)
+        [Parameter(Mandatory)][string]$Invocation,[Parameter(Mandatory)][string[]]$Arguments,
+        [ValidateRange(1,300)][int]$TimeoutSeconds=60)
     $transport=Get-OwnedHostTestTransport
     $result=& $transport {
-        param($Root,$Selected,$Cli,$Argv)
+        param($Root,$Selected,$Cli,$Argv,$Limit)
         $null=Get-LabOwnedHostPolicy -StateRoot $Root -Required
-        Invoke-LabContainerRuntimeCommand -StateRoot $Root -Provider $Selected -Invocation $Cli -ArgumentList $Argv -NativeResult
-    } $StateRoot $Provider $Invocation $Arguments
+        Invoke-LabContainerRuntimeCommand -StateRoot $Root -Provider $Selected -Invocation $Cli -ArgumentList $Argv -TimeoutSeconds $Limit -NativeResult
+    } $StateRoot $Provider $Invocation $Arguments $TimeoutSeconds
     $global:LASTEXITCODE=$result.ExitCode
     Set-Variable -Name LASTEXITCODE -Value $result.ExitCode -Scope 1
     $result.Output
