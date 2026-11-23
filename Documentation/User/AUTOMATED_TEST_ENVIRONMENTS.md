@@ -371,6 +371,24 @@ Nach jedem Reparaturversuch wird der Export live erneuert. Erst
 `Status = READY` und `Export.GroupStatus = READY` geben die Gruppe wieder für
 Verbraucher frei.
 
+Wenn ein registrierter Docker-Container läuft, seine konfigurierte SQL-Portbindung
+aber im Docker-Laufzeitzustand fehlt, kann die Reparatur auf diese Linux-Ziele
+begrenzt werden:
+
+```powershell
+Repair-SqlServerLabAutomatedTestEnvironment -LinuxSqlPortsOnly -WhatIf
+Repair-SqlServerLabAutomatedTestEnvironment -LinuxSqlPortsOnly
+```
+
+Der Lauf behält Docker-Image und Datenvolumes bei. Ist der registrierte
+Loopback-Port noch bindbar, bleibt er erhalten. Bei einer Hostreservierung
+wählt das Lab einen freien Loopback-Port aus seinem vorhandenen Bereich.
+Der Lauf ersetzt nur betroffene Container, prüft die SQL-Anmeldung und
+erneuert den Export. Bei geänderten Ports verwenden Aufrufer den erneuerten
+Export. Bei nicht belegbarer Zuordnung oder abweichender aktiver Bindung
+bricht die Reparatur für das Mitglied ab. Bereits aktive Bindungen und
+Windows-VMs werden in diesem Modus nicht verändert.
+
 Die gesamte Gruppe lässt sich auch nicht interaktiv löschen:
 
 ```powershell

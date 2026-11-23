@@ -93,12 +93,43 @@ function Get-LabContainerMountFingerprint {
     return [Convert]::ToHexString($bytes).ToLowerInvariant()
 }
 
+function Get-LabMissingDockerSqlPort {
+    param($Inspect,$Instance)
+
+    # Nur die exakt registrierte einzelne Loopback-Veröffentlichung darf als
+    # Sollzustand dienen. Eine abweichende aktive Bindung ist kein Reparaturfall.
+    $configured = $Inspect.HostConfig.PortBindings
+    $bindings = @($configured.'1433/tcp' | Where-Object { $null -ne $_ })
+    $networks = @($Inspect.NetworkSettings.Networks.PSObject.Properties)
+    $memoryMB = [long]$Inspect.HostConfig.Memory / 1MB
+    $sqlMemory = [int][math]::Max(1024,[math]::Floor($memoryMB * 0.8))
+    if ($Instance.provider -cne 'docker' -or $Instance.host -cne '127.0.0.1' -or
+        $Inspect.State.Running -ne $true -or $Inspect.Id -cne $Instance.containerId -or
+        @($Inspect.NetworkSettings.Ports.PSObject.Properties | Where-Object { $_.Value }).Count -ne 0 -or
+        @($configured.PSObject.Properties).Count -ne 1 -or $bindings.Count -ne 1 -or
+        $bindings[0].HostIp -cne '127.0.0.1' -or
+        [string]$bindings[0].HostPort -cnotmatch '^[1-9][0-9]{0,4}$' -or
+        [int]$bindings[0].HostPort -ne [int]$Instance.port -or [int]$Instance.port -lt 1024 -or [int]$Instance.port -gt 65535 -or
+        $networks.Count -ne 1 -or $Inspect.HostConfig.NetworkMode -cne $networks[0].Name -or
+        $Inspect.HostConfig.NetworkMode -cin @('host','none','default') -or
+        $Inspect.HostConfig.PublishAllPorts -eq $true -or
+        $Inspect.HostConfig.RestartPolicy.Name -cnotin @('no','unless-stopped') -or
+        $memoryMB -lt 512 -or $memoryMB % 1 -ne 0 -or
+        "MSSQL_MEMORY_LIMIT_MB=$sqlMemory" -cnotin @($Inspect.Config.Env) -or
+        $Inspect.Image -cnotmatch '^sha256:[a-f0-9]{64}$' -or
+        @($Inspect.Mounts | Where-Object { $_.Destination -ceq '/var/opt/mssql' -and $_.Type -ceq 'volume' -and $_.RW -eq $true }).Count -ne 1) {
+        throw 'CONTAINER_RECONCILE_SQL_PORT_RECOVERY_UNSUPPORTED'
+    }
+    return [int]$bindings[0].HostPort
+}
+
 function Get-LabContainerReconcileContext {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$RunId,
         [string]$InstanceId,
-        [string]$StateRoot
+        [string]$StateRoot,
+        [switch]$RestoreMissingSqlPort
     )
     if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
     $run = Get-LabRunState -RunId $RunId -StateRoot $StateRoot
@@ -136,8 +167,13 @@ function Get-LabContainerReconcileContext {
         throw 'CONTAINER_RECONCILE_SCOPE_MISMATCH'
     }
     $portBinding = @($inspect.NetworkSettings.Ports.'1433/tcp' | Select-Object -First 1)
-    if ($portBinding.Count -ne 1 -or -not $portBinding[0].HostPort) { throw 'CONTAINER_RECONCILE_SQL_PORT_BINDING_REQUIRED' }
-    $currentPort = [int]$portBinding[0].HostPort
+    $missingPort = $portBinding.Count -ne 1 -or -not $portBinding[0].HostPort
+    if ($missingPort -and -not $RestoreMissingSqlPort) { throw 'CONTAINER_RECONCILE_SQL_PORT_BINDING_REQUIRED' }
+    $currentPort = if ($missingPort) { Get-LabMissingDockerSqlPort -Inspect $inspect -Instance $instance } else { [int]$portBinding[0].HostPort }
+    if ($RestoreMissingSqlPort -and -not $missingPort -and
+        ($currentPort -ne [int]$instance.port -or $portBinding[0].HostIp -cne '127.0.0.1')) {
+        throw 'CONTAINER_RECONCILE_SQL_PORT_RECOVERY_UNSUPPORTED'
+    }
     $currentMemoryMB = if ([long]$inspect.HostConfig.Memory -gt 0) { [int]([long]$inspect.HostConfig.Memory / 1MB) } else { 2048 }
     $measuredCpu = Get-LabContainerMeasuredCpu -Inspect $inspect
     $currentCpu = if ($null -ne $measuredCpu) { $measuredCpu } else { 2 }
@@ -161,7 +197,7 @@ function Get-LabContainerReconcileContext {
         Connection=$connection; ConnectionPath=$connectionPath; Instance=$instance
         InstanceId=[string]$instance.id; Provider=$runtime; Inspect=$inspect
         ContainerName=([string]$inspect.Name).TrimStart('/'); ContainerId=[string]$inspect.Id
-        WasRunning=[bool]$inspect.State.Running; CurrentPort=$currentPort
+        WasRunning=[bool]$inspect.State.Running; CurrentPort=$currentPort; MissingSqlPort=$missingPort
         CurrentMemoryMB=$currentMemoryMB; CurrentCpu=$currentCpu
         ConfiguredSqlMemory=$configuredSqlMemory; HealthCommand=$healthCommand
         CurrentRestartPolicy=$restartPolicy; CurrentAutoStartLabel=$autoStartLabel
@@ -402,9 +438,12 @@ function New-LabContainerReconcilePlan {
         [Nullable[int]]$SqlMaxMemoryMB,
         [ValidateSet('on','off')][string]$AutoStart,
         [switch]$RepairSqlRuntimeContract,
+        [switch]$RestoreMissingSqlPort,
         [string]$StateRoot
     )
-    $context = Get-LabContainerReconcileContext -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot
+    $contextArgs = @{ RunId=$RunId; InstanceId=$InstanceId; StateRoot=$StateRoot }
+    if ($RestoreMissingSqlPort) { $contextArgs.RestoreMissingSqlPort=$true }
+    $context = Get-LabContainerReconcileContext @contextArgs
     $mountPreview = Get-LabContainerMountPreview -Inspect $context.Inspect
     $targetCpu = if ($null -ne $Cpu) { [decimal]$Cpu } else { [decimal]$context.CurrentCpu }
     $targetMemory = if ($null -ne $MemoryMB) { [int]$MemoryMB } else { [int]$context.CurrentMemoryMB }
@@ -433,7 +472,8 @@ function New-LabContainerReconcilePlan {
     $autoStartChanged = ($PSBoundParameters.ContainsKey('AutoStart') -and [string]$context.CurrentAutoStart -ne $targetAutoStart) -or
         ($RepairSqlRuntimeContract -and [string]$context.CurrentAutoStart -eq 'DRIFTED')
     $sqlMemoryChanged = $null -ne $targetSqlMaxMemory -and $targetSqlMaxMemory -ne $currentSqlMaxMemory
-    $changeClass = if ($portChanged -or $contractRepair -or $autoStartChanged) { 'recreate' } elseif ($cpuChanged -or $memoryChanged -or $sqlMemoryChanged) { 'live' } else { 'no-op' }
+    $restorePort = $RestoreMissingSqlPort -and $context.MissingSqlPort
+    $changeClass = if ($portChanged -or $contractRepair -or $autoStartChanged -or $restorePort) { 'recreate' } elseif ($cpuChanged -or $memoryChanged -or $sqlMemoryChanged) { 'live' } else { 'no-op' }
     $diff = @(
         [PSCustomObject]@{ Field='Cpu'; Current=[decimal]$context.CurrentCpu; Desired=$targetCpu; Changed=$cpuChanged; ChangeClass=if($cpuChanged){'live'}else{'no-op'} },
         [PSCustomObject]@{ Field='MemoryMB'; Current=[int]$context.CurrentMemoryMB; Desired=$targetMemory; Changed=$memoryChanged; ChangeClass=if($memoryChanged){'live'}else{'no-op'} },
@@ -442,6 +482,9 @@ function New-LabContainerReconcilePlan {
         [PSCustomObject]@{ Field='AutoStart'; Current=[string]$context.CurrentAutoStart; Desired=$targetAutoStart; Changed=$autoStartChanged; ChangeClass=if($autoStartChanged){'recreate'}else{'no-op'} },
         [PSCustomObject]@{ Field='SqlMaxMemoryMB'; Current=$currentSqlMaxMemory; Desired=$targetSqlMaxMemory; Changed=$sqlMemoryChanged; ChangeClass=if($sqlMemoryChanged){'live'}else{'no-op'} }
     )
+    if ($restorePort) {
+        $diff += [pscustomobject]@{ Field='SqlPortBinding'; Current='MISSING'; Desired='ACTIVE'; Changed=$true; ChangeClass='recreate' }
+    }
     $actions = if ($changeClass -eq 'no-op') { @() } else { @([PSCustomObject]@{
         Operation=if($changeClass -eq 'live'){'UpdateContainerResources'}else{'RecreateContainer'}
         Provider=[string]$context.Provider; InstanceId=[string]$context.InstanceId; ChangeClass=$changeClass

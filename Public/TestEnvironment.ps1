@@ -798,6 +798,11 @@ function Repair-SqlServerLabAutomatedTestEnvironment {
     .PARAMETER ReadinessTimeoutSeconds
         Maximale Wartezeit pro ausgetauschtem Linux-Container bis zur stabilen
         SQL-Bereitschaft.
+    .PARAMETER LinuxSqlPortsOnly
+        Stellt nur fehlende SQL-Loopback-Portbindungen registrierter laufender
+        Docker-Testcontainer wieder her. Ist der registrierte Port nicht
+        bindbar, wird ein freier Port aus dem Lab-Bereich gewählt. SQL-Image
+        und Datenvolumes bleiben erhalten.
     .PARAMETER WindowsActivationSwitchName
         Optionale Auswahl eines vorhandenen External-Switches an einer
         verbundenen physischen NIC. Ohne Angabe wird er nur bei tatsächlichem
@@ -816,6 +821,7 @@ function Repair-SqlServerLabAutomatedTestEnvironment {
     param(
         [switch]$Force,
         [ValidateRange(10, 600)][int]$ReadinessTimeoutSeconds = 180,
+        [switch]$LinuxSqlPortsOnly,
         [string]$WindowsActivationSwitchName,
         [string]$OutputDirectory,
         [string]$StateRoot
@@ -826,16 +832,20 @@ function Repair-SqlServerLabAutomatedTestEnvironment {
     if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
     $directory = Get-LabTestEnvironmentExportDirectory -OutputDirectory $OutputDirectory
     $registry = Get-LabTestEnvironmentRegistry -OutputDirectory $directory
-    $registeredEntries = @($registry.environments | Where-Object { [string]$_.runId })
+    $registeredEntries = @($registry.environments | Where-Object {
+        [string]$_.runId -and (-not $LinuxSqlPortsOnly -or [string]$_.platform -ceq 'linux')
+    })
     if ($registeredEntries.Count -eq 0) {
         return [PSCustomObject]@{ Status='EMPTY'; Repaired=0; Renamed=0; Unchanged=0; Errors=0; Export=$null }
     }
-    if (-not $PSCmdlet.ShouldProcess("$($registeredEntries.Count) automatisierte Testumgebung(en)", 'Runtime-Namen, Ressourcen, Windows-Aktivierung und Readiness-Vertrag der geschützten Gruppe reparieren')) {
+    $action = if ($LinuxSqlPortsOnly) { 'Fehlende Docker-SQL-Portbindungen der geschützten Gruppe wiederherstellen' }
+        else { 'Runtime-Namen, Ressourcen, Windows-Aktivierung und Readiness-Vertrag der geschützten Gruppe reparieren' }
+    if (-not $PSCmdlet.ShouldProcess("$($registeredEntries.Count) automatisierte Testumgebung(en)", $action)) {
         return [PSCustomObject]@{ Status='CANCELLED'; Repaired=0; Renamed=0; Unchanged=0; Errors=0; Export=$null }
     }
-    if (-not $Force -and -not $PSCmdlet.ShouldContinue(
-        'Linux-Container werden bei Bedarf kontrolliert ersetzt; noch nicht aktivierte Windows-Evaluationen verwenden kurz einen verbundenen External-Switch und Hyper-V-Slots können neu gestartet werden. Fortfahren?',
-        'Automatisierte Testumgebungsgruppe reparieren')) {
+    $confirmation = if ($LinuxSqlPortsOnly) { 'Betroffene Docker-Container werden mit demselben Image und Datenvolume kontrolliert ersetzt. Nicht bindbare Ports werden neu zugeordnet. Fortfahren?' }
+        else { 'Linux-Container werden bei Bedarf kontrolliert ersetzt; noch nicht aktivierte Windows-Evaluationen verwenden kurz einen verbundenen External-Switch und Hyper-V-Slots können neu gestartet werden. Fortfahren?' }
+    if (-not $Force -and -not $PSCmdlet.ShouldContinue($confirmation, 'Automatisierte Testumgebungsgruppe reparieren')) {
         return [PSCustomObject]@{ Status='CANCELLED'; Repaired=0; Renamed=0; Unchanged=0; Errors=0; Export=$null }
     }
 
@@ -856,6 +866,25 @@ function Repair-SqlServerLabAutomatedTestEnvironment {
         foreach ($entry in $registeredEntries) {
             $runId = [string]$entry.runId
             try {
+                if ($LinuxSqlPortsOnly) {
+                    $registered = Get-LabAutomatedTestEnvironmentContainerContext -Entry $entry -StateRoot $StateRoot
+                    if ($registered.Instance.provider -cne 'docker') { $unchanged++; continue }
+                    $result = Invoke-LabPortAllocationLock -Action {
+                        $instanceId = [string]$entry.instanceId
+                        $context = Get-LabContainerReconcileContext -RunId $runId -InstanceId $instanceId -StateRoot $StateRoot -RestoreMissingSqlPort
+                        $repairArgs = @{
+                            RunId=$runId; InstanceId=$instanceId; RestoreMissingSqlPort=$true
+                            ReadinessTimeoutSeconds=$ReadinessTimeoutSeconds; StateRoot=$StateRoot; Confirm=$false
+                        }
+                        if ($context.MissingSqlPort -and -not (Test-LabEndpointBinding -Port $context.CurrentPort).Available) {
+                            $range = Get-LabAutomaticSqlPortRange
+                            $repairArgs.Port = Find-LabAvailablePort -RangeStart $range.Start -RangeEnd $range.End
+                        }
+                        Update-SqlServerLabContainer @repairArgs
+                    }
+                    if ($result.Changed) { $repaired++ } else { $unchanged++ }
+                    continue
+                }
                 if ([string]$entry.platform -eq 'linux') {
                     $result = Update-SqlServerLabContainer -RunId $runId -Cpu 4 -MemoryMB 4096 -AutoStart on `
                         -RepairSqlRuntimeContract -ReadinessTimeoutSeconds $ReadinessTimeoutSeconds -StateRoot $StateRoot -Confirm:$false

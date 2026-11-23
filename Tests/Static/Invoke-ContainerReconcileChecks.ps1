@@ -22,6 +22,46 @@ $temporaryRoot = Join-Path ([IO.Path]::GetTempPath()) "sql-lab-container-reconci
 New-Item -ItemType Directory -Path $temporaryRoot -Force | Out-Null
 try {
     $module = Get-Module SqlServerLab
+    $portRecovery = & $module {
+        $identity = 'a' * 64
+        $instance = [pscustomobject]@{ provider='docker'; host='127.0.0.1'; port=14333; containerId=$identity }
+        $inspect = [pscustomobject]@{
+            Id=$identity; Image=('sha256:' + ('b' * 64)); State=[pscustomobject]@{Running=$true}
+            Config=[pscustomobject]@{Env=@('MSSQL_MEMORY_LIMIT_MB=3276')}
+            Mounts=@([pscustomobject]@{Type='volume';Destination='/var/opt/mssql';RW=$true})
+            NetworkSettings=[pscustomobject]@{Ports=[pscustomobject]@{'1433/tcp'=$null};Networks=[pscustomobject]@{'contoso-bridge'=@{}}}
+            HostConfig=[pscustomobject]@{
+                PortBindings=[pscustomobject]@{'1433/tcp'=@([pscustomobject]@{HostIp='127.0.0.1';HostPort='14333'})}
+                NetworkMode='contoso-bridge'; PublishAllPorts=$false; Memory=4GB
+                RestartPolicy=[pscustomobject]@{Name='unless-stopped'}
+            }
+        }
+        $accepted = (Get-LabMissingDockerSqlPort -Inspect $inspect -Instance $instance) -eq 14333
+        $blocked = 0
+        foreach($mutate in @(
+            {$instance.port=14334},
+            {$instance.provider='podman'},
+            {$inspect.Id='foreign'},
+            {$inspect.State.Running=$false},
+            {$inspect.HostConfig.PortBindings.'1433/tcp'[0].HostIp='0.0.0.0'},
+            {$inspect.HostConfig.PortBindings.'1433/tcp'+=$inspect.HostConfig.PortBindings.'1433/tcp'[0]},
+            {$inspect.NetworkSettings.Ports.'1433/tcp'=@([pscustomobject]@{HostPort='14334'})},
+            {$inspect.Mounts=@()},
+            {$inspect.Config.Env=@('MSSQL_MEMORY_LIMIT_MB=2048')}
+        )){
+            $beforeInspect = $inspect | ConvertTo-Json -Depth 10
+            $beforeInstance = $instance | ConvertTo-Json
+            . $mutate
+            try { $null=Get-LabMissingDockerSqlPort -Inspect $inspect -Instance $instance }
+            catch { if ($_.Exception.Message -ceq 'CONTAINER_RECONCILE_SQL_PORT_RECOVERY_UNSUPPORTED') { $blocked++ } else { throw } }
+            $inspect = $beforeInspect | ConvertFrom-Json
+            $instance = $beforeInstance | ConvertFrom-Json
+        }
+        [pscustomobject]@{Accepted=$accepted; Blocked=$blocked}
+    }
+    Add-CheckResult -Name 'Docker-Portrecovery akzeptiert nur die exakt registrierte fehlende Bindung' -Success (
+        $portRecovery.Accepted -and $portRecovery.Blocked -eq 9
+    )
     $evidence = & $module {
         param($Root)
         $runId=[guid]::NewGuid().ToString('D'); $scopeId=[guid]::NewGuid().ToString('D')
@@ -47,6 +87,11 @@ try {
             $live=Get-SqlServerLabReconcilePlan -RunId $runId -Container -Cpu 3 -MemoryMB 2560 -Port 14333 -SqlMaxMemoryMB 1408 -StateRoot $Root
             $recreate=Get-SqlServerLabReconcilePlan -RunId $runId -Container -Cpu 2 -MemoryMB 2048 -Port 15433 -StateRoot $Root
             $autoStart=Get-SqlServerLabReconcilePlan -RunId $runId -Container -AutoStart on -RepairSqlRuntimeContract -StateRoot $Root
+            $context | Add-Member -NotePropertyName MissingSqlPort -NotePropertyValue $true
+            $portRecoveryPlan=New-LabContainerReconcilePlan -RunId $runId -RestoreMissingSqlPort -StateRoot $Root
+            $portRecoveryMoved=New-LabContainerReconcilePlan -RunId $runId -RestoreMissingSqlPort -Port 15433 -StateRoot $Root
+            $context.MissingSqlPort=$false
+            $portRecoveryNoOp=New-LabContainerReconcilePlan -RunId $runId -RestoreMissingSqlPort -StateRoot $Root
             $mountCases=@(
                 [pscustomobject]@{Mounts=@()},
                 [pscustomobject]@{Mounts=@(
@@ -89,6 +134,7 @@ try {
             $journal=Get-Content -LiteralPath $journalInfo.Path -Raw -Encoding utf8 | ConvertFrom-Json -Depth 40
             [PSCustomObject]@{
                 NoOp=$noOp; Live=$live; Recreate=$recreate; AutoStart=$autoStart; BeforeFiles=$beforeFiles; AfterFiles=$afterFiles
+                PortRecoveryPlan=$portRecoveryPlan; PortRecoveryMoved=$portRecoveryMoved; PortRecoveryNoOp=$portRecoveryNoOp
                 MountPlans=$mountPlans
                 ActionNoOp=$actionNoOp; ActionLive=$actionLive; ActionAutoStart=$actionAutoStart; WhatIf=$whatIf; UpdateCalls=$script:updateCalls
                 Journal=$journal; JournalSchema=(Assert-LabContainerReconcileJournal -Journal $journal)
@@ -103,6 +149,14 @@ try {
             Remove-Variable containerReconcileTestContext -Scope Script -ErrorAction SilentlyContinue
         }
     } $temporaryRoot
+
+    Add-CheckResult -Name 'Portrecovery plant den bestehenden oder freien SQL-Port und bleibt bei aktiver Bindung ein No-op' -Success (
+        $evidence.PortRecoveryPlan.HighestChangeClass -ceq 'recreate' -and $evidence.PortRecoveryPlan.Desired.Port -eq 14333 -and
+        (@($evidence.PortRecoveryPlan.Diff | Where-Object Changed).Field -join ',') -ceq 'SqlPortBinding' -and
+        $evidence.PortRecoveryMoved.HighestChangeClass -ceq 'recreate' -and $evidence.PortRecoveryMoved.Desired.Port -eq 15433 -and
+        (@($evidence.PortRecoveryMoved.Diff | Where-Object Changed).Field -join ',') -ceq 'Port,SqlPortBinding' -and
+        $evidence.PortRecoveryNoOp.IsNoOp
+    )
 
     Add-CheckResult -Name 'No-op-Plan bleibt actions- und mutationsfrei' -Success (
         $evidence.NoOp.IsNoOp -and $evidence.NoOp.HighestChangeClass -eq 'no-op' -and @($evidence.NoOp.Actions).Count -eq 0 -and
