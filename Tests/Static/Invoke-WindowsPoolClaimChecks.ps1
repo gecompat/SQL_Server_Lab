@@ -11,6 +11,34 @@ $result=& $module {
     $script:PoolCheckCount=0
     function Assert-Pool($condition,$name){if(-not $condition){throw "WINDOWS_POOL_CHECK_FAILED: $name"};$script:PoolCheckCount++}
     function Assert-PoolThrows([scriptblock]$body,[string]$code){$failed=$false;$observed=$null;try{& $body}catch{$observed=$_.Exception.Message;$failed=$observed -like ($code+'*')};Assert-Pool $failed ($code+'; actual='+$observed)}
+    $ciRunner=Join-Path $repoRoot 'Tests/Integration/Invoke-WindowsPoolClaimCiAcceptance.ps1'
+    $ciEnvironment=@{
+        GITHUB_EVENT_NAME='workflow_dispatch'; GITHUB_REF='refs/heads/main'; GITHUB_REPOSITORY='gecompat/SQL_Server_Lab'
+        GITHUB_SHA=(& git -C $repoRoot rev-parse HEAD)
+        SQL_SERVER_LAB_CI_EVENT_REPOSITORY='gecompat/SQL_Server_Lab'; SQL_SERVER_LAB_CI_POOL_CONFIRM='true'
+        SQL_SERVER_LAB_CI_POOL_SQL_MEDIA='SQL/2025/Eval/synthetic.iso'; SQL_SERVER_LAB_CI_POOL_MEDIA_EDITION='Eval'
+        SQL_SERVER_LAB_CI_POOL_IMAGE_ID='hyperv-os-sealed-'+('a'*64)
+    }
+    if($LASTEXITCODE){throw 'SYNTHETIC_CI_CHECKOUT_UNAVAILABLE'}
+    $originalEnvironment=@{}
+    foreach($name in $ciEnvironment.Keys){$originalEnvironment[$name]=[Environment]::GetEnvironmentVariable($name)}
+    try{
+        $rejectedCases=@(
+            @{Key='GITHUB_EVENT_NAME';Value='pull_request';Code='WINDOWS_POOL_CI_SCOPE_INVALID'},
+            @{Key='GITHUB_REF';Value='refs/heads/untrusted';Code='WINDOWS_POOL_CI_SCOPE_INVALID'},
+            @{Key='SQL_SERVER_LAB_CI_POOL_CONFIRM';Value='false';Code='WINDOWS_POOL_CI_SCOPE_INVALID'},
+            @{Key='GITHUB_SHA';Value=('0'*40);Code='WINDOWS_POOL_CI_CHECKOUT_INVALID'},
+            @{Key='SQL_SERVER_LAB_CI_POOL_SQL_MEDIA';Value='SQL/2025/../synthetic.iso';Code='WINDOWS_POOL_CI_MEDIA_SELECTION_REQUIRED'},
+            @{Key='SQL_SERVER_LAB_CI_POOL_IMAGE_ID';Value='foreign-artifact';Code='WINDOWS_POOL_CI_IMAGE_SELECTION_INVALID'}
+        )
+        foreach($case in $rejectedCases){
+            foreach($name in $ciEnvironment.Keys){[Environment]::SetEnvironmentVariable($name,[string]$ciEnvironment[$name])}
+            [Environment]::SetEnvironmentVariable($case.Key,$case.Value)
+            Assert-PoolThrows {& $ciRunner} $case.Code
+        }
+    }finally{
+        foreach($name in $originalEnvironment.Keys){[Environment]::SetEnvironmentVariable($name,$originalEnvironment[$name])}
+    }
     $root=Join-Path $fixture state
     Assert-PoolThrows {Assert-LabWindowsPoolRootSupport -StateRoot ([IO.Path]::GetPathRoot($fixture))} WINDOWS_POOL_ROOT_TOO_BROAD
     if($IsWindows){Assert-PoolThrows {Assert-LabWindowsPoolRootSupport -StateRoot '\\synthetic-unreachable\share\state'} WINDOWS_POOL_NETWORK_ROOT_UNSUPPORTED}

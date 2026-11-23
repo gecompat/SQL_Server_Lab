@@ -15,6 +15,7 @@ param(
     [Parameter(Mandatory)][string]$SqlMediaPath,
     [Parameter(Mandatory)][string]$MediaRoot,
     [ValidateSet('Enterprise','Standard','Eval')][string]$MediaEdition='Eval',
+    [switch]$RetainEvidenceInStateRoot,
     [switch]$ConfirmNativeExecution,
     [switch]$ConfirmOwnCleanup
 )
@@ -38,7 +39,11 @@ if($baseline.Count -ne 1 -or $baseline[0].IntegrityStatus -cne 'VERIFIED' -or $b
 $parentPath=& $module {param($id,$root) (Get-HyperVImageArtifact -ArtifactId $id -StateRoot $root).Path} $ArtifactId $StateRoot
 $parentBefore=Get-WindowsPoolNativeParentFingerprint -Path $parentPath
 $poolId=[guid]::NewGuid();$prefix='c-pool-native-'+$poolId.ToString('N').Substring(0,10)
-$evidenceDirectory=Join-Path (Join-Path $repo '.artifacts/windows-pool-native') $poolId.ToString('N')
+$evidenceBase=if($RetainEvidenceInStateRoot){Join-Path $StateRoot 'test-evidence/windows-pool-native'}else{Join-Path $repo '.artifacts/windows-pool-native'}
+$evidenceDirectory=Join-Path $evidenceBase $poolId.ToString('N')
+if($RetainEvidenceInStateRoot -and -not (& $module {param($Root,$Path) (Test-LabPathWithinRoot -Root $Root -Path $Path).Valid} $StateRoot $evidenceDirectory)){
+    throw 'WINDOWS_POOL_NATIVE_EVIDENCE_PATH_UNSAFE'
+}
 $null=New-Item -ItemType Directory -Path $evidenceDirectory -Force
 $report=[ordered]@{ContractVersion='SqlServerLab.WindowsPoolNativeAcceptance/1.0';PoolId=$poolId.ToString();ArtifactId=$ArtifactId
     Status='RUNNING';Checks=@();RunIds=@();OriginalBindings=@();OriginalError=$null;OriginalCause=$null;PreparationErrors=@();StopErrors=@();CleanupErrors=@();CleanupConfirmed=$true

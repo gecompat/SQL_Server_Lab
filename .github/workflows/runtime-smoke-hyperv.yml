@@ -50,6 +50,7 @@ on:
           - locale-acceptance
           - sql-prepared-locale-acceptance
           - windows-test-group-acceptance
+          - windows-pool-claim-acceptance
           - sql-configuration-reconcile-acceptance
           - sql-guest-evaluation-capture-acceptance
           - sql-storage-reconcile-acceptance
@@ -106,6 +107,15 @@ on:
           - Enterprise
           - Standard
           - Eval
+      pool_claim_sql_media:
+        description: Relative SQL-2025-ISO im konfigurierten Media Root für die Windows-Poolabnahme
+        required: false
+        type: string
+      confirm_pool_claim_acceptance:
+        description: Genau ein eigenes Windows-Poolmitglied anlegen und bei Erfolg bereinigen
+        required: false
+        type: boolean
+        default: false
       ssis_state_root:
         description: Expliziter bestehender State Root für SSISDB-Artifactkatalog und eigenen Acceptance-Run
         required: false
@@ -393,6 +403,18 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           .\Tests\Integration\Invoke-HyperVTestGroupLifecycleAcceptance.ps1
+
+      - name: Hyper-V Windows 2025 pool claim acceptance on Key18
+        if: inputs.mode == 'windows-pool-claim-acceptance'
+        env:
+          SQL_SERVER_LAB_CI_EVENT_REPOSITORY: ${{ github.event.repository.full_name }}
+          SQL_SERVER_LAB_CI_POOL_CONFIRM: ${{ inputs.confirm_pool_claim_acceptance }}
+          SQL_SERVER_LAB_CI_POOL_SQL_MEDIA: ${{ inputs.pool_claim_sql_media }}
+          SQL_SERVER_LAB_CI_POOL_MEDIA_EDITION: ${{ inputs.media_edition }}
+          SQL_SERVER_LAB_CI_POOL_IMAGE_ID: ${{ inputs.image_artifact_id }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          .\Tests\Integration\Invoke-WindowsPoolClaimCiAcceptance.ps1
 
       - name: Hyper-V OS-slot batch with scoped cleanup
         if: inputs.mode == 'slot-batch'
