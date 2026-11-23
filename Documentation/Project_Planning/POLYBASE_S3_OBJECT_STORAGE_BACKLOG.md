@@ -155,6 +155,8 @@ Die [GitHub-hosted-Prüfung](../../.github/workflows/polybase-s3-acceptance.yml)
 legt auf Linux x64 eine isolierte SQL-Server-2025-CU9-Instanz und eine
 SeaweedFS-Mini-Instanz mit einem eigenen Bucket an. [Microsoft beschreibt
 den nativen Dateizugriff in SQL Server 2025](https://learn.microsoft.com/en-us/sql/relational-databases/polybase/data-virtualization-guide?view=sql-server-ver17).
+Die Fixture nutzt diesen engine-eigenen Pfad. Der vorherige Kandidat
+meldete SQL-Fehler 46923 mit dem separaten PolyBase-Setup. [Fehlerlauf](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45163711842)
 Die Fixture prüft den SQL-Build 17.0.5005.3, verifiziert den vom Microsoft
 Container Registry für den katalogisierten CU9-Tag gelieferten Manifest-Digest
 und zieht genau diesen Digest. Der erste Lauf hat den erwarteten Digest

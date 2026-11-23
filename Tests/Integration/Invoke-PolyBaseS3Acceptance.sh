@@ -234,8 +234,6 @@ done
 stage='sql_external_table'
 cat >"$root/read.sql" <<SQL
 SET NOCOUNT ON;
-EXEC sys.sp_configure N'polybase enabled',1;
-RECONFIGURE;
 CREATE DATABASE [ExamplePolyBaseProbe];
 GO
 USE [ExamplePolyBaseProbe];
@@ -246,6 +244,7 @@ CREATE EXTERNAL DATA SOURCE [ExampleStore] WITH (LOCATION='s3://$host:8333/',CRE
 CREATE EXTERNAL FILE FORMAT [ExampleCsv] WITH (FORMAT_TYPE=DELIMITEDTEXT,FORMAT_OPTIONS(FIELD_TERMINATOR=','));
 CREATE EXTERNAL TABLE dbo.ExampleExternal ([Id] int NOT NULL,[Name] varchar(32) NOT NULL)
 WITH (LOCATION='/$bucket/fixture.csv',DATA_SOURCE=[ExampleStore],FILE_FORMAT=[ExampleCsv]);
+PRINT 'POLYBASE_SQL_DDL=PASS';
 SELECT [Id],[Name] INTO #Observed FROM dbo.ExampleExternal;
 DECLARE @Expected TABLE ([Id] int NOT NULL,[Name] varchar(32) NOT NULL);
 INSERT @Expected VALUES (7,'ExampleSeven'),(11,'ExampleEleven');
@@ -263,6 +262,7 @@ SELECT 'POLYBASE_S3_NATIVE=PASS|SQL2025_CU9|CSV_ROWS=2|COLUMNS=2|READ_ONLY_KEY=1
 GO
 SQL
 if ! sql <"$root/read.sql" >"$root/sql-results" 2>"$root/sql-error"; then
+  grep -Fx 'POLYBASE_SQL_DDL=PASS' "$root/sql-error" >&2 || true
   sed -nE 's/^Msg ([0-9]+),.*/POLYBASE_SQL_ERROR=\1/p' "$root/sql-error" | sort -u >&2
   exit 1
 fi
