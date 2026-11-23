@@ -125,6 +125,46 @@ try {
     Assert-Check ($reviewResult.Eligible -and $reviewResult.AfterCancel -ceq 'Validated' -and $reviewResult.AfterEdit -ceq 'Validated' -and
         $reviewResult.Final -ceq 'Queued' -and $reviewResult.Starts -eq 1 -and $reviewResult.Root -ceq $browserDraftRoot) 'Gespeicherter Batch wurde ohne unveränderte Bestätigung eingereiht oder in den falschen Scope übergeben.'
 
+    $browserSubmissionRoot = Join-Path $testRoot 'reviewed-browser-submit'
+    $browserSubmission = & $module {
+        param($Request,$Root,$OtherRoot)
+        function Get-LabProviderAvailabilityMap { @{docker=$false;podman=$true;hyperv=$true} }
+        function Find-LabMatchingHyperVArtifact { param($Requirement,$StateRoot) return $null }
+        $draft = Save-LabBrowserBatchDraft -Request $Request -StateRoot $Root
+        $preview = New-LabBrowserBatchSubmitPreview -BatchId $draft.BatchId -StateRoot $Root
+        $before = Get-SqlServerLabBatch -BatchId $draft.BatchId -StateRoot $Root
+        $wrongRootRejected = $false
+        try { $null = Invoke-LabBrowserBatchSubmitPreview -BatchId $draft.BatchId -PreviewId $preview.PreviewId -StateRoot $OtherRoot }
+        catch { $wrongRootRejected = $_.Exception.Message -ceq 'BATCH_REVIEW_PREVIEW_REQUIRED' }
+        $operation = Get-SqlServerLabOperation -OperationId $before.operationIds[1] -StateRoot $Root
+        $operation.executor.effective.LabName = 'changed-after-preview'
+        $null = Write-LabOperationState -Operation $operation -StateRoot $Root
+        $staleRejected = $false
+        try { $null = Invoke-LabBrowserBatchSubmitPreview -BatchId $draft.BatchId -PreviewId $preview.PreviewId -StateRoot $Root }
+        catch { $staleRejected = $_.Exception.Message -ceq 'BATCH_REVIEW_STALE' }
+        $statusAfterVeto = (Get-SqlServerLabBatch -BatchId $draft.BatchId -StateRoot $Root).status
+
+        $secretBefore = $env:SQL_SERVER_LAB_SECRET_BROWSER_DRAFT_TEST
+        try {
+            $env:SQL_SERVER_LAB_SECRET_BROWSER_DRAFT_TEST = 'synthetic-only-never-persisted'
+            $fresh = New-LabBrowserBatchSubmitPreview -BatchId $draft.BatchId -StateRoot $Root
+            $submitted = Invoke-LabBrowserBatchSubmitPreview -BatchId $draft.BatchId -PreviewId $fresh.PreviewId -StateRoot $Root
+            $replayRejected = $false
+            try { $null = Invoke-LabBrowserBatchSubmitPreview -BatchId $draft.BatchId -PreviewId $fresh.PreviewId -StateRoot $Root }
+            catch { $replayRejected = $_.Exception.Message -ceq 'BATCH_REVIEW_PREVIEW_REQUIRED' }
+            [pscustomobject]@{
+                Initial=$before.status; Preview=$preview; WrongRootRejected=$wrongRootRejected
+                StaleRejected=$staleRejected; AfterVeto=$statusAfterVeto; Receipt=$submitted; ReplayRejected=$replayRejected
+            }
+        }
+        finally { $env:SQL_SERVER_LAB_SECRET_BROWSER_DRAFT_TEST = $secretBefore }
+    } $draftRequest $browserSubmissionRoot $browserDraftRoot
+    Assert-Check ($browserSubmission.Initial -ceq 'Validated' -and $browserSubmission.Preview.Positions -eq 3 -and
+        $browserSubmission.Preview.Podman -eq 2 -and $browserSubmission.Preview.HyperV -eq 1 -and
+        $browserSubmission.Preview.Dependencies -eq 1 -and $browserSubmission.WrongRootRejected -and
+        $browserSubmission.StaleRejected -and $browserSubmission.AfterVeto -ceq 'Validated' -and
+        $browserSubmission.Receipt.Status -ceq 'Queued' -and $browserSubmission.ReplayRejected) 'Der Browser hat den gespeicherten Entwurf nicht genau einmal und an die unveränderte Vorschau gebunden eingereiht.'
+
     $hostRoot = Join-Path $testRoot 'scheduler state'
     $hostBatch = New-SqlServerLabBatch -Name 'Isolated scheduler host' -StateRoot $hostRoot -Items @(
         [pscustomobject]@{ id = 'host-probe'; kind = 'NoOp' }

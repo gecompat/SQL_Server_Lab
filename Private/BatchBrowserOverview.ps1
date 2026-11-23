@@ -104,6 +104,47 @@ function Save-LabBrowserBatchDraft {
     }
 }
 
+function New-LabBrowserBatchSubmitPreview {
+    param([string]$BatchId, [string]$StateRoot)
+
+    $script:LabBrowserBatchSubmitPreview = $null
+    if ($BatchId -cnotmatch '\Abatch-\d{14}-[0-9a-f]{8}\z') { throw 'BATCH_REVIEW_INVALID' }
+    $batch = Read-LabWorkflowJson -Path (Join-Path (Join-Path $StateRoot 'batches') ($BatchId + '.json'))
+    if ($null -eq $batch -or $batch.contract -cne 'SqlServerLab.Batch/1.0' -or
+        $batch.batchId -cne $BatchId -or $batch.status -cne 'Validated') { throw 'BATCH_REVIEW_STALE' }
+    $items = @($batch.items)
+    if (!$items.Count -or @($items | Where-Object { $_.provider -cnotin @('docker','podman','hyperv') }).Count) {
+        throw 'BATCH_REVIEW_INVALID'
+    }
+    $token = [guid]::NewGuid().ToString('N')
+    $script:LabBrowserBatchSubmitPreview = [pscustomobject]@{
+        Id=$token; BatchId=$BatchId; StateRoot=$StateRoot
+        Signature=(Get-LabBatchReviewSignature -Batch $batch -StateRoot $StateRoot)
+        Expires=[datetime]::UtcNow.AddMinutes(5)
+    }
+    [pscustomobject]@{
+        PreviewId=$token; BatchId=$BatchId; Positions=$items.Count
+        Docker=@($items | Where-Object provider -CEQ 'docker').Count
+        Podman=@($items | Where-Object provider -CEQ 'podman').Count
+        HyperV=@($items | Where-Object provider -CEQ 'hyperv').Count
+        Dependencies=@($batch.sharedDependencies).Count
+    }
+}
+
+function Invoke-LabBrowserBatchSubmitPreview {
+    param([string]$BatchId, [string]$PreviewId, [string]$StateRoot)
+
+    $preview = $script:LabBrowserBatchSubmitPreview
+    if ($null -eq $preview -or $PreviewId -cnotmatch '\A[0-9a-f]{32}\z' -or
+        $preview.Id -cne $PreviewId -or $preview.BatchId -cne $BatchId -or
+        $preview.StateRoot -cne $StateRoot -or $preview.Expires -le [datetime]::UtcNow) {
+        throw 'BATCH_REVIEW_PREVIEW_REQUIRED'
+    }
+    $script:LabBrowserBatchSubmitPreview = $null
+    $submitted = Submit-LabReviewedBatch -BatchId $BatchId -StateRoot $StateRoot -Signature $preview.Signature
+    [pscustomobject]@{BatchId=$submitted.batchId; Status=$submitted.status}
+}
+
 function Get-LabBrowserBatchStopSnapshot {
     param([string]$BatchId, [string]$StateRoot)
 

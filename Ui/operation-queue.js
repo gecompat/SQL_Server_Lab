@@ -85,7 +85,7 @@ document.getElementById?.('batch-draft-form')?.addEventListener('submit', async 
 });
 
 function renderBatchOverview(batches, queue, background = false) {
-  if (background && document.activeElement?.matches('[data-queue-batch]')) return;
+  if (background && document.activeElement?.matches('[data-queue-batch], [data-batch-stop], [data-batch-submit]')) return;
   const openBatches = new Set((queue?.items || []).map(item => item.batchId));
   const labels = {
     Draft: 'Entwurf', Validated: 'Validiert', Queued: 'Vorgemerkt', Running: 'Läuft',
@@ -119,6 +119,14 @@ function renderBatchOverview(batches, queue, background = false) {
       }
     } else {
       batchCell.textContent = batch.BatchId;
+    }
+    if (batch.Status === 'Validated') {
+      const submit = document.createElement('button');
+      submit.type = 'button';
+      submit.className = 'button secondary';
+      submit.dataset.batchSubmit = batch.BatchId;
+      submit.textContent = 'Entwurf prüfen und einreihen';
+      batchCell.append(submit);
     }
     row.append(batchCell);
     for (const value of [labels[batch.Status], batch.Percent + ' %', batch.Total, batch.Failed, batch.Cancelled]) {
@@ -182,7 +190,7 @@ function renderOperationQueue(queue, background = false) {
   }).join('') : empty(queueBatchId ? 'Keine offenen Vorgänge in diesem Batch.' : 'Keine offenen persistenten Vorgänge.');
 }
 
-async function requestBrowserBatchStop(payload) {
+async function requestBrowserBatchCommand(payload) {
   const response = await sqlServerLabUiFetch('/api/operations', {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
   });
@@ -191,7 +199,7 @@ async function requestBrowserBatchStop(payload) {
 }
 
 async function previewBrowserBatchStop(batchId) {
-  const preview = await requestBrowserBatchStop({ command: 'BatchStopPreview', batchId });
+  const preview = await requestBrowserBatchCommand({ command: 'BatchStopPreview', batchId });
   if (preview.BatchId !== batchId || !/^[0-9a-f]{32}$/.test(preview.PreviewId) ||
       !Number.isSafeInteger(preview.Pending) || preview.Pending < 1 ||
       !Number.isSafeInteger(preview.Running) || preview.Running < 0 || preview.Running > preview.Pending) {
@@ -204,7 +212,7 @@ async function previewBrowserBatchStop(batchId) {
 }
 
 async function applyBrowserBatchStop(parameters) {
-  const result = await requestBrowserBatchStop({ command: 'BatchStopApply', batchId: parameters.batchId,
+  const result = await requestBrowserBatchCommand({ command: 'BatchStopApply', batchId: parameters.batchId,
     previewId: parameters.previewId, confirmed: true });
   if (result.BatchId !== parameters.batchId || !Number.isSafeInteger(result.Requested) || result.Requested < 0) {
     throw new Error('Ergebnis unbestätigt. Bitte den Batchstatus prüfen.');
@@ -215,6 +223,33 @@ async function applyBrowserBatchStop(parameters) {
   notice.textContent = result.Requested
     ? 'Stopp für ' + result.Requested + ' Positionen angenommen. Den Fortschritt zeigt die Warteschlange.'
     : 'Keine unfertige Position musste gestoppt werden.';
+}
+
+async function previewBrowserBatchSubmission(batchId) {
+  const preview = await requestBrowserBatchCommand({ command: 'BatchSubmitPreview', batchId });
+  const counts = [preview.Positions, preview.Docker, preview.Podman, preview.HyperV, preview.Dependencies];
+  if (preview.BatchId !== batchId || !/^[0-9a-f]{32}$/.test(preview.PreviewId) ||
+      !counts.every(count => Number.isSafeInteger(count) && count >= 0) ||
+      !preview.Positions || preview.Docker + preview.Podman + preview.HyperV !== preview.Positions) {
+    throw new Error('Die Vorschau für diesen Entwurf konnte nicht bestätigt werden.');
+  }
+  openConfirmation('Gespeicherten Entwurf einreihen',
+    'Batch ' + batchId + ' enthält ' + preview.Positions + ' Umgebungen (Docker ' + preview.Docker +
+    ', Podman ' + preview.Podman + ', Hyper-V ' + preview.HyperV + ') mit ' + preview.Dependencies +
+    ' gemeinsamen Abhängigkeiten. Nach der Bestätigung kann der Scheduler diese Umgebungen erstellen.',
+    '__BatchSubmit', { batchId, previewId: preview.PreviewId }, 'Entwurf einreihen');
+}
+
+async function applyBrowserBatchSubmission(parameters) {
+  const result = await requestBrowserBatchCommand({ command: 'BatchSubmitApply', batchId: parameters.batchId,
+    previewId: parameters.previewId, confirmed: true });
+  if (result.BatchId !== parameters.batchId || result.Status !== 'Queued') {
+    throw new Error('Annahme unbestätigt. Bitte den Batchstatus prüfen.');
+  }
+  await refresh();
+  const notice = $('#notice');
+  notice.hidden = false;
+  notice.textContent = 'Batch eingereiht. Den Fortschritt zeigt die Warteschlange.';
 }
 
 async function requestOperationHost() {
@@ -305,6 +340,15 @@ document.addEventListener('click', async (event) => {
         'Der Scheduler kann alle freigegebenen Vorgänge der aktuellen Warteschlange ausführen.',
         '__StartOperationHost', {}, 'Scheduler anfordern');
     }
+    return;
+  }
+  const batchSubmit = event.target.closest('[data-batch-submit]');
+  if (batchSubmit) {
+    if (batchSubmit.disabled) return;
+    batchSubmit.disabled = true;
+    try { await previewBrowserBatchSubmission(batchSubmit.dataset.batchSubmit); }
+    catch (error) { showError(error); }
+    finally { batchSubmit.disabled = false; }
     return;
   }
   const batchStop = event.target.closest('[data-batch-stop]');
