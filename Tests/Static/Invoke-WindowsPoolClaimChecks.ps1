@@ -586,13 +586,8 @@ $result=& $module {
     $released=Release-LabHyperVNetworkAddress -Address $canonicalLease.address -RunId $nativeRun.runId -ScopeId $nativeRun.scopeId -StateRoot $ipamRoot
     Assert-Pool $released 'canonical own IPAM lease release'
     $canonicalReleased=Read-LabWorkflowJson -Path $ipamPath
-    $acceptanceAst=[Management.Automation.Language.Parser]::ParseFile((Join-Path $repoRoot Tests/Integration/Invoke-WindowsPoolClaimAcceptance.ps1),[ref]$null,[ref]$null)
-    $ipamAst=$acceptanceAst.Find({param($node)$node -is [Management.Automation.Language.ScriptBlockAst] -and $node.Extent.Text -match '^\{param\(\$root,\$id,\$scope\)'},$true)
-    if(-not $ipamAst){throw 'WINDOWS_POOL_NATIVE_IPAM_AST_MISSING'}
-    $ipamLookup=[scriptblock]::Create($ipamAst.Extent.Text.Substring(1,$ipamAst.Extent.Text.Length-2))
-    $realIpamReader=${function:Read-LabWorkflowJson}
-    function Read-LabWorkflowJson {param($Path) $script:PoolCheckIpamRegistry}
-    try{
+    $productModule = $ExecutionContext.SessionState.Module
+    & {
         $cases=@(
             [pscustomobject]@{Name='null registry';Registry=$null;Error='WINDOWS_POOL_NATIVE_OWN_IPAM_UNKNOWN'},
             [pscustomobject]@{Name='missing registry structure';Registry=('{}'|ConvertFrom-Json);Error='WINDOWS_POOL_NATIVE_OWN_IPAM_UNKNOWN'},
@@ -616,11 +611,16 @@ $result=& $module {
             $cases+=[pscustomobject]@{Name=$mutation;Registry=$copy;Error=$(if($mutation -ceq 'foreignActive'){$null}else{'WINDOWS_POOL_NATIVE_OWN_IPAM_UNKNOWN'})}
         }
         foreach($case in $cases){
-            $script:PoolCheckIpamRegistry=$case.Registry;$failure=$null
-            try{$leases=@(& $ipamLookup $ipamRoot $nativeRun.runId $nativeRun.scopeId);Assert-WindowsPoolNativeCleanupProof @nativeProof -ActiveLeases $leases -IpamAvailable:$true}catch{$failure=$_.Exception.Message}
-            Assert-Pool ($failure -ceq $case.Error) ('actual native IPAM AST + cleanup helper: '+$case.Name)
+            Set-Content -LiteralPath $ipamPath -Value (ConvertTo-Json -InputObject $case.Registry -Depth 10) -Encoding utf8
+            $failure=$null
+            try{
+                $evidence=Get-WindowsPoolNativeIpamEvidence -Module $productModule -StateRoot $ipamRoot -RunId $nativeRun.runId -ScopeId $nativeRun.scopeId
+                Assert-WindowsPoolNativeCleanupProof @nativeProof -ActiveLeases $evidence.ActiveLeases -IpamAvailable $evidence.Available
+            }catch{$failure=$_.Exception.Message}
+            Assert-Pool ($failure -ceq $case.Error) ('actual native IPAM reader and cleanup proof: '+$case.Name)
         }
-    }finally{Set-Item Function:Read-LabWorkflowJson -Value $realIpamReader}
+        Set-Content -LiteralPath $ipamPath -Value (ConvertTo-Json -InputObject $canonicalReleased -Depth 10) -Encoding utf8
+    }
     $nativeRun.state='STOPPED'
     Assert-PoolThrows {Assert-WindowsPoolNativeCleanupProof @nativeProof} WINDOWS_POOL_NATIVE_OWN_TERMINAL_MISSING
     $nativeParentBefore=Get-WindowsPoolNativeParentFingerprint -Path $parentPath
@@ -653,8 +653,15 @@ $result=& $module {
     } $repoRoot $fixture $nativeRun $nativeBindings ([guid]$poolId) $parentPath $nativeParentBefore
     Assert-Pool ($nativeRecovery.Status -ceq 'CLEANUP_RECOVERY_REQUIRED' -and $nativeRecovery.RunIds[0] -ceq $nativeRun.runId -and
         @($nativeRecovery.StopErrors|Where-Object Code -ceq 'WINDOWS_POOL_NATIVE_OWN_INVENTORY_FAILED').Count -eq 1) 'actual native finally cannot PASS or lose original identity after empty rediscovery or missing state'
-    [pscustomobject]@{Passed=$script:PoolCheckCount;StateRoot=$root;RunId=$runId;PoolId=$poolId;PrepareOperationId=$prepare.operationId;ClaimOperationId=$claimed.OperationId;ParentPath=$parentPath}
+    [pscustomobject]@{Passed=$script:PoolCheckCount;StateRoot=$root;RunId=$runId;PoolId=$poolId;PrepareOperationId=$prepare.operationId;ClaimOperationId=$claimed.OperationId;ParentPath=$parentPath;
+        IpamStateRoot=$ipamRoot;IpamRunId=$nativeRun.runId;IpamScopeId=$nativeRun.scopeId}
 } $fixture $repoRoot
+& {
+    . (Join-Path $repoRoot 'Tests/Common/WindowsPoolNativeAcceptance.ps1')
+    $ipam = Get-WindowsPoolNativeIpamEvidence -Module $module -StateRoot $result.IpamStateRoot -RunId $result.IpamRunId -ScopeId $result.IpamScopeId
+    if (-not $ipam.Available -or $ipam.ActiveLeases.Count -ne 0) { throw 'WINDOWS_POOL_NATIVE_SEPARATE_MODULE_PROOF_FAILED' }
+    $result.Passed++
+}
 $result | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $fixture result.json) -Encoding utf8
 if($SkipProcessChecks){Write-Host ('Windows pool focus: '+$result.Passed+' PASS; fixture='+$fixture);return}
 $race=& $module {

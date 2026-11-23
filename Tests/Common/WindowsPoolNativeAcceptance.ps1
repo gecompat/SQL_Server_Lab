@@ -138,6 +138,29 @@ function Get-WindowsPoolNativeUnreleasedIpamLeases {
     }
 }
 
+function Get-WindowsPoolNativeIpamEvidence {
+    param([Parameter(Mandatory)]$Module,[Parameter(Mandatory)][string]$StateRoot,
+        [Parameter(Mandatory)][string]$RunId,[Parameter(Mandatory)][string]$ScopeId)
+
+    # Read through the product within its module. Test-only lease validation
+    # belongs to the caller's scope and cannot be resolved in that module.
+    $inventory = & $Module {
+        param($root)
+        $path = Get-LabHyperVIpamPath -StateRoot $root
+        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+            return [pscustomobject]@{ Available=$false; Registry=$null }
+        }
+        if (-not (Test-LabPathWithinRoot -Root $root -Path $path).Valid) { throw 'WINDOWS_POOL_NATIVE_OWN_IPAM_UNKNOWN' }
+        try { [pscustomobject]@{ Available=$true; Registry=(Read-LabWorkflowJson -Path $path) } }
+        catch { throw 'WINDOWS_POOL_NATIVE_OWN_IPAM_UNKNOWN' }
+    } $StateRoot
+
+    $unreleased = @(if ($inventory.Available) {
+        Get-WindowsPoolNativeUnreleasedIpamLeases -Registry $inventory.Registry -RunId $RunId -ScopeId $ScopeId
+    })
+    [pscustomobject]@{ Available=$inventory.Available; ActiveLeases=$unreleased }
+}
+
 function Assert-WindowsPoolNativeCleanupProof {
     param([Parameter(Mandatory)]$Binding,[Parameter(Mandatory)]$Run,
         [AllowEmptyCollection()][object[]]$LiveVms=@(),[AllowEmptyCollection()][string[]]$ExistingChildren=@(),
