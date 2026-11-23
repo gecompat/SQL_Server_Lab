@@ -149,6 +149,48 @@ Query-Service ausführen. Der Resolver entscheidet deshalb anhand von SQL-
 Version, Dateiformat und gewünschter Operation über die tatsächlich benötigte
 Feature- und Service-Capability, statt PolyBase-Dienste pauschal zu erzwingen.
 
+## Erster Docker-Nachweis für WI-0009
+
+Die [GitHub-hosted-Prüfung](../../.github/workflows/polybase-s3-acceptance.yml)
+legt auf Linux x64 eine isolierte SQL-Server-2025-CU9-Instanz und eine
+SeaweedFS-Mini-Instanz mit einem eigenen Bucket an. [Microsoft beschreibt
+den nativen Dateizugriff in SQL Server 2025](https://learn.microsoft.com/en-us/sql/relational-databases/polybase/data-virtualization-guide?view=sql-server-ver17).
+Die Fixture nutzt diesen engine-eigenen Pfad. Der vorherige Kandidat
+meldete SQL-Fehler 46923 mit dem separaten PolyBase-Setup. [Fehlerlauf](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45163711842)
+Die Fixture prüft den SQL-Build 17.0.5005.3, verifiziert den vom Microsoft
+Container Registry für den katalogisierten CU9-Tag gelieferten Manifest-Digest
+und zieht genau diesen Digest. Der erste Lauf hat den erwarteten Digest
+`sha256:2b5b581621126574f3d1f75e78d3eebe8d05aedb59ad0cfdf9aa42cb0634d726`
+aufgelöst. [Erster Lauf](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45161768719)
+
+[SeaweedFS 4.55](https://github.com/seaweedfs/seaweedfs/releases/tag/4.55)
+ist der Kandidat für diesen einzelnen CI-Nachweis. Die Quelle ist das
+offizielle Linux-x64-Release mit veröffentlichtem SHA-256. Die
+[Apache-2.0-Lizenz](https://github.com/seaweedfs/seaweedfs/blob/4.55/LICENSE)
+und der zum Release gehörende [Mini-Server](https://github.com/seaweedfs/seaweedfs/blob/4.55/weed/command/mini.go)
+sind an diese Version gebunden. Die CI erstellt daraus ein temporäres lokales
+Containerimage auf dem Runner. Der Produktkatalog übernimmt SeaweedFS erst
+nach einer eigenen Lifecycle- und Produktentscheidung.
+
+Die Fixture richtet TLS für den internen S3-DNS-Namen ein. Die Test-CA
+gehört ausschließlich dem Lauf. Der Bereitschafts- und Seed-Client betritt
+auf dem GitHub-Runner nur den Netzwerk-Namespace des zuvor identifizierten
+Store-Containers. Eine explizite Dateigruppe gibt dem Store Leserechte auf
+seinen eingebundenen Schlüssel, das Zertifikat und die Konfiguration.
+SQL verwendet den DNS-Namen im eigenen Docker-Netz.
+Eine getrennte Schreibidentität legt die
+synthetische CSV an. SQL erhält einen auf Lese- und Listenzugriff im
+Fixture-Bucket begrenzten Schlüssel. Die Prüfung vergleicht zwei tatsächlich
+über SQL gelesene Zeilen sowie die Quellen-, Format- und Spaltenbindung im
+nativen Katalog. Separate S3-Gegenproben prüfen einen ungültigen TLS-Namen
+und verweigerten Schreibzugriff mit dem Leseschlüssel. Der Lauf verarbeitet
+keine fremden Daten oder Endpunkte.
+
+Die Freigabegrenze umfasst diesen lesenden Test auf GitHub-hosted Docker.
+Produkt-Lifecycle, weitere Formate, SQL-Schreibzugriff, Wiederaufnahme und
+andere Provider bleiben im Backlog. Das aktuelle Ergebnis steht im
+zugehörigen Workflowlauf.
+
 ## Erwarteter Umsetzungsumfang
 
 1. Einen typisierten S3-Object-Store-Component-, Binding- und Capability-
@@ -201,3 +243,14 @@ Feature- und Service-Capability, statt PolyBase-Dienste pauschal zu erzwingen.
 - automatische Migration fremder Buckets oder Bestandsdaten;
 - direkte HDFS-/Hadoop-Konnektivität unter der Bezeichnung dieses S3-Pfads;
 - Cloud-Provisionierung oder automatisch erzeugte öffentliche Endpunkte.
+
+Ein nachgelagerter SQL-Vertrag kann die aktuelle native Katalog-Fixture
+im selben isolierten SQL-Container verwenden. Vor dem Verbraucheraufruf
+trennt die Fixture den S3-Dienst vom Testnetz. Der SQL-Container behält seine
+lokale Verbindung für den Katalogaufruf. Die Lab-CI prüft den Anschluss
+durch Lesen von `sys.external_tables`. Ein Analyze-Aufruf kann dafür genau
+eine gebundene SQL-Datei aus dem temporären Runner-Verzeichnis einreichen.
+Der Anschluss weist SQLCMD-Direktiven ab und deaktiviert Variablenersetzung.
+Die Prüfung
+veröffentlicht nur einen festen Erfolgsmarker oder numerische SQL-Fehlercodes.
+Ein erfolgreicher Lab-Anschluss ist noch kein Nachweis für ein Analyze-Modul.
