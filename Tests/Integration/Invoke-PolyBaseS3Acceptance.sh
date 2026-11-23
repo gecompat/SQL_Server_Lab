@@ -100,7 +100,7 @@ curl --fail --silent --show-error --proto '=https' --max-time 30 --max-filesize 
   --dump-header "$root/sql-headers" --output "$root/sql-manifest" \
   "https://mcr.microsoft.com/v2/mssql/server/manifests/$sql_tag"
 sql_digest="$(awk 'tolower($1)=="docker-content-digest:" {sub(/\r$/,"",$2); print $2}' "$root/sql-headers")"
-[[ "$sql_digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+[[ "$sql_digest" == 'sha256:2b5b581621126574f3d1f75e78d3eebe8d05aedb59ad0cfdf9aa42cb0634d726' ]]
 [[ "$sql_digest" == "sha256:$(sha256sum "$root/sql-manifest" | cut -d ' ' -f 1)" ]]
 sql_ref="$sql_repository@$sql_digest"
 docker pull --platform linux/amd64 "$sql_ref" >"$root/sql-pull.log" 2>&1
@@ -150,31 +150,47 @@ store_id="$(docker container create --name "$scope-store" --network "$network_id
   -s3.key.file=/probe/store.key -s3.cert.file=/probe/store.crt \
   -s3.config=/probe/identities.json -s3.iam=false -s3.autoCreateBucket=false)"
 docker container start "$store_id" >/dev/null
-address="$(docker container inspect --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$store_id")"
-[[ "$address" =~ ^[0-9]+(\.[0-9]+){3}$ ]]
+store_curl() {
+  local owner state pid
+  owner="$(docker container inspect --format "{{index .Config.Labels \"$label\"}}" "$store_id")" || return 98
+  [[ "$owner" == "$scope" ]] || return 98
+  state="$(docker container inspect --format '{{.State.Running}} {{.State.Pid}}' "$store_id")" || return 98
+  read -r state pid <<< "$state"
+  [[ "$state" == true && "$pid" =~ ^[0-9]+$ && "$pid" -gt 1 ]] || return 97
+  [[ "/proc/$pid/ns/net" -ef /proc/self/ns/net ]] && return 98
+  sudo -n nsenter --target "$pid" --net -- /usr/bin/curl "$@"
+}
 
 s3() {
   local identity=$1
   shift
-  curl --silent --show-error --noproxy '*' --proto '=https' --connect-timeout 3 --max-time 15 \
-    --cacert "$root/sql-build/probe-ca.crt" --resolve "$host:8333:$address" \
+  store_curl --silent --show-error --noproxy '*' --proto '=https' --connect-timeout 3 --max-time 15 \
+    --cacert "$root/sql-build/probe-ca.crt" --resolve "$host:8333:127.0.0.1" \
     --aws-sigv4 'aws:amz:us-east-1:s3' --config "$root/$identity.curl" "$@"
 }
 
 stage='s3_readiness'
 ready=0
+ready_rc=0
 for attempt in {1..30}; do
   if s3 writer --fail "https://$host:8333/" >"$root/s3-ready.log" 2>&1; then
     ready=1
     break
+  else
+    ready_rc=$?
   fi
+  if [[ "$ready_rc" == 97 || "$ready_rc" == 98 ]]; then break; fi
   sleep 2
 done
-[[ "$ready" == 1 ]]
+if [[ "$ready" != 1 ]]; then
+  printf 'POLYBASE_S3_READINESS_EXIT=%s|STORE_EXIT=%s\n' "$ready_rc" \
+    "$(docker container inspect --format '{{.State.ExitCode}}' "$store_id")" >&2
+  exit 1
+fi
 stage='s3_hostname_control'
 wrong_host_rc=0
-curl --silent --show-error --noproxy '*' --proto '=https' --max-time 10 \
-  --cacert "$root/sql-build/probe-ca.crt" --resolve "wrong-s3-probe:8333:$address" \
+store_curl --silent --show-error --noproxy '*' --proto '=https' --max-time 10 \
+  --cacert "$root/sql-build/probe-ca.crt" --resolve "wrong-s3-probe:8333:127.0.0.1" \
   https://wrong-s3-probe:8333/ >"$root/wrong-host.log" 2>&1 || wrong_host_rc=$?
 [[ "$wrong_host_rc" == 60 ]]
 stage='s3_seed_and_policy'

@@ -157,7 +157,9 @@ SeaweedFS-Mini-Instanz mit einem eigenen Bucket an. [Microsoft beschreibt
 den nativen Dateizugriff in SQL Server 2025](https://learn.microsoft.com/en-us/sql/relational-databases/polybase/data-virtualization-guide?view=sql-server-ver17).
 Die Fixture prüft den SQL-Build 17.0.5005.3, verifiziert den vom Microsoft
 Container Registry für den katalogisierten CU9-Tag gelieferten Manifest-Digest
-und zieht genau diesen Digest.
+und zieht genau diesen Digest. Der erste Lauf hat den erwarteten Digest
+`sha256:2b5b581621126574f3d1f75e78d3eebe8d05aedb59ad0cfdf9aa42cb0634d726`
+aufgelöst. [Erster Lauf](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45161768719)
 
 [SeaweedFS 4.55](https://github.com/seaweedfs/seaweedfs/releases/tag/4.55)
 ist der Kandidat für diesen einzelnen CI-Nachweis. Die Quelle ist das
@@ -169,7 +171,10 @@ Containerimage auf dem Runner. Der Produktkatalog übernimmt SeaweedFS erst
 nach einer eigenen Lifecycle- und Produktentscheidung.
 
 Die Fixture richtet TLS für den internen S3-DNS-Namen ein. Die Test-CA
-gehört ausschließlich dem Lauf. Eine getrennte Schreibidentität legt die
+gehört ausschließlich dem Lauf. Der Bereitschafts- und Seed-Client betritt
+auf dem GitHub-Runner nur den Netzwerk-Namespace des zuvor identifizierten
+Store-Containers. SQL verwendet den DNS-Namen im eigenen Docker-Netz.
+Eine getrennte Schreibidentität legt die
 synthetische CSV an. SQL erhält einen auf Lese- und Listenzugriff im
 Fixture-Bucket begrenzten Schlüssel. Die Prüfung vergleicht zwei tatsächlich
 über SQL gelesene Zeilen sowie die Quellen-, Format- und Spaltenbindung im
