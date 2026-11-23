@@ -208,6 +208,42 @@ try {
         Assert-Policy ((Get-LabSlotReserveState).Policy.SqlReserve -eq 2) 'CLI confirmed core apply'
     }
     & {
+        $script:poolRequests = [Collections.Generic.List[object]]::new()
+        $script:poolFeatureStatus = 'Confirmed'
+        $memberView = @{ Rows=@([pscustomobject]@{ Reference='synthetic-run'; PoolId='synthetic-pool'; MemberState='CLAIMED'; Evidence='CURRENT' }) }
+        function Invoke-LabConsoleMenu {
+            param($ScreenId,$Title,$Items)
+            $id = @{ 'windows-pool-member'='synthetic-run'; 'windows-pool-operation'='Consume'; 'windows-pool-sql-version'='2022'; 'windows-pool-sql-edition'='Eval' }[$ScreenId]
+            @{ Status='Selected'; SelectedItem=($Items | Where-Object Id -CEQ $id) }
+        }
+        function Read-LabConsoleTextInput {
+            param($Prompt,$Default)
+            $value = if ($Default) { if ($Default -eq '4') { '6' } else { '8192' } } else { ' SQL/2022/Eval/setup.iso ' }
+            @{ Status='Confirmed'; Value=$value }
+        }
+        function Invoke-LabConsoleMultiSelect {
+            param($ScreenId,$Title,$Items,$SelectedIds)
+            @{ Status=$script:poolFeatureStatus; SelectedItems=@($Items | Where-Object Id -CEQ 'REPLICATION') }
+        }
+        function Read-LabConfirm { $false }
+        function Wait-LabConsoleAcknowledgement { }
+        function Invoke-SqlServerLabWorkflowAction {
+            param($Action,$RunId,$SlotReserveOperation,$SlotReserveSqlPlan,$SlotReservePreviewId)
+            $script:poolRequests.Add([pscustomobject]@{ Action=$Action; RunId=$RunId; Operation=$SlotReserveOperation; Plan=$SlotReserveSqlPlan; Id=$SlotReservePreviewId })
+            @{ Result=@{ PreviewId='held-token' } }
+        }
+        Show-LabWindowsPoolMemberInteractive -View $memberView
+        $plan = $script:poolRequests[0].Plan
+        Assert-Policy ($script:poolRequests.Count -eq 2 -and $script:poolRequests[0].Operation -ceq 'Consume' -and
+            $plan.SqlVersion -ceq '2022' -and $plan.MediaEdition -ceq 'Eval' -and $plan.SqlMediaPath -ceq 'SQL/2022/Eval/setup.iso' -and
+            ($plan.SqlFeatures -join ',') -ceq 'SQLENGINE,REPLICATION' -and $plan.ProcessorCount -eq 6 -and $plan.MemoryStartupMB -eq 8192 -and
+            $script:poolRequests[1].Action -ceq 'CancelWindowsPoolMember' -and $script:poolRequests[1].Id -ceq 'held-token') 'guided CLI binds SQL edition, optional features and resources to the preview'
+        $script:poolRequests.Clear()
+        $script:poolFeatureStatus = 'Cancelled'
+        Show-LabWindowsPoolMemberInteractive -View $memberView
+        Assert-Policy ($script:poolRequests.Count -eq 0) 'cancel during SQL feature selection sends no preview or mutation'
+    }
+    & {
         . (Join-Path $repoRoot 'Public/Invoke-SqlServerLab.ps1')
         . (Join-Path $repoRoot 'Public/BatchConsole.ps1')
         function Test-HyperVAvailable { @{Available=$false;Message='synthetic unavailable'} }

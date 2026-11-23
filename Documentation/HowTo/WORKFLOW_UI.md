@@ -1165,12 +1165,22 @@ Poolreservierung. Windows-Fristen bleiben historische Aktivierungsmetadaten;
 SQL-Fristen verwenden den vorhandenen gebundenen Receipt-/Aktualitätsvertrag.
 Warnfrist und Mindestrestlaufzeit sind getrennte Bewertungen. Unbekannte,
 ablaufende, belegte oder vorgangsgebundene Kandidaten zählen nicht als frei.
-Da dauerhafte Poolmitgliedschaft und Slotclaims fehlen, bleiben bestätigte
-Verfügbarkeit, Defizit und exakte Auffüllzahl ausdrücklich unbekannt. Bei
-Nullreserve lautet die Aussage nur „keine Reserve angefordert“; sie belegt
-keinen gesunden Pool. Auffüllempfehlung ist zunächst die Aufforderung,
-Poolzugehörigkeit und Claims zu prüfen. Es gibt keine automatische Auffüllung,
-Slot-/VM-Erstellung, Installation oder Provideraktion.
+Nur kanonisch gebundene, freie und gestoppte Windows-Poolmitglieder mit
+frischer Gastevidence zählen. Bei unklarer Bestandsbindung bleiben die exakte
+Windows-Verfügbarkeit und das Defizit unbekannt. SQL-Reserve, Gesamtdefizit
+und automatische Auffüllung bleiben offen. Bei Nullreserve lautet die Aussage
+„keine Reserve angefordert“.
+
+Wähle für eine einzelne Mitgliedaktion das gebundene Windows-Poolmitglied
+und lies die Vorschau. **Für SQL-Ausbau übernehmen** verlangt einen aktiven
+Claim mit frischer Evidence. Wähle SQL-Version, Edition des Mediums und
+optionale Komponenten. Das Datenbankmodul ist obligatorisch. Gib die
+ausgewählte Medien-ID, vCPU und Startspeicher an. Der Wert 0 für den
+Startspeicher übernimmt den vorhandenen Wert. Beim Bestätigen prüft der Host
+Bindung, Zustand und Evidence erneut, setzt die bestätigten VM-Ressourcen
+und speichert den SQL-Ausbauplan.
+Der anschließende SQL-Setup-Lauf ist ein eigener Schritt.
+[Mitgliedschaft und Claims](../Architecture/WINDOWS_POOL_MEMBERSHIP_AND_CLAIMS.md)
 
 CLI: `Invoke-SqlServerLab -Action ReservePolicy`. Nichtinteraktiv bietet
 `Invoke-SqlServerLabWorkflowAction` die Aktionen `GetSlotReserveState`,

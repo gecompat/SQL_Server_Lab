@@ -3107,13 +3107,16 @@ let slotReserveRevision = 0;
 let slotReserveBusy = false;
 let slotMemberPreview = null;
 const slotReserveFields = { WindowsReserve: 'windows', SqlReserve: 'sql', MinimumDaysRemaining: 'minimum', WarningDaysRemaining: 'warning' };
+const slotMemberFeatureInputs = { 'slot-member-fulltext': 'FULLTEXT', 'slot-member-replication': 'REPLICATION', 'slot-member-analytics': 'ADVANCEDANALYTICS' };
+const slotMemberInputs = ['slot-member-run','slot-member-action','slot-member-version','slot-member-edition','slot-member-media','slot-member-cpu','slot-member-memory', ...Object.keys(slotMemberFeatureInputs)];
+
 function updateSlotReserveControls() {
   const ready = slotReserveState && slotReserveState.Configuration.Status !== 'INVALID' && !slotReserveBusy;
   for (const suffix of Object.values(slotReserveFields)) $('#slot-reserve-' + suffix).disabled = !ready;
   $('#slot-reserve-preview').disabled = !ready;
   $('#slot-reserve-apply').disabled = !ready || !slotReservePlan || slotReservePlan.IsNoOp;
   $('#slot-reserve-read').disabled = slotReserveBusy;
-  for (const id of ['slot-member-run','slot-member-action','slot-member-version','slot-member-media','slot-member-cpu','slot-member-memory','slot-member-preview']) $('#' + id).disabled = !ready;
+  for (const id of [...slotMemberInputs, 'slot-member-preview']) $('#' + id).disabled = !ready;
   $('#slot-member-apply').disabled = !ready || !slotMemberPreview;
   $('#slot-member-cancel').disabled = slotReserveBusy || !slotMemberPreview;
 }
@@ -3194,7 +3197,7 @@ function invalidateSlotMemberPreview() {
   $('#slot-member-plan').hidden = true; updateSlotReserveControls();
   if (previous) requestSlotReserve('CancelWindowsPoolMember', { SlotReservePreviewId: previous.PreviewId }).catch(() => {});
 }
-for (const id of ['slot-member-run','slot-member-action','slot-member-version','slot-member-media','slot-member-cpu','slot-member-memory']) $('#' + id).addEventListener('input', () => {
+for (const id of slotMemberInputs) $('#' + id).addEventListener('input', () => {
   invalidateSlotMemberPreview(); $('#slot-member-sql').hidden = $('#slot-member-action').value !== 'Consume';
 });
 $('#slot-member-cancel').addEventListener('click', invalidateSlotMemberPreview);
@@ -3203,8 +3206,15 @@ $('#slot-member-form').addEventListener('submit', event => {
   const parameters = { RunId: $('#slot-member-run').value, SlotReserveOperation: $('#slot-member-action').value };
   if (!parameters.RunId) { $('#slot-reserve-status').textContent = 'Ein konkretes Poolmitglied auswählen.'; return; }
   if (parameters.SlotReserveOperation === 'Consume') {
-    if (!$('#slot-member-media').value.trim()) { $('#slot-reserve-status').textContent = 'Ein lokales SQL-Medium ausdrücklich angeben.'; return; }
-    parameters.SlotReserveSqlPlan = { SqlVersion: $('#slot-member-version').value, DeploymentMode: 'adhoc-install', MediaEdition: 'Enterprise', SqlMediaPath: $('#slot-member-media').value.trim(), SqlFeatures: ['SQLENGINE','FULLTEXT','REPLICATION'], ProcessorCount: Number($('#slot-member-cpu').value), MemoryStartupMB: Number($('#slot-member-memory').value) };
+    const media = $('#slot-member-media').value.trim();
+    if (!media) { $('#slot-reserve-status').textContent = 'Ein lokales SQL-Medium ausdrücklich angeben.'; return; }
+    const cpu = $('#slot-member-cpu').value;
+    const memory = $('#slot-member-memory').value;
+    if (!cpu || !memory) { $('#slot-reserve-status').textContent = 'vCPU und Startspeicher ausdrücklich angeben.'; return; }
+    const features = Object.entries(slotMemberFeatureInputs).filter(([id]) => $('#' + id).checked).map(([, feature]) => feature);
+    parameters.SlotReserveSqlPlan = { SqlVersion: $('#slot-member-version').value, DeploymentMode: 'adhoc-install',
+      MediaEdition: $('#slot-member-edition').value, SqlMediaPath: media, SqlFeatures: ['SQLENGINE', ...features],
+      ProcessorCount: Number(cpu), MemoryStartupMB: Number(memory) };
   }
   return runSlotReserveRequest(() => requestSlotReserve('PlanWindowsPoolMember', parameters), preview => {
     slotMemberPreview = preview;

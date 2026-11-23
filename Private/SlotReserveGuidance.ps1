@@ -224,11 +224,36 @@ function Show-LabWindowsPoolMemberInteractive {
     if($operation.Status -ne 'Selected' -or $operation.SelectedItem.Id -eq 'back'){return}
     $arguments=@{Action='PlanWindowsPoolMember';RunId=$runId;SlotReserveOperation=$operation.SelectedItem.Id}
     if($operation.SelectedItem.Id -ceq 'Consume'){
-        $version=Read-LabConsoleTextInput -Prompt 'SQL-Version (2016/2017/2019/2022/2025)'
+        $version = Invoke-LabConsoleMenu -ScreenId windows-pool-sql-version -Title 'SQL-Version für den Ausbau' -Items @(
+            foreach ($year in @('2025','2022','2019','2017','2016')) { New-LabConsoleItem -Id $year -Label "SQL Server $year" }
+            New-LabConsoleItem -Id back -Label 'Abbrechen' -Shortcut 0
+        )
+        if ($version.Status -ne 'Selected' -or $version.SelectedItem.Id -eq 'back') { return }
+        $edition = Invoke-LabConsoleMenu -ScreenId windows-pool-sql-edition -Title 'Edition des SQL-Installationsmediums' -Items @(
+            New-LabConsoleItem -Id Enterprise -Label 'Enterprise'
+            New-LabConsoleItem -Id Eval -Label 'Evaluation'
+            New-LabConsoleItem -Id Standard -Label 'Standard'
+            New-LabConsoleItem -Id back -Label 'Abbrechen' -Shortcut 0
+        )
+        if ($edition.Status -ne 'Selected' -or $edition.SelectedItem.Id -eq 'back') { return }
         $media=Read-LabConsoleTextInput -Prompt 'Ausdrücklich ausgewähltes lokales SQL-Medium / Media-ID'
-        if($version.Status -ne 'Confirmed' -or $media.Status -ne 'Confirmed'){return}
-        $arguments.SlotReserveSqlPlan=@{SqlVersion=$version.Value;DeploymentMode='adhoc-install';MediaEdition='Enterprise';SqlMediaPath=$media.Value
-            SqlFeatures=@('SQLENGINE','FULLTEXT','REPLICATION');ProcessorCount=4;MemoryStartupMB=0}
+        $mediaId = ([string]$media.Value).Trim()
+        if ($media.Status -ne 'Confirmed' -or -not $mediaId) { return }
+        $features = Invoke-LabConsoleMultiSelect -ScreenId windows-pool-sql-features -Title 'Optionale SQL-Komponenten' -SelectedIds @('FULLTEXT','REPLICATION') -Items @(
+            New-LabConsoleItem -Id FULLTEXT -Label 'Volltextsuche' -Shortcut 1
+            New-LabConsoleItem -Id REPLICATION -Label 'Replikation' -Shortcut 2
+            New-LabConsoleItem -Id ADVANCEDANALYTICS -Label 'Advanced Analytics' -Shortcut 3
+        )
+        if ($features.Status -ne 'Confirmed') { return }
+        $cpu = Read-LabConsoleTextInput -Prompt 'vCPU (1–64)' -Default '4'
+        if ($cpu.Status -ne 'Confirmed') { return }
+        $memory = Read-LabConsoleTextInput -Prompt 'Startspeicher MB (0: beibehalten)' -Default '0'
+        if ($memory.Status -ne 'Confirmed') { return }
+        $arguments.SlotReserveSqlPlan = @{
+            SqlVersion=$version.SelectedItem.Id; DeploymentMode='adhoc-install'; MediaEdition=$edition.SelectedItem.Id
+            SqlMediaPath=$mediaId; SqlFeatures=@('SQLENGINE') + @($features.SelectedItems | ForEach-Object Id)
+            ProcessorCount=$cpu.Value; MemoryStartupMB=$memory.Value
+        }
     }
     try{
         $preview=(Invoke-SqlServerLabWorkflowAction @arguments).Result
