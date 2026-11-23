@@ -1,5 +1,5 @@
 'use strict';
-// RAM-only decisions from registered metadata; no job, Apply or transfer.
+// RAM-only decisions. The separate source counter action is an explicit read-only job.
 let evaluationRefreshRevision = 0;
 let evaluationRefreshBusy = false;
 let evaluationRefreshRuns = [];
@@ -17,6 +17,27 @@ function evaluationRefreshOwn() { return evaluationRefreshRuns.find(run => run.R
 function updateEvaluationRefreshControls() {
   for (const id of ['root', 'read', 'run', 'mode']) evaluationRefreshElement(id).disabled = evaluationRefreshBusy;
   evaluationRefreshElement('preview').disabled = evaluationRefreshBusy || !evaluationRefreshOwn() || !evaluationRefreshModes.includes(evaluationRefreshElement('mode').value);
+  evaluationRefreshElement('observe').disabled = evaluationRefreshBusy || evaluationRefreshOwn()?.State !== 'RUNNING' ||
+    evaluationRefreshElement('mode').value !== 'STATEFUL_MIGRATION';
+}
+async function observeEvaluationRefreshSqlSource() {
+  if (!evaluationRefreshElement('dialog').open || evaluationRefreshElement('observe').disabled) return;
+  const own = evaluationRefreshOwn();
+  const revision = evaluationRefreshRevision;
+  evaluationRefreshBusy = true;
+  updateEvaluationRefreshControls();
+  try {
+    await startAction('ReadHyperVEvaluationSqlSource', {
+      RunId: own.RunId, InstanceId: own.InstanceId, DataRoot: evaluationRefreshRoot, ExpectedPlanKey: own.Digest
+    });
+    if (revision === evaluationRefreshRevision && evaluationRefreshElement('dialog').open) {
+      evaluationRefreshElement('status').textContent = 'Lesender Auftrag angenommen. Die SQL-Quellzähler erscheinen unter Vorgänge.';
+    }
+  } catch {
+    if (revision === evaluationRefreshRevision && evaluationRefreshElement('dialog').open) {
+      evaluationRefreshElement('status').textContent = 'Lesender Auftrag nicht bestätigt. Prüfe die Vorgänge und lies die Auswahl erneut.';
+    }
+  } finally { if (revision === evaluationRefreshRevision) { evaluationRefreshBusy = false; updateEvaluationRefreshControls(); } }
 }
 function invalidateEvaluationRefresh(clearRuns = false) {
   evaluationRefreshRevision++; evaluationRefreshBusy = false;
@@ -71,6 +92,7 @@ async function requestEvaluationRefresh(preview = false) {
 evaluationRefreshElement('open').addEventListener('click', () => { invalidateEvaluationRefresh(true); evaluationRefreshElement('status').textContent = 'Noch nicht gelesen. Keine Lizenz- oder SQL-Abfrage.'; evaluationRefreshElement('dialog').showModal(); });
 evaluationRefreshElement('read').addEventListener('click', () => requestEvaluationRefresh());
 evaluationRefreshElement('preview').addEventListener('click', () => requestEvaluationRefresh(true));
+evaluationRefreshElement('observe').addEventListener('click', observeEvaluationRefreshSqlSource);
 evaluationRefreshElement('root').addEventListener('input', () => invalidateEvaluationRefresh(true));
 for (const id of ['run', 'mode']) evaluationRefreshElement(id).addEventListener('change', () => invalidateEvaluationRefresh());
 evaluationRefreshElement('close').addEventListener('click', () => evaluationRefreshElement('dialog').close());

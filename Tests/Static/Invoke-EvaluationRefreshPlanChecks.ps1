@@ -9,7 +9,7 @@ function Import-RefreshFunctions($relative){$tokens=$null;$errorsFound=$null;$as
 function Write-Refresh($path,$value){$null=New-Item -ItemType Directory -Path (Split-Path $path) -Force;$value|ConvertTo-Json -Depth 40|Set-Content -LiteralPath $path -Encoding utf8}
 function Get-RefreshHashes{(@(Get-ChildItem $root -Recurse -File|Sort-Object FullName|ForEach-Object {$_.FullName+':'+(Get-FileHash $_.FullName).Hash})-join'|')}
 try {
-    foreach($source in @('Private/DiagnosticBundleReader.ps1','Private/SqlGuestEvaluationEvidence.ps1','Private/EvaluationRefreshPlan.ps1','Private/VersionCatalog.ps1','Private/PathSafety.ps1','Public/Get-SqlServerLabEvaluationRefreshPlan.ps1','Public/Get-SqlServerLabEvaluationWatch.ps1')){Import-RefreshFunctions $source}
+    foreach($source in @('Private/DiagnosticBundleReader.ps1','Private/SqlGuestEvaluationEvidence.ps1','Private/EvaluationRefreshPlan.ps1','Private/VersionCatalog.ps1','Private/PathSafety.ps1','Public/Get-SqlServerLabEvaluationRefreshPlan.ps1','Public/Get-SqlServerLabEvaluationWatch.ps1','Public/Invoke-SqlServerLabWorkflowAction.ps1')){Import-RefreshFunctions $source}
     $script:VersionCatalog=Get-Content (Join-Path $repo Catalogs/sql-server-versions.json) -Raw|ConvertFrom-Json
     $script:SchemasPath=Join-Path $repo Schemas
     foreach($forbidden in @('Get-LabStateRoot','Get-LabStorageConfiguration','Get-LabSecret','Get-LabHostToolInvocation','Get-ContainerRuntime','Get-VM','Invoke-Sqlcmd','Get-LabDatabaseMigrationDependencyInventory','Invoke-LabArtifactStoreLock','New-SqlServerLab','Stop-SqlServerLab','Remove-SqlServerLab')){Set-Item ('Function:script:'+$forbidden) ([scriptblock]::Create("throw 'FORBIDDEN_REFRESH_BOUNDARY'"))}
@@ -66,6 +66,65 @@ try {
     $connection.instances[0].id=$savedInstance;Write-Refresh $connectionPath $connection
     $code=$null;try{Get-SqlServerLabEvaluationRefreshPlan @argsForPlan -DependencyInventory @{FullInstanceMigration=$true}|Out-Null}catch{$code=$_.FullyQualifiedErrorId}
     Assert-Refresh ($code-like'NamedParameterNotFound*') 'Unbound caller inventory and asserted equivalence are not accepted inputs'
+    $connection.instances[0].sqlVersion = '2025'
+    Write-Refresh $connectionPath $connection
+    $before = Get-RefreshHashes
+    $script:observationCalls = 0
+    $script:contextReads = 0
+    $script:injectInventoryDrift = $false
+    $script:guestCounts = [pscustomobject]@{
+        UserDatabases=[long]3; NonOnlineUserDatabases=[long]1; EncryptedUserDatabases=[long]0; DatabaseSnapshots=[long]0
+        ServerPrincipals=[long]10; Credentials=[long]0; LinkedServers=[long]1; AgentJobs=[long]3; AgentProxies=[long]0
+    }
+    function Get-LabSqlGuestCaptureContext {
+        param($RunId,$StateRoot)
+        $script:contextReads++
+        if ($RunId -ne [guid]$run.runId -or $StateRoot -cne $stateRoot) { throw 'SYNTHETIC_GUEST_TARGET_MISMATCH' }
+        [pscustomobject]@{
+            Run=[pscustomobject]$run; Instance=($connection.instances[0] | ConvertTo-Json -Depth 8 | ConvertFrom-Json)
+            Fingerprint=if ($script:injectInventoryDrift -and $script:contextReads -gt 1) { 'changed' } else { 'known' }
+        }
+    }
+    function Invoke-LabSqlGuestCaptureProbe {
+        param($Context,$TimeoutSeconds,[switch]$IncludeSourceInventory)
+        $script:observationCalls++
+        if (-not $IncludeSourceInventory -or $TimeoutSeconds -ne 60) { throw 'SYNTHETIC_GUEST_REQUEST_MISMATCH' }
+        [pscustomobject]@{ MajorVersion=17; InstanceName='MSSQLSERVER'; Edition='Enterprise Evaluation Edition'; SourceInventory=$script:guestCounts; Private='CANARY_PRIVATE_DO_NOT_RETURN' }
+    }
+    function Get-LabTimestamp { [datetime]::UtcNow.ToString('o') }
+    $hostPlatform = $IsWindows
+    Set-Variable -Name IsWindows -Scope Script -Value $true -Force
+    try {
+        $ordinary = Get-SqlServerLabEvaluationRefreshPlan @argsForPlan
+        Assert-Refresh ($script:observationCalls -eq 0 -and -not $ordinary.PSObject.Properties['SqlSourceInventory']) 'Default migration preview still opens no connection'
+        $observed = Get-SqlServerLabEvaluationRefreshPlan @argsForPlan -ObserveSqlSource
+        Assert-Refresh ($script:observationCalls -eq 1 -and $observed.SqlSourceInventory.Status -ceq 'PARTIALLY_OBSERVED' -and
+            $observed.SqlSourceInventory.Items.Count -eq 9 -and ($observed.SqlSourceInventory.Items | Where-Object Category -CEQ UserDatabases).Count -eq 3 -and
+            $observed.Status -ceq 'BLOCKED' -and 'FULL_INSTANCE_INVENTORY_NOT_AVAILABLE' -cin $observed.Blockers -and -not $observed.MutationAllowed -and
+            ($observed | ConvertTo-Json -Depth 10) -cnotmatch 'CANARY_PRIVATE|MSSQLSERVER') 'Opt-in reads aggregate SQL counts without raising transfer authority'
+        $jobParams = @{ Action='ReadHyperVEvaluationSqlSource'; RunId=$runId; InstanceId='primary'; DataRoot=$root; ExpectedPlanKey=$ordinary.ObservedContentSha256 }
+        Assert-RefreshReject 'Browser job cannot replace the selected digest before guest access' {
+            $staleJob = @{} + $jobParams
+            $staleJob.ExpectedPlanKey = '0' * 64
+            Invoke-SqlServerLabWorkflowAction @staleJob
+        } EVALUATION_REFRESH_BINDING_CHANGED
+        Assert-Refresh ($script:observationCalls -eq 1) 'Stale interactive request opens no guest connection'
+        $job = Invoke-SqlServerLabWorkflowAction @jobParams
+        Assert-Refresh ($script:observationCalls -eq 2 -and $job.Result.Status -ceq 'PARTIALLY_OBSERVED' -and
+            ($job | ConvertTo-Json -Depth 10) -cnotmatch 'CANARY_PRIVATE|MSSQLSERVER|ScopeId') 'The browser job returns only the aggregate source result'
+        $script:guestCounts.AgentJobs = [long]-1
+        $invalidInventory = Get-SqlServerLabEvaluationRefreshPlan @argsForPlan -ObserveSqlSource
+        Assert-Refresh ($invalidInventory.SqlSourceInventory.Status -ceq 'NOT_OBSERVED' -and $invalidInventory.SqlSourceInventory.Items.Count -eq 0) 'Invalid guest counters do not become observed zero'
+        $script:guestCounts.AgentJobs = [long]3
+        $script:contextReads = 0
+        $script:injectInventoryDrift = $true
+        Assert-RefreshReject 'Changed live source binding invalidates the inventory preview' { Get-SqlServerLabEvaluationRefreshPlan @argsForPlan -ObserveSqlSource } EVALUATION_REFRESH_BINDING_CHANGED
+        Assert-RefreshReject 'Only stateful migration accepts a live SQL source selection' {
+            Get-SqlServerLabEvaluationRefreshPlan -RunId $runId -InstanceId primary -DataRoot $root -Mode RECONSTRUCT_LAB -ObserveSqlSource
+        } EVALUATION_REFRESH_SQL_SOURCE_MODE_INVALID
+        Assert-Refresh ((Get-RefreshHashes)-ceq$before) 'SQL source observation leaves every artifact byte unchanged'
+    }
+    finally { Set-Variable -Name IsWindows -Scope Script -Value $hostPlatform -Force }
     # Actual existing Watch path, bounded inventory leaves contain only the fixture.
     function Get-SqlServerLabHyperVImageArtifact {param($MinimumEvaluationDaysRemaining,$StateRoot);[pscustomobject]@{ArtifactId=$run.metadata.imageArtifactId;ArtifactState='SQL_PREPARED_SEALED';Evaluation=[pscustomobject]@{LicenseType='evaluation';ExpiresAt=$connection.instances[0].windowsActivation.evaluationExpiresAt};Sql=[pscustomobject]@{Evaluation=[pscustomobject]@{LicenseType='';ExpiresAt=$null}}}}
     function Get-LabActiveRuns {param($StateRoot);$run}

@@ -5510,6 +5510,10 @@ Capture, Receiptkette, unverändertem Run-/Connection-State und Parent sowie
 vollständigem Cleanup (drei Schritte, keine Fehler, keine VM-/Diskreste).
 Positive Evaluation und echte Deadline bleiben eigene offene Nachweise.
 Die Abnahme erstellt und bereinigt ausschließlich ihren eigenen Run.
+Der aktuelle Harness prüft dort zusätzlich die neun Quellzähler des
+optionalen Migrationsentscheids. Die fokussierte Plan-Suite prüft
+synthetisch die gebundene Auswahl, Drift, Ergebnisgrenzen und den
+unveränderten Default. Der historische Lauf belegt die neuen Abfragen nicht.
 
 ### llama.cpp-Discovery
 

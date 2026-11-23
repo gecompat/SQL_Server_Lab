@@ -19,9 +19,10 @@ const nodes = new Map([...html.matchAll(/\bid="(evaluation-refresh-[^"]+)"/g)].m
 const node = id => { const value = nodes.get('evaluation-refresh-' + id); assert.ok(value, 'Actual HTML ' + id); return value; };
 node('mode').value = 'FREE_SLOT_REPLACEMENT';
 const requests = [];
+const jobs = [];
 const context = vm.createContext({ document: { querySelector: selector => nodes.get(selector.slice(1)), createElement: () => new Element() },
   sqlServerLabUiFetch(url, options) { assert.equal(url, '/api/evaluation-refresh-plan'); let resolve; const promise = new Promise(done => { resolve = done; }); requests.push({ options, resolve }); return promise; },
-  queueBackgroundAction() { throw new Error('FORBIDDEN_JOB'); }, startPublicCommand() { throw new Error('FORBIDDEN_GENERIC_COMMAND'); }, console });
+  async startAction(action, parameters) { jobs.push({ action, parameters }); }, startPublicCommand() { throw new Error('FORBIDDEN_GENERIC_COMMAND'); }, console });
 vm.runInContext(source, context, { timeout: 5000 });
 const own = { RunId: '33333333-3333-4333-8333-333333333333', ScopeId: '44444444-4444-4444-8444-444444444444', InstanceId: 'primary', State: 'RUNNING', Digest: 'a'.repeat(64) };
 const metadata = { ContractVersion: 'SqlServerLab.EvaluationRefreshBrowser/1.0', Status: 'METADATA_ONLY', Runs: [own], SqlReadiness: 'NOT_CHECKED', Actions: [], MutationAllowed: false, ExecutionSupported: false };
@@ -75,6 +76,19 @@ async function readMetadata(body = metadata) { const pending = node('read').fire
   }
   await readMetadata(); const count = requests.length; node('run').value = 'foreign'; await node('run').fire('change'); await node('preview').fire('click');
   check('Forged selection has zero preview dispatch', requests.length === count);
-  check('All requests dedicated POST no job apply or event', requests.every(item => item.options.method === 'POST') && !source.includes('localStorage') && !source.includes('innerHTML'));
+  check('Default actions use dedicated POST and dispatch no jobs', jobs.length === 0 && requests.every(item => item.options.method === 'POST') && !source.includes('localStorage') && !source.includes('innerHTML'));
+  await readMetadata();
+  await node('observe').fire('click');
+  check('Ordinary preview mode cannot dispatch a live read', jobs.length === 0);
+  node('mode').value = 'STATEFUL_MIGRATION'; await node('mode').fire('change');
+  await node('observe').fire('click');
+  check('Explicit live read uses only the RAM selection and displays its job destination',
+    jobs.length === 1 && JSON.stringify(jobs[0]) === JSON.stringify({
+      action: 'ReadHyperVEvaluationSqlSource',
+      parameters: { RunId: own.RunId, InstanceId: own.InstanceId, DataRoot: 'CHANGED_ROOT', ExpectedPlanKey: own.Digest }
+    }) && node('status').textContent.includes('Vorgänge'));
+  await readMetadata({ ...metadata, Runs: [{ ...own, State: 'STOPPED' }] });
+  await node('observe').fire('click');
+  check('Stopped source cannot dispatch the observation', jobs.length === 1 && node('observe').disabled);
   console.log('EVALUATION_REFRESH_UI_CHECKS: ' + checks + ' PASS; 0 FAIL');
 })().catch(error => { console.error(error); process.exitCode = 1; });

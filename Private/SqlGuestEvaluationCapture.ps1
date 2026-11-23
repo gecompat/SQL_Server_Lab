@@ -69,7 +69,7 @@ function Get-LabSqlGuestCaptureClassification {
 
 function Invoke-LabSqlGuestCaptureProbe {
     [CmdletBinding()]
-    param([Parameter(Mandatory)]$Context,[Parameter(Mandatory)][int]$TimeoutSeconds)
+    param([Parameter(Mandatory)]$Context,[Parameter(Mandatory)][int]$TimeoutSeconds,[switch]$IncludeSourceInventory)
     $guest=$null;$sa=$null;$loadedGuest=$null;$loadedSa=$null
     try {
         $fresh=Get-LabSqlGuestCaptureContext -RunId ([guid]$Context.Run.runId) -StateRoot $Context.StateRoot
@@ -83,8 +83,8 @@ function Invoke-LabSqlGuestCaptureProbe {
         $result=@(Invoke-HyperVPowerShellDirect -VMName ([string]$Context.Instance.vmName) -ExpectedRunId ([string]$Context.Run.runId) `
             -ExpectedScopeId ([string]$Context.Run.scopeId) -ExpectedVmId ([guid]$Context.Instance.vmId) `
             -Credential ([pscredential]::new('Administrator',$guest)) -TimeoutSeconds $TimeoutSeconds `
-            -ArgumentList @($sa,[int]$Context.Instance.port,[math]::Min(30,$TimeoutSeconds)) -ScriptBlock {
-                param([securestring]$Password,[int]$Port,[int]$SqlTimeout)
+            -ArgumentList @($sa,[int]$Context.Instance.port,[math]::Min(30,$TimeoutSeconds),$IncludeSourceInventory.IsPresent) -ScriptBlock {
+                param([securestring]$Password,[int]$Port,[int]$SqlTimeout,[bool]$IncludeSourceInventory)
                 $ErrorActionPreference='Stop';$connection=$null;$command=$null;$reader=$null;$secret=$null
                 try {
                     Add-Type -AssemblyName System.Data
@@ -103,7 +103,32 @@ function Invoke-LabSqlGuestCaptureProbe {
                     $major=if($reader.IsDBNull(2)){$null}else{[int]$reader.GetValue(2)}
                     $instance=if($reader.IsDBNull(3)){'MSSQLSERVER'}else{[string]$reader.GetValue(3)}
                     if(-not $edition -or $null -eq $editionId -or $major -ne 17 -or $reader.Read() -or $reader.NextResult()){throw 'SQL_GUEST_CAPTURE_PROBE_INVALID'}
-                    [pscustomobject]@{Edition=$edition;EditionId=$editionId;MajorVersion=$major;InstanceName=$instance}
+                    $result = [ordered]@{ Edition=$edition; EditionId=$editionId; MajorVersion=$major; InstanceName=$instance }
+                    if ($IncludeSourceInventory) {
+                        $reader.Dispose()
+                        $reader = $null
+                        $command.CommandText = @'
+SELECT
+    (SELECT COUNT_BIG(*) FROM sys.databases WHERE database_id > 4 AND source_database_id IS NULL) AS UserDatabases,
+    (SELECT COUNT_BIG(*) FROM sys.databases WHERE database_id > 4 AND source_database_id IS NULL AND state <> 0) AS NonOnlineUserDatabases,
+    (SELECT COUNT_BIG(*) FROM sys.databases WHERE database_id > 4 AND source_database_id IS NULL AND is_encrypted = 1) AS EncryptedUserDatabases,
+    (SELECT COUNT_BIG(*) FROM sys.databases WHERE source_database_id IS NOT NULL) AS DatabaseSnapshots,
+    (SELECT COUNT_BIG(*) FROM sys.server_principals WHERE type IN ('S','U','G','E','X','C','K')) AS ServerPrincipals,
+    (SELECT COUNT_BIG(*) FROM sys.credentials) AS Credentials,
+    (SELECT COUNT_BIG(*) FROM sys.servers WHERE is_linked = 1) AS LinkedServers,
+    (SELECT COUNT_BIG(*) FROM msdb.dbo.sysjobs) AS AgentJobs,
+    (SELECT COUNT_BIG(*) FROM msdb.dbo.sysproxies) AS AgentProxies;
+'@
+                        $reader = $command.ExecuteReader([Data.CommandBehavior]::SequentialAccess)
+                        if (-not $reader.Read()) { throw 'SQL_GUEST_CAPTURE_PROBE_INVALID' }
+                        $inventory = [ordered]@{}
+                        for ($ordinal=0; $ordinal -lt $reader.FieldCount; $ordinal++) {
+                            $inventory[$reader.GetName($ordinal)] = $reader.GetInt64($ordinal)
+                        }
+                        if ($reader.Read() -or $reader.NextResult()) { throw 'SQL_GUEST_CAPTURE_PROBE_INVALID' }
+                        $result.SourceInventory = [pscustomobject]$inventory
+                    }
+                    [pscustomobject]$result
                 }
                 catch {throw 'SQL_GUEST_CAPTURE_PROBE_FAILED'}
                 finally {if($reader){$reader.Dispose()};if($command){$command.Dispose()};if($connection){$connection.Dispose()};if($secret){$secret.Dispose()}}

@@ -44,16 +44,22 @@ function Invoke-LabEvaluationRefreshPlanInteractive {
         if($modeChoice.Status-cne'Selected'){return}
         $mode=[string]$modeChoice.SelectedItem.Id
         if($mode-cnotin@($modes.Id)){throw 'EVALUATION_REFRESH_INPUT_INVALID'}
-        $review=Invoke-LabConsoleMenu -ScreenId 'evaluation-refresh-preview' -Title 'Reinen Ersatzentscheid lesen' `
-            -Subtitle ("{0} · {1} · SQL nicht geprüft; keine Lizenzfreigabe oder Übernahme."-f$selected.InstanceId,$modeChoice.SelectedItem.Label) -Items @(
-                New-LabConsoleItem -Id preview -Label 'Vorschau lesen (keine Änderung)'
-                New-LabConsoleItem -Id back -Label 'Zurück / Abbrechen'
-            )
+        $reviewItems = @(
+            New-LabConsoleItem -Id preview -Label 'Vorschau lesen (keine Änderung)'
+            if ($mode -ceq 'STATEFUL_MIGRATION' -and $selected.State -ceq 'RUNNING') {
+                New-LabConsoleItem -Id observe -Label 'SQL-Quellzähler im laufenden Gast lesen'
+            }
+            New-LabConsoleItem -Id back -Label 'Zurück / Abbrechen'
+        )
+        $review=Invoke-LabConsoleMenu -ScreenId 'evaluation-refresh-preview' -Title 'Ersatzentscheid lesen' `
+            -Subtitle ("{0} · {1} · Keine Lizenzfreigabe, Speicherung oder Übernahme."-f$selected.InstanceId,$modeChoice.SelectedItem.Label) -Items $reviewItems
         if($review.Status-cne'Selected'-or$review.SelectedItem.Id-ceq'back'){return}
-        if($review.SelectedItem.Id-cne'preview'){throw 'EVALUATION_REFRESH_INPUT_INVALID'}
+        if($review.SelectedItem.Id-cnotin$reviewItems.Id){throw 'EVALUATION_REFRESH_INPUT_INVALID'}
         $fresh=Read-LabEvaluationRefreshSnapshot -RunId $selected.RunId -InstanceId $selected.InstanceId -DataRoot $selected.DataRoot
         if($fresh.Digest-cne$selected.Digest-or$fresh.Binding.Run.scopeId-cne$selected.ScopeId-or$fresh.Binding.Run.state-cne$selected.State){throw 'EVALUATION_REFRESH_BINDING_CHANGED'}
-        $plan=Get-SqlServerLabEvaluationRefreshPlan -RunId $selected.RunId -InstanceId $selected.InstanceId -DataRoot $selected.DataRoot -Mode $mode
+        $planArgs = @{ RunId=$selected.RunId; InstanceId=$selected.InstanceId; DataRoot=$selected.DataRoot; Mode=$mode }
+        if ($review.SelectedItem.Id -ceq 'observe') { $planArgs.ObserveSqlSource = $true }
+        $plan=Get-SqlServerLabEvaluationRefreshPlan @planArgs
         Write-LabInfo 'BLOCKED: reine Planung. SQL-Bereitschaft NOT_CHECKED; keine Aktionen, Speicherung, Übernahme oder Gleichwertigkeitsbestätigung.'
         foreach($evaluation in $plan.Evaluations){
             $component=if($evaluation.Component-ceq'Windows'){'Windows'}else{'SQL Server'}
@@ -62,6 +68,10 @@ function Invoke-LabEvaluationRefreshPlanInteractive {
             Write-LabInfo ("{0}: {1} · Quelle: {2} · Evidence: {3} · Frist UTC: {4} · Resttage: {5}"-f$component,$evaluation.Status,$evaluation.DeadlineSource,$evaluation.EvidenceStatus,$expiry,$days)
         }
         Write-LabInfo 'Windows-Aktivierung ist historische Metadaten, keine frische Lizenzprüfung. SQL-Evidence ist keine neue Gastabfrage.'
+        if ($plan.SqlSourceInventory) {
+            Write-LabInfo ("SQL-Quellzähler im Gast: {0}. Vollständige Instanzinventur bleibt offen." -f $plan.SqlSourceInventory.Status)
+            foreach ($item in $plan.SqlSourceInventory.Items) { Write-LabInfo ("{0}: {1}" -f $item.Category,$item.Count) }
+        }
         foreach($blocker in $plan.Blockers){Write-LabInfo ("Offen: {0}"-f$blocker)}
         foreach($step in $plan.NextSteps){Write-LabInfo $step}
         $null=Wait-LabConsoleAcknowledgement

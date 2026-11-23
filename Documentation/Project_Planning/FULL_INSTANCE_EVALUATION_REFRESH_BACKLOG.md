@@ -52,7 +52,16 @@ Browserdialog ist ebenfalls als reine RAM-Vorschau im Bereich **Wartung,
 Aufräumen und Recovery** implementiert: eigener begrenzter HTTP-Metadaten-/
 Previewpfad, dieselbe registrierte D-Readerautorität und öffentlicher Core,
 Auswahlrevalidierung, getrennte Windows-/SQL-Evidence und Abbruch ohne Jobs.
-Inventur und sämtliche Transferaktionen bleiben offen.
+Die geführte CLI bietet bei **Instanzzustand migrieren** zusätzlich
+**SQL-Quellzähler im laufenden Gast lesen**. Der Schalter `-ObserveSqlSource`
+liest denselben begrenzten Start der Inventur auf einer gebundenen
+SQL-2025-Prepared-Instanz. Er zählt Benutzer-Datenbanken mit Teilmengen für
+Zustand und Verschlüsselung, Snapshots, Serverprinzipale, Credentials,
+Linked Server, Agent-Jobs und Proxies. Werte erscheinen nur aggregiert,
+ohne SQL-Objektnamen oder Zugangsdaten. Bei fehlendem Live-Nachweis bleiben
+die Werte unbeobachtet. Im Browser löst dieselbe getrennte Aktion einen
+flüchtigen Leseauftrag mit gebundener Auswahl aus. Vollständige Inventur und
+sämtliche Transferaktionen bleiben offen.
 
 Die gemeinsame Watch-Fristklassifikation bleibt unverändert. Bei durch JSON
 typisierten Zeitwerten bewahren beide Watch-Pfade jetzt UTC und Bruchteile der

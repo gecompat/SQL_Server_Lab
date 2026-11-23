@@ -106,7 +106,7 @@ try {
         $link=Join-Path $Root 'linked-root';$null=New-Item -ItemType $(if($IsWindows){'Junction'}else{'SymbolicLink'}) -Path $link -Target $Root
         try{$blocked=$false;try{Assert-LabSqlGuestCapturePath -Root $link -Path (Join-Path $link 'runs/receipt.json')}catch{$blocked=$true};Check 'Reparse am StateRoot selbst wird blockiert' $blocked}finally{Remove-Item -LiteralPath $link -Force}
         # Führt die produktiven Gast-Statements lokal aus, ohne SQL zu öffnen.
-        $guestAst=$script:CaptureRealProbe.Ast.Find({param($node)$node -is [Management.Automation.Language.ScriptBlockExpressionAst] -and $node.ScriptBlock.ParamBlock -and $node.ScriptBlock.ParamBlock.Parameters.Count -eq 3 -and $node.ScriptBlock.ParamBlock.Parameters[0].Name.VariablePath.UserPath -eq 'Password'},$true)
+        $guestAst=$script:CaptureRealProbe.Ast.Find({param($node)$node -is [Management.Automation.Language.ScriptBlockExpressionAst] -and $node.ScriptBlock.ParamBlock -and $node.ScriptBlock.ParamBlock.Parameters[0].Name.VariablePath.UserPath -eq 'Password'},$true)
         $guestTry=$guestAst.ScriptBlock.Find({param($node)$node -is [Management.Automation.Language.TryStatementAst]},$true)
         $statements=@($guestTry.Body.Statements)
         $openIndex=0;while($statements[$openIndex].Extent.Text -notmatch '^\$connection\.Open'){$openIndex++}
