@@ -2563,8 +2563,10 @@ SQL-Ausbau in **Lab verwalten → Reguläre Hyper-V-Umgebungen** starten oder
 aus einem unterstützten Wiederaufnahmezustand fortsetzen.
 Der nicht interaktive Adapter `Invoke-SqlServerLabWorkflowAction` bindet
 `PlanWindowsPoolMember` über die expliziten Parameter `RunId` und `StateRoot`.
-Die Vorschau autorisiert erst nach separater Bestätigung die eigene Mitgliedaktion;
-die native Poolabnahme bleibt ohne erfolgreichen Gesamtbeleg.
+Bestätige die Vorschau separat, um die gebundene Mitgliedaktion auszuführen.
+Die native Abnahme für ein Windows-2025-Poolmitglied deckt die Übernahme bis
+zum gespeicherten SQL-Ausbauplan ab. Das anschließende SQL-Setup ist ein
+eigener Schritt. [Abnahmeumfang](../Quality/LOCAL_VALIDATION_STRATEGY.md#slotreservepolicy-und-kandidatensicht)
 
 ## Lokale SQL-2022/2025-Bootstrapperquellen
 

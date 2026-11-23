@@ -152,6 +152,12 @@ vollständigen Parent-SHA256-/Längen-/Zeit-/Attributvergleich vor und nach
 dem Lauf und erneute öffentliche Integritätsprüfung. Die testinternen
 In-Memory-Bindings sind kein Membership- oder Claimregister.
 
+Der Key18-Lauf vom 24.11.2026 bestätigte diese Nachbedingungen für ein
+Windows-2025-Desktop-Mitglied und ein SQL-2025-Enterprise-Medium auf
+`44ecd493`. Er erfasste den Gaststatus, prüfte Claim und Freigabe, übernahm
+den SQL-Plan mit den gewählten VM-Ressourcen und entfernte den eigenen Run.
+[Nativer Lauf](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45290810001)
+
 Der Native-Harness bindet ein vorhandenes SQL-2025-Medium über expliziten
 `MediaRoot`, relativen `SqlMediaPath` und `MediaEdition` (`Eval`, `Enterprise`
 oder `Standard`). Der kanonische Resolver prüft Version und Edition; der

@@ -5683,8 +5683,15 @@ die erhöhte Sitzung und das vorhandene Hostnetzwerk. Dieser Schritt legt
 das Poolmitglied mit dem regulären Lifecycle `run` an, den der Poolvertrag
 verlangt. Die übrigen Smoke-Modi behalten `test` als Standard. Der Harness
 verwendet eine eigene State Root und hält Rohlog und Receipt lokal auf Key18.
-Ein vorbereiteter Harness ist kein ausgeführter Providerbeleg. Er benötigt
-eine eigene Evidence und bestätigt weder SQL-Reserve noch automatische Auffüllung.
+Am 24.11.2026 bestand dieser Modus auf Commit `44ecd493` mit sieben
+protokollierten Prüfpunkten. Beobachtet wurden frischer Gastnachweis am
+abgeschalteten Mitglied, Resume desselben Mitglieds, Abbruch der Vorschau,
+Schutz gegen direkte Lifecycle-Aktion, Claim/Release und Übernahme des
+SQL-Plans mit tatsächlich gesetzten 4 vCPU und 2048 MB. Die Bereinigung
+bestätigte die Abwesenheit eigener VM, VHDX, Adapter, aktiver IPAM-Lease und
+Secrets. Die unabhängige Prüfung bestätigte einen unveränderten Parent. SQL-Installation
+und automatische Reserveauffüllung benötigen eigene Nachweise.
+[Nativer Lauf](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45290810001)
 
 `Invoke-SlotReserveChecks.ps1` prüft synthetisch denselben Preferences-Writer
 mit vier getrennten PowerShell-Prozessen, Mergeerhaltung, ungültigem JSON,
