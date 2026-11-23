@@ -159,19 +159,14 @@ finally{
                 $vmById=@(Get-VM -ErrorAction Stop|Where-Object {[string]$_.Id -ceq $binding.VmId})
                 $children=@($binding.ChildPaths|Where-Object {Test-Path -LiteralPath $_})
                 $adapterIds=@(Get-VMNetworkAdapter -All -ErrorAction Stop|Where-Object {[string]$_.Id -cin $binding.AdapterIds}|ForEach-Object {[string]$_.Id})
-                $leases=@(& $module {param($root,$id,$scope)
-                    $path=Get-LabHyperVIpamPath -StateRoot $root
-                    if(Test-Path -LiteralPath $path -PathType Leaf){
-                        if(-not(Test-LabPathWithinRoot -Root $root -Path $path).Valid){throw 'OWN_IPAM_UNKNOWN'}
-                        $registry=Read-LabWorkflowJson -Path $path
-                        @(Get-WindowsPoolNativeUnreleasedIpamLeases -Registry $registry -RunId $id -ScopeId $scope)
-                    }
-                } $StateRoot $binding.RunId $binding.ScopeId)
+                $ipam = Get-WindowsPoolNativeIpamEvidence -Module $module -StateRoot $StateRoot -RunId $binding.RunId -ScopeId $binding.ScopeId
                 Assert-WindowsPoolNativeCleanupProof -Binding $binding -Run $tombstone -LiveVms @(@($remaining)+$vmById) `
-                    -ExistingChildren $children -LiveAdapterIds $adapterIds -ActiveLeases $leases -SecretExists (Test-Path -LiteralPath (Join-Path $binding.RunDirectory secrets)) `
-                    -IpamAvailable (Test-Path -LiteralPath (Join-Path (Join-Path $StateRoot network) hyperv-ipam.json) -PathType Leaf)
+                    -ExistingChildren $children -LiveAdapterIds $adapterIds -ActiveLeases $ipam.ActiveLeases -SecretExists (Test-Path -LiteralPath (Join-Path $binding.RunDirectory secrets)) `
+                    -IpamAvailable $ipam.Available
                 $report.Checks+='OWN_VM_CHILD_ADAPTER_IPAM_SECRET_ABSENCE'
-            }catch{$report.CleanupErrors+=@{RunId=$run.runId;Code='WINDOWS_POOL_NATIVE_OWN_CLEANUP_FAILED'}}
+            }catch{
+                $report.CleanupErrors+=@{RunId=$run.runId;Code='WINDOWS_POOL_NATIVE_OWN_CLEANUP_FAILED';Cause=(Get-WindowsPoolNativeFailureDetail -Failure $_ -Fallback WINDOWS_POOL_NATIVE_OWN_CLEANUP_FAILED)}
+            }
         }
     }
     try{
