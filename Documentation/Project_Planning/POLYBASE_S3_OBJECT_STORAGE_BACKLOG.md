@@ -246,7 +246,8 @@ zugehörigen Workflowlauf.
 
 Ein nachgelagerter SQL-Vertrag kann die aktuelle native Katalog-Fixture
 im selben isolierten SQL-Container verwenden. Vor dem Verbraucheraufruf
-trennt die Fixture den SQL-Container vom Testnetz. Die Lab-CI prüft den Anschluss
+trennt die Fixture den S3-Dienst vom Testnetz. Der SQL-Container behält seine
+lokale Verbindung für den Katalogaufruf. Die Lab-CI prüft den Anschluss
 durch Lesen von `sys.external_tables`. Ein Analyze-Aufruf kann dafür genau
 eine gebundene SQL-Datei aus dem temporären Runner-Verzeichnis einreichen.
 Der Anschluss weist SQLCMD-Direktiven ab und deaktiviert Variablenersetzung.

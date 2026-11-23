@@ -289,8 +289,9 @@ engine_result="$(grep -Fx 'POLYBASE_S3_NATIVE=PASS|SQL2025_CU9|CSV_ROWS=2|COLUMN
 
 if [[ -n "$consumer_sql" ]]; then
   stage='consumer_network_isolation'
-  docker network disconnect "$network_id" "$sql_id"
-  [[ "$(docker container inspect --format '{{len .NetworkSettings.Networks}}' "$sql_id")" == 0 ]]
+  docker network disconnect "$network_id" "$store_id"
+  [[ "$(docker container inspect --format '{{len .NetworkSettings.Networks}}' "$store_id")" == 0 ]]
+  [[ "$(docker container inspect --format '{{len .NetworkSettings.Networks}}' "$sql_id")" == 1 ]]
   if [[ "$consumer_sql" == 'lab-contract' ]]; then
     consumer_sql="$root/wi0009-consumer.sql"
     cat >"$consumer_sql" <<'SQL'
@@ -326,6 +327,9 @@ PY
   stage='sql_catalog_consumer'
   if ! sql -x <"$root/validated-consumer.sql" >"$root/consumer-results" 2>"$root/consumer-error"; then
     sed -nE 's/^Msg ([0-9]+),.*/POLYBASE_CONSUMER_SQL_ERROR=\1/p' "$root/consumer-error" | sort -u >&2
+    if grep -qiE '^Sqlcmd: Error:' "$root/consumer-error"; then
+      printf '%s\n' 'POLYBASE_CONSUMER_SQLCMD_ERROR=1' >&2
+    fi
     exit 1
   fi
   consumer_result="$(grep -Fx 'POLYBASE_S3_CONSUMER=PASS' "$root/consumer-results")"
