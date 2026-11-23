@@ -327,6 +327,9 @@ PY
   stage='sql_catalog_consumer'
   if ! sql -x <"$root/validated-consumer.sql" >"$root/consumer-results" 2>"$root/consumer-error"; then
     sed -nE 's/^Msg ([0-9]+),.*/POLYBASE_CONSUMER_SQL_ERROR=\1/p' "$root/consumer-error" | sort -u >&2
+    grep -E '^POLYBASE_CONSUMER_BATCH=[0-9]{3}$' "$root/consumer-error" | tail -n 1 >&2 || true
+    sed -nE 's/^Msg ([0-9]+), Level [0-9]+, State [0-9]+, .*Line ([0-9]+).*$/POLYBASE_CONSUMER_SQL_LINE=\1:\2/p' \
+      "$root/consumer-error" | sort -u >&2
     if grep -qiE '^Sqlcmd: Error:' "$root/consumer-error"; then
       printf '%s\n' 'POLYBASE_CONSUMER_SQLCMD_ERROR=1' >&2
     fi

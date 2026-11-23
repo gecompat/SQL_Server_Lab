@@ -252,5 +252,5 @@ durch Lesen von `sys.external_tables`. Ein Analyze-Aufruf kann dafür genau
 eine gebundene SQL-Datei aus dem temporären Runner-Verzeichnis einreichen.
 Der Anschluss weist SQLCMD-Direktiven ab und deaktiviert Variablenersetzung.
 Die Prüfung
-veröffentlicht nur einen festen Erfolgsmarker oder numerische SQL-Fehlercodes.
+veröffentlicht einen festen Erfolgsmarker. Bei SQL-Fehlern können Fehlernummer, SQL-Zeile und der letzte dreistellige Abschnittsmarker des Verbrauchers ausgegeben werden. Die Diagnose enthält keine ursprünglichen Meldungstexte oder SQL-Anweisungen.
 Ein erfolgreicher Lab-Anschluss ist noch kein Nachweis für ein Analyze-Modul.
