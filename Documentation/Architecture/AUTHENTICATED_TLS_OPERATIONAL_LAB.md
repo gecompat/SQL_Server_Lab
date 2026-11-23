@@ -38,7 +38,7 @@ bestehende SQL-Ziele werden nicht übernommen oder umkonfiguriert.
 
 Die zusätzliche ausdrücklich gewählte
 [isolierte Linux-Clientform](AUTHENTICATED_TLS_LINUX_CLIENT.md) ist im
-öffentlichen Docker-Fall mit SQL Server 2025 CU9 separat nativ belegt.
+öffentlichen Docker- und Podman-Fall mit SQL Server 2025 CU9 separat nativ belegt.
 Der Nachweis umfasst Record 0.4, den DNS-/Namespaceendpoint, den runlokalen
 Kindclient und den dedizierten Toolbelt-Preflight.
 

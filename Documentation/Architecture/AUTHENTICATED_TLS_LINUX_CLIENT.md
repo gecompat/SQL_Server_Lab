@@ -1,9 +1,10 @@
 # Öffentlicher isolierter Linux-Clientkontext
 
-Status: **Docker mit SQL Server 2025 CU9 nativ geprüft**.
+Status: **Docker und Podman mit SQL Server 2025 CU9 nativ geprüft**.
 
 Der [öffentliche Docker-Fall](../Quality/LOCAL_VALIDATION_STRATEGY.md#2026-11-17-ordinal-150)
-belegt beide Clientstacks. Podman und weitere Kontexte werden separat geprüft.
+und der [öffentliche Podman-Fall](../Quality/LOCAL_VALIDATION_STRATEGY.md#2026-11-23-öffentlicher-podman-preflight)
+belegen jeweils beide Clientstacks.
 
 Dieser Schnitt konkretisiert den öffentlichen Linuxblock der
 [TLS-001-Abschlussübersicht](../Project_Planning/TLS_001_COMPLETION_CHECKLIST.md).

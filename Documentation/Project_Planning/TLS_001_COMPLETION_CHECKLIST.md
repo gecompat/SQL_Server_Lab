@@ -78,10 +78,11 @@ ausgewiesenen Umfang Vorrang:
   der öffentliche Consumer-Preflight, die Entfernung des eigenen Labs und die
   nachgelagerte Prozessprüfung sind separat gebunden. Die
   [Validierungsstrategie](../Quality/LOCAL_VALIDATION_STRATEGY.md#2026-11-17-ordinal-150)
-  nennt Quellenstand und Grenzen.
+  nennt Quellenstand und Grenzen. Der getrennte
+  [Podman-Fall](../Quality/LOCAL_VALIDATION_STRATEGY.md#2026-11-23-öffentlicher-podman-preflight)
+  belegt dieselbe öffentliche Linux-Schnittstelle für beide Clientstacks.
 
-Damit bleiben als konkrete Abschlussblöcke: der öffentliche Linux-Consumer auf
-Podman und weitere vereinbarte, unbelegte Kontexte; die öffentliche Hyper-V-False-/
+Damit bleiben für TLS-001 weitere vereinbarte, unbelegte Kontexte, die öffentliche Hyper-V-False-/
 Exportlane und nicht belegte vereinbarte Hyper-V-Zellen; die fehlenden
 Linux-Clientkontexte an Windows-SQL-Zielen; reproduzierbare Zertifikatserneuerung
 mit Qualifikation und Recovery; noch offene Analyze-/Schulungs-Consumer-
@@ -96,7 +97,7 @@ Wiederholungen erfolgreicher Zellen zu verdecken.
 |---|---|---|
 | D1–D4 und konkrete Clientkontexte | Operative Windows-Containerverträge und qualifizierte CA-/Clientbindung; V1/True und V2/False bleiben gemäß Projektentscheidung vom 2026-10-25 die ausreichende Vertragsbasis. | Noch benötigte Identitäten, Zugriffswege, Trust- und Lifecycle-/Retirementregeln für die offenen Kontexte konkret abschließen. D4-Consumerinventur und Cutovernachweise bleiben erforderlich. |
 | Mindestmatrix und öffentlicher Hyper-V-Pfad | Drei operative SQL-Generationen mit Docker/Podman und beiden Windows-Clientstacks; sechs getrennte Linux-Kryptozellen; private Hyper-V-/SQL-2025-RTM-Referenz mit Windowsclients. | Hyper-V 2019/2022, fehlende Linux-Clientzellen an Windows-SQL-Zielen und die öffentliche Hyper-V-False-/Exportlane. Nicht zutreffende Kombinationen brauchen eine begründete Capabilitygrenze, keinen fingierten PASS. |
-| Öffentlicher Linux-Pfad | Die Linux-Kryptomatrix belegt beide Stacks einschließlich negativer Zertifikatsfälle. Docker mit SQL Server 2025 CU9 und Linux-Client 0.4 besteht zusätzlich den öffentlichen V2-Export und den Toolbelt-Preflight. | Den öffentlichen Podman-Preflight und die übrigen ausdrücklich vereinbarten, noch unbelegten Kontexte prüfen. |
+| Öffentlicher Linux-Pfad | Die Linux-Kryptomatrix belegt beide Stacks einschließlich negativer Zertifikatsfälle. Docker und Podman mit SQL Server 2025 CU9 und Linux-Client 0.4 bestehen zusätzlich den öffentlichen V2-Export und den Toolbelt-Preflight. | Weitere ausdrücklich vereinbarte, noch unbelegte Kontexte behalten ihren Status. |
 | Operativer Zertifikatslebenszyklus | Zertifikatsnegativfälle, Container-Start-Epochen-Rebind und die [gezielte Metadaten-Recovery](../Quality/TLS_REBIND_RECOVERY_ACCEPTANCE_2026-10-25.md) für Docker/SQL 2025 CU9 und Podman/SQL 2019 CU32 sind getrennt belegt. | Reproduzierbare Erneuerung mit neuer Qualifikation, Fehlern, Abbruch/Resume und eigener Recovery/Rücknahme. Nur eigene journalisierte Bindungen zurücknehmen; vorbestehende Schlüssel und gemeinsam verwendeten Trust erhalten. |
 | Consumer und gekoppelter Preflight | Windows-Toolbelt-Cutover für sechs Containerprofile ist abgenommen. Die Consumerinventur und die reparierten isolierten Reader besitzen einen begrenzten echten Windows-/Docker-V1-Preflight mit zehn Readerfamilien, zwei funktionalen Clients und eigenem Cleanup; der übergeordnete Kontroll-FAIL bleibt separat erhalten. | Verbleibende Analyze-/Schulungs-, öffentliche Linux-/Hyper-V- und weitere ausdrücklich behauptete Consumerkontexte gemäß Inventur abschließen. |
 | Integration, Betrieb und Abschlusszuordnung | Implementierte Teilverträge und datierte Nachweise sind getrennt verlinkt. | Jedem Pflichtkriterium Vertrag, ausgeführten Nachweis oder offene Grenze zuordnen; erforderliche finale Gates, Integration sowie Betriebs-, Migrations- und Fehlerdiagnose abschließen. Eigenen Cleanup erledigen oder ausdrücklich genehmigten offenen Cleanup transparent ausweisen. |
@@ -128,8 +129,8 @@ Versionsnachweise; gemeinsame UI-, Lifecycle-, Export-, Recovery- und Consumerlo
 wird nach der [Versionsauswahl](../Quality/COST_EFFICIENT_DEVELOPMENT.md#sql-versionen-nach-tatsächlicher-abhängigkeit-auswählen)
 zusammengefasst. Versionsabhängige Metadatenprüfungen bleiben kleine Offlinefälle.
 Der öffentliche Linux-Preflight wird für SQL 2025 CU9 getrennt ausgewiesen.
-Docker ist durch Fall 150 belegt. Für Podman liegt hier nur die eigenständige
-Kryptoprobe vor.
+Docker ist durch Fall 150 belegt. Der getrennte öffentliche Podman-Lauf
+ergänzt die vorhandene eigenständige Kryptoprobe.
 
 | SQL-Generation | Docker / Windowsclient | Docker / Linuxclient | Podman / Windowsclient | Podman / Linuxclient | Hyper-V / Windowsclient | Hyper-V / Linuxclient |
 |---|---|---|---|---|---|---|

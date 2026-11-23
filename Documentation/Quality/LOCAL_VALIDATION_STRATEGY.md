@@ -378,8 +378,21 @@ Terminal bleibt `PASS_PENDING_POSTEXIT_CUSTODY_REVIEW`. Die getrennte,
 unabhängig geprüfte Beobachtung nach Prozessende und der gebundene
 Ledger-Abschluss bestätigen den finalen PASS. Frühere Fehlversuche behalten
 ihren ursprünglichen Status. Dieser Nachweis deckt den öffentlichen
-Docker-/Linux-Preflight ab. Podman und weitere Ziel-/Clientkontexte benötigen
-ihre eigenen Nachweise.
+Docker-/Linux-Preflight ab.
+
+### 2026-11-23: Öffentlicher Podman-Preflight
+
+Ein eigener Podman-Lauf mit SQL Server 2025 CU9 (`17.0.5005.3`) und
+Linux-Client 0.4 bestand den öffentlichen Aufbau, den signierten V2-Export
+und den dedizierten Toolbelt-Preflight mit beiden Clientstacks. Der gebundene
+Preflight erzwingt CA- und Namensprüfung mit `TrustServerCertificate=False`.
+Der Lauf wurde über die öffentliche API entfernt. Frische Abfragen bestätigten
+denselben Providerbestand und dieselbe registrierte TLS-Authority. Der Lauf
+verwendete Lab `22afd720` und Toolbelt `cb33713e`. Es gab einen Dispatch.
+
+Die beiden nativen Linux-Ergebnisse gelten für die ausgewiesenen Docker- und
+Podman-Profile. Weitere Plattformen, Clientstacks und Buildstände behalten
+ihre jeweiligen Nachweisgrenzen.
 
 ## V2-Consumer-Cutover vom 2026-10-22
 
