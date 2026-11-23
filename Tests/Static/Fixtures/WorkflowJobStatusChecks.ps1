@@ -69,6 +69,13 @@ $module = New-Module -Name SqlServerLab -ArgumentList $root -ScriptBlock {
     function Get-LabStateRoot { $script:DefaultRoot }
     function Start-SqlServerLabOperationHost { param($StateRoot) $script:HostRoots+=@($StateRoot); if ($script:FailHost) { throw 'PRIVATE_HOST_START_ERROR' } }
     function Submit-SqlServerLabBatch { param($BatchId) [pscustomobject]@{id=$BatchId} }
+    $script:DraftCalls = [Collections.Generic.List[object]]::new()
+    function Save-LabBrowserBatchDraft {
+        param($Request,$StateRoot)
+        $script:DraftCalls.Add([pscustomobject]@{Command=$Request.command;Root=$StateRoot})
+        if ($Request.name -eq 'synthetic-failure') { throw 'PRIVATE_DRAFT_ERROR' }
+        [pscustomobject]@{BatchId='batch-20261122203000-12345678';Status='Validated';Positions=3;Dependencies=1}
+    }
     $script:BatchStopCalls = [Collections.Generic.List[object]]::new()
     function New-LabBrowserBatchStopPreview {
         param($BatchId,$StateRoot)
@@ -147,5 +154,22 @@ try {
     & $module { $script:FailHost=$true }
     Invoke-BatchStopBody @{command='StartOperationHost';confirmed=$true}
     Check ($ResponseCode -eq 503 -and $ResponseBody -cnotmatch 'PRIVATE_HOST|StateRoot') 'Scheduler start failure carries neither a false success nor private details'
+
+    & $module { $script:HostRoots = @() }
+    $draftRoute = Route '/api/batches'
+    $context.Request.InputStream = [IO.MemoryStream]::new([Text.Encoding]::UTF8.GetBytes(
+        '{"command":"SaveGuidedDraft","name":"first","name":"duplicate","priority":"High","items":[{}]}'))
+    & $draftRoute
+    Check ($ResponseCode -eq 400 -and (& $module { $script:DraftCalls.Count }) -eq 0) 'Draft route rejects duplicate JSON before planning'
+    $context.Request.InputStream = [IO.MemoryStream]::new([Text.Encoding]::UTF8.GetBytes(
+        '{"command":"SaveGuidedDraft","name":"synthetic-failure","priority":"High","items":[{}]}'))
+    & $draftRoute
+    Check ($ResponseCode -eq 409 -and $ResponseBody -cnotmatch 'PRIVATE_DRAFT_ERROR') 'Draft route does not expose internal error details'
+    $context.Request.InputStream = [IO.MemoryStream]::new([Text.Encoding]::UTF8.GetBytes(
+        '{"command":"SaveGuidedDraft","name":"synthetic-draft","priority":"High","items":[{}]}'))
+    & $draftRoute
+    $draft = $ResponseBody | ConvertFrom-Json
+    Check ($ResponseCode -eq 201 -and $draft.Status -ceq 'Validated' -and $draft.Positions -eq 3 -and
+        (& $module { $script:DraftCalls[1].Root }) -ceq $root -and (& $module { $script:HostRoots.Count }) -eq 0) 'Draft request binds the server root and never starts the operation host'
 } finally { Remove-Module $module -Force }
 Write-Host "RESULT: $passed PASS; real actions/hosts/providers/listeners=0; synthetic evidence retained in ignored test scope"

@@ -215,7 +215,7 @@ Legende:
 
 | Cmdlet | Kurzbeschreibung | Konsolenmenü | Browser-GUI |
 |---|---|---|---|
-| [`New-SqlServerLabBatch`](../../Public/BatchWorkflow.ps1) | Validiert und expandiert einen Einzel- oder Mengenbatch und reiht ihn persistent ein. | Umgebung erstellen → SQL- oder Windows-Umgebung zusammenstellen | Einzelne Browseraktionen werden als persistente Batches eingereiht. Den Mehrfach-Composer führt die CLI. |
+| [`New-SqlServerLabBatch`](../../Public/BatchWorkflow.ps1) | Validiert und expandiert einen Einzel- oder Mengenbatch. | Umgebung erstellen → SQL- oder Windows-Umgebung zusammenstellen. Gespeicherte Entwürfe über Vorgänge, Queue und Benutzeraktionen → Gespeicherten Batch prüfen und einreihen. | Vorgänge → Batch mit mehreren Umgebungen planen. Der Browser speichert den validierten Entwurf für die Prüfung und Ausführung im Konsolenmenü. |
 | [`Get-SqlServerLabBatch`](../../Public/BatchWorkflow.ps1) | Liest Batchplan, Abhängigkeiten, Fortschritt und Cleanup-Scope. | Vorgänge, Queue und Benutzeraktionen → Batch auswählen | Vorgänge, Warteschlange und Wiederaufnahme → Fortschritt gespeicherter Batches. Die Batch-ID filtert offene Vorgangskarten. |
 | [`Get-SqlServerLabQueue`](../../Public/BatchWorkflow.ps1) | Zeigt Worker, Locks, Blockierungen und User-Gates. | Statusbanner und Queue | direkt: Queue-Ansicht und Workflow-Inventur |
 | [`Invoke-SqlServerLabScheduler`](../../Public/BatchWorkflow.ps1) | Arbeitet freigegebene Vorgänge der aktuellen Warteschlange ab. | Vorgänge → Scheduler jetzt ausführen | Vorgänge → Hintergrundscheduler anfordern. Nach der Bestätigung zeigt die Warteschlange den tatsächlichen Fortschritt. |

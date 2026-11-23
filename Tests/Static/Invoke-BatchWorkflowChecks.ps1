@@ -51,6 +51,80 @@ try {
     $expandedOperations = @(Get-SqlServerLabOperation -BatchId $batch.batchId -StateRoot $testRoot)
     Assert-Check (@($expandedOperations | Where-Object status -eq 'Completed').Count -eq 3) 'Expandierte Vorgaenge wurden nicht abgeschlossen.'
 
+    $browserDraftRoot = Join-Path $testRoot 'validated-browser-draft'
+    $draftRequest = ConvertFrom-Json @'
+{"command":"SaveGuidedDraft","name":"Mixed draft","priority":"High","items":[
+ {"kind":"SqlEnvironment","name":"sql-browser","count":2,"version":"2025","provider":"podman","secretReference":"SQL_SERVER_LAB_SECRET_BROWSER_DRAFT_TEST"},
+ {"kind":"WindowsEnvironment","name":"win-browser","count":1,"operatingSystem":"Windows Server 2025","variant":"Desktop","cpu":4,"memoryMB":8192}
+]}
+'@
+    $badRequest = $draftRequest | ConvertTo-Json -Depth 6 | ConvertFrom-Json
+    $badRequest.items[0] | Add-Member -NotePropertyName 'WorkflowAction' -NotePropertyValue 'SyntheticForbidden'
+    $rejected = $false
+    try { $null = & $module { param($Request,$Root) Save-LabBrowserBatchDraft -Request $Request -StateRoot $Root } $badRequest $browserDraftRoot }
+    catch { $rejected = $_.Exception.Message -ceq 'BROWSER_BATCH_DRAFT_INVALID' }
+    Assert-Check ($rejected -and -not (Test-Path -LiteralPath $browserDraftRoot)) 'Browserentwurf akzeptierte eine fremde Aktion oder berührte vor der Validierung den Zustand.'
+    $browserDraft = & $module {
+        param($Request,$Root)
+        function Get-LabProviderAvailabilityMap { @{docker=$false;podman=$true;hyperv=$true} }
+        function Find-LabMatchingHyperVArtifact { param($Requirement,$StateRoot) return $null }
+        Save-LabBrowserBatchDraft -Request $Request -StateRoot $Root
+    } $draftRequest $browserDraftRoot
+    $draftQueue = Get-SqlServerLabQueue -StateRoot $browserDraftRoot
+    Assert-Check ($browserDraft.Status -ceq 'Validated' -and $browserDraft.Positions -eq 3 -and $browserDraft.Dependencies -eq 1 -and
+        $draftQueue.length -eq 4 -and @($draftQueue.items | Where-Object startable).Count -eq 0) 'Browserentwurf ist nicht validiert, vollständig oder vor Ausführung geschützt.'
+    $storedDraft = Get-SqlServerLabBatch -BatchId $browserDraft.BatchId -StateRoot $browserDraftRoot
+    Assert-Check ($storedDraft.priority -ceq 'High' -and $storedDraft.items[0].provider -ceq 'podman' -and $storedDraft.items[2].provider -ceq 'hyperv' -and
+        $storedDraft.items[0].effective.SaPasswordEnvironmentVariable -ceq 'SQL_SERVER_LAB_SECRET_BROWSER_DRAFT_TEST') 'Browserentwurf hat falsche Provider, Priorität oder Kennwortreferenz.'
+    $reviewResult = & $module {
+        param($Root,$Id)
+        $stateBefore = $env:SQL_SERVER_LAB_STATE
+        $secretBefore = $env:SQL_SERVER_LAB_SECRET_BROWSER_DRAFT_TEST
+        $probe = [pscustomobject]@{ Decision='Reject'; Starts=0; StateRoot=$null }
+        function Invoke-LabConsoleMenu {
+            param($ScreenId,$Title,$Items)
+            [pscustomobject]@{Status='Selected'; SelectedItem=$Items | Select-Object -First 1}
+        }
+        function Show-LabBatchReviewInteractive {
+            param($Batch)
+            if ($probe.Decision -eq 'Stale') {
+                $changed = Get-SqlServerLabBatch -BatchId $Id -StateRoot $Root
+                $changed.name = 'Edited draft'
+                $null = Write-LabBatchState -Batch $changed -StateRoot $Root
+            }
+            return $probe.Decision -ne 'Reject'
+        }
+        function Start-SqlServerLabOperationHost {
+            param($StateRoot)
+            $probe.Starts++
+            $probe.StateRoot = $StateRoot
+        }
+        function Write-LabError { param($Message) }
+        function Write-LabSuccess { param($Message) }
+        try {
+            $env:SQL_SERVER_LAB_STATE = $Root
+            $env:SQL_SERVER_LAB_SECRET_BROWSER_DRAFT_TEST = 'synthetic-only-never-persisted'
+            $availability = Get-LabQueueMenuAvailability -Queue (Get-SqlServerLabQueue) -Batches @(Get-SqlServerLabBatch)
+            Invoke-LabValidatedBatchSubmitInteractive
+            $afterCancel = (Get-SqlServerLabBatch -BatchId $Id).status
+            $probe.Decision = 'Stale'
+            Invoke-LabValidatedBatchSubmitInteractive
+            $afterEdit = (Get-SqlServerLabBatch -BatchId $Id).status
+            $probe.Decision = 'Accept'
+            Invoke-LabValidatedBatchSubmitInteractive
+            [pscustomobject]@{
+                Eligible=$availability.CanSubmitBatch; AfterCancel=$afterCancel; AfterEdit=$afterEdit
+                Final=(Get-SqlServerLabBatch -BatchId $Id).status; Starts=$probe.Starts; Root=$probe.StateRoot
+            }
+        }
+        finally {
+            $env:SQL_SERVER_LAB_STATE = $stateBefore
+            $env:SQL_SERVER_LAB_SECRET_BROWSER_DRAFT_TEST = $secretBefore
+        }
+    } $browserDraftRoot $browserDraft.BatchId
+    Assert-Check ($reviewResult.Eligible -and $reviewResult.AfterCancel -ceq 'Validated' -and $reviewResult.AfterEdit -ceq 'Validated' -and
+        $reviewResult.Final -ceq 'Queued' -and $reviewResult.Starts -eq 1 -and $reviewResult.Root -ceq $browserDraftRoot) 'Gespeicherter Batch wurde ohne unveränderte Bestätigung eingereiht oder in den falschen Scope übergeben.'
+
     $hostRoot = Join-Path $testRoot 'scheduler state'
     $hostBatch = New-SqlServerLabBatch -Name 'Isolated scheduler host' -StateRoot $hostRoot -Items @(
         [pscustomobject]@{ id = 'host-probe'; kind = 'NoOp' }
