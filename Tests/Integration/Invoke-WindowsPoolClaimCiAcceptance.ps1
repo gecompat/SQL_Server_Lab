@@ -12,6 +12,7 @@ if ($env:GITHUB_EVENT_NAME -cne 'workflow_dispatch' -or $env:GITHUB_REF -cne 're
 }
 $checkout = & git -C $repoRoot rev-parse HEAD
 if ($LASTEXITCODE -or $checkout -cne $env:GITHUB_SHA) { throw 'WINDOWS_POOL_CI_CHECKOUT_INVALID' }
+if ($env:SQL_SERVER_LAB_RESOURCE_LIFECYCLE -cne 'run') { throw 'WINDOWS_POOL_CI_RUN_LIFECYCLE_REQUIRED' }
 
 $relativeMedia = $env:SQL_SERVER_LAB_CI_POOL_SQL_MEDIA
 $mediaEdition = $env:SQL_SERVER_LAB_CI_POOL_MEDIA_EDITION
