@@ -1,5 +1,20 @@
 # Funktionsübersicht für CLI und Browser-GUI
 
+## Container-Autostart
+
+Unter **Lab-Umgebungen → Docker-/Podman-Autostart ändern** zeigen
+`Get-SqlServerLabContainerAutoStartPlan` und
+`Set-SqlServerLabContainerAutoStart` die aktuelle und die gewünschte Policy.
+Die Änderung bindet den frisch gelesenen Plan und erfordert eine ausdrückliche
+Bestätigung. Die Restartpolicy kann damit ohne Neustart gesetzt werden.
+Im Browser heißt der Einstieg **Lab verwalten → Container-Autostart ändern**.
+
+Mit **Docker-/Podman-Autostart-Recovery fortsetzen** bestätigt der Benutzer
+eine konkrete Journaloperation. `Resume-SqlServerLabContainerAutoStart`
+prüft diese Operation und den Container erneut, bevor es Lab-State schreibt.
+Der [Bedienungsablauf](../HowTo/WORKFLOW_UI.md#docker-und-podman-autostart-ändern)
+beschreibt die Schritte in CLI und Browser.
+
 ## Container-Autostart nur vorprüfen
 
 Die Autostartvorschau verwendet in API, CLI und Browser denselben öffentlichen
@@ -112,9 +127,11 @@ Ressourcen/Downloads, Host-Dienste/Modelle, Verbindungen/CMS,
 Grundkonfiguration, Wartung/Recovery und Vorgänge sind eigene Einstiege.
 Expertenbefehle und Meldungen bleiben separat. Browserbereiche zeigen nur die
 zugehörigen vorhandenen Fachdialoge; Zurück erhält Eingaben und die
-Aktualisierung erhält den gewählten Bereich. Fehlende Browserdialoge für
-CMS und operative Slots sowie Fremdstart-/weiterer Hostdienst- und
-Modell-Lifecycle bleiben sichtbar offen. Der geführte Stop einer eigenen
+Aktualisierung erhält den gewählten Bereich. CMS-Erstellen, Übernehmen und
+Synchronisieren besitzen nun einen begrenzten geführten Browserdialog; dessen
+native Management-Abnahme steht noch aus. Fehlende Browserdialoge für operative
+Slots sowie Fremdstart-/weiterer Hostdienst- und Modell-Lifecycle bleiben
+sichtbar offen. Der geführte Stop einer eigenen
 llama.cpp-Modulsitzung besitzt einen gemeinsamen CLI-/Browserdialog und einen
 engen synthetischen nativen Prozessnachweis. Ein Katalogfilter ersetzt keinen
 Fachdialog.
@@ -198,17 +215,18 @@ Legende:
 
 | Cmdlet | Kurzbeschreibung | Konsolenmenü | Browser-GUI |
 |---|---|---|---|
-| [`New-SqlServerLabBatch`](../../Public/BatchWorkflow.ps1) | Validiert und expandiert einen Einzel- oder Mengenbatch und reiht ihn persistent ein. | Vorgänge, Queue und Benutzeraktionen → Composer | direkt: Composer und persistente Einreihung von Browseraktionen |
-| [`Get-SqlServerLabBatch`](../../Public/BatchWorkflow.ps1) | Liest Batchplan, Abhängigkeiten, Fortschritt und Cleanup-Scope. | Vorgänge, Queue und Benutzeraktionen | direkt: Workflow-Inventur |
+| [`New-SqlServerLabBatch`](../../Public/BatchWorkflow.ps1) | Validiert und expandiert einen Einzel- oder Mengenbatch. | Umgebung erstellen → SQL- oder Windows-Umgebung zusammenstellen. Gespeicherte Entwürfe über Vorgänge, Queue und Benutzeraktionen → Gespeicherten Batch prüfen und einreihen. | Vorgänge → Batch mit mehreren Umgebungen planen. Den validierten Entwurf in der Batchübersicht prüfen und einreihen. |
+| [`Get-SqlServerLabBatch`](../../Public/BatchWorkflow.ps1) | Liest Batchplan, Abhängigkeiten, Fortschritt und Cleanup-Scope. | Vorgänge, Queue und Benutzeraktionen → Batch auswählen | Vorgänge, Warteschlange und Wiederaufnahme → Fortschritt gespeicherter Batches. Die Batch-ID filtert offene Vorgangskarten. |
 | [`Get-SqlServerLabQueue`](../../Public/BatchWorkflow.ps1) | Zeigt Worker, Locks, Blockierungen und User-Gates. | Statusbanner und Queue | direkt: Queue-Ansicht und Workflow-Inventur |
+| [`Invoke-SqlServerLabScheduler`](../../Public/BatchWorkflow.ps1) | Arbeitet freigegebene Vorgänge der aktuellen Warteschlange ab. | Vorgänge → Scheduler jetzt ausführen | Vorgänge → Hintergrundscheduler anfordern. Nach der Bestätigung zeigt die Warteschlange den tatsächlichen Fortschritt. |
 | [`Get-SqlServerLabOperation`](../../Public/BatchWorkflow.ps1) | Liest Schritte, Receipts, Events und Ergebnis eines Kindvorgangs. | Queue → Vorgangsdetails | direkt: Workflow-Inventur |
 | [`Confirm-SqlServerLabOperationUserAction`](../../Public/BatchWorkflow.ps1) | Prüft ein User-Gate technisch und setzt nur eine erfolgreiche Position fort. | Queue → Benutzeraktion bestätigen | direkt: User-Gate bestätigen |
-| [`Move-SqlServerLabOperation`](../../Public/BatchWorkflow.ps1) | Verschiebt einen wartenden Vorgang innerhalb seiner Priorität. | Queue → nach oben/nach unten | direkt: `MoveUp` und `MoveDown` |
-| [`Set-SqlServerLabOperationPriority`](../../Public/BatchWorkflow.ps1) | Setzt die individuelle Priorität eines Kindvorgangs. | Queue → Priorität | direkt: `PriorityHigh`, `PriorityNormal`, `PriorityLow` |
-| [`Suspend-SqlServerLabOperation`](../../Public/BatchWorkflow.ps1) | Pausiert einen wartenden Vorgang. | Queue → pausieren | direkt: `Suspend` |
-| [`Resume-SqlServerLabOperation`](../../Public/BatchWorkflow.ps1) | Gibt einen pausierten Vorgang wieder frei. | Queue → fortsetzen | direkt: `Resume` |
-| [`Stop-SqlServerLabOperation`](../../Public/BatchWorkflow.ps1) | Stoppt einen Vorgang an einer sicheren Grenze und kann seinen Scope bereinigen. | Queue → stoppen/Stoppen mit Cleanup | direkt: `StopCleanup` |
-| [`Stop-SqlServerLabBatch`](../../Public/BatchWorkflow.ps1) | Stoppt unfertige Positionen oder baut ausdrücklich den gesamten Batch zurück. | Queue → Batch stoppen | – |
+| [`Move-SqlServerLabOperation`](../../Public/BatchWorkflow.ps1) | Verschiebt einen wartenden Vorgang innerhalb seiner Priorität. | Queue → Wartenden Vorgang umreihen | Vorgänge → Nach oben oder Nach unten am wartenden Vorgang |
+| [`Set-SqlServerLabOperationPriority`](../../Public/BatchWorkflow.ps1) | Setzt die individuelle Priorität eines Kindvorgangs. | Queue → Priorität ändern | Vorgänge → Priorität am wartenden Vorgang |
+| [`Suspend-SqlServerLabOperation`](../../Public/BatchWorkflow.ps1) | Pausiert einen wartenden Vorgang. | Queue → Vorgang pausieren oder freigeben | Vorgänge → Pausieren an einem wartenden Vorgang |
+| [`Resume-SqlServerLabOperation`](../../Public/BatchWorkflow.ps1) | Gibt einen pausierten Vorgang wieder frei. | Queue → Vorgang pausieren oder freigeben | Vorgänge → Freigeben an einem pausierten Vorgang |
+| [`Stop-SqlServerLabOperation`](../../Public/BatchWorkflow.ps1) | Stoppt einen Vorgang an einer sicheren Grenze und kann seinen Scope bereinigen. | Queue → Vorgang endgültig stoppen und aufräumen | Vorgänge → Stoppen + Cleanup mit Bestätigung |
+| [`Stop-SqlServerLabBatch`](../../Public/BatchWorkflow.ps1) | Stoppt unfertige Positionen oder baut ausdrücklich den gesamten Batch zurück. | Queue → Batch stoppen oder vollständig zurückbauen | Vorgänge → Fortschritt gespeicherter Batches → Unfertige Positionen stoppen. Vorschau und Bestätigung binden den übergebenen Batch. |
 | [`Invoke-SqlServerLabScheduler`](../../Public/BatchWorkflow.ps1) | Verarbeitet die persistente Queue mit begrenzter Workerzahl bis zum Leerlauf. | Queue → Scheduler ausführen | über Core: Operation Host verarbeitet eingereihte GUI-Aktionen |
 
 ## Einstieg, Inventur und Workflow
@@ -216,13 +234,14 @@ Legende:
 | Cmdlet | Kurzbeschreibung | Konsolenmenü | Browser-GUI |
 |---|---|---|---|
 | [`Invoke-SqlServerLab`](../../Public/Invoke-SqlServerLab.ps1) | Startet die interaktive PowerShell-Konsolenoberfläche. | ist das Hauptmenü | – |
-| [`Get-SqlServerLabWorkflow`](../../Public/Get-SqlServerLabWorkflow.ps1) | Liefert eine verdichtete, geheimnisfreie Workflow-, Image- und Kombinationsübersicht. | – | direkt: zentrale Dashboard-Inventur und Refresh |
-| [`Get-SqlServerLabSmtpTestServiceStatus`](../../Public/Get-SqlServerLabSmtpTestServiceStatus.ps1) | Prüft die gebundene Mailpit-Receiver-Laufzeit eines SMTP-Testdiensts ohne Mailinhalte oder Zugangsdaten. | Expertenbefehl | Expertenbefehle: read-only |
-| [`Open-SqlServerLabSmtpTestServiceWebMail`](../../Public/Open-SqlServerLabSmtpTestServiceWebMail.ps1) | Öffnet einen bestätigten, kurzlebigen lokalen Mailpit-Zugang zum Lesen und Löschen von Testmails. | Expertenbefehl | Expertenbefehle: Bestätigung erforderlich |
-| [`Get-SqlServerLabAutomationPlan`](../../Public/Get-SqlServerLabAutomationPlan.ps1) | Projiziert ausgewählte bestehende öffentliche Plan-/Action-Grenzen als lokalen, versionierten und nicht ausführbaren Vertrag; keine Runtime-, Netzwerk- oder State-Aktion und keine IaC-Adapter. | – | – |
-| [`Get-SqlServerLabAiScenario`](../../Public/Get-SqlServerLabAiScenario.ps1) | Löst ein hashgebundenes SQL-KI-Szenario katalogisiert oder gegen einen Run auf. | Lab-Umgebungen → Datenbanken, Samples und Skripte → SQL Server 2025 KI → Szenarioplan | – |
-| [`Get-SqlServerLabLlamaCppModel`](../../Public/Get-SqlServerLabLlamaCppModel.ps1) | Listet kuratierte, revisions-, größen-, hash- und lizenzgebundene GGUF-Generationsmodelle. | Lab-Umgebungen → Datenbanken, Samples und Skripte → SQL Server 2025 KI → llama.cpp-Modelle | – |
-| [`Save-SqlServerLabLlamaCppModel`](../../Public/Save-SqlServerLabLlamaCppModel.ps1) | Lädt genau das ausgewählte Katalogmodell und veröffentlicht es erst nach Größen-, SHA-256- und GGUF-Prüfung atomar unter `Lab_Base/AI/Models`. | Lab-Umgebungen → Datenbanken, Samples und Skripte → SQL Server 2025 KI → llama.cpp-Modelle | – |
+| [`Get-SqlServerLabWorkflow`](../../Public/Get-SqlServerLabWorkflow.ps1) | Liefert die Workflow-, Image- und Kombinationsübersicht. Die Konsole zeigt registrierte Labs, Vorlagen, offene Builds und die Queue. | Lab-Umgebungen → Lab-Übersicht und offene Arbeiten | Zentrale Dashboard-Inventur und Refresh |
+| [`Get-SqlServerLabSmtpTestServiceStatus`](../../Public/Get-SqlServerLabSmtpTestServiceStatus.ps1) | Prüft die gebundene Mailpit-Receiver-Laufzeit eines SMTP-Testdiensts. Der Containerbefund enthält weder Mailinhalte noch Zugangsdaten und bestätigt keine Zustellung. | Lab-Umgebungen → SMTP-Testdienst prüfen | Lab-Umgebungen → SMTP-Testdienst prüfen |
+| [`Open-SqlServerLabSmtpTestServiceWebMail`](../../Public/Open-SqlServerLabSmtpTestServiceWebMail.ps1) | Öffnet einen bestätigten, kurzlebigen lokalen Mailpit-Zugang zum Lesen und Löschen von Testmails. Der Startlink ist geschützt. | Lab-Umgebungen → SMTP-Testdienst prüfen → WebMail für 15 Minuten öffnen | Lab-Umgebungen → SMTP-Testdienst prüfen → WebMail im Standardbrowser öffnen |
+| [`Get-SqlServerLabAutomationPlan`](../../Public/Get-SqlServerLabAutomationPlan.ps1) | Zeigt Fachbefehl, Vertragsversion, Pflichtparameter und einen gegebenenfalls vorhandenen separaten Aktionsbefehl. | Wartung, Aufräumen und Recovery → Automatisierungsschnittstelle ansehen | Wartung → Automatisierungsschnittstelle ansehen |
+| [`Get-SqlServerLabAiScenario`](../../Public/Get-SqlServerLabAiScenario.ps1) | Löst ein hashgebundenes SQL-KI-Szenario katalogisiert oder gegen einen Run auf. | Lab-Umgebungen → Datenbanken, Samples und Skripte → SQL Server 2025 KI → Szenarioplan | Host-Dienste und Modelle → Vector-Core-Szenarioplan lesen |
+| [`Get-SqlServerLabLlamaCppRuntime`](../../Public/Get-SqlServerLabLlamaCppRuntime.ps1) | Sucht vorhandene Runtime-Paketdateien. Die geführte Anzeige zeigt Backend, Build und einen Hinweis bei unvollständiger Suche. | Host-Dienste und Modelle → Vorhandene llama.cpp-Pakete prüfen | Host-Dienste und Modelle → Vorhandene llama.cpp-Pakete prüfen |
+| [`Get-SqlServerLabLlamaCppModel`](../../Public/Get-SqlServerLabLlamaCppModel.ps1) | Listet kuratierte, revisions-, größen-, hash- und lizenzgebundene GGUF-Generationsmodelle. | Host-Dienste und Modelle → llama.cpp-Modellkatalog und Dateien | Host-Dienste und Modelle → llama.cpp-Modelle anzeigen und herunterladen |
+| [`Save-SqlServerLabLlamaCppModel`](../../Public/Save-SqlServerLabLlamaCppModel.ps1) | Lädt das bestätigte Katalogmodell und veröffentlicht es nach Größen-, SHA-256- und GGUF-Prüfung atomar unter `Lab_Base/AI/Models`. | Host-Dienste und Modelle → llama.cpp-Modellkatalog und Dateien → Modell auswählen | Host-Dienste und Modelle → llama.cpp-Modelle anzeigen und herunterladen → Modell und Download bestätigen |
 | [`Get-SqlServerLabAiSharedGatewayServicePlan`](../../Public/Get-SqlServerLabAiSharedGatewayServicePlan.ps1) | Plant einen benutzergebundenen Host-Autostart read-only. `Auto` wählt Windows S4U beziehungsweise Linux systemd user; `WindowsS4U` und `SystemdUser` fixieren die Wahl. Fehlende ScheduledTasks-, lokale Speicher-, EFS-, Usermanager- oder Linger-Voraussetzungen erscheinen als konkrete Blocker. | Alle öffentlichen Befehle; Standard `ServiceMode=Auto`, mögliche Werte werden angezeigt | – |
 | [`Test-SqlServerLabAiSharedGatewayServiceSecret`](../../Public/Test-SqlServerLabAiSharedGatewayServiceSecret.ps1) | Prüft jede Consumer-Referenz für den gebundenen aktuellen Principal ausschließlich über PowerShell SecretManagement. Das Receipt gilt fünf Minuten; Prozessvariablen zählen nicht als Neustartnachweis und die echte nichtinteraktive Service-Auflösung bleibt offene Evidence. | Alle öffentlichen Befehle; `Plan` und `ServicePlan` sind Pflichtwerte | direkt: Shared-Gateway-Panel nimmt beide gebundenen JSON-Pläne an, deaktiviert die Aktion ohne `Get-Secret`, zeigt den Grund und gibt nur die sanitisierte Receipt-Zusammenfassung aus |
 | [`Get-SqlServerLabAiExternalModelPlan`](../../Public/Get-SqlServerLabAiExternalModelPlan.ps1) | Bindet einen vorhandenen OpenAI-kompatiblen HTTPS-Embedding-Endpunkt samt Runtime-, Modell- und Zertifikatshash für SQL `CREATE EXTERNAL MODEL`; der Plan führt keine Probe oder Hostmutation aus. | – | – |
@@ -234,13 +253,13 @@ Legende:
 | [`Test-SqlServerLabAiExternalModelArtifact`](../../Public/Test-SqlServerLabAiExternalModelArtifact.ps1) | Prüft ausdrücklich angegebene lokale Runtime- und Modelldateien read-only gegen die SHA-256-Werte des External-Model-Plans; bestätigt keine Prozess- oder Acceleratornutzung. | – | – |
 | [`Get-SqlServerLabHyperVImageArtifact`](../../Public/Get-SqlServerLabHyperVImageArtifact.ps1) | Inventarisiert Hyper-V-Images pfadfrei mit Evaluation, Referenzen und optionaler Integritätsprüfung. | Hyper-V: Vorlagen und Slots → Images/Slots | direkt über die Workflow-Inventur: Image-Karten und Vorlagenpool |
 | [`Get-SqlServerLabEvaluationWatch`](../../Public/Get-SqlServerLabEvaluationWatch.ps1) | Bewertet Windows- und SQL-Artefaktfristen sowie getrennte, persistierte Windows-Fristen registrierter RUNNING-Hyper-V-Instanzen. Für RUNNING-/STOPPED-Hyper-V-SQL-Runs projiziert er eine Frist ausschließlich aus frischer, gebundener SQL-Gast-Evidence; `-RecordEvents` dedupliziert fällige Ereignisse lokal ohne Images, Lizenzen oder Runs zu verändern. Die Fachdialoge lesen ohne diesen Schalter mit Warnfrist 30 und kritischer Frist 7 Tage. | Wartung, Aufräumen und Recovery → Windows-/SQL-Evaluationsfristen → Lesen → Eintrag auswählen | Evaluationsfristen → Fristen lesen / aktualisieren → Vorlage oder Instanz auswählen |
-| [`Get-SqlServerLabRunStateUpgradePlan`](../../Public/Get-SqlServerLabRunStateUpgradePlan.ps1) | Klassifiziert einen lokalen Run-State gegen den Zielvertrag ohne State- oder Runtime-Mutation. | – | – |
-| [`Get-SqlServerLabDiagnosticBundle`](../../Public/Get-SqlServerLabDiagnosticBundle.ps1) | Liefert [begrenzte, gebundene Diagnose-Evidence](../Architecture/DIAGNOSTIC_BUNDLE.md) ohne Secrets, Rohlogs, Hostwerte oder Mutation. | – | – |
+| [`Get-SqlServerLabRunStateUpgradePlan`](../../Public/Get-SqlServerLabRunStateUpgradePlan.ps1) | Klassifiziert einen lokalen Run-State gegen den Zielvertrag ohne State- oder Runtime-Mutation. | Wartung → Format eines Run-States prüfen | Wartung → Format eines Run-States prüfen |
+| [`Get-SqlServerLabDiagnosticBundle`](../../Public/Get-SqlServerLabDiagnosticBundle.ps1) | Liefert [begrenzte, gebundene Diagnose-Evidence](../Architecture/DIAGNOSTIC_BUNDLE.md) ohne Secrets, Rohlogs, Hostwerte oder Mutation. | Wartung → Gespeicherten Diagnosebefund lesen | Wartung → Gespeicherten Diagnosebefund lesen |
 | [`Invoke-SqlServerLabRunStateUpgrade`](../../Public/Invoke-SqlServerLabRunStateUpgrade.ps1) | Migriert nur einen explizit synthetischen, unversionierten Legacy-State atomar; `WhatIf` plant ohne Commit, unbekannte Versionen und Runtime-Ressourcen bleiben blockiert. | – | – |
-| [`Get-SqlServerLabPortableLabImportPlan`](../../Public/Get-SqlServerLabPortableLabImportPlan.ps1) | Bindet BackupSetId- und Integritäts-Evidence eines portablen Container-Lab-Pakets read-only an einen bestehenden Docker-/Podman-Ziel-Run; die Ausführung ist nicht implementiert. | – | – |
+| [`Get-SqlServerLabPortableLabImportPlan`](../../Public/Get-SqlServerLabPortableLabImportPlan.ps1) | Prüft BackupSetId und Integritätsnachweis eines portablen Lab-Pakets für einen bestehenden Docker-/Podman-Ziel-Run. | Datenbanken, Samples und Skripte → Portables Lab-Paket prüfen | Lab-Umgebungen → Datenbankpakete → Portables Lab-Paket prüfen |
 | [`Get-SqlServerLabPortableContainerTransferExecutorPlan`](../../Public/Get-SqlServerLabPortableContainerTransferExecutorPlan.ps1) | Prüft eine ausdrückliche Mehrdatenbankauswahl oder die angeforderte `AllEligible`-Inventur zwischen zwei laufenden SQL-2025/Linux-Containerinstanzen. Der Plan ist absichtlich blockiert: sichere Inventur, HEADERONLY-/Live-CHECKSUM-/VERIFYONLY- und `RELATIONAL_CORE/1.0`-Inhaltsvergleich sowie atomarer Mehrdatenbank-Rollback fehlen noch; es gibt keine Ausführung. | – | – |
-| [`Get-SqlServerLabHyperVRecoveryPointPlan`](../../Public/Get-SqlServerLabHyperVRecoveryPointPlan.ps1) | Inventarisiert bestehende, eindeutig an einen Hyper-V-Run gebundene Checkpoints ohne VM-Namen oder Hostpfade; Erstellung, Quiesce und Restore bleiben nicht implementiert. | – | – |
-| [`Get-SqlServerLabHyperVResourcePreview`](../../Public/Get-SqlServerLabHyperVResourcePreview.ps1) | Zeigt registrierte Hyper-V-Location, freien Speicher und physische Klassenroots ohne Mutation. | Hyper-V-Aktionen vor UAC | über Core: Hyper-V-User-Gate und erhöhter Handoff |
+| [`Get-SqlServerLabHyperVRecoveryPointPlan`](../../Public/Get-SqlServerLabHyperVRecoveryPointPlan.ps1) | Inventarisiert bestehende, eindeutig an einen Hyper-V-Run gebundene Checkpoints ohne VM-Namen oder Hostpfade. | Wartung → Hyper-V-Wiederherstellungspunkte lesen | Wartung → Hyper-V-Wiederherstellungspunkte lesen |
+| [`Get-SqlServerLabHyperVResourcePreview`](../../Public/Get-SqlServerLabHyperVResourcePreview.ps1) | Zeigt das registrierte Hyper-V-Speicherziel, freien Speicher und physische Klassenroots. | Hyper-V: Vorlagen und Slots → Hyper-V-Zielpfade und freien Speicher anzeigen | Hyper-V: Vorlagen und Slots → Hyper-V-Zielpfade und freien Speicher anzeigen |
 | [`Get-SqlServerLabCatalog`](../../Public/Get-SqlServerLabCatalog.ps1) | Schreibt den Workflow-Katalog als persistentes, maschinenlesbares JSON-Artefakt. | Lab-Umgebungen → Datenbanken, Samples und Skripte → Lab-Katalog prüfen | – |
 
 ## Verbindungszentrale, SSMS und CMS
@@ -266,10 +285,11 @@ und deren Prüfstatus bleiben davon getrennt.
 |---|---|---|---|
 | [`Get-SqlServerLabConnectionCenter`](../../Public/Sync-SqlServerLabConnectionCenter.ps1) | Liefert eine passwortfreie Endpunktübersicht für SSMS, CMS und Exporte. | Lab-Umgebungen → Datenbanken, Samples und Skripte → Verbindungszentrale | – |
 | [`Sync-SqlServerLabConnectionCenter`](../../Public/Sync-SqlServerLabConnectionCenter.ps1) | Aktualisiert den Endpunktkatalog der Verbindungszentrale atomar. | Verbindungszentrale; zusätzlich nach endpunktrelevanten Lifecycle-Aktionen | – |
-| [`Export-SqlServerLabSsmsRegistration`](../../Public/Sync-SqlServerLabConnectionCenter.ps1) | Erzeugt einen kennwortfreien SSMS-`.regsrvr`-Export. | Verbindungszentrale → SSMS-Export | – |
+| [`Export-SqlServerLabSsmsRegistration`](../../Public/Sync-SqlServerLabConnectionCenter.ps1) | Erzeugt einen kennwortfreien SSMS-`.regsrvr`-Export. Der Browser exportiert bis zu 500 gespeicherte reguläre Endpunkte. | Verbindungszentrale → SSMS-Export | Verbindungen und CMS → SSMS-Registrierungen herunterladen |
 | [`Export-SqlServerLabCmsSyncScript`](../../Public/Sync-SqlServerLabConnectionCenter.ps1) | Erzeugt ein idempotentes CMS-Synchronisationsskript. | Verbindungszentrale → CMS-Skript | – |
-| [`Initialize-SqlServerLabCms`](../../Public/Sync-SqlServerLabConnectionCenter.ps1) | Erstellt nach expliziter Auswahl einen kompakten persistenten Docker-/Podman-CMS; `-LabName` benennt ihn, `-ReplaceRemovedCms` ersetzt ausschließlich eine terminal entfernte CMS-Registrierung. | Verbindungszentrale → CMS initialisieren | – |
-| [`Sync-SqlServerLabCms`](../../Public/Sync-SqlServerLabConnectionCenter.ps1) | Gleicht den verwalteten lokalen CMS mit dem aktuellen Katalog ab. | Verbindungszentrale; zusätzlich nach endpunktrelevanten Lifecycle-Aktionen | – |
+| [`Initialize-SqlServerLabCms`](../../Public/Sync-SqlServerLabConnectionCenter.ps1) | Erstellt nach expliziter Auswahl einen kompakten persistenten Docker-/Podman-CMS. `-LabName` benennt ihn. `-ReplaceRemovedCms` ersetzt ausschließlich eine terminal entfernte CMS-Registrierung. Das generierte Kennwort bleibt lokal geschützt. | Verbindungszentrale → CMS initialisieren | Verbindungen und CMS → CMS bereitstellen → Neuen CMS-Run erstellen |
+| `Register-SqlServerLabCmsEnvironment` (interne Fachfunktion) | Registriert einen geeigneten bestehenden Run als verwalteten CMS. Die Browser-Aktion nutzt ein bereits lokal gespeichertes Kennwort. | Verbindungszentrale → bestehenden Run übernehmen | Verbindungen und CMS → CMS bereitstellen → Vorhandenen SQL-Run übernehmen |
+| [`Sync-SqlServerLabCms`](../../Public/Sync-SqlServerLabConnectionCenter.ps1) | Gleicht den verwalteten lokalen CMS mit dem aktuellen Katalog ab. | Verbindungszentrale und automatischer Abgleich nach Lifecycle-Aktionen | Verbindungen und CMS → Registrierten CMS lesend prüfen → CMS synchronisieren. Für laufende Docker-/Podman-CMS ohne Kennwortalias. |
 
 ## Reconcile und GUI-Adapter
 
@@ -284,12 +304,12 @@ und deren Prüfstatus bleiben davon getrennt.
 | Cmdlet | Kurzbeschreibung | Konsolenmenü | Browser-GUI |
 |---|---|---|---|
 | [`New-SqlServerLabManifest`](../../Public/New-SqlServerLabManifest.ps1) | Erstellt ein Manifest schema-gesteuert interaktiv oder aus einem Objekt. | Lab-Umgebungen → Datenbanken, Samples und Skripte → Container-Manifest | über Adapter: `CreateContainerManifest` |
-| [`Test-SqlServerLabManifest`](../../Public/New-SqlServerLabManifest.ps1) | Prüft Schema, Kataloge und Runtime-Grenzen ohne Provisionierung. | im Manifest-Wizard über den gemeinsamen Core | – |
+| [`Test-SqlServerLabManifest`](../../Public/New-SqlServerLabManifest.ps1) | Prüft Schema, Kataloge und Runtime-Grenzen ohne Provisionierung. | Datenbanken, Samples und Skripte → Vorhandenes Lab-Manifest prüfen | Lab erstellen → Container-Manifest prüfen oder ausführen → Manifest prüfen |
 | [`New-SqlServerLab`](../../Public/New-SqlServerLab.ps1) | Erstellt eine Umgebung ad hoc oder per Manifest und kann einen detached Containerstore fortsetzen oder klonen. | Umgebungen planen und erstellen | über Adapter: `NewContainerLab`, `NewContainerLabFromManifest` |
 | [`Get-SqlServerLab`](../../Public/Get-SqlServerLab.ps1) | Zeigt State, Live-Status und sanitisierte Tool-Metadaten je Provider. | Lab-Umgebungen → Umgebung auswählen und verwalten → Status | über Core: Browserstatus stammt aus `Get-SqlServerLabWorkflow`, nicht aus diesem Export |
 | [`Get-SqlServerLabGeneratedSqlAccess`](../../Public/Get-SqlServerLabGeneratedSqlAccess.ps1) | Gibt generierte Hyper-V-SA-Zugangsdaten und den Connection String gezielt zurück. | Lab-Umgebungen → Umgebung auswählen und verwalten → Status/Zugang anzeigen | –; die GUI zeigt Connection Strings, aber keine gespeicherten Passwörter |
 | [`Get-SqlServerLabGeneratedWindowsAccess`](../../Public/Get-SqlServerLabGeneratedWindowsAccess.ps1) | Gibt das run-lokal DPAPI-geschützte Windows-Administratorpasswort eines Slots gezielt aus. | – | – |
-| [`New-SqlServerLabWindowsSlotPool`](../../Public/New-SqlServerLabWindowsSlotPool.ps1) | Erzeugt aus einer gültigen `OS_SEALED`-Baseline mehrere resumierbare Windows-Slots mit unbeaufsichtigter OOBE. | Hyper-V: Vorlagen und Slots → Windows-OS-Slot-Pool | – |
+| [`New-SqlServerLabWindowsSlotPool`](../../Public/New-SqlServerLabWindowsSlotPool.ps1) | Erzeugt aus einer gültigen `OS_SEALED`-Baseline resumierbare Windows-Slots mit unbeaufsichtigter OOBE. | Hyper-V: Vorlagen und Slots → Windows-OS-Slot-Pool automatisch erstellen | Hyper-V: Vorlagen und Slots → Windows-OS-Slot-Pool vorbereiten. Passwörter werden pro Slot generiert. |
 | [`Sync-SqlServerLabRuntimeState`](../../Public/Sync-SqlServerLabRuntimeState.ps1) | Gleicht Runs mit Docker, Podman und Hyper-V ab und markiert eindeutig fehlende Ressourcen als `RECOVERY_REQUIRED`. | Lab-Umgebungen → Umgebung auswählen und verwalten → mit Runtimes abgleichen | – |
 | [`Start-SqlServerLab`](../../Public/Start-SqlServerLab.ps1) | Startet eine gestoppte Umgebung über den gespeicherten Provider. | Lab-Umgebungen → Umgebung auswählen und verwalten → Start | über Adapter: `StartContainerLab`; der sichtbare Browserpfad verwendet überwiegend `StartLabReconcile` |
 | [`Stop-SqlServerLab`](../../Public/Stop-SqlServerLab.ps1) | Stoppt eine laufende Umgebung über den gespeicherten Provider. | Lab-Umgebungen → Umgebung auswählen und verwalten → Stopp | über Adapter: `StopContainerLab`; der sichtbare Browserpfad verwendet überwiegend `StopLabReconcile` |
@@ -301,19 +321,47 @@ und deren Prüfstatus bleiben davon getrennt.
 
 | Cmdlet | Kurzbeschreibung | Konsolenmenü | Browser-GUI |
 |---|---|---|---|
-| [`New-SqlServerLabAutomatedTestEnvironment`](../../Public/TestEnvironment.ps1) | Erstellt Linux-Testumgebungen mit getrennten Zufallskennwörtern und exportiert sie nach `Lab_Data`. | Geschützte Testsystem-Matrix → Testgruppe erstellen oder konfigurieren | – |
-| [`Export-SqlServerLabTestEnvironment`](../../Public/TestEnvironment.ps1) | Exportiert registrierte, live geprüfte Testumgebungen als dotenv, JSON, Agenten-Prompt und Markdown. | Geschützte Testsystem-Matrix → Testgruppe konfigurieren → Export | – |
-| [`Start-SqlServerLabAutomatedTestEnvironment`](../../Public/TestEnvironmentLifecycle.ps1) | Startet die registrierten Mitglieder als Gruppe und prüft sie bis `READY`. | Geschützte Testsystem-Matrix → Testgruppe starten | – |
-| [`Stop-SqlServerLabAutomatedTestEnvironment`](../../Public/TestEnvironmentLifecycle.ps1) | Stoppt die registrierten Mitglieder nicht destruktiv und erneuert den Export fail-closed. | Geschützte Testsystem-Matrix → Testgruppe stoppen | – |
-| [`Repair-SqlServerLabAutomatedTestEnvironment`](../../Public/TestEnvironment.ps1) | Gleicht Ressourcen, Health, Autostart, Windows-Aktivierung und Runtime-Namen sicher ab. | über den Testumgebungs-Workflow-Core | – |
-| [`Clear-SqlServerLabAutomatedTestEnvironment`](../../Public/TestEnvironment.ps1) | Entfernt alle Runs der geschützten Testgruppe und deren Exporte. | Geschützte Testsystem-Matrix → Testgruppe entfernen | – |
+| [`New-SqlServerLabAutomatedTestEnvironment`](../../Public/TestEnvironment.ps1) | Erstellt Linux-Testumgebungen mit getrennten Zufallskennwörtern und exportiert sie nach `Lab_Data`. | Geschützte Testsystem-Matrix → Testgruppe erstellen oder konfigurieren | [Geschützte Testsystem-Matrix → Linux-Testumgebung hinzufügen](../HowTo/WORKFLOW_UI.md#linux-testumgebung-zur-geschützten-testgruppe-hinzufügen). SQL-Version und Patch aus dem Lab-Katalog wählen. |
+| [`Export-SqlServerLabTestEnvironment`](../../Public/TestEnvironment.ps1) | Exportiert registrierte, live geprüfte Testumgebungen als dotenv, JSON, Agenten-Prompt und Markdown. | Geschützte Testsystem-Matrix → Testgruppe konfigurieren → Export | Geschützte Testsystem-Matrix → Testgruppe verwalten → Gruppenexport aktualisieren |
+| [`Start-SqlServerLabAutomatedTestEnvironment`](../../Public/TestEnvironmentLifecycle.ps1) | Startet die registrierten Mitglieder als Gruppe und prüft sie bis `READY`. | Geschützte Testsystem-Matrix → Testgruppe starten | [Gruppe ansehen · Power-Start/Stop](../HowTo/WORKFLOW_UI.md#geschützte-testgruppe-power-startstop) startet die Runtime. Die SQL-Bereitschaftsprüfung erfolgt im CLI-Gruppenbereitsteller. |
+| [`Stop-SqlServerLabAutomatedTestEnvironment`](../../Public/TestEnvironmentLifecycle.ps1) | Stoppt die registrierten Mitglieder nicht destruktiv und erneuert den Export fail-closed. | Geschützte Testsystem-Matrix → Testgruppe stoppen | [Gruppe ansehen · Power-Start/Stop](../HowTo/WORKFLOW_UI.md#geschützte-testgruppe-power-startstop) stoppt die Runtime. Die Erneuerung des Exports gehört zum öffentlichen Gruppenbereitsteller. |
+| Windows-Testumgebung aus SQL-Prepared-Vorlage | Klont und registriert eine freigegebene Hyper-V-Vorlage mit SQL-Version und Build. | Geschützte Testsystem-Matrix → Testgruppe erstellen oder konfigurieren → Windows hinzufügen | [Geschützte Testsystem-Matrix → Windows anlegen](../HowTo/WORKFLOW_UI.md#windows-hinzufügen-testgruppe-reparieren-oder-entfernen) |
+| Windows-/SQL-Vorlage aus ISOs vorbereiten | Startet den Vorlagen-Workflow. Die freigegebene SQL-Prepared-Vorlage kann danach als Windows-Mitglied der Matrix registriert werden. | Hyper-V: Vorlagen und Slots → Hyper-V Infrastruktur: OS-Images und ISOs verwalten → Neue SQL-Prepared-Vorlage aus DVD erstellen | [Geschützte Testsystem-Matrix → Windows-/SQL-Vorlage aus ISOs vorbereiten](../HowTo/WORKFLOW_UI.md#windows-hinzufügen-testgruppe-reparieren-oder-entfernen) |
+| [`Repair-SqlServerLabAutomatedTestEnvironment`](../../Public/TestEnvironment.ps1) | Gleicht Ressourcen, Health, Autostart, Windows-Aktivierung und Runtime-Namen sicher ab. | Geschützte Testsystem-Matrix → Testgruppe reparieren | [Geschützte Testsystem-Matrix → Gruppe reparieren](../HowTo/WORKFLOW_UI.md#windows-hinzufügen-testgruppe-reparieren-oder-entfernen) |
+| [`Clear-SqlServerLabAutomatedTestEnvironment`](../../Public/TestEnvironment.ps1) | Entfernt alle Runs der geschützten Testgruppe und deren Exporte. | Geschützte Testsystem-Matrix → Testgruppe entfernen | [Geschützte Testsystem-Matrix → Gruppe entfernen](../HowTo/WORKFLOW_UI.md#windows-hinzufügen-testgruppe-reparieren-oder-entfernen) |
+
+## Wiederverwendbare Lab-Umgebungsgruppen
+
+Diese additiven Gruppen verknüpfen bereits separat erstellte Runs; sie erstellen
+weder die Runs noch ein gemeinsames Providernetz oder einen SQL-Linked-Server.
+Ein Run darf mehreren Gruppen angehören. Beim Stop einer Gruppe bleibt er
+aktiv, solange eine andere aktive Gruppe ihn beansprucht. Vollständiger
+Lifecycle-, CLI-/GUI- und Providervertrag: [Lab-Umgebungsgruppen](../Architecture/LAB_ENVIRONMENT_GROUPS.md).
+
+| Cmdlet | Kurzbeschreibung | Konsolenmenü | Browser-GUI |
+|---|---|---|---|
+| [`Get-SqlServerLabEnvironmentGroup`](../../Public/EnvironmentGroups.ps1) | Listet Gruppen und gebundene Run-Referenzen; optionale Bindungsprüfung unterscheidet aktuelle und veraltete Verweise. | Lab-Umgebungen → Umgebung auswählen und verwalten → Lab-Umgebungsgruppen verwalten | Lab-Umgebungen → Lab-Umgebungsgruppen ansehen |
+| [`New-SqlServerLabEnvironmentGroup`](../../Public/EnvironmentGroups.ps1) | Legt eine leere Gruppe an; startet keine Run- oder Providerressource. | gleicher CLI-Pfad → Gruppe erstellen | gleicher GUI-Pfad → Leere Gruppe erstellen |
+| [`Add-SqlServerLabEnvironmentGroupMember`](../../Public/EnvironmentGroups.ps1) | Fügt einer gestoppten Gruppe einen vorhandenen Run hinzu; derselbe Run kann weiteren Gruppen angehören. | gleicher CLI-Pfad → Gruppe wählen → Run-ID hinzufügen | gleicher GUI-Pfad → gestoppte Gruppe → Run zuordnen |
+| [`Remove-SqlServerLabEnvironmentGroupMember`](../../Public/EnvironmentGroups.ps1) | Löst eine einzelne Gruppenreferenz; stoppt oder entfernt den Run nicht. | gleicher CLI-Pfad → Gruppe wählen → Zuordnung lösen | gleicher GUI-Pfad → gestoppte Gruppe → Zuordnung lösen |
+| [`Start-SqlServerLabEnvironmentGroup`](../../Public/EnvironmentGroups.ps1) | Startet gestoppte Mitglieder und prüft für neu gestartete Runs SQL-Bereitschaft; bereits laufende Mitglieder bleiben unverändert. | gleicher CLI-Pfad → Gruppe wählen → Gruppe starten | gleicher GUI-Pfad → Gruppe starten |
+| [`Stop-SqlServerLabEnvironmentGroup`](../../Public/EnvironmentGroups.ps1) | Löst den Lifecycle-Anspruch der Gruppe; gemeinsam genutzte Runs bleiben bei einem weiteren aktiven Gruppenanspruch aktiv. | gleicher CLI-Pfad → Gruppe wählen → Gruppe stoppen | gleicher GUI-Pfad → Gruppe stoppen / Wiederherstellen und stoppen |
+| [`Remove-SqlServerLabEnvironmentGroup`](../../Public/EnvironmentGroups.ps1) | Entfernt eine gestoppte Gruppe und ihre Referenzen, nicht deren Runs. | gleicher CLI-Pfad → gestoppte Gruppe → Gruppe entfernen | gleicher GUI-Pfad → gestoppte Gruppe → Gruppe entfernen |
+
+Die geführten UI-Aktionen verlangen eine ausdrückliche Bestätigung. Sie
+behaupten keine SQL-Linked-Server-Konfiguration, TLS-Identitätsprüfung oder
+Runtime-Reconcile. Der getrennte native Docker-/Podman-Nachweis des
+Mehrgruppen-Lifecycle steht in der [datierten Abnahme](../Quality/LINKED_SERVER_ENVIRONMENT_GROUP_ACCEPTANCE_2026-11-08.md).
 
 ## Maintenance und Persistent Storage
 
 | Cmdlet | Kurzbeschreibung | Konsolenmenü | Browser-GUI |
 |---|---|---|---|
 | [`Get-SqlServerLabCleanupAudit`](../../Public/Get-SqlServerLabCleanupAudit.ps1) | Klassifiziert `Lab_Data`, Storage-Residency, Runtime-Scopes und auffällige Objekte read-only. | Wartung, Aufräumen und Recovery → Cleanup-Audit | – |
-| [`Get-SqlServerLabMaintenancePlan`](../../Public/Maintenance.ps1) | Inventarisiert State und Runtime-Ressourcen read-only und trennt sichere von freizugebenden Aktionen. | – | – |
+| [`Get-SqlServerLabEvaluationRefreshPlan`](../../Public/Get-SqlServerLabEvaluationRefreshPlan.ps1) | Liest für eine ausgewählte SQL-Instanz den Ersatz- oder Migrationsentscheid. | Wartung, Aufräumen und Recovery → SQL-Evaluation: Ersatz- und Migrationsentscheid | Wartung und Recovery → SQL-Evaluation: Ersatzentscheid |
+| [`Get-SqlServerLabRunArtifactRemovalPlan`](../../Public/Get-SqlServerLabRunArtifactRemovalPlan.ps1) | Prüft die Metadaten genau eines entfernten Runs und erstellt eine gebundene Vorschau. | Wartung, Aufräumen und Recovery → Artefakte eines entfernten Runs | Wartung und Recovery → Run-Artefakte prüfen |
+| [`Invoke-SqlServerLabRunArtifactRemoval`](../../Public/Invoke-SqlServerLabRunArtifactRemoval.ps1) | Entfernt nach Bestätigung die geprüften Run-Metadaten oder setzt eine begonnene Entfernung fort. | Derselbe Dialog → Vorschau und Bestätigung | Derselbe Dialog → Vorschau und Bestätigung |
+| [`Get-SqlServerLabMaintenancePlan`](../../Public/Maintenance.ps1) | Inventarisiert State und Runtime-Ressourcen lesend. Der vollständige Plan enthält zusätzlich Zähler aus dem Cleanup- und Speicheraudit. | Wartung, Aufräumen und Recovery → Schnellen oder vollständigen Wartungsplan lesen | Wartung → Schnellen oder vollständigen Wartungsplan lesen |
 | [`Invoke-SqlServerLabMaintenance`](../../Public/Maintenance.ps1) | Führt einen revalidierten Maintenance-Plan aus und lässt fremde Ressourcen unangetastet. | – | – |
 | [`Get-SqlServerLabPersistentStorageRemovalPlan`](../../Public/Get-SqlServerLabPersistentStorageRemovalPlan.ps1) | Plant Retention-, Backup-, Package- und Bindungsfolgen einer Run-Entfernung anhand stabiler Storage-IDs. | über interne Storage-Verwaltungsflüsse | direkt: Vorschau vor dem Entfernen persistenter Container-Labs |
 | [`Get-SqlServerLabRetainedStoreRemovalPlan`](../../Public/Get-SqlServerLabRetainedStoreRemovalPlan.ps1) | Prüft einen eigenen detached Docker-/Podman-Store per stabiler ID read-only; keine Backup-Zusage. | Wartung, Aufräumen und Recovery → Behaltenen SQL-Speicher löschen | direkt: getrennter Preview vor endgültiger Löschung |
@@ -348,17 +396,36 @@ Bibliotheks-Recovery blockiert den erneuten Export ausdrücklich.
 | [`Restore-SqlServerLabDatabase`](../../Public/Restore-SqlServerLabDatabase.ps1) | Stellt ein verifiziertes Bibliotheksbackup oder eine direkte `.bak`-Datei mit Trust- und Cache-Schutz wieder her. | Lab-Umgebungen → Datenbanken, Samples und Skripte → Datenbank wiederherstellen | über Adapter: `RestoreContainerLibraryBackup` |
 | [`Invoke-SqlServerLabScript`](../../Public/Invoke-SqlServerLabScript.ps1) | T-SQL mit `GO`-Batchtrennung; `RunWindows` verwendet mit `-WindowsAuthentication` die geschützte Gastanmeldung. [SSIS-Consumeranleitung](../HowTo/SSIS_CONSUMER_WINDOWS_ACCESS.md). | SQL-Skript ausführen; Windows-Modus über Alle öffentlichen Befehle → RunWindows | generischer Exportkatalog; über Adapter weiterhin `ExecuteContainerScript` |
 | [`Invoke-SqlServerLabAiScenario`](../../Public/Invoke-SqlServerLabAiScenario.ps1) | Führt ein deklariertes, hashgebundenes SQL-KI-Szenario journalisiert mit No-op-, `WhatIf`- und Cleanup-Pfad aus. | Lab-Umgebungen → Datenbanken, Samples und Skripte → SQL Server 2025 KI → Szenario ausführen / Geführte KI-Demos → Vector-Core | – |
-| [`Invoke-SqlServerLabAiModel`](../../Public/Invoke-SqlServerLabAiModel.ps1) | Ruft ein katalogisiertes lokales oder Cloud-Ollama-Modell mit explizitem Egress, Datenklasse und begrenztem Budget auf. | Lab-Umgebungen → Datenbanken, Samples und Skripte → SQL Server 2025 KI → Ollama-Modell | – |
+| [`Invoke-SqlServerLabAiModel`](../../Public/Invoke-SqlServerLabAiModel.ps1) | Ruft ein katalogisiertes Ollama-Modell mit deklarierter Datenklasse und begrenztem Budget auf. Die Cloud-Lane benötigt eine explizite Egress-Freigabe. | Host-Dienste und Modelle → Vorhandenes Ollama-Modell aufrufen | Host-Dienste und Modelle → Lokales Ollama-Modell aufrufen. Eine bestätigte Abfrage mit synthetischen Daten geht an den ausgewählten Loopback-Port. |
 | [`Measure-SqlServerLabAiRetrieval`](../../Public/Measure-SqlServerLabAiRetrieval.ps1) | Bewertet manuelle Retrieval-IDs oder ein hashgebundenes, tatsächlich ausgeführtes Golden-RAG deterministisch mit Recall@k, Precision@k, MRR und nDCG. | Lab-Umgebungen → Datenbanken, Samples und Skripte → SQL Server 2025 KI → Retrieval bewerten / Golden-RAG / Geführte KI-Demos → Retrieval-Metriken | – |
 | [`Invoke-SqlServerLabAiRag`](../../Public/Invoke-SqlServerLabAiRag.ps1) | Führt lokale Ollama-Embeddings, exakte SQL-2025-Vektorsuche und quellgebundene Generierung ad hoc oder aus einem versionierten Golden-Fall aus. | Lab-Umgebungen → Datenbanken, Samples und Skripte → SQL Server 2025 KI → lokales SQL-RAG / Golden-RAG / Geführte KI-Demos → Golden-RAG | – |
 | [`Invoke-SqlServerLabAiDiagnosticAgent`](../../Public/Invoke-SqlServerLabAiDiagnosticAgent.ps1) | Führt maximal vier katalogisierte SELECT-Diagnosen unter einer kurzlebigen Least-Privilege-Identität aus und fasst sie lokal zusammen. | Lab-Umgebungen → Datenbanken, Samples und Skripte → SQL Server 2025 KI → read-only Diagnose / Geführte KI-Demos → read-only Agent | – |
-| [`Test-SqlServerLabContainerTool`](../../Public/Test-SqlServerLabContainerTool.ps1) | Prüft kataloggebundenes SqlPackage per run- und scopegebundener read-only Versionsprobe. | – | – |
+| [`Test-SqlServerLabContainerTool`](../../Public/Test-SqlServerLabContainerTool.ps1) | Prüft kataloggebundenes SqlPackage per run- und scopegebundener read-only Versionsprobe. | Datenbanken, Samples und Skripte → SqlPackage-Version im Container prüfen | Lab erstellen → SqlPackage-Version im Container prüfen |
 
 ## Voraussetzungen, Adapter und Hilfswerkzeuge
 
 | Cmdlet | Kurzbeschreibung | Konsolenmenü | Browser-GUI |
 |---|---|---|---|
 | [`Test-SqlServerLabPrerequisite`](../../Private/ResourceAssessment.ps1) | Prüft Provider, RAM, Storage und Ports ohne Mutation. | über die Erstellungs- und Provider-Preflights | über Core: Provisionierungs-Preflights |
+| `Update-SqlServerLabSqlGuestEvaluationEvidence` | Liest die Edition im gebundenen SQL-2025-Gast und aktualisiert den lokalen Beleg für die Evaluationsansicht. | Wartung, Aufräumen und Recovery → SQL-Editionsbeleg im Gast aktualisieren | Wartung → SQL-Editionsbeleg im Gast aktualisieren |
+| `Invoke-SqlServerLabEvaluationWatchTrigger` | Prüft gespeicherte Fristen zuerst sofort und dann im gewählten Intervall, bis die Anzahl erreicht ist. Neue Warnereignisse werden nur auf Wunsch lokal gespeichert. Die geführte Aktion verwendet Warnschwellen von 30 und 7 Tagen. | Wartung, Aufräumen und Recovery → Windows-/SQL-Evaluationsfristen → Fristen zeitgesteuert prüfen. Läuft im Vordergrund und lässt sich mit Ctrl+C abbrechen. | Wartung → Fristen zeitgesteuert prüfen. Läuft als Auftrag des UI-Prozesses ohne Windows-Aufgabe. |
+| `Test-SqlServerLabRelationalCoreComparison` | Vergleicht ein ausgewähltes Paar von Docker-/Podman-Datenbanken im Zustand ONLINE und READ_ONLY nach RELATIONAL_CORE/1.0. Die Aktion meldet Status, Zählwerte und Befundcodes. | Datenbanken, Samples und Skripte → Zwei Containerdatenbanken vergleichen | Lab-Umgebungen → Datenbankpakete → Zwei Containerdatenbanken vergleichen. Das Ergebnis steht im Live-Log. |
+| `Invoke-SqlServerLabPortableContainerTransferPreflight` | Prüft ein registriertes SQL-2025-Backup am vorhandenen laufenden Zielcontainer. Die Medienprüfung nutzt temporäres Staging am gebundenen Backup-Mount. | Datenbanken, Samples und Skripte → Backupmedium am Zielcontainer vorprüfen | Lab-Umgebungen → Datenbankpakete → Backupmedium am Zielcontainer vorprüfen |
+| `Invoke-SqlServerLabPortableContainerTransfer` | Überträgt eine unterstützte READ_ONLY-Datenbank aus einem registrierten SQL-2025-Backup in einen neuen eigenen Run beim Quellprovider. Die Vorgangs-ID bindet Auswahl und Wiederaufnahme. | Datenbanken, Samples und Skripte → SQL-2025-Datenbank in neuen Container übertragen | Lab-Umgebungen → Datenbankpakete → SQL-2025-Datenbank in neuen Container übertragen |
+| `Move-SqlServerLabContainerNetwork` | Prüft mit `-WhatIf` das vorhandene Docker-/Podman-Lab-Netz auf Konflikte. Das optionale IPv4-Ziel und die betroffenen Container werden an die bestätigte Ausführung gebunden. SQL-Verbindungen können dabei unterbrochen werden. | Wartung, Aufräumen und Recovery → Lab-Netz auf Subnetzkonflikt prüfen | Wartung → Lab-Netz auf Subnetzkonflikt prüfen → Gebundenen Plan ausführen |
+| `Set-SqlServerLabFeature` | Installiert Volltext nach oder deaktiviert es durch Entfernen der Komponente. Abhängige Volltextindizes sperren die Deaktivierung. Eine bestätigte Änderung startet SQL Server neu. | Lab-Umgebungen → Umgebung auswählen und verwalten → Volltextsuche ändern. FILESTREAM steht separat unter Datenbanken, Samples und Skripte zur Verfügung. | Lab verwalten → gewählte SQL-Instanz → Volltextsuche ändern (Hyper-V: Volltextsuche / FILESTREAM) |
+| `Get-SqlServerLabHyperVAutoStartPlan` / `Set-SqlServerLabHyperVAutoStart` | Zeigt den gebundenen Ist- und Zielwert und übernimmt die Policy nach Bestätigung. | Lab-Umgebungen → Hyper-V-Autostart ändern | Lab verwalten → Reguläre Hyper-V-Umgebungen → Hyper-V-Autostart ändern |
+| `Resume-SqlServerLabHyperVAutoStart` | Schließt die Zustandsablage für eine bereits verifizierte Autostart-Policy am selben Run ab. | Lab-Umgebungen → Hyper-V-Autostart-Recovery fortsetzen | Lab verwalten → Reguläre Hyper-V-Umgebungen → Hyper-V-Autostart ändern → Autostart-Recovery fortsetzen |
+| [`Get-SqlServerLabAiRuntimeCapability`](../../Public/Get-SqlServerLabAiRuntimeCapability.ps1) | Prüft vorhandene llama.cpp-Paketdateien und zeigt passende erkannte Geräte nach Backend und Geräteklasse. | Host-Dienste und Modelle → llama.cpp-Eignung prüfen | Host-Dienste und Modelle → llama.cpp-Eignung prüfen |
+| `Get-SqlServerLabAiComputeSelection` | Wählt aus vorhandenem Kandidatensatz und Benchmark-Satz den schnellsten gemessenen Kandidaten oder fixiert eine geeignete Kombination. | Host-Dienste und Modelle → KI-Gerätekombination aus Messbelegen wählen | Host-Dienste und Modelle → KI-Gerätekombination aus Messbelegen wählen. Die Auswahl steht im Live-Log. |
+| `Measure-SqlServerLabAiComputeCandidate` | Misst eine ausgewählte Gerätekombination mit einem vorhandenen llama-bench-Paket und einer lokalen GGUF-Datei. | Host-Dienste und Modelle → llama.cpp-Gerätekombinationen messen → Einzelkandidat | Host-Dienste und Modelle → llama.cpp-Gerätekombinationen messen → Modell und Messkandidaten prüfen → Einzelkandidat |
+| `Measure-SqlServerLabAiComputeCandidateSet` | Misst alle geeigneten Gerätekombinationen im ausgewählten lokalen Paketbestand seriell mit demselben Profil und liefert die Auswahl. | Host-Dienste und Modelle → llama.cpp-Gerätekombinationen messen → Alle geeigneten Kandidaten | Host-Dienste und Modelle → llama.cpp-Gerätekombinationen messen → Modell und Messkandidaten prüfen → Alle geeigneten Kandidaten |
+| `Test-SqlServerLabOvmsUpstreamEndpoint` | Prüft den bereits laufenden lokalen OVMS-Dienst mit einem synthetischen HTTP-Request. Die Eingaben sind Loopback-Adresse, Port, Modellname, Embedding-Dimension und Timeout. | Host-Dienste und Modelle → Lokalen OVMS-Embedding-Dienst prüfen | Host-Dienste und Modelle → Lokalen OVMS-Embedding-Dienst prüfen. Das Ergebnis steht im Live-Log. |
+| `Invoke-SqlServerLabAiPersistentRetrieval` | Beispieldaten verwenden oder eigene Dokumente aus JSON anlegen, abfragen, synchronisieren und auf Nomic Embed v2 migrieren. Alte Generationen oder die gesamte Datenbank einer eigenen Collection mit bestehender ID und ausdrücklicher Bestätigung löschen. [JSON-Format](Getting_Started.md#persistentes-retrieval) | SQL-2025-KI-Szenarien und Demos → Persistente Retrieval-Collections | Host-Dienste und Modelle → Persistente Retrieval-Collections. Das Ergebnis steht im Live-Log. |
+| [`Get-SqlServerLabAiComputeCandidate`](../../Public/Get-SqlServerLabAiComputeCandidate.ps1) | Ermittelt erlaubte Geräte-Sets. Die geführte Ansicht zeigt deren Anzahl je Backend und Geräteklasse. | Host-Dienste und Modelle → llama.cpp-Eignung prüfen | Host-Dienste und Modelle → llama.cpp-Eignung prüfen |
+| [`Get-SqlServerLabAiComputeInventory`](../../Public/Get-SqlServerLabAiComputeInventory.ps1) | Erfasst CPU, GPU und NPU lesend. Die geführte Übersicht zeigt je Geräteklasse die Anzahl oder einen unbekannten Befund. | Host-Dienste und Modelle → CPU, GPU und NPU erfassen | Host-Dienste und Modelle → CPU, GPU und NPU erfassen |
+| [`Get-SqlServerLabHostCapabilityMatrix`](../../Public/Get-SqlServerLabHostCapabilityMatrix.ps1) | Zeigt SQL-Sprachvarianten und optional die beobachtete Providerbereitschaft. | Hauptmenü → Hostfähigkeiten vor der Funktionsauswahl | Lab erstellen → Hostfähigkeiten vor der Funktionsauswahl |
+| [`Get-SqlServerLabExternalRuntimeCapability`](../../Public/Get-SqlServerLabExternalRuntimeCapability.ps1) | Zeigt den Katalogbefund für eine Sprachvariante und optional die lesend geprüften Container-Grundlagen. | Hostfähigkeiten → Konkrete Container-Variante näher prüfen | Lab erstellen → Python / R / Java: Katalog und Hostvoraussetzungen |
 | [`Test-SqlServerLabAdapter`](../../Public/Test-SqlServerLabAdapter.ps1) | Prüft einen Project Adapter gegen Schema, Pfadgrenzen und optional eine Run-Instanz. | – | – |
 | [`Install-SqlServerLabAdapter`](../../Public/Install-SqlServerLabAdapter.ps1) | Führt einen validierten Adapter-Entrypoint ohne Lifecycle-Seiteneffekt aus. | – | – |
 | [`Install-SqlServerLab7Zip`](../../Public/Install-SqlServerLab7Zip.ps1) | Installiert 7-Zip nur nach explizitem Aufruf über `winget` für katalogisierte `.7z`-Backups. | Systemstatus und Einstellungen → 7-Zip | – |
@@ -369,7 +436,7 @@ Bibliotheks-Recovery blockiert den erneuten Export ausdrücklich.
 |---|---|---|---|
 | [`Get-SqlServerLabCuStatus`](../../Public/Get-SqlServerLabCuStatus.ps1) | Vergleicht Microsoft-Learn-Buildtabellen read-only mit dem lokalen CU-Katalog. | Ressourcen und Downloads → aktuelle CUs prüfen | – |
 | [`Save-SqlServerLabCuResource`](../../Public/Save-SqlServerLabCuResource.ps1) | Lädt einen katalogisierten Windows-CU verifiziert in den Media Root oder einen exakten Linux-MCR-Tag in Docker/Podman. | Medien, Testdaten und Speicher → CU herunterladen oder prüfen | – |
-| [`Get-SqlServerLabResourcePlan`](../../Public/Get-SqlServerLabResourcePlan.ps1) | Plant fehlende Samples und Windows-/Hyper-V-External-Runtime-Medien read-only. | – | – |
+| [`Get-SqlServerLabResourcePlan`](../../Public/Get-SqlServerLabResourcePlan.ps1) | Ermittelt je Katalogressource die bereitstehenden Dateien und den Beschaffungsweg. Die geführte Ansicht zeigt eine Zusammenfassung ohne lokale Pfade und Hashes. | Ressourcen und Downloads → Lokalen Ressourcenbedarf prüfen | Ressourcen und Downloads → Lokalen Ressourcenbedarf prüfen. Ergebnis unter Vorgänge. |
 | [`Save-SqlServerLabResourceSet`](../../Public/Save-SqlServerLabResourceSet.ps1) | Stellt ausgewählte Ressourcen aus Cache, Altbestand oder katalogisierter HTTP(S)-Quelle hashverifiziert bereit. | – | – |
 | [`Save-SqlServerLabMediaSource`](../../Public/Save-SqlServerLabMediaSource.ps1) | Lädt ein katalogisiertes SQL-Basismedium oder einen Bootstrapper atomar nach Größen-, Hash- und Signaturprüfung. | über Hyper-V-Medien- und Image-Flows | – |
 
@@ -378,8 +445,8 @@ Bibliotheks-Recovery blockiert den erneuten Export ausdrücklich.
 | Cmdlet | Kurzbeschreibung | Konsolenmenü | Browser-GUI |
 |---|---|---|---|
 | [`Set-SqlServerLabLicenseProfile`](../../Public/LicenseProfile.ps1) | Speichert einen optionalen Product Key versions- und editionsgebunden als DPAPI-geschütztes lokales Secret. | – | – |
-| [`Get-SqlServerLabLicenseProfile`](../../Public/LicenseProfile.ps1) | Listet ausschließlich geheimnisfreie Profilmetadaten und Secret-Verfügbarkeit auf. | Hyper-V-SQL-Image-Build → Lizenzprofil auswählen | – |
-| [`Test-SqlServerLabLicenseProfile`](../../Public/LicenseProfile.ps1) | Prüft Metadaten, Secret und lokales Format ohne Onlineaktivierung. | – | – |
+| [`Get-SqlServerLabLicenseProfile`](../../Public/LicenseProfile.ps1) | Listet ausschließlich Produkt, Version, Edition, Kanal und Verfügbarkeit der Schlüsseldatei. | Grundkonfiguration → Lokale Lizenzprofile prüfen | Grundkonfiguration → Lokale Lizenzprofile prüfen |
+| [`Test-SqlServerLabLicenseProfile`](../../Public/LicenseProfile.ps1) | Prüft Metadaten und lokales Schlüsselformat eines gewählten Profils ohne Onlineaktivierung. | Grundkonfiguration → Lokale Lizenzprofile prüfen | Grundkonfiguration → Lokale Lizenzprofile prüfen |
 | [`Remove-SqlServerLabLicenseProfile`](../../Public/LicenseProfile.ps1) | Entfernt ein exakt benanntes lokales Profil samt geschütztem Secret. | – | – |
 
 ## Browser-GUI-Funktionsbereiche
@@ -537,7 +604,7 @@ bleiben getrennte Verträge; die Native-Nachweise der geführten CLI-/Browser-St
 
 ## Geführter eigener llama.cpp-Start in der CLI
 
-Unter „Alle öffentlichen Befehle“ → „llama.cpp: eigene Sitzung starten“ erfasst
+Unter **Host-Dienste und Modelle → Eigene llama.cpp-Sitzung geführt starten** erfasst
 die CLI fünfzehn explizite Eingaben einschließlich optionalem öffentlichen
 CA-PEM. Pfade und API-Key werden maskiert, der API-Key als SecureString erfasst.
 Vor der Bestätigung bleiben Eingaben im RAM; Dateien, TLS, Port und Runtime
@@ -560,6 +627,12 @@ NOT_CHECKED. Der geführte Browser-Start ist separat implementiert; seine Native
 Die neue Führung ist synthetisch geprüft; reale Start-/Modell-/TLS-/Compute-
 und Cleanup-Abnahme dieses Dialogs ist nicht ausgeführt. Bestehende native
 Referenznachweise ersetzen diese Abnahme nicht.
+
+Der öffentliche Startbefehl für Skripte ist `Start-SqlServerLabLlamaCppRuntime`.
+Mit `Stop-SqlServerLabLlamaCppRuntime` beendet ein Skript eine eigene Sitzung
+desselben Modulhosts. In **Host-Dienste und Modelle** bietet der geführte
+Sitzungsstopp in CLI und Browser zusätzlich eine gebundene Vorschau und
+eine Bestätigung. Die Vorschau berücksichtigt geschützte Verbraucher.
 
 ## Geführter eigener llama.cpp-Start im Browser
 
@@ -601,6 +674,11 @@ Konsole und Browser ruft diesen gleichen Provisionierungsvertrag auf.
 Das [Beispiel](../../Schemas/example-ssis-catalog-fixture.json) verlangt die
 Anpassung der lokalen Medien-/Artifactwerte; Zugangsdaten bleiben separate
 geschützte Parameter. Die vollständige Rückgabe enthält `SsisCatalogFixture`.
+
+| Befehl | Geführte CLI | Browser-GUI |
+|---|---|---|
+| `Get-SqlServerLabSsisExecutionDiagnostic` | Lab-Umgebungen → SSIS-Diagnose eines bestehenden Windows-Labs → Bestehende SQL-2025-SSISDB-Ausführung read-only beobachten | Lab verwalten → Reguläre Hyper-V-Umgebungen → SSISDB-Ausführung beobachten |
+| `Get-SqlServerLabSsisPackageDiagnostic` | Lab-Umgebungen → SSIS-Diagnose eines bestehenden Windows-Labs → Eigenes DTSX/ISPAC im Gast laden und Komponenten beobachten | Lab verwalten → Reguläre Hyper-V-Umgebungen → SSIS-Paketladediagnose |
 
 `Get-SqlServerLabSsisCatalogCapability` ist über **Alle öffentlichen Befehle** in CLI und Browser erreichbar und prüft ausschließlich eine bereits laufende, eigene Windows-/Hyper-V-Quelle read-only. Der Befehl startet keine VM, erstellt keine SSISDB und startet keine Pakete.
 

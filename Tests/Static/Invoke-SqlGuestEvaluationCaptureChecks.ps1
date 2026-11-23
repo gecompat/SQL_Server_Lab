@@ -1,6 +1,7 @@
 #Requires -Version 7.2
 [CmdletBinding()]param()
 $ErrorActionPreference='Stop'
+& (Join-Path $PSScriptRoot 'Fixtures/SqlGuestEvaluationCaptureConsoleChecks.ps1')
 $repoRoot=(Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 $root=Join-Path ([IO.Path]::GetTempPath()) ('sql-guest-capture-'+[guid]::NewGuid().ToString('N'))
 $null=New-Item -ItemType Directory -Path $root

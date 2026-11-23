@@ -44,6 +44,13 @@ den Vorgang mit `LAB_NETWORK_SUBNET_CONFLICT`; ein bestehendes Netz mit
 abweichendem Subnetz oder einem abweichenden Netzwerkmodus endet mit
 `LAB_NETWORK_CONTRACT_MISMATCH`.
 
+Docker und Podman prüfen die SQL-Hostportbelegung unmittelbar vor dem
+Containerstart unter derselben hostweiten Sperre. Bei parallelen
+Containerstarts wartet jeder neue Start bis zu 120 Sekunden auf diese
+Sperre, etwa wenn die Runtime die Portveröffentlichung erst beim zweiten
+Startversuch bestätigt. Ist die Sperre danach noch belegt, endet dieser
+Start mit `PORT_ALLOCATION_LOCK_TIMEOUT`.
+
 ## Konfiguration
 
 Die Defaults lassen sich vor der ersten Anlage pro Prozess oder dauerhaft als
@@ -69,6 +76,22 @@ neue Prozesse erhalten bleiben, hinterlegt der Betreiber sie selbst als
 `_SUBNET`-Variable. Eine ausdrücklich gesetzte `_SUBNET`-Variable bleibt
 bindend und wird bei Konflikt nicht ersetzt. Ungültige ausdrücklich gesetzte
 Werte werden vor jeder Netzmutation abgewiesen.
+
+Für ein bestehendes Docker- oder Podman-Lab-Netz findest du unter
+**Wartung → Lab-Netz auf Subnetzkonflikt prüfen** die Vorschau. Bei
+Bedarf gib ein konfliktfreies IPv4-Ziel in CIDR-Schreibweise ein.
+Die Vorschau zeigt das bisherige und das geplante Subnetz sowie die
+gebundenen Container. Bei einer gesperrten Migration prüfe den
+angezeigten Befund. Eine offene Recovery sperrt weitere
+Ausführungsversuche. CLI und Browser zeigen die letzte protokollierte
+Phase und den Fehlercode, soweit sie aus dem Journal bekannt sind. Die
+Phase kann hinter dem tatsächlichen Zustand des Providers liegen. Die
+Vorschau lässt das Journal und die Runtime unverändert. Erhalte das
+Journal zur Diagnose und führe keine neue Migration aus, bis der Befund
+geklärt ist. Bestätige die Ausführung erst, wenn die
+angezeigten Container für die Migration freigegeben sind. Eine
+veraltete Vorschau muss neu gelesen werden. Während der Migration
+können die betroffenen SQL-Verbindungen unterbrochen werden.
 
 Aktive VPN-Routen werden automatisch erkannt. Für VPN-Präfixe, die nur bei
 einer getrennten Verbindung existieren, kann der Betreiber sie dauerhaft als

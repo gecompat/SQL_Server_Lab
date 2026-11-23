@@ -42,8 +42,9 @@ führt von dort zu Vertrag, Format und Evidence.
 13. [Manifest-Schemas und Beispiele](../Schemas/README.md)
 14. [Öffentliche Cmdlets](../Public/README.md)
 15. [Funktionsübersicht für CLI und Browser-GUI](User/FUNCTIONS_CLI_GUI.md)
-16. [Bekannte Grenzen](Quality/KNOWN_LIMITATIONS.md)
-17. [Tests](../Tests/README.md)
+16. [CLI-/GUI-Funktionsabdeckung und offene Matrix](Quality/CLI_GUI_FUNCTION_COVERAGE.md)
+17. [Bekannte Grenzen](Quality/KNOWN_LIMITATIONS.md)
+18. [Tests](../Tests/README.md)
 
 ### Vertiefung, Betrieb und datierte Nachweise
 

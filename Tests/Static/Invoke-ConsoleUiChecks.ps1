@@ -21,6 +21,21 @@ function Add-ConsoleUiCheck {
 Write-Host "`nSQL_Server_Lab - Console UI Checks" -ForegroundColor Cyan
 $statusLine = @(& { Write-LabStatus -Label 'Nicht pruefbare Provider' -Value '0' } 6>&1) -join ''
 Add-ConsoleUiCheck 'Statuszeilen trennen auch lange Labels sichtbar vom Wert' ($statusLine -match 'Provider\s+0')
+$overview = @(& {
+    function Get-SqlServerLabWorkflow {
+        [CmdletBinding()]
+        param()
+        [pscustomobject]@{
+            Summary=[pscustomobject]@{ActiveContainerLabs=3;WindowsBaselines=2;SqlPreparedImages=1;PendingWindowsBuilds=4
+                PendingSqlBuilds=5;ActiveBatches=6;QueueLength=7;WaitingUserGates=8}
+            ActiveLabs=@([pscustomobject]@{ConnectionString='synthetic-connection-sentinel'})
+        }
+    }
+    function Wait-LabConsoleAcknowledgement {}
+    Show-LabWorkflowOverviewInteractive
+} 6>&1) -join "`n"
+Add-ConsoleUiCheck 'Workflow-Übersicht zeigt echte Zähler und keine Verbindungsdaten' (
+    $overview -match 'Container-Labs\s+3' -and $overview -match 'Queue\s+7' -and $overview -notmatch 'synthetic-connection-sentinel')
 $previousConsoleMode = $script:LabConsoleMode
 $script:LabConsoleMode = 'Fallback'
 $forcedFallbackCapability = Test-LabConsoleCapability
@@ -1741,8 +1756,9 @@ Add-ConsoleUiCheck 'Flache Bereichsmenues bieten mehr als eine Handlungsmoeglich
     ([regex]::Matches([regex]::Match($batchConsoleSource, "function Show-LabMaintenanceMenu \{[\s\S]+?(?=\r?\nfunction )").Value, 'New-LabConsoleItem')).Count -ge 7
 )
 
+$databaseMenuSource = [regex]::Match($mainMenuSource, "function Show-LabDatabaseMenu \{[\s\S]+?(?=\r?\nfunction )").Value
 Add-ConsoleUiCheck 'SQL-2025-KI bleibt im Lab-Bereich der neunteiligen Menuestruktur erreichbar' (
-    $mainMenuSource -match "function Show-LabDatabaseMenu[\s\S]{0,1600}?New-LabConsoleItem -Id 'AiArea'" -and
+    $databaseMenuSource -match "New-LabConsoleItem -Id 'AiArea'" -and
     $batchConsoleSource -match "'Ai' \{ Show-LabAiMenu \}" -and
     $batchConsoleSource -match "\`$action -eq 'AiArea'.+Invoke-LabAreaMenuInteractive -Area Ai" -and
     $mainMenuSource -match "function Show-LabAiMenu[\s\S]{0,2500}?New-LabConsoleItem -Id 'AiScenarioPlan'" -and
@@ -1750,7 +1766,6 @@ Add-ConsoleUiCheck 'SQL-2025-KI bleibt im Lab-Bereich der neunteiligen Menuestru
     $mainMenuSource -match "function Show-LabAiMenu[\s\S]{0,3000}?New-LabConsoleItem -Id 'AiGoldenRagEvaluation'" -and
     $mainMenuSource -match "function Show-LabAiMenu[\s\S]{0,3000}?New-LabConsoleItem -Id 'AiGuidedDemo'"
 )
-$databaseMenuSource = [regex]::Match($mainMenuSource, "function Show-LabDatabaseMenu \{[\s\S]+?(?=\r?\nfunction )").Value
 $databaseReadOnlyActions = @('DatabasePackageInventory', 'DatabaseMigrationDependency')
 $databaseMutationActions = @('DatabaseBackup', 'DatabaseRestore', 'DatabasePackageExport', 'DatabasePackageAttach')
 $databaseRequiredActions = @($databaseReadOnlyActions + $databaseMutationActions)

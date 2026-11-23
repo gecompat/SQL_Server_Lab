@@ -270,6 +270,9 @@ function Start-UiWorkflowJob {
             }
             Write-Output "[START] $JobAction"
             $result = Invoke-SqlServerLabWorkflowAction -Action $JobAction @invokeParameters
+            if ($JobAction -eq 'ReadFullMaintenancePreview') {
+                & (Get-Module SqlServerLab) { param($View) Format-LabFullMaintenancePreview -View $View } $result.Result
+            }
             if ($JobAction -eq 'InspectContainerDatabaseMigrationDependencies') {
                 $inventory = $result.Result
                 $summary = [ordered]@{
@@ -410,7 +413,12 @@ function Get-UiWorkflowInventoryResponse {
             $InformationPreference = 'SilentlyContinue'
             $WarningPreference = 'SilentlyContinue'
             Import-Module $JobModulePath -Force 6>$null
-            Get-SqlServerLabWorkflow -MediaRoot $JobMediaRoot
+            $snapshot = Get-SqlServerLabWorkflow -MediaRoot $JobMediaRoot
+            $snapshot.Batches = @(& (Get-Module SqlServerLab) {
+                param($Batches)
+                Get-LabBrowserBatchOverview -Batches $Batches
+            } $snapshot.Batches)
+            $snapshot
         }
     }
     return [PSCustomObject]@{
@@ -434,6 +442,13 @@ function Invoke-UiCmsInspectionRequest {
     if($payload -isnot [pscustomobject] -or $payload.action -cne 'InspectCms' -or $payload.parameters -isnot [pscustomobject] -or @($payload.PSObject.Properties.Name|Where-Object {$_ -cnotin @('action','parameters')}).Count -or
         @($payload.parameters.PSObject.Properties).Count -ne 1 -or $payload.parameters.ExpectedPlanKey -isnot [string] -or $payload.parameters.ExpectedPlanKey -cnotmatch '^[a-f0-9]{64}$'){throw 'CMS_INSPECTION_REQUEST_INVALID'}
     Invoke-SqlServerLabWorkflowAction -Action InspectCms -ExpectedPlanKey $payload.parameters.ExpectedPlanKey
+}
+
+function Invoke-UiCmsManagementRequest {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Request)
+    if ($Request.HttpMethod -cne 'GET') { throw 'CMS_MANAGEMENT_REQUEST_INVALID' }
+    Invoke-SqlServerLabWorkflowAction -Action GetCmsManagementState
 }
 
 function Invoke-UiInitialSetupRequest {
@@ -604,6 +619,9 @@ $tlsLiveQualificationJobs = @{}
 $tlsCreationStore = New-UiTlsCreationStore
 $persistentJobs = @{}
 $runArtifactRemovalPreviews = @{}
+$containerAutoStartRecoverySelections = @{}
+$containerAutoStartChangeStore = @{}
+$hyperVAutoStartBrowserStore = @{}
 
 try {
     $commandGrantStore = New-UiCommandGrantStore -Session $operatorSession
@@ -651,6 +669,29 @@ try {
                     Write-UiResponse -Context $context -Body ($view | ConvertTo-Json -Depth 8) -ContentType 'application/json; charset=utf-8'
                 }
                 catch { Write-UiResponse -Context $context -Body 'TEST_GROUP_READ_UNAVAILABLE: Gruppe erneut lesen; keine Aktion ausgeführt.' -StatusCode 503 }
+                continue
+            }
+            if ($path -eq '/api/test-group-management' -and $context.Request.HttpMethod -eq 'GET') {
+                $query = $context.Request.QueryString
+                try {
+                    $operation = [string]$query['operation']
+                    if ($operation -cnotin @('CreateWindows','Repair','Remove','Export') -or
+                        @($query.AllKeys | Where-Object { $_ -cnotin @('operation','artifactId') }).Count -or
+                        @($query.GetValues('operation')).Count -ne 1 -or
+                        ($query.Count -gt 1 -and ($operation -cne 'CreateWindows' -or @($query.GetValues('artifactId')).Count -ne 1 -or -not $query['artifactId']))) {
+                        throw 'TEST_GROUP_MANAGEMENT_REQUEST_INVALID'
+                    }
+                    $view = & (Get-Module SqlServerLab) { param($op,$id) Get-LabTestGroupManagementPlan -Operation $op -ArtifactId $id } $operation $query['artifactId']
+                    Write-UiResponse -Context $context -Body ($view | ConvertTo-Json -Depth 6) -ContentType 'application/json; charset=utf-8'
+                } catch { Write-UiResponse -Context $context -Body 'TEST_GROUP_MANAGEMENT_PLAN_UNAVAILABLE' -StatusCode 422 }
+                continue
+            }
+            if ($path -eq '/api/test-group-linux-create' -and $context.Request.HttpMethod -eq 'GET') {
+                try {
+                    $view = & (Get-Module SqlServerLab) { param($query) Invoke-LabTestGroupLinuxCreatePlanRequest -Query $query } $context.Request.QueryString
+                    Write-UiResponse -Context $context -Body ($view | ConvertTo-Json -Depth 4) -ContentType 'application/json; charset=utf-8'
+                }
+                catch { Write-UiResponse -Context $context -Body 'TEST_GROUP_LINUX_CREATE_PLAN_UNAVAILABLE' -StatusCode 422 }
                 continue
             }
             if ($path -eq '/api/run-artifact-removal') {
@@ -705,6 +746,55 @@ try {
                     $view=Get-UiTlsLiveQualificationJob -Records $tlsLiveQualificationJobs -Id $Matches[1]
                     Write-UiResponse -Context $context -Body ($view|ConvertTo-Json -Depth 5 -Compress) -ContentType 'application/json; charset=utf-8'
                 }catch{Write-UiResponse -Context $context -Body '{"Code":"TLS_LIVE_HTTP_REJECTED"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400}
+                continue
+            }
+            if ($path -ceq '/api/hyperv-autostart') {
+                try {
+                    $request = $context.Request
+                    if ($request.HttpMethod -cne 'POST' -or $request.ContentType -cnotmatch '^application/json(?:;\s*charset=utf-8)?$' -or
+                        $request.Url.Query -or [string]$request.Headers['Origin'] -cne $request.Url.GetLeftPart([UriPartial]::Authority)) {
+                        throw 'HYPERV_AUTOSTART_BROWSER_INVALID'
+                    }
+                    $body = Read-UiSpecializedJsonRequestBody -Request $request -MaxCharacters 1024 -LimitErrorCode 'HYPERV_AUTOSTART_BROWSER_INVALID'
+                    $view = & (Get-Module SqlServerLab) {
+                        param($store, $json) Invoke-LabHyperVAutoStartBrowser -Store $store -Json $json
+                    } $hyperVAutoStartBrowserStore $body
+                    Write-UiResponse -Context $context -Body ($view | ConvertTo-Json -Depth 4 -Compress) -ContentType 'application/json; charset=utf-8'
+                }
+                catch {
+                    if (Write-UiBodyFailureResponse -Context $context -ErrorRecord $_) { continue }
+                    Write-UiResponse -Context $context -Body '{"Code":"HYPERV_AUTOSTART_BROWSER_UNAVAILABLE"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                }
+                continue
+            }
+            if ($path -cin @('/api/container-autostart-recovery', '/api/container-autostart-change')) {
+                try {
+                    $request = $context.Request
+                    if ($request.Url.Query) { throw 'AUTOSTART_BROWSER_QUERY_INVALID' }
+                    $module = Get-Module SqlServerLab
+                    $recovery = $path -ceq '/api/container-autostart-recovery'
+                    if ($request.HttpMethod -ceq 'GET' -and -not $request.HasEntityBody) {
+                        $view = if ($recovery) {
+                            & $module { param($selections) Read-LabContainerAutoStartRecoveryBrowser -Selections $selections } $containerAutoStartRecoverySelections
+                        } else {
+                            & $module { param($store) Read-LabContainerAutoStartChangeBrowser -Store $store } $containerAutoStartChangeStore
+                        }
+                    }
+                    elseif ($request.HttpMethod -ceq 'POST' -and [string]$request.Headers['Origin'] -ceq $url.TrimEnd('/')) {
+                        $body = Read-UiSpecializedJsonRequestBody -Request $request -MaxCharacters 1024 -LimitErrorCode 'AUTOSTART_BROWSER_BODY_LIMIT'
+                        $view = if ($recovery) {
+                            & $module { param($selections, $body) Invoke-LabContainerAutoStartRecoveryBrowser -Selections $selections -Body $body } $containerAutoStartRecoverySelections $body
+                        } else {
+                            & $module { param($store, $body) Invoke-LabContainerAutoStartChangeBrowser -Store $store -Body $body } $containerAutoStartChangeStore $body
+                        }
+                    }
+                    else { throw 'AUTOSTART_BROWSER_REQUEST_INVALID' }
+                    Write-UiResponse -Context $context -Body ($view | ConvertTo-Json -Depth 4 -Compress) -ContentType 'application/json; charset=utf-8'
+                }
+                catch {
+                    if (Write-UiBodyFailureResponse -Context $context -ErrorRecord $_) { continue }
+                    Write-UiResponse -Context $context -Body '{"Code":"AUTOSTART_BROWSER_UNCONFIRMED"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                }
                 continue
             }
             if ($path -eq '/api/container-autostart-preview') {
@@ -807,11 +897,35 @@ try {
                 }
                 continue
             }
+            if ($path -ceq '/api/ssms-registration') {
+                try {
+                    if ($context.Request.HttpMethod -cne 'GET' -or $context.Request.HasEntityBody -or $context.Request.Url.Query) {
+                        throw 'SSMS_REGISTRATION_REQUEST_INVALID'
+                    }
+                    $registration = & (Get-Module SqlServerLab) { Get-LabSsmsRegistrationDownload }
+                    Write-UiResponse -Context $context -Body $registration -ContentType 'application/xml; charset=utf-8' -NoStore
+                }
+                catch {
+                    Write-UiResponse -Context $context -Body '{"Code":"SSMS_REGISTRATION_UNAVAILABLE"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400 -NoStore
+                }
+                finally { $registration=$null }
+                continue
+            }
             if ($path -eq '/api/cms-inspection') {
                 try {$result=Invoke-UiCmsInspectionRequest -Request $context.Request;Write-UiResponse -Context $context -Body ($result|ConvertTo-Json -Depth 6) -ContentType 'application/json; charset=utf-8'}
                 catch {
                     if (Write-UiBodyFailureResponse -Context $context -ErrorRecord $_) { continue }
                     Write-UiResponse -Context $context -Body 'CMS_INSPECTION_REQUEST_FAILED: Registrierung und Auswahl erneut lesen.' -StatusCode 400
+                }
+                continue
+            }
+            if ($path -eq '/api/cms-management' -and $context.Request.HttpMethod -eq 'GET') {
+                try {
+                    $result = Invoke-UiCmsManagementRequest -Request $context.Request
+                    Write-UiResponse -Context $context -Body ($result | ConvertTo-Json -Depth 8 -Compress) -ContentType 'application/json; charset=utf-8' -NoStore
+                }
+                catch {
+                    Write-UiResponse -Context $context -Body '{"Code":"CMS_MANAGEMENT_STATE_UNAVAILABLE"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400 -NoStore
                 }
                 continue
             }
@@ -883,6 +997,373 @@ try {
                 }catch{
                     if (Write-UiBodyFailureResponse -Context $context -ErrorRecord $_) { continue }
                     Write-UiResponse -Context $context -Body 'LLAMA_INSTALL_UNCONFIRMED: Ergebnis nicht bestätigt; frisch vorprüfen. Keine automatische Wiederholung oder Prerequisiteinstallation.' -StatusCode 400
+                }
+                continue
+            }
+            if ($path -cin @('/api/ssis-execution-diagnostic', '/api/ssis-package-diagnostic')) {
+                try {
+                    $request = $context.Request
+                    if ($request.HttpMethod -cne 'POST' -or $request.ContentType -cnotmatch '^application/json(?:;\s*charset=utf-8)?$' -or
+                        $request.Url.Query -or [string]$request.Headers['Origin'] -cne $request.Url.GetLeftPart([UriPartial]::Authority)) {
+                        throw 'SSIS_EXECUTION_DIAGNOSTIC_HTTP_INVALID'
+                    }
+                    $body = Read-UiSpecializedJsonRequestBody -Request $request -MaxCharacters 1024 -LimitErrorCode 'SSIS_EXECUTION_DIAGNOSTIC_HTTP_INVALID'
+                    $view = & (Get-Module SqlServerLab) {
+                        param($json, $route)
+                        if ($route -ceq '/api/ssis-package-diagnostic') { Invoke-LabSsisPackageDiagnosticBrowser -Json $json }
+                        else { Invoke-LabSsisExecutionDiagnosticBrowser -Json $json }
+                    } $body $path
+                    Write-UiResponse -Context $context -Body ($view | ConvertTo-Json -Depth 4 -Compress) -ContentType 'application/json; charset=utf-8'
+                }
+                catch {
+                    if (Write-UiBodyFailureResponse -Context $context -ErrorRecord $_) { continue }
+                    Write-UiResponse -Context $context -Body '{"Code":"SSIS_DIAGNOSTIC_UNAVAILABLE"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                }
+                continue
+            }
+            if ($path -ceq '/api/ai-compute-inventory') {
+                try {
+                    if ($context.Request.HttpMethod -cne 'GET' -or $context.Request.HasEntityBody -or $context.Request.Url.Query) {
+                        throw 'AI_COMPUTE_INVENTORY_REQUEST_INVALID'
+                    }
+                    $view = & (Get-Module SqlServerLab) { Get-LabAiComputeInventoryView }
+                    Write-UiResponse -Context $context -Body ($view | ConvertTo-Json -Depth 4 -Compress) -ContentType 'application/json; charset=utf-8'
+                }
+                catch {
+                    Write-UiResponse -Context $context -Body '{"Code":"AI_COMPUTE_INVENTORY_UNAVAILABLE"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                }
+                continue
+            }
+            if ($path -ceq '/api/ai-runtime-capability') {
+                try {
+                    if ($context.Request.HttpMethod -cne 'GET' -or $context.Request.HasEntityBody -or $context.Request.Url.Query) {
+                        throw 'AI_RUNTIME_CAPABILITY_REQUEST_INVALID'
+                    }
+                    $view = & (Get-Module SqlServerLab) { Get-LabAiRuntimeCapabilityView }
+                    Write-UiResponse -Context $context -Body ($view | ConvertTo-Json -Depth 4 -Compress) -ContentType 'application/json; charset=utf-8'
+                }
+                catch {
+                    Write-UiResponse -Context $context -Body '{"Code":"AI_RUNTIME_CAPABILITY_UNAVAILABLE"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                }
+                continue
+            }
+            if ($path -ceq '/api/portable-lab-import-plan') {
+                try {
+                    if ($context.Request.HttpMethod -cne 'POST' -or -not $context.Request.HasEntityBody -or $context.Request.Url.Query) {
+                        throw 'PORTABLE_IMPORT_PLAN_REQUEST_INVALID'
+                    }
+                    $bodyRead = Read-UiJsonRequestBody -Request $context.Request -MaxBytes 327680
+                    if (-not $bodyRead.Allowed) { throw 'PORTABLE_IMPORT_PLAN_REQUEST_INVALID' }
+                    $document = [Text.Json.JsonDocument]::Parse([string]$bodyRead.Body)
+                    try {
+                        $root = $document.RootElement
+                        Assert-UiCommandJsonUnique $root
+                        if ($root.ValueKind -ne [Text.Json.JsonValueKind]::Object -or
+                            (@(@($root.EnumerateObject()).Name | Sort-Object) -join ',') -cne 'Package,TargetProvider,TargetRunId' -or
+                            $root.GetProperty('Package').ValueKind -ne [Text.Json.JsonValueKind]::Object) {
+                            throw 'PORTABLE_IMPORT_PLAN_REQUEST_INVALID'
+                        }
+                        $provider = $root.GetProperty('TargetProvider').GetString()
+                        $runId = $root.GetProperty('TargetRunId').GetString()
+                        $guid = [guid]::Empty
+                        if ($provider -cnotin @('docker','podman') -or -not [guid]::TryParseExact($runId,'D',[ref]$guid) -or $guid -eq [guid]::Empty) {
+                            throw 'PORTABLE_IMPORT_PLAN_REQUEST_INVALID'
+                        }
+                        $package = $root.GetProperty('Package').GetRawText() | ConvertFrom-Json -Depth 20 -ErrorAction Stop
+                    }
+                    finally { $document.Dispose() }
+                    $plan = & (Get-Module SqlServerLab) {
+                        param($Package,$Provider,$RunId)
+                        Get-LabPortableLabImportPlan -Package $Package -TargetProvider $Provider -TargetRunId $RunId -ErrorAction Stop
+                    } $package $provider $guid.ToString('D')
+                    Write-UiResponse -Context $context -Body ($plan | ConvertTo-Json -Depth 12 -Compress) -ContentType 'application/json; charset=utf-8'
+                }
+                catch {
+                    Write-UiResponse -Context $context -Body '{"Code":"PORTABLE_IMPORT_PLAN_UNAVAILABLE"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                }
+                finally { $bodyRead=$null; $package=$null }
+                continue
+            }
+            if ($path -ceq '/api/manifest-check') {
+                try {
+                    if ($context.Request.HttpMethod -cne 'POST' -or -not $context.Request.HasEntityBody -or $context.Request.Url.Query) {
+                        throw 'MANIFEST_CHECK_REQUEST_INVALID'
+                    }
+                    $read = Read-UiJsonRequestBody -Request $context.Request -MaxBytes 24576
+                    if (-not $read.Allowed) { throw 'MANIFEST_CHECK_REQUEST_INVALID' }
+                    $document = [Text.Json.JsonDocument]::Parse([string]$read.Body)
+                    try {
+                        $properties = @($document.RootElement.EnumerateObject())
+                        if ($properties.Count -ne 1 -or $properties[0].Name -cne 'Path' -or
+                            $properties[0].Value.ValueKind -ne [Text.Json.JsonValueKind]::String) { throw 'MANIFEST_CHECK_REQUEST_INVALID' }
+                        $manifestPath = $properties[0].Value.GetString()
+                    }
+                    finally { $document.Dispose() }
+                    $view = & (Get-Module SqlServerLab) { param($file) Get-LabManifestCheckView -Path $file } $manifestPath
+                    Write-UiResponse -Context $context -Body ($view | ConvertTo-Json -Depth 8 -Compress) -ContentType 'application/json; charset=utf-8'
+                }
+                catch {
+                    Write-UiResponse -Context $context -Body '{"Code":"MANIFEST_CHECK_UNAVAILABLE"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                }
+                finally { $read=$null; $manifestPath=$null }
+                continue
+            }
+            if ($path -ceq '/api/run-state-upgrade-plan') {
+                try {
+                    $query = $context.Request.QueryString
+                    $identities = @($query.GetValues('runId'))
+                    if ($context.Request.HttpMethod -cne 'GET' -or $context.Request.HasEntityBody -or
+                        $query.Count -ne 1 -or $identities.Count -ne 1 -or $identities[0].Length -ne 36) {
+                        throw 'RUN_STATE_UPGRADE_GUIDANCE_REQUEST_INVALID'
+                    }
+                    $view = & (Get-Module SqlServerLab) { param($id) Get-LabRunStateUpgradePlanView -RunId $id } $identities[0]
+                    Write-UiResponse -Context $context -Body ($view | ConvertTo-Json -Depth 8 -Compress) -ContentType 'application/json; charset=utf-8'
+                }
+                catch {
+                    Write-UiResponse -Context $context -Body '{"Code":"RUN_STATE_UPGRADE_GUIDANCE_UNAVAILABLE"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                }
+                continue
+            }
+            if ($path -ceq '/api/ai-scenario-plan') {
+                try {
+                    $query = $context.Request.QueryString
+                    $runIds = @($query.GetValues('runId'))
+                    $instanceIds = @($query.GetValues('instanceId'))
+                    $requestedRun = [guid]::Empty
+                    if ($context.Request.HttpMethod -cne 'GET' -or $context.Request.HasEntityBody -or
+                        ($query.Count -ne 0 -and ($query.Count -ne 2 -or $runIds.Count -ne 1 -or $instanceIds.Count -ne 1 -or
+                            -not [guid]::TryParseExact($runIds[0], 'D', [ref]$requestedRun) -or $requestedRun -eq [guid]::Empty -or
+                            [string]$instanceIds[0] -cnotmatch '\A[A-Za-z][A-Za-z0-9_-]{0,63}\z'))) {
+                        throw 'AI_SCENARIO_PLAN_UI_REQUEST_INVALID'
+                    }
+                    $arguments = @{ ScenarioId='vector-core-ci'; Version='1.0'; ErrorAction='Stop' }
+                    if ($query.Count) {
+                        $arguments.RunId = $requestedRun.ToString('D')
+                        $arguments.InstanceId = $instanceIds[0]
+                    }
+                    $plan = Get-SqlServerLabAiScenario @arguments
+                    $codes = @(foreach ($blocker in $plan.Blockers) {
+                        if ([string]$blocker -cmatch '\A((?:AI_SCENARIO|DESIRED_STATE)_[A-Z_]{1,80})(?=:|\z)') { $Matches[1] }
+                        else { 'AI_SCENARIO_PLAN_BLOCKED' }
+                    })
+                    $view = [pscustomobject]@{
+                        ScenarioId=$plan.ScenarioId; Version=$plan.Version; Status=$plan.Status
+                        RunId=if ($query.Count) { $plan.RunId } else { $null }
+                        InstanceId=if ($query.Count) { $plan.InstanceId } else { $null }
+                        PlanKey=$plan.PlanKey; Blockers=@($codes | Sort-Object -Unique)
+                        RequiredCapabilities=@($plan.RequiredCapabilities)
+                    }
+                    Write-UiResponse -Context $context -Body ($view | ConvertTo-Json -Depth 8 -Compress) -ContentType 'application/json; charset=utf-8'
+                }
+                catch {
+                    Write-UiResponse -Context $context -Body '{"Code":"AI_SCENARIO_PLAN_UNAVAILABLE"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                }
+                continue
+            }
+            if ($path -ceq '/api/license-profile-status') {
+                $license = & (Get-Module SqlServerLab) {
+                    param($method,$query)
+                    Invoke-LabLicenseProfileStatusRequest -Method $method -Query $query
+                } $context.Request.HttpMethod $context.Request.QueryString
+                Write-UiResponse -Context $context -Body ($license.View | ConvertTo-Json -Depth 5 -Compress) `
+                    -StatusCode $license.StatusCode -ContentType 'application/json; charset=utf-8' -NoStore
+                continue
+            }
+            if ($path -ceq '/api/smtp-status') {
+                $smtp = & (Get-Module SqlServerLab) {
+                    param($method,$query)
+                    Invoke-LabSmtpStatusGuidanceRequest -Method $method -Query $query
+                } $context.Request.HttpMethod $context.Request.QueryString
+                Write-UiResponse -Context $context -Body ($smtp.View | ConvertTo-Json -Depth 5 -Compress) `
+                    -StatusCode $smtp.StatusCode -ContentType 'application/json; charset=utf-8' -NoStore
+                continue
+            }
+            if ($path -ceq '/api/smtp-webmail/open') {
+                if ($context.Request.HttpMethod -cne 'POST' -or $context.Request.Url.Query -or
+                    [string]$context.Request.Headers['Origin'] -cne $url.TrimEnd('/')) {
+                    Write-UiResponse -Context $context -Body 'SMTP_WEBMAIL_OPEN_REQUEST_INVALID' -StatusCode 400 -NoStore
+                    continue
+                }
+                $bodyRead = Read-UiJsonRequestBody -Request $context.Request -MaxBytes 1024
+                if (-not $bodyRead.Allowed) {
+                    Write-UiResponse -Context $context -Body 'SMTP_WEBMAIL_OPEN_REQUEST_INVALID' -StatusCode 400 -NoStore
+                    continue
+                }
+                $smtpOpen = & (Get-Module SqlServerLab) {
+                    param($json)
+                    Invoke-LabGuidedSmtpWebMailRequest -Json $json
+                } $bodyRead.Body
+                Write-UiResponse -Context $context -Body ($smtpOpen.View | ConvertTo-Json -Depth 4 -Compress) `
+                    -StatusCode $smtpOpen.StatusCode -ContentType 'application/json; charset=utf-8' -NoStore
+                continue
+            }
+            if ($path -ceq '/api/container-network-migration') {
+                $network = & (Get-Module SqlServerLab) {
+                    param($method,$query)
+                    Invoke-LabContainerNetworkPlanRequest -Method $method -Query $query
+                } $context.Request.HttpMethod $context.Request.QueryString
+                Write-UiResponse -Context $context -Body ($network.View | ConvertTo-Json -Depth 5 -Compress) `
+                    -StatusCode $network.StatusCode -ContentType 'application/json; charset=utf-8' -NoStore
+                continue
+            }
+            if ($path -ceq '/api/diagnostic-bundle') {
+                try {
+                    $query = $context.Request.QueryString
+                    $runIds = @($query.GetValues('runId'))
+                    $instanceIds = @($query.GetValues('instanceId'))
+                    $providers = @($query.GetValues('provider'))
+                    $requestedRun = [guid]::Empty
+                    if ($context.Request.HttpMethod -cne 'GET' -or $context.Request.HasEntityBody -or $query.Count -ne 3 -or
+                        $runIds.Count -ne 1 -or -not [guid]::TryParseExact($runIds[0], 'D', [ref]$requestedRun) -or
+                        $requestedRun -eq [guid]::Empty -or $instanceIds.Count -ne 1 -or
+                        [string]$instanceIds[0] -cnotmatch '\A[A-Za-z][A-Za-z0-9_-]{0,63}\z' -or
+                        $providers.Count -ne 1 -or $providers[0] -cnotin @('docker','podman','hyperv')) {
+                        throw 'DIAGNOSTIC_BUNDLE_UI_REQUEST_INVALID'
+                    }
+                    $bundle = & (Get-Module SqlServerLab) {
+                        param($RunId,$InstanceId,$Provider)
+                        $dataRoot = Get-LabDataRootDefault
+                        if (-not $dataRoot) { throw 'DIAGNOSTIC_BUNDLE_UI_ROOT_MISSING' }
+                        $pathComparison = if ($IsWindows) { [StringComparison]::OrdinalIgnoreCase } else { [StringComparison]::Ordinal }
+                        if (-not [string]::Equals(
+                            [IO.Path]::TrimEndingDirectorySeparator([IO.Path]::GetFullPath((Get-LabStateRoot))),
+                            [IO.Path]::GetFullPath((Join-Path $dataRoot 'State')), $pathComparison)) {
+                            throw 'DIAGNOSTIC_BUNDLE_UI_ROOT_MISMATCH'
+                        }
+                        Get-SqlServerLabDiagnosticBundle -RunId $RunId -InstanceId $InstanceId -Provider $Provider -DataRoot $dataRoot -SkipReadiness
+                    } $requestedRun.ToString('D') $instanceIds[0] $providers[0]
+                    Write-UiResponse -Context $context -Body ($bundle | ConvertTo-Json -Depth 12 -Compress) -ContentType 'application/json; charset=utf-8'
+                }
+                catch {
+                    Write-UiResponse -Context $context -Body '{"Code":"DIAGNOSTIC_BUNDLE_UNAVAILABLE"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                }
+                continue
+            }
+            if ($path -ceq '/api/runtime-maintenance-preview') {
+                if ($context.Request.HttpMethod -cne 'GET' -or $context.Request.HasEntityBody -or $context.Request.Url.Query) {
+                    Write-UiResponse -Context $context -Body '{"Code":"RUNTIME_MAINTENANCE_PREVIEW_REQUEST_INVALID"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                    continue
+                }
+                try {
+                    $view = & (Get-Module SqlServerLab) { Get-LabRuntimeMaintenancePreview -ErrorAction Stop }
+                    Write-UiResponse -Context $context -Body ($view | ConvertTo-Json -Depth 5 -Compress) -ContentType 'application/json; charset=utf-8'
+                }
+                catch {
+                    Write-UiResponse -Context $context -Body '{"Code":"RUNTIME_MAINTENANCE_PREVIEW_UNAVAILABLE"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                }
+                continue
+            }
+            if ($path -ceq '/api/hyperv-storage-preview') {
+                if ($context.Request.HttpMethod -cne 'GET' -or $context.Request.HasEntityBody -or $context.Request.Url.Query) {
+                    Write-UiResponse -Context $context -Body '{"Code":"HYPERV_STORAGE_PREVIEW_REQUEST_INVALID"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                    continue
+                }
+                try {
+                    $preview = Get-SqlServerLabHyperVResourcePreview -ErrorAction Stop
+                    $view = [pscustomobject]@{
+                        LabDataRoot = $preview.LabDataRoot
+                        FreeBytes = [string]$preview.ObservedFreeBytes
+                        SystemVolume = $preview.SystemVolume
+                        Targets = @($preview.Targets | Select-Object ResourceClass, ClassRoot)
+                    }
+                    Write-UiResponse -Context $context -Body ($view | ConvertTo-Json -Depth 4 -Compress) -ContentType 'application/json; charset=utf-8'
+                }
+                catch {
+                    Write-UiResponse -Context $context -Body '{"Code":"HYPERV_STORAGE_PREVIEW_UNAVAILABLE"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                }
+                continue
+            }
+            if ($path -ceq '/api/hyperv-recovery-point-plan') {
+                try {
+                    $query = $context.Request.QueryString
+                    $runIds = @($query.GetValues('runId'))
+                    $instanceIds = @($query.GetValues('instanceId'))
+                    $requestedRun = [guid]::Empty
+                    if ($context.Request.HttpMethod -cne 'GET' -or $context.Request.HasEntityBody -or $query.Count -ne 2 -or
+                        $runIds.Count -ne 1 -or -not [guid]::TryParseExact($runIds[0], 'D', [ref]$requestedRun) -or
+                        $requestedRun -eq [guid]::Empty -or $instanceIds.Count -ne 1 -or
+                        [string]$instanceIds[0] -cnotmatch '\A[A-Za-z][A-Za-z0-9_-]{0,127}\z') {
+                        throw 'HYPERV_RECOVERY_POINT_REQUEST_INVALID'
+                    }
+                    $plan = Get-SqlServerLabHyperVRecoveryPointPlan -RunId $requestedRun.ToString('D') -InstanceId $instanceIds[0] -ErrorAction Stop
+                    Write-UiResponse -Context $context -Body ($plan | ConvertTo-Json -Depth 8 -Compress) -ContentType 'application/json; charset=utf-8'
+                }
+                catch {
+                    Write-UiResponse -Context $context -Body '{"Code":"HYPERV_RECOVERY_POINT_UNAVAILABLE"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                }
+                continue
+            }
+            if ($path -ceq '/api/automation-plan') {
+                try {
+                    $query = $context.Request.QueryString
+                    $actions = @($query.GetValues('action'))
+                    if ($context.Request.HttpMethod -cne 'GET' -or $context.Request.HasEntityBody -or $query.Count -ne 1 -or
+                        $actions.Count -ne 1 -or [string]$actions[0] -cnotmatch '^[A-Za-z]{1,40}$') {
+                        throw 'AUTOMATION_API_PLAN_REQUEST_INVALID'
+                    }
+                    $plan = Get-SqlServerLabAutomationPlan -Action $actions[0] -ErrorAction Stop
+                    Write-UiResponse -Context $context -Body ($plan | ConvertTo-Json -Depth 8 -Compress) -ContentType 'application/json; charset=utf-8'
+                }
+                catch {
+                    Write-UiResponse -Context $context -Body '{"Code":"AUTOMATION_API_PLAN_UNAVAILABLE"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                }
+                continue
+            }
+            if ($path -ceq '/api/ai-compute-benchmark-options') {
+                try {
+                    if ($context.Request.HttpMethod -cne 'POST' -or -not $context.Request.HasEntityBody -or $context.Request.Url.Query) {
+                        throw 'AI_COMPUTE_BENCHMARK_OPTIONS_REQUEST_INVALID'
+                    }
+                    $bodyRead = Read-UiJsonRequestBody -Request $context.Request -MaxBytes 24576
+                    if (-not $bodyRead.Allowed) { throw 'AI_COMPUTE_BENCHMARK_OPTIONS_REQUEST_INVALID' }
+                    $document = [Text.Json.JsonDocument]::Parse([string]$bodyRead.Body)
+                    try {
+                        $root = $document.RootElement
+                        if ($root.ValueKind -ne [Text.Json.JsonValueKind]::Object -or
+                            @($root.EnumerateObject()).Count -ne 1 -or @($root.EnumerateObject()).Name -cne 'ModelPath' -or
+                            $root.GetProperty('ModelPath').ValueKind -ne [Text.Json.JsonValueKind]::String) {
+                            throw 'AI_COMPUTE_BENCHMARK_OPTIONS_REQUEST_INVALID'
+                        }
+                        $modelPath = $root.GetProperty('ModelPath').GetString()
+                    }
+                    finally { $document.Dispose() }
+                    if ([string]::IsNullOrWhiteSpace($modelPath) -or $modelPath.Length -gt 4096) { throw 'AI_COMPUTE_BENCHMARK_OPTIONS_REQUEST_INVALID' }
+                    $options = & (Get-Module SqlServerLab) { param($modelPath) Get-LabAiComputeBenchmarkOptions -ModelPath $modelPath } $modelPath
+                    Write-UiResponse -Context $context -Body ($options | ConvertTo-Json -Depth 12 -Compress) -ContentType 'application/json; charset=utf-8'
+                }
+                catch {
+                    Write-UiResponse -Context $context -Body '{"Code":"AI_COMPUTE_BENCHMARK_OPTIONS_UNAVAILABLE"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                }
+                finally { $bodyRead = $null; $modelPath = $null; $options = $null }
+                continue
+            }
+            if ($path -ceq '/api/ollama-local-generation' -and $context.Request.HttpMethod -ceq 'GET') {
+                try {
+                    if ($context.Request.Url.Query) { throw 'OLLAMA_LOCAL_CATALOG_REQUEST_INVALID' }
+                    $models = @(& (Get-Module SqlServerLab) { Get-LabAiLocalGenerationCatalog })
+                    $json = ConvertTo-Json -InputObject $models -Depth 4 -Compress
+                    Write-UiResponse -Context $context -Body $json -ContentType 'application/json; charset=utf-8'
+                } catch {
+                    Write-UiResponse -Context $context -Body '{"Code":"OLLAMA_LOCAL_CATALOG_UNAVAILABLE"}' -ContentType 'application/json; charset=utf-8' -StatusCode 503
+                }
+                continue
+            }
+            if ($path -ceq '/api/llama-model-catalog' -and $context.Request.HttpMethod -ceq 'GET') {
+                try {
+                    $catalog = @(Get-SqlServerLabLlamaCppModel -ErrorAction Stop)
+                    Write-UiResponse -Context $context -Body (ConvertTo-Json -InputObject $catalog -Depth 8 -Compress) -ContentType 'application/json; charset=utf-8' -NoStore
+                } catch {
+                    Write-UiResponse -Context $context -Body '{"Code":"LLAMA_MODEL_CATALOG_UNAVAILABLE"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400 -NoStore
+                }
+                continue
+            }
+            if ($path -ceq '/api/llama-runtime-inventory') {
+                try {
+                    $view = & (Get-Module SqlServerLab) { param($request) Invoke-LabLlamaCppRuntimeInventoryHttpRequest -Request $request } $context.Request
+                    Write-UiResponse -Context $context -Body ($view | ConvertTo-Json -Depth 4 -Compress) -ContentType 'application/json; charset=utf-8'
+                }
+                catch {
+                    Write-UiResponse -Context $context -Body 'LLAMA_RUNTIME_INVENTORY_UNAVAILABLE' -StatusCode 400
                 }
                 continue
             }
@@ -988,6 +1469,30 @@ try {
                 }
                 $body = $bodyRead.Body
                 $request = $body | ConvertFrom-Json -Depth 30
+                if ($request.command -ceq 'SaveGuidedDraft') {
+                    if ($body.Length -gt 32768) {
+                        Write-UiResponse -Context $context -Body 'BROWSER_BATCH_DRAFT_INVALID' -StatusCode 400
+                        continue
+                    }
+                    try {
+                        $document = [Text.Json.JsonDocument]::Parse($body)
+                        try { Assert-UiCommandJsonUnique $document.RootElement } finally { $document.Dispose() }
+                        $draft = & (Get-Module SqlServerLab) {
+                            param($DraftRequest)
+                            Save-LabBrowserBatchDraft -Request $DraftRequest -StateRoot ([IO.Path]::GetFullPath((Get-LabStateRoot)))
+                        } $request
+                    }
+                    catch {
+                        if ($_.Exception.Message -cin @('BROWSER_BATCH_DRAFT_INVALID','UI_COMMAND_REQUEST_INVALID')) {
+                            Write-UiResponse -Context $context -Body 'BROWSER_BATCH_DRAFT_INVALID' -StatusCode 400
+                        } else {
+                            Write-UiResponse -Context $context -Body 'Entwurf unbestätigt. Batchübersicht und Providerbereitschaft prüfen.' -StatusCode 409
+                        }
+                        continue
+                    }
+                    Write-UiResponse -Context $context -Body ($draft | ConvertTo-Json -Depth 5) -ContentType 'application/json; charset=utf-8' -StatusCode 201
+                    continue
+                }
                 $batch = New-SqlServerLabBatch -Name ([string]$request.name) -Priority $(if ($request.priority) { [string]$request.priority } else { 'Normal' }) -Defaults $request.defaults -Items @($request.items) -Queue:$false
                 Write-UiResponse -Context $context -Body ($batch | ConvertTo-Json -Depth 30) -ContentType 'application/json; charset=utf-8' -StatusCode 201
                 continue
@@ -1000,6 +1505,75 @@ try {
                 }
                 $body = $bodyRead.Body
                 $request = $body | ConvertFrom-Json -Depth 12
+                if ($request.command -ceq 'StartOperationHost') {
+                    $names = @($request.PSObject.Properties.Name)
+                    if ($body.Length -gt 256 -or $names.Count -ne 2 -or
+                        @($names | Where-Object { $_ -cnotin @('command','confirmed') }).Count -or
+                        $request.command -isnot [string] -or $request.confirmed -isnot [bool] -or -not $request.confirmed) {
+                        Write-UiResponse -Context $context -Body 'OPERATION_HOST_CONFIRMATION_REQUIRED' -StatusCode 400
+                        continue
+                    }
+                    $document = [Text.Json.JsonDocument]::Parse($body)
+                    try { Assert-UiCommandJsonUnique $document.RootElement } finally { $document.Dispose() }
+                    $root = & (Get-Module SqlServerLab) { [IO.Path]::GetFullPath((Get-LabStateRoot)) }
+                    if ((Invoke-UiOperationHostStart -StateRoot $root) -ne 'Requested') {
+                        Write-UiResponse -Context $context -Body 'OPERATION_HOST_START_FAILED: Status prüfen und bei Bedarf erneut anfordern.' -StatusCode 503
+                        continue
+                    }
+                    Write-UiResponse -Context $context -Body '{"state":"Requested"}' -ContentType 'application/json; charset=utf-8' -StatusCode 202
+                    continue
+                }
+                if ($request.command -cin @('BatchStopPreview','BatchStopApply','BatchSubmitPreview','BatchSubmitApply')) {
+                    $isSubmit = $request.command -cin @('BatchSubmitPreview','BatchSubmitApply')
+                    $isPreview = $request.command -cin @('BatchStopPreview','BatchSubmitPreview')
+                    $names = @($request.PSObject.Properties.Name)
+                    $required = if ($isPreview) { @('command','batchId') } else { @('command','batchId','previewId','confirmed') }
+                    if ($body.Length -gt 1024 -or $names.Count -ne $required.Count -or
+                        @($names | Where-Object { $_ -cnotin $required }).Count -or
+                        $request.batchId -isnot [string] -or $request.batchId -cnotmatch '\Abatch-\d{14}-[0-9a-f]{8}\z' -or
+                        (-not $isPreview -and ($request.previewId -isnot [string] -or $request.confirmed -isnot [bool] -or -not $request.confirmed))) {
+                        $code = if ($isSubmit) { 'BROWSER_BATCH_SUBMIT_REQUEST_INVALID' } else { 'BROWSER_BATCH_STOP_REQUEST_INVALID' }
+                        Write-UiResponse -Context $context -Body $code -StatusCode 400
+                        continue
+                    }
+                    $document = [Text.Json.JsonDocument]::Parse($body)
+                    try { Assert-UiCommandJsonUnique $document.RootElement } finally { $document.Dispose() }
+
+                    $labModule = Get-Module SqlServerLab
+                    $batchRoot = & $labModule { [IO.Path]::GetFullPath((Get-LabStateRoot)) }
+                    $previewId = if ($isPreview) { '' } else { $request.previewId }
+                    try {
+                        $batchResult = & $labModule {
+                            param($Submit, $Preview, $BatchId, $PreviewId, $Root)
+                            if ($Submit -and $Preview) { New-LabBrowserBatchSubmitPreview -BatchId $BatchId -StateRoot $Root }
+                            elseif ($Submit) { Invoke-LabBrowserBatchSubmitPreview -BatchId $BatchId -PreviewId $PreviewId -StateRoot $Root }
+                            elseif ($Preview) { New-LabBrowserBatchStopPreview -BatchId $BatchId -StateRoot $Root }
+                            else { Invoke-LabBrowserBatchStopPreview -BatchId $BatchId -PreviewId $PreviewId -StateRoot $Root }
+                        } $isSubmit $isPreview $request.batchId $previewId $batchRoot
+                    }
+                    catch {
+                        if ($isSubmit -and $_.Exception.Message -cmatch '^BATCH_SA_PASSWORD_ENVIRONMENT_VARIABLE_(MISSING|REQUIRED):') {
+                            Write-UiResponse -Context $context -Body 'Eine benötigte SQL-Kennwortvariable fehlt in der Sitzung der Browseroberfläche.' -StatusCode 409
+                            continue
+                        }
+                        if ($_.Exception.Message -cnotin @('BROWSER_BATCH_STOP_BATCH_UNAVAILABLE','BROWSER_BATCH_STOP_BATCH_INVALID',
+                            'BROWSER_BATCH_STOP_NO_TARGETS','BROWSER_BATCH_STOP_PREVIEW_REQUIRED','BROWSER_BATCH_STOP_PREVIEW_STALE',
+                            'BATCH_REVIEW_INVALID','BATCH_REVIEW_STALE','BATCH_REVIEW_PREVIEW_REQUIRED')) { throw }
+                        Write-UiResponse -Context $context -Body 'Der Batch oder die Vorschau hat sich geändert. Status lesen und bei Bedarf eine neue Vorschau öffnen.' -StatusCode 409
+                        continue
+                    }
+                    if (-not $isPreview -and ($isSubmit -or $batchResult.Requested -gt 0) -and (Invoke-UiOperationHostStart -StateRoot $batchRoot) -eq 'Failed') {
+                        $message = if ($isSubmit) {
+                            'OPERATION_HOST_START_FAILED: Batch eingereiht. Status prüfen; keine automatische Wiederholung.'
+                        } else {
+                            'OPERATION_HOST_START_FAILED: Stopp angenommen. Status prüfen; keine automatische Wiederholung.'
+                        }
+                        Write-UiResponse -Context $context -Body $message -StatusCode 503
+                        continue
+                    }
+                    Write-UiResponse -Context $context -Body ($batchResult | ConvertTo-Json -Depth 5) -ContentType 'application/json; charset=utf-8'
+                    continue
+                }
                 $operationId = [string]$request.operationId
                 $result = switch ([string]$request.command) {
                     'Confirm' {
@@ -1070,13 +1644,17 @@ try {
                 $body = $bodyRead.Body
                 $request = $body | ConvertFrom-Json -Depth 8
                 $action = [string]$request.action
+                if ($action -in @('InitializeCms','AdoptCms')) {
+                    try { & (Get-Module SqlServerLab) { param($json,$name) Assert-LabCmsManagementWorkflowJsonShape -Json $json -Action $name } $body $action }
+                    catch { throw 'CMS_MANAGEMENT_REQUEST_INVALID' }
+                }
                 if ($action -in @('NewContainerLab','NewContainerLabFromManifest')) {
                     try {
                         & (Get-Module SqlServerLab) { param($json,$a) Assert-LabSaPasswordWorkflowJsonShape -Json $json -Action $a } $body $action
                     }
                     catch { throw 'UI_SA_PASSWORD_REQUEST_INVALID' }
                 }
-                if ($action -in @('GetCmsInspectionState','InspectCms','GetLlamaSessions','PlanLlamaSessionStop','StopLlamaSession','GetResourceWatchState', 'RefreshResourceWatch', 'GetMediaOverrideState', 'PlanMediaOverride', 'ApplyMediaOverride', 'GetSlotReserveState', 'PlanSlotReserve', 'ApplySlotReserve', 'PlanWindowsPoolMember', 'ApplyWindowsPoolMember', 'CancelWindowsPoolMember', 'GetInitialSetupState', 'PlanInitialSetup', 'ApplyInitialSetup', 'RefreshSetupProvider', 'PlanSetupWriteability', 'ProbeSetupWriteability', 'RefreshSetupCapacity')) { throw 'INITIAL_SETUP_DIRECT_ENDPOINT_REQUIRED' }
+                if ($action -in @('GetCmsInspectionState','InspectCms','GetCmsManagementState','GetLlamaSessions','PlanLlamaSessionStop','StopLlamaSession','GetResourceWatchState', 'RefreshResourceWatch', 'GetMediaOverrideState', 'PlanMediaOverride', 'ApplyMediaOverride', 'GetSlotReserveState', 'PlanSlotReserve', 'ApplySlotReserve', 'PlanWindowsPoolMember', 'ApplyWindowsPoolMember', 'CancelWindowsPoolMember', 'GetInitialSetupState', 'PlanInitialSetup', 'ApplyInitialSetup', 'RefreshSetupProvider', 'PlanSetupWriteability', 'ProbeSetupWriteability', 'RefreshSetupCapacity')) { throw 'INITIAL_SETUP_DIRECT_ENDPOINT_REQUIRED' }
                 $parameters = @{}
                 if ($request.parameters) {
                     foreach ($property in $request.parameters.PSObject.Properties) {
@@ -1099,8 +1677,26 @@ try {
                     catch { throw 'UI_SA_PASSWORD_PREFLIGHT_FAILED' }
                 }
                 $hasTransientSecret = $parameters.ContainsKey('GuestPassword') -or $parameters.ContainsKey('SaPassword')
+                if ($action -eq 'ReadFullMaintenancePreview') {
+                    if ($parameters.Count -ne 0) { throw 'FULL_MAINTENANCE_PREVIEW_ARGUMENTS_INVALID' }
+                    if (@($jobs.Values | Where-Object {
+                        $_.Action -eq $action -and $_.Job.State -in @('NotStarted','Running')
+                    }).Count) { throw 'FULL_MAINTENANCE_PREVIEW_IN_PROGRESS' }
+                }
                 # A confirmed power plan is a one-shot request: never replay it through batch recovery.
-                if (-not $hasTransientSecret -and $action -notin @('Refresh','StartTestGroupPower','StopTestGroupPower')) {
+                if ($action -eq 'CreateLinuxTestGroupMember' -and ($parameters.Count -notin @(3,4) -or
+                    $parameters['Provider'] -isnot [string] -or $parameters['SqlVersion'] -isnot [string] -or
+                    ($parameters.Count -eq 4 -and $parameters['TestGroupPatch'] -isnot [string]) -or
+                    $parameters['ExpectedPlanKey'] -isnot [string])) { throw 'TEST_GROUP_LINUX_CREATE_ACTION_INVALID' }
+                $groupManagement = $action -in @('CreateWindowsTestGroupMember','RepairTestGroup','RemoveTestGroup','ExportTestGroup')
+                if ($groupManagement) {
+                    $expectedCount = if ($action -eq 'CreateWindowsTestGroupMember') { 2 } else { 1 }
+                    if ($parameters.Count -ne $expectedCount -or $parameters['ExpectedPlanKey'] -isnot [string] -or
+                        ($expectedCount -eq 2 -and $parameters['ArtifactId'] -isnot [string])) {
+                        throw 'TEST_GROUP_MANAGEMENT_ACTION_INVALID'
+                    }
+                }
+                if (-not $hasTransientSecret -and -not $groupManagement -and $action -notin @('Refresh','StartTestGroupPower','StopTestGroupPower','CreateLinuxTestGroupMember','ReadFullMaintenancePreview')) {
                     # Retain terminal cards for this server session; bound reads without evicting results.
                     if ($persistentJobs.Count -ge 256) { throw 'UI_JOB_STATUS_CAPACITY_REACHED' }
                     $batchStateRoot = & (Get-Module SqlServerLab) { Get-LabStateRoot }

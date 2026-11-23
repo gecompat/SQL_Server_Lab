@@ -170,6 +170,13 @@ UNKNOWN/DRIFTED, Mountcounts und NOT_CHECKED bleiben sichtbar. Schließen,
 Bearbeitung und neue Requests verwerfen späte Antworten; ein versandter Read
 darf fertiglaufen.
 
+Die getrennten Fachaktionen **Container-Autostart ändern** und
+**Container-Autostart-Recovery fortsetzen** verwenden
+`Get-SqlServerLabContainerAutoStartPlan`, `Set-SqlServerLabContainerAutoStart`
+bzw. `Resume-SqlServerLabContainerAutoStart`. Die Oberfläche bindet den
+bestätigten Plan oder die konkrete Journaloperation im Server.
+[Bedienung und Fehlerpfade](../Documentation/HowTo/WORKFLOW_UI.md#docker-und-podman-autostart-ändern).
+
 Die [Validierungsstrategie](../Documentation/Quality/LOCAL_VALIDATION_STRATEGY.md#getrennte-autostart-core-abnahme)
 enthält die getrennte Core-, CLI- und Browser-/HTTP-Abnahmehistorie.
 [Bekannte Grenzen](../Documentation/Quality/KNOWN_LIMITATIONS.md#container-autostart-nur-vorprüfen)
@@ -346,7 +353,7 @@ Vertrag. Vollständiger CORE-102 und Native-Abnahmen bleiben offen.
 | `Sync-SqlServerLabConnectionCenter` | `Sync-SqlServerLabConnectionCenter.ps1` | Endpunktkatalog der Verbindungszentrale atomar aktualisieren |
 | `Export-SqlServerLabSsmsRegistration` | `Sync-SqlServerLabConnectionCenter.ps1` | Kennwortfreien SSMS-`.regsrvr`-Export erzeugen |
 | `Export-SqlServerLabCmsSyncScript` | `Sync-SqlServerLabConnectionCenter.ps1` | Idempotentes CMS-Synchronisationsskript erzeugen |
-| `Initialize-SqlServerLabCms` | `Sync-SqlServerLabConnectionCenter.ps1` | Kompakten persistenten Docker-/Podman-CMS nach expliziter Auswahl erstellen |
+| `Initialize-SqlServerLabCms` | `Sync-SqlServerLabConnectionCenter.ps1` | Kompakten persistenten Docker-/Podman-CMS erstellen; auch bei gleichem Labnamen mit frischem Store und neuem Passwort. `ReplaceRemovedCms` ersetzt erst nach Erfolg eine terminale Registrierung |
 | `Sync-SqlServerLabCms` | `Sync-SqlServerLabConnectionCenter.ps1` | Verwalteten lokalen CMS mit dem aktuellen Katalog abgleichen |
 | `Get-SqlServerLabReconcilePlan` | `Get-SqlServerLabReconcilePlan.ps1` | Read-only Lifecycle-, Hyper-V-Netzwerk-/Ressourcen-/Storage-/SQL-Konfigurations-/Port-/Testdatenbank-, Containerressourcen-/Autostart- oder resolvergebundener External-Runtime-Reconcile-Plan einschließlich additiver Hyper-V-Gastinstallation; nicht ausführbare Komponenten-/Shared-Verbrauchervorschau über ProposedRelations ; Container-Preview mit pfadfreien Mount-/Host-Schreibzugriffszählern, Volumeeigentum NOT_CHECKED |
 | `Invoke-SqlServerLabReconcileAction` | `Invoke-SqlServerLabReconcileAction.ps1` | `START`/`STOP`, eigentumsgebundene Hyper-V-Netzwerk-, Ressourcen-, Storage-, SQL- oder Testdatenbank-Aktionen, Container-Replacement sowie additive Hyper-V-External-Runtime-Aktionen mit Validierung, Recovery und `-WhatIf` ausführen |
@@ -354,7 +361,7 @@ Vertrag. Vollständiger CORE-102 und Native-Abnahmen bleiben offen.
 | `Invoke-SqlServerLabWorkflowAction` | `Invoke-SqlServerLabWorkflowAction.ps1` | Nicht interaktive, UI-taugliche Workflow-Aktion einschließlich Grundkonfiguration (Status, Plan, bestätigtes Apply, Providerrefresh, explizite Location-Schreibprobe und read-only Kapazitätsmomentaufnahme) und Advisory-Slotreservepolicy (GetSlotReserveState, PlanSlotReserve, ApplySlotReserve mit ConfirmSlotReserve); PlanWindowsPoolMember bindet RunId und StateRoot vor bestätigtem ApplyWindowsPoolMember; getrenntes journalgebundenes Hyper-V-Datenbankpaket-Attach-Recovery und pfad-/secretfreie Container-Paket-Exportbindung |
 | `New-SqlServerLabManifest` | `New-SqlServerLabManifest.ps1` | Schema-gesteuertes Manifest interaktiv oder aus einem Objekt erstellen |
 | `Test-SqlServerLabManifest` | `New-SqlServerLabManifest.ps1` | Schema, Kataloge und Runtime-Grenzen prüfen und eine mutationsfreie SQL-Lifecycle-, External-Runtime- und Sample-Planvorschau liefern |
-| `New-SqlServerLab` | `New-SqlServerLab.ps1` | Neue Umgebung ad hoc oder per Manifest erstellen; detached Docker-/Podman-Instanzstore optional per stabiler ID fortsetzen oder unabhängig klonen |
+| `New-SqlServerLab` | `New-SqlServerLab.ps1` | Neue Umgebung ad hoc oder per Manifest erstellen; `PersistentData` erstellt auch bei gleichem Namen einen neuen Docker-/Podman-Store. Detached Instanzstore optional ausdrücklich per stabiler ID fortsetzen oder klonen |
 | `Get-SqlServerLab` | `Get-SqlServerLab.ps1` | State, Live-Containerstatus und sanitisierte kataloggebundene Container-Tool-Metadaten je Provider anzeigen |
 | `Start-SqlServerLab` | `Start-SqlServerLab.ps1` | Gestoppte Umgebung je gespeicherten Provider starten |
 | `Stop-SqlServerLab` | `Stop-SqlServerLab.ps1` | Laufende Umgebung je gespeicherten Provider stoppen |
@@ -389,7 +396,7 @@ Vertrag. Vollständiger CORE-102 und Native-Abnahmen bleiben offen.
 | `Export-SqlServerLabTestEnvironment` | `TestEnvironment.ps1` | Registrierte Testumgebungen mit gebundener Live-Health-Prüfung als dotenv, schema-validierbares JSON, portablen Agenten-Prompt und Markdown exportieren |
 | `Test-SqlServerLabTlsQualification` | `Test-SqlServerLabTlsQualification.ps1` | Eigene operative Windows-Containerbindung mit beiden echten strikten Clients aktuell prüfen; [Voraussetzungen, Ergebnis und Fehler](../Documentation/Architecture/AUTHENTICATED_TLS_LIVE_QUALIFICATION.md) |
 | `Invoke-SqlServerLabLinuxPreflight` | `Invoke-SqlServerLabLinuxPreflight.ps1` | Dedizierter read-only Toolbelt-Preflight im ausdrücklich eigenen Linuxclient; [Entwicklungs- und Abnahmegrenze](../Documentation/Architecture/AUTHENTICATED_TLS_LINUX_CLIENT.md) |
-| `Repair-SqlServerLabAutomatedTestEnvironment` | `TestEnvironment.ps1` | Linux-Ressourcen, Health und Autostart, Windows-Evaluationsaktivierung sowie sprechende Runtime-Namen abgleichen; Ports, Volumes und Run-IDs bleiben erhalten |
+| `Repair-SqlServerLabAutomatedTestEnvironment` | `TestEnvironment.ps1` | Linux-Ressourcen, Health und Autostart, Windows-Evaluationsaktivierung sowie sprechende Runtime-Namen abgleichen. `-LinuxSqlPortsOnly` stellt ausschließlich fehlende registrierte Docker-SQL-Portbindungen wieder her. |
 | `Start-SqlServerLabAutomatedTestEnvironment` | `TestEnvironmentLifecycle.ps1` | Registrierte Mitglieder gruppenweise starten, Windows-Lizenz und SQL-Dienste live prüfen und den erneuerten Export bis `READY` validieren |
 | `Stop-SqlServerLabAutomatedTestEnvironment` | `TestEnvironmentLifecycle.ps1` | Registrierte Windows-Hyper-V-Mitglieder gruppenweise ausschalten, Hostkapazität freigeben und den Export fail-closed erneuern; keine Runs oder Registrierungen löschen |
 | `Clear-SqlServerLabAutomatedTestEnvironment` | `TestEnvironment.ps1` | Alle Runs der geschützten Testgruppe gemeinsam entfernen und deren Exporte löschen |

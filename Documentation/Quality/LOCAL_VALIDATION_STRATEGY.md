@@ -363,6 +363,24 @@ Netzwerksuite und alle acht ausgewählten statischen Suites bestanden danach;
 da der freigegebene Lauf bereits verbraucht war, wurde kein Providerlauf
 wiederholt. Der Fix ist statisch validiert, aber noch nicht nativ qualifiziert.
 
+### 2026-11-17: Ordinal 150
+
+Der öffentliche Docker-Neuaufbau mit SQL Server 2025 CU9 (`17.0.5005.3`)
+und Linux-Client 0.4 erzeugte einen signierten V2-Export. Der dedizierte
+Toolbelt-Preflight bestand mit `System.Data.SqlClient` und ODBC/sqlcmd bei
+aktiver Verschlüsselung und `TrustServerCertificate=False`. Der bestehende
+Windows-Reader wies den Export für den Linux-Namespace zurück. Der eigene
+Lauf wurde entfernt, der Inventarvergleich bestand und der Hosttrust blieb
+unverändert.
+
+Der native Nachweis bindet Lab `2d0ecd19` und Toolbelt `54bca9b7`. Das originale
+Terminal bleibt `PASS_PENDING_POSTEXIT_CUSTODY_REVIEW`. Die getrennte,
+unabhängig geprüfte Beobachtung nach Prozessende und der gebundene
+Ledger-Abschluss bestätigen den finalen PASS. Frühere Fehlversuche behalten
+ihren ursprünglichen Status. Dieser Nachweis deckt den öffentlichen
+Docker-/Linux-Preflight ab. Podman und weitere Ziel-/Clientkontexte benötigen
+ihre eigenen Nachweise.
+
 ## V2-Consumer-Cutover vom 2026-10-22
 
 Die [native Windows-Consumer-Abnahme](TLS_V2_CONSUMER_CUTOVER_ACCEPTANCE_2026-10-22.md)
@@ -3664,6 +3682,33 @@ bleiben bei Preview unveraendert; Apply registriert das Ziel und loest die
 Quell-Lease in derselben Revision. Copy-/Katalogfehler und Resume bleiben
 Bestandteil der Suite; diese Pruefung startet keine Container-Runtime.
 
+### Persistente Neuanlage mit wiederverwendetem Labnamen
+
+`Invoke-DataRootChecks.ps1` prüft getrennte SQL-System- und External-Stores
+zweier Neuanlagen mit demselben Namen für Docker und Podman. Die bestehende
+ConnectionCenterCms-Suite führt den echten Initialisierer mit synthetischen
+Provider-/Provisionierungsgrenzen aus: Fehler erhalten die terminale
+Registrierung, ein nicht entfernter Run blockiert den Ersatz und erfolgreiche
+Ersetzungen verwenden denselben Namen mit neu generierten Passwörtern.
+
+`Tests/Integration/Invoke-PersistentLabNameReuseAcceptance.ps1 -Provider
+docker|podman` ergänzt den öffentlichen SQL-2025-Erstellungspfad: Datenmarker
+im ersten Lab, reguläres Remove mit retained Store, gleicher Name mit neuem
+Passwort, frischer SQL-Systemzustand, Stop/Start und Ablehnung des alten
+Passworts. Autostart bleibt im isolierten Test ausgeschaltet. Der Test prüft
+Speicher-IDs vor der eigenen Volumeentfernung und vergleicht das abschließende
+Container-/Volumeinventar mit dem Ausgangszustand.
+
+Am 2026-11-05 bestanden beide Provider getrennt mit je acht Prüfungen und
+vollständigem eigenem Runtime-Cleanup. Ein ursprünglicher Podman-Versuch
+scheiterte an einer falschen Feldannahme im Testadapter; sein Container und
+sein retained Testvolume wurden anschließend gezielt bereinigt. Der
+ursprüngliche FAIL bleibt erhalten, ebenso sein lokaler Diagnoseordner nach
+abgewiesener Dateibereinigung. Die korrigierten Läufe sind neue Nachweise.
+CMS-Autostart, echte SSMS-Registrierung, weitere SQL-Versionen und Hyper-V sind
+durch diese gezielte Abnahme nicht qualifiziert. Die frühere Continue-/Clone-
+Abnahme bleibt auf ihren damaligen Stand begrenzt.
+
 Die drei Retained-Store-Suites `Invoke-RetainedStoreRemovalChecks.ps1`,
 `Invoke-RetainedStoreRuntimeChecks.ps1` und
 `Invoke-RetainedStoreRemovalConcurrencyChecks.ps1` prüfen Producer-Fixtures,
@@ -4397,9 +4442,38 @@ Die statische Batch-Workflow-Prüfung hält zusätzlich die zustandsrootgebunden
 Workflow-Sperre in einem eigenen PowerShell-Kindprozess. Sie verlangt, dass
 eine Batch-Zusammenfassung bis zur Freigabe wartet und danach erfolgreich
 abschließt. Zwei parallele Zusammenfassungen müssen anschließend denselben
-vollständigen Batchzustand mit allen terminalen Operationen erhalten. Dieser
+vollständigen Batchzustand mit allen terminalen Operationen erhalten.
+Ein weiterer Test hält beim Lesen einer synthetischen Workflow-Datei den
+Dateihandle offen. Der Schreibprozess wartet auf deren Freigabe und ersetzt
+den Datensatz erst danach. Beide Prozesse sehen jeweils eine vollständige
+Version. Dieser
 synthetische Nachweis belegt die lokale Dateisynchronisation, nicht die
 Provider-Provisionierung oder extern verursachte Dateisperren.
+
+Ein synthetischer Fall prüft 64 gleich nummerierte Vorgänge. Beim
+Umreihen bleiben alle anderen Vorgänge in der sichtbaren Reihenfolge.
+
+Ein statischer Vertragsfall liefert beim Stopp eine veraltete Liste
+unfertiger Positionen. Er prüft, dass ein inzwischen abgeschlossener
+Vorgang bytegleich erhalten bleibt und die noch unfertige Position zur
+Bereinigung eingereiht wird. Ein getrennt bestätigter vollständiger
+Rückbau kann auch den abgeschlossenen Vorgang zur Bereinigung einreihen.
+
+Weitere synthetische Fälle speichern während des ersten von zwei
+Workerschritten eine Stoppanforderung. Nach dem ersten Schritt bleibt
+deren Ereignis erhalten und der zweite Schritt beginnt nicht. Ohne
+Cleanup endet der Vorgang als `Cancelled`, mit Cleanup als `CleanupQueued`.
+Ein gesonderter Fehlerfall prüft den ursprünglichen Schrittfehler und
+verhindert einen automatischen erneuten Versuch nach fehlgeschlagenem Cleanup.
+
+Die Browser-Vorschau für den Standardabbruch bindet einen übergebenen
+Batch und dessen unfertige Positionen an den aktuellen State-Root.
+`Invoke-BatchWorkflowChecks.ps1` prüft lesende Vorschau, geänderte Auswahl,
+abweichendes Root, Wiederholung einer verbrauchten Vorschau und unveränderte
+fertige und unbeteiligte Positionen. `WorkflowJobStatusChecks.ps1` prüft
+den HTTP-Dispatch mit verpflichtender Bestätigung und fester Cleanup-Grenze.
+`OperationOrderingUiChecks.cjs` prüft Vorschau und Bestätigung im Browser.
+Diese Fälle starten keine Providerressourcen.
 
 Die getrennten nativen Batch-Referenzläufe vom 2026-09-21 bestanden mit dem
 unveränderten Runtime-Commit `85dcd126`: Docker und Podman meldeten jeweils

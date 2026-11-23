@@ -75,7 +75,8 @@ function ConvertFrom-LabConnectionStringTarget {
     if (-not [string]::IsNullOrWhiteSpace($ConnectionString)) {
         try {
             $builder = [System.Data.Common.DbConnectionStringBuilder]::new()
-            $builder.ConnectionString = $ConnectionString
+            # Use the CLR setter. PowerShell also adapts this builder as a dictionary.
+            $builder.PSBase.ConnectionString = $ConnectionString
             foreach ($key in @('Server', 'Data Source', 'Address', 'Addr', 'Network Address')) {
                 if ($builder.ContainsKey($key) -and -not [string]::IsNullOrWhiteSpace([string]$builder[$key])) {
                     return [string]$builder[$key]
@@ -102,19 +103,32 @@ function Get-SqlServerLabConnectionCenter {
         Strings werden nicht zurückgegeben.
     .PARAMETER StateRoot
         Optionaler State Root. Ohne Angabe wird der konfigurierte Standard verwendet.
+    .PARAMETER StoredOnly
+        Liest nur registrierte reguläre Endpunkte und den gespeicherten Zustand
+        ohne Runtime-Abgleich. Geschützte Testsysteme werden ausgelassen.
     .OUTPUTS
         PSCustomObject mit Gruppenregel und bekannten SQL-Endpunkten.
     #>
     [CmdletBinding()]
-    param([string]$StateRoot)
+    param([string]$StateRoot, [switch]$StoredOnly)
 
     if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
     $configuration = Get-LabConnectionCenterConfiguration -StateRoot $StateRoot
     $entries = @()
-    $testRunIds = @(Get-LabAutomatedTestEnvironmentRunIds)
+    $testRunIds = @(if ($StoredOnly) {
+        $registry = Get-LabTestEnvironmentRegistry
+        if ($registry.environments -isnot [array]) { throw 'TEST_ENVIRONMENT_REGISTRY_INVALID' }
+        foreach ($environment in $registry.environments) {
+            $id = [guid]::Empty
+            if ($environment.runId -isnot [string] -or -not [guid]::TryParseExact($environment.runId, 'D', [ref]$id) -or $id -eq [guid]::Empty) {
+                throw 'TEST_ENVIRONMENT_REGISTRY_INVALID'
+            }
+            $id.ToString('D')
+        }
+    } else { Get-LabAutomatedTestEnvironmentRunIds })
     $testEntriesByRunId = @{}
     $testGroupReady = $false
-    if ($testRunIds.Count -gt 0) {
+    if (-not $StoredOnly -and $testRunIds.Count -gt 0) {
         try {
             $testRegistry = Get-LabTestEnvironmentRegistry
             $resolvedTestEntries = @(Get-LabTestEnvironmentResolvedEntries -Registry $testRegistry -StateRoot $StateRoot)
@@ -126,7 +140,7 @@ function Get-SqlServerLabConnectionCenter {
         }
         catch { $testGroupReady = $false }
     }
-    foreach ($run in @(Get-LabActiveRuns -StateRoot $StateRoot)) {
+    foreach ($run in @(Get-LabActiveRuns -StateRoot $StateRoot -NoWrite:$StoredOnly)) {
         $runId = [string]$run.runId
         $isAutomatedTestEnvironment = $runId -in $testRunIds
         if ($isAutomatedTestEnvironment -and -not $testGroupReady) { continue }
@@ -136,7 +150,12 @@ function Get-SqlServerLabConnectionCenter {
         try { $connection = Get-Content -LiteralPath $connectionPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20 }
         catch { continue }
         $runtimeState = 'UNKNOWN'
-        try { $runtimeState = [string](Sync-LabRunRuntimeState -Run $run -StateRoot $StateRoot).Runtime.State } catch { }
+        if ($StoredOnly) {
+            if ([string]$run.state -cin @('RUNNING','STOPPED')) { $runtimeState = [string]$run.state }
+        }
+        else {
+            try { $runtimeState = [string](Sync-LabRunRuntimeState -Run $run -StateRoot $StateRoot).Runtime.State } catch { }
+        }
         foreach ($instance in @($connection.instances)) {
             $target = ConvertFrom-LabConnectionStringTarget -ConnectionString ([string]$instance.connectionString) -Instance $instance
             if ([string]::IsNullOrWhiteSpace($target)) { continue }
@@ -288,6 +307,8 @@ function Initialize-SqlServerLabCms {
         Erstellt nach explizitem Aufruf einen kompakten Docker- oder Podman-Run
         mit persistentem Data Root. Das generierte SA-Passwort wird nur einmal
         im Ergebnis ausgegeben und danach run-lokal geschützt gespeichert.
+        Auch bei gleichem LabName entsteht ein neuer SQL-Systemstore mit neuem
+        Passwort. Vorhandene persistente Stores werden nicht verändert.
     .PARAMETER Provider
         Optionaler Containerprovider. Ohne Angabe wird Docker vor Podman bevorzugt.
     .PARAMETER LabName
@@ -296,20 +317,25 @@ function Initialize-SqlServerLabCms {
         Ersetzt ausschließlich eine vorhandene CMS-Registrierung, deren gebundener
         Run bereits den terminalen Status REMOVED trägt. Andere CMS-Registrierungen
         bleiben ohne Änderung blockierend.
+    .PARAMETER SuppressGeneratedPasswordReturn
+        Speichert das generierte Passwort wie üblich geschützt im Run, gibt es
+        aber nicht als Klartext im Ergebnis zurück.
     .PARAMETER StateRoot
         Optionaler State Root. Ohne Angabe wird der konfigurierte Standard verwendet.
     .OUTPUTS
-        PSCustomObject mit CMS-Konfiguration, Run-Information und einmaligem Passwort.
+        PSCustomObject mit CMS-Konfiguration und Run-Information; Password ist bei SuppressGeneratedPasswordReturn null.
     #>
     [CmdletBinding()]
     param(
         [ValidateSet('docker', 'podman')][string]$Provider,
         [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_.-]{0,79}$')][string]$LabName = 'sql-server-lab-cms',
         [switch]$ReplaceRemovedCms,
+        [switch]$SuppressGeneratedPasswordReturn,
         [string]$StateRoot
     )
 
     if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
+    return Invoke-WithLabCmsManagementLock -StateRoot $StateRoot -ScriptBlock {
     $existing = Get-LabConnectionCenterCmsConfiguration -StateRoot $StateRoot
     if ($existing) {
         if (-not $ReplaceRemovedCms) {
@@ -319,11 +345,9 @@ function Initialize-SqlServerLabCms {
         if ([string]$existingRun.state -ne 'REMOVED') {
             throw "CONNECTION_CENTER_CMS_REPLACEMENT_BLOCKED: Run $($existing.RunId) ist nicht REMOVED."
         }
-        $configurationPath = Join-Path (Join-Path $StateRoot 'catalog') 'sql-connection-center-cms.json'
-        if (-not (Test-Path -LiteralPath $configurationPath -PathType Leaf)) {
-            throw 'CONNECTION_CENTER_CMS_CONFIGURATION_MISSING: Die CMS-Registrierung kann nicht gezielt ersetzt werden.'
-        }
-        Remove-Item -LiteralPath $configurationPath -Force -ErrorAction Stop
+        # Die terminale Registrierung bleibt bis zur erfolgreichen Neuanlage
+        # erhalten. Provider-/Provisionierungsfehler duerfen sie nicht austragen;
+        # der bestehende atomare Writer ersetzt sie erst nach New-SqlServerLab.
     }
     $available = @(Get-AvailableLabProviders)
     if (-not $Provider) {
@@ -335,21 +359,28 @@ function Initialize-SqlServerLabCms {
     $dataRoot = Get-LabDataRootDefault
     if (-not $dataRoot) { throw 'CONNECTION_CENTER_CMS_DATA_ROOT_REQUIRED: Für einen dauerhaften CMS zuerst einen Data Root konfigurieren.' }
     $password = New-LabConnectionCenterPassword
-    $lab = New-SqlServerLab -Version '2025' -Provider $Provider -Profile compact -LabName $LabName -PersistentData -DataRoot $dataRoot -AutoStart on -SaPassword $password -StateRoot $StateRoot
-    $configuration = [PSCustomObject]@{
-        ContractVersion = 'SqlServerLab.ConnectionCenterCms/1.0'
-        RunId = [string]$lab.RunId
-        Provider = $Provider
-        CreatedAt = Get-LabTimestamp
-        Purpose = 'Central Management Server'
-        AutoStart = 'on'
-        PasswordOrigin = 'Generated'
+    try {
+        $lab = New-SqlServerLab -Version '2025' -Provider $Provider -Profile compact -LabName $LabName -PersistentData -DataRoot $dataRoot -AutoStart on -SaPassword $password -StateRoot $StateRoot
+        $configuration = [PSCustomObject]@{
+            ContractVersion = 'SqlServerLab.ConnectionCenterCms/1.0'
+            RunId = [string]$lab.RunId
+            Provider = $Provider
+            CreatedAt = Get-LabTimestamp
+            Purpose = 'Central Management Server'
+            AutoStart = 'on'
+            PasswordOrigin = 'Generated'
+        }
+        Set-LabConnectionCenterCmsConfiguration -Configuration $configuration -StateRoot $StateRoot | Out-Null
+        $plain = $null
+        if (-not $SuppressGeneratedPasswordReturn) {
+            $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($password)
+            try { $plain = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr) }
+            finally { [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
+        }
+        return [PSCustomObject]@{ Configuration = $configuration; Lab = $lab; Password = $plain }
     }
-    Set-LabConnectionCenterCmsConfiguration -Configuration $configuration -StateRoot $StateRoot | Out-Null
-    $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($password)
-    try { $plain = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr) }
-    finally { [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
-    return [PSCustomObject]@{ Configuration = $configuration; Lab = $lab; Password = $plain }
+    finally { if ($password) { $password.Dispose() } }
+    }
 }
 
 function Get-LabConnectionCenterCmsEnvironmentCandidates {
@@ -359,7 +390,7 @@ function Get-LabConnectionCenterCmsEnvironmentCandidates {
     if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
     $protectedRunIds = @(Get-LabAutomatedTestEnvironmentRunIds)
     $candidates = @()
-    foreach ($run in @(Get-LabActiveRuns -StateRoot $StateRoot)) {
+    foreach ($run in @(Get-LabActiveRuns -StateRoot $StateRoot -NoWrite)) {
         if ([string]$run.runId -in $protectedRunIds) { continue }
         $connectionPath = Join-Path (Join-Path (Join-Path $StateRoot 'runs') ([string]$run.runId)) 'connection-info.json'
         if (-not (Test-Path -LiteralPath $connectionPath -PathType Leaf)) { continue }
@@ -403,6 +434,7 @@ function Register-SqlServerLabCmsEnvironment {
     )
 
     if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
+    return Invoke-WithLabCmsManagementLock -StateRoot $StateRoot -ScriptBlock {
     $existing = Get-LabConnectionCenterCmsConfiguration -StateRoot $StateRoot
     if ($existing) { throw "CONNECTION_CENTER_CMS_ALREADY_CONFIGURED: Run $($existing.RunId) ist bereits als CMS registriert." }
     $candidate = @(Get-LabConnectionCenterCmsEnvironmentCandidates -StateRoot $StateRoot | Where-Object RunId -eq $RunId | Select-Object -First 1)
@@ -414,8 +446,10 @@ function Register-SqlServerLabCmsEnvironment {
         $null = Save-LabSecret -Path $runDirectory -Name 'sa-password' -Secret $SaPassword
         $passwordOrigin = 'ProvidedForCms'
     }
-    elseif (-not (Get-LabSecret -Path $runDirectory -Name 'sa-password')) {
-        throw 'CONNECTION_CENTER_CMS_SECRET_REQUIRED: Fuer die CMS-Synchronisation ist das SA-Passwort dieser Umgebung erforderlich.'
+    else {
+        $savedPassword = Get-LabSecret -Path $runDirectory -Name 'sa-password'
+        if (-not $savedPassword) { throw 'CONNECTION_CENTER_CMS_SECRET_REQUIRED: Fuer die CMS-Synchronisation ist das SA-Passwort dieser Umgebung erforderlich.' }
+        if ($savedPassword -is [SecureString]) { $savedPassword.Dispose() }
     }
 
     $configuration = [pscustomobject]@{
@@ -430,6 +464,7 @@ function Register-SqlServerLabCmsEnvironment {
     }
     Set-LabConnectionCenterCmsConfiguration -Configuration $configuration -StateRoot $StateRoot | Out-Null
     return [pscustomobject]@{ Configuration = $configuration; Run = $candidate[0].Run }
+    }
 }
 
 function Add-LabSsmsTextNode {
@@ -501,7 +536,15 @@ function New-LabSsmsRegistrationLines {
         $serverSegment = ConvertTo-LabSsmsAliasSegment ('{0}-{1}' -f $serverName, $entry.Server)
         $serverAlias = "$labAlias/RegisteredServer/$serverSegment"
         $serverReferences.Add('<sfc:Reference sml:ref="true"><sml:Uri>{0}</sml:Uri></sfc:Reference>' -f $serverAlias)
-        $connectionString = 'Data Source={0};Initial Catalog=master;User ID={1};Encrypt=True;TrustServerCertificate=True;Pooling=False;MultipleActiveResultSets=False' -f $entry.Server, $entry.Login
+        $builder = [System.Data.SqlClient.SqlConnectionStringBuilder]::new()
+        $builder['Data Source'] = [string]$entry.Server
+        $builder['Initial Catalog'] = 'master'
+        $builder['User ID'] = [string]$entry.Login
+        $builder['Encrypt'] = $true
+        $builder['TrustServerCertificate'] = $true
+        $builder['Pooling'] = $false
+        $builder['MultipleActiveResultSets'] = $false
+        $connectionString = $builder.PSBase.ConnectionString
         $serverPayload = '<RegisteredServers:RegisteredServer xmlns:RegisteredServers="http://schemas.microsoft.com/sqlserver/RegisteredServers/2007/08" xmlns:sfc="http://schemas.microsoft.com/sqlserver/sfc/serialization/2007/08" xmlns:sml="http://schemas.serviceml.org/sml/2007/02" xmlns:xs="http://www.w3.org/2001/XMLSchema"><RegisteredServers:Parent><sfc:Reference sml:ref="true"><sml:Uri>{0}</sml:Uri></sfc:Reference></RegisteredServers:Parent><RegisteredServers:Name type="string">{1}</RegisteredServers:Name><RegisteredServers:Description type="string">{2}</RegisteredServers:Description><RegisteredServers:ServerName type="string">{3}</RegisteredServers:ServerName><RegisteredServers:UseCustomConnectionColor type="boolean">false</RegisteredServers:UseCustomConnectionColor><RegisteredServers:CustomConnectionColorArgb type="int">0</RegisteredServers:CustomConnectionColorArgb><RegisteredServers:ServerType type="ServerType">DatabaseEngine</RegisteredServers:ServerType><RegisteredServers:ConnectionStringWithEncryptedPassword type="string">{4}</RegisteredServers:ConnectionStringWithEncryptedPassword><RegisteredServers:CredentialPersistenceType type="CredentialPersistenceType">None</RegisteredServers:CredentialPersistenceType><RegisteredServers:OtherParams type="string" /><RegisteredServers:AuthenticationType type="int">0</RegisteredServers:AuthenticationType><RegisteredServers:ActiveDirectoryUserId type="string" /><RegisteredServers:ActiveDirectoryTenant type="string" /></RegisteredServers:RegisteredServer>' -f $labAlias, (ConvertTo-LabSsmsXmlText $serverName), (ConvertTo-LabSsmsXmlText $entry.Description), (ConvertTo-LabSsmsXmlText $entry.Server), (ConvertTo-LabSsmsXmlText $connectionString)
         Add-LabSsmsSfcDocument -Lines $lines -Alias $serverAlias -Payload $serverPayload
     }
@@ -737,7 +780,8 @@ function Invoke-LabCmsSqlInMemory {
         [Parameter(Mandatory)][ValidateRange(1, 65535)][int]$Port,
         [Parameter(Mandatory)][SecureString]$SaPassword,
         [Parameter(Mandatory)][string]$Query,
-        [int]$TimeoutSeconds = 300
+        [int]$TimeoutSeconds = 300,
+        [ValidateRange(15,17)][int]$ExpectedSqlMajor
     )
 
     $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword)
@@ -762,6 +806,11 @@ function Invoke-LabCmsSqlInMemory {
         $command.CommandText = $Query
         $command.CommandTimeout = $TimeoutSeconds
         $connection.Open()
+        if ($PSBoundParameters.ContainsKey('ExpectedSqlMajor')) {
+            $command.CommandText = "SELECT CONVERT(int, SERVERPROPERTY('ProductMajorVersion'));"
+            if ([int]$command.ExecuteScalar() -ne $ExpectedSqlMajor) { throw 'CMS_SYNC_SQL_MAJOR_MISMATCH' }
+            $command.CommandText = $Query
+        }
         $null = $command.ExecuteNonQuery()
         $stopwatch.Stop()
         return [PSCustomObject]@{
@@ -1021,11 +1070,24 @@ function Sync-SqlServerLabCms {
         Optionaler State Root. Ohne Angabe wird der konfigurierte Standard verwendet.
     .PARAMETER Quiet
         Unterdrückt die Erfolgsmeldung für automatische Lifecycle-Synchronisationen.
+    .PARAMETER ExpectedRegistrationKey
+        Bindet den geführten Abgleich an die zuvor gelesene Registrierung eines
+        laufenden Docker-/Podman-CMS. Kennwortalias-Konfigurationen bleiben hier
+        gesperrt. Das Ergebnis enthält Status und Anzahl ohne SQL-Skript.
     .OUTPUTS
         PSCustomObject mit Pfad und Anzahl synchronisierter Endpunkte oder `$null` ohne CMS.
     #>
-    [CmdletBinding()]
-    param([string]$StateRoot, [switch]$Quiet)
+    [CmdletBinding(DefaultParameterSetName='Default')]
+    param(
+        [Parameter(ParameterSetName='Default')][string]$StateRoot,
+        [Parameter(ParameterSetName='Default')][switch]$Quiet,
+        [Parameter(Mandatory,ParameterSetName='RegistrationBound')]
+        [ValidatePattern('\A[a-f0-9]{64}\z')][string]$ExpectedRegistrationKey
+    )
+
+    if ($PSBoundParameters.ContainsKey('ExpectedRegistrationKey')) {
+        return Invoke-LabCmsBoundSync -ExpectedRegistrationKey $ExpectedRegistrationKey
+    }
 
     if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
     $configuration = Get-LabConnectionCenterCmsConfiguration -StateRoot $StateRoot
@@ -1100,7 +1162,7 @@ function Invoke-LabCmsInteractive {
             if (-not (Read-LabConfirm -Prompt '  Persistenten kompakten CMS jetzt erstellen?' -Default $false)) { return }
             $result = Initialize-SqlServerLabCms -StateRoot $StateRoot
             Write-LabSuccess "CMS erstellt: Run $($result.Configuration.RunId)"
-            Write-LabWarning "Einmaliges CMS-SA-Passwort (jetzt kopieren): $($result.Password)"
+            Write-Host "Einmaliges CMS-SA-Passwort (jetzt kopieren): $($result.Password)" -ForegroundColor Yellow
             $null = Sync-SqlServerLabCms -StateRoot $StateRoot
         }
         elseif ([string]$menu.SelectedItem.Id -eq 'adopt') {

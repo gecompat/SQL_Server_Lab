@@ -11,7 +11,8 @@
     Optionaler lokaler State-Root.
 .OUTPUTS
     SqlServerLab.RunStateUpgradePlan/1.0 mit Upgrade-Status, Änderungen und
-    Blockern. `ExecutionImplemented` ist im ersten read-only Slice stets false.
+    Blockern. `ExecutionImplemented` kennzeichnet den getrennten Upgrade-Befehl,
+    der nur ausdrücklich markierte synthetische Legacy-States migriert.
 .EXAMPLE
     Get-SqlServerLabRunStateUpgradePlan -RunId '<run-id>'
 #>

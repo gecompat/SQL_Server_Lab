@@ -39,6 +39,27 @@ try {
         $metadataSchema = Join-Path $repoRoot 'Schemas/license-profile.schema.json'
         $allPublic = @($created, $listed, $tested) | ConvertTo-Json -Depth 10
         Add-Result 'Lizenzprofil wird lokal strukturell bereitgestellt' ($created.Status -eq 'READY' -and $listed.KeyAvailable -and $tested.Status -eq 'READY')
+        $guided = & $module {
+            param($root)
+            function Get-LabStateRoot { param($ExplicitPath) if ($ExplicitPath) {$ExplicitPath} else {$root} }
+            function Select-LabConsoleDataItem { param($ScreenId,$Title,$Items) $Items[0].Data }
+            function Wait-LabConsoleAcknowledgement {}
+            $query = [Collections.Specialized.NameValueCollection]::new()
+            $list = Invoke-LabLicenseProfileStatusRequest -Method GET -Query $query
+            $query.Add('profileId','sql2016-standard-test')
+            $status = Invoke-LabLicenseProfileStatusRequest -Method GET -Query $query
+            $post = Invoke-LabLicenseProfileStatusRequest -Method POST -Query $query
+            $query.Add('profileId','sql2016-standard-test')
+            $duplicate = Invoke-LabLicenseProfileStatusRequest -Method GET -Query $query
+            $console = @(Invoke-LabMenuAction -ActionName LicenseProfileStatus 6>&1) -join [Environment]::NewLine
+            [pscustomobject]@{List=$list;Test=$status;Post=$post.StatusCode;Duplicate=$duplicate.StatusCode;Console=$console}
+        } $testRoot
+        Add-Result 'Geführte Profilprüfung bindet Auswahl und meldet Formatbefund ohne Onlineaktivierung' (
+            $guided.List.StatusCode -eq 200 -and $guided.List.View.Profiles[0].Id -ceq 'sql2016-standard-test' -and
+            $guided.Test.StatusCode -eq 200 -and $guided.Test.View.Status -ceq 'READY' -and
+            $guided.Test.View.OnlineActivationTested -eq $false -and $guided.Console -match 'Onlineaktivierung' -and
+            ($guided | ConvertTo-Json -Depth 8) -notmatch [regex]::Escape($syntheticText))
+        Add-Result 'Profilprüfung sperrt POST und doppelte IDs' ($guided.Post -eq 405 -and $guided.Duplicate -eq 400)
         Add-Result 'Lizenzprofil-Metadaten entsprechen dem geheimnisfreien Schema' (Test-Json -Json $metadataText -SchemaFile $metadataSchema -ErrorAction Stop)
         Add-Result 'Metadaten und oeffentliche Ergebnisse enthalten keinen Product Key' ($metadataText -notmatch [regex]::Escape($syntheticText) -and $allPublic -notmatch [regex]::Escape($syntheticText))
 

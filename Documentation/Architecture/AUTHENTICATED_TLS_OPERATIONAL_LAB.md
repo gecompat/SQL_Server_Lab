@@ -37,10 +37,10 @@ Provideraktionen abgelehnt. CA-Metadaten werden gemeinsam registriert;
 bestehende SQL-Ziele werden nicht übernommen oder umkonfiguriert.
 
 Die zusätzliche ausdrücklich gewählte
-[isolierte Linux-Clientform](AUTHENTICATED_TLS_LINUX_CLIENT.md) befindet sich
-in Entwicklung. Eigener Record 0.4, DNS-/Namespaceendpoint, runlokaler Kindclient
-und dedizierter Toolbelt-Preflight werden getrennt geprüft. Die bisherigen
-Windowsabnahmen belegen diese neue Form nicht.
+[isolierte Linux-Clientform](AUTHENTICATED_TLS_LINUX_CLIENT.md) ist im
+öffentlichen Docker-Fall mit SQL Server 2025 CU9 separat nativ belegt.
+Der Nachweis umfasst Record 0.4, den DNS-/Namespaceendpoint, den runlokalen
+Kindclient und den dedizierten Toolbelt-Preflight.
 
 RSA-3072-Schlüssel und CSR entstehen als UID 10001 im eigenen Container.
 Der private SQL-Schlüssel verlässt ihn nicht. Der Signierer stellt ein Leaf

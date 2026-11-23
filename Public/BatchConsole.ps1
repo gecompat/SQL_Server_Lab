@@ -507,6 +507,7 @@ function Get-LabQueueMenuAvailability {
         CanPauseOrResume = $pausableItems.Count -gt 0
         CanStopOperation = $items.Count -gt 0
         CanStopBatch = $activeBatches.Count -gt 0
+        CanSubmitBatch = @($Batches | Where-Object status -CEQ 'Validated').Count -gt 0
         CanRunScheduler = $items.Count -gt 0
     }
 }
@@ -573,6 +574,33 @@ function New-LabQueueStatusProvider {
     }.GetNewClosure()
 }
 
+function Invoke-LabValidatedBatchSubmitInteractive {
+    $root = Get-LabStateRoot
+    $drafts = @(Get-SqlServerLabBatch -StateRoot $root | Where-Object status -CEQ 'Validated')
+    if (!$drafts.Count) { Write-LabInfo 'Kein validierter Batch vorhanden.'; return }
+    $items = for ($i = 0; $i -lt $drafts.Count; $i++) {
+        $draft = $drafts[$i]
+        New-LabConsoleItem -Id $draft.batchId -Label ([string]$draft.name) -Value ([string]$draft.batchId) -Shortcut ([string]($i + 1))
+    }
+    $selection = Invoke-LabConsoleMenu -ScreenId 'batch-submit-saved' -Title 'Gespeicherten Batch auswählen' -Items $items
+    if ($selection.Status -ne 'Selected') { return }
+    $review = $drafts | Where-Object batchId -CEQ $selection.SelectedItem.Id | Select-Object -First 1
+    if ($null -eq $review) { return }
+
+    try {
+        $signature = Get-LabBatchReviewSignature -Batch $review -StateRoot $root
+        if (-not (Show-LabBatchReviewInteractive -Batch $review)) { return }
+        $submitted = Submit-LabReviewedBatch -BatchId $review.batchId -StateRoot $root -Signature $signature
+        Write-LabSuccess "Batch '$($submitted.batchId)' wurde eingereiht."
+        try { Start-SqlServerLabOperationHost -StateRoot $root }
+        catch { Write-LabWarning 'Der Batch ist eingereiht. Scheduler bei Bedarf über das Menü starten.' }
+    }
+    catch {
+        if ($_.Exception.Message -ceq 'BATCH_REVIEW_STALE') { Write-LabError 'Der Batch wurde geändert. Bitte erneut auswählen und prüfen.' }
+        else { Write-LabError $_.Exception.Message }
+    }
+}
+
 function Invoke-LabQueueInteractive {
     [CmdletBinding()]
     param()
@@ -593,11 +621,13 @@ function Invoke-LabQueueInteractive {
             New-LabConsoleItem -Id 'stop' -Label 'Vorgang endgueltig stoppen und aufraeumen' -Shortcut '7' -Disabled:(-not $availability.CanStopOperation) -DisabledReason 'Die Queue enthaelt derzeit keinen Vorgang, der gestoppt werden koennte.'
             New-LabConsoleItem -Id 'batch-stop' -Label 'Batch stoppen oder vollstaendig zurueckbauen' -Shortcut '8' -Disabled:(-not $availability.CanStopBatch) -DisabledReason 'Es existiert kein aktiver Batch.'
             New-LabConsoleItem -Id 'quiet' -Label 'Ton und Ruhemodus' -Value 'Globale Einstellung, auch fuer kuenftige Vorgaenge' -Shortcut '9'
+            New-LabConsoleItem -Id 'batch-submit' -Label 'Gespeicherten Batch prüfen und einreihen' -Shortcut 'b' -Disabled:(-not $availability.CanSubmitBatch) -DisabledReason 'Kein validierter Batch verfügbar.'
             New-LabConsoleItem -Id 'run' -Label 'Scheduler jetzt ausfuehren' -Value '2 Worker · 1 HyperVHeavy' -Shortcut 'r' -Disabled:(-not $availability.CanRunScheduler) -DisabledReason 'Die Queue enthaelt keinen Vorgang. Ein Batch im Status Draft erscheint hier nicht; er muss zuvor uebergeben werden.'
             New-LabConsoleItem -Id 'back' -Label 'Zurueck' -Shortcut '0'
         )
         if ($choice.Status -ne 'Selected' -or $choice.SelectedItem.Id -eq 'back') { return }
         switch ([string]$choice.SelectedItem.Id) {
+            'batch-submit' { Invoke-LabValidatedBatchSubmitInteractive }
             'overview' {
                 $operation = Select-LabQueueOperationInteractive -Title 'Queue-Uebersicht'
                 if ($null -ne $operation) {
@@ -624,7 +654,7 @@ function Invoke-LabQueueInteractive {
             }
             'bulk-confirm' { Confirm-LabCandidateOperationsInteractive }
             'priority' { $operationIds = @($availability.PriorityOperationIds); $operation = Select-LabQueueOperationInteractive -Filter { $_.operationId -in $operationIds }; if ($null -ne $operation) { $p = Invoke-LabConsoleMenu -ScreenId 'queue-priority' -Title 'Prioritaet' -Subtitle "Aktuell: $($operation.priority)" -Items @(New-LabConsoleItem -Id High -Label High -Shortcut 1 -Disabled:($operation.priority -eq 'High') -DisabledReason 'Diese Priorität ist bereits gesetzt.'; New-LabConsoleItem -Id Normal -Label Normal -Shortcut 2 -Disabled:($operation.priority -eq 'Normal') -DisabledReason 'Diese Priorität ist bereits gesetzt.'; New-LabConsoleItem -Id Low -Label Low -Shortcut 3 -Disabled:($operation.priority -eq 'Low') -DisabledReason 'Diese Priorität ist bereits gesetzt.'); if ($p.Status -eq 'Selected') { Set-SqlServerLabOperationPriority -OperationId $operation.operationId -Priority $p.SelectedItem.Id | Out-Null } } }
-            'move' { $operationIds = @($availability.MovableOperationIds); $operation = Select-LabQueueOperationInteractive -Filter { $_.operationId -in $operationIds }; if ($null -ne $operation) { $peers = @($queue.items | Where-Object { $_.priority -eq $operation.priority -and $_.status -ne 'Running' } | Sort-Object queuePosition); $current = [Array]::IndexOf([string[]]@($peers.operationId), [string]$operation.operationId); $d = Invoke-LabConsoleMenu -ScreenId 'queue-move' -Title 'Umreihen' -Items @(New-LabConsoleItem -Id Up -Label 'Nach oben' -Shortcut 1 -Disabled:($current -le 0) -DisabledReason 'Der Vorgang steht bereits an der ersten Position dieser Priorität.'; New-LabConsoleItem -Id Down -Label 'Nach unten' -Shortcut 2 -Disabled:($current -ge $peers.Count - 1) -DisabledReason 'Der Vorgang steht bereits an der letzten Position dieser Priorität.'); if ($d.Status -eq 'Selected') { Move-SqlServerLabOperation -OperationId $operation.operationId -Direction $d.SelectedItem.Id | Out-Null } } }
+            'move' { $operationIds = @($availability.MovableOperationIds); $operation = Select-LabQueueOperationInteractive -Filter { $_.operationId -in $operationIds }; if ($null -ne $operation) { $peers = @($queue.items | Where-Object { $_.priority -eq $operation.priority -and $_.status -ne 'Running' }); $current = [Array]::IndexOf([string[]]@($peers.operationId), [string]$operation.operationId); $d = Invoke-LabConsoleMenu -ScreenId 'queue-move' -Title 'Umreihen' -Items @(New-LabConsoleItem -Id Up -Label 'Nach oben' -Shortcut 1 -Disabled:($current -le 0) -DisabledReason 'Der Vorgang steht bereits an der ersten Position dieser Priorität.'; New-LabConsoleItem -Id Down -Label 'Nach unten' -Shortcut 2 -Disabled:($current -ge $peers.Count - 1) -DisabledReason 'Der Vorgang steht bereits an der letzten Position dieser Priorität.'); if ($d.Status -eq 'Selected') { Move-SqlServerLabOperation -OperationId $operation.operationId -Direction $d.SelectedItem.Id | Out-Null } } }
             'pause' { $operation = Select-LabQueueOperationInteractive -Filter { $_.status -in @('Queued','WaitingForDependency','Paused') }; if ($null -ne $operation) { if ($operation.status -eq 'Paused') { Resume-SqlServerLabOperation -OperationId $operation.operationId | Out-Null } else { Suspend-SqlServerLabOperation -OperationId $operation.operationId | Out-Null } } }
             'stop' { $operation = Select-LabQueueOperationInteractive; if ($null -ne $operation) { Stop-SqlServerLabOperation -OperationId $operation.operationId -Cleanup -Confirm | Out-Null } }
             'batch-stop' { Invoke-LabBatchStopInteractive }
@@ -1036,6 +1066,30 @@ function Invoke-LabEnvironmentGroupsInteractive {
     }
 }
 
+function Show-LabWorkflowOverviewInteractive {
+    try {
+        $summary = (Get-SqlServerLabWorkflow -ErrorAction Stop).Summary
+        $fields = [ordered]@{
+            ActiveContainerLabs='Registrierte Container-Labs'
+            WindowsBaselines='Windows-Baselines'
+            SqlPreparedImages='SQL-Prepared-Images'
+            PendingWindowsBuilds='Offene Windows-Builds'
+            PendingSqlBuilds='Offene SQL-Builds'
+            ActiveBatches='Aktive Batches'
+            QueueLength='Vorgänge in der Queue'
+            WaitingUserGates='Wartet auf Eingabe'
+        }
+        if (-not $summary -or @($fields.Keys | Where-Object { $summary.$_ -isnot [int] -or $summary.$_ -lt 0 }).Count) {
+            throw 'LAB_WORKFLOW_OVERVIEW_INCOMPLETE'
+        }
+        foreach ($field in $fields.GetEnumerator()) {
+            Write-LabStatus -Label $field.Value -Value ([string]$summary.($field.Key))
+        }
+    }
+    catch { Write-LabError 'Die Lab-Übersicht konnte nicht vollständig gelesen werden.' }
+    $null = Wait-LabConsoleAcknowledgement
+}
+
 function Show-LabWorkspaceMenu {
     return Show-LabSubMenu -ScreenId 'labs-menu' -Title 'Lab-Umgebungen' -Subtitle 'Erstellen, auswählen und am gewählten Ziel arbeiten' -Items @(
         New-LabConsoleItem -Id CreateArea -Label 'Umgebung erstellen' -Shortcut 1
@@ -1043,8 +1097,14 @@ function Show-LabWorkspaceMenu {
         New-LabConsoleItem -Id DatabaseArea -Label 'Datenbanken, Samples und Skripte' -Shortcut 3
         New-LabConsoleItem -Id AiArea -Label 'SQL-2025-KI-Szenarien und Demos' -Shortcut 4
         New-LabConsoleItem -Id ContainerPortPreview -Label 'SQL-Hostport vorprüfen' -Value 'PLAN_ONLY · keine Änderung oder Reservierung' -Shortcut 5
+        New-LabConsoleItem -Id ContainerAutoStart -Label 'Docker-/Podman-Autostart ändern' -Value 'Gebundener Plan · Neustartfrei · Bestätigung erforderlich' -Shortcut 7
+        New-LabConsoleItem -Id ContainerAutoStartRecovery -Label 'Docker-/Podman-Autostart-Recovery fortsetzen' -Value 'Nur verifizierte Statepersistenz · kein Provider-Replay' -Shortcut r
         New-LabConsoleItem -Id ContainerAutoStartPreview -Label 'Container-Autostart vorprüfen' -Value 'PLAN_ONLY · keine Änderung oder Hostloginprüfung' -Shortcut 6
-        New-LabConsoleItem -Id HyperVAutoStart -Label 'Hyper-V-Autostart ändern' -Value 'Gebundener Plan · Bestätigung erforderlich' -Shortcut 7
+        New-LabConsoleItem -Id HyperVAutoStart -Label 'Hyper-V-Autostart ändern' -Value 'Gebundener Plan · Bestätigung erforderlich' -Shortcut 8
+        New-LabConsoleItem -Id HyperVAutoStartRecovery -Label 'Hyper-V-Autostart-Recovery fortsetzen' -Value 'Verifizierte Statepersistenz' -Shortcut h
+        New-LabConsoleItem -Id SsisDiagnostics -Label 'SSIS-Diagnose eines bestehenden Windows-Labs' -Value 'Ausführungsmetadaten oder bestätigte Paketladediagnose' -Shortcut 9
+        New-LabConsoleItem -Id WorkflowOverview -Label 'Lab-Übersicht und offene Arbeiten' -Value 'Registrierte Labs, Vorlagen, Builds und Queue'
+        New-LabConsoleItem -Id SmtpStatusGuidance -Label 'SMTP-Testdienst prüfen' -Value 'Gebundener Mailpit-Receiver · lesend'
         New-LabConsoleItem -Id back -Label 'Zurück' -Shortcut 0
     )
 }
@@ -1055,6 +1115,7 @@ function Show-LabTestMatrixMenu {
         New-LabConsoleItem -Id AutomatedTestEnvironment -Label 'Geschützte Testgruppe erstellen oder konfigurieren' -Shortcut 1
         New-LabConsoleItem -Id AutomatedTestEnvironmentLifecycle -Label 'Testgruppe ansehen: Power-Start/Stop' -Value 'SQL-Bereitschaft getrennt, Vorschau vor Aktion' -Shortcut 2
         New-LabConsoleItem -Id ClearAutomatedTestEnvironment -Label 'Geschützte Testgruppe entfernen' -Shortcut 3 -Disabled:(-not $state.Available) -DisabledReason 'Keine registrierte Testgruppe vorhanden.'
+        New-LabConsoleItem -Id RepairAutomatedTestEnvironment -Label 'Geschützte Testgruppe reparieren' -Shortcut 4 -Disabled:(-not $state.Available) -DisabledReason 'Keine registrierte Testgruppe vorhanden.'
         New-LabConsoleItem -Id back -Label 'Zurück' -Shortcut 0
     )
 }
@@ -1069,6 +1130,7 @@ function Show-LabResourceMenu {
         New-LabConsoleItem -Id MediaSourceOverride -Label 'SQL-2022/2025-Bootstrapperquellen bearbeiten / zurücksetzen' -Shortcut 6
         New-LabConsoleItem -Id ResourceWatch -Label 'Ressourcenstand: CUs und SqlPackage' -Value 'Sitzungsbefund · Quellenprüfung erst nach Auswahl' -Shortcut 7
         New-LabConsoleItem -Id RuntimeInstaller -Label 'llama.cpp-Runtime installieren / prüfen' -Value 'Experimentell · Windows x64 CPU · keine Modelle oder Dienste' -Shortcut 8
+        New-LabConsoleItem -Id ResourcePlan -Label 'Lokalen Ressourcenbedarf prüfen' -Shortcut 9
         New-LabConsoleItem -Id back -Label 'Zurück' -Shortcut 0
     )
 }
@@ -1078,6 +1140,13 @@ function Show-LabHostModelsMenu {
         New-LabConsoleItem -Id AiLlamaModels -Label 'llama.cpp-Modellkatalog und Dateien' -Value 'Anzeigen / Download; kein Load oder Warmup' -Shortcut 1
         New-LabConsoleItem -Id AiModel -Label 'Vorhandenes Ollama-Modell aufrufen' -Value 'lokal oder explizit freigegebene Cloud-Lane' -Shortcut 2
         New-LabConsoleItem -Id HostServiceLifecycle -Label 'Eigene llama.cpp-Sitzung auswählen und stoppen'
+        New-LabConsoleItem -Id LlamaRuntimeInventory -Label 'Vorhandene llama.cpp-Pakete prüfen' -Value 'Dateibefund · Backend und Build' -Shortcut 3
+        New-LabConsoleItem -Id HostServiceStart -Label 'Eigene llama.cpp-Sitzung geführt starten' -Value 'Eingaben prüfen und Start bestätigen' -Shortcut 4
+        New-LabConsoleItem -Id AiComputeInventory -Label 'CPU, GPU und NPU erfassen' -Value 'Lesende Geräteübersicht' -Shortcut 5
+        New-LabConsoleItem -Id AiRuntimeCapability -Label 'llama.cpp-Eignung prüfen' -Value 'Paketdateien und erkannte Geräte' -Shortcut 6
+        New-LabConsoleItem -Id OvmsUpstream -Label 'Lokalen OVMS-Embedding-Dienst prüfen' -Value 'Ein synthetischer HTTP-Request über Loopback' -Shortcut 7
+        New-LabConsoleItem -Id AiComputeSelection -Label 'KI-Gerätekombination aus Messbelegen wählen' -Value 'Vorhandene Kandidaten und Benchmarkwerte · lesend' -Shortcut 8
+        New-LabConsoleItem -Id AiComputeBenchmark -Label 'llama.cpp-Gerätekombinationen messen' -Value 'Ein Kandidat oder vollständiger Satz · CPU/GPU/NPU' -Shortcut 9
         New-LabConsoleItem -Id ModelLifecycle -Label 'Modell laden, entladen oder wechseln' -Disabled -DisabledReason 'Ein gemeinsamer geführter Load-/Unload-/Wechselvertrag ist noch offen. Der Datei-Download ist kein geladenes Modell.'
         New-LabConsoleItem -Id back -Label 'Zurück' -Shortcut 0
     )
@@ -1092,6 +1161,7 @@ function Show-LabConfigurationMenu {
         New-LabConsoleItem -Id Status -Label 'Providerstatus und Voraussetzungen anzeigen' -Shortcut 5
         New-LabConsoleItem -Id ProviderSetup -Label 'Späteren Provider geführt einrichten' -Disabled -DisabledReason 'Ein vollständiger Assistent für zusätzliche Provider ist noch offen; vorhandene Provider werden weiterhin erkannt.'
         New-LabConsoleItem -Id ReservePolicy -Label 'Slotreserve: Policy und Kandidaten' -Shortcut 7
+        New-LabConsoleItem -Id LicenseProfileStatus -Label 'Lokale Lizenzprofile prüfen' -Value 'Produkt und Edition · gespeicherter Schlüsselstatus · ohne Onlineaktivierung' -Shortcut 8
         New-LabConsoleItem -Id back -Label 'Zurück' -Shortcut 0
     )
 }
@@ -1153,14 +1223,23 @@ function Show-LabMaintenanceMenu {
     return Show-LabSubMenu -ScreenId 'maintenance-menu' -Title 'Wartung, Aufräumen und Recovery' -Subtitle 'Befunde prüfen; Mutation erst in der bestätigten Fachaktion' -Items @(
         New-LabConsoleItem -Id Status -Label 'System- und Providerstatus' -Value 'read-only' -Shortcut 1
         New-LabConsoleItem -Id CleanupAudit -Label 'Wartungsbefunde und Zuordnung' -Value 'Audit read-only · Katalogreparatur separat bestätigen' -Shortcut 2
+        New-LabConsoleItem -Id RuntimeMaintenancePreview -Label 'Schnellen Wartungsplan lesen' -Value 'Providerstatus und vorgeschlagene Aktionen · lesend' -Shortcut w
+        New-LabConsoleItem -Id FullMaintenancePreview -Label 'Vollständigen Wartungsplan lesen' -Value 'Zusätzlich Speicher- und Cleanup-Audit · lesend'
         New-LabConsoleItem -Id Catalog -Label 'Katalogstatus pruefen' -Value 'Katalogdatei validieren' -Shortcut 3
         New-LabConsoleItem -Id SyncRuntime -Label 'State mit Docker, Podman und Hyper-V abgleichen' -Value 'fehlende Objekte -> Recovery · loescht nichts' -Shortcut 4 `
             -Help 'Vergleicht den gespeicherten State mit der tatsaechlichen Runtime. Fehlende Objekte werden als Recovery ausgewiesen; es wird nichts geloescht.'
         New-LabConsoleItem -Id CuStatus -Label 'Aktuelle SQL-Server-CUs bei Microsoft pruefen' -Value 'read-only · Netzzugriff auf die katalogisierten Quellen' -Shortcut 5
         New-LabConsoleItem -Id EvaluationWatch -Label 'Windows-/SQL-Evaluationsfristen' -Value 'gespeicherte Evidence · read-only · kein Gastzugriff' -Shortcut e
+        New-LabConsoleItem -Id ContainerNetworkPlan -Label 'Lab-Netz auf Subnetzkonflikt prüfen' -Value 'Docker oder Podman · Vorschau und bestätigter Migrationsplan'
+        New-LabConsoleItem -Id AutomationApiPlan -Label 'Automatisierungsschnittstelle ansehen' -Value 'Fachverträge und Pflichtparameter'
+        New-LabConsoleItem -Id HyperVRecoveryPointPlan -Label 'Hyper-V-Wiederherstellungspunkte lesen' -Value 'Checkpoint-Inventar eines registrierten Labs'
+        New-LabConsoleItem -Id DiagnosticBundle -Label 'Gespeicherten Diagnosebefund lesen' -Value 'Instanzzustand, Recovery und Cleanup im Standard-Lab_Data'
+        New-LabConsoleItem -Id RunStateUpgradePlan -Label 'Format eines Run-States prüfen' -Value 'Lesender Upgrade-Plan'
         New-LabConsoleItem -Id Messages -Label 'Meldungen dieser Sitzung' -Value 'Warnungen und Fehler · kopierbar · Journalpfad' -Shortcut 6
         New-LabConsoleItem -Id RetainedStoreRemoval -Label 'Behaltenen SQL-Speicher löschen' -Value 'gesonderter bestätigter Entfernungsplan' -Shortcut l
         New-LabConsoleItem -Id RunArtifactRemoval -Label 'Artefakte eines entfernten Runs' -Value 'Einzelauswahl · Vorschau · bestätigte Entfernung / Resume' -Shortcut r
+        New-LabConsoleItem -Id SqlGuestEvaluationEvidence -Label 'SQL-Editionsbeleg im Gast aktualisieren' -Value 'Laufendes Hyper-V-Lab · SQL Server 2025' -Shortcut s
+        New-LabConsoleItem -Id EvaluationRefreshPlan -Label 'SQL-Evaluation: Ersatz- und Migrationsentscheid' -Value 'Lesende Vorschau' -Shortcut v
         New-LabConsoleItem -Id Clear -Label 'Alle regulären Lab-Umgebungen löschen' -Value 'Auch laufende und gestoppte · Datenverlust möglich' -Shortcut a `
             -Help 'Löscht alle nicht geschützten Lab-Umgebungen im aktuellen State-Root, zusätzlich verwaiste Lab-Container, Builder und Lab-Datenverzeichnisse. Keine reine Bereinigung verwaister Reste. Vor der Löschung folgt eine Bestätigung mit Standard Nein.'
         New-LabConsoleItem -Id back -Label 'Zurueck' -Shortcut 0

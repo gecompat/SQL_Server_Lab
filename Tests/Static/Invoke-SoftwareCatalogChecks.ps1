@@ -273,6 +273,8 @@ $serverConfigSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/Ser
 $newLabSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/New-SqlServerLab.ps1') -Raw -Encoding utf8
 $getLabSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Get-SqlServerLab.ps1') -Raw -Encoding utf8
 $toolProbeSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Test-SqlServerLabContainerTool.ps1') -Raw -Encoding utf8
+& (Join-Path $PSScriptRoot 'Fixtures/ContainerToolGuidanceChecks.ps1') -Repository $repoRoot
+Add-CheckResult -Name 'Geführte SqlPackage-Prüfung bindet die native ID und respektiert Abbruch' -Success $true
 $toolAcceptanceSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Tests/Integration/Invoke-ContainerToolAcceptance.ps1') -Raw -Encoding utf8
 $toolImageSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/ContainerToolImage.ps1') -Raw -Encoding utf8
 $legacyInstallerSource = [regex]::Match(

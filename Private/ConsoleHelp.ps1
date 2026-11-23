@@ -52,6 +52,30 @@ function Get-LabConsoleHelpCatalog {
             Effects = 'Nach vollständiger Auswahl einmal PLAN_ONLY anzeigen. CanApply=false; keine Reservierung oder Mutation. Hostlogin, Endpoint, SQL und Backup bleiben NOT_CHECKED. Zurück oder q vor dem Planaufruf ändern nichts.'
             Command = 'Get-SqlServerLabReconcilePlan'
         }
+        'container-autostart-apply-run' = @{
+            Title = 'Container-Lab für Autostartänderung auswählen'
+            Purpose = 'Wählt nur registrierte, laufende, ungeschützte Docker-/Podman-SQL-Labs aus dem angegebenen Lab_Data.'
+            Effects = 'Nur lokale Metadaten lesen. Geschützte Testgruppen, CMS, gestoppte Labs und ungültige Bindungen werden nicht angeboten. Zurück beendet ohne Provideraktion.'
+            Command = 'Get-SqlServerLabContainerAutoStartPlan'
+        }
+        'container-autostart-apply-instance' = @{
+            Title = 'SQL-Instanz und Wunsch für Autostartänderung auswählen'
+            Purpose = 'Wählt die im vorherigen Menü gebundene Docker-/Podman-Instanz und on/off; Auswahldaten aus einer unbestätigten Menüantwort werden nicht als Autorität verwendet.'
+            Effects = 'Liest einen frischen gebundenen Plan. Zeigt Ist-/Wunschpolicy, keinen Containerneustart und keine Datenwirkung; erst eine ausdrückliche Bestätigung ruft den Executor mit derselben Planbindung auf. Bei Abbruch bleibt alles unverändert.'
+            Command = 'Set-SqlServerLabContainerAutoStart'
+        }
+        'container-autostart-recovery-run' = @{
+            Title = 'Container-Lab mit offener Autostart-Recovery auswählen'
+            Purpose = 'Filtert registrierte, als RUNNING geführte, ungeschützte Docker-/Podman-SQL-Labs auf ein schema-valides, an Run, Scope, Instanz und Provider gebundenes POLICY_MUTATED- oder RECOVERY_REQUIRED-Journal.'
+            Effects = 'Liest nur Lab-State und Journalmetadaten. Vor der ausdrücklichen Bestätigung gibt es keine Runtimeabfrage oder Speicherung. Danach prüft Resume die konkrete Container-ID, den Laufzustand und die Restartpolicy erneut; ein Providerbefehl wird nie wiederholt. Unklare oder ungültige Journale werden nicht angeboten.'
+            Command = 'Resume-SqlServerLabContainerAutoStart'
+        }
+        'container-autostart-recovery-instance' = @{
+            Title = 'SQL-Instanz mit offener Autostart-Recovery auswählen'
+            Purpose = 'Wählt genau eine lokal gebundene Recovery-Instanz aus dem zuvor ausgewählten Lab.'
+            Effects = 'Zeigt Journalstatus und Zielpolicy aus dem validierten Journal. Der Resume-Befehl prüft Container-ID, Laufzustand und Restartpolicy erneut; nur danach darf er Lab-State persistieren. Zurück beendet ohne Schreibzugriff.'
+            Command = 'Resume-SqlServerLabContainerAutoStart'
+        }
         'main-menu' = @{
             Title   = 'Hauptmenue'
             Purpose = 'Einstieg in alle Bereiche des Labs. Die Auswahl oeffnet nur einen Unterbereich und veraendert nichts.'
@@ -161,7 +185,12 @@ function Get-LabConsoleHelpCatalog {
         'labs-menu' = @{ Title = 'Lab-Umgebungen'; Purpose = 'Vorhandene Fachabläufe auswählen. Nicht implementierte Abläufe sind deaktiviert und begründet.'; Effects = 'Die Bereichsauswahl ändert nichts. Zurück und Esc verlassen den Bereich.'; Command = 'New-SqlServerLab' }
         'testmatrix-menu' = @{ Title = 'Geschützte Testsystem-Matrix'; Purpose = 'Vorhandene Fachabläufe auswählen. Nicht implementierte Abläufe sind deaktiviert und begründet.'; Effects = 'Die Bereichsauswahl ändert nichts. Zurück und Esc verlassen den Bereich.'; Command = 'New-SqlServerLabAutomatedTestEnvironment' }
         'resources-menu' = @{ Title = 'Ressourcen und Downloads'; Purpose = 'Vorhandene Fachabläufe auswählen. Nicht implementierte Abläufe sind deaktiviert und begründet.'; Effects = 'Die Bereichsauswahl ändert nichts. Zurück und Esc verlassen den Bereich.'; Command = 'Get-SqlServerLabResourcePlan' }
-        'hostmodels-menu' = @{ Title = 'Host-Dienste und Modelle'; Purpose = 'Vorhandene Fachabläufe auswählen. Nicht implementierte Abläufe sind deaktiviert und begründet.'; Effects = 'Die Bereichsauswahl ändert nichts. Zurück und Esc verlassen den Bereich.'; Command = 'Invoke-SqlServerLab -Action Commands' }
+        'resource-plan-selection' = @{ Title = 'Lokaler Ressourcenbedarf'; Purpose = 'Die Prüfung auf Beispieldaten, Windows-/Hyper-V-Laufzeitmedien oder beide Arten eingrenzen.'; Effects = 'Die gewählte Prüfung liest die konfigurierten Ordner und zeigt den Beschaffungsbedarf. Sie lädt nichts herunter.'; Command = 'Get-SqlServerLabResourcePlan' }
+        'hostmodels-menu' = @{ Title = 'Host-Dienste und Modelle'; Purpose = 'Vorhandene Fachabläufe auswählen, etwa installierte llama.cpp-Pakete prüfen oder eine eigene Sitzung stoppen.'; Effects = 'Die Paketübersicht liest Backend und Build aus lokalen Dateibefunden. Zurück und Esc verlassen den Bereich.'; Command = 'Get-SqlServerLabLlamaCppRuntime' }
+        'sql-feature-target' = @{ Title = 'SQL-Instanz für Funktionsänderung'; Purpose = 'Eine registrierte Instanz der gewählten laufenden Umgebung auswählen.'; Effects = 'Erst die Bestätigung einer konkreten Funktion ändert SQL Server.'; Command = 'Set-SqlServerLabFeature' }
+        'sql-feature-operation' = @{ Title = 'SQL-Funktion ändern'; Purpose = 'Volltext installieren oder entfernen. Hyper-V bietet zusätzlich FILESTREAM.'; Effects = 'Bei einer bestätigten Änderung startet SQL neu. Abhängige Datenbanken können die Entfernung verhindern.'; Command = 'Set-SqlServerLabFeature' }
+        'ssis-diagnostic-kind' = @{ Title = 'SSIS-Diagnose'; Purpose = 'Ausführungsmetadaten aus SSISDB beobachten oder ein vertrauenswürdiges Paket im eigenen Windows-Lab laden.'; Effects = 'Die Diagnose bindet den vorhandenen Run und prüft die Angaben aus dem Beleg. Die Paketladung benötigt eine separate Vertrauensbestätigung.'; Command = 'Get-SqlServerLabSsisExecutionDiagnostic' }
+        'ssis-diagnostic-package-format' = @{ Title = 'SSIS-Paketformat'; Purpose = 'DTSX oder den exakten Paketnamen im ISPAC-Stammverzeichnis wählen.'; Effects = 'Die Paketbytes werden am erwarteten SHA-256 geprüft. Bei der Deserialisierung können installierte Komponenten Code laden.'; Command = 'Get-SqlServerLabSsisPackageDiagnostic' }
         'llama-guided-start-choice' = @{ Title = 'llama.cpp: eigener Start'; Purpose = 'Explizite Backend-, Geräteart- und Poolingwerte wählen; noch keine Bereitschaft geprüft.'; Effects = 'Nur RAM. Maskierte Pfade/Key: Esc, im Fallback Ctrl+C. Abbruch startet nichts.'; Command = 'Start-SqlServerLabLlamaCppRuntime' }
         'llama-guided-start-confirm' = @{ Title = 'Eigene llama.cpp-Sitzung starten'; Purpose = 'Explizite Eingaben und eigene Worker-/Key-/Lease-Auswirkungen bewusst bestätigen.'; Effects = 'Erst Bestätigung ruft vorhandenen Public-Start auf. Natürliche Confirm bleibt aktiv. WhatIf prüft keine Bereitschaft. Unbestätigtes Ergebnis kann eine aktive eigene Sitzung bedeuten; kein AutoStop/Retry. SQL bleibt NOT_CHECKED.'; Command = 'Start-SqlServerLabLlamaCppRuntime' }
         'llama-start-plan-choice' = @{ Title = 'llama.cpp-Startvorschau'; Purpose = 'Backend, Accelerator und Pooling ausdrücklich wählen; keine Geräteprüfung.'; Effects = 'Nur RAM-Eingaben. Esc/Zurück ruft keinen Plan und keine Runtime auf.'; Command = 'Get-SqlServerLabLlamaCppStartPlan' }
@@ -253,7 +282,7 @@ function Get-LabConsoleHelpCatalog {
             Title   = 'Infrastruktur und Medien'
             Purpose = 'Buendelt den Hyper-V-Bestand und die Medien-, Speicher- und Testdatenverwaltung.'
             Effects = 'Die Auswahl oeffnet nur einen Unterbereich. Downloads, Builds und Verschiebungen werden dort einzeln bestaetigt.'
-            Related = @('Hyper-V-Aktionen fordern bei Bedarf automatisch eine UAC-Erhoehung an.')
+            Related = @('Hyper-V-Aktionen fordern bei Bedarf automatisch eine UAC-Erhoehung an.', 'Hyper-V-Zielpfade und freien Speicher anzeigen liest das registrierte Standardziel ohne UAC.')
             Command = 'Get-SqlServerLabResourcePlan'
             Preconditions = @($dataRootPrecondition)
         }
@@ -279,9 +308,117 @@ function Get-LabConsoleHelpCatalog {
         'evaluation-watch-menu' = @{
             Title = 'Windows-/SQL-Evaluationsfristen'
             Purpose = 'Liest gespeicherte Vorlagen- und Instanzfristen im konfigurierten State-Root. Eintrag auswählen, um Quelle, Aktualität und nächsten Schritt zu sehen.'
-            Effects = 'Read-only: kein Gastzugriff, kein Start und keine Ereignisregistrierung. Unbekannte oder veraltete Evidence ist keine gültige Fristaussage.'
-            Command = 'Get-SqlServerLabEvaluationWatch'
+            Effects = 'Einzelnes Lesen ist read-only. Die zeitgesteuerte Prüfung schreibt nur auf ausdrücklichen Wunsch neue lokale Warnereignisse. Kein Gastzugriff oder Start.'
+            Command = 'Get-SqlServerLabEvaluationWatch / Invoke-SqlServerLabEvaluationWatchTrigger'
             Related = @('Warnfrist 30 Tage, kritische Restlaufzeit 7 Tage.', 'Windows-Instanzen werden im registrierten Zustand RUNNING, SQL-Instanzen in RUNNING und STOPPED berücksichtigt. Keine vollständige Hostinventur.')
+        }
+        'container-network-provider' = @{
+            Title = 'Lab-Netz prüfen'
+            Purpose = 'Docker oder Podman für die Subnetzprüfung auswählen.'
+            Effects = 'Liest den Providerbestand. Erst eine weitere Bestätigung führt den gebundenen Plan aus. SQL-Verbindungen können dabei unterbrochen werden.'
+            Command = 'Move-SqlServerLabContainerNetwork -WhatIf'
+        }
+        'automation-api-plan-choice' = @{
+            Title = 'Automatisierungsschnittstelle ansehen'
+            Purpose = 'Einen vorhandenen fachlichen Planvertrag und dessen Pflichtparameter nachschlagen.'
+            Effects = 'Die Ansicht beschreibt die Schnittstelle. Sie startet keinen Vorgang und greift auf keinen Lab-State zu.'
+            Command = 'Get-SqlServerLabAutomationPlan'
+        }
+        'license-profile-status' = @{
+            Title = 'Lizenzprofil lokal prüfen'
+            Purpose = 'Produkt, Edition und Kanal anzeigen und ein Profil für die lokale Formatprüfung auswählen.'
+            Effects = 'DPAPI-Leseprüfung für das gewählte Profil. Der Product Key wird nicht angezeigt.'
+            Command = 'Test-SqlServerLabLicenseProfile'
+        }
+        'smtp-status-target' = @{
+            Title = 'SMTP-Testdienst prüfen'
+            Purpose = 'Ein registriertes Lab mit SMTP-Testdienst auswählen und den Mailpit-Receiver prüfen.'
+            Effects = 'Liest die Runtime-Bindung und den Containerzustand. Öffnet keinen WebMail-Zugang.'
+            Command = 'Get-SqlServerLabSmtpTestServiceStatus'
+        }
+        'smtp-webmail-action' = @{
+            Title = 'Lokaler Mailpit-Zugang'
+            Purpose = 'WebMail für das ausgewählte SMTP-Lab öffnen.'
+            Effects = 'Öffnet einen lokal begrenzten Zugang zum Lesen und Löschen von Testmails für 15 Minuten.'
+            Command = 'Open-SqlServerLabSmtpTestServiceWebMail'
+        }
+        'diagnostic-bundle-instance' = @{
+            Title = 'Gespeicherter Diagnosebefund'
+            Purpose = 'Die Instanz im registrierten Standard-Lab_Data auswählen.'
+            Effects = 'Die Ansicht liest gespeicherte Zustands- und Recovery-Evidence. Sie erstellt keinen Export und führt keine Liveprobe aus.'
+            Command = 'Get-SqlServerLabDiagnosticBundle'
+        }
+        'container-tool-check' = @{
+            Title = 'SqlPackage-Version im Container prüfen'
+            Purpose = 'Eine registrierte laufende SQL-Instanz auf Docker oder Podman auswählen.'
+            Effects = 'Führt ausschließlich die Versionsabfrage des bereits provisionierten SqlPackage aus.'
+            Command = 'Test-SqlServerLabContainerTool'
+        }
+        'relational-compare-Source' = @{
+            Title = 'Quelle für Datenbankvergleich'
+            Purpose = 'Eine laufende verwaltete Docker- oder Podman-Instanz mit einer ONLINE- und READ_ONLY-Datenbank auswählen.'
+            Effects = 'Die Auswahl ändert nichts. Der bestätigte Vergleich meldet Status, Zählwerte und Befundcodes.'
+            Command = 'Test-SqlServerLabRelationalCoreComparison'
+        }
+        'relational-compare-Target' = @{
+            Title = 'Ziel für Datenbankvergleich'
+            Purpose = 'Eine zweite laufende verwaltete Containerinstanz für den Vergleich auswählen.'
+            Effects = 'Der Vergleich liest beide Datenbanken. Er überträgt keine Daten und verändert ihre Einstellungen nicht.'
+            Command = 'Test-SqlServerLabRelationalCoreComparison'
+        }
+        'portable-transfer-backup' = @{
+            Title = 'Verifiziertes Quellbackup'
+            Purpose = 'Ein registriertes SQL-2025-Backup auswählen, dessen Quellinstanz laufend registriert ist.'
+            Effects = 'Die Auswahl ändert nichts. Je nach bestätigter Aktion wird das Backup temporär geprüft oder in einen neuen eigenen Run übertragen.'
+            Command = 'Invoke-SqlServerLabPortableContainerTransferPreflight / Invoke-SqlServerLabPortableContainerTransfer'
+        }
+        'portable-transfer-target' = @{
+            Title = 'Vorhandene Zielinstanz für Medienvorprüfung'
+            Purpose = 'Einen laufenden zweiten Container mit gebundenem Backup-Mount auswählen.'
+            Effects = 'Die bestätigte Vorprüfung legt temporäre Dateien an und entfernt diese wieder. Sie führt keinen Restore aus.'
+            Command = 'Invoke-SqlServerLabPortableContainerTransferPreflight'
+        }
+        'portable-import-plan-target' = @{
+            Title = 'Ziel-Run für Importplan'
+            Purpose = 'Einen registrierten laufenden oder gestoppten Docker- oder Podman-Run für die Paketprüfung auswählen.'
+            Effects = 'Die Vorschau prüft Backupreferenzen und Zielbindung lesend. Sie verändert weder Run noch Backup.'
+            Command = 'Get-SqlServerLabPortableLabImportPlan'
+        }
+        'ovms-loopback' = @{
+            Title = 'Lokale OVMS-Adresse'
+            Purpose = 'Die numerische IPv4- oder IPv6-Loopback-Adresse des bestehenden OVMS-Dienstes auswählen.'
+            Effects = 'Die Prüfung sendet nach Bestätigung genau einen synthetischen Request. OVMS muss bereits laufen.'
+            Command = 'Test-SqlServerLabOvmsUpstreamEndpoint'
+        }
+        'ai-compute-receipt-choice' = @{
+            Title = 'KI-Gerätekombination aus Messbelegen wählen'
+            Purpose = 'Den schnellsten gemessenen Kandidaten neu bestimmen oder eine geeignete Kombination fixieren.'
+            Effects = 'Liest die ausgewählten JSON-Belege und berechnet die Auswahl. Startet weder Modell noch Benchmark.'
+            Command = 'Get-SqlServerLabAiComputeSelection'
+        }
+        'ai-compute-benchmark-candidate' = @{
+            Title = 'llama.cpp-Gerätekombinationen messen'
+            Purpose = 'Eine geeignete Gerätekombination oder alle Kandidaten aus vorhandenen lokalen Paketen auswählen.'
+            Effects = 'Nach Bestätigung startet llama-bench mit dem ausgewählten GGUF. Ein kompletter Satz wird seriell gemessen.'
+            Command = 'Measure-SqlServerLabAiComputeCandidate / Measure-SqlServerLabAiComputeCandidateSet'
+        }
+        'ai-compute-benchmark-mode' = @{
+            Title = 'Messprofil wählen'
+            Purpose = 'Textgeneration mit 128 Ausgabetokens oder Embedding mit 512 Eingabetokens wählen.'
+            Effects = 'Das Profil gilt für alle ausgewählten Kandidaten und bestimmt die Vergleichbarkeit.'
+            Command = 'Measure-SqlServerLabAiComputeCandidate / Measure-SqlServerLabAiComputeCandidateSet'
+        }
+        'persistent-fixture-target' = @{
+            Title = 'Zielinstanz für persistentes Retrieval'
+            Purpose = 'Eine laufende SQL-2025-Containerinstanz für die gewählte Collection auswählen.'
+            Effects = 'Die Auswahl ändert nichts. Der spätere Schritt kann in SQL schreiben oder eine eigene Collection löschen.'
+            Command = 'Invoke-SqlServerLabAiPersistentRetrieval'
+        }
+        'persistent-fixture-action' = @{
+            Title = 'Persistente Retrieval-Collections'
+            Purpose = 'Beispieldaten verwenden oder eine vorhandene eigene Collection anhand ihrer ID pflegen.'
+            Effects = 'Löschen erfordert eine Bestätigung und einen geprüften Besitznachweis. Die Löschaktionen benötigen kein Embeddingmodell.'
+            Command = 'Invoke-SqlServerLabAiPersistentRetrieval'
         }
         'settings-menu' = @{
             Title   = 'Einstellungen'
@@ -389,10 +526,18 @@ function Get-LabConsoleHelpCatalog {
             Purpose = 'Stellt mehrere Umgebungen als gemeinsamen Batch zusammen und uebergibt ihn an die Queue.'
             Effects = 'Bis zur Uebergabe entsteht keine Runtime-Ressource.'
             Related = @(
-                'Ein nur gespeicherter Batch bleibt Draft und wird nicht ausgefuehrt.',
+                'Ein nur gespeicherter Batch bleibt validiert und startet erst nach der Übergabe.',
                 'Fuer eine einzelne Umgebung ist der direkte Weg ueber das Erstellen-Menue schneller.'
             )
             Command = 'New-SqlServerLabBatch'
+            Preconditions = @($stateRootPrecondition)
+        }
+        'batch-submit-saved' = @{
+            Title = 'Gespeicherten Batch prüfen und einreihen'
+            Purpose = 'Liest einen validierten Entwurf und zeigt seinen Plan vor der Übergabe an die Warteschlange.'
+            Effects = 'Erst die Bestätigung eines unveränderten Plans reiht die Positionen ein und fordert den Scheduler an.'
+            Related = @('Die im Entwurf verwendeten Kennwortvariablen müssen in dieser Konsolensitzung gesetzt sein.')
+            Command = 'Get-SqlServerLabBatch'
             Preconditions = @($stateRootPrecondition)
         }
         'batch-sa-secret' = @{
@@ -575,6 +720,7 @@ function Get-LabConsoleHelpCatalog {
     $catalog['ai-menu'].Preconditions += 'Für die neue Testumgebung: laufendes Podman und ausgewähltes lokales embeddinggemma:latest (768) oder bge-m3:latest (1024). Ist Podman nicht einsatzbereit, bleibt der Menüpunkt mit stabilem ReasonCode und konkreter Abhilfe sichtbar, aber deaktiviert.'
     $catalog['ai-menu'].Preconditions += 'Szenarioausführung, SQL-RAG, SQL-Diagnose und Golden-RAG benötigen eine als RUNNING registrierte SQL-Server-2025-Instanz. Ohne passendes Ziel bleiben diese Einträge sichtbar und nennen AI_SQL_2025_TARGET_UNAVAILABLE samt Abhilfe; Plan, Modellaufruf und Offline-Retrieval bleiben verfügbar.'
     $catalog['ai-menu'].Effects += ' Neue Umgebung nur nach Vorschau und Bestätigung; SQL-Daten bleiben erhalten. Fehlerbereinigung betrifft ausschließlich den gerade neu erstellten eigenen Run.'
+    $catalog['ollama-local-generation'] = @{ Title='Lokales Ollama-Modell'; Purpose='Wählt ein katalogisiertes lokales Generationsmodell.'; Effects='Die Auswahl sendet nichts. Der bestätigte Aufruf benötigt ein bereits installiertes Modell und einen lokalen Ollama-Dienst.'; Command='Invoke-SqlServerLabAiModel' }
     $catalog['test-group-select'] = @{ Title='Testgruppe auswählen'; Purpose='Wählt die tatsächlich registrierte Gruppe im kanonischen Exportroot.'; Effects='Nur lesen; keine Runtime- oder SQL-Aktion.' }
     $catalog['test-group-power'] = @{ Title='Gruppenweite Poweraktion'; Purpose='Zeigt Ist/Ziel je Mitglied; SQL-Bereitschaft bleibt nicht geprüft.'; Effects='Nur Container-/VM-Power nach Vorschau und Bestätigung. Keine Export-, CMS-, Lizenz- oder Hostspeicheraktion. Abbruch/No-op mutieren nicht; Teilfehler benötigen eine neue Vorschau.' }
     $catalog['resource-change-instance'] = @{

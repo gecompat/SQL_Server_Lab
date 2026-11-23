@@ -416,9 +416,10 @@ function New-DockerInstance {
     }
 
     try {
-        return Invoke-LabPortAllocationLock -Action {
+        return Invoke-LabPortAllocationLock -TimeoutSeconds 120 -Action {
             $automaticPort = $Port -eq 0
-            $nextPort = if ($automaticPort) { 14330 } else { $Port }
+            $range = if ($automaticPort) { Get-LabAutomaticSqlPortRange }
+            $nextPort = if ($automaticPort) { $range.Start } else { $Port }
             $selectedPort = $null
             $output = $null
             $containerId = $null
@@ -428,7 +429,7 @@ function New-DockerInstance {
 
             while ($true) {
                 $selectedPort = if ($automaticPort) {
-                    Find-AvailablePort -RangeStart $nextPort -RangeEnd 14399
+                    Find-AvailablePort -RangeStart $nextPort -RangeEnd $range.End
                 }
                 else {
                     $Port
@@ -522,7 +523,7 @@ function New-DockerInstance {
                 $outputText = ($output | Out-String).Trim()
                 if ($ownedHostPolicy) { Remove-LabOwnedHostFailedContainer -StateRoot $StateRoot -Intent $ownedContainerIntent }
                 $bindConflict = $outputText -match '(?i)(address already in use|port is already allocated|failed programming external connectivity)'
-                if (-not $automaticPort -or -not $bindConflict -or $selectedPort -ge 14399) {
+                if (-not $automaticPort -or -not $bindConflict -or $selectedPort -ge $range.End) {
                     throw "Docker-Container konnte nicht erstellt werden: $outputText"
                 }
 

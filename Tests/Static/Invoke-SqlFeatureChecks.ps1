@@ -46,6 +46,7 @@ try {
     $selection=& (Join-Path $repo 'Tools/Get-CiTestSelection.ps1') -ChangedPath @('Tools/Set-SqlServerLabFullText.sh','Private/Common.ps1')
     Assert-Feature ($selection.Docker -and $selection.Podman -and $selection.HyperV -and $selection.Mixed -and $selection.Adapter) 'Mixed shared-source change preserves conservative matrix'
 } finally {Remove-Module $module.Name -Force}
+& (Join-Path $PSScriptRoot 'Fixtures/SqlFeatureConsoleChecks.ps1')
 & (Join-Path $PSScriptRoot 'Fixtures/SqlFeatureMutationChecks.ps1')
 & (Join-Path $PSScriptRoot 'Fixtures/SqlFeatureReadinessChecks.ps1')
 & (Join-Path $PSScriptRoot 'Fixtures/SqlFeatureReconcileChecks.ps1')

@@ -15,7 +15,7 @@ Container-basierte SQL-Server-Instanzen via Docker Desktop oder Docker Engine.
 
 ## Dateien
 
-- `provider.json` – Port-Range (14330-14399), Label-Prefix, Requirements
+- `provider.json` – automatischer Portbereich (14330–15399), Label-Prefix, Requirements
 - `DockerProvider.ps1` – Vollstaendige Provider-Implementierung
 
 ## Features

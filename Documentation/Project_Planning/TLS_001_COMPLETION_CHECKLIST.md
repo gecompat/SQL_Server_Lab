@@ -1,6 +1,22 @@
 # TLS-001: Abschlusskriterien und verbleibende Arbeit
 
-Stand: 2026-11-16. Gesamtstatus: **partial**.
+Stand: 2026-11-23. Implementierungsstatus: **partial**.
+
+Die Zurückstellung gilt, bis ein konkreter SQL_Server_Lab-Anwendungsfall einen
+SQL Server mit geprüfter Zertifikatsidentität benötigt. Bis dahin werden keine
+neuen TLS-001-Läufe, Implementierungen, Consumer-Cutovers oder Release-Schritte
+begonnen. Bestehende Funktionen, Zertifikate, Truststores, Belege und lokale
+Arbeitsstände bleiben erhalten. Die offenen Kriterien unten dokumentieren den
+technischen Rest, sind aber keine aktuelle Ausführungsfreigabe.
+
+Diese Entscheidung betrifft die authentifizierte Verbindung vom Client zum
+SQL Server. Sie betrifft nicht die getrennte HTTPS/TLS-Verbindung vom SQL
+Server zu einem External-Model-Endpunkt; dafür gelten der
+[KI-External-Model-Backlog](AI_EXTERNAL_MODEL_ACCELERATION_BACKLOG.md) und die
+[SQL-HTTPS-Referenz](../Architecture/AI_SQL_HTTPS_BRIDGE.md).
+
+Der Benutzerauftrag vom 2026-11-23 nimmt die Abnahme des
+Toolbelt-Consumers SC-045 gezielt wieder auf.
 
 Diese Arbeitsübersicht leitet sich aus den D1–D4-Entscheidungen, Slices und
 sechs Akzeptanzkriterien des [kanonischen TLS-001-Backlogs](NEW_SQL_LAB_USE_CASES_BACKLOG.md#tls-001--authentifizierte-tls-verbindungen-der-testumgebungen)
@@ -57,8 +73,15 @@ ausgewiesenen Umfang Vorrang:
   Timeouts noch einen Runtimeeffekt. Der Lauf bleibt fehlgeschlagen, sein Lab
   wurde entfernt, und es gibt keinen Linux-TLS-PASS.
 
-Damit bleiben als konkrete Abschlussblöcke: die fehlende öffentliche
-Linux-Registry-/Reader-/Export-/Consumerlane; die öffentliche Hyper-V-False-/
+- Der öffentliche Linux-Fall 150 bestand am 2026-11-17 mit Docker, SQL Server
+  2025 CU9 und Linux-Client 0.4 für beide Clientstacks. Der signierte V2-Export,
+  der öffentliche Consumer-Preflight, die Entfernung des eigenen Labs und die
+  nachgelagerte Prozessprüfung sind separat gebunden. Die
+  [Validierungsstrategie](../Quality/LOCAL_VALIDATION_STRATEGY.md#2026-11-17-ordinal-150)
+  nennt Quellenstand und Grenzen.
+
+Damit bleiben als konkrete Abschlussblöcke: der öffentliche Linux-Consumer auf
+Podman und weitere vereinbarte, unbelegte Kontexte; die öffentliche Hyper-V-False-/
 Exportlane und nicht belegte vereinbarte Hyper-V-Zellen; die fehlenden
 Linux-Clientkontexte an Windows-SQL-Zielen; reproduzierbare Zertifikatserneuerung
 mit Qualifikation und Recovery; noch offene Analyze-/Schulungs-Consumer-
@@ -73,7 +96,7 @@ Wiederholungen erfolgreicher Zellen zu verdecken.
 |---|---|---|
 | D1–D4 und konkrete Clientkontexte | Operative Windows-Containerverträge und qualifizierte CA-/Clientbindung; V1/True und V2/False bleiben gemäß Projektentscheidung vom 2026-10-25 die ausreichende Vertragsbasis. | Noch benötigte Identitäten, Zugriffswege, Trust- und Lifecycle-/Retirementregeln für die offenen Kontexte konkret abschließen. D4-Consumerinventur und Cutovernachweise bleiben erforderlich. |
 | Mindestmatrix und öffentlicher Hyper-V-Pfad | Drei operative SQL-Generationen mit Docker/Podman und beiden Windows-Clientstacks; sechs getrennte Linux-Kryptozellen; private Hyper-V-/SQL-2025-RTM-Referenz mit Windowsclients. | Hyper-V 2019/2022, fehlende Linux-Clientzellen an Windows-SQL-Zielen und die öffentliche Hyper-V-False-/Exportlane. Nicht zutreffende Kombinationen brauchen eine begründete Capabilitygrenze, keinen fingierten PASS. |
-| Öffentlicher Linux-Pfad | Die Linux-Kryptomatrix belegt beide echten Stacks einschließlich negativer Zertifikatsfälle. | Öffentliche Registry-/Reader-/Export-/Consumerfähigkeit im vereinbarten Linux-Ausführungskontext implementieren und abnehmen. Kryptoproben allein schließen diesen Pfad nicht. |
+| Öffentlicher Linux-Pfad | Die Linux-Kryptomatrix belegt beide Stacks einschließlich negativer Zertifikatsfälle. Docker mit SQL Server 2025 CU9 und Linux-Client 0.4 besteht zusätzlich den öffentlichen V2-Export und den Toolbelt-Preflight. | Den öffentlichen Podman-Preflight und die übrigen ausdrücklich vereinbarten, noch unbelegten Kontexte prüfen. |
 | Operativer Zertifikatslebenszyklus | Zertifikatsnegativfälle, Container-Start-Epochen-Rebind und die [gezielte Metadaten-Recovery](../Quality/TLS_REBIND_RECOVERY_ACCEPTANCE_2026-10-25.md) für Docker/SQL 2025 CU9 und Podman/SQL 2019 CU32 sind getrennt belegt. | Reproduzierbare Erneuerung mit neuer Qualifikation, Fehlern, Abbruch/Resume und eigener Recovery/Rücknahme. Nur eigene journalisierte Bindungen zurücknehmen; vorbestehende Schlüssel und gemeinsam verwendeten Trust erhalten. |
 | Consumer und gekoppelter Preflight | Windows-Toolbelt-Cutover für sechs Containerprofile ist abgenommen. Die Consumerinventur und die reparierten isolierten Reader besitzen einen begrenzten echten Windows-/Docker-V1-Preflight mit zehn Readerfamilien, zwei funktionalen Clients und eigenem Cleanup; der übergeordnete Kontroll-FAIL bleibt separat erhalten. | Verbleibende Analyze-/Schulungs-, öffentliche Linux-/Hyper-V- und weitere ausdrücklich behauptete Consumerkontexte gemäß Inventur abschließen. |
 | Integration, Betrieb und Abschlusszuordnung | Implementierte Teilverträge und datierte Nachweise sind getrennt verlinkt. | Jedem Pflichtkriterium Vertrag, ausgeführten Nachweis oder offene Grenze zuordnen; erforderliche finale Gates, Integration sowie Betriebs-, Migrations- und Fehlerdiagnose abschließen. Eigenen Cleanup erledigen oder ausdrücklich genehmigten offenen Cleanup transparent ausweisen. |
@@ -104,8 +127,9 @@ aller Funktionsfälle pro SQL-Generation. Fehlende Mindestzellen erhalten geziel
 Versionsnachweise; gemeinsame UI-, Lifecycle-, Export-, Recovery- und Consumerlogik
 wird nach der [Versionsauswahl](../Quality/COST_EFFICIENT_DEVELOPMENT.md#sql-versionen-nach-tatsächlicher-abhängigkeit-auswählen)
 zusammengefasst. Versionsabhängige Metadatenprüfungen bleiben kleine Offlinefälle.
-Die laufende öffentliche Linux-Welle plant ausschließlich SQL 2025 CU9, getrennt
-mit Docker und Podman. Das ist eine Planung, kein neuer Laufzeitnachweis.
+Der öffentliche Linux-Preflight wird für SQL 2025 CU9 getrennt ausgewiesen.
+Docker ist durch Fall 150 belegt. Für Podman liegt hier nur die eigenständige
+Kryptoprobe vor.
 
 | SQL-Generation | Docker / Windowsclient | Docker / Linuxclient | Podman / Windowsclient | Podman / Linuxclient | Hyper-V / Windowsclient | Hyper-V / Linuxclient |
 |---|---|---|---|---|---|---|

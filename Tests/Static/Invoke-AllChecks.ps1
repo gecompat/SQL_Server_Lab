@@ -54,6 +54,7 @@ $checks = @(
     'Invoke-SessionTransferProgressChecks.ps1',
     'Invoke-HyperVGuestProgressChecks.ps1',
     'Invoke-SsisPackageDiagnosticChecks.ps1',
+    'Invoke-SsisDiagnosticsConsoleChecks.ps1',
     'Invoke-ConnectionCenterCmsChecks.ps1',
     'Invoke-ActionResultChecks.ps1',
     'Invoke-ElevationChecks.ps1',

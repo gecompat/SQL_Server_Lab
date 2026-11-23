@@ -45,6 +45,28 @@ Add-CheckResult -Name 'Intent-Review meldet bei expliziter Portkollision Besitze
     $menuSource -match "hostPort[\s\S]+Test-LabEndpointBinding[\s\S]+Besitzer:[\s\S]+Grund:"
 )
 
+$range = & $module { Get-LabAutomaticSqlPortRange }
+$dockerRange = (Get-Content -LiteralPath (Join-Path $repoRoot 'Providers/Docker/provider.json') -Raw | ConvertFrom-Json).portRange
+$podmanRange = (Get-Content -LiteralPath (Join-Path $repoRoot 'Providers/Podman/provider.json') -Raw | ConvertFrom-Json).portRange
+Add-CheckResult -Name 'Automatische Portsuche bevorzugt den bisherigen Bereich und stimmt mit den Providerkatalogen überein' -Success (
+    $range.Start -eq 14330 -and $range.End -eq 15399 -and
+    $dockerRange.min -eq $range.Start -and $dockerRange.max -eq $range.End -and
+    $podmanRange.min -eq $range.Start -and $podmanRange.max -eq $range.End
+)
+Add-CheckResult -Name 'Docker und Podman nutzen dieselbe Bereichsgrenze auch nach einem Bindungskonflikt' -Success (
+    $dockerSource -match '\$range = if \(\$automaticPort\) \{ Get-LabAutomaticSqlPortRange \}[\s\S]+Find-AvailablePort -RangeStart \$nextPort -RangeEnd \$range.End[\s\S]+\$selectedPort -ge \$range.End' -and
+    $podmanSource -match '\$range = if \(\$automaticPort\) \{ Get-LabAutomaticSqlPortRange \}[\s\S]+Find-PodmanAvailablePort -RangeStart \$nextPort -RangeEnd \$range.End[\s\S]+\$selectedPort -ge \$range.End'
+)
+$prerequisite = & $module {
+    param($Candidate)
+    function Get-LabAutomaticSqlPortRange { [pscustomobject]@{ Start = $Candidate; End = $Candidate } }
+    Test-PortAvailability
+} $port
+Add-CheckResult -Name 'Portvorabcheck verwendet den gemeinsamen Suchbereich für seine TCP-Probe' -Success (
+    $prerequisite.Status -eq 'RESOURCE_OK' -and $prerequisite.Value.Available -eq 1 -and
+    $prerequisite.Message -match "$port-$port"
+)
+
 if ($failures.Count -gt 0) {
     Write-Host "Port Allocation Checks: $passed PASS, $($failures.Count) FAIL" -ForegroundColor Red
     $failures | ForEach-Object { Write-Host "  - $_" -ForegroundColor Red }

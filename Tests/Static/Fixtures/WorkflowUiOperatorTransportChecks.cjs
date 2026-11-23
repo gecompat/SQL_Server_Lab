@@ -52,11 +52,27 @@ function setup(fragment = '#sql-lab-operator=' + 'a'.repeat(64), origin = 'http:
   const html = fs.readFileSync(path.join(root, 'Ui/index.html'), 'utf8');
   const assets = Array.from(html.matchAll(/<script src="([a-z.-]+)"/g), m => m[1]);
   check(assets[0] === 'operator-transport.js', 'Capabilitybootstrap steht vor dem ersten aktiven Komponentenasset');
+  const confirmationAssets = [
+    'sql-guest-evaluation-evidence.js', 'evaluation-watch-trigger.js', 'relational-core-comparison.js',
+    'ovms-upstream.js', 'portable-container-transfer.js', 'ai-persistent-retrieval-fixture.js',
+    'ai-compute-selection.js', 'cms-sync.js', 'container-tool-check.js', 'resource-plan.js', 'windows-slot-pool.js',
+  ];
   for (const asset of assets.slice(1)) {
     const text = fs.readFileSync(path.join(root, 'Ui', asset), 'utf8');
     if (asset === 'sql-connection-clipboard.js') {
       check(!/\b(fetch|sqlServerLabUiFetch|XMLHttpRequest|WebSocket|EventSource|sendBeacon)\b/.test(text),
         'Exact Clipboard-only asset has no network API: ' + asset);
+      continue;
+    }
+    if (asset === 'test-group-view.js') {
+      check(!/\b(fetch|sqlServerLabUiFetch|XMLHttpRequest|WebSocket|EventSource|sendBeacon|startAction|queueBackgroundAction|submitUiAction|openConfirmation)\b/.test(text),
+        'Testgruppenansicht rendert vorhandene Ergebnisse ohne Netzwerk oder Aktionsauftrag: ' + asset);
+      continue;
+    }
+    if (confirmationAssets.includes(asset)) {
+      check(!/\b(fetch|sqlServerLabUiFetch|XMLHttpRequest|WebSocket|EventSource|sendBeacon)\b/.test(text) &&
+        /openConfirmation\s*\(/.test(text) && /'__PublicCommand'/.test(text),
+      'Fachdialog delegiert ausschließlich an den bestätigten Katalogtransport: ' + asset);
       continue;
     }
     check(!/\bfetch\s*\(/.test(text) && /sqlServerLabUiFetch\s*\(/.test(text), 'Aktives Produktasset verwendet nur den benannten Transport: ' + asset);

@@ -75,6 +75,21 @@ $records.Clear()
 $syntheticCredential = [securestring]::new()
 $ready = Wait-SqlReady -Port 1433 -SaPassword $syntheticCredential -ExpectedMajorVersion 17 -StabilitySeconds 1 -PollIntervalMilliseconds 100 -TimeoutSeconds 3
 Assert-Progress ($ready.Ready -and $ready.MajorVersion -eq 17 -and $records.Count -ge 2 -and $readyContexts[-1].Completed) 'SQL-Readiness meldet aus ihrer echten Poll-Schleife und bewahrt das Resultat'
+$script:readinessRuntimeCalls = 0
+$script:readinessFinalStatus = 'running'
+function Get-LabContainerReadinessDiagnostic {
+    param($Provider,$ContainerIdOrName,[switch]$IncludeLogs,$StateRoot)
+    $script:readinessRuntimeCalls++
+    if ($IncludeLogs) { return [pscustomobject]@{ Status=$script:readinessFinalStatus; Message=$script:readinessFinalStatus } }
+    [pscustomobject]@{ Running=$false; Status='created' }
+}
+$runtimeWait = @{ Port=1433; SaPassword=$syntheticCredential; ExpectedMajorVersion=17; StabilitySeconds=1
+    PollIntervalMilliseconds=100; TimeoutSeconds=4; Provider='podman'; ContainerIdOrName='synthetic' }
+$ready = Wait-SqlReady @runtimeWait
+Assert-Progress ($ready.Ready -and $script:readinessRuntimeCalls -ge 2) 'Container wird während der Diagnose laufend und erreicht SQL-Bereitschaft'
+$script:readinessFinalStatus = 'exited'
+$ready = Wait-SqlReady @runtimeWait
+Assert-Progress (-not $ready.Ready -and $ready.Message -match 'vor der Bereitschaft beendet.*exited') 'Bestätigter Containerabbruch bleibt ein Readiness-Fehler'
 function Invoke-LabSqlcmdProgress { throw 'SYNTHETIC_SQL_FAILURE' }
 try { Wait-SqlReady -Port 1433 -SaPassword $syntheticCredential | Out-Null } catch { }
 Assert-Progress ($readyContexts[-1].Completed) 'SQL-Fehler beendet den Reporter im finally'

@@ -473,7 +473,7 @@ function Move-SqlServerLabOperation {
     if ($operation.status -eq 'Running' -or (Test-LabOperationTerminal -Status $operation.status)) {
         throw 'Nur wartende, pausierte oder eingereihte Vorgänge können umgereiht werden.'
     }
-    $peers = @(Get-SqlServerLabOperation -StateRoot $StateRoot | Where-Object { $_.priority -eq $operation.priority -and $_.status -ne 'Running' -and -not (Test-LabOperationTerminal -Status $_.status) } | Sort-Object queuePosition)
+    $peers = @(Get-SqlServerLabOperation -StateRoot $StateRoot | Where-Object { $_.priority -eq $operation.priority -and $_.status -ne 'Running' -and -not (Test-LabOperationTerminal -Status $_.status) })
     $current = [Array]::IndexOf([string[]]@($peers.operationId), $OperationId)
     $target = if ($PSCmdlet.ParameterSetName -eq 'Position') { [Math]::Min($peers.Count - 1, $Position - 1) } elseif ($Direction -eq 'Up') { [Math]::Max(0, $current - 1) } else { [Math]::Min($peers.Count - 1, $current + 1) }
     if ($target -ne $current) {
@@ -560,6 +560,50 @@ function Resume-SqlServerLabOperation {
     }
 }
 
+function Stop-LabWorkflowOperation {
+    param(
+        [string]$OperationId,
+        [switch]$Cleanup,
+        [switch]$UnfinishedOnly,
+        [string]$StateRoot
+    )
+
+    $root = Initialize-LabWorkflowStore -StateRoot $StateRoot
+    $path = Get-LabOperationStatePath -OperationId $OperationId -StateRoot $root
+    $result = Invoke-WithLabWorkflowLock -StateRoot $root -ScriptBlock {
+        Invoke-WithLabWorkflowFileLock -Path $path -Action {
+            $operation = Get-SqlServerLabOperation -OperationId $OperationId -StateRoot $root
+            if ((Test-LabOperationTerminal -Status $operation.status) -and
+                ($UnfinishedOnly -or -not $Cleanup -or $operation.status -eq 'Cancelled')) {
+                return [pscustomobject]@{ Operation = $operation; Changed = $false }
+            }
+
+            $operation.cancelRequested = $true
+            if ($operation.status -eq 'Running') {
+                $operation.cleanupRequested = [bool]$Cleanup
+                Add-LabOperationEvent -Operation $operation -Type 'CancellationRequested' -Message 'Stopp wurde angefordert; der aktuelle atomare Schritt läuft bis zur sicheren Grenze.' -StateRoot $root | Out-Null
+            }
+            elseif ($Cleanup) {
+                $operation.cleanupRequested = $true
+                $operation.status = 'CleanupQueued'
+                Add-LabOperationEvent -Operation $operation -Type 'CleanupQueued' -Message 'Vorgang wurde gestoppt und zur scopegebundenen Bereinigung eingereiht.' -StateRoot $root | Out-Null
+            }
+            else {
+                $operation.status = 'Cancelled'
+                $operation.completedAt = Get-LabWorkflowUtcNow
+                Add-LabOperationEvent -Operation $operation -Type 'Cancelled' -Message 'Vorgang wurde endgültig gestoppt; Ressourcen wurden nicht automatisch entfernt.' -StateRoot $root | Out-Null
+            }
+            Write-LabOperationState -Operation $operation -StateRoot $root | Out-Null
+            [pscustomobject]@{ Operation = $operation; Changed = $true }
+        }
+    }
+    # Summary reads other operations and must run after releasing their locks.
+    if ($result.Changed) {
+        Update-LabBatchSummary -BatchId $result.Operation.batchId -StateRoot $root | Out-Null
+    }
+    return $result.Operation
+}
+
 <#
 .SYNOPSIS
     Stoppt einen Kindvorgang endgueltig.
@@ -588,33 +632,7 @@ function Stop-SqlServerLabOperation {
         if (-not $PSCmdlet.ShouldProcess($id, 'Vorgang endgültig stoppen' + $(if ($Cleanup) { ' und scopegebunden aufräumen' } else { '' }))) {
             continue
         }
-        $operation = Get-SqlServerLabOperation -OperationId $id -StateRoot $StateRoot
-        if (Test-LabOperationTerminal -Status $operation.status) {
-            if (-not $Cleanup -or $operation.status -eq 'Cancelled') {
-                $operation
-                continue
-            }
-        }
-        if ($operation.status -eq 'Running') {
-            $operation.cancelRequested = $true
-            $operation.cleanupRequested = [bool]$Cleanup
-            Add-LabOperationEvent -Operation $operation -Type 'CancellationRequested' -Message 'Stopp wurde angefordert; der aktuelle atomare Schritt läuft bis zur sicheren Grenze.' -StateRoot $StateRoot | Out-Null
-        }
-        elseif ($Cleanup) {
-            $operation.cancelRequested = $true
-            $operation.cleanupRequested = $true
-            $operation.status = 'CleanupQueued'
-            Add-LabOperationEvent -Operation $operation -Type 'CleanupQueued' -Message 'Vorgang wurde gestoppt und zur scopegebundenen Bereinigung eingereiht.' -StateRoot $StateRoot | Out-Null
-        }
-        else {
-            $operation.cancelRequested = $true
-            $operation.status = 'Cancelled'
-            $operation.completedAt = Get-LabWorkflowUtcNow
-            Add-LabOperationEvent -Operation $operation -Type 'Cancelled' -Message 'Vorgang wurde endgültig gestoppt; Ressourcen wurden nicht automatisch entfernt.' -StateRoot $StateRoot | Out-Null
-        }
-        Write-LabOperationState -Operation $operation -StateRoot $StateRoot | Out-Null
-        Update-LabBatchSummary -BatchId $operation.batchId -StateRoot $StateRoot | Out-Null
-        $operation
+        Stop-LabWorkflowOperation -OperationId $id -Cleanup:$Cleanup -StateRoot $StateRoot
     }
 }
 
@@ -645,6 +663,7 @@ function Stop-SqlServerLabBatch {
         [string]$StateRoot
     )
 
+    $StateRoot = Initialize-LabWorkflowStore -StateRoot $StateRoot
     $batch = Get-SqlServerLabBatch -BatchId $BatchId -StateRoot $StateRoot
     $action = if ($IncludeCompleted) { 'Gesamten Batch einschließlich fertiger Ressourcen zurückbauen' } else { 'Unfertige Batch-Positionen stoppen' }
     if (-not $PSCmdlet.ShouldProcess($batch.name, $action)) {
@@ -652,8 +671,8 @@ function Stop-SqlServerLabBatch {
     }
     $operations = @(Get-SqlServerLabOperation -BatchId $BatchId -StateRoot $StateRoot)
     $targets = if ($IncludeCompleted) { $operations } else { @($operations | Where-Object status -notin @('Completed', 'Failed', 'Cancelled')) }
-    if ($targets.Count -gt 0) {
-        Stop-SqlServerLabOperation -OperationId @($targets.operationId) -Cleanup:$Cleanup -StateRoot $StateRoot -Confirm:$false | Out-Null
+    foreach ($target in $targets) {
+        Stop-LabWorkflowOperation -OperationId $target.operationId -Cleanup:$Cleanup -UnfinishedOnly:(-not $IncludeCompleted) -StateRoot $StateRoot | Out-Null
     }
     $batch = Update-LabBatchSummary -BatchId $BatchId -StateRoot $StateRoot
     return $batch
@@ -897,9 +916,16 @@ function Start-SqlServerLabOperationHost {
     }
     $modulePath = $ExecutionContext.SessionState.Module.Path
     $hostScript = Join-Path (Split-Path -Parent $modulePath) 'Tools\Start-SqlServerLabOperationHost.ps1'
-    $arguments = @('-NoLogo', '-NoProfile', '-File', $hostScript, '-ModulePath', $modulePath, '-StateRoot', $root)
-    $process = Start-Process -FilePath (Get-Process -Id $PID).Path -ArgumentList $arguments -WindowStyle Hidden -PassThru
+    $startInfo = [Diagnostics.ProcessStartInfo]::new((Get-Process -Id $PID).Path)
+    $startInfo.UseShellExecute = $false
+    $startInfo.CreateNoWindow = $true
+    foreach ($argument in @('-NoLogo', '-NoProfile', '-File', $hostScript, '-ModulePath', $modulePath, '-StateRoot', $root)) {
+        $startInfo.ArgumentList.Add($argument)
+    }
+    $process = [Diagnostics.Process]::Start($startInfo)
+    if ($null -eq $process) { throw 'OPERATION_HOST_NOT_STARTED' }
     if ($PassThru) {
         return $process
     }
+    $process.Dispose()
 }

@@ -59,5 +59,14 @@ foreach($state in @('Failed','Stopped','Empty')){
  $view=Get-UiWorkflowInventoryResponse -MediaRoot 'synthetic-root'
  Check ($view.Refreshing -and $starts -eq 1) ($state+' completion cannot make the old snapshot a cache hit')
 }
+. (Join-Path $repo 'Private/BatchBrowserOverview.ps1')
+$validBatch=[pscustomobject]@{
+ batchId='batch-20261121080000-1234abcd';status='Running';progress=[pscustomobject]@{percent=25.5;total=4}
+ errorStatus=[pscustomobject]@{failed=1;cancelled=0};defaults=@{Secret='synthetic-private-value'}
+ manifestSource=@{Path='synthetic-private-path'}
+}
+$filtered=@(Get-LabBrowserBatchOverview -Batches @($validBatch,[pscustomobject]@{batchId='batch-20261121080000-1234abcd';status='Running'}))
+Check ($filtered.Count -eq 1 -and $filtered[0].BatchId -ceq $validBatch.batchId -and $filtered[0].Percent -eq 25.5 -and
+ ($filtered|ConvertTo-Json -Depth 8) -notmatch 'synthetic-private|defaults|manifestSource') 'Browser projection keeps only bounded batch progress and excludes operation input'
 Write-Host ('Ergebnis: '+$passed+' PASS, '+$failures.Count+' FAIL')
 if($failures.Count){exit 1}

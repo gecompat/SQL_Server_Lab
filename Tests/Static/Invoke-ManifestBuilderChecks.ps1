@@ -1002,6 +1002,18 @@ try {
             $saved.name -eq $minimal.name -and
             $roundTrip.IsValid) `
         -Message ($roundTrip.Errors -join '; ')
+    $before = (Get-FileHash -LiteralPath $temporaryManifest -Algorithm SHA256).Hash
+    $guided = & $module { param($Path) Get-LabManifestCheckView -Path $Path } $temporaryManifest
+    $malformedPath = Join-Path $temporaryDirectory 'invalid.json'
+    [IO.File]::WriteAllText($malformedPath, '{"name":"synthetic","privateExtra":"SYNTHETIC_MANIFEST_CANARY","instances":[]}')
+    $blocked = & $module { param($Path) Get-LabManifestCheckView -Path $Path } $malformedPath
+    Add-CheckResult -Name 'Geführter Manifestcheck nutzt dieselbe Fachprüfung ohne Schreibwirkung oder Rohdaten' -Success (
+        $guided.IsValid -and $guided.ErrorCount -eq 0 -and $before -ceq (Get-FileHash -LiteralPath $temporaryManifest -Algorithm SHA256).Hash -and
+        -not $blocked.IsValid -and $blocked.ErrorClasses -contains 'SCHEMA' -and
+        ($blocked | ConvertTo-Json -Compress) -notmatch 'SYNTHETIC_MANIFEST_CANARY|privateExtra')
+    $relative = try { & $module { Get-LabManifestCheckView -Path '../foreign-manifest.json' } | Out-Null; $false }
+        catch { $_.Exception.Message -ceq 'DIAGNOSTIC_ROOT_INVALID' }
+    Add-CheckResult -Name 'Geführter Manifestcheck verweigert einen nicht absoluten Zielpfad' -Success $relative
 }
 finally {
     Remove-Item -LiteralPath $temporaryDirectory -Recurse -Force -ErrorAction SilentlyContinue

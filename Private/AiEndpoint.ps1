@@ -28,6 +28,16 @@ function Get-LabAiModelCatalogEntry {
     return $matches[0]
 }
 
+function Get-LabAiLocalGenerationCatalog {
+    [CmdletBinding()]
+    param()
+
+    (Get-LabAiModelCatalog).models |
+        Where-Object { $_.lane -ceq 'local' -and $_.purpose -ceq 'generation' -and $_.status -ceq 'SUPPORTED' } |
+        Sort-Object key |
+        ForEach-Object { [pscustomobject]@{ Id = [string]$_.key; Name = [string]$_.model } }
+}
+
 function New-LabAiEndpointPlan {
     [CmdletBinding()]
     param(

@@ -6,7 +6,11 @@
     Workflow-Oberflaeche. Gastpasswoerter dienen nur dem unmittelbaren Aufruf
     und werden weder in Build-State noch Log-Ausgabe gespeichert.
 .PARAMETER ExpectedPlanKey
-    Servergebundener Auswahlsschlüssel; InspectCms akzeptiert nur die frisch gelesene CMS-Registrierung.
+    Servergebundener Auswahlsschlüssel; InspectCms akzeptiert nur die frisch gelesene CMS-Registrierung. CMS-Management-Aktionen verlangen den unveränderten Schlüssel aus dem Statusdialog.
+.PARAMETER ConfirmCmsOperation
+    Bestätigt ausdrücklich die zuvor angezeigte CMS-Erstellung oder Übernahme.
+.PARAMETER ReplaceRemovedCms
+    Erlaubt nur beim CMS-Erstellen den Ersatz einer eindeutig terminal entfernten CMS-Registrierung; andere Zustände bleiben gesperrt.
 .PARAMETER Action
     Eindeutige, zulässige Workflow-Aktion.
     GetResourceWatchState liest nur Katalog und Sitzungscache. RefreshResourceWatch
@@ -217,7 +221,10 @@ Ist er angegeben, wird der Download strikt dagegen verifiziert.
 .PARAMETER ExpectedCatalogRevision
     Erwartete Katalogrevision aus der getrennten Retained-Store-Löschvorschau.
 .PARAMETER ExpectedPlanKey
-    Fingerprint der bestätigten Retained-Store-, CPU/RAM- oder Gruppen-Powervorschau.
+    Fingerprint der bestätigten Retained-Store-, CPU/RAM- oder Testgruppen-Vorschau.
+.PARAMETER TestGroupPatch
+    Für CreateLinuxTestGroupMember: aktueller Katalogpatch (`latest`) oder der
+    in der Vorschau gebundene katalogisierte CU, beispielsweise `cu9`.
 .PARAMETER GuestUserName
     Lokaler Administratorname im Gast für PowerShell Direct.
 .PARAMETER GuestPassword
@@ -286,15 +293,16 @@ function Invoke-SqlServerLabWorkflowAction {
     param(
         [Parameter(Mandatory)]
         [ValidateSet(
-            'Refresh',
-            'StartTestGroupPower', 'StopTestGroupPower',
+            'Refresh', 'ReadFullMaintenancePreview',
+            'StartTestGroupPower', 'StopTestGroupPower', 'CreateLinuxTestGroupMember',
+            'CreateWindowsTestGroupMember', 'RepairTestGroup', 'RemoveTestGroup', 'ExportTestGroup',
             'GetInitialSetupState', 'PlanInitialSetup', 'ApplyInitialSetup', 'RefreshSetupProvider', 'PlanSetupWriteability', 'ProbeSetupWriteability', 'RefreshSetupCapacity',
             'GetSlotReserveState', 'PlanSlotReserve', 'ApplySlotReserve',
             'PlanWindowsPoolMember', 'ApplyWindowsPoolMember', 'CancelWindowsPoolMember',
             'GetLlamaSessions', 'PlanLlamaSessionStop', 'StopLlamaSession',
             'GetMediaOverrideState', 'PlanMediaOverride', 'ApplyMediaOverride',
             'GetResourceWatchState', 'RefreshResourceWatch',
-            'GetCmsInspectionState', 'InspectCms',
+            'GetCmsInspectionState', 'InspectCms', 'GetCmsManagementState', 'InitializeCms', 'AdoptCms',
             'RepairHyperVWindowsActivation',
             'SetMediaRoot', 'SetDataRoot', 'SetTestDataRoot',
             'NewContainerLab', 'CreateContainerManifest', 'NewContainerLabFromManifest', 'SetSqlFeature', 'RenameLab', 'SetLabResources', 'StartContainerLab', 'StopContainerLab', 'StartLabReconcile', 'StopLabReconcile', 'RestartContainerLab', 'RemoveContainerLab', 'ClearAllLabs',
@@ -344,6 +352,8 @@ function Invoke-SqlServerLabWorkflowAction {
         [switch]$ConfirmMediaSource,
         [switch]$ConfirmSlotReserve,
         [switch]$ConfirmSetup,
+        [switch]$ConfirmCmsOperation,
+        [switch]$ReplaceRemovedCms,
         [ValidateSet('docker', 'podman', 'hyperv')][string]$SetupProvider,
         [ValidateRange(1,64)][decimal]$ResourceCpu,
         [string]$TestDataRoot,
@@ -355,6 +365,7 @@ function Invoke-SqlServerLabWorkflowAction {
         [object[]]$PersistentStorageSelection,
         [ValidateRange(0,2147483647)][int]$ExpectedCatalogRevision,
         [ValidatePattern('^[a-f0-9]{64}$')][string]$ExpectedPlanKey,
+        [ValidatePattern('^(?:latest|cu[1-9][0-9]{0,5})$')][string]$TestGroupPatch,
         [ValidateRange(32, 4096)][int]$PersistentDataDiskGB = 128,
         [ValidatePattern('^windows-(server-)?[0-9]+(?:-r2)?$')][string]$OperatingSystemId = 'windows-server-2025',
         [string]$WindowsMediaPath,
@@ -452,6 +463,33 @@ function Invoke-SqlServerLabWorkflowAction {
         $result=if($Action -ceq 'GetCmsInspectionState'){Get-LabCmsInspectionState}else{Invoke-LabCmsInspection -ExpectedPlanKey $ExpectedPlanKey}
         return [pscustomobject]@{Action=$Action;CompletedAt=Get-LabTimestamp;Result=$result}
     }
+    if ($Action -in @('GetCmsManagementState','InitializeCms','AdoptCms')) {
+        if ($Action -ceq 'GetCmsManagementState') {
+            $result = Invoke-WithLabCmsManagementLock -StateRoot $StateRoot -ScriptBlock { Get-LabCmsManagementState -StateRoot $StateRoot }
+        }
+        else {
+            if ($null -ne $SaPassword) { throw 'CMS_MANAGEMENT_REQUEST_INVALID' }
+            $result = Invoke-WithLabCmsManagementLock -StateRoot $StateRoot -ScriptBlock {
+                if (-not $ConfirmCmsOperation) { throw 'CMS_MANAGEMENT_CONFIRMATION_REQUIRED' }
+                $state = Assert-LabCmsManagementPlanKey -ExpectedPlanKey $ExpectedPlanKey -StateRoot $StateRoot
+                if ($Action -ceq 'InitializeCms') {
+                    $replaceRemoved = $state.Cms -and $state.Cms.State -ceq 'REMOVED'
+                    if (-not $state.CanCreate -or $Provider -cnotin $state.Providers -or $replaceRemoved -ne $ReplaceRemovedCms.IsPresent) { throw 'CMS_MANAGEMENT_CREATE_UNAVAILABLE' }
+                    $name = if ($LabName) { $LabName } else { 'sql-server-lab-cms' }
+                    try {
+                        $created = Initialize-SqlServerLabCms -Provider $Provider -LabName $name -ReplaceRemovedCms:$ReplaceRemovedCms -SuppressGeneratedPasswordReturn -StateRoot $StateRoot -ErrorAction Stop 3>$null 4>$null 5>$null 6>$null
+                    } catch { throw 'CMS_MANAGEMENT_CREATE_UNCONFIRMED' }
+                    return [pscustomobject]@{ Status='CREATED'; RunId=[string]$created.Configuration.RunId; Provider=[string]$created.Configuration.Provider }
+                }
+                if (-not $state.CanAdopt -or @($state.Candidates | Where-Object RunId -ceq $RunId).Count -ne 1) { throw 'CMS_MANAGEMENT_ADOPTION_UNAVAILABLE' }
+                try {
+                    $registration = Invoke-LabCmsManagementAdoption -RunId $RunId -ExpectedPlanKey $ExpectedPlanKey -StateRoot $StateRoot 3>$null 4>$null 5>$null 6>$null
+                } catch { throw 'CMS_MANAGEMENT_ADOPTION_UNCONFIRMED' }
+                [pscustomobject][ordered]@{ Status='ADOPTED'; RunId=[string]$registration.Configuration.RunId; Provider=[string]$registration.Configuration.Provider }
+            }
+        }
+        return [pscustomobject]@{Action=$Action;CompletedAt=Get-LabTimestamp;Result=$result}
+    }
     if($Action -in @('PlanWindowsPoolMember','ApplyWindowsPoolMember','CancelWindowsPoolMember')){
         $result=switch($Action){
             PlanWindowsPoolMember {New-LabWindowsPoolMemberPreview -RunId $RunId -Action $SlotReserveOperation -StateRoot $StateRoot -SqlDeploymentPlan $SlotReserveSqlPlan}
@@ -479,11 +517,32 @@ function Invoke-SqlServerLabWorkflowAction {
         return [pscustomobject]@{ Action=$Action; CompletedAt=Get-LabTimestamp; Result=$result }
     }
 
+    if ($Action -eq 'ReadFullMaintenancePreview') {
+        $workflowArguments = @($PSBoundParameters.Keys | Where-Object { $_ -ne 'Action' -and $_ -notin [System.Management.Automation.PSCmdlet]::CommonParameters })
+        if ($workflowArguments.Count) { throw 'FULL_MAINTENANCE_PREVIEW_ARGUMENTS_INVALID' }
+        try { $result = Get-LabRuntimeMaintenancePreview -Mode Full -ErrorAction Stop }
+        catch { throw 'FULL_MAINTENANCE_PREVIEW_UNAVAILABLE' }
+        return [pscustomobject]@{ Action=$Action; CompletedAt=Get-LabTimestamp; Result=$result }
+    }
+
     if ($Action -in @('StartTestGroupPower','StopTestGroupPower')) {
         if (-not $ExpectedPlanKey) { throw 'TEST_GROUP_PREVIEW_REQUIRED' }
         $power = if ($Action -eq 'StartTestGroupPower') { 'Start' } else { 'Stop' }
         $result = Invoke-LabTestGroupPowerPlan -PowerAction $power -ExpectedPlanKey $ExpectedPlanKey -Confirmed
         Write-Information ('[TESTGROUP] ' + ($result | ConvertTo-Json -Depth 8 -Compress)) -InformationAction Continue
+        return [pscustomobject]@{ Action=$Action; CompletedAt=Get-LabTimestamp; Result=$result }
+    }
+
+    if ($Action -in @('CreateWindowsTestGroupMember','RepairTestGroup','RemoveTestGroup','ExportTestGroup')) {
+        $operation = @{CreateWindowsTestGroupMember='CreateWindows'; RepairTestGroup='Repair'; RemoveTestGroup='Remove'; ExportTestGroup='Export'}[$Action]
+        $result = Invoke-LabTestGroupManagementPlan -Operation $operation -ArtifactId $ArtifactId -ExpectedPlanKey $ExpectedPlanKey
+        Write-Information ("Testgruppenaktion {0} abgeschlossen. Ergebnis {1}." -f $operation,$result.Status) -InformationAction Continue
+        return [pscustomobject]@{ Action=$Action; CompletedAt=Get-LabTimestamp; Result=$result }
+    }
+
+    if ($Action -eq 'CreateLinuxTestGroupMember') {
+        $result = Invoke-LabTestGroupLinuxCreatePlan -Provider $Provider -SqlVersion $SqlVersion -Patch $TestGroupPatch -ExpectedPlanKey $ExpectedPlanKey
+        Write-Information ("Testumgebung {0} wurde registriert. Gruppenbereitschaft: {1}." -f $result.Key,$result.GroupReady) -InformationAction Continue
         return [pscustomobject]@{ Action=$Action; CompletedAt=Get-LabTimestamp; Result=$result }
     }
 

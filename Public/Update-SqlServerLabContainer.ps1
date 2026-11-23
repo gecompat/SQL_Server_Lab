@@ -17,6 +17,9 @@ function Update-SqlServerLabContainer {
     .PARAMETER AutoStart
     Schaltet den verwalteten Container-Autostart ein oder aus. Die Änderung
     erfordert eine kontrollierte Neuerstellung des Containers.
+    .PARAMETER RestoreMissingSqlPort
+    Interne Ausführung für den Linux-Portreparaturmodus der geschützten
+    Testgruppe. Ein Ersatzport ist nur bei fehlender aktiver Bindung zulässig.
     #>
     [CmdletBinding(SupportsShouldProcess)]
     param(
@@ -30,7 +33,8 @@ function Update-SqlServerLabContainer {
         [ValidateRange(10, 600)][int]$ReadinessTimeoutSeconds = 180,
         [switch]$RepairSqlRuntimeContract,
         [ValidatePattern('^[a-f0-9]{64}$')][string]$ExpectedResourcePlanKey,
-        [string]$StateRoot
+        [string]$StateRoot,
+        [switch]$RestoreMissingSqlPort
     )
     if(-not $StateRoot){$StateRoot=Get-LabStateRoot}
     $featureGuard=Enter-LabSqlFeatureConflictGuard -RunId $RunId -StateRoot $StateRoot
@@ -39,6 +43,12 @@ function Update-SqlServerLabContainer {
     if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
     if ((Test-LabAutomatedTestEnvironmentRun -RunId $RunId) -and -not $script:LabAutomatedTestEnvironmentGroupOperation) {
         throw 'TEST_ENVIRONMENT_GROUP_PROTECTED: Containeränderung ist für einzelne Testumgebungen gesperrt.'
+    }
+    if ($RestoreMissingSqlPort -and (-not $script:LabAutomatedTestEnvironmentGroupOperation -or
+        -not (Test-LabAutomatedTestEnvironmentRun -RunId $RunId) -or
+        @('Cpu','MemoryMB','SqlMaxMemoryMB','AutoStart','RepairSqlRuntimeContract','ExpectedResourcePlanKey' |
+            Where-Object { $PSBoundParameters.ContainsKey($_) }).Count)) {
+        throw 'CONTAINER_RECONCILE_SQL_PORT_RECOVERY_REQUIRES_GROUP_SCOPE'
     }
     $StateRoot = Get-LabCanonicalResourceRoot -StateRoot $StateRoot
     $mutex = [Threading.Mutex]::new($false, (Get-LabContainerResourceLockName -StateRoot $StateRoot -RunId $RunId))
@@ -54,10 +64,16 @@ function Update-SqlServerLabContainer {
             if ($boundPlan.PlanKey -ne $ExpectedResourcePlanKey -or -not $boundPlan.CanApply) { throw 'RESOURCE_CHANGE_STALE_OR_UNAVAILABLE: Vorschau erneut lesen.' }
             if ($boundPlan.NoChange) { return [pscustomobject]@{ Changed=$false; NoChange=$true; Status='NO_OP'; ChangeClass='no-op'; Provider=$boundPlan.Provider; RunId=$RunId; InstanceId=$InstanceId } }
         }
-    $context = Get-LabContainerReconcileContext -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot
+    $contextArgs = @{ RunId=$RunId; InstanceId=$InstanceId; StateRoot=$StateRoot }
+    if ($RestoreMissingSqlPort) { $contextArgs.RestoreMissingSqlPort=$true }
+    $context = Get-LabContainerReconcileContext @contextArgs
     $null = Repair-LabContainerReconcileJournal -Context $context
-    $context = Get-LabContainerReconcileContext -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot
+    $context = Get-LabContainerReconcileContext @contextArgs
+    if ($RestoreMissingSqlPort -and $PSBoundParameters.ContainsKey('Port') -and -not $context.MissingSqlPort) {
+        throw 'CONTAINER_RECONCILE_SQL_PORT_RECOVERY_BINDING_ALREADY_ACTIVE'
+    }
     $planArguments = @{ RunId=$RunId; InstanceId=[string]$context.InstanceId; StateRoot=$StateRoot; RepairSqlRuntimeContract=$RepairSqlRuntimeContract }
+    if ($RestoreMissingSqlPort) { $planArguments.RestoreMissingSqlPort=$true }
     if ($PSBoundParameters.ContainsKey('Cpu')) { $planArguments.Cpu=[decimal]$Cpu }
     if ($PSBoundParameters.ContainsKey('MemoryMB')) { $planArguments.MemoryMB=[int]$MemoryMB }
     if ($PSBoundParameters.ContainsKey('Port')) { $planArguments.Port=[int]$Port }
@@ -144,7 +160,8 @@ function Update-SqlServerLabContainer {
         if ([string]$plan.Desired.AutoStart -eq 'on') {
             $arguments += @('--restart','unless-stopped')
         }
-        $arguments += @('--health-cmd','/opt/mssql-tools*/bin/sqlcmd -S localhost -U sa -P"$MSSQL_SA_PASSWORD" -C -Q "SELECT 1" -b','--health-interval','5s','--health-timeout','3s','--health-retries','30',[string]$inspect.Config.Image)
+        $image = if ($RestoreMissingSqlPort) { [string]$inspect.Image } else { [string]$inspect.Config.Image }
+        $arguments += @('--health-cmd','/opt/mssql-tools*/bin/sqlcmd -S localhost -U sa -P"$MSSQL_SA_PASSWORD" -C -Q "SELECT 1" -b','--health-interval','5s','--health-timeout','3s','--health-retries','30',$image)
         if ($context.WasRunning) { $null = Invoke-LabContainerReconcileCommand -Provider $runtime -Arguments @('stop',$name) -ErrorCode 'CONTAINER_RECONCILE_STOP_FAILED' }
         $null = Invoke-LabContainerReconcileCommand -Provider $runtime -Arguments @('rename',$name,$backupName) -ErrorCode 'CONTAINER_RECONCILE_RENAME_FAILED'
         $journal = Set-LabContainerReconcileJournalStatus -Journal $journal -Path $journalPath -Status ORIGINAL_RENAMED
@@ -176,6 +193,8 @@ function Update-SqlServerLabContainer {
         }
         $replacementPort = @($replacement.NetworkSettings.Ports.'1433/tcp' | Select-Object -First 1)
         if ($replacementPort.Count -ne 1 -or [int]$replacementPort[0].HostPort -ne [int]$plan.Desired.Port) { throw 'CONTAINER_RECONCILE_PORT_POSTCONDITION_FAILED' }
+        if ($RestoreMissingSqlPort -and ($replacementPort[0].HostIp -cne '127.0.0.1' -or
+            $replacement.Image -cne $inspect.Image)) { throw 'CONTAINER_RECONCILE_SQL_PORT_RECOVERY_POSTCONDITION' }
         $replacementAutoStart = if ([string]$replacement.HostConfig.RestartPolicy.Name -in @('always','unless-stopped') -and
             [string]$replacement.Config.Labels.'sql-server-lab.autostart' -eq 'on') { 'on' }
         elseif ([string]$replacement.HostConfig.RestartPolicy.Name -in @('','no') -and

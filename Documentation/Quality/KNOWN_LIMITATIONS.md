@@ -581,8 +581,10 @@ oder den zuvor beobachteten Hostzustand erneut abzufragen.
 ## Container-Autostart nur vorprüfen
 
 Die Container-Autostartvorschau bleibt PLAN_ONLY, einschließlich No-op.
-UNKNOWN/DRIFTED sperrt; es gibt keine Apply-/Recoveryaktion oder
-CAS-/Reservierungsautorität. Endpoint, SQL, Backup und Hostlogin bleiben
+UNKNOWN/DRIFTED sperrt. Die Vorschau selbst hat keine
+CAS- oder Reservierungsautorität. Änderung und Wiederaufnahme haben
+[eigene Dialoge mit Bestätigung](../HowTo/WORKFLOW_UI.md#docker-und-podman-autostart-ändern).
+Endpoint, SQL, Backup und Hostlogin bleiben in der Vorschau
 NOT_CHECKED. Nur moderne registrierte laufende Docker-/Podman-SQL-Instanzen
 mit begrenzter Loopbacktopologie und darstellbaren Mounts sind zulässig.
 Der [öffentliche Vertrag](../../Public/README.md#container-autostart-nur-vorprüfen)
@@ -1053,8 +1055,9 @@ Der geführte Wartungsdialog (`CORE-105/106/109`, `PSR-011`) verwendet deshalb
 ausschließlich `Get-SqlServerLabCleanupAudit -NoWrite` für seine Befunde,
 keinen allgemeinen Maintenance-Plan/-Apply. Der ältere Modus `Safe` umfasst
 auch nach seinem Vertrag freigegebene abgelaufene Test-Orphans; er ist keine
-reine Zuordnungsreparatur. Seine Hyper-V-Statuskette kann zudem bestehende
-Connection-Metadaten reparieren und ist kein geeigneter NoWrite-Previewpfad.
+reine Zuordnungsreparatur. Der separate Wartungsplan ermittelt nach einer
+Hyper-V-Umbenennung den aktuellen VM-Namen für die Statusabfrage und
+belässt den gespeicherten Verbindungsbeleg unverändert.
 Im neuen Dialog bleibt fehlende Herkunft unbekannt. Unlesbare Run-States
 erzeugen einen Teilinventurhinweis ohne Warnjournal und sperren Katalogrepair.
 Nur fehlende moderne Container-Store-Katalogzuordnungen werden nach eigener
@@ -3316,6 +3319,10 @@ als `DETACHED` frei. Erfolgreich provisionierte Benutzerdatenbanken erhalten
 stabile aktive `DATABASE`-Referenzen; Lease-Freigabe löst sie atomar mit der
 Run-Referenz, und eine erneute Lease blockiert verbliebene aktive
 Datenbankreferenzen. Runtime-Abweichungen bleiben `RECOVERY_REQUIRED`.
+Neue Docker-/Podman-Labs mit `-PersistentData` binden auch bei gleichem Labnamen
+einen neuen SQL-Systemstore mit dem neuen SA-Passwort. Alte Stores bleiben
+erhalten; eine ausdrückliche Auswahl über `PersistentStorageId` mit `CONTINUE`
+oder `CLONE` behält dagegen die SQL-Anmeldedaten des bisherigen Stores.
 Reguläre Hyper-V-Labs reservieren ihre persistente Daten-VHDX inzwischen vor
 der ersten VHDX-Mutation controllerweit als `INCOMPLETE` mit stabiler
 `PersistentStorageId`, portabler `Lab_Data`-Bindung, aktiver Run-Referenz und
@@ -3580,8 +3587,11 @@ Gruppenaktionen separat in der Testmatrix. Browserbereiche verbergen inaktive
 Inventare und ersetzen die früheren Katalogfilter-Verweise durch konkrete
 vorhandene Dialoge oder eine ausdrückliche Lückenbeschreibung.
 
-Offen bleiben über Power-Start/Stop hinausgehende Browserdialoge für Testgruppen, CMS und
-operative Slotreservierung und Auffüllung, späteres Provider-Setup,
+Die geschützte Testsystem-Matrix bietet im Browser jetzt die Windows-Anlage
+aus einer freigegebenen SQL-Prepared-Vorlage sowie Reparatur und Entfernen mit
+gebundener Vorschau. Die Medienanlage und manuelle Windows-Einrichtung sind
+im Konsolenmenü verfügbar. Offen bleiben unter anderem weitere operative
+Slotabläufe, späteres Provider-Setup,
 weitere Runtimeinstaller-Lanes sowie Fremdstart-/weiterer Hostdienst- und Modell-Lifecycle. Vorhandene
 Gruppenschutzverträge gelten unverändert. Der neue Gruppen-Powerdialog nutzt
 exakte Runtime-IDs und eine gemeinsame Sperre mit Registrierung sowie
@@ -4121,6 +4131,11 @@ erfasst.
 ## Registrierter CMS: begrenzte Leseprüfung
 
 Der optionale gemeinsame CLI-/GUI-Inspektor liest nur den explizit ausgewählten bestehenden CMS und markierte msdb-Zähler. Hyper-V ist ohne nicht reparierende native Probe nicht unterstützt. Counts beweisen weder Hierarchiekonsistenz noch Synchronisationsfrische, Mitgliedszugriffe oder SSMS. Frische Datei-/Runtime-/Portchecks sind keine atomare physische Endpointbindung. Reale CMS-SQL-/Authnachweise sind getrennt von Offline- und allgemeinen Core-Smokes; siehe [Vertrag](../Architecture/CMS_READONLY_INSPECTION.md).
+
+Die Browser-Bereitstellung beschränkt die Übernahme auf laufende
+Docker-/Podman-Runs mit einer gebundenen SQL-Instanz und bereits lokal
+geschütztem SA-Kennwort. Zugangsanzeige und zusätzliche
+Kennworteingabe stehen über den Konsolenweg zur Verfügung.
 Ein privater abweichender StateRoot im bisherigen CMS-Menü erhält keine Freigabe für die neue aktive-Registrierungsprüfung; es gibt keine implizite Umleitung auf einen anderen CMS.
 Der isolierte CMS-Worker-/SQL-Harness arrangiert ausschließlich einen frischen
 eigenen CMS mit synthetischen Metadaten, optional an `-Version` 2019/2022/2025

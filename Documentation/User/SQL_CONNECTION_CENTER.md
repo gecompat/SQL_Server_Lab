@@ -38,13 +38,15 @@ vorhandene Servergruppen bleiben dabei unverändert.
 
 ## CMS
 
-`[4]` verwaltet einen optionalen CMS. Ohne vorhandenen CMS kann dort nach ausdrücklicher
-Bestätigung eine kompakte, persistente SQL-2025-Instanz mit Docker oder Podman angelegt
-werden. Das SA-Passwort wird einmalig angezeigt und anschließend nur run-lokal DPAPI-
-geschützt gespeichert. Jede Lifecycle-Aktion der Konsole synchronisiert diesen CMS
-best-effort mit dem aktuellen Katalog.
+`[4]` verwaltet einen optionalen CMS. Im Konsolenweg kann nach ausdrücklicher
+Bestätigung eine kompakte, persistente SQL-2025-Instanz mit Docker oder Podman
+angelegt werden. Das SA-Passwort wird dort einmalig angezeigt und anschließend
+nur run-lokal DPAPI-geschützt gespeichert. Jede Lifecycle-Aktion der Konsole
+synchronisiert diesen CMS best-effort mit dem aktuellen Katalog. Der Browser
+bietet denselben begrenzten Bereitstellungs-, Übernahme- und Sync-Einstieg, gibt
+aber keine Kennwörter zurück; den Zugang zeigt weiterhin die Konsole an.
 
-Empfohlener Ablauf:
+Konsolenablauf:
 
 1. `Datenbanken und Verbindungen` → `Verbindungszentrale und SSMS-Endpunkte`
    → `CMS verwalten und synchronisieren` öffnen.
@@ -70,6 +72,36 @@ Namen. Existiert ausschließlich eine CMS-Registrierung für einen bereits als
 `REMOVED` markierten Run, kann sie nur mit der ausdrücklichen Freigabe
 `-ReplaceRemovedCms` ersetzt werden. Laufende, angehaltene oder nicht eindeutig
 entfernte CMS-Registrierungen bleiben gesperrt.
+
+Eine Neuerstellung mit demselben Labnamen erhält einen neuen persistenten
+SQL-Systemstore und ein neu generiertes SA-Passwort. Alte Stores und deren
+Daten bleiben erhalten; der Labname übernimmt sie nicht automatisch. Die
+bisherige Registrierung wird erst nach erfolgreicher Neuerstellung ersetzt.
+Bei einem Provider- oder Provisionierungsfehler bleibt sie für einen erneuten
+Versuch erhalten.
+
+Nach regulärem Entfernen des alten CMS-Runs kann ein Podman-CMS beispielsweise
+so unter demselben Namen neu angelegt werden:
+
+```powershell
+Initialize-SqlServerLabCms -Provider podman -LabName Lab_CMS -ReplaceRemovedCms
+Sync-SqlServerLabCms
+```
+
+Das einmalig ausgegebene neue Passwort sicher ablegen und den lokalen
+CMS-Zugang in SSMS auf das neue Serverziel und Passwort aktualisieren.
+Die ausdrückliche Fortsetzung eines bestehenden SQL-Stores über
+`PersistentStorageId` ist ein eigener Ablauf und behält dessen SQL-Anmeldedaten;
+siehe [persistente Daten](../HowTo/PERSISTENT_DATA_AND_EVALUATION_REFRESH.md#6-optionale-runtime-anbindung).
+
+Im Browser öffnest du **Verbindungen und CMS → CMS bereitstellen**.
+Wähle Docker oder Podman und einen Namen für den neuen persistenten SQL-2025-CMS.
+Für die Übernahme wähle einen geeigneten laufenden Docker-/Podman-Run mit
+genau einer SQL-Instanz und lokal gespeichertem SA-Kennwort. Bestätige
+die Auswahl und prüfe das Ergebnis unter **Vorgänge**. Die Statusabfrage
+prüft gespeicherte Run-Bindungen. Für Zugangsdaten steht der Konsolenweg
+**CMS-Zugang anzeigen** zur Verfügung. Der Browser-Sync bleibt im Dialog
+**Registrierten CMS lesend prüfen**.
 
 Die Ausgabeaktionen der Verbindungszentrale – Status, SSMS-Importhinweis,
 Export, Gruppenkonfiguration, Synchronisation und Vorschau – bleiben sichtbar,

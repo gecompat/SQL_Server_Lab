@@ -26,11 +26,11 @@ $jobBody={
     $script:WorkerPreferencePath=$path
     function Get-LabProjectPreferencesPath { $script:WorkerPreferencePath }
     function Get-LabTimestamp { [datetime]::UtcNow.ToString('o') }
-    $actualLock=${function:Invoke-WithLabPreferencesLock}
-    function Invoke-WithLabPreferencesLock {
-        param($Path,$Body)
+    $actualLock=${function:Invoke-WithLabPreferencesAuthorityLock}
+    function Invoke-WithLabPreferencesAuthorityLock {
+        param($CanonicalPath,$Body)
         [IO.File]::WriteAllText($ready,'ready')
-        & $actualLock -Path $Path -Body $Body
+        & $actualLock -CanonicalPath $CanonicalPath -Body $Body
     }
     try { Set-LabProjectPreferenceValue -Name $name -Value 'synthetic'; 'WRITTEN' }
     catch { if($_.Exception.Message -in @('PREFERENCES_PREVIEW_STALE','PREFERENCES_LOCK_TIMEOUT')){$_.Exception.Message}else{throw} }

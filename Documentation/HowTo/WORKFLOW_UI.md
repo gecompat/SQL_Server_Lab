@@ -7,6 +7,21 @@ und die Prüfung eines bereits authentifizierten TLS-Labs sind getrennte Abläuf
 
 ## Verbindungen anzeigen
 
+Unter **Verbindungen und CMS → SSMS-Registrierungen herunterladen** erhältst
+du eine kennwortfreie `.regsrvr`-Datei mit bis zu 500 gespeicherten
+regulären Endpunkten. Importiere die Datei in SSMS unter **Ansicht →
+Registrierte Server → Aufgaben → Importieren**. Die Browseraktion verwendet
+gespeicherten Zustand und führt keinen Runtime-Abgleich durch. Der
+Lab_Data-Standard muss für die Zuordnung der geschützten Testsysteme lesbar
+sein.
+
+Öffne **Registrierten CMS lesend prüfen** und wähle **CMS synchronisieren**,
+um einen laufenden lokalen Docker-/Podman-CMS abzugleichen. Nach der
+Bestätigung aktualisiert der Auftrag den Endpunktkatalog und den vom Lab
+verwalteten CMS-Baum. Ein geänderter Registrierungs- oder Runtime-Befund
+bricht den Auftrag ab. Lies die Registrierung anschließend erneut. Der
+Browserauftrag unterstützt keine CMS-Konfiguration mit Kennwortaliasen.
+
 Unter **Verbindungen und CMS** zeigt jede SQL-Zielkarte ihre angegebenen
 **Connection Settings**: `Encrypt` und `TrustServerCertificate`. Der neue
 Standard bleibt jeweils `True`. Explizites `False` bleibt sichtbar; fehlende
@@ -51,6 +66,11 @@ TLS-Modi. Sie prüft einen isolierten Headless-Browser; weitere Profile und
 die vorhandene Windows-Benutzerzwischenablage bleiben getrennte Nachweise.
 
 ## Container-Lab erstellen
+
+Über **SqlPackage-Version im Container prüfen** kannst du anschließend die
+Version des bereits provisionierten Tools in einer laufenden Docker- oder
+Podman-Instanz abfragen. Wähle die Instanz und bestätige die Versionsprobe.
+Das Ergebnis steht im Live-Log. Die Probe installiert keine Software.
 
 Starten Sie die Oberfläche gemäß [Start](#start) mit einem bereiten Provider
 und den dort beschriebenen Datenroot-Einstellungen. Öffnen Sie
@@ -338,6 +358,35 @@ sind bestanden. Der Browserlauf vom 2026-10-06 prüfte echte Loopback-HTTP-
 Antworten, drei Vorschauaufrufe und eigenen Cleanup. Core77-Evidence ist
 separat; Apply/Recovery und Scope A bleiben offen.
 
+### Docker und Podman Autostart ändern
+
+Wähle unter **Lab-Umgebungen → Docker-/Podman-Autostart ändern** das
+registrierte Lab, die SQL-Instanz und die Policy `on` oder `off`.
+Prüfe die angezeigte Ist- und Zielpolicy. Bei einem unveränderten Plan endet
+der Dialog direkt. Bei einer Änderung bestätigt der Benutzer den aktuellen
+Plan. Erhält die CLI keine sichere Quittung, prüfe den aktuellen Zustand und
+offene Recovery vor einer erneuten Änderung.
+
+Im Browser öffnet **Lab verwalten → Container-Autostart ändern** denselben
+Ablauf. Nach **Änderung prüfen** zeigt der Dialog Ist- und Zielpolicy. Erst
+das Kontrollkästchen und **Autostart ändern** führen den gebundenen Plan aus.
+Eine andere Instanz oder Policy erfordert eine neue Vorschau. Der Server
+nimmt die Bestätigung einmal und innerhalb von fünf Minuten nach dem Lesen
+der Ziele an.
+
+**Docker-/Podman-Autostart-Recovery fortsetzen** liest die passenden
+Journaloperationen. Bestätige die gewünschte Operation. Wird das Journal
+zwischen Auswahl und Ausführung ersetzt, liest der Benutzer die Auswahl
+erneut. Die Wiederaufnahme prüft Containeridentität, Laufzustand und
+Restartpolicy. Anschließend schreibt sie Lab-State.
+
+Im Browser liegt **Container-Autostart-Recovery fortsetzen** unter **Lab
+verwalten**. Wähle die Journaloperation aus der Liste und bestätige sie mit
+dem Kontrollkästchen. Die Auswahl gilt fünf Minuten und kann einmal
+verwendet werden. Nach Ablauf oder einem unbestätigten Ergebnis lies
+den aktuellen Zustand erneut. Die separate Autostartvorschau bleibt der
+Einstieg zur lesenden Prüfung der Restartpolicy.
+
 ### SQL-Hostport nur vorprüfen
 
 Unter **Lab verwalten → SQL-Hostport vorprüfen · PLAN_ONLY** werden ausschließlich
@@ -375,7 +424,11 @@ Wiederöffnen wurden beobachtet, eigener Listener und Tab geschlossen.
 
 ### Evaluation-Ersatzentscheid
 
-Unter **Wartung, Aufräumen und Recovery → SQL-Evaluation: Ersatzentscheid**
+In der CLI öffnet **Wartung, Aufräumen und Recovery → SQL-Evaluation: Ersatz-
+und Migrationsentscheid** dieselbe lesende Vorschau. Wähle das registrierte
+Lab_Data, die SQL-Instanz und die Entscheidungsart.
+
+Im Browser unter **Wartung und Recovery → SQL-Evaluation: Ersatzentscheid**
 ein vorhandenes registriertes `Lab_Data` eingeben und **Registrierte Instanzen
 lesen** wählen. Eine gebundene einzelne Hyper-V-SQL-Instanz und Slotersatz,
 Rekonstruktion oder Instanzmigration auswählen, dann **Vorschau lesen (keine
@@ -438,6 +491,15 @@ Details: [Installervertrag](../Architecture/LLAMA_CPP_INSTALLER.md).
 
 ### Wartungsbefunde und Katalogzuordnung
 
+Im Wartungsbereich lassen sich auch gespeicherte Diagnosebefunde,
+Run-State-Formate und vorhandene Hyper-V-Checkpoints lesen. Wähle das Lab
+oder die Instanz im jeweiligen Dialog und bestätige die Leseaktion.
+**Gespeicherten Diagnosebefund lesen** zeigt historische Werte aus dem
+registrierten Standard-Lab_Data. **Format eines Run-States prüfen** zeigt
+geplante Felder und Blocker. **Hyper-V-Wiederherstellungspunkte lesen**
+zeigt vorhandene Checkpoints. Die Ansichten führen keinen Upgrade- oder
+Restore-Vorgang aus.
+
 Im Wartungsbereich öffnet „Wartungsbefunde und Zuordnung“ denselben Fachablauf
 wie die CLI-Aktion `CleanupAudit`. Erst „Befunde lesen“ ruft das Audit mit
 `-NoWrite` auf. Einträge zeigen Herkunft, Nutzung, Löschbarkeit und nächsten
@@ -465,7 +527,9 @@ Resume dieselbe OperationId. Die native Löschabnahme bleibt gesondert offen.
 Im Bereich Testsystem-Matrix öffnet „Gruppe ansehen · Power-Start/Stop“ die
 tatsächlich registrierte Gruppe des kanonischen Exportroots. Nach der Auswahl
 zeigen Mitglieder und Gesamtstatus den gemessenen Container-/VM-Powerzustand.
-SQL-Bereitschaft bleibt ausdrücklich **nicht geprüft**. Starten oder Stoppen
+CLI und Browser zeigen je Mitglied zusätzlich Plattform, SQL-Version,
+Patchziel und den gespeicherten Registrierungsstand. Auch vorgemerkte
+Mitglieder sind sichtbar. SQL-Bereitschaft bleibt **nicht geprüft**. Starten oder Stoppen
 betrifft die gesamte Gruppe; die Ist-/Zielvorschau muss gesondert bestätigt
 werden. Eine neue Auswahl oder Aktualisierung verwirft die Bestätigung.
 
@@ -481,6 +545,60 @@ ConnectionCenter- oder Hostspeicheraktion. Vorhandener Autostart innerhalb
 eines gestarteten Containers oder Gasts kann Dienste starten. Persistierte
 Run-/Exportstatus werden hier nicht neu geschrieben. Der bestehende öffentliche
 Gruppenbereitsteller mit SQL-Prüfung behält seine eigene Semantik.
+
+### Linux-Testumgebung zur geschützten Testgruppe hinzufügen
+
+Öffne **Geschützte Testsystem-Matrix → Linux-Testumgebung hinzufügen**.
+Wähle Docker oder Podman, die SQL-Version und den Patch. Die Auswahl
+enthält den aktuellen Patch und die für diese Version verfügbaren
+katalogisierten CUs. Lies die Vorschau und bestätige den angezeigten
+Gruppeneintrag. Das Lab erzeugt ein eigenes
+Kennwort, registriert die Umgebung und aktualisiert den geschützten Export
+unter dem konfigurierten Lab_Data. Der Browser zeigt das Kennwort nicht an.
+
+Eine geänderte Runtime oder Gruppenregistrierung macht die Vorschau
+ungültig. Nach einem unbestätigten Auftrag prüfe zuerst den Gruppenstatus.
+Eine offene Vormerkung für dasselbe Ziel sperrt eine weitere Anlage.
+### Windows hinzufügen, Testgruppe reparieren oder entfernen
+
+Öffne **Geschützte Testsystem-Matrix → Testgruppe verwalten**.
+Wähle die Aktion, lies die Vorschau und bestätige erst
+dann den Auftrag.
+
+- **Windows anlegen** klont eine für die Nutzung freigegebene
+  SQL-Prepared-Vorlage. SQL-Version und Build stammen aus der Vorlage.
+  Hyper-V, ein konfiguriertes Lab_Data, eine geeignete Vorlage und ein
+  aus einer erhöhten PowerShell gestarteter Oberflächenserver sind für
+  die Anlage erforderlich. Die Windows-Einrichtung nutzt ein generiertes Kennwort,
+  das im Browser nicht erscheint. Die Windows-Aktivierung kann vorübergehend
+  einen externen Netzwerkadapter verwenden. Der Auftrag meldet die Registrierung
+  und getrennt davon die Bereitschaft der Gruppe. Wenn noch keine geeignete
+  Vorlage vorhanden ist, öffne in der Matrix **Windows-/SQL-Vorlage aus
+  ISOs vorbereiten** und folge dem [Vorlagen-Workflow](#workflow). Wähle
+  die veröffentlichte Vorlage danach unter **Testgruppe verwalten →
+  Windows anlegen**. Der direkte manuelle Medienpfad ist im Konsolenmenü
+  unter **Testgruppe erstellen oder konfigurieren → Windows hinzufügen**
+  erreichbar.
+- **Gruppe reparieren** gleicht Runtime-Namen, Ressourcen, Readiness und
+  Windows-Aktivierung ab. Die Reparatur kann Container ersetzen,
+  Windows-VMs neu starten und vorübergehend einen externen
+  Netzwerkadapter für die Windows-Aktivierung verwenden.
+- **Gruppe entfernen** entfernt alle angezeigten Mitglieder, die ihnen
+  zugeordneten Ressourcen und die Gruppenexporte dauerhaft. Sichere
+  benötigte SQL-Daten vor der Bestätigung.
+- **Gruppenexport aktualisieren** schreibt die vorhandenen lokalen
+  TestUmgebung-Dateien unter Lab_Data neu. Der Browser meldet die Anzahl
+  registrierter und bereiter Mitglieder. Die Dateien enthalten lokale
+  SQL-Zugangsdaten und bleiben im geschützten Exportordner.
+
+Reparatur und Entfernen im Browser setzen eine vollständig gebundene
+Testgruppe voraus. Unklare Registrierungen, fremde Gruppenreferenzen,
+reservierte Windows-Slots und offene Recovery-Journale können die
+Vorschau sperren. Bei einer geänderten Bindung oder einem unbestätigten
+Ergebnis prüfe zuerst die Testsystem-Matrix und lies anschließend eine
+neue Vorschau. Für Reparatur gibt es dort auch einen Konsolenmenüpunkt.
+
+### Funktionsbereiche der Browser-Oberfläche
 
 Die lokale Browser-Oberfläche fasst vorhandene Windows-OS-Baselines,
 Windows-Builder, SQL-Prepared-Images, Abnahmeumgebungen und aktive
@@ -510,12 +628,29 @@ Für den bereits registrierten CMS bietet der Verbindungsbereich eine ausdrückl
 lesende Prüfung mit Zeitpunkt und markierten Metadatenzählern. Registrierung
 lesen und Dialog schließen führen keine SQL-Prüfung aus. Der gemeinsame
 [CMS-Vertrag](../Architecture/CMS_READONLY_INSPECTION.md) begrenzt Provider,
-Bindung und unbekannte Ergebnisse. CMS-Setup und Synchronisation im Browser
-sowie weitere geführte Browser-Gruppenaktionen,
-operative Slots, vollständiges Provider-Setup und Fremdstart-/weiterer
-Hostdienst- sowie Modell-Lifecycle bleiben offen. Der eigene llama.cpp-
+Bindung und unbekannte Ergebnisse. Unter **CMS bereitstellen** erstellst du
+einen neuen persistenten SQL-2025-CMS über Docker oder Podman oder übernimmst
+einen geeigneten Run mit gespeichertem SA-Kennwort. Bestätige die Auswahl
+und prüfe das Ergebnis unter **Vorgänge**. Der Synchronisationsschritt
+bleibt bei der gebundenen Prüfung des registrierten CMS. Die
+[Anleitung zur Verbindungszentrale](../User/SQL_CONNECTION_CENTER.md)
+beschreibt die Voraussetzungen und den Zugang. Operative Slots, vollständiges
+Provider-Setup und Fremdstart-/weiterer Hostdienst- sowie Modell-Lifecycle
+bleiben offen. Der eigene llama.cpp-
 Sitzungsstop besitzt den unten beschriebenen Fachdialog. Der Navigationseinstieg ist keine Abnahme
 dieser fehlenden Funktionen.
+
+Die geführten Gruppenaktionen sind davon getrennt: Der Gruppenbereich erlaubt
+leere Gruppen anzulegen, Runs hinzuzufügen oder einzeln zu lösen, Gruppen zu
+starten, zu stoppen und zu entfernen. Ein Run kann mehreren Gruppen angehören;
+beim Stop einer Gruppe bleibt er aktiv, solange eine andere aktive Gruppe ihn
+beansprucht. Diese Aktionen erzeugen bestätigte, typisierte Aufträge und sind
+für die bestehenden sieben Gruppen-Cmdlets abgedeckt. Die Gruppe erstellt
+weder ein gemeinsames Providernetz noch den SQL-Linked-Server; diese
+Vorbereitung bleibt eine getrennte Run-Konfiguration. Der native Docker- und
+Podman-Nachweis des Mehrgruppen-/Linked-Server-Falls ist in der [datierten
+Abnahme](../Quality/LINKED_SERVER_ENVIRONMENT_GROUP_ACCEPTANCE_2026-11-08.md)
+ausgewiesen.
 
 Der Arbeitsbereich **Alle Funktionen** wird aus demselben Export- und
 Parameterkatalog erzeugt wie **Alle öffentlichen Befehle** in
@@ -688,6 +823,50 @@ blockiert vor der ersten Hyper-V-Mutation.
 
 ## Workflow
 
+Unter **Vorgänge → Batch mit mehreren Umgebungen planen** kannst du mehrere
+Gruppen hinzufügen und ihre jeweilige Anzahl einstellen. Zur Auswahl stehen
+SQL Server unter Linux und Windows sowie eine reine Windows-Umgebung.
+Für Linux gibst du den Namen einer `SQL_SERVER_LAB_SECRET_*`-Prozessvariable
+an. Ihr Kennwortwert wird im Browserformular nicht eingegeben.
+
+**Entwurf validieren und speichern** zeigt die Batch-ID, die Anzahl der
+Umgebungen und die Zahl gemeinsamer Abhängigkeiten. Öffne in der
+Batchübersicht **Entwurf prüfen und einreihen**, kontrolliere die Zahlen
+und bestätige den Plan. Für Linux-Positionen müssen die hinterlegten
+Kennwortvariablen im laufenden Browser-Serverprozess verfügbar sein. In der
+Konsolensitzung geht derselbe Ablauf über **Vorgänge, Queue und
+Benutzeraktionen → Gespeicherten Batch prüfen und einreihen**.
+
+Über **Hintergrundscheduler anfordern** und eine Bestätigung kannst du die
+aktuelle Warteschlange bedienen. Ob Vorgänge tatsächlich anlaufen, siehst du
+anschließend bei ihrem Status.
+
+Unter **Vorgänge, Warteschlange und Wiederaufnahme → Fortschritt
+gespeicherter Batches** zeigt der Browser bei bis zu 50 Batches den Status,
+den Fortschritt und die Zahl der fehlgeschlagenen oder abgebrochenen
+Vorgänge. Die Ansicht überträgt keine Batch-Eingaben oder Quelldateipfade.
+
+Wähle die ID eines Batches mit offenen Vorgängen, um seine Vorgangskarten
+anzuzeigen. Mit **Alle Vorgänge anzeigen** löst du die Auswahl. Der Filter
+ändert nur die Ansicht. Prioritäts- und Reihenfolgeänderungen verwenden
+weiterhin die gesamte Warteschlange.
+
+Bei einem übergebenen Batch mit offenen Vorgängen öffnet **Unfertige
+Positionen stoppen** eine Vorschau mit Anzahl der Zielpositionen und der
+bereits laufenden Schritte. Bestätige erst danach den Stopp und das Einreihen
+der scopegebundenen Bereinigung. Fertige Positionen bleiben erhalten.
+Eine geänderte oder abgelaufene Vorschau erfordert einen neuen Aufruf.
+Ob die Bereinigung abgeschlossen ist, steht anschließend bei den Vorgängen.
+Den vollständigen Batch-Rückbau führt das Konsolenmenü.
+
+Für wartende Vorgänge kannst du bei mindestens zwei verfügbaren Einträgen
+die **Priorität** auf Hoch, Normal oder Niedrig setzen. **Nach oben** und
+**Nach unten** erscheinen, wenn in derselben Priorität ein entsprechender
+Nachbar vorhanden ist. Die Browseransicht liest die Queue nach der Änderung
+neu. Laufende Vorgänge zeigen keine Reihenfolgensteuerung.
+Während du die Priorität auswählst, bleibt das Feld bei automatischen
+Aktualisierungen bedienbar.
+
 1. SQL-Prepared-Image: Windows- und SQL-ISO auswählen und Windows einmal in
    einer frischen Builder-VM installieren. Nach der sichtbaren Bestätigung der
    Windows-Installation führt die Oberfläche SQL `PrepareImage`, benötigte
@@ -828,6 +1007,33 @@ Invoke-SqlServerLabWorkflowAction `
 Ein Reattach bindet nur den Datenträger. Vorhandene Datenbankdateien werden
 erst über eine ausdrückliche Restore- oder Attach-Aktion online gebracht.
 
+### Volltextsuche für eine vorhandene Umgebung ändern
+
+Wähle in der CLI unter **Lab-Umgebungen → Umgebung auswählen und verwalten**
+das laufende Lab und dann **Volltextsuche ändern**. Hat das Lab mehrere
+SQL-Instanzen, wähle die betroffene Instanz. Im Browser steht die Aktion
+unter **Lab verwalten** direkt an der laufenden SQL-Instanz. Bei Hyper-V
+heißt sie **Volltextsuche / FILESTREAM** und gilt für die registrierte SQL-Standardinstanz.
+
+Wähle **Nachinstallieren** oder **Deaktivieren** und bestätige die Änderung.
+Beim Deaktivieren entfernt das Lab die Volltextkomponente. Abhängige
+Volltextindizes sperren diesen Schritt. Eine tatsächliche Änderung startet
+SQL Server neu. Unter Hyper-V müssen passende, verifizierte SQL-Medien im
+konfigurierten Media Root verfügbar sein.
+
+### SMTP-Testdienst prüfen
+
+Öffne **Lab-Umgebungen → SMTP-Testdienst prüfen** und wähle ein
+registriertes Docker- oder Podman-Lab mit SMTP-Testdienst. **Receiver
+prüfen** liest die gebundene Mailpit-Runtime. Der Befund zeigt, ob der
+Receiver läuft, gestoppt ist oder gerade nicht eindeutig geprüft werden
+kann. Die geführte Konsole bietet denselben Einstieg.
+
+Bei einem laufenden Receiver ist **WebMail im Standardbrowser öffnen**
+verfügbar. Die Aktion öffnet für 15 Minuten einen lokalen Mailpit-Zugang
+zum Lesen und Löschen von Testmails. Der Startlink erscheint in keinem
+Ergebnisprotokoll. Die Zustellung selbst prüfst du separat.
+
 ## Namen in Runtime und Oberfläche
 
 Der frei wählbare Projektname ist zugleich der führende Teil der Runtime-Namen.
@@ -888,6 +1094,49 @@ SQL-2025-Prüfungen des neuen Plan-/Workflow-Apply-/No-op-/Driftpfads samt
 SQL-Probe und bestätigtem Own-Runtime-Cleanup. Das belegt Container-CPU/RAM,
 keinen Hyper-V-Apply und keine weiteren Eigenschaften oder Versionspaare.
 
+## Schnellen Wartungsplan lesen
+
+Unter **Wartung, Aufräumen und Recovery → Schnellen Wartungsplan lesen**
+zeigt die Vorschau den Zustand von Docker, Podman und Hyper-V sowie die
+Anzahl der für den beobachteten Zustand vorgeschlagenen Aktionen. Im
+Browser beginnt die Inventur mit **Plan lesen**. Ein nicht erreichbarer
+Provider erscheint als `UNAVAILABLE`. Diese Übersicht führt keine
+Aktion aus. Für die Zuordnung einzelner Objekte nutze **Wartungsbefunde
+und Zuordnung**.
+
+**Vollständigen Wartungsplan lesen** prüft zusätzlich den Speicherbestand
+und vorhandene Cleanup-Befunde. Die Übersicht zeigt Zähler für verwaltete
+Vorlagen, Provider-Datenspeicher und Hyper-V-Befunde. Im Browser läuft die
+Inventur im Hintergrund und das Ergebnis erscheint im Auftragsprotokoll.
+Der vollständige Scan kann länger dauern. Er speichert keinen Auditbericht
+und führt keine der vorgeschlagenen Aktionen aus.
+
+## Hyper-V-Speicherziel vor einem Build prüfen
+
+Wähle in Konsole oder Browser **Hyper-V: Vorlagen und Slots →
+Hyper-V-Zielpfade und freien Speicher anzeigen**. Du siehst das
+registrierte Lab_Data-Standardziel, die Klassenpfade für Runs, Builds,
+Images, Staging und Recovery sowie den freien Speicher zum Lesezeitpunkt.
+Liegt das Ziel auf dem Systemvolume, weist die Anzeige darauf hin. Der
+Dialog liest den Speicherkatalog ohne UAC und reserviert keinen Speicher.
+Fehlt das Ziel oder ist es nicht lesbar, prüfe die Registrierung unter
+**Grundkonfiguration**.
+
+## Windows-OS-Slot-Pool vorbereiten
+
+Öffne **Hyper-V: Vorlagen und Slots → Windows-OS-Slot-Pool vorbereiten**
+auf dem Hyper-V-Host mit Administratorrechten. Wähle eine versiegelte,
+geeignete Windows-Baseline, Pool-ID, Slotnummern und Ressourcen. Der Host
+prüft die gewählte Baseline einschließlich Integrität und Restlaufzeit vor
+der Anlage. Die VMs werden für die Ersteinrichtung gestartet und danach
+gestoppt. Falls die Evaluation online aktiviert werden muss, darf der
+Auftrag dafür vorübergehend einen externen Netzwerkadapter verwenden.
+
+Die Passwörter erzeugt und schützt der Host pro Slot. Den Status findest
+du unter **Vorgänge**. Für die Fortsetzung benötigst du dieselbe Pool-ID,
+Baseline und Konfiguration. Für die CLI-Varianten einschließlich eigener
+Locale- und Passwortwahl siehe die [Funktionsübersicht](../User/FUNCTIONS_CLI_GUI.md).
+
 ## Zentrale Slotreservepolicy (`HV-401` bis `HV-508`, `CORE-107/111`)
 
 **Grundkonfiguration** und **Hyper-V: Vorlagen und Slots** öffnen denselben
@@ -901,9 +1150,10 @@ Vorschau und Abbruch schreiben nichts. Erst das ausdrückliche Speichern prüft
 Speicherautorität und bisherigen Preferences-Inhalt erneut. Die Policy liegt
 als `slotReservePolicy` in derselben durch `Get-LabProjectPreferencesPath`
 aufgelösten lokalen Preferences-Datei wie die bestehenden Einstellungen.
-Alle Writer verwenden einen gemeinsamen dateigebundenen Lock und atomaren
-Merge; andere Felder bleiben erhalten. Ungültiges JSON und ungültige Policies
-werden nicht automatisch repariert. Ein Wechsel des globalen Datenroots
+Leser und Writer verwenden dieselbe dateigebundene Sperre. Der atomare
+Merge erhält andere Felder. Entfernt eine Migration die vorher vorhandene
+Datei, kann ein wartender Writer sie nicht erneut anlegen. Ungültiges JSON
+und ungültige Policies werden nicht automatisch repariert. Ein Wechsel des globalen Datenroots
 migriert keine Preferences; die anschließend aufgelöste Authority wird neu gelesen.
 
 Die Bestandsansicht liest registrierte Hyper-V-Kandidaten und gebundene aktive
@@ -924,6 +1174,15 @@ CLI: `Invoke-SqlServerLab -Action ReservePolicy`. Nichtinteraktiv bietet
 `PlanSlotReserve -SlotReservePolicy` und `ApplySlotReserve -SlotReservePlan
 -ConfirmSlotReserve`. Die Browserroute `/api/slot-reserve` führt denselben
 Core direkt aus; Lesen und Vorschau werden nicht in die Batchqueue eingereiht.
+
+## Lokaler Bedarf an Beispieldaten und Laufzeitmedien
+
+Öffne in CLI oder Browser **Ressourcen und Downloads → Lokalen
+Ressourcenbedarf prüfen**. Wähle Beispieldaten, Windows-/Hyper-V-Laufzeitmedien
+oder beide. Für jede Ressource siehst du die Zahl der vorhandenen und
+benötigten Dateien sowie den vorgesehenen Beschaffungsweg. Die Prüfung
+liest die konfigurierten Ordner und startet keinen Download. Im Browser
+steht das Ergebnis unter **Vorgänge**.
 
 ## Ressourcenstand: CUs und SqlPackage
 
@@ -956,6 +1215,30 @@ Der bestehende öffentliche CU-Befehl und monatliche CU-Workflow behalten ihren
 bisherigen Transportvertrag. Kein Download, Katalogupdate, Issue oder Agentstart
 wird durch den Ressourcenstand ausgelöst.
 
+Unter **Host-Dienste und Modelle → Persistente Retrieval-Collections**
+kannst du Beispieldaten verwenden oder eigene Dokumente aus einer lokalen
+JSON-Datei anlegen, abfragen, synchronisieren oder migrieren. Prüfe bei
+den Löschaktionen Run-ID, Instanz sowie
+Collection-ID, bevor du bestätigst. Die [Anleitung zum persistenten
+Retrieval](../User/Getting_Started.md#persistentes-retrieval) erklärt den
+Unterschied zwischen dem Löschen alter Generationen und der gesamten
+Collection-Datenbank.
+
+Unter **Host-Dienste und Modelle** kannst du in CLI und Browser ein
+llama.cpp-Generationsmodell aus dem lokalen Katalog auswählen. Prüfe
+Modellgröße, Lizenz und Medienordner vor der Bestätigung. Die Auswahl bindet
+Katalogrevision und SHA-256. Der Download wird nach erfolgreicher Prüfung
+unter `AI/Models` im Medienordner abgelegt. Das Ergebnis steht im Browser
+unter **Vorgänge**. Start und Modellnutzung erfolgen in getrennten Schritten.
+
+Über **Host-Dienste und Modelle → Lokales Ollama-Modell aufrufen** kannst
+du ein katalogisiertes Generationsmodell wählen, das im lokalen Ollama-Dienst
+bereitsteht. Gib dessen Loopback-Port und einen synthetischen Prompt ein.
+Das Zeitlimit umfasst Modellstart und Antwort. Standard sind 180 Sekunden.
+Erst nach Bestätigung sendet der Browserauftrag eine Abfrage an den lokalen
+Dienst. Die Antwort steht unter **Vorgänge**. Für die ausdrücklich
+freizugebende Cloud-Lane gibt es weiterhin den CLI-Einstieg.
+
 Der geführte eigene llama.cpp-Sitzungsstop ist unter „Host-Dienste und Modelle“
 über Auswahl, Vorschau, Abbruch und bewusste Bestätigung erreichbar. Die
 Verbraucher-Coverage bleibt UNKNOWN; deklarierte geschützte Verbraucher sperren
@@ -963,6 +1246,17 @@ den Stop. Fremdprozesse, Restart und Modellaktionen bleiben offen; eigener Start
 Die GUI muss im selben PowerShell-Modulhost wie der bestehende Start geöffnet
 werden; sie lädt den exakten vorhandenen Modulpfad ohne Force-Reload weiter.
 Details und Workflow-Aktionen: [Sitzungsstop](../Architecture/LLAMA_CPP_OWNED_RUNTIME.md).
+
+### Vorhandene llama.cpp-Pakete prüfen
+
+Wähle in CLI oder Browser **Host-Dienste und Modelle → Vorhandene
+llama.cpp-Pakete prüfen**. Die Suche verwendet `SQL_SERVER_LAB_LLAMA_ROOT`
+und das Verzeichnis des ersten `llama-server`-Fundes im Prozess-PATH.
+Backend und Build stammen aus den gefundenen Paketdateien. Bei einer
+unlesbaren Suchwurzel zeigt die Oberfläche an, dass die Suche unvollständig
+war. Paketursprung, verfügbare Geräte und SQL-Embedding-Bereitschaft bleiben
+ungeprüft. Für eine Suche in ausdrücklich angegebenen Verzeichnissen verwendet
+ein Skript `Get-SqlServerLabLlamaCppRuntime -SearchRoot <Verzeichnis>`.
 
 ### Reine llama.cpp-Dateivorschau im Browser
 

@@ -424,7 +424,11 @@ $module = New-Module -ArgumentList $repoRoot,$fixtureRoot -ScriptBlock {
         function Ensure-LabDockerNetwork {[pscustomobject]@{Name='existing-synthetic'}}
         function Ensure-LabPodmanNetwork {[pscustomobject]@{Name='existing-synthetic'}}
         function Test-LabEndpointBinding {[pscustomobject]@{Available=$true}}
-        function Invoke-LabPortAllocationLock {param($Action)& $Action}
+        function Invoke-LabPortAllocationLock {
+            param([int]$TimeoutSeconds, [scriptblock]$Action)
+            if ($TimeoutSeconds -ne 120) { throw 'CONTAINER_PORT_LOCK_WAIT_BUDGET_INVALID' }
+            & $Action
+        }
         function New-LabOwnedHostContainerIntent {[pscustomobject]@{synthetic=$true}}
         function Get-LabOwnedHostContainerLabels {@('--label','synthetic-own-label=true')}
         function Initialize-DockerSqlNamedVolume {}

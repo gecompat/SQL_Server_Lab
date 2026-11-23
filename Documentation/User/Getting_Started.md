@@ -221,7 +221,9 @@ $lab.Instances[0].ContainerName
 $lab.Instances[0].ConnectionString
 ```
 
-Der Port wird standardmäßig im Bereich `14330` bis `14399` automatisch vergeben.
+Die automatische Vergabe sucht ab Port `14330`. Wenn dort alle bisherigen
+Standardports bis `14399` belegt oder durch das Betriebssystem reserviert sind,
+sucht sie bis `15399` weiter. Den vergebenen Port zeigt die Verbindungsinfo.
 
 ## 7. Verbindung mit SSMS
 
@@ -453,6 +455,14 @@ Runtimeobjekte zu verändern. Der Transferexecutor bleibt in jedem Ergebnis
 Cmdlets.
 
 ## 11. Manifest-Modus
+
+Wähle **Vorhandenes Lab-Manifest prüfen** im Konsolenmenü **Datenbanken,
+Samples und Skripte** oder **Lab erstellen → Container-Manifest prüfen oder
+ausführen → Manifest prüfen** im Browser. Beide Wege prüfen die gewählte
+lokale Datei gegen Schema und Fachregeln. Die Vorschau braucht kein
+SA-Kennwort und erstellt keine Umgebung. Sie unterstützt absolute lokale
+Manifestpfade ohne Dateiverknüpfungen. Für vollständige Fehlerdetails steht
+`Test-SqlServerLabManifest -Path` in der Konsole zur Verfügung.
 
 ### Manifest interaktiv erstellen
 
@@ -1449,6 +1459,12 @@ State, Secrets, konkrete Hostpfade und Connection Information dürfen nicht in G
 
 ### SQL-2025-Vector-Core-Szenario
 
+Im Browser zeigt **Host-Dienste und Modelle → Vector-Core-Szenarioplan lesen**
+die Kataloganforderungen für `vector-core-ci/1.0`. Wenn du eine laufend
+registrierte SQL-2025-Instanz auf Docker oder Podman auswählst, prüft die
+Ansicht den gespeicherten KI-Intent und zeigt die Blockercodes. Der Dialog
+führt das Szenario nicht aus.
+
 `Schemas/example-ai-vector-core.json` zeigt den neuen KI-Manifestvertrag. Er
 verwendet nur synthetische Daten, feste Vektoren und `egress: denied`:
 
@@ -2020,6 +2036,22 @@ Provider-/Namensfolge. Ein Run mit `RECOVERY_REQUIRED` bleibt sichtbar, weil
 sein Cleanup noch zu pruefen ist. Fehlt seine Runtime, zeigt die Detailansicht
 keine gespeicherten SQL-Verbindungsdaten als nutzbaren Zugang an.
 
+## Hyper-V-Autostart und Recovery
+
+In **Lab-Umgebungen → Hyper-V-Autostart ändern** ein eigenes laufendes oder
+gestopptes Hyper-V-Lab wählen und die gewünschte Policy vorprüfen. Die Änderung
+erfolgt erst nach Bestätigung. Im Browser führt **Lab verwalten → Reguläre
+Hyper-V-Umgebungen → Hyper-V-Autostart ändern** zum selben Ablauf.
+Reservierte Windows-Pool-Slots und laufende
+Ressourcenmigrationen sowie offene SQL-Feature-Recoveries sperren die Änderung.
+
+Ein offenes Journal sperrt einen neuen Plan. **Lab-Umgebungen →
+Hyper-V-Autostart-Recovery fortsetzen** führt denselben Run und denselben
+Vorgang nach Bestätigung weiter. Im Browser steht **Autostart-Recovery
+fortsetzen** als Aktion im Autostart-Dialog bereit. Die Recovery prüft die aktuelle VM und ihre
+Autostart-Policy und schließt bei passender Bindung die Zustandsablage ab.
+Das Lab behält seinen aktuellen Power-Zustand.
+
 ## Container-Autostart nur vorprüfen
 
 In der CLI **Lab-Umgebungen → Container-Autostart vorprüfen** oder im Browser
@@ -2217,7 +2249,59 @@ Auflösung beim tatsächlichen Dienststart bleibt separat nachzuweisen.
 
 `Test-SqlServerLabRelationalCoreComparison` vergleicht explizit benannte, bereits laufende verwaltete Docker-/Podman-Datenbankpaare. Der Befehl nimmt keine Endpunkte, Connection Strings, SQL-Texte oder Kennwörter an. Ein Paar enthält nur die stabile Paar-ID sowie Quell- und Ziel-RunId, InstanceId und Datenbankname. Der Vergleich kann `MATCH`, `DIFFERENT` oder `UNSUPPORTED` feststellen; er ändert keine Datenbank und führt keinen Transfer aus.
 
+Öffne **Zwei Containerdatenbanken vergleichen** in der CLI unter
+**Datenbanken, Samples und Skripte** oder im Browser unter
+**Lab-Umgebungen → Datenbankpakete**. Wähle die beiden Instanzen, trage die
+Datenbanknamen ein und bestätige den Vergleich. Die Datenbanken müssen
+`ONLINE` und `READ_ONLY` sein. Im Browser erscheint der Befund im Live-Log.
+
 ## Persistentes Retrieval
+
+**Persistente Retrieval-Collections** ist in der CLI unter **SQL-2025-KI-Szenarien
+und Demos** und im Browser unter **Host-Dienste und Modelle** erreichbar.
+Wähle eine laufende SQL-2025-Containerinstanz und lege die Beispieldaten an.
+Bewahre die Collection-ID auf. Verwende sie für die Aktualisierung, die
+Beispielfragen oder die Migration auf Nomic Embed v2 wieder. Die Demo nutzt
+das bereits laufende lokale Ollama, im Browser steht der Befund im Live-Log.
+
+Wähle für die Pflege dieselbe SQL-Instanz und gib die vorhandene Collection-ID
+ein. Bei **Alte Generationen einer eigenen Collection löschen** wählst du
+zwischen 1 und 31 jüngsten Generationen. Die aktive Generation bleibt
+erhalten. Das funktioniert für abgeschlossene, selbst verwaltete
+Collections mit Journalversion 1. **Datenbank einer eigenen Collection
+löschen** entfernt die gesamte zugehörige Datenbank. Prüfe Ziel und ID vor
+der Bestätigung. Beide Aktionen prüfen den Besitznachweis und benötigen kein
+Ollama-Modell.
+
+Für eigene Dokumente wähle im selben Menü **Eigene Dokumente aus JSON
+anlegen**, **Eigene Collection mit freier Frage abfragen**, **Eigene
+Collection mit JSON synchronisieren** oder **Eigene Collection auf Nomic
+Embed v2 umstellen**. Gib in der CLI den absoluten lokalen Dateipfad ein
+oder wähle die Datei im Browser aus. Der Pfad und der Dateiinhalt
+erscheinen nicht in der Bestätigung. Prüfe die Run-ID, Collection-ID und
+Dokumentanzahl.
+
+Die UTF-8-Datei darf bis zu 512 KiB groß sein. `Documents` enthält 1 bis
+16 Einträge, jeder mit eindeutiger `Id` und bis zu 4000 Zeichen im Feld
+`Content`. Eine Abfrage benötigt zusätzlich `Question` mit bis zu 1000
+Zeichen. Für Sync muss `ExpectedDocuments` den vollständigen erwarteten
+alten Bestand enthalten und `Documents` den vollständigen neuen
+Bestand. Beispiel für einen Sync mit je einem Dokument
+
+```json
+{
+  "ExpectedDocuments": [{"Id": "restore-test", "Content": "Alte Anleitung"}],
+  "Documents": [{"Id": "restore-test", "Content": "Aktuelle Anleitung"}]
+}
+```
+
+Bei Anlage, Abfrage und Sync kann die Datei zusätzlich einen
+`EmbeddingModelKey` aus dem unten beschriebenen Modellkatalog angeben.
+Bei Wiederaufnahme, Abfrage und Sync muss er zur Collection passen. Für
+die Migration auf Nomic Embed v2 gelten zusätzlich die Eingabegrenzen
+dieses Modells. Dokumente und Fragen gehen ausschließlich an den
+lokalen Workflow und das lokale Ollama. Die Bestätigung zeigt nur die
+Zielbindung und die Anzahl. Abfrageergebnisse können Treffer-IDs enthalten.
 
 `Invoke-SqlServerLabAiPersistentRetrieval` verwendet einen vorhandenen
 SQL-2025-Docker-/Podman-Run mit verwaltetem SA-Secret und ein bereits laufendes
@@ -2268,6 +2352,21 @@ Zielmodelle, Dimensionen, automatische Generation-Retention, Prune nach Modellmi
 und Hyper-V bleiben offen.
 
 ## Eine read-only Datenbank in einen neuen Container-Run übertragen
+
+Die CLI unter **Datenbanken, Samples und Skripte** und der Browser unter
+**Lab-Umgebungen → Datenbankpakete** bieten **Backupmedium am Zielcontainer
+vorprüfen** und **SQL-2025-Datenbank in neuen Container übertragen**.
+Beide Aktionen wählen ein registriertes Quellbackup aus dem konfigurierten
+Lab_Data. Die Vorprüfung verwendet eine bestehende Zielinstanz mit
+Backup-Mount. Beim Transfer wird ein eigener Ziel-Run erstellt. Bewahre die
+angezeigte Vorgangs-ID auf und verwende für die Wiederaufnahme dieselbe
+Auswahl. Im Browser steht der Befund im Live-Log.
+
+**Portables Lab-Paket prüfen** wertet im selben Bereich eine
+`SqlServerLab.PortableLabPackage/1.1`-JSON-Datei für einen registrierten
+laufenden oder gestoppten Docker-/Podman-Run aus. Die Übersicht zeigt die
+Anzahl der Backupreferenzen und etwaige Blocker. Dieser Plan bereitet die
+Prüfung vor. Der eigentliche Datenbanktransfer hat einen separaten Einstieg.
 
 `Invoke-SqlServerLabPortableContainerTransfer` erstellt selbst einen eigenen
 SQL-2025-Linux-Ziel-Run beim Provider der Quelle (Docker oder Podman). Die Quelle
@@ -2342,13 +2441,52 @@ Repair-SqlServerLabPersistentStorageCatalog @repair
 
 Nach `RECOVERED` verwendet `New-SqlServerLab -PersistentData
 -PersistentStorageId $storageId -PersistentStorageAction CONTINUE` den bestehenden
-Store unter der erneut geprüften Runtime-Bindung. Ein identischer Repair liefert
+Store unter der erneut geprüften Runtime-Bindung und mit dessen bisherigen
+SQL-Anmeldedaten. Ohne `PersistentStorageId` legt eine neue Docker-/Podman-
+Umgebung auch bei gleichem Labnamen einen neuen Store an; das neue SA-Passwort
+initialisiert diesen frischen SQL-Systemzustand. Vorhandene Stores bleiben
+erhalten. Siehe auch [persistente Daten](../HowTo/PERSISTENT_DATA_AND_EVALUATION_REFRESH.md#6-optionale-runtime-anbindung).
+Ein identischer Repair liefert
 `NO_CHANGE`. Der Befehl ändert keine SQL-Daten, Volumes oder Labels.
 Run-scoped Stores, aktive Leases, fremde Ownership, Sidecars und unbekannte
 Runtime-Evidence bleiben blockiert. Ältere Runs ohne persistierte Drive-/UUID-
 Evidence werden nicht nachträglich ergänzt; UUID-lose historische Intents bleiben
 lesbar. Der SQL-2025-Referenzfall ist unter Docker und Podman getrennt mit
 Serverobjekt, Datenmarker nach Continue, unveränderten Labels und Cleanup belegt.
+
+### Automatisierungsschnittstelle nachschlagen
+
+Unter **Wartung → Hyper-V-Wiederherstellungspunkte lesen** kannst du in der
+Konsole und im Browser ein registriertes Lab auswählen und Checkpoint-ID,
+Typ und Erstellungszeit lesen. Die Ansicht bietet Inventar und Blocker.
+Checkpoint-Erstellung, SQL-Quiesce und Restore sind noch nicht implementiert.
+
+**Wartung → Gespeicherten Diagnosebefund lesen** zeigt für eine Instanz im
+registrierten Standard-Lab_Data den gespeicherten Zustand, die Fehleranzahl,
+Recovery und den Aufräumstatus. Die Ansicht führt keine SQL- oder
+Providerprüfung durch und erstellt keinen Export. Im Browser muss der
+ausgewählte State zum Standard-Lab_Data gehören.
+
+Über **Wartung → Format eines Run-States prüfen** siehst du, ob das aktuelle
+Format bereits passt und welche Felder ein Upgrade ändern würde. Das Menü
+führt kein Upgrade aus. Der getrennte Upgrade-Befehl ist für ausdrücklich
+markierte synthetische Legacy-States vorgesehen.
+
+Öffne unter **Wartung → Automatisierungsschnittstelle ansehen** einen
+Fachbereich. Dort stehen der öffentliche Planbefehl, seine Pflichtparameter
+und der separate Aktionsbefehl, sofern vorhanden. Die Ansicht beschreibt
+die Schnittstelle für Skripte. Du kannst sie ohne laufenden Lab-Run öffnen.
+
+### Container-Lab-Netz prüfen
+
+Für Docker oder Podman kannst du unter **Wartung → Lab-Netz auf
+Subnetzkonflikt prüfen** eine lesende Vorschau starten. Sie zeigt, ob das
+Lab-Netz fehlt, konfliktfrei ist oder eine Migration benötigt. Eine
+offene Recovery sperrt die Ausführung. Der Dialog zeigt die letzte
+protokollierte Phase und den Fehlercode, soweit bekannt. Die Ausführung
+einer gebundenen Netzmigration braucht eine getrennte Bestätigung und
+kann SQL-Verbindungen unterbrechen. Der
+[Netzwerkleitfaden](../HowTo/LAB_NETWORKS.md) erklärt die Voraussetzungen.
 
 ### SQL-Gast-Edition und Evaluation-Evidence
 
@@ -2365,6 +2503,33 @@ Get-SqlServerLabEvaluationWatch -StateRoot $stateRoot
 Der Capture beobachtet keine Ablaufzeit: Developer ergibt für 24 Stunden
 `NOT_APPLICABLE`, Evaluation ohne Frist bleibt `UNKNOWN`. Fehler bewahren den
 alten Receipt. [Bindung, Grenzen und Nachweise](../Architecture/SQL_GUEST_EVALUATION_CAPTURE.md).
+
+In der CLI und im Browser findest du unter **Wartung** die Aktion
+**SQL-Editionsbeleg im Gast aktualisieren**. Wähle das laufende Hyper-V-Lab
+mit SQL Server 2025 und bestätige die Aktualisierung. Für mehrere Prüfungen
+gespeicherter Fristen öffne **Fristen zeitgesteuert prüfen**. In der CLI
+liegt diese Aktion unter **Windows-/SQL-Evaluationsfristen**. Gib Intervall
+und Anzahl an. Das lokale Speichern neuer Warnereignisse ist optional.
+
+Wenn OVMS bereits lokal läuft, öffne **Host-Dienste und Modelle →
+Lokalen OVMS-Embedding-Dienst prüfen**. Wähle IPv4 oder IPv6, gib Port,
+Modellname und erwartete Embedding-Dimension ein und bestätige den
+synthetischen Request. In der Browseroberfläche steht der Befund im Live-Log.
+
+Für **KI-Gerätekombination aus Messbelegen wählen** speichere die Ergebnisse
+von `Get-SqlServerLabAiComputeCandidate` und
+`Measure-SqlServerLabAiComputeCandidateSet` aus derselben Messung als
+JSON-Dateien (`ConvertTo-Json -Depth 30`). Wähle beide Dateien unter
+**Host-Dienste und Modelle**. Du kannst die gemessene Rangfolge neu berechnen
+oder eine geeignete Gerätekombination fixieren. Die Auswahl startet keine
+Messung. In der Browseroberfläche steht sie im Live-Log.
+
+Für eine neue Messung öffne **Host-Dienste und Modelle →
+llama.cpp-Gerätekombinationen messen**. Wähle eine lokale GGUF-Datei und
+die einzelne Kombination oder den vollständigen Satz. Die Auswahl basiert
+auf dem erkannten Inventar und vorhandenen llama.cpp-Paketen mit llama-bench.
+Bestätige den Start nur für Pakete, denen du vertraust. Der vollständige Satz
+läuft seriell und die Browseroberfläche zeigt die Ergebnisse im Live-Log.
 
 Lokale Windows-llama.cpp-Pakete für SQL Server 2025 lassen sich vor der
 Modellauswahl mit `Get-SqlServerLabLlamaCppRuntime -SearchRoot 'C:\Pfad\llama'`

@@ -1,3 +1,12 @@
+function Test-LabWindowsSlotPoolArtifactEligibility {
+    param([Parameter(Mandatory)]$Artifact, [int]$MinimumEvaluationDaysRemaining = 30)
+
+    [string]$Artifact.artifactState -eq 'OS_SEALED' -and
+        [bool]$Artifact.generalized -and
+        [string]$Artifact.operatingSystem.id -match '^windows-(server-)?[0-9]+(?:-r2)?$' -and
+        (Test-HyperVImageArtifactEvaluationEligibility -Artifact $Artifact -MinimumEvaluationDaysRemaining $MinimumEvaluationDaysRemaining).Eligible
+}
+
 function Resolve-LabWindowsSlotPoolArtifact {
     [CmdletBinding()]
     param(
@@ -9,11 +18,7 @@ function Resolve-LabWindowsSlotPoolArtifact {
     )
 
     $eligibleCandidates = @(Get-HyperVImageArtifact -ArtifactId $ArtifactId -StateRoot $StateRoot -SkipIntegrityCheck | Where-Object {
-        [string]$_.artifactState -eq 'OS_SEALED' -and
-        [bool]$_.generalized -and
-        [string]$_.operatingSystem.id -match '^windows-(server-)?[0-9]+(?:-r2)?$' -and
-        (Test-HyperVImageArtifactEvaluationEligibility -Artifact $_ `
-            -MinimumEvaluationDaysRemaining $MinimumEvaluationDaysRemaining).Eligible
+        Test-LabWindowsSlotPoolArtifactEligibility -Artifact $_ -MinimumEvaluationDaysRemaining $MinimumEvaluationDaysRemaining
     })
     # Eine explizite, gültige Artifact-ID ist die konkrete Auswahl. Der
     # InstallationType steuert nur die automatische Suche und darf eine

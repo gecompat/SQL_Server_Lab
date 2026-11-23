@@ -620,12 +620,16 @@ function Get-LabActiveRuns {
 function Get-LabRunRuntimeStatus {
     <#
     .SYNOPSIS
-        Liest den aktuellen Zustand der Runtime, ohne den Workflow-State zu ändern.
+        Liest den aktuellen Zustand der Runtime.
+    .PARAMETER NoWrite
+        Verwendet den aufgelösten Namen einer umbenannten Hyper-V-VM nur für
+        diese Beobachtung. Der gespeicherte Verbindungsbeleg bleibt unverändert.
     #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]$Run,
-        [string]$StateRoot
+        [string]$StateRoot,
+        [switch]$NoWrite
     )
 
     if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
@@ -643,9 +647,9 @@ function Get-LabRunRuntimeStatus {
             $provider = [string]$instance.provider
             $status = switch ($provider) {
                 'hyperv' {
-                    # Resolve über die VM-Notes repariert bei Bedarf alte
-                    # connection-info-Namen vor der Live-Abfrage.
-                    $hyperVLab = Get-HyperVLabWorkflowRun -RunId ([string]$Run.runId) -StateRoot $StateRoot
+                    $arguments = @{ RunId = [string]$Run.runId; StateRoot = $StateRoot }
+                    if ($NoWrite) { $arguments.NoWrite = $true }
+                    $hyperVLab = Get-HyperVLabWorkflowRun @arguments
                     Get-HyperVInstanceStatus -VMName ([string]$hyperVLab.Instance.vmName) -ExpectedRunId ([string]$Run.runId) -ExpectedScopeId ([string]$Run.scopeId)
                 }
                 'docker' { Get-DockerInstanceStatus -ContainerIdOrName ([string]$instance.containerId) -StateRoot $StateRoot }

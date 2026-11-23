@@ -281,6 +281,8 @@ function New-SqlServerLab {
     .PARAMETER PersistentData
         Bindet /var/opt/mssql der Docker- oder Podman-Instanz an einen
         katalogisierten langlebigen Runtime-Store; Backups bleiben im Data Root.
+        Ohne PersistentStorageId wird auch bei gleichem LabName ein neuer Store
+        mit dem neu angegebenen SA-Passwort erstellt. Alte Stores bleiben erhalten.
     .PARAMETER PersistentStorageId
         Optionale stabile ID eines detached Container-Instanzstores. Nur für
         eine einzelne Ad-hoc-Docker-/Podman-Instanz mit PersistentData.

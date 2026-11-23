@@ -29,7 +29,7 @@ function Assert-MutationFixture {param([bool]$Condition,[string]$Name)if(-not $C
 try {
     $null=Set-SqlServerLabFeature @parameters -Enabled $true -WhatIf
     Assert-MutationFixture ($script:effects -eq 0 -and $script:writes -eq 0) 'WhatIf observes but writes/mutates nothing'
-    foreach($otherName in @('container-reconcile-journal.json','hyperv-test-database-reconcile.local.journal.json')){
+    foreach($otherName in @('container-reconcile-journal.json','hyperv-test-database-reconcile.local.journal.json','hyperv-autostart-journal.json')){
         $otherJournal=Join-Path $root $otherName
         [IO.File]::WriteAllText($otherJournal,'{"Status":"RECOVERY_REQUIRED"}')
         $failed=$false

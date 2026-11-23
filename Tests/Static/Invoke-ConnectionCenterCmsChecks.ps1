@@ -17,6 +17,7 @@ Write-Host ''
 Write-Host 'SQL_Server_Lab - Connection Center CMS Checks' -ForegroundColor Cyan
 
 try {
+    . (Join-Path $repoRoot 'Private/CmsManagement.ps1')
     . $sourcePath
     $entries = @(
         [PSCustomObject]@{ Provider='docker'; RuntimeState='RUNNING' }
@@ -62,6 +63,33 @@ try {
         $registrationNodes.Count -eq 1 -and $registrationConnection.ShouldSerialize('Encrypt') -and
         $registrationConnection['Encrypt'] -and $registrationConnection.ShouldSerialize('TrustServerCertificate') -and
         $registrationConnection['TrustServerCertificate'] -and -not $registrationConnection.ShouldSerialize('Password'))
+    $storedExport = & {
+        . (Join-Path $repoRoot 'Private/ConnectionCenterBrowserExport.ps1')
+        $ownRun = '11111111-1111-4111-8111-111111111111'
+        $protectedRun = '22222222-2222-4222-8222-222222222222'
+        function Get-LabStateRoot { [IO.Path]::GetTempPath() }
+        function Get-LabTimestamp { '2026-11-21T00:00:00Z' }
+        function Get-LabConnectionCenterConfiguration { param($StateRoot) @{RootGroupName='Synthetic'} }
+        function Get-LabTestEnvironmentRegistry { @{environments=@(@{runId=$protectedRun})} }
+        function Get-LabActiveRuns {
+            param($StateRoot,[switch]$NoWrite)
+            if (-not $NoWrite) { throw 'SSMS_EXPORT_MUST_NOT_LOG' }
+            @{runId=$ownRun;state='RUNNING';metadata=@{name='ordinary fixture'}}
+            @{runId=$protectedRun;state='STOPPED';metadata=@{name='protected fixture'}}
+        }
+        function Test-Path { param($LiteralPath,$PathType) $LiteralPath -like "*$ownRun*connection-info.json" }
+        function Get-Content {
+            param($LiteralPath,[switch]$Raw,$Encoding)
+            '{"instances":[{"id":"primary","provider":"docker","connectionString":"Data Source=127.0.0.1,14331;Password=SYNTHETIC_SSMS_PASSWORD"}]}'
+        }
+        function Sync-LabRunRuntimeState { throw 'SSMS_EXPORT_MUST_NOT_PROBE' }
+        $document = Get-LabSsmsRegistrationDownload
+        $xml = [xml]$document
+        $nodes = @($xml.SelectNodes('//*[local-name()="ConnectionStringWithEncryptedPassword"]'))
+        $nodes.Count -eq 1 -and $document -match 'ordinary fixture' -and $document -notmatch 'protected fixture|SYNTHETIC_SSMS_PASSWORD' -and
+            -not ([Data.SqlClient.SqlConnectionStringBuilder]::new($nodes[0].InnerText).ShouldSerialize('Password'))
+    }
+    Add-CheckResult -Name 'Browser-SSMS-Export liest reguläre Endpunkte ohne Runtime oder Kennwort' -Success $storedExport
 
     $dockerClientTarget = ConvertTo-LabCmsServerTarget -Server '127.0.0.1,15433' -CmsProvider docker
     $podmanClientTarget = ConvertTo-LabCmsServerTarget -Server 'localhost,15434' -CmsProvider podman
@@ -204,15 +232,98 @@ try {
         $source -match 'CmsShowGeneratedPasswordInName = \$false' -and
         $source -match 'if \(\$null -eq \$saved\.CmsShowGeneratedPasswordInName\) \{ \$false \}')
 
-    Add-CheckResult -Name 'CMS-Ersatz entfernt nur eine explizit freigegebene terminale Registrierung' -Success (
-        $source -match '\[switch\]\$ReplaceRemovedCms' -and
-        $source -match 'CONNECTION_CENTER_CMS_REPLACEMENT_BLOCKED' -and
-        $source -match '\[string\]\$existingRun\.state -ne ''REMOVED''' -and
-        $source -match "'sql-connection-center-cms\.json'" -and
-        $source -match 'Remove-Item -LiteralPath \$configurationPath -Force -ErrorAction Stop')
+    $replacement = & {
+        param($sourcePath)
+        . $sourcePath
+        $fixtureRoot = Join-Path ([IO.Path]::GetTempPath()) ('sql-lab-cms-replacement-' + [Guid]::NewGuid().ToString('N'))
+        $configurationPath = Join-Path $fixtureRoot 'catalog/sql-connection-center-cms.json'
+        $null = New-Item -ItemType Directory -Path (Split-Path $configurationPath -Parent)
+        $original = '{"RunId":"11111111-1111-1111-1111-111111111111","Provider":"podman"}'
+        [IO.File]::WriteAllText($configurationPath, $original)
+        $probe = [PSCustomObject]@{ Available=$false; FailProvision=$false; State='REMOVED'; Creates=0; Writes=0; LabNames=@() }
+        function Get-LabRunState { param($RunId, $StateRoot) [PSCustomObject]@{ state=$probe.State } }
+        function Get-AvailableLabProviders { if ($probe.Available) { 'podman' } }
+        function Get-LabDataRootDefault { $fixtureRoot }
+        function Get-LabTimestamp { '2025-01-01T00:00:00Z' }
+        function New-SqlServerLab {
+            param($Version, $Provider, $Profile, $LabName, [switch]$PersistentData, $DataRoot, $AutoStart, $SaPassword, $StateRoot)
+            $probe.Creates++
+            $probe.LabNames += $LabName
+            if ($probe.FailProvision) { throw 'SYNTHETIC_PROVISION_FAILED' }
+            [PSCustomObject]@{ RunId=[Guid]::NewGuid().ToString('D') }
+        }
+        function Write-LabArtifactJsonAtomic {
+            param($Path, $InputObject)
+            $probe.Writes++
+            [IO.File]::WriteAllText($Path, ($InputObject | ConvertTo-Json -Depth 10))
+        }
+        try {
+            $arguments = @{ Provider='podman'; LabName='Lab_CMS'; ReplaceRemovedCms=$true; StateRoot=$fixtureRoot }
+            $providerBlocked = try { Initialize-SqlServerLabCms @arguments; $false } catch { $_.Exception.Message -match 'CONNECTION_CENTER_CMS_PROVIDER_UNAVAILABLE' }
+            $providerPreserved = $providerBlocked -and [IO.File]::ReadAllText($configurationPath) -ceq $original -and $probe.Creates -eq 0 -and $probe.Writes -eq 0
+            $probe.Available = $true
+            $probe.FailProvision = $true
+            $provisionBlocked = try { Initialize-SqlServerLabCms @arguments; $false } catch { $_.Exception.Message -eq 'SYNTHETIC_PROVISION_FAILED' }
+            $provisionPreserved = $provisionBlocked -and [IO.File]::ReadAllText($configurationPath) -ceq $original -and $probe.Writes -eq 0
+            $probe.FailProvision = $false
+            $probe.State = 'STOPPED'
+            $activeBlocked = try { Initialize-SqlServerLabCms @arguments; $false } catch { $_.Exception.Message -match 'CONNECTION_CENTER_CMS_REPLACEMENT_BLOCKED' }
+            $activePreserved = $activeBlocked -and $probe.Creates -eq 1 -and [IO.File]::ReadAllText($configurationPath) -ceq $original
+            $probe.State = 'REMOVED'
+            $first = Initialize-SqlServerLabCms @arguments
+            $second = Initialize-SqlServerLabCms @arguments
+            $saved = Get-LabConnectionCenterCmsConfiguration -StateRoot $fixtureRoot
+            $replaced = $probe.Writes -eq 2 -and $saved.RunId -eq $second.Lab.RunId -and $first.Lab.RunId -ne $second.Lab.RunId
+            $browser = Initialize-SqlServerLabCms @arguments -SuppressGeneratedPasswordReturn
+            [PSCustomObject]@{
+                ProviderPreserved=$providerPreserved; ProvisionPreserved=$provisionPreserved; ActivePreserved=$activePreserved
+                Replaced=$replaced
+                BrowserPasswordSuppressed=($null -eq $browser.Password -and $browser.Configuration.RunId -ceq $browser.Lab.RunId)
+                NewPasswords=($first.Password -cne $second.Password -and @($probe.LabNames | Where-Object { $_ -cne 'Lab_CMS' }).Count -eq 0)
+            }
+        }
+        finally {
+            # Ausschliesslich das oben selbst angelegte Fixtureverzeichnis.
+            $expectedRoot = Join-Path ([IO.Path]::GetTempPath()) (Split-Path $fixtureRoot -Leaf)
+            if ([IO.Path]::GetFullPath($fixtureRoot) -cne [IO.Path]::GetFullPath($expectedRoot)) { throw 'CMS_REPLACEMENT_FIXTURE_SCOPE_INVALID' }
+            Remove-Item -LiteralPath $fixtureRoot -Recurse -Force
+        }
+    } $sourcePath
+    Add-CheckResult -Name 'CMS-Ersatz bewahrt Registrierung bei fehlendem Provider' -Success $replacement.ProviderPreserved
+    Add-CheckResult -Name 'CMS-Ersatz bewahrt Registrierung bei fehlgeschlagener Provisionierung' -Success $replacement.ProvisionPreserved
+    Add-CheckResult -Name 'CMS-Ersatz blockiert einen nicht terminalen Run vor der Neuanlage' -Success $replacement.ActivePreserved
+    Add-CheckResult -Name 'CMS-Ersatz registriert erst nach Erfolg und erlaubt denselben Namen mit neuem Passwort' -Success (
+        $replacement.Replaced -and $replacement.NewPasswords)
+    Add-CheckResult -Name 'CMS-Erstellung kann das generierte Kennwort für den Browser unterdrücken' -Success $replacement.BrowserPasswordSuppressed
     Add-CheckResult -Name 'CMS-Initialisierung bindet den angeforderten Labnamen' -Success (
         $source -match '\[string\]\$LabName = ''sql-server-lab-cms''' -and
         $source -match 'New-SqlServerLab .* -LabName \$LabName')
+    Add-CheckResult -Name 'CMS-Browserpfad unterdrueckt die Kennwortrueckgabe und gibt SecureString frei' -Success (
+        $source -match '\[switch\]\$SuppressGeneratedPasswordReturn' -and
+        $source -match 'if \(-not \$SuppressGeneratedPasswordReturn\)' -and
+        $source -match 'finally \{ if \(\$password\) \{ \$password\.Dispose\(\) \} \}')
+
+    $passwordProjection = & {
+        $canary = 'synthetic-generated-password-for-journal-check'
+        $messages = [Collections.Generic.List[string]]::new()
+        function Get-LabConnectionCenterCmsConfiguration { param($StateRoot) $null }
+        function Write-LabInfo { param($Message) $messages.Add($Message) }
+        function Write-LabWarning { param($Message) $messages.Add($Message) }
+        function Write-LabSuccess { param($Message) $messages.Add($Message) }
+        function Get-AvailableLabProviders { 'docker' }
+        function Get-LabConnectionCenterCmsEnvironmentCandidates { param($StateRoot) @() }
+        function New-LabConsoleItem {
+            param($Id,$Label,$Value,$Shortcut,[switch]$Disabled,$DisabledReason)
+            @{ Id=$Id }
+        }
+        function Invoke-LabConsoleMenu { param($ScreenId,$Title,$Subtitle,$Items,$Footer) @{Status='Selected'; SelectedItem=@{Id='create'}} }
+        function Read-LabConfirm { param($Prompt,$Default) $true }
+        function Initialize-SqlServerLabCms { param($StateRoot) @{Configuration=@{RunId='synthetic-cms-run'}; Password=$canary} }
+        function Sync-SqlServerLabCms { param($StateRoot) $null }
+        $console = Invoke-LabCmsInteractive -StateRoot ([IO.Path]::GetTempPath()) 6>&1 | Out-String
+        $console.Contains($canary) -and -not ($messages -join ' ').Contains($canary)
+    }
+    Add-CheckResult -Name 'Einmaliges CMS-Kennwort erscheint nur in der Konsole und bleibt aus dem Meldungsjournal' -Success $passwordProjection
 
     Add-CheckResult -Name 'CMS-Menue warnt vor Klartext und bewahrt manuelle Passwoerter' -Success (
         $source -match "Generiertes Passwort im CMS-Namen anzeigen" -and
@@ -244,6 +355,8 @@ try {
     Add-CheckResult -Name 'CMS-In-Memory-Executor schreibt weder Query- noch Skriptdatei' -Success (
         $source -match 'function Invoke-LabCmsSqlInMemory' -and
         [regex]::Match($source, 'function Invoke-LabCmsSqlInMemory[\s\S]+?(?=\r?\nfunction Export-SqlServerLabCmsSyncScript)').Value -notmatch 'WriteAllText|WriteAllLines|GetTempFileName|sqlcmd')
+    & (Join-Path $PSScriptRoot 'Fixtures/CmsManagementChecks.ps1')
+    Add-CheckResult -Name 'CMS-Browserverwaltung: Statusprojektion, Bindung und Requestgrenzen' -Success $true
     & (Join-Path $PSScriptRoot 'Fixtures/CmsInspectionChecks.ps1')
     Add-CheckResult -Name 'CMS-readonly: echte Core-/HTTP-/CLI-/Workergrenzen' -Success $true
     & (Join-Path $PSScriptRoot 'Fixtures/ConnectionCenterCmsInspectionAcceptanceChecks.ps1')
@@ -254,6 +367,8 @@ try {
     & (Join-Path $PSScriptRoot 'Fixtures/ConnectionCenterCmsNativeBrowserAcceptanceChecks.ps1')
     Add-CheckResult -Name 'CMS-Native-Browser: gebundener Moduldispatch und vier lesende Aktionen' -Success $true
     Add-CheckResult -Name 'CMS-Seitenbootstrap: tatsächliche Assets und synthetische Lesegrenzen' -Success $true
+    & (Join-Path $PSScriptRoot 'Fixtures/CmsBoundSyncChecks.ps1') -Repository $repoRoot
+    Add-CheckResult -Name 'CMS-Abgleich bindet Registrierung und Runtime vor Secretzugriff und SQL' -Success $true
 }
 catch {
     Add-CheckResult -Name 'Connection-Center-CMS-Vertragspruefung' -Success $false -Message $_.Exception.Message

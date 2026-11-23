@@ -695,11 +695,12 @@ function renderContainerVersionOptions(data) {
   }
 }
 
-function renderWorkflow(data) {
+function renderWorkflow(data, background = false) {
   workflow = data;
   renderContainerVersionOptions(data);
   renderConnectionEndpoints(data);
-  renderOperationQueue(data.Queue);
+  renderOperationQueue(data.Queue, background);
+  renderBatchOverview(data.Batches, data.Queue, background);
   // Der Quellen-Dialog kann vor dem ersten API-Refresh geöffnet werden. In
   // diesem Fall das anfangs leere Feld nachträglich füllen, aber eine bereits
   // vom Benutzer eingegebene Pfadänderung niemals überschreiben.
@@ -769,51 +770,6 @@ function renderWorkflow(data) {
   document.querySelectorAll('[data-lab-resources][data-provider="hyperv"]').forEach((button) => { button.disabled = hyperVDisabled; });
 }
 
-function renderOperationQueue(queue) {
-  const items = queue?.items || [];
-  $('#queue-count').textContent = (queue?.runningWorkers || 0) + '/' + (queue?.maxWorkers || 2) + ' Worker · ' + items.length + ' offen';
-  $('#operation-queue').innerHTML = items.length ? items.map((item) => {
-    const gate = item.userGate;
-    const gateDetails = gate ? '<div class="operation-gate"><strong>' + escapeHtml(gate.reason) + '</strong><ol>' + (gate.instructions || []).map((step) => '<li>' + escapeHtml(step) + '</li>').join('') + '</ol><span>Erwartet: ' + escapeHtml(gate.expectedResult) + '</span></div>' : '';
-    const confirmation = ['WaitingForUser', 'CandidateSatisfied'].includes(item.status)
-      ? '<button class="button primary" data-operation-command="Confirm" data-operation="' + escapeHtml(item.operationId) + '" data-verification="' + escapeHtml(gate?.verification?.type || '') + '">Erledigt - prüfen und fortsetzen</button>'
-      : '';
-    const pause = item.status === 'Paused'
-      ? '<button class="button secondary" data-operation-command="Resume" data-operation="' + escapeHtml(item.operationId) + '">Freigeben</button>'
-      : (item.status === 'Queued' || item.status === 'WaitingForDependency' ? '<button class="button secondary" data-operation-command="Suspend" data-operation="' + escapeHtml(item.operationId) + '">Pausieren</button>' : '');
-    return '<article class="build-card operation-card"><div class="build-card-top"><div><div class="build-title">' + escapeHtml(item.title) + '</div><div class="build-meta">' + escapeHtml(item.priority + ' · ' + item.resourceClass + ' · ' + item.provider) + '</div></div><span class="status ' + statusClass(item.status) + '">' + escapeHtml(item.status) + '</span></div><progress max="100" value="' + escapeHtml(item.progress || 0) + '"></progress>' + gateDetails + '<div class="build-actions">' + confirmation + pause + '<button class="button secondary" data-operation-command="MoveUp" data-operation="' + escapeHtml(item.operationId) + '">Nach oben</button><button class="button danger" data-operation-command="StopCleanup" data-operation="' + escapeHtml(item.operationId) + '">Stoppen + Cleanup</button></div><div class="build-meta">' + escapeHtml(item.blockedReason || item.operationId) + '</div></article>';
-  }).join('') : empty('Keine offenen persistenten Vorgänge.');
-}
-
-async function runOperationCommand(operationId, command, verificationType) {
-  const payload = { operationId, command };
-  if (command === 'Confirm' && verificationType === 'HyperVWindowsSetup') {
-    $('#credential-action').value = '__ConfirmOperation';
-    $('#credential-build').value = operationId;
-    $('#credential-title').textContent = 'Windows-Aktion prüfen und fortsetzen';
-    $('#credential-note').textContent = 'Das eingerichtete Windows-Konto wird nur für diese PowerShell-Direct-Prüfung verwendet und nicht gespeichert oder protokolliert.';
-    $('#credential-sa-password-label').hidden = true;
-    $('#credential-dialog').showModal();
-    return;
-  }
-  if (command === 'StopCleanup') {
-    openConfirmation('Vorgang stoppen und aufräumen', 'Diesen Vorgang wirklich aufräumen? Nur sein persistierter Scope wird entfernt; veröffentlichte Images bleiben unverändert.', '__OperationStopCleanup', { operationId }, 'Stoppen + Cleanup');
-    return;
-  }
-  const response = await sqlServerLabUiFetch('/api/operations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-  if (!response.ok) throw new Error(await response.text());
-  await refresh();
-}
-
-document.addEventListener('click', async (event) => {
-  const button = event.target.closest('[data-operation-command]');
-  if (!button) return;
-  button.disabled = true;
-  try { await runOperationCommand(button.dataset.operation, button.dataset.operationCommand, button.dataset.verification); }
-  catch (error) { window.alert(error.message); }
-  finally { button.disabled = false; }
-});
-
 function renderActiveLabs(items) {
   $('#active-labs').innerHTML = items.length ? items.map((item) => {
     const running = item.State === 'RUNNING';
@@ -840,7 +796,7 @@ function renderActiveLabs(items) {
         ? '<div class="build-meta"><strong>Backup-Arbeitsbereich:</strong> Host ' + escapeHtml(instance.PersistentStorage.backupHostPath) + ' → SQL ' + escapeHtml(instance.PersistentStorage.backupGuestPath || '/var/opt/mssql/backup') + '</div>'
         : '';
       const operations = running && instance.Port ? [
-        '<button class="button secondary" data-sql-features="true" data-run="' + escapeHtml(item.RunId) + '" data-instance="' + escapeHtml(instance.Id) + '" data-provider="' + escapeHtml(provider) + '">SQL-Funktionen</button>',
+        '<button class="button secondary" data-sql-features="true" data-run="' + escapeHtml(item.RunId) + '" data-instance="' + escapeHtml(instance.Id) + '" data-provider="' + escapeHtml(provider) + '" data-lab-name="' + escapeHtml(item.Name || item.RunId) + '">Volltextsuche ändern</button>',
         '<button class="button secondary" data-container-operation="CreateContainerDatabase" data-container-operation-kind="container" data-run="' + escapeHtml(item.RunId) + '" data-instance="' + escapeHtml(instance.Id) + '" data-container-operation-host="' + escapeHtml(instance.Host || '127.0.0.1') + '" data-sql-version="' + escapeHtml(instance.SqlVersion) + '" data-port="' + escapeHtml(instance.Port) + '">Datenbank anlegen</button>',
         '<button class="button secondary" data-container-operation="InspectContainerDatabaseMigrationDependencies" data-container-operation-kind="container" data-run="' + escapeHtml(item.RunId) + '" data-instance="' + escapeHtml(instance.Id) + '">Migrationsabhängigkeiten prüfen</button>',
         '<button class="button secondary" data-container-operation="ExportContainerDatabasePackage" data-container-operation-kind="container" data-run="' + escapeHtml(item.RunId) + '" data-instance="' + escapeHtml(instance.Id) + '">Datenbank paketieren</button>',
@@ -887,7 +843,7 @@ function renderHyperVLabs(items) {
       : '';
     const resource = resourceForInstance(item.Resources, item.InstanceId);
     const actions = [
-      (running && isSqlLab) ? '<button class="button secondary" data-sql-features="true" data-run="' + escapeHtml(item.RunId) + '" data-instance="' + escapeHtml(sqlOperationInstanceId) + '" data-provider="hyperv">SQL-Funktionen</button>' : '',
+      (running && isSqlLab && item.InstanceId) ? '<button class="button secondary" data-sql-features="true" data-run="' + escapeHtml(item.RunId) + '" data-instance="' + escapeHtml(item.InstanceId) + '" data-provider="hyperv" data-lab-name="' + escapeHtml(item.Name || item.RunId) + '">Volltextsuche / FILESTREAM</button>' : '',
       '<button class="button secondary" data-hyperv-action="' + (running ? 'StopLabReconcile' : 'StartLabReconcile') + '" data-run="' + escapeHtml(item.RunId) + '">' + (running ? 'Stoppen' : 'Starten') + '</button>',
       '<button class="button secondary" data-lab-resources="true" data-run="' + escapeHtml(item.RunId) + '" data-provider="hyperv" data-memory="' + escapeHtml(resource?.MemoryStartupMB || resource?.memoryStartupMB || '') + '" data-cpu="' + escapeHtml(resource?.ProcessorCount || resource?.processorCount || '') + '" data-requires-stopped="true">CPU / Speicher ändern</button>',
       (!running && !persistent) ? '<button class="button secondary" data-hyperv-action="EnableHyperVLabPersistentData" data-run="' + escapeHtml(item.RunId) + '">Daten-VHDX anhängen</button>' : '',
@@ -969,7 +925,7 @@ async function refresh(mediaRoot, background = false) {
   if (background && (window.sqlServerLabTlsLiveQualification?.isPending() ||
       window.sqlServerLabTlsLiveQualification?.getGeneration?.() !== tlsGeneration)) return;
   if (Object.prototype.hasOwnProperty.call(payload, 'Refreshing')) {
-    if (payload.Snapshot) renderWorkflow(payload.Snapshot);
+    if (payload.Snapshot) renderWorkflow(payload.Snapshot, background);
     else {
       $('#host-status').textContent = 'Inventar wird geladen …';
       $('#host-status').className = 'chip neutral';
@@ -984,7 +940,7 @@ async function refresh(mediaRoot, background = false) {
     }
     return;
   }
-  renderWorkflow(payload);
+  renderWorkflow(payload, background);
 }
 
 async function refreshUiConfig() {
@@ -1869,8 +1825,9 @@ document.addEventListener('click', async (event) => {
     const windows = featureButton.dataset.provider === 'hyperv';
     $('#sql-feature-run').value = featureButton.dataset.run;
     $('#sql-feature-instance').value = featureButton.dataset.instance;
+    $('#sql-feature-target').textContent = (featureButton.dataset.labName || featureButton.dataset.run) + ' · ' + featureButton.dataset.instance;
     $('#sql-feature-name').value = 'FullText';
-    $('#sql-feature-enabled').value = 'true';
+    $('#sql-feature-enabled').value = '';
     $('#sql-feature-filestream-option').disabled = !windows;
     $('#sql-feature-note').textContent = windows ? 'Windows/Hyper-V: Volltext und FILESTREAM-T-SQL-Zugriff. Volltextänderungen benötigen das verifizierte SQL-Medium im konfigurierten Media Root.' : 'Docker/Podman: Volltextsuche verfügbar. FILESTREAM wird von SQL Server auf Linux nicht unterstützt.';
     $('#sql-feature-password-label').hidden = windows;
@@ -2453,7 +2410,9 @@ $('#manifest-form').addEventListener('submit', async (event) => {
 $('#sql-feature-form').addEventListener('submit', async (event) => {
   if (event.submitter?.value === 'cancel') return;
   event.preventDefault();
-  const parameters = { RunId: $('#sql-feature-run').value, InstanceId: $('#sql-feature-instance').value, SqlFeature: $('#sql-feature-name').value, SqlFeatureEnabled: $('#sql-feature-enabled').value === 'true' };
+  const desired = $('#sql-feature-enabled').value;
+  if (desired !== 'true' && desired !== 'false') return;
+  const parameters = { RunId: $('#sql-feature-run').value, InstanceId: $('#sql-feature-instance').value, SqlFeature: $('#sql-feature-name').value, SqlFeatureEnabled: desired === 'true' };
   if ($('#sql-feature-password').value) parameters.SaPassword = $('#sql-feature-password').value;
   queueBackgroundAction('SetSqlFeature', parameters, $('#sql-feature-dialog'), () => { $('#sql-feature-password').value = ''; });
 });
@@ -2825,6 +2784,7 @@ function resetMaintenanceView() {
   $('#maintenance-selection').disabled = true;
   renderMaintenanceSelection();
 }
+$('#full-maintenance-preview-open').addEventListener('click', () => startAction('ReadFullMaintenancePreview', {}).catch(showError));
 $('#maintenance-open').addEventListener('click', () => {
   maintenanceRequest++; maintenanceBusy = false; resetMaintenanceView();
   $('#maintenance-read').disabled = false;
@@ -2983,6 +2943,24 @@ $('#confirmation-form').addEventListener('submit', async (event) => {
     }
     catch (error) { showError(error); }
     finally { submit.disabled = false; }
+    return;
+  }
+  if (confirmation.action === '__StartOperationHost') {
+    $('#confirmation-dialog').close();
+    try { await requestOperationHost(); }
+    catch (error) { showError(error); }
+    return;
+  }
+  if (confirmation.action === '__BatchSubmit') {
+    $('#confirmation-dialog').close();
+    try { await applyBrowserBatchSubmission(confirmation.parameters); }
+    catch (error) { showError(error); }
+    return;
+  }
+  if (confirmation.action === '__BatchStop') {
+    $('#confirmation-dialog').close();
+    try { await applyBrowserBatchStop(confirmation.parameters); }
+    catch (error) { showError(error); }
     return;
   }
   if (confirmation.action === '__OperationStopCleanup') {
@@ -3250,11 +3228,6 @@ function invalidateTestGroupPlan() {
   testGroupPlan = null; testGroupRevision++;
   $('#test-group-confirm').checked = false; $('#test-group-apply').disabled = true;
 }
-function renderTestGroupPlan(plan) {
-  $('#test-group-status').textContent = plan.Total + ' Mitglieder · Power: ' + plan.PowerStatus + ' · SQL-Bereitschaft: nicht geprüft';
-  $('#test-group-members').innerHTML = (plan.Members || []).map(member => '<div>' + escapeHtml(member.Key + ' · ' + member.Provider + ' · ' + member.Power + ' → ' + member.Desired + ' · ' + member.Change + (member.Reason ? ' · ' + member.Reason : '')) + '</div>').join('');
-  $('#test-group-notice').textContent = plan.Notice;
-}
 async function readTestGroupPlan() {
   invalidateTestGroupPlan();
   const revision = testGroupRevision;
@@ -3281,14 +3254,6 @@ function openTestGroupDialog() {
 }
 function updateTestGroupApply() {
   $('#test-group-apply').disabled = !testGroupPlan?.CanApply || !testGroupPlan.Total || testGroupPlan.NoChange || !testGroupPlan.PlanKey || $('#test-group-selection').value !== 'registered' || !$('#test-group-confirm').checked;
-}
-function testGroupResult(lines) {
-  const line = [...(lines || [])].reverse().find(item => String(item).startsWith('[TESTGROUP] '));
-  if (!line) return '<p>Ergebnis noch unbestätigt. Bei Verbindungsverlust Gruppe erneut lesen; nicht automatisch wiederholen.</p>';
-  try {
-    const result = JSON.parse(String(line).slice(12));
-    return '<section class="job-inventory"><strong>Gruppe: ' + escapeHtml(result.Status) + ' · SQL-Bereitschaft nicht geprüft</strong>' + (result.Details || []).map(item => '<div>' + escapeHtml(item.Key + ' · ' + item.Status + ' · ' + (item.Action || item.Change) + (item.Reason ? ' · ' + item.Reason : '')) + '</div>').join('') + '<p>Aktuellen Gruppenstatus lesen. Wiederholung nur nach neuer Vorschau und Bestätigung.</p></section>';
-  } catch { return '<p>Gruppenergebnis nicht lesbar. Zustand erneut prüfen.</p>'; }
 }
 $('#test-group-open').addEventListener('click', openTestGroupDialog);
 $('#test-group-read').addEventListener('click', readTestGroupPlan);
@@ -3473,6 +3438,201 @@ async function requestLlamaSession(action = 'read') {
     $('#llama-session-status').textContent = 'Stop nicht bestätigt. Neu lesen und vorprüfen; eigene Recovery separat prüfen. Keine automatische Wiederholung.';
   } finally { if (revision === llamaSessionRevision) { llamaSessionBusy = false; llamaSessionStopping = false; updateLlamaSessionControls(); } }
 }
+function setupContainerAutoStartRecovery() {
+  const el = name => $('#autostart-recovery-' + name);
+  const dialog = el('dialog');
+  const target = el('target');
+  const confirm = el('confirm');
+  const status = el('status');
+  let choices = [];
+  let busy = false;
+  let applying = false;
+  let revision = 0;
+
+  function updateControls() {
+    const selected = choices.includes(target.value);
+    target.disabled = busy || !choices.length;
+    confirm.disabled = busy || !selected;
+    el('apply').disabled = busy || !selected || !confirm.checked;
+    el('read').disabled = busy;
+    el('close').disabled = applying;
+  }
+
+  function clearSelection() {
+    choices = [];
+    target.replaceChildren();
+    confirm.checked = false;
+  }
+
+  async function request(apply = false) {
+    if (busy || !dialog.open || (apply && (!confirm.checked || !choices.includes(target.value)))) return;
+    const selected = target.value;
+    const current = ++revision;
+    busy = true;
+    applying = apply;
+    clearSelection();
+    updateControls();
+    status.textContent = apply ? 'Bestätigte Recovery wird ausgeführt …' : 'Offene Journaloperationen werden gelesen …';
+    try {
+      const options = { cache: 'no-store' };
+      if (apply) {
+        options.method = 'POST';
+        options.headers = { 'Content-Type': 'application/json' };
+        options.body = JSON.stringify({ Confirmed: true, Selection: selected });
+      }
+      const response = await sqlServerLabUiFetch('/api/container-autostart-recovery', options);
+      if (!response.ok) throw new Error('RECOVERY_UNCONFIRMED');
+      const view = await response.json();
+      if (current !== revision || !dialog.open) return;
+      if (apply) {
+        if (view?.Status !== 'RECOVERY_SUCCEEDED') throw new Error('RECOVERY_UNCONFIRMED');
+        status.textContent = 'Recovery abgeschlossen. Der Lab-State wurde aktualisiert.';
+        return;
+      }
+      if (!Array.isArray(view?.Items) || view.Items.length > 64 || !view.Items.every(item =>
+        typeof item?.Selection === 'string' && /^[a-f0-9]{32}$/.test(item.Selection) &&
+        typeof item.RunId === 'string' && /^[0-9a-f-]{36}$/.test(item.RunId) &&
+        typeof item.InstanceId === 'string' && /^[A-Za-z][A-Za-z0-9_-]{0,63}$/.test(item.InstanceId) &&
+        ['docker', 'podman'].includes(item.Provider) && ['on', 'off'].includes(item.TargetAutoStart))) {
+        throw new Error('RECOVERY_UNCONFIRMED');
+      }
+      choices = view.Items.map(item => item.Selection);
+      if (new Set(choices).size !== choices.length) throw new Error('RECOVERY_UNCONFIRMED');
+      for (const item of view.Items) {
+        const option = document.createElement('option');
+        option.value = item.Selection;
+        option.textContent = item.RunId + ' · ' + item.InstanceId + ' · ' + item.Provider + ' · Zielpolicy ' + item.TargetAutoStart;
+        target.append(option);
+      }
+      target.selectedIndex = -1;
+      status.textContent = choices.length ? 'Journaloperation auswählen und bestätigen.' : 'Keine passende offene Journaloperation gefunden.';
+    } catch {
+      if (current === revision && dialog.open) {
+        clearSelection();
+        status.textContent = apply ? 'Ergebnis unbestätigt. Aktuellen Zustand und offene Recovery prüfen.' : 'Journaloperationen konnten nicht sicher gelesen werden.';
+      }
+    } finally {
+      if (current === revision) {
+        busy = false;
+        applying = false;
+        updateControls();
+      }
+    }
+  }
+
+  el('open').addEventListener('click', () => { dialog.showModal(); return request(); });
+  el('read').addEventListener('click', () => request());
+  target.addEventListener('change', () => { confirm.checked = false; updateControls(); });
+  confirm.addEventListener('change', updateControls);
+  el('apply').addEventListener('click', () => request(true));
+  el('close').addEventListener('click', () => { if (!applying) dialog.close(); });
+  dialog.addEventListener('cancel', event => { if (applying) event.preventDefault(); });
+  dialog.addEventListener('close', () => { revision++; busy = false; applying = false; clearSelection(); updateControls(); });
+}
+setupContainerAutoStartRecovery();
+
+function setupContainerAutoStartChange() {
+  const el = name => $('#autostart-change-' + name);
+  const dialog = el('dialog');
+  const target = el('target');
+  const policy = el('policy');
+  const confirm = el('confirm');
+  const status = el('status');
+  let targets = new Set();
+  let plan = null;
+  let busy = '';
+  let revision = 0;
+  const isToken = value => typeof value === 'string' && /^[a-f0-9]{32}$/.test(value);
+
+  function updateControls() {
+    target.disabled = !!busy || targets.size === 0;
+    policy.disabled = !!busy;
+    confirm.disabled = !!busy || !plan;
+    el('plan').disabled = !!busy || !targets.has(target.value);
+    el('apply').disabled = !!busy || !plan || !confirm.checked;
+    el('read').disabled = !!busy;
+    el('close').disabled = busy === 'Apply';
+  }
+
+  function invalidate() {
+    plan = null;
+    confirm.checked = false;
+    updateControls();
+  }
+
+  async function request(action) {
+    if (busy || !dialog.open) return;
+    if (action === 'Plan' && !targets.has(target.value)) return;
+    if (action === 'Apply' && (!plan || !confirm.checked)) return;
+    const selection = action === 'Apply' ? plan : target.value;
+    const desired = policy.value;
+    const current = ++revision;
+    busy = action;
+    invalidate();
+    if (action !== 'Plan') { targets.clear(); target.replaceChildren(); }
+    updateControls();
+    status.textContent = action === 'Apply' ? 'Bestätigte Änderung wird ausgeführt …' : 'Ergebnis wird gelesen …';
+    try {
+      const body = action === 'Plan' ? { Action: action, AutoStart: desired, Selection: selection } :
+        { Action: action, Confirmed: true, Selection: selection };
+      const response = await sqlServerLabUiFetch('/api/container-autostart-change', action === 'Read' ?
+        { cache: 'no-store' } : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      if (!response.ok) throw new Error('AUTOSTART_UNCONFIRMED');
+      const view = await response.json();
+      if (current !== revision || !dialog.open) return;
+      if (action === 'Read') {
+        if (!Array.isArray(view?.Items) || view.Items.length > 4096 || !view.Items.every(item =>
+          isToken(item?.Selection) && typeof item.RunId === 'string' && /^[0-9a-f-]{36}$/.test(item.RunId) &&
+          typeof item.InstanceId === 'string' && /^[A-Za-z][A-Za-z0-9_-]{0,63}$/.test(item.InstanceId) &&
+          ['docker', 'podman'].includes(item.Provider))) throw new Error('AUTOSTART_UNCONFIRMED');
+        targets = new Set(view.Items.map(item => item.Selection));
+        if (targets.size !== view.Items.length) throw new Error('AUTOSTART_UNCONFIRMED');
+        for (const item of view.Items) {
+          const option = document.createElement('option');
+          option.value = item.Selection;
+          option.textContent = item.RunId + ' · ' + item.InstanceId + ' · ' + item.Provider;
+          target.append(option);
+        }
+        target.selectedIndex = -1;
+        status.textContent = targets.size ? 'Instanz und Zielpolicy auswählen und Änderung prüfen.' : 'Keine passende laufende SQL-Instanz gefunden.';
+      } else if (action === 'Plan') {
+        if (!view || typeof view.NoChange !== 'boolean' || !['ON', 'OFF'].includes(view.Current) ||
+            view.Desired !== desired.toUpperCase() || (view.NoChange ? view.Selection !== null : !isToken(view.Selection))) {
+          throw new Error('AUTOSTART_UNCONFIRMED');
+        }
+        plan = view.Selection;
+        status.textContent = 'Aktuell ' + view.Current + ' · Ziel ' + view.Desired +
+          (view.NoChange ? ' · Bereits eingestellt.' : ' · Änderung ohne Containerneustart. Bestätigung erforderlich.');
+      } else {
+        if (view?.Status !== 'SUCCEEDED') throw new Error('AUTOSTART_UNCONFIRMED');
+        status.textContent = 'Autostart geändert.';
+      }
+    } catch {
+      if (current === revision && dialog.open) {
+        if (action !== 'Plan') { targets.clear(); target.replaceChildren(); }
+        status.textContent = action === 'Apply' ? 'Ergebnis unbestätigt. Aktuellen Zustand und offene Recovery prüfen.' :
+          'Ziel oder Plan konnte nicht sicher gelesen werden.';
+      }
+    } finally {
+      if (current === revision) { busy = ''; updateControls(); }
+    }
+  }
+
+  el('open').addEventListener('click', () => { dialog.showModal(); return request('Read'); });
+  for (const control of [target, policy]) control.addEventListener('change', () => {
+    invalidate();
+    status.textContent = 'Auswahl geändert. Aktuelle Vorschau lesen.';
+  });
+  confirm.addEventListener('change', updateControls);
+  el('read').addEventListener('click', () => request('Read'));
+  el('plan').addEventListener('click', () => request('Plan'));
+  el('apply').addEventListener('click', () => request('Apply'));
+  el('close').addEventListener('click', () => { if (busy !== 'Apply') dialog.close(); });
+  dialog.addEventListener('cancel', event => { if (busy === 'Apply') event.preventDefault(); });
+  dialog.addEventListener('close', () => { revision++; busy = ''; targets.clear(); target.replaceChildren(); invalidate(); });
+}
+setupContainerAutoStartChange();
+
 $('#llama-session-open').addEventListener('click', () => {
   llamaSessionRevision++; llamaSessionBusy = false; llamaSessionView = null; invalidateLlamaSessionPlan();
   $('#llama-session-dialog').showModal(); return requestLlamaSession();
@@ -3492,6 +3652,7 @@ let cmsInspectionBusy = false;
 let cmsInspectionView = null;
 function updateCmsInspectionControls() {
   $('#cms-inspection-read').disabled = cmsInspectionBusy;
+  window.sqlServerLabCmsSync?.update();
   $('#cms-inspection-check').disabled = cmsInspectionBusy || !cmsInspectionView || cmsInspectionView.Status !== 'NOT_CHECKED' || !/^[a-f0-9]{64}$/.test(cmsInspectionView.SelectionKey || '') || !['docker', 'podman'].includes(cmsInspectionView.Provider);
 }
 function renderCmsInspection(view) {

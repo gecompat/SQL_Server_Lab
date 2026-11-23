@@ -163,6 +163,7 @@ sources_of_truth:
   validation_security_tool_catalog: Tests/Static/Invoke-SecurityToolCatalogChecks.ps1
   ai_scenario_contract: Private/AiScenario.ps1
   ai_scenario_inventory: Public/Get-SqlServerLabAiScenario.ps1
+  ai_scenario_plan_guidance: Ui/ai-scenario-plan.js
   ai_scenario_execution: Public/Invoke-SqlServerLabAiScenario.ps1
   ai_vector_core_scenario: Scenarios/Ai/vector-core-ci/1.0/scenario.json
   validation_ai_vector_index: Tests/Integration/Invoke-AiVectorIndexAcceptance.ps1
@@ -172,6 +173,8 @@ sources_of_truth:
   ai_compute_selection_contract: Private/AiComputeSelection.ps1
   ai_compute_inventory_contract: Private/AiComputeInventory.ps1
   ai_compute_inventory_api: Public/Get-SqlServerLabAiComputeInventory.ps1
+  ai_compute_inventory_guidance: Private/AiComputeInventoryGuidance.ps1, Public/BatchConsole.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/ai-compute-overview.js
+  ai_runtime_capability_guidance: Private/AiComputeInventoryGuidance.ps1, Public/BatchConsole.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/ai-compute-overview.js
   ai_compute_candidate_api: Public/Get-SqlServerLabAiComputeCandidate.ps1
   ai_compute_inventory_schema: Schemas/ai-compute-inventory.schema.json
   ai_compute_candidate_set_schema: Schemas/ai-compute-candidate-set.schema.json
@@ -181,9 +184,11 @@ sources_of_truth:
   ai_runtime_capability_schema: Schemas/ai-runtime-capability-set.schema.json
   validation_ai_runtime_capability: Tests/Static/Invoke-AiRuntimeCapabilityChecks.ps1
   ai_compute_selection_api: Public/Get-SqlServerLabAiComputeSelection.ps1
+  ai_compute_selection_guidance: Private/AiComputeSelectionConsole.ps1, Ui/ai-compute-selection.js
   ai_compute_selection_schema: Schemas/ai-compute-selection.schema.json
   validation_ai_compute_selection: Tests/Static/Invoke-AiComputeSelectionChecks.ps1
   ai_compute_benchmark_contract: Private/AiComputeBenchmark.ps1
+  ai_compute_benchmark_guidance: Private/AiComputeBenchmarkConsole.ps1, Ui/ai-compute-benchmark.js, Tools/Start-SqlServerLabUi.ps1
   ai_compute_benchmark_api: Public/Measure-SqlServerLabAiComputeCandidate.ps1
   ai_compute_benchmark_schema: Schemas/ai-compute-benchmark.schema.json
   ai_compute_benchmark_set_api: Public/Measure-SqlServerLabAiComputeCandidateSet.ps1
@@ -207,6 +212,7 @@ sources_of_truth:
   validation_ai_shared_gateway_storage: Tests/Static/Invoke-AiSharedGatewayStorageChecks.ps1
   ai_shared_gateway_upstream_contract: Private/AiSharedGatewayUpstream.ps1
   ai_shared_gateway_upstream_api: Public/Test-SqlServerLabAiSharedGatewayUpstream.ps1
+  ai_ovms_upstream_guidance: Private/OvmsUpstreamConsole.ps1, Ui/ovms-upstream.js, Public/Test-SqlServerLabOvmsUpstreamEndpoint.ps1
   ai_shared_gateway_session_contract: Private/AiSharedGatewaySession.ps1
   ai_shared_gateway_session_worker: Tools/Invoke-AiSharedGatewaySessionWorker.ps1
   ai_shared_gateway_session_start: Public/Start-SqlServerLabAiSharedGatewaySession.ps1
@@ -226,6 +232,7 @@ sources_of_truth:
   ai_shared_gateway_upstream_schema: Schemas/ai-shared-gateway-upstream-receipt.schema.json
   validation_ai_shared_gateway_upstream: Tests/Static/Invoke-AiSharedGatewayUpstreamChecks.ps1
   ai_model_catalog: Catalogs/ai-models.json
+  local_ollama_generation_guidance: Private/AiEndpoint.ps1, Public/Invoke-SqlServerLab.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/ollama-local-generation.js, Tests/Static/Fixtures/WorkflowSqlTargetChecks.cjs
   ai_model_catalog_schema: Schemas/ai-model-catalog.schema.json
   ai_endpoint_plan_schema: Schemas/ai-endpoint-plan.schema.json
   ai_runtime_journal_schema: Schemas/ai-runtime-journal.schema.json
@@ -238,7 +245,7 @@ sources_of_truth:
   ai_ovms_https_gateway_start: Public/Start-SqlServerLabOvmsHttpsGateway.ps1
   ai_ovms_https_gateway_stop: Public/Stop-SqlServerLabOvmsHttpsGateway.ps1
   acceptance_ai_ovms_https_gateway: Tests/Integration/Invoke-AiOvmsHttpsGatewayAcceptance.ps1
-  llama_cpp_guided_start_cli: Private/LlamaCppStartConsole.ps1
+  llama_cpp_guided_start_cli: Private/LlamaCppStartConsole.ps1, Public/BatchConsole.ps1, Public/Invoke-SqlServerLab.ps1
   llama_cpp_guided_start_browser: Private/LlamaCppStartHttp.ps1, Ui/llama-start.js
   validation_llama_cpp_guided_start_browser: Tests/Static/Invoke-LlamaCppStartBrowserChecks.ps1, Tests/Static/Fixtures/LlamaCppStartHttpChecks.ps1, Tests/Static/Fixtures/LlamaCppStartUiChecks.cjs
   validation_reviewed_browser_composition: Tests/Static/Invoke-ReviewedBrowserCompositionChecks.ps1 # combined dedicated routes, HTML IDs, 135 exports and retained CLI dispatch; synthetic only
@@ -259,6 +266,7 @@ sources_of_truth:
   llama_cpp_model_resolver: Private/LlamaCppModelCatalog.ps1
   llama_cpp_model_api: Public/Get-SqlServerLabLlamaCppModel.ps1
   llama_cpp_model_download: Public/Save-SqlServerLabLlamaCppModel.ps1
+  llama_cpp_model_download_guidance: Public/Invoke-SqlServerLab.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/llama-model-catalog.js, Tests/Static/Fixtures/WorkflowSqlTargetChecks.cjs
   validation_llama_cpp_model_catalog: Tests/Static/Invoke-LlamaCppModelCatalogChecks.ps1
   llama_cpp_owned_worker: Tools/Invoke-LlamaCppOwnedWorker.ps1
   llama_cpp_start_plan: Private/LlamaCppStartPlan.ps1
@@ -277,6 +285,8 @@ sources_of_truth:
   acceptance_llama_cpp_sql: Tests/Integration/Invoke-LlamaCppSqlAcceptance.ps1
   ai_external_model_runtime_schema: Schemas/llama-cpp-runtime.schema.json
   validation_llama_cpp_runtime: Tests/Static/Invoke-LlamaCppRuntimeChecks.ps1
+  llama_cpp_runtime_inventory_surfaces: Private/LlamaCppRuntimeInventory.ps1, Public/BatchConsole.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/ai-compute-overview.js
+  validation_llama_cpp_runtime_inventory_browser: Tests/Static/Fixtures/LlamaCppRuntimeInventoryUiChecks.cjs, Tests/Static/Invoke-WorkflowUiChecks.ps1
   ai_external_model_runtime_api: Public/Get-SqlServerLabLlamaCppRuntime.ps1
   ai_external_model_runtime_contract: Private/AiExternalModelAcceleration.ps1
   ai_external_model_artifact_api: Public/Test-SqlServerLabAiExternalModelArtifact.ps1
@@ -292,6 +302,7 @@ sources_of_truth:
   validation_ai_external_model_hyperv_binding: Tests/Static/Invoke-AiExternalModelHyperVBindingChecks.ps1
   ai_external_model_acceleration_howto: Documentation/User/SQL_AI_LOCAL_ACCELERATION.md
   ai_persistent_retrieval_api: Public/Invoke-SqlServerLabAiPersistentRetrieval.ps1
+  ai_persistent_retrieval_fixture_guidance: Private/AiPersistentRetrievalConsole.ps1, Ui/ai-persistent-retrieval-fixture.js
   ai_podman_setup: Private/AiPodmanSetup.ps1
   ai_podman_setup_process: Private/AiPodmanSetupProcess.ps1
   ai_podman_setup_worker: Tools/Invoke-AiPodmanSetupWorker.ps1
@@ -350,6 +361,7 @@ sources_of_truth:
   validation_ai_ollama_container: Tests/Integration/Invoke-AiOllamaContainerAcceptance.ps1
   validation_ai_rag_container: Tests/Integration/Invoke-AiRagContainerAcceptance.ps1
   license_profile_contract: Private/LicenseProfile.ps1
+  license_profile_status_guidance: Private/LicenseProfileStatusGuidance.ps1
   license_profile_schema: Schemas/license-profile.schema.json
   validation_license_profile: Tests/Static/Invoke-LicenseProfileChecks.ps1
   batch_manifest_structure: Schemas/lab-batch.schema.json
@@ -379,6 +391,7 @@ sources_of_truth:
     validation_smtp_service_provisioning: Tests/Static/Invoke-SmtpTestServiceProvisionChecks.ps1
   smtp_webmail_binding: Private/SmtpTestServiceWebMail.ps1
   smtp_webmail_status_api: Public/Get-SqlServerLabSmtpTestServiceStatus.ps1
+  smtp_guided_status: Private/SmtpTestServiceStatusGuidance.ps1
   smtp_webmail_access_api: Public/Open-SqlServerLabSmtpTestServiceWebMail.ps1
   validation_smtp_webmail: Tests/Static/Invoke-SmtpTestServiceWebMailChecks.ps1
   smtp_service_database_mail_acceptance: Tests/Integration/Invoke-SmtpTestServiceDatabaseMailAcceptance.ps1
@@ -389,6 +402,11 @@ sources_of_truth:
   acceptance_smtp_quota_gateway_image: Tests/Integration/Invoke-SmtpTestServiceGatewayImageAcceptance.ps1
   acceptance_smtp_quota_gateway_receiver: Tests/Integration/Invoke-SmtpTestServiceGatewayReceiverAcceptance.ps1
   connection_center_cms: Public/Sync-SqlServerLabConnectionCenter.ps1
+  cms_management_state: Private/CmsManagement.ps1 # safe browser projection and state-bound operation plan; no secret/path disclosure
+  cms_management_validation: Tests/Static/Fixtures/CmsManagementChecks.ps1, Tests/Static/Invoke-ConnectionCenterCmsChecks.ps1
+  cms_management_browser_contract: Public/Invoke-SqlServerLabWorkflowAction.ps1, Tools/Start-SqlServerLabUi.ps1 # explicit confirmation for create/adopt/sync; generated SA secret is not returned to browser
+  cms_management_browser_ui: Ui/index.html, Ui/cms-management.js, Tests/Static/Fixtures/WorkflowSqlTargetChecks.cjs
+  cms_management_browser_validation: Tests/Static/Invoke-ConnectionCenterCmsChecks.ps1, Tests/Static/Fixtures/WorkflowSqlTargetChecks.cjs, Tests/Static/Fixtures/WorkflowUiSpecializedBodyChecks.ps1
   tls_connection_default_core: Private/SqlReadiness.ps1
   sql_connection_settings_contract: Documentation/Architecture/SQL_CONNECTION_SETTINGS.md
   sql_connection_settings_core: Private/SqlConnectionSettings.ps1 # native parser, explicit nullable TLS flags and closed configuration-only qualification status; no credentials, connection or live qualification
@@ -454,6 +472,7 @@ sources_of_truth:
   validation_sql_observability_evidence: Tests/Static/Invoke-SqlObservabilityEvidenceChecks.ps1
   acceptance_sql_observability_evidence_container: Tests/Integration/Invoke-ContainerSqlObservabilityAcceptance.ps1
   sql_guest_evaluation_evidence_contract: Private/SqlGuestEvaluationEvidence.ps1
+  sql_guest_evaluation_capture_guidance: Private/SqlGuestEvaluationCaptureConsole.ps1, Public/BatchConsole.ps1, Ui/sql-guest-evaluation-evidence.js
   sql_guest_evaluation_capture_contract: Private/SqlGuestEvaluationCapture.ps1
   sql_guest_evaluation_capture_public: Public/Update-SqlServerLabSqlGuestEvaluationEvidence.ps1
   sql_guest_evaluation_capture_architecture: Documentation/Architecture/SQL_GUEST_EVALUATION_CAPTURE.md
@@ -467,11 +486,18 @@ sources_of_truth:
   validation_release_artifact: Tests/Static/Invoke-ReleaseArtifactChecks.ps1
   client_readiness: Tools/Test-SqlServerLabClientReadiness.ps1
   ssis_catalog_capability_public: Public/Get-SqlServerLabSsisCatalogCapability.ps1
+  sql_feature_console: Private/SqlFeatureConsole.ps1, Public/Invoke-SqlServerLab.ps1, Private/ConsoleHelp.ps1
+  validation_sql_feature_console: Tests/Static/Fixtures/SqlFeatureConsoleChecks.ps1, Tests/Static/Invoke-SqlFeatureChecks.ps1
+  ssis_diagnostic_console: Private/SsisDiagnosticsConsole.ps1, Public/BatchConsole.ps1, Public/Invoke-SqlServerLab.ps1
+  validation_ssis_diagnostic_console: Tests/Static/Invoke-SsisDiagnosticsConsoleChecks.ps1
+  ssis_execution_diagnostic_browser: Private/SsisDiagnosticsBrowser.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/ssis-execution-diagnostic.js
+  validation_ssis_execution_browser: Tests/Static/Fixtures/SsisExecutionDiagnosticUiChecks.cjs, Tests/Static/Invoke-SsisDiagnosticsConsoleChecks.ps1
   ssis_execution_diagnostic_public: Public/Get-SqlServerLabSsisExecutionDiagnostic.ps1
   ssis_execution_diagnostic_projection: Private/SsisExecutionDiagnostic.ps1
   ssis_execution_diagnostic_guest: Providers/HyperV/HyperVSsisExecutionDiagnostic.ps1
   ssis_execution_diagnostic_contract: Documentation/Architecture/SSIS_EXECUTION_DIAGNOSTIC.md
   validation_ssis_execution_diagnostic: Tests/Static/Invoke-SsisExecutionDiagnosticChecks.ps1
+  ssis_package_diagnostic_browser: Private/SsisDiagnosticsBrowser.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/ssis-package-diagnostic.js
   ssis_package_diagnostic_public: Public/Get-SqlServerLabSsisPackageDiagnostic.ps1
   ssis_package_diagnostic_artifact_and_binding: Private/SsisPackageDiagnostic.ps1
   ssis_package_diagnostic_guest: Providers/HyperV/HyperVSsisPackageDiagnostic.ps1
@@ -556,6 +582,7 @@ sources_of_truth:
   validation_external_runtime_host_facts: Tests/Static/Fixtures/ExternalRuntimeCapabilityHostFactsChecks.ps1 # existing Capability suite; synthetic facts and actual consumer guards, no provider proof
   validation_client_readiness: Tests/Static/Invoke-ClientReadinessChecks.ps1
   diagnostic_bundle_public: Public/Get-SqlServerLabDiagnosticBundle.ps1
+  diagnostic_bundle_guidance: Private/DiagnosticBundleConsole.ps1, Ui/diagnostic-bundle.js
   diagnostic_bundle_reader: Private/DiagnosticBundleReader.ps1 # full recorded selector; container CU bound to VersionCatalog exact tag/build, not native SQL evidence
   diagnostic_bundle_readiness: Private/DiagnosticBundleReadiness.ps1
   diagnostic_bundle_readiness_child: Tools/Read-SqlServerLabDiagnosticReadiness.ps1
@@ -571,6 +598,7 @@ sources_of_truth:
   validation_instance_capability_assessment: Tests/Static/Invoke-InstanceCapabilityAssessmentChecks.ps1
   run_state_upgrade_plan_contract: Private/StateUpgrade.ps1
   run_state_upgrade_plan_public: Public/Get-SqlServerLabRunStateUpgradePlan.ps1
+  run_state_upgrade_plan_guidance: Private/RunStateUpgradePlanConsole.ps1, Ui/run-state-upgrade-plan.js
   validation_run_state_upgrade_plan: Tests/Static/Invoke-RunStateUpgradeChecks.ps1
   portable_lab_import_preflight_contract: Private/PortableLabImport.ps1 # target-bound portable container transfer preflight; BackupSetId and integrity evidence only
   portable_lab_import_preflight_public: Public/Get-SqlServerLabPortableLabImportPlan.ps1
@@ -590,6 +618,8 @@ sources_of_truth:
   validation_portable_container_transfer_executor: Tests/Static/Invoke-PortableContainerTransferExecutorChecks.ps1
   portable_container_transfer_preflight_contract: Private/PortableContainerTransferPreflight.ps1 # operation-bound backup staging and SQL media preflight; transfer remains blocked
   portable_container_transfer_preflight_public: Public/Invoke-SqlServerLabPortableContainerTransferPreflight.ps1
+  portable_container_transfer_guidance: Private/PortableContainerTransferConsole.ps1, Ui/portable-container-transfer.js, Private/BackupLibrary.ps1
+  portable_lab_import_plan_guidance: Private/PortableLabImportConsole.ps1, Ui/portable-lab-import-plan.js
   portable_container_transfer_preflight_request_schema: Schemas/portable-container-transfer-preflight-request.schema.json
   portable_container_transfer_preflight_result_schema: Schemas/portable-container-transfer-preflight-result.schema.json
   portable_container_transfer_preflight_journal_schema: Schemas/portable-container-transfer-preflight-journal.schema.json
@@ -597,10 +627,12 @@ sources_of_truth:
   hyperv_recovery_point_plan_contract: Private/RecoveryPointPlan.ps1
   hyperv_recovery_point_plan_public: Public/Get-SqlServerLabHyperVRecoveryPointPlan.ps1
   hyperv_recovery_point_plan_schema: Schemas/hyperv-recovery-point-plan.schema.json
+  hyperv_recovery_point_plan_guidance: Private/HyperVRecoveryPointPlanConsole.ps1, Ui/hyperv-recovery-point-plan.js
   validation_hyperv_recovery_point_plan: Tests/Static/Invoke-HyperVRecoveryPointPlanChecks.ps1
   automation_api_plan_contract: Private/AutomationApiPlan.ps1
   automation_api_plan_public: Public/Get-SqlServerLabAutomationPlan.ps1
   automation_api_plan_schema: Schemas/automation-api-plan.schema.json
+  automation_api_plan_guidance: Private/AutomationApiPlanConsole.ps1, Ui/automation-api-plan.js
   validation_automation_api_plan: Tests/Static/Invoke-AutomationApiPlanChecks.ps1
   cleanup_contract: Private/CleanupEngine.ps1
   validation_cleanup_volume_ownership: Tests/Static/Invoke-CleanupVolumeOwnershipChecks.ps1
@@ -616,6 +648,13 @@ sources_of_truth:
   guided_container_autostart_preview_cli: Public/Invoke-SqlServerLab.ps1 # registered metadata-only selection, one public PLAN_ONLY call, strict scalar DTO, no Apply
   guided_container_autostart_preview_menu: Public/BatchConsole.ps1, Private/ConsoleHelp.ps1 # Lab-Umgebungen / Container-Autostart vorprüfen
   validation_guided_container_autostart_preview: Tests/Static/Fixtures/ContainerAutoStartPreviewConsoleChecks.ps1 # existing ContainerReconcile suite; actual menu/dual router/module/public route, synthetic inspect only
+  guided_container_autostart_change: Public/Invoke-SqlServerLab.ps1, Public/BatchConsole.ps1, Private/ConsoleHelp.ps1
+  guided_container_autostart_change_browser: Private/ContainerAutoStartChangeBrowser.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/app.js
+  validation_guided_container_autostart_change_browser: Tests/Static/Fixtures/ContainerAutoStartChangeBrowserChecks.ps1, Tests/Static/Fixtures/ContainerAutoStartChangeBrowserUiChecks.cjs
+  guided_container_autostart_recovery: Public/Resume-SqlServerLabContainerAutoStart.ps1 # optional confirmed journal operation ID, rechecked under the run mutex
+  guided_container_autostart_recovery_browser: Private/ContainerAutoStartRecoveryBrowser.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/app.js
+  validation_guided_container_autostart_recovery_browser: Tests/Static/Fixtures/ContainerAutoStartRecoveryBrowserChecks.ps1, Tests/Static/Fixtures/ContainerAutoStartRecoveryBrowserUiChecks.cjs
+  validation_guided_container_autostart_change_and_recovery: Tests/Static/Invoke-ContainerAutoStartChecks.ps1, Tests/Static/Invoke-ContainerAutoStartConsoleChecks.ps1
   acceptance_guided_container_autostart_preview_cli: Tests/Integration/Invoke-ContainerAutoStartPreviewAcceptance.ps1 # explicit ConsoleOnly; own scope/custody/mutex, three actual CLI/public calls; Docker/Podman PASS 2026-10-05 on 960b5452, own cleanup/protection confirmed; no Apply
   guided_container_autostart_preview_http: Private/ContainerAutoStartPreviewHttp.ps1 # server-bound metadata, strict scalar projection, one public PLAN_ONLY call, no client StateRoot/native IDs
   guided_container_autostart_preview_browser: Ui/container-autostart-preview.js # separate on/off dialog; UNKNOWN/DRIFTED/counts, late-response veto, no Apply
@@ -638,11 +677,14 @@ sources_of_truth:
   validation_podman_ci_privacy: Tests/Static/Invoke-PodmanSmokePrivacyChecks.ps1
   validation_runtime_ci_privacy: Tests/Static/Invoke-RuntimeSmokePrivacyChecks.ps1
   media_source_guidance: Private/MediaSourceGuidance.ps1 # fixed six SQL2022/2025 bootstrapper identities; existing Preferences/catalog byte authority
+  resource_plan_guidance: Public/Get-SqlServerLabResourcePlan.ps1, Private/ResourcePlanConsole.ps1, Ui/resource-plan.js
   validation_media_source_guidance: Tests/Static/Invoke-MediaSourceGuidanceChecks.ps1
   container_reconcile_journal_schema: Schemas/container-reconcile-journal.schema.json
   validation_container_reconcile: Tests/Static/Invoke-ContainerReconcileChecks.ps1
   validation_container_recreate_mount_boundary: Tests/Static/Fixtures/ContainerRecreateMountChecks.ps1
   hyperv_network_reconcile_contract: Private/HyperVNetworkReconcile.ps1
+  container_network_preview_guidance: Public/Move-SqlServerLabContainerNetwork.ps1, Private/ContainerNetworkMigration.ps1, Private/ContainerNetworkMigrationConsole.ps1, Ui/container-network-plan.js
+  container_network_migration_binding: Tests/Static/Invoke-LabNetworkChecks.ps1, Tests/Static/Fixtures/ContainerNetworkPlanConsoleChecks.ps1, Tests/Static/Fixtures/ContainerNetworkBoundMigrationChecks.ps1
   hyperv_network_reconcile_journal_schema: Schemas/hyperv-network-reconcile-journal.schema.json
   validation_hyperv_network_reconcile: Tests/Static/Invoke-HyperVNetworkReconcileChecks.ps1
   validation_hyperv_network_reconnect_helper: Tests/Common/HyperVNetworkReconnectAcceptance.ps1
@@ -657,6 +699,9 @@ sources_of_truth:
   validation_hyperv_sql_completion_boundary: Tests/Static/Fixtures/HyperVSqlCompletionBoundaryChecks.ps1 # existing HyperVLabEnvironment suite; actual public function/caller AST/transport, synthetic native leaves only
   validation_hyperv_sql_public_entry: Tests/Static/Fixtures/HyperVSqlPublicEntryChecks.ps1 # explicit roots and opt-in ExpectedVmId on actual public actions; synthetic core boundaries
   validation_hyperv_sql_vm_binding: Tests/Static/Fixtures/HyperVSqlVmBindingChecks.ps1 # actual Complete/HostSQL/WMI/network/receipt/restart/readiness/port/transport with synthetic native leaves; no guest bodies
+  hyperv_autostart_browser: Private/HyperVAutoStartBrowser.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/hyperv-autostart.js, Tests/Static/Fixtures/HyperVAutoStartBrowserUiChecks.cjs
+  hyperv_autostart_recovery: Private/HyperVAutoStartApply.ps1, Private/DiagnosticBundleReader.ps1, Public/Set-SqlServerLabHyperVAutoStart.ps1, Public/Resume-SqlServerLabHyperVAutoStart.ps1
+  validation_hyperv_autostart: Tests/Static/Fixtures/HyperVAutoStartApplyChecks.ps1, Tests/Static/Invoke-HyperVLabEnvironmentChecks.ps1
   hyperv_host_sql_lease_binding: Private/HyperVLabEnvironment.ps1 # actual root/run/scope/instance/network/active-IPAM binding before static guest network dispatch
   validation_hyperv_sql_completion_regression: Tests/Static/Fixtures/HyperVLabEnvironmentCompletionRegressionChecks.ps1 # HyperVLabEnvironment suite; original transport ParamBlock, closed body; no native/guest/SQL execution
   validation_hyperv_immutable_run_reader: Tests/Static/Fixtures/HyperVImmutableRunReaderChecks.ps1 # actual internal reader; opt-in strict VM-ID without rename write; public setup propagation/native qualification remain open
@@ -708,7 +753,7 @@ sources_of_truth:
   validation_hyperv_external_runtime_reconcile_ci_acceptance: Tests/Integration/Invoke-HyperVExternalRuntimeReconcileCiAcceptance.ps1
   validation_hyperv_external_runtime_reconcile_ci_stage_diagnostics: Tests/Common/HyperVExternalRuntimeAcceptanceStageDiagnostics.ps1
   validation_hyperv_external_runtime_reconcile_ci_acceptance_static: Tests/Static/Invoke-HyperVExternalRuntimeReconcileCiAcceptanceChecks.ps1
-  port_allocation_contract: Private/PortAllocation.ps1
+  port_allocation_contract: Private/PortAllocation.ps1 # shared automatic SQL range for Docker, Podman and resource preflight
   storage_contract: Private/StorageContract.ps1
   initial_setup_contract: Private/InitialSetup.ps1
   initial_setup_capacity_contract: Private/InitialSetupCapacity.ps1
@@ -719,6 +764,7 @@ sources_of_truth:
   validation_initial_setup_writeability: Tests/Static/Fixtures/InitialSetupWriteabilityChecks.ps1
   slot_reserve_guidance: Private/SlotReserveGuidance.ps1
   windows_pool_claims: Private/WindowsPoolClaims.ps1
+  windows_slot_pool_browser: Public/Get-SqlServerLabWorkflow.ps1, Public/New-SqlServerLabWindowsSlotPool.ps1, Ui/windows-slot-pool.js, Tests/Static/Fixtures/WorkflowSqlTargetChecks.cjs
   windows_pool_member_schema: Schemas/windows-pool-member.schema.json
   windows_pool_claim_contract: Documentation/Architecture/WINDOWS_POOL_MEMBERSHIP_AND_CLAIMS.md
   validation_windows_pool_claims: Tests/Static/Invoke-WindowsPoolClaimChecks.ps1
@@ -739,6 +785,7 @@ sources_of_truth:
   storage_residency_inventory_schema: Schemas/lab-storage-residency-inventory.schema.json
   cleanup_audit_findings: Private/CleanupAuditFindings.ps1
   persistent_storage_catalog: Private/PersistentStorageCatalog.ps1
+  persistent_lab_name_reuse_acceptance: Tests/Integration/Invoke-PersistentLabNameReuseAcceptance.ps1 # fresh SQL store per new Docker/Podman lab; retained predecessor, distinct passwords and own cleanup
   persistent_storage_artifact_sync: Public/Sync-SqlServerLabPersistentStorageArtifact.ps1
   persistent_storage_catalog_schema: Schemas/persistent-storage-catalog.schema.json
   persistent_storage_plan_schema: Schemas/persistent-storage-plan.schema.json
@@ -791,6 +838,7 @@ sources_of_truth:
   lab_data_native_runtime_storage_decision: Documentation/Architecture/LAB_DATA_AND_NATIVE_RUNTIME_STORAGE_DECISION.md
   cleanup_audit_schema: Schemas/lab-cleanup-audit.schema.json
   hyperv_resource_binding_contract: Private/HyperVResourceBinding.ps1
+  hyperv_storage_preview_guidance: Public/Invoke-SqlServerLab.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/hyperv-storage-preview.js
   hyperv_resource_preview_command: Public/Get-SqlServerLabHyperVResourcePreview.ps1
   hyperv_resource_binding_schema: Schemas/hyperv-resource-binding.schema.json
   hyperv_resource_migration_contract: Private/HyperVResourceMigration.ps1
@@ -1080,7 +1128,11 @@ sources_of_truth:
   authenticated_tls_trust_import: Private/AuthenticatedTlsTrustImport.ps1 # private Windows CurrentUser Root public-DER lane, exact approval + protected intent/commit/cooperative lock; no removal/registration/TLS qualification
   validation_authenticated_tls_trust_import: Tests/Static/Invoke-AuthenticatedTlsTrustImportChecks.ps1 # coupled candidate/root/request/payload/context/pathguard; own real private file/ACL/lock fixtures + injected store boundaries, native store mutation NOT_EXECUTED
   test_group_power_guidance: Private/TestGroupGuidance.ps1
+  test_group_browser_view: Ui/test-group-view.js
+  test_group_linux_creation: Ui/test-group-create.js # catalog and group/Runtime-bound Linux creation via one-shot workflow action
+  test_group_management: Ui/test-group-management.js # one-shot Windows prepared-image creation, group repair and group removal
   validation_test_group_power_guidance: Tests/Static/Invoke-TestGroupGuidanceChecks.ps1
+  validation_test_group_windows_native: Tests/Integration/Invoke-HyperVTestGroupLifecycleAcceptance.ps1 # trusted Key18 dispatch, separate state and group export, one owned SQL 2025 Prepared child
   validation_test_group_full_regression: Tests/Static/Invoke-AllChecks.ps1 # exact-once group suite registration; selection and registry protected by Invoke-CiStrategyChecks.ps1
   validation_nightly_authorization: Tests/Static/Fixtures/CiStrategyNightlyAuthorizationChecks.ps1
   automated_test_environment_windows_lifecycle: Public/TestEnvironmentLifecycle.ps1
@@ -1095,7 +1147,13 @@ sources_of_truth:
   validation_test_environment_contract: Tests/Static/Invoke-TestEnvironmentChecks.ps1
   validation_test_environment_group_lifecycle: Tests/Integration/Invoke-TestEnvironmentGroupLifecycle.ps1
   validation_manifest_builder: Tests/Static/Invoke-ManifestBuilderChecks.ps1
-  validation_batch_workflow: Tests/Static/Invoke-BatchWorkflowChecks.ps1
+  manifest_check_guidance: Private/ManifestCheckGuidance.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/manifest-check.js
+  container_tool_check_guidance: Private/ContainerToolGuidance.ps1, Public/Test-SqlServerLabContainerTool.ps1, Ui/container-tool-check.js
+  validation_batch_workflow: Tests/Static/Invoke-BatchWorkflowChecks.ps1, Tests/Static/Fixtures/BatchWorkflowFileLockChecks.ps1
+  batch_browser_overview: Private/BatchBrowserOverview.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/app.js, Ui/operation-queue.js, Tests/Static/Fixtures/WorkflowInventoryCacheChecks.ps1, Tests/Static/Fixtures/OperationOrderingUiChecks.cjs
+  batch_guided_draft: Private/BatchBrowserOverview.ps1, Public/BatchConsole.ps1, Public/BatchWorkflow.ps1, Public/Submit-SqlServerLabBatch.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/index.html, Ui/operation-queue.js, Tests/Static/Invoke-BatchWorkflowChecks.ps1, Tests/Static/Fixtures/WorkflowJobStatusChecks.ps1, Tests/Static/Fixtures/OperationOrderingUiChecks.cjs, Documentation/Quality/CLI_GUI_FUNCTION_COVERAGE.md
+  ssms_browser_registration: Private/ConnectionCenterBrowserExport.ps1, Public/Sync-SqlServerLabConnectionCenter.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/ssms-registration-export.js
+  cms_registration_bound_sync: Private/CmsBoundSync.ps1, Public/Sync-SqlServerLabConnectionCenter.ps1, Ui/cms-sync.js, Tests/Static/Fixtures/CmsBoundSyncChecks.ps1
   validation_runtime_matrix: Tests/Integration/Invoke-SmokeMatrix.ps1
   cli_acceptance_matrix: Documentation/Quality/CLI_ACCEPTANCE_MATRIX.md
   public_command_console: Private/PublicCommandConsole.ps1
@@ -1623,6 +1681,7 @@ internal_components:
     container_runtime_scope: Private/ContainerRuntimeScope.ps1
     maintenance_core: Private/Maintenance.ps1
     maintenance_guidance: Private/MaintenanceGuidance.ps1
+    runtime_maintenance_preview: Private/Maintenance.ps1, Public/BatchConsole.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/runtime-maintenance-preview.js
     maintenance_guidance_checks: Tests/Static/Invoke-MaintenanceGuidanceChecks.ps1
     maintenance_commands: Public/Maintenance.ps1
     maintenance_schema: Schemas/lab-maintenance-plan.schema.json
@@ -1730,8 +1789,9 @@ providers:
     image_artifact_inventory: "Public/Get-SqlServerLabHyperVImageArtifact.ps1 und Get-SqlServerLabWorkflow.ps1; pfadfreie read-only Registry-, Workflow-, Evaluierungs-, manueller Refresh- und Referenzsicht, optionale Parent-Hash-Pruefung ohne Refresh- oder Loeschautoritaet"
     evaluation_watch: "Public/Get-SqlServerLabEvaluationWatch.ps1, Private/SqlGuestEvaluationEvidence.ps1 und Public/Invoke-SqlServerLabEvaluationWatchTrigger.ps1; read-only Windows-/SQL-Imagebewertung und persistierte Windows-Instanzfrist mit optionaler lokaler Ereignis-Deduplizierung sowie explizit begrenztem foreground-Zeittrigger ohne Windows-Aufgabe, Lizenz-, Image-, Run-, Runtime- oder Netzwerkmutation; SQL-Gastfristen werden ausschließlich aus einem schema- und bindungsvalidierten, frischen runlokalen Receipt projektiert. Separater SQL-2025-Hyper-V-Capture schreibt ausschließlich NO_DEADLINE-Evidence; Der native Developer-Lauf 35563036235 bestand mit Receiptkette, unverändertem State/Parent und vollständigem Cleanup; positive Deadline-Abnahme bleibt offen."
     validation_evaluation_watch: Tests/Static/Invoke-EvaluationWatchChecks.ps1
+    evaluation_watch_guided_trigger: "Private/EvaluationWatchView.ps1 und Ui/evaluation-watch-trigger.js; Intervall, Prüfanzahl und optionale lokale Ereignisse; Browser nutzt den vorhandenen öffentlichen Kommandoauftrag nach Bestätigung."
     evaluation_refresh_plan: "Public/Get-SqlServerLabEvaluationRefreshPlan.ps1 und Private/EvaluationRefreshPlan.ps1; reine drei-Modi-Entscheidung für eine moderne registrierte Hyper-V-SQL-Instanz unter explicit DataRoot. DiagnosticBundleReader und SqlGuestEvaluationEvidence binden gespeicherte Evidence; gemeinsame Watch-Fristklassifikation ist keine Live-Lizenzprüfung. Immer BLOCKED/Actions0/Mutationfalse, keine Inventory-/Target-/Transferauthority. FULL_INSTANCE_EVALUATION_REFRESH_BACKLOG bleibt kanonisch. Tests/Static/Invoke-EvaluationRefreshPlanChecks.ps1 prüft die tatsächliche Komposition synthetisch."
-    evaluation_refresh_plan_cli: "Private/EvaluationRefreshPlanConsole.ps1; geführte RAM-Vorschau unter Alle öffentlichen Befehle, expliziter registrierter Root/64 Run-Verzeichnisse, D-Snapshotautorität und öffentlicher Plan; Cancel zeroDispatch. Tests/Static/Invoke-EvaluationRefreshPlanConsoleChecks.ps1 prüft actualCLI/Core/Reader ohne Runtime."
+    evaluation_refresh_plan_cli: "Private/EvaluationRefreshPlanConsole.ps1; geführte Vorschau unter Wartung, Aufräumen und Recovery oder Alle öffentlichen Befehle; expliziter registrierter Root/64 Run-Verzeichnisse, D-Snapshotautorität und öffentlicher Plan. Tests/Static/Invoke-EvaluationRefreshPlanConsoleChecks.ps1 prüft Menüdispatch und Core ohne Runtime."
     evaluation_refresh_plan_browser: "Private/EvaluationRefreshPlanHttp.ps1, Ui/evaluation-refresh-plan.js und dedicated POST /api/evaluation-refresh-plan; geführte RAM-Vorschau im Wartungsbereich. CLI-Metadatenreader/64 Run-Verzeichnisse und D-Snapshot/PublicPlan bleiben Autorität; feste Read/Preview-Shapes, Auswahlrevalidierung, getrennte Windows-/SQL-Evidence, BLOCKED/Actions0. Tests/Static/Invoke-EvaluationRefreshPlanHttpChecks.ps1 prüft tatsächlichen HTTP/Core/Route- und JS-Dialogpfad ohne Runtime."
     navigation_areas: "Public/Invoke-SqlServerLab.ps1; Public/BatchConsole.ps1; Private/ConsoleHelp.ps1; Ui/index.html; Ui/app.js; Ui/app.css. Neun fachliche Bereiche mit vorhandenen Handlern, getrennten Experten-/Meldungseinstiegen und expliziten offenen Fachdialogen. Tests/Static/Fixtures/NavigationAreaChecks.ps1 und WorkflowSqlTargetChecks.cjs prüfen echte Navigation, Dispatch, Zurück, Abbruch und Refresh."
     evaluation_watch_guided_view: "Private/EvaluationWatchView.ps1; read-only Fachansicht im Wartungsmenü und über den GET-Endpunkt /api/evaluation-watch. Beide Oberflächen zeigen dieselbe Projektion ohne Ereignisregistrierung, Runtimeprobe oder Gastzugriff; Tests/Static/Fixtures/EvaluationWatchViewChecks.ps1 und WorkflowSqlTargetChecks.cjs prüfen importierte Handler, Abbruch und Ergebniszustände."
@@ -2572,6 +2632,7 @@ validation:
   relational_core_comparison:
     source: Private/RelationalCoreComparison.ps1
     public_command: Public/Test-SqlServerLabRelationalCoreComparison.ps1
+    guided_surfaces: Private/RelationalCoreComparisonConsole.ps1, Ui/relational-core-comparison.js
     schema: Schemas/relational-core-comparison.schema.json
     validation: Tests/Static/Invoke-RelationalCoreComparisonChecks.ps1
     contract: "RELATIONAL_CORE/1.0, read-only, live managed container and RuntimeScope binding, no secrets or raw values, transfer executor BLOCKED"

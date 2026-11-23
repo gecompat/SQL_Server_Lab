@@ -19,10 +19,12 @@ try {
         $script:checks=0;$script:stops=0
         function Assert-Session($Ok,$Name){if(-not $Ok){throw "ASSERT: $Name"};$script:checks++}
         function Reject([scriptblock]$Body,[string]$Code){try{& $Body|Out-Null;return $false}catch{return $_.Exception.Message -like ('*'+$Code+'*')}}
-        function Get-LabDataRootDefault {$Root}
+        # The real HTTP dispatcher reuses this module after the block returns.
+        $script:fixtureDataRoot=$Root
         $script:currentStateRoot=$Root
-        function Get-LabStateRoot {$script:currentStateRoot}
-        function Get-LabTestEnvironmentExportDirectory {param($OutputDirectory)$Root}
+        function script:Get-LabDataRootDefault {$script:fixtureDataRoot}
+        function script:Get-LabStateRoot {$script:currentStateRoot}
+        function script:Get-LabTestEnvironmentExportDirectory {param($OutputDirectory)$script:fixtureDataRoot}
         function Stop-LabLlamaCppOwnedRuntime {param($OperationId)$script:stops++;$script:LlamaCppOwnedSessions.Remove($OperationId);[pscustomobject]@{Status='CLEANUP_SUCCEEDED';OperationId=$OperationId}}
         function Start-LockProbe([string]$Mode) {
             $start=[Diagnostics.ProcessStartInfo]::new((Get-Command pwsh -CommandType Application | Select-Object -First 1).Source)
@@ -103,7 +105,14 @@ try {
         $probe=Start-LockProbe Stop
         try {
             $watch=[Diagnostics.Stopwatch]::StartNew()
-            while(-not(Test-Path (Join-Path $Root 'stop-ready'))){if($probe.HasExited -or $watch.Elapsed.TotalSeconds -gt 20){throw 'LOCK_STOP_READY_TIMEOUT'};Start-Sleep -Milliseconds 20}
+            $readyPath = Join-Path $Root 'stop-ready'
+            # This measures PowerShell/module startup. The publication-lock
+            # assertion below still starts only after the child reports ready.
+            while (-not [IO.File]::Exists($readyPath)) {
+                if ($probe.HasExited) { throw "LOCK_STOP_PROBE_EXIT_BEFORE_READY: $($probe.ExitCode)" }
+                if ($watch.Elapsed.TotalSeconds -ge 60) { throw 'LOCK_STOP_READY_TIMEOUT' }
+                Start-Sleep -Milliseconds 20
+            }
             $publicationLock=Enter-LabAiSharedGatewayLifecycleLock -StateRoot $Root
             try {[IO.File]::WriteAllText((Join-Path $Root 'stop-go'),'GO');Complete-LockProbe $probe 'STOP_LOCKED';$probe=$null} finally {Exit-LabAiSharedGatewayLifecycleLock $publicationLock}
         } finally {if($probe){if(-not $probe.HasExited){$probe.Kill();$null=$probe.WaitForExit(5000)};$probe.Dispose()}}
@@ -131,6 +140,17 @@ try {
     $before=& $module {$script:testHeldSession}
     Import-UiSqlServerLabModule -ModulePath (Join-Path $repo 'SqlServerLab.psd1')
     if(-not [object]::ReferenceEquals($module,(Get-Module SqlServerLab)) -or -not [object]::ReferenceEquals($before,(& $module {$script:testHeldSession}))){throw 'UI_IMPORT_LOST_SESSION'}
+    $httpRoots = & $module {
+        $dataRoot = Get-LabDataRootDefault
+        [pscustomobject]@{
+            Data = $dataRoot
+            State = Get-LabStateRoot
+            Export = Get-LabTestEnvironmentExportDirectory -OutputDirectory (Join-Path $dataRoot 'Exports')
+        }
+    }
+    if ($httpRoots.Data -cne $root -or $httpRoots.State -cne $root -or $httpRoots.Export -cne $root) {
+        throw 'HTTP_FIXTURE_ROOT_NOT_ISOLATED'
+    }
     Write-Host 'PASS: real UI import preserves exact caller module and held session'
     function Request($Body,$Method='POST',$Origin='http://127.0.0.1:19439') {
         [pscustomobject]@{HttpMethod=$Method;ContentType='application/json';Headers=@{Origin=$Origin};Url=[uri]'http://127.0.0.1:19439/api/llama-sessions';InputStream=[IO.MemoryStream]::new([Text.Encoding]::UTF8.GetBytes($Body));ContentEncoding=[Text.Encoding]::UTF8}

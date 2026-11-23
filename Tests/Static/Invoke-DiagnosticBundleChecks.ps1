@@ -67,6 +67,36 @@ try {
             if($script:readinessMode -eq 'too-many'){$value.Checks=@(1..25|ForEach-Object{$value.Checks[0]})}
             [pscustomobject]@{Success=$true;Reason='NONE';Value=$value}
         }
+        Reset-DiagnosticFixture
+        function Get-LabDataRootDefault { $script:dataRoot }
+        function Get-LabStateRoot { Join-Path $script:dataRoot 'State' }
+        function Select-LabRun { param($Runs,$Prompt,[switch]$DisableAutomatedTestEnvironments,[switch]$DisableSystemServices) $Runs[0].runId }
+        function Select-LabConsoleDataItem { param($ScreenId,$Title,$Items) $Items[0].Data }
+        function Wait-LabConsoleAcknowledgement {}
+        $before = Get-FixtureSnapshot
+        $console = Invoke-LabMenuAction -ActionName DiagnosticBundle 6>&1 | Out-String
+        Assert-Diagnostic ($console -match 'INITIALIZING' -and $console -match 'nicht live geprüft' -and $script:probeCalls -eq 0 -and
+            $before -ceq (Get-FixtureSnapshot)) 'Geführte Diagnose liest einen gebundenen Befund ohne Liveprobe oder Dateiänderung'
+        $tokens=$null; $parseErrors=$null
+        $ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $Repo 'Tools/Start-SqlServerLabUi.ps1'),[ref]$tokens,[ref]$parseErrors)
+        $route=$ast.Find({param($node) $node -is [Management.Automation.Language.IfStatementAst] -and
+                $node.Clauses[0].Item1.Extent.Text -ceq '$path -ceq ''/api/diagnostic-bundle'''},$true)
+        Assert-Diagnostic (-not $parseErrors.Count -and $null -ne $route) 'Browser-Diagnoseroute ist vorhanden'
+        $routeScript=[scriptblock]::Create('foreach ($once in @(1)) '+$route.Clauses[0].Item2.Extent.Text)
+        $query=[Collections.Specialized.NameValueCollection]::new()
+        $context=[pscustomobject]@{Request=[pscustomobject]@{HttpMethod='GET';HasEntityBody=$false;QueryString=$query}}
+        $responses=[Collections.Generic.List[object]]::new()
+        function Write-UiResponse { param($Context,$Body,$ContentType,$StatusCode=200) $responses.Add(@{Status=$StatusCode;Body=$Body}) }
+        $query.Add('runId',$script:run.RunId)
+        $query.Add('instanceId','primary')
+        $query.Add('provider','docker')
+        & $routeScript
+        $query.Add('provider','podman')
+        & $routeScript
+        $bundle=$responses[0].Body | ConvertFrom-Json
+        Assert-Diagnostic ($responses.Count -eq 2 -and $responses[0].Status -eq 200 -and $responses[1].Status -eq 400 -and
+            $bundle.Status -ceq 'OBSERVED' -and $bundle.Binding.Provider -ceq 'docker' -and $script:probeCalls -eq 0 -and
+            $before -ceq (Get-FixtureSnapshot)) 'Browser liest gebundenen Diagnosebefund und verweigert doppelte Provider ohne Liveprobe'
         foreach($provider in @('docker','podman','hyperv')) {
             Reset-DiagnosticFixture -Provider $provider
             $before=Get-FixtureSnapshot

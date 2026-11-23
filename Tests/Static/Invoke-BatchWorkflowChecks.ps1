@@ -13,11 +13,14 @@ function Assert-Check {
 }
 
 function Wait-TestFile {
-    param([string]$Path, [int]$TimeoutSeconds = 10)
+    param([string]$Path, [int]$TimeoutSeconds = 45, [Diagnostics.Process]$OwnerProcess)
 
     $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
     while ([DateTime]::UtcNow -lt $deadline) {
         if (Test-Path -LiteralPath $Path -PathType Leaf) { return $true }
+        if ($OwnerProcess -and $OwnerProcess.HasExited) {
+            throw "BATCH_WORKFLOW_LOCK_CHILD_EXITED_BEFORE_READY: $($OwnerProcess.ExitCode)"
+        }
         Start-Sleep -Milliseconds 25
     }
     return Test-Path -LiteralPath $Path -PathType Leaf
@@ -26,6 +29,8 @@ function Wait-TestFile {
 try {
     Import-Module $modulePath -Force -ErrorAction Stop
     $module = Get-Module SqlServerLab
+
+    & (Join-Path $PSScriptRoot 'Fixtures/BatchWorkflowFileLockChecks.ps1') -ModulePath $modulePath -Root (Join-Path $testRoot 'file-lock-proof')
 
     $batch = New-SqlServerLabBatch -Name 'Expansion' -StateRoot $testRoot -Items @(
         [pscustomobject]@{ id = 'slot'; kind = 'Test'; count = 3; intent = [pscustomobject]@{ DelayMilliseconds = 150; ResourceClass = 'RuntimeNormal' } }
@@ -45,6 +50,149 @@ try {
     & $module { param($Root) Invoke-SqlServerLabScheduler -UntilIdle -MaxWorkers 1 -StateRoot $Root | Out-Null } $testRoot
     $expandedOperations = @(Get-SqlServerLabOperation -BatchId $batch.batchId -StateRoot $testRoot)
     Assert-Check (@($expandedOperations | Where-Object status -eq 'Completed').Count -eq 3) 'Expandierte Vorgaenge wurden nicht abgeschlossen.'
+
+    $browserDraftRoot = Join-Path $testRoot 'validated-browser-draft'
+    $draftRequest = ConvertFrom-Json @'
+{"command":"SaveGuidedDraft","name":"Mixed draft","priority":"High","items":[
+ {"kind":"SqlEnvironment","name":"sql-browser","count":2,"version":"2025","provider":"podman","secretReference":"SQL_SERVER_LAB_SECRET_BROWSER_DRAFT_TEST"},
+ {"kind":"WindowsEnvironment","name":"win-browser","count":1,"operatingSystem":"Windows Server 2025","variant":"Desktop","cpu":4,"memoryMB":8192}
+]}
+'@
+    $badRequest = $draftRequest | ConvertTo-Json -Depth 6 | ConvertFrom-Json
+    $badRequest.items[0] | Add-Member -NotePropertyName 'WorkflowAction' -NotePropertyValue 'SyntheticForbidden'
+    $rejected = $false
+    try { $null = & $module { param($Request,$Root) Save-LabBrowserBatchDraft -Request $Request -StateRoot $Root } $badRequest $browserDraftRoot }
+    catch { $rejected = $_.Exception.Message -ceq 'BROWSER_BATCH_DRAFT_INVALID' }
+    Assert-Check ($rejected -and -not (Test-Path -LiteralPath $browserDraftRoot)) 'Browserentwurf akzeptierte eine fremde Aktion oder berührte vor der Validierung den Zustand.'
+    $browserDraft = & $module {
+        param($Request,$Root)
+        function Get-LabProviderAvailabilityMap { @{docker=$false;podman=$true;hyperv=$true} }
+        function Find-LabMatchingHyperVArtifact { param($Requirement,$StateRoot) return $null }
+        Save-LabBrowserBatchDraft -Request $Request -StateRoot $Root
+    } $draftRequest $browserDraftRoot
+    $draftQueue = Get-SqlServerLabQueue -StateRoot $browserDraftRoot
+    Assert-Check ($browserDraft.Status -ceq 'Validated' -and $browserDraft.Positions -eq 3 -and $browserDraft.Dependencies -eq 1 -and
+        $draftQueue.length -eq 4 -and @($draftQueue.items | Where-Object startable).Count -eq 0) 'Browserentwurf ist nicht validiert, vollständig oder vor Ausführung geschützt.'
+    $storedDraft = Get-SqlServerLabBatch -BatchId $browserDraft.BatchId -StateRoot $browserDraftRoot
+    Assert-Check ($storedDraft.priority -ceq 'High' -and $storedDraft.items[0].provider -ceq 'podman' -and $storedDraft.items[2].provider -ceq 'hyperv' -and
+        $storedDraft.items[0].effective.SaPasswordEnvironmentVariable -ceq 'SQL_SERVER_LAB_SECRET_BROWSER_DRAFT_TEST') 'Browserentwurf hat falsche Provider, Priorität oder Kennwortreferenz.'
+    $reviewResult = & $module {
+        param($Root,$Id)
+        $stateBefore = $env:SQL_SERVER_LAB_STATE
+        $secretBefore = $env:SQL_SERVER_LAB_SECRET_BROWSER_DRAFT_TEST
+        $probe = [pscustomobject]@{ Decision='Reject'; Starts=0; StateRoot=$null }
+        function Invoke-LabConsoleMenu {
+            param($ScreenId,$Title,$Items)
+            [pscustomobject]@{Status='Selected'; SelectedItem=$Items | Select-Object -First 1}
+        }
+        function Show-LabBatchReviewInteractive {
+            param($Batch)
+            if ($probe.Decision -eq 'Stale') {
+                $changed = Get-SqlServerLabBatch -BatchId $Id -StateRoot $Root
+                $changed.name = 'Edited draft'
+                $null = Write-LabBatchState -Batch $changed -StateRoot $Root
+            }
+            return $probe.Decision -ne 'Reject'
+        }
+        function Start-SqlServerLabOperationHost {
+            param($StateRoot)
+            $probe.Starts++
+            $probe.StateRoot = $StateRoot
+        }
+        function Write-LabError { param($Message) }
+        function Write-LabSuccess { param($Message) }
+        try {
+            $env:SQL_SERVER_LAB_STATE = $Root
+            $env:SQL_SERVER_LAB_SECRET_BROWSER_DRAFT_TEST = 'synthetic-only-never-persisted'
+            $availability = Get-LabQueueMenuAvailability -Queue (Get-SqlServerLabQueue) -Batches @(Get-SqlServerLabBatch)
+            Invoke-LabValidatedBatchSubmitInteractive
+            $afterCancel = (Get-SqlServerLabBatch -BatchId $Id).status
+            $probe.Decision = 'Stale'
+            Invoke-LabValidatedBatchSubmitInteractive
+            $afterEdit = (Get-SqlServerLabBatch -BatchId $Id).status
+            $probe.Decision = 'Accept'
+            Invoke-LabValidatedBatchSubmitInteractive
+            [pscustomobject]@{
+                Eligible=$availability.CanSubmitBatch; AfterCancel=$afterCancel; AfterEdit=$afterEdit
+                Final=(Get-SqlServerLabBatch -BatchId $Id).status; Starts=$probe.Starts; Root=$probe.StateRoot
+            }
+        }
+        finally {
+            $env:SQL_SERVER_LAB_STATE = $stateBefore
+            $env:SQL_SERVER_LAB_SECRET_BROWSER_DRAFT_TEST = $secretBefore
+        }
+    } $browserDraftRoot $browserDraft.BatchId
+    Assert-Check ($reviewResult.Eligible -and $reviewResult.AfterCancel -ceq 'Validated' -and $reviewResult.AfterEdit -ceq 'Validated' -and
+        $reviewResult.Final -ceq 'Queued' -and $reviewResult.Starts -eq 1 -and $reviewResult.Root -ceq $browserDraftRoot) 'Gespeicherter Batch wurde ohne unveränderte Bestätigung eingereiht oder in den falschen Scope übergeben.'
+
+    $browserSubmissionRoot = Join-Path $testRoot 'reviewed-browser-submit'
+    $browserSubmission = & $module {
+        param($Request,$Root,$OtherRoot)
+        function Get-LabProviderAvailabilityMap { @{docker=$false;podman=$true;hyperv=$true} }
+        function Find-LabMatchingHyperVArtifact { param($Requirement,$StateRoot) return $null }
+        $draft = Save-LabBrowserBatchDraft -Request $Request -StateRoot $Root
+        $preview = New-LabBrowserBatchSubmitPreview -BatchId $draft.BatchId -StateRoot $Root
+        $before = Get-SqlServerLabBatch -BatchId $draft.BatchId -StateRoot $Root
+        $wrongRootRejected = $false
+        try { $null = Invoke-LabBrowserBatchSubmitPreview -BatchId $draft.BatchId -PreviewId $preview.PreviewId -StateRoot $OtherRoot }
+        catch { $wrongRootRejected = $_.Exception.Message -ceq 'BATCH_REVIEW_PREVIEW_REQUIRED' }
+        $operation = Get-SqlServerLabOperation -OperationId $before.operationIds[1] -StateRoot $Root
+        $operation.executor.effective.LabName = 'changed-after-preview'
+        $null = Write-LabOperationState -Operation $operation -StateRoot $Root
+        $staleRejected = $false
+        try { $null = Invoke-LabBrowserBatchSubmitPreview -BatchId $draft.BatchId -PreviewId $preview.PreviewId -StateRoot $Root }
+        catch { $staleRejected = $_.Exception.Message -ceq 'BATCH_REVIEW_STALE' }
+        $statusAfterVeto = (Get-SqlServerLabBatch -BatchId $draft.BatchId -StateRoot $Root).status
+
+        $secretBefore = $env:SQL_SERVER_LAB_SECRET_BROWSER_DRAFT_TEST
+        try {
+            $env:SQL_SERVER_LAB_SECRET_BROWSER_DRAFT_TEST = 'synthetic-only-never-persisted'
+            $fresh = New-LabBrowserBatchSubmitPreview -BatchId $draft.BatchId -StateRoot $Root
+            $submitted = Invoke-LabBrowserBatchSubmitPreview -BatchId $draft.BatchId -PreviewId $fresh.PreviewId -StateRoot $Root
+            $replayRejected = $false
+            try { $null = Invoke-LabBrowserBatchSubmitPreview -BatchId $draft.BatchId -PreviewId $fresh.PreviewId -StateRoot $Root }
+            catch { $replayRejected = $_.Exception.Message -ceq 'BATCH_REVIEW_PREVIEW_REQUIRED' }
+            [pscustomobject]@{
+                Initial=$before.status; Preview=$preview; WrongRootRejected=$wrongRootRejected
+                StaleRejected=$staleRejected; AfterVeto=$statusAfterVeto; Receipt=$submitted; ReplayRejected=$replayRejected
+            }
+        }
+        finally { $env:SQL_SERVER_LAB_SECRET_BROWSER_DRAFT_TEST = $secretBefore }
+    } $draftRequest $browserSubmissionRoot $browserDraftRoot
+    Assert-Check ($browserSubmission.Initial -ceq 'Validated' -and $browserSubmission.Preview.Positions -eq 3 -and
+        $browserSubmission.Preview.Podman -eq 2 -and $browserSubmission.Preview.HyperV -eq 1 -and
+        $browserSubmission.Preview.Dependencies -eq 1 -and $browserSubmission.WrongRootRejected -and
+        $browserSubmission.StaleRejected -and $browserSubmission.AfterVeto -ceq 'Validated' -and
+        $browserSubmission.Receipt.Status -ceq 'Queued' -and $browserSubmission.ReplayRejected) 'Der Browser hat den gespeicherten Entwurf nicht genau einmal und an die unveränderte Vorschau gebunden eingereiht.'
+
+    $hostRoot = Join-Path $testRoot 'scheduler state'
+    $hostBatch = New-SqlServerLabBatch -Name 'Isolated scheduler host' -StateRoot $hostRoot -Items @(
+        [pscustomobject]@{ id = 'host-probe'; kind = 'NoOp' }
+    )
+    $hostProcess = & $module { param($Root) Start-SqlServerLabOperationHost -StateRoot $Root -PassThru } $hostRoot
+    Assert-Check ($hostProcess -is [Diagnostics.Process]) 'Isolierter Scheduler hat keinen eigenen Prozess geliefert.'
+    try {
+        $deadline = [DateTime]::UtcNow.AddSeconds(45)
+        do {
+            $hostOperation = Get-SqlServerLabOperation -OperationId $hostBatch.operationIds[0] -StateRoot $hostRoot
+            if ($hostProcess.HasExited -or $hostOperation.status -in @('Completed','Failed')) { break }
+            Start-Sleep -Milliseconds 250
+        } while ([DateTime]::UtcNow -lt $deadline)
+        Assert-Check (-not $hostProcess.HasExited -and $hostOperation.status -eq 'Completed') 'Der Hintergrundscheduler verarbeitet keinen Vorgang aus einem Zustandspfad mit Leerzeichen.'
+    }
+    finally {
+        try {
+            if (-not $hostProcess.HasExited) {
+                [IO.File]::WriteAllText((Join-Path $hostRoot 'scheduler/stop-host.request'), '')
+                if (-not $hostProcess.WaitForExit(12000)) {
+                    $hostProcess.Kill($true)
+                    $null = $hostProcess.WaitForExit(5000)
+                    throw 'Der isolierte Scheduler wurde nicht regulär beendet.'
+                }
+            }
+        }
+        finally { $hostProcess.Dispose() }
+    }
 
     $lockFixtureRoot = Join-Path $testRoot ('workflow-lock-' + [Guid]::NewGuid().ToString('N'))
     $lockReadyPath = Join-Path $lockFixtureRoot 'holder-ready'
@@ -72,7 +220,8 @@ $lock = & $module {
     param($Root, $Ready, $Release)
     Invoke-WithLabWorkflowLock -StateRoot $Root -ScriptBlock {
         New-Item -ItemType File -Path $Ready -Force | Out-Null
-        $deadline = [DateTime]::UtcNow.AddSeconds(10)
+        # The summary worker imports the complete module before trying the lock.
+        $deadline = [DateTime]::UtcNow.AddSeconds(60)
         while (-not (Test-Path -LiteralPath $Release -PathType Leaf)) {
             if ([DateTime]::UtcNow -ge $deadline) {
                 throw 'BATCH_SUMMARY_LOCK_RELEASE_TIMEOUT'
@@ -94,7 +243,7 @@ if (-not $lock) { throw 'BATCH_SUMMARY_LOCK_ACQUISITION_FAILED' }
         }
         if ($IsWindows) { $lockStart.WindowStyle = 'Hidden' }
         $lockProcess = Start-Process @lockStart
-        Assert-Check (Wait-TestFile -Path $lockReadyPath) 'Der Kindprozess hat die Workflow-Sperre nicht erworben.'
+        Assert-Check (Wait-TestFile -Path $lockReadyPath -OwnerProcess $lockProcess) 'Der Kindprozess hat die Workflow-Sperre nicht innerhalb von 45 Sekunden erworben.'
 
         $summaryJob = Start-ThreadJob -ArgumentList $modulePath, $testRoot, $batch.batchId, $summaryEnteredPath, $summaryCompletedPath -ScriptBlock {
             param($ModulePath, $Root, $BatchId, $EnteredPath, $CompletedPath)
@@ -231,12 +380,174 @@ if (-not $lock) { throw 'BATCH_SUMMARY_LOCK_ACQUISITION_FAILED' }
     Assert-Check ((Get-SqlServerLabOperation -OperationId $controlOperations[0].operationId -StateRoot $testRoot).priority -eq 'Low') 'Batch-Prioritaet wurde nicht weitergegeben.'
     Assert-Check ((Get-SqlServerLabOperation -OperationId $controlOperations[1].operationId -StateRoot $testRoot).priority -eq 'High') 'Individuell ueberschriebene Prioritaet wurde unzulaessig ersetzt.'
 
+    $reorderedPeers = & $module {
+        $ordered = @(foreach ($index in 1..64) {
+            [pscustomobject]@{ operationId="peer-$index"; priority='Normal'; status='Queued'; queuePosition=1 }
+        })
+        function Get-SqlServerLabOperation {
+            param($OperationId, $StateRoot)
+            if ($OperationId) { return $ordered | Where-Object operationId -eq $OperationId }
+            return $ordered
+        }
+        function Write-LabOperationState { param($Operation, $StateRoot) return $Operation }
+        function Add-LabOperationEvent { param($Operation, $Type, $Message, $StateRoot) }
+        $null = Move-SqlServerLabOperation -OperationId 'peer-1' -Direction Down
+        ($ordered | Sort-Object queuePosition).operationId
+    }
+    $expectedPeers = @('peer-2', 'peer-1') + @(3..64 | ForEach-Object {"peer-$_"})
+    Assert-Check (($reorderedPeers -join ',') -ceq ($expectedPeers -join ',')) 'Moving one operation changed the relative order of tied operations across batches.'
+
+    $stopRoot = Join-Path $testRoot 'stop-completion-boundary'
+    $stopBatch = New-SqlServerLabBatch -Name 'Synthetic stop boundary' -StateRoot $stopRoot -Items @(
+        [pscustomobject]@{ id='finishing'; kind='Test'; intent=[pscustomobject]@{} }
+        [pscustomobject]@{ id='waiting'; kind='Test'; intent=[pscustomobject]@{} }
+    )
+    $stopResult = & $module {
+        param($BatchId, $Root)
+        $readOperation = ${function:Get-SqlServerLabOperation}
+        $snapshot = @(& $readOperation -BatchId $BatchId -StateRoot $Root)
+        $finishing = & $readOperation -OperationId $snapshot[0].operationId -StateRoot $Root
+        $finishing.status = 'Completed'
+        Write-LabOperationState -Operation $finishing -StateRoot $Root | Out-Null
+        $completedPath = Get-LabOperationStatePath -OperationId $finishing.operationId -StateRoot $Root
+        $completedHash = (Get-FileHash -LiteralPath $completedPath).Hash
+
+        function Get-SqlServerLabOperation {
+            param($BatchId, $OperationId, $StateRoot)
+            if ($BatchId -and -not $OperationId) { return $snapshot }
+            & $readOperation -OperationId $OperationId -BatchId $BatchId -StateRoot $StateRoot
+        }
+
+        Stop-SqlServerLabBatch -BatchId $BatchId -StateRoot $Root -Cleanup -Confirm:$false | Out-Null
+        $waitingStatus = (& $readOperation -OperationId $snapshot[1].operationId -StateRoot $Root).status
+        $completedPreserved = (Get-FileHash -LiteralPath $completedPath).Hash -ceq $completedHash
+        Stop-SqlServerLabBatch -BatchId $BatchId -StateRoot $Root -Cleanup -IncludeCompleted -Confirm:$false | Out-Null
+        [pscustomobject]@{
+            CompletedPreserved = $completedPreserved
+            WaitingStatus = $waitingStatus
+            ExplicitCleanupStatus = (& $readOperation -OperationId $finishing.operationId -StateRoot $Root).status
+        }
+    } $stopBatch.batchId $stopRoot
+    Assert-Check $stopResult.CompletedPreserved 'Default batch cleanup modified an operation completed after the candidate snapshot.'
+    Assert-Check ($stopResult.WaitingStatus -ceq 'CleanupQueued') 'Default batch cleanup failed to queue the unfinished operation.'
+    Assert-Check ($stopResult.ExplicitCleanupStatus -ceq 'CleanupQueued') 'Explicit include-completed cleanup lost its existing behavior.'
+
+    foreach ($scenario in @(
+        @{ Name='cancel-only'; Cleanup=$false; StepFails=$false; Expected='Cancelled' }
+        @{ Name='queue-cleanup'; Cleanup=$true; StepFails=$false; Expected='CleanupQueued' }
+        @{ Name='cleanup-after-step-failure'; Cleanup=$true; StepFails=$true; Expected='CleanupQueued' }
+    )) {
+        $workerRoot = Join-Path $stopRoot $scenario.Name
+        $workerBatch = New-SqlServerLabBatch -Name $scenario.Name -StateRoot $workerRoot -Items @(
+            [pscustomobject]@{ id='step-boundary'; kind='Test'; intent=[pscustomobject]@{RequireUserAction=$true} }
+        )
+        $workerProof = & $module {
+            param($Id, $Root, $Case)
+            $executed = [Collections.Generic.List[string]]::new()
+            function Invoke-LabOperationStepAction {
+                param($Operation, $Step, $StateRoot)
+                $executed.Add($Step.id)
+                Stop-SqlServerLabOperation -OperationId $Operation.operationId -StateRoot $StateRoot -Cleanup:$Case.Cleanup -Confirm:$false | Out-Null
+                if ($Case.StepFails) { throw 'SYNTHETIC_STEP_FAILURE' }
+                return [pscustomobject]@{ state='Completed' }
+            }
+            function Invoke-LabOperationCleanup { throw 'SYNTHETIC_CLEANUP_FAILURE' }
+
+            $null = Invoke-LabOperationExecution -OperationId $Id -StateRoot $Root
+            $pending = Get-SqlServerLabOperation -OperationId $Id -StateRoot $Root
+            $cleanupFailure = $null
+            if ($Case.StepFails -and $pending.status -ceq 'CleanupQueued') {
+                $cleanupFailure = Invoke-LabOperationExecution -OperationId $Id -StateRoot $Root
+            }
+            [pscustomobject]@{
+                Pending = $pending
+                Steps = $executed.ToArray()
+                CleanupFailure = $cleanupFailure
+            }
+        } $workerBatch.operationIds[0] $workerRoot $scenario
+
+        Assert-Check ($workerProof.Pending.status -ceq $scenario.Expected -and $workerProof.Pending.cancelRequested -and
+            $workerProof.Pending.cleanupRequested -eq $scenario.Cleanup -and $null -eq $workerProof.Pending.worker) 'Worker lost a confirmed stop request at a step boundary.'
+        Assert-Check ($workerProof.Steps.Count -eq 1 -and $workerProof.Steps[0] -ceq 'execute') 'Worker started another step after a confirmed stop.'
+        Assert-Check ('CancellationRequested' -cin $workerProof.Pending.events.type -and
+            $workerProof.Pending.events[-1].type -ceq 'CancellationBoundaryReached') 'Worker publication lost the stop events.'
+        if ($scenario.StepFails) {
+            Assert-Check ($workerProof.Pending.error.message -ceq 'SYNTHETIC_STEP_FAILURE' -and
+                $workerProof.CleanupFailure.status -ceq 'Failed' -and
+                $workerProof.CleanupFailure.error.message -ceq 'SYNTHETIC_CLEANUP_FAILURE') 'Failed step or cleanup lost its failure evidence or was silently retried.'
+        }
+    }
+
+    $browserStop = & $module {
+        param($Root)
+        $batch = New-SqlServerLabBatch -Name 'Synthetic browser batch stop' -StateRoot $Root -Items @(
+            [pscustomobject]@{ id='done'; kind='Test'; intent=[pscustomobject]@{} }
+            [pscustomobject]@{ id='pending'; kind='Test'; intent=[pscustomobject]@{} }
+        )
+        $neighbor = New-SqlServerLabBatch -Name 'Unselected synthetic batch' -StateRoot $Root -Items @(
+            [pscustomobject]@{ id='neighbor'; kind='Test'; intent=[pscustomobject]@{} }
+        )
+        $done = Get-SqlServerLabOperation -OperationId $batch.operationIds[0] -StateRoot $Root
+        $done.status = 'Completed'
+        Write-LabOperationState -Operation $done -StateRoot $Root | Out-Null
+        $null = Update-LabBatchSummary -BatchId $batch.batchId -StateRoot $Root
+        $donePath = Get-LabOperationStatePath -OperationId $done.operationId -StateRoot $Root
+        $doneHash = (Get-FileHash -LiteralPath $donePath).Hash
+        $pendingPath = Get-LabOperationStatePath -OperationId $batch.operationIds[1] -StateRoot $Root
+        $pendingHash = (Get-FileHash -LiteralPath $pendingPath).Hash
+        $neighborPath = Get-LabOperationStatePath -OperationId $neighbor.operationIds[0] -StateRoot $Root
+        $neighborHash = (Get-FileHash -LiteralPath $neighborPath).Hash
+
+        $preview = New-LabBrowserBatchStopPreview -BatchId $batch.batchId -StateRoot $Root
+        $before = (Get-FileHash -LiteralPath $pendingPath).Hash -ceq $pendingHash
+        $wrongRoot = $false
+        try {
+            $null = Invoke-LabBrowserBatchStopPreview -BatchId $batch.batchId -PreviewId $preview.PreviewId -StateRoot (Join-Path $Root 'wrong-root')
+        } catch { $wrongRoot = $_.Exception.Message -ceq 'BROWSER_BATCH_STOP_PREVIEW_REQUIRED' }
+        $script:LabBrowserBatchStopPreview.Expires = [datetime]::UtcNow.AddSeconds(-1)
+        $expired = $false
+        try {
+            $null = Invoke-LabBrowserBatchStopPreview -BatchId $batch.batchId -PreviewId $preview.PreviewId -StateRoot $Root
+        } catch { $expired = $_.Exception.Message -ceq 'BROWSER_BATCH_STOP_PREVIEW_REQUIRED' }
+        $preview = New-LabBrowserBatchStopPreview -BatchId $batch.batchId -StateRoot $Root
+        $null = Suspend-SqlServerLabOperation -OperationId $batch.operationIds[1] -StateRoot $Root
+        $stale = $false
+        try {
+            $null = Invoke-LabBrowserBatchStopPreview -BatchId $batch.batchId -PreviewId $preview.PreviewId -StateRoot $Root
+        } catch { $stale = $_.Exception.Message -ceq 'BROWSER_BATCH_STOP_PREVIEW_STALE' }
+        $paused = (Get-SqlServerLabOperation -OperationId $batch.operationIds[1] -StateRoot $Root).status -ceq 'Paused'
+
+        $preview = New-LabBrowserBatchStopPreview -BatchId $batch.batchId -StateRoot $Root
+        $result = Invoke-LabBrowserBatchStopPreview -BatchId $batch.batchId -PreviewId $preview.PreviewId -StateRoot $Root
+        $replayed = $false
+        try {
+            $null = Invoke-LabBrowserBatchStopPreview -BatchId $batch.batchId -PreviewId $preview.PreviewId -StateRoot $Root
+        } catch { $replayed = $_.Exception.Message -ceq 'BROWSER_BATCH_STOP_PREVIEW_REQUIRED' }
+        [pscustomobject]@{
+            PreviewReadOnly = $before
+            OneTarget = $preview.Pending -eq 1 -and $preview.Running -eq 0
+            WrongRootRejected = $wrongRoot
+            ExpiredRejected = $expired
+            StaleRejectedWithoutStop = $stale -and $paused
+            OneRequested = $result.Requested -eq 1
+            ExactQueued = (Get-SqlServerLabOperation -OperationId $batch.operationIds[1] -StateRoot $Root).status -ceq 'CleanupQueued'
+            ReplayRejected = $replayed
+            CompletedAndNeighborPreserved = (Get-FileHash -LiteralPath $donePath).Hash -ceq $doneHash -and
+                (Get-FileHash -LiteralPath $neighborPath).Hash -ceq $neighborHash
+        }
+    } (Join-Path $testRoot 'browser-batch-stop')
+    foreach ($check in $browserStop.PSObject.Properties) {
+        Assert-Check ($check.Value -eq $true) "Browser batch stop: $($check.Name)"
+    }
+
     $abandoned = Get-SqlServerLabOperation -OperationId $controlOperations[0].operationId -StateRoot $testRoot
     $abandoned.status = 'Running'
     $abandoned.worker = [pscustomobject]@{ host = [Environment]::MachineName; processId = 2147483000; heartbeatAt = [DateTime]::UtcNow.AddMinutes(-1).ToString('o') }
     & $module { param($Operation, $Root) Write-LabOperationState -Operation $Operation -StateRoot $Root | Out-Null } $abandoned $testRoot
     & $module { param($Root) Invoke-SqlServerLabScheduler -UntilIdle -StateRoot $Root | Out-Null } $testRoot
-    Assert-Check ((Get-SqlServerLabOperation -OperationId $abandoned.operationId -StateRoot $testRoot).status -eq 'Completed') 'Verlassener Worker wurde nicht am persistenten Schritt fortgesetzt.'
+    $recovered = Get-SqlServerLabOperation -OperationId $abandoned.operationId -StateRoot $testRoot
+    $details = 'Status={0}; Code={1}; Type={2}; Step={3}' -f $recovered.status, $recovered.error.code, $recovered.error.type, $recovered.error.stepId
+    Assert-Check ($recovered.status -eq 'Completed') ("Verlassener Worker wurde nicht am persistenten Schritt fortgesetzt. " + $details)
 
     $operationContext = & $module {
         Invoke-WithLabWorkflowOperationContext -OperationId 'op-context-check' -ScriptBlock {

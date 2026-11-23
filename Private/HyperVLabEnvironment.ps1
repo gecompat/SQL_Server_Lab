@@ -10,7 +10,7 @@
 
 function Get-HyperVLabWorkflowRun {
     [CmdletBinding()]
-    param([Parameter(Mandatory)][string]$RunId, [string]$StateRoot, [guid]$ExpectedVmId)
+    param([Parameter(Mandatory)][string]$RunId, [string]$StateRoot, [guid]$ExpectedVmId, [switch]$NoWrite)
 
     $strictVmBinding = $PSBoundParameters.ContainsKey('ExpectedVmId')
     if ($strictVmBinding -and $ExpectedVmId -eq [guid]::Empty) { throw 'HYPERV_LAB_EXPECTED_VM_ID_REQUIRED' }
@@ -65,10 +65,10 @@ function Get-HyperVLabWorkflowRun {
         $instance.vmName = [string]$matchingVm[0].VMName
     }
     elseif ($matchingVm.Count -eq 1 -and [string]$matchingVm[0].VMName -ne [string]$instance.vmName) {
-        Assert-LabWindowsPoolMutationAllowed -RunId $RunId -StateRoot $StateRoot
+        if (-not $NoWrite) { Assert-LabWindowsPoolMutationAllowed -RunId $RunId -StateRoot $StateRoot }
         $instance | Add-Member -NotePropertyName vmName -NotePropertyValue ([string]$matchingVm[0].VMName) -Force
         $instance | Add-Member -NotePropertyName vmId -NotePropertyValue ([string]$matchingVm[0].VMId) -Force
-        Write-LabArtifactJsonAtomic -Path $connectionPath -InputObject $connection
+        if (-not $NoWrite) { Write-LabArtifactJsonAtomic -Path $connectionPath -InputObject $connection }
     }
     return [PSCustomObject]@{ Run = $run; RunDirectory = $runDirectory; Connection = $connection; Instance = $instance; StateRoot = $StateRoot }
 }

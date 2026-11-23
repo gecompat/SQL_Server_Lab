@@ -11,6 +11,7 @@ New-Item -ItemType Directory -Path (Join-Path $testRoot 'runs/33333333-3333-3333
 Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue
 $module=Import-Module (Join-Path $repoRoot 'SqlServerLab.psd1') -Force -PassThru
 try {
+    & (Join-Path $PSScriptRoot 'Fixtures/PortableLabImportConsoleChecks.ps1') -Module $module -Repository $repoRoot -TestRoot $testRoot
     $result=& $module {
         param($StateRoot)
         $package=[PSCustomObject][ordered]@{

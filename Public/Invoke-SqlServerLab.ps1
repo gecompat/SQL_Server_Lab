@@ -20,7 +20,7 @@
 function Invoke-SqlServerLab {
     [CmdletBinding()]
     param(
-        [ValidateSet('New', 'BatchPlan', 'Queue', 'Commands', 'AutomatedTestEnvironment', 'AutomatedTestEnvironmentLifecycle', 'ClearAutomatedTestEnvironment', 'Manifest', 'Status', 'SyncRuntime', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'CleanupAudit', 'RetainedStoreRemoval', 'RunArtifactRemoval', 'Script', 'Database', 'DatabaseBackup', 'DatabaseRestore', 'DatabasePackageExport', 'DatabasePackageAttach', 'DatabasePackageInventory', 'DatabaseMigrationDependency', 'Image', 'WindowsSlotPool', 'ReservePolicy', 'Setup', 'MediaRoot', 'MediaSourceOverride', 'RuntimeInstaller', 'OperatingSystemSources', 'CuResource', 'CuStatus', 'ResourceWatch', 'DataRoot', 'TestDataRoot', 'Rename', 'UpdateContainer', 'Resources', 'Manage', 'EnvironmentGroups', 'Install7Zip', 'Catalog', 'ConnectionCenter', 'Cms')]
+        [ValidateSet('New', 'BatchPlan', 'Queue', 'Commands', 'AutomatedTestEnvironment', 'AutomatedTestEnvironmentLifecycle', 'ClearAutomatedTestEnvironment', 'RepairAutomatedTestEnvironment', 'Manifest', 'Status', 'SyncRuntime', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'CleanupAudit', 'RetainedStoreRemoval', 'RunArtifactRemoval', 'EvaluationRefreshPlan', 'SqlGuestEvaluationEvidence', 'SsisDiagnostics', 'HostServiceStart', 'ContainerAutoStart', 'ContainerAutoStartRecovery', 'HyperVAutoStart', 'HyperVAutoStartRecovery', 'SqlFeature', 'Script', 'Database', 'DatabaseBackup', 'DatabaseRestore', 'DatabasePackageExport', 'DatabasePackageAttach', 'DatabasePackageInventory', 'DatabaseMigrationDependency', 'Image', 'WindowsSlotPool', 'ReservePolicy', 'Setup', 'MediaRoot', 'MediaSourceOverride', 'RuntimeInstaller', 'OperatingSystemSources', 'CuResource', 'CuStatus', 'ResourceWatch', 'DataRoot', 'TestDataRoot', 'Rename', 'UpdateContainer', 'Resources', 'Manage', 'EnvironmentGroups', 'Install7Zip', 'Catalog', 'ConnectionCenter', 'Cms')]
         [string]$Action,
 
         [ValidateSet('Auto', 'Fallback')]
@@ -42,6 +42,15 @@ function Invoke-SqlServerLab {
             if ($Action -eq 'BatchPlan') { Invoke-LabBatchComposerInteractive; return }
             if ($Action -eq 'Queue') { Invoke-LabQueueInteractive; return }
             if ($Action -eq 'Commands') { Manage-LabPublicCommandsInteractive; return }
+            if ($Action -eq 'ContainerAutoStart') { Invoke-LabContainerAutoStartInteractive; return }
+            if ($Action -eq 'ContainerAutoStartRecovery') { Invoke-LabContainerAutoStartRecoveryInteractive; return }
+            if ($Action -eq 'HyperVAutoStart') { Invoke-LabHyperVAutoStartInteractive; return }
+            if ($Action -eq 'HyperVAutoStartRecovery') { Invoke-LabHyperVAutoStartRecoveryInteractive; return }
+            if ($Action -eq 'SqlFeature') { Invoke-LabSqlFeatureInteractive; return }
+            if ($Action -eq 'SsisDiagnostics') { Invoke-LabSsisDiagnosticsInteractive; return }
+            if ($Action -eq 'SqlGuestEvaluationEvidence') { Invoke-LabSqlGuestEvaluationCaptureInteractive; return }
+            if ($Action -eq 'EvaluationRefreshPlan') { Invoke-LabEvaluationRefreshPlanInteractive; return }
+            if ($Action -eq 'HostServiceStart') { Invoke-LabLlamaCppStartInteractive; return }
             if ($Action -eq 'EnvironmentGroups') { Invoke-LabEnvironmentGroupsInteractive; return }
             $null = Invoke-LabActionWithResult -ActionName $Action
         }
@@ -152,6 +161,49 @@ function Invoke-LabMenuAction {
     if ($ActionName -eq 'queue') { Invoke-LabQueueInteractive; return }
     if ($ActionName -eq 'ContainerPortPreview') { Invoke-LabContainerPortPreviewInteractive; return }
     if ($ActionName -eq 'ContainerAutoStartPreview') { Invoke-LabContainerAutoStartPreviewInteractive; return }
+    if ($ActionName -eq 'ContainerAutoStart') { Invoke-LabContainerAutoStartInteractive; return }
+    if ($ActionName -eq 'ContainerAutoStartRecovery') { Invoke-LabContainerAutoStartRecoveryInteractive; return }
+    if ($ActionName -eq 'SqlFeature') { Invoke-LabSqlFeatureInteractive; return }
+    if ($ActionName -eq 'SsisDiagnostics') { Invoke-LabSsisDiagnosticsInteractive; return }
+    if ($ActionName -eq 'SqlGuestEvaluationEvidence') { Invoke-LabSqlGuestEvaluationCaptureInteractive; return }
+    if ($ActionName -eq 'RelationalCompare') { Invoke-LabRelationalComparisonInteractive; return }
+    if ($ActionName -eq 'PortableImportPlan') { Show-LabPortableImportPlanInteractive; return }
+    if ($ActionName -eq 'ContainerNetworkPlan') { Show-LabContainerNetworkMigrationPlanInteractive; return }
+    if ($ActionName -eq 'AutomationApiPlan') { Show-LabAutomationApiPlanInteractive; return }
+    if ($ActionName -eq 'HyperVRecoveryPointPlan') { Show-LabHyperVRecoveryPointPlanInteractive; return }
+    if ($ActionName -eq 'HyperVStoragePreview') {
+        try {
+            $preview = Get-SqlServerLabHyperVResourcePreview -ErrorAction Stop
+            $null = Write-LabHyperVResourceLocationPreview -Preview $preview
+        }
+        catch {
+            Write-LabWarning 'Hyper-V-Zielpfade sind nicht lesbar. Prüfe die Lab_Data-Registrierung unter Grundkonfiguration.'
+        }
+        Wait-LabConsoleAcknowledgement -Prompt 'Enter oder Escape: Zurück zu Hyper-V'
+        return
+    }
+    if ($ActionName -eq 'DiagnosticBundle') { Show-LabDiagnosticBundleInteractive; return }
+    if ($ActionName -eq 'WorkflowOverview') { Show-LabWorkflowOverviewInteractive; return }
+    if ($ActionName -eq 'LicenseProfileStatus') { Show-LabLicenseProfileStatusInteractive; return }
+    if ($ActionName -eq 'SmtpStatusGuidance') { Show-LabSmtpStatusGuidanceInteractive; return }
+    if ($ActionName -eq 'RuntimeMaintenancePreview') { Show-LabRuntimeMaintenancePreviewInteractive; return }
+    if ($ActionName -eq 'FullMaintenancePreview') { Show-LabFullMaintenancePreviewInteractive; return }
+    if ($ActionName -eq 'RunStateUpgradePlan') { Show-LabRunStateUpgradePlanInteractive; return }
+    if ($ActionName -eq 'ManifestCheck') { Show-LabManifestCheckInteractive; return }
+    if ($ActionName -eq 'ContainerToolCheck') { Invoke-LabContainerToolCheckInteractive; return }
+    if ($ActionName -in @('PortableTransferPreflight', 'PortableTransfer')) {
+        Invoke-LabPortableContainerTransferInteractive -Preflight:($ActionName -eq 'PortableTransferPreflight')
+        return
+    }
+    if ($ActionName -eq 'EvaluationRefreshPlan') { Invoke-LabEvaluationRefreshPlanInteractive; return }
+    if ($ActionName -eq 'HostServiceStart') { Invoke-LabLlamaCppStartInteractive; return }
+    if ($ActionName -eq 'LlamaRuntimeInventory') { Show-LabLlamaCppRuntimeInventoryInteractive; return }
+    if ($ActionName -eq 'AiRuntimeCapability') { Show-LabAiRuntimeCapabilityInteractive; return }
+    if ($ActionName -eq 'OvmsUpstream') { Invoke-LabOvmsUpstreamInteractive; return }
+    if ($ActionName -eq 'AiComputeSelection') { Invoke-LabAiComputeSelectionInteractive; return }
+    if ($ActionName -eq 'AiComputeBenchmark') { Invoke-LabAiComputeBenchmarkInteractive; return }
+    if ($ActionName -eq 'AiComputeInventory') { Show-LabAiComputeInventoryInteractive; return }
+    if ($ActionName -eq 'HyperVAutoStartRecovery') { Invoke-LabHyperVAutoStartRecoveryInteractive; return }
     if ($ActionName -eq 'HyperVAutoStart') { Invoke-LabHyperVAutoStartInteractive; return }
     if ($ActionName -eq 'EnvironmentGroups') { Invoke-LabEnvironmentGroupsInteractive; return }
 
@@ -295,7 +347,10 @@ function Show-LabHyperVMenu {
         New-LabConsoleItem -Id 'back' -Label 'Zurueck' -Shortcut '0'
     )
 
-    $items += New-LabConsoleItem -Id 'ReservePolicy' -Label 'Slotreserve: Policy und Kandidaten' -Shortcut 'r'
+    $items += @(
+        New-LabConsoleItem -Id 'HyperVStoragePreview' -Label 'Hyper-V-Zielpfade und freien Speicher anzeigen' -Value 'Registriertes Standardziel · lesend' -Shortcut 's'
+        New-LabConsoleItem -Id 'ReservePolicy' -Label 'Slotreserve: Policy und Kandidaten' -Shortcut 'r'
+    )
     return Show-LabSubMenu -ScreenId 'hyperv-menu' -Title 'Hyper-V: Vorlagen und Slots' -Subtitle 'OS-/SQL-Vorlagen und operative Slotvorbereitung' -Items $items
 }
 
@@ -318,14 +373,21 @@ function Show-LabStorageMenu {
 function Show-LabDatabaseMenu {
     $items = @(
         New-LabConsoleItem -Id 'Manifest' -Label 'Container-Manifest erstellen und pruefen' -Shortcut 'm'
+        New-LabConsoleItem -Id 'ManifestCheck' -Label 'Vorhandenes Lab-Manifest prüfen' -Value 'Schema und Fachregeln lesen'
+        New-LabConsoleItem -Id 'ContainerToolCheck' -Label 'SqlPackage-Version im Container prüfen' -Value 'Nur provisioniertes SqlPackage'
         New-LabConsoleItem -Id 'Database' -Label 'Datenbank anlegen' -Shortcut '8'
         New-LabConsoleItem -Id 'Script' -Label 'SQL-Skript ausfuehren' -Shortcut '9'
         New-LabConsoleItem -Id 'DatabaseBackup' -Label 'Datenbank sichern' -Value 'CHECKSUM · VERIFYONLY · Lab_Data-Bibliothek' -Shortcut 'b'
         New-LabConsoleItem -Id 'DatabaseRestore' -Label 'Datenbank wiederherstellen' -Value 'verifiziertes BackupSet · Konfliktprüfung · Cleanup' -Shortcut 'r'
+        New-LabConsoleItem -Id 'SqlFeature' -Label 'Volltext und FILESTREAM ändern' -Value 'Laufende SQL-Instanz · SQL-Neustart bei Änderung' -Shortcut 'f'
         New-LabConsoleItem -Id 'DatabasePackageExport' -Label 'Datenbankpaket exportieren' -Value 'Docker/Podman · exklusiv offline · verifiziert' -Shortcut 'x'
         New-LabConsoleItem -Id 'DatabasePackageAttach' -Label 'Datenbankpaket anhängen' -Value 'Hyper-V · COPY_THEN_ATTACH · Recovery' -Shortcut 'h'
         New-LabConsoleItem -Id 'DatabasePackageInventory' -Label 'Datenbankpakete anzeigen' -Value 'read-only · stabile Paket-ID · pfadfrei' -Shortcut 'p'
         New-LabConsoleItem -Id 'DatabaseMigrationDependency' -Label 'Migrationsabhängigkeiten prüfen' -Value 'read-only · Counts · keine Exportmutation' -Shortcut 'g'
+        New-LabConsoleItem -Id 'RelationalCompare' -Label 'Zwei Containerdatenbanken vergleichen' -Value 'Docker/Podman · RELATIONAL_CORE/1.0 · read-only' -Shortcut 'v'
+        New-LabConsoleItem -Id 'PortableTransferPreflight' -Label 'Backupmedium am Zielcontainer vorprüfen' -Value 'Temporäres Staging · kein Restore'
+        New-LabConsoleItem -Id 'PortableTransfer' -Label 'SQL-2025-Datenbank in neuen Container übertragen' -Value 'Registriertes Backup · eigener neuer Run'
+        New-LabConsoleItem -Id 'PortableImportPlan' -Label 'Portables Lab-Paket prüfen' -Value 'Lesender Importplan'
         New-LabConsoleItem -Id 'ConnectionCenter' -Label 'Verbindungszentrale und SSMS-Endpunkte' -Shortcut 'c'
         New-LabConsoleItem -Id 'AiArea' -Label 'SQL Server 2025 KI' -Value 'Szenarien · Ollama lokal/Cloud · RAG · read-only Diagnose' -Shortcut 'a'
         New-LabConsoleItem -Id 'Catalog' -Label 'Lab-Katalog prüfen' -Value 'Katalogdatei validieren; kein CMS-Zugang' -Shortcut 'k'
@@ -446,6 +508,7 @@ function Show-LabAiMenu {
         New-LabConsoleItem -Id 'AiGoldenRagEvaluation' -Label 'Golden-RAG ausführen und bewerten' -Value 'versionierter Datensatz · echter SQL-Lauf · blockierende Metriken' -Shortcut '7' `
             -Disabled:(-not $sql2025Target.Available) -DisabledReason ([string]$sql2025Target.Reason)
         New-LabConsoleItem -Id 'AiGuidedDemo' -Label 'Geführte KI-Demos' -Value 'Vector · Retrieval · Golden-RAG · read-only Agent' -Shortcut '8'
+        New-LabConsoleItem -Id 'PersistentFixture' -Label 'Persistente Retrieval-Collections' -Value 'Beispielsammlung und Pflege eigener Collections'
         New-LabConsoleItem -Id 'back' -Label 'Zurueck' -Shortcut '0'
     )
 }
@@ -490,7 +553,8 @@ function Manage-LabLlamaCppModelsInteractive {
     Write-LabStatus -Label 'Ziel' -Value (Join-Path $mediaRoot ('AI/Models/' + [string]$model.FileName))
     if (-not (Read-LabConfirm -Prompt '  Modelldatei herunterladen oder vorhandene Datei prüfen?' -Default $false)) { return }
     try {
-        $result = Save-SqlServerLabLlamaCppModel -Id ([string]$model.Id) -MediaRoot $mediaRoot -Confirm:$false
+        $result = Save-SqlServerLabLlamaCppModel -Id ([string]$model.Id) -MediaRoot $mediaRoot `
+            -ExpectedModelSha256 $model.Sha256 -ExpectedModelRevision $model.Revision -Confirm:$false
         if ([string]$result.Status -ceq 'ALREADY_PRESENT') {
             Write-LabSuccess "Modell ist bereits vollständig geprüft vorhanden: $($result.Path)"
         }
@@ -1511,10 +1575,21 @@ function Invoke-LabAiModelInteractive {
         $result = Invoke-SqlServerLabAiModel -ModelKey 'ollama-gpt-oss-120b-cloud' -InputText $prompt -DataClassification $classification -Lane cloud -AllowCloudEgress -Confirm
     }
     else {
+        $model = Select-LabConsoleDataItem -ScreenId 'ollama-local-generation' -Title 'Lokales Ollama-Modell auswählen' -Items @(
+            foreach ($item in Get-LabAiLocalGenerationCatalog) {
+                New-LabConsoleItem -Id $item.Id -Label $item.Name -Data $item.Id
+            }
+        )
+        if (-not $model) { return }
         $port = Read-Host '  Lokaler Ollama-Port [11434]'
-        if ([string]::IsNullOrWhiteSpace($port)) { $port = 11434 }
-        if ([string]$port -notmatch '^\d+$' -or [int]$port -lt 1024 -or [int]$port -gt 65535) { Write-LabError 'Ungültiger Port.'; return }
-        $result = Invoke-SqlServerLabAiModel -ModelKey 'ollama-gemma3-1b-local' -InputText $prompt -DataClassification synthetic-only -Lane local -LocalPort ([int]$port) -Confirm
+        if ([string]::IsNullOrWhiteSpace($port)) { $port = '11434' }
+        $localPort = 0
+        if ($port -notmatch '^\d+$' -or -not [int]::TryParse($port, [ref]$localPort) -or $localPort -lt 1024 -or $localPort -gt 65535) {
+            Write-LabError 'Ungültiger Port.'
+            return
+        }
+        $timeout = Read-LabIntegerIntentValue -Prompt 'Zeitlimit einschließlich Modellstart (Sekunden)' -Default 180 -Minimum 1 -Maximum 230
+        $result = Invoke-SqlServerLabAiModel -ModelKey $model -InputText $prompt -DataClassification synthetic-only -Lane local -LocalPort $localPort -TimeoutSeconds $timeout -Confirm
     }
     Write-LabStatus -Label 'Modell' -Value "$($result.ModelKey) · $($result.Status)" -Color $(if ($result.Status -eq 'SUCCEEDED') { 'Green' } else { 'Yellow' })
     Write-Host "  $($result.Text)" -ForegroundColor White
@@ -1666,6 +1741,10 @@ function Invoke-LabAction {
         'ReservePolicy' { Show-LabSlotReserveInteractive }
         'MediaSourceOverride' { Show-LabMediaOverrideInteractive }
         'HostServiceLifecycle' { Show-LabLlamaCppSessionStopInteractive }
+        'HostServiceStart' { Invoke-LabLlamaCppStartInteractive }
+        'LlamaRuntimeInventory' { Show-LabLlamaCppRuntimeInventoryInteractive }
+        'AiRuntimeCapability' { Show-LabAiRuntimeCapabilityInteractive }
+        'AiComputeInventory' { Show-LabAiComputeInventoryInteractive }
         'RuntimeInstaller' { Show-LabLlamaInstallerInteractive }
         'Setup' {
             Invoke-LabInitialSetupInteractive
@@ -1693,6 +1772,7 @@ function Invoke-LabAction {
             Invoke-LabCuResourceInteractive
         }
         'ResourceWatch' { Show-LabResourceWatchInteractive }
+        'ResourcePlan' { Show-LabResourcePlanInteractive }
         'CuStatus' {
             Show-LabCuStatusInteractive
         }
@@ -1701,6 +1781,10 @@ function Invoke-LabAction {
         }
         'RetainedStoreRemoval' { Invoke-LabRetainedStoreRemovalInteractive }
         'RunArtifactRemoval' { Invoke-LabRunArtifactRemovalInteractive }
+        'SqlFeature' { Invoke-LabSqlFeatureInteractive }
+        'SsisDiagnostics' { Invoke-LabSsisDiagnosticsInteractive }
+        'SqlGuestEvaluationEvidence' { Invoke-LabSqlGuestEvaluationCaptureInteractive }
+        'EvaluationRefreshPlan' { Invoke-LabEvaluationRefreshPlanInteractive }
         'CleanupAudit' {
             Show-LabMaintenanceGuidanceInteractive
         }
@@ -1744,6 +1828,7 @@ function Invoke-LabAction {
         'AiRetrievalEvaluation' { Invoke-LabAiRetrievalEvaluationInteractive }
         'AiGoldenRagEvaluation' { Invoke-LabAiGoldenRagEvaluationInteractive }
         'AiGuidedDemo' { Invoke-LabAiGuidedDemoInteractive }
+        'PersistentFixture' { Invoke-LabAiPersistentFixtureInteractive }
         'DatabaseBackup' { Invoke-LabDatabaseBackupInteractive }
         'DatabaseRestore' { Invoke-LabDatabaseRestoreInteractive }
         'DatabasePackageExport' { Invoke-LabDatabasePackageExportInteractive }
@@ -1769,12 +1854,16 @@ function Invoke-LabAction {
         'Resources' { Set-LabResourcesInteractive }
         'ContainerPortPreview' { Invoke-LabContainerPortPreviewInteractive }
         'ContainerAutoStartPreview' { Invoke-LabContainerAutoStartPreviewInteractive }
+        'ContainerAutoStart' { Invoke-LabContainerAutoStartInteractive }
+        'ContainerAutoStartRecovery' { Invoke-LabContainerAutoStartRecoveryInteractive }
+        'HyperVAutoStartRecovery' { Invoke-LabHyperVAutoStartRecoveryInteractive }
         'HyperVAutoStart' { Invoke-LabHyperVAutoStartInteractive }
         'Rename' { Rename-LabEnvironmentInteractive }
         'New' { Invoke-LabNewEnvironmentInteractive }
         'AutomatedTestEnvironment' { Invoke-LabAutomatedTestEnvironmentInteractive }
         'AutomatedTestEnvironmentLifecycle' { Invoke-LabTestGroupPowerInteractive }
         'ClearAutomatedTestEnvironment' { Invoke-LabClearAutomatedTestEnvironmentInteractive }
+        'RepairAutomatedTestEnvironment' { Invoke-LabRepairAutomatedTestEnvironmentInteractive }
 
         'Status' {
             Show-LabEnvironmentStatusSelectionInteractive
@@ -2734,6 +2823,35 @@ function Invoke-LabNewEnvironmentInteractive {
     }
 }
 
+function Invoke-LabRepairAutomatedTestEnvironmentInteractive {
+    [CmdletBinding()]
+    param()
+
+    $action = 'RepairAutomatedTestEnvironment'
+    try {
+        $plan = Get-LabTestGroupManagementPlan -Operation Repair
+        foreach ($member in $plan.Members) {
+            $binding = if ($member.Verified) { $member.Power } else { 'Bindung unklar' }
+            Write-LabInfo "$($member.Key) · $($member.Target) · $binding"
+        }
+        if (-not $plan.CanApply) {
+            Write-LabInfo 'Reparatur gesperrt. Prüfe die Registrierung und den Runtime-Zustand in der Testsystem-Matrix.'
+            return New-LabActionResult -Action $action -Status NoChange
+        }
+        Write-LabInfo 'Container können ersetzt und Windows-VMs neu gestartet werden. Die Windows-Aktivierung kann vorübergehend einen externen Netzwerkadapter verwenden.'
+        if (-not (Read-LabConfirm -Prompt 'Angezeigte Testgruppe reparieren?' -Default $false)) {
+            return New-LabActionResult -Action $action -Status Cancelled
+        }
+        $result = Invoke-LabTestGroupManagementPlan -Operation Repair -ExpectedPlanKey $plan.PlanKey
+        Write-LabSuccess "Testgruppe bereit ($($result.Count) Mitglieder)."
+        return New-LabActionResult -Action $action -Status Changed
+    }
+    catch {
+        Write-LabError 'Reparatur unbestätigt. Prüfe den Gruppenstatus vor einer weiteren Aktion.'
+        return New-LabActionResult -Action $action -Status Failed -ErrorCode TEST_GROUP_MANAGEMENT_UNCONFIRMED
+    }
+}
+
 function Invoke-LabClearAutomatedTestEnvironmentInteractive {
     <# .SYNOPSIS Entfernt ausschließlich die vollständige automatisierte Testgruppe. #>
     [CmdletBinding()]
@@ -2863,7 +2981,6 @@ function Invoke-LabAutomatedTestEnvironmentInteractive {
                     continue
                 }
                 Write-LabInfo "Erstelle $($request.Key) über Hyper-V. Nur Windows-OOBE und erste Anmeldung können manuell erforderlich sein."
-                $before = @(Get-LabActiveRuns | ForEach-Object { [string]$_.runId })
                 $intent = [PSCustomObject]@{
                     Contract='SqlServerLab.AutomatedTestIntent/1.0'; TestAutomation=$true
                     TestEnvironmentKey=$request.Key; TestEnvironmentPatch=$request.Patch
@@ -2876,19 +2993,12 @@ function Invoke-LabAutomatedTestEnvironmentInteractive {
                     WindowsActivationRequired=$true
                 }
                 Invoke-LabNewHyperVSqlEnvironmentWorkflowInteractive -Intent $intent
-                $reusedRunId = if ($intent.PSObject.Properties['ReusedWindowsSlotRunId']) { [string]$intent.ReusedWindowsSlotRunId } else { $null }
-                $createdRun = if ($reusedRunId) {
-                    @(Get-LabActiveRuns | Where-Object { [string]$_.runId -eq $reusedRunId } | Select-Object -First 1)[0]
-                }
-                else {
-                    @(Get-LabActiveRuns | Where-Object {
-                        [string]$_.runId -notin $before -and [string]$_.metadata.name -eq [string]$request.Name
-                    } | Sort-Object createdAt -Descending | Select-Object -First 1)[0]
-                }
-                if (-not $createdRun) { throw 'TEST_ENVIRONMENT_HYPERV_RUN_NOT_CREATED' }
-                $null = Rename-LabAutomatedTestEnvironmentRuntime -RunId ([string]$createdRun.runId) `
+                $boundRunId = if ($intent.PSObject.Properties['ReusedWindowsSlotRunId']) { [string]$intent.ReusedWindowsSlotRunId }
+                    elseif ($intent.PSObject.Properties['CreatedWindowsSlotRunId']) { [string]$intent.CreatedWindowsSlotRunId }
+                if (-not $boundRunId) { throw 'TEST_ENVIRONMENT_HYPERV_RUN_NOT_CREATED' }
+                $null = Rename-LabAutomatedTestEnvironmentRuntime -RunId $boundRunId `
                     -InstanceId ([string]$request.InstanceId) -Key ([string]$request.Key)
-                $null = Register-LabTestEnvironmentRun -RunId ([string]$createdRun.runId) -Platform windows `
+                $null = Register-LabTestEnvironmentRun -RunId $boundRunId -Platform windows `
                     -SqlVersion ([string]$request.SqlVersion) -Patch ([string]$request.Patch) -InstanceId ([string]$request.InstanceId) -Name ([string]$request.Key)
             }
             catch { Write-LabError "$($request.Key) konnte nicht vollständig erstellt werden: $($_.Exception.Message)" }
@@ -5362,6 +5472,9 @@ function New-LabHyperVEnvironmentInteractive {
             $lab = New-HyperVLabEnvironment -ArtifactId $artifact.artifactId -LabName $name -InstanceId $instanceId `
                 -MemoryStartupMB ([int]$memory) -ProcessorCount ([int]$cpu) -AutoStart $autoStart `
                 -SwitchName $switch.SwitchName -Isolated:$switch.Isolated -AdditionalDrives $additionalDrives
+            if ($Intent -and $Intent.TestAutomation) {
+                $Intent | Add-Member -NotePropertyName CreatedWindowsSlotRunId -NotePropertyValue ([string]$lab.RunId)
+            }
             Write-LabSuccess "Windows-Slot erstellt: $($lab.VMName) (Run $($lab.RunId))"
             Write-LabInfo 'Windows-Slot wird jetzt automatisch gestartet und VMConnect geöffnet.'
             $null = Start-HyperVLabEnvironment -RunId $lab.RunId
@@ -5674,6 +5787,9 @@ function Manage-LabHyperVEnvironmentInteractive {
         elseif ($persistentStoragePending) { New-LabConsoleItem -Id 'i' -Label 'Daten-VHDX initialisieren' -Shortcut 'i' }
         if ($isSqlLab) {
             New-LabConsoleItem -Id 'c' -Label 'SQL CompleteImage ausführen' -Shortcut 'c' -Value 'MSSQLSERVER vervollständigen'
+            New-LabConsoleItem -Id 'fulltext' -Label 'Volltextsuche ändern' -Shortcut 'f' -Value 'Nachinstallieren oder deaktivieren' `
+                -Disabled:([string]$selectedLab.Run.state -cne 'RUNNING' -or -not $selectedLab.Instance.id) `
+                -DisabledReason 'Die registrierte SQL-Instanz muss laufen und eindeutig zugeordnet sein.'
             New-LabConsoleItem -Id 'h' -Label 'Host-SSMS einrichten' -Shortcut 'h' -Value 'Netzwerk, SQL-TCP und Host-Verbindung'
             New-LabConsoleItem -Id 'q' -Label 'SQL-Instanzen prüfen' -Shortcut 'q'
             New-LabConsoleItem -Id 'w' -Label 'SQL-WMI reparieren' -Shortcut 'w'
@@ -5723,6 +5839,10 @@ function Manage-LabHyperVEnvironmentInteractive {
             'p' { $result = Stop-HyperVLabEnvironment -RunId $runId; Write-LabSuccess "VM gestoppt: $($result.VMName)" }
             'resources' { Set-LabResourcesInteractive -RunId $runId }
             'windows-access' { Show-LabGeneratedWindowsAccessInteractive -RunId $runId }
+            'fulltext' {
+                if (-not $selectedLab.Instance.id) { throw 'SQL_FEATURE_RUNNING_INSTANCE_REQUIRED' }
+                Invoke-LabSqlFeatureInteractive -RunId $runId -InstanceId ([string]$selectedLab.Instance.id) -FullTextOnly
+            }
             'd' {
                 if ($persistentStorage) { Write-LabWarning 'Für diese Umgebung ist bereits eine Daten-VHDX angehängt.'; return }
                 $dataRoot = Get-LabDataRootDefault
@@ -6304,12 +6424,193 @@ function Invoke-LabContainerAutoStartPreviewInteractive {
     catch{Write-LabError 'AUTOSTART_CONSOLE_UNAVAILABLE: Auswahl, Eingabe oder gebundene Vorschau konnte nicht sicher geprüft werden.';$null=Wait-LabConsoleAcknowledgement}
 }
 
+function Assert-LabContainerAutoStartPlanConsoleContract {
+    param($Plan,[string]$RunId,[string]$InstanceId,[string]$Provider,[string]$AutoStart)
+    $values=@($Plan.Contract.Name,$Plan.Contract.Version,$Plan.RunId,$Plan.InstanceId,$Plan.Provider,$Plan.Actual.AutoStart,$Plan.Actual.Lifecycle,
+        $Plan.Desired.AutoStart,$Plan.ChangeClass,$Plan.Preview.Downtime,$Plan.Preview.DataImpact,$Plan.Preview.Recovery,$Plan.PlanKey)
+    foreach($value in $values){if($value -isnot [string]){throw 'AUTOSTART_APPLY_CONSOLE_PLAN_INVALID'}}
+    if (-not $Plan -or $Plan.Contract.Name -cne 'SqlServerLab.ContainerAutoStartPlan' -or $Plan.Contract.Version -cne '1.0' -or
+        $Plan.RunId -cne $RunId -or $Plan.InstanceId -cne $InstanceId -or $Plan.Provider -cne $Provider -or
+        $Plan.Actual.AutoStart -cnotin @('ON','OFF') -or $Plan.Actual.Lifecycle -cnotin @('RUNNING','STOPPED') -or
+        $Plan.Desired.AutoStart -cne $AutoStart.ToUpperInvariant() -or $Plan.NoChange -isnot [bool] -or
+        ($Plan.NoChange -and $Plan.Actual.AutoStart -cne $Plan.Desired.AutoStart) -or
+        $Plan.ChangeClass -cne $(if($Plan.NoChange){'no-op'}else{'live'}) -or $Plan.CanApply -isnot [bool] -or -not $Plan.CanApply -or
+        $Plan.MutationAllowed -isnot [bool] -or $Plan.MutationAllowed -ne (-not $Plan.NoChange) -or
+        $Plan.Preview.Downtime -cne 'NONE' -or $Plan.Preview.DataImpact -cne 'NONE' -or $Plan.Preview.Recovery -cne 'RESUME_STATE_COMMIT' -or
+        $Plan.PlanKey -isnot [string] -or $Plan.PlanKey -cnotmatch '^[a-f0-9]{64}$') {
+        throw 'AUTOSTART_APPLY_CONSOLE_PLAN_INVALID'
+    }
+}
+
+function Invoke-LabConfirmedContainerAutoStartChange {
+    param([Parameter(Mandatory)]$Target, [string]$AutoStart, [string]$PlanKey)
+
+    $result = Set-SqlServerLabContainerAutoStart -RunId $Target.RunId -InstanceId $Target.InstanceId -AutoStart $AutoStart -ExpectedAutoStartPlanKey $PlanKey -StateRoot $Target.StateRoot -Confirm:$false
+    if (-not $result -or $result.RunId -isnot [string] -or $result.InstanceId -isnot [string] -or $result.Provider -isnot [string] -or
+        $result.Status -isnot [string] -or $result.Changed -isnot [bool] -or $result.NoChange -isnot [bool] -or $result.AutoStart -isnot [string] -or
+        $result.RunId -cne $Target.RunId -or $result.InstanceId -cne $Target.InstanceId -or
+        $result.Provider -cne $Target.Provider -or $result.Status -cne 'SUCCEEDED' -or
+        $result.AutoStart -cne $AutoStart -or -not $result.Changed -or $result.NoChange) {
+        throw 'AUTOSTART_APPLY_RESULT_INVALID'
+    }
+    [pscustomobject]@{ Status = 'SUCCEEDED' }
+}
+
+function Invoke-LabContainerAutoStartInteractive {
+    <#
+    .SYNOPSIS Ändert nach Vorschau und ausdrücklicher Bestätigung die Container-Restartpolicy.
+    .DESCRIPTION Verwendet registrierte, laufende und ungeschützte SQL-Instanzen. Das Produkt prüft den gebundenen Plan beim Apply erneut; die Runtime wird nicht neu erstellt oder gestoppt.
+    #>
+    [CmdletBinding()]
+    param()
+    try {
+        $rootInput=Read-LabConsoleTextInput -Prompt 'Vorhandenes registriertes Lab_Data-Verzeichnis (lesen und State aktualisieren)'
+        if($rootInput.Status -cne 'Confirmed'){return}
+        $targets=@(Get-LabContainerPortConsoleTargets -DataRoot ([string]$rootInput.Value))
+        if(-not $targets.Count){Write-LabInfo 'Keine gebundene, laufende und ungeschützte Docker-/Podman-SQL-Instanz verfügbar.';$null=Wait-LabConsoleAcknowledgement;return}
+        $runItems=@(foreach($id in @($targets.RunId|Sort-Object -Unique)){New-LabConsoleItem -Id $id -Label ('Lab '+$id) -Data $id})
+        $runChoice=Invoke-LabConsoleMenu -ScreenId 'container-autostart-apply-run' -Title 'Container-Lab für Autostartänderung auswählen' -Items $runItems
+        if($runChoice.Status -cne 'Selected'){return}
+        $runMatch=@($runItems|Where-Object Id -CEQ $runChoice.SelectedItem.Id)
+        if($runMatch.Count -ne 1){throw 'AUTOSTART_APPLY_CONSOLE_TARGET_INVALID'}
+        $items=@(foreach($target in $targets|Where-Object RunId -CEQ $runMatch[0].Id){New-LabConsoleItem -Id $target.InstanceId -Label $target.InstanceId -Value $target.Provider -Data $target})
+        $choice=Invoke-LabConsoleMenu -ScreenId 'container-autostart-apply-instance' -Title 'SQL-Instanz für Autostartänderung auswählen' -Items $items
+        if($choice.Status -cne 'Selected'){return}
+        $match=@($items|Where-Object Id -CEQ $choice.SelectedItem.Id)
+        if($match.Count -ne 1){throw 'AUTOSTART_APPLY_CONSOLE_TARGET_INVALID'}
+        $selected=$match[0].Data
+        $policyInput=Read-LabConsoleTextInput -Prompt 'Gewünschter Container-Autostart (on/off; q = zurück)'
+        if($policyInput.Status -cne 'Confirmed'){return}
+        if($policyInput.Value -isnot [string]){throw 'AUTOSTART_APPLY_CONSOLE_INPUT_INVALID'}
+        $desired=$policyInput.Value.ToLowerInvariant()
+        if($desired -ceq 'q'){return}
+        if($desired -cnotin @('on','off')){throw 'AUTOSTART_APPLY_CONSOLE_INPUT_INVALID'}
+
+        $plan=Get-SqlServerLabContainerAutoStartPlan -RunId $selected.RunId -InstanceId $selected.InstanceId -AutoStart $desired -StateRoot $selected.StateRoot
+        Assert-LabContainerAutoStartPlanConsoleContract -Plan $plan -RunId $selected.RunId -InstanceId $selected.InstanceId -Provider $selected.Provider -AutoStart $desired
+        Write-LabInfo ('Istpolicy: {0}; Wunsch: {1}; Neustart des Containers: keiner; Datenwirkung: keine.' -f $plan.Actual.AutoStart,$plan.Desired.AutoStart)
+        if($plan.NoChange){Write-LabInfo 'NO_OP · keine Änderung.';$null=Wait-LabConsoleAcknowledgement;return}
+        if(-not(Read-LabConfirm -Prompt 'Den gebundenen Autostartplan jetzt ausführen?' -Default $false)){return}
+
+        $result = Invoke-LabConfirmedContainerAutoStartChange -Target $selected -AutoStart $desired -PlanKey $plan.PlanKey
+        Write-LabSuccess ('Container-Autostart: {0}.' -f $result.Status)
+        $null=Wait-LabConsoleAcknowledgement
+    }
+    catch{Write-LabError 'AUTOSTART_APPLY_CONSOLE_UNAVAILABLE: Ergebnis nicht bestätigt. Vor einer erneuten Aktion aktuellen Zustand und offene Recovery prüfen.';$null=Wait-LabConsoleAcknowledgement}
+}
+
+function Get-LabContainerAutoStartRecoveryTargets {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$DataRoot)
+
+    foreach ($target in @(Get-LabContainerPortConsoleTargets -DataRoot $DataRoot)) {
+        try {
+            $runDirectory = Join-Path (Join-Path $target.StateRoot 'runs') ([string]$target.RunId)
+            $journalPath = Get-LabContainerAutoStartJournalPath -RunDirectory $runDirectory
+            $journal = Read-LabDiagnosticJson -Path $journalPath -Optional -MaximumDepth 60
+            if (-not $journal) { continue }
+            Assert-LabContainerAutoStartJournal -Journal $journal
+            if ([string]$journal.RunId -cne [string]$target.RunId -or [string]$journal.ScopeId -cne [string]$target.ScopeId -or
+                [string]$journal.InstanceId -cne [string]$target.InstanceId -or [string]$journal.Provider -cne [string]$target.Provider -or
+                [string]$journal.Status -cnotin @('POLICY_MUTATED','RECOVERY_REQUIRED') -or [string]$journal.Recovery.Status -cne 'RESUME_STATE_COMMIT') { continue }
+            [pscustomobject]@{
+                RunId = [string]$target.RunId; ScopeId = [string]$target.ScopeId; InstanceId = [string]$target.InstanceId
+                Provider = [string]$target.Provider; StateRoot = [string]$target.StateRoot
+                RecoveryStatus = [string]$journal.Status; TargetAutoStart = [string]$journal.Target.AutoStart
+                OperationId = [string]$journal.OperationId
+            }
+        }
+        catch { continue } # Unklare oder ungueltige Journale werden nie zur Recovery angeboten.
+    }
+}
+
+function Invoke-LabConfirmedContainerAutoStartRecovery {
+    param([Parameter(Mandatory)]$Target)
+
+    $result = Resume-SqlServerLabContainerAutoStart -RunId $Target.RunId -InstanceId $Target.InstanceId -StateRoot $Target.StateRoot -ExpectedOperationId $Target.OperationId -Confirm:$false
+    if (-not $result -or $result.RunId -isnot [string] -or $result.InstanceId -isnot [string] -or $result.Provider -isnot [string] -or
+        $result.Status -isnot [string] -or $result.Changed -isnot [bool] -or $result.OperationId -isnot [string] -or
+        $result.RunId -cne $Target.RunId -or $result.InstanceId -cne $Target.InstanceId -or $result.Provider -cne $Target.Provider -or
+        $result.Status -cne 'RECOVERY_SUCCEEDED' -or -not $result.Changed -or $result.OperationId -cne $Target.OperationId) {
+        throw 'AUTOSTART_RECOVERY_RESULT_INVALID'
+    }
+    [pscustomobject]@{ Status = 'RECOVERY_SUCCEEDED' }
+}
+
+function Invoke-LabContainerAutoStartRecoveryInteractive {
+    <# .SYNOPSIS Setzt nur die verifizierte Autostart-Statepersistenz fort; kein Provider-Replay. #>
+    [CmdletBinding()]
+    param()
+    try {
+        $rootInput = Read-LabConsoleTextInput -Prompt 'Vorhandenes registriertes Lab_Data-Verzeichnis (Recoveryziele lesen)'
+        if ($rootInput.Status -cne 'Confirmed' -or $rootInput.Value -isnot [string]) { return }
+        $targets = @(Get-LabContainerAutoStartRecoveryTargets -DataRoot $rootInput.Value)
+        if (-not $targets.Count) { Write-LabInfo 'Keine eindeutig gebundene, wiederaufnehmbare Docker-/Podman-Autostart-Recovery gefunden.'; $null = Wait-LabConsoleAcknowledgement; return }
+        $runItems = @(foreach ($runId in @($targets.RunId | Sort-Object -Unique)) { New-LabConsoleItem -Id $runId -Label ('Lab ' + $runId) -Data $runId })
+        $runChoice = Invoke-LabConsoleMenu -ScreenId 'container-autostart-recovery-run' -Title 'Lab mit offener Autostart-Recovery auswählen' -Items $runItems
+        if ($runChoice.Status -cne 'Selected') { return }
+        $runMatches = @($runItems | Where-Object Id -CEQ $runChoice.SelectedItem.Id)
+        if ($runMatches.Count -ne 1) { throw 'AUTOSTART_RECOVERY_CONSOLE_TARGET_INVALID' }
+        $instanceItems = @(foreach ($target in @($targets | Where-Object RunId -CEQ $runMatches[0].Id)) {
+            New-LabConsoleItem -Id $target.InstanceId -Label $target.InstanceId -Value ($target.Provider + ' · ' + $target.RecoveryStatus) -Data $target
+        })
+        $choice = Invoke-LabConsoleMenu -ScreenId 'container-autostart-recovery-instance' -Title 'Recovery-Instanz auswählen' -Items $instanceItems
+        if ($choice.Status -cne 'Selected') { return }
+        $matches = @($instanceItems | Where-Object Id -CEQ $choice.SelectedItem.Id)
+        if ($matches.Count -ne 1) { throw 'AUTOSTART_RECOVERY_CONSOLE_TARGET_INVALID' }
+        $selected = $matches[0].Data # Menuantworten liefern keine Zielautoritaet.
+        if ($selected.RunId -isnot [string] -or $selected.ScopeId -isnot [string] -or $selected.InstanceId -isnot [string] -or
+            $selected.Provider -cnotin @('docker','podman') -or $selected.StateRoot -isnot [string] -or
+            $selected.RecoveryStatus -cnotin @('POLICY_MUTATED','RECOVERY_REQUIRED') -or $selected.TargetAutoStart -cnotin @('on','off') -or
+            $selected.OperationId -cnotmatch '\A[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\z') {
+            throw 'AUTOSTART_RECOVERY_CONSOLE_TARGET_INVALID'
+        }
+        Write-LabInfo ('Recovery: {0} · Zielpolicy {1}. Der Resume-Befehl liest Container-ID, Laufzustand und Policy erneut; er wiederholt keinen Providerbefehl und schreibt nur Lab-State.' -f $selected.RecoveryStatus,$selected.TargetAutoStart)
+        if (-not (Read-LabConfirm -Prompt 'Verifizierte Autostart-Statepersistenz jetzt wiederaufnehmen?' -Default $false)) { return }
+        $null = Invoke-LabConfirmedContainerAutoStartRecovery -Target $selected
+        Write-LabSuccess 'Container-Autostart-Recovery: RECOVERY_SUCCEEDED · Statepersistenz verifiziert; kein Provider-Replay.'
+        $null = Wait-LabConsoleAcknowledgement
+    }
+    catch { Write-LabError 'AUTOSTART_RECOVERY_CONSOLE_UNAVAILABLE: Ziel, Journal oder aktueller Containerzustand konnte nicht sicher bestätigt werden.'; $null = Wait-LabConsoleAcknowledgement }
+}
+
+function Get-LabHyperVAutoStartConsoleRuns {
+    @(
+        Get-LabActiveRuns | Where-Object {
+            $_.metadata.workflowKind -ceq 'hyperv-lab' -and $_.state -cin @('RUNNING', 'STOPPED')
+        }
+    )
+}
+
+function Invoke-LabHyperVAutoStartRecoveryInteractive {
+    try {
+        $runs = @(Get-LabHyperVAutoStartConsoleRuns)
+        if (-not $runs.Count) { Write-LabInfo 'Keine registrierten laufenden oder gestoppten Hyper-V-Labs verfügbar.'; return }
+        $runId = Select-LabRun -Runs $runs -Prompt 'Hyper-V-Lab für Autostart-Recovery' -DisableAutomatedTestEnvironments -DisableSystemServices
+        if (-not $runId) { return }
+        $lab = Get-HyperVLabWorkflowRun -RunId $runId
+        $journal = Read-LabHyperVAutoStartJournal -Lab $lab
+        if (-not $journal -or $journal.Status -ceq 'COMPLETED') {
+            Write-LabInfo 'Für dieses Lab ist keine Autostart-Recovery offen.'
+        } else {
+            $recovery = Get-LabHyperVAutoStartRecoveryPlan -RunId $runId -StateRoot $lab.StateRoot -ExpectedRecoveryOperationId $journal.OperationId
+            $journal = $recovery.Journal
+            Write-LabInfo ('Autostart-Recovery · Status {0} · Ziel {1}' -f $journal.Status, $journal.Target.AutoStart)
+            if (-not (Read-LabConfirm -Prompt 'Verifizierte Autostart-Policy ausschließlich im Lab-State nachtragen?' -Default $false)) { return }
+            $result = Resume-SqlServerLabHyperVAutoStart -RunId $runId -StateRoot $lab.StateRoot -ExpectedRecoveryOperationId $journal.OperationId -Confirm:$false
+            Write-LabSuccess ('Hyper-V-Autostart-Recovery: {0}.' -f $result.Status)
+        }
+    }
+    catch { Write-LabError 'Die Hyper-V-Autostart-Recovery konnte nicht sicher bestätigt werden. Prüfe das gewählte Lab und den aktuellen Zustand.' }
+    $null = Wait-LabConsoleAcknowledgement
+}
+
 function Invoke-LabHyperVAutoStartInteractive {
     [CmdletBinding()]
     param()
     try {
-        $runs=@(Get-LabActiveRuns|Where-Object{[string]$_.state -in @('RUNNING','STOPPED')})
-        if(-not $runs.Count){Write-LabInfo 'Keine registrierten laufenden oder gestoppten Labs verfügbar.';return}
+        $runs = @(Get-LabHyperVAutoStartConsoleRuns)
+        if (-not $runs.Count) { Write-LabInfo 'Keine registrierten laufenden oder gestoppten Hyper-V-Labs verfügbar.'; return }
         $runId=Select-LabRun -Runs $runs -Prompt 'Hyper-V-Lab für Autostart' -DisableAutomatedTestEnvironments -DisableSystemServices
         if(-not $runId){return};$null=Get-HyperVLabWorkflowRun -RunId $runId
         $input=Read-LabConsoleTextInput -Prompt 'Gewünschter Hyper-V-Autostart (on/off; q = zurück)'
@@ -6546,6 +6847,8 @@ function Manage-LabEnvironmentInteractive {
     $actionItems = @(
         New-LabConsoleItem -Id 'lifecycle' -Label 'Starten oder stoppen' -Value 'abhängig vom aktuellen Zustand' -Shortcut 's'
         New-LabConsoleItem -Id 'resources' -Label 'CPU und Speicher aendern' -Value 'Docker-/Podman-Limits' -Shortcut 'r'
+        New-LabConsoleItem -Id 'fulltext' -Label 'Volltextsuche ändern' -Shortcut 'f' -Value 'Nachinstallieren oder deaktivieren' `
+            -Disabled:([string]$synced.Runtime.State -ne 'RUNNING') -DisabledReason 'Die SQL-Umgebung muss laufen.'
         New-LabConsoleItem -Id 'external-runtime' -Label 'External Languages installieren oder aendern' `
             -Value $externalRuntimeValue -Shortcut 'x' -Disabled:(-not $externalRuntimeEligible) `
             -DisabledReason $externalRuntimeDisabledReason
@@ -6567,6 +6870,7 @@ function Manage-LabEnvironmentInteractive {
         switch ($action) {
             's' { if ([string]$synced.Runtime.State -eq 'RUNNING') { Stop-SqlServerLab -RunId $runId } else { Start-SqlServerLab -RunId $runId } }
             'r' { Set-LabResourcesInteractive -RunId $runId }
+            'f' { Invoke-LabSqlFeatureInteractive -RunId $runId -FullTextOnly }
             'x' {
                 $externalRuntimeResult = Manage-LabExternalRuntimeInteractive -RunId $runId
                 $explicitlyChanged = [bool]($externalRuntimeResult -and $externalRuntimeResult.MutationAllowed)

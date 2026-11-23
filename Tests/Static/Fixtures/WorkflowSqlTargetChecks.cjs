@@ -8,11 +8,13 @@ const root = path.resolve(__dirname, '../../..');
 const html = fs.readFileSync(path.join(root, 'Ui/index.html'), 'utf8');
 const source = fs.readFileSync(process.argv[2] || path.join(root, 'Ui/app.js'), 'utf8');
 const nodes = new Map();
+const downloads = [];
 class Element {
   constructor(id) {
     this.id = id; this.value = ''; this.textContent = ''; this.innerHTML = '';
     this.hidden = false; this.disabled = false; this.open = false; this.dataset = {};
     this.events = new Map(); this.selectedOptions = []; this.options = [];
+    this.children = [];
     this.classList = { add() {}, remove() {}, toggle() {} };
   }
   addEventListener(type, callback) { this.events.set(type, [...(this.events.get(type) || []), callback]); }
@@ -22,6 +24,11 @@ class Element {
   removeAttribute(name) { delete this[name]; }
   closest(selector) { return this.id === 'jobs' && selector === '.panel' ? workspaceElements.find((item) => item.dataset.workspaceArea === 'messages') : null; }
   scrollIntoView() { this.scrolled = true; }
+  click() { if (this.id === 'a') downloads.push({ file: this.download, url: this.href }); }
+  append(child) { this.children.push(child); }
+  add(option) { this.options.push(option); }
+  replaceChildren(...children) { this.children = children; }
+  get childElementCount() { return this.children.length; }
   querySelectorAll(selector) {
     if (this.id === 'initial-setup-dialog' && selector === '[value="cancel"]') return [nodes.get('initial-setup-close'), nodes.get('initial-setup-close-bottom')];
     return this.id === 'container-operation-dialog' && selector === 'input[type="password"]'
@@ -43,6 +50,8 @@ for (const match of html.matchAll(/<button\b[^>]*\bdata-provider-capability="hyp
 }
 const documentEvents = new Map();
 const document = {
+  createElement(tag) { return new Element(tag); },
+  getElementById(id) { return nodes.get(id) || null; },
   querySelector(selector) {
     if (!selector.startsWith('#')) return null;
     const element = nodes.get(selector.slice(1));
@@ -59,13 +68,22 @@ const document = {
 };
 const clipboardMounts = [];
 const context = vm.createContext({ document, console, URLSearchParams,
+  Option: class { constructor(text, value) { this.text = text; this.value = value; } },
+  URL: Object.assign(class extends URL {}, { createObjectURL: () => 'blob:synthetic-test', revokeObjectURL() {} }),
   crypto: require('node:crypto').webcrypto, TextEncoder, AbortController,
   window: { setInterval() {}, setTimeout() {}, clearTimeout() {}, alert() {},
     sqlServerLabConnectionClipboard: { mount(element) { clipboardMounts.push(element.id); } } },
   sqlServerLabUiFetch: (...args) => { fetchRequests.push(args); return args[0] === '/api/jobs' ? Promise.resolve({ ok: true, json: async () => [] }) : new Promise(() => {}); }, setTimeout() {}, clearTimeout() {}, queued: [] });
 const fetchRequests = [];
 const run = (code) => vm.runInContext(code, context, { timeout: 5000 });
+if (html.includes('<script src="test-group-view.js"></script>')) {
+  run(fs.readFileSync(path.join(root, 'Ui', 'test-group-view.js'), 'utf8'));
+}
+run(fs.readFileSync(path.join(root, 'Ui', 'operation-queue.js'), 'utf8'));
 run(source);
+for (const asset of ['manifest-check.js', 'ssms-registration-export.js', 'cms-management.js', 'resource-plan.js', 'llama-model-catalog.js', 'windows-slot-pool.js', 'ollama-local-generation.js', 'test-group-create.js', 'test-group-management.js']) {
+  if (html.includes('<script src="' + asset + '"></script>')) run(fs.readFileSync(path.join(root, 'Ui', asset), 'utf8'));
+}
 run('const actualQueueBackgroundAction = queueBackgroundAction; queueBackgroundAction = (action, parameters) => queued.push({action, parameters});');
 let passed = 0;
 function check(name, body) { body(); passed++; console.log('PASS ' + name); }
@@ -117,6 +135,35 @@ check('Real workflow refresh preserves selected area and draft input when Hyper-
   assert.ok(hyperVButtons.length >= 3);
   assert.ok(hyperVButtons.every((button) => button.disabled && button.title));
   assert.equal(node('connection-endpoints').innerHTML.includes('Keine registrierten'), true);
+});
+check('Real batch overview shows typed progress and ignores invalid records', () => {
+  run('renderBatchOverview(' + JSON.stringify([
+    { BatchId: 'batch-20261121133701-aabb0034', Status: 'Running', Percent: 25, Total: 4, Failed: 1, Cancelled: 0 },
+    { BatchId: 'invalid-id', Status: 'Running', Percent: 25, Total: 4, Failed: 1, Cancelled: 0 }
+  ]) + ')');
+  const rows = node('batch-overview-rows');
+  assert.equal(rows.children.length, 1);
+  assert.deepEqual(rows.children[0].children.map(cell => cell.textContent),
+    ['batch-20261121133701-aabb0034', 'Läuft', '25 %', '4', '1', '0']);
+  assert.equal(node('batch-overview-table').hidden, false);
+  run('renderBatchOverview([])');
+  assert.equal(node('batch-overview-table').hidden, true);
+});
+check('Manifest check sends only a local path and does not provision a lab', () => {
+  const requestCount = fetchRequests.length;
+  click(node('run-manifest'));
+  assert.ok(node('manifest-run-dialog').open);
+  node('manifest-run-path').value = '/synthetic/manifest.json';
+  node('manifest-run-password').value = 'synthetic-unused-password';
+  click(node('manifest-run-check'));
+  assert.equal(fetchRequests.length, requestCount + 1);
+  const [url, options] = fetchRequests.at(-1);
+  assert.equal(url, '/api/manifest-check');
+  assert.equal(options.method, 'POST');
+  assert.deepEqual(JSON.parse(options.body), { Path: '/synthetic/manifest.json' });
+  assert.equal(context.queued.length, 0);
+  node('manifest-run-dialog').close();
+  node('manifest-run-password').value = '';
 });
 check('Global resources retain the existing sources dialog; cancel dispatches nothing', () => {
   for (const id of ['media-sources']) {
@@ -735,7 +782,7 @@ async function main() {
   });
   const groupRequests = [];
   let groupMode = 'ready';
-  const groupPlan = { Group: 'Registrierte Testgruppe', Total: 2, PowerStatus: 'MIXED', PowerAction: 'Start', CanApply: true, NoChange: false, PlanKey: 'a'.repeat(64), Notice: 'Nur Power; SQL nicht geprüft.', Members: [{ Key: 'DOCKER', Provider: 'docker', Power: 'STOPPED', Desired: 'RUNNING', Change: 'START' }, { Key: 'PODMAN', Provider: 'podman', Power: 'RUNNING', Desired: 'RUNNING', Change: 'NO_OP' }] };
+  const groupPlan = { Group: 'Registrierte Testgruppe', Total: 2, PowerStatus: 'MIXED', PowerAction: 'Start', CanApply: true, NoChange: false, PlanKey: 'a'.repeat(64), Notice: 'Nur Power; SQL nicht geprüft.', Members: [{ Key: 'DOCKER', Provider: 'docker', RegistrationLabel: 'Linux · SQL Server 2025 · CU9 · Registriert', Power: 'STOPPED', Desired: 'RUNNING', Change: 'START' }, { Key: 'PODMAN', Provider: 'podman', Power: 'RUNNING', Desired: 'RUNNING', Change: 'NO_OP' }] };
   context.sqlServerLabUiFetch = async (url, options = {}) => {
     groupRequests.push({ url, options });
     if (url.startsWith('/api/test-group?')) return { ok: groupMode !== 'error', json: async () => ({ ...groupPlan, PowerAction: new URLSearchParams(url.split('?')[1]).get('powerAction'), CanApply: groupMode !== 'unknown', NoChange: groupMode === 'noop', Total: groupMode === 'empty' ? 0 : 2 }) };
@@ -745,6 +792,13 @@ async function main() {
   };
   await resourceEvent('test-group-open');
   check('Group dialog uses read-only shared preview and explicit group selection', () => { assert.equal(groupRequests.length, 1); assert.equal(node('test-group-apply').disabled, true); assert.match(node('test-group-status').textContent, /nicht geprüft/); });
+  check('Group separates registered target details from power and SQL readiness', () => {
+    const members = node('test-group-members').innerHTML;
+    assert.match(members, /Linux · SQL Server 2025 · CU9 · Registriert/);
+    assert.match(members, /docker · STOPPED → RUNNING/);
+    assert.doesNotMatch(members, /undefined|null/);
+    assert.match(node('test-group-status').textContent, /SQL-Bereitschaft: nicht geprüft/);
+  });
   node('test-group-selection').value = 'registered'; await resourceEvent('test-group-selection', 'change');
   await resourceEvent('test-group-apply');
   check('Group selection alone does not authorize power action', () => assert.equal(groupRequests.filter(r => r.url === '/api/actions').length, 0));
@@ -756,6 +810,56 @@ async function main() {
   });
   run('renderJobs([{ Id: "group-result", Action: "StartTestGroupPower", State: "Completed", Lines: [\'[TESTGROUP] {"Status":"PARTIAL","Details":[{"Key":"DOCKER","Status":"RUNNING","Action":"START"},{"Key":"PODMAN","Status":"UNCONFIRMED","Action":"START"}]}\'] }])');
   check('Group job renders partial outcome per member with retry boundary', () => { assert.match(node('jobs').innerHTML, /PARTIAL/); assert.match(node('jobs').innerHTML, /UNCONFIRMED/); assert.match(node('jobs').innerHTML, /neuer Vorschau/); });
+  const previousGroupFetch = context.sqlServerLabUiFetch;
+  const createRequests = [];
+  const createPlan = { Provider: 'podman', SqlVersion: '2025', Patch: 'cu9', Key: 'LINUX_PODMAN_2025_CU9', PlanKey: 'b'.repeat(64) };
+  context.sqlServerLabUiFetch = async (url, options = {}) => {
+    if (url.startsWith('/api/test-group-linux-create') || url === '/api/actions') {
+      createRequests.push({ url, options });
+      if (url === '/api/test-group-linux-create') return { ok: true, json: async () => ({ Versions: ['2022','2025'], Patches: {'2022':['cu27'],'2025':['cu9']} }) };
+      if (url.includes('?')) return { ok: true, json: async () => createPlan };
+      if (url === '/api/actions') return { ok: true, json: async () => ({ id: 'group-create-job' }) };
+    }
+    return previousGroupFetch(url, options);
+  };
+  node('test-group-create-form').reset = () => {
+    node('test-group-create-provider').value = '';
+    node('test-group-create-version').value = '';
+  };
+  await resourceEvent('test-group-create-open');
+  node('test-group-create-provider').value = 'podman';
+  node('test-group-create-version').value = '2025';
+  await resourceEvent('test-group-create-version', 'change');
+  node('test-group-create-patch').value = 'cu9';
+  await resourceEvent('test-group-create-patch', 'change');
+  await resourceEvent('test-group-create-form', 'submit');
+  await resourceEvent('test-group-create-apply');
+  check('Linux group creation previews only and requires its own confirmation', () => {
+    assert.equal(createRequests.length, 2);
+    assert.equal(createRequests[1].url, '/api/test-group-linux-create?provider=podman&sqlVersion=2025&patch=cu9');
+    assert.match(node('test-group-create-status').textContent, /CU9.*LINUX_PODMAN_2025_CU9/);
+  });
+  node('test-group-create-patch').value = 'latest';
+  await resourceEvent('test-group-create-patch', 'change');
+  node('test-group-create-confirm').checked = true;
+  await resourceEvent('test-group-create-confirm', 'change');
+  await resourceEvent('test-group-create-apply');
+  check('Changing Linux group options invalidates the preview', () => assert.equal(createRequests.length, 2));
+  node('test-group-create-patch').value = 'cu9';
+  await resourceEvent('test-group-create-patch', 'change');
+  await resourceEvent('test-group-create-form', 'submit');
+  node('test-group-create-confirm').checked = true;
+  await resourceEvent('test-group-create-confirm', 'change');
+  await resourceEvent('test-group-create-apply');
+  await resourceEvent('test-group-create-apply');
+  check('Confirmed Linux creation sends the exact provider, version, patch and plan only once', () => {
+    const actions = createRequests.filter(r => r.url === '/api/actions');
+    assert.equal(actions.length, 1);
+    assert.deepEqual(JSON.parse(actions[0].options.body), { action: 'CreateLinuxTestGroupMember', parameters: {
+      Provider: createPlan.Provider, SqlVersion: createPlan.SqlVersion, TestGroupPatch: createPlan.Patch, ExpectedPlanKey: createPlan.PlanKey
+    }});
+  });
+  context.sqlServerLabUiFetch = previousGroupFetch;
   for (const mode of ['noop', 'unknown', 'empty', 'error']) {
     groupMode = mode; await resourceEvent('test-group-open');
     node('test-group-selection').value = 'registered'; node('test-group-confirm').checked = true; await resourceEvent('test-group-confirm','change'); await resourceEvent('test-group-apply');
@@ -768,6 +872,89 @@ async function main() {
   context.sqlServerLabUiFetch = () => new Promise(resolve => { releaseGroup = resolve; });
   const pendingGroup = resourceEvent('test-group-open'); await resourceEvent('test-group-close'); releaseGroup({ ok: true, json: async () => groupPlan }); await pendingGroup;
   check('Closed group dialog rejects delayed preview', () => assert.equal(node('test-group-apply').disabled, true));
+  const managementRequests = [];
+  let windowsManagementElevated = true;
+  const preparedImage = 'hyperv-prepared-' + 'a'.repeat(64);
+  const managementKey = 'c'.repeat(64);
+  context.sqlServerLabUiFetch = async (url, options) => {
+    if (url.startsWith('/api/test-group-management?')) {
+      const query = new URLSearchParams(url.split('?')[1]);
+      const Operation = query.get('operation');
+      const ArtifactId = query.get('artifactId');
+      if (Operation === 'CreateWindows' && !ArtifactId) {
+        return {ok:true, json:async() => ({Operation, Artifacts:[{ArtifactId:preparedImage, SqlVersion:'2025', Build:'17.0.1000.1'}]})};
+      }
+      return {ok:true, json:async() => ({
+        Operation, ArtifactId, Key:'WINDOWS_2025', SqlVersion:'2025', Build:'17.0.1000.1',
+        CanApply:Operation !== 'Repair' && (Operation !== 'CreateWindows' || windowsManagementElevated), PlanKey:managementKey,
+        Reason:Operation === 'CreateWindows' && !windowsManagementElevated ? 'TEST_GROUP_WINDOWS_ELEVATION_REQUIRED' : null,
+        Members:[{Key:'DOCKER', Target:'Linux · SQL Server 2025', Verified:true, Power:'STOPPED'}]
+      })};
+    }
+    if (url === '/api/actions') {
+      managementRequests.push(JSON.parse(options.body));
+      return {ok:true, json:async() => ({id:'management-fixture', state:'RUNNING'})};
+    }
+    return {ok:true, json:async() => ({})};
+  };
+  const changeManagement = async value => {
+    node('test-group-management-operation').value = value;
+    await resourceEvent('test-group-management-operation','change');
+  };
+  await resourceEvent('test-group-management-open');
+  await changeManagement('CreateWindows');
+  node('test-group-management-image').value = preparedImage;
+  await resourceEvent('test-group-management-image','change');
+  await resourceEvent('test-group-management-form','submit');
+  await resourceEvent('test-group-management-apply');
+  check('Prepared Windows preview needs explicit confirmation', () => {
+    assert.match(node('test-group-management-status').textContent, /Vorschau bereit/);
+    assert.equal(managementRequests.length,0);
+  });
+  await changeManagement('Repair');
+  await resourceEvent('test-group-management-form','submit');
+  node('test-group-management-confirm').checked = true;
+  await resourceEvent('test-group-management-confirm','change');
+  await resourceEvent('test-group-management-apply');
+  check('Blocked repair cannot reuse Windows preview or be submitted', () => {
+    assert.equal(node('test-group-management-apply').disabled,true);
+    assert.equal(managementRequests.length,0);
+  });
+  await changeManagement('Remove');
+  await resourceEvent('test-group-management-form','submit');
+  node('test-group-management-confirm').checked = true;
+  await resourceEvent('test-group-management-confirm','change');
+  await resourceEvent('test-group-management-apply');
+  await resourceEvent('test-group-management-apply');
+  check('Removal submits only the fresh one-shot plan', () => {
+    assert.deepEqual(managementRequests,[{action:'RemoveTestGroup',parameters:{ExpectedPlanKey:managementKey}}]);
+  });
+  await resourceEvent('test-group-management-open');
+  await changeManagement('Export');
+  await resourceEvent('test-group-management-form','submit');
+  await resourceEvent('test-group-management-apply');
+  check('Group export warns about local credentials and needs confirmation', () => {
+    assert.match(node('test-group-management-effect').textContent,/Zugangsdaten/);
+    assert.equal(managementRequests.length,1);
+  });
+  node('test-group-management-confirm').checked = true;
+  await resourceEvent('test-group-management-confirm','change');
+  await resourceEvent('test-group-management-apply');
+  check('Group export sends only its fresh plan', () => {
+    assert.deepEqual(managementRequests[1],{action:'ExportTestGroup',parameters:{ExpectedPlanKey:managementKey}});
+  });
+  windowsManagementElevated = false;
+  await resourceEvent('test-group-management-open');
+  await changeManagement('CreateWindows');
+  node('test-group-management-image').value = preparedImage;
+  await resourceEvent('test-group-management-image','change');
+  await resourceEvent('test-group-management-form','submit');
+  await resourceEvent('test-group-management-apply');
+  check('Windows setup without elevation explains the prerequisite and blocks apply', () => {
+    assert.match(node('test-group-management-status').textContent,/erhöhten PowerShell/);
+    assert.equal(node('test-group-management-apply').disabled,true);
+    assert.equal(managementRequests.length,2);
+  });
   const mediaRequests = [];
   const mediaItem = { Id: 'sql-server-2025-enterprise-developer-bootstrapper', DisplayName: '<Bootstrapper>', RepositoryUrl: 'https://download.microsoft.com/download/default/SQL2025-SSEI-EntDev.exe', EffectiveUrl: 'https://download.microsoft.com/download/default/SQL2025-SSEI-EntDev.exe', Provenance: 'REPOSITORY_DEFAULT', ExpectedBytes: 21, ExpectedSha256: 'a'.repeat(64) };
   const mediaItems = [mediaItem, ...[
@@ -833,6 +1020,115 @@ async function main() {
   let releaseWatch;context.sqlServerLabUiFetch=()=>new Promise(resolve=>{releaseWatch=resolve;});
   const pendingWatch=resourceEvent('resource-watch-read');await resourceEvent('resource-watch-close');releaseWatch({ok:true,json:async()=>({Result:{Status:'NEW',Items:[watchItem]}})});await pendingWatch;
   check('Resource watch closed dialog ignores late response',()=>assert.match(node('resource-watch-status').textContent,/UNCLEAR/));
+  await resourceEvent('resource-plan-open');
+  check('Guided resource plan opens without starting an operation',()=>assert.equal(node('resource-plan-dialog').open,true));
+  run("publicCommandCatalog = [{ Name: 'Get-SqlServerLabResourcePlan', ParameterSets: [{Name:'__AllParameterSets', Parameters:['ResourceKind','SummaryOnly'].map(Name=>({Name,Sensitive:false,IsCredential:false}))}]}]");
+  node('resource-plan-kind').value='Software';
+  await resourceEvent('resource-plan-form','submit');
+  const resourceRequest=run('pendingConfirmation');
+  check('Guided resource plan confirms only selected kind and safe summary',()=>{
+    assert.equal(resourceRequest.action,'__PublicCommand');
+    assert.equal(resourceRequest.parameters.command.Name,'Get-SqlServerLabResourcePlan');
+    assert.equal(JSON.stringify(resourceRequest.parameters.parameters),JSON.stringify({ResourceKind:'Software',SummaryOnly:true}));
+  });
+  run("$('#confirmation-dialog').close(); pendingConfirmation = null;");
+  const modelReads=[];
+  const modelFixture={Contract:'SqlServerLab.LlamaCppModel/1.0', Id:'synthetic-gguf', DisplayName:'Synthetic model', DirectDownload:true,
+    Purpose:'generation', Quantization:'Q4', License:'Apache-2.0', Publisher:'Synthetic publisher', Sha256:'d'.repeat(64), Revision:'e'.repeat(40), SizeBytes:2000000000};
+  context.sqlServerLabUiFetch=async(route,options)=>{modelReads.push({route,options}); return {ok:true,json:async()=>[modelFixture]};};
+  run("workflow.Defaults = {MediaRoot:'C:/synthetic/Lab_Base'}; publicCommandCatalog = [{Name:'Save-SqlServerLabLlamaCppModel',RequiresConfirmation:true,ParameterSets:[{Name:'__AllParameterSets',Parameters:['Id','MediaRoot','ExpectedModelSha256','ExpectedModelRevision'].map(Name=>({Name,Sensitive:false,IsCredential:false}))}]}];");
+  await resourceEvent('llama-model-catalog-open');
+  check('Model catalog reads metadata without starting a download',()=>{assert.equal(modelReads.length,1);assert.equal(modelReads[0].route,'/api/llama-model-catalog');assert.equal(node('llama-model-catalog-download').disabled,true);});
+  node('llama-model-catalog-selection').value=modelFixture.Id;
+  await resourceEvent('llama-model-catalog-selection','change');
+  await resourceEvent('llama-model-catalog-form','submit');
+  check('Model download confirmation binds exact selected size, licence, repository pin and configured destination',()=>{
+    assert.match(node('confirmation-message').textContent,/2 GB.*Apache-2.0/);
+    assert.deepEqual(JSON.parse(JSON.stringify(run('pendingConfirmation.parameters.parameters'))),
+      {Id:modelFixture.Id, MediaRoot:'C:/synthetic/Lab_Base', ExpectedModelSha256:modelFixture.Sha256, ExpectedModelRevision:modelFixture.Revision});
+    assert.equal(modelReads.length,1);
+  });
+  run("$('#confirmation-dialog').close(); pendingConfirmation = null;");
+  const poolArtifact = 'hyperv-os-sealed-' + 'f'.repeat(64);
+  const poolFields = {
+    PoolId: '22222222-2222-2222-2222-222222222222',
+    ArtifactId: poolArtifact, InstallationType: 'core', UiLanguage: 'en-US',
+    NamePrefix: 'fixture-slot', Count: 2, StartIndex: 3, ProcessorCount: 4,
+    MemoryMinimumMB: 1024, MemoryStartupMB: 2048, MemoryMaximumMB: 4096,
+    GenerateAdministratorPasswords: true,
+  };
+  context.poolFixture={ArtifactId:poolArtifact, DisplayName:'Synthetic Core', InstallationType:'core', Language:'en-US', SlotPoolEligible:true};
+  context.poolFixtureFields=Object.keys(poolFields);
+  run("workflow.Host={HyperV:{Available:true},IsElevated:false}; workflow.WindowsBaselines=[poolFixture,{...poolFixture,ArtifactId:'hyperv-os-sealed-'+'e'.repeat(64),SlotPoolEligible:false}];");
+  await resourceEvent('windows-slot-pool-open');
+  check('Windows pool refuses non-elevated host and never dispatches on open',()=>{
+    assert.equal(node('windows-slot-pool-baseline').options.length,1);
+    assert.equal(node('windows-slot-pool-next').disabled,true);
+    assert.equal(run('pendingConfirmation'),null);
+  });
+  await resourceEvent('windows-slot-pool-close');
+  run("workflow.Host.IsElevated=true; publicCommandCatalog=[{Name:'New-SqlServerLabWindowsSlotPool',RequiresConfirmation:true,ParameterSets:[{Name:'GeneratedPassword',Parameters:poolFixtureFields.map(Name=>({Name,Sensitive:false,IsCredential:false,TypeName:Name==='GenerateAdministratorPasswords'?'System.Management.Automation.SwitchParameter':'System.String',Mandatory:['Count','GenerateAdministratorPasswords'].includes(Name)}))}]}];");
+  await resourceEvent('windows-slot-pool-open');
+  node('windows-slot-pool-baseline').value=poolArtifact;
+  await resourceEvent('windows-slot-pool-baseline','change');
+  for (const [field,value] of Object.entries({id:poolFields.PoolId,prefix:poolFields.NamePrefix,count:'2',start:'3',cpu:'4','memory-min':'1024','memory-start':'8192','memory-max':'4096'})) {
+    node('windows-slot-pool-'+field).value=value;
+  }
+  await resourceEvent('windows-slot-pool-form','submit');
+  check('Windows pool filters expired baseline and refuses invalid memory ranges',()=>{
+    assert.equal(node('windows-slot-pool-baseline').options.length,2);
+    assert.match(node('windows-slot-pool-status').textContent,/RAM-Werte/);
+    assert.equal(run('pendingConfirmation'),null);
+  });
+  node('windows-slot-pool-memory-start').value='2048';
+  await resourceEvent('windows-slot-pool-form','submit');
+  check('Windows pool confirmation binds exact plan inputs and generated credentials',()=>{
+    const dispatch=run('pendingConfirmation.parameters');
+    assert.equal(dispatch.command.Name,'New-SqlServerLabWindowsSlotPool');
+    assert.equal(dispatch.parameterSet.Name,'GeneratedPassword');
+    assert.deepEqual(JSON.parse(JSON.stringify(dispatch.parameters)),poolFields);
+    assert.match(node('confirmation-message').textContent,/Slots 3 bis 4/);
+    assert.match(node('confirmation-message').textContent,/temporären externen Netzwerkadapter/);
+  });
+  run("$('#confirmation-dialog').close(); pendingConfirmation = null;");
+  const localModelReads=[];
+  const localModel={Id:'ollama-gemma3-1b-local',Name:'gemma3:1b'};
+  const localModelRequestFields=['ModelKey','InputText','DataClassification','Lane','LocalPort','TimeoutSeconds','RetryCount'];
+  context.localModelRequestFields=localModelRequestFields;
+  context.sqlServerLabUiFetch=async (route,options)=>{localModelReads.push({route,options});return {ok:true,json:async()=>[localModel]};};
+  run("publicCommandCatalog=[{Name:'Invoke-SqlServerLabAiModel',RequiresConfirmation:true,ParameterSets:[{Name:'__AllParameterSets',Parameters:localModelRequestFields.map(Name=>({Name,Sensitive:false,IsCredential:false,Mandatory:['ModelKey','InputText','DataClassification'].includes(Name)}))}]}];");
+  await resourceEvent('ollama-local-generation-open');
+  check('Ollama dialog reads only catalog metadata when opened',()=>{
+    assert.equal(localModelReads.length,1);
+    assert.equal(localModelReads[0].route,'/api/ollama-local-generation');
+    assert.equal(localModelReads[0].options.body,undefined);
+    assert.equal(node('ollama-local-generation-next').disabled,true);
+  });
+  node('ollama-local-generation-model').value=localModel.Id;
+  await resourceEvent('ollama-local-generation-model','change');
+  node('ollama-local-generation-port').value='65536';
+  node('ollama-local-generation-timeout').value='180';
+  node('ollama-local-generation-prompt').value='synthetic browser request';
+  await resourceEvent('ollama-local-generation-form','submit');
+  check('Ollama guided entry rejects an out-of-range port before confirmation',()=>assert.equal(run('pendingConfirmation'),null));
+  node('ollama-local-generation-port').value='11434';
+  node('ollama-local-generation-timeout').value='231';
+  await resourceEvent('ollama-local-generation-form','submit');
+  check('Ollama guided entry rejects out-of-range startup timeout',()=>assert.equal(run('pendingConfirmation'),null));
+  node('ollama-local-generation-timeout').value='180';
+  await resourceEvent('ollama-local-generation-form','submit');
+  check('Ollama confirms one fixed local-lane request without displaying the input text',()=>{
+    const dispatch=run('pendingConfirmation.parameters');
+    assert.deepEqual(JSON.parse(JSON.stringify(dispatch.parameters)),{
+      ModelKey:localModel.Id, InputText:'synthetic browser request', DataClassification:'synthetic-only', Lane:'local', LocalPort:11434, TimeoutSeconds:180, RetryCount:0,
+    });
+    assert.equal(node('ollama-local-generation-prompt').value,'');
+    assert.match(node('confirmation-message').textContent,/127\.0\.0\.1:11434/);
+    assert.match(node('confirmation-message').textContent,/180 Sekunden/);
+    assert.doesNotMatch(node('confirmation-message').textContent,/synthetic browser request/);
+    assert.equal(localModelReads.length,1);
+  });
+  run("$('#confirmation-dialog').close(); pendingConfirmation = null;");
   const cmsRequests=[];
   const cmsBase={ContractVersion:'SqlServerLab.CmsInspection/1.0',Status:'NOT_CHECKED',Code:'CMS_INSPECTION_NOT_CHECKED',RunId:'11111111-1111-1111-1111-111111111111',InstanceId:'primary',Provider:'docker',SelectionKey:'a'.repeat(64),SqlMajor:null,ManagedGroupCount:null,ManagedServerCount:null,ObservedAt:null};
   let cmsMode='ready';
@@ -863,6 +1159,62 @@ async function main() {
   cmsMode='ready';await resourceEvent('cms-inspection-read');
   let releaseCms;context.sqlServerLabUiFetch=()=>new Promise(resolve=>{releaseCms=resolve;});const pendingCms=resourceEvent('cms-inspection-check');await resourceEvent('cms-inspection-close');releaseCms({ok:true,json:async()=>({Result:{...cmsBase,Status:'OBSERVED',SqlMajor:17,ManagedGroupCount:3,ManagedServerCount:5,ObservedAt:'2026-10-01T12:00:00Z'}})});await pendingCms;
   check('CMS close ignores late inspection without retry or queue mutation',()=>{assert.equal(node('cms-inspection-dialog').open,false);assert.equal(node('cms-inspection-result').textContent,'');assert.equal(node('cms-inspection-check').disabled,true);});
+  const cmsAvailable={ContractVersion:'SqlServerLab.CmsManagement/1.0',Status:'NOT_CONFIGURED',PlanKey:'c'.repeat(64),Cms:null,Providers:['docker','podman'],DataRootConfigured:true,CanCreate:true,CanAdopt:true,Candidates:[{RunId:'11111111-2222-4333-8444-555555555555',Name:'synthetic lab',Provider:'docker'}]};
+  let cmsManagementState=cmsAvailable;
+  const cmsManagementCalls=[];
+  let cmsManagementReads=0;
+  context.sqlServerLabUiFetch=async(url,options)=>{
+    if(url==='/api/cms-management'){cmsManagementReads++;return {ok:true,json:async()=>({Result:cmsManagementState})};}
+    if(url==='/api/jobs')return {ok:true,json:async()=>[]};
+    return {ok:true,status:202,json:async()=>({id:'cms-job-1',action:'InitializeCms'})};
+  };
+  context.window.cmsManagementCalls=cmsManagementCalls;
+  run('startAction = async (action, parameters) => { window.cmsManagementCalls.push({action,parameters:{...parameters}}); return {id:"cms-job-1"}; };');
+  await resourceEvent('cms-management-open');
+  await waitForActualBoundary(()=>node('cms-management-status').textContent==='Kein verwalteter CMS ist registriert.','CMS management state should render');
+  check('CMS management offers guided create/adopt from safe registration state',()=>{assert.equal(node('cms-management-create').hidden,false);assert.equal(node('cms-management-adopt').hidden,false);assert.match(node('cms-management-summary').textContent,/Data Root/);});
+  check('CMS create waits for explicit confirmation',()=>assert.equal(node('cms-management-create-submit').disabled,true));
+  node('cms-management-create-confirm').checked=true;await resourceEvent('cms-management-create-confirm','change');
+  await resourceEvent('cms-management-read');
+  await waitForActualBoundary(()=>cmsManagementReads===2 && !node('cms-management-read').disabled,'CMS management reread should complete');
+  check('CMS status reread invalidates old explicit confirmation',()=>{assert.equal(node('cms-management-create-confirm').checked,false);assert.equal(node('cms-management-create-submit').disabled,true);});
+  node('cms-management-provider').value='docker';
+  node('cms-management-lab-name').value='sql-server-lab-cms';
+  node('cms-management-create-confirm').checked=true;await resourceEvent('cms-management-create-confirm','change');
+  await resourceEvent('cms-management-create-submit');
+  await waitForActualBoundary(()=>cmsManagementCalls.length===1,'CMS create action should be accepted');
+  await waitForActualBoundary(()=>node('cms-management-status').textContent.startsWith('Aktion angenommen.'),'CMS create action should settle before the next dialog read');
+  check('CMS create submits exact provider, name, binding and confirmation',()=>{assert.equal(cmsManagementCalls[0].action,'InitializeCms');assert.equal(JSON.stringify(cmsManagementCalls[0].parameters),JSON.stringify({Provider:'docker',LabName:'sql-server-lab-cms',ExpectedPlanKey:'c'.repeat(64),ConfirmCmsOperation:true,ReplaceRemovedCms:false}));});
+  await resourceEvent('cms-management-open');
+  await waitForActualBoundary(()=>node('cms-management-status').textContent==='Kein verwalteter CMS ist registriert.','CMS adoption state should render');
+  node('cms-management-candidate').value='11111111-2222-4333-8444-555555555555';
+  check('CMS adoption waits for explicit confirmation',()=>assert.equal(node('cms-management-adopt-submit').disabled,true));
+  node('cms-management-adopt-confirm').checked=true;await resourceEvent('cms-management-adopt-confirm','change');
+  await resourceEvent('cms-management-adopt-submit');
+  await waitForActualBoundary(()=>cmsManagementCalls.length===2,'CMS adoption action should be accepted');
+  await waitForActualBoundary(()=>node('cms-management-status').textContent.startsWith('Aktion angenommen.'),'CMS adoption action should settle before the next status read');
+  check('CMS adoption submits only selected run, plan, and confirmation',()=>{assert.equal(cmsManagementCalls[1].action,'AdoptCms');assert.equal(JSON.stringify(cmsManagementCalls[1].parameters),JSON.stringify({RunId:'11111111-2222-4333-8444-555555555555',ExpectedPlanKey:'c'.repeat(64),ConfirmCmsOperation:true}));});
+  cmsManagementState={...cmsAvailable,Status:'CONFIGURED',CanCreate:false,CanAdopt:false,Candidates:[],Cms:{RunId:'11111111-2222-4333-8444-555555555555',Provider:'docker',State:'RUNNING'}};
+  await resourceEvent('cms-management-read');
+  await waitForActualBoundary(()=>node('cms-management-status').textContent==='Ein verwalteter CMS ist registriert.','CMS registered state should render');
+  check('Running CMS blocks create and adoption',()=>{assert.equal(node('cms-management-create-submit').disabled,true);assert.equal(node('cms-management-adopt-submit').disabled,true);});
+  run('startAction = () => new Promise(resolve => { window.resolveLateCmsAction = resolve; });');
+  const cmsRegistered=cmsManagementState;
+  cmsManagementState=cmsAvailable;
+  await resourceEvent('cms-management-read');
+  await waitForActualBoundary(()=>cmsManagementReads===5 && !node('cms-management-read').disabled,'CMS late-response setup state should render');
+  node('cms-management-provider').value='docker';
+  node('cms-management-create-confirm').checked=true;await resourceEvent('cms-management-create-confirm','change');
+  await resourceEvent('cms-management-create-submit');
+  await waitForActualBoundary(()=>typeof context.window.resolveLateCmsAction==='function','CMS late response should be pending');
+  await resourceEvent('cms-management-close');
+  cmsManagementState=cmsRegistered;
+  await resourceEvent('cms-management-open');
+  await waitForActualBoundary(()=>cmsManagementReads===6 && node('cms-management-status').textContent==='Ein verwalteter CMS ist registriert.','new CMS dialog state should render');
+  context.window.resolveLateCmsAction({id:'old-cms-job'});
+  await new Promise(resolve=>setTimeout(resolve,10));
+  check('Late CMS action response cannot replace state or busy controls of reopened dialog',()=>{assert.equal(node('cms-management-status').textContent,'Ein verwalteter CMS ist registriert.');assert.equal(node('cms-management-create-submit').disabled,true);});
+  check('CMS UI exposes no password control',()=>{assert.equal(html.includes('cms-management-adopt-password'),false);assert.match(html,/wird nicht an den Browser zurückgegeben/);});
   const maintenanceCalls=[];
   const maintenanceRow={Id:'fixture',CandidateId:'a'.repeat(64),Label:'docker · SQL-Speicher',Fields:[{Label:'Herkunft',Value:'Unbekannt <script>marker</script>'}]};
   let maintenanceMode='ready';
@@ -991,30 +1343,66 @@ async function main() {
   check('Default SQL template choices leave feature intent absent', () => {
     assert.deepEqual(JSON.parse(run("JSON.stringify(collectHyperVSqlFeatureParameters({Workload:'sql'}))")), {});
   });
+  check('Hyper-V feature action binds the registered instance instead of a discovered named instance', () => {
+    const lab = { RunId: 'feature-vm', InstanceId: 'registered', Workload: 'sql', State: 'RUNNING',
+      VMState: 'Running', SqlInstances: [{ InstanceId: 'REPORTING', Name: 'REPORTING', IsDefault: false }] };
+    run('renderHyperVLabs(' + JSON.stringify([lab]) + ')');
+    assert.match(node('hyperv-labs').innerHTML, /data-sql-features="true" data-run="feature-vm" data-instance="registered"/);
+    delete lab.InstanceId;
+    run('renderHyperVLabs(' + JSON.stringify([lab]) + ')');
+    assert.doesNotMatch(node('hyperv-labs').innerHTML, /data-sql-features/);
+  });
   for (const provider of ['docker', 'podman', 'hyperv']) {
-    const button = { dataset: { run: 'synthetic-feature-run', instance: 'secondary', provider } };
+    const button = { dataset: { run: 'synthetic-feature-run', instance: 'secondary', provider, labName: 'SQL-Lab' } };
     const event = { target: { closest: selector => selector === '[data-sql-features]' ? button : null } };
     for (const handler of documentEvents.get('click') || []) handler(event);
     check(provider + ' feature dialog carries exact target and FILESTREAM capability', () => {
       assert.equal(node('sql-feature-run').value, 'synthetic-feature-run');
       assert.equal(node('sql-feature-instance').value, 'secondary');
+      assert.equal(node('sql-feature-target').textContent, 'SQL-Lab · secondary');
+      assert.equal(node('sql-feature-enabled').value, '');
       assert.equal(node('sql-feature-filestream-option').disabled, provider !== 'hyperv');
       assert.equal(node('sql-feature-password-label').hidden, provider === 'hyperv');
     });
-    node('sql-feature-name').value = provider === 'hyperv' ? 'FileStream' : 'FullText';
-    node('sql-feature-enabled').value = 'false';
-    for (const handler of node('sql-feature-form').events.get('submit') || []) handler({ submitter: { value: 'default' }, preventDefault() {} });
-    check(provider + ' feature removal dispatches boolean false and selected instance', () => {
-      const request = context.queued.at(-1);
-      assert.equal(request.action, 'SetSqlFeature');
-      assert.equal(request.parameters.InstanceId, 'secondary');
-      assert.equal(request.parameters.SqlFeatureEnabled, false);
-      assert.equal(request.parameters.SqlFeature, provider === 'hyperv' ? 'FileStream' : 'FullText');
-    });
+    const submitFeature = () => {
+      for (const handler of node('sql-feature-form').events.get('submit') || []) handler({ submitter: { value: 'default' }, preventDefault() {} });
+    };
+    const queueBefore = context.queued.length;
+    submitFeature();
+    check(provider + ' dispatches nothing without an explicit choice', () => assert.equal(context.queued.length, queueBefore));
+    for (const enabled of [true, false]) {
+      node('sql-feature-enabled').value = String(enabled);
+      submitFeature();
+      check(provider + ' binds FullText ' + enabled + ' to the selected instance', () => {
+        const request = context.queued.at(-1);
+        assert.equal(request.action, 'SetSqlFeature');
+        assert.equal(request.parameters.RunId, 'synthetic-feature-run');
+        assert.equal(request.parameters.InstanceId, 'secondary');
+        assert.equal(request.parameters.SqlFeatureEnabled, enabled);
+        assert.equal(request.parameters.SqlFeature, 'FullText');
+      });
+    }
+    if (provider === 'hyperv') {
+      node('sql-feature-name').value = 'FileStream';
+      submitFeature();
+      check('Hyper-V keeps the FILESTREAM action', () => assert.equal(context.queued.at(-1).parameters.SqlFeature, 'FileStream'));
+    }
   }
   const queuedBeforeCancel = context.queued.length;
   for (const handler of node('sql-feature-form').events.get('submit') || []) handler({ submitter: { value: 'cancel' }, preventDefault() {} });
   check('Feature cancel dispatches no mutation', () => assert.equal(context.queued.length, queuedBeforeCancel));
+  const beforeSsms = fetchRequests.length;
+  context.sqlServerLabUiFetch = async (...args) => {
+    fetchRequests.push(args);
+    return { ok: true, headers: { get: () => 'application/xml; charset=utf-8' }, blob: async () => ({ size: 128 }) };
+  };
+  for (const handler of node('ssms-registration-download').events.get('click') || []) await handler();
+  check('SSMS registration uses a local read and downloads a fixed extension', () => {
+    assert.equal(fetchRequests.length, beforeSsms + 1);
+    assert.equal(fetchRequests.at(-1)[0], '/api/ssms-registration');
+    assert.equal(fetchRequests.at(-1)[1].method, undefined);
+    assert.deepEqual(downloads, [{ file: 'sql-server-lab.regsrvr', url: 'blob:synthetic-test' }]);
+  });
   console.log('WORKFLOW SQL TARGET, EVALUATION AND SETUP: ' + passed + ' PASS');
 }
 main().catch((error) => { console.error(error); process.exitCode = 1; });

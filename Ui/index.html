@@ -54,6 +54,7 @@
       </div>
       <p>Beginnen Sie mit dem Ziel. Providerabhängige Schritte werden nur angeboten, wenn der Host sie unterstützt; andernfalls bleibt der Grund sichtbar.</p>
       <button id="environment-groups-open" type="button" class="button secondary">Lab-Umgebungsgruppen ansehen</button>
+      <button id="smtp-status-open" type="button" class="button secondary">SMTP-Testdienst prüfen</button>
       <div class="guided-workflow-grid">
         <a class="guided-workflow-card" href="#creation-workflow"><strong>Lab erstellen</strong><span>Container oder vorhandene Hyper-V-Vorlage verwenden</span></a>
         <a class="guided-workflow-card" href="#environment-inventory"><strong>Lab verwalten</strong><span>Status, Start, Stopp, Konfiguration und Entfernen</span></a>
@@ -72,7 +73,8 @@
         <button id="new-manifest" class="button secondary">Container-Manifest erstellen</button>
         <button id="external-runtime-open" type="button" class="button secondary">Python / R / Java: Katalog und Hostvoraussetzungen</button>
         <button id="host-matrix-open" type="button" class="button secondary">Hostfähigkeiten vor der Funktionsauswahl</button>
-        <button id="run-manifest" class="button secondary">Container-Manifest ausführen</button>
+        <button id="run-manifest" class="button secondary">Container-Manifest prüfen oder ausführen</button>
+        <button id="container-tool-check-open" type="button" class="button secondary">SqlPackage-Version im Container prüfen</button>
         <button id="new-hyperv-lab" class="button secondary">Neue Windows-/SQL-Hyper-V-Umgebung</button>
         <button id="new-hyperv-existing-vm-lab" class="button secondary">Windows-VM als Hyper-V-Basis</button>
       </div>
@@ -82,13 +84,18 @@
       <h2>Geschützte Testsystem-Matrix</h2>
       <p>Zusammengehörige Testumgebungen werden als geschützte Gruppe verwaltet. Einzellab-Aktionen ersetzen diesen Gruppenvertrag nicht.</p>
       <button id="test-group-open" type="button" class="button secondary">Gruppe ansehen · Power-Start/Stop</button>
-      <p>Power steuert Container und VMs. SQL-Bereitschaft wird nicht geprüft. Erstellen, Reparatur und Entfernen bleiben separate Konsolenfunktionen.</p>
+      <button id="test-group-create-open" type="button" class="button secondary">Linux-Testumgebung hinzufügen</button>
+      <button id="test-group-management-open" type="button" class="button secondary">Testgruppe verwalten</button>
+      <button type="button" class="button secondary" data-open-build="sql-fresh" data-provider-capability="hyperv">Windows-/SQL-Vorlage aus ISOs vorbereiten</button>
+      <p>Power steuert Container und VMs. SQL-Bereitschaft wird dabei nicht geprüft.</p>
     </section>
 
     <section class="panel" data-workspace-area="templates" hidden>
       <h2>Hyper-V: Vorlagen und Slots</h2>
+      <button id="hyperv-storage-preview-open" type="button" class="button secondary">Hyper-V-Zielpfade und freien Speicher anzeigen</button>
       <button id="templates-reserve" type="button" class="button secondary">Slotreserve: Policy und Kandidaten</button>
-      <p>Vorlagen vorbereiten und Bestände prüfen. Slot-Reservierung und vollständige Gruppenplanung besitzen noch keinen geführten Browserdialog; die Konsole bietet die vorhandene Einzel-/Batch-Vorbereitung.</p>
+      <button id="windows-slot-pool-open" type="button" class="button secondary">Windows-OS-Slot-Pool vorbereiten</button>
+      <p>Windows-Vorlagen vorbereiten, Slotreserve prüfen oder aus einer geeigneten Baseline einen Windows-Slot-Pool anlegen.</p>
       <div class="workflow-actions">
         <button class="button primary" data-open-build="sql-fresh" data-provider-capability="hyperv">Neues SQL-Prepared-Image</button>
         <button class="button secondary" data-open-build="windows" data-provider-capability="hyperv">Erweitert: Windows-OS-Baseline</button>
@@ -121,20 +128,38 @@
       <button id="media-sources" class="button secondary">Medienquellen und Ablage anzeigen</button>
       <button id="media-override-open" class="button secondary">SQL-2022/2025-Bootstrapperquellen bearbeiten</button>
       <button id="resource-watch-open" class="button secondary">Ressourcenstand: CUs und SqlPackage</button>
+      <button id="resource-plan-open" type="button" class="button secondary">Lokalen Ressourcenbedarf prüfen</button>
       <button id="llama-installer-open" type="button" class="button secondary">llama.cpp-Runtime installieren / prüfen</button>
     </section>
     <section class="panel" data-workspace-area="hostmodels" hidden>
       <h2>Host-Dienste und Modelle</h2>
-      <p>Runtimeinstallation, laufender Dienst, gespeicherte Modelldatei und geladenes Modell sind getrennte Zustände. In der Konsole sind Modellkatalog/Download und vorhandene Ollama-Modellaufrufe verfügbar.</p>
+      <p>Hier verwaltest du lokale Runtime-Pakete und Modelldateien und rufst vorhandene Ollama-Modelle auf.</p>
       <p>Eigene llama.cpp-Sitzungen dieses UI-Modulhosts können geführt gestartet und bewusst gestoppt werden. Der geführte Start ist synthetisch geprüft; der native Nachweis steht noch aus. Fremdstarts, Restart sowie Load, Warmup, Unload und Modellwechsel bleiben offen. Der vorhandene erweiterte Secret-Preflight unten steuert keinen Dienst.</p>
       <button id="llama-session-open" type="button" class="button secondary">Eigene llama.cpp-Sitzung stoppen</button>
+      <button id="llama-runtime-inventory-read" type="button" class="button secondary">Vorhandene llama.cpp-Pakete prüfen</button>
+      <button id="llama-model-catalog-open" type="button" class="button secondary">llama.cpp-Modelle anzeigen und herunterladen</button>
+      <button id="ollama-local-generation-open" type="button" class="button secondary">Lokales Ollama-Modell aufrufen</button>
+      <p id="llama-runtime-inventory-status" role="status"></p>
+      <ul id="llama-runtime-inventory-items" hidden></ul>
+      <button id="ai-compute-inventory-read" type="button" class="button secondary">CPU, GPU und NPU erfassen</button>
+      <p id="ai-compute-inventory-status" role="status"></p>
+      <button id="ai-runtime-capability-read" type="button" class="button secondary">llama.cpp-Eignung prüfen</button>
+      <p id="ai-runtime-capability-status" role="status"></p>
+      <button id="compute-selection-open" type="button" class="button secondary">KI-Gerätekombination aus Messbelegen wählen</button>
+      <button id="compute-benchmark-open" type="button" class="button secondary">llama.cpp-Gerätekombinationen messen</button>
+      <button id="ovms-upstream-open" type="button" class="button secondary">Lokalen OVMS-Embedding-Dienst prüfen</button>
+      <button id="persistent-fixture-open" type="button" class="button secondary">Persistente Retrieval-Collections</button>
+      <button id="ai-scenario-plan-open" type="button" class="button secondary">Vector-Core-Szenarioplan lesen</button>
       <button id="llama-start-plan-open" type="button" class="button secondary">llama.cpp: reine Startvorschau</button>
       <button id="llama-start-open" type="button" class="button secondary">llama.cpp: eigene Sitzung starten</button>
     </section>
     <section class="panel" data-workspace-area="connections" hidden>
       <h2>Verbindungen und CMS</h2>
-        <p>Endpunkte und angegebene TLS-Optionen aus derselben registrierten Lab-Ansicht. Fehlende Werte bleiben unbekannt; die Anzeige ist kein Verbindungs- oder Zertifikatsnachweis. CMS-Einrichtung und Synchronisation sind in der Konsole geführt verfügbar. Ein vollständiger CMS-Fachdialog im Browser bleibt offen.</p>
+      <p>Gespeicherte Endpunkte anzeigen, SSMS-Registrierungen exportieren und einen verwalteten CMS bereitstellen oder prüfen.</p>
       <button id="cms-inspection-open" class="button secondary">Registrierten CMS lesend prüfen</button>
+      <button id="ssms-registration-download" type="button" class="button secondary">SSMS-Registrierungen herunterladen</button>
+      <p id="ssms-registration-status" role="status"></p>
+      <button id="cms-management-open" class="button secondary">CMS bereitstellen</button>
       <button id="component-relations-open" class="button secondary">SQL-Komponenten: geführte Vorschau</button>
       <div id="connection-endpoints" class="list"></div>
     </section>
@@ -143,14 +168,24 @@
       <p>Lab_Base und registrierte Lab_Data-Roots prüfen, fehlende Roots ergänzen und den globalen Standard wählen. Provider lassen sich ausdrücklich erneut prüfen. Installation und Datenmigration bleiben getrennte Schritte. Die Advisory-Reservepolicy hat einen eigenen Vorschau-/Speicherdialog.</p>
       <button id="configuration-storage" type="button" class="button secondary">Grundkonfiguration und Provider öffnen</button>
       <button id="configuration-reserve" type="button" class="button secondary">Slotreserve: Policy und Kandidaten</button>
+      <button id="license-profile-status-open" type="button" class="button secondary">Lokale Lizenzprofile prüfen</button>
     </section>
     <section class="panel" data-workspace-area="maintenance" hidden>
       <h2>Wartung, Aufräumen und Recovery</h2>
       <p>Befunde vor einer Änderung prüfen. Die Konsole bietet zusätzlich Providerstatus, Cleanup-Audit und Runtime-Abgleich; vollständige geführte Recovery-Parität bleibt offen.</p>
       <div class="workflow-actions">
         <button id="evaluation-watch-open" type="button" class="button secondary">Evaluationsfristen lesen</button>
+        <button id="container-network-plan-open" type="button" class="button secondary">Lab-Netz auf Subnetzkonflikt prüfen</button>
+        <button id="automation-api-plan-open" type="button" class="button secondary">Automatisierungsschnittstelle ansehen</button>
+        <button id="hyperv-recovery-points-open" type="button" class="button secondary">Hyper-V-Wiederherstellungspunkte lesen</button>
+        <button id="diagnostic-bundle-open" type="button" class="button secondary">Gespeicherten Diagnosebefund lesen</button>
+        <button id="run-state-upgrade-plan-open" type="button" class="button secondary">Format eines Run-States prüfen</button>
+        <button id="evaluation-trigger-open" type="button" class="button secondary">Fristen zeitgesteuert prüfen</button>
+        <button id="sql-guest-evidence-open" type="button" class="button secondary">SQL-Editionsbeleg im Gast aktualisieren</button>
         <button id="evaluation-refresh-open" type="button" class="button secondary">SQL-Evaluation: Ersatzentscheid</button>
         <button id="maintenance-open" type="button" class="button secondary">Wartungsbefunde und Zuordnung</button>
+        <button id="runtime-maintenance-preview-open" type="button" class="button secondary">Schnellen Wartungsplan lesen</button>
+        <button id="full-maintenance-preview-open" type="button" class="button secondary">Vollständigen Wartungsplan lesen</button>
         <button id="clear-all-labs" class="button danger">Alle regulären Lab-Umgebungen löschen</button>
       </div>
     </section>
@@ -160,6 +195,62 @@
         <span id="queue-count" class="count"></span>
       </div>
       <p>Wartende Benutzeraktionen geben Worker frei. Read-only-Probes melden nur einen Kandidaten; fortgesetzt wird ausschließlich nach Bestätigung.</p>
+      <button id="operation-host-start" type="button" class="button secondary">Hintergrundscheduler anfordern</button>
+      <details id="batch-draft">
+        <summary>Batch mit mehreren Umgebungen planen</summary>
+        <p>Speichert einen validierten Entwurf. Öffne anschließend die Batchübersicht, prüfe den Entwurf und bestätige das Einreihen.</p>
+        <form id="batch-draft-form">
+          <label>Batch-Name <input name="batchName" maxlength="64" required></label>
+          <label>Priorität <select name="priority"><option value="Normal">Normal</option><option value="High">Hoch</option><option value="Low">Niedrig</option></select></label>
+          <div id="batch-draft-positions"></div>
+          <div class="actions">
+            <button id="batch-draft-add" type="button" class="button secondary">Position hinzufügen</button>
+            <button id="batch-draft-save" type="submit" class="button">Entwurf validieren und speichern</button>
+          </div>
+          <p id="batch-draft-status" role="status"></p>
+        </form>
+        <template id="batch-draft-position">
+          <fieldset class="batch-draft-position">
+            <legend>Umgebung</legend>
+            <label>Typ
+              <select name="kind">
+                <option value="SqlEnvironment">SQL Server unter Linux</option>
+                <option value="SqlWindowsEnvironment">SQL Server unter Windows</option>
+                <option value="WindowsEnvironment">Windows-Umgebung</option>
+              </select>
+            </label>
+            <label>Umgebungsname <input name="environmentName" required pattern="[a-z][a-z0-9\-]{0,39}" maxlength="40"></label>
+            <label>Anzahl <input type="number" name="count" min="1" max="100" value="1" required></label>
+            <fieldset data-batch-options="sql">
+              <legend>SQL Server</legend>
+              <label>Version <select name="version">
+                <option value="2025">2025</option><option value="2022">2022</option><option value="2019">2019</option>
+              </select></label>
+            </fieldset>
+            <fieldset data-batch-options="linux">
+              <legend>Linux-Container</legend>
+              <label>Provider <select name="provider"><option value="Auto">Automatisch</option><option value="docker">Docker</option><option value="podman">Podman</option></select></label>
+              <label>Name der SA-Kennwortvariable <input name="secretReference" required placeholder="SQL_SERVER_LAB_SECRET_" pattern="SQL_SERVER_LAB_SECRET_[A-Z0-9_]{1,64}" maxlength="86" autocomplete="off"></label>
+            </fieldset>
+            <fieldset data-batch-options="windows" hidden disabled>
+              <legend>Windows</legend>
+              <label>Betriebssystem <select name="operatingSystem"><option>Windows Server 2025</option><option>Windows Server 2022</option></select></label>
+              <label>Variante <select name="variant"><option value="Desktop">Desktop Experience</option><option value="Core">Server Core</option></select></label>
+              <label>Virtuelle CPUs <input name="cpu" type="number" min="1" max="128" value="4" required></label>
+              <label>RAM in MiB <input name="memoryMB" type="number" min="512" max="262144" value="8192" required></label>
+            </fieldset>
+            <button type="button" data-batch-draft-remove class="button secondary">Position entfernen</button>
+          </fieldset>
+        </template>
+      </details>
+      <details id="batch-overview">
+        <summary>Fortschritt gespeicherter Batches</summary>
+        <p id="batch-overview-status" role="status"></p>
+        <table id="batch-overview-table" hidden>
+          <thead><tr><th>Batch-ID</th><th>Status</th><th>Fortschritt</th><th>Vorgänge</th><th>Fehler</th><th>Abgebrochen</th></tr></thead>
+          <tbody id="batch-overview-rows"></tbody>
+        </table>
+      </details>
       <div id="operation-queue" class="cards"></div>
     </section>
 
@@ -239,6 +330,8 @@
       <section class="panel compact">
         <div class="section-heading"><div><p class="eyebrow">CONTAINER</p><h2>Aktive Lab-Umgebungen</h2></div></div>
       <button id="autostart-preview-open" type="button" class="button secondary">Container-Autostart vorprüfen · PLAN_ONLY</button>
+      <button id="autostart-change-open" type="button" class="button secondary">Container-Autostart ändern</button>
+      <button id="autostart-recovery-open" type="button" class="button secondary">Container-Autostart-Recovery fortsetzen</button>
       <button id="port-preview-open" type="button" class="button secondary">SQL-Hostport vorprüfen · PLAN_ONLY</button>
       <div id="active-labs" class="list"></div>
       </section>
@@ -259,6 +352,9 @@
 
     <section class="panel" data-workspace-area="labs">
       <div class="section-heading"><div><p class="eyebrow">HYPER-V</p><h2>Reguläre Hyper-V-Umgebungen</h2></div></div>
+      <button id="hyperv-autostart-open" type="button" class="button secondary">Hyper-V-Autostart ändern</button>
+      <button id="ssis-execution-open" type="button" class="button secondary">SSISDB-Ausführung beobachten</button>
+      <button id="ssis-package-open" type="button" class="button secondary">SSIS-Paketladediagnose</button>
       <div id="hyperv-labs" class="cards"></div>
     </section>
 
@@ -281,6 +377,12 @@
       <label>Gebundenes Hyper-V-SQL-Ziel<select id="database-package-target"><option value="">Kein laufendes SQL-Ziel verfügbar</option></select></label>
       <div id="database-package-details" class="selection-details" aria-live="polite">Die Auswahl erfolgt ausschließlich über die stabile DatabasePackageId; Hostpfade und Hashes werden nicht an den Browser übertragen.</div>
       <div class="build-actions"><button id="database-package-attach" type="button" class="button primary" disabled>Paketkopie prüfen und attachen</button></div>
+      <div class="build-actions"><button id="relational-compare-open" type="button" class="button secondary">Zwei Containerdatenbanken vergleichen</button></div>
+      <div class="build-actions">
+        <button id="portable-media-open" type="button" class="button secondary">Backupmedium am Zielcontainer vorprüfen</button>
+        <button id="portable-transfer-open" type="button" class="button secondary">SQL-2025-Datenbank in neuen Container übertragen</button>
+        <button id="portable-import-plan-open" type="button" class="button secondary">Portables Lab-Paket prüfen</button>
+      </div>
       <p class="form-note">Die Inventur hasht große Objekte nicht bei jedem Refresh und zeigt nur sanitisierte Migrationskategorien und Warnungen. Beim Attach werden Paket, scopegebundener Ziel-Run, SQL-Version, FILESTREAM/TDE und das live von SQL Server gemeldete Default-Data-Ziel frisch revalidiert; ein freier Pfad kann nicht eingegeben werden.</p>
     </section>
 
@@ -513,8 +615,9 @@
     <form id="sql-feature-form" method="dialog">
       <div class="dialog-heading"><div><p class="eyebrow">SQL-FUNKTIONEN</p><h2>Funktion hinzufügen oder entfernen</h2></div><button type="button" class="icon-button" value="cancel" formnovalidate aria-label="Schließen">×</button></div>
       <input id="sql-feature-run" type="hidden"><input id="sql-feature-instance" type="hidden">
+      <p id="sql-feature-target" class="form-note"></p>
       <label>Funktion<select id="sql-feature-name"><option value="FullText">Volltextsuche</option><option id="sql-feature-filestream-option" value="FileStream">FILESTREAM (T-SQL)</option></select></label>
-      <label>Zielzustand<select id="sql-feature-enabled"><option value="true">Hinzufügen / einschalten</option><option value="false">Entfernen / ausschalten</option></select></label>
+      <label>Zielzustand<select id="sql-feature-enabled" required><option value="">Bitte auswählen</option><option value="true">Nachinstallieren / aktivieren</option><option value="false">Deaktivieren / Komponente entfernen</option></select></label>
       <p id="sql-feature-note" class="form-note"></p>
       <label id="sql-feature-password-label">SA-Passwort (optional bei gespeichertem Zugang)<input id="sql-feature-password" type="password" autocomplete="current-password"></label>
       <p class="form-note">SQL wird bei einer Änderung neu gestartet. Abhängige Indizes oder FILESTREAM-Daten blockieren das Entfernen. Es werden keine Daten gelöscht.</p>
@@ -541,10 +644,23 @@
     </form>
   </dialog>
 
+  <dialog id="container-tool-check-dialog">
+    <form id="container-tool-check-form">
+      <h2>SqlPackage-Version im Container prüfen</h2>
+      <label>SQL-Containerinstanz<select id="container-tool-check-target" required></select></label>
+      <p id="container-tool-check-status" role="status"></p>
+      <div class="dialog-actions">
+        <button id="container-tool-check-close" type="button" class="button secondary">Schließen</button>
+        <button id="container-tool-check-submit" type="submit" class="button primary">Versionsprüfung vorbereiten</button>
+      </div>
+    </form>
+  </dialog>
   <dialog id="manifest-run-dialog">
     <form id="manifest-run-form" method="dialog">
-      <div class="dialog-heading"><div><p class="eyebrow">CONTAINER-MANIFEST</p><h2>Umgebung aus Manifest erstellen</h2></div><button type="button" class="icon-button" value="cancel" formnovalidate aria-label="Schließen">×</button></div>
+      <div class="dialog-heading"><div><p class="eyebrow">CONTAINER-MANIFEST</p><h2>Manifest prüfen oder Umgebung erstellen</h2></div><button type="button" class="icon-button" value="cancel" formnovalidate aria-label="Schließen">×</button></div>
       <label>Manifestpfad<input id="manifest-run-path" placeholder="D:\\Lab\\mein-lab.json" required></label>
+      <button type="button" class="button secondary" id="manifest-run-check">Manifest prüfen</button>
+      <p id="manifest-run-check-status" role="status"></p>
       <label>SA-Passwort<input id="manifest-run-password" type="password" autocomplete="new-password" required></label>
       <p class="form-note">Mindestens 8, höchstens 128 Zeichen und drei der vier Zeichengruppen. Eine kürzere Mindestlänge ist für Manifeststarts nicht verfügbar.</p>
       <p class="form-note">Das Manifest wird vor der Erstellung vollständig validiert. Das Passwort erscheint nicht im Live-Log; nach der Erstellung wird es für spätere Starts verschlüsselt im eigenen Lab abgelegt.</p>
@@ -606,6 +722,37 @@
     </div>
   </dialog>
   <script src="container-autostart-preview.js"></script>
+
+  <dialog id="autostart-change-dialog">
+    <div class="read-only-dialog-content">
+      <div class="dialog-heading"><h2>Container-Autostart ändern</h2></div>
+      <label>Registrierte laufende SQL-Instanz<select id="autostart-change-target" disabled></select></label>
+      <label>Zielpolicy<select id="autostart-change-policy"><option value="on">on</option><option value="off">off</option></select></label>
+      <p id="autostart-change-status" role="status"></p>
+      <label><input id="autostart-change-confirm" type="checkbox" disabled> Angezeigte Änderung bestätigen</label>
+      <div class="dialog-actions">
+        <button id="autostart-change-read" type="button" class="button secondary">Ziele neu lesen</button>
+        <button id="autostart-change-plan" type="button" class="button secondary" disabled>Änderung prüfen</button>
+        <button id="autostart-change-apply" type="button" class="button primary" disabled>Autostart ändern</button>
+        <button id="autostart-change-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="autostart-recovery-dialog">
+    <div class="read-only-dialog-content">
+      <div class="dialog-heading"><h2>Container-Autostart-Recovery fortsetzen</h2></div>
+      <p>Die gewählte Journaloperation prüft den Container erneut und schreibt anschließend Lab-State. Die Restartpolicy wird dabei nicht erneut gesetzt.</p>
+      <label>Offene Journaloperation<select id="autostart-recovery-target" disabled></select></label>
+      <label><input id="autostart-recovery-confirm" type="checkbox" disabled> Ausgewählte Operation bewusst fortsetzen</label>
+      <p id="autostart-recovery-status" role="status"></p>
+      <div class="dialog-actions">
+        <button id="autostart-recovery-read" type="button" class="button secondary">Neu lesen</button>
+        <button id="autostart-recovery-apply" type="button" class="button primary" disabled>Recovery fortsetzen</button>
+        <button id="autostart-recovery-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </div>
+  </dialog>
 
   <dialog id="port-preview-dialog">
     <div class="read-only-dialog-content">
@@ -721,13 +868,47 @@
   <dialog id="cms-inspection-dialog">
     <form method="dialog">
       <h2>Registrierten CMS lesend prüfen</h2>
-      <p>Diese Prüfung liest nur den bereits verwalteten CMS. Sie richtet nichts ein und synchronisiert keine Server. Mitgliedsverbindungen und SSMS-Zugriff bleiben ungeprüft.</p>
+      <p>Prüfe den registrierten CMS oder synchronisiere nach Bestätigung die vom Lab verwalteten Einträge. Die Prüfung liest nur CMS-Metadaten.</p>
       <p id="cms-inspection-status" role="status"></p>
       <p id="cms-inspection-target"></p>
       <p id="cms-inspection-result"></p>
       <button id="cms-inspection-read" type="button" class="button secondary">Registrierung erneut lesen</button>
       <button id="cms-inspection-check" type="button" class="button primary">Diesen CMS jetzt prüfen</button>
+      <button id="cms-sync-open" type="button" class="button secondary" disabled>CMS synchronisieren</button>
+      <p id="cms-sync-status" role="status"></p>
       <button id="cms-inspection-close" type="button" class="button secondary">Schließen</button>
+    </form>
+  </dialog>
+
+  <dialog id="cms-management-dialog">
+    <form method="dialog">
+      <h2>CMS bereitstellen</h2>
+      <p>Erstelle einen persistenten CMS oder registriere einen geeigneten laufenden Docker-/Podman-Run mit geschütztem SA-Kennwort. Nach einer unbestätigten Aktion lies den Status erneut.</p>
+      <p id="cms-management-status" role="status" aria-live="polite">CMS-Status wird gelesen …</p>
+      <p id="cms-management-summary"></p>
+      <button id="cms-management-read" type="button" class="button secondary">Status erneut lesen</button>
+      <section id="cms-management-create" hidden>
+        <h3>Neuen CMS-Run erstellen</h3>
+        <p>Erstellt eine neue persistente SQL Server 2025-CMS-Umgebung im konfigurierten Data Root. Das generierte SA-Passwort bleibt im lokalen Run geschützt und wird nicht an den Browser zurückgegeben. Zugangsdaten können anschließend über den geführten Konsolenweg angezeigt werden.</p>
+        <label>Provider
+          <select id="cms-management-provider"></select>
+        </label>
+        <label>Lab-Name
+          <input id="cms-management-lab-name" type="text" maxlength="80" value="sql-server-lab-cms" autocomplete="off">
+        </label>
+        <label><input id="cms-management-create-confirm" type="checkbox"> Ich bestätige, einen neuen persistenten SQL Server 2025-Run anzulegen.</label>
+        <button id="cms-management-create-submit" type="button" class="button primary">CMS-Run erstellen</button>
+      </section>
+      <section id="cms-management-adopt" hidden>
+        <h3>Vorhandenen SQL-Run übernehmen</h3>
+        <p>Wähle einen laufenden Run mit genau einer SQL-Instanz und lokal gespeichertem SA-Kennwort.</p>
+        <label>SQL-Umgebung
+          <select id="cms-management-candidate"></select>
+        </label>
+        <label><input id="cms-management-adopt-confirm" type="checkbox"> Ich bestätige, den ausgewählten Run als verwalteten CMS zu registrieren.</label>
+        <button id="cms-management-adopt-submit" type="button" class="button primary">SQL-Run übernehmen</button>
+      </section>
+      <button id="cms-management-close" type="button" class="button secondary">Schließen</button>
     </form>
   </dialog>
   <dialog id="resource-watch-dialog">
@@ -879,7 +1060,114 @@
   </dialog>
   <script src="tls-live-qualification.js"></script>
   <script src="sql-connection-clipboard.js"></script>
+  <script src="test-group-view.js"></script>
+  <script src="operation-queue.js"></script>
   <script src="app.js"></script>
+  <dialog id="ollama-local-generation-dialog">
+    <form id="ollama-local-generation-form">
+      <h2>Lokales Ollama-Modell aufrufen</h2>
+      <p>Das Modell muss im lokalen Ollama-Dienst installiert sein. Verwende für diese Abfrage synthetische Daten.</p>
+      <label>Modell<select id="ollama-local-generation-model" required></select></label>
+      <label>Lokaler Port<input id="ollama-local-generation-port" type="number" value="11434" min="1024" max="65535" required></label>
+      <label>Zeitlimit einschließlich Modellstart (Sekunden)<input id="ollama-local-generation-timeout" type="number" value="180" min="1" max="230" required></label>
+      <label>Prompt<textarea id="ollama-local-generation-prompt" rows="5" maxlength="8192" required autocomplete="off"></textarea></label>
+      <p id="ollama-local-generation-status" role="status"></p>
+      <div class="dialog-actions">
+        <button id="ollama-local-generation-next" type="submit" class="button primary" disabled>Weiter zur Bestätigung</button>
+        <button id="ollama-local-generation-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </form>
+  </dialog>
+  <script src="ollama-local-generation.js"></script>
+  <dialog id="llama-model-catalog-dialog">
+    <form id="llama-model-catalog-form">
+      <h2>llama.cpp-Modelle anzeigen und herunterladen</h2>
+      <label>Modell<select id="llama-model-catalog-selection" required></select></label>
+      <p id="llama-model-catalog-details"></p>
+      <p id="llama-model-catalog-status" role="status"></p>
+      <div class="dialog-actions">
+        <button id="llama-model-catalog-download" type="submit" class="button primary" disabled>Weiter zur Bestätigung</button>
+        <button id="llama-model-catalog-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </form>
+  </dialog>
+  <script src="llama-model-catalog.js"></script>
+  <dialog id="resource-plan-dialog">
+    <form id="resource-plan-form">
+      <h2>Lokalen Ressourcenbedarf prüfen</h2>
+      <p>Prüft die konfigurierten Speicherorte und zeigt fehlende Dateien unter Vorgänge. Die Prüfung startet keine Downloads.</p>
+      <label>Ressourcen
+        <select id="resource-plan-kind">
+          <option value="All">Beispieldaten und Laufzeitmedien</option>
+          <option value="Sample">Nur Beispieldaten</option>
+          <option value="Software">Nur Windows-/Hyper-V-Laufzeitmedien</option>
+        </select>
+      </label>
+      <p id="resource-plan-status" role="status"></p>
+      <div class="dialog-actions">
+        <button type="submit" class="button primary">Weiter zur Prüfung</button>
+        <button id="resource-plan-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </form>
+  </dialog>
+  <script src="resource-plan.js"></script>
+  <script src="manifest-check.js"></script>
+  <script src="ssms-registration-export.js"></script>
+  <script src="cms-sync.js"></script>
+  <script src="cms-management.js"></script>
+  <script src="container-tool-check.js"></script>
+  <script src="ai-compute-overview.js"></script>
+  <dialog id="ssis-execution-dialog">
+    <form id="ssis-execution-form">
+      <h2>SSISDB-Ausführung beobachten</h2>
+      <p>Für ein laufendes eigenes Hyper-V-Lab mit SQL Server 2025. Execution-ID, Projekt-LSN und Katalog-GUID müssen aus demselben SSISDB-Beleg stammen.</p>
+      <label>Run-ID<input name="RunId" required maxlength="36" autocomplete="off" spellcheck="false"></label>
+      <label>Instanz-ID<input name="InstanceId" required value="primary" maxlength="64" autocomplete="off" spellcheck="false"></label>
+      <label>Execution-ID<input name="ExecutionId" required inputmode="numeric" pattern="[1-9][0-9]{0,18}" maxlength="19" autocomplete="off"></label>
+      <label>Projekt-LSN<input name="ProjectLsn" required inputmode="numeric" pattern="[1-9][0-9]{0,18}" maxlength="19" autocomplete="off"></label>
+      <label>SSISDB-Katalog-GUID<input name="CatalogDatabaseGuid" required maxlength="36" autocomplete="off" spellcheck="false"></label>
+      <p id="ssis-execution-status" role="status"></p>
+      <div class="build-actions">
+        <button id="ssis-execution-read" type="submit" class="button primary">Metadaten lesen</button>
+        <button id="ssis-execution-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </form>
+  </dialog>
+  <script src="ssis-execution-diagnostic.js"></script>
+  <dialog id="ssis-package-dialog">
+    <form id="ssis-package-form" autocomplete="off">
+      <h2>SSIS-Paketladediagnose</h2>
+      <p>Für ein laufendes eigenes Hyper-V-Windows-Lab. Bei der Deserialisierung können installierte Komponenten Code laden. Verwende ausschließlich ein eigenes, vertrauenswürdiges synthetisches Paket.</p>
+      <label>Run-ID<input name="RunId" required maxlength="36" spellcheck="false"></label>
+      <label>Instanz-ID<input name="InstanceId" required value="primary" maxlength="64" spellcheck="false"></label>
+      <label>Absoluter lokaler DTSX-/ISPAC-Pfad<input type="password" name="PackagePath" required maxlength="512" autocomplete="off"></label>
+      <label>DTSX-Name im ISPAC-Stammverzeichnis<input name="PackageName" maxlength="133" spellcheck="false"></label>
+      <label>Erwarteter SHA-256 aus dem Paketbeleg<input name="ExpectedSha256" required pattern="[a-fA-F0-9]{64}" maxlength="64" spellcheck="false"></label>
+      <label><input type="checkbox" name="TrustConfirmed" required> Ich bestätige Paketursprung und Bindung an den Beleg.</label>
+      <p id="ssis-package-status" role="status"></p>
+      <div class="build-actions">
+        <button id="ssis-package-read" type="submit" class="button primary">Paketladung prüfen</button>
+        <button id="ssis-package-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </form>
+  </dialog>
+  <script src="ssis-package-diagnostic.js"></script>
+  <dialog id="hyperv-autostart-dialog">
+    <div class="panel">
+      <h2>Hyper-V-Autostart ändern</h2>
+      <label>Hyper-V-Lab<select id="hyperv-autostart-run"><option value="">Hyper-V-Lab auswählen</option></select></label>
+      <label>Aktion<select id="hyperv-autostart-mode"><option value="change">Startpolicy ändern</option><option value="recovery">Autostart-Recovery fortsetzen</option></select></label>
+      <label>Gewünschte Startpolicy<select id="hyperv-autostart-desired"><option value="off">Aus</option><option value="on">Ein</option></select></label>
+      <p id="hyperv-autostart-status" role="status"></p>
+      <label><input type="checkbox" id="hyperv-autostart-confirm" disabled> Angezeigten Vorgang bestätigen</label>
+      <div class="build-actions">
+        <button id="hyperv-autostart-plan" type="button" class="button secondary" disabled>Vorgang vorprüfen</button>
+        <button id="hyperv-autostart-apply" type="button" class="button primary" disabled>Vorgang ausführen</button>
+        <button id="hyperv-autostart-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </div>
+  </dialog>
+  <script src="hyperv-autostart.js"></script>
   <dialog id="evaluation-refresh-dialog">
     <div class="maintenance-dialog-content">
       <h2>SQL-Evaluation: Ersatzentscheid</h2>
@@ -901,6 +1189,323 @@
     </div>
   </dialog>
   <script src="evaluation-refresh-plan.js"></script>
+  <dialog id="portable-import-plan-dialog">
+    <form id="portable-import-plan-form">
+      <h2>Portables Lab-Paket prüfen</h2>
+      <p class="form-note">Liest die Backupreferenzen eines Pakets und bindet sie an einen vorhandenen Docker- oder Podman-Run.</p>
+      <label>Lab-Paket (JSON)<input id="portable-import-plan-file" type="file" accept=".json,application/json" required></label>
+      <label>Ziel-Run und Provider<select id="portable-import-plan-target" required></select></label>
+      <p id="portable-import-plan-status" role="status"></p>
+      <div class="dialog-actions">
+        <button id="portable-import-plan-read" type="submit" class="button primary">Importplan lesen</button>
+        <button id="portable-import-plan-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="run-state-upgrade-plan-dialog">
+    <form id="run-state-upgrade-plan-form">
+      <h2>Run-State-Format prüfen</h2>
+      <p class="form-note">Zeigt Format, geplante Felder und Blocker. Die Prüfung ändert die State-Datei nicht.</p>
+      <label>Lab auswählen<select id="run-state-upgrade-plan-target" required></select></label>
+      <p id="run-state-upgrade-plan-status" role="status"></p>
+      <dl id="run-state-upgrade-plan-result" hidden>
+        <dt>Format</dt><dd id="run-state-upgrade-plan-version"></dd>
+        <dt>Geplante Felder</dt><dd id="run-state-upgrade-plan-changes"></dd>
+        <dt>Blocker</dt><dd id="run-state-upgrade-plan-blockers"></dd>
+      </dl>
+      <div class="dialog-actions">
+        <button id="run-state-upgrade-plan-close" type="button" class="button secondary">Schließen</button>
+        <button id="run-state-upgrade-plan-read" type="submit" class="button primary">Format prüfen</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="ai-scenario-plan-dialog">
+    <form id="ai-scenario-plan-form">
+      <h2>Vector-Core-Szenarioplan</h2>
+      <p class="form-note">Liest für SQL Server 2025 die Anforderungen aus dem Katalog und prüft auf Wunsch den gespeicherten KI-Intent einer Instanz.</p>
+      <label>Planumfang<select id="ai-scenario-plan-target"></select></label>
+      <p id="ai-scenario-plan-status" role="status"></p>
+      <dl id="ai-scenario-plan-result" hidden>
+        <dt>Planstatus</dt><dd id="ai-scenario-plan-verdict"></dd>
+        <dt>Fähigkeiten</dt><dd id="ai-scenario-plan-capabilities"></dd>
+        <dt>Blocker</dt><dd id="ai-scenario-plan-blockers"></dd>
+      </dl>
+      <div class="dialog-actions">
+        <button id="ai-scenario-plan-close" type="button" class="button secondary">Schließen</button>
+        <button id="ai-scenario-plan-read" type="submit" class="button primary">Plan lesen</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="license-profile-status-dialog">
+    <form id="license-profile-status-form">
+      <h2>Lokale Lizenzprofile prüfen</h2>
+      <p class="form-note">Die Prüfung bestätigt keine Onlineaktivierung und zeigt keinen Product Key.</p>
+      <label>Profil<select id="license-profile-status-selection" required></select></label>
+      <p id="license-profile-status-result" role="status"></p>
+      <div class="dialog-actions">
+        <button id="license-profile-status-close" type="button" class="button secondary">Schließen</button>
+        <button id="license-profile-status-read" type="submit" class="button primary" disabled>Profil lokal prüfen</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="smtp-status-dialog">
+    <form id="smtp-status-form">
+      <h2>SMTP-Testdienst prüfen</h2>
+      <label>Lab mit Mailpit<select id="smtp-status-lab" required></select></label>
+      <p id="smtp-status-result" role="status"></p>
+      <p id="smtp-status-webmail-notice" class="form-note" hidden>Der lokale Zugang erlaubt 15 Minuten lang das Lesen und Löschen von Testmails.</p>
+      <div class="dialog-actions">
+        <button id="smtp-status-close" type="button" class="button secondary">Schließen</button>
+        <button id="smtp-status-webmail" type="button" class="button secondary" hidden disabled>WebMail im Standardbrowser öffnen</button>
+        <button id="smtp-status-read" type="submit" class="button primary" disabled>Receiver prüfen</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="diagnostic-bundle-dialog">
+    <form id="diagnostic-bundle-form">
+      <h2>Gespeicherter Diagnosebefund</h2>
+      <p class="form-note">Liest Zustand, Fehleranzahl und Aufräumstatus aus dem Standard-Lab_Data. Die Ansicht führt keine Liveprüfung aus.</p>
+      <label>Lab-Instanz<select id="diagnostic-bundle-target" required></select></label>
+      <p id="diagnostic-bundle-status" role="status"></p>
+      <dl id="diagnostic-bundle-result" hidden>
+        <dt>Gespeicherter Zustand</dt><dd id="diagnostic-bundle-state"></dd>
+        <dt>Recovery</dt><dd id="diagnostic-bundle-recovery"></dd>
+        <dt>Fehleranzahl</dt><dd id="diagnostic-bundle-errors"></dd>
+        <dt>Aufräumstatus</dt><dd id="diagnostic-bundle-cleanup"></dd>
+      </dl>
+      <div class="dialog-actions">
+        <button id="diagnostic-bundle-close" type="button" class="button secondary">Schließen</button>
+        <button id="diagnostic-bundle-read" type="submit" class="button primary">Befund lesen</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="hyperv-recovery-points-dialog">
+    <form id="hyperv-recovery-points-form">
+      <h2>Hyper-V-Wiederherstellungspunkte</h2>
+      <p class="form-note">Zeigt vorhandene Checkpoints des gewählten Labs. Die Ansicht hat keine Restore-Funktion.</p>
+      <label>Lab auswählen<select id="hyperv-recovery-points-target" required></select></label>
+      <p id="hyperv-recovery-points-status" role="status"></p>
+      <ul id="hyperv-recovery-points-result" hidden></ul>
+      <div class="dialog-actions">
+        <button id="hyperv-recovery-points-close" type="button" class="button secondary">Schließen</button>
+        <button id="hyperv-recovery-points-read" type="submit" class="button primary">Checkpoints lesen</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="automation-api-plan-dialog">
+    <form id="automation-api-plan-form">
+      <h2>Automatisierungsschnittstelle ansehen</h2>
+      <p class="form-note">Zeigt den öffentlichen Planvertrag, seine Pflichtparameter und einen vorhandenen separaten Aktionsbefehl.</p>
+      <label>Fachbereich<select id="automation-api-plan-action">
+        <option value="Reconcile">Ressourcenabgleich</option>
+        <option value="Maintenance">Wartung</option>
+        <option value="PersistentStorageRemoval">Entfernung persistenten Speichers</option>
+        <option value="RunStateUpgrade">Upgrade eines synthetischen Run-States</option>
+        <option value="PortableLabImport">Portabler Lab-Import</option>
+        <option value="HyperVRecoveryPoint">Hyper-V-Wiederherstellungspunkt</option>
+      </select></label>
+      <p id="automation-api-plan-status" role="status"></p>
+      <dl id="automation-api-plan-result" hidden>
+        <dt>Fachplan</dt><dd id="automation-api-plan-command"></dd>
+        <dt>Vertrag</dt><dd id="automation-api-plan-contract"></dd>
+        <dt>Pflichtparameter</dt><dd id="automation-api-plan-required"></dd>
+        <dt>Separater Aktionsbefehl</dt><dd id="automation-api-plan-execution"></dd>
+      </dl>
+      <div class="dialog-actions">
+        <button type="submit" class="button primary">Schnittstelle lesen</button>
+        <button id="automation-api-plan-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="compute-benchmark-dialog">
+    <form id="compute-benchmark-form">
+      <h2>llama.cpp-Gerätekombinationen messen</h2>
+      <p class="form-note">Prüft vorhandene Pakete mit llama-bench. Starte die Messung nur mit Paketen, denen du vertraust. Ein vollständiger Satz läuft seriell.</p>
+      <label>Absoluter lokaler Pfad zur GGUF-Datei<input id="compute-benchmark-model" maxlength="4096" required></label>
+      <button id="compute-benchmark-read" type="button" class="button secondary">Modell und Messkandidaten prüfen</button>
+      <label>Kandidat<select id="compute-benchmark-candidate" required></select></label>
+      <label>Messprofil<select id="compute-benchmark-mode"><option value="Generation">Textgeneration · 128 Ausgabetokens</option><option value="Embedding">Embedding · 512 Eingabetokens</option></select></label>
+      <p id="compute-benchmark-status" role="status"></p>
+      <div class="dialog-actions">
+        <button id="compute-benchmark-next" type="submit" class="button primary" disabled>Weiter zur Bestätigung</button>
+        <button id="compute-benchmark-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="compute-selection-dialog">
+    <form id="compute-selection-form">
+      <h2>KI-Gerätekombination aus Messbelegen wählen</h2>
+      <p class="form-note">Wähle den Kandidatensatz und das Ergebnis des Benchmark-Satzes für dasselbe Inventar. Die Auswahl startet kein Modell und keine neue Messung.</p>
+      <label>Kandidatensatz (JSON)<input id="compute-selection-candidates" type="file" accept=".json,application/json" required></label>
+      <label>Benchmark-Satz (JSON)<input id="compute-selection-benchmarks" type="file" accept=".json,application/json" required></label>
+      <label>Auswahl<select id="compute-selection-choice"><option value="">Schnellsten gemessenen Kandidaten wählen</option></select></label>
+      <p id="compute-selection-status" role="status"></p>
+      <div class="dialog-actions">
+        <button id="compute-selection-next" type="submit" class="button primary">Weiter zur Bestätigung</button>
+        <button id="compute-selection-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="persistent-fixture-dialog">
+    <form id="persistent-fixture-form">
+      <h2>Persistente Retrieval-Collections</h2>
+      <p class="form-note">Beispieldaten und eigene Dokumente verwenden ein lokales Ollama-Modell. Bestätige schreibende Schritte für die ausgewählte Collection.</p>
+      <label>SQL-2025-Instanz<select id="persistent-fixture-target" required></select></label>
+      <label>Schritt<select id="persistent-fixture-action">
+        <option value="initial">Beispieldaten anlegen</option>
+        <option value="delta">Beispieldaten aktualisieren</option>
+        <option value="backup">Beispielfrage zu Backups stellen</option>
+        <option value="cleanup">Beispielfrage zur Bereinigung stellen</option>
+        <option value="migrate">Beispielsammlung auf Nomic Embed v2 umstellen</option>
+        <option value="own-apply">Eigene Dokumente aus JSON anlegen</option>
+        <option value="own-query">Eigene Collection mit freier Frage abfragen</option>
+        <option value="own-sync">Eigene Collection mit JSON synchronisieren</option>
+        <option value="own-migrate">Eigene Collection auf Nomic Embed v2 umstellen</option>
+        <option value="prune">Alte Generationen einer eigenen Collection löschen</option>
+        <option value="remove">Datenbank einer eigenen Collection löschen</option>
+      </select></label>
+      <label>Collection-ID<input id="persistent-fixture-collection" maxlength="36" required></label>
+      <label id="persistent-fixture-document-field" hidden>Lokale JSON-Datei
+        <input id="persistent-fixture-document" type="file" accept=".json" disabled required>
+        <small id="persistent-fixture-document-help"></small>
+      </label>
+      <label id="persistent-fixture-resume-field"><input id="persistent-fixture-resume" type="checkbox"> Begonnenen Auftrag mit derselben ID fortsetzen</label>
+      <label id="persistent-fixture-retention-field" hidden>Jüngste Generationen behalten
+        <input id="persistent-fixture-retention" type="number" min="1" max="31" step="1" value="2" disabled required>
+      </label>
+      <p id="persistent-fixture-status" role="status"></p>
+      <div class="dialog-actions">
+        <button id="persistent-fixture-next" type="submit" class="button primary">Weiter zur Bestätigung</button>
+        <button id="persistent-fixture-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="container-network-plan-dialog">
+    <form id="container-network-plan-form">
+      <h2>Lab-Netz auf Subnetzkonflikt prüfen</h2>
+      <p class="form-note">Die lesende Vorschau zeigt, ob eine Migration erforderlich ist, und nennt die betroffenen Container.</p>
+      <label>Provider<select id="container-network-plan-provider"><option value="docker">Docker</option><option value="podman">Podman</option></select></label>
+      <label>IPv4-Zielsubnetz (optional)<input id="container-network-plan-subnet" type="text" maxlength="18" placeholder="198.18.2.0/24" autocomplete="off"></label>
+      <p id="container-network-plan-status" role="status"></p>
+      <div class="dialog-actions">
+        <button id="container-network-plan-read" type="submit" class="button primary">Vorschau lesen</button>
+        <button id="container-network-plan-close" type="button" class="button secondary">Schließen</button>
+        <button id="container-network-plan-apply" type="button" class="button secondary" hidden disabled>Gebundenen Plan ausführen</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="ovms-upstream-dialog">
+    <form id="ovms-upstream-form">
+      <h2>Lokalen OVMS-Embedding-Dienst prüfen</h2>
+      <p class="form-note">Ein synthetischer Request an den bereits laufenden OVMS-Dienst. Das Ergebnis meldet die geprüfte Embedding-Dimension.</p>
+      <label>Loopback-Adresse<select id="ovms-upstream-address"><option value="127.0.0.1">127.0.0.1 (IPv4)</option><option value="[::1]">::1 (IPv6)</option></select></label>
+      <label>OVMS-Port<input id="ovms-upstream-port" type="number" min="1024" max="65535" value="9000" required></label>
+      <label>Exakter OVMS-Modellname<input id="ovms-upstream-model" maxlength="256" required></label>
+      <label>Erwartete Embedding-Dimension<input id="ovms-upstream-dimension" type="number" min="1" max="1998" required></label>
+      <label>Timeout in Sekunden<input id="ovms-upstream-timeout" type="number" min="1" max="300" value="30" required></label>
+      <p id="ovms-upstream-status" role="status"></p>
+      <div class="dialog-actions">
+        <button type="submit" class="button primary">Weiter zur Bestätigung</button>
+        <button id="ovms-upstream-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="portable-transfer-dialog">
+    <form id="portable-transfer-form">
+      <h2 id="portable-transfer-title"></h2>
+      <p id="portable-transfer-notice" class="form-note"></p>
+      <label>Registriertes Quellbackup<select id="portable-transfer-backup" required></select></label>
+      <label id="portable-transfer-target-field">Vorhandene Zielinstanz<select id="portable-transfer-target"></select></label>
+      <label>Zieldatenbankname<input id="portable-transfer-database" required pattern="[A-Za-z][A-Za-z0-9_]{0,127}" maxlength="128"></label>
+      <label id="portable-transfer-intent-field">Vorgangs-ID für Start oder Wiederaufnahme<input id="portable-transfer-intent" maxlength="36"></label>
+      <p id="portable-transfer-status" role="status"></p>
+      <div class="dialog-actions">
+        <button id="portable-transfer-next" type="submit" class="button primary">Weiter zur Bestätigung</button>
+        <button id="portable-transfer-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="relational-compare-dialog">
+    <form id="relational-compare-form">
+      <h2>Zwei Containerdatenbanken vergleichen</h2>
+      <p class="form-note">Wähle zwei registrierte SQL-Containerinstanzen mit Datenbanken im Zustand ONLINE und READ_ONLY. Der Vergleich zeigt Status, Zählwerte und Befundcodes.</p>
+      <label>Quellinstanz<select id="relational-compare-source" required></select></label>
+      <label>Quelldatenbank<input id="relational-compare-source-name" required pattern="[A-Za-z][A-Za-z0-9_]{0,127}" maxlength="128"></label>
+      <label>Zielinstanz<select id="relational-compare-target" required></select></label>
+      <label>Zieldatenbank<input id="relational-compare-target-name" required pattern="[A-Za-z][A-Za-z0-9_]{0,127}" maxlength="128"></label>
+      <p id="relational-compare-status" role="status"></p>
+      <div class="dialog-actions">
+        <button id="relational-compare-next" type="submit" class="button primary">Weiter zur Bestätigung</button>
+        <button id="relational-compare-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="evaluation-trigger-dialog">
+    <form id="evaluation-trigger-form">
+      <h2>Fristen zeitgesteuert prüfen</h2>
+      <p class="form-note">Prüft gespeicherte Fristen im laufenden UI-Prozess mit 30 Tagen Warnschwelle und 7 Tagen kritischer Schwelle.</p>
+      <label>Sekunden zwischen Prüfungen<input id="evaluation-trigger-interval" type="number" min="1" max="86400" value="60" required></label>
+      <label>Anzahl Prüfungen<input id="evaluation-trigger-count" type="number" min="1" max="1440" value="2" required></label>
+      <label><input id="evaluation-trigger-record" type="checkbox"> Neue Warnereignisse lokal speichern</label>
+      <p id="evaluation-trigger-status" role="status"></p>
+      <div class="dialog-actions">
+        <button type="submit" class="button primary">Weiter zur Bestätigung</button>
+        <button id="evaluation-trigger-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="windows-slot-pool-dialog">
+    <form id="windows-slot-pool-form">
+      <h2>Windows-OS-Slot-Pool vorbereiten</h2>
+      <label>Versiegelte Windows-Baseline<select id="windows-slot-pool-baseline" required></select></label>
+      <label>Pool-ID<input id="windows-slot-pool-id" type="text" maxlength="36" autocomplete="off" required></label>
+      <p class="form-note">Für eine Fortsetzung verwende dieselbe Pool-ID, Baseline und Konfiguration.</p>
+      <label>Namenspräfix<input id="windows-slot-pool-prefix" type="text" maxlength="53" value="windows-sql-slot" required></label>
+      <label>Erste Slotnummer<input id="windows-slot-pool-start" type="number" min="1" max="9999" value="1" required></label>
+      <label>Slotanzahl<input id="windows-slot-pool-count" type="number" min="1" max="100" value="1" required></label>
+      <label>vCPU pro Slot<input id="windows-slot-pool-cpu" type="number" min="1" max="64" value="4" required></label>
+      <label>Minimum-RAM in MB<input id="windows-slot-pool-memory-min" type="number" min="512" max="1048576" value="1024" required></label>
+      <label>Start-RAM in MB<input id="windows-slot-pool-memory-start" type="number" min="512" max="1048576" value="2048" required></label>
+      <label>Maximum-RAM in MB<input id="windows-slot-pool-memory-max" type="number" min="512" max="1048576" value="4096" required></label>
+      <p id="windows-slot-pool-status" role="status"></p>
+      <div class="dialog-actions">
+        <button id="windows-slot-pool-next" type="submit" class="button primary" disabled>Weiter zur Bestätigung</button>
+        <button id="windows-slot-pool-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </form>
+  </dialog>
+  <script src="windows-slot-pool.js"></script>
+  <dialog id="sql-guest-evidence-dialog">
+    <div class="panel">
+      <h2>SQL-Editionsbeleg im Gast aktualisieren</h2>
+      <p>Die Edition wird für ein eigenes laufendes Hyper-V-Lab mit SQL Server 2025 und verwalteter Anmeldung erfasst.</p>
+      <label>SQL-2025-Lab<select id="sql-guest-evidence-run"><option value="">Lab auswählen</option></select></label>
+      <p id="sql-guest-evidence-status" role="status"></p>
+      <div class="build-actions">
+        <button id="sql-guest-evidence-next" type="button" class="button primary" disabled>Weiter zur Bestätigung</button>
+        <button id="sql-guest-evidence-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </div>
+  </dialog>
+  <script src="sql-guest-evaluation-evidence.js"></script>
+  <script src="evaluation-watch-trigger.js"></script>
+  <script src="relational-core-comparison.js"></script>
+  <script src="ovms-upstream.js"></script>
+  <script src="portable-container-transfer.js"></script>
+  <script src="container-network-plan.js"></script>
+  <script src="ai-persistent-retrieval-fixture.js"></script>
+  <script src="ai-compute-selection.js"></script>
+  <script src="ai-compute-benchmark.js"></script>
+  <script src="automation-api-plan.js"></script>
+  <script src="hyperv-recovery-point-plan.js"></script>
+  <script src="diagnostic-bundle.js"></script>
+  <script src="license-profile-status.js"></script>
+  <script src="smtp-status.js"></script>
+  <script src="ai-scenario-plan.js"></script>
+  <script src="run-state-upgrade-plan.js"></script>
+  <script src="portable-lab-import-plan.js"></script>
 
   <dialog id="external-runtime-dialog">
     <div class="read-only-dialog-content">
@@ -1003,6 +1608,56 @@
     </div>
   </dialog>
   <script src="environment-groups.js"></script>
+  <dialog id="hyperv-storage-preview-dialog">
+    <div class="dialog-panel">
+      <div class="dialog-heading"><h2>Hyper-V-Zielpfade und freier Speicher</h2><button id="hyperv-storage-preview-close" type="button" class="icon-button" aria-label="Schließen">×</button></div>
+      <p>Registriertes Lab_Data-Standardziel für neue Hyper-V-Ressourcen. Die Anzeige liest die aktuelle Kapazität. Sie reserviert keinen Speicher.</p>
+      <p id="hyperv-storage-preview-status" role="status" aria-live="polite"></p>
+      <pre id="hyperv-storage-preview-result" hidden></pre>
+      <button id="hyperv-storage-preview-refresh" type="button" class="button secondary">Erneut lesen</button>
+    </div>
+  </dialog>
+  <script src="hyperv-storage-preview.js"></script>
+  <dialog id="runtime-maintenance-preview-dialog">
+    <div class="dialog-panel">
+      <div class="dialog-heading"><h2>Schneller Wartungsplan</h2><button id="runtime-maintenance-preview-close" type="button" class="icon-button" aria-label="Schließen">×</button></div>
+      <p>Aktueller Providerstatus und Anzahl vorgeschlagener Aktionen. Die Vorschau führt keine Aktionen aus.</p>
+      <p id="runtime-maintenance-preview-status" role="status" aria-live="polite"></p>
+      <pre id="runtime-maintenance-preview-result" hidden></pre>
+      <button id="runtime-maintenance-preview-read" type="button" class="button secondary">Plan lesen</button>
+    </div>
+  </dialog>
+  <script src="runtime-maintenance-preview.js"></script>
+  <dialog id="test-group-create-dialog">
+    <form id="test-group-create-form" class="dialog-panel">
+      <div class="dialog-heading"><h2>Linux-Testumgebung hinzufügen</h2><button id="test-group-create-close" type="button" class="icon-button" aria-label="Schließen">×</button></div>
+      <label>Provider<select id="test-group-create-provider" required><option value="">Bitte auswählen</option><option value="docker">Docker</option><option value="podman">Podman</option></select></label>
+      <label>SQL-Version<select id="test-group-create-version" required disabled></select></label>
+      <label>Patch<select id="test-group-create-patch" required disabled></select></label>
+      <p>Die neue Umgebung wird Teil der geschützten Testgruppe und erhält ein automatisch erzeugtes Kennwort.</p>
+      <p id="test-group-create-status" role="status" aria-live="polite"></p>
+      <label><input id="test-group-create-confirm" type="checkbox" disabled> Genau die angezeigte Umgebung anlegen und den Gruppenexport aktualisieren</label>
+      <div class="dialog-actions"><button id="test-group-create-preview" type="submit" class="button secondary" disabled>Vorschau lesen</button><button id="test-group-create-apply" type="button" class="button primary" disabled>Testumgebung anlegen</button></div>
+    </form>
+  </dialog>
+  <script src="test-group-create.js"></script>
+  <dialog id="test-group-management-dialog">
+    <form id="test-group-management-form" class="dialog-panel">
+      <div class="dialog-heading"><h2>Geschützte Testgruppe verwalten</h2><button id="test-group-management-close" type="button" class="icon-button" aria-label="Schließen">×</button></div>
+      <label>Aktion<select id="test-group-management-operation">
+        <option value="">Bitte auswählen</option><option value="CreateWindows">Windows-Testumgebung aus SQL-Vorlage anlegen</option>
+        <option value="Repair">Ganze Testgruppe reparieren</option><option value="Remove">Ganze Testgruppe entfernen</option>
+        <option value="Export">Gruppenexport aktualisieren</option>
+      </select></label>
+      <label id="test-group-management-image-field" hidden>SQL-Vorlage<select id="test-group-management-image"></select></label>
+      <p id="test-group-management-effect"></p>
+      <p id="test-group-management-status" role="status" aria-live="polite"></p>
+      <ul id="test-group-management-targets"></ul>
+      <label><input id="test-group-management-confirm" type="checkbox" disabled> Die angezeigte Aktion für alle aufgeführten Ziele bestätigen</label>
+      <div class="dialog-actions"><button id="test-group-management-read" type="submit" class="button secondary" disabled>Vorschau lesen</button><button id="test-group-management-apply" type="button" class="button primary" disabled>Bestätigte Aktion ausführen</button></div>
+    </form>
+  </dialog>
+  <script src="test-group-management.js"></script>
   <script src="tls-authenticated-creation.js"></script>
 </body>
 </html>

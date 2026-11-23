@@ -444,7 +444,7 @@ function Get-LabWindowsIpv4RouteSubnets {
 
 function Get-LabKnownIpv4Subnets {
     [CmdletBinding()]
-    param([ValidateSet('docker', 'podman', 'hyperv')][string]$Provider)
+    param([ValidateSet('docker', 'podman', 'hyperv')][string]$Provider, [string]$ExcludeNetworkId)
 
     $subnets = [System.Collections.Generic.List[string]]::new()
     $reservedSubnets = [string](Resolve-LabNetworkConfigurationValue -Name 'SQL_SERVER_LAB_RESERVED_SUBNETS').Value
@@ -467,7 +467,8 @@ function Get-LabKnownIpv4Subnets {
             $dockerInvocation = [string]$dockerResolution.Invocation
             $ids = @(& $dockerInvocation network ls -q 2>$null)
             if ($LASTEXITCODE -eq 0 -and $ids.Count -gt 0) {
-                @(& $dockerInvocation network inspect $ids 2>$null | ConvertFrom-Json -Depth 30) | ForEach-Object {
+                @(& $dockerInvocation network inspect $ids 2>$null | ConvertFrom-Json -Depth 30) |
+                    Where-Object { -not $ExcludeNetworkId -or [string]$_.Id -cne $ExcludeNetworkId } | ForEach-Object {
                     @($_.IPAM.Config) | ForEach-Object { if ($_.Subnet) { $subnets.Add([string]$_.Subnet) } }
                 }
             }
@@ -479,7 +480,8 @@ function Get-LabKnownIpv4Subnets {
             $podmanInvocation = [string]$podmanResolution.Invocation
             $ids = @(& $podmanInvocation network ls -q 2>$null)
             if ($LASTEXITCODE -eq 0 -and $ids.Count -gt 0) {
-                @(& $podmanInvocation network inspect $ids 2>$null | ConvertFrom-Json -Depth 30) | ForEach-Object {
+                @(& $podmanInvocation network inspect $ids 2>$null | ConvertFrom-Json -Depth 30) |
+                    Where-Object { -not $ExcludeNetworkId -or [string]$_.Id -cne $ExcludeNetworkId } | ForEach-Object {
                     @($_.subnets) | ForEach-Object { if ($_.subnet) { $subnets.Add([string]$_.subnet) } }
                 }
             }
@@ -507,7 +509,7 @@ function Assert-LabRuntimeNetworkAvailable {
 
 function Resolve-LabAvailableContainerNetwork {
     [CmdletBinding()]
-    param([Parameter(Mandatory)][ValidateSet('docker', 'podman')][string]$Provider, [Parameter(Mandatory)]$Network)
+    param([Parameter(Mandatory)][ValidateSet('docker', 'podman')][string]$Provider, [Parameter(Mandatory)]$Network, [switch]$PlanOnly)
 
     $knownSubnets = @(Get-LabKnownIpv4Subnets -Provider $Provider)
     try {
@@ -535,9 +537,11 @@ function Resolve-LabAvailableContainerNetwork {
         }
         try {
             Assert-LabRuntimeNetworkAvailable -Network $candidate -KnownSubnets $knownSubnets
-            $environmentVariableName = "SQL_SERVER_LAB_${environmentPrefix}_SUBNET"
-            [Environment]::SetEnvironmentVariable($environmentVariableName, $candidateSubnet, 'Process')
-            Write-LabWarning "LAB_NETWORK_DEFAULT_SUBNET_CONFLICT: $($Network.Name) verwendet automatisch $candidateSubnet statt $($Network.Subnet)."
+            if (-not $PlanOnly) {
+                $environmentVariableName = "SQL_SERVER_LAB_${environmentPrefix}_SUBNET"
+                [Environment]::SetEnvironmentVariable($environmentVariableName, $candidateSubnet, 'Process')
+                Write-LabWarning "LAB_NETWORK_DEFAULT_SUBNET_CONFLICT: $($Network.Name) verwendet automatisch $candidateSubnet statt $($Network.Subnet)."
+            }
             return $candidate
         }
         catch { }
@@ -559,10 +563,16 @@ function Ensure-LabDockerNetwork {
     $existing = @(& $dockerInvocation network inspect $network.Name 2>$null | ConvertFrom-Json -Depth 30)[0]
     if ($existing) {
         $actualSubnet = [string]@($existing.IPAM.Config)[0].Subnet
-        if ($actualSubnet -ne $network.Subnet -or [bool]$existing.Internal) { throw "LAB_NETWORK_CONTRACT_MISMATCH: $($network.Name)" }
+        if ([bool]$existing.Internal) { throw "LAB_NETWORK_CONTRACT_MISMATCH: $($network.Name)" }
+        if ($actualSubnet -ne $network.Subnet) {
+            if ($Subnet -or -not (Test-LabSettledContainerNetworkMigration -Provider docker -StateRoot $StateRoot -ConfiguredNetwork $network -ObservedNetwork $existing -ObservedSubnet $actualSubnet)) {
+                throw "LAB_NETWORK_CONTRACT_MISMATCH: $($network.Name)"
+            }
+            Set-LabMigratedContainerNetworkSubnet -Network $network -Subnet $actualSubnet
+        }
         try {
             Assert-LabRuntimeNetworkAvailable -Network $network -KnownSubnets @(
-                Get-LabKnownIpv4Subnets -Provider docker | Where-Object { $_ -ne $actualSubnet }
+                Get-LabKnownIpv4Subnets -Provider docker -ExcludeNetworkId ([string]$existing.Id)
             )
         }
         catch {
@@ -664,10 +674,16 @@ function Ensure-LabPodmanNetwork {
     $existing = @(& $podmanInvocation network inspect $network.Name 2>$null | ConvertFrom-Json -Depth 30)[0]
     if ($existing) {
         $existingContract = Get-LabPodmanNetworkContractFromInspect -Inspect $existing
-        if ($existingContract.Subnet -ne $network.Subnet -or $existingContract.Internal) { throw "LAB_NETWORK_CONTRACT_MISMATCH: $($network.Name)" }
+        if ($existingContract.Internal) { throw "LAB_NETWORK_CONTRACT_MISMATCH: $($network.Name)" }
+        if ($existingContract.Subnet -ne $network.Subnet) {
+            if ($Subnet -or -not (Test-LabSettledContainerNetworkMigration -Provider podman -StateRoot $StateRoot -ConfiguredNetwork $network -ObservedNetwork $existing -ObservedSubnet $existingContract.Subnet)) {
+                throw "LAB_NETWORK_CONTRACT_MISMATCH: $($network.Name)"
+            }
+            Set-LabMigratedContainerNetworkSubnet -Network $network -Subnet $existingContract.Subnet
+        }
         try {
             Assert-LabRuntimeNetworkAvailable -Network $network -KnownSubnets @(
-                Get-LabKnownIpv4Subnets -Provider podman | Where-Object { $_ -ne $existingContract.Subnet }
+                Get-LabKnownIpv4Subnets -Provider podman -ExcludeNetworkId ([string]$existing.Id)
             )
         }
         catch {

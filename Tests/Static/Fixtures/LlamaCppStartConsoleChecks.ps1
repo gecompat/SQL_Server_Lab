@@ -6,6 +6,7 @@ function Check([string]$Name,[bool]$Condition){if($Condition){$script:passed++;W
 $module=New-Module {
     param($root)
     . (Join-Path $root 'Private/LlamaCppStartConsole.ps1')
+    $script:ActualGuidedStart=(Get-Command Invoke-LabLlamaCppStartInteractive -CommandType Function).ScriptBlock
     . (Join-Path $root 'Public/Start-SqlServerLabLlamaCppRuntime.ps1')
     $tok=$null;$parseErrors=$null
     $ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $root 'Private/PublicCommandConsole.ps1'),[ref]$tok,[ref]$parseErrors)
@@ -18,6 +19,18 @@ $module=New-Module {
     $ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $root 'Private/LlamaCppSessionGuidance.ps1'),[ref]$tok,[ref]$parseErrors)
     $fn=$ast.Find({param($node)$node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -ceq 'Get-LabLlamaCppSessionView'},$true)
     . ([scriptblock]::Create($fn.Extent.Text))
+    $ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $root 'Public/BatchConsole.ps1'),[ref]$tok,[ref]$parseErrors)
+    if($parseErrors.Count){throw 'FIXTURE_PARSE_FAILED'}
+    $fn=$ast.Find({param($node)$node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -ceq 'Show-LabHostModelsMenu'},$true)
+    . ([scriptblock]::Create($fn.Extent.Text))
+    $ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $root 'Public/Invoke-SqlServerLab.ps1'),[ref]$tok,[ref]$parseErrors)
+    if($parseErrors.Count){throw 'FIXTURE_PARSE_FAILED'}
+    foreach($name in @('Invoke-LabMenuAction','Invoke-SqlServerLab')){
+        $targetName=$name
+        $fn=$ast.Find({param($node)$node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -ceq $targetName},$true)
+        if(-not $fn){throw ('FIXTURE_FUNCTION_NOT_FOUND: '+$name)}
+        . ([scriptblock]::Create($fn.Extent.Text))
+    }
     $id='11111111-2222-4333-8444-555555555555'
     function Start-LabLlamaCppOwnedRuntime {
         param($RuntimeDirectory,$Backend,$Accelerator,$ModelPath,$ModelName,$Dimension,$Pooling,$Port,$CertificatePath,$PrivateKeyPath,$ApiKey,$TrustedRootPath,$StartTimeoutSeconds,$LeaseSeconds,$ContextSize)
@@ -47,7 +60,10 @@ $module=New-Module {
     function Stop-LabLlamaCppOwnedRuntime {$script:Forbidden++;throw 'FORBIDDEN_STOP'}
     function Stop-SqlServerLabLlamaCppRuntime {$script:Forbidden++;throw 'FORBIDDEN_STOP'}
     function Get-LabPublicCommandConsoleCatalog {@()}
-    function New-LabConsoleItem {param($Id,$Label,$Value,$Data)[pscustomobject]@{Id=$Id;Label=$Label;Value=$Value;Data=$Data}}
+    function New-LabConsoleItem {param($Id,$Label,$Value,$Data,$Shortcut,[switch]$Disabled,$DisabledReason)[pscustomobject]@{Id=$Id;Label=$Label;Value=$Value;Data=$Data;Shortcut=$Shortcut;Disabled=$Disabled.IsPresent;DisabledReason=$DisabledReason}}
+    function Show-LabSubMenu {param($ScreenId,$Title,$Subtitle,$Items);$Items}
+    function Invoke-LabLlamaCppStartInteractive {if($script:GuidedDispatchMode){$script:GuidedStarts++;return};& $script:ActualGuidedStart}
+    function New-LabQueueStatusProvider {param($Height);[pscustomobject]@{Height=$Height}}
     function Invoke-LabConsoleMenu {
         param($ScreenId,$Title,$Subtitle,$Items)
         if($ScreenId -ceq 'public-command-menu'){
@@ -119,6 +135,19 @@ try{
     $r=& $module {Run-Case -Mode MENUOBJECT};Check 'nonstring menu identity preconfirm0' ($r.Starts -eq 0 -and $r.Output.Contains('Eingabe ungültig'))
     $r=& $module {Run-Case -Accelerator NPU};Check 'CUDA-NPU preconfirm0' ($r.Starts -eq 0 -and $r.Output.Contains('Eingabe ungültig'))
     $r=& $module {Run-Case -Backend LlamaCppOpenVino -Accelerator NPU};Check 'explicit OpenVINO selector strict accepted synthetic only' ($r.Starts -eq 1 -and $r.Output.Contains('ENDPOINT_VERIFIED'))
+    $hostItems=@(& $module {Show-LabHostModelsMenu})
+    Check 'host models menu exposes guided own-session start' (@($hostItems|Where-Object Id -CEQ 'HostServiceStart').Count -eq 1)
+    & $module {$script:GuidedDispatchMode=$true;$script:GuidedStarts=0;Invoke-LabMenuAction -ActionName HostServiceStart;$script:GuidedDispatchMode=$false}
+    $hostDispatch=& $module {$script:GuidedStarts}
+    Check 'host menu dispatches through existing guided start dialog' ($hostDispatch -eq 1)
+    & $module {$script:GuidedDispatchMode=$true;$script:GuidedStarts=0;Invoke-SqlServerLab -Action HostServiceStart -ConsoleMode Fallback;$script:GuidedDispatchMode=$false}
+    $directDispatch=& $module {$script:GuidedStarts}
+    Check 'direct CLI action reaches same guided start dialog' ($directDispatch -eq 1)
+    $rootTokens=$null;$rootErrors=$null
+    $rootAst=[Management.Automation.Language.Parser]::ParseFile((Join-Path $RepoRoot 'Invoke-SqlServerLab.ps1'),[ref]$rootTokens,[ref]$rootErrors)
+    $actionParameter=@($rootAst.ParamBlock.Parameters|Where-Object {$_.Name.VariablePath.UserPath -ceq 'Action'})|Select-Object -First 1
+    $allowed=@($actionParameter.Attributes|Where-Object {$_.TypeName.FullName -match 'ValidateSet'}|ForEach-Object {$_.PositionalArguments|ForEach-Object {$_.SafeGetValue()}})
+    Check 'standalone CLI validates direct host-start action' ('HostServiceStart' -in $allowed)
 } finally {Remove-Module $module -ErrorAction SilentlyContinue}
 Write-Host "LLAMA GUIDED START CLI: $passed PASS, $failed FAIL; native/file/process/network 0"
 if($failed){exit 1}

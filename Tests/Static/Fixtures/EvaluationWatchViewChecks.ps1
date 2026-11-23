@@ -21,7 +21,6 @@ $ErrorActionPreference = 'Stop'
             $script:evaluationViewFixture
         }
         function Start-SqlServerLab { throw 'UNEXPECTED_START' }
-        function Invoke-SqlServerLabEvaluationWatchTrigger { throw 'UNEXPECTED_TRIGGER' }
         function Test-HyperVAvailable { throw 'UNEXPECTED_RUNTIME_PROBE' }
         function Sync-LabConnectionCenterAfterLifecycle { throw 'UNEXPECTED_SYNC' }
         $view = Get-LabEvaluationWatchView
@@ -73,6 +72,30 @@ $ErrorActionPreference = 'Stop'
         $script:evaluationMenuChoices.Enqueue('cancel')
         Invoke-LabAreaMenuInteractive -Area Maintenance
         Assert-View ($script:evaluationAreaCalls -eq 2 -and $script:evaluationMenuChoices.Count -eq 0) 'Echter Wartungsdispatcher öffnet den Fachdialog und kehrt zurück'
+
+        $triggerInputs = [Collections.Generic.Queue[string]]::new()
+        foreach ($value in @('86401', '60', '2')) { $triggerInputs.Enqueue($value) }
+        $triggerConfirmations = [Collections.Generic.Queue[bool]]::new()
+        $triggerConfirmations.Enqueue($true)
+        $triggerConfirmations.Enqueue($false)
+        $triggerArguments = [Collections.Generic.List[object]]::new()
+        function Read-LabConsoleTextInput { param($Prompt, $Default) [pscustomobject]@{Status='Confirmed'; Value=$triggerInputs.Dequeue()} }
+        function Read-LabConfirm { param($Prompt, $Default) if ($Default) { throw 'UNSAFE_DEFAULT' }; $triggerConfirmations.Dequeue() }
+        function Write-LabError { param($Message) }
+        function Invoke-SqlServerLabEvaluationWatchTrigger {
+            [CmdletBinding()] param($IntervalSeconds, $MaximumChecks, [switch]$RecordEvents)
+            if ($null -eq $triggerArguments) { throw 'UNEXPECTED_TRIGGER' }
+            $triggerArguments.Add(@($IntervalSeconds, $MaximumChecks, [bool]$RecordEvents))
+            [pscustomobject]@{CheckCount=2; TotalDueEventCount=0; TotalNewEventCount=0}
+        }
+        $script:evaluationMenuChoices.Enqueue('trigger'); $script:evaluationMenuChoices.Enqueue('back')
+        Show-LabEvaluationWatchInteractive
+        Assert-View ($triggerInputs.Count -eq 0 -and $triggerArguments.Count -eq 0) 'CLI prüft das Intervall und startet bei abgelehnter Bestätigung keinen Trigger'
+        $triggerInputs.Enqueue('86400'); $triggerInputs.Enqueue('1')
+        $triggerConfirmations.Enqueue($false); $triggerConfirmations.Enqueue($true)
+        $script:evaluationMenuChoices.Enqueue('trigger'); $script:evaluationMenuChoices.Enqueue('back')
+        Show-LabEvaluationWatchInteractive
+        Assert-View ($triggerArguments.Count -eq 1 -and ($triggerArguments[0] -join ',') -eq '86400,1,False') 'Menü übergibt Grenzen und read-only Vorgabe an den öffentlichen Trigger'
 
         # Ausführung des unveränderten GET-Routenrumpfs mit synthetischem Response-Adapter.
         $tokens = $null; $parseErrors = $null

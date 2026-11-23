@@ -152,6 +152,14 @@ erhalten aber jeweils eigene Runtime-Evidence.
 
 #### TLS-001 – authentifizierte TLS-Verbindungen der Testumgebungen
 
+**Entscheidung vom 2026-11-18:** Weitere TLS-001-Arbeit ist zurückgestellt,
+bis ein konkreter Lab-Anwendungsfall einen SQL Server mit geprüfter
+Zertifikatsidentität benötigt. Die offenen Kriterien und Nachweise unten
+bleiben als Bestandsübersicht erhalten; sie autorisieren während der
+Zurückstellung keine neuen Implementierungen, Runtime-Läufe, Consumer-Cutovers
+oder Release-Schritte. Die Entscheidung betrifft Client-zu-SQL-Server-TLS,
+nicht die getrennte SQL-zu-External-Model-HTTPS-Funktion.
+
 Die [endliche Abschlussübersicht](TLS_001_COMPLETION_CHECKLIST.md) ordnet die
 bestehenden Pflichtkriterien den bereits ausgeführten Nachweisen und offenen
 Arbeiten zu. Zusätzliche Varianten erweitern den Pflichtumfang nicht automatisch.

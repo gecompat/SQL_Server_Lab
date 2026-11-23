@@ -234,16 +234,19 @@ $selected = Save-SqlServerLabLlamaCppModel `
 $selected.Path
 ```
 
-Dieselbe Auswahl ist ohne manuelle Cmdlet-Eingabe unter **Datenbanken und
-Verbindungen → SQL Server 2025 KI → llama.cpp-Modelle anzeigen oder herunterladen**
-erreichbar. Das Menü zeigt Zweck, Hardwarestufe, Quantisierung, Größe und
-Lizenz; die Detailansicht ergänzt die vollständige Revision. Ist
-`Lab_Base` nicht konfiguriert, bleiben alle Modelle sichtbar, sind jedoch mit
-dem konkreten Einrichtungshinweis deaktiviert. Nach der Auswahl folgt eine
-Bestätigung; erst dann wird die Modelldatei heruntergeladen oder ein vorhandener Cache
-vollständig revalidiert. Dieser Vorgang startet keine Runtime und lädt kein
-Modell in den Arbeitsspeicher. Ein fehlender oder unbekannter Modellzweck
-deaktiviert den Download.
+In der CLI findest du die Auswahl unter **Host-Dienste und Modelle →
+llama.cpp-Modellkatalog und Dateien**. Das Menü zeigt Zweck, Hardwarestufe,
+Quantisierung, Größe und Lizenz. Die Detailansicht zeigt die vollständige
+Revision. Ohne konfigurierten Medienordner (`Lab_Base`) oder bei unbekanntem
+Modellzweck bleibt der Download deaktiviert. Nach der Bestätigung lädt die
+CLI die gebundene Datei herunter oder prüft den vorhandenen Cache vollständig.
+Die Runtime und geladene Modelle ändern sich dabei nicht.
+
+Im Browser findest du die Auswahl unter **Host-Dienste und Modelle →
+llama.cpp-Modelle anzeigen und herunterladen**. Die Bestätigung zeigt
+Modellgröße, Lizenz und den konfigurierten Medienordner. Der Download ist
+an die gelesene Revision und SHA-256 gebunden. Das Ergebnis steht unter
+**Vorgänge**.
 
 | Stufe | Katalog-ID | Datei | Zweck |
 |---|---|---:|---|
@@ -267,12 +270,26 @@ Mehr-GPU-Kandidaten. Die Katalogstufe ersetzt diese Messung nicht.
 ### Benchmarkgebundene Gerätewahl
 
 `Get-SqlServerLabAiComputeInventory` liest den lokalen Host ohne Runtime-Start.
+In CLI und Browser führt **Host-Dienste und Modelle → CPU, GPU und NPU
+erfassen** zur Geräteübersicht. Sie zeigt pro Geräteklasse die erfasste
+Anzahl. **Unbekannt** bedeutet, dass die Geräteklasse nicht verlässlich
+erfasst werden konnte. **0** bedeutet, dass die Prüfung kein Gerät gefunden
+hat. Die Runtime-Eignung und der Benchmark werden separat ermittelt.
 Unter Windows verwendet es CIM für CPU und Displaygeräte sowie die vorhandene
 `ComputeAccelerator`-PnP-Klasse für NPUs. Unter Linux liest es `/proc/cpuinfo`,
 DRM-sysfs und `/sys/class/accel`. Rohe PnP-Instanz- und PCI-Buspfade werden nur
 zum Deduplizieren verwendet und nicht ausgegeben. Wenn CPU-, GPU- oder
 NPU-Coverage nicht verfügbar ist, bleibt das Receipt `INCOMPLETE` und besitzt
 keinen verwendbaren Inventarhash.
+
+In CLI und Browser zeigt **Host-Dienste und Modelle → llama.cpp-Eignung prüfen**,
+welche Backends für welche erkannten Geräteklassen infrage kommen. Die
+Prüfung benötigt ein vollständiges Inventar und bis zu 16 Pakete aus der
+konfigurierten Suche. Sie hasht die Paketdateien und startet keine Runtime.
+Die Übersicht zeigt außerdem die Anzahl der erlaubten Gerätekombinationen
+pro Backend und Geräteklasse. Überschreitet die Prüfung die Eingabe- oder
+Kandidatenobergrenze, bleibt die Eignung sichtbar und die Oberfläche meldet
+die erreichte Grenze. Geräteausführung und Benchmark bleiben eigene Prüfungen.
 
 ```powershell
 $inventory = Get-SqlServerLabAiComputeInventory
