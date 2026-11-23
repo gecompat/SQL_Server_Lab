@@ -173,7 +173,9 @@ nach einer eigenen Lifecycle- und Produktentscheidung.
 Die Fixture richtet TLS für den internen S3-DNS-Namen ein. Die Test-CA
 gehört ausschließlich dem Lauf. Der Bereitschafts- und Seed-Client betritt
 auf dem GitHub-Runner nur den Netzwerk-Namespace des zuvor identifizierten
-Store-Containers. SQL verwendet den DNS-Namen im eigenen Docker-Netz.
+Store-Containers. Eine explizite Dateigruppe gibt dem Store Leserechte auf
+seinen eingebundenen Schlüssel, das Zertifikat und die Konfiguration.
+SQL verwendet den DNS-Namen im eigenen Docker-Netz.
 Eine getrennte Schreibidentität legt die
 synthetische CSV an. SQL erhält einen auf Lese- und Listenzugriff im
 Fixture-Bucket begrenzten Schlüssel. Die Prüfung vergleicht zwei tatsächlich

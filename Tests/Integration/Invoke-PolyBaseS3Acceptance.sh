@@ -131,6 +131,11 @@ printf '{"identities":[{"name":"fixture-writer","credentials":[{"accessKey":"%s"
   "$admin_key" "$admin_secret" "$read_key" "$read_secret" "$bucket" "$bucket" >"$root/mounted/identities.json"
 printf 'user = "%s:%s"\n' "$admin_key" "$admin_secret" >"$root/writer.curl"
 printf 'user = "%s:%s"\n' "$read_key" "$read_secret" >"$root/reader.curl"
+# The container retains no DAC override. Only its explicitly supplied fixture group can read this mount.
+fixture_gid="$(id -g)"
+[[ "$fixture_gid" =~ ^[0-9]+$ ]]
+chmod 0750 "$root/mounted"
+chmod 0640 "$root/mounted/store.key" "$root/mounted/store.crt" "$root/mounted/identities.json"
 
 stage='owned_images'
 printf 'FROM scratch\nLABEL %s=%s\nCOPY weed /weed\nENTRYPOINT ["/weed"]\n' "$label" "$scope" >"$root/store-build/Dockerfile"
@@ -144,7 +149,7 @@ network_id="$(docker network create --internal --label "$label=$scope" "$scope")
 volume_created="$(docker volume create --label "$label=$scope" "$volume")"
 [[ "$volume_created" == "$volume" && "$(docker volume inspect --format "{{index .Labels \"$label\"}}" "$volume")" == "$scope" ]]
 store_id="$(docker container create --name "$scope-store" --network "$network_id" --network-alias "$host" \
-  --label "$label=$scope" --memory 512m --cap-drop ALL --security-opt no-new-privileges --tmpfs /tmp:rw,nosuid,nodev \
+  --label "$label=$scope" --memory 512m --cap-drop ALL --group-add "$fixture_gid" --security-opt no-new-privileges --tmpfs /tmp:rw,nosuid,nodev \
   --mount "type=volume,source=$volume,target=/data" --mount "type=bind,source=$root/mounted,target=/probe,readonly" \
   "$store_image" mini -dir=/data "-ip=$host" -ip.bind=0.0.0.0 -s3.port=8333 -s3.port.https=0 \
   -s3.key.file=/probe/store.key -s3.cert.file=/probe/store.crt \
@@ -183,6 +188,9 @@ for attempt in {1..30}; do
   sleep 2
 done
 if [[ "$ready" != 1 ]]; then
+  if docker container logs --tail 30 "$store_id" 2>&1 | grep -Ei 'permission denied|operation not permitted' >/dev/null; then
+    printf '%s\n' 'POLYBASE_S3_STORE_DIAGNOSTIC=PERMISSION' >&2
+  fi
   printf 'POLYBASE_S3_READINESS_EXIT=%s|STORE_EXIT=%s\n' "$ready_rc" \
     "$(docker container inspect --format '{{.State.ExitCode}}' "$store_id")" >&2
   exit 1
