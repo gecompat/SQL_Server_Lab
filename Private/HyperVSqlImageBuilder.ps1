@@ -318,23 +318,19 @@ function Get-HyperVSqlInstallationMediaCandidates {
     $sqlRoot = Join-Path $resolvedRoot 'SQL'
     if (-not (Test-Path -LiteralPath $sqlRoot -PathType Container)) { return @() }
     if (-not $script:HyperVSqlMediaScanCache) { $script:HyperVSqlMediaScanCache = @{} }
-    if (-not $script:HyperVSqlMediaScanCacheRoots) { $script:HyperVSqlMediaScanCacheRoots = @{} }
-    $rootKey = $resolvedRoot.ToLowerInvariant()
-    if (-not $script:HyperVSqlMediaScanCacheRoots.ContainsKey($rootKey)) {
-        foreach ($entry in (Get-HyperVMediaDiscoveryCache -MediaRoot $resolvedRoot -Kind sql).GetEnumerator()) {
-            $script:HyperVSqlMediaScanCache[$entry.Key] = @($entry.Value)
-        }
-        $script:HyperVSqlMediaScanCacheRoots[$rootKey] = $true
+    if (-not $script:HyperVSqlMediaScanCache.ContainsKey($resolvedRoot)) {
+        $script:HyperVSqlMediaScanCache[$resolvedRoot] = Get-HyperVMediaDiscoveryCache -MediaRoot $resolvedRoot -Kind sql
     }
+    $cache = $script:HyperVSqlMediaScanCache[$resolvedRoot]
     $items = @(Get-ChildItem -LiteralPath $sqlRoot -File -Recurse -Force | Where-Object { $_.Extension -ieq '.iso' })
     $knownPaths = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
     $cacheChanged = $false
     foreach ($item in $items) {
         $null = $knownPaths.Add($item.FullName)
         $fingerprint = "$($item.Length):$($item.LastWriteTimeUtc.Ticks)"
-        $cached = $script:HyperVSqlMediaScanCache[$item.FullName]
-        if (-not $cached -or $cached.Fingerprint -ne $fingerprint) {
         $relativePath = [IO.Path]::GetRelativePath($resolvedRoot, $item.FullName).Replace('\', '/')
+        $cached = $cache[$item.FullName]
+        if (-not $cached -or $cached.Fingerprint -cne $fingerprint -or $cached.MediaId -cne $relativePath) {
             try {
                 $info = Get-HyperVSqlInstallationMediaInfo -IsoPath $item.FullName
                 $edition = Get-HyperVSqlMediaEditionFromPath -Path $relativePath
@@ -343,19 +339,17 @@ function Get-HyperVSqlInstallationMediaCandidates {
             catch {
                 $cached = [PSCustomObject]@{ Fingerprint = $fingerprint; MediaId = $relativePath; SqlVersion = $null; MajorVersion = $null; SetupVersion = $null; MediaEdition = (Get-HyperVSqlMediaEditionFromPath -Path $relativePath); EditionDetected = $false; State = 'UNRECOGNIZED'; Message = $_.Exception.Message }
             }
-            $script:HyperVSqlMediaScanCache[$item.FullName] = $cached
+            $cache[$item.FullName] = $cached
             $cacheChanged = $true
         }
     }
-    foreach ($path in @($script:HyperVSqlMediaScanCache.Keys)) { if ($path.StartsWith($resolvedRoot, [System.StringComparison]::OrdinalIgnoreCase) -and -not $knownPaths.Contains($path)) { $script:HyperVSqlMediaScanCache.Remove($path); $cacheChanged = $true } }
-    if ($cacheChanged) {
-        $persistentCache = @{}
-        foreach ($path in @($script:HyperVSqlMediaScanCache.Keys | Where-Object { $_.StartsWith($resolvedRoot, [System.StringComparison]::OrdinalIgnoreCase) })) {
-            $persistentCache[$path] = $script:HyperVSqlMediaScanCache[$path]
-        }
-        Save-HyperVMediaDiscoveryCache -MediaRoot $resolvedRoot -Kind sql -Cache $persistentCache
+    foreach ($path in @($cache.Keys)) {
+        if (-not $knownPaths.Contains($path)) { $cache.Remove($path); $cacheChanged = $true }
     }
-    return @($script:HyperVSqlMediaScanCache.GetEnumerator() | Where-Object { $_.Key.StartsWith($resolvedRoot, [System.StringComparison]::OrdinalIgnoreCase) } | ForEach-Object { $_.Value } | ForEach-Object {
+    if ($cacheChanged) {
+        Save-HyperVMediaDiscoveryCache -MediaRoot $resolvedRoot -Kind sql -Cache $cache
+    }
+    return @($cache.GetEnumerator() | ForEach-Object { $_.Value } | ForEach-Object {
         $summary = Get-HyperVMediaHashSidecarSummary -MediaRoot $resolvedRoot -RelativePath $_.MediaId
         $_ | Add-Member -NotePropertyName HashPath -NotePropertyValue $summary.HashPath -Force
         $_ | Add-Member -NotePropertyName HashStatus -NotePropertyValue $summary.HashStatus -Force

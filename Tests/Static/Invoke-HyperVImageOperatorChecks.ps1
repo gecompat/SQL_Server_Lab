@@ -127,6 +127,58 @@ try {
     Add-CheckResult -Name 'Unveränderte Windows-ISOs werden pro Media Root prozessübergreifend aus dem Metadatencache gelesen' -Success (
         $persistentDiscoveryCache.Exists -and $persistentDiscoveryCache.Count -eq 1 -and $persistentDiscoveryCache.State -eq 'READY'
     )
+
+    $isolatedDiscovery = & $module {
+        param($Root)
+        $windowsRoot = Join-Path $Root 'windows'
+        $windowsNested = Join-Path $windowsRoot 'nested'
+        $windowsSibling = Join-Path $Root 'windows-other'
+        $sqlRoot = Join-Path $Root 'database'
+        $sqlNested = Join-Path $sqlRoot 'SQL/nested'
+        $null = New-Item -ItemType Directory -Path @($windowsNested, $windowsSibling, (Join-Path $sqlNested 'SQL')) -Force
+        $windowsIso = Join-Path $windowsNested 'windows.iso'
+        $sqlIso = Join-Path $sqlNested 'SQL/sql.iso'
+        foreach ($path in @($windowsIso, $sqlIso, (Join-Path $windowsSibling 'other.iso'))) {
+            [IO.File]::WriteAllText($path, 'synthetic media')
+        }
+        $readCount = @{ Windows=0; Sql=0 }
+        function Get-HyperVWindowsInstallationMediaInfo {
+            param($IsoPath)
+            $readCount.Windows++
+            [pscustomobject]@{ OperatingSystemId='windows-server-2025'; WindowsEdition='standard'; InstallationType='core'; ImageName='Synthetic'; ImageIndex=1 }
+        }
+        function Get-HyperVSqlInstallationMediaInfo {
+            param($IsoPath)
+            $readCount.Sql++
+            [pscustomobject]@{ SqlVersion='2025'; MajorVersion=17; SetupVersion='17.0.1000.7' }
+        }
+        $item = Get-Item -LiteralPath $windowsIso
+        $poisoned = @{ $item.FullName = @([pscustomobject]@{
+            Fingerprint="$($item.Length):$($item.LastWriteTimeUtc.Ticks)"
+            MediaId='wrong-root/windows.iso'; State='READY'
+        }) }
+        Save-HyperVMediaDiscoveryCache -MediaRoot $windowsNested -Kind windows -Cache $poisoned
+
+        $windowsParentId = (Get-HyperVWindowsInstallationMediaCandidates -MediaRoot $windowsRoot).MediaId
+        $windowsNestedId = (Get-HyperVWindowsInstallationMediaCandidates -MediaRoot $windowsNested).MediaId
+        $windowsSiblingId = (Get-HyperVWindowsInstallationMediaCandidates -MediaRoot $windowsSibling).MediaId
+        $windowsRepeat = Get-HyperVWindowsInstallationMediaCandidates -MediaRoot $windowsRoot
+        $windowsCache = Get-HyperVMediaDiscoveryCache -MediaRoot $windowsNested -Kind windows
+        $sqlParentId = (Get-HyperVSqlInstallationMediaCandidates -MediaRoot $sqlRoot).MediaId
+        $sqlNestedId = (Get-HyperVSqlInstallationMediaCandidates -MediaRoot $sqlNested).MediaId
+        $sqlRepeatId = (Get-HyperVSqlInstallationMediaCandidates -MediaRoot $sqlRoot).MediaId
+
+        [pscustomobject]@{
+            WindowsBound = $windowsParentId -ceq 'nested/windows.iso' -and $windowsNestedId -ceq 'windows.iso' -and
+                $windowsSiblingId -ceq 'other.iso' -and $windowsRepeat.MediaId -ceq 'nested/windows.iso' -and
+                $windowsCache[$windowsIso][0].MediaId -ceq 'windows.iso' -and $readCount.Windows -eq 3
+            SqlBound = $sqlParentId -ceq 'SQL/nested/SQL/sql.iso' -and $sqlNestedId -ceq 'SQL/sql.iso' -and
+                $sqlRepeatId -ceq 'SQL/nested/SQL/sql.iso' -and $readCount.Sql -eq 2
+        }
+    } (Join-Path $temporaryRoot 'scoped-discovery')
+    Add-CheckResult -Name 'Windows-ISO-Erkennung hält verschachtelte und gleich beginnende Media Roots getrennt und korrigiert alte Cache-Pfade' -Success $isolatedDiscovery.WindowsBound
+    Add-CheckResult -Name 'SQL-ISO-Erkennung hält dieselbe Datei als je Media Root relative Medien-ID' -Success $isolatedDiscovery.SqlBound
+
     $sqlPreparedCompatibility = & $module {
         [PSCustomObject]@{
             Server2025 = (Test-HyperVSqlPreparedWindowsMediaCompatibility -OperatingSystemId 'windows-server-2025').Compatible

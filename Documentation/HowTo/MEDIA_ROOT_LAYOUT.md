@@ -400,6 +400,10 @@ prüft Dateiendung, ISO-9660-Signatur und Hash. Der
 konkrete Hostpfad wird ausschließlich im lokalen Build-State gespeichert und
 nicht in portable Locks oder Git übernommen.
 
+CLI und Browser zeigen Medien-IDs relativ zum ausgewählten Media Root an.
+Wenn sich zwei Medienwurzeln überlappen, führt die Erkennung die Metadaten
+pro Wurzel. Das zugehörige Sidecar liegt jeweils unter deren `Hashes`.
+
 Der bedienbare Ablauf steht unter
 [Windows-Server-Baseline aus ISO mit Hyper-V erstellen](HYPERV_WINDOWS_IMAGE_BUILD.md).
 Der Media Root und der Operatorpfad ersetzen nicht den noch offenen

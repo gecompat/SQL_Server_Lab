@@ -236,14 +236,10 @@ function Get-HyperVWindowsInstallationMediaCandidates {
 
     $resolvedRoot = (Resolve-Path -LiteralPath $MediaRoot -ErrorAction Stop).Path
     if (-not $script:HyperVWindowsMediaScanCache) { $script:HyperVWindowsMediaScanCache = @{} }
-    if (-not $script:HyperVWindowsMediaScanCacheRoots) { $script:HyperVWindowsMediaScanCacheRoots = @{} }
-    $rootKey = $resolvedRoot.ToLowerInvariant()
-    if (-not $script:HyperVWindowsMediaScanCacheRoots.ContainsKey($rootKey)) {
-        foreach ($entry in (Get-HyperVMediaDiscoveryCache -MediaRoot $resolvedRoot -Kind windows).GetEnumerator()) {
-            $script:HyperVWindowsMediaScanCache[$entry.Key] = @($entry.Value)
-        }
-        $script:HyperVWindowsMediaScanCacheRoots[$rootKey] = $true
+    if (-not $script:HyperVWindowsMediaScanCache.ContainsKey($resolvedRoot)) {
+        $script:HyperVWindowsMediaScanCache[$resolvedRoot] = Get-HyperVMediaDiscoveryCache -MediaRoot $resolvedRoot -Kind windows
     }
+    $cache = $script:HyperVWindowsMediaScanCache[$resolvedRoot]
     # SQL-, Hash- und Evidenzordner gehören anderen Workflows. Alle übrigen
     # Unterordner dürfen frei benannt oder umsortiert werden.
     $excludedRoots = @('SQL', 'Hashes', 'Evidence', 'Exports', '.git')
@@ -258,9 +254,10 @@ function Get-HyperVWindowsInstallationMediaCandidates {
     foreach ($item in $items) {
         $null = $knownPaths.Add($item.FullName)
         $fingerprint = "$($item.Length):$($item.LastWriteTimeUtc.Ticks)"
-        $cached = $script:HyperVWindowsMediaScanCache[$item.FullName]
-        if (-not $cached -or $cached.Fingerprint -ne $fingerprint -or (Test-HyperVWindowsMediaDiscoveryRetry -Cached $cached)) {
-            $relativePath = [IO.Path]::GetRelativePath($resolvedRoot, $item.FullName).Replace('\', '/')
+        $relativePath = [IO.Path]::GetRelativePath($resolvedRoot, $item.FullName).Replace('\', '/')
+        $cached = $cache[$item.FullName]
+        if (-not $cached -or @($cached | Where-Object { $_.Fingerprint -cne $fingerprint -or $_.MediaId -cne $relativePath }).Count -or
+            (Test-HyperVWindowsMediaDiscoveryRetry -Cached $cached)) {
             try {
                 $variants = @(Get-HyperVWindowsInstallationMediaInfo -IsoPath $item.FullName | ForEach-Object {
                     [PSCustomObject]@{ Fingerprint = $fingerprint; MediaId = $relativePath; OperatingSystemId = $_.OperatingSystemId; WindowsEdition = $_.WindowsEdition; InstallationType = $_.InstallationType; ImageName = $_.ImageName; ImageIndex = $_.ImageIndex; State = 'READY'; Message = 'Windows-Installationsabbild wurde direkt aus der ISO erkannt.' }
@@ -277,22 +274,24 @@ function Get-HyperVWindowsInstallationMediaCandidates {
                     Message = $message
                 })
             }
-            $script:HyperVWindowsMediaScanCache[$item.FullName] = $cached
+            $cache[$item.FullName] = $cached
             $cacheChanged = $true
         }
     }
-    foreach ($path in @($script:HyperVWindowsMediaScanCache.Keys)) { if ($path.StartsWith($resolvedRoot, [System.StringComparison]::OrdinalIgnoreCase) -and -not $knownPaths.Contains($path)) { $script:HyperVWindowsMediaScanCache.Remove($path); $cacheChanged = $true } }
+    foreach ($path in @($cache.Keys)) {
+        if (-not $knownPaths.Contains($path)) { $cache.Remove($path); $cacheChanged = $true }
+    }
     if ($cacheChanged) {
         $persistentCache = @{}
-        foreach ($path in @($script:HyperVWindowsMediaScanCache.Keys | Where-Object { $_.StartsWith($resolvedRoot, [System.StringComparison]::OrdinalIgnoreCase) })) {
-            $entry = $script:HyperVWindowsMediaScanCache[$path]
+        foreach ($path in $cache.Keys) {
+            $entry = $cache[$path]
             if (-not (Test-HyperVWindowsMediaDiscoveryRetry -Cached $entry)) {
                 $persistentCache[$path] = $entry
             }
         }
         Save-HyperVMediaDiscoveryCache -MediaRoot $resolvedRoot -Kind windows -Cache $persistentCache
     }
-    return @($script:HyperVWindowsMediaScanCache.GetEnumerator() | Where-Object { $_.Key.StartsWith($resolvedRoot, [System.StringComparison]::OrdinalIgnoreCase) } | ForEach-Object { $_.Value } | ForEach-Object {
+    return @($cache.GetEnumerator() | ForEach-Object { $_.Value } | ForEach-Object {
         $summary = Get-HyperVMediaHashSidecarSummary -MediaRoot $resolvedRoot -RelativePath $_.MediaId
         $_ | Add-Member -NotePropertyName HashPath -NotePropertyValue $summary.HashPath -Force
         $_ | Add-Member -NotePropertyName HashStatus -NotePropertyValue $summary.HashStatus -Force
