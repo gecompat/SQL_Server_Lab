@@ -130,7 +130,8 @@ assert.match(markup({ ...first, operationId: 'id"quoted' }), /data-operation-pri
   const filter = rows.children[0].children[0].children[0];
   assert.equal(filter.dataset.queueBatch, firstBatchId);
   assert.equal(filter.attributes['aria-pressed'], 'false');
-  assert.equal(rows.children[2].children[0].childElementCount, 0);
+  const rollback = rows.children[2].children[0].children[0];
+  assert.equal(rollback.dataset.batchRollback, closedBatchId);
   const clickFilter = button => handlers.get('click')({ target: { closest: selector => selector === '[data-queue-batch]' ? button : null } });
   await clickFilter(filter);
   assert.match(queueElement.innerHTML, /operation-first/);
@@ -202,6 +203,18 @@ assert.match(markup({ ...first, operationId: 'id"quoted' }), /data-operation-pri
   await submit;
   assert.equal(context.pendingConfirmation, null);
   assert.match(elements.get('#notice').textContent, /Stopp für 2 Positionen angenommen/);
+
+  const prepareRollback = handlers.get('click')({ target: { closest: selector => selector === '[data-batch-rollback]' ? rollback : null } });
+  assert.deepEqual(requests.at(-1), { url: '/api/operations', method: 'POST', command: 'BatchRollbackPreview', batchId: closedBatchId });
+  resolveRequest({ ok: true, json: async () => ({ BatchId: closedBatchId, PreviewId: previewId, Pending: 1, Running: 0, Finished: 1 }) });
+  await prepareRollback;
+  context.pendingConfirmation = confirmations.at(-1);
+  assert.match(context.pendingConfirmation.message, /Ressourcen fertiger Positionen entfernen/);
+  const applyRollback = handlers.get('submit')({ preventDefault() {} });
+  assert.deepEqual(requests.at(-1), { url: '/api/operations', method: 'POST', command: 'BatchRollbackApply', batchId: closedBatchId, previewId, confirmed: true });
+  resolveRequest({ ok: true, json: async () => ({ BatchId: closedBatchId, Requested: 1 }) });
+  await applyRollback;
+  assert.match(elements.get('#notice').textContent, /Rückbau für 1 Positionen angenommen/);
 
   const schedulerButton = elements.get('#operation-host-start');
   const clickScheduler = () => handlers.get('click')({ target: {

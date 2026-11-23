@@ -146,12 +146,14 @@ function Invoke-LabBrowserBatchSubmitPreview {
 }
 
 function Get-LabBrowserBatchStopSnapshot {
-    param([string]$BatchId, [string]$StateRoot)
+    param([string]$BatchId, [string]$StateRoot, [switch]$Rollback)
 
     if ($BatchId -cnotmatch '\Abatch-\d{14}-[0-9a-f]{8}\z') { throw 'BROWSER_BATCH_STOP_INVALID_BATCH' }
     $batch = Read-LabWorkflowJson -Path (Join-Path (Join-Path $StateRoot 'batches') ($BatchId + '.json'))
+    $statuses = @('Queued','Running','Waiting','CleanupQueued')
+    if ($Rollback) { $statuses += @('Completed','CompletedWithErrors') }
     if ($null -eq $batch -or $batch.contract -cne 'SqlServerLab.Batch/1.0' -or $batch.batchId -cne $BatchId -or
-        $batch.status -cnotin @('Queued','Running','Waiting','CleanupQueued')) {
+        $batch.status -cnotin $statuses) {
         throw 'BROWSER_BATCH_STOP_BATCH_UNAVAILABLE'
     }
 
@@ -167,12 +169,16 @@ function Get-LabBrowserBatchStopSnapshot {
             $operation.status -cnotin @('Draft','Queued','WaitingForDependency','WaitingForUser','CandidateSatisfied','Paused','Running','CleanupQueued','Completed','Failed','Cancelled')) {
             throw 'BROWSER_BATCH_STOP_BATCH_INVALID'
         }
-        if (-not (Test-LabOperationTerminal -Status $operation.status) -and
-            $operation.status -cne 'CleanupQueued' -and -not $operation.cancelRequested) {
+        $terminal = Test-LabOperationTerminal -Status $operation.status
+        if ($operation.status -cin @('CleanupQueued','Cancelled')) { continue }
+        if ($Rollback -and ($terminal -or -not ($operation.cancelRequested -and $operation.cleanupRequested))) {
+            [pscustomobject]@{ Id=$id; Status=[string]$operation.status; Operation=$operation }
+        }
+        elseif (-not $Rollback -and -not $terminal -and -not $operation.cancelRequested) {
             [pscustomobject]@{ Id=$id; Status=[string]$operation.status }
         }
     })
-    $signature = ConvertTo-Json -InputObject $targets -Depth 4 -Compress
+    $signature = ConvertTo-Json -InputObject $targets -Depth 50 -Compress
     [pscustomobject]@{
         Key=(Get-LabWorkflowHash -Text $signature -Length 64)
         Targets=$targets
@@ -180,41 +186,45 @@ function Get-LabBrowserBatchStopSnapshot {
 }
 
 function New-LabBrowserBatchStopPreview {
-    param([string]$BatchId, [string]$StateRoot)
+    param([string]$BatchId, [string]$StateRoot, [switch]$Rollback)
 
     $script:LabBrowserBatchStopPreview = $null
-    $snapshot = Get-LabBrowserBatchStopSnapshot -BatchId $BatchId -StateRoot $StateRoot
+    $snapshot = Get-LabBrowserBatchStopSnapshot -BatchId $BatchId -StateRoot $StateRoot -Rollback:$Rollback
     if ($snapshot.Targets.Count -eq 0) { throw 'BROWSER_BATCH_STOP_NO_TARGETS' }
 
     $token = [guid]::NewGuid().ToString('N')
     $script:LabBrowserBatchStopPreview = [pscustomobject]@{
-        Id=$token; BatchId=$BatchId; StateRoot=$StateRoot; Key=$snapshot.Key
+        Id=$token; BatchId=$BatchId; StateRoot=$StateRoot; Key=$snapshot.Key; Rollback=[bool]$Rollback
         Expires=[datetime]::UtcNow.AddMinutes(5)
     }
-    [pscustomobject]@{
+    $receipt = [ordered]@{
         PreviewId=$token; BatchId=$BatchId
         Pending=$snapshot.Targets.Count
         Running=@($snapshot.Targets | Where-Object Status -CEQ 'Running').Count
     }
+    if ($Rollback) {
+        $receipt.Finished = @($snapshot.Targets | Where-Object Status -CIn @('Completed','Failed')).Count
+    }
+    [pscustomobject]$receipt
 }
 
 function Invoke-LabBrowserBatchStopPreview {
-    param([string]$BatchId, [string]$PreviewId, [string]$StateRoot)
+    param([string]$BatchId, [string]$PreviewId, [string]$StateRoot, [switch]$Rollback)
 
     $preview = $script:LabBrowserBatchStopPreview
     if ($null -eq $preview -or $PreviewId -cnotmatch '\A[0-9a-f]{32}\z' -or
         $preview.Id -cne $PreviewId -or $preview.BatchId -cne $BatchId -or
-        $preview.StateRoot -cne $StateRoot -or $preview.Expires -le [datetime]::UtcNow) {
+        $preview.StateRoot -cne $StateRoot -or $preview.Rollback -ne [bool]$Rollback -or $preview.Expires -le [datetime]::UtcNow) {
         throw 'BROWSER_BATCH_STOP_PREVIEW_REQUIRED'
     }
     $script:LabBrowserBatchStopPreview = $null
     Invoke-WithLabWorkflowLock -StateRoot $StateRoot -ScriptBlock {
-        $snapshot = Get-LabBrowserBatchStopSnapshot -BatchId $BatchId -StateRoot $StateRoot
+        $snapshot = Get-LabBrowserBatchStopSnapshot -BatchId $BatchId -StateRoot $StateRoot -Rollback:$Rollback
         if ($snapshot.Key -cne $preview.Key) { throw 'BROWSER_BATCH_STOP_PREVIEW_STALE' }
 
         $requested = 0
         foreach ($target in $snapshot.Targets) {
-            $operation = Stop-LabWorkflowOperation -OperationId $target.Id -Cleanup -UnfinishedOnly -StateRoot $StateRoot
+            $operation = Stop-LabWorkflowOperation -OperationId $target.Id -Cleanup -UnfinishedOnly:(-not $Rollback) -StateRoot $StateRoot
             if ($operation.cancelRequested -and $operation.cleanupRequested -and
                 -not (Test-LabOperationTerminal -Status $operation.status)) {
                 $requested++

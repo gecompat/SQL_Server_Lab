@@ -1523,9 +1523,10 @@ try {
                     Write-UiResponse -Context $context -Body '{"state":"Requested"}' -ContentType 'application/json; charset=utf-8' -StatusCode 202
                     continue
                 }
-                if ($request.command -cin @('BatchStopPreview','BatchStopApply','BatchSubmitPreview','BatchSubmitApply')) {
+                if ($request.command -cin @('BatchStopPreview','BatchStopApply','BatchSubmitPreview','BatchSubmitApply','BatchRollbackPreview','BatchRollbackApply')) {
                     $isSubmit = $request.command -cin @('BatchSubmitPreview','BatchSubmitApply')
-                    $isPreview = $request.command -cin @('BatchStopPreview','BatchSubmitPreview')
+                    $isRollback = $request.command -cin @('BatchRollbackPreview','BatchRollbackApply')
+                    $isPreview = $request.command -cin @('BatchStopPreview','BatchSubmitPreview','BatchRollbackPreview')
                     $names = @($request.PSObject.Properties.Name)
                     $required = if ($isPreview) { @('command','batchId') } else { @('command','batchId','previewId','confirmed') }
                     if ($body.Length -gt 1024 -or $names.Count -ne $required.Count -or
@@ -1544,12 +1545,12 @@ try {
                     $previewId = if ($isPreview) { '' } else { $request.previewId }
                     try {
                         $batchResult = & $labModule {
-                            param($Submit, $Preview, $BatchId, $PreviewId, $Root)
+                            param($Submit, $Preview, $Rollback, $BatchId, $PreviewId, $Root)
                             if ($Submit -and $Preview) { New-LabBrowserBatchSubmitPreview -BatchId $BatchId -StateRoot $Root }
                             elseif ($Submit) { Invoke-LabBrowserBatchSubmitPreview -BatchId $BatchId -PreviewId $PreviewId -StateRoot $Root }
-                            elseif ($Preview) { New-LabBrowserBatchStopPreview -BatchId $BatchId -StateRoot $Root }
-                            else { Invoke-LabBrowserBatchStopPreview -BatchId $BatchId -PreviewId $PreviewId -StateRoot $Root }
-                        } $isSubmit $isPreview $request.batchId $previewId $batchRoot
+                            elseif ($Preview) { New-LabBrowserBatchStopPreview -BatchId $BatchId -StateRoot $Root -Rollback:$Rollback }
+                            else { Invoke-LabBrowserBatchStopPreview -BatchId $BatchId -PreviewId $PreviewId -StateRoot $Root -Rollback:$Rollback }
+                        } $isSubmit $isPreview $isRollback $request.batchId $previewId $batchRoot
                     }
                     catch {
                         if ($isSubmit -and $_.Exception.Message -cmatch '^BATCH_SA_PASSWORD_ENVIRONMENT_VARIABLE_(MISSING|REQUIRED):') {
@@ -1565,6 +1566,8 @@ try {
                     if (-not $isPreview -and ($isSubmit -or $batchResult.Requested -gt 0) -and (Invoke-UiOperationHostStart -StateRoot $batchRoot) -eq 'Failed') {
                         $message = if ($isSubmit) {
                             'OPERATION_HOST_START_FAILED: Batch eingereiht. Status prüfen; keine automatische Wiederholung.'
+                        } elseif ($isRollback) {
+                            'OPERATION_HOST_START_FAILED: Rückbau eingereiht. Status prüfen; keine automatische Wiederholung.'
                         } else {
                             'OPERATION_HOST_START_FAILED: Stopp angenommen. Status prüfen; keine automatische Wiederholung.'
                         }

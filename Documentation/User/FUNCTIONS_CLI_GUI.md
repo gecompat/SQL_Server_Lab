@@ -226,7 +226,7 @@ Legende:
 | [`Suspend-SqlServerLabOperation`](../../Public/BatchWorkflow.ps1) | Pausiert einen wartenden Vorgang. | Queue → Vorgang pausieren oder freigeben | Vorgänge → Pausieren an einem wartenden Vorgang |
 | [`Resume-SqlServerLabOperation`](../../Public/BatchWorkflow.ps1) | Gibt einen pausierten Vorgang wieder frei. | Queue → Vorgang pausieren oder freigeben | Vorgänge → Freigeben an einem pausierten Vorgang |
 | [`Stop-SqlServerLabOperation`](../../Public/BatchWorkflow.ps1) | Stoppt einen Vorgang an einer sicheren Grenze und kann seinen Scope bereinigen. | Queue → Vorgang endgültig stoppen und aufräumen | Vorgänge → Stoppen + Cleanup mit Bestätigung |
-| [`Stop-SqlServerLabBatch`](../../Public/BatchWorkflow.ps1) | Stoppt unfertige Positionen oder baut ausdrücklich den gesamten Batch zurück. | Queue → Batch stoppen oder vollständig zurückbauen | Vorgänge → Fortschritt gespeicherter Batches → Unfertige Positionen stoppen. Vorschau und Bestätigung binden den übergebenen Batch. |
+| [`Stop-SqlServerLabBatch`](../../Public/BatchWorkflow.ps1) | Stoppt unfertige Positionen oder baut ausdrücklich den gesamten Batch zurück. | Queue → Batch stoppen oder vollständig zurückbauen | Vorgänge → Fortschritt gespeicherter Batches → Unfertige Positionen stoppen oder Gesamten Batch zurückbauen. Vorschau und Bestätigung gelten für die gewählte Aktion. |
 | [`Invoke-SqlServerLabScheduler`](../../Public/BatchWorkflow.ps1) | Verarbeitet die persistente Queue mit begrenzter Workerzahl bis zum Leerlauf. | Queue → Scheduler ausführen | über Core: Operation Host verarbeitet eingereihte GUI-Aktionen |
 
 ## Einstieg, Inventur und Workflow

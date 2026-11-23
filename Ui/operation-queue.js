@@ -85,7 +85,7 @@ document.getElementById?.('batch-draft-form')?.addEventListener('submit', async 
 });
 
 function renderBatchOverview(batches, queue, background = false) {
-  if (background && document.activeElement?.matches('[data-queue-batch], [data-batch-stop], [data-batch-submit]')) return;
+  if (background && document.activeElement?.matches('[data-queue-batch], [data-batch-stop], [data-batch-submit], [data-batch-rollback]')) return;
   const openBatches = new Set((queue?.items || []).map(item => item.batchId));
   const labels = {
     Draft: 'Entwurf', Validated: 'Validiert', Queued: 'Vorgemerkt', Running: 'Läuft',
@@ -127,6 +127,14 @@ function renderBatchOverview(batches, queue, background = false) {
       submit.dataset.batchSubmit = batch.BatchId;
       submit.textContent = 'Entwurf prüfen und einreihen';
       batchCell.append(submit);
+    }
+    if (['Queued', 'Running', 'Waiting', 'CleanupQueued', 'Completed', 'CompletedWithErrors'].includes(batch.Status)) {
+      const rollback = document.createElement('button');
+      rollback.type = 'button';
+      rollback.className = 'button danger';
+      rollback.dataset.batchRollback = batch.BatchId;
+      rollback.textContent = 'Gesamten Batch zurückbauen';
+      batchCell.append(rollback);
     }
     row.append(batchCell);
     for (const value of [labels[batch.Status], batch.Percent + ' %', batch.Total, batch.Failed, batch.Cancelled]) {
@@ -198,12 +206,23 @@ async function requestBrowserBatchCommand(payload) {
   return response.json();
 }
 
-async function previewBrowserBatchStop(batchId) {
-  const preview = await requestBrowserBatchCommand({ command: 'BatchStopPreview', batchId });
+async function previewBrowserBatchStop(batchId, rollback = false) {
+  const command = rollback ? 'BatchRollbackPreview' : 'BatchStopPreview';
+  const preview = await requestBrowserBatchCommand({ command, batchId });
   if (preview.BatchId !== batchId || !/^[0-9a-f]{32}$/.test(preview.PreviewId) ||
       !Number.isSafeInteger(preview.Pending) || preview.Pending < 1 ||
       !Number.isSafeInteger(preview.Running) || preview.Running < 0 || preview.Running > preview.Pending) {
     throw new Error('Die Vorschau für diesen Batch konnte nicht bestätigt werden.');
+  }
+  if (rollback) {
+    if (!Number.isSafeInteger(preview.Finished) || preview.Finished < 0 || preview.Finished + preview.Running > preview.Pending) {
+      throw new Error('Die Vorschau für den vollständigen Rückbau ist ungültig.');
+    }
+    openConfirmation('Gesamten Batch zurückbauen',
+      'Batch ' + batchId + ' umfasst ' + preview.Pending + ' Positionen. Davon sind ' + preview.Finished +
+      ' abgeschlossen oder fehlgeschlagen und ' + preview.Running + ' laufen gerade. Der Rückbau kann auch Ressourcen fertiger Positionen entfernen.',
+      '__BatchStop', { batchId, previewId: preview.PreviewId, rollback: true }, 'Gesamten Batch zurückbauen');
+    return;
   }
   openConfirmation('Unfertige Batchpositionen stoppen',
     'Batch ' + batchId + ': ' + preview.Pending + ' unfertige Positionen, davon ' + preview.Running +
@@ -212,7 +231,8 @@ async function previewBrowserBatchStop(batchId) {
 }
 
 async function applyBrowserBatchStop(parameters) {
-  const result = await requestBrowserBatchCommand({ command: 'BatchStopApply', batchId: parameters.batchId,
+  const command = parameters.rollback ? 'BatchRollbackApply' : 'BatchStopApply';
+  const result = await requestBrowserBatchCommand({ command, batchId: parameters.batchId,
     previewId: parameters.previewId, confirmed: true });
   if (result.BatchId !== parameters.batchId || !Number.isSafeInteger(result.Requested) || result.Requested < 0) {
     throw new Error('Ergebnis unbestätigt. Bitte den Batchstatus prüfen.');
@@ -220,6 +240,10 @@ async function applyBrowserBatchStop(parameters) {
   await refresh();
   const notice = $('#notice');
   notice.hidden = false;
+  if (parameters.rollback) {
+    notice.textContent = 'Rückbau für ' + result.Requested + ' Positionen angenommen. Den Fortschritt zeigt die Warteschlange.';
+    return;
+  }
   notice.textContent = result.Requested
     ? 'Stopp für ' + result.Requested + ' Positionen angenommen. Den Fortschritt zeigt die Warteschlange.'
     : 'Keine unfertige Position musste gestoppt werden.';
@@ -351,11 +375,12 @@ document.addEventListener('click', async (event) => {
     finally { batchSubmit.disabled = false; }
     return;
   }
-  const batchStop = event.target.closest('[data-batch-stop]');
+  const rollback = event.target.closest('[data-batch-rollback]');
+  const batchStop = rollback || event.target.closest('[data-batch-stop]');
   if (batchStop) {
     if (batchStop.disabled) return;
     batchStop.disabled = true;
-    try { await previewBrowserBatchStop(batchStop.dataset.batchStop); }
+    try { await previewBrowserBatchStop(rollback ? rollback.dataset.batchRollback : batchStop.dataset.batchStop, !!rollback); }
     catch (error) { showError(error); }
     finally { batchStop.disabled = false; }
     return;

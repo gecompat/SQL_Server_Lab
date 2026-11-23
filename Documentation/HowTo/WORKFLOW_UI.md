@@ -857,7 +857,10 @@ bereits laufenden Schritte. Bestätige erst danach den Stopp und das Einreihen
 der scopegebundenen Bereinigung. Fertige Positionen bleiben erhalten.
 Eine geänderte oder abgelaufene Vorschau erfordert einen neuen Aufruf.
 Ob die Bereinigung abgeschlossen ist, steht anschließend bei den Vorgängen.
-Den vollständigen Batch-Rückbau führt das Konsolenmenü.
+**Gesamten Batch zurückbauen** zeigt auch die fertigen und fehlgeschlagenen
+Positionen an, deren Ressourcen in die Bereinigung einbezogen werden.
+Die Bestätigung reiht den Rückbau ein. Prüfe den Abschluss anschließend in
+der Warteschlange.
 
 Für wartende Vorgänge kannst du bei mindestens zwei verfügbaren Einträgen
 die **Priorität** auf Hoch, Normal oder Niedrig setzen. **Nach oben** und
