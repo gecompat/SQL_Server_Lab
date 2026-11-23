@@ -507,6 +507,7 @@ function Get-LabQueueMenuAvailability {
         CanPauseOrResume = $pausableItems.Count -gt 0
         CanStopOperation = $items.Count -gt 0
         CanStopBatch = $activeBatches.Count -gt 0
+        CanSubmitBatch = @($Batches | Where-Object status -CEQ 'Validated').Count -gt 0
         CanRunScheduler = $items.Count -gt 0
     }
 }
@@ -573,6 +574,36 @@ function New-LabQueueStatusProvider {
     }.GetNewClosure()
 }
 
+function Invoke-LabValidatedBatchSubmitInteractive {
+    $root = Get-LabStateRoot
+    $drafts = @(Get-SqlServerLabBatch -StateRoot $root | Where-Object status -CEQ 'Validated')
+    if (!$drafts.Count) { Write-LabInfo 'Kein validierter Batch vorhanden.'; return }
+    $items = for ($i = 0; $i -lt $drafts.Count; $i++) {
+        $draft = $drafts[$i]
+        New-LabConsoleItem -Id $draft.batchId -Label ([string]$draft.name) -Value ([string]$draft.batchId) -Shortcut ([string]($i + 1))
+    }
+    $selection = Invoke-LabConsoleMenu -ScreenId 'batch-submit-saved' -Title 'Gespeicherten Batch auswählen' -Items $items
+    if ($selection.Status -ne 'Selected') { return }
+    $review = $drafts | Where-Object batchId -CEQ $selection.SelectedItem.Id | Select-Object -First 1
+    if ($null -eq $review -or -not (Show-LabBatchReviewInteractive -Batch $review)) { return }
+
+    $signature = Get-LabWorkflowHash -Text ($review | ConvertTo-Json -Depth 50 -Compress) -Length 64
+    try {
+        $submitted = Invoke-WithLabWorkflowLock -StateRoot $root -ScriptBlock {
+            $current = Get-SqlServerLabBatch -BatchId $review.batchId -StateRoot $root
+            $currentSignature = Get-LabWorkflowHash -Text ($current | ConvertTo-Json -Depth 50 -Compress) -Length 64
+            if ($current.status -cne 'Validated' -or $currentSignature -cne $signature) {
+                throw 'Der Batch wurde geändert. Bitte erneut auswählen und prüfen.'
+            }
+            Submit-SqlServerLabBatch -BatchId $review.batchId -StateRoot $root
+        }
+        Write-LabSuccess "Batch '$($submitted.batchId)' wurde eingereiht."
+        try { Start-SqlServerLabOperationHost -StateRoot $root }
+        catch { Write-LabWarning 'Der Batch ist eingereiht. Scheduler bei Bedarf über das Menü starten.' }
+    }
+    catch { Write-LabError $_.Exception.Message }
+}
+
 function Invoke-LabQueueInteractive {
     [CmdletBinding()]
     param()
@@ -593,11 +624,13 @@ function Invoke-LabQueueInteractive {
             New-LabConsoleItem -Id 'stop' -Label 'Vorgang endgueltig stoppen und aufraeumen' -Shortcut '7' -Disabled:(-not $availability.CanStopOperation) -DisabledReason 'Die Queue enthaelt derzeit keinen Vorgang, der gestoppt werden koennte.'
             New-LabConsoleItem -Id 'batch-stop' -Label 'Batch stoppen oder vollstaendig zurueckbauen' -Shortcut '8' -Disabled:(-not $availability.CanStopBatch) -DisabledReason 'Es existiert kein aktiver Batch.'
             New-LabConsoleItem -Id 'quiet' -Label 'Ton und Ruhemodus' -Value 'Globale Einstellung, auch fuer kuenftige Vorgaenge' -Shortcut '9'
+            New-LabConsoleItem -Id 'batch-submit' -Label 'Gespeicherten Batch prüfen und einreihen' -Shortcut 'b' -Disabled:(-not $availability.CanSubmitBatch) -DisabledReason 'Kein validierter Batch verfügbar.'
             New-LabConsoleItem -Id 'run' -Label 'Scheduler jetzt ausfuehren' -Value '2 Worker · 1 HyperVHeavy' -Shortcut 'r' -Disabled:(-not $availability.CanRunScheduler) -DisabledReason 'Die Queue enthaelt keinen Vorgang. Ein Batch im Status Draft erscheint hier nicht; er muss zuvor uebergeben werden.'
             New-LabConsoleItem -Id 'back' -Label 'Zurueck' -Shortcut '0'
         )
         if ($choice.Status -ne 'Selected' -or $choice.SelectedItem.Id -eq 'back') { return }
         switch ([string]$choice.SelectedItem.Id) {
+            'batch-submit' { Invoke-LabValidatedBatchSubmitInteractive }
             'overview' {
                 $operation = Select-LabQueueOperationInteractive -Title 'Queue-Uebersicht'
                 if ($null -ne $operation) {

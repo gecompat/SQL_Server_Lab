@@ -196,6 +196,53 @@
       </div>
       <p>Wartende Benutzeraktionen geben Worker frei. Read-only-Probes melden nur einen Kandidaten; fortgesetzt wird ausschließlich nach Bestätigung.</p>
       <button id="operation-host-start" type="button" class="button secondary">Hintergrundscheduler anfordern</button>
+      <details id="batch-draft">
+        <summary>Batch mit mehreren Umgebungen planen</summary>
+        <p>Speichert einen validierten Entwurf. Zur Ausführung im Konsolenmenü unter Vorgänge, Queue und Benutzeraktionen den gespeicherten Batch prüfen und einreihen.</p>
+        <form id="batch-draft-form">
+          <label>Batch-Name <input name="batchName" maxlength="64" required></label>
+          <label>Priorität <select name="priority"><option value="Normal">Normal</option><option value="High">Hoch</option><option value="Low">Niedrig</option></select></label>
+          <div id="batch-draft-positions"></div>
+          <div class="actions">
+            <button id="batch-draft-add" type="button" class="button secondary">Position hinzufügen</button>
+            <button id="batch-draft-save" type="submit" class="button">Entwurf validieren und speichern</button>
+          </div>
+          <p id="batch-draft-status" role="status"></p>
+        </form>
+        <template id="batch-draft-position">
+          <fieldset class="batch-draft-position">
+            <legend>Umgebung</legend>
+            <label>Typ
+              <select name="kind">
+                <option value="SqlEnvironment">SQL Server unter Linux</option>
+                <option value="SqlWindowsEnvironment">SQL Server unter Windows</option>
+                <option value="WindowsEnvironment">Windows-Umgebung</option>
+              </select>
+            </label>
+            <label>Umgebungsname <input name="environmentName" required pattern="[a-z][a-z0-9\-]{0,39}" maxlength="40"></label>
+            <label>Anzahl <input type="number" name="count" min="1" max="100" value="1" required></label>
+            <fieldset data-batch-options="sql">
+              <legend>SQL Server</legend>
+              <label>Version <select name="version">
+                <option value="2025">2025</option><option value="2022">2022</option><option value="2019">2019</option>
+              </select></label>
+            </fieldset>
+            <fieldset data-batch-options="linux">
+              <legend>Linux-Container</legend>
+              <label>Provider <select name="provider"><option value="Auto">Automatisch</option><option value="docker">Docker</option><option value="podman">Podman</option></select></label>
+              <label>Name der SA-Kennwortvariable <input name="secretReference" required placeholder="SQL_SERVER_LAB_SECRET_" pattern="SQL_SERVER_LAB_SECRET_[A-Z0-9_]{1,64}" maxlength="86" autocomplete="off"></label>
+            </fieldset>
+            <fieldset data-batch-options="windows" hidden disabled>
+              <legend>Windows</legend>
+              <label>Betriebssystem <select name="operatingSystem"><option>Windows Server 2025</option><option>Windows Server 2022</option></select></label>
+              <label>Variante <select name="variant"><option value="Desktop">Desktop Experience</option><option value="Core">Server Core</option></select></label>
+              <label>Virtuelle CPUs <input name="cpu" type="number" min="1" max="128" value="4" required></label>
+              <label>RAM in MiB <input name="memoryMB" type="number" min="512" max="262144" value="8192" required></label>
+            </fieldset>
+            <button type="button" data-batch-draft-remove class="button secondary">Position entfernen</button>
+          </fieldset>
+        </template>
+      </details>
       <details id="batch-overview">
         <summary>Fortschritt gespeicherter Batches</summary>
         <p id="batch-overview-status" role="status"></p>

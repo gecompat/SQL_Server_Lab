@@ -33,7 +33,16 @@ function element(tag) {
   };
 }
 
-const document = { addEventListener: (name, handler) => handlers.set(name, handler), createElement: element };
+const browserDraftForm = {
+  elements: { batchName: { value: '  Mixed draft  ' }, priority: { value: 'High' } },
+  addEventListener: (name, handler) => handlers.set('batch-draft-' + name, handler),
+  reset() { this.resetCalled = true; }
+};
+const document = {
+  addEventListener: (name, handler) => handlers.set(name, handler),
+  createElement: element,
+  getElementById: id => id === 'batch-draft-form' ? browserDraftForm : null
+};
 const queueElement = { innerHTML: 'previous rendering' };
 const confirmationDialog = {
   id: 'confirmation-dialog', open: true, querySelectorAll: () => [],
@@ -44,6 +53,8 @@ const elements = new Map([
   ['#confirmation-dialog', confirmationDialog],
   ['#notice', element('p')],
   ['#operation-host-start', element('button')],
+  ['#batch-draft-status', element('p')],
+  ['#batch-draft-positions', element('div')],
   ['#operation-queue', queueElement],
   ['#batch-overview-rows', element('tbody')],
   ['#batch-overview-table', element('table')],
@@ -137,7 +148,9 @@ assert.match(markup({ ...first, operationId: 'id"quoted' }), /data-operation-pri
   assert.equal(requests.length, 0);
 
   const select = { dataset: { operationPriority: first.operationId, currentPriority: 'Normal' }, value: 'Normal' };
-  const change = () => handlers.get('change')({ target: { closest: () => select } });
+  const change = () => handlers.get('change')({ target: {
+    closest: selector => selector === '[data-operation-priority]' ? select : null
+  } });
   await change();
   select.value = 'Bogus';
   await change();
@@ -217,6 +230,41 @@ assert.match(markup({ ...first, operationId: 'id"quoted' }), /data-operation-pri
   assert.equal(schedulerButton.disabled, false);
   assert.match(elements.get('#notice').textContent, /^Scheduler angefordert/);
   assert.equal(requests.length, countBeforeScheduler + 1);
+
+  const syntheticPosition = values => ({ querySelector: selector => {
+    const [, name] = /^\[name="([^"]+)"\]$/.exec(selector) || [];
+    return name ? { value: values[name] } : {};
+  } });
+  const positions = elements.get('#batch-draft-positions');
+  positions.append(syntheticPosition({
+    kind: 'SqlEnvironment', environmentName: 'sql-browser', count: '2', version: '2025',
+    provider: 'podman', secretReference: 'SQL_SERVER_LAB_SECRET_BROWSER_DRAFT_TEST'
+  }));
+  positions.append(syntheticPosition({
+    kind: 'WindowsEnvironment', environmentName: 'win-browser', count: '1',
+    operatingSystem: 'Windows Server 2025', variant: 'Desktop', cpu: '4', memoryMB: '8192'
+  }));
+  const draftTemplate = { cloneNode: () => syntheticPosition({ kind: 'SqlEnvironment' }) };
+  elements.set('#batch-draft-position', { content: { firstElementChild: draftTemplate } });
+  const save = handlers.get('batch-draft-submit')({ currentTarget: browserDraftForm, preventDefault() {} });
+  assert.deepEqual(requests.at(-1), {
+    url: '/api/batches', method: 'POST', command: 'SaveGuidedDraft', name: 'Mixed draft', priority: 'High',
+    items: [
+      { kind: 'SqlEnvironment', name: 'sql-browser', count: 2, version: '2025', provider: 'podman',
+        secretReference: 'SQL_SERVER_LAB_SECRET_BROWSER_DRAFT_TEST' },
+      { kind: 'WindowsEnvironment', name: 'win-browser', count: 1, operatingSystem: 'Windows Server 2025',
+        variant: 'Desktop', cpu: 4, memoryMB: 8192 }
+    ]
+  });
+  assert.equal(browserDraftForm.inert, true);
+  resolveRequest({ ok: true, status: 201, json: async () =>
+    ({ BatchId: firstBatchId, Status: 'Validated', Positions: 3, Dependencies: 1 }) });
+  await save;
+  assert.equal(browserDraftForm.inert, false);
+  assert.equal(browserDraftForm.resetCalled, true);
+  assert.match(elements.get('#batch-draft-status').textContent, /gespeichert · 3 Umgebungen · 1 gemeinsame Abhängigkeiten/);
+  assert.equal(positions.childElementCount, 1);
+
   completed = true;
   console.log('OPERATION ORDERING UI: PASS');
 })().catch(error => {

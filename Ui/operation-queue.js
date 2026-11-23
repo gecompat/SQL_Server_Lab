@@ -1,5 +1,89 @@
 let queueBatchId = '';
 
+function updateBatchDraftPosition(position) {
+  const kind = position.querySelector('[name="kind"]').value;
+  const linux = kind === 'SqlEnvironment';
+  const optionGroups = { sql: kind !== 'WindowsEnvironment', linux, windows: !linux };
+  for (const [name, enabled] of Object.entries(optionGroups)) {
+    const fields = position.querySelector('[data-batch-options="' + name + '"]');
+    fields.hidden = !enabled;
+    fields.disabled = !enabled;
+  }
+}
+
+function addBatchDraftPosition() {
+  const positions = $('#batch-draft-positions');
+  if (positions.childElementCount >= 100) return;
+  const position = $('#batch-draft-position').content.firstElementChild.cloneNode(true);
+  updateBatchDraftPosition(position);
+  positions.append(position);
+  return position;
+}
+
+function readBatchDraftPosition(position) {
+  const value = name => position.querySelector('[name="' + name + '"]').value;
+  const kind = value('kind');
+  const item = { kind, name: value('environmentName'), count: Number(value('count')) };
+  if (kind !== 'WindowsEnvironment') item.version = value('version');
+  if (kind === 'SqlEnvironment') {
+    item.provider = value('provider');
+    item.secretReference = value('secretReference');
+  } else {
+    item.operatingSystem = value('operatingSystem');
+    item.variant = value('variant');
+    item.cpu = Number(value('cpu'));
+    item.memoryMB = Number(value('memoryMB'));
+  }
+  return item;
+}
+
+document.getElementById?.('batch-draft')?.addEventListener('toggle', () => {
+  if ($('#batch-draft').open && !$('#batch-draft-positions').childElementCount) addBatchDraftPosition();
+});
+
+document.getElementById?.('batch-draft-form')?.addEventListener('submit', async event => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  if (form.inert) return;
+  const positions = $('#batch-draft-positions');
+  const items = Array.from(positions.children, readBatchDraftPosition);
+  const status = $('#batch-draft-status');
+  if (!items.length || items.reduce((count, item) => count + item.count, 0) > 100) {
+    status.textContent = 'Ein Entwurf benötigt insgesamt 1 bis 100 Umgebungen.';
+    return;
+  }
+  const data = {
+    command: 'SaveGuidedDraft',
+    name: form.elements.batchName.value.trim(),
+    priority: form.elements.priority.value,
+    items
+  };
+  form.inert = true;
+  status.textContent = 'Entwurf wird geprüft …';
+  try {
+    const response = await sqlServerLabUiFetch('/api/batches', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data)
+    });
+    if (response.status === 400) throw new Error('Bitte Umgebungsnamen, Positionen und Kennwortreferenzen prüfen.');
+    if (!response.ok) throw new Error('Speicherung unbestätigt. Bitte die Batchübersicht und Providerbereitschaft prüfen.');
+    const draft = await response.json();
+    if (!/^batch-\d{14}-[0-9a-f]{8}$/.test(draft.BatchId) || draft.Status !== 'Validated' ||
+        !Number.isSafeInteger(draft.Positions) || !Number.isSafeInteger(draft.Dependencies)) {
+      throw new Error('Speicherung unbestätigt. Bitte die Batchübersicht prüfen.');
+    }
+    status.textContent = draft.BatchId + ' gespeichert · ' + draft.Positions + ' Umgebungen · ' +
+      draft.Dependencies + ' gemeinsame Abhängigkeiten.';
+    form.reset();
+    positions.replaceChildren();
+    addBatchDraftPosition();
+    await refresh();
+  } catch (error) {
+    status.textContent = error.message;
+  } finally {
+    form.inert = false;
+  }
+});
+
 function renderBatchOverview(batches, queue, background = false) {
   if (background && document.activeElement?.matches('[data-queue-batch]')) return;
   const openBatches = new Set((queue?.items || []).map(item => item.batchId));
@@ -184,6 +268,11 @@ async function runOperationCommand(operationId, command, verificationType) {
 }
 
 document.addEventListener('change', async (event) => {
+  const kind = event.target.closest('.batch-draft-position [name="kind"]');
+  if (kind) {
+    updateBatchDraftPosition(kind.closest('.batch-draft-position'));
+    return;
+  }
   const select = event.target.closest('[data-operation-priority]');
   if (!select || select.disabled || !Object.hasOwn(operationPriorityLabels, select.value) ||
       select.value === select.dataset.currentPriority) return;
@@ -199,6 +288,16 @@ document.addEventListener('change', async (event) => {
 });
 
 document.addEventListener('click', async (event) => {
+  if (event.target.closest('#batch-draft-add')) {
+    addBatchDraftPosition()?.querySelector('[name="environmentName"]').focus();
+    return;
+  }
+  const removeDraftPosition = event.target.closest('[data-batch-draft-remove]');
+  if (removeDraftPosition) {
+    removeDraftPosition.closest('.batch-draft-position').remove();
+    $('#batch-draft-add').focus();
+    return;
+  }
   const hostStart = event.target.closest('#operation-host-start');
   if (hostStart) {
     if (!hostStart.disabled) {
