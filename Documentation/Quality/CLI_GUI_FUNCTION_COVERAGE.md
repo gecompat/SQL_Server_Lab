@@ -191,6 +191,30 @@ Umreihen. Beide Prüfungen laufen ohne neue Provider-Labs.
 | `batch.stop` · `Stop-SqlServerLabBatch` | Vorgänge → Batch stoppen oder vollständig zurückbauen | Vorgänge → Fortschritt gespeicherter Batches → Unfertige Positionen stoppen oder Gesamten Batch zurückbauen | `GUIDED_BOTH`. Der Standardstopp schützt fertige Positionen. Die separate Rückbauvorschau bindet den Zustand der betroffenen Positionen einschließlich fertiger Positionen. Beide Browseraktionen erfordern eine Bestätigung. |
 | `queue.run` · `Invoke-SqlServerLabScheduler` | Vorgänge → Scheduler jetzt ausführen | Vorgänge → Hintergrundscheduler anfordern → bestätigen | `GUIDED_BOTH` für den ausdrücklichen Start. Die CLI führt synchron aus. Der Browser fordert den Hintergrundhost für die aktuelle Warteschlange an. Die Annahme belegt keinen laufenden Worker. |
 
+## Geprüfte Operationen der Grundkonfiguration
+
+In der CLI führt **SQL-Lab-Grundkonfiguration → Grundkonfiguration und
+Provider prüfen** zu den folgenden Aktionen. Im Browser öffnet
+**SQL-Lab-Grundkonfiguration → Grundkonfiguration und Provider öffnen**
+denselben Fachablauf. Beide nutzen `Invoke-SqlServerLabWorkflowAction`.
+Der Browser sendet die typisierten Anfragen an `/api/initial-setup`.
+
+| Operation | CLI im Dialog | Browser im Dialog | Vertrag und Nachweis |
+|---|---|---|---|
+| `setup.roots.read` · `GetInitialSetupState` | Registrierung und Rootdetails ansehen, mit F5 aktualisieren | Roots erneut lesen | `GUIDED_BOTH`. Liest Herkunft, registrierte Roots und Standard. Schreibbarkeit und Kapazität bleiben bis zur jeweiligen Einzelprüfung ungeprüft. |
+| `setup.roots.configure` · `PlanInitialSetup` / `ApplyInitialSetup` | Fehlende Roots ergänzen / globalen Standard wählen, Vorschau bestätigen | Vorschau erstellen → Angezeigten Plan revalidieren und anwenden | `GUIDED_BOTH`. Apply verlangt Plan und Bestätigung. Ein gültiger Media-Root bleibt erhalten. Der neue Standard gilt für künftige Vorgänge. Geänderte Bindungen sperren die Ausführung. |
+| `setup.provider.readiness` · `RefreshSetupProvider` | Einen Provider ausdrücklich erneut prüfen | Provider wählen → Gewählten Provider prüfen | `GUIDED_BOTH` für Installation und Erreichbarkeit des gewählten Providers. Der Befund gilt für Docker, Podman oder Hyper-V einzeln. Providerstart und SQL-Bereitschaft sind separate Vorgänge. |
+| `setup.location.capacity` · `RefreshSetupCapacity` | Freien Speicher einer registrierten Lab_Data-Location lesen | Registrierte Lab_Data-Location → Freien Speicher lesen | `GUIDED_BOTH`. Gibt eine datierte Hostdatenträger-Momentaufnahme für genau eine Location zurück. Unbekannt, unlesbar und nicht unterstützt liefern keinen Bytewert. |
+| `setup.location.writeability` · `PlanSetupWriteability` / `ProbeSetupWriteability` | Eine registrierte Lab_Data-Location auf Schreibbarkeit prüfen → Vorschau bestätigen | Schreibprobe vorschauen → Bestätigte Schreibprobe ausführen | `GUIDED_BOTH` auf einem lokalen festen Windows-NTFS-/ReFS-Volume. Der befristete Plan bindet die Location. Der Worker schreibt ein Byte in eine eigene temporäre Datei und meldet Schreibbefund und Cleanup getrennt. |
+
+`Invoke-InitialSetupChecks.ps1` prüft Plan, Apply, Abbruch, Status und
+Providerdispatch. Die eingebundenen Schreibbarkeits- und Kapazitätsfixtures
+prüfen Auswahl, Identität, Zeitgrenzen und Fehlerfälle. Die tatsächlichen
+Browsercontroller in `WorkflowSqlTargetChecks.cjs` laufen mit synthetischem
+DOM und HTTP-Transport. Diese Nachweise betreffen Host-Grundkonfiguration
+und Bedienpfade. Installationen zusätzlicher Provider und SQL-Readiness
+haben separate Abnahmen.
+
 ## Bereichsinventar
 
 **Grundkonfiguration → Lokale Lizenzprofile prüfen** bietet auf Windows
@@ -261,7 +285,7 @@ nicht alle Operationen des Bereichs einzeln auf einen CLI-Menüpfad, GUI-Aktion,
 | Ressourcen, Medien, Downloads und Speicher | Ressourcen und Downloads | Ressourcen und Downloads | Kataloge, ausgewählte Plan-/Apply-Dialoge und geführte Bedarfsprüfung aus den konfigurierten Ordnern. `Invoke-ResourceSetChecks.ps1` und `WorkflowSqlTargetChecks.cjs` prüfen die Filterung und Übergabe ohne Download. | `TEILWEISE`; vollständige Operationszuordnung und Providerbelege offen |
 | Host-Dienste und Modelle | Host-Dienste und Modelle | Host-Dienste und Modelle | Einzelne Modell-/Hostservice-Dialoge und öffentliche Befehle | `KNOWN_GAP` für Fremdstart und weiteren Hostdienst-/Modell-Lifecycle |
 | Verbindungen, Registrierungen und CMS | Verbindungen und CMS | Verbindungen und CMS | Gespeicherter SSMS-Export, lesende CMS-Inspection, gebundener CMS-Abgleich und geführtes CMS-Bereitstellen im Browser. Der Core-Abgleich ist mit Docker und Podman abgenommen. | `TEILWEISE`; native Browser-Abnahme und vollständige Operationszuordnung offen |
-| SQL-Lab-Grundkonfiguration | Grundkonfiguration | SQL-Lab-Grundkonfiguration | Gemeinsamer Plan-/Apply-Pfad für dokumentierte Einstellungen | `TEILWEISE`; nicht jede öffentliche Konfigurationsoperation einzeln abgebildet |
+| SQL-Lab-Grundkonfiguration | Grundkonfiguration | SQL-Lab-Grundkonfiguration | Roots lesen und konfigurieren, Provider prüfen, Kapazitäts- und Schreibprobe | `TEILWEISE`. Die [geprüften Operationen](#geprüfte-operationen-der-grundkonfiguration) sind einzeln zugeordnet. Der Assistent zum Einrichten zusätzlicher Provider bleibt offen. |
 | Wartung, Aufräumen und Recovery | Wartung, Aufräumen und Recovery | Wartung/Recovery | Read-only-Pläne, bestätigte Aktionen und Recovery-Verträge je Slice | `TEILWEISE`; komplette Funktions- und Fehlerpfadzuordnung offen |
 | Vorgänge, Queue und Scheduler | Vorgänge, Queue und Benutzeraktionen | Vorgänge | Batch-/Queue-Einstiege und Workflow-Aktionen | `TEILWEISE`; jede Operation und ihre Abbruch-/Recoverypfade noch einzeln abzugleichen |
 | Expertenbefehle und Meldungen | Alle öffentlichen Befehle / Meldungen | Alle Funktionen / Meldungen | Generierter Export-/Parametersatzkatalog; Konsolen- und Workflow-UI-Prüfungen | `EXPERT_CATALOG_ONLY` als Fachführung; Katalogvollständigkeit ist separat statisch prüfbar |
