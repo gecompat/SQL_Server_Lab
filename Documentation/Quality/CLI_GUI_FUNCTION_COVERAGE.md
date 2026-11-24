@@ -109,6 +109,12 @@ dokumentiert den getrennten Live-Metadatencheck. `Invoke-ResourceSetChecks.ps1`
 prüft die lokale Ressourcenplanung im eigenen Fixture. Ein Ressourcenplan
 bestätigt weder eine Installation noch die Ausführbarkeit eines Providers.
 
+## Geprüfte Operationen: Verifizierte Datenbank-Backups
+
+| Operation | Geführter CLI-Pfad | Geführter GUI-Pfad | Nachweis und Grenze |
+|---|---|---|---|
+| Backup in der `Lab_Data`-Bibliothek erstellen | Lab-Umgebungen → Datenbanken, Samples und Skripte → Datenbank sichern | Lab-Umgebungen → laufende Docker-/Podman-Instanz → Verifiziertes Backup erstellen | `GUIDED_BOTH` für Container. Fokustests prüfen die Instanzbindung, Bestätigung, Abbruch und sanitisierte Backupquittung. Die Browser-Aktion wurde synthetisch geprüft. Der bestehende Backup-Core hat einen separaten nativen Docker→Podman-Restore-Nachweis. |
+
 ## Geprüfte Operationen: Environment Groups
 
 Der Abgleich von CLI-Router, Konsolenmenü, Browserdialog, typed HTTP route und

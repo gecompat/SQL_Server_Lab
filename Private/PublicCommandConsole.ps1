@@ -281,6 +281,23 @@ function ConvertTo-LabPublicCommandWebResult {
         return @([pscustomobject]$display)
     }
 
+    if ($CommandName -ceq 'Backup-SqlServerLabDatabase') {
+        if (@($Result).Count -ne 1) { throw 'PUBLIC_COMMAND_UI_RESULT_INVALID' }
+        $backup = $Result[0]
+        if ($backup.Status -ceq 'CANCELLED') { return @([pscustomobject]@{Status='CANCELLED'}) }
+        $backupId = [guid]::Empty
+        if ($backup.Status -cne 'BACKUP_REUSABLE' -or
+            -not [guid]::TryParseExact([string]$backup.BackupSetId, 'D', [ref]$backupId) -or $backupId -eq [guid]::Empty -or
+            $backup.DatabaseName -cne $Parameters.DatabaseName -or [string]$backup.DatabaseName -cnotmatch '^[A-Za-z][A-Za-z0-9_]{0,127}$' -or
+            $backup.Provider -cnotin @('docker','podman','hyperv') -or
+            [string]$backup.Sha256 -cnotmatch '^[a-f0-9]{64}$' -or $backup.Bytes -isnot [long] -or $backup.Bytes -le 0 -or
+            $backup.HasFileStream -isnot [bool]) { throw 'PUBLIC_COMMAND_UI_RESULT_INVALID' }
+        return @([pscustomobject]@{
+            Status='BACKUP_REUSABLE'; BackupSetId=$backupId.ToString('D'); DatabaseName=$backup.DatabaseName
+            Provider=$backup.Provider; Sha256=$backup.Sha256; Bytes=$backup.Bytes; HasFileStream=$backup.HasFileStream
+        })
+    }
+
     $expected = switch -CaseSensitive ($CommandName) {
         'New-SqlServerLabEnvironmentGroup' { 'CREATED'; break }
         'Remove-SqlServerLabEnvironmentGroup' { 'REMOVED'; break }

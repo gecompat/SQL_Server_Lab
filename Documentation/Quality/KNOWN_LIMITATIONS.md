@@ -1920,7 +1920,10 @@ Data Root mit versionsgetrennten Data-/Log-Bereichen und einer gemeinsamen
 Backup-Übergabeebene. `Backup-SqlServerLabDatabase` veröffentlicht vollständige
 Backups providerneutral erst nach SQL-Checksum, `RESTORE VERIFYONLY`, Host-Hash
 und sanitiertem Receipt in der inhaltsadressierten `Lab_Data`-Bibliothek; ein
-realer Docker→Podman-Restore mit Inhaltsdigest ist belegt. Noch offen ist die
+realer Docker→Podman-Restore mit Inhaltsdigest ist belegt. Die geführte
+Browser-Aktion zum Erstellen solcher Backups ist auf laufende Docker- und
+Podman-Instanzen begrenzt. Für Hyper-V bleibt der PowerShell-Weg verfügbar.
+Noch offen ist die
 Retention-/Attach-/Clone-/Delete-Parität. Ein FILESTREAM-Cross-Provider-Lauf
 ist in der aktuellen Matrix nicht möglich und deshalb `NOT_APPLICABLE`:
 Microsoft unterstützt FILESTREAM unter SQL Server auf Linux nicht, sodass

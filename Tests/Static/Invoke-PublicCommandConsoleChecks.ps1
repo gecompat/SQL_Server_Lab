@@ -75,6 +75,15 @@ try {
         $unknownError=''
         try { Invoke-LabPublicCommandWebRequest -CommandName 'Invoke-NotExported' -ParameterSetName 'Default' -Parameters @{} -Confirmed } catch { $unknownError=$_.Exception.Message }
         $credential=ConvertFrom-LabPublicCommandWebValue -Value ([pscustomobject]@{userName='lab-user';password='temporary-value'}) -TargetType ([Management.Automation.PSCredential])
+        $backupCommand=$webCatalog | Where-Object Name -CEQ 'Backup-SqlServerLabDatabase'
+        $backupSet=$backupCommand.ParameterSets | Where-Object Name -CEQ 'RunBased'
+        $backup=[pscustomobject]@{Status='BACKUP_REUSABLE';BackupSetId='11111111-1111-4111-8111-111111111111';DatabaseName='Demo'
+            Provider='docker';Sha256='a'*64;Bytes=[long]8192;HasFileStream=$false;Path='CANARY_PRIVATE_PATH'
+            RegistryPath='CANARY_PRIVATE_REGISTRY';Credential='CANARY_PRIVATE_CREDENTIAL'}
+        $backupProjection=@(ConvertTo-LabPublicCommandWebResult -CommandName Backup-SqlServerLabDatabase -Parameters @{DatabaseName='Demo'} -Result @($backup))
+        $backupMismatch=$null
+        try { $null=ConvertTo-LabPublicCommandWebResult -CommandName Backup-SqlServerLabDatabase -Parameters @{DatabaseName='Other'} -Result @($backup) }
+        catch { $backupMismatch=$_.Exception.Message }
         [pscustomobject]@{
             PortMandatory=@($portSet.MandatoryNames)
             AutoStartPreviewMandatory=@($autoStartSet.MandatoryNames)
@@ -114,6 +123,11 @@ try {
             CatalogExportErrors=$catalogExportErrors
             CatalogExportProjection=$catalogExportProjection
             CatalogBoundReceipt=$catalogBoundReceipt.Result
+            BackupConfirmation=$backupCommand.RequiresConfirmation
+            BackupMandatory=@($backupSet.MandatoryNames)
+            BackupPassword=$backupSet.Parameters | Where-Object Name -CEQ 'SaPassword'
+            BackupProjection=$backupProjection
+            BackupMismatch=$backupMismatch
             WebNames=@($webCatalog.Name)
             WebJson=($webCatalog|ConvertTo-Json -Depth 12)
             WebCmsCount=@($webCatalog|Where-Object Area -eq 'CMS').Count
@@ -197,6 +211,16 @@ try {
     Add-CheckResult 'Generische Ausgabe protokolliert keinen WebMail-Zugangslink' (
         $evidence.SanitizedWebMail.Count -eq 1 -and $evidence.SanitizedWebMail[0].Url -ceq '<geschuetzt>' -and
         $evidence.SanitizedWebMail[0].Status -ceq 'OPENED' -and $evidence.SanitizedWebMail[0].BrowserStarted -eq $true)
+    Add-CheckResult 'Backup im Browser bindet RunBased und maskiertes Passwort hinter der Bestätigung' (
+        $evidence.BackupConfirmation -eq $true -and
+        (@($evidence.BackupMandatory | Sort-Object) -join ',') -ceq 'DatabaseName,RunId,SaPassword' -and
+        $evidence.BackupPassword.TypeName -ceq 'System.Security.SecureString' -and $evidence.BackupPassword.Sensitive -eq $true)
+    Add-CheckResult 'Backupquittung enthält feste Angaben und keine Pfade oder Zugangsdaten' (
+        $evidence.BackupProjection.Count -eq 1 -and $evidence.BackupProjection[0].Status -ceq 'BACKUP_REUSABLE' -and
+        $evidence.BackupProjection[0].BackupSetId -ceq '11111111-1111-4111-8111-111111111111' -and
+        $evidence.BackupProjection[0].Bytes -eq 8192 -and
+        ($evidence.BackupProjection | ConvertTo-Json) -cnotmatch 'CANARY_PRIVATE|RegistryPath|Credential' -and
+        $evidence.BackupMismatch -ceq 'PUBLIC_COMMAND_UI_RESULT_INVALID')
     Add-CheckResult 'GUI und CLI verwenden denselben vollständigen Exportkatalog' (
         @($expectedCatalog|Where-Object {$_ -notin $evidence.WebNames}).Count -eq 0 -and
         @($evidence.WebNames|Where-Object {$_ -notin $expectedCatalog}).Count -eq 0 -and
