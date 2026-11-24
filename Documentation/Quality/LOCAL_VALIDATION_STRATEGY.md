@@ -5741,8 +5741,16 @@ Prozessstart mit einem `$null`-Element denselben HRESULT und
 Element hinzu, wenn keine optionalen SSIS-Argumente übergeben wurden.
 Die fokussierte Prüfung führt den tatsächlichen Setup-Skriptblock bis zum
 simulierten Prozessstart aus. Die Engine-Argumentliste enthält keinen
-Nullwert, und bei aktivem SSIS bleiben dessen Argumente erhalten. Die
-erneute native SQL-Installation steht für diesen Fix aus.
+Nullwert, und bei aktivem SSIS bleiben dessen Argumente erhalten.
+
+Auf `23c92b23` bestand die Key18-Abnahme den vollständigen Ablauf mit
+einem Windows-Server-2025-Desktop-Slot und SQL Server 2025. Die
+Browser-Fachaktion installierte SQL im zuvor übernommenen Slot mit den
+bestätigten VM-Ressourcen. Eine Gastprüfung belegte die SQL-Bereitschaft
+in derselben VM. Die Abnahme bestätigte die Abwesenheit der eigenen VM,
+Child-Datenträger, Adapter, IPAM-Einträge und Secrets sowie den unveränderten
+geschützten Parent. Das Rendern des Browser-Dialogs und die Bestätigung
+sind separat synthetisch geprüft. [Nativlauf](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45360347068)
 
 `Invoke-SlotReserveChecks.ps1` prüft synthetisch denselben Preferences-Writer
 mit vier getrennten PowerShell-Prozessen, Mergeerhaltung, ungültigem JSON,
