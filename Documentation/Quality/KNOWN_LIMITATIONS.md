@@ -665,7 +665,8 @@ aggregierte SQL-Quellzähler einer gebundenen laufenden SQL-2025-Prepared-Instan
 Die Gastprobe bestand für SQL Server 2025 Developer auf Hyper-V im
 [Lauf 45343380820](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45343380820).
 Sie unterscheidet einen fehlenden Befund von tatsächlich beobachteten
-Nullwerten. Vollständiges Inventar, Ziel-/Slotbindung, Gleichwertigkeit,
+Nullwerten und leitet aus positiven Zählern feste Prüfhinweise zu
+Übernahmeabhängigkeiten ab. Vollständiges Inventar, Ziel-/Slotbindung, Gleichwertigkeit,
 Cutover, Schlüsseltransfer und Rückfall fehlen. Die Option persistiert keine
 Daten und führt keine Adoption oder Lifecycleaktion aus. Generischer Konsolen-
 Befehlszugang und geführter CLI-Dialog **SQL-Evaluation: Ersatzentscheid** sind

@@ -47,7 +47,11 @@ try {
         $script:lastPlan = & $script:actualPlan @PSBoundParameters
         return $script:lastPlan
     }
-    function Get-LabEvaluationSqlSourceInventory {param($Snapshot);[pscustomobject]@{Status='PARTIALLY_OBSERVED';Items=@([pscustomobject]@{Category='UserDatabases';Count=[long]1})}}
+    function Get-LabEvaluationSqlSourceInventory {
+        param($Snapshot)
+        [pscustomobject]@{ Status='PARTIALLY_OBSERVED'; Items=@([pscustomobject]@{Category='Credentials';Count=[long]1})
+            DependencyFindings=@([pscustomobject]@{Category='Credentials';Count=[long]1;Code='CREDENTIAL_REBIND_REQUIRED'}) }
+    }
     function Get-LabEvaluationWindowsLicenseObservation {
         param($Snapshot)
         [pscustomobject]@{Status='OBSERVED';LicenseState='LICENSED';ObservedAt=[datetime]::UtcNow.ToString('o');EvaluationExpiresAt=$null}
@@ -80,7 +84,8 @@ try {
     $run.metadata.desiredState.Instances=@($run.metadata.desiredState.Instances[0]);Write-Refresh $runPath $run
     Reset-ConsoleRefresh @('RUN','STATEFUL_MIGRATION','unexpected');Invoke-LabEvaluationRefreshPlanInteractive;Assert-ConsoleRefresh ($planCalls-eq0) 'Invalid preview action cannot dispatch'
     Reset-ConsoleRefresh @('RUN','STATEFUL_MIGRATION','observe');Invoke-LabEvaluationRefreshPlanInteractive
-    Assert-ConsoleRefresh ($planCalls -eq 1 -and $lastPlan.SqlSourceInventory.Status -ceq 'PARTIALLY_OBSERVED') 'The explicit guided source observation calls the inventory lane'
+    Assert-ConsoleRefresh ($planCalls -eq 1 -and $lastPlan.SqlSourceInventory.Status -ceq 'PARTIALLY_OBSERVED' -and
+        ($messages -join ' ') -cmatch 'CREDENTIAL_REBIND_REQUIRED') 'The explicit guided source observation shows the identified dependency'
     Reset-ConsoleRefresh @('RUN','RECONSTRUCT_LAB','observe');Invoke-LabEvaluationRefreshPlanInteractive
     Assert-ConsoleRefresh ($planCalls -eq 0) 'The observation choice is unavailable outside stateful migration'
     Reset-ConsoleRefresh @('RUN','RECONSTRUCT_LAB','observe-windows');Invoke-LabEvaluationRefreshPlanInteractive

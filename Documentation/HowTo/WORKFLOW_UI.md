@@ -430,8 +430,10 @@ Lab_Data, die SQL-Instanz und die Entscheidungsart.
 Für eine laufende Instanz bietet **Instanzzustand migrieren** zusätzlich
 **SQL-Quellzähler im laufenden Gast lesen**. Der Befund einer vorbereiteten
 SQL-2025-Instanz enthält Zähler für ausgewählte Datenbank- und Serverobjekte.
-Er liefert keine Objektnamen, schreibt keinen Befund auf die Platte und
-erteilt keine Migrationsfreigabe.
+Positive Zähler markieren zusätzliche Prüfungen für Verschlüsselung,
+Datenbankzustand, Snapshots, Linked Server, Zugangsdaten und SQL Agent.
+Der Befund enthält Kategorien, Anzahlen und feste Prüfcodes. Eine
+Transferfreigabe erfordert einen eigenen Nachweis.
 **Windows-Lizenz im laufenden Gast lesen** ist eine eigene Auswahl in allen
 drei Entscheidungsarten. Sie zeigt den aktuellen Lizenzstatus, den
 Beobachtungszeitpunkt und eine belegte Evaluation-Frist getrennt von den
@@ -451,7 +453,8 @@ bleiben im RAM; Zurück/Escape und späte Antworten erstellen keine Jobs.
 Für einen laufenden Gast und die Auswahl **Instanzzustand migrieren** gibt es
 zusätzlich **SQL-Quellzähler im Gast lesen**. Der ausdrücklich gewählte
 Leseauftrag erscheint unter **Vorgänge**. Er speichert keine Diagnose im
-Lab-Zustand und gibt nur Kategorien und Anzahlen aus.
+Lab-Zustand. Kategorien, Anzahlen und feste Prüfcodes erscheinen gemeinsam
+im laufenden Auftrag.
 **Windows-Lizenz im Gast lesen** erscheint bei einer laufenden Instanz
 unabhängig von der Entscheidungsart. Der aktuelle Befund erscheint unter
 **Vorgänge**. Scheitert die lesende Gastabfrage, bleibt der Befund unbeobachtet.

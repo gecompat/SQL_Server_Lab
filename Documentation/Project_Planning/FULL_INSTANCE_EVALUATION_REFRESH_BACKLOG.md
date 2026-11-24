@@ -61,8 +61,11 @@ Zustand und Verschlüsselung, Snapshots, Serverprinzipale, Credentials,
 Linked Server, Agent-Jobs und Proxies. Werte erscheinen nur aggregiert,
 ohne SQL-Objektnamen oder Zugangsdaten. Bei fehlendem Live-Nachweis bleiben
 die Werte unbeobachtet. Im Browser löst dieselbe getrennte Aktion einen
-flüchtigen Leseauftrag mit gebundener Auswahl aus. Vollständige Inventur und
-sämtliche Transferaktionen bleiben offen.
+flüchtigen Leseauftrag mit gebundener Auswahl aus. Positive Zähler erzeugen
+feste Prüfhinweise für Datenbankzustand, TDE-Schlüssel, Snapshots,
+Zugangsdaten, Linked Server, SQL-Agent-Jobs und -Proxies. Ein Nullwert beschreibt
+die beobachtete Kategorie zum Prüfzeitpunkt. Vollständige Inventur und sämtliche
+Transferaktionen bleiben offen.
 Die [Key18-Abnahme](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45343380820)
 belegt die neun Zähler der Gastprobe für SQL Server 2025 Developer, Build
 `17.0.1000.7`. Der eigene Run wurde bereinigt und die Vorlage blieb

@@ -81,6 +81,9 @@ function Invoke-LabEvaluationRefreshPlanInteractive {
         if ($plan.SqlSourceInventory) {
             Write-LabInfo ("SQL-Quellzähler im Gast: {0}. Vollständige Instanzinventur bleibt offen." -f $plan.SqlSourceInventory.Status)
             foreach ($item in $plan.SqlSourceInventory.Items) { Write-LabInfo ("{0}: {1}" -f $item.Category,$item.Count) }
+            foreach ($finding in $plan.SqlSourceInventory.DependencyFindings) {
+                Write-LabInfo ("Vor Übernahme prüfen: {0} · {1} ({2})" -f $finding.Code,$finding.Category,$finding.Count)
+            }
         }
         foreach($blocker in $plan.Blockers){Write-LabInfo ("Offen: {0}"-f$blocker)}
         foreach($step in $plan.NextSteps){Write-LabInfo $step}

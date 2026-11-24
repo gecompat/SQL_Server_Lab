@@ -277,6 +277,9 @@ function Start-UiWorkflowJob {
                 $source = $result.Result
                 Write-Output ('[INVENTAR] SQL-Quellzähler: ' + $source.Status)
                 foreach ($item in $source.Items) { Write-Output ('[INVENTAR] {0}: {1}' -f $item.Category, $item.Count) }
+                foreach ($finding in $source.DependencyFindings) {
+                    Write-Output ('[INVENTAR] Vor Übernahme prüfen: {0} · {1} ({2})' -f $finding.Code, $finding.Category, $finding.Count)
+                }
                 Write-Output '[INFO] Der Ersatzentscheid bleibt BLOCKED. Vollständige Inventur und Transfer benötigen weitere Nachweise.'
             }
             if ($JobAction -ceq 'ReadHyperVEvaluationWindowsLicense') {

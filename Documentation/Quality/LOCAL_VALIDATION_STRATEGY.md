@@ -2412,6 +2412,11 @@ liefern nur die synthetische Quelle. Die Prüfung beweist keine Lizenzprüfung,
 SQL-Readiness, Providerfunktion oder Migration; Diff-Auswahl und CI bleiben
 separate Verpflichtungen.
 
+Die Prüfhinweise zu SQL-Übernahmeabhängigkeiten verwenden dieselben neun
+Zähler. Die Suite unterscheidet positive Zähler, echte Nullwerte und verworfene
+Beobachtungen und prüft den weiterhin blockierten Transferstatus. Die
+CLI- und HTTP-Fixtures prüfen die Ausgabe der festen Codes.
+
 ## Prospektiver External-Languages-Capability-Entscheid
 
 `Invoke-ExternalRuntimeCapabilityBrowserChecks.ps1` prüft die extrahierte echte

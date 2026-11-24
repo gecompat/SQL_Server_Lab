@@ -41,7 +41,7 @@ function Read-LabEvaluationRefreshSnapshot {
 
 function Get-LabEvaluationSqlSourceInventory {
     param([Parameter(Mandatory)]$Snapshot)
-    $unavailable = [pscustomobject]@{ Status='NOT_OBSERVED'; Items=@() }
+    $unavailable = [pscustomobject]@{ Status='NOT_OBSERVED'; Items=@(); DependencyFindings=@() }
     if (-not $IsWindows -or $Snapshot.Binding.Run.state -cne 'RUNNING' -or $Snapshot.Instance.sqlVersion -cne '2025') {
         return $unavailable
     }
@@ -80,7 +80,22 @@ function Get-LabEvaluationSqlSourceInventory {
     $items = @(foreach ($category in $categories) {
         [pscustomobject]@{ Category=$category; Count=$counts.$category }
     })
-    [pscustomobject]@{ Status='PARTIALLY_OBSERVED'; Items=$items }
+    $dependencyCodes = [ordered]@{
+        NonOnlineUserDatabases='DATABASE_STATE_REVIEW_REQUIRED'
+        EncryptedUserDatabases='TDE_KEY_TRANSFER_REQUIRED'
+        DatabaseSnapshots='DATABASE_SNAPSHOT_DISPOSITION_REQUIRED'
+        Credentials='CREDENTIAL_REBIND_REQUIRED'
+        LinkedServers='LINKED_SERVER_REBIND_REQUIRED'
+        AgentJobs='SQL_AGENT_JOB_INVENTORY_REQUIRED'
+        AgentProxies='SQL_AGENT_PROXY_REBIND_REQUIRED'
+    }
+    $findings = @(foreach ($entry in $dependencyCodes.GetEnumerator()) {
+        $count = $counts.($entry.Key)
+        if ($count -gt 0) {
+            [pscustomobject]@{ Category=$entry.Key; Count=$count; Code=$entry.Value }
+        }
+    })
+    [pscustomobject]@{ Status='PARTIALLY_OBSERVED'; Items=$items; DependencyFindings=$findings }
 }
 
 function Get-LabEvaluationWindowsLicenseObservation {

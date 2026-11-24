@@ -126,6 +126,20 @@ try {
             $parameters.Remove('StateRoot')
         }
     }
+    $formatter = $server.Find({
+        param($node)
+        $node -is [Management.Automation.Language.IfStatementAst] -and
+        $node.Clauses[0].Item1.Extent.Text -ceq '$JobAction -ceq ''ReadHyperVEvaluationSqlSource'''
+    }, $true)
+    $formatBody = $formatter.Clauses[0].Item2.Extent.Text
+    $result = [pscustomobject]@{ Result=[pscustomobject]@{
+        Status='PARTIALLY_OBSERVED'
+        Items=@([pscustomobject]@{Category='Credentials';Count=[long]1})
+        DependencyFindings=@([pscustomobject]@{Category='Credentials';Count=[long]1;Code='CREDENTIAL_REBIND_REQUIRED';Private='SYNTHETIC_PRIVATE'})
+    }}
+    $lines = & ([scriptblock]::Create($formatBody.Substring(1, $formatBody.Length-2)))
+    Assert-HttpRefresh (($lines -join ' ') -cmatch 'CREDENTIAL_REBIND_REQUIRED' -and
+        ($lines -join ' ') -cnotmatch 'SYNTHETIC_PRIVATE') 'Actual transient job format exposes only the fixed dependency fields'
     Write-Host ('EVALUATION_REFRESH_HTTP_CHECKS: '+$checks+' PASS; 0 FAIL')
 }finally{
     $resolved=[IO.Path]::GetFullPath($root);$expected=[IO.Path]::GetFullPath((Join-Path $repo '.artifacts/evaluation-refresh-browser-fixtures'))

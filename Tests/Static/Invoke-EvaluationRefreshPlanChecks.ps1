@@ -146,6 +146,8 @@ try {
         $observed = Get-SqlServerLabEvaluationRefreshPlan @argsForPlan -ObserveSqlSource
         Assert-Refresh ($script:observationCalls -eq 1 -and $observed.SqlSourceInventory.Status -ceq 'PARTIALLY_OBSERVED' -and
             $observed.SqlSourceInventory.Items.Count -eq 9 -and ($observed.SqlSourceInventory.Items | Where-Object Category -CEQ UserDatabases).Count -eq 3 -and
+            ($observed.SqlSourceInventory.DependencyFindings.Code -join ',') -ceq
+                'DATABASE_STATE_REVIEW_REQUIRED,LINKED_SERVER_REBIND_REQUIRED,SQL_AGENT_JOB_INVENTORY_REQUIRED' -and
             $observed.Status -ceq 'BLOCKED' -and 'FULL_INSTANCE_INVENTORY_NOT_AVAILABLE' -cin $observed.Blockers -and -not $observed.MutationAllowed -and
             ($observed | ConvertTo-Json -Depth 10) -cnotmatch 'CANARY_PRIVATE|MSSQLSERVER') 'Opt-in reads aggregate SQL counts without raising transfer authority'
         $jobParams = @{ Action='ReadHyperVEvaluationSqlSource'; RunId=$runId; InstanceId='primary'; DataRoot=$root; ExpectedPlanKey=$ordinary.ObservedContentSha256 }
@@ -156,12 +158,28 @@ try {
         } EVALUATION_REFRESH_BINDING_CHANGED
         Assert-Refresh ($script:observationCalls -eq 1) 'Stale interactive request opens no guest connection'
         $job = Invoke-SqlServerLabWorkflowAction @jobParams
-        Assert-Refresh ($script:observationCalls -eq 2 -and $job.Result.Status -ceq 'PARTIALLY_OBSERVED' -and
+        Assert-Refresh ($script:observationCalls -eq 2 -and $job.Result.Status -ceq 'PARTIALLY_OBSERVED' -and $job.Result.DependencyFindings.Count -eq 3 -and
             ($job | ConvertTo-Json -Depth 10) -cnotmatch 'CANARY_PRIVATE|MSSQLSERVER|ScopeId') 'The browser job returns only the aggregate source result'
         $script:guestCounts.AgentJobs = [long]-1
         $invalidInventory = Get-SqlServerLabEvaluationRefreshPlan @argsForPlan -ObserveSqlSource
-        Assert-Refresh ($invalidInventory.SqlSourceInventory.Status -ceq 'NOT_OBSERVED' -and $invalidInventory.SqlSourceInventory.Items.Count -eq 0) 'Invalid guest counters do not become observed zero'
+        Assert-Refresh ($invalidInventory.SqlSourceInventory.Status -ceq 'NOT_OBSERVED' -and $invalidInventory.SqlSourceInventory.Items.Count -eq 0 -and
+            $invalidInventory.SqlSourceInventory.DependencyFindings.Count -eq 0) 'Invalid guest counters do not become observed zero or report a dependency'
         $script:guestCounts.AgentJobs = [long]3
+        $script:guestCounts.EncryptedUserDatabases = [long]1
+        $script:guestCounts.DatabaseSnapshots = [long]1
+        $script:guestCounts.Credentials = [long]2
+        $script:guestCounts.AgentProxies = [long]1
+        $blocked = Get-SqlServerLabEvaluationRefreshPlan @argsForPlan -ObserveSqlSource
+        Assert-Refresh ($blocked.SqlSourceInventory.DependencyFindings.Count -eq 7 -and
+            'TDE_KEY_TRANSFER_REQUIRED' -cin $blocked.SqlSourceInventory.DependencyFindings.Code -and
+            'DATABASE_SNAPSHOT_DISPOSITION_REQUIRED' -cin $blocked.SqlSourceInventory.DependencyFindings.Code -and
+            'CREDENTIAL_REBIND_REQUIRED' -cin $blocked.SqlSourceInventory.DependencyFindings.Code -and
+            'SQL_AGENT_PROXY_REBIND_REQUIRED' -cin $blocked.SqlSourceInventory.DependencyFindings.Code -and
+            $blocked.TransferAuthority -ceq 'NONE') 'Observed dependencies get actionable fixed codes without transfer authority'
+        foreach ($property in $script:guestCounts.PSObject.Properties) { $property.Value = [long]0 }
+        $empty = Get-SqlServerLabEvaluationRefreshPlan @argsForPlan -ObserveSqlSource
+        Assert-Refresh ($empty.SqlSourceInventory.Status -ceq 'PARTIALLY_OBSERVED' -and
+            $empty.SqlSourceInventory.DependencyFindings.Count -eq 0 -and $empty.Status -ceq 'BLOCKED') 'Observed zeros produce no dependency findings and retain the blocked plan'
         $script:contextReads = 0
         $script:injectInventoryDrift = $true
         Assert-RefreshReject 'Changed live source binding invalidates the inventory preview' { Get-SqlServerLabEvaluationRefreshPlan @argsForPlan -ObserveSqlSource } EVALUATION_REFRESH_BINDING_CHANGED
