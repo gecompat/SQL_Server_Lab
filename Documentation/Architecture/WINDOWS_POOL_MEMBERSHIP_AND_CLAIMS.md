@@ -162,6 +162,12 @@ Windows-2025-Desktop-Mitglied und ein SQL-2025-Enterprise-Medium auf
 den SQL-Plan mit den gewählten VM-Ressourcen und entfernte den eigenen Run.
 [Nativer Lauf](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45290810001)
 
+Auf `23c92b23` belegte die erweiterte Key18-Abnahme zusätzlich die
+SQL-Server-2025-Installation über die Browser-Fachaktion im übernommenen
+Windows-2025-Desktop-Slot. SQL war in derselben gebundenen VM bereit. Der
+Lauf bestätigte alle eigenen Absenzprüfungen und den unveränderten Parent.
+[Nativer Installationslauf](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45360347068)
+
 Der Native-Harness bindet ein vorhandenes SQL-2025-Medium über expliziten
 `MediaRoot`, relativen `SqlMediaPath` und `MediaEdition` (`Eval`, `Enterprise`
 oder `Standard`). Der kanonische Resolver prüft Version und Edition; der
@@ -171,8 +177,8 @@ kanonischen relativen Pfad. Das bestehende Mapping `EnterpriseDeveloper`
 zu `Enterprise` beziehungsweise `StandardDeveloper` zu `Standard` bleibt
 maßgeblich. Die explizite Pfadprüfung liest die Setup-Version über einen
 temporären lokalen ISO-Mount in der erhöhten Lane; der Resolver entfernt
-seinen eigenen Mount im `finally`. Dieser Nachweis installiert SQL nicht
-und lädt keine Medien herunter.
+seinen eigenen Mount im `finally`. Die Vorprüfung verarbeitet ausschließlich
+das bereitgestellte Medium.
 Ein vorher vorhandener ISO-Mount wird weder übernommen noch entfernt. Der
 Harness verlangt vor dem Resolver eine frisch belegte Detached-Bindung und
 danach unabhängig die Abwesenheit seines eigenen Mounts. Ein unterdrückter

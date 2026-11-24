@@ -1195,6 +1195,10 @@ das konfigurierte Medium. Es benötigt ein vorhandenes Hostnetzwerk. Bei
 einem gespeicherten Wiederaufnahmezustand erscheint **SQL-Ausbau fortsetzen**.
 Nach Status- oder Planänderungen lies die Übersicht vor erneuter Bestätigung
 neu. Zugangsdaten erscheinen weder im Dialog noch in der Auftragsantwort.
+Die Fachaktion zur Erstinstallation mit SQL Server 2025 wurde auf einem
+übernommenen Windows-Server-2025-Desktop-Slot bis zur SQL-Bereitschaft
+und zum vollständigen Test-Cleanup geprüft.
+[Nativlauf](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45360347068)
 [Mitgliedschaft und Claims](../Architecture/WINDOWS_POOL_MEMBERSHIP_AND_CLAIMS.md)
 
 CLI: `Invoke-SqlServerLab -Action ReservePolicy`. Nichtinteraktiv bietet

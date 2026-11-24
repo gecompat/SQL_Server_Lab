@@ -4020,8 +4020,11 @@ auf Key18 für ein eigenes Windows-2025-Desktop-Poolmitglied und ein
 verifiziertes SQL-2025-Enterprise-Medium. Sie umfasst frischen Gastnachweis,
 Resume, Claim, Release, Übernahme mit gewählten VM-Ressourcen und vollständige
 Bereinigung. Frühere Fehlerbelege bleiben getrennt erhalten. SQL-Setup im
-übernommenen Slot, Mehrslotbetrieb und automatische SQL-Reserve bleiben
-separate Nachweise. [Nativer Lauf](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45290810001)
+übernommenen Windows-2025-Desktop-Slot ist für SQL Server 2025 einschließlich
+Gastbereitschaft und Cleanup separat belegt. Mehrslotbetrieb, natives
+Installations-Resume und automatische SQL-Reserve bleiben offen.
+[Poolmitglied und Übernahme](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45290810001) ·
+[SQL-Installation](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45360347068)
 Eine DataRoot-Migration mit tatsächlicher StateRootverschiebung ist bei
 Poolmitgliedern einschließlich CONSUMED vor Copy/Mutation blockiert; nur
 REMOVED-Tombstones ohne frisch gebundene VM sind ausgenommen. Ein
