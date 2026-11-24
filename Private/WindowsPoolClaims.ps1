@@ -504,7 +504,7 @@ function Get-LabWindowsPoolGuestReceipt {
                 evaluationExpiresAt=$end;edition=[string]$edition;systemLocale=(Get-WinSystemLocale).Name
                 uiLanguage=[string](Get-UICulture).Name;timeZone=(Get-TimeZone).Id
                 geoId=[int](Get-WinHomeLocation).GeoId
-                inputLocales=@(Get-WinUserLanguageList | ForEach-Object {@($_.InputMethodTips)} | ForEach-Object {[string]$_})
+                inputLocale=[string](Get-WinDefaultInputMethodOverride).InputMethodTip
                 provisioningComplete=($setup.OOBEInProgress -eq 0 -and $setup.SystemSetupInProgress -eq 0)}
         })[-1]
     $locale=$Bound.Run.metadata.windowsLocale
@@ -527,7 +527,7 @@ function Get-LabWindowsPoolGuestReceipt {
         UI_LANGUAGE_MISMATCH=($receipt.uiLanguage -ine $locale.UiLanguage)
         TIME_ZONE_MISMATCH=($receipt.timeZone -cne $locale.TimeZone)
         GEO_ID_MISMATCH=($locale -and $receipt.geoId -ne [Globalization.RegionInfo]::new($locale.Region).GeoId)
-        INPUT_LOCALE_MISMATCH=(@($receipt.inputLocales) -notcontains $locale.InputLocale)
+        INPUT_LOCALE_MISMATCH=([string]::IsNullOrWhiteSpace($receipt.inputLocale) -or $receipt.inputLocale -ine $locale.InputLocale)
     }
     $mismatchCodes=@($invalid.Keys | Where-Object {$invalid[$_]})
     if ($mismatchCodes.Count) {

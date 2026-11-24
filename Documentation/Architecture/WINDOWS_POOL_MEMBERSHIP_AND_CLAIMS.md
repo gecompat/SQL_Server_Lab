@@ -78,6 +78,10 @@ den unveränderlichen Parentfingerprint. Alte `windowsActivation`-Metadaten
 gelten nicht als Poolnachweis. Eine Providermutation invalidiert vorhandene
 Evidence vor ihrer Ausführung. Warnfrist und Mindestrestlaufzeit sind
 unabhängig; null ist eine gültige Reserve bzw. Mindestrestlaufzeit.
+Die Gastabfrage vergleicht die von der Nachinstallation gesetzte
+Standard-Eingabemethode (`Get-WinDefaultInputMethodOverride`) mit der
+gebundenen Tastaturabsicht. Fehlt die Überschreibung oder weicht sie ab,
+verwirft der Pool die Capture mit `INPUT_LOCALE_MISMATCH`.
 Fehlt bei der frischen Gastabfrage `EvaluationEndDate` oder wird ein Datum vor
 1970 nach dem vorhandenen Lizenzvertrag als fehlendes Evaluationsende
 normalisiert, darf der bestehende
