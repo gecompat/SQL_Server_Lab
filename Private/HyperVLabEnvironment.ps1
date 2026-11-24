@@ -1565,6 +1565,34 @@ function Set-HyperVLabSqlDeploymentPlan {
     return $lab.Instance.sqlDeploymentPlan
 }
 
+function Get-LabHyperVSqlSlotBrowserPlan {
+    param($Run, $Instance, [string]$StateRoot, [string]$MediaRoot, [string]$VmState)
+    $plan = $Instance.sqlDeploymentPlan
+    $member = $Run.metadata.windowsPoolMember
+    $id = [guid]::Empty
+    if (-not $MediaRoot -or -not $plan -or -not $member -or $member.state -cne 'CONSUMED' -or
+        $member.runId -cne $Run.runId -or $member.scopeId -cne $Run.scopeId -or $member.instanceId -cne $Instance.id -or
+        -not [guid]::TryParseExact([string]$Instance.vmId, 'D', [ref]$id) -or $id -eq [guid]::Empty -or $member.vmId -cne $Instance.vmId -or
+        $Run.state -notin @('STOPPED', 'RUNNING') -or $VmState -notin @('Off', 'Running') -or
+        $plan.deploymentMode -cne 'adhoc-install' -or $plan.networkMode -cne 'host-access' -or $plan.ssisBinding -or
+        $plan.sqlVersion -notin @('2016', '2017', '2019', '2022', '2025') -or $plan.mediaEdition -notin @('Enterprise', 'Standard', 'Eval') -or
+        @($plan.features) -notcontains 'SQLENGINE' -or @($plan.features | Where-Object { $_ -notin @('SQLENGINE', 'FULLTEXT', 'REPLICATION', 'ADVANCEDANALYTICS') }).Count -gt 0 -or
+        $plan.state -notin @('PLANNED', 'INSTALL_RETRY_PENDING', 'PATCH_PENDING', 'PATCH_RETRY_PENDING', 'CONFIGURATION_PENDING') -or
+        ($plan.state -eq 'PLANNED' -and $VmState -ne 'Off') -or
+        ($plan.state -in @('PATCH_PENDING', 'PATCH_RETRY_PENDING', 'CONFIGURATION_PENDING') -and $VmState -ne 'Running')) { return }
+    [pscustomobject]@{
+        State = [string]$plan.state
+        SqlVersion = [string]$plan.sqlVersion
+        MediaEdition = [string]$plan.mediaEdition
+        Features = @($plan.features)
+        PlanKey = Get-LabWindowsPoolPlanKey -Plan @{
+            Contract = 'hyperv-consumed-sql-slot-install/1'; RunId = $Run.runId; ScopeId = $Run.scopeId
+            StateRoot = $StateRoot; MediaRoot = $MediaRoot; VmId = $Instance.vmId; Revision = $member.revision
+            RunState = $Run.state; VmState = $VmState; Network = $Instance.labNetwork; SqlDeploymentPlan = $plan
+        }
+    }
+}
+
 function Invoke-HyperVLabSqlSlotInstall {
     <# .SYNOPSIS Installiert SQL vollständig in einen eindeutigen Windows-Slot; führt niemals Sysprep aus. #>
     [CmdletBinding()]
@@ -1575,11 +1603,38 @@ function Invoke-HyperVLabSqlSlotInstall {
         [ValidateRange(60, 10800)][int]$SetupTimeoutSeconds = 7200,
         [ValidateRange(60, 3600)][int]$ReadinessTimeoutSeconds = 900,
         [string]$StateRoot,
-        [switch]$RequireExistingNetwork
+        [switch]$RequireExistingNetwork,
+        [string]$ExpectedPlanKey
     )
 
+    if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
+    $lockKey = Get-LabWorkflowHash -Text $RunId.ToLowerInvariant() -Length 64
+    $mutexPrefix = if ($IsWindows) { 'Global\' } else { '' }
+    $mutex = [Threading.Mutex]::new($false, $mutexPrefix + 'SQL_Server_Lab_Sql_Slot_' + $lockKey)
+    $acquired = $false
+    try {
+    try { $acquired = $mutex.WaitOne(0) }
+    catch [Threading.AbandonedMutexException] { $acquired = $true; throw 'HYPERV_LAB_SQL_INSTALL_RECOVERY_REQUIRED' }
+    if (-not $acquired) { throw 'HYPERV_LAB_SQL_INSTALL_IN_PROGRESS' }
+
+    $vmBinding = @{}
+    if ($ExpectedPlanKey) {
+        $preview = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot -NoWrite
+        $expectedVm = [guid]::Empty
+        if (-not [guid]::TryParseExact([string]$preview.Instance.vmId, 'D', [ref]$expectedVm) -or $expectedVm -eq [guid]::Empty) {
+            throw 'HYPERV_LAB_SQL_INSTALL_PREVIEW_STALE'
+        }
+        $preview = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot -ExpectedVmId $expectedVm -NoWrite
+        $previewVm = Assert-HyperVLabSqlVmBinding -Lab $preview -ExpectedVmId $expectedVm
+        $current = Get-LabHyperVSqlSlotBrowserPlan -Run $preview.Run -Instance $preview.Instance -StateRoot $StateRoot -MediaRoot $MediaRoot -VmState ([string]$previewVm.VM.State)
+        if (-not $current -or $current.PlanKey -cne $ExpectedPlanKey) {
+            throw 'HYPERV_LAB_SQL_INSTALL_PREVIEW_STALE'
+        }
+        $null = Assert-HyperVLabSqlExistingNetwork -Lab $preview -Managed $previewVm
+        $vmBinding.ExpectedVmId = $expectedVm
+    }
     Assert-LabWindowsPoolMutationAllowed -RunId $RunId -StateRoot $StateRoot -InvalidateEvidence
-    $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
+    $lab = if ($ExpectedPlanKey) { $preview } else { Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot }
     $plan = $lab.Instance.sqlDeploymentPlan
     if (-not $plan -or [string]$plan.deploymentMode -notin @('sql-pool-slot', 'adhoc-install') -or
         [string]$plan.state -notin @('PLANNED', 'INSTALL_RETRY_PENDING', 'PATCH_PENDING', 'PATCH_RETRY_PENDING', 'CONFIGURATION_PENDING')) {
@@ -1588,6 +1643,7 @@ function Invoke-HyperVLabSqlSlotInstall {
     $managed = Get-HyperVManagedVM -VMName ([string]$lab.Instance.vmName) `
         -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
     if (-not $managed) { throw 'HYPERV_LAB_VM_NOT_FOUND' }
+    if ($ExpectedPlanKey -and [string]$managed.VM.Id -ne $expectedVm.ToString()) { throw 'HYPERV_LAB_SQL_INSTALL_PREVIEW_STALE' }
     if ([string]$plan.state -eq 'PLANNED' -and [string]$managed.VM.State -ne 'Off') {
         throw 'HYPERV_LAB_SQL_INSTALL_VM_MUST_BE_OFF'
     }
@@ -1634,12 +1690,12 @@ function Invoke-HyperVLabSqlSlotInstall {
         $existingDvd = @(Get-VMDvdDrive -VM $managed.VM -ErrorAction Stop | Where-Object { [string]$_.Path -eq [string]$media.IsoPath }) | Select-Object -First 1
         if (-not $existingDvd) { $null = Add-VMDvdDrive -VM $managed.VM -Path $media.IsoPath -ErrorAction Stop }
         $null = Start-HyperVInstance -VMName ([string]$lab.Instance.vmName) `
-            -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -StateRoot $StateRoot
+            -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -StateRoot $StateRoot @vmBinding
         $ready = Wait-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) `
-            -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $credential -TimeoutSeconds $ReadinessTimeoutSeconds
+            -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $credential -TimeoutSeconds $ReadinessTimeoutSeconds @vmBinding
         if (-not $ready.Ready) { throw "HYPERV_LAB_SQL_INSTALL_GUEST_TIMEOUT: $($ready.Message)" }
         $null=Invoke-LabWindowsSlotActivationReconcile -RunId $RunId -Credential $credential -StateRoot $lab.StateRoot
-        $lab=Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot
+        $lab=Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot @vmBinding
         $plan=$lab.Instance.sqlDeploymentPlan
         $plan.state = 'INSTALLING'
         $plan | Add-Member -NotePropertyName mediaRelativePath -NotePropertyValue ([string]$media.RelativePath) -Force
@@ -1665,7 +1721,7 @@ function Invoke-HyperVLabSqlSlotInstall {
             if ([string]$lab.Instance.persistentStorage.state -eq 'ATTACHED_PENDING_INITIALIZATION') {
                 Write-LabInfo 'SQL-Datenplatte wird vor SQL Setup initialisiert.'
                 $null = Initialize-HyperVLabPersistentData -RunId $RunId -Credential $credential -StateRoot $lab.StateRoot
-                $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot
+                $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot @vmBinding
                 $plan = $lab.Instance.sqlDeploymentPlan
             }
             if ([string]$lab.Instance.persistentStorage.state -eq 'READY') { $dataRoot = [string]$lab.Instance.persistentStorage.guestPath }
@@ -1677,7 +1733,7 @@ function Invoke-HyperVLabSqlSlotInstall {
             if($plan.ssisBinding){$ssisTransport.ExpectedVmId=[guid]$plan.ssisBinding.VmId;$ssisTransport.TimeoutSeconds=$SetupTimeoutSeconds+360}
             $receipt = Invoke-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) `
                 -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $credential `
-                @ssisTransport `
+                @ssisTransport @vmBinding -NoRetry:([bool]$vmBinding.Count) `
                 -ArgumentList @([string]$plan.sqlVersion, $setupVersionPattern, (@($plan.features) -join ','), $SqlSaPassword, $dataRoot, $plan.storage, [string]$plan.collation, $SetupTimeoutSeconds, $(if($plan.ssisBinding){@(Get-LabSsisSetupArguments)}else{@()})) `
                 -ScriptBlock {
                 param($ExpectedSqlVersion, $ExpectedSetupVersionPattern, $FeaturesCsv, $SaPassword, $SqlDataRoot, $StorageConfiguration, $Collation, $TimeoutSeconds, $SsisArguments)
@@ -1799,9 +1855,10 @@ function Invoke-HyperVLabSqlSlotInstall {
         }
         if ([int]$receipt.exitCode -eq 3010) {
             Write-LabInfo 'SQL Setup fordert einen Neustart; Gast wird neu gestartet und automatisch wieder übernommen.'
-            $null = Restart-VM -Name ([string]$lab.Instance.vmName) -Force -ErrorAction Stop
+            $restartTarget = if ($vmBinding.Count) { @{ VM = (Assert-HyperVLabSqlVmBinding -Lab $lab @vmBinding).VM } } else { @{ Name = [string]$lab.Instance.vmName } }
+            $null = Restart-VM @restartTarget -Force -ErrorAction Stop
             $ready = Wait-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) `
-                -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $credential -TimeoutSeconds $ReadinessTimeoutSeconds
+                -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $credential -TimeoutSeconds $ReadinessTimeoutSeconds @vmBinding
             if (-not $ready.Ready) { throw "HYPERV_LAB_SQL_INSTALL_RESTART_TIMEOUT: $($ready.Message)" }
         }
         $plan | Add-Member -NotePropertyName setupVersion -NotePropertyValue ([string]$receipt.setupVersion) -Force
@@ -1813,7 +1870,7 @@ function Invoke-HyperVLabSqlSlotInstall {
         Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'connection-info.json') -InputObject $lab.Connection
     }
 
-    $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot
+    $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot @vmBinding
     $plan = $lab.Instance.sqlDeploymentPlan
     if ([string]$plan.state -in @('PATCH_PENDING', 'PATCH_RETRY_PENDING')) {
         try {
@@ -1845,7 +1902,7 @@ function Invoke-HyperVLabSqlSlotInstall {
             }
             $actualBuild = Invoke-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) `
                 -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $credential `
-                -ArgumentList @($ReadinessTimeoutSeconds) -ScriptBlock $engineBuildScript
+                -ArgumentList @($ReadinessTimeoutSeconds) -ScriptBlock $engineBuildScript @vmBinding
             $actualBuild = [string]@($actualBuild)[-1]
             $patchCompletedAt = Get-LabTimestamp
             if (-not $plan.expectedSqlBuild -or $actualBuild -ne [string]$plan.expectedSqlBuild) {
@@ -1855,8 +1912,9 @@ function Invoke-HyperVLabSqlSlotInstall {
                 $guestUpdatePath = Join-Path $guestFolder (Split-Path -Leaf ([string]$plan.sqlUpdatePath))
                 $null = Invoke-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) `
                     -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $credential `
-                    -ArgumentList @($guestFolder) -ScriptBlock { param($Path); $null = New-Item -ItemType Directory -Path $Path -Force }
-                $guestService = Get-VMIntegrationService -VMName ([string]$lab.Instance.vmName) -ErrorAction Stop |
+                    -ArgumentList @($guestFolder) -ScriptBlock { param($Path); $null = New-Item -ItemType Directory -Path $Path -Force } @vmBinding
+                $fileCopyTarget = if ($vmBinding.Count) { @{ VM = (Assert-HyperVLabSqlVmBinding -Lab $lab @vmBinding).VM } } else { @{ VMName = [string]$lab.Instance.vmName } }
+                $guestService = Get-VMIntegrationService @fileCopyTarget -ErrorAction Stop |
                     Where-Object { ([string]$_.Id).EndsWith('6C09BB55-D683-4DA0-8931-C9BF705F6480', [StringComparison]::OrdinalIgnoreCase) } |
                     Select-Object -First 1
                 if (-not $guestService) { throw 'HYPERV_GUEST_FILE_COPY_SERVICE_NOT_FOUND' }
@@ -1866,7 +1924,7 @@ function Invoke-HyperVLabSqlSlotInstall {
                 try {
                 for ($copyAttempt = 1; $copyAttempt -le 6 -and -not $copied; $copyAttempt++) {
                     try {
-                        $copyJob=Copy-VMFile -VMName ([string]$lab.Instance.vmName) -SourcePath ([string]$plan.sqlUpdatePath) `
+                        $copyJob=Copy-VMFile @fileCopyTarget -SourcePath ([string]$plan.sqlUpdatePath) `
                             -DestinationPath $guestUpdatePath -FileSource Host -CreateFullPath -Force -AsJob -ErrorAction Stop
                         $null=Receive-LabProgressJob -Job $copyJob -Phase Transfer -Progress $transferProgress -TimeoutSeconds 3600
                         $copied = $true
@@ -1880,7 +1938,7 @@ function Invoke-HyperVLabSqlSlotInstall {
                 finally {Stop-LabActionProgress -Progress $transferProgress}
                 $patchReceipt = Invoke-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) `
                     -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $credential `
-                    -ArgumentList @($guestUpdatePath, $SetupTimeoutSeconds) -ScriptBlock {
+                    -ArgumentList @($guestUpdatePath, $SetupTimeoutSeconds) @vmBinding -NoRetry:([bool]$vmBinding.Count) -ScriptBlock {
                     param($PackagePath, $TimeoutSeconds)
                     $packageProcessName = [IO.Path]::GetFileName($PackagePath)
                     $installerProcessNames = @($packageProcessName, 'setup.exe', 'msiexec.exe')
@@ -1919,15 +1977,16 @@ function Invoke-HyperVLabSqlSlotInstall {
                 $patchReceipt = @($patchReceipt)[-1]
                 $patchCompletedAt = [string]$patchReceipt.completedAt
                 if ([int]$patchReceipt.exitCode -eq 3010) {
-                    $null = Restart-VM -Name ([string]$lab.Instance.vmName) -Force -ErrorAction Stop
+                    $restartTarget = if ($vmBinding.Count) { @{ VM = (Assert-HyperVLabSqlVmBinding -Lab $lab @vmBinding).VM } } else { @{ Name = [string]$lab.Instance.vmName } }
+                    $null = Restart-VM @restartTarget -Force -ErrorAction Stop
                     $ready = Wait-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) `
                         -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $credential `
-                        -TimeoutSeconds $ReadinessTimeoutSeconds
+                        -TimeoutSeconds $ReadinessTimeoutSeconds @vmBinding
                     if (-not $ready.Ready) { throw 'HYPERV_SQL_CU_RESTART_TIMEOUT' }
                 }
                 $actualBuild = Invoke-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) `
                     -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $credential `
-                    -ArgumentList @($ReadinessTimeoutSeconds) -ScriptBlock $engineBuildScript
+                    -ArgumentList @($ReadinessTimeoutSeconds) -ScriptBlock $engineBuildScript @vmBinding
                 $actualBuild = [string]@($actualBuild)[-1]
             }
             if ($plan.expectedSqlBuild -and $actualBuild -ne [string]$plan.expectedSqlBuild) {
@@ -1951,11 +2010,11 @@ function Invoke-HyperVLabSqlSlotInstall {
         }
     }
 
-    $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot
+    $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot @vmBinding
     $plan = $lab.Instance.sqlDeploymentPlan
     Write-LabInfo 'SQL-Instanz wird für Hostzugriff, TCP/IP, Firewall und Labnetz fertig konfiguriert.'
     $hostAccess = Enable-HyperVLabHostSqlAccess -RunId $RunId -Credential $credential -SqlSaPassword $SqlSaPassword `
-        -SqlPort $(if ($plan.sqlPort) { [int]$plan.sqlPort } else { 1433 }) -StateRoot $lab.StateRoot -RequireExistingNetwork:$RequireExistingNetwork
+        -SqlPort $(if ($plan.sqlPort) { [int]$plan.sqlPort } else { 1433 }) -StateRoot $lab.StateRoot -RequireExistingNetwork:$RequireExistingNetwork @vmBinding
     if ($plan.serverConfig) {
         Write-LabInfo 'Deklarierte SQL-Memory-, MAXDOP-, Cost-Threshold- und TempDB-Konfiguration wird angewendet.'
         $null = Set-LabServerConfig -Config $plan.serverConfig -HostName ([string]$hostAccess.Network.Address) `
@@ -1963,7 +2022,7 @@ function Invoke-HyperVLabSqlSlotInstall {
         # Ein fehlendes optionales Feld darf am int[]-Parameter nicht zu 0 werden.
         $null = Initialize-LabHyperVSqlConfigurationOwnershipReceipt -Lab $lab -TraceFlags @($plan.serverConfig.traceFlags | Where-Object {$null -ne $_})
     }
-    $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot
+    $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot @vmBinding
     $plan = $lab.Instance.sqlDeploymentPlan
     $plan.state = 'SQL_SLOT_READY'
     $plan | Add-Member -NotePropertyName completedAt -NotePropertyValue (Get-LabTimestamp) -Force
@@ -1995,6 +2054,11 @@ function Invoke-HyperVLabSqlSlotInstall {
         DeploymentMode=$plan.deploymentMode; HostSqlAccess=$hostAccess; GeneratedSqlAccess=$generatedAccess
     }
     } finally {if($ssisMedia){$ssisMedia.Handle.Dispose()}}
+    }
+    finally {
+        if ($acquired) { $mutex.ReleaseMutex() }
+        $mutex.Dispose()
+    }
 }
 
 function Invoke-HyperVLabSqlPreparedSlot {

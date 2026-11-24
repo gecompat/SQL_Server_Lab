@@ -96,6 +96,44 @@ async function waitForActualBoundary(predicate, message) {
 }
 const node = (id) => nodes.get(id);
 const click = (element) => { for (const handler of element.events.get('click') || []) handler({}); };
+check('Consumed Windows slot shows a separate confirmed SQL install action', () => {
+  const target = {
+    RunId: 'bb2a2899-87e0-4bd1-bca4-9f7183ef4cbd', Name: 'Windows-Testslot',
+    Workload: 'windows', State: 'STOPPED', VMState: 'Off',
+    SqlSlotInstall: { State: 'PLANNED', SqlVersion: '2025', MediaEdition: 'Enterprise', Features: ['SQLENGINE', 'FULLTEXT'], PlanKey: 'a'.repeat(64) }
+  };
+  const button = { dataset: { sqlSlotInstall: target.RunId } };
+  const fire = () => {
+    for (const handler of documentEvents.get('click') || []) {
+      handler({ target: { closest: (selector) => selector === '[data-sql-slot-install]' ? button : null } });
+    }
+  };
+  run('workflow = ' + JSON.stringify({ HyperVLabs: [target] }) + '; renderHyperVLabs(workflow.HyperVLabs)');
+  assert.match(node('hyperv-labs').innerHTML, /SQL-Ausbau starten/);
+  const before = context.queued.length;
+  fire();
+  assert.equal(context.queued.length, before);
+  assert.match(node('confirmation-message').textContent, /Windows-Testslot.*2025.*Enterprise.*SQLENGINE, FULLTEXT/);
+  run('cancelDialog(document.getElementById("confirmation-dialog"))');
+  assert.equal(run('pendingConfirmation'), null);
+  target.SqlSlotInstall.State = 'INSTALL_RETRY_PENDING';
+  run('workflow = ' + JSON.stringify({ HyperVLabs: [target] }) + '; renderHyperVLabs(workflow.HyperVLabs)');
+  assert.match(node('hyperv-labs').innerHTML, /SQL-Ausbau fortsetzen/);
+  fire();
+  assert.deepEqual(JSON.parse(run('JSON.stringify(pendingConfirmation)')), {
+    action: 'InstallHyperVLabSqlSlot', parameters: { RunId: target.RunId, ExpectedPlanKey: target.SqlSlotInstall.PlanKey }
+  });
+  const submit = node('confirmation-form').events.get('submit')[0];
+  submit({ preventDefault() {} });
+  assert.equal(context.queued.length, before + 1);
+  assert.equal(context.queued.pop().action, 'InstallHyperVLabSqlSlot');
+  node('confirmation-dialog').close();
+  Object.assign(target, { Workload: 'sql', State: 'RUNNING', VMState: 'Running', InstanceId: 'primary', ArtifactId: 'synthetic-os', SqlCompletionState: 'PENDING_SLOT_INSTALL', SqlSlotInstall: null });
+  run('renderHyperVLabs(' + JSON.stringify([target]) + ')');
+  assert.doesNotMatch(node('hyperv-labs').innerHTML, /CompleteHyperVLabSql|EnableHyperVLabHostSqlAccess|data-sql-features=/);
+  assert.match(node('hyperv-labs').innerHTML, /noch nicht abgeschlossen/);
+  run('workflow = null');
+});
 check('Nine real area buttons select only their actual destinations without dispatch', () => {
   const requestsBefore = fetchRequests.length;
   const areas = ['labs', 'testmatrix', 'templates', 'resources', 'hostmodels', 'connections', 'configuration', 'maintenance', 'queue'];

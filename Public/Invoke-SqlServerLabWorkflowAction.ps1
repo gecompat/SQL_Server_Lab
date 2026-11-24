@@ -309,6 +309,7 @@ function Invoke-SqlServerLabWorkflowAction {
             'ExecutePersistentStorageRemoval', 'RemoveRetainedStore',
             'CreateContainerDatabase', 'InspectContainerDatabaseMigrationDependencies', 'ExportContainerDatabasePackage', 'RestoreContainerLibraryBackup', 'InstallContainerSampleDatabase', 'InstallContainerSampleDatabases', 'ExecuteContainerScript',
             'NewHyperVLab', 'NewHyperVLabFromExistingVm', 'StartHyperVLab', 'StopHyperVLab', 'EnableHyperVLabPersistentData', 'InitializeHyperVLabPersistentData', 'ReleaseHyperVPersistentData', 'ReattachHyperVPersistentData', 'CloneHyperVPersistentData', 'CompleteHyperVLabSql', 'EnableHyperVLabHostSqlAccess', 'InspectHyperVLabSqlInstances', 'AttachHyperVDatabasePackage', 'RecoverHyperVDatabasePackageAttach', 'OpenHyperVConsole', 'RemoveHyperVLab',
+            'InstallHyperVLabSqlSlot',
             'NewWindowsBuild', 'SetWindowsMediaHash', 'OpenWindowsConsole', 'ConfirmWindowsInstall', 'GeneralizeWindowsBuild', 'PublishWindowsBuild',
             'NewSqlBuild', 'NewSqlBuildFromBaseline', 'SetSqlMediaHash', 'OpenSqlConsole', 'ConfirmSqlWindowsInstall', 'PrepareSqlImage', 'ResumeSqlImage', 'PublishSqlImage',
             'RunSqlAcceptanceSetup', 'RunSqlAcceptanceTests',
@@ -421,6 +422,29 @@ function Invoke-SqlServerLabWorkflowAction {
         if($Action -notin @('CompleteHyperVLabSql','EnableHyperVLabHostSqlAccess')){throw 'HYPERV_LAB_SQL_EXPECTED_VM_ACTION_INVALID'}
         if($ExpectedVmId -eq [guid]::Empty){throw 'HYPERV_LAB_EXPECTED_VM_ID_REQUIRED'}
         if(-not $PSBoundParameters.ContainsKey('StateRoot') -or [string]::IsNullOrWhiteSpace($StateRoot)){throw 'HYPERV_LAB_EXPECTED_VM_STATE_ROOT_REQUIRED'}
+    }
+    if ($Action -ceq 'InstallHyperVLabSqlSlot') {
+        $selectedRun = [guid]::Empty
+        if (@($PSBoundParameters.Keys | Where-Object { $_ -notin @('Action', 'RunId', 'ExpectedPlanKey', 'ErrorAction') }).Count -gt 0 -or
+            -not $ExpectedPlanKey -or -not [guid]::TryParseExact($RunId, 'D', [ref]$selectedRun) -or $selectedRun -eq [guid]::Empty) {
+            throw 'HYPERV_LAB_SQL_INSTALL_PREVIEW_REQUIRED'
+        }
+        if (-not $IsWindows -or -not (Test-HyperVAvailable).Available) { throw 'HYPERV_LAB_SQL_INSTALL_HOST_REQUIRED' }
+        $localMediaRoot = Get-LabMediaRootDefault
+        if (-not $localMediaRoot) { throw 'HYPERV_LAB_SQL_INSTALL_MEDIA_ROOT_REQUIRED' }
+        try {
+            $installed = Invoke-HyperVLabSqlSlotInstall -RunId $RunId -MediaRoot $localMediaRoot -ExpectedPlanKey $ExpectedPlanKey -RequireExistingNetwork 3>$null 4>$null 5>$null 6>$null
+        }
+        catch {
+            $safeCode = @('HYPERV_LAB_SQL_INSTALL_PREVIEW_STALE', 'HYPERV_LAB_HOST_SQL_EXISTING_NETWORK_REQUIRED',
+                'HYPERV_LAB_HOST_SQL_EXISTING_NETWORK_CHANGED', 'HYPERV_LAB_HOST_SQL_EXISTING_ADAPTER_REQUIRED',
+                'HYPERV_LAB_SQL_INSTALL_IN_PROGRESS', 'HYPERV_LAB_SQL_INSTALL_RECOVERY_REQUIRED',
+                'HYPERV_LAB_GUEST_PASSWORD_NOT_STORED', 'HYPERV_LAB_VM_NOT_FOUND')
+            if ($_.Exception.Message -cin $safeCode) { throw [string]$_.Exception.Message }
+            throw 'HYPERV_LAB_SQL_INSTALL_FAILED'
+        }
+        if ($installed.State -cne 'SQL_SLOT_READY' -or $installed.RunId -cne $RunId) { throw 'HYPERV_LAB_SQL_INSTALL_RESULT_INVALID' }
+        return [pscustomobject]@{ Action = $Action; CompletedAt = Get-LabTimestamp; Result = [pscustomobject]@{ RunId = $RunId; State = 'SQL_SLOT_READY' } }
     }
     if ($Action -in @('GetResourceWatchState', 'RefreshResourceWatch')) {
         $result=if($Action -eq 'RefreshResourceWatch'){Invoke-LabResourceWatchRefresh}else{Get-LabResourceWatchState}

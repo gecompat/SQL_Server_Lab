@@ -830,6 +830,9 @@ function renderHyperVLabs(items) {
       ? parseSqlConnectionHost(primarySqlInstance.ConnectionString)
       : parseSqlConnectionHost(item.ConnectionString);
     const sqlNeedsCompletion = isSqlLab && Boolean(item.ArtifactId) && item.SqlCompletionState === 'PENDING_COMPLETE_IMAGE';
+    const slotInstallPending = item.SqlCompletionState === 'PENDING_SLOT_INSTALL';
+    const runningSql = running && isSqlLab && !slotInstallPending;
+    const sqlSlotInstall = item.SqlSlotInstall;
     const persistent = item.PersistentStorage;
     const instanceDetails = sqlInstances.length
       ? '<div class="container-instance"><div class="build-meta"><strong>SQL-Instanzen in der VM</strong> · geprüft ' + escapeHtml(item.SqlInstancesInspectedAt || '–') + '</div>' + sqlInstances.map((instance) => {
@@ -843,16 +846,17 @@ function renderHyperVLabs(items) {
       : '';
     const resource = resourceForInstance(item.Resources, item.InstanceId);
     const actions = [
-      (running && isSqlLab && item.InstanceId) ? '<button class="button secondary" data-sql-features="true" data-run="' + escapeHtml(item.RunId) + '" data-instance="' + escapeHtml(item.InstanceId) + '" data-provider="hyperv" data-lab-name="' + escapeHtml(item.Name || item.RunId) + '">Volltextsuche / FILESTREAM</button>' : '',
+      (runningSql && item.InstanceId) ? '<button class="button secondary" data-sql-features="true" data-run="' + escapeHtml(item.RunId) + '" data-instance="' + escapeHtml(item.InstanceId) + '" data-provider="hyperv" data-lab-name="' + escapeHtml(item.Name || item.RunId) + '">Volltextsuche / FILESTREAM</button>' : '',
       '<button class="button secondary" data-hyperv-action="' + (running ? 'StopLabReconcile' : 'StartLabReconcile') + '" data-run="' + escapeHtml(item.RunId) + '">' + (running ? 'Stoppen' : 'Starten') + '</button>',
       '<button class="button secondary" data-lab-resources="true" data-run="' + escapeHtml(item.RunId) + '" data-provider="hyperv" data-memory="' + escapeHtml(resource?.MemoryStartupMB || resource?.memoryStartupMB || '') + '" data-cpu="' + escapeHtml(resource?.ProcessorCount || resource?.processorCount || '') + '" data-requires-stopped="true">CPU / Speicher ändern</button>',
       (!running && !persistent) ? '<button class="button secondary" data-hyperv-action="EnableHyperVLabPersistentData" data-run="' + escapeHtml(item.RunId) + '">Daten-VHDX anhängen</button>' : '',
       (running && persistent?.state === 'ATTACHED_PENDING_INITIALIZATION') ? '<button class="button primary" data-hyperv-action="InitializeHyperVLabPersistentData" data-run="' + escapeHtml(item.RunId) + '">Daten-VHDX initialisieren</button>' : '',
       sqlNeedsCompletion ? '<button class="button primary" data-hyperv-action="CompleteHyperVLabSql" data-run="' + escapeHtml(item.RunId) + '">SQL, WMI und TCP/IP automatisch einrichten</button>' : '',
-      (running && isSqlLab && !sqlNeedsCompletion) ? '<button class="button primary" data-hyperv-action="EnableHyperVLabHostSqlAccess" data-run="' + escapeHtml(item.RunId) + '">Hostzugriff reparieren</button>' : '',
-      (running && isSqlLab) ? '<button class="button secondary" data-hyperv-action="InspectHyperVLabSqlInstances" data-run="' + escapeHtml(item.RunId) + '">SQL-Instanzen prüfen</button>' : '',
-      (running && isSqlLab) ? '<button class="button secondary" data-container-operation="CreateHyperVLabDatabase" data-container-operation-kind="hyperv" data-run="' + escapeHtml(item.RunId) + '" data-container-operation-host="' + escapeHtml(sqlOperationHost) + '" data-instance="' + escapeHtml(sqlOperationInstanceId) + '" data-port="' + escapeHtml(String(sqlOperationPort)) + '">Datenbank anlegen</button>' : '',
-      (running && isSqlLab) ? '<button class="button secondary" data-container-operation="ExecuteHyperVLabScript" data-container-operation-kind="hyperv" data-run="' + escapeHtml(item.RunId) + '" data-container-operation-host="' + escapeHtml(sqlOperationHost) + '" data-instance="' + escapeHtml(sqlOperationInstanceId) + '" data-port="' + escapeHtml(String(sqlOperationPort)) + '">SQL-Skript ausführen</button>' : '',
+      sqlSlotInstall ? '<button class="button primary" data-sql-slot-install="' + escapeHtml(item.RunId) + '">' + (sqlSlotInstall.State === 'PLANNED' ? 'SQL-Ausbau starten' : 'SQL-Ausbau fortsetzen') + '</button>' : '',
+      (runningSql && !sqlNeedsCompletion) ? '<button class="button primary" data-hyperv-action="EnableHyperVLabHostSqlAccess" data-run="' + escapeHtml(item.RunId) + '">Hostzugriff reparieren</button>' : '',
+      runningSql ? '<button class="button secondary" data-hyperv-action="InspectHyperVLabSqlInstances" data-run="' + escapeHtml(item.RunId) + '">SQL-Instanzen prüfen</button>' : '',
+      runningSql ? '<button class="button secondary" data-container-operation="CreateHyperVLabDatabase" data-container-operation-kind="hyperv" data-run="' + escapeHtml(item.RunId) + '" data-container-operation-host="' + escapeHtml(sqlOperationHost) + '" data-instance="' + escapeHtml(sqlOperationInstanceId) + '" data-port="' + escapeHtml(String(sqlOperationPort)) + '">Datenbank anlegen</button>' : '',
+      runningSql ? '<button class="button secondary" data-container-operation="ExecuteHyperVLabScript" data-container-operation-kind="hyperv" data-run="' + escapeHtml(item.RunId) + '" data-container-operation-host="' + escapeHtml(sqlOperationHost) + '" data-instance="' + escapeHtml(sqlOperationInstanceId) + '" data-port="' + escapeHtml(String(sqlOperationPort)) + '">SQL-Skript ausführen</button>' : '',
       '<button class="button secondary" data-hyperv-action="OpenHyperVConsole" data-run="' + escapeHtml(item.RunId) + '">VMConnect öffnen</button>',
       '<button class="button secondary" data-lab-rename="true" data-run="' + escapeHtml(item.RunId) + '" data-name="' + escapeHtml(item.Name || item.RunId) + '">Name ändern</button>',
       persistentStorageCandidatesForRun(item.RunId).length ? '<button class="button secondary" data-persistent-storage-removal-preview="true" data-run="' + escapeHtml(item.RunId) + '" data-name="' + escapeHtml(item.Name || item.RunId) + '">Retention prüfen</button>' : '',
@@ -863,7 +867,10 @@ function renderHyperVLabs(items) {
     const baseDetail = sourceBased ? 'Quelle: ' + (item.SourceVMName || '–') + ' · Original unverändert' : 'Vorlage: ' + shortId(item.ArtifactId);
     const persistentDetail = persistent ? '<div class="build-meta"><strong>Persistente Daten:</strong> Host ' + escapeHtml(persistent.hostPath || persistent.root || '–') + (persistent.guestPath ? ' → Gast ' + escapeHtml(persistent.guestPath) : '') + ' · ' + escapeHtml(persistent.state || 'eingebunden') + '</div>' : '';
     const backupDetail = persistent?.backupGuestPath ? '<div class="build-meta"><strong>Backup-Arbeitsbereich:</strong> Gast ' + escapeHtml(persistent.backupGuestPath) + ' auf eigener Daten-VHDX' + (persistent.backupMode === 'guest-data-vhdx' ? ' · nicht als Host-Ordner eingebunden' : '') + '</div>' : '';
-    const nextStep = !isSqlLab
+    const nextStep = sqlSlotInstall
+      ? 'Gespeicherter SQL-Ausbau für SQL Server ' + sqlSlotInstall.SqlVersion + ' (' + sqlSlotInstall.MediaEdition + ') kann ausgeführt werden.'
+      : slotInstallPending ? 'Der gespeicherte SQL-Ausbau ist noch nicht abgeschlossen. Prüfe den Auftrag unter Vorgänge.'
+      : !isSqlLab
       ? (running ? 'Die reine Windows-VM läuft. VMConnect öffnen und Windows verwenden.' : 'VM starten und anschließend VMConnect öffnen.')
       : sqlNeedsCompletion ? (running ? 'SQL, WMI und TCP/IP automatisch einrichten; danach ist die VM vom Host aus erreichbar.' : 'VM starten; danach SQL, WMI und TCP/IP automatisch einrichten.') : (item.SqlCompletionState === 'REBOOT_REQUIRED' ? 'SQL Setup startet automatisch neu; der laufende Job wartet auf die anschließende WMI- und TCP/IP-Konfiguration.' : (running ? 'VM läuft und ist bei erfolgreicher Bereitstellung über ihren Connection String vom Host erreichbar.' : 'VM starten und anschließend VMConnect öffnen.'));
     return '<article class="build-card"><div class="build-card-top"><div><div class="build-title">' + escapeHtml(item.Name || shortId(item.RunId)) + '</div><div class="build-meta">' + escapeHtml(detail) + '</div></div><span class="status ' + statusClass(running ? 'TESTS_PASSED' : item.State) + '">' + escapeHtml(item.State) + '</span></div><p class="build-next"><strong>Nächster Schritt:</strong> ' + escapeHtml(nextStep) + '</p><div class="build-actions">' + actions + '</div><div class="build-meta">' + escapeHtml(resourceSummary(resource, 'hyperv')) + '</div>' + persistentDetail + backupDetail + instanceDetails + primaryConnection + '<div class="build-meta">Run: ' + escapeHtml(shortId(item.RunId)) + ' · ' + escapeHtml(baseDetail) + '</div></article>';
@@ -1728,6 +1735,19 @@ document.addEventListener('click', async (event) => {
   const containerAction = event.target.closest('[data-container-action]');
   if (containerAction) {
     try { await startAction(containerAction.dataset.containerAction, { BuildId: containerAction.dataset.run }); } catch (error) { showError(error); }
+    return;
+  }
+  const sqlSlotInstall = event.target.closest('[data-sql-slot-install]');
+  if (sqlSlotInstall) {
+    const labs = Array.isArray(workflow?.HyperVLabs) ? workflow.HyperVLabs : [];
+    const target = labs.find(item => item.RunId === sqlSlotInstall.dataset.sqlSlotInstall);
+    const plan = target?.SqlSlotInstall;
+    if (!plan) return;
+    const label = plan.State === 'PLANNED' ? 'SQL-Ausbau starten' : 'SQL-Ausbau fortsetzen';
+    const features = Array.isArray(plan.Features) ? plan.Features.join(', ') : '';
+    const detail = 'SQL Server ' + plan.SqlVersion + ' (' + plan.MediaEdition + '), ' + features + '.';
+    openConfirmation(label, 'Gespeicherten SQL-Ausbau für „' + (target.Name || target.RunId) + '“ ausführen? ' + detail,
+      'InstallHyperVLabSqlSlot', { RunId: target.RunId, ExpectedPlanKey: plan.PlanKey }, label);
     return;
   }
   const hypervAction = event.target.closest('[data-hyperv-action]');

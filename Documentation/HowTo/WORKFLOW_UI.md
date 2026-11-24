@@ -1179,7 +1179,13 @@ ausgewählte Medien-ID, vCPU und Startspeicher an. Der Wert 0 für den
 Startspeicher übernimmt den vorhandenen Wert. Beim Bestätigen prüft der Host
 Bindung, Zustand und Evidence erneut, setzt die bestätigten VM-Ressourcen
 und speichert den SQL-Ausbauplan.
-Der anschließende SQL-Setup-Lauf ist ein eigener Schritt.
+Öffne danach **Lab verwalten → Reguläre Hyper-V-Umgebungen** und wähle beim
+übernommenen Windows-Slot **SQL-Ausbau starten**. Bestätige Ziel, Version,
+Edition und Features. Setup verwendet die gespeicherten Gastzugangsdaten und
+das konfigurierte Medium. Es benötigt ein vorhandenes Hostnetzwerk. Bei
+einem gespeicherten Wiederaufnahmezustand erscheint **SQL-Ausbau fortsetzen**.
+Nach Status- oder Planänderungen lies die Übersicht vor erneuter Bestätigung
+neu. Zugangsdaten erscheinen weder im Dialog noch in der Auftragsantwort.
 [Mitgliedschaft und Claims](../Architecture/WINDOWS_POOL_MEMBERSHIP_AND_CLAIMS.md)
 
 CLI: `Invoke-SqlServerLab -Action ReservePolicy`. Nichtinteraktiv bietet
