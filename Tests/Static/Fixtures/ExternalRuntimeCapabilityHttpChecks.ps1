@@ -11,7 +11,7 @@ $module=New-Module -ArgumentList $root -ScriptBlock {
         $definition=Get-Content (Join-Path $root "Providers/$provider/provider.json") -Raw|ConvertFrom-Json
         $script:RegisteredProviders[$definition.name]=@{Definition=$definition}
     }
-    foreach($file in @('Private/VersionCatalog.ps1','Private/SoftwareCatalog.ps1','Private/ContainerImageArtifact.ps1','Private/CapabilityEvidence.ps1','Private/ExternalRuntimeCapability.ps1','Public/Get-SqlServerLabExternalRuntimeCapability.ps1','Private/ExternalRuntimeCapabilityHttp.ps1')) {. (Join-Path $root $file)}
+    foreach($file in @('Private/VersionCatalog.ps1','Private/SoftwareCatalog.ps1','Private/ContainerImageArtifact.ps1','Private/CapabilityEvidence.ps1','Private/ExternalRuntimeCapability.ps1','Private/ExternalRuntimeHostPrerequisites.ps1','Public/Get-SqlServerLabExternalRuntimeCapability.ps1','Private/ExternalRuntimeCapabilityHttp.ps1')) {. (Join-Path $root $file)}
     $script:transports=0;$script:tools=0;$script:mode='ready'
     function Initialize-LabHostToolPath {param($Name) $script:tools++;[pscustomobject]@{Available=$true;Invocation=Join-Path ([IO.Path]::GetTempPath()) "synthetic-$Name.exe"}}
     function Invoke-LabDiagnosticBoundedProcess {
@@ -20,6 +20,13 @@ $module=New-Module -ArgumentList $root -ScriptBlock {
         if($TimeoutSeconds -ne 20 -or $MaximumBytes -ne 65536 -or $StartInfo.ArgumentList.Count -ne 3 -or $StartInfo.ArgumentList[0] -cne 'info' -or $StartInfo.ArgumentList[1] -cne '--format') {throw 'BAD_TRANSPORT'}
         if($script:mode -ceq 'timeout') {return [pscustomobject]@{Success=$false;Reason='DIAGNOSTIC_READINESS_TIMEOUT';Value=$null}}
         $facts=if($StartInfo.FileName -match 'podman'){[pscustomobject]@{OperatingSystem='linux';CgroupVersion='v1';Rootless=$false}}else{[pscustomobject]@{OperatingSystem='linux';CgroupVersion='1';SecurityOptions=@()}}
+        if ($StartInfo.ArgumentList[2] -match 'MemTotal') {
+            if ($StartInfo.FileName -match 'podman') {
+                $facts | Add-Member -NotePropertyMembers @{CgroupsVersion='v1';MemTotal=32GB;Cpus=16;Controllers=@('cpu','memory','pids')}
+            } else {
+                $facts | Add-Member -NotePropertyMembers @{MemTotal=1GB;NCPU=16;MemoryLimit=$true;PidsLimit=$false}
+            }
+        }
         if($script:mode -ceq 'malformedFacts') {
             if($StartInfo.FileName -match 'podman') {$facts.Rootless='false'}else{$facts.SecurityOptions=$null}
         }
@@ -81,6 +88,28 @@ $module=New-Module -ArgumentList $root -ScriptBlock {
         Assert-Case ($view.Decision.CurrentReadiness.Status -ceq 'READY' -and $script:transports -eq $before+1) "Actual public bounded adapter and classifier $provider"
         Assert-Case ($view.Decision.SqlLanguageExecution -ceq 'NOT_CHECKED' -and -not $view.Decision.ExecutionSupported -and -not $view.Decision.MutationAllowed -and $view.Decision.Actions.Count -eq 0) "Readiness does not grant execution $provider"
     }
+    $prerequisites=[ordered]@{Action='CheckHostPrerequisites';SqlVersion='2022';Provider='docker';OperatingSystem='linux';
+        SoftwareId=$selected.SoftwareId;RuntimeVersion=$selected.RuntimeVersion;VariantId=$selected.VariantId;ResourceProfile='performance'}
+    $before=$script:transports
+    $view=Send-Request $prerequisites
+    Assert-Case ($script:transports -eq $before+1 -and $view.ContractVersion -ceq 'SqlServerLab.ExternalRuntimeCapabilityBrowser/1.2' -and
+        $view.PrerequisiteStatus -ceq 'BLOCKED' -and $view.MemoryStatus -ceq 'CAPACITY_INSUFFICIENT' -and
+        $view.ControllerStatus -ceq 'MISSING' -and ($view.MissingControllers -join ',') -ceq 'pids' -and
+        $view.ResourceProfile -ceq 'performance' -and -not $view.MutationAllowed -and -not $view.ExecutionSupported -and
+        ($view | ConvertTo-Json -Depth 6) -cnotmatch 'MemTotal|1073741824') 'Explicit profile observes once and exposes categorized prerequisites without raw totals or authority'
+    $prerequisites.Provider='podman';$before=$script:transports
+    $view=Send-Request $prerequisites
+    Assert-Case ($script:transports -eq $before+1 -and $view.PrerequisiteStatus -ceq 'COMPATIBLE' -and
+        $view.FullLaunchReadiness -ceq 'INCOMPLETE' -and -not $view.ExecutionSupported -and -not $view.MutationAllowed) 'Compatible advertised Podman facts still do not authorize launch'
+    $script:mode='timeout';$before=$script:transports
+    $view=Send-Request $prerequisites
+    Assert-Case ($script:transports -eq $before+1 -and $view.PrerequisiteStatus -ceq 'UNAVAILABLE' -and
+        $view.MemoryStatus -ceq 'NOT_CHECKED' -and ($view.ReasonCodes -join ',') -ceq 'PROVIDER_PROBE_TIMEOUT') 'Unavailable profile facts stay explicitly unobserved after timeout'
+    $script:mode='ready'
+    $prerequisites.ResourceProfile='CUSTOM_PRIVATE_CANARY'
+    Reject-Request (New-Request ($prerequisites|ConvertTo-Json -Compress)) 'Unknown profile blocks before any provider query'
+    $prerequisites.ResourceProfile='standard';$prerequisites.CheckProviderReadiness=$true
+    Reject-Request (New-Request ($prerequisites|ConvertTo-Json -Compress)) 'Profile action rejects extra query authority'
     $script:mode='malformedFacts'
     foreach($provider in @('docker','podman')) {
         $evaluate.Provider=$provider;$before=$script:transports
@@ -119,7 +148,7 @@ $module=New-Module -ArgumentList $root -ScriptBlock {
     Reject-Request (New-Request ($evaluate|ConvertTo-Json -Compress)) 'String boolean cannot authorize provider read'
     $evaluate.CheckProviderReadiness=$false
     $html=Get-Content (Join-Path $root 'Ui/index.html') -Raw
-    foreach($id in @('open','dialog','provider','sql','choice','read','evaluate','host','history','close','result','history-result','status')) {
+    foreach($id in @('open','dialog','provider','sql','choice','read','evaluate','host','history','close','result','history-result','status','profile','prerequisites')) {
         Assert-Case ([regex]::Matches($html,'id="external-runtime-'+$id+'"').Count -eq 1) "UI element exists exactly once $id"
     }
     $script:mode='ready';$evaluate.VariantId=$selected.VariantId;$evaluate.Provider='docker';$evaluate.CheckProviderReadiness=$false

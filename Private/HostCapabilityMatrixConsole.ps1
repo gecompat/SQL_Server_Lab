@@ -17,19 +17,44 @@ function Show-LabHostMatrixLaunchDetailsInteractive {
         -Subtitle 'Katalogbindung erneut lesen; keine Instanz oder Sprache ausführen.' -Items $items
     if(-not $selected) {return}
     $choices=@(
-        New-LabConsoleItem -Id 'catalog' -Label 'Katalog- und Launchdeklaration ohne Hostabfrage' -Shortcut '1' -Data ([pscustomobject]@{Probe=$false})
-        New-LabConsoleItem -Id 'probe' -Label 'Container-Grundlagen bewusst lesend prüfen' -Value 'Linux · cgroup-Version · Rootful; bis zu 20 Sekunden.' -Shortcut '2' -Data ([pscustomobject]@{Probe=$true})
+        New-LabConsoleItem -Id 'catalog' -Label 'Katalog- und Launchdeklaration ohne Hostabfrage' -Shortcut '1' -Data ([pscustomobject]@{Probe=$false; Prerequisites=$false})
+        New-LabConsoleItem -Id 'probe' -Label 'Container-Grundlagen bewusst lesend prüfen' -Value 'Linux · cgroup-Version · Rootful · bis zu 20 Sekunden' -Shortcut '2' -Data ([pscustomobject]@{Probe=$true; Prerequisites=$false})
+        New-LabConsoleItem -Id 'prerequisites' -Label 'Voraussetzungen für ein Ressourcenprofil lesend prüfen' `
+            -Value 'Zusätzlich Controller und Gesamtkapazität des Providers' -Shortcut '3' -Data ([pscustomobject]@{Probe=$true; Prerequisites=$true})
     )
     $choice=Select-LabConsoleDataItem -ScreenId 'host-matrix-launch-probe' -Title 'Variantenprüfung: Umfang' `
-        -Subtitle 'Esc bricht vor jeder Abfrage ab. Ressourcen, WSL-Konflikte und SQL-Sprachausführung bleiben ungeprüft.' -Items $choices
+        -Subtitle 'Esc bricht vor der Abfrage ab. SQL-Sprachausführung und WSL-Konflikte werden hier nicht geprüft.' -Items $choices
     if(-not $choice) {return}
+    $arguments = @{ CheckProviderReadiness = $choice.Probe }
+    if ($choice.Prerequisites) {
+        $profiles = foreach ($profile in $script:VersionCatalog.profiles.PSObject.Properties) {
+            New-LabConsoleItem -Id $profile.Name -Label $profile.Name `
+                -Value "$($profile.Value.maxCpus) vCPU · $($profile.Value.maxMemoryMB) MB RAM" -Data $profile.Name
+        }
+        $profileName = Select-LabConsoleDataItem -ScreenId 'host-matrix-launch-profile' -Title 'Ressourcenprofil zur Prüfung wählen' `
+            -Subtitle 'Die Auswahl löst genau eine lesende Providerabfrage aus.' -Items @($profiles) -SelectedId 'standard'
+        if (-not $profileName) { return }
+        $arguments.IncludeHostPrerequisites = $true
+        $arguments.ResourceProfile = $profileName
+    }
     $decision=Get-SqlServerLabExternalRuntimeCapability -SqlVersion $Matrix.SqlVersion -Provider $selected.Provider -OperatingSystem linux `
-        -SoftwareId $selected.SoftwareId -RuntimeVersion $selected.RuntimeVersion -VariantId $selected.VariantId -CheckProviderReadiness:$choice.Probe
+        -SoftwareId $selected.SoftwareId -RuntimeVersion $selected.RuntimeVersion -VariantId $selected.VariantId @arguments
     Write-Host ("SQL {0} · {1} · {2} · {3}" -f $Matrix.SqlVersion,$selected.Provider,$selected.SoftwareId,$selected.VariantId)
     Write-Host ("Katalog: {0} / {1}" -f $decision.CatalogDecision.Status,$decision.CatalogDecision.ReasonCode)
     Write-Host ("Container-Grundlagen: {0} / {1}; Launchmodus: {2}; benötigte cgroup-Version: {3}" -f
         $decision.CurrentReadiness.Status,$decision.CurrentReadiness.ReasonCode,$decision.CurrentReadiness.LaunchMode,$decision.CurrentReadiness.RequiredCgroupVersion)
-    Write-Host 'Keine Ausführungsfreigabe. SQL-Sprachausführung, Zielrechte, Ressourcen und WSL-Konflikte bleiben ungeprüft.'
+    if ($choice.Prerequisites) {
+        $facts = $decision.HostPrerequisites
+        Write-Host ("Profil {0} · {1} · {2}" -f $facts.ResourceProfile,$facts.Status,($facts.ReasonCodes -join ', '))
+        if ($facts.Controllers) {
+            Write-Host ("Controller {0} · fehlend {1} · unbekannt {2}" -f $facts.Controllers.Status,
+                ($facts.Controllers.Missing -join ', '),($facts.Controllers.Unknown -join ', '))
+        }
+        if ($facts.ResourceCapacity) {
+            Write-Host ("Gesamtkapazität für das Profil · RAM {0} · vCPU {1}" -f $facts.ResourceCapacity.MemoryStatus,$facts.ResourceCapacity.CpuStatus)
+        }
+    }
+    Write-Host 'Keine Ausführungsfreigabe. Freie Ressourcen, WSL-Konflikte, Zielrechte und SQL-Sprachausführung bleiben ungeprüft.'
     Wait-LabConsoleAcknowledgement -Prompt '  Enter oder Escape: Zurück zum Hauptmenü'
 }
 

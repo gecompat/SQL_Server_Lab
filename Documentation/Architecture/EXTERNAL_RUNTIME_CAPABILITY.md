@@ -91,11 +91,15 @@ Ressourcen. Providerkernelbindung und parallele WSL-Workloads bleiben ungeprüft
 `FullLaunchReadiness=INCOMPLETE` und beide Authorityflags bleiben `false`.
 Rohinventar und freie Providertexte werden nicht übernommen.
 
-Standard `1.0`, reines historisches Opt-in `1.1` und deren Consumer bleiben
-unverändert. Beide Opt-ins zusammen verwenden `1.2`, ohne historische Evidence
-in aktuelle Bereitschaft umzudeuten. Das neue Opt-in ist über Public-API und
-allgemeinen Konsolenbefehlszugang erreichbar; geführte Browser-/Matrixansichten
-bieten es noch nicht an.
+Standard `1.0` und historisches Opt-in `1.1` bleiben verfügbar. Beide Opt-ins
+zusammen verwenden `1.2` und erhalten die getrennten Nachweisarten.
+Die geführte Konsole bietet die Profilprüfung nach der Variantenauswahl an.
+Der Browser sendet erst beim bestätigten Leseauftrag `CheckHostPrerequisites`
+mit der ausgewählten SQL-Version, Provider, Sprache, Variante und Profil.
+`ExternalRuntimeCapabilityBrowser/1.2` liefert nur feste Befunde und fehlende
+Controller, ohne absolute Hostwerte. Auch `COMPATIBLE` behält
+`FullLaunchReadiness=INCOMPLETE` und erteilt keine Ausführungsfreigabe.
+[Browser-Anleitung](../HowTo/WORKFLOW_UI.md#external-languages-vor-einer-lab-erstellung)
 
 ```powershell
 Get-SqlServerLabExternalRuntimeCapability -SqlVersion 2022 -Provider docker -OperatingSystem linux -SoftwareId sql-python -RuntimeVersion 3.10 -VariantId sql2022-python310-ubuntu2204-derived -IncludeHostPrerequisites -CheckProviderReadiness -ResourceProfile standard

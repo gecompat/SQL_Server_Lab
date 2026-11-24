@@ -4,6 +4,9 @@
   const shape = (v, names) => v !== null && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === names.length && Object.keys(v).every(k => names.includes(k));
   const catalogs = ['NONE','CATALOG_DECISION_UNAVAILABLE','SOFTWARE_NOT_CATALOGUED','SQL_VERSION_UNKNOWN','RUNTIME_COMBINATION_NOT_CATALOGUED','SOFTWARE_PLAN_AMBIGUOUS','LEGACY_POST_START_MUTATION','IMAGE_BINDING_NOT_IMPLEMENTED','PACKAGE_NOT_LOCKED','VARIANT_PREVIEW','VARIANT_UNSUPPORTED','PROVIDER_CAPABILITY_MISSING','ARTIFACT_INTEGRITY_INCOMPLETE','PACKAGE_LOCK_INTEGRITY_INCOMPLETE'];
   const readiness = ['NONE','READINESS_NOT_REQUESTED','CATALOG_BLOCKED','TOOL_NOT_INSTALLED','TOOL_NATIVE_PATH_REQUIRED','PROVIDER_PROBE_FAILED','PROVIDER_PROBE_TIMEOUT','PROVIDER_OUTPUT_LIMIT','PROVIDER_TERMINATION_UNCONFIRMED','PROVIDER_RESPONSE_INVALID','CGROUP_V2_REQUIRES_SQL2025','LINUX_RUNTIME_REQUIRED','CGROUP_VERSION_UNSUPPORTED','ROOTFUL_STATUS_UNKNOWN','ROOTFUL_PROVIDER_REQUIRED'];
+  const profiles = ['compact', 'standard', 'performance'];
+  const prerequisiteCodes = [...readiness.slice(2), 'RESOURCE_CONTROLLERS_UNAVAILABLE', 'RESOURCE_CONTROLLERS_UNKNOWN',
+    'RESOURCE_PROFILE_CAPACITY_INSUFFICIENT', 'RESOURCE_PROFILE_CAPACITY_UNKNOWN', 'KERNEL_MEMCG_V1_DISABLED'];
   const identity = v => ['sql-python','sql-r','sql-java'].includes(v.SoftwareId) && ['Python','R','Java'].includes(v.Language) && typeof v.VariantId === 'string' && /^[a-z0-9][a-z0-9_-]{0,127}$/.test(v.VariantId) && typeof v.RuntimeVersion === 'string' && /^\d{1,3}(\.\d{1,3}){0,3}$/.test(v.RuntimeVersion);
   function decision(v) {
     if (!shape(v, ['Contract','Provider','OperatingSystem','Identity','CatalogDecision','CurrentReadiness','HistoricalEvidence','SqlLanguageExecution','TargetAuthorization','ExecutionSupported','MutationAllowed','Actions']) || !shape(v.Contract,['Name','Version','EvidenceBoundary']) || !shape(v.CatalogDecision,['Status','ReasonCode']) || !shape(v.CurrentReadiness,['Status','ReasonCode','RequiredCgroupVersion','LaunchMode']) || !shape(v.HistoricalEvidence,['Status','MappingStatus'])) return false;
@@ -16,8 +19,8 @@
   let revision = 0, busy = false, options = [];
   const selected = () => /^\d+$/.test(element('choice').value) ? options[Number(element('choice').value)] : undefined;
   function controls() {
-    for (const id of ['provider','sql','read','choice']) element(id).disabled = busy;
-    for (const id of ['evaluate','host','history']) element(id).disabled = busy || selected()?.Decision.CatalogDecision.Status !== 'DECLARED_SUPPORTED';
+    for (const id of ['provider','sql','read','choice','profile']) element(id).disabled = busy;
+    for (const id of ['evaluate','host','history','prerequisites']) element(id).disabled = busy || selected()?.Decision.CatalogDecision.Status !== 'DECLARED_SUPPORTED';
   }
   function clear() {
     revision++; busy = false; options = []; element('choice').replaceChildren(); element('result').textContent = ''; element('history-result').textContent = ''; element('status').textContent = 'Host: NOT_CHECKED'; controls();
@@ -25,10 +28,15 @@
   async function request(action, check = false) {
     if (busy || !element('dialog').open) return;
     const provider = element('provider').value, sql = element('sql').value, choice = selected();
+    const profile = element('profile').value;
     if (!['docker','podman'].includes(provider) || !['2019','2022','2025'].includes(sql) || (action !== 'ReadOptions' && choice?.Decision.CatalogDecision.Status !== 'DECLARED_SUPPORTED')) return;
     const payload = {Action: action, SqlVersion: sql, Provider: provider, OperatingSystem: 'linux'};
     if (action === 'Evaluate') Object.assign(payload,{SoftwareId:choice.SoftwareId,RuntimeVersion:choice.RuntimeVersion,VariantId:choice.VariantId,CheckProviderReadiness:check});
     if (action === 'ReadRecordedEvidence') Object.assign(payload,{SoftwareId:choice.SoftwareId,RuntimeVersion:choice.RuntimeVersion,VariantId:choice.VariantId});
+    if (action === 'CheckHostPrerequisites') {
+      if (!profiles.includes(profile)) return;
+      Object.assign(payload, {SoftwareId: choice.SoftwareId, RuntimeVersion: choice.RuntimeVersion, VariantId: choice.VariantId, ResourceProfile: profile});
+    }
     const current = ++revision; busy = true; element('result').textContent = ''; element('history-result').textContent = ''; controls();
     try {
       const response = await sqlServerLabUiFetch('/api/external-runtime-capability',{method:'POST',headers:{'Content-Type':'application/json; charset=utf-8'},body:JSON.stringify(payload)});
@@ -36,7 +44,8 @@
       if (!response.ok) throw new Error('INVALID');
       const view = await response.json();
       if (current !== revision || !element('dialog').open) return;
-      if (view.ContractVersion !== (action === 'ReadRecordedEvidence' ? 'SqlServerLab.ExternalRuntimeCapabilityBrowser/1.1' : 'SqlServerLab.ExternalRuntimeCapabilityBrowser/1.0')) throw new Error('INVALID');
+      const version = {ReadRecordedEvidence: '1.1', CheckHostPrerequisites: '1.2'}[action] || '1.0';
+      if (view.ContractVersion !== 'SqlServerLab.ExternalRuntimeCapabilityBrowser/' + version) throw new Error('INVALID');
       if (action === 'ReadOptions') {
         if (!shape(view,['ContractVersion','Status','Options']) || view.Status !== 'OPTIONS' || !Array.isArray(view.Options) || view.Options.length > 128 || view.Options.some(o => !shape(o,['SoftwareId','Language','VariantId','RuntimeVersion','Decision']) || !identity(o) || !decision(o.Decision) || o.Decision.Provider !== provider || o.Decision.CurrentReadiness.Status !== 'NOT_CHECKED' || (o.Decision.Identity && (o.Decision.Identity.VariantId !== o.VariantId || o.Decision.Identity.SoftwareId !== o.SoftwareId || o.Decision.Identity.RuntimeVersion !== o.RuntimeVersion || o.Decision.Identity.SqlVersion !== sql)))) throw new Error('INVALID');
         options = view.Options; element('choice').replaceChildren();
@@ -51,6 +60,33 @@
         if (view.Identity === null && h.ReasonCode !== 'CATALOG_IDENTITY_UNRESOLVED') throw new Error('INVALID');
         element('history-result').textContent='Historie: '+h.Status+' / '+h.MappingStatus+' / '+h.ReasonCode+'\nZugeordnete historische Einträge: '+h.RecordCount+'\nDie Anzahl sagt nicht aus, ob eine Abnahme bestanden wurde.\nReferenzen: '+h.ReferenceVerificationStatus+'\nAktuelle Hostbereitschaft: NOT_CHECKED\nAktuelle SQL-Sprachausführung: NOT_CHECKED\nKeine Ausführungsfreigabe.';
         element('status').textContent = 'Historische Zuordnung gelesen; aktuelle Bereitschaft nicht geprüft.';
+      } else if (action === 'CheckHostPrerequisites') {
+        const fields = ['ContractVersion','Status','Provider','Identity','ResourceProfile','PrerequisiteStatus','ReasonCodes',
+          'ControllerStatus','MissingControllers','MemoryStatus','CpuStatus','FullLaunchReadiness','ExecutionSupported','MutationAllowed'];
+        const capacity = ['NOT_CHECKED','CAPACITY_SUFFICIENT','CAPACITY_INSUFFICIENT','UNKNOWN'];
+        const target = view.Identity;
+        if (!shape(view, fields) || view.Status !== 'HOST_PREREQUISITES' || view.Provider !== provider || view.ResourceProfile !== profile ||
+            !['COMPATIBLE','BLOCKED','UNKNOWN','UNAVAILABLE','CATALOG_BLOCKED'].includes(view.PrerequisiteStatus) ||
+            view.FullLaunchReadiness !== 'INCOMPLETE' || view.ExecutionSupported !== false || view.MutationAllowed !== false ||
+            !Array.isArray(view.ReasonCodes) || view.ReasonCodes.length > 8 || view.ReasonCodes.some(code => !prerequisiteCodes.includes(code)) ||
+            !['NOT_CHECKED','AVAILABLE','MISSING','UNKNOWN'].includes(view.ControllerStatus) ||
+            !Array.isArray(view.MissingControllers) || view.MissingControllers.length > 3 || view.MissingControllers.some(name => !['cpu','memory','pids'].includes(name)) ||
+            !capacity.includes(view.MemoryStatus) || !capacity.includes(view.CpuStatus) ||
+            ((view.ControllerStatus === 'MISSING') !== (view.MissingControllers.length > 0))) throw new Error('INVALID');
+        if (target === null ? view.PrerequisiteStatus !== 'CATALOG_BLOCKED' :
+          (!shape(target, ['SoftwareId','VariantId','RuntimeVersion','Language','SqlVersion']) || !identity(target) ||
+            target.SoftwareId !== choice.SoftwareId || target.VariantId !== choice.VariantId || target.RuntimeVersion !== choice.RuntimeVersion ||
+            target.Language !== choice.Language || target.SqlVersion !== sql)) throw new Error('INVALID');
+        if (view.PrerequisiteStatus === 'COMPATIBLE' && (view.ReasonCodes.length || view.ControllerStatus !== 'AVAILABLE' ||
+          view.MemoryStatus !== 'CAPACITY_SUFFICIENT' || view.CpuStatus !== 'CAPACITY_SUFFICIENT')) throw new Error('INVALID');
+        element('result').textContent = [
+          'Profil ' + profile + ' · ' + view.PrerequisiteStatus + ' · ' + view.ReasonCodes.join(', '),
+          'Controller ' + view.ControllerStatus + (view.MissingControllers.length ? ' · fehlend ' + view.MissingControllers.join(', ') : ''),
+          'Gesamtkapazität · RAM ' + view.MemoryStatus + ' · vCPU ' + view.CpuStatus,
+          'Freie Ressourcen, WSL-Konflikte, Zielrechte und SQL-Sprachausführung bleiben ungeprüft.',
+          'Keine Ausführungsfreigabe.'
+        ].join('\n');
+        element('status').textContent = 'Profilvoraussetzungen gelesen.';
       } else {
         if (!shape(view,['ContractVersion','Status','Decision']) || view.Status !== 'DECISION' || !decision(view.Decision) || view.Decision.Provider !== provider || (!check && view.Decision.CurrentReadiness.Status !== 'NOT_CHECKED') || (view.Decision.Identity && (view.Decision.Identity.SoftwareId !== choice.SoftwareId || view.Decision.Identity.VariantId !== choice.VariantId || view.Decision.Identity.RuntimeVersion !== choice.RuntimeVersion || view.Decision.Identity.SqlVersion !== sql))) throw new Error('INVALID');
         const d=view.Decision; element('result').textContent='Katalog: '+d.CatalogDecision.Status+' / '+d.CatalogDecision.ReasonCode+'\nHostvoraussetzungen: '+d.CurrentReadiness.Status+' / '+d.CurrentReadiness.ReasonCode+'\nSQL-Sprachausführung: NOT_CHECKED\nZielautorisierung: NOT_CHECKED\nHistorie: NOT_RECORDED / NOT_DEFINED\nKeine Ausführungsfreigabe.';
@@ -76,9 +112,13 @@
   element('read').addEventListener('click',()=>request('ReadOptions'));
   element('evaluate').addEventListener('click',()=>request('Evaluate'));
   element('host').addEventListener('click',()=>request('Evaluate',true));
+  element('prerequisites').addEventListener('click',()=>request('CheckHostPrerequisites'));
   element('history').addEventListener('click',()=>request('ReadRecordedEvidence'));
   for(const id of ['provider','sql']) element(id).addEventListener('change',clear);
-  element('choice').addEventListener('change',()=>{revision++;element('result').textContent='';element('history-result').textContent='';controls();});
+  for (const id of ['choice','profile']) element(id).addEventListener('change', () => {
+    revision++; busy = false; element('result').textContent = ''; element('history-result').textContent = '';
+    element('status').textContent = 'Host: NOT_CHECKED'; controls();
+  });
   element('close').addEventListener('click',()=>{clear();element('dialog').close();});
   for(const event of ['cancel','close']) element('dialog').addEventListener(event,clear);
   controls();

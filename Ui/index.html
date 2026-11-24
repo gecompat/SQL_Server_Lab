@@ -1530,6 +1530,7 @@
       <p>Zielbetriebssystem: Linux. Host wird beim Öffnen oder Ändern nicht geprüft.</p>
       <button id="external-runtime-read" type="button" class="button secondary">Katalogvarianten lesen</button>
       <label>Sprache und Variante<select id="external-runtime-choice"></select></label>
+      <label>Ressourcenprofil<select id="external-runtime-profile"><option value="compact">compact</option><option value="standard" selected>standard</option><option value="performance">performance</option></select></label>
       <p>Blockierte Varianten bleiben mit Grund sichtbar und können nicht gewählt werden. SQL 2025 shared-user-v2 verwendet keine Launchpad-Sandbox; die Worker teilen ein gemeinsames Konto und besitzen Netzwerkzugriff.</p>
       <p id="external-runtime-status" role="status">Host: NOT_CHECKED</p>
       <pre id="external-runtime-result"></pre>
@@ -1537,6 +1538,7 @@
       <div class="dialog-actions">
         <button id="external-runtime-evaluate" type="button" class="button secondary">Katalogentscheidung anzeigen</button>
         <button id="external-runtime-host" type="button" class="button secondary">Hostvoraussetzungen bewusst lesend prüfen</button>
+        <button id="external-runtime-prerequisites" type="button" class="button secondary">Controller und Profilkapazität lesend prüfen</button>
         <button id="external-runtime-history" type="button" class="button secondary">Historische Nachweise lesen</button>
         <button id="external-runtime-close" type="button" class="button secondary">Zurück / Abbrechen</button>
       </div>

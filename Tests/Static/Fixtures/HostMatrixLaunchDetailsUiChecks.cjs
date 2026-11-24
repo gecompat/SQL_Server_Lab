@@ -6,8 +6,8 @@ function node(){return {value:'',textContent:'',disabled:false,open:false,childr
 const tuple={SqlVersion:'2022',Provider:'docker',SoftwareId:'sql-python',RuntimeVersion:'3.10',VariantId:'sql2022-python310-ubuntu2204-derived'};
 function setup(){
   const host=Object.fromEntries(['open','dialog','sql','provider','versions','read','probe','status','scope','providers','rows','unassessed','close'].map(id=>[id,node()]));
-  const detail=Object.fromEntries(['open','dialog','provider','sql','read','choice','status','result','history-result','evaluate','host','history','close'].map(id=>[id,node()]));
-  host.provider.value='all';detail.provider.value='docker';detail.sql.value='2022';const requests=[],events={};
+  const detail=Object.fromEntries(['open','dialog','provider','sql','read','choice','status','result','history-result','evaluate','host','history','close','profile','prerequisites'].map(id=>[id,node()]));
+  host.provider.value='all';detail.provider.value='docker';detail.sql.value='2022';detail.profile.value='standard';const requests=[],events={};
   const document={querySelector:selector=>selector.startsWith('#host-matrix-')?host[selector.slice(13)]:detail[selector.replace('#external-runtime-','')],createElement:node,addEventListener(name,handler){events[name]=handler;},dispatchEvent(event){events[event.type]?.(event);}};
   const context={document,CustomEvent:class{constructor(type,options){this.type=type;this.detail=options.detail;}},sqlServerLabUiFetch:(url,options)=>new Promise((resolve,reject)=>requests.push({url,options,resolve,reject})),console};
   for(const source of ['external-runtime-capability.js','host-capability-matrix.js'])vm.runInNewContext(fs.readFileSync(path.join(root,'Ui',source),'utf8'),context);
