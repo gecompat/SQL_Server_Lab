@@ -449,7 +449,7 @@ $result=& $module {
     $sqlSlot.VMState = 'Running'
     Assert-PoolThrows { Get-WindowsPoolNativeSqlContinuationPlan -Workflow $sqlSlotView -RunId $sqlSlotId -MediaEdition Enterprise } WINDOWS_POOL_NATIVE_SQL_SLOT_TARGET_INVALID
     $captureOriginalFunctions=@{}
-    foreach($name in @('Get-LabWindowsPoolGuestReceipt','ConvertTo-LabWindowsPoolUtc','Test-LabWindowsPoolOperationContext','Invoke-HyperVPowerShellDirect','Get-CimInstance','Get-ItemProperty','Get-WinSystemLocale','Get-UICulture','Get-TimeZone','Get-WinHomeLocation','Get-WinUserLanguageList')){
+    foreach($name in @('Get-LabWindowsPoolGuestReceipt','ConvertTo-LabWindowsPoolUtc','Test-LabWindowsPoolOperationContext','Invoke-HyperVPowerShellDirect','Get-CimInstance','Get-ItemProperty','Get-WinSystemLocale','Get-UICulture','Get-TimeZone','Get-WinHomeLocation','Get-WinDefaultInputMethodOverride','Get-WinUserLanguageList')){
         $item=Get-Item ('Function:'+$name) -ErrorAction SilentlyContinue
         $captureOriginalFunctions[$name]=if($item){$item.ScriptBlock}else{$null}
     }
@@ -468,8 +468,12 @@ $result=& $module {
         function Get-UICulture {[pscustomobject]@{Name=$script:UiLanguage}}
         function Get-TimeZone {[pscustomobject]@{Id='W. Europe Standard Time'}}
         function Get-WinHomeLocation {[pscustomobject]@{GeoId=[Globalization.RegionInfo]::new('AT').GeoId}}
-        function Get-WinUserLanguageList {[pscustomobject]@{InputMethodTips=@($script:InputLocale)}}
+        function Get-WinDefaultInputMethodOverride {
+            if($null -ne $script:InputLocale){[pscustomobject]@{InputMethodTip=$script:InputLocale}}
+        }
+        function Get-WinUserLanguageList {[pscustomobject]@{InputMethodTips=@($script:LanguageListInputLocale)}}
         $script:ContextValid=$true;$script:Edition='ServerStandardEval';$script:UiLanguage='en-US';$script:InputLocale='0407:00000407';$script:ExpectedVmId=[guid]::NewGuid().ToString()
+        $script:LanguageListInputLocale='0409:00000409'
         $script:Product=[pscustomobject]@{PartialProductKey='synthetic';LicenseIsAddon=$false;LicenseStatus=1;GracePeriodRemaining=1440;EvaluationEndDate=$null}
     }).ToString())) -ArgumentList ${function:Get-LabWindowsPoolGuestReceipt},${function:ConvertTo-LabWindowsPoolUtc}
     $captureVm=& $captureModule {$script:ExpectedVmId}
@@ -481,6 +485,18 @@ $result=& $module {
     function Invoke-CaptureFixture {& $captureModule {param($b,$c)Get-LabWindowsPoolGuestReceipt -Bound $b -Credential $c} $captureBound $captureCredential}
     $freshCapture=Invoke-CaptureFixture
     Assert-Pool ([math]::Abs((([datetime]$freshCapture.evaluationExpiresAt)-([datetime]$freshCapture.observedAt)).TotalMinutes-1440) -lt 0.01) 'actual guest script positiveGrace without endDate uses fresh observedAt'
+    Assert-Pool ($freshCapture.inputLocale -ceq '0407:00000407') 'capture accepts the matching default input override with a different language list'
+    & $captureModule {$script:InputLocale='0409:00000409';$script:LanguageListInputLocale='0407:00000407'}
+    $wrongOverride=$null;try{Invoke-CaptureFixture}catch{$wrongOverride=$_}
+    Assert-Pool ($wrongOverride.Exception.Message -ceq 'WINDOWS_POOL_CAPTURE_EVIDENCE_INVALID' -and
+        @($wrongOverride.Exception.Data['WindowsPoolCaptureMismatchCodes']).Count -eq 1 -and
+        $wrongOverride.Exception.Data['WindowsPoolCaptureMismatchCodes'][0] -ceq 'INPUT_LOCALE_MISMATCH') 'matching language list cannot substitute for the default input override'
+    & $captureModule {$script:InputLocale=$null}
+    $missingOverride=$null;try{Invoke-CaptureFixture}catch{$missingOverride=$_}
+    Assert-Pool ($missingOverride.Exception.Message -ceq 'WINDOWS_POOL_CAPTURE_EVIDENCE_INVALID' -and
+        @($missingOverride.Exception.Data['WindowsPoolCaptureMismatchCodes']).Count -eq 1 -and
+        $missingOverride.Exception.Data['WindowsPoolCaptureMismatchCodes'][0] -ceq 'INPUT_LOCALE_MISMATCH') 'missing default input override fails with the fixed capture code'
+    & $captureModule {$script:InputLocale='0407:00000407'}
     & $captureModule {$script:Product.EvaluationEndDate=[datetime]::new(1601,1,1)}
     $sentinelCapture=Invoke-CaptureFixture
     Assert-Pool ([math]::Abs((([datetime]$sentinelCapture.evaluationExpiresAt)-([datetime]$sentinelCapture.observedAt)).TotalMinutes-1440) -lt 0.01) 'actual guest script normalized sentinel date uses fresh positive grace'
