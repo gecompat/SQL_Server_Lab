@@ -2458,6 +2458,13 @@ Zielbindung aus. Die Browserprüfung verwendete synthetische Antworten.
 Der getrennte native Lauf prüfte Hyper-V und SQL. Skriptfehler und
 unerwartete Anfragen blieben bei null. Testtab und Listener wurden geschlossen.
 
+Die Ziel-Speicherprobe verwendet denselben isolierten Hyper-V-Nachweis.
+Sie liest den freien Platz für Daten, Log und Backup im Gast. Die
+EvaluationRefreshPlan-Fixtures prüfen getrennt gemeinsame Volumes,
+CLIXML-Typen, beobachtete null Bytes, ungültige Befunde und Auswahldrift.
+Die Vorprüfung gibt keinen Transfer frei. Der zusätzliche native
+Speicher-Nachweis bleibt `NOT_EXECUTED`, bis die erweiterte Suite läuft.
+
 Nach der Bindung an den registrierten State Root erreichte der zweite Lauf
 die Quell-VM. Die Auswertung scheiterte am fehlenden `persistentData`-Feld
 im Run-State. Der eigene Quelllauf wurde vollständig bereinigt.

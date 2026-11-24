@@ -58,6 +58,7 @@ function Invoke-LabEvaluationRefreshPlanInteractive {
                 if (@($targetCandidates | Where-Object State -CEQ 'RUNNING').Count) {
                     New-LabConsoleItem -Id observe-target-windows -Label 'Windows-Lizenz im laufenden Ziellab lesen'
                     New-LabConsoleItem -Id observe-target-sql -Label 'SQL-Bereitschaft im laufenden Ziellab prüfen'
+                    New-LabConsoleItem -Id observe-target-storage -Label 'Freien Speicher im laufenden Ziellab prüfen'
                 }
             }
             New-LabConsoleItem -Id back -Label 'Zurück / Abbrechen'
@@ -72,10 +73,11 @@ function Invoke-LabEvaluationRefreshPlanInteractive {
         }
         if ($review.SelectedItem.Id -ceq 'observe') { $planArgs.ObserveSqlSource = $true }
         if ($review.SelectedItem.Id -ceq 'observe-windows') { $planArgs.ObserveWindowsLicense = $true }
-        if ($review.SelectedItem.Id -cin @('target','observe-target-windows','observe-target-sql')) {
+        if ($review.SelectedItem.Id -cin @('target','observe-target-windows','observe-target-sql','observe-target-storage')) {
             $readTargetWindows = $review.SelectedItem.Id -ceq 'observe-target-windows'
             $readTargetSql = $review.SelectedItem.Id -ceq 'observe-target-sql'
-            $candidates = if ($readTargetWindows -or $readTargetSql) { @($targetCandidates | Where-Object State -CEQ 'RUNNING') } else { $targetCandidates }
+            $readTargetStorage = $review.SelectedItem.Id -ceq 'observe-target-storage'
+            $candidates = if ($readTargetWindows -or $readTargetSql -or $readTargetStorage) { @($targetCandidates | Where-Object State -CEQ 'RUNNING') } else { $targetCandidates }
             $targetItems = @($runItems | Where-Object { $_.Id -cin $candidates.RunId })
             $targetTitle = $review.SelectedItem.Label
             $targetChoice = Invoke-LabConsoleMenu -ScreenId 'evaluation-refresh-target' -Title $targetTitle `
@@ -88,6 +90,7 @@ function Invoke-LabEvaluationRefreshPlanInteractive {
             $planArgs.ExpectedTargetSnapshotDigest = $target[0].Digest
             if ($readTargetWindows) { $planArgs.ObserveTargetWindowsLicense = $true }
             if ($readTargetSql) { $planArgs.ObserveTargetSqlReadiness = $true }
+            if ($readTargetStorage) { $planArgs.ObserveTargetStorage = $true }
         }
         $plan=New-LabEvaluationRefreshPlan @planArgs
         Write-LabInfo 'BLOCKED: reine Planung. SQL-Bereitschaft der Quelle NOT_CHECKED; keine Aktionen, Speicherung, Übernahme oder Gleichwertigkeitsbestätigung.'
@@ -122,6 +125,14 @@ function Invoke-LabEvaluationRefreshPlanInteractive {
             if ($targetView.PSObject.Properties['SqlReadinessObservation']) {
                 $targetSql = $targetView.SqlReadinessObservation
                 Write-LabInfo ("SQL-Bereitschaft im Ziellab: {0} · Beobachtet UTC: {1}" -f $targetSql.Status, $targetSql.ObservedAt)
+            }
+            if ($targetView.PSObject.Properties['StorageObservation']) {
+                $storage = $targetView.StorageObservation
+                Write-LabInfo ("Freier Gast-Speicher im Ziellab: {0} · Beobachtet UTC: {1}" -f $storage.Status, $storage.ObservedAt)
+                foreach ($volume in $storage.Volumes) {
+                    Write-LabInfo ("{0}: {1} Bytes frei" -f ($volume.Roles -join ' / '), $volume.AvailableBytes)
+                }
+                Write-LabInfo 'Hostkapazität und erforderlicher Transferspeicher werden separat geprüft.'
             }
             foreach ($check in $targetView.Checks) { Write-LabInfo ("Zielprüfung: {0}" -f $check) }
         }

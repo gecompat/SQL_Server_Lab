@@ -154,7 +154,7 @@ function Get-LabConsoleHelpCatalog {
         'evaluation-refresh-target' = @{
             Title = 'Registriertes Ziellab vorprüfen'
             Purpose = 'Separaten SQL-2025-Run unter demselben registrierten Lab_Data für die Metadatenvorschau wählen.'
-            Effects = 'Die Vorschau prüft beide registrierten Bindungen. Lizenz, SQL-Bereitschaft, Speicher und Transfer bleiben getrennte Prüfungen.'
+            Effects = 'Die Vorschau prüft beide registrierten Bindungen. Lizenz, SQL-Bereitschaft und freier Gastspeicher werden separat gelesen. Transfer benötigt weitere Nachweise.'
             Command = 'Get-SqlServerLabEvaluationRefreshPlan'
         }
         'component-relation-choice' = @{

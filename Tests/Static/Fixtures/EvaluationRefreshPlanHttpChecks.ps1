@@ -123,7 +123,8 @@ try {
             @{ Action='ReadHyperVEvaluationSqlSource'; Target=$false },
             @{ Action='ReadHyperVEvaluationWindowsLicense'; Target=$false },
             @{ Action='ReadHyperVEvaluationWindowsLicense'; Target=$true },
-            @{ Action='ReadHyperVEvaluationTargetSqlReadiness'; Target=$true }
+            @{ Action='ReadHyperVEvaluationTargetSqlReadiness'; Target=$true },
+            @{ Action='ReadHyperVEvaluationTargetStorage'; Target=$true }
         )) {
             $jobs.Clear()
             $actionName = $case.Action
@@ -152,6 +153,7 @@ try {
             $expectedBusy = switch -CaseSensitive ($actionName) {
                 'ReadHyperVEvaluationSqlSource' { 'EVALUATION_REFRESH_SQL_SOURCE_ALREADY_RUNNING' }
                 'ReadHyperVEvaluationTargetSqlReadiness' { 'EVALUATION_REFRESH_TARGET_SQL_ALREADY_RUNNING' }
+                'ReadHyperVEvaluationTargetStorage' { 'EVALUATION_REFRESH_TARGET_STORAGE_ALREADY_RUNNING' }
                 default { 'EVALUATION_REFRESH_WINDOWS_READ_ALREADY_RUNNING' }
             }
             try { & $actionHandler } catch { $busy = $_.Exception.Message -ceq $expectedBusy }
@@ -211,6 +213,21 @@ try {
     $lines = & ([scriptblock]::Create($sqlBody.Substring(1,$sqlBody.Length-2)))
     Assert-HttpRefresh (($lines -join ' ') -clike ('*Ziellab '+$targetSelection.RunId+'*OBSERVED*BLOCKED*') -and
         ($lines -join ' ') -cnotmatch 'SYNTHETIC_PRIVATE') 'Target SQL job confines result and preserves migration boundary'
+    $storageFormatter = $server.Find({
+        param($node)
+        $node -is [Management.Automation.Language.IfStatementAst] -and
+        $node.Clauses[0].Item1.Extent.Text -ceq '$JobAction -ceq ''ReadHyperVEvaluationTargetStorage'''
+    }, $true)
+    $storageBody = $storageFormatter.Clauses[0].Item2.Extent.Text
+    $result = [pscustomobject]@{Result=[pscustomobject]@{
+        TargetRunId=$targetSelection.RunId; TargetInstanceId=$targetSelection.InstanceId
+        StorageObservation=[pscustomobject]@{Status='OBSERVED';ObservedAt='2030-01-01T00:00:00.0000000Z'
+            Volumes=@([pscustomobject]@{Roles=@('Data','Log','Backup');AvailableBytes=[long]42;Path='SYNTHETIC_PRIVATE'})
+        }
+    }}
+    $lines = & ([scriptblock]::Create($storageBody.Substring(1,$storageBody.Length-2)))
+    Assert-HttpRefresh (($lines -join ' ') -clike ('*Ziellab '+$targetSelection.RunId+'*OBSERVED*42 Bytes frei*') -and
+        ($lines -join ' ') -cnotmatch 'SYNTHETIC_PRIVATE') 'Target storage job logs capacity without guest locations'
     Write-Host ('EVALUATION_REFRESH_HTTP_CHECKS: '+$checks+' PASS; 0 FAIL')
 }finally{
     $resolved=[IO.Path]::GetFullPath($root);$expected=[IO.Path]::GetFullPath((Join-Path $repo '.artifacts/evaluation-refresh-browser-fixtures'))

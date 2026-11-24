@@ -134,6 +134,8 @@ async function readMetadata(body = metadata) { const pending = node('read').fire
   check('Stopped target cannot dispatch a Windows license read', jobs.length === 2 && node('observe-target-windows').disabled);
   await node('observe-target-sql').fire('click');
   check('Stopped target cannot dispatch SQL readiness', jobs.length === 2 && node('observe-target-sql').disabled);
+  await node('observe-target-storage').fire('click');
+  check('Stopped target cannot dispatch storage observation', jobs.length === 2 && node('observe-target-storage').disabled);
   const liveTarget = { ...target, State: 'RUNNING', Digest: 'e'.repeat(64) };
   await readMetadata({ ...metadata, Runs: [own, liveTarget] });
   node('target').value = liveTarget.RunId; await node('target').fire('change');
@@ -150,11 +152,17 @@ async function readMetadata(body = metadata) { const pending = node('read').fire
       action: 'ReadHyperVEvaluationTargetSqlReadiness',
       parameters: jobs[2].parameters
     }) && node('status').textContent.includes('SQL-Bereitschaft'));
+  await node('observe-target-storage').fire('click');
+  check('Explicit storage read binds both selected digests', jobs.length === 5 &&
+    JSON.stringify(jobs[4]) === JSON.stringify({ action: 'ReadHyperVEvaluationTargetStorage', parameters: jobs[2].parameters }) &&
+    node('status').textContent.includes('Freier Speicher'));
   node('mode').value = 'RECONSTRUCT_LAB'; await node('mode').fire('change');
   await node('observe-target-windows').fire('click');
   await node('observe-target-sql').fire('click');
-  check('Switching away from migration clears both destination reads', jobs.length === 4 &&
+  await node('observe-target-storage').fire('click');
+  check('Switching away from migration clears downstream reads', jobs.length === 5 &&
     node('observe-target-windows').disabled && node('observe-target-windows').hidden &&
-    node('observe-target-sql').disabled && node('observe-target-sql').hidden);
+    node('observe-target-sql').disabled && node('observe-target-sql').hidden &&
+    node('observe-target-storage').disabled && node('observe-target-storage').hidden);
   console.log('EVALUATION_REFRESH_UI_CHECKS: ' + checks + ' PASS; 0 FAIL');
 })().catch(error => { console.error(error); process.exitCode = 1; });

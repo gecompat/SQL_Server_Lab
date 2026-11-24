@@ -297,6 +297,16 @@ function Start-UiWorkflowJob {
                     $target.TargetRunId, $target.TargetInstanceId, $target.SqlReadinessObservation.Status, $target.SqlReadinessObservation.ObservedAt)
                 Write-Output '[INFO] Der Ersatzentscheid bleibt BLOCKED. SQL-Lizenz, Speicher und Transfer sind getrennte Prüfungen.'
             }
+            if ($JobAction -ceq 'ReadHyperVEvaluationTargetStorage') {
+                $target = $result.Result
+                $storage = $target.StorageObservation
+                Write-Output ('[INFO] Freier Gast-Speicher im Ziellab {0} / {1}: {2} · Beobachtet UTC: {3}' -f
+                    $target.TargetRunId, $target.TargetInstanceId, $storage.Status, $storage.ObservedAt)
+                foreach ($volume in $storage.Volumes) {
+                    Write-Output ('[INFO] {0}: {1} Bytes frei' -f ($volume.Roles -join ' / '), $volume.AvailableBytes)
+                }
+                Write-Output '[INFO] Hostkapazität und erforderlicher Transferspeicher werden separat geprüft.'
+            }
             if ($JobAction -eq 'InspectContainerDatabaseMigrationDependencies') {
                 $inventory = $result.Result
                 $summary = [ordered]@{
@@ -1718,13 +1728,13 @@ try {
                         $_.Action -eq $action -and $_.Job.State -in @('NotStarted','Running')
                     }).Count) { throw 'FULL_MAINTENANCE_PREVIEW_IN_PROGRESS' }
                 }
-                if ($action -in @('ReadHyperVEvaluationSqlSource', 'ReadHyperVEvaluationWindowsLicense', 'ReadHyperVEvaluationTargetSqlReadiness')) {
+                if ($action -in @('ReadHyperVEvaluationSqlSource', 'ReadHyperVEvaluationWindowsLicense', 'ReadHyperVEvaluationTargetSqlReadiness', 'ReadHyperVEvaluationTargetStorage')) {
                     $evaluationReadKeys = @('RunId', 'InstanceId', 'DataRoot', 'ExpectedPlanKey')
-                    if ($action -ceq 'ReadHyperVEvaluationTargetSqlReadiness' -or
+                    if ($action -cin @('ReadHyperVEvaluationTargetSqlReadiness', 'ReadHyperVEvaluationTargetStorage') -or
                         ($action -ceq 'ReadHyperVEvaluationWindowsLicense' -and $parameters.Count -eq 7)) {
                         $evaluationReadKeys += @('TargetRunId', 'TargetInstanceId', 'ExpectedTargetPlanKey')
                     }
-                    if ($action -cnotin @('ReadHyperVEvaluationSqlSource', 'ReadHyperVEvaluationWindowsLicense', 'ReadHyperVEvaluationTargetSqlReadiness') -or
+                    if ($action -cnotin @('ReadHyperVEvaluationSqlSource', 'ReadHyperVEvaluationWindowsLicense', 'ReadHyperVEvaluationTargetSqlReadiness', 'ReadHyperVEvaluationTargetStorage') -or
                         $parameters.Count -ne $evaluationReadKeys.Count -or
                         $evaluationReadKeys.Where({ $parameters[$_] -isnot [string] }).Count -gt 0) {
                         throw 'EVALUATION_REFRESH_INPUT_INVALID'
@@ -1732,6 +1742,7 @@ try {
                     if (@($jobs.Values | Where-Object { $_.Action -ceq $action -and $_.Job.State -in @('NotStarted','Running') }).Count) {
                         if ($action -ceq 'ReadHyperVEvaluationSqlSource') { throw 'EVALUATION_REFRESH_SQL_SOURCE_ALREADY_RUNNING' }
                         if ($action -ceq 'ReadHyperVEvaluationTargetSqlReadiness') { throw 'EVALUATION_REFRESH_TARGET_SQL_ALREADY_RUNNING' }
+                        if ($action -ceq 'ReadHyperVEvaluationTargetStorage') { throw 'EVALUATION_REFRESH_TARGET_STORAGE_ALREADY_RUNNING' }
                         throw 'EVALUATION_REFRESH_WINDOWS_READ_ALREADY_RUNNING'
                     }
                 }
@@ -1748,7 +1759,7 @@ try {
                         throw 'TEST_GROUP_MANAGEMENT_ACTION_INVALID'
                     }
                 }
-                if (-not $hasTransientSecret -and -not $groupManagement -and $action -notin @('Refresh','StartTestGroupPower','StopTestGroupPower','CreateLinuxTestGroupMember','ReadFullMaintenancePreview','ReadHyperVEvaluationSqlSource','ReadHyperVEvaluationWindowsLicense','ReadHyperVEvaluationTargetSqlReadiness')) {
+                if (-not $hasTransientSecret -and -not $groupManagement -and $action -notin @('Refresh','StartTestGroupPower','StopTestGroupPower','CreateLinuxTestGroupMember','ReadFullMaintenancePreview','ReadHyperVEvaluationSqlSource','ReadHyperVEvaluationWindowsLicense','ReadHyperVEvaluationTargetSqlReadiness','ReadHyperVEvaluationTargetStorage')) {
                     # Retain terminal cards for this server session; bound reads without evicting results.
                     if ($persistentJobs.Count -ge 256) { throw 'UI_JOB_STATUS_CAPACITY_REACHED' }
                     $batchStateRoot = & (Get-Module SqlServerLab) { Get-LabStateRoot }

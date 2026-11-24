@@ -223,12 +223,12 @@ Ist er angegeben, wird der Download strikt dagegen verifiziert.
 .PARAMETER ExpectedPlanKey
     Fingerprint der bestätigten Vorschau, bei Evaluationsbeobachtung der Quell-Snapshot.
 .PARAMETER TargetRunId
-    Separater Ziel-Run für ReadHyperVEvaluationTargetSqlReadiness oder optional
-    für ReadHyperVEvaluationWindowsLicense.
+    Separater Ziel-Run für ReadHyperVEvaluationTargetSqlReadiness und
+    ReadHyperVEvaluationTargetStorage, optional für ReadHyperVEvaluationWindowsLicense.
 .PARAMETER TargetInstanceId
-    SQL-Instanz des Ziel-Runs für diese ausdrücklich angeforderte Lizenzabfrage.
+    SQL-Instanz des Ziel-Runs für die ausdrücklich angeforderte Zielbeobachtung.
 .PARAMETER ExpectedTargetPlanKey
-    Fingerprint des zuvor gelesenen Ziel-Snapshots für dieselbe Lizenzabfrage.
+    Fingerprint des zuvor gelesenen Ziel-Snapshots für diese Zielbeobachtung.
 .PARAMETER TestGroupPatch
     Für CreateLinuxTestGroupMember: aktueller Katalogpatch (`latest`) oder der
     in der Vorschau gebundene katalogisierte CU, beispielsweise `cu9`.
@@ -309,6 +309,7 @@ function Invoke-SqlServerLabWorkflowAction {
             'GetLlamaSessions', 'PlanLlamaSessionStop', 'StopLlamaSession',
             'GetMediaOverrideState', 'PlanMediaOverride', 'ApplyMediaOverride',
             'GetResourceWatchState', 'RefreshResourceWatch', 'ReadHyperVEvaluationSqlSource', 'ReadHyperVEvaluationWindowsLicense', 'ReadHyperVEvaluationTargetSqlReadiness',
+            'ReadHyperVEvaluationTargetStorage',
             'GetCmsInspectionState', 'InspectCms', 'GetCmsManagementState', 'InitializeCms', 'AdoptCms',
             'RepairHyperVWindowsActivation',
             'SetMediaRoot', 'SetDataRoot', 'SetTestDataRoot',
@@ -479,17 +480,18 @@ function Invoke-SqlServerLabWorkflowAction {
         if ($installed.State -cne 'SQL_SLOT_READY' -or $installed.RunId -cne $RunId) { throw 'HYPERV_LAB_SQL_INSTALL_RESULT_INVALID' }
         return [pscustomobject]@{ Action = $Action; CompletedAt = Get-LabTimestamp; Result = [pscustomobject]@{ RunId = $RunId; State = 'SQL_SLOT_READY' } }
     }
-    if ($Action -cin @('ReadHyperVEvaluationSqlSource', 'ReadHyperVEvaluationWindowsLicense', 'ReadHyperVEvaluationTargetSqlReadiness')) {
+    if ($Action -cin @('ReadHyperVEvaluationSqlSource', 'ReadHyperVEvaluationWindowsLicense', 'ReadHyperVEvaluationTargetSqlReadiness', 'ReadHyperVEvaluationTargetStorage')) {
         $readWindows = $Action -ceq 'ReadHyperVEvaluationWindowsLicense'
         $readTargetSql = $Action -ceq 'ReadHyperVEvaluationTargetSqlReadiness'
+        $readTargetStorage = $Action -ceq 'ReadHyperVEvaluationTargetStorage'
         $allowed = @('Action', 'RunId', 'InstanceId', 'DataRoot', 'ExpectedPlanKey', 'ErrorAction')
         $targetKeys = @('TargetRunId', 'TargetInstanceId', 'ExpectedTargetPlanKey')
         $readTarget = @($PSBoundParameters.Keys | Where-Object { $_ -in $targetKeys }).Count -gt 0
-        if (($readWindows -or $readTargetSql) -and $readTarget) { $allowed += $targetKeys }
+        if (($readWindows -or $readTargetSql -or $readTargetStorage) -and $readTarget) { $allowed += $targetKeys }
         if (@($PSBoundParameters.Keys | Where-Object { $_ -notin $allowed }).Count -gt 0 -or
             -not (Test-LabDiagnosticGuid $RunId) -or $InstanceId -cnotmatch '^[A-Za-z][A-Za-z0-9_-]{0,63}$' -or
             [string]::IsNullOrWhiteSpace($DataRoot) -or $DataRoot.Length -gt 2048 -or $ExpectedPlanKey -cnotmatch '^[a-f0-9]{64}$' -or
-            (($readTarget -or $readTargetSql) -and (-not (Test-LabDiagnosticGuid $TargetRunId) -or -not $TargetInstanceId -or -not $ExpectedTargetPlanKey))) {
+            (($readTarget -or $readTargetSql -or $readTargetStorage) -and (-not (Test-LabDiagnosticGuid $TargetRunId) -or -not $TargetInstanceId -or -not $ExpectedTargetPlanKey))) {
             throw 'EVALUATION_REFRESH_INPUT_INVALID'
         }
         $planArgs = @{
@@ -503,12 +505,18 @@ function Invoke-SqlServerLabWorkflowAction {
             $planArgs.ExpectedTargetSnapshotDigest = $ExpectedTargetPlanKey
             $planArgs.ObserveTargetWindowsLicense = $readWindows
             $planArgs.ObserveTargetSqlReadiness = $readTargetSql
+            $planArgs.ObserveTargetStorage = $readTargetStorage
         }
         $plan = New-LabEvaluationRefreshPlan @planArgs
         $result = if ($readTargetSql) {
             [pscustomobject]@{
                 TargetRunId=$plan.TargetAssessment.RunId; TargetInstanceId=$plan.TargetAssessment.InstanceId
                 SqlReadinessObservation=$plan.TargetAssessment.SqlReadinessObservation
+            }
+        } elseif ($readTargetStorage) {
+            [pscustomobject]@{
+                TargetRunId=$plan.TargetAssessment.RunId; TargetInstanceId=$plan.TargetAssessment.InstanceId
+                StorageObservation=$plan.TargetAssessment.StorageObservation
             }
         } elseif ($readTarget) {
             [pscustomobject]@{

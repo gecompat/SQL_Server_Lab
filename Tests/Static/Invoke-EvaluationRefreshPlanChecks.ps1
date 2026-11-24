@@ -160,6 +160,8 @@ try {
     $script:contextReads = 0
     $script:injectInventoryDrift = $false
     $script:expectedSqlTarget = $null
+    $script:expectStorage = $false
+    $script:storageVolumes = @()
     $script:wrongSqlEdition = $false
     $script:guestCounts = [pscustomobject]@{
         UserDatabases=[long]3; NonOnlineUserDatabases=[long]1; EncryptedUserDatabases=[long]0; DatabaseSnapshots=[long]0
@@ -178,13 +180,15 @@ try {
         }
     }
     function Invoke-LabSqlGuestCaptureProbe {
-        param($Context,$TimeoutSeconds,[switch]$IncludeSourceInventory)
+        param($Context,$TimeoutSeconds,[switch]$IncludeSourceInventory,[switch]$IncludeTargetStorage)
         $script:observationCalls++
-        if ($IncludeSourceInventory.IsPresent -eq [bool]$script:expectedSqlTarget -or $TimeoutSeconds -ne 60) {
+        if ($IncludeSourceInventory.IsPresent -eq [bool]$script:expectedSqlTarget -or $TimeoutSeconds -ne 60 -or
+            $IncludeTargetStorage.IsPresent -ne $script:expectStorage) {
             throw 'SYNTHETIC_GUEST_REQUEST_MISMATCH'
         }
         [pscustomobject]@{
             MajorVersion=17; InstanceName='MSSQLSERVER'; SourceInventory=$script:guestCounts; Private='CANARY_PRIVATE_DO_NOT_RETURN'
+            TargetStorage=if ($IncludeTargetStorage) { ,$script:storageVolumes } else { $null }
             Edition=if ($script:wrongSqlEdition) { 'Different edition' } else { 'Enterprise Evaluation Edition' }
         }
     }
@@ -366,7 +370,50 @@ try {
         $script:contextReads = 0
         $script:injectInventoryDrift = $true
         Assert-RefreshReject 'Target runtime drift discards SQL readiness' { Invoke-SqlServerLabWorkflowAction @targetRequest } EVALUATION_REFRESH_BINDING_CHANGED
-        Assert-Refresh ((Get-RefreshHashes)-ceq$before) 'SQL source observation leaves every artifact byte unchanged'
+        $script:injectInventoryDrift = $false
+        $script:expectStorage = $true
+        $storageCallCount = $script:observationCalls
+        $storageRequest = @{}+$targetRequest
+        $storageRequest.Action = 'ReadHyperVEvaluationTargetStorage'
+        $wireVolumes = [Management.Automation.PSSerializer]::Serialize(@(
+            [pscustomobject]@{Roles=@('Data','Log');AvailableBytes=[long]30GB},
+            [pscustomobject]@{Roles=@('Backup');AvailableBytes=[long]90GB}
+        ), 5)
+        $script:storageVolumes = [Management.Automation.PSSerializer]::Deserialize($wireVolumes)
+        $storagePlan = Get-SqlServerLabEvaluationRefreshPlan @liveArguments -ObserveTargetStorage
+        Assert-Refresh ($storagePlan.Status -ceq 'BLOCKED' -and $storagePlan.TransferAuthority -ceq 'NONE' -and
+            -not $storagePlan.MutationAllowed -and $storagePlan.TargetAssessment.StorageObservation.Status -ceq 'OBSERVED' -and
+            $storagePlan.TargetAssessment.StorageObservation.Volumes.Count -eq 2 -and
+            'TARGET_STORAGE_AND_TRANSFER_NOT_VERIFIED' -cin $storagePlan.TargetAssessment.Checks -and
+            ($storagePlan.TargetAssessment.StorageObservation.Volumes[0].Roles -join ',') -ceq 'Data,Log') 'Shared volumes are grouped after real remoting serialization without transfer authority'
+        $storageJob = Invoke-SqlServerLabWorkflowAction @storageRequest
+        Assert-Refresh ($storageJob.Result.TargetRunId -ceq $liveTarget.RunId -and
+            $storageJob.Result.StorageObservation.Volumes[1].AvailableBytes -eq 90GB -and
+            ($storageJob | ConvertTo-Json -Depth 10) -cnotmatch 'CANARY_PRIVATE|ScopeId|Edition|SourceInventory|UniqueId') 'Target storage job exposes only the selected identity, roles and bytes'
+        $staleStorage = @{}+$storageRequest; $staleStorage.ExpectedTargetPlanKey = '0' * 64
+        Assert-RefreshReject 'Target storage rejects stale digest before guest access' { Invoke-SqlServerLabWorkflowAction @staleStorage } EVALUATION_REFRESH_BINDING_CHANGED
+        $unboundStorage = @{}+$storageRequest; $unboundStorage.Remove('ExpectedTargetPlanKey')
+        Assert-RefreshReject 'Target storage requires both digests' { Invoke-SqlServerLabWorkflowAction @unboundStorage } EVALUATION_REFRESH_INPUT_INVALID
+        $stoppedStorage = Get-SqlServerLabEvaluationRefreshPlan @targetArguments -ObserveTargetStorage
+        Assert-Refresh ($script:observationCalls -eq $storageCallCount+2 -and $stoppedStorage.TargetAssessment.StorageObservation.Status -ceq 'NOT_OBSERVED') 'Stopped target opens no storage probe'
+        foreach ($invalidVolume in @(
+            [pscustomobject]@{Roles=@('Data','Log','Log');AvailableBytes=[long]0},
+            [pscustomobject]@{Roles=@('Data','Log','Backup');AvailableBytes=[long]-1},
+            [pscustomobject]@{Roles=@('Data','Log','Backup');AvailableBytes=[long]0;Path='CANARY_PRIVATE'}
+        )) {
+            $script:storageVolumes = @($invalidVolume)
+            $unknownStorage = Invoke-SqlServerLabWorkflowAction @storageRequest
+            Assert-Refresh ($unknownStorage.Result.StorageObservation.Status -ceq 'NOT_OBSERVED' -and
+                $unknownStorage.Result.StorageObservation.Volumes.Count -eq 0) 'Invalid or extra volume data is rejected completely'
+        }
+        $script:storageVolumes = @([pscustomobject]@{Roles=@('Data','Log','Backup');AvailableBytes=[long]0})
+        $explicitZero = Invoke-SqlServerLabWorkflowAction @storageRequest
+        Assert-Refresh ($explicitZero.Result.StorageObservation.Status -ceq 'OBSERVED' -and
+            $explicitZero.Result.StorageObservation.Volumes[0].AvailableBytes -eq 0) 'Observed zero remains distinct from unavailable storage'
+        $script:contextReads = 0
+        $script:injectInventoryDrift = $true
+        Assert-RefreshReject 'Target runtime drift discards storage observation' { Invoke-SqlServerLabWorkflowAction @storageRequest } EVALUATION_REFRESH_BINDING_CHANGED
+        Assert-Refresh ((Get-RefreshHashes)-ceq$before) 'Live SQL observations leave all artifacts unchanged'
     }
     finally { Set-Variable -Name IsWindows -Scope Script -Value $hostPlatform -Force }
     # Actual existing Watch path, bounded inventory leaves contain only the fixture.

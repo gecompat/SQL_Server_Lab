@@ -674,7 +674,11 @@ Nullwerten und leitet aus positiven Zählern feste Prüfhinweise zu
 registrierte Bindung eines SQL-2025-Ziellabs. Für ein laufendes Ziel lassen
 sich Windows-Lizenz und SQL-Bereitschaft getrennt prüfen. Die SQL-Abfrage
 beobachtet die erwartete Instanz im gebundenen SQL-2025-Prepared-Gast.
-SQL-Lizenz und Speicherbereitschaft bleiben separat. Slotzuordnung,
+Für die SQL-Standardpfade Daten, Log und Backup kann die Ziel-VM den freien
+Platz lokaler Volumes gruppiert melden. Nicht eindeutig auflösbare Pfade,
+Netzlaufwerke und Reparse-Pfade ergeben `NOT_OBSERVED`. Die Prüfung beurteilt
+weder den Bedarf der Quelle noch Hostkapazität oder Transferfähigkeit.
+SQL-Lizenz und vollständige Speicherbereitschaft bleiben offen. Slotzuordnung,
 vollständiges Inventar, Gleichwertigkeit, Cutover,
 Schlüsseltransfer und Rückfall fehlen. Die Quellbeobachtung persistiert keine
 Daten und führt keine Adoption oder Lifecycleaktion aus. Generischer Konsolen-

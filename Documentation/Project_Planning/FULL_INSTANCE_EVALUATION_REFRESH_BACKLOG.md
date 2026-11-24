@@ -87,7 +87,10 @@ und Transfer. Die gesonderte Live-Abfrage der Windows-Ziellizenz setzt eine
 laufende Ziel-VM voraus. Sie bindet beide Snapshots und verwirft das Ergebnis
 bei Änderungen. Eine separate Aktion prüft über den vorhandenen SQL-Gastreader
 die Bereitschaft der erwarteten Instanz im laufenden SQL-2025-Prepared-Ziel.
-Diese Beobachtung erteilt keine SQL-Lizenz-, Speicher- oder Transferfreigabe.
+Der freie Platz für die SQL-Standardpfade Daten, Log und Backup lässt sich
+getrennt in der Ziel-VM lesen. Gemeinsam genutzte Volumes erscheinen einmal.
+Die Speicherbeobachtung dient der Vorbereitung. Quellbedarf, Hostkapazität,
+SQL-Lizenz, Gleichwertigkeit und Transfer müssen separat geprüft werden.
 Der Gesamtplan bleibt `BLOCKED`.
 
 Key18 bestätigte die Windows-Lizenz der separaten Ziel-VM mit zwei eigenen

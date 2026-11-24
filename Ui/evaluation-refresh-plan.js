@@ -54,7 +54,7 @@ function updateEvaluationRefreshControls() {
   evaluationRefreshElement('observe-windows').disabled = evaluationRefreshBusy || evaluationRefreshOwn()?.State !== 'RUNNING';
   evaluationRefreshElement('target').disabled = evaluationRefreshBusy || evaluationRefreshElement('target-field').hidden;
   const target = evaluationRefreshTarget();
-  for (const id of ['observe-target-windows', 'observe-target-sql']) {
+  for (const id of ['observe-target-windows', 'observe-target-sql', 'observe-target-storage']) {
     const control = evaluationRefreshElement(id);
     control.hidden = evaluationRefreshElement('target-field').hidden;
     control.disabled = evaluationRefreshBusy || target?.State !== 'RUNNING';
@@ -169,6 +169,11 @@ evaluationRefreshElement('observe-target-sql').addEventListener('click', () => {
   const target = evaluationRefreshTarget();
   if (target?.State !== 'RUNNING') return;
   return observeEvaluationRefreshGuest('observe-target-sql', 'ReadHyperVEvaluationTargetSqlReadiness', 'SQL-Bereitschaft des Ziellabs', target);
+});
+evaluationRefreshElement('observe-target-storage').addEventListener('click', () => {
+  const target = evaluationRefreshTarget();
+  if (target?.State !== 'RUNNING') return;
+  return observeEvaluationRefreshGuest('observe-target-storage', 'ReadHyperVEvaluationTargetStorage', 'Freier Speicher im Ziellab', target);
 });
 evaluationRefreshElement('root').addEventListener('input', () => invalidateEvaluationRefresh(true));
 for (const id of ['run', 'mode', 'target']) evaluationRefreshElement(id).addEventListener('change', () => invalidateEvaluationRefresh());

@@ -43,7 +43,7 @@ function Read-LabEvaluationRefreshSnapshot {
 }
 
 function Get-LabEvaluationSqlGuestObservation {
-    param([Parameter(Mandatory)]$Snapshot,[switch]$IncludeSourceInventory)
+    param([Parameter(Mandatory)]$Snapshot,[switch]$IncludeSourceInventory,[switch]$IncludeTargetStorage)
     if (-not $IsWindows -or $Snapshot.Binding.Run.state -cne 'RUNNING' -or $Snapshot.Instance.sqlVersion -cne '2025') {
         return $null
     }
@@ -55,7 +55,7 @@ function Get-LabEvaluationSqlGuestObservation {
             $context.Instance.vmId -cne $Snapshot.Instance.vmId -or $context.Instance.imageArtifactId -cne $Snapshot.Instance.imageArtifactId) {
             throw 'EVALUATION_REFRESH_BINDING_CHANGED'
         }
-        $observed = Invoke-LabSqlGuestCaptureProbe -Context $context -TimeoutSeconds 60 -IncludeSourceInventory:$IncludeSourceInventory 3>$null 4>$null 5>$null 6>$null
+        $observed = Invoke-LabSqlGuestCaptureProbe -Context $context -TimeoutSeconds 60 -IncludeSourceInventory:$IncludeSourceInventory -IncludeTargetStorage:$IncludeTargetStorage 3>$null 4>$null 5>$null 6>$null
         $fresh = Get-LabSqlGuestCaptureContext -RunId $runId -StateRoot $Snapshot.Binding.StateRoot
         if ($fresh.Fingerprint -cne $context.Fingerprint) { throw 'EVALUATION_REFRESH_BINDING_CHANGED' }
         if ($observed.MajorVersion -ne 17 -or $observed.InstanceName -cne $context.Instance.sqlReadiness.instanceName -or
@@ -113,6 +113,33 @@ function Get-LabEvaluationSqlSourceInventory {
     [pscustomobject]@{ Status='PARTIALLY_OBSERVED'; Items=$items; DependencyFindings=$findings }
 }
 
+function Get-LabEvaluationTargetStorageObservation {
+    param([Parameter(Mandatory)]$Snapshot)
+
+    $unavailable = [pscustomobject]@{Status='NOT_OBSERVED';ObservedAt=$null;Volumes=@()}
+    $observed = Get-LabEvaluationSqlGuestObservation -Snapshot $Snapshot -IncludeTargetStorage
+    if (-not $observed) { return $unavailable }
+    $volumes = $observed.PSObject.Properties['TargetStorage']?.Value
+    if ($volumes -isnot [Collections.IList] -or $volumes.Count -lt 1 -or $volumes.Count -gt 3) { return $unavailable }
+
+    $roles = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    $observations = [Collections.Generic.List[object]]::new()
+    foreach ($volume in $volumes) {
+        if ($null -eq $volume -or @($volume.PSObject.Properties).Count -ne 2 -or
+            -not $volume.PSObject.Properties['AvailableBytes'] -or -not $volume.PSObject.Properties['Roles'] -or
+            $volume.AvailableBytes -isnot [long] -or $volume.AvailableBytes -lt 0 -or
+            $volume.Roles -isnot [Collections.IList] -or $volume.Roles.Count -lt 1 -or $volume.Roles.Count -gt 3) {
+            return $unavailable
+        }
+        foreach ($role in $volume.Roles) {
+            if ($role -cnotin @('Data','Log','Backup') -or -not $roles.Add($role)) { return $unavailable }
+        }
+        $observations.Add([pscustomobject]@{Roles=@($volume.Roles);AvailableBytes=$volume.AvailableBytes})
+    }
+    if ($roles.Count -ne 3) { return $unavailable }
+    [pscustomobject]@{Status='OBSERVED';ObservedAt=[datetime]::UtcNow.ToString('o');Volumes=$observations.ToArray()}
+}
+
 function Get-LabEvaluationWindowsLicenseObservation {
     param([Parameter(Mandatory)]$Snapshot)
 
@@ -164,9 +191,9 @@ function Get-LabEvaluationWindowsLicenseObservation {
 function New-LabEvaluationRefreshPlan {
     param([string]$RunId,[string]$InstanceId,[string]$DataRoot,[string]$Mode,[switch]$ObserveSqlSource,[switch]$ObserveWindowsLicense,
         [string]$ExpectedSnapshotDigest,[string]$TargetRunId,[string]$TargetInstanceId,[string]$ExpectedTargetSnapshotDigest,
-        [switch]$ObserveTargetWindowsLicense,[switch]$ObserveTargetSqlReadiness)
+        [switch]$ObserveTargetWindowsLicense,[switch]$ObserveTargetSqlReadiness,[switch]$ObserveTargetStorage)
     if ($ObserveSqlSource -and $Mode -cne 'STATEFUL_MIGRATION') { throw 'EVALUATION_REFRESH_SQL_SOURCE_MODE_INVALID' }
-    $hasTarget = $TargetRunId -or $TargetInstanceId -or $ExpectedTargetSnapshotDigest -or $ObserveTargetWindowsLicense -or $ObserveTargetSqlReadiness
+    $hasTarget = $TargetRunId -or $TargetInstanceId -or $ExpectedTargetSnapshotDigest -or $ObserveTargetWindowsLicense -or $ObserveTargetSqlReadiness -or $ObserveTargetStorage
     if ($hasTarget -and ($Mode -cne 'STATEFUL_MIGRATION' -or -not $TargetRunId -or -not $TargetInstanceId -or
         $RunId -ieq $TargetRunId)) { throw 'EVALUATION_REFRESH_TARGET_SELECTION_INVALID' }
     try {
@@ -224,6 +251,7 @@ function New-LabEvaluationRefreshPlan {
         if ($observed) { [pscustomobject]@{ Status='OBSERVED'; ObservedAt=[datetime]::UtcNow.ToString('o') } }
         else { [pscustomobject]@{ Status='NOT_OBSERVED'; ObservedAt=$null } }
     }
+    $targetStorage = if ($ObserveTargetStorage) { Get-LabEvaluationTargetStorageObservation -Snapshot $targetSnapshot }
     try {$fresh=Read-LabEvaluationRefreshSnapshot -RunId $RunId -InstanceId $InstanceId -DataRoot $DataRoot}
     catch {throw 'EVALUATION_REFRESH_BINDING_CHANGED'}
     if($fresh.Digest-cne$snapshot.Digest){throw 'EVALUATION_REFRESH_BINDING_CHANGED'}
@@ -247,9 +275,15 @@ function New-LabEvaluationRefreshPlan {
         $sqlCheck = if (-not $ObserveTargetSqlReadiness) { 'TARGET_SQL_READINESS_NOT_CHECKED' }
             elseif ($targetSql.Status -ceq 'OBSERVED') { 'TARGET_SQL_READINESS_OBSERVED' }
             else { 'TARGET_SQL_READINESS_NOT_OBSERVED' }
+        $storageCheck = if ($ObserveTargetStorage) {
+            if ($targetStorage.Status -ceq 'OBSERVED') { 'TARGET_STORAGE_CAPACITY_OBSERVED' }
+            else { 'TARGET_STORAGE_CAPACITY_NOT_OBSERVED' }
+        }
         $targetAssessment = [pscustomobject]@{
             Status=$(if ($targetObserved) { 'WINDOWS_LICENSE_OBSERVED' }
-                elseif ($sqlCheck -ceq 'TARGET_SQL_READINESS_OBSERVED') { 'SQL_READINESS_OBSERVED' } else { 'METADATA_ONLY' })
+                elseif ($sqlCheck -ceq 'TARGET_SQL_READINESS_OBSERVED') { 'SQL_READINESS_OBSERVED' }
+                elseif ($storageCheck -ceq 'TARGET_STORAGE_CAPACITY_OBSERVED') { 'STORAGE_CAPACITY_OBSERVED' }
+                else { 'METADATA_ONLY' })
             RunId=$targetSnapshot.Binding.Run.runId; ScopeId=$targetSnapshot.Binding.Run.scopeId
             InstanceId=$targetSnapshot.Instance.id; RegisteredState=$targetSnapshot.Binding.Run.state
             ObservedContentSha256=$targetSnapshot.Digest; SqlVersion='2025'
@@ -260,6 +294,10 @@ function New-LabEvaluationRefreshPlan {
         }
         if ($ObserveTargetSqlReadiness) {
             $targetAssessment | Add-Member -NotePropertyName SqlReadinessObservation -NotePropertyValue $targetSql
+        }
+        if ($ObserveTargetStorage) {
+            $targetAssessment.Checks += $storageCheck
+            $targetAssessment | Add-Member -NotePropertyName StorageObservation -NotePropertyValue $targetStorage
         }
         $result | Add-Member -NotePropertyName TargetAssessment -NotePropertyValue $targetAssessment
     }

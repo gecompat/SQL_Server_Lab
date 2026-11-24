@@ -157,6 +157,14 @@ try {
     $readiness = (Invoke-SqlServerLabWorkflowAction @operationRequest -Action ReadHyperVEvaluationTargetSqlReadiness).Result
     Assert-TargetLicenseAcceptance ($readiness.TargetRunId -ceq $target.RunId -and $readiness.TargetInstanceId -ceq 'primary' -and
         $readiness.SqlReadinessObservation.Status -ceq 'OBSERVED' -and $readiness.SqlReadinessObservation.ObservedAt) 'SQL-Bereitschaft der gebundenen Ziel-VM bestätigt'
+    $phase = 'TARGET_STORAGE_CAPACITY'
+    $storage = (Invoke-SqlServerLabWorkflowAction @operationRequest -Action ReadHyperVEvaluationTargetStorage).Result
+    $observation = $storage.StorageObservation
+    $roles = @($observation.Volumes | ForEach-Object Roles | Sort-Object)
+    Assert-TargetLicenseAcceptance ($storage.TargetRunId -ceq $target.RunId -and $storage.TargetInstanceId -ceq 'primary' -and
+        $observation.Status -ceq 'OBSERVED' -and $observation.ObservedAt -and
+        ($roles -join ',') -ceq 'Backup,Data,Log' -and
+        @($observation.Volumes | Where-Object { $_.AvailableBytes -isnot [long] -or $_.AvailableBytes -lt 0 }).Count -eq 0) 'Freier Gastspeicher für Daten, Log und Backup ist am gebundenen Ziel beobachtet'
     $fresh = Get-SqlServerLabEvaluationRefreshPlan @request -Mode STATEFUL_MIGRATION
     $after = @($paths | ForEach-Object { (Get-FileHash -LiteralPath $_ -Algorithm SHA256).Hash })
     Assert-TargetLicenseAcceptance (($before -join ',') -ceq ($after -join ',') -and

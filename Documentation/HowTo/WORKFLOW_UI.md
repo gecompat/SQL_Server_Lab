@@ -456,6 +456,14 @@ Kann die geplante Instanz nicht eindeutig beobachtet werden, erscheint
 `NOT_OBSERVED`. Die SQL-Lizenz, der Speicher und die Transferfähigkeit
 werden separat bewertet. Der Migrationsentscheid bleibt `BLOCKED`.
 
+Wähle **Freien Speicher im Ziellab prüfen**, um den freien Speicher für die
+SQL-Standardpfade Daten, Log und Backup zu lesen. Nutzen mehrere Rollen
+dasselbe lokale Volume, zeigt die Prüfung eine gemeinsame Zeile. In der
+Konsole erscheint der Befund direkt, im Browser unter **Vorgänge**.
+`NOT_OBSERVED` kennzeichnet fehlende oder nicht eindeutig zugeordnete
+Pfade. Der freie Gastspeicher lässt noch keine Aussage über den nötigen
+Transferspeicher oder die Hostkapazität zu.
+
 **Windows-Lizenz im laufenden Gast lesen** ist eine eigene Auswahl in allen
 drei Entscheidungsarten. Sie zeigt den aktuellen Lizenzstatus, den
 Beobachtungszeitpunkt und eine belegte Evaluation-Frist getrennt von den
