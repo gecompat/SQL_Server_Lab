@@ -149,7 +149,9 @@ try{
             function Test-Path { $true }
             function Get-Item { [pscustomobject]@{FullName='synthetic-setup-exe';VersionInfo=[pscustomobject]@{FileVersion='17.0.1000.7'}} }
             function Start-Process {
+                param($FilePath,$ArgumentList,[switch]$PassThru,[switch]$NoNewWindow)
                 $script:guestSetupProcessStarts++
+                $script:guestSetupArguments = $ArgumentList
                 throw [ComponentModel.Win32Exception]::new(2, 'SYNTHETIC_PRIVATE_DETAIL')
             }
             $guestBlock = [scriptblock]::Create($GuestSetupSource)
@@ -171,6 +173,18 @@ try{
                             $Matches.category -cin [Enum]::GetNames([System.Management.Automation.ErrorCategory])
                     } else { $failureCode -ceq $case.Code }
                     Check ($expectedFailure -and $script:guestSetupProcessStarts -eq $case.Starts) ('Setup guest failure preserves only bounded evidence: '+$fault)
+                }
+                $fault = 'ProcessStart'
+                $ssisOption = '/ISSVCStartupType=Disabled'
+                foreach ($case in @(
+                    @{Name='engine only';SsisArguments=$null;HasSsisOption=$false},
+                    @{Name='with SSIS';SsisArguments=@('/UpdateEnabled=False',$ssisOption);HasSsisOption=$true})) {
+                    $script:guestSetupArguments = $null
+                    $guestParameters = @('2025','^17\.','SQLENGINE',$guestSa,$null,$null,$null,30,$case.SsisArguments)
+                    $failureCode = try { $null = & $guestBlock @guestParameters; $null } catch { $_.Exception.Message }
+                    Check ($failureCode -cmatch '^SQL_SETUP_GUEST_PROCESS_START_FAILED: -?[0-9]+$' -and
+                        $script:guestSetupArguments.Count -gt 0 -and $null -cnotin $script:guestSetupArguments -and
+                        (($ssisOption -cin $script:guestSetupArguments) -eq $case.HasSsisOption)) ('SQL Setup process arguments contain no null: '+$case.Name)
                 }
             }
             finally { $guestSa.Dispose() }
