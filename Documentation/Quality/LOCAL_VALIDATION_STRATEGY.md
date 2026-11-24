@@ -4644,6 +4644,14 @@ erfolgreich ausführen, die eigene Stage und das Journal vollständig entfernen
 und den Transferexecutor weiterhin als `BLOCKED` ausweisen. Ein Restore oder
 Transfer ist nicht Bestandteil der Acceptance.
 
+Im Docker-Wiederholungslauf von [PR #944](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45421531064)
+lief die Abnahme bei der SQL-Bereitschaft des PSR-009-Testcontainers in das
+75-Minuten-Limit des CI-Schritts. Das nachgelagerte Cleanup war erfolgreich.
+Die genaue Ursache der ausgebliebenen SQL-Bereitschaft blieb offen.
+`Invoke-ActionProgressChecks.ps1` prüft die gemeinsame Frist der SQL- und
+Providerdiagnosen. Ein fehlgeschlagener Logabruf lässt einen bereits gelesenen
+Containerstatus erhalten. Ein nativer Nachweis nach der Korrektur steht aus.
+
 `Invoke-DatabasePackageChecks.ps1` prüft den PSR-009-Core deterministisch mit
 einer synthetischen MDF-/NDF-/LDF-Dateimenge und einem verschachtelten
 FILESTREAM-Container. Der Test beweist rekursive Hashes, Manipulationsschutz,
