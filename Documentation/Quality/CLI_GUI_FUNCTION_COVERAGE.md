@@ -65,6 +65,24 @@ abgeglichen; die Familiengruppierung ist nur eine Lesbarkeitshilfe. Sie ist
 keine Behauptung, dass eine Familie einen gemeinsamen Aufrufer oder denselben
 Nachweis besitzt.
 
+## Geprüfte Operationen: Ressourcenstand und lokaler Bedarf
+
+| Operations-ID und Aufgabe | Geführte CLI | Browser-GUI | Öffentlicher Vertrag und Nachweis |
+| --- | --- | --- | --- |
+| `resources-watch-read` · Katalogstand und letzten Sitzungsbefund lesen | Ressourcen und Downloads → Ressourcenstand: CUs und SqlPackage → Gespeicherten Sitzungsbefund ansehen | Ressourcen und Downloads → Ressourcenstand: CUs und SqlPackage → Sitzungsbefund lesen | `GUIDED_BOTH` über `Invoke-SqlServerLabWorkflowAction -Action GetResourceWatchState` und Browser-GET. Kein Netzabruf, keine Speicherung. Fehlender oder abgelaufener Befund bleibt sichtbar. |
+| `resources-watch-refresh` · Hersteller-Metadaten vergleichen | Ressourcen und Downloads → Ressourcenstand: CUs und SqlPackage → Jetzt bei Microsoft prüfen | Ressourcen und Downloads → Ressourcenstand: CUs und SqlPackage → Jetzt bei Microsoft prüfen | `GUIDED_BOTH` über `Invoke-SqlServerLabWorkflowAction -Action RefreshResourceWatch` und gleichoriginigen Browser-POST. Expliziter Abruf der fest zugelassenen Quellen. Aktualisiert den Sitzungscache, ohne Pakete zu laden oder Kataloge zu verändern. Quellenfehler erhalten keinen ungeprüften Freigabestatus. |
+| `resources-cu-check` · SQL-CUs ohne SqlPackage vergleichen | Ressourcen und Downloads → Aktuelle SQL-Server-CUs bei Microsoft prüfen | Gemeinsamer CU-Abgleich in der Ressourcenstand-Aktion oben | Der Browser zeigt den CU-Befund aus dem gemeinsamen Vergleichskern. `Get-SqlServerLabCuStatus -Version … -MaxMissingEntries … -SourceUrl …` bleibt für die gezielte Auswahl ein PowerShell-Befehl. `SourceUrl` ist auf zugelassene Microsoft-Learn-HTTPS-Quellen begrenzt. |
+| `resources-local-plan` · Lokale Voraussetzungen und Beschaffungsbedarf prüfen | Ressourcen und Downloads → Lokalen Ressourcenbedarf prüfen → Auswahl | Ressourcen und Downloads → Lokalen Ressourcenbedarf prüfen → Auswahl → Prüfung starten | `GUIDED_BOTH` über `Get-SqlServerLabResourcePlan -ResourceKind All\|Sample\|Software -SummaryOnly`. Beide Fachwege zeigen Status und Anzahlen ohne lokale Pfade oder Hashes. Ausführung liest die konfigurierten Speicherorte und ändert weder Dateien noch Vertrauensstatus. Einzel-IDs und alternative Roots gehören zum direkten Cmdlet. |
+
+Die Ressourcenstandprüfung ist hostbezogen und benötigt keinen laufenden
+SQL Server und keinen Provider. `Invoke-VersionCatalogChecks.ps1` prüft den
+Vergleichskern, die CLI und den HTTP-Handler. `Invoke-WorkflowUiChecks.ps1`
+prüft den Browserdispatch einschließlich verspäteter oder fehlgeschlagener
+Antworten. Die [Validierungsstrategie](LOCAL_VALIDATION_STRATEGY.md#resource-watch-fokussierte-validierung)
+dokumentiert den getrennten Live-Metadatencheck. `Invoke-ResourceSetChecks.ps1`
+prüft die lokale Ressourcenplanung im eigenen Fixture. Ein Ressourcenplan
+bestätigt weder eine Installation noch die Ausführbarkeit eines Providers.
+
 ## Geprüfte Operationen: Environment Groups
 
 Der Abgleich von CLI-Router, Konsolenmenü, Browserdialog, typed HTTP route und
