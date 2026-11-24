@@ -295,7 +295,8 @@ function Wait-SqlReady {
                 }
             }
 
-            if (-not $podmanDiagnosticChecked -and $HostName -in @('127.0.0.1', 'localhost') -and $stopwatch.Elapsed.TotalSeconds -ge 5) {
+            if ($Provider -eq 'podman' -and -not $podmanDiagnosticChecked -and
+                $HostName -in @('127.0.0.1', 'localhost') -and $stopwatch.Elapsed.TotalSeconds -ge 5) {
                 $podmanDiagnostic = Get-PodmanWindowsLocalhostDiagnostic -Port $Port -StateRoot $StateRoot
                 if ($podmanDiagnostic) {
                     $stopwatch.Stop()
