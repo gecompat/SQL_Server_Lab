@@ -2464,6 +2464,11 @@ EvaluationRefreshPlan-Fixtures prüfen getrennt gemeinsame Volumes,
 CLIXML-Typen, beobachtete null Bytes, ungültige Befunde und Auswahldrift.
 Die Vorprüfung gibt keinen Transfer frei. Der zusätzliche native
 Speicher-Nachweis bleibt `NOT_EXECUTED`, bis die erweiterte Suite läuft.
+Im gerenderten Browser auf `48e102fcec6cc6a0548b5a9bd416dad3545b2b83`
+luden alle 54 UI-Dateien. Für das gestoppte synthetische Ziel war der
+Knopf gesperrt. Das laufende Ziel löste genau einen Auftrag mit den
+beiden gewählten Bindungen aus. Testdialog und Loopback-Listener
+schlossen ohne Browserfehler oder unerwartete Anfragen.
 
 Nach der Bindung an den registrierten State Root erreichte der zweite Lauf
 die Quell-VM. Die Auswertung scheiterte am fehlenden `persistentData`-Feld
