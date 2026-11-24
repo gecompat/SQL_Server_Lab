@@ -98,6 +98,11 @@ mit genau einem Implementierer je atomarem Scope fort. Die Arbeitspakete
 bleiben `planned`, solange Code und erforderliche Nachweise fehlen; die
 bestehende Fixtureabnahme schließt sie nicht ab.
 
+Seit der [Entscheidung vom 2026-11-18](NEW_SQL_LAB_USE_CASES_BACKLOG.md#tls-001--authentifizierte-tls-verbindungen-der-testumgebungen)
+ist TLS-001 zurückgestellt. Für die hier bedingt freigegebenen Arbeitspakete
+SSIS-LAB-001/002 steht die Startbedingung damit weiterhin aus. Eine Änderung
+dieser Reihenfolge erfordert eine fachliche Entscheidung für SSIS.
+
 Stand der Übernahme vom 2026-10-18: Der begrenzte operative Windows-/Docker-
 TLS-Pfad ist inzwischen integriert und nativ abgenommen; die verbleibenden
 TLS-001- und Consumergrenzen stehen im [TLS-Backlog](NEW_SQL_LAB_USE_CASES_BACKLOG.md#tls-001--authentifizierte-tls-verbindungen-der-testumgebungen).
