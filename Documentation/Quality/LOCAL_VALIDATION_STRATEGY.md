@@ -5522,6 +5522,14 @@ einen unveränderten Prepared-Parent und die Abwesenheit eigener VMs und
 Datenträger nach Cleanup. Die fokussierte Plan-Suite prüft gebundene Auswahl,
 Drift, Ergebnisgrenzen und den unveränderten Default mit synthetischen Daten.
 
+Die Key18-Abnahme auf `8d932932` bestätigte zusätzlich den aktuellen
+Windows-Lizenzbefund über die gebundene lesende Gastabfrage. Dieselbe eigene
+SQL-2025-Developer-Prepared-VM lieferte die Quellzähler. Run-/Connection-State
+blieben bytegleich. Der Parent blieb unverändert und VM sowie Datenträger
+waren nach dem eigenen Cleanup abwesend. Menü, HTTP-Dispatch und die
+Auswertung einer abgelaufenen Windows-Evaluation sind separat synthetisch
+geprüft. [Nativlauf](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45381383611)
+
 ### llama.cpp-Discovery
 
 `Invoke-LlamaCppInstallerChecks.ps1` führt synthetische echte Plan-/Apply-/No-op-/

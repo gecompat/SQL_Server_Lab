@@ -73,8 +73,11 @@ Die getrennte Auswahl **Windows-Lizenz im laufenden Gast lesen**
 laufenden Instanz in allen drei Planmodi. Die Ausgabe trennt den Live-Befund
 von den gespeicherten Fristen. Sie enthält Lizenzstatus, Beobachtungszeitpunkt
 und gegebenenfalls die Evaluation-Frist. Eine abgelaufene Evaluation ist ein
-eigener Blocker. Die Abfrage persistiert und aktiviert nichts. Der native
-Nachweis für diesen neuen Planpfad steht aus.
+eigener Blocker. Der aktuelle Befund bleibt flüchtig. Die Key18-Abnahme auf
+`8d932932` bestätigte die Gastabfrage für einen eigenen laufenden
+SQL-2025-Developer-Prepared-Run mit bytegleichem Run-/Connection-State,
+unveränderter Vorlage und eigenem Cleanup.
+[Nativer Befund](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45381383611)
 
 Die gemeinsame Watch-Fristklassifikation bleibt unverändert. Bei durch JSON
 typisierten Zeitwerten bewahren beide Watch-Pfade jetzt UTC und Bruchteile der
