@@ -434,7 +434,7 @@ Bibliotheks-Recovery blockiert den erneuten Export ausdrücklich.
 
 | Cmdlet | Kurzbeschreibung | Konsolenmenü | Browser-GUI |
 |---|---|---|---|
-| [`Get-SqlServerLabCuStatus`](../../Public/Get-SqlServerLabCuStatus.ps1) | Vergleicht Microsoft-Learn-Buildtabellen read-only mit dem lokalen CU-Katalog. | Ressourcen und Downloads → aktuelle CUs prüfen | – |
+| [`Get-SqlServerLabCuStatus`](../../Public/Get-SqlServerLabCuStatus.ps1) | Vergleicht Microsoft-Learn-Buildtabellen read-only mit dem lokalen CU-Katalog. | Ressourcen und Downloads → Aktuelle SQL-Server-CUs bei Microsoft prüfen | Ressourcen und Downloads → Ressourcenstand: CUs und SqlPackage → Jetzt bei Microsoft prüfen verwendet denselben Vergleichskern. Versionsfilter und Quellenoverride gehören zum direkten Cmdlet. |
 | [`Save-SqlServerLabCuResource`](../../Public/Save-SqlServerLabCuResource.ps1) | Lädt einen katalogisierten Windows-CU verifiziert in den Media Root oder einen exakten Linux-MCR-Tag in Docker/Podman. | Medien, Testdaten und Speicher → CU herunterladen oder prüfen | – |
 | [`Get-SqlServerLabResourcePlan`](../../Public/Get-SqlServerLabResourcePlan.ps1) | Ermittelt je Katalogressource die bereitstehenden Dateien und den Beschaffungsweg. Die geführte Ansicht zeigt eine Zusammenfassung ohne lokale Pfade und Hashes. | Ressourcen und Downloads → Lokalen Ressourcenbedarf prüfen | Ressourcen und Downloads → Lokalen Ressourcenbedarf prüfen. Ergebnis unter Vorgänge. |
 | [`Save-SqlServerLabResourceSet`](../../Public/Save-SqlServerLabResourceSet.ps1) | Stellt ausgewählte Ressourcen aus Cache, Altbestand oder katalogisierter HTTP(S)-Quelle hashverifiziert bereit. | – | – |
