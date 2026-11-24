@@ -6,6 +6,31 @@
 
 Das Framework erkennt diesen Sonderfall aktiv: Wenn der SQL-Server-Container intern bereits bereit ist, aber `localhost` nicht funktioniert, bricht die Bereitschaftspruefung frueh mit einem konkreten Hinweis ab. Dadurch muss nicht der gesamte allgemeine SQL-Timeout abgewartet werden.
 
+## Zuerst die Podman-Verbindung prüfen
+
+Führe im Repository-Root die begrenzte, lesende Hostprüfung aus:
+
+```powershell
+./Tools/Test-SqlServerLabClientReadiness.ps1 -Provider podman -Operation Inspect
+```
+
+`PROVIDER_PROBE_TIMEOUT` heißt, dass der ausgewählte Podman-Endpunkt
+auf die Runtime-Abfrage nicht rechtzeitig antwortet. Die SQL-Portweiterleitung
+wurde in diesem Fall noch nicht geprüft. `podman machine list` zeigt die
+registrierten Maschinen und `podman system connection list` die Verbindungen
+einschließlich der Standardverbindung.
+
+Eine bereits konfigurierte zweite Verbindung kannst du für diese Diagnose
+explizit und ohne Änderung des Standards abfragen:
+
+```powershell
+podman --connection '<Verbindungsname>' info
+```
+
+Eine erfolgreiche Antwort gilt für die gewählte Verbindung. Die Lab-CI bindet
+ihre Tests an die konfigurierte Standardverbindung. Prüfe diese erneut, sobald
+ihr Dienst wieder verfügbar ist.
+
 ## Empfohlene Konfiguration
 
 Datei `%USERPROFILE%\.wslconfig`:
@@ -15,7 +40,9 @@ Datei `%USERPROFILE%\.wslconfig`:
 networkingMode=mirrored
 ```
 
-Danach WSL und die Podman-Machine vollstaendig neu starten:
+Änderungen an der WSL-Netzwerkkonfiguration werden nach einem Neustart
+wirksam. Plane diesen, sobald die betroffenen Arbeitslasten sicher beendet
+sind. `wsl --shutdown` beendet auch andere laufende WSL-Distributionen.
 
 ```powershell
 podman machine stop podman-machine-default
