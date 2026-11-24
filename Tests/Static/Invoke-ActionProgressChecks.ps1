@@ -90,6 +90,40 @@ Assert-Progress ($ready.Ready -and $script:readinessRuntimeCalls -ge 2) 'Contain
 $script:readinessFinalStatus = 'exited'
 $ready = Wait-SqlReady @runtimeWait
 Assert-Progress (-not $ready.Ready -and $ready.Message -match 'vor der Bereitschaft beendet.*exited') 'Bestätigter Containerabbruch bleibt ein Readiness-Fehler'
+
+$readinessProbe = (Get-Command Invoke-LabSqlcmdProgress).ScriptBlock
+$runtimeDiagnostic = (Get-Command Get-LabContainerReadinessDiagnostic).ScriptBlock
+$podmanDiagnostic = (Get-Command Get-PodmanWindowsLocalhostDiagnostic).ScriptBlock
+$script:providerProbeCount = 0
+$script:podmanForwardingDiagnosticCount = 0
+try {
+    function Invoke-LabSqlcmdProgress {
+        if (++$script:providerProbeCount -eq 1) {
+            Start-Sleep -Milliseconds 5100
+            return [pscustomobject]@{ExitCode=1;Output=@('initial synthetic SQL wait')}
+        }
+        [pscustomobject]@{ExitCode=0;Output=@('17')}
+    }
+    function Get-LabContainerReadinessDiagnostic { [pscustomobject]@{Running=$true;Status='running'} }
+    function Get-PodmanWindowsLocalhostDiagnostic {
+        $script:podmanForwardingDiagnosticCount++
+        'synthetic Podman forwarding diagnostic'
+    }
+    $isolatedWait=@{Port=1433;SaPassword=$syntheticCredential;ExpectedMajorVersion=17;StabilitySeconds=1;
+        PollIntervalMilliseconds=100;TimeoutSeconds=12;ContainerIdOrName='synthetic'}
+    $dockerReady=Wait-SqlReady @isolatedWait -Provider docker
+    Assert-Progress ($dockerReady.Ready -and $script:podmanForwardingDiagnosticCount -eq 0) 'Docker SQL-Readiness befragt keine Podman-Portweiterleitung'
+    $script:providerProbeCount = 0
+    $podmanReady=Wait-SqlReady @isolatedWait -Provider podman
+    Assert-Progress (-not $podmanReady.Ready -and $podmanReady.Message -ceq 'synthetic Podman forwarding diagnostic' -and
+        $script:podmanForwardingDiagnosticCount -eq 1) 'Podman SQL-Readiness behält die gezielte Portweiterleitungsdiagnose'
+}
+finally {
+    Set-Item Function:Invoke-LabSqlcmdProgress -Value $readinessProbe
+    Set-Item Function:Get-LabContainerReadinessDiagnostic -Value $runtimeDiagnostic
+    Set-Item Function:Get-PodmanWindowsLocalhostDiagnostic -Value $podmanDiagnostic
+    Remove-Variable providerProbeCount,podmanForwardingDiagnosticCount -Scope Script
+}
 function Invoke-LabSqlcmdProgress { throw 'SYNTHETIC_SQL_FAILURE' }
 try { Wait-SqlReady -Port 1433 -SaPassword $syntheticCredential | Out-Null } catch { }
 Assert-Progress ($readyContexts[-1].Completed) 'SQL-Fehler beendet den Reporter im finally'
