@@ -2440,7 +2440,15 @@ SQL-Quellbeobachtung. Sie führt nur die feste Abfrage zur Identität der
 erwarteten Instanz aus. Die Fixtures decken Zielbindung, gestoppte Ziele,
 abweichende SQL-Edition, Bindungsdrift und den flüchtigen CLI-/Browserweg ab.
 Der manuelle Hyper-V-Harness prüft zusätzlich die SQL-Bereitschaft derselben
-Ziel-VM. Ein nativer Nachweis für diese Erweiterung steht aus.
+Ziel-VM. Ein Windows-Neustart unterbrach den [ersten Lauf der Erweiterung](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45482684486)
+während der Einrichtung des Quelllaufs. Der verbliebene eigene Quelllauf einschließlich
+VM und Datenträgern wurde anschließend bereinigt.
+Der [Wiederholungslauf auf Key18](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45488716933/job/138780957914)
+bestätigte auf `e7c3942b87ff96b957024ed2e4ef57a401284fa6` die Windows-Lizenz und
+die SQL-Bereitschaft der getrennten Ziel-VM. Quell- und Zielmetadaten sowie
+die vorbereitete Vorlage blieben unverändert. Beide eigenen VMs und ihre
+Datenträger wurden entfernt. Speicherbereitschaft und Transfer bleiben
+separate Abnahmen.
 
 Nach der Bindung an den registrierten State Root erreichte der zweite Lauf
 die Quell-VM. Die Auswertung scheiterte am fehlenden `persistentData`-Feld
