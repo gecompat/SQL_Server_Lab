@@ -2435,6 +2435,13 @@ Ziels. Der erste Lauf stoppte vor der Anlage einer VM, weil der Standard-State
 des Runners vom registrierten `Lab_Data` abwich.
 [Erster Lauf](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45453144541)
 
+Die getrennte SQL-Zielprüfung nutzt denselben gebundenen Gastreader wie die
+SQL-Quellbeobachtung. Sie führt nur die feste Abfrage zur Identität der
+erwarteten Instanz aus. Die Fixtures decken Zielbindung, gestoppte Ziele,
+abweichende SQL-Edition, Bindungsdrift und den flüchtigen CLI-/Browserweg ab.
+Der manuelle Hyper-V-Harness prüft zusätzlich die SQL-Bereitschaft derselben
+Ziel-VM. Ein nativer Nachweis für diese Erweiterung steht aus.
+
 Nach der Bindung an den registrierten State Root erreichte der zweite Lauf
 die Quell-VM. Die Auswertung scheiterte am fehlenden `persistentData`-Feld
 im Run-State. Der eigene Quelllauf wurde vollständig bereinigt.

@@ -53,9 +53,12 @@ function updateEvaluationRefreshControls() {
     evaluationRefreshElement('mode').value !== 'STATEFUL_MIGRATION';
   evaluationRefreshElement('observe-windows').disabled = evaluationRefreshBusy || evaluationRefreshOwn()?.State !== 'RUNNING';
   evaluationRefreshElement('target').disabled = evaluationRefreshBusy || evaluationRefreshElement('target-field').hidden;
-  const targetLicense = evaluationRefreshElement('observe-target-windows');
-  targetLicense.hidden = evaluationRefreshElement('target-field').hidden;
-  targetLicense.disabled = evaluationRefreshBusy || evaluationRefreshTarget()?.State !== 'RUNNING';
+  const target = evaluationRefreshTarget();
+  for (const id of ['observe-target-windows', 'observe-target-sql']) {
+    const control = evaluationRefreshElement(id);
+    control.hidden = evaluationRefreshElement('target-field').hidden;
+    control.disabled = evaluationRefreshBusy || target?.State !== 'RUNNING';
+  }
 }
 async function observeEvaluationRefreshGuest(button, action, noun, target = null) {
   if (!evaluationRefreshElement('dialog').open || evaluationRefreshElement(button).disabled) return;
@@ -161,6 +164,11 @@ evaluationRefreshElement('observe-target-windows').addEventListener('click', () 
   const target = evaluationRefreshTarget();
   if (target?.State !== 'RUNNING') return;
   return observeEvaluationRefreshGuest('observe-target-windows', 'ReadHyperVEvaluationWindowsLicense', 'Windows-Lizenzbefund des Ziellabs', target);
+});
+evaluationRefreshElement('observe-target-sql').addEventListener('click', () => {
+  const target = evaluationRefreshTarget();
+  if (target?.State !== 'RUNNING') return;
+  return observeEvaluationRefreshGuest('observe-target-sql', 'ReadHyperVEvaluationTargetSqlReadiness', 'SQL-Bereitschaft des Ziellabs', target);
 });
 evaluationRefreshElement('root').addEventListener('input', () => invalidateEvaluationRefresh(true));
 for (const id of ['run', 'mode', 'target']) evaluationRefreshElement(id).addEventListener('change', () => invalidateEvaluationRefresh());

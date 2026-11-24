@@ -57,6 +57,7 @@ function Invoke-LabEvaluationRefreshPlanInteractive {
                 New-LabConsoleItem -Id target -Label 'Registriertes Ziellab vorprüfen'
                 if (@($targetCandidates | Where-Object State -CEQ 'RUNNING').Count) {
                     New-LabConsoleItem -Id observe-target-windows -Label 'Windows-Lizenz im laufenden Ziellab lesen'
+                    New-LabConsoleItem -Id observe-target-sql -Label 'SQL-Bereitschaft im laufenden Ziellab prüfen'
                 }
             }
             New-LabConsoleItem -Id back -Label 'Zurück / Abbrechen'
@@ -71,11 +72,12 @@ function Invoke-LabEvaluationRefreshPlanInteractive {
         }
         if ($review.SelectedItem.Id -ceq 'observe') { $planArgs.ObserveSqlSource = $true }
         if ($review.SelectedItem.Id -ceq 'observe-windows') { $planArgs.ObserveWindowsLicense = $true }
-        if ($review.SelectedItem.Id -cin @('target','observe-target-windows')) {
+        if ($review.SelectedItem.Id -cin @('target','observe-target-windows','observe-target-sql')) {
             $readTargetWindows = $review.SelectedItem.Id -ceq 'observe-target-windows'
-            $candidates = if ($readTargetWindows) { @($targetCandidates | Where-Object State -CEQ 'RUNNING') } else { $targetCandidates }
+            $readTargetSql = $review.SelectedItem.Id -ceq 'observe-target-sql'
+            $candidates = if ($readTargetWindows -or $readTargetSql) { @($targetCandidates | Where-Object State -CEQ 'RUNNING') } else { $targetCandidates }
             $targetItems = @($runItems | Where-Object { $_.Id -cin $candidates.RunId })
-            $targetTitle = if ($readTargetWindows) { 'Windows-Lizenz im laufenden Ziellab lesen' } else { 'Registriertes Ziellab vorprüfen' }
+            $targetTitle = $review.SelectedItem.Label
             $targetChoice = Invoke-LabConsoleMenu -ScreenId 'evaluation-refresh-target' -Title $targetTitle `
                 -Subtitle 'Separates SQL-2025-Lab unter demselben Lab_Data auswählen. Keine Änderung.' -Items $targetItems
             if ($targetChoice.Status -cne 'Selected') { return }
@@ -85,9 +87,10 @@ function Invoke-LabEvaluationRefreshPlanInteractive {
             $planArgs.TargetInstanceId = $target[0].InstanceId
             $planArgs.ExpectedTargetSnapshotDigest = $target[0].Digest
             if ($readTargetWindows) { $planArgs.ObserveTargetWindowsLicense = $true }
+            if ($readTargetSql) { $planArgs.ObserveTargetSqlReadiness = $true }
         }
         $plan=New-LabEvaluationRefreshPlan @planArgs
-        Write-LabInfo 'BLOCKED: reine Planung. SQL-Bereitschaft NOT_CHECKED; keine Aktionen, Speicherung, Übernahme oder Gleichwertigkeitsbestätigung.'
+        Write-LabInfo 'BLOCKED: reine Planung. SQL-Bereitschaft der Quelle NOT_CHECKED; keine Aktionen, Speicherung, Übernahme oder Gleichwertigkeitsbestätigung.'
         foreach($evaluation in $plan.Evaluations){
             $component=if($evaluation.Component-ceq'Windows'){'Windows'}else{'SQL Server'}
             $expiry=if($evaluation.EvaluationExpiresAt){$evaluation.EvaluationExpiresAt}else{'Nicht belegt / nicht anwendbar'}
@@ -115,6 +118,10 @@ function Invoke-LabEvaluationRefreshPlanInteractive {
                 $targetLicense = $targetView.WindowsLicenseObservation
                 Write-LabInfo ("Windows-Lizenz im Ziellab: {0} · Lizenz: {1} · Beobachtet UTC: {2} · Frist UTC: {3}" -f
                     $targetLicense.Status, $targetLicense.LicenseState, $targetLicense.ObservedAt, $targetLicense.EvaluationExpiresAt)
+            }
+            if ($targetView.PSObject.Properties['SqlReadinessObservation']) {
+                $targetSql = $targetView.SqlReadinessObservation
+                Write-LabInfo ("SQL-Bereitschaft im Ziellab: {0} · Beobachtet UTC: {1}" -f $targetSql.Status, $targetSql.ObservedAt)
             }
             foreach ($check in $targetView.Checks) { Write-LabInfo ("Zielprüfung: {0}" -f $check) }
         }

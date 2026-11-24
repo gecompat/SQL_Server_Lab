@@ -22,7 +22,7 @@ function New-RefreshTargetFixture($DataRoot,$SourceRun,$SourceConnection,$State=
     Write-Refresh (Join-Path $directory 'run-state.json') $targetRun
     Write-Refresh (Join-Path $state ('scope-markers/'+$targetRun.scopeId+'.json')) @{runId=$targetRun.runId;scopeId=$targetRun.scopeId}
     Write-Refresh $connectionFile $targetConnection
-    [pscustomobject]@{RunId=$targetRun.runId;ScopeId=$targetRun.scopeId;Connection=$targetConnection;ConnectionFile=$connectionFile}
+    [pscustomobject]@{RunId=$targetRun.runId;ScopeId=$targetRun.scopeId;Run=$targetRun;Connection=$targetConnection;ConnectionFile=$connectionFile}
 }
 try {
     foreach($source in @('Private/DiagnosticBundleReader.ps1','Private/SqlGuestEvaluationEvidence.ps1','Private/EvaluationRefreshPlan.ps1','Private/VersionCatalog.ps1','Private/PathSafety.ps1','Public/Get-SqlServerLabEvaluationRefreshPlan.ps1','Public/Get-SqlServerLabEvaluationWatch.ps1','Public/Invoke-SqlServerLabWorkflowAction.ps1')){Import-RefreshFunctions $source}
@@ -159,6 +159,8 @@ try {
     $script:observationCalls = 0
     $script:contextReads = 0
     $script:injectInventoryDrift = $false
+    $script:expectedSqlTarget = $null
+    $script:wrongSqlEdition = $false
     $script:guestCounts = [pscustomobject]@{
         UserDatabases=[long]3; NonOnlineUserDatabases=[long]1; EncryptedUserDatabases=[long]0; DatabaseSnapshots=[long]0
         FilestreamFileDatabases=[long]0; SsisCatalogCandidateDatabases=[long]0
@@ -167,17 +169,24 @@ try {
     function Get-LabSqlGuestCaptureContext {
         param($RunId,$StateRoot)
         $script:contextReads++
-        if ($RunId -ne [guid]$run.runId -or $StateRoot -cne $stateRoot) { throw 'SYNTHETIC_GUEST_TARGET_MISMATCH' }
+        $observedRun = if ($script:expectedSqlTarget) { $script:expectedSqlTarget.Run } else { $run }
+        $observedConnection = if ($script:expectedSqlTarget) { $script:expectedSqlTarget.Connection } else { $connection }
+        if ($RunId -ne [guid]$observedRun.runId -or $StateRoot -cne $stateRoot) { throw 'SYNTHETIC_GUEST_TARGET_MISMATCH' }
         [pscustomobject]@{
-            Run=[pscustomobject]$run; Instance=($connection.instances[0] | ConvertTo-Json -Depth 8 | ConvertFrom-Json)
+            Run=[pscustomobject]$observedRun; Instance=($observedConnection.instances[0] | ConvertTo-Json -Depth 8 | ConvertFrom-Json)
             Fingerprint=if ($script:injectInventoryDrift -and $script:contextReads -gt 1) { 'changed' } else { 'known' }
         }
     }
     function Invoke-LabSqlGuestCaptureProbe {
         param($Context,$TimeoutSeconds,[switch]$IncludeSourceInventory)
         $script:observationCalls++
-        if (-not $IncludeSourceInventory -or $TimeoutSeconds -ne 60) { throw 'SYNTHETIC_GUEST_REQUEST_MISMATCH' }
-        [pscustomobject]@{ MajorVersion=17; InstanceName='MSSQLSERVER'; Edition='Enterprise Evaluation Edition'; SourceInventory=$script:guestCounts; Private='CANARY_PRIVATE_DO_NOT_RETURN' }
+        if ($IncludeSourceInventory.IsPresent -eq [bool]$script:expectedSqlTarget -or $TimeoutSeconds -ne 60) {
+            throw 'SYNTHETIC_GUEST_REQUEST_MISMATCH'
+        }
+        [pscustomobject]@{
+            MajorVersion=17; InstanceName='MSSQLSERVER'; SourceInventory=$script:guestCounts; Private='CANARY_PRIVATE_DO_NOT_RETURN'
+            Edition=if ($script:wrongSqlEdition) { 'Different edition' } else { 'Enterprise Evaluation Edition' }
+        }
     }
     function Get-LabTimestamp { [datetime]::UtcNow.ToString('o') }
     $script:licenseCalls = 0
@@ -329,6 +338,34 @@ try {
         Assert-RefreshReject 'Only stateful migration accepts a live SQL source selection' {
             Get-SqlServerLabEvaluationRefreshPlan -RunId $runId -InstanceId primary -DataRoot $root -Mode RECONSTRUCT_LAB -ObserveSqlSource
         } EVALUATION_REFRESH_SQL_SOURCE_MODE_INVALID
+        $script:injectInventoryDrift = $false
+        $script:expectedSqlTarget = $liveTarget
+        $targetRequest = @{}+$binding
+        $targetRequest.Action = 'ReadHyperVEvaluationTargetSqlReadiness'
+        $priorCalls = $script:observationCalls
+        $targetSqlPlan = Get-SqlServerLabEvaluationRefreshPlan @liveArguments -ObserveTargetSqlReadiness
+        Assert-Refresh ($script:observationCalls -eq $priorCalls+1 -and $targetSqlPlan.Status -ceq 'BLOCKED' -and
+            $targetSqlPlan.TargetAssessment.SqlReadinessObservation.Status -ceq 'OBSERVED' -and
+            'TARGET_SQL_READINESS_OBSERVED' -cin $targetSqlPlan.TargetAssessment.Checks -and
+            $targetSqlPlan.SqlReadiness -ceq 'NOT_CHECKED' -and $targetSqlPlan.TransferAuthority -ceq 'NONE') 'Only readiness of the bound target is observed'
+        $targetSql = Invoke-SqlServerLabWorkflowAction @targetRequest
+        Assert-Refresh ($targetSql.Result.TargetRunId -ceq $liveTarget.RunId -and $targetSql.Result.TargetInstanceId -ceq 'primary' -and
+            $targetSql.Result.SqlReadinessObservation.ObservedAt -and ($targetSql | ConvertTo-Json -Depth 8) -cnotmatch
+            'CANARY_PRIVATE|ScopeId|Edition|SourceInventory') 'Workflow returns only safe target identity and current readiness'
+        $staleTarget = @{}+$targetRequest; $staleTarget.ExpectedTargetPlanKey = '0' * 64
+        Assert-RefreshReject 'Target SQL readiness rejects stale digest before guest access' { Invoke-SqlServerLabWorkflowAction @staleTarget } EVALUATION_REFRESH_BINDING_CHANGED
+        $unboundTarget = @{}+$targetRequest; $unboundTarget.Remove('ExpectedTargetPlanKey')
+        Assert-RefreshReject 'Target SQL readiness requires both digests' { Invoke-SqlServerLabWorkflowAction @unboundTarget } EVALUATION_REFRESH_INPUT_INVALID
+        $stoppedSql = Get-SqlServerLabEvaluationRefreshPlan @targetArguments -ObserveTargetSqlReadiness
+        Assert-Refresh ($script:observationCalls -eq $priorCalls+2 -and $stoppedSql.TargetAssessment.SqlReadinessObservation.Status -ceq 'NOT_OBSERVED') 'Stopped target opens no SQL session'
+        $script:wrongSqlEdition = $true
+        $wrongSql = Invoke-SqlServerLabWorkflowAction @targetRequest
+        Assert-Refresh ($wrongSql.Result.SqlReadinessObservation.Status -ceq 'NOT_OBSERVED' -and
+            $null -eq $wrongSql.Result.SqlReadinessObservation.ObservedAt) 'A different live SQL edition cannot prove readiness'
+        $script:wrongSqlEdition = $false
+        $script:contextReads = 0
+        $script:injectInventoryDrift = $true
+        Assert-RefreshReject 'Target runtime drift discards SQL readiness' { Invoke-SqlServerLabWorkflowAction @targetRequest } EVALUATION_REFRESH_BINDING_CHANGED
         Assert-Refresh ((Get-RefreshHashes)-ceq$before) 'SQL source observation leaves every artifact byte unchanged'
     }
     finally { Set-Variable -Name IsWindows -Scope Script -Value $hostPlatform -Force }

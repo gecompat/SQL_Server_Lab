@@ -85,8 +85,10 @@ VM-Identitäten. Sie verwirft geänderte Bindungen und benennt die noch
 ausstehenden Zielprüfungen für Windows-Lizenz, SQL-Bereitschaft, Speicher
 und Transfer. Die gesonderte Live-Abfrage der Windows-Ziellizenz setzt eine
 laufende Ziel-VM voraus. Sie bindet beide Snapshots und verwirft das Ergebnis
-bei Änderungen. Die Prüfung erfasst weder SQL-Readiness noch
-Speicherbereitschaft. Der Gesamtplan bleibt `BLOCKED`.
+bei Änderungen. Eine separate Aktion prüft über den vorhandenen SQL-Gastreader
+die Bereitschaft der erwarteten Instanz im laufenden SQL-2025-Prepared-Ziel.
+Diese Beobachtung erteilt keine SQL-Lizenz-, Speicher- oder Transferfreigabe.
+Der Gesamtplan bleibt `BLOCKED`.
 
 Key18 bestätigte die Windows-Lizenz der separaten Ziel-VM mit zwei eigenen
 SQL-2025-Developer-Runs. Die Quelle wurde vor dem Zielstart gestoppt.

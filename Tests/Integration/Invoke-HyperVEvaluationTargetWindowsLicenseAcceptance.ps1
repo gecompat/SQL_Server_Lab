@@ -1,7 +1,7 @@
 #Requires -Version 7.2
 <#
 .SYNOPSIS
-    Prüft die Windows-Lizenzabfrage eines separaten SQL-2025-Ziellabs auf Hyper-V.
+    Prüft Windows-Lizenz und SQL-Bereitschaft eines separaten SQL-2025-Ziellabs auf Hyper-V.
 .DESCRIPTION
     Erstellt zwei eigene Labs aus demselben expliziten Developer-Prepared-Image.
     Die Quelle wird vor dem Start des Ziels gestoppt. Beide Bindungen bleiben
@@ -153,6 +153,10 @@ try {
         $license.Status -ceq 'OBSERVED' -and $license.ObservedAt -and
         (($license.LicenseState -ceq 'LICENSED' -and $null -eq $license.EvaluationExpiresAt) -or
             ($license.LicenseState -ceq 'EVALUATION_ACTIVE' -and $license.EvaluationExpiresAt))) 'Live-Windows-Lizenz der gebundenen Ziel-VM bestätigt'
+    $phase = 'TARGET_SQL_READINESS'
+    $readiness = (Invoke-SqlServerLabWorkflowAction @operationRequest -Action ReadHyperVEvaluationTargetSqlReadiness).Result
+    Assert-TargetLicenseAcceptance ($readiness.TargetRunId -ceq $target.RunId -and $readiness.TargetInstanceId -ceq 'primary' -and
+        $readiness.SqlReadinessObservation.Status -ceq 'OBSERVED' -and $readiness.SqlReadinessObservation.ObservedAt) 'SQL-Bereitschaft der gebundenen Ziel-VM bestätigt'
     $fresh = Get-SqlServerLabEvaluationRefreshPlan @request -Mode STATEFUL_MIGRATION
     $after = @($paths | ForEach-Object { (Get-FileHash -LiteralPath $_ -Algorithm SHA256).Hash })
     Assert-TargetLicenseAcceptance (($before -join ',') -ceq ($after -join ',') -and

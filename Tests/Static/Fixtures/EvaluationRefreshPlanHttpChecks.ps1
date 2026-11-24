@@ -122,7 +122,8 @@ try {
         foreach ($case in @(
             @{ Action='ReadHyperVEvaluationSqlSource'; Target=$false },
             @{ Action='ReadHyperVEvaluationWindowsLicense'; Target=$false },
-            @{ Action='ReadHyperVEvaluationWindowsLicense'; Target=$true }
+            @{ Action='ReadHyperVEvaluationWindowsLicense'; Target=$true },
+            @{ Action='ReadHyperVEvaluationTargetSqlReadiness'; Target=$true }
         )) {
             $jobs.Clear()
             $actionName = $case.Action
@@ -148,7 +149,11 @@ try {
             & $actionHandler
             Assert-HttpRefresh ($httpResponse.StatusCode -eq 202 -and ($httpResponse.Body | ConvertFrom-Json).id -ceq 'synthetic-source' -and $jobs.Count -eq 1) ('Bound read starts a single transient job, target='+$case.Target)
             $busy = $false
-            $expectedBusy = if ($actionName -ceq 'ReadHyperVEvaluationSqlSource') { 'EVALUATION_REFRESH_SQL_SOURCE_ALREADY_RUNNING' } else { 'EVALUATION_REFRESH_WINDOWS_READ_ALREADY_RUNNING' }
+            $expectedBusy = switch -CaseSensitive ($actionName) {
+                'ReadHyperVEvaluationSqlSource' { 'EVALUATION_REFRESH_SQL_SOURCE_ALREADY_RUNNING' }
+                'ReadHyperVEvaluationTargetSqlReadiness' { 'EVALUATION_REFRESH_TARGET_SQL_ALREADY_RUNNING' }
+                default { 'EVALUATION_REFRESH_WINDOWS_READ_ALREADY_RUNNING' }
+            }
             try { & $actionHandler } catch { $busy = $_.Exception.Message -ceq $expectedBusy }
             Assert-HttpRefresh $busy 'Concurrent source observation is rejected before dispatch'
             $parameters.StateRoot = 'synthetic-foreign'
@@ -193,6 +198,19 @@ try {
     $lines = & ([scriptblock]::Create($windowsBody.Substring(1,$windowsBody.Length-2)))
     Assert-HttpRefresh (($lines -join ' ') -clike ('*Ziellab '+$targetSelection.RunId+'*LICENSED*') -and
         ($lines -join ' ') -cnotmatch 'SYNTHETIC_PRIVATE') 'Actual job formatter identifies the destination and confines the license fields'
+    $sqlFormatter = $server.Find({
+        param($node)
+        $node -is [Management.Automation.Language.IfStatementAst] -and
+        $node.Clauses[0].Item1.Extent.Text -ceq '$JobAction -ceq ''ReadHyperVEvaluationTargetSqlReadiness'''
+    }, $true)
+    $sqlBody = $sqlFormatter.Clauses[0].Item2.Extent.Text
+    $result = [pscustomobject]@{Result=[pscustomobject]@{
+        TargetRunId=$targetSelection.RunId; TargetInstanceId=$targetSelection.InstanceId
+        SqlReadinessObservation=[pscustomobject]@{Status='OBSERVED';ObservedAt='2030-01-01T00:00:00.0000000Z';Private='SYNTHETIC_PRIVATE'}
+    }}
+    $lines = & ([scriptblock]::Create($sqlBody.Substring(1,$sqlBody.Length-2)))
+    Assert-HttpRefresh (($lines -join ' ') -clike ('*Ziellab '+$targetSelection.RunId+'*OBSERVED*BLOCKED*') -and
+        ($lines -join ' ') -cnotmatch 'SYNTHETIC_PRIVATE') 'Target SQL job confines result and preserves migration boundary'
     Write-Host ('EVALUATION_REFRESH_HTTP_CHECKS: '+$checks+' PASS; 0 FAIL')
 }finally{
     $resolved=[IO.Path]::GetFullPath($root);$expected=[IO.Path]::GetFullPath((Join-Path $repo '.artifacts/evaluation-refresh-browser-fixtures'))

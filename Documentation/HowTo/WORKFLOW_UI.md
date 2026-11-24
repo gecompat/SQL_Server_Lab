@@ -447,7 +447,14 @@ registriertes Ziellab kannst du anschließend **Windows-Lizenz im Ziellab lesen*
 wählen. Die CLI bietet dieselbe getrennte Aktion unter **Instanzzustand
 migrieren**. Im Browser erscheint das Ergebnis unter **Vorgänge**, zusammen
 mit der ID des Ziellabs und seiner Instanz. Eine abgelaufene Ziel-Evaluation
-bleibt erkennbar. SQL-Readiness, Speicher und Transfer bleiben zu prüfen.
+bleibt erkennbar.
+
+Wähle **SQL-Bereitschaft im Ziellab prüfen**, um separat zu prüfen, ob
+die erwartete SQL-2025-Instanz im laufenden Ziellab antwortet. Die Konsole
+zeigt den aktuellen Befund direkt. Im Browser steht er unter **Vorgänge**.
+Kann die geplante Instanz nicht eindeutig beobachtet werden, erscheint
+`NOT_OBSERVED`. Die SQL-Lizenz, der Speicher und die Transferfähigkeit
+werden separat bewertet. Der Migrationsentscheid bleibt `BLOCKED`.
 
 **Windows-Lizenz im laufenden Gast lesen** ist eine eigene Auswahl in allen
 drei Entscheidungsarten. Sie zeigt den aktuellen Lizenzstatus, den

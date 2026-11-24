@@ -32,6 +32,10 @@
     Liest in STATEFUL_MIGRATION ausdrücklich die Windows-Lizenz der gebundenen
     laufenden Ziel-VM. Die historische Quelle, SQL-Bereitschaft und die
     Transferfreigabe werden dadurch nicht verändert.
+.PARAMETER ObserveTargetSqlReadiness
+    Prüft in STATEFUL_MIGRATION ausdrücklich mit einer lesenden Gastabfrage,
+    ob die erwartete SQL-Instanz im laufenden Ziellab antwortet. Der Befund
+    bleibt flüchtig und gibt weder SQL-Lizenz, Speicher noch Transfer frei.
 .OUTPUTS
     SqlServerLab.EvaluationRefreshPlan/1.0; strikt nicht ausführbar.
 .EXAMPLE
@@ -49,7 +53,8 @@ function Get-SqlServerLabEvaluationRefreshPlan {
         [switch]$ObserveWindowsLicense,
         [ValidatePattern('^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$')][string]$TargetRunId,
         [ValidatePattern('^[A-Za-z][A-Za-z0-9_-]{0,63}$')][string]$TargetInstanceId,
-        [switch]$ObserveTargetWindowsLicense
+        [switch]$ObserveTargetWindowsLicense,
+        [switch]$ObserveTargetSqlReadiness
     )
     New-LabEvaluationRefreshPlan @PSBoundParameters
 }
