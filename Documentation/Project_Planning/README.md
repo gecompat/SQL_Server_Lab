@@ -29,6 +29,7 @@
 | PROVIDER_NEUTRAL_BATCH_QUEUE_RESUME_WORKFLOW_2026-08-13.md | Beschlossener P0-Zielvertrag für providerneutrale Batchplanung, persistente Queue, Resume, Scheduler, User-Gates, Bulk-Slots, Cleanup und konsolidierte Menüführung |
 | CONSOLE_UI_FRAMEWORK_PLAN.md | Verbindlicher Plan für cursorbasierte Konsolenmenüs, lange editierbare Formulare, Viewports, stabilen Refresh und Read-Host-Fallback |
 | STORAGE_CONTRACT_PLAN.md | Zielvertrag für ein globales `Lab_Base`, genau eine `Lab_Data`-Wurzel je Volume und journalisierte Pfadmigrationen |
+| [CONTAINER_NETWORK_RENUMBERING_BACKLOG.md](CONTAINER_NETWORK_RENUMBERING_BACKLOG.md) | Geführte Docker-/Podman-Netzmigration, bestehende Abnahmen und offene Recovery-Ausführung mit gebundenem Journal |
 | HYPERV_LAB_DATA_RESOURCE_ROOT_BUGFIX_BACKLOG.md | Abgeschlossener P0-Bugfix für Slot-/Builder-VHDX, VM-Konfiguration, Smart Paging, Checkpoints und Hyper-V-Artefakte ausschließlich unter registrierten `Lab_Data`-Roots einschließlich real belegter Legacy-Migration |
 | PERSISTENT_STORAGE_REUSE_AND_LAB_DATA_BACKLOG.md | Providerübergreifender P1-Backlog für auswählbare Instanzspeicher, Backup-/Restore- und MDF/LDF/FILESTREAM-Pakete, sichere Retention sowie die noch erforderliche physische `Lab_Data`-Analyse für Docker, Podman und Hyper-V |
 | FULL_INSTANCE_EVALUATION_REFRESH_BACKLOG.md | Zielvertrag für den parallelen Neuaufbau einer Evaluation-Umgebung mit vollständig klassifizierter Instanzübernahme, Gleichwertigkeitsnachweis, Cutover und Rollback |
