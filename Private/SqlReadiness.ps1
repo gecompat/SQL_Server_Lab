@@ -9,8 +9,10 @@
 function Get-PodmanWindowsLocalhostDiagnostic {
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory)][int]$Port
-    , [string]$StateRoot)
+        [Parameter(Mandatory)][int]$Port,
+        [string]$StateRoot,
+        [DateTimeOffset]$DeadlineUtc = [DateTimeOffset]::MinValue
+    )
     if ($StateRoot -and (((Test-Path (Join-Path $StateRoot 'owned-host-required')) -or (Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json'))))) {
         $null=Get-LabOwnedHostPolicy -StateRoot $StateRoot -Required
         # This profile excludes shared runtime/WSL maintenance. Absence of this
@@ -26,19 +28,20 @@ function Get-PodmanWindowsLocalhostDiagnostic {
     if (-not $podmanResolution.Available) { return $null }
     $podmanInvocation = [string]$podmanResolution.Invocation
 
-    $containerNames = @(
-        & $podmanInvocation ps --filter "publish=$Port" --format '{{.Names}}' 2>$null |
-            ForEach-Object { ([string]$_).Trim() } |
-            Where-Object { $_ }
-    )
-
-    if ($LASTEXITCODE -ne 0 -or $containerNames.Count -eq 0) {
-        return $null
+    $probeArguments = @{Provider='podman';Invocation=$podmanInvocation;StateRoot=$StateRoot;DeadlineUtc=$DeadlineUtc}
+    try {
+        $list = Invoke-LabReadinessProviderProbe @probeArguments -Arguments @('ps','--filter',"publish=$Port",'--format','{{.Names}}')
     }
+    catch { return $null }
+    if ($list.ExitCode -ne 0) { return $null }
+    $containerNames = @(($list.Stdout -split '\r?\n') | ForEach-Object { $_.Trim() } | Where-Object { $_ })
 
     foreach ($containerName in $containerNames) {
-        $logs = & $podmanInvocation logs --tail 200 $containerName 2>&1
-        $logText = ($logs | ForEach-Object { [string]$_ }) -join "`n"
+        try {
+            $logs = Invoke-LabReadinessProviderProbe @probeArguments -Arguments @('logs','--tail','200',$containerName)
+        }
+        catch { return $null }
+        $logText = $logs.Output -join "`n"
         if ($logText -notmatch 'SQL Server is now ready for client connections') {
             continue
         }
@@ -136,21 +139,36 @@ function Resolve-PodmanWindowsHostName {
     return $FallbackHostName
 }
 
+function Invoke-LabReadinessProviderProbe {
+    param([string]$Provider,[string]$Invocation,[string[]]$Arguments,[string]$StateRoot,
+        [DateTimeOffset]$DeadlineUtc)
+
+    $timeout = Get-LabContainerRuntimeTimeoutSeconds -TimeoutSeconds 15 -DeadlineUtc $DeadlineUtc
+    if ($StateRoot -and ((Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-required')) -or
+        (Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json')))) {
+        return Invoke-LabContainerRuntimeCommand -Provider $Provider -StateRoot $StateRoot -Invocation $Invocation `
+            -ArgumentList $Arguments -NativeResult -TimeoutSeconds $timeout -DeadlineUtc $DeadlineUtc -Phase SqlReadiness
+    }
+    Invoke-LabProgressNativeCommand -FilePath $Invocation -ArgumentList $Arguments -TimeoutSeconds $timeout -Phase SqlReadiness
+}
+
 function Get-LabContainerReadinessDiagnostic {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][ValidateSet('docker', 'podman')][string]$Provider,
         [Parameter(Mandatory)][string]$ContainerIdOrName,
-        [switch]$IncludeLogs
-    , [string]$StateRoot)
+        [switch]$IncludeLogs,
+        [string]$StateRoot,
+        [DateTimeOffset]$DeadlineUtc = [DateTimeOffset]::MinValue
+    )
 
     $runtimeResolution = Resolve-LabHostTool -Name $Provider
     if (-not $runtimeResolution.Available) { return $null }
-    $runtimeInvocation = [string]$runtimeResolution.Invocation
+    $probeArguments = @{Provider=$Provider;Invocation=[string]$runtimeResolution.Invocation;StateRoot=$StateRoot;DeadlineUtc=$DeadlineUtc}
     try {
-        $stateOutput = $(if ($StateRoot -and (((Test-Path (Join-Path $StateRoot 'owned-host-required')) -or (Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json'))))) { Invoke-LabContainerRuntimeCommand -Provider $Provider -StateRoot $StateRoot -Invocation $runtimeInvocation -ArgumentList @('inspect', '--format', '{{.State.Status}}|{{.State.ExitCode}}|{{.State.OOMKilled}}|{{.State.Error}}', $ContainerIdOrName) } else { & $runtimeInvocation inspect --format '{{.State.Status}}|{{.State.ExitCode}}|{{.State.OOMKilled}}|{{.State.Error}}' $ContainerIdOrName }) 2>&1
-        if ($LASTEXITCODE -ne 0) { return $null }
-        $stateText = (($stateOutput | ForEach-Object { [string]$_ }) -join ' ').Trim()
+        $state = Invoke-LabReadinessProviderProbe @probeArguments -Arguments @('inspect','--format','{{.State.Status}}|{{.State.ExitCode}}|{{.State.OOMKilled}}|{{.State.Error}}',$ContainerIdOrName)
+        if ($state.ExitCode -ne 0) { return $null }
+        $stateText = ($state.Stdout -join ' ').Trim()
         $parts = @($stateText -split '\|', 4)
         $status = if ($parts.Count -gt 0) { [string]$parts[0] } else { 'unknown' }
         $exitCode = if ($parts.Count -gt 1) { [string]$parts[1] } else { '?' }
@@ -160,8 +178,12 @@ function Get-LabContainerReadinessDiagnostic {
         if (-not [string]::IsNullOrWhiteSpace($runtimeError)) { $message += "; RuntimeError: $runtimeError" }
 
         if ($IncludeLogs) {
-            $logOutput = $(if ($StateRoot -and (((Test-Path (Join-Path $StateRoot 'owned-host-required')) -or (Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json'))))) { Invoke-LabContainerRuntimeCommand -Provider $Provider -StateRoot $StateRoot -Invocation $runtimeInvocation -ArgumentList @('logs', '--tail', 80, $ContainerIdOrName) } else { & $runtimeInvocation logs --tail 80 $ContainerIdOrName }) 2>&1
-            $logText = (($logOutput | ForEach-Object { [string]$_ }) -join "`n").Trim()
+            $logText = ''
+            try {
+                $logs = Invoke-LabReadinessProviderProbe @probeArguments -Arguments @('logs','--tail','80',$ContainerIdOrName)
+                $logText = ($logs.Output -join "`n").Trim()
+            }
+            catch { } # Keep the completed inspect result when no time remains for logs.
             if ($logText) {
                 $logText = [regex]::Replace($logText, '(?i)((?:sa_)?password\s*[=:]\s*)\S+', '$1***')
                 if ($logText.Length -gt 6000) { $logText = $logText.Substring($logText.Length - 6000) }
@@ -207,7 +229,9 @@ function Wait-SqlReady {
     }
 
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+    $deadlineUtc = [DateTimeOffset]::UtcNow.AddSeconds($TimeoutSeconds)
     $lastError = ''
+    $lastRuntimeDiagnostic = $null
     $podmanDiagnosticChecked = $false
     $nextRuntimeCheckSeconds = 0
     $nextTransientLoginCheckSeconds = 15
@@ -260,10 +284,11 @@ function Wait-SqlReady {
             }
 
             if ($Provider -and $ContainerIdOrName -and $stopwatch.Elapsed.TotalSeconds -ge $nextRuntimeCheckSeconds) {
-                $runtimeDiagnostic = Get-LabContainerReadinessDiagnostic -Provider $Provider -ContainerIdOrName $ContainerIdOrName -StateRoot $StateRoot
+                $runtimeDiagnostic = Get-LabContainerReadinessDiagnostic -Provider $Provider -ContainerIdOrName $ContainerIdOrName -StateRoot $StateRoot -DeadlineUtc $deadlineUtc
+                if ($runtimeDiagnostic) { $lastRuntimeDiagnostic = $runtimeDiagnostic }
                 $nextRuntimeCheckSeconds = $stopwatch.Elapsed.TotalSeconds + 2
                 if ($runtimeDiagnostic -and -not $runtimeDiagnostic.Running) {
-                    $confirmed = Get-LabContainerReadinessDiagnostic -Provider $Provider -ContainerIdOrName $ContainerIdOrName -IncludeLogs -StateRoot $StateRoot
+                    $confirmed = Get-LabContainerReadinessDiagnostic -Provider $Provider -ContainerIdOrName $ContainerIdOrName -IncludeLogs -StateRoot $StateRoot -DeadlineUtc $deadlineUtc
                     if ($confirmed -and $confirmed.Status -in @('exited','dead','stopped','removing','paused','restarting')) {
                         $stopwatch.Stop()
                         return [PSCustomObject]@{
@@ -283,7 +308,7 @@ function Wait-SqlReady {
                 $transientDiagnostic = Get-LabContainerReadinessDiagnostic `
                     -Provider $Provider `
                     -ContainerIdOrName $ContainerIdOrName `
-                    -IncludeLogs -StateRoot $StateRoot
+                    -IncludeLogs -StateRoot $StateRoot -DeadlineUtc $deadlineUtc
                 if ($transientDiagnostic -and $transientDiagnostic.Message -match '(?i)Error:\s*18456[\s\S]{0,120}State:\s*115') {
                     $stopwatch.Stop()
                     return [PSCustomObject]@{
@@ -297,7 +322,7 @@ function Wait-SqlReady {
 
             if ($Provider -eq 'podman' -and -not $podmanDiagnosticChecked -and
                 $HostName -in @('127.0.0.1', 'localhost') -and $stopwatch.Elapsed.TotalSeconds -ge 5) {
-                $podmanDiagnostic = Get-PodmanWindowsLocalhostDiagnostic -Port $Port -StateRoot $StateRoot
+                $podmanDiagnostic = Get-PodmanWindowsLocalhostDiagnostic -Port $Port -StateRoot $StateRoot -DeadlineUtc $deadlineUtc
                 if ($podmanDiagnostic) {
                     $stopwatch.Stop()
                     Write-LabWarning $podmanDiagnostic
@@ -316,7 +341,8 @@ function Wait-SqlReady {
 
         $stopwatch.Stop()
         if ($Provider -and $ContainerIdOrName) {
-            $runtimeDiagnostic = Get-LabContainerReadinessDiagnostic -Provider $Provider -ContainerIdOrName $ContainerIdOrName -IncludeLogs -StateRoot $StateRoot
+            $runtimeDiagnostic = Get-LabContainerReadinessDiagnostic -Provider $Provider -ContainerIdOrName $ContainerIdOrName -IncludeLogs -StateRoot $StateRoot -DeadlineUtc $deadlineUtc
+            if (-not $runtimeDiagnostic) { $runtimeDiagnostic = $lastRuntimeDiagnostic }
             if ($runtimeDiagnostic) { $lastError += "`n$($runtimeDiagnostic.Message)" }
         }
         return [PSCustomObject]@{
