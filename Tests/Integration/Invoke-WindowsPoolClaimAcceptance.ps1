@@ -7,6 +7,9 @@
     übernommen. Erfolg räumt ausschließlich dieses eigene Mitglied auf;
     Fehler bewahren State und Child zur Recovery und versuchen einen eigenen
     Stop. Kein UAC, Download, Secretoutput oder automatischer Retry.
+.PARAMETER ConfirmSqlSlotInstallation
+    Prüft zusätzlich den Workflow-Aufruf des Browsers für genau dieses
+    übernommene Poolmitglied. Erwartet den isolierten StateRoot als Standard.
 #>
 [CmdletBinding()]
 param(
@@ -17,7 +20,8 @@ param(
     [ValidateSet('Enterprise','Standard','Eval')][string]$MediaEdition='Eval',
     [switch]$RetainEvidenceInStateRoot,
     [switch]$ConfirmNativeExecution,
-    [switch]$ConfirmOwnCleanup
+    [switch]$ConfirmOwnCleanup,
+    [switch]$ConfirmSqlSlotInstallation
 )
 $ErrorActionPreference='Stop'
 if(-not $ConfirmNativeExecution -or -not $ConfirmOwnCleanup){throw 'WINDOWS_POOL_NATIVE_EXPLICIT_EXECUTION_AND_CLEANUP_REQUIRED'}
@@ -30,6 +34,14 @@ $module=Import-Module (Join-Path $repo SqlServerLab.psd1) -Force -PassThru
 . (Join-Path $repo 'Tests/Common/WindowsPoolNativeAcceptance.ps1')
 $media=Resolve-WindowsPoolNativeSqlMedia -Module $module -MediaRoot $MediaRoot -MediaEdition $MediaEdition -SqlMediaPath $SqlMediaPath
 $StateRoot=& $module {param($root) Resolve-LabWindowsPoolRoot -StateRoot $root} $StateRoot
+if ($ConfirmSqlSlotInstallation) {
+    $defaults = & $module { [pscustomobject]@{ StateRoot=(Get-LabStateRoot); MediaRoot=(Get-LabMediaRootDefault) } }
+    if (-not $defaults.StateRoot -or -not $defaults.MediaRoot -or
+        [IO.Path]::GetFullPath($defaults.StateRoot).TrimEnd('\','/') -ine [IO.Path]::GetFullPath($StateRoot).TrimEnd('\','/') -or
+        [IO.Path]::GetFullPath($defaults.MediaRoot).TrimEnd('\','/') -ine [IO.Path]::GetFullPath($MediaRoot).TrimEnd('\','/')) {
+        throw 'WINDOWS_POOL_NATIVE_SQL_SLOT_BOUND_DEFAULTS_REQUIRED'
+    }
+}
 $baseline=@(Get-SqlServerLabHyperVImageArtifact -ArtifactId $ArtifactId -StateRoot $StateRoot -VerifyIntegrity)
 if($baseline.Count -ne 1 -or $baseline[0].IntegrityStatus -cne 'VERIFIED' -or $baseline[0].ArtifactState -cne 'OS_SEALED' -or
     $baseline[0].OperatingSystem.Version -notmatch '2025' -or $baseline[0].OperatingSystem.InstallationType -cne 'desktop-experience' -or
@@ -49,6 +61,7 @@ $report=[ordered]@{ContractVersion='SqlServerLab.WindowsPoolNativeAcceptance/1.0
     Status='RUNNING';Checks=@();RunIds=@();OriginalBindings=@();OriginalError=$null;OriginalCause=$null;PreparationErrors=@();StopErrors=@();CleanupErrors=@();CleanupConfirmed=$true
     ParentBefore=$parentBefore;ParentAfter=$null}
 $success=$false
+$sqlSetupAttempted=$false
 $bindings=[ordered]@{}
 function Get-OwnNativeMembers {
     $runs=@(& $module {param($root,$pool)
@@ -121,10 +134,46 @@ try{
     if($released.Status -cne 'RELEASED'){throw 'WINDOWS_POOL_NATIVE_SAFE_RELEASE_FAILED'}
     $claim=Invoke-ConfirmedMember $runId Claim
     $sql=@{SqlVersion='2025';DeploymentMode='adhoc-install';MediaEdition=$media.MediaEdition;SqlMediaPath=$media.RelativePath
-        SqlFeatures=@('SQLENGINE');ProcessorCount=4;MemoryStartupMB=2048}
+        SqlFeatures=@('SQLENGINE');ProcessorCount=4;MemoryStartupMB=$(if($ConfirmSqlSlotInstallation){6144}else{2048})}
     $consumed=Invoke-ConfirmedMember $runId Consume $sql
     if($consumed.Status -cne 'CONSUMED'){throw 'WINDOWS_POOL_NATIVE_CONSUME_FAILED'}
     $report.Checks+='SQL_PLAN_AND_ACTUAL_CPU_RAM_CONSUMED'
+    if ($ConfirmSqlSlotInstallation) {
+        $binding = $bindings[$runId]
+        if (-not $binding.VmId) { throw 'WINDOWS_POOL_NATIVE_ORIGINAL_BINDING_INCOMPLETE' }
+        $view = Get-SqlServerLabWorkflow -MediaRoot $MediaRoot
+        $sqlPreview = Get-WindowsPoolNativeSqlContinuationPlan -Workflow $view -RunId $runId -MediaEdition $media.MediaEdition
+        $sqlSetupAttempted = $true
+        $installed = (Invoke-SqlServerLabWorkflowAction -Action InstallHyperVLabSqlSlot -RunId $runId -ExpectedPlanKey $sqlPreview.PlanKey).Result
+        if ($installed.RunId -cne $runId -or $installed.State -cne 'SQL_SLOT_READY' -or @($installed.PSObject.Properties).Count -ne 2) {
+            throw 'WINDOWS_POOL_NATIVE_SQL_SLOT_RESULT_INVALID'
+        }
+        $report.Checks += 'BROWSER_WORKFLOW_ACTION_INSTALLED_BOUND_SQL_SLOT'
+        $ready = & $module {
+            param($Root,$Binding)
+            $lab = Get-HyperVLabWorkflowRun -RunId $Binding.RunId -StateRoot $Root -ExpectedVmId ([guid]$Binding.VmId) -NoWrite
+            if ($lab.Run.scopeId -cne $Binding.ScopeId -or $lab.Run.state -cne 'RUNNING' -or
+                $lab.Instance.sqlDeploymentPlan.state -cne 'SQL_SLOT_READY') { throw 'WINDOWS_POOL_NATIVE_SQL_SLOT_BINDING_CHANGED' }
+            $guest = $sa = $null
+            try {
+                $guest = Get-LabSecret -Path $lab.RunDirectory -Name 'guest-administrator-password'
+                $sa = Get-LabSecret -Path $lab.RunDirectory -Name 'generated-sql-sa-password'
+                if (-not $sa) { $sa = Get-LabSecret -Path $lab.RunDirectory -Name 'sa-password' }
+                if (-not $guest -or -not $sa) { throw 'WINDOWS_POOL_NATIVE_SQL_SLOT_CREDENTIAL_UNAVAILABLE' }
+                Wait-HyperVGuestSqlReady -VMName $lab.Instance.vmName -ExpectedRunId $Binding.RunId -ExpectedScopeId $Binding.ScopeId `
+                    -ExpectedVmId ([guid]$Binding.VmId) -StateRoot $Root -Credential ([PSCredential]::new('Administrator',$guest)) `
+                    -SaPassword $sa -ExpectedMajorVersion 17 -TimeoutSeconds 180
+            }
+            finally {
+                if ($guest) { $guest.Dispose() }
+                if ($sa) { $sa.Dispose() }
+            }
+        } $StateRoot $binding
+        if (-not $ready.Ready -or $ready.MajorVersion -ne 17 -or $ready.RunId -cne $runId -or $ready.ScopeId -cne $binding.ScopeId) {
+            throw 'WINDOWS_POOL_NATIVE_SQL_SLOT_GUEST_NOT_READY'
+        }
+        $report.Checks += 'SQL_2025_READY_INSIDE_THE_SAME_OWNED_VM'
+    }
     $success=$true
 }catch{
     $report.OriginalCause=Get-WindowsPoolNativeFailureDetail -Failure $_ -Fallback WINDOWS_POOL_NATIVE_ACCEPTANCE_FAILED
@@ -145,6 +194,16 @@ finally{
                 $stop=Invoke-ConfirmedMember $run.runId Stop
                 if($stop.Status -cne 'STOPPED_CLAIM_HELD'){throw 'OWN_STOP_FAILED'}
             }elseif($run.state -notin @('STOPPED','REMOVED')){$null=Stop-SqlServerLab -RunId $run.runId -StateRoot $StateRoot -Confirm:$false}
+            elseif ($sqlSetupAttempted -and $run.state -ceq 'STOPPED' -and $run.metadata.windowsPoolMember.state -ceq 'CONSUMED') {
+                # Setup can boot the child before persisting RUNNING.
+                $null = & $module {
+                    param($Root,$Binding)
+                    $lab = Get-HyperVLabWorkflowRun -RunId $Binding.RunId -StateRoot $Root -ExpectedVmId ([guid]$Binding.VmId) -NoWrite
+                    if ($lab.Run.scopeId -cne $Binding.ScopeId) { throw 'WINDOWS_POOL_NATIVE_SQL_SLOT_BINDING_CHANGED' }
+                    Stop-HyperVInstance -VMName $lab.Instance.vmName -ExpectedRunId $Binding.RunId -ExpectedScopeId $Binding.ScopeId `
+                        -ExpectedVmId $Binding.VmId -ExpectedInstanceId $lab.Instance.id -StateRoot $Root
+                } $StateRoot $binding
+            }
         }catch{$report.StopErrors+=@{RunId=$binding.RunId;Code='WINDOWS_POOL_NATIVE_OWN_STOP_FAILED';Cause=(Get-WindowsPoolNativeFailureDetail -Failure $_ -Fallback WINDOWS_POOL_NATIVE_OWN_STOP_FAILED);OperationFailure=($stop|Select-Object OriginalError,CauseCode,CleanupError,DiagnosticError)};continue}
         if($success -and $discoveryValid){
             try{
