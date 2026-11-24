@@ -38,16 +38,17 @@ eines Cmdlets:
 ## Exportreferenz-Audit
 
 Ein mechanischer Abgleich des Manifests mit
-`Documentation/User/FUNCTIONS_CLI_GUI.md` findet 151 der 166 Exportnamen und
-15 dort nicht referenzierte Exporte. Das ist ein Referenzabgleich, keine
-vollständige Prüfung, ob die 151 Treffer tatsächlich korrekt geführt,
+`Documentation/User/FUNCTIONS_CLI_GUI.md` findet 154 der 166 Exportnamen und
+12 dort nicht referenzierte Exporte. Das ist ein Referenzabgleich, keine
+vollständige Prüfung, ob die 154 Treffer tatsächlich korrekt geführt,
 ausführbar oder providerabgenommen sind. Die folgende Inventarliste hält die
-15 nicht referenzierten Namen einzeln fest. Die sieben Environment-Group-
+12 nicht referenzierten Namen einzeln fest. Die sieben Environment-Group-
 Operationen aus dem vorherigen Abgleich sind jetzt in der Funktionsübersicht
 enthalten und unten separat quellengestützt als `GUIDED_BOTH` bewertet. Von
-den verbleibenden 15 Einträgen sind vier TLS-001-Exporte `DEFERRED`,
-7 Exporte als `KNOWN_GAP`, einer als `EXPERT_CATALOG_ONLY` und 3 als
-`NOT_ASSESSED` bewertet.
+den 12 Einträgen sind vier TLS-001-Exporte `DEFERRED`, sieben Exporte
+`KNOWN_GAP` und einer `EXPERT_CATALOG_ONLY`. Die drei External-Model- und
+OVMS-Gateway-Operationen sind inzwischen referenziert. Ihre geführten
+Bedienlücken bleiben in der eigenen Tabelle unten sichtbar.
 Die Bewertung folgt aus Menüdispatch, GUI-Aktion, öffentlichen Parametern
 und den vorhandenen Nachweisen. Der Expertenkatalog allein erfüllt die
 geführte Abdeckung nicht.
@@ -55,15 +56,45 @@ geführte Abdeckung nicht.
 | Funktionsfamilie | Nicht einzeln in der Funktionsübersicht referenzierte Exporte | Status |
 |---|---|---|
 | Shared Gateway | `Get-SqlServerLabAiSharedGatewayPlan`; `Test-SqlServerLabAiSharedGatewayPreflight`; `Register-SqlServerLabAiSharedGatewayStorage`; `Test-SqlServerLabAiSharedGatewayUpstream`; `Start-SqlServerLabAiSharedGatewaySession`; `Stop-SqlServerLabAiSharedGatewaySession`; `Get-SqlServerLabAiSharedGatewayStatus` | `KNOWN_GAP` für diese sieben Fachaktionen. Der vorhandene Dialog zum Dienst-Preflight nimmt einen bereits erstellten Gateway-Plan entgegen. |
-| Modell-/Gateway-Lifecycle | `Test-SqlServerLabAiExternalModelEndpoint`; `Start-SqlServerLabOvmsHttpsGateway`; `Stop-SqlServerLabOvmsHttpsGateway` | `NOT_ASSESSED`; vorhandene Workflow-Dokumentation weist Lifecycle-Lücken aus |
 | Security-Tool-Katalog | `Get-SqlServerLabSecurityToolPlan` | `EXPERT_CATALOG_ONLY`. Die produktive Allowlist ist leer, der lokale Resolver blockiert alle Anfragen. [Katalogvertrag und Freigabestand](../Project_Planning/SECURITY_TOOL_ACQUISITION_BACKLOG.md). |
 | TLS-001, zurückgestellt | `Update-SqlServerLabTlsBinding`; `Get-SqlServerLabTlsBindingRecovery`; `Resolve-SqlServerLabTlsBindingRecovery`; `Read-SqlServerLabQualifiedTestEnvironment` | `DEFERRED`; bestehender Zustand bleibt erhalten, keine neue Abdeckungs- oder Runtimearbeit ohne dokumentierten Anwendungsfall |
 
-Die 15 Namen ohne Referenz und die einzeln geprüften Exporte unten
+Die 12 Namen ohne Referenz und die einzeln geprüften Exporte unten
 wurden unmittelbar gegen `FunctionsToExport` im Manifest
 abgeglichen; die Familiengruppierung ist nur eine Lesbarkeitshilfe. Sie ist
 keine Behauptung, dass eine Familie einen gemeinsamen Aufrufer oder denselben
 Nachweis besitzt.
+
+## Geprüfte Operationen: OVMS und externe Modellendpunkte
+
+| Aufgabe | Geführte Bedienung | Öffentlicher Vertrag und Nachweis |
+| --- | --- | --- |
+| Bereits laufenden lokalen OVMS-Upstream prüfen | `GUIDED_BOTH` unter **Host-Dienste und Modelle → Lokalen OVMS-Embedding-Dienst prüfen** | `Test-SqlServerLabOvmsUpstreamEndpoint` sendet nach Bestätigung einen synthetischen HTTP-Request über numerisches Loopback und prüft Modell und Dimension. |
+| Geplanten HTTPS-Modellendpunkt verifizieren | `KNOWN_GAP` in CLI und Browser | `Test-SqlServerLabAiExternalModelEndpoint` benötigt den gebundenen Plan und prüft den HTTPS-Endpunkt einschließlich Zertifikat und Antwort. Die geführte HTTP-Upstream-Prüfung deckt diesen Vertrag nicht ab. |
+| Eigenen OVMS-HTTPS-Gateway starten | `KNOWN_GAP` in CLI und Browser | `Start-SqlServerLabOvmsHttpsGateway` startet eine befristete Windows-Loopback-Sitzung mit expliziten Zertifikats- und Schlüsseleingaben. |
+| Eigenen OVMS-HTTPS-Gateway stoppen | `KNOWN_GAP` in CLI und Browser | `Stop-SqlServerLabOvmsHttpsGateway` benötigt die Operations-ID der eigenen Modulsitzung. |
+
+Der [separate Windows-Harness](LOCAL_VALIDATION_STRATEGY.md) prüft Gateway-Start,
+HTTPS-Probe und Owner-Stop mit einem synthetischen Upstream. Das belegt keine
+geführte Gateway-Bedienung, Acceleratorkonfiguration oder SQL-Ausführung.
+
+## Geprüfte Operationen: Ressourcenstand und lokaler Bedarf
+
+| Operations-ID und Aufgabe | Geführte CLI | Browser-GUI | Öffentlicher Vertrag und Nachweis |
+| --- | --- | --- | --- |
+| `resources-watch-read` · Katalogstand und letzten Sitzungsbefund lesen | Ressourcen und Downloads → Ressourcenstand: CUs und SqlPackage → Gespeicherten Sitzungsbefund ansehen | Ressourcen und Downloads → Ressourcenstand: CUs und SqlPackage → Sitzungsbefund lesen | `GUIDED_BOTH` über `Invoke-SqlServerLabWorkflowAction -Action GetResourceWatchState` und Browser-GET. Kein Netzabruf, keine Speicherung. Fehlender oder abgelaufener Befund bleibt sichtbar. |
+| `resources-watch-refresh` · Hersteller-Metadaten vergleichen | Ressourcen und Downloads → Ressourcenstand: CUs und SqlPackage → Jetzt bei Microsoft prüfen | Ressourcen und Downloads → Ressourcenstand: CUs und SqlPackage → Jetzt bei Microsoft prüfen | `GUIDED_BOTH` über `Invoke-SqlServerLabWorkflowAction -Action RefreshResourceWatch` und gleichoriginigen Browser-POST. Expliziter Abruf der fest zugelassenen Quellen. Aktualisiert den Sitzungscache, ohne Pakete zu laden oder Kataloge zu verändern. Quellenfehler erhalten keinen ungeprüften Freigabestatus. |
+| `resources-cu-check` · SQL-CUs ohne SqlPackage vergleichen | Ressourcen und Downloads → Aktuelle SQL-Server-CUs bei Microsoft prüfen | Gemeinsamer CU-Abgleich in der Ressourcenstand-Aktion oben | Der Browser zeigt den CU-Befund aus dem gemeinsamen Vergleichskern. `Get-SqlServerLabCuStatus -Version … -MaxMissingEntries … -SourceUrl …` bleibt für die gezielte Auswahl ein PowerShell-Befehl. `SourceUrl` ist auf zugelassene Microsoft-Learn-HTTPS-Quellen begrenzt. |
+| `resources-local-plan` · Lokale Voraussetzungen und Beschaffungsbedarf prüfen | Ressourcen und Downloads → Lokalen Ressourcenbedarf prüfen → Auswahl | Ressourcen und Downloads → Lokalen Ressourcenbedarf prüfen → Auswahl → Prüfung starten | `GUIDED_BOTH` über `Get-SqlServerLabResourcePlan -ResourceKind All\|Sample\|Software -SummaryOnly`. Beide Fachwege zeigen Status und Anzahlen ohne lokale Pfade oder Hashes. Ausführung liest die konfigurierten Speicherorte und ändert weder Dateien noch Vertrauensstatus. Einzel-IDs und alternative Roots gehören zum direkten Cmdlet. |
+
+Die Ressourcenstandprüfung ist hostbezogen und benötigt keinen laufenden
+SQL Server und keinen Provider. `Invoke-VersionCatalogChecks.ps1` prüft den
+Vergleichskern, die CLI und den HTTP-Handler. `Invoke-WorkflowUiChecks.ps1`
+prüft den Browserdispatch einschließlich verspäteter oder fehlgeschlagener
+Antworten. Die [Validierungsstrategie](LOCAL_VALIDATION_STRATEGY.md#resource-watch-fokussierte-validierung)
+dokumentiert den getrennten Live-Metadatencheck. `Invoke-ResourceSetChecks.ps1`
+prüft die lokale Ressourcenplanung im eigenen Fixture. Ein Ressourcenplan
+bestätigt weder eine Installation noch die Ausführbarkeit eines Providers.
 
 ## Geprüfte Operationen: Environment Groups
 
