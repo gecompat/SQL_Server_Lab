@@ -442,7 +442,12 @@ in der CLI zusätzlich ein separates registriertes SQL-2025-Lab unter
 demselben `Lab_Data` wählen. Im Browser wählst du es im Feld
 **Registriertes Ziellab (optional)** vor **Vorschau lesen**. Die Vorschau
 zeigt den registrierten Zielzustand und die ausstehenden Prüfungen für
-Windows-Lizenz, SQL-Bereitschaft sowie Speicher und Transfer.
+Windows-Lizenz, SQL-Bereitschaft sowie Speicher und Transfer. Für ein als laufend
+registriertes Ziellab kannst du anschließend **Windows-Lizenz im Ziellab lesen**
+wählen. Die CLI bietet dieselbe getrennte Aktion unter **Instanzzustand
+migrieren**. Im Browser erscheint das Ergebnis unter **Vorgänge**, zusammen
+mit der ID des Ziellabs und seiner Instanz. Eine abgelaufene Ziel-Evaluation
+bleibt erkennbar. SQL-Readiness, Speicher und Transfer bleiben zu prüfen.
 
 **Windows-Lizenz im laufenden Gast lesen** ist eine eigene Auswahl in allen
 drei Entscheidungsarten. Sie zeigt den aktuellen Lizenzstatus, den

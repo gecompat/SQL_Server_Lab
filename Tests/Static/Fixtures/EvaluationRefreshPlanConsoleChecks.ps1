@@ -42,7 +42,7 @@ try {
     $script:actualPlan=${function:New-LabEvaluationRefreshPlan}
     function New-LabEvaluationRefreshPlan {
         param($RunId,$InstanceId,$DataRoot,$Mode,$ExpectedSnapshotDigest,[switch]$ObserveSqlSource,[switch]$ObserveWindowsLicense,
-            $TargetRunId,$TargetInstanceId,$ExpectedTargetSnapshotDigest)
+            $TargetRunId,$TargetInstanceId,$ExpectedTargetSnapshotDigest,[switch]$ObserveTargetWindowsLicense)
         $script:planCalls++
         if ($ExpectedSnapshotDigest -cnotmatch '^[a-f0-9]{64}$') { throw 'SYNTHETIC_EXPECTED_DIGEST_REQUIRED' }
         $script:lastPlan = & $script:actualPlan @PSBoundParameters
@@ -109,6 +109,15 @@ try {
     Reset-ConsoleRefresh @($runId,'STATEFUL_MIGRATION','target',$runId);Invoke-LabEvaluationRefreshPlanInteractive
     Assert-ConsoleRefresh ($planCalls-eq0) 'The source is never offered as its own target'
     Assert-ConsoleRefresh ((Get-RefreshHashes)-ceq$beforeTargets) 'Target dialog does not change either fixture'
+    $liveTarget=New-RefreshTargetFixture $root $run $connection RUNNING
+    $beforeLiveTargets=Get-RefreshHashes
+    Reset-ConsoleRefresh @($runId,'STATEFUL_MIGRATION','observe-target-windows',$liveTarget.RunId);Invoke-LabEvaluationRefreshPlanInteractive
+    Assert-ConsoleRefresh ($planCalls -eq 1 -and $lastPlan.TargetAssessment.RunId -ceq $liveTarget.RunId -and
+        $lastPlan.TargetAssessment.WindowsLicenseObservation.LicenseState -ceq 'LICENSED' -and
+        ($messages-join ' ') -cmatch 'Windows-Lizenz im Ziellab.*LICENSED') 'CLI explicitly reads and displays the selected target license'
+    Reset-ConsoleRefresh @($runId,'STATEFUL_MIGRATION','observe-target-windows',$targetFixture.RunId);Invoke-LabEvaluationRefreshPlanInteractive
+    Assert-ConsoleRefresh ($planCalls -eq 0) 'CLI cannot dispatch a license read for a stopped or forged target'
+    Assert-ConsoleRefresh ((Get-RefreshHashes) -ceq $beforeLiveTargets) 'Target license dialog leaves saved state unchanged'
     $script:guidedCalls=0;$script:legacyCalls=0;$script:componentCalls=0
     function Get-LabPublicCommandConsoleCatalog {return [pscustomobject]@{Name='legacy';ParameterSets=@(@{Name='Default'})}}
     function Invoke-LabEvaluationRefreshPlanInteractive {$script:guidedCalls++}

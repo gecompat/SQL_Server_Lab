@@ -128,5 +128,23 @@ async function readMetadata(body = metadata) { const pending = node('read').fire
   respond(requests.at(-1), { ...response, TargetAssessment: { ...response.TargetAssessment, ObservedContentSha256: 'd'.repeat(64) } }); await mismatched;
   check('A different target digest is rejected and displayed data is cleared', node('result').textContent === '' &&
     node('target').value === '' && node('status').textContent.includes('nicht bestätigt'));
+  await readMetadata(pairMetadata);
+  node('target').value = target.RunId; await node('target').fire('change');
+  await node('observe-target-windows').fire('click');
+  check('Stopped target cannot dispatch a Windows license read', jobs.length === 2 && node('observe-target-windows').disabled);
+  const liveTarget = { ...target, State: 'RUNNING', Digest: 'e'.repeat(64) };
+  await readMetadata({ ...metadata, Runs: [own, liveTarget] });
+  node('target').value = liveTarget.RunId; await node('target').fire('change');
+  await node('observe-target-windows').fire('click');
+  check('Explicit target read binds both selected digests to the Windows job', jobs.length === 3 &&
+    JSON.stringify(jobs[2]) === JSON.stringify({
+      action: 'ReadHyperVEvaluationWindowsLicense',
+      parameters: { RunId: own.RunId, InstanceId: own.InstanceId, DataRoot: 'CHANGED_ROOT', ExpectedPlanKey: own.Digest,
+        TargetRunId: liveTarget.RunId, TargetInstanceId: liveTarget.InstanceId, ExpectedTargetPlanKey: liveTarget.Digest }
+    }) && node('status').textContent.includes('Ziellabs'));
+  node('mode').value = 'RECONSTRUCT_LAB'; await node('mode').fire('change');
+  await node('observe-target-windows').fire('click');
+  check('Switching away from migration clears the target license operation', jobs.length === 3 &&
+    node('observe-target-windows').disabled && node('observe-target-windows').hidden);
   console.log('EVALUATION_REFRESH_UI_CHECKS: ' + checks + ' PASS; 0 FAIL');
 })().catch(error => { console.error(error); process.exitCode = 1; });

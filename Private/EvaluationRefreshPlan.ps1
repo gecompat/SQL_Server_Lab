@@ -153,9 +153,10 @@ function Get-LabEvaluationWindowsLicenseObservation {
 
 function New-LabEvaluationRefreshPlan {
     param([string]$RunId,[string]$InstanceId,[string]$DataRoot,[string]$Mode,[switch]$ObserveSqlSource,[switch]$ObserveWindowsLicense,
-        [string]$ExpectedSnapshotDigest,[string]$TargetRunId,[string]$TargetInstanceId,[string]$ExpectedTargetSnapshotDigest)
+        [string]$ExpectedSnapshotDigest,[string]$TargetRunId,[string]$TargetInstanceId,[string]$ExpectedTargetSnapshotDigest,
+        [switch]$ObserveTargetWindowsLicense)
     if ($ObserveSqlSource -and $Mode -cne 'STATEFUL_MIGRATION') { throw 'EVALUATION_REFRESH_SQL_SOURCE_MODE_INVALID' }
-    $hasTarget = $TargetRunId -or $TargetInstanceId -or $ExpectedTargetSnapshotDigest
+    $hasTarget = $TargetRunId -or $TargetInstanceId -or $ExpectedTargetSnapshotDigest -or $ObserveTargetWindowsLicense
     if ($hasTarget -and ($Mode -cne 'STATEFUL_MIGRATION' -or -not $TargetRunId -or -not $TargetInstanceId -or
         $RunId -ieq $TargetRunId)) { throw 'EVALUATION_REFRESH_TARGET_SELECTION_INVALID' }
     try {
@@ -207,6 +208,7 @@ function New-LabEvaluationRefreshPlan {
         default {throw 'EVALUATION_REFRESH_MODE_INVALID'}
     }
     $sourceInventory = if ($ObserveSqlSource) { Get-LabEvaluationSqlSourceInventory -Snapshot $snapshot }
+    $targetWindows = if ($ObserveTargetWindowsLicense) { Get-LabEvaluationWindowsLicenseObservation -Snapshot $targetSnapshot }
     try {$fresh=Read-LabEvaluationRefreshSnapshot -RunId $RunId -InstanceId $InstanceId -DataRoot $DataRoot}
     catch {throw 'EVALUATION_REFRESH_BINDING_CHANGED'}
     if($fresh.Digest-cne$snapshot.Digest){throw 'EVALUATION_REFRESH_BINDING_CHANGED'}
@@ -223,12 +225,21 @@ function New-LabEvaluationRefreshPlan {
     if ($ObserveSqlSource) { $result | Add-Member -NotePropertyName SqlSourceInventory -NotePropertyValue $sourceInventory }
     if ($ObserveWindowsLicense) { $result | Add-Member -NotePropertyName WindowsLicenseObservation -NotePropertyValue $windowsObservation }
     if ($targetSnapshot) {
-        $result | Add-Member -NotePropertyName TargetAssessment -NotePropertyValue ([pscustomobject]@{
-            Status='METADATA_ONLY'; RunId=$targetSnapshot.Binding.Run.runId; ScopeId=$targetSnapshot.Binding.Run.scopeId
+        $targetObserved = $null -ne $targetWindows -and $targetWindows.Status -ceq 'OBSERVED'
+        $windowsCheck = if (-not $targetObserved) { 'TARGET_WINDOWS_LICENSE_NOT_VERIFIED' }
+            elseif ($targetWindows.LicenseState -ceq 'EVALUATION_EXPIRED') { 'TARGET_WINDOWS_EVALUATION_EXPIRED' }
+            else { 'TARGET_WINDOWS_LICENSE_OBSERVED' }
+        $targetAssessment = [pscustomobject]@{
+            Status=$(if ($targetObserved) { 'WINDOWS_LICENSE_OBSERVED' } else { 'METADATA_ONLY' })
+            RunId=$targetSnapshot.Binding.Run.runId; ScopeId=$targetSnapshot.Binding.Run.scopeId
             InstanceId=$targetSnapshot.Instance.id; RegisteredState=$targetSnapshot.Binding.Run.state
             ObservedContentSha256=$targetSnapshot.Digest; SqlVersion='2025'
-            Checks=@('TARGET_WINDOWS_LICENSE_NOT_VERIFIED','TARGET_SQL_READINESS_NOT_CHECKED','TARGET_STORAGE_AND_TRANSFER_NOT_VERIFIED')
-        })
+            Checks=@($windowsCheck,'TARGET_SQL_READINESS_NOT_CHECKED','TARGET_STORAGE_AND_TRANSFER_NOT_VERIFIED')
+        }
+        if ($ObserveTargetWindowsLicense) {
+            $targetAssessment | Add-Member -NotePropertyName WindowsLicenseObservation -NotePropertyValue $targetWindows
+        }
+        $result | Add-Member -NotePropertyName TargetAssessment -NotePropertyValue $targetAssessment
     }
     return $result
 }

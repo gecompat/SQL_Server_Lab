@@ -671,8 +671,10 @@ SSIS-Katalog. Die Quellbeobachtung unterscheidet
 einen fehlenden Befund von tatsächlich beobachteten
 Nullwerten und leitet aus positiven Zählern feste Prüfhinweise zu
 Übernahmeabhängigkeiten ab. Die optionale Zielvorschau prüft die getrennte
-registrierte Bindung eines SQL-2025-Ziellabs. Live-Zielbereitschaft,
-Slotzuordnung, vollständiges Inventar, Gleichwertigkeit, Cutover,
+registrierte Bindung eines SQL-2025-Ziellabs. Die gesonderte Zielabfrage kann
+die aktuelle Windows-Lizenz eines laufenden Ziels lesen. Sie prüft keine
+SQL-Readiness und keine Speicherbereitschaft. Slotzuordnung,
+vollständiges Inventar, Gleichwertigkeit, Cutover,
 Schlüsseltransfer und Rückfall fehlen. Die Quellbeobachtung persistiert keine
 Daten und führt keine Adoption oder Lifecycleaktion aus. Generischer Konsolen-
 Befehlszugang und geführter CLI-Dialog **SQL-Evaluation: Ersatzentscheid** sind

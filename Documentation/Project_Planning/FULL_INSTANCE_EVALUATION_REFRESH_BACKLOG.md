@@ -83,7 +83,10 @@ SQL-2025-Hyper-V-Lab als Ziel gewählt werden. Die Metadatenvorschau bindet
 Quelle und Ziel unter demselben `Lab_Data` an getrennte Run-, Scope- und
 VM-Identitäten. Sie verwirft geänderte Bindungen und benennt die noch
 ausstehenden Zielprüfungen für Windows-Lizenz, SQL-Bereitschaft, Speicher
-und Transfer. Der Gesamtplan bleibt `BLOCKED`.
+und Transfer. Die gesonderte Live-Abfrage der Windows-Ziellizenz setzt eine
+laufende Ziel-VM voraus. Sie bindet beide Snapshots und verwirft das Ergebnis
+bei Änderungen. Die Prüfung erfasst weder SQL-Readiness noch
+Speicherbereitschaft. Der Gesamtplan bleibt `BLOCKED`.
 
 Die getrennte Auswahl **Windows-Lizenz im laufenden Gast lesen**
 (`-ObserveWindowsLicense`) prüft die aktuelle Lizenz derselben gebundenen

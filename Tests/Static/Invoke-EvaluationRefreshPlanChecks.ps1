@@ -8,12 +8,12 @@ function Assert-Refresh($condition,$name){if(-not$condition){throw ('REFRESH_CHE
 function Import-RefreshFunctions($relative){$tokens=$null;$errorsFound=$null;$ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $repo $relative),[ref]$tokens,[ref]$errorsFound);if($errorsFound.Count){throw 'FIXTURE_PARSE_FAILED'};foreach($s in $ast.EndBlock.Statements){if($s-is[Management.Automation.Language.FunctionDefinitionAst]){. ([scriptblock]::Create(($s.Extent.Text-replace'^function ','function script:')))}}}
 function Write-Refresh($path,$value){$null=New-Item -ItemType Directory -Path (Split-Path $path) -Force;$value|ConvertTo-Json -Depth 40|Set-Content -LiteralPath $path -Encoding utf8}
 function Get-RefreshHashes{(@(Get-ChildItem $root -Recurse -File|Sort-Object FullName|ForEach-Object {$_.FullName+':'+(Get-FileHash $_.FullName).Hash})-join'|')}
-function New-RefreshTargetFixture($DataRoot,$SourceRun,$SourceConnection) {
+function New-RefreshTargetFixture($DataRoot,$SourceRun,$SourceConnection,$State='STOPPED') {
     $targetRun=$SourceRun | ConvertTo-Json -Depth 40 | ConvertFrom-Json -AsHashtable
     $targetRun.runId=[guid]::NewGuid().ToString('D')
     $targetRun.scopeId=[guid]::NewGuid().ToString('D')
-    $targetRun.state='STOPPED'
-    $targetRun.providerSubRuns[0].state='STOPPED'
+    $targetRun.state=$State
+    $targetRun.providerSubRuns[0].state=$State
     $state=Join-Path $DataRoot 'State'
     $directory=Join-Path $state ('runs/'+$targetRun.runId)
     $targetConnection=$SourceConnection | ConvertTo-Json -Depth 20 | ConvertFrom-Json -AsHashtable
@@ -117,6 +117,7 @@ try {
     }
     Assert-RefreshReject 'A target changed after selection invalidates the pair' { Get-SqlServerLabEvaluationRefreshPlan @targetArguments } EVALUATION_REFRESH_BINDING_CHANGED
     Set-Item Function:Read-LabEvaluationRefreshSnapshot $script:realSnapshot
+    $liveTarget=New-RefreshTargetFixture $root $run $connection RUNNING
     $before = Get-RefreshHashes
     $script:observationCalls = 0
     $script:contextReads = 0
@@ -144,12 +145,22 @@ try {
     function Get-LabTimestamp { [datetime]::UtcNow.ToString('o') }
     $script:licenseCalls = 0
     $script:licenseMode = 'LICENSED'
+    $script:expectedLiveTarget = $null
+    $script:injectLicenseTargetDrift = $false
     function Get-HyperVWindowsSlotLicenseStatus {
         param($RunId,$StateRoot,$ExpectedVmId,$ExpectedScopeId,$ExpectedInstanceId,$TimeoutSeconds,[switch]$BoundReadOnly)
         $script:licenseCalls++
-        if ($RunId -ne [guid]$runId -or $StateRoot -cne $stateRoot -or $ExpectedVmId -ne [guid]$connection.instances[0].vmId -or
-            $ExpectedScopeId -cne $scope -or $ExpectedInstanceId -cne 'primary' -or $TimeoutSeconds -ne 30 -or
+        $expectedRun = if ($script:expectedLiveTarget) { $script:expectedLiveTarget.RunId } else { $runId }
+        $expectedScope = if ($script:expectedLiveTarget) { $script:expectedLiveTarget.ScopeId } else { $scope }
+        $expectedVm = if ($script:expectedLiveTarget) { $script:expectedLiveTarget.Connection.instances[0].vmId } else { $connection.instances[0].vmId }
+        if ($RunId -ne [guid]$expectedRun -or $StateRoot -cne $stateRoot -or $ExpectedVmId -ne [guid]$expectedVm -or
+            $ExpectedScopeId -cne $expectedScope -or $ExpectedInstanceId -cne 'primary' -or $TimeoutSeconds -ne 30 -or
             -not $BoundReadOnly) { throw 'SYNTHETIC_LICENSE_REQUEST_MISMATCH' }
+        if ($script:injectLicenseTargetDrift) {
+            $changed = Get-Content -LiteralPath $script:expectedLiveTarget.ConnectionFile -Raw | ConvertFrom-Json -Depth 20
+            $changed.instances[0].vmName = 'TARGET_DRIFT_CANARY'
+            Write-Refresh $script:expectedLiveTarget.ConnectionFile $changed
+        }
         if ($script:licenseMode -ceq 'DRIFT') { throw 'HYPERV_LAB_EXPECTED_VM_RUNTIME_MISMATCH' }
         $now = [datetime]::UtcNow
         [pscustomobject]@{
@@ -177,6 +188,38 @@ try {
             $licenseJob.Result.Status -ceq 'OBSERVED' -and $licenseJob.Result.LicenseState -ceq 'LICENSED' -and
             $null -eq $licenseJob.Result.EvaluationExpiresAt -and
             ($licenseJob | ConvertTo-Json -Depth 8) -cnotmatch 'CANARY_PRIVATE|ScopeId|VMName') 'Explicit Windows job returns only bound live license fields'
+        Assert-RefreshReject 'Target observation requires an explicit registered target' { Get-SqlServerLabEvaluationRefreshPlan @argsForPlan -ObserveTargetWindowsLicense } EVALUATION_REFRESH_TARGET_SELECTION_INVALID
+        $stoppedTarget=Get-SqlServerLabEvaluationRefreshPlan @targetArguments -ObserveTargetWindowsLicense
+        Assert-Refresh ($script:licenseCalls -eq 1 -and $stoppedTarget.TargetAssessment.WindowsLicenseObservation.Status -ceq 'NOT_OBSERVED') 'Stopped target yields no guest probe or valid license'
+        $liveArguments = @{}+$targetArguments
+        $liveArguments.TargetRunId = $liveTarget.RunId
+        $livePreview = Get-SqlServerLabEvaluationRefreshPlan @liveArguments
+        $binding = @{}+$licenseJobParams
+        $binding.TargetRunId = $liveTarget.RunId
+        $binding.TargetInstanceId = 'primary'
+        $binding.ExpectedTargetPlanKey = '0' * 64
+        Assert-RefreshReject 'Stale live target digest fails before either guest is probed' { Invoke-SqlServerLabWorkflowAction @binding } EVALUATION_REFRESH_BINDING_CHANGED
+        $binding.ExpectedTargetPlanKey = $livePreview.TargetAssessment.ObservedContentSha256
+        Assert-Refresh ($script:licenseCalls -eq 1) 'Preview and invalid target do not invoke a Windows probe'
+        $script:expectedLiveTarget = $liveTarget
+        $targetJob = Invoke-SqlServerLabWorkflowAction @binding
+        Assert-Refresh ($script:licenseCalls -eq 2 -and $targetJob.Result.TargetRunId -ceq $liveTarget.RunId -and
+            $targetJob.Result.WindowsLicenseObservation.Status -ceq 'OBSERVED' -and
+            ($targetJob | ConvertTo-Json -Depth 10) -cnotmatch 'CANARY_PRIVATE|ScopeId|VMName') 'Workflow queries just the bound target and logs only its safe identity and observation'
+        $script:licenseMode = 'EVALUATION_EXPIRED'
+        $expiredTarget = Get-SqlServerLabEvaluationRefreshPlan @liveArguments -ObserveTargetWindowsLicense
+        Assert-Refresh ($expiredTarget.Status -ceq 'BLOCKED' -and $expiredTarget.TransferAuthority -ceq 'NONE' -and
+            'TARGET_WINDOWS_EVALUATION_EXPIRED' -cin $expiredTarget.TargetAssessment.Checks -and
+            $expiredTarget.SqlReadiness -ceq 'NOT_CHECKED' -and -not $expiredTarget.PSObject.Properties['WindowsLicenseObservation']) 'Expired target is shown independently of the source and cannot permit transfer'
+        $savedTargetBytes = [IO.File]::ReadAllBytes($liveTarget.ConnectionFile)
+        try {
+            $script:injectLicenseTargetDrift = $true
+            Assert-RefreshReject 'Target drift after the Windows read suppresses the result' { Invoke-SqlServerLabWorkflowAction @binding } EVALUATION_REFRESH_BINDING_CHANGED
+        } finally {
+            $script:injectLicenseTargetDrift = $false
+            $script:expectedLiveTarget = $null
+            [IO.File]::WriteAllBytes($liveTarget.ConnectionFile,$savedTargetBytes)
+        }
         $script:licenseMode = 'EVALUATION_ACTIVE'
         $active = Get-SqlServerLabEvaluationRefreshPlan @argsForPlan -ObserveWindowsLicense
         Assert-Refresh ($active.WindowsLicenseObservation.Status -ceq 'OBSERVED' -and $active.WindowsLicenseObservation.EvaluationExpiresAt -and

@@ -119,20 +119,34 @@ try {
     $actionHandler = [scriptblock]::Create('foreach ($once in @(1)) ' + $actionRoute.Clauses[0].Item2.Extent.Text)
     & {
         $jobs = @{}
-        $parameters = @{ RunId=$selection.RunId; InstanceId=$selection.InstanceId; DataRoot=$root; ExpectedPlanKey=$selection.Digest }
-        foreach ($actionName in @('ReadHyperVEvaluationSqlSource','ReadHyperVEvaluationWindowsLicense')) {
+        foreach ($case in @(
+            @{ Action='ReadHyperVEvaluationSqlSource'; Target=$false },
+            @{ Action='ReadHyperVEvaluationWindowsLicense'; Target=$false },
+            @{ Action='ReadHyperVEvaluationWindowsLicense'; Target=$true }
+        )) {
             $jobs.Clear()
+            $actionName = $case.Action
+            $parameters = @{ RunId=$selection.RunId; InstanceId=$selection.InstanceId; DataRoot=$root; ExpectedPlanKey=$selection.Digest }
+            if ($case.Target) {
+                $parameters.TargetRunId = $targetSelection.RunId
+                $parameters.TargetInstanceId = $targetSelection.InstanceId
+                $parameters.ExpectedTargetPlanKey = $targetSelection.Digest
+            }
+            $expectedCount = $parameters.Count
             $requestJson = @{ action=$actionName; parameters=$parameters } | ConvertTo-Json -Depth 5 -Compress
             function Read-UiJsonRequestBody { param($Request) @{ Allowed=$true; Body=$requestJson } }
             function New-SqlServerLabBatch { throw 'READ_ONLY_ACTION_CREATED_PERSISTENT_BATCH' }
             function Start-UiWorkflowJob {
                 param($Action,$Parameters)
-                if ($Action -cne $actionName -or $Parameters.Count -ne 4 -or $Parameters.ExpectedPlanKey -cne $selection.Digest -or
-                    $Parameters.RunId -cne $selection.RunId) { throw 'UNEXPECTED_SOURCE_JOB' }
+                if ($Action -cne $actionName -or $Parameters.Count -ne $expectedCount -or $Parameters.ExpectedPlanKey -cne $selection.Digest -or
+                    $Parameters.RunId -cne $selection.RunId -or ($case.Target -and ($Parameters.TargetRunId -cne $targetSelection.RunId -or
+                    $Parameters.TargetInstanceId -cne $targetSelection.InstanceId -or $Parameters.ExpectedTargetPlanKey -cne $targetSelection.Digest))) {
+                    throw 'UNEXPECTED_EVALUATION_JOB'
+                }
                 [pscustomobject]@{ Id='synthetic-source'; Action=$Action; Job=[pscustomobject]@{ State='Running' } }
             }
             & $actionHandler
-            Assert-HttpRefresh ($httpResponse.StatusCode -eq 202 -and ($httpResponse.Body | ConvertFrom-Json).id -ceq 'synthetic-source' -and $jobs.Count -eq 1) 'Read-only source observation starts a single transient job'
+            Assert-HttpRefresh ($httpResponse.StatusCode -eq 202 -and ($httpResponse.Body | ConvertFrom-Json).id -ceq 'synthetic-source' -and $jobs.Count -eq 1) ('Bound read starts a single transient job, target='+$case.Target)
             $busy = $false
             $expectedBusy = if ($actionName -ceq 'ReadHyperVEvaluationSqlSource') { 'EVALUATION_REFRESH_SQL_SOURCE_ALREADY_RUNNING' } else { 'EVALUATION_REFRESH_WINDOWS_READ_ALREADY_RUNNING' }
             try { & $actionHandler } catch { $busy = $_.Exception.Message -ceq $expectedBusy }
@@ -143,6 +157,13 @@ try {
             try { & $actionHandler } catch { $invalid = $_.Exception.Message -ceq 'EVALUATION_REFRESH_INPUT_INVALID' }
             Assert-HttpRefresh $invalid 'The source job rejects additional root fields before dispatch'
             $parameters.Remove('StateRoot')
+            if ($case.Target) {
+                $parameters.Remove('ExpectedTargetPlanKey')
+                $requestJson = @{ action=$actionName; parameters=$parameters } | ConvertTo-Json -Depth 5 -Compress
+                $invalid = $false
+                try { & $actionHandler } catch { $invalid = $_.Exception.Message -ceq 'EVALUATION_REFRESH_INPUT_INVALID' }
+                Assert-HttpRefresh $invalid 'Incomplete target payload cannot start a license read'
+            }
         }
     }
     $formatter = $server.Find({
@@ -159,6 +180,19 @@ try {
     $lines = & ([scriptblock]::Create($formatBody.Substring(1, $formatBody.Length-2)))
     Assert-HttpRefresh (($lines -join ' ') -cmatch 'CREDENTIAL_REBIND_REQUIRED' -and
         ($lines -join ' ') -cnotmatch 'SYNTHETIC_PRIVATE') 'Actual transient job format exposes only the fixed dependency fields'
+    $windowsFormatter = $server.Find({
+        param($node)
+        $node -is [Management.Automation.Language.IfStatementAst] -and
+        $node.Clauses[0].Item1.Extent.Text -ceq '$JobAction -ceq ''ReadHyperVEvaluationWindowsLicense'''
+    }, $true)
+    $windowsBody = $windowsFormatter.Clauses[0].Item2.Extent.Text
+    $result = [pscustomobject]@{Result=[pscustomobject]@{
+        TargetRunId=$targetSelection.RunId; TargetInstanceId=$targetSelection.InstanceId
+        WindowsLicenseObservation=[pscustomobject]@{Status='OBSERVED';LicenseState='LICENSED';ObservedAt='2030-01-01T00:00:00.0000000Z';EvaluationExpiresAt=$null;Private='SYNTHETIC_PRIVATE'}
+    }}
+    $lines = & ([scriptblock]::Create($windowsBody.Substring(1,$windowsBody.Length-2)))
+    Assert-HttpRefresh (($lines -join ' ') -clike ('*Ziellab '+$targetSelection.RunId+'*LICENSED*') -and
+        ($lines -join ' ') -cnotmatch 'SYNTHETIC_PRIVATE') 'Actual job formatter identifies the destination and confines the license fields'
     Write-Host ('EVALUATION_REFRESH_HTTP_CHECKS: '+$checks+' PASS; 0 FAIL')
 }finally{
     $resolved=[IO.Path]::GetFullPath($root);$expected=[IO.Path]::GetFullPath((Join-Path $repo '.artifacts/evaluation-refresh-browser-fixtures'))

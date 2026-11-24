@@ -2425,8 +2425,11 @@ Die optionale Vorschau eines SQL-2025-Ziellabs verwendet zwei registrierte
 synthetische Hyper-V-Bindungen. Plan-, CLI-, HTTP- und Browserfixtures prüfen
 getrennte Run-, Scope- und VM-Bindungen, Ziel-Drift, Abbruch, verspätete
 Antworten und unveränderte State-Dateien. Der Funktionsumfang ist die
-Metadatenvorschau. Native Zielbereitschaft und Transfer benötigen eigene
-Nachweise.
+Metadatenvorschau. Die getrennte Windows-Ziellizenzabfrage nutzt den bereits
+nativ belegten Windows-Reader. Synthetische Prüfungen der neuen Zielroute
+prüfen Quell- und Zieldigest, gestoppte Ziele, genau einen gebundenen Gastaufruf
+und verworfene Ergebnisse bei Bindungsdrift. Ein nativer Lauf über die neue
+Zielroute, SQL-Readiness und Transfer benötigen eigene Nachweise.
 
 ## Prospektiver External-Languages-Capability-Entscheid
 

@@ -284,6 +284,10 @@ function Start-UiWorkflowJob {
             }
             if ($JobAction -ceq 'ReadHyperVEvaluationWindowsLicense') {
                 $license = $result.Result
+                if ($license.PSObject.Properties['TargetRunId']) {
+                    Write-Output ('[LIZENZ] Ziellab {0} / {1}' -f $license.TargetRunId, $license.TargetInstanceId)
+                    $license = $license.WindowsLicenseObservation
+                }
                 Write-Output ('[LIZENZ] Windows: {0} · Lizenz: {1} · Beobachtet UTC: {2} · Frist UTC: {3}' -f
                     $license.Status, $license.LicenseState, $license.ObservedAt, $license.EvaluationExpiresAt)
             }
@@ -1709,8 +1713,13 @@ try {
                     }).Count) { throw 'FULL_MAINTENANCE_PREVIEW_IN_PROGRESS' }
                 }
                 if ($action -in @('ReadHyperVEvaluationSqlSource', 'ReadHyperVEvaluationWindowsLicense')) {
-                    if ($action -cnotin @('ReadHyperVEvaluationSqlSource', 'ReadHyperVEvaluationWindowsLicense') -or $parameters.Count -ne 4 -or
-                        @('RunId', 'InstanceId', 'DataRoot', 'ExpectedPlanKey').Where({ $parameters[$_] -isnot [string] }).Count -gt 0) {
+                    $licenseReadKeys = @('RunId', 'InstanceId', 'DataRoot', 'ExpectedPlanKey')
+                    if ($action -ceq 'ReadHyperVEvaluationWindowsLicense' -and $parameters.Count -eq 7) {
+                        $licenseReadKeys += @('TargetRunId', 'TargetInstanceId', 'ExpectedTargetPlanKey')
+                    }
+                    if ($action -cnotin @('ReadHyperVEvaluationSqlSource', 'ReadHyperVEvaluationWindowsLicense') -or
+                        $parameters.Count -ne $licenseReadKeys.Count -or
+                        $licenseReadKeys.Where({ $parameters[$_] -isnot [string] }).Count -gt 0) {
                         throw 'EVALUATION_REFRESH_INPUT_INVALID'
                     }
                     if (@($jobs.Values | Where-Object { $_.Action -ceq $action -and $_.Job.State -in @('NotStarted','Running') }).Count) {
