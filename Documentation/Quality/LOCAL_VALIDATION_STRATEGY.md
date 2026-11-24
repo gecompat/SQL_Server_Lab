@@ -6025,6 +6025,15 @@ Prozesse und isolierte Registry; keine bestehende Shared-Umgebung,
 SQL-/Modell-/Compute-/Providerprobe. Browser-/CLI-Bedienung bleibt durch echte
 synthetische Handlerchecks belegt; der Nativefall ist keine manuelle UI-Abnahme.
 
+Die geführte Shared-Gateway-Planerstellung nutzt denselben öffentlichen
+Konfigurationsvertrag in CLI und Browser. `Invoke-AiSharedGatewayPlanChecks.ps1`
+prüft Menüabbruch, mehrere Verbraucher, exakten PlanKey, gebundene Origin,
+JSON-Formgrenzen und gleiche Zertifikatidentität bei anderer Hex-Schreibweise.
+Das echte Browserskript wird mit Eingabeänderung während des Requests,
+falschem Status, Verbrauchergrenze sowie ausdrücklich gewählter Übergabe an den
+Dienstplan-Dialog geprüft. Die Cases verwenden ausschließlich synthetische
+Daten und attestieren den Konfigurationsplan.
+
 Die eigene Guidance und der Shared-Gateway-Registrar teilen eine kanonische
 StateRoot-Lifecyclesperre vor ihren bisherigen Gateway-/Testgruppen-Sperren.
 Der Fokustest führt einen echten konkurrierenden Registrar sowie einen echten

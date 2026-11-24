@@ -22,6 +22,8 @@ try {
     Add-CheckResult 'Falscher Backendpfad wird abgewiesen' (Reject {Get-SqlServerLabAiSharedGatewayPlan @wrongPath} 'AI_SHARED_GATEWAY_UPSTREAM_INVALID')
     $sameCertificate=@{}+$planArgs;$sameCertificate.CertificateAuthoritySha256=$sameCertificate.ServerCertificateSha256
     Add-CheckResult 'Identische CA- und Serverzertifikathashes werden abgewiesen' (Reject {Get-SqlServerLabAiSharedGatewayPlan @sameCertificate} 'AI_SHARED_GATEWAY_CERTIFICATE_HASHES_MUST_DIFFER')
+    $sameCertificate.CertificateAuthoritySha256=$sameCertificate.ServerCertificateSha256.ToUpperInvariant()
+    Add-CheckResult 'Zertifikatidentität ist unabhängig von hexadezimaler Großschreibung' (Reject {Get-SqlServerLabAiSharedGatewayPlan @sameCertificate} 'AI_SHARED_GATEWAY_CERTIFICATE_HASHES_MUST_DIFFER')
     $duplicate=@{}+$planArgs;$duplicate.Consumer=@($c1,$c1)
     Add-CheckResult 'Doppelter Verbraucher wird abgewiesen' (Reject {Get-SqlServerLabAiSharedGatewayPlan @duplicate} 'AI_SHARED_GATEWAY_CONSUMER_DUPLICATE')
     $sameSecret=$c2|Select-Object *;$sameSecret.ApiKeyReference=$c1.ApiKeyReference
@@ -31,7 +33,124 @@ try {
     $withHost=@{}+$planArgs;$withHost.Consumer=@($extra)
     Add-CheckResult 'Zusätzliche Hostdaten im Verbraucher werden abgewiesen' (Reject {Get-SqlServerLabAiSharedGatewayPlan @withHost} 'AI_SHARED_GATEWAY_CONSUMER_INVALID')
     Add-CheckResult 'Öffentlicher Befehl ist manifestexportiert' ((Get-Command Get-SqlServerLabAiSharedGatewayPlan).ModuleName -ceq 'SqlServerLab')
+
+    $body=$planArgs | ConvertTo-Json -Depth 8 -Compress
+    $formPlan=& $module {param($Value) Invoke-LabAiSharedGatewayPlanForm -Body $Value} $body
+    Add-CheckResult 'Nur die gebundene Konfiguration erreicht den echten Planvertrag' ($formPlan.PlanKey -ceq $plan.PlanKey -and $formPlan.Status -ceq 'BLOCKED')
+    $wrongKind=@{}+$planArgs;$wrongKind.Dimension=[string]$wrongKind.Dimension
+    $foreignField=@{}+$planArgs;$foreignField.ApiKey='SYNTHETIC_NOT_ALLOWED'
+    $foreignConsumer=$c1 | Select-Object *,@{n='Host';e={'SYNTHETIC_NOT_ALLOWED'}}
+    $wrongConsumer=@{}+$planArgs;$wrongConsumer.Consumer=@($foreignConsumer)
+    $tooMany=@{}+$planArgs;$tooMany.Consumer=@($c1)*65
+    foreach ($case in @(
+        @{Name='string dimension'; Body=($wrongKind | ConvertTo-Json -Depth 8 -Compress)},
+        @{Name='credential field'; Body=($foreignField | ConvertTo-Json -Depth 8 -Compress)},
+        @{Name='extra consumer field'; Body=($wrongConsumer | ConvertTo-Json -Depth 8 -Compress)},
+        @{Name='consumer bound'; Body=($tooMany | ConvertTo-Json -Depth 8 -Compress)},
+        @{Name='duplicate key'; Body=$body.Insert(1, '"GatewayId":"duplicate",')},
+        @{Name='byte bound'; Body=(' ' * 65536)+$body}
+    )) {
+        Add-CheckResult ('Formgrenze verwirft '+$case.Name) (Reject { & $module {param($Value) Invoke-LabAiSharedGatewayPlanForm -Body $Value} $case.Body } 'AI_SHARED_GATEWAY_FORM_INVALID')
+    }
+
+    $console=& $module {
+        param($Case,$FirstConsumer,$SecondConsumer)
+        & {
+            $planner=${function:Get-SqlServerLabAiSharedGatewayPlan}
+            $script:guidedPlannerCalls=0
+            $script:guidedPlan=$null
+            $script:guidedText=[Collections.Generic.Queue[string]]::new()
+            $script:guidedChoices=[Collections.Generic.Queue[string]]::new()
+            function New-LabConsoleItem { param($Id,$Label) [pscustomobject]@{Id=$Id;Label=$Label} }
+            function Show-LabSubMenu { param($ScreenId,$Title,$Subtitle,$Items) $Items }
+            function Invoke-LabConsoleMenu {
+                param($ScreenId,$Title,$Subtitle,$Items)
+                $choice=$script:guidedChoices.Dequeue()
+                if ($choice -ceq 'ESC') { return [pscustomobject]@{Status='Cancelled'} }
+                [pscustomobject]@{Status='Selected';SelectedItem=($Items | Where-Object Id -CEQ $choice)}
+            }
+            function Read-LabConsoleTextInput { param($Prompt) [pscustomobject]@{Status='Confirmed';Value=$script:guidedText.Dequeue()} }
+            function Write-LabInfo { param($Message) }
+            function Write-LabWarning { throw 'UNEXPECTED_GUIDED_PLAN_WARNING' }
+            function Wait-LabConsoleAcknowledgement {}
+            function Get-SqlServerLabAiSharedGatewayPlan {
+                param($GatewayId,$Location,$UpstreamBackend,$UpstreamLocation,$RuntimeModel,$Dimension,$InputProfile,
+                    $ModelSha256,$RuntimeSha256,$ServerCertificateSha256,$CertificateAuthoritySha256,$Consumer)
+                $script:guidedPlannerCalls++
+                $script:guidedPlan=& $planner @PSBoundParameters
+                return $script:guidedPlan
+            }
+            $entry = @(Show-LabHostModelsMenu | Where-Object Id -CEQ 'AiSharedGatewayPlan')
+            if ($entry.Count -ne 1) { throw 'GATEWAY_GUIDED_MENU_ENTRY_INVALID' }
+            $script:guidedChoices.Enqueue('ESC')
+            Invoke-LabMenuAction -ActionName $entry[0].Id
+            $cancelled=$script:guidedPlannerCalls -eq 0
+            foreach($name in @('GatewayId','Location','UpstreamLocation','RuntimeModel','Dimension','ModelSha256','RuntimeSha256',
+                'ServerCertificateSha256','CertificateAuthoritySha256')){ $script:guidedText.Enqueue([string]$Case[$name]) }
+            foreach($consumer in @($FirstConsumer,$SecondConsumer)){
+                foreach($name in @('RunId','InstanceId','DatabaseId','ExternalModelName','ApiKeyReference')){ $script:guidedText.Enqueue($consumer.$name) }
+            }
+            foreach($choice in @($Case.UpstreamBackend,$Case.InputProfile,'add','preview')){ $script:guidedChoices.Enqueue($choice) }
+            Invoke-LabMenuAction -ActionName $entry[0].Id
+            [pscustomobject]@{CancelNoPlan=$cancelled; Calls=$script:guidedPlannerCalls; Key=$script:guidedPlan.PlanKey; Count=$script:guidedPlan.Consumers.Count}
+        }
+    } $planArgs $c2 $c1
+    Add-CheckResult 'Geführte CLI verwendet denselben Plan mit mehreren Verbrauchern und verwirft Esc' (
+        $console.CancelNoPlan -and $console.Calls -eq 1 -and $console.Key -ceq $plan.PlanKey -and $console.Count -eq 2)
+
+    $tokens=$null;$errors=$null
+    $server=[Management.Automation.Language.Parser]::ParseFile((Join-Path $repoRoot 'Tools/Start-SqlServerLabUi.ps1'),[ref]$tokens,[ref]$errors)
+    if ($errors.Count) { throw 'GATEWAY_TEST_SERVER_PARSE_FAILED' }
+    $route=$server.Find({param($node) $node -is [Management.Automation.Language.IfStatementAst] -and
+        $node.Clauses[0].Item1.Extent.Text -ceq '$path -ceq ''/api/ai-shared-gateway/plan'''},$true)
+    $handler=[scriptblock]::Create('foreach ($once in @(1)) '+$route.Clauses[0].Item2.Extent.Text)
+    & {
+        $url='http://localhost:18432/'
+        $context=[pscustomobject]@{Request=[pscustomobject]@{HttpMethod='POST';ContentType='application/json';
+            Url=[uri]($url+'api/ai-shared-gateway/plan');Headers=@{Origin=$url.TrimEnd('/')}}}
+        $script:gatewayPlanBodyReads=0
+        function Read-UiJsonRequestBody {
+            param($Request,$MaxBytes)
+            if ($MaxBytes -ne 65536) { throw 'GATEWAY_TEST_BODY_LIMIT_MISSING' }
+            $script:gatewayPlanBodyReads++
+            [pscustomobject]@{Allowed=$true;Body=$body}
+        }
+        function Write-UiResponse {
+            param($Context,$Body,$ContentType,$StatusCode=200)
+            $script:gatewayPlanHttp=[pscustomobject]@{StatusCode=$StatusCode;Body=$Body}
+        }
+        & $handler
+        Add-CheckResult 'Tatsächlicher Browser-Handler liefert den unveränderten Konfigurationsplan' (
+            $script:gatewayPlanHttp.StatusCode -eq 200 -and ($script:gatewayPlanHttp.Body | ConvertFrom-Json).PlanKey -ceq $plan.PlanKey)
+        $context.Request.Headers.Origin='http://localhost:18433'
+        & $handler
+        Add-CheckResult 'Fremder Browser-Origin scheitert vor Body und öffentlichem Plan' (
+            $script:gatewayPlanHttp.StatusCode -eq 400 -and $script:gatewayPlanBodyReads -eq 1)
+    }
 }
 finally {Remove-Module $module -Force -ErrorAction SilentlyContinue}
 if($failures.Count){throw ($failures -join '; ')}
 Write-Host "AI SHARED GATEWAY PLAN: PASS ($passed)"
+$node=Get-Command node -CommandType Application -ErrorAction Stop | Select-Object -First 1
+$start=[Diagnostics.ProcessStartInfo]::new($node.Source)
+$start.UseShellExecute=$false
+$start.CreateNoWindow=$true
+$start.RedirectStandardOutput=$true
+$start.RedirectStandardError=$true
+$start.ArgumentList.Add((Join-Path $PSScriptRoot 'Fixtures/AiSharedGatewayPlanUiChecks.cjs'))
+$process=[Diagnostics.Process]::Start($start)
+try {
+    $stdout=$process.StandardOutput.ReadToEndAsync()
+    $stderr=$process.StandardError.ReadToEndAsync()
+    if (-not $process.WaitForExit(30000)) {
+        $process.Kill($true)
+        if (-not $process.WaitForExit(5000)) { throw 'AI_SHARED_GATEWAY_BROWSER_TEST_SHUTDOWN_FAILED' }
+        throw 'AI_SHARED_GATEWAY_BROWSER_TEST_TIMEOUT'
+    }
+    Write-Host $stdout.GetAwaiter().GetResult()
+    if ($process.ExitCode -ne 0) {
+        Write-Host $stderr.GetAwaiter().GetResult()
+        throw 'AI_SHARED_GATEWAY_BROWSER_TEST_FAILED'
+    }
+}
+finally { $process.Dispose() }

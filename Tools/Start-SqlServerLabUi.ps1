@@ -1488,6 +1488,27 @@ try {
                 Write-UiResponse -Context $context -Body (Get-UiCapabilityConfig | ConvertTo-Json -Depth 6) -ContentType 'application/json; charset=utf-8'
                 continue
             }
+            if ($path -ceq '/api/ai-shared-gateway/plan') {
+                if ($context.Request.HttpMethod -cne 'POST' -or $context.Request.Url.Query -or
+                    $context.Request.ContentType -notmatch '^application/json(?:\s*;|$)' -or
+                    [string]$context.Request.Headers['Origin'] -cne $url.TrimEnd('/')) {
+                    Write-UiResponse -Context $context -Body '{"Code":"AI_SHARED_GATEWAY_FORM_INVALID"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                    continue
+                }
+                $bodyRead = Read-UiJsonRequestBody -Request $context.Request -MaxBytes 65536
+                if (-not $bodyRead.Allowed) {
+                    Write-UiResponse -Context $context -Body $bodyRead.Code -StatusCode $bodyRead.StatusCode
+                    continue
+                }
+                try {
+                    $plan = & (Get-Module SqlServerLab) { param($Body) Invoke-LabAiSharedGatewayPlanForm -Body $Body } $bodyRead.Body
+                    Write-UiResponse -Context $context -Body ($plan | ConvertTo-Json -Depth 8 -Compress) -ContentType 'application/json; charset=utf-8'
+                }
+                catch {
+                    Write-UiResponse -Context $context -Body '{"Code":"AI_SHARED_GATEWAY_FORM_INVALID"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                }
+                continue
+            }
             if ($path -eq '/api/ai-shared-gateway/service-secret' -and $context.Request.HttpMethod -eq 'POST') {
                 $bodyRead = Read-UiJsonRequestBody -Request $context.Request
                 if (-not $bodyRead.Allowed) {

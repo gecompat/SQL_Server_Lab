@@ -75,7 +75,9 @@ Anforderung vom 2026-09-23, Status `IMPLEMENTED_PARTIAL`: Der read-only
 `Get-SqlServerLabAiSharedGatewayPlan` bindet einen lokalen HTTPS-Endpunkt,
 Loopback-Upstream, Runtime-/Modellhashes, CA-/Serverzertifikat, externe
 Secretreferenz und mehrere eindeutig identifizierte SQL-Verbraucher in einem
-deterministischen Plan. Der read-only Preflight prüft zusätzlich lokale
+deterministischen Plan. Die geführte Planerstellung steht in CLI und Browser
+unter **Host-Dienste und Modelle → Gemeinsamen Embedding-Gateway planen**
+zur Verfügung. Der read-only Preflight prüft zusätzlich lokale
 Runtime-/Modellhashes, Serverzertifikat und passenden privaten Schlüssel,
 CA-Kette, Gültigkeit und exakten SAN ohne Pfade oder Schlüssel im Receipt. Der
 Plan bleibt für den dauerhaften Dienst mit

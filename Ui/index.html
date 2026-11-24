@@ -285,6 +285,51 @@
       </form>
     </section>
 
+    <section class="panel compact" data-workspace-area="hostmodels" hidden>
+      <div class="section-heading"><h2>Gemeinsamen Embedding-Gateway planen</h2></div>
+      <form id="ai-shared-gateway-author">
+        <div class="form-grid">
+          <label>Gateway-ID<input name="GatewayId" required maxlength="63" pattern="[a-z][a-z0-9\-]{0,62}"></label>
+          <label>Gateway-Endpunkt<input name="Location" type="url" required maxlength="1024" placeholder="https://host.docker.internal:18443/v1/embeddings"></label>
+          <label>Upstream-Backend<select name="UpstreamBackend">
+            <option value="LlamaCppCpu">llama.cpp · CPU</option><option value="LlamaCppCuda">llama.cpp · CUDA</option>
+            <option value="LlamaCppOpenVino">llama.cpp · OpenVINO</option><option value="LlamaCppRocm">llama.cpp · ROCm</option>
+            <option value="LlamaCppVulkan">llama.cpp · Vulkan</option><option value="LlamaCppSycl">llama.cpp · SYCL</option>
+            <option value="OpenVinoModelServer">OpenVINO Model Server</option>
+          </select></label>
+          <label>Lokaler Upstream<input name="UpstreamLocation" type="url" required maxlength="1024" placeholder="http://127.0.0.1:18080/v1/embeddings"></label>
+          <label>Modellname<input name="RuntimeModel" required maxlength="256"></label>
+          <label>Embedding-Dimension<input name="Dimension" type="number" min="1" max="1998" step="1" required></label>
+          <label>Eingabeprofil<select name="InputProfile">
+            <option value="raw">Unverändert</option><option value="nomic-search">Nomic Search</option><option value="snowflake-search">Snowflake Search</option>
+          </select></label>
+          <label>SHA-256 der Modelldatei<input name="ModelSha256" required maxlength="64" pattern="[A-Fa-f0-9]{64}"></label>
+          <label>SHA-256 der Runtime<input name="RuntimeSha256" required maxlength="64" pattern="[A-Fa-f0-9]{64}"></label>
+          <label>SHA-256 des Serverzertifikats<input name="ServerCertificateSha256" required maxlength="64" pattern="[A-Fa-f0-9]{64}"></label>
+          <label>SHA-256 der CA<input name="CertificateAuthoritySha256" required maxlength="64" pattern="[A-Fa-f0-9]{64}"></label>
+        </div>
+        <div id="ai-shared-gateway-consumers"></div>
+        <template id="ai-shared-gateway-consumer-template">
+          <fieldset class="form-grid">
+            <legend>SQL-Verbraucher</legend>
+            <label>Run-ID<input name="RunId" required maxlength="36"></label>
+            <label>Instanz-ID<input name="InstanceId" required maxlength="63"></label>
+            <label>Datenbank-ID<input name="DatabaseId" required maxlength="36"></label>
+            <label>SQL-Modellname<input name="ExternalModelName" required maxlength="128"></label>
+            <label>Secret-Referenz<input name="ApiKeyReference" required maxlength="118" placeholder="SQL_SERVER_LAB_SECRET_…"></label>
+            <button type="button" class="button secondary" data-remove-consumer>Zuordnung entfernen</button>
+          </fieldset>
+        </template>
+        <div class="build-actions">
+          <button id="ai-shared-gateway-add-consumer" type="button" class="button secondary">SQL-Verbraucher hinzufügen</button>
+          <button id="ai-shared-gateway-create-plan" type="submit" class="button primary">Plan anzeigen</button>
+        </div>
+        <p id="ai-shared-gateway-plan-status" aria-live="polite">Der Plan bindet die Konfiguration für spätere Prüfung und Bereitstellung.</p>
+        <label id="ai-shared-gateway-plan-result-box" hidden>Gateway-Plan (JSON)<textarea id="ai-shared-gateway-plan-result" rows="10" readonly></textarea></label>
+        <div class="build-actions"><button id="ai-shared-gateway-use-plan" type="button" class="button secondary" disabled>In Dienst-Secret-Prüfung übernehmen</button></div>
+      </form>
+    </section>
+
     <details class="panel compact" id="ai-shared-gateway-service-secret-panel" data-workspace-area="hostmodels" hidden>
       <summary>Erweiterter Dienst-Secret-Preflight mit vorhandenen JSON-Plänen</summary>
       <div class="section-heading">
@@ -1516,6 +1561,7 @@
   <script src="evaluation-watch-trigger.js"></script>
   <script src="relational-core-comparison.js"></script>
   <script src="ovms-upstream.js"></script>
+  <script src="ai-shared-gateway-plan.js"></script>
   <script src="portable-container-transfer.js"></script>
   <script src="container-network-plan.js"></script>
   <script src="ai-persistent-retrieval-fixture.js"></script>
