@@ -39,9 +39,19 @@ try {
     function Write-LabInfo {param($Message);$script:messages.Add([string]$Message)}
     function Write-LabWarning {param($Message);$script:messages.Add([string]$Message)}
     function Wait-LabConsoleAcknowledgement {}
-    $script:actualPlan=${function:Get-SqlServerLabEvaluationRefreshPlan}
-    function Get-SqlServerLabEvaluationRefreshPlan {param($RunId,$InstanceId,$DataRoot,$Mode,[switch]$ObserveSqlSource);$script:planCalls++;$script:lastPlan=& $script:actualPlan @PSBoundParameters;return $script:lastPlan}
+    $script:actualPlan=${function:New-LabEvaluationRefreshPlan}
+    function New-LabEvaluationRefreshPlan {
+        param($RunId,$InstanceId,$DataRoot,$Mode,$ExpectedSnapshotDigest,[switch]$ObserveSqlSource,[switch]$ObserveWindowsLicense)
+        $script:planCalls++
+        if ($ExpectedSnapshotDigest -cnotmatch '^[a-f0-9]{64}$') { throw 'SYNTHETIC_EXPECTED_DIGEST_REQUIRED' }
+        $script:lastPlan = & $script:actualPlan @PSBoundParameters
+        return $script:lastPlan
+    }
     function Get-LabEvaluationSqlSourceInventory {param($Snapshot);[pscustomobject]@{Status='PARTIALLY_OBSERVED';Items=@([pscustomobject]@{Category='UserDatabases';Count=[long]1})}}
+    function Get-LabEvaluationWindowsLicenseObservation {
+        param($Snapshot)
+        [pscustomobject]@{Status='OBSERVED';LicenseState='LICENSED';ObservedAt=[datetime]::UtcNow.ToString('o');EvaluationExpiresAt=$null}
+    }
     function Reset-ConsoleRefresh([string[]]$Answers){$script:rootStatus='Confirmed';$script:answers=[Collections.Generic.Queue[string]]::new();foreach($a in $Answers){$script:answers.Enqueue($a)};$script:messages=[Collections.Generic.List[string]]::new();$script:seenScreens=[Collections.Generic.List[string]]::new();$script:planCalls=0;$script:lastPlan=$null;$script:beforeMenu=$null}
     $before=Get-RefreshHashes
     foreach($mode in @('FREE_SLOT_REPLACEMENT','RECONSTRUCT_LAB','STATEFUL_MIGRATION')){
@@ -59,8 +69,8 @@ try {
     Reset-ConsoleRefresh @();$rootStatus='Cancelled';Invoke-LabEvaluationRefreshPlanInteractive;Assert-ConsoleRefresh ($planCalls-eq0-and$seenScreens.Count-eq0) 'Root cancellation reads no candidate'
     Reset-ConsoleRefresh @('foreign');Invoke-LabEvaluationRefreshPlanInteractive;Assert-ConsoleRefresh ($planCalls-eq0-and($messages-join' ')-match'EVALUATION_REFRESH_INPUT_INVALID') 'Unknown menu run cannot adopt Data'
     Reset-ConsoleRefresh @('RUN','wrong');Invoke-LabEvaluationRefreshPlanInteractive;Assert-ConsoleRefresh ($planCalls-eq0) 'Unknown mode zero dispatch'
-    Reset-ConsoleRefresh @('RUN','STATEFUL_MIGRATION','preview');$beforeMenu={param($ScreenId)if($ScreenId-ceq'evaluation-refresh-preview'){$script:run.state='STOPPED';Write-Refresh $script:runPath $script:run}};Invoke-LabEvaluationRefreshPlanInteractive
-    Assert-ConsoleRefresh ($planCalls-eq0-and($messages-join' ')-match'EVALUATION_REFRESH_BINDING_CHANGED') 'Selected content drift rejects before public plan'
+    Reset-ConsoleRefresh @('RUN','STATEFUL_MIGRATION','observe-windows');$beforeMenu={param($ScreenId)if($ScreenId-ceq'evaluation-refresh-preview'){$script:run.state='STOPPED';Write-Refresh $script:runPath $script:run}};Invoke-LabEvaluationRefreshPlanInteractive
+    Assert-ConsoleRefresh ($planCalls -eq 1 -and -not $lastPlan -and ($messages -join ' ') -match 'EVALUATION_REFRESH_BINDING_CHANGED') 'Core rejects selected CLI digest drift before accessing the guest'
     $run.state='RUNNING';Write-Refresh $runPath $run
     $marker=Join-Path $root '.sql-server-lab-root.json';$saved=[IO.File]::ReadAllText($marker);$obj=$saved|ConvertFrom-Json;$obj.ControllerId=[guid]::NewGuid().ToString('D');Write-Refresh $marker $obj
     Reset-ConsoleRefresh @();Invoke-LabEvaluationRefreshPlanInteractive;Assert-ConsoleRefresh ($planCalls-eq0) 'Foreign controller leaves no selectable run'
@@ -73,6 +83,10 @@ try {
     Assert-ConsoleRefresh ($planCalls -eq 1 -and $lastPlan.SqlSourceInventory.Status -ceq 'PARTIALLY_OBSERVED') 'The explicit guided source observation calls the inventory lane'
     Reset-ConsoleRefresh @('RUN','RECONSTRUCT_LAB','observe');Invoke-LabEvaluationRefreshPlanInteractive
     Assert-ConsoleRefresh ($planCalls -eq 0) 'The observation choice is unavailable outside stateful migration'
+    Reset-ConsoleRefresh @('RUN','RECONSTRUCT_LAB','observe-windows');Invoke-LabEvaluationRefreshPlanInteractive
+    Assert-ConsoleRefresh ($planCalls -eq 1 -and $lastPlan.WindowsLicenseObservation.LicenseState -ceq 'LICENSED' -and
+        -not $lastPlan.PSObject.Properties['SqlSourceInventory'] -and $lastPlan.Status -ceq 'BLOCKED' -and
+        ($messages -join ' ') -cmatch 'LICENSED') 'Windows observation is a distinct guided read with its own display'
     $savedReader=${function:Read-LabEvaluationRefreshSnapshot};function Read-LabEvaluationRefreshSnapshot {throw 'PRIVATE_CANARY_PATH_HOST_SECRET'}
     Reset-ConsoleRefresh @();Invoke-LabEvaluationRefreshPlanInteractive;Assert-ConsoleRefresh (-not(($messages-join' ')-match'PRIVATE_CANARY')) 'Candidate exception text is never displayed'
     Set-Item Function:Read-LabEvaluationRefreshSnapshot $savedReader

@@ -18,6 +18,10 @@
 .PARAMETER ObserveSqlSource
     Erfasst bei STATEFUL_MIGRATION zusätzlich neun SQL-Quellzähler einer
     laufenden, gebundenen SQL-2025-Prepared-Instanz. Keine Persistenz.
+.PARAMETER ObserveWindowsLicense
+    Liest zusätzlich den Windows-Lizenzstatus der laufenden gebundenen VM.
+    Die registrierte Historie bleibt getrennt. Die Abfrage aktiviert und
+    speichert keine Lizenz.
 .OUTPUTS
     SqlServerLab.EvaluationRefreshPlan/1.0; strikt nicht ausführbar.
 .EXAMPLE
@@ -31,7 +35,8 @@ function Get-SqlServerLabEvaluationRefreshPlan {
         [Parameter(Mandatory)][ValidatePattern('^[A-Za-z][A-Za-z0-9_-]{0,63}$')][string]$InstanceId,
         [Parameter(Mandatory)][ValidateLength(1,2048)][string]$DataRoot,
         [Parameter(Mandatory)][ValidateSet('FREE_SLOT_REPLACEMENT','RECONSTRUCT_LAB','STATEFUL_MIGRATION')][string]$Mode,
-        [switch]$ObserveSqlSource
+        [switch]$ObserveSqlSource,
+        [switch]$ObserveWindowsLicense
     )
     New-LabEvaluationRefreshPlan @PSBoundParameters
 }

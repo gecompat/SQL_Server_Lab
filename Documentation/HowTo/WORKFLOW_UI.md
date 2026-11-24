@@ -432,6 +432,10 @@ Für eine laufende Instanz bietet **Instanzzustand migrieren** zusätzlich
 SQL-2025-Instanz enthält Zähler für ausgewählte Datenbank- und Serverobjekte.
 Er liefert keine Objektnamen, schreibt keinen Befund auf die Platte und
 erteilt keine Migrationsfreigabe.
+**Windows-Lizenz im laufenden Gast lesen** ist eine eigene Auswahl in allen
+drei Entscheidungsarten. Sie zeigt den aktuellen Lizenzstatus, den
+Beobachtungszeitpunkt und eine belegte Evaluation-Frist getrennt von den
+gespeicherten Fristzeilen. Die Abfrage ändert weder Lizenz noch Lab-Zustand.
 
 Im Browser unter **Wartung und Recovery → SQL-Evaluation: Ersatzentscheid**
 ein vorhandenes registriertes `Lab_Data` eingeben und **Registrierte Instanzen
@@ -448,6 +452,9 @@ Für einen laufenden Gast und die Auswahl **Instanzzustand migrieren** gibt es
 zusätzlich **SQL-Quellzähler im Gast lesen**. Der ausdrücklich gewählte
 Leseauftrag erscheint unter **Vorgänge**. Er speichert keine Diagnose im
 Lab-Zustand und gibt nur Kategorien und Anzahlen aus.
+**Windows-Lizenz im Gast lesen** erscheint bei einer laufenden Instanz
+unabhängig von der Entscheidungsart. Der aktuelle Befund erscheint unter
+**Vorgänge**. Scheitert die lesende Gastabfrage, bleibt der Befund unbeobachtet.
 
 ### External Languages vor einer Lab-Erstellung
 

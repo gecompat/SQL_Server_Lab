@@ -83,8 +83,56 @@ function Get-LabEvaluationSqlSourceInventory {
     [pscustomobject]@{ Status='PARTIALLY_OBSERVED'; Items=$items }
 }
 
+function Get-LabEvaluationWindowsLicenseObservation {
+    param([Parameter(Mandatory)]$Snapshot)
+
+    $unavailable = [pscustomobject]@{ Status='NOT_OBSERVED'; LicenseState=$null; ObservedAt=$null; EvaluationExpiresAt=$null }
+    $vmId = [guid]::Empty
+    if (-not $IsWindows -or $Snapshot.Binding.Run.state -cne 'RUNNING' -or
+        -not [guid]::TryParseExact([string]$Snapshot.Instance.vmId, 'D', [ref]$vmId) -or $vmId -eq [guid]::Empty) {
+        return $unavailable
+    }
+    $startedAt = [datetime]::UtcNow
+    try {
+        $license = Get-HyperVWindowsSlotLicenseStatus -RunId $Snapshot.Binding.Run.runId -StateRoot $Snapshot.Binding.StateRoot `
+            -ExpectedVmId $vmId -ExpectedScopeId $Snapshot.Binding.Run.scopeId -ExpectedInstanceId $Snapshot.Instance.id `
+            -TimeoutSeconds 30 -BoundReadOnly 3>$null 4>$null 5>$null 6>$null
+    }
+    catch {
+        if ($_.Exception.Message -cin @('HYPERV_WINDOWS_LICENSE_READ_BINDING_CHANGED', 'HYPERV_LAB_EXPECTED_VM_ID_MISMATCH',
+            'HYPERV_LAB_EXPECTED_VM_RUNTIME_MISMATCH', 'HYPERV_GUEST_VM_ID_MISMATCH')) {
+            throw 'EVALUATION_REFRESH_BINDING_CHANGED'
+        }
+        return $unavailable
+    }
+    $finishedAt = [datetime]::UtcNow
+    $observedAt = ConvertFrom-LabSqlGuestEvaluationEvidenceUtcTimestamp -Value $license.ObservedAt
+    if ($license.RunId -cne $Snapshot.Binding.Run.runId -or -not $observedAt -or
+        $observedAt -lt $startedAt.AddSeconds(-30) -or $observedAt -gt $finishedAt.AddSeconds(30)) { return $unavailable }
+
+    $expiry = $null
+    switch -CaseSensitive ($license.State) {
+        'LICENSED' { if ($license.LicenseStatus -ne 1) { return $unavailable } }
+        'EVALUATION_ACTIVE' {
+            if ($license.LicenseStatus -ne 1) { return $unavailable }
+            $expiry = ConvertFrom-LabSqlGuestEvaluationEvidenceUtcTimestamp -Value $license.EvaluationEndDate
+            if (-not $expiry -and -not $license.EvaluationEndDate) {
+                $expiry = ConvertFrom-LabSqlGuestEvaluationEvidenceUtcTimestamp -Value $license.EvaluationExpiresAt
+            }
+            if (-not $expiry -or $expiry -le $observedAt) { return $unavailable }
+        }
+        'EVALUATION_EXPIRED' {
+            $expiry = ConvertFrom-LabSqlGuestEvaluationEvidenceUtcTimestamp -Value $license.EvaluationEndDate
+            if (-not $expiry -or $expiry -gt $observedAt) { return $unavailable }
+        }
+        default { return $unavailable }
+    }
+    [pscustomobject]@{ Status='OBSERVED'; LicenseState=[string]$license.State; ObservedAt=$observedAt.ToString('o')
+        EvaluationExpiresAt=if($expiry){$expiry.ToString('o')}else{$null} }
+}
+
 function New-LabEvaluationRefreshPlan {
-    param([string]$RunId,[string]$InstanceId,[string]$DataRoot,[string]$Mode,[switch]$ObserveSqlSource,[string]$ExpectedSnapshotDigest)
+    param([string]$RunId,[string]$InstanceId,[string]$DataRoot,[string]$Mode,[switch]$ObserveSqlSource,[switch]$ObserveWindowsLicense,[string]$ExpectedSnapshotDigest)
     if ($ObserveSqlSource -and $Mode -cne 'STATEFUL_MIGRATION') { throw 'EVALUATION_REFRESH_SQL_SOURCE_MODE_INVALID' }
     try {
         $snapshot=Read-LabEvaluationRefreshSnapshot -RunId $RunId -InstanceId $InstanceId -DataRoot $DataRoot
@@ -103,8 +151,10 @@ function New-LabEvaluationRefreshPlan {
         EvaluationExpiresAt=if($expiry){$expiry.ToString('o')}else{$null};DaysRemaining=if($expiry){[Math]::Max(0,[int][Math]::Ceiling(($expiry-$now).TotalDays))}else{$null};EvidenceStatus='HISTORICAL_METADATA';FreshLicenseProof=$false}
     $sqlProjection=[pscustomobject]@{Component='SqlServer';Status=$sql.Status;DeadlineSource=$sql.DeadlineSource;
         EvidenceStatus=$sql.EvidenceStatus;EvaluationExpiresAt=$sql.EvaluationExpiresAt;DaysRemaining=$sql.DaysRemaining;SqlReadiness='NOT_CHECKED'}
+    $windowsObservation = if ($ObserveWindowsLicense) { Get-LabEvaluationWindowsLicenseObservation -Snapshot $snapshot }
     $blockers=[Collections.Generic.List[string]]::new()
-    $blockers.Add('CURRENT_WINDOWS_LICENSE_PROOF_NOT_AVAILABLE')
+    if (-not $windowsObservation -or $windowsObservation.Status -cne 'OBSERVED') { $blockers.Add('CURRENT_WINDOWS_LICENSE_PROOF_NOT_AVAILABLE') }
+    elseif ($windowsObservation.LicenseState -ceq 'EVALUATION_EXPIRED') { $blockers.Add('WINDOWS_EVALUATION_EXPIRED') }
     if($sql.EvidenceStatus-cnotin@('CURRENT','NOT_EVALUATION')){$blockers.Add('SQL_EVALUATION_EVIDENCE_REQUIRED')}
     $steps=switch -CaseSensitive ($Mode) {
         'FREE_SLOT_REPLACEMENT' {$blockers.Add('SLOT_MEMBERSHIP_AND_REPLACEMENT_TARGET_NOT_ASSESSED');@('Freien Slot und getrennte Restlaufzeiten über den bestehenden Poolvertrag prüfen.','Neue Medien und Zielbindung separat bestätigen; ein Clone setzt keine Evaluation zurück.')}
@@ -122,5 +172,6 @@ function New-LabEvaluationRefreshPlan {
         FullInstanceMigration=$false;EquivalenceStatus='NOT_VERIFIED';SqlReadiness='NOT_CHECKED';
         ExecutionSupported=$false;MutationAllowed=$false;Actions=@();TransferAuthority='NONE';GeneratedAt=$now.ToString('o')}
     if ($ObserveSqlSource) { $result | Add-Member -NotePropertyName SqlSourceInventory -NotePropertyValue $sourceInventory }
+    if ($ObserveWindowsLicense) { $result | Add-Member -NotePropertyName WindowsLicenseObservation -NotePropertyValue $windowsObservation }
     return $result
 }

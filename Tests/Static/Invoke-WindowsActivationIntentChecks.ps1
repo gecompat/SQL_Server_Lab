@@ -71,6 +71,51 @@ $module=Import-Module (Join-Path $PSScriptRoot '../../SqlServerLab.psd1') -Force
         try{$null=Get-HyperVWindowsSlotLicenseStatus -RunId synthetic-run -Credential $credential}catch{$invalid=$_.Exception.Message -eq 'HYPERV_WINDOWS_LICENSE_RECEIPT_INVALID'}
         Assert-Intent $invalid 'Ungueltiges Live-Ablaufdatum wird nicht still als aktive Evaluation interpretiert'
     }
+    & {
+        $vmId = [guid]'33333333-3333-4333-8333-333333333333'
+        $runId = '44444444-4444-4444-8444-444444444444'
+        $script:boundLicenseReads = 0
+        $script:boundLicenseGuestCalls = 0
+        $script:boundLicenseDrift = $false
+        function Get-HyperVLabWorkflowRun {
+            param($RunId,$StateRoot,$ExpectedVmId,[switch]$NoWrite)
+            if (-not $NoWrite -or $RunId -cne $bound.RunId -or $ExpectedVmId -ne $vmId -or $StateRoot -cne $bound.StateRoot) {
+                throw 'BOUND_LICENSE_READ_SCOPE_INVALID'
+            }
+            $script:boundLicenseReads++
+            $state = if ($script:boundLicenseDrift -and $script:boundLicenseReads -gt 1) { 'STOPPED' } else { 'RUNNING' }
+            [pscustomobject]@{ Run=@{runId=$RunId;scopeId='synthetic-scope';state=$state}; Instance=@{id='primary';vmName='synthetic-vm'} }
+        }
+        function Get-HyperVManagedVM { [pscustomobject]@{VM=@{Id=$vmId;State='Running'}} }
+        function Wait-HyperVPowerShellDirect { throw 'BOUND_LICENSE_EXTRA_GUEST_PROBE' }
+        function Set-HyperVWindowsSlotActivationEvidence { throw 'BOUND_LICENSE_PERSISTENCE_FORBIDDEN' }
+        function Invoke-HyperVPowerShellDirect {
+            param($ExpectedVmId,$TimeoutSeconds,[switch]$NoRetry)
+            if ($ExpectedVmId -ne $vmId -or $TimeoutSeconds -ne 30 -or -not $NoRetry) { throw 'BOUND_LICENSE_GUEST_SCOPE_INVALID' }
+            $script:boundLicenseGuestCalls++
+            [pscustomobject]@{edition='ServerStandard';licenseStatus=1;evaluationMinutesRemaining=0;observedAt=[datetime]::UtcNow.ToString('o')}
+        }
+        $bound = @{RunId=$runId;StateRoot='synthetic-state';ExpectedVmId=$vmId;TimeoutSeconds=30;BoundReadOnly=$true
+            ExpectedScopeId='synthetic-scope';ExpectedInstanceId='primary'
+            Credential=[pscredential]::new('synthetic',[SecureString]::new())}
+        $result = Get-HyperVWindowsSlotLicenseStatus @bound
+        Assert-Intent ($result.State -ceq 'LICENSED' -and $script:boundLicenseReads -eq 2 -and $script:boundLicenseGuestCalls -eq 1) 'Gebundener Lizenzbefund liest den Gast einmal und prueft beide State-Bindungen'
+        $invalid = $false
+        try { $null = Get-HyperVWindowsSlotLicenseStatus @bound -Persist } catch { $invalid = $_.Exception.Message -ceq 'HYPERV_WINDOWS_LICENSE_READ_BINDING_REQUIRED' }
+        Assert-Intent ($invalid -and $script:boundLicenseGuestCalls -eq 1) 'Gebundener Lizenzpfad lehnt Persist vor Gastzugriff ab'
+        foreach ($field in @('ExpectedScopeId','ExpectedInstanceId')) {
+            $foreignBinding = @{} + $bound
+            $foreignBinding[$field] = 'other-selection'
+            $invalid = $false
+            try { $null = Get-HyperVWindowsSlotLicenseStatus @foreignBinding } catch { $invalid = $_.Exception.Message -ceq 'HYPERV_WINDOWS_LICENSE_READ_BINDING_CHANGED' }
+            Assert-Intent ($invalid -and $script:boundLicenseGuestCalls -eq 1) ('Gebundener Lizenzpfad lehnt fremdes '+$field+' vor Gastzugriff ab')
+        }
+        $script:boundLicenseReads = 0
+        $script:boundLicenseDrift = $true
+        $invalid = $false
+        try { $null = Get-HyperVWindowsSlotLicenseStatus @bound } catch { $invalid = $_.Exception.Message -ceq 'HYPERV_WINDOWS_LICENSE_READ_BINDING_CHANGED' }
+        Assert-Intent ($invalid -and $script:boundLicenseGuestCalls -eq 2) 'Gebundener Lizenzpfad verwirft Drift nach Gastzugriff'
+    }
 }
 & $module {
     function Assert-Path {param([bool]$Condition,[string]$Name);if(-not $Condition){throw "FAIL: $Name"};Write-Host "PASS: $Name"}

@@ -2388,11 +2388,14 @@ und Auswahlgrenzen, Drift bei zweiter Coreobservation, Recovery, Datenschutz und
 getrennte fehlende/veraltete/aktuelle Evidence sind Pflichtfälle.
 `EvaluationRefreshPlanUiChecks.cjs` führt das echte RAM-Dialogskript mit DOM-/Fetch-
 Leaves aus: drei Modi, Cancel/Escape, Busy, geänderte Auswahl, verworfene späte
-Erfolge/Fehler und strikt nicht ausführbare feste Responses. Kein Job, SQL-/
-Providerzugriff oder neuer Lizenznachweis; ausgewählte Providergates bleiben separat.
+Erfolge/Fehler und strikt nicht ausführbare feste Responses. Die Vorschau
+dispatcht keinen Job. Die beiden expliziten Gastaktionen binden Instanz, Root
+und Digest für einen flüchtigen Job. Provider-, SQL- und Lizenznachweise bleiben
+separat.
 
 `Invoke-EvaluationRefreshPlanConsoleChecks.ps1` führt den tatsächlichen geführten
-CLI-Handler durch den öffentlichen Plan und seine Diagnostic-/Gast-Reader aus.
+CLI-Handler durch denselben Plankern wie die öffentliche API und seine
+Diagnostic-/Gast-Reader aus.
 Nur Text-, Menü- und Anzeigegrenzen sind isoliert. Alle drei Modi, Cancel vor
 jedem Planaufruf, fremde/abweichende Bindung, Auswahl-/Inhaltsdrift, fehlende und
 veraltete Evidence, Datenschutz und die 64-Verzeichnisgrenze sind Pflichtfälle.

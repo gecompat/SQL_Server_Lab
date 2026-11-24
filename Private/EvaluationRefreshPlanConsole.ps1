@@ -46,6 +46,9 @@ function Invoke-LabEvaluationRefreshPlanInteractive {
         if($mode-cnotin@($modes.Id)){throw 'EVALUATION_REFRESH_INPUT_INVALID'}
         $reviewItems = @(
             New-LabConsoleItem -Id preview -Label 'Vorschau lesen (keine Änderung)'
+            if ($selected.State -ceq 'RUNNING') {
+                New-LabConsoleItem -Id observe-windows -Label 'Windows-Lizenz im laufenden Gast lesen'
+            }
             if ($mode -ceq 'STATEFUL_MIGRATION' -and $selected.State -ceq 'RUNNING') {
                 New-LabConsoleItem -Id observe -Label 'SQL-Quellzähler im laufenden Gast lesen'
             }
@@ -55,11 +58,13 @@ function Invoke-LabEvaluationRefreshPlanInteractive {
             -Subtitle ("{0} · {1} · Keine Lizenzfreigabe, Speicherung oder Übernahme."-f$selected.InstanceId,$modeChoice.SelectedItem.Label) -Items $reviewItems
         if($review.Status-cne'Selected'-or$review.SelectedItem.Id-ceq'back'){return}
         if($review.SelectedItem.Id-cnotin$reviewItems.Id){throw 'EVALUATION_REFRESH_INPUT_INVALID'}
-        $fresh=Read-LabEvaluationRefreshSnapshot -RunId $selected.RunId -InstanceId $selected.InstanceId -DataRoot $selected.DataRoot
-        if($fresh.Digest-cne$selected.Digest-or$fresh.Binding.Run.scopeId-cne$selected.ScopeId-or$fresh.Binding.Run.state-cne$selected.State){throw 'EVALUATION_REFRESH_BINDING_CHANGED'}
-        $planArgs = @{ RunId=$selected.RunId; InstanceId=$selected.InstanceId; DataRoot=$selected.DataRoot; Mode=$mode }
+        $planArgs = @{
+            RunId=$selected.RunId; InstanceId=$selected.InstanceId; DataRoot=$selected.DataRoot
+            Mode=$mode; ExpectedSnapshotDigest=$selected.Digest
+        }
         if ($review.SelectedItem.Id -ceq 'observe') { $planArgs.ObserveSqlSource = $true }
-        $plan=Get-SqlServerLabEvaluationRefreshPlan @planArgs
+        if ($review.SelectedItem.Id -ceq 'observe-windows') { $planArgs.ObserveWindowsLicense = $true }
+        $plan=New-LabEvaluationRefreshPlan @planArgs
         Write-LabInfo 'BLOCKED: reine Planung. SQL-Bereitschaft NOT_CHECKED; keine Aktionen, Speicherung, Übernahme oder Gleichwertigkeitsbestätigung.'
         foreach($evaluation in $plan.Evaluations){
             $component=if($evaluation.Component-ceq'Windows'){'Windows'}else{'SQL Server'}
@@ -67,7 +72,12 @@ function Invoke-LabEvaluationRefreshPlanInteractive {
             $days=if($null-ne$evaluation.DaysRemaining){[string]$evaluation.DaysRemaining}else{'Unbekannt / nicht anwendbar'}
             Write-LabInfo ("{0}: {1} · Quelle: {2} · Evidence: {3} · Frist UTC: {4} · Resttage: {5}"-f$component,$evaluation.Status,$evaluation.DeadlineSource,$evaluation.EvidenceStatus,$expiry,$days)
         }
-        Write-LabInfo 'Windows-Aktivierung ist historische Metadaten, keine frische Lizenzprüfung. SQL-Evidence ist keine neue Gastabfrage.'
+        Write-LabInfo 'Die beiden Fristzeilen zeigen gespeicherte Windows- und SQL-Evidence.'
+        if ($plan.WindowsLicenseObservation) {
+            $windows = $plan.WindowsLicenseObservation
+            Write-LabInfo ("Windows-Lizenz im Gast: {0} · Lizenz: {1} · Beobachtet UTC: {2} · Frist UTC: {3}" -f
+                $windows.Status, $windows.LicenseState, $windows.ObservedAt, $windows.EvaluationExpiresAt)
+        }
         if ($plan.SqlSourceInventory) {
             Write-LabInfo ("SQL-Quellzähler im Gast: {0}. Vollständige Instanzinventur bleibt offen." -f $plan.SqlSourceInventory.Status)
             foreach ($item in $plan.SqlSourceInventory.Items) { Write-LabInfo ("{0}: {1}" -f $item.Category,$item.Count) }

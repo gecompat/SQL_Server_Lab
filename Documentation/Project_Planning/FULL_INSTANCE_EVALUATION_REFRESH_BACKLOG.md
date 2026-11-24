@@ -45,8 +45,9 @@ und Migrationsentscheid** als geführte reine Vorschau. Derselbe Dialog ist
 auch unter **Alle öffentlichen Befehle → SQL-Evaluation: Ersatzentscheid**
 erreichbar. Unter einem ausdrücklich eingegebenen registrierten
 Root sind höchstens 64 Run-Verzeichnisse und nur eine vollständig gebundene
-moderne Hyper-V-SQL-Instanz auswählbar. Die Auswahl wird vor dem öffentlichen
-Plan erneut geprüft; Abbruch speichert nichts und ruft keinen Plan auf.
+moderne Hyper-V-SQL-Instanz auswählbar. Der gemeinsame Plankern prüft den
+Digest der Auswahl unmittelbar vor einem Gastzugriff. Abbruch verwirft
+die Auswahl.
 Windows-/SQL-Quelle und Aktualität werden getrennt angezeigt. Ein geführter
 Browserdialog ist ebenfalls als reine RAM-Vorschau im Bereich **Wartung,
 Aufräumen und Recovery** implementiert: eigener begrenzter HTTP-Metadaten-/
@@ -66,6 +67,14 @@ Die [Key18-Abnahme](https://github.com/gecompat/SQL_Server_Lab/actions/runs/4534
 belegt die neun Zähler der Gastprobe für SQL Server 2025 Developer, Build
 `17.0.1000.7`. Der eigene Run wurde bereinigt und die Vorlage blieb
 unverändert.
+
+Die getrennte Auswahl **Windows-Lizenz im laufenden Gast lesen**
+(`-ObserveWindowsLicense`) prüft die aktuelle Lizenz derselben gebundenen
+laufenden Instanz in allen drei Planmodi. Die Ausgabe trennt den Live-Befund
+von den gespeicherten Fristen. Sie enthält Lizenzstatus, Beobachtungszeitpunkt
+und gegebenenfalls die Evaluation-Frist. Eine abgelaufene Evaluation ist ein
+eigener Blocker. Die Abfrage persistiert und aktiviert nichts. Der native
+Nachweis für diesen neuen Planpfad steht aus.
 
 Die gemeinsame Watch-Fristklassifikation bleibt unverändert. Bei durch JSON
 typisierten Zeitwerten bewahren beide Watch-Pfade jetzt UTC und Bruchteile der

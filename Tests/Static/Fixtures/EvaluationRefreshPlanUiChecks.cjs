@@ -87,8 +87,16 @@ async function readMetadata(body = metadata) { const pending = node('read').fire
       action: 'ReadHyperVEvaluationSqlSource',
       parameters: { RunId: own.RunId, InstanceId: own.InstanceId, DataRoot: 'CHANGED_ROOT', ExpectedPlanKey: own.Digest }
     }) && node('status').textContent.includes('Vorgänge'));
+  node('mode').value = 'RECONSTRUCT_LAB'; await node('mode').fire('change');
+  await node('observe-windows').fire('click');
+  check('Explicit Windows read uses the same bound selection independently of SQL mode',
+    jobs.length === 2 && JSON.stringify(jobs[1]) === JSON.stringify({
+      action: 'ReadHyperVEvaluationWindowsLicense',
+      parameters: { RunId: own.RunId, InstanceId: own.InstanceId, DataRoot: 'CHANGED_ROOT', ExpectedPlanKey: own.Digest }
+    }) && node('status').textContent.includes('Windows-Lizenzbefund'));
   await readMetadata({ ...metadata, Runs: [{ ...own, State: 'STOPPED' }] });
   await node('observe').fire('click');
-  check('Stopped source cannot dispatch the observation', jobs.length === 1 && node('observe').disabled);
+  await node('observe-windows').fire('click');
+  check('Stopped source cannot dispatch either observation', jobs.length === 2 && node('observe').disabled && node('observe-windows').disabled);
   console.log('EVALUATION_REFRESH_UI_CHECKS: ' + checks + ' PASS; 0 FAIL');
 })().catch(error => { console.error(error); process.exitCode = 1; });

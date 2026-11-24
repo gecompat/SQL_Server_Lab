@@ -92,11 +92,57 @@ try {
         [pscustomobject]@{ MajorVersion=17; InstanceName='MSSQLSERVER'; Edition='Enterprise Evaluation Edition'; SourceInventory=$script:guestCounts; Private='CANARY_PRIVATE_DO_NOT_RETURN' }
     }
     function Get-LabTimestamp { [datetime]::UtcNow.ToString('o') }
+    $script:licenseCalls = 0
+    $script:licenseMode = 'LICENSED'
+    function Get-HyperVWindowsSlotLicenseStatus {
+        param($RunId,$StateRoot,$ExpectedVmId,$ExpectedScopeId,$ExpectedInstanceId,$TimeoutSeconds,[switch]$BoundReadOnly)
+        $script:licenseCalls++
+        if ($RunId -ne [guid]$runId -or $StateRoot -cne $stateRoot -or $ExpectedVmId -ne [guid]$connection.instances[0].vmId -or
+            $ExpectedScopeId -cne $scope -or $ExpectedInstanceId -cne 'primary' -or $TimeoutSeconds -ne 30 -or
+            -not $BoundReadOnly) { throw 'SYNTHETIC_LICENSE_REQUEST_MISMATCH' }
+        if ($script:licenseMode -ceq 'DRIFT') { throw 'HYPERV_LAB_EXPECTED_VM_RUNTIME_MISMATCH' }
+        $now = [datetime]::UtcNow
+        [pscustomobject]@{
+            RunId=if ($script:licenseMode -ceq 'FOREIGN') { [guid]::NewGuid() } else { $RunId }
+            State=$script:licenseMode
+            LicenseStatus=1
+            ObservedAt=if ($script:licenseMode -ceq 'STALE') { $now.AddHours(-1).ToString('o') } else { $now.ToString('o') }
+            EvaluationEndDate=if ($script:licenseMode -ceq 'EVALUATION_EXPIRED') { $now.AddDays(-2).ToString('o') }
+            EvaluationExpiresAt=if ($script:licenseMode -ceq 'EVALUATION_ACTIVE') { $now.AddDays(2).ToString('o') }
+            VMName='CANARY_PRIVATE_DO_NOT_RETURN'
+        }
+    }
     $hostPlatform = $IsWindows
     Set-Variable -Name IsWindows -Scope Script -Value $true -Force
     try {
         $ordinary = Get-SqlServerLabEvaluationRefreshPlan @argsForPlan
-        Assert-Refresh ($script:observationCalls -eq 0 -and -not $ordinary.PSObject.Properties['SqlSourceInventory']) 'Default migration preview still opens no connection'
+        Assert-Refresh ($script:observationCalls -eq 0 -and $script:licenseCalls -eq 0 -and
+            -not $ordinary.PSObject.Properties['SqlSourceInventory'] -and -not $ordinary.PSObject.Properties['WindowsLicenseObservation']) 'Default migration preview still opens no connection'
+        $licenseJobParams = @{ Action='ReadHyperVEvaluationWindowsLicense'; RunId=$runId; InstanceId='primary'; DataRoot=$root; ExpectedPlanKey='0' * 64 }
+        Assert-RefreshReject 'Stale Windows license request cannot query a guest' { Invoke-SqlServerLabWorkflowAction @licenseJobParams } EVALUATION_REFRESH_BINDING_CHANGED
+        Assert-Refresh ($script:licenseCalls -eq 0) 'Stale Windows license request invokes no probe'
+        $licenseJobParams.ExpectedPlanKey = $ordinary.ObservedContentSha256
+        $licenseJob = Invoke-SqlServerLabWorkflowAction @licenseJobParams
+        Assert-Refresh ($script:licenseCalls -eq 1 -and $script:observationCalls -eq 0 -and
+            $licenseJob.Result.Status -ceq 'OBSERVED' -and $licenseJob.Result.LicenseState -ceq 'LICENSED' -and
+            $null -eq $licenseJob.Result.EvaluationExpiresAt -and
+            ($licenseJob | ConvertTo-Json -Depth 8) -cnotmatch 'CANARY_PRIVATE|ScopeId|VMName') 'Explicit Windows job returns only bound live license fields'
+        $script:licenseMode = 'EVALUATION_ACTIVE'
+        $active = Get-SqlServerLabEvaluationRefreshPlan @argsForPlan -ObserveWindowsLicense
+        Assert-Refresh ($active.WindowsLicenseObservation.Status -ceq 'OBSERVED' -and $active.WindowsLicenseObservation.EvaluationExpiresAt -and
+            $active.Evaluations[0].EvidenceStatus -ceq 'HISTORICAL_METADATA' -and $active.TransferAuthority -ceq 'NONE') 'Live Windows expiry remains distinct from saved metadata and grants no transfer authority'
+        $script:licenseMode = 'EVALUATION_EXPIRED'
+        $expired = Get-SqlServerLabEvaluationRefreshPlan @argsForPlan -ObserveWindowsLicense
+        Assert-Refresh ($expired.WindowsLicenseObservation.LicenseState -ceq 'EVALUATION_EXPIRED' -and
+            'WINDOWS_EVALUATION_EXPIRED' -cin $expired.Blockers -and $expired.Status -ceq 'BLOCKED') 'An expired live Windows license blocks the plan even when historical metadata is active'
+        foreach ($mode in @('STALE','FOREIGN','ACTIVATION_REQUIRED')) {
+            $script:licenseMode = $mode
+            $unknown = Get-SqlServerLabEvaluationRefreshPlan @argsForPlan -ObserveWindowsLicense
+            Assert-Refresh ($unknown.WindowsLicenseObservation.Status -ceq 'NOT_OBSERVED' -and
+                'CURRENT_WINDOWS_LICENSE_PROOF_NOT_AVAILABLE' -cin $unknown.Blockers) ('Windows observation rejects '+$mode)
+        }
+        $script:licenseMode = 'DRIFT'
+        Assert-RefreshReject 'Changed VM binding invalidates the Windows observation' { Get-SqlServerLabEvaluationRefreshPlan @argsForPlan -ObserveWindowsLicense } EVALUATION_REFRESH_BINDING_CHANGED
         $observed = Get-SqlServerLabEvaluationRefreshPlan @argsForPlan -ObserveSqlSource
         Assert-Refresh ($script:observationCalls -eq 1 -and $observed.SqlSourceInventory.Status -ceq 'PARTIALLY_OBSERVED' -and
             $observed.SqlSourceInventory.Items.Count -eq 9 -and ($observed.SqlSourceInventory.Items | Where-Object Category -CEQ UserDatabases).Count -eq 3 -and

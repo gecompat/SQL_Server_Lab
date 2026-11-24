@@ -670,7 +670,7 @@ Cutover, Schlüsseltransfer und Rückfall fehlen. Die Option persistiert keine
 Daten und führt keine Adoption oder Lifecycleaktion aus. Generischer Konsolen-
 Befehlszugang und geführter CLI-Dialog **SQL-Evaluation: Ersatzentscheid** sind
 verfügbar. Der Dialog liest höchstens 64 Run-Verzeichnisse unter explizitem
-registrierten Root, revalidiert die Auswahl und ruft nur die Plan-API auf.
+registrierten Root und bindet die Auswahl im gemeinsamen Plankern per Digest.
 Abbruch verwirft die Eingabe. Der Browser bietet **Wartung, Aufräumen und Recovery →
 SQL-Evaluation: Ersatzentscheid** über einen eigenen begrenzten Read-/Previewpfad
 zu derselben Metadatenautorität. Root, Auswahl und Entscheidungsart bleiben im
@@ -678,6 +678,11 @@ RAM; Abbruch und späte Antworten erstellen keine Jobs. Windows-Lizenz und
 SQL-Bereitschaft werden durch die Metadatenvorschau auch dort nicht frisch geprüft.
 Die getrennt ausgelöste SQL-Quellabfrage erzeugt für die ausgewählte laufende
 Quelle einen flüchtigen Leseauftrag für dieselben Zähler.
+`-ObserveWindowsLicense` und die gleichnamige geführte Auswahl lesen den
+Windows-Lizenzstatus nur aus einer laufenden, eindeutig gebundenen Instanz.
+Der flüchtige Befund bleibt separat und beinhaltet keine Aktivierung.
+Alle Planmodi bleiben blockiert. Der Nachweis der neuen Auswahl im tatsächlichen
+Gast steht aus.
 Andere Provider, mehrere Instanzen und ungebundene Caller-Inventories sind
 außerhalb dieses Slices.
 
