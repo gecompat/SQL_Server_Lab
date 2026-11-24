@@ -431,7 +431,9 @@ Für eine laufende Instanz bietet **Instanzzustand migrieren** zusätzlich
 **SQL-Quellzähler im laufenden Gast lesen**. Der Befund einer vorbereiteten
 SQL-2025-Instanz enthält Zähler für ausgewählte Datenbank- und Serverobjekte.
 Positive Zähler markieren zusätzliche Prüfungen für Verschlüsselung,
-Datenbankzustand, Snapshots, Linked Server, Zugangsdaten und SQL Agent.
+Datenbankzustand, Snapshots, FILESTREAM-Dateityp, mögliche SSISDB, Linked
+Server, Zugangsdaten und SQL Agent. Ein SSISDB-Treffer erfordert eine
+Katalogprüfung.
 Der Befund enthält Kategorien, Anzahlen und feste Prüfcodes. Eine
 Transferfreigabe erfordert einen eigenen Nachweis.
 **Windows-Lizenz im laufenden Gast lesen** ist eine eigene Auswahl in allen

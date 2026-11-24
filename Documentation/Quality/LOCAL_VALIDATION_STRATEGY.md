@@ -2412,10 +2412,12 @@ liefern nur die synthetische Quelle. Die Prüfung beweist keine Lizenzprüfung,
 SQL-Readiness, Providerfunktion oder Migration; Diff-Auswahl und CI bleiben
 separate Verpflichtungen.
 
-Die Prüfhinweise zu SQL-Übernahmeabhängigkeiten verwenden dieselben neun
-Zähler. Die Suite unterscheidet positive Zähler, echte Nullwerte und verworfene
-Beobachtungen und prüft den weiterhin blockierten Transferstatus. Die
-CLI- und HTTP-Fixtures prüfen die Ausgabe der festen Codes.
+Die Prüfhinweise zu SQL-Übernahmeabhängigkeiten verwenden elf aggregierte
+Zähler. Die Suite unterscheidet positive Zähler, Nullwerte und verworfene
+Beobachtungen. Sie prüft die fachlichen Obergrenzen für FILESTREAM-Dateityp
+und SSISDB-Kandidat sowie den weiterhin blockierten Transferstatus. Die
+CLI- und HTTP-Fixtures prüfen die Ausgabe der festen Codes. Die vorhandene
+native Abnahme der ursprünglichen neun Zähler ist separat dokumentiert.
 
 ## Prospektiver External-Languages-Capability-Entscheid
 

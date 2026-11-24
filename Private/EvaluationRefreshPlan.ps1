@@ -67,7 +67,7 @@ function Get-LabEvaluationSqlSourceInventory {
     }
 
     $categories = @('UserDatabases','NonOnlineUserDatabases','EncryptedUserDatabases','DatabaseSnapshots',
-        'ServerPrincipals','Credentials','LinkedServers','AgentJobs','AgentProxies')
+        'FilestreamFileDatabases','SsisCatalogCandidateDatabases','ServerPrincipals','Credentials','LinkedServers','AgentJobs','AgentProxies')
     $counts = $observed.SourceInventory
     if (-not $counts -or @($counts.PSObject.Properties).Count -ne $categories.Count) {
         return $unavailable
@@ -76,7 +76,10 @@ function Get-LabEvaluationSqlSourceInventory {
         $count = $counts.PSObject.Properties[$category]?.Value
         if ($count -isnot [long] -or $count -lt 0) { return $unavailable }
     }
-    if ($counts.NonOnlineUserDatabases -gt $counts.UserDatabases -or $counts.EncryptedUserDatabases -gt $counts.UserDatabases) { return $unavailable }
+    if ($counts.NonOnlineUserDatabases -gt $counts.UserDatabases -or $counts.EncryptedUserDatabases -gt $counts.UserDatabases -or
+        $counts.FilestreamFileDatabases -gt $counts.UserDatabases -or $counts.SsisCatalogCandidateDatabases -gt [Math]::Min([long]1, $counts.UserDatabases)) {
+        return $unavailable
+    }
     $items = @(foreach ($category in $categories) {
         [pscustomobject]@{ Category=$category; Count=$counts.$category }
     })
@@ -84,6 +87,8 @@ function Get-LabEvaluationSqlSourceInventory {
         NonOnlineUserDatabases='DATABASE_STATE_REVIEW_REQUIRED'
         EncryptedUserDatabases='TDE_KEY_TRANSFER_REQUIRED'
         DatabaseSnapshots='DATABASE_SNAPSHOT_DISPOSITION_REQUIRED'
+        FilestreamFileDatabases='FILESTREAM_STORAGE_REVIEW_REQUIRED'
+        SsisCatalogCandidateDatabases='SSIS_CATALOG_REVIEW_REQUIRED'
         Credentials='CREDENTIAL_REBIND_REQUIRED'
         LinkedServers='LINKED_SERVER_REBIND_REQUIRED'
         AgentJobs='SQL_AGENT_JOB_INVENTORY_REQUIRED'

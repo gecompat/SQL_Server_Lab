@@ -74,6 +74,7 @@ try {
     $script:injectInventoryDrift = $false
     $script:guestCounts = [pscustomobject]@{
         UserDatabases=[long]3; NonOnlineUserDatabases=[long]1; EncryptedUserDatabases=[long]0; DatabaseSnapshots=[long]0
+        FilestreamFileDatabases=[long]0; SsisCatalogCandidateDatabases=[long]0
         ServerPrincipals=[long]10; Credentials=[long]0; LinkedServers=[long]1; AgentJobs=[long]3; AgentProxies=[long]0
     }
     function Get-LabSqlGuestCaptureContext {
@@ -145,7 +146,7 @@ try {
         Assert-RefreshReject 'Changed VM binding invalidates the Windows observation' { Get-SqlServerLabEvaluationRefreshPlan @argsForPlan -ObserveWindowsLicense } EVALUATION_REFRESH_BINDING_CHANGED
         $observed = Get-SqlServerLabEvaluationRefreshPlan @argsForPlan -ObserveSqlSource
         Assert-Refresh ($script:observationCalls -eq 1 -and $observed.SqlSourceInventory.Status -ceq 'PARTIALLY_OBSERVED' -and
-            $observed.SqlSourceInventory.Items.Count -eq 9 -and ($observed.SqlSourceInventory.Items | Where-Object Category -CEQ UserDatabases).Count -eq 3 -and
+            $observed.SqlSourceInventory.Items.Count -eq 11 -and ($observed.SqlSourceInventory.Items | Where-Object Category -CEQ UserDatabases).Count -eq 3 -and
             ($observed.SqlSourceInventory.DependencyFindings.Code -join ',') -ceq
                 'DATABASE_STATE_REVIEW_REQUIRED,LINKED_SERVER_REBIND_REQUIRED,SQL_AGENT_JOB_INVENTORY_REQUIRED' -and
             $observed.Status -ceq 'BLOCKED' -and 'FULL_INSTANCE_INVENTORY_NOT_AVAILABLE' -cin $observed.Blockers -and -not $observed.MutationAllowed -and
@@ -165,17 +166,30 @@ try {
         Assert-Refresh ($invalidInventory.SqlSourceInventory.Status -ceq 'NOT_OBSERVED' -and $invalidInventory.SqlSourceInventory.Items.Count -eq 0 -and
             $invalidInventory.SqlSourceInventory.DependencyFindings.Count -eq 0) 'Invalid guest counters do not become observed zero or report a dependency'
         $script:guestCounts.AgentJobs = [long]3
+        foreach ($invalidCount in @(@{Category='FilestreamFileDatabases';Value=[long]4}, @{Category='SsisCatalogCandidateDatabases';Value=[long]2})) {
+            $script:guestCounts.($invalidCount.Category) = $invalidCount.Value
+            $invalidFeature = Get-SqlServerLabEvaluationRefreshPlan @argsForPlan -ObserveSqlSource
+            Assert-Refresh ($invalidFeature.SqlSourceInventory.Status -ceq 'NOT_OBSERVED' -and
+                $invalidFeature.SqlSourceInventory.DependencyFindings.Count -eq 0) ('Out-of-range feature evidence is unavailable: '+$invalidCount.Category)
+            $script:guestCounts.($invalidCount.Category) = [long]0
+        }
         $script:guestCounts.EncryptedUserDatabases = [long]1
         $script:guestCounts.DatabaseSnapshots = [long]1
+        $script:guestCounts.FilestreamFileDatabases = [long]2
+        $script:guestCounts.SsisCatalogCandidateDatabases = [long]1
         $script:guestCounts.Credentials = [long]2
         $script:guestCounts.AgentProxies = [long]1
         $blocked = Get-SqlServerLabEvaluationRefreshPlan @argsForPlan -ObserveSqlSource
-        Assert-Refresh ($blocked.SqlSourceInventory.DependencyFindings.Count -eq 7 -and
+        Assert-Refresh ($blocked.SqlSourceInventory.DependencyFindings.Count -eq 9 -and
             'TDE_KEY_TRANSFER_REQUIRED' -cin $blocked.SqlSourceInventory.DependencyFindings.Code -and
             'DATABASE_SNAPSHOT_DISPOSITION_REQUIRED' -cin $blocked.SqlSourceInventory.DependencyFindings.Code -and
             'CREDENTIAL_REBIND_REQUIRED' -cin $blocked.SqlSourceInventory.DependencyFindings.Code -and
             'SQL_AGENT_PROXY_REBIND_REQUIRED' -cin $blocked.SqlSourceInventory.DependencyFindings.Code -and
             $blocked.TransferAuthority -ceq 'NONE') 'Observed dependencies get actionable fixed codes without transfer authority'
+        $filestream = $blocked.SqlSourceInventory.DependencyFindings | Where-Object Category -CEQ 'FilestreamFileDatabases'
+        $ssis = $blocked.SqlSourceInventory.DependencyFindings | Where-Object Category -CEQ 'SsisCatalogCandidateDatabases'
+        Assert-Refresh ($filestream.Count -eq 2 -and $filestream.Code -ceq 'FILESTREAM_STORAGE_REVIEW_REQUIRED' -and
+            $ssis.Count -eq 1 -and $ssis.Code -ceq 'SSIS_CATALOG_REVIEW_REQUIRED' -and $blocked.Status -ceq 'BLOCKED') 'Database feature candidates produce bounded review findings'
         foreach ($property in $script:guestCounts.PSObject.Properties) { $property.Value = [long]0 }
         $empty = Get-SqlServerLabEvaluationRefreshPlan @argsForPlan -ObserveSqlSource
         Assert-Refresh ($empty.SqlSourceInventory.Status -ceq 'PARTIALLY_OBSERVED' -and
