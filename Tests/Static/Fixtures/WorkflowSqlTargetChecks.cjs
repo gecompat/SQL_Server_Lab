@@ -80,6 +80,8 @@ if (html.includes('<script src="test-group-view.js"></script>')) {
   run(fs.readFileSync(path.join(root, 'Ui', 'test-group-view.js'), 'utf8'));
 }
 assert.match(html, /<script src="container-backup-library\.js"><\/script>\s*<script src="operation-queue\.js"><\/script>\s*<script src="app\.js"><\/script>/);
+assert.match(html, /<script src="sql-observability\.js"><\/script>\s*<script src="container-backup-library\.js"><\/script>/);
+run(fs.readFileSync(path.join(root, 'Ui', 'sql-observability.js'), 'utf8'));
 run(fs.readFileSync(path.join(root, 'Ui', 'container-backup-library.js'), 'utf8'));
 run(fs.readFileSync(path.join(root, 'Ui', 'operation-queue.js'), 'utf8'));
 run(source);
@@ -461,6 +463,58 @@ async function main() {
   check('A stopped source cannot open backup confirmation', () =>
     assert.equal(run('pendingConfirmation'), null));
   run('cancelDialog(document.getElementById("container-operation-dialog")); startPublicCommand = originalBackupStart; publicCommandCatalog = [];');
+  const metricsWorkflow = JSON.parse(JSON.stringify(backupWorkflow));
+  metricsWorkflow.ActiveLabs[0].State = 'RUNNING';
+  const metricsCommand = [{ Name: 'Get-SqlServerLabSqlObservabilityEvidence', RequiresConfirmation: false, SupportsShouldProcess: false,
+    ParameterSets: [{ Name: 'RunBased', Parameters: ['RunId', 'InstanceId', 'SaPassword'].map(Name => ({
+      Name, TypeName: Name === 'SaPassword' ? 'System.Security.SecureString' : 'System.String', Mandatory: Name !== 'InstanceId',
+      Sensitive: Name === 'SaPassword', IsCredential: false
+    })) }] }];
+  setWorkflow(metricsWorkflow);
+  run('publicCommandCatalog = ' + JSON.stringify(metricsCommand));
+  context.metricsCalls = [];
+  run('const originalMetricsStart = startPublicCommand; startPublicCommand = (command, set, parameters, confirmed) => metricsCalls.push({name:command.Name,set:set.Name,parameters,confirmed});');
+  run('renderActiveLabs(workflow.ActiveLabs)');
+  check('Running container instance offers a guided metrics read', () =>
+    assert.match(node('active-labs').innerHTML, /data-container-operation="ReadSqlObservability"/));
+  const prepareMetrics = async () => {
+    node('container-database-name').value = 'invalid database name';
+    node('container-script-database').value = 'invalid script database';
+    run('openContainerOperation("ReadSqlObservability", ' + JSON.stringify(backupRun) + ', 14332, "analytics", "2022", "container")');
+    assert.equal(node('container-database-name').value, '');
+    assert.equal(node('container-script-database').value, 'master');
+    assert.equal(node('container-database-field').hidden, true);
+    assert.equal(node('container-script-field').hidden, true);
+    node('container-operation-password').value = 'SYNTHETIC_METRICS_VALUE';
+    await node('container-operation-form').events.get('submit')[0]({ submitter: { value: 'default' }, preventDefault() {} });
+  };
+  await prepareMetrics();
+  check('Metrics confirmation identifies the provider and instance and masks the password', () => {
+    assert.equal(context.metricsCalls.length, 0);
+    assert.match(node('confirmation-message').textContent, /analytics.*podman/);
+    assert.doesNotMatch(node('confirmation-message').textContent, /SYNTHETIC_METRICS_VALUE/);
+    assert.equal(node('container-operation-password').value, '');
+  });
+  run('cancelDialog(document.getElementById("confirmation-dialog"))');
+  check('Cancelling the metrics confirmation dispatches nothing', () => {
+    assert.equal(run('pendingConfirmation'), null);
+    assert.equal(context.metricsCalls.length, 0);
+  });
+  await prepareMetrics();
+  await node('confirmation-form').events.get('submit')[0]({ preventDefault() {} });
+  check('Metrics confirmation uses only the RunBased command and protected password', () => {
+    assert.deepEqual(JSON.parse(JSON.stringify(context.metricsCalls)), [{
+      name: 'Get-SqlServerLabSqlObservabilityEvidence', set: 'RunBased', confirmed: true,
+      parameters: { RunId: backupRun, InstanceId: 'analytics', SaPassword: 'SYNTHETIC_METRICS_VALUE' }
+    }]);
+  });
+  run('workflow.ActiveLabs[0].State = "STOPPED"');
+  await prepareMetrics();
+  check('Stopped target cannot open metrics confirmation', () => {
+    assert.equal(run('pendingConfirmation'), null);
+    assert.equal(context.metricsCalls.length, 1);
+  });
+  run('cancelDialog(document.getElementById("container-operation-dialog")); startPublicCommand = originalMetricsStart; publicCommandCatalog = [];');
   setWorkflow(fixture);
   const evaluationFetches = [];
   let evaluationPayload = { GeneratedAt: '2026-01-01T00:00:00Z', Scope: 'Registrierte Instanzen; keine Liveprüfung',

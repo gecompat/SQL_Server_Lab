@@ -281,6 +281,20 @@ function ConvertTo-LabPublicCommandWebResult {
         return @([pscustomobject]$display)
     }
 
+    if ($CommandName -ceq 'Get-SqlServerLabSqlObservabilityEvidence') {
+        if (@($Result).Count -ne 1) { throw 'PUBLIC_COMMAND_UI_RESULT_INVALID' }
+        $evidence = $Result[0]
+        try { $null = Test-LabSqlObservabilityEvidence -Evidence $evidence }
+        catch { throw 'PUBLIC_COMMAND_UI_RESULT_INVALID' }
+        if ($Parameters.ContainsKey('RunId')) {
+            $expectedInstance = if ($Parameters.ContainsKey('InstanceId')) { $Parameters.InstanceId } else { 'primary' }
+            if ($evidence.Source.RunId -cne $Parameters.RunId -or $evidence.Source.InstanceId -cne $expectedInstance) {
+                throw 'PUBLIC_COMMAND_UI_RESULT_INVALID'
+            }
+        }
+        return @($evidence)
+    }
+
     if ($CommandName -ceq 'Backup-SqlServerLabDatabase') {
         if (@($Result).Count -ne 1) { throw 'PUBLIC_COMMAND_UI_RESULT_INVALID' }
         $backup = $Result[0]

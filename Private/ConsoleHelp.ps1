@@ -599,6 +599,7 @@ function Get-LabConsoleHelpCatalog {
             Effects = 'Anzeigen veraendert nichts. Restore und Attach wirken auf die Zielinstanz.'
             Command = 'Get-SqlServerLabConnectionCenter'
             Items   = @{
+                'SqlObservability' = @{ Purpose = 'Liest aggregierte Datenbank-, Query-Store-, Server- und Wartemetriken einer ausgewählten laufenden Docker- oder Podman-SQL-Instanz.'; Effects = 'Die Abfrage schreibt keine Daten. Namen, SQL-Texte und Zugangsdaten erscheinen nicht im Ergebnis.'; Command = 'Get-SqlServerLabSqlObservabilityEvidence' }
                 'DatabaseBackup' = @{ Purpose = 'Wählt Umgebung und laufende Instanz nach Name, SQL-Version und Provider und sichert eine gebundene Datenbank als wiederverwendbares BackupSet in der registrierten Lab_Data-Bibliothek.'; Effects = 'Mutiert SQL durch COPY_ONLY BACKUP und veröffentlicht erst nach CHECKSUM, VERIFYONLY und SHA-256; temporäre Dateien werden bereinigt, TDE bleibt ohne Recovery-Vertrag gesperrt.'; Command = 'Backup-SqlServerLabDatabase' }
                 'DatabaseRestore' = @{ Purpose = 'Stellt ein vollständig revalidiertes BackupSet aus der registrierten Lab_Data-Bibliothek auf einer gebundenen Zielinstanz wieder her.'; Effects = 'Mutiert SQL erst nach Konfliktprüfung und Bestätigung; WITH REPLACE wird bei vorhandenem Ziel separat bestätigt, der Cleanup versucht temporäre Kopien zu entfernen und SQL-Teilfehler verlangen eine gezielte Recovery-Prüfung.'; Command = 'Restore-SqlServerLabDatabase' }
                 'DatabasePackageExport' = @{ Purpose = 'Veröffentlicht eine exakt an Run und Instanz gebundene Docker-/Podman-Datenbank als unveränderliches Paket in Lab_Data.'; Effects = 'Schaltet die Quelle exklusiv offline; sie bleibt auch nach Erfolg offline. FILESTREAM und TDE ohne Recovery-Nachweis werden vorher abgelehnt, temporäre Kopien werden bereinigt.'; Command = 'Export-SqlServerLabDatabasePackage' }
@@ -751,6 +752,13 @@ function Get-LabConsoleHelpCatalog {
         Effects = 'Die Auswahl startet keine Umgebung und führt kein SQL aus. Escape bricht ab; ungeeignete oder nicht nachweislich laufende Instanzen bleiben mit Sperrgrund sichtbar.'
         Preconditions = @('Eindeutige Instanz-ID, auflösbares Verbindungsziel und bestätigter RUNNING-Status; nach Auswahl werden Ziel und Status erneut geprüft.')
         Command = 'Invoke-SqlServerLab'
+    }
+    $catalog['sql-observability-instance-select'] = @{
+        Title = 'Instanz für SQL-Betriebsmetriken auswählen'
+        Purpose = 'Wählt eine laufende registrierte Docker- oder Podman-SQL-Instanz für die aggregierte Betriebsbeobachtung.'
+        Effects = 'Die Auswahl führt noch keine SQL-Abfrage aus. Die Abfrage beginnt nach geschützter Kennworteingabe und eigener Bestätigung.'
+        Preconditions = @('Ziel und RUNNING-Status müssen eindeutig sein. Die Bindung wird vor der Abfrage erneut geprüft.')
+        Command = 'Get-SqlServerLabSqlObservabilityEvidence'
     }
     $catalog['database-backup-instance-select'] = @{
         Title = 'Instanz für Datenbankbackup auswählen'; Purpose = 'Wählt die Backupquelle aus den registrierten Instanzen der zuvor gewählten Umgebung, ohne eine interne ID eingeben zu müssen.'

@@ -109,6 +109,12 @@ dokumentiert den getrennten Live-Metadatencheck. `Invoke-ResourceSetChecks.ps1`
 prüft die lokale Ressourcenplanung im eigenen Fixture. Ein Ressourcenplan
 bestätigt weder eine Installation noch die Ausführbarkeit eines Providers.
 
+## Geprüfte Operationen: SQL-Betriebsmetriken
+
+| Operation | Geführter CLI-Pfad | Geführter GUI-Pfad | Vertrag und Nachweis |
+|---|---|---|---|
+| Aggregierte SQL-Betriebsmetriken lesen (`Get-SqlServerLabSqlObservabilityEvidence`) | Lab-Umgebungen → Datenbanken, Samples und Skripte → SQL-Betriebsmetriken lesen | Lab-Umgebungen → laufende Docker-/Podman-Instanz → SQL-Betriebsmetriken lesen | `GUIDED_BOTH` für laufende Containerinstanzen. Fokustests prüfen die Auswahl, Abbruch, geschütztes SA-Passwort und geschlossene Ausgabe. Die Bedienwege sind synthetisch geprüft. Der öffentliche SQL-Lesekern ist getrennt für Docker und Podman nativ belegt. |
+
 ## Geprüfte Operationen: Verifizierte Datenbank-Backups
 
 | Operation | Geführter CLI-Pfad | Geführter GUI-Pfad | Nachweis und Grenze |

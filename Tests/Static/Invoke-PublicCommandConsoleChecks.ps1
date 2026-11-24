@@ -84,6 +84,21 @@ try {
         $backupMismatch=$null
         try { $null=ConvertTo-LabPublicCommandWebResult -CommandName Backup-SqlServerLabDatabase -Parameters @{DatabaseName='Other'} -Result @($backup) }
         catch { $backupMismatch=$_.Exception.Message }
+        $metricRun = '22222222-2222-4222-8222-222222222222'
+        $metricsCommand = $webCatalog | Where-Object Name -CEQ 'Get-SqlServerLabSqlObservabilityEvidence'
+        $metricsSet = $metricsCommand.ParameterSets | Where-Object Name -CEQ 'RunBased'
+        $metrics = New-LabSqlObservabilityEvidence -Provider podman -RunId $metricRun -InstanceId analytics -Observation ([pscustomobject]@{
+            SqlMajorVersion='17'; CpuCount=2; PhysicalMemoryKb=4096; OnlineDatabaseCount=3; TotalFileSizeKb=1024
+            QueryStoreEnabledCount=1; NonSleepWaitTypeCount=2; WaitingTaskCount=6; WaitTimeMs=19
+        })
+        $metricsProjection=@(ConvertTo-LabPublicCommandWebResult -CommandName $metricsCommand.Name -Parameters @{RunId=$metricRun;InstanceId='analytics'} -Result @($metrics))
+        $metricsMismatch=$null
+        try { $null=ConvertTo-LabPublicCommandWebResult -CommandName $metricsCommand.Name -Parameters @{RunId=$metricRun;InstanceId='foreign'} -Result @($metrics) }
+        catch { $metricsMismatch=$_.Exception.Message }
+        $metrics | Add-Member -NotePropertyName UnsafeExtra -NotePropertyValue 'PRIVATE_CANARY'
+        $metricsBadShape=$null
+        try { $null=ConvertTo-LabPublicCommandWebResult -CommandName $metricsCommand.Name -Parameters @{RunId=$metricRun;InstanceId='analytics'} -Result @($metrics) }
+        catch { $metricsBadShape=$_.Exception.Message }
         [pscustomobject]@{
             PortMandatory=@($portSet.MandatoryNames)
             AutoStartPreviewMandatory=@($autoStartSet.MandatoryNames)
@@ -128,6 +143,11 @@ try {
             BackupPassword=$backupSet.Parameters | Where-Object Name -CEQ 'SaPassword'
             BackupProjection=$backupProjection
             BackupMismatch=$backupMismatch
+            MetricsMandatory=@($metricsSet.MandatoryNames)
+            MetricsPassword=$metricsSet.Parameters | Where-Object Name -CEQ 'SaPassword'
+            MetricsWaitMs=$metricsProjection[0].WaitStatistics.WaitTimeMs
+            MetricsMismatch=$metricsMismatch
+            MetricsBadShape=$metricsBadShape
             WebNames=@($webCatalog.Name)
             WebJson=($webCatalog|ConvertTo-Json -Depth 12)
             WebCmsCount=@($webCatalog|Where-Object Area -eq 'CMS').Count
@@ -221,6 +241,11 @@ try {
         $evidence.BackupProjection[0].Bytes -eq 8192 -and
         ($evidence.BackupProjection | ConvertTo-Json) -cnotmatch 'CANARY_PRIVATE|RegistryPath|Credential' -and
         $evidence.BackupMismatch -ceq 'PUBLIC_COMMAND_UI_RESULT_INVALID')
+    Add-CheckResult 'Betriebsmetriken binden ein maskiertes Passwort und weisen fremde oder unsanitisierte Ergebnisse ab' (
+        (@($evidence.MetricsMandatory | Sort-Object) -join ',') -ceq 'RunId,SaPassword' -and
+        $evidence.MetricsPassword.TypeName -ceq 'System.Security.SecureString' -and $evidence.MetricsPassword.Sensitive -eq $true -and
+        $evidence.MetricsWaitMs -eq 19 -and $evidence.MetricsMismatch -ceq 'PUBLIC_COMMAND_UI_RESULT_INVALID' -and
+        $evidence.MetricsBadShape -ceq 'PUBLIC_COMMAND_UI_RESULT_INVALID')
     Add-CheckResult 'GUI und CLI verwenden denselben vollständigen Exportkatalog' (
         @($expectedCatalog|Where-Object {$_ -notin $evidence.WebNames}).Count -eq 0 -and
         @($evidence.WebNames|Where-Object {$_ -notin $expectedCatalog}).Count -eq 0 -and

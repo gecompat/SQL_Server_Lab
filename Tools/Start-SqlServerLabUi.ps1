@@ -394,6 +394,10 @@ function Start-UiPublicCommandJob {
                 Write-Output '[FEHLER] LAB_CATALOG_EXPORT_UNCONFIRMED'
                 throw 'LAB_CATALOG_EXPORT_UNCONFIRMED'
             }
+            if ($JobCommandName -ceq 'Get-SqlServerLabSqlObservabilityEvidence') {
+                Write-Output '[FEHLER] SQL_OBSERVABILITY_UNCONFIRMED'
+                throw 'SQL_OBSERVABILITY_UNCONFIRMED'
+            }
             if ($JobCommandName -ceq 'Backup-SqlServerLabDatabase') {
                 Write-Output '[FEHLER] BACKUP_LIBRARY_BROWSER_UNCONFIRMED'
                 throw 'BACKUP_LIBRARY_BROWSER_UNCONFIRMED'

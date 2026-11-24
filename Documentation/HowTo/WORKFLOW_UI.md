@@ -1010,6 +1010,12 @@ Instanz und Datenbank. Voraussetzung ist ein registriertes `Lab_Data`. Bei
 Erfolg zeigt die Quittung BackupSet-ID, Datenbankname, SHA-256 und Größe. Für
 Hyper-V bleibt der bestehende PowerShell-Weg verfügbar.
 
+**SQL-Betriebsmetriken lesen** steht an derselben laufenden Container-Instanz.
+Gib das SA-Passwort ein und bestätige die Instanz. Unter **Vorgänge** zeigt
+der Auftrag aggregierte CPU-, Speicher-, Datenbank-, Query-Store- und
+Wartewerte. Das Ergebnis enthält keine SQL-Texte, Datenbanknamen, Loginnamen oder Zugangsdaten.
+In der CLI findest du die Abfrage unter **Datenbanken, Samples und Skripte**.
+
 Der Menüpunkt **Alles
 aufräumen** zeigt vor dem Start eine
 Bestätigung und führt ausschließlich die hinterlegten Cleanup-Pläne aus;

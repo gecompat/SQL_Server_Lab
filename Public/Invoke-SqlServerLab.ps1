@@ -20,7 +20,7 @@
 function Invoke-SqlServerLab {
     [CmdletBinding()]
     param(
-        [ValidateSet('New', 'BatchPlan', 'Queue', 'Commands', 'AutomatedTestEnvironment', 'AutomatedTestEnvironmentLifecycle', 'ClearAutomatedTestEnvironment', 'RepairAutomatedTestEnvironment', 'Manifest', 'Status', 'SyncRuntime', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'CleanupAudit', 'RetainedStoreRemoval', 'RunArtifactRemoval', 'EvaluationRefreshPlan', 'SqlGuestEvaluationEvidence', 'SsisDiagnostics', 'HostServiceStart', 'ContainerAutoStart', 'ContainerAutoStartRecovery', 'HyperVAutoStart', 'HyperVAutoStartRecovery', 'SqlFeature', 'Script', 'Database', 'DatabaseBackup', 'DatabaseRestore', 'DatabasePackageExport', 'DatabasePackageAttach', 'DatabasePackageInventory', 'DatabaseMigrationDependency', 'Image', 'WindowsSlotPool', 'ReservePolicy', 'Setup', 'MediaRoot', 'MediaSourceOverride', 'RuntimeInstaller', 'OperatingSystemSources', 'CuResource', 'CuStatus', 'ResourceWatch', 'DataRoot', 'TestDataRoot', 'Rename', 'UpdateContainer', 'Resources', 'Manage', 'EnvironmentGroups', 'Install7Zip', 'Catalog', 'ConnectionCenter', 'Cms')]
+        [ValidateSet('New', 'BatchPlan', 'Queue', 'Commands', 'AutomatedTestEnvironment', 'AutomatedTestEnvironmentLifecycle', 'ClearAutomatedTestEnvironment', 'RepairAutomatedTestEnvironment', 'Manifest', 'Status', 'SyncRuntime', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'CleanupAudit', 'RetainedStoreRemoval', 'RunArtifactRemoval', 'EvaluationRefreshPlan', 'SqlGuestEvaluationEvidence', 'SsisDiagnostics', 'HostServiceStart', 'ContainerAutoStart', 'ContainerAutoStartRecovery', 'HyperVAutoStart', 'HyperVAutoStartRecovery', 'SqlFeature', 'Script', 'Database', 'DatabaseBackup', 'DatabaseRestore', 'DatabasePackageExport', 'DatabasePackageAttach', 'SqlObservability', 'DatabasePackageInventory', 'DatabaseMigrationDependency', 'Image', 'WindowsSlotPool', 'ReservePolicy', 'Setup', 'MediaRoot', 'MediaSourceOverride', 'RuntimeInstaller', 'OperatingSystemSources', 'CuResource', 'CuStatus', 'ResourceWatch', 'DataRoot', 'TestDataRoot', 'Rename', 'UpdateContainer', 'Resources', 'Manage', 'EnvironmentGroups', 'Install7Zip', 'Catalog', 'ConnectionCenter', 'Cms')]
         [string]$Action,
 
         [ValidateSet('Auto', 'Fallback')]
@@ -378,6 +378,7 @@ function Show-LabDatabaseMenu {
         New-LabConsoleItem -Id 'Database' -Label 'Datenbank anlegen' -Shortcut '8'
         New-LabConsoleItem -Id 'Script' -Label 'SQL-Skript ausfuehren' -Shortcut '9'
         New-LabConsoleItem -Id 'DatabaseBackup' -Label 'Datenbank sichern' -Value 'CHECKSUM · VERIFYONLY · Lab_Data-Bibliothek' -Shortcut 'b'
+        New-LabConsoleItem -Id 'SqlObservability' -Label 'SQL-Betriebsmetriken lesen' -Value 'Laufende Docker- oder Podman-Instanz · aggregiert'
         New-LabConsoleItem -Id 'DatabaseRestore' -Label 'Datenbank wiederherstellen' -Value 'verifiziertes BackupSet · Konfliktprüfung · Cleanup' -Shortcut 'r'
         New-LabConsoleItem -Id 'SqlFeature' -Label 'Volltext und FILESTREAM ändern' -Value 'Laufende SQL-Instanz · SQL-Neustart bei Änderung' -Shortcut 'f'
         New-LabConsoleItem -Id 'DatabasePackageExport' -Label 'Datenbankpaket exportieren' -Value 'Docker/Podman · exklusiv offline · verifiziert' -Shortcut 'x'
@@ -1246,7 +1247,12 @@ function Resolve-LabBackupSelectionTarget {
 
 function Select-LabBackupInstanceInteractive {
     [CmdletBinding()]
-    param([Parameter(Mandatory)][string]$RunId)
+    param(
+        [Parameter(Mandatory)][string]$RunId,
+        [string]$ScreenId='database-backup-instance-select',
+        [string]$Title='Instanz für Datenbankbackup auswählen',
+        [string[]]$Providers
+    )
 
     try {
         $stateRoot = Get-LabStateRoot
@@ -1266,6 +1272,9 @@ function Select-LabBackupInstanceInteractive {
                 if ([string]::IsNullOrWhiteSpace($id) -or @($instances | Where-Object { [string]$_.id -eq $id }).Count -ne 1) {
                     $reason = 'Instanz-ID fehlt oder ist nicht eindeutig. Abhilfe: Verbindungsinformationen prüfen.'
                 }
+                elseif ($Providers.Count -gt 0 -and $provider -cnotin $Providers) {
+                    $reason = 'Dieser Provider ist für die ausgewählte Aktion gesperrt.'
+                }
                 else {
                     try {
                         $target = Resolve-LabRunInstance -RunId $RunId -InstanceId $id -StateRoot $stateRoot
@@ -1284,7 +1293,7 @@ function Select-LabBackupInstanceInteractive {
             }
         )
         if ($items.Count -eq 0) { Write-LabInfo 'Keine registrierte Instanz in dieser Umgebung vorhanden.'; return $null }
-        $id = Select-LabConsoleDataItem -ScreenId 'database-backup-instance-select' -Title 'Instanz für Datenbankbackup auswählen' `
+        $id = Select-LabConsoleDataItem -ScreenId $ScreenId -Title $Title `
             -Subtitle 'Instanzname · SQL-Version · Provider; Auswahl startet keine Umgebung' -Items $items
         if (-not $id) { return $null }
         $selected = @($items | Where-Object { [string]$_.Data -ceq [string]$id -and -not $_.Disabled })
@@ -1368,6 +1377,35 @@ function Invoke-LabDatabaseBackupInteractive {
     Write-LabStatus -Label 'BackupSetId' -Value $result.BackupSetId
     Write-LabStatus -Label 'PersistentStorageId' -Value $result.PersistentStorageId
     Write-LabInfo 'Lokale Pfade, SHA-256 und Zugangsdaten werden in dieser Menüansicht nicht ausgegeben.'
+}
+
+function Invoke-LabSqlObservabilityInteractive {
+    [CmdletBinding()]
+    param()
+
+    $runs = @(Get-LabRunsByRuntimeState -State 'RUNNING')
+    if ($runs.Count -eq 0) { Write-LabInfo 'Keine laufende SQL-Umgebung vorhanden.'; return }
+    $runId = Select-LabRun -Runs $runs -Prompt 'Umgebung für SQL-Betriebsmetriken' -DisableSystemServices
+    if (-not $runId -or @($runs | Where-Object runId -CEQ $runId).Count -ne 1) { return }
+    $selection = Select-LabBackupInstanceInteractive -RunId $runId -ScreenId 'sql-observability-instance-select' `
+        -Title 'Instanz für SQL-Betriebsmetriken auswählen' -Providers @('docker','podman')
+    if (-not $selection) { return }
+    Write-LabStatus -Label 'Instanz' -Value "$runId / $($selection.InstanceId) · $($selection.Target.Provider)"
+    $password = Read-Host '  SA-Passwort' -AsSecureString
+    if (-not $password) { return }
+    try {
+        if ($password.Length -eq 0 -or -not (Read-LabConfirm -Prompt '  SQL-Betriebsmetriken jetzt lesen?' -Default $false)) { return }
+        $null = Resolve-LabBackupSelectionTarget -Selection $selection
+        $evidence = Get-SqlServerLabSqlObservabilityEvidence -RunId $runId -InstanceId $selection.InstanceId -StateRoot $selection.StateRoot -SaPassword $password
+        Write-LabStatus -Label 'Beobachtet UTC' -Value $evidence.ObservedAt
+        Write-LabStatus -Label 'SQL-Hauptversion' -Value $evidence.Source.SqlMajorVersion
+        Write-LabStatus -Label 'CPU / Arbeitsspeicher (KiB)' -Value ("{0} / {1}" -f $evidence.Server.CpuCount,$evidence.Server.PhysicalMemoryKb)
+        Write-LabStatus -Label 'Online-Datenbanken / Query Store aktiv' -Value ("{0} / {1}" -f $evidence.Databases.OnlineCount,$evidence.Databases.QueryStoreEnabledCount)
+        Write-LabStatus -Label 'Datenbankdateien gesamt (KiB)' -Value $evidence.Databases.TotalFileSizeKb
+        Write-LabStatus -Label 'Wartearten / Aufgaben / Zeit (ms)' -Value ("{0} / {1} / {2}" -f $evidence.WaitStatistics.NonSleepWaitTypeCount,$evidence.WaitStatistics.WaitingTaskCount,$evidence.WaitStatistics.WaitTimeMs)
+    }
+    catch { Write-LabWarning 'SQL_OBSERVABILITY_UNCONFIRMED. Instanzstatus und Zugriff prüfen.' }
+    finally { $password.Dispose() }
 }
 
 function Invoke-LabDatabaseRestoreInteractive {
@@ -1830,6 +1868,10 @@ function Invoke-LabAction {
         'AiGuidedDemo' { Invoke-LabAiGuidedDemoInteractive }
         'PersistentFixture' { Invoke-LabAiPersistentFixtureInteractive }
         'DatabaseBackup' { Invoke-LabDatabaseBackupInteractive }
+        'SqlObservability' {
+            Invoke-LabSqlObservabilityInteractive
+            Wait-LabConsoleAcknowledgement
+        }
         'DatabaseRestore' { Invoke-LabDatabaseRestoreInteractive }
         'DatabasePackageExport' { Invoke-LabDatabasePackageExportInteractive }
         'DatabasePackageAttach' { Invoke-LabDatabasePackageAttachInteractive }

@@ -3453,7 +3453,10 @@ festen Providerfelds bestand der getrennte Wiederholungslauf. Host-/Engine-
 Abstürze und andere native Unterbrechungszeitpunkte sind damit nicht belegt.
 
 `Invoke-SqlObservabilityEvidenceChecks.ps1` prüft den geschlossenen,
-sanitisierten Parser- und Schemavertrag offline. Die getrennten nativen
+sanitisierten Parser- und Schemavertrag offline. CLI-, Browser- und
+Befehlskatalog-Fixtures prüfen die Instanzauswahl, Abbruch, geschützte
+Passworteingabe und geschlossene Ergebnisprojektion der geführten Abfrage.
+Die getrennten nativen
 Referenzläufe `Tests/Integration/Invoke-ContainerSqlObservabilityAcceptance.ps1
 -Provider docker` und `-Provider podman` verwenden jeweils einen frischen
 eigenen SQL-2025-Linux-Run. Sie prüfen öffentliche rungebundene Capture vor und
