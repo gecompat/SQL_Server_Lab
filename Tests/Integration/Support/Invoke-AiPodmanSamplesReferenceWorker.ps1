@@ -18,7 +18,7 @@ $metadataDiagnosticFailureCodes=@('AI_RAG_HOST_METADATA_TIMEOUT_FAILED','AI_RAG_
 $failureCodes+= $metadataDiagnosticFailureCodes
 $workerStages=@('HOST_TOOL_INITIALIZATION','MODULE_IMPORT','WORKER_INVOCATION','SCENARIO_HELPER_LOAD','OPERATION_READ','RUNTIME_ASSERTION','ENDPOINT_PLAN','MODEL_BINDING',
     'OPERATION_RECORD_WRITE','LAB_CREATE','TRANSFER_BINDING','TRANSFER_BINDING_IDENTITY','INITIAL_CONTENT_EVIDENCE',
-    'INITIAL_RETRIEVAL','RESTART','RESTART_TRANSFER_BINDING','RESTART_CONTENT_EVIDENCE','RESTART_RETRIEVAL',
+    'EMBEDDING_READINESS','INITIAL_RETRIEVAL','RESTART','RESTART_TRANSFER_BINDING','RESTART_CONTENT_EVIDENCE','RESTART_RETRIEVAL',
     'MODEL_REVALIDATION','OWNED_RUN_CLEANUP')
 $workerFailureCodes=@($workerStages|ForEach-Object {'AI_PODMAN_SAMPLES_WORKER_FAILED_AT_'+$_})
 $failureCodes+= $workerFailureCodes
@@ -49,7 +49,8 @@ try {
             $workerStage='RUNTIME_ASSERTION'
             Assert-AiPodmanSamplesRuntime $record
             $workerStage='ENDPOINT_PLAN'
-            $endpoint=New-LabAiEndpointPlan -ModelKey ollama-embeddinggemma-latest -EndpointRef ollama-local -Lane local -LocalPort $record.LocalPort
+            $endpoint=New-LabAiEndpointPlan -ModelKey ollama-embeddinggemma-latest -EndpointRef ollama-local -Lane local -LocalPort $record.LocalPort `
+                -MaximumRequests 1 -RetryCount 0 -TimeoutSeconds 180
             $workerStage='MODEL_BINDING'
             $metadataTransport={
                 param($Path,$Model)
@@ -87,6 +88,10 @@ try {
             $workerStage='INITIAL_CONTENT_EVIDENCE'
             $before=Get-AiPodmanSamplesContentEvidence -Binding $binding -StateRoot $record.StateRoot
             if(-not (Test-AiPodmanSamplesContentEvidence $before)){throw 'SAMPLES_CONTENT_INVALID'}
+            # Service metadata can succeed while the local model runner is still cold.
+            $workerStage='EMBEDDING_READINESS'
+            $null=Invoke-LabAiEndpointRequest -Plan $endpoint -InputText 'SQL Server Lab embedded model readiness check.'
+            Assert-LabAiHostModelBinding -Plan $endpoint -Expected $model
             $retrievalArguments=@{RunId=$lab.RunId;InstanceId='primary';CollectionId=$record.CollectionId;StateRoot=$record.StateRoot;LocalPort=$record.LocalPort;TimeoutSeconds=300;Confirm=$false}
             $workerStage='INITIAL_RETRIEVAL'
             $applied=Invoke-SqlServerLabAiPersistentRetrieval @retrievalArguments -FixtureRevision Initial

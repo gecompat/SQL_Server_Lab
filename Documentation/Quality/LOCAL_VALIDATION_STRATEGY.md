@@ -3257,6 +3257,13 @@ vollständigem Cleanup;
 begrenzt diese Produktdateien auf Docker/Podman; Änderungen am Selector selbst
 behalten die vollständige CI-Infrastrukturmatrix.
 
+Die Podman-Referenz mit Northwind und Chinook prüft vor dem persistenten
+Retrieval einmal das lokal gebundene Embeddingmodell mit einem festen
+synthetischen Text. Diese Probe erlaubt bis zu 180 Sekunden für Modellstart
+und erste Inferenz. Sie wiederholt keine Anfrage. Der eigentliche Apply- und
+Query-Test behält Produktionslimits, SQL-Nachweise und Cleanup unverändert.
+`EMBEDDING_READINESS` kennzeichnet einen Fehler vor dem Retrieval.
+
 `Invoke-AiScenarioChecks.ps1` bindet auch `Fixtures/AiRagHostChecks.ps1` ein:
 
 `Invoke-AiExternalModelAccelerationChecks.ps1` prüft getrennt den rein

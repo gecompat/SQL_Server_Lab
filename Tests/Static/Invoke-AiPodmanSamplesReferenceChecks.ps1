@@ -45,6 +45,15 @@ try {
     Add-CheckResult -Name 'Host-model binding failure codes are fixed and synchronized across receipt, supervisor, and workflow' -Success $hostBindingCodesAligned
     $tokens=$null;$errors=$null
     $workerAst=[Management.Automation.Language.Parser]::ParseFile($workerPath,[ref]$tokens,[ref]$errors)
+    $readinessStage = $workerSource.IndexOf("`$workerStage='EMBEDDING_READINESS'", [StringComparison]::Ordinal)
+    $retrievalStage = $workerSource.IndexOf("`$workerStage='INITIAL_RETRIEVAL'", [StringComparison]::Ordinal)
+    $readinessCalls = @($workerAst.FindAll({param($node) $node -is [Management.Automation.Language.CommandAst] -and
+        $node.GetCommandName() -ceq 'Invoke-LabAiEndpointRequest'}, $true))
+    Add-CheckResult -Name 'Samples require one bounded local embedding before the unchanged retrieval' -Success (
+        $readinessCalls.Count -eq 1 -and $readinessStage -ge 0 -and
+        $readinessStage -lt $readinessCalls[0].Extent.StartOffset -and $readinessCalls[0].Extent.EndOffset -lt $retrievalStage -and
+        $readinessCalls[0].Extent.Text -ceq 'Invoke-LabAiEndpointRequest -Plan $endpoint -InputText ''SQL Server Lab embedded model readiness check.''' -and
+        $workerSource.Contains('-MaximumRequests 1 -RetryCount 0 -TimeoutSeconds 180'))
     $restartCommands=@($workerAst.FindAll({param($node) $node -is [Management.Automation.Language.CommandAst] -and $node.GetCommandName() -ceq 'Restart-SqlServerLab'},$true))
     $restartParameters=@($restartCommands[0].CommandElements|Where-Object {$_ -is [Management.Automation.Language.CommandParameterAst]}|ForEach-Object ParameterName)
     $restartRootArgument=$null
