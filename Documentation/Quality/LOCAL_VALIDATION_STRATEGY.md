@@ -5729,6 +5729,21 @@ Die üblichen SQL-Setup-Protokolle waren im Gast zu diesem Zeitpunkt
 nicht vorhanden. Die auslösende Ausnahme ließ sich daraus nicht bestimmen.
 [Nativer Lauf](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45332928807)
 
+Auf `d2c0123f` erreichte der eigene Slot wieder die SQL-Planübernahme. Das
+Receipt erfasste `SQL_SETUP_GUEST_PROCESS_START_FAILED` mit HRESULT
+`-2146233087`. Der Vergleich des geschützten Parents bestand. Die
+SQL-Bereitschaft und die eigene Entfernung blieben in diesem Lauf unbelegt.
+[Nativer Diagnoselauf](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45355473760)
+
+Eine lokale Reproduktion unter Windows PowerShell 5.1 lieferte beim
+Prozessstart mit einem `$null`-Element denselben HRESULT und
+`ParameterArgumentValidationError`. Der vorherige Gastcode fügte dieses
+Element hinzu, wenn keine optionalen SSIS-Argumente übergeben wurden.
+Die fokussierte Prüfung führt den tatsächlichen Setup-Skriptblock bis zum
+simulierten Prozessstart aus. Die Engine-Argumentliste enthält keinen
+Nullwert, und bei aktivem SSIS bleiben dessen Argumente erhalten. Die
+erneute native SQL-Installation steht für diesen Fix aus.
+
 `Invoke-SlotReserveChecks.ps1` prüft synthetisch denselben Preferences-Writer
 mit vier getrennten PowerShell-Prozessen, Mergeerhaltung, ungültigem JSON,
 Authority-/Vorgängerdrift, expliziter Nullreserve und injiziertem Schreibabbruch.

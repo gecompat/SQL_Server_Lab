@@ -1756,7 +1756,7 @@ function Invoke-HyperVLabSqlSlotInstall {
                         '/ENU=True', '/IACCEPTSQLSERVERLICENSETERMS', '/INDICATEPROGRESS'
                     )
                     if ($Collation) { $arguments += "/SQLCOLLATION=$Collation" }
-                    $arguments += @($SsisArguments)
+                    if ($null -ne $SsisArguments) { $arguments += @($SsisArguments) }
                 try { $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword) }
                 catch { throw "SQL_SETUP_GUEST_PASSWORD_BINDING_FAILED: $($_.CategoryInfo.Category)" }
                 $plainPassword = $null
