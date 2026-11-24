@@ -2042,14 +2042,9 @@ function Invoke-LabAction {
             try {
                 $catalog = Get-SqlServerLabCatalog -Path $catalogPath -StateRoot $stateRoot
                 $path = $catalog.Path
-                $workflow = $catalog.Catalog
+                $workflow = $catalog.Catalog.Workflow
                 $summary = $workflow.Summary
                 $providerValues = @($workflow.Host.Providers | ForEach-Object { [string]$_ } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Sort-Object -Unique)
-                $providerColorMap = @{
-                    docker = 'DarkCyan'
-                    podman = 'DarkGreen'
-                    hyperv = 'DarkYellow'
-                }
                 $fallbackMediaRoot = Get-LabMediaRootDefault
                 $mediaRootText = if ([string]::IsNullOrWhiteSpace($workflow.Defaults.MediaRoot)) {
                     if ([string]::IsNullOrWhiteSpace($fallbackMediaRoot)) { 'nicht gesetzt' } else { "nicht gesetzt (Standard: $fallbackMediaRoot)" }
@@ -2059,7 +2054,7 @@ function Invoke-LabAction {
                 Write-LabSuccess "SQL-Server-Lab-Katalog erstellt: $path"
                 Write-Host ('  Erzeugt: {0} · Katalog-Format: {1} · Module: {2}' -f
                     $catalog.GeneratedAt, $catalog.Catalog.CatalogFormat, $catalog.Catalog.Module.Version) -ForegroundColor White
-                Write-Host ('  StateRoot: {0}' -f $workflow.StateRoot) -ForegroundColor White
+                Write-Host ('  StateRoot: {0}' -f $catalog.Catalog.StateRoot) -ForegroundColor White
                 Write-Host ('  Medienroot: {0}' -f $mediaRootText) -ForegroundColor White
                 Write-LabProviderList -Providers $providerValues
                 Write-Host ('  Windows-Baselines: {0} · SQL-Prepared-Images: {1}' -f $summary.WindowsBaselines, $summary.SqlPreparedImages) -ForegroundColor White

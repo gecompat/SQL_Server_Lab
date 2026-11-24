@@ -260,7 +260,7 @@ Legende:
 | [`Get-SqlServerLabPortableContainerTransferExecutorPlan`](../../Public/Get-SqlServerLabPortableContainerTransferExecutorPlan.ps1) | Prüft eine ausdrückliche Mehrdatenbankauswahl oder die angeforderte `AllEligible`-Inventur zwischen zwei laufenden SQL-2025/Linux-Containerinstanzen. Der Plan ist absichtlich blockiert: sichere Inventur, HEADERONLY-/Live-CHECKSUM-/VERIFYONLY- und `RELATIONAL_CORE/1.0`-Inhaltsvergleich sowie atomarer Mehrdatenbank-Rollback fehlen noch; es gibt keine Ausführung. | – | – |
 | [`Get-SqlServerLabHyperVRecoveryPointPlan`](../../Public/Get-SqlServerLabHyperVRecoveryPointPlan.ps1) | Inventarisiert bestehende, eindeutig an einen Hyper-V-Run gebundene Checkpoints ohne VM-Namen oder Hostpfade. | Wartung → Hyper-V-Wiederherstellungspunkte lesen | Wartung → Hyper-V-Wiederherstellungspunkte lesen |
 | [`Get-SqlServerLabHyperVResourcePreview`](../../Public/Get-SqlServerLabHyperVResourcePreview.ps1) | Zeigt das registrierte Hyper-V-Speicherziel, freien Speicher und physische Klassenroots. | Hyper-V: Vorlagen und Slots → Hyper-V-Zielpfade und freien Speicher anzeigen | Hyper-V: Vorlagen und Slots → Hyper-V-Zielpfade und freien Speicher anzeigen |
-| [`Get-SqlServerLabCatalog`](../../Public/Get-SqlServerLabCatalog.ps1) | Schreibt den Workflow-Katalog als persistentes, maschinenlesbares JSON-Artefakt. | Lab-Umgebungen → Datenbanken, Samples und Skripte → Lab-Katalog prüfen | – |
+| [`Get-SqlServerLabCatalog`](../../Public/Get-SqlServerLabCatalog.ps1) | Schreibt den Workflow-Katalog als persistentes JSON-Artefakt. Ein ausdrücklich gewählter State Root bindet Runs, Builds, registrierte Images und Vorgänge. | Lab-Umgebungen → Datenbanken, Samples und Skripte → Lab-Katalog prüfen | – |
 
 ## Verbindungszentrale, SSMS und CMS
 

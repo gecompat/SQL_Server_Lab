@@ -20,12 +20,15 @@
     Optionaler lokaler Medienordner, dessen SQL-ISOs für die dynamische
     Erkennung untersucht werden. Ohne Angabe wird der gespeicherte Standard
     verwendet.
+.PARAMETER StateRoot
+    Optionaler State Root für Runs, Hyper-V-Builds, Artefakte und Vorgänge.
+    Hostfähigkeiten und Medieneinstellungen stammen weiterhin vom aktuellen Host.
 #>
 function Get-SqlServerLabWorkflow {
     [CmdletBinding()]
-    param([string]$MediaRoot)
+    param([string]$MediaRoot, [string]$StateRoot)
 
-    $stateRoot = Get-LabStateRoot
+    $stateRoot = if ($StateRoot) { Get-LabStateRoot -ExplicitPath $StateRoot } else { Get-LabStateRoot }
     if (-not $MediaRoot) { $MediaRoot = Get-LabMediaRootDefault }
     $dataRoot = Get-LabDataRootDefault
     $isElevated = $false
@@ -75,11 +78,11 @@ function Get-SqlServerLabWorkflow {
     $activeContainerRuns = @()
     $templatePool = [PSCustomObject]@{ MaximumTemplates = 20; UsedTemplates = 0; AvailableTemplates = 20; IsAtCapacity = $false; WindowsBaselines = 0; SqlPreparedImages = 0; Templates = @() }
     if ($hyperV.Supported) {
-        try { $windowsBuilds = @(Get-HyperVImageBuildPlans 2>$null) } catch { }
-        try { $sqlBuilds = @(Get-HyperVSqlImageBuildPlans 2>$null) } catch { }
-        try { $artifacts = @(Get-HyperVImageArtifact -SkipIntegrityCheck 2>$null) } catch { }
+        try { $windowsBuilds = @(Get-HyperVImageBuildPlans -StateRoot $stateRoot 2>$null) } catch { }
+        try { $sqlBuilds = @(Get-HyperVSqlImageBuildPlans -StateRoot $stateRoot 2>$null) } catch { }
+        try { $artifacts = @(Get-HyperVImageArtifact -StateRoot $stateRoot -SkipIntegrityCheck 2>$null) } catch { }
         try { $templatePool = Get-HyperVTemplatePoolStatus -Artifacts $artifacts } catch { }
-        try { $acceptance = @(Get-HyperVSqlAcceptanceMatrix 2>$null) } catch { }
+        try { $acceptance = @(Get-HyperVSqlAcceptanceMatrix -StateRoot $stateRoot 2>$null) } catch { }
         if ($hyperV.Available) {
             try {
                 $hyperVSwitches = @(Get-VMSwitch -ErrorAction Stop | Sort-Object Name | ForEach-Object {
