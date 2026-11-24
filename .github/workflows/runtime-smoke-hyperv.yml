@@ -51,6 +51,7 @@ on:
           - sql-prepared-locale-acceptance
           - windows-test-group-acceptance
           - windows-pool-claim-acceptance
+          - windows-pool-sql-slot-acceptance
           - sql-configuration-reconcile-acceptance
           - sql-guest-evaluation-capture-acceptance
           - sql-storage-reconcile-acceptance
@@ -112,7 +113,7 @@ on:
         required: false
         type: string
       confirm_pool_claim_acceptance:
-        description: Genau ein eigenes Windows-Poolmitglied anlegen und bei Erfolg bereinigen
+        description: Eigenes Windows-Poolmitglied anlegen, im SQL-Slot-Modus SQL installieren und bei Erfolg bereinigen
         required: false
         type: boolean
         default: false
@@ -405,12 +406,13 @@ jobs:
           .\Tests\Integration\Invoke-HyperVTestGroupLifecycleAcceptance.ps1
 
       - name: Hyper-V Windows 2025 pool claim acceptance on Key18
-        if: inputs.mode == 'windows-pool-claim-acceptance'
+        if: inputs.mode == 'windows-pool-claim-acceptance' || inputs.mode == 'windows-pool-sql-slot-acceptance'
         env:
           # The pool contract excludes test-lifecycle VMs. The harness owns cleanup in its isolated state root.
           SQL_SERVER_LAB_RESOURCE_LIFECYCLE: run
           SQL_SERVER_LAB_CI_EVENT_REPOSITORY: ${{ github.event.repository.full_name }}
           SQL_SERVER_LAB_CI_POOL_CONFIRM: ${{ inputs.confirm_pool_claim_acceptance }}
+          SQL_SERVER_LAB_CI_POOL_INSTALL_SQL: ${{ inputs.mode == 'windows-pool-sql-slot-acceptance' }}
           SQL_SERVER_LAB_CI_POOL_SQL_MEDIA: ${{ inputs.pool_claim_sql_media }}
           SQL_SERVER_LAB_CI_POOL_MEDIA_EDITION: ${{ inputs.media_edition }}
           SQL_SERVER_LAB_CI_POOL_IMAGE_ID: ${{ inputs.image_artifact_id }}

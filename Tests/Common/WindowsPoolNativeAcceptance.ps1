@@ -51,6 +51,22 @@ function Resolve-WindowsPoolNativeSqlMedia {
     return $media
 }
 
+function Get-WindowsPoolNativeSqlContinuationPlan {
+    param([Parameter(Mandatory)]$Workflow,[Parameter(Mandatory)][string]$RunId,[Parameter(Mandatory)][string]$MediaEdition)
+    $targets = @($Workflow.HyperVLabs | Where-Object RunId -CEQ $RunId)
+    if ($targets.Count -ne 1 -or -not $targets[0].Exists -or $targets[0].VMState -cne 'Off' -or
+        $targets[0].State -cne 'STOPPED' -or $targets[0].Workload -cne 'windows') {
+        throw 'WINDOWS_POOL_NATIVE_SQL_SLOT_TARGET_INVALID'
+    }
+    $plan = $targets[0].SqlSlotInstall
+    if (-not $plan -or $plan.State -cne 'PLANNED' -or $plan.SqlVersion -cne '2025' -or
+        $plan.MediaEdition -cne $MediaEdition -or @($plan.Features).Count -ne 1 -or $plan.Features[0] -cne 'SQLENGINE' -or
+        $plan.PlanKey -cnotmatch '^[a-f0-9]{64}$') {
+        throw 'WINDOWS_POOL_NATIVE_SQL_SLOT_PLAN_INVALID'
+    }
+    return $plan
+}
+
 function Update-WindowsPoolNativeAcceptanceBindings {
     param([Parameter(Mandatory)][System.Collections.IDictionary]$Bindings,
         [Parameter(Mandatory)][AllowEmptyCollection()][object[]]$Snapshots,[Parameter(Mandatory)][string]$PoolId)

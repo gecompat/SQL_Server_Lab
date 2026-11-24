@@ -14,7 +14,7 @@ $result=& $module {
     $ciRunner=Join-Path $repoRoot 'Tests/Integration/Invoke-WindowsPoolClaimCiAcceptance.ps1'
     $workflow = Get-Content -LiteralPath (Join-Path $repoRoot '.github/workflows/runtime-smoke-hyperv.yml') -Raw
     $steps = $workflow -split '(?m)^      - name: '
-    $poolStep = @($steps | Where-Object { $_ -match "(?m)^        if: inputs\.mode == 'windows-pool-claim-acceptance'\r?$" })
+    $poolStep = @($steps | Where-Object { $_ -match "(?m)^        if: inputs\.mode == 'windows-pool-claim-acceptance' \|\| inputs\.mode == 'windows-pool-sql-slot-acceptance'\r?$" })
     Assert-Pool ($poolStep.Count -eq 1 -and $poolStep[0] -match '(?m)^          SQL_SERVER_LAB_RESOURCE_LIFECYCLE: run\r?$') 'pool dispatch supplies run lifecycle'
     Assert-Pool (@($steps | Where-Object { $_ -match '(?m)^          SQL_SERVER_LAB_RESOURCE_LIFECYCLE: run\r?$' }).Count -eq 1 -and
         $workflow -match '(?m)^  SQL_SERVER_LAB_RESOURCE_LIFECYCLE: test\r?$') 'default workflow and other modes retain test lifecycle'
@@ -25,6 +25,7 @@ $result=& $module {
         SQL_SERVER_LAB_CI_POOL_SQL_MEDIA='SQL/2025/Eval/synthetic.iso'; SQL_SERVER_LAB_CI_POOL_MEDIA_EDITION='Eval'
         SQL_SERVER_LAB_CI_POOL_IMAGE_ID='hyperv-os-sealed-'+('a'*64)
         SQL_SERVER_LAB_RESOURCE_LIFECYCLE='run'
+        SQL_SERVER_LAB_CI_POOL_INSTALL_SQL='false'
     }
     if($LASTEXITCODE){throw 'SYNTHETIC_CI_CHECKOUT_UNAVAILABLE'}
     $originalEnvironment=@{}
@@ -36,6 +37,7 @@ $result=& $module {
             @{Key='SQL_SERVER_LAB_CI_POOL_CONFIRM';Value='false';Code='WINDOWS_POOL_CI_SCOPE_INVALID'},
             @{Key='GITHUB_SHA';Value=('0'*40);Code='WINDOWS_POOL_CI_CHECKOUT_INVALID'},
             @{Key='SQL_SERVER_LAB_RESOURCE_LIFECYCLE';Value='test';Code='WINDOWS_POOL_CI_RUN_LIFECYCLE_REQUIRED'},
+            @{Key='SQL_SERVER_LAB_CI_POOL_INSTALL_SQL';Value='ambiguous';Code='WINDOWS_POOL_CI_SQL_SLOT_CONFIRMATION_INVALID'},
             @{Key='SQL_SERVER_LAB_CI_POOL_SQL_MEDIA';Value='SQL/2025/../synthetic.iso';Code='WINDOWS_POOL_CI_MEDIA_SELECTION_REQUIRED'},
             @{Key='SQL_SERVER_LAB_CI_POOL_IMAGE_ID';Value='foreign-artifact';Code='WINDOWS_POOL_CI_IMAGE_SELECTION_INVALID'}
         )
@@ -434,6 +436,18 @@ $result=& $module {
     Write-LabArtifactJsonAtomicRaw -Path $statePath -InputObject $consumedSnapshot
     # Own fixture remains for the separate-process race phase; no runtime or secret.
     . (Join-Path $repoRoot 'Tests/Common/WindowsPoolNativeAcceptance.ps1')
+    $sqlSlotId = [guid]::NewGuid().ToString()
+    $sqlSlot = [pscustomobject]@{
+        RunId=$sqlSlotId; Exists=$true; VMState='Off'; State='STOPPED'; Workload='windows'
+        SqlSlotInstall=[pscustomobject]@{ State='PLANNED'; SqlVersion='2025'; MediaEdition='Enterprise'; Features=@('SQLENGINE'); PlanKey=('a'*64) }
+    }
+    $sqlSlotView = [pscustomobject]@{ HyperVLabs=@($sqlSlot) }
+    $candidate = Get-WindowsPoolNativeSqlContinuationPlan -Workflow $sqlSlotView -RunId $sqlSlotId -MediaEdition Enterprise
+    Assert-Pool ($candidate.PlanKey -ceq ('a'*64)) 'native SQL continuation uses the actual owned workflow selection'
+    Assert-PoolThrows { Get-WindowsPoolNativeSqlContinuationPlan -Workflow $sqlSlotView -RunId ([guid]::NewGuid().ToString()) -MediaEdition Enterprise } WINDOWS_POOL_NATIVE_SQL_SLOT_TARGET_INVALID
+    Assert-PoolThrows { Get-WindowsPoolNativeSqlContinuationPlan -Workflow $sqlSlotView -RunId $sqlSlotId -MediaEdition Standard } WINDOWS_POOL_NATIVE_SQL_SLOT_PLAN_INVALID
+    $sqlSlot.VMState = 'Running'
+    Assert-PoolThrows { Get-WindowsPoolNativeSqlContinuationPlan -Workflow $sqlSlotView -RunId $sqlSlotId -MediaEdition Enterprise } WINDOWS_POOL_NATIVE_SQL_SLOT_TARGET_INVALID
     $captureOriginalFunctions=@{}
     foreach($name in @('Get-LabWindowsPoolGuestReceipt','ConvertTo-LabWindowsPoolUtc','Test-LabWindowsPoolOperationContext','Invoke-HyperVPowerShellDirect','Get-CimInstance','Get-ItemProperty','Get-WinSystemLocale','Get-UICulture','Get-TimeZone','Get-WinHomeLocation','Get-WinUserLanguageList')){
         $item=Get-Item ('Function:'+$name) -ErrorAction SilentlyContinue

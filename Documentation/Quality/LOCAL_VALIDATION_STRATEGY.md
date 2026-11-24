@@ -5693,6 +5693,13 @@ Secrets. Die unabhängige Prüfung bestätigte einen unveränderten Parent. SQL-
 und automatische Reserveauffüllung benötigen eigene Nachweise.
 [Nativer Lauf](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45290810001)
 
+Der getrennte manuelle Modus `windows-pool-sql-slot-acceptance` setzt danach
+den SQL-Ausbau im eigenen übernommenen Mitglied fort. Er verwendet dieselbe
+Workflow-Projektion und Aktion wie die Browserkarte, prüft SQL Server 2025
+im selben Gast mit gebundener VM-ID und bereinigt bei Erfolg denselben Run.
+Der Browserdialog selbst bleibt durch die synthetische Bedienprüfung
+abgedeckt. Der neue native Modus hat seinen eigenen Laufbeleg.
+
 `Invoke-SlotReserveChecks.ps1` prüft synthetisch denselben Preferences-Writer
 mit vier getrennten PowerShell-Prozessen, Mergeerhaltung, ungültigem JSON,
 Authority-/Vorgängerdrift, expliziter Nullreserve und injiziertem Schreibabbruch.
