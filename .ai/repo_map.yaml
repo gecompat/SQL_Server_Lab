@@ -478,6 +478,7 @@ sources_of_truth:
   sql_guest_evaluation_capture_architecture: Documentation/Architecture/SQL_GUEST_EVALUATION_CAPTURE.md
   validation_sql_guest_evaluation_capture: Tests/Static/Invoke-SqlGuestEvaluationCaptureChecks.ps1
   acceptance_sql_guest_evaluation_capture: Tests/Integration/Invoke-SqlGuestEvaluationCaptureAcceptance.ps1
+  acceptance_evaluation_target_windows_license: Tests/Integration/Invoke-HyperVEvaluationTargetWindowsLicenseAcceptance.ps1 # two own prepared runs, source Off before target startup
   sql_guest_evaluation_evidence_schema: Schemas/sql-guest-evaluation-evidence.schema.json
   validation_sql_guest_evaluation_evidence: Tests/Static/Invoke-EvaluationWatchChecks.ps1
   host_tool_resolution: Private/HostToolResolution.ps1

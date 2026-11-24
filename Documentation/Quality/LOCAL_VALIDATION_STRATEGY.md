@@ -2428,7 +2428,11 @@ Antworten und unveränderte State-Dateien. Der Funktionsumfang ist die
 Metadatenvorschau. Die getrennte Windows-Ziellizenzabfrage nutzt den bereits
 nativ belegten Windows-Reader. Synthetische Prüfungen der neuen Zielroute
 prüfen Quell- und Zieldigest, gestoppte Ziele, genau einen gebundenen Gastaufruf
-und verworfene Ergebnisse bei Bindungsdrift. Ein nativer Lauf über die neue
+und verworfene Ergebnisse bei Bindungsdrift. Der manuelle Hyper-V-Modus
+`evaluation-target-windows-license-acceptance` erstellt zwei eigene Runs aus
+der expliziten SQL-2025-Developer-Vorlage und stoppt die Quelle vor Start des
+Ziels. Er prüft die Zielabfrage, bytegleiche Metadaten und den eigenen Cleanup.
+Ein nativer Lauf über die neue
 Zielroute, SQL-Readiness und Transfer benötigen eigene Nachweise.
 
 ## Prospektiver External-Languages-Capability-Entscheid
