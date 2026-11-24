@@ -1362,6 +1362,13 @@ Modellname, Dimension, Eingabeprofil und die SHA-256-Digests.
 Ordne einen bis 64 SQL-Verbraucher mit Run-, Instanz- und Datenbank-ID,
 SQL-Modellname und jeweils eigener `SQL_SERVER_LAB_SECRET_`-Referenz zu.
 **Plan anzeigen** prüft die Eingaben und zeigt den Konfigurationsplan als JSON.
+**Status für diesen Gateway-Plan lesen** prüft danach auf ausdrückliche Auswahl
+die lokale Registrierung und Portbelegung. Im Browser erscheint das Ergebnis
+im Auftragsprotokoll. Eine eigene Sitzung lässt sich nur in der Modulsitzung
+nachweisen, die sie gestartet hat. Eine belegte Schnittstelle ohne diesen
+Nachweis wird als ungeklärte Portbelegung ausgewiesen. Dienststart und
+SQL-Anbindung sind getrennte Operationen.
+
 Im Browser übernimmt **In Dienst-Secret-Prüfung übernehmen** den Plan in das
 vorhandene Formular. Die Dienstprüfung benötigt weiterhin ihren eigenen
 Dienstplan und eine Bestätigung. [Gateway-Backlog](../Project_Planning/AI_EXTERNAL_MODEL_ACCELERATION_BACKLOG.md)

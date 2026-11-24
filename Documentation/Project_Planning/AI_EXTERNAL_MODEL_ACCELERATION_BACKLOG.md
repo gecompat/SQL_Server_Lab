@@ -98,8 +98,10 @@ klassifiziert ohne Mutation fehlende oder revalidierte Registrierung, die eigene
 laufende Session, Planabweichung, Inhaltsdrift, verlorenen Ownerprozess oder
 Listener sowie eine fremde Portbelegung mit stabilen ReasonCodes. Eigener
 Listenerstatus setzt denselben Plan, StateRoot und Registrierungsbeleg voraus.
-Der read-only
-`Get-SqlServerLabAiSharedGatewayServicePlan` bindet diesen Zustand an eine neu
+CLI und Browser bieten die Statusprüfung als bewusste Folgeaktion zum
+angezeigten Gateway-Plan. Die eigene Session ist nur in ihrer startenden
+Modulsitzung nachweisbar.
+`Get-SqlServerLabAiSharedGatewayServicePlan` bindet diesen Zustand lesend an eine neu
 berechnete Host-Capability. Windows verwendet eine S4U-Aufgabe mit lokalem,
 nicht EFS-verschlüsseltem StateRoot und weist den fehlenden Netzwerk- und EFS-
 Zugriff aus; Linux verlangt einen erreichbaren systemd-Usermanager und

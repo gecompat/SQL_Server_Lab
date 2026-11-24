@@ -63,10 +63,21 @@ item('consumer-template').content = {
 };
 item('service-secret-panel').scrollIntoView = () => {};
 const requests = [];
+const statusCalls = [];
+const statusCommand = {
+  Name: 'Get-SqlServerLabAiSharedGatewayStatus', SupportsShouldProcess: false, RequiresConfirmation: false,
+  ParameterSets: [{ Name: '__AllParameterSets', Parameters: [
+    { Name: 'Plan', TypeName: 'System.Object', Mandatory: true, Sensitive: false, IsCredential: false }
+  ] }]
+};
 const context = vm.createContext({
   document: { querySelector: selector => ids.get(selector.slice(1)) },
   sqlServerLabUiFetch(url, options) {
     return new Promise(resolve => requests.push({ url, options, resolve }));
+  },
+  publicCommandCatalog: [statusCommand],
+  startPublicCommand(command, parameterSet, parameters, confirmed) {
+    return new Promise(resolve => statusCalls.push({ command, parameterSet, parameters, confirmed, resolve }));
   },
   startAction() { throw new Error('Gateway preview must not start an operation'); }
 });
@@ -99,7 +110,7 @@ const check = (label, value) => { assert.ok(value, label); checks++; };
   await form.fire('input');
   respond(request, canonical(payload.Consumer));
   await first;
-  check('Input change invalidates late plan and handoff', item('use-plan').disabled && item('plan-result').value === '');
+  check('Input change invalidates late plan and handoff', item('use-plan').disabled && item('read-status').disabled && item('plan-result').value === '');
   const current = form.fire('submit');
   respond(requests.at(-1), canonical(payload.Consumer));
   await current;
@@ -108,6 +119,23 @@ const check = (label, value) => { assert.ok(value, label); checks++; };
   await item('use-plan').fire('click');
   check('Operator can reuse the plan without probing the service', item('plan-json').value === item('plan-result').value &&
     item('service-secret-panel').open && requests.length === 2);
+  check('Displaying a plan does not read status automatically', statusCalls.length === 0 && !item('read-status').disabled);
+  statusCommand.RequiresConfirmation = true;
+  await item('read-status').fire('click');
+  check('Changed command metadata blocks guided dispatch', statusCalls.length === 0 && item('plan-status').textContent.includes('nicht verfügbar'));
+  statusCommand.RequiresConfirmation = false;
+  const reading = item('read-status').fire('click');
+  await item('read-status').fire('click');
+  const statusCall = statusCalls[0];
+  check('Explicit click dispatches the exact plan once through the existing command path', statusCalls.length === 1 &&
+    statusCall.command === statusCommand && statusCall.parameterSet.Name === '__AllParameterSets' &&
+    statusCall.confirmed === false && Object.keys(statusCall.parameters).join() === 'Plan' &&
+    JSON.stringify(statusCall.parameters.Plan) === JSON.stringify(JSON.parse(item('plan-result').value)));
+  await form.fire('input');
+  statusCall.resolve();
+  await reading;
+  check('An accepted status request does not resurrect its edited plan', item('read-status').disabled && item('plan-result').value === '' &&
+    !item('plan-status').textContent.includes('Auftragsprotokoll'));
   const bad = form.fire('submit');
   respond(requests.at(-1), { ...canonical(payload.Consumer), Status: 'READY', Untrusted: 'SYNTHETIC_PRIVATE' });
   await bad;

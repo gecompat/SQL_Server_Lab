@@ -125,6 +125,23 @@ function Invoke-LabAiSharedGatewayPlanInteractive {
     }
     catch {
         Write-LabWarning 'Gateway-Plan konnte nicht erstellt werden. Prüfe Endpunkte, Inhaltsdigests und Verbraucherreferenzen.'
+        $null = Wait-LabConsoleAcknowledgement
+        return
+    }
+
+    $items = @(
+        New-LabConsoleItem -Id status -Label 'Status für diesen Gateway-Plan lesen'
+        New-LabConsoleItem -Id back -Label 'Zurück'
+    )
+    $selection = Invoke-LabConsoleMenu -ScreenId 'ai-shared-gateway-plan-next' -Title 'Gateway-Plan' -Subtitle 'Optional die lokale Registrierung und Portbelegung prüfen' -Items $items
+    if ($selection.Status -cne 'Selected' -or $selection.SelectedItem.Id -cne 'status') { return }
+    try {
+        $view = Get-SqlServerLabAiSharedGatewayStatus -Plan $plan
+        Write-LabInfo ("Gateway-Status {0} · {1} · {2} · {3}" -f $view.GatewayId,$view.Status,$view.ReasonCode,$view.CheckedAtUtc)
+        Write-LabInfo ("Noch offen: {0}" -f ($view.PendingEvidence -join ', '))
+    }
+    catch {
+        Write-LabWarning 'Gateway-Status konnte nicht bestätigt werden. Prüfe die lokale Registrierung dieses Plans.'
     }
     $null = Wait-LabConsoleAcknowledgement
 }

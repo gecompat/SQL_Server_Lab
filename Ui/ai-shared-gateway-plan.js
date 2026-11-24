@@ -10,17 +10,22 @@
   const add = element('add-consumer');
   const create = element('create-plan');
   const use = element('use-plan');
+  const read = element('read-status');
   const fields = ['GatewayId', 'Location', 'UpstreamBackend', 'UpstreamLocation', 'RuntimeModel', 'InputProfile',
     'ModelSha256', 'RuntimeSha256', 'ServerCertificateSha256', 'CertificateAuthoritySha256'];
   const consumerFields = ['RunId', 'InstanceId', 'DatabaseId', 'ExternalModelName', 'ApiKeyReference'];
   let revision = 0;
   let busy = false;
+  let readingStatus = false;
+  let currentPlan = null;
 
   function clearPlan() {
     revision++;
+    currentPlan = null;
     result.value = '';
     resultBox.hidden = true;
     use.disabled = true;
+    read.disabled = true;
     status.textContent = 'Plan für die aktuellen Eingaben anzeigen.';
   }
 
@@ -77,15 +82,45 @@
         throw new Error('Gateway plan unconfirmed');
       }
       if (current !== revision) return;
+      currentPlan = plan;
       result.value = JSON.stringify(plan, null, 2);
       resultBox.hidden = false;
       use.disabled = false;
+      read.disabled = readingStatus;
       status.textContent = 'Konfigurationsplan erstellt. Bereitstellung erfordert weitere Nachweise.';
     } catch {
       if (current === revision) status.textContent = 'Plan nicht erstellt. Prüfe Endpunkte, Digests und Verbraucherreferenzen.';
     } finally {
       busy = false;
       create.disabled = false;
+    }
+  });
+  read.addEventListener('click', async () => {
+    if (read.disabled || readingStatus || !currentPlan) return;
+    const matches = publicCommandCatalog.filter(command => command?.Name === 'Get-SqlServerLabAiSharedGatewayStatus');
+    const command = matches.length === 1 ? matches[0] : null;
+    const sets = command?.ParameterSets;
+    const parameterSet = Array.isArray(sets) && sets.length === 1 ? sets[0] : null;
+    const descriptors = parameterSet?.Parameters;
+    const planFields = Array.isArray(descriptors) ? descriptors.filter(field => field?.Mandatory === true) : [];
+    if (command?.RequiresConfirmation !== false || command.SupportsShouldProcess !== false ||
+        parameterSet?.Name !== '__AllParameterSets' || planFields.length !== 1 ||
+        planFields[0].Name !== 'Plan' || planFields[0].TypeName !== 'System.Object' ||
+        planFields[0].Sensitive !== false || planFields[0].IsCredential !== false) {
+      status.textContent = 'Statusprüfung für diesen Gateway-Plan ist nicht verfügbar.';
+      return;
+    }
+    const current = revision;
+    readingStatus = true;
+    read.disabled = true;
+    try {
+      await startPublicCommand(command, parameterSet, { Plan: currentPlan }, false);
+      if (current === revision) status.textContent = 'Das Auftragsprotokoll zeigt die Statusprüfung.';
+    } catch {
+      if (current === revision) status.textContent = 'Annahme der Statusprüfung unbestätigt. Prüfe das Auftragsprotokoll.';
+    } finally {
+      readingStatus = false;
+      read.disabled = !currentPlan;
     }
   });
   use.addEventListener('click', () => {

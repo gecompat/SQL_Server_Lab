@@ -223,6 +223,12 @@ function Get-LabConsoleHelpCatalog {
             Effects = 'Plan anzeigen prüft und zeigt den Konfigurationsbefund. Esc verwirft die Eingabe.'
             Command = 'Get-SqlServerLabAiSharedGatewayPlan'
         }
+        'ai-shared-gateway-plan-next' = @{
+            Title = 'Gateway-Plan'
+            Purpose = 'Prüft Registrierung und Listener für den angezeigten Plan im konfigurierten StateRoot.'
+            Effects = 'Die Prüfung liest den lokalen Registrierungszustand und die Listenerbelegung. Das Ergebnis gilt für den angezeigten Plan.'
+            Command = 'Get-SqlServerLabAiSharedGatewayStatus'
+        }
         'sql-feature-target' = @{ Title = 'SQL-Instanz für Funktionsänderung'; Purpose = 'Eine registrierte Instanz der gewählten laufenden Umgebung auswählen.'; Effects = 'Erst die Bestätigung einer konkreten Funktion ändert SQL Server.'; Command = 'Set-SqlServerLabFeature' }
         'sql-feature-operation' = @{ Title = 'SQL-Funktion ändern'; Purpose = 'Volltext installieren oder entfernen. Hyper-V bietet zusätzlich FILESTREAM.'; Effects = 'Bei einer bestätigten Änderung startet SQL neu. Abhängige Datenbanken können die Entfernung verhindern.'; Command = 'Set-SqlServerLabFeature' }
         'ssis-diagnostic-kind' = @{ Title = 'SSIS-Diagnose'; Purpose = 'Ausführungsmetadaten aus SSISDB beobachten oder ein vertrauenswürdiges Paket im eigenen Windows-Lab laden.'; Effects = 'Die Diagnose bindet den vorhandenen Run und prüft die Angaben aus dem Beleg. Die Paketladung benötigt eine separate Vertrauensbestätigung.'; Command = 'Get-SqlServerLabSsisExecutionDiagnostic' }

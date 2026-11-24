@@ -59,6 +59,7 @@ try {
             $planner=${function:Get-SqlServerLabAiSharedGatewayPlan}
             $script:guidedPlannerCalls=0
             $script:guidedPlan=$null
+            $script:guidedStatusKeys=[Collections.Generic.List[string]]::new()
             $script:guidedText=[Collections.Generic.Queue[string]]::new()
             $script:guidedChoices=[Collections.Generic.Queue[string]]::new()
             function New-LabConsoleItem { param($Id,$Label) [pscustomobject]@{Id=$Id;Label=$Label} }
@@ -80,23 +81,44 @@ try {
                 $script:guidedPlan=& $planner @PSBoundParameters
                 return $script:guidedPlan
             }
+            function Get-SqlServerLabAiSharedGatewayStatus {
+                param($Plan)
+                $script:guidedStatusKeys.Add($Plan.PlanKey)
+                [pscustomobject]@{GatewayId=$Plan.GatewayId;Status='NOT_REGISTERED';ReasonCode='AI_SHARED_GATEWAY_STATUS_NOT_REGISTERED'}
+            }
             $entry = @(Show-LabHostModelsMenu | Where-Object Id -CEQ 'AiSharedGatewayPlan')
             if ($entry.Count -ne 1) { throw 'GATEWAY_GUIDED_MENU_ENTRY_INVALID' }
             $script:guidedChoices.Enqueue('ESC')
             Invoke-LabMenuAction -ActionName $entry[0].Id
             $cancelled=$script:guidedPlannerCalls -eq 0
-            foreach($name in @('GatewayId','Location','UpstreamLocation','RuntimeModel','Dimension','ModelSha256','RuntimeSha256',
-                'ServerCertificateSha256','CertificateAuthoritySha256')){ $script:guidedText.Enqueue([string]$Case[$name]) }
-            foreach($consumer in @($FirstConsumer,$SecondConsumer)){
-                foreach($name in @('RunId','InstanceId','DatabaseId','ExternalModelName','ApiKeyReference')){ $script:guidedText.Enqueue($consumer.$name) }
+            foreach($next in @('back','status')) {
+                foreach($name in @('GatewayId','Location','UpstreamLocation','RuntimeModel','Dimension','ModelSha256','RuntimeSha256',
+                    'ServerCertificateSha256','CertificateAuthoritySha256')){ $script:guidedText.Enqueue([string]$Case[$name]) }
+                foreach($consumer in @($FirstConsumer,$SecondConsumer)){
+                    foreach($name in @('RunId','InstanceId','DatabaseId','ExternalModelName','ApiKeyReference')){ $script:guidedText.Enqueue($consumer.$name) }
+                }
+                foreach($choice in @($Case.UpstreamBackend,$Case.InputProfile,'add','preview',$next)){ $script:guidedChoices.Enqueue($choice) }
+                Invoke-LabMenuAction -ActionName $entry[0].Id
             }
-            foreach($choice in @($Case.UpstreamBackend,$Case.InputProfile,'add','preview')){ $script:guidedChoices.Enqueue($choice) }
-            Invoke-LabMenuAction -ActionName $entry[0].Id
-            [pscustomobject]@{CancelNoPlan=$cancelled; Calls=$script:guidedPlannerCalls; Key=$script:guidedPlan.PlanKey; Count=$script:guidedPlan.Consumers.Count}
+            [pscustomobject]@{CancelNoPlan=$cancelled; Calls=$script:guidedPlannerCalls; Key=$script:guidedPlan.PlanKey; Count=$script:guidedPlan.Consumers.Count; StatusKeys=$script:guidedStatusKeys.ToArray()}
         }
     } $planArgs $c2 $c1
     Add-CheckResult 'Geführte CLI verwendet denselben Plan mit mehreren Verbrauchern und verwirft Esc' (
-        $console.CancelNoPlan -and $console.Calls -eq 1 -and $console.Key -ceq $plan.PlanKey -and $console.Count -eq 2)
+        $console.CancelNoPlan -and $console.Calls -eq 2 -and $console.Key -ceq $plan.PlanKey -and $console.Count -eq 2)
+    Add-CheckResult 'CLI liest den Status nur auf Auswahl und mit dem unveränderten Plan' (
+        $console.StatusKeys.Count -eq 1 -and $console.StatusKeys[0] -ceq $plan.PlanKey)
+
+    $statusRoot=Join-Path ([IO.Path]::GetTempPath()) ('gateway-unregistered-'+[guid]::NewGuid().ToString('N'))
+    $commandReceipt=& $module {
+        param($Plan,$SyntheticRoot)
+        & {
+            function Get-LabStateRoot { return $SyntheticRoot }
+            Invoke-LabPublicCommandWebRequest -CommandName 'Get-SqlServerLabAiSharedGatewayStatus' -ParameterSetName '__AllParameterSets' -Parameters @{Plan=$Plan}
+        }
+    } $plan $statusRoot
+    Add-CheckResult 'Der Browser-Befehl liest die Registrierung im voreingestellten StateRoot ohne Schreibzugriff' (
+        $commandReceipt.Result.Count -eq 1 -and $commandReceipt.Result[0].PlanKey -ceq $plan.PlanKey -and
+        $commandReceipt.Result[0].Status -ceq 'NOT_REGISTERED' -and -not (Test-Path -LiteralPath $statusRoot))
 
     $tokens=$null;$errors=$null
     $server=[Management.Automation.Language.Parser]::ParseFile((Join-Path $repoRoot 'Tools/Start-SqlServerLabUi.ps1'),[ref]$tokens,[ref]$errors)

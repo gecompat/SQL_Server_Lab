@@ -6032,7 +6032,13 @@ JSON-Formgrenzen und gleiche Zertifikatidentität bei anderer Hex-Schreibweise.
 Das echte Browserskript wird mit Eingabeänderung während des Requests,
 falschem Status, Verbrauchergrenze sowie ausdrücklich gewählter Übergabe an den
 Dienstplan-Dialog geprüft. Die Cases verwenden ausschließlich synthetische
-Daten und attestieren den Konfigurationsplan.
+Daten und attestieren den Konfigurationsplan. Die geführte Statusprüfung
+verwendet exakt den angezeigten Plan. Die Fixtures prüfen bewusste Auswahl,
+abgewiesene Katalogabweichung, gebundenen Browser-Dispatch und einen
+öffentlichen Aufruf ohne Registrierung. `Invoke-AiSharedGatewaySessionChecks.ps1`
+prüft den echten lokalen Listener mit synthetischen Dateien. Derselbe Port
+eines anderen Gateways und derselbe Plan in einem anderen StateRoot werden
+nicht als eigene Sitzung gewertet.
 
 Die eigene Guidance und der Shared-Gateway-Registrar teilen eine kanonische
 StateRoot-Lifecyclesperre vor ihren bisherigen Gateway-/Testgruppen-Sperren.

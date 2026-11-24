@@ -326,7 +326,10 @@
         </div>
         <p id="ai-shared-gateway-plan-status" aria-live="polite">Der Plan bindet die Konfiguration für spätere Prüfung und Bereitstellung.</p>
         <label id="ai-shared-gateway-plan-result-box" hidden>Gateway-Plan (JSON)<textarea id="ai-shared-gateway-plan-result" rows="10" readonly></textarea></label>
-        <div class="build-actions"><button id="ai-shared-gateway-use-plan" type="button" class="button secondary" disabled>In Dienst-Secret-Prüfung übernehmen</button></div>
+        <div class="build-actions">
+          <button id="ai-shared-gateway-read-status" type="button" class="button secondary" disabled>Status für diesen Gateway-Plan lesen</button>
+          <button id="ai-shared-gateway-use-plan" type="button" class="button secondary" disabled>In Dienst-Secret-Prüfung übernehmen</button>
+        </div>
       </form>
     </section>
 
