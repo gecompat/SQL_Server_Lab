@@ -51,6 +51,14 @@ try {
     $context=& $module {param($Id,$Root)Get-LabSqlGuestCaptureContext -RunId $Id -StateRoot $Root} $run.RunId $StateRoot
     $statePath=Join-Path $context.RunDirectory 'run-state.json';$connectionPath=Join-Path $context.RunDirectory 'connection-info.json'
     $beforeState=(Get-FileHash -LiteralPath $statePath).Hash;$beforeConnection=(Get-FileHash -LiteralPath $connectionPath).Hash
+    $windows = & $module {
+        param($BoundContext)
+        $snapshot = @{ Binding = @{ Run=$BoundContext.Run; StateRoot=$BoundContext.StateRoot }; Instance=$BoundContext.Instance }
+        Get-LabEvaluationWindowsLicenseObservation -Snapshot $snapshot
+    } $context
+    Assert-CaptureAcceptance ($windows.Status -ceq 'OBSERVED' -and $windows.ObservedAt -and
+        (($windows.LicenseState -ceq 'EVALUATION_ACTIVE' -and $windows.EvaluationExpiresAt) -or
+         ($windows.LicenseState -ceq 'LICENSED' -and $null -eq $windows.EvaluationExpiresAt))) 'Windows-Lizenz im eigenen Gast aktuell und lesend belegt'
     $inventory=& $module {
         param($BoundContext)
         Invoke-LabSqlGuestCaptureProbe -Context $BoundContext -TimeoutSeconds 60 -IncludeSourceInventory

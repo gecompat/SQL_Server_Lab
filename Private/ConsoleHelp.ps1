@@ -141,8 +141,8 @@ function Get-LabConsoleHelpCatalog {
         }
         'evaluation-refresh-preview' = @{
             Title = 'SQL-Evaluation: Ersatzentscheid'
-            Purpose = 'Gespeicherte Windows- und SQL-Evidence sowie offene nächste Schritte anzeigen.'
-            Effects = 'Die ausgewählte Bindung wird erneut geprüft. Abbruch ruft keinen Plan auf; unbekannt bedeutet nicht bereit.'
+            Purpose = 'Gespeicherte Windows- und SQL-Evidence anzeigen oder ausdrücklich einen aktuellen Befund im laufenden Gast lesen.'
+            Effects = 'Die ausgewählte Bindung wird erneut geprüft. Die Gastabfragen speichern keinen Befund und ändern keine Lizenz. Abbruch startet keine Abfrage.'
             Command = 'Get-SqlServerLabEvaluationRefreshPlan'
         }
         'component-relation-choice' = @{

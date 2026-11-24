@@ -217,12 +217,21 @@ function Get-HyperVWindowsSlotLicenseStatus {
         [ValidateRange(30, 3600)][int]$TimeoutSeconds = 300,
         [switch]$Persist,
         [string]$StateRoot,
-        [guid]$ExpectedVmId
+        [guid]$ExpectedVmId,
+        [string]$ExpectedScopeId,
+        [string]$ExpectedInstanceId,
+        [switch]$BoundReadOnly
     )
 
+    if ($BoundReadOnly -and ($Persist -or -not $StateRoot -or $ExpectedVmId -eq [guid]::Empty -or
+        -not $ExpectedScopeId -or -not $ExpectedInstanceId)) {
+        throw 'HYPERV_WINDOWS_LICENSE_READ_BINDING_REQUIRED'
+    }
     $binding=@{}
     if($PSBoundParameters.ContainsKey('ExpectedVmId')){$binding.ExpectedVmId=$ExpectedVmId}
-    $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot @binding
+    $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot -NoWrite:$BoundReadOnly @binding
+    if ($BoundReadOnly -and ($lab.Run.state -cne 'RUNNING' -or $lab.Run.scopeId -cne $ExpectedScopeId -or
+        $lab.Instance.id -cne $ExpectedInstanceId)) { throw 'HYPERV_WINDOWS_LICENSE_READ_BINDING_CHANGED' }
     $managed = Get-HyperVManagedVM -VMName ([string]$lab.Instance.vmName) `
         -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
     if (-not $managed -or [string]$managed.VM.State -ne 'Running') {
@@ -234,13 +243,17 @@ function Get-HyperVWindowsSlotLicenseStatus {
         if (-not $guestPassword) { throw 'HYPERV_LAB_GUEST_PASSWORD_NOT_STORED' }
         $Credential = [PSCredential]::new('Administrator', $guestPassword)
     }
-    $ready = Wait-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) `
-        -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId `
-        -Credential $Credential -TimeoutSeconds $TimeoutSeconds @binding
-    if (-not $ready.Ready) { throw "HYPERV_WINDOWS_LICENSE_PROBE_TIMEOUT: $($ready.Message)" }
+    if (-not $BoundReadOnly) {
+        $ready = Wait-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) `
+            -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId `
+            -Credential $Credential -TimeoutSeconds $TimeoutSeconds @binding
+        if (-not $ready.Ready) { throw "HYPERV_WINDOWS_LICENSE_PROBE_TIMEOUT: $($ready.Message)" }
+    }
 
+    $readParameters = if ($BoundReadOnly) { @{TimeoutSeconds=$TimeoutSeconds;NoRetry=$true} } else { @{} }
     $receipt = Invoke-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) `
         -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $Credential @binding `
+        @readParameters `
         -ScriptBlock {
             $ErrorActionPreference = 'Stop'
             $edition = [string](Get-ItemProperty `
@@ -285,6 +298,11 @@ function Get-HyperVWindowsSlotLicenseStatus {
     elseif ($isEvaluation) { 'ACTIVATION_REQUIRED' }
     elseif ([int]$receipt.licenseStatus -eq 1) { 'LICENSED' }
     else { 'ACTIVATION_REQUIRED' }
+    if ($BoundReadOnly) {
+        $fresh = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot -ExpectedVmId $ExpectedVmId -NoWrite
+        if ($fresh.Run.scopeId -cne $ExpectedScopeId -or $fresh.Instance.id -cne $ExpectedInstanceId -or
+            $fresh.Run.state -cne 'RUNNING') { throw 'HYPERV_WINDOWS_LICENSE_READ_BINDING_CHANGED' }
+    }
     if ($Persist) {
         $null = Set-HyperVWindowsSlotActivationEvidence -RunId $RunId -State $state `
             -Edition ([string]$receipt.edition) -LicenseStatus ([int]$receipt.licenseStatus) `

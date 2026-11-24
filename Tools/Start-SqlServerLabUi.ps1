@@ -279,6 +279,11 @@ function Start-UiWorkflowJob {
                 foreach ($item in $source.Items) { Write-Output ('[INVENTAR] {0}: {1}' -f $item.Category, $item.Count) }
                 Write-Output '[INFO] Der Ersatzentscheid bleibt BLOCKED. Vollständige Inventur und Transfer benötigen weitere Nachweise.'
             }
+            if ($JobAction -ceq 'ReadHyperVEvaluationWindowsLicense') {
+                $license = $result.Result
+                Write-Output ('[LIZENZ] Windows: {0} · Lizenz: {1} · Beobachtet UTC: {2} · Frist UTC: {3}' -f
+                    $license.Status, $license.LicenseState, $license.ObservedAt, $license.EvaluationExpiresAt)
+            }
             if ($JobAction -eq 'InspectContainerDatabaseMigrationDependencies') {
                 $inventory = $result.Result
                 $summary = [ordered]@{
@@ -1700,13 +1705,14 @@ try {
                         $_.Action -eq $action -and $_.Job.State -in @('NotStarted','Running')
                     }).Count) { throw 'FULL_MAINTENANCE_PREVIEW_IN_PROGRESS' }
                 }
-                if ($action -ieq 'ReadHyperVEvaluationSqlSource') {
-                    if ($action -cne 'ReadHyperVEvaluationSqlSource' -or $parameters.Count -ne 4 -or
+                if ($action -in @('ReadHyperVEvaluationSqlSource', 'ReadHyperVEvaluationWindowsLicense')) {
+                    if ($action -cnotin @('ReadHyperVEvaluationSqlSource', 'ReadHyperVEvaluationWindowsLicense') -or $parameters.Count -ne 4 -or
                         @('RunId', 'InstanceId', 'DataRoot', 'ExpectedPlanKey').Where({ $parameters[$_] -isnot [string] }).Count -gt 0) {
                         throw 'EVALUATION_REFRESH_INPUT_INVALID'
                     }
                     if (@($jobs.Values | Where-Object { $_.Action -ceq $action -and $_.Job.State -in @('NotStarted','Running') }).Count) {
-                        throw 'EVALUATION_REFRESH_SQL_SOURCE_ALREADY_RUNNING'
+                        if ($action -ceq 'ReadHyperVEvaluationSqlSource') { throw 'EVALUATION_REFRESH_SQL_SOURCE_ALREADY_RUNNING' }
+                        throw 'EVALUATION_REFRESH_WINDOWS_READ_ALREADY_RUNNING'
                     }
                 }
                 # A confirmed power plan is a one-shot request: never replay it through batch recovery.
@@ -1722,7 +1728,7 @@ try {
                         throw 'TEST_GROUP_MANAGEMENT_ACTION_INVALID'
                     }
                 }
-                if (-not $hasTransientSecret -and -not $groupManagement -and $action -notin @('Refresh','StartTestGroupPower','StopTestGroupPower','CreateLinuxTestGroupMember','ReadFullMaintenancePreview','ReadHyperVEvaluationSqlSource')) {
+                if (-not $hasTransientSecret -and -not $groupManagement -and $action -notin @('Refresh','StartTestGroupPower','StopTestGroupPower','CreateLinuxTestGroupMember','ReadFullMaintenancePreview','ReadHyperVEvaluationSqlSource','ReadHyperVEvaluationWindowsLicense')) {
                     # Retain terminal cards for this server session; bound reads without evicting results.
                     if ($persistentJobs.Count -ge 256) { throw 'UI_JOB_STATUS_CAPACITY_REACHED' }
                     $batchStateRoot = & (Get-Module SqlServerLab) { Get-LabStateRoot }
