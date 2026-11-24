@@ -425,11 +425,10 @@ function Get-UiWorkflowInventoryResponse {
             $WarningPreference = 'SilentlyContinue'
             Import-Module $JobModulePath -Force 6>$null
             $snapshot = Get-SqlServerLabWorkflow -MediaRoot $JobMediaRoot
-            $snapshot.Batches = @(& (Get-Module SqlServerLab) {
-                param($Batches)
-                Get-LabBrowserBatchOverview -Batches $Batches
-            } $snapshot.Batches)
-            $snapshot
+            & (Get-Module SqlServerLab) {
+                param($Workflow)
+                ConvertTo-LabBrowserWorkflowInventory -Snapshot $Workflow
+            } $snapshot
         }
     }
     return [PSCustomObject]@{

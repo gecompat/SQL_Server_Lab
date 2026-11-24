@@ -161,6 +161,32 @@ function renderBatchOverview(batches, queue, background = false) {
 const operationPriorityLabels = { High: 'Hoch', Normal: 'Normal', Low: 'Niedrig' };
 const operationOrderingInFlight = new Set();
 
+function renderOperationHistory(history) {
+  const rows = $('#operation-history-rows');
+  if (!rows) return;
+  rows.replaceChildren();
+  const labels = {Completed: 'Abgeschlossen', Failed: 'Fehlgeschlagen', Cancelled: 'Abgebrochen'};
+  const entries = Array.isArray(history) ? history.slice(0, 50) : [];
+  for (const item of entries) {
+    if (!item || !Object.hasOwn(labels, item.Status) || !['docker','podman','hyperv','none'].includes(item.Provider) ||
+        typeof item.BatchId !== 'string' || !/^batch-\d{14}-[0-9a-f]{8}$/.test(item.BatchId) ||
+        typeof item.OperationId !== 'string' || !/^op-batch-\d{14}-[0-9a-f]{8}-[a-z0-9_-]{1,96}$/.test(item.OperationId) ||
+        !item.OperationId.startsWith('op-' + item.BatchId + '-') || typeof item.CompletedAt !== 'string' ||
+        !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{7}Z$/.test(item.CompletedAt)) continue;
+    const when = new Date(item.CompletedAt);
+    if (!Number.isFinite(when.getTime())) continue;
+    const row = document.createElement('tr');
+    for (const value of [item.OperationId, item.Provider === 'none' ? '—' : item.Provider, labels[item.Status], when.toLocaleString('de-AT')]) {
+      const cell = document.createElement('td');
+      cell.textContent = value;
+      row.append(cell);
+    }
+    rows.append(row);
+  }
+  $('#operation-history-table').hidden = !rows.childElementCount;
+  $('#operation-history-empty').hidden = !!rows.childElementCount;
+}
+
 function renderOperationOrderingControls(item, waitingItems) {
   if (item.status === 'Running' || waitingItems.length < 2 || !Object.hasOwn(operationPriorityLabels, item.priority)) return '';
   const operationId = escapeHtml(item.operationId);

@@ -872,7 +872,12 @@ Positionen stoppen** eine Vorschau mit Anzahl der Zielpositionen und der
 bereits laufenden Schritte. Bestätige erst danach den Stopp und das Einreihen
 der scopegebundenen Bereinigung. Fertige Positionen bleiben erhalten.
 Eine geänderte oder abgelaufene Vorschau erfordert einen neuen Aufruf.
-Ob die Bereinigung abgeschlossen ist, steht anschließend bei den Vorgängen.
+Unter **Letzte abgeschlossene Vorgänge** stehen bis zu 50 persistierte
+Ergebnisse mit Provider, Status und Abschlusszeit. Ein fehlgeschlagener
+Bereinigungsversuch erscheint dort als **Fehlgeschlagen**. Öffne bei einem
+Fehler in der CLI **Vorgänge, Queue und Benutzeraktionen → Letzte
+abgeschlossene Vorgänge**. Wähle die betroffene Position aus und kläre den
+Status ihres Runs vor einem erneuten Auftrag.
 **Gesamten Batch zurückbauen** zeigt auch die fertigen und fehlgeschlagenen
 Positionen an, deren Ressourcen in die Bereinigung einbezogen werden.
 Die Bestätigung reiht den Rückbau ein. Prüfe den Abschluss anschließend in

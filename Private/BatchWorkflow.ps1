@@ -1381,7 +1381,11 @@ function Invoke-LabOperationCleanup {
     $removed = @()
     if (-not [string]::IsNullOrWhiteSpace([string]$Operation.runId)) {
         try {
-            Remove-SqlServerLab -RunId $Operation.runId -StateRoot $StateRoot -Force -Confirm:$false | Out-Null
+            $result = Remove-SqlServerLab -RunId $Operation.runId -StateRoot $StateRoot -Force -Confirm:$false -ErrorAction Stop
+            if ($result -isnot [pscustomobject] -or $result.Status -isnot [string] -or $result.Status -cne 'REMOVED' -or
+                $result.RunId -isnot [string] -or $result.RunId -cne $Operation.runId) {
+                throw 'WORKFLOW_OPERATION_RUN_REMOVAL_UNCONFIRMED'
+            }
             $removed += [pscustomobject]@{ type = 'Run'; id = $Operation.runId }
         }
         catch {
@@ -1464,6 +1468,9 @@ function Invoke-LabOperationExecution {
             Add-LabOperationEvent -Operation $operation -Type 'CleanupStarted' -Message 'Scopegebundene Bereinigung wurde gestartet.' -StateRoot $StateRoot | Out-Null
             Write-LabOperationState -Operation $operation -StateRoot $StateRoot | Out-Null
             $operation.cleanupResult = Invoke-LabOperationCleanup -Operation $operation -StateRoot $StateRoot
+            if ($operation.cleanupResult.success -isnot [bool] -or -not $operation.cleanupResult.success) {
+                throw 'WORKFLOW_OPERATION_CLEANUP_UNCONFIRMED'
+            }
             $operation.status = 'Cancelled'
             $operation.progress = 100
             $operation.completedAt = Get-LabWorkflowUtcNow

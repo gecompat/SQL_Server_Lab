@@ -68,5 +68,18 @@ $validBatch=[pscustomobject]@{
 $filtered=@(Get-LabBrowserBatchOverview -Batches @($validBatch,[pscustomobject]@{batchId='batch-20261121080000-1234abcd';status='Running'}))
 Check ($filtered.Count -eq 1 -and $filtered[0].BatchId -ceq $validBatch.batchId -and $filtered[0].Percent -eq 25.5 -and
  ($filtered|ConvertTo-Json -Depth 8) -notmatch 'synthetic-private|defaults|manifestSource') 'Browser projection keeps only bounded batch progress and excludes operation input'
+$terminal = @(1..55 | ForEach-Object {
+    [pscustomobject]@{contract='SqlServerLab.Operation/1.0';batchId=$validBatch.batchId;operationId="op-$($validBatch.batchId)-slot-$_"
+        status='Failed';provider='docker';completedAt=$script:now.AddMinutes($_).ToString('o');executor=@{Secret='synthetic-private-value'}
+        error=@{message='synthetic-private-path'};cleanupResult=@{remaining=@('synthetic-private-value')}}
+})
+$otherBatch = $terminal[0].PSObject.Copy();$otherBatch.batchId='batch-20261121090000-3234abcd'
+$open = $terminal[0].PSObject.Copy();$open.status='Running'
+$malformed = $terminal[0].PSObject.Copy();$malformed.completedAt='2026-01-01T00:00:00.0000000'
+$inventory=ConvertTo-LabBrowserWorkflowInventory -Snapshot ([pscustomobject]@{Batches=@($validBatch);Operations=@($terminal + @($otherBatch,$open,$malformed,$null))})
+Check ($inventory.OperationHistory.Count -eq 50 -and $inventory.OperationHistory[0].OperationId -like '*-55' -and
+    $inventory.OperationHistory[-1].OperationId -like '*-6' -and @($inventory.OperationHistory | Where-Object Status -CNE 'Failed').Count -eq 0) 'Terminal history is bound to batch and exact UTC date, newest first with a maximum of 50 entries'
+Check ($null -eq $inventory.PSObject.Properties['Operations'] -and ($inventory | ConvertTo-Json -Depth 12) -notmatch
+    'synthetic-private|executor|cleanupResult|manifestSource') 'Workflow browser snapshot replaces raw operation details with a bounded safe projection'
 Write-Host ('Ergebnis: '+$passed+' PASS, '+$failures.Count+' FAIL')
 if($failures.Count){exit 1}

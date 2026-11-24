@@ -252,6 +252,14 @@
         </table>
       </details>
       <div id="operation-queue" class="cards"></div>
+      <details>
+        <summary>Letzte abgeschlossene Vorgänge</summary>
+        <p id="operation-history-empty">Keine abgeschlossenen Vorgänge verfügbar.</p>
+        <table id="operation-history-table" hidden>
+          <thead><tr><th>Vorgang</th><th>Provider</th><th>Status</th><th>Beendet am</th></tr></thead>
+          <tbody id="operation-history-rows"></tbody>
+        </table>
+      </details>
     </section>
 
     <section class="panel command-center" id="command-center" data-workspace-area="commands" hidden>

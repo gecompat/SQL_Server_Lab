@@ -56,6 +56,9 @@ const elements = new Map([
   ['#batch-draft-status', element('p')],
   ['#batch-draft-positions', element('div')],
   ['#operation-queue', queueElement],
+  ['#operation-history-rows', element('tbody')],
+  ['#operation-history-table', element('table')],
+  ['#operation-history-empty', element('p')],
   ['#batch-overview-rows', element('tbody')],
   ['#batch-overview-table', element('table')],
   ['#batch-overview-status', element('p')]
@@ -80,6 +83,17 @@ const context = vm.createContext({
   showError: error => errors.push(error.message)
 });
 vm.runInContext(queueSource, context);
+const terminal = {BatchId:'batch-20261121080000-1234abcd',OperationId:'op-batch-20261121080000-1234abcd-slot-001',
+  Provider:'docker',Status:'Failed',CompletedAt:'2026-11-21T08:00:00.0000000Z',error:'SYNTHETIC_PRIVATE_SOURCE'};
+context.renderOperationHistory([terminal,{...terminal,Status:'Running'},{...terminal,BatchId:'batch-20261121090000-3234abcd'}]);
+const historyRows = elements.get('#operation-history-rows');
+assert.equal(historyRows.childElementCount, 1);
+assert.equal(historyRows.children[0].children[2].textContent, 'Fehlgeschlagen');
+assert.equal(elements.get('#operation-history-table').hidden, false);
+assert.doesNotMatch(JSON.stringify(historyRows), /SYNTHETIC_PRIVATE_SOURCE/);
+context.renderOperationHistory([]);
+assert.equal(historyRows.childElementCount, 0);
+assert.equal(elements.get('#operation-history-empty').hidden, false);
 const cancelStart = source.indexOf('function cancelDialog(');
 const cancelEnd = source.indexOf("document.addEventListener('click',", cancelStart);
 assert.ok(cancelStart >= 0 && cancelEnd > cancelStart);

@@ -700,6 +700,7 @@ function renderWorkflow(data, background = false) {
   renderContainerVersionOptions(data);
   renderConnectionEndpoints(data);
   renderOperationQueue(data.Queue, background);
+  renderOperationHistory(data.OperationHistory);
   renderBatchOverview(data.Batches, data.Queue, background);
   // Der Quellen-Dialog kann vor dem ersten API-Refresh geöffnet werden. In
   // diesem Fall das anfangs leere Feld nachträglich füllen, aber eine bereits

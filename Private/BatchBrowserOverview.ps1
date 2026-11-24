@@ -25,6 +25,47 @@ function Get-LabBrowserBatchOverview {
     }
 }
 
+function Get-LabTerminalOperationSummary {
+    param([object[]]$Operations)
+
+    $rows = foreach ($operation in $Operations) {
+        if ($null -eq $operation -or $operation.PSObject.Properties['contract']?.Value -cne 'SqlServerLab.Operation/1.0') { continue }
+        $status = $operation.PSObject.Properties['status']?.Value
+        $batchId = $operation.PSObject.Properties['batchId']?.Value
+        $id = $operation.PSObject.Properties['operationId']?.Value
+        $provider = $operation.PSObject.Properties['provider']?.Value
+        if ($status -cnotin @('Completed','Failed','Cancelled') -or
+            $batchId -isnot [string] -or $batchId -cnotmatch '\Abatch-\d{14}-[0-9a-f]{8}\z' -or
+            $id -isnot [string] -or $id -cnotmatch '\Aop-batch-\d{14}-[0-9a-f]{8}-[a-z0-9_-]{1,96}\z' -or
+            -not $id.StartsWith("op-$batchId-", [StringComparison]::Ordinal) -or
+            $provider -cnotin @('docker','podman','hyperv','none')) { continue }
+        $completion = $operation.PSObject.Properties['completedAt']?.Value
+        if ($completion -is [DateTime] -and $completion.Kind -ne [DateTimeKind]::Unspecified) {
+            $completion = [DateTimeOffset]::new($completion)
+        } elseif ($completion -is [string]) {
+            $parsed = [DateTimeOffset]::MinValue
+            if (-not [DateTimeOffset]::TryParseExact($completion, 'o', [Globalization.CultureInfo]::InvariantCulture,
+                [Globalization.DateTimeStyles]::None, [ref]$parsed) -or $completion -cnotmatch '(?:Z|[+-]\d\d:\d\d)\z') { continue }
+            $completion = $parsed
+        }
+        if ($completion -isnot [DateTimeOffset]) { continue }
+        [pscustomobject]@{
+            OperationId=$id; BatchId=$batchId; Provider=$provider; Status=$status; CompletedAt=$completion.UtcDateTime.ToString('o')
+        }
+    }
+    $rows | Sort-Object -Property @{ Expression='CompletedAt'; Descending=$true }, OperationId | Select-Object -First 50
+}
+
+function ConvertTo-LabBrowserWorkflowInventory {
+    param([pscustomobject]$Snapshot)
+
+    $Snapshot.Batches = @(Get-LabBrowserBatchOverview -Batches $Snapshot.Batches)
+    $history = @(Get-LabTerminalOperationSummary -Operations $Snapshot.Operations)
+    $Snapshot.PSObject.Properties.Remove('Operations')
+    $Snapshot | Add-Member -NotePropertyName OperationHistory -NotePropertyValue $history
+    $Snapshot
+}
+
 function Save-LabBrowserBatchDraft {
     param([object]$Request, [string]$StateRoot)
 

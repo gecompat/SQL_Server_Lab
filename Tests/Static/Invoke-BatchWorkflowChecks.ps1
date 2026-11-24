@@ -478,6 +478,57 @@ if (-not $lock) { throw 'BATCH_SUMMARY_LOCK_ACQUISITION_FAILED' }
         }
     }
 
+    foreach ($case in @(
+        @{ Status='REMOVED'; WrongRun=$false; Expected='Cancelled' }
+        @{ Status='RECOVERY_REQUIRED'; WrongRun=$false; Expected='Failed' }
+        @{ Status='NOT_FOUND'; WrongRun=$false; Expected='Failed' }
+        @{ Status='REMOVED'; WrongRun=$true; Expected='Failed' }
+    )) {
+        $cleanupRoot = Join-Path $stopRoot ("cleanup-$($case.Status)-$($case.WrongRun)")
+        $batch = New-SqlServerLabBatch -Name 'Synthetic cleanup receipt' -StateRoot $cleanupRoot -Items @(
+            [pscustomobject]@{ id='cleanup'; kind='Test'; intent=[pscustomobject]@{} }
+        )
+        $operation = & $module {
+            param($Id,$Root,$Case)
+            $expectedRun = [guid]::NewGuid().ToString('D')
+            $op = Get-SqlServerLabOperation -OperationId $Id -StateRoot $Root
+            $op.runId = $expectedRun
+            $op.status = 'CleanupQueued'
+            $op.cleanupRequested = $true
+            $null = Write-LabOperationState -Operation $op -StateRoot $Root
+            function Remove-SqlServerLab {
+                [CmdletBinding(SupportsShouldProcess)]
+                param($RunId,$StateRoot,[switch]$Force)
+                if ($RunId -cne $expectedRun -or $StateRoot -cne $Root -or -not $Force) { throw 'UNEXPECTED_FIXTURE_REMOVAL' }
+                $receiptRunId = if ($Case.WrongRun) { [guid]::NewGuid().ToString('D') } else { $RunId }
+                [pscustomobject]@{ Status=$Case.Status; RunId=$receiptRunId }
+            }
+            $null = Invoke-LabOperationExecution -OperationId $Id -StateRoot $Root
+            Get-SqlServerLabOperation -OperationId $Id -StateRoot $Root
+        } $batch.operationIds[0] $cleanupRoot $case
+        $success = $case.Expected -ceq 'Cancelled'
+        Assert-Check ($operation.status -ceq $case.Expected -and $operation.cleanupResult.success -eq $success -and
+            $operation.cleanupResult.removed.Count -eq [int]$success -and $operation.cleanupResult.remaining.Count -eq [int](-not $success) -and
+            ('CleanupCompleted' -cin $operation.events.type) -eq $success) 'Only an exact confirmed removal may complete a scheduler cleanup.'
+        if (-not $success) {
+            Assert-Check ($operation.cleanupResult.remaining[0].id -ceq $operation.runId -and
+                $operation.error.message -ceq 'WORKFLOW_OPERATION_CLEANUP_UNCONFIRMED') 'Unconfirmed removal must retain the affected run and failed cleanup evidence.'
+        }
+        if ($case.Status -ceq 'RECOVERY_REQUIRED') {
+            $console = @(& $module {
+                param($Fixture)
+                $Fixture.provider = 'docker'
+                function Get-SqlServerLabOperation { param($OperationId) if ($OperationId -and $OperationId -cne $Fixture.operationId) { throw 'FOREIGN_OPERATION' }; $Fixture }
+                function Select-LabConsoleDataItem { param($ScreenId,$Title,$Items) $Items[0].Data }
+                function Write-LabInfo { param($Message) Write-Host $Message }
+                function Wait-LabConsoleAcknowledgement {}
+                Show-LabTerminalOperationsInteractive
+            } $operation 6>&1)
+            Assert-Check (($console -join ' ') -match 'Entfernung des zugeordneten Runs ist unbestätigt' -and
+                ($console -join ' ') -match [regex]::Escape($operation.runId)) 'Guided terminal operation must explain an unconfirmed removal and identify its run.'
+        }
+    }
+
     $browserStop = & $module {
         param($Root)
         $batch = New-SqlServerLabBatch -Name 'Synthetic browser batch stop' -StateRoot $Root -Items @(

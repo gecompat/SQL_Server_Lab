@@ -4482,6 +4482,14 @@ Cleanup endet der Vorgang als `Cancelled`, mit Cleanup als `CleanupQueued`.
 Ein gesonderter Fehlerfall prüft den ursprünglichen Schrittfehler und
 verhindert einen automatischen erneuten Versuch nach fehlgeschlagenem Cleanup.
 
+`Invoke-BatchWorkflowChecks.ps1` prüft auch die gespeicherte Ergebnisquittung.
+Nur `REMOVED` mit der gebundenen Run-ID beendet den Cleanup als `Cancelled`.
+`RECOVERY_REQUIRED`, `NOT_FOUND` und eine fremde Run-ID bleiben als `Failed`
+mit der betroffenen Run-Referenz sichtbar. Die Queue-Historie prüft die
+darauf folgende CLI-Anzeige. Cache- und Browserfixtures prüfen die Grenze
+von 50 Ergebnissen, Zeit- und Batchbindung sowie den Ausschluss roher
+Executor-, Fehler- und Cleanupdaten aus der HTTP-Projektion.
+
 Die Browser-Vorschau für den Standardabbruch bindet einen übergebenen
 Batch und dessen unfertige Positionen an den aktuellen State-Root.
 `Invoke-BatchWorkflowChecks.ps1` prüft lesende Vorschau, geänderte Auswahl,
