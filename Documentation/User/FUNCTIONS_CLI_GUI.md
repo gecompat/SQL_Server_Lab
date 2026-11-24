@@ -430,6 +430,25 @@ Bibliotheks-Recovery blockiert den erneuten Export ausdrücklich.
 | [`Install-SqlServerLabAdapter`](../../Public/Install-SqlServerLabAdapter.ps1) | Führt einen validierten Adapter-Entrypoint ohne Lifecycle-Seiteneffekt aus. | – | – |
 | [`Install-SqlServerLab7Zip`](../../Public/Install-SqlServerLab7Zip.ps1) | Installiert 7-Zip nur nach explizitem Aufruf über `winget` für katalogisierte `.7z`-Backups. | Systemstatus und Einstellungen → 7-Zip | – |
 
+## OVMS und externe Modellendpunkte
+
+**Host-Dienste und Modelle → Lokalen OVMS-Embedding-Dienst prüfen** steht
+in CLI und Browser zur Verfügung. `Test-SqlServerLabOvmsUpstreamEndpoint`
+prüft nach Bestätigung einen bereits laufenden OVMS-Dienst über Loopback.
+
+Die HTTPS-Endpunktprüfung und die Gateway-Sitzung sind als öffentliche
+PowerShell-Funktionen verfügbar. Für diese drei Schritte fehlen eigene
+geführte Dialoge in CLI und Browser:
+
+- `Test-SqlServerLabAiExternalModelEndpoint` prüft den HTTPS-Endpunkt eines
+  vorbereiteten Plans.
+- `Start-SqlServerLabOvmsHttpsGateway` startet einen befristeten
+  Windows-Loopback-Gateway vor einem vorhandenen OVMS-Dienst.
+- `Stop-SqlServerLabOvmsHttpsGateway` beendet die gebundene Gateway-Sitzung.
+
+Der [PowerShell-Ablauf für OVMS](SQL_AI_LOCAL_ACCELERATION.md#openvino-model-server-als-alternative)
+zeigt die erforderlichen Eingaben und den Stop in derselben Sitzung.
+
 ## CU-, Medien- und Ressourcenverwaltung
 
 | Cmdlet | Kurzbeschreibung | Konsolenmenü | Browser-GUI |
