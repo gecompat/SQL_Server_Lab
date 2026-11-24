@@ -25,6 +25,12 @@ $cases=@(foreach($entry in @(
 $transport=Get-BoundaryFunctionAst (Join-Path $RepoRoot 'Providers/HyperV/HyperVProvider.ps1') 'Invoke-HyperVPowerShellDirect'
 $slotPlan = Get-BoundaryFunctionAst $environment 'Get-LabHyperVSqlSlotBrowserPlan'
 $slotInstall = Get-BoundaryFunctionAst $environment 'Invoke-HyperVLabSqlSlotInstall'
+$guestSetup = @($slotInstall.FindAll({
+    param($node)
+    $node -is [Management.Automation.Language.ScriptBlockExpressionAst] -and
+        'ExpectedSetupVersionPattern' -in $node.ScriptBlock.ParamBlock.Parameters.Name.VariablePath.UserPath
+}, $true))
+if ($guestSetup.Count -ne 1) { throw 'BOUNDARY_SQL_SETUP_SCRIPT_NOT_UNIQUE' }
 $module=New-Module -Name ('SqlCompletionBoundary_'+[guid]::NewGuid().ToString('N')) -ScriptBlock {
     param($PublicPath,$TransportText,$SlotPlanText,$SlotInstallText)
     . $PublicPath
@@ -34,7 +40,7 @@ $module=New-Module -Name ('SqlCompletionBoundary_'+[guid]::NewGuid().ToString('N
 } -ArgumentList (Join-Path $RepoRoot 'Public/Invoke-SqlServerLabWorkflowAction.ps1'),$transport.Extent.Text,$slotPlan.Extent.Text,$slotInstall.Extent.Text
 try{
     $result=& $module {
-        param($Cases)
+        param($Cases,$GuestSetupSource)
         $script:passed=0;$script:failed=0
         function Check([bool]$Value,[string]$Label){
             if($Value){$script:passed++;Write-Host ('PASS: '+$Label)}else{$script:failed++;Write-Host ('FAIL: '+$Label)}
@@ -98,10 +104,12 @@ try{
                 catch { $observed = $_.Exception.Message }
                 Check ($observed -ceq $case.Code -and $script:networkChecks -eq $case.Checks -and $script:effectChecks -eq $case.Checks) ('Install core validates the current plan and network before effects: ' + $case.Code)
             }
+            $script:setupFailureMessage = $null
             function Invoke-HyperVLabSqlSlotInstall {
                 param($RunId,$MediaRoot,$ExpectedPlanKey,[switch]$RequireExistingNetwork)
                 $script:slotCalls++
                 if (-not $RequireExistingNetwork -or $MediaRoot -cne 'synthetic-media' -or $ExpectedPlanKey -cne $resume.PlanKey) { throw 'SYNTHETIC_BOUNDARY_FAILED' }
+                if ($script:setupFailureMessage) { throw $script:setupFailureMessage }
                 [pscustomobject]@{RunId=$RunId;State='SQL_SLOT_READY';GeneratedSqlAccess='SYNTHETIC_SECRET_MUST_NOT_BE_RETURNED'}
             }
             $slot = Invoke-SqlServerLabWorkflowAction -Action InstallHyperVLabSqlSlot -RunId $runId -ExpectedPlanKey $resume.PlanKey
@@ -111,6 +119,61 @@ try{
             try { $null = Invoke-SqlServerLabWorkflowAction -Action InstallHyperVLabSqlSlot -RunId $runId -ExpectedPlanKey $resume.PlanKey -MediaRoot foreign }
             catch { $rejected = $_.Exception.Message -ceq 'HYPERV_LAB_SQL_INSTALL_PREVIEW_REQUIRED' }
             Check ($rejected -and $script:slotCalls -eq 1) 'Slot action rejects a caller-supplied media root before delegation'
+            foreach ($case in @(
+                @{Message='SQL_SETUP_MEDIA_NOT_UNIQUE: SYNTHETIC_SECRET'; Code='SQL_SETUP_MEDIA_NOT_UNIQUE'},
+                @{Message='SQL_SETUP_MEDIA_NOT_UNIQUE: 0'; Code='SQL_SETUP_MEDIA_NOT_UNIQUE'; MediaCount=0},
+                @{Message='SQL_SETUP_GUEST_PROCESS_START_FAILED: -2147024894'; Code='SQL_SETUP_GUEST_PROCESS_START_FAILED'; HResult=-2147024894},
+                @{Message='SQL_SETUP_GUEST_PROCESS_START_FAILED: -2147024894 SYNTHETIC_SECRET'; Code='SQL_SETUP_GUEST_PROCESS_START_FAILED'},
+                @{Message='SQL_SETUP_MEDIA_NOT_UNIQUE_PRIVATE: SYNTHETIC_SECRET'; Code='UNCLASSIFIED'},
+                @{Message='Raw setup message: SYNTHETIC_SECRET'; Code='UNCLASSIFIED'})) {
+                $script:setupFailureMessage = $case.Message
+                $failure = try { $null = Invoke-SqlServerLabWorkflowAction -Action InstallHyperVLabSqlSlot -RunId $runId -ExpectedPlanKey $resume.PlanKey; $null }
+                    catch { $_.Exception }
+                Check ($failure.Message -ceq 'HYPERV_LAB_SQL_INSTALL_FAILED' -and $null -eq $failure.InnerException -and
+                    $failure.Data['LabSqlSlotCauseCode'] -ceq $case.Code -and
+                    $failure.Data['LabSqlSlotMediaCount'] -eq $case.MediaCount -and $failure.Data['LabSqlSlotProcessHResult'] -eq $case.HResult -and
+                    -not (($failure.Data | ConvertTo-Json -Depth 4) -match 'SYNTHETIC_SECRET')) ('Slot setup retains bounded phase code: '+$case.Code)
+            }
+        }
+        & {
+            $script:guestSetupProcessStarts = 0
+            function Get-CimInstance {
+                param($ClassName,$Filter)
+                if ($ClassName -eq 'Win32_LogicalDisk') {
+                    if ($fault -eq 'MediaRead') { throw 'SYNTHETIC_PRIVATE_DETAIL' }
+                    if ($fault -ne 'MissingMedia') { [pscustomobject]@{DeviceID='C:'} }
+                }
+                elseif ($fault -eq 'ProcessRead') { throw 'SYNTHETIC_PRIVATE_DETAIL' }
+            }
+            function Join-Path { 'synthetic-setup-exe' }
+            function Test-Path { $true }
+            function Get-Item { [pscustomobject]@{FullName='synthetic-setup-exe';VersionInfo=[pscustomobject]@{FileVersion='17.0.1000.7'}} }
+            function Start-Process {
+                $script:guestSetupProcessStarts++
+                throw [ComponentModel.Win32Exception]::new(2, 'SYNTHETIC_PRIVATE_DETAIL')
+            }
+            $guestBlock = [scriptblock]::Create($GuestSetupSource)
+            $guestSa = [Security.SecureString]::new()
+            $guestSa.AppendChar('x')
+            try {
+                foreach ($case in @(
+                    @{Fault='MediaRead'; Code='SQL_SETUP_GUEST_MEDIA_DISCOVERY_FAILED'; Category=$true; Starts=0},
+                    @{Fault='MissingMedia'; Code='SQL_SETUP_MEDIA_NOT_UNIQUE: 0'; Starts=0},
+                    @{Fault='UnboundPassword'; Code='SQL_SETUP_GUEST_PASSWORD_BINDING_FAILED'; Category=$true; Starts=0},
+                    @{Fault='ProcessRead'; Code='SQL_SETUP_GUEST_PROCESS_INVENTORY_FAILED'; Category=$true; Starts=0},
+                    @{Fault='ProcessStart'; Code='SQL_SETUP_GUEST_PROCESS_START_FAILED: '+[ComponentModel.Win32Exception]::new(2).HResult; Starts=1})) {
+                    $fault = $case.Fault
+                    $password = if ($fault -ne 'UnboundPassword') { $guestSa }
+                    $failureCode = try { $null = & $guestBlock '2025' '^17\.' 'SQLENGINE' $password; $null }
+                        catch { $_.Exception.Message }
+                    $expectedFailure = if ($case.Category) {
+                        $failureCode -cmatch ('^'+$case.Code+': (?<category>[A-Za-z]+)$') -and
+                            $Matches.category -cin [Enum]::GetNames([System.Management.Automation.ErrorCategory])
+                    } else { $failureCode -ceq $case.Code }
+                    Check ($expectedFailure -and $script:guestSetupProcessStarts -eq $case.Starts) ('Setup guest failure preserves only bounded evidence: '+$fault)
+                }
+            }
+            finally { $guestSa.Dispose() }
         }
         $script:completionCalls=0
         function Complete-HyperVLabSqlImage {
@@ -174,7 +237,7 @@ try{
             }
             [pscustomobject]@{Success=($script:failed -eq 0);Passed=$script:passed;Failed=$script:failed;Observations=$observations;NativeActions=0}
         }finally{$password.Dispose();$sa.Dispose()}
-    } $cases
+    } $cases $guestSetup[0].Extent.Text.Substring(1, $guestSetup[0].Extent.Text.Length - 2)
     Write-Host ('SQL completion boundary: '+$result.Passed+' PASS, '+$result.Failed+' FAIL; native setup/SQL NOT_EXECUTED')
     return $result
 }finally{Remove-Module $module -Force -ErrorAction SilentlyContinue}

@@ -4,8 +4,28 @@ function Get-WindowsPoolNativeFailureDetail {
     param([Parameter(Mandatory)]$Failure,[Parameter(Mandatory)][string]$Fallback)
     $code=$Fallback
     if($Failure.Exception.Message -match '^(?<code>(?:WINDOWS_POOL_|HYPERV_|SQL_)[A-Z0-9_]+)(?=:|\s|$)'){$code=$Matches.code}
-    [pscustomobject]@{Code=$code;ExceptionType=$Failure.Exception.GetType().FullName
+    $detail=[pscustomobject]@{Code=$code;ExceptionType=$Failure.Exception.GetType().FullName
         SourceFile=[IO.Path]::GetFileName([string]$Failure.InvocationInfo.ScriptName);SourceLine=$Failure.InvocationInfo.ScriptLineNumber}
+    if($code -ceq 'HYPERV_LAB_SQL_INSTALL_FAILED'){
+        $cause=$Failure.Exception.Data['LabSqlSlotCauseCode']
+        $category=$Failure.Exception.Data['LabSqlSlotErrorCategory']
+        $knownCategories=[Enum]::GetNames([System.Management.Automation.ErrorCategory])
+        if($cause -is [string] -and $cause -cmatch '^(?:UNCLASSIFIED|(?:HYPERV|SQL|GUEST)_[A-Z0-9_]{1,80})$'){
+            $detail | Add-Member -NotePropertyName SetupCauseCode -NotePropertyValue $cause
+        }
+        if($category -is [string] -and $category -cin $knownCategories){
+            $detail | Add-Member -NotePropertyName SetupErrorCategory -NotePropertyValue $category
+        }
+        $hresult=$Failure.Exception.Data['LabSqlSlotProcessHResult']
+        $mediaCount=$Failure.Exception.Data['LabSqlSlotMediaCount']
+        if($cause -ceq 'SQL_SETUP_GUEST_PROCESS_START_FAILED' -and $hresult -is [int]){
+            $detail | Add-Member -NotePropertyName SetupProcessHResult -NotePropertyValue $hresult
+        }
+        if($cause -ceq 'SQL_SETUP_MEDIA_NOT_UNIQUE' -and $mediaCount -is [int] -and $mediaCount -in 0..999){
+            $detail | Add-Member -NotePropertyName SetupMatchingMediaCount -NotePropertyValue $mediaCount
+        }
+    }
+    $detail
 }
 
 function Resolve-WindowsPoolNativeSqlMedia {

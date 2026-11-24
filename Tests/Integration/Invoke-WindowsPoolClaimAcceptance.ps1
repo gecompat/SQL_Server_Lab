@@ -58,7 +58,7 @@ if($RetainEvidenceInStateRoot -and -not (& $module {param($Root,$Path) (Test-Lab
 }
 $null=New-Item -ItemType Directory -Path $evidenceDirectory -Force
 $report=[ordered]@{ContractVersion='SqlServerLab.WindowsPoolNativeAcceptance/1.0';PoolId=$poolId.ToString();ArtifactId=$ArtifactId
-    Status='RUNNING';Checks=@();RunIds=@();OriginalBindings=@();OriginalError=$null;OriginalCause=$null;PreparationErrors=@();StopErrors=@();CleanupErrors=@();CleanupConfirmed=$true
+    Status='RUNNING';Checks=@();RunIds=@();OriginalBindings=@();OriginalError=$null;OriginalCause=$null;PreparationErrors=@();StopErrors=@();CleanupErrors=@();CleanupConfirmed=$false
     ParentBefore=$parentBefore;ParentAfter=$null}
 $success=$false
 $sqlSetupAttempted=$false
@@ -235,7 +235,10 @@ finally{
         if($verified.Count -ne 1 -or $verified[0].IntegrityStatus -cne 'VERIFIED'){throw 'OWN_PARENT_INTEGRITY_FAILED'}
         $report.Checks+='INDEPENDENT_PARENT_HASH_METADATA_PROTECTION_UNCHANGED'
     }catch{$report.CleanupErrors+=@{Code='WINDOWS_POOL_NATIVE_PARENT_POSTCONDITION_FAILED'}}
-    if($success -and $discoveryValid -and $bindings.Count -eq 1 -and -not $report.StopErrors.Count -and -not $report.CleanupErrors.Count){$report.Status='PASS'}
+    $report.CleanupConfirmed = $success -and $discoveryValid -and $bindings.Count -eq 1 -and
+        -not $report.StopErrors.Count -and -not $report.CleanupErrors.Count -and
+        'OWN_VM_CHILD_ADAPTER_IPAM_SECRET_ABSENCE' -cin $report.Checks
+    if($report.CleanupConfirmed){$report.Status='PASS'}
     elseif($success){$report.Status='CLEANUP_RECOVERY_REQUIRED'}
     $report | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $evidenceDirectory acceptance.json) -Encoding utf8
 }

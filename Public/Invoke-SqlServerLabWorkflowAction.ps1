@@ -441,7 +441,30 @@ function Invoke-SqlServerLabWorkflowAction {
                 'HYPERV_LAB_SQL_INSTALL_IN_PROGRESS', 'HYPERV_LAB_SQL_INSTALL_RECOVERY_REQUIRED',
                 'HYPERV_LAB_GUEST_PASSWORD_NOT_STORED', 'HYPERV_LAB_VM_NOT_FOUND')
             if ($_.Exception.Message -cin $safeCode) { throw [string]$_.Exception.Message }
-            throw 'HYPERV_LAB_SQL_INSTALL_FAILED'
+            # Preserve a known phase code for local acceptance without exposing
+            # the underlying exception or raw guest setup output to the browser.
+            $failure = [InvalidOperationException]::new('HYPERV_LAB_SQL_INSTALL_FAILED')
+            $causeCode = ($_.Exception.Message -split ':', 2)[0]
+            $knownSetupCauses = @(
+                'SQL_SETUP_MEDIA_NOT_UNIQUE', 'SQL_SETUP_INSTALL_FAILED', 'SQL_SETUP_INSTALL_TIMEOUT',
+                'SQL_SETUP_INSTALLATION_NOT_REGISTERED', 'SQL_SA_PASSWORD_COMMAND_LINE_UNSAFE',
+                'SQL_SETUP_GUEST_MEDIA_DISCOVERY_FAILED', 'SQL_SETUP_GUEST_PASSWORD_BINDING_FAILED',
+                'SQL_SETUP_GUEST_PROCESS_INVENTORY_FAILED', 'SQL_SETUP_GUEST_PROCESS_START_FAILED',
+                'HYPERV_LAB_SQL_INSTALL_GUEST_TIMEOUT', 'HYPERV_LAB_SQL_INSTALL_RECEIPT_INVALID',
+                'HYPERV_LAB_SQL_INSTALL_RESTART_TIMEOUT', 'HYPERV_GUEST_VM_ID_BINDING_INVALID', 'HYPERV_GUEST_VM_ID_MISMATCH',
+                'GUEST_JOB_OPERATION_TIMEOUT', 'GUEST_JOB_OPERATION_STOPPED', 'GUEST_JOB_OPERATION_FAILED',
+                'GUEST_JOB_INTERACTIVE_INPUT_REQUIRED'
+            )
+            $failure.Data['LabSqlSlotCauseCode'] = if ($causeCode -cin $knownSetupCauses) { $causeCode } else { 'UNCLASSIFIED' }
+            $failure.Data['LabSqlSlotErrorCategory'] = $_.CategoryInfo.Category.ToString()
+            if ($_.Exception.Message -cmatch '^SQL_SETUP_GUEST_PROCESS_START_FAILED: (?<result>-?[0-9]{1,10})$') {
+                $nativeCode = 0
+                if ([int]::TryParse($Matches['result'], [ref]$nativeCode)) { $failure.Data['LabSqlSlotProcessHResult'] = $nativeCode }
+            }
+            if ($_.Exception.Message -cmatch '^SQL_SETUP_MEDIA_NOT_UNIQUE: (?<count>[0-9]{1,3})$') {
+                $failure.Data['LabSqlSlotMediaCount'] = [int]$Matches['count']
+            }
+            throw $failure
         }
         if ($installed.State -cne 'SQL_SLOT_READY' -or $installed.RunId -cne $RunId) { throw 'HYPERV_LAB_SQL_INSTALL_RESULT_INVALID' }
         return [pscustomobject]@{ Action = $Action; CompletedAt = Get-LabTimestamp; Result = [pscustomobject]@{ RunId = $RunId; State = 'SQL_SLOT_READY' } }
