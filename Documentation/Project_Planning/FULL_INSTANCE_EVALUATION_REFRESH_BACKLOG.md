@@ -88,6 +88,11 @@ laufende Ziel-VM voraus. Sie bindet beide Snapshots und verwirft das Ergebnis
 bei Änderungen. Die Prüfung erfasst weder SQL-Readiness noch
 Speicherbereitschaft. Der Gesamtplan bleibt `BLOCKED`.
 
+Der lesende Plan unterstützt auch gespeicherte Hyper-V-SQL-Manifestläufe,
+bei denen der Run-State das Feld `persistentData` auslässt. Voraussetzung
+ist ein explizit nichtpersistenter Sollzustand ohne registrierten
+Datenträgeranhang. Widersprüchliche Speicherangaben blockieren die Prüfung.
+
 Die getrennte Auswahl **Windows-Lizenz im laufenden Gast lesen**
 (`-ObserveWindowsLicense`) prüft die aktuelle Lizenz derselben gebundenen
 laufenden Instanz in allen drei Planmodi. Die Ausgabe trennt den Live-Befund

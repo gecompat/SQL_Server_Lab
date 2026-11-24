@@ -12,7 +12,7 @@ function Get-LabEvaluationDeadlineStatus {
 function Read-LabEvaluationRefreshSnapshot {
     [CmdletBinding()]
     param([string]$RunId,[string]$InstanceId,[string]$DataRoot)
-    $binding=Get-LabDiagnosticBinding -RunId $RunId -InstanceId $InstanceId -DataRoot $DataRoot
+    $binding=Get-LabDiagnosticBinding -RunId $RunId -InstanceId $InstanceId -DataRoot $DataRoot -AllowHyperVManifestWithoutRunPersistence
     $run=$binding.Run
     if($binding.Provider-cne'hyperv'-or@($run.metadata.desiredState.Instances).Count-ne1-or$run.state-cnotin@('RUNNING','STOPPED')-or
         $run.metadata.workflowKind-cne'hyperv-lab'-or$run.metadata.workload-cne'sql') {throw 'EVALUATION_REFRESH_SCOPE_UNSUPPORTED'}
@@ -21,6 +21,9 @@ function Read-LabEvaluationRefreshSnapshot {
     if($connection.schemaVersion-ne1-or$connection.instances-isnot[array]-or$instances.Count-ne1-or$instances[0].id-cne$InstanceId-or$instances[0].provider-cne'hyperv'-or
         $instances[0].workload-cne'sql'-or-not$instances[0].vmId-or-not$run.metadata.imageArtifactId-or
         $instances[0].imageArtifactId-cne$run.metadata.imageArtifactId){throw 'EVALUATION_REFRESH_BINDING_INVALID'}
+    if ($binding.OmittedHyperVManifestPersistenceFlag -and $instances[0].PSObject.Properties['persistentStorage']) {
+        throw 'EVALUATION_REFRESH_BINDING_INVALID'
+    }
     # Authenticate bounded, duplicate-free local bytes before the existing guest reader.
     $evidence=Read-LabDiagnosticJson -Path (Join-Path $binding.Directory sql-guest-evaluation-evidence.json) -Optional
     $guest=Get-LabSqlGuestEvaluationEvidence -RunId $RunId -StateRoot $binding.StateRoot

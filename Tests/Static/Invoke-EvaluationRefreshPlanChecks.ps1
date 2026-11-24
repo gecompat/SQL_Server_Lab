@@ -63,6 +63,43 @@ try {
     Assert-Refresh ($invalid.Evaluations[1].EvidenceStatus-ceq'EVIDENCE_INVALID') 'Real guest reader rejects mismatched scope evidence'
     $evidence.ScopeId=$scope;Write-Refresh $evidencePath $evidence
     function Assert-RefreshReject($name,[scriptblock]$invoke,$expected){$code=$null;try{& $invoke|Out-Null}catch{$code=$_.Exception.Message};Assert-Refresh ($code-ceq$expected) $name}
+    $run.metadata.desiredState.ProvisioningMode='manifest'
+    $run.metadata.Remove('persistentData')
+    Write-Refresh $runPath $run
+    try {
+        $legacyBefore=Get-RefreshHashes
+        $legacy=Get-SqlServerLabEvaluationRefreshPlan @argsForPlan
+        Assert-Refresh ($legacy.Status -ceq 'BLOCKED' -and $legacy.TransferAuthority -ceq 'NONE' -and
+            (Get-RefreshHashes) -ceq $legacyBefore) 'Native manifest-shaped Hyper-V metadata supports read-only evaluation without writing a missing run flag'
+        Assert-RefreshReject 'General diagnostic binding still requires the runtime persistence flag' {
+            Get-LabDiagnosticBinding -RunId $runId -InstanceId primary -DataRoot $root
+        } DIAGNOSTIC_DESIRED_BINDING_INVALID
+        $connection.instances[0].persistentStorage=@{mode='cataloged-data-root-vhdx'}
+        Write-Refresh $connectionPath $connection
+        Assert-RefreshReject 'Omitted hypervisor persistence metadata never overrides a cataloged persistent attachment' {
+            Get-SqlServerLabEvaluationRefreshPlan @argsForPlan
+        } EVALUATION_REFRESH_BINDING_INVALID
+        $connection.instances[0].Remove('persistentStorage')
+        Write-Refresh $connectionPath $connection
+        $run.metadata.desiredState.PersistentData=$true
+        Write-Refresh $runPath $run
+        Assert-RefreshReject 'Legacy desired persistent runs still need the explicit registered data-root binding' {
+            Get-SqlServerLabEvaluationRefreshPlan @argsForPlan
+        } EVALUATION_REFRESH_BINDING_UNAVAILABLE
+        $run.metadata.desiredState.PersistentData=$false
+        $run.metadata.persistentData=$null
+        Write-Refresh $runPath $run
+        Assert-RefreshReject 'Explicit null is invalid rather than an omitted legacy metadata field' {
+            Get-SqlServerLabEvaluationRefreshPlan @argsForPlan
+        } EVALUATION_REFRESH_BINDING_UNAVAILABLE
+    } finally {
+        $connection.instances[0].Remove('persistentStorage')
+        $run.metadata.persistentData=$false
+        $run.metadata.desiredState.PersistentData=$false
+        $run.metadata.desiredState.ProvisioningMode='adhoc'
+        Write-Refresh $connectionPath $connection
+        Write-Refresh $runPath $run
+    }
     $markerPath=Join-Path $root '.sql-server-lab-root.json';$original=Get-Content $markerPath -Raw;$marker=$original|ConvertFrom-Json;$marker.ControllerId=[guid]::NewGuid().ToString('D');Write-Refresh $markerPath $marker
     Assert-RefreshReject 'Registered controller mismatch fails before acquisition' {Get-SqlServerLabEvaluationRefreshPlan @argsForPlan} EVALUATION_REFRESH_BINDING_UNAVAILABLE
     [IO.File]::WriteAllText($markerPath,$original,[Text.UTF8Encoding]::new($false))

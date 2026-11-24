@@ -109,7 +109,7 @@ function Get-LabDiagnosticSqlVersionBinding {
 }
 
 function Get-LabDiagnosticBinding {
-    param([string]$RunId,[string]$InstanceId,[string]$DataRoot,[string]$Provider)
+    param([string]$RunId,[string]$InstanceId,[string]$DataRoot,[string]$Provider,[switch]$AllowHyperVManifestWithoutRunPersistence)
     if (-not (Test-LabDiagnosticGuid $RunId) -or $InstanceId -cnotmatch '^[A-Za-z][A-Za-z0-9_-]{0,63}$') {
         throw 'DIAGNOSTIC_TARGET_INVALID'
     }
@@ -140,10 +140,17 @@ function Get-LabDiagnosticBinding {
     if (-not [string]::Equals($scope.runId,$RunId,[StringComparison]::Ordinal) -or
         -not [string]::Equals($scope.scopeId,$run.scopeId,[StringComparison]::Ordinal)) { throw 'DIAGNOSTIC_RUN_SCOPE_MISMATCH' }
     $desired=$run.metadata.desiredState
+    $persistedFlag=$run.metadata.PSObject.Properties['persistentData']
+    # The evaluation reader separately checks that connection metadata has no persistent attachment.
+    $omittedHyperVManifestFlag=$AllowHyperVManifestWithoutRunPersistence -and $null -eq $persistedFlag -and
+        $null -eq $run.metadata.PSObject.Properties['dataRoot'] -and $desired.PersistentData -is [bool] -and -not $desired.PersistentData -and
+        $desired.ProvisioningMode -ceq 'manifest' -and $run.metadata.workflowKind -ceq 'hyperv-lab' -and $run.metadata.workload -ceq 'sql' -and
+        $desired.Instances -is [array] -and $desired.Instances.Count -eq 1 -and $desired.Instances[0].Provider -ceq 'hyperv'
     if (-not [string]::Equals($desired.Contract.Name,'SqlServerLab.RunDesiredState',[StringComparison]::Ordinal) -or
         -not [string]::Equals($desired.Contract.Version,'1.0',[StringComparison]::Ordinal) -or
-        $desired.PersistentData -isnot [bool] -or $run.metadata.persistentData -isnot [bool] -or
-        $desired.PersistentData -ne $run.metadata.persistentData -or $desired.ProvisioningMode -isnot [string] -or
+        $desired.PersistentData -isnot [bool] -or
+        (-not $omittedHyperVManifestFlag -and ($persistedFlag.Value -isnot [bool] -or $desired.PersistentData -ne $persistedFlag.Value)) -or
+        $desired.ProvisioningMode -isnot [string] -or
         $desired.ProvisioningMode -cnotin @('adhoc','manifest')) {
         throw 'DIAGNOSTIC_DESIRED_BINDING_INVALID'
     }
@@ -193,7 +200,8 @@ function Get-LabDiagnosticBinding {
     if ($run.state -isnot [string] -or $run.state -cnotin $states -or
         @($subRuns | Where-Object { $_.state -isnot [string] -or $_.state -cnotin $states }).Count) { throw 'DIAGNOSTIC_STATE_INVALID' }
     # No complete desired-state/intent object escapes this internal binding boundary.
-    [pscustomobject]@{Root=$root;StateRoot=$stateRoot;Directory=$directory;Run=$run;Instance=$instance;Provider=$instance.Provider;SqlVersionBinding=$versionBindings[$instance.Id]}
+    [pscustomobject]@{Root=$root;StateRoot=$stateRoot;Directory=$directory;Run=$run;Instance=$instance;Provider=$instance.Provider;
+        SqlVersionBinding=$versionBindings[$instance.Id];OmittedHyperVManifestPersistenceFlag=[bool]$omittedHyperVManifestFlag}
 }
 
 function Get-LabDiagnosticCleanup {
