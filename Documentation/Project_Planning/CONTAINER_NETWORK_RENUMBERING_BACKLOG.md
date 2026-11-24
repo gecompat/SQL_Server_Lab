@@ -36,14 +36,13 @@ Cleanup. Docker benötigte nach Abbruch der Cleanup-Bestätigung eine gezielte
 Bereinigung desselben Runs und Netzes. CLI- und Browser-Dispatch sind separat
 synthetisch geprüft. [Abnahmedetails](../Quality/CLI_GUI_FUNCTION_COVERAGE.md)
 
-Als Nächstes benötigt die Recovery eine eindeutige Journalbindung für jeden
-Container einschließlich Scope und Instanz. Der vorhandene Planfingerabdruck
-schließt diese Werte ein. Die gespeicherte Mitgliedsliste enthält derzeit ID,
-Run-ID, Name, alte Laufbereitschaft und Aliasse. Erst ein typisiertes Journal
-mit frischer Prüfung von Provider-Endpunkt, Netz- und Mitgliedsidentitäten
-kann eine Fortsetzung oder Rückführung zulassen. Die bisherige Phase bleibt
-ein Diagnosebefund. Bereits vorhandene Journale müssen lesbar und auswertbar
-bleiben. Synthetische Fehlerfälle und getrennte native Docker- und
+Neue Migrationsjournale binden jeden Container an seine Run-, Scope- und
+Instanz-ID. Die Schlussprüfung verlangt dieselbe Bindung nach dem Umhängen.
+Die öffentliche Vorschau behält ihre bisherige Mitgliedsprojektion. Die
+Recovery benötigt zusätzlich einen validierten Journalvertrag und frische
+Prüfungen für Provider-Endpunkt, Netze und gebundene Mitglieder. Die bisherige
+Phase bleibt ein Diagnosebefund. Alte Journale bleiben für die Diagnose
+lesbar. Synthetische Fehlerfälle und getrennte native Docker- und
 Podman-Nachweise sind für die Recovery-Abnahme erforderlich.
 
 ## Ziel und Grenzen

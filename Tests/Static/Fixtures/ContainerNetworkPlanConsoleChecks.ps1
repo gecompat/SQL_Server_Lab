@@ -86,6 +86,13 @@ $ErrorActionPreference = 'Stop'
             throw 'WEB_NETWORK_PREVIEW_INVALID'
         }
         $key = $browser.Result[0].PlanKey
+        $members = @()
+        $plan = New-LabContainerNetworkMigrationPlan -Provider docker -MemberBindings ([ref]$members)
+        if ($plan.PlanKey -cne $key -or $members.Count -ne 1 -or
+            $members[0].ScopeId -cne '22222222-2222-2222-2222-222222222222' -or $members[0].InstanceId -cne 'primary' -or
+            $plan.ManagedContainers[0].PSObject.Properties['ScopeId'] -or $plan.ManagedContainers[0].PSObject.Properties['InstanceId']) {
+            throw 'NETWORK_PRIVATE_MEMBER_BINDING_INVALID'
+        }
         $query = [Collections.Specialized.NameValueCollection]::new()
         $query.Add('provider','docker')
         $apiPreview = Invoke-LabContainerNetworkPlanRequest -Method GET -Query $query
