@@ -1,12 +1,12 @@
 'use strict';
 const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),assert=require('node:assert/strict');
 const root=path.resolve(__dirname,'../../..');
-const ids=['open','dialog','provider','sql','read','choice','status','result','history-result','evaluate','host','history','close'];
+const ids=['open','dialog','provider','sql','read','choice','status','result','history-result','evaluate','host','history','close','profile','prerequisites'];
 let passed=0;
 function check(condition,name){assert.ok(condition,name);passed++;console.log('PASS: '+name);}
 function setup(){
   const elements=Object.fromEntries(ids.map(id=>[id,{value:'',textContent:'',disabled:false,open:false,children:[],events:{},addEventListener(name,fn){this.events[name]=fn;},replaceChildren(){this.children=[];this.value='';},appendChild(v){this.children.push(v);},showModal(){this.open=true;},close(){this.open=false;this.events.close?.();}}]));
-  elements.provider.value='docker';elements.sql.value='2022';
+  elements.provider.value='docker';elements.sql.value='2022';elements.profile.value='standard';
   const requests=[];
   const context={document:{querySelector:selector=>elements[selector.replace('#external-runtime-','')],createElement:()=>({}),addEventListener(){}},sqlServerLabUiFetch:(url,options)=>new Promise((resolve,reject)=>requests.push({url,options,resolve,reject})),console};
   vm.runInNewContext(fs.readFileSync(path.join(root,'Ui/external-runtime-capability.js'),'utf8'),context);
@@ -19,6 +19,10 @@ const option=()=>({SoftwareId:'sql-python',Language:'Python',RuntimeVersion:'3.1
 const options=()=>({ContractVersion:'SqlServerLab.ExternalRuntimeCapabilityBrowser/1.0',Status:'OPTIONS',Options:[option()]});
 const result=d=>({ContractVersion:'SqlServerLab.ExternalRuntimeCapabilityBrowser/1.0',Status:'DECISION',Decision:d});
 const history=()=>({ContractVersion:'SqlServerLab.ExternalRuntimeCapabilityBrowser/1.1',Status:'HISTORY',Provider:'docker',OperatingSystem:'linux',Identity:decision().Identity,HistoricalEvidence:{Status:'RECORDED_HISTORY_ONLY',MappingStatus:'DEFINED',ReasonCode:'INDEX_MATCH_RECORDED',RecordCount:2,ReferenceVerificationStatus:'NOT_VERIFIED',EvidenceBoundary:'RECORDED_HISTORY_ONLY'},CurrentReadinessStatus:'NOT_CHECKED',SqlLanguageExecution:'NOT_CHECKED',TargetAuthorization:'NOT_CHECKED',ExecutionSupported:false,MutationAllowed:false,Actions:[]});
+const prerequisites=()=>({ContractVersion:'SqlServerLab.ExternalRuntimeCapabilityBrowser/1.2',Status:'HOST_PREREQUISITES',Provider:'docker',
+  Identity:decision().Identity,ResourceProfile:'performance',PrerequisiteStatus:'BLOCKED',ReasonCodes:['RESOURCE_CONTROLLERS_UNAVAILABLE'],
+  ControllerStatus:'MISSING',MissingControllers:['pids'],MemoryStatus:'CAPACITY_INSUFFICIENT',CpuStatus:'CAPACITY_SUFFICIENT',
+  FullLaunchReadiness:'INCOMPLETE',ExecutionSupported:false,MutationAllowed:false});
 async function answer(fixture,view,request=fixture.requests.at(-1)){request.resolve({ok:true,json:async()=>view});await fixture.flush();}
 async function load(fixture){fixture.click('open');fixture.click('read');await answer(fixture,options());fixture.elements.choice.value='0';fixture.elements.choice.events.change();}
 (async()=>{
@@ -57,5 +61,19 @@ async function load(fixture){fixture.click('open');fixture.click('read');await a
   for(const change of historyChanges){f=setup();await load(f);f.click('history');const view=history();change(view);await answer(f,view);check(f.elements['history-result'].textContent==='' && !f.elements.status.textContent.includes('PRIVATE_CANARY'),'Foreign/malformed/history authority response fails closed '+passed);}
   f=setup();await load(f);f.click('history');const lateHistory=f.requests.at(-1);f.click('close');await answer(f,history(),lateHistory);check(f.elements['history-result'].textContent==='' && !f.elements.dialog.open,'Cancel vetoes late historical success');
   f=setup();await load(f);f.click('history');const oldHistory=f.requests.at(-1);f.elements.provider.value='podman';f.elements.provider.events.change();await answer(f,history(),oldHistory);check(f.elements['history-result'].textContent==='' && f.elements.choice.children.length===0,'Provider change invalidates historical response');
+  f=setup();await load(f);f.elements.profile.value='performance';f.elements.profile.events.change();
+  check(f.requests.length===1, 'Selecting a profile performs no host observation');
+  f.click('prerequisites');
+  const profilePayload=JSON.parse(f.requests.at(-1).options.body);
+  f.click('prerequisites');
+  check(profilePayload.Action==='CheckHostPrerequisites' && profilePayload.ResourceProfile==='performance' && f.requests.length===2, 'Explicit profile action is bound and busy prevents duplicate reads');
+  await answer(f,prerequisites());
+  check(f.elements.result.textContent.includes('fehlend pids') && f.elements.result.textContent.includes('CAPACITY_INSUFFICIENT') && f.elements.result.textContent.includes('Keine Ausführungsfreigabe'), 'Direct profile result renders categories and preserves authority limits');
+  f.click('prerequisites');const oldProfile=f.requests.at(-1);f.elements.profile.value='compact';f.elements.profile.events.change();await answer(f,prerequisites(),oldProfile);
+  check(f.elements.result.textContent==='', 'Changing the profile discards a late observation');
+  for (const change of [v=>v.ResourceProfile='compact',v=>v.ExecutionSupported=true,v=>v.ControllerStatus='PRIVATE_CANARY',v=>v.MemoryTotal=1]) {
+    f=setup();await load(f);f.elements.profile.value='performance';f.click('prerequisites');const view=prerequisites();change(view);await answer(f,view);
+    check(f.elements.result.textContent==='' && !f.elements.status.textContent.includes('PRIVATE_CANARY'), 'Wrong-profile, unsafe or malformed response is withheld');
+  }
   console.log('JS TOTAL: '+passed+' PASS; real DOM/network/provider: 0');
 })().catch(error=>{console.error(error);process.exitCode=1;});

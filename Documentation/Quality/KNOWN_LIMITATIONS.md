@@ -2555,10 +2555,12 @@ Die geführte Browserübersicht projiziert dieselbe begrenzte Public-Matrix;
 eine aktuelle Probe ist nur einzeln und bewusst möglich. Die vollständige
 #619-Matrix bleibt offen; C# bleibt
 `USER_DEFERRED`. [Vertrag](../Architecture/HOST_CAPABILITY_MATRIX.md).
-Die neue Vertiefung führt nur aufgelöste Linux-Container-Varianten zur
-vorhandenen exakten Katalog-/cgroup-/Rootful-Prüfung. Sie ergänzt weder
-Ressourcen-/Controller-/WSL-Nachweise noch Hyper-V-Launchdetails oder eine
-SQL-Sprachabnahme. Kein Ergebnis wird als Matrixfreigabe zwischengespeichert.
+Die Vertiefung führt aufgelöste Linux-Container-Varianten zur exakten
+Katalog-/cgroup-/Rootful-Prüfung. CLI und Browser können für ein ausgewähltes
+Profil zusätzlich die gemeldeten Controller und die Gesamtkapazität prüfen.
+Freie Ressourcen, Controller-Delegation, WSL-Konflikte, Hyper-V-Launchdetails
+und SQL-Sprachausführung bleiben ungeprüft. Kein Ergebnis wird als
+Matrixfreigabe zwischengespeichert.
 
 Der enge [CORE-102-Entscheid](../Architecture/EXTERNAL_RUNTIME_CAPABILITY.md)
 verwendet für API und Manifestdialog explizite Docker-/Podman-Linux-Katalogtuple

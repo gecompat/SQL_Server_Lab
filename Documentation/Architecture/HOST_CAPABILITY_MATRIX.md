@@ -132,11 +132,12 @@ Die Ausgabe bleibt nicht persistierend und wartet auf Bestätigung.
 
 Die bestehende Prüfung liest höchstens einmal begrenzt Providerinfo für
 Linux, cgroup-Version und Rootful. Sie verändert keine Runtime und prüft
-keine SQL-Sprachausführung. Ihr `READY` ist ausschließlich an diese
-Container-Grundlagen gebunden; Controller, WSL-Konflikte, Ressourcen und
-Zielrechte bleiben offen. Die Matrix übernimmt dieses getrennte Ergebnis
-nicht als gecachten Freigabestatus. Hyper-V-Zeilen, nicht aufgelöste Varianten
-und zurückgestelltes C# bleiben sichtbar und ohne diese Detailaktion.
+keine SQL-Sprachausführung. Zusätzlich kann der Bediener in beiden Oberflächen
+ein Ressourcenprofil wählen und einmalig Controller sowie die vom Provider
+gemeldete Gesamtkapazität prüfen. Freie Ressourcen, WSL-Konflikte und
+Zielrechte bleiben offen. Die Matrix übernimmt kein Detailergebnis als
+gecachten Freigabestatus. Hyper-V-Zeilen, nicht aufgelöste Varianten und
+zurückgestelltes C# bleiben sichtbar und ohne diese Detailaktion.
 Abbruch oder Auswahlwechsel während der Katalogantwort verhindert die
 spätere Wiederherstellung einer übergebenen Auswahl.
 

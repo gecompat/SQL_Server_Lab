@@ -2425,6 +2425,12 @@ Abbruch, Escape, Busy, verworfene späte Antworten, blockierte Varianten und
 Privacyfehler werden geprüft. Das sind synthetische Prüfungen, keine manuelle
 Browser- oder native Provider-/SQL-Sprachabnahme.
 
+`CheckHostPrerequisites` verwendet denselben Adapter. Die Browser- und
+Konsolen-Fixtures prüfen die ausgewählte Variante und das Ressourcenprofil,
+genau eine synthetische Providerbeobachtung, fehlende Controller,
+unzureichende Gesamtkapazität und die Trennung von Ausführungsfreigaben.
+Die Prüfung belegt keine nativen Hostwerte und keine SQL-Sprachausführung.
+
 Die additive `Invoke-ExternalRuntimeCapabilityCatalogBrowserAcceptance.ps1`
 prüft die vollständige unveränderte Produktseite über einen eigenen begrenzten
 Loopbacklistener. Vier Bootstrapreads bleiben synthetisch; die tatsächliche

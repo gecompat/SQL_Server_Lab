@@ -553,7 +553,7 @@ sources_of_truth:
   client_readiness_core: Private/ClientReadiness.ps1
   host_capability_matrix_public: Public/Get-SqlServerLabHostCapabilityMatrix.ps1
   host_capability_matrix_core: Private/HostCapabilityMatrix.ps1 # catalog resolver + shared bounded diagnostic readiness, no independent compatibility truth
-  host_capability_matrix_console: Private/HostCapabilityMatrixConsole.ps1 # main menu + explicit existing external-runtime detail decision, nonpersisting cursor/fallback
+  host_capability_matrix_console: Private/HostCapabilityMatrixConsole.ps1 # main menu + explicit external-runtime detail and profile prerequisites, nonpersisting cursor/fallback
   host_capability_matrix_http: Private/HostCapabilityMatrixHttp.ps1 # closed read-only projection; explicit single-provider bootstrap opt-in
   host_capability_matrix_ui: Ui/host-capability-matrix.js
   host_capability_matrix_contract: Documentation/Architecture/HOST_CAPABILITY_MATRIX.md
@@ -571,7 +571,7 @@ sources_of_truth:
   external_runtime_host_prerequisites: Private/ExternalRuntimeHostPrerequisites.ps1 # explicit public1.2; same native reducer, bounded projected info, no execution authority
   validation_external_runtime_host_prerequisites: Tests/Static/Fixtures/ExternalRuntimeHostPrerequisitesChecks.ps1 # executed by existing capability suite, synthetic transport
   external_runtime_host_facts: Private/ContainerImageArtifact.ps1 # shared typed native/projected facts; UNKNOWN never grants support
-  external_runtime_capability_http: Private/ExternalRuntimeCapabilityHttp.ps1 # default browser1.0; explicit ReadRecordedEvidence projects public1.1 metadata without host probe or authority
+  external_runtime_capability_http: Private/ExternalRuntimeCapabilityHttp.ps1 # default browser1.0; history1.1; explicit profile prerequisites1.2 projects only bounded statuses
   external_runtime_capability_ui: Ui/external-runtime-capability.js
   validation_external_runtime_capability_browser: Tests/Static/Invoke-ExternalRuntimeCapabilityBrowserChecks.ps1
   validation_external_runtime_catalog_rendered: Tests/Integration/Invoke-ExternalRuntimeCapabilityCatalogBrowserAcceptance.ps1

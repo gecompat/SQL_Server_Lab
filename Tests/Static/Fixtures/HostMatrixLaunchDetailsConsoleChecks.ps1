@@ -7,12 +7,23 @@ $module=New-Module -ArgumentList $root -ScriptBlock {
     $script:RegisteredProviders=@{}
     foreach($name in @('Docker','Podman','HyperV')){$definition=Get-Content (Join-Path $root "Providers/$name/provider.json") -Raw|ConvertFrom-Json;$script:RegisteredProviders[$definition.name]=@{Definition=$definition}}
     foreach($path in @('Private/VersionCatalog.ps1','Private/SoftwareCatalog.ps1','Private/ContainerImageArtifact.ps1','Private/ExternalRuntimeCapability.ps1',
-        'Private/HostCapabilityMatrix.ps1','Private/HostCapabilityMatrixConsole.ps1','Public/Get-SqlServerLabHostCapabilityMatrix.ps1','Public/Get-SqlServerLabExternalRuntimeCapability.ps1')){. (Join-Path $root $path)}
-    $script:passed=0;$script:probes=0;$script:calls=0;$script:ack=0;$script:captured=$null;$script:cancel='';$script:probe=$false;$script:next='Details'
+        'Private/ExternalRuntimeHostPrerequisites.ps1','Private/HostCapabilityMatrix.ps1','Private/HostCapabilityMatrixConsole.ps1','Public/Get-SqlServerLabHostCapabilityMatrix.ps1','Public/Get-SqlServerLabExternalRuntimeCapability.ps1')){. (Join-Path $root $path)}
+    $script:passed=0;$script:probes=0;$script:calls=0;$script:ack=0;$script:captured=$null;$script:cancel='';$script:mode='catalog';$script:next='Details'
     function Assert-Case {param([bool]$Condition,[string]$Name) if(-not $Condition){throw "FIXTURE_FAILED: $Name"};$script:passed++;Write-Host "PASS: $Name"}
-    function Read-LabExternalRuntimeHostFacts {param($Provider) $script:probes++;[pscustomobject]@{Status='OBSERVED';ReasonCode='NONE';Facts=[pscustomobject]@{OperatingSystem='linux';CgroupVersion='2';Rootless=$false}}}
+    function Read-LabExternalRuntimeHostFacts {
+        param($Provider,[switch]$IncludeHostPrerequisites)
+        $script:probes++
+        $observation = [pscustomobject]@{Status='OBSERVED';ReasonCode='NONE';Facts=[pscustomobject]@{OperatingSystem='linux';CgroupVersion='2';Rootless=$false}}
+        if ($IncludeHostPrerequisites) {
+            $observation.Facts.CgroupVersion = '1'
+            $observation | Add-Member -NotePropertyName PrerequisiteRuntimeInfo -NotePropertyValue ([pscustomobject]@{
+                OSType='linux';CgroupVersion='1';SecurityOptions=@();MemoryLimit=$true;PidsLimit=$false;MemTotal=2GB;NCPU=16
+            })
+        }
+        $observation
+    }
     $script:original=(Get-Command Get-SqlServerLabExternalRuntimeCapability).ScriptBlock
-    function Get-SqlServerLabExternalRuntimeCapability {param($SqlVersion,$Provider,$OperatingSystem,$SoftwareId,$RuntimeVersion,$VariantId,[switch]$CheckProviderReadiness)
+    function Get-SqlServerLabExternalRuntimeCapability {param($SqlVersion,$Provider,$OperatingSystem,$SoftwareId,$RuntimeVersion,$VariantId,[switch]$CheckProviderReadiness,[switch]$IncludeHostPrerequisites,$ResourceProfile)
         $script:calls++;$script:captured=@{};foreach($key in $PSBoundParameters.Keys){$script:captured[$key]=$PSBoundParameters[$key]}; & $script:original @PSBoundParameters
     }
     function Get-LabDiagnosticReadiness {throw 'UNEXPECTED_BOOTSTRAP_PROBE'}
@@ -21,14 +32,15 @@ $module=New-Module -ArgumentList $root -ScriptBlock {
     function Invoke-Sqlcmd {throw 'SQL_FORBIDDEN'}
     function New-LabConsoleItem {param($Id,$Label,$Value,$Shortcut,$Data) [pscustomobject]@{Id=$Id;Data=$Data}}
     function Wait-LabConsoleAcknowledgement {param($Prompt) $script:ack++}
-    function Select-LabConsoleDataItem {param($ScreenId,$Title,$Subtitle,$Items)
+    function Select-LabConsoleDataItem {param($ScreenId,$Title,$Subtitle,$Items,$SelectedId)
         if($ScreenId -ceq $script:cancel){return $null}
         switch($ScreenId){
             'host-matrix-sql'{return [pscustomobject]@{id='2022'}}
             'host-matrix-probe'{return [pscustomobject]@{Probe=$false}}
             'host-matrix-next'{return [pscustomobject]@{Action=$script:next}}
             'host-matrix-launch-variant'{return $Items[0].Data}
-            'host-matrix-launch-probe'{return [pscustomobject]@{Probe=$script:probe}}
+            'host-matrix-launch-probe'{return ($Items|Where-Object Id -CEQ $script:mode).Data}
+            'host-matrix-launch-profile'{return ($Items|Where-Object Id -CEQ 'performance').Data}
             default{throw 'UNEXPECTED_SCREEN'}
         }
     }
@@ -37,7 +49,7 @@ $module=New-Module -ArgumentList $root -ScriptBlock {
     $legacy=Get-SqlServerLabHostCapabilityMatrix -SqlVersion 2016
     Assert-Case (@(Get-LabHostMatrixLaunchRows $legacy).Count -eq 0) 'Uncatalogued versions create no continuation or inferred support'
     foreach($probe in @($false,$true)) {
-        $script:probe=$probe;$before=$script:probes;$beforeCalls=$script:calls;$acks=$script:ack
+        $script:mode=if($probe){'probe'}else{'catalog'};$before=$script:probes;$beforeCalls=$script:calls;$acks=$script:ack
         $output=@(Show-LabHostCapabilityMatrixInteractive 6>&1|ForEach-Object {[string]$_})
         Assert-Case ($script:calls -eq $beforeCalls+1 -and $script:probes -eq $before+$(if($probe){1}else{0}) -and $script:ack -eq $acks+2) "Actual console continuation probe=$probe; calls=$($script:calls-$beforeCalls); probes=$($script:probes-$before); acknowledgements=$($script:ack-$acks)"
         Assert-Case ($script:captured.Provider -ceq 'docker' -and $script:captured.SqlVersion -ceq '2022' -and $script:captured.SoftwareId -ceq 'sql-python' -and
@@ -49,6 +61,15 @@ $module=New-Module -ArgumentList $root -ScriptBlock {
         $null=@(Show-LabHostCapabilityMatrixInteractive 6>&1)
         Assert-Case ($script:probes -eq $before -and $script:calls -eq $beforeCalls) "Cancellation precedes all detail/host work: $cancel"
     }
+    $script:mode='prerequisites';$script:cancel='host-matrix-launch-profile';$before=$script:probes;$beforeCalls=$script:calls
+    $null=@(Show-LabHostCapabilityMatrixInteractive 6>&1)
+    Assert-Case ($script:probes -eq $before -and $script:calls -eq $beforeCalls) 'Profile cancellation does not call the service or provider'
+    $script:cancel=''
+    $output=@(Show-LabHostCapabilityMatrixInteractive 6>&1|ForEach-Object {[string]$_}) -join "`n"
+    Assert-Case ($script:calls -eq $beforeCalls+1 -and $script:probes -eq $before+1 -and $script:captured.ResourceProfile -ceq 'performance' -and
+        $script:captured.IncludeHostPrerequisites -and $script:captured.CheckProviderReadiness) 'Explicit profile uses one existing read-only observation'
+    Assert-Case ($output -match 'RESOURCE_CONTROLLERS_UNAVAILABLE' -and $output -match 'CAPACITY_INSUFFICIENT' -and
+        $output -match 'fehlend pids' -and $output -match 'Keine Ausführungsfreigabe') 'Profile result displays bounded prerequisite failure and withholds execution authority'
     $script:cancel='';$script:next='Return';$before=$script:calls
     $null=@(Show-LabHostCapabilityMatrixInteractive 6>&1)
     Assert-Case ($script:calls -eq $before) 'Default return does not inspect a variant'

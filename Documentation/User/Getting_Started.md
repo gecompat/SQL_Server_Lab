@@ -638,6 +638,11 @@ bewusst die Katalogentscheidung oder Hostvoraussetzungen prüfen. Der Übergang
 selbst liest nur den Katalog und startet keine Hostabfrage. Fehlt die Variante
 inzwischen, wird keine andere ausgewählt. Die Konsole bietet denselben Weg
 nach der Matrixausgabe als **Konkrete Container-Variante näher prüfen** an.
+Wähle dort **Voraussetzungen für ein Ressourcenprofil lesend prüfen** und
+anschließend das Profil. Im Browser führen **Ressourcenprofil** und
+**Controller und Profilkapazität lesend prüfen** zur gleichen Prüfung. Beide
+zeigen den Befund zu den gemeldeten Controllern sowie zur CPU- und
+RAM-Gesamtkapazität für das Profil.
 
 `Get-SqlServerLabExternalRuntimeCapability` und Dialog verwenden dieselbe
 Katalogentscheidung. Ohne bewusste Hostprüfung bleibt `CurrentReadiness`
