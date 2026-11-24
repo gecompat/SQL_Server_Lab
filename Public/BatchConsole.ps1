@@ -484,6 +484,37 @@ function Confirm-LabCandidateOperationsInteractive {
     }
 }
 
+function Show-LabTerminalOperationsInteractive {
+    $history = @(Get-LabTerminalOperationSummary -Operations @(Get-SqlServerLabOperation))
+    if (-not $history.Count) {
+        Write-LabInfo 'Keine abgeschlossenen Vorgänge verfügbar.'
+        $null = Wait-LabConsoleAcknowledgement
+        return
+    }
+    $items = foreach ($row in $history) {
+        New-LabConsoleItem -Id $row.OperationId -Label "$($row.OperationId) · $($row.Status)" `
+            -Value "$($row.Provider) · $($row.CompletedAt)" -Data $row
+    }
+    $selected = Select-LabConsoleDataItem -ScreenId 'queue-select' -Title 'Letzte abgeschlossene Vorgänge' -Items @($items)
+    if (-not $selected) { return }
+    try {
+        $operation = Get-SqlServerLabOperation -OperationId $selected.OperationId
+        $current = Get-LabTerminalOperationSummary -Operations @($operation)
+        if (-not $current -or $current.OperationId -cne $selected.OperationId -or $current.BatchId -cne $selected.BatchId -or
+            $current.CompletedAt -cne $selected.CompletedAt -or $current.Status -cne $selected.Status -or
+            $current.Provider -cne $selected.Provider) { throw 'WORKFLOW_OPERATION_HISTORY_CHANGED' }
+        Write-Host "$($current.OperationId) · $($current.Provider) · $($current.Status) · $($current.CompletedAt)"
+        if ($operation.error -and $operation.error.message -ceq 'WORKFLOW_OPERATION_CLEANUP_UNCONFIRMED') {
+            Write-LabInfo 'Die Entfernung des zugeordneten Runs ist unbestätigt. Prüfe den Runstatus vor einem neuen Cleanup-Auftrag.'
+            if ($operation.runId -cmatch '^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$') {
+                Write-LabInfo "Zugeordneter Run: $($operation.runId)"
+            }
+        }
+    }
+    catch { Write-LabWarning 'Der Vorgang konnte nicht erneut bestätigt werden. Lies die Liste neu.' }
+    $null = Wait-LabConsoleAcknowledgement
+}
+
 function Get-LabQueueMenuAvailability {
     [CmdletBinding()]
     param(
@@ -613,6 +644,7 @@ function Invoke-LabQueueInteractive {
         $subtitle = "$($queue.runningWorkers)/$($queue.maxWorkers) Worker · $($queue.waitingUserGates) User-Gates · Queue $($queue.length)"
         $choice = Invoke-LabConsoleMenu -ScreenId 'queue-menu' -Title 'Vorgaenge, Queue und Benutzeraktionen' -Subtitle $subtitle -StatusHeight 5 -StatusProvider $statusProvider -Items @(
             New-LabConsoleItem -Id 'overview' -Label 'Queue-Uebersicht und Details' -Value $subtitle -Shortcut '1' -Disabled:(-not $availability.HasOverview) -DisabledReason 'Die Queue enthaelt derzeit keinen Vorgang.'
+            New-LabConsoleItem -Id 'history' -Label 'Letzte abgeschlossene Vorgänge' -Shortcut 'h'
             New-LabConsoleItem -Id 'gates' -Label 'Benutzeraktionen oeffnen' -Value 'Schritte werden immer vollstaendig angezeigt' -Shortcut '2' -Disabled:(-not $availability.HasUserGates) -DisabledReason 'Kein Vorgang wartet auf eine Benutzerbestaetigung.'
             New-LabConsoleItem -Id 'bulk-confirm' -Label 'Vermutlich erledigte Positionen auswaehlen, pruefen und fortsetzen' -Shortcut '3' -Disabled:(-not $availability.HasCandidates) -DisabledReason 'Kein Vorgang steht im Status CandidateSatisfied.'
             New-LabConsoleItem -Id 'priority' -Label 'Prioritaet aendern' -Value 'Mindestens zwei noch nicht laufende Vorgaenge' -Shortcut '4' -Disabled:(-not $availability.CanChangePriority) -DisabledReason 'Eine Priorisierung wirkt erst ab zwei noch nicht laufenden Vorgaengen.'
@@ -628,6 +660,7 @@ function Invoke-LabQueueInteractive {
         if ($choice.Status -ne 'Selected' -or $choice.SelectedItem.Id -eq 'back') { return }
         switch ([string]$choice.SelectedItem.Id) {
             'batch-submit' { Invoke-LabValidatedBatchSubmitInteractive }
+            'history' { Show-LabTerminalOperationsInteractive }
             'overview' {
                 $operation = Select-LabQueueOperationInteractive -Title 'Queue-Uebersicht'
                 if ($null -ne $operation) {
