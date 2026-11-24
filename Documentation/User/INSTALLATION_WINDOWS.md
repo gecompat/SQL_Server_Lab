@@ -203,6 +203,9 @@ Dieser Schritt gilt nur für Podman unter Windows. `SQL_Server_Lab` veröffentli
 SQL Server auf `127.0.0.1` und einem dynamischen Hostport. Für eine zuverlässige
 Weiterleitung wird WSL Mirrored Networking empfohlen.
 
+Wenn die Podman-Verbindung bereits bei der Runtime-Prüfung nicht antwortet,
+prüfe zuerst die [konfigurierte Podman-Verbindung](../HowTo/PODMAN_WINDOWS_NETWORKING.md#zuerst-die-podman-verbindung-prüfen).
+
 1. Die Datei `%USERPROFILE%\.wslconfig` erstellen oder ergänzen:
 
 ```ini
@@ -210,7 +213,8 @@ Weiterleitung wird WSL Mirrored Networking empfohlen.
 networkingMode=mirrored
 ```
 
-2. Podman und WSL neu starten:
+2. Podman und WSL neu starten, sobald alle betroffenen WSL-Arbeitslasten
+   sicher beendet sind:
 
 ```powershell
 podman machine stop podman-machine-default
