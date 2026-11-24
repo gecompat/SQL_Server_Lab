@@ -100,11 +100,13 @@ try {
     if (-not $acquired) { throw 'RUNTIME_SMOKE_LEASE_TIMEOUT' }
     $module = Import-Module (Join-Path $repo 'SqlServerLab.psd1') -Force -PassThru 3>$null 4>$null 5>$null 6>$null
     $dataRoot = & $module { Assert-LabDiagnosticPath -Path (Resolve-LabDataRootForUse) }
-    $stateRoot = & $module { Assert-LabDiagnosticPath -Path (Get-LabStateRoot) }
-    Assert-TargetLicenseAcceptance ([string]::Equals($stateRoot, (Join-Path $dataRoot 'State'), [StringComparison]::OrdinalIgnoreCase)) 'Runner-State gehört zum registrierten Lab_Data'
-    $artifact = & $module { param($Id,$Root) Get-HyperVImageArtifact -ArtifactId $Id -StateRoot $Root } $ArtifactId $stateRoot
-    Assert-TargetLicenseAcceptance ($artifact.artifactState -ceq 'SQL_PREPARED_SEALED' -and $artifact.sql.version -ceq '2025' -and
-        $artifact.sql.edition -match 'Developer' -and $artifact.integrityVerification.status -cin @('VERIFIED_HASH','VERIFIED_CACHE')) 'Explizite SQL-2025-Developer-Vorlage ist verifiziert'
+    $stateRoot = & $module { param($Data) Assert-LabDiagnosticPath -Path (Join-Path $Data 'State') } $dataRoot
+    Assert-TargetLicenseAcceptance ([IO.Directory]::Exists($stateRoot)) 'Expliziter State Root des registrierten Lab_Data existiert'
+    $artifacts = @(& $module { param($Id,$Root) Get-HyperVImageArtifact -ArtifactId $Id -StateRoot $Root } $ArtifactId $stateRoot)
+    Assert-TargetLicenseAcceptance ($artifacts.Count -eq 1 -and $artifacts[0].artifactState -ceq 'SQL_PREPARED_SEALED' -and
+        $artifacts[0].sql.version -ceq '2025' -and $artifacts[0].sql.edition -match 'Developer' -and
+        $artifacts[0].integrityVerification.status -cin @('VERIFIED_HASH','VERIFIED_CACHE')) 'Explizite SQL-2025-Developer-Vorlage ist verifiziert'
+    $artifact = $artifacts[0]
     $parentHash = [string]$artifact.sha256
     $null = New-Item -ItemType Directory -Path $testRoot
 
