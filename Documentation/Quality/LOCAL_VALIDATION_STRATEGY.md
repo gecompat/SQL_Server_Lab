@@ -2450,6 +2450,14 @@ die vorbereitete Vorlage blieben unverändert. Beide eigenen VMs und ihre
 Datenträger wurden entfernt. Speicherbereitschaft und Transfer bleiben
 separate Abnahmen.
 
+Die gerenderte Browserprüfung auf `069174c6d04f62fab5a5849c55bdeeadfd841f7c`
+lud alle 54 deklarierten UI-Dateien über einen eigenen Loopback-Listener.
+Für das gestoppte Ziellab blieb die SQL-Aktion deaktiviert. Das laufende
+Ziellab löste genau einen lesenden Auftrag mit der erwarteten Quell- und
+Zielbindung aus. Die Browserprüfung verwendete synthetische Antworten.
+Der getrennte native Lauf prüfte Hyper-V und SQL. Skriptfehler und
+unerwartete Anfragen blieben bei null. Testtab und Listener wurden geschlossen.
+
 Nach der Bindung an den registrierten State Root erreichte der zweite Lauf
 die Quell-VM. Die Auswertung scheiterte am fehlenden `persistentData`-Feld
 im Run-State. Der eigene Quelllauf wurde vollständig bereinigt.
