@@ -2431,9 +2431,21 @@ prüfen Quell- und Zieldigest, gestoppte Ziele, genau einen gebundenen Gastaufru
 und verworfene Ergebnisse bei Bindungsdrift. Der manuelle Hyper-V-Modus
 `evaluation-target-windows-license-acceptance` erstellt zwei eigene Runs aus
 der expliziten SQL-2025-Developer-Vorlage und stoppt die Quelle vor Start des
-Ziels. Er prüft die Zielabfrage, bytegleiche Metadaten und den eigenen Cleanup.
-Ein nativer Lauf über die neue
-Zielroute, SQL-Readiness und Transfer benötigen eigene Nachweise.
+Ziels. Der erste Lauf stoppte vor der Anlage einer VM, weil der Standard-State
+des Runners vom registrierten `Lab_Data` abwich.
+[Erster Lauf](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45453144541)
+
+Nach der Bindung an den registrierten State Root erreichte der zweite Lauf
+die Quell-VM. Die Auswertung scheiterte am fehlenden `persistentData`-Feld
+im Run-State. Der eigene Quelllauf wurde vollständig bereinigt.
+[Zweiter Lauf](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45454602437)
+
+Der korrigierte Lauf auf `202bafc9` verwendete den State Root des
+registrierten `Lab_Data` explizit. Er bestätigte die Windows-Lizenz der
+separaten Ziel-VM, bytegleiche Quell- und Zielmetadaten, die unveränderte
+Prepared-Vorlage und den vollständigen Cleanup beider eigener Runs samt
+VMs und Disks. Für SQL-Readiness und Transfer stehen eigene Nachweise aus.
+[Nativer Key18-Lauf](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45463261705)
 
 ## Prospektiver External-Languages-Capability-Entscheid
 

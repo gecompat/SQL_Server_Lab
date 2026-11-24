@@ -88,6 +88,12 @@ laufende Ziel-VM voraus. Sie bindet beide Snapshots und verwirft das Ergebnis
 bei Änderungen. Die Prüfung erfasst weder SQL-Readiness noch
 Speicherbereitschaft. Der Gesamtplan bleibt `BLOCKED`.
 
+Key18 bestätigte die Windows-Lizenz der separaten Ziel-VM mit zwei eigenen
+SQL-2025-Developer-Runs. Die Quelle wurde vor dem Zielstart gestoppt.
+Quell- und Zielmetadaten sowie die Vorlage blieben unverändert. Beide
+eigenen Runs einschließlich VMs und Disks wurden bereinigt.
+[Nativer Nachweis](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45463261705)
+
 Der lesende Plan unterstützt auch gespeicherte Hyper-V-SQL-Manifestläufe,
 bei denen der Run-State das Feld `persistentData` auslässt. Voraussetzung
 ist ein explizit nichtpersistenter Sollzustand ohne registrierten
