@@ -681,8 +681,10 @@ Quelle einen flüchtigen Leseauftrag für dieselben Zähler.
 `-ObserveWindowsLicense` und die gleichnamige geführte Auswahl lesen den
 Windows-Lizenzstatus nur aus einer laufenden, eindeutig gebundenen Instanz.
 Der flüchtige Befund bleibt separat und beinhaltet keine Aktivierung.
-Alle Planmodi bleiben blockiert. Der Nachweis der neuen Auswahl im tatsächlichen
-Gast steht aus.
+Alle Planmodi bleiben blockiert. Die Gastabfrage ist für eine laufende
+SQL-2025-Developer-Prepared-VM nativ belegt. Die Oberflächen und die Behandlung
+abgelaufener Evaluation sind separat synthetisch geprüft.
+[Nativlauf](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45381383611)
 Andere Provider, mehrere Instanzen und ungebundene Caller-Inventories sind
 außerhalb dieses Slices.
 
