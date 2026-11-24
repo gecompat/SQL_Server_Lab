@@ -96,7 +96,9 @@ Einlesen. `Stop-SqlServerLabAiSharedGatewaySession` beendet und bereinigt nur
 eine Operation derselben Modulsitzung. `Get-SqlServerLabAiSharedGatewayStatus`
 klassifiziert ohne Mutation fehlende oder revalidierte Registrierung, die eigene
 laufende Session, Planabweichung, Inhaltsdrift, verlorenen Ownerprozess oder
-Listener sowie eine fremde Portbelegung mit stabilen ReasonCodes. Der read-only
+Listener sowie eine fremde Portbelegung mit stabilen ReasonCodes. Eigener
+Listenerstatus setzt denselben Plan, StateRoot und Registrierungsbeleg voraus.
+Der read-only
 `Get-SqlServerLabAiSharedGatewayServicePlan` bindet diesen Zustand an eine neu
 berechnete Host-Capability. Windows verwendet eine S4U-Aufgabe mit lokalem,
 nicht EFS-verschlüsseltem StateRoot und weist den fehlenden Netzwerk- und EFS-

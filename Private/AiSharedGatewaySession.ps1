@@ -156,7 +156,13 @@ function Get-LabAiSharedGatewayStatus {
     }
     $owned=$null
     if($script:AiSharedGatewaySessions){
-        $ownedEntry=@($script:AiSharedGatewaySessions.GetEnumerator()|Where-Object {$_.Value.GatewayId -ceq $canonical.GatewayId -or $_.Value.Port -eq [int]$canonical.Port}|Select-Object -First 1)
+        $registrationRoot=Get-LabCanonicalResourceRoot -StateRoot $root
+        $ownedEntry=@($script:AiSharedGatewaySessions.GetEnumerator() | Where-Object {
+            $_.Value.RegistrationRoot -ceq $registrationRoot -and
+            $_.Value.PlanKey -ceq $canonical.PlanKey -and
+            $_.Value.StorageReceiptKey -ceq $storage.ReceiptKey -and
+            $_.Value.Port -eq [int]$canonical.Port
+        } | Select-Object -First 1)
         if($ownedEntry){
             $value=$ownedEntry.Value
             $owned=[pscustomobject]@{OperationId=[string]$ownedEntry.Key;Worker=$value.Worker;StartedAtUtcTicks=$value.StartedAtUtcTicks}
@@ -204,6 +210,7 @@ function Start-LabAiSharedGatewaySession {
     if($LeaseSeconds -le $StartTimeoutSeconds){throw 'AI_SHARED_GATEWAY_SESSION_LEASE_MUST_EXCEED_START_TIMEOUT'}
     $canonical=Resolve-LabAiSharedGatewayPlan $Plan;if(-not $StateRoot){$StateRoot=Get-LabStateRoot}
     $root=Assert-LabAiSharedGatewayStoragePath $StateRoot;$gatewayRoot=Join-Path (Join-Path $root 'shared-ai-gateways') $canonical.GatewayId
+    $registrationRoot=Get-LabCanonicalResourceRoot -StateRoot $root
     $storage=Read-LabAiSharedGatewayRegistration -Directory $gatewayRoot -ExpectedPlan $canonical
     if($UpstreamApiKey){$upstreamPlain=ConvertFrom-LabSecureString $UpstreamApiKey;try{if($upstreamPlain -cnotmatch '^[A-Za-z0-9_-]{24,256}$'){throw 'AI_SHARED_GATEWAY_SESSION_UPSTREAM_API_KEY_INVALID'}}finally{$upstreamPlain=$null}}
     $upstream=Test-LabAiSharedGatewayUpstream -Plan $canonical -StateRoot $root -ApiKey $UpstreamApiKey -TimeoutSeconds $StartTimeoutSeconds
@@ -221,7 +228,13 @@ function Start-LabAiSharedGatewaySession {
         $pwsh=(Get-Command pwsh -CommandType Application|Select-Object -First 1).Source;$start=[Diagnostics.ProcessStartInfo]::new($pwsh);$start.UseShellExecute=$false;$start.CreateNoWindow=$true;$start.RedirectStandardInput=$true;$start.RedirectStandardOutput=$true;$start.RedirectStandardError=$true
         foreach($arg in @('-NoLogo','-NoProfile','-NonInteractive','-File',(Join-Path $script:ModuleRoot 'Tools/Invoke-AiSharedGatewaySessionWorker.ps1'),'-RequestPath',$requestPath)){$start.ArgumentList.Add($arg)}
         $worker=[Diagnostics.Process]::Start($start);$out=$worker.StandardOutput.ReadToEndAsync();$err=$worker.StandardError.ReadToEndAsync();if(-not $script:AiSharedGatewaySessions){$script:AiSharedGatewaySessions=@{}}
-        $session=@{Worker=$worker;OperationRoot=$operationRoot;ReceiptPath=(Join-Path $operationRoot 'receipt.json');Port=$port;GatewayId=$canonical.GatewayId;OwnerNonce=$ownerNonce;StartedAtUtcTicks=$worker.StartTime.ToUniversalTime().Ticks;OutTask=$out;ErrTask=$err};$script:AiSharedGatewaySessions[$operationId]=$session;$registered=$true
+        $session=@{
+            Worker=$worker;OperationRoot=$operationRoot;ReceiptPath=(Join-Path $operationRoot 'receipt.json')
+            Port=$port;GatewayId=$canonical.GatewayId;PlanKey=$canonical.PlanKey;StorageReceiptKey=$storage.ReceiptKey
+            RegistrationRoot=$registrationRoot
+            OwnerNonce=$ownerNonce;StartedAtUtcTicks=$worker.StartTime.ToUniversalTime().Ticks;OutTask=$out;ErrTask=$err
+        }
+        $script:AiSharedGatewaySessions[$operationId]=$session;$registered=$true
         $watch=[Diagnostics.Stopwatch]::StartNew();$ready=$false
         while($watch.Elapsed.TotalSeconds -lt $StartTimeoutSeconds){if($worker.HasExited){throw 'AI_SHARED_GATEWAY_SESSION_WORKER_EXITED'};$receipt=if(Test-Path -LiteralPath $session.ReceiptPath){Get-Content -LiteralPath $session.ReceiptPath -Raw|ConvertFrom-Json}else{$null};if($receipt -and ($receipt.OperationId -cne $operationId -or [int]$receipt.ProcessId -ne $worker.Id -or $receipt.OwnerNonce -cne $session.OwnerNonce)){throw 'AI_SHARED_GATEWAY_SESSION_PROCESS_BINDING_INVALID'};if($receipt.Status -ceq 'RUNNING' -and (Test-LabAiSharedGatewaySessionListenerOwner -Port $port -ProcessId $worker.Id)){$firstReference=[string]@($canonical.Consumers)[0].ApiKeyReference;Invoke-LabAiSharedGatewaySessionProbe -Plan $canonical -ApiKey $ApiKeyByReference[$firstReference] -TimeoutSeconds ([Math]::Min(5,$StartTimeoutSeconds));$ready=$true;break};if($receipt.Status -in @('FAILED','STOPPED')){throw 'AI_SHARED_GATEWAY_SESSION_START_FAILED'};Start-Sleep -Milliseconds 100}
         if(-not $ready){throw 'AI_SHARED_GATEWAY_SESSION_START_TIMEOUT'}

@@ -27,12 +27,29 @@ try {
     $null=$plan|Register-SqlServerLabAiSharedGatewayStorage -RuntimePath $runtime -ModelPath $model -CertificatePath $cert -PrivateKeyPath $key -CertificateAuthorityPath $caPath -StateRoot $stateRoot -Confirm:$false
     $stopped=$plan|Get-SqlServerLabAiSharedGatewayStatus -StateRoot $stateRoot
     Add-CheckResult 'Status erkennt revalidierte Registrierung ohne Listener' ($stopped.Status -ceq 'REGISTERED_STOPPED' -and $stopped.ReasonCode -ceq 'AI_SHARED_GATEWAY_STATUS_REGISTERED_STOPPED' -and ($stopped|ConvertTo-Json -Depth 20|Test-Json -SchemaFile $statusSchema))
+    $otherGatewayParameters=$planParameters.Clone()
+    $otherGatewayParameters.GatewayId='another-shared-session'
+    $otherGatewayPlan=Get-SqlServerLabAiSharedGatewayPlan @otherGatewayParameters
+    $otherStateRoot=Join-Path $testRoot 'other-state'
+    $storageInputs=@{RuntimePath=$runtime;ModelPath=$model;CertificatePath=$cert;PrivateKeyPath=$key;CertificateAuthorityPath=$caPath}
+    $null=$otherGatewayPlan|Register-SqlServerLabAiSharedGatewayStorage @storageInputs -StateRoot $stateRoot -Confirm:$false
+    $null=$plan|Register-SqlServerLabAiSharedGatewayStorage @storageInputs -StateRoot $otherStateRoot -Confirm:$false
     $keyA=New-TestSecureString 'AAAAAAAAAAAAAAAAAAAAAAAA';$keyB=New-TestSecureString 'BBBBBBBBBBBBBBBBBBBBBBBB';$keys=@{SQL_SERVER_LAB_SECRET_SHARED_AI_A=$keyA;SQL_SERVER_LAB_SECRET_SHARED_AI_B=$keyB}
     Add-CheckResult 'WhatIf startet keine Session' ($null -eq ($plan|Start-SqlServerLabAiSharedGatewaySession -ApiKeyByReference $keys -StateRoot $stateRoot -WhatIf))
     $session=$plan|Start-SqlServerLabAiSharedGatewaySession -ApiKeyByReference $keys -StateRoot $stateRoot -StartTimeoutSeconds 20 -LeaseSeconds 60 -Confirm:$false
     Add-CheckResult 'Start liefert schema-validiertes ownergebundenes Receipt' ($session.Status -ceq 'SESSION_ENDPOINT_VERIFIED' -and ($session|ConvertTo-Json -Depth 20|Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/ai-shared-gateway-session-receipt.schema.json')))
     $running=$plan|Get-SqlServerLabAiSharedGatewayStatus -StateRoot $stateRoot
     Add-CheckResult 'Status bindet eigene laufende Session an Prozess und Listener' ($running.Status -ceq 'OWNER_SESSION_RUNNING' -and $running.OperationId -ceq $session.OperationId -and $running.ProcessId -gt 0 -and ($running|ConvertTo-Json -Depth 20|Test-Json -SchemaFile $statusSchema))
+    $otherGateway=$otherGatewayPlan|Get-SqlServerLabAiSharedGatewayStatus -StateRoot $stateRoot
+    Add-CheckResult 'Gleicher Port eines anderen Gateways ist kein eigener Listener' (
+        $otherGateway.Status -ceq 'RECOVERY_REQUIRED' -and $otherGateway.ReasonCode -ceq 'AI_SHARED_GATEWAY_STATUS_PORT_OCCUPIED_UNKNOWN' -and
+        -not $otherGateway.PSObject.Properties['OperationId'] -and -not $otherGateway.PSObject.Properties['ProcessId'] -and
+        ($otherGateway|ConvertTo-Json -Depth 20|Test-Json -SchemaFile $statusSchema))
+    $otherRoot=$plan|Get-SqlServerLabAiSharedGatewayStatus -StateRoot $otherStateRoot
+    Add-CheckResult 'Gleicher Plan in einem anderen StateRoot ist kein eigener Listener' (
+        $otherRoot.Status -ceq 'RECOVERY_REQUIRED' -and $otherRoot.ReasonCode -ceq 'AI_SHARED_GATEWAY_STATUS_PORT_OCCUPIED_UNKNOWN' -and
+        -not $otherRoot.PSObject.Properties['OperationId'] -and -not $otherRoot.PSObject.Properties['ProcessId'] -and
+        ($otherRoot|ConvertTo-Json -Depth 20|Test-Json -SchemaFile $statusSchema))
     $operationRoot=& $module {param($id)$script:AiSharedGatewaySessions[$id].OperationRoot} $session.OperationId
     $processBinding=& $module {param($id)$owned=$script:AiSharedGatewaySessions[$id];$receipt=Get-Content -LiteralPath $owned.ReceiptPath -Raw|ConvertFrom-Json;[bool]($receipt.OperationId -ceq $id -and [int]$receipt.ProcessId -eq $owned.Worker.Id -and $receipt.OwnerNonce -ceq $owned.OwnerNonce -and $receipt.OwnerNonce -cmatch '^[a-f0-9]{64}$')} $session.OperationId
     Add-CheckResult 'Workerreceipt bindet Operation, PID und plattformneutralen Owner-Nonce' $processBinding
