@@ -5,8 +5,24 @@ function Assert-LabEvaluationRefreshHttpShape {
     foreach($name in $Value.PSObject.Properties.Name){if($name-cnotin$Names){throw 'EVALUATION_REFRESH_HTTP_INVALID'}}
 }
 
+function Assert-LabEvaluationRefreshHttpSelection {
+    param($Selection)
+    Assert-LabEvaluationRefreshHttpShape $Selection @('RunId','ScopeId','InstanceId','State','Digest')
+    if($Selection.RunId-isnot[string]-or$Selection.ScopeId-isnot[string]-or-not(Test-LabDiagnosticGuid $Selection.RunId)-or-not(Test-LabDiagnosticGuid $Selection.ScopeId)-or
+        $Selection.InstanceId-isnot[string]-or$Selection.InstanceId-cnotmatch'^[A-Za-z][A-Za-z0-9_-]{0,63}$'-or
+        $Selection.State-isnot[string]-or$Selection.State-cnotin@('RUNNING','STOPPED')-or
+        $Selection.Digest-isnot[string]-or$Selection.Digest-cnotmatch'^[a-f0-9]{64}$'){throw 'EVALUATION_REFRESH_HTTP_INVALID'}
+}
+
+function Assert-LabEvaluationRefreshHttpCurrentSelection {
+    param($Selection, [string]$DataRoot)
+    $fresh = Read-LabEvaluationRefreshSnapshot -RunId $Selection.RunId -InstanceId $Selection.InstanceId -DataRoot $DataRoot
+    if ($fresh.Digest -cne $Selection.Digest -or $fresh.Binding.Run.scopeId -cne $Selection.ScopeId -or
+        $fresh.Binding.Run.state -cne $Selection.State) { throw 'EVALUATION_REFRESH_BINDING_CHANGED' }
+}
+
 function ConvertTo-LabEvaluationRefreshBrowserPlan {
-    param($Plan,$Selection,[string]$Mode)
+    param($Plan,$Selection,[string]$Mode,$Target)
     if($Plan.ContractVersion-cne'SqlServerLab.EvaluationRefreshPlan/1.0'-or$Plan.Status-cne'BLOCKED'-or$Plan.Mode-cne$Mode-or
         $Plan.RunId-cne$Selection.RunId-or$Plan.ScopeId-cne$Selection.ScopeId-or$Plan.InstanceId-cne$Selection.InstanceId-or
         $Plan.ObservedContentSha256-cne$Selection.Digest-or$Plan.Provider-cne'hyperv'-or
@@ -40,10 +56,23 @@ function ConvertTo-LabEvaluationRefreshBrowserPlan {
         'RECONSTRUCT_LAB' {@('Deklarative Rekonstruktion und entbehrlichen Zustand klären.','Datenübernahme, Gleichwertigkeit und Rückfall separat nachweisen.')}
         'STATEFUL_MIGRATION' {@('Serverobjekte, Schlüssel und externe Abhängigkeiten getrennt inventarisieren.','DATABASE_FILES_ONLY ist kein vollständiger Instanztransfer; Cutover und Rückfall fehlen.')}
     }
-    [pscustomobject]@{ContractVersion='SqlServerLab.EvaluationRefreshBrowser/1.0';Status='BLOCKED';Mode=$Mode;
+    $result = [pscustomobject]@{ContractVersion='SqlServerLab.EvaluationRefreshBrowser/1.0';Status='BLOCKED';Mode=$Mode;
         RunId=$Selection.RunId;ScopeId=$Selection.ScopeId;InstanceId=$Selection.InstanceId;Evaluations=$evaluations;Blockers=@($Plan.Blockers);NextSteps=@($steps);
         SqlReadiness='NOT_CHECKED';FreshWindowsLicenseProof=$false;FullInstanceMigration=$false;EquivalenceStatus='NOT_VERIFIED';TransferAuthority='NONE';
         Actions=@();MutationAllowed=$false;ExecutionSupported=$false}
+    if ($Target) {
+        $view = $Plan.TargetAssessment
+        $checks = @('TARGET_WINDOWS_LICENSE_NOT_VERIFIED','TARGET_SQL_READINESS_NOT_CHECKED','TARGET_STORAGE_AND_TRANSFER_NOT_VERIFIED')
+        if ($view.Status -cne 'METADATA_ONLY' -or $view.RunId -cne $Target.RunId -or $view.ScopeId -cne $Target.ScopeId -or
+            $view.InstanceId -cne $Target.InstanceId -or $view.RegisteredState -cne $Target.State -or
+            $view.ObservedContentSha256 -cne $Target.Digest -or $view.SqlVersion -cne '2025' -or
+            ($view.Checks -join ',') -cne ($checks -join ',')) { throw 'EVALUATION_REFRESH_BINDING_CHANGED' }
+        $result | Add-Member -NotePropertyName TargetAssessment -NotePropertyValue ([pscustomobject]@{
+            Status='METADATA_ONLY'; RunId=$Target.RunId; ScopeId=$Target.ScopeId; InstanceId=$Target.InstanceId
+            RegisteredState=$Target.State; ObservedContentSha256=$Target.Digest; SqlVersion='2025'; Checks=$checks
+        })
+    }
+    return $result
 }
 
 function Invoke-LabEvaluationRefreshHttpRequest {
@@ -69,6 +98,8 @@ function Invoke-LabEvaluationRefreshHttpRequest {
         $payload=$text|ConvertFrom-Json -Depth 12 -ErrorAction Stop
         if($payload-isnot[pscustomobject]-or$payload.Action-cnotin@('Read','Preview')-or$payload.DataRoot-isnot[string]-or-not$payload.DataRoot-or$payload.DataRoot.Length-gt2048){throw 'EVALUATION_REFRESH_HTTP_INVALID'}
         $names=if($payload.Action-ceq'Read'){@('Action','DataRoot')}else{@('Action','DataRoot','Selection','Mode')}
+        $hasTarget = $null -ne $payload.PSObject.Properties['Target']
+        if ($hasTarget -and $payload.Action -ceq 'Preview' -and $payload.Mode -ceq 'STATEFUL_MIGRATION') { $names += 'Target' }
         Assert-LabEvaluationRefreshHttpShape $payload $names
         $root=Assert-LabDiagnosticPath -Path $payload.DataRoot
         if($payload.Action-ceq'Read'){
@@ -77,17 +108,25 @@ function Invoke-LabEvaluationRefreshHttpRequest {
                 SqlReadiness='NOT_CHECKED';Actions=@();MutationAllowed=$false;ExecutionSupported=$false}
         }
         $selected=$payload.Selection
-        Assert-LabEvaluationRefreshHttpShape $selected @('RunId','ScopeId','InstanceId','State','Digest')
-        if($selected.RunId-isnot[string]-or$selected.ScopeId-isnot[string]-or-not(Test-LabDiagnosticGuid $selected.RunId)-or-not(Test-LabDiagnosticGuid $selected.ScopeId)-or
-            $selected.InstanceId-isnot[string]-or$selected.InstanceId-cnotmatch'^[A-Za-z][A-Za-z0-9_-]{0,63}$'-or$selected.State-cnotin@('RUNNING','STOPPED')-or
-            $selected.Digest-isnot[string]-or$selected.Digest-cnotmatch'^[a-f0-9]{64}$'-or$payload.Mode-isnot[string]-or
+        Assert-LabEvaluationRefreshHttpSelection $selected
+        if($payload.Mode-isnot[string]-or
             $payload.Mode-cnotin@('FREE_SLOT_REPLACEMENT','RECONSTRUCT_LAB','STATEFUL_MIGRATION')){throw 'EVALUATION_REFRESH_HTTP_INVALID'}
-        $fresh=Read-LabEvaluationRefreshSnapshot -RunId $selected.RunId -InstanceId $selected.InstanceId -DataRoot $root
-        if($fresh.Digest-cne$selected.Digest-or$fresh.Binding.Run.scopeId-cne$selected.ScopeId-or$fresh.Binding.Run.state-cne$selected.State){throw 'EVALUATION_REFRESH_BINDING_CHANGED'}
-        $plan=Get-SqlServerLabEvaluationRefreshPlan -RunId $selected.RunId -InstanceId $selected.InstanceId -DataRoot $root -Mode $payload.Mode
-        ConvertTo-LabEvaluationRefreshBrowserPlan -Plan $plan -Selection $selected -Mode $payload.Mode
+        $planArgs=@{RunId=$selected.RunId; InstanceId=$selected.InstanceId; DataRoot=$root; Mode=$payload.Mode}
+        $target = $null
+        if ($hasTarget) {
+            $target = $payload.Target
+            Assert-LabEvaluationRefreshHttpSelection $target
+            if ($target.RunId -ceq $selected.RunId -or $target.ScopeId -ceq $selected.ScopeId) { throw 'EVALUATION_REFRESH_TARGET_SELECTION_INVALID' }
+            $planArgs.TargetRunId = $target.RunId
+            $planArgs.TargetInstanceId = $target.InstanceId
+        }
+        Assert-LabEvaluationRefreshHttpCurrentSelection $selected $root
+        if ($target) { Assert-LabEvaluationRefreshHttpCurrentSelection $target $root }
+        $plan=Get-SqlServerLabEvaluationRefreshPlan @planArgs
+        ConvertTo-LabEvaluationRefreshBrowserPlan -Plan $plan -Selection $selected -Mode $payload.Mode -Target $target
     }catch{
-        $known=@('EVALUATION_REFRESH_HTTP_INVALID','EVALUATION_REFRESH_BINDING_CHANGED','EVALUATION_REFRESH_SCOPE_UNSUPPORTED','EVALUATION_REFRESH_BINDING_INVALID','EVALUATION_REFRESH_INPUT_INVALID','EVALUATION_REFRESH_MODE_INVALID','EVALUATION_REFRESH_BINDING_UNAVAILABLE')
+        $known=@('EVALUATION_REFRESH_HTTP_INVALID','EVALUATION_REFRESH_BINDING_CHANGED','EVALUATION_REFRESH_SCOPE_UNSUPPORTED','EVALUATION_REFRESH_BINDING_INVALID','EVALUATION_REFRESH_INPUT_INVALID','EVALUATION_REFRESH_MODE_INVALID','EVALUATION_REFRESH_BINDING_UNAVAILABLE',
+            'EVALUATION_REFRESH_TARGET_SELECTION_INVALID','EVALUATION_REFRESH_TARGET_UNAVAILABLE','EVALUATION_REFRESH_TARGET_SCOPE_UNSUPPORTED')
         if($_.Exception.Message-cin$known){throw $_.Exception.Message};throw 'EVALUATION_REFRESH_BINDING_UNAVAILABLE'
     }
 }

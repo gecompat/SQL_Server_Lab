@@ -2412,6 +2412,22 @@ liefern nur die synthetische Quelle. Die Prüfung beweist keine Lizenzprüfung,
 SQL-Readiness, Providerfunktion oder Migration; Diff-Auswahl und CI bleiben
 separate Verpflichtungen.
 
+Die Prüfhinweise zu SQL-Übernahmeabhängigkeiten verwenden elf aggregierte
+Zähler. Die Suite unterscheidet positive Zähler, Nullwerte und verworfene
+Beobachtungen. Sie prüft die fachlichen Obergrenzen für FILESTREAM-Dateityp
+und SSISDB-Kandidat sowie den weiterhin blockierten Transferstatus. Die
+CLI- und HTTP-Fixtures prüfen die Ausgabe der festen Codes. Der
+[gezielte native Key18-Lauf](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45418884558) auf e4cdc1ac prüfte die elf
+typisierten Zähler im eigenen SQL-2025-Developer-Gast, unveränderte
+Run-/Connection-Metadaten und Vorlage sowie vollständigen eigenen Cleanup.
+
+Die optionale Vorschau eines SQL-2025-Ziellabs verwendet zwei registrierte
+synthetische Hyper-V-Bindungen. Plan-, CLI-, HTTP- und Browserfixtures prüfen
+getrennte Run-, Scope- und VM-Bindungen, Ziel-Drift, Abbruch, verspätete
+Antworten und unveränderte State-Dateien. Der Funktionsumfang ist die
+Metadatenvorschau. Native Zielbereitschaft und Transfer benötigen eigene
+Nachweise.
+
 ## Prospektiver External-Languages-Capability-Entscheid
 
 `Invoke-ExternalRuntimeCapabilityBrowserChecks.ps1` prüft die extrahierte echte
@@ -3186,6 +3202,13 @@ vollständigem Cleanup;
 [Vertrag und Aufruf](../Architecture/AI_PERSISTENT_RETRIEVAL.md). Der Selector
 begrenzt diese Produktdateien auf Docker/Podman; Änderungen am Selector selbst
 behalten die vollständige CI-Infrastrukturmatrix.
+
+Die Podman-Referenz mit Northwind und Chinook prüft vor dem persistenten
+Retrieval einmal das lokal gebundene Embeddingmodell mit einem festen
+synthetischen Text. Diese Probe erlaubt bis zu 180 Sekunden für Modellstart
+und erste Inferenz. Sie wiederholt keine Anfrage. Der eigentliche Apply- und
+Query-Test behält Produktionslimits, SQL-Nachweise und Cleanup unverändert.
+`EMBEDDING_READINESS` kennzeichnet einen Fehler vor dem Retrieval.
 
 `Invoke-AiScenarioChecks.ps1` bindet auch `Fixtures/AiRagHostChecks.ps1` ein:
 
@@ -4627,6 +4650,18 @@ Preflight muss `HEADERONLY` und `VERIFYONLY WITH CHECKSUM, STOP_ON_ERROR`
 erfolgreich ausführen, die eigene Stage und das Journal vollständig entfernen
 und den Transferexecutor weiterhin als `BLOCKED` ausweisen. Ein Restore oder
 Transfer ist nicht Bestandteil der Acceptance.
+
+Im Docker-Wiederholungslauf von [PR #944](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45421531064)
+lief die Abnahme bei der SQL-Bereitschaft des PSR-009-Testcontainers in das
+75-Minuten-Limit des CI-Schritts. Das nachgelagerte Cleanup war erfolgreich.
+Die genaue Ursache der ausgebliebenen SQL-Bereitschaft blieb offen.
+`Invoke-ActionProgressChecks.ps1` prüft die gemeinsame Frist der SQL- und
+Providerdiagnosen. Ein fehlgeschlagener Logabruf lässt einen bereits gelesenen
+Containerstatus erhalten. Der gezielte [Docker-Lauf auf Key18](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45476753438/job/138738887286)
+war mit Commit `24bbcaa16c056fd7c7c9e24ae3063702e94280c5` für `lifecycle,package`
+erfolgreich. Die Bereinigung der eigenen Testressourcen bestand ebenfalls.
+Der Lauf deckt diesen Docker-Umfang ab. Die Pflichtprüfungen des Pull Requests
+und die ursprüngliche Ursache des SQL-Bereitschaftsfehlers bleiben separat.
 
 `Invoke-DatabasePackageChecks.ps1` prüft den PSR-009-Core deterministisch mit
 einer synthetischen MDF-/NDF-/LDF-Dateimenge und einem verschachtelten

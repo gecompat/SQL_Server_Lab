@@ -50,6 +50,13 @@ aus dem eigenen Run gelesen und ihre temporären SecureString-Kopien freigegeben
 Öffentliche Ergebnisse enthalten IDs, Status und Zeiten, keine VM-/Hostnamen,
 Endpunkte, SQL-Texte, Credentials oder Rohfehler.
 
+Die optionale Quellbeobachtung des Ersatzplans liest außerdem aggregierte
+Abhängigkeiten. Der FILESTREAM-Hinweis zählt Benutzerdatenbanken mit
+Dateityp 2 in `sys.master_files`. Der SSIS-Hinweis erkennt eine Datenbank,
+die SQL Server als `SSISDB` auflöst. Er klassifiziert sie als Kandidaten
+für eine Katalogprüfung. Beide Befunde bleiben flüchtig.
+[Dateitypen](https://learn.microsoft.com/en-us/sql/relational-databases/system-catalog-views/sys-master-files-transact-sql?view=sql-server-ver17) · [SSIS-Katalog](https://learn.microsoft.com/en-us/sql/integration-services/catalog/ssis-catalog?view=sql-server-ver17)
+
 ## Atomicität, Fehler und Grenzen
 
 Root, Vorfahren und betroffene State-/Secretpfade müssen frei von Reparse Points

@@ -277,6 +277,9 @@ function Start-UiWorkflowJob {
                 $source = $result.Result
                 Write-Output ('[INVENTAR] SQL-Quellzähler: ' + $source.Status)
                 foreach ($item in $source.Items) { Write-Output ('[INVENTAR] {0}: {1}' -f $item.Category, $item.Count) }
+                foreach ($finding in $source.DependencyFindings) {
+                    Write-Output ('[INVENTAR] Vor Übernahme prüfen: {0} · {1} ({2})' -f $finding.Code, $finding.Category, $finding.Count)
+                }
                 Write-Output '[INFO] Der Ersatzentscheid bleibt BLOCKED. Vollständige Inventur und Transfer benötigen weitere Nachweise.'
             }
             if ($JobAction -ceq 'ReadHyperVEvaluationWindowsLicense') {
@@ -843,7 +846,8 @@ try {
                     $result=& (Get-Module SqlServerLab) { param($request) Invoke-LabEvaluationRefreshHttpRequest -Request $request } $context.Request
                     Write-UiResponse -Context $context -Body ($result | ConvertTo-Json -Depth 12 -Compress) -ContentType 'application/json; charset=utf-8'
                 } catch {
-                    $code=if($_.Exception.Message -cin @('EVALUATION_REFRESH_HTTP_INVALID','EVALUATION_REFRESH_BINDING_CHANGED','EVALUATION_REFRESH_SCOPE_UNSUPPORTED','EVALUATION_REFRESH_BINDING_INVALID','EVALUATION_REFRESH_INPUT_INVALID','EVALUATION_REFRESH_MODE_INVALID','EVALUATION_REFRESH_BINDING_UNAVAILABLE')){$_.Exception.Message}else{'EVALUATION_REFRESH_BINDING_UNAVAILABLE'}
+                    $code=if($_.Exception.Message -cin @('EVALUATION_REFRESH_HTTP_INVALID','EVALUATION_REFRESH_BINDING_CHANGED','EVALUATION_REFRESH_SCOPE_UNSUPPORTED','EVALUATION_REFRESH_BINDING_INVALID','EVALUATION_REFRESH_INPUT_INVALID','EVALUATION_REFRESH_MODE_INVALID','EVALUATION_REFRESH_BINDING_UNAVAILABLE',
+                        'EVALUATION_REFRESH_TARGET_SELECTION_INVALID','EVALUATION_REFRESH_TARGET_UNAVAILABLE','EVALUATION_REFRESH_TARGET_SCOPE_UNSUPPORTED')){$_.Exception.Message}else{'EVALUATION_REFRESH_BINDING_UNAVAILABLE'}
                     Write-UiResponse -Context $context -Body (@{Code=$code} | ConvertTo-Json -Compress) -ContentType 'application/json; charset=utf-8' -StatusCode 400
                 }
                 continue

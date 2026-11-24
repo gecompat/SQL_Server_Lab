@@ -98,5 +98,35 @@ async function readMetadata(body = metadata) { const pending = node('read').fire
   await node('observe').fire('click');
   await node('observe-windows').fire('click');
   check('Stopped source cannot dispatch either observation', jobs.length === 2 && node('observe').disabled && node('observe-windows').disabled);
+  const target = { ...own, RunId: '55555555-5555-4555-8555-555555555555', ScopeId: '66666666-6666-4666-8666-666666666666', State: 'STOPPED', Digest: 'b'.repeat(64) };
+  const sharedScope = { ...own, RunId: '77777777-7777-4777-8777-777777777777', Digest: 'c'.repeat(64) };
+  const pairMetadata = { ...metadata, Runs: [own, target, sharedScope] };
+  await readMetadata(pairMetadata);
+  check('The target picker is hidden outside stateful migration', node('target-field').hidden && node('target').disabled);
+  node('mode').value = 'STATEFUL_MIGRATION'; await node('mode').fire('change');
+  check('Only a distinct registered run and scope are offered as target', !node('target-field').hidden &&
+    node('target').children.map(option => option.value).join(',') === ',' + target.RunId);
+  node('target').value = target.RunId; await node('target').fire('change');
+  const response = { ...result('STATEFUL_MIGRATION'), TargetAssessment: {
+    Status: 'METADATA_ONLY', RunId: target.RunId, ScopeId: target.ScopeId, InstanceId: target.InstanceId,
+    RegisteredState: target.State, ObservedContentSha256: target.Digest, SqlVersion: '2025',
+    Checks: ['TARGET_WINDOWS_LICENSE_NOT_VERIFIED', 'TARGET_SQL_READINESS_NOT_CHECKED', 'TARGET_STORAGE_AND_TRANSFER_NOT_VERIFIED']
+  } };
+  const pair = node('preview').fire('click');
+  const pairPayload = JSON.parse(requests.at(-1).options.body);
+  check('Preview sends both exact RAM selections to the read-only route', JSON.stringify(pairPayload.Selection) === JSON.stringify(own) &&
+    JSON.stringify(pairPayload.Target) === JSON.stringify(target) && jobs.length === 2);
+  respond(requests.at(-1), response); await pair;
+  check('Target metadata and fixed checks preserve the blocked decision', node('status').textContent.includes('BLOCKED') &&
+    node('result').textContent.includes(target.RunId) && node('result').textContent.includes('TARGET_STORAGE_AND_TRANSFER_NOT_VERIFIED'));
+  const latePair = node('preview').fire('click');
+  node('target').value = ''; await node('target').fire('change');
+  respond(requests.at(-1), response); await latePair;
+  check('Changing the selected target discards the late preview', node('result').textContent === '');
+  node('target').value = target.RunId; await node('target').fire('change');
+  const mismatched = node('preview').fire('click');
+  respond(requests.at(-1), { ...response, TargetAssessment: { ...response.TargetAssessment, ObservedContentSha256: 'd'.repeat(64) } }); await mismatched;
+  check('A different target digest is rejected and displayed data is cleared', node('result').textContent === '' &&
+    node('target').value === '' && node('status').textContent.includes('nicht bestätigt'));
   console.log('EVALUATION_REFRESH_UI_CHECKS: ' + checks + ' PASS; 0 FAIL');
 })().catch(error => { console.error(error); process.exitCode = 1; });

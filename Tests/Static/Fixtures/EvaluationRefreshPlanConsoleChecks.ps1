@@ -41,13 +41,18 @@ try {
     function Wait-LabConsoleAcknowledgement {}
     $script:actualPlan=${function:New-LabEvaluationRefreshPlan}
     function New-LabEvaluationRefreshPlan {
-        param($RunId,$InstanceId,$DataRoot,$Mode,$ExpectedSnapshotDigest,[switch]$ObserveSqlSource,[switch]$ObserveWindowsLicense)
+        param($RunId,$InstanceId,$DataRoot,$Mode,$ExpectedSnapshotDigest,[switch]$ObserveSqlSource,[switch]$ObserveWindowsLicense,
+            $TargetRunId,$TargetInstanceId,$ExpectedTargetSnapshotDigest)
         $script:planCalls++
         if ($ExpectedSnapshotDigest -cnotmatch '^[a-f0-9]{64}$') { throw 'SYNTHETIC_EXPECTED_DIGEST_REQUIRED' }
         $script:lastPlan = & $script:actualPlan @PSBoundParameters
         return $script:lastPlan
     }
-    function Get-LabEvaluationSqlSourceInventory {param($Snapshot);[pscustomobject]@{Status='PARTIALLY_OBSERVED';Items=@([pscustomobject]@{Category='UserDatabases';Count=[long]1})}}
+    function Get-LabEvaluationSqlSourceInventory {
+        param($Snapshot)
+        [pscustomobject]@{ Status='PARTIALLY_OBSERVED'; Items=@([pscustomobject]@{Category='Credentials';Count=[long]1})
+            DependencyFindings=@([pscustomobject]@{Category='Credentials';Count=[long]1;Code='CREDENTIAL_REBIND_REQUIRED'}) }
+    }
     function Get-LabEvaluationWindowsLicenseObservation {
         param($Snapshot)
         [pscustomobject]@{Status='OBSERVED';LicenseState='LICENSED';ObservedAt=[datetime]::UtcNow.ToString('o');EvaluationExpiresAt=$null}
@@ -80,7 +85,8 @@ try {
     $run.metadata.desiredState.Instances=@($run.metadata.desiredState.Instances[0]);Write-Refresh $runPath $run
     Reset-ConsoleRefresh @('RUN','STATEFUL_MIGRATION','unexpected');Invoke-LabEvaluationRefreshPlanInteractive;Assert-ConsoleRefresh ($planCalls-eq0) 'Invalid preview action cannot dispatch'
     Reset-ConsoleRefresh @('RUN','STATEFUL_MIGRATION','observe');Invoke-LabEvaluationRefreshPlanInteractive
-    Assert-ConsoleRefresh ($planCalls -eq 1 -and $lastPlan.SqlSourceInventory.Status -ceq 'PARTIALLY_OBSERVED') 'The explicit guided source observation calls the inventory lane'
+    Assert-ConsoleRefresh ($planCalls -eq 1 -and $lastPlan.SqlSourceInventory.Status -ceq 'PARTIALLY_OBSERVED' -and
+        ($messages -join ' ') -cmatch 'CREDENTIAL_REBIND_REQUIRED') 'The explicit guided source observation shows the identified dependency'
     Reset-ConsoleRefresh @('RUN','RECONSTRUCT_LAB','observe');Invoke-LabEvaluationRefreshPlanInteractive
     Assert-ConsoleRefresh ($planCalls -eq 0) 'The observation choice is unavailable outside stateful migration'
     Reset-ConsoleRefresh @('RUN','RECONSTRUCT_LAB','observe-windows');Invoke-LabEvaluationRefreshPlanInteractive
@@ -92,6 +98,17 @@ try {
     Set-Item Function:Read-LabEvaluationRefreshSnapshot $savedReader
     $extra=@();try {foreach($i in 1..64){$dir=Join-Path (Split-Path $runDirectory) ('extra-'+$i);$null=New-Item -ItemType Directory $dir;$extra+=$dir};Reset-ConsoleRefresh @();Invoke-LabEvaluationRefreshPlanInteractive;Assert-ConsoleRefresh ($planCalls-eq0-and($messages-join' ')-match'EVALUATION_REFRESH_SCOPE_UNSUPPORTED') 'Directory count is bounded before candidate reads'} finally {foreach($dir in $extra){Remove-Item -LiteralPath $dir -Force}}
     Assert-ConsoleRefresh ((Get-RefreshHashes)-ceq$before) 'Actual dialog writes no state'
+    $targetFixture=New-RefreshTargetFixture $root $run $connection
+    $beforeTargets=Get-RefreshHashes
+    Reset-ConsoleRefresh @($runId,'STATEFUL_MIGRATION','target',$targetFixture.RunId);Invoke-LabEvaluationRefreshPlanInteractive
+    Assert-ConsoleRefresh ($planCalls-eq1-and$lastPlan.TargetAssessment.RunId-ceq$targetFixture.RunId-and
+        ($messages-join' ')-cmatch'TARGET_STORAGE_AND_TRANSFER_NOT_VERIFIED'-and
+        $seenScreens.Contains('evaluation-refresh-target')) 'CLI binds the selected target and shows the remaining checks'
+    Reset-ConsoleRefresh @($runId,'STATEFUL_MIGRATION','target','CANCEL');Invoke-LabEvaluationRefreshPlanInteractive
+    Assert-ConsoleRefresh ($planCalls-eq0) 'Cancelling target selection dispatches no plan'
+    Reset-ConsoleRefresh @($runId,'STATEFUL_MIGRATION','target',$runId);Invoke-LabEvaluationRefreshPlanInteractive
+    Assert-ConsoleRefresh ($planCalls-eq0) 'The source is never offered as its own target'
+    Assert-ConsoleRefresh ((Get-RefreshHashes)-ceq$beforeTargets) 'Target dialog does not change either fixture'
     $script:guidedCalls=0;$script:legacyCalls=0;$script:componentCalls=0
     function Get-LabPublicCommandConsoleCatalog {return [pscustomobject]@{Name='legacy';ParameterSets=@(@{Name='Default'})}}
     function Invoke-LabEvaluationRefreshPlanInteractive {$script:guidedCalls++}

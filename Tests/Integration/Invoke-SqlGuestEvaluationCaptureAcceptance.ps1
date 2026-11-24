@@ -64,10 +64,15 @@ try {
         Invoke-LabSqlGuestCaptureProbe -Context $BoundContext -TimeoutSeconds 60 -IncludeSourceInventory
     } $context
     $counters=@($inventory.SourceInventory.PSObject.Properties)
-    Assert-CaptureAcceptance ($inventory.MajorVersion -eq 17 -and $counters.Count -eq 9 -and
+    $expectedCounters=@('UserDatabases','NonOnlineUserDatabases','EncryptedUserDatabases','DatabaseSnapshots','FilestreamFileDatabases',
+        'SsisCatalogCandidateDatabases','ServerPrincipals','Credentials','LinkedServers','AgentJobs','AgentProxies')
+    Assert-CaptureAcceptance ($inventory.MajorVersion -eq 17 -and $counters.Count -eq $expectedCounters.Count -and
+        @($counters | Where-Object { $_.Name -cnotin $expectedCounters }).Count -eq 0 -and
         @($counters | Where-Object { $_.Value -isnot [long] -or $_.Value -lt 0 }).Count -eq 0 -and
         $inventory.SourceInventory.NonOnlineUserDatabases -le $inventory.SourceInventory.UserDatabases -and
-        $inventory.SourceInventory.EncryptedUserDatabases -le $inventory.SourceInventory.UserDatabases) 'Aggregierte SQL-Quellzähler im eigenen Gast gelesen'
+        $inventory.SourceInventory.EncryptedUserDatabases -le $inventory.SourceInventory.UserDatabases -and
+        $inventory.SourceInventory.FilestreamFileDatabases -le $inventory.SourceInventory.UserDatabases -and
+        $inventory.SourceInventory.SsisCatalogCandidateDatabases -le [Math]::Min([long]1,$inventory.SourceInventory.UserDatabases)) 'Aggregierte SQL-Quellzähler im eigenen Gast gelesen'
     Update-SqlServerLabSqlGuestEvaluationEvidence -RunId $run.RunId -StateRoot $StateRoot -WhatIf
     Assert-CaptureAcceptance (-not(Test-Path -LiteralPath $context.ReceiptPath) -and -not(Test-Path -LiteralPath $context.LockPath)) 'WhatIf erzeugt weder Receipt noch Lock'
     $first=Update-SqlServerLabSqlGuestEvaluationEvidence -RunId $run.RunId -StateRoot $StateRoot -Confirm:$false

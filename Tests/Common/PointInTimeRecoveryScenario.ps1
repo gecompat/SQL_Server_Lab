@@ -90,6 +90,7 @@ function Invoke-PitrReadinessDiagnosticWithCapture {
         [Parameter(Mandatory)][ValidateSet('docker','podman')][string]$Provider,
         [Parameter(Mandatory)][string]$ContainerIdOrName,
         [switch]$IncludeLogs,
+        [DateTimeOffset]$DeadlineUtc = [DateTimeOffset]::MinValue,
         [Parameter(Mandatory)][string]$OperationId,
         [Parameter(Mandatory)][string]$StateRoot,
         [Parameter(Mandatory)][string]$EvidenceRoot,
@@ -100,6 +101,7 @@ function Invoke-PitrReadinessDiagnosticWithCapture {
         catch { }
     }
     $diagnosticArguments=@{}
+    if ($DeadlineUtc -ne [DateTimeOffset]::MinValue) { $diagnosticArguments.DeadlineUtc=$DeadlineUtc }
     if ((Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-required')) -or
         (Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json'))) { $diagnosticArguments.StateRoot=$StateRoot }
     return (& $Original -Provider $Provider -ContainerIdOrName $ContainerIdOrName -IncludeLogs:$IncludeLogs @diagnosticArguments)
@@ -122,10 +124,11 @@ function Invoke-PitrNewWithReadinessCapture {
     $captureStateRoot=$StateRoot
     $wrapper={
         [CmdletBinding()]
-        param([string]$Provider,[string]$ContainerIdOrName,[switch]$IncludeLogs,[string]$StateRoot)
+        param([string]$Provider,[string]$ContainerIdOrName,[switch]$IncludeLogs,[string]$StateRoot,
+            [DateTimeOffset]$DeadlineUtc = [DateTimeOffset]::MinValue)
         if ($StateRoot -and $StateRoot -cne $captureStateRoot) { throw 'PITR_READINESS_ROOT_CHANGED' }
         & $captureDiagnostic -Original $original -Provider $Provider -ContainerIdOrName $ContainerIdOrName `
-            -IncludeLogs:$IncludeLogs -OperationId $OperationId -StateRoot $captureStateRoot -EvidenceRoot $EvidenceRoot -RuntimeScopeId $RuntimeScopeId
+            -IncludeLogs:$IncludeLogs -DeadlineUtc $DeadlineUtc -OperationId $OperationId -StateRoot $captureStateRoot -EvidenceRoot $EvidenceRoot -RuntimeScopeId $RuntimeScopeId
     }.GetNewClosure()
     try {
         & $moduleScope { param($Replacement) Set-Item -Path Function:Get-LabContainerReadinessDiagnostic -Value $Replacement -Force } $wrapper

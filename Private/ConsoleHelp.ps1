@@ -151,6 +151,12 @@ function Get-LabConsoleHelpCatalog {
             Effects = 'Die ausgewählte Bindung wird erneut geprüft. Die Gastabfragen speichern keinen Befund und ändern keine Lizenz. Abbruch startet keine Abfrage.'
             Command = 'Get-SqlServerLabEvaluationRefreshPlan'
         }
+        'evaluation-refresh-target' = @{
+            Title = 'Registriertes Ziellab vorprüfen'
+            Purpose = 'Separaten SQL-2025-Run unter demselben registrierten Lab_Data für die Metadatenvorschau wählen.'
+            Effects = 'Die Vorschau prüft beide registrierten Bindungen. Lizenz, SQL-Bereitschaft, Speicher und Transfer bleiben getrennte Prüfungen.'
+            Command = 'Get-SqlServerLabEvaluationRefreshPlan'
+        }
         'component-relation-choice' = @{
             Title = 'SQL-Komponente auswählen'
             Purpose = 'Wählt einen vorhandenen registrierten Container-Run, Verbraucher oder eine SQL-Voraussetzung aus geprüften Metadaten.'

@@ -18,7 +18,7 @@ try {
     Import-RefreshFunctions 'Private/EvaluationRefreshPlanConsole.ps1'
     Import-RefreshFunctions 'Private/EvaluationRefreshPlanHttp.ps1'
     $script:actualPublic=${function:Get-SqlServerLabEvaluationRefreshPlan};$script:planCalls=0
-    function Get-SqlServerLabEvaluationRefreshPlan {param($RunId,$InstanceId,$DataRoot,$Mode);$script:planCalls++;& $script:actualPublic @PSBoundParameters}
+    function Get-SqlServerLabEvaluationRefreshPlan {param($RunId,$InstanceId,$DataRoot,$Mode,$TargetRunId,$TargetInstanceId);$script:planCalls++;& $script:actualPublic @PSBoundParameters}
     foreach($forbidden in @('Start-UiBackgroundAction','Invoke-SqlServerLabWorkflowAction','Start-Job','Write-LabEvent')){Set-Item ('Function:script:'+$forbidden) {throw 'FORBIDDEN_REFRESH_HTTP_DISPATCH'}}
     function New-RefreshRequest($payload,$origin='http://localhost:8080',$method='POST',$contentType='application/json'){
         $json=if($payload-is[string]){$payload}else{$payload|ConvertTo-Json -Depth 20 -Compress}
@@ -27,7 +27,7 @@ try {
     function Invoke-RefreshHttp($payload,$origin='http://localhost:8080',$method='POST',$contentType='application/json'){Invoke-LabEvaluationRefreshHttpRequest -Request (New-RefreshRequest $payload $origin $method $contentType)}
     function Assert-RefreshHttpReject($payload,$label,$origin='http://localhost:8080',$method='POST',$contentType='application/json'){
         $count=$script:planCalls;$code=$null;try{$null=Invoke-RefreshHttp $payload $origin $method $contentType}catch{$code=$_.Exception.Message}
-        Assert-HttpRefresh ($code-cin@('EVALUATION_REFRESH_HTTP_INVALID','EVALUATION_REFRESH_BINDING_CHANGED','EVALUATION_REFRESH_SCOPE_UNSUPPORTED','EVALUATION_REFRESH_BINDING_INVALID','EVALUATION_REFRESH_BINDING_UNAVAILABLE')-and$script:planCalls-eq$count) $label
+        Assert-HttpRefresh ($code-cin@('EVALUATION_REFRESH_HTTP_INVALID','EVALUATION_REFRESH_BINDING_CHANGED','EVALUATION_REFRESH_SCOPE_UNSUPPORTED','EVALUATION_REFRESH_BINDING_INVALID','EVALUATION_REFRESH_BINDING_UNAVAILABLE','EVALUATION_REFRESH_TARGET_SELECTION_INVALID')-and$script:planCalls-eq$count) $label
     }
     $before=Get-RefreshHashes
     $view=Invoke-RefreshHttp @{Action='Read';DataRoot=$root}
@@ -80,6 +80,25 @@ try {
     Set-Item Function:Get-SqlServerLabEvaluationRefreshPlan $savedPublic
     $extra=@();try{foreach($i in 1..64){$directory=Join-Path (Split-Path $runDirectory) ('extra-'+$i);$null=New-Item -ItemType Directory $directory;$extra+=$directory};Assert-RefreshHttpReject @{Action='Read';DataRoot=$root} 'HTTP canonical enumerator rejects more than 64 directories'}finally{foreach($directory in $extra){Remove-Item -LiteralPath $directory -Force}}
     Assert-HttpRefresh ((Get-RefreshHashes)-ceq$before) 'Actual HTTP composition writes no registered metadata'
+    $targetFixture=New-RefreshTargetFixture $root $run $connection
+    $beforeTargets=Get-RefreshHashes
+    $pairView=Invoke-RefreshHttp @{Action='Read';DataRoot=$root}
+    $sourceSelection=$pairView.Runs | Where-Object RunId -CEQ $runId
+    $targetSelection=$pairView.Runs | Where-Object RunId -CEQ $targetFixture.RunId
+    $targetRequest=@{Action='Preview';DataRoot=$root;Selection=$sourceSelection;Target=$targetSelection;Mode='STATEFUL_MIGRATION'}
+    $targetPlan=Invoke-RefreshHttp $targetRequest
+    Assert-HttpRefresh ($targetPlan.Status -ceq 'BLOCKED' -and $targetPlan.TargetAssessment.RunId -ceq $targetFixture.RunId -and
+        $targetPlan.TargetAssessment.ObservedContentSha256 -ceq $targetSelection.Digest -and
+        $targetPlan.TargetAssessment.RegisteredState -ceq 'STOPPED' -and $targetPlan.TransferAuthority -ceq 'NONE' -and
+        ($targetPlan | ConvertTo-Json -Depth 12) -cnotmatch 'CANARY_PRIVATE|vmId|vmName') 'Browser projection returns only the explicit bound target metadata'
+    $targetRequest.Target=$sourceSelection
+    Assert-RefreshHttpReject $targetRequest 'Identical source and target are rejected before plan dispatch'
+    $targetRequest.Target=$targetSelection | ConvertTo-Json | ConvertFrom-Json
+    $targetRequest.Target.Digest='0'*64
+    Assert-RefreshHttpReject $targetRequest 'Target digest change is rejected before plan dispatch'
+    $targetRequest.Mode='RECONSTRUCT_LAB'
+    Assert-RefreshHttpReject $targetRequest 'Target field is forbidden outside stateful migration'
+    Assert-HttpRefresh ((Get-RefreshHashes)-ceq$beforeTargets) 'Target preview leaves source and target metadata unchanged'
     # Execute the exact dedicated server branch with only module/response leaves isolated.
     $server=[Management.Automation.Language.Parser]::ParseFile((Join-Path $repo 'Tools/Start-SqlServerLabUi.ps1'),[ref]$tokens,[ref]$parseErrors)
     $routes=@($server.FindAll({param($node)$node-is[Management.Automation.Language.IfStatementAst]-and$node.Clauses[0].Item1.Extent.Text-ceq"`$path -eq '/api/evaluation-refresh-plan'"},$true))
@@ -126,6 +145,20 @@ try {
             $parameters.Remove('StateRoot')
         }
     }
+    $formatter = $server.Find({
+        param($node)
+        $node -is [Management.Automation.Language.IfStatementAst] -and
+        $node.Clauses[0].Item1.Extent.Text -ceq '$JobAction -ceq ''ReadHyperVEvaluationSqlSource'''
+    }, $true)
+    $formatBody = $formatter.Clauses[0].Item2.Extent.Text
+    $result = [pscustomobject]@{ Result=[pscustomobject]@{
+        Status='PARTIALLY_OBSERVED'
+        Items=@([pscustomobject]@{Category='Credentials';Count=[long]1})
+        DependencyFindings=@([pscustomobject]@{Category='Credentials';Count=[long]1;Code='CREDENTIAL_REBIND_REQUIRED';Private='SYNTHETIC_PRIVATE'})
+    }}
+    $lines = & ([scriptblock]::Create($formatBody.Substring(1, $formatBody.Length-2)))
+    Assert-HttpRefresh (($lines -join ' ') -cmatch 'CREDENTIAL_REBIND_REQUIRED' -and
+        ($lines -join ' ') -cnotmatch 'SYNTHETIC_PRIVATE') 'Actual transient job format exposes only the fixed dependency fields'
     Write-Host ('EVALUATION_REFRESH_HTTP_CHECKS: '+$checks+' PASS; 0 FAIL')
 }finally{
     $resolved=[IO.Path]::GetFullPath($root);$expected=[IO.Path]::GetFullPath((Join-Path $repo '.artifacts/evaluation-refresh-browser-fixtures'))

@@ -41,7 +41,7 @@ function Read-LabEvaluationRefreshSnapshot {
 
 function Get-LabEvaluationSqlSourceInventory {
     param([Parameter(Mandatory)]$Snapshot)
-    $unavailable = [pscustomobject]@{ Status='NOT_OBSERVED'; Items=@() }
+    $unavailable = [pscustomobject]@{ Status='NOT_OBSERVED'; Items=@(); DependencyFindings=@() }
     if (-not $IsWindows -or $Snapshot.Binding.Run.state -cne 'RUNNING' -or $Snapshot.Instance.sqlVersion -cne '2025') {
         return $unavailable
     }
@@ -67,7 +67,7 @@ function Get-LabEvaluationSqlSourceInventory {
     }
 
     $categories = @('UserDatabases','NonOnlineUserDatabases','EncryptedUserDatabases','DatabaseSnapshots',
-        'ServerPrincipals','Credentials','LinkedServers','AgentJobs','AgentProxies')
+        'FilestreamFileDatabases','SsisCatalogCandidateDatabases','ServerPrincipals','Credentials','LinkedServers','AgentJobs','AgentProxies')
     $counts = $observed.SourceInventory
     if (-not $counts -or @($counts.PSObject.Properties).Count -ne $categories.Count) {
         return $unavailable
@@ -76,11 +76,31 @@ function Get-LabEvaluationSqlSourceInventory {
         $count = $counts.PSObject.Properties[$category]?.Value
         if ($count -isnot [long] -or $count -lt 0) { return $unavailable }
     }
-    if ($counts.NonOnlineUserDatabases -gt $counts.UserDatabases -or $counts.EncryptedUserDatabases -gt $counts.UserDatabases) { return $unavailable }
+    if ($counts.NonOnlineUserDatabases -gt $counts.UserDatabases -or $counts.EncryptedUserDatabases -gt $counts.UserDatabases -or
+        $counts.FilestreamFileDatabases -gt $counts.UserDatabases -or $counts.SsisCatalogCandidateDatabases -gt [Math]::Min([long]1, $counts.UserDatabases)) {
+        return $unavailable
+    }
     $items = @(foreach ($category in $categories) {
         [pscustomobject]@{ Category=$category; Count=$counts.$category }
     })
-    [pscustomobject]@{ Status='PARTIALLY_OBSERVED'; Items=$items }
+    $dependencyCodes = [ordered]@{
+        NonOnlineUserDatabases='DATABASE_STATE_REVIEW_REQUIRED'
+        EncryptedUserDatabases='TDE_KEY_TRANSFER_REQUIRED'
+        DatabaseSnapshots='DATABASE_SNAPSHOT_DISPOSITION_REQUIRED'
+        FilestreamFileDatabases='FILESTREAM_STORAGE_REVIEW_REQUIRED'
+        SsisCatalogCandidateDatabases='SSIS_CATALOG_REVIEW_REQUIRED'
+        Credentials='CREDENTIAL_REBIND_REQUIRED'
+        LinkedServers='LINKED_SERVER_REBIND_REQUIRED'
+        AgentJobs='SQL_AGENT_JOB_INVENTORY_REQUIRED'
+        AgentProxies='SQL_AGENT_PROXY_REBIND_REQUIRED'
+    }
+    $findings = @(foreach ($entry in $dependencyCodes.GetEnumerator()) {
+        $count = $counts.($entry.Key)
+        if ($count -gt 0) {
+            [pscustomobject]@{ Category=$entry.Key; Count=$count; Code=$entry.Value }
+        }
+    })
+    [pscustomobject]@{ Status='PARTIALLY_OBSERVED'; Items=$items; DependencyFindings=$findings }
 }
 
 function Get-LabEvaluationWindowsLicenseObservation {
@@ -132,8 +152,12 @@ function Get-LabEvaluationWindowsLicenseObservation {
 }
 
 function New-LabEvaluationRefreshPlan {
-    param([string]$RunId,[string]$InstanceId,[string]$DataRoot,[string]$Mode,[switch]$ObserveSqlSource,[switch]$ObserveWindowsLicense,[string]$ExpectedSnapshotDigest)
+    param([string]$RunId,[string]$InstanceId,[string]$DataRoot,[string]$Mode,[switch]$ObserveSqlSource,[switch]$ObserveWindowsLicense,
+        [string]$ExpectedSnapshotDigest,[string]$TargetRunId,[string]$TargetInstanceId,[string]$ExpectedTargetSnapshotDigest)
     if ($ObserveSqlSource -and $Mode -cne 'STATEFUL_MIGRATION') { throw 'EVALUATION_REFRESH_SQL_SOURCE_MODE_INVALID' }
+    $hasTarget = $TargetRunId -or $TargetInstanceId -or $ExpectedTargetSnapshotDigest
+    if ($hasTarget -and ($Mode -cne 'STATEFUL_MIGRATION' -or -not $TargetRunId -or -not $TargetInstanceId -or
+        $RunId -ieq $TargetRunId)) { throw 'EVALUATION_REFRESH_TARGET_SELECTION_INVALID' }
     try {
         $snapshot=Read-LabEvaluationRefreshSnapshot -RunId $RunId -InstanceId $InstanceId -DataRoot $DataRoot
     } catch {
@@ -141,6 +165,26 @@ function New-LabEvaluationRefreshPlan {
         throw 'EVALUATION_REFRESH_BINDING_UNAVAILABLE'
     }
     if ($ExpectedSnapshotDigest -and $snapshot.Digest -cne $ExpectedSnapshotDigest) { throw 'EVALUATION_REFRESH_BINDING_CHANGED' }
+    $targetSnapshot = $null
+    if ($hasTarget) {
+        try { $targetSnapshot = Read-LabEvaluationRefreshSnapshot -RunId $TargetRunId -InstanceId $TargetInstanceId -DataRoot $DataRoot }
+        catch { throw 'EVALUATION_REFRESH_TARGET_UNAVAILABLE' }
+        if ($ExpectedTargetSnapshotDigest -and $targetSnapshot.Digest -cne $ExpectedTargetSnapshotDigest) {
+            throw 'EVALUATION_REFRESH_BINDING_CHANGED'
+        }
+        $sourceVmId = [guid]::Empty
+        $targetVmId = [guid]::Empty
+        if ($targetSnapshot.Binding.StateRoot -cne $snapshot.Binding.StateRoot -or
+            $targetSnapshot.Binding.Run.scopeId -ceq $snapshot.Binding.Run.scopeId -or
+            -not [guid]::TryParseExact([string]$snapshot.Instance.vmId, 'D', [ref]$sourceVmId) -or
+            -not [guid]::TryParseExact([string]$targetSnapshot.Instance.vmId, 'D', [ref]$targetVmId) -or
+            $sourceVmId -eq [guid]::Empty -or $targetVmId -eq [guid]::Empty -or $sourceVmId -eq $targetVmId) {
+            throw 'EVALUATION_REFRESH_TARGET_SELECTION_INVALID'
+        }
+        if ($snapshot.Instance.sqlVersion -cne '2025' -or $targetSnapshot.Instance.sqlVersion -cne '2025') {
+            throw 'EVALUATION_REFRESH_TARGET_SCOPE_UNSUPPORTED'
+        }
+    }
     $now=[datetime]::UtcNow
     $sql=ConvertTo-LabSqlGuestEvaluationWatchItem -ReaderResult $snapshot.Guest -RegistrationState $snapshot.Binding.Run.state `
         -Now $now -WarningDaysRemaining 30 -CriticalDaysRemaining 7
@@ -166,6 +210,11 @@ function New-LabEvaluationRefreshPlan {
     try {$fresh=Read-LabEvaluationRefreshSnapshot -RunId $RunId -InstanceId $InstanceId -DataRoot $DataRoot}
     catch {throw 'EVALUATION_REFRESH_BINDING_CHANGED'}
     if($fresh.Digest-cne$snapshot.Digest){throw 'EVALUATION_REFRESH_BINDING_CHANGED'}
+    if ($targetSnapshot) {
+        try { $freshTarget = Read-LabEvaluationRefreshSnapshot -RunId $TargetRunId -InstanceId $TargetInstanceId -DataRoot $DataRoot }
+        catch { throw 'EVALUATION_REFRESH_BINDING_CHANGED' }
+        if ($freshTarget.Digest -cne $targetSnapshot.Digest) { throw 'EVALUATION_REFRESH_BINDING_CHANGED' }
+    }
     $result = [pscustomobject]@{ContractVersion='SqlServerLab.EvaluationRefreshPlan/1.0';Mode=$Mode;Status='BLOCKED';
         RunId=$RunId;ScopeId=$snapshot.Binding.Run.scopeId;InstanceId=$InstanceId;Provider='hyperv';
         ObservedContentSha256=$snapshot.Digest;Evaluations=@($windows,$sqlProjection);Blockers=@($blockers);NextSteps=@($steps);
@@ -173,5 +222,13 @@ function New-LabEvaluationRefreshPlan {
         ExecutionSupported=$false;MutationAllowed=$false;Actions=@();TransferAuthority='NONE';GeneratedAt=$now.ToString('o')}
     if ($ObserveSqlSource) { $result | Add-Member -NotePropertyName SqlSourceInventory -NotePropertyValue $sourceInventory }
     if ($ObserveWindowsLicense) { $result | Add-Member -NotePropertyName WindowsLicenseObservation -NotePropertyValue $windowsObservation }
+    if ($targetSnapshot) {
+        $result | Add-Member -NotePropertyName TargetAssessment -NotePropertyValue ([pscustomobject]@{
+            Status='METADATA_ONLY'; RunId=$targetSnapshot.Binding.Run.runId; ScopeId=$targetSnapshot.Binding.Run.scopeId
+            InstanceId=$targetSnapshot.Instance.id; RegisteredState=$targetSnapshot.Binding.Run.state
+            ObservedContentSha256=$targetSnapshot.Digest; SqlVersion='2025'
+            Checks=@('TARGET_WINDOWS_LICENSE_NOT_VERIFIED','TARGET_SQL_READINESS_NOT_CHECKED','TARGET_STORAGE_AND_TRANSFER_NOT_VERIFIED')
+        })
+    }
     return $result
 }

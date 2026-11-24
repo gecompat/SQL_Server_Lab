@@ -113,6 +113,10 @@ SELECT
     (SELECT COUNT_BIG(*) FROM sys.databases WHERE database_id > 4 AND source_database_id IS NULL AND state <> 0) AS NonOnlineUserDatabases,
     (SELECT COUNT_BIG(*) FROM sys.databases WHERE database_id > 4 AND source_database_id IS NULL AND is_encrypted = 1) AS EncryptedUserDatabases,
     (SELECT COUNT_BIG(*) FROM sys.databases WHERE source_database_id IS NOT NULL) AS DatabaseSnapshots,
+    (SELECT COUNT_BIG(*) FROM sys.databases AS d WHERE d.database_id > 4 AND d.source_database_id IS NULL
+        AND EXISTS (SELECT 1 FROM sys.master_files AS f WHERE f.database_id = d.database_id AND f.type = 2)) AS FilestreamFileDatabases,
+    (SELECT COUNT_BIG(*) FROM sys.databases WHERE database_id = DB_ID(N'SSISDB') AND database_id > 4
+        AND source_database_id IS NULL) AS SsisCatalogCandidateDatabases,
     (SELECT COUNT_BIG(*) FROM sys.server_principals WHERE type IN ('S','U','G','E','X','C','K')) AS ServerPrincipals,
     (SELECT COUNT_BIG(*) FROM sys.credentials) AS Credentials,
     (SELECT COUNT_BIG(*) FROM sys.servers WHERE is_linked = 1) AS LinkedServers,

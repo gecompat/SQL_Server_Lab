@@ -57,16 +57,33 @@ Die geführte CLI bietet bei **Instanzzustand migrieren** zusätzlich
 **SQL-Quellzähler im laufenden Gast lesen**. Der Schalter `-ObserveSqlSource`
 liest denselben begrenzten Start der Inventur auf einer gebundenen
 SQL-2025-Prepared-Instanz. Er zählt Benutzer-Datenbanken mit Teilmengen für
-Zustand und Verschlüsselung, Snapshots, Serverprinzipale, Credentials,
-Linked Server, Agent-Jobs und Proxies. Werte erscheinen nur aggregiert,
+Zustand und Verschlüsselung, Snapshots, FILESTREAM-Dateityp, den
+SSISDB-Katalogkandidaten, Serverprinzipale, Credentials, Linked Server,
+Agent-Jobs und Proxies. Werte erscheinen nur aggregiert,
 ohne SQL-Objektnamen oder Zugangsdaten. Bei fehlendem Live-Nachweis bleiben
 die Werte unbeobachtet. Im Browser löst dieselbe getrennte Aktion einen
-flüchtigen Leseauftrag mit gebundener Auswahl aus. Vollständige Inventur und
-sämtliche Transferaktionen bleiben offen.
+flüchtigen Leseauftrag mit gebundener Auswahl aus. Positive Zähler erzeugen
+feste Prüfhinweise für Datenbankzustand, TDE-Schlüssel, Snapshots, FILESTREAM-
+Dateityp, mögliche SSISDB, Zugangsdaten, Linked Server, SQL-Agent-Jobs und
+-Proxies. Die SSISDB-Namensübereinstimmung erfordert eine Katalogprüfung.
+Ein Nullwert beschreibt
+die beobachtete Kategorie zum Prüfzeitpunkt. Vollständige Inventur und sämtliche
+Transferaktionen bleiben offen.
 Die [Key18-Abnahme](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45343380820)
-belegt die neun Zähler der Gastprobe für SQL Server 2025 Developer, Build
+belegt die ursprünglichen neun Zähler der Gastprobe für SQL Server 2025 Developer, Build
 `17.0.1000.7`. Der eigene Run wurde bereinigt und die Vorlage blieb
-unverändert.
+unverändert. Die [erweiterte Key18-Abnahme](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45418884558)
+auf e4cdc1ac bestätigte elf typisierte Zähler einschließlich FILESTREAM-Dateityp
+und SSISDB-Namenskandidat auf demselben Prepared-Artifact. Run- und
+Verbindungsmetadaten sowie Vorlage blieben unverändert. Eigener Run, VM und
+Disks wurden vollständig bereinigt. Die Zielvorschau bleibt eine Metadatenprüfung.
+
+Bei **Instanzzustand migrieren** kann ein separates registriertes
+SQL-2025-Hyper-V-Lab als Ziel gewählt werden. Die Metadatenvorschau bindet
+Quelle und Ziel unter demselben `Lab_Data` an getrennte Run-, Scope- und
+VM-Identitäten. Sie verwirft geänderte Bindungen und benennt die noch
+ausstehenden Zielprüfungen für Windows-Lizenz, SQL-Bereitschaft, Speicher
+und Transfer. Der Gesamtplan bleibt `BLOCKED`.
 
 Die getrennte Auswahl **Windows-Lizenz im laufenden Gast lesen**
 (`-ObserveWindowsLicense`) prüft die aktuelle Lizenz derselben gebundenen

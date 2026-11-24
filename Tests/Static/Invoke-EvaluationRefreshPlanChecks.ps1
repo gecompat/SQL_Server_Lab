@@ -8,6 +8,22 @@ function Assert-Refresh($condition,$name){if(-not$condition){throw ('REFRESH_CHE
 function Import-RefreshFunctions($relative){$tokens=$null;$errorsFound=$null;$ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $repo $relative),[ref]$tokens,[ref]$errorsFound);if($errorsFound.Count){throw 'FIXTURE_PARSE_FAILED'};foreach($s in $ast.EndBlock.Statements){if($s-is[Management.Automation.Language.FunctionDefinitionAst]){. ([scriptblock]::Create(($s.Extent.Text-replace'^function ','function script:')))}}}
 function Write-Refresh($path,$value){$null=New-Item -ItemType Directory -Path (Split-Path $path) -Force;$value|ConvertTo-Json -Depth 40|Set-Content -LiteralPath $path -Encoding utf8}
 function Get-RefreshHashes{(@(Get-ChildItem $root -Recurse -File|Sort-Object FullName|ForEach-Object {$_.FullName+':'+(Get-FileHash $_.FullName).Hash})-join'|')}
+function New-RefreshTargetFixture($DataRoot,$SourceRun,$SourceConnection) {
+    $targetRun=$SourceRun | ConvertTo-Json -Depth 40 | ConvertFrom-Json -AsHashtable
+    $targetRun.runId=[guid]::NewGuid().ToString('D')
+    $targetRun.scopeId=[guid]::NewGuid().ToString('D')
+    $targetRun.state='STOPPED'
+    $targetRun.providerSubRuns[0].state='STOPPED'
+    $state=Join-Path $DataRoot 'State'
+    $directory=Join-Path $state ('runs/'+$targetRun.runId)
+    $targetConnection=$SourceConnection | ConvertTo-Json -Depth 20 | ConvertFrom-Json -AsHashtable
+    $targetConnection.instances[0].vmId=[guid]::NewGuid().ToString('D')
+    $connectionFile=Join-Path $directory 'connection-info.json'
+    Write-Refresh (Join-Path $directory 'run-state.json') $targetRun
+    Write-Refresh (Join-Path $state ('scope-markers/'+$targetRun.scopeId+'.json')) @{runId=$targetRun.runId;scopeId=$targetRun.scopeId}
+    Write-Refresh $connectionFile $targetConnection
+    [pscustomobject]@{RunId=$targetRun.runId;ScopeId=$targetRun.scopeId;Connection=$targetConnection;ConnectionFile=$connectionFile}
+}
 try {
     foreach($source in @('Private/DiagnosticBundleReader.ps1','Private/SqlGuestEvaluationEvidence.ps1','Private/EvaluationRefreshPlan.ps1','Private/VersionCatalog.ps1','Private/PathSafety.ps1','Public/Get-SqlServerLabEvaluationRefreshPlan.ps1','Public/Get-SqlServerLabEvaluationWatch.ps1','Public/Invoke-SqlServerLabWorkflowAction.ps1')){Import-RefreshFunctions $source}
     $script:VersionCatalog=Get-Content (Join-Path $repo Catalogs/sql-server-versions.json) -Raw|ConvertFrom-Json
@@ -20,7 +36,7 @@ try {
     $run=@{contractVersion='SqlServerLab.RunState/1.0';runId=$runId;scopeId=$scope;state='RUNNING';instances=@();stateHistory=@();errors=@();providerSubRuns=@(@{provider='hyperv';state='RUNNING';instanceIds=@('primary')});metadata=@{persistentData=$false;workflowKind='hyperv-lab';workload='sql';imageArtifactId='hyperv-sql-prepared-sealed-'+('a'*64);desiredState=@{Contract=@{Name='SqlServerLab.RunDesiredState';Version='1.0'};PersistentData=$false;ProvisioningMode='adhoc';Instances=@(@{Id='primary';Provider='hyperv';Version='2025'})}}}
     $runPath=Join-Path $runDirectory run-state.json;Write-Refresh $runPath $run
     Write-Refresh (Join-Path $stateRoot ('scope-markers/'+$scope+'.json')) @{runId=$runId;scopeId=$scope}
-    $connection=@{schemaVersion=1;instances=@(@{id='primary';provider='hyperv';workload='sql';vmId=[guid]::NewGuid().ToString('D');vmName='CANARY_PRIVATE_VM';host='CANARY_PRIVATE_HOST';imageArtifactId=$run.metadata.imageArtifactId;sqlEdition='Evaluation';sqlReadiness=@{status='SQL_READY_RUN';instanceName='MSSQLSERVER';majorVersion=17;edition='Enterprise Evaluation Edition'};windowsActivation=@{state='EVALUATION_ACTIVE';edition='ServerStandardEval';evaluationExpiresAt=[datetime]::UtcNow.AddDays(3).ToString('o')}})}
+    $connection=@{schemaVersion=1;instances=@(@{id='primary';provider='hyperv';workload='sql';vmId=[guid]::NewGuid().ToString('D');vmName='CANARY_PRIVATE_VM';host='CANARY_PRIVATE_HOST';imageArtifactId=$run.metadata.imageArtifactId;sqlVersion='2025';sqlEdition='Evaluation';sqlReadiness=@{status='SQL_READY_RUN';instanceName='MSSQLSERVER';majorVersion=17;edition='Enterprise Evaluation Edition'};windowsActivation=@{state='EVALUATION_ACTIVE';edition='ServerStandardEval';evaluationExpiresAt=[datetime]::UtcNow.AddDays(3).ToString('o')}})}
     $connectionPath=Join-Path $runDirectory connection-info.json;Write-Refresh $connectionPath $connection
     $argsForPlan=@{RunId=$runId;InstanceId='primary';DataRoot=$root;Mode='STATEFUL_MIGRATION'}
     $before=Get-RefreshHashes
@@ -66,14 +82,48 @@ try {
     $connection.instances[0].id=$savedInstance;Write-Refresh $connectionPath $connection
     $code=$null;try{Get-SqlServerLabEvaluationRefreshPlan @argsForPlan -DependencyInventory @{FullInstanceMigration=$true}|Out-Null}catch{$code=$_.FullyQualifiedErrorId}
     Assert-Refresh ($code-like'NamedParameterNotFound*') 'Unbound caller inventory and asserted equivalence are not accepted inputs'
-    $connection.instances[0].sqlVersion = '2025'
-    Write-Refresh $connectionPath $connection
+    $targetFixture=New-RefreshTargetFixture $root $run $connection
+    $targetArguments=@{}+$argsForPlan
+    $targetArguments.TargetRunId=$targetFixture.RunId
+    $targetArguments.TargetInstanceId='primary'
+    $beforeTarget=Get-RefreshHashes
+    $pair=Get-SqlServerLabEvaluationRefreshPlan @targetArguments
+    Assert-Refresh ($pair.TargetAssessment.Status -ceq 'METADATA_ONLY' -and $pair.TargetAssessment.RunId -ceq $targetFixture.RunId -and
+        $pair.TargetAssessment.ScopeId -ceq $targetFixture.ScopeId -and $pair.TargetAssessment.RegisteredState -ceq 'STOPPED' -and
+        $pair.TargetAssessment.ObservedContentSha256 -cne $pair.ObservedContentSha256 -and $pair.Actions.Count -eq 0 -and
+        $pair.TransferAuthority -ceq 'NONE' -and $pair.Status -ceq 'BLOCKED' -and
+        ($pair | ConvertTo-Json -Depth 12) -cnotmatch 'CANARY_PRIVATE|vmId|vmName') 'Distinct target binds two registered snapshots with no transfer authority'
+    Assert-Refresh ((Get-RefreshHashes) -ceq $beforeTarget) 'Target preview leaves both registered fixtures untouched'
+    Assert-RefreshReject 'A run cannot be its own target' { Get-SqlServerLabEvaluationRefreshPlan @argsForPlan -TargetRunId $runId -TargetInstanceId primary } EVALUATION_REFRESH_TARGET_SELECTION_INVALID
+    Assert-RefreshReject 'A partial target is rejected' { Get-SqlServerLabEvaluationRefreshPlan @argsForPlan -TargetRunId $targetFixture.RunId } EVALUATION_REFRESH_TARGET_SELECTION_INVALID
+    $targetArguments.Mode='RECONSTRUCT_LAB'
+    Assert-RefreshReject 'Target is only supported in stateful migration' { Get-SqlServerLabEvaluationRefreshPlan @targetArguments } EVALUATION_REFRESH_TARGET_SELECTION_INVALID
+    $targetArguments.Mode='STATEFUL_MIGRATION'
+    $targetVm=$targetFixture.Connection.instances[0].vmId
+    $targetFixture.Connection.instances[0].vmId=$connection.instances[0].vmId
+    Write-Refresh $targetFixture.ConnectionFile $targetFixture.Connection
+    Assert-RefreshReject 'A distinct run pointing at the same VM is rejected' { Get-SqlServerLabEvaluationRefreshPlan @targetArguments } EVALUATION_REFRESH_TARGET_SELECTION_INVALID
+    $targetFixture.Connection.instances[0].vmId=$targetVm
+    Write-Refresh $targetFixture.ConnectionFile $targetFixture.Connection
+    $script:targetReads=0
+    function Read-LabEvaluationRefreshSnapshot {
+        param($RunId,$InstanceId,$DataRoot)
+        $result=& $script:realSnapshot @PSBoundParameters
+        if ($RunId -ceq $targetFixture.RunId -and ++$script:targetReads -eq 1) {
+            $targetFixture.Connection.instances[0].vmName='CANARY_PRIVATE_TARGET_DRIFT'
+            Write-Refresh $targetFixture.ConnectionFile $targetFixture.Connection
+        }
+        $result
+    }
+    Assert-RefreshReject 'A target changed after selection invalidates the pair' { Get-SqlServerLabEvaluationRefreshPlan @targetArguments } EVALUATION_REFRESH_BINDING_CHANGED
+    Set-Item Function:Read-LabEvaluationRefreshSnapshot $script:realSnapshot
     $before = Get-RefreshHashes
     $script:observationCalls = 0
     $script:contextReads = 0
     $script:injectInventoryDrift = $false
     $script:guestCounts = [pscustomobject]@{
         UserDatabases=[long]3; NonOnlineUserDatabases=[long]1; EncryptedUserDatabases=[long]0; DatabaseSnapshots=[long]0
+        FilestreamFileDatabases=[long]0; SsisCatalogCandidateDatabases=[long]0
         ServerPrincipals=[long]10; Credentials=[long]0; LinkedServers=[long]1; AgentJobs=[long]3; AgentProxies=[long]0
     }
     function Get-LabSqlGuestCaptureContext {
@@ -145,7 +195,9 @@ try {
         Assert-RefreshReject 'Changed VM binding invalidates the Windows observation' { Get-SqlServerLabEvaluationRefreshPlan @argsForPlan -ObserveWindowsLicense } EVALUATION_REFRESH_BINDING_CHANGED
         $observed = Get-SqlServerLabEvaluationRefreshPlan @argsForPlan -ObserveSqlSource
         Assert-Refresh ($script:observationCalls -eq 1 -and $observed.SqlSourceInventory.Status -ceq 'PARTIALLY_OBSERVED' -and
-            $observed.SqlSourceInventory.Items.Count -eq 9 -and ($observed.SqlSourceInventory.Items | Where-Object Category -CEQ UserDatabases).Count -eq 3 -and
+            $observed.SqlSourceInventory.Items.Count -eq 11 -and ($observed.SqlSourceInventory.Items | Where-Object Category -CEQ UserDatabases).Count -eq 3 -and
+            ($observed.SqlSourceInventory.DependencyFindings.Code -join ',') -ceq
+                'DATABASE_STATE_REVIEW_REQUIRED,LINKED_SERVER_REBIND_REQUIRED,SQL_AGENT_JOB_INVENTORY_REQUIRED' -and
             $observed.Status -ceq 'BLOCKED' -and 'FULL_INSTANCE_INVENTORY_NOT_AVAILABLE' -cin $observed.Blockers -and -not $observed.MutationAllowed -and
             ($observed | ConvertTo-Json -Depth 10) -cnotmatch 'CANARY_PRIVATE|MSSQLSERVER') 'Opt-in reads aggregate SQL counts without raising transfer authority'
         $jobParams = @{ Action='ReadHyperVEvaluationSqlSource'; RunId=$runId; InstanceId='primary'; DataRoot=$root; ExpectedPlanKey=$ordinary.ObservedContentSha256 }
@@ -156,12 +208,41 @@ try {
         } EVALUATION_REFRESH_BINDING_CHANGED
         Assert-Refresh ($script:observationCalls -eq 1) 'Stale interactive request opens no guest connection'
         $job = Invoke-SqlServerLabWorkflowAction @jobParams
-        Assert-Refresh ($script:observationCalls -eq 2 -and $job.Result.Status -ceq 'PARTIALLY_OBSERVED' -and
+        Assert-Refresh ($script:observationCalls -eq 2 -and $job.Result.Status -ceq 'PARTIALLY_OBSERVED' -and $job.Result.DependencyFindings.Count -eq 3 -and
             ($job | ConvertTo-Json -Depth 10) -cnotmatch 'CANARY_PRIVATE|MSSQLSERVER|ScopeId') 'The browser job returns only the aggregate source result'
         $script:guestCounts.AgentJobs = [long]-1
         $invalidInventory = Get-SqlServerLabEvaluationRefreshPlan @argsForPlan -ObserveSqlSource
-        Assert-Refresh ($invalidInventory.SqlSourceInventory.Status -ceq 'NOT_OBSERVED' -and $invalidInventory.SqlSourceInventory.Items.Count -eq 0) 'Invalid guest counters do not become observed zero'
+        Assert-Refresh ($invalidInventory.SqlSourceInventory.Status -ceq 'NOT_OBSERVED' -and $invalidInventory.SqlSourceInventory.Items.Count -eq 0 -and
+            $invalidInventory.SqlSourceInventory.DependencyFindings.Count -eq 0) 'Invalid guest counters do not become observed zero or report a dependency'
         $script:guestCounts.AgentJobs = [long]3
+        foreach ($invalidCount in @(@{Category='FilestreamFileDatabases';Value=[long]4}, @{Category='SsisCatalogCandidateDatabases';Value=[long]2})) {
+            $script:guestCounts.($invalidCount.Category) = $invalidCount.Value
+            $invalidFeature = Get-SqlServerLabEvaluationRefreshPlan @argsForPlan -ObserveSqlSource
+            Assert-Refresh ($invalidFeature.SqlSourceInventory.Status -ceq 'NOT_OBSERVED' -and
+                $invalidFeature.SqlSourceInventory.DependencyFindings.Count -eq 0) ('Out-of-range feature evidence is unavailable: '+$invalidCount.Category)
+            $script:guestCounts.($invalidCount.Category) = [long]0
+        }
+        $script:guestCounts.EncryptedUserDatabases = [long]1
+        $script:guestCounts.DatabaseSnapshots = [long]1
+        $script:guestCounts.FilestreamFileDatabases = [long]2
+        $script:guestCounts.SsisCatalogCandidateDatabases = [long]1
+        $script:guestCounts.Credentials = [long]2
+        $script:guestCounts.AgentProxies = [long]1
+        $blocked = Get-SqlServerLabEvaluationRefreshPlan @argsForPlan -ObserveSqlSource
+        Assert-Refresh ($blocked.SqlSourceInventory.DependencyFindings.Count -eq 9 -and
+            'TDE_KEY_TRANSFER_REQUIRED' -cin $blocked.SqlSourceInventory.DependencyFindings.Code -and
+            'DATABASE_SNAPSHOT_DISPOSITION_REQUIRED' -cin $blocked.SqlSourceInventory.DependencyFindings.Code -and
+            'CREDENTIAL_REBIND_REQUIRED' -cin $blocked.SqlSourceInventory.DependencyFindings.Code -and
+            'SQL_AGENT_PROXY_REBIND_REQUIRED' -cin $blocked.SqlSourceInventory.DependencyFindings.Code -and
+            $blocked.TransferAuthority -ceq 'NONE') 'Observed dependencies get actionable fixed codes without transfer authority'
+        $filestream = $blocked.SqlSourceInventory.DependencyFindings | Where-Object Category -CEQ 'FilestreamFileDatabases'
+        $ssis = $blocked.SqlSourceInventory.DependencyFindings | Where-Object Category -CEQ 'SsisCatalogCandidateDatabases'
+        Assert-Refresh ($filestream.Count -eq 2 -and $filestream.Code -ceq 'FILESTREAM_STORAGE_REVIEW_REQUIRED' -and
+            $ssis.Count -eq 1 -and $ssis.Code -ceq 'SSIS_CATALOG_REVIEW_REQUIRED' -and $blocked.Status -ceq 'BLOCKED') 'Database feature candidates produce bounded review findings'
+        foreach ($property in $script:guestCounts.PSObject.Properties) { $property.Value = [long]0 }
+        $empty = Get-SqlServerLabEvaluationRefreshPlan @argsForPlan -ObserveSqlSource
+        Assert-Refresh ($empty.SqlSourceInventory.Status -ceq 'PARTIALLY_OBSERVED' -and
+            $empty.SqlSourceInventory.DependencyFindings.Count -eq 0 -and $empty.Status -ceq 'BLOCKED') 'Observed zeros produce no dependency findings and retain the blocked plan'
         $script:contextReads = 0
         $script:injectInventoryDrift = $true
         Assert-RefreshReject 'Changed live source binding invalidates the inventory preview' { Get-SqlServerLabEvaluationRefreshPlan @argsForPlan -ObserveSqlSource } EVALUATION_REFRESH_BINDING_CHANGED
