@@ -679,6 +679,7 @@ sources_of_truth:
   validation_runtime_ci_privacy: Tests/Static/Invoke-RuntimeSmokePrivacyChecks.ps1
   media_source_guidance: Private/MediaSourceGuidance.ps1 # fixed six SQL2022/2025 bootstrapper identities; existing Preferences/catalog byte authority
   resource_plan_guidance: Public/Get-SqlServerLabResourcePlan.ps1, Private/ResourcePlanConsole.ps1, Ui/resource-plan.js
+  workflow_catalog_guidance: Public/Get-SqlServerLabCatalog.ps1, Public/Invoke-SqlServerLab.ps1, Private/PublicCommandConsole.ps1, Ui/app.js # fixed confirmed browser export to configured state root, aggregate receipt only
   validation_media_source_guidance: Tests/Static/Invoke-MediaSourceGuidanceChecks.ps1
   container_reconcile_journal_schema: Schemas/container-reconcile-journal.schema.json
   validation_container_reconcile: Tests/Static/Invoke-ContainerReconcileChecks.ps1

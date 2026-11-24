@@ -5,6 +5,16 @@ Verbindungen. Richten Sie zuerst die [Voraussetzungen und den UI-Start](#start)
 ein; wählen Sie anschließend die gewünschte Aufgabe. Die Container-Erstellung
 und die Prüfung eines bereits authentifizierten TLS-Labs sind getrennte Abläufe.
 
+## Lab-Katalog schreiben
+
+Wähle unter **Lab-Umgebungen → Lab-Katalog schreiben** die Bestätigung.
+Der lokale UI-Prozess erstellt oder aktualisiert
+`catalog/sql-server-lab-catalog.json` im konfigurierten Zustandsverzeichnis.
+Unter **Vorgänge** erscheinen der Dateiname und die zusammengefassten
+Zahlen zu Container-Labs, Vorlagen und offenen Builds. Die Datei bleibt
+lokal. Einen anderen Zielpfad kannst du in der CLI unter **Lab-Umgebungen
+→ Datenbanken, Samples und Skripte → Lab-Katalog prüfen** wählen.
+
 ## Verbindungen anzeigen
 
 Unter **Verbindungen und CMS → SSMS-Registrierungen herunterladen** erhältst

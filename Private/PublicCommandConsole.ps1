@@ -176,7 +176,8 @@ function Get-LabPublicCommandWebCatalog {
             ([string]$help.Synopsis).Trim()
         }
         else { '' }
-        $requiresConfirmation = $item.SupportsShouldProcess -or $item.Verb -in @(
+        $catalogExport = $item.Name -ceq 'Get-SqlServerLabCatalog'
+        $requiresConfirmation = $catalogExport -or $item.SupportsShouldProcess -or $item.Verb -in @(
             'Add','Backup','Clear','Complete','Confirm','Disable','Enable','Export','Import','Initialize',
             'Install','Invoke','Move','New','Publish','Register','Remove','Rename','Repair','Restart','Restore',
             'Resume','Save','Set','Start','Stop','Suspend','Sync','Unregister','Update'
@@ -195,21 +196,23 @@ function Get-LabPublicCommandWebCatalog {
                     Name = $set.Name
                     IsDefault = [bool]$set.IsDefault
                     MandatoryNames = @($set.MandatoryNames)
-                    Parameters = @(
-                        Get-LabPublicCommandParameterDescriptor -Command $item.Command -ParameterSet $set.Metadata
-                        Get-LabPublicCommandExecutionDescriptors -CatalogItem $item
-                    ) | ForEach-Object {
-                        [PSCustomObject]@{
-                            Name = $_.Name
-                            TypeName = $_.TypeName
-                            Mandatory = [bool]$_.Mandatory
-                            Position = [int]$_.Position
-                            DefaultExpression = $_.DefaultExpression
-                            AllowedValues = $_.AllowedValues
-                            Sensitive = [bool]$_.Sensitive
-                            IsCredential = [bool]$_.IsCredential
+                    Parameters = @(if (-not $catalogExport) {
+                        @(
+                            Get-LabPublicCommandParameterDescriptor -Command $item.Command -ParameterSet $set.Metadata
+                            Get-LabPublicCommandExecutionDescriptors -CatalogItem $item
+                        ) | ForEach-Object {
+                            [PSCustomObject]@{
+                                Name = $_.Name
+                                TypeName = $_.TypeName
+                                Mandatory = [bool]$_.Mandatory
+                                Position = [int]$_.Position
+                                DefaultExpression = $_.DefaultExpression
+                                AllowedValues = $_.AllowedValues
+                                Sensitive = [bool]$_.Sensitive
+                                IsCredential = [bool]$_.IsCredential
+                            }
                         }
-                    }
+                    })
                 }
             })
         }
@@ -261,6 +264,22 @@ function ConvertTo-LabPublicCommandWebResult {
         [Parameter(Mandatory)][hashtable]$Parameters,
         [AllowNull()][object[]]$Result
     )
+
+    if ($CommandName -ceq 'Get-SqlServerLabCatalog') {
+        if (@($Result).Count -ne 1 -or $Result[0].Catalog.CatalogFormat -cne '1') {
+            throw 'PUBLIC_COMMAND_UI_RESULT_INVALID'
+        }
+        $summary = $Result[0].Catalog.Summary
+        $display = [ordered]@{ Status = 'CATALOG_WRITTEN'; FileName = 'sql-server-lab-catalog.json' }
+        foreach ($name in @('ActiveContainerLabs','WindowsBaselines','SqlPreparedImages','PendingWindowsBuilds','PendingSqlBuilds')) {
+            $property = $summary.PSObject.Properties[$name]
+            if ($null -eq $property -or $property.Value -isnot [int] -or $property.Value -lt 0) {
+                throw 'PUBLIC_COMMAND_UI_RESULT_INVALID'
+            }
+            $display[$name] = $property.Value
+        }
+        return @([pscustomobject]$display)
+    }
 
     $expected = switch -CaseSensitive ($CommandName) {
         'New-SqlServerLabEnvironmentGroup' { 'CREATED'; break }
@@ -354,6 +373,8 @@ function Invoke-LabPublicCommandWebRequest {
     if ($parameterSet.Count -ne 1) { throw 'PUBLIC_COMMAND_UI_PARAMETER_SET_INVALID' }
     $webItem = @(Get-LabPublicCommandWebCatalog | Where-Object Name -ceq $CommandName)[0]
     if ($webItem.RequiresConfirmation -and -not $Confirmed) { throw 'PUBLIC_COMMAND_UI_CONFIRMATION_REQUIRED' }
+    $catalogExport = $CommandName -ceq 'Get-SqlServerLabCatalog'
+    if ($catalogExport -and $Parameters.Count -ne 0) { throw 'PUBLIC_COMMAND_UI_CATALOG_SCOPE_INVALID' }
 
     $descriptors = @(
         Get-LabPublicCommandParameterDescriptor -Command $catalogItem.Command -ParameterSet $parameterSet[0].Metadata
@@ -383,6 +404,10 @@ function Invoke-LabPublicCommandWebRequest {
     # The browser's one-shot confirmation is the user's ShouldProcess decision.
     # Suppress a second interactive PowerShell prompt for that confirmed web call.
     if ($webItem.SupportsShouldProcess -and $Confirmed) { $arguments['Confirm'] = $false }
+    if ($catalogExport) {
+        $arguments.StateRoot = Assert-LabDiagnosticPath -Path (Get-LabStateRoot)
+        $arguments.Path = Assert-LabDiagnosticPath -Path (Join-Path $arguments.StateRoot 'catalog/sql-server-lab-catalog.json')
+    }
     $result = @(& $catalogItem.Command @arguments)
     $displayResult = @(ConvertTo-LabPublicCommandWebResult -CommandName $CommandName -Parameters $Parameters -Result $result)
     [PSCustomObject]@{

@@ -96,6 +96,22 @@ async function waitForActualBoundary(predicate, message) {
 }
 const node = (id) => nodes.get(id);
 const click = (element) => { for (const handler of element.events.get('click') || []) handler({}); };
+check('Geführter Katalogexport verlangt Bestätigung und sendet vor der Bestätigung keine Anforderung', () => {
+  const count = fetchRequests.length;
+  run(`const previousCatalog = publicCommandCatalog;
+      publicCommandCatalog = [{Name:'Get-SqlServerLabCatalog', RequiresConfirmation:true,
+        ParameterSets:[{Name:'__AllParameterSets', Parameters:[]}]}];`);
+  try {
+    click(node('lab-catalog-export'));
+    assert.equal(node('confirmation-dialog').open, true);
+    assert.equal(run('pendingConfirmation.action'), '__PublicCommand');
+    assert.equal(run('JSON.stringify(pendingConfirmation.parameters.parameters)'), '{}');
+    assert.equal(fetchRequests.length, count);
+    run('cancelDialog(document.getElementById("confirmation-dialog"))');
+    assert.equal(run('pendingConfirmation'), null);
+    assert.equal(fetchRequests.length, count);
+  } finally { run('publicCommandCatalog = previousCatalog'); }
+});
 check('Consumed Windows slot shows a separate confirmed SQL install action', () => {
   const target = {
     RunId: 'bb2a2899-87e0-4bd1-bca4-9f7183ef4cbd', Name: 'Windows-Testslot',

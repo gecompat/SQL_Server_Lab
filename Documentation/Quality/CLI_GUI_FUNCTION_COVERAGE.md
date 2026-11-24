@@ -65,6 +65,19 @@ abgeglichen; die Familiengruppierung ist nur eine Lesbarkeitshilfe. Sie ist
 keine Behauptung, dass eine Familie einen gemeinsamen Aufrufer oder denselben
 Nachweis besitzt.
 
+## Geprüfte Operation: Lab-Katalog schreiben
+
+| Operations-ID und Aufgabe | Geführte CLI | Browser-GUI | Öffentlicher Vertrag und Nachweis |
+| --- | --- | --- | --- |
+| `workflow-catalog-export` · Workflow-Inventar lokal als JSON schreiben | Lab-Umgebungen → Datenbanken, Samples und Skripte → Lab-Katalog prüfen → Zielpfad | Lab-Umgebungen → Lab-Katalog schreiben → Bestätigen | `GUIDED_BOTH` über `Get-SqlServerLabCatalog`. Der Browser bindet den konfigurierten State Root und den festen Dateinamen. Er zeigt ausschließlich eine Bestätigung und aggregierte Zähler. Der atomare Schreibvorgang aktualisiert dieselbe lokale Datei. |
+
+`Invoke-ConsoleUiChecks.ps1` prüft die Bindung der Katalogleser an den
+gewählten State Root. `Invoke-PublicCommandConsoleChecks.ps1` und
+`Invoke-WorkflowUiChecks.ps1` prüfen Browser-Bestätigung, abgewiesene
+Pfadparameter und die begrenzte Ergebnisansicht. Diese Prüfungen sind
+synthetisch. Der Export startet keine SQL-Instanz und bescheinigt keine
+Provider-Bereitschaft.
+
 ## Geprüfte Operationen: OVMS und externe Modellendpunkte
 
 | Aufgabe | Geführte Bedienung | Öffentlicher Vertrag und Nachweis |
