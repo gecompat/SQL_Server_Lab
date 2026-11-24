@@ -4650,7 +4650,11 @@ lief die Abnahme bei der SQL-Bereitschaft des PSR-009-Testcontainers in das
 Die genaue Ursache der ausgebliebenen SQL-Bereitschaft blieb offen.
 `Invoke-ActionProgressChecks.ps1` prüft die gemeinsame Frist der SQL- und
 Providerdiagnosen. Ein fehlgeschlagener Logabruf lässt einen bereits gelesenen
-Containerstatus erhalten. Ein nativer Nachweis nach der Korrektur steht aus.
+Containerstatus erhalten. Der gezielte [Docker-Lauf auf Key18](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45476753438/job/138738887286)
+war mit Commit `24bbcaa16c056fd7c7c9e24ae3063702e94280c5` für `lifecycle,package`
+erfolgreich. Die Bereinigung der eigenen Testressourcen bestand ebenfalls.
+Der Lauf deckt diesen Docker-Umfang ab. Die Pflichtprüfungen des Pull Requests
+und die ursprüngliche Ursache des SQL-Bereitschaftsfehlers bleiben separat.
 
 `Invoke-DatabasePackageChecks.ps1` prüft den PSR-009-Core deterministisch mit
 einer synthetischen MDF-/NDF-/LDF-Dateimenge und einem verschachtelten
