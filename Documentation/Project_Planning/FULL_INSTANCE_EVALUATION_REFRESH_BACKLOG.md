@@ -62,6 +62,10 @@ ohne SQL-Objektnamen oder Zugangsdaten. Bei fehlendem Live-Nachweis bleiben
 die Werte unbeobachtet. Im Browser löst dieselbe getrennte Aktion einen
 flüchtigen Leseauftrag mit gebundener Auswahl aus. Vollständige Inventur und
 sämtliche Transferaktionen bleiben offen.
+Die [Key18-Abnahme](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45343380820)
+belegt die neun Zähler der Gastprobe für SQL Server 2025 Developer, Build
+`17.0.1000.7`. Der eigene Run wurde bereinigt und die Vorlage blieb
+unverändert.
 
 Die gemeinsame Watch-Fristklassifikation bleibt unverändert. Bei durch JSON
 typisierten Zeitwerten bewahren beide Watch-Pfade jetzt UTC und Bruchteile der

@@ -5510,10 +5510,14 @@ Capture, Receiptkette, unverändertem Run-/Connection-State und Parent sowie
 vollständigem Cleanup (drei Schritte, keine Fehler, keine VM-/Diskreste).
 Positive Evaluation und echte Deadline bleiben eigene offene Nachweise.
 Die Abnahme erstellt und bereinigt ausschließlich ihren eigenen Run.
-Der aktuelle Harness prüft dort zusätzlich die neun Quellzähler des
-optionalen Migrationsentscheids. Die fokussierte Plan-Suite prüft
-synthetisch die gebundene Auswahl, Drift, Ergebnisgrenzen und den
-unveränderten Default. Der historische Lauf belegt die neuen Abfragen nicht.
+Lauf [45343380820](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45343380820)
+auf `157b1f13` bestätigte die ergänzte Gastprobe für die neun
+Quellzähler. Der Runner las eine eigene laufende SQL-2025-Developer-Instanz
+aus dem Prepared-Build `17.0.1000.7`. Er bestätigte neun nichtnegative
+Zähler, konsistente Datenbankteilmengen, bytegleiche Run-/Connection-Daten,
+einen unveränderten Prepared-Parent und die Abwesenheit eigener VMs und
+Datenträger nach Cleanup. Die fokussierte Plan-Suite prüft gebundene Auswahl,
+Drift, Ergebnisgrenzen und den unveränderten Default mit synthetischen Daten.
 
 ### llama.cpp-Discovery
 
