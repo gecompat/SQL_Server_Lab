@@ -184,6 +184,12 @@ function Get-LabConsoleHelpCatalog {
         }
         'labs-menu' = @{ Title = 'Lab-Umgebungen'; Purpose = 'Vorhandene Fachabläufe auswählen. Nicht implementierte Abläufe sind deaktiviert und begründet.'; Effects = 'Die Bereichsauswahl ändert nichts. Zurück und Esc verlassen den Bereich.'; Command = 'New-SqlServerLab' }
         'testmatrix-menu' = @{ Title = 'Geschützte Testsystem-Matrix'; Purpose = 'Vorhandene Fachabläufe auswählen. Nicht implementierte Abläufe sind deaktiviert und begründet.'; Effects = 'Die Bereichsauswahl ändert nichts. Zurück und Esc verlassen den Bereich.'; Command = 'New-SqlServerLabAutomatedTestEnvironment' }
+        'test-environment-windows-prepared' = @{
+            Title = 'SQL-Prepared-Vorlage für die Testgruppe'
+            Purpose = 'Eine freigegebene Hyper-V-Vorlage anhand von SQL-Version, Build und Kurzkennung auswählen.'
+            Effects = 'Die Auswahl öffnet die Vorschau. Erst die Bestätigung klont die Vorlage und registriert den Windows-Run in der geschützten Gruppe.'
+            Command = 'Invoke-SqlServerLabWorkflowAction -Action CreateWindowsTestGroupMember'
+        }
         'resources-menu' = @{ Title = 'Ressourcen und Downloads'; Purpose = 'Vorhandene Fachabläufe auswählen. Nicht implementierte Abläufe sind deaktiviert und begründet.'; Effects = 'Die Bereichsauswahl ändert nichts. Zurück und Esc verlassen den Bereich.'; Command = 'Get-SqlServerLabResourcePlan' }
         'resource-plan-selection' = @{ Title = 'Lokaler Ressourcenbedarf'; Purpose = 'Die Prüfung auf Beispieldaten, Windows-/Hyper-V-Laufzeitmedien oder beide Arten eingrenzen.'; Effects = 'Die gewählte Prüfung liest die konfigurierten Ordner und zeigt den Beschaffungsbedarf. Sie lädt nichts herunter.'; Command = 'Get-SqlServerLabResourcePlan' }
         'hostmodels-menu' = @{ Title = 'Host-Dienste und Modelle'; Purpose = 'Vorhandene Fachabläufe auswählen, etwa installierte llama.cpp-Pakete prüfen oder eine eigene Sitzung stoppen.'; Effects = 'Die Paketübersicht liest Backend und Build aus lokalen Dateibefunden. Zurück und Esc verlassen den Bereich.'; Command = 'Get-SqlServerLabLlamaCppRuntime' }

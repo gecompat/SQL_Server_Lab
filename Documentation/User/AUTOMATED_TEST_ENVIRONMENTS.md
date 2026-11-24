@@ -94,8 +94,13 @@ Alle Testumgebungen bilden eine gemeinsame, geschützte Lifecycle-Gruppe:
 - Normale Start-, Stopp-, Neustart-, Ressourcen-, Umbenennungs- und
   Löschmenüs zeigen die Runs an, lassen sie dort aber nicht auswählen.
 - Auch `Clear-SqlServerLab` überspringt die geschützte Testgruppe.
-- Hauptmenüpunkt **[x] Alle automatisierten Testumgebungen löschen** entfernt
-  ausschließlich die vollständige Gruppe; einzelne Löschungen sind gesperrt.
+- Unter **Geschützte Testsystem-Matrix → Geschützte Testgruppe entfernen**
+  zeigt die Konsole die gebundenen Mitglieder vor der Bestätigung an. Im
+  Composer führt **Alle Testumgebungen löschen** zur selben Vorschau.
+  Sichere benötigte SQL-Daten vorher. Die Aktion bindet die vollständige
+  Gruppe und ihre Cleanup-Pläne an die Vorschau. Ändert sich die Bindung,
+  zeigt die Aktion ein unbestätigtes Ergebnis. Prüfe dann den Gruppenstatus
+  und lies eine neue Vorschau. Einzelne Löschungen sind gesperrt.
 - Ein konfigurierter CMS folgt demselben Alles-oder-nichts-Vertrag: Solange die
   Gruppe nicht vollständig `READY` ist, wird keine ihrer Umgebungen im CMS
   freigegeben. Sobald alle bereit sind, werden sie gemeinsam unter stabilen Namen
@@ -134,6 +139,18 @@ Als kompatibler Fallback bleibt `SQL_SERVER_LAB_DATA_ROOT` verfügbar; der Vertr
 liegt relativ dazu unter `Exports/TestUmgebung.json`. Eine Laufwerkssuche ist
 nicht zulässig. Bereits laufende Prozesse müssen die Benutzervariablen bei Bedarf
 explizit lesen oder nach der Konfiguration neu gestartet werden.
+
+## Windows-Mitglied aus einer SQL-Prepared-Vorlage anlegen
+
+Starte die Konsole aus einer erhöhten PowerShell und öffne **Geschützte
+Testsystem-Matrix → Geschützte Testgruppe erstellen oder konfigurieren →
+Windows aus SQL-Prepared-Vorlage anlegen**. Wähle eine freigegebene
+Hyper-V-Vorlage anhand von SQL-Version, Build und Kurzkennung aus. Nach der
+Bestätigung klont der Auftrag die Vorlage sofort und meldet getrennt, ob das
+Mitglied registriert und ob die gesamte Gruppe bereit ist. Der Composer bietet
+**Windows hinzufügen** weiterhin für die SQL- und Medienwahl im Sammelauftrag.
+Der Browser verwendet dieselbe gebundene Vorlagenauswahl.
+[Browser-Anleitung](../HowTo/WORKFLOW_UI.md#windows-hinzufügen-testgruppe-reparieren-oder-entfernen)
 
 ## Auswahlvertrag für KI und Werkzeuge
 

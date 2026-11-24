@@ -214,6 +214,9 @@ try {
         Check-Group (-not $separateRepair.CanApply -and -not $separateRepair.Members.Count -and -not (Test-Path -LiteralPath $separateExports)) 'Isolated repair preview fell back to the default group or created exports'
         Reject-Group { Invoke-LabTestGroupManagementPlan -Operation Repair -ExpectedPlanKey $repair.PlanKey -OutputDirectory $separateExports }
         Check-Group (-not (Get-LabTestGroupManagementPlan -Operation Remove).CanApply) 'Remove without cleanup plans was admitted'
+        function Read-LabConfirm { throw 'Blocked removal must not ask for confirmation' }
+        $cli = Invoke-LabActionWithResult -ActionName ClearAutomatedTestEnvironment
+        Check-Group ($cli.Status -ceq 'NoChange' -and -not $script:groupMaintenanceCalls.Count) 'Blocked CLI removal reached the actuator or asked for confirmation'
         foreach ($provider in @('docker','podman')) {
             $id = $script:groupRuns[$provider]
             $cleanupPath = Join-Path (Get-LabStateRoot) "runs/$id/cleanup-plan.json"
@@ -236,6 +239,23 @@ try {
         function Read-LabConfirm { param($Prompt,$Default) return $true }
         $cli = Invoke-LabActionWithResult -ActionName RepairAutomatedTestEnvironment 6>$null
         Check-Group ($cli.Status -ceq 'Changed' -and ($script:groupMaintenanceCalls -join ',') -ceq 'Remove,Repair,Repair') 'Repair CLI did not apply the preview after explicit confirmation'
+        function Read-LabConfirm { param($Prompt,$Default) return $false }
+        $cli = Invoke-LabActionWithResult -ActionName ClearAutomatedTestEnvironment
+        Check-Group ($cli.Status -ceq 'Cancelled' -and $script:groupMaintenanceCalls.Count -eq 3) 'CLI removal cancellation reached the actuator'
+        function Read-LabConfirm {
+            param($Prompt,$Default)
+            Add-Content -LiteralPath (Join-Path (Get-LabStateRoot) "runs/$($script:groupRuns.podman)/cleanup-plan.json") ' '
+            return $true
+        }
+        $script:groupReportedError = ''
+        function Write-LabError { param($Message) $script:groupReportedError = $Message }
+        $cli = Invoke-LabActionWithResult -ActionName ClearAutomatedTestEnvironment 6>$null
+        Check-Group ($cli.Status -ceq 'Failed' -and $cli.ErrorCode -ceq 'TEST_GROUP_MANAGEMENT_UNCONFIRMED' -and
+            $script:groupReportedError -like 'Entfernen unbestätigt.*' -and $script:groupMaintenanceCalls.Count -eq 3) 'CLI removal applied a cleanup plan changed after preview'
+        function Write-LabError { param($Message) throw $Message }
+        function Read-LabConfirm { param($Prompt,$Default) return $true }
+        $cli = Invoke-LabActionWithResult -ActionName ClearAutomatedTestEnvironment 6>$null
+        Check-Group ($cli.Status -ceq 'Changed' -and $cli.ConnectionCenterImpact -ceq 'None' -and ($script:groupMaintenanceCalls -join ',') -ceq 'Remove,Repair,Repair,Remove') 'CLI removal did not use the confirmed plan or requested a second synchronization'
         $script:groupVm = [pscustomobject]@{ Id=[guid]::NewGuid().ToString(); Name='synthetic-group-vm'; State='Off'; Notes=($script:HyperVLabNotesPrefix + (@{provider='hyperv';runId=$script:groupRuns.docker;scopeId=$script:groupScope;instanceId='primary'} | ConvertTo-Json -Compress)) }
         function Get-VM { param($Name,$ErrorAction) $script:groupVm }
         function Start-VM { param($VM,$ErrorAction) $VM.State='Running' }
@@ -390,12 +410,43 @@ try {
         $script:groupWindowsElevated = $true
         Reject-Group { Invoke-LabTestGroupManagementPlan -Operation CreateWindows -ArtifactId $script:groupWindowsId -ExpectedPlanKey ('b'*64) }
         Check-Group (-not $script:groupWindowsCalls.Count) 'Windows preview or stale submission invoked a provider'
+        function Select-LabConsoleDataItem {
+            param($ScreenId,$Title,$Items)
+            Check-Group ($ScreenId -ceq 'test-environment-windows-prepared' -and $Items.Count -eq 1 -and
+                $Items[0].Label -like '*2025*17.0.1000.7*') 'Windows CLI did not offer the eligible prepared image'
+            $Items[0].Data
+        }
+        function Read-LabConfirm { throw 'Non-elevated prepared Windows CLI must not ask for confirmation' }
+        $script:groupWindowsElevated = $false
+        Invoke-LabCreatePreparedWindowsTestEnvironmentInteractive
+        $script:groupWindowsElevated = $true
+        function Read-LabConfirm { param($Prompt,$Default) return $false }
+        Invoke-LabCreatePreparedWindowsTestEnvironmentInteractive
+        Check-Group (-not $script:groupWindowsCalls.Count) 'Windows CLI created a clone without elevation and confirmation'
+        $beforeWindows = Get-LabTestEnvironmentRegistry
         $created = Invoke-SqlServerLabWorkflowAction -Action CreateWindowsTestGroupMember -ArtifactId $script:groupWindowsId -ExpectedPlanKey $windows.PlanKey 6>$null
         Check-Group ($created.Result.Status -ceq 'REGISTERED' -and -not $created.Result.GroupReady -and
             ($script:groupWindowsCalls -join ',') -ceq 'Clone,Intent,Provision' -and
             @((Get-LabTestEnvironmentRegistry).environments | Where-Object runId -ceq $script:groupWindowsRun).Count -eq 1 -and
             ($created | ConvertTo-Json -Depth 5) -cnotmatch 'synthetic-private-windows') 'Windows adapter did not register and provision exactly the selected clone'
         Reject-Group { Invoke-LabTestGroupManagementPlan -Operation CreateWindows -ArtifactId $script:groupWindowsId -ExpectedPlanKey $windows.PlanKey }
+        Write-LabArtifactJsonAtomic -Path $registryPath -InputObject $beforeWindows
+        $script:groupWindowsRun = [guid]::NewGuid().ToString('D')
+        $script:groupWindowsCalls = @()
+        $script:groupComposerOpened = $false
+        function Get-LabAutomatedTestEnvironmentStatus { [pscustomobject]@{GroupStatus='EMPTY';Total=0;Ready=0} }
+        function Show-LabSubMenu {
+            param($ScreenId,$Title,$Subtitle,$Items)
+            Check-Group ($ScreenId -ceq 'automated-test-environment-compose' -and
+                @($Items | Where-Object { $_.Id -ceq 'p' -and -not $_.Disabled }).Count -eq 1) 'Prepared Windows choice missing from the composer'
+            if ($script:groupComposerOpened) { return '0' }
+            $script:groupComposerOpened = $true
+            return 'p'
+        }
+        function Read-LabConfirm { param($Prompt,$Default) return $true }
+        $null = Invoke-LabAction -ActionName AutomatedTestEnvironment
+        Check-Group (($script:groupWindowsCalls -join ',') -ceq 'Clone,Intent,Provision' -and
+            @((Get-LabTestEnvironmentRegistry).environments | Where-Object runId -ceq $script:groupWindowsRun).Count -eq 1) 'Confirmed Windows CLI did not register and provision its selected image exactly once'
         $script:groupExportCalls = 0
         function Export-SqlServerLabTestEnvironment {
             [CmdletBinding()]

@@ -2857,23 +2857,63 @@ function Invoke-LabClearAutomatedTestEnvironmentInteractive {
     [CmdletBinding()]
     param()
 
-    try { $registry = Get-LabTestEnvironmentRegistry }
-    catch { Write-LabError $_.Exception.Message; return }
-    $entries = @($registry.environments)
-    if ($entries.Count -eq 0) { Write-LabInfo 'Keine automatisierten Testumgebungen registriert.'; return }
-    Write-Host ''
-    Write-Host '  Folgende geschützte Testumgebungen werden gemeinsam gelöscht:' -ForegroundColor Yellow
-    foreach ($entry in $entries) {
-        $runLabel = if ($entry.runId) { ([string]$entry.runId).Substring(0, [Math]::Min(8, ([string]$entry.runId).Length)) } else { 'noch nicht erstellt' }
-        Write-Host "    $($entry.key) · $($entry.platform) · SQL $($entry.sqlVersion) · $($entry.patch) · $runLabel" -ForegroundColor White
+    $action = 'ClearAutomatedTestEnvironment'
+    try {
+        $plan = Get-LabTestGroupManagementPlan -Operation Remove
+        foreach ($member in $plan.Members) {
+            $binding = if ($member.Verified) { $member.Power } else { 'Bindung unklar' }
+            Write-LabInfo "$($member.Key) · $($member.Target) · $binding"
+        }
+        if (-not $plan.CanApply) {
+            Write-LabInfo 'Entfernen gesperrt. Prüfe die Registrierung und die Ressourcenbindungen in der Testsystem-Matrix.'
+            return New-LabActionResult -Action $action -Status NoChange
+        }
+        Write-LabWarning 'Die angezeigten Mitglieder, ihre Ressourcen und die Gruppenexporte werden dauerhaft entfernt. Sichere benötigte SQL-Daten vor der Bestätigung.'
+        if (-not (Read-LabConfirm -Prompt 'Angezeigte Testgruppe vollständig entfernen?' -Default $false)) {
+            return New-LabActionResult -Action $action -Status Cancelled
+        }
+        $result = Invoke-LabTestGroupManagementPlan -Operation Remove -ExpectedPlanKey $plan.PlanKey
+        Write-LabSuccess "Testgruppe entfernt ($($result.Count) Mitglieder)."
+        return New-LabActionResult -Action $action -Status Changed
     }
-    if (-not (Read-LabConfirm -Prompt '  Wirklich ALLE automatisierten Testumgebungen löschen?' -Default $false)) { return }
-    $result = Clear-SqlServerLabAutomatedTestEnvironment -Force -Confirm:$false
-    if ([string]$result.Status -eq 'REMOVED') {
-        Write-LabSuccess "Alle automatisierten Testumgebungen wurden gelöscht ($($result.Removed))."
+    catch {
+        Write-LabError 'Entfernen unbestätigt. Prüfe den Gruppenstatus und lies vor einer weiteren Aktion eine neue Vorschau.'
+        return New-LabActionResult -Action $action -Status Failed -ErrorCode TEST_GROUP_MANAGEMENT_UNCONFIRMED
     }
-    else {
-        Write-LabError "Gruppenlöschung unvollständig: $($result.Remaining) verblieben, $($result.Errors) Fehler."
+}
+
+function Invoke-LabCreatePreparedWindowsTestEnvironmentInteractive {
+    [CmdletBinding()]
+    param()
+
+    try {
+        $catalog = Get-LabTestGroupManagementPlan -Operation CreateWindows
+        if (-not $catalog.Artifacts.Count) {
+            Write-LabInfo 'Keine freigegebene SQL-Prepared-Vorlage verfügbar. Prüfe Hyper-V und den Vorlagenbestand unter Hyper-V: Vorlagen und Slots.'
+            return
+        }
+        $items = foreach ($image in $catalog.Artifacts) {
+            New-LabConsoleItem -Id $image.ArtifactId -Label "SQL Server $($image.SqlVersion) · $($image.Build)" `
+                -Value "Vorlage $($image.ArtifactId.Substring($image.ArtifactId.Length - 8))" -Data $image.ArtifactId
+        }
+        $artifactId = Select-LabConsoleDataItem -ScreenId 'test-environment-windows-prepared' `
+            -Title 'SQL-Prepared-Vorlage für die Testgruppe wählen' -Items @($items)
+        if (-not $artifactId) { return }
+
+        $plan = Get-LabTestGroupManagementPlan -Operation CreateWindows -ArtifactId $artifactId
+        if (-not $plan.CanApply) {
+            Write-LabInfo 'Die Anlage einer Windows-Testumgebung aus einer Vorlage benötigt eine erhöhte PowerShell.'
+            return
+        }
+        Write-LabInfo "$($plan.Key) · SQL Server $($plan.SqlVersion) · $($plan.Build)"
+        Write-LabInfo 'Der Auftrag klont die Vorlage und richtet das Windows-Mitglied ein. Die Aktivierung kann vorübergehend einen externen Netzwerkadapter verwenden.'
+        if (-not (Read-LabConfirm -Prompt 'Angezeigte Windows-Testumgebung jetzt anlegen?' -Default $false)) { return }
+        $result = Invoke-LabTestGroupManagementPlan -Operation CreateWindows -ArtifactId $artifactId -ExpectedPlanKey $plan.PlanKey
+        if ($result.GroupReady) { Write-LabSuccess "Mitglied $($result.Key) registriert. Die Testgruppe ist bereit." }
+        else { Write-LabInfo "Mitglied $($result.Key) registriert. Die Testgruppe ist noch nicht vollständig bereit." }
+    }
+    catch {
+        Write-LabError 'Windows-Anlage unbestätigt. Prüfe die Testsystem-Matrix und die ausgewählte Vorlage vor einer weiteren Aktion.'
     }
 }
 
@@ -2910,6 +2950,7 @@ function Invoke-LabAutomatedTestEnvironmentInteractive {
             -Subtitle "$($queue.Count) neue Umgebung(en) vorgemerkt" -Items @(
                 New-LabConsoleItem -Id 'l' -Label 'Linux hinzufügen' -Shortcut 'l'
                 New-LabConsoleItem -Id 'w' -Label 'Windows hinzufügen' -Shortcut 'w'
+                New-LabConsoleItem -Id 'p' -Label 'Windows aus SQL-Prepared-Vorlage anlegen' -Shortcut 'p'
                 New-LabConsoleItem -Id 'd' -Label 'Letzten Eintrag entfernen' -Shortcut 'd' -Disabled:($queue.Count -eq 0) -DisabledReason 'Der Auftrag enthält noch keinen neuen Eintrag.'
                 New-LabConsoleItem -Id 'a' -Label 'Alle vorgemerkten Umgebungen erstellen' -Shortcut 'a' -Disabled:($queue.Count -eq 0) -DisabledReason 'Der Auftrag enthält noch keine vorgemerkte Umgebung.'
                 New-LabConsoleItem -Id 'r' -Label 'Export aktualisieren' -Shortcut 'r'
@@ -2924,7 +2965,11 @@ function Invoke-LabAutomatedTestEnvironmentInteractive {
             continue
         }
         if ($choice -eq 'x') {
-            Invoke-LabClearAutomatedTestEnvironmentInteractive
+            $null = Invoke-LabClearAutomatedTestEnvironmentInteractive
+            continue
+        }
+        if ($choice -eq 'p') {
+            Invoke-LabCreatePreparedWindowsTestEnvironmentInteractive
             continue
         }
         if ($choice -in @('l','w')) {
