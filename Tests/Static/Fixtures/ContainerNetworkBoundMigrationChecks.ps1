@@ -8,6 +8,9 @@ try {
         param([string]$Root)
 
         $script:migrationMember = 'c' * 64
+        $script:migrationRun = '11111111-1111-1111-1111-111111111111'
+        $script:migrationScope = 'synthetic-scope'
+        $script:migrationInstance = 'synthetic-instance'
         $script:migrationOldNetwork = 'a' * 64
         $script:migrationTemporaryNetwork = 'b' * 64
         $script:migrationNewNetwork = 'd' * 64
@@ -15,6 +18,7 @@ try {
         $script:migrationNetworks = @{}
         $script:migrationFailDisconnect = $false
         $script:migrationRejectAlias = $false
+        $script:migrationDriftedIdentity = ''
         function Get-LabHostToolInvocation { 'synthetic-network-runtime' }
         function Resolve-LabTemporaryContainerNetwork {
             param($Provider,$Name,$DesiredNetwork)
@@ -23,8 +27,11 @@ try {
         function Get-LabManagedContainersOnNetwork {
             param($Provider,$NetworkName,$StateRoot)
             if ($NetworkName -cne 'LabNetwork') { throw 'UNEXPECTED_NETWORK_READ' }
-            [pscustomobject]@{Id=$script:migrationMember;WasRunning=$true
+            $member = [pscustomobject]@{Id=$script:migrationMember;WasRunning=$true
+                RunId=$script:migrationRun;ScopeId=$script:migrationScope;InstanceId=$script:migrationInstance
                 Aliases=@(if (-not $script:migrationRejectAlias) { 'lab-alias' })}
+            if ($script:migrationDriftedIdentity) { $member.($script:migrationDriftedIdentity) = 'different-identity' }
+            $member
         }
         function Invoke-LabRunArtifactPinnedProcess {
             param($Context,$Arguments,$Invocation,$TimeoutSeconds)
@@ -83,12 +90,15 @@ try {
             ConfiguredSubnet='172.26.0.0/16'
             Actual=[pscustomobject]@{Name='LabNetwork';Subnet='172.26.0.0/16';Id=$script:migrationOldNetwork}
             Desired=[pscustomobject]@{Name='LabNetwork';Subnet='198.18.0.0/24'}
-            ManagedContainers=@([pscustomobject]@{Id=$script:migrationMember;RunId='11111111-1111-1111-1111-111111111111'
+            ManagedContainers=@([pscustomobject]@{Id=$script:migrationMember;RunId=$script:migrationRun
                 Name='synthetic-member';WasRunning=$true;Aliases=@('lab-alias')})
         }
+        $members = @($plan.ManagedContainers | Select-Object *,ScopeId,InstanceId)
+        $members[0].ScopeId = $script:migrationScope
+        $members[0].InstanceId = $script:migrationInstance
         $successfulRoot = Join-Path $Root 'success'
         $route.StateRoot=$successfulRoot
-        $result = Invoke-LabBoundContainerNetworkMigration -Route $route -Plan $plan
+        $result = Invoke-LabBoundContainerNetworkMigration -Route $route -Plan $plan -Members $members
         $journal = Read-LabWorkflowJson -Path (Get-LabContainerNetworkMigrationJournalPath -Provider docker -StateRoot $successfulRoot)
         $aliasStep = @($script:migrationNativeSteps | Where-Object { $_ -ceq ('network connect --alias lab-alias '+$script:migrationNewNetwork+' '+$script:migrationMember) })
         $temporaryStep = @($script:migrationNativeSteps | Where-Object { $_ -clike 'network create --driver bridge --subnet 198.18.1.0/24 *-migration-*' })
@@ -96,6 +106,13 @@ try {
             $journal.TemporaryNetwork.Id -cne $script:migrationTemporaryNetwork -or $journal.TemporaryNetwork.Subnet -cne '198.18.1.0/24' -or
             $journal.TemporaryNetwork.Subnet -ceq $journal.NewNetwork.Subnet -or $temporaryStep.Count -ne 1 -or $aliasStep.Count -ne 1) {
             throw 'BOUND_MIGRATION_SYNTHETIC_POSTCONDITION'
+        }
+        if ($journal.Containers[0].RunId -cne $script:migrationRun -or
+            $journal.Containers[0].ScopeId -cne $script:migrationScope -or
+            $journal.Containers[0].InstanceId -cne $script:migrationInstance -or
+            $result.Plan.ManagedContainers[0].PSObject.Properties['ScopeId'] -or
+            $result.Plan.ManagedContainers[0].PSObject.Properties['InstanceId']) {
+            throw 'BOUND_MIGRATION_MEMBER_JOURNAL_PROJECTION_INVALID'
         }
         $configured = [pscustomobject]@{Name='LabNetwork';Subnet='172.26.0.0/16';PrefixLength=16;HostAddress='172.26.0.1'}
         $record = $script:migrationNetworks.LabNetwork | ConvertTo-Json -Depth 6 | ConvertFrom-Json
@@ -115,7 +132,7 @@ try {
         $script:migrationFailDisconnect = $true
         $failedRoot = Join-Path $Root 'failed'
         $route.StateRoot=$failedRoot
-        $failure = try { Invoke-LabBoundContainerNetworkMigration -Route $route -Plan $plan | Out-Null; '' }
+        $failure = try { Invoke-LabBoundContainerNetworkMigration -Route $route -Plan $plan -Members $members | Out-Null; '' }
             catch { $_.Exception.Message }
         $failedPath = Get-LabContainerNetworkMigrationJournalPath -Provider docker -StateRoot $failedRoot
         $failed = Read-LabWorkflowJson -Path $failedPath
@@ -164,13 +181,26 @@ try {
         $script:migrationRejectAlias = $true
         $aliasRoot = Join-Path $Root 'alias'
         $route.StateRoot=$aliasRoot
-        $failure = try { Invoke-LabBoundContainerNetworkMigration -Route $route -Plan $plan | Out-Null; '' }
+        $failure = try { Invoke-LabBoundContainerNetworkMigration -Route $route -Plan $plan -Members $members | Out-Null; '' }
             catch { $_.Exception.Message }
         $aliasJournal = Read-LabWorkflowJson -Path (Get-LabContainerNetworkMigrationJournalPath -Provider docker -StateRoot $aliasRoot)
         if ($failure -cne 'LAB_NETWORK_MIGRATION_POSTCONDITION_UNCONFIRMED' -or $aliasJournal.Status -cne 'RECOVERY_REQUIRED') {
             throw 'BOUND_MIGRATION_FALSE_SUCCESS'
         }
-        Write-Host 'PASS: Netz-Effekte verwenden gebundene IDs. Teilfehler sperren weitere Ausführung und fehlende Aliasse verhindern Erfolg.'
+        $script:migrationRejectAlias = $false
+        foreach ($identity in @('RunId','ScopeId','InstanceId')) {
+            $script:migrationDriftedIdentity = $identity
+            $route.StateRoot = Join-Path $Root "drift-$identity"
+            $failure = try { Invoke-LabBoundContainerNetworkMigration -Route $route -Plan $plan -Members $members | Out-Null; '' }
+                catch { $_.Exception.Message }
+            $journalPath = Get-LabContainerNetworkMigrationJournalPath -Provider docker -StateRoot $route.StateRoot
+            $driftJournal = Read-LabWorkflowJson -Path $journalPath
+            if ($failure -cne 'LAB_NETWORK_MIGRATION_POSTCONDITION_UNCONFIRMED' -or
+                $driftJournal.Status -cne 'RECOVERY_REQUIRED' -or $driftJournal.Containers[0].$identity -cne $members[0].$identity) {
+                throw 'BOUND_MIGRATION_IDENTITY_DRIFT_ACCEPTED'
+            }
+        }
+        Write-Host 'PASS: Netz-Effekte verwenden gebundene IDs. Teilfehler sperren weitere Ausführung. Abweichende Identitäten und fehlende Aliasse verhindern Erfolg.'
     } $owned.Path
 }
 finally { Remove-TestTemporaryDirectory -OwnedDirectory $owned }

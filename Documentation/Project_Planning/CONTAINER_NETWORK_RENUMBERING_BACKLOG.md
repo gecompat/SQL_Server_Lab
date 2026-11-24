@@ -2,8 +2,8 @@
 
 | Merkmal | Wert |
 |---|---|
-| Status | `BACKLOG_CANDIDATES` |
-| Stand | 2026-09-07 |
+| Status | `IN_PROGRESS` · geführte Migration integriert, Recovery-Ausführung offen |
+| Stand | 2026-11-22 |
 | Zweck | sichere, explizit ausgeloeste Renummerierung vollstaendig verwalteter Docker- und Podman-Labnetze |
 | Autoritaet | Planung und Priorisierung; keine Runtime-, Netzwerk-, Container- oder State-Mutationsautoritaet |
 
@@ -14,10 +14,36 @@ IPv4-Hostrouten und vorhandene Runtime-Netze. Die lokale Reservierung
 `SQL_SERVER_LAB_RESERVED_SUBNETS` ergaenzt diese Pruefung um bekannte VPN-
 Praefixe, die bei getrennter VPN-Verbindung nicht live sichtbar sind.
 
-Ein bestehendes Docker- oder Podman-Netz kann sein Subnetz nicht live aendern.
-Erst ein neues Netz und ein kontrolliertes Recreate der gebundenen Container
-ermoeglichen eine Renummerierung. Ein neu erkannter Konflikt darf daher weder
-das bestehende Netz noch gebundene SQL-Instanzen stillschweigend veraendern.
+Ein bestehendes Docker- oder Podman-Netz kann sein Subnetz nicht live ändern.
+Der integrierte Ablauf ersetzt das verwaltete Netz. Die gebundenen Container
+werden dafür über ein getrenntes Übergangsnetz geführt und mit ihren
+bestehenden IDs wieder angeschlossen. Ein Konflikt erzeugt zunächst eine
+Vorschau für den Betreiber.
+
+## Umsetzungsstand
+
+CLI und Browser bieten die gebundene Vorschau mit optionalem IPv4-Zielsubnetz
+und eine eigene Bestätigung für `Move-SqlServerLabContainerNetwork`. Der lokale
+Executor prüft Netz, Registry, Mitgliedschaften und Provider-Endpunkt erneut.
+Bei einer unterbrochenen Migration sperrt das Journal eine weitere Ausführung.
+Die Vorschau zeigt die letzte gespeicherte Phase sowie den bekannten Fehlercode.
+[Bedienablauf](../HowTo/LAB_NETWORKS.md)
+
+Der Stand `27a67f4f` wurde am 22.11.2026 je einmal mit einer eigenen
+SQL-2025-CU9-Instanz unter Docker und Podman ausgeführt. Beide Netzwechsel
+erhielten die synthetischen SQL-Daten. Podman bestand den automatischen
+Cleanup. Docker benötigte nach Abbruch der Cleanup-Bestätigung eine gezielte
+Bereinigung desselben Runs und Netzes. CLI- und Browser-Dispatch sind separat
+synthetisch geprüft. [Abnahmedetails](../Quality/CLI_GUI_FUNCTION_COVERAGE.md)
+
+Neue Migrationsjournale binden jeden Container an seine Run-, Scope- und
+Instanz-ID. Die Schlussprüfung verlangt dieselbe Bindung nach dem Umhängen.
+Die öffentliche Vorschau behält ihre bisherige Mitgliedsprojektion. Die
+Recovery benötigt zusätzlich einen validierten Journalvertrag und frische
+Prüfungen für Provider-Endpunkt, Netze und gebundene Mitglieder. Die bisherige
+Phase bleibt ein Diagnosebefund. Alte Journale bleiben für die Diagnose
+lesbar. Synthetische Fehlerfälle und getrennte native Docker- und
+Podman-Nachweise sind für die Recovery-Abnahme erforderlich.
 
 ## Ziel und Grenzen
 
@@ -111,7 +137,7 @@ bestehende Podman-3.4.4-CNI-Kompatibilitaetskorrektur bleibt eng auf ihren
 bekannten Vertrag beschraenkt; unbekannte CNI- oder Netavark-Dateien duerfen
 nicht durch die Migration veraendert werden.
 
-## Umsetzungsreihenfolge
+## Ursprüngliche Umsetzungsreihenfolge
 
 1. Netz- und Konfliktinventar in `Private/LabNetwork.ps1` erweitern und einen
    rein lesenden Plan einschliesslich eindeutiger Workflowprojektion erzeugen.
