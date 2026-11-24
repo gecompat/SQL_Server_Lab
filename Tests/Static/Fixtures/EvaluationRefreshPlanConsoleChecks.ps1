@@ -40,7 +40,8 @@ try {
     function Write-LabWarning {param($Message);$script:messages.Add([string]$Message)}
     function Wait-LabConsoleAcknowledgement {}
     $script:actualPlan=${function:Get-SqlServerLabEvaluationRefreshPlan}
-    function Get-SqlServerLabEvaluationRefreshPlan {param($RunId,$InstanceId,$DataRoot,$Mode);$script:planCalls++;$script:lastPlan=& $script:actualPlan @PSBoundParameters;return $script:lastPlan}
+    function Get-SqlServerLabEvaluationRefreshPlan {param($RunId,$InstanceId,$DataRoot,$Mode,[switch]$ObserveSqlSource);$script:planCalls++;$script:lastPlan=& $script:actualPlan @PSBoundParameters;return $script:lastPlan}
+    function Get-LabEvaluationSqlSourceInventory {param($Snapshot);[pscustomobject]@{Status='PARTIALLY_OBSERVED';Items=@([pscustomobject]@{Category='UserDatabases';Count=[long]1})}}
     function Reset-ConsoleRefresh([string[]]$Answers){$script:rootStatus='Confirmed';$script:answers=[Collections.Generic.Queue[string]]::new();foreach($a in $Answers){$script:answers.Enqueue($a)};$script:messages=[Collections.Generic.List[string]]::new();$script:seenScreens=[Collections.Generic.List[string]]::new();$script:planCalls=0;$script:lastPlan=$null;$script:beforeMenu=$null}
     $before=Get-RefreshHashes
     foreach($mode in @('FREE_SLOT_REPLACEMENT','RECONSTRUCT_LAB','STATEFUL_MIGRATION')){
@@ -68,6 +69,10 @@ try {
     Reset-ConsoleRefresh @();Invoke-LabEvaluationRefreshPlanInteractive;Assert-ConsoleRefresh ($planCalls-eq0) 'Multiple intended instances are not selected'
     $run.metadata.desiredState.Instances=@($run.metadata.desiredState.Instances[0]);Write-Refresh $runPath $run
     Reset-ConsoleRefresh @('RUN','STATEFUL_MIGRATION','unexpected');Invoke-LabEvaluationRefreshPlanInteractive;Assert-ConsoleRefresh ($planCalls-eq0) 'Invalid preview action cannot dispatch'
+    Reset-ConsoleRefresh @('RUN','STATEFUL_MIGRATION','observe');Invoke-LabEvaluationRefreshPlanInteractive
+    Assert-ConsoleRefresh ($planCalls -eq 1 -and $lastPlan.SqlSourceInventory.Status -ceq 'PARTIALLY_OBSERVED') 'The explicit guided source observation calls the inventory lane'
+    Reset-ConsoleRefresh @('RUN','RECONSTRUCT_LAB','observe');Invoke-LabEvaluationRefreshPlanInteractive
+    Assert-ConsoleRefresh ($planCalls -eq 0) 'The observation choice is unavailable outside stateful migration'
     $savedReader=${function:Read-LabEvaluationRefreshSnapshot};function Read-LabEvaluationRefreshSnapshot {throw 'PRIVATE_CANARY_PATH_HOST_SECRET'}
     Reset-ConsoleRefresh @();Invoke-LabEvaluationRefreshPlanInteractive;Assert-ConsoleRefresh (-not(($messages-join' ')-match'PRIVATE_CANARY')) 'Candidate exception text is never displayed'
     Set-Item Function:Read-LabEvaluationRefreshSnapshot $savedReader

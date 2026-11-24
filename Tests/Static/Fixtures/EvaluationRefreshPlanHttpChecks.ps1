@@ -92,6 +92,35 @@ try {
     $context.Request=New-RefreshRequest '{"Action":"Read","DataRoot":"PRIVATE_PATH_CANARY"}'
     . ([scriptblock]::Create('foreach($routeIteration in @(1)){'+$routes[0].Extent.Text+'}'))
     Assert-HttpRefresh ($httpResponse.StatusCode-eq400-and($httpResponse.Body|ConvertFrom-Json).Code-ceq'EVALUATION_REFRESH_BINDING_UNAVAILABLE'-and-not$httpResponse.Body.Contains('PRIVATE_PATH_CANARY')) 'Actual route catch returns fixed safe error'
+    $actionRoute = $server.Find({
+        param($node)
+        $node -is [Management.Automation.Language.IfStatementAst] -and
+        $node.Clauses[0].Item1.Extent.Text -ceq '$path -eq ''/api/actions'' -and $context.Request.HttpMethod -eq ''POST'''
+    }, $true)
+    $actionHandler = [scriptblock]::Create('foreach ($once in @(1)) ' + $actionRoute.Clauses[0].Item2.Extent.Text)
+    & {
+        $jobs = @{}
+        $parameters = @{ RunId=$selection.RunId; InstanceId=$selection.InstanceId; DataRoot=$root; ExpectedPlanKey=$selection.Digest }
+        $requestJson = @{ action='ReadHyperVEvaluationSqlSource'; parameters=$parameters } | ConvertTo-Json -Depth 5 -Compress
+        function Read-UiJsonRequestBody { param($Request) @{ Allowed=$true; Body=$requestJson } }
+        function New-SqlServerLabBatch { throw 'READ_ONLY_ACTION_CREATED_PERSISTENT_BATCH' }
+        function Start-UiWorkflowJob {
+            param($Action,$Parameters)
+            if ($Action -cne 'ReadHyperVEvaluationSqlSource' -or $Parameters.Count -ne 4 -or $Parameters.ExpectedPlanKey -cne $selection.Digest -or
+                $Parameters.RunId -cne $selection.RunId) { throw 'UNEXPECTED_SOURCE_JOB' }
+            [pscustomobject]@{ Id='synthetic-source'; Action=$Action; Job=[pscustomobject]@{ State='Running' } }
+        }
+        & $actionHandler
+        Assert-HttpRefresh ($httpResponse.StatusCode -eq 202 -and ($httpResponse.Body | ConvertFrom-Json).id -ceq 'synthetic-source' -and $jobs.Count -eq 1) 'Read-only source observation starts a single transient job'
+        $busy = $false
+        try { & $actionHandler } catch { $busy = $_.Exception.Message -ceq 'EVALUATION_REFRESH_SQL_SOURCE_ALREADY_RUNNING' }
+        Assert-HttpRefresh $busy 'Concurrent source observation is rejected before dispatch'
+        $parameters.StateRoot = 'synthetic-foreign'
+        $requestJson = @{ action='ReadHyperVEvaluationSqlSource'; parameters=$parameters } | ConvertTo-Json -Depth 5 -Compress
+        $invalid = $false
+        try { & $actionHandler } catch { $invalid = $_.Exception.Message -ceq 'EVALUATION_REFRESH_INPUT_INVALID' }
+        Assert-HttpRefresh $invalid 'The source job rejects additional root fields before dispatch'
+    }
     Write-Host ('EVALUATION_REFRESH_HTTP_CHECKS: '+$checks+' PASS; 0 FAIL')
 }finally{
     $resolved=[IO.Path]::GetFullPath($root);$expected=[IO.Path]::GetFullPath((Join-Path $repo '.artifacts/evaluation-refresh-browser-fixtures'))

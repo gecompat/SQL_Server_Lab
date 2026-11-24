@@ -427,6 +427,11 @@ Wiederöffnen wurden beobachtet, eigener Listener und Tab geschlossen.
 In der CLI öffnet **Wartung, Aufräumen und Recovery → SQL-Evaluation: Ersatz-
 und Migrationsentscheid** dieselbe lesende Vorschau. Wähle das registrierte
 Lab_Data, die SQL-Instanz und die Entscheidungsart.
+Für eine laufende Instanz bietet **Instanzzustand migrieren** zusätzlich
+**SQL-Quellzähler im laufenden Gast lesen**. Der Befund einer vorbereiteten
+SQL-2025-Instanz enthält Zähler für ausgewählte Datenbank- und Serverobjekte.
+Er liefert keine Objektnamen, schreibt keinen Befund auf die Platte und
+erteilt keine Migrationsfreigabe.
 
 Im Browser unter **Wartung und Recovery → SQL-Evaluation: Ersatzentscheid**
 ein vorhandenes registriertes `Lab_Data` eingeben und **Registrierte Instanzen
@@ -439,6 +444,10 @@ Aktivierung ist keine frische Lizenzprüfung. Die festen Blocker und nächsten
 Schritte geben keine Transfer- oder Ausführungsfreigabe. Der begrenzte Reader
 liest höchstens 64 Run-Verzeichnisse, kein globales Watch-Inventar. Eingaben
 bleiben im RAM; Zurück/Escape und späte Antworten erstellen keine Jobs.
+Für einen laufenden Gast und die Auswahl **Instanzzustand migrieren** gibt es
+zusätzlich **SQL-Quellzähler im Gast lesen**. Der ausdrücklich gewählte
+Leseauftrag erscheint unter **Vorgänge**. Er speichert keine Diagnose im
+Lab-Zustand und gibt nur Kategorien und Anzahlen aus.
 
 ### External Languages vor einer Lab-Erstellung
 

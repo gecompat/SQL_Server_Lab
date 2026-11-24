@@ -15,6 +15,9 @@
     Explizites registriertes Lab_Data. StateRoot wird ausschließlich daraus abgeleitet.
 .PARAMETER Mode
     FREE_SLOT_REPLACEMENT, RECONSTRUCT_LAB oder STATEFUL_MIGRATION.
+.PARAMETER ObserveSqlSource
+    Erfasst bei STATEFUL_MIGRATION zusätzlich neun SQL-Quellzähler einer
+    laufenden, gebundenen SQL-2025-Prepared-Instanz. Keine Persistenz.
 .OUTPUTS
     SqlServerLab.EvaluationRefreshPlan/1.0; strikt nicht ausführbar.
 .EXAMPLE
@@ -27,7 +30,8 @@ function Get-SqlServerLabEvaluationRefreshPlan {
         [Parameter(Mandatory)][ValidatePattern('^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$')][string]$RunId,
         [Parameter(Mandatory)][ValidatePattern('^[A-Za-z][A-Za-z0-9_-]{0,63}$')][string]$InstanceId,
         [Parameter(Mandatory)][ValidateLength(1,2048)][string]$DataRoot,
-        [Parameter(Mandatory)][ValidateSet('FREE_SLOT_REPLACEMENT','RECONSTRUCT_LAB','STATEFUL_MIGRATION')][string]$Mode
+        [Parameter(Mandatory)][ValidateSet('FREE_SLOT_REPLACEMENT','RECONSTRUCT_LAB','STATEFUL_MIGRATION')][string]$Mode,
+        [switch]$ObserveSqlSource
     )
     New-LabEvaluationRefreshPlan @PSBoundParameters
 }

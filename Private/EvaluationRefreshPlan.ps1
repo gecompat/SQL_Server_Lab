@@ -39,14 +39,60 @@ function Read-LabEvaluationRefreshSnapshot {
     [pscustomobject]@{Binding=$binding;Instance=$instances[0];Guest=$guest;Digest=$digest}
 }
 
+function Get-LabEvaluationSqlSourceInventory {
+    param([Parameter(Mandatory)]$Snapshot)
+    $unavailable = [pscustomobject]@{ Status='NOT_OBSERVED'; Items=@() }
+    if (-not $IsWindows -or $Snapshot.Binding.Run.state -cne 'RUNNING' -or $Snapshot.Instance.sqlVersion -cne '2025') {
+        return $unavailable
+    }
+
+    $runId = [guid]$Snapshot.Binding.Run.runId
+    try {
+        $context = Get-LabSqlGuestCaptureContext -RunId $runId -StateRoot $Snapshot.Binding.StateRoot
+        if ($context.Run.scopeId -cne $Snapshot.Binding.Run.scopeId -or $context.Instance.id -cne $Snapshot.Instance.id -or
+            $context.Instance.vmId -cne $Snapshot.Instance.vmId -or $context.Instance.imageArtifactId -cne $Snapshot.Instance.imageArtifactId) {
+            throw 'EVALUATION_REFRESH_BINDING_CHANGED'
+        }
+        $observed = Invoke-LabSqlGuestCaptureProbe -Context $context -TimeoutSeconds 60 -IncludeSourceInventory 3>$null 4>$null 5>$null 6>$null
+        $fresh = Get-LabSqlGuestCaptureContext -RunId $runId -StateRoot $Snapshot.Binding.StateRoot
+        if ($fresh.Fingerprint -cne $context.Fingerprint) { throw 'EVALUATION_REFRESH_BINDING_CHANGED' }
+        if ($observed.MajorVersion -ne 17 -or $observed.InstanceName -cne $context.Instance.sqlReadiness.instanceName -or
+            $observed.Edition -cne $context.Instance.sqlReadiness.edition) { return $unavailable }
+    }
+    catch {
+        if ($_.Exception.Message -cin @('EVALUATION_REFRESH_BINDING_CHANGED','SQL_GUEST_CAPTURE_BINDING_CHANGED')) {
+            throw 'EVALUATION_REFRESH_BINDING_CHANGED'
+        }
+        return $unavailable
+    }
+
+    $categories = @('UserDatabases','NonOnlineUserDatabases','EncryptedUserDatabases','DatabaseSnapshots',
+        'ServerPrincipals','Credentials','LinkedServers','AgentJobs','AgentProxies')
+    $counts = $observed.SourceInventory
+    if (-not $counts -or @($counts.PSObject.Properties).Count -ne $categories.Count) {
+        return $unavailable
+    }
+    foreach ($category in $categories) {
+        $count = $counts.PSObject.Properties[$category]?.Value
+        if ($count -isnot [long] -or $count -lt 0) { return $unavailable }
+    }
+    if ($counts.NonOnlineUserDatabases -gt $counts.UserDatabases -or $counts.EncryptedUserDatabases -gt $counts.UserDatabases) { return $unavailable }
+    $items = @(foreach ($category in $categories) {
+        [pscustomobject]@{ Category=$category; Count=$counts.$category }
+    })
+    [pscustomobject]@{ Status='PARTIALLY_OBSERVED'; Items=$items }
+}
+
 function New-LabEvaluationRefreshPlan {
-    param([string]$RunId,[string]$InstanceId,[string]$DataRoot,[string]$Mode)
+    param([string]$RunId,[string]$InstanceId,[string]$DataRoot,[string]$Mode,[switch]$ObserveSqlSource,[string]$ExpectedSnapshotDigest)
+    if ($ObserveSqlSource -and $Mode -cne 'STATEFUL_MIGRATION') { throw 'EVALUATION_REFRESH_SQL_SOURCE_MODE_INVALID' }
     try {
         $snapshot=Read-LabEvaluationRefreshSnapshot -RunId $RunId -InstanceId $InstanceId -DataRoot $DataRoot
     } catch {
         if($_.Exception.Message-cin@('EVALUATION_REFRESH_SCOPE_UNSUPPORTED','EVALUATION_REFRESH_BINDING_INVALID','EVALUATION_REFRESH_BINDING_CHANGED')){throw $_.Exception.Message}
         throw 'EVALUATION_REFRESH_BINDING_UNAVAILABLE'
     }
+    if ($ExpectedSnapshotDigest -and $snapshot.Digest -cne $ExpectedSnapshotDigest) { throw 'EVALUATION_REFRESH_BINDING_CHANGED' }
     $now=[datetime]::UtcNow
     $sql=ConvertTo-LabSqlGuestEvaluationWatchItem -ReaderResult $snapshot.Guest -RegistrationState $snapshot.Binding.Run.state `
         -Now $now -WarningDaysRemaining 30 -CriticalDaysRemaining 7
@@ -66,12 +112,15 @@ function New-LabEvaluationRefreshPlan {
         'STATEFUL_MIGRATION' {$blockers.Add('FULL_INSTANCE_INVENTORY_NOT_AVAILABLE');$blockers.Add('EQUIVALENCE_CUTOVER_AND_ROLLBACK_NOT_VERIFIED');@('Datenbank-, Serverobjekt-, Schlüssel- und externe Abhängigkeiten getrennt inventarisieren.','DATABASE_FILES_ONLY ist kein vollständiger Instanztransfer. Cutover und Rückfall nach Zielschreibzugriffen separat planen.')}
         default {throw 'EVALUATION_REFRESH_MODE_INVALID'}
     }
+    $sourceInventory = if ($ObserveSqlSource) { Get-LabEvaluationSqlSourceInventory -Snapshot $snapshot }
     try {$fresh=Read-LabEvaluationRefreshSnapshot -RunId $RunId -InstanceId $InstanceId -DataRoot $DataRoot}
     catch {throw 'EVALUATION_REFRESH_BINDING_CHANGED'}
     if($fresh.Digest-cne$snapshot.Digest){throw 'EVALUATION_REFRESH_BINDING_CHANGED'}
-    [pscustomobject]@{ContractVersion='SqlServerLab.EvaluationRefreshPlan/1.0';Mode=$Mode;Status='BLOCKED';
+    $result = [pscustomobject]@{ContractVersion='SqlServerLab.EvaluationRefreshPlan/1.0';Mode=$Mode;Status='BLOCKED';
         RunId=$RunId;ScopeId=$snapshot.Binding.Run.scopeId;InstanceId=$InstanceId;Provider='hyperv';
         ObservedContentSha256=$snapshot.Digest;Evaluations=@($windows,$sqlProjection);Blockers=@($blockers);NextSteps=@($steps);
         FullInstanceMigration=$false;EquivalenceStatus='NOT_VERIFIED';SqlReadiness='NOT_CHECKED';
         ExecutionSupported=$false;MutationAllowed=$false;Actions=@();TransferAuthority='NONE';GeneratedAt=$now.ToString('o')}
+    if ($ObserveSqlSource) { $result | Add-Member -NotePropertyName SqlSourceInventory -NotePropertyValue $sourceInventory }
+    return $result
 }

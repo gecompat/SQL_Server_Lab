@@ -659,9 +659,13 @@ erteilt keine Mutations- oder Löschautorität.
 Entscheid für eine moderne registrierte Hyper-V-SQL-Instanz unter explizitem
 `Lab_Data`. Slotersatz, Rekonstruktion und Migration bleiben getrennte
 `BLOCKED`-Modi. Gespeicherte Windows-Aktivierung beweist keine frische Lizenz;
-SQL-Gast-Evidence ersetzt keine neue SQL-Readiness. Inventar, Ziel-/Slotbindung,
-Gleichwertigkeit, Cutover, Schlüsseltransfer und Rückfall fehlen. Keine neue
-Inventur, Persistenz, Adoption oder Lifecycleaktion. Generischer Konsolen-
+SQL-Gast-Evidence ersetzt keine neue SQL-Readiness. Die CLI-Option
+`-ObserveSqlSource` ergänzt bei `STATEFUL_MIGRATION` ausschließlich
+aggregierte SQL-Quellzähler einer gebundenen laufenden SQL-2025-Prepared-Instanz.
+Sie unterscheidet einen fehlenden Befund von tatsächlich beobachteten
+Nullwerten. Vollständiges Inventar, Ziel-/Slotbindung, Gleichwertigkeit,
+Cutover, Schlüsseltransfer und Rückfall fehlen. Die Option persistiert keine
+Daten und führt keine Adoption oder Lifecycleaktion aus. Generischer Konsolen-
 Befehlszugang und geführter CLI-Dialog **SQL-Evaluation: Ersatzentscheid** sind
 verfügbar. Der Dialog liest höchstens 64 Run-Verzeichnisse unter explizitem
 registrierten Root, revalidiert die Auswahl und ruft nur die Plan-API auf.
@@ -669,7 +673,9 @@ Abbruch verwirft die Eingabe. Der Browser bietet **Wartung, Aufräumen und Recov
 SQL-Evaluation: Ersatzentscheid** über einen eigenen begrenzten Read-/Previewpfad
 zu derselben Metadatenautorität. Root, Auswahl und Entscheidungsart bleiben im
 RAM; Abbruch und späte Antworten erstellen keine Jobs. Windows-Lizenz und
-SQL-Bereitschaft werden auch dort nicht frisch geprüft.
+SQL-Bereitschaft werden durch die Metadatenvorschau auch dort nicht frisch geprüft.
+Die getrennt ausgelöste SQL-Quellabfrage erzeugt für die ausgewählte laufende
+Quelle einen flüchtigen Leseauftrag für dieselben Zähler.
 Andere Provider, mehrere Instanzen und ungebundene Caller-Inventories sind
 außerhalb dieses Slices.
 

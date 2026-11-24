@@ -51,6 +51,15 @@ try {
     $context=& $module {param($Id,$Root)Get-LabSqlGuestCaptureContext -RunId $Id -StateRoot $Root} $run.RunId $StateRoot
     $statePath=Join-Path $context.RunDirectory 'run-state.json';$connectionPath=Join-Path $context.RunDirectory 'connection-info.json'
     $beforeState=(Get-FileHash -LiteralPath $statePath).Hash;$beforeConnection=(Get-FileHash -LiteralPath $connectionPath).Hash
+    $inventory=& $module {
+        param($BoundContext)
+        Invoke-LabSqlGuestCaptureProbe -Context $BoundContext -TimeoutSeconds 60 -IncludeSourceInventory
+    } $context
+    $counters=@($inventory.SourceInventory.PSObject.Properties)
+    Assert-CaptureAcceptance ($inventory.MajorVersion -eq 17 -and $counters.Count -eq 9 -and
+        @($counters | Where-Object { $_.Value -isnot [long] -or $_.Value -lt 0 }).Count -eq 0 -and
+        $inventory.SourceInventory.NonOnlineUserDatabases -le $inventory.SourceInventory.UserDatabases -and
+        $inventory.SourceInventory.EncryptedUserDatabases -le $inventory.SourceInventory.UserDatabases) 'Aggregierte SQL-Quellzähler im eigenen Gast gelesen'
     Update-SqlServerLabSqlGuestEvaluationEvidence -RunId $run.RunId -StateRoot $StateRoot -WhatIf
     Assert-CaptureAcceptance (-not(Test-Path -LiteralPath $context.ReceiptPath) -and -not(Test-Path -LiteralPath $context.LockPath)) 'WhatIf erzeugt weder Receipt noch Lock'
     $first=Update-SqlServerLabSqlGuestEvaluationEvidence -RunId $run.RunId -StateRoot $StateRoot -Confirm:$false

@@ -273,6 +273,12 @@ function Start-UiWorkflowJob {
             if ($JobAction -eq 'ReadFullMaintenancePreview') {
                 & (Get-Module SqlServerLab) { param($View) Format-LabFullMaintenancePreview -View $View } $result.Result
             }
+            if ($JobAction -ceq 'ReadHyperVEvaluationSqlSource') {
+                $source = $result.Result
+                Write-Output ('[INVENTAR] SQL-Quellzähler: ' + $source.Status)
+                foreach ($item in $source.Items) { Write-Output ('[INVENTAR] {0}: {1}' -f $item.Category, $item.Count) }
+                Write-Output '[INFO] Der Ersatzentscheid bleibt BLOCKED. Vollständige Inventur und Transfer benötigen weitere Nachweise.'
+            }
             if ($JobAction -eq 'InspectContainerDatabaseMigrationDependencies') {
                 $inventory = $result.Result
                 $summary = [ordered]@{
@@ -1694,6 +1700,15 @@ try {
                         $_.Action -eq $action -and $_.Job.State -in @('NotStarted','Running')
                     }).Count) { throw 'FULL_MAINTENANCE_PREVIEW_IN_PROGRESS' }
                 }
+                if ($action -ieq 'ReadHyperVEvaluationSqlSource') {
+                    if ($action -cne 'ReadHyperVEvaluationSqlSource' -or $parameters.Count -ne 4 -or
+                        @('RunId', 'InstanceId', 'DataRoot', 'ExpectedPlanKey').Where({ $parameters[$_] -isnot [string] }).Count -gt 0) {
+                        throw 'EVALUATION_REFRESH_INPUT_INVALID'
+                    }
+                    if (@($jobs.Values | Where-Object { $_.Action -ceq $action -and $_.Job.State -in @('NotStarted','Running') }).Count) {
+                        throw 'EVALUATION_REFRESH_SQL_SOURCE_ALREADY_RUNNING'
+                    }
+                }
                 # A confirmed power plan is a one-shot request: never replay it through batch recovery.
                 if ($action -eq 'CreateLinuxTestGroupMember' -and ($parameters.Count -notin @(3,4) -or
                     $parameters['Provider'] -isnot [string] -or $parameters['SqlVersion'] -isnot [string] -or
@@ -1707,7 +1722,7 @@ try {
                         throw 'TEST_GROUP_MANAGEMENT_ACTION_INVALID'
                     }
                 }
-                if (-not $hasTransientSecret -and -not $groupManagement -and $action -notin @('Refresh','StartTestGroupPower','StopTestGroupPower','CreateLinuxTestGroupMember','ReadFullMaintenancePreview')) {
+                if (-not $hasTransientSecret -and -not $groupManagement -and $action -notin @('Refresh','StartTestGroupPower','StopTestGroupPower','CreateLinuxTestGroupMember','ReadFullMaintenancePreview','ReadHyperVEvaluationSqlSource')) {
                     # Retain terminal cards for this server session; bound reads without evicting results.
                     if ($persistentJobs.Count -ge 256) { throw 'UI_JOB_STATUS_CAPACITY_REACHED' }
                     $batchStateRoot = & (Get-Module SqlServerLab) { Get-LabStateRoot }

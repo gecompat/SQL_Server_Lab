@@ -301,7 +301,7 @@ function Invoke-SqlServerLabWorkflowAction {
             'PlanWindowsPoolMember', 'ApplyWindowsPoolMember', 'CancelWindowsPoolMember',
             'GetLlamaSessions', 'PlanLlamaSessionStop', 'StopLlamaSession',
             'GetMediaOverrideState', 'PlanMediaOverride', 'ApplyMediaOverride',
-            'GetResourceWatchState', 'RefreshResourceWatch',
+            'GetResourceWatchState', 'RefreshResourceWatch', 'ReadHyperVEvaluationSqlSource',
             'GetCmsInspectionState', 'InspectCms', 'GetCmsManagementState', 'InitializeCms', 'AdoptCms',
             'RepairHyperVWindowsActivation',
             'SetMediaRoot', 'SetDataRoot', 'SetTestDataRoot',
@@ -445,6 +445,16 @@ function Invoke-SqlServerLabWorkflowAction {
         }
         if ($installed.State -cne 'SQL_SLOT_READY' -or $installed.RunId -cne $RunId) { throw 'HYPERV_LAB_SQL_INSTALL_RESULT_INVALID' }
         return [pscustomobject]@{ Action = $Action; CompletedAt = Get-LabTimestamp; Result = [pscustomobject]@{ RunId = $RunId; State = 'SQL_SLOT_READY' } }
+    }
+    if ($Action -ceq 'ReadHyperVEvaluationSqlSource') {
+        if (@($PSBoundParameters.Keys | Where-Object { $_ -notin @('Action', 'RunId', 'InstanceId', 'DataRoot', 'ExpectedPlanKey', 'ErrorAction') }).Count -gt 0 -or
+            -not (Test-LabDiagnosticGuid $RunId) -or $InstanceId -cnotmatch '^[A-Za-z][A-Za-z0-9_-]{0,63}$' -or
+            [string]::IsNullOrWhiteSpace($DataRoot) -or $DataRoot.Length -gt 2048 -or $ExpectedPlanKey -cnotmatch '^[a-f0-9]{64}$') {
+            throw 'EVALUATION_REFRESH_INPUT_INVALID'
+        }
+        $plan = New-LabEvaluationRefreshPlan -RunId $RunId -InstanceId $InstanceId -DataRoot $DataRoot -Mode STATEFUL_MIGRATION `
+            -ObserveSqlSource -ExpectedSnapshotDigest $ExpectedPlanKey
+        return [pscustomobject]@{ Action=$Action; CompletedAt=Get-LabTimestamp; Result=$plan.SqlSourceInventory }
     }
     if ($Action -in @('GetResourceWatchState', 'RefreshResourceWatch')) {
         $result=if($Action -eq 'RefreshResourceWatch'){Invoke-LabResourceWatchRefresh}else{Get-LabResourceWatchState}

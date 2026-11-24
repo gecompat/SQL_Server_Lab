@@ -1175,7 +1175,7 @@
   <dialog id="evaluation-refresh-dialog">
     <div class="maintenance-dialog-content">
       <h2>SQL-Evaluation: Ersatzentscheid</h2>
-      <p>Eine bestehende registrierte Hyper-V-SQL-Instanz. Alle Entscheidungsarten bleiben blockierte Vorschauen: keine Lizenzprüfung, SQL-Abfrage, Speicherung oder Migration.</p>
+      <p>Die Vorschau liest gespeicherte Metadaten. Die separate Quellabfrage liest Zähler im laufenden Gast. Alle Entscheidungsarten bleiben blockiert.</p>
       <label>Vorhandenes Lab_Data-Verzeichnis <input id="evaluation-refresh-root" type="text" maxlength="2048" autocomplete="off"></label>
       <button id="evaluation-refresh-read" type="button" class="button secondary">Registrierte Instanzen lesen</button>
       <label>SQL-Instanz <select id="evaluation-refresh-run"></select></label>
@@ -1188,6 +1188,7 @@
       <pre id="evaluation-refresh-result"></pre>
       <div class="dialog-actions">
         <button id="evaluation-refresh-preview" type="button" class="button" disabled>Vorschau lesen (keine Änderung)</button>
+        <button id="evaluation-refresh-observe" type="button" class="button secondary" disabled>SQL-Quellzähler im Gast lesen</button>
         <button id="evaluation-refresh-close" type="button" class="button secondary">Zurück / Abbrechen</button>
       </div>
     </div>
