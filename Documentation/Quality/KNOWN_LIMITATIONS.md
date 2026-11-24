@@ -664,9 +664,10 @@ SQL-Gast-Evidence ersetzt keine neue SQL-Readiness. Die CLI-Option
 aggregierte SQL-Quellzähler einer gebundenen laufenden SQL-2025-Prepared-Instanz.
 Die Gastprobe mit den ursprünglichen neun Zählern bestand für SQL Server 2025 Developer auf Hyper-V im
 [Lauf 45343380820](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45343380820).
-Die zusätzlichen FILESTREAM- und SSISDB-Hinweise brauchen noch einen
-nativen Gastnachweis. Sie markieren Prüfbedarf für die Datenbankdateien
-beziehungsweise den möglichen SSIS-Katalog. Die Quellbeobachtung unterscheidet
+Das [erweiterte native Gastinventar](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45418884558) bestätigte elf Zähler
+auf demselben Prepared-Artifact. FILESTREAM-Dateityp und SSISDB-Kandidat
+markieren Prüfbedarf für Datenbankdateien beziehungsweise einen möglichen
+SSIS-Katalog. Die Quellbeobachtung unterscheidet
 einen fehlenden Befund von tatsächlich beobachteten
 Nullwerten und leitet aus positiven Zählern feste Prüfhinweise zu
 Übernahmeabhängigkeiten ab. Die optionale Zielvorschau prüft die getrennte

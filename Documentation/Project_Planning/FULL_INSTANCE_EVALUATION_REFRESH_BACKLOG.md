@@ -72,8 +72,11 @@ Transferaktionen bleiben offen.
 Die [Key18-Abnahme](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45343380820)
 belegt die ursprünglichen neun Zähler der Gastprobe für SQL Server 2025 Developer, Build
 `17.0.1000.7`. Der eigene Run wurde bereinigt und die Vorlage blieb
-unverändert. Für den erweiterten Gastbefund mit elf Zählern ist die native
-Abnahme separat auszuführen.
+unverändert. Die [erweiterte Key18-Abnahme](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45418884558)
+auf e4cdc1ac bestätigte elf typisierte Zähler einschließlich FILESTREAM-Dateityp
+und SSISDB-Namenskandidat auf demselben Prepared-Artifact. Run- und
+Verbindungsmetadaten sowie Vorlage blieben unverändert. Eigener Run, VM und
+Disks wurden vollständig bereinigt. Die Zielvorschau bleibt eine Metadatenprüfung.
 
 Bei **Instanzzustand migrieren** kann ein separates registriertes
 SQL-2025-Hyper-V-Lab als Ziel gewählt werden. Die Metadatenvorschau bindet

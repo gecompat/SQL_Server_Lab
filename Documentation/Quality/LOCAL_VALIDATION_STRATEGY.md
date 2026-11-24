@@ -2416,8 +2416,10 @@ Die Prüfhinweise zu SQL-Übernahmeabhängigkeiten verwenden elf aggregierte
 Zähler. Die Suite unterscheidet positive Zähler, Nullwerte und verworfene
 Beobachtungen. Sie prüft die fachlichen Obergrenzen für FILESTREAM-Dateityp
 und SSISDB-Kandidat sowie den weiterhin blockierten Transferstatus. Die
-CLI- und HTTP-Fixtures prüfen die Ausgabe der festen Codes. Die vorhandene
-native Abnahme der ursprünglichen neun Zähler ist separat dokumentiert.
+CLI- und HTTP-Fixtures prüfen die Ausgabe der festen Codes. Der
+[gezielte native Key18-Lauf](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45418884558) auf e4cdc1ac prüfte die elf
+typisierten Zähler im eigenen SQL-2025-Developer-Gast, unveränderte
+Run-/Connection-Metadaten und Vorlage sowie vollständigen eigenen Cleanup.
 
 Die optionale Vorschau eines SQL-2025-Ziellabs verwendet zwei registrierte
 synthetische Hyper-V-Bindungen. Plan-, CLI-, HTTP- und Browserfixtures prüfen
