@@ -39,6 +39,12 @@ einem tatsächlich erfolgreichen, passenden Lauf verwendet.
 
 ### 1.2 Verbindlich berücksichtigte Planungsquellen
 
+Die [Priorisierungsentscheidung vom 2026-11-18](NEW_SQL_LAB_USE_CASES_BACKLOG.md#tls-001--authentifizierte-tls-verbindungen-der-testumgebungen)
+stellt TLS-001 zurück, bis ein konkreter Lab-Anwendungsfall eine geprüfte
+SQL-Server-Zertifikatsidentität benötigt. Abhängige Arbeitspakete behalten
+ihre dokumentierten Startbedingungen. Eigenständige Arbeiten an
+Menüführung, Betrieb und Abnahme laufen nach ihren eigenen Voraussetzungen.
+
 Der Benutzerauftrag vom 2026-10-16 autorisiert unmittelbar **nach dem belegten
 Abschluss von TLS-001** die schrittweise Umsetzung des
 [SSIS-Integrationsplans](SSIS_ETL_DATA_WAREHOUSE_BACKLOG.md#machbarkeit-und-integrationsentscheidung-vom-2026-10-16).
@@ -62,12 +68,12 @@ integriert. Maßgeblich sind deren [Vertrag und Grenzen](../Architecture/AUTHENT
 die getrennten nativen Nachweise und die verbleibenden P1-Einträge; der
 Planungsabgleich behauptet keinen vollständigen TLS-001-Abschluss.
 
-Die ausdrückliche Priorisierung vom 2026-10-15 setzt
+Die frühere Priorisierung vom 2026-10-15 setzte
 [`TLS-001` – authentifizierte TLS-Verbindungen der Testumgebungen](NEW_SQL_LAB_USE_CASES_BACKLOG.md#tls-001--authentifizierte-tls-verbindungen-der-testumgebungen)
 als `P1` unmittelbar nach dem laufenden
 [SSISDB-Stream](SSIS_ETL_DATA_WAREHOUSE_BACKLOG.md) an die höchste nächste
-Stelle. Diese Reihenfolge hat Vorrang vor den älteren Priorisierungen unten;
-SSISDB wird dadurch nicht unterbrochen. Abhängigkeit: **Toolbelt SC-2026-045 –
+Stelle. Die Entscheidung vom 2026-11-18 löst diese Reihenfolge ab.
+Abhängigkeit: **Toolbelt SC-2026-045 –
 authentifizierte Liveabnahme**. Der Auftrag erfasst den Backlog; Start der
 Umsetzung, offene Architekturentscheidungen und scopegebundene lokale Freigaben
 bleiben getrennt. Die beendete autonome Welle wird dadurch nicht reaktiviert.
@@ -972,8 +978,10 @@ verbindliches Performance-SLA festgelegt.
 
 ## 12. Verbindliche nächsten fünf Entwicklungswellen
 
-**Aktuelle Vorrangregel vom 2026-10-15:** Zuerst den laufenden SSISDB-Stream
-abschließen, danach `TLS-001` als höchsten nächsten `P1`-Stream bearbeiten.
+**Vorrangregel vom 2026-11-18:** Die
+[TLS-001-Zurückstellung](NEW_SQL_LAB_USE_CASES_BACKLOG.md#tls-001--authentifizierte-tls-verbindungen-der-testumgebungen)
+ersetzt die Reihenfolge vom 2026-10-15, die TLS-001 unmittelbar nach dem
+SSISDB-Stream vorsah.
 Der [bestehende Treiberkompatibilitätsbacklog](NEW_SQL_LAB_USE_CASES_BACKLOG.md#tls-001--authentifizierte-tls-verbindungen-der-testumgebungen)
 enthält Bestandsbefund, Lösungsvorschlag, Alternativen, Risiken, offene
 Entscheidungen D1–D4 und Liveabnahme. Ältere Wellen und deren Evidence bleiben
