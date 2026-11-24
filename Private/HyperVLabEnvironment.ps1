@@ -1739,10 +1739,13 @@ function Invoke-HyperVLabSqlSlotInstall {
                 param($ExpectedSqlVersion, $ExpectedSetupVersionPattern, $FeaturesCsv, $SaPassword, $SqlDataRoot, $StorageConfiguration, $Collation, $TimeoutSeconds, $SsisArguments)
                 $ErrorActionPreference = 'Stop'
                 $features = @([string]$FeaturesCsv -split ',' | Where-Object { $_ })
-                $setups = @(Get-CimInstance Win32_LogicalDisk -Filter 'DriveType=5' | ForEach-Object {
-                    $candidate = Join-Path ([string]$_.DeviceID + '\') 'setup.exe'
-                    if (Test-Path -LiteralPath $candidate -PathType Leaf) { Get-Item -LiteralPath $candidate }
-                } | Where-Object { [string]$_.VersionInfo.FileVersion -match $ExpectedSetupVersionPattern })
+                try {
+                    $setups = @(Get-CimInstance Win32_LogicalDisk -Filter 'DriveType=5' | ForEach-Object {
+                        $candidate = Join-Path ([string]$_.DeviceID + '\') 'setup.exe'
+                        if (Test-Path -LiteralPath $candidate -PathType Leaf) { Get-Item -LiteralPath $candidate }
+                    } | Where-Object { [string]$_.VersionInfo.FileVersion -match $ExpectedSetupVersionPattern })
+                }
+                catch { throw "SQL_SETUP_GUEST_MEDIA_DISCOVERY_FAILED: $($_.CategoryInfo.Category)" }
                 if ($setups.Count -ne 1) { throw "SQL_SETUP_MEDIA_NOT_UNIQUE: $($setups.Count)" }
                     $arguments = @(
                     '/Q', '/ACTION=Install', "/FEATURES=$($features -join ',')",
@@ -1754,7 +1757,8 @@ function Invoke-HyperVLabSqlSlotInstall {
                     )
                     if ($Collation) { $arguments += "/SQLCOLLATION=$Collation" }
                     $arguments += @($SsisArguments)
-                $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword)
+                try { $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword) }
+                catch { throw "SQL_SETUP_GUEST_PASSWORD_BINDING_FAILED: $($_.CategoryInfo.Category)" }
                 $plainPassword = $null
                 try {
                     $plainPassword = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
@@ -1780,10 +1784,14 @@ function Invoke-HyperVLabSqlSlotInstall {
                         $arguments += "/SQLBACKUPDIR=$($paths.Backup)"
                     }
                     $installerProcessNames = @('setup.exe', 'msiexec.exe')
-                    $preexistingInstallerIds = @(Get-CimInstance Win32_Process -ErrorAction Stop |
-                        Where-Object { [string]$_.Name -in $installerProcessNames } |
-                        ForEach-Object { [int]$_.ProcessId })
-                    $process = Start-Process -FilePath $setups[0].FullName -ArgumentList $arguments -PassThru -NoNewWindow
+                    try {
+                        $preexistingInstallerIds = @(Get-CimInstance Win32_Process -ErrorAction Stop |
+                            Where-Object { [string]$_.Name -in $installerProcessNames } |
+                            ForEach-Object { [int]$_.ProcessId })
+                    }
+                    catch { throw "SQL_SETUP_GUEST_PROCESS_INVENTORY_FAILED: $($_.CategoryInfo.Category)" }
+                    try { $process = Start-Process -FilePath $setups[0].FullName -ArgumentList $arguments -PassThru -NoNewWindow }
+                    catch { throw "SQL_SETUP_GUEST_PROCESS_START_FAILED: $($_.Exception.GetBaseException().HResult)" }
                     $deadline = [datetime]::UtcNow.AddSeconds($TimeoutSeconds)
                     $quietSince = $null
                     while ($true) {

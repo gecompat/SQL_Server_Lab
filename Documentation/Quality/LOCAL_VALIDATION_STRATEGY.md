@@ -5702,7 +5702,28 @@ den SQL-Ausbau im eigenen übernommenen Mitglied fort. Er verwendet dieselbe
 Workflow-Projektion und Aktion wie die Browserkarte, prüft SQL Server 2025
 im selben Gast mit gebundener VM-ID und bereinigt bei Erfolg denselben Run.
 Der Browserdialog selbst bleibt durch die synthetische Bedienprüfung
-abgedeckt. Der neue native Modus hat seinen eigenen Laufbeleg.
+abgedeckt. Der native Modus hat seinen eigenen Laufbeleg. Bei einem Fehler
+führt der private Bericht den festen SQL-Setup-Ursachencode und die
+PowerShell-Fehlerkategorie, soweit verfügbar. Unbekannte Ursachen werden
+als `UNCLASSIFIED` gekennzeichnet. Der Browser erhält den stabilen
+öffentlichen Fehlercode. Der native Bericht setzt `CleanupConfirmed` erst
+nach der vollständigen Abwesenheitsprüfung für den eigenen Run.
+Vor der Installation unterscheidet er Fehler beim Lesen des Mediums,
+der Kennwortübergabe, der Prozessinventur und dem Prozessstart. Für
+Mehrdeutigkeit beim Medium übernimmt er die Anzahl der Treffer und beim
+Prozessstart den numerischen HRESULT, sofern die Daten gültig sind.
+
+Auf `5ea5467e` bestand der Windows-Gastcapture mit dem gesetzten
+Tastaturstandard. Claim, Freigabe und SQL-Planübernahme gelangen ebenfalls.
+Die SQL-Installation endete mit `HYPERV_LAB_SQL_INSTALL_FAILED` und
+hinterließ den Plan im Zustand `INSTALLING`. Die eigene VM wurde
+ausgeschaltet. Der unabhängige Parentvergleich bestand. SQL-Readiness und
+Entfernung des eigenen Runs blieben in diesem Lauf unbelegt.
+Die schreibgeschützte Offline-Analyse des gebundenen Child-Datenträgers
+bestätigte einen Gast-Setup-Skriptblock im PowerShell-Ereignisprotokoll.
+Die üblichen SQL-Setup-Protokolle waren im Gast zu diesem Zeitpunkt
+nicht vorhanden. Die auslösende Ausnahme ließ sich daraus nicht bestimmen.
+[Nativer Lauf](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45332928807)
 
 `Invoke-SlotReserveChecks.ps1` prüft synthetisch denselben Preferences-Writer
 mit vier getrennten PowerShell-Prozessen, Mergeerhaltung, ungültigem JSON,

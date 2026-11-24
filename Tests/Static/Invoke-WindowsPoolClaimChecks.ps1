@@ -541,6 +541,17 @@ $result=& $module {
     $safeFailure=$null;try{throw 'WINDOWS_POOL_CAPTURE_EVIDENCE_INVALID: synthetic private diagnostic'}catch{$safeFailure=$_}
     $safeDetail=Get-WindowsPoolNativeFailureDetail -Failure $safeFailure -Fallback SYNTHETIC_FALLBACK
     Assert-Pool ($safeDetail.Code -ceq 'WINDOWS_POOL_CAPTURE_EVIDENCE_INVALID' -and ($safeDetail|ConvertTo-Json) -notmatch 'private diagnostic') 'native cause detail retains fixed code without raw diagnostic'
+    $setupException=[InvalidOperationException]::new('HYPERV_LAB_SQL_INSTALL_FAILED')
+    $setupException.Data['LabSqlSlotCauseCode']='SQL_SETUP_MEDIA_NOT_UNIQUE'
+    $setupException.Data['LabSqlSlotErrorCategory']='InvalidOperation'
+    $setupFailure=$null;try{throw $setupException}catch{$setupFailure=$_}
+    $setupDetail=Get-WindowsPoolNativeFailureDetail -Failure $setupFailure -Fallback SYNTHETIC_FALLBACK
+    Assert-Pool ($setupDetail.SetupCauseCode -ceq 'SQL_SETUP_MEDIA_NOT_UNIQUE' -and
+        $setupDetail.SetupErrorCategory -ceq 'InvalidOperation') 'native SQL slot failure records the fixed nested code and category'
+    $setupException.Data['LabSqlSlotCauseCode']='SQL_SETUP_MEDIA_NOT_UNIQUE: private diagnostic'
+    $setupException.Data['LabSqlSlotErrorCategory']='private diagnostic'
+    $setupDetail=Get-WindowsPoolNativeFailureDetail -Failure $setupFailure -Fallback SYNTHETIC_FALLBACK
+    Assert-Pool (-not $setupDetail.PSObject.Properties['SetupCauseCode'] -and -not $setupDetail.PSObject.Properties['SetupErrorCategory']) 'native SQL slot failure rejects raw details'
     $nativeMediaRoot=Join-Path $fixture native-media
     $nativeRelative='SQL/2025/Enterprise/ISO/synthetic-EntDev.iso'
     $nativeIso=Join-Path $nativeMediaRoot $nativeRelative
@@ -666,7 +677,7 @@ $result=& $module {
         $StateRoot=$fixture;$prefix='synthetic-renamed';$ArtifactId='synthetic-pinned-parent'
         $bindings=$nativeBindings;$success=$true;$evidenceDirectory=Join-Path $fixture native-finally-proof
         $null=New-Item -ItemType Directory -Path $evidenceDirectory -Force
-        $report=[ordered]@{RunIds=@($bindings.Keys);OriginalBindings=@($bindings.Values);StopErrors=@();CleanupErrors=@();Checks=@();Status='RUNNING';ParentAfter=$null}
+        $report=[ordered]@{RunIds=@($bindings.Keys);OriginalBindings=@($bindings.Values);StopErrors=@();CleanupErrors=@();Checks=@();Status='RUNNING';ParentAfter=$null;CleanupConfirmed=$false}
         $module={
             param([scriptblock]$body)
             function Get-LabWindowsPoolRuns {@()}
@@ -681,7 +692,7 @@ $result=& $module {
         . ([scriptblock]::Create($acceptanceTry.Finally.Statements.Extent.Text -join "`n"))
         $report
     } $repoRoot $fixture $nativeRun $nativeBindings ([guid]$poolId) $parentPath $nativeParentBefore
-    Assert-Pool ($nativeRecovery.Status -ceq 'CLEANUP_RECOVERY_REQUIRED' -and $nativeRecovery.RunIds[0] -ceq $nativeRun.runId -and
+    Assert-Pool ($nativeRecovery.Status -ceq 'CLEANUP_RECOVERY_REQUIRED' -and -not $nativeRecovery.CleanupConfirmed -and $nativeRecovery.RunIds[0] -ceq $nativeRun.runId -and
         @($nativeRecovery.StopErrors|Where-Object Code -ceq 'WINDOWS_POOL_NATIVE_OWN_INVENTORY_FAILED').Count -eq 1) 'actual native finally cannot PASS or lose original identity after empty rediscovery or missing state'
     [pscustomobject]@{Passed=$script:PoolCheckCount;StateRoot=$root;RunId=$runId;PoolId=$poolId;PrepareOperationId=$prepare.operationId;ClaimOperationId=$claimed.OperationId;ParentPath=$parentPath;
         IpamStateRoot=$ipamRoot;IpamRunId=$nativeRun.runId;IpamScopeId=$nativeRun.scopeId}
