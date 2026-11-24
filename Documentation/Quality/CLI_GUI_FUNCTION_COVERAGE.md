@@ -284,6 +284,17 @@ Browserversand ist separat synthetisch geprüft.
 
 ### Native Abnahme der Windows-Testgruppe
 
+| Operation | CLI-Menü und GUI | Ausführung und Prüfung |
+|---|---|---|
+| `test-group.windows.create-prepared` | CLI **Geschützte Testsystem-Matrix → Geschützte Testgruppe erstellen oder konfigurieren → Windows aus SQL-Prepared-Vorlage anlegen**. GUI **Testgruppe verwalten → Windows anlegen**. | Beide verwenden denselben Pfad wie `CreateWindowsTestGroupMember`. Er bindet Artefakt-ID, Version und Build per Vorschau an die Registrierung und prüft die Artefaktintegrität vor dem Klonen. Registrierung und Bereitschaft der Gesamtgruppe werden separat gemeldet. Die unten verlinkte native Abnahme deckt den Prepared-Pfad ab. Der separate CLI-Menüpunkt **Windows hinzufügen** mit SQL-/Medienwahl benötigt einen eigenen Nachweis in dieser Matrix. |
+| `test-group.repair` | CLI **Geschützte Testsystem-Matrix → Geschützte Testgruppe reparieren**. GUI **Testgruppe verwalten → Gruppe reparieren**. | Beide bestätigen eine gebundene Vorschau vor `Repair-SqlServerLabAutomatedTestEnvironment`. Die Reparatur kann Container ersetzen und Windows-VMs neu starten. Unbestätigte Ergebnisse erfordern die Prüfung des aktuellen Gruppenstatus. |
+| `test-group.remove` | CLI **Geschützte Testsystem-Matrix → Geschützte Testgruppe entfernen** oder Composer **Alle Testumgebungen löschen**. GUI **Testgruppe verwalten → Gruppe entfernen**. | Beide binden Mitglieder und Cleanup-Pläne vor `Clear-SqlServerLabAutomatedTestEnvironment`. Ein fehlender oder nach der Vorschau geänderter Plan verhindert die Ausführung. Das öffentliche Cmdlet unterstützt `-WhatIf`. Die bestätigte Gruppenaktion entfernt zugeordnete Ressourcen und lokale Gruppenexporte. Nach einem unbestätigten Ergebnis zuerst den Gruppenstatus prüfen. |
+
+`Invoke-TestGroupGuidanceChecks.ps1` prüft die Menü- und Workflow-Ausführung
+mit isolierten Fixtures. `WorkflowSqlTargetChecks.cjs` prüft den Browserversand.
+Der native Nachweis unten gilt für eine SQL-2025-Prepared-VM auf Hyper-V. Die
+Testmatrix erhält dadurch keinen neuen Nachweis für Docker oder Podman.
+
 Der manuelle Hyper-V-Workflow mit Modus `windows-test-group-acceptance`
 prüft auf Key18 eine lokale SQL-Server-2025-Prepared-Vorlage mit Build
 `17.0.1000.7`. Bei mehreren geeigneten Vorlagen nutzt er den jüngsten
