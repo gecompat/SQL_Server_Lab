@@ -436,6 +436,14 @@ Server, Zugangsdaten und SQL Agent. Ein SSISDB-Treffer erfordert eine
 Katalogprüfung.
 Der Befund enthält Kategorien, Anzahlen und feste Prüfcodes. Eine
 Transferfreigabe erfordert einen eigenen Nachweis.
+
+Mit **Instanzzustand migrieren → Registriertes Ziellab vorprüfen** kannst du
+in der CLI zusätzlich ein separates registriertes SQL-2025-Lab unter
+demselben `Lab_Data` wählen. Im Browser wählst du es im Feld
+**Registriertes Ziellab (optional)** vor **Vorschau lesen**. Die Vorschau
+zeigt den registrierten Zielzustand und die ausstehenden Prüfungen für
+Windows-Lizenz, SQL-Bereitschaft sowie Speicher und Transfer.
+
 **Windows-Lizenz im laufenden Gast lesen** ist eine eigene Auswahl in allen
 drei Entscheidungsarten. Sie zeigt den aktuellen Lizenzstatus, den
 Beobachtungszeitpunkt und eine belegte Evaluation-Frist getrennt von den

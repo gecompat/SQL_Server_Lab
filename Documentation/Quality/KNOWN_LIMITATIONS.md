@@ -669,8 +669,10 @@ nativen Gastnachweis. Sie markieren Prüfbedarf für die Datenbankdateien
 beziehungsweise den möglichen SSIS-Katalog. Die Quellbeobachtung unterscheidet
 einen fehlenden Befund von tatsächlich beobachteten
 Nullwerten und leitet aus positiven Zählern feste Prüfhinweise zu
-Übernahmeabhängigkeiten ab. Vollständiges Inventar, Ziel-/Slotbindung, Gleichwertigkeit,
-Cutover, Schlüsseltransfer und Rückfall fehlen. Die Option persistiert keine
+Übernahmeabhängigkeiten ab. Die optionale Zielvorschau prüft die getrennte
+registrierte Bindung eines SQL-2025-Ziellabs. Live-Zielbereitschaft,
+Slotzuordnung, vollständiges Inventar, Gleichwertigkeit, Cutover,
+Schlüsseltransfer und Rückfall fehlen. Die Quellbeobachtung persistiert keine
 Daten und führt keine Adoption oder Lifecycleaktion aus. Generischer Konsolen-
 Befehlszugang und geführter CLI-Dialog **SQL-Evaluation: Ersatzentscheid** sind
 verfügbar. Der Dialog liest höchstens 64 Run-Verzeichnisse unter explizitem

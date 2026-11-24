@@ -75,6 +75,13 @@ belegt die ursprünglichen neun Zähler der Gastprobe für SQL Server 2025 Devel
 unverändert. Für den erweiterten Gastbefund mit elf Zählern ist die native
 Abnahme separat auszuführen.
 
+Bei **Instanzzustand migrieren** kann ein separates registriertes
+SQL-2025-Hyper-V-Lab als Ziel gewählt werden. Die Metadatenvorschau bindet
+Quelle und Ziel unter demselben `Lab_Data` an getrennte Run-, Scope- und
+VM-Identitäten. Sie verwirft geänderte Bindungen und benennt die noch
+ausstehenden Zielprüfungen für Windows-Lizenz, SQL-Bereitschaft, Speicher
+und Transfer. Der Gesamtplan bleibt `BLOCKED`.
+
 Die getrennte Auswahl **Windows-Lizenz im laufenden Gast lesen**
 (`-ObserveWindowsLicense`) prüft die aktuelle Lizenz derselben gebundenen
 laufenden Instanz in allen drei Planmodi. Die Ausgabe trennt den Live-Befund

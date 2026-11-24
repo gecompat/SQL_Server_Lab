@@ -44,6 +44,7 @@ function Invoke-LabEvaluationRefreshPlanInteractive {
         if($modeChoice.Status-cne'Selected'){return}
         $mode=[string]$modeChoice.SelectedItem.Id
         if($mode-cnotin@($modes.Id)){throw 'EVALUATION_REFRESH_INPUT_INVALID'}
+        $targetCandidates = @($runs | Where-Object { $_.RunId -cne $selected.RunId -and $_.ScopeId -cne $selected.ScopeId })
         $reviewItems = @(
             New-LabConsoleItem -Id preview -Label 'Vorschau lesen (keine Änderung)'
             if ($selected.State -ceq 'RUNNING') {
@@ -51,6 +52,9 @@ function Invoke-LabEvaluationRefreshPlanInteractive {
             }
             if ($mode -ceq 'STATEFUL_MIGRATION' -and $selected.State -ceq 'RUNNING') {
                 New-LabConsoleItem -Id observe -Label 'SQL-Quellzähler im laufenden Gast lesen'
+            }
+            if ($mode -ceq 'STATEFUL_MIGRATION' -and $targetCandidates.Count) {
+                New-LabConsoleItem -Id target -Label 'Registriertes Ziellab vorprüfen'
             }
             New-LabConsoleItem -Id back -Label 'Zurück / Abbrechen'
         )
@@ -64,6 +68,17 @@ function Invoke-LabEvaluationRefreshPlanInteractive {
         }
         if ($review.SelectedItem.Id -ceq 'observe') { $planArgs.ObserveSqlSource = $true }
         if ($review.SelectedItem.Id -ceq 'observe-windows') { $planArgs.ObserveWindowsLicense = $true }
+        if ($review.SelectedItem.Id -ceq 'target') {
+            $targetItems = @($runItems | Where-Object { $_.Id -cin $targetCandidates.RunId })
+            $targetChoice = Invoke-LabConsoleMenu -ScreenId 'evaluation-refresh-target' -Title 'Registriertes Ziellab vorprüfen' `
+                -Subtitle 'Metadaten eines separaten SQL-2025-Labs unter demselben Lab_Data lesen' -Items $targetItems
+            if ($targetChoice.Status -cne 'Selected') { return }
+            $target = @($targetCandidates | Where-Object RunId -CEQ $targetChoice.SelectedItem.Id)
+            if ($target.Count -ne 1) { throw 'EVALUATION_REFRESH_TARGET_SELECTION_INVALID' }
+            $planArgs.TargetRunId = $target[0].RunId
+            $planArgs.TargetInstanceId = $target[0].InstanceId
+            $planArgs.ExpectedTargetSnapshotDigest = $target[0].Digest
+        }
         $plan=New-LabEvaluationRefreshPlan @planArgs
         Write-LabInfo 'BLOCKED: reine Planung. SQL-Bereitschaft NOT_CHECKED; keine Aktionen, Speicherung, Übernahme oder Gleichwertigkeitsbestätigung.'
         foreach($evaluation in $plan.Evaluations){
@@ -85,11 +100,18 @@ function Invoke-LabEvaluationRefreshPlanInteractive {
                 Write-LabInfo ("Vor Übernahme prüfen: {0} · {1} ({2})" -f $finding.Code,$finding.Category,$finding.Count)
             }
         }
+        if ($plan.TargetAssessment) {
+            $targetView = $plan.TargetAssessment
+            Write-LabInfo ("Ziellab {0} / {1} · SQL {2} · registriert als {3} · {4}" -f
+                $targetView.RunId,$targetView.InstanceId,$targetView.SqlVersion,$targetView.RegisteredState,$targetView.Status)
+            foreach ($check in $targetView.Checks) { Write-LabInfo ("Ziel prüfen: {0}" -f $check) }
+        }
         foreach($blocker in $plan.Blockers){Write-LabInfo ("Offen: {0}"-f$blocker)}
         foreach($step in $plan.NextSteps){Write-LabInfo $step}
         $null=Wait-LabConsoleAcknowledgement
     } catch {
-        $known=@('EVALUATION_REFRESH_BINDING_CHANGED','EVALUATION_REFRESH_SCOPE_UNSUPPORTED','EVALUATION_REFRESH_BINDING_INVALID','EVALUATION_REFRESH_INPUT_INVALID','EVALUATION_REFRESH_MODE_INVALID')
+        $known=@('EVALUATION_REFRESH_BINDING_CHANGED','EVALUATION_REFRESH_SCOPE_UNSUPPORTED','EVALUATION_REFRESH_BINDING_INVALID','EVALUATION_REFRESH_INPUT_INVALID','EVALUATION_REFRESH_MODE_INVALID',
+            'EVALUATION_REFRESH_TARGET_SELECTION_INVALID','EVALUATION_REFRESH_TARGET_UNAVAILABLE','EVALUATION_REFRESH_TARGET_SCOPE_UNSUPPORTED')
         $code=if($_.Exception.Message-cin$known){$_.Exception.Message}else{'EVALUATION_REFRESH_BINDING_UNAVAILABLE'}
         Write-LabWarning ("{0}: Vorschau nicht verfügbar; registrierte Metadaten prüfen. Keine Änderung ausgeführt."-f$code)
         $null=Wait-LabConsoleAcknowledgement

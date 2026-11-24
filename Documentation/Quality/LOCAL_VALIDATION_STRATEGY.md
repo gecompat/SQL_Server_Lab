@@ -2419,6 +2419,13 @@ und SSISDB-Kandidat sowie den weiterhin blockierten Transferstatus. Die
 CLI- und HTTP-Fixtures prüfen die Ausgabe der festen Codes. Die vorhandene
 native Abnahme der ursprünglichen neun Zähler ist separat dokumentiert.
 
+Die optionale Vorschau eines SQL-2025-Ziellabs verwendet zwei registrierte
+synthetische Hyper-V-Bindungen. Plan-, CLI-, HTTP- und Browserfixtures prüfen
+getrennte Run-, Scope- und VM-Bindungen, Ziel-Drift, Abbruch, verspätete
+Antworten und unveränderte State-Dateien. Der Funktionsumfang ist die
+Metadatenvorschau. Native Zielbereitschaft und Transfer benötigen eigene
+Nachweise.
+
 ## Prospektiver External-Languages-Capability-Entscheid
 
 `Invoke-ExternalRuntimeCapabilityBrowserChecks.ps1` prüft die extrahierte echte
