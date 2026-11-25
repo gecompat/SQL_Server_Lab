@@ -1170,6 +1170,7 @@ sources_of_truth:
   batch_browser_overview: Private/BatchBrowserOverview.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/app.js, Ui/operation-queue.js, Tests/Static/Fixtures/WorkflowInventoryCacheChecks.ps1, Tests/Static/Fixtures/OperationOrderingUiChecks.cjs # terminal history replaces raw operation state in browser inventory
   batch_guided_draft: Private/BatchBrowserOverview.ps1, Public/BatchConsole.ps1, Public/BatchWorkflow.ps1, Public/Submit-SqlServerLabBatch.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/index.html, Ui/operation-queue.js, Tests/Static/Invoke-BatchWorkflowChecks.ps1, Tests/Static/Fixtures/WorkflowJobStatusChecks.ps1, Tests/Static/Fixtures/OperationOrderingUiChecks.cjs, Documentation/Quality/CLI_GUI_FUNCTION_COVERAGE.md
   ssms_browser_registration: Private/ConnectionCenterBrowserExport.ps1, Public/Sync-SqlServerLabConnectionCenter.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/ssms-registration-export.js
+  stored_connection_center_guidance: Private/ConnectionCenterBrowserExport.ps1, Public/Sync-SqlServerLabConnectionCenter.ps1, Public/BatchConsole.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/ssms-registration-export.js, Tests/Static/Invoke-ConnectionCenterCmsChecks.ps1
   cms_registration_bound_sync: Private/CmsBoundSync.ps1, Public/Sync-SqlServerLabConnectionCenter.ps1, Ui/cms-sync.js, Tests/Static/Fixtures/CmsBoundSyncChecks.ps1
   validation_runtime_matrix: Tests/Integration/Invoke-SmokeMatrix.ps1
   cli_acceptance_matrix: Documentation/Quality/CLI_ACCEPTANCE_MATRIX.md

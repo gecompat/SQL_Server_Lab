@@ -86,10 +86,54 @@ try {
         $document = Get-LabSsmsRegistrationDownload
         $xml = [xml]$document
         $nodes = @($xml.SelectNodes('//*[local-name()="ConnectionStringWithEncryptedPassword"]'))
-        $nodes.Count -eq 1 -and $document -match 'ordinary fixture' -and $document -notmatch 'protected fixture|SYNTHETIC_SSMS_PASSWORD' -and
-            -not ([Data.SqlClient.SqlConnectionStringBuilder]::new($nodes[0].InnerText).ShouldSerialize('Password'))
+        $view=Get-LabStoredConnectionCenterView
+        $lines=[Collections.Generic.List[string]]::new()
+        function New-LabConsoleItem {
+            param($Id,$Label,$Value,$Data,$Shortcut)
+            [pscustomobject]@{Id=$Id;Label=$Label;Data=$Data}
+        }
+        function Invoke-LabConsoleMenu {
+            param($ScreenId,$Title,$Subtitle,$Items)
+            if($ScreenId -cne 'stored-connection-center' -or $Items.Count -ne 2){throw 'SYNTHETIC_CONNECTION_MENU_SHAPE'}
+            [pscustomobject]@{Status='Selected';SelectedItem=$Items[0]}
+        }
+        function Write-LabInfo {param($Message)$lines.Add([string]$Message)}
+        function Wait-LabConsoleAcknowledgement {}
+        Show-LabStoredConnectionCenterInteractive
+        [pscustomobject]@{
+            Registration=$nodes.Count -eq 1 -and $document -match 'ordinary fixture' -and $document -notmatch 'protected fixture|SYNTHETIC_SSMS_PASSWORD' -and
+                -not ([Data.SqlClient.SqlConnectionStringBuilder]::new($nodes[0].InnerText).ShouldSerialize('Password'))
+            Inventory=$view.Entries.Count -eq 1 -and $view.Entries[0].Server -ceq '127.0.0.1,14331' -and
+                $view.Entries[0].StoredState -ceq 'RUNNING' -and $view.SkippedCount -eq 0 -and -not $view.MoreAvailable -and
+                @($view.Entries[0].PSObject.Properties.Name).Count -eq 4 -and
+                ($view|ConvertTo-Json -Depth 5) -cnotmatch 'protected fixture|SYNTHETIC_SSMS_PASSWORD|StateRoot|ConnectionString'
+            Console=($lines -join ' ') -cmatch 'ordinary fixture.*127\.0\.0\.1,14331.*Aktuelle Erreichbarkeit wurde nicht geprüft' -and
+                ($lines -join ' ') -cnotmatch 'protected fixture|SYNTHETIC_SSMS_PASSWORD'
+        }
     }
-    Add-CheckResult -Name 'Browser-SSMS-Export liest reguläre Endpunkte ohne Runtime oder Kennwort' -Success $storedExport
+    Add-CheckResult -Name 'Browser-SSMS-Export liest reguläre Endpunkte ohne Runtime oder Kennwort' -Success $storedExport.Registration
+    Add-CheckResult -Name 'Browser-Endpunktliste liest reguläre Endpunkte ohne Runtime, Kennwort oder State-Root' -Success $storedExport.Inventory
+    Add-CheckResult -Name 'Konsolenmenü zeigt die ausgewählte gespeicherte Adresse ohne Erreichbarkeitszusage' -Success $storedExport.Console
+    $boundedInventory = & {
+        . (Join-Path $repoRoot 'Private/ConnectionCenterBrowserExport.ps1')
+        function Get-SqlServerLabConnectionCenter {
+            param([switch]$StoredOnly)
+            if (-not $StoredOnly) { throw 'SYNTHETIC_EXPECTED_STORED_ONLY' }
+            $rows=@(
+                [pscustomobject]@{DisplayName='bad option';Provider='docker';Server='local;OPTION_CANARY';RuntimeState='RUNNING'}
+                [pscustomobject]@{DisplayName='bad port';Provider='podman';Server='127.0.0.1,65536';RuntimeState='STOPPED'}
+                foreach($index in 1..201){
+                    [pscustomobject]@{DisplayName=('fixture '+$index);Provider='hyperv';Server='tcp:[::1],1433';RuntimeState='UNKNOWN'}
+                }
+            )
+            [pscustomobject]@{Entries=$rows}
+        }
+        Get-LabStoredConnectionCenterView
+    }
+    Add-CheckResult -Name 'Endpunktprojektion begrenzt die Antwort und verwirft Optionen und ungültige Ports' -Success (
+        $boundedInventory.Entries.Count -eq 200 -and $boundedInventory.MoreAvailable -and $boundedInventory.SkippedCount -eq 2 -and
+        $boundedInventory.Entries[199].DisplayName -ceq 'fixture 200' -and
+        ($boundedInventory|ConvertTo-Json -Depth 5) -cnotmatch 'OPTION_CANARY|65536')
 
     $dockerClientTarget = ConvertTo-LabCmsServerTarget -Server '127.0.0.1,15433' -CmsProvider docker
     $podmanClientTarget = ConvertTo-LabCmsServerTarget -Server 'localhost,15434' -CmsProvider podman

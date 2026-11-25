@@ -2126,6 +2126,9 @@ function Invoke-LabAction {
         'ConnectionCenter' {
             Invoke-LabConnectionCenterInteractive
         }
+        'StoredConnectionCenter' {
+            Show-LabStoredConnectionCenterInteractive
+        }
     }
 }
 
