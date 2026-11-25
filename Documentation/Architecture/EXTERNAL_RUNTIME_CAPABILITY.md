@@ -100,6 +100,11 @@ nicht und bestätigt weder Kernelidentität noch parallele WSL-Kompatibilität.
 [Docker-Engine-SystemInfo](https://docs.docker.com/reference/api/engine/version/v1.57/schemas/SystemInfo/)
 [Podman info](https://docs.podman.io/en/v5.7.1/markdown/podman-info.1.html)
 
+Die Podman-Formatvorlage liest das Go-Feld `Host.CgroupsVersion` und
+projiziert es auf `CgroupVersion`. Der JSON-Name der nativen
+Podman-Antwort unterscheidet sich vom Go-Feld.
+[Podman HostInfo](https://pkg.go.dev/github.com/containers/podman/v5%40v5.8.9/libpod/define#HostInfo)
+
 `HostPrerequisites` trennt `COMPATIBLE`, `BLOCKED`, `UNKNOWN`, `UNAVAILABLE`,
 `CATALOG_BLOCKED` und `NOT_CHECKED`. Bekannte Profilunterschreitung und fehlende
 Controller blockieren; fehlende oder falsch typisierte Werte bleiben unbekannt.

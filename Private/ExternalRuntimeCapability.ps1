@@ -14,13 +14,13 @@ function Get-LabExternalRuntimeInfoArguments {
     $format=if($Provider -ceq 'docker') {
         '{"OperatingSystem":{{json .OSType}},"CgroupVersion":{{json .CgroupVersion}},"SecurityOptions":{{json .SecurityOptions}}}'
     } elseif($Provider -ceq 'podman') {
-        '{"OperatingSystem":{{json .Host.OS}},"CgroupVersion":{{json .Host.CgroupVersion}},"Rootless":{{json .Host.Security.Rootless}}}'
+        '{"OperatingSystem":{{json .Host.OS}},"CgroupVersion":{{json .Host.CgroupsVersion}},"Rootless":{{json .Host.Security.Rootless}}}'
     } else { throw 'EXTERNAL_RUNTIME_CAPABILITY_INPUT_INVALID' }
     if($IncludeHostPrerequisites) {
         $extra=if($Provider -ceq 'docker'){
             ',"MemoryLimit":{{json .MemoryLimit}},"PidsLimit":{{json .PidsLimit}},"MemTotal":{{json .MemTotal}},"NCPU":{{json .NCPU}}}'
         }else{
-            ',"CgroupsVersion":{{json .Host.CgroupsVersion}},"Controllers":{{json .Host.CgroupControllers}},"MemTotal":{{json .Host.MemTotal}},"Cpus":{{json .Host.CPUs}}}'
+            ',"Controllers":{{json .Host.CgroupControllers}},"MemTotal":{{json .Host.MemTotal}},"Cpus":{{json .Host.CPUs}}}'
         }
         $format=$format.Substring(0,$format.Length-1)+$extra
     }

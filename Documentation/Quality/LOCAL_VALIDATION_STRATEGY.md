@@ -2510,8 +2510,13 @@ Payload- und Ergebnisgrenzen. Das Kernel-Opt-in prüft für Docker und Podman
 die passende Vorlage im selben `info`-Aufruf. Synthetische Releasewerte
 decken den Microsoft-WSL2-Marker, andere Linux-Releases und unbrauchbare
 Angaben ab. Die HTTP- und Browserprüfungen prüfen sichere Felder und
-weisen Rohsuffixe zurück.
-Die Prüfung belegt keine nativen Hostwerte und keine SQL-Sprachausführung.
+weisen Rohsuffixe zurück. Die synthetischen Prüfungen belegen die Projektion.
+
+Am 25.11.2026 lieferte der lesende Profilcheck auf Key18 mit Docker und
+Podman je eine numerische Kernelrelease. Beide meldeten für die ausgewählte
+SQL-2022-Python-Variante `CGROUP_VERSION_UNSUPPORTED`. Die Podman-Beobachtung
+bestätigte die Korrektur der Go-Formatvorlage. SQL-Sprachausführung und
+gemeinsamer Kernel blieben ungeprüft.
 
 Die additive `Invoke-ExternalRuntimeCapabilityCatalogBrowserAcceptance.ps1`
 prüft die vollständige unveränderte Produktseite über einen eigenen begrenzten

@@ -29,6 +29,8 @@ $m=New-Module -ArgumentList $root -ScriptBlock {
             $StartInfo.ArgumentList[0] -cne 'info' -or $StartInfo.ArgumentList[1] -cne '--format' -or $StartInfo.UseShellExecute){throw 'PREREQUISITE_TRANSPORT_CHANGED'}
         $script:transports++
         $docker=$StartInfo.FileName -like '*docker*'
+        if (-not $docker -and (-not $StartInfo.ArgumentList[2].Contains('.Host.CgroupsVersion') -or
+            $StartInfo.ArgumentList[2].Contains('.Host.CgroupVersion'))) { throw 'PODMAN_CGROUP_TEMPLATE_FIELD_INVALID' }
         $extended=$StartInfo.ArgumentList[2] -match 'MemoryLimit|Controllers'
         $value=if($docker){[pscustomobject]@{OperatingSystem='linux';CgroupVersion='1';SecurityOptions=@()}}
             else{[pscustomobject]@{OperatingSystem='linux';CgroupVersion='v1';Rootless=$false}}
