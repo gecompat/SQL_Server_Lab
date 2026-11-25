@@ -4079,6 +4079,10 @@ bleiben unter der bestehenden Providerverwaltung; der Test fuehrt kein Prune aus
 `Tests/Static/Invoke-SqlActionProgressChecks.ps1` prüft unveränderte
 synthetische Passwortwerte einschließlich Minus, Leerzeichen, Anführungszeichen,
 Backslash und Unicode über Query, Readiness und KeepConnection.
+Die Bibliothekssicherung übergibt das Kennwort für Metadaten,
+Abhängigkeitsinventur und Backup per Prozessumgebung an sqlcmd. Die
+betroffenen Argument- und Workflowprüfungen prüfen, dass der SecureString
+auf diesem Weg erhalten bleibt und kein Kennwort in den Argumenten steht.
 `Invoke-ReadinessContractChecks.ps1` bindet beide Provider-Healthchecks und
 den gemeinsamen Container-Reconcile an denselben Shellargumentvertrag.
 `Tests/Integration/Invoke-SqlcmdPasswordParserAcceptance.ps1` reproduziert

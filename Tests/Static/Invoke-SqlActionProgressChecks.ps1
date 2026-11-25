@@ -50,10 +50,11 @@ $credential.AppendChar([char]83)
 try {
     $synthetic = '-OnlySynthetic A1!"\ä$;'
     $behavior.Output=@('16|2|0|0|0')
-    $metadata=Get-LabDatabaseBackupMetadata -Port 1433 -SaPlain $synthetic -DatabaseName SyntheticBackup
+    $metadata=Get-LabDatabaseBackupMetadata -Port 1433 -SaPassword $credential -DatabaseName SyntheticBackup
     $metadataCall=$calls[-1]
     Assert-SqlProgress ($metadata.SqlMajorVersion -eq '16' -and $metadata.FileCount -eq 2 -and -not $metadata.IsEncrypted) 'Backup-Metadaten behalten ihren strukturierten Ergebnisvertrag'
-    Assert-SqlProgress ($metadataCall.Args -ccontains ('-P'+$synthetic) -and $metadataCall.Args -cnotcontains '-P') 'Backup-Metadaten binden fuehrendes Minus und Sonderzeichen unveraendert'
+    Assert-SqlProgress ($metadataCall.SameSecret -and $metadataCall.Args -ccontains '-x' -and
+        @($metadataCall.Args.Where({ $_ -cmatch '^-(?:P|X)' })).Count -eq 0) 'Backup-Metadaten verwenden nur die Prozessumgebung für das Kennwort'
     Assert-SqlProgress ($metadataCall.Timeout -eq 60 -and $metadataCall.Args[[array]::IndexOf($metadataCall.Args,'-l')+1] -eq '15' -and $metadataCall.Args[[array]::IndexOf($metadataCall.Args,'-t')+1] -eq '45') 'Backup-Metadaten begrenzen Login, Query und Prozess'
     foreach($failureCase in @(
         @{Exit=9;Output=@('synthetic failure');Failure='';Expected='BACKUP_METADATA_QUERY_FAILED'},
@@ -63,7 +64,7 @@ try {
     )) {
         $behavior.ExitCode=$failureCase.Exit; $behavior.Output=$failureCase.Output; $behavior.Failure=$failureCase.Failure
         $rejected=$false
-        try { $null=Get-LabDatabaseBackupMetadata -Port 1433 -SaPlain $synthetic -DatabaseName SyntheticBackup }
+        try { $null=Get-LabDatabaseBackupMetadata -Port 1433 -SaPassword $credential -DatabaseName SyntheticBackup }
         catch { $rejected=$_.Exception.Message.StartsWith($failureCase.Expected) }
         Assert-SqlProgress ($rejected -and -not [IO.File]::Exists($calls[-1].OutputPath)) 'Backup-Metadaten bewahren Fehler und entfernen die Ergebnisdatei'
     }

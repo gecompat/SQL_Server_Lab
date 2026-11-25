@@ -13,7 +13,7 @@ function Get-LabDatabaseMigrationDependencySqlObservation {
     param(
         [string]$HostName='127.0.0.1',
         [Parameter(Mandatory)][int]$Port,
-        [Parameter(Mandatory)][string]$SaPlain,
+        [Parameter(Mandatory)][SecureString]$SaPassword,
         [Parameter(Mandatory)][ValidatePattern('^[A-Za-z][A-Za-z0-9_]{0,127}$')][string]$DatabaseName
     )
 
@@ -54,7 +54,7 @@ SELECT CONCAT(N'PSR010_COUNT|LINKED_SERVER|',CONVERT(nvarchar(20),COUNT_BIG(*)))
 FROM master.sys.servers
 WHERE is_linked=1;
 "@
-    $output=@(Invoke-SqlQuery -HostName $HostName -Port $Port -SaPlain $SaPlain -Database master -Query $query)
+    $output=@(Invoke-SqlQuery -HostName $HostName -Port $Port -ProductQueryPassword $SaPassword -Database master -Query $query)
     $lines=@($output|ForEach-Object{([string]$_).Trim()}|Where-Object{$_ -match '^PSR010_(META|COUNT)\|'})
     $meta=@($lines|Where-Object{$_ -match '^PSR010_META\|'})
     if($meta.Count -ne 1){throw 'MIGRATION_DEPENDENCY_METADATA_RESULT_INVALID'}
@@ -248,12 +248,8 @@ function Get-LabDatabaseMigrationDependencyInventory {
         [Parameter(Mandatory)][ValidateSet('docker','podman','hyperv','external')][string]$Provider,
         [string]$RunId,[string]$InstanceId,[bool]$TdeRecoveryEvidenceVerified=$false
     )
-    $bstr=[Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword)
-    try{$plain=[Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)}finally{[Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)}
-    try{
-        $observation=Get-LabDatabaseMigrationDependencySqlObservation -HostName $HostName -Port $Port -SaPlain $plain -DatabaseName $DatabaseName
-        New-LabDatabaseMigrationDependencyInventory -DatabaseName $DatabaseName -Provider $Provider -RunId $RunId -InstanceId $InstanceId -Observation $observation -TdeRecoveryEvidenceVerified:$TdeRecoveryEvidenceVerified
-    } finally {$plain=$null}
+    $observation=Get-LabDatabaseMigrationDependencySqlObservation -HostName $HostName -Port $Port -SaPassword $SaPassword -DatabaseName $DatabaseName
+    New-LabDatabaseMigrationDependencyInventory -DatabaseName $DatabaseName -Provider $Provider -RunId $RunId -InstanceId $InstanceId -Observation $observation -TdeRecoveryEvidenceVerified:$TdeRecoveryEvidenceVerified
 }
 
 function Get-LabDatabaseArtifactMigrationBoundary {
