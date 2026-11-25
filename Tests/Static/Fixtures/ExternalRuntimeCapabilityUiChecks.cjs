@@ -19,9 +19,9 @@ const option=()=>({SoftwareId:'sql-python',Language:'Python',RuntimeVersion:'3.1
 const options=()=>({ContractVersion:'SqlServerLab.ExternalRuntimeCapabilityBrowser/1.0',Status:'OPTIONS',Options:[option()]});
 const result=d=>({ContractVersion:'SqlServerLab.ExternalRuntimeCapabilityBrowser/1.0',Status:'DECISION',Decision:d});
 const history=()=>({ContractVersion:'SqlServerLab.ExternalRuntimeCapabilityBrowser/1.1',Status:'HISTORY',Provider:'docker',OperatingSystem:'linux',Identity:decision().Identity,HistoricalEvidence:{Status:'RECORDED_HISTORY_ONLY',MappingStatus:'DEFINED',ReasonCode:'INDEX_MATCH_RECORDED',RecordCount:2,ReferenceVerificationStatus:'NOT_VERIFIED',EvidenceBoundary:'RECORDED_HISTORY_ONLY'},CurrentReadinessStatus:'NOT_CHECKED',SqlLanguageExecution:'NOT_CHECKED',TargetAuthorization:'NOT_CHECKED',ExecutionSupported:false,MutationAllowed:false,Actions:[]});
-const prerequisites=()=>({ContractVersion:'SqlServerLab.ExternalRuntimeCapabilityBrowser/1.2',Status:'HOST_PREREQUISITES',Provider:'docker',
+const prerequisites=()=>({ContractVersion:'SqlServerLab.ExternalRuntimeCapabilityBrowser/1.3',Status:'HOST_PREREQUISITES',Provider:'docker',
   Identity:decision().Identity,ResourceProfile:'performance',PrerequisiteStatus:'BLOCKED',ReasonCodes:['RESOURCE_CONTROLLERS_UNAVAILABLE'],
-  ControllerStatus:'MISSING',MissingControllers:['pids'],MemoryStatus:'CAPACITY_INSUFFICIENT',CpuStatus:'CAPACITY_SUFFICIENT',
+  ControllerStatus:'MISSING',MissingControllers:['pids'],UnknownControllers:['memory'],MemoryStatus:'CAPACITY_INSUFFICIENT',CpuStatus:'CAPACITY_SUFFICIENT',
   FullLaunchReadiness:'INCOMPLETE',ExecutionSupported:false,MutationAllowed:false});
 async function answer(fixture,view,request=fixture.requests.at(-1)){request.resolve({ok:true,json:async()=>view});await fixture.flush();}
 async function load(fixture){fixture.click('open');fixture.click('read');await answer(fixture,options());fixture.elements.choice.value='0';fixture.elements.choice.events.change();}
@@ -68,10 +68,11 @@ async function load(fixture){fixture.click('open');fixture.click('read');await a
   f.click('prerequisites');
   check(profilePayload.Action==='CheckHostPrerequisites' && profilePayload.ResourceProfile==='performance' && f.requests.length===2, 'Explicit profile action is bound and busy prevents duplicate reads');
   await answer(f,prerequisites());
-  check(f.elements.result.textContent.includes('fehlend pids') && f.elements.result.textContent.includes('CAPACITY_INSUFFICIENT') && f.elements.result.textContent.includes('Keine Ausführungsfreigabe'), 'Direct profile result renders categories and preserves authority limits');
+  check(f.elements.result.textContent.includes('fehlend pids') && f.elements.result.textContent.includes('unbekannt memory') && f.elements.result.textContent.includes('CAPACITY_INSUFFICIENT') && f.elements.result.textContent.includes('Keine Ausführungsfreigabe'), 'Direct profile result renders categories and preserves authority limits');
   f.click('prerequisites');const oldProfile=f.requests.at(-1);f.elements.profile.value='compact';f.elements.profile.events.change();await answer(f,prerequisites(),oldProfile);
   check(f.elements.result.textContent==='', 'Changing the profile discards a late observation');
-  for (const change of [v=>v.ResourceProfile='compact',v=>v.ExecutionSupported=true,v=>v.ControllerStatus='PRIVATE_CANARY',v=>v.MemoryTotal=1]) {
+  for (const change of [v=>v.ResourceProfile='compact',v=>v.ExecutionSupported=true,v=>v.ControllerStatus='PRIVATE_CANARY',v=>v.MemoryTotal=1,
+    v=>v.UnknownControllers=['pids'],v=>v.UnknownControllers=['cpu'],v=>v.UnknownControllers=['PRIVATE_CANARY']]) {
     f=setup();await load(f);f.elements.profile.value='performance';f.click('prerequisites');const view=prerequisites();change(view);await answer(f,view);
     check(f.elements.result.textContent==='' && !f.elements.status.textContent.includes('PRIVATE_CANARY'), 'Wrong-profile, unsafe or malformed response is withheld');
   }
