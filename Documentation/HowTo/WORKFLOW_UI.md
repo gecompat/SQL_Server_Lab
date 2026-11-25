@@ -1343,8 +1343,14 @@ du ein katalogisiertes Generationsmodell wählen, das im lokalen Ollama-Dienst
 bereitsteht. Gib dessen Loopback-Port und einen synthetischen Prompt ein.
 Das Zeitlimit umfasst Modellstart und Antwort. Standard sind 180 Sekunden.
 Erst nach Bestätigung sendet der Browserauftrag eine Abfrage an den lokalen
-Dienst. Die Antwort steht unter **Vorgänge**. Für die ausdrücklich
-freizugebende Cloud-Lane gibt es weiterhin den CLI-Einstieg.
+Dienst. Die Antwort steht unter **Vorgänge**.
+
+Wähle **Host-Dienste und Modelle → Ollama-Cloud-Modell aufrufen** für einen
+Cloud-Aufruf. Wähle das Modell und deklariere den Prompt als synthetisch oder
+öffentlich weitergebbar. Die Bestätigung nennt `https://ollama.com` und das
+Zeitlimit. Sie gibt genau eine Übermittlung frei. Das erforderliche Credential
+liest der UI-Server aus der konfigurierten lokalen Mediendatei `.env`. Die
+Antwort steht unter **Vorgänge**.
 
 Der geführte eigene llama.cpp-Sitzungsstop ist unter „Host-Dienste und Modelle“
 über Auswahl, Vorschau, Abbruch und bewusste Bestätigung erreichbar. Die

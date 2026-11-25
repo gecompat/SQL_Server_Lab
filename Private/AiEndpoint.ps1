@@ -38,6 +38,19 @@ function Get-LabAiLocalGenerationCatalog {
         ForEach-Object { [pscustomobject]@{ Id = [string]$_.key; Name = [string]$_.model } }
 }
 
+function Get-LabAiCloudGenerationCatalog {
+    (Get-LabAiModelCatalog).models |
+        Where-Object { $_.provider -ceq 'ollama' -and $_.lane -ceq 'cloud' -and
+            $_.purpose -ceq 'generation' -and $_.status -ceq 'SUPPORTED' } |
+        Sort-Object key |
+        ForEach-Object {
+            $plan = New-LabAiEndpointPlan -ModelKey $_.key -EndpointRef ollama-cloud -Lane cloud -AllowCloudEgress -MaximumRequests 1 -RetryCount 0
+            if ($plan.Status -ceq 'NOT_PROBED') {
+                [pscustomobject]@{Id=[string]$_.key;Name=[string]$_.model;TargetHost=[string]$plan.TargetHost}
+            }
+        }
+}
+
 function New-LabAiEndpointPlan {
     [CmdletBinding()]
     param(

@@ -45,6 +45,12 @@ ein optionales einzelnes öffentliches CA-Zertifikat vor dem Vault-Lesen.
 Eine optionale Referenz wird lokal als `SecureString` für die vorhandene
 HTTPS-Probe aufgelöst. Die Antwort enthält die gebundene Endpunktquittung.
 
+Der geführte Ollama-Cloud-Dialog liest über die Operator-Capability ausschließlich
+Katalogmetadaten. Das Modell und das feste Ziel erscheinen in der Bestätigung.
+Die Übermittlung verwendet den bestehenden bestätigten Katalogbefehl mit
+expliziter Cloud-Freigabe, zulässiger Datenklasse und genau einem Versuch.
+Der Browser liest weder die Mediendatei noch den Credentialwert.
+
 ## Acht interne Fachreader
 
 CMS-Inspection, Initial Setup, Slotreserve, Resource Watch, llama.cpp-Installer,

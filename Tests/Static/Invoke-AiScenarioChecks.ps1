@@ -334,6 +334,11 @@ try {
 
     $cloudBlocked=& $module { New-LabAiEndpointPlan -ModelKey ollama-gpt-oss-120b-cloud -EndpointRef ollama-cloud }
     $cloudReady=& $module { New-LabAiEndpointPlan -ModelKey ollama-gpt-oss-120b-cloud -EndpointRef ollama-cloud -AllowCloudEgress }
+    $guidedCloudCatalog=@(& $module { Get-LabAiCloudGenerationCatalog })
+    Add-CheckResult 'Geführter Cloud-Katalog projiziert das gebundene Ollama-Ziel ohne Credentials' (
+        $guidedCloudCatalog.Count -eq 1 -and $guidedCloudCatalog[0].Id -ceq $cloudReady.ModelKey -and
+        $guidedCloudCatalog[0].TargetHost -ceq $cloudReady.TargetHost -and
+        @($guidedCloudCatalog[0].PSObject.Properties.Name).Count -eq 3)
     Add-CheckResult 'Cloudplan verlangt expliziten Egress und projiziert nur CredentialRef und Zielhost' (
         $cloudBlocked.Status -eq 'BLOCKED' -and $cloudBlocked.Blockers -contains 'AI_ENDPOINT_CLOUD_EGRESS_NOT_ALLOWED' -and
         $cloudReady.Status -eq 'NOT_PROBED' -and $cloudReady.CredentialRef -eq 'SQL_SERVER_LAB_SECRET_OLLAMA' -and
