@@ -833,6 +833,7 @@
   function clearPlan() {
     revision++;
     result.value = '';
+    if (element('preflight')) element('preflight').hidden = true;
     resultBox.hidden = true;
     status.textContent = '';
   }
@@ -849,6 +850,13 @@
   element('open').addEventListener('click', () => show(null));
   dialog.addEventListener('sqlserverlab:model-sql-plan-input', event => show(event.detail));
   element('close').addEventListener('click', () => dialog.close());
+  element('preflight')?.addEventListener('click', () => {
+    const targetDialog = document.querySelector('#external-model-sql-preflight-dialog');
+    if (!targetDialog || !result.value || resultBox.hidden) return;
+    const sqlPlanText = result.value;
+    dialog.close();
+    targetDialog.dispatchEvent(new CustomEvent('sqlserverlab:model-sql-preflight-input', {detail:sqlPlanText}));
+  });
   dialog.addEventListener('close', () => { form.reset(); clearPlan(); });
   form.addEventListener('input', clearPlan);
 
@@ -891,12 +899,104 @@
           view.DatabaseName !== request.DatabaseName || view.SourcePlanKey !== request.Plan.PlanKey ||
           view.EndpointReceiptKey !== request.EndpointReceipt.ReceiptKey || !digest.test(view.SqlPlanKey)) throw new Error('BAD_PLAN');
       result.value = JSON.stringify(view,null,2);
+      if (element('preflight')) element('preflight').hidden = false;
       resultBox.hidden = false;
       status.textContent = 'SQL-Plan gebunden. Rechte, Datenbank-Master-Key und Ausführung werden separat geprüft.';
     } catch {
       if (revision === requestId && dialog.open) status.textContent = 'SQL-Plan unbestätigt. Prüfe Plan, Endpunktquittung und Datenbanknamen.';
     } finally {
       busy = false;
+      submit.disabled = false;
+    }
+  });
+})();
+
+(function () {
+  'use strict';
+  const element = name => document.querySelector('#external-model-sql-preflight-' + name);
+  const dialog = element('dialog');
+  if (!dialog || !element('open')) return;
+  const form = element('form');
+  const select = element('target');
+  const confirm = element('confirm');
+  const status = element('status');
+  const submit = element('submit');
+  const action = 'ReadExternalModelSqlPreflight';
+  const runFormat = /^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/;
+  const instanceFormat = /^[A-Za-z][A-Za-z0-9_-]{0,63}$/;
+  let submitting = false;
+  let offeredTargets = new Map();
+
+  function candidates(snapshot) {
+    const entries = new Map();
+    function add(lab, instanceId, version, provider) {
+      if (!runFormat.test(lab.RunId) || !instanceFormat.test(instanceId) ||
+          !/^2025(?:-|$)/.test(version) || !['docker', 'podman', 'hyperv'].includes(provider)) return;
+      const key = lab.RunId + '/' + instanceId;
+      const label = (lab.Name || lab.RunId) + ' · ' + instanceId + ' · ' + provider;
+      entries.set(key, entries.has(key) ? null : { RunId:lab.RunId, InstanceId:instanceId, Label:label, Provider:provider });
+    }
+    for (const lab of snapshot?.ActiveLabs || []) {
+      if (lab.State !== 'RUNNING') continue;
+      for (const instance of lab.Instances || []) add(lab, instance.Id, instance.SqlVersion, instance.Provider);
+    }
+    for (const lab of snapshot?.HyperVLabs || []) {
+      if (lab.State !== 'RUNNING' || lab.VMState !== 'Running' || lab.Workload === 'windows' ||
+          lab.SqlCompletionState === 'PENDING_SLOT_INSTALL' || lab.SqlCompletionState === 'PENDING_COMPLETE_IMAGE') continue;
+      add(lab, lab.InstanceId, lab.SqlVersion, 'hyperv');
+    }
+    return entries;
+  }
+
+  function open(sqlPlan) {
+    if (dialog.open || submitting) return;
+    form.reset();
+    select.replaceChildren(new Option('Instanz auswählen', ''));
+    offeredTargets = candidates(workflow);
+    const targets = [...offeredTargets.entries()].filter(([, target]) => target);
+    for (const [key, target] of targets) select.add(new Option(target.Label, key));
+    status.textContent = targets.length ? '' : 'Keine laufende SQL-2025-Instanz in der aktuellen Übersicht.';
+    submit.disabled = targets.length === 0;
+    if (sqlPlan) element('plan').value = sqlPlan;
+    dialog.showModal();
+  }
+
+  element('open').addEventListener('click', () => open(null));
+  dialog.addEventListener('sqlserverlab:model-sql-preflight-input', event => open(event.detail));
+  element('close').addEventListener('click', () => dialog.close());
+  dialog.addEventListener('close', () => { form.reset(); offeredTargets.clear(); });
+  form.addEventListener('input', event => {
+    if (event.target === select || event.target === element('plan')) confirm.checked = false;
+  });
+  form.addEventListener('submit', async event => {
+    event.preventDefault();
+    if (!dialog.open || submitting || !form.reportValidity()) return;
+    const target = candidates(workflow).get(select.value);
+    if (!target || target.Provider !== offeredTargets.get(select.value)?.Provider) {
+      status.textContent = 'Die Instanz ist in der aktuellen Übersicht nicht mehr auswählbar.';
+      return;
+    }
+    let sqlPlan;
+    try {
+      sqlPlan = JSON.parse(element('plan').value);
+      if (sqlPlan?.Contract?.Name !== 'SqlServerLab.AiExternalModelSqlPlan' ||
+          sqlPlan.Contract.Version !== '1.0' || !/^[a-f0-9]{64}$/.test(sqlPlan.SqlPlanKey)) throw new Error('PLAN');
+    } catch {
+      status.textContent = 'Der gebundene SQL-Plan konnte nicht gelesen werden.';
+      return;
+    }
+    if (!confirm.checked) return;
+    submitting = true;
+    submit.disabled = true;
+    dialog.close();
+    try {
+      await submitUiAction(action, '/api/ai-external-model/sql-preflight', {
+        parameters:{SqlPlan:sqlPlan, RunId:target.RunId, InstanceId:target.InstanceId}
+      });
+    } catch {
+      showError(new Error('Annahme der SQL-Zielprüfung unbestätigt. Prüfe die Vorgangsanzeige.'));
+    } finally {
+      submitting = false;
       submit.disabled = false;
     }
   });

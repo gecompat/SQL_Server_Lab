@@ -203,6 +203,7 @@ function Invoke-LabMenuAction {
     if ($ActionName -eq 'ExternalModelPlan') { Invoke-LabGuidedExternalModelPlanInteractive; return }
     if ($ActionName -eq 'ExternalModelEndpoint') { Invoke-LabGuidedExternalModelEndpointInteractive; return }
     if ($ActionName -eq 'ExternalModelSqlPlan') { Invoke-LabGuidedExternalModelSqlPlanInteractive; return }
+    if ($ActionName -eq 'ExternalModelSqlPreflight') { Invoke-LabGuidedExternalModelSqlPreflightInteractive; return }
     if ($ActionName -eq 'OvmsGatewayStart') { Invoke-LabGuidedOvmsGatewayStartInteractive; return }
     if ($ActionName -eq 'OvmsGatewayStop') { Invoke-LabGuidedOvmsGatewayStopInteractive; return }
     if ($ActionName -eq 'AiSharedGatewayPlan') { Invoke-LabAiSharedGatewayPlanInteractive; return }

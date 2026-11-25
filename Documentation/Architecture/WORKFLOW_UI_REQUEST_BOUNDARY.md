@@ -69,6 +69,13 @@ PEM-Dateien und löst eine Vault-Referenz auf. Liste und Stop sind durch
 Identität des Ownerobjekts auf Sitzungen dieses UI-Servers begrenzt. Die
 Bereinigung beim Serverende verwendet dieselbe Bindung.
 
+Die Route `/api/ai-external-model/sql-preflight` nimmt ausschließlich den
+gebundenen SQL-Plan sowie Run- und Instanz-ID an. Sie verlangt die
+Operator-Capability und die exakte Origin. Der Plan bleibt flüchtig, wird
+vor Jobannahme gegen Schema und Hash geprüft und bindet im Worker die
+aktuelle Zielinstanz erneut. Der Worker veröffentlicht die Vorprüfquittung
+oder einen festen Fehlercode. Datenbankzugang bleibt serverseitig.
+
 ## Acht interne Fachreader
 
 CMS-Inspection, Initial Setup, Slotreserve, Resource Watch, llama.cpp-Installer,

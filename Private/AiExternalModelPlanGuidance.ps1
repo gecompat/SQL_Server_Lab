@@ -147,11 +147,86 @@ function Invoke-LabGuidedExternalModelSqlPlanInteractive {
         $sqlPlan = Get-SqlServerLabAiExternalModelSqlPlan -Plan $PreparedPlan -EndpointReceipt $PreparedReceipt -DatabaseName $database.Value -MaxEndpointAgeSeconds $ageSeconds
         Write-LabInfo ($sqlPlan | ConvertTo-Json -Depth 8)
         Write-LabInfo 'SQL-Objekte sind geplant. SQL-Bindung, Rechte und Datenbank-Master-Key werden separat geprüft.'
+        if (Read-LabConfirm -Prompt 'Zur getrennten SQL-Zielprüfung gehen?' -Default $false) {
+            Invoke-LabGuidedExternalModelSqlPreflightInteractive -PreparedSqlPlan $sqlPlan
+            return
+        }
     } catch [Management.Automation.PipelineStoppedException] { throw }
     catch {
         if ($_.Exception.Message -ceq 'AI_EXTERNAL_MODEL_ENDPOINT_RECEIPT_EXPIRED') {
             Write-LabWarning 'Die Endpunktquittung ist abgelaufen. Prüfe den Endpunkt erneut.'
         } else { Write-LabWarning 'SQL-Plan unbestätigt. Prüfe Datenbankname, External-Model-Plan und zugehörige Endpunktquittung.' }
     }
+    $null = Wait-LabConsoleAcknowledgement
+}
+
+function ConvertFrom-LabGuidedExternalModelSqlPlan {
+    param([Text.Json.JsonElement]$Element)
+
+    if ($Element.ValueKind -ne [Text.Json.JsonValueKind]::Object) { throw 'AI_EXTERNAL_MODEL_SQL_PLAN_INVALID' }
+    $timestamp = $Element.GetProperty('ValidUntilUtc')
+    if ($timestamp.ValueKind -ne [Text.Json.JsonValueKind]::String) { throw 'AI_EXTERNAL_MODEL_SQL_PLAN_INVALID' }
+    $plan = $Element.GetRawText() | ConvertFrom-Json -Depth 8 -ErrorAction Stop
+    # SqlPlanKey includes the exact deadline text, including fractional seconds.
+    $plan.ValidUntilUtc = $timestamp.GetString()
+    return $plan
+}
+
+function Get-LabGuidedExternalModelSqlPreflightCode {
+    param([string]$Message)
+
+    $knownCodes = @('AI_EXTERNAL_MODEL_SQL_PLAN_INVALID','AI_EXTERNAL_MODEL_SQL_PLAN_EXPIRED',
+        'AI_EXTERNAL_MODEL_SQL_RUN_NOT_RUNNING','AI_EXTERNAL_MODEL_SQL_VERSION_UNSUPPORTED',
+        'AI_EXTERNAL_MODEL_SQL_DATABASE_MISMATCH','AI_EXTERNAL_MODEL_SQL_DATABASE_UNAVAILABLE',
+        'AI_EXTERNAL_MODEL_SQL_MASTER_KEY_REQUIRED','AI_EXTERNAL_MODEL_SQL_PERMISSION_DENIED',
+        'AI_EXTERNAL_MODEL_SQL_OBJECT_COLLISION')
+    if ($Message -cin $knownCodes) { return $Message }
+    return 'AI_EXTERNAL_MODEL_SQL_PREFLIGHT_UNCONFIRMED'
+}
+
+function Get-LabGuidedExternalModelSqlPreflightRequest {
+    param([string]$Body)
+
+    if (-not $Body -or [Text.Encoding]::UTF8.GetByteCount($Body) -gt 32768) { throw 'AI_EXTERNAL_MODEL_SQL_PREFLIGHT_FORM_INVALID' }
+    $options = [Text.Json.JsonDocumentOptions]::new()
+    $options.MaxDepth = 10
+    $document = [Text.Json.JsonDocument]::Parse($Body,$options)
+    try {
+        $root = ConvertFrom-LabAiSharedGatewayFormObject -Object $document.RootElement -Fields @{parameters=[Text.Json.JsonValueKind]::Object}
+        $fields = @{SqlPlan=[Text.Json.JsonValueKind]::Object;RunId=[Text.Json.JsonValueKind]::String;InstanceId=[Text.Json.JsonValueKind]::String}
+        $values = ConvertFrom-LabAiSharedGatewayFormObject -Object $root.parameters -Fields $fields
+        $runId = $values.RunId.GetString()
+        $instanceId = $values.InstanceId.GetString()
+        if ($runId -cnotmatch '^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$' -or
+            $instanceId -cnotmatch '^[a-zA-Z][a-zA-Z0-9_-]{0,63}$') { throw 'AI_EXTERNAL_MODEL_SQL_PREFLIGHT_FORM_INVALID' }
+        $plan = ConvertFrom-LabGuidedExternalModelSqlPlan -Element $values.SqlPlan
+        return @{SqlPlan=(Resolve-LabAiExternalModelSqlPlan -SqlPlan $plan);RunId=$runId;InstanceId=$instanceId}
+    } finally { $document.Dispose() }
+}
+
+function Invoke-LabGuidedExternalModelSqlPreflightInteractive {
+    param($PreparedSqlPlan)
+
+    try {
+        if (-not $PreparedSqlPlan) {
+            $path = Read-LabConsoleTextInput -Prompt 'Absoluter lokaler Pfad zum gebundenen SQL-Plan (JSON)' -MaskInput
+            if ($path.Status -cne 'Confirmed') { return }
+            $options = [Text.Json.JsonDocumentOptions]::new()
+            $options.MaxDepth = 8
+            $document = [Text.Json.JsonDocument]::Parse((Read-LabGuidedExternalModelFile -Path $path.Value),$options)
+            try { $PreparedSqlPlan = ConvertFrom-LabGuidedExternalModelSqlPlan -Element $document.RootElement }
+            finally { $document.Dispose() }
+        }
+        $plan = Resolve-LabAiExternalModelSqlPlan -SqlPlan $PreparedSqlPlan
+        $selection = Select-LabAiTargetInteractive -Prompt 'Laufende eigene Umgebung für SQL-Zielprüfung auswählen'
+        if (-not $selection) { return }
+        $question = 'Datenbank {0} in Run {1} / Instanz {2} mit verwaltetem SQL-Zugang schreibgeschützt prüfen?' -f
+            $plan.DatabaseName,$selection.RunId,$selection.InstanceId
+        if (-not (Read-LabConfirm -Prompt $question -Default $false)) { return }
+        $receipt = Test-SqlServerLabAiExternalModelSqlPreflight -SqlPlan $plan -RunId $selection.RunId -InstanceId $selection.InstanceId
+        Write-LabInfo ($receipt | ConvertTo-Json -Depth 8)
+        Write-LabInfo 'Die Quittung belegt die SQL-Vorprüfung. Die Objekterstellung ist ein eigener Schritt.'
+    } catch [Management.Automation.PipelineStoppedException] { throw }
+    catch { Write-LabWarning ('SQL-Zielprüfung unbestätigt · ' + (Get-LabGuidedExternalModelSqlPreflightCode -Message $_.Exception.Message)) }
     $null = Wait-LabConsoleAcknowledgement
 }

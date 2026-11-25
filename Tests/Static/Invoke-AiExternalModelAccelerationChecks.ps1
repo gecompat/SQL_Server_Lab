@@ -235,6 +235,23 @@ try {
     Add-CheckResult 'SQL-Planführung bewahrt den exakten UTC-Zeitstempel der JSON-Quittung' (
         $guidedSql.SqlPlanKey -ceq $sqlPlan.SqlPlanKey -and $guidedSql.ValidUntilUtc -ceq $sqlPlan.ValidUntilUtc -and
         $guidedSql.EndpointReceiptKey -ceq $receipt.ReceiptKey)
+    $preflightRun='11111111-2222-4333-8444-555555555555'
+    $preflightParameters=[ordered]@{SqlPlan=$sqlPlan;RunId=$preflightRun;InstanceId='primary'}
+    $preflightBody=@{parameters=$preflightParameters}|ConvertTo-Json -Depth 10 -Compress
+    $prepared=& $module {param($body) Get-LabGuidedExternalModelSqlPreflightRequest -Body $body} $preflightBody
+    Add-CheckResult 'Geführte SQL-Zielprüfung bewahrt Dateifeldtext, Planhash und Zielbindung' (
+        $prepared.RunId -ceq $preflightRun -and $prepared.InstanceId -ceq 'primary' -and
+        $prepared.SqlPlan.ValidUntilUtc -ceq $sqlPlan.ValidUntilUtc -and $prepared.SqlPlan.SqlPlanKey -ceq $sqlPlan.SqlPlanKey)
+    $preflightParameters['StateRoot']='synthetic-path-should-never-reach-worker'
+    $rejected=try {
+        $body=@{parameters=$preflightParameters}|ConvertTo-Json -Depth 10 -Compress
+        $null=& $module {param($body) Get-LabGuidedExternalModelSqlPreflightRequest -Body $body} $body
+        $false
+    } catch { $_.Exception.Message -ceq 'AI_SHARED_GATEWAY_FORM_INVALID' }
+    Add-CheckResult 'Geführte SQL-Zielprüfung verwirft fremden StateRoot vor Jobannahme' $rejected
+    $fixedCode=& $module { Get-LabGuidedExternalModelSqlPreflightCode -Message 'synthetic-untrusted-sql-message' }
+    Add-CheckResult 'Geführte SQL-Zielprüfung projiziert für unbekannte Fehler nur einen festen Code' (
+        $fixedCode -ceq 'AI_EXTERNAL_MODEL_SQL_PREFLIGHT_UNCONFIRMED')
     $guidedSqlInput.EndpointReceipt=$receipt.PSObject.Copy()
     $guidedSqlInput.EndpointReceipt.PlanKey='f'*64
     $wrongGuidedSql=try {

@@ -3312,6 +3312,11 @@ eine kurzlebige CA-/Leaf-Kette. Er bestätigt TLS-Start, kanonische Planbindung,
 planbasierte HTTPS-Endpunktprobe, Owner-Stop, Listenerabbau und Secret-Löschung
 sowie den daraus erzeugten SQL-Plan ohne SQL-Verbindung oder Provider.
 Accelerator- und SQL-Evidence bleiben ausdrücklich unbestätigt.
+Die geführte SQL-Zielprüfung wird zusätzlich mit der synthetischen
+Konsolenauswahl und der Browser-Fixture geprüft. Beide prüfen die getrennte
+Bestätigung. Die HTTP-Parameterprüfung bindet Planhash, unveränderten
+UTC-Zeittext und Ziel-IDs. Die echte SQL-Verbindung des neuen Menüpfads
+bleibt separat abzunehmen.
 
 `Invoke-AiSharedGatewayPlanChecks.ps1` prüft den rein lesenden gemeinsamen
 Gatewayplan: deterministische Verbraucherreihenfolge, stabile Planbindung,

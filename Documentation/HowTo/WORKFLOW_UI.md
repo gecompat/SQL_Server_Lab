@@ -1521,6 +1521,18 @@ an. Nach Ablauf musst du den Endpunkt erneut prüfen. Der SQL-Plan zeigt
 die Bindung und die vorgesehene Create- und Cleanup-Reihenfolge. Er öffnet
 keine SQL-Verbindung und legt keine Objekte an.
 
+### SQL-Ziel für den Modellplan prüfen
+
+Wähle **Zur SQL-Zielprüfung** nach der SQL-Planung oder öffne
+**Host-Dienste und Modelle → SQL-Ziel für den Modellplan prüfen** und füge
+den gebundenen SQL-Plan ein. Im geführten CLI-Menü kannst du ihn direkt
+übernehmen oder aus einer lokalen JSON-Datei einlesen. Wähle eine laufende
+registrierte SQL-2025-Instanz und bestätige die Prüfung für diese Auswahl.
+Die Prüfung verwendet den verwalteten SQL-Zugang und liest Datenbankzustand,
+Database Master Key, Rechte und freie Objektnamen. Im Browser erscheint die
+Quittung unter **Vorgänge**. Sie belegt die Vorprüfung für genau die gewählte
+Instanz und Datenbank. Objektanlage und Embedding bleiben getrennte Schritte.
+
 ### Vorhandene llama.cpp-Pakete prüfen
 
 Wähle in CLI oder Browser **Host-Dienste und Modelle → Vorhandene

@@ -26,7 +26,7 @@ class Control {
 }
 
 const prefix = 'external-model-endpoint-';
-const controls = new Map([...html.matchAll(/id="(external-model-(?:endpoint|plan|sql-plan)-[^"]+)"/g)].map(match => [match[1],new Control()]));
+const controls = new Map([...html.matchAll(/id="(external-model-(?:endpoint|plan|sql-plan|sql-preflight)-[^"]+)"/g)].map(match => [match[1],new Control()]));
 const item = id => controls.get(prefix + id);
 const form = item('form');
 form.reportValidity = () => true;
@@ -62,12 +62,35 @@ sqlForm.reset = () => {
 };
 sql('dialog').showModal = () => { sql('dialog').open = true; };
 sql('dialog').close = () => { sql('dialog').open = false; return sql('dialog').fire('close'); };
+const preflight = id => controls.get('external-model-sql-preflight-' + id);
+const target = preflight('target');
+const selectedRun = '11111111-2222-4333-8444-555555555555';
+const otherRun = '66666666-2222-4333-8444-555555555555';
+const activeLab = {RunId:selectedRun, Name:'Fixture', State:'RUNNING', Instances:[
+  {Id:'primary', SqlVersion:'2025', Provider:'docker'}, {Id:'old', SqlVersion:'2022', Provider:'docker'}
+]};
+const preflightForm = preflight('form');
+preflightForm.reportValidity = () => true;
+preflightForm.reset = () => { target.value = ''; preflight('plan').value = ''; preflight('confirm').checked = false; };
+target.replaceChildren = option => { target.options = [option]; };
+target.add = option => target.options.push(option);
+preflight('dialog').showModal = () => { preflight('dialog').open = true; };
+preflight('dialog').close = () => { preflight('dialog').open = false; return preflight('dialog').fire('close'); };
+class FixtureOption {
+  constructor(text,value) { this.text = text; this.value = value; }
+}
 class FixtureCustomEvent {
   constructor(type, options) { this.type = type; this.detail = options.detail; }
 }
 const sent = [];
+const preflightSubmissions = [];
 const context = vm.createContext({
-  URL, TextEncoder, CustomEvent:FixtureCustomEvent, document: {querySelector: selector => controls.get(selector.slice(1))},
+  URL, TextEncoder, CustomEvent:FixtureCustomEvent, Option:FixtureOption,
+  workflow: {ActiveLabs:[activeLab], HyperVLabs:[{RunId:otherRun, InstanceId:'primary', Workload:'sql', SqlVersion:'2025',
+    State:'RUNNING', VMState:'Running', SqlCompletionState:'COMPLETE'}]},
+  submitUiAction(action,url,payload) { preflightSubmissions.push({action,url,payload}); },
+  showError(error) { throw error; },
+  document: {querySelector: selector => controls.get(selector.slice(1))},
   sqlServerLabUiFetch(url, options) { return new Promise(resolve => sent.push({url,options,resolve})); }
 });
 vm.runInContext(script, context, {timeout: 5000});
@@ -170,5 +193,26 @@ const check = (message, result) => { assert.ok(result,message); passed++; };
   await sqlPreview;
   check('A bound SQL plan can be read as output without a SQL action', !sql('result-box').hidden &&
     JSON.parse(sql('result').value).DatabaseName === 'AiLab' && sent.length === 6);
+  await sql('preflight').fire('click');
+  check('The valid plan hands off to the target chooser without probing SQL', preflight('dialog').open &&
+    JSON.parse(preflight('plan').value).DatabaseName === 'AiLab' && preflightSubmissions.length === 0);
+  check('The chooser lists only current SQL 2025 choices and uses the Hyper-V run instance ID', target.options.length === 3 &&
+    target.options[1].value === selectedRun + '/primary' && target.options[2].value === otherRun + '/primary');
+  target.value = selectedRun + '/primary';
+  await preflightForm.fire('submit');
+  check('The chooser requires explicit confirmation', preflightSubmissions.length === 0);
+  preflight('confirm').checked = true;
+  activeLab.Instances[0].Provider = 'podman';
+  await preflightForm.fire('submit');
+  check('An inventory change after selection invalidates the target', preflightSubmissions.length === 0 &&
+    preflight('status').textContent.includes('nicht mehr auswählbar'));
+  activeLab.Instances[0].Provider = 'docker';
+  await preflightForm.fire('submit');
+  check('Confirmed SQL preflight submits only the plan and selected IDs', preflightSubmissions.length === 1 &&
+    preflightSubmissions[0].action === 'ReadExternalModelSqlPreflight' &&
+    preflightSubmissions[0].url === '/api/ai-external-model/sql-preflight' &&
+    Object.keys(preflightSubmissions[0].payload.parameters).sort().join(',') === 'InstanceId,RunId,SqlPlan' &&
+    preflightSubmissions[0].payload.parameters.RunId === selectedRun &&
+    preflightSubmissions[0].payload.parameters.SqlPlan.SqlPlanKey === 'd'.repeat(64));
   console.log('GUIDED HTTPS MODEL AND SQL PLANS UI: PASS (' + passed + ')');
 })().catch(error => {console.error(error);process.exitCode=1;});

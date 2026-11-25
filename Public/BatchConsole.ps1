@@ -1181,6 +1181,7 @@ function Show-LabHostModelsMenu {
         New-LabConsoleItem -Id ExternalModelPlan -Label 'Lokalen HTTPS-Modellendpunkt planen' -Value 'Reine Vorschau für SQL External Model'
         New-LabConsoleItem -Id ExternalModelEndpoint -Label 'Geplanten HTTPS-Modellendpunkt prüfen' -Value 'External-Model-Plan und eine synthetische Anfrage'
         New-LabConsoleItem -Id ExternalModelSqlPlan -Label 'SQL-Plan für bestätigten Modellendpunkt erstellen' -Value 'Reine Vorschau mit gebundener Endpunktquittung'
+        New-LabConsoleItem -Id ExternalModelSqlPreflight -Label 'SQL-Ziel für den Modellplan prüfen' -Value 'Laufende eigene Instanz, Datenbank, Rechte und freie Objektnamen'
         New-LabConsoleItem -Id OvmsGatewayStart -Label 'Eigenen OVMS-HTTPS-Gateway starten' -Disabled:(-not $IsWindows) -DisabledReason 'Der OVMS-HTTPS-Worker benötigt Windows.'
         New-LabConsoleItem -Id OvmsGatewayStop -Label 'Eigene OVMS-HTTPS-Sitzung auswählen und stoppen' -Disabled:(-not $IsWindows) -DisabledReason 'Der OVMS-HTTPS-Worker benötigt Windows.'
         New-LabConsoleItem -Id AiSharedGatewayPlan -Label 'Gemeinsamen Embedding-Gateway planen' -Value 'Endpunkt, Backend und SQL-Verbraucher binden'
