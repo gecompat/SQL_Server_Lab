@@ -225,9 +225,15 @@ function Get-LabConsoleHelpCatalog {
         }
         'ai-shared-gateway-plan-next' = @{
             Title = 'Gateway-Plan'
-            Purpose = 'Wählt Dateiprüfung, geschützte Registrierung, Status oder Upstream-Test für den angezeigten Plan.'
-            Effects = 'Die gewählte Prüfung gilt für den angezeigten Plan. Nur der Upstream-Test sendet eine Modellanfrage.'
+            Purpose = 'Führt von einem Gateway-Plan zur Dateiprüfung, Registrierung, Statusprüfung, zum Upstream-Test, Dienstplan oder eigenen Sitzungsstart.'
+            Effects = 'Der Upstream-Test sendet eine synthetische Modellanfrage. Der Sitzungsstart erfordert eine Bestätigung und maskierte Schlüssel.'
             Command = 'Get-SqlServerLabAiSharedGatewayStatus'
+        }
+        'ai-shared-gateway-session-stop' = @{
+            Title = 'Eigene Gateway-Sitzung stoppen'
+            Purpose = 'Wählt eine eigene Gateway-Operation dieser Modulsitzung.'
+            Effects = 'Nach Bestätigung wird der eigene Worker beendet und sein temporärer Zustand entfernt. SQL-Verbraucher können die Verbindung verlieren.'
+            Command = 'Stop-SqlServerLabAiSharedGatewaySession'
         }
         'ai-shared-gateway-preflight-confirm' = @{
             Title = 'Lokale Gateway-Dateien prüfen'

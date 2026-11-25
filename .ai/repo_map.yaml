@@ -220,6 +220,7 @@ sources_of_truth:
   ai_shared_gateway_session_worker: Tools/Invoke-AiSharedGatewaySessionWorker.ps1
   ai_shared_gateway_session_start: Public/Start-SqlServerLabAiSharedGatewaySession.ps1
   ai_shared_gateway_session_stop: Public/Stop-SqlServerLabAiSharedGatewaySession.ps1
+  ai_shared_gateway_session_console: "Private/AiSharedGatewaySessionGuidance.ps1 startet aus dem gebundenen Plan mit bestätigten SecureString-Eingaben und stoppt ausschließlich ausgewählte Operationen derselben Modulsitzung. Invoke-AiSharedGatewaySessionChecks.ps1 prüft Abbruch, Ownerbindung sowie echten synthetischen Loopback-Start und -Stop."
   ai_shared_gateway_session_schema: Schemas/ai-shared-gateway-session-receipt.schema.json
   validation_ai_shared_gateway_session: Tests/Static/Invoke-AiSharedGatewaySessionChecks.ps1
   ai_shared_gateway_status_api: Public/Get-SqlServerLabAiSharedGatewayStatus.ps1

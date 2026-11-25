@@ -1418,6 +1418,24 @@ passenden Gateway- und Dienstplan. Die Ergebnisansicht zeigt Anzahl und
 Gültigkeit. Die Auflösung durch den tatsächlich gestarteten nichtinteraktiven
 Dienst ist ein eigener Nachweis.
 
+#### Eine eigene Gateway-Sitzung in der CLI starten oder stoppen
+
+Wähle im registrierten Gateway-Plan **Eigene Gateway-Sitzung für diesen
+Plan starten**. Gib die maximale Laufzeit ein und bestätige den Start.
+Erfasse für jede angezeigte Verbraucherreferenz ihren Schlüssel in der
+maskierten Eingabe. Wenn der Upstream selbst einen Schlüssel verlangt,
+gib ihn im optionalen Feld ein. Eine leere Eingabe überspringt dieses Feld.
+Die Startquittung bestätigt den lokalen HTTPS-Endpunkt. Prüfe den SQL-Zugriff
+anschließend für den vorgesehenen Verbraucher.
+
+Behalte dieselbe Modulsitzung, um unter **Host-Dienste und Modelle →
+Eigene Gateway-Sitzung auswählen und stoppen** den Worker an Gateway-ID
+und Port zu erkennen. Bestätige den Stop, sobald die Verbraucher die
+Sitzung entbehren können. Der Stop beseitigt nur den eigenen temporären
+Zustand. Die Sitzung endet außerdem bei Ablauf oder Verlust des Ownerkanals.
+Die geschützte Registrierung kann wiederverwendet werden. Für den Browser,
+den dauerhaften Autostart und die SQL-Bindung bleiben eigene Wege offen.
+
 ### Vorhandene llama.cpp-Pakete prüfen
 
 Wähle in CLI oder Browser **Host-Dienste und Modelle → Vorhandene

@@ -38,15 +38,15 @@ eines Cmdlets:
 ## Exportreferenz-Audit
 
 Ein mechanischer Abgleich des Manifests mit
-`Documentation/User/FUNCTIONS_CLI_GUI.md` findet 159 der 166 Exportnamen und
-7 dort nicht referenzierte Exporte. Das ist ein Referenzabgleich, keine
+`Documentation/User/FUNCTIONS_CLI_GUI.md` findet 161 der 166 Exportnamen und
+5 dort nicht referenzierte Exporte. Das ist ein Referenzabgleich, keine
 vollständige Prüfung, ob die 159 Treffer tatsächlich korrekt geführt,
 ausführbar oder providerabgenommen sind. Die folgende Inventarliste hält die
-7 nicht referenzierten Namen einzeln fest. Die sieben Environment-Group-
+5 nicht referenzierten Namen einzeln fest. Die sieben Environment-Group-
 Operationen aus dem vorherigen Abgleich sind jetzt in der Funktionsübersicht
 enthalten und unten separat quellengestützt als `GUIDED_BOTH` bewertet. Von
-den 7 Einträgen sind vier TLS-001-Exporte `DEFERRED`, zwei Exporte
-`KNOWN_GAP` und einer `EXPERT_CATALOG_ONLY`. Die drei External-Model- und
+den 5 Einträgen sind vier TLS-001-Exporte `DEFERRED` und einer
+`EXPERT_CATALOG_ONLY`. Die drei External-Model- und
 OVMS-Gateway-Operationen sind inzwischen referenziert. Ihre geführten
 Bedienlücken bleiben in der eigenen Tabelle unten sichtbar.
 Die Bewertung folgt aus Menüdispatch, GUI-Aktion, öffentlichen Parametern
@@ -55,7 +55,6 @@ geführte Abdeckung nicht.
 
 | Funktionsfamilie | Nicht einzeln in der Funktionsübersicht referenzierte Exporte | Status |
 |---|---|---|
-| Shared Gateway | `Start-SqlServerLabAiSharedGatewaySession`; `Stop-SqlServerLabAiSharedGatewaySession` | `KNOWN_GAP` für beide Sitzungsaktionen. Planerstellung, Dateiprüfung, Registrierung, Status und Loopback-Upstream sind unten getrennt bewertet. |
 | Security-Tool-Katalog | `Get-SqlServerLabSecurityToolPlan` | `EXPERT_CATALOG_ONLY`. Die produktive Allowlist ist leer, der lokale Resolver blockiert alle Anfragen. [Katalogvertrag und Freigabestand](../Project_Planning/SECURITY_TOOL_ACQUISITION_BACKLOG.md). |
 | TLS-001, zurückgestellt | `Update-SqlServerLabTlsBinding`; `Get-SqlServerLabTlsBindingRecovery`; `Resolve-SqlServerLabTlsBindingRecovery`; `Read-SqlServerLabQualifiedTestEnvironment` | `DEFERRED`; bestehender Zustand bleibt erhalten, keine neue Abdeckungs- oder Runtimearbeit ohne dokumentierten Anwendungsfall |
 
@@ -211,6 +210,8 @@ und dem [Gruppenvertrag](../Architecture/LAB_ENVIRONMENT_GROUPS.md).
 | Registrierten Loopback-Upstream prüfen (`Test-SqlServerLabAiSharedGatewayUpstream`) | Gemeinsamen Embedding-Gateway planen → Registrierten Loopback-Upstream mit Testanfrage prüfen | Gleicher Bedienweg, Ausgabe im Auftragsprotokoll | `GUIDED_BOTH` für den gebundenen Plan ohne API-Schlüssel. Menü und Browserdispatch sind synthetisch belegt. Die getrennte Core-Suite prüft Registrierung und Antwortvertrag mit injiziertem Testtransport. Ein echtes Modell bleibt außerhalb dieses Nachweises. |
 | Host-Autostart vorbereiten (`Get-SqlServerLabAiSharedGatewayServicePlan`) | Gemeinsamen Embedding-Gateway planen → Host-Autostart für diesen Gateway-Plan vorbereiten → Modus wählen | Gleicher Bedienweg mit Modusauswahl und Dienstplan im Auftragsprotokoll | `GUIDED_BOTH`. Plan- und ServicePlan-Suites prüfen Planbindung, Auswahl, Hostbefund und Abbruch mit synthetischen Voraussetzungen. Installation und Dienstbetrieb sind eigene Schritte. |
 | Dienst-Secrets prüfen (`Test-SqlServerLabAiSharedGatewayServiceSecret`) | Bereiter Dienstplan → Dienst-Secrets für diesen Plan prüfen | Bereiter Dienstplanauftrag → In Dienst-Secret-Prüfung übernehmen → Dienst-Secrets prüfen | `GUIDED_BOTH`. Die Browser-Fixture prüft Auftrags-ID, exakte Plan- und Modusbindung sowie den Ausschluss laufender oder blockierter Ergebnisse. Die ServiceSecret-Suite belegt explizite Auswahl, gebundene Referenzen und begrenzte Ausgabe. Nichtinteraktiver Zugriff des tatsächlichen Diensts bleibt offen. |
+| Eigene Gateway-Sitzung starten (`Start-SqlServerLabAiSharedGatewaySession`) | Registrierter Gateway-Plan → Eigene Gateway-Sitzung für diesen Plan starten | Offen | `GUIDED_CLI_ONLY`. Die Session-Suite prüft die Bestätigung, maskierte Eingabe, Abbruch und den gebundenen Loopback-Worker mit synthetischem Upstream. Eine SQL-Bindung wird dabei nicht eingerichtet. |
+| Eigene Gateway-Sitzung stoppen (`Stop-SqlServerLabAiSharedGatewaySession`) | Host-Dienste und Modelle → Eigene Gateway-Sitzung auswählen und stoppen | Offen | `GUIDED_CLI_ONLY`. Die Session-Suite prüft Besitzerfilter, Ablehnung, Prozess- und Listener-Ende sowie Cleanup im synthetischen Loopback-Fall. |
 | Metadaten eines entfernten Runs prüfen und entfernen (`Get-SqlServerLabRunArtifactRemovalPlan`, `Invoke-SqlServerLabRunArtifactRemoval`) | Wartung, Aufräumen und Recovery → Artefakte eines entfernten Runs | Wartung und Recovery → Run-Artefakte prüfen | `GUIDED_BOTH`. Dieselben Cmdlets für gebundene Vorschau, bestätigte Entfernung und Fortsetzung. Workflow-UI und CLI-Vertragsfälle mit synthetischem State. |
 | Evaluationsersatz oder Migration vorprüfen (`Get-SqlServerLabEvaluationRefreshPlan`) | Wartung, Aufräumen und Recovery → SQL-Evaluation: Ersatz- und Migrationsentscheid | Wartung und Recovery → SQL-Evaluation: Ersatzentscheid | `GUIDED_BOTH` für die lesende Vorschau. Synthetische CLI-, HTTP- und Browserfälle. Die Vorschau führt keine Übernahme aus. |
 | Registriertes Ziellab vorprüfen (`Get-SqlServerLabEvaluationRefreshPlan -TargetRunId -TargetInstanceId`) | Ersatz- und Migrationsentscheid → Instanzzustand migrieren → Registriertes Ziellab vorprüfen | Ersatzentscheid → Instanzzustand migrieren → Registriertes Ziellab → Vorschau lesen | `GUIDED_BOTH` für zwei getrennte registrierte SQL-2025-Hyper-V-Bindungen. Die Evaluationsplan-, CLI-, HTTP- und Browserfixtures prüfen Änderungen beider Auswahlen, Abbruch und Schreibfreiheit. Die Zielprüfung umfasst gespeicherte Metadaten. |

@@ -65,6 +65,89 @@ try {
     Add-CheckResult 'Doppelte Consumer-Schlüssel werden abgewiesen' (Reject {& $module {param($p,$m)Resolve-LabAiSharedGatewaySessionKeys $p $m} $plan @{SQL_SERVER_LAB_SECRET_SHARED_AI_A=$keyA;SQL_SERVER_LAB_SECRET_SHARED_AI_B=$keyA}} 'AI_SHARED_GATEWAY_SESSION_API_KEY_DUPLICATE')
     $cleanup=Stop-SqlServerLabAiSharedGatewaySession -OperationId $session.OperationId -Confirm:$false;$session=$null
     Add-CheckResult 'Stop bestätigt Prozess-/Listenercleanup und entfernt Operationszustand' ($cleanup.Status -ceq 'CLEANUP_SUCCEEDED' -and -not(Test-Path $operationRoot))
+    $guided = & $module {
+        param($FixturePlan,$FixtureRoot,$FixtureKeyA,$FixtureKeyB)
+        $fixture = [pscustomobject]@{ Confirmed=$false; Inputs=[Collections.Generic.Queue[object]]::new(); Prompts=[Collections.Generic.List[bool]]::new()
+            Messages=[Collections.Generic.List[string]]::new(); ChooseForeign=$false; StopItems=@() }
+        function Get-LabStateRoot { $FixtureRoot }
+        function Read-LabConfirm { param($Prompt,$Default) $fixture.Confirmed }
+        function Read-LabConsoleTextInput {
+            param($Prompt,$Default,[switch]$AsSecureString)
+            $fixture.Prompts.Add($AsSecureString.IsPresent)
+            $fixture.Inputs.Dequeue()
+        }
+        function Write-LabInfo { param($Message) $fixture.Messages.Add($Message) }
+        function Write-LabWarning { param($Message) $fixture.Messages.Add($Message) }
+        function Wait-LabConsoleAcknowledgement {}
+        function Show-LabSubMenu { param($ScreenId,$Title,$Subtitle,$Items) $Items }
+        function Invoke-LabConsoleMenu {
+            param($ScreenId,$Title,$Subtitle,$Items)
+            $fixture.StopItems = @($Items.Id)
+            $id = if ($fixture.ChooseForeign) { 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' } else { $Items[0].Id }
+            [pscustomobject]@{Status='Selected';SelectedItem=[pscustomobject]@{Id=$id}}
+        }
+
+        $fixture.Inputs.Enqueue([pscustomobject]@{Status='Confirmed';Value='60'})
+        Invoke-LabAiSharedGatewaySessionStartInteractive -Plan $FixturePlan
+        $startDeclined = $fixture.Prompts.Count -eq 1 -and -not $script:AiSharedGatewaySessions.Count
+
+        $fixture.Confirmed = $true
+        $fixture.Prompts.Clear()
+        $fixture.Inputs.Enqueue([pscustomobject]@{Status='Confirmed';Value='60'})
+        $firstKey = $FixtureKeyA.Copy()
+        $fixture.Inputs.Enqueue([pscustomobject]@{Status='Confirmed';Value=$firstKey})
+        $fixture.Inputs.Enqueue([pscustomobject]@{Status='Cancelled';Value=$null})
+        Invoke-LabAiSharedGatewaySessionStartInteractive -Plan $FixturePlan
+        $firstKeyDisposed = $false
+        try { $firstKey.Copy().Dispose() } catch { $firstKeyDisposed = $_.Exception.InnerException -is [ObjectDisposedException] }
+        $keyEntryCancelled = $firstKeyDisposed -and -not $script:AiSharedGatewaySessions.Count
+
+        $fixture.Prompts.Clear()
+        $fixture.Inputs.Enqueue([pscustomobject]@{Status='Confirmed';Value='60'})
+        $fixture.Inputs.Enqueue([pscustomobject]@{Status='Confirmed';Value=$FixtureKeyA.Copy()})
+        $fixture.Inputs.Enqueue([pscustomobject]@{Status='Confirmed';Value=$FixtureKeyB.Copy()})
+        $fixture.Inputs.Enqueue([pscustomobject]@{Status='Confirmed';Value=[Security.SecureString]::new()})
+        $stopEntry = @(Show-LabHostModelsMenu | Where-Object Id -CEQ 'AiSharedGatewaySessionStop')
+        if ($stopEntry.Count -ne 1) { throw 'GUIDED_GATEWAY_STOP_NOT_IN_HOST_MENU' }
+        try {
+            Invoke-LabAiSharedGatewaySessionStartInteractive -Plan $FixturePlan
+            $status = Get-SqlServerLabAiSharedGatewayStatus -Plan $FixturePlan -StateRoot $FixtureRoot
+            $id = $status.OperationId
+            $startVerified = $status.Status -ceq 'OWNER_SESSION_RUNNING' -and
+                $fixture.Messages[-1] -match ('Gateway-Endpunkt bestätigt.*' + [regex]::Escape([string]$id))
+            $secureInputs = ($fixture.Prompts -join ',') -ceq 'False,True,True,True'
+
+            $fixture.ChooseForeign = $true
+            Invoke-LabMenuAction -ActionName $stopEntry[0].Id
+            $listedOwnerOnly = ($fixture.StopItems -join ',') -ceq "$id,back" -and $script:AiSharedGatewaySessions.ContainsKey($id)
+            $fixture.ChooseForeign = $false
+            $fixture.Confirmed = $false
+            Invoke-LabMenuAction -ActionName $stopEntry[0].Id
+            $stopDeclined = $script:AiSharedGatewaySessions.ContainsKey($id)
+
+            $fixture.Confirmed = $true
+            Invoke-LabMenuAction -ActionName $stopEntry[0].Id
+            $terminal = Get-SqlServerLabAiSharedGatewayStatus -Plan $FixturePlan -StateRoot $FixtureRoot
+            [pscustomobject]@{
+                StartDeclined=$startDeclined; KeyEntryCancelled=$keyEntryCancelled; StartVerified=$startVerified
+                SecureInputs=$secureInputs; ListedOwnerOnly=$listedOwnerOnly; StopDeclined=$stopDeclined
+                StopVerified=$terminal.Status -ceq 'REGISTERED_STOPPED' -and -not $script:AiSharedGatewaySessions.Count -and
+                    $fixture.Messages[-1] -ceq 'Eigene Gateway-Sitzung beendet und temporärer Zustand bereinigt.'
+                OutputBounded=($fixture.Messages -join ' ') -cnotmatch 'AAAAAAAA|BBBBBBBB' -and
+                    ($fixture.Messages -join ' ') -notmatch [regex]::Escape($FixtureRoot)
+            }
+        } finally {
+            foreach ($remaining in @($script:AiSharedGatewaySessions.Keys)) {
+                if ($remaining) { Stop-SqlServerLabAiSharedGatewaySession -OperationId $remaining -Confirm:$false | Out-Null }
+            }
+        }
+    } $plan $stateRoot $keyA $keyB
+    Add-CheckResult 'Geführter Start liest nach abgelehnter Bestätigung keine Schlüssel' $guided.StartDeclined
+    Add-CheckResult 'Abbruch der Schlüsseleingabe verwirft vorherige sichere Werte und startet nichts' $guided.KeyEntryCancelled
+    Add-CheckResult 'Geführter Start bindet echte eigene Sitzung an den Plan und maskiert Schlüssel' ($guided.StartVerified -and $guided.SecureInputs)
+    Add-CheckResult 'Stop-Menü zeigt nur eigene Operationen und verweigert fremde Auswahl' $guided.ListedOwnerOnly
+    Add-CheckResult 'Geführter Stop respektiert Ablehnung und bestätigt nach Zustimmung eigenes Ende' ($guided.StopDeclined -and $guided.StopVerified)
+    Add-CheckResult 'Geführte Sitzungsanzeige enthält keine Schlüssel oder Dateispeicherorte' $guided.OutputBounded
     $portGuard=[Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback,$gatewayPort);$portGuard.Start()
     $unknown=$plan|Get-SqlServerLabAiSharedGatewayStatus -StateRoot $stateRoot
     Add-CheckResult 'Status meldet fremd belegten Gatewayport als Recoverybedarf' ($unknown.Status -ceq 'RECOVERY_REQUIRED' -and $unknown.ReasonCode -ceq 'AI_SHARED_GATEWAY_STATUS_PORT_OCCUPIED_UNKNOWN' -and ($unknown|ConvertTo-Json -Depth 20|Test-Json -SchemaFile $statusSchema))

@@ -229,11 +229,16 @@ function Invoke-LabAiSharedGatewayPlanInteractive {
         New-LabConsoleItem -Id status -Label 'Status für diesen Gateway-Plan lesen'
         New-LabConsoleItem -Id upstream -Label 'Registrierten Loopback-Upstream mit Testanfrage prüfen'
         New-LabConsoleItem -Id service -Label 'Host-Autostart für diesen Gateway-Plan vorbereiten'
+        New-LabConsoleItem -Id start -Label 'Eigene Gateway-Sitzung für diesen Plan starten' -Value 'Befristeter Loopback-Worker'
         New-LabConsoleItem -Id back -Label 'Zurück'
     )
     $selection = Invoke-LabConsoleMenu -ScreenId 'ai-shared-gateway-plan-next' -Title 'Gateway-Plan' `
         -Subtitle 'Die Upstream-Prüfung sendet eine synthetische Anfrage an den gebundenen lokalen Dienst. Sie verwendet keinen API-Schlüssel.' -Items $items
-    if ($selection.Status -cne 'Selected' -or $selection.SelectedItem.Id -cnotin @('preflight','register','status','upstream','service')) { return }
+    if ($selection.Status -cne 'Selected' -or $selection.SelectedItem.Id -cnotin @('preflight','register','status','upstream','service','start')) { return }
+    if ($selection.SelectedItem.Id -ceq 'start') {
+        Invoke-LabAiSharedGatewaySessionStartInteractive -Plan $plan
+        return
+    }
     if ($selection.SelectedItem.Id -ceq 'service') {
         Invoke-LabAiSharedGatewayServicePlanInteractive -Plan $plan
         return
