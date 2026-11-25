@@ -1549,6 +1549,28 @@ try {
                 }
                 continue
             }
+            if ($path -ceq '/api/ai-external-model/sql-plan') {
+                try {
+                    if ($context.Request.HttpMethod -cne 'POST' -or $context.Request.Url.Query -or
+                        $context.Request.ContentType -notmatch '^application/json(?:\s*;|$)' -or
+                        [string]$context.Request.Headers['Origin'] -cne $url.TrimEnd('/')) { throw 'AI_EXTERNAL_MODEL_SQL_PLAN_FORM_INVALID' }
+                    $bodyRead = Read-UiJsonRequestBody -Request $context.Request -MaxBytes 32768
+                    if (-not $bodyRead.Allowed) {
+                        Write-UiResponse -Context $context -Body $bodyRead.Code -StatusCode $bodyRead.StatusCode
+                        continue
+                    }
+                    $planView = & (Get-Module SqlServerLab) { param($body) Invoke-LabGuidedExternalModelSqlPlanHttp -Body $body } $bodyRead.Body
+                    Write-UiResponse -Context $context -Body ($planView | ConvertTo-Json -Depth 8 -Compress) -ContentType 'application/json; charset=utf-8' -NoStore
+                } catch {
+                    $code = if ($_.Exception.Message -ceq 'AI_EXTERNAL_MODEL_ENDPOINT_RECEIPT_EXPIRED') { $_.Exception.Message }
+                        else { 'AI_EXTERNAL_MODEL_SQL_PLAN_FORM_INVALID' }
+                    Write-UiResponse -Context $context -Body (@{Code=$code} | ConvertTo-Json -Compress) -ContentType 'application/json; charset=utf-8' -StatusCode 400 -NoStore
+                } finally {
+                    $bodyRead = $null
+                    $planView = $null
+                }
+                continue
+            }
             if ($path -ceq '/api/ai-external-model/endpoint') {
                 try {
                     if ($context.Request.HttpMethod -cne 'POST' -or $context.Request.Url.Query -or

@@ -73,6 +73,7 @@ function Invoke-LabGuidedExternalModelEndpointInteractive {
 
     $key = $null
     $certificate = $null
+    $receipt = $null
     try {
         if (-not $PreparedPlan) {
             $planPath = Read-LabConsoleTextInput -Prompt 'Absoluter lokaler Pfad zum External-Model-Plan (JSON)' -MaskInput
@@ -99,6 +100,10 @@ function Invoke-LabGuidedExternalModelEndpointInteractive {
     } finally {
         if ($certificate) { $certificate.Dispose() }
         if ($key) { $key.Dispose() }
+    }
+    if ($receipt -and (Read-LabConfirm -Prompt 'Den gebundenen SQL-Plan vorbereiten?' -Default $false)) {
+        Invoke-LabGuidedExternalModelSqlPlanInteractive -PreparedPlan $plan -PreparedReceipt $receipt
+        return
     }
     $null = Wait-LabConsoleAcknowledgement
 }

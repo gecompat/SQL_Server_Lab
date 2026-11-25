@@ -47,7 +47,7 @@ try {
         }
         function Read-LabConfirm { param($Prompt,$Default) $fixture.Confirmed }
         function Read-LabConsoleTextInput {
-            param($Prompt,[switch]$MaskInput,[switch]$AsSecureString)
+            param($Prompt,$Default,[switch]$MaskInput,[switch]$AsSecureString)
             $fixture.Prompts.Add("$MaskInput/$AsSecureString")
             $fixture.Inputs.Dequeue()
         }
@@ -87,11 +87,16 @@ try {
             $fixture.Inputs.Enqueue([pscustomobject]@{Status='Confirmed';Value=$PlanFile})
             $fixture.Inputs.Enqueue([pscustomobject]@{Status='Confirmed';Value=''})
             $fixture.Inputs.Enqueue([pscustomobject]@{Status='Confirmed';Value=$dummy.Copy()})
+            $fixture.Inputs.Enqueue([pscustomobject]@{Status='Confirmed';Value='AiLab'})
+            $fixture.Inputs.Enqueue([pscustomobject]@{Status='Confirmed';Value='300'})
             Invoke-LabMenuAction -ActionName $entry[0].Id
             Assert-GuidedEndpoint ($fixture.Probes -eq 3 -and $fixture.KeyBound -and -not $fixture.TrustedRoot -and
-                ($fixture.Prompts -join ',') -ceq 'True/False,True/False,False/True' -and
-                $fixture.Logs[-1] -match 'ENDPOINT_VERIFIED' -and
+                ($fixture.Prompts -join ',') -ceq 'True/False,True/False,False/True,False/False,False/False' -and
+                ($fixture.Logs -join ' ') -match 'ENDPOINT_VERIFIED' -and
                 ($fixture.Logs -join ' ') -cnotmatch 'FIXTURE_PRIVATE_CANARY|SyntheticOnlyEndpointKey') 'CLI uses masked inputs and keeps the bound receipt available'
+            Assert-GuidedEndpoint (($fixture.Logs -join ' ') -match 'LIVE_ENDPOINT_BOUND' -and
+                ($fixture.Logs -join ' ') -match '"DatabaseName": "AiLab"' -and
+                $fixture.Inputs.Count -eq 0) 'CLI hands off the exact Plan and Receipt without another network request or path input'
 
             $tokens=$null;$errors=$null
             $server=[Management.Automation.Language.Parser]::ParseFile((Join-Path $script:ModuleRoot 'Tools/Start-SqlServerLabUi.ps1'),[ref]$tokens,[ref]$errors)

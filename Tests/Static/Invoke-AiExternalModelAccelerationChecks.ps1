@@ -230,6 +230,18 @@ try {
     Add-CheckResult 'Endpoint-Receipt enthält weder Vektor, Payload, Secret noch Hostpfad' (
         $receiptJson -notmatch '(?i)("Vector"|synthetic|"Input"|secret|bearer|localhost|C:\\|/home/)')
     $sqlPlan=Get-SqlServerLabAiExternalModelSqlPlan -Plan $probePlan -EndpointReceipt $receipt -DatabaseName AiLab
+    $guidedSqlInput=@{Plan=$probePlan;EndpointReceipt=$receipt;DatabaseName='AiLab';MaxEndpointAgeSeconds=300}
+    $guidedSql=& $module {param($body)Invoke-LabGuidedExternalModelSqlPlanHttp -Body $body} ($guidedSqlInput|ConvertTo-Json -Depth 8 -Compress)
+    Add-CheckResult 'SQL-Planführung bewahrt den exakten UTC-Zeitstempel der JSON-Quittung' (
+        $guidedSql.SqlPlanKey -ceq $sqlPlan.SqlPlanKey -and $guidedSql.ValidUntilUtc -ceq $sqlPlan.ValidUntilUtc -and
+        $guidedSql.EndpointReceiptKey -ceq $receipt.ReceiptKey)
+    $guidedSqlInput.EndpointReceipt=$receipt.PSObject.Copy()
+    $guidedSqlInput.EndpointReceipt.PlanKey='f'*64
+    $wrongGuidedSql=try {
+        $null=& $module {param($body)Invoke-LabGuidedExternalModelSqlPlanHttp -Body $body} ($guidedSqlInput|ConvertTo-Json -Depth 8 -Compress)
+        $false
+    } catch { $_.Exception.Message -ceq 'AI_EXTERNAL_MODEL_ENDPOINT_RECEIPT_MISMATCH' }
+    Add-CheckResult 'SQL-Planführung weist planfremde Quittung vor aller SQL-Ausführung ab' $wrongGuidedSql
     Add-CheckResult 'SQL-Plan bindet frische Endpoint-Evidence ohne Mutation' (
         $sqlPlan.Status -eq 'PLANNED' -and $sqlPlan.EvidenceStatus -eq 'LIVE_ENDPOINT_BOUND' -and
         $sqlPlan.SourcePlanKey -ceq $probePlan.PlanKey -and $sqlPlan.EndpointReceiptKey -ceq $receipt.ReceiptKey -and

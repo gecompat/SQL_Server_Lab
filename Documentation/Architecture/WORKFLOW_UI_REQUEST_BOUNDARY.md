@@ -50,6 +50,12 @@ ein optionales einzelnes öffentliches CA-Zertifikat vor dem Vault-Lesen.
 Eine optionale Referenz wird lokal als `SecureString` für die vorhandene
 HTTPS-Probe aufgelöst. Die Antwort enthält die gebundene Endpunktquittung.
 
+Die Route `/api/ai-external-model/sql-plan` akzeptiert Plan und Quittung
+als Objekte in einem gleichoriginigen, capabilitygebundenen POST bis 32 KiB.
+Die Projektion bewahrt den exakten UTC-Text der Quittung für die
+Digest-Revalidierung. Sie liefert ausschließlich die SQL-Vorschau
+und schreibt weder einen Zustand noch SQL-Objekte.
+
 Der geführte Ollama-Cloud-Dialog liest über die Operator-Capability ausschließlich
 Katalogmetadaten. Das Modell und das feste Ziel erscheinen in der Bestätigung.
 Die Übermittlung verwendet den bestehenden bestätigten Katalogbefehl mit

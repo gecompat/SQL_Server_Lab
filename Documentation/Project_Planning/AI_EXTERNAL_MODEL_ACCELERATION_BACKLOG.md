@@ -61,6 +61,11 @@ OVMS-Gateway-Bindung übernehmen und öffnet auf Auswahl den getrennten
 Prüfungsdialog. Die Planung lässt Runtime, Geräteattestation und
 SQL-Bindung unbeobachtet.
 
+Die geführte SQL-Planvorschau übernimmt ein gebundenes Paar aus Plan
+und aktueller Endpunktquittung. Der öffentliche Planer prüft dessen
+Digest und Gültigkeit erneut. Datenbankzustand, Rechte, Master Key,
+SQL-Anlage, Embedding und Cleanup bleiben getrennte Nachweise.
+
 ## Arbeitspakete
 
 | ID | Priorität | Ziel | Status und erforderlicher Nachweis |

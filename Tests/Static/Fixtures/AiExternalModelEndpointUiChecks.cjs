@@ -26,7 +26,7 @@ class Control {
 }
 
 const prefix = 'external-model-endpoint-';
-const controls = new Map([...html.matchAll(/id="(external-model-(?:endpoint|plan)-[^"]+)"/g)].map(match => [match[1],new Control()]));
+const controls = new Map([...html.matchAll(/id="(external-model-(?:endpoint|plan|sql-plan)-[^"]+)"/g)].map(match => [match[1],new Control()]));
 const item = id => controls.get(prefix + id);
 const form = item('form');
 form.reportValidity = () => true;
@@ -53,6 +53,15 @@ authorForm.reportValidity = () => true;
 authorForm.reset = () => { for (const [name, control] of authorControls) control.value = inputs[name]; };
 author('dialog').showModal = () => { author('dialog').open = true; };
 author('dialog').close = () => { author('dialog').open = false; return author('dialog').fire('close'); };
+const sql = id => controls.get('external-model-sql-plan-' + id);
+const sqlForm = sql('form');
+sqlForm.reportValidity = () => true;
+sqlForm.reset = () => {
+  for (const name of ['plan','receipt','database']) sql(name).value = '';
+  sql('age').value = '300';
+};
+sql('dialog').showModal = () => { sql('dialog').open = true; };
+sql('dialog').close = () => { sql('dialog').open = false; return sql('dialog').fire('close'); };
 class FixtureCustomEvent {
   constructor(type, options) { this.type = type; this.detail = options.detail; }
 }
@@ -136,5 +145,30 @@ const check = (message, result) => { assert.ok(result,message); passed++; };
   check('Authoring hands off to the same endpoint dialog without confirmation or execution', item('dialog').open &&
     !author('dialog').open && item('submit').disabled && !item('confirm').checked && sent.length === 4 &&
     JSON.parse(item('plan').value).PlanKey === prepared.PlanKey);
-  console.log('GUIDED HTTPS MODEL PLAN AND ENDPOINT UI: PASS (' + passed + ')');
+  check('No SQL plan handoff is available before a confirmed endpoint receipt', item('sql-plan').disabled);
+  item('confirm').checked = true;
+  await item('confirm').fire('change');
+  const confirmed = form.fire('submit');
+  sent[4].resolve({ok:true,json:async () => receipt});
+  await confirmed;
+  await item('sql-plan').fire('click');
+  check('Only the confirmed pair is available to the SQL plan dialog without executing it', sql('dialog').open &&
+    !item('dialog').open && sent.length === 5 && JSON.parse(sql('plan').value).PlanKey === prepared.PlanKey &&
+    JSON.parse(sql('receipt').value).ReceiptKey === receipt.ReceiptKey);
+  sql('database').value = 'bad;name';
+  await sqlForm.fire('submit');
+  check('SQL plan rejects invalid database name before sending anything', sent.length === 5);
+  sql('database').value = 'AiLab';
+  const sqlPreview = sqlForm.fire('submit');
+  check('SQL planner invokes only its local preview with a bound pair', sent.length === 6 && sent[5].url === '/api/ai-external-model/sql-plan' &&
+    JSON.parse(sent[5].options.body).EndpointReceipt.VerifiedAtUtc === receipt.VerifiedAtUtc &&
+    JSON.parse(sent[5].options.body).MaxEndpointAgeSeconds === 300);
+  sent[5].resolve({ok:true,json:async () => ({
+    Contract:{Name:'SqlServerLab.AiExternalModelSqlPlan',Version:'1.0'},Status:'PLANNED',EvidenceStatus:'LIVE_ENDPOINT_BOUND',
+    SqlMajorVersion:17,DatabaseName:'AiLab',SourcePlanKey:prepared.PlanKey,EndpointReceiptKey:receipt.ReceiptKey,SqlPlanKey:'d'.repeat(64)
+  })});
+  await sqlPreview;
+  check('A bound SQL plan can be read as output without a SQL action', !sql('result-box').hidden &&
+    JSON.parse(sql('result').value).DatabaseName === 'AiLab' && sent.length === 6);
+  console.log('GUIDED HTTPS MODEL AND SQL PLANS UI: PASS (' + passed + ')');
 })().catch(error => {console.error(error);process.exitCode=1;});

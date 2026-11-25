@@ -91,6 +91,7 @@ Die Rückgabe enthielt nur den festen Dateinamen und die erwarteten Zähler.
 | Bereits laufenden lokalen OVMS-Upstream prüfen | `GUIDED_BOTH` unter **Host-Dienste und Modelle → Lokalen OVMS-Embedding-Dienst prüfen** | `Test-SqlServerLabOvmsUpstreamEndpoint` sendet nach Bestätigung einen synthetischen HTTP-Request über numerisches Loopback und prüft Modell und Dimension. |
 | Lokale External-Model-Konfiguration erstellen | `GUIDED_BOTH` unter **Host-Dienste und Modelle → Lokalen HTTPS-Modellendpunkt planen** | `Get-SqlServerLabAiExternalModelPlan` bindet Modell, Runtime, Zertifikat und optional ein OVMS-Gateway. Die Tests prüfen exakte Planbindung, geschlossene Eingaben, feste Blockercodes und die getrennte Übernahme zur Probe. Reine Konfiguration. |
 | Geplanten HTTPS-Modellendpunkt verifizieren | `GUIDED_BOTH` unter **Host-Dienste und Modelle → Geplanten HTTPS-Modellendpunkt prüfen** | `Test-SqlServerLabAiExternalModelEndpoint` erhält den gebundenen Plan nach Bestätigung. Die Guidance-Fixtures prüfen das lokale Eingabefeld, optionales öffentliches CA-PEM, Credential-Grenzen und die Quittung mit synthetischem Transport. Die native Framework-/Plattformabnahme bleibt separat. |
+| SQL-Objekte für den bestätigten Modellendpunkt planen | `GUIDED_BOTH` unter **Host-Dienste und Modelle → SQL-Plan für bestätigten Modellendpunkt erstellen** oder direkt nach der Probe | `Get-SqlServerLabAiExternalModelSqlPlan` revalidiert Plan, Quittung und Höchstalter. Die Tests prüfen den unveränderten Zeitstempel, exakte Quittungsbindung und die reine Vorschau. SQL-Preflight und Apply bleiben getrennte Schritte. |
 | Eigenen OVMS-HTTPS-Gateway starten | `GUIDED_BOTH` unter **Host-Dienste und Modelle** auf Windows | CLI und Browser bestätigen die befristete Loopback-Sitzung und geben die geprüfte Gateway-Bindung aus. |
 | Eigenen OVMS-HTTPS-Gateway stoppen | `GUIDED_BOTH` unter **Host-Dienste und Modelle** auf Windows | Die Auswahl bindet den Stop an eine eigene Sitzung im aktuellen CLI-Modul oder UI-Server. |
 
@@ -100,6 +101,15 @@ geführte Gateway-Bedienung, Acceleratorkonfiguration oder SQL-Ausführung.
 Die geführten OVMS-Aktionen sind mit synthetischem Vault und eigenen
 Sitzungsobjekten im Modul sowie mit dem tatsächlichen Dialogskript in
 einer synthetischen Browserumgebung geprüft.
+
+Am 25.11.2026 bestätigte ein Windows-Loopback-Test die Modulschritte für
+OVMS-Start, HTTPS-Prüfung und SQL-Plan aus der serialisierten Quittung.
+Er verwendete die Aufrufe der Bedienpfade auf Quellbaum
+`0fb1400d96f28d89612e7d25df85c740fcd7ddba` mit einem echten Gateway-Prozess,
+synthetischem Upstream und einer temporären CA. Stop und Abwesenheit von
+Listener und temporärer Schlüsseldatei wurden bestätigt. Rendern im
+Browser, SQL-Ausführung, Beschleuniger und weitere Plattformen sind
+getrennte Nachweise.
 
 ## Geprüfte Operationen: Ressourcenstand und lokaler Bedarf
 

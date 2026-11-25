@@ -152,6 +152,7 @@
       <button id="ovms-upstream-open" type="button" class="button secondary">Lokalen OVMS-Embedding-Dienst prüfen</button>
       <button id="external-model-plan-open" type="button" class="button secondary">Lokalen HTTPS-Modellendpunkt planen</button>
       <button id="external-model-endpoint-open" type="button" class="button secondary">Geplanten HTTPS-Modellendpunkt prüfen</button>
+      <button id="external-model-sql-plan-open" type="button" class="button secondary">SQL-Plan für bestätigten Modellendpunkt erstellen</button>
       <button id="ovms-gateway-open" type="button" class="button secondary">Eigene OVMS-HTTPS-Sitzungen verwalten</button>
       <button id="persistent-fixture-open" type="button" class="button secondary">Persistente Retrieval-Collections</button>
       <button id="ai-scenario-plan-open" type="button" class="button secondary">Vector-Core-Szenarioplan lesen</button>
@@ -1584,7 +1585,24 @@
       <label id="external-model-endpoint-result-box" hidden>Gebundene Endpunktquittung (JSON)<textarea id="external-model-endpoint-result" rows="8" readonly></textarea></label>
       <div class="build-actions">
         <button id="external-model-endpoint-submit" type="submit" class="button" disabled>Endpunkt prüfen</button>
+        <button id="external-model-endpoint-sql-plan" type="button" class="button secondary" disabled>Gebundenen SQL-Plan vorbereiten</button>
         <button id="external-model-endpoint-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="external-model-sql-plan-dialog" aria-labelledby="external-model-sql-plan-title">
+    <h2 id="external-model-sql-plan-title">SQL-Plan für bestätigten Modellendpunkt erstellen</h2>
+    <p>Die Vorschau bindet Plan und Endpunktquittung an einen Datenbanknamen. Sie verbindet sich mit keiner SQL-Instanz.</p>
+    <form id="external-model-sql-plan-form">
+      <label>External-Model-Plan (JSON)<textarea id="external-model-sql-plan-plan" rows="6" maxlength="16384" required spellcheck="false"></textarea></label>
+      <label>Passende HTTPS-Endpunktquittung (JSON)<textarea id="external-model-sql-plan-receipt" rows="6" maxlength="8192" required spellcheck="false"></textarea></label>
+      <label>Ziel-Datenbankname<input id="external-model-sql-plan-database" pattern="[A-Za-z_][A-Za-z0-9_]{0,127}" maxlength="128" required></label>
+      <label>Höchstalter der Quittung in Sekunden<input id="external-model-sql-plan-age" type="number" min="30" max="3600" value="300" required></label>
+      <p id="external-model-sql-plan-status" role="status"></p>
+      <label id="external-model-sql-plan-result-box" hidden>Gebundener SQL-Plan (JSON)<textarea id="external-model-sql-plan-result" rows="8" readonly></textarea></label>
+      <div class="build-actions">
+        <button id="external-model-sql-plan-submit" type="submit" class="button">SQL-Plan erstellen</button>
+        <button id="external-model-sql-plan-close" type="button" class="button secondary">Schließen</button>
       </div>
     </form>
   </dialog>

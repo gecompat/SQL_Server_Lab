@@ -90,3 +90,68 @@ function Invoke-LabGuidedExternalModelPlanInteractive {
     catch { Write-LabWarning 'External-Model-Plan unbestätigt. Prüfe Felder und gegebenenfalls die Gateway-Bindung.' }
     $null = Wait-LabConsoleAcknowledgement
 }
+
+function ConvertFrom-LabGuidedExternalModelReceipt {
+    param([Text.Json.JsonElement]$Element)
+
+    if ($Element.ValueKind -ne [Text.Json.JsonValueKind]::Object) { throw 'AI_EXTERNAL_MODEL_SQL_PLAN_FORM_INVALID' }
+    $timestamp = $Element.GetProperty('VerifiedAtUtc')
+    if ($timestamp.ValueKind -ne [Text.Json.JsonValueKind]::String) { throw 'AI_EXTERNAL_MODEL_SQL_PLAN_FORM_INVALID' }
+    $receipt = $Element.GetRawText() | ConvertFrom-Json -Depth 6 -ErrorAction Stop
+    # The receipt hash includes the exact serialized timestamp, including fractional seconds.
+    $receipt.VerifiedAtUtc = $timestamp.GetString()
+    return $receipt
+}
+
+function Invoke-LabGuidedExternalModelSqlPlanHttp {
+    param([string]$Body)
+
+    if (-not $Body -or [Text.Encoding]::UTF8.GetByteCount($Body) -gt 32768) { throw 'AI_EXTERNAL_MODEL_SQL_PLAN_FORM_INVALID' }
+    $options = [Text.Json.JsonDocumentOptions]::new()
+    $options.MaxDepth = 8
+    $document = [Text.Json.JsonDocument]::Parse($Body,$options)
+    try {
+        $fields = @{Plan=[Text.Json.JsonValueKind]::Object;EndpointReceipt=[Text.Json.JsonValueKind]::Object
+            DatabaseName=[Text.Json.JsonValueKind]::String;MaxEndpointAgeSeconds=[Text.Json.JsonValueKind]::Number}
+        $values = ConvertFrom-LabAiSharedGatewayFormObject -Object $document.RootElement -Fields $fields
+        $age = 0
+        if (-not $values.MaxEndpointAgeSeconds.TryGetInt32([ref]$age)) { throw 'AI_EXTERNAL_MODEL_SQL_PLAN_FORM_INVALID' }
+        $plan = $values.Plan.GetRawText() | ConvertFrom-Json -Depth 6 -ErrorAction Stop
+        $receipt = ConvertFrom-LabGuidedExternalModelReceipt -Element $values.EndpointReceipt
+        Get-SqlServerLabAiExternalModelSqlPlan -Plan $plan -EndpointReceipt $receipt -DatabaseName $values.DatabaseName.GetString() -MaxEndpointAgeSeconds $age
+    } finally { $document.Dispose() }
+}
+
+function Invoke-LabGuidedExternalModelSqlPlanInteractive {
+    param($PreparedPlan,$PreparedReceipt)
+
+    try {
+        if (-not $PreparedPlan -or -not $PreparedReceipt) {
+            $planPath = Read-LabConsoleTextInput -Prompt 'Absoluter lokaler Pfad zum External-Model-Plan (JSON)' -MaskInput
+            if ($planPath.Status -cne 'Confirmed') { return }
+            $receiptPath = Read-LabConsoleTextInput -Prompt 'Absoluter lokaler Pfad zur passenden HTTPS-Endpunktquittung (JSON)' -MaskInput
+            if ($receiptPath.Status -cne 'Confirmed') { return }
+            $PreparedPlan = (Read-LabGuidedExternalModelFile -Path $planPath.Value) | ConvertFrom-Json -Depth 6 -ErrorAction Stop
+            $options = [Text.Json.JsonDocumentOptions]::new()
+            $options.MaxDepth = 6
+            $document = [Text.Json.JsonDocument]::Parse((Read-LabGuidedExternalModelFile -Path $receiptPath.Value),$options)
+            try { $PreparedReceipt = ConvertFrom-LabGuidedExternalModelReceipt -Element $document.RootElement }
+            finally { $document.Dispose() }
+        }
+        $database = Read-LabConsoleTextInput -Prompt 'Ziel-Datenbankname für die reine Vorschau'
+        if ($database.Status -cne 'Confirmed') { return }
+        $age = Read-LabConsoleTextInput -Prompt 'Maximales Quittungsalter in Sekunden (30 bis 3600)' -Default '300'
+        if ($age.Status -cne 'Confirmed') { return }
+        $ageSeconds = 0
+        if (-not [int]::TryParse([string]$age.Value, [ref]$ageSeconds)) { throw 'AI_EXTERNAL_MODEL_SQL_PLAN_FORM_INVALID' }
+        $sqlPlan = Get-SqlServerLabAiExternalModelSqlPlan -Plan $PreparedPlan -EndpointReceipt $PreparedReceipt -DatabaseName $database.Value -MaxEndpointAgeSeconds $ageSeconds
+        Write-LabInfo ($sqlPlan | ConvertTo-Json -Depth 8)
+        Write-LabInfo 'SQL-Objekte sind geplant. SQL-Bindung, Rechte und Datenbank-Master-Key werden separat geprüft.'
+    } catch [Management.Automation.PipelineStoppedException] { throw }
+    catch {
+        if ($_.Exception.Message -ceq 'AI_EXTERNAL_MODEL_ENDPOINT_RECEIPT_EXPIRED') {
+            Write-LabWarning 'Die Endpunktquittung ist abgelaufen. Prüfe den Endpunkt erneut.'
+        } else { Write-LabWarning 'SQL-Plan unbestätigt. Prüfe Datenbankname, External-Model-Plan und zugehörige Endpunktquittung.' }
+    }
+    $null = Wait-LabConsoleAcknowledgement
+}

@@ -430,7 +430,9 @@
   const status = element('status');
   const result = element('result');
   const resultBox = element('result-box');
+  const sqlPlanButton = element('sql-plan');
   let plan = null;
+  let receiptForSqlPlan = null;
   let busy = false;
   const digest = /^[a-f0-9]{64}$/;
 
@@ -443,6 +445,8 @@
   function clearReceipt() {
     result.value = '';
     resultBox.hidden = true;
+    receiptForSqlPlan = null;
+    sqlPlanButton.disabled = true;
   }
 
   function formatPlan() {
@@ -491,6 +495,14 @@
   close.addEventListener('click', () => { if (!busy) dialog.close(); });
   dialog.addEventListener('cancel', event => { if (busy) event.preventDefault(); });
   dialog.addEventListener('close', () => { form.reset(); formatPlan(); });
+  sqlPlanButton.addEventListener('click', () => {
+    if (busy || !plan || !receiptForSqlPlan || !dialog.open) return;
+    const pair = {Plan:plan,EndpointReceipt:receiptForSqlPlan};
+    dialog.close();
+    document.querySelector('#external-model-sql-plan-dialog')?.dispatchEvent(
+      new CustomEvent('sqlserverlab:model-sql-plan-input', {detail:pair})
+    );
+  });
 
   form.addEventListener('submit', async event => {
     event.preventDefault();
@@ -535,6 +547,8 @@
       }
       result.value = JSON.stringify(receipt, null, 2);
       resultBox.hidden = false;
+      receiptForSqlPlan = receipt;
+      sqlPlanButton.disabled = false;
       status.textContent = 'HTTPS-Endpunkt bestätigt. Modellartefakte, Beschleuniger und SQL-Bindung bleiben separat zu prüfen.';
     } catch (error) {
       const messages = {
@@ -800,5 +814,90 @@
     document.querySelector('#external-model-endpoint-dialog')?.dispatchEvent(
       new CustomEvent('sqlserverlab:prepared-plan', {detail:prepared})
     );
+  });
+})();
+
+(() => {
+  const element = name => document.querySelector('#external-model-sql-plan-' + name);
+  const dialog = element('dialog');
+  if (!dialog) return;
+  const form = element('form');
+  const submit = element('submit');
+  const status = element('status');
+  const result = element('result');
+  const resultBox = element('result-box');
+  const digest = /^[a-f0-9]{64}$/;
+  let revision = 0;
+  let busy = false;
+
+  function clearPlan() {
+    revision++;
+    result.value = '';
+    resultBox.hidden = true;
+    status.textContent = '';
+  }
+  function show(pair) {
+    if (dialog.open) return;
+    form.reset();
+    clearPlan();
+    if (pair) {
+      element('plan').value = JSON.stringify(pair.Plan, null, 2);
+      element('receipt').value = JSON.stringify(pair.EndpointReceipt, null, 2);
+    }
+    dialog.showModal();
+  }
+  element('open').addEventListener('click', () => show(null));
+  dialog.addEventListener('sqlserverlab:model-sql-plan-input', event => show(event.detail));
+  element('close').addEventListener('click', () => dialog.close());
+  dialog.addEventListener('close', () => { form.reset(); clearPlan(); });
+  form.addEventListener('input', clearPlan);
+
+  form.addEventListener('submit', async event => {
+    event.preventDefault();
+    if (busy || !dialog.open || !form.reportValidity()) return;
+    clearPlan();
+    const requestId = revision;
+    let request;
+    let body;
+    try {
+      request = {Plan:JSON.parse(element('plan').value),EndpointReceipt:JSON.parse(element('receipt').value),
+        DatabaseName:element('database').value.trim(),MaxEndpointAgeSeconds:Number(element('age').value)};
+      if (!digest.test(request.Plan?.PlanKey) || request.EndpointReceipt?.PlanKey !== request.Plan.PlanKey ||
+          !digest.test(request.EndpointReceipt.ReceiptKey) || !/^[A-Za-z_][A-Za-z0-9_]{0,127}$/.test(request.DatabaseName) ||
+          !Number.isInteger(request.MaxEndpointAgeSeconds) || request.MaxEndpointAgeSeconds < 30 || request.MaxEndpointAgeSeconds > 3600) {
+        throw new Error('BAD_INPUT');
+      }
+      body = JSON.stringify(request);
+      if (new TextEncoder().encode(body).length > 32768) throw new Error('BAD_INPUT');
+    } catch {
+      status.textContent = 'Prüfe Plan, passende Quittung, Datenbanknamen und Quittungsalter.';
+      return;
+    }
+    busy = true;
+    submit.disabled = true;
+    status.textContent = 'SQL-Plan wird gebunden …';
+    try {
+      const response = await sqlServerLabUiFetch('/api/ai-external-model/sql-plan', {
+        method:'POST',headers:{'Content-Type':'application/json'},body
+      });
+      const view = await response.json();
+      if (revision !== requestId || !dialog.open) return;
+      if (!response.ok && view?.Code === 'AI_EXTERNAL_MODEL_ENDPOINT_RECEIPT_EXPIRED') {
+        status.textContent = 'Die Quittung ist abgelaufen. Prüfe den Endpunkt erneut.';
+        return;
+      }
+      if (!response.ok || view?.Contract?.Name !== 'SqlServerLab.AiExternalModelSqlPlan' || view.Contract.Version !== '1.0' ||
+          view.Status !== 'PLANNED' || view.EvidenceStatus !== 'LIVE_ENDPOINT_BOUND' || view.SqlMajorVersion !== 17 ||
+          view.DatabaseName !== request.DatabaseName || view.SourcePlanKey !== request.Plan.PlanKey ||
+          view.EndpointReceiptKey !== request.EndpointReceipt.ReceiptKey || !digest.test(view.SqlPlanKey)) throw new Error('BAD_PLAN');
+      result.value = JSON.stringify(view,null,2);
+      resultBox.hidden = false;
+      status.textContent = 'SQL-Plan gebunden. Rechte, Datenbank-Master-Key und Ausführung werden separat geprüft.';
+    } catch {
+      if (revision === requestId && dialog.open) status.textContent = 'SQL-Plan unbestätigt. Prüfe Plan, Endpunktquittung und Datenbanknamen.';
+    } finally {
+      busy = false;
+      submit.disabled = false;
+    }
   });
 })();

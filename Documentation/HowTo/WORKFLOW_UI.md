@@ -1500,6 +1500,18 @@ Endpunktquittung als JSON. Modellartefakte, Beschleuniger und die spätere
 SQL-Bindung haben eigene Prüfungen.
 [External-Model-Plan erstellen](../User/SQL_AI_LOCAL_ACCELERATION.md)
 
+### Einen SQL-Plan aus der Endpunktquittung erstellen
+
+Nach der bestätigten Endpunktprüfung kannst du **Gebundenen SQL-Plan
+vorbereiten** wählen. Der Dialog übernimmt die passenden JSON-Objekte.
+Über **Host-Dienste und Modelle → SQL-Plan für bestätigten Modellendpunkt
+erstellen** kannst du die beiden JSON-Objekte auch einfügen. Die CLI liest
+in diesem Fall zwei ausdrücklich ausgewählte lokale JSON-Dateien.
+Gib den Namen der vorgesehenen Datenbank und das Höchstalter der Quittung
+an. Nach Ablauf musst du den Endpunkt erneut prüfen. Der SQL-Plan zeigt
+die Bindung und die vorgesehene Create- und Cleanup-Reihenfolge. Er öffnet
+keine SQL-Verbindung und legt keine Objekte an.
+
 ### Vorhandene llama.cpp-Pakete prüfen
 
 Wähle in CLI oder Browser **Host-Dienste und Modelle → Vorhandene
