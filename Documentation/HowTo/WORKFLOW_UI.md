@@ -1351,6 +1351,28 @@ Die GUI muss im selben PowerShell-Modulhost wie der bestehende Start geöffnet
 werden; sie lädt den exakten vorhandenen Modulpfad ohne Force-Reload weiter.
 Details und Workflow-Aktionen: [Sitzungsstop](../Architecture/LLAMA_CPP_OWNED_RUNTIME.md).
 
+### Gemeinsamen Embedding-Gateway planen
+
+Wähle in der CLI oder im Browser unter **Host-Dienste und Modelle**
+**Gemeinsamen Embedding-Gateway planen**. Gib die HTTPS-Adresse des Gateways
+mit `/v1/embeddings` und die numerische Loopback-Adresse des Upstreams an.
+Beim OpenVINO Model Server verwendet der Upstream `/v3/embeddings`. Ergänze
+Modellname, Dimension, Eingabeprofil und die SHA-256-Digests.
+
+Ordne einen bis 64 SQL-Verbraucher mit Run-, Instanz- und Datenbank-ID,
+SQL-Modellname und jeweils eigener `SQL_SERVER_LAB_SECRET_`-Referenz zu.
+**Plan anzeigen** prüft die Eingaben und zeigt den Konfigurationsplan als JSON.
+**Status für diesen Gateway-Plan lesen** prüft danach auf ausdrückliche Auswahl
+die lokale Registrierung und Portbelegung. Im Browser erscheint das Ergebnis
+im Auftragsprotokoll. Eine eigene Sitzung lässt sich nur in der Modulsitzung
+nachweisen, die sie gestartet hat. Eine belegte Schnittstelle ohne diesen
+Nachweis wird als ungeklärte Portbelegung ausgewiesen. Dienststart und
+SQL-Anbindung sind getrennte Operationen.
+
+Im Browser übernimmt **In Dienst-Secret-Prüfung übernehmen** den Plan in das
+vorhandene Formular. Die Dienstprüfung benötigt weiterhin ihren eigenen
+Dienstplan und eine Bestätigung. [Gateway-Backlog](../Project_Planning/AI_EXTERNAL_MODEL_ACCELERATION_BACKLOG.md)
+
 ### Vorhandene llama.cpp-Pakete prüfen
 
 Wähle in CLI oder Browser **Host-Dienste und Modelle → Vorhandene

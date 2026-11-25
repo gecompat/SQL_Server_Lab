@@ -6025,6 +6025,30 @@ Prozesse und isolierte Registry; keine bestehende Shared-Umgebung,
 SQL-/Modell-/Compute-/Providerprobe. Browser-/CLI-Bedienung bleibt durch echte
 synthetische Handlerchecks belegt; der Nativefall ist keine manuelle UI-Abnahme.
 
+Die geführte Shared-Gateway-Planerstellung nutzt denselben öffentlichen
+Konfigurationsvertrag in CLI und Browser. `Invoke-AiSharedGatewayPlanChecks.ps1`
+prüft Menüabbruch, mehrere Verbraucher, exakten PlanKey, gebundene Origin,
+JSON-Formgrenzen und gleiche Zertifikatidentität bei anderer Hex-Schreibweise.
+Das echte Browserskript wird mit Eingabeänderung während des Requests,
+falschem Status, Verbrauchergrenze sowie ausdrücklich gewählter Übergabe an den
+Dienstplan-Dialog geprüft. Die Cases verwenden ausschließlich synthetische
+Daten und attestieren den Konfigurationsplan. Die geführte Statusprüfung
+verwendet exakt den angezeigten Plan. Die Fixtures prüfen bewusste Auswahl,
+abgewiesene Katalogabweichung, gebundenen Browser-Dispatch und einen
+öffentlichen Aufruf ohne Registrierung. `Invoke-AiSharedGatewaySessionChecks.ps1`
+prüft den echten lokalen Listener mit synthetischen Dateien. Derselbe Port
+eines anderen Gateways und derselbe Plan in einem anderen StateRoot werden
+nicht als eigene Sitzung gewertet.
+
+Am 25.11.2026 lud die gerenderte Browserprüfung auf `dcb3addf` 57
+Produktdateien. Der Dialog erstellte einen Plan für zwei synthetische SQL-Verbraucher.
+Die Statusaktion übergab denselben Plan mit genau einer gebundenen
+Auftragsfreigabe und einem Auftrag. Das Auftragsprotokoll zeigte den
+synthetischen Statusauftrag als erfolgreich. Der Testserver registrierte
+keine unerwarteten oder ungültigen Anfragen und der Browser meldete keine
+Skriptfehler. Testserver und Tab wurden geschlossen. Die Statusdaten waren
+synthetisch. Weder Gateway noch SQL-Instanzen liefen.
+
 Die eigene Guidance und der Shared-Gateway-Registrar teilen eine kanonische
 StateRoot-Lifecyclesperre vor ihren bisherigen Gateway-/Testgruppen-Sperren.
 Der Fokustest führt einen echten konkurrierenden Registrar sowie einen echten

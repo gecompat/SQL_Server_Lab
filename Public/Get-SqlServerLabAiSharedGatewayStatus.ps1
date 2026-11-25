@@ -5,7 +5,9 @@
     Revalidiert den geschützten Gateway-Store und unterscheidet eine fehlende
     Registrierung, einen registrierten gestoppten Gateway, eine eigene laufende
     Session sowie Recoverybedarf bei Drift, Ownerverlust oder einem fremd belegten
-    Port. Die Prüfung startet und stoppt weder Prozesse noch Provider oder SQL Server.
+    Port. Eine eigene Session muss zum ausgewählten Plan und zur verifizierten
+    Registrierung im selben StateRoot gehören. Die Prüfung startet und stoppt
+    weder Prozesse noch Provider oder SQL Server.
 .PARAMETER Plan
     Kanonischer SqlServerLab.AiSharedGatewayPlan/1.0.
 .PARAMETER StateRoot

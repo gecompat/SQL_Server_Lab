@@ -4133,6 +4133,16 @@ Null Kandidaten belegen keine Veröffentlichung. Die reguläre Monatslane bleibt
 unverändert. Echte Dispatch-/Issueabnahme dieses engeren Pfads ist noch offen.
 [Automationsvertrag](../Architecture/RESOURCE_WATCH_AUTOMATION.md).
 
+## Geführter Plan eines gemeinsamen Embedding-Gateways
+
+Die CLI und der Browser erstellen einen Konfigurationsplan für einen lokalen
+Gateway-Endpunkt, ein gebundenes Backend und bis zu 64 SQL-Verbraucher. Der Plan
+bleibt `BLOCKED` und `CONFIGURATION_ONLY`. Die optionale Statusprüfung liest
+Registrierung und Listener. Besitz eines Listeners ist nur in der startenden
+Modulsitzung nachweisbar. Dienstinstallation, Registrierung und SQL-Bindung
+benötigen ihre eigenen Fachaktionen und Nachweise.
+[Bedienweg](../HowTo/WORKFLOW_UI.md#gemeinsamen-embedding-gateway-planen)
+
 ## Geführter eigener llama.cpp-Sitzungsstop
 
 Der eigene Modulhost-Slice ist mit Vorschau, Cancel und Stop implementiert;

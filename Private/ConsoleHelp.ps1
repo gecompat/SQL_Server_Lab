@@ -205,6 +205,30 @@ function Get-LabConsoleHelpCatalog {
         'resources-menu' = @{ Title = 'Ressourcen und Downloads'; Purpose = 'Vorhandene Fachabläufe auswählen. Nicht implementierte Abläufe sind deaktiviert und begründet.'; Effects = 'Die Bereichsauswahl ändert nichts. Zurück und Esc verlassen den Bereich.'; Command = 'Get-SqlServerLabResourcePlan' }
         'resource-plan-selection' = @{ Title = 'Lokaler Ressourcenbedarf'; Purpose = 'Die Prüfung auf Beispieldaten, Windows-/Hyper-V-Laufzeitmedien oder beide Arten eingrenzen.'; Effects = 'Die gewählte Prüfung liest die konfigurierten Ordner und zeigt den Beschaffungsbedarf. Sie lädt nichts herunter.'; Command = 'Get-SqlServerLabResourcePlan' }
         'hostmodels-menu' = @{ Title = 'Host-Dienste und Modelle'; Purpose = 'Vorhandene Fachabläufe auswählen, etwa installierte llama.cpp-Pakete prüfen oder eine eigene Sitzung stoppen.'; Effects = 'Die Paketübersicht liest Backend und Build aus lokalen Dateibefunden. Zurück und Esc verlassen den Bereich.'; Command = 'Get-SqlServerLabLlamaCppRuntime' }
+        'ai-shared-gateway-plan-backend' = @{
+            Title = 'Gemeinsamen Embedding-Gateway planen'
+            Purpose = 'Wählt das lokale Backend des Embedding-Dienstes. Der Plan bindet dessen Adresse sowie Modell-, Runtime- und Zertifikat-Digests.'
+            Effects = 'Die Auswahl bereitet einen Konfigurationsplan im Speicher vor.'
+            Command = 'Get-SqlServerLabAiSharedGatewayPlan'
+        }
+        'ai-shared-gateway-plan-profile' = @{
+            Title = 'Eingabeprofil wählen'
+            Purpose = 'Bindet an die Eingabeaufbereitung des gewählten Embedding-Modells.'
+            Effects = 'Die Auswahl ergänzt den Gateway-Plan.'
+            Command = 'Get-SqlServerLabAiSharedGatewayPlan'
+        }
+        'ai-shared-gateway-plan-consumers' = @{
+            Title = 'SQL-Verbraucher'
+            Purpose = 'Ordnet bis zu 64 SQL-Instanzen und Datenbanken mit jeweils eigener Secret-Referenz zu.'
+            Effects = 'Plan anzeigen prüft und zeigt den Konfigurationsbefund. Esc verwirft die Eingabe.'
+            Command = 'Get-SqlServerLabAiSharedGatewayPlan'
+        }
+        'ai-shared-gateway-plan-next' = @{
+            Title = 'Gateway-Plan'
+            Purpose = 'Prüft Registrierung und Listener für den angezeigten Plan im konfigurierten StateRoot.'
+            Effects = 'Die Prüfung liest den lokalen Registrierungszustand und die Listenerbelegung. Das Ergebnis gilt für den angezeigten Plan.'
+            Command = 'Get-SqlServerLabAiSharedGatewayStatus'
+        }
         'sql-feature-target' = @{ Title = 'SQL-Instanz für Funktionsänderung'; Purpose = 'Eine registrierte Instanz der gewählten laufenden Umgebung auswählen.'; Effects = 'Erst die Bestätigung einer konkreten Funktion ändert SQL Server.'; Command = 'Set-SqlServerLabFeature' }
         'sql-feature-operation' = @{ Title = 'SQL-Funktion ändern'; Purpose = 'Volltext installieren oder entfernen. Hyper-V bietet zusätzlich FILESTREAM.'; Effects = 'Bei einer bestätigten Änderung startet SQL neu. Abhängige Datenbanken können die Entfernung verhindern.'; Command = 'Set-SqlServerLabFeature' }
         'ssis-diagnostic-kind' = @{ Title = 'SSIS-Diagnose'; Purpose = 'Ausführungsmetadaten aus SSISDB beobachten oder ein vertrauenswürdiges Paket im eigenen Windows-Lab laden.'; Effects = 'Die Diagnose bindet den vorhandenen Run und prüft die Angaben aus dem Beleg. Die Paketladung benötigt eine separate Vertrauensbestätigung.'; Command = 'Get-SqlServerLabSsisExecutionDiagnostic' }

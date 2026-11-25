@@ -199,6 +199,7 @@ sources_of_truth:
   acceptance_ai_compute_benchmark: Tests/Integration/Invoke-AiComputeBenchmarkAcceptance.ps1
   ai_shared_gateway_plan_contract: Private/AiSharedGatewayPlan.ps1
   ai_shared_gateway_plan_api: Public/Get-SqlServerLabAiSharedGatewayPlan.ps1
+  ai_shared_gateway_plan_guidance: "Private/AiSharedGatewayPlanGuidance.ps1 und Ui/ai-shared-gateway-plan.js; geführtes CLI-Menü und begrenzter POST /api/ai-shared-gateway/plan im Hostmodellbereich. Derselbe CONFIGURATION_ONLY-Plan für bis zu 64 Verbraucher; synthetischer Handler, CLI und JS in Invoke-AiSharedGatewayPlanChecks.ps1."
   ai_shared_gateway_plan_schema: Schemas/ai-shared-gateway-plan.schema.json
   validation_ai_shared_gateway_plan: Tests/Static/Invoke-AiSharedGatewayPlanChecks.ps1
   ai_shared_gateway_preflight_contract: Private/AiSharedGatewayPreflight.ps1

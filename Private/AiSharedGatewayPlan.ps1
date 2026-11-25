@@ -25,7 +25,7 @@ function New-LabAiSharedGatewayPlan {
         [Parameter(Mandatory)][ValidatePattern('^[a-fA-F0-9]{64}$')][string]$CertificateAuthoritySha256,
         [Parameter(Mandatory)][ValidateCount(1,64)][object[]]$Consumer
     )
-    if($ServerCertificateSha256 -ceq $CertificateAuthoritySha256){throw 'AI_SHARED_GATEWAY_CERTIFICATE_HASHES_MUST_DIFFER'}
+    if($ServerCertificateSha256 -ieq $CertificateAuthoritySha256){throw 'AI_SHARED_GATEWAY_CERTIFICATE_HASHES_MUST_DIFFER'}
     try{$locationUri=[Uri]::new($Location,[UriKind]::Absolute)}catch{throw 'AI_SHARED_GATEWAY_LOCATION_INVALID'}
     if($locationUri.Scheme -cne 'https' -or $locationUri.AbsolutePath -cne '/v1/embeddings' -or
        -not [string]::IsNullOrEmpty($locationUri.UserInfo) -or -not [string]::IsNullOrEmpty($locationUri.Query) -or
