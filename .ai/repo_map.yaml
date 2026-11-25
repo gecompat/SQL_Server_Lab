@@ -578,15 +578,15 @@ sources_of_truth:
   validation_host_capability_matrix_browser_contracts: Tests/Common/HostCapabilityMatrixBrowserAcceptance.ps1
   validation_host_capability_matrix_browser_fixture: Tests/Static/Fixtures/HostCapabilityMatrixBrowserAcceptanceChecks.ps1
   validation_host_matrix_launch_details: Tests/Static/Invoke-HostMatrixLaunchDetailsChecks.ps1
-  validation_host_matrix_launch_console: Tests/Static/Fixtures/HostMatrixLaunchDetailsConsoleChecks.ps1 # actual catalogue/classifier, synthetic host facts, readonly console/help authority
+  validation_host_matrix_launch_console: Tests/Static/Fixtures/HostMatrixLaunchDetailsConsoleChecks.ps1 # actual catalog and history index, bounded history display, synthetic host facts, readonly console/help authority
   validation_host_matrix_launch_ui: Tests/Static/Fixtures/HostMatrixLaunchDetailsUiChecks.cjs # actual two controllers, no automatic native query
   validation_host_matrix_launch_browser: Tests/Static/Fixtures/HostMatrixLaunchDetailsBrowserChecks.ps1 # composed actual routes/public readers; rendered runner uses IncludeLaunchDetails
   external_runtime_capability_public: Public/Get-SqlServerLabExternalRuntimeCapability.ps1
   external_runtime_capability_core: Private/ExternalRuntimeCapability.ps1
-  external_runtime_host_prerequisites: Private/ExternalRuntimeHostPrerequisites.ps1 # explicit public1.2; same native reducer, bounded projected info, no execution authority
+  external_runtime_host_prerequisites: Private/ExternalRuntimeHostPrerequisites.ps1 # public 1.2 prerequisites, 1.3 opt-in adds normalized provider facts from one existing observation
   validation_external_runtime_host_prerequisites: Tests/Static/Fixtures/ExternalRuntimeHostPrerequisitesChecks.ps1 # executed by existing capability suite, synthetic transport
   external_runtime_host_facts: Private/ContainerImageArtifact.ps1 # shared typed native/projected facts; UNKNOWN never grants support
-  external_runtime_capability_http: Private/ExternalRuntimeCapabilityHttp.ps1 # default browser1.0; history1.1; explicit profile prerequisites1.2 projects only bounded statuses
+  external_runtime_capability_http: Private/ExternalRuntimeCapabilityHttp.ps1 # browser 1.0 default, 1.1 history, 1.3 prerequisites, 1.4 with explicit normalized provider facts
   external_runtime_capability_ui: Ui/external-runtime-capability.js
   validation_external_runtime_capability_browser: Tests/Static/Invoke-ExternalRuntimeCapabilityBrowserChecks.ps1
   validation_external_runtime_catalog_rendered: Tests/Integration/Invoke-ExternalRuntimeCapabilityCatalogBrowserAcceptance.ps1
