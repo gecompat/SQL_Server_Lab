@@ -1237,8 +1237,11 @@ und Zuordnung**.
 
 **Vollständigen Wartungsplan lesen** prüft zusätzlich den Speicherbestand
 und vorhandene Cleanup-Befunde. Die Übersicht zeigt Zähler für verwaltete
-Vorlagen, Provider-Datenspeicher und Hyper-V-Befunde. Im Browser läuft die
-Inventur im Hintergrund und das Ergebnis erscheint im Auftragsprotokoll.
+Vorlagen, Provider-Datenspeicher und Hyper-V-Befunde. Sie zählt bewusst
+behaltene Ressourcen, unerwartete Reste, Fälle mit Recovery-Bedarf und
+nicht verifizierbare Befunde getrennt. Für die Prüfung einzelner Objekte
+öffne das **Cleanup-Audit** im Konsolenmenü. Im Browser erscheint die
+Übersicht nach der Inventur im Auftragsprotokoll.
 Der vollständige Scan kann länger dauern. Er speichert keinen Auditbericht
 und führt keine der vorgeschlagenen Aktionen aus.
 
