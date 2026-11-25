@@ -14,7 +14,13 @@
   const probe = element('probe-upstream');
   const preflight = element('preflight');
   const openPreflight = element('open-preflight');
+  const openRegistration = element('open-registration');
   const verify = element('verify-files');
+  const fileEffect = element('file-action-effect');
+  const registrationConfirmation = element('registration-confirmation');
+  const confirmRegistration = preflight.elements.namedItem('ConfirmRegistration');
+  const preflightName = 'Test-SqlServerLabAiSharedGatewayPreflight';
+  const registrationName = 'Register-SqlServerLabAiSharedGatewayStorage';
   const pathFields = ['RuntimePath', 'ModelPath', 'CertificatePath', 'PrivateKeyPath', 'CertificateAuthorityPath'];
   const fields = ['GatewayId', 'Location', 'UpstreamBackend', 'UpstreamLocation', 'RuntimeModel', 'InputProfile',
     'ModelSha256', 'RuntimeSha256', 'ServerCertificateSha256', 'CertificateAuthoritySha256'];
@@ -23,10 +29,14 @@
   let busy = false;
   let checkingPlan = false;
   let currentPlan = null;
+  let fileAction = null;
 
   function closePreflight() {
     preflight.reset();
     preflight.hidden = true;
+    registrationConfirmation.hidden = true;
+    confirmRegistration.required = false;
+    fileAction = null;
   }
 
   function updatePlanActions() {
@@ -34,6 +44,7 @@
     read.disabled = disabled;
     probe.disabled = disabled;
     openPreflight.disabled = disabled;
+    openRegistration.disabled = disabled;
     verify.disabled = disabled;
   }
 
@@ -123,9 +134,10 @@
     const descriptors = parameterSet?.Parameters;
     const required = Array.isArray(descriptors) ? descriptors.filter(field => field?.Mandatory === true) : [];
     const expectedNames = paths ? ['Plan', ...pathFields] : ['Plan'];
-    if (command?.RequiresConfirmation !== Boolean(paths) || command.SupportsShouldProcess !== false ||
+    const register = commandName === registrationName;
+    if (command?.RequiresConfirmation !== Boolean(paths) || command.SupportsShouldProcess !== register ||
         parameterSet?.Name !== '__AllParameterSets' || required.length !== expectedNames.length ||
-        (paths && descriptors.length !== expectedNames.length) || !expectedNames.every(name =>
+        (paths && !register && descriptors.length !== expectedNames.length) || !expectedNames.every(name =>
           required.some(field => field.Name === name && field.IsCredential === false &&
             field.TypeName === (name === 'Plan' ? 'System.Object' : 'System.String') &&
             field.Sensitive === (name === 'PrivateKeyPath')))) {
@@ -138,9 +150,10 @@
     updatePlanActions();
     try {
       await startPublicCommand(command, parameterSet, { Plan: currentPlan, ...paths }, Boolean(paths));
-      if (current === revision) status.textContent = 'Das Auftragsprotokoll zeigt die Prüfung.';
+      if (current === revision) status.textContent = register
+        ? 'Das Auftragsprotokoll zeigt die geschützte Registrierung.' : 'Das Auftragsprotokoll zeigt die Prüfung.';
     } catch {
-      if (current === revision) status.textContent = 'Annahme der Prüfung unbestätigt. Prüfe das Auftragsprotokoll.';
+      if (current === revision) status.textContent = 'Annahme des Auftrags unbestätigt. Prüfe das Auftragsprotokoll.';
     } finally {
       checkingPlan = false;
       updatePlanActions();
@@ -148,20 +161,32 @@
   }
   read.addEventListener('click', () => checkSelectedPlan(read, 'Get-SqlServerLabAiSharedGatewayStatus'));
   probe.addEventListener('click', () => checkSelectedPlan(probe, 'Test-SqlServerLabAiSharedGatewayUpstream'));
-  openPreflight.addEventListener('click', () => {
-    if (openPreflight.disabled || !currentPlan) return;
+  function openFileAction(button, commandName) {
+    if (button.disabled || !currentPlan) return;
+    closePreflight();
+    fileAction = commandName;
+    const register = commandName === registrationName;
+    verify.textContent = register ? 'Dateien geschützt registrieren' : 'Dateien jetzt prüfen';
+    registrationConfirmation.hidden = !register;
+    confirmRegistration.required = register;
+    fileEffect.textContent = register
+      ? 'Die Registrierung prüft und kopiert alle fünf Dateien einschließlich des Schlüssels in die geschützte Lab-Ablage.'
+      : 'Die Prüfung liest alle fünf Dateien und gleicht sie mit dem angezeigten Plan ab.';
     preflight.hidden = false;
     preflight.elements.namedItem('RuntimePath').focus();
-  });
+  }
+  openPreflight.addEventListener('click', () => openFileAction(openPreflight, preflightName));
+  openRegistration.addEventListener('click', () => openFileAction(openRegistration, registrationName));
   element('cancel-preflight').addEventListener('click', () => {
+    const opener = fileAction === registrationName ? openRegistration : openPreflight;
     closePreflight();
-    openPreflight.focus();
+    opener.focus();
   });
   preflight.addEventListener('submit', event => {
     event.preventDefault();
-    if (preflight.hidden || verify.disabled || !preflight.reportValidity()) return;
+    if (preflight.hidden || !fileAction || verify.disabled || !preflight.reportValidity()) return;
     const paths = Object.fromEntries(pathFields.map(name => [name, preflight.elements.namedItem(name).value]));
-    return checkSelectedPlan(verify, 'Test-SqlServerLabAiSharedGatewayPreflight', paths);
+    return checkSelectedPlan(verify, fileAction, paths);
   });
   use.addEventListener('click', () => {
     if (use.disabled || !result.value) return;

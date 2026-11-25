@@ -92,8 +92,8 @@ function Resolve-LabAiSharedGatewayGuidedInputPath {
     catch { throw 'AI_SHARED_GATEWAY_GUIDED_PATH_INVALID' }
 }
 
-function Invoke-LabAiSharedGatewayPreflightInteractive {
-    param([Parameter(Mandatory)]$Plan)
+function Invoke-LabAiSharedGatewayFileActionInteractive {
+    param([Parameter(Mandatory)]$Plan,[switch]$Register)
 
     $labels = [ordered]@{
         RuntimePath = 'Absoluter lokaler Pfad zur Runtime-Datei'
@@ -116,28 +116,44 @@ function Invoke-LabAiSharedGatewayPreflightInteractive {
         return
     }
 
+    $confirmLabel = if ($Register) { 'Dateien geschützt registrieren' } else { 'Dateien jetzt prüfen' }
     $items = @(
-        New-LabConsoleItem -Id verify -Label 'Dateien jetzt prüfen'
+        New-LabConsoleItem -Id confirm -Label $confirmLabel
         New-LabConsoleItem -Id back -Label 'Abbrechen'
     )
-    $selection = Invoke-LabConsoleMenu -ScreenId 'ai-shared-gateway-preflight-confirm' -Title 'Lokale Gateway-Dateien prüfen' `
-        -Subtitle 'Die Prüfung liest Modell, Runtime, Zertifikate und Schlüsseldatei für den angezeigten Plan.' -Items $items
-    if ($selection.Status -cne 'Selected' -or $selection.SelectedItem.Id -cne 'verify') { return }
+    $selection = if ($Register) {
+        Invoke-LabConsoleMenu -ScreenId 'ai-shared-gateway-register-confirm' -Title 'Gateway-Dateien geschützt registrieren' `
+            -Subtitle 'Die Registrierung prüft und kopiert alle fünf Dateien einschließlich des Schlüssels in die geschützte Lab-Ablage.' -Items $items
+    } else {
+        Invoke-LabConsoleMenu -ScreenId 'ai-shared-gateway-preflight-confirm' -Title 'Lokale Gateway-Dateien prüfen' `
+            -Subtitle 'Die Prüfung liest Modell, Runtime, Zertifikate und Schlüsseldatei für den angezeigten Plan.' -Items $items
+    }
+    if ($selection.Status -cne 'Selected' -or $selection.SelectedItem.Id -cne 'confirm') { return }
 
     try {
         foreach ($name in $labels.Keys) {
             $paths[$name] = Resolve-LabAiSharedGatewayGuidedInputPath -Path $paths[$name]
         }
-        $receipt = Test-SqlServerLabAiSharedGatewayPreflight -Plan $Plan @paths
-        if ($receipt.Status -cne 'PREFLIGHT_VERIFIED' -or $receipt.PlanKey -cne $Plan.PlanKey) {
-            throw 'AI_SHARED_GATEWAY_GUIDED_PREFLIGHT_UNCONFIRMED'
+        if ($Register) {
+            $receipt = Register-SqlServerLabAiSharedGatewayStorage -Plan $Plan @paths -Confirm:$false
+            if ($receipt.Status -cnotin @('REGISTERED','ALREADY_REGISTERED') -or $receipt.PlanKey -cne $Plan.PlanKey) {
+                throw 'AI_SHARED_GATEWAY_GUIDED_REGISTRATION_UNCONFIRMED'
+            }
+            Write-LabInfo 'Die geschützte Registrierung für den angezeigten Plan ist bestätigt.'
+        } else {
+            $receipt = Test-SqlServerLabAiSharedGatewayPreflight -Plan $Plan @paths
+            if ($receipt.Status -cne 'PREFLIGHT_VERIFIED' -or $receipt.PlanKey -cne $Plan.PlanKey) {
+                throw 'AI_SHARED_GATEWAY_GUIDED_PREFLIGHT_UNCONFIRMED'
+            }
+            Write-LabInfo 'Lokale Dateien, Zertifikate und Schlüssel passen zum angezeigten Gateway-Plan.'
         }
-        Write-LabInfo 'Lokale Dateien, Zertifikate und Schlüssel passen zum angezeigten Gateway-Plan.'
         Write-LabInfo ($receipt | ConvertTo-Json -Depth 8)
     }
     catch {
         if ($_.Exception.Message -ceq 'AI_SHARED_GATEWAY_GUIDED_PATH_INVALID') {
             Write-LabWarning 'Datei nicht erreichbar. Prüfe die lokalen Pfade und verwende Dateien ohne Verknüpfungen.'
+        } elseif ($Register) {
+            Write-LabWarning 'Die Registrierung ist nicht bestätigt. Prüfe den Status dieses Plans und die gewählten Dateien vor einer erneuten Registrierung.'
         } else {
             Write-LabWarning 'Dateiprüfung fehlgeschlagen. Prüfe die SHA-256-Werte, den Zertifikatsnamen und die Zuordnung von Schlüssel und CA.'
         }
@@ -209,15 +225,16 @@ function Invoke-LabAiSharedGatewayPlanInteractive {
 
     $items = @(
         New-LabConsoleItem -Id preflight -Label 'Lokale Gateway-Dateien für diesen Plan prüfen'
+        New-LabConsoleItem -Id register -Label 'Gateway-Dateien für diesen Plan geschützt registrieren'
         New-LabConsoleItem -Id status -Label 'Status für diesen Gateway-Plan lesen'
         New-LabConsoleItem -Id upstream -Label 'Registrierten Loopback-Upstream mit Testanfrage prüfen'
         New-LabConsoleItem -Id back -Label 'Zurück'
     )
     $selection = Invoke-LabConsoleMenu -ScreenId 'ai-shared-gateway-plan-next' -Title 'Gateway-Plan' `
         -Subtitle 'Die Upstream-Prüfung sendet eine synthetische Anfrage an den gebundenen lokalen Dienst. Sie verwendet keinen API-Schlüssel.' -Items $items
-    if ($selection.Status -cne 'Selected' -or $selection.SelectedItem.Id -cnotin @('preflight','status','upstream')) { return }
-    if ($selection.SelectedItem.Id -ceq 'preflight') {
-        Invoke-LabAiSharedGatewayPreflightInteractive -Plan $plan
+    if ($selection.Status -cne 'Selected' -or $selection.SelectedItem.Id -cnotin @('preflight','register','status','upstream')) { return }
+    if ($selection.SelectedItem.Id -cin @('preflight','register')) {
+        Invoke-LabAiSharedGatewayFileActionInteractive -Plan $plan -Register:($selection.SelectedItem.Id -ceq 'register')
         return
     }
     try {

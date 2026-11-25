@@ -225,7 +225,7 @@ function Get-LabConsoleHelpCatalog {
         }
         'ai-shared-gateway-plan-next' = @{
             Title = 'Gateway-Plan'
-            Purpose = 'Wählt Dateiprüfung, Registrierungsstatus oder Upstream-Test für den angezeigten Plan.'
+            Purpose = 'Wählt Dateiprüfung, geschützte Registrierung, Status oder Upstream-Test für den angezeigten Plan.'
             Effects = 'Die gewählte Prüfung gilt für den angezeigten Plan. Nur der Upstream-Test sendet eine Modellanfrage.'
             Command = 'Get-SqlServerLabAiSharedGatewayStatus'
         }
@@ -234,6 +234,12 @@ function Get-LabConsoleHelpCatalog {
             Purpose = 'Prüft fünf lokale Dateien gegen den angezeigten Plan.'
             Effects = 'Dateien jetzt prüfen liest Modell, Runtime, Zertifikate und Schlüsseldatei. Abbrechen kehrt ohne Inhaltsprüfung zurück.'
             Command = 'Test-SqlServerLabAiSharedGatewayPreflight'
+        }
+        'ai-shared-gateway-register-confirm' = @{
+            Title = 'Gateway-Dateien geschützt registrieren'
+            Purpose = 'Bindet die fünf ausgewählten Dateien an den angezeigten Plan und die geschützte Lab-Ablage.'
+            Effects = 'Bestätigung prüft und kopiert Modell, Runtime, Zertifikate und Schlüsseldatei. Danach kann der Registrierungsstatus geprüft werden.'
+            Command = 'Register-SqlServerLabAiSharedGatewayStorage'
         }
         'sql-feature-target' = @{ Title = 'SQL-Instanz für Funktionsänderung'; Purpose = 'Eine registrierte Instanz der gewählten laufenden Umgebung auswählen.'; Effects = 'Erst die Bestätigung einer konkreten Funktion ändert SQL Server.'; Command = 'Set-SqlServerLabFeature' }
         'sql-feature-operation' = @{ Title = 'SQL-Funktion ändern'; Purpose = 'Volltext installieren oder entfernen. Hyper-V bietet zusätzlich FILESTREAM.'; Effects = 'Bei einer bestätigten Änderung startet SQL neu. Abhängige Datenbanken können die Entfernung verhindern.'; Command = 'Set-SqlServerLabFeature' }

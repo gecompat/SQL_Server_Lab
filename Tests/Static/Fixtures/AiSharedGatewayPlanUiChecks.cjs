@@ -54,10 +54,16 @@ const preflight = item('preflight');
 const paths = Object.fromEntries(['RuntimePath', 'ModelPath', 'CertificatePath', 'PrivateKeyPath', 'CertificateAuthorityPath']
   .map(name => [name, { value: '', focus() {} }]));
 preflight.hidden = true;
-preflight.elements = { namedItem: name => paths[name] };
-preflight.reportValidity = () => Object.values(paths).every(path => path.value);
-preflight.reset = () => { for (const path of Object.values(paths)) path.value = ''; };
+const registrationConfirmation = { checked: false, required: false };
+preflight.elements = { namedItem: name => name === 'ConfirmRegistration' ? registrationConfirmation : paths[name] };
+preflight.reportValidity = () => Object.values(paths).every(path => path.value) &&
+  (!registrationConfirmation.required || registrationConfirmation.checked);
+preflight.reset = () => {
+  for (const path of Object.values(paths)) path.value = '';
+  registrationConfirmation.checked = false;
+};
 item('open-preflight').focus = () => {};
+item('open-registration').focus = () => {};
 item('consumer-template').content = {
   firstElementChild: {
     cloneNode() {
@@ -93,12 +99,20 @@ const preflightCommand = {
       Sensitive: Name === 'PrivateKeyPath', IsCredential: false }))
   ] }]
 };
+const registerCommand = {
+  ...preflightCommand, Name: 'Register-SqlServerLabAiSharedGatewayStorage', SupportsShouldProcess: true,
+  ParameterSets: [{ Name: '__AllParameterSets', Parameters: [
+    ...preflightCommand.ParameterSets[0].Parameters,
+    { Name: 'StateRoot', TypeName: 'System.String', Mandatory: false, Sensitive: false, IsCredential: false },
+    { Name: 'WhatIf', TypeName: 'System.Management.Automation.SwitchParameter', Mandatory: false, Sensitive: false, IsCredential: false }
+  ] }]
+};
 const context = vm.createContext({
   document: { querySelector: selector => ids.get(selector.slice(1)) },
   sqlServerLabUiFetch(url, options) {
     return new Promise(resolve => requests.push({ url, options, resolve }));
   },
-  publicCommandCatalog: [statusCommand, upstreamCommand, preflightCommand],
+  publicCommandCatalog: [statusCommand, upstreamCommand, preflightCommand, registerCommand],
   startPublicCommand(command, parameterSet, parameters, confirmed) {
     return new Promise(resolve => statusCalls.push({ command, parameterSet, parameters, confirmed, resolve }));
   },
@@ -202,6 +216,33 @@ const check = (label, value) => { assert.ok(value, label); checks++; };
   await checking;
   check('A completed submission cannot restore file verification for an edited plan',
     preflight.hidden && item('open-preflight').disabled && !item('plan-status').textContent.includes('Auftragsprotokoll'));
+  const registrationPlan = form.fire('submit');
+  respond(requests.at(-1), canonical(payload.Consumer));
+  await registrationPlan;
+  await item('open-preflight').fire('click');
+  paths.PrivateKeyPath.value = '/synthetic/previous-file.pem';
+  await item('open-registration').fire('click');
+  check('Switching to registration clears the previous paths and explains the protected copy',
+    paths.PrivateKeyPath.value === '' && registrationConfirmation.required &&
+    !item('registration-confirmation').hidden && item('file-action-effect').textContent.includes('einschließlich des Schlüssels'));
+  for (const name of Object.keys(paths)) paths[name].value = '/synthetic/' + name;
+  await preflight.fire('submit');
+  await item('cancel-preflight').fire('click');
+  check('Unconfirmed submission and cancel send no registration', statusCalls.length === 3 && preflight.hidden);
+  await item('open-registration').fire('click');
+  for (const name of Object.keys(paths)) paths[name].value = '/synthetic/' + name;
+  registrationConfirmation.checked = true;
+  const registering = preflight.fire('submit');
+  await preflight.fire('submit');
+  const registration = statusCalls[3];
+  check('Registration dispatches the bound plan and five paths once with explicit confirmation',
+    statusCalls.length === 4 && registration.command === registerCommand && registration.confirmed === true &&
+    Object.keys(registration.parameters).length === 6 && !('StateRoot' in registration.parameters) &&
+    JSON.stringify(registration.parameters.Plan) === JSON.stringify(JSON.parse(item('plan-result').value)));
+  check('Submitting registration clears paths and consent', preflight.hidden && !registrationConfirmation.checked &&
+    Object.values(paths).every(path => path.value === ''));
+  registration.resolve();
+  await registering;
   const bad = form.fire('submit');
   respond(requests.at(-1), { ...canonical(payload.Consumer), Status: 'READY', Untrusted: 'SYNTHETIC_PRIVATE' });
   await bad;

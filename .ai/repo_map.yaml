@@ -209,6 +209,7 @@ sources_of_truth:
   validation_ai_shared_gateway_preflight: Tests/Static/Invoke-AiSharedGatewayPreflightChecks.ps1
   ai_shared_gateway_storage_contract: Private/AiSharedGatewayRegistration.ps1
   ai_shared_gateway_storage_api: Public/Register-SqlServerLabAiSharedGatewayStorage.ps1
+  ai_shared_gateway_storage_guidance: "Private/AiSharedGatewayPlanGuidance.ps1 und Ui/ai-shared-gateway-plan.js binden die ausdrückliche Registrierung fünf lokaler Dateien an den angezeigten Plan. Private/PublicCommandConsole.ps1 prüft lokale Pfade und führt den bestätigten Browser-Auftrag. Plan- und Storage-Suites prüfen Bindung, Abbruch und idempotente Kopie."
   ai_shared_gateway_storage_state_schema: Schemas/ai-shared-gateway-storage-state.schema.json
   ai_shared_gateway_storage_receipt_schema: Schemas/ai-shared-gateway-storage-receipt.schema.json
   validation_ai_shared_gateway_storage: Tests/Static/Invoke-AiSharedGatewayStorageChecks.ps1

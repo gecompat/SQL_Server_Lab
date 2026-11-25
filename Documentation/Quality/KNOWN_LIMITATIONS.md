@@ -4158,8 +4158,10 @@ nur in der startenden
 Modulsitzung nachweisbar. Die geführte Upstream-Prüfung benötigt eine
 vorhandene Registrierung und sendet eine synthetische Anfrage ohne
 API-Schlüssel. Ein authentifizierter Upstream erfordert den öffentlichen
-Befehl mit flüchtigem SecureString. Dienstinstallation, Registrierung und
-SQL-Bindung benötigen ihre eigenen Fachaktionen und Nachweise.
+Befehl mit flüchtigem SecureString. CLI und Browser führen auch die
+geschützte Registrierung ausdrücklich bestätigter lokaler Dateien.
+Dienstinstallation, Sitzungsstart, Sitzungsstopp und SQL-Bindung benötigen
+ihre eigenen Fachaktionen und Nachweise.
 [Bedienweg](../HowTo/WORKFLOW_UI.md#gemeinsamen-embedding-gateway-planen)
 
 ## Geführter eigener llama.cpp-Sitzungsstop
