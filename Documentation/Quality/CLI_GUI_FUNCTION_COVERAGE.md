@@ -78,6 +78,14 @@ Pfadparameter und die begrenzte Ergebnisansicht. Diese Prüfungen sind
 synthetisch. Der Export startet keine SQL-Instanz und bescheinigt keine
 Provider-Bereitschaft.
 
+Die gerenderte Prüfung auf `78d6a3b2bcb7238b70684119fccf64d4c7db194b`
+lud alle 54 UI-Dateien. Abbrechen sendete keinen Schreibauftrag.
+Die Bestätigung löste genau eine Berechtigungsanfrage und genau einen
+synthetischen Katalogauftrag aus. Der Testbrowser meldete keine Fehler.
+Eine separate Prüfung mit synthetischem Workflow und echtem Datei-Writer
+schrieb und ersetzte die feste JSON-Datei im isolierten Zustandspfad.
+Die Rückgabe enthielt nur den festen Dateinamen und die erwarteten Zähler.
+
 ## Geprüfte Operationen: OVMS und externe Modellendpunkte
 
 | Aufgabe | Geführte Bedienung | Öffentlicher Vertrag und Nachweis |
