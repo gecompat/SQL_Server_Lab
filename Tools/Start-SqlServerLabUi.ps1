@@ -277,6 +277,11 @@ function Start-UiWorkflowJob {
                 $source = $result.Result
                 Write-Output ('[INVENTAR] SQL-Quellzähler: ' + $source.Status)
                 foreach ($item in $source.Items) { Write-Output ('[INVENTAR] {0}: {1}' -f $item.Category, $item.Count) }
+                $allocated = $source.AllocatedFileStorage
+                if ($allocated.Status -ceq 'OBSERVED') {
+                    Write-Output ('[INVENTAR] SQL-Quelldateigrößen laut Katalog · Daten: {0} Bytes · Log: {1} Bytes' -f $allocated.DataBytes,$allocated.LogBytes)
+                    Write-Output '[INFO] Nur reguläre Benutzerdatenbanken. Zielbedarf und Backupgröße bleiben offen.'
+                } else { Write-Output '[INVENTAR] SQL-Quelldateigrößen konnten nicht bestimmt werden.' }
                 foreach ($finding in $source.DependencyFindings) {
                     Write-Output ('[INVENTAR] Vor Übernahme prüfen: {0} · {1} ({2})' -f $finding.Code, $finding.Category, $finding.Count)
                 }

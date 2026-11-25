@@ -17,8 +17,9 @@
 .PARAMETER Mode
     FREE_SLOT_REPLACEMENT, RECONSTRUCT_LAB oder STATEFUL_MIGRATION.
 .PARAMETER ObserveSqlSource
-    Erfasst bei STATEFUL_MIGRATION zusätzlich aggregierte SQL-Quellzähler einer
-    laufenden, gebundenen SQL-2025-Prepared-Instanz. Keine Persistenz.
+    Erfasst bei STATEFUL_MIGRATION aggregierte SQL-Quellzähler und die laut
+    Katalog zugewiesenen Daten- und Logdateigrößen regulärer Benutzerdatenbanken
+    einer laufenden, gebundenen SQL-2025-Prepared-Instanz. Keine Persistenz.
 .PARAMETER ObserveWindowsLicense
     Liest zusätzlich den Windows-Lizenzstatus der laufenden gebundenen VM.
     Die registrierte Historie bleibt getrennt. Die Abfrage aktiviert und

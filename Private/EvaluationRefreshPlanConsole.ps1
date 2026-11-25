@@ -109,6 +109,11 @@ function Invoke-LabEvaluationRefreshPlanInteractive {
         if ($plan.SqlSourceInventory) {
             Write-LabInfo ("SQL-Quellzähler im Gast: {0}. Vollständige Instanzinventur bleibt offen." -f $plan.SqlSourceInventory.Status)
             foreach ($item in $plan.SqlSourceInventory.Items) { Write-LabInfo ("{0}: {1}" -f $item.Category,$item.Count) }
+            $allocated = $plan.SqlSourceInventory.AllocatedFileStorage
+            if ($allocated.Status -ceq 'OBSERVED') {
+                Write-LabInfo ("SQL-Quelldateigrößen laut Katalog · Daten: {0} Bytes · Log: {1} Bytes" -f $allocated.DataBytes,$allocated.LogBytes)
+                Write-LabInfo 'Nur reguläre Benutzerdatenbanken. Zielbedarf und Backupgröße bleiben offen.'
+            } else { Write-LabInfo 'SQL-Quelldateigrößen konnten nicht bestimmt werden.' }
             foreach ($finding in $plan.SqlSourceInventory.DependencyFindings) {
                 Write-LabInfo ("Vor Übernahme prüfen: {0} · {1} ({2})" -f $finding.Code,$finding.Category,$finding.Count)
             }

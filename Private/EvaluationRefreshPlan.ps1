@@ -72,7 +72,8 @@ function Get-LabEvaluationSqlGuestObservation {
 
 function Get-LabEvaluationSqlSourceInventory {
     param([Parameter(Mandatory)]$Snapshot)
-    $unavailable = [pscustomobject]@{ Status='NOT_OBSERVED'; Items=@(); DependencyFindings=@() }
+    $storage = [pscustomobject]@{ Status='NOT_OBSERVED'; DataBytes=$null; LogBytes=$null }
+    $unavailable = [pscustomobject]@{ Status='NOT_OBSERVED'; Items=@(); DependencyFindings=@(); AllocatedFileStorage=$storage }
     $observed = Get-LabEvaluationSqlGuestObservation -Snapshot $Snapshot -IncludeSourceInventory
     if (-not $observed) { return $unavailable }
 
@@ -110,7 +111,16 @@ function Get-LabEvaluationSqlSourceInventory {
             [pscustomobject]@{ Category=$entry.Key; Count=$count; Code=$entry.Value }
         }
     })
-    [pscustomobject]@{ Status='PARTIALLY_OBSERVED'; Items=$items; DependencyFindings=$findings }
+    $pages = $observed.PSObject.Properties['SourceAllocatedFilePages']?.Value
+    $pageShift = 13 # SQL Server file sizes are reported in 8 KiB pages.
+    if ($pages -and @($pages.PSObject.Properties).Count -eq 2 -and
+        $pages.DataPages -is [long] -and $pages.LogPages -is [long] -and
+        $pages.DataPages -ge 0 -and $pages.LogPages -ge 0 -and
+        $pages.DataPages -le ([long]::MaxValue -shr $pageShift) -and $pages.LogPages -le ([long]::MaxValue -shr $pageShift) -and
+        ($counts.UserDatabases -gt 0 -or ($pages.DataPages -eq 0 -and $pages.LogPages -eq 0))) {
+        $storage = [pscustomobject]@{Status='OBSERVED'; DataBytes=($pages.DataPages -shl $pageShift); LogBytes=($pages.LogPages -shl $pageShift)}
+    }
+    [pscustomobject]@{ Status='PARTIALLY_OBSERVED'; Items=$items; DependencyFindings=$findings; AllocatedFileStorage=$storage }
 }
 
 function Get-LabEvaluationTargetStorageObservation {

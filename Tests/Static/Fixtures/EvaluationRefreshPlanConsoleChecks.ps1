@@ -51,6 +51,7 @@ try {
     function Get-LabEvaluationSqlSourceInventory {
         param($Snapshot)
         [pscustomobject]@{ Status='PARTIALLY_OBSERVED'; Items=@([pscustomobject]@{Category='Credentials';Count=[long]1})
+            AllocatedFileStorage=[pscustomobject]@{Status='OBSERVED';DataBytes=[long]1048576;LogBytes=[long]262144}
             DependencyFindings=@([pscustomobject]@{Category='Credentials';Count=[long]1;Code='CREDENTIAL_REBIND_REQUIRED'}) }
     }
     function Get-LabEvaluationWindowsLicenseObservation {

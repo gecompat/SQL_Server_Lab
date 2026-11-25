@@ -182,11 +182,17 @@ try {
     $result = [pscustomobject]@{ Result=[pscustomobject]@{
         Status='PARTIALLY_OBSERVED'
         Items=@([pscustomobject]@{Category='Credentials';Count=[long]1})
+        AllocatedFileStorage=[pscustomobject]@{Status='OBSERVED';DataBytes=[long]1048576;LogBytes=[long]262144;Private='SYNTHETIC_PRIVATE'}
         DependencyFindings=@([pscustomobject]@{Category='Credentials';Count=[long]1;Code='CREDENTIAL_REBIND_REQUIRED';Private='SYNTHETIC_PRIVATE'})
     }}
     $lines = & ([scriptblock]::Create($formatBody.Substring(1, $formatBody.Length-2)))
     Assert-HttpRefresh (($lines -join ' ') -cmatch 'CREDENTIAL_REBIND_REQUIRED' -and
-        ($lines -join ' ') -cnotmatch 'SYNTHETIC_PRIVATE') 'Actual transient job format exposes only the fixed dependency fields'
+        ($lines -join ' ') -cmatch 'Daten: 1048576 Bytes · Log: 262144 Bytes' -and
+        ($lines -join ' ') -cnotmatch 'SYNTHETIC_PRIVATE') 'Actual transient job format exposes fixed dependency fields and aggregate byte totals'
+    $result.Result.AllocatedFileStorage = [pscustomobject]@{Status='NOT_OBSERVED';DataBytes=$null;LogBytes=$null}
+    $lines = & ([scriptblock]::Create($formatBody.Substring(1, $formatBody.Length-2)))
+    Assert-HttpRefresh (($lines -join ' ') -cmatch 'SQL-Quelldateigrößen konnten nicht bestimmt werden' -and
+        ($lines -join ' ') -cnotmatch 'Daten:.*Bytes') 'Unknown file size is not formatted as observed zero'
     $windowsFormatter = $server.Find({
         param($node)
         $node -is [Management.Automation.Language.IfStatementAst] -and

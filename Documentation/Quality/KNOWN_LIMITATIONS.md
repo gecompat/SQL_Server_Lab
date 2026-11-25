@@ -661,7 +661,12 @@ Entscheid für eine moderne registrierte Hyper-V-SQL-Instanz unter explizitem
 `BLOCKED`-Modi. Gespeicherte Windows-Aktivierung beweist keine frische Lizenz;
 SQL-Gast-Evidence ersetzt keine neue SQL-Readiness. Die CLI-Option
 `-ObserveSqlSource` ergänzt bei `STATEFUL_MIGRATION` ausschließlich
-aggregierte SQL-Quellzähler einer gebundenen laufenden SQL-2025-Prepared-Instanz.
+aggregierte SQL-Quellzähler und laut SQL-Katalog zugewiesene Daten- und
+Logdateigrößen einer gebundenen laufenden SQL-2025-Prepared-Instanz.
+Die Bytewerte erfassen reguläre Benutzerdatenbanken ohne Snapshots,
+FILESTREAM-Dateien oder Systemdatenbanken. Sie bescheinigen weder
+Backupgröße noch Platzbedarf am Ziel. Für die neue Größenabfrage fehlt
+noch eine eigene native Abnahme.
 Die Gastprobe mit den ursprünglichen neun Zählern bestand für SQL Server 2025 Developer auf Hyper-V im
 [Lauf 45343380820](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45343380820).
 Das [erweiterte native Gastinventar](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45418884558) bestätigte elf Zähler

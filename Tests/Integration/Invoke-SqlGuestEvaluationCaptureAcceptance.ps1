@@ -73,6 +73,10 @@ try {
         $inventory.SourceInventory.EncryptedUserDatabases -le $inventory.SourceInventory.UserDatabases -and
         $inventory.SourceInventory.FilestreamFileDatabases -le $inventory.SourceInventory.UserDatabases -and
         $inventory.SourceInventory.SsisCatalogCandidateDatabases -le [Math]::Min([long]1,$inventory.SourceInventory.UserDatabases)) 'Aggregierte SQL-Quellzähler im eigenen Gast gelesen'
+    $pages = $inventory.SourceAllocatedFilePages
+    Assert-CaptureAcceptance ($pages.DataPages -is [long] -and $pages.LogPages -is [long] -and
+        $pages.DataPages -ge 0 -and $pages.LogPages -ge 0 -and
+        ($inventory.SourceInventory.UserDatabases -gt 0 -or ($pages.DataPages -eq 0 -and $pages.LogPages -eq 0))) 'Zugewiesene Datenseiten und Logseiten der Benutzerdatenbanken im eigenen Gast gelesen'
     Update-SqlServerLabSqlGuestEvaluationEvidence -RunId $run.RunId -StateRoot $StateRoot -WhatIf
     Assert-CaptureAcceptance (-not(Test-Path -LiteralPath $context.ReceiptPath) -and -not(Test-Path -LiteralPath $context.LockPath)) 'WhatIf erzeugt weder Receipt noch Lock'
     $first=Update-SqlServerLabSqlGuestEvaluationEvidence -RunId $run.RunId -StateRoot $StateRoot -Confirm:$false

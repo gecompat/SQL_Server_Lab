@@ -67,8 +67,13 @@ feste Prüfhinweise für Datenbankzustand, TDE-Schlüssel, Snapshots, FILESTREAM
 Dateityp, mögliche SSISDB, Zugangsdaten, Linked Server, SQL-Agent-Jobs und
 -Proxies. Die SSISDB-Namensübereinstimmung erfordert eine Katalogprüfung.
 Ein Nullwert beschreibt
-die beobachtete Kategorie zum Prüfzeitpunkt. Vollständige Inventur und sämtliche
-Transferaktionen bleiben offen.
+die beobachtete Kategorie zum Prüfzeitpunkt. Die SQL-Quellabfrage zeigt auch die aggregierten, im SQL-Katalog
+zugewiesenen Seiten der regulären Benutzer-Daten- und Logdateien in Bytes.
+Systemdatenbanken, Snapshots und FILESTREAM-Dateien sind aus dieser Summe
+ausgeschlossen. Fehlende oder ungültige Größenwerte bleiben unbeobachtet.
+Die Summen liefern weder die belegte Kapazität im Dateisystem noch die
+Backupgröße oder den vollständigen Platzbedarf am Ziel. Vollständige Inventur
+und sämtliche Transferaktionen bleiben offen.
 Die [Key18-Abnahme](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45343380820)
 belegt die ursprünglichen neun Zähler der Gastprobe für SQL Server 2025 Developer, Build
 `17.0.1000.7`. Der eigene Run wurde bereinigt und die Vorlage blieb

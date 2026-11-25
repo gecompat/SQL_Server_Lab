@@ -108,6 +108,13 @@ function Invoke-LabSqlGuestCaptureProbe {
                         $reader.Dispose()
                         $reader = $null
                         $command.CommandText = @'
+WITH FileTotals AS (
+    SELECT COALESCE(SUM(CASE WHEN f.type = 0 THEN CONVERT(bigint, f.size) END), 0) AS DataPages,
+           COALESCE(SUM(CASE WHEN f.type = 1 THEN CONVERT(bigint, f.size) END), 0) AS LogPages
+    FROM sys.master_files AS f
+    INNER JOIN sys.databases AS d ON d.database_id = f.database_id
+    WHERE d.database_id > 4 AND d.source_database_id IS NULL AND f.type IN (0, 1)
+)
 SELECT
     (SELECT COUNT_BIG(*) FROM sys.databases WHERE database_id > 4 AND source_database_id IS NULL) AS UserDatabases,
     (SELECT COUNT_BIG(*) FROM sys.databases WHERE database_id > 4 AND source_database_id IS NULL AND state <> 0) AS NonOnlineUserDatabases,
@@ -121,16 +128,23 @@ SELECT
     (SELECT COUNT_BIG(*) FROM sys.credentials) AS Credentials,
     (SELECT COUNT_BIG(*) FROM sys.servers WHERE is_linked = 1) AS LinkedServers,
     (SELECT COUNT_BIG(*) FROM msdb.dbo.sysjobs) AS AgentJobs,
-    (SELECT COUNT_BIG(*) FROM msdb.dbo.sysproxies) AS AgentProxies;
+    (SELECT COUNT_BIG(*) FROM msdb.dbo.sysproxies) AS AgentProxies,
+    totals.DataPages, totals.LogPages
+FROM FileTotals AS totals;
 '@
                         $reader = $command.ExecuteReader([Data.CommandBehavior]::SequentialAccess)
                         if (-not $reader.Read()) { throw 'SQL_GUEST_CAPTURE_PROBE_INVALID' }
                         $inventory = [ordered]@{}
+                        $filePages = [ordered]@{}
                         for ($ordinal=0; $ordinal -lt $reader.FieldCount; $ordinal++) {
-                            $inventory[$reader.GetName($ordinal)] = $reader.GetInt64($ordinal)
+                            $name = $reader.GetName($ordinal)
+                            $value = $reader.GetInt64($ordinal)
+                            if ($name -cin @('DataPages','LogPages')) { $filePages[$name] = $value }
+                            else { $inventory[$name] = $value }
                         }
                         if ($reader.Read() -or $reader.NextResult()) { throw 'SQL_GUEST_CAPTURE_PROBE_INVALID' }
                         $result.SourceInventory = [pscustomobject]$inventory
+                        $result.SourceAllocatedFilePages = [pscustomobject]$filePages
                     }
                     if ($IncludeTargetStorage) {
                         $reader.Dispose()

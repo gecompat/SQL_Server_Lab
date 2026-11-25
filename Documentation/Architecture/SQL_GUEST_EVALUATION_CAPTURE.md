@@ -54,7 +54,11 @@ Die optionale Quellbeobachtung des Ersatzplans liest außerdem aggregierte
 Abhängigkeiten. Der FILESTREAM-Hinweis zählt Benutzerdatenbanken mit
 Dateityp 2 in `sys.master_files`. Der SSIS-Hinweis erkennt eine Datenbank,
 die SQL Server als `SSISDB` auflöst. Er klassifiziert sie als Kandidaten
-für eine Katalogprüfung. Beide Befunde bleiben flüchtig.
+für eine Katalogprüfung. Für reguläre Benutzerdatenbanken summiert die
+Gastabfrage die in `sys.master_files` angegebenen 8-KiB-Seiten getrennt
+für Daten- und Logdateien. Die Projektion enthält zwei aggregierte Bytewerte
+oder `NOT_OBSERVED` mit leeren Bytewerten. Sie misst keinen Speicherverbrauch
+auf dem Host und schätzt keine Backupgröße. Die Befunde bleiben flüchtig.
 [Dateitypen](https://learn.microsoft.com/en-us/sql/relational-databases/system-catalog-views/sys-master-files-transact-sql?view=sql-server-ver17) · [SSIS-Katalog](https://learn.microsoft.com/en-us/sql/integration-services/catalog/ssis-catalog?view=sql-server-ver17)
 
 ## Freier Gastspeicher für ein Migrationsziel
