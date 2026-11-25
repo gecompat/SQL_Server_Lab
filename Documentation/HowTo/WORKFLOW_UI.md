@@ -475,6 +475,15 @@ Konsole erscheint der Befund direkt, im Browser unter **Vorgänge**.
 Pfade. Der freie Gastspeicher lässt noch keine Aussage über den nötigen
 Transferspeicher oder die Hostkapazität zu.
 
+Sind Quelle und Ziel bereits gestartet, kannst du **SQL-Quelldateigrößen mit
+freiem Zielspeicher vergleichen** wählen. Die beiden gebundenen Gastabfragen
+vergleichen die zugewiesenen Größen regulärer Benutzerdatenbankdateien je
+Zielvolume. Teilen Daten und Log ein Volume, zählt die Summe. Die CLI zeigt
+die Vorschau direkt, der Browser unter **Vorgänge**. Ein passender Wert sagt
+nur aus, dass die beobachtete Dateizuweisung in den beobachteten freien
+Platz passt. Backupplatz, Wachstum, Hostkapazität und die Übernahme
+erfordern eigene Nachweise.
+
 **Windows-Lizenz im laufenden Gast lesen** ist eine eigene Auswahl in allen
 drei Entscheidungsarten. Sie zeigt den aktuellen Lizenzstatus, den
 Beobachtungszeitpunkt und eine belegte Evaluation-Frist getrennt von den

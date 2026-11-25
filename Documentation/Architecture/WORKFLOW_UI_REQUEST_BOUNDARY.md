@@ -38,6 +38,12 @@ Die Liste und der Stop beziehen sich auf Worker des laufenden UI-Servers.
 Der Server hält dafür das konkrete Ownerobjekt. Beim Beenden bereinigt er
 die erfassten eigenen Worker. Unbestätigte Ergebnisse bleiben sichtbar.
 
+Der Vergleich der SQL-Dateizuweisung verwendet einen flüchtigen
+Workflow-Leseauftrag. Der Auftrag bindet Quelle und Ziel an ihre Run- und
+Instanz-IDs, die registrierte Wurzel und beide Vorschau-Digests. Die
+Gastabfragen setzen zwei laufende Instanzen voraus. Die Projektion enthält
+Rollen und Bytewerte je gemeinsamem Daten-/Logvolume.
+
 ## Acht interne Fachreader
 
 CMS-Inspection, Initial Setup, Slotreserve, Resource Watch, llama.cpp-Installer,

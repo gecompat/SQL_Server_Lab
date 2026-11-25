@@ -670,6 +670,13 @@ bestätigte für SQL Server 2025 Developer den exakten Zuwachs an
 Daten- und Logdateiseiten durch eine eigene Testdatenbank. Zustand,
 Verbindungsmetadaten und Vorlage blieben unverändert. Der Testlauf wurde
 einschließlich seiner VM und Datenträger bereinigt.
+Die geführte Option `-CompareFileAllocation` vergleicht diese Dateizuweisung
+mit dem freien Platz der Daten- und Log-Standardvolumes eines separaten
+laufenden SQL-2025-Prepared-Labs. Die zwei Lesungen bilden keinen atomaren
+Gast-Snapshot. Die Vorschau erteilt keine Aussage zu Backupplatz, Wachstum,
+Hostkapazität, alternativen Zielpfaden oder Wiederherstellbarkeit. Der
+kombinierte Bedien- und Prüfschritt ist synthetisch validiert. Die
+beiden Einzelbeobachtungen haben getrennte native Nachweise.
 Die Gastprobe mit den ursprünglichen neun Zählern bestand für SQL Server 2025 Developer auf Hyper-V im
 [Lauf 45343380820](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45343380820).
 Das [erweiterte native Gastinventar](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45418884558) bestätigte elf Zähler

@@ -124,7 +124,8 @@ try {
             @{ Action='ReadHyperVEvaluationWindowsLicense'; Target=$false },
             @{ Action='ReadHyperVEvaluationWindowsLicense'; Target=$true },
             @{ Action='ReadHyperVEvaluationTargetSqlReadiness'; Target=$true },
-            @{ Action='ReadHyperVEvaluationTargetStorage'; Target=$true }
+            @{ Action='ReadHyperVEvaluationTargetStorage'; Target=$true },
+            @{ Action='ReadHyperVEvaluationFileAllocationComparison'; Target=$true }
         )) {
             $jobs.Clear()
             $actionName = $case.Action
@@ -154,6 +155,7 @@ try {
                 'ReadHyperVEvaluationSqlSource' { 'EVALUATION_REFRESH_SQL_SOURCE_ALREADY_RUNNING' }
                 'ReadHyperVEvaluationTargetSqlReadiness' { 'EVALUATION_REFRESH_TARGET_SQL_ALREADY_RUNNING' }
                 'ReadHyperVEvaluationTargetStorage' { 'EVALUATION_REFRESH_TARGET_STORAGE_ALREADY_RUNNING' }
+                'ReadHyperVEvaluationFileAllocationComparison' { 'EVALUATION_REFRESH_FILE_ALLOCATION_ALREADY_RUNNING' }
                 default { 'EVALUATION_REFRESH_WINDOWS_READ_ALREADY_RUNNING' }
             }
             try { & $actionHandler } catch { $busy = $_.Exception.Message -ceq $expectedBusy }

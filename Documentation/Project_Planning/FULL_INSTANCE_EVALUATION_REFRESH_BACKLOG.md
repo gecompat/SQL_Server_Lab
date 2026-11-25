@@ -113,6 +113,15 @@ beobachtete alle drei Speicherrollen am separaten SQL-2025-Developer-Ziellab
 und bestätigte unveränderte Metadaten und vollständigen Cleanup.
 Der Gesamtplan bleibt `BLOCKED`.
 
+Der geführte Vergleich `-CompareFileAllocation` liest beide gebundenen
+Gastbefunde, sofern die SQL-2025-Prepared-Labs bereits laufen. Er vergleicht
+die zugewiesenen Daten- und Logdateigrößen mit dem freien Platz der jeweiligen
+SQL-Standardvolumes. Bei einem gemeinsamen Volume wird der Platz einmal
+angesetzt. Eigener Backupplatz, Wachstum, Hostkapazität und
+Wiederherstellbarkeit müssen separat ermittelt werden. Ohne beide Befunde
+bleibt der Vergleich `NOT_OBSERVED`. Der Status des Gesamtplans und seine
+Ausführungsgrenzen bleiben `BLOCKED` und `TransferAuthority=NONE`.
+
 Key18 bestätigte die Windows-Lizenz der separaten Ziel-VM mit zwei eigenen
 SQL-2025-Developer-Runs. Die Quelle wurde vor dem Zielstart gestoppt.
 Quell- und Zielmetadaten sowie die Vorlage blieben unverändert. Beide

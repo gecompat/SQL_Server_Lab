@@ -59,6 +59,9 @@ function Invoke-LabEvaluationRefreshPlanInteractive {
                     New-LabConsoleItem -Id observe-target-windows -Label 'Windows-Lizenz im laufenden Ziellab lesen'
                     New-LabConsoleItem -Id observe-target-sql -Label 'SQL-Bereitschaft und Edition im laufenden Ziellab prüfen'
                     New-LabConsoleItem -Id observe-target-storage -Label 'Freien Speicher im laufenden Ziellab prüfen'
+                    if ($selected.State -ceq 'RUNNING') {
+                        New-LabConsoleItem -Id compare-file-allocation -Label 'SQL-Quelldateigrößen mit freiem Zielspeicher vergleichen'
+                    }
                 }
             }
             New-LabConsoleItem -Id back -Label 'Zurück / Abbrechen'
@@ -73,11 +76,12 @@ function Invoke-LabEvaluationRefreshPlanInteractive {
         }
         if ($review.SelectedItem.Id -ceq 'observe') { $planArgs.ObserveSqlSource = $true }
         if ($review.SelectedItem.Id -ceq 'observe-windows') { $planArgs.ObserveWindowsLicense = $true }
-        if ($review.SelectedItem.Id -cin @('target','observe-target-windows','observe-target-sql','observe-target-storage')) {
+        if ($review.SelectedItem.Id -cin @('target','observe-target-windows','observe-target-sql','observe-target-storage','compare-file-allocation')) {
             $readTargetWindows = $review.SelectedItem.Id -ceq 'observe-target-windows'
             $readTargetSql = $review.SelectedItem.Id -ceq 'observe-target-sql'
             $readTargetStorage = $review.SelectedItem.Id -ceq 'observe-target-storage'
-            $candidates = if ($readTargetWindows -or $readTargetSql -or $readTargetStorage) { @($targetCandidates | Where-Object State -CEQ 'RUNNING') } else { $targetCandidates }
+            $compareFileAllocation = $review.SelectedItem.Id -ceq 'compare-file-allocation'
+            $candidates = if ($readTargetWindows -or $readTargetSql -or $readTargetStorage -or $compareFileAllocation) { @($targetCandidates | Where-Object State -CEQ 'RUNNING') } else { $targetCandidates }
             $targetItems = @($runItems | Where-Object { $_.Id -cin $candidates.RunId })
             $targetTitle = $review.SelectedItem.Label
             $targetChoice = Invoke-LabConsoleMenu -ScreenId 'evaluation-refresh-target' -Title $targetTitle `
@@ -91,6 +95,7 @@ function Invoke-LabEvaluationRefreshPlanInteractive {
             if ($readTargetWindows) { $planArgs.ObserveTargetWindowsLicense = $true }
             if ($readTargetSql) { $planArgs.ObserveTargetSqlReadiness = $true }
             if ($readTargetStorage) { $planArgs.ObserveTargetStorage = $true }
+            if ($compareFileAllocation) { $planArgs.CompareFileAllocation = $true }
         }
         $plan=New-LabEvaluationRefreshPlan @planArgs
         Write-LabInfo 'BLOCKED: reine Planung. SQL-Bereitschaft der Quelle NOT_CHECKED; keine Aktionen, Speicherung, Übernahme oder Gleichwertigkeitsbestätigung.'
@@ -140,6 +145,14 @@ function Invoke-LabEvaluationRefreshPlanInteractive {
                     Write-LabInfo ("{0}: {1} Bytes frei" -f ($volume.Roles -join ' / '), $volume.AvailableBytes)
                 }
                 Write-LabInfo 'Hostkapazität und erforderlicher Transferspeicher werden separat geprüft.'
+            }
+            if ($targetView.PSObject.Properties['FileAllocationComparison']) {
+                $comparison = $targetView.FileAllocationComparison
+                Write-LabInfo ("Vergleich zugewiesener SQL-Dateien: {0}" -f $comparison.Status)
+                foreach ($volume in $comparison.Volumes) {
+                    Write-LabInfo ("{0}: {1} Bytes zugewiesen / {2} Bytes frei" -f ($volume.Roles -join ' / '),$volume.AllocatedBytes,$volume.AvailableBytes)
+                }
+                Write-LabInfo 'Backupplatz, Wachstum, Hostkapazität und Übernahme erfordern eigene Nachweise.'
             }
             foreach ($check in $targetView.Checks) { Write-LabInfo ("Zielprüfung: {0}" -f $check) }
         }
