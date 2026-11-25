@@ -77,6 +77,50 @@ try {
     Assert-CaptureAcceptance ($pages.DataPages -is [long] -and $pages.LogPages -is [long] -and
         $pages.DataPages -ge 0 -and $pages.LogPages -ge 0 -and
         ($inventory.SourceInventory.UserDatabases -gt 0 -or ($pages.DataPages -eq 0 -and $pages.LogPages -eq 0))) 'Zugewiesene Datenseiten und Logseiten der Benutzerdatenbanken im eigenen Gast gelesen'
+    # One temporary database in the owned VM gives an independent positive size delta.
+    $fixturePages = & $module {
+        param($BoundContext,[securestring]$GuestPassword,[securestring]$SqlPassword)
+        Invoke-HyperVPowerShellDirect -VMName $BoundContext.Instance.vmName -ExpectedRunId $BoundContext.Run.runId `
+            -ExpectedScopeId $BoundContext.Run.scopeId -ExpectedVmId ([guid]$BoundContext.Instance.vmId) `
+            -Credential ([pscredential]::new('Administrator',$GuestPassword)) -TimeoutSeconds 90 `
+            -ArgumentList @($SqlPassword,[int]$BoundContext.Instance.port) -ScriptBlock {
+                param([securestring]$Password,[int]$Port)
+                $ErrorActionPreference='Stop'
+                Add-Type -AssemblyName System.Data
+                $secret=$Password.Copy()
+                $secret.MakeReadOnly()
+                $connection=$null;$command=$null;$reader=$null
+                try {
+                    $builder=[Data.SqlClient.SqlConnectionStringBuilder]::new()
+                    $builder['Data Source']="tcp:127.0.0.1,$Port";$builder['Initial Catalog']='master'
+                    $builder['Encrypt']=$true;$builder['TrustServerCertificate']=$true;$builder['Pooling']=$false
+                    $builder['Persist Security Info']=$false;$builder['Connect Timeout']=15
+                    $connection=[Data.SqlClient.SqlConnection]::new($builder.ConnectionString,[Data.SqlClient.SqlCredential]::new('sa',$secret))
+                    $connection.Open()
+                    $command=$connection.CreateCommand();$command.CommandTimeout=45
+                    $command.CommandText='CREATE DATABASE [SqlLabGuestAllocatedPages];'
+                    $null=$command.ExecuteNonQuery()
+                    $command.CommandText='SELECT SUM(CASE WHEN type=0 THEN CONVERT(bigint,size) END), SUM(CASE WHEN type=1 THEN CONVERT(bigint,size) END) FROM [SqlLabGuestAllocatedPages].sys.database_files WHERE type IN (0,1);'
+                    $reader=$command.ExecuteReader()
+                    if (-not $reader.Read()) {throw 'SQL_GUEST_SIZE_FIXTURE_UNAVAILABLE'}
+                    [pscustomobject]@{DataPages=$reader.GetInt64(0);LogPages=$reader.GetInt64(1)}
+                } finally {
+                    if($reader){$reader.Dispose()}
+                    if($command){$command.Dispose()}
+                    if($connection){$connection.Dispose()}
+                    $secret.Dispose()
+                }
+            }
+    } $context $guest $sa
+    Assert-CaptureAcceptance ($fixturePages.DataPages -is [long] -and $fixturePages.LogPages -is [long] -and
+        $fixturePages.DataPages -gt 0 -and $fixturePages.LogPages -gt 0) 'Eigene SQL-Testdatenbank liefert positive Daten- und Logseitengrößen'
+    $afterFixture = & $module {
+        param($BoundContext)
+        Invoke-LabSqlGuestCaptureProbe -Context $BoundContext -TimeoutSeconds 60 -IncludeSourceInventory
+    } $context
+    Assert-CaptureAcceptance ($afterFixture.SourceInventory.UserDatabases -eq ($inventory.SourceInventory.UserDatabases + 1) -and
+        $afterFixture.SourceAllocatedFilePages.DataPages -eq ($pages.DataPages + $fixturePages.DataPages) -and
+        $afterFixture.SourceAllocatedFilePages.LogPages -eq ($pages.LogPages + $fixturePages.LogPages)) 'SQL-Quellsummen enthalten exakt die Dateiseiten der eigenen Benutzerdatenbank'
     Update-SqlServerLabSqlGuestEvaluationEvidence -RunId $run.RunId -StateRoot $StateRoot -WhatIf
     Assert-CaptureAcceptance (-not(Test-Path -LiteralPath $context.ReceiptPath) -and -not(Test-Path -LiteralPath $context.LockPath)) 'WhatIf erzeugt weder Receipt noch Lock'
     $first=Update-SqlServerLabSqlGuestEvaluationEvidence -RunId $run.RunId -StateRoot $StateRoot -Confirm:$false
