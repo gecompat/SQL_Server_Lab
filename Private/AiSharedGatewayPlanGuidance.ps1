@@ -228,11 +228,16 @@ function Invoke-LabAiSharedGatewayPlanInteractive {
         New-LabConsoleItem -Id register -Label 'Gateway-Dateien für diesen Plan geschützt registrieren'
         New-LabConsoleItem -Id status -Label 'Status für diesen Gateway-Plan lesen'
         New-LabConsoleItem -Id upstream -Label 'Registrierten Loopback-Upstream mit Testanfrage prüfen'
+        New-LabConsoleItem -Id service -Label 'Host-Autostart für diesen Gateway-Plan vorbereiten'
         New-LabConsoleItem -Id back -Label 'Zurück'
     )
     $selection = Invoke-LabConsoleMenu -ScreenId 'ai-shared-gateway-plan-next' -Title 'Gateway-Plan' `
         -Subtitle 'Die Upstream-Prüfung sendet eine synthetische Anfrage an den gebundenen lokalen Dienst. Sie verwendet keinen API-Schlüssel.' -Items $items
-    if ($selection.Status -cne 'Selected' -or $selection.SelectedItem.Id -cnotin @('preflight','register','status','upstream')) { return }
+    if ($selection.Status -cne 'Selected' -or $selection.SelectedItem.Id -cnotin @('preflight','register','status','upstream','service')) { return }
+    if ($selection.SelectedItem.Id -ceq 'service') {
+        Invoke-LabAiSharedGatewayServicePlanInteractive -Plan $plan
+        return
+    }
     if ($selection.SelectedItem.Id -cin @('preflight','register')) {
         Invoke-LabAiSharedGatewayFileActionInteractive -Plan $plan -Register:($selection.SelectedItem.Id -ceq 'register')
         return
@@ -250,6 +255,31 @@ function Invoke-LabAiSharedGatewayPlanInteractive {
     }
     catch {
         Write-LabWarning 'Gateway-Prüfung konnte nicht bestätigt werden. Prüfe die lokale Registrierung und den gebundenen Upstream.'
+    }
+    $null = Wait-LabConsoleAcknowledgement
+}
+
+function Invoke-LabAiSharedGatewayServicePlanInteractive {
+    param([Parameter(Mandatory)]$Plan)
+
+    $items = @(
+        New-LabConsoleItem -Id Auto -Label 'Automatisch passenden Hostmodus prüfen'
+        New-LabConsoleItem -Id WindowsS4U -Label 'Windows-Aufgabe für den aktuellen Benutzer prüfen'
+        New-LabConsoleItem -Id SystemdUser -Label 'Linux-systemd-Benutzerdienst prüfen'
+        New-LabConsoleItem -Id back -Label 'Abbrechen'
+    )
+    $selection = Invoke-LabConsoleMenu -ScreenId 'ai-shared-gateway-service-mode' -Title 'Host-Autostart planen' `
+        -Subtitle 'Der Plan liest Gateway-Registrierung und Hostvoraussetzungen. Die Auswahl installiert und startet keinen Dienst.' -Items $items
+    if ($selection.Status -cne 'Selected' -or $selection.SelectedItem.Id -cnotin @('Auto','WindowsS4U','SystemdUser')) { return }
+
+    try {
+        $servicePlan = Get-SqlServerLabAiSharedGatewayServicePlan -Plan $Plan -ServiceMode $selection.SelectedItem.Id
+        $servicePlan = Resolve-LabAiSharedGatewayServicePlan -ServicePlan $servicePlan -Plan $Plan
+        Write-LabInfo ("Dienstplan {0} · {1} · {2}" -f $servicePlan.GatewayId,$servicePlan.ServiceMode,$servicePlan.Status)
+        if ($servicePlan.Status -ceq 'BLOCKED') { Write-LabInfo ("Voraussetzungen offen · {0}" -f ($servicePlan.Blockers -join ', ')) }
+        Write-LabInfo ($servicePlan | ConvertTo-Json -Depth 8)
+    } catch {
+        Write-LabWarning 'Der Dienstplan konnte nicht bestätigt werden. Prüfe den Gateway-Status und den gewählten Hostmodus.'
     }
     $null = Wait-LabConsoleAcknowledgement
 }

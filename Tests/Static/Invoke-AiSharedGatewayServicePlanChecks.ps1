@@ -44,6 +44,45 @@ try {
     $public=$plan|Get-SqlServerLabAiSharedGatewayServicePlan -StateRoot $testRoot
     Add-CheckResult 'Öffentlicher read-only Plan mutiert fehlenden StateRoot nicht' ($public.Status -ceq 'BLOCKED' -and $public.Blockers -contains 'AI_SHARED_GATEWAY_SERVICE_REGISTRATION_REQUIRED' -and -not(Test-Path -LiteralPath $testRoot) -and ($public|ConvertTo-Json -Depth 20|Test-Json -SchemaFile $schema))
     Add-CheckResult 'Öffentlicher Serviceplan ist manifestexportiert und fixierbar' ((Get-Command Get-SqlServerLabAiSharedGatewayServicePlan).ModuleName -ceq 'SqlServerLab' -and (Get-Command Get-SqlServerLabAiSharedGatewayServicePlan).Parameters['ServiceMode'].Attributes.ValidValues -contains 'WindowsS4U')
+
+    $guided = & $module {
+        param($GatewayPlan,$SyntheticCapability,$SyntheticStateRoot)
+        & {
+            $guidedReads = [Collections.Generic.List[string]]::new()
+            $guidedMessages = [Collections.Generic.List[string]]::new()
+            function Get-LabStateRoot { $SyntheticStateRoot }
+            function Get-LabAiSharedGatewayServiceCapability {
+                param($StateRoot,$GatewayId)
+                if ($StateRoot -cne $SyntheticStateRoot -or $GatewayId -cne $GatewayPlan.GatewayId) { throw 'UNEXPECTED_GUIDED_SERVICE_TARGET' }
+                $guidedReads.Add($GatewayId)
+                $SyntheticCapability
+            }
+            function New-LabConsoleItem { param($Id,$Label) [pscustomobject]@{Id=$Id;Label=$Label} }
+            function Invoke-LabConsoleMenu {
+                param($ScreenId,$Title,$Subtitle,$Items)
+                [pscustomobject]@{Status='Selected';SelectedItem=($Items | Where-Object Id -CEQ $choice)}
+            }
+            function Write-LabInfo { param($Message) $guidedMessages.Add($Message) }
+            function Write-LabWarning { throw 'UNEXPECTED_GUIDED_SERVICE_WARNING' }
+            function Wait-LabConsoleAcknowledgement {}
+            $choice = 'back'
+            Invoke-LabAiSharedGatewayServicePlanInteractive -Plan $GatewayPlan
+            $cancelled = $guidedReads.Count -eq 0 -and $guidedMessages.Count -eq 0
+            $choice = 'WindowsS4U'
+            Invoke-LabAiSharedGatewayServicePlanInteractive -Plan $GatewayPlan
+            $cliPlan = $guidedMessages[-1] | ConvertFrom-Json
+            $webPlan = Invoke-LabPublicCommandWebRequest -CommandName 'Get-SqlServerLabAiSharedGatewayServicePlan' `
+                -ParameterSetName '__AllParameterSets' -Parameters @{Plan=$GatewayPlan; ServiceMode='SystemdUser'}
+            [pscustomobject]@{CancelSafe=$cancelled;Reads=$guidedReads.ToArray();CliPlan=$cliPlan;WebPlan=$webPlan.Result[0]}
+        }
+    } $plan $windowsCapability $testRoot
+    Add-CheckResult 'CLI-Abbruch liest keine Hostvoraussetzungen und jeder geführte Aufruf liest genau einmal' (
+        $guided.CancelSafe -and $guided.Reads.Count -eq 2 -and @($guided.Reads | Where-Object { $_ -cne $plan.GatewayId }).Count -eq 0)
+    Add-CheckResult 'CLI und Browser binden gewählten Modus und denselben Gateway-Plan ohne StateRoot-Mutation' (
+        $guided.CliPlan.ServiceMode -ceq 'WINDOWS_S4U_TASK' -and $guided.CliPlan.GatewayPlanKey -ceq $plan.PlanKey -and
+        $guided.WebPlan.ServiceMode -ceq 'LINUX_SYSTEMD_USER' -and $guided.WebPlan.GatewayPlanKey -ceq $plan.PlanKey -and
+        $guided.WebPlan.Status -ceq 'BLOCKED' -and $guided.WebPlan.Blockers -contains 'AI_SHARED_GATEWAY_SERVICE_MODE_UNSUPPORTED' -and
+        -not (Test-Path -LiteralPath $testRoot) -and ($guided.WebPlan | ConvertTo-Json -Depth 20 | Test-Json -SchemaFile $schema))
 }
 finally {if($module){Remove-Module $module -Force -ErrorAction SilentlyContinue};if(Test-Path -LiteralPath $testRoot){Remove-Item -LiteralPath $testRoot -Recurse -Force}}
 if($failures.Count){throw ($failures -join '; ')}

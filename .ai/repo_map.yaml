@@ -226,6 +226,7 @@ sources_of_truth:
   ai_shared_gateway_status_schema: Schemas/ai-shared-gateway-status.schema.json
   ai_shared_gateway_service_plan_contract: Private/AiSharedGatewayServicePlan.ps1
   ai_shared_gateway_service_plan_api: Public/Get-SqlServerLabAiSharedGatewayServicePlan.ps1
+  ai_shared_gateway_service_plan_guidance: "Private/AiSharedGatewayPlanGuidance.ps1 und Ui/ai-shared-gateway-plan.js binden die Hostmoduswahl an den angezeigten Plan. Private/PublicCommandConsole.ps1 prüft den Dienstplan vor der Auftragsausgabe. Plan- und ServicePlan-Suites prüfen den geführten Dispatch."
   ai_shared_gateway_service_plan_schema: Schemas/ai-shared-gateway-service-plan.schema.json
   validation_ai_shared_gateway_service_plan: Tests/Static/Invoke-AiSharedGatewayServicePlanChecks.ps1
   ai_shared_gateway_service_secret_contract: Private/AiSharedGatewayServiceSecret.ps1

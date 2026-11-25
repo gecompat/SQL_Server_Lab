@@ -1404,6 +1404,14 @@ Im Browser übernimmt **In Dienst-Secret-Prüfung übernehmen** den Plan in das
 vorhandene Formular. Die Dienstprüfung benötigt weiterhin ihren eigenen
 Dienstplan und eine Bestätigung. [Gateway-Backlog](../Project_Planning/AI_EXTERNAL_MODEL_ACCELERATION_BACKLOG.md)
 
+**Host-Autostart für diesen Gateway-Plan vorbereiten** liest den registrierten
+Gateway-Zustand und die Hostvoraussetzungen. Wähle **Automatisch** oder prüfe
+gezielt eine Windows-S4U-Aufgabe beziehungsweise einen Linux-systemd-
+Benutzerdienst. `READY` bestätigt diese Planvoraussetzungen. `BLOCKED` nennt
+die fehlenden Voraussetzungen. Das Browser-Auftragsprotokoll zeigt den
+Dienstplan als JSON. Mit dem passenden Gateway- und Dienstplan lässt sich
+anschließend die getrennte Dienst-Secret-Prüfung öffnen.
+
 ### Vorhandene llama.cpp-Pakete prüfen
 
 Wähle in CLI oder Browser **Host-Dienste und Modelle → Vorhandene

@@ -267,6 +267,11 @@ function ConvertTo-LabPublicCommandWebResult {
         [AllowNull()][object[]]$Result
     )
 
+    if ($CommandName -ceq 'Get-SqlServerLabAiSharedGatewayServicePlan') {
+        if (@($Result).Count -ne 1) { throw 'AI_SHARED_GATEWAY_GUIDED_SERVICE_PLAN_UNCONFIRMED' }
+        return @(Resolve-LabAiSharedGatewayServicePlan -ServicePlan $Result[0] -Plan $Parameters.Plan)
+    }
+
     if ($CommandName -ceq 'Get-SqlServerLabCatalog') {
         if (@($Result).Count -ne 1 -or $Result[0].Catalog.CatalogFormat -cne '1') {
             throw 'PUBLIC_COMMAND_UI_RESULT_INVALID'
