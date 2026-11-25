@@ -17,6 +17,13 @@ lokal. Einen anderen Zielpfad kannst du in der CLI unter **Lab-Umgebungen
 
 ## Verbindungen anzeigen
 
+Unter **Verbindungen und CMS → Gespeicherte SQL-Endpunkte anzeigen**
+findest du in CLI und Browser die Adresse und den gespeicherten Zustand
+regulärer SQL-Labs. In der CLI öffnest du einen Eintrag für die Adresse.
+Im Browser aktualisierst du die Liste über **Neu lesen**. Der Fachweg prüft keine aktuelle
+Erreichbarkeit und zeigt bis zu 200 gültige Endpunkte. Ausgelassene Einträge
+und eine erreichte Anzeigegrenze werden gemeldet.
+
 Unter **Verbindungen und CMS → SSMS-Registrierungen herunterladen** erhältst
 du eine kennwortfreie `.regsrvr`-Datei mit bis zu 500 gespeicherten
 regulären Endpunkten. Importiere die Datei in SSMS unter **Ansicht →
