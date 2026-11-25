@@ -140,6 +140,7 @@
       <button id="llama-runtime-inventory-read" type="button" class="button secondary">Vorhandene llama.cpp-Pakete prüfen</button>
       <button id="llama-model-catalog-open" type="button" class="button secondary">llama.cpp-Modelle anzeigen und herunterladen</button>
       <button id="ollama-local-generation-open" type="button" class="button secondary">Lokales Ollama-Modell aufrufen</button>
+      <button id="ollama-cloud-generation-open" type="button" class="button secondary">Ollama-Cloud-Modell aufrufen</button>
       <p id="llama-runtime-inventory-status" role="status"></p>
       <ul id="llama-runtime-inventory-items" hidden></ul>
       <button id="ai-compute-inventory-read" type="button" class="button secondary">CPU, GPU und NPU erfassen</button>
@@ -149,6 +150,10 @@
       <button id="compute-selection-open" type="button" class="button secondary">KI-Gerätekombination aus Messbelegen wählen</button>
       <button id="compute-benchmark-open" type="button" class="button secondary">llama.cpp-Gerätekombinationen messen</button>
       <button id="ovms-upstream-open" type="button" class="button secondary">Lokalen OVMS-Embedding-Dienst prüfen</button>
+      <button id="external-model-plan-open" type="button" class="button secondary">Lokalen HTTPS-Modellendpunkt planen</button>
+      <button id="external-model-endpoint-open" type="button" class="button secondary">Geplanten HTTPS-Modellendpunkt prüfen</button>
+      <button id="external-model-sql-plan-open" type="button" class="button secondary">SQL-Plan für bestätigten Modellendpunkt erstellen</button>
+      <button id="ovms-gateway-open" type="button" class="button secondary">Eigene OVMS-HTTPS-Sitzungen verwalten</button>
       <button id="persistent-fixture-open" type="button" class="button secondary">Persistente Retrieval-Collections</button>
       <button id="ai-scenario-plan-open" type="button" class="button secondary">Vector-Core-Szenarioplan lesen</button>
       <button id="llama-start-plan-open" type="button" class="button secondary">llama.cpp: reine Startvorschau</button>
@@ -1191,6 +1196,25 @@
       </div>
     </form>
   </dialog>
+  <dialog id="ollama-cloud-generation-dialog" aria-labelledby="ollama-cloud-generation-title">
+    <form id="ollama-cloud-generation-form">
+      <h2 id="ollama-cloud-generation-title">Ollama-Cloud-Modell aufrufen</h2>
+      <p>Verwende ausschließlich synthetische oder öffentlich weitergebbare Daten. Der bestätigte Aufruf sendet den Prompt an Ollama.</p>
+      <label>Modell<select id="ollama-cloud-generation-model" required></select></label>
+      <label>Datenklasse<select id="ollama-cloud-generation-class" required>
+        <option value="">Datenklasse wählen</option>
+        <option value="synthetic-only">Synthetische Daten</option>
+        <option value="public-or-redistributable">Öffentliche oder weitergebbare Daten</option>
+      </select></label>
+      <label>Zeitlimit in Sekunden<input id="ollama-cloud-generation-timeout" type="number" value="60" min="1" max="230" required></label>
+      <label>Prompt<textarea id="ollama-cloud-generation-prompt" rows="5" maxlength="8192" required autocomplete="off"></textarea></label>
+      <p id="ollama-cloud-generation-status" role="status"></p>
+      <div class="dialog-actions">
+        <button id="ollama-cloud-generation-next" type="submit" class="button primary" disabled>Weiter zur Übermittlungsbestätigung</button>
+        <button id="ollama-cloud-generation-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </form>
+  </dialog>
   <script src="ollama-local-generation.js"></script>
   <dialog id="llama-model-catalog-dialog">
     <form id="llama-model-catalog-form">
@@ -1516,6 +1540,97 @@
         <button id="container-network-plan-apply" type="button" class="button secondary" hidden disabled>Gebundenen Plan ausführen</button>
       </div>
     </form>
+  </dialog>
+  <dialog id="external-model-plan-dialog" aria-labelledby="external-model-plan-title">
+    <h2 id="external-model-plan-title">Lokalen HTTPS-Modellendpunkt planen</h2>
+    <p>Die Vorschau bindet die Konfiguration für SQL Server 2025. Sie öffnet keine Verbindung zum Endpunkt.</p>
+    <form id="external-model-plan-form">
+      <label>Backend<select name="Backend">
+        <option value="LlamaCppOpenVino">llama.cpp mit OpenVINO</option>
+        <option value="OpenVinoModelServer">OpenVINO Model Server</option>
+        <option value="LlamaCppRocm">llama.cpp mit ROCm</option>
+        <option value="LlamaCppCuda">llama.cpp mit CUDA</option>
+        <option value="LlamaCppSnapdragonOpenCl">llama.cpp mit Snapdragon OpenCL</option>
+        <option value="LlamaCppSnapdragonHexagon">llama.cpp mit Snapdragon Hexagon</option>
+      </select></label>
+      <label>Beschleuniger<select name="Accelerator"><option>CPU</option><option>GPU</option><option>NPU</option></select></label>
+      <label>HTTPS-Betriebsart<select name="TlsMode"><option value="Direct">Direkt</option><option value="Gateway">Gateway</option></select></label>
+      <label>Eingabeprofil<select name="InputProfile"><option>raw</option><option>nomic-search</option><option>snowflake-search</option></select></label>
+      <label>Lokaler HTTPS-Endpunkt<input name="Location" type="url" maxlength="512" required autocomplete="off"></label>
+      <label>External-Model-Name in SQL<input name="ExternalModelName" pattern="[A-Za-z_][A-Za-z0-9_]{0,127}" maxlength="128" required></label>
+      <label>Modellname am Endpunkt<input name="RuntimeModel" maxlength="256" required></label>
+      <label>Embedding-Dimension<input name="Dimension" type="number" min="1" max="1998" required></label>
+      <label>SHA-256 der Modelldatei<input name="ModelSha256" maxlength="64" pattern="[A-Fa-f0-9]{64}" required></label>
+      <label>SHA-256 der Serverruntime<input name="RuntimeSha256" maxlength="64" pattern="[A-Fa-f0-9]{64}" required></label>
+      <label>SHA-256 des Serverzertifikats<input name="ServerCertificateSha256" maxlength="64" pattern="[A-Fa-f0-9]{64}" required></label>
+      <label>OVMS-Gateway-Bindung (JSON)<textarea name="GatewayBindingJson" maxlength="4096" rows="3" spellcheck="false"></textarea></label>
+      <p id="external-model-plan-status" role="status"></p>
+      <label id="external-model-plan-result-box" hidden>Plan (JSON)<textarea id="external-model-plan-result" rows="8" readonly></textarea></label>
+      <div class="build-actions">
+        <button id="external-model-plan-submit" type="submit" class="button">Vorschau erstellen</button>
+        <button id="external-model-plan-use" type="button" class="button secondary" disabled>Zur Endpunktprüfung übernehmen</button>
+        <button id="external-model-plan-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="external-model-endpoint-dialog" aria-labelledby="external-model-endpoint-title">
+    <h2 id="external-model-endpoint-title">Geplanten HTTPS-Modellendpunkt prüfen</h2>
+    <form id="external-model-endpoint-form">
+      <label>External-Model-Plan (JSON)<textarea id="external-model-endpoint-plan" rows="9" maxlength="32768" required spellcheck="false"></textarea></label>
+      <p id="external-model-endpoint-selection"></p>
+      <label>Optionales öffentliches CA-Zertifikat (PEM)<textarea id="external-model-endpoint-ca" rows="4" maxlength="32768" spellcheck="false"></textarea></label>
+      <label>Optionale Vault-Referenz für den API-Schlüssel<input id="external-model-endpoint-reference" maxlength="118" autocomplete="off"></label>
+      <label><input id="external-model-endpoint-confirm" type="checkbox" required>Eine synthetische Embedding-Anfrage an den lokalen Endpunkt senden</label>
+      <p id="external-model-endpoint-status" role="status"></p>
+      <label id="external-model-endpoint-result-box" hidden>Gebundene Endpunktquittung (JSON)<textarea id="external-model-endpoint-result" rows="8" readonly></textarea></label>
+      <div class="build-actions">
+        <button id="external-model-endpoint-submit" type="submit" class="button" disabled>Endpunkt prüfen</button>
+        <button id="external-model-endpoint-sql-plan" type="button" class="button secondary" disabled>Gebundenen SQL-Plan vorbereiten</button>
+        <button id="external-model-endpoint-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="external-model-sql-plan-dialog" aria-labelledby="external-model-sql-plan-title">
+    <h2 id="external-model-sql-plan-title">SQL-Plan für bestätigten Modellendpunkt erstellen</h2>
+    <p>Die Vorschau bindet Plan und Endpunktquittung an einen Datenbanknamen. Sie verbindet sich mit keiner SQL-Instanz.</p>
+    <form id="external-model-sql-plan-form">
+      <label>External-Model-Plan (JSON)<textarea id="external-model-sql-plan-plan" rows="6" maxlength="16384" required spellcheck="false"></textarea></label>
+      <label>Passende HTTPS-Endpunktquittung (JSON)<textarea id="external-model-sql-plan-receipt" rows="6" maxlength="8192" required spellcheck="false"></textarea></label>
+      <label>Ziel-Datenbankname<input id="external-model-sql-plan-database" pattern="[A-Za-z_][A-Za-z0-9_]{0,127}" maxlength="128" required></label>
+      <label>Höchstalter der Quittung in Sekunden<input id="external-model-sql-plan-age" type="number" min="30" max="3600" value="300" required></label>
+      <p id="external-model-sql-plan-status" role="status"></p>
+      <label id="external-model-sql-plan-result-box" hidden>Gebundener SQL-Plan (JSON)<textarea id="external-model-sql-plan-result" rows="8" readonly></textarea></label>
+      <div class="build-actions">
+        <button id="external-model-sql-plan-submit" type="submit" class="button">SQL-Plan erstellen</button>
+        <button id="external-model-sql-plan-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="ovms-gateway-dialog" aria-labelledby="ovms-gateway-title">
+    <h2 id="ovms-gateway-title">Eigene OVMS-HTTPS-Sitzungen</h2>
+    <form id="ovms-gateway-form">
+      <label>OVMS-HTTP-Endpunkt<input name="UpstreamLocation" type="url" value="http://127.0.0.1:9000/v3/embeddings" maxlength="200" required></label>
+      <label>Exakter OVMS-Modellname<input name="RuntimeModel" maxlength="256" required></label>
+      <label>Embedding-Dimension<input name="Dimension" type="number" min="1" max="1998" required></label>
+      <label>Freier HTTPS-Port<input name="Port" type="number" min="1024" max="65535" value="18443" required></label>
+      <label>Lokaler Pfad zum Leaf-Zertifikat (PEM)<input name="CertificatePath" type="password" autocomplete="off" maxlength="4096" required></label>
+      <label>Lokaler Pfad zum Private Key (PEM)<input name="PrivateKeyPath" type="password" autocomplete="off" maxlength="4096" required></label>
+      <label>Optionaler lokaler Pfad zum öffentlichen CA-PEM<input name="TrustedRootPath" type="password" autocomplete="off" maxlength="4096"></label>
+      <label>Lokale Vault-Referenz für den Gateway-API-Schlüssel<input name="ApiKeyReference" maxlength="118" autocomplete="off" required></label>
+      <label>Startbudget in Sekunden<input name="StartTimeoutSeconds" type="number" min="1" max="300" value="30" required></label>
+      <label>Maximale Laufzeit in Sekunden<input name="LeaseSeconds" type="number" min="30" max="3600" value="900" required></label>
+      <label><input id="ovms-gateway-start-confirm" type="checkbox" required>Lokale Dateien und Vault lesen und den befristeten OVMS-HTTPS-Worker starten</label>
+      <button id="ovms-gateway-start" type="submit" class="button" disabled>OVMS-HTTPS-Gateway starten</button>
+    </form>
+    <label>Eigene Sitzung<select id="ovms-gateway-selection"></select></label>
+    <label><input id="ovms-gateway-stop-confirm" type="checkbox">Gewählte Sitzung stoppen. SQL-Verbraucher können die Verbindung verlieren.</label>
+    <p id="ovms-gateway-status" role="status"></p>
+    <label id="ovms-gateway-result-box" hidden>Gateway-Bindung (JSON)<textarea id="ovms-gateway-result" readonly rows="7"></textarea></label>
+    <div class="build-actions">
+      <button id="ovms-gateway-read" type="button" class="button secondary">Sitzungen neu lesen</button>
+      <button id="ovms-gateway-stop" type="button" class="button" disabled>Eigene Sitzung stoppen</button>
+      <button id="ovms-gateway-close" type="button" class="button secondary">Schließen</button>
+    </div>
   </dialog>
   <dialog id="ovms-upstream-dialog">
     <form id="ovms-upstream-form">

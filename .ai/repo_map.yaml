@@ -241,14 +241,18 @@ sources_of_truth:
   validation_ai_shared_gateway_upstream: Tests/Static/Invoke-AiSharedGatewayUpstreamChecks.ps1
   ai_model_catalog: Catalogs/ai-models.json
   local_ollama_generation_guidance: Private/AiEndpoint.ps1, Public/Invoke-SqlServerLab.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/ollama-local-generation.js, Tests/Static/Fixtures/WorkflowSqlTargetChecks.cjs
+  cloud_ollama_generation_guidance: Private/AiEndpoint.ps1, Public/Invoke-SqlServerLabAiModel.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/ollama-local-generation.js, Tests/Static/Fixtures/WorkflowSqlTargetChecks.cjs
   ai_model_catalog_schema: Schemas/ai-model-catalog.schema.json
   ai_endpoint_plan_schema: Schemas/ai-endpoint-plan.schema.json
   ai_runtime_journal_schema: Schemas/ai-runtime-journal.schema.json
   ai_external_model_contract: Private/AiExternalModelAcceleration.ps1
   ai_external_model_plan_api: Public/Get-SqlServerLabAiExternalModelPlan.ps1
+  ai_external_model_plan_guidance: Private/AiExternalModelPlanGuidance.ps1, Public/Get-SqlServerLabAiExternalModelPlan.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/ai-shared-gateway-plan.js, Tests/Static/Invoke-AiExternalModelAccelerationChecks.ps1
+  ai_external_model_sql_plan_guidance: Private/AiExternalModelPlanGuidance.ps1, Public/Get-SqlServerLabAiExternalModelSqlPlan.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/ai-shared-gateway-plan.js, Tests/Static/Invoke-AiExternalModelAccelerationChecks.ps1
   ai_external_model_sql_plan_api: Public/Get-SqlServerLabAiExternalModelSqlPlan.ps1
   ai_external_model_sql_preflight_api: Public/Test-SqlServerLabAiExternalModelSqlPreflight.ps1
   ai_ovms_https_gateway: Private/AiOvmsHttpsGateway.ps1
+  ai_ovms_https_gateway_guidance: Private/AiOvmsGatewayGuidance.ps1, Ui/ai-shared-gateway-plan.js, Public/BatchConsole.ps1, Tools/Start-SqlServerLabUi.ps1
   ai_ovms_https_gateway_worker: Tools/Invoke-OvmsHttpsGatewayWorker.ps1
   ai_ovms_https_gateway_start: Public/Start-SqlServerLabOvmsHttpsGateway.ps1
   ai_ovms_https_gateway_stop: Public/Stop-SqlServerLabOvmsHttpsGateway.ps1
@@ -299,6 +303,7 @@ sources_of_truth:
   ai_external_model_runtime_contract: Private/AiExternalModelAcceleration.ps1
   ai_external_model_artifact_api: Public/Test-SqlServerLabAiExternalModelArtifact.ps1
   ai_external_model_probe_api: Public/Test-SqlServerLabAiExternalModelEndpoint.ps1
+  ai_external_model_probe_guidance: "Private/AiExternalModelEndpointGuidance.ps1, Tools/Start-SqlServerLabUi.ps1 und Ui/ai-shared-gateway-plan.js verwenden den vorhandenen Plan und die einzelne HTTPS-Probe. CLI liest explizite lokale Dateien, der Browser übernimmt JSON und optional öffentliches PEM. Die Guidance-Fixtures prüfen Bestätigung, Secretschutz und Receiptbindung."
   ai_external_model_plan_schema: Schemas/ai-external-model-plan.schema.json
   ai_external_model_artifact_receipt_schema: Schemas/ai-external-model-artifact-receipt.schema.json
   ai_external_model_endpoint_receipt_schema: Schemas/ai-external-model-endpoint-receipt.schema.json

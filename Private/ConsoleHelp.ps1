@@ -253,6 +253,12 @@ function Get-LabConsoleHelpCatalog {
             Effects = 'Die Auswahl liest Registrierung und Hostvoraussetzungen und zeigt den Dienstplan mit möglichen Blockern.'
             Command = 'Get-SqlServerLabAiSharedGatewayServicePlan'
         }
+        'ovms-gateway-own-stop' = @{
+            Title = 'Eigene OVMS-HTTPS-Sitzung stoppen'
+            Purpose = 'Wählt eine eigene OVMS-Operation der aktuellen Modulsitzung.'
+            Effects = 'Bestätigung beendet den eigenen Worker und bereinigt seinen temporären API-Schlüssel. SQL-Verbraucher können die Verbindung verlieren.'
+            Command = 'Stop-SqlServerLabOvmsHttpsGateway'
+        }
         'ai-shared-gateway-service-secret-confirm' = @{
             Title = 'Dienst-Secrets prüfen'
             Purpose = 'Prüft die Consumer-Schlüsselreferenzen des passenden Dienstplans über PowerShell SecretManagement.'

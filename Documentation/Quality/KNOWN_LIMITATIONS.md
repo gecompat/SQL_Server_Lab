@@ -505,6 +505,10 @@ keine feste TLS-Version, kein Downgrade, kein Retry oder Trustbypass.
 TLS-Vetos dürfen nach geprüfter Peerbindung schon einen geöffneten RAM-Key
 haben, aber keine entschlüsselten HTTP-/Authorization-/Bodybytes senden.
 Bestätigter eigener Cleanup ist kein Nachweis physischer Speicher-/Keylöschung.
+Die geführte Probe in CLI und Browser verwendet denselben Transportkern.
+Ihre synthetischen Tests belegen Planbindung, explizite Auslösung und
+Quittung. Der Browser kann für eine optionale Referenz einen zugänglichen
+lokalen Vault benötigen.
 [Ausgeführte Nachweise](LOCAL_VALIDATION_STRATEGY.md#lokale-external-model-autoritaeten).
 
 ## Workflow-UI: Operatorbindung und offene Aktionsfreigaben
@@ -2517,6 +2521,10 @@ Loopback-HTTP-Upstream auf `/v3/embeddings`, exakten Modellnamen, Antwortform
 und Dimension prüfen. Sie startet keinen Prozess und belegt weder
 TLS-Terminierung, Gatewaybesitz noch Acceleratornutzung. Diese Evidence liefert
 erst `Start-SqlServerLabOvmsHttpsGateway` für seine eigene Operation.
+Der geführte Start und Stop in CLI und Browser setzt denselben
+Windows-Worker voraus. Die Führung ist mit synthetischen Eingaben und
+eigenen Sitzungsobjekten prüfbar. Eine native OVMS-/SQL-Abnahme bleibt
+ein separater Nachweis.
 Für weitere OpenAI-kompatible Backends sind ein hashgebundener Plan sowie
 getrennte read-only Prüfungen der lokalen Runtime-/Modelldateien und des
 HTTPS-Embedding-Endpunkts implementiert. Die Live-Probe verlangt den exakt im

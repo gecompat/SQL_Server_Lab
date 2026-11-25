@@ -1315,6 +1315,35 @@ async function main() {
     assert.equal(localModelReads.length,1);
   });
   run("$('#confirmation-dialog').close(); pendingConfirmation = null;");
+  const cloudReads=[];
+  const cloudModel={Id:'ollama-gpt-oss-120b-cloud',Name:'gpt-oss:120b',TargetHost:'ollama.com'};
+  context.cloudRequestFields=localModelRequestFields.filter(name=>name!=='LocalPort').concat('AllowCloudEgress');
+  context.sqlServerLabUiFetch=async (route,options)=>{cloudReads.push({route,options});return {ok:true,json:async()=>[cloudModel]};};
+  run("publicCommandCatalog=[{Name:'Invoke-SqlServerLabAiModel',RequiresConfirmation:true,ParameterSets:[{Name:'__AllParameterSets',Parameters:cloudRequestFields.map(Name=>({Name,Sensitive:false,IsCredential:false,Mandatory:['ModelKey','InputText','DataClassification'].includes(Name)}))}]}];");
+  await resourceEvent('ollama-cloud-generation-open');
+  node('ollama-cloud-generation-model').value=cloudModel.Id;
+  await resourceEvent('ollama-cloud-generation-model','change');
+  node('ollama-cloud-generation-timeout').value='60';
+  node('ollama-cloud-generation-prompt').value='synthetic cloud fixture';
+  node('ollama-cloud-generation-class').value='internal-explicit';
+  await resourceEvent('ollama-cloud-generation-form','submit');
+  check('Ollama Cloud refuses internal classification before confirmation',()=>assert.equal(run('pendingConfirmation'),null));
+  node('ollama-cloud-generation-class').value='synthetic-only';
+  await resourceEvent('ollama-cloud-generation-form','submit');
+  check('Ollama Cloud prepares one explicit egress request without sending it or displaying the prompt',()=>{
+    const dispatch=run('pendingConfirmation.parameters');
+    assert.deepEqual(JSON.parse(JSON.stringify(dispatch.parameters)),{
+      ModelKey:cloudModel.Id,InputText:'synthetic cloud fixture',DataClassification:'synthetic-only',
+      Lane:'cloud',TimeoutSeconds:60,RetryCount:0,AllowCloudEgress:true
+    });
+    assert.equal(node('ollama-cloud-generation-prompt').value,'');
+    assert.match(node('confirmation-message').textContent,/https:\/\/ollama\.com.*60 Sekunden/);
+    assert.doesNotMatch(node('confirmation-message').textContent,/synthetic cloud fixture/);
+    assert.equal(cloudReads.length,1);
+    assert.equal(cloudReads[0].route,'/api/ollama-cloud-generation');
+    assert.equal(cloudReads[0].options.body,undefined);
+  });
+  run("$('#confirmation-dialog').close(); pendingConfirmation = null;");
   const cmsRequests=[];
   const cmsBase={ContractVersion:'SqlServerLab.CmsInspection/1.0',Status:'NOT_CHECKED',Code:'CMS_INSPECTION_NOT_CHECKED',RunId:'11111111-1111-1111-1111-111111111111',InstanceId:'primary',Provider:'docker',SelectionKey:'a'.repeat(64),SqlMajor:null,ManagedGroupCount:null,ManagedServerCount:null,ObservedAt:null};
   let cmsMode='ready';

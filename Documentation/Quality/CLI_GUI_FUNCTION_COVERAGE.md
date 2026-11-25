@@ -40,15 +40,14 @@ eines Cmdlets:
 Ein mechanischer Abgleich des Manifests mit
 `Documentation/User/FUNCTIONS_CLI_GUI.md` findet 161 der 166 Exportnamen und
 5 dort nicht referenzierte Exporte. Das ist ein Referenzabgleich, keine
-vollständige Prüfung, ob die 159 Treffer tatsächlich korrekt geführt,
+vollständige Prüfung, ob die 161 Treffer tatsächlich korrekt geführt,
 ausführbar oder providerabgenommen sind. Die folgende Inventarliste hält die
 5 nicht referenzierten Namen einzeln fest. Die sieben Environment-Group-
 Operationen aus dem vorherigen Abgleich sind jetzt in der Funktionsübersicht
 enthalten und unten separat quellengestützt als `GUIDED_BOTH` bewertet. Von
 den 5 Einträgen sind vier TLS-001-Exporte `DEFERRED` und einer
 `EXPERT_CATALOG_ONLY`. Die drei External-Model- und
-OVMS-Gateway-Operationen sind inzwischen referenziert. Ihre geführten
-Bedienlücken bleiben in der eigenen Tabelle unten sichtbar.
+OVMS-Gateway-Operationen sind in der eigenen Tabelle unten bewertet.
 Die Bewertung folgt aus Menüdispatch, GUI-Aktion, öffentlichen Parametern
 und den vorhandenen Nachweisen. Der Expertenkatalog allein erfüllt die
 geführte Abdeckung nicht.
@@ -58,7 +57,7 @@ geführte Abdeckung nicht.
 | Security-Tool-Katalog | `Get-SqlServerLabSecurityToolPlan` | `EXPERT_CATALOG_ONLY`. Die produktive Allowlist ist leer, der lokale Resolver blockiert alle Anfragen. [Katalogvertrag und Freigabestand](../Project_Planning/SECURITY_TOOL_ACQUISITION_BACKLOG.md). |
 | TLS-001, zurückgestellt | `Update-SqlServerLabTlsBinding`; `Get-SqlServerLabTlsBindingRecovery`; `Resolve-SqlServerLabTlsBindingRecovery`; `Read-SqlServerLabQualifiedTestEnvironment` | `DEFERRED`; bestehender Zustand bleibt erhalten, keine neue Abdeckungs- oder Runtimearbeit ohne dokumentierten Anwendungsfall |
 
-Die 7 Namen ohne Referenz und die einzeln geprüften Exporte unten
+Die 5 Namen ohne Referenz und die einzeln geprüften Exporte unten
 wurden unmittelbar gegen `FunctionsToExport` im Manifest
 abgeglichen; die Familiengruppierung ist nur eine Lesbarkeitshilfe. Sie ist
 keine Behauptung, dass eine Familie einen gemeinsamen Aufrufer oder denselben
@@ -90,13 +89,27 @@ Die Rückgabe enthielt nur den festen Dateinamen und die erwarteten Zähler.
 | Aufgabe | Geführte Bedienung | Öffentlicher Vertrag und Nachweis |
 | --- | --- | --- |
 | Bereits laufenden lokalen OVMS-Upstream prüfen | `GUIDED_BOTH` unter **Host-Dienste und Modelle → Lokalen OVMS-Embedding-Dienst prüfen** | `Test-SqlServerLabOvmsUpstreamEndpoint` sendet nach Bestätigung einen synthetischen HTTP-Request über numerisches Loopback und prüft Modell und Dimension. |
-| Geplanten HTTPS-Modellendpunkt verifizieren | `KNOWN_GAP` in CLI und Browser | `Test-SqlServerLabAiExternalModelEndpoint` benötigt den gebundenen Plan und prüft den HTTPS-Endpunkt einschließlich Zertifikat und Antwort. Die geführte HTTP-Upstream-Prüfung deckt diesen Vertrag nicht ab. |
-| Eigenen OVMS-HTTPS-Gateway starten | `KNOWN_GAP` in CLI und Browser | `Start-SqlServerLabOvmsHttpsGateway` startet eine befristete Windows-Loopback-Sitzung mit expliziten Zertifikats- und Schlüsseleingaben. |
-| Eigenen OVMS-HTTPS-Gateway stoppen | `KNOWN_GAP` in CLI und Browser | `Stop-SqlServerLabOvmsHttpsGateway` benötigt die Operations-ID der eigenen Modulsitzung. |
+| Lokale External-Model-Konfiguration erstellen | `GUIDED_BOTH` unter **Host-Dienste und Modelle → Lokalen HTTPS-Modellendpunkt planen** | `Get-SqlServerLabAiExternalModelPlan` bindet Modell, Runtime, Zertifikat und optional ein OVMS-Gateway. Die Tests prüfen exakte Planbindung, geschlossene Eingaben, feste Blockercodes und die getrennte Übernahme zur Probe. Reine Konfiguration. |
+| Geplanten HTTPS-Modellendpunkt verifizieren | `GUIDED_BOTH` unter **Host-Dienste und Modelle → Geplanten HTTPS-Modellendpunkt prüfen** | `Test-SqlServerLabAiExternalModelEndpoint` erhält den gebundenen Plan nach Bestätigung. Die Guidance-Fixtures prüfen das lokale Eingabefeld, optionales öffentliches CA-PEM, Credential-Grenzen und die Quittung mit synthetischem Transport. Die native Framework-/Plattformabnahme bleibt separat. |
+| SQL-Objekte für den bestätigten Modellendpunkt planen | `GUIDED_BOTH` unter **Host-Dienste und Modelle → SQL-Plan für bestätigten Modellendpunkt erstellen** oder direkt nach der Probe | `Get-SqlServerLabAiExternalModelSqlPlan` revalidiert Plan, Quittung und Höchstalter. Die Tests prüfen den unveränderten Zeitstempel, exakte Quittungsbindung und die reine Vorschau. SQL-Preflight und Apply bleiben getrennte Schritte. |
+| Eigenen OVMS-HTTPS-Gateway starten | `GUIDED_BOTH` unter **Host-Dienste und Modelle** auf Windows | CLI und Browser bestätigen die befristete Loopback-Sitzung und geben die geprüfte Gateway-Bindung aus. |
+| Eigenen OVMS-HTTPS-Gateway stoppen | `GUIDED_BOTH` unter **Host-Dienste und Modelle** auf Windows | Die Auswahl bindet den Stop an eine eigene Sitzung im aktuellen CLI-Modul oder UI-Server. |
 
 Der [separate Windows-Harness](LOCAL_VALIDATION_STRATEGY.md) prüft Gateway-Start,
 HTTPS-Probe und Owner-Stop mit einem synthetischen Upstream. Das belegt keine
 geführte Gateway-Bedienung, Acceleratorkonfiguration oder SQL-Ausführung.
+Die geführten OVMS-Aktionen sind mit synthetischem Vault und eigenen
+Sitzungsobjekten im Modul sowie mit dem tatsächlichen Dialogskript in
+einer synthetischen Browserumgebung geprüft.
+
+Am 25.11.2026 bestätigte ein Windows-Loopback-Test die Modulschritte für
+OVMS-Start, HTTPS-Prüfung und SQL-Plan aus der serialisierten Quittung.
+Er verwendete die Aufrufe der Bedienpfade auf Quellbaum
+`0fb1400d96f28d89612e7d25df85c740fcd7ddba` mit einem echten Gateway-Prozess,
+synthetischem Upstream und einer temporären CA. Stop und Abwesenheit von
+Listener und temporärer Schlüsseldatei wurden bestätigt. Rendern im
+Browser, SQL-Ausführung, Beschleuniger und weitere Plattformen sind
+getrennte Nachweise.
 
 ## Geprüfte Operationen: Ressourcenstand und lokaler Bedarf
 
@@ -167,7 +180,7 @@ und dem [Gruppenvertrag](../Architecture/LAB_ENVIRONMENT_GROUPS.md).
 |---|---|---|---|---|
 | Vorhandene Runtime-Paketdateien suchen (`Get-SqlServerLabLlamaCppRuntime`) | Host-Dienste und Modelle → Vorhandene llama.cpp-Pakete prüfen | Derselbe Bereich und dieselbe Aktion | `GUIDED_BOTH`. Lesen aus den konfigurierten Suchwurzeln und Anzeige von Backend, Build und unvollständiger Suche. `Invoke-LlamaCppRuntimeChecks.ps1` und einmaliger HTTP-Aufruf im Browserfixture. Freie Suchwurzeln bleiben ein PowerShell-Parameter. | Synthetische Paketdateien. Kein Modell-, Geräte-, SQL- oder Providerlauf für diese reine Dateisuche erforderlich. |
 | GGUF-Katalog lesen und Modell beschaffen (`Get-SqlServerLabLlamaCppModel`, `Save-SqlServerLabLlamaCppModel`) | Host-Dienste und Modelle → llama.cpp-Modellkatalog und Dateien | Host-Dienste und Modelle → llama.cpp-Modelle anzeigen und herunterladen | `GUIDED_BOTH`. Der Download bindet Revision und Hash aus der bestätigten Auswahl. Katalog-, Download- und Browser-Fixtures prüfen Status, Bindung und Fehlerfälle. | Synthetische Datei- und Downloadprüfungen. Vollständige Katalogdownloads bleiben als nicht ausgeführt dokumentiert. |
-| Lokales Generationsmodell aufrufen (`Invoke-SqlServerLabAiModel`) | Host-Dienste und Modelle → Vorhandenes Ollama-Modell aufrufen → lokal | Host-Dienste und Modelle → Lokales Ollama-Modell aufrufen | `GUIDED_BOTH` für synthetische Prompts an den ausgewählten Loopback-Port. Die Browser-Fixture prüft Ziel, Bestätigung und Eingabegrenzen. | Cloud-Lane `GUIDED_CLI_ONLY`. Katalogeinträge belegen keine installierten Modelle. |
+| Ollama-Generationsmodell aufrufen (`Invoke-SqlServerLabAiModel`) | Host-Dienste und Modelle → Vorhandenes Ollama-Modell aufrufen | Host-Dienste und Modelle → Lokales Ollama-Modell aufrufen oder Ollama-Cloud-Modell aufrufen | `GUIDED_BOTH`. Die lokale Variante verwendet den ausgewählten Loopback-Port. Die Cloud-Variante führt über Datenklassenwahl und Bestätigung für Ollama. Die Browser-Fixture prüft Ziel, Eingaben und Auftragsparameter mit synthetischen Daten. |
 | Eigene llama.cpp-Sitzung starten (`Start-SqlServerLabLlamaCppRuntime`) | Host-Dienste und Modelle → Eigene llama.cpp-Sitzung geführt starten | Host-Dienste und Modelle → llama.cpp: eigene Sitzung starten | `GUIDED_BOTH`. Eingabe und Bestätigung führen zum bestehenden öffentlichen Start. CLI- und Browser-Vertragssuiten. | Synthetische Fälle. Native Abnahme des geführten Starts `NOT_EXECUTED`. |
 | Eigene llama.cpp-Sitzung stoppen (`Stop-SqlServerLabLlamaCppRuntime`) | Host-Dienste und Modelle → Eigene llama.cpp-Sitzung auswählen und stoppen | Host-Dienste und Modelle → Eigene llama.cpp-Sitzung stoppen | `GUIDED_BOTH`. Beide Dialoge bestätigen eine gebundene Stop-Vorschau und nutzen denselben Core wie das Cmdlet. Geschützte Verbraucher sperren den geführten Stopp. `Invoke-LlamaCppSessionGuidanceChecks.ps1`. | Nativer Prozess- und Cleanup-Nachweis am 30.09.2026 im dokumentierten Scope. SQL- und Modellbetrieb sind separat. |
 
