@@ -20,6 +20,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot '../Common/SqlGuestAllocationAcceptanceFixture.ps1')
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 $testRoot = Join-Path $repo ('.artifacts/test-runs/evaluation-target-license-' + [guid]::NewGuid().ToString('N'))
 $sourceOperation = [guid]::NewGuid().ToString('D')
@@ -206,15 +207,50 @@ try {
         $null = Start-SqlServerLab -RunId $source.RunId -StateRoot $stateRoot -TimeoutSeconds 180 3>$null 4>$null 5>$null 6>$null
         $runningSource = & $module { param($Id,$Root) Get-LabRunState -RunId $Id -StateRoot $Root } $source.RunId $stateRoot
         Assert-TargetLicenseAcceptance ($runningSource.state -ceq 'RUNNING') 'Eigene Quelle läuft neben dem eigenen Ziellab'
-        $fixtureSql = Join-Path $testRoot 'owned-allocation-fixture.sql'
-        [IO.File]::WriteAllText($fixtureSql,'CREATE DATABASE [SqlLabAllocationComparisonFixture];')
-        $scriptParameters = @{RunId=$source.RunId;InstanceId='primary';StateRoot=$stateRoot;ScriptPath=$fixtureSql
-            WindowsAuthentication=$true;TimeoutSeconds=60;Confirm=$false}
-        $null = Invoke-SqlServerLabScript @scriptParameters 3>$null 4>$null 5>$null 6>$null
+        $phase = 'COMPARE_SOURCE_BASELINE'
+        $beforeSource = Get-SqlServerLabEvaluationRefreshPlan @request -Mode STATEFUL_MIGRATION -ObserveSqlSource
+        $beforeAllocation = $beforeSource.SqlSourceInventory.AllocatedFileStorage
+        Assert-TargetLicenseAcceptance ($beforeAllocation.Status -ceq 'OBSERVED' -and
+            $beforeAllocation.DataBytes -is [long] -and $beforeAllocation.LogBytes -is [long]) 'Dateizuweisung der laufenden Quelle vor der Fixture beobachtet'
+
+        $phase = 'COMPARE_SOURCE_FIXTURE'
+        $sourceContext = & $module {
+            param($Id,$Root) Get-LabSqlGuestCaptureContext -RunId $Id -StateRoot $Root
+        } $source.RunId $stateRoot
+        if ($sourceContext.Run.scopeId -cne $ownedSource.scopeId -or $sourceContext.Instance.id -cne 'primary') {
+            throw 'EVALUATION_TARGET_LICENSE_SOURCE_OWNERSHIP_CHANGED'
+        }
+        $credentials = & $module {
+            param($Context)
+            $guestCredential = $null
+            $sqlPassword = $null
+            try {
+                $guestCredential = Get-LabSecret -Path $Context.RunDirectory -Name 'guest-administrator-password'
+                $sqlPassword = Get-LabSecret -Path $Context.RunDirectory -Name 'generated-sql-sa-password'
+                if (-not $sqlPassword) { $sqlPassword = Get-LabSecret -Path $Context.RunDirectory -Name 'sa-password' }
+                if (-not $guestCredential -or -not $sqlPassword) { throw 'SQL_GUEST_ALLOCATION_FIXTURE_CREDENTIAL_REQUIRED' }
+                [pscustomobject]@{Guest=$guestCredential;Sql=$sqlPassword}
+            } catch {
+                if ($guestCredential) { $guestCredential.Dispose() }
+                if ($sqlPassword) { $sqlPassword.Dispose() }
+                throw
+            }
+        } $sourceContext
+        try {
+            $fixtureArgs = @{Module=$module;Context=$sourceContext;GuestPassword=$credentials.Guest;SqlPassword=$credentials.Sql
+                DatabaseName='SqlLabAllocationComparisonFixture'}
+            $fixturePages = New-SqlGuestAllocationAcceptanceFixture @fixtureArgs
+        } finally {
+            $credentials.Guest.Dispose()
+            $credentials.Sql.Dispose()
+        }
+        Write-Host 'PASS: Eigene SQL-Testdatenbank hat bestätigte Daten- und Logseiten'
+        $phase = 'COMPARE_SOURCE_ALLOCATION'
         $sourcePlan = Get-SqlServerLabEvaluationRefreshPlan @request -Mode STATEFUL_MIGRATION -ObserveSqlSource
         $sourceAllocation = $sourcePlan.SqlSourceInventory.AllocatedFileStorage
         Assert-TargetLicenseAcceptance ($sourceAllocation.Status -ceq 'OBSERVED' -and
-            $sourceAllocation.DataBytes -gt 0 -and $sourceAllocation.LogBytes -gt 0) 'Positive Dateizuweisung der eigenen Quelle beobachtet'
+            $sourceAllocation.DataBytes -eq ($beforeAllocation.DataBytes + 8KB * [decimal]$fixturePages.DataPages) -and
+            $sourceAllocation.LogBytes -eq ($beforeAllocation.LogBytes + 8KB * [decimal]$fixturePages.LogPages)) 'Quellsummen enthalten exakt die Dateigrößen der eigenen Testdatenbank'
         $operationRequest.ExpectedPlanKey = $sourcePlan.ObservedContentSha256
         $operationRequest.ExpectedTargetPlanKey = $sourcePlan.TargetAssessment.ObservedContentSha256
         $compareBefore = @($paths | ForEach-Object { (Get-FileHash -LiteralPath $_ -Algorithm SHA256).Hash })

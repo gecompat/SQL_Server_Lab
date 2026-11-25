@@ -5627,6 +5627,11 @@ Capture, Receiptkette, unverändertem Run-/Connection-State und Parent sowie
 vollständigem Cleanup (drei Schritte, keine Fehler, keine VM-/Diskreste).
 Positive Evaluation und echte Deadline bleiben eigene offene Nachweise.
 Die Abnahme erstellt und bereinigt ausschließlich ihren eigenen Run.
+Der gemeinsame Arrange-Helfer `Tests/Common/SqlGuestAllocationAcceptanceFixture.ps1`
+bindet Run, Scope, VM und SQL-Instanz für beide nativen Harnesses. Er führt
+die einmalige Fixture-Anlage über PowerShell Direct ohne Wiederholung aus.
+Die Plan-Suite prüft den gebundenen Aufruf und weist fehlende, doppelte,
+nichtpositive und falsch typisierte Größenbelege synthetisch ab.
 Lauf [45343380820](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45343380820)
 auf `157b1f13` bestätigte die ergänzte Gastprobe für die neun
 Quellzähler. Der Runner las eine eigene laufende SQL-2025-Developer-Instanz
