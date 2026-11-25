@@ -2180,7 +2180,12 @@ $backupInstanceSelectionProbe = & {
                 param($Prompt,[switch]$AsSecureString)
                 $script:backupMenuTracker.Prompts.Add($Prompt)
                 if ($Prompt -match 'Instanz-ID') { throw 'Manual instance ID is forbidden' }
-                if ($AsSecureString) { $script:backupMenuTracker.Credentials++; return [Security.SecureString]::new() }
+                if ($AsSecureString) {
+                    $script:backupMenuTracker.Credentials++
+                    $password=[Security.SecureString]::new()
+                    if ($script:metricsMenuProbe) { $password.AppendChar('x') }
+                    return $password
+                }
                 if ($script:backupMenuCase -eq 'drift-before-credentials') {
                     $script:backupMenuInstances[1].port=14399; Save-BackupMenuFixture
                 }
@@ -2221,11 +2226,48 @@ $backupInstanceSelectionProbe = & {
                 Invoke-LabDatabaseBackupInteractive -DataRoot 'synthetic-root'
                 $results[$script:backupMenuCase]=[pscustomobject]$script:backupMenuTracker
             }
+            $script:metricsMenuProbe=$true
+            function script:Get-SqlServerLabSqlObservabilityEvidence {
+                param($RunId,$InstanceId,$StateRoot,$SaPassword)
+                if ($SaPassword.Length -ne 1 -or $StateRoot -cne $script:backupMenuRoot) { throw 'SYNTHETIC_METRICS_BINDING_MISMATCH' }
+                $script:backupMenuTracker.Arguments=@{RunId=$RunId;InstanceId=$InstanceId}
+                $script:backupMenuTracker.MetricReads++
+                [pscustomobject]@{
+                    ObservedAt='2030-01-01T00:00:00Z'; Source=[pscustomobject]@{SqlMajorVersion='17'}
+                    Server=[pscustomobject]@{CpuCount=2;PhysicalMemoryKb=4096}
+                    Databases=[pscustomobject]@{OnlineCount=2;QueryStoreEnabledCount=1;TotalFileSizeKb=1024}
+                    WaitStatistics=[pscustomobject]@{NonSleepWaitTypeCount=2;WaitingTaskCount=6;WaitTimeMs=19}
+                }
+            }
+            foreach ($script:backupMenuCase in @('selected','confirm-cancel','drift-before-backup','hyperv')) {
+                $script:backupMenuTracker=@{Items=@();Screen='';Selected=$false;Runtime=0;Credentials=0;MetricReads=0;Arguments=@{};Prompts=[Collections.Generic.List[string]]::new()}
+                $provider = if ($script:backupMenuCase -ceq 'hyperv') { 'hyperv' } else { 'podman' }
+                $script:backupMenuInstances=@(
+                    [pscustomobject]@{id='old';version='2017-latest';provider='docker';containerName='synthetic-old';host='127.0.0.1';port=14331;vmName='';vmId=''}
+                    [pscustomobject]@{id='analytics';version='2022-latest';provider=$provider;containerName='synthetic-analytics';host='127.0.0.1';port=14332;vmName='';vmId=''}
+                )
+                Save-BackupMenuFixture
+                Invoke-LabSqlObservabilityInteractive
+                $results['metrics-'+$script:backupMenuCase]=[pscustomobject]$script:backupMenuTracker
+            }
             $results
         } $fixtureRoot
     }
     finally { if (Test-Path -LiteralPath $fixtureRoot) { Remove-Item -LiteralPath $fixtureRoot -Recurse -Force } }
 }
+Add-ConsoleUiCheck 'SQL-Betriebsmetriken lesen genau die erneut gebundene benannte Instanz' (
+    $backupInstanceSelectionProbe['metrics-selected'].Screen -ceq 'sql-observability-instance-select' -and
+    $backupInstanceSelectionProbe['metrics-selected'].MetricReads -eq 1 -and
+    $backupInstanceSelectionProbe['metrics-selected'].Arguments.InstanceId -ceq 'analytics' -and
+    $backupInstanceSelectionProbe['metrics-selected'].Arguments.RunId -ceq '11111111-2222-4333-8444-555555555555'
+)
+Add-ConsoleUiCheck 'SQL-Betriebsmetriken überspringen Abbruch, geänderten Endpunkt und Hyper-V' (
+    $backupInstanceSelectionProbe['metrics-confirm-cancel'].MetricReads -eq 0 -and
+    $backupInstanceSelectionProbe['metrics-drift-before-backup'].MetricReads -eq 0 -and
+    $backupInstanceSelectionProbe['metrics-hyperv'].MetricReads -eq 0 -and
+    $backupInstanceSelectionProbe['metrics-hyperv'].Items[1].Disabled -and
+    $backupInstanceSelectionProbe['metrics-hyperv'].Credentials -eq 0
+)
 Add-ConsoleUiCheck 'Backup-Menü wählt benannte Instanz über gemeinsamen Wrapper statt manueller ID' (
     $backupInstanceSelectionProbe.selected.Screen -eq 'database-backup-instance-select' -and
     $backupInstanceSelectionProbe.selected.Items[1].Label -eq 'analytics' -and

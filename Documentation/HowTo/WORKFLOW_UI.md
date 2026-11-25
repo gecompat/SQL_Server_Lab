@@ -1003,7 +1003,20 @@ aus der konfigurierten `Lab_Data`-Bibliothek gewählt werden. Browser und Aktion
 übergeben dabei ausschließlich die stabile `BackupSetId`; der gemeinsame
 Restore-Core löst Pfad und Hash intern auf und prüft sie unmittelbar vor dem
 Restore erneut. Die Bibliotheksübersicht selbst liest nur kleine Metadaten und
-hasht nicht bei jedem UI-Refresh alle Backup-Dateien. Der Menüpunkt **Alles
+hasht nicht bei jedem UI-Refresh alle Backup-Dateien.
+Wähle an einer laufenden Docker- oder Podman-Instanz **Verifiziertes Backup
+erstellen**, gib Datenbankname und SA-Passwort ein und bestätige die angezeigte
+Instanz und Datenbank. Voraussetzung ist ein registriertes `Lab_Data`. Bei
+Erfolg zeigt die Quittung BackupSet-ID, Datenbankname, SHA-256 und Größe. Für
+Hyper-V bleibt der bestehende PowerShell-Weg verfügbar.
+
+**SQL-Betriebsmetriken lesen** steht an derselben laufenden Container-Instanz.
+Gib das SA-Passwort ein und bestätige die Instanz. Unter **Vorgänge** zeigt
+der Auftrag aggregierte CPU-, Speicher-, Datenbank-, Query-Store- und
+Wartewerte. Das Ergebnis enthält keine SQL-Texte, Datenbanknamen, Loginnamen oder Zugangsdaten.
+In der CLI findest du die Abfrage unter **Datenbanken, Samples und Skripte**.
+
+Der Menüpunkt **Alles
 aufräumen** zeigt vor dem Start eine
 Bestätigung und führt ausschließlich die hinterlegten Cleanup-Pläne aus;
 persistente Data-Root-Inhalte und veröffentlichte Hyper-V-Images bleiben

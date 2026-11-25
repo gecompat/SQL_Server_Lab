@@ -79,6 +79,10 @@ const run = (code) => vm.runInContext(code, context, { timeout: 5000 });
 if (html.includes('<script src="test-group-view.js"></script>')) {
   run(fs.readFileSync(path.join(root, 'Ui', 'test-group-view.js'), 'utf8'));
 }
+assert.match(html, /<script src="container-backup-library\.js"><\/script>\s*<script src="operation-queue\.js"><\/script>\s*<script src="app\.js"><\/script>/);
+assert.match(html, /<script src="sql-observability\.js"><\/script>\s*<script src="container-backup-library\.js"><\/script>/);
+run(fs.readFileSync(path.join(root, 'Ui', 'sql-observability.js'), 'utf8'));
+run(fs.readFileSync(path.join(root, 'Ui', 'container-backup-library.js'), 'utf8'));
 run(fs.readFileSync(path.join(root, 'Ui', 'operation-queue.js'), 'utf8'));
 run(source);
 for (const asset of ['manifest-check.js', 'ssms-registration-export.js', 'cms-management.js', 'resource-plan.js', 'llama-model-catalog.js', 'windows-slot-pool.js', 'ollama-local-generation.js', 'test-group-create.js', 'test-group-management.js']) {
@@ -406,6 +410,112 @@ async function main() {
     assert.equal(node('container-operation-dialog').open, false);
     assert.equal(context.queued.length, 2);
   });
+  const backupRun = '22222222-2222-4222-8222-222222222222';
+  const backupRoot = 'C:/synthetic/Lab_Data';
+  const backupWorkflow = { ...fixture, Defaults: { DataRoot: backupRoot },
+    ActiveLabs: [{ ...fixture.ActiveLabs[0], RunId: backupRun }] };
+  const backupCatalog = [{ Name: 'Backup-SqlServerLabDatabase', RequiresConfirmation: true, SupportsShouldProcess: true,
+    ParameterSets: [{ Name: 'RunBased', Parameters: ['RunId', 'InstanceId', 'DatabaseName', 'SaPassword', 'DataRoot'].map(Name => ({
+      Name, TypeName: Name === 'SaPassword' ? 'System.Security.SecureString' : 'System.String',
+      Mandatory: ['RunId', 'DatabaseName', 'SaPassword'].includes(Name), Sensitive: Name === 'SaPassword', IsCredential: false
+    })) }] }];
+  run('publicCommandCatalog = ' + JSON.stringify(backupCatalog));
+  context.guidedBackupCalls = [];
+  run('const originalBackupStart = startPublicCommand; startPublicCommand = (command, set, parameters, confirmed) => guidedBackupCalls.push({name:command.Name,set:set.Name,parameters,confirmed});');
+  setWorkflow(backupWorkflow);
+  run('renderActiveLabs(workflow.ActiveLabs)');
+  check('Running container instance offers a guided verified backup', () =>
+    assert.match(node('active-labs').innerHTML, /data-container-operation="BackupLibraryDatabase"/));
+  const prepareBackup = async () => {
+    node('container-database-name').disabled = true;
+    node('container-database-name').value = 'PreviousSample';
+    node('container-operation-password').value = 'PREVIOUS_PASSWORD';
+    run('openContainerOperation("BackupLibraryDatabase", ' + JSON.stringify(backupRun) + ', 14332, "analytics", "2022", "container")');
+    assert.equal(node('container-database-name').disabled, false);
+    assert.equal(node('container-database-name').value, '');
+    assert.equal(node('container-operation-password').value, '');
+    node('container-database-name').value = 'Demo';
+    node('container-operation-password').value = 'SYNTHETIC_SECRET_ONLY';
+    await node('container-operation-form').events.get('submit')[0]({ submitter: { value: 'default' }, preventDefault() {} });
+  };
+  await prepareBackup();
+  check('Backup preview binds the instance and database without exposing the password or dispatching', () => {
+    assert.equal(context.guidedBackupCalls.length, 0);
+    assert.equal(node('container-operation-password').value, '');
+    assert.match(node('confirmation-message').textContent, /Analyse.*analytics.*Datenbank: Demo/);
+    assert.doesNotMatch(node('confirmation-message').textContent, /SYNTHETIC_SECRET_ONLY|C:\/synthetic/);
+  });
+  run('cancelDialog(document.getElementById("confirmation-dialog"))');
+  check('Cancelling the backup confirmation drops the pending command', () => {
+    assert.equal(run('pendingConfirmation'), null);
+    assert.equal(context.guidedBackupCalls.length, 0);
+  });
+  await prepareBackup();
+  await node('confirmation-form').events.get('submit')[0]({ preventDefault() {} });
+  check('Confirmed backup uses the existing RunBased one-shot command path', () => {
+    assert.deepEqual(JSON.parse(JSON.stringify(context.guidedBackupCalls)), [{
+      name: 'Backup-SqlServerLabDatabase', set: 'RunBased', confirmed: true,
+      parameters: { RunId: backupRun, InstanceId: 'analytics', DatabaseName: 'Demo', SaPassword: 'SYNTHETIC_SECRET_ONLY', DataRoot: backupRoot }
+    }]);
+  });
+  run('workflow.ActiveLabs[0].State = "STOPPED"');
+  await prepareBackup();
+  check('A stopped source cannot open backup confirmation', () =>
+    assert.equal(run('pendingConfirmation'), null));
+  run('cancelDialog(document.getElementById("container-operation-dialog")); startPublicCommand = originalBackupStart; publicCommandCatalog = [];');
+  const metricsWorkflow = JSON.parse(JSON.stringify(backupWorkflow));
+  metricsWorkflow.ActiveLabs[0].State = 'RUNNING';
+  const metricsCommand = [{ Name: 'Get-SqlServerLabSqlObservabilityEvidence', RequiresConfirmation: false, SupportsShouldProcess: false,
+    ParameterSets: [{ Name: 'RunBased', Parameters: ['RunId', 'InstanceId', 'SaPassword'].map(Name => ({
+      Name, TypeName: Name === 'SaPassword' ? 'System.Security.SecureString' : 'System.String', Mandatory: Name !== 'InstanceId',
+      Sensitive: Name === 'SaPassword', IsCredential: false
+    })) }] }];
+  setWorkflow(metricsWorkflow);
+  run('publicCommandCatalog = ' + JSON.stringify(metricsCommand));
+  context.metricsCalls = [];
+  run('const originalMetricsStart = startPublicCommand; startPublicCommand = (command, set, parameters, confirmed) => metricsCalls.push({name:command.Name,set:set.Name,parameters,confirmed});');
+  run('renderActiveLabs(workflow.ActiveLabs)');
+  check('Running container instance offers a guided metrics read', () =>
+    assert.match(node('active-labs').innerHTML, /data-container-operation="ReadSqlObservability"/));
+  const prepareMetrics = async () => {
+    node('container-database-name').value = 'invalid database name';
+    node('container-script-database').value = 'invalid script database';
+    run('openContainerOperation("ReadSqlObservability", ' + JSON.stringify(backupRun) + ', 14332, "analytics", "2022", "container")');
+    assert.equal(node('container-database-name').value, '');
+    assert.equal(node('container-script-database').value, 'master');
+    assert.equal(node('container-database-field').hidden, true);
+    assert.equal(node('container-script-field').hidden, true);
+    node('container-operation-password').value = 'SYNTHETIC_METRICS_VALUE';
+    await node('container-operation-form').events.get('submit')[0]({ submitter: { value: 'default' }, preventDefault() {} });
+  };
+  await prepareMetrics();
+  check('Metrics confirmation identifies the provider and instance and masks the password', () => {
+    assert.equal(context.metricsCalls.length, 0);
+    assert.match(node('confirmation-message').textContent, /analytics.*podman/);
+    assert.doesNotMatch(node('confirmation-message').textContent, /SYNTHETIC_METRICS_VALUE/);
+    assert.equal(node('container-operation-password').value, '');
+  });
+  run('cancelDialog(document.getElementById("confirmation-dialog"))');
+  check('Cancelling the metrics confirmation dispatches nothing', () => {
+    assert.equal(run('pendingConfirmation'), null);
+    assert.equal(context.metricsCalls.length, 0);
+  });
+  await prepareMetrics();
+  await node('confirmation-form').events.get('submit')[0]({ preventDefault() {} });
+  check('Metrics confirmation uses only the RunBased command and protected password', () => {
+    assert.deepEqual(JSON.parse(JSON.stringify(context.metricsCalls)), [{
+      name: 'Get-SqlServerLabSqlObservabilityEvidence', set: 'RunBased', confirmed: true,
+      parameters: { RunId: backupRun, InstanceId: 'analytics', SaPassword: 'SYNTHETIC_METRICS_VALUE' }
+    }]);
+  });
+  run('workflow.ActiveLabs[0].State = "STOPPED"');
+  await prepareMetrics();
+  check('Stopped target cannot open metrics confirmation', () => {
+    assert.equal(run('pendingConfirmation'), null);
+    assert.equal(context.metricsCalls.length, 1);
+  });
+  run('cancelDialog(document.getElementById("container-operation-dialog")); startPublicCommand = originalMetricsStart; publicCommandCatalog = [];');
+  setWorkflow(fixture);
   const evaluationFetches = [];
   let evaluationPayload = { GeneratedAt: '2026-01-01T00:00:00Z', Scope: 'Registrierte Instanzen; keine Liveprüfung',
     Notice: 'Historische Evidence', EmptyMessage: 'Keine Einträge; kein Nachweis gültiger Lizenzen.', Rows: [

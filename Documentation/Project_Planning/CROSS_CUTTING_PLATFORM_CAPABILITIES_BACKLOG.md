@@ -295,7 +295,9 @@ statische Mock-Vertrag ergänzt zwei getrennte native Referenzläufe vom
 Linux-Run die öffentliche rungebundene Capture vor und nach Restart,
 synthetische Query-Store-Datenbank, persistenten Datenmarker, Privacy-Grenzen
 und scopegebundenen Cleanup. Dies ist keine Freigabe für Hyper-V, externe
-Provider oder allgemeines Monitoring.
+Provider oder allgemeines Monitoring. Unter **SQL-Betriebsmetriken lesen**
+bieten CLI und Browser den gebundenen Abruf für laufende Docker- und
+Podman-Instanzen an. Die Abfrage zeigt eine flüchtige Beobachtung.
 
 Weiterhin offen bleiben:
 

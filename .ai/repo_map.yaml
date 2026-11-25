@@ -468,6 +468,7 @@ sources_of_truth:
   validation_database_migration_dependency: Tests/Static/Invoke-DatabaseMigrationDependencyChecks.ps1
   sql_observability_evidence_contract: Private/SqlObservabilityEvidence.ps1
   sql_observability_evidence_public: Public/Get-SqlServerLabSqlObservabilityEvidence.ps1
+  sql_observability_evidence_guidance: Public/Invoke-SqlServerLab.ps1, Ui/sql-observability.js, Ui/app.js, Private/PublicCommandConsole.ps1 # exact RunBased call, protected password and closed schema result
   sql_observability_evidence_schema: Schemas/sql-observability-evidence.schema.json
   validation_sql_observability_evidence: Tests/Static/Invoke-SqlObservabilityEvidenceChecks.ps1
   acceptance_sql_observability_evidence_container: Tests/Integration/Invoke-ContainerSqlObservabilityAcceptance.ps1
@@ -920,6 +921,7 @@ sources_of_truth:
   workflow_ui_job_status: Tools/WorkflowUiJobStatus.ps1 # bounded UI-owned batch reader; no store initialization or scheduling
   workflow_ui_job_status_validation: Tests/Static/Fixtures/WorkflowJobStatusChecks.ps1, Tests/Static/Fixtures/WorkflowJobStatusChecks.cjs
   workflow_ui_assets: Ui/index.html, Ui/app.js, Ui/app.css, Ui/environment-groups.js
+  workflow_ui_container_backup: Ui/container-backup-library.js, Ui/app.js, Private/PublicCommandConsole.ps1, Public/Backup-SqlServerLabDatabase.ps1, Tests/Static/Fixtures/WorkflowSqlTargetChecks.cjs # guided RunBased backup, same grant and sanitized receipt
   workflow_ui_authenticated_creation: Tools/WorkflowUiTlsCreation.ps1, Private/AuthenticatedTlsUiCreation.ps1, Ui/tls-authenticated-creation.js # session-private allocation custody, closed SQL2019CU32/2022CU27/2025CU9 ticket/profile binding and exact scoped lifecycle, no browser root selection
   workflow_ui_authenticated_creation_validation: Tests/Static/Fixtures/WorkflowUiTlsCreationChecks.ps1, Tests/Static/Fixtures/WorkflowUiTlsCreationChecks.cjs # real request/allocation/worker/renderer boundaries with synthetic provider leaves; native proof separate
   workflow_ui_container_pins: Public/Get-SqlServerLabWorkflow.ps1, Ui/app.js, Catalogs/sql-server-versions.json # bounded scalar ContainerPinnedBuilds; legacy SQL2025 field retained
