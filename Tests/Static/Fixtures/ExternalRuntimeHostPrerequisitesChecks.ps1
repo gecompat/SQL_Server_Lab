@@ -33,6 +33,10 @@ $m=New-Module -ArgumentList $root -ScriptBlock {
         $value=if($docker){[pscustomobject]@{OperatingSystem='linux';CgroupVersion='1';SecurityOptions=@()}}
             else{[pscustomobject]@{OperatingSystem='linux';CgroupVersion='v1';Rootless=$false}}
         if($script:mode -ceq 'v2'){$value.CgroupVersion='2'}
+        if ($script:mode -ceq 'rootless') {
+            if ($docker) { $value.SecurityOptions = @('name=rootless') }
+            else { $value.Rootless = $true }
+        }
         if($extended){
             $value|Add-Member MemTotal 8GB
             if($docker){$value|Add-Member MemoryLimit $true;$value|Add-Member PidsLimit $true;$value|Add-Member NCPU 8}
@@ -56,7 +60,12 @@ try { & $m {
     Assert-Prereq ($legacy.Contract.Version -ceq '1.0' -and -not $legacy.PSObject.Properties['HostPrerequisites'] -and $script:transports -eq 0) 'Default remains unchanged and starts no probe'
     $unmeasured=Get-SqlServerLabExternalRuntimeCapability @args -IncludeHostPrerequisites
     Assert-Prereq ($unmeasured.Contract.Version -ceq '1.2' -and $unmeasured.HostPrerequisites.Status -ceq 'NOT_CHECKED' -and
-        $unmeasured.CurrentReadiness.Status -ceq 'NOT_CHECKED' -and $script:transports -eq 0 -and $script:initializers -eq 0) 'Opt-in metadata alone starts no tool or native process'
+        -not $unmeasured.HostPrerequisites.PSObject.Properties['ProviderFacts'] -and
+        $unmeasured.CurrentReadiness.Status -ceq 'NOT_CHECKED' -and $script:transports -eq 0 -and $script:initializers -eq 0) 'Opt-in v1.2 shape is stable and metadata alone starts no tool or native process'
+    $factsOnly = Get-SqlServerLabExternalRuntimeCapability @args -IncludeProviderFacts
+    Assert-Prereq ($factsOnly.Contract.Version -ceq '1.3' -and $factsOnly.HostPrerequisites.Status -ceq 'NOT_CHECKED' -and
+        $factsOnly.HostPrerequisites.PSObject.Properties['ProviderFacts'] -and
+        $null -eq $factsOnly.HostPrerequisites.ProviderFacts -and $script:transports -eq 0) 'Provider facts are explicit null without an observed result'
     foreach($provider in @('docker','podman')){
         $args.Provider=$provider
         foreach($mode in @('ready','low','invalidCapacity','missingController','unknownController','extra')){
@@ -75,6 +84,20 @@ try { & $m {
                 Assert-Prereq ($d.CurrentReadiness.Status -ceq 'BLOCKED' -and $d.CurrentReadiness.ReasonCode -ceq $expected) "$provider $mode actual reducer blocks with scoped reason"
             }
         }
+    }
+    foreach ($provider in @('docker','podman')) {
+        $args.Provider = $provider
+        $script:mode = 'rootless'; $before=$script:transports
+        $factsOnly = Get-SqlServerLabExternalRuntimeCapability @args -IncludeProviderFacts -CheckProviderReadiness
+        $reported = $factsOnly.HostPrerequisites.ProviderFacts
+        Assert-Prereq ($factsOnly.Contract.Version -ceq '1.3' -and $script:transports -eq $before+1 -and
+            $reported.OperatingSystem -ceq 'linux' -and $reported.CgroupVersion -ceq '1' -and $reported.Rootless -eq $true -and
+            $factsOnly.CurrentReadiness.ReasonCode -ceq 'ROOTFUL_PROVIDER_REQUIRED' -and
+            -not $factsOnly.MutationAllowed) "$provider exposes the normalized observed rootless facts even when blocked"
+        $script:mode = 'extra'
+        $invalid = Get-SqlServerLabExternalRuntimeCapability @args -IncludeProviderFacts -CheckProviderReadiness
+        Assert-Prereq ($invalid.HostPrerequisites.Status -ceq 'UNAVAILABLE' -and $null -eq $invalid.HostPrerequisites.ProviderFacts -and
+            ($invalid | ConvertTo-Json -Depth 20) -cnotmatch 'PRIVATE_HOST_CANARY') "$provider malformed advertisement is withheld"
     }
     $args.Provider='podman';$script:mode='aliasOnly'
     $aliasOnly=Get-SqlServerLabExternalRuntimeCapability @args -IncludeHostPrerequisites -CheckProviderReadiness -ResourceProfile standard

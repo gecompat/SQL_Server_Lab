@@ -81,6 +81,14 @@ kein Provider abgefragt. Mit beiden Schaltern projiziert derselbe begrenzte
 `info --format`-Aufruf zusätzlich Controller und Engine-Gesamtkapazität.
 Es gibt keine zweite native Abfrage.
 
+`-IncludeProviderFacts` verwendet Version `1.3` und schließt die
+Profilvoraussetzungen ein. `HostPrerequisites.ProviderFacts` enthält
+`OperatingSystem` (`linux` oder `windows`), `CgroupVersion` (`1` oder `2`)
+und den booleschen Wert `Rootless` aus derselben normalisierten
+Providerantwort. Ohne auswertbare Beobachtung ist der Eintrag `null`.
+Die gemeldeten Werte beschreiben die Engine für die ausgewählte Variante.
+Die benötigte cgroup-Version bleibt separat in `CurrentReadiness` sichtbar.
+
 `HostPrerequisites` trennt `COMPATIBLE`, `BLOCKED`, `UNKNOWN`, `UNAVAILABLE`,
 `CATALOG_BLOCKED` und `NOT_CHECKED`. Bekannte Profilunterschreitung und fehlende
 Controller blockieren; fehlende oder falsch typisierte Werte bleiben unbekannt.
@@ -91,20 +99,25 @@ Ressourcen. Providerkernelbindung und parallele WSL-Workloads bleiben ungeprüft
 `FullLaunchReadiness=INCOMPLETE` und beide Authorityflags bleiben `false`.
 Rohinventar und freie Providertexte werden nicht übernommen.
 
-Standard `1.0` und historisches Opt-in `1.1` bleiben verfügbar. Beide Opt-ins
-zusammen verwenden `1.2` und erhalten die getrennten Nachweisarten.
+Die Verträge `1.0`, `1.1` und `1.2` behalten ihre Struktur. Historie und
+Profilvoraussetzungen können zusammen gelesen werden. Historische Evidence
+und aktueller Providerbefund behalten getrennte Felder.
 Die geführte Konsole bietet die Profilprüfung nach der Variantenauswahl an.
-Der Browser sendet erst beim bestätigten Leseauftrag `CheckHostPrerequisites`
-mit der ausgewählten SQL-Version, Provider, Sprache, Variante und Profil.
-`ExternalRuntimeCapabilityBrowser/1.3` unterscheidet fehlende Controller
-von Controllern, für die der Provider keine auswertbare Angabe lieferte.
+Der Browser sendet den Leseauftrag `CheckHostPrerequisites` erst auf
+Auswahl mit der SQL-Version, Provider, Sprache, Variante und Profil.
+Mit `IncludeProviderFacts: true` verwendet er
+`ExternalRuntimeCapabilityBrowser/1.4`. Version `1.3` bleibt ohne dieses
+Opt-in verfügbar. Beide Versionen unterscheiden fehlende Controller von
+Controllern, für die der Provider keine auswertbare Angabe lieferte.
+Version `1.4` stellt den gemeldeten Fakten die benötigte cgroup-Version
+des gebundenen SQL-/Launchrezepts gegenüber.
 Beide Listen verwenden die Namen der für den Provider benötigten Controller.
 Absolute Hostwerte werden nicht ausgegeben. Auch `COMPATIBLE` behält
 `FullLaunchReadiness=INCOMPLETE` und erteilt keine Ausführungsfreigabe.
 [Browser-Anleitung](../HowTo/WORKFLOW_UI.md#external-languages-vor-einer-lab-erstellung)
 
 ```powershell
-Get-SqlServerLabExternalRuntimeCapability -SqlVersion 2022 -Provider docker -OperatingSystem linux -SoftwareId sql-python -RuntimeVersion 3.10 -VariantId sql2022-python310-ubuntu2204-derived -IncludeHostPrerequisites -CheckProviderReadiness -ResourceProfile standard
+Get-SqlServerLabExternalRuntimeCapability -SqlVersion 2022 -Provider docker -OperatingSystem linux -SoftwareId sql-python -RuntimeVersion 3.10 -VariantId sql2022-python310-ubuntu2204-derived -IncludeProviderFacts -CheckProviderReadiness -ResourceProfile standard
 ```
 
 ## Manifestdialog
@@ -149,8 +162,10 @@ geschlossenen Browservertrag `SqlServerLab.ExternalRuntimeCapabilityBrowser/1.0`
 mit validierten Katalogidentitäten und dem unveränderten Public-Entscheid.
 Dies bleibt für `ReadOptions` und `Evaluate` unverändert.
 
-**Historische Nachweise lesen** ist eine eigene bewusste Aktion für die gewählte
-Katalogidentität. Ihr Request enthält ausschließlich Action, SQL-Version,
+**Historische Nachweise lesen** im Browser und **Historische Nachweise für
+diese Variante lesen** in der CLI sind bewusste Aktionen für die gewählte
+Katalogidentität. Beide zeigen dieselbe Zusammenfassung. Der Browser-Request
+enthält ausschließlich Action, SQL-Version,
 Provider, Linux-Ziel, Software-ID, Runtimeversion und Variante. Hostprüfungs-,
 Apply- und zusätzliche Opt-in-Felder werden abgewiesen. Der Server ruft die
 vorhandene Public-API einmal mit `IncludeRecordedEvidence` auf, ohne
@@ -227,8 +242,9 @@ NOT_RECORDED/NOT_DEFINED bei ungelöster Katalogidentität oder Legacyindex,
 NOT_RECORDED/DEFINED bei keinem exakten Match, RECORDED_HISTORY_ONLY/DEFINED
 bei vorhandener Historie. Fehlender, ungültiger oder nicht unterstützter Index
 sowie überschrittene Ausgabegrenze ergeben UNAVAILABLE/UNAVAILABLE und leere Zellen.
-CurrentReadiness wird davon nicht verändert. Browser, Manifestdialog und alte
-Public-Aufrufe bleiben beim geschlossenen Standardvertrag 1.0.
+`CurrentReadiness` bleibt bei separat angeforderter Historie `NOT_CHECKED`.
+Die Standardaktionen in Browser, Manifestdialog und Public-API bleiben beim
+geschlossenen Vertrag 1.0.
 
 Das Tool-Opt-in `-IncludeRecordedAcceptanceMatrix -IncludeRecordedIdentityMatrix`
 liefert ausschließlich den geschlossenen Vertrag
