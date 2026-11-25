@@ -86,7 +86,8 @@ function Get-LabPublicCommandParameterDescriptor {
         $type=[type]$_.ParameterType
         $generatesWindowsAccess = $Command.Name -ceq 'New-SqlServerLabWindowsSlotPool' -and
             $name -ceq 'GenerateAdministratorPasswords' -and $type -eq [switch]
-        $gatewayKeyPath = $Command.Name -ceq 'Test-SqlServerLabAiSharedGatewayPreflight' -and $name -ceq 'PrivateKeyPath'
+        $gatewayKeyPath = $name -ceq 'PrivateKeyPath' -and $Command.Name -cin @(
+            'Test-SqlServerLabAiSharedGatewayPreflight','Register-SqlServerLabAiSharedGatewayStorage')
         [PSCustomObject]@{
             Name=$name
             ParameterType=$type
@@ -440,7 +441,7 @@ function Invoke-LabPublicCommandWebRequest {
         $arguments.StateRoot = Assert-LabDiagnosticPath -Path (Get-LabStateRoot)
         $arguments.Path = Assert-LabDiagnosticPath -Path (Join-Path $arguments.StateRoot 'catalog/sql-server-lab-catalog.json')
     }
-    if ($CommandName -ceq 'Test-SqlServerLabAiSharedGatewayPreflight') {
+    if ($CommandName -cin @('Test-SqlServerLabAiSharedGatewayPreflight','Register-SqlServerLabAiSharedGatewayStorage')) {
         $arguments.Plan = Resolve-LabAiSharedGatewayPlan -Plan $arguments.Plan
         foreach ($name in @('RuntimePath','ModelPath','CertificatePath','PrivateKeyPath','CertificateAuthorityPath')) {
             if ($Parameters[$name] -isnot [string]) { throw 'AI_SHARED_GATEWAY_GUIDED_PATH_INVALID' }

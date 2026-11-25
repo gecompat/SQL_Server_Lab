@@ -85,7 +85,12 @@ Der Plan bleibt für den dauerhaften Dienst mit
 `AI_SHARED_GATEWAY_EXECUTION_NOT_IMPLEMENTED` ausdrücklich blockiert. Die
 gebundenen Dateien können bereits mutexgeschützt, benutzerexklusiv und atomar
 im gemeinsamen StateRoot registriert werden; identische parallele Aufrufe sind
-idempotent, abweichende Pläne und Inhaltsdrift werden abgewiesen. Registrar und geführter eigener llama.cpp-Sitzungsstop teilen eine kanonische StateRoot-Lifecyclesperre vor ihren bestehenden Gateway-/Testgruppen-Sperren; bekannte Consumerpublikation kann den Stop nicht überholen. Das ist keine vollständige Live-Verbrauchercoverage. Eine read-only
+idempotent, abweichende Pläne und Inhaltsdrift werden abgewiesen. Die geführte
+Registrierung in CLI und Browser bestätigt die geschützte Kopie für denselben
+Plan. Registrar und geführter eigener llama.cpp-Sitzungsstop teilen eine
+kanonische StateRoot-Lifecyclesperre vor ihren bestehenden Gateway-/Testgruppen-Sperren.
+Bekannte Consumerpublikation kann den Stop nicht überholen. Die vollständige
+Live-Verbrauchercoverage bleibt offen. Eine read-only
 Probe revalidiert diesen Store und prüft einen bereits laufenden gebundenen
 Llama-v1- oder OVMS-v3-Loopback-Upstream auf Modell, Dimension und Vektorwerte.
 `Start-SqlServerLabAiSharedGatewaySession` stellt darauf aufbauend einen

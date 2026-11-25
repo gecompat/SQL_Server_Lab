@@ -1384,6 +1384,15 @@ getrennte Registrierung prüft die Dateien erneut. Im Browser steht das
 Ergebnis im Auftragsprotokoll. Bei einem Pfadfehler prüfe Erreichbarkeit
 und Dateityp.
 
+Wähle **Gateway-Dateien für diesen Plan geschützt registrieren**, um dieselben
+fünf Dateien für den angezeigten Plan zu hinterlegen. Bestätige die Kopie
+einschließlich der privaten Schlüsseldatei in die geschützte Lab-Ablage.
+Die Registrierung prüft die Dateien erneut. `REGISTERED` bestätigt die
+neue Ablage, `ALREADY_REGISTERED` eine unveränderte passende Registrierung.
+Bei einem Konflikt oder geänderten Inhalten lies zuerst den Status für
+diesen Plan und prüfe die Quellartefakte. Anschließend kann der registrierte
+Loopback-Upstream geprüft werden.
+
 Wähle **Registrierten Loopback-Upstream mit Testanfrage prüfen**, um dem
 gebundenen lokalen Upstream genau eine synthetische Embedding-Anfrage zu
 senden. Die Dateien müssen für den angezeigten Plan registriert sein.

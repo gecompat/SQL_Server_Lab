@@ -94,17 +94,17 @@ try {
             }
             $choice = 'back'
             foreach ($path in $Paths) { $inputs.Enqueue($path) }
-            Invoke-LabAiSharedGatewayPreflightInteractive -Plan $Plan
+            Invoke-LabAiSharedGatewayFileActionInteractive -Plan $Plan
             $cancelSafe = $calls.Count -eq 0 -and $messages.Count -eq 0
 
-            $choice = 'verify'
+            $choice = 'confirm'
             $inputs.Enqueue('//invalid-fixture-share/runtime.bin')
-            Invoke-LabAiSharedGatewayPreflightInteractive -Plan $Plan
+            Invoke-LabAiSharedGatewayFileActionInteractive -Plan $Plan
             $badPathSafe = $calls.Count -eq 0 -and $messages.Count -eq 1 -and $messages[0] -notmatch 'invalid-fixture-share'
             $messages.Clear()
 
             foreach ($path in $Paths) { $inputs.Enqueue($path) }
-            Invoke-LabAiSharedGatewayPreflightInteractive -Plan $Plan
+            Invoke-LabAiSharedGatewayFileActionInteractive -Plan $Plan
             [pscustomobject]@{CancelSafe=$cancelSafe;BadPathSafe=$badPathSafe;Calls=$calls.ToArray();Messages=$messages.ToArray();Masked=$masked.ToArray()}
         }
     } $plan $paths

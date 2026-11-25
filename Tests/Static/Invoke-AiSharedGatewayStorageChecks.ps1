@@ -108,6 +108,61 @@ try {
     $null=$jobs|Wait-Job -Timeout 60;$outputs=@($jobs|Receive-Job -ErrorAction Stop);$states=@($jobs.State);$jobs|Remove-Job -Force
     Add-CheckResult 'Zwei Prozesse veröffentlichen genau eine Registrierung idempotent' (($states|Where-Object{$_ -ne 'Completed'}).Count -eq 0 -and (@($outputs.Status|Sort-Object) -join ',') -ceq 'ALREADY_REGISTERED,REGISTERED')
     Add-CheckResult 'Öffentlicher Registrierungsbefehl ist manifestexportiert' ((Get-Command Register-SqlServerLabAiSharedGatewayStorage).ModuleName -ceq 'SqlServerLab')
+
+    $guidedArguments = @{Plan=$plan; RuntimePath=$runtime; ModelPath=$model; CertificatePath=$cert
+        PrivateKeyPath=$key; CertificateAuthorityPath=$caPath}
+    $guidedRoot = Join-Path $testRoot 'guided-state'
+    $guided = & $module {
+        param($Arguments,$SyntheticRoot)
+        & {
+            function Get-LabStateRoot { $SyntheticRoot }
+            $guidedPathInputs = [Collections.Generic.Queue[string]]::new()
+            $messages = [Collections.Generic.List[string]]::new()
+            function Read-LabConsoleTextInput {
+                param($Prompt,[switch]$MaskInput)
+                [pscustomobject]@{Status='Confirmed';Value=$guidedPathInputs.Dequeue()}
+            }
+            function New-LabConsoleItem { param($Id,$Label) [pscustomobject]@{Id=$Id;Label=$Label} }
+            function Invoke-LabConsoleMenu {
+                param($ScreenId,$Title,$Subtitle,$Items)
+                if ($ScreenId -cne 'ai-shared-gateway-register-confirm' -or $Subtitle -notmatch 'einschließlich des Schlüssels') {
+                    throw 'EXPECTED_REGISTRATION_CONFIRMATION'
+                }
+                [pscustomobject]@{Status='Selected';SelectedItem=($Items | Where-Object Id -CEQ $choice)}
+            }
+            function Write-LabInfo { param($Message) $messages.Add($Message) }
+            function Write-LabWarning { throw 'UNEXPECTED_GUIDED_REGISTRATION_WARNING' }
+            function Wait-LabConsoleAcknowledgement {}
+            $choice = 'back'
+            foreach ($field in @('RuntimePath','ModelPath','CertificatePath','PrivateKeyPath','CertificateAuthorityPath')) {
+                $guidedPathInputs.Enqueue($Arguments[$field])
+            }
+            Invoke-LabAiSharedGatewayFileActionInteractive -Plan $Arguments.Plan -Register
+            $cancelSafe = -not (Test-Path -LiteralPath $SyntheticRoot) -and $messages.Count -eq 0
+            $webRequest = @{CommandName='Register-SqlServerLabAiSharedGatewayStorage'; ParameterSetName='__AllParameterSets'; Parameters=$Arguments}
+            $browserRefused = try { Invoke-LabPublicCommandWebRequest @webRequest | Out-Null; $false }
+                              catch { $_.Exception.Message -ceq 'PUBLIC_COMMAND_UI_CONFIRMATION_REQUIRED' }
+            $browserRefused = $browserRefused -and -not (Test-Path -LiteralPath $SyntheticRoot)
+            $choice = 'confirm'
+            foreach ($field in @('RuntimePath','ModelPath','CertificatePath','PrivateKeyPath','CertificateAuthorityPath')) {
+                $guidedPathInputs.Enqueue($Arguments[$field])
+            }
+            Invoke-LabAiSharedGatewayFileActionInteractive -Plan $Arguments.Plan -Register
+            $webReceipt = Invoke-LabPublicCommandWebRequest @webRequest -Confirmed
+            [pscustomobject]@{CancelSafe=$cancelSafe;BrowserRefused=$browserRefused;Messages=$messages.ToArray();Receipt=$webReceipt}
+        }
+    } $guidedArguments $guidedRoot
+    Add-CheckResult 'Abbruch und Browser ohne Bestätigung lassen die geschützte Ablage unverändert' (
+        $guided.CancelSafe -and $guided.BrowserRefused)
+    Add-CheckResult 'CLI registriert den gewählten Plan im konfigurierten StateRoot' (
+        $guided.Messages.Count -eq 2 -and ($guided.Messages[1] | ConvertFrom-Json).Status -ceq 'REGISTERED' -and
+        ($guided.Messages[1] | ConvertFrom-Json).PlanKey -ceq $plan.PlanKey -and
+        (Test-Path -LiteralPath (Join-Path $guidedRoot ('shared-ai-gateways/' + $plan.GatewayId + '/registration.json')) -PathType Leaf))
+    $browserReceipt = $guided.Receipt.Result[0]
+    Add-CheckResult 'Browser bestätigt dieselbe Registrierung idempotent und ohne lokale Pfade' (
+        $guided.Receipt.Result.Count -eq 1 -and $browserReceipt.Status -ceq 'ALREADY_REGISTERED' -and
+        $browserReceipt.PlanKey -ceq $plan.PlanKey -and
+        ($browserReceipt | ConvertTo-Json -Depth 10 -Compress) -notmatch [regex]::Escape($testRoot.Replace('\','\\')))
 }
 finally {
     if($module){Remove-Module $module -Force -ErrorAction SilentlyContinue}
