@@ -314,6 +314,17 @@ function Start-UiWorkflowJob {
                 }
                 Write-Output '[INFO] Hostkapazität und erforderlicher Transferspeicher werden separat geprüft.'
             }
+            if ($JobAction -ceq 'ReadHyperVEvaluationFileAllocationComparison') {
+                $target = $result.Result
+                $comparison = $target.FileAllocationComparison
+                Write-Output ('[INFO] Vergleich zugewiesener SQL-Dateien · Ziellab {0} / {1}: {2}' -f
+                    $target.TargetRunId,$target.TargetInstanceId,$comparison.Status)
+                foreach ($volume in $comparison.Volumes) {
+                    Write-Output ('[INFO] {0}: {1} Bytes zugewiesen / {2} Bytes frei' -f
+                        ($volume.Roles -join ' / '),$volume.AllocatedBytes,$volume.AvailableBytes)
+                }
+                Write-Output '[INFO] Backupplatz, Wachstum, Hostkapazität und Übernahme erfordern eigene Nachweise.'
+            }
             if ($JobAction -eq 'InspectContainerDatabaseMigrationDependencies') {
                 $inventory = $result.Result
                 $summary = [ordered]@{
@@ -694,6 +705,7 @@ $containerAutoStartRecoverySelections = @{}
 $containerAutoStartChangeStore = @{}
 $hyperVAutoStartBrowserStore = @{}
 $aiSharedGatewayBrowserSessions = @{}
+$ovmsGatewayBrowserSessions = @{}
 
 try {
     $commandGrantStore = New-UiCommandGrantStore -Session $operatorSession
@@ -1433,6 +1445,19 @@ try {
                 }
                 continue
             }
+            if ($path -ceq '/api/ollama-cloud-generation' -and $context.Request.HttpMethod -ceq 'GET') {
+                if ($context.Request.Url.Query) {
+                    Write-UiResponse -Context $context -Body '{"Code":"OLLAMA_CLOUD_CATALOG_REQUEST_INVALID"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400 -NoStore
+                    continue
+                }
+                try {
+                    $models = @(& (Get-Module SqlServerLab) { Get-LabAiCloudGenerationCatalog })
+                    Write-UiResponse -Context $context -Body (ConvertTo-Json -InputObject $models -Depth 3 -Compress) -ContentType 'application/json; charset=utf-8' -NoStore
+                } catch {
+                    Write-UiResponse -Context $context -Body '{"Code":"OLLAMA_CLOUD_CATALOG_UNAVAILABLE"}' -ContentType 'application/json; charset=utf-8' -StatusCode 503 -NoStore
+                }
+                continue
+            }
             if ($path -ceq '/api/llama-model-catalog' -and $context.Request.HttpMethod -ceq 'GET') {
                 try {
                     $catalog = @(Get-SqlServerLabLlamaCppModel -ErrorAction Stop)
@@ -1525,6 +1550,99 @@ try {
             }
             if ($path -eq '/api/config' -and $context.Request.HttpMethod -eq 'GET') {
                 Write-UiResponse -Context $context -Body (Get-UiCapabilityConfig | ConvertTo-Json -Depth 6) -ContentType 'application/json; charset=utf-8'
+                continue
+            }
+            if ($path -ceq '/api/ai-external-model/plan') {
+                try {
+                    if ($context.Request.HttpMethod -cne 'POST' -or $context.Request.Url.Query -or
+                        $context.Request.ContentType -notmatch '^application/json(?:\s*;|$)' -or
+                        [string]$context.Request.Headers['Origin'] -cne $url.TrimEnd('/')) { throw 'AI_EXTERNAL_MODEL_PLAN_FORM_INVALID' }
+                    $bodyRead = Read-UiJsonRequestBody -Request $context.Request -MaxBytes 16384
+                    if (-not $bodyRead.Allowed) {
+                        Write-UiResponse -Context $context -Body $bodyRead.Code -StatusCode $bodyRead.StatusCode
+                        continue
+                    }
+                    $planView = & (Get-Module SqlServerLab) { param($body) Invoke-LabGuidedExternalModelPlanHttp -Body $body } $bodyRead.Body
+                    Write-UiResponse -Context $context -Body ($planView | ConvertTo-Json -Depth 8 -Compress) -ContentType 'application/json; charset=utf-8' -NoStore
+                } catch {
+                    Write-UiResponse -Context $context -Body '{"Code":"AI_EXTERNAL_MODEL_PLAN_FORM_INVALID"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400 -NoStore
+                } finally {
+                    $bodyRead = $null
+                    $planView = $null
+                }
+                continue
+            }
+            if ($path -ceq '/api/ai-external-model/sql-plan') {
+                try {
+                    if ($context.Request.HttpMethod -cne 'POST' -or $context.Request.Url.Query -or
+                        $context.Request.ContentType -notmatch '^application/json(?:\s*;|$)' -or
+                        [string]$context.Request.Headers['Origin'] -cne $url.TrimEnd('/')) { throw 'AI_EXTERNAL_MODEL_SQL_PLAN_FORM_INVALID' }
+                    $bodyRead = Read-UiJsonRequestBody -Request $context.Request -MaxBytes 32768
+                    if (-not $bodyRead.Allowed) {
+                        Write-UiResponse -Context $context -Body $bodyRead.Code -StatusCode $bodyRead.StatusCode
+                        continue
+                    }
+                    $planView = & (Get-Module SqlServerLab) { param($body) Invoke-LabGuidedExternalModelSqlPlanHttp -Body $body } $bodyRead.Body
+                    Write-UiResponse -Context $context -Body ($planView | ConvertTo-Json -Depth 8 -Compress) -ContentType 'application/json; charset=utf-8' -NoStore
+                } catch {
+                    $code = if ($_.Exception.Message -ceq 'AI_EXTERNAL_MODEL_ENDPOINT_RECEIPT_EXPIRED') { $_.Exception.Message }
+                        else { 'AI_EXTERNAL_MODEL_SQL_PLAN_FORM_INVALID' }
+                    Write-UiResponse -Context $context -Body (@{Code=$code} | ConvertTo-Json -Compress) -ContentType 'application/json; charset=utf-8' -StatusCode 400 -NoStore
+                } finally {
+                    $bodyRead = $null
+                    $planView = $null
+                }
+                continue
+            }
+            if ($path -ceq '/api/ai-external-model/endpoint') {
+                try {
+                    if ($context.Request.HttpMethod -cne 'POST' -or $context.Request.Url.Query -or
+                        $context.Request.ContentType -notmatch '^application/json(?:\s*;|$)' -or
+                        [string]$context.Request.Headers['Origin'] -cne $url.TrimEnd('/')) {
+                        throw 'AI_EXTERNAL_MODEL_GUIDED_REQUEST_INVALID'
+                    }
+                    $bodyRead = Read-UiJsonRequestBody -Request $context.Request -MaxBytes 65536
+                    if (-not $bodyRead.Allowed) {
+                        Write-UiResponse -Context $context -Body $bodyRead.Code -StatusCode $bodyRead.StatusCode
+                        continue
+                    }
+                    $receipt = & (Get-Module SqlServerLab) { param($body) Invoke-LabGuidedExternalModelEndpointHttp -Body $body } $bodyRead.Body
+                    Write-UiResponse -Context $context -Body ($receipt | ConvertTo-Json -Depth 8 -Compress) -ContentType 'application/json; charset=utf-8'
+                } catch {
+                    $code = $_.Exception.Message
+                    if ($code -cnotin @('AI_EXTERNAL_MODEL_GUIDED_CA_INVALID','AI_EXTERNAL_MODEL_GUIDED_VAULT_UNAVAILABLE',
+                        'AI_EXTERNAL_MODEL_GUIDED_KEY_INVALID','AI_EXTERNAL_MODEL_ENDPOINT_TIMEOUT','AI_EXTERNAL_MODEL_ENDPOINT_NETWORK_FAILURE',
+                        'AI_EXTERNAL_MODEL_TLS_CERTIFICATE_MISMATCH','AI_EXTERNAL_MODEL_PLAN_BLOCKED')) { $code = 'AI_EXTERNAL_MODEL_GUIDED_UNCONFIRMED' }
+                    Write-UiResponse -Context $context -Body (@{Code=$code} | ConvertTo-Json -Compress) -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                }
+                continue
+            }
+            if ($path -ceq '/api/ai-ovms-gateway/sessions') {
+                try {
+                    if ($context.Request.Url.Query) { throw 'AI_OVMS_GUIDED_REQUEST_INVALID' }
+                    if ($context.Request.HttpMethod -ceq 'GET') {
+                        $view = & (Get-Module SqlServerLab) { param($scope) Get-LabGuidedOvmsBrowserSessionView -BrowserSessions $scope } $ovmsGatewayBrowserSessions
+                    } elseif ($context.Request.HttpMethod -ceq 'POST' -and
+                        $context.Request.ContentType -match '^application/json(?:\s*;|$)' -and
+                        [string]$context.Request.Headers['Origin'] -ceq $url.TrimEnd('/')) {
+                        $bodyRead = Read-UiJsonRequestBody -Request $context.Request -MaxBytes 16384
+                        if (-not $bodyRead.Allowed) {
+                            Write-UiResponse -Context $context -Body $bodyRead.Code -StatusCode $bodyRead.StatusCode
+                            continue
+                        }
+                        $view = & (Get-Module SqlServerLab) {
+                            param($scope,$body) Invoke-LabGuidedOvmsBrowserGatewaySession -BrowserSessions $scope -Body $body
+                        } $ovmsGatewayBrowserSessions $bodyRead.Body
+                    } else { throw 'AI_OVMS_GUIDED_REQUEST_INVALID' }
+                    Write-UiResponse -Context $context -Body ($view | ConvertTo-Json -Depth 5 -Compress) -ContentType 'application/json; charset=utf-8'
+                } catch {
+                    $code = $_.Exception.Message
+                    if ($code -cnotin @('AI_OVMS_GUIDED_INPUT_INVALID','AI_OVMS_GUIDED_KEY_INVALID','AI_OVMS_GUIDED_VAULT_UNAVAILABLE',
+                        'AI_OVMS_GATEWAY_WINDOWS_REQUIRED','AI_OVMS_GATEWAY_OWNERSHIP_NOT_FOUND','AI_SHARED_GATEWAY_GUIDED_PATH_INVALID')) {
+                        $code = 'AI_OVMS_GUIDED_UNCONFIRMED'
+                    }
+                    Write-UiResponse -Context $context -Body (@{Code=$code} | ConvertTo-Json -Compress) -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                }
                 continue
             }
             if ($path -ceq '/api/ai-shared-gateway/plan') {
@@ -1829,13 +1947,16 @@ try {
                         $_.Action -eq $action -and $_.Job.State -in @('NotStarted','Running')
                     }).Count) { throw 'FULL_MAINTENANCE_PREVIEW_IN_PROGRESS' }
                 }
-                if ($action -in @('ReadHyperVEvaluationSqlSource', 'ReadHyperVEvaluationWindowsLicense', 'ReadHyperVEvaluationTargetSqlReadiness', 'ReadHyperVEvaluationTargetStorage')) {
+                if ($action -in @('ReadHyperVEvaluationSqlSource', 'ReadHyperVEvaluationWindowsLicense', 'ReadHyperVEvaluationTargetSqlReadiness',
+                    'ReadHyperVEvaluationTargetStorage', 'ReadHyperVEvaluationFileAllocationComparison')) {
                     $evaluationReadKeys = @('RunId', 'InstanceId', 'DataRoot', 'ExpectedPlanKey')
-                    if ($action -cin @('ReadHyperVEvaluationTargetSqlReadiness', 'ReadHyperVEvaluationTargetStorage') -or
+                    if ($action -cin @('ReadHyperVEvaluationTargetSqlReadiness', 'ReadHyperVEvaluationTargetStorage',
+                        'ReadHyperVEvaluationFileAllocationComparison') -or
                         ($action -ceq 'ReadHyperVEvaluationWindowsLicense' -and $parameters.Count -eq 7)) {
                         $evaluationReadKeys += @('TargetRunId', 'TargetInstanceId', 'ExpectedTargetPlanKey')
                     }
-                    if ($action -cnotin @('ReadHyperVEvaluationSqlSource', 'ReadHyperVEvaluationWindowsLicense', 'ReadHyperVEvaluationTargetSqlReadiness', 'ReadHyperVEvaluationTargetStorage') -or
+                    if ($action -cnotin @('ReadHyperVEvaluationSqlSource', 'ReadHyperVEvaluationWindowsLicense', 'ReadHyperVEvaluationTargetSqlReadiness',
+                        'ReadHyperVEvaluationTargetStorage', 'ReadHyperVEvaluationFileAllocationComparison') -or
                         $parameters.Count -ne $evaluationReadKeys.Count -or
                         $evaluationReadKeys.Where({ $parameters[$_] -isnot [string] }).Count -gt 0) {
                         throw 'EVALUATION_REFRESH_INPUT_INVALID'
@@ -1844,6 +1965,7 @@ try {
                         if ($action -ceq 'ReadHyperVEvaluationSqlSource') { throw 'EVALUATION_REFRESH_SQL_SOURCE_ALREADY_RUNNING' }
                         if ($action -ceq 'ReadHyperVEvaluationTargetSqlReadiness') { throw 'EVALUATION_REFRESH_TARGET_SQL_ALREADY_RUNNING' }
                         if ($action -ceq 'ReadHyperVEvaluationTargetStorage') { throw 'EVALUATION_REFRESH_TARGET_STORAGE_ALREADY_RUNNING' }
+                        if ($action -ceq 'ReadHyperVEvaluationFileAllocationComparison') { throw 'EVALUATION_REFRESH_FILE_ALLOCATION_ALREADY_RUNNING' }
                         throw 'EVALUATION_REFRESH_WINDOWS_READ_ALREADY_RUNNING'
                     }
                 }
@@ -1860,7 +1982,7 @@ try {
                         throw 'TEST_GROUP_MANAGEMENT_ACTION_INVALID'
                     }
                 }
-                if (-not $hasTransientSecret -and -not $groupManagement -and $action -notin @('Refresh','StartTestGroupPower','StopTestGroupPower','CreateLinuxTestGroupMember','ReadFullMaintenancePreview','ReadHyperVEvaluationSqlSource','ReadHyperVEvaluationWindowsLicense','ReadHyperVEvaluationTargetSqlReadiness','ReadHyperVEvaluationTargetStorage')) {
+                if (-not $hasTransientSecret -and -not $groupManagement -and $action -notin @('Refresh','StartTestGroupPower','StopTestGroupPower','CreateLinuxTestGroupMember','ReadFullMaintenancePreview','ReadHyperVEvaluationSqlSource','ReadHyperVEvaluationWindowsLicense','ReadHyperVEvaluationTargetSqlReadiness','ReadHyperVEvaluationTargetStorage','ReadHyperVEvaluationFileAllocationComparison')) {
                     # Retain terminal cards for this server session; bound reads without evicting results.
                     if ($persistentJobs.Count -ge 256) { throw 'UI_JOB_STATUS_CAPACITY_REACHED' }
                     $batchStateRoot = & (Get-Module SqlServerLab) { Get-LabStateRoot }
@@ -2010,11 +2132,20 @@ finally {
         try {
             $listener.Stop()
             $listener.Close()
-            if ($aiSharedGatewayBrowserSessions.Count) {
-                $closed = & (Get-Module SqlServerLab) {
-                    param($scope) Close-LabAiSharedGatewayBrowserSessions -BrowserSessions $scope
-                } $aiSharedGatewayBrowserSessions
-                if (-not $closed) { Write-Warning 'Bereinigung eigener Gateway-Sitzungen unbestätigt. Ownerkanal und Lease begrenzen den Worker.' }
+            try {
+                if ($aiSharedGatewayBrowserSessions.Count) {
+                    $closed = & (Get-Module SqlServerLab) {
+                        param($scope) Close-LabAiSharedGatewayBrowserSessions -BrowserSessions $scope
+                    } $aiSharedGatewayBrowserSessions
+                    if (-not $closed) { Write-Warning 'Bereinigung eigener Gateway-Sitzungen unbestätigt. Ownerkanal und Lease begrenzen den Worker.' }
+                }
+            } finally {
+                if ($ovmsGatewayBrowserSessions.Count) {
+                    $closed = & (Get-Module SqlServerLab) {
+                        param($scope) Close-LabGuidedOvmsBrowserGatewaySession -BrowserSessions $scope
+                    } $ovmsGatewayBrowserSessions
+                    if (-not $closed) { Write-Warning 'Bereinigung eigener OVMS-Sitzungen unbestätigt. Ownerkanal und Lease begrenzen den Worker.' }
+                }
             }
         }
         finally {

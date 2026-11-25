@@ -59,6 +59,9 @@ function updateEvaluationRefreshControls() {
     control.hidden = evaluationRefreshElement('target-field').hidden;
     control.disabled = evaluationRefreshBusy || target?.State !== 'RUNNING';
   }
+  const comparison = evaluationRefreshElement('compare-file-allocation');
+  comparison.hidden = evaluationRefreshElement('target-field').hidden;
+  comparison.disabled = evaluationRefreshBusy || evaluationRefreshOwn()?.State !== 'RUNNING' || target?.State !== 'RUNNING';
 }
 async function observeEvaluationRefreshGuest(button, action, noun, target = null) {
   if (!evaluationRefreshElement('dialog').open || evaluationRefreshElement(button).disabled) return;
@@ -174,6 +177,11 @@ evaluationRefreshElement('observe-target-storage').addEventListener('click', () 
   const target = evaluationRefreshTarget();
   if (target?.State !== 'RUNNING') return;
   return observeEvaluationRefreshGuest('observe-target-storage', 'ReadHyperVEvaluationTargetStorage', 'Freier Speicher im Ziellab', target);
+});
+evaluationRefreshElement('compare-file-allocation').addEventListener('click', () => {
+  const target = evaluationRefreshTarget();
+  if (evaluationRefreshOwn()?.State !== 'RUNNING' || target?.State !== 'RUNNING') return;
+  return observeEvaluationRefreshGuest('compare-file-allocation', 'ReadHyperVEvaluationFileAllocationComparison', 'Vergleich der SQL-Dateigrößen', target);
 });
 evaluationRefreshElement('root').addEventListener('input', () => invalidateEvaluationRefresh(true));
 for (const id of ['run', 'mode', 'target']) evaluationRefreshElement(id).addEventListener('change', () => invalidateEvaluationRefresh());

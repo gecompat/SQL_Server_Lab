@@ -161,6 +161,7 @@ try {
     $script:injectInventoryDrift = $false
     $script:expectedSqlTarget = $null
     $script:expectStorage = $false
+    $script:compareStorage = $false
     $script:storageVolumes = @()
     $script:wrongSqlEdition = $false
     $script:editionId = [long]610778273
@@ -172,8 +173,9 @@ try {
     function Get-LabSqlGuestCaptureContext {
         param($RunId,$StateRoot)
         $script:contextReads++
-        $observedRun = if ($script:expectedSqlTarget) { $script:expectedSqlTarget.Run } else { $run }
-        $observedConnection = if ($script:expectedSqlTarget) { $script:expectedSqlTarget.Connection } else { $connection }
+        $useTarget = $script:expectedSqlTarget -and (-not $script:compareStorage -or $RunId -eq [guid]$script:expectedSqlTarget.RunId)
+        $observedRun = if ($useTarget) { $script:expectedSqlTarget.Run } else { $run }
+        $observedConnection = if ($useTarget) { $script:expectedSqlTarget.Connection } else { $connection }
         if ($RunId -ne [guid]$observedRun.runId -or $StateRoot -cne $stateRoot) { throw 'SYNTHETIC_GUEST_TARGET_MISMATCH' }
         [pscustomobject]@{
             Run=[pscustomobject]$observedRun; Instance=($observedConnection.instances[0] | ConvertTo-Json -Depth 8 | ConvertFrom-Json)
@@ -183,8 +185,9 @@ try {
     function Invoke-LabSqlGuestCaptureProbe {
         param($Context,$TimeoutSeconds,[switch]$IncludeSourceInventory,[switch]$IncludeTargetStorage)
         $script:observationCalls++
-        if ($IncludeSourceInventory.IsPresent -eq [bool]$script:expectedSqlTarget -or $TimeoutSeconds -ne 60 -or
-            $IncludeTargetStorage.IsPresent -ne $script:expectStorage) {
+        $isTarget = $script:expectedSqlTarget -and (-not $script:compareStorage -or $Context.Run.runId -ceq $script:expectedSqlTarget.RunId)
+        if ($IncludeSourceInventory.IsPresent -eq [bool]$isTarget -or $TimeoutSeconds -ne 60 -or
+            $IncludeTargetStorage.IsPresent -ne ($script:expectStorage -and $isTarget)) {
             throw 'SYNTHETIC_GUEST_REQUEST_MISMATCH'
         }
         [pscustomobject]@{
@@ -442,6 +445,50 @@ try {
         $script:contextReads = 0
         $script:injectInventoryDrift = $true
         Assert-RefreshReject 'Target runtime drift discards storage observation' { Invoke-SqlServerLabWorkflowAction @storageRequest } EVALUATION_REFRESH_BINDING_CHANGED
+        $script:injectInventoryDrift = $false
+        $script:compareStorage = $true
+        $script:guestCounts.UserDatabases = [long]1
+        $script:guestFilePages = [pscustomobject]@{DataPages=[long]128;LogPages=[long]32}
+        $script:storageVolumes = @(
+            [pscustomobject]@{Roles=@('Data','Log');AvailableBytes=[long]1300000},
+            [pscustomobject]@{Roles=@('Backup');AvailableBytes=[long]90GB}
+        )
+        $compareRequest = @{}+$storageRequest
+        $compareRequest.Action = 'ReadHyperVEvaluationFileAllocationComparison'
+        $comparisonCalls = $script:observationCalls
+        $comparison = Get-SqlServerLabEvaluationRefreshPlan @liveArguments -CompareFileAllocation
+        $comparisonRow = $comparison.TargetAssessment.FileAllocationComparison.Volumes[0]
+        Assert-Refresh ($script:observationCalls -eq $comparisonCalls+2 -and
+            $comparison.TargetAssessment.FileAllocationComparison.Status -ceq 'EXCEEDS_REPORTED_FREE_SPACE' -and
+            $comparison.TargetAssessment.FileAllocationComparison.Volumes.Count -eq 1 -and
+            $comparisonRow.AllocatedBytes -ceq '1310720' -and $comparisonRow.AvailableBytes -ceq '1300000' -and
+            -not $comparisonRow.FitsObservedSpace -and $comparison.Status -ceq 'BLOCKED' -and
+            $comparison.TransferAuthority -ceq 'NONE' -and $comparison.Actions.Count -eq 0) 'Shared Data and Log are summed once, with no Backup or transfer claim'
+        $script:storageVolumes = @(
+            [pscustomobject]@{Roles=@('Data');AvailableBytes=[long]1048576},
+            [pscustomobject]@{Roles=@('Log','Backup');AvailableBytes=[long]262144}
+        )
+        $comparisonResult = (Invoke-SqlServerLabWorkflowAction @compareRequest).Result
+        Assert-Refresh ($script:observationCalls -eq $comparisonCalls+4 -and $comparisonResult.TargetRunId -ceq $liveTarget.RunId -and
+            $comparisonResult.FileAllocationComparison.Status -ceq 'WITHIN_REPORTED_FREE_SPACE' -and
+            ($comparisonResult.FileAllocationComparison.Volumes.AllocatedBytes -join ',') -ceq '1048576,262144' -and
+            -not ($comparisonResult|ConvertTo-Json -Depth 8).Contains('CANARY_PRIVATE')) 'Split volumes keep separate exact bytes and permit equality of observations only'
+        $staleComparison = @{}+$compareRequest; $staleComparison.ExpectedTargetPlanKey = '0' * 64
+        Assert-RefreshReject 'Comparison vetoes an altered target binding before both reads' { Invoke-SqlServerLabWorkflowAction @staleComparison } EVALUATION_REFRESH_BINDING_CHANGED
+        $stoppedComparison = Get-SqlServerLabEvaluationRefreshPlan @targetArguments -CompareFileAllocation
+        Assert-Refresh ($script:observationCalls -eq $comparisonCalls+4 -and
+            $stoppedComparison.TargetAssessment.FileAllocationComparison.Status -ceq 'NOT_OBSERVED' -and
+            $stoppedComparison.TargetAssessment.FileAllocationComparison.Volumes.Count -eq 0) 'Comparison skips both guests if either is stopped'
+        $script:guestFilePages.LogPages = [long]-1
+        $invalidComparison = (Invoke-SqlServerLabWorkflowAction @compareRequest).Result.FileAllocationComparison
+        Assert-Refresh ($invalidComparison.Status -ceq 'NOT_OBSERVED' -and $invalidComparison.Volumes.Count -eq 0) 'Unavailable source allocation is never treated as zero'
+        $maxObservation = [pscustomobject]@{AllocatedFileStorage=[pscustomobject]@{Status='OBSERVED';DataBytes=[long]::MaxValue;LogBytes=[long]::MaxValue}}
+        $maxVolume = [pscustomobject]@{Status='OBSERVED';Volumes=@([pscustomobject]@{Roles=@('Data','Log','Backup');AvailableBytes=[long]::MaxValue})}
+        $maxComparison = Compare-LabEvaluationFileAllocation -SourceInventory $maxObservation -TargetStorage $maxVolume
+        Assert-Refresh ($maxComparison.Volumes[0].AllocatedBytes -ceq '18446744073709551614' -and
+            $maxComparison.Volumes[0].AvailableBytes -ceq '9223372036854775807' -and
+            $maxComparison.Status -ceq 'EXCEEDS_REPORTED_FREE_SPACE') 'Large exact byte counts remain strings and cannot overflow'
+        $script:compareStorage = $false
         Assert-Refresh ((Get-RefreshHashes)-ceq$before) 'Live SQL observations leave all artifacts unchanged'
     }
     finally { Set-Variable -Name IsWindows -Scope Script -Value $hostPlatform -Force }

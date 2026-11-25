@@ -124,17 +124,27 @@ bleiben getrennte Benutzerschritte.
 
 Cursor- und Fallback-Konsole bieten nach der lesbaren Matrixausgabe dieselbe
 Vertiefung über **Konkrete Container-Variante näher prüfen**. Nach exakter
-Variantenwahl wird zwischen reiner Katalog-/Launchdeklaration und bewusster
-aktueller Prüfung gewählt. Erst danach erfolgt genau ein Aufruf von
+Variantenwahl stehen Katalogdeklaration, aktuelle Prüfung und historischer
+Nachweisindex zur Auswahl. Erst danach erfolgt genau ein Aufruf von
 `Get-SqlServerLabExternalRuntimeCapability` mit dem ausgewählten Tupel und
 ausdrücklichem Readiness-Switch. Zurück/Abbruch erfolgt vorher ohne Abfrage.
 Die Ausgabe bleibt nicht persistierend und wartet auf Bestätigung.
+
+**Historische Nachweise für diese Variante lesen** aktiviert den vorhandenen
+`IncludeRecordedEvidence`-Vertrag für das gewählte Tupel. Der Browser bietet
+dieselbe Zusammenfassung unter **Historische Nachweise lesen**. Sie umfasst
+Zuordnungsstatus, festen Grund, Anzahl und den Status der Referenzprüfung.
+Eine Anzahl größer null zählt auch frühere Fehler. Die aktuelle Host- und
+SQL-Sprachprüfung bleiben `NOT_CHECKED`.
 
 Die bestehende Prüfung liest höchstens einmal begrenzt Providerinfo für
 Linux, cgroup-Version und Rootful. Sie verändert keine Runtime und prüft
 keine SQL-Sprachausführung. Zusätzlich kann der Bediener in beiden Oberflächen
 ein Ressourcenprofil wählen und einmalig Controller sowie die vom Provider
-gemeldete Gesamtkapazität prüfen. Freie Ressourcen, WSL-Konflikte und
+gemeldete Gesamtkapazität prüfen. Dieselbe Antwort liefert beobachtetes
+Runtime-Betriebssystem, cgroup-Version und Rootless-Modus, sofern die Engine
+sie auswertbar meldet. Die Werte stehen getrennt von der Entscheidung für
+das gewählte Profil. Freie Ressourcen, WSL-Konflikte und
 Zielrechte bleiben offen. Die Matrix übernimmt kein Detailergebnis als
 gecachten Freigabestatus. Hyper-V-Zeilen, nicht aufgelöste Varianten und
 zurückgestelltes C# bleiben sichtbar und ohne diese Detailaktion.

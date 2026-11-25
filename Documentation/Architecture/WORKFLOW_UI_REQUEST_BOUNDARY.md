@@ -44,6 +44,43 @@ Operator-Capability. Sie akzeptiert genau GET ohne Query oder Body und
 begrenzt die Antwort auf 200 gültige Endpunkte. Die Projektion enthält
 keine Verbindungsstrings, Kennwörter oder lokalen State-Pfade.
 
+Der Vergleich der SQL-Dateizuweisung verwendet einen flüchtigen
+Workflow-Leseauftrag. Der Auftrag bindet Quelle und Ziel an ihre Run- und
+Instanz-IDs, die registrierte Wurzel und beide Vorschau-Digests. Die
+Gastabfragen setzen zwei laufende Instanzen voraus. Die Projektion enthält
+Rollen und Bytewerte je gemeinsamem Daten-/Logvolume.
+
+Die Route `/api/ai-external-model/plan` begrenzt die Strukturprüfung auf
+16 KiB. Sie verlangt die Operator-Capability und die exakte Origin. Bei
+blockierter Konfiguration gibt sie ausschließlich feste Prüfgründe zurück.
+Die Browserübernahme öffnet den getrennten Endpunktdialog zur Bestätigung.
+
+Die Route `/api/ai-external-model/endpoint` verlangt ebenfalls die
+Operator-Capability, die exakte Origin und eine ausdrückliche Bestätigung.
+Der Body ist auf 64 KiB begrenzt. Der Server validiert den Modellplan und
+ein optionales einzelnes öffentliches CA-Zertifikat vor dem Vault-Lesen.
+Eine optionale Referenz wird lokal als `SecureString` für die vorhandene
+HTTPS-Probe aufgelöst. Die Antwort enthält die gebundene Endpunktquittung.
+
+Die Route `/api/ai-external-model/sql-plan` akzeptiert Plan und Quittung
+als Objekte in einem gleichoriginigen, capabilitygebundenen POST bis 32 KiB.
+Die Projektion bewahrt den exakten UTC-Text der Quittung für die
+Digest-Revalidierung. Sie liefert ausschließlich die SQL-Vorschau
+und schreibt weder einen Zustand noch SQL-Objekte.
+
+Der geführte Ollama-Cloud-Dialog liest über die Operator-Capability ausschließlich
+Katalogmetadaten. Das Modell und das feste Ziel erscheinen in der Bestätigung.
+Die Übermittlung verwendet den bestehenden bestätigten Katalogbefehl mit
+expliziter Cloud-Freigabe, zulässiger Datenklasse und genau einem Versuch.
+Der Browser liest weder die Mediendatei noch den Credentialwert.
+
+Die Windows-Route `/api/ai-ovms-gateway/sessions` prüft die
+Operator-Capability, bei POST die exakte Origin, ein Limit von 16 KiB und
+eine ausdrückliche Aktionsbestätigung. Der Start liest explizite lokale
+PEM-Dateien und löst eine Vault-Referenz auf. Liste und Stop sind durch
+Identität des Ownerobjekts auf Sitzungen dieses UI-Servers begrenzt. Die
+Bereinigung beim Serverende verwendet dieselbe Bindung.
+
 ## Acht interne Fachreader
 
 CMS-Inspection, Initial Setup, Slotreserve, Resource Watch, llama.cpp-Installer,

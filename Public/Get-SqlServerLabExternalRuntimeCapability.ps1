@@ -27,13 +27,18 @@ function Get-SqlServerLabExternalRuntimeCapability {
     .PARAMETER IncludeHostPrerequisites
         Opt-in Version 1.2: Controller, Profil-Gesamtkapazitaet und Grenzen des gemeinsamen Kernels.
         Ohne CheckProviderReadiness keine Hostabfrage; mit Pruefung weiterhin genau ein info-Aufruf.
+    .PARAMETER IncludeProviderFacts
+        Opt-in Version 1.3. Ergänzt die Voraussetzungen um beobachtetes Runtime-OS, cgroup-Version
+        und Rootless-Modus, sofern sie aus demselben Providerbefund vorliegen.
+        Ohne CheckProviderReadiness findet weiterhin keine Abfrage statt.
     .PARAMETER ResourceProfile
         Vorhandenes Katalogprofil, nur mit IncludeHostPrerequisites ausgewertet; Default standard.
     .EXAMPLE
         Get-SqlServerLabExternalRuntimeCapability -SqlVersion 2022 -Provider docker -OperatingSystem linux -SoftwareId sql-python -RuntimeVersion 3.10 -VariantId sql2022-python310-ubuntu2204-derived
     .OUTPUTS
         SqlServerLab.ExternalRuntimeCapability/1.0; mit IncludeRecordedEvidence 1.1;
-        mit IncludeHostPrerequisites 1.2, vollstaendige Antwort maximal 256 KiB UTF-8.
+        mit IncludeHostPrerequisites 1.2, mit IncludeProviderFacts 1.3.
+        Vollstaendige Antwort maximal 256 KiB UTF-8.
     #>
     [CmdletBinding()]
     param(
@@ -46,8 +51,10 @@ function Get-SqlServerLabExternalRuntimeCapability {
         [switch]$CheckProviderReadiness,
         [switch]$IncludeRecordedEvidence,
         [switch]$IncludeHostPrerequisites,
+        [switch]$IncludeProviderFacts,
         [ValidatePattern('^[a-z][a-z0-9-]{0,31}$')][string]$ResourceProfile='standard'
     )
+    if ($IncludeProviderFacts) { $IncludeHostPrerequisites = $true }
     # Validate/catalog-resolve before optional native observation, never echo raw inputs/errors.
     $decision=New-LabExternalRuntimeCapabilityDecision -SqlVersion $SqlVersion -Provider $Provider -OperatingSystem $OperatingSystem `
         -SoftwareId $SoftwareId -RuntimeVersion $RuntimeVersion -VariantId $VariantId -IncludeRecordedEvidence:$IncludeRecordedEvidence
@@ -63,7 +70,8 @@ function Get-SqlServerLabExternalRuntimeCapability {
             -SoftwareId $SoftwareId -RuntimeVersion $RuntimeVersion -VariantId $VariantId -IncludeRecordedEvidence:$IncludeRecordedEvidence -HostObservation $observation
     }
     if($IncludeHostPrerequisites){
-        return Add-LabExternalRuntimeHostPrerequisites -Decision $decision -ResourceProfile $ResourceProfile -Requirements $requirements -HostObservation $observation
+        return Add-LabExternalRuntimeHostPrerequisites -Decision $decision -ResourceProfile $ResourceProfile `
+            -Requirements $requirements -HostObservation $observation -IncludeProviderFacts:$IncludeProviderFacts
     }
     return $decision
 }
