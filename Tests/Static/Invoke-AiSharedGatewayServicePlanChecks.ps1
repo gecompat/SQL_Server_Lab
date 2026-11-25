@@ -50,7 +50,17 @@ try {
         & {
             $guidedReads = [Collections.Generic.List[string]]::new()
             $guidedMessages = [Collections.Generic.List[string]]::new()
+            $secretHandoffs = [Collections.Generic.List[object]]::new()
+            $guidedStatusReader = ${function:Get-LabAiSharedGatewayStatus}
+            $guidedRegistered = $false
             function Get-LabStateRoot { $SyntheticStateRoot }
+            function Get-LabAiSharedGatewayStatus {
+                param($Plan,$StateRoot)
+                if ($guidedRegistered) {
+                    return [pscustomobject]@{Status='REGISTERED_STOPPED';GatewayId=$Plan.GatewayId;PlanKey=$Plan.PlanKey;ReceiptKey=('e'*64)}
+                }
+                & $guidedStatusReader @PSBoundParameters
+            }
             function Get-LabAiSharedGatewayServiceCapability {
                 param($StateRoot,$GatewayId)
                 if ($StateRoot -cne $SyntheticStateRoot -or $GatewayId -cne $GatewayPlan.GatewayId) { throw 'UNEXPECTED_GUIDED_SERVICE_TARGET' }
@@ -65,6 +75,10 @@ try {
             function Write-LabInfo { param($Message) $guidedMessages.Add($Message) }
             function Write-LabWarning { throw 'UNEXPECTED_GUIDED_SERVICE_WARNING' }
             function Wait-LabConsoleAcknowledgement {}
+            function Invoke-LabAiSharedGatewayServiceSecretInteractive {
+                param($Plan,$ServicePlan)
+                $secretHandoffs.Add([pscustomobject]@{GatewayKey=$Plan.PlanKey;ServiceKey=$ServicePlan.PlanKey})
+            }
             $choice = 'back'
             Invoke-LabAiSharedGatewayServicePlanInteractive -Plan $GatewayPlan
             $cancelled = $guidedReads.Count -eq 0 -and $guidedMessages.Count -eq 0
@@ -73,16 +87,24 @@ try {
             $cliPlan = $guidedMessages[-1] | ConvertFrom-Json
             $webPlan = Invoke-LabPublicCommandWebRequest -CommandName 'Get-SqlServerLabAiSharedGatewayServicePlan' `
                 -ParameterSetName '__AllParameterSets' -Parameters @{Plan=$GatewayPlan; ServiceMode='SystemdUser'}
-            [pscustomobject]@{CancelSafe=$cancelled;Reads=$guidedReads.ToArray();CliPlan=$cliPlan;WebPlan=$webPlan.Result[0]}
+            $blockedSafe = $secretHandoffs.Count -eq 0
+            $guidedRegistered = $true
+            Invoke-LabAiSharedGatewayServicePlanInteractive -Plan $GatewayPlan
+            $readyPlan = $guidedMessages[-1] | ConvertFrom-Json
+            [pscustomobject]@{CancelSafe=$cancelled;Reads=$guidedReads.ToArray();CliPlan=$cliPlan;WebPlan=$webPlan.Result[0];
+                BlockedSafe=$blockedSafe;ReadyPlan=$readyPlan;SecretHandoffs=$secretHandoffs.ToArray()}
         }
     } $plan $windowsCapability $testRoot
     Add-CheckResult 'CLI-Abbruch liest keine Hostvoraussetzungen und jeder geführte Aufruf liest genau einmal' (
-        $guided.CancelSafe -and $guided.Reads.Count -eq 2 -and @($guided.Reads | Where-Object { $_ -cne $plan.GatewayId }).Count -eq 0)
+        $guided.CancelSafe -and $guided.Reads.Count -eq 3 -and @($guided.Reads | Where-Object { $_ -cne $plan.GatewayId }).Count -eq 0)
     Add-CheckResult 'CLI und Browser binden gewählten Modus und denselben Gateway-Plan ohne StateRoot-Mutation' (
         $guided.CliPlan.ServiceMode -ceq 'WINDOWS_S4U_TASK' -and $guided.CliPlan.GatewayPlanKey -ceq $plan.PlanKey -and
         $guided.WebPlan.ServiceMode -ceq 'LINUX_SYSTEMD_USER' -and $guided.WebPlan.GatewayPlanKey -ceq $plan.PlanKey -and
         $guided.WebPlan.Status -ceq 'BLOCKED' -and $guided.WebPlan.Blockers -contains 'AI_SHARED_GATEWAY_SERVICE_MODE_UNSUPPORTED' -and
         -not (Test-Path -LiteralPath $testRoot) -and ($guided.WebPlan | ConvertTo-Json -Depth 20 | Test-Json -SchemaFile $schema))
+    Add-CheckResult 'Nur ein bereiter Dienstplan öffnet den gebundenen Secret-Prüfschritt' (
+        $guided.BlockedSafe -and $guided.ReadyPlan.Status -ceq 'READY' -and $guided.SecretHandoffs.Count -eq 1 -and
+        $guided.SecretHandoffs[0].GatewayKey -ceq $plan.PlanKey -and $guided.SecretHandoffs[0].ServiceKey -ceq $guided.ReadyPlan.PlanKey)
 }
 finally {if($module){Remove-Module $module -Force -ErrorAction SilentlyContinue};if(Test-Path -LiteralPath $testRoot){Remove-Item -LiteralPath $testRoot -Recurse -Force}}
 if($failures.Count){throw ($failures -join '; ')}

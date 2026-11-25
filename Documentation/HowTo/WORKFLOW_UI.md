@@ -1409,8 +1409,12 @@ Gateway-Zustand und die Hostvoraussetzungen. Wähle **Automatisch** oder prüfe
 gezielt eine Windows-S4U-Aufgabe beziehungsweise einen Linux-systemd-
 Benutzerdienst. `READY` bestätigt diese Planvoraussetzungen. `BLOCKED` nennt
 die fehlenden Voraussetzungen. Das Browser-Auftragsprotokoll zeigt den
-Dienstplan als JSON. Mit dem passenden Gateway- und Dienstplan lässt sich
-anschließend die getrennte Dienst-Secret-Prüfung öffnen.
+Dienstplan als JSON. In der CLI kannst du nach `READY` mit **Dienst-Secrets
+für diesen Plan prüfen** die gebundenen Referenzen im Vault des aktuellen
+Benutzers prüfen. Im Browser verwendet die Dienst-Secret-Prüfung den
+passenden Gateway- und Dienstplan. Die Ergebnisansicht zeigt Anzahl und
+Gültigkeit. Die Auflösung durch den tatsächlich gestarteten nichtinteraktiven
+Dienst ist ein eigener Nachweis.
 
 ### Vorhandene llama.cpp-Pakete prüfen
 

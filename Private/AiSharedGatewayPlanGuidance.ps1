@@ -278,8 +278,36 @@ function Invoke-LabAiSharedGatewayServicePlanInteractive {
         Write-LabInfo ("Dienstplan {0} · {1} · {2}" -f $servicePlan.GatewayId,$servicePlan.ServiceMode,$servicePlan.Status)
         if ($servicePlan.Status -ceq 'BLOCKED') { Write-LabInfo ("Voraussetzungen offen · {0}" -f ($servicePlan.Blockers -join ', ')) }
         Write-LabInfo ($servicePlan | ConvertTo-Json -Depth 8)
+        if ($servicePlan.Status -ceq 'READY') {
+            Invoke-LabAiSharedGatewayServiceSecretInteractive -Plan $Plan -ServicePlan $servicePlan
+            return
+        }
     } catch {
         Write-LabWarning 'Der Dienstplan konnte nicht bestätigt werden. Prüfe den Gateway-Status und den gewählten Hostmodus.'
+    }
+    $null = Wait-LabConsoleAcknowledgement
+}
+
+function Invoke-LabAiSharedGatewayServiceSecretInteractive {
+    param([Parameter(Mandatory)]$Plan,[Parameter(Mandatory)]$ServicePlan)
+
+    $available = [bool](Get-Command -Name Get-Secret -ErrorAction SilentlyContinue)
+    $items = @(
+        New-LabConsoleItem -Id verify -Label 'Dienst-Secrets für diesen Plan prüfen' -Disabled:(-not $available) `
+            -DisabledReason 'PowerShell SecretManagement ist auf diesem Host nicht verfügbar.'
+        New-LabConsoleItem -Id back -Label 'Zurück'
+    )
+    $selection = Invoke-LabConsoleMenu -ScreenId 'ai-shared-gateway-service-secret-confirm' -Title 'Dienst-Secrets prüfen' `
+        -Subtitle 'Die Auswahl prüft die gebundenen Schlüsselreferenzen im Vault des aktuellen Benutzers.' -Items $items
+    if (-not $available -or $selection.Status -cne 'Selected' -or $selection.SelectedItem.Id -cne 'verify') { return }
+
+    try {
+        $receipt = Test-SqlServerLabAiSharedGatewayServiceSecret -Plan $Plan -ServicePlan $ServicePlan
+        $receipt = Resolve-LabAiSharedGatewayServiceSecretReceipt -Receipt $receipt -Plan $Plan -ServicePlan $ServicePlan
+        Write-LabInfo ("Dienst-Secrets geprüft · {0} Referenzen · gültig bis {1}" -f $receipt.ReferenceCount,$receipt.ExpiresAtUtc)
+        Write-LabInfo 'Die Secretauflösung im tatsächlichen nichtinteraktiven Dienstkontext ist separat zu prüfen.'
+    } catch {
+        Write-LabWarning 'Dienst-Secret-Prüfung nicht bestätigt. Prüfe Vault, Schlüsselreferenzen und aktuellen Benutzer.'
     }
     $null = Wait-LabConsoleAcknowledgement
 }
