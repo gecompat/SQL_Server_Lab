@@ -1372,6 +1372,13 @@ nachweisen, die sie gestartet hat. Eine belegte Schnittstelle ohne diesen
 Nachweis wird als ungeklärte Portbelegung ausgewiesen. Dienststart und
 SQL-Anbindung sind getrennte Operationen.
 
+Wähle **Registrierten Loopback-Upstream mit Testanfrage prüfen**, um dem
+gebundenen lokalen Upstream genau eine synthetische Embedding-Anfrage zu
+senden. Die Dateien müssen für den angezeigten Plan registriert sein.
+Der geführte Weg verwendet keinen API-Schlüssel. Das Ergebnis prüft
+Modell, Dimension und Zahlenwerte der Antwort. Im Browser steht es im
+Auftragsprotokoll.
+
 Im Browser übernimmt **In Dienst-Secret-Prüfung übernehmen** den Plan in das
 vorhandene Formular. Die Dienstprüfung benötigt weiterhin ihren eigenen
 Dienstplan und eine Bestätigung. [Gateway-Backlog](../Project_Planning/AI_EXTERNAL_MODEL_ACCELERATION_BACKLOG.md)

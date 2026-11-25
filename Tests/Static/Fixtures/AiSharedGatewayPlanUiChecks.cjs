@@ -70,12 +70,19 @@ const statusCommand = {
     { Name: 'Plan', TypeName: 'System.Object', Mandatory: true, Sensitive: false, IsCredential: false }
   ] }]
 };
+const upstreamCommand = {
+  ...statusCommand, Name: 'Test-SqlServerLabAiSharedGatewayUpstream',
+  ParameterSets: [{ Name: '__AllParameterSets', Parameters: [
+    { Name: 'Plan', TypeName: 'System.Object', Mandatory: true, Sensitive: false, IsCredential: false },
+    { Name: 'ApiKey', TypeName: 'System.Security.SecureString', Mandatory: false, Sensitive: true, IsCredential: false }
+  ] }]
+};
 const context = vm.createContext({
   document: { querySelector: selector => ids.get(selector.slice(1)) },
   sqlServerLabUiFetch(url, options) {
     return new Promise(resolve => requests.push({ url, options, resolve }));
   },
-  publicCommandCatalog: [statusCommand],
+  publicCommandCatalog: [statusCommand, upstreamCommand],
   startPublicCommand(command, parameterSet, parameters, confirmed) {
     return new Promise(resolve => statusCalls.push({ command, parameterSet, parameters, confirmed, resolve }));
   },
@@ -126,6 +133,7 @@ const check = (label, value) => { assert.ok(value, label); checks++; };
   statusCommand.RequiresConfirmation = false;
   const reading = item('read-status').fire('click');
   await item('read-status').fire('click');
+  await item('probe-upstream').fire('click');
   const statusCall = statusCalls[0];
   check('Explicit click dispatches the exact plan once through the existing command path', statusCalls.length === 1 &&
     statusCall.command === statusCommand && statusCall.parameterSet.Name === '__AllParameterSets' &&
@@ -136,6 +144,23 @@ const check = (label, value) => { assert.ok(value, label); checks++; };
   await reading;
   check('An accepted status request does not resurrect its edited plan', item('read-status').disabled && item('plan-result').value === '' &&
     !item('plan-status').textContent.includes('Auftragsprotokoll'));
+  const renewed = form.fire('submit');
+  respond(requests.at(-1), canonical(payload.Consumer));
+  await renewed;
+  check('Preparing a new plan sends no upstream probe', statusCalls.length === 1 && !item('probe-upstream').disabled);
+  const probing = item('probe-upstream').fire('click');
+  await item('probe-upstream').fire('click');
+  await item('read-status').fire('click');
+  const upstreamCall = statusCalls[1];
+  check('The guided upstream request is bound once to the displayed plan without credentials', statusCalls.length === 2 &&
+    upstreamCall.command === upstreamCommand && upstreamCall.confirmed === false &&
+    Object.keys(upstreamCall.parameters).join() === 'Plan' &&
+    JSON.stringify(upstreamCall.parameters.Plan) === JSON.stringify(JSON.parse(item('plan-result').value)));
+  await form.fire('input');
+  upstreamCall.resolve();
+  await probing;
+  check('Editing hides both bound actions while an upstream request finishes', item('probe-upstream').disabled &&
+    item('read-status').disabled && !item('plan-status').textContent.includes('Auftragsprotokoll'));
   const bad = form.fire('submit');
   respond(requests.at(-1), { ...canonical(payload.Consumer), Status: 'READY', Untrusted: 'SYNTHETIC_PRIVATE' });
   await bad;
