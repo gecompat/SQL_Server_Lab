@@ -300,7 +300,9 @@ function Start-UiWorkflowJob {
                 $target = $result.Result
                 Write-Output ('[INFO] SQL-Bereitschaft im Ziellab {0} / {1}: {2} · Beobachtet UTC: {3}' -f
                     $target.TargetRunId, $target.TargetInstanceId, $target.SqlReadinessObservation.Status, $target.SqlReadinessObservation.ObservedAt)
-                Write-Output '[INFO] Der Ersatzentscheid bleibt BLOCKED. SQL-Lizenz, Speicher und Transfer sind getrennte Prüfungen.'
+                $edition = $target.SqlEditionObservation
+                Write-Output ('[INFO] SQL-Edition im Ziellab: {0} · {1} · Evaluationsfrist: {2}' -f $edition.Status,$edition.Classification,$edition.EvaluationDeadlineStatus)
+                Write-Output '[INFO] Der Ersatzentscheid bleibt BLOCKED. Lizenzgültigkeit, Speicher und Transfer erfordern weitere Nachweise.'
             }
             if ($JobAction -ceq 'ReadHyperVEvaluationTargetStorage') {
                 $target = $result.Result

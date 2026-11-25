@@ -459,12 +459,13 @@ migrieren**. Im Browser erscheint das Ergebnis unter **Vorgänge**, zusammen
 mit der ID des Ziellabs und seiner Instanz. Eine abgelaufene Ziel-Evaluation
 bleibt erkennbar.
 
-Wähle **SQL-Bereitschaft im Ziellab prüfen**, um separat zu prüfen, ob
-die erwartete SQL-2025-Instanz im laufenden Ziellab antwortet. Die Konsole
-zeigt den aktuellen Befund direkt. Im Browser steht er unter **Vorgänge**.
-Kann die geplante Instanz nicht eindeutig beobachtet werden, erscheint
-`NOT_OBSERVED`. Die SQL-Lizenz, der Speicher und die Transferfähigkeit
-werden separat bewertet. Der Migrationsentscheid bleibt `BLOCKED`.
+Wähle **SQL-Bereitschaft und Edition im Ziellab prüfen**. Die lesende
+Gastabfrage prüft, ob die erwartete SQL-2025-Instanz antwortet, und
+klassifiziert eine unterstützte Edition. Die CLI zeigt beide Befunde direkt.
+Im Browser stehen sie unter **Vorgänge**. Erscheint `EVALUATION`, bleibt die
+Evaluationsfrist unbeobachtet. Für eine erkannte Developer-Edition gilt die
+Evaluationsfrist als nicht anwendbar. Lizenzgültigkeit, Speicher und
+Transferfähigkeit brauchen weitere Nachweise. Der Plan bleibt `BLOCKED`.
 
 Wähle **Freien Speicher im Ziellab prüfen**, um den freien Speicher für die
 SQL-Standardpfade Daten, Log und Backup zu lesen. Nutzen mehrere Rollen

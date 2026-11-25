@@ -168,7 +168,7 @@ evaluationRefreshElement('observe-target-windows').addEventListener('click', () 
 evaluationRefreshElement('observe-target-sql').addEventListener('click', () => {
   const target = evaluationRefreshTarget();
   if (target?.State !== 'RUNNING') return;
-  return observeEvaluationRefreshGuest('observe-target-sql', 'ReadHyperVEvaluationTargetSqlReadiness', 'SQL-Bereitschaft des Ziellabs', target);
+  return observeEvaluationRefreshGuest('observe-target-sql', 'ReadHyperVEvaluationTargetSqlReadiness', 'SQL-Bereitschaft und Edition des Ziellabs', target);
 });
 evaluationRefreshElement('observe-target-storage').addEventListener('click', () => {
   const target = evaluationRefreshTarget();

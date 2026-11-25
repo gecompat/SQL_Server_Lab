@@ -157,6 +157,9 @@ try {
     $readiness = (Invoke-SqlServerLabWorkflowAction @operationRequest -Action ReadHyperVEvaluationTargetSqlReadiness).Result
     Assert-TargetLicenseAcceptance ($readiness.TargetRunId -ceq $target.RunId -and $readiness.TargetInstanceId -ceq 'primary' -and
         $readiness.SqlReadinessObservation.Status -ceq 'OBSERVED' -and $readiness.SqlReadinessObservation.ObservedAt) 'SQL-Bereitschaft der gebundenen Ziel-VM bestätigt'
+    Assert-TargetLicenseAcceptance ($readiness.SqlEditionObservation.Status -ceq 'OBSERVED' -and
+        $readiness.SqlEditionObservation.Classification -ceq 'NOT_EVALUATION' -and
+        $readiness.SqlEditionObservation.EvaluationDeadlineStatus -ceq 'NOT_APPLICABLE') 'Gebundener Developer-Gast als Nicht-Evaluation erkannt'
     $phase = 'TARGET_STORAGE_CAPACITY'
     $storage = (Invoke-SqlServerLabWorkflowAction @operationRequest -Action ReadHyperVEvaluationTargetStorage).Result
     $observation = $storage.StorageObservation

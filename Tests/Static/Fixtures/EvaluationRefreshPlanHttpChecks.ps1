@@ -215,10 +215,12 @@ try {
     $result = [pscustomobject]@{Result=[pscustomobject]@{
         TargetRunId=$targetSelection.RunId; TargetInstanceId=$targetSelection.InstanceId
         SqlReadinessObservation=[pscustomobject]@{Status='OBSERVED';ObservedAt='2030-01-01T00:00:00.0000000Z';Private='SYNTHETIC_PRIVATE'}
+        SqlEditionObservation=[pscustomobject]@{Status='OBSERVED';Classification='EVALUATION';EvaluationDeadlineStatus='NOT_OBSERVED';Private='SYNTHETIC_PRIVATE'}
     }}
     $lines = & ([scriptblock]::Create($sqlBody.Substring(1,$sqlBody.Length-2)))
     Assert-HttpRefresh (($lines -join ' ') -clike ('*Ziellab '+$targetSelection.RunId+'*OBSERVED*BLOCKED*') -and
-        ($lines -join ' ') -cnotmatch 'SYNTHETIC_PRIVATE') 'Target SQL job confines result and preserves migration boundary'
+        ($lines -join ' ') -cmatch 'SQL-Edition im Ziellab: OBSERVED · EVALUATION · Evaluationsfrist: NOT_OBSERVED' -and
+        ($lines -join ' ') -cnotmatch 'SYNTHETIC_PRIVATE') 'Target SQL job projects edition and an unobserved deadline, preserving the migration boundary'
     $storageFormatter = $server.Find({
         param($node)
         $node -is [Management.Automation.Language.IfStatementAst] -and

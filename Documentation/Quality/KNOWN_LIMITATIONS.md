@@ -681,7 +681,11 @@ Nullwerten und leitet aus positiven Zählern feste Prüfhinweise zu
 Übernahmeabhängigkeiten ab. Die optionale Zielvorschau prüft die getrennte
 registrierte Bindung eines SQL-2025-Ziellabs. Für ein laufendes Ziel lassen
 sich Windows-Lizenz und SQL-Bereitschaft getrennt prüfen. Die SQL-Abfrage
-beobachtet die erwartete Instanz im gebundenen SQL-2025-Prepared-Gast.
+beobachtet die erwartete Instanz im gebundenen SQL-2025-Prepared-Gast und
+klassifiziert unterstützte Evaluation- und Developer-Editionen. Die
+Evaluationsfrist bleibt unbeobachtet. Der Editionsbefund bescheinigt keine
+Lizenzgültigkeit. Die neue Zielprojektion ist statisch abgedeckt. Ihr
+spezifischer nativer Nachweis steht noch aus.
 Für die SQL-Standardpfade Daten, Log und Backup kann die Ziel-VM den freien
 Platz lokaler Volumes gruppiert melden. Nicht eindeutig auflösbare Pfade,
 Netzlaufwerke und Reparse-Pfade ergeben `NOT_OBSERVED`. Die Prüfung beurteilt
