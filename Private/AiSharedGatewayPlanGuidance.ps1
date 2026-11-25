@@ -131,17 +131,25 @@ function Invoke-LabAiSharedGatewayPlanInteractive {
 
     $items = @(
         New-LabConsoleItem -Id status -Label 'Status für diesen Gateway-Plan lesen'
+        New-LabConsoleItem -Id upstream -Label 'Registrierten Loopback-Upstream mit Testanfrage prüfen'
         New-LabConsoleItem -Id back -Label 'Zurück'
     )
-    $selection = Invoke-LabConsoleMenu -ScreenId 'ai-shared-gateway-plan-next' -Title 'Gateway-Plan' -Subtitle 'Optional die lokale Registrierung und Portbelegung prüfen' -Items $items
-    if ($selection.Status -cne 'Selected' -or $selection.SelectedItem.Id -cne 'status') { return }
+    $selection = Invoke-LabConsoleMenu -ScreenId 'ai-shared-gateway-plan-next' -Title 'Gateway-Plan' `
+        -Subtitle 'Die Upstream-Prüfung sendet eine synthetische Anfrage an den gebundenen lokalen Dienst. Sie verwendet keinen API-Schlüssel.' -Items $items
+    if ($selection.Status -cne 'Selected' -or $selection.SelectedItem.Id -cnotin @('status','upstream')) { return }
     try {
-        $view = Get-SqlServerLabAiSharedGatewayStatus -Plan $plan
-        Write-LabInfo ("Gateway-Status {0} · {1} · {2} · {3}" -f $view.GatewayId,$view.Status,$view.ReasonCode,$view.CheckedAtUtc)
+        if ($selection.SelectedItem.Id -ceq 'upstream') {
+            $view = Test-SqlServerLabAiSharedGatewayUpstream -Plan $plan
+            Write-LabInfo ("Gateway-Upstream {0} · {1} · Dimension: {2} · Dauer: {3} ms" -f
+                $view.GatewayId,$view.Status,$view.Dimension,$view.DurationMilliseconds)
+        } else {
+            $view = Get-SqlServerLabAiSharedGatewayStatus -Plan $plan
+            Write-LabInfo ("Gateway-Status {0} · {1} · {2} · {3}" -f $view.GatewayId,$view.Status,$view.ReasonCode,$view.CheckedAtUtc)
+        }
         Write-LabInfo ("Noch offen: {0}" -f ($view.PendingEvidence -join ', '))
     }
     catch {
-        Write-LabWarning 'Gateway-Status konnte nicht bestätigt werden. Prüfe die lokale Registrierung dieses Plans.'
+        Write-LabWarning 'Gateway-Prüfung konnte nicht bestätigt werden. Prüfe die lokale Registrierung und den gebundenen Upstream.'
     }
     $null = Wait-LabConsoleAcknowledgement
 }

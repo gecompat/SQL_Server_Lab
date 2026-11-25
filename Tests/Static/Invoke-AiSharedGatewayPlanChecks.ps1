@@ -60,6 +60,7 @@ try {
             $script:guidedPlannerCalls=0
             $script:guidedPlan=$null
             $script:guidedStatusKeys=[Collections.Generic.List[string]]::new()
+            $script:guidedUpstreamKeys=[Collections.Generic.List[string]]::new()
             $script:guidedText=[Collections.Generic.Queue[string]]::new()
             $script:guidedChoices=[Collections.Generic.Queue[string]]::new()
             function New-LabConsoleItem { param($Id,$Label) [pscustomobject]@{Id=$Id;Label=$Label} }
@@ -86,12 +87,17 @@ try {
                 $script:guidedStatusKeys.Add($Plan.PlanKey)
                 [pscustomobject]@{GatewayId=$Plan.GatewayId;Status='NOT_REGISTERED';ReasonCode='AI_SHARED_GATEWAY_STATUS_NOT_REGISTERED'}
             }
+            function Test-SqlServerLabAiSharedGatewayUpstream {
+                param($Plan)
+                $script:guidedUpstreamKeys.Add($Plan.PlanKey)
+                [pscustomobject]@{GatewayId=$Plan.GatewayId;Status='UPSTREAM_VERIFIED';Dimension=768;DurationMilliseconds=4;PendingEvidence=@('PERSISTENT_GATEWAY_SERVICE')}
+            }
             $entry = @(Show-LabHostModelsMenu | Where-Object Id -CEQ 'AiSharedGatewayPlan')
             if ($entry.Count -ne 1) { throw 'GATEWAY_GUIDED_MENU_ENTRY_INVALID' }
             $script:guidedChoices.Enqueue('ESC')
             Invoke-LabMenuAction -ActionName $entry[0].Id
             $cancelled=$script:guidedPlannerCalls -eq 0
-            foreach($next in @('back','status')) {
+            foreach($next in @('back','status','upstream')) {
                 foreach($name in @('GatewayId','Location','UpstreamLocation','RuntimeModel','Dimension','ModelSha256','RuntimeSha256',
                     'ServerCertificateSha256','CertificateAuthoritySha256')){ $script:guidedText.Enqueue([string]$Case[$name]) }
                 foreach($consumer in @($FirstConsumer,$SecondConsumer)){
@@ -100,13 +106,15 @@ try {
                 foreach($choice in @($Case.UpstreamBackend,$Case.InputProfile,'add','preview',$next)){ $script:guidedChoices.Enqueue($choice) }
                 Invoke-LabMenuAction -ActionName $entry[0].Id
             }
-            [pscustomobject]@{CancelNoPlan=$cancelled; Calls=$script:guidedPlannerCalls; Key=$script:guidedPlan.PlanKey; Count=$script:guidedPlan.Consumers.Count; StatusKeys=$script:guidedStatusKeys.ToArray()}
+            [pscustomobject]@{CancelNoPlan=$cancelled; Calls=$script:guidedPlannerCalls; Key=$script:guidedPlan.PlanKey; Count=$script:guidedPlan.Consumers.Count; StatusKeys=$script:guidedStatusKeys.ToArray();UpstreamKeys=$script:guidedUpstreamKeys.ToArray()}
         }
     } $planArgs $c2 $c1
     Add-CheckResult 'Geführte CLI verwendet denselben Plan mit mehreren Verbrauchern und verwirft Esc' (
-        $console.CancelNoPlan -and $console.Calls -eq 2 -and $console.Key -ceq $plan.PlanKey -and $console.Count -eq 2)
+        $console.CancelNoPlan -and $console.Calls -eq 3 -and $console.Key -ceq $plan.PlanKey -and $console.Count -eq 2)
     Add-CheckResult 'CLI liest den Status nur auf Auswahl und mit dem unveränderten Plan' (
         $console.StatusKeys.Count -eq 1 -and $console.StatusKeys[0] -ceq $plan.PlanKey)
+    Add-CheckResult 'CLI prüft den Upstream nur auf Auswahl und mit dem unveränderten Plan' (
+        $console.UpstreamKeys.Count -eq 1 -and $console.UpstreamKeys[0] -ceq $plan.PlanKey)
 
     $statusRoot=Join-Path ([IO.Path]::GetTempPath()) ('gateway-unregistered-'+[guid]::NewGuid().ToString('N'))
     $commandReceipt=& $module {
@@ -119,6 +127,21 @@ try {
     Add-CheckResult 'Der Browser-Befehl liest die Registrierung im voreingestellten StateRoot ohne Schreibzugriff' (
         $commandReceipt.Result.Count -eq 1 -and $commandReceipt.Result[0].PlanKey -ceq $plan.PlanKey -and
         $commandReceipt.Result[0].Status -ceq 'NOT_REGISTERED' -and -not (Test-Path -LiteralPath $statusRoot))
+
+    $upstreamReceipt = & $module {
+        param($Plan)
+        & {
+            function Test-LabAiSharedGatewayUpstream {
+                param($Plan,$StateRoot,$ApiKey,$TimeoutSeconds)
+                if ($StateRoot -or $ApiKey -or $TimeoutSeconds -ne 30) { throw 'UNEXPECTED_UPSTREAM_GUIDED_AUTHORITY' }
+                [pscustomobject]@{PlanKey=$Plan.PlanKey;Status='UPSTREAM_VERIFIED'}
+            }
+            Invoke-LabPublicCommandWebRequest -CommandName 'Test-SqlServerLabAiSharedGatewayUpstream' -ParameterSetName '__AllParameterSets' -Parameters @{Plan=$Plan}
+        }
+    } $plan
+    Add-CheckResult 'Der Browser-Befehl reicht ausschließlich den Plan an die vorhandene Upstream-Prüfung' (
+        $upstreamReceipt.Result.Count -eq 1 -and $upstreamReceipt.Result[0].PlanKey -ceq $plan.PlanKey -and
+        $upstreamReceipt.Result[0].Status -ceq 'UPSTREAM_VERIFIED')
 
     $tokens=$null;$errors=$null
     $server=[Management.Automation.Language.Parser]::ParseFile((Join-Path $repoRoot 'Tools/Start-SqlServerLabUi.ps1'),[ref]$tokens,[ref]$errors)
