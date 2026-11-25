@@ -367,6 +367,83 @@ function Add-LabDatabaseBackupRestoreVerification {
     }
 }
 
+function Invoke-LabGuidedHyperVLibraryRestore {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$RunId,
+        [Parameter(Mandatory)][string]$InstanceId,
+        [Parameter(Mandatory)][string]$BackupSetId,
+        [Parameter(Mandatory)][string]$DatabaseName,
+        [Parameter(Mandatory)][string]$GuestUserName,
+        [Parameter(Mandatory)][SecureString]$GuestPassword,
+        [Parameter(Mandatory)][SecureString]$SaPassword
+    )
+
+    if (-not (Test-LabDiagnosticGuid $RunId) -or -not (Test-LabDiagnosticGuid $BackupSetId) -or
+        $InstanceId -cnotmatch '^[A-Za-z][A-Za-z0-9_-]{0,63}$' -or
+        $DatabaseName -cnotmatch '^[A-Za-z][A-Za-z0-9_]{0,127}$' -or
+        $GuestUserName -cnotmatch '^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$' -or
+        -not $GuestPassword.Length -or -not $SaPassword.Length) {
+        throw 'HYPERV_LIBRARY_RESTORE_TARGET_INVALID'
+    }
+    $guest = [PSCredential]::new($GuestUserName,$GuestPassword)
+    try {
+        $context = Get-LabHyperVStorageReconcileContext -RunId $RunId -InstanceId $InstanceId
+        $target = Resolve-LabRunInstance -RunId $RunId -InstanceId $InstanceId -StateRoot $context.StateRoot
+        Assert-LabWindowsPoolMutationAllowed -RunId $RunId -StateRoot $context.StateRoot
+        if ([string](Get-LabConnectionCenterCmsConfiguration).RunId -ceq $RunId) { throw 'System service is protected' }
+        if ($context.Run.state -cne 'RUNNING' -or $context.VM.State -ne 'Running' -or $target.Provider -cne 'hyperv' -or
+            -not $target.VMId -or $context.VM.Id -ne [guid]$target.VMId) { throw 'Invalid target binding' }
+        $storage = Get-LabVerifiedStorageRuntimeContext -RunId $RunId -InstanceId $InstanceId -StateRoot $context.StateRoot
+        if ($storage.Receipt.Status -cne 'VERIFIED') { throw 'Storage is not verified' }
+        $address = $null
+        $adapters = @(Get-VMNetworkAdapter -VM $context.VM -ErrorAction Stop)
+        if (-not [Net.IPAddress]::TryParse($target.HostName,[ref]$address) -or
+            [Net.IPAddress]::IsLoopback($address) -or $target.HostName -cnotin @($adapters | ForEach-Object IPAddresses)) {
+            throw 'Host endpoint is not assigned to the bound VM'
+        }
+        $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $context.StateRoot -ExpectedVmId ([guid]$target.VMId) -NoWrite
+        if ([string]$lab.Instance.id -cne $InstanceId) { throw 'Guest SQL instance selection changed' }
+        $receipt = Get-HyperVLabSqlInstanceReceipt -Lab $lab -Credential $guest -ExpectedVmId ([guid]$target.VMId)
+        $listeners = @($receipt.instances | Where-Object { $_.serviceStatus -ceq 'Running' -and [int]$_.tcpPort -eq $target.Port })
+        if ($listeners.Count -ne 1) { throw 'Guest SQL listener is not bound' }
+    } catch { throw 'HYPERV_LIBRARY_RESTORE_TARGET_NOT_READY' }
+
+    try {
+        $dataRoot = Resolve-LabDataRootForUse -DataRoot (Get-LabDataRootDefault)
+        $major = [int](Get-SqlServerVersion -VersionId ([string]$target.Version)).major
+        $backups = @(Get-LabDatabaseBackupSelection -DataRoot $dataRoot | Where-Object BackupSetId -CEQ $BackupSetId)
+        if (-not $major -or $backups.Count -ne 1 -or $backups[0].Availability -cne 'SELECTABLE' -or
+            [int]$backups[0].SourceSqlMajorVersion -lt 13 -or [int]$backups[0].SourceSqlMajorVersion -gt $major -or
+            $backups[0].IsEncrypted) { throw 'Backup is not selectable' }
+    } catch { throw 'HYPERV_LIBRARY_RESTORE_BACKUP_NOT_SELECTABLE' }
+
+    try {
+        $query = "SET NOCOUNT ON; SELECT CONVERT(int, CASE WHEN DB_ID(N'$DatabaseName') IS NULL THEN 0 ELSE 1 END);"
+        $check = Invoke-LabSqlcmdProgress -SqlPassword $SaPassword -ProcessTimeoutSeconds 25 -ArgumentList @(
+            '-S',"$($target.HostName),$($target.Port)",'-U','sa','-C','-b','-h','-1','-W','-l','8','-t','15','-Q',$query) 3>$null 4>$null 5>$null 6>$null
+        $count = (@($check.Output | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }) -join '').Trim()
+        if ($check.ExitCode -ne 0 -or $count -cnotin @('0','1')) { throw 'Invalid conflict check result' }
+    } catch { throw 'HYPERV_LIBRARY_RESTORE_TARGET_CHECK_FAILED' }
+    if ($count -ceq '1') { throw 'HYPERV_LIBRARY_RESTORE_TARGET_EXISTS' }
+
+    $current = Resolve-LabRunInstance -RunId $RunId -InstanceId $InstanceId -StateRoot $context.StateRoot
+    if ($current.Provider -cne 'hyperv' -or $current.VMId -cne $target.VMId -or
+        $current.HostName -cne $target.HostName -or $current.Port -ne $target.Port) {
+        throw 'HYPERV_LIBRARY_RESTORE_TARGET_NOT_READY'
+    }
+    try {
+        $restored = Restore-SqlServerLabDatabase -RunId $RunId -InstanceId $InstanceId -BackupSetId $BackupSetId `
+            -DatabaseName $DatabaseName -SaPassword $SaPassword -GuestCredential $guest -StateRoot $context.StateRoot -DataRoot $dataRoot `
+            -NonInteractive -Confirm:$false 3>$null 4>$null 5>$null 6>$null
+    } catch { throw 'HYPERV_LIBRARY_RESTORE_UNCONFIRMED' }
+    if (-not $restored.Success -or $restored.Provider -cne 'hyperv' -or $restored.BackupSetId -cne $BackupSetId -or
+        $restored.DatabaseName -cne $DatabaseName) { throw 'HYPERV_LIBRARY_RESTORE_UNCONFIRMED' }
+    if ($restored.CleanupStatus -cne 'CONFIRMED') { throw 'HYPERV_LIBRARY_RESTORE_CLEANUP_REQUIRED' }
+    [pscustomobject]@{Status='RESTORED';RunId=$RunId;InstanceId=$InstanceId;BackupSetId=$BackupSetId;DatabaseName=$DatabaseName
+        CleanupStatus='CONFIRMED'}
+}
+
 function New-LabDatabaseLibraryBackup {
     [CmdletBinding()]
     param(

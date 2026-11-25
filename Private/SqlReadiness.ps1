@@ -459,8 +459,20 @@ function Invoke-LabSqlcmdProgress {
         [Parameter(Mandatory)][AllowEmptyString()][string[]]$ArgumentList,
         [ValidateRange(1,86400)][int]$ProcessTimeoutSeconds = 86400,
         [ValidateSet('SqlReadiness','SqlQuery','Restore','Import')][string]$Phase = 'SqlQuery',
-        [object]$Progress
+        [object]$Progress,
+        [SecureString]$SqlPassword
     )
+    $nativeOptions = @{}
+    if ($PSBoundParameters.ContainsKey('SqlPassword')) {
+        if (-not $SqlPassword -or $SqlPassword.Length -eq 0 -or
+            @($ArgumentList.Where({ $_ -cmatch '^-(?:P|X)' })).Count) { throw 'SQLCMD_PROCESS_PASSWORD_ARGUMENTS_INVALID' }
+        $queryIndex = [array]::IndexOf($ArgumentList,'-Q')
+        if ($queryIndex -ge 0 -and ($queryIndex+1 -ge $ArgumentList.Count -or
+            $ArgumentList[$queryIndex+1] -match '(?m)^\s*(?::|!!|GO\b)')) { throw 'SQLCMD_PRODUCT_QUERY_SINGLE_BATCH_REQUIRED' }
+        # Product SQL must not expand inherited variables or read sqlcmd files.
+        if ($ArgumentList -cnotcontains '-x') { $ArgumentList += '-x' }
+        $nativeOptions.SqlPassword = $SqlPassword
+    }
     $command = Get-Command sqlcmd -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
     if (-not $command) { throw 'sqlcmd wurde nicht gefunden.' }
     $outputPath = [IO.Path]::GetTempFileName()
@@ -479,7 +491,7 @@ function Invoke-LabSqlcmdProgress {
         # -u mit eigener -o-Datei liefert dagegen BOM-gebundenes UTF-16LE.
         # Die kurzlebige Ergebnisdatei wird nach jedem Ausgang entfernt.
         $ArgumentList = @($ArgumentList) + @('-u','-o',$outputPath)
-        $native = Invoke-LabProgressNativeCommand -FilePath $command.Source -ArgumentList $ArgumentList -Phase $Phase -Progress $Progress -TimeoutSeconds $ProcessTimeoutSeconds
+        $native = Invoke-LabProgressNativeCommand -FilePath $command.Source -ArgumentList $ArgumentList -Phase $Phase -Progress $Progress -TimeoutSeconds $ProcessTimeoutSeconds @nativeOptions
         $output = @([IO.File]::ReadAllLines($outputPath)) + @($native.Output)
         [pscustomobject]@{ ExitCode=$native.ExitCode; Output=$output }
     }
@@ -491,11 +503,12 @@ function Invoke-LabSqlcmdProgress {
 }
 
 function Invoke-SqlQuery {
-    [CmdletBinding()]
+    [CmdletBinding(DefaultParameterSetName='LegacyPassword')]
     param(
         [string]$HostName = '127.0.0.1',
         [Parameter(Mandatory)][int]$Port,
-        [Parameter(Mandatory)][string]$SaPlain,
+        [Parameter(Mandatory,ParameterSetName='LegacyPassword')][string]$SaPlain,
+        [Parameter(Mandatory,ParameterSetName='ProductQuery')][SecureString]$ProductQueryPassword,
         [Parameter(Mandatory)][string]$Query,
         [string]$Database = 'master',
         [int]$TimeoutSeconds = 30,
@@ -511,25 +524,31 @@ function Invoke-SqlQuery {
     }
 
     $loginTimeoutSeconds = [Math]::Max(2, [Math]::Min($TimeoutSeconds, 30))
+    $processArguments = @('-S',"${HostName},${Port}",'-U','sa')
+    $processOptions = @{}
+    if ($PSCmdlet.ParameterSetName -eq 'ProductQuery') {
+        if ($Query -match '(?m)^\s*(?::|!!|GO\b)') { throw 'SQLCMD_PRODUCT_QUERY_SINGLE_BATCH_REQUIRED' }
+        $processOptions.SqlPassword = $ProductQueryPassword
+    } else {
+        $processArguments += @('-P',$SaPlain)
+    }
+    $processArguments += @('-C','-d',$Database)
+    $executionArguments = @('-b')
     $tempQueryPath = $null
     try {
         if ($IsWindows -and ($Query.Length -gt 7000 -or $Query.Contains('"'))) {
             # CreateProcess besitzt unter Windows ein hartes Kommandozeilenlimit.
             # Grosse oder doppelte Anfuehrungszeichen enthaltende, weiterhin
-            # einzelne T-SQL-Batches werden deshalb als UTF-8-BOM-Datei
-            # uebergeben. Die sqlcmd-Skriptebene bleibt wie im
-            # Single-Connection-Pfad vollstaendig deaktiviert.
+            # einzelne T-SQL-Batches werden als UTF-8-BOM-Datei übergeben.
             $tempQueryPath = [System.IO.Path]::GetTempFileName()
             [System.IO.File]::WriteAllText($tempQueryPath, $Query, [System.Text.UTF8Encoding]::new($true))
-            $native = Invoke-LabSqlcmdProgress -Phase $ProgressPhase -Progress $Progress -ArgumentList @(
-                '-S',"${HostName},${Port}",'-U','sa','-P',$SaPlain,'-C','-d',$Database,
-                '-i',$tempQueryPath,'-b','-X1','-x','-l',"$loginTimeoutSeconds",'-t',"$TimeoutSeconds",'-W')
+            $processArguments += @('-i',$tempQueryPath)
+            if ($PSCmdlet.ParameterSetName -ne 'ProductQuery') { $executionArguments += @('-X1','-x') }
         }
-        else {
-            $native = Invoke-LabSqlcmdProgress -Phase $ProgressPhase -Progress $Progress -ArgumentList @(
-                '-S',"${HostName},${Port}",'-U','sa','-P',$SaPlain,'-C','-d',$Database,
-                '-Q',$Query,'-b','-l',"$loginTimeoutSeconds",'-t',"$TimeoutSeconds",'-W')
-        }
+        else { $processArguments += @('-Q',$Query) }
+        $executionArguments += @('-l',"$loginTimeoutSeconds",'-t',"$TimeoutSeconds",'-W')
+        $native = Invoke-LabSqlcmdProgress -Phase $ProgressPhase -Progress $Progress `
+            -ArgumentList ($processArguments + $executionArguments) @processOptions
         $output = @($native.Output)
         $exitCode = $native.ExitCode
         $outputText = ($output | ForEach-Object { [string]$_ }) -join "`n"

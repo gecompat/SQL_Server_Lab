@@ -88,6 +88,16 @@ vor Jobannahme gegen Schema und Hash geprüft und bindet im Worker die
 aktuelle Zielinstanz erneut. Der Worker veröffentlicht die Vorprüfquittung
 oder einen festen Fehlercode. Datenbankzugang bleibt serverseitig.
 
+Die Route `/api/hyperv/library-restore` akzeptiert nach ausdrücklicher
+Bestätigung ausschließlich die IDs für Run, Instanz und BackupSet, den
+Namen einer neuen Datenbank und zwei flüchtige Zugänge. Exakte Origin und
+Operator-Capability sind erforderlich. Die Zugänge werden vor dem flüchtigen
+Hintergrundjob als SecureString gebunden. Der Worker prüft VM-Identität,
+Gast-IP, tatsächlichen TCP-Port und Storage-Receipt und delegiert die
+Wiederherstellung an den öffentlichen Restore. Für diesen Pfad ist
+`WITH REPLACE` ausgeschlossen. Der Browser erhält eine reduzierte
+Quittung nach bestätigter Kopienbereinigung oder einen festen Fehlercode.
+
 ## Acht interne Fachreader
 
 CMS-Inspection, Initial Setup, Slotreserve, Resource Watch, llama.cpp-Installer,

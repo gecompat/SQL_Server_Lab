@@ -2138,6 +2138,19 @@ Die [bekannten Grenzen](KNOWN_LIMITATIONS.md#container-autostart-nur-vorprüfen)
 bleiben maßgeblich für nicht geprüfte oder nicht ausführbare Fähigkeiten.
 
 
+## Geführter Hyper-V-Bibliotheksrestore
+
+Die Backup-Library-Suite prüft synthetisch die Hyper-V-Zielbindung,
+Gast-IP, den beobachteten SQL-Port, den Backup-Kompatibilitätscheck und
+vorhandene Zieldatenbanken. Der Browser-Fixture prüft Auswahl und
+Bestätigung sowie das Leeren beider Passwortfelder. Die SQL-Progress-
+Suite prüft den prozessgebundenen Passworttransport mit einem echten
+Kindprozess und synthetischem Passwort. Unter Windows wurden zusätzlich
+der installierte ODBC-sqlcmd und ein eigener Loopback-Listener mit
+SQL-Argument und erzeugter SQL-Datei geprüft. Das bestätigt den
+Verbindungsaufbau ohne Passwortprompt oder Passwortausgabe. Ein echter
+Hyper-V-Restore über den gerenderten Browser ist damit nicht nachgewiesen.
+
 ## Getrennte AutoStart-Browservorschau
 
 Der additive Testmodus `Invoke-ContainerAutoStartPreviewAcceptance.ps1 -BrowserOnly`

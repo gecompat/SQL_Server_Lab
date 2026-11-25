@@ -185,6 +185,12 @@ und dem [Gruppenvertrag](../Architecture/LAB_ENVIRONMENT_GROUPS.md).
 | Eigene llama.cpp-Sitzung starten (`Start-SqlServerLabLlamaCppRuntime`) | Host-Dienste und Modelle → Eigene llama.cpp-Sitzung geführt starten | Host-Dienste und Modelle → llama.cpp: eigene Sitzung starten | `GUIDED_BOTH`. Eingabe und Bestätigung führen zum bestehenden öffentlichen Start. CLI- und Browser-Vertragssuiten. | Synthetische Fälle. Native Abnahme des geführten Starts `NOT_EXECUTED`. |
 | Eigene llama.cpp-Sitzung stoppen (`Stop-SqlServerLabLlamaCppRuntime`) | Host-Dienste und Modelle → Eigene llama.cpp-Sitzung auswählen und stoppen | Host-Dienste und Modelle → Eigene llama.cpp-Sitzung stoppen | `GUIDED_BOTH`. Beide Dialoge bestätigen eine gebundene Stop-Vorschau und nutzen denselben Core wie das Cmdlet. Geschützte Verbraucher sperren den geführten Stopp. `Invoke-LlamaCppSessionGuidanceChecks.ps1`. | Nativer Prozess- und Cleanup-Nachweis am 30.09.2026 im dokumentierten Scope. SQL- und Modellbetrieb sind separat. |
 
+## Verifizierte Bibliotheksbackups wiederherstellen
+
+| Operation | Menüpfad | Nachweis |
+| --- | --- | --- |
+| Bibliotheksbackup auf Hyper-V wiederherstellen | CLI **Lab-Umgebungen → Datenbanken, Samples und Skripte → Datenbank wiederherstellen**, Browser **Lab verwalten → laufende SQL-Instanz → Bibliotheksbackup wiederherstellen** | Der Browser bindet verifiziertes Backup, Zielinstanz und neue Zieldatenbank. Das Ziel muss über den verifizierten Storage-Vertrag verfügen. Windows-Gast- und SA-Zugang bleiben flüchtig. Die Tests decken den Dialog, die Bindung und Konfliktfälle synthetisch ab. Die native Abnahme des geführten Browserpfads steht aus. |
+
 ## Geprüfte Operationen: Volltext und FILESTREAM
 
 | Operation | Geführter CLI-Pfad | Geführter GUI-Pfad | Vertrag und Nachweis | Provider-/Versions-Evidence |

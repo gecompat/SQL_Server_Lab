@@ -457,6 +457,7 @@ sources_of_truth:
   container_attach_handler: Private/SampleArtifactHandlers.ps1
   sample_baseline_registry_schema: Schemas/sample-baseline-registry.schema.json
   backup_library: Private/BackupLibrary.ps1
+  hyperv_library_restore_guidance: Private/BackupLibrary.ps1, Public/Restore-SqlServerLabDatabase.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/app.js, Ui/container-backup-library.js, Tests/Static/Invoke-BackupLibraryChecks.ps1
   backup_library_schema: Schemas/backup-library.schema.json
   validation_backup_library: Tests/Static/Invoke-BackupLibraryChecks.ps1
   acceptance_backup_library_cross_provider: Tests/Integration/Invoke-BackupLibraryCrossProviderAcceptance.ps1

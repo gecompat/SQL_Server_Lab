@@ -167,7 +167,8 @@ function Invoke-LabProgressNativeCommand {
         [Parameter(Mandatory)][AllowEmptyString()][string[]]$ArgumentList,
         [ValidateSet('ImageBuild','Transfer','Restore','Import','Cleanup','GuestWait','Extract','SqlReadiness','SqlQuery')][string]$Phase = 'ImageBuild',
         [ValidateRange(1,86400)][int]$TimeoutSeconds = 3600,
-        [object]$Progress
+        [object]$Progress,
+        [SecureString]$SqlPassword
     )
     $ownsProgress = $null -eq $Progress
     if ($ownsProgress) { $Progress = Start-LabActionProgress -Phase $Phase }
@@ -182,7 +183,18 @@ function Invoke-LabProgressNativeCommand {
     $started = $false
     $clock = [System.Diagnostics.Stopwatch]::StartNew()
     try {
-        $started = $process.Start()
+        if ($SqlPassword) {
+            # sqlcmd startup scripts and inherited connection variables are outside this operation.
+            $environment = $process.StartInfo.Environment
+            foreach ($name in @($environment.Keys)) {
+                if ($name -match '^(SQLCMD|OSQL)') { $null = $environment.Remove($name) }
+            }
+            $pointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($SqlPassword)
+            try { $environment['SQLCMDPASSWORD'] = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($pointer) }
+            finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($pointer) }
+        }
+        try { $started = $process.Start() }
+        finally { if ($SqlPassword) { $null = $environment.Remove('SQLCMDPASSWORD') } }
         $stdout = $process.StandardOutput.ReadToEndAsync()
         $stderr = $process.StandardError.ReadToEndAsync()
         while (-not $process.WaitForExit(200)) {
