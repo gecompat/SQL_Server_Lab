@@ -150,6 +150,7 @@
       <button id="compute-selection-open" type="button" class="button secondary">KI-Gerätekombination aus Messbelegen wählen</button>
       <button id="compute-benchmark-open" type="button" class="button secondary">llama.cpp-Gerätekombinationen messen</button>
       <button id="ovms-upstream-open" type="button" class="button secondary">Lokalen OVMS-Embedding-Dienst prüfen</button>
+      <button id="external-model-plan-open" type="button" class="button secondary">Lokalen HTTPS-Modellendpunkt planen</button>
       <button id="external-model-endpoint-open" type="button" class="button secondary">Geplanten HTTPS-Modellendpunkt prüfen</button>
       <button id="ovms-gateway-open" type="button" class="button secondary">Eigene OVMS-HTTPS-Sitzungen verwalten</button>
       <button id="persistent-fixture-open" type="button" class="button secondary">Persistente Retrieval-Collections</button>
@@ -1536,6 +1537,38 @@
         <button id="container-network-plan-read" type="submit" class="button primary">Vorschau lesen</button>
         <button id="container-network-plan-close" type="button" class="button secondary">Schließen</button>
         <button id="container-network-plan-apply" type="button" class="button secondary" hidden disabled>Gebundenen Plan ausführen</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="external-model-plan-dialog" aria-labelledby="external-model-plan-title">
+    <h2 id="external-model-plan-title">Lokalen HTTPS-Modellendpunkt planen</h2>
+    <p>Die Vorschau bindet die Konfiguration für SQL Server 2025. Sie öffnet keine Verbindung zum Endpunkt.</p>
+    <form id="external-model-plan-form">
+      <label>Backend<select name="Backend">
+        <option value="LlamaCppOpenVino">llama.cpp mit OpenVINO</option>
+        <option value="OpenVinoModelServer">OpenVINO Model Server</option>
+        <option value="LlamaCppRocm">llama.cpp mit ROCm</option>
+        <option value="LlamaCppCuda">llama.cpp mit CUDA</option>
+        <option value="LlamaCppSnapdragonOpenCl">llama.cpp mit Snapdragon OpenCL</option>
+        <option value="LlamaCppSnapdragonHexagon">llama.cpp mit Snapdragon Hexagon</option>
+      </select></label>
+      <label>Beschleuniger<select name="Accelerator"><option>CPU</option><option>GPU</option><option>NPU</option></select></label>
+      <label>HTTPS-Betriebsart<select name="TlsMode"><option value="Direct">Direkt</option><option value="Gateway">Gateway</option></select></label>
+      <label>Eingabeprofil<select name="InputProfile"><option>raw</option><option>nomic-search</option><option>snowflake-search</option></select></label>
+      <label>Lokaler HTTPS-Endpunkt<input name="Location" type="url" maxlength="512" required autocomplete="off"></label>
+      <label>External-Model-Name in SQL<input name="ExternalModelName" pattern="[A-Za-z_][A-Za-z0-9_]{0,127}" maxlength="128" required></label>
+      <label>Modellname am Endpunkt<input name="RuntimeModel" maxlength="256" required></label>
+      <label>Embedding-Dimension<input name="Dimension" type="number" min="1" max="1998" required></label>
+      <label>SHA-256 der Modelldatei<input name="ModelSha256" maxlength="64" pattern="[A-Fa-f0-9]{64}" required></label>
+      <label>SHA-256 der Serverruntime<input name="RuntimeSha256" maxlength="64" pattern="[A-Fa-f0-9]{64}" required></label>
+      <label>SHA-256 des Serverzertifikats<input name="ServerCertificateSha256" maxlength="64" pattern="[A-Fa-f0-9]{64}" required></label>
+      <label>OVMS-Gateway-Bindung (JSON)<textarea name="GatewayBindingJson" maxlength="4096" rows="3" spellcheck="false"></textarea></label>
+      <p id="external-model-plan-status" role="status"></p>
+      <label id="external-model-plan-result-box" hidden>Plan (JSON)<textarea id="external-model-plan-result" rows="8" readonly></textarea></label>
+      <div class="build-actions">
+        <button id="external-model-plan-submit" type="submit" class="button">Vorschau erstellen</button>
+        <button id="external-model-plan-use" type="button" class="button secondary" disabled>Zur Endpunktprüfung übernehmen</button>
+        <button id="external-model-plan-close" type="button" class="button secondary">Schließen</button>
       </div>
     </form>
   </dialog>

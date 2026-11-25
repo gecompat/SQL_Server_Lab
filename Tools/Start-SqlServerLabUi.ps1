@@ -1529,6 +1529,26 @@ try {
                 Write-UiResponse -Context $context -Body (Get-UiCapabilityConfig | ConvertTo-Json -Depth 6) -ContentType 'application/json; charset=utf-8'
                 continue
             }
+            if ($path -ceq '/api/ai-external-model/plan') {
+                try {
+                    if ($context.Request.HttpMethod -cne 'POST' -or $context.Request.Url.Query -or
+                        $context.Request.ContentType -notmatch '^application/json(?:\s*;|$)' -or
+                        [string]$context.Request.Headers['Origin'] -cne $url.TrimEnd('/')) { throw 'AI_EXTERNAL_MODEL_PLAN_FORM_INVALID' }
+                    $bodyRead = Read-UiJsonRequestBody -Request $context.Request -MaxBytes 16384
+                    if (-not $bodyRead.Allowed) {
+                        Write-UiResponse -Context $context -Body $bodyRead.Code -StatusCode $bodyRead.StatusCode
+                        continue
+                    }
+                    $planView = & (Get-Module SqlServerLab) { param($body) Invoke-LabGuidedExternalModelPlanHttp -Body $body } $bodyRead.Body
+                    Write-UiResponse -Context $context -Body ($planView | ConvertTo-Json -Depth 8 -Compress) -ContentType 'application/json; charset=utf-8' -NoStore
+                } catch {
+                    Write-UiResponse -Context $context -Body '{"Code":"AI_EXTERNAL_MODEL_PLAN_FORM_INVALID"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400 -NoStore
+                } finally {
+                    $bodyRead = $null
+                    $planView = $null
+                }
+                continue
+            }
             if ($path -ceq '/api/ai-external-model/endpoint') {
                 try {
                     if ($context.Request.HttpMethod -cne 'POST' -or $context.Request.Url.Query -or

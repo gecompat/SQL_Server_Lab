@@ -55,6 +55,12 @@ Umsetzungsreihenfolge:
    gegeneinander messen;
 7. weitere portable Pfade, darunter Snapdragon, als getrennte Hardwarelane.
 
+Der geführte Planungspfad in CLI und Browser bindet einen vorhandenen
+lokalen Embedding-Endpunkt an den Planvertrag. Er kann die bestätigte
+OVMS-Gateway-Bindung übernehmen und öffnet auf Auswahl den getrennten
+Prüfungsdialog. Die Planung lässt Runtime, Geräteattestation und
+SQL-Bindung unbeobachtet.
+
 ## Arbeitspakete
 
 | ID | Priorität | Ziel | Status und erforderlicher Nachweis |

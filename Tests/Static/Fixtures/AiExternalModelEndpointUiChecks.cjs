@@ -20,10 +20,13 @@ class Control {
   async fire(name) {
     return this.events.get(name)?.({preventDefault() {}});
   }
+  dispatchEvent(event) {
+    return this.events.get(event.type)?.(event);
+  }
 }
 
 const prefix = 'external-model-endpoint-';
-const controls = new Map([...html.matchAll(/id="(external-model-endpoint-[^"]+)"/g)].map(match => [match[1],new Control()]));
+const controls = new Map([...html.matchAll(/id="(external-model-(?:endpoint|plan)-[^"]+)"/g)].map(match => [match[1],new Control()]));
 const item = id => controls.get(prefix + id);
 const form = item('form');
 form.reportValidity = () => true;
@@ -36,9 +39,26 @@ item('dialog').close = () => {
   item('dialog').open = false;
   return item('dialog').fire('close');
 };
+const author = id => controls.get('external-model-plan-' + id);
+const authorForm = author('form');
+const inputs = {
+  Backend:'LlamaCppOpenVino',Accelerator:'CPU',Location:'https://localhost:18443/v1/embeddings',
+  ExternalModelName:'FixtureEmbedding',RuntimeModel:'fixture-model',Dimension:'3',
+  ModelSha256:'d'.repeat(64),RuntimeSha256:'e'.repeat(64),ServerCertificateSha256:'b'.repeat(64),
+  TlsMode:'Direct',InputProfile:'raw',GatewayBindingJson:''
+};
+const authorControls = new Map(Object.keys(inputs).map(name=>[name,new Control()]));
+authorForm.elements = {namedItem: name => authorControls.get(name)};
+authorForm.reportValidity = () => true;
+authorForm.reset = () => { for (const [name, control] of authorControls) control.value = inputs[name]; };
+author('dialog').showModal = () => { author('dialog').open = true; };
+author('dialog').close = () => { author('dialog').open = false; return author('dialog').fire('close'); };
+class FixtureCustomEvent {
+  constructor(type, options) { this.type = type; this.detail = options.detail; }
+}
 const sent = [];
 const context = vm.createContext({
-  URL, TextEncoder, document: {querySelector: selector => controls.get(selector.slice(1))},
+  URL, TextEncoder, CustomEvent:FixtureCustomEvent, document: {querySelector: selector => controls.get(selector.slice(1))},
   sqlServerLabUiFetch(url, options) { return new Promise(resolve => sent.push({url,options,resolve})); }
 });
 vm.runInContext(script, context, {timeout: 5000});
@@ -96,5 +116,25 @@ const check = (message, result) => { assert.ok(result,message); passed++; };
     sent.length === 2 && item('result').value === '' && !item('status').textContent.includes('PRIVATE_CANARY'));
   await item('close').fire('click');
   check('Closing releases inputs and receipt', item('plan').value === '' && item('reference').value === '' && item('ca').value === '');
-  console.log('GUIDED HTTPS MODEL ENDPOINT UI: PASS (' + passed + ')');
+  await author('open').fire('click');
+  const prepared = {...plan,Accelerator:'CPU',ExternalModelName:inputs.ExternalModelName,
+    ModelSha256:inputs.ModelSha256,RuntimeSha256:inputs.RuntimeSha256,TlsMode:'Direct',InputProfile:'raw'};
+  const stalePreview = authorForm.fire('submit');
+  await authorForm.fire('input');
+  sent[2].resolve({ok:true,json:async () => ({Status:'NOT_PROBED',Plan:prepared,Blockers:[]})});
+  await stalePreview;
+  check('Changing plan inputs discards late preview and prevents handoff', author('use').disabled && author('result-box').hidden);
+  const preview = authorForm.fire('submit');
+  check('Planning contacts only the local planner once', sent.length === 4 && sent[3].url === '/api/ai-external-model/plan' &&
+    JSON.parse(sent[3].options.body).Dimension === 3);
+  sent[3].resolve({ok:true,json:async () => ({Status:'NOT_PROBED',Plan:prepared,Blockers:[]})});
+  await preview;
+  check('Only an exact configuration match can be transferred', !author('use').disabled &&
+    JSON.parse(author('result').value).PlanKey === prepared.PlanKey);
+  await author('use').fire('click');
+  await form.fire('submit');
+  check('Authoring hands off to the same endpoint dialog without confirmation or execution', item('dialog').open &&
+    !author('dialog').open && item('submit').disabled && !item('confirm').checked && sent.length === 4 &&
+    JSON.parse(item('plan').value).PlanKey === prepared.PlanKey);
+  console.log('GUIDED HTTPS MODEL PLAN AND ENDPOINT UI: PASS (' + passed + ')');
 })().catch(error => {console.error(error);process.exitCode=1;});

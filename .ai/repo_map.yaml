@@ -247,6 +247,7 @@ sources_of_truth:
   ai_runtime_journal_schema: Schemas/ai-runtime-journal.schema.json
   ai_external_model_contract: Private/AiExternalModelAcceleration.ps1
   ai_external_model_plan_api: Public/Get-SqlServerLabAiExternalModelPlan.ps1
+  ai_external_model_plan_guidance: Private/AiExternalModelPlanGuidance.ps1, Public/Get-SqlServerLabAiExternalModelPlan.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/ai-shared-gateway-plan.js, Tests/Static/Invoke-AiExternalModelAccelerationChecks.ps1
   ai_external_model_sql_plan_api: Public/Get-SqlServerLabAiExternalModelSqlPlan.ps1
   ai_external_model_sql_preflight_api: Public/Test-SqlServerLabAiExternalModelSqlPreflight.ps1
   ai_ovms_https_gateway: Private/AiOvmsHttpsGateway.ps1

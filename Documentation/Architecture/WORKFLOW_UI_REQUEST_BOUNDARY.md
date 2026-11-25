@@ -38,6 +38,11 @@ Die Liste und der Stop beziehen sich auf Worker des laufenden UI-Servers.
 Der Server hält dafür das konkrete Ownerobjekt. Beim Beenden bereinigt er
 die erfassten eigenen Worker. Unbestätigte Ergebnisse bleiben sichtbar.
 
+Die Route `/api/ai-external-model/plan` begrenzt die Strukturprüfung auf
+16 KiB. Sie verlangt die Operator-Capability und die exakte Origin. Bei
+blockierter Konfiguration gibt sie ausschließlich feste Prüfgründe zurück.
+Die Browserübernahme öffnet den getrennten Endpunktdialog zur Bestätigung.
+
 Die Route `/api/ai-external-model/endpoint` verlangt ebenfalls die
 Operator-Capability, die exakte Origin und eine ausdrückliche Bestätigung.
 Der Body ist auf 64 KiB begrenzt. Der Server validiert den Modellplan und

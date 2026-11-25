@@ -1468,6 +1468,18 @@ gestartet hat. Eine getrennte Statusabfrage kann einen Port als belegt melden,
 wenn ihr der Ownerkanal nicht vorliegt. Der dauerhafte Autostart und die
 SQL-Bindung erfordern eigene Nachweise.
 
+### Lokalen HTTPS-Modellendpunkt planen
+
+Öffne **Host-Dienste und Modelle → Lokalen HTTPS-Modellendpunkt planen**.
+Wähle Backend, Beschleuniger, HTTPS-Betriebsart und Eingabeprofil. Gib die
+lokale Embedding-URL, den SQL- und den Runtime-Modellnamen, die Dimension
+und die SHA-256-Werte von Modell, Runtime und Zertifikat an. Für OpenVINO
+Model Server übernimmst du die JSON-Bindung deiner gestarteten OVMS-Sitzung.
+Das Ergebnis `NOT_PROBED` ist eine gebundene Konfiguration. Im Browser
+öffnet **Zur Endpunktprüfung übernehmen** den ausgefüllten Folgedialog.
+Die CLI bietet denselben Übergang an. Die eigentliche Endpunktprüfung
+braucht eine separate Bestätigung.
+
 ### Geplanten HTTPS-Modellendpunkt prüfen
 
 Öffne **Host-Dienste und Modelle → Geplanten HTTPS-Modellendpunkt prüfen**.

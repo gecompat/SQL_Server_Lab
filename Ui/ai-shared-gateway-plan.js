@@ -473,6 +473,13 @@
     dialog.showModal();
   });
   planField.addEventListener('input', formatPlan);
+  dialog.addEventListener('sqlserverlab:prepared-plan', event => {
+    if (busy || dialog.open) return;
+    form.reset();
+    planField.value = JSON.stringify(event.detail, null, 2);
+    formatPlan();
+    if (plan) dialog.showModal();
+  });
   for (const control of [caField, referenceField]) {
     control.addEventListener('input', () => {
       confirm.checked = false;
@@ -702,5 +709,96 @@
     if (!stop.disabled && ownSessions.some(row => row.OperationId === selection.value)) {
       return dispatch({Action:'Stop',Confirmed:true,OperationId:selection.value});
     }
+  });
+})();
+
+(() => {
+  const element = name => document.querySelector('#external-model-plan-' + name);
+  const dialog = element('dialog');
+  if (!dialog) return;
+  const form = element('form');
+  const submit = element('submit');
+  const use = element('use');
+  const status = element('status');
+  const result = element('result');
+  const resultBox = element('result-box');
+  const textFields = ['Backend','Accelerator','Location','ExternalModelName','RuntimeModel','ModelSha256',
+    'RuntimeSha256','ServerCertificateSha256','TlsMode','InputProfile','GatewayBindingJson'];
+  let plan = null;
+  let revision = 0;
+  let busy = false;
+
+  function invalidate() {
+    revision++;
+    plan = null;
+    use.disabled = true;
+    result.value = '';
+    resultBox.hidden = true;
+    status.textContent = '';
+  }
+
+  element('open').addEventListener('click', () => { form.reset(); invalidate(); dialog.showModal(); });
+  element('close').addEventListener('click', () => dialog.close());
+  dialog.addEventListener('close', () => { form.reset(); invalidate(); });
+  form.addEventListener('input', invalidate);
+
+  form.addEventListener('submit', async event => {
+    event.preventDefault();
+    if (busy || !dialog.open || !form.reportValidity()) return;
+    invalidate();
+    const requestId = revision;
+    const payload = Object.fromEntries(textFields.map(name => [name,form.elements.namedItem(name).value.trim()]));
+    payload.Dimension = Number(form.elements.namedItem('Dimension').value);
+    const body = JSON.stringify(payload);
+    if (new TextEncoder().encode(body).length > 16384 || !Number.isInteger(payload.Dimension) ||
+        payload.Dimension < 1 || payload.Dimension > 1998) {
+      status.textContent = 'Prüfe die Dimension und die Größe der Eingaben.';
+      return;
+    }
+    busy = true;
+    submit.disabled = true;
+    status.textContent = 'Konfiguration wird geprüft …';
+    try {
+      const response = await sqlServerLabUiFetch('/api/ai-external-model/plan', {
+        method:'POST',headers:{'Content-Type':'application/json'},body
+      });
+      if (!response.ok) throw new Error('PLAN_REQUEST_REJECTED');
+      const view = await response.json();
+      if (revision !== requestId || !dialog.open) return;
+      if (view?.Status === 'BLOCKED' && view.Plan === null && Array.isArray(view.Blockers) &&
+          view.Blockers.length > 0 && view.Blockers.length <= 16 &&
+          view.Blockers.every(code => typeof code === 'string' && /^AI_EXTERNAL_MODEL_[A-Z0-9_]{1,80}$/.test(code))) {
+        status.textContent = 'Plan blockiert · ' + view.Blockers.join(' · ');
+        return;
+      }
+      const candidate = view?.Plan;
+      const exact = ['Backend','Accelerator','ExternalModelName','RuntimeModel','Dimension','TlsMode','InputProfile'];
+      const hashes = ['ModelSha256','RuntimeSha256','ServerCertificateSha256'];
+      if (view?.Status !== 'NOT_PROBED' || candidate?.Contract?.Name !== 'SqlServerLab.AiExternalModelPlan' ||
+          candidate.Contract.Version !== '1.0' || candidate.Status !== 'NOT_PROBED' ||
+          candidate.EvidenceStatus !== 'CONFIGURATION_ONLY' || !/^[a-f0-9]{64}$/.test(candidate.PlanKey) ||
+          !exact.every(name => candidate[name] === payload[name]) ||
+          !hashes.every(name => candidate[name] === payload[name].toLowerCase()) ||
+          candidate.Location !== new URL(payload.Location).href) throw new Error('UNCONFIRMED_PLAN');
+      plan = candidate;
+      result.value = JSON.stringify(plan,null,2);
+      resultBox.hidden = false;
+      use.disabled = false;
+      status.textContent = 'Konfiguration gebunden. Laufzeit und SQL-Einsatz benötigen eigene Prüfungen.';
+    } catch {
+      if (revision === requestId && dialog.open) status.textContent = 'Vorschau unbestätigt. Prüfe die Eingaben.';
+    } finally {
+      busy = false;
+      submit.disabled = false;
+    }
+  });
+
+  use.addEventListener('click', () => {
+    if (!plan || !dialog.open || use.disabled) return;
+    const prepared = plan;
+    dialog.close();
+    document.querySelector('#external-model-endpoint-dialog')?.dispatchEvent(
+      new CustomEvent('sqlserverlab:prepared-plan', {detail:prepared})
+    );
   });
 })();

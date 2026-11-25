@@ -32,6 +32,59 @@ try {
         ($boundOvms|ConvertTo-Json -Depth 10|Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/ai-external-model-plan.schema.json')))
     $resolvedBoundOvms=& $module {param($p)Resolve-LabAiExternalModelPlan -Plan $p} $boundOvms
     Add-CheckResult 'Gebundener OVMS-Plan bleibt bei Revalidierung hashstabil' ($resolvedBoundOvms.PlanKey -ceq $boundOvms.PlanKey -and $resolvedBoundOvms.GatewayBindingKey -ceq $gatewayBindingKey)
+    $guidedValues=@{Backend='OpenVinoModelServer';Accelerator='NPU';Location=$gatewayLocation;ExternalModelName='OvmsNpu'
+        RuntimeModel='bound-ovms-model';Dimension=3;ModelSha256=$h;RuntimeSha256=$h;ServerCertificateSha256=$c
+        TlsMode='Gateway';InputProfile='raw';GatewayBindingJson=($gatewayBinding|ConvertTo-Json -Depth 4 -Compress)}
+    $guidedView=& $module {param($body) Invoke-LabGuidedExternalModelPlanHttp -Body $body} ($guidedValues|ConvertTo-Json -Compress)
+    Add-CheckResult 'Geführte Planvorschau bindet den exakten öffentlichen OVMS-Plan' (
+        $guidedView.Status -ceq 'NOT_PROBED' -and $guidedView.Plan.PlanKey -ceq $boundOvms.PlanKey -and $guidedView.Blockers.Count -eq 0)
+    $badGuidedValues=$guidedValues.Clone()
+    $badGuidedValues.Location='https://PRIVATE_CANARY@127.0.0.1:18443/v3/embeddings'
+    $blockedGuidance=& $module {param($body) Invoke-LabGuidedExternalModelPlanHttp -Body $body} ($badGuidedValues|ConvertTo-Json -Compress)
+    Add-CheckResult 'Blockierte Planvorschau projiziert nur feste Codes und verwirft eingegebene URL' (
+        $blockedGuidance.Status -ceq 'BLOCKED' -and $null -eq $blockedGuidance.Plan -and
+        'AI_EXTERNAL_MODEL_HTTPS_LOCATION_REQUIRED' -cin $blockedGuidance.Blockers -and
+        ($blockedGuidance|ConvertTo-Json -Compress) -cnotmatch 'PRIVATE_CANARY')
+    $badGuidedValues=$guidedValues.Clone()
+    $badGuidedValues.Dimension=3.5
+    $numericRejection=try {
+        $null=& $module {param($body) Invoke-LabGuidedExternalModelPlanHttp -Body $body} ($badGuidedValues|ConvertTo-Json -Compress)
+        $false
+    } catch { $_.Exception.Message -ceq 'AI_EXTERNAL_MODEL_PLAN_FORM_INVALID' }
+    Add-CheckResult 'Geführte Planvorschau rundet keine Dimension' $numericRejection
+    $planRouteProof = & {
+        $parsed=[Management.Automation.Language.Parser]::ParseFile((Join-Path $repoRoot 'Tools/Start-SqlServerLabUi.ps1'),[ref]$null,[ref]$null)
+        $route=$parsed.Find({
+            param($node)
+            $node -is [Management.Automation.Language.IfStatementAst] -and
+                $node.Clauses[0].Item1.Extent.Text -ceq '$path -ceq ''/api/ai-external-model/plan'''
+        },$true)
+        if (-not $route) { return $false }
+        $handler=[scriptblock]::Create('foreach($once in @($true)) '+$route.Clauses[0].Item2.Extent.Text)
+        $url='http://127.0.0.1:18443/'
+        $context=[pscustomobject]@{Request=[pscustomobject]@{
+            HttpMethod='POST';Url=[uri]($url+'api/ai-external-model/plan')
+            ContentType='application/json';Headers=@{Origin='http://127.0.0.1:18444'}
+        }}
+        $record=@{Reads=0;Result=$null}
+        function Read-UiJsonRequestBody {
+            param($Request,$MaxBytes)
+            if ($MaxBytes -ne 16384) { throw 'TEST_PLAN_BODY_LIMIT' }
+            $record.Reads++
+            @{Allowed=$true;Body=($guidedValues|ConvertTo-Json -Compress)}
+        }
+        function Write-UiResponse {
+            param($Context,$Body,$StatusCode=200,$ContentType,[switch]$NoStore)
+            $record.Result=[pscustomobject]@{Status=$StatusCode;Payload=($Body|ConvertFrom-Json);NoStore=$NoStore.IsPresent}
+        }
+        & $handler
+        if ($record.Reads -ne 0 -or $record.Result.Status -ne 400) { return $false }
+        $context.Request.Headers.Origin=$url.TrimEnd('/')
+        & $handler
+        $record.Reads -eq 1 -and $record.Result.Status -eq 200 -and $record.Result.NoStore -and
+            $record.Result.Payload.Plan.PlanKey -ceq $boundOvms.PlanKey
+    }
+    Add-CheckResult 'Planroute prüft Origin vor Body und nutzt geschlossene Ergebnisprojektion ohne Cache' ($planRouteProof -eq $true)
     $tamperedBinding=$gatewayBinding.PSObject.Copy();$tamperedBinding.BindingKey='e'*64
     $tamperedPlan=Get-SqlServerLabAiExternalModelPlan -Backend OpenVinoModelServer -Accelerator NPU -TlsMode Gateway -Location $gatewayLocation -ExternalModelName OvmsNpu -RuntimeModel bound-ovms-model -Dimension 3 -ModelSha256 $h -RuntimeSha256 $h -ServerCertificateSha256 $c -GatewayBinding $tamperedBinding
     Add-CheckResult 'OVMS-Plan blockiert manipulierten Gateway-Binding-Key' ($tamperedPlan.Status -eq 'BLOCKED' -and @($tamperedPlan.Blockers) -join ',' -eq 'AI_EXTERNAL_MODEL_OVMS_GATEWAY_BINDING_INVALID')

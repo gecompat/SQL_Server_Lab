@@ -69,12 +69,17 @@ function Invoke-LabGuidedExternalModelEndpoint {
 }
 
 function Invoke-LabGuidedExternalModelEndpointInteractive {
+    param($PreparedPlan)
+
     $key = $null
     $certificate = $null
     try {
-        $planPath = Read-LabConsoleTextInput -Prompt 'Absoluter lokaler Pfad zum External-Model-Plan (JSON)' -MaskInput
-        if ($planPath.Status -cne 'Confirmed') { return }
-        $plan = Resolve-LabAiExternalModelPlan -Plan ((Read-LabGuidedExternalModelFile -Path $planPath.Value) | ConvertFrom-Json -Depth 8 -ErrorAction Stop)
+        if (-not $PreparedPlan) {
+            $planPath = Read-LabConsoleTextInput -Prompt 'Absoluter lokaler Pfad zum External-Model-Plan (JSON)' -MaskInput
+            if ($planPath.Status -cne 'Confirmed') { return }
+            $PreparedPlan = (Read-LabGuidedExternalModelFile -Path $planPath.Value) | ConvertFrom-Json -Depth 8 -ErrorAction Stop
+        }
+        $plan = Resolve-LabAiExternalModelPlan -Plan $PreparedPlan
         Write-LabInfo ("{0} · Modell {1} · Dimension {2} · {3}" -f $plan.Backend,$plan.RuntimeModel,$plan.Dimension,$plan.Location)
         if (-not (Read-LabConfirm -Prompt 'Genau eine synthetische Embedding-Anfrage an diesen lokalen HTTPS-Endpunkt senden?' -Default $false)) { return }
         $rootPath = Read-LabConsoleTextInput -Prompt 'Optionaler absoluter Pfad zum öffentlichen CA-PEM (leer für Systemvertrauen)' -MaskInput
