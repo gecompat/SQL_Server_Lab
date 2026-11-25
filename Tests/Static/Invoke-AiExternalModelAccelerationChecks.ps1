@@ -444,6 +444,8 @@ try {
     Add-CheckResult 'Lokale External-Model-Autoritaetsgrenze und Legacy-Lesevertrag bestanden' ($authorityPassed -eq $true)
     $connectionPassed = & (Join-Path $PSScriptRoot 'Fixtures/AiExternalModelConnectionBindingChecks.ps1') -Module $module
     Add-CheckResult 'DNS-Snapshot, native Peerbindung und einmaliger CLR-Streamhandoff bestanden' ($connectionPassed -eq $true)
+    $ovmsGuidancePassed = & (Join-Path $PSScriptRoot 'Fixtures/AiOvmsGatewayGuidanceChecks.ps1') -Module $module -ArtifactRoot $artifactRoot -ExistingOperationId $gatewayOperationId
+    Add-CheckResult 'Geführtes OVMS-Gateway bindet Eingaben und auf Windows Bestätigung, Vault und eigenen Stop' ($ovmsGuidancePassed -eq $true)
 }
 finally {
     Remove-Module $module -Force -ErrorAction SilentlyContinue

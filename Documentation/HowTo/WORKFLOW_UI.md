@@ -1418,6 +1418,17 @@ passenden Gateway- und Dienstplan. Die Ergebnisansicht zeigt Anzahl und
 Gültigkeit. Die Auflösung durch den tatsächlich gestarteten nichtinteraktiven
 Dienst ist ein eigener Nachweis.
 
+#### Eine eigene OVMS-HTTPS-Sitzung starten oder stoppen
+
+Öffne unter **Host-Dienste und Modelle** auf Windows **Eigene
+OVMS-HTTPS-Sitzungen verwalten**. Gib den laufenden HTTP-Loopback-Upstream,
+das erwartete Modell, seine Dimension, den freien HTTPS-Port, lokale
+PEM-Dateipfade und die Zeitgrenzen an. Der UI-Server liest den Gateway-Schlüssel
+aus seinem lokalen PowerShell-Vault über die angegebene Referenz. Bestätige den
+Start und übernimm bei Bedarf die ausgegebene Bindung in den External-Model-Plan.
+Für den Stop liest du die eigenen Sitzungen neu und bestätigst die ausgewählte
+Sitzung. Plane ein, dass deren SQL-Verbraucher dadurch die Verbindung verlieren.
+
 #### Eine eigene Gateway-Sitzung starten oder stoppen
 
 Wähle im registrierten Gateway-Plan **Eigene Gateway-Sitzung für diesen

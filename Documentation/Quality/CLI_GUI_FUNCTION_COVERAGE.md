@@ -40,15 +40,14 @@ eines Cmdlets:
 Ein mechanischer Abgleich des Manifests mit
 `Documentation/User/FUNCTIONS_CLI_GUI.md` findet 161 der 166 Exportnamen und
 5 dort nicht referenzierte Exporte. Das ist ein Referenzabgleich, keine
-vollständige Prüfung, ob die 159 Treffer tatsächlich korrekt geführt,
+vollständige Prüfung, ob die 161 Treffer tatsächlich korrekt geführt,
 ausführbar oder providerabgenommen sind. Die folgende Inventarliste hält die
 5 nicht referenzierten Namen einzeln fest. Die sieben Environment-Group-
 Operationen aus dem vorherigen Abgleich sind jetzt in der Funktionsübersicht
 enthalten und unten separat quellengestützt als `GUIDED_BOTH` bewertet. Von
 den 5 Einträgen sind vier TLS-001-Exporte `DEFERRED` und einer
 `EXPERT_CATALOG_ONLY`. Die drei External-Model- und
-OVMS-Gateway-Operationen sind inzwischen referenziert. Ihre geführten
-Bedienlücken bleiben in der eigenen Tabelle unten sichtbar.
+OVMS-Gateway-Operationen sind in der eigenen Tabelle unten bewertet.
 Die Bewertung folgt aus Menüdispatch, GUI-Aktion, öffentlichen Parametern
 und den vorhandenen Nachweisen. Der Expertenkatalog allein erfüllt die
 geführte Abdeckung nicht.
@@ -58,7 +57,7 @@ geführte Abdeckung nicht.
 | Security-Tool-Katalog | `Get-SqlServerLabSecurityToolPlan` | `EXPERT_CATALOG_ONLY`. Die produktive Allowlist ist leer, der lokale Resolver blockiert alle Anfragen. [Katalogvertrag und Freigabestand](../Project_Planning/SECURITY_TOOL_ACQUISITION_BACKLOG.md). |
 | TLS-001, zurückgestellt | `Update-SqlServerLabTlsBinding`; `Get-SqlServerLabTlsBindingRecovery`; `Resolve-SqlServerLabTlsBindingRecovery`; `Read-SqlServerLabQualifiedTestEnvironment` | `DEFERRED`; bestehender Zustand bleibt erhalten, keine neue Abdeckungs- oder Runtimearbeit ohne dokumentierten Anwendungsfall |
 
-Die 7 Namen ohne Referenz und die einzeln geprüften Exporte unten
+Die 5 Namen ohne Referenz und die einzeln geprüften Exporte unten
 wurden unmittelbar gegen `FunctionsToExport` im Manifest
 abgeglichen; die Familiengruppierung ist nur eine Lesbarkeitshilfe. Sie ist
 keine Behauptung, dass eine Familie einen gemeinsamen Aufrufer oder denselben
@@ -91,12 +90,15 @@ Die Rückgabe enthielt nur den festen Dateinamen und die erwarteten Zähler.
 | --- | --- | --- |
 | Bereits laufenden lokalen OVMS-Upstream prüfen | `GUIDED_BOTH` unter **Host-Dienste und Modelle → Lokalen OVMS-Embedding-Dienst prüfen** | `Test-SqlServerLabOvmsUpstreamEndpoint` sendet nach Bestätigung einen synthetischen HTTP-Request über numerisches Loopback und prüft Modell und Dimension. |
 | Geplanten HTTPS-Modellendpunkt verifizieren | `KNOWN_GAP` in CLI und Browser | `Test-SqlServerLabAiExternalModelEndpoint` benötigt den gebundenen Plan und prüft den HTTPS-Endpunkt einschließlich Zertifikat und Antwort. Die geführte HTTP-Upstream-Prüfung deckt diesen Vertrag nicht ab. |
-| Eigenen OVMS-HTTPS-Gateway starten | `KNOWN_GAP` in CLI und Browser | `Start-SqlServerLabOvmsHttpsGateway` startet eine befristete Windows-Loopback-Sitzung mit expliziten Zertifikats- und Schlüsseleingaben. |
-| Eigenen OVMS-HTTPS-Gateway stoppen | `KNOWN_GAP` in CLI und Browser | `Stop-SqlServerLabOvmsHttpsGateway` benötigt die Operations-ID der eigenen Modulsitzung. |
+| Eigenen OVMS-HTTPS-Gateway starten | `GUIDED_BOTH` unter **Host-Dienste und Modelle** auf Windows | CLI und Browser bestätigen die befristete Loopback-Sitzung und geben die geprüfte Gateway-Bindung aus. |
+| Eigenen OVMS-HTTPS-Gateway stoppen | `GUIDED_BOTH` unter **Host-Dienste und Modelle** auf Windows | Die Auswahl bindet den Stop an eine eigene Sitzung im aktuellen CLI-Modul oder UI-Server. |
 
 Der [separate Windows-Harness](LOCAL_VALIDATION_STRATEGY.md) prüft Gateway-Start,
 HTTPS-Probe und Owner-Stop mit einem synthetischen Upstream. Das belegt keine
 geführte Gateway-Bedienung, Acceleratorkonfiguration oder SQL-Ausführung.
+Die geführten OVMS-Aktionen sind mit synthetischem Vault und eigenen
+Sitzungsobjekten im Modul sowie mit dem tatsächlichen Dialogskript in
+einer synthetischen Browserumgebung geprüft.
 
 ## Geprüfte Operationen: Ressourcenstand und lokaler Bedarf
 

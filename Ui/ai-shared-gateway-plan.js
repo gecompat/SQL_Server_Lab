@@ -1,8 +1,9 @@
 'use strict';
 
-{
+(() => {
   const element = name => document.querySelector('#ai-shared-gateway-' + name);
   const form = element('author');
+  if (!form) return;
   const consumers = element('consumers');
   const status = element('plan-status');
   const result = element('plan-result');
@@ -413,4 +414,163 @@
     panel.scrollIntoView({ block: 'nearest' });
   });
   addConsumer();
-}
+})();
+
+(() => {
+  const element = id => document.querySelector('#' + 'ovms-gateway-' + id);
+  const dialog = element('dialog');
+  if (!dialog) return;
+  const form = element('form');
+  const start = element('start');
+  const startConfirm = element('start-confirm');
+  const stop = element('stop');
+  const stopConfirm = element('stop-confirm');
+  const selection = element('selection');
+  const status = element('status');
+  const result = element('result');
+  const resultBox = element('result-box');
+  const stringFields = ['UpstreamLocation','RuntimeModel','CertificatePath','PrivateKeyPath','TrustedRootPath','ApiKeyReference'];
+  const numberFields = ['Port','Dimension','StartTimeoutSeconds','LeaseSeconds'];
+  const operationId = /^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$/;
+  const digest = /^[a-f0-9]{64}$/;
+  let busy = false;
+  let available = false;
+  let ownSessions = [];
+
+  function updateActions() {
+    start.disabled = busy || !available || !startConfirm.checked;
+    selection.disabled = busy || !ownSessions.length;
+    stop.disabled = busy || !stopConfirm.checked || !ownSessions.some(row => row.OperationId === selection.value);
+    element('read').disabled = busy;
+    element('close').disabled = busy;
+  }
+
+  function clearSessions() {
+    ownSessions = [];
+    selection.replaceChildren();
+    stopConfirm.checked = false;
+  }
+
+  function clearResult() {
+    result.value = '';
+    resultBox.hidden = true;
+  }
+
+  async function request(payload) {
+    const options = payload ? {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)} : {cache:'no-store'};
+    const response = await sqlServerLabUiFetch('/api/ai-ovms-gateway/sessions', options);
+    const view = await response.json();
+    if (!response.ok) throw new Error(view?.Code);
+    return view;
+  }
+
+  async function readSessions() {
+    if (busy) return;
+    clearSessions();
+    available = false;
+    busy = true;
+    updateActions();
+    status.textContent = 'Eigene OVMS-Sitzungen werden gelesen …';
+    try {
+      const view = await request();
+      if (typeof view?.Supported !== 'boolean' || typeof view.VaultAvailable !== 'boolean' || !Array.isArray(view.Items) ||
+          !view.Items.every(row => operationId.test(row.OperationId) && Number.isInteger(row.Port) && row.Port >= 1024 &&
+            row.Port <= 65535 && ['OWNED_SESSION','CLEANUP_PENDING'].includes(row.Status))) throw new Error('Invalid session view');
+      available = view.Supported && view.VaultAvailable;
+      ownSessions = view.Items;
+      const placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.textContent = 'Eigene Sitzung auswählen';
+      selection.appendChild(placeholder);
+      for (const row of ownSessions) {
+        const option = document.createElement('option');
+        option.value = row.OperationId;
+        option.textContent = `Port ${row.Port} · ${row.Status === 'CLEANUP_PENDING' ? 'Cleanup offen' : 'Eigene Sitzung'}`;
+        selection.appendChild(option);
+      }
+      status.textContent = !view.Supported ? 'Der OVMS-HTTPS-Worker benötigt Windows.' :
+        !view.VaultAvailable ? 'Für einen neuen Worker braucht der UI-Server Zugriff auf PowerShell SecretManagement.' :
+        ownSessions.length ? 'Wähle eine eigene Sitzung zum Stop.' : 'Keine eigene OVMS-Sitzung in diesem UI-Server.';
+    } catch {
+      status.textContent = 'Eigene OVMS-Sitzungen konnten nicht gelesen werden.';
+    } finally {
+      busy = false;
+      updateActions();
+    }
+  }
+
+  async function dispatch(payload) {
+    busy = true;
+    clearSessions();
+    clearResult();
+    updateActions();
+    status.textContent = 'Die bestätigte Aktion läuft …';
+    try {
+      const view = await request(payload);
+      if (payload.Action === 'Start') {
+        const fields = ['Contract','Status','OperationId','Location','RuntimeModel','Dimension','ServerCertificateSha256','UpstreamBindingKey','LeaseSeconds','BindingKey'];
+        if (!view || Object.keys(view).length !== fields.length || !fields.every(name => Object.hasOwn(view,name)) ||
+            view.Contract !== 'SqlServerLab.AiOvmsHttpsGateway/1.0' || view.Status !== 'ENDPOINT_VERIFIED' ||
+            !operationId.test(view.OperationId) || view.Location !== `https://127.0.0.1:${payload.Port}/v3/embeddings` ||
+            view.RuntimeModel !== payload.RuntimeModel || view.Dimension !== payload.Dimension || view.LeaseSeconds !== payload.LeaseSeconds ||
+            ![view.ServerCertificateSha256,view.UpstreamBindingKey,view.BindingKey].every(value => typeof value === 'string' && digest.test(value))) {
+          throw new Error('Unconfirmed start');
+        }
+        result.value = JSON.stringify(view,null,2);
+        resultBox.hidden = false;
+        status.textContent = 'Eigener OVMS-HTTPS-Endpunkt bestätigt. Die Bindung kann für den External-Model-Plan übernommen werden.';
+      } else {
+        if (view?.Status !== 'CLEANUP_SUCCEEDED' || view.OperationId !== payload.OperationId) throw new Error('Unconfirmed cleanup');
+        status.textContent = 'Eigene OVMS-Sitzung beendet und temporärer Schlüssel bereinigt.';
+      }
+    } catch (error) {
+      const reasons = {
+        AI_OVMS_GUIDED_INPUT_INVALID:'Prüfe Ziel, Modell, Port, Dimension und Zeitgrenzen.',
+        AI_OVMS_GUIDED_KEY_INVALID:'Der lokale Vault muss einen gültigen SecureString liefern.',
+        AI_OVMS_GUIDED_VAULT_UNAVAILABLE:'Der UI-Server konnte den lokalen Vault nicht lesen.',
+        AI_SHARED_GATEWAY_GUIDED_PATH_INVALID:'Prüfe die lokalen PEM-Dateipfade.'
+      };
+      status.textContent = 'OVMS-Aktion unbestätigt. ' + (Object.hasOwn(reasons,error.message)
+        ? reasons[error.message] : 'Lies die eigenen Sitzungen neu und prüfe den Zustand vor einer weiteren Aktion.');
+    } finally {
+      busy = false;
+      updateActions();
+    }
+  }
+
+  element('open').addEventListener('click', () => {
+    form.reset();
+    clearResult();
+    dialog.showModal();
+    return readSessions();
+  });
+  element('read').addEventListener('click', readSessions);
+  startConfirm.addEventListener('change', updateActions);
+  for (const name of [...stringFields,...numberFields]) {
+    form.elements.namedItem(name).addEventListener('input', () => { startConfirm.checked = false; updateActions(); });
+  }
+  selection.addEventListener('change', () => { stopConfirm.checked = false; updateActions(); });
+  stopConfirm.addEventListener('change', updateActions);
+  element('close').addEventListener('click', () => { if (!busy) dialog.close(); });
+  dialog.addEventListener('cancel', event => { if (busy) event.preventDefault(); });
+  dialog.addEventListener('close', () => { form.reset(); clearSessions(); clearResult(); });
+  form.addEventListener('submit', event => {
+    event.preventDefault();
+    if (start.disabled || !dialog.open || !form.reportValidity()) return;
+    const payload = {Action:'Start',Confirmed:true};
+    for (const name of stringFields) payload[name] = form.elements.namedItem(name).value.trim();
+    for (const name of numberFields) payload[name] = Number(form.elements.namedItem(name).value);
+    if (!numberFields.every(name => Number.isInteger(payload[name])) || payload.LeaseSeconds <= payload.StartTimeoutSeconds ||
+        !/^SQL_SERVER_LAB_SECRET_[A-Z0-9_]{1,96}$/.test(payload.ApiKeyReference)) {
+      status.textContent = 'Prüfe Startbudget, Laufzeit und die lokale Vault-Referenz.';
+      return;
+    }
+    form.reset();
+    return dispatch(payload);
+  });
+  stop.addEventListener('click', () => {
+    if (!stop.disabled && ownSessions.some(row => row.OperationId === selection.value)) {
+      return dispatch({Action:'Stop',Confirmed:true,OperationId:selection.value});
+    }
+  });
+})();

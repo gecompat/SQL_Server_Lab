@@ -443,15 +443,20 @@ Bibliotheks-Recovery blockiert den erneuten Export ausdrücklich.
 in CLI und Browser zur Verfügung. `Test-SqlServerLabOvmsUpstreamEndpoint`
 prüft nach Bestätigung einen bereits laufenden OVMS-Dienst über Loopback.
 
-Die HTTPS-Endpunktprüfung und die Gateway-Sitzung sind als öffentliche
-PowerShell-Funktionen verfügbar. Für diese drei Schritte fehlen eigene
-geführte Dialoge in CLI und Browser:
+Unter **Host-Dienste und Modelle** bietet die Windows-CLI getrennte
+Menüschritte für Start und Stop. Im Browser öffnet **Eigene
+OVMS-HTTPS-Sitzungen verwalten** den gemeinsamen Dialog. Der Start braucht
+einen laufenden numerischen HTTP-Loopback-Upstream, Modell und Dimension,
+einen freien HTTPS-Port, lokale PEM-Dateipfade und eine Laufzeitgrenze. Die
+CLI fragt den API-Schlüssel maskiert ab. Der Browser erwartet eine Referenz
+auf einen SecureString im lokalen Vault des UI-Servers. Nach Bestätigung
+liefert der Start die Bindung für einen External-Model-Plan. Der Stop wirkt
+auf die ausgewählte eigene Sitzung im aktuellen CLI-Modul oder UI-Server.
+Die zugehörigen Befehle sind `Start-SqlServerLabOvmsHttpsGateway` und
+`Stop-SqlServerLabOvmsHttpsGateway`.
 
-- `Test-SqlServerLabAiExternalModelEndpoint` prüft den HTTPS-Endpunkt eines
-  vorbereiteten Plans.
-- `Start-SqlServerLabOvmsHttpsGateway` startet einen befristeten
-  Windows-Loopback-Gateway vor einem vorhandenen OVMS-Dienst.
-- `Stop-SqlServerLabOvmsHttpsGateway` beendet die gebundene Gateway-Sitzung.
+`Test-SqlServerLabAiExternalModelEndpoint` prüft den HTTPS-Endpunkt eines
+vorbereiteten Plans über den öffentlichen PowerShell-Befehl.
 
 Der [PowerShell-Ablauf für OVMS](SQL_AI_LOCAL_ACCELERATION.md#openvino-model-server-als-alternative)
 zeigt die erforderlichen Eingaben und den Stop in derselben Sitzung.

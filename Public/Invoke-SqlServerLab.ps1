@@ -200,6 +200,8 @@ function Invoke-LabMenuAction {
     if ($ActionName -eq 'LlamaRuntimeInventory') { Show-LabLlamaCppRuntimeInventoryInteractive; return }
     if ($ActionName -eq 'AiRuntimeCapability') { Show-LabAiRuntimeCapabilityInteractive; return }
     if ($ActionName -eq 'OvmsUpstream') { Invoke-LabOvmsUpstreamInteractive; return }
+    if ($ActionName -eq 'OvmsGatewayStart') { Invoke-LabGuidedOvmsGatewayStartInteractive; return }
+    if ($ActionName -eq 'OvmsGatewayStop') { Invoke-LabGuidedOvmsGatewayStopInteractive; return }
     if ($ActionName -eq 'AiSharedGatewayPlan') { Invoke-LabAiSharedGatewayPlanInteractive; return }
     if ($ActionName -eq 'AiSharedGatewaySessionStop') { Invoke-LabAiSharedGatewaySessionStopInteractive; return }
     if ($ActionName -eq 'AiComputeSelection') { Invoke-LabAiComputeSelectionInteractive; return }

@@ -38,6 +38,13 @@ Die Liste und der Stop beziehen sich auf Worker des laufenden UI-Servers.
 Der Server hält dafür das konkrete Ownerobjekt. Beim Beenden bereinigt er
 die erfassten eigenen Worker. Unbestätigte Ergebnisse bleiben sichtbar.
 
+Die Windows-Route `/api/ai-ovms-gateway/sessions` prüft die
+Operator-Capability, bei POST die exakte Origin, ein Limit von 16 KiB und
+eine ausdrückliche Aktionsbestätigung. Der Start liest explizite lokale
+PEM-Dateien und löst eine Vault-Referenz auf. Liste und Stop sind durch
+Identität des Ownerobjekts auf Sitzungen dieses UI-Servers begrenzt. Die
+Bereinigung beim Serverende verwendet dieselbe Bindung.
+
 ## Acht interne Fachreader
 
 CMS-Inspection, Initial Setup, Slotreserve, Resource Watch, llama.cpp-Installer,
