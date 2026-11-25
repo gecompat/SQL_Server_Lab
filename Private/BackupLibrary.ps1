@@ -93,7 +93,7 @@ function Get-LabDatabaseBackupMetadata {
     param(
         [string]$HostName = '127.0.0.1',
         [Parameter(Mandatory)][int]$Port,
-        [Parameter(Mandatory)][string]$SaPlain,
+        [Parameter(Mandatory)][SecureString]$SaPassword,
         [Parameter(Mandatory)][ValidatePattern('^[A-Za-z][A-Za-z0-9_]{0,127}$')][string]$DatabaseName
     )
 
@@ -110,8 +110,8 @@ SELECT CONCAT(
     CONVERT(nvarchar(1),(SELECT is_encrypted FROM sys.databases WHERE database_id = DB_ID()))
 );
 "@
-    $native = Invoke-LabSqlcmdProgress -ProcessTimeoutSeconds 60 -ArgumentList @(
-        '-S',"${HostName},${Port}",'-U','sa','-P',$SaPlain,'-C','-b','-d','master',
+    $native = Invoke-LabSqlcmdProgress -SqlPassword $SaPassword -ProcessTimeoutSeconds 60 -ArgumentList @(
+        '-S',"${HostName},${Port}",'-U','sa','-C','-b','-d','master',
         '-Q',$query,'-h','-1','-W','-l','15','-t','45')
     $output = @($native.Output)
     $exitCode = $native.ExitCode
@@ -481,11 +481,9 @@ function New-LabDatabaseLibraryBackup {
     else { New-Item -ItemType Directory -Path $workingDirectory -Force | Out-Null }
     $primaryError = $null
     try {
-        $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword)
-        try { $saPlain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr) }
-        finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
-        $metadata = Get-LabDatabaseBackupMetadata -HostName $HostName -Port $Port -SaPlain $saPlain -DatabaseName $DatabaseName
-        $dependencyInventory = New-LabDatabaseMigrationDependencyInventory -DatabaseName $DatabaseName -Provider $(if($Provider){$Provider}else{'external'}) -RunId $RunId -InstanceId $InstanceId -Observation (Get-LabDatabaseMigrationDependencySqlObservation -HostName $HostName -Port $Port -SaPlain $saPlain -DatabaseName $DatabaseName)
+        $metadata = Get-LabDatabaseBackupMetadata -HostName $HostName -Port $Port -SaPassword $SaPassword -DatabaseName $DatabaseName
+        $dependencyInventory = Get-LabDatabaseMigrationDependencyInventory -HostName $HostName -Port $Port -SaPassword $SaPassword `
+            -DatabaseName $DatabaseName -Provider $(if($Provider){$Provider}else{'external'}) -RunId $RunId -InstanceId $InstanceId
         if ([bool]$metadata.IsEncrypted) {
             throw 'BACKUP_LIBRARY_TDE_DEPENDENCY_UNSUPPORTED: Verschlüsselte Datenbanken werden ohne separaten Zertifikat- und Recovery-Vertrag nicht als wiederverwendbar veröffentlicht.'
         }
@@ -497,7 +495,7 @@ function New-LabDatabaseLibraryBackup {
         } else { "/var/opt/mssql/backup/$backupFileName" }
         $escapedDatabase = $DatabaseName.Replace(']',']]')
         $escapedPath = $runtimeBackupPath.Replace("'","''")
-        $null = Invoke-SqlQuery -HostName $HostName -Port $Port -SaPlain $saPlain -TimeoutSeconds 600 -Query @"
+        $null = Invoke-SqlQuery -HostName $HostName -Port $Port -ProductQueryPassword $SaPassword -TimeoutSeconds 600 -Query @"
 BACKUP DATABASE [$escapedDatabase] TO DISK = N'$escapedPath' WITH COPY_ONLY, INIT, CHECKSUM;
 RESTORE VERIFYONLY FROM DISK = N'$escapedPath' WITH CHECKSUM;
 "@
@@ -515,7 +513,6 @@ RESTORE VERIFYONLY FROM DISK = N'$escapedPath' WITH CHECKSUM;
     }
     catch { $primaryError = $_; throw }
     finally {
-        $saPlain=$null
         try {
             $cleanupParent = [IO.Path]::GetFullPath($workingParent).TrimEnd('\','/')
             $cleanupDirectory = [IO.Path]::GetFullPath($workingDirectory)

@@ -35,7 +35,14 @@ try {
         Set-Item Function:script:Initialize-LabSampleBaselineBackupTarget -Value {
             [PSCustomObject]@{Provider='docker';ContainerName='sanitized-at-runtime';BackupRoot='/var/opt/mssql/backup'}
         }
-        Set-Item Function:script:Invoke-SqlQuery -Value { param($Query) $script:backupSql.Add([string]$Query); @('ok') }
+        $script:backupProofPassword = $Password
+        Set-Item Function:script:Invoke-SqlQuery -Value {
+            param($Query,$ProductQueryPassword,$SaPlain)
+            if (-not [object]::ReferenceEquals($ProductQueryPassword,$script:backupProofPassword) -or $SaPlain) {
+                throw 'SYNTHETIC_BACKUP_REQUIRES_SECURE_QUERY'
+            }
+            $script:backupSql.Add([string]$Query); @('ok')
+        }
         Set-Item Function:script:Export-LabSampleBaselineBackup -Value {
             param($DestinationPath) Copy-Item -LiteralPath $Fixture -Destination $DestinationPath
             [PSCustomObject]@{Provider='docker';ContainerName='not-persisted';RunId=$null;InstanceId=$null}
