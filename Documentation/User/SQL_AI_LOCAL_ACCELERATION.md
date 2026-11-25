@@ -149,6 +149,8 @@ Datenbank und deren exakte Identität,
 hashgebundenes Receipt enthält weder Secret noch SQL-Text und führt kein DDL aus.
 Bei Hyper-V werden gespeicherte Run-/Scope-/Instance-/VMId-Bindung, die aktuell
 verwaltete VM-Identität und der laufende VM-Zustand vor dem SQL-Zugriff geprüft.
+Die registrierte Gast-IP muss aktuell auf einem Netzwerkadapter dieser VM
+gemeldet werden. Fehlt die Zuordnung, bleibt die SQL-Verbindung gesperrt.
 
 Der anschließende Apply-Befehl revalidiert Plan, Preflight-Receipt, den laufenden
 Docker-/Podman-Container beziehungsweise die Hyper-V-VMId und die Datenbank-GUID. Vor der ersten SQL-Mutation

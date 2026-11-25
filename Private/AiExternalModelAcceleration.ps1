@@ -828,6 +828,19 @@ function Get-LabAiExternalModelSqlBinding {
     if(-not $managed -or -not $managed.VM){throw 'AI_EXTERNAL_MODEL_SQL_HYPERV_BINDING_UNVERIFIABLE'}
     if([string]$managed.VM.Id -cne [string]$target.VMId){throw 'AI_EXTERNAL_MODEL_SQL_HYPERV_IDENTITY_MISMATCH'}
     if([string]$managed.VM.State -cne 'Running'){throw 'AI_EXTERNAL_MODEL_SQL_HYPERV_VM_NOT_RUNNING'}
+    $address = $null
+    if (-not [Net.IPAddress]::TryParse([string]$target.HostName,[ref]$address) -or
+        [Net.IPAddress]::IsLoopback($address) -or $address.Equals([Net.IPAddress]::Any) -or
+        $address.Equals([Net.IPAddress]::IPv6Any) -or $target.Port -lt 1 -or $target.Port -gt 65535) {
+        throw 'AI_EXTERNAL_MODEL_SQL_HYPERV_ENDPOINT_UNVERIFIABLE'
+    }
+    try {
+        $guestAddresses = @(Get-VMNetworkAdapter -VM $managed.VM -ErrorAction Stop | ForEach-Object IPAddresses)
+    } catch [Management.Automation.PipelineStoppedException] { throw }
+    catch { throw 'AI_EXTERNAL_MODEL_SQL_HYPERV_ENDPOINT_UNVERIFIABLE' }
+    if ([string]$target.HostName -notin $guestAddresses) {
+        throw 'AI_EXTERNAL_MODEL_SQL_HYPERV_ENDPOINT_UNVERIFIABLE'
+    }
     [pscustomobject][ordered]@{
         RunId=$RunId;ScopeId=[string]$run.scopeId;InstanceId=$InstanceId;Provider='hyperv'
         VMId=[string]$managed.VM.Id;VMName=[string]$target.VMName

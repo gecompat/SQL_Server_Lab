@@ -14,6 +14,7 @@ try {
             RunState='RUNNING';ScopeId='22222222-2222-4222-8222-222222222222'
             Provider='hyperv';Version='2025';VMName='sql-ai-vm'
             VMId='33333333-3333-4333-8333-333333333333';VMState='Running'
+            HostName='192.0.2.10';Port=1433;AdapterAddresses=@('192.0.2.10','2001:db8::10');AdapterReadFails=$false
         }
         function script:Get-LabRunState {
             [pscustomobject]@{state=$script:aiHyperVBindingFixture.RunState;scopeId=$script:aiHyperVBindingFixture.ScopeId}
@@ -22,11 +23,18 @@ try {
             [pscustomobject]@{
                 Provider=$script:aiHyperVBindingFixture.Provider;Version=$script:aiHyperVBindingFixture.Version
                 VMName=$script:aiHyperVBindingFixture.VMName;VMId=$script:aiHyperVBindingFixture.VMId
-                HostName='192.0.2.10';Port=1433
+                HostName=$script:aiHyperVBindingFixture.HostName;Port=$script:aiHyperVBindingFixture.Port
             }
         }
         function script:Get-HyperVManagedVM {
             [pscustomobject]@{VM=[pscustomobject]@{Id=$script:aiHyperVBindingFixture.ManagedVMId;State=$script:aiHyperVBindingFixture.VMState}}
+        }
+        function script:Get-VMNetworkAdapter {
+            param($VM,$ErrorAction)
+            if ($script:aiHyperVBindingFixture.AdapterReadFails -or $VM.Id -cne $script:aiHyperVBindingFixture.ManagedVMId) {
+                throw 'SYNTHETIC_PRIVATE_NETWORK_PROBE_DETAIL'
+            }
+            [pscustomobject]@{IPAddresses=$script:aiHyperVBindingFixture.AdapterAddresses}
         }
         $script:aiHyperVBindingFixture.ManagedVMId=$script:aiHyperVBindingFixture.VMId
     }
@@ -83,7 +91,13 @@ try {
         @{Name='SQL-Version vor 2025';Property='Version';Value='2022';Code='AI_EXTERNAL_MODEL_SQL_VERSION_UNSUPPORTED'},
         @{Name='fehlende VMId';Property='VMId';Value='';Code='AI_EXTERNAL_MODEL_SQL_HYPERV_IDENTITY_REQUIRED'},
         @{Name='abweichende Live-VMId';Property='ManagedVMId';Value='44444444-4444-4444-8444-444444444444';Code='AI_EXTERNAL_MODEL_SQL_HYPERV_IDENTITY_MISMATCH'},
-        @{Name='nicht laufende VM';Property='VMState';Value='Off';Code='AI_EXTERNAL_MODEL_SQL_HYPERV_VM_NOT_RUNNING'}
+        @{Name='nicht laufende VM';Property='VMState';Value='Off';Code='AI_EXTERNAL_MODEL_SQL_HYPERV_VM_NOT_RUNNING'},
+        @{Name='fremde gespeicherte Adresse';Property='HostName';Value='192.0.2.20';Code='AI_EXTERNAL_MODEL_SQL_HYPERV_ENDPOINT_UNVERIFIABLE'},
+        @{Name='Hostname statt Gastadresse';Property='HostName';Value='synthetic.invalid';Code='AI_EXTERNAL_MODEL_SQL_HYPERV_ENDPOINT_UNVERIFIABLE'},
+        @{Name='Loopback statt Gastadresse';Property='HostName';Value='127.0.0.1';Code='AI_EXTERNAL_MODEL_SQL_HYPERV_ENDPOINT_UNVERIFIABLE'},
+        @{Name='ungültigen SQL-Port';Property='Port';Value=65536;Code='AI_EXTERNAL_MODEL_SQL_HYPERV_ENDPOINT_UNVERIFIABLE'},
+        @{Name='nicht beobachtete Gastadresse';Property='AdapterAddresses';Value=@();Code='AI_EXTERNAL_MODEL_SQL_HYPERV_ENDPOINT_UNVERIFIABLE'},
+        @{Name='nicht lesbare Adapter';Property='AdapterReadFails';Value=$true;Code='AI_EXTERNAL_MODEL_SQL_HYPERV_ENDPOINT_UNVERIFIABLE'}
     )
     foreach($case in $cases){
         & $module {param($property,$value)$script:aiHyperVBindingFixture[$property]=$value} $case.Property $case.Value
@@ -95,6 +109,9 @@ try {
             $script:aiHyperVBindingFixture.VMId='33333333-3333-4333-8333-333333333333'
             $script:aiHyperVBindingFixture.ManagedVMId=$script:aiHyperVBindingFixture.VMId
             $script:aiHyperVBindingFixture.VMState='Running'
+            $script:aiHyperVBindingFixture.HostName='192.0.2.10';$script:aiHyperVBindingFixture.Port=1433
+            $script:aiHyperVBindingFixture.AdapterAddresses=@('192.0.2.10','2001:db8::10')
+            $script:aiHyperVBindingFixture.AdapterReadFails=$false
         }
     }
 }

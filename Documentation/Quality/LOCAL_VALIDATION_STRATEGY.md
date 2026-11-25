@@ -3289,6 +3289,10 @@ SQL-2025-Version, `ONLINE`/`READ_WRITE`, Database Master Key, beide Rechte und
 freie Credential-/Modellnamen. Version, Zustand, Master Key, Rechte,
 Namenskollisionen einschließlich des abgeleiteten Ownership-Tabellennamens und
 manipulierte Pläne besitzen getrennte Negativfälle.
+`Invoke-AiExternalModelHyperVBindingChecks.ps1` prüft die VM-Bindung zusätzlich
+mit synthetischen Adapterdaten. Eine fremde oder fehlende Gastadresse, ein
+Hostname, Loopback, ein ungültiger Port und ein Adapter-Lesefehler blockieren
+den Verbindungsaufbau vor der Abfrage des SA-Secrets.
 Der anschließende Apply-Executor wird mit injiziertem SQL-Transport auf
 transaktionale Reihenfolge, geheimnisfreies Vorjournal, exakte SQL-Postcondition,
 `WhatIf`, idempotente Beobachtung mit `-Resume`, verlorene Antworten,
