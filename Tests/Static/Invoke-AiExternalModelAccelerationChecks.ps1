@@ -151,6 +151,18 @@ try {
         StatusCode=200;ServerCertificateSha256=$c;Body=[PSCustomObject]@{model='bound-model';data=@([PSCustomObject]@{embedding=@(1.0,-0.25,0)})}
     }}.GetNewClosure()
     $probePlan=Get-SqlServerLabAiExternalModelPlan -Backend LlamaCppOpenVino -Accelerator NPU -Location 'https://localhost:11435/v1/embeddings' -ExternalModelName LocalNpuEmbedding -RuntimeModel bound-model -Dimension 3 -ModelSha256 $h -RuntimeSha256 $h -ServerCertificateSha256 $c
+    $guidedProof=& (Join-Path $PSScriptRoot 'Fixtures/AiExternalModelEndpointGuidanceChecks.ps1') -Module $module -Plan $probePlan -Directory $artifactRoot
+    Add-CheckResult 'Geführte HTTPS-Endpunktprüfung bindet Ziel, Zustimmung und bereinigte Quittung' ($guidedProof -eq $true)
+    $node=(Get-Command node -CommandType Application -ErrorAction Stop | Select-Object -First 1).Source
+    $start=[Diagnostics.ProcessStartInfo]::new($node)
+    $start.UseShellExecute=$false
+    $start.CreateNoWindow=$true
+    $start.ArgumentList.Add((Join-Path $PSScriptRoot 'Fixtures/AiExternalModelEndpointUiChecks.cjs'))
+    $endpointUi=[Diagnostics.Process]::Start($start)
+    try {
+        if (-not $endpointUi.WaitForExit(15000)) { $endpointUi.Kill(); throw 'GUIDED_ENDPOINT_UI_TIMEOUT' }
+        Add-CheckResult 'Browser-Endpunktdialog bestätigt und projiziert genau die passende Probe' ($endpointUi.ExitCode -eq 0)
+    } finally { $endpointUi.Dispose() }
     $receipt=& $module {param($p,$t)Invoke-LabAiExternalModelEndpointProbe -Plan $p -Transport $t} $probePlan $transport
     Add-CheckResult 'Read-only Probe sendet genau den festen OpenAI-Embeddingrequest' (
         $requestCapture.Value.Method -eq 'POST' -and $requestCapture.Value.Path -eq '/v1/embeddings' -and

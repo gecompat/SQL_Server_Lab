@@ -149,6 +149,7 @@
       <button id="compute-selection-open" type="button" class="button secondary">KI-Gerätekombination aus Messbelegen wählen</button>
       <button id="compute-benchmark-open" type="button" class="button secondary">llama.cpp-Gerätekombinationen messen</button>
       <button id="ovms-upstream-open" type="button" class="button secondary">Lokalen OVMS-Embedding-Dienst prüfen</button>
+      <button id="external-model-endpoint-open" type="button" class="button secondary">Geplanten HTTPS-Modellendpunkt prüfen</button>
       <button id="persistent-fixture-open" type="button" class="button secondary">Persistente Retrieval-Collections</button>
       <button id="ai-scenario-plan-open" type="button" class="button secondary">Vector-Core-Szenarioplan lesen</button>
       <button id="llama-start-plan-open" type="button" class="button secondary">llama.cpp: reine Startvorschau</button>
@@ -1514,6 +1515,22 @@
         <button id="container-network-plan-read" type="submit" class="button primary">Vorschau lesen</button>
         <button id="container-network-plan-close" type="button" class="button secondary">Schließen</button>
         <button id="container-network-plan-apply" type="button" class="button secondary" hidden disabled>Gebundenen Plan ausführen</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="external-model-endpoint-dialog" aria-labelledby="external-model-endpoint-title">
+    <h2 id="external-model-endpoint-title">Geplanten HTTPS-Modellendpunkt prüfen</h2>
+    <form id="external-model-endpoint-form">
+      <label>External-Model-Plan (JSON)<textarea id="external-model-endpoint-plan" rows="9" maxlength="32768" required spellcheck="false"></textarea></label>
+      <p id="external-model-endpoint-selection"></p>
+      <label>Optionales öffentliches CA-Zertifikat (PEM)<textarea id="external-model-endpoint-ca" rows="4" maxlength="32768" spellcheck="false"></textarea></label>
+      <label>Optionale Vault-Referenz für den API-Schlüssel<input id="external-model-endpoint-reference" maxlength="118" autocomplete="off"></label>
+      <label><input id="external-model-endpoint-confirm" type="checkbox" required>Eine synthetische Embedding-Anfrage an den lokalen Endpunkt senden</label>
+      <p id="external-model-endpoint-status" role="status"></p>
+      <label id="external-model-endpoint-result-box" hidden>Gebundene Endpunktquittung (JSON)<textarea id="external-model-endpoint-result" rows="8" readonly></textarea></label>
+      <div class="build-actions">
+        <button id="external-model-endpoint-submit" type="submit" class="button" disabled>Endpunkt prüfen</button>
+        <button id="external-model-endpoint-close" type="button" class="button secondary">Schließen</button>
       </div>
     </form>
   </dialog>

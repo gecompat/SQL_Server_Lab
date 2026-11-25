@@ -1,8 +1,9 @@
 'use strict';
 
-{
+(() => {
   const element = name => document.querySelector('#ai-shared-gateway-' + name);
   const form = element('author');
+  if (!form) return;
   const consumers = element('consumers');
   const status = element('plan-status');
   const result = element('plan-result');
@@ -413,4 +414,134 @@
     panel.scrollIntoView({ block: 'nearest' });
   });
   addConsumer();
-}
+})();
+
+(() => {
+  const element = name => document.querySelector('#' + 'external-model-endpoint-' + name);
+  const dialog = element('dialog');
+  if (!dialog) return;
+  const form = element('form');
+  const planField = element('plan');
+  const caField = element('ca');
+  const referenceField = element('reference');
+  const confirm = element('confirm');
+  const submit = element('submit');
+  const close = element('close');
+  const status = element('status');
+  const result = element('result');
+  const resultBox = element('result-box');
+  let plan = null;
+  let busy = false;
+  const digest = /^[a-f0-9]{64}$/;
+
+  function updateActions() {
+    submit.disabled = busy || !plan || !confirm.checked;
+    close.disabled = busy;
+    for (const control of [planField, caField, referenceField, confirm]) control.disabled = busy;
+  }
+
+  function clearReceipt() {
+    result.value = '';
+    resultBox.hidden = true;
+  }
+
+  function formatPlan() {
+    plan = null;
+    clearReceipt();
+    confirm.checked = false;
+    status.textContent = '';
+    element('selection').textContent = '';
+    try {
+      const value = JSON.parse(planField.value);
+      const url = new URL(value.Location);
+      if (value?.Contract?.Name === 'SqlServerLab.AiExternalModelPlan' && value.Contract.Version === '1.0' &&
+          value.Status === 'NOT_PROBED' && value.EvidenceStatus === 'CONFIGURATION_ONLY' && digest.test(value.PlanKey) &&
+          digest.test(value.ServerCertificateSha256) && url.protocol === 'https:' &&
+          typeof value.RuntimeModel === 'string' && value.RuntimeModel.length <= 256 &&
+          Number.isInteger(value.Dimension) && value.Dimension >= 1 && value.Dimension <= 1998) {
+        plan = value;
+        element('selection').textContent = `${url.origin} · Modell ${value.RuntimeModel} · Dimension ${value.Dimension}`;
+      }
+    } catch { /* Wait for a complete plan. */ }
+    if (planField.value && !plan) status.textContent = 'Der Plan kann für diese Prüfung nicht übernommen werden.';
+    updateActions();
+  }
+
+  element('open').addEventListener('click', () => {
+    form.reset();
+    formatPlan();
+    dialog.showModal();
+  });
+  planField.addEventListener('input', formatPlan);
+  for (const control of [caField, referenceField]) {
+    control.addEventListener('input', () => {
+      confirm.checked = false;
+      clearReceipt();
+      updateActions();
+    });
+  }
+  confirm.addEventListener('change', updateActions);
+  close.addEventListener('click', () => { if (!busy) dialog.close(); });
+  dialog.addEventListener('cancel', event => { if (busy) event.preventDefault(); });
+  dialog.addEventListener('close', () => { form.reset(); formatPlan(); });
+
+  form.addEventListener('submit', async event => {
+    event.preventDefault();
+    if (submit.disabled || !dialog.open || !form.reportValidity()) return;
+    const keyReference = referenceField.value.trim();
+    if (keyReference && !/^SQL_SERVER_LAB_SECRET_[A-Z0-9_]{1,96}$/.test(keyReference)) {
+      status.textContent = 'Die Vault-Referenz muss mit SQL_SERVER_LAB_SECRET_ beginnen.';
+      return;
+    }
+    const request = {Plan: plan, Confirmed: true, TrustedRootPem: caField.value.trim(), ApiKeyReference: keyReference};
+    const body = JSON.stringify(request);
+    if (new TextEncoder().encode(body).length > 65536) {
+      status.textContent = 'Plan und CA-Zertifikat überschreiten die Grenze von zusammen 64 KiB.';
+      return;
+    }
+    busy = true;
+    confirm.checked = false;
+    clearReceipt();
+    status.textContent = 'Der lokale Endpunkt wird geprüft …';
+    updateActions();
+    try {
+      const response = await sqlServerLabUiFetch('/api/ai-external-model/endpoint', {
+        method: 'POST', headers: {'Content-Type': 'application/json'}, body
+      });
+      const receipt = await response.json();
+      if (!response.ok) throw new Error(receipt?.Code);
+      const names = ['Contract','Status','EvidenceStatus','PlanKey','Backend','Dimension','HttpStatus','ServerCertificateSha256',
+        'DurationMilliseconds','VerifiedAtUtc','ReceiptKey','VerifiedEvidence','PendingEvidence'];
+      const verified = ['HTTPS_CERTIFICATE_MATCH','OPENAI_RESPONSE_SHAPE_MATCH','RUNTIME_MODEL_MATCH','EMBEDDING_DIMENSION_MATCH','FINITE_NUMERIC_VECTOR_MATCH'];
+      const pending = ['RUNTIME_BINARY_MATCH','MODEL_FILE_MATCH','ACCELERATOR_RUNTIME_ATTESTATION'];
+      if (!receipt || Object.keys(receipt).length !== names.length || !names.every(name => Object.hasOwn(receipt,name)) ||
+          receipt.Contract?.Name !== 'SqlServerLab.AiExternalModelEndpointReceipt' || receipt.Contract.Version !== '1.0' ||
+          Object.keys(receipt.Contract).length !== 2 || receipt.Status !== 'ENDPOINT_VERIFIED' || receipt.EvidenceStatus !== 'LIVE_ENDPOINT' ||
+          receipt.PlanKey !== request.Plan.PlanKey || receipt.Backend !== request.Plan.Backend || receipt.Dimension !== request.Plan.Dimension ||
+          receipt.ServerCertificateSha256 !== request.Plan.ServerCertificateSha256 || !digest.test(receipt.ReceiptKey) ||
+          !Number.isInteger(receipt.HttpStatus) || receipt.HttpStatus < 200 || receipt.HttpStatus > 299 ||
+          !Number.isSafeInteger(receipt.DurationMilliseconds) || receipt.DurationMilliseconds < 0 ||
+          typeof receipt.VerifiedAtUtc !== 'string' || !/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{7}(?:Z|\+00:00)$/.test(receipt.VerifiedAtUtc) ||
+          !Array.isArray(receipt.VerifiedEvidence) || receipt.VerifiedEvidence.length !== verified.length || !verified.every(code => receipt.VerifiedEvidence.includes(code)) ||
+          !Array.isArray(receipt.PendingEvidence) || receipt.PendingEvidence.length !== pending.length || !pending.every(code => receipt.PendingEvidence.includes(code))) {
+        throw new Error('AI_EXTERNAL_MODEL_GUIDED_UNCONFIRMED');
+      }
+      result.value = JSON.stringify(receipt, null, 2);
+      resultBox.hidden = false;
+      status.textContent = 'HTTPS-Endpunkt bestätigt. Modellartefakte, Beschleuniger und SQL-Bindung bleiben separat zu prüfen.';
+    } catch (error) {
+      const messages = {
+        AI_EXTERNAL_MODEL_GUIDED_CA_INVALID: 'Das optionale PEM muss ein einzelnes öffentliches CA-Zertifikat enthalten.',
+        AI_EXTERNAL_MODEL_GUIDED_VAULT_UNAVAILABLE: 'Die optionale Referenz konnte im lokalen Vault nicht gelesen werden.',
+        AI_EXTERNAL_MODEL_GUIDED_KEY_INVALID: 'Die Referenz muss einen Schlüssel vom Typ SecureString liefern.',
+        AI_EXTERNAL_MODEL_ENDPOINT_TIMEOUT: 'Die Anfrage hat ihr Zeitbudget überschritten.',
+        AI_EXTERNAL_MODEL_TLS_CERTIFICATE_MISMATCH: 'Das präsentierte Zertifikat weicht vom Plan ab.'
+      };
+      status.textContent = 'Endpunktprüfung unbestätigt. ' + (Object.hasOwn(messages,error.message)
+        ? messages[error.message] : 'Prüfe den Plan, den lokalen Dienst und die Zertifikatskette.');
+    } finally {
+      busy = false;
+      updateActions();
+    }
+  });
+})();

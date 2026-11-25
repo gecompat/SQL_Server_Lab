@@ -299,6 +299,7 @@ sources_of_truth:
   ai_external_model_runtime_contract: Private/AiExternalModelAcceleration.ps1
   ai_external_model_artifact_api: Public/Test-SqlServerLabAiExternalModelArtifact.ps1
   ai_external_model_probe_api: Public/Test-SqlServerLabAiExternalModelEndpoint.ps1
+  ai_external_model_probe_guidance: "Private/AiExternalModelEndpointGuidance.ps1, Tools/Start-SqlServerLabUi.ps1 und Ui/ai-shared-gateway-plan.js verwenden den vorhandenen Plan und die einzelne HTTPS-Probe. CLI liest explizite lokale Dateien, der Browser übernimmt JSON und optional öffentliches PEM. Die Guidance-Fixtures prüfen Bestätigung, Secretschutz und Receiptbindung."
   ai_external_model_plan_schema: Schemas/ai-external-model-plan.schema.json
   ai_external_model_artifact_receipt_schema: Schemas/ai-external-model-artifact-receipt.schema.json
   ai_external_model_endpoint_receipt_schema: Schemas/ai-external-model-endpoint-receipt.schema.json

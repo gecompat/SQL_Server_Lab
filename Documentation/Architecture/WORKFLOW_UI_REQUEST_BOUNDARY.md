@@ -38,6 +38,13 @@ Die Liste und der Stop beziehen sich auf Worker des laufenden UI-Servers.
 Der Server hält dafür das konkrete Ownerobjekt. Beim Beenden bereinigt er
 die erfassten eigenen Worker. Unbestätigte Ergebnisse bleiben sichtbar.
 
+Die Route `/api/ai-external-model/endpoint` verlangt ebenfalls die
+Operator-Capability, die exakte Origin und eine ausdrückliche Bestätigung.
+Der Body ist auf 64 KiB begrenzt. Der Server validiert den Modellplan und
+ein optionales einzelnes öffentliches CA-Zertifikat vor dem Vault-Lesen.
+Eine optionale Referenz wird lokal als `SecureString` für die vorhandene
+HTTPS-Probe aufgelöst. Die Antwort enthält die gebundene Endpunktquittung.
+
 ## Acht interne Fachreader
 
 CMS-Inspection, Initial Setup, Slotreserve, Resource Watch, llama.cpp-Installer,

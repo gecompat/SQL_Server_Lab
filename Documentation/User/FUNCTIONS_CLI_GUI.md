@@ -443,12 +443,14 @@ Bibliotheks-Recovery blockiert den erneuten Export ausdrücklich.
 in CLI und Browser zur Verfügung. `Test-SqlServerLabOvmsUpstreamEndpoint`
 prüft nach Bestätigung einen bereits laufenden OVMS-Dienst über Loopback.
 
-Die HTTPS-Endpunktprüfung und die Gateway-Sitzung sind als öffentliche
-PowerShell-Funktionen verfügbar. Für diese drei Schritte fehlen eigene
-geführte Dialoge in CLI und Browser:
+**Host-Dienste und Modelle → Geplanten HTTPS-Modellendpunkt prüfen**
+führt `Test-SqlServerLabAiExternalModelEndpoint` in CLI und Browser aus.
+Der Bedienweg übernimmt den gebundenen Plan, akzeptiert optional ein
+öffentliches CA-PEM und zeigt die Endpunktquittung.
+[Bedienweg](../HowTo/WORKFLOW_UI.md#geplanten-https-modellendpunkt-prüfen)
 
-- `Test-SqlServerLabAiExternalModelEndpoint` prüft den HTTPS-Endpunkt eines
-  vorbereiteten Plans.
+Für diese Gateway-Sitzungsaktionen fehlen geführte Dialoge:
+
 - `Start-SqlServerLabOvmsHttpsGateway` startet einen befristeten
   Windows-Loopback-Gateway vor einem vorhandenen OVMS-Dienst.
 - `Stop-SqlServerLabOvmsHttpsGateway` beendet die gebundene Gateway-Sitzung.

@@ -1515,6 +1515,29 @@ try {
                 Write-UiResponse -Context $context -Body (Get-UiCapabilityConfig | ConvertTo-Json -Depth 6) -ContentType 'application/json; charset=utf-8'
                 continue
             }
+            if ($path -ceq '/api/ai-external-model/endpoint') {
+                try {
+                    if ($context.Request.HttpMethod -cne 'POST' -or $context.Request.Url.Query -or
+                        $context.Request.ContentType -notmatch '^application/json(?:\s*;|$)' -or
+                        [string]$context.Request.Headers['Origin'] -cne $url.TrimEnd('/')) {
+                        throw 'AI_EXTERNAL_MODEL_GUIDED_REQUEST_INVALID'
+                    }
+                    $bodyRead = Read-UiJsonRequestBody -Request $context.Request -MaxBytes 65536
+                    if (-not $bodyRead.Allowed) {
+                        Write-UiResponse -Context $context -Body $bodyRead.Code -StatusCode $bodyRead.StatusCode
+                        continue
+                    }
+                    $receipt = & (Get-Module SqlServerLab) { param($body) Invoke-LabGuidedExternalModelEndpointHttp -Body $body } $bodyRead.Body
+                    Write-UiResponse -Context $context -Body ($receipt | ConvertTo-Json -Depth 8 -Compress) -ContentType 'application/json; charset=utf-8'
+                } catch {
+                    $code = $_.Exception.Message
+                    if ($code -cnotin @('AI_EXTERNAL_MODEL_GUIDED_CA_INVALID','AI_EXTERNAL_MODEL_GUIDED_VAULT_UNAVAILABLE',
+                        'AI_EXTERNAL_MODEL_GUIDED_KEY_INVALID','AI_EXTERNAL_MODEL_ENDPOINT_TIMEOUT','AI_EXTERNAL_MODEL_ENDPOINT_NETWORK_FAILURE',
+                        'AI_EXTERNAL_MODEL_TLS_CERTIFICATE_MISMATCH','AI_EXTERNAL_MODEL_PLAN_BLOCKED')) { $code = 'AI_EXTERNAL_MODEL_GUIDED_UNCONFIRMED' }
+                    Write-UiResponse -Context $context -Body (@{Code=$code} | ConvertTo-Json -Compress) -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                }
+                continue
+            }
             if ($path -ceq '/api/ai-shared-gateway/plan') {
                 if ($context.Request.HttpMethod -cne 'POST' -or $context.Request.Url.Query -or
                     $context.Request.ContentType -notmatch '^application/json(?:\s*;|$)' -or

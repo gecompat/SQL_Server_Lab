@@ -505,6 +505,10 @@ keine feste TLS-Version, kein Downgrade, kein Retry oder Trustbypass.
 TLS-Vetos dürfen nach geprüfter Peerbindung schon einen geöffneten RAM-Key
 haben, aber keine entschlüsselten HTTP-/Authorization-/Bodybytes senden.
 Bestätigter eigener Cleanup ist kein Nachweis physischer Speicher-/Keylöschung.
+Die geführte Probe in CLI und Browser verwendet denselben Transportkern.
+Ihre synthetischen Tests belegen Planbindung, explizite Auslösung und
+Quittung. Der Browser kann für eine optionale Referenz einen zugänglichen
+lokalen Vault benötigen.
 [Ausgeführte Nachweise](LOCAL_VALIDATION_STRATEGY.md#lokale-external-model-autoritaeten).
 
 ## Workflow-UI: Operatorbindung und offene Aktionsfreigaben

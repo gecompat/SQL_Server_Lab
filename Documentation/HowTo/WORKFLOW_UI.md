@@ -1451,6 +1451,26 @@ gestartet hat. Eine getrennte Statusabfrage kann einen Port als belegt melden,
 wenn ihr der Ownerkanal nicht vorliegt. Der dauerhafte Autostart und die
 SQL-Bindung erfordern eigene Nachweise.
 
+### Geplanten HTTPS-Modellendpunkt prüfen
+
+Öffne **Host-Dienste und Modelle → Geplanten HTTPS-Modellendpunkt prüfen**.
+Verwende den JSON-Plan von `Get-SqlServerLabAiExternalModelPlan`. In der
+CLI gibst du den lokalen Dateipfad an. Im Browser übernimmst du den JSON-
+Inhalt. Prüfe das angezeigte Ziel, Modell und Dimension vor der Bestätigung.
+
+Für Systemvertrauen bleibt das optionale CA-Feld leer. Für einen
+isolierten Vertrauensanker gib in der CLI den Pfad zu einem öffentlichen
+CA-PEM an oder füge dessen Inhalt im Browser ein. Die CA gilt nur für
+diese Probe. Bei einem geschützten Endpunkt erfasst die CLI den Schlüssel
+maskiert. Im Browser gibst du eine Referenz im lokalen PowerShell-Vault des
+UI-Servers an. Der Server erwartet dort einen `SecureString`.
+
+Die Bestätigung sendet eine synthetische Embedding-Anfrage an das
+gebundene lokale HTTPS-Ziel. Eine erfolgreiche Prüfung zeigt die passende
+Endpunktquittung als JSON. Modellartefakte, Beschleuniger und die spätere
+SQL-Bindung haben eigene Prüfungen.
+[External-Model-Plan erstellen](../User/SQL_AI_LOCAL_ACCELERATION.md)
+
 ### Vorhandene llama.cpp-Pakete prüfen
 
 Wähle in CLI oder Browser **Host-Dienste und Modelle → Vorhandene

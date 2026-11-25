@@ -90,7 +90,7 @@ Die Rückgabe enthielt nur den festen Dateinamen und die erwarteten Zähler.
 | Aufgabe | Geführte Bedienung | Öffentlicher Vertrag und Nachweis |
 | --- | --- | --- |
 | Bereits laufenden lokalen OVMS-Upstream prüfen | `GUIDED_BOTH` unter **Host-Dienste und Modelle → Lokalen OVMS-Embedding-Dienst prüfen** | `Test-SqlServerLabOvmsUpstreamEndpoint` sendet nach Bestätigung einen synthetischen HTTP-Request über numerisches Loopback und prüft Modell und Dimension. |
-| Geplanten HTTPS-Modellendpunkt verifizieren | `KNOWN_GAP` in CLI und Browser | `Test-SqlServerLabAiExternalModelEndpoint` benötigt den gebundenen Plan und prüft den HTTPS-Endpunkt einschließlich Zertifikat und Antwort. Die geführte HTTP-Upstream-Prüfung deckt diesen Vertrag nicht ab. |
+| Geplanten HTTPS-Modellendpunkt verifizieren | `GUIDED_BOTH` unter **Host-Dienste und Modelle → Geplanten HTTPS-Modellendpunkt prüfen** | `Test-SqlServerLabAiExternalModelEndpoint` erhält den gebundenen Plan nach Bestätigung. Die Guidance-Fixtures prüfen das lokale Eingabefeld, optionales öffentliches CA-PEM, Credential-Grenzen und die Quittung mit synthetischem Transport. Die native Framework-/Plattformabnahme bleibt separat. |
 | Eigenen OVMS-HTTPS-Gateway starten | `KNOWN_GAP` in CLI und Browser | `Start-SqlServerLabOvmsHttpsGateway` startet eine befristete Windows-Loopback-Sitzung mit expliziten Zertifikats- und Schlüsseleingaben. |
 | Eigenen OVMS-HTTPS-Gateway stoppen | `KNOWN_GAP` in CLI und Browser | `Stop-SqlServerLabOvmsHttpsGateway` benötigt die Operations-ID der eigenen Modulsitzung. |
 

@@ -1,0 +1,129 @@
+param([PSModuleInfo]$Module,$Plan,[string]$Directory)
+
+$ErrorActionPreference='Stop'
+$null=[IO.Directory]::CreateDirectory($Directory)
+$file=Join-Path $Directory 'guided-model-plan.json'
+[IO.File]::WriteAllText($file,($Plan | ConvertTo-Json -Depth 8 -Compress))
+$rsa=[Security.Cryptography.RSA]::Create(2048)
+$certificate=$null
+try {
+    $request=[Security.Cryptography.X509Certificates.CertificateRequest]::new('CN=Synthetic Endpoint Test CA',$rsa,
+        [Security.Cryptography.HashAlgorithmName]::SHA256,[Security.Cryptography.RSASignaturePadding]::Pkcs1)
+    $request.CertificateExtensions.Add([Security.Cryptography.X509Certificates.X509BasicConstraintsExtension]::new($true,$false,0,$true))
+    $certificate=$request.CreateSelfSigned([DateTimeOffset]::UtcNow.AddHours(-1),[DateTimeOffset]::UtcNow.AddDays(1))
+    & $Module {
+        param($FixturePlan,$PlanFile,$FixturePem)
+        $fixture=[pscustomobject]@{ Probes=0; VaultReads=0; Confirmed=$false; TrustedRoot=$false; KeyBound=$false; Drift=$false
+            Prompts=[Collections.Generic.List[string]]::new(); Inputs=[Collections.Generic.Queue[object]]::new()
+            Logs=[Collections.Generic.List[string]]::new(); Assertions=0 }
+        $dummy=[Security.SecureString]::new()
+        foreach ($letter in 'SyntheticOnlyEndpointKey'.ToCharArray()) { $dummy.AppendChar($letter) }
+        $dummy.MakeReadOnly()
+        function Assert-GuidedEndpoint([bool]$Condition,[string]$Name) {
+            if (-not $Condition) { throw ('GUIDED_ENDPOINT_FIXTURE_FAILED '+$Name) }
+            $fixture.Assertions++
+        }
+        function Get-Secret {
+            [CmdletBinding()]param($Name)
+            $fixture.VaultReads++
+            if ($Name -cne 'SQL_SERVER_LAB_SECRET_SYNTHETIC') { throw 'Unexpected fixture reference' }
+            $dummy
+        }
+        function Test-SqlServerLabAiExternalModelEndpoint {
+            [CmdletBinding()]param($Plan,$TrustedRootCertificate,$ApiKey)
+            $fixture.Probes++
+            $fixture.TrustedRoot=$null -ne $TrustedRootCertificate -and -not $TrustedRootCertificate.HasPrivateKey
+            $fixture.KeyBound=$ApiKey -is [Security.SecureString] -and $ApiKey.Length -eq $dummy.Length
+            $receipt=Invoke-LabAiExternalModelEndpointProbe -Plan $Plan -Transport {
+                param($Request)
+                if ($Request.Method -cne 'POST' -or $Request.Body.input.Count -ne 1 -or
+                    $Request.Body.input[0] -cne 'SQL Server Lab synthetic embedding probe') { throw 'Unexpected provider request' }
+                [pscustomobject]@{StatusCode=200;ServerCertificateSha256=$Plan.ServerCertificateSha256
+                    Body=[pscustomobject]@{model=$Plan.RuntimeModel;data=@([pscustomobject]@{embedding=@(0,1,2)})}}
+            }
+            if ($fixture.Drift) { $receipt.PlanKey='d'*64 }
+            $receipt | Add-Member -NotePropertyName PrivateCanary -NotePropertyValue 'FIXTURE_PRIVATE_CANARY'
+            $receipt
+        }
+        function Read-LabConfirm { param($Prompt,$Default) $fixture.Confirmed }
+        function Read-LabConsoleTextInput {
+            param($Prompt,[switch]$MaskInput,[switch]$AsSecureString)
+            $fixture.Prompts.Add("$MaskInput/$AsSecureString")
+            $fixture.Inputs.Dequeue()
+        }
+        function Write-LabInfo { param($Message) $fixture.Logs.Add($Message) }
+        function Write-LabWarning { param($Message) $fixture.Logs.Add($Message) }
+        function Wait-LabConsoleAcknowledgement {}
+        function Show-LabSubMenu { param($ScreenId,$Title,$Subtitle,$Items) $Items }
+
+        try {
+            $payload=@{Plan=$FixturePlan;Confirmed=$false;TrustedRootPem=$FixturePem;ApiKeyReference='SQL_SERVER_LAB_SECRET_SYNTHETIC'}
+            try { Invoke-LabGuidedExternalModelEndpointHttp ($payload|ConvertTo-Json -Depth 8); $rejected=$false }
+            catch { $rejected=$true }
+            Assert-GuidedEndpoint ($rejected -and $fixture.Probes -eq 0 -and $fixture.VaultReads -eq 0) 'Unconfirmed HTTP request makes no query'
+            $payload.Confirmed=$true
+            $payload.TrustedRootPem=$FixturePem+[Environment]::NewLine+'-----BEGIN PRIVATE KEY-----'+[Environment]::NewLine+'INVALID'
+            try { Invoke-LabGuidedExternalModelEndpointHttp ($payload|ConvertTo-Json -Depth 8); $rejected=$false }
+            catch { $rejected=$_.Exception.Message -ceq 'AI_EXTERNAL_MODEL_GUIDED_CA_INVALID' }
+            Assert-GuidedEndpoint ($rejected -and $fixture.Probes -eq 0 -and $fixture.VaultReads -eq 0) 'Combined certificate/key content is rejected before Vault or probe'
+            $payload.TrustedRootPem=$FixturePem
+            $result=Invoke-LabGuidedExternalModelEndpointHttp ($payload|ConvertTo-Json -Depth 8)
+            Assert-GuidedEndpoint ($fixture.Probes -eq 1 -and $fixture.VaultReads -eq 1 -and $fixture.TrustedRoot -and $fixture.KeyBound -and
+                $result.Status -ceq 'ENDPOINT_VERIFIED' -and $result.PlanKey -ceq $FixturePlan.PlanKey -and
+                ($result|ConvertTo-Json -Depth 8) -cnotmatch 'FIXTURE_PRIVATE_CANARY|SYNTHETIC|BEGIN CERTIFICATE') 'One HTTPS probe validates, binds and projects the receipt'
+            $fixture.Drift=$true
+            $payload.ApiKeyReference=''
+            try { Invoke-LabGuidedExternalModelEndpointHttp ($payload|ConvertTo-Json -Depth 8); $rejected=$false }
+            catch { $rejected=$_.Exception.Message -ceq 'AI_EXTERNAL_MODEL_ENDPOINT_RECEIPT_MISMATCH' }
+            Assert-GuidedEndpoint ($rejected -and $fixture.Probes -eq 2 -and $fixture.VaultReads -eq 1) 'Foreign receipt is withheld without retry'
+            $fixture.Drift=$false
+            $entry=@(Show-LabHostModelsMenu | Where-Object Id -CEQ 'ExternalModelEndpoint')
+            Assert-GuidedEndpoint ($entry.Count -eq 1) 'Guided inspection is reachable from host models'
+            $fixture.Inputs.Enqueue([pscustomobject]@{Status='Confirmed';Value=$PlanFile})
+            Invoke-LabMenuAction -ActionName $entry[0].Id
+            Assert-GuidedEndpoint ($fixture.Probes -eq 2 -and $fixture.Prompts.Count -eq 1) 'CLI decline stops before CA and key input'
+            $fixture.Confirmed=$true
+            $fixture.Prompts.Clear()
+            $fixture.Inputs.Enqueue([pscustomobject]@{Status='Confirmed';Value=$PlanFile})
+            $fixture.Inputs.Enqueue([pscustomobject]@{Status='Confirmed';Value=''})
+            $fixture.Inputs.Enqueue([pscustomobject]@{Status='Confirmed';Value=$dummy.Copy()})
+            Invoke-LabMenuAction -ActionName $entry[0].Id
+            Assert-GuidedEndpoint ($fixture.Probes -eq 3 -and $fixture.KeyBound -and -not $fixture.TrustedRoot -and
+                ($fixture.Prompts -join ',') -ceq 'True/False,True/False,False/True' -and
+                $fixture.Logs[-1] -match 'ENDPOINT_VERIFIED' -and
+                ($fixture.Logs -join ' ') -cnotmatch 'FIXTURE_PRIVATE_CANARY|SyntheticOnlyEndpointKey') 'CLI uses masked inputs and keeps the bound receipt available'
+
+            $tokens=$null;$errors=$null
+            $server=[Management.Automation.Language.Parser]::ParseFile((Join-Path $script:ModuleRoot 'Tools/Start-SqlServerLabUi.ps1'),[ref]$tokens,[ref]$errors)
+            if ($errors.Count) { throw 'GUIDED_ENDPOINT_ROUTE_PARSE' }
+            $route=$server.Find({param($node) $node -is [Management.Automation.Language.IfStatementAst] -and
+                $node.Clauses[0].Item1.Extent.Text -ceq '$path -ceq ''/api/ai-external-model/endpoint'''},$true)
+            $handler=[scriptblock]::Create('foreach ($once in @(1)) '+$route.Clauses[0].Item2.Extent.Text)
+            . (Join-Path $script:ModuleRoot 'Tools/WorkflowUiJsonBody.ps1')
+            function Write-UiResponse {
+                param($Context,$Body,$ContentType,$StatusCode=200)
+                [pscustomobject]@{StatusCode=$StatusCode;Body=$Body}
+            }
+            $url='http://127.0.0.1:8484/'
+            $payload.TrustedRootPem=''
+            $bytes=[Text.Encoding]::UTF8.GetBytes(($payload|ConvertTo-Json -Depth 8))
+            $stream=[IO.MemoryStream]::new($bytes)
+            $context=[pscustomobject]@{Request=[pscustomobject]@{Url=[Uri]($url+'api/ai-external-model/endpoint')
+                HttpMethod='POST';ContentType='application/json';Headers=@{Origin='http://127.0.0.1:8485'}
+                ContentLength64=[long]$bytes.Length;InputStream=$stream}}
+            try {
+                $denied=& $handler
+                Assert-GuidedEndpoint ($denied.StatusCode -eq 400 -and $stream.CanRead -and $fixture.Probes -eq 3) 'Foreign origin is rejected before the request body or probe'
+                $context.Request.Headers.Origin=$url.TrimEnd('/')
+                $allowed=& $handler
+                Assert-GuidedEndpoint ($allowed.StatusCode -eq 200 -and $fixture.Probes -eq 4 -and
+                    ($allowed.Body|ConvertFrom-Json).PlanKey -ceq $FixturePlan.PlanKey) 'Actual route uses the bounded reader and confirmed public probe'
+            } finally { $stream.Dispose() }
+        } finally { $dummy.Dispose() }
+        Write-Host "GUIDED HTTPS MODEL ENDPOINT: PASS ($($fixture.Assertions); synthetic transport)"
+        $true
+    } $Plan $file $certificate.ExportCertificatePem()
+} finally {
+    if ($certificate) { $certificate.Dispose() }
+    $rsa.Dispose()
+}
