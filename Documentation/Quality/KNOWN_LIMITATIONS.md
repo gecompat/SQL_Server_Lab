@@ -4153,13 +4153,22 @@ unverändert. Echte Dispatch-/Issueabnahme dieses engeren Pfads ist noch offen.
 
 Die CLI und der Browser erstellen einen Konfigurationsplan für einen lokalen
 Gateway-Endpunkt, ein gebundenes Backend und bis zu 64 SQL-Verbraucher. Der Plan
-bleibt `BLOCKED` und `CONFIGURATION_ONLY`. Die optionale Statusprüfung liest
-Registrierung und Listener. Besitz eines Listeners ist nur in der startenden
+bleibt `BLOCKED` und `CONFIGURATION_ONLY`. Die lokale Dateiprüfung ist in
+CLI und Browser als Folgeaktion zum angezeigten Plan geführt. Die optionale
+Statusprüfung liest Registrierung und Listener. Besitz eines Listeners ist
+nur in der startenden
 Modulsitzung nachweisbar. Die geführte Upstream-Prüfung benötigt eine
 vorhandene Registrierung und sendet eine synthetische Anfrage ohne
 API-Schlüssel. Ein authentifizierter Upstream erfordert den öffentlichen
-Befehl mit flüchtigem SecureString. Dienstinstallation, Registrierung und
-SQL-Bindung benötigen ihre eigenen Fachaktionen und Nachweise.
+Befehl mit flüchtigem SecureString. CLI und Browser führen auch die
+geschützte Registrierung ausdrücklich bestätigter lokaler Dateien.
+In CLI und Browser lassen sich eigene befristete Gateway-Sitzungen starten
+und stoppen. Der Start benötigt die passende Registrierung und prüft
+Upstream und Endpunkt. In der CLI erfolgt die maskierte Eingabe im
+besitzenden Modulhost. Der Browser benötigt einen zugänglichen Vault
+im lokalen UI-Server. Jede Liste zeigt nur Operationen ihres Besitzers.
+Offene Nachweise betreffen die Dienstinstallation, den dauerhaften Betrieb
+und die SQL-Bindung.
 [Bedienweg](../HowTo/WORKFLOW_UI.md#gemeinsamen-embedding-gateway-planen)
 
 ## Geführter eigener llama.cpp-Sitzungsstop

@@ -225,9 +225,39 @@ function Get-LabConsoleHelpCatalog {
         }
         'ai-shared-gateway-plan-next' = @{
             Title = 'Gateway-Plan'
-            Purpose = 'Prüft Registrierung und Listener für den angezeigten Plan im konfigurierten StateRoot.'
-            Effects = 'Die Prüfung liest den lokalen Registrierungszustand und die Listenerbelegung. Das Ergebnis gilt für den angezeigten Plan.'
+            Purpose = 'Führt von einem Gateway-Plan zur Dateiprüfung, Registrierung, Statusprüfung, zum Upstream-Test, Dienstplan oder eigenen Sitzungsstart.'
+            Effects = 'Der Upstream-Test sendet eine synthetische Modellanfrage. Der Sitzungsstart erfordert eine Bestätigung und maskierte Schlüssel.'
             Command = 'Get-SqlServerLabAiSharedGatewayStatus'
+        }
+        'ai-shared-gateway-session-stop' = @{
+            Title = 'Eigene Gateway-Sitzung stoppen'
+            Purpose = 'Wählt eine eigene Gateway-Operation dieser Modulsitzung.'
+            Effects = 'Nach Bestätigung wird der eigene Worker beendet und sein temporärer Zustand entfernt. SQL-Verbraucher können die Verbindung verlieren.'
+            Command = 'Stop-SqlServerLabAiSharedGatewaySession'
+        }
+        'ai-shared-gateway-preflight-confirm' = @{
+            Title = 'Lokale Gateway-Dateien prüfen'
+            Purpose = 'Prüft fünf lokale Dateien gegen den angezeigten Plan.'
+            Effects = 'Dateien jetzt prüfen liest Modell, Runtime, Zertifikate und Schlüsseldatei. Abbrechen kehrt ohne Inhaltsprüfung zurück.'
+            Command = 'Test-SqlServerLabAiSharedGatewayPreflight'
+        }
+        'ai-shared-gateway-register-confirm' = @{
+            Title = 'Gateway-Dateien geschützt registrieren'
+            Purpose = 'Bindet die fünf ausgewählten Dateien an den angezeigten Plan und die geschützte Lab-Ablage.'
+            Effects = 'Bestätigung prüft und kopiert Modell, Runtime, Zertifikate und Schlüsseldatei. Danach kann der Registrierungsstatus geprüft werden.'
+            Command = 'Register-SqlServerLabAiSharedGatewayStorage'
+        }
+        'ai-shared-gateway-service-mode' = @{
+            Title = 'Host-Autostart planen'
+            Purpose = 'Einen Hostmodus für den angezeigten Gateway-Plan prüfen.'
+            Effects = 'Die Auswahl liest Registrierung und Hostvoraussetzungen und zeigt den Dienstplan mit möglichen Blockern.'
+            Command = 'Get-SqlServerLabAiSharedGatewayServicePlan'
+        }
+        'ai-shared-gateway-service-secret-confirm' = @{
+            Title = 'Dienst-Secrets prüfen'
+            Purpose = 'Prüft die Consumer-Schlüsselreferenzen des passenden Dienstplans über PowerShell SecretManagement.'
+            Effects = 'Nur die ausdrückliche Auswahl liest den Vault. Die Ausgabe zeigt Anzahl und Gültigkeit für den aktuellen Benutzer.'
+            Command = 'Test-SqlServerLabAiSharedGatewayServiceSecret'
         }
         'sql-feature-target' = @{ Title = 'SQL-Instanz für Funktionsänderung'; Purpose = 'Eine registrierte Instanz der gewählten laufenden Umgebung auswählen.'; Effects = 'Erst die Bestätigung einer konkreten Funktion ändert SQL Server.'; Command = 'Set-SqlServerLabFeature' }
         'sql-feature-operation' = @{ Title = 'SQL-Funktion ändern'; Purpose = 'Volltext installieren oder entfernen. Hyper-V bietet zusätzlich FILESTREAM.'; Effects = 'Bei einer bestätigten Änderung startet SQL neu. Abhängige Datenbanken können die Entfernung verhindern.'; Command = 'Set-SqlServerLabFeature' }

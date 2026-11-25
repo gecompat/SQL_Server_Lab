@@ -79,12 +79,18 @@ deterministischen Plan. Die geführte Planerstellung steht in CLI und Browser
 unter **Host-Dienste und Modelle → Gemeinsamen Embedding-Gateway planen**
 zur Verfügung. Der read-only Preflight prüft zusätzlich lokale
 Runtime-/Modellhashes, Serverzertifikat und passenden privaten Schlüssel,
-CA-Kette, Gültigkeit und exakten SAN ohne Pfade oder Schlüssel im Receipt. Der
-Plan bleibt für den dauerhaften Dienst mit
+CA-Kette, Gültigkeit und exakten SAN ohne Pfade oder Schlüssel im Receipt.
+CLI und Browser führen Dateiauswahl und Bestätigung für denselben Plan.
+Der Plan bleibt für den dauerhaften Dienst mit
 `AI_SHARED_GATEWAY_EXECUTION_NOT_IMPLEMENTED` ausdrücklich blockiert. Die
 gebundenen Dateien können bereits mutexgeschützt, benutzerexklusiv und atomar
 im gemeinsamen StateRoot registriert werden; identische parallele Aufrufe sind
-idempotent, abweichende Pläne und Inhaltsdrift werden abgewiesen. Registrar und geführter eigener llama.cpp-Sitzungsstop teilen eine kanonische StateRoot-Lifecyclesperre vor ihren bestehenden Gateway-/Testgruppen-Sperren; bekannte Consumerpublikation kann den Stop nicht überholen. Das ist keine vollständige Live-Verbrauchercoverage. Eine read-only
+idempotent, abweichende Pläne und Inhaltsdrift werden abgewiesen. Die geführte
+Registrierung in CLI und Browser bestätigt die geschützte Kopie für denselben
+Plan. Registrar und geführter eigener llama.cpp-Sitzungsstop teilen eine
+kanonische StateRoot-Lifecyclesperre vor ihren bestehenden Gateway-/Testgruppen-Sperren.
+Bekannte Consumerpublikation kann den Stop nicht überholen. Die vollständige
+Live-Verbrauchercoverage bleibt offen. Eine read-only
 Probe revalidiert diesen Store und prüft einen bereits laufenden gebundenen
 Llama-v1- oder OVMS-v3-Loopback-Upstream auf Modell, Dimension und Vektorwerte.
 `Start-SqlServerLabAiSharedGatewaySession` stellt darauf aufbauend einen
@@ -104,7 +110,9 @@ Upstream ohne API-Schlüssel explizit mit einer synthetischen Anfrage prüfen.
 Deren Ergebnis bestätigt den Upstream-Befund für diesen Plan. Die eigene
 Session ist nur in ihrer startenden Modulsitzung nachweisbar.
 `Get-SqlServerLabAiSharedGatewayServicePlan` bindet diesen Zustand lesend an eine neu
-berechnete Host-Capability. Windows verwendet eine S4U-Aufgabe mit lokalem,
+berechnete Host-Capability. CLI und Browser führen die Auswahl von Auto,
+Windows S4U oder Linux-systemd-Benutzerdienst für den angezeigten Plan.
+Windows verwendet eine S4U-Aufgabe mit lokalem,
 nicht EFS-verschlüsseltem StateRoot und weist den fehlenden Netzwerk- und EFS-
 Zugriff aus; Linux verlangt einen erreichbaren systemd-Usermanager und
 aktiviertes Linger. `Auto` wählt den Hostmodus, eine explizite Fixierung bleibt

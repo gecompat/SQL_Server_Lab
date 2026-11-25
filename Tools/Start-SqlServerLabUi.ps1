@@ -409,6 +409,25 @@ function Start-UiPublicCommandJob {
                 Write-Output '[FEHLER] BACKUP_LIBRARY_BROWSER_UNCONFIRMED'
                 throw 'BACKUP_LIBRARY_BROWSER_UNCONFIRMED'
             }
+            if ($JobCommandName -ceq 'Get-SqlServerLabAiSharedGatewayServicePlan') {
+                Write-Output '[FEHLER] AI_SHARED_GATEWAY_GUIDED_SERVICE_PLAN_UNCONFIRMED'
+                throw 'AI_SHARED_GATEWAY_GUIDED_SERVICE_PLAN_UNCONFIRMED'
+            }
+            if ($JobCommandName -cin @('Test-SqlServerLabAiSharedGatewayPreflight','Register-SqlServerLabAiSharedGatewayStorage')) {
+                $code = switch -CaseSensitive ($_.Exception.Message) {
+                    'AI_SHARED_GATEWAY_GUIDED_PATH_INVALID' { 'AI_SHARED_GATEWAY_GUIDED_PATH_INVALID' }
+                    'AI_SHARED_GATEWAY_PLAN_INVALID' { 'AI_SHARED_GATEWAY_PLAN_INVALID' }
+                    'AI_SHARED_GATEWAY_STORAGE_CONFLICT' { 'AI_SHARED_GATEWAY_STORAGE_CONFLICT' }
+                    'AI_SHARED_GATEWAY_STORAGE_DRIFT' { 'AI_SHARED_GATEWAY_STORAGE_DRIFT' }
+                    default {
+                        if ($JobCommandName -ceq 'Register-SqlServerLabAiSharedGatewayStorage') {
+                            'AI_SHARED_GATEWAY_GUIDED_REGISTRATION_UNCONFIRMED'
+                        } else { 'AI_SHARED_GATEWAY_GUIDED_PREFLIGHT_UNCONFIRMED' }
+                    }
+                }
+                Write-Output "[FEHLER] $code"
+                throw $code
+            }
             Write-Output "[FEHLER] $($_.Exception.Message)"
             throw
         }
@@ -674,6 +693,7 @@ $runArtifactRemovalPreviews = @{}
 $containerAutoStartRecoverySelections = @{}
 $containerAutoStartChangeStore = @{}
 $hyperVAutoStartBrowserStore = @{}
+$aiSharedGatewayBrowserSessions = @{}
 
 try {
     $commandGrantStore = New-UiCommandGrantStore -Session $operatorSession
@@ -1516,6 +1536,35 @@ try {
                 }
                 continue
             }
+            if ($path -ceq '/api/ai-shared-gateway/sessions') {
+                try {
+                    if ($context.Request.Url.Query) { throw 'AI_SHARED_GATEWAY_SESSION_HTTP_INVALID' }
+                    if ($context.Request.HttpMethod -ceq 'GET') {
+                        $view = & (Get-Module SqlServerLab) { param($scope) Get-LabAiSharedGatewayBrowserSessions -BrowserSessions $scope } $aiSharedGatewayBrowserSessions
+                    } elseif ($context.Request.HttpMethod -ceq 'POST' -and
+                        $context.Request.ContentType -match '^application/json(?:\s*;|$)' -and
+                        [string]$context.Request.Headers['Origin'] -ceq $url.TrimEnd('/')) {
+                        $bodyRead = Read-UiJsonRequestBody -Request $context.Request -MaxBytes 65536
+                        if (-not $bodyRead.Allowed) {
+                            Write-UiResponse -Context $context -Body $bodyRead.Code -StatusCode $bodyRead.StatusCode
+                            continue
+                        }
+                        $view = & (Get-Module SqlServerLab) {
+                            param($scope,$body) Invoke-LabAiSharedGatewayBrowserSession -BrowserSessions $scope -Body $body
+                        } $aiSharedGatewayBrowserSessions $bodyRead.Body
+                    } else { throw 'AI_SHARED_GATEWAY_SESSION_HTTP_INVALID' }
+                    Write-UiResponse -Context $context -Body ($view | ConvertTo-Json -Depth 5 -Compress) -ContentType 'application/json; charset=utf-8'
+                } catch {
+                    $code = $_.Exception.Message
+                    if ($code -cnotin @('AI_SHARED_GATEWAY_SESSION_HTTP_CONFIRM_POLICY_BLOCKED',
+                        'AI_SHARED_GATEWAY_SESSION_HTTP_NOT_READY','AI_SHARED_GATEWAY_SESSION_HTTP_VAULT_UNAVAILABLE',
+                        'AI_SHARED_GATEWAY_SESSION_HTTP_SECRET_UNAVAILABLE','AI_SHARED_GATEWAY_SESSION_HTTP_SECRET_INVALID',
+                        'AI_SHARED_GATEWAY_SESSION_HTTP_START_UNCONFIRMED','AI_SHARED_GATEWAY_SESSION_HTTP_STOP_UNCONFIRMED',
+                        'AI_SHARED_GATEWAY_SESSION_HTTP_OWNERSHIP_NOT_FOUND')) { $code = 'AI_SHARED_GATEWAY_SESSION_HTTP_INVALID' }
+                    Write-UiResponse -Context $context -Body (@{Code=$code} | ConvertTo-Json -Compress) -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                }
+                continue
+            }
             if ($path -eq '/api/ai-shared-gateway/service-secret' -and $context.Request.HttpMethod -eq 'POST') {
                 $bodyRead = Read-UiJsonRequestBody -Request $context.Request
                 if (-not $bodyRead.Allowed) {
@@ -1946,7 +1995,16 @@ finally {
     }
     if ($jobs.Count -gt 0) { Write-Host 'UI-Job-Bereinigung abgeschlossen.' -ForegroundColor DarkGray }
     } finally {
-        try { $listener.Stop(); $listener.Close() }
+        try {
+            $listener.Stop()
+            $listener.Close()
+            if ($aiSharedGatewayBrowserSessions.Count) {
+                $closed = & (Get-Module SqlServerLab) {
+                    param($scope) Close-LabAiSharedGatewayBrowserSessions -BrowserSessions $scope
+                } $aiSharedGatewayBrowserSessions
+                if (-not $closed) { Write-Warning 'Bereinigung eigener Gateway-Sitzungen unbestätigt. Ownerkanal und Lease begrenzen den Worker.' }
+            }
+        }
         finally {
             try { if($commandGrantStore){Close-UiCommandGrantStore -Store $commandGrantStore} }
             finally { $null = Close-UiOperatorSession -Session $operatorSession }

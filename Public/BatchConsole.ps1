@@ -1179,6 +1179,7 @@ function Show-LabHostModelsMenu {
         New-LabConsoleItem -Id AiRuntimeCapability -Label 'llama.cpp-Eignung prüfen' -Value 'Paketdateien und erkannte Geräte' -Shortcut 6
         New-LabConsoleItem -Id OvmsUpstream -Label 'Lokalen OVMS-Embedding-Dienst prüfen' -Value 'Ein synthetischer HTTP-Request über Loopback' -Shortcut 7
         New-LabConsoleItem -Id AiSharedGatewayPlan -Label 'Gemeinsamen Embedding-Gateway planen' -Value 'Endpunkt, Backend und SQL-Verbraucher binden'
+        New-LabConsoleItem -Id AiSharedGatewaySessionStop -Label 'Eigene Gateway-Sitzung auswählen und stoppen' -Value 'Nur Sitzungen dieses Modulhosts'
         New-LabConsoleItem -Id AiComputeSelection -Label 'KI-Gerätekombination aus Messbelegen wählen' -Value 'Vorhandene Kandidaten und Benchmarkwerte · lesend' -Shortcut 8
         New-LabConsoleItem -Id AiComputeBenchmark -Label 'llama.cpp-Gerätekombinationen messen' -Value 'Ein Kandidat oder vollständiger Satz · CPU/GPU/NPU' -Shortcut 9
         New-LabConsoleItem -Id ModelLifecycle -Label 'Modell laden, entladen oder wechseln' -Disabled -DisabledReason 'Ein gemeinsamer geführter Load-/Unload-/Wechselvertrag ist noch offen. Der Datei-Download ist kein geladenes Modell.'

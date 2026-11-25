@@ -86,6 +86,8 @@ function Get-LabPublicCommandParameterDescriptor {
         $type=[type]$_.ParameterType
         $generatesWindowsAccess = $Command.Name -ceq 'New-SqlServerLabWindowsSlotPool' -and
             $name -ceq 'GenerateAdministratorPasswords' -and $type -eq [switch]
+        $gatewayKeyPath = $name -ceq 'PrivateKeyPath' -and $Command.Name -cin @(
+            'Test-SqlServerLabAiSharedGatewayPreflight','Register-SqlServerLabAiSharedGatewayStorage')
         [PSCustomObject]@{
             Name=$name
             ParameterType=$type
@@ -94,7 +96,7 @@ function Get-LabPublicCommandParameterDescriptor {
             Position=[int]$_.Position
             DefaultExpression=$(if($defaults.ContainsKey($name)){$defaults[$name]}elseif($_.IsMandatory){'<kein Standard>'}else{'<Befehlsstandard>'})
             AllowedValues=(Get-LabPublicCommandAllowedValueText -Parameter $_)
-            Sensitive=($type -eq [Security.SecureString] -or $type -eq [Management.Automation.PSCredential] -or $type -eq [byte[]] -or
+            Sensitive=($gatewayKeyPath -or $type -eq [Security.SecureString] -or $type -eq [Management.Automation.PSCredential] -or $type -eq [byte[]] -or
                 (-not $generatesWindowsAccess -and $name -match '(?i)(password|secret|credential|exportbytes)'))
             IsCredential=($type -eq [Management.Automation.PSCredential])
             Attributes=@($_.Attributes)
@@ -177,7 +179,7 @@ function Get-LabPublicCommandWebCatalog {
         }
         else { '' }
         $catalogExport = $item.Name -ceq 'Get-SqlServerLabCatalog'
-        $requiresConfirmation = $catalogExport -or $item.SupportsShouldProcess -or $item.Verb -in @(
+        $requiresConfirmation = $catalogExport -or $item.Name -ceq 'Test-SqlServerLabAiSharedGatewayPreflight' -or $item.SupportsShouldProcess -or $item.Verb -in @(
             'Add','Backup','Clear','Complete','Confirm','Disable','Enable','Export','Import','Initialize',
             'Install','Invoke','Move','New','Publish','Register','Remove','Rename','Repair','Restart','Restore',
             'Resume','Save','Set','Start','Stop','Suspend','Sync','Unregister','Update'
@@ -264,6 +266,11 @@ function ConvertTo-LabPublicCommandWebResult {
         [Parameter(Mandatory)][hashtable]$Parameters,
         [AllowNull()][object[]]$Result
     )
+
+    if ($CommandName -ceq 'Get-SqlServerLabAiSharedGatewayServicePlan') {
+        if (@($Result).Count -ne 1) { throw 'AI_SHARED_GATEWAY_GUIDED_SERVICE_PLAN_UNCONFIRMED' }
+        return @(Resolve-LabAiSharedGatewayServicePlan -ServicePlan $Result[0] -Plan $Parameters.Plan)
+    }
 
     if ($CommandName -ceq 'Get-SqlServerLabCatalog') {
         if (@($Result).Count -ne 1 -or $Result[0].Catalog.CatalogFormat -cne '1') {
@@ -438,6 +445,13 @@ function Invoke-LabPublicCommandWebRequest {
     if ($catalogExport) {
         $arguments.StateRoot = Assert-LabDiagnosticPath -Path (Get-LabStateRoot)
         $arguments.Path = Assert-LabDiagnosticPath -Path (Join-Path $arguments.StateRoot 'catalog/sql-server-lab-catalog.json')
+    }
+    if ($CommandName -cin @('Test-SqlServerLabAiSharedGatewayPreflight','Register-SqlServerLabAiSharedGatewayStorage')) {
+        $arguments.Plan = Resolve-LabAiSharedGatewayPlan -Plan $arguments.Plan
+        foreach ($name in @('RuntimePath','ModelPath','CertificatePath','PrivateKeyPath','CertificateAuthorityPath')) {
+            if ($Parameters[$name] -isnot [string]) { throw 'AI_SHARED_GATEWAY_GUIDED_PATH_INVALID' }
+            $arguments[$name] = Resolve-LabAiSharedGatewayGuidedInputPath -Path $arguments[$name]
+        }
     }
     $result = @(& $catalogItem.Command @arguments)
     $displayResult = @(ConvertTo-LabPublicCommandWebResult -CommandName $CommandName -Parameters $Parameters -Result $result)

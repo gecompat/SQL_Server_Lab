@@ -204,10 +204,12 @@ sources_of_truth:
   validation_ai_shared_gateway_plan: Tests/Static/Invoke-AiSharedGatewayPlanChecks.ps1
   ai_shared_gateway_preflight_contract: Private/AiSharedGatewayPreflight.ps1
   ai_shared_gateway_preflight_api: Public/Test-SqlServerLabAiSharedGatewayPreflight.ps1
+  ai_shared_gateway_preflight_guidance: "Private/AiSharedGatewayPlanGuidance.ps1 und Ui/ai-shared-gateway-plan.js binden den angezeigten Plan an eine bestätigte lokale Dateiprüfung. Browser-Auftrag nutzt den bestehenden Command-Grant und validiert Pfade in Private/PublicCommandConsole.ps1. Plan- und Preflight-Suites prüfen beide Oberflächen."
   ai_shared_gateway_preflight_schema: Schemas/ai-shared-gateway-preflight-receipt.schema.json
   validation_ai_shared_gateway_preflight: Tests/Static/Invoke-AiSharedGatewayPreflightChecks.ps1
   ai_shared_gateway_storage_contract: Private/AiSharedGatewayRegistration.ps1
   ai_shared_gateway_storage_api: Public/Register-SqlServerLabAiSharedGatewayStorage.ps1
+  ai_shared_gateway_storage_guidance: "Private/AiSharedGatewayPlanGuidance.ps1 und Ui/ai-shared-gateway-plan.js binden die ausdrückliche Registrierung fünf lokaler Dateien an den angezeigten Plan. Private/PublicCommandConsole.ps1 prüft lokale Pfade und führt den bestätigten Browser-Auftrag. Plan- und Storage-Suites prüfen Bindung, Abbruch und idempotente Kopie."
   ai_shared_gateway_storage_state_schema: Schemas/ai-shared-gateway-storage-state.schema.json
   ai_shared_gateway_storage_receipt_schema: Schemas/ai-shared-gateway-storage-receipt.schema.json
   validation_ai_shared_gateway_storage: Tests/Static/Invoke-AiSharedGatewayStorageChecks.ps1
@@ -218,16 +220,21 @@ sources_of_truth:
   ai_shared_gateway_session_worker: Tools/Invoke-AiSharedGatewaySessionWorker.ps1
   ai_shared_gateway_session_start: Public/Start-SqlServerLabAiSharedGatewaySession.ps1
   ai_shared_gateway_session_stop: Public/Stop-SqlServerLabAiSharedGatewaySession.ps1
+  ai_shared_gateway_session_console: "Private/AiSharedGatewaySessionGuidance.ps1 startet aus dem gebundenen Plan mit bestätigten SecureString-Eingaben und stoppt ausschließlich ausgewählte Operationen derselben Modulsitzung. Invoke-AiSharedGatewaySessionChecks.ps1 prüft Abbruch, Ownerbindung sowie echten synthetischen Loopback-Start und -Stop."
+  ai_shared_gateway_session_browser: "Private/AiSharedGatewaySessionHttp.ps1, Tools/Start-SqlServerLabUi.ps1 und Ui/ai-shared-gateway-plan.js binden Start an Plan, Bestätigung und lokalen Vault und Stop an eigene Operationen dieses UI-Servers. Session-Suite und Browser-Fixture prüfen Ownergrenze und Ergebnisbindung."
   ai_shared_gateway_session_schema: Schemas/ai-shared-gateway-session-receipt.schema.json
   validation_ai_shared_gateway_session: Tests/Static/Invoke-AiSharedGatewaySessionChecks.ps1
   ai_shared_gateway_status_api: Public/Get-SqlServerLabAiSharedGatewayStatus.ps1
   ai_shared_gateway_status_schema: Schemas/ai-shared-gateway-status.schema.json
   ai_shared_gateway_service_plan_contract: Private/AiSharedGatewayServicePlan.ps1
   ai_shared_gateway_service_plan_api: Public/Get-SqlServerLabAiSharedGatewayServicePlan.ps1
+  ai_shared_gateway_service_plan_guidance: "Private/AiSharedGatewayPlanGuidance.ps1 und Ui/ai-shared-gateway-plan.js binden die Hostmoduswahl an den angezeigten Plan. Private/PublicCommandConsole.ps1 prüft den Dienstplan vor der Auftragsausgabe. Plan- und ServicePlan-Suites prüfen den geführten Dispatch."
   ai_shared_gateway_service_plan_schema: Schemas/ai-shared-gateway-service-plan.schema.json
   validation_ai_shared_gateway_service_plan: Tests/Static/Invoke-AiSharedGatewayServicePlanChecks.ps1
   ai_shared_gateway_service_secret_contract: Private/AiSharedGatewayServiceSecret.ps1
   ai_shared_gateway_service_secret_api: Public/Test-SqlServerLabAiSharedGatewayServiceSecret.ps1
+  ai_shared_gateway_service_secret_console: "Private/AiSharedGatewayPlanGuidance.ps1 bietet nach READY die ausdrückliche Vault-Prüfung gebundener Referenzen. Test-Suite für Abbruch, Leser und begrenzte Quittung in der Konsole."
+  ai_shared_gateway_service_secret_browser_handoff: "Ui/ai-shared-gateway-plan.js übernimmt nach Auswahl das READY-Ergebnis des exakten abgeschlossenen Dienstplanauftrags bei gleicher Plan- und Modusbindung. Die getrennte Vault-Prüfung bleibt eine ausdrückliche Benutzeraktion."
   ai_shared_gateway_service_secret_schema: Schemas/ai-shared-gateway-service-secret-receipt.schema.json
   validation_ai_shared_gateway_service_secret: Tests/Static/Invoke-AiSharedGatewayServiceSecretChecks.ps1
   ai_shared_gateway_upstream_schema: Schemas/ai-shared-gateway-upstream-receipt.schema.json

@@ -153,6 +153,7 @@
       <button id="ai-scenario-plan-open" type="button" class="button secondary">Vector-Core-Szenarioplan lesen</button>
       <button id="llama-start-plan-open" type="button" class="button secondary">llama.cpp: reine Startvorschau</button>
       <button id="llama-start-open" type="button" class="button secondary">llama.cpp: eigene Sitzung starten</button>
+      <button id="ai-shared-gateway-open-sessions" type="button" class="button secondary">Eigene Gateway-Sitzungen verwalten</button>
     </section>
     <section class="panel" data-workspace-area="connections" hidden>
       <h2>Verbindungen und CMS</h2>
@@ -327,11 +328,58 @@
         <p id="ai-shared-gateway-plan-status" aria-live="polite">Der Plan bindet die Konfiguration für spätere Prüfung und Bereitstellung.</p>
         <label id="ai-shared-gateway-plan-result-box" hidden>Gateway-Plan (JSON)<textarea id="ai-shared-gateway-plan-result" rows="10" readonly></textarea></label>
         <div class="build-actions">
+          <button id="ai-shared-gateway-open-preflight" type="button" class="button secondary" disabled>Lokale Gateway-Dateien für diesen Plan prüfen</button>
+          <button id="ai-shared-gateway-open-registration" type="button" class="button secondary" disabled>Gateway-Dateien für diesen Plan geschützt registrieren</button>
           <button id="ai-shared-gateway-read-status" type="button" class="button secondary" disabled>Status für diesen Gateway-Plan lesen</button>
           <button id="ai-shared-gateway-probe-upstream" type="button" class="button secondary" aria-describedby="ai-shared-gateway-upstream-note" disabled>Registrierten Loopback-Upstream mit Testanfrage prüfen</button>
           <button id="ai-shared-gateway-use-plan" type="button" class="button secondary" disabled>In Dienst-Secret-Prüfung übernehmen</button>
         </div>
         <p id="ai-shared-gateway-upstream-note">Die Upstream-Prüfung sendet eine synthetische Anfrage an den registrierten lokalen Dienst ohne API-Schlüssel.</p>
+      </form>
+      <div id="ai-shared-gateway-service-controls" class="build-actions" hidden>
+        <label>Dienstmodus<select id="ai-shared-gateway-service-mode">
+          <option value="Auto">Automatisch</option>
+          <option value="WindowsS4U">Windows-Aufgabe (S4U)</option>
+          <option value="SystemdUser">Linux-systemd-Benutzerdienst</option>
+        </select></label>
+        <button id="ai-shared-gateway-prepare-service" type="button" class="button secondary" disabled>Host-Autostart für diesen Gateway-Plan vorbereiten</button>
+      </div>
+      <button id="ai-shared-gateway-open-session-start" type="button" class="button secondary" disabled>Eigene Gateway-Sitzung für diesen Plan starten</button>
+      <dialog id="ai-shared-gateway-session-dialog" aria-labelledby="ai-shared-gateway-session-title">
+        <h2 id="ai-shared-gateway-session-title">Eigene Gateway-Sitzungen</h2>
+        <p>Die Liste enthält nur Worker dieses UI-Servers. Auch unbekannte SQL-Verbraucher können beim Stop ihre Verbindung verlieren.</p>
+        <form id="ai-shared-gateway-session-start" hidden>
+          <p id="ai-shared-gateway-session-target"></p>
+          <p>Der Start liest die gebundenen Verbraucherreferenzen aus dem lokalen Vault. Die Sitzung bleibt bis zum Stop, zum Ende des UI-Servers oder bis zum Ablauf der Laufzeit aktiv.</p>
+          <label>Maximale Sitzungsdauer in Sekunden<input id="ai-shared-gateway-session-lease" type="number" min="60" max="3600" value="900" required></label>
+          <label>Optionale Vault-Referenz für den Upstream<input id="ai-shared-gateway-session-upstream-reference" maxlength="118" autocomplete="off"></label>
+          <label><input id="ai-shared-gateway-session-start-confirmed" type="checkbox" required>Vault lesen und den befristeten Worker für diesen Plan starten</label>
+          <button id="ai-shared-gateway-session-start-submit" type="submit" class="button" disabled>Eigene Gateway-Sitzung starten</button>
+        </form>
+        <label>Eigene Sitzung<select id="ai-shared-gateway-session-selection"></select></label>
+        <label><input id="ai-shared-gateway-session-stop-confirmed" type="checkbox">Ausgewählte Sitzung stoppen</label>
+        <p id="ai-shared-gateway-session-status" role="status"></p>
+        <div class="build-actions">
+          <button id="ai-shared-gateway-session-read" type="button" class="button secondary">Sitzungen neu lesen</button>
+          <button id="ai-shared-gateway-session-stop" type="button" class="button" disabled>Eigenen Worker stoppen</button>
+          <button id="ai-shared-gateway-session-close" type="button" class="button secondary">Schließen</button>
+        </div>
+      </dialog>
+      <form id="ai-shared-gateway-preflight" autocomplete="off" hidden>
+        <p id="ai-shared-gateway-file-action-effect"></p>
+        <p>Gib absolute lokale Pfade auf dem Lab-Host ein. Verwende reguläre Dateien ohne Verknüpfungen.</p>
+        <div class="form-grid">
+          <label>Runtime-Datei<input name="RuntimePath" required maxlength="4096"></label>
+          <label>Modelldatei<input name="ModelPath" required maxlength="4096"></label>
+          <label>Serverzertifikat (PEM)<input name="CertificatePath" required maxlength="4096"></label>
+          <label>Pfad zur Schlüsseldatei (PEM)<input name="PrivateKeyPath" type="password" autocomplete="off" required maxlength="4096"></label>
+          <label>CA-Zertifikat (PEM)<input name="CertificateAuthorityPath" required maxlength="4096"></label>
+        </div>
+        <label id="ai-shared-gateway-registration-confirmation" hidden><input name="ConfirmRegistration" type="checkbox"> Fünf Dateien einschließlich Schlüssel in die geschützte Lab-Ablage kopieren</label>
+        <div class="build-actions">
+          <button id="ai-shared-gateway-verify-files" type="submit" class="button primary">Dateien jetzt prüfen</button>
+          <button id="ai-shared-gateway-cancel-preflight" type="button" class="button secondary">Abbrechen</button>
+        </div>
       </form>
     </section>
 
