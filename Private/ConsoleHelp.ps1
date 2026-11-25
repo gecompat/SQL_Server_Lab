@@ -350,6 +350,12 @@ function Get-LabConsoleHelpCatalog {
             Effects = 'Anzeigen veraendert nichts. Der Export erzeugt eine Registrierungsdatei fuer SSMS.'
             Command = 'Get-SqlServerLabConnectionCenter'
         }
+        'stored-connection-center' = @{
+            Title = 'Gespeicherte SQL-Endpunkte'
+            Purpose = 'Wähle einen regulären Lab-Endpunkt und lies dessen gespeicherte Adresse und Zustand.'
+            Effects = 'Der gespeicherte Zustand wird ohne Providerabgleich gelesen. Es werden keine Daten geschrieben.'
+            Command = 'Get-SqlServerLabConnectionCenter -StoredOnly'
+        }
         'infrastructure-menu' = @{
             Title   = 'Infrastruktur und Medien'
             Purpose = 'Buendelt den Hyper-V-Bestand und die Medien-, Speicher- und Testdatenverwaltung.'

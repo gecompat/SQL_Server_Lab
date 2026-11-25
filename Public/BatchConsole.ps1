@@ -1220,6 +1220,7 @@ function Show-LabCmsMenu {
 
     return Show-LabSubMenu -ScreenId 'cms-menu' -Title 'Verbindungen und CMS' -Subtitle 'Registrierte Server, Endpunkte und SSMS-Export' -Items @(
         New-LabConsoleItem -Id ConnectionCenter -Label 'Verbindungszentrale und CMS' -Value 'Endpunkte · registrierte Server · SSMS-Export' -Shortcut 1
+        New-LabConsoleItem -Id StoredConnectionCenter -Label 'Gespeicherte SQL-Endpunkte anzeigen' -Value 'Ohne Providerabgleich oder Speicherung' -Shortcut 3
         New-LabConsoleItem -Id Cms -Label 'CMS bereitstellen, uebernehmen und synchronisieren' -Value 'direkter Weg ohne Umweg ueber die Verbindungszentrale' -Shortcut 2 `
             -Help 'Erstellt einen kompakten persistenten CMS, uebernimmt eine bestehende SQL-Umgebung als CMS oder exportiert nur das kennwortfreie Synchronisationsskript.'
         New-LabConsoleItem -Id back -Label 'Zurueck' -Shortcut 0
