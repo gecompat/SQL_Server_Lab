@@ -91,6 +91,9 @@ Der freie Platz für die SQL-Standardpfade Daten, Log und Backup lässt sich
 getrennt in der Ziel-VM lesen. Gemeinsam genutzte Volumes erscheinen einmal.
 Die Speicherbeobachtung dient der Vorbereitung. Quellbedarf, Hostkapazität,
 SQL-Lizenz, Gleichwertigkeit und Transfer müssen separat geprüft werden.
+Die [native Key18-Abnahme](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45513939058)
+beobachtete alle drei Speicherrollen am separaten SQL-2025-Developer-Ziellab
+und bestätigte unveränderte Metadaten und vollständigen Cleanup.
 Der Gesamtplan bleibt `BLOCKED`.
 
 Key18 bestätigte die Windows-Lizenz der separaten Ziel-VM mit zwei eigenen

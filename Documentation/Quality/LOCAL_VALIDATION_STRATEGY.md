@@ -2462,8 +2462,11 @@ Die Ziel-Speicherprobe verwendet denselben isolierten Hyper-V-Nachweis.
 Sie liest den freien Platz für Daten, Log und Backup im Gast. Die
 EvaluationRefreshPlan-Fixtures prüfen getrennt gemeinsame Volumes,
 CLIXML-Typen, beobachtete null Bytes, ungültige Befunde und Auswahldrift.
-Die Vorprüfung gibt keinen Transfer frei. Der zusätzliche native
-Speicher-Nachweis bleibt `NOT_EXECUTED`, bis die erweiterte Suite läuft.
+Die Vorprüfung gibt keinen Transfer frei. Der [native Key18-Lauf](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45513939058)
+auf `21204bcee33dd63bb4a117cbdb435e09b5e2651a` bestätigte die Windows-Lizenz,
+die SQL-Bereitschaft und den freien Gastspeicher aller drei Rollen am Ziel.
+Die Quelle war vor dem Zielstart aus. Beide Run-Metadaten und die Vorlage
+blieben unverändert. Eigene Runs, VMs und Datenträger wurden entfernt.
 Im gerenderten Browser auf `48e102fcec6cc6a0548b5a9bd416dad3545b2b83`
 luden alle 54 UI-Dateien. Für das gestoppte synthetische Ziel war der
 Knopf gesperrt. Das laufende Ziel löste genau einen Auftrag mit den
