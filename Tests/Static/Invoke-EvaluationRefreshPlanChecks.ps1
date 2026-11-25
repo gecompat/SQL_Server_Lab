@@ -33,6 +33,8 @@ try {
     Assert-Refresh ($activation.Code -ceq 'WINDOWS_ACTIVATION_REQUEST_FAILED' -and $activation.Details -ceq $flags) 'Native fixture preserves the sanitized Windows activation diagnosis'
     $activation = Get-TargetLicenseActivationFailure "$reason [CANARY_PRIVATE_DETAIL]"
     Assert-Refresh ($activation.Code -ceq 'WINDOWS_ACTIVATION_REQUEST_FAILED' -and $null -eq $activation.Details) 'Native fixture discards raw details'
+    $activation = Get-TargetLicenseActivationFailure 'HYPERV_WINDOWS_ACTIVATION_FAILED: WINDOWS_ACTIVATION_GUEST_ADAPTER_NOT_FOUND [dns=not_checked;ipv4=not_checked;route=not_checked]'
+    Assert-Refresh ($activation.Code -ceq 'WINDOWS_ACTIVATION_GUEST_ADAPTER_NOT_FOUND' -and $activation.Details -ceq 'dns=not_checked;ipv4=not_checked;route=not_checked') 'Native fixture preserves the known guest adapter failure'
     Assert-Refresh ($null -eq (Get-TargetLicenseActivationFailure 'HYPERV_WINDOWS_ACTIVATION_FAILED: WINDOWS_CANARY_PRIVATE_DETAIL')) 'Native fixture discards unknown codes'
     $script:VersionCatalog=Get-Content (Join-Path $repo Catalogs/sql-server-versions.json) -Raw|ConvertFrom-Json
     $script:SchemasPath=Join-Path $repo Schemas
@@ -527,5 +529,5 @@ try {
     Write-Host ('EVALUATION_REFRESH_PLAN_CHECKS: '+$checks+' PASS; 0 FAIL')
 } finally {
     $resolved=[IO.Path]::GetFullPath($root);$expected=[IO.Path]::GetFullPath((Join-Path $repo '.artifacts/evaluation-refresh-fixtures'))
-    if($resolved.StartsWith($expected+[IO.Path]::DirectorySeparatorChar,[StringComparison]::OrdinalIgnoreCase)-and[IO.Path]::GetFileName($resolved)-match'^[a-f0-9]{32}$'){Remove-Item -LiteralPath $resolved -Recurse -Force -ErrorAction Stop}
+    if($resolved.StartsWith($expected+[IO.Path]::DirectorySeparatorChar,[StringComparison]::OrdinalIgnoreCase)-and[IO.Path]::GetFileName($resolved)-match'^[a-f0-9]{32}$'-and(Test-Path -LiteralPath $resolved -PathType Container)){Remove-Item -LiteralPath $resolved -Recurse -Force -ErrorAction Stop}
 }
