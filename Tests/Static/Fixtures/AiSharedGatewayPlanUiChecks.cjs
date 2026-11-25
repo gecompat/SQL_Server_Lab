@@ -78,6 +78,8 @@ item('consumer-template').content = {
 item('service-secret-panel').scrollIntoView = () => {};
 const requests = [];
 const statusCalls = [];
+const observedJobs = new Map();
+const jobLineCache = {};
 const statusCommand = {
   Name: 'Get-SqlServerLabAiSharedGatewayStatus', SupportsShouldProcess: false, RequiresConfirmation: false,
   ParameterSets: [{ Name: '__AllParameterSets', Parameters: [
@@ -120,6 +122,7 @@ const context = vm.createContext({
     return new Promise(resolve => requests.push({ url, options, resolve }));
   },
   publicCommandCatalog: [statusCommand, upstreamCommand, preflightCommand, registerCommand, serviceCommand],
+  observedJobs, jobLineCache,
   startPublicCommand(command, parameterSet, parameters, confirmed) {
     return new Promise(resolve => statusCalls.push({ command, parameterSet, parameters, confirmed, resolve }));
   },
@@ -269,6 +272,40 @@ const check = (label, value) => { assert.ok(value, label); checks++; };
   check('Changing the plan resets the service mode and discards stale output',
     item('service-controls').hidden && item('prepare-service').disabled && item('service-mode').value === 'Auto' &&
     !item('plan-status').textContent.includes('Auftragsprotokoll'));
+  const handoffPlanRequest = form.fire('submit');
+  respond(requests.at(-1), canonical(payload.Consumer));
+  await handoffPlanRequest;
+  item('service-mode').value = 'WindowsS4U';
+  const handoffRequest = item('prepare-service').fire('click');
+  const jobId = '1'.repeat(32);
+  statusCalls[5].resolve({ id: jobId });
+  await handoffRequest;
+  const currentServicePlan = {
+    Contract: { Name: 'SqlServerLab.AiSharedGatewayServicePlan', Version: '1.0' },
+    Status: 'READY', GatewayId: baseFields.GatewayId, GatewayPlanKey: 'e'.repeat(64),
+    PlanKey: 'f'.repeat(64), ServiceMode: 'WINDOWS_S4U_TASK'
+  };
+  const jobAction = 'Command: ' + serviceCommand.Name;
+  const receiptLine = plan => '[ERGEBNIS] ' + JSON.stringify({ Command: serviceCommand.Name,
+    ParameterSet: '__AllParameterSets', Result: [plan] });
+  observedJobs.set(jobId, { State: 'Running', Action: jobAction });
+  jobLineCache[jobId] = [receiptLine(currentServicePlan)];
+  item('service-plan-json').value = JSON.stringify({ ...currentServicePlan, GatewayPlanKey: '0'.repeat(64) });
+  await item('use-plan').fire('click');
+  check('Pending jobs and foreign plans never populate the service form', item('service-plan-json').value === '');
+  observedJobs.set(jobId, { State: 'Completed', Action: jobAction });
+  jobLineCache[jobId] = [receiptLine({ ...currentServicePlan, Status: 'BLOCKED' })];
+  await item('use-plan').fire('click');
+  check('Completed blocked plans are never transferred as ready', item('service-plan-json').value === '');
+  jobLineCache[jobId] = [receiptLine(currentServicePlan)];
+  await item('use-plan').fire('click');
+  check('Explicit transfer fills both plan fields for the matching completed job and reads no vault',
+    JSON.parse(item('service-plan-json').value).PlanKey === currentServicePlan.PlanKey &&
+    JSON.parse(item('plan-json').value).PlanKey === currentServicePlan.GatewayPlanKey &&
+    item('service-secret-result').textContent.includes('Der passende bereite Dienstplan ist übernommen') && statusCalls.length === 6);
+  item('service-mode').value = 'SystemdUser';
+  await item('use-plan').fire('click');
+  check('Changing the service mode clears an incompatible transferred plan', item('service-plan-json').value === '');
   const bad = form.fire('submit');
   respond(requests.at(-1), { ...canonical(payload.Consumer), Status: 'READY', Untrusted: 'SYNTHETIC_PRIVATE' });
   await bad;

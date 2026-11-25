@@ -34,6 +34,7 @@
   let checkingPlan = false;
   let currentPlan = null;
   let fileAction = null;
+  let serviceJob = null;
 
   function closePreflight() {
     preflight.reset();
@@ -58,6 +59,7 @@
   function clearPlan() {
     revision++;
     currentPlan = null;
+    serviceJob = null;
     serviceMode.value = 'Auto';
     result.value = '';
     resultBox.hidden = true;
@@ -160,11 +162,13 @@
     }
     const current = revision;
     checkingPlan = true;
+    if (service) serviceJob = null;
     closePreflight();
     updatePlanActions();
     try {
-      await startPublicCommand(command, parameterSet, { Plan: currentPlan, ...inputs }, confirmed);
+      const accepted = await startPublicCommand(command, parameterSet, { Plan: currentPlan, ...inputs }, confirmed);
       if (current === revision) {
+        if (service && /^[a-f0-9]{32}$/.test(accepted?.id)) serviceJob = { id: accepted.id, mode: inputs.ServiceMode };
         status.textContent = service ? 'Der Dienstplan steht im Auftragsprotokoll.' : (register
           ? 'Das Auftragsprotokoll zeigt die geschützte Registrierung.' : 'Das Auftragsprotokoll zeigt die Prüfung.');
       }
@@ -208,9 +212,45 @@
     const paths = Object.fromEntries(pathFields.map(name => [name, preflight.elements.namedItem(name).value]));
     return checkSelectedPlan(verify, fileAction, paths);
   });
+
+  function matchesReadyServicePlan(plan) {
+    const mode = { WindowsS4U: 'WINDOWS_S4U_TASK', SystemdUser: 'LINUX_SYSTEMD_USER' }[serviceMode.value];
+    return plan?.Contract?.Name === 'SqlServerLab.AiSharedGatewayServicePlan' && plan.Contract.Version === '1.0' &&
+      plan.Status === 'READY' && plan.GatewayId === currentPlan.GatewayId && plan.GatewayPlanKey === currentPlan.PlanKey &&
+      /^[a-f0-9]{64}$/.test(plan.PlanKey) && ['WINDOWS_S4U_TASK','LINUX_SYSTEMD_USER'].includes(plan.ServiceMode) &&
+      (!mode || plan.ServiceMode === mode);
+  }
+
+  function readyServicePlanFromJob() {
+    if (!serviceJob || serviceJob.mode !== serviceMode.value) return null;
+    const job = observedJobs.get(serviceJob.id);
+    if (job?.State !== 'Completed' || job.Action !== 'Command: ' + servicePlanName) return null;
+    const prefix = '[ERGEBNIS] ';
+    const lines = (jobLineCache[serviceJob.id] || []).filter(line => typeof line === 'string' && line.startsWith(prefix));
+    if (lines.length !== 1 || lines[0].length > 16384) return null;
+    try {
+      const receipt = JSON.parse(lines[0].slice(prefix.length));
+      const plan = Array.isArray(receipt?.Result) && receipt.Result.length === 1 ? receipt.Result[0] : null;
+      if (receipt.Command !== servicePlanName || receipt.ParameterSet !== '__AllParameterSets' || !matchesReadyServicePlan(plan)) return null;
+      return plan;
+    } catch { return null; }
+  }
+
   use.addEventListener('click', () => {
-    if (use.disabled || !result.value) return;
+    if (use.disabled || !result.value || !currentPlan) return;
+    const field = element('service-plan-json');
+    const confirmedServicePlan = readyServicePlanFromJob();
+    if (confirmedServicePlan) {
+      field.value = JSON.stringify(confirmedServicePlan, null, 2);
+    } else {
+      try {
+        if (!matchesReadyServicePlan(JSON.parse(field.value))) field.value = '';
+      } catch { field.value = ''; }
+    }
     element('plan-json').value = result.value;
+    element('service-secret-result').textContent = confirmedServicePlan
+      ? 'Der passende bereite Dienstplan ist übernommen. Wähle Dienst-Secrets prüfen, um den Vault zu lesen.'
+      : 'Gateway-Plan übernommen. Prüfe den zugehörigen Dienstplan vor der Dienst-Secret-Prüfung.';
     const panel = element('service-secret-panel');
     panel.open = true;
     panel.scrollIntoView({ block: 'nearest' });

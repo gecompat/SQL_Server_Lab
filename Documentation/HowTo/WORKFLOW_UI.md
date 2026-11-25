@@ -1400,9 +1400,11 @@ Der geführte Weg verwendet keinen API-Schlüssel. Das Ergebnis prüft
 Modell, Dimension und Zahlenwerte der Antwort. Im Browser steht es im
 Auftragsprotokoll.
 
-Im Browser übernimmt **In Dienst-Secret-Prüfung übernehmen** den Plan in das
-vorhandene Formular. Die Dienstprüfung benötigt weiterhin ihren eigenen
-Dienstplan und eine Bestätigung. [Gateway-Backlog](../Project_Planning/AI_EXTERNAL_MODEL_ACCELERATION_BACKLOG.md)
+Im Browser übernimmt **In Dienst-Secret-Prüfung übernehmen** den Gateway-Plan
+in das vorhandene Formular. Wenn der zugehörige Dienstplanauftrag abgeschlossen
+ist und `READY` für denselben Plan und den gewählten Hostmodus meldet, wird
+der Dienstplan mit übernommen. Erst **Dienst-Secrets prüfen** liest die
+gebundenen Vault-Referenzen. [Gateway-Backlog](../Project_Planning/AI_EXTERNAL_MODEL_ACCELERATION_BACKLOG.md)
 
 **Host-Autostart für diesen Gateway-Plan vorbereiten** liest den registrierten
 Gateway-Zustand und die Hostvoraussetzungen. Wähle **Automatisch** oder prüfe

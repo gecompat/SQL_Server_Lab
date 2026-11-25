@@ -232,6 +232,7 @@ sources_of_truth:
   ai_shared_gateway_service_secret_contract: Private/AiSharedGatewayServiceSecret.ps1
   ai_shared_gateway_service_secret_api: Public/Test-SqlServerLabAiSharedGatewayServiceSecret.ps1
   ai_shared_gateway_service_secret_console: "Private/AiSharedGatewayPlanGuidance.ps1 bietet nach READY die ausdrückliche Vault-Prüfung gebundener Referenzen. Test-Suite für Abbruch, Leser und begrenzte Quittung in der Konsole."
+  ai_shared_gateway_service_secret_browser_handoff: "Ui/ai-shared-gateway-plan.js übernimmt nach Auswahl das READY-Ergebnis des exakten abgeschlossenen Dienstplanauftrags bei gleicher Plan- und Modusbindung. Die getrennte Vault-Prüfung bleibt eine ausdrückliche Benutzeraktion."
   ai_shared_gateway_service_secret_schema: Schemas/ai-shared-gateway-service-secret-receipt.schema.json
   validation_ai_shared_gateway_service_secret: Tests/Static/Invoke-AiSharedGatewayServiceSecretChecks.ps1
   ai_shared_gateway_upstream_schema: Schemas/ai-shared-gateway-upstream-receipt.schema.json
