@@ -491,7 +491,9 @@ Schritte geben keine Transfer- oder Ausführungsfreigabe. Der begrenzte Reader
 liest höchstens 64 Run-Verzeichnisse, kein globales Watch-Inventar. Eingaben
 bleiben im RAM; Zurück/Escape und späte Antworten erstellen keine Jobs.
 Für einen laufenden Gast und die Auswahl **Instanzzustand migrieren** gibt es
-zusätzlich **SQL-Quellzähler im Gast lesen**. Der ausdrücklich gewählte
+zusätzlich **SQL-Quellzähler im Gast lesen**. Im Auftragsprotokoll stehen
+auch die laut SQL-Katalog zugewiesenen Daten- und Logdateigrößen für reguläre
+Benutzerdatenbanken, sofern die Werte ermittelt wurden. Der ausdrücklich gewählte
 Leseauftrag erscheint unter **Vorgänge**. Er speichert keine Diagnose im
 Lab-Zustand. Kategorien, Anzahlen und feste Prüfcodes erscheinen gemeinsam
 im laufenden Auftrag.
