@@ -57,6 +57,7 @@ on:
           - evaluation-target-windows-license-acceptance
           - evaluation-target-file-allocation-acceptance
           - sql-storage-reconcile-acceptance
+          - sql-storage-library-restore-acceptance
           - sql-port-reconcile-acceptance
           - resource-reconcile-acceptance
           - resource-reconcile-own-run-acceptance
@@ -515,16 +516,17 @@ jobs:
           .\Tests\Integration\Invoke-HyperVEvaluationTargetWindowsLicenseAcceptance.ps1 -ArtifactId $env:EVALUATION_TARGET_LICENSE_ARTIFACT_ID -CompareFileAllocation:$compare
 
       - name: Reject SQL storage reconcile acceptance outside manual main
-        if: inputs.mode == 'sql-storage-reconcile-acceptance' && !(github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+        if: (inputs.mode == 'sql-storage-reconcile-acceptance' || inputs.mode == 'sql-storage-library-restore-acceptance') && !(github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
         run: |
           $ErrorActionPreference = 'Stop'
           throw 'HYPERV_SQL_STORAGE_RECONCILE_CI_MANUAL_MAIN_REQUIRED'
       - name: Hyper-V SQL storage reconcile acceptance
-        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.mode == 'sql-storage-reconcile-acceptance'
+        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && (inputs.mode == 'sql-storage-reconcile-acceptance' || inputs.mode == 'sql-storage-library-restore-acceptance')
         env:
           SQL_SERVER_LAB_CI_CLONE_SOURCE_RUN_ID: ${{ inputs.clone_source_run_id }}
           SQL_SERVER_LAB_CI_MEDIA_ROOT: ${{ inputs.media_root }}
           SQL_SERVER_LAB_CI_MEDIA_EDITION: ${{ inputs.media_edition }}
+          SQL_SERVER_LAB_CI_VERIFY_LIBRARY_RESTORE: ${{ inputs.mode == 'sql-storage-library-restore-acceptance' }}
         run: |
           $ErrorActionPreference = 'Stop'
           $arguments = @{}
@@ -532,6 +534,7 @@ jobs:
           $arguments.CloneSourceRunId = [string]$env:SQL_SERVER_LAB_CI_CLONE_SOURCE_RUN_ID
           $arguments.MediaRoot = [string]$env:SQL_SERVER_LAB_CI_MEDIA_ROOT
           $arguments.MediaEdition = [string]$env:SQL_SERVER_LAB_CI_MEDIA_EDITION
+          if ($env:SQL_SERVER_LAB_CI_VERIFY_LIBRARY_RESTORE -ceq 'true') { $arguments.VerifyLibraryRestore = $true }
           .\Tests\Integration\Invoke-HyperVSqlStorageReconcileAcceptance.ps1 @arguments
 
       - name: Hyper-V SQL port reconcile acceptance
