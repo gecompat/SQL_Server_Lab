@@ -136,6 +136,8 @@ async function readMetadata(body = metadata) { const pending = node('read').fire
   check('Stopped target cannot dispatch SQL readiness', jobs.length === 2 && node('observe-target-sql').disabled);
   await node('observe-target-storage').fire('click');
   check('Stopped target cannot dispatch storage observation', jobs.length === 2 && node('observe-target-storage').disabled);
+  await node('compare-file-allocation').fire('click');
+  check('Stopped target cannot dispatch file allocation comparison', jobs.length === 2 && node('compare-file-allocation').disabled);
   const liveTarget = { ...target, State: 'RUNNING', Digest: 'e'.repeat(64) };
   await readMetadata({ ...metadata, Runs: [own, liveTarget] });
   node('target').value = liveTarget.RunId; await node('target').fire('change');
@@ -156,13 +158,19 @@ async function readMetadata(body = metadata) { const pending = node('read').fire
   check('Explicit storage read binds both selected digests', jobs.length === 5 &&
     JSON.stringify(jobs[4]) === JSON.stringify({ action: 'ReadHyperVEvaluationTargetStorage', parameters: jobs[2].parameters }) &&
     node('status').textContent.includes('Freier Speicher'));
+  await node('compare-file-allocation').fire('click');
+  check('Explicit comparison binds both selected digests to a transient read', jobs.length === 6 &&
+    JSON.stringify(jobs[5]) === JSON.stringify({action:'ReadHyperVEvaluationFileAllocationComparison', parameters:jobs[2].parameters}) &&
+    node('status').textContent.includes('Vergleich der SQL-Dateigrößen'));
   node('mode').value = 'RECONSTRUCT_LAB'; await node('mode').fire('change');
   await node('observe-target-windows').fire('click');
   await node('observe-target-sql').fire('click');
   await node('observe-target-storage').fire('click');
-  check('Switching away from migration clears downstream reads', jobs.length === 5 &&
+  await node('compare-file-allocation').fire('click');
+  check('Switching away from migration clears downstream reads', jobs.length === 6 &&
     node('observe-target-windows').disabled && node('observe-target-windows').hidden &&
     node('observe-target-sql').disabled && node('observe-target-sql').hidden &&
-    node('observe-target-storage').disabled && node('observe-target-storage').hidden);
+    node('observe-target-storage').disabled && node('observe-target-storage').hidden &&
+    node('compare-file-allocation').disabled && node('compare-file-allocation').hidden);
   console.log('EVALUATION_REFRESH_UI_CHECKS: ' + checks + ' PASS; 0 FAIL');
 })().catch(error => { console.error(error); process.exitCode = 1; });
