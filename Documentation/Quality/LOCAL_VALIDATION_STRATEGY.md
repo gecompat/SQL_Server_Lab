@@ -6049,6 +6049,15 @@ keine unerwarteten oder ungültigen Anfragen und der Browser meldete keine
 Skriptfehler. Testserver und Tab wurden geschlossen. Die Statusdaten waren
 synthetisch. Weder Gateway noch SQL-Instanzen liefen.
 
+Die ergänzte Upstream-Aktion wurde am 25.11.2026 auf `bab1eed4`
+im Browser mit 57 Produktdateien geprüft. Die Aktion blieb bis zum
+erstellten Plan deaktiviert. Der Testserver bestätigte genau eine
+Auftragsfreigabe und einen Auftrag mit dem unveränderten Plan. Das
+Auftragsprotokoll zeigte den synthetischen Abschluss als erfolgreich.
+Es gab keine ungültigen oder unerwarteten Anfragen und keine
+Browser-Skriptfehler. Tab und Testserver wurden geschlossen. Ein echter
+Upstream, ein Modell und SQL waren an dieser Browserprüfung nicht beteiligt.
+
 Die eigene Guidance und der Shared-Gateway-Registrar teilen eine kanonische
 StateRoot-Lifecyclesperre vor ihren bisherigen Gateway-/Testgruppen-Sperren.
 Der Fokustest führt einen echten konkurrierenden Registrar sowie einen echten
