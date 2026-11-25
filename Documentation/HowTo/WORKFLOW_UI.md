@@ -1372,6 +1372,18 @@ nachweisen, die sie gestartet hat. Eine belegte Schnittstelle ohne diesen
 Nachweis wird als ungeklärte Portbelegung ausgewiesen. Dienststart und
 SQL-Anbindung sind getrennte Operationen.
 
+In CLI und Browser öffnet **Lokale Gateway-Dateien für diesen Plan prüfen**
+die Dateiprüfung. Gib absolute Pfade zu Runtime, Modell, Serverzertifikat,
+privater Schlüsseldatei und CA-Zertifikat ein. Verwende reguläre Dateien
+in lokalen Verzeichnissen ohne Verknüpfungen. Die drei Zertifikats- und
+Schlüsseleingaben verwenden PEM. Der Schlüsselpfad wird bei der Eingabe
+verdeckt. **Dateien jetzt prüfen** bestätigt die Prüfung. Das Ergebnis
+`PREFLIGHT_VERIFIED` bindet die geprüften Inhalte an den angezeigten Plan.
+Das JSON-Ergebnis dokumentiert die Übereinstimmung ohne Dateipfade. Die
+getrennte Registrierung prüft die Dateien erneut. Im Browser steht das
+Ergebnis im Auftragsprotokoll. Bei einem Pfadfehler prüfe Erreichbarkeit
+und Dateityp.
+
 Wähle **Registrierten Loopback-Upstream mit Testanfrage prüfen**, um dem
 gebundenen lokalen Upstream genau eine synthetische Embedding-Anfrage zu
 senden. Die Dateien müssen für den angezeigten Plan registriert sein.

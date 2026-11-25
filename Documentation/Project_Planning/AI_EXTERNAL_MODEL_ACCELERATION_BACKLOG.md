@@ -79,8 +79,9 @@ deterministischen Plan. Die geführte Planerstellung steht in CLI und Browser
 unter **Host-Dienste und Modelle → Gemeinsamen Embedding-Gateway planen**
 zur Verfügung. Der read-only Preflight prüft zusätzlich lokale
 Runtime-/Modellhashes, Serverzertifikat und passenden privaten Schlüssel,
-CA-Kette, Gültigkeit und exakten SAN ohne Pfade oder Schlüssel im Receipt. Der
-Plan bleibt für den dauerhaften Dienst mit
+CA-Kette, Gültigkeit und exakten SAN ohne Pfade oder Schlüssel im Receipt.
+CLI und Browser führen Dateiauswahl und Bestätigung für denselben Plan.
+Der Plan bleibt für den dauerhaften Dienst mit
 `AI_SHARED_GATEWAY_EXECUTION_NOT_IMPLEMENTED` ausdrücklich blockiert. Die
 gebundenen Dateien können bereits mutexgeschützt, benutzerexklusiv und atomar
 im gemeinsamen StateRoot registriert werden; identische parallele Aufrufe sind

@@ -38,14 +38,14 @@ eines Cmdlets:
 ## Exportreferenz-Audit
 
 Ein mechanischer Abgleich des Manifests mit
-`Documentation/User/FUNCTIONS_CLI_GUI.md` findet 157 der 166 Exportnamen und
-9 dort nicht referenzierte Exporte. Das ist ein Referenzabgleich, keine
-vollständige Prüfung, ob die 157 Treffer tatsächlich korrekt geführt,
+`Documentation/User/FUNCTIONS_CLI_GUI.md` findet 158 der 166 Exportnamen und
+8 dort nicht referenzierte Exporte. Das ist ein Referenzabgleich, keine
+vollständige Prüfung, ob die 158 Treffer tatsächlich korrekt geführt,
 ausführbar oder providerabgenommen sind. Die folgende Inventarliste hält die
-9 nicht referenzierten Namen einzeln fest. Die sieben Environment-Group-
+8 nicht referenzierten Namen einzeln fest. Die sieben Environment-Group-
 Operationen aus dem vorherigen Abgleich sind jetzt in der Funktionsübersicht
 enthalten und unten separat quellengestützt als `GUIDED_BOTH` bewertet. Von
-den 9 Einträgen sind vier TLS-001-Exporte `DEFERRED`, vier Exporte
+den 8 Einträgen sind vier TLS-001-Exporte `DEFERRED`, drei Exporte
 `KNOWN_GAP` und einer `EXPERT_CATALOG_ONLY`. Die drei External-Model- und
 OVMS-Gateway-Operationen sind inzwischen referenziert. Ihre geführten
 Bedienlücken bleiben in der eigenen Tabelle unten sichtbar.
@@ -55,11 +55,11 @@ geführte Abdeckung nicht.
 
 | Funktionsfamilie | Nicht einzeln in der Funktionsübersicht referenzierte Exporte | Status |
 |---|---|---|
-| Shared Gateway | `Test-SqlServerLabAiSharedGatewayPreflight`; `Register-SqlServerLabAiSharedGatewayStorage`; `Start-SqlServerLabAiSharedGatewaySession`; `Stop-SqlServerLabAiSharedGatewaySession` | `KNOWN_GAP` für diese vier Fachaktionen. Planerstellung, Status und Loopback-Upstream sind separat geführt. |
+| Shared Gateway | `Register-SqlServerLabAiSharedGatewayStorage`; `Start-SqlServerLabAiSharedGatewaySession`; `Stop-SqlServerLabAiSharedGatewaySession` | `KNOWN_GAP` für diese drei Fachaktionen. Planerstellung, Dateiprüfung, Status und Loopback-Upstream sind unten getrennt bewertet. |
 | Security-Tool-Katalog | `Get-SqlServerLabSecurityToolPlan` | `EXPERT_CATALOG_ONLY`. Die produktive Allowlist ist leer, der lokale Resolver blockiert alle Anfragen. [Katalogvertrag und Freigabestand](../Project_Planning/SECURITY_TOOL_ACQUISITION_BACKLOG.md). |
 | TLS-001, zurückgestellt | `Update-SqlServerLabTlsBinding`; `Get-SqlServerLabTlsBindingRecovery`; `Resolve-SqlServerLabTlsBindingRecovery`; `Read-SqlServerLabQualifiedTestEnvironment` | `DEFERRED`; bestehender Zustand bleibt erhalten, keine neue Abdeckungs- oder Runtimearbeit ohne dokumentierten Anwendungsfall |
 
-Die 9 Namen ohne Referenz und die einzeln geprüften Exporte unten
+Die 8 Namen ohne Referenz und die einzeln geprüften Exporte unten
 wurden unmittelbar gegen `FunctionsToExport` im Manifest
 abgeglichen; die Familiengruppierung ist nur eine Lesbarkeitshilfe. Sie ist
 keine Behauptung, dass eine Familie einen gemeinsamen Aufrufer oder denselben
@@ -205,6 +205,7 @@ und dem [Gruppenvertrag](../Architecture/LAB_ENVIRONMENT_GROUPS.md).
 | SQL-Editionsbeleg aktualisieren (`Update-SqlServerLabSqlGuestEvaluationEvidence`) | Wartung, Aufräumen und Recovery → SQL-Editionsbeleg im Gast aktualisieren | Wartung → SQL-Editionsbeleg im Gast aktualisieren | `GUIDED_BOTH` für geeignete eigene laufende Hyper-V-Labs mit SQL Server 2025. Auswahl und Bestätigung sind synthetisch geprüft. Native Abnahme der neuen Bedienpfade `NOT_EXECUTED`. |
 | CPU, GPU und NPU erfassen (`Get-SqlServerLabAiComputeInventory`) | Host-Dienste und Modelle → CPU, GPU und NPU erfassen | Derselbe Bereich und dieselbe Aktion | `GUIDED_BOTH` für die Übersicht. Synthetische vollständige und partielle Gerätebefunde in Inventar- und Browserfixtures. Keine Geräte- oder Runtimequalifikation. |
 | Gemeinsamen Embedding-Gateway planen (`Get-SqlServerLabAiSharedGatewayPlan`) | Host-Dienste und Modelle → Gemeinsamen Embedding-Gateway planen | Derselbe Bereich und dieselbe Aktion | `GUIDED_BOTH` für den Konfigurationsplan. `Invoke-AiSharedGatewayPlanChecks.ps1` belegt Menü, HTTP-Handler, Browser-Formular und Übergabe des Plans. Runtime, Registrierung und SQL-Verbraucherprüfung sind getrennte Fachaktionen. |
+| Lokale Gateway-Dateien prüfen (`Test-SqlServerLabAiSharedGatewayPreflight`) | Gemeinsamen Embedding-Gateway planen → Lokale Gateway-Dateien für diesen Plan prüfen → Dateien jetzt prüfen | Gleicher Bedienweg und Ergebnis im Auftragsprotokoll | `GUIDED_BOTH`. Die Plan-Suite prüft Navigation, Abbruch und Planbindung. Die Preflight-Suite liest synthetische Artefakte nach Bestätigung und prüft Pfadablehnung und den Schutz des Schlüsselpfads. |
 | Status für diesen Gateway-Plan lesen (`Get-SqlServerLabAiSharedGatewayStatus`) | Gemeinsamen Embedding-Gateway planen → Status für diesen Gateway-Plan lesen | Gleicher Bedienweg. Status im Auftragsprotokoll. | `GUIDED_BOTH` für den auf Auswahl gelesenen Status. `Invoke-AiSharedGatewayPlanChecks.ps1` prüft Menü, Planbindung, Browser-Dispatch und den öffentlichen Auftragsvertrag. `Invoke-AiSharedGatewaySessionChecks.ps1` prüft einen eigenen Loopback-Listener und getrennte Registrierungen mit synthetischen Daten. Besitz gilt nur in der startenden Modulsitzung. SQL-Anbindung ist eine getrennte Prüfung. |
 | Registrierten Loopback-Upstream prüfen (`Test-SqlServerLabAiSharedGatewayUpstream`) | Gemeinsamen Embedding-Gateway planen → Registrierten Loopback-Upstream mit Testanfrage prüfen | Gleicher Bedienweg, Ausgabe im Auftragsprotokoll | `GUIDED_BOTH` für den gebundenen Plan ohne API-Schlüssel. Menü und Browserdispatch sind synthetisch belegt. Die getrennte Core-Suite prüft Registrierung und Antwortvertrag mit injiziertem Testtransport. Ein echtes Modell bleibt außerhalb dieses Nachweises. |
 | Metadaten eines entfernten Runs prüfen und entfernen (`Get-SqlServerLabRunArtifactRemovalPlan`, `Invoke-SqlServerLabRunArtifactRemoval`) | Wartung, Aufräumen und Recovery → Artefakte eines entfernten Runs | Wartung und Recovery → Run-Artefakte prüfen | `GUIDED_BOTH`. Dieselben Cmdlets für gebundene Vorschau, bestätigte Entfernung und Fortsetzung. Workflow-UI und CLI-Vertragsfälle mit synthetischem State. |

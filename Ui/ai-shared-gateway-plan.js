@@ -12,6 +12,10 @@
   const use = element('use-plan');
   const read = element('read-status');
   const probe = element('probe-upstream');
+  const preflight = element('preflight');
+  const openPreflight = element('open-preflight');
+  const verify = element('verify-files');
+  const pathFields = ['RuntimePath', 'ModelPath', 'CertificatePath', 'PrivateKeyPath', 'CertificateAuthorityPath'];
   const fields = ['GatewayId', 'Location', 'UpstreamBackend', 'UpstreamLocation', 'RuntimeModel', 'InputProfile',
     'ModelSha256', 'RuntimeSha256', 'ServerCertificateSha256', 'CertificateAuthoritySha256'];
   const consumerFields = ['RunId', 'InstanceId', 'DatabaseId', 'ExternalModelName', 'ApiKeyReference'];
@@ -20,14 +24,27 @@
   let checkingPlan = false;
   let currentPlan = null;
 
+  function closePreflight() {
+    preflight.reset();
+    preflight.hidden = true;
+  }
+
+  function updatePlanActions() {
+    const disabled = !currentPlan || checkingPlan;
+    read.disabled = disabled;
+    probe.disabled = disabled;
+    openPreflight.disabled = disabled;
+    verify.disabled = disabled;
+  }
+
   function clearPlan() {
     revision++;
     currentPlan = null;
     result.value = '';
     resultBox.hidden = true;
     use.disabled = true;
-    read.disabled = true;
-    probe.disabled = true;
+    closePreflight();
+    updatePlanActions();
     status.textContent = 'Plan für die aktuellen Eingaben anzeigen.';
   }
 
@@ -88,8 +105,7 @@
       result.value = JSON.stringify(plan, null, 2);
       resultBox.hidden = false;
       use.disabled = false;
-      read.disabled = checkingPlan;
-      probe.disabled = checkingPlan;
+      updatePlanActions();
       status.textContent = 'Konfigurationsplan erstellt. Bereitstellung erfordert weitere Nachweise.';
     } catch {
       if (current === revision) status.textContent = 'Plan nicht erstellt. Prüfe Endpunkte, Digests und Verbraucherreferenzen.';
@@ -98,38 +114,55 @@
       create.disabled = false;
     }
   });
-  async function checkSelectedPlan(button, commandName) {
+  async function checkSelectedPlan(button, commandName, paths = null) {
     if (button.disabled || checkingPlan || !currentPlan) return;
     const matches = publicCommandCatalog.filter(command => command?.Name === commandName);
     const command = matches.length === 1 ? matches[0] : null;
     const sets = command?.ParameterSets;
     const parameterSet = Array.isArray(sets) && sets.length === 1 ? sets[0] : null;
     const descriptors = parameterSet?.Parameters;
-    const planFields = Array.isArray(descriptors) ? descriptors.filter(field => field?.Mandatory === true) : [];
-    if (command?.RequiresConfirmation !== false || command.SupportsShouldProcess !== false ||
-        parameterSet?.Name !== '__AllParameterSets' || planFields.length !== 1 ||
-        planFields[0].Name !== 'Plan' || planFields[0].TypeName !== 'System.Object' ||
-        planFields[0].Sensitive !== false || planFields[0].IsCredential !== false) {
+    const required = Array.isArray(descriptors) ? descriptors.filter(field => field?.Mandatory === true) : [];
+    const expectedNames = paths ? ['Plan', ...pathFields] : ['Plan'];
+    if (command?.RequiresConfirmation !== Boolean(paths) || command.SupportsShouldProcess !== false ||
+        parameterSet?.Name !== '__AllParameterSets' || required.length !== expectedNames.length ||
+        (paths && descriptors.length !== expectedNames.length) || !expectedNames.every(name =>
+          required.some(field => field.Name === name && field.IsCredential === false &&
+            field.TypeName === (name === 'Plan' ? 'System.Object' : 'System.String') &&
+            field.Sensitive === (name === 'PrivateKeyPath')))) {
       status.textContent = 'Prüfung für diesen Gateway-Plan ist nicht verfügbar.';
       return;
     }
     const current = revision;
     checkingPlan = true;
-    read.disabled = true;
-    probe.disabled = true;
+    closePreflight();
+    updatePlanActions();
     try {
-      await startPublicCommand(command, parameterSet, { Plan: currentPlan }, false);
+      await startPublicCommand(command, parameterSet, { Plan: currentPlan, ...paths }, Boolean(paths));
       if (current === revision) status.textContent = 'Das Auftragsprotokoll zeigt die Prüfung.';
     } catch {
       if (current === revision) status.textContent = 'Annahme der Prüfung unbestätigt. Prüfe das Auftragsprotokoll.';
     } finally {
       checkingPlan = false;
-      read.disabled = !currentPlan;
-      probe.disabled = !currentPlan;
+      updatePlanActions();
     }
   }
   read.addEventListener('click', () => checkSelectedPlan(read, 'Get-SqlServerLabAiSharedGatewayStatus'));
   probe.addEventListener('click', () => checkSelectedPlan(probe, 'Test-SqlServerLabAiSharedGatewayUpstream'));
+  openPreflight.addEventListener('click', () => {
+    if (openPreflight.disabled || !currentPlan) return;
+    preflight.hidden = false;
+    preflight.elements.namedItem('RuntimePath').focus();
+  });
+  element('cancel-preflight').addEventListener('click', () => {
+    closePreflight();
+    openPreflight.focus();
+  });
+  preflight.addEventListener('submit', event => {
+    event.preventDefault();
+    if (preflight.hidden || verify.disabled || !preflight.reportValidity()) return;
+    const paths = Object.fromEntries(pathFields.map(name => [name, preflight.elements.namedItem(name).value]));
+    return checkSelectedPlan(verify, 'Test-SqlServerLabAiSharedGatewayPreflight', paths);
+  });
   use.addEventListener('click', () => {
     if (use.disabled || !result.value) return;
     element('plan-json').value = result.value;

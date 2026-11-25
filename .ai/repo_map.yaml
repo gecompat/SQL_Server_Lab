@@ -204,6 +204,7 @@ sources_of_truth:
   validation_ai_shared_gateway_plan: Tests/Static/Invoke-AiSharedGatewayPlanChecks.ps1
   ai_shared_gateway_preflight_contract: Private/AiSharedGatewayPreflight.ps1
   ai_shared_gateway_preflight_api: Public/Test-SqlServerLabAiSharedGatewayPreflight.ps1
+  ai_shared_gateway_preflight_guidance: "Private/AiSharedGatewayPlanGuidance.ps1 und Ui/ai-shared-gateway-plan.js binden den angezeigten Plan an eine bestätigte lokale Dateiprüfung. Browser-Auftrag nutzt den bestehenden Command-Grant und validiert Pfade in Private/PublicCommandConsole.ps1. Plan- und Preflight-Suites prüfen beide Oberflächen."
   ai_shared_gateway_preflight_schema: Schemas/ai-shared-gateway-preflight-receipt.schema.json
   validation_ai_shared_gateway_preflight: Tests/Static/Invoke-AiSharedGatewayPreflightChecks.ps1
   ai_shared_gateway_storage_contract: Private/AiSharedGatewayRegistration.ps1

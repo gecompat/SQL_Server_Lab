@@ -327,11 +327,26 @@
         <p id="ai-shared-gateway-plan-status" aria-live="polite">Der Plan bindet die Konfiguration für spätere Prüfung und Bereitstellung.</p>
         <label id="ai-shared-gateway-plan-result-box" hidden>Gateway-Plan (JSON)<textarea id="ai-shared-gateway-plan-result" rows="10" readonly></textarea></label>
         <div class="build-actions">
+          <button id="ai-shared-gateway-open-preflight" type="button" class="button secondary" disabled>Lokale Gateway-Dateien für diesen Plan prüfen</button>
           <button id="ai-shared-gateway-read-status" type="button" class="button secondary" disabled>Status für diesen Gateway-Plan lesen</button>
           <button id="ai-shared-gateway-probe-upstream" type="button" class="button secondary" aria-describedby="ai-shared-gateway-upstream-note" disabled>Registrierten Loopback-Upstream mit Testanfrage prüfen</button>
           <button id="ai-shared-gateway-use-plan" type="button" class="button secondary" disabled>In Dienst-Secret-Prüfung übernehmen</button>
         </div>
         <p id="ai-shared-gateway-upstream-note">Die Upstream-Prüfung sendet eine synthetische Anfrage an den registrierten lokalen Dienst ohne API-Schlüssel.</p>
+      </form>
+      <form id="ai-shared-gateway-preflight" autocomplete="off" hidden>
+        <p>Gib absolute lokale Pfade auf dem Lab-Host ein. Verwende reguläre Dateien ohne Verknüpfungen.</p>
+        <div class="form-grid">
+          <label>Runtime-Datei<input name="RuntimePath" required maxlength="4096"></label>
+          <label>Modelldatei<input name="ModelPath" required maxlength="4096"></label>
+          <label>Serverzertifikat (PEM)<input name="CertificatePath" required maxlength="4096"></label>
+          <label>Pfad zur Schlüsseldatei (PEM)<input name="PrivateKeyPath" type="password" autocomplete="off" required maxlength="4096"></label>
+          <label>CA-Zertifikat (PEM)<input name="CertificateAuthorityPath" required maxlength="4096"></label>
+        </div>
+        <div class="build-actions">
+          <button id="ai-shared-gateway-verify-files" type="submit" class="button primary">Dateien jetzt prüfen</button>
+          <button id="ai-shared-gateway-cancel-preflight" type="button" class="button secondary">Abbrechen</button>
+        </div>
       </form>
     </section>
 

@@ -225,9 +225,15 @@ function Get-LabConsoleHelpCatalog {
         }
         'ai-shared-gateway-plan-next' = @{
             Title = 'Gateway-Plan'
-            Purpose = 'Prüft Registrierung und Listener für den angezeigten Plan im konfigurierten StateRoot.'
-            Effects = 'Die Prüfung liest den lokalen Registrierungszustand und die Listenerbelegung. Das Ergebnis gilt für den angezeigten Plan.'
+            Purpose = 'Wählt Dateiprüfung, Registrierungsstatus oder Upstream-Test für den angezeigten Plan.'
+            Effects = 'Die gewählte Prüfung gilt für den angezeigten Plan. Nur der Upstream-Test sendet eine Modellanfrage.'
             Command = 'Get-SqlServerLabAiSharedGatewayStatus'
+        }
+        'ai-shared-gateway-preflight-confirm' = @{
+            Title = 'Lokale Gateway-Dateien prüfen'
+            Purpose = 'Prüft fünf lokale Dateien gegen den angezeigten Plan.'
+            Effects = 'Dateien jetzt prüfen liest Modell, Runtime, Zertifikate und Schlüsseldatei. Abbrechen kehrt ohne Inhaltsprüfung zurück.'
+            Command = 'Test-SqlServerLabAiSharedGatewayPreflight'
         }
         'sql-feature-target' = @{ Title = 'SQL-Instanz für Funktionsänderung'; Purpose = 'Eine registrierte Instanz der gewählten laufenden Umgebung auswählen.'; Effects = 'Erst die Bestätigung einer konkreten Funktion ändert SQL Server.'; Command = 'Set-SqlServerLabFeature' }
         'sql-feature-operation' = @{ Title = 'SQL-Funktion ändern'; Purpose = 'Volltext installieren oder entfernen. Hyper-V bietet zusätzlich FILESTREAM.'; Effects = 'Bei einer bestätigten Änderung startet SQL neu. Abhängige Datenbanken können die Entfernung verhindern.'; Command = 'Set-SqlServerLabFeature' }
