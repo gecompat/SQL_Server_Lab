@@ -38,6 +38,7 @@ function Show-LabHostMatrixLaunchDetailsInteractive {
             -Subtitle 'Die Auswahl löst genau eine lesende Providerabfrage aus.' -Items @($profiles) -SelectedId 'standard'
         if (-not $profileName) { return }
         $arguments.IncludeHostPrerequisites = $true
+        $arguments.IncludeProviderFacts = $true
         $arguments.ResourceProfile = $profileName
     }
     $decision=Get-SqlServerLabExternalRuntimeCapability -SqlVersion $Matrix.SqlVersion -Provider $selected.Provider -OperatingSystem linux `
@@ -64,6 +65,13 @@ function Show-LabHostMatrixLaunchDetailsInteractive {
     if ($choice.Prerequisites) {
         $facts = $decision.HostPrerequisites
         Write-Host ("Profil {0} · {1} · {2}" -f $facts.ResourceProfile,$facts.Status,($facts.ReasonCodes -join ', '))
+        if ($facts.ProviderFacts) {
+            $rootless = if ($facts.ProviderFacts.Rootless) { 'ja' } else { 'nein' }
+            Write-Host ("Provider meldet · Runtime-OS {0} · cgroup {1} · Rootless {2}" -f
+                $facts.ProviderFacts.OperatingSystem,$facts.ProviderFacts.CgroupVersion,$rootless)
+        } else {
+            Write-Host 'Runtime-OS, cgroup-Version und Rootless-Modus konnten für diese Auswahl nicht beobachtet werden.'
+        }
         if ($facts.Controllers) {
             Write-Host ("Controller {0} · fehlend {1} · unbekannt {2}" -f $facts.Controllers.Status,
                 ($facts.Controllers.Missing -join ', '),($facts.Controllers.Unknown -join ', '))

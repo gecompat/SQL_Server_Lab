@@ -2502,6 +2502,11 @@ Browser- oder native Provider-/SQL-Sprachabnahme.
 Konsolen-Fixtures prüfen die ausgewählte Variante und das Ressourcenprofil,
 genau eine synthetische Providerbeobachtung, fehlende Controller,
 unzureichende Gesamtkapazität und die Trennung von Ausführungsfreigaben.
+Das Opt-in für Providerangaben prüft zusätzlich typisierte OS-, cgroup-
+und Rootless-Werte aus derselben Abfrage. Eine unbekannte Beobachtung
+bleibt `null`. Die Browser-Fixture prüft die getrennte Darstellung der
+benötigten und der gemeldeten cgroup-Version sowie die bisherigen
+Payload- und Ergebnisgrenzen.
 Die Prüfung belegt keine nativen Hostwerte und keine SQL-Sprachausführung.
 
 Die additive `Invoke-ExternalRuntimeCapabilityCatalogBrowserAcceptance.ps1`

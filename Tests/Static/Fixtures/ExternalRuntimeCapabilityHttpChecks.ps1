@@ -94,6 +94,7 @@ $module=New-Module -ArgumentList $root -ScriptBlock {
     $before=$script:transports
     $view=Send-Request $prerequisites
     Assert-Case ($script:transports -eq $before+1 -and $view.ContractVersion -ceq 'SqlServerLab.ExternalRuntimeCapabilityBrowser/1.3' -and
+        -not $view.PSObject.Properties['ProviderFacts'] -and
         $view.PrerequisiteStatus -ceq 'BLOCKED' -and $view.MemoryStatus -ceq 'CAPACITY_INSUFFICIENT' -and
         $view.ControllerStatus -ceq 'MISSING' -and ($view.MissingControllers -join ',') -ceq 'pids' -and
         $view.ResourceProfile -ceq 'performance' -and -not $view.MutationAllowed -and -not $view.ExecutionSupported -and
@@ -111,6 +112,18 @@ $module=New-Module -ArgumentList $root -ScriptBlock {
     $view=Send-Request $prerequisites
     Assert-Case ($script:transports -eq $before+1 -and $view.PrerequisiteStatus -ceq 'UNAVAILABLE' -and
         $view.MemoryStatus -ceq 'NOT_CHECKED' -and ($view.ReasonCodes -join ',') -ceq 'PROVIDER_PROBE_TIMEOUT') 'Unavailable profile facts stay explicitly unobserved after timeout'
+    $prerequisites.IncludeProviderFacts=$true
+    $extended=Send-Request $prerequisites
+    Assert-Case ($extended.ContractVersion -ceq 'SqlServerLab.ExternalRuntimeCapabilityBrowser/1.4' -and
+        $extended.PSObject.Properties['ProviderFacts'] -and $null -eq $extended.ProviderFacts) 'Extended projection keeps unobserved provider facts null'
+    $script:mode='ready';$before=$script:transports
+    $extended=Send-Request $prerequisites
+    Assert-Case ($script:transports -eq $before+1 -and $extended.RequiredCgroupVersion -ceq '1' -and $extended.ProviderFacts.OperatingSystem -ceq 'linux' -and
+        $extended.ProviderFacts.CgroupVersion -ceq '1' -and $extended.ProviderFacts.Rootless -is [bool] -and
+        -not $extended.ProviderFacts.Rootless -and -not $extended.ExecutionSupported) 'Extended browser result carries only the normalized facts from the same observation'
+    $prerequisites.IncludeProviderFacts='true'
+    Reject-Request (New-Request ($prerequisites|ConvertTo-Json -Compress)) 'Profile facts opt-in requires a real boolean'
+    $prerequisites.Remove('IncludeProviderFacts')
     $script:mode='ready'
     $prerequisites.ResourceProfile='CUSTOM_PRIVATE_CANARY'
     Reject-Request (New-Request ($prerequisites|ConvertTo-Json -Compress)) 'Unknown profile blocks before any provider query'

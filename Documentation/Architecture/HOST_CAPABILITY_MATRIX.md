@@ -141,7 +141,10 @@ Die bestehende Prüfung liest höchstens einmal begrenzt Providerinfo für
 Linux, cgroup-Version und Rootful. Sie verändert keine Runtime und prüft
 keine SQL-Sprachausführung. Zusätzlich kann der Bediener in beiden Oberflächen
 ein Ressourcenprofil wählen und einmalig Controller sowie die vom Provider
-gemeldete Gesamtkapazität prüfen. Freie Ressourcen, WSL-Konflikte und
+gemeldete Gesamtkapazität prüfen. Dieselbe Antwort liefert beobachtetes
+Runtime-Betriebssystem, cgroup-Version und Rootless-Modus, sofern die Engine
+sie auswertbar meldet. Die Werte stehen getrennt von der Entscheidung für
+das gewählte Profil. Freie Ressourcen, WSL-Konflikte und
 Zielrechte bleiben offen. Die Matrix übernimmt kein Detailergebnis als
 gecachten Freigabestatus. Hyper-V-Zeilen, nicht aufgelöste Varianten und
 zurückgestelltes C# bleiben sichtbar und ohne diese Detailaktion.

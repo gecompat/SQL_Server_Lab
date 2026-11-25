@@ -519,6 +519,9 @@ einmal; `READY` ist keine SQL-Sprachabnahme oder Zielautorisierung.
 Für eine zusätzliche Profilprüfung wähle ein **Ressourcenprofil** und dann
 **Controller und Profilkapazität lesend prüfen**. Die Ausgabe unterscheidet
 fehlende Controller, zu geringe Gesamtkapazität und unbekannte Werte. Die
+Ausgabe nennt außerdem das gemeldete Runtime-Betriebssystem, die
+cgroup-Version und den Rootless-Modus. Sie kennzeichnet eine fehlende
+Beobachtung ausdrücklich. Die
 angezeigte Gesamtkapazität belegt keine frei verfügbare CPU- oder RAM-Menge.
 SQL 2025 shared-user-v2 besitzt keine Launchpad-Sandbox. Öffnen oder Ändern
 fragt keinen Host ab. Zurück/Abbruch und Escape verwerfen den RAM-Entwurf und

@@ -74,13 +74,15 @@ function Assert-LabExternalRuntimeHttpIdentity {
 function ConvertTo-LabExternalRuntimeHttpPrerequisiteSummary {
     param($Decision,$Payload)
     $facts = $Decision.HostPrerequisites
+    $includeProviderFacts = $Payload.IncludeProviderFacts -eq $true
+    $decisionVersion = if ($includeProviderFacts) { '1.3' } else { '1.2' }
     $codes = @('CATALOG_BLOCKED','TOOL_NOT_INSTALLED','TOOL_NATIVE_PATH_REQUIRED','PROVIDER_PROBE_FAILED',
         'PROVIDER_PROBE_TIMEOUT','PROVIDER_OUTPUT_LIMIT','PROVIDER_TERMINATION_UNCONFIRMED','PROVIDER_RESPONSE_INVALID',
         'CGROUP_V2_REQUIRES_SQL2025','LINUX_RUNTIME_REQUIRED','CGROUP_VERSION_UNSUPPORTED','ROOTFUL_STATUS_UNKNOWN',
         'ROOTFUL_PROVIDER_REQUIRED','RESOURCE_CONTROLLERS_UNAVAILABLE','RESOURCE_CONTROLLERS_UNKNOWN',
         'RESOURCE_PROFILE_CAPACITY_INSUFFICIENT','RESOURCE_PROFILE_CAPACITY_UNKNOWN','KERNEL_MEMCG_V1_DISABLED')
     if ($Decision.Contract.Name -isnot [string] -or $Decision.Contract.Name -cne 'SqlServerLab.ExternalRuntimeCapability' -or
-        $Decision.Contract.Version -isnot [string] -or $Decision.Contract.Version -cne '1.2' -or
+        $Decision.Contract.Version -isnot [string] -or $Decision.Contract.Version -cne $decisionVersion -or
         $Decision.Provider -cne $Payload.Provider -or $Decision.OperatingSystem -cne 'linux' -or
         $Decision.ExecutionSupported -isnot [bool] -or $Decision.ExecutionSupported -or
         $Decision.MutationAllowed -isnot [bool] -or $Decision.MutationAllowed -or $Decision.Actions -isnot [array] -or $Decision.Actions.Count -or
@@ -116,12 +118,34 @@ function ConvertTo-LabExternalRuntimeHttpPrerequisiteSummary {
         (($controllerStatus -ceq 'MISSING') -ne ($missingControllers.Count -gt 0)) -or
         ($facts.Status -ceq 'COMPATIBLE' -and ($facts.ReasonCodes.Count -or $controllerStatus -cne 'AVAILABLE' -or
             $memory -cne 'CAPACITY_SUFFICIENT' -or $cpu -cne 'CAPACITY_SUFFICIENT'))) { throw 'EXTERNAL_RUNTIME_HTTP_INVALID' }
-    [pscustomobject]@{
+    $result = [pscustomobject]@{
         ContractVersion='SqlServerLab.ExternalRuntimeCapabilityBrowser/1.3'; Status='HOST_PREREQUISITES'; Provider=$Decision.Provider
         Identity=$Decision.Identity; ResourceProfile=$facts.ResourceProfile; PrerequisiteStatus=$facts.Status; ReasonCodes=$facts.ReasonCodes
         ControllerStatus=$controllerStatus; MissingControllers=$missingControllers; UnknownControllers=$unknownControllers; MemoryStatus=$memory; CpuStatus=$cpu
         FullLaunchReadiness='INCOMPLETE'; ExecutionSupported=$false; MutationAllowed=$false
     }
+    if ($includeProviderFacts) {
+        $observed = $facts.ProviderFacts
+        $hasObservation = $facts.Status -cin @('COMPATIBLE','BLOCKED','UNKNOWN')
+        $required = $Decision.CurrentReadiness.RequiredCgroupVersion
+        if (-not $facts.PSObject.Properties['ProviderFacts'] -or $hasObservation -ne ($null -ne $observed)) {
+            throw 'EXTERNAL_RUNTIME_HTTP_INVALID'
+        }
+        if (($facts.Status -ceq 'CATALOG_BLOCKED' -and $null -ne $required) -or
+            ($facts.Status -cne 'CATALOG_BLOCKED' -and ($required -isnot [string] -or $required -cnotin @('1','2')))) {
+            throw 'EXTERNAL_RUNTIME_HTTP_INVALID'
+        }
+        if ($hasObservation) {
+            Assert-LabExternalRuntimeHttpShape $observed @('OperatingSystem','CgroupVersion','Rootless')
+            if ($observed.OperatingSystem -isnot [string] -or $observed.OperatingSystem -cnotin @('linux','windows') -or
+                $observed.CgroupVersion -isnot [string] -or $observed.CgroupVersion -cnotin @('1','2') -or
+                $observed.Rootless -isnot [bool]) { throw 'EXTERNAL_RUNTIME_HTTP_INVALID' }
+        }
+        $result.ContractVersion = 'SqlServerLab.ExternalRuntimeCapabilityBrowser/1.4'
+        $result | Add-Member -NotePropertyName ProviderFacts -NotePropertyValue $observed
+        $result | Add-Member -NotePropertyName RequiredCgroupVersion -NotePropertyValue $required
+    }
+    return $result
 }
 
 function Invoke-LabExternalRuntimeCapabilityHttpRequest {
@@ -151,9 +175,15 @@ function Invoke-LabExternalRuntimeCapabilityHttpRequest {
         $names=@('Action','SqlVersion','Provider','OperatingSystem')
         if($payload.Action -ceq 'Evaluate') {$names+=@('SoftwareId','RuntimeVersion','VariantId','CheckProviderReadiness')}
         if($payload.Action -ceq 'ReadRecordedEvidence') {$names+=@('SoftwareId','RuntimeVersion','VariantId')}
-        if($payload.Action -ceq 'CheckHostPrerequisites') {$names+=@('SoftwareId','RuntimeVersion','VariantId','ResourceProfile')}
+        if($payload.Action -ceq 'CheckHostPrerequisites') {
+            $names+=@('SoftwareId','RuntimeVersion','VariantId','ResourceProfile')
+            if ($payload.PSObject.Properties['IncludeProviderFacts']) {
+                if ($payload.IncludeProviderFacts -isnot [bool]) { throw 'EXTERNAL_RUNTIME_HTTP_INVALID' }
+                $names += 'IncludeProviderFacts'
+            }
+        }
         Assert-LabExternalRuntimeHttpShape $payload $names
-        foreach($name in $names | Where-Object {$_ -cne 'CheckProviderReadiness'}) {
+        foreach($name in $names | Where-Object {$_ -cnotin @('CheckProviderReadiness','IncludeProviderFacts')}) {
             if($payload.$name -isnot [string] -or [string]::IsNullOrWhiteSpace($payload.$name)) {throw 'EXTERNAL_RUNTIME_HTTP_INVALID'}
         }
         if($payload.Provider -cnotin @('docker','podman') -or $payload.OperatingSystem -cne 'linux' -or $payload.SqlVersion.Length -gt 32) {throw 'EXTERNAL_RUNTIME_HTTP_INVALID'}

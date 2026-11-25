@@ -129,9 +129,9 @@ function Get-LabConsoleHelpCatalog {
         }
         'host-matrix-launch-profile' = @{
             Title = 'Ressourcenprofil zur Prüfung wählen'
-            Purpose = 'Controller und gemeldete Gesamtkapazität des ausgewählten Providers für ein Katalogprofil prüfen.'
+            Purpose = 'Controller, Gesamtkapazität und gemeldete OS-, cgroup- und Rootless-Werte für ein Katalogprofil prüfen.'
             Effects = 'Enter veranlasst eine begrenzte lesende Abfrage. Freie Ressourcen und SQL-Ausführung bleiben ungeprüft. Escape bricht vor der Abfrage ab.'
-            Command = 'Get-SqlServerLabExternalRuntimeCapability -IncludeHostPrerequisites -CheckProviderReadiness'
+            Command = 'Get-SqlServerLabExternalRuntimeCapability -IncludeProviderFacts -CheckProviderReadiness'
         }
         'evaluation-refresh-run' = @{
             Title = 'SQL-Evaluation: Instanz auswählen'
