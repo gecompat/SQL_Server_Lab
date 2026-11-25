@@ -1291,15 +1291,13 @@ Add-ConsoleUiCheck 'Datenbankmenue trennt Verbindungszentrale und reinen Lab-Kat
 $catalogScopeCheck = & {
     . (Join-Path $repoRoot 'Public/Get-SqlServerLabWorkflow.ps1')
     . (Join-Path $repoRoot 'Public/Get-SqlServerLabCatalog.ps1')
-    Set-Variable -Name IsWindows -Scope Local -Value $true -Force
     $chosenRoot = Join-Path ([IO.Path]::GetTempPath()) 'synthetic-catalog-selected-state'
     $defaultRoot = Join-Path ([IO.Path]::GetTempPath()) 'synthetic-catalog-default-state'
     $observed = [Collections.Generic.List[object]]::new()
-    $readers = @(
-        'Get-HyperVImageBuildPlans','Get-HyperVSqlImageBuildPlans','Get-HyperVImageArtifact','Get-HyperVSqlAcceptanceMatrix',
-        'Get-SqlServerLabHyperVImageArtifact','Get-LabActiveRuns','Get-SqlServerLabBatch','Get-SqlServerLabOperation','Get-SqlServerLabQueue'
-    )
-    foreach ($reader in $readers) {
+    $readers = @('Get-SqlServerLabHyperVImageArtifact','Get-LabActiveRuns','Get-SqlServerLabBatch','Get-SqlServerLabOperation','Get-SqlServerLabQueue')
+    $windowsReaders = @('Get-HyperVImageBuildPlans','Get-HyperVSqlImageBuildPlans','Get-HyperVImageArtifact','Get-HyperVSqlAcceptanceMatrix')
+    if ($IsWindows) { $readers += $windowsReaders }
+    foreach ($reader in ($readers + $windowsReaders | Select-Object -Unique)) {
         $record = {
             param($StateRoot,[switch]$SkipIntegrityCheck)
             $observed.Add([pscustomobject]@{Reader=$reader;Root=$StateRoot})
@@ -1326,10 +1324,13 @@ $catalogScopeCheck = & {
     $scopedReads = $observed.ToArray()
     $observed.Clear()
     $null = Get-SqlServerLabWorkflow
-    $scopedReads.Count -eq ($readers.Count+1) -and @($scopedReads | Where-Object Root -CNE $chosenRoot).Count -eq 0 -and
+    $expectedReaders = ($readers | Sort-Object) -join ','
+    (($scopedReads.Reader | Sort-Object) -join ',') -ceq (($readers + 'export' | Sort-Object) -join ',') -and
+        @($scopedReads | Where-Object Root -CNE $chosenRoot).Count -eq 0 -and
         $snapshot.Catalog.Workflow.Host.Providers -ceq 'docker' -and
         $snapshot.Path -ceq (Join-Path $chosenRoot 'catalog/sql-server-lab-catalog.json') -and
-        $observed.Count -eq $readers.Count -and @($observed | Where-Object Root -CNE $defaultRoot).Count -eq 0
+        (($observed.Reader | Sort-Object) -join ',') -ceq $expectedReaders -and
+        @($observed | Where-Object Root -CNE $defaultRoot).Count -eq 0
 }
 Add-ConsoleUiCheck 'Katalog bindet Run-, Build- und Vorgangsreader an den gewählten State Root' $catalogScopeCheck
 Add-ConsoleUiCheck 'Katalogmenü zeigt Host- und Umgebungsdaten aus dem gespeicherten Workflow' (
