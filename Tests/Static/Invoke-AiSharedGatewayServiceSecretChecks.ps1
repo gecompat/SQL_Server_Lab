@@ -63,10 +63,38 @@ try {
     Add-CheckResult 'Secret-Receipt darf nicht an einen blockierten Serviceplan gebunden werden' $blockedReceiptRejected
     $previousGetSecret=if(Test-Path Function:global:Get-Secret){(Get-Item Function:global:Get-Secret).ScriptBlock}else{$null}
     $publicSecret=New-TestSecureString ('B'*24)
-    Set-Item Function:global:Get-Secret -Value ({param([string]$Name)$publicSecret}.GetNewClosure())
-    try{$public=$servicePlan|Test-SqlServerLabAiSharedGatewayServiceSecret -Plan $plan}finally{if($previousGetSecret){Set-Item Function:global:Get-Secret -Value $previousGetSecret}else{Remove-Item Function:global:Get-Secret -ErrorAction SilentlyContinue}}
+    $guidedAccesses = [Collections.Generic.List[string]]::new()
+    Set-Item Function:global:Get-Secret -Value ({[CmdletBinding()]param([string]$Name) $guidedAccesses.Add($Name); $publicSecret}.GetNewClosure())
+    try {
+        $public=$servicePlan|Test-SqlServerLabAiSharedGatewayServiceSecret -Plan $plan
+        $guidedAccesses.Clear()
+        $guided = & $module {
+            param($GatewayPlan,$BoundServicePlan,$Accesses)
+            & {
+                $guidedMessages = [Collections.Generic.List[string]]::new()
+                function New-LabConsoleItem { param($Id,$Label,[switch]$Disabled,$DisabledReason) [pscustomobject]@{Id=$Id;Disabled=[bool]$Disabled} }
+                function Invoke-LabConsoleMenu {
+                    param($ScreenId,$Title,$Subtitle,$Items)
+                    [pscustomobject]@{Status='Selected';SelectedItem=($Items | Where-Object Id -CEQ $choice)}
+                }
+                function Write-LabInfo { param($Message) $guidedMessages.Add($Message) }
+                function Write-LabWarning { throw 'UNEXPECTED_GUIDED_SECRET_WARNING' }
+                function Wait-LabConsoleAcknowledgement {}
+                $choice = 'back'
+                Invoke-LabAiSharedGatewayServiceSecretInteractive -Plan $GatewayPlan -ServicePlan $BoundServicePlan
+                $cancelSafe = $Accesses.Count -eq 0 -and $guidedMessages.Count -eq 0
+                $choice = 'verify'
+                Invoke-LabAiSharedGatewayServiceSecretInteractive -Plan $GatewayPlan -ServicePlan $BoundServicePlan
+                [pscustomobject]@{CancelSafe=$cancelSafe;Messages=$guidedMessages.ToArray()}
+            }
+        } $plan $servicePlan $guidedAccesses
+    } finally { if($previousGetSecret){Set-Item Function:global:Get-Secret -Value $previousGetSecret}else{Remove-Item Function:global:Get-Secret -ErrorAction SilentlyContinue} }
     $command=Get-Command Test-SqlServerLabAiSharedGatewayServiceSecret
     Add-CheckResult 'Öffentlicher CLI-Befehl verwendet SecretManagement ohne Testadapter' ($public.Status -ceq 'READY' -and $command.ModuleName -ceq 'SqlServerLab' -and -not $command.Parameters.ContainsKey('SecretResolver'))
+    Add-CheckResult 'CLI liest erst nach Auswahl genau die gebundenen Referenzen und zeigt eine begrenzte Quittung' (
+        $guided.CancelSafe -and ($guidedAccesses -join ',') -ceq ($plan.Consumers.ApiKeyReference -join ',') -and
+        $guided.Messages.Count -eq 2 -and $guided.Messages[0] -match '2 Referenzen' -and
+        ($guided.Messages -join ' ') -notmatch 'SECRET_SHARED|BBBB')
     $source=Get-Content -LiteralPath (Join-Path $repoRoot 'Private/AiSharedGatewayServiceSecret.ps1') -Raw
     Add-CheckResult 'Dienstprüfung verwendet keine Prozessvariable als Neustartnachweis' ($source -notmatch 'GetEnvironmentVariable|Env:' -and $source -match 'Get-Secret')
 }

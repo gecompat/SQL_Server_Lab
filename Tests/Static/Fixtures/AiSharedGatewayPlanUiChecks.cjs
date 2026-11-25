@@ -107,12 +107,19 @@ const registerCommand = {
     { Name: 'WhatIf', TypeName: 'System.Management.Automation.SwitchParameter', Mandatory: false, Sensitive: false, IsCredential: false }
   ] }]
 };
+const serviceCommand = {
+  ...statusCommand, Name: 'Get-SqlServerLabAiSharedGatewayServicePlan',
+  ParameterSets: [{ Name: '__AllParameterSets', Parameters: [
+    statusCommand.ParameterSets[0].Parameters[0],
+    { Name: 'ServiceMode', TypeName: 'System.String', Mandatory: false, Sensitive: false, IsCredential: false }
+  ] }]
+};
 const context = vm.createContext({
   document: { querySelector: selector => ids.get(selector.slice(1)) },
   sqlServerLabUiFetch(url, options) {
     return new Promise(resolve => requests.push({ url, options, resolve }));
   },
-  publicCommandCatalog: [statusCommand, upstreamCommand, preflightCommand, registerCommand],
+  publicCommandCatalog: [statusCommand, upstreamCommand, preflightCommand, registerCommand, serviceCommand],
   startPublicCommand(command, parameterSet, parameters, confirmed) {
     return new Promise(resolve => statusCalls.push({ command, parameterSet, parameters, confirmed, resolve }));
   },
@@ -243,6 +250,25 @@ const check = (label, value) => { assert.ok(value, label); checks++; };
     Object.values(paths).every(path => path.value === ''));
   registration.resolve();
   await registering;
+  check('A displayed plan only exposes the service control and defaults to Auto',
+    !item('service-controls').hidden && !item('prepare-service').disabled && item('service-mode').value === 'Auto' && statusCalls.length === 4);
+  item('service-mode').value = 'Unrecognized';
+  await item('prepare-service').fire('click');
+  check('Unknown service mode dispatches no request', statusCalls.length === 4);
+  item('service-mode').value = 'WindowsS4U';
+  const servicePlanning = item('prepare-service').fire('click');
+  await item('prepare-service').fire('click');
+  const servicePlan = statusCalls[4];
+  check('Service planning binds the exact plan and chosen mode once',
+    statusCalls.length === 5 && servicePlan.command === serviceCommand && servicePlan.confirmed === false &&
+    servicePlan.parameters.ServiceMode === 'WindowsS4U' && Object.keys(servicePlan.parameters).length === 2 &&
+    JSON.stringify(servicePlan.parameters.Plan) === JSON.stringify(JSON.parse(item('plan-result').value)));
+  await form.fire('input');
+  servicePlan.resolve();
+  await servicePlanning;
+  check('Changing the plan resets the service mode and discards stale output',
+    item('service-controls').hidden && item('prepare-service').disabled && item('service-mode').value === 'Auto' &&
+    !item('plan-status').textContent.includes('Auftragsprotokoll'));
   const bad = form.fire('submit');
   respond(requests.at(-1), { ...canonical(payload.Consumer), Status: 'READY', Untrusted: 'SYNTHETIC_PRIVATE' });
   await bad;

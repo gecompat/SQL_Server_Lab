@@ -110,7 +110,9 @@ Upstream ohne API-Schlüssel explizit mit einer synthetischen Anfrage prüfen.
 Deren Ergebnis bestätigt den Upstream-Befund für diesen Plan. Die eigene
 Session ist nur in ihrer startenden Modulsitzung nachweisbar.
 `Get-SqlServerLabAiSharedGatewayServicePlan` bindet diesen Zustand lesend an eine neu
-berechnete Host-Capability. Windows verwendet eine S4U-Aufgabe mit lokalem,
+berechnete Host-Capability. CLI und Browser führen die Auswahl von Auto,
+Windows S4U oder Linux-systemd-Benutzerdienst für den angezeigten Plan.
+Windows verwendet eine S4U-Aufgabe mit lokalem,
 nicht EFS-verschlüsseltem StateRoot und weist den fehlenden Netzwerk- und EFS-
 Zugriff aus; Linux verlangt einen erreichbaren systemd-Usermanager und
 aktiviertes Linger. `Auto` wählt den Hostmodus, eine explizite Fixierung bleibt

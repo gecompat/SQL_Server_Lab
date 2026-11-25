@@ -226,10 +226,12 @@ sources_of_truth:
   ai_shared_gateway_status_schema: Schemas/ai-shared-gateway-status.schema.json
   ai_shared_gateway_service_plan_contract: Private/AiSharedGatewayServicePlan.ps1
   ai_shared_gateway_service_plan_api: Public/Get-SqlServerLabAiSharedGatewayServicePlan.ps1
+  ai_shared_gateway_service_plan_guidance: "Private/AiSharedGatewayPlanGuidance.ps1 und Ui/ai-shared-gateway-plan.js binden die Hostmoduswahl an den angezeigten Plan. Private/PublicCommandConsole.ps1 prüft den Dienstplan vor der Auftragsausgabe. Plan- und ServicePlan-Suites prüfen den geführten Dispatch."
   ai_shared_gateway_service_plan_schema: Schemas/ai-shared-gateway-service-plan.schema.json
   validation_ai_shared_gateway_service_plan: Tests/Static/Invoke-AiSharedGatewayServicePlanChecks.ps1
   ai_shared_gateway_service_secret_contract: Private/AiSharedGatewayServiceSecret.ps1
   ai_shared_gateway_service_secret_api: Public/Test-SqlServerLabAiSharedGatewayServiceSecret.ps1
+  ai_shared_gateway_service_secret_console: "Private/AiSharedGatewayPlanGuidance.ps1 bietet nach READY die ausdrückliche Vault-Prüfung gebundener Referenzen. Test-Suite für Abbruch, Leser und begrenzte Quittung in der Konsole."
   ai_shared_gateway_service_secret_schema: Schemas/ai-shared-gateway-service-secret-receipt.schema.json
   validation_ai_shared_gateway_service_secret: Tests/Static/Invoke-AiSharedGatewayServiceSecretChecks.ps1
   ai_shared_gateway_upstream_schema: Schemas/ai-shared-gateway-upstream-receipt.schema.json

@@ -335,6 +335,14 @@
         </div>
         <p id="ai-shared-gateway-upstream-note">Die Upstream-Prüfung sendet eine synthetische Anfrage an den registrierten lokalen Dienst ohne API-Schlüssel.</p>
       </form>
+      <div id="ai-shared-gateway-service-controls" class="build-actions" hidden>
+        <label>Dienstmodus<select id="ai-shared-gateway-service-mode">
+          <option value="Auto">Automatisch</option>
+          <option value="WindowsS4U">Windows-Aufgabe (S4U)</option>
+          <option value="SystemdUser">Linux-systemd-Benutzerdienst</option>
+        </select></label>
+        <button id="ai-shared-gateway-prepare-service" type="button" class="button secondary" disabled>Host-Autostart für diesen Gateway-Plan vorbereiten</button>
+      </div>
       <form id="ai-shared-gateway-preflight" autocomplete="off" hidden>
         <p id="ai-shared-gateway-file-action-effect"></p>
         <p>Gib absolute lokale Pfade auf dem Lab-Host ein. Verwende reguläre Dateien ohne Verknüpfungen.</p>

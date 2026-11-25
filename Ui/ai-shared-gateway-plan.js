@@ -21,6 +21,10 @@
   const confirmRegistration = preflight.elements.namedItem('ConfirmRegistration');
   const preflightName = 'Test-SqlServerLabAiSharedGatewayPreflight';
   const registrationName = 'Register-SqlServerLabAiSharedGatewayStorage';
+  const servicePlanName = 'Get-SqlServerLabAiSharedGatewayServicePlan';
+  const serviceControls = element('service-controls');
+  const serviceMode = element('service-mode');
+  const prepareService = element('prepare-service');
   const pathFields = ['RuntimePath', 'ModelPath', 'CertificatePath', 'PrivateKeyPath', 'CertificateAuthorityPath'];
   const fields = ['GatewayId', 'Location', 'UpstreamBackend', 'UpstreamLocation', 'RuntimeModel', 'InputProfile',
     'ModelSha256', 'RuntimeSha256', 'ServerCertificateSha256', 'CertificateAuthoritySha256'];
@@ -46,11 +50,15 @@
     openPreflight.disabled = disabled;
     openRegistration.disabled = disabled;
     verify.disabled = disabled;
+    serviceControls.hidden = !currentPlan;
+    serviceMode.disabled = disabled;
+    prepareService.disabled = disabled;
   }
 
   function clearPlan() {
     revision++;
     currentPlan = null;
+    serviceMode.value = 'Auto';
     result.value = '';
     resultBox.hidden = true;
     use.disabled = true;
@@ -125,7 +133,7 @@
       create.disabled = false;
     }
   });
-  async function checkSelectedPlan(button, commandName, paths = null) {
+  async function checkSelectedPlan(button, commandName, inputs = null) {
     if (button.disabled || checkingPlan || !currentPlan) return;
     const matches = publicCommandCatalog.filter(command => command?.Name === commandName);
     const command = matches.length === 1 ? matches[0] : null;
@@ -133,11 +141,17 @@
     const parameterSet = Array.isArray(sets) && sets.length === 1 ? sets[0] : null;
     const descriptors = parameterSet?.Parameters;
     const required = Array.isArray(descriptors) ? descriptors.filter(field => field?.Mandatory === true) : [];
-    const expectedNames = paths ? ['Plan', ...pathFields] : ['Plan'];
     const register = commandName === registrationName;
-    if (command?.RequiresConfirmation !== Boolean(paths) || command.SupportsShouldProcess !== register ||
+    const filePreflight = commandName === preflightName;
+    const service = commandName === servicePlanName;
+    const confirmed = register || filePreflight;
+    const expectedNames = confirmed ? ['Plan', ...pathFields] : ['Plan'];
+    const modeFields = service && Array.isArray(descriptors) ? descriptors.filter(field => field?.Name === 'ServiceMode') : [];
+    if (command?.RequiresConfirmation !== confirmed || command.SupportsShouldProcess !== register ||
         parameterSet?.Name !== '__AllParameterSets' || required.length !== expectedNames.length ||
-        (paths && !register && descriptors.length !== expectedNames.length) || !expectedNames.every(name =>
+        (filePreflight && descriptors.length !== expectedNames.length) ||
+        (service && (modeFields.length !== 1 || modeFields[0].Mandatory !== false || modeFields[0].Sensitive !== false ||
+          modeFields[0].TypeName !== 'System.String' || modeFields[0].IsCredential !== false)) || !expectedNames.every(name =>
           required.some(field => field.Name === name && field.IsCredential === false &&
             field.TypeName === (name === 'Plan' ? 'System.Object' : 'System.String') &&
             field.Sensitive === (name === 'PrivateKeyPath')))) {
@@ -149,9 +163,11 @@
     closePreflight();
     updatePlanActions();
     try {
-      await startPublicCommand(command, parameterSet, { Plan: currentPlan, ...paths }, Boolean(paths));
-      if (current === revision) status.textContent = register
-        ? 'Das Auftragsprotokoll zeigt die geschützte Registrierung.' : 'Das Auftragsprotokoll zeigt die Prüfung.';
+      await startPublicCommand(command, parameterSet, { Plan: currentPlan, ...inputs }, confirmed);
+      if (current === revision) {
+        status.textContent = service ? 'Der Dienstplan steht im Auftragsprotokoll.' : (register
+          ? 'Das Auftragsprotokoll zeigt die geschützte Registrierung.' : 'Das Auftragsprotokoll zeigt die Prüfung.');
+      }
     } catch {
       if (current === revision) status.textContent = 'Annahme des Auftrags unbestätigt. Prüfe das Auftragsprotokoll.';
     } finally {
@@ -161,6 +177,10 @@
   }
   read.addEventListener('click', () => checkSelectedPlan(read, 'Get-SqlServerLabAiSharedGatewayStatus'));
   probe.addEventListener('click', () => checkSelectedPlan(probe, 'Test-SqlServerLabAiSharedGatewayUpstream'));
+  prepareService.addEventListener('click', () => {
+    if (!['Auto','WindowsS4U','SystemdUser'].includes(serviceMode.value)) return;
+    return checkSelectedPlan(prepareService, servicePlanName, { ServiceMode: serviceMode.value });
+  });
   function openFileAction(button, commandName) {
     if (button.disabled || !currentPlan) return;
     closePreflight();
