@@ -131,18 +131,25 @@ function ConvertTo-LabExternalRuntimeHttpPrerequisiteSummary {
 
     $controllerStatus = if ($facts.Controllers) { $facts.Controllers.Status } else { 'NOT_CHECKED' }
     $missingControllers = @($facts.Controllers.Missing | Where-Object { $null -ne $_ })
+    $unknownControllers = @($facts.Controllers.Unknown | Where-Object { $null -ne $_ })
+    $controllerNames = if ($Decision.Provider -ceq 'docker') { @('memory','pids') } else { @('cpu','memory','pids') }
+    $unavailableControllers = $missingControllers + $unknownControllers
     $memory = if ($facts.ResourceCapacity) { $facts.ResourceCapacity.MemoryStatus } else { 'NOT_CHECKED' }
     $cpu = if ($facts.ResourceCapacity) { $facts.ResourceCapacity.CpuStatus } else { 'NOT_CHECKED' }
     $capacityStates = @('NOT_CHECKED','CAPACITY_SUFFICIENT','CAPACITY_INSUFFICIENT','UNKNOWN')
     if ($controllerStatus -cnotin @('NOT_CHECKED','AVAILABLE','MISSING','UNKNOWN') -or $memory -cnotin $capacityStates -or $cpu -cnotin $capacityStates -or
-        $missingControllers.Count -gt 3 -or @($missingControllers | Where-Object { $_ -isnot [string] -or $_ -cnotin @('cpu','memory','pids') }).Count -or
+        $unavailableControllers.Count -gt $controllerNames.Count -or
+        @($unavailableControllers | Where-Object { $_ -isnot [string] -or $_ -cnotin $controllerNames }).Count -or
+        @($unavailableControllers | Select-Object -Unique).Count -ne $unavailableControllers.Count -or
+        ($controllerStatus -cin @('NOT_CHECKED','AVAILABLE') -and $unknownControllers.Count) -or
+        ($controllerStatus -ceq 'UNKNOWN' -and -not $unknownControllers.Count) -or
         (($controllerStatus -ceq 'MISSING') -ne ($missingControllers.Count -gt 0)) -or
         ($facts.Status -ceq 'COMPATIBLE' -and ($facts.ReasonCodes.Count -or $controllerStatus -cne 'AVAILABLE' -or
             $memory -cne 'CAPACITY_SUFFICIENT' -or $cpu -cne 'CAPACITY_SUFFICIENT'))) { throw 'EXTERNAL_RUNTIME_HTTP_INVALID' }
     [pscustomobject]@{
-        ContractVersion='SqlServerLab.ExternalRuntimeCapabilityBrowser/1.2'; Status='HOST_PREREQUISITES'; Provider=$Decision.Provider
+        ContractVersion='SqlServerLab.ExternalRuntimeCapabilityBrowser/1.3'; Status='HOST_PREREQUISITES'; Provider=$Decision.Provider
         Identity=$Decision.Identity; ResourceProfile=$facts.ResourceProfile; PrerequisiteStatus=$facts.Status; ReasonCodes=$facts.ReasonCodes
-        ControllerStatus=$controllerStatus; MissingControllers=$missingControllers; MemoryStatus=$memory; CpuStatus=$cpu
+        ControllerStatus=$controllerStatus; MissingControllers=$missingControllers; UnknownControllers=$unknownControllers; MemoryStatus=$memory; CpuStatus=$cpu
         FullLaunchReadiness='INCOMPLETE'; ExecutionSupported=$false; MutationAllowed=$false
     }
 }

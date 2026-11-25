@@ -44,7 +44,7 @@
       if (!response.ok) throw new Error('INVALID');
       const view = await response.json();
       if (current !== revision || !element('dialog').open) return;
-      const version = {ReadRecordedEvidence: '1.1', CheckHostPrerequisites: '1.2'}[action] || '1.0';
+      const version = {ReadRecordedEvidence: '1.1', CheckHostPrerequisites: '1.3'}[action] || '1.0';
       if (view.ContractVersion !== 'SqlServerLab.ExternalRuntimeCapabilityBrowser/' + version) throw new Error('INVALID');
       if (action === 'ReadOptions') {
         if (!shape(view,['ContractVersion','Status','Options']) || view.Status !== 'OPTIONS' || !Array.isArray(view.Options) || view.Options.length > 128 || view.Options.some(o => !shape(o,['SoftwareId','Language','VariantId','RuntimeVersion','Decision']) || !identity(o) || !decision(o.Decision) || o.Decision.Provider !== provider || o.Decision.CurrentReadiness.Status !== 'NOT_CHECKED' || (o.Decision.Identity && (o.Decision.Identity.VariantId !== o.VariantId || o.Decision.Identity.SoftwareId !== o.SoftwareId || o.Decision.Identity.RuntimeVersion !== o.RuntimeVersion || o.Decision.Identity.SqlVersion !== sql)))) throw new Error('INVALID');
@@ -62,17 +62,25 @@
         element('status').textContent = 'Historische Zuordnung gelesen; aktuelle Bereitschaft nicht geprüft.';
       } else if (action === 'CheckHostPrerequisites') {
         const fields = ['ContractVersion','Status','Provider','Identity','ResourceProfile','PrerequisiteStatus','ReasonCodes',
-          'ControllerStatus','MissingControllers','MemoryStatus','CpuStatus','FullLaunchReadiness','ExecutionSupported','MutationAllowed'];
+          'ControllerStatus','MissingControllers','UnknownControllers','MemoryStatus','CpuStatus','FullLaunchReadiness','ExecutionSupported','MutationAllowed'];
         const capacity = ['NOT_CHECKED','CAPACITY_SUFFICIENT','CAPACITY_INSUFFICIENT','UNKNOWN'];
+        const controllerNames = provider === 'docker' ? ['memory','pids'] : ['cpu','memory','pids'];
         const target = view.Identity;
-        if (!shape(view, fields) || view.Status !== 'HOST_PREREQUISITES' || view.Provider !== provider || view.ResourceProfile !== profile ||
+        if (!shape(view, fields) ||
+            view.Status !== 'HOST_PREREQUISITES' || view.Provider !== provider || view.ResourceProfile !== profile ||
             !['COMPATIBLE','BLOCKED','UNKNOWN','UNAVAILABLE','CATALOG_BLOCKED'].includes(view.PrerequisiteStatus) ||
             view.FullLaunchReadiness !== 'INCOMPLETE' || view.ExecutionSupported !== false || view.MutationAllowed !== false ||
             !Array.isArray(view.ReasonCodes) || view.ReasonCodes.length > 8 || view.ReasonCodes.some(code => !prerequisiteCodes.includes(code)) ||
             !['NOT_CHECKED','AVAILABLE','MISSING','UNKNOWN'].includes(view.ControllerStatus) ||
-            !Array.isArray(view.MissingControllers) || view.MissingControllers.length > 3 || view.MissingControllers.some(name => !['cpu','memory','pids'].includes(name)) ||
+            !Array.isArray(view.MissingControllers) || !Array.isArray(view.UnknownControllers) ||
+            view.MissingControllers.length + view.UnknownControllers.length > controllerNames.length ||
             !capacity.includes(view.MemoryStatus) || !capacity.includes(view.CpuStatus) ||
             ((view.ControllerStatus === 'MISSING') !== (view.MissingControllers.length > 0))) throw new Error('INVALID');
+        const unavailableControllers = [...view.MissingControllers, ...view.UnknownControllers];
+        if (unavailableControllers.some(name => !controllerNames.includes(name)) ||
+            new Set(unavailableControllers).size !== unavailableControllers.length ||
+            (['NOT_CHECKED','AVAILABLE'].includes(view.ControllerStatus) && view.UnknownControllers.length) ||
+            (view.ControllerStatus === 'UNKNOWN' && !view.UnknownControllers.length)) throw new Error('INVALID');
         if (target === null ? view.PrerequisiteStatus !== 'CATALOG_BLOCKED' :
           (!shape(target, ['SoftwareId','VariantId','RuntimeVersion','Language','SqlVersion']) || !identity(target) ||
             target.SoftwareId !== choice.SoftwareId || target.VariantId !== choice.VariantId || target.RuntimeVersion !== choice.RuntimeVersion ||
@@ -81,7 +89,8 @@
           view.MemoryStatus !== 'CAPACITY_SUFFICIENT' || view.CpuStatus !== 'CAPACITY_SUFFICIENT')) throw new Error('INVALID');
         element('result').textContent = [
           'Profil ' + profile + ' · ' + view.PrerequisiteStatus + ' · ' + view.ReasonCodes.join(', '),
-          'Controller ' + view.ControllerStatus + (view.MissingControllers.length ? ' · fehlend ' + view.MissingControllers.join(', ') : ''),
+          'Controller ' + view.ControllerStatus + (view.MissingControllers.length ? ' · fehlend ' + view.MissingControllers.join(', ') : '') +
+            (view.UnknownControllers.length ? ' · unbekannt ' + view.UnknownControllers.join(', ') : ''),
           'Gesamtkapazität · RAM ' + view.MemoryStatus + ' · vCPU ' + view.CpuStatus,
           'Freie Ressourcen, WSL-Konflikte, Zielrechte und SQL-Sprachausführung bleiben ungeprüft.',
           'Keine Ausführungsfreigabe.'

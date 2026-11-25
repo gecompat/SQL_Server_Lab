@@ -96,8 +96,10 @@ zusammen verwenden `1.2` und erhalten die getrennten Nachweisarten.
 Die geführte Konsole bietet die Profilprüfung nach der Variantenauswahl an.
 Der Browser sendet erst beim bestätigten Leseauftrag `CheckHostPrerequisites`
 mit der ausgewählten SQL-Version, Provider, Sprache, Variante und Profil.
-`ExternalRuntimeCapabilityBrowser/1.2` liefert nur feste Befunde und fehlende
-Controller, ohne absolute Hostwerte. Auch `COMPATIBLE` behält
+`ExternalRuntimeCapabilityBrowser/1.3` unterscheidet fehlende Controller
+von Controllern, für die der Provider keine auswertbare Angabe lieferte.
+Beide Listen verwenden die Namen der für den Provider benötigten Controller.
+Absolute Hostwerte werden nicht ausgegeben. Auch `COMPATIBLE` behält
 `FullLaunchReadiness=INCOMPLETE` und erteilt keine Ausführungsfreigabe.
 [Browser-Anleitung](../HowTo/WORKFLOW_UI.md#external-languages-vor-einer-lab-erstellung)
 

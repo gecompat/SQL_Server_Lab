@@ -27,6 +27,7 @@ $module=New-Module -ArgumentList $root -ScriptBlock {
                 $facts | Add-Member -NotePropertyMembers @{MemTotal=1GB;NCPU=16;MemoryLimit=$true;PidsLimit=$false}
             }
         }
+        if($script:mode -ceq 'unknownController') {$facts.MemoryLimit=$null}
         if($script:mode -ceq 'malformedFacts') {
             if($StartInfo.FileName -match 'podman') {$facts.Rootless='false'}else{$facts.SecurityOptions=$null}
         }
@@ -92,11 +93,16 @@ $module=New-Module -ArgumentList $root -ScriptBlock {
         SoftwareId=$selected.SoftwareId;RuntimeVersion=$selected.RuntimeVersion;VariantId=$selected.VariantId;ResourceProfile='performance'}
     $before=$script:transports
     $view=Send-Request $prerequisites
-    Assert-Case ($script:transports -eq $before+1 -and $view.ContractVersion -ceq 'SqlServerLab.ExternalRuntimeCapabilityBrowser/1.2' -and
+    Assert-Case ($script:transports -eq $before+1 -and $view.ContractVersion -ceq 'SqlServerLab.ExternalRuntimeCapabilityBrowser/1.3' -and
         $view.PrerequisiteStatus -ceq 'BLOCKED' -and $view.MemoryStatus -ceq 'CAPACITY_INSUFFICIENT' -and
         $view.ControllerStatus -ceq 'MISSING' -and ($view.MissingControllers -join ',') -ceq 'pids' -and
         $view.ResourceProfile -ceq 'performance' -and -not $view.MutationAllowed -and -not $view.ExecutionSupported -and
         ($view | ConvertTo-Json -Depth 6) -cnotmatch 'MemTotal|1073741824') 'Explicit profile observes once and exposes categorized prerequisites without raw totals or authority'
+    $script:mode='unknownController';$before=$script:transports
+    $view=Send-Request $prerequisites
+    Assert-Case ($script:transports -eq $before+1 -and $view.ControllerStatus -ceq 'MISSING' -and
+        ($view.MissingControllers -join ',') -ceq 'pids' -and ($view.UnknownControllers -join ',') -ceq 'memory') 'Missing and unobserved Docker controllers remain distinct'
+    $script:mode='ready'
     $prerequisites.Provider='podman';$before=$script:transports
     $view=Send-Request $prerequisites
     Assert-Case ($script:transports -eq $before+1 -and $view.PrerequisiteStatus -ceq 'COMPATIBLE' -and
