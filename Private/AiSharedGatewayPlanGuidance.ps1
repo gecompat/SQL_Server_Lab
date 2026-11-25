@@ -67,6 +67,84 @@ function Read-LabAiSharedGatewayPlanFields {
     return $values
 }
 
+function Resolve-LabAiSharedGatewayGuidedInputPath {
+    param([Parameter(Mandatory)][AllowEmptyString()][string]$Path,[switch]$SyntaxOnly)
+
+    try {
+        if ($Path.Length -gt 4096 -or $Path -match '[\x00-\x1F\x7F]' -or
+            -not [IO.Path]::IsPathFullyQualified($Path) -or $Path -match '^[\\/]{2}') {
+            throw 'Invalid path syntax'
+        }
+        $full = [IO.Path]::GetFullPath($Path)
+        if ($IsWindows -and $full.Substring(2).Contains(':')) { throw 'Invalid NTFS stream path' }
+        if (-not $SyntaxOnly) {
+            $root = [IO.Path]::GetPathRoot($full)
+            if ($IsWindows -and [IO.DriveInfo]::new($root).DriveType -ne [IO.DriveType]::Fixed) {
+                throw 'Invalid drive type'
+            }
+            Assert-LabPortableContainerTransferPreflightNoReparsePath -Root $root -Path $full
+            $item = Get-Item -LiteralPath $full -Force -ErrorAction Stop
+            if ($item -isnot [IO.FileInfo] -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -or
+                (-not $IsWindows -and [string]$item.UnixMode -cnotmatch '^-')) { throw 'Expected regular file' }
+        }
+        return $full
+    }
+    catch { throw 'AI_SHARED_GATEWAY_GUIDED_PATH_INVALID' }
+}
+
+function Invoke-LabAiSharedGatewayPreflightInteractive {
+    param([Parameter(Mandatory)]$Plan)
+
+    $labels = [ordered]@{
+        RuntimePath = 'Absoluter lokaler Pfad zur Runtime-Datei'
+        ModelPath = 'Absoluter lokaler Pfad zur Modelldatei'
+        CertificatePath = 'Absoluter lokaler Pfad zum Serverzertifikat (PEM)'
+        PrivateKeyPath = 'Absoluter lokaler Pfad zur privaten Schlüsseldatei (PEM, Eingabe verdeckt)'
+        CertificateAuthorityPath = 'Absoluter lokaler Pfad zum CA-Zertifikat (PEM)'
+    }
+    $paths = @{}
+    try {
+        foreach ($field in $labels.GetEnumerator()) {
+            $entry = Read-LabConsoleTextInput -Prompt $field.Value -MaskInput:($field.Key -ceq 'PrivateKeyPath')
+            if ($entry.Status -cne 'Confirmed') { return }
+            $paths[$field.Key] = Resolve-LabAiSharedGatewayGuidedInputPath -Path ([string]$entry.Value) -SyntaxOnly
+        }
+    }
+    catch {
+        Write-LabWarning 'Ungültige Pfadeingabe. Gib für jede Datei einen absoluten lokalen Pfad an.'
+        $null = Wait-LabConsoleAcknowledgement
+        return
+    }
+
+    $items = @(
+        New-LabConsoleItem -Id verify -Label 'Dateien jetzt prüfen'
+        New-LabConsoleItem -Id back -Label 'Abbrechen'
+    )
+    $selection = Invoke-LabConsoleMenu -ScreenId 'ai-shared-gateway-preflight-confirm' -Title 'Lokale Gateway-Dateien prüfen' `
+        -Subtitle 'Die Prüfung liest Modell, Runtime, Zertifikate und Schlüsseldatei für den angezeigten Plan.' -Items $items
+    if ($selection.Status -cne 'Selected' -or $selection.SelectedItem.Id -cne 'verify') { return }
+
+    try {
+        foreach ($name in $labels.Keys) {
+            $paths[$name] = Resolve-LabAiSharedGatewayGuidedInputPath -Path $paths[$name]
+        }
+        $receipt = Test-SqlServerLabAiSharedGatewayPreflight -Plan $Plan @paths
+        if ($receipt.Status -cne 'PREFLIGHT_VERIFIED' -or $receipt.PlanKey -cne $Plan.PlanKey) {
+            throw 'AI_SHARED_GATEWAY_GUIDED_PREFLIGHT_UNCONFIRMED'
+        }
+        Write-LabInfo 'Lokale Dateien, Zertifikate und Schlüssel passen zum angezeigten Gateway-Plan.'
+        Write-LabInfo ($receipt | ConvertTo-Json -Depth 8)
+    }
+    catch {
+        if ($_.Exception.Message -ceq 'AI_SHARED_GATEWAY_GUIDED_PATH_INVALID') {
+            Write-LabWarning 'Datei nicht erreichbar. Prüfe die lokalen Pfade und verwende Dateien ohne Verknüpfungen.'
+        } else {
+            Write-LabWarning 'Dateiprüfung fehlgeschlagen. Prüfe die SHA-256-Werte, den Zertifikatsnamen und die Zuordnung von Schlüssel und CA.'
+        }
+    }
+    $null = Wait-LabConsoleAcknowledgement
+}
+
 function Invoke-LabAiSharedGatewayPlanInteractive {
     [CmdletBinding()] param()
     try {
@@ -130,13 +208,18 @@ function Invoke-LabAiSharedGatewayPlanInteractive {
     }
 
     $items = @(
+        New-LabConsoleItem -Id preflight -Label 'Lokale Gateway-Dateien für diesen Plan prüfen'
         New-LabConsoleItem -Id status -Label 'Status für diesen Gateway-Plan lesen'
         New-LabConsoleItem -Id upstream -Label 'Registrierten Loopback-Upstream mit Testanfrage prüfen'
         New-LabConsoleItem -Id back -Label 'Zurück'
     )
     $selection = Invoke-LabConsoleMenu -ScreenId 'ai-shared-gateway-plan-next' -Title 'Gateway-Plan' `
         -Subtitle 'Die Upstream-Prüfung sendet eine synthetische Anfrage an den gebundenen lokalen Dienst. Sie verwendet keinen API-Schlüssel.' -Items $items
-    if ($selection.Status -cne 'Selected' -or $selection.SelectedItem.Id -cnotin @('status','upstream')) { return }
+    if ($selection.Status -cne 'Selected' -or $selection.SelectedItem.Id -cnotin @('preflight','status','upstream')) { return }
+    if ($selection.SelectedItem.Id -ceq 'preflight') {
+        Invoke-LabAiSharedGatewayPreflightInteractive -Plan $plan
+        return
+    }
     try {
         if ($selection.SelectedItem.Id -ceq 'upstream') {
             $view = Test-SqlServerLabAiSharedGatewayUpstream -Plan $plan

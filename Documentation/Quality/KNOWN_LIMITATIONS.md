@@ -4151,8 +4151,10 @@ unverändert. Echte Dispatch-/Issueabnahme dieses engeren Pfads ist noch offen.
 
 Die CLI und der Browser erstellen einen Konfigurationsplan für einen lokalen
 Gateway-Endpunkt, ein gebundenes Backend und bis zu 64 SQL-Verbraucher. Der Plan
-bleibt `BLOCKED` und `CONFIGURATION_ONLY`. Die optionale Statusprüfung liest
-Registrierung und Listener. Besitz eines Listeners ist nur in der startenden
+bleibt `BLOCKED` und `CONFIGURATION_ONLY`. Die lokale Dateiprüfung ist in
+CLI und Browser als Folgeaktion zum angezeigten Plan geführt. Die optionale
+Statusprüfung liest Registrierung und Listener. Besitz eines Listeners ist
+nur in der startenden
 Modulsitzung nachweisbar. Die geführte Upstream-Prüfung benötigt eine
 vorhandene Registrierung und sendet eine synthetische Anfrage ohne
 API-Schlüssel. Ein authentifizierter Upstream erfordert den öffentlichen

@@ -409,6 +409,15 @@ function Start-UiPublicCommandJob {
                 Write-Output '[FEHLER] BACKUP_LIBRARY_BROWSER_UNCONFIRMED'
                 throw 'BACKUP_LIBRARY_BROWSER_UNCONFIRMED'
             }
+            if ($JobCommandName -ceq 'Test-SqlServerLabAiSharedGatewayPreflight') {
+                $code = switch -CaseSensitive ($_.Exception.Message) {
+                    'AI_SHARED_GATEWAY_GUIDED_PATH_INVALID' { 'AI_SHARED_GATEWAY_GUIDED_PATH_INVALID' }
+                    'AI_SHARED_GATEWAY_PLAN_INVALID' { 'AI_SHARED_GATEWAY_PLAN_INVALID' }
+                    default { 'AI_SHARED_GATEWAY_GUIDED_PREFLIGHT_UNCONFIRMED' }
+                }
+                Write-Output "[FEHLER] $code"
+                throw $code
+            }
             Write-Output "[FEHLER] $($_.Exception.Message)"
             throw
         }

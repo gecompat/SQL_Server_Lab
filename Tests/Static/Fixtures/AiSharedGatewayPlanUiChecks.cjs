@@ -50,6 +50,14 @@ const form = item('author');
 const values = Object.fromEntries(Object.entries(baseFields).map(([name, value]) => [name, { value }]));
 form.elements = { namedItem: name => values[name] };
 form.reportValidity = () => true;
+const preflight = item('preflight');
+const paths = Object.fromEntries(['RuntimePath', 'ModelPath', 'CertificatePath', 'PrivateKeyPath', 'CertificateAuthorityPath']
+  .map(name => [name, { value: '', focus() {} }]));
+preflight.hidden = true;
+preflight.elements = { namedItem: name => paths[name] };
+preflight.reportValidity = () => Object.values(paths).every(path => path.value);
+preflight.reset = () => { for (const path of Object.values(paths)) path.value = ''; };
+item('open-preflight').focus = () => {};
 item('consumer-template').content = {
   firstElementChild: {
     cloneNode() {
@@ -77,12 +85,20 @@ const upstreamCommand = {
     { Name: 'ApiKey', TypeName: 'System.Security.SecureString', Mandatory: false, Sensitive: true, IsCredential: false }
   ] }]
 };
+const preflightCommand = {
+  ...statusCommand, Name: 'Test-SqlServerLabAiSharedGatewayPreflight', RequiresConfirmation: true,
+  ParameterSets: [{ Name: '__AllParameterSets', Parameters: [
+    statusCommand.ParameterSets[0].Parameters[0],
+    ...Object.keys(paths).map(Name => ({ Name, TypeName: 'System.String', Mandatory: true,
+      Sensitive: Name === 'PrivateKeyPath', IsCredential: false }))
+  ] }]
+};
 const context = vm.createContext({
   document: { querySelector: selector => ids.get(selector.slice(1)) },
   sqlServerLabUiFetch(url, options) {
     return new Promise(resolve => requests.push({ url, options, resolve }));
   },
-  publicCommandCatalog: [statusCommand, upstreamCommand],
+  publicCommandCatalog: [statusCommand, upstreamCommand, preflightCommand],
   startPublicCommand(command, parameterSet, parameters, confirmed) {
     return new Promise(resolve => statusCalls.push({ command, parameterSet, parameters, confirmed, resolve }));
   },
@@ -161,6 +177,31 @@ const check = (label, value) => { assert.ok(value, label); checks++; };
   await probing;
   check('Editing hides both bound actions while an upstream request finishes', item('probe-upstream').disabled &&
     item('read-status').disabled && !item('plan-status').textContent.includes('Auftragsprotokoll'));
+  const shownForFiles = form.fire('submit');
+  respond(requests.at(-1), canonical(payload.Consumer));
+  await shownForFiles;
+  await item('open-preflight').fire('click');
+  paths.PrivateKeyPath.value = '/synthetic/key.pem';
+  await item('cancel-preflight').fire('click');
+  check('Opening and cancelling file verification clears its key path without a job',
+    preflight.hidden && paths.PrivateKeyPath.value === '' && statusCalls.length === 2);
+  await item('open-preflight').fire('click');
+  for (const name of Object.keys(paths)) paths[name].value = '/synthetic/' + name;
+  const checking = preflight.fire('submit');
+  await preflight.fire('submit');
+  await item('read-status').fire('click');
+  const preflightCall = statusCalls[2];
+  check('Only confirmation dispatches the exact displayed plan and five paths once',
+    statusCalls.length === 3 && preflightCall.command === preflightCommand && preflightCall.confirmed === true &&
+    Object.keys(preflightCall.parameters).length === 6 &&
+    preflightCall.parameters.PrivateKeyPath === '/synthetic/PrivateKeyPath' &&
+    JSON.stringify(preflightCall.parameters.Plan) === JSON.stringify(JSON.parse(item('plan-result').value)));
+  check('The form does not retain paths during submission', preflight.hidden && Object.values(paths).every(path => path.value === ''));
+  await form.fire('input');
+  preflightCall.resolve();
+  await checking;
+  check('A completed submission cannot restore file verification for an edited plan',
+    preflight.hidden && item('open-preflight').disabled && !item('plan-status').textContent.includes('Auftragsprotokoll'));
   const bad = form.fire('submit');
   respond(requests.at(-1), { ...canonical(payload.Consumer), Status: 'READY', Untrusted: 'SYNTHETIC_PRIVATE' });
   await bad;

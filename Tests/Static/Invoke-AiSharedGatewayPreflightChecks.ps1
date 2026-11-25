@@ -64,6 +64,88 @@ try {
     $timeRejected=& $module {param($p,$runtime,$model,$cert,$key,$caPath,$now) try{Test-LabAiSharedGatewayPreflight -Plan $p -RuntimePath $runtime -ModelPath $model -CertificatePath $cert -PrivateKeyPath $key -CertificateAuthorityPath $caPath -VerifiedAtUtc $now|Out-Null;$false}catch{$_.Exception.Message -ceq 'AI_SHARED_GATEWAY_CERTIFICATE_TIME_INVALID'}} $plan $runtimePath $modelPath $files.CertificatePath $files.PrivateKeyPath $files.CertificateAuthorityPath $expiredAt
     Add-CheckResult 'Abgelaufenes Zertifikat wird abgewiesen' $timeRejected
     Add-CheckResult 'Öffentlicher Preflight ist manifestexportiert' ((Get-Command Test-SqlServerLabAiSharedGatewayPreflight).ModuleName -ceq 'SqlServerLab')
+
+    $paths = @($runtimePath,$modelPath,$files.CertificatePath,$files.PrivateKeyPath,$files.CertificateAuthorityPath)
+    $guided = & $module {
+        param($Plan,$Paths)
+        & {
+            $command = ${function:Test-SqlServerLabAiSharedGatewayPreflight}
+            $calls = [Collections.Generic.List[string]]::new()
+            $messages = [Collections.Generic.List[string]]::new()
+            $masked = [Collections.Generic.List[int]]::new()
+            $inputs = [Collections.Generic.Queue[string]]::new()
+            function Read-LabConsoleTextInput {
+                param($Prompt,[switch]$MaskInput)
+                if ($MaskInput) { $masked.Add($inputs.Count) }
+                [pscustomobject]@{Status='Confirmed';Value=$inputs.Dequeue()}
+            }
+            function New-LabConsoleItem { param($Id,$Label) [pscustomobject]@{Id=$Id;Label=$Label} }
+            function Invoke-LabConsoleMenu {
+                param($ScreenId,$Title,$Subtitle,$Items)
+                [pscustomobject]@{Status='Selected';SelectedItem=($Items | Where-Object Id -CEQ $choice)}
+            }
+            function Write-LabInfo { param($Message) $messages.Add($Message) }
+            function Write-LabWarning { param($Message) $messages.Add($Message) }
+            function Wait-LabConsoleAcknowledgement {}
+            function Test-SqlServerLabAiSharedGatewayPreflight {
+                param($Plan,$RuntimePath,$ModelPath,$CertificatePath,$PrivateKeyPath,$CertificateAuthorityPath)
+                $calls.Add($Plan.PlanKey)
+                & $command @PSBoundParameters
+            }
+            $choice = 'back'
+            foreach ($path in $Paths) { $inputs.Enqueue($path) }
+            Invoke-LabAiSharedGatewayPreflightInteractive -Plan $Plan
+            $cancelSafe = $calls.Count -eq 0 -and $messages.Count -eq 0
+
+            $choice = 'verify'
+            $inputs.Enqueue('//invalid-fixture-share/runtime.bin')
+            Invoke-LabAiSharedGatewayPreflightInteractive -Plan $Plan
+            $badPathSafe = $calls.Count -eq 0 -and $messages.Count -eq 1 -and $messages[0] -notmatch 'invalid-fixture-share'
+            $messages.Clear()
+
+            foreach ($path in $Paths) { $inputs.Enqueue($path) }
+            Invoke-LabAiSharedGatewayPreflightInteractive -Plan $Plan
+            [pscustomobject]@{CancelSafe=$cancelSafe;BadPathSafe=$badPathSafe;Calls=$calls.ToArray();Messages=$messages.ToArray();Masked=$masked.ToArray()}
+        }
+    } $plan $paths
+    Add-CheckResult 'Abbruch und Netzpfad lesen keine Artefakte' ($guided.CancelSafe -and $guided.BadPathSafe)
+    Add-CheckResult 'Bestätigung prüft genau einmal den gebundenen Plan mit echten synthetischen Dateien' (
+        $guided.Calls.Count -eq 1 -and $guided.Calls[0] -ceq $plan.PlanKey -and $guided.Messages.Count -eq 2 -and
+        ($guided.Messages[1] | ConvertFrom-Json).Status -ceq 'PREFLIGHT_VERIFIED')
+    Add-CheckResult 'Schlüsselpfad wird verdeckt und Pfade fehlen im Ergebnis' (
+        ($guided.Masked -join ',') -ceq '2,2' -and -not @($paths | Where-Object { ($guided.Messages -join "`n").Contains($_) }).Count)
+
+    $browserArguments = @{
+        Plan = $plan
+        RuntimePath = $runtimePath
+        ModelPath = $modelPath
+        CertificatePath = $files.CertificatePath
+        PrivateKeyPath = $files.PrivateKeyPath
+        CertificateAuthorityPath = $files.CertificateAuthorityPath
+    }
+    $browser = & $module {
+        param($Parameters)
+        $commandName = 'Test-SqlServerLabAiSharedGatewayPreflight'
+        $request = @{CommandName=$commandName; ParameterSetName='__AllParameterSets'; Parameters=$Parameters}
+        $catalog = Get-LabPublicCommandWebCatalog | Where-Object Name -CEQ $commandName
+        $keyDescriptor = $catalog.ParameterSets[0].Parameters | Where-Object Name -CEQ 'PrivateKeyPath'
+        $unconfirmed = try { Invoke-LabPublicCommandWebRequest @request | Out-Null; $false }
+                       catch { $_.Exception.Message -ceq 'PUBLIC_COMMAND_UI_CONFIRMATION_REQUIRED' }
+        $receipt = Invoke-LabPublicCommandWebRequest @request -Confirmed
+        $invalid = @{} + $Parameters
+        $invalid.RuntimePath = '//invalid-fixture-share/runtime.bin'
+        $request.Parameters = $invalid
+        $badPath = try { Invoke-LabPublicCommandWebRequest @request -Confirmed | Out-Null; $false }
+                   catch { $_.Exception.Message -ceq 'AI_SHARED_GATEWAY_GUIDED_PATH_INVALID' }
+        [pscustomobject]@{Unconfirmed=$unconfirmed;InvalidPath=$badPath;Receipt=$receipt;Sensitive=$keyDescriptor.Sensitive}
+    } $browserArguments
+    Add-CheckResult 'Browser verlangt Bestätigung, verdeckt den Schlüsselpfad und lehnt Netzpfade ab' (
+        $browser.Unconfirmed -and $browser.InvalidPath -and $browser.Sensitive)
+    $browserJson = $browser.Receipt | ConvertTo-Json -Depth 15
+    Add-CheckResult 'Browser bestätigt denselben Plan auf echten synthetischen Dateien ohne Pfade im Ergebnis' (
+        $browser.Receipt.Result.Count -eq 1 -and $browser.Receipt.Result[0].PlanKey -ceq $plan.PlanKey -and
+        $browser.Receipt.Result[0].Status -ceq 'PREFLIGHT_VERIFIED' -and
+        -not @($paths | Where-Object { $browserJson.Contains(($_ | ConvertTo-Json -Compress)) }).Count)
 }
 finally{if($module){Remove-Module $module -Force -ErrorAction SilentlyContinue};foreach($item in @($disposable)){try{$item.Dispose()}catch{}};if(Test-Path -LiteralPath $testRoot){Remove-Item -LiteralPath $testRoot -Recurse -Force}}
 if($failures.Count){throw ($failures -join '; ')}
