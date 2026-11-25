@@ -38,6 +38,12 @@ Die Liste und der Stop beziehen sich auf Worker des laufenden UI-Servers.
 Der Server hält dafür das konkrete Ownerobjekt. Beim Beenden bereinigt er
 die erfassten eigenen Worker. Unbestätigte Ergebnisse bleiben sichtbar.
 
+Die Route `/api/connection-center` liest reguläre gespeicherte Endpunkte
+über `Get-SqlServerLabConnectionCenter -StoredOnly` hinter der
+Operator-Capability. Sie akzeptiert genau GET ohne Query oder Body und
+begrenzt die Antwort auf 200 gültige Endpunkte. Die Projektion enthält
+keine Verbindungsstrings, Kennwörter oder lokalen State-Pfade.
+
 ## Acht interne Fachreader
 
 CMS-Inspection, Initial Setup, Slotreserve, Resource Watch, llama.cpp-Installer,

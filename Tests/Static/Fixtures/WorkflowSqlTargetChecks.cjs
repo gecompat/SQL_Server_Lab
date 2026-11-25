@@ -1589,6 +1589,32 @@ async function main() {
     assert.equal(fetchRequests.at(-1)[1].method, undefined);
     assert.deepEqual(downloads, [{ file: 'sql-server-lab.regsrvr', url: 'blob:synthetic-test' }]);
   });
+  const beforeConnections = fetchRequests.length;
+  const storedRow = {DisplayName:'<fixture> (primary)',Provider:'podman',Server:'127.0.0.1,14331',StoredState:'UNKNOWN'};
+  const storedView = {ContractVersion:'SqlServerLab.StoredConnectionCenter/1.0',Entries:[storedRow],SkippedCount:1,MoreAvailable:true};
+  context.sqlServerLabUiFetch = async (...args) => {
+    fetchRequests.push(args);
+    return {ok:true,json:async () => storedView};
+  };
+  await resourceEvent('connection-center-open');
+  check('Connection center loads bounded stored endpoints and displays text without dispatching a provider action', () => {
+    assert.equal(fetchRequests.length,beforeConnections + 1);
+    assert.equal(fetchRequests.at(-1)[0],'/api/connection-center');
+    assert.equal(fetchRequests.at(-1)[1].method,undefined);
+    assert.deepEqual(node('connection-center-entries').children[0].children.map(cell=>cell.textContent),
+      ['<fixture> (primary)','Podman','127.0.0.1,14331','Unbekannt']);
+    assert.match(node('connection-center-status').textContent,/1 Eintrag.*200 gültigen/);
+    assert.equal(context.queued.length,queuedBeforeCancel);
+  });
+  context.sqlServerLabUiFetch = async () => ({
+    ok:true,json:async () => ({...storedView,Entries:[{...storedRow,ConnectionString:'PRIVATE_CANARY'}]})
+  });
+  await resourceEvent('connection-center-read');
+  check('Connection center rejects returned unknown fields and clears old rows', () => {
+    assert.equal(node('connection-center-entries').children.length,0);
+    assert.doesNotMatch(node('connection-center-status').textContent,/PRIVATE_CANARY/);
+  });
+  await resourceEvent('connection-center-close');
   console.log('WORKFLOW SQL TARGET, EVALUATION AND SETUP: ' + passed + ' PASS');
 }
 main().catch((error) => { console.error(error); process.exitCode = 1; });

@@ -285,7 +285,7 @@ und deren Prüfstatus bleiben davon getrennt.
 
 | Cmdlet | Kurzbeschreibung | Konsolenmenü | Browser-GUI |
 |---|---|---|---|
-| [`Get-SqlServerLabConnectionCenter`](../../Public/Sync-SqlServerLabConnectionCenter.ps1) | Liefert eine passwortfreie Endpunktübersicht für SSMS, CMS und Exporte. | Lab-Umgebungen → Datenbanken, Samples und Skripte → Verbindungszentrale | – |
+| [`Get-SqlServerLabConnectionCenter`](../../Public/Sync-SqlServerLabConnectionCenter.ps1) | Liefert eine passwortfreie Endpunktübersicht für SSMS, CMS und Exporte. | Verbindungen und CMS → Verbindungszentrale und CMS | Verbindungen und CMS → Gespeicherte SQL-Endpunkte anzeigen. Liest den gespeicherten Zustand regulärer Läufe mit `-StoredOnly`. |
 | [`Sync-SqlServerLabConnectionCenter`](../../Public/Sync-SqlServerLabConnectionCenter.ps1) | Aktualisiert den Endpunktkatalog der Verbindungszentrale atomar. | Verbindungszentrale; zusätzlich nach endpunktrelevanten Lifecycle-Aktionen | – |
 | [`Export-SqlServerLabSsmsRegistration`](../../Public/Sync-SqlServerLabConnectionCenter.ps1) | Erzeugt einen kennwortfreien SSMS-`.regsrvr`-Export. Der Browser exportiert bis zu 500 gespeicherte reguläre Endpunkte. | Verbindungszentrale → SSMS-Export | Verbindungen und CMS → SSMS-Registrierungen herunterladen |
 | [`Export-SqlServerLabCmsSyncScript`](../../Public/Sync-SqlServerLabConnectionCenter.ps1) | Erzeugt ein idempotentes CMS-Synchronisationsskript. | Verbindungszentrale → CMS-Skript | – |

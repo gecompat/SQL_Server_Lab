@@ -970,6 +970,18 @@ try {
                 }
                 continue
             }
+            if ($path -ceq '/api/connection-center') {
+                try {
+                    if ($context.Request.HttpMethod -cne 'GET' -or $context.Request.HasEntityBody -or $context.Request.Url.Query) {
+                        throw 'STORED_CONNECTION_CENTER_REQUEST_INVALID'
+                    }
+                    $view = & (Get-Module SqlServerLab) { Get-LabStoredConnectionCenterBrowserView }
+                    Write-UiResponse -Context $context -Body ($view | ConvertTo-Json -Depth 5 -Compress) -ContentType 'application/json; charset=utf-8' -NoStore
+                } catch {
+                    Write-UiResponse -Context $context -Body '{"Code":"STORED_CONNECTION_CENTER_UNAVAILABLE"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400 -NoStore
+                }
+                continue
+            }
             if ($path -ceq '/api/ssms-registration') {
                 try {
                     if ($context.Request.HttpMethod -cne 'GET' -or $context.Request.HasEntityBody -or $context.Request.Url.Query) {
