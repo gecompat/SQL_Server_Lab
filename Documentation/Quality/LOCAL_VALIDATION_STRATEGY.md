@@ -2425,8 +2425,65 @@ Die optionale Vorschau eines SQL-2025-Ziellabs verwendet zwei registrierte
 synthetische Hyper-V-Bindungen. Plan-, CLI-, HTTP- und Browserfixtures prüfen
 getrennte Run-, Scope- und VM-Bindungen, Ziel-Drift, Abbruch, verspätete
 Antworten und unveränderte State-Dateien. Der Funktionsumfang ist die
-Metadatenvorschau. Native Zielbereitschaft und Transfer benötigen eigene
-Nachweise.
+Metadatenvorschau. Die getrennte Windows-Ziellizenzabfrage nutzt den bereits
+nativ belegten Windows-Reader. Synthetische Prüfungen der neuen Zielroute
+prüfen Quell- und Zieldigest, gestoppte Ziele, genau einen gebundenen Gastaufruf
+und verworfene Ergebnisse bei Bindungsdrift. Der manuelle Hyper-V-Modus
+`evaluation-target-windows-license-acceptance` erstellt zwei eigene Runs aus
+der expliziten SQL-2025-Developer-Vorlage und stoppt die Quelle vor Start des
+Ziels. Der erste Lauf stoppte vor der Anlage einer VM, weil der Standard-State
+des Runners vom registrierten `Lab_Data` abwich.
+[Erster Lauf](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45453144541)
+
+Die getrennte SQL-Zielprüfung nutzt denselben gebundenen Gastreader wie die
+SQL-Quellbeobachtung. Sie führt nur die feste Abfrage zur Identität der
+erwarteten Instanz aus. Die Fixtures decken Zielbindung, gestoppte Ziele,
+abweichende SQL-Edition, Bindungsdrift und den flüchtigen CLI-/Browserweg ab.
+Der manuelle Hyper-V-Harness prüft zusätzlich die SQL-Bereitschaft derselben
+Ziel-VM. Ein Windows-Neustart unterbrach den [ersten Lauf der Erweiterung](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45482684486)
+während der Einrichtung des Quelllaufs. Der verbliebene eigene Quelllauf einschließlich
+VM und Datenträgern wurde anschließend bereinigt.
+Der [Wiederholungslauf auf Key18](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45488716933/job/138780957914)
+bestätigte auf `e7c3942b87ff96b957024ed2e4ef57a401284fa6` die Windows-Lizenz und
+die SQL-Bereitschaft der getrennten Ziel-VM. Quell- und Zielmetadaten sowie
+die vorbereitete Vorlage blieben unverändert. Beide eigenen VMs und ihre
+Datenträger wurden entfernt. Speicherbereitschaft und Transfer bleiben
+separate Abnahmen.
+
+Die gerenderte Browserprüfung auf `069174c6d04f62fab5a5849c55bdeeadfd841f7c`
+lud alle 54 deklarierten UI-Dateien über einen eigenen Loopback-Listener.
+Für das gestoppte Ziellab blieb die SQL-Aktion deaktiviert. Das laufende
+Ziellab löste genau einen lesenden Auftrag mit der erwarteten Quell- und
+Zielbindung aus. Die Browserprüfung verwendete synthetische Antworten.
+Der getrennte native Lauf prüfte Hyper-V und SQL. Skriptfehler und
+unerwartete Anfragen blieben bei null. Testtab und Listener wurden geschlossen.
+
+Die Ziel-Speicherprobe verwendet denselben isolierten Hyper-V-Nachweis.
+Sie liest den freien Platz für Daten, Log und Backup im Gast. Die
+EvaluationRefreshPlan-Fixtures prüfen getrennt gemeinsame Volumes,
+CLIXML-Typen, beobachtete null Bytes, ungültige Befunde und Auswahldrift.
+Die Vorprüfung gibt keinen Transfer frei. Der [native Key18-Lauf](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45513939058)
+auf `21204bcee33dd63bb4a117cbdb435e09b5e2651a` bestätigte die Windows-Lizenz,
+die SQL-Bereitschaft und den freien Gastspeicher aller drei Rollen am Ziel.
+Die Quelle war vor dem Zielstart aus. Beide Run-Metadaten und die Vorlage
+blieben unverändert. Eigene Runs, VMs und Datenträger wurden entfernt.
+Im gerenderten Browser auf `48e102fcec6cc6a0548b5a9bd416dad3545b2b83`
+luden alle 54 UI-Dateien. Für das gestoppte synthetische Ziel war der
+Knopf gesperrt. Das laufende Ziel löste genau einen Auftrag mit den
+beiden gewählten Bindungen aus. Testdialog und Loopback-Listener
+schlossen ohne Browserfehler oder unerwartete Anfragen.
+
+Nach der Bindung an den registrierten State Root erreichte der zweite Lauf
+die Quell-VM. Die Auswertung scheiterte am fehlenden `persistentData`-Feld
+im Run-State. Der eigene Quelllauf wurde vollständig bereinigt.
+[Zweiter Lauf](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45454602437)
+
+Der korrigierte Lauf auf `202bafc9` verwendete den State Root des
+registrierten `Lab_Data` explizit. Er bestätigte die Windows-Lizenz der
+separaten Ziel-VM, bytegleiche Quell- und Zielmetadaten, die unveränderte
+Prepared-Vorlage und den vollständigen Cleanup beider eigener Runs samt
+VMs und Disks. Für SQL-Readiness und Transfer stehen eigene Nachweise aus.
+[Nativer Key18-Lauf](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45463261705)
 
 ## Prospektiver External-Languages-Capability-Entscheid
 

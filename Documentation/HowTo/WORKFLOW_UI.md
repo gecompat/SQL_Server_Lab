@@ -442,7 +442,27 @@ in der CLI zusätzlich ein separates registriertes SQL-2025-Lab unter
 demselben `Lab_Data` wählen. Im Browser wählst du es im Feld
 **Registriertes Ziellab (optional)** vor **Vorschau lesen**. Die Vorschau
 zeigt den registrierten Zielzustand und die ausstehenden Prüfungen für
-Windows-Lizenz, SQL-Bereitschaft sowie Speicher und Transfer.
+Windows-Lizenz, SQL-Bereitschaft sowie Speicher und Transfer. Für ein als laufend
+registriertes Ziellab kannst du anschließend **Windows-Lizenz im Ziellab lesen**
+wählen. Die CLI bietet dieselbe getrennte Aktion unter **Instanzzustand
+migrieren**. Im Browser erscheint das Ergebnis unter **Vorgänge**, zusammen
+mit der ID des Ziellabs und seiner Instanz. Eine abgelaufene Ziel-Evaluation
+bleibt erkennbar.
+
+Wähle **SQL-Bereitschaft im Ziellab prüfen**, um separat zu prüfen, ob
+die erwartete SQL-2025-Instanz im laufenden Ziellab antwortet. Die Konsole
+zeigt den aktuellen Befund direkt. Im Browser steht er unter **Vorgänge**.
+Kann die geplante Instanz nicht eindeutig beobachtet werden, erscheint
+`NOT_OBSERVED`. Die SQL-Lizenz, der Speicher und die Transferfähigkeit
+werden separat bewertet. Der Migrationsentscheid bleibt `BLOCKED`.
+
+Wähle **Freien Speicher im Ziellab prüfen**, um den freien Speicher für die
+SQL-Standardpfade Daten, Log und Backup zu lesen. Nutzen mehrere Rollen
+dasselbe lokale Volume, zeigt die Prüfung eine gemeinsame Zeile. In der
+Konsole erscheint der Befund direkt, im Browser unter **Vorgänge**.
+`NOT_OBSERVED` kennzeichnet fehlende oder nicht eindeutig zugeordnete
+Pfade. Der freie Gastspeicher lässt noch keine Aussage über den nötigen
+Transferspeicher oder die Hostkapazität zu.
 
 **Windows-Lizenz im laufenden Gast lesen** ist eine eigene Auswahl in allen
 drei Entscheidungsarten. Sie zeigt den aktuellen Lizenzstatus, den

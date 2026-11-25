@@ -221,7 +221,14 @@ Ist er angegeben, wird der Download strikt dagegen verifiziert.
 .PARAMETER ExpectedCatalogRevision
     Erwartete Katalogrevision aus der getrennten Retained-Store-Löschvorschau.
 .PARAMETER ExpectedPlanKey
-    Fingerprint der bestätigten Retained-Store-, CPU/RAM- oder Testgruppen-Vorschau.
+    Fingerprint der bestätigten Vorschau, bei Evaluationsbeobachtung der Quell-Snapshot.
+.PARAMETER TargetRunId
+    Separater Ziel-Run für ReadHyperVEvaluationTargetSqlReadiness und
+    ReadHyperVEvaluationTargetStorage, optional für ReadHyperVEvaluationWindowsLicense.
+.PARAMETER TargetInstanceId
+    SQL-Instanz des Ziel-Runs für die ausdrücklich angeforderte Zielbeobachtung.
+.PARAMETER ExpectedTargetPlanKey
+    Fingerprint des zuvor gelesenen Ziel-Snapshots für diese Zielbeobachtung.
 .PARAMETER TestGroupPatch
     Für CreateLinuxTestGroupMember: aktueller Katalogpatch (`latest`) oder der
     in der Vorschau gebundene katalogisierte CU, beispielsweise `cu9`.
@@ -301,7 +308,8 @@ function Invoke-SqlServerLabWorkflowAction {
             'PlanWindowsPoolMember', 'ApplyWindowsPoolMember', 'CancelWindowsPoolMember',
             'GetLlamaSessions', 'PlanLlamaSessionStop', 'StopLlamaSession',
             'GetMediaOverrideState', 'PlanMediaOverride', 'ApplyMediaOverride',
-            'GetResourceWatchState', 'RefreshResourceWatch', 'ReadHyperVEvaluationSqlSource', 'ReadHyperVEvaluationWindowsLicense',
+            'GetResourceWatchState', 'RefreshResourceWatch', 'ReadHyperVEvaluationSqlSource', 'ReadHyperVEvaluationWindowsLicense', 'ReadHyperVEvaluationTargetSqlReadiness',
+            'ReadHyperVEvaluationTargetStorage',
             'GetCmsInspectionState', 'InspectCms', 'GetCmsManagementState', 'InitializeCms', 'AdoptCms',
             'RepairHyperVWindowsActivation',
             'SetMediaRoot', 'SetDataRoot', 'SetTestDataRoot',
@@ -366,6 +374,9 @@ function Invoke-SqlServerLabWorkflowAction {
         [object[]]$PersistentStorageSelection,
         [ValidateRange(0,2147483647)][int]$ExpectedCatalogRevision,
         [ValidatePattern('^[a-f0-9]{64}$')][string]$ExpectedPlanKey,
+        [ValidatePattern('^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$')][string]$TargetRunId,
+        [ValidatePattern('^[A-Za-z][A-Za-z0-9_-]{0,63}$')][string]$TargetInstanceId,
+        [ValidatePattern('^[a-f0-9]{64}$')][string]$ExpectedTargetPlanKey,
         [ValidatePattern('^(?:latest|cu[1-9][0-9]{0,5})$')][string]$TestGroupPatch,
         [ValidateRange(32, 4096)][int]$PersistentDataDiskGB = 128,
         [ValidatePattern('^windows-(server-)?[0-9]+(?:-r2)?$')][string]$OperatingSystemId = 'windows-server-2025',
@@ -469,16 +480,50 @@ function Invoke-SqlServerLabWorkflowAction {
         if ($installed.State -cne 'SQL_SLOT_READY' -or $installed.RunId -cne $RunId) { throw 'HYPERV_LAB_SQL_INSTALL_RESULT_INVALID' }
         return [pscustomobject]@{ Action = $Action; CompletedAt = Get-LabTimestamp; Result = [pscustomobject]@{ RunId = $RunId; State = 'SQL_SLOT_READY' } }
     }
-    if ($Action -cin @('ReadHyperVEvaluationSqlSource', 'ReadHyperVEvaluationWindowsLicense')) {
-        if (@($PSBoundParameters.Keys | Where-Object { $_ -notin @('Action', 'RunId', 'InstanceId', 'DataRoot', 'ExpectedPlanKey', 'ErrorAction') }).Count -gt 0 -or
+    if ($Action -cin @('ReadHyperVEvaluationSqlSource', 'ReadHyperVEvaluationWindowsLicense', 'ReadHyperVEvaluationTargetSqlReadiness', 'ReadHyperVEvaluationTargetStorage')) {
+        $readWindows = $Action -ceq 'ReadHyperVEvaluationWindowsLicense'
+        $readTargetSql = $Action -ceq 'ReadHyperVEvaluationTargetSqlReadiness'
+        $readTargetStorage = $Action -ceq 'ReadHyperVEvaluationTargetStorage'
+        $allowed = @('Action', 'RunId', 'InstanceId', 'DataRoot', 'ExpectedPlanKey', 'ErrorAction')
+        $targetKeys = @('TargetRunId', 'TargetInstanceId', 'ExpectedTargetPlanKey')
+        $readTarget = @($PSBoundParameters.Keys | Where-Object { $_ -in $targetKeys }).Count -gt 0
+        if (($readWindows -or $readTargetSql -or $readTargetStorage) -and $readTarget) { $allowed += $targetKeys }
+        if (@($PSBoundParameters.Keys | Where-Object { $_ -notin $allowed }).Count -gt 0 -or
             -not (Test-LabDiagnosticGuid $RunId) -or $InstanceId -cnotmatch '^[A-Za-z][A-Za-z0-9_-]{0,63}$' -or
-            [string]::IsNullOrWhiteSpace($DataRoot) -or $DataRoot.Length -gt 2048 -or $ExpectedPlanKey -cnotmatch '^[a-f0-9]{64}$') {
+            [string]::IsNullOrWhiteSpace($DataRoot) -or $DataRoot.Length -gt 2048 -or $ExpectedPlanKey -cnotmatch '^[a-f0-9]{64}$' -or
+            (($readTarget -or $readTargetSql -or $readTargetStorage) -and (-not (Test-LabDiagnosticGuid $TargetRunId) -or -not $TargetInstanceId -or -not $ExpectedTargetPlanKey))) {
             throw 'EVALUATION_REFRESH_INPUT_INVALID'
         }
-        $readWindows = $Action -ceq 'ReadHyperVEvaluationWindowsLicense'
-        $plan = New-LabEvaluationRefreshPlan -RunId $RunId -InstanceId $InstanceId -DataRoot $DataRoot -Mode STATEFUL_MIGRATION `
-            -ObserveSqlSource:(-not $readWindows) -ObserveWindowsLicense:$readWindows -ExpectedSnapshotDigest $ExpectedPlanKey
-        $result = if ($readWindows) { $plan.WindowsLicenseObservation } else { $plan.SqlSourceInventory }
+        $planArgs = @{
+            RunId=$RunId; InstanceId=$InstanceId; DataRoot=$DataRoot; Mode='STATEFUL_MIGRATION'
+            ObserveSqlSource=($Action -ceq 'ReadHyperVEvaluationSqlSource'); ObserveWindowsLicense=($readWindows -and -not $readTarget)
+            ExpectedSnapshotDigest=$ExpectedPlanKey
+        }
+        if ($readTarget) {
+            $planArgs.TargetRunId = $TargetRunId
+            $planArgs.TargetInstanceId = $TargetInstanceId
+            $planArgs.ExpectedTargetSnapshotDigest = $ExpectedTargetPlanKey
+            $planArgs.ObserveTargetWindowsLicense = $readWindows
+            $planArgs.ObserveTargetSqlReadiness = $readTargetSql
+            $planArgs.ObserveTargetStorage = $readTargetStorage
+        }
+        $plan = New-LabEvaluationRefreshPlan @planArgs
+        $result = if ($readTargetSql) {
+            [pscustomobject]@{
+                TargetRunId=$plan.TargetAssessment.RunId; TargetInstanceId=$plan.TargetAssessment.InstanceId
+                SqlReadinessObservation=$plan.TargetAssessment.SqlReadinessObservation
+            }
+        } elseif ($readTargetStorage) {
+            [pscustomobject]@{
+                TargetRunId=$plan.TargetAssessment.RunId; TargetInstanceId=$plan.TargetAssessment.InstanceId
+                StorageObservation=$plan.TargetAssessment.StorageObservation
+            }
+        } elseif ($readTarget) {
+            [pscustomobject]@{
+                TargetRunId=$plan.TargetAssessment.RunId; TargetInstanceId=$plan.TargetAssessment.InstanceId
+                WindowsLicenseObservation=$plan.TargetAssessment.WindowsLicenseObservation
+            }
+        } elseif ($readWindows) { $plan.WindowsLicenseObservation } else { $plan.SqlSourceInventory }
         return [pscustomobject]@{ Action=$Action; CompletedAt=Get-LabTimestamp; Result=$result }
     }
     if ($Action -in @('GetResourceWatchState', 'RefreshResourceWatch')) {

@@ -83,7 +83,29 @@ SQL-2025-Hyper-V-Lab als Ziel gewählt werden. Die Metadatenvorschau bindet
 Quelle und Ziel unter demselben `Lab_Data` an getrennte Run-, Scope- und
 VM-Identitäten. Sie verwirft geänderte Bindungen und benennt die noch
 ausstehenden Zielprüfungen für Windows-Lizenz, SQL-Bereitschaft, Speicher
-und Transfer. Der Gesamtplan bleibt `BLOCKED`.
+und Transfer. Die gesonderte Live-Abfrage der Windows-Ziellizenz setzt eine
+laufende Ziel-VM voraus. Sie bindet beide Snapshots und verwirft das Ergebnis
+bei Änderungen. Eine separate Aktion prüft über den vorhandenen SQL-Gastreader
+die Bereitschaft der erwarteten Instanz im laufenden SQL-2025-Prepared-Ziel.
+Der freie Platz für die SQL-Standardpfade Daten, Log und Backup lässt sich
+getrennt in der Ziel-VM lesen. Gemeinsam genutzte Volumes erscheinen einmal.
+Die Speicherbeobachtung dient der Vorbereitung. Quellbedarf, Hostkapazität,
+SQL-Lizenz, Gleichwertigkeit und Transfer müssen separat geprüft werden.
+Die [native Key18-Abnahme](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45513939058)
+beobachtete alle drei Speicherrollen am separaten SQL-2025-Developer-Ziellab
+und bestätigte unveränderte Metadaten und vollständigen Cleanup.
+Der Gesamtplan bleibt `BLOCKED`.
+
+Key18 bestätigte die Windows-Lizenz der separaten Ziel-VM mit zwei eigenen
+SQL-2025-Developer-Runs. Die Quelle wurde vor dem Zielstart gestoppt.
+Quell- und Zielmetadaten sowie die Vorlage blieben unverändert. Beide
+eigenen Runs einschließlich VMs und Disks wurden bereinigt.
+[Nativer Nachweis](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45463261705)
+
+Der lesende Plan unterstützt auch gespeicherte Hyper-V-SQL-Manifestläufe,
+bei denen der Run-State das Feld `persistentData` auslässt. Voraussetzung
+ist ein explizit nichtpersistenter Sollzustand ohne registrierten
+Datenträgeranhang. Widersprüchliche Speicherangaben blockieren die Prüfung.
 
 Die getrennte Auswahl **Windows-Lizenz im laufenden Gast lesen**
 (`-ObserveWindowsLicense`) prüft die aktuelle Lizenz derselben gebundenen

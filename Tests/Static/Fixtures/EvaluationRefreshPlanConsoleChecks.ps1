@@ -42,7 +42,7 @@ try {
     $script:actualPlan=${function:New-LabEvaluationRefreshPlan}
     function New-LabEvaluationRefreshPlan {
         param($RunId,$InstanceId,$DataRoot,$Mode,$ExpectedSnapshotDigest,[switch]$ObserveSqlSource,[switch]$ObserveWindowsLicense,
-            $TargetRunId,$TargetInstanceId,$ExpectedTargetSnapshotDigest)
+            $TargetRunId,$TargetInstanceId,$ExpectedTargetSnapshotDigest,[switch]$ObserveTargetWindowsLicense,[switch]$ObserveTargetSqlReadiness,[switch]$ObserveTargetStorage)
         $script:planCalls++
         if ($ExpectedSnapshotDigest -cnotmatch '^[a-f0-9]{64}$') { throw 'SYNTHETIC_EXPECTED_DIGEST_REQUIRED' }
         $script:lastPlan = & $script:actualPlan @PSBoundParameters
@@ -56,6 +56,14 @@ try {
     function Get-LabEvaluationWindowsLicenseObservation {
         param($Snapshot)
         [pscustomobject]@{Status='OBSERVED';LicenseState='LICENSED';ObservedAt=[datetime]::UtcNow.ToString('o');EvaluationExpiresAt=$null}
+    }
+    function Get-LabEvaluationSqlGuestObservation {
+        param($Snapshot,[switch]$IncludeSourceInventory,[switch]$IncludeTargetStorage)
+        if ($IncludeSourceInventory -or $Snapshot.Binding.Run.state -cne 'RUNNING') { throw 'UNEXPECTED_SQL_READINESS_PROBE' }
+        if ($IncludeTargetStorage) {
+            return [pscustomobject]@{TargetStorage=@([pscustomobject]@{Roles=@('Data','Log','Backup');AvailableBytes=[long]500})}
+        }
+        [pscustomobject]@{MajorVersion=17}
     }
     function Reset-ConsoleRefresh([string[]]$Answers){$script:rootStatus='Confirmed';$script:answers=[Collections.Generic.Queue[string]]::new();foreach($a in $Answers){$script:answers.Enqueue($a)};$script:messages=[Collections.Generic.List[string]]::new();$script:seenScreens=[Collections.Generic.List[string]]::new();$script:planCalls=0;$script:lastPlan=$null;$script:beforeMenu=$null}
     $before=Get-RefreshHashes
@@ -109,6 +117,27 @@ try {
     Reset-ConsoleRefresh @($runId,'STATEFUL_MIGRATION','target',$runId);Invoke-LabEvaluationRefreshPlanInteractive
     Assert-ConsoleRefresh ($planCalls-eq0) 'The source is never offered as its own target'
     Assert-ConsoleRefresh ((Get-RefreshHashes)-ceq$beforeTargets) 'Target dialog does not change either fixture'
+    $liveTarget=New-RefreshTargetFixture $root $run $connection RUNNING
+    $beforeLiveTargets=Get-RefreshHashes
+    Reset-ConsoleRefresh @($runId,'STATEFUL_MIGRATION','observe-target-windows',$liveTarget.RunId);Invoke-LabEvaluationRefreshPlanInteractive
+    Assert-ConsoleRefresh ($planCalls -eq 1 -and $lastPlan.TargetAssessment.RunId -ceq $liveTarget.RunId -and
+        $lastPlan.TargetAssessment.WindowsLicenseObservation.LicenseState -ceq 'LICENSED' -and
+        ($messages-join ' ') -cmatch 'Windows-Lizenz im Ziellab.*LICENSED') 'CLI explicitly reads and displays the selected target license'
+    Reset-ConsoleRefresh @($runId,'STATEFUL_MIGRATION','observe-target-windows',$targetFixture.RunId);Invoke-LabEvaluationRefreshPlanInteractive
+    Assert-ConsoleRefresh ($planCalls -eq 0) 'CLI cannot dispatch a license read for a stopped or forged target'
+    Reset-ConsoleRefresh @($runId,'STATEFUL_MIGRATION','observe-target-sql',$liveTarget.RunId);Invoke-LabEvaluationRefreshPlanInteractive
+    Assert-ConsoleRefresh ($planCalls -eq 1 -and $lastPlan.TargetAssessment.RunId -ceq $liveTarget.RunId -and
+        $lastPlan.TargetAssessment.SqlReadinessObservation.Status -ceq 'OBSERVED' -and
+        ($messages -join ' ') -cmatch 'SQL-Bereitschaft im Ziellab: OBSERVED') 'CLI explicitly reads and displays the selected target SQL readiness'
+    Reset-ConsoleRefresh @($runId,'STATEFUL_MIGRATION','observe-target-sql',$targetFixture.RunId);Invoke-LabEvaluationRefreshPlanInteractive
+    Assert-ConsoleRefresh ($planCalls -eq 0) 'CLI cannot query a stopped destination'
+    Reset-ConsoleRefresh @($runId,'STATEFUL_MIGRATION','observe-target-storage',$liveTarget.RunId);Invoke-LabEvaluationRefreshPlanInteractive
+    Assert-ConsoleRefresh ($planCalls -eq 1 -and $lastPlan.TargetAssessment.RunId -ceq $liveTarget.RunId -and
+        $lastPlan.TargetAssessment.StorageObservation.Status -ceq 'OBSERVED' -and
+        ($messages -join ' ') -cmatch 'Freier Gast-Speicher im Ziellab: OBSERVED.*Data / Log / Backup: 500 Bytes frei') 'CLI reads the selected target and groups shared storage'
+    Reset-ConsoleRefresh @($runId,'STATEFUL_MIGRATION','observe-target-storage',$targetFixture.RunId);Invoke-LabEvaluationRefreshPlanInteractive
+    Assert-ConsoleRefresh ($planCalls -eq 0) 'CLI cannot read storage from a stopped destination'
+    Assert-ConsoleRefresh ((Get-RefreshHashes) -ceq $beforeLiveTargets) 'Target observations leave saved state unchanged'
     $script:guidedCalls=0;$script:legacyCalls=0;$script:componentCalls=0
     function Get-LabPublicCommandConsoleCatalog {return [pscustomobject]@{Name='legacy';ParameterSets=@(@{Name='Default'})}}
     function Invoke-LabEvaluationRefreshPlanInteractive {$script:guidedCalls++}

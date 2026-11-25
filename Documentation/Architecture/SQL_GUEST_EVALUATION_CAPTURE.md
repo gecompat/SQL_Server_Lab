@@ -57,6 +57,22 @@ die SQL Server als `SSISDB` auflöst. Er klassifiziert sie als Kandidaten
 für eine Katalogprüfung. Beide Befunde bleiben flüchtig.
 [Dateitypen](https://learn.microsoft.com/en-us/sql/relational-databases/system-catalog-views/sys-master-files-transact-sql?view=sql-server-ver17) · [SSIS-Katalog](https://learn.microsoft.com/en-us/sql/integration-services/catalog/ssis-catalog?view=sql-server-ver17)
 
+## Freier Gastspeicher für ein Migrationsziel
+
+`Get-SqlServerLabEvaluationRefreshPlan -ObserveTargetStorage` nutzt dieselbe
+Gast- und SQL-Bindung für die separate laufende Ziel-VM. Die Probe liest die
+SQL-Standardpfade für Daten, Log und Backup und fragt die zugehörigen
+lokalen Windows-Volumes ab. Er akzeptiert vorhandene absolute Verzeichnisse
+auf festen lokalen Laufwerken ohne Reparse-Komponenten. Ein gemeinsam
+verwendetes Volume ergibt eine Zeile mit seinen Rollen und freien Bytes.
+Pfade und Volume-IDs bleiben im Gast. Das Modul nimmt nur drei fest
+zugelassene Rollen und nichtnegative Int64-Werte entgegen.
+
+Unvollständige oder nicht belegte Zuordnungen ergeben `NOT_OBSERVED`.
+Der Befund bleibt flüchtig. Hostkapazität, Quellbedarf, Schreibberechtigung
+und Transfer werden damit nicht nachgewiesen. Beide Run-Snapshots werden
+vor und nach der Prüfung gebunden.
+
 ## Atomicität, Fehler und Grenzen
 
 Root, Vorfahren und betroffene State-/Secretpfade müssen frei von Reparse Points

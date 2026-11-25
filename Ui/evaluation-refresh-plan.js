@@ -22,6 +22,11 @@ function evaluationRefreshTargets() {
   return evaluationRefreshRuns.filter(run => run.RunId !== own.RunId && run.ScopeId !== own.ScopeId);
 }
 
+function evaluationRefreshTarget() {
+  const id = evaluationRefreshElement('target').value;
+  return evaluationRefreshTargets().find(run => run.RunId === id);
+}
+
 function refreshEvaluationTargetChoices() {
   const field = evaluationRefreshElement('target');
   const current = field.value;
@@ -48,17 +53,29 @@ function updateEvaluationRefreshControls() {
     evaluationRefreshElement('mode').value !== 'STATEFUL_MIGRATION';
   evaluationRefreshElement('observe-windows').disabled = evaluationRefreshBusy || evaluationRefreshOwn()?.State !== 'RUNNING';
   evaluationRefreshElement('target').disabled = evaluationRefreshBusy || evaluationRefreshElement('target-field').hidden;
+  const target = evaluationRefreshTarget();
+  for (const id of ['observe-target-windows', 'observe-target-sql', 'observe-target-storage']) {
+    const control = evaluationRefreshElement(id);
+    control.hidden = evaluationRefreshElement('target-field').hidden;
+    control.disabled = evaluationRefreshBusy || target?.State !== 'RUNNING';
+  }
 }
-async function observeEvaluationRefreshSource(button, action, noun) {
+async function observeEvaluationRefreshGuest(button, action, noun, target = null) {
   if (!evaluationRefreshElement('dialog').open || evaluationRefreshElement(button).disabled) return;
   const own = evaluationRefreshOwn();
   const revision = evaluationRefreshRevision;
   evaluationRefreshBusy = true;
   updateEvaluationRefreshControls();
   try {
-    await startAction(action, {
+    const parameters = {
       RunId: own.RunId, InstanceId: own.InstanceId, DataRoot: evaluationRefreshRoot, ExpectedPlanKey: own.Digest
-    });
+    };
+    if (target) {
+      parameters.TargetRunId = target.RunId;
+      parameters.TargetInstanceId = target.InstanceId;
+      parameters.ExpectedTargetPlanKey = target.Digest;
+    }
+    await startAction(action, parameters);
     if (revision === evaluationRefreshRevision && evaluationRefreshElement('dialog').open) {
       evaluationRefreshElement('status').textContent = 'Lesender Auftrag angenommen. ' + noun + ' unter Vorgänge ansehen.';
     }
@@ -102,7 +119,7 @@ async function requestEvaluationRefresh(preview = false) {
   const own = evaluationRefreshOwn(); const mode = evaluationRefreshElement('mode').value;
   if (preview && (!own || !evaluationRefreshModes.includes(mode))) return;
   const targetId = evaluationRefreshElement('target').value;
-  const target = preview && targetId ? evaluationRefreshTargets().find(run => run.RunId === targetId) : null;
+  const target = preview && targetId ? evaluationRefreshTarget() : null;
   if (preview && targetId && !target) return;
   if (!preview) invalidateEvaluationRefresh(true);
   const revision = evaluationRefreshRevision;
@@ -141,8 +158,23 @@ async function requestEvaluationRefresh(preview = false) {
 evaluationRefreshElement('open').addEventListener('click', () => { invalidateEvaluationRefresh(true); evaluationRefreshElement('status').textContent = 'Noch nicht gelesen. Keine Lizenz- oder SQL-Abfrage.'; evaluationRefreshElement('dialog').showModal(); });
 evaluationRefreshElement('read').addEventListener('click', () => requestEvaluationRefresh());
 evaluationRefreshElement('preview').addEventListener('click', () => requestEvaluationRefresh(true));
-evaluationRefreshElement('observe').addEventListener('click', () => observeEvaluationRefreshSource('observe', 'ReadHyperVEvaluationSqlSource', 'SQL-Quellzähler'));
-evaluationRefreshElement('observe-windows').addEventListener('click', () => observeEvaluationRefreshSource('observe-windows', 'ReadHyperVEvaluationWindowsLicense', 'Windows-Lizenzbefund'));
+evaluationRefreshElement('observe').addEventListener('click', () => observeEvaluationRefreshGuest('observe', 'ReadHyperVEvaluationSqlSource', 'SQL-Quellzähler'));
+evaluationRefreshElement('observe-windows').addEventListener('click', () => observeEvaluationRefreshGuest('observe-windows', 'ReadHyperVEvaluationWindowsLicense', 'Windows-Lizenzbefund der Quelle'));
+evaluationRefreshElement('observe-target-windows').addEventListener('click', () => {
+  const target = evaluationRefreshTarget();
+  if (target?.State !== 'RUNNING') return;
+  return observeEvaluationRefreshGuest('observe-target-windows', 'ReadHyperVEvaluationWindowsLicense', 'Windows-Lizenzbefund des Ziellabs', target);
+});
+evaluationRefreshElement('observe-target-sql').addEventListener('click', () => {
+  const target = evaluationRefreshTarget();
+  if (target?.State !== 'RUNNING') return;
+  return observeEvaluationRefreshGuest('observe-target-sql', 'ReadHyperVEvaluationTargetSqlReadiness', 'SQL-Bereitschaft des Ziellabs', target);
+});
+evaluationRefreshElement('observe-target-storage').addEventListener('click', () => {
+  const target = evaluationRefreshTarget();
+  if (target?.State !== 'RUNNING') return;
+  return observeEvaluationRefreshGuest('observe-target-storage', 'ReadHyperVEvaluationTargetStorage', 'Freier Speicher im Ziellab', target);
+});
 evaluationRefreshElement('root').addEventListener('input', () => invalidateEvaluationRefresh(true));
 for (const id of ['run', 'mode', 'target']) evaluationRefreshElement(id).addEventListener('change', () => invalidateEvaluationRefresh());
 evaluationRefreshElement('close').addEventListener('click', () => evaluationRefreshElement('dialog').close());

@@ -69,7 +69,7 @@ function Get-LabSqlGuestCaptureClassification {
 
 function Invoke-LabSqlGuestCaptureProbe {
     [CmdletBinding()]
-    param([Parameter(Mandatory)]$Context,[Parameter(Mandatory)][int]$TimeoutSeconds,[switch]$IncludeSourceInventory)
+    param([Parameter(Mandatory)]$Context,[Parameter(Mandatory)][int]$TimeoutSeconds,[switch]$IncludeSourceInventory,[switch]$IncludeTargetStorage)
     $guest=$null;$sa=$null;$loadedGuest=$null;$loadedSa=$null
     try {
         $fresh=Get-LabSqlGuestCaptureContext -RunId ([guid]$Context.Run.runId) -StateRoot $Context.StateRoot
@@ -83,8 +83,8 @@ function Invoke-LabSqlGuestCaptureProbe {
         $result=@(Invoke-HyperVPowerShellDirect -VMName ([string]$Context.Instance.vmName) -ExpectedRunId ([string]$Context.Run.runId) `
             -ExpectedScopeId ([string]$Context.Run.scopeId) -ExpectedVmId ([guid]$Context.Instance.vmId) `
             -Credential ([pscredential]::new('Administrator',$guest)) -TimeoutSeconds $TimeoutSeconds `
-            -ArgumentList @($sa,[int]$Context.Instance.port,[math]::Min(30,$TimeoutSeconds),$IncludeSourceInventory.IsPresent) -ScriptBlock {
-                param([securestring]$Password,[int]$Port,[int]$SqlTimeout,[bool]$IncludeSourceInventory)
+            -ArgumentList @($sa,[int]$Context.Instance.port,[math]::Min(30,$TimeoutSeconds),$IncludeSourceInventory.IsPresent,$IncludeTargetStorage.IsPresent) -ScriptBlock {
+                param([securestring]$Password,[int]$Port,[int]$SqlTimeout,[bool]$IncludeSourceInventory,[bool]$IncludeTargetStorage)
                 $ErrorActionPreference='Stop';$connection=$null;$command=$null;$reader=$null;$secret=$null
                 try {
                     Add-Type -AssemblyName System.Data
@@ -131,6 +131,62 @@ SELECT
                         }
                         if ($reader.Read() -or $reader.NextResult()) { throw 'SQL_GUEST_CAPTURE_PROBE_INVALID' }
                         $result.SourceInventory = [pscustomobject]$inventory
+                    }
+                    if ($IncludeTargetStorage) {
+                        $reader.Dispose()
+                        $reader = $null
+                        $command.CommandText = @'
+SELECT CONVERT(nvarchar(4000),SERVERPROPERTY('InstanceDefaultDataPath')),
+       CONVERT(nvarchar(4000),SERVERPROPERTY('InstanceDefaultLogPath')),
+       CONVERT(nvarchar(4000),SERVERPROPERTY('InstanceDefaultBackupPath'));
+'@
+                        $reader = $command.ExecuteReader([Data.CommandBehavior]::SequentialAccess)
+                        if (-not $reader.Read()) { throw 'SQL_GUEST_CAPTURE_PROBE_INVALID' }
+                        $roles = @('Data','Log','Backup')
+                        $paths = @(for ($index=0; $index -lt $roles.Count; $index++) {
+                            if ($reader.IsDBNull($index)) { throw 'SQL_GUEST_CAPTURE_STORAGE_UNAVAILABLE' }
+                            $reader.GetString($index)
+                        })
+                        if ($reader.Read() -or $reader.NextResult()) { throw 'SQL_GUEST_CAPTURE_PROBE_INVALID' }
+                        $reader.Dispose()
+                        $reader = $null
+
+                        $volumes = [ordered]@{}
+                        for ($index=0; $index -lt $roles.Count; $index++) {
+                            $path = $paths[$index]
+                            if ($path.Length -gt 260 -or $path -cnotmatch '^[A-Za-z]:\\[^:\r\n]*$' -or
+                                [IO.Path]::GetFullPath($path).TrimEnd('\') -ine $path.TrimEnd('\')) {
+                                throw 'SQL_GUEST_CAPTURE_STORAGE_UNAVAILABLE'
+                            }
+                            $current = [IO.Path]::GetPathRoot($path)
+                            if ([IO.DriveInfo]::new($current).DriveType -ne [IO.DriveType]::Fixed) {
+                                throw 'SQL_GUEST_CAPTURE_STORAGE_UNAVAILABLE'
+                            }
+                            # Resolve each existing directory from the drive root before resolving its volume.
+                            $rootItem = Get-Item -LiteralPath $current -Force -ErrorAction Stop
+                            if ($rootItem.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'SQL_GUEST_CAPTURE_STORAGE_UNAVAILABLE' }
+                            foreach ($segment in $path.Substring($current.Length).TrimEnd('\').Split('\', [StringSplitOptions]::RemoveEmptyEntries)) {
+                                $current = Join-Path $current $segment
+                                $item = Get-Item -LiteralPath $current -Force -ErrorAction Stop
+                                if (-not $item.PSIsContainer -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+                                    throw 'SQL_GUEST_CAPTURE_STORAGE_UNAVAILABLE'
+                                }
+                            }
+                            $volume = @(Storage\Get-Volume -FilePath $current -ErrorAction Stop)
+                            if ($volume.Count -ne 1 -or [string]::IsNullOrWhiteSpace($volume[0].UniqueId) -or
+                                $volume[0].SizeRemaining -isnot [uint64] -or $volume[0].SizeRemaining -gt [long]::MaxValue) {
+                                throw 'SQL_GUEST_CAPTURE_STORAGE_UNAVAILABLE'
+                            }
+                            $id = [string]$volume[0].UniqueId
+                            $available = [long]$volume[0].SizeRemaining
+                            if (-not $volumes.Contains($id)) {
+                                $volumes[$id] = [pscustomobject]@{Roles=@();AvailableBytes=$available}
+                            }
+                            $volumes[$id].Roles += $roles[$index]
+                            $volumes[$id].AvailableBytes = [math]::Min($volumes[$id].AvailableBytes,$available)
+                        }
+                        # Keep filesystem paths, volume IDs and names inside the guest.
+                        $result.TargetStorage = @($volumes.Values)
                     }
                     [pscustomobject]$result
                 }
