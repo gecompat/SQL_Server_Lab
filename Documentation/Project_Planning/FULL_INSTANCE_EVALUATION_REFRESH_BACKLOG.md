@@ -100,7 +100,10 @@ bei Änderungen. Eine separate Aktion prüft über den vorhandenen SQL-Gastreade
 die Bereitschaft der erwarteten Instanz im laufenden SQL-2025-Prepared-Ziel.
 Dieselbe Gastabfrage klassifiziert eine unterstützte SQL-Edition und zeigt
 offen an, wenn eine Evaluationsfrist unbeobachtet bleibt. Die
-Lizenzgültigkeit wird separat bewertet.
+Lizenzgültigkeit wird separat bewertet. Die [native Key18-Abnahme](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45584818347)
+auf `93678dfe` bestätigte die Developer-Klassifikation am gebundenen Ziel.
+Die Quelle war vor dem Zielstart gestoppt. Die Vorlage und Metadaten blieben
+unverändert. Beide eigenen Runs, VMs und Datenträger wurden bereinigt.
 Der freie Platz für die SQL-Standardpfade Daten, Log und Backup lässt sich
 getrennt in der Ziel-VM lesen. Gemeinsam genutzte Volumes erscheinen einmal.
 Die Speicherbeobachtung dient der Vorbereitung. Quellbedarf, Hostkapazität,
