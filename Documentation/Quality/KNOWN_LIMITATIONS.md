@@ -4351,9 +4351,9 @@ Compute-/Cleanup-Abnahme und ausgewählte Provider-Gates sind NOT_EXECUTED.
 Das optionale CORE-102-Identitätsmapping verwendet den bestehenden Indexvertrag
 1.1; Legacyrecords bleiben unbekannt und unverändert. Public
 `Get-SqlServerLabExternalRuntimeCapability -IncludeRecordedEvidence` liefert
-Version 1.1 ohne aktuelle Evidence-Aufwertung. Die bewusste Browseraktion
-`ReadRecordedEvidence` projiziert daraus eine geschlossene 1.1-Zusammenfassung:
-Zuordnung, fester Grund und Anzahl, keine einzelnen Records oder Referenzen.
+Version 1.1 mit historischen Befunden. CLI und Browser zeigen nach bewusster
+Auswahl dieselbe begrenzte Zusammenfassung aus Zuordnung, festem Grund und
+Anzahl. Referenzen und einzelne Records bleiben im Index.
 Eine positive Anzahl ist kein PASS; aktuelle Host- und SQL-Prüfung bleiben
 NOT_CHECKED, Referenzen NOT_VERIFIED. Einzelnachweise mit Quelle/Datum/Ergebnis
 im Browser und die übrige #619-Matrix bleiben offen. Das Tool verlangt beide Schalter

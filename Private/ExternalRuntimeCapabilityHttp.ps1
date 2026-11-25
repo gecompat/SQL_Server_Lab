@@ -11,7 +11,8 @@ function Assert-LabExternalRuntimeHttpDecision {
     Assert-LabExternalRuntimeHttpShape $Value.Contract @('Name','Version','EvidenceBoundary')
     if($IncludeRecordedEvidence) {
         if($Value.Contract.Version -isnot [string] -or $Value.Contract.Version -cne '1.1' -or $Value.CurrentReadiness.Status -cne 'NOT_CHECKED') {throw 'EXTERNAL_RUNTIME_HTTP_INVALID'}
-        $summary=ConvertTo-LabExternalRuntimeHttpHistorySummary $Value.HistoricalEvidence
+        try { $summary=ConvertTo-LabExternalRuntimeHistorySummary $Value.HistoricalEvidence }
+        catch { throw 'EXTERNAL_RUNTIME_HTTP_INVALID' }
         # Reuse the unchanged 1.0 authority/identity validator without mutating the public result.
         $legacy=$Value.PSObject.Copy();$legacy.Contract=$Value.Contract.PSObject.Copy();$legacy.Contract.Version='1.0'
         $legacy.HistoricalEvidence=[pscustomobject]@{Status='NOT_RECORDED';MappingStatus='NOT_DEFINED'}
@@ -53,37 +54,6 @@ function Assert-LabExternalRuntimeHttpDecision {
     if(($Value.CurrentReadiness.Status -ceq 'READY' -and $Value.CurrentReadiness.ReasonCode -cne 'NONE') -or
         ($Value.CurrentReadiness.Status -ceq 'NOT_CHECKED' -and $Value.CurrentReadiness.ReasonCode -cne 'READINESS_NOT_REQUESTED') -or
         ($Value.CurrentReadiness.Status -ceq 'BLOCKED' -and $Value.CurrentReadiness.ReasonCode -cin @('NONE','READINESS_NOT_REQUESTED'))) {throw 'EXTERNAL_RUNTIME_HTTP_INVALID'}
-}
-
-function ConvertTo-LabExternalRuntimeHttpHistorySummary {
-    param($Value)
-    Assert-LabExternalRuntimeHttpShape $Value @('Status','MappingStatus','ReasonCode','RecordCount','Cells','ReferenceVerificationStatus','EvidenceBoundary')
-    $states=@{
-        CATALOG_IDENTITY_UNRESOLVED=@('NOT_RECORDED','NOT_DEFINED')
-        INDEX_LEGACY_IDENTITY_UNKNOWN=@('NOT_RECORDED','NOT_DEFINED')
-        INDEX_NO_MATCH=@('NOT_RECORDED','DEFINED')
-        INDEX_MATCH_RECORDED=@('RECORDED_HISTORY_ONLY','DEFINED')
-        INDEX_NOT_PRESENT=@('UNAVAILABLE','UNAVAILABLE')
-        INDEX_SCHEMA_UNSUPPORTED=@('UNAVAILABLE','UNAVAILABLE')
-        INDEX_INVALID=@('UNAVAILABLE','UNAVAILABLE')
-        EVIDENCE_OUTPUT_LIMIT=@('UNAVAILABLE','UNAVAILABLE')
-    }
-    foreach($name in @('Status','MappingStatus','ReasonCode','ReferenceVerificationStatus','EvidenceBoundary')) {
-        if($Value.$name -isnot [string]) {throw 'EXTERNAL_RUNTIME_HTTP_INVALID'}
-    }
-    if($Value.ReasonCode -cnotin @($states.Keys) -or $Value.Status -cne $states[$Value.ReasonCode][0] -or
-        $Value.MappingStatus -cne $states[$Value.ReasonCode][1] -or $Value.ReferenceVerificationStatus -cne 'NOT_VERIFIED' -or
-        $Value.EvidenceBoundary -cne 'RECORDED_HISTORY_ONLY' -or ($Value.RecordCount -isnot [int] -and $Value.RecordCount -isnot [long]) -or
-        $Value.RecordCount -lt 0 -or $Value.RecordCount -gt 128 -or $Value.Cells -isnot [array] -or $Value.Cells.Count -gt 128) {throw 'EXTERNAL_RUNTIME_HTTP_INVALID'}
-    $count=0
-    foreach($cell in $Value.Cells) {
-        if($null -eq $cell -or ($cell.RecordCount -isnot [int] -and $cell.RecordCount -isnot [long]) -or $cell.RecordCount -lt 1 -or $cell.RecordCount -gt 128) {throw 'EXTERNAL_RUNTIME_HTTP_INVALID'}
-        $count+=$cell.RecordCount
-    }
-    if($count -ne $Value.RecordCount -or (($Value.Status -ceq 'RECORDED_HISTORY_ONLY') -ne ($count -gt 0))) {throw 'EXTERNAL_RUNTIME_HTTP_INVALID'}
-    # Deliberately project fixed metadata only; records, paths and references never cross this boundary.
-    [pscustomobject]@{Status=$Value.Status;MappingStatus=$Value.MappingStatus;ReasonCode=$Value.ReasonCode;RecordCount=$count;
-        ReferenceVerificationStatus='NOT_VERIFIED';EvidenceBoundary='RECORDED_HISTORY_ONLY'}
 }
 
 function Assert-LabExternalRuntimeHttpIdentity {

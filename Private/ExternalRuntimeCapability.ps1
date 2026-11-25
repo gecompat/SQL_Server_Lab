@@ -150,6 +150,39 @@ function New-LabExternalRuntimeCapabilityDecision {
     return $decision
 }
 
+function ConvertTo-LabExternalRuntimeHistorySummary {
+    param($Value)
+    $fields = @('Status','MappingStatus','ReasonCode','RecordCount','Cells','ReferenceVerificationStatus','EvidenceBoundary')
+    if ($Value -isnot [pscustomobject] -or @($Value.PSObject.Properties).Count -ne $fields.Count -or
+        @($Value.PSObject.Properties.Name | Where-Object { $_ -cnotin $fields }).Count) { throw 'EXTERNAL_RUNTIME_HISTORY_INVALID' }
+    $states=@{
+        CATALOG_IDENTITY_UNRESOLVED=@('NOT_RECORDED','NOT_DEFINED')
+        INDEX_LEGACY_IDENTITY_UNKNOWN=@('NOT_RECORDED','NOT_DEFINED')
+        INDEX_NO_MATCH=@('NOT_RECORDED','DEFINED')
+        INDEX_MATCH_RECORDED=@('RECORDED_HISTORY_ONLY','DEFINED')
+        INDEX_NOT_PRESENT=@('UNAVAILABLE','UNAVAILABLE')
+        INDEX_SCHEMA_UNSUPPORTED=@('UNAVAILABLE','UNAVAILABLE')
+        INDEX_INVALID=@('UNAVAILABLE','UNAVAILABLE')
+        EVIDENCE_OUTPUT_LIMIT=@('UNAVAILABLE','UNAVAILABLE')
+    }
+    foreach($name in @('Status','MappingStatus','ReasonCode','ReferenceVerificationStatus','EvidenceBoundary')) {
+        if($Value.$name -isnot [string]) {throw 'EXTERNAL_RUNTIME_HISTORY_INVALID'}
+    }
+    if($Value.ReasonCode -cnotin @($states.Keys) -or $Value.Status -cne $states[$Value.ReasonCode][0] -or
+        $Value.MappingStatus -cne $states[$Value.ReasonCode][1] -or $Value.ReferenceVerificationStatus -cne 'NOT_VERIFIED' -or
+        $Value.EvidenceBoundary -cne 'RECORDED_HISTORY_ONLY' -or ($Value.RecordCount -isnot [int] -and $Value.RecordCount -isnot [long]) -or
+        $Value.RecordCount -lt 0 -or $Value.RecordCount -gt 128 -or $Value.Cells -isnot [array] -or $Value.Cells.Count -gt 128) {throw 'EXTERNAL_RUNTIME_HISTORY_INVALID'}
+    $count=0
+    foreach($cell in $Value.Cells) {
+        if($null -eq $cell -or ($cell.RecordCount -isnot [int] -and $cell.RecordCount -isnot [long]) -or $cell.RecordCount -lt 1 -or $cell.RecordCount -gt 128) {throw 'EXTERNAL_RUNTIME_HISTORY_INVALID'}
+        $count+=$cell.RecordCount
+    }
+    if($count -ne $Value.RecordCount -or (($Value.Status -ceq 'RECORDED_HISTORY_ONLY') -ne ($count -gt 0))) {throw 'EXTERNAL_RUNTIME_HISTORY_INVALID'}
+    # Deliberately project fixed metadata only; records, paths and references stay out of guided displays.
+    [pscustomobject]@{Status=$Value.Status;MappingStatus=$Value.MappingStatus;ReasonCode=$Value.ReasonCode;RecordCount=$count;
+        ReferenceVerificationStatus='NOT_VERIFIED';EvidenceBoundary='RECORDED_HISTORY_ONLY'}
+}
+
 function Get-LabExternalRuntimeCapabilityOptions {
     param([string]$SqlVersion,[string]$Provider,[string]$OperatingSystem,$HostObservation)
     $options=[Collections.Generic.List[object]]::new()

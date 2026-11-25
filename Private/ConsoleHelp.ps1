@@ -123,8 +123,8 @@ function Get-LabConsoleHelpCatalog {
         }
         'host-matrix-launch-probe' = @{
             Title = 'Variantenprüfung: Umfang'
-            Purpose = 'Katalogdeklaration, Container-Grundlagen oder Prüfung eines Ressourcenprofils auswählen.'
-            Effects = 'Die Grundlagenprüfung liest einmal Providerinfo. Für die Profilprüfung wird zuerst das Profil gewählt. Kein Start und keine SQL-Abfrage.'
+            Purpose = 'Katalogdeklaration, Container-Grundlagen, Ressourcenprofil oder gespeicherte Nachweise für die gewählte Variante auswählen.'
+            Effects = 'Die Historie liest nur den lokalen Nachweisindex. Die Grundlagenprüfung liest einmal Providerinfo. Für die Profilprüfung wird zuerst das Profil gewählt.'
             Command = 'Get-SqlServerLabExternalRuntimeCapability -CheckProviderReadiness'
         }
         'host-matrix-launch-profile' = @{

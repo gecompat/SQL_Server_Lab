@@ -508,6 +508,12 @@ Unter **Lab erstellen → Python / R / Java: Katalog und Hostvoraussetzungen**
 Docker oder Podman und SQL-Version wählen, dann **Katalogvarianten lesen**.
 Python-, R- und Java-Varianten mit Sperrgrund bleiben sichtbar; nur unterstützte
 Varianten sind auswählbar. **Katalogentscheidung anzeigen** prüft keinen Host.
+**Historische Nachweise lesen** zeigt den Zuordnungsstatus und die Anzahl
+gespeicherter Einträge für die ausgewählte Variante. In der CLI führt
+**Hostfähigkeiten vor der Funktionsauswahl → Konkrete Container-Variante
+näher prüfen → Historische Nachweise für diese Variante lesen** zur selben
+Zusammenfassung. Eine positive Anzahl zählt auch frühere Fehler. Die
+aktuelle Hostbereitschaft und SQL-Sprachausführung bleiben ungeprüft.
 **Hostvoraussetzungen bewusst lesend prüfen** beobachtet den gewählten Provider
 einmal; `READY` ist keine SQL-Sprachabnahme oder Zielautorisierung.
 Für eine zusätzliche Profilprüfung wähle ein **Ressourcenprofil** und dann

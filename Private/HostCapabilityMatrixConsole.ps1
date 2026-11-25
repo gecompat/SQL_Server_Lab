@@ -17,15 +17,18 @@ function Show-LabHostMatrixLaunchDetailsInteractive {
         -Subtitle 'Katalogbindung erneut lesen; keine Instanz oder Sprache ausführen.' -Items $items
     if(-not $selected) {return}
     $choices=@(
-        New-LabConsoleItem -Id 'catalog' -Label 'Katalog- und Launchdeklaration ohne Hostabfrage' -Shortcut '1' -Data ([pscustomobject]@{Probe=$false; Prerequisites=$false})
-        New-LabConsoleItem -Id 'probe' -Label 'Container-Grundlagen bewusst lesend prüfen' -Value 'Linux · cgroup-Version · Rootful · bis zu 20 Sekunden' -Shortcut '2' -Data ([pscustomobject]@{Probe=$true; Prerequisites=$false})
+        New-LabConsoleItem -Id 'catalog' -Label 'Katalog- und Launchdeklaration ohne Hostabfrage' -Shortcut '1' -Data ([pscustomobject]@{Probe=$false; Prerequisites=$false; History=$false})
+        New-LabConsoleItem -Id 'probe' -Label 'Container-Grundlagen bewusst lesend prüfen' -Value 'Linux · cgroup-Version · Rootful · bis zu 20 Sekunden' -Shortcut '2' -Data ([pscustomobject]@{Probe=$true; Prerequisites=$false; History=$false})
         New-LabConsoleItem -Id 'prerequisites' -Label 'Voraussetzungen für ein Ressourcenprofil lesend prüfen' `
-            -Value 'Zusätzlich Controller und Gesamtkapazität des Providers' -Shortcut '3' -Data ([pscustomobject]@{Probe=$true; Prerequisites=$true})
+            -Value 'Zusätzlich Controller und Gesamtkapazität des Providers' -Shortcut '3' -Data ([pscustomobject]@{Probe=$true; Prerequisites=$true; History=$false})
+        New-LabConsoleItem -Id 'history' -Label 'Historische Nachweise für diese Variante lesen' `
+            -Value 'Gespeicherten Index ohne Hostabfrage lesen' -Shortcut '4' -Data ([pscustomobject]@{Probe=$false; Prerequisites=$false; History=$true})
     )
     $choice=Select-LabConsoleDataItem -ScreenId 'host-matrix-launch-probe' -Title 'Variantenprüfung: Umfang' `
         -Subtitle 'Esc bricht vor der Abfrage ab. SQL-Sprachausführung und WSL-Konflikte werden hier nicht geprüft.' -Items $choices
     if(-not $choice) {return}
     $arguments = @{ CheckProviderReadiness = $choice.Probe }
+    if ($choice.History) { $arguments.IncludeRecordedEvidence = $true }
     if ($choice.Prerequisites) {
         $profiles = foreach ($profile in $script:VersionCatalog.profiles.PSObject.Properties) {
             New-LabConsoleItem -Id $profile.Name -Label $profile.Name `
@@ -41,8 +44,23 @@ function Show-LabHostMatrixLaunchDetailsInteractive {
         -SoftwareId $selected.SoftwareId -RuntimeVersion $selected.RuntimeVersion -VariantId $selected.VariantId @arguments
     Write-Host ("SQL {0} · {1} · {2} · {3}" -f $Matrix.SqlVersion,$selected.Provider,$selected.SoftwareId,$selected.VariantId)
     Write-Host ("Katalog: {0} / {1}" -f $decision.CatalogDecision.Status,$decision.CatalogDecision.ReasonCode)
-    Write-Host ("Container-Grundlagen: {0} / {1}; Launchmodus: {2}; benötigte cgroup-Version: {3}" -f
-        $decision.CurrentReadiness.Status,$decision.CurrentReadiness.ReasonCode,$decision.CurrentReadiness.LaunchMode,$decision.CurrentReadiness.RequiredCgroupVersion)
+    if ($choice.History) {
+        try {
+            if ($decision.Contract.Version -cne '1.1' -or $decision.CurrentReadiness.Status -cne 'NOT_CHECKED') {
+                throw 'EXTERNAL_RUNTIME_HISTORY_INVALID'
+            }
+            $history = ConvertTo-LabExternalRuntimeHistorySummary $decision.HistoricalEvidence
+            Write-Host ("Historie {0} · Zuordnung {1} · {2}" -f $history.Status,$history.MappingStatus,$history.ReasonCode)
+            Write-Host ("Zugeordnete historische Einträge {0} · Referenzen {1}" -f $history.RecordCount,$history.ReferenceVerificationStatus)
+            Write-Host 'Aktuelle Hostbereitschaft NOT_CHECKED.'
+            Write-Host 'Die Anzahl zählt auch frühere Fehler. Die aktuelle SQL-Sprachausführung bleibt ungeprüft.'
+        } catch {
+            Write-Host 'Historische Zuordnung konnte für diese Variante nicht bestätigt werden.'
+        }
+    } else {
+        Write-Host ("Container-Grundlagen: {0} / {1}; Launchmodus: {2}; benötigte cgroup-Version: {3}" -f
+            $decision.CurrentReadiness.Status,$decision.CurrentReadiness.ReasonCode,$decision.CurrentReadiness.LaunchMode,$decision.CurrentReadiness.RequiredCgroupVersion)
+    }
     if ($choice.Prerequisites) {
         $facts = $decision.HostPrerequisites
         Write-Host ("Profil {0} · {1} · {2}" -f $facts.ResourceProfile,$facts.Status,($facts.ReasonCodes -join ', '))

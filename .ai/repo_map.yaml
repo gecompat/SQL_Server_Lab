@@ -566,7 +566,7 @@ sources_of_truth:
   validation_host_capability_matrix_browser_contracts: Tests/Common/HostCapabilityMatrixBrowserAcceptance.ps1
   validation_host_capability_matrix_browser_fixture: Tests/Static/Fixtures/HostCapabilityMatrixBrowserAcceptanceChecks.ps1
   validation_host_matrix_launch_details: Tests/Static/Invoke-HostMatrixLaunchDetailsChecks.ps1
-  validation_host_matrix_launch_console: Tests/Static/Fixtures/HostMatrixLaunchDetailsConsoleChecks.ps1 # actual catalogue/classifier, synthetic host facts, readonly console/help authority
+  validation_host_matrix_launch_console: Tests/Static/Fixtures/HostMatrixLaunchDetailsConsoleChecks.ps1 # actual catalog and history index, bounded history display, synthetic host facts, readonly console/help authority
   validation_host_matrix_launch_ui: Tests/Static/Fixtures/HostMatrixLaunchDetailsUiChecks.cjs # actual two controllers, no automatic native query
   validation_host_matrix_launch_browser: Tests/Static/Fixtures/HostMatrixLaunchDetailsBrowserChecks.ps1 # composed actual routes/public readers; rendered runner uses IncludeLaunchDetails
   external_runtime_capability_public: Public/Get-SqlServerLabExternalRuntimeCapability.ps1

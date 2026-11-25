@@ -149,8 +149,10 @@ geschlossenen Browservertrag `SqlServerLab.ExternalRuntimeCapabilityBrowser/1.0`
 mit validierten Katalogidentitäten und dem unveränderten Public-Entscheid.
 Dies bleibt für `ReadOptions` und `Evaluate` unverändert.
 
-**Historische Nachweise lesen** ist eine eigene bewusste Aktion für die gewählte
-Katalogidentität. Ihr Request enthält ausschließlich Action, SQL-Version,
+**Historische Nachweise lesen** im Browser und **Historische Nachweise für
+diese Variante lesen** in der CLI sind bewusste Aktionen für die gewählte
+Katalogidentität. Beide zeigen dieselbe Zusammenfassung. Der Browser-Request
+enthält ausschließlich Action, SQL-Version,
 Provider, Linux-Ziel, Software-ID, Runtimeversion und Variante. Hostprüfungs-,
 Apply- und zusätzliche Opt-in-Felder werden abgewiesen. Der Server ruft die
 vorhandene Public-API einmal mit `IncludeRecordedEvidence` auf, ohne
@@ -227,8 +229,9 @@ NOT_RECORDED/NOT_DEFINED bei ungelöster Katalogidentität oder Legacyindex,
 NOT_RECORDED/DEFINED bei keinem exakten Match, RECORDED_HISTORY_ONLY/DEFINED
 bei vorhandener Historie. Fehlender, ungültiger oder nicht unterstützter Index
 sowie überschrittene Ausgabegrenze ergeben UNAVAILABLE/UNAVAILABLE und leere Zellen.
-CurrentReadiness wird davon nicht verändert. Browser, Manifestdialog und alte
-Public-Aufrufe bleiben beim geschlossenen Standardvertrag 1.0.
+`CurrentReadiness` bleibt bei separat angeforderter Historie `NOT_CHECKED`.
+Die Standardaktionen in Browser, Manifestdialog und Public-API bleiben beim
+geschlossenen Vertrag 1.0.
 
 Das Tool-Opt-in `-IncludeRecordedAcceptanceMatrix -IncludeRecordedIdentityMatrix`
 liefert ausschließlich den geschlossenen Vertrag
