@@ -1560,6 +1560,21 @@ function openConfirmation(title, message, action, parameters, submitLabel = 'Ent
   $('#confirmation-dialog').showModal();
 }
 
+$('#lab-catalog-export').addEventListener('click', () => {
+  const matches = publicCommandCatalog.filter(command => command?.Name === 'Get-SqlServerLabCatalog');
+  const command = matches.length === 1 ? matches[0] : null;
+  const sets = command?.ParameterSets;
+  const parameterSet = Array.isArray(sets) && sets.length === 1 ? sets[0] : null;
+  if (command?.RequiresConfirmation !== true || typeof parameterSet?.Name !== 'string' ||
+      !Array.isArray(parameterSet.Parameters) || parameterSet.Parameters.length !== 0) {
+    showError(new Error('Der geführte Katalogexport ist in diesem Laufzeitprofil nicht verfügbar.'));
+    return;
+  }
+  openConfirmation('Lab-Katalog schreiben',
+    'Erstellt oder aktualisiert catalog/sql-server-lab-catalog.json im konfigurierten Lab-Zustandsverzeichnis. Unter Vorgänge erscheint die Zusammenfassung.',
+    '__PublicCommand', { command, parameterSet, parameters: {} }, 'Katalog schreiben');
+});
+
 function handleEnvironmentGroupCommandRequest(event) {
   const detail = event?.detail;
   const groupIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;

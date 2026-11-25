@@ -390,6 +390,10 @@ function Start-UiPublicCommandJob {
             Write-Output '[OK] Befehl erfolgreich abgeschlossen.'
         }
         catch {
+            if ($JobCommandName -ceq 'Get-SqlServerLabCatalog') {
+                Write-Output '[FEHLER] LAB_CATALOG_EXPORT_UNCONFIRMED'
+                throw 'LAB_CATALOG_EXPORT_UNCONFIRMED'
+            }
             Write-Output "[FEHLER] $($_.Exception.Message)"
             throw
         }

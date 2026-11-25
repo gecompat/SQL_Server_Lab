@@ -65,6 +65,27 @@ abgeglichen; die Familiengruppierung ist nur eine Lesbarkeitshilfe. Sie ist
 keine Behauptung, dass eine Familie einen gemeinsamen Aufrufer oder denselben
 Nachweis besitzt.
 
+## Geprüfte Operation: Lab-Katalog schreiben
+
+| Operations-ID und Aufgabe | Geführte CLI | Browser-GUI | Öffentlicher Vertrag und Nachweis |
+| --- | --- | --- | --- |
+| `workflow-catalog-export` · Workflow-Inventar lokal als JSON schreiben | Lab-Umgebungen → Datenbanken, Samples und Skripte → Lab-Katalog prüfen → Zielpfad | Lab-Umgebungen → Lab-Katalog schreiben → Bestätigen | `GUIDED_BOTH` über `Get-SqlServerLabCatalog`. Der Browser bindet den konfigurierten State Root und den festen Dateinamen. Er zeigt ausschließlich eine Bestätigung und aggregierte Zähler. Der atomare Schreibvorgang aktualisiert dieselbe lokale Datei. |
+
+`Invoke-ConsoleUiChecks.ps1` prüft die Bindung der Katalogleser an den
+gewählten State Root. `Invoke-PublicCommandConsoleChecks.ps1` und
+`Invoke-WorkflowUiChecks.ps1` prüfen Browser-Bestätigung, abgewiesene
+Pfadparameter und die begrenzte Ergebnisansicht. Diese Prüfungen sind
+synthetisch. Der Export startet keine SQL-Instanz und bescheinigt keine
+Provider-Bereitschaft.
+
+Die gerenderte Prüfung auf `78d6a3b2bcb7238b70684119fccf64d4c7db194b`
+lud alle 54 UI-Dateien. Abbrechen sendete keinen Schreibauftrag.
+Die Bestätigung löste genau eine Berechtigungsanfrage und genau einen
+synthetischen Katalogauftrag aus. Der Testbrowser meldete keine Fehler.
+Eine separate Prüfung mit synthetischem Workflow und echtem Datei-Writer
+schrieb und ersetzte die feste JSON-Datei im isolierten Zustandspfad.
+Die Rückgabe enthielt nur den festen Dateinamen und die erwarteten Zähler.
+
 ## Geprüfte Operationen: OVMS und externe Modellendpunkte
 
 | Aufgabe | Geführte Bedienung | Öffentlicher Vertrag und Nachweis |

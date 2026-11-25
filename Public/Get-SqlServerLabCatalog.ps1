@@ -33,7 +33,7 @@ function Get-SqlServerLabCatalog {
         $Path = Join-Path (Join-Path $stateRoot 'catalog') 'sql-server-lab-catalog.json'
     }
 
-    $workflow = Get-SqlServerLabWorkflow -MediaRoot $MediaRoot
+    $workflow = Get-SqlServerLabWorkflow -MediaRoot $MediaRoot -StateRoot $stateRoot
     $build = Get-LabBuildInfo
     $catalog = [PSCustomObject]@{
         CatalogFormat = '1'

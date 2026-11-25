@@ -23,6 +23,45 @@ try {
         $pinnedDescriptors=@(Get-LabPublicCommandParameterDescriptor -Command $selection.Command -ParameterSet $pinned.Metadata)
         $whatIfCommand=$catalog|Where-Object SupportsShouldProcess|Select-Object -First 1
         $webCatalog=@(Get-LabPublicCommandWebCatalog)
+        $catalogExport=$webCatalog | Where-Object Name -CEQ 'Get-SqlServerLabCatalog'
+        $catalogSet=@($catalogExport.ParameterSets)[0]
+        $catalogExportErrors=@(foreach ($parameters in @(@{},@{Path='DO_NOT_WRITE'},@{StateRoot='DO_NOT_WRITE'},@{MediaRoot='DO_NOT_READ'})) {
+            try {
+                $null = Invoke-LabPublicCommandWebRequest -CommandName $catalogExport.Name -ParameterSetName $catalogSet.Name -Parameters $parameters -Confirmed:($parameters.Count -ne 0)
+            } catch { $_.Exception.Message }
+        })
+        $catalogExportProjection=@(ConvertTo-LabPublicCommandWebResult -CommandName $catalogExport.Name -Parameters @{} -Result @([pscustomobject]@{
+            Path='PRIVATE_PATH'; Catalog=[pscustomobject]@{
+                CatalogFormat='1'; StateRoot='PRIVATE_ROOT'; Workflow='PRIVATE_WORKFLOW'
+                Summary=[pscustomobject]@{ActiveContainerLabs=1;WindowsBaselines=2;SqlPreparedImages=3;PendingWindowsBuilds=4;PendingSqlBuilds=5}
+            }
+        }))
+        $catalogRootReader = (Get-Command Get-LabStateRoot).ScriptBlock
+        $catalogWriter = (Get-Command Get-SqlServerLabCatalog).ScriptBlock
+        $script:catalogBrowserTestRoot = Join-Path ([IO.Path]::GetTempPath()) ('catalog-browser-' + [guid]::NewGuid().ToString('N'))
+        try {
+            Set-Item Function:script:Get-LabStateRoot -Value { $script:catalogBrowserTestRoot }
+            Set-Item Function:script:Get-SqlServerLabCatalog -Value {
+                [CmdletBinding()]
+                param([string]$Path,[string]$StateRoot)
+                if ($StateRoot -cne $script:catalogBrowserTestRoot -or $Path -cne (Join-Path $StateRoot 'catalog/sql-server-lab-catalog.json')) {
+                    throw 'CATALOG_TEST_TARGET_INVALID'
+                }
+                [pscustomobject]@{Path=$Path;Catalog=[pscustomobject]@{CatalogFormat='1'
+                    Summary=[pscustomobject]@{ActiveContainerLabs=1;WindowsBaselines=0;SqlPreparedImages=0;PendingWindowsBuilds=0;PendingSqlBuilds=0}
+                }}
+            }
+            $writerUnderTest = Get-LabPublicCommandConsoleCatalog | Where-Object Name -CEQ $catalogExport.Name
+            if (-not $writerUnderTest.Command.ScriptBlock.ToString().Contains('CATALOG_TEST_TARGET_INVALID')) {
+                throw 'CATALOG_TEST_MOCK_NOT_BOUND'
+            }
+            $catalogBoundReceipt = Invoke-LabPublicCommandWebRequest -CommandName $catalogExport.Name -ParameterSetName $catalogSet.Name -Parameters @{} -Confirmed
+        }
+        finally {
+            Set-Item Function:script:Get-LabStateRoot -Value $catalogRootReader
+            Set-Item Function:script:Get-SqlServerLabCatalog -Value $catalogWriter
+            Remove-Variable catalogBrowserTestRoot -Scope Script -ErrorAction SilentlyContinue
+        }
         $autoStartWebCommands=@($webCatalog|Where-Object Name -ceq 'Get-SqlServerLabReconcilePlan')
         $autoStartWebSets=@($autoStartWebCommands[0].ParameterSets|Where-Object Name -ceq 'ContainerAutoStartPreview')
         $hyperVPlanWeb=@($webCatalog|Where-Object Name -ceq 'Get-SqlServerLabHyperVAutoStartPlan')
@@ -70,6 +109,11 @@ try {
             SanitizedWebMail=@(ConvertTo-LabPublicCommandWebResult -CommandName Open-SqlServerLabSmtpTestServiceWebMail -Parameters @{} -Result @(
                 [pscustomobject]@{ContractVersion='SqlServerLab.SmtpTestServiceWebMailAccess/1.0'; Url='synthetic-capability-url'; Status='OPENED'; BrowserStarted=$true}
             ))
+            CatalogExportConfirmation=$catalogExport.RequiresConfirmation
+            CatalogExportParameterCount=@($catalogSet.Parameters).Count
+            CatalogExportErrors=$catalogExportErrors
+            CatalogExportProjection=$catalogExportProjection
+            CatalogBoundReceipt=$catalogBoundReceipt.Result
             WebNames=@($webCatalog.Name)
             WebJson=($webCatalog|ConvertTo-Json -Depth 12)
             WebCmsCount=@($webCatalog|Where-Object Area -eq 'CMS').Count
@@ -81,6 +125,20 @@ try {
         }
     }
     $expectedCatalog=@($exports|Where-Object {$_ -ne 'Invoke-SqlServerLab'})
+    Add-CheckResult 'Browser-Katalogexport benötigt Bestätigung und lehnt alle Pfad- oder Root-Overrides vor der Ausführung ab' (
+        $evidence.CatalogExportConfirmation -eq $true -and $evidence.CatalogExportParameterCount -eq 0 -and
+        $evidence.CatalogExportErrors.Count -eq 4 -and $evidence.CatalogExportErrors[0] -ceq 'PUBLIC_COMMAND_UI_CONFIRMATION_REQUIRED' -and
+        @($evidence.CatalogExportErrors | Where-Object {$_ -ceq 'PUBLIC_COMMAND_UI_CATALOG_SCOPE_INVALID'}).Count -eq 3
+    )
+    Add-CheckResult 'Browser-Katalogexport zeigt nur Bestätigung, festen Dateinamen und aggregierte Zähler' (
+        $evidence.CatalogExportProjection.Count -eq 1 -and $evidence.CatalogExportProjection[0].Status -ceq 'CATALOG_WRITTEN' -and
+        $evidence.CatalogExportProjection[0].FileName -ceq 'sql-server-lab-catalog.json' -and $evidence.CatalogExportProjection[0].PendingSqlBuilds -eq 5 -and
+        ($evidence.CatalogExportProjection | ConvertTo-Json -Depth 5) -cnotmatch 'PRIVATE_|StateRoot|Workflow|"Path"'
+    )
+    Add-CheckResult 'Bestätigter Browser-Katalogexport bindet serverseitig genau Standard-State-Root und Standarddatei' (
+        $evidence.CatalogBoundReceipt.Count -eq 1 -and $evidence.CatalogBoundReceipt[0].Status -ceq 'CATALOG_WRITTEN' -and
+        $evidence.CatalogBoundReceipt[0].ActiveContainerLabs -eq 1
+    )
     Add-CheckResult 'AutoStart PLAN_ONLY catalog derives mandatory union and ValidateSet from actual metadata' (
         (@($evidence.AutoStartPreviewMandatory|Sort-Object) -join '|') -ceq 'AutoStart|ContainerAutoStartPreview|InstanceId|RunId' -and
         'StateRoot' -in $evidence.AutoStartPreviewNames -and 'Cpu' -notin $evidence.AutoStartPreviewNames -and

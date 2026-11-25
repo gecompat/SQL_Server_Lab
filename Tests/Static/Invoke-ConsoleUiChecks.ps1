@@ -1288,6 +1288,55 @@ Add-ConsoleUiCheck 'Infrastrukturmenue bietet neben Delegation eine direkte read
 )
 Add-ConsoleUiCheck 'Statusauswahl bietet Alle und aufklappbare Gruppen an' ($entrySource -match "-Id '__all' -Label 'Alle Umgebungen'" -and $entrySource -match "-ScreenId 'environment-status-select'" -and $entrySource -match "-ScreenId 'environment-status-group'" -and $entrySource -match 'Show-LabEnvironmentStatusSelectionInteractive')
 Add-ConsoleUiCheck 'Datenbankmenue trennt Verbindungszentrale und reinen Lab-Katalog klar' ($entrySource -match "-Id 'ConnectionCenter' -Label 'Verbindungszentrale und SSMS-Endpunkte'.*-Shortcut 'c'" -and $entrySource -match "-Id 'Catalog' -Label 'Lab-Katalog prüfen'.*-Shortcut 'k'" -and $entrySource -match "Katalogdatei validieren; kein CMS-Zugang")
+$catalogScopeCheck = & {
+    . (Join-Path $repoRoot 'Public/Get-SqlServerLabWorkflow.ps1')
+    . (Join-Path $repoRoot 'Public/Get-SqlServerLabCatalog.ps1')
+    $chosenRoot = Join-Path ([IO.Path]::GetTempPath()) 'synthetic-catalog-selected-state'
+    $defaultRoot = Join-Path ([IO.Path]::GetTempPath()) 'synthetic-catalog-default-state'
+    $observed = [Collections.Generic.List[object]]::new()
+    $readers = @('Get-SqlServerLabHyperVImageArtifact','Get-LabActiveRuns','Get-SqlServerLabBatch','Get-SqlServerLabOperation','Get-SqlServerLabQueue')
+    $windowsReaders = @('Get-HyperVImageBuildPlans','Get-HyperVSqlImageBuildPlans','Get-HyperVImageArtifact','Get-HyperVSqlAcceptanceMatrix')
+    if ($IsWindows) { $readers += $windowsReaders }
+    foreach ($reader in ($readers + $windowsReaders | Select-Object -Unique)) {
+        $record = {
+            param($StateRoot,[switch]$SkipIntegrityCheck)
+            $observed.Add([pscustomobject]@{Reader=$reader;Root=$StateRoot})
+        }.GetNewClosure()
+        Set-Item -Path "Function:\$reader" -Value $record
+    }
+    function Get-LabStateRoot { param($ExplicitPath) if ($ExplicitPath) { $ExplicitPath } else { $defaultRoot } }
+    function Initialize-LabStateRoot { param($StateRoot) $StateRoot }
+    function Get-LabMediaRootDefault { $null }
+    function Get-LabDataRootDefault { $null }
+    function Get-LabTestDataRootDefault { $null }
+    function Get-LabStorageConfiguration { throw 'SYNTHETIC_NOT_CONFIGURED' }
+    function Get-LabExecutableSampleVariant {}
+    function Get-LabMediaSourceCatalog { param($MediaRoot,$TestDataRoot) }
+    function Get-HyperVTemplatePoolStatus { param($Artifacts) [pscustomobject]@{Templates=@();UsedTemplates=0} }
+    function Test-HyperVAvailable { [pscustomobject]@{Available=$false;Message='Synthetic'} }
+    function Get-AvailableLabProviders { 'docker' }
+    function Get-LabProviderCapabilityContract {}
+    function Get-SqlServerBuilds { param($VersionId) }
+    function Get-LabBuildInfo { [pscustomobject]@{Version='1';Revision='synthetic';Source='fixture'} }
+    function Get-LabTimestamp { '2030-01-01T00:00:00.0000000Z' }
+    function Write-LabArtifactJsonAtomic { param($Path,$InputObject) $observed.Add([pscustomobject]@{Reader='export';Root=$InputObject.StateRoot;Path=$Path}) }
+    $snapshot = Get-SqlServerLabCatalog -StateRoot $chosenRoot
+    $scopedReads = $observed.ToArray()
+    $observed.Clear()
+    $null = Get-SqlServerLabWorkflow
+    $expectedReaders = ($readers | Sort-Object) -join ','
+    (($scopedReads.Reader | Sort-Object) -join ',') -ceq (($readers + 'export' | Sort-Object) -join ',') -and
+        @($scopedReads | Where-Object Root -CNE $chosenRoot).Count -eq 0 -and
+        $snapshot.Catalog.Workflow.Host.Providers -ceq 'docker' -and
+        $snapshot.Path -ceq (Join-Path $chosenRoot 'catalog/sql-server-lab-catalog.json') -and
+        (($observed.Reader | Sort-Object) -join ',') -ceq $expectedReaders -and
+        @($observed | Where-Object Root -CNE $defaultRoot).Count -eq 0
+}
+Add-ConsoleUiCheck 'Katalog bindet Run-, Build- und Vorgangsreader an den gewählten State Root' $catalogScopeCheck
+Add-ConsoleUiCheck 'Katalogmenü zeigt Host- und Umgebungsdaten aus dem gespeicherten Workflow' (
+    $entrySource.Contains('$workflow = $catalog.Catalog.Workflow') -and
+    $entrySource.Contains('-f $catalog.Catalog.StateRoot)')
+)
 Add-ConsoleUiCheck 'KI-Menue bietet kuratierte llama.cpp-Modelle als direkten geprüften Download an' (
     $entrySource -match "-Id 'AiLlamaModels' -Label 'llama.cpp-Modelle anzeigen oder herunterladen'" -and
     $entrySource -match "'AiLlamaModels' \{ Manage-LabLlamaCppModelsInteractive \}" -and
