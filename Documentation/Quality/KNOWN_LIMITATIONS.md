@@ -2521,6 +2521,10 @@ Loopback-HTTP-Upstream auf `/v3/embeddings`, exakten Modellnamen, Antwortform
 und Dimension prüfen. Sie startet keinen Prozess und belegt weder
 TLS-Terminierung, Gatewaybesitz noch Acceleratornutzung. Diese Evidence liefert
 erst `Start-SqlServerLabOvmsHttpsGateway` für seine eigene Operation.
+Der geführte Start und Stop in CLI und Browser setzt denselben
+Windows-Worker voraus. Die Führung ist mit synthetischen Eingaben und
+eigenen Sitzungsobjekten prüfbar. Eine native OVMS-/SQL-Abnahme bleibt
+ein separater Nachweis.
 Für weitere OpenAI-kompatible Backends sind ein hashgebundener Plan sowie
 getrennte read-only Prüfungen der lokalen Runtime-/Modelldateien und des
 HTTPS-Embedding-Endpunkts implementiert. Die Live-Probe verlangt den exakt im

@@ -449,11 +449,18 @@ Der Bedienweg übernimmt den gebundenen Plan, akzeptiert optional ein
 öffentliches CA-PEM und zeigt die Endpunktquittung.
 [Bedienweg](../HowTo/WORKFLOW_UI.md#geplanten-https-modellendpunkt-prüfen)
 
-Für diese Gateway-Sitzungsaktionen fehlen geführte Dialoge:
+Unter **Host-Dienste und Modelle** bietet die Windows-CLI getrennte
+Menüschritte für Start und Stop. Im Browser öffnet **Eigene
+OVMS-HTTPS-Sitzungen verwalten** den gemeinsamen Dialog. Der Start braucht
+einen laufenden numerischen HTTP-Loopback-Upstream, Modell und Dimension,
+einen freien HTTPS-Port, lokale PEM-Dateipfade und eine Laufzeitgrenze. Die
+CLI fragt den API-Schlüssel maskiert ab. Der Browser erwartet eine Referenz
+auf einen SecureString im lokalen Vault des UI-Servers. Nach Bestätigung
+liefert der Start die Bindung für einen External-Model-Plan. Der Stop wirkt
+auf die ausgewählte eigene Sitzung im aktuellen CLI-Modul oder UI-Server.
+Die zugehörigen Befehle sind `Start-SqlServerLabOvmsHttpsGateway` und
+`Stop-SqlServerLabOvmsHttpsGateway`.
 
-- `Start-SqlServerLabOvmsHttpsGateway` startet einen befristeten
-  Windows-Loopback-Gateway vor einem vorhandenen OVMS-Dienst.
-- `Stop-SqlServerLabOvmsHttpsGateway` beendet die gebundene Gateway-Sitzung.
 
 Der [PowerShell-Ablauf für OVMS](SQL_AI_LOCAL_ACCELERATION.md#openvino-model-server-als-alternative)
 zeigt die erforderlichen Eingaben und den Stop in derselben Sitzung.

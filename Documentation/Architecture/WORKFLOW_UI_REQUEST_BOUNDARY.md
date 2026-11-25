@@ -51,6 +51,13 @@ Die Übermittlung verwendet den bestehenden bestätigten Katalogbefehl mit
 expliziter Cloud-Freigabe, zulässiger Datenklasse und genau einem Versuch.
 Der Browser liest weder die Mediendatei noch den Credentialwert.
 
+Die Windows-Route `/api/ai-ovms-gateway/sessions` prüft die
+Operator-Capability, bei POST die exakte Origin, ein Limit von 16 KiB und
+eine ausdrückliche Aktionsbestätigung. Der Start liest explizite lokale
+PEM-Dateien und löst eine Vault-Referenz auf. Liste und Stop sind durch
+Identität des Ownerobjekts auf Sitzungen dieses UI-Servers begrenzt. Die
+Bereinigung beim Serverende verwendet dieselbe Bindung.
+
 ## Acht interne Fachreader
 
 CMS-Inspection, Initial Setup, Slotreserve, Resource Watch, llama.cpp-Installer,

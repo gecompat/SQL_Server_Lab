@@ -1179,6 +1179,8 @@ function Show-LabHostModelsMenu {
         New-LabConsoleItem -Id AiRuntimeCapability -Label 'llama.cpp-Eignung prüfen' -Value 'Paketdateien und erkannte Geräte' -Shortcut 6
         New-LabConsoleItem -Id OvmsUpstream -Label 'Lokalen OVMS-Embedding-Dienst prüfen' -Value 'Ein synthetischer HTTP-Request über Loopback' -Shortcut 7
         New-LabConsoleItem -Id ExternalModelEndpoint -Label 'Geplanten HTTPS-Modellendpunkt prüfen' -Value 'External-Model-Plan und eine synthetische Anfrage'
+        New-LabConsoleItem -Id OvmsGatewayStart -Label 'Eigenen OVMS-HTTPS-Gateway starten' -Disabled:(-not $IsWindows) -DisabledReason 'Der OVMS-HTTPS-Worker benötigt Windows.'
+        New-LabConsoleItem -Id OvmsGatewayStop -Label 'Eigene OVMS-HTTPS-Sitzung auswählen und stoppen' -Disabled:(-not $IsWindows) -DisabledReason 'Der OVMS-HTTPS-Worker benötigt Windows.'
         New-LabConsoleItem -Id AiSharedGatewayPlan -Label 'Gemeinsamen Embedding-Gateway planen' -Value 'Endpunkt, Backend und SQL-Verbraucher binden'
         New-LabConsoleItem -Id AiSharedGatewaySessionStop -Label 'Eigene Gateway-Sitzung auswählen und stoppen' -Value 'Nur Sitzungen dieses Modulhosts'
         New-LabConsoleItem -Id AiComputeSelection -Label 'KI-Gerätekombination aus Messbelegen wählen' -Value 'Vorhandene Kandidaten und Benchmarkwerte · lesend' -Shortcut 8

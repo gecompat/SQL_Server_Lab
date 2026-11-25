@@ -250,6 +250,7 @@ sources_of_truth:
   ai_external_model_sql_plan_api: Public/Get-SqlServerLabAiExternalModelSqlPlan.ps1
   ai_external_model_sql_preflight_api: Public/Test-SqlServerLabAiExternalModelSqlPreflight.ps1
   ai_ovms_https_gateway: Private/AiOvmsHttpsGateway.ps1
+  ai_ovms_https_gateway_guidance: Private/AiOvmsGatewayGuidance.ps1, Ui/ai-shared-gateway-plan.js, Public/BatchConsole.ps1, Tools/Start-SqlServerLabUi.ps1
   ai_ovms_https_gateway_worker: Tools/Invoke-OvmsHttpsGatewayWorker.ps1
   ai_ovms_https_gateway_start: Public/Start-SqlServerLabOvmsHttpsGateway.ps1
   ai_ovms_https_gateway_stop: Public/Stop-SqlServerLabOvmsHttpsGateway.ps1

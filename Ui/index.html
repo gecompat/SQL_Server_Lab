@@ -151,6 +151,7 @@
       <button id="compute-benchmark-open" type="button" class="button secondary">llama.cpp-Gerätekombinationen messen</button>
       <button id="ovms-upstream-open" type="button" class="button secondary">Lokalen OVMS-Embedding-Dienst prüfen</button>
       <button id="external-model-endpoint-open" type="button" class="button secondary">Geplanten HTTPS-Modellendpunkt prüfen</button>
+      <button id="ovms-gateway-open" type="button" class="button secondary">Eigene OVMS-HTTPS-Sitzungen verwalten</button>
       <button id="persistent-fixture-open" type="button" class="button secondary">Persistente Retrieval-Collections</button>
       <button id="ai-scenario-plan-open" type="button" class="button secondary">Vector-Core-Szenarioplan lesen</button>
       <button id="llama-start-plan-open" type="button" class="button secondary">llama.cpp: reine Startvorschau</button>
@@ -1553,6 +1554,32 @@
         <button id="external-model-endpoint-close" type="button" class="button secondary">Schließen</button>
       </div>
     </form>
+  </dialog>
+  <dialog id="ovms-gateway-dialog" aria-labelledby="ovms-gateway-title">
+    <h2 id="ovms-gateway-title">Eigene OVMS-HTTPS-Sitzungen</h2>
+    <form id="ovms-gateway-form">
+      <label>OVMS-HTTP-Endpunkt<input name="UpstreamLocation" type="url" value="http://127.0.0.1:9000/v3/embeddings" maxlength="200" required></label>
+      <label>Exakter OVMS-Modellname<input name="RuntimeModel" maxlength="256" required></label>
+      <label>Embedding-Dimension<input name="Dimension" type="number" min="1" max="1998" required></label>
+      <label>Freier HTTPS-Port<input name="Port" type="number" min="1024" max="65535" value="18443" required></label>
+      <label>Lokaler Pfad zum Leaf-Zertifikat (PEM)<input name="CertificatePath" type="password" autocomplete="off" maxlength="4096" required></label>
+      <label>Lokaler Pfad zum Private Key (PEM)<input name="PrivateKeyPath" type="password" autocomplete="off" maxlength="4096" required></label>
+      <label>Optionaler lokaler Pfad zum öffentlichen CA-PEM<input name="TrustedRootPath" type="password" autocomplete="off" maxlength="4096"></label>
+      <label>Lokale Vault-Referenz für den Gateway-API-Schlüssel<input name="ApiKeyReference" maxlength="118" autocomplete="off" required></label>
+      <label>Startbudget in Sekunden<input name="StartTimeoutSeconds" type="number" min="1" max="300" value="30" required></label>
+      <label>Maximale Laufzeit in Sekunden<input name="LeaseSeconds" type="number" min="30" max="3600" value="900" required></label>
+      <label><input id="ovms-gateway-start-confirm" type="checkbox" required>Lokale Dateien und Vault lesen und den befristeten OVMS-HTTPS-Worker starten</label>
+      <button id="ovms-gateway-start" type="submit" class="button" disabled>OVMS-HTTPS-Gateway starten</button>
+    </form>
+    <label>Eigene Sitzung<select id="ovms-gateway-selection"></select></label>
+    <label><input id="ovms-gateway-stop-confirm" type="checkbox">Gewählte Sitzung stoppen. SQL-Verbraucher können die Verbindung verlieren.</label>
+    <p id="ovms-gateway-status" role="status"></p>
+    <label id="ovms-gateway-result-box" hidden>Gateway-Bindung (JSON)<textarea id="ovms-gateway-result" readonly rows="7"></textarea></label>
+    <div class="build-actions">
+      <button id="ovms-gateway-read" type="button" class="button secondary">Sitzungen neu lesen</button>
+      <button id="ovms-gateway-stop" type="button" class="button" disabled>Eigene Sitzung stoppen</button>
+      <button id="ovms-gateway-close" type="button" class="button secondary">Schließen</button>
+    </div>
   </dialog>
   <dialog id="ovms-upstream-dialog">
     <form id="ovms-upstream-form">

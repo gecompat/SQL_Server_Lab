@@ -694,6 +694,7 @@ $containerAutoStartRecoverySelections = @{}
 $containerAutoStartChangeStore = @{}
 $hyperVAutoStartBrowserStore = @{}
 $aiSharedGatewayBrowserSessions = @{}
+$ovmsGatewayBrowserSessions = @{}
 
 try {
     $commandGrantStore = New-UiCommandGrantStore -Session $operatorSession
@@ -1551,6 +1552,34 @@ try {
                 }
                 continue
             }
+            if ($path -ceq '/api/ai-ovms-gateway/sessions') {
+                try {
+                    if ($context.Request.Url.Query) { throw 'AI_OVMS_GUIDED_REQUEST_INVALID' }
+                    if ($context.Request.HttpMethod -ceq 'GET') {
+                        $view = & (Get-Module SqlServerLab) { param($scope) Get-LabGuidedOvmsBrowserSessionView -BrowserSessions $scope } $ovmsGatewayBrowserSessions
+                    } elseif ($context.Request.HttpMethod -ceq 'POST' -and
+                        $context.Request.ContentType -match '^application/json(?:\s*;|$)' -and
+                        [string]$context.Request.Headers['Origin'] -ceq $url.TrimEnd('/')) {
+                        $bodyRead = Read-UiJsonRequestBody -Request $context.Request -MaxBytes 16384
+                        if (-not $bodyRead.Allowed) {
+                            Write-UiResponse -Context $context -Body $bodyRead.Code -StatusCode $bodyRead.StatusCode
+                            continue
+                        }
+                        $view = & (Get-Module SqlServerLab) {
+                            param($scope,$body) Invoke-LabGuidedOvmsBrowserGatewaySession -BrowserSessions $scope -Body $body
+                        } $ovmsGatewayBrowserSessions $bodyRead.Body
+                    } else { throw 'AI_OVMS_GUIDED_REQUEST_INVALID' }
+                    Write-UiResponse -Context $context -Body ($view | ConvertTo-Json -Depth 5 -Compress) -ContentType 'application/json; charset=utf-8'
+                } catch {
+                    $code = $_.Exception.Message
+                    if ($code -cnotin @('AI_OVMS_GUIDED_INPUT_INVALID','AI_OVMS_GUIDED_KEY_INVALID','AI_OVMS_GUIDED_VAULT_UNAVAILABLE',
+                        'AI_OVMS_GATEWAY_WINDOWS_REQUIRED','AI_OVMS_GATEWAY_OWNERSHIP_NOT_FOUND','AI_SHARED_GATEWAY_GUIDED_PATH_INVALID')) {
+                        $code = 'AI_OVMS_GUIDED_UNCONFIRMED'
+                    }
+                    Write-UiResponse -Context $context -Body (@{Code=$code} | ConvertTo-Json -Compress) -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                }
+                continue
+            }
             if ($path -ceq '/api/ai-shared-gateway/plan') {
                 if ($context.Request.HttpMethod -cne 'POST' -or $context.Request.Url.Query -or
                     $context.Request.ContentType -notmatch '^application/json(?:\s*;|$)' -or
@@ -2034,11 +2063,20 @@ finally {
         try {
             $listener.Stop()
             $listener.Close()
-            if ($aiSharedGatewayBrowserSessions.Count) {
-                $closed = & (Get-Module SqlServerLab) {
-                    param($scope) Close-LabAiSharedGatewayBrowserSessions -BrowserSessions $scope
-                } $aiSharedGatewayBrowserSessions
-                if (-not $closed) { Write-Warning 'Bereinigung eigener Gateway-Sitzungen unbestätigt. Ownerkanal und Lease begrenzen den Worker.' }
+            try {
+                if ($aiSharedGatewayBrowserSessions.Count) {
+                    $closed = & (Get-Module SqlServerLab) {
+                        param($scope) Close-LabAiSharedGatewayBrowserSessions -BrowserSessions $scope
+                    } $aiSharedGatewayBrowserSessions
+                    if (-not $closed) { Write-Warning 'Bereinigung eigener Gateway-Sitzungen unbestätigt. Ownerkanal und Lease begrenzen den Worker.' }
+                }
+            } finally {
+                if ($ovmsGatewayBrowserSessions.Count) {
+                    $closed = & (Get-Module SqlServerLab) {
+                        param($scope) Close-LabGuidedOvmsBrowserGatewaySession -BrowserSessions $scope
+                    } $ovmsGatewayBrowserSessions
+                    if (-not $closed) { Write-Warning 'Bereinigung eigener OVMS-Sitzungen unbestätigt. Ownerkanal und Lease begrenzen den Worker.' }
+                }
             }
         }
         finally {
