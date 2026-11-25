@@ -26,6 +26,14 @@ function New-RefreshTargetFixture($DataRoot,$SourceRun,$SourceConnection,$State=
 }
 try {
     foreach($source in @('Private/DiagnosticBundleReader.ps1','Private/SqlGuestEvaluationEvidence.ps1','Private/SqlGuestEvaluationCapture.ps1','Private/EvaluationRefreshPlan.ps1','Private/VersionCatalog.ps1','Private/PathSafety.ps1','Public/Get-SqlServerLabEvaluationRefreshPlan.ps1','Public/Get-SqlServerLabEvaluationWatch.ps1','Public/Invoke-SqlServerLabWorkflowAction.ps1')){Import-RefreshFunctions $source}
+    Import-RefreshFunctions 'Tests/Integration/Invoke-HyperVEvaluationTargetWindowsLicenseAcceptance.ps1'
+    $reason = 'HYPERV_WINDOWS_ACTIVATION_FAILED: WINDOWS_ACTIVATION_REQUEST_FAILED'
+    $flags = 'dns=resolved;ipv4=present;route=present;hresult=0x80004005'
+    $activation = Get-TargetLicenseActivationFailure "$reason [$flags]"
+    Assert-Refresh ($activation.Code -ceq 'WINDOWS_ACTIVATION_REQUEST_FAILED' -and $activation.Details -ceq $flags) 'Native fixture preserves the sanitized Windows activation diagnosis'
+    $activation = Get-TargetLicenseActivationFailure "$reason [CANARY_PRIVATE_DETAIL]"
+    Assert-Refresh ($activation.Code -ceq 'WINDOWS_ACTIVATION_REQUEST_FAILED' -and $null -eq $activation.Details) 'Native fixture discards raw details'
+    Assert-Refresh ($null -eq (Get-TargetLicenseActivationFailure 'HYPERV_WINDOWS_ACTIVATION_FAILED: WINDOWS_CANARY_PRIVATE_DETAIL')) 'Native fixture discards unknown codes'
     $script:VersionCatalog=Get-Content (Join-Path $repo Catalogs/sql-server-versions.json) -Raw|ConvertFrom-Json
     $script:SchemasPath=Join-Path $repo Schemas
     foreach($forbidden in @('Get-LabStateRoot','Get-LabStorageConfiguration','Get-LabSecret','Get-LabHostToolInvocation','Get-ContainerRuntime','Get-VM','Invoke-Sqlcmd','Get-LabDatabaseMigrationDependencyInventory','Invoke-LabArtifactStoreLock','New-SqlServerLab','Stop-SqlServerLab','Remove-SqlServerLab')){Set-Item ('Function:script:'+$forbidden) ([scriptblock]::Create("throw 'FORBIDDEN_REFRESH_BOUNDARY'"))}

@@ -126,7 +126,12 @@ Der vorbereitete manuelle Hyper-V-Modus
 eigenen Test-VMs der Zielabnahme. Er startet die bereits gebundene Quelle
 nach den Zielprüfungen wieder und legt nur dort eine synthetische
 Datenbank an. Er benötigt die Kapazität für zwei laufende Test-VMs.
-Der kombinierte native Lauf steht aus.
+Im [ersten kombinierten Key18-Lauf](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45705241664)
+auf `8c485eed` scheiterte die Windows-Aktivierung bei der Anlage des
+Ziellabs. Der Speichervergleich wurde nicht erreicht. Die gespeicherten
+Zustände beider eigenen Runs waren danach `REMOVED`. Der erweiterte
+Runner gibt bei künftigen Fehlern freigegebene Aktivierungscodes und die
+Bereinigung je Run aus. Ein erfolgreicher kombinierter Vergleich bleibt offen.
 
 Key18 bestätigte die Windows-Lizenz der separaten Ziel-VM mit zwei eigenen
 SQL-2025-Developer-Runs. Die Quelle wurde vor dem Zielstart gestoppt.

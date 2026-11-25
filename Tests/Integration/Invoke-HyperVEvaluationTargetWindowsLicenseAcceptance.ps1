@@ -5,8 +5,9 @@
 .DESCRIPTION
     Erstellt zwei eigene Labs aus demselben expliziten Developer-Prepared-Image.
     Die Quelle wird vor dem Start des Ziels gestoppt. Beide Bindungen bleiben
-    bis zum Ende erhalten. Die Probe führt keinen SQL-Transfer und keine
-    Lizenzänderung aus. Cleanup entfernt ausschließlich die eigenen Runs.
+    bis zum Ende erhalten. Die Bereitstellung darf die Windows-Evaluation der
+    eigenen VMs mit vorübergehender Netzfreigabe aktivieren. Die Gastprüfungen
+    lesen den aktuellen Zustand. Cleanup entfernt ausschließlich eigene Runs.
 .PARAMETER CompareFileAllocation
     Startet die eigene Quelle nach der Zielprüfung erneut, legt eine
     synthetische Quelldatenbank an und prüft die gebundene Speichervorschau,
@@ -35,6 +36,24 @@ function Assert-TargetLicenseAcceptance {
     param([bool]$Condition, [string]$Name)
     if (-not $Condition) { throw ('EVALUATION_TARGET_LICENSE_ASSERTION_FAILED: ' + $Name) }
     Write-Host "PASS: $Name"
+}
+
+function Get-TargetLicenseActivationFailure {
+    param([string]$Message)
+
+    $match = [regex]::Match($Message,'\AHYPERV_WINDOWS_ACTIVATION_FAILED: (?<Code>[A-Z0-9_]{1,90})(?: \[(?<Details>[^\r\n]{1,160})\])?\z')
+    if (-not $match.Success) { return }
+    $code = $match.Groups['Code'].Value
+    if ($code -cnotin @('WINDOWS_ACTIVATION_NETWORK_CONFIGURATION_FAILED','WINDOWS_ACTIVATION_NETWORK_NOT_READY',
+        'WINDOWS_ACTIVATION_LICENSE_DISCOVERY_FAILED','WINDOWS_ACTIVATION_REQUEST_FAILED','WINDOWS_ACTIVATION_VERIFICATION_FAILED',
+        'WINDOWS_ACTIVATION_GUEST_OPERATION_FAILED','WINDOWS_EVALUATION_EDITION_REQUIRED','WINDOWS_ACTIVATION_PRODUCT_NOT_FOUND',
+        'HYPERV_WINDOWS_ACTIVATION_GUEST_RECEIPT_INVALID','HYPERV_WINDOWS_ACTIVATION_VERIFICATION_FAILED',
+        'HYPERV_WINDOWS_ACTIVATION_OPERATION_FAILED')) { return }
+    $details = $match.Groups['Details'].Value
+    if ($details -cnotmatch '\Adns=(?:not_checked|resolved|unresolved);ipv4=(?:not_checked|present|missing);route=(?:not_checked|present|missing)(?:;(?:apiReturn|hresult)=0x[0-9A-F]{8}|;api=exception)?\z') {
+        $details = $null
+    }
+    [pscustomobject]@{Code=$code;Details=$details}
 }
 
 function New-TargetLicenseAcceptanceRun {
@@ -74,7 +93,7 @@ function Remove-TargetLicenseAcceptanceRun {
     $owned = & $module { param($Id,$Root) Get-LabOperationOwnedRun -OperationId $Id -StateRoot $Root } $Operation $stateRoot
     if (-not $owned) {
         if ($ObservedRun) { throw 'EVALUATION_TARGET_LICENSE_OWNERSHIP_MISSING' }
-        return
+        return 'NO_OWNED_RUN'
     }
     if ($ObservedRun -and [string]$owned.runId -cne [string]$ObservedRun.RunId) { throw 'EVALUATION_TARGET_LICENSE_OWNERSHIP_CHANGED' }
     $resources = @(& $module {
@@ -95,6 +114,7 @@ function Remove-TargetLicenseAcceptanceRun {
             if ($path -and (Test-Path -LiteralPath $path -ErrorAction Stop)) { throw 'EVALUATION_TARGET_LICENSE_DISK_REMAINS' }
         }
     }
+    return 'REMOVED'
 }
 
 $mutex = [Threading.Mutex]::new($false,'Global\SQL_Server_Lab_Runtime_Smoke')
@@ -229,11 +249,20 @@ try {
     $failure = [regex]::Match([string]$_.Exception.Message,'^[A-Z][A-Z0-9_]{2,100}(?=:|$)')
     $code = if ($failure.Success) { $failure.Value } else { 'UNCLASSIFIED_ERROR' }
     if ($code -ceq 'EVALUATION_TARGET_LICENSE_ASSERTION_FAILED') { Write-Host $_.Exception.Message }
+    if ($code -ceq 'HYPERV_WINDOWS_ACTIVATION_FAILED') {
+        $activation = Get-TargetLicenseActivationFailure -Message $_.Exception.Message
+        if ($activation) {
+            Write-Host ('Windows activation {0} {1}' -f $activation.Code,$activation.Details)
+        }
+    }
     throw "EVALUATION_TARGET_LICENSE_FAILED: $phase / $code"
 } finally {
     if ($module -and $acquired -and $stateRoot) {
-        foreach ($entry in @(@{Operation=$targetOperation;Run=$target},@{Operation=$sourceOperation;Run=$source})) {
-            try { Remove-TargetLicenseAcceptanceRun -Operation $entry.Operation -ObservedRun $entry.Run }
+        foreach ($entry in @(@{Role='target';Operation=$targetOperation;Run=$target},@{Role='source';Operation=$sourceOperation;Run=$source})) {
+            try {
+                $cleanup = Remove-TargetLicenseAcceptanceRun -Operation $entry.Operation -ObservedRun $entry.Run
+                Write-Host ('Own run cleanup {0} {1}' -f $entry.Role,$cleanup)
+            }
             catch { $cleanupFailed = $true; Write-Host 'RECOVERY_REQUIRED: Eigener Acceptance-Run benötigt scopegebundene Prüfung.' }
         }
     }
