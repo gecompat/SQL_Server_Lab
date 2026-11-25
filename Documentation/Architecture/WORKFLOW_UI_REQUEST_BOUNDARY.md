@@ -29,6 +29,15 @@ Sekunden; Timeout ergibt 408. Ein abgewiesener Requeststream wird geschlossen.
 Feste Codes enthalten keine Bodywerte. Bestehende JSON-Tiefen und fachliche
 Guards gelten nach erfolgreicher Transportlesung weiterhin.
 
+Die Route `/api/ai-shared-gateway/sessions` begrenzt POST-Aktionen auf
+64 KiB und verlangt die exakte Origin sowie eine ausdrückliche Bestätigung.
+Start liest die kanonische Registrierung vor den gebundenen Referenzen aus
+dem lokalen Vault. Der Browser überträgt Referenzen. Die Schlüssel bleiben
+im lokalen Modulhost. Start und Stop laufen direkt in diesem Modulhost.
+Die Liste und der Stop beziehen sich auf Worker des laufenden UI-Servers.
+Der Server hält dafür das konkrete Ownerobjekt. Beim Beenden bereinigt er
+die erfassten eigenen Worker. Unbestätigte Ergebnisse bleiben sichtbar.
+
 ## Acht interne Fachreader
 
 CMS-Inspection, Initial Setup, Slotreserve, Resource Watch, llama.cpp-Installer,

@@ -1400,9 +1400,11 @@ Der geführte Weg verwendet keinen API-Schlüssel. Das Ergebnis prüft
 Modell, Dimension und Zahlenwerte der Antwort. Im Browser steht es im
 Auftragsprotokoll.
 
-Im Browser übernimmt **In Dienst-Secret-Prüfung übernehmen** den Plan in das
-vorhandene Formular. Die Dienstprüfung benötigt weiterhin ihren eigenen
-Dienstplan und eine Bestätigung. [Gateway-Backlog](../Project_Planning/AI_EXTERNAL_MODEL_ACCELERATION_BACKLOG.md)
+Im Browser übernimmt **In Dienst-Secret-Prüfung übernehmen** den Gateway-Plan
+in das vorhandene Formular. Wenn der zugehörige Dienstplanauftrag abgeschlossen
+ist und `READY` für denselben Plan und den gewählten Hostmodus meldet, wird
+der Dienstplan mit übernommen. Erst **Dienst-Secrets prüfen** liest die
+gebundenen Vault-Referenzen. [Gateway-Backlog](../Project_Planning/AI_EXTERNAL_MODEL_ACCELERATION_BACKLOG.md)
 
 **Host-Autostart für diesen Gateway-Plan vorbereiten** liest den registrierten
 Gateway-Zustand und die Hostvoraussetzungen. Wähle **Automatisch** oder prüfe
@@ -1415,6 +1417,39 @@ Benutzers prüfen. Im Browser verwendet die Dienst-Secret-Prüfung den
 passenden Gateway- und Dienstplan. Die Ergebnisansicht zeigt Anzahl und
 Gültigkeit. Die Auflösung durch den tatsächlich gestarteten nichtinteraktiven
 Dienst ist ein eigener Nachweis.
+
+#### Eine eigene Gateway-Sitzung starten oder stoppen
+
+Wähle im registrierten Gateway-Plan **Eigene Gateway-Sitzung für diesen
+Plan starten**. Gib die maximale Laufzeit ein und bestätige den Start.
+Erfasse für jede angezeigte Verbraucherreferenz ihren Schlüssel in der
+maskierten Eingabe. Wenn der Upstream selbst einen Schlüssel verlangt,
+gib ihn im optionalen Feld ein. Eine leere Eingabe überspringt dieses Feld.
+Die Startquittung bestätigt den lokalen HTTPS-Endpunkt. Prüfe den SQL-Zugriff
+anschließend für den vorgesehenen Verbraucher.
+
+Behalte dieselbe Modulsitzung, um unter **Host-Dienste und Modelle →
+Eigene Gateway-Sitzung auswählen und stoppen** den Worker an Gateway-ID
+und Port zu erkennen. Bestätige den Stop, sobald die Verbraucher die
+Sitzung entbehren können. Der Stop beseitigt nur den eigenen temporären
+Zustand. Die Sitzung endet außerdem bei Ablauf oder Verlust des Ownerkanals.
+Die geschützte Registrierung kann wiederverwendet werden.
+
+Im Browser wählst du im angezeigten Plan ebenfalls **Eigene Gateway-Sitzung
+für diesen Plan starten**. Trage die Laufzeit ein. Falls der Upstream eine
+Authentifizierung braucht, gib seine Vault-Referenz an. Nach der Bestätigung
+liest der lokale UI-Server die gebundenen Referenzen über PowerShell
+SecretManagement. Voraussetzung ist ein für diesen Prozess zugänglicher
+Vault mit Schlüsseln als `SecureString`. Im Browserdialog werden keine
+Schlüsselwerte eingegeben. **Host-Dienste und Modelle → Eigene
+Gateway-Sitzungen verwalten** zeigt die Worker dieses UI-Servers. Wähle
+den Worker, bestätige den Stop und prüfe die Ergebnisanzeige. Bei einem
+unbestätigten Ergebnis lies die eigenen Sitzungen neu.
+
+Die CLI- und Browser-Liste verwenden jeweils den Modulhost, der den Worker
+gestartet hat. Eine getrennte Statusabfrage kann einen Port als belegt melden,
+wenn ihr der Ownerkanal nicht vorliegt. Der dauerhafte Autostart und die
+SQL-Bindung erfordern eigene Nachweise.
 
 ### Vorhandene llama.cpp-Pakete prüfen
 

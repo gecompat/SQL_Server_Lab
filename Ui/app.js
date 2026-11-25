@@ -1218,6 +1218,7 @@ async function submitUiAction(action, endpoint, payload, descriptors = []) {
     // bewusst nicht Teil des unmittelbaren Klickpfads. Der Job bleibt jede
     // Sekunde sichtbar; nach kurzer Zeit wird die fachliche Ansicht erneuert.
     if (!['StartTestGroupPower', 'StopTestGroupPower'].includes(action)) window.setTimeout(() => refresh().catch(showError), 3500);
+    return accepted;
   } catch (error) {
     if (error.message === 'UI_COMMAND_GRANT_CAPACITY') {
       optimistic.State = 'Rejected';

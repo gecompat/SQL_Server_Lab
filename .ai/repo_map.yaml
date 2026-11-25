@@ -220,6 +220,8 @@ sources_of_truth:
   ai_shared_gateway_session_worker: Tools/Invoke-AiSharedGatewaySessionWorker.ps1
   ai_shared_gateway_session_start: Public/Start-SqlServerLabAiSharedGatewaySession.ps1
   ai_shared_gateway_session_stop: Public/Stop-SqlServerLabAiSharedGatewaySession.ps1
+  ai_shared_gateway_session_console: "Private/AiSharedGatewaySessionGuidance.ps1 startet aus dem gebundenen Plan mit bestätigten SecureString-Eingaben und stoppt ausschließlich ausgewählte Operationen derselben Modulsitzung. Invoke-AiSharedGatewaySessionChecks.ps1 prüft Abbruch, Ownerbindung sowie echten synthetischen Loopback-Start und -Stop."
+  ai_shared_gateway_session_browser: "Private/AiSharedGatewaySessionHttp.ps1, Tools/Start-SqlServerLabUi.ps1 und Ui/ai-shared-gateway-plan.js binden Start an Plan, Bestätigung und lokalen Vault und Stop an eigene Operationen dieses UI-Servers. Session-Suite und Browser-Fixture prüfen Ownergrenze und Ergebnisbindung."
   ai_shared_gateway_session_schema: Schemas/ai-shared-gateway-session-receipt.schema.json
   validation_ai_shared_gateway_session: Tests/Static/Invoke-AiSharedGatewaySessionChecks.ps1
   ai_shared_gateway_status_api: Public/Get-SqlServerLabAiSharedGatewayStatus.ps1
@@ -232,6 +234,7 @@ sources_of_truth:
   ai_shared_gateway_service_secret_contract: Private/AiSharedGatewayServiceSecret.ps1
   ai_shared_gateway_service_secret_api: Public/Test-SqlServerLabAiSharedGatewayServiceSecret.ps1
   ai_shared_gateway_service_secret_console: "Private/AiSharedGatewayPlanGuidance.ps1 bietet nach READY die ausdrückliche Vault-Prüfung gebundener Referenzen. Test-Suite für Abbruch, Leser und begrenzte Quittung in der Konsole."
+  ai_shared_gateway_service_secret_browser_handoff: "Ui/ai-shared-gateway-plan.js übernimmt nach Auswahl das READY-Ergebnis des exakten abgeschlossenen Dienstplanauftrags bei gleicher Plan- und Modusbindung. Die getrennte Vault-Prüfung bleibt eine ausdrückliche Benutzeraktion."
   ai_shared_gateway_service_secret_schema: Schemas/ai-shared-gateway-service-secret-receipt.schema.json
   validation_ai_shared_gateway_service_secret: Tests/Static/Invoke-AiSharedGatewayServiceSecretChecks.ps1
   ai_shared_gateway_upstream_schema: Schemas/ai-shared-gateway-upstream-receipt.schema.json

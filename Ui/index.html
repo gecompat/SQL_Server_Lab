@@ -153,6 +153,7 @@
       <button id="ai-scenario-plan-open" type="button" class="button secondary">Vector-Core-Szenarioplan lesen</button>
       <button id="llama-start-plan-open" type="button" class="button secondary">llama.cpp: reine Startvorschau</button>
       <button id="llama-start-open" type="button" class="button secondary">llama.cpp: eigene Sitzung starten</button>
+      <button id="ai-shared-gateway-open-sessions" type="button" class="button secondary">Eigene Gateway-Sitzungen verwalten</button>
     </section>
     <section class="panel" data-workspace-area="connections" hidden>
       <h2>Verbindungen und CMS</h2>
@@ -343,6 +344,27 @@
         </select></label>
         <button id="ai-shared-gateway-prepare-service" type="button" class="button secondary" disabled>Host-Autostart für diesen Gateway-Plan vorbereiten</button>
       </div>
+      <button id="ai-shared-gateway-open-session-start" type="button" class="button secondary" disabled>Eigene Gateway-Sitzung für diesen Plan starten</button>
+      <dialog id="ai-shared-gateway-session-dialog" aria-labelledby="ai-shared-gateway-session-title">
+        <h2 id="ai-shared-gateway-session-title">Eigene Gateway-Sitzungen</h2>
+        <p>Die Liste enthält nur Worker dieses UI-Servers. Auch unbekannte SQL-Verbraucher können beim Stop ihre Verbindung verlieren.</p>
+        <form id="ai-shared-gateway-session-start" hidden>
+          <p id="ai-shared-gateway-session-target"></p>
+          <p>Der Start liest die gebundenen Verbraucherreferenzen aus dem lokalen Vault. Die Sitzung bleibt bis zum Stop, zum Ende des UI-Servers oder bis zum Ablauf der Laufzeit aktiv.</p>
+          <label>Maximale Sitzungsdauer in Sekunden<input id="ai-shared-gateway-session-lease" type="number" min="60" max="3600" value="900" required></label>
+          <label>Optionale Vault-Referenz für den Upstream<input id="ai-shared-gateway-session-upstream-reference" maxlength="118" autocomplete="off"></label>
+          <label><input id="ai-shared-gateway-session-start-confirmed" type="checkbox" required>Vault lesen und den befristeten Worker für diesen Plan starten</label>
+          <button id="ai-shared-gateway-session-start-submit" type="submit" class="button" disabled>Eigene Gateway-Sitzung starten</button>
+        </form>
+        <label>Eigene Sitzung<select id="ai-shared-gateway-session-selection"></select></label>
+        <label><input id="ai-shared-gateway-session-stop-confirmed" type="checkbox">Ausgewählte Sitzung stoppen</label>
+        <p id="ai-shared-gateway-session-status" role="status"></p>
+        <div class="build-actions">
+          <button id="ai-shared-gateway-session-read" type="button" class="button secondary">Sitzungen neu lesen</button>
+          <button id="ai-shared-gateway-session-stop" type="button" class="button" disabled>Eigenen Worker stoppen</button>
+          <button id="ai-shared-gateway-session-close" type="button" class="button secondary">Schließen</button>
+        </div>
+      </dialog>
       <form id="ai-shared-gateway-preflight" autocomplete="off" hidden>
         <p id="ai-shared-gateway-file-action-effect"></p>
         <p>Gib absolute lokale Pfade auf dem Lab-Host ein. Verwende reguläre Dateien ohne Verknüpfungen.</p>

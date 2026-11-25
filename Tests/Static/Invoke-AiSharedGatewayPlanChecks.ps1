@@ -64,6 +64,7 @@ try {
             $script:guidedPreflightKeys=[Collections.Generic.List[string]]::new()
             $script:guidedRegistrationKeys=[Collections.Generic.List[string]]::new()
             $script:guidedServicePlanKeys=[Collections.Generic.List[string]]::new()
+            $script:guidedSessionStartKeys=[Collections.Generic.List[string]]::new()
             $script:guidedText=[Collections.Generic.Queue[string]]::new()
             $script:guidedChoices=[Collections.Generic.Queue[string]]::new()
             function New-LabConsoleItem { param($Id,$Label) [pscustomobject]@{Id=$Id;Label=$Label} }
@@ -104,12 +105,16 @@ try {
                 param($Plan)
                 $script:guidedServicePlanKeys.Add($Plan.PlanKey)
             }
+            function Invoke-LabAiSharedGatewaySessionStartInteractive {
+                param($Plan)
+                $script:guidedSessionStartKeys.Add($Plan.PlanKey)
+            }
             $entry = @(Show-LabHostModelsMenu | Where-Object Id -CEQ 'AiSharedGatewayPlan')
             if ($entry.Count -ne 1) { throw 'GATEWAY_GUIDED_MENU_ENTRY_INVALID' }
             $script:guidedChoices.Enqueue('ESC')
             Invoke-LabMenuAction -ActionName $entry[0].Id
             $cancelled=$script:guidedPlannerCalls -eq 0
-            foreach($next in @('back','status','upstream','preflight','register','service')) {
+            foreach($next in @('back','status','upstream','preflight','register','service','start')) {
                 foreach($name in @('GatewayId','Location','UpstreamLocation','RuntimeModel','Dimension','ModelSha256','RuntimeSha256',
                     'ServerCertificateSha256','CertificateAuthoritySha256')){ $script:guidedText.Enqueue([string]$Case[$name]) }
                 foreach($consumer in @($FirstConsumer,$SecondConsumer)){
@@ -118,11 +123,11 @@ try {
                 foreach($choice in @($Case.UpstreamBackend,$Case.InputProfile,'add','preview',$next)){ $script:guidedChoices.Enqueue($choice) }
                 Invoke-LabMenuAction -ActionName $entry[0].Id
             }
-            [pscustomobject]@{CancelNoPlan=$cancelled; Calls=$script:guidedPlannerCalls; Key=$script:guidedPlan.PlanKey; Count=$script:guidedPlan.Consumers.Count; StatusKeys=$script:guidedStatusKeys.ToArray();UpstreamKeys=$script:guidedUpstreamKeys.ToArray();PreflightKeys=$script:guidedPreflightKeys.ToArray();RegistrationKeys=$script:guidedRegistrationKeys.ToArray();ServicePlanKeys=$script:guidedServicePlanKeys.ToArray()}
+            [pscustomobject]@{CancelNoPlan=$cancelled; Calls=$script:guidedPlannerCalls; Key=$script:guidedPlan.PlanKey; Count=$script:guidedPlan.Consumers.Count; StatusKeys=$script:guidedStatusKeys.ToArray();UpstreamKeys=$script:guidedUpstreamKeys.ToArray();PreflightKeys=$script:guidedPreflightKeys.ToArray();RegistrationKeys=$script:guidedRegistrationKeys.ToArray();ServicePlanKeys=$script:guidedServicePlanKeys.ToArray();SessionStartKeys=$script:guidedSessionStartKeys.ToArray()}
         }
     } $planArgs $c2 $c1
     Add-CheckResult 'Geführte CLI verwendet denselben Plan mit mehreren Verbrauchern und verwirft Esc' (
-        $console.CancelNoPlan -and $console.Calls -eq 6 -and $console.Key -ceq $plan.PlanKey -and $console.Count -eq 2)
+        $console.CancelNoPlan -and $console.Calls -eq 7 -and $console.Key -ceq $plan.PlanKey -and $console.Count -eq 2)
     Add-CheckResult 'CLI liest den Status nur auf Auswahl und mit dem unveränderten Plan' (
         $console.StatusKeys.Count -eq 1 -and $console.StatusKeys[0] -ceq $plan.PlanKey)
     Add-CheckResult 'CLI prüft den Upstream nur auf Auswahl und mit dem unveränderten Plan' (
@@ -133,6 +138,8 @@ try {
         $console.RegistrationKeys.Count -eq 1 -and $console.RegistrationKeys[0] -ceq $plan.PlanKey)
     Add-CheckResult 'CLI öffnet den Dienstplan nur auf Auswahl und mit dem unveränderten Gateway-Plan' (
         $console.ServicePlanKeys.Count -eq 1 -and $console.ServicePlanKeys[0] -ceq $plan.PlanKey)
+    Add-CheckResult 'CLI öffnet den befristeten Start nur auf Auswahl und mit dem unveränderten Gateway-Plan' (
+        $console.SessionStartKeys.Count -eq 1 -and $console.SessionStartKeys[0] -ceq $plan.PlanKey)
 
     $statusRoot=Join-Path ([IO.Path]::GetTempPath()) ('gateway-unregistered-'+[guid]::NewGuid().ToString('N'))
     $commandReceipt=& $module {
