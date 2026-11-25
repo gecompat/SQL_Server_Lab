@@ -10,7 +10,7 @@ function Get-LabExternalRuntimeCapabilityReason {
 }
 
 function Get-LabExternalRuntimeInfoArguments {
-    param([string]$Provider,[switch]$IncludeHostPrerequisites)
+    param([string]$Provider,[switch]$IncludeHostPrerequisites,[switch]$IncludeKernelEvidence)
     $format=if($Provider -ceq 'docker') {
         '{"OperatingSystem":{{json .OSType}},"CgroupVersion":{{json .CgroupVersion}},"SecurityOptions":{{json .SecurityOptions}}}'
     } elseif($Provider -ceq 'podman') {
@@ -23,6 +23,10 @@ function Get-LabExternalRuntimeInfoArguments {
             ',"CgroupsVersion":{{json .Host.CgroupsVersion}},"Controllers":{{json .Host.CgroupControllers}},"MemTotal":{{json .Host.MemTotal}},"Cpus":{{json .Host.CPUs}}}'
         }
         $format=$format.Substring(0,$format.Length-1)+$extra
+    }
+    if ($IncludeKernelEvidence) {
+        $kernel = if ($Provider -ceq 'docker') { '{{json .KernelVersion}}' } else { '{{json .Host.Kernel}}' }
+        $format = $format.Substring(0,$format.Length-1) + ',"KernelRelease":' + $kernel + '}'
     }
     return @('info','--format',$format)
 }
@@ -38,7 +42,7 @@ function Invoke-LabExternalRuntimeInfoProcess {
 }
 
 function Read-LabExternalRuntimeHostFacts {
-    param([string]$Provider,[switch]$IncludeHostPrerequisites)
+    param([string]$Provider,[switch]$IncludeHostPrerequisites,[switch]$IncludeKernelEvidence)
     $result=[pscustomobject]@{Status='UNAVAILABLE';ReasonCode='PROVIDER_PROBE_FAILED';Facts=$null}
     try {
         $resolution=@(Initialize-LabHostToolPath -Name $Provider)
@@ -47,7 +51,7 @@ function Read-LabExternalRuntimeHostFacts {
         if($invocation -isnot [string] -or -not [IO.Path]::IsPathFullyQualified($invocation)) {
             $result.ReasonCode='TOOL_NATIVE_PATH_REQUIRED';return $result
         }
-        $response=Invoke-LabExternalRuntimeInfoProcess -Invocation $invocation -ArgumentList (Get-LabExternalRuntimeInfoArguments -Provider $Provider -IncludeHostPrerequisites:$IncludeHostPrerequisites)
+        $response=Invoke-LabExternalRuntimeInfoProcess -Invocation $invocation -ArgumentList (Get-LabExternalRuntimeInfoArguments -Provider $Provider -IncludeHostPrerequisites:$IncludeHostPrerequisites -IncludeKernelEvidence:$IncludeKernelEvidence)
         if(-not $response.Success) {
             $result.ReasonCode=switch -CaseSensitive ($response.Reason) {
                 'DIAGNOSTIC_READINESS_TIMEOUT' {'PROVIDER_PROBE_TIMEOUT'}
@@ -59,9 +63,12 @@ function Read-LabExternalRuntimeHostFacts {
             return $result
         }
         if($IncludeHostPrerequisites) {
-            $converted=ConvertTo-LabExternalRuntimePrerequisiteObservation -Provider $Provider -Value $response.Value
+            $converted=ConvertTo-LabExternalRuntimePrerequisiteObservation -Provider $Provider -Value $response.Value -IncludeKernelEvidence:$IncludeKernelEvidence
             $result.Facts=$converted.Facts
             $result|Add-Member -NotePropertyName PrerequisiteRuntimeInfo -NotePropertyValue $converted.RuntimeInfo
+            if ($IncludeKernelEvidence) {
+                $result | Add-Member -NotePropertyName KernelEvidence -NotePropertyValue $converted.KernelEvidence
+            }
         }else{
             $result.Facts=ConvertTo-LabExternalRuntimeHostFacts -Provider $Provider -Value $response.Value
         }

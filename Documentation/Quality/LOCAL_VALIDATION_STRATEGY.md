@@ -2506,7 +2506,11 @@ Das Opt-in für Providerangaben prüft zusätzlich typisierte OS-, cgroup-
 und Rootless-Werte aus derselben Abfrage. Eine unbekannte Beobachtung
 bleibt `null`. Die Browser-Fixture prüft die getrennte Darstellung der
 benötigten und der gemeldeten cgroup-Version sowie die bisherigen
-Payload- und Ergebnisgrenzen.
+Payload- und Ergebnisgrenzen. Das Kernel-Opt-in prüft für Docker und Podman
+die passende Vorlage im selben `info`-Aufruf. Synthetische Releasewerte
+decken den Microsoft-WSL2-Marker, andere Linux-Releases und unbrauchbare
+Angaben ab. Die HTTP- und Browserprüfungen prüfen sichere Felder und
+weisen Rohsuffixe zurück.
 Die Prüfung belegt keine nativen Hostwerte und keine SQL-Sprachausführung.
 
 Die additive `Invoke-ExternalRuntimeCapabilityCatalogBrowserAcceptance.ps1`
