@@ -1418,7 +1418,7 @@ passenden Gateway- und Dienstplan. Die Ergebnisansicht zeigt Anzahl und
 Gültigkeit. Die Auflösung durch den tatsächlich gestarteten nichtinteraktiven
 Dienst ist ein eigener Nachweis.
 
-#### Eine eigene Gateway-Sitzung in der CLI starten oder stoppen
+#### Eine eigene Gateway-Sitzung starten oder stoppen
 
 Wähle im registrierten Gateway-Plan **Eigene Gateway-Sitzung für diesen
 Plan starten**. Gib die maximale Laufzeit ein und bestätige den Start.
@@ -1433,8 +1433,23 @@ Eigene Gateway-Sitzung auswählen und stoppen** den Worker an Gateway-ID
 und Port zu erkennen. Bestätige den Stop, sobald die Verbraucher die
 Sitzung entbehren können. Der Stop beseitigt nur den eigenen temporären
 Zustand. Die Sitzung endet außerdem bei Ablauf oder Verlust des Ownerkanals.
-Die geschützte Registrierung kann wiederverwendet werden. Für den Browser,
-den dauerhaften Autostart und die SQL-Bindung bleiben eigene Wege offen.
+Die geschützte Registrierung kann wiederverwendet werden.
+
+Im Browser wählst du im angezeigten Plan ebenfalls **Eigene Gateway-Sitzung
+für diesen Plan starten**. Trage die Laufzeit ein. Falls der Upstream eine
+Authentifizierung braucht, gib seine Vault-Referenz an. Nach der Bestätigung
+liest der lokale UI-Server die gebundenen Referenzen über PowerShell
+SecretManagement. Voraussetzung ist ein für diesen Prozess zugänglicher
+Vault mit Schlüsseln als `SecureString`. Im Browserdialog werden keine
+Schlüsselwerte eingegeben. **Host-Dienste und Modelle → Eigene
+Gateway-Sitzungen verwalten** zeigt die Worker dieses UI-Servers. Wähle
+den Worker, bestätige den Stop und prüfe die Ergebnisanzeige. Bei einem
+unbestätigten Ergebnis lies die eigenen Sitzungen neu.
+
+Die CLI- und Browser-Liste verwenden jeweils den Modulhost, der den Worker
+gestartet hat. Eine getrennte Statusabfrage kann einen Port als belegt melden,
+wenn ihr der Ownerkanal nicht vorliegt. Der dauerhafte Autostart und die
+SQL-Bindung erfordern eigene Nachweise.
 
 ### Vorhandene llama.cpp-Pakete prüfen
 

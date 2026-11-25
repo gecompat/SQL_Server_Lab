@@ -28,6 +28,10 @@ class Control {
       this.children = this.children.filter(child => child !== row);
     };
   }
+  replaceChildren() {
+    this.children = [];
+    this.value = '';
+  }
 }
 
 const ids = new Map([...html.matchAll(/\bid="(ai-shared-gateway-[^"]+)"/g)].map(match => [match[1], new Control()]));
@@ -76,6 +80,14 @@ item('consumer-template').content = {
   }
 };
 item('service-secret-panel').scrollIntoView = () => {};
+item('session-dialog').showModal = function () { this.open = true; };
+item('session-dialog').close = function () { this.open = false; return this.fire('close'); };
+item('session-start').reportValidity = () => true;
+item('session-start').reset = () => {
+  item('session-lease').value = '900';
+  item('session-upstream-reference').value = '';
+  item('session-start-confirmed').checked = false;
+};
 const requests = [];
 const statusCalls = [];
 const observedJobs = new Map();
@@ -117,7 +129,7 @@ const serviceCommand = {
   ] }]
 };
 const context = vm.createContext({
-  document: { querySelector: selector => ids.get(selector.slice(1)) },
+  document: { querySelector: selector => ids.get(selector.slice(1)), createElement: () => new Control() },
   sqlServerLabUiFetch(url, options) {
     return new Promise(resolve => requests.push({ url, options, resolve }));
   },
@@ -306,6 +318,62 @@ const check = (label, value) => { assert.ok(value, label); checks++; };
   item('service-mode').value = 'SystemdUser';
   await item('use-plan').fire('click');
   check('Changing the service mode clears an incompatible transferred plan', item('service-plan-json').value === '');
+  const unavailable = item('open-session-start').fire('click');
+  const unavailableRequest = requests.at(-1);
+  respond(unavailableRequest, { VaultAvailable: false, Items: [] });
+  await unavailable;
+  item('session-start-confirmed').checked = true;
+  await item('session-start-confirmed').fire('change');
+  await item('session-start').fire('submit');
+  check('Unavailable Vault disables a session start without dispatching it',
+    unavailableRequest.url === '/api/ai-shared-gateway/sessions' && !unavailableRequest.options.method &&
+    requests.at(-1) === unavailableRequest && item('session-start-submit').disabled);
+  await item('session-close').fire('click');
+  const sessionOpening = item('open-session-start').fire('click');
+  const sessionRead = requests.at(-1);
+  respond(sessionRead, { VaultAvailable: true, Items: [] });
+  await sessionOpening;
+  await item('session-start').fire('submit');
+  check('Start remains blocked until the local Vault read and worker start are selected',
+    requests.at(-1) === sessionRead && item('session-start-submit').disabled);
+  item('session-start-confirmed').checked = true;
+  await item('session-start-confirmed').fire('change');
+  item('session-lease').value = '60';
+  const sessionStart = item('session-start').fire('submit');
+  const sessionDispatch = requests.at(-1);
+  const sentSession = JSON.parse(sessionDispatch.options.body);
+  await item('session-start').fire('submit');
+  check('One bound start posts only the plan and reference, with no secret value or job',
+    requests.at(-1) === sessionDispatch && sentSession.Action === 'Start' && sentSession.Confirmed === true &&
+    sentSession.LeaseSeconds === 60 && sentSession.UpstreamReference === '' && sentSession.Plan.PlanKey === 'e'.repeat(64) &&
+    Object.keys(sentSession).length === 5 && item('session-close').disabled && statusCalls.length === 6);
+  const ownerSessionId = '11111111-2222-4333-8444-555555555555';
+  respond(sessionDispatch, { Status: 'SESSION_ENDPOINT_VERIFIED', PlanKey: sentSession.Plan.PlanKey, OperationId: ownerSessionId });
+  await sessionStart;
+  check('Only a matching start receipt confirms the endpoint',
+    item('session-status').textContent.includes('Gateway-Endpunkt wurde bestätigt') && !item('session-close').disabled);
+  const refreshedSessions = item('session-read').fire('click');
+  const ownerRead = requests.at(-1);
+  respond(ownerRead, { VaultAvailable: true, Items: [{ OperationId: ownerSessionId, Port: 18443, GatewayId: baseFields.GatewayId, Status: 'OWNED_SESSION' }] });
+  await refreshedSessions;
+  item('session-selection').value = ownerSessionId;
+  await item('session-selection').fire('change');
+  await item('session-stop').fire('click');
+  check('Stop requires confirmation after selecting a listed session',
+    requests.at(-1) === ownerRead && item('session-stop').disabled);
+  item('session-stop-confirmed').checked = true;
+  await item('session-stop-confirmed').fire('change');
+  const sessionStopping = item('session-stop').fire('click');
+  const stopRequest = requests.at(-1);
+  const stopPayload = JSON.parse(stopRequest.options.body);
+  check('The stop request binds exactly the confirmed selected operation',
+    stopPayload.Action === 'Stop' && stopPayload.Confirmed === true &&
+    stopPayload.OperationId === ownerSessionId && Object.keys(stopPayload).length === 3);
+  respond(stopRequest, { Status: 'CLEANUP_SUCCEEDED', OperationId: ownerSessionId });
+  await sessionStopping;
+  check('Confirmed Stop reports cleanup without retrying',
+    item('session-status').textContent.includes('temporärer Zustand bereinigt') && item('session-stop').disabled && requests.at(-1) === stopRequest);
+  await item('session-close').fire('click');
   const bad = form.fire('submit');
   respond(requests.at(-1), { ...canonical(payload.Consumer), Status: 'READY', Untrusted: 'SYNTHETIC_PRIVATE' });
   await bad;

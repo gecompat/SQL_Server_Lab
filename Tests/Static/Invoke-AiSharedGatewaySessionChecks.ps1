@@ -148,6 +148,98 @@ try {
     Add-CheckResult 'Stop-Menü zeigt nur eigene Operationen und verweigert fremde Auswahl' $guided.ListedOwnerOnly
     Add-CheckResult 'Geführter Stop respektiert Ablehnung und bestätigt nach Zustimmung eigenes Ende' ($guided.StopDeclined -and $guided.StopVerified)
     Add-CheckResult 'Geführte Sitzungsanzeige enthält keine Schlüssel oder Dateispeicherorte' $guided.OutputBounded
+    $browser = & $module {
+        param($FixturePlan,$FixtureRoot,$FixtureKeyA,$FixtureKeyB)
+        $vaultReads = [Collections.Generic.List[string]]::new()
+        function Get-LabStateRoot { $FixtureRoot }
+        function Get-Secret {
+            [CmdletBinding()]param([string]$Name)
+            $vaultReads.Add($Name)
+            if ($Name -ceq 'SQL_SERVER_LAB_SECRET_SHARED_AI_A') { return $FixtureKeyA }
+            if ($Name -ceq 'SQL_SERVER_LAB_SECRET_SHARED_AI_B') { return $FixtureKeyB }
+            throw 'synthetic vault mismatch'
+        }
+        $scope = @{}
+        $foreignScope = @{}
+        $startPayload = @{Action='Start'; Confirmed=$false; Plan=$FixturePlan; LeaseSeconds=60; UpstreamReference=''}
+        try { Invoke-LabAiSharedGatewayBrowserSession $scope ($startPayload | ConvertTo-Json -Depth 8); $unconfirmedRejected = $false }
+        catch { $unconfirmedRejected = $vaultReads.Count -eq 0 }
+        $startPayload.Confirmed = $true
+        $startJson = $startPayload | ConvertTo-Json -Depth 8
+        $result = Invoke-LabAiSharedGatewayBrowserSession $scope $startJson
+        $id = $result.OperationId
+        try {
+            $view = Get-LabAiSharedGatewayBrowserSessions $scope
+            $foreignView = Get-LabAiSharedGatewayBrowserSessions $foreignScope
+            $stopJson = @{Action='Stop'; Confirmed=$true; OperationId=$id} | ConvertTo-Json
+            try { Invoke-LabAiSharedGatewayBrowserSession $foreignScope $stopJson; $foreignRejected = $false }
+            catch { $foreignRejected = $_.Exception.Message -ceq 'AI_SHARED_GATEWAY_SESSION_HTTP_OWNERSHIP_NOT_FOUND' }
+            $scopeIsolated = $view.Items.Count -eq 1 -and $view.Items[0].OperationId -ceq $id -and $foreignView.Items.Count -eq 0 -and $foreignRejected
+            $ownStop = Invoke-LabAiSharedGatewayBrowserSession $scope $stopJson
+            $explicitEnd = $ownStop.Status -ceq 'CLEANUP_SUCCEEDED' -and -not $scope.Count -and
+                (Get-SqlServerLabAiSharedGatewayStatus -Plan $FixturePlan -StateRoot $FixtureRoot).Status -ceq 'REGISTERED_STOPPED'
+            $firstReadCount = $vaultReads.Count
+            function Start-SqlServerLabAiSharedGatewaySession {
+                [CmdletBinding()]param($Plan,$StateRoot,$ApiKeyByReference,$LeaseSeconds,$UpstreamApiKey)
+                $null = Start-LabAiSharedGatewaySession @PSBoundParameters
+                throw 'synthetic unconfirmed reply'
+            }
+            $unconfirmedStart = $false
+            try { $null = Invoke-LabAiSharedGatewayBrowserSession $scope $startJson }
+            catch { $unconfirmedStart = $_.Exception.Message -ceq 'AI_SHARED_GATEWAY_SESSION_HTTP_START_UNCONFIRMED' }
+            $retained = Get-LabAiSharedGatewayBrowserSessions $scope
+            $shutdown = Close-LabAiSharedGatewayBrowserSessions $scope
+            [pscustomobject]@{
+                RejectedBeforeVault=$unconfirmedRejected
+                BoundStart=$result.Status -ceq 'SESSION_ENDPOINT_VERIFIED' -and $result.PlanKey -ceq $FixturePlan.PlanKey -and $firstReadCount -eq 2
+                Isolated=$scopeIsolated
+                ExplicitEnd=$explicitEnd
+                OwnerShutdown=$unconfirmedStart -and $retained.Items.Count -eq 1 -and
+                    $retained.Items[0].OperationId -cne $id -and $shutdown -and -not $scope.Count -and
+                    (Get-SqlServerLabAiSharedGatewayStatus -Plan $FixturePlan -StateRoot $FixtureRoot).Status -ceq 'REGISTERED_STOPPED'
+                Sanitized=(($view,$result,$ownStop | ConvertTo-Json -Depth 10) -cnotmatch 'AAAAAAAA|BBBBBBBB|SECRET_SHARED_AI|OwnerNonce|ProcessId|OperationRoot')
+            }
+        } finally { $null = Close-LabAiSharedGatewayBrowserSessions $scope }
+    } $plan $stateRoot $keyA $keyB
+    Add-CheckResult 'Browser startet ohne ausdrückliche Zustimmung und Vault-Zugriff keinen Worker' $browser.RejectedBeforeVault
+    Add-CheckResult 'Browser liest genau die gebundenen Vault-Referenzen und startet in derselben Modulsitzung' $browser.BoundStart
+    Add-CheckResult 'Browser listet und stoppt keine eigene Operation eines anderen UI-Scopes' $browser.Isolated
+    Add-CheckResult 'Browser-Stop und UI-Serverende bereinigen den eigenen Worker auch nach unbestätigtem Start' ($browser.ExplicitEnd -and $browser.OwnerShutdown)
+    Add-CheckResult 'Browser-Sitzungsvertrag enthält keine Schlüssel, Referenzen oder private Prozessdaten' $browser.Sanitized
+    $tokens=$null;$parseErrors=$null
+    $server=[Management.Automation.Language.Parser]::ParseFile((Join-Path $repoRoot 'Tools/Start-SqlServerLabUi.ps1'),[ref]$tokens,[ref]$parseErrors)
+    if ($parseErrors.Count) { throw 'Browser session route parse failed' }
+    $route=$server.Find({param($node) $node -is [Management.Automation.Language.IfStatementAst] -and
+        $node.Clauses[0].Item1.Extent.Text -ceq '$path -ceq ''/api/ai-shared-gateway/sessions'''},$true)
+    $handler=[scriptblock]::Create('foreach ($once in @(1)) '+$route.Clauses[0].Item2.Extent.Text)
+    $transport = & $module {
+        param($Handler,$Reader)
+        . $Reader
+        $url='http://127.0.0.1:8484/'
+        $aiSharedGatewayBrowserSessions=@{}
+        function Write-UiResponse {
+            param($Context,$Body,$ContentType,$StatusCode=200)
+            [pscustomobject]@{StatusCode=$StatusCode;Body=$Body}
+        }
+        $invalidOriginStream=[IO.MemoryStream]::new([byte[]]@())
+        $context=[pscustomobject]@{Request=[pscustomobject]@{
+            Url=[Uri]($url+'api/ai-shared-gateway/sessions'); HttpMethod='POST'; ContentType='application/json'
+            Headers=@{Origin='http://127.0.0.1:8485'}; ContentLength64=[long]65537; InputStream=$invalidOriginStream
+        }}
+        try {
+            $foreign = & $Handler
+            $originRejected = $foreign.StatusCode -eq 400 -and $invalidOriginStream.CanRead
+        } finally { $invalidOriginStream.Dispose() }
+        $context.Request.Headers.Origin=$url.TrimEnd('/')
+        $context.Request.InputStream=[IO.MemoryStream]::new([byte[]]@())
+        try { $oversized = & $Handler } finally { $context.Request.InputStream.Dispose() }
+        $context.Request.HttpMethod='GET'
+        $view = & $Handler
+        [pscustomobject]@{OriginRejectedBeforeBody=$originRejected; OversizedRejected=$oversized.StatusCode -eq 413
+            EmptyOwnerView=$view.StatusCode -eq 200 -and (($view.Body | ConvertFrom-Json).Items.Count -eq 0) }
+    } $handler (Join-Path $repoRoot 'Tools/WorkflowUiJsonBody.ps1')
+    Add-CheckResult 'Direkte Browserroute prüft Origin vor Body, begrenzt POST und liest nur eigene Sitzungen' (
+        $transport.OriginRejectedBeforeBody -and $transport.OversizedRejected -and $transport.EmptyOwnerView)
     $portGuard=[Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback,$gatewayPort);$portGuard.Start()
     $unknown=$plan|Get-SqlServerLabAiSharedGatewayStatus -StateRoot $stateRoot
     Add-CheckResult 'Status meldet fremd belegten Gatewayport als Recoverybedarf' ($unknown.Status -ceq 'RECOVERY_REQUIRED' -and $unknown.ReasonCode -ceq 'AI_SHARED_GATEWAY_STATUS_PORT_OCCUPIED_UNKNOWN' -and ($unknown|ConvertTo-Json -Depth 20|Test-Json -SchemaFile $statusSchema))

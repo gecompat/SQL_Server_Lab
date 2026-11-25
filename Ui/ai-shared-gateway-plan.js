@@ -25,6 +25,19 @@
   const serviceControls = element('service-controls');
   const serviceMode = element('service-mode');
   const prepareService = element('prepare-service');
+  const openSessionStart = element('open-session-start');
+  const sessionDialog = element('session-dialog');
+  const sessionForm = element('session-start');
+  const sessionLease = element('session-lease');
+  const sessionReference = element('session-upstream-reference');
+  const sessionStartConfirm = element('session-start-confirmed');
+  const sessionStart = element('session-start-submit');
+  const sessionSelection = element('session-selection');
+  const sessionStopConfirm = element('session-stop-confirmed');
+  const sessionStop = element('session-stop');
+  const sessionRead = element('session-read');
+  const sessionClose = element('session-close');
+  const sessionStatus = element('session-status');
   const pathFields = ['RuntimePath', 'ModelPath', 'CertificatePath', 'PrivateKeyPath', 'CertificateAuthorityPath'];
   const fields = ['GatewayId', 'Location', 'UpstreamBackend', 'UpstreamLocation', 'RuntimeModel', 'InputProfile',
     'ModelSha256', 'RuntimeSha256', 'ServerCertificateSha256', 'CertificateAuthoritySha256'];
@@ -35,6 +48,11 @@
   let currentPlan = null;
   let fileAction = null;
   let serviceJob = null;
+  let sessionPlan = null;
+  let sessionRows = [];
+  let sessionBusy = false;
+  let vaultAvailable = false;
+  const operationIdPattern = /^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$/;
 
   function closePreflight() {
     preflight.reset();
@@ -54,6 +72,7 @@
     serviceControls.hidden = !currentPlan;
     serviceMode.disabled = disabled;
     prepareService.disabled = disabled;
+    openSessionStart.disabled = disabled;
   }
 
   function clearPlan() {
@@ -211,6 +230,144 @@
     if (preflight.hidden || !fileAction || verify.disabled || !preflight.reportValidity()) return;
     const paths = Object.fromEntries(pathFields.map(name => [name, preflight.elements.namedItem(name).value]));
     return checkSelectedPlan(verify, fileAction, paths);
+  });
+
+  function updateSessionActions() {
+    const selected = sessionRows.some(row => row.OperationId === sessionSelection.value);
+    sessionStart.disabled = sessionBusy || !sessionPlan || !vaultAvailable || !sessionStartConfirm.checked;
+    sessionSelection.disabled = sessionBusy || !sessionRows.length;
+    sessionStop.disabled = sessionBusy || !selected || !sessionStopConfirm.checked;
+    sessionRead.disabled = sessionBusy;
+    sessionClose.disabled = sessionBusy;
+  }
+
+  function clearSessionRows() {
+    sessionRows = [];
+    sessionSelection.replaceChildren();
+    sessionStopConfirm.checked = false;
+  }
+
+  async function requestSession(payload) {
+    const options = payload ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) } : { cache: 'no-store' };
+    const response = await sqlServerLabUiFetch('/api/ai-shared-gateway/sessions', options);
+    const data = await response.json();
+    if (!response.ok) throw new Error(data?.Code);
+    return data;
+  }
+
+  async function readSessions() {
+    if (sessionBusy) return;
+    clearSessionRows();
+    vaultAvailable = false;
+    sessionBusy = true;
+    updateSessionActions();
+    sessionStatus.textContent = 'Eigene Worker werden gelesen …';
+    try {
+      const view = await requestSession();
+      if (typeof view?.VaultAvailable !== 'boolean' || !Array.isArray(view.Items) || !view.Items.every(row =>
+        operationIdPattern.test(row.OperationId) && /^[a-z][a-z0-9-]{0,62}$/.test(row.GatewayId) &&
+        Number.isInteger(row.Port) && row.Port >= 1024 && row.Port <= 65535 && ['OWNED_SESSION', 'CLEANUP_PENDING'].includes(row.Status))) {
+        throw new Error('Gateway session view unconfirmed');
+      }
+      sessionRows = view.Items;
+      vaultAvailable = view.VaultAvailable;
+      const placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.textContent = 'Sitzung auswählen';
+      sessionSelection.appendChild(placeholder);
+      for (const row of sessionRows) {
+        const option = document.createElement('option');
+        option.value = row.OperationId;
+        const state = row.Status === 'CLEANUP_PENDING' ? 'Cleanup offen' : 'Eigener Worker';
+        option.textContent = `${row.GatewayId} · Port ${row.Port} · ${state}`;
+        sessionSelection.appendChild(option);
+      }
+      sessionStatus.textContent = sessionPlan && !vaultAvailable
+        ? 'PowerShell SecretManagement fehlt in diesem UI-Server. Der Start benötigt Zugriff auf den lokalen Vault.'
+        : sessionRows.length ? 'Wähle eine eigene Sitzung, um sie zu stoppen.' : 'Dieser UI-Server besitzt keine Gateway-Sitzung.';
+    } catch {
+      sessionStatus.textContent = 'Eigene Sitzungen konnten nicht gelesen werden.';
+    } finally {
+      sessionBusy = false;
+      updateSessionActions();
+    }
+  }
+
+  async function openSessions(plan) {
+    if (sessionDialog.open) return;
+    sessionPlan = plan;
+    sessionForm.reset();
+    sessionForm.hidden = !plan;
+    element('session-target').textContent = plan ? `Gateway ${plan.GatewayId} · ${plan.Consumers.length} gebundene Verbraucher` : '';
+    sessionDialog.showModal();
+    await readSessions();
+  }
+
+  async function changeSession(payload) {
+    sessionBusy = true;
+    clearSessionRows();
+    updateSessionActions();
+    sessionStatus.textContent = 'Bestätigter Auftrag läuft. Das Schließen ist nach dem Ergebnis wieder möglich.';
+    try {
+      const result = await requestSession(payload);
+      const start = payload.Action === 'Start';
+      const expected = start
+        ? result?.Status === 'SESSION_ENDPOINT_VERIFIED' && result.PlanKey === payload.Plan.PlanKey && operationIdPattern.test(result.OperationId)
+        : result?.Status === 'CLEANUP_SUCCEEDED' && result.OperationId === payload.OperationId;
+      if (!expected) throw new Error('Gateway session result unconfirmed');
+      sessionStatus.textContent = start
+        ? 'Der eigene Gateway-Endpunkt wurde bestätigt. SQL-Zugriff ist separat zu prüfen. Lies die Sitzungen zum Stop neu.'
+        : 'Eigener Gateway-Worker beendet und temporärer Zustand bereinigt.';
+    } catch (error) {
+      const reasons = {
+        AI_SHARED_GATEWAY_SESSION_HTTP_NOT_READY: 'Prüfe die passende Registrierung und ob der Gateway-Port frei ist.',
+        AI_SHARED_GATEWAY_SESSION_HTTP_VAULT_UNAVAILABLE: 'Der UI-Server hat keinen Zugriff auf PowerShell SecretManagement.',
+        AI_SHARED_GATEWAY_SESSION_HTTP_SECRET_UNAVAILABLE: 'Prüfe die gebundenen Referenzen und den Zugriff des UI-Servers auf den lokalen Vault.',
+        AI_SHARED_GATEWAY_SESSION_HTTP_SECRET_INVALID: 'Prüfe Typ und Format der gebundenen Schlüssel im Vault.',
+        AI_SHARED_GATEWAY_SESSION_HTTP_CONFIRM_POLICY_BLOCKED: 'Die Bestätigungseinstellung des UI-Servers blockiert die Aktion.'
+      };
+      sessionStatus.textContent = 'Aktion unbestätigt. ' + (reasons[error.message] ?? 'Lies die eigenen Sitzungen und prüfe den Zustand vor weiteren Aktionen.');
+    } finally {
+      sessionBusy = false;
+      updateSessionActions();
+    }
+  }
+
+  openSessionStart.addEventListener('click', () => openSessionStart.disabled || !currentPlan ? undefined : openSessions(currentPlan));
+  element('open-sessions').addEventListener('click', () => openSessions(null));
+  sessionRead.addEventListener('click', readSessions);
+  sessionStartConfirm.addEventListener('change', updateSessionActions);
+  sessionSelection.addEventListener('change', () => {
+    sessionStopConfirm.checked = false;
+    updateSessionActions();
+  });
+  sessionStopConfirm.addEventListener('change', updateSessionActions);
+  sessionClose.addEventListener('click', () => { if (!sessionBusy) sessionDialog.close(); });
+  sessionDialog.addEventListener('cancel', event => { if (sessionBusy) event.preventDefault(); });
+  sessionDialog.addEventListener('close', () => {
+    sessionPlan = null;
+    vaultAvailable = false;
+    sessionForm.reset();
+    clearSessionRows();
+  });
+  sessionForm.addEventListener('submit', event => {
+    event.preventDefault();
+    if (sessionStart.disabled || !sessionPlan || currentPlan?.PlanKey !== sessionPlan.PlanKey || !sessionForm.reportValidity()) return;
+    const lease = Number(sessionLease.value);
+    const reference = sessionReference.value.trim();
+    if (!Number.isInteger(lease) || lease < 60 || lease > 3600 || (reference && !/^SQL_SERVER_LAB_SECRET_[A-Z0-9_]{1,96}$/.test(reference))) {
+      sessionStatus.textContent = 'Prüfe die Sitzungsdauer und die optionale Vault-Referenz.';
+      return;
+    }
+    const payload = { Action: 'Start', Confirmed: true, Plan: sessionPlan, LeaseSeconds: lease, UpstreamReference: reference };
+    sessionPlan = null;
+    sessionForm.reset();
+    sessionForm.hidden = true;
+    return changeSession(payload);
+  });
+  sessionStop.addEventListener('click', () => {
+    if (sessionStop.disabled || !sessionRows.some(row => row.OperationId === sessionSelection.value)) return;
+    return changeSession({ Action: 'Stop', Confirmed: true, OperationId: sessionSelection.value });
   });
 
   function matchesReadyServicePlan(plan) {
