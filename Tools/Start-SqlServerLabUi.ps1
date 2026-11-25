@@ -1421,6 +1421,19 @@ try {
                 }
                 continue
             }
+            if ($path -ceq '/api/ollama-cloud-generation' -and $context.Request.HttpMethod -ceq 'GET') {
+                if ($context.Request.Url.Query) {
+                    Write-UiResponse -Context $context -Body '{"Code":"OLLAMA_CLOUD_CATALOG_REQUEST_INVALID"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400 -NoStore
+                    continue
+                }
+                try {
+                    $models = @(& (Get-Module SqlServerLab) { Get-LabAiCloudGenerationCatalog })
+                    Write-UiResponse -Context $context -Body (ConvertTo-Json -InputObject $models -Depth 3 -Compress) -ContentType 'application/json; charset=utf-8' -NoStore
+                } catch {
+                    Write-UiResponse -Context $context -Body '{"Code":"OLLAMA_CLOUD_CATALOG_UNAVAILABLE"}' -ContentType 'application/json; charset=utf-8' -StatusCode 503 -NoStore
+                }
+                continue
+            }
             if ($path -ceq '/api/llama-model-catalog' -and $context.Request.HttpMethod -ceq 'GET') {
                 try {
                     $catalog = @(Get-SqlServerLabLlamaCppModel -ErrorAction Stop)

@@ -140,6 +140,7 @@
       <button id="llama-runtime-inventory-read" type="button" class="button secondary">Vorhandene llama.cpp-Pakete prüfen</button>
       <button id="llama-model-catalog-open" type="button" class="button secondary">llama.cpp-Modelle anzeigen und herunterladen</button>
       <button id="ollama-local-generation-open" type="button" class="button secondary">Lokales Ollama-Modell aufrufen</button>
+      <button id="ollama-cloud-generation-open" type="button" class="button secondary">Ollama-Cloud-Modell aufrufen</button>
       <p id="llama-runtime-inventory-status" role="status"></p>
       <ul id="llama-runtime-inventory-items" hidden></ul>
       <button id="ai-compute-inventory-read" type="button" class="button secondary">CPU, GPU und NPU erfassen</button>
@@ -1188,6 +1189,25 @@
       <div class="dialog-actions">
         <button id="ollama-local-generation-next" type="submit" class="button primary" disabled>Weiter zur Bestätigung</button>
         <button id="ollama-local-generation-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="ollama-cloud-generation-dialog" aria-labelledby="ollama-cloud-generation-title">
+    <form id="ollama-cloud-generation-form">
+      <h2 id="ollama-cloud-generation-title">Ollama-Cloud-Modell aufrufen</h2>
+      <p>Verwende ausschließlich synthetische oder öffentlich weitergebbare Daten. Der bestätigte Aufruf sendet den Prompt an Ollama.</p>
+      <label>Modell<select id="ollama-cloud-generation-model" required></select></label>
+      <label>Datenklasse<select id="ollama-cloud-generation-class" required>
+        <option value="">Datenklasse wählen</option>
+        <option value="synthetic-only">Synthetische Daten</option>
+        <option value="public-or-redistributable">Öffentliche oder weitergebbare Daten</option>
+      </select></label>
+      <label>Zeitlimit in Sekunden<input id="ollama-cloud-generation-timeout" type="number" value="60" min="1" max="230" required></label>
+      <label>Prompt<textarea id="ollama-cloud-generation-prompt" rows="5" maxlength="8192" required autocomplete="off"></textarea></label>
+      <p id="ollama-cloud-generation-status" role="status"></p>
+      <div class="dialog-actions">
+        <button id="ollama-cloud-generation-next" type="submit" class="button primary" disabled>Weiter zur Übermittlungsbestätigung</button>
+        <button id="ollama-cloud-generation-close" type="button" class="button secondary">Schließen</button>
       </div>
     </form>
   </dialog>
