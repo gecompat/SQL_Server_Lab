@@ -224,7 +224,8 @@ Ist er angegeben, wird der Download strikt dagegen verifiziert.
     Fingerprint der bestätigten Vorschau, bei Evaluationsbeobachtung der Quell-Snapshot.
 .PARAMETER TargetRunId
     Separater Ziel-Run für ReadHyperVEvaluationTargetSqlReadiness und
-    ReadHyperVEvaluationTargetStorage, optional für ReadHyperVEvaluationWindowsLicense.
+    ReadHyperVEvaluationTargetStorage und ReadHyperVEvaluationFileAllocationComparison,
+    optional für ReadHyperVEvaluationWindowsLicense.
 .PARAMETER TargetInstanceId
     SQL-Instanz des Ziel-Runs für die ausdrücklich angeforderte Zielbeobachtung.
 .PARAMETER ExpectedTargetPlanKey
@@ -310,6 +311,7 @@ function Invoke-SqlServerLabWorkflowAction {
             'GetMediaOverrideState', 'PlanMediaOverride', 'ApplyMediaOverride',
             'GetResourceWatchState', 'RefreshResourceWatch', 'ReadHyperVEvaluationSqlSource', 'ReadHyperVEvaluationWindowsLicense', 'ReadHyperVEvaluationTargetSqlReadiness',
             'ReadHyperVEvaluationTargetStorage',
+            'ReadHyperVEvaluationFileAllocationComparison',
             'GetCmsInspectionState', 'InspectCms', 'GetCmsManagementState', 'InitializeCms', 'AdoptCms',
             'RepairHyperVWindowsActivation',
             'SetMediaRoot', 'SetDataRoot', 'SetTestDataRoot',
@@ -480,18 +482,21 @@ function Invoke-SqlServerLabWorkflowAction {
         if ($installed.State -cne 'SQL_SLOT_READY' -or $installed.RunId -cne $RunId) { throw 'HYPERV_LAB_SQL_INSTALL_RESULT_INVALID' }
         return [pscustomobject]@{ Action = $Action; CompletedAt = Get-LabTimestamp; Result = [pscustomobject]@{ RunId = $RunId; State = 'SQL_SLOT_READY' } }
     }
-    if ($Action -cin @('ReadHyperVEvaluationSqlSource', 'ReadHyperVEvaluationWindowsLicense', 'ReadHyperVEvaluationTargetSqlReadiness', 'ReadHyperVEvaluationTargetStorage')) {
+    if ($Action -cin @('ReadHyperVEvaluationSqlSource', 'ReadHyperVEvaluationWindowsLicense', 'ReadHyperVEvaluationTargetSqlReadiness',
+        'ReadHyperVEvaluationTargetStorage', 'ReadHyperVEvaluationFileAllocationComparison')) {
         $readWindows = $Action -ceq 'ReadHyperVEvaluationWindowsLicense'
         $readTargetSql = $Action -ceq 'ReadHyperVEvaluationTargetSqlReadiness'
         $readTargetStorage = $Action -ceq 'ReadHyperVEvaluationTargetStorage'
+        $compareFileAllocation = $Action -ceq 'ReadHyperVEvaluationFileAllocationComparison'
         $allowed = @('Action', 'RunId', 'InstanceId', 'DataRoot', 'ExpectedPlanKey', 'ErrorAction')
         $targetKeys = @('TargetRunId', 'TargetInstanceId', 'ExpectedTargetPlanKey')
         $readTarget = @($PSBoundParameters.Keys | Where-Object { $_ -in $targetKeys }).Count -gt 0
-        if (($readWindows -or $readTargetSql -or $readTargetStorage) -and $readTarget) { $allowed += $targetKeys }
+        if (($readWindows -or $readTargetSql -or $readTargetStorage -or $compareFileAllocation) -and $readTarget) { $allowed += $targetKeys }
         if (@($PSBoundParameters.Keys | Where-Object { $_ -notin $allowed }).Count -gt 0 -or
             -not (Test-LabDiagnosticGuid $RunId) -or $InstanceId -cnotmatch '^[A-Za-z][A-Za-z0-9_-]{0,63}$' -or
             [string]::IsNullOrWhiteSpace($DataRoot) -or $DataRoot.Length -gt 2048 -or $ExpectedPlanKey -cnotmatch '^[a-f0-9]{64}$' -or
-            (($readTarget -or $readTargetSql -or $readTargetStorage) -and (-not (Test-LabDiagnosticGuid $TargetRunId) -or -not $TargetInstanceId -or -not $ExpectedTargetPlanKey))) {
+            (($readTarget -or $readTargetSql -or $readTargetStorage -or $compareFileAllocation) -and
+                (-not (Test-LabDiagnosticGuid $TargetRunId) -or -not $TargetInstanceId -or -not $ExpectedTargetPlanKey))) {
             throw 'EVALUATION_REFRESH_INPUT_INVALID'
         }
         $planArgs = @{
@@ -506,6 +511,7 @@ function Invoke-SqlServerLabWorkflowAction {
             $planArgs.ObserveTargetWindowsLicense = $readWindows
             $planArgs.ObserveTargetSqlReadiness = $readTargetSql
             $planArgs.ObserveTargetStorage = $readTargetStorage
+            $planArgs.CompareFileAllocation = $compareFileAllocation
         }
         $plan = New-LabEvaluationRefreshPlan @planArgs
         $result = if ($readTargetSql) {
@@ -518,6 +524,11 @@ function Invoke-SqlServerLabWorkflowAction {
             [pscustomobject]@{
                 TargetRunId=$plan.TargetAssessment.RunId; TargetInstanceId=$plan.TargetAssessment.InstanceId
                 StorageObservation=$plan.TargetAssessment.StorageObservation
+            }
+        } elseif ($compareFileAllocation) {
+            [pscustomobject]@{
+                TargetRunId=$plan.TargetAssessment.RunId; TargetInstanceId=$plan.TargetAssessment.InstanceId
+                FileAllocationComparison=$plan.TargetAssessment.FileAllocationComparison
             }
         } elseif ($readTarget) {
             [pscustomobject]@{

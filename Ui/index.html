@@ -164,6 +164,7 @@
     <section class="panel" data-workspace-area="connections" hidden>
       <h2>Verbindungen und CMS</h2>
       <p>Gespeicherte Endpunkte anzeigen, SSMS-Registrierungen exportieren und einen verwalteten CMS bereitstellen oder prüfen.</p>
+      <button id="connection-center-open" type="button" class="button secondary">Gespeicherte SQL-Endpunkte anzeigen</button>
       <button id="cms-inspection-open" class="button secondary">Registrierten CMS lesend prüfen</button>
       <button id="ssms-registration-download" type="button" class="button secondary">SSMS-Registrierungen herunterladen</button>
       <p id="ssms-registration-status" role="status"></p>
@@ -978,6 +979,19 @@
     </div>
   </dialog>
 
+  <dialog id="connection-center-dialog" aria-labelledby="connection-center-title">
+    <h2 id="connection-center-title">Gespeicherte SQL-Endpunkte</h2>
+    <p>Der gespeicherte Zustand kann von der aktuellen Erreichbarkeit abweichen.</p>
+    <p id="connection-center-status" role="status"></p>
+    <table aria-label="Gespeicherte SQL-Endpunkte">
+      <thead><tr><th scope="col">Umgebung</th><th scope="col">Provider</th><th scope="col">SQL-Endpunkt</th><th scope="col">Gespeicherter Zustand</th></tr></thead>
+      <tbody id="connection-center-entries"></tbody>
+    </table>
+    <div class="build-actions">
+      <button id="connection-center-read" type="button" class="button secondary">Neu lesen</button>
+      <button id="connection-center-close" type="button" class="button secondary">Schließen</button>
+    </div>
+  </dialog>
   <dialog id="cms-inspection-dialog">
     <form method="dialog">
       <h2>Registrierten CMS lesend prüfen</h2>
@@ -1330,6 +1344,7 @@
         <button id="evaluation-refresh-observe-target-windows" type="button" class="button secondary" hidden disabled>Windows-Lizenz im Ziellab lesen</button>
         <button id="evaluation-refresh-observe-target-sql" type="button" class="button secondary" hidden disabled>SQL-Bereitschaft und Edition im Ziellab prüfen</button>
         <button id="evaluation-refresh-observe-target-storage" type="button" class="button secondary" hidden disabled>Freien Speicher im Ziellab prüfen</button>
+        <button id="evaluation-refresh-compare-file-allocation" type="button" class="button secondary" hidden disabled>SQL-Quelldateigrößen mit freiem Zielspeicher vergleichen</button>
         <button id="evaluation-refresh-close" type="button" class="button secondary">Zurück / Abbrechen</button>
       </div>
     </div>

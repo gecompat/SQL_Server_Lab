@@ -150,6 +150,36 @@ function Get-LabEvaluationTargetStorageObservation {
     [pscustomobject]@{Status='OBSERVED';ObservedAt=[datetime]::UtcNow.ToString('o');Volumes=$observations.ToArray()}
 }
 
+function Compare-LabEvaluationFileAllocation {
+    param($SourceInventory, $TargetStorage)
+
+    $source = $SourceInventory.AllocatedFileStorage
+    if ($source.Status -cne 'OBSERVED' -or $TargetStorage.Status -cne 'OBSERVED') {
+        return [pscustomobject]@{Status='NOT_OBSERVED';Volumes=@()}
+    }
+    $fits = $true
+    $comparison = @(foreach ($volume in $TargetStorage.Volumes) {
+        $roles = @('Data','Log' | Where-Object { $_ -cin $volume.Roles })
+        if ($roles.Count -eq 0) { continue }
+        # Decimal preserves the sum of two nonnegative Int64 byte counts.
+        $allocated = [decimal]0
+        if ('Data' -cin $roles) { $allocated += $source.DataBytes }
+        if ('Log' -cin $roles) { $allocated += $source.LogBytes }
+        $fitsVolume = $allocated -le $volume.AvailableBytes
+        $fits = $fits -and $fitsVolume
+        [pscustomobject]@{
+            Roles=$roles
+            AllocatedBytes=$allocated.ToString('0',[Globalization.CultureInfo]::InvariantCulture)
+            AvailableBytes=$volume.AvailableBytes.ToString([Globalization.CultureInfo]::InvariantCulture)
+            FitsObservedSpace=$fitsVolume
+        }
+    })
+    [pscustomobject]@{
+        Status=if ($fits) { 'WITHIN_REPORTED_FREE_SPACE' } else { 'EXCEEDS_REPORTED_FREE_SPACE' }
+        Volumes=$comparison
+    }
+}
+
 function Get-LabEvaluationWindowsLicenseObservation {
     param([Parameter(Mandatory)]$Snapshot)
 
@@ -201,9 +231,11 @@ function Get-LabEvaluationWindowsLicenseObservation {
 function New-LabEvaluationRefreshPlan {
     param([string]$RunId,[string]$InstanceId,[string]$DataRoot,[string]$Mode,[switch]$ObserveSqlSource,[switch]$ObserveWindowsLicense,
         [string]$ExpectedSnapshotDigest,[string]$TargetRunId,[string]$TargetInstanceId,[string]$ExpectedTargetSnapshotDigest,
-        [switch]$ObserveTargetWindowsLicense,[switch]$ObserveTargetSqlReadiness,[switch]$ObserveTargetStorage)
+        [switch]$ObserveTargetWindowsLicense,[switch]$ObserveTargetSqlReadiness,[switch]$ObserveTargetStorage,
+        [switch]$CompareFileAllocation)
     if ($ObserveSqlSource -and $Mode -cne 'STATEFUL_MIGRATION') { throw 'EVALUATION_REFRESH_SQL_SOURCE_MODE_INVALID' }
-    $hasTarget = $TargetRunId -or $TargetInstanceId -or $ExpectedTargetSnapshotDigest -or $ObserveTargetWindowsLicense -or $ObserveTargetSqlReadiness -or $ObserveTargetStorage
+    $hasTarget = $TargetRunId -or $TargetInstanceId -or $ExpectedTargetSnapshotDigest -or $ObserveTargetWindowsLicense -or
+        $ObserveTargetSqlReadiness -or $ObserveTargetStorage -or $CompareFileAllocation
     if ($hasTarget -and ($Mode -cne 'STATEFUL_MIGRATION' -or -not $TargetRunId -or -not $TargetInstanceId -or
         $RunId -ieq $TargetRunId)) { throw 'EVALUATION_REFRESH_TARGET_SELECTION_INVALID' }
     try {
@@ -254,7 +286,9 @@ function New-LabEvaluationRefreshPlan {
         'STATEFUL_MIGRATION' {$blockers.Add('FULL_INSTANCE_INVENTORY_NOT_AVAILABLE');$blockers.Add('EQUIVALENCE_CUTOVER_AND_ROLLBACK_NOT_VERIFIED');@('Datenbank-, Serverobjekt-, Schlüssel- und externe Abhängigkeiten getrennt inventarisieren.','DATABASE_FILES_ONLY ist kein vollständiger Instanztransfer. Cutover und Rückfall nach Zielschreibzugriffen separat planen.')}
         default {throw 'EVALUATION_REFRESH_MODE_INVALID'}
     }
-    $sourceInventory = if ($ObserveSqlSource) { Get-LabEvaluationSqlSourceInventory -Snapshot $snapshot }
+    $compareRunningGuests = $CompareFileAllocation -and $snapshot.Binding.Run.state -ceq 'RUNNING' -and
+        $targetSnapshot.Binding.Run.state -ceq 'RUNNING'
+    $sourceInventory = if ($ObserveSqlSource -or $compareRunningGuests) { Get-LabEvaluationSqlSourceInventory -Snapshot $snapshot }
     $targetWindows = if ($ObserveTargetWindowsLicense) { Get-LabEvaluationWindowsLicenseObservation -Snapshot $targetSnapshot }
     $targetSql = $null
     $targetEdition = $null
@@ -275,7 +309,9 @@ function New-LabEvaluationRefreshPlan {
             }
         }
     }
-    $targetStorage = if ($ObserveTargetStorage) { Get-LabEvaluationTargetStorageObservation -Snapshot $targetSnapshot }
+    $targetStorage = if ($ObserveTargetStorage -or $compareRunningGuests) {
+        Get-LabEvaluationTargetStorageObservation -Snapshot $targetSnapshot
+    }
     try {$fresh=Read-LabEvaluationRefreshSnapshot -RunId $RunId -InstanceId $InstanceId -DataRoot $DataRoot}
     catch {throw 'EVALUATION_REFRESH_BINDING_CHANGED'}
     if($fresh.Digest-cne$snapshot.Digest){throw 'EVALUATION_REFRESH_BINDING_CHANGED'}
@@ -323,6 +359,10 @@ function New-LabEvaluationRefreshPlan {
         if ($ObserveTargetStorage) {
             $targetAssessment.Checks += $storageCheck
             $targetAssessment | Add-Member -NotePropertyName StorageObservation -NotePropertyValue $targetStorage
+        }
+        if ($CompareFileAllocation) {
+            $comparison = Compare-LabEvaluationFileAllocation -SourceInventory $sourceInventory -TargetStorage $targetStorage
+            $targetAssessment | Add-Member -NotePropertyName FileAllocationComparison -NotePropertyValue $comparison
         }
         $result | Add-Member -NotePropertyName TargetAssessment -NotePropertyValue $targetAssessment
     }

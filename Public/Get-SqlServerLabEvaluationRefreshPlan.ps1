@@ -42,6 +42,11 @@
     Liest freien Speicher für die Standardpfade Daten, Log und Backup in der
     laufenden gebundenen Ziel-VM. Gemeinsame Volumes werden nur einmal gezeigt.
     Der Befund bestätigt weder Hostkapazität noch ausreichenden Transferspeicher.
+.PARAMETER CompareFileAllocation
+    Vergleicht in STATEFUL_MIGRATION die zugewiesene Daten-/Logdateigröße der
+    Quelle mit dem freien Platz ihrer jeweiligen Standard-Volumes im Ziel.
+    Beide gebundenen SQL-2025-Prepared-Labs müssen laufen. Die Vorschau liest
+    die Gäste und erteilt keine Platz-, Wiederherstellungs- oder Transferfreigabe.
 .OUTPUTS
     SqlServerLab.EvaluationRefreshPlan/1.0; strikt nicht ausführbar.
 .EXAMPLE
@@ -61,7 +66,8 @@ function Get-SqlServerLabEvaluationRefreshPlan {
         [ValidatePattern('^[A-Za-z][A-Za-z0-9_-]{0,63}$')][string]$TargetInstanceId,
         [switch]$ObserveTargetWindowsLicense,
         [switch]$ObserveTargetSqlReadiness,
-        [switch]$ObserveTargetStorage
+        [switch]$ObserveTargetStorage,
+        [switch]$CompareFileAllocation
     )
     New-LabEvaluationRefreshPlan @PSBoundParameters
 }

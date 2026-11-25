@@ -38,6 +38,18 @@ Die Liste und der Stop beziehen sich auf Worker des laufenden UI-Servers.
 Der Server hält dafür das konkrete Ownerobjekt. Beim Beenden bereinigt er
 die erfassten eigenen Worker. Unbestätigte Ergebnisse bleiben sichtbar.
 
+Die Route `/api/connection-center` liest reguläre gespeicherte Endpunkte
+über `Get-SqlServerLabConnectionCenter -StoredOnly` hinter der
+Operator-Capability. Sie akzeptiert genau GET ohne Query oder Body und
+begrenzt die Antwort auf 200 gültige Endpunkte. Die Projektion enthält
+keine Verbindungsstrings, Kennwörter oder lokalen State-Pfade.
+
+Der Vergleich der SQL-Dateizuweisung verwendet einen flüchtigen
+Workflow-Leseauftrag. Der Auftrag bindet Quelle und Ziel an ihre Run- und
+Instanz-IDs, die registrierte Wurzel und beide Vorschau-Digests. Die
+Gastabfragen setzen zwei laufende Instanzen voraus. Die Projektion enthält
+Rollen und Bytewerte je gemeinsamem Daten-/Logvolume.
+
 Die Route `/api/ai-external-model/plan` begrenzt die Strukturprüfung auf
 16 KiB. Sie verlangt die Operator-Capability und die exakte Origin. Bei
 blockierter Konfiguration gibt sie ausschließlich feste Prüfgründe zurück.

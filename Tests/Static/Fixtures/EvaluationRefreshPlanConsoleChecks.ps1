@@ -42,7 +42,8 @@ try {
     $script:actualPlan=${function:New-LabEvaluationRefreshPlan}
     function New-LabEvaluationRefreshPlan {
         param($RunId,$InstanceId,$DataRoot,$Mode,$ExpectedSnapshotDigest,[switch]$ObserveSqlSource,[switch]$ObserveWindowsLicense,
-            $TargetRunId,$TargetInstanceId,$ExpectedTargetSnapshotDigest,[switch]$ObserveTargetWindowsLicense,[switch]$ObserveTargetSqlReadiness,[switch]$ObserveTargetStorage)
+            $TargetRunId,$TargetInstanceId,$ExpectedTargetSnapshotDigest,[switch]$ObserveTargetWindowsLicense,[switch]$ObserveTargetSqlReadiness,
+            [switch]$ObserveTargetStorage,[switch]$CompareFileAllocation)
         $script:planCalls++
         if ($ExpectedSnapshotDigest -cnotmatch '^[a-f0-9]{64}$') { throw 'SYNTHETIC_EXPECTED_DIGEST_REQUIRED' }
         $script:lastPlan = & $script:actualPlan @PSBoundParameters
@@ -139,6 +140,12 @@ try {
         ($messages -join ' ') -cmatch 'Freier Gast-Speicher im Ziellab: OBSERVED.*Data / Log / Backup: 500 Bytes frei') 'CLI reads the selected target and groups shared storage'
     Reset-ConsoleRefresh @($runId,'STATEFUL_MIGRATION','observe-target-storage',$targetFixture.RunId);Invoke-LabEvaluationRefreshPlanInteractive
     Assert-ConsoleRefresh ($planCalls -eq 0) 'CLI cannot read storage from a stopped destination'
+    Reset-ConsoleRefresh @($runId,'STATEFUL_MIGRATION','compare-file-allocation',$liveTarget.RunId);Invoke-LabEvaluationRefreshPlanInteractive
+    Assert-ConsoleRefresh ($planCalls -eq 1 -and
+        $lastPlan.TargetAssessment.FileAllocationComparison.Status -ceq 'EXCEEDS_REPORTED_FREE_SPACE' -and
+        ($messages -join ' ') -cmatch 'Data / Log: 1310720 Bytes zugewiesen / 500 Bytes frei.*Backupplatz') 'CLI shows the combined comparison and the excluded sizing work'
+    Reset-ConsoleRefresh @($runId,'STATEFUL_MIGRATION','compare-file-allocation',$targetFixture.RunId);Invoke-LabEvaluationRefreshPlanInteractive
+    Assert-ConsoleRefresh ($planCalls -eq 0) 'CLI cannot compare a stopped destination'
     Assert-ConsoleRefresh ((Get-RefreshHashes) -ceq $beforeLiveTargets) 'Target observations leave saved state unchanged'
     $script:guidedCalls=0;$script:legacyCalls=0;$script:componentCalls=0
     function Get-LabPublicCommandConsoleCatalog {return [pscustomobject]@{Name='legacy';ParameterSets=@(@{Name='Default'})}}

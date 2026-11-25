@@ -7,10 +7,15 @@
     Die Quelle wird vor dem Start des Ziels gestoppt. Beide Bindungen bleiben
     bis zum Ende erhalten. Die Probe führt keinen SQL-Transfer und keine
     Lizenzänderung aus. Cleanup entfernt ausschließlich die eigenen Runs.
+.PARAMETER CompareFileAllocation
+    Startet die eigene Quelle nach der Zielprüfung erneut, legt eine
+    synthetische Quelldatenbank an und prüft die gebundene Speichervorschau,
+    während beide eigenen VMs laufen. Der Test führt keinen Transfer aus.
 #>
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory)][ValidatePattern('^hyperv-sql-prepared-sealed-[a-f0-9]{64}$')][string]$ArtifactId
+    [Parameter(Mandatory)][ValidatePattern('^hyperv-sql-prepared-sealed-[a-f0-9]{64}$')][string]$ArtifactId,
+    [switch]$CompareFileAllocation
 )
 
 $ErrorActionPreference = 'Stop'
@@ -173,6 +178,51 @@ try {
     Assert-TargetLicenseAcceptance (($before -join ',') -ceq ($after -join ',') -and
         $fresh.ObservedContentSha256 -ceq $plan.ObservedContentSha256 -and
         $fresh.TargetAssessment.ObservedContentSha256 -ceq $plan.TargetAssessment.ObservedContentSha256) 'Quell- und Zielmetadaten blieben bytegleich'
+    if ($CompareFileAllocation) {
+        $phase = 'COMPARE_OWN_SOURCE_RESUME'
+        $currentSource = & $module { param($Id,$Root) Get-LabOperationOwnedRun -OperationId $Id -StateRoot $Root } $sourceOperation $stateRoot
+        Assert-TargetLicenseAcceptance ([string]$currentSource.runId -ceq [string]$source.RunId -and
+            [string]$currentSource.scopeId -ceq [string]$ownedSource.scopeId) 'Quellbesitz vor dem erneuten Start bestätigt'
+        $null = Start-SqlServerLab -RunId $source.RunId -StateRoot $stateRoot -TimeoutSeconds 180 3>$null 4>$null 5>$null 6>$null
+        $runningSource = & $module { param($Id,$Root) Get-LabRunState -RunId $Id -StateRoot $Root } $source.RunId $stateRoot
+        Assert-TargetLicenseAcceptance ($runningSource.state -ceq 'RUNNING') 'Eigene Quelle läuft neben dem eigenen Ziellab'
+        $fixtureSql = Join-Path $testRoot 'owned-allocation-fixture.sql'
+        [IO.File]::WriteAllText($fixtureSql,'CREATE DATABASE [SqlLabAllocationComparisonFixture];')
+        $scriptParameters = @{RunId=$source.RunId;InstanceId='primary';StateRoot=$stateRoot;ScriptPath=$fixtureSql
+            WindowsAuthentication=$true;TimeoutSeconds=60;Confirm=$false}
+        $null = Invoke-SqlServerLabScript @scriptParameters 3>$null 4>$null 5>$null 6>$null
+        $sourcePlan = Get-SqlServerLabEvaluationRefreshPlan @request -Mode STATEFUL_MIGRATION -ObserveSqlSource
+        $sourceAllocation = $sourcePlan.SqlSourceInventory.AllocatedFileStorage
+        Assert-TargetLicenseAcceptance ($sourceAllocation.Status -ceq 'OBSERVED' -and
+            $sourceAllocation.DataBytes -gt 0 -and $sourceAllocation.LogBytes -gt 0) 'Positive Dateizuweisung der eigenen Quelle beobachtet'
+        $operationRequest.ExpectedPlanKey = $sourcePlan.ObservedContentSha256
+        $operationRequest.ExpectedTargetPlanKey = $sourcePlan.TargetAssessment.ObservedContentSha256
+        $compareBefore = @($paths | ForEach-Object { (Get-FileHash -LiteralPath $_ -Algorithm SHA256).Hash })
+        $phase = 'BOUND_FILE_ALLOCATION_COMPARISON'
+        $result = (Invoke-SqlServerLabWorkflowAction @operationRequest -Action ReadHyperVEvaluationFileAllocationComparison).Result
+        $comparison = $result.FileAllocationComparison
+        $compareRoles = @($comparison.Volumes | ForEach-Object Roles | Sort-Object)
+        Assert-TargetLicenseAcceptance ($result.TargetRunId -ceq $target.RunId -and
+            $result.TargetInstanceId -ceq 'primary' -and ($compareRoles -join ',') -ceq 'Data,Log' -and
+            $comparison.Status -cin @('WITHIN_REPORTED_FREE_SPACE','EXCEEDS_REPORTED_FREE_SPACE')) 'Vergleich bindet Ziel und zeigt Daten und Log genau einmal'
+        $allFit = $true
+        foreach ($volume in $comparison.Volumes) {
+            $expectedBytes = [decimal]0
+            if ('Data' -cin $volume.Roles) { $expectedBytes += $sourceAllocation.DataBytes }
+            if ('Log' -cin $volume.Roles) { $expectedBytes += $sourceAllocation.LogBytes }
+            $available = [long]0
+            $parsed = $volume.AvailableBytes -is [string] -and $volume.AvailableBytes -cmatch '^[0-9]{1,19}$' -and
+                [long]::TryParse($volume.AvailableBytes,[ref]$available)
+            $volumeFits = $expectedBytes -le $available
+            Assert-TargetLicenseAcceptance ($parsed -and $volume.AllocatedBytes -ceq $expectedBytes.ToString('0',[Globalization.CultureInfo]::InvariantCulture) -and
+                $volume.FitsObservedSpace -is [bool] -and $volume.FitsObservedSpace -eq $volumeFits) 'Vergleich übernimmt je Zielvolume exakt die gebundenen Bytes'
+            $allFit = $allFit -and $volumeFits
+        }
+        $expectedStatus = if ($allFit) { 'WITHIN_REPORTED_FREE_SPACE' } else { 'EXCEEDS_REPORTED_FREE_SPACE' }
+        Assert-TargetLicenseAcceptance ($comparison.Status -ceq $expectedStatus) 'Gesamtergebnis entspricht den beobachteten Volumes'
+        $compareAfter = @($paths | ForEach-Object { (Get-FileHash -LiteralPath $_ -Algorithm SHA256).Hash })
+        Assert-TargetLicenseAcceptance (($compareBefore -join ',') -ceq ($compareAfter -join ',')) 'Der Vergleich hielt die fertigen Run- und Verbindungsmetadaten unverändert'
+    }
     $parentAfter = & $module { param($Id,$Root) Get-HyperVImageArtifact -ArtifactId $Id -StateRoot $Root } $ArtifactId $stateRoot
     Assert-TargetLicenseAcceptance ($parentAfter.sha256 -ceq $parentHash) 'Prepared-Vorlage blieb unverändert'
 } catch {
