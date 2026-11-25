@@ -25,7 +25,7 @@ function New-RefreshTargetFixture($DataRoot,$SourceRun,$SourceConnection,$State=
     [pscustomobject]@{RunId=$targetRun.runId;ScopeId=$targetRun.scopeId;Run=$targetRun;Connection=$targetConnection;ConnectionFile=$connectionFile}
 }
 try {
-    foreach($source in @('Private/DiagnosticBundleReader.ps1','Private/SqlGuestEvaluationEvidence.ps1','Private/EvaluationRefreshPlan.ps1','Private/VersionCatalog.ps1','Private/PathSafety.ps1','Public/Get-SqlServerLabEvaluationRefreshPlan.ps1','Public/Get-SqlServerLabEvaluationWatch.ps1','Public/Invoke-SqlServerLabWorkflowAction.ps1')){Import-RefreshFunctions $source}
+    foreach($source in @('Private/DiagnosticBundleReader.ps1','Private/SqlGuestEvaluationEvidence.ps1','Private/SqlGuestEvaluationCapture.ps1','Private/EvaluationRefreshPlan.ps1','Private/VersionCatalog.ps1','Private/PathSafety.ps1','Public/Get-SqlServerLabEvaluationRefreshPlan.ps1','Public/Get-SqlServerLabEvaluationWatch.ps1','Public/Invoke-SqlServerLabWorkflowAction.ps1')){Import-RefreshFunctions $source}
     $script:VersionCatalog=Get-Content (Join-Path $repo Catalogs/sql-server-versions.json) -Raw|ConvertFrom-Json
     $script:SchemasPath=Join-Path $repo Schemas
     foreach($forbidden in @('Get-LabStateRoot','Get-LabStorageConfiguration','Get-LabSecret','Get-LabHostToolInvocation','Get-ContainerRuntime','Get-VM','Invoke-Sqlcmd','Get-LabDatabaseMigrationDependencyInventory','Invoke-LabArtifactStoreLock','New-SqlServerLab','Stop-SqlServerLab','Remove-SqlServerLab')){Set-Item ('Function:script:'+$forbidden) ([scriptblock]::Create("throw 'FORBIDDEN_REFRESH_BOUNDARY'"))}
@@ -163,6 +163,7 @@ try {
     $script:expectStorage = $false
     $script:storageVolumes = @()
     $script:wrongSqlEdition = $false
+    $script:editionId = [long]610778273
     $script:guestCounts = [pscustomobject]@{
         UserDatabases=[long]3; NonOnlineUserDatabases=[long]1; EncryptedUserDatabases=[long]0; DatabaseSnapshots=[long]0
         FilestreamFileDatabases=[long]0; SsisCatalogCandidateDatabases=[long]0
@@ -190,6 +191,7 @@ try {
             MajorVersion=17; InstanceName='MSSQLSERVER'; SourceInventory=$script:guestCounts; Private='CANARY_PRIVATE_DO_NOT_RETURN'
             SourceAllocatedFilePages=$script:guestFilePages
             TargetStorage=if ($IncludeTargetStorage) { ,$script:storageVolumes } else { $null }
+            EditionId=$script:editionId
             Edition=if ($script:wrongSqlEdition) { 'Different edition' } else { 'Enterprise Evaluation Edition' }
         }
     }
@@ -370,18 +372,29 @@ try {
             $targetSqlPlan.SqlReadiness -ceq 'NOT_CHECKED' -and $targetSqlPlan.TransferAuthority -ceq 'NONE') 'Only readiness of the bound target is observed'
         $targetSql = Invoke-SqlServerLabWorkflowAction @targetRequest
         Assert-Refresh ($targetSql.Result.TargetRunId -ceq $liveTarget.RunId -and $targetSql.Result.TargetInstanceId -ceq 'primary' -and
-            $targetSql.Result.SqlReadinessObservation.ObservedAt -and ($targetSql | ConvertTo-Json -Depth 8) -cnotmatch
-            'CANARY_PRIVATE|ScopeId|Edition|SourceInventory') 'Workflow returns only safe target identity and current readiness'
+            $targetSql.Result.SqlReadinessObservation.ObservedAt -and $targetSql.Result.SqlEditionObservation.Status -ceq 'OBSERVED' -and
+            $targetSql.Result.SqlEditionObservation.Classification -ceq 'EVALUATION' -and
+            $targetSql.Result.SqlEditionObservation.EvaluationDeadlineStatus -ceq 'NOT_OBSERVED' -and
+            ($targetSql | ConvertTo-Json -Depth 8) -cnotmatch 'CANARY_PRIVATE|ScopeId|EditionId|Enterprise Evaluation Edition|SourceInventory') 'Workflow returns safe readiness and edition classification without claiming an evaluation deadline'
         $staleTarget = @{}+$targetRequest; $staleTarget.ExpectedTargetPlanKey = '0' * 64
         Assert-RefreshReject 'Target SQL readiness rejects stale digest before guest access' { Invoke-SqlServerLabWorkflowAction @staleTarget } EVALUATION_REFRESH_BINDING_CHANGED
         $unboundTarget = @{}+$targetRequest; $unboundTarget.Remove('ExpectedTargetPlanKey')
         Assert-RefreshReject 'Target SQL readiness requires both digests' { Invoke-SqlServerLabWorkflowAction @unboundTarget } EVALUATION_REFRESH_INPUT_INVALID
         $stoppedSql = Get-SqlServerLabEvaluationRefreshPlan @targetArguments -ObserveTargetSqlReadiness
         Assert-Refresh ($script:observationCalls -eq $priorCalls+2 -and $stoppedSql.TargetAssessment.SqlReadinessObservation.Status -ceq 'NOT_OBSERVED') 'Stopped target opens no SQL session'
+        foreach ($invalidEditionId in @([long]-2117995310,'610778273')) {
+            $script:editionId = $invalidEditionId
+            $unsupported = Invoke-SqlServerLabWorkflowAction @targetRequest
+            Assert-Refresh ($unsupported.Result.SqlReadinessObservation.Status -ceq 'OBSERVED' -and
+                $unsupported.Result.SqlEditionObservation.Status -ceq 'NOT_OBSERVED' -and
+                $unsupported.Result.SqlEditionObservation.Classification -ceq 'UNKNOWN') 'Invalid or conflicting edition data does not erase independently observed readiness'
+        }
+        $script:editionId = [long]610778273
         $script:wrongSqlEdition = $true
         $wrongSql = Invoke-SqlServerLabWorkflowAction @targetRequest
         Assert-Refresh ($wrongSql.Result.SqlReadinessObservation.Status -ceq 'NOT_OBSERVED' -and
-            $null -eq $wrongSql.Result.SqlReadinessObservation.ObservedAt) 'A different live SQL edition cannot prove readiness'
+            $null -eq $wrongSql.Result.SqlReadinessObservation.ObservedAt -and
+            $wrongSql.Result.SqlEditionObservation.Status -ceq 'NOT_OBSERVED') 'A different live SQL edition cannot prove readiness or classification'
         $script:wrongSqlEdition = $false
         $script:contextReads = 0
         $script:injectInventoryDrift = $true

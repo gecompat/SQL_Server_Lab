@@ -512,6 +512,7 @@ function Invoke-SqlServerLabWorkflowAction {
             [pscustomobject]@{
                 TargetRunId=$plan.TargetAssessment.RunId; TargetInstanceId=$plan.TargetAssessment.InstanceId
                 SqlReadinessObservation=$plan.TargetAssessment.SqlReadinessObservation
+                SqlEditionObservation=$plan.TargetAssessment.SqlEditionObservation
             }
         } elseif ($readTargetStorage) {
             [pscustomobject]@{

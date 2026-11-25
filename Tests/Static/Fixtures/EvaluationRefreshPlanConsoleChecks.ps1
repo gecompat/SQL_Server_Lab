@@ -64,7 +64,7 @@ try {
         if ($IncludeTargetStorage) {
             return [pscustomobject]@{TargetStorage=@([pscustomobject]@{Roles=@('Data','Log','Backup');AvailableBytes=[long]500})}
         }
-        [pscustomobject]@{MajorVersion=17}
+        [pscustomobject]@{MajorVersion=17;Edition='Developer Edition';EditionId=[long]-2117995310}
     }
     function Reset-ConsoleRefresh([string[]]$Answers){$script:rootStatus='Confirmed';$script:answers=[Collections.Generic.Queue[string]]::new();foreach($a in $Answers){$script:answers.Enqueue($a)};$script:messages=[Collections.Generic.List[string]]::new();$script:seenScreens=[Collections.Generic.List[string]]::new();$script:planCalls=0;$script:lastPlan=$null;$script:beforeMenu=$null}
     $before=Get-RefreshHashes
@@ -129,7 +129,8 @@ try {
     Reset-ConsoleRefresh @($runId,'STATEFUL_MIGRATION','observe-target-sql',$liveTarget.RunId);Invoke-LabEvaluationRefreshPlanInteractive
     Assert-ConsoleRefresh ($planCalls -eq 1 -and $lastPlan.TargetAssessment.RunId -ceq $liveTarget.RunId -and
         $lastPlan.TargetAssessment.SqlReadinessObservation.Status -ceq 'OBSERVED' -and
-        ($messages -join ' ') -cmatch 'SQL-Bereitschaft im Ziellab: OBSERVED') 'CLI explicitly reads and displays the selected target SQL readiness'
+        ($messages -join ' ') -cmatch 'SQL-Bereitschaft im Ziellab: OBSERVED' -and
+        ($messages -join ' ') -cmatch 'SQL-Edition im Ziellab: OBSERVED · NOT_EVALUATION · Evaluationsfrist: NOT_APPLICABLE') 'CLI projects readiness and Developer classification from the selected SQL target'
     Reset-ConsoleRefresh @($runId,'STATEFUL_MIGRATION','observe-target-sql',$targetFixture.RunId);Invoke-LabEvaluationRefreshPlanInteractive
     Assert-ConsoleRefresh ($planCalls -eq 0) 'CLI cannot query a stopped destination'
     Reset-ConsoleRefresh @($runId,'STATEFUL_MIGRATION','observe-target-storage',$liveTarget.RunId);Invoke-LabEvaluationRefreshPlanInteractive

@@ -57,7 +57,7 @@ function Invoke-LabEvaluationRefreshPlanInteractive {
                 New-LabConsoleItem -Id target -Label 'Registriertes Ziellab vorprüfen'
                 if (@($targetCandidates | Where-Object State -CEQ 'RUNNING').Count) {
                     New-LabConsoleItem -Id observe-target-windows -Label 'Windows-Lizenz im laufenden Ziellab lesen'
-                    New-LabConsoleItem -Id observe-target-sql -Label 'SQL-Bereitschaft im laufenden Ziellab prüfen'
+                    New-LabConsoleItem -Id observe-target-sql -Label 'SQL-Bereitschaft und Edition im laufenden Ziellab prüfen'
                     New-LabConsoleItem -Id observe-target-storage -Label 'Freien Speicher im laufenden Ziellab prüfen'
                 }
             }
@@ -130,6 +130,8 @@ function Invoke-LabEvaluationRefreshPlanInteractive {
             if ($targetView.PSObject.Properties['SqlReadinessObservation']) {
                 $targetSql = $targetView.SqlReadinessObservation
                 Write-LabInfo ("SQL-Bereitschaft im Ziellab: {0} · Beobachtet UTC: {1}" -f $targetSql.Status, $targetSql.ObservedAt)
+                $edition = $targetView.SqlEditionObservation
+                Write-LabInfo ("SQL-Edition im Ziellab: {0} · {1} · Evaluationsfrist: {2}" -f $edition.Status,$edition.Classification,$edition.EvaluationDeadlineStatus)
             }
             if ($targetView.PSObject.Properties['StorageObservation']) {
                 $storage = $targetView.StorageObservation

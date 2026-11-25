@@ -35,8 +35,9 @@
     Transferfreigabe werden dadurch nicht verändert.
 .PARAMETER ObserveTargetSqlReadiness
     Prüft in STATEFUL_MIGRATION ausdrücklich mit einer lesenden Gastabfrage,
-    ob die erwartete SQL-Instanz im laufenden Ziellab antwortet. Der Befund
-    bleibt flüchtig und gibt weder SQL-Lizenz, Speicher noch Transfer frei.
+    ob die erwartete SQL-Instanz im laufenden Ziellab antwortet. Derselbe
+    Befund klassifiziert eine unterstützte SQL-Edition. Eine Evaluationsfrist
+    wird nicht ermittelt. Die Leseabfrage erteilt keine Transferfreigabe.
 .PARAMETER ObserveTargetStorage
     Liest freien Speicher für die Standardpfade Daten, Log und Backup in der
     laufenden gebundenen Ziel-VM. Gemeinsame Volumes werden nur einmal gezeigt.

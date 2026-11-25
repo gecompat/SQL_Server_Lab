@@ -256,10 +256,24 @@ function New-LabEvaluationRefreshPlan {
     }
     $sourceInventory = if ($ObserveSqlSource) { Get-LabEvaluationSqlSourceInventory -Snapshot $snapshot }
     $targetWindows = if ($ObserveTargetWindowsLicense) { Get-LabEvaluationWindowsLicenseObservation -Snapshot $targetSnapshot }
-    $targetSql = if ($ObserveTargetSqlReadiness) {
+    $targetSql = $null
+    $targetEdition = $null
+    if ($ObserveTargetSqlReadiness) {
         $observed = Get-LabEvaluationSqlGuestObservation -Snapshot $targetSnapshot
-        if ($observed) { [pscustomobject]@{ Status='OBSERVED'; ObservedAt=[datetime]::UtcNow.ToString('o') } }
-        else { [pscustomobject]@{ Status='NOT_OBSERVED'; ObservedAt=$null } }
+        $targetSql = if ($observed) { [pscustomobject]@{Status='OBSERVED';ObservedAt=[datetime]::UtcNow.ToString('o')} }
+            else { [pscustomobject]@{Status='NOT_OBSERVED';ObservedAt=$null} }
+        $targetEdition = [pscustomobject]@{Status='NOT_OBSERVED';Classification='UNKNOWN';EvaluationDeadlineStatus='NOT_OBSERVED'}
+        if ($observed -and $observed.PSObject.Properties['EditionId']?.Value -is [long]) {
+            try {
+                $classification = Get-LabSqlGuestCaptureClassification -Observation $observed
+                $targetEdition = [pscustomobject]@{
+                    Status='OBSERVED'; Classification=$classification
+                    EvaluationDeadlineStatus=if ($classification -ceq 'NOT_EVALUATION') { 'NOT_APPLICABLE' } else { 'NOT_OBSERVED' }
+                }
+            } catch {
+                if ($_.Exception.Message -cne 'SQL_GUEST_CAPTURE_EDITION_UNSUPPORTED') { throw }
+            }
+        }
     }
     $targetStorage = if ($ObserveTargetStorage) { Get-LabEvaluationTargetStorageObservation -Snapshot $targetSnapshot }
     try {$fresh=Read-LabEvaluationRefreshSnapshot -RunId $RunId -InstanceId $InstanceId -DataRoot $DataRoot}
@@ -304,6 +318,7 @@ function New-LabEvaluationRefreshPlan {
         }
         if ($ObserveTargetSqlReadiness) {
             $targetAssessment | Add-Member -NotePropertyName SqlReadinessObservation -NotePropertyValue $targetSql
+            $targetAssessment | Add-Member -NotePropertyName SqlEditionObservation -NotePropertyValue $targetEdition
         }
         if ($ObserveTargetStorage) {
             $targetAssessment.Checks += $storageCheck
