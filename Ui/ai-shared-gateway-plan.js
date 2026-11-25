@@ -1,8 +1,9 @@
 'use strict';
 
-{
+(() => {
   const element = name => document.querySelector('#ai-shared-gateway-' + name);
   const form = element('author');
+  if (!form) return;
   const consumers = element('consumers');
   const status = element('plan-status');
   const result = element('plan-result');
@@ -413,4 +414,490 @@
     panel.scrollIntoView({ block: 'nearest' });
   });
   addConsumer();
-}
+})();
+
+(() => {
+  const element = name => document.querySelector('#' + 'external-model-endpoint-' + name);
+  const dialog = element('dialog');
+  if (!dialog) return;
+  const form = element('form');
+  const planField = element('plan');
+  const caField = element('ca');
+  const referenceField = element('reference');
+  const confirm = element('confirm');
+  const submit = element('submit');
+  const close = element('close');
+  const status = element('status');
+  const result = element('result');
+  const resultBox = element('result-box');
+  const sqlPlanButton = element('sql-plan');
+  let plan = null;
+  let receiptForSqlPlan = null;
+  let busy = false;
+  const digest = /^[a-f0-9]{64}$/;
+
+  function updateActions() {
+    submit.disabled = busy || !plan || !confirm.checked;
+    close.disabled = busy;
+    for (const control of [planField, caField, referenceField, confirm]) control.disabled = busy;
+  }
+
+  function clearReceipt() {
+    result.value = '';
+    resultBox.hidden = true;
+    receiptForSqlPlan = null;
+    sqlPlanButton.disabled = true;
+  }
+
+  function formatPlan() {
+    plan = null;
+    clearReceipt();
+    confirm.checked = false;
+    status.textContent = '';
+    element('selection').textContent = '';
+    try {
+      const value = JSON.parse(planField.value);
+      const url = new URL(value.Location);
+      if (value?.Contract?.Name === 'SqlServerLab.AiExternalModelPlan' && value.Contract.Version === '1.0' &&
+          value.Status === 'NOT_PROBED' && value.EvidenceStatus === 'CONFIGURATION_ONLY' && digest.test(value.PlanKey) &&
+          digest.test(value.ServerCertificateSha256) && url.protocol === 'https:' &&
+          typeof value.RuntimeModel === 'string' && value.RuntimeModel.length <= 256 &&
+          Number.isInteger(value.Dimension) && value.Dimension >= 1 && value.Dimension <= 1998) {
+        plan = value;
+        element('selection').textContent = `${url.origin} · Modell ${value.RuntimeModel} · Dimension ${value.Dimension}`;
+      }
+    } catch { /* Wait for a complete plan. */ }
+    if (planField.value && !plan) status.textContent = 'Der Plan kann für diese Prüfung nicht übernommen werden.';
+    updateActions();
+  }
+
+  element('open').addEventListener('click', () => {
+    form.reset();
+    formatPlan();
+    dialog.showModal();
+  });
+  planField.addEventListener('input', formatPlan);
+  dialog.addEventListener('sqlserverlab:prepared-plan', event => {
+    if (busy || dialog.open) return;
+    form.reset();
+    planField.value = JSON.stringify(event.detail, null, 2);
+    formatPlan();
+    if (plan) dialog.showModal();
+  });
+  for (const control of [caField, referenceField]) {
+    control.addEventListener('input', () => {
+      confirm.checked = false;
+      clearReceipt();
+      updateActions();
+    });
+  }
+  confirm.addEventListener('change', updateActions);
+  close.addEventListener('click', () => { if (!busy) dialog.close(); });
+  dialog.addEventListener('cancel', event => { if (busy) event.preventDefault(); });
+  dialog.addEventListener('close', () => { form.reset(); formatPlan(); });
+  sqlPlanButton.addEventListener('click', () => {
+    if (busy || !plan || !receiptForSqlPlan || !dialog.open) return;
+    const pair = {Plan:plan,EndpointReceipt:receiptForSqlPlan};
+    dialog.close();
+    document.querySelector('#external-model-sql-plan-dialog')?.dispatchEvent(
+      new CustomEvent('sqlserverlab:model-sql-plan-input', {detail:pair})
+    );
+  });
+
+  form.addEventListener('submit', async event => {
+    event.preventDefault();
+    if (submit.disabled || !dialog.open || !form.reportValidity()) return;
+    const keyReference = referenceField.value.trim();
+    if (keyReference && !/^SQL_SERVER_LAB_SECRET_[A-Z0-9_]{1,96}$/.test(keyReference)) {
+      status.textContent = 'Die Vault-Referenz muss mit SQL_SERVER_LAB_SECRET_ beginnen.';
+      return;
+    }
+    const request = {Plan: plan, Confirmed: true, TrustedRootPem: caField.value.trim(), ApiKeyReference: keyReference};
+    const body = JSON.stringify(request);
+    if (new TextEncoder().encode(body).length > 65536) {
+      status.textContent = 'Plan und CA-Zertifikat überschreiten die Grenze von zusammen 64 KiB.';
+      return;
+    }
+    busy = true;
+    confirm.checked = false;
+    clearReceipt();
+    status.textContent = 'Der lokale Endpunkt wird geprüft …';
+    updateActions();
+    try {
+      const response = await sqlServerLabUiFetch('/api/ai-external-model/endpoint', {
+        method: 'POST', headers: {'Content-Type': 'application/json'}, body
+      });
+      const receipt = await response.json();
+      if (!response.ok) throw new Error(receipt?.Code);
+      const names = ['Contract','Status','EvidenceStatus','PlanKey','Backend','Dimension','HttpStatus','ServerCertificateSha256',
+        'DurationMilliseconds','VerifiedAtUtc','ReceiptKey','VerifiedEvidence','PendingEvidence'];
+      const verified = ['HTTPS_CERTIFICATE_MATCH','OPENAI_RESPONSE_SHAPE_MATCH','RUNTIME_MODEL_MATCH','EMBEDDING_DIMENSION_MATCH','FINITE_NUMERIC_VECTOR_MATCH'];
+      const pending = ['RUNTIME_BINARY_MATCH','MODEL_FILE_MATCH','ACCELERATOR_RUNTIME_ATTESTATION'];
+      if (!receipt || Object.keys(receipt).length !== names.length || !names.every(name => Object.hasOwn(receipt,name)) ||
+          receipt.Contract?.Name !== 'SqlServerLab.AiExternalModelEndpointReceipt' || receipt.Contract.Version !== '1.0' ||
+          Object.keys(receipt.Contract).length !== 2 || receipt.Status !== 'ENDPOINT_VERIFIED' || receipt.EvidenceStatus !== 'LIVE_ENDPOINT' ||
+          receipt.PlanKey !== request.Plan.PlanKey || receipt.Backend !== request.Plan.Backend || receipt.Dimension !== request.Plan.Dimension ||
+          receipt.ServerCertificateSha256 !== request.Plan.ServerCertificateSha256 || !digest.test(receipt.ReceiptKey) ||
+          !Number.isInteger(receipt.HttpStatus) || receipt.HttpStatus < 200 || receipt.HttpStatus > 299 ||
+          !Number.isSafeInteger(receipt.DurationMilliseconds) || receipt.DurationMilliseconds < 0 ||
+          typeof receipt.VerifiedAtUtc !== 'string' || !/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{7}(?:Z|\+00:00)$/.test(receipt.VerifiedAtUtc) ||
+          !Array.isArray(receipt.VerifiedEvidence) || receipt.VerifiedEvidence.length !== verified.length || !verified.every(code => receipt.VerifiedEvidence.includes(code)) ||
+          !Array.isArray(receipt.PendingEvidence) || receipt.PendingEvidence.length !== pending.length || !pending.every(code => receipt.PendingEvidence.includes(code))) {
+        throw new Error('AI_EXTERNAL_MODEL_GUIDED_UNCONFIRMED');
+      }
+      result.value = JSON.stringify(receipt, null, 2);
+      resultBox.hidden = false;
+      receiptForSqlPlan = receipt;
+      sqlPlanButton.disabled = false;
+      status.textContent = 'HTTPS-Endpunkt bestätigt. Modellartefakte, Beschleuniger und SQL-Bindung bleiben separat zu prüfen.';
+    } catch (error) {
+      const messages = {
+        AI_EXTERNAL_MODEL_GUIDED_CA_INVALID: 'Das optionale PEM muss ein einzelnes öffentliches CA-Zertifikat enthalten.',
+        AI_EXTERNAL_MODEL_GUIDED_VAULT_UNAVAILABLE: 'Die optionale Referenz konnte im lokalen Vault nicht gelesen werden.',
+        AI_EXTERNAL_MODEL_GUIDED_KEY_INVALID: 'Die Referenz muss einen Schlüssel vom Typ SecureString liefern.',
+        AI_EXTERNAL_MODEL_ENDPOINT_TIMEOUT: 'Die Anfrage hat ihr Zeitbudget überschritten.',
+        AI_EXTERNAL_MODEL_TLS_CERTIFICATE_MISMATCH: 'Das präsentierte Zertifikat weicht vom Plan ab.'
+      };
+      status.textContent = 'Endpunktprüfung unbestätigt. ' + (Object.hasOwn(messages,error.message)
+        ? messages[error.message] : 'Prüfe den Plan, den lokalen Dienst und die Zertifikatskette.');
+    } finally {
+      busy = false;
+      updateActions();
+    }
+  });
+})();
+
+(() => {
+  const element = id => document.querySelector('#' + 'ovms-gateway-' + id);
+  const dialog = element('dialog');
+  if (!dialog) return;
+  const form = element('form');
+  const start = element('start');
+  const startConfirm = element('start-confirm');
+  const stop = element('stop');
+  const stopConfirm = element('stop-confirm');
+  const selection = element('selection');
+  const status = element('status');
+  const result = element('result');
+  const resultBox = element('result-box');
+  const stringFields = ['UpstreamLocation','RuntimeModel','CertificatePath','PrivateKeyPath','TrustedRootPath','ApiKeyReference'];
+  const numberFields = ['Port','Dimension','StartTimeoutSeconds','LeaseSeconds'];
+  const operationId = /^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$/;
+  const digest = /^[a-f0-9]{64}$/;
+  let busy = false;
+  let available = false;
+  let ownSessions = [];
+
+  function updateActions() {
+    start.disabled = busy || !available || !startConfirm.checked;
+    selection.disabled = busy || !ownSessions.length;
+    stop.disabled = busy || !stopConfirm.checked || !ownSessions.some(row => row.OperationId === selection.value);
+    element('read').disabled = busy;
+    element('close').disabled = busy;
+  }
+
+  function clearSessions() {
+    ownSessions = [];
+    selection.replaceChildren();
+    stopConfirm.checked = false;
+  }
+
+  function clearResult() {
+    result.value = '';
+    resultBox.hidden = true;
+  }
+
+  async function request(payload) {
+    const options = payload ? {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)} : {cache:'no-store'};
+    const response = await sqlServerLabUiFetch('/api/ai-ovms-gateway/sessions', options);
+    const view = await response.json();
+    if (!response.ok) throw new Error(view?.Code);
+    return view;
+  }
+
+  async function readSessions() {
+    if (busy) return;
+    clearSessions();
+    available = false;
+    busy = true;
+    updateActions();
+    status.textContent = 'Eigene OVMS-Sitzungen werden gelesen …';
+    try {
+      const view = await request();
+      if (typeof view?.Supported !== 'boolean' || typeof view.VaultAvailable !== 'boolean' || !Array.isArray(view.Items) ||
+          !view.Items.every(row => operationId.test(row.OperationId) && Number.isInteger(row.Port) && row.Port >= 1024 &&
+            row.Port <= 65535 && ['OWNED_SESSION','CLEANUP_PENDING'].includes(row.Status))) throw new Error('Invalid session view');
+      available = view.Supported && view.VaultAvailable;
+      ownSessions = view.Items;
+      const placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.textContent = 'Eigene Sitzung auswählen';
+      selection.appendChild(placeholder);
+      for (const row of ownSessions) {
+        const option = document.createElement('option');
+        option.value = row.OperationId;
+        option.textContent = `Port ${row.Port} · ${row.Status === 'CLEANUP_PENDING' ? 'Cleanup offen' : 'Eigene Sitzung'}`;
+        selection.appendChild(option);
+      }
+      status.textContent = !view.Supported ? 'Der OVMS-HTTPS-Worker benötigt Windows.' :
+        !view.VaultAvailable ? 'Für einen neuen Worker braucht der UI-Server Zugriff auf PowerShell SecretManagement.' :
+        ownSessions.length ? 'Wähle eine eigene Sitzung zum Stop.' : 'Keine eigene OVMS-Sitzung in diesem UI-Server.';
+    } catch {
+      status.textContent = 'Eigene OVMS-Sitzungen konnten nicht gelesen werden.';
+    } finally {
+      busy = false;
+      updateActions();
+    }
+  }
+
+  async function dispatch(payload) {
+    busy = true;
+    clearSessions();
+    clearResult();
+    updateActions();
+    status.textContent = 'Die bestätigte Aktion läuft …';
+    try {
+      const view = await request(payload);
+      if (payload.Action === 'Start') {
+        const fields = ['Contract','Status','OperationId','Location','RuntimeModel','Dimension','ServerCertificateSha256','UpstreamBindingKey','LeaseSeconds','BindingKey'];
+        if (!view || Object.keys(view).length !== fields.length || !fields.every(name => Object.hasOwn(view,name)) ||
+            view.Contract !== 'SqlServerLab.AiOvmsHttpsGateway/1.0' || view.Status !== 'ENDPOINT_VERIFIED' ||
+            !operationId.test(view.OperationId) || view.Location !== `https://127.0.0.1:${payload.Port}/v3/embeddings` ||
+            view.RuntimeModel !== payload.RuntimeModel || view.Dimension !== payload.Dimension || view.LeaseSeconds !== payload.LeaseSeconds ||
+            ![view.ServerCertificateSha256,view.UpstreamBindingKey,view.BindingKey].every(value => typeof value === 'string' && digest.test(value))) {
+          throw new Error('Unconfirmed start');
+        }
+        result.value = JSON.stringify(view,null,2);
+        resultBox.hidden = false;
+        status.textContent = 'Eigener OVMS-HTTPS-Endpunkt bestätigt. Die Bindung kann für den External-Model-Plan übernommen werden.';
+      } else {
+        if (view?.Status !== 'CLEANUP_SUCCEEDED' || view.OperationId !== payload.OperationId) throw new Error('Unconfirmed cleanup');
+        status.textContent = 'Eigene OVMS-Sitzung beendet und temporärer Schlüssel bereinigt.';
+      }
+    } catch (error) {
+      const reasons = {
+        AI_OVMS_GUIDED_INPUT_INVALID:'Prüfe Ziel, Modell, Port, Dimension und Zeitgrenzen.',
+        AI_OVMS_GUIDED_KEY_INVALID:'Der lokale Vault muss einen gültigen SecureString liefern.',
+        AI_OVMS_GUIDED_VAULT_UNAVAILABLE:'Der UI-Server konnte den lokalen Vault nicht lesen.',
+        AI_SHARED_GATEWAY_GUIDED_PATH_INVALID:'Prüfe die lokalen PEM-Dateipfade.'
+      };
+      status.textContent = 'OVMS-Aktion unbestätigt. ' + (Object.hasOwn(reasons,error.message)
+        ? reasons[error.message] : 'Lies die eigenen Sitzungen neu und prüfe den Zustand vor einer weiteren Aktion.');
+    } finally {
+      busy = false;
+      updateActions();
+    }
+  }
+
+  element('open').addEventListener('click', () => {
+    form.reset();
+    clearResult();
+    dialog.showModal();
+    return readSessions();
+  });
+  element('read').addEventListener('click', readSessions);
+  startConfirm.addEventListener('change', updateActions);
+  for (const name of [...stringFields,...numberFields]) {
+    form.elements.namedItem(name).addEventListener('input', () => { startConfirm.checked = false; updateActions(); });
+  }
+  selection.addEventListener('change', () => { stopConfirm.checked = false; updateActions(); });
+  stopConfirm.addEventListener('change', updateActions);
+  element('close').addEventListener('click', () => { if (!busy) dialog.close(); });
+  dialog.addEventListener('cancel', event => { if (busy) event.preventDefault(); });
+  dialog.addEventListener('close', () => { form.reset(); clearSessions(); clearResult(); });
+  form.addEventListener('submit', event => {
+    event.preventDefault();
+    if (start.disabled || !dialog.open || !form.reportValidity()) return;
+    const payload = {Action:'Start',Confirmed:true};
+    for (const name of stringFields) payload[name] = form.elements.namedItem(name).value.trim();
+    for (const name of numberFields) payload[name] = Number(form.elements.namedItem(name).value);
+    if (!numberFields.every(name => Number.isInteger(payload[name])) || payload.LeaseSeconds <= payload.StartTimeoutSeconds ||
+        !/^SQL_SERVER_LAB_SECRET_[A-Z0-9_]{1,96}$/.test(payload.ApiKeyReference)) {
+      status.textContent = 'Prüfe Startbudget, Laufzeit und die lokale Vault-Referenz.';
+      return;
+    }
+    form.reset();
+    return dispatch(payload);
+  });
+  stop.addEventListener('click', () => {
+    if (!stop.disabled && ownSessions.some(row => row.OperationId === selection.value)) {
+      return dispatch({Action:'Stop',Confirmed:true,OperationId:selection.value});
+    }
+  });
+})();
+
+(() => {
+  const element = name => document.querySelector('#external-model-plan-' + name);
+  const dialog = element('dialog');
+  if (!dialog) return;
+  const form = element('form');
+  const submit = element('submit');
+  const use = element('use');
+  const status = element('status');
+  const result = element('result');
+  const resultBox = element('result-box');
+  const textFields = ['Backend','Accelerator','Location','ExternalModelName','RuntimeModel','ModelSha256',
+    'RuntimeSha256','ServerCertificateSha256','TlsMode','InputProfile','GatewayBindingJson'];
+  let plan = null;
+  let revision = 0;
+  let busy = false;
+
+  function invalidate() {
+    revision++;
+    plan = null;
+    use.disabled = true;
+    result.value = '';
+    resultBox.hidden = true;
+    status.textContent = '';
+  }
+
+  element('open').addEventListener('click', () => { form.reset(); invalidate(); dialog.showModal(); });
+  element('close').addEventListener('click', () => dialog.close());
+  dialog.addEventListener('close', () => { form.reset(); invalidate(); });
+  form.addEventListener('input', invalidate);
+
+  form.addEventListener('submit', async event => {
+    event.preventDefault();
+    if (busy || !dialog.open || !form.reportValidity()) return;
+    invalidate();
+    const requestId = revision;
+    const payload = Object.fromEntries(textFields.map(name => [name,form.elements.namedItem(name).value.trim()]));
+    payload.Dimension = Number(form.elements.namedItem('Dimension').value);
+    const body = JSON.stringify(payload);
+    if (new TextEncoder().encode(body).length > 16384 || !Number.isInteger(payload.Dimension) ||
+        payload.Dimension < 1 || payload.Dimension > 1998) {
+      status.textContent = 'Prüfe die Dimension und die Größe der Eingaben.';
+      return;
+    }
+    busy = true;
+    submit.disabled = true;
+    status.textContent = 'Konfiguration wird geprüft …';
+    try {
+      const response = await sqlServerLabUiFetch('/api/ai-external-model/plan', {
+        method:'POST',headers:{'Content-Type':'application/json'},body
+      });
+      if (!response.ok) throw new Error('PLAN_REQUEST_REJECTED');
+      const view = await response.json();
+      if (revision !== requestId || !dialog.open) return;
+      if (view?.Status === 'BLOCKED' && view.Plan === null && Array.isArray(view.Blockers) &&
+          view.Blockers.length > 0 && view.Blockers.length <= 16 &&
+          view.Blockers.every(code => typeof code === 'string' && /^AI_EXTERNAL_MODEL_[A-Z0-9_]{1,80}$/.test(code))) {
+        status.textContent = 'Plan blockiert · ' + view.Blockers.join(' · ');
+        return;
+      }
+      const candidate = view?.Plan;
+      const exact = ['Backend','Accelerator','ExternalModelName','RuntimeModel','Dimension','TlsMode','InputProfile'];
+      const hashes = ['ModelSha256','RuntimeSha256','ServerCertificateSha256'];
+      if (view?.Status !== 'NOT_PROBED' || candidate?.Contract?.Name !== 'SqlServerLab.AiExternalModelPlan' ||
+          candidate.Contract.Version !== '1.0' || candidate.Status !== 'NOT_PROBED' ||
+          candidate.EvidenceStatus !== 'CONFIGURATION_ONLY' || !/^[a-f0-9]{64}$/.test(candidate.PlanKey) ||
+          !exact.every(name => candidate[name] === payload[name]) ||
+          !hashes.every(name => candidate[name] === payload[name].toLowerCase()) ||
+          candidate.Location !== new URL(payload.Location).href) throw new Error('UNCONFIRMED_PLAN');
+      plan = candidate;
+      result.value = JSON.stringify(plan,null,2);
+      resultBox.hidden = false;
+      use.disabled = false;
+      status.textContent = 'Konfiguration gebunden. Laufzeit und SQL-Einsatz benötigen eigene Prüfungen.';
+    } catch {
+      if (revision === requestId && dialog.open) status.textContent = 'Vorschau unbestätigt. Prüfe die Eingaben.';
+    } finally {
+      busy = false;
+      submit.disabled = false;
+    }
+  });
+
+  use.addEventListener('click', () => {
+    if (!plan || !dialog.open || use.disabled) return;
+    const prepared = plan;
+    dialog.close();
+    document.querySelector('#external-model-endpoint-dialog')?.dispatchEvent(
+      new CustomEvent('sqlserverlab:prepared-plan', {detail:prepared})
+    );
+  });
+})();
+
+(() => {
+  const element = name => document.querySelector('#external-model-sql-plan-' + name);
+  const dialog = element('dialog');
+  if (!dialog) return;
+  const form = element('form');
+  const submit = element('submit');
+  const status = element('status');
+  const result = element('result');
+  const resultBox = element('result-box');
+  const digest = /^[a-f0-9]{64}$/;
+  let revision = 0;
+  let busy = false;
+
+  function clearPlan() {
+    revision++;
+    result.value = '';
+    resultBox.hidden = true;
+    status.textContent = '';
+  }
+  function show(pair) {
+    if (dialog.open) return;
+    form.reset();
+    clearPlan();
+    if (pair) {
+      element('plan').value = JSON.stringify(pair.Plan, null, 2);
+      element('receipt').value = JSON.stringify(pair.EndpointReceipt, null, 2);
+    }
+    dialog.showModal();
+  }
+  element('open').addEventListener('click', () => show(null));
+  dialog.addEventListener('sqlserverlab:model-sql-plan-input', event => show(event.detail));
+  element('close').addEventListener('click', () => dialog.close());
+  dialog.addEventListener('close', () => { form.reset(); clearPlan(); });
+  form.addEventListener('input', clearPlan);
+
+  form.addEventListener('submit', async event => {
+    event.preventDefault();
+    if (busy || !dialog.open || !form.reportValidity()) return;
+    clearPlan();
+    const requestId = revision;
+    let request;
+    let body;
+    try {
+      request = {Plan:JSON.parse(element('plan').value),EndpointReceipt:JSON.parse(element('receipt').value),
+        DatabaseName:element('database').value.trim(),MaxEndpointAgeSeconds:Number(element('age').value)};
+      if (!digest.test(request.Plan?.PlanKey) || request.EndpointReceipt?.PlanKey !== request.Plan.PlanKey ||
+          !digest.test(request.EndpointReceipt.ReceiptKey) || !/^[A-Za-z_][A-Za-z0-9_]{0,127}$/.test(request.DatabaseName) ||
+          !Number.isInteger(request.MaxEndpointAgeSeconds) || request.MaxEndpointAgeSeconds < 30 || request.MaxEndpointAgeSeconds > 3600) {
+        throw new Error('BAD_INPUT');
+      }
+      body = JSON.stringify(request);
+      if (new TextEncoder().encode(body).length > 32768) throw new Error('BAD_INPUT');
+    } catch {
+      status.textContent = 'Prüfe Plan, passende Quittung, Datenbanknamen und Quittungsalter.';
+      return;
+    }
+    busy = true;
+    submit.disabled = true;
+    status.textContent = 'SQL-Plan wird gebunden …';
+    try {
+      const response = await sqlServerLabUiFetch('/api/ai-external-model/sql-plan', {
+        method:'POST',headers:{'Content-Type':'application/json'},body
+      });
+      const view = await response.json();
+      if (revision !== requestId || !dialog.open) return;
+      if (!response.ok && view?.Code === 'AI_EXTERNAL_MODEL_ENDPOINT_RECEIPT_EXPIRED') {
+        status.textContent = 'Die Quittung ist abgelaufen. Prüfe den Endpunkt erneut.';
+        return;
+      }
+      if (!response.ok || view?.Contract?.Name !== 'SqlServerLab.AiExternalModelSqlPlan' || view.Contract.Version !== '1.0' ||
+          view.Status !== 'PLANNED' || view.EvidenceStatus !== 'LIVE_ENDPOINT_BOUND' || view.SqlMajorVersion !== 17 ||
+          view.DatabaseName !== request.DatabaseName || view.SourcePlanKey !== request.Plan.PlanKey ||
+          view.EndpointReceiptKey !== request.EndpointReceipt.ReceiptKey || !digest.test(view.SqlPlanKey)) throw new Error('BAD_PLAN');
+      result.value = JSON.stringify(view,null,2);
+      resultBox.hidden = false;
+      status.textContent = 'SQL-Plan gebunden. Rechte, Datenbank-Master-Key und Ausführung werden separat geprüft.';
+    } catch {
+      if (revision === requestId && dialog.open) status.textContent = 'SQL-Plan unbestätigt. Prüfe Plan, Endpunktquittung und Datenbanknamen.';
+    } finally {
+      busy = false;
+      submit.disabled = false;
+    }
+  });
+})();

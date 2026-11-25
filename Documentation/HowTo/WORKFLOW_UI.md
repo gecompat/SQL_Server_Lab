@@ -517,11 +517,20 @@ Unter **Lab erstellen → Python / R / Java: Katalog und Hostvoraussetzungen**
 Docker oder Podman und SQL-Version wählen, dann **Katalogvarianten lesen**.
 Python-, R- und Java-Varianten mit Sperrgrund bleiben sichtbar; nur unterstützte
 Varianten sind auswählbar. **Katalogentscheidung anzeigen** prüft keinen Host.
+**Historische Nachweise lesen** zeigt den Zuordnungsstatus und die Anzahl
+gespeicherter Einträge für die ausgewählte Variante. In der CLI führt
+**Hostfähigkeiten vor der Funktionsauswahl → Konkrete Container-Variante
+näher prüfen → Historische Nachweise für diese Variante lesen** zur selben
+Zusammenfassung. Eine positive Anzahl zählt auch frühere Fehler. Die
+aktuelle Hostbereitschaft und SQL-Sprachausführung bleiben ungeprüft.
 **Hostvoraussetzungen bewusst lesend prüfen** beobachtet den gewählten Provider
 einmal; `READY` ist keine SQL-Sprachabnahme oder Zielautorisierung.
 Für eine zusätzliche Profilprüfung wähle ein **Ressourcenprofil** und dann
 **Controller und Profilkapazität lesend prüfen**. Die Ausgabe unterscheidet
 fehlende Controller, zu geringe Gesamtkapazität und unbekannte Werte. Die
+Ausgabe nennt außerdem das gemeldete Runtime-Betriebssystem, die
+cgroup-Version und den Rootless-Modus. Sie kennzeichnet eine fehlende
+Beobachtung ausdrücklich. Die
 angezeigte Gesamtkapazität belegt keine frei verfügbare CPU- oder RAM-Menge.
 SQL 2025 shared-user-v2 besitzt keine Launchpad-Sandbox. Öffnen oder Ändern
 fragt keinen Host ab. Zurück/Abbruch und Escape verwerfen den RAM-Entwurf und
@@ -1352,8 +1361,14 @@ du ein katalogisiertes Generationsmodell wählen, das im lokalen Ollama-Dienst
 bereitsteht. Gib dessen Loopback-Port und einen synthetischen Prompt ein.
 Das Zeitlimit umfasst Modellstart und Antwort. Standard sind 180 Sekunden.
 Erst nach Bestätigung sendet der Browserauftrag eine Abfrage an den lokalen
-Dienst. Die Antwort steht unter **Vorgänge**. Für die ausdrücklich
-freizugebende Cloud-Lane gibt es weiterhin den CLI-Einstieg.
+Dienst. Die Antwort steht unter **Vorgänge**.
+
+Wähle **Host-Dienste und Modelle → Ollama-Cloud-Modell aufrufen** für einen
+Cloud-Aufruf. Wähle das Modell und deklariere den Prompt als synthetisch oder
+öffentlich weitergebbar. Die Bestätigung nennt `https://ollama.com` und das
+Zeitlimit. Sie gibt genau eine Übermittlung frei. Das erforderliche Credential
+liest der UI-Server aus der konfigurierten lokalen Mediendatei `.env`. Die
+Antwort steht unter **Vorgänge**.
 
 Der geführte eigene llama.cpp-Sitzungsstop ist unter „Host-Dienste und Modelle“
 über Auswahl, Vorschau, Abbruch und bewusste Bestätigung erreichbar. Die
@@ -1427,6 +1442,17 @@ passenden Gateway- und Dienstplan. Die Ergebnisansicht zeigt Anzahl und
 Gültigkeit. Die Auflösung durch den tatsächlich gestarteten nichtinteraktiven
 Dienst ist ein eigener Nachweis.
 
+#### Eine eigene OVMS-HTTPS-Sitzung starten oder stoppen
+
+Öffne unter **Host-Dienste und Modelle** auf Windows **Eigene
+OVMS-HTTPS-Sitzungen verwalten**. Gib den laufenden HTTP-Loopback-Upstream,
+das erwartete Modell, seine Dimension, den freien HTTPS-Port, lokale
+PEM-Dateipfade und die Zeitgrenzen an. Der UI-Server liest den Gateway-Schlüssel
+aus seinem lokalen PowerShell-Vault über die angegebene Referenz. Bestätige den
+Start und übernimm bei Bedarf die ausgegebene Bindung in den External-Model-Plan.
+Für den Stop liest du die eigenen Sitzungen neu und bestätigst die ausgewählte
+Sitzung. Plane ein, dass deren SQL-Verbraucher dadurch die Verbindung verlieren.
+
 #### Eine eigene Gateway-Sitzung starten oder stoppen
 
 Wähle im registrierten Gateway-Plan **Eigene Gateway-Sitzung für diesen
@@ -1459,6 +1485,50 @@ Die CLI- und Browser-Liste verwenden jeweils den Modulhost, der den Worker
 gestartet hat. Eine getrennte Statusabfrage kann einen Port als belegt melden,
 wenn ihr der Ownerkanal nicht vorliegt. Der dauerhafte Autostart und die
 SQL-Bindung erfordern eigene Nachweise.
+
+### Lokalen HTTPS-Modellendpunkt planen
+
+Öffne **Host-Dienste und Modelle → Lokalen HTTPS-Modellendpunkt planen**.
+Wähle Backend, Beschleuniger, HTTPS-Betriebsart und Eingabeprofil. Gib die
+lokale Embedding-URL, den SQL- und den Runtime-Modellnamen, die Dimension
+und die SHA-256-Werte von Modell, Runtime und Zertifikat an. Für OpenVINO
+Model Server übernimmst du die JSON-Bindung deiner gestarteten OVMS-Sitzung.
+Das Ergebnis `NOT_PROBED` ist eine gebundene Konfiguration. Im Browser
+öffnet **Zur Endpunktprüfung übernehmen** den ausgefüllten Folgedialog.
+Die CLI bietet denselben Übergang an. Die eigentliche Endpunktprüfung
+braucht eine separate Bestätigung.
+
+### Geplanten HTTPS-Modellendpunkt prüfen
+
+Öffne **Host-Dienste und Modelle → Geplanten HTTPS-Modellendpunkt prüfen**.
+Verwende den JSON-Plan von `Get-SqlServerLabAiExternalModelPlan`. In der
+CLI gibst du den lokalen Dateipfad an. Im Browser übernimmst du den JSON-
+Inhalt. Prüfe das angezeigte Ziel, Modell und Dimension vor der Bestätigung.
+
+Für Systemvertrauen bleibt das optionale CA-Feld leer. Für einen
+isolierten Vertrauensanker gib in der CLI den Pfad zu einem öffentlichen
+CA-PEM an oder füge dessen Inhalt im Browser ein. Die CA gilt nur für
+diese Probe. Bei einem geschützten Endpunkt erfasst die CLI den Schlüssel
+maskiert. Im Browser gibst du eine Referenz im lokalen PowerShell-Vault des
+UI-Servers an. Der Server erwartet dort einen `SecureString`.
+
+Die Bestätigung sendet eine synthetische Embedding-Anfrage an das
+gebundene lokale HTTPS-Ziel. Eine erfolgreiche Prüfung zeigt die passende
+Endpunktquittung als JSON. Modellartefakte, Beschleuniger und die spätere
+SQL-Bindung haben eigene Prüfungen.
+[External-Model-Plan erstellen](../User/SQL_AI_LOCAL_ACCELERATION.md)
+
+### Einen SQL-Plan aus der Endpunktquittung erstellen
+
+Nach der bestätigten Endpunktprüfung kannst du **Gebundenen SQL-Plan
+vorbereiten** wählen. Der Dialog übernimmt die passenden JSON-Objekte.
+Über **Host-Dienste und Modelle → SQL-Plan für bestätigten Modellendpunkt
+erstellen** kannst du die beiden JSON-Objekte auch einfügen. Die CLI liest
+in diesem Fall zwei ausdrücklich ausgewählte lokale JSON-Dateien.
+Gib den Namen der vorgesehenen Datenbank und das Höchstalter der Quittung
+an. Nach Ablauf musst du den Endpunkt erneut prüfen. Der SQL-Plan zeigt
+die Bindung und die vorgesehene Create- und Cleanup-Reihenfolge. Er öffnet
+keine SQL-Verbindung und legt keine Objekte an.
 
 ### Vorhandene llama.cpp-Pakete prüfen
 

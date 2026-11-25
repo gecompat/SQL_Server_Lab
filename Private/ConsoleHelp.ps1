@@ -123,15 +123,15 @@ function Get-LabConsoleHelpCatalog {
         }
         'host-matrix-launch-probe' = @{
             Title = 'Variantenprüfung: Umfang'
-            Purpose = 'Katalogdeklaration, Container-Grundlagen oder Prüfung eines Ressourcenprofils auswählen.'
-            Effects = 'Die Grundlagenprüfung liest einmal Providerinfo. Für die Profilprüfung wird zuerst das Profil gewählt. Kein Start und keine SQL-Abfrage.'
+            Purpose = 'Katalogdeklaration, Container-Grundlagen, Ressourcenprofil oder gespeicherte Nachweise für die gewählte Variante auswählen.'
+            Effects = 'Die Historie liest nur den lokalen Nachweisindex. Die Grundlagenprüfung liest einmal Providerinfo. Für die Profilprüfung wird zuerst das Profil gewählt.'
             Command = 'Get-SqlServerLabExternalRuntimeCapability -CheckProviderReadiness'
         }
         'host-matrix-launch-profile' = @{
             Title = 'Ressourcenprofil zur Prüfung wählen'
-            Purpose = 'Controller und gemeldete Gesamtkapazität des ausgewählten Providers für ein Katalogprofil prüfen.'
+            Purpose = 'Controller, Gesamtkapazität und gemeldete OS-, cgroup- und Rootless-Werte für ein Katalogprofil prüfen.'
             Effects = 'Enter veranlasst eine begrenzte lesende Abfrage. Freie Ressourcen und SQL-Ausführung bleiben ungeprüft. Escape bricht vor der Abfrage ab.'
-            Command = 'Get-SqlServerLabExternalRuntimeCapability -IncludeHostPrerequisites -CheckProviderReadiness'
+            Command = 'Get-SqlServerLabExternalRuntimeCapability -IncludeProviderFacts -CheckProviderReadiness'
         }
         'evaluation-refresh-run' = @{
             Title = 'SQL-Evaluation: Instanz auswählen'
@@ -252,6 +252,12 @@ function Get-LabConsoleHelpCatalog {
             Purpose = 'Einen Hostmodus für den angezeigten Gateway-Plan prüfen.'
             Effects = 'Die Auswahl liest Registrierung und Hostvoraussetzungen und zeigt den Dienstplan mit möglichen Blockern.'
             Command = 'Get-SqlServerLabAiSharedGatewayServicePlan'
+        }
+        'ovms-gateway-own-stop' = @{
+            Title = 'Eigene OVMS-HTTPS-Sitzung stoppen'
+            Purpose = 'Wählt eine eigene OVMS-Operation der aktuellen Modulsitzung.'
+            Effects = 'Bestätigung beendet den eigenen Worker und bereinigt seinen temporären API-Schlüssel. SQL-Verbraucher können die Verbindung verlieren.'
+            Command = 'Stop-SqlServerLabOvmsHttpsGateway'
         }
         'ai-shared-gateway-service-secret-confirm' = @{
             Title = 'Dienst-Secrets prüfen'

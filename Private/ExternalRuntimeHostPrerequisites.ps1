@@ -33,7 +33,7 @@ function ConvertTo-LabExternalRuntimePrerequisiteObservation {
 }
 
 function Add-LabExternalRuntimeHostPrerequisites {
-    param($Decision,[string]$ResourceProfile,$Requirements,$HostObservation)
+    param($Decision,[string]$ResourceProfile,$Requirements,$HostObservation,[switch]$IncludeProviderFacts)
     $status='NOT_CHECKED';$reasons=@('READINESS_NOT_REQUESTED');$controllers=$null;$capacity=$null
     $shared=$null;$observed=$null
     # The same reducer used by the native Plan is loaded only for this opt-in.
@@ -55,13 +55,23 @@ function Add-LabExternalRuntimeHostPrerequisites {
             $reasons=@('PROVIDER_RESPONSE_INVALID');$Decision.CurrentReadiness.Status='BLOCKED';$Decision.CurrentReadiness.ReasonCode='PROVIDER_RESPONSE_INVALID'
         }
     }
-    $Decision.Contract.Version='1.2'
+    $Decision.Contract.Version=if ($IncludeProviderFacts) { '1.3' } else { '1.2' }
     $Decision.CurrentReadiness|Add-Member -NotePropertyName Scope -NotePropertyValue 'OS_CGROUP_ROOTFUL_CONTROLLERS_PROFILE_TOTAL_CAPACITY'
     $Decision|Add-Member -NotePropertyName HostPrerequisites -NotePropertyValue ([pscustomobject]@{
         Status=$status;ReasonCodes=$reasons;ResourceProfile=$ResourceProfile;Controllers=$controllers;ResourceCapacity=$capacity;
         SharedKernel=$shared;ObservedAtUtc=$observed;FullLaunchReadiness='INCOMPLETE';ExecutionSupported=$false;MutationAllowed=$false;
         EvidenceBoundary='CURRENT_PROVIDER_ADVERTISEMENT_NOT_SQL_OR_FREE_RESOURCE_PROOF'
     })
+    if ($IncludeProviderFacts) {
+        $facts = if ($HostObservation) { $HostObservation.Facts }
+        $reported = if ($observed -and $facts.OperatingSystem -is [string] -and $facts.OperatingSystem -cin @('linux','windows') -and
+            $facts.CgroupVersion -is [string] -and $facts.CgroupVersion -cin @('1','2') -and $facts.Rootless -is [bool]) {
+            [pscustomobject]@{
+                OperatingSystem=$facts.OperatingSystem; CgroupVersion=$facts.CgroupVersion; Rootless=$facts.Rootless
+            }
+        }
+        $Decision.HostPrerequisites | Add-Member -NotePropertyName ProviderFacts -NotePropertyValue $reported
+    }
     if([Text.Encoding]::UTF8.GetByteCount(($Decision|ConvertTo-Json -Depth 30 -Compress)) -gt 262144){throw 'EXTERNAL_RUNTIME_CAPABILITY_OUTPUT_LIMIT'}
     $Decision
 }

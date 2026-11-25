@@ -505,6 +505,10 @@ keine feste TLS-Version, kein Downgrade, kein Retry oder Trustbypass.
 TLS-Vetos dürfen nach geprüfter Peerbindung schon einen geöffneten RAM-Key
 haben, aber keine entschlüsselten HTTP-/Authorization-/Bodybytes senden.
 Bestätigter eigener Cleanup ist kein Nachweis physischer Speicher-/Keylöschung.
+Die geführte Probe in CLI und Browser verwendet denselben Transportkern.
+Ihre synthetischen Tests belegen Planbindung, explizite Auslösung und
+Quittung. Der Browser kann für eine optionale Referenz einen zugänglichen
+lokalen Vault benötigen.
 [Ausgeführte Nachweise](LOCAL_VALIDATION_STRATEGY.md#lokale-external-model-autoritaeten).
 
 ## Workflow-UI: Operatorbindung und offene Aktionsfreigaben
@@ -2524,6 +2528,10 @@ Loopback-HTTP-Upstream auf `/v3/embeddings`, exakten Modellnamen, Antwortform
 und Dimension prüfen. Sie startet keinen Prozess und belegt weder
 TLS-Terminierung, Gatewaybesitz noch Acceleratornutzung. Diese Evidence liefert
 erst `Start-SqlServerLabOvmsHttpsGateway` für seine eigene Operation.
+Der geführte Start und Stop in CLI und Browser setzt denselben
+Windows-Worker voraus. Die Führung ist mit synthetischen Eingaben und
+eigenen Sitzungsobjekten prüfbar. Eine native OVMS-/SQL-Abnahme bleibt
+ein separater Nachweis.
 Für weitere OpenAI-kompatible Backends sind ein hashgebundener Plan sowie
 getrennte read-only Prüfungen der lokalen Runtime-/Modelldateien und des
 HTTPS-Embedding-Endpunkts implementiert. Die Live-Probe verlangt den exakt im
@@ -2762,9 +2770,11 @@ ist keine vollständige Launch- oder Sprachfreigabe. Der
 [Teilvertrag](../Architecture/NATIVE_LINUX_HOST_PREREQUISITES.md) erweitert noch
 keine Zusage der übergeordneten Hostmatrix. Die öffentliche Detail-API kann
 dieselben Teilbefunde ausdrücklich mit `IncludeHostPrerequisites` (Version 1.2)
-abfragen; Standard und geführte Browseransicht bleiben unverändert. Auch dieses
-Opt-in bestätigt weder freie/reservierte Ressourcen noch Providerkernelbindung,
-WSL-Workloadkompatibilität oder vollständige Launchbereitschaft.
+abfragen. Die geführte Profilprüfung in Konsole und Browser ergänzt über
+`IncludeProviderFacts` (Version 1.3) Runtime-OS, cgroup-Version und Rootless-Modus
+aus derselben Antwort. Freie oder reservierte Ressourcen,
+Providerkernelbindung, WSL-Workloadkompatibilität und vollständige
+Launchbereitschaft bleiben ungeprüft.
 Unter WSL mit gespiegeltem Netzwerk überschreibt `WSLOUTPUT` außerdem die
 Paketmarkierung der Ubuntu-Podman-CNI-Portweiterleitung. Ein gesunder
 SQL-Container kann deshalb über seinen Loopbackport unerreichbar bleiben.
@@ -4367,9 +4377,9 @@ Compute-/Cleanup-Abnahme und ausgewählte Provider-Gates sind NOT_EXECUTED.
 Das optionale CORE-102-Identitätsmapping verwendet den bestehenden Indexvertrag
 1.1; Legacyrecords bleiben unbekannt und unverändert. Public
 `Get-SqlServerLabExternalRuntimeCapability -IncludeRecordedEvidence` liefert
-Version 1.1 ohne aktuelle Evidence-Aufwertung. Die bewusste Browseraktion
-`ReadRecordedEvidence` projiziert daraus eine geschlossene 1.1-Zusammenfassung:
-Zuordnung, fester Grund und Anzahl, keine einzelnen Records oder Referenzen.
+Version 1.1 mit historischen Befunden. CLI und Browser zeigen nach bewusster
+Auswahl dieselbe begrenzte Zusammenfassung aus Zuordnung, festem Grund und
+Anzahl. Referenzen und einzelne Records bleiben im Index.
 Eine positive Anzahl ist kein PASS; aktuelle Host- und SQL-Prüfung bleiben
 NOT_CHECKED, Referenzen NOT_VERIFIED. Einzelnachweise mit Quelle/Datum/Ergebnis
 im Browser und die übrige #619-Matrix bleiben offen. Das Tool verlangt beide Schalter

@@ -11,7 +11,8 @@ function Assert-LabExternalRuntimeHttpDecision {
     Assert-LabExternalRuntimeHttpShape $Value.Contract @('Name','Version','EvidenceBoundary')
     if($IncludeRecordedEvidence) {
         if($Value.Contract.Version -isnot [string] -or $Value.Contract.Version -cne '1.1' -or $Value.CurrentReadiness.Status -cne 'NOT_CHECKED') {throw 'EXTERNAL_RUNTIME_HTTP_INVALID'}
-        $summary=ConvertTo-LabExternalRuntimeHttpHistorySummary $Value.HistoricalEvidence
+        try { $summary=ConvertTo-LabExternalRuntimeHistorySummary $Value.HistoricalEvidence }
+        catch { throw 'EXTERNAL_RUNTIME_HTTP_INVALID' }
         # Reuse the unchanged 1.0 authority/identity validator without mutating the public result.
         $legacy=$Value.PSObject.Copy();$legacy.Contract=$Value.Contract.PSObject.Copy();$legacy.Contract.Version='1.0'
         $legacy.HistoricalEvidence=[pscustomobject]@{Status='NOT_RECORDED';MappingStatus='NOT_DEFINED'}
@@ -55,37 +56,6 @@ function Assert-LabExternalRuntimeHttpDecision {
         ($Value.CurrentReadiness.Status -ceq 'BLOCKED' -and $Value.CurrentReadiness.ReasonCode -cin @('NONE','READINESS_NOT_REQUESTED'))) {throw 'EXTERNAL_RUNTIME_HTTP_INVALID'}
 }
 
-function ConvertTo-LabExternalRuntimeHttpHistorySummary {
-    param($Value)
-    Assert-LabExternalRuntimeHttpShape $Value @('Status','MappingStatus','ReasonCode','RecordCount','Cells','ReferenceVerificationStatus','EvidenceBoundary')
-    $states=@{
-        CATALOG_IDENTITY_UNRESOLVED=@('NOT_RECORDED','NOT_DEFINED')
-        INDEX_LEGACY_IDENTITY_UNKNOWN=@('NOT_RECORDED','NOT_DEFINED')
-        INDEX_NO_MATCH=@('NOT_RECORDED','DEFINED')
-        INDEX_MATCH_RECORDED=@('RECORDED_HISTORY_ONLY','DEFINED')
-        INDEX_NOT_PRESENT=@('UNAVAILABLE','UNAVAILABLE')
-        INDEX_SCHEMA_UNSUPPORTED=@('UNAVAILABLE','UNAVAILABLE')
-        INDEX_INVALID=@('UNAVAILABLE','UNAVAILABLE')
-        EVIDENCE_OUTPUT_LIMIT=@('UNAVAILABLE','UNAVAILABLE')
-    }
-    foreach($name in @('Status','MappingStatus','ReasonCode','ReferenceVerificationStatus','EvidenceBoundary')) {
-        if($Value.$name -isnot [string]) {throw 'EXTERNAL_RUNTIME_HTTP_INVALID'}
-    }
-    if($Value.ReasonCode -cnotin @($states.Keys) -or $Value.Status -cne $states[$Value.ReasonCode][0] -or
-        $Value.MappingStatus -cne $states[$Value.ReasonCode][1] -or $Value.ReferenceVerificationStatus -cne 'NOT_VERIFIED' -or
-        $Value.EvidenceBoundary -cne 'RECORDED_HISTORY_ONLY' -or ($Value.RecordCount -isnot [int] -and $Value.RecordCount -isnot [long]) -or
-        $Value.RecordCount -lt 0 -or $Value.RecordCount -gt 128 -or $Value.Cells -isnot [array] -or $Value.Cells.Count -gt 128) {throw 'EXTERNAL_RUNTIME_HTTP_INVALID'}
-    $count=0
-    foreach($cell in $Value.Cells) {
-        if($null -eq $cell -or ($cell.RecordCount -isnot [int] -and $cell.RecordCount -isnot [long]) -or $cell.RecordCount -lt 1 -or $cell.RecordCount -gt 128) {throw 'EXTERNAL_RUNTIME_HTTP_INVALID'}
-        $count+=$cell.RecordCount
-    }
-    if($count -ne $Value.RecordCount -or (($Value.Status -ceq 'RECORDED_HISTORY_ONLY') -ne ($count -gt 0))) {throw 'EXTERNAL_RUNTIME_HTTP_INVALID'}
-    # Deliberately project fixed metadata only; records, paths and references never cross this boundary.
-    [pscustomobject]@{Status=$Value.Status;MappingStatus=$Value.MappingStatus;ReasonCode=$Value.ReasonCode;RecordCount=$count;
-        ReferenceVerificationStatus='NOT_VERIFIED';EvidenceBoundary='RECORDED_HISTORY_ONLY'}
-}
-
 function Assert-LabExternalRuntimeHttpIdentity {
     param($Value)
     if($Value.SoftwareId -isnot [string] -or $Value.Language -isnot [string] -or $Value.SoftwareId -cnotin @('sql-python','sql-r','sql-java') -or $Value.Language -cnotin @('Python','R','Java') -or
@@ -104,13 +74,15 @@ function Assert-LabExternalRuntimeHttpIdentity {
 function ConvertTo-LabExternalRuntimeHttpPrerequisiteSummary {
     param($Decision,$Payload)
     $facts = $Decision.HostPrerequisites
+    $includeProviderFacts = $Payload.IncludeProviderFacts -eq $true
+    $decisionVersion = if ($includeProviderFacts) { '1.3' } else { '1.2' }
     $codes = @('CATALOG_BLOCKED','TOOL_NOT_INSTALLED','TOOL_NATIVE_PATH_REQUIRED','PROVIDER_PROBE_FAILED',
         'PROVIDER_PROBE_TIMEOUT','PROVIDER_OUTPUT_LIMIT','PROVIDER_TERMINATION_UNCONFIRMED','PROVIDER_RESPONSE_INVALID',
         'CGROUP_V2_REQUIRES_SQL2025','LINUX_RUNTIME_REQUIRED','CGROUP_VERSION_UNSUPPORTED','ROOTFUL_STATUS_UNKNOWN',
         'ROOTFUL_PROVIDER_REQUIRED','RESOURCE_CONTROLLERS_UNAVAILABLE','RESOURCE_CONTROLLERS_UNKNOWN',
         'RESOURCE_PROFILE_CAPACITY_INSUFFICIENT','RESOURCE_PROFILE_CAPACITY_UNKNOWN','KERNEL_MEMCG_V1_DISABLED')
     if ($Decision.Contract.Name -isnot [string] -or $Decision.Contract.Name -cne 'SqlServerLab.ExternalRuntimeCapability' -or
-        $Decision.Contract.Version -isnot [string] -or $Decision.Contract.Version -cne '1.2' -or
+        $Decision.Contract.Version -isnot [string] -or $Decision.Contract.Version -cne $decisionVersion -or
         $Decision.Provider -cne $Payload.Provider -or $Decision.OperatingSystem -cne 'linux' -or
         $Decision.ExecutionSupported -isnot [bool] -or $Decision.ExecutionSupported -or
         $Decision.MutationAllowed -isnot [bool] -or $Decision.MutationAllowed -or $Decision.Actions -isnot [array] -or $Decision.Actions.Count -or
@@ -146,12 +118,34 @@ function ConvertTo-LabExternalRuntimeHttpPrerequisiteSummary {
         (($controllerStatus -ceq 'MISSING') -ne ($missingControllers.Count -gt 0)) -or
         ($facts.Status -ceq 'COMPATIBLE' -and ($facts.ReasonCodes.Count -or $controllerStatus -cne 'AVAILABLE' -or
             $memory -cne 'CAPACITY_SUFFICIENT' -or $cpu -cne 'CAPACITY_SUFFICIENT'))) { throw 'EXTERNAL_RUNTIME_HTTP_INVALID' }
-    [pscustomobject]@{
+    $result = [pscustomobject]@{
         ContractVersion='SqlServerLab.ExternalRuntimeCapabilityBrowser/1.3'; Status='HOST_PREREQUISITES'; Provider=$Decision.Provider
         Identity=$Decision.Identity; ResourceProfile=$facts.ResourceProfile; PrerequisiteStatus=$facts.Status; ReasonCodes=$facts.ReasonCodes
         ControllerStatus=$controllerStatus; MissingControllers=$missingControllers; UnknownControllers=$unknownControllers; MemoryStatus=$memory; CpuStatus=$cpu
         FullLaunchReadiness='INCOMPLETE'; ExecutionSupported=$false; MutationAllowed=$false
     }
+    if ($includeProviderFacts) {
+        $observed = $facts.ProviderFacts
+        $hasObservation = $facts.Status -cin @('COMPATIBLE','BLOCKED','UNKNOWN')
+        $required = $Decision.CurrentReadiness.RequiredCgroupVersion
+        if (-not $facts.PSObject.Properties['ProviderFacts'] -or $hasObservation -ne ($null -ne $observed)) {
+            throw 'EXTERNAL_RUNTIME_HTTP_INVALID'
+        }
+        if (($facts.Status -ceq 'CATALOG_BLOCKED' -and $null -ne $required) -or
+            ($facts.Status -cne 'CATALOG_BLOCKED' -and ($required -isnot [string] -or $required -cnotin @('1','2')))) {
+            throw 'EXTERNAL_RUNTIME_HTTP_INVALID'
+        }
+        if ($hasObservation) {
+            Assert-LabExternalRuntimeHttpShape $observed @('OperatingSystem','CgroupVersion','Rootless')
+            if ($observed.OperatingSystem -isnot [string] -or $observed.OperatingSystem -cnotin @('linux','windows') -or
+                $observed.CgroupVersion -isnot [string] -or $observed.CgroupVersion -cnotin @('1','2') -or
+                $observed.Rootless -isnot [bool]) { throw 'EXTERNAL_RUNTIME_HTTP_INVALID' }
+        }
+        $result.ContractVersion = 'SqlServerLab.ExternalRuntimeCapabilityBrowser/1.4'
+        $result | Add-Member -NotePropertyName ProviderFacts -NotePropertyValue $observed
+        $result | Add-Member -NotePropertyName RequiredCgroupVersion -NotePropertyValue $required
+    }
+    return $result
 }
 
 function Invoke-LabExternalRuntimeCapabilityHttpRequest {
@@ -181,9 +175,15 @@ function Invoke-LabExternalRuntimeCapabilityHttpRequest {
         $names=@('Action','SqlVersion','Provider','OperatingSystem')
         if($payload.Action -ceq 'Evaluate') {$names+=@('SoftwareId','RuntimeVersion','VariantId','CheckProviderReadiness')}
         if($payload.Action -ceq 'ReadRecordedEvidence') {$names+=@('SoftwareId','RuntimeVersion','VariantId')}
-        if($payload.Action -ceq 'CheckHostPrerequisites') {$names+=@('SoftwareId','RuntimeVersion','VariantId','ResourceProfile')}
+        if($payload.Action -ceq 'CheckHostPrerequisites') {
+            $names+=@('SoftwareId','RuntimeVersion','VariantId','ResourceProfile')
+            if ($payload.PSObject.Properties['IncludeProviderFacts']) {
+                if ($payload.IncludeProviderFacts -isnot [bool]) { throw 'EXTERNAL_RUNTIME_HTTP_INVALID' }
+                $names += 'IncludeProviderFacts'
+            }
+        }
         Assert-LabExternalRuntimeHttpShape $payload $names
-        foreach($name in $names | Where-Object {$_ -cne 'CheckProviderReadiness'}) {
+        foreach($name in $names | Where-Object {$_ -cnotin @('CheckProviderReadiness','IncludeProviderFacts')}) {
             if($payload.$name -isnot [string] -or [string]::IsNullOrWhiteSpace($payload.$name)) {throw 'EXTERNAL_RUNTIME_HTTP_INVALID'}
         }
         if($payload.Provider -cnotin @('docker','podman') -or $payload.OperatingSystem -cne 'linux' -or $payload.SqlVersion.Length -gt 32) {throw 'EXTERNAL_RUNTIME_HTTP_INVALID'}
