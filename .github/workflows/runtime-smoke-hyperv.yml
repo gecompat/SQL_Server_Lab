@@ -55,6 +55,7 @@ on:
           - sql-configuration-reconcile-acceptance
           - sql-guest-evaluation-capture-acceptance
           - evaluation-target-windows-license-acceptance
+          - evaluation-target-file-allocation-acceptance
           - sql-storage-reconcile-acceptance
           - sql-port-reconcile-acceptance
           - resource-reconcile-acceptance
@@ -498,18 +499,20 @@ jobs:
           .\Tests\Integration\Invoke-SqlGuestEvaluationCaptureAcceptance.ps1 -ArtifactId $env:SQL_GUEST_CAPTURE_ARTIFACT_ID -StateRoot $env:SQL_GUEST_CAPTURE_STATE_ROOT
 
       - name: Reject Windows target license acceptance outside trusted manual dispatch
-        if: inputs.mode == 'evaluation-target-windows-license-acceptance' && !(github.event_name == 'workflow_dispatch' && github.event.repository.full_name == github.repository)
+        if: (inputs.mode == 'evaluation-target-windows-license-acceptance' || inputs.mode == 'evaluation-target-file-allocation-acceptance') && !(github.event_name == 'workflow_dispatch' && github.event.repository.full_name == github.repository)
         run: |
           throw 'EVALUATION_TARGET_LICENSE_MANUAL_DISPATCH_REQUIRED'
 
       - name: Hyper-V Windows migration target license acceptance
-        if: inputs.mode == 'evaluation-target-windows-license-acceptance' && github.event_name == 'workflow_dispatch' && github.event.repository.full_name == github.repository
+        if: (inputs.mode == 'evaluation-target-windows-license-acceptance' || inputs.mode == 'evaluation-target-file-allocation-acceptance') && github.event_name == 'workflow_dispatch' && github.event.repository.full_name == github.repository
         env:
           EVALUATION_TARGET_LICENSE_ARTIFACT_ID: ${{ inputs.image_artifact_id }}
+          EVALUATION_COMPARE_FILE_ALLOCATION: ${{ inputs.mode == 'evaluation-target-file-allocation-acceptance' }}
         run: |
           $ErrorActionPreference = 'Stop'
           if ([string]::IsNullOrWhiteSpace($env:EVALUATION_TARGET_LICENSE_ARTIFACT_ID)) { throw 'EVALUATION_TARGET_LICENSE_EXPLICIT_ARTIFACT_REQUIRED' }
-          .\Tests\Integration\Invoke-HyperVEvaluationTargetWindowsLicenseAcceptance.ps1 -ArtifactId $env:EVALUATION_TARGET_LICENSE_ARTIFACT_ID
+          $compare = $env:EVALUATION_COMPARE_FILE_ALLOCATION -ceq 'true'
+          .\Tests\Integration\Invoke-HyperVEvaluationTargetWindowsLicenseAcceptance.ps1 -ArtifactId $env:EVALUATION_TARGET_LICENSE_ARTIFACT_ID -CompareFileAllocation:$compare
 
       - name: Reject SQL storage reconcile acceptance outside manual main
         if: inputs.mode == 'sql-storage-reconcile-acceptance' && !(github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')

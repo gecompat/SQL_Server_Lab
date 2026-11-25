@@ -121,6 +121,12 @@ angesetzt. Eigener Backupplatz, Wachstum, Hostkapazität und
 Wiederherstellbarkeit müssen separat ermittelt werden. Ohne beide Befunde
 bleibt der Vergleich `NOT_OBSERVED`. Der Status des Gesamtplans und seine
 Ausführungsgrenzen bleiben `BLOCKED` und `TransferAuthority=NONE`.
+Der vorbereitete manuelle Hyper-V-Modus
+`evaluation-target-file-allocation-acceptance` verwendet die beiden
+eigenen Test-VMs der Zielabnahme. Er startet die bereits gebundene Quelle
+nach den Zielprüfungen wieder und legt nur dort eine synthetische
+Datenbank an. Er benötigt die Kapazität für zwei laufende Test-VMs.
+Der kombinierte native Lauf steht aus.
 
 Key18 bestätigte die Windows-Lizenz der separaten Ziel-VM mit zwei eigenen
 SQL-2025-Developer-Runs. Die Quelle wurde vor dem Zielstart gestoppt.
