@@ -64,6 +64,50 @@ function confirmContainerLibraryBackup(runId, instanceId, databaseName, password
       action:'CreateHyperVLabDatabase', path:'/api/hyperv/database-create' }
   };
 
+  function getHyperVWindowsScriptTarget(runId, instanceId) {
+    const matches = (workflow?.HyperVLabs || []).filter(item => item.RunId === runId && item.InstanceId === instanceId);
+    const target = matches.length === 1 ? matches[0] : null;
+    return target?.State === 'RUNNING' && target.VMState === 'Running' && target.Workload === 'sql' &&
+      target.SqlCompletionState === 'COMPLETE' && ['2019','2022','2025'].includes(String(target.SqlVersion)) ? target : null;
+  }
+
+  function confirmHyperVWindowsScript() {
+    const runId = $('#container-operation-run').value;
+    const instanceId = $('#container-operation-instance').value;
+    const scriptPath = $('#container-script-path').value.trim();
+    const database = $('#container-script-database').value.trim() || 'master';
+    if (!getHyperVWindowsScriptTarget(runId, instanceId)) {
+      showError(new Error('Die ausgewählte Hyper-V-SQL-Instanz ist nicht bereit. Öffne die Auswahl erneut.'));
+      return;
+    }
+    if (!/^[A-Za-z]:[\\/][^\r\n]+\.sql$/i.test(scriptPath) || !/^[A-Za-z][A-Za-z0-9_]{0,127}$/.test(database)) {
+      showError(new Error('Gib einen absoluten lokalen SQL-Dateipfad und einen gültigen Datenbanknamen ein.'));
+      return;
+    }
+    const commands = publicCommandCatalog.filter(command => command.Name === 'Invoke-SqlServerLabScript');
+    const command = commands.length === 1 ? commands[0] : null;
+    const sets = (command?.ParameterSets || []).filter(set => set.Name === 'RunWindows');
+    const parameterSet = sets.length === 1 ? sets[0] : null;
+    const descriptors = parameterSet?.Parameters || [];
+    const fields = [['RunId','System.String',true],['InstanceId','System.String',false],['ScriptPath','System.String',true],
+      ['Database','System.String',false],['WindowsAuthentication','System.Management.Automation.SwitchParameter',true]];
+    const bound = fields.every(([name,type,required]) => {
+      const matches = descriptors.filter(field => field.Name === name);
+      return matches.length === 1 && matches[0].TypeName === type && matches[0].Mandatory === required &&
+        matches[0].Sensitive === false && matches[0].IsCredential === false;
+    });
+    if (command?.RequiresConfirmation !== true || command.SupportsShouldProcess !== true || !bound ||
+        descriptors.filter(field => field.Mandatory === true).length !== 3) {
+      showError(new Error('Die gebundene Windows-Skriptausführung ist auf diesem Host nicht verfügbar.'));
+      return;
+    }
+    $('#container-operation-dialog').close();
+    openConfirmation('SQL-Skript im Hyper-V-Gast ausführen',
+      sqlOperationTargetSummary(runId, instanceId, 'hyperv') + ' · Datenbank: ' + database + ' · Datei: ' + scriptPath,
+      '__PublicCommand', { command, parameterSet, parameters: { RunId:runId, InstanceId:instanceId,
+        ScriptPath:scriptPath, Database:database, WindowsAuthentication:true } }, 'Skript ausführen');
+  }
+
   function getHyperVLibraryRestoreMajor(sqlVersion) {
     const year = String(sqlVersion || '').match(/^\d{4}(?=-|$)/)?.[0];
     return ({2016:13,2017:14,2019:15,2022:16,2025:17})[year] || 0;
@@ -163,6 +207,8 @@ function confirmContainerLibraryBackup(runId, instanceId, databaseName, password
   }
 
   window.sqlServerLabHyperVLibraryRestore = Object.freeze({
+    getWindowsScriptTarget: getHyperVWindowsScriptTarget,
+    confirmWindowsScript: confirmHyperVWindowsScript,
     renderActions,
     handleClick,
     open: (runId, instanceId) => openHyperVLibraryOperation(runId, instanceId, 'restore'),
