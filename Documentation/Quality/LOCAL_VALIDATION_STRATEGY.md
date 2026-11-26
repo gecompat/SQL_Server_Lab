@@ -2181,7 +2181,17 @@ einer isolierten temporären Backup-Bibliothek. Die Abnahme verlangt einen
 wiederverwendbaren Sicherungssatz und genau einen an VM und Storage-Plan
 gebundenen Beleg für die Bereinigung der Backup-Gastdatei. Anschließend
 prüft sie den geführten Restore, identische Zielinhalte und die
-Kopienbereinigung. Der native Nachweis des erweiterten Backup-Pfads steht aus.
+Kopienbereinigung. Der kombinierte
+[Key18-Lauf 45798817273](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45798817273)
+bestand am 26.11.2026 auf Main-Commit `dd9eba91`. Eine eigene SQL-2025-Developer-VM
+aus versiegelter Vorlage bestätigte den gebundenen Speicher, einen
+wiederverwendbaren Sicherungssatz mit bereinigter Gastdatei und den Restore
+mit exakt denselben synthetischen Zeilen in der neuen Zieldatenbank.
+Die Fixture legte die Bibliotheksdateien in ihrem temporären Testverzeichnis an.
+Die Host-Speicherbindung wurde über die registrierte Konfiguration geprüft.
+Die unabhängige Inventarprüfung nach Laufende bestätigte `REMOVED`,
+die Abwesenheit der gebundenen VM und beider Laufwerke sowie keine
+Cleanupfehler. Menüauswahl und Browserversand sind separat synthetisch geprüft.
 
 Der [Key18-Lauf 45773328285](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45773328285)
 bestätigte den verifizierten Speicher, die SQL-Bereitschaft und den Cleanup
