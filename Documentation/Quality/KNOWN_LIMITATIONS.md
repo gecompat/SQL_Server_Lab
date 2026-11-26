@@ -2175,6 +2175,12 @@ veröffentlichten Backupobjekts. Diese Bindung bleibt rein beschreibend und
 ändert weder Restore-Autorität noch das verpflichtende `VERIFYONLY WITH
 CHECKSUM` vor der tatsächlichen Wiederherstellung.
 
+Beim Bibliotheksbackup auf Hyper-V kann ein Abbruch während der SQL-Sicherung,
+der Medienprüfung oder der Übergabe eine temporäre Gastdatei hinterlassen.
+Das CLI-Menü zeigt bei einem abgefangenen Fehler den festen Dateinamen und den
+unbestätigten Bereinigungsstatus. Prüfe den gebundenen Gast und den Dateizustand
+vor einer Wiederholung. Ein harter Prozessabbruch erfordert separate Recovery.
+
 ## Restore
 
 Unterstützt werden Bibliotheksbackups per stabiler `BackupSetId` sowie direkte

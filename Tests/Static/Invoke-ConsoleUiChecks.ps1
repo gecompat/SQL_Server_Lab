@@ -2203,21 +2203,33 @@ $backupInstanceSelectionProbe = & {
                 param($RunId,$InstanceId,$DatabaseName,$SaPassword,$GuestCredential,$DataRoot,$Confirm)
                 $script:backupMenuTracker.Backups++
                 $script:backupMenuTracker.Arguments=@{RunId=$RunId;InstanceId=$InstanceId;DatabaseName=$DatabaseName;Guest=($null -ne $GuestCredential)}
+                if ($script:backupMenuCase -cin @('hyperv-backup-interrupted','hyperv-backup-invalid-recovery')) {
+                    $errorToReport = [InvalidOperationException]::new('SYNTHETIC_BACKUP_INTERRUPT')
+                    $errorToReport.Data['SqlServerLab.BackupRuntimeCleanupStatus'] = 'RECOVERY_REQUIRED'
+                    $errorToReport.Data['SqlServerLab.BackupRuntimeFileName'] = if ($script:backupMenuCase -ceq 'hyperv-backup-interrupted') {
+                        'backup-0123456789abcdef0123456789abcdef.bak'
+                    } else { 'CANARY_PRIVATE_BACKUP_PATH' }
+                    throw $errorToReport
+                }
                 [pscustomobject]@{Status='BACKUP_REUSABLE';DatabaseName=$DatabaseName;Bytes=1024;BackupSetId='synthetic';PersistentStorageId='synthetic'}
             }
             foreach ($writer in @('Write-LabInfo','Write-LabStatus','Write-LabWarning','Write-LabError','Write-LabSuccess')) {
                 Set-Item -Path "Function:script:$writer" -Value { param($Message,$Label,$Value) }
             }
+            function script:Write-LabWarning {
+                param($Message)
+                if ($script:backupMenuTracker.ContainsKey('Warnings')) { $script:backupMenuTracker.Warnings.Add($Message) }
+            }
             $results=@{}
-            $cases=@('selected','sql2017','sql2019','sql2025','hyperv','cancel','run-cancel','foreign-run','forged','stopped','stale','ambiguous-runtime','duplicate','missing-id','unresolved','empty','no-runs','confirm-cancel','drift-provider','drift-version','drift-host','drift-port','drift-containerName','drift-vmName','drift-vmId','drift-before-credentials','drift-before-backup')
+            $cases=@('selected','sql2017','sql2019','sql2025','hyperv','hyperv-backup-interrupted','hyperv-backup-invalid-recovery','cancel','run-cancel','foreign-run','forged','stopped','stale','ambiguous-runtime','duplicate','missing-id','unresolved','empty','no-runs','confirm-cancel','drift-provider','drift-version','drift-host','drift-port','drift-containerName','drift-vmName','drift-vmId','drift-before-credentials','drift-before-backup')
             foreach ($script:backupMenuCase in $cases) {
-                $script:backupMenuTracker=@{Items=@();Screen='';Selected=$false;Runtime=0;Credentials=0;Backups=0;Arguments=@{};Prompts=[Collections.Generic.List[string]]::new()}
+                $script:backupMenuTracker=@{Items=@();Screen='';Selected=$false;Runtime=0;Credentials=0;Backups=0;Arguments=@{};Warnings=[Collections.Generic.List[string]]::new();Prompts=[Collections.Generic.List[string]]::new()}
                 $script:backupMenuInstances=@(
                     [pscustomobject]@{id='old';version='2017-latest';provider='docker';containerName='synthetic-old';host='127.0.0.1';port=14331;vmName='';vmId=''}
                     [pscustomobject]@{id='analytics';version='2022-latest';provider='podman';containerName='synthetic-analytics';host='127.0.0.1';port=14332;vmName='';vmId=''}
                 )
                 if ($script:backupMenuCase -match '^sql(\d+)$') { $script:backupMenuInstances[1].version="$($Matches[1])-latest" }
-                if ($script:backupMenuCase -eq 'hyperv') { $script:backupMenuInstances[1].provider='hyperv';$script:backupMenuInstances[1].vmName='synthetic-guest';$script:backupMenuInstances[1].vmId='synthetic-vmid' }
+                if ($script:backupMenuCase -clike 'hyperv*') { $script:backupMenuInstances[1].provider='hyperv';$script:backupMenuInstances[1].vmName='synthetic-guest';$script:backupMenuInstances[1].vmId='synthetic-vmid' }
                 if ($script:backupMenuCase -eq 'duplicate') { $script:backupMenuInstances += $script:backupMenuInstances[1] }
                 if ($script:backupMenuCase -eq 'missing-id') { $script:backupMenuInstances[1].id='' }
                 if ($script:backupMenuCase -eq 'unresolved') { $script:backupMenuInstances[1].containerName='' }
@@ -2280,6 +2292,13 @@ foreach ($case in @('selected','sql2017','sql2019','sql2025','hyperv')) {
     Add-ConsoleUiCheck "Backup-Menü erhält bestehende Versions-/Providerbreite für $case" ($backupInstanceSelectionProbe[$case].Backups -eq 1)
 }
 Add-ConsoleUiCheck 'Backup-Menü erhält Gast-Credentials für Hyper-V' ($backupInstanceSelectionProbe.hyperv.Arguments.Guest)
+Add-ConsoleUiCheck 'Backup-Menü zeigt einen unbestätigten Hyper-V-Backup-Rest ohne Rohpfade' (
+    $backupInstanceSelectionProbe['hyperv-backup-interrupted'].Backups -eq 1 -and
+    $backupInstanceSelectionProbe['hyperv-backup-interrupted'].Warnings.Count -eq 1 -and
+    $backupInstanceSelectionProbe['hyperv-backup-interrupted'].Warnings[0] -match 'backup-0123456789abcdef0123456789abcdef\.bak' -and
+    $backupInstanceSelectionProbe['hyperv-backup-invalid-recovery'].Backups -eq 1 -and
+    $backupInstanceSelectionProbe['hyperv-backup-invalid-recovery'].Warnings.Count -eq 0
+)
 Add-ConsoleUiCheck 'Backup-Menü revalidiert nach Datenbankeingabe vor Credentials und nach Bestätigung' (
     $backupInstanceSelectionProbe['drift-before-credentials'].Runtime -eq 3 -and
     $backupInstanceSelectionProbe['drift-before-credentials'].Prompts.Count -eq 1 -and

@@ -483,6 +483,7 @@ function New-LabDatabaseLibraryBackup {
     }
     else { New-Item -ItemType Directory -Path $workingDirectory -Force | Out-Null }
     $primaryError = $null
+    $guestBackupUnconfirmed = $false
     try {
         $metadata = Get-LabDatabaseBackupMetadata -HostName $HostName -Port $Port -SaPassword $SaPassword -DatabaseName $DatabaseName
         $dependencyInventory = Get-LabDatabaseMigrationDependencyInventory -HostName $HostName -Port $Port -SaPassword $SaPassword `
@@ -496,11 +497,13 @@ function New-LabDatabaseLibraryBackup {
         } else { "/var/opt/mssql/backup/$backupFileName" }
         $escapedDatabase = $DatabaseName.Replace(']',']]')
         $escapedPath = $runtimeBackupPath.Replace("'","''")
+        $guestBackupUnconfirmed = [string]$target.Provider -ceq 'hyperv'
         $null = Invoke-SqlQuery -HostName $HostName -Port $Port -ProductQueryPassword $SaPassword -TimeoutSeconds 600 -Query @"
 BACKUP DATABASE [$escapedDatabase] TO DISK = N'$escapedPath' WITH COPY_ONLY, INIT, CHECKSUM;
 RESTORE VERIFYONLY FROM DISK = N'$escapedPath' WITH CHECKSUM;
 "@
         $export = Export-LabSampleBaselineBackup -Target $target -RuntimeBackupPath $runtimeBackupPath -DestinationPath $hostBackupPath -Port $Port
+        $guestBackupUnconfirmed = $false
         $registered = Register-LabDatabaseBackupArtifact -BackupPath $hostBackupPath -DatabaseName $DatabaseName `
             -Provider ([string]$export.Provider) -Metadata $metadata -MigrationDependencyInventory $dependencyInventory -RunId $RunId -InstanceId $InstanceId -DataRoot $DataRoot
         [PSCustomObject]@{
@@ -512,7 +515,14 @@ RESTORE VERIFYONLY FROM DISK = N'$escapedPath' WITH CHECKSUM;
             RegistryPath=[string]$registered.RegistryPath; PersistentStorageId=[string]$registered.PersistentStorageId
         }
     }
-    catch { $primaryError = $_; throw }
+    catch {
+        $primaryError = $_
+        if ($guestBackupUnconfirmed) {
+            $primaryError.Exception.Data['SqlServerLab.BackupRuntimeCleanupStatus'] = 'RECOVERY_REQUIRED'
+            $primaryError.Exception.Data['SqlServerLab.BackupRuntimeFileName'] = $backupFileName
+        }
+        throw
+    }
     finally {
         try {
             $cleanupParent = [IO.Path]::GetFullPath($workingParent).TrimEnd('\','/')

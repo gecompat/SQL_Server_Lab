@@ -315,6 +315,30 @@ try {
     Add-CheckResult 'Hyper-V-Backup prüft den bestätigten Speicher vor dem ersten SQL-Zugriff' (
         $backupPreflight.Code -ceq 'SAMPLE_BASELINE_HYPERV_VERIFIED_RECEIPT_REQUIRED' -and $backupPreflight.SqlReads -eq 0)
 
+    $backupFailure = & $module {
+        param($Password,$Root)
+        $calls = [Runtime.CompilerServices.StrongBox[int]]::new(0)
+        function Initialize-LabSampleBaselineBackupTarget {
+            [pscustomobject]@{Provider='hyperv';BackupRoot='C:\Synthetic\Backup'}
+        }
+        function Get-LabDatabaseBackupMetadata { [pscustomobject]@{IsEncrypted=$false} }
+        function Get-LabDatabaseMigrationDependencyInventory { [pscustomobject]@{Status='SYNTHETIC'} }
+        function Invoke-SqlQuery { throw 'SYNTHETIC_BACKUP_SQL_INTERRUPTED' }
+        function Export-LabSampleBaselineBackup { $calls.Value++ }
+        $arguments = @{Port=14333;SaPassword=$Password;Provider='hyperv'
+            RunId='43434343-2222-4333-8444-555555555555';InstanceId='primary';DatabaseName='BackupEvidence'
+            GuestCredential=[pscredential]::new('Administrator',$Password);DataRoot=$Root}
+        try { $null=New-LabDatabaseLibraryBackup @arguments }
+        catch {
+            [pscustomobject]@{Code=$_.Exception.Message;Exports=$calls.Value
+                Recovery=$_.Exception.Data['SqlServerLab.BackupRuntimeCleanupStatus']
+                File=$_.Exception.Data['SqlServerLab.BackupRuntimeFileName']}
+        }
+    } $password $testRoot
+    Add-CheckResult 'Hyper-V-Backup trennt SQL-Unterbruch von ungeklärtem Gast-Cleanup ohne Exportversuch' (
+        $backupFailure.Code -ceq 'SYNTHETIC_BACKUP_SQL_INTERRUPTED' -and $backupFailure.Exports -eq 0 -and
+        $backupFailure.Recovery -ceq 'RECOVERY_REQUIRED' -and $backupFailure.File -cmatch '^backup-[0-9a-f]{32}\.bak$')
+
     $cleanupProof=& $module {
         param($Password)
         $guest=[PSCredential]::new('Administrator',$Password)
