@@ -141,8 +141,14 @@ und Disks wurden bereinigt.
 Der korrigierte Runner verwendet die SQL-Anmeldung über PowerShell Direct
 aus der Einzelgast-Abnahme. Er bindet die Anlage an die eigene Quell-VM,
 prüft das Ergebnis und erwartet für Daten und Log genau den gemessenen
-Zuwachs gegenüber der Ausgangsgröße. Ein erfolgreicher kombinierter
-Vergleich bleibt offen.
+Zuwachs gegenüber der Ausgangsgröße. Im [dritten kombinierten Key18-Lauf](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45731436183)
+auf `c02adb5f` erreichte der Runner die Ausgangsgrößenprüfung der neu
+gestarteten Quelle, aber noch keine Anlage der Testdatenbank. Beide eigenen
+VMs liefen gleichzeitig und wurden anschließend samt Disks bereinigt.
+Der VM-Laufstatus bestätigt nur den Start der VM. Der Runner prüft deshalb
+vor der Ausgangsgrößenmessung die SQL-Identität der gebundenen Quell-VM
+schreibgeschützt mit einer begrenzten Wartezeit. Ein erfolgreicher
+kombinierter Vergleich bleibt offen.
 
 Key18 bestätigte die Windows-Lizenz der separaten Ziel-VM mit zwei eigenen
 SQL-2025-Developer-Runs. Die Quelle wurde vor dem Zielstart gestoppt.

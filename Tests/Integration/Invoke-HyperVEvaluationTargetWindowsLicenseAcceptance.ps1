@@ -39,6 +39,35 @@ function Assert-TargetLicenseAcceptance {
     Write-Host "PASS: $Name"
 }
 
+function Wait-TargetLicenseAcceptanceSourceSql {
+    param($Module,[guid]$RunId,[guid]$ScopeId,[guid]$VmId,[string]$StateRoot)
+    & $Module {
+        param($Id,$Scope,$Vm,$Root)
+        $deadline = [datetime]::UtcNow.AddSeconds(180)
+        do {
+            $context = Get-LabSqlGuestCaptureContext -RunId $Id -StateRoot $Root
+            if ([guid]$context.Run.scopeId -ne $Scope -or [guid]$context.Instance.vmId -ne $Vm -or
+                $context.Instance.id -cne 'primary') {
+                throw 'EVALUATION_TARGET_LICENSE_SOURCE_OWNERSHIP_CHANGED'
+            }
+            $remaining = [int][Math]::Ceiling(($deadline - [datetime]::UtcNow).TotalSeconds)
+            if ($remaining -lt 1) { break }
+            try {
+                $observed = Invoke-LabSqlGuestCaptureProbe -Context $context -TimeoutSeconds ([Math]::Min(30,$remaining))
+                if ($observed.MajorVersion -ne 17 -or $observed.InstanceName -cne $context.Instance.sqlReadiness.instanceName -or
+                    $observed.Edition -cne $context.Instance.sqlReadiness.edition) {
+                    throw 'EVALUATION_TARGET_LICENSE_SOURCE_SQL_IDENTITY_MISMATCH'
+                }
+                return
+            } catch {
+                if ($_.Exception.Message -cnotin @('SQL_GUEST_CAPTURE_PROBE_FAILED','GUEST_JOB_OPERATION_TIMEOUT')) { throw }
+            }
+            if ([datetime]::UtcNow -lt $deadline) { Start-Sleep -Milliseconds 750 }
+        } while ([datetime]::UtcNow -lt $deadline)
+        throw 'EVALUATION_TARGET_LICENSE_SOURCE_SQL_TIMEOUT'
+    } $RunId $ScopeId $VmId $StateRoot
+}
+
 function Get-TargetLicenseActivationFailure {
     param([string]$Message)
 
@@ -143,12 +172,13 @@ try {
     if ([string]$ownedSource.runId -cne [string]$source.RunId) { throw 'EVALUATION_TARGET_LICENSE_SOURCE_OWNERSHIP_CHANGED' }
     $null = Stop-SqlServerLab -RunId $source.RunId -StateRoot $stateRoot -SkipHostMemoryRelease -Force -Confirm:$false 3>$null 4>$null 5>$null 6>$null
     $sourceState = & $module { param($Id,$Root) Get-LabRunState -RunId $Id -StateRoot $Root } $source.RunId $stateRoot
-    $sourceVmState = & $module {
+    $stoppedSourceVm = & $module {
         param($Id,$Data)
         $snapshot = Read-LabEvaluationRefreshSnapshot -RunId $Id -InstanceId primary -DataRoot $Data
-        [string]((Get-VM -Id ([guid]$snapshot.Instance.vmId) -ErrorAction Stop).State)
+        $vm = Get-VM -Id ([guid]$snapshot.Instance.vmId) -ErrorAction Stop
+        [pscustomobject]@{Id=[guid]$vm.Id;State=[string]$vm.State}
     } $source.RunId $dataRoot
-    Assert-TargetLicenseAcceptance ($sourceState.state -ceq 'STOPPED' -and $sourceVmState -ceq 'Off') 'Eigene Quelle vor dem Zielstart gestoppt'
+    Assert-TargetLicenseAcceptance ($sourceState.state -ceq 'STOPPED' -and $stoppedSourceVm.State -ceq 'Off') 'Eigene Quelle vor dem Zielstart gestoppt'
 
     $phase = 'TARGET_ARRANGE'
     $target = New-TargetLicenseAcceptanceRun -Role target -Operation $targetOperation
@@ -207,8 +237,15 @@ try {
         $null = Start-SqlServerLab -RunId $source.RunId -StateRoot $stateRoot -TimeoutSeconds 180 3>$null 4>$null 5>$null 6>$null
         $runningSource = & $module { param($Id,$Root) Get-LabRunState -RunId $Id -StateRoot $Root } $source.RunId $stateRoot
         Assert-TargetLicenseAcceptance ($runningSource.state -ceq 'RUNNING') 'Eigene Quelle läuft neben dem eigenen Ziellab'
+        $phase = 'COMPARE_SOURCE_SQL_READY'
+        Wait-TargetLicenseAcceptanceSourceSql -Module $module -RunId $source.RunId -ScopeId $ownedSource.scopeId `
+            -VmId $stoppedSourceVm.Id -StateRoot $stateRoot
+        Write-Host 'PASS: SQL Server der erneut gestarteten eigenen Quelle ist erreichbar'
         $phase = 'COMPARE_SOURCE_BASELINE'
         $beforeSource = Get-SqlServerLabEvaluationRefreshPlan @request -Mode STATEFUL_MIGRATION -ObserveSqlSource
+        if ($beforeSource.SqlSourceInventory.Status -ceq 'NOT_OBSERVED') {
+            throw 'EVALUATION_TARGET_LICENSE_SOURCE_INVENTORY_UNCONFIRMED'
+        }
         $beforeAllocation = $beforeSource.SqlSourceInventory.AllocatedFileStorage
         Assert-TargetLicenseAcceptance ($beforeAllocation.Status -ceq 'OBSERVED' -and
             $beforeAllocation.DataBytes -is [long] -and $beforeAllocation.LogBytes -is [long]) 'Dateizuweisung der laufenden Quelle vor der Fixture beobachtet'
