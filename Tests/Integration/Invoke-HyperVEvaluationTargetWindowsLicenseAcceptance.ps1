@@ -283,11 +283,22 @@ try {
         }
         Write-Host 'PASS: Eigene SQL-Testdatenbank hat bestätigte Daten- und Logseiten'
         $phase = 'COMPARE_SOURCE_ALLOCATION'
-        $sourcePlan = Get-SqlServerLabEvaluationRefreshPlan @request -Mode STATEFUL_MIGRATION -ObserveSqlSource
+        $sourcePlan = Get-SqlServerLabEvaluationRefreshPlan @request -Mode STATEFUL_MIGRATION -ObserveSqlSource -SourceDatabaseName $fixtureArgs.DatabaseName
         $sourceAllocation = $sourcePlan.SqlSourceInventory.AllocatedFileStorage
         Assert-TargetLicenseAcceptance ($sourceAllocation.Status -ceq 'OBSERVED' -and
             $sourceAllocation.DataBytes -eq ($beforeAllocation.DataBytes + 8KB * [decimal]$fixturePages.DataPages) -and
             $sourceAllocation.LogBytes -eq ($beforeAllocation.LogBytes + 8KB * [decimal]$fixturePages.LogPages)) 'Quellsummen enthalten exakt die Dateigrößen der eigenen Testdatenbank'
+        $phase = 'BOUND_SOURCE_DATABASE_DEPENDENCIES'
+        $dependency = $sourcePlan.SqlSourceInventory.DatabaseDependencies
+        $namedAgent = @($dependency.Inventory.Dependencies | Where-Object Category -CEQ 'SQL_AGENT_JOB')
+        Assert-TargetLicenseAcceptance ($dependency.Status -ceq 'OBSERVED' -and
+            $dependency.DatabaseName -ceq $fixtureArgs.DatabaseName -and
+            $dependency.Inventory.Source.RunId -ceq $source.RunId -and
+            $dependency.Inventory.Source.InstanceId -ceq 'primary' -and
+            $dependency.Inventory.Source.Provider -ceq 'hyperv' -and
+            $dependency.Inventory.Source.SqlMajorVersion -ceq '17' -and
+            $namedAgent.Count -eq 1 -and $namedAgent[0].Count -eq 0 -and
+            $sourcePlan.TransferAuthority -ceq 'NONE' -and -not $sourcePlan.MutationAllowed) 'Abhängigkeiten der eigenen Testdatenbank sind an die laufende SQL-Quelle gebunden'
         $operationRequest.ExpectedPlanKey = $sourcePlan.ObservedContentSha256
         $operationRequest.ExpectedTargetPlanKey = $sourcePlan.TargetAssessment.ObservedContentSha256
         $compareBefore = @($paths | ForEach-Object { (Get-FileHash -LiteralPath $_ -Algorithm SHA256).Hash })

@@ -43,7 +43,7 @@ function Read-LabEvaluationRefreshSnapshot {
 }
 
 function Get-LabEvaluationSqlGuestObservation {
-    param([Parameter(Mandatory)]$Snapshot,[switch]$IncludeSourceInventory,[switch]$IncludeTargetStorage)
+    param([Parameter(Mandatory)]$Snapshot,[switch]$IncludeSourceInventory,[switch]$IncludeTargetStorage,[string]$MigrationDatabaseName)
     if (-not $IsWindows -or $Snapshot.Binding.Run.state -cne 'RUNNING' -or $Snapshot.Instance.sqlVersion -cne '2025') {
         return $null
     }
@@ -55,7 +55,9 @@ function Get-LabEvaluationSqlGuestObservation {
             $context.Instance.vmId -cne $Snapshot.Instance.vmId -or $context.Instance.imageArtifactId -cne $Snapshot.Instance.imageArtifactId) {
             throw 'EVALUATION_REFRESH_BINDING_CHANGED'
         }
-        $observed = Invoke-LabSqlGuestCaptureProbe -Context $context -TimeoutSeconds 60 -IncludeSourceInventory:$IncludeSourceInventory -IncludeTargetStorage:$IncludeTargetStorage 3>$null 4>$null 5>$null 6>$null
+        $probeOptions = @{}
+        if ($MigrationDatabaseName) { $probeOptions.MigrationDatabaseName = $MigrationDatabaseName }
+        $observed = Invoke-LabSqlGuestCaptureProbe -Context $context -TimeoutSeconds 60 -IncludeSourceInventory:$IncludeSourceInventory -IncludeTargetStorage:$IncludeTargetStorage @probeOptions 3>$null 4>$null 5>$null 6>$null
         $fresh = Get-LabSqlGuestCaptureContext -RunId $runId -StateRoot $Snapshot.Binding.StateRoot
         if ($fresh.Fingerprint -cne $context.Fingerprint) { throw 'EVALUATION_REFRESH_BINDING_CHANGED' }
         if ($observed.MajorVersion -ne 17 -or $observed.InstanceName -cne $context.Instance.sqlReadiness.instanceName -or
@@ -71,10 +73,17 @@ function Get-LabEvaluationSqlGuestObservation {
 }
 
 function Get-LabEvaluationSqlSourceInventory {
-    param([Parameter(Mandatory)]$Snapshot)
+    param([Parameter(Mandatory)]$Snapshot,[string]$MigrationDatabaseName)
     $storage = [pscustomobject]@{ Status='NOT_OBSERVED'; DataBytes=$null; LogBytes=$null }
     $unavailable = [pscustomobject]@{ Status='NOT_OBSERVED'; Items=@(); DependencyFindings=@(); AllocatedFileStorage=$storage }
-    $observed = Get-LabEvaluationSqlGuestObservation -Snapshot $Snapshot -IncludeSourceInventory
+    $databaseView = $null
+    if ($MigrationDatabaseName) {
+        $databaseView = [pscustomobject]@{ Status='NOT_OBSERVED'; DatabaseName=$MigrationDatabaseName; Inventory=$null }
+        $unavailable | Add-Member -NotePropertyName DatabaseDependencies -NotePropertyValue $databaseView
+    }
+    $probeOptions = @{}
+    if ($MigrationDatabaseName) { $probeOptions.MigrationDatabaseName = $MigrationDatabaseName }
+    $observed = Get-LabEvaluationSqlGuestObservation -Snapshot $Snapshot -IncludeSourceInventory @probeOptions
     if (-not $observed) { return $unavailable }
 
     $categories = @('UserDatabases','NonOnlineUserDatabases','EncryptedUserDatabases','DatabaseSnapshots',
@@ -120,7 +129,34 @@ function Get-LabEvaluationSqlSourceInventory {
         ($counts.UserDatabases -gt 0 -or ($pages.DataPages -eq 0 -and $pages.LogPages -eq 0))) {
         $storage = [pscustomobject]@{Status='OBSERVED'; DataBytes=($pages.DataPages -shl $pageShift); LogBytes=($pages.LogPages -shl $pageShift)}
     }
-    [pscustomobject]@{ Status='PARTIALLY_OBSERVED'; Items=$items; DependencyFindings=$findings; AllocatedFileStorage=$storage }
+    $view = [pscustomobject]@{ Status='PARTIALLY_OBSERVED'; Items=$items; DependencyFindings=$findings; AllocatedFileStorage=$storage }
+    if ($databaseView) {
+        $rows = @($observed.PSObject.Properties['DatabaseDependencyRows']?.Value)
+        if ($rows.Count -eq 5 -and @($rows | Where-Object { $_ -isnot [string] -or $_.Length -gt 160 }).Count -eq 0) {
+            try {
+                $facts = ConvertFrom-LabDatabaseMigrationDependencySqlRows -Output $rows
+                if ($facts.SqlMajorVersion -cne '17') { throw 'EVALUATION_REFRESH_DATABASE_SQL_IDENTITY_INVALID' }
+                $databaseView.Inventory = New-LabDatabaseMigrationDependencyInventory -DatabaseName $MigrationDatabaseName -Provider hyperv -RunId $Snapshot.Binding.Run.runId -InstanceId $Snapshot.Instance.id -Observation $facts
+                $databaseView.Status = 'OBSERVED'
+            } catch [Management.Automation.PipelineStoppedException] { throw }
+            catch { $databaseView.Inventory = $null }
+        }
+        $view | Add-Member -NotePropertyName DatabaseDependencies -NotePropertyValue $databaseView
+    }
+    $view
+}
+
+function Format-LabEvaluationRefreshDatabaseDependencies {
+    param($Observation)
+
+    if (-not $Observation) { return }
+    "Migrationsabhängigkeiten für Datenbank {0} · {1}" -f $Observation.DatabaseName,$Observation.Status
+    if ($Observation.Status -cne 'OBSERVED') { return }
+    foreach ($dependency in $Observation.Inventory.Dependencies) {
+        $count = if ($null -eq $dependency.Count) { 'unbekannt' } else { [string]$dependency.Count }
+        "{0}: {1} · Anzahl {2} · {3}" -f $dependency.Category,$dependency.Status,$count,$dependency.RequiredAction
+    }
+    "Portabler Restore laut Datenbankinventur: {0}. Der Ersatzentscheid bleibt blockiert." -f $Observation.Inventory.MigrationBoundary.PortableRestoreStatus
 }
 
 function Get-LabEvaluationTargetStorageObservation {
@@ -232,7 +268,11 @@ function New-LabEvaluationRefreshPlan {
     param([string]$RunId,[string]$InstanceId,[string]$DataRoot,[string]$Mode,[switch]$ObserveSqlSource,[switch]$ObserveWindowsLicense,
         [string]$ExpectedSnapshotDigest,[string]$TargetRunId,[string]$TargetInstanceId,[string]$ExpectedTargetSnapshotDigest,
         [switch]$ObserveTargetWindowsLicense,[switch]$ObserveTargetSqlReadiness,[switch]$ObserveTargetStorage,
-        [switch]$CompareFileAllocation)
+        [switch]$CompareFileAllocation,[string]$SourceDatabaseName)
+    if ($PSBoundParameters.ContainsKey('SourceDatabaseName') -and
+        (-not $ObserveSqlSource -or $CompareFileAllocation -or $SourceDatabaseName -cnotmatch '^[A-Za-z][A-Za-z0-9_]{0,127}$')) {
+        throw 'EVALUATION_REFRESH_SOURCE_DATABASE_INPUT_INVALID'
+    }
     if ($ObserveSqlSource -and $Mode -cne 'STATEFUL_MIGRATION') { throw 'EVALUATION_REFRESH_SQL_SOURCE_MODE_INVALID' }
     $hasTarget = $TargetRunId -or $TargetInstanceId -or $ExpectedTargetSnapshotDigest -or $ObserveTargetWindowsLicense -or
         $ObserveTargetSqlReadiness -or $ObserveTargetStorage -or $CompareFileAllocation
@@ -288,7 +328,11 @@ function New-LabEvaluationRefreshPlan {
     }
     $compareRunningGuests = $CompareFileAllocation -and $snapshot.Binding.Run.state -ceq 'RUNNING' -and
         $targetSnapshot.Binding.Run.state -ceq 'RUNNING'
-    $sourceInventory = if ($ObserveSqlSource -or $compareRunningGuests) { Get-LabEvaluationSqlSourceInventory -Snapshot $snapshot }
+    $sourceOptions = @{}
+    if ($SourceDatabaseName) { $sourceOptions.MigrationDatabaseName = $SourceDatabaseName }
+    $sourceInventory = if ($ObserveSqlSource -or $compareRunningGuests) {
+        Get-LabEvaluationSqlSourceInventory -Snapshot $snapshot @sourceOptions
+    }
     $targetWindows = if ($ObserveTargetWindowsLicense) { Get-LabEvaluationWindowsLicenseObservation -Snapshot $targetSnapshot }
     $targetSql = $null
     $targetEdition = $null

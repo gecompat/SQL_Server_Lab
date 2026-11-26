@@ -2563,6 +2563,17 @@ Verbindungsmetadaten sowie `REMOVED` für beide eigenen Runs samt VMs
 und Disks. Backupbedarf, Übernahme und Gleichwertigkeit liegen außerhalb
 dieses Nachweises.
 
+Der optionale `-SourceDatabaseName` ergänzt den lesenden Quellbefund um
+die Migrationsabhängigkeiten genau einer regulären Benutzerdatenbank.
+Die fokussierte Plan-Suite prüft Auswahl und VM-Bindung mit einem
+Gast-Double. Die CLI-Fixture prüft gezielte Auswahl und Abbruch.
+Die Browser-Fixtures prüfen Auswahlwechsel, geschlossene Eingaben und die
+Weitergabe unter der gebundenen SQL-Quellaktion. Sieben gerenderte
+Chromium-Fälle prüfen das Formular mit synthetischen Quellen und
+abgefangenem Auftrag. Der native Hyper-V-Harness prüft den neuen Befund mit
+seiner eigenen Testdatenbank. Ein erfolgreicher nativer Lauf für diesen
+Zusatz steht aus.
+
 ## Prospektiver External-Languages-Capability-Entscheid
 
 `Invoke-ExternalRuntimeCapabilityBrowserChecks.ps1` prüft die extrahierte echte

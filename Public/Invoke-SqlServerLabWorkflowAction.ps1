@@ -489,6 +489,11 @@ function Invoke-SqlServerLabWorkflowAction {
         $readTargetStorage = $Action -ceq 'ReadHyperVEvaluationTargetStorage'
         $compareFileAllocation = $Action -ceq 'ReadHyperVEvaluationFileAllocationComparison'
         $allowed = @('Action', 'RunId', 'InstanceId', 'DataRoot', 'ExpectedPlanKey', 'ErrorAction')
+        $readSourceDatabase = $Action -ceq 'ReadHyperVEvaluationSqlSource' -and $PSBoundParameters.ContainsKey('DatabaseName')
+        if ($readSourceDatabase) {
+            if ($DatabaseName -cnotmatch '^[A-Za-z][A-Za-z0-9_]{0,127}$') { throw 'EVALUATION_REFRESH_SOURCE_DATABASE_INPUT_INVALID' }
+            $allowed += 'DatabaseName'
+        }
         $targetKeys = @('TargetRunId', 'TargetInstanceId', 'ExpectedTargetPlanKey')
         $readTarget = @($PSBoundParameters.Keys | Where-Object { $_ -in $targetKeys }).Count -gt 0
         if (($readWindows -or $readTargetSql -or $readTargetStorage -or $compareFileAllocation) -and $readTarget) { $allowed += $targetKeys }
@@ -504,6 +509,7 @@ function Invoke-SqlServerLabWorkflowAction {
             ObserveSqlSource=($Action -ceq 'ReadHyperVEvaluationSqlSource'); ObserveWindowsLicense=($readWindows -and -not $readTarget)
             ExpectedSnapshotDigest=$ExpectedPlanKey
         }
+        if ($readSourceDatabase) { $planArgs.SourceDatabaseName = $DatabaseName }
         if ($readTarget) {
             $planArgs.TargetRunId = $TargetRunId
             $planArgs.TargetInstanceId = $TargetInstanceId

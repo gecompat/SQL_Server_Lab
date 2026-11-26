@@ -685,6 +685,11 @@ Daten- und Logdateigrößen der eigenen Testdatenbank, die Berechnung je
 Zielvolume und die vollständige Bereinigung beider Testumgebungen.
 Der Gesamtplan bleibt `BLOCKED` mit `TransferAuthority=NONE`.
 [Key18-Lauf 45742408943](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45742408943)
+Die optionale Prüfung einer gewählten Benutzerdatenbank liefert im
+laufenden SQL-2025-Quellgast Kategorien und Zähler für eine gezielte
+Migrationsinventur. Systemdatenbanken und Snapshots fallen außerhalb
+dieses Pfads. Die Prüfung erteilt keine Transferfreigabe.
+
 Die Gastprobe mit den ursprünglichen neun Zählern bestand für SQL Server 2025 Developer auf Hyper-V im
 [Lauf 45343380820](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45343380820).
 Das [erweiterte native Gastinventar](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45418884558) bestätigte elf Zähler

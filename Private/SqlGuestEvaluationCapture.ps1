@@ -69,7 +69,14 @@ function Get-LabSqlGuestCaptureClassification {
 
 function Invoke-LabSqlGuestCaptureProbe {
     [CmdletBinding()]
-    param([Parameter(Mandatory)]$Context,[Parameter(Mandatory)][int]$TimeoutSeconds,[switch]$IncludeSourceInventory,[switch]$IncludeTargetStorage)
+    param([Parameter(Mandatory)]$Context,[Parameter(Mandatory)][int]$TimeoutSeconds,[switch]$IncludeSourceInventory,[switch]$IncludeTargetStorage,
+        [ValidatePattern('^[A-Za-z][A-Za-z0-9_]{0,127}$')][string]$MigrationDatabaseName)
+    if ($MigrationDatabaseName -and (-not $IncludeSourceInventory -or $IncludeTargetStorage)) {
+        throw 'EVALUATION_REFRESH_SOURCE_DATABASE_INPUT_INVALID'
+    }
+    $dependencyQuery = if ($MigrationDatabaseName) {
+        Get-LabDatabaseMigrationDependencySqlQuery -DatabaseName $MigrationDatabaseName -RegularUserDatabaseOnly
+    } else { '' }
     $guest=$null;$sa=$null;$loadedGuest=$null;$loadedSa=$null
     try {
         $fresh=Get-LabSqlGuestCaptureContext -RunId ([guid]$Context.Run.runId) -StateRoot $Context.StateRoot
@@ -80,11 +87,13 @@ function Invoke-LabSqlGuestCaptureProbe {
         if(-not $loadedGuest -or -not $loadedSa){throw 'SQL_GUEST_CAPTURE_CREDENTIAL_REQUIRED'}
         $guest=$loadedGuest.Copy();$sa=$loadedSa.Copy()
         $guest.MakeReadOnly();$sa.MakeReadOnly()
+        $guestArguments=@($sa,[int]$Context.Instance.port,[math]::Min(30,$TimeoutSeconds),$IncludeSourceInventory.IsPresent,$IncludeTargetStorage.IsPresent)
+        if ($dependencyQuery) { $guestArguments += $dependencyQuery }
         $result=@(Invoke-HyperVPowerShellDirect -VMName ([string]$Context.Instance.vmName) -ExpectedRunId ([string]$Context.Run.runId) `
             -ExpectedScopeId ([string]$Context.Run.scopeId) -ExpectedVmId ([guid]$Context.Instance.vmId) `
             -Credential ([pscredential]::new('Administrator',$guest)) -TimeoutSeconds $TimeoutSeconds `
-            -ArgumentList @($sa,[int]$Context.Instance.port,[math]::Min(30,$TimeoutSeconds),$IncludeSourceInventory.IsPresent,$IncludeTargetStorage.IsPresent) -ScriptBlock {
-                param([securestring]$Password,[int]$Port,[int]$SqlTimeout,[bool]$IncludeSourceInventory,[bool]$IncludeTargetStorage)
+            -ArgumentList $guestArguments -ScriptBlock {
+                param([securestring]$Password,[int]$Port,[int]$SqlTimeout,[bool]$IncludeSourceInventory,[bool]$IncludeTargetStorage,[string]$DatabaseDependencyQuery)
                 $ErrorActionPreference='Stop';$connection=$null;$command=$null;$reader=$null;$secret=$null
                 try {
                     Add-Type -AssemblyName System.Data
@@ -145,6 +154,26 @@ FROM FileTotals AS totals;
                         if ($reader.Read() -or $reader.NextResult()) { throw 'SQL_GUEST_CAPTURE_PROBE_INVALID' }
                         $result.SourceInventory = [pscustomobject]$inventory
                         $result.SourceAllocatedFilePages = [pscustomobject]$filePages
+                    }
+                    if ($DatabaseDependencyQuery) {
+                        $reader.Dispose()
+                        $reader = $null
+                        try {
+                            $command.CommandText = $DatabaseDependencyQuery
+                            $reader = $command.ExecuteReader([Data.CommandBehavior]::SequentialAccess)
+                            $rows = [Collections.Generic.List[string]]::new()
+                            do {
+                                if ($reader.FieldCount -ne 1 -or -not $reader.Read()) { throw 'MIGRATION_DEPENDENCY_GUEST_SHAPE_INVALID' }
+                                $row = $reader.GetString(0)
+                                if ($rows.Count -ge 5 -or $row.Length -gt 160 -or $row -cnotmatch '^PSR010_(META|COUNT)\|[A-Z0-9_|-]+$' -or $reader.Read()) {
+                                    throw 'MIGRATION_DEPENDENCY_GUEST_SHAPE_INVALID'
+                                }
+                                $rows.Add($row)
+                            } while ($reader.NextResult())
+                            if ($rows.Count -ne 5) { throw 'MIGRATION_DEPENDENCY_GUEST_SHAPE_INVALID' }
+                            $result.DatabaseDependencyRows = $rows.ToArray()
+                        } catch [Management.Automation.PipelineStoppedException] { throw }
+                        catch { $result.DatabaseDependencyRows = @() }
                     }
                     if ($IncludeTargetStorage) {
                         $reader.Dispose()

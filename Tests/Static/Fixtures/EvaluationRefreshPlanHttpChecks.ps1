@@ -238,6 +238,26 @@ try {
     $lines = & ([scriptblock]::Create($storageBody.Substring(1,$storageBody.Length-2)))
     Assert-HttpRefresh (($lines -join ' ') -clike ('*Ziellab '+$targetSelection.RunId+'*OBSERVED*42 Bytes frei*') -and
         ($lines -join ' ') -cnotmatch 'SYNTHETIC_PRIVATE') 'Target storage job logs capacity without guest locations'
+    $guestGuard=$server.Find({
+        param($node)
+        $node -is [Management.Automation.Language.IfStatementAst] -and
+        $node.Clauses[0].Item1.Extent.Text.StartsWith('$action -in @(''ReadHyperVEvaluationSqlSource''',[StringComparison]::Ordinal)
+    },$true)
+    $guard=[scriptblock]::Create($guestGuard.Extent.Text)
+    $jobs=@{}
+    $action='ReadHyperVEvaluationSqlSource'
+    $parameters=@{RunId='33333333-3333-4333-8333-333333333333';InstanceId='primary';DataRoot='synthetic-root';ExpectedPlanKey=('a'*64);DatabaseName='MigrationFixture'}
+    $null=& $guard
+    $null=Assert-HttpRefresh ($parameters.Count -eq 5) 'Actual transient route accepts only the selected database field on source reads'
+    $parameters.DatabaseName='invalid-name'
+    $reason=$null
+    try { & $guard } catch { $reason=$_.Exception.Message }
+    Assert-HttpRefresh ($reason -ceq 'EVALUATION_REFRESH_SOURCE_DATABASE_INPUT_INVALID') 'Actual transient route rejects malformed database before the worker'
+    $action='ReadHyperVEvaluationWindowsLicense'
+    $parameters.DatabaseName='MigrationFixture'
+    $reason=$null
+    try { & $guard } catch { $reason=$_.Exception.Message }
+    Assert-HttpRefresh ($reason -ceq 'EVALUATION_REFRESH_INPUT_INVALID') 'Database choice is scoped to the separate SQL read'
     Write-Host ('EVALUATION_REFRESH_HTTP_CHECKS: '+$checks+' PASS; 0 FAIL')
 }finally{
     $resolved=[IO.Path]::GetFullPath($root);$expected=[IO.Path]::GetFullPath((Join-Path $repo '.artifacts/evaluation-refresh-browser-fixtures'))

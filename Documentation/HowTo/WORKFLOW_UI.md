@@ -491,6 +491,14 @@ nur aus, dass die beobachtete Dateizuweisung in den beobachteten freien
 Platz passt. Backupplatz, Wachstum, Hostkapazität und die Übernahme
 erfordern eigene Nachweise.
 
+Wähle **Migrationsabhängigkeiten einer Quelldatenbank lesen** im CLI-Menü
+**Instanzzustand migrieren**. Im Browser gibst du den Namen der
+Benutzerdatenbank der laufenden Quelle ein und wählst
+**Migrationsabhängigkeiten der Quelldatenbank lesen**. Die Gastabfrage bindet
+die Auswahl an dieselbe Quellinstanz. Login-Mappings, Agent-Jobs, Proxies,
+Linked Server und Verschlüsselung erscheinen als Kategorien und Zähler.
+Bei fehlendem Befund erscheint `NOT_OBSERVED`. Der Plan bleibt blockiert.
+
 **Windows-Lizenz im laufenden Gast lesen** ist eine eigene Auswahl in allen
 drei Entscheidungsarten. Sie zeigt den aktuellen Lizenzstatus, den
 Beobachtungszeitpunkt und eine belegte Evaluation-Frist getrennt von den

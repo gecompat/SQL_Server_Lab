@@ -49,8 +49,15 @@ function refreshEvaluationTargetChoices() {
 function updateEvaluationRefreshControls() {
   for (const id of ['root', 'read', 'run', 'mode']) evaluationRefreshElement(id).disabled = evaluationRefreshBusy;
   evaluationRefreshElement('preview').disabled = evaluationRefreshBusy || !evaluationRefreshOwn() || !evaluationRefreshModes.includes(evaluationRefreshElement('mode').value);
-  evaluationRefreshElement('observe').disabled = evaluationRefreshBusy || evaluationRefreshOwn()?.State !== 'RUNNING' ||
-    evaluationRefreshElement('mode').value !== 'STATEFUL_MIGRATION';
+  const sourceAvailable = evaluationRefreshOwn()?.State === 'RUNNING' &&
+    evaluationRefreshElement('mode').value === 'STATEFUL_MIGRATION';
+  evaluationRefreshElement('observe').disabled = evaluationRefreshBusy || !sourceAvailable;
+  const sourceDatabase = evaluationRefreshElement('source-database');
+  const readSourceDatabase = evaluationRefreshElement('observe-source-database');
+  evaluationRefreshElement('source-database-field').hidden = !sourceAvailable;
+  sourceDatabase.disabled = evaluationRefreshBusy || !sourceAvailable;
+  readSourceDatabase.hidden = !sourceAvailable;
+  readSourceDatabase.disabled = sourceDatabase.disabled || !/^[A-Za-z][A-Za-z0-9_]{0,127}$/.test(sourceDatabase.value);
   evaluationRefreshElement('observe-windows').disabled = evaluationRefreshBusy || evaluationRefreshOwn()?.State !== 'RUNNING';
   evaluationRefreshElement('target').disabled = evaluationRefreshBusy || evaluationRefreshElement('target-field').hidden;
   const target = evaluationRefreshTarget();
@@ -63,7 +70,7 @@ function updateEvaluationRefreshControls() {
   comparison.hidden = evaluationRefreshElement('target-field').hidden;
   comparison.disabled = evaluationRefreshBusy || evaluationRefreshOwn()?.State !== 'RUNNING' || target?.State !== 'RUNNING';
 }
-async function observeEvaluationRefreshGuest(button, action, noun, target = null) {
+async function observeEvaluationRefreshGuest(button, action, noun, target = null, databaseName = null) {
   if (!evaluationRefreshElement('dialog').open || evaluationRefreshElement(button).disabled) return;
   const own = evaluationRefreshOwn();
   const revision = evaluationRefreshRevision;
@@ -78,6 +85,7 @@ async function observeEvaluationRefreshGuest(button, action, noun, target = null
       parameters.TargetInstanceId = target.InstanceId;
       parameters.ExpectedTargetPlanKey = target.Digest;
     }
+    if (databaseName) parameters.DatabaseName = databaseName;
     await startAction(action, parameters);
     if (revision === evaluationRefreshRevision && evaluationRefreshElement('dialog').open) {
       evaluationRefreshElement('status').textContent = 'Lesender Auftrag angenommen. ' + noun + ' unter Vorgänge ansehen.';
@@ -91,6 +99,7 @@ async function observeEvaluationRefreshGuest(button, action, noun, target = null
 function invalidateEvaluationRefresh(clearRuns = false) {
   evaluationRefreshRevision++; evaluationRefreshBusy = false;
   if (clearRuns) { evaluationRefreshRuns = []; evaluationRefreshRoot = ''; evaluationRefreshElement('run').replaceChildren(); }
+  evaluationRefreshElement('source-database').value = '';
   refreshEvaluationTargetChoices();
   evaluationRefreshElement('result').textContent = ''; updateEvaluationRefreshControls();
 }
@@ -162,6 +171,12 @@ evaluationRefreshElement('open').addEventListener('click', () => { invalidateEva
 evaluationRefreshElement('read').addEventListener('click', () => requestEvaluationRefresh());
 evaluationRefreshElement('preview').addEventListener('click', () => requestEvaluationRefresh(true));
 evaluationRefreshElement('observe').addEventListener('click', () => observeEvaluationRefreshGuest('observe', 'ReadHyperVEvaluationSqlSource', 'SQL-Quellzähler'));
+evaluationRefreshElement('source-database').addEventListener('input', updateEvaluationRefreshControls);
+evaluationRefreshElement('observe-source-database').addEventListener('click', () => {
+  const databaseName = evaluationRefreshElement('source-database').value;
+  if (!/^[A-Za-z][A-Za-z0-9_]{0,127}$/.test(databaseName)) return;
+  return observeEvaluationRefreshGuest('observe-source-database', 'ReadHyperVEvaluationSqlSource', 'Migrationsabhängigkeiten der Quelldatenbank', null, databaseName);
+});
 evaluationRefreshElement('observe-windows').addEventListener('click', () => observeEvaluationRefreshGuest('observe-windows', 'ReadHyperVEvaluationWindowsLicense', 'Windows-Lizenzbefund der Quelle'));
 evaluationRefreshElement('observe-target-windows').addEventListener('click', () => {
   const target = evaluationRefreshTarget();

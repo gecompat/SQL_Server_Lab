@@ -172,5 +172,25 @@ async function readMetadata(body = metadata) { const pending = node('read').fire
     node('observe-target-sql').disabled && node('observe-target-sql').hidden &&
     node('observe-target-storage').disabled && node('observe-target-storage').hidden &&
     node('compare-file-allocation').disabled && node('compare-file-allocation').hidden);
+  node('source-database').value = 'MigrationFixture';
+  await node('source-database').fire('input');
+  await node('observe-source-database').fire('click');
+  check('Database read stays unavailable outside migration', jobs.length === 6 && node('observe-source-database').disabled);
+  node('mode').value = 'STATEFUL_MIGRATION'; await node('mode').fire('change');
+  check('Changing scope clears the previous database selection', node('source-database').value === '' && node('observe-source-database').disabled);
+  node('source-database').value = 'not-valid';
+  await node('source-database').fire('input');
+  await node('observe-source-database').fire('click');
+  check('Invalid database name launches no job', jobs.length === 6);
+  node('source-database').value = 'MigrationFixture';
+  await node('source-database').fire('input');
+  await node('observe-source-database').fire('click');
+  check('Database observation preserves the current source and sends precisely the chosen database', jobs.length === 7 &&
+    JSON.stringify(jobs[6]) === JSON.stringify({action:'ReadHyperVEvaluationSqlSource',parameters:{
+      RunId:own.RunId,InstanceId:own.InstanceId,DataRoot:'CHANGED_ROOT',ExpectedPlanKey:own.Digest,DatabaseName:'MigrationFixture'
+    }}) && node('status').textContent.includes('Migrationsabhängigkeiten'));
+  node('run').value = liveTarget.RunId; await node('run').fire('change');
+  check('Changing the source clears the selected database before another job', node('source-database').value === '' &&
+    node('observe-source-database').disabled && jobs.length === 7);
   console.log('EVALUATION_REFRESH_UI_CHECKS: ' + checks + ' PASS; 0 FAIL');
 })().catch(error => { console.error(error); process.exitCode = 1; });

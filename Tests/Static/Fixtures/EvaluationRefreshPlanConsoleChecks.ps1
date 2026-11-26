@@ -26,7 +26,13 @@ try {
     Import-RefreshFunctions 'Private/EvaluationRefreshPlanConsole.ps1'
     Import-RefreshFunctions 'Private/PublicCommandConsole.ps1'
     function New-LabConsoleItem {param($Id,$Label,$Value,$Data);[pscustomobject]@{Id=$Id;Label=$Label;Value=$Value;Data=$Data}}
-    function Read-LabConsoleTextInput {param($Prompt);[pscustomobject]@{Status=$script:rootStatus;Value=$script:root}}
+    function Read-LabConsoleTextInput {
+        param($Prompt)
+        if ($Prompt.StartsWith('Name der regulären Benutzerdatenbank',[StringComparison]::Ordinal)) {
+            return [pscustomobject]@{Status=$script:databaseStatus;Value='MigrationFixture'}
+        }
+        [pscustomobject]@{Status=$script:rootStatus;Value=$script:root}
+    }
     function Invoke-LabConsoleMenu {param($ScreenId,$Title,$Subtitle,$Items)
         $script:seenScreens.Add($ScreenId)
         $pick=$script:answers.Dequeue()
@@ -43,17 +49,26 @@ try {
     function New-LabEvaluationRefreshPlan {
         param($RunId,$InstanceId,$DataRoot,$Mode,$ExpectedSnapshotDigest,[switch]$ObserveSqlSource,[switch]$ObserveWindowsLicense,
             $TargetRunId,$TargetInstanceId,$ExpectedTargetSnapshotDigest,[switch]$ObserveTargetWindowsLicense,[switch]$ObserveTargetSqlReadiness,
-            [switch]$ObserveTargetStorage,[switch]$CompareFileAllocation)
+            [switch]$ObserveTargetStorage,[switch]$CompareFileAllocation,[string]$SourceDatabaseName)
         $script:planCalls++
         if ($ExpectedSnapshotDigest -cnotmatch '^[a-f0-9]{64}$') { throw 'SYNTHETIC_EXPECTED_DIGEST_REQUIRED' }
         $script:lastPlan = & $script:actualPlan @PSBoundParameters
         return $script:lastPlan
     }
     function Get-LabEvaluationSqlSourceInventory {
-        param($Snapshot)
-        [pscustomobject]@{ Status='PARTIALLY_OBSERVED'; Items=@([pscustomobject]@{Category='Credentials';Count=[long]1})
+        param($Snapshot,$MigrationDatabaseName)
+        $view=[pscustomobject]@{ Status='PARTIALLY_OBSERVED'; Items=@([pscustomobject]@{Category='Credentials';Count=[long]1})
             AllocatedFileStorage=[pscustomobject]@{Status='OBSERVED';DataBytes=[long]1048576;LogBytes=[long]262144}
             DependencyFindings=@([pscustomobject]@{Category='Credentials';Count=[long]1;Code='CREDENTIAL_REBIND_REQUIRED'}) }
+        if ($MigrationDatabaseName) {
+            $view | Add-Member -NotePropertyName DatabaseDependencies -NotePropertyValue ([pscustomobject]@{
+                Status='OBSERVED';DatabaseName=$MigrationDatabaseName;Inventory=[pscustomobject]@{
+                    Dependencies=@([pscustomobject]@{Category='SQL_AGENT_JOB';Status='DETECTED';Count=[long]1;RequiredAction='SCRIPT_OR_RECREATE'})
+                    MigrationBoundary=[pscustomobject]@{PortableRestoreStatus='MANUAL_REVIEW'}
+                }
+            })
+        }
+        $view
     }
     function Get-LabEvaluationWindowsLicenseObservation {
         param($Snapshot)
@@ -97,6 +112,11 @@ try {
     Reset-ConsoleRefresh @('RUN','STATEFUL_MIGRATION','observe');Invoke-LabEvaluationRefreshPlanInteractive
     Assert-ConsoleRefresh ($planCalls -eq 1 -and $lastPlan.SqlSourceInventory.Status -ceq 'PARTIALLY_OBSERVED' -and
         ($messages -join ' ') -cmatch 'CREDENTIAL_REBIND_REQUIRED') 'The explicit guided source observation shows the identified dependency'
+    Reset-ConsoleRefresh @('RUN','STATEFUL_MIGRATION','observe-source-database');$databaseStatus='Cancelled';Invoke-LabEvaluationRefreshPlanInteractive
+    Assert-ConsoleRefresh ($planCalls -eq 0) 'Cancelled source database dialog opens no probe'
+    Reset-ConsoleRefresh @('RUN','STATEFUL_MIGRATION','observe-source-database');$databaseStatus='Confirmed';Invoke-LabEvaluationRefreshPlanInteractive
+    Assert-ConsoleRefresh ($planCalls -eq 1 -and $lastPlan.SqlSourceInventory.DatabaseDependencies.DatabaseName -ceq 'MigrationFixture' -and
+        ($messages -join ' ') -match 'SQL_AGENT_JOB.*MANUAL_REVIEW' -and $lastPlan.TransferAuthority -ceq 'NONE') 'Guided database read shows scoped evidence and keeps migration blocked'
     Reset-ConsoleRefresh @('RUN','RECONSTRUCT_LAB','observe');Invoke-LabEvaluationRefreshPlanInteractive
     Assert-ConsoleRefresh ($planCalls -eq 0) 'The observation choice is unavailable outside stateful migration'
     Reset-ConsoleRefresh @('RUN','RECONSTRUCT_LAB','observe-windows');Invoke-LabEvaluationRefreshPlanInteractive

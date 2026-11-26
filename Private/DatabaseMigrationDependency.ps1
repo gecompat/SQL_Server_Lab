@@ -8,20 +8,20 @@
     bleiben ausserhalb des Receipts.
 #>
 
-function Get-LabDatabaseMigrationDependencySqlObservation {
-    [CmdletBinding()]
+function Get-LabDatabaseMigrationDependencySqlQuery {
     param(
-        [string]$HostName='127.0.0.1',
-        [Parameter(Mandatory)][int]$Port,
-        [Parameter(Mandatory)][SecureString]$SaPassword,
-        [Parameter(Mandatory)][ValidatePattern('^[A-Za-z][A-Za-z0-9_]{0,127}$')][string]$DatabaseName
+        [Parameter(Mandatory)][ValidatePattern('^[A-Za-z][A-Za-z0-9_]{0,127}$')][string]$DatabaseName,
+        [switch]$RegularUserDatabaseOnly
     )
 
     $literal=$DatabaseName.Replace("'","''")
     $identifier=$DatabaseName.Replace(']',']]')
-    $query=@"
+    $excludeSystemAndSnapshot = if ($RegularUserDatabaseOnly) {
+        " OR DB_ID(N'$literal') <= 4 OR EXISTS (SELECT 1 FROM sys.databases WHERE database_id = DB_ID(N'$literal') AND source_database_id IS NOT NULL)"
+    } else { '' }
+    @"
 SET NOCOUNT ON;
-IF DB_ID(N'$literal') IS NULL THROW 51000, 'MIGRATION_DEPENDENCY_DATABASE_NOT_FOUND', 1;
+IF DB_ID(N'$literal') IS NULL$excludeSystemAndSnapshot THROW 51000, 'MIGRATION_DEPENDENCY_DATABASE_NOT_FOUND', 1;
 SELECT CONCAT(
     N'PSR010_META|', CONVERT(nvarchar(10),SERVERPROPERTY('ProductMajorVersion')), N'|',
     d.containment_desc COLLATE DATABASE_DEFAULT, N'|', CONVERT(nvarchar(1),d.is_encrypted), N'|',
@@ -54,8 +54,12 @@ SELECT CONCAT(N'PSR010_COUNT|LINKED_SERVER|',CONVERT(nvarchar(20),COUNT_BIG(*)))
 FROM master.sys.servers
 WHERE is_linked=1;
 "@
-    $output=@(Invoke-SqlQuery -HostName $HostName -Port $Port -ProductQueryPassword $SaPassword -Database master -Query $query)
-    $lines=@($output|ForEach-Object{([string]$_).Trim()}|Where-Object{$_ -match '^PSR010_(META|COUNT)\|'})
+}
+
+function ConvertFrom-LabDatabaseMigrationDependencySqlRows {
+    param([AllowEmptyCollection()][object[]]$Output)
+
+    $lines=@($Output|ForEach-Object{([string]$_).Trim()}|Where-Object{$_ -match '^PSR010_(META|COUNT)\|'})
     $meta=@($lines|Where-Object{$_ -match '^PSR010_META\|'})
     if($meta.Count -ne 1){throw 'MIGRATION_DEPENDENCY_METADATA_RESULT_INVALID'}
     $parts=$meta[0].Split('|')
@@ -84,6 +88,20 @@ WHERE is_linked=1;
         CredentialOrProxyCount=[long]$counts.CREDENTIAL_OR_PROXY
         LinkedServerCount=[long]$counts.LINKED_SERVER
     }
+}
+
+function Get-LabDatabaseMigrationDependencySqlObservation {
+    [CmdletBinding()]
+    param(
+        [string]$HostName='127.0.0.1',
+        [Parameter(Mandatory)][int]$Port,
+        [Parameter(Mandatory)][SecureString]$SaPassword,
+        [Parameter(Mandatory)][ValidatePattern('^[A-Za-z][A-Za-z0-9_]{0,127}$')][string]$DatabaseName
+    )
+
+    $query=Get-LabDatabaseMigrationDependencySqlQuery -DatabaseName $DatabaseName
+    $output=@(Invoke-SqlQuery -HostName $HostName -Port $Port -ProductQueryPassword $SaPassword -Database master -Query $query)
+    ConvertFrom-LabDatabaseMigrationDependencySqlRows -Output $output
 }
 
 function New-LabDatabaseMigrationDependencyEntry {
