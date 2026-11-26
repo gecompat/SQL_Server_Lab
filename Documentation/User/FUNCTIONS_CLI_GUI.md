@@ -597,9 +597,10 @@ sind `NOT_CHECKED`. Keine Secrets, Zertifikatsparameter, Pfade oder freie
 Callertexte in der Ausgabe, keine Persistenz, keine Runtime- oder Netzprobe.
 Zwei Metadatenbeobachtungen sind kein Byteintegritäts- oder CAS-Nachweis.
 Der bestehende Start braucht weiterhin seine vollständigen Originalparameter
-und frische Validierung. Die CLI bietet unter „Alle öffentlichen Befehle“ →
-„llama.cpp: geführte Startvorschau“ explizite RAM-Eingaben und bewusste
-Dateivorschau; Abbruch ruft keinen Plan auf. Pfade werden maskiert (Esc, im
+und frische Validierung. Im Menü **Host-Dienste und Modelle** →
+**llama.cpp: reine Startvorschau** erfasst die CLI die Angaben im
+Arbeitsspeicher. **Vorschau anzeigen** liest die Dateien. Bei Abbruch
+bleibt der Plan ungelesen. Pfade werden maskiert (Esc, im
 Fallback Ctrl+C), Ergebnis und Fehler bleiben pfadfrei. Kein Startknopf,
 ComputeSelection oder Secretzugriff. Die geführte CLI-Startfunktion ist statisch geprüft; ihr Native-Nachweis und die Native-Nachweise der geführten Startdialoge bleiben offen. Vertrag:
 [Eigener llama.cpp-Start](../Architecture/LLAMA_CPP_OWNED_RUNTIME.md).

@@ -19,6 +19,9 @@ $module=New-Module {
     . (Join-Path $root 'Public/Get-SqlServerLabLlamaCppStartPlan.ps1')
     . (Join-Path $root 'Private/LlamaCppStartPlanConsole.ps1')
     . ([scriptblock]::Create((Read-ActualFunction 'Private/PublicCommandConsole.ps1' 'Manage-LabPublicCommandsInteractive')))
+    . ([scriptblock]::Create((Read-ActualFunction 'Public/BatchConsole.ps1' 'Show-LabHostModelsMenu')))
+    . ([scriptblock]::Create((Read-ActualFunction 'Public/Invoke-SqlServerLab.ps1' 'Invoke-LabMenuAction')))
+    function Show-LabSubMenu { param($ScreenId,$Title,$Subtitle,$Items) $Items }
     $script:actualObservation=(Get-Command Get-LabLlamaStartPlanObservation).ScriptBlock
     function Get-LabLlamaStartPlanObservation {
         param($RuntimeDirectory,$ModelPath)
@@ -42,7 +45,7 @@ $module=New-Module {
         }
         $result
     }
-    function New-LabConsoleItem {param($Id,$Label,$Value,$Data) [pscustomobject]@{Id=$Id;Label=$Label;Value=$Value;Data=$Data}}
+    function New-LabConsoleItem {param($Id,$Label,$Value,$Data,$Shortcut,[switch]$Disabled,$DisabledReason) [pscustomobject]@{Id=$Id;Label=$Label;Value=$Value;Data=$Data}}
     function Invoke-LabConsoleMenu {
         param($ScreenId,$Title,$Subtitle,$Items)
         $script:Steps++
@@ -78,9 +81,15 @@ $module=New-Module {
         $script:Inputs=[Collections.Generic.Queue[string]]::new();foreach($v in @($Runtime,$Model)+$Numbers){$script:Inputs.Enqueue($v)}
         $script:Output=[Collections.Generic.List[string]]::new();$script:Masks=[Collections.Generic.List[bool]]::new();$script:FallbackPrompts=[Collections.Generic.List[string]]::new()
     }
-    function Invoke-FixtureCase {param($Values,[switch]$Menu)
+    function Invoke-FixtureCase {param($Values,[switch]$Menu,[switch]$HostMenu)
         Reset-Fixture @Values
-        if($Menu){Manage-LabPublicCommandsInteractive}else{Invoke-LabLlamaCppStartPlanInteractive}
+        if ($HostMenu) {
+            $items = @(Show-LabHostModelsMenu)
+            $item = @($items | Where-Object Id -CEQ 'LlamaCppStartPlanPreview')
+            if ($item.Count -ne 1 -or $item[0].Label -cne 'llama.cpp: reine Startvorschau') { throw 'FIXTURE_HOST_MENU_PREVIEW_MISSING' }
+            Invoke-LabMenuAction -ActionName $item[0].Id
+        } elseif ($Menu) { Manage-LabPublicCommandsInteractive }
+        else { Invoke-LabLlamaCppStartPlanInteractive }
         [pscustomobject]@{Calls=$script:PublicCalls;Steps=$script:Steps;Warnings=$script:Warnings;Output=($script:Output -join "`n");Arguments=$script:Received;Masks=$script:Masks.ToArray();Prompts=$script:FallbackPrompts.ToArray();MenuIds=$script:MenuIds;Native=$script:NativeCalls}
     }
 } -ArgumentList $RepoRoot
@@ -96,6 +105,11 @@ try {
     Test-Case 'Exact ten scalar arguments and declared defaults' ($ok.Arguments.Count -eq 10 -and $ok.Arguments.StartTimeoutSeconds -eq 120 -and $ok.Arguments.LeaseSeconds -eq 900 -and $ok.Arguments.ContextSize -eq 512)
     Test-Case 'Paths masked at actual text leaf and never projected' ($ok.Masks[0] -and $ok.Masks[1] -and $ok.Prompts[0].Contains('Ctrl+C') -and -not $ok.Output.Contains($fixture) -and -not $ok.Output.Contains('PRIVATE_CANARY'))
     Test-Case 'Actual PublicCommand menu dispatch ignores arbitrary item Data' ((& $module {param($v)Invoke-FixtureCase $v -Menu} $a).Calls -eq 1)
+    $hostResult = & $module { param($v) Invoke-FixtureCase $v -HostMenu } $a
+    Test-Case 'Host services menu reaches the same one-call files-only preview' ($hostResult.Calls -eq 1 -and $hostResult.Native -eq 0 -and $hostResult.Output.Contains('PLAN_ONLY/BLOCKED'))
+    $cancelHost = @{}+$a; $cancelHost.Cancel = 1
+    $hostResult = & $module { param($v) Invoke-FixtureCase $v -HostMenu } $cancelHost
+    Test-Case 'Cancel in the host services menu preview never reads plan files' ($hostResult.Calls -eq 0 -and $hostResult.Native -eq 0)
     foreach($step in 1..11){$v=@{}+$a;$v.Cancel=$step;$x=& $module {param($v)Invoke-FixtureCase $v} $v;Test-Case "Cancel at input/choice/preview step $step never calls plan" ($x.Calls -eq 0 -and $x.Native -eq 0)}
     foreach($id in @('back','PRIVATE_CANARY')){$v=@{}+$a;$v.Preview=$id;$x=& $module {param($v)Invoke-FixtureCase $v} $v;Test-Case "Preview id $id never dispatches" ($x.Calls -eq 0)}
     foreach($change in @('EXEC','PATH','BOOLSTRING','STATUS','RAWERROR')){$v=@{}+$a;$v.Change=$change;$x=& $module {param($v)Invoke-FixtureCase $v} $v;Test-Case "Untrusted result/error $change is fixed and nonreflecting" ($x.Warnings -eq 1 -and -not $x.Output.Contains('PRIVATE_CANARY') -and -not $x.Output.Contains('Actions: 0'))}
