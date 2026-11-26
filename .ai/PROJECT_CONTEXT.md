@@ -626,8 +626,12 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   bewusste cgroup-/Rootful-Prüfung bleibt auf ihre vorhandenen Grundlagen
   begrenzt; Hyper-V und C# erhalten dadurch keine neue Unterstützung.
   Standard ohne Hostabfrage, bewusste Readiness einmal je gewähltem Provider.
-  C# bleibt USER_DEFERRED; Kernel/Controller, WSL, Ressourcen, konkrete
-  Launchanforderungen und Native-Sprachabnahmen bleiben offen.
+  C# bleibt USER_DEFERRED. Docker und Podman zeigen im expliziten Profilcheck
+  die vom Provider gemeldete numerische Linux-Kernelrelease und einen
+  beobachteten Microsoft-WSL2-Marker. Ein fehlender Marker entscheidet die
+  WSL-Einordnung nicht. Gemeinsame WSL-/Controller-Topologie, Konflikte mit
+  weiteren Workloads, konkrete Launchanforderungen und Native-Sprachabnahmen
+  benötigen getrennte Nachweise.
   Autorität: `Documentation/Architecture/HOST_CAPABILITY_MATRIX.md`.
 - Der geführte External-Languages-Browser-Katalogpfad besitzt eine getrennte
   gerenderte Abnahme auf `4007d414` vom 2026-10-07: zwölf Produktassets,
