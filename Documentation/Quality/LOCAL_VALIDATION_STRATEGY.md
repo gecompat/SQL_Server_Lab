@@ -2506,8 +2506,17 @@ Das Opt-in für Providerangaben prüft zusätzlich typisierte OS-, cgroup-
 und Rootless-Werte aus derselben Abfrage. Eine unbekannte Beobachtung
 bleibt `null`. Die Browser-Fixture prüft die getrennte Darstellung der
 benötigten und der gemeldeten cgroup-Version sowie die bisherigen
-Payload- und Ergebnisgrenzen.
-Die Prüfung belegt keine nativen Hostwerte und keine SQL-Sprachausführung.
+Payload- und Ergebnisgrenzen. Das Kernel-Opt-in prüft für Docker und Podman
+die passende Vorlage im selben `info`-Aufruf. Synthetische Releasewerte
+decken den Microsoft-WSL2-Marker, andere Linux-Releases und unbrauchbare
+Angaben ab. Die HTTP- und Browserprüfungen prüfen sichere Felder und
+weisen Rohsuffixe zurück. Die synthetischen Prüfungen belegen die Projektion.
+
+Am 25.11.2026 lieferte der lesende Profilcheck auf Key18 mit Docker und
+Podman je eine numerische Kernelrelease. Beide meldeten für die ausgewählte
+SQL-2022-Python-Variante `CGROUP_VERSION_UNSUPPORTED`. Die Podman-Beobachtung
+bestätigte die Korrektur der Go-Formatvorlage. SQL-Sprachausführung und
+gemeinsamer Kernel blieben ungeprüft.
 
 Die additive `Invoke-ExternalRuntimeCapabilityCatalogBrowserAcceptance.ps1`
 prüft die vollständige unveränderte Produktseite über einen eigenen begrenzten
@@ -5636,6 +5645,11 @@ Capture, Receiptkette, unverändertem Run-/Connection-State und Parent sowie
 vollständigem Cleanup (drei Schritte, keine Fehler, keine VM-/Diskreste).
 Positive Evaluation und echte Deadline bleiben eigene offene Nachweise.
 Die Abnahme erstellt und bereinigt ausschließlich ihren eigenen Run.
+Der gemeinsame Arrange-Helfer `Tests/Common/SqlGuestAllocationAcceptanceFixture.ps1`
+bindet Run, Scope, VM und SQL-Instanz für beide nativen Harnesses. Er führt
+die einmalige Fixture-Anlage über PowerShell Direct ohne Wiederholung aus.
+Die Plan-Suite prüft den gebundenen Aufruf und weist fehlende, doppelte,
+nichtpositive und falsch typisierte Größenbelege synthetisch ab.
 Lauf [45343380820](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45343380820)
 auf `157b1f13` bestätigte die ergänzte Gastprobe für die neun
 Quellzähler. Der Runner las eine eigene laufende SQL-2025-Developer-Instanz

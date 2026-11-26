@@ -11,7 +11,7 @@ $module=New-Module -ArgumentList $root -ScriptBlock {
     $script:passed=0;$script:probes=0;$script:calls=0;$script:ack=0;$script:captured=$null;$script:cancel='';$script:mode='catalog';$script:next='Details';$script:syntheticHistory=$false
     function Assert-Case {param([bool]$Condition,[string]$Name) if(-not $Condition){throw "FIXTURE_FAILED: $Name"};$script:passed++;Write-Host "PASS: $Name"}
     function Read-LabExternalRuntimeHostFacts {
-        param($Provider,[switch]$IncludeHostPrerequisites)
+        param($Provider,[switch]$IncludeHostPrerequisites,[switch]$IncludeKernelEvidence)
         $script:probes++
         $observation = [pscustomobject]@{Status='OBSERVED';ReasonCode='NONE';Facts=[pscustomobject]@{OperatingSystem='linux';CgroupVersion='2';Rootless=$false}}
         if ($IncludeHostPrerequisites) {
@@ -20,10 +20,15 @@ $module=New-Module -ArgumentList $root -ScriptBlock {
                 OSType='linux';CgroupVersion='1';SecurityOptions=@();MemoryLimit=$true;PidsLimit=$false;MemTotal=2GB;NCPU=16
             })
         }
+        if ($IncludeKernelEvidence) {
+            $observation | Add-Member -NotePropertyName KernelEvidence -NotePropertyValue ([pscustomobject]@{
+                Version='6.6.87.2';Flavor='MICROSOFT_WSL2_MARKER'
+            })
+        }
         $observation
     }
     $script:original=(Get-Command Get-SqlServerLabExternalRuntimeCapability).ScriptBlock
-    function Get-SqlServerLabExternalRuntimeCapability {param($SqlVersion,$Provider,$OperatingSystem,$SoftwareId,$RuntimeVersion,$VariantId,[switch]$CheckProviderReadiness,[switch]$IncludeHostPrerequisites,[switch]$IncludeProviderFacts,[switch]$IncludeRecordedEvidence,$ResourceProfile)
+    function Get-SqlServerLabExternalRuntimeCapability {param($SqlVersion,$Provider,$OperatingSystem,$SoftwareId,$RuntimeVersion,$VariantId,[switch]$CheckProviderReadiness,[switch]$IncludeHostPrerequisites,[switch]$IncludeKernelEvidence,[switch]$IncludeRecordedEvidence,$ResourceProfile)
         $script:calls++;$script:captured=@{};foreach($key in $PSBoundParameters.Keys){$script:captured[$key]=$PSBoundParameters[$key]}
         $decision = & $script:original @PSBoundParameters
         if ($script:syntheticHistory) {
@@ -73,10 +78,12 @@ $module=New-Module -ArgumentList $root -ScriptBlock {
     $script:cancel=''
     $output=@(Show-LabHostCapabilityMatrixInteractive 6>&1|ForEach-Object {[string]$_}) -join "`n"
     Assert-Case ($script:calls -eq $beforeCalls+1 -and $script:probes -eq $before+1 -and $script:captured.ResourceProfile -ceq 'performance' -and
-        $script:captured.IncludeProviderFacts -and $script:captured.IncludeHostPrerequisites -and $script:captured.CheckProviderReadiness) 'Explicit profile uses one existing read-only observation'
+        $script:captured.IncludeKernelEvidence -and $script:captured.IncludeHostPrerequisites -and $script:captured.CheckProviderReadiness) 'Explicit profile uses one existing read-only observation'
     Assert-Case ($output -match 'RESOURCE_CONTROLLERS_UNAVAILABLE' -and $output -match 'CAPACITY_INSUFFICIENT' -and
         $output -match 'fehlend pids' -and $output -match 'Keine Ausführungsfreigabe') 'Profile result displays bounded prerequisite failure and withholds execution authority'
     Assert-Case ($output -match 'Provider meldet · Runtime-OS linux · cgroup 1 · Rootless nein') 'CLI profile details show normalized provider facts beside the blocking reason'
+    Assert-Case ($output -match 'Linux-Kernelrelease des Providers · 6\.6\.87\.2 · Microsoft-WSL2-Marker gemeldet' -and
+        $output -match 'WSL-Konflikte') 'CLI presents the reported kernel separately from WSL conflict assessment'
     $script:mode='history';$before=$script:probes;$beforeCalls=$script:calls
     $output=@(Show-LabHostCapabilityMatrixInteractive 6>&1|ForEach-Object {[string]$_}) -join "`n"
     Assert-Case ($script:calls -eq $beforeCalls+1 -and $script:probes -eq $before -and $script:captured.IncludeRecordedEvidence -and

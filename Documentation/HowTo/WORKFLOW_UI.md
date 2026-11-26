@@ -536,9 +536,11 @@ Für eine zusätzliche Profilprüfung wähle ein **Ressourcenprofil** und dann
 **Controller und Profilkapazität lesend prüfen**. Die Ausgabe unterscheidet
 fehlende Controller, zu geringe Gesamtkapazität und unbekannte Werte. Die
 Ausgabe nennt außerdem das gemeldete Runtime-Betriebssystem, die
-cgroup-Version und den Rootless-Modus. Sie kennzeichnet eine fehlende
-Beobachtung ausdrücklich. Die
-angezeigte Gesamtkapazität belegt keine frei verfügbare CPU- oder RAM-Menge.
+cgroup-Version und den Rootless-Modus. Sie zeigt die numerische Linux-Kernelrelease
+und vermerkt, wenn der Provider einen Microsoft-WSL2-Marker meldet. Fehlende
+Angaben erscheinen als unbeobachtet. Ob Provider einen Kernel teilen oder
+parallel unter WSL laufen können, bleibt ungeprüft. Die Gesamtkapazität
+beschreibt die vom Provider gemeldete Gesamtmenge an CPU und RAM.
 SQL 2025 shared-user-v2 besitzt keine Launchpad-Sandbox. Öffnen oder Ändern
 fragt keinen Host ab. Zurück/Abbruch und Escape verwerfen den RAM-Entwurf und
 ignorieren späte Antworten; eine laufende lesende Prüfung wird nicht gestoppt.

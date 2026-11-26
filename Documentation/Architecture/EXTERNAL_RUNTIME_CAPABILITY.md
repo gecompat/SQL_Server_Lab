@@ -89,6 +89,22 @@ Providerantwort. Ohne auswertbare Beobachtung ist der Eintrag `null`.
 Die gemeldeten Werte beschreiben die Engine für die ausgewählte Variante.
 Die benötigte cgroup-Version bleibt separat in `CurrentReadiness` sichtbar.
 
+`-IncludeKernelEvidence` verwendet Version `1.4` und schließt die
+bisherigen Providerangaben ein. Derselbe `info`-Aufruf liest zusätzlich die
+Kernelrelease des Docker- oder Podman-Servers. `HostPrerequisites.KernelEvidence`
+zeigt die numerische Linux-Release und den beobachteten
+`MICROSOFT_WSL2_MARKER` oder `OTHER_OR_UNMARKED`. Leere, unbekannte und nicht
+auswertbare Angaben erscheinen als `null`. Der Suffix bleibt lokal in der
+Abfrage. Die Beobachtung ändert die Bewertung der Profilvoraussetzungen
+nicht und bestätigt weder Kernelidentität noch parallele WSL-Kompatibilität.
+[Docker-Engine-SystemInfo](https://docs.docker.com/reference/api/engine/version/v1.57/schemas/SystemInfo/)
+[Podman info](https://docs.podman.io/en/v5.7.1/markdown/podman-info.1.html)
+
+Die Podman-Formatvorlage liest das Go-Feld `Host.CgroupsVersion` und
+projiziert es auf `CgroupVersion`. Der JSON-Name der nativen
+Podman-Antwort unterscheidet sich vom Go-Feld.
+[Podman HostInfo](https://pkg.go.dev/github.com/containers/podman/v5%40v5.8.9/libpod/define#HostInfo)
+
 `HostPrerequisites` trennt `COMPATIBLE`, `BLOCKED`, `UNKNOWN`, `UNAVAILABLE`,
 `CATALOG_BLOCKED` und `NOT_CHECKED`. Bekannte Profilunterschreitung und fehlende
 Controller blockieren; fehlende oder falsch typisierte Werte bleiben unbekannt.
@@ -99,7 +115,7 @@ Ressourcen. Providerkernelbindung und parallele WSL-Workloads bleiben ungeprüft
 `FullLaunchReadiness=INCOMPLETE` und beide Authorityflags bleiben `false`.
 Rohinventar und freie Providertexte werden nicht übernommen.
 
-Die Verträge `1.0`, `1.1` und `1.2` behalten ihre Struktur. Historie und
+Die Verträge `1.0` bis `1.3` behalten ihre Struktur. Historie und
 Profilvoraussetzungen können zusammen gelesen werden. Historische Evidence
 und aktueller Providerbefund behalten getrennte Felder.
 Die geführte Konsole bietet die Profilprüfung nach der Variantenauswahl an.
@@ -110,14 +126,16 @@ Mit `IncludeProviderFacts: true` verwendet er
 Opt-in verfügbar. Beide Versionen unterscheiden fehlende Controller von
 Controllern, für die der Provider keine auswertbare Angabe lieferte.
 Version `1.4` stellt den gemeldeten Fakten die benötigte cgroup-Version
-des gebundenen SQL-/Launchrezepts gegenüber.
+des gebundenen SQL-/Launchrezepts gegenüber. Die geführte Oberfläche sendet
+`IncludeKernelEvidence: true` und erhält Browser-Version `1.5` mit
+`KernelEvidence`.
 Beide Listen verwenden die Namen der für den Provider benötigten Controller.
 Absolute Hostwerte werden nicht ausgegeben. Auch `COMPATIBLE` behält
 `FullLaunchReadiness=INCOMPLETE` und erteilt keine Ausführungsfreigabe.
 [Browser-Anleitung](../HowTo/WORKFLOW_UI.md#external-languages-vor-einer-lab-erstellung)
 
 ```powershell
-Get-SqlServerLabExternalRuntimeCapability -SqlVersion 2022 -Provider docker -OperatingSystem linux -SoftwareId sql-python -RuntimeVersion 3.10 -VariantId sql2022-python310-ubuntu2204-derived -IncludeProviderFacts -CheckProviderReadiness -ResourceProfile standard
+Get-SqlServerLabExternalRuntimeCapability -SqlVersion 2022 -Provider docker -OperatingSystem linux -SoftwareId sql-python -RuntimeVersion 3.10 -VariantId sql2022-python310-ubuntu2204-derived -IncludeKernelEvidence -CheckProviderReadiness -ResourceProfile standard
 ```
 
 ## Manifestdialog
