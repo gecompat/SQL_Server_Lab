@@ -74,8 +74,9 @@ function Assert-LabExternalRuntimeHttpIdentity {
 function ConvertTo-LabExternalRuntimeHttpPrerequisiteSummary {
     param($Decision,$Payload)
     $facts = $Decision.HostPrerequisites
-    $includeProviderFacts = $Payload.IncludeProviderFacts -eq $true
-    $decisionVersion = if ($includeProviderFacts) { '1.3' } else { '1.2' }
+    $includeKernelEvidence = $Payload.IncludeKernelEvidence -eq $true
+    $includeProviderFacts = $includeKernelEvidence -or $Payload.IncludeProviderFacts -eq $true
+    $decisionVersion = if ($includeKernelEvidence) { '1.4' } elseif ($includeProviderFacts) { '1.3' } else { '1.2' }
     $codes = @('CATALOG_BLOCKED','TOOL_NOT_INSTALLED','TOOL_NATIVE_PATH_REQUIRED','PROVIDER_PROBE_FAILED',
         'PROVIDER_PROBE_TIMEOUT','PROVIDER_OUTPUT_LIMIT','PROVIDER_TERMINATION_UNCONFIRMED','PROVIDER_RESPONSE_INVALID',
         'CGROUP_V2_REQUIRES_SQL2025','LINUX_RUNTIME_REQUIRED','CGROUP_VERSION_UNSUPPORTED','ROOTFUL_STATUS_UNKNOWN',
@@ -144,6 +145,20 @@ function ConvertTo-LabExternalRuntimeHttpPrerequisiteSummary {
         $result.ContractVersion = 'SqlServerLab.ExternalRuntimeCapabilityBrowser/1.4'
         $result | Add-Member -NotePropertyName ProviderFacts -NotePropertyValue $observed
         $result | Add-Member -NotePropertyName RequiredCgroupVersion -NotePropertyValue $required
+        if ($includeKernelEvidence) {
+            if (-not $facts.PSObject.Properties['KernelEvidence']) { throw 'EXTERNAL_RUNTIME_HTTP_INVALID' }
+            $kernel = $facts.KernelEvidence
+            if ($null -ne $kernel) {
+                Assert-LabExternalRuntimeHttpShape $kernel @('Version','Flavor')
+                if (-not $hasObservation -or $observed.OperatingSystem -cne 'linux' -or
+                    $kernel.Version -isnot [string] -or $kernel.Version -cnotmatch '\A[0-9]{1,5}(?:\.[0-9]{1,5}){2,3}\z' -or
+                    $kernel.Flavor -isnot [string] -or $kernel.Flavor -cnotin @('MICROSOFT_WSL2_MARKER','OTHER_OR_UNMARKED')) {
+                    throw 'EXTERNAL_RUNTIME_HTTP_INVALID'
+                }
+            }
+            $result.ContractVersion = 'SqlServerLab.ExternalRuntimeCapabilityBrowser/1.5'
+            $result | Add-Member -NotePropertyName KernelEvidence -NotePropertyValue $kernel
+        }
     }
     return $result
 }
@@ -177,13 +192,15 @@ function Invoke-LabExternalRuntimeCapabilityHttpRequest {
         if($payload.Action -ceq 'ReadRecordedEvidence') {$names+=@('SoftwareId','RuntimeVersion','VariantId')}
         if($payload.Action -ceq 'CheckHostPrerequisites') {
             $names+=@('SoftwareId','RuntimeVersion','VariantId','ResourceProfile')
-            if ($payload.PSObject.Properties['IncludeProviderFacts']) {
-                if ($payload.IncludeProviderFacts -isnot [bool]) { throw 'EXTERNAL_RUNTIME_HTTP_INVALID' }
-                $names += 'IncludeProviderFacts'
+            foreach ($flag in @('IncludeProviderFacts','IncludeKernelEvidence')) {
+                if ($payload.PSObject.Properties[$flag]) {
+                    if ($payload.$flag -isnot [bool]) { throw 'EXTERNAL_RUNTIME_HTTP_INVALID' }
+                    $names += $flag
+                }
             }
         }
         Assert-LabExternalRuntimeHttpShape $payload $names
-        foreach($name in $names | Where-Object {$_ -cnotin @('CheckProviderReadiness','IncludeProviderFacts')}) {
+        foreach($name in $names | Where-Object {$_ -cnotin @('CheckProviderReadiness','IncludeProviderFacts','IncludeKernelEvidence')}) {
             if($payload.$name -isnot [string] -or [string]::IsNullOrWhiteSpace($payload.$name)) {throw 'EXTERNAL_RUNTIME_HTTP_INVALID'}
         }
         if($payload.Provider -cnotin @('docker','podman') -or $payload.OperatingSystem -cne 'linux' -or $payload.SqlVersion.Length -gt 32) {throw 'EXTERNAL_RUNTIME_HTTP_INVALID'}

@@ -29,6 +29,8 @@ $m=New-Module -ArgumentList $root -ScriptBlock {
             $StartInfo.ArgumentList[0] -cne 'info' -or $StartInfo.ArgumentList[1] -cne '--format' -or $StartInfo.UseShellExecute){throw 'PREREQUISITE_TRANSPORT_CHANGED'}
         $script:transports++
         $docker=$StartInfo.FileName -like '*docker*'
+        if (-not $docker -and (-not $StartInfo.ArgumentList[2].Contains('.Host.CgroupsVersion') -or
+            $StartInfo.ArgumentList[2].Contains('.Host.CgroupVersion'))) { throw 'PODMAN_CGROUP_TEMPLATE_FIELD_INVALID' }
         $extended=$StartInfo.ArgumentList[2] -match 'MemoryLimit|Controllers'
         $value=if($docker){[pscustomobject]@{OperatingSystem='linux';CgroupVersion='1';SecurityOptions=@()}}
             else{[pscustomobject]@{OperatingSystem='linux';CgroupVersion='v1';Rootless=$false}}
@@ -48,6 +50,16 @@ $m=New-Module -ArgumentList $root -ScriptBlock {
             if($script:mode -ceq 'missingController'){if($docker){$value.MemoryLimit=$false}else{$value.Controllers=@('cpu','pids')}}
             if($script:mode -ceq 'unknownController'){if($docker){$value.PSObject.Properties.Remove('MemoryLimit')}else{$value.PSObject.Properties.Remove('Controllers')}}
             if($script:mode -ceq 'extra'){$value|Add-Member Hostname 'PRIVATE_HOST_CANARY'}
+        }
+        if ($StartInfo.ArgumentList[2].Contains('"KernelRelease"')) {
+            $expected = if ($docker) { '.KernelVersion' } else { '.Host.Kernel' }
+            if (-not $extended -or -not $StartInfo.ArgumentList[2].Contains($expected)) { throw 'KERNEL_TEMPLATE_WRONG_PROVIDER' }
+            $release = switch ($script:mode) {
+                'unknownKernel' { '6.8.0 C:\PRIVATE_HOST_CANARY' }
+                'nonWslKernel' { '6.8.0-31-generic' }
+                default { '6.6.87.2-microsoft-standard-WSL2-PRIVATE_HOST_CANARY' }
+            }
+            $value | Add-Member -NotePropertyName KernelRelease -NotePropertyValue $release
         }
         [pscustomobject]@{Success=$true;Reason='NONE';Value=$value}
     }
@@ -98,6 +110,27 @@ try { & $m {
         $invalid = Get-SqlServerLabExternalRuntimeCapability @args -IncludeProviderFacts -CheckProviderReadiness
         Assert-Prereq ($invalid.HostPrerequisites.Status -ceq 'UNAVAILABLE' -and $null -eq $invalid.HostPrerequisites.ProviderFacts -and
             ($invalid | ConvertTo-Json -Depth 20) -cnotmatch 'PRIVATE_HOST_CANARY') "$provider malformed advertisement is withheld"
+    }
+    $unobserved = Get-SqlServerLabExternalRuntimeCapability @args -IncludeKernelEvidence
+    Assert-Prereq ($unobserved.Contract.Version -ceq '1.4' -and
+        $unobserved.HostPrerequisites.PSObject.Properties['KernelEvidence'] -and
+        $null -eq $unobserved.HostPrerequisites.KernelEvidence -and
+        $unobserved.CurrentReadiness.Status -ceq 'NOT_CHECKED') 'Kernel evidence remains empty without a deliberate provider check'
+    foreach ($provider in @('docker','podman')) {
+        $args.Provider = $provider
+        foreach ($mode in @('ready','unknownKernel','nonWslKernel')) {
+            $script:mode = $mode; $before = $script:transports
+            $decision = Get-SqlServerLabExternalRuntimeCapability @args -IncludeKernelEvidence -CheckProviderReadiness
+            $kernel = $decision.HostPrerequisites.KernelEvidence
+            $expected = switch ($mode) {
+                'ready' { $kernel.Version -ceq '6.6.87.2' -and $kernel.Flavor -ceq 'MICROSOFT_WSL2_MARKER' }
+                'nonWslKernel' { $kernel.Version -ceq '6.8.0' -and $kernel.Flavor -ceq 'OTHER_OR_UNMARKED' }
+                default { $null -eq $kernel }
+            }
+            Assert-Prereq ($expected -and $decision.Contract.Version -ceq '1.4' -and $script:transports -eq $before+1 -and
+                $decision.HostPrerequisites.Status -ceq 'COMPATIBLE' -and -not $decision.HostPrerequisites.SharedKernel.IsolationProven -and
+                ($decision | ConvertTo-Json -Depth 20 -Compress) -cnotmatch 'PRIVATE_HOST_CANARY|KernelRelease') "$provider $mode discloses only typed evidence without changing readiness"
+        }
     }
     $args.Provider='podman';$script:mode='aliasOnly'
     $aliasOnly=Get-SqlServerLabExternalRuntimeCapability @args -IncludeHostPrerequisites -CheckProviderReadiness -ResourceProfile standard

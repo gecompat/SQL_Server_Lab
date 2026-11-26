@@ -19,11 +19,12 @@ const option=()=>({SoftwareId:'sql-python',Language:'Python',RuntimeVersion:'3.1
 const options=()=>({ContractVersion:'SqlServerLab.ExternalRuntimeCapabilityBrowser/1.0',Status:'OPTIONS',Options:[option()]});
 const result=d=>({ContractVersion:'SqlServerLab.ExternalRuntimeCapabilityBrowser/1.0',Status:'DECISION',Decision:d});
 const history=()=>({ContractVersion:'SqlServerLab.ExternalRuntimeCapabilityBrowser/1.1',Status:'HISTORY',Provider:'docker',OperatingSystem:'linux',Identity:decision().Identity,HistoricalEvidence:{Status:'RECORDED_HISTORY_ONLY',MappingStatus:'DEFINED',ReasonCode:'INDEX_MATCH_RECORDED',RecordCount:2,ReferenceVerificationStatus:'NOT_VERIFIED',EvidenceBoundary:'RECORDED_HISTORY_ONLY'},CurrentReadinessStatus:'NOT_CHECKED',SqlLanguageExecution:'NOT_CHECKED',TargetAuthorization:'NOT_CHECKED',ExecutionSupported:false,MutationAllowed:false,Actions:[]});
-const prerequisites=()=>({ContractVersion:'SqlServerLab.ExternalRuntimeCapabilityBrowser/1.4',Status:'HOST_PREREQUISITES',Provider:'docker',
+const prerequisites=()=>({ContractVersion:'SqlServerLab.ExternalRuntimeCapabilityBrowser/1.5',Status:'HOST_PREREQUISITES',Provider:'docker',
   Identity:decision().Identity,ResourceProfile:'performance',PrerequisiteStatus:'BLOCKED',ReasonCodes:['RESOURCE_CONTROLLERS_UNAVAILABLE'],
   ControllerStatus:'MISSING',MissingControllers:['pids'],UnknownControllers:['memory'],MemoryStatus:'CAPACITY_INSUFFICIENT',CpuStatus:'CAPACITY_SUFFICIENT',
   FullLaunchReadiness:'INCOMPLETE',ExecutionSupported:false,MutationAllowed:false,RequiredCgroupVersion:'2',
-  ProviderFacts:{OperatingSystem:'linux',CgroupVersion:'1',Rootless:false}});
+  ProviderFacts:{OperatingSystem:'linux',CgroupVersion:'1',Rootless:false},
+  KernelEvidence:{Version:'6.6.87.2',Flavor:'MICROSOFT_WSL2_MARKER'}});
 async function answer(fixture,view,request=fixture.requests.at(-1)){request.resolve({ok:true,json:async()=>view});await fixture.flush();}
 async function load(fixture){fixture.click('open');fixture.click('read');await answer(fixture,options());fixture.elements.choice.value='0';fixture.elements.choice.events.change();}
 (async()=>{
@@ -67,23 +68,27 @@ async function load(fixture){fixture.click('open');fixture.click('read');await a
   f.click('prerequisites');
   const profilePayload=JSON.parse(f.requests.at(-1).options.body);
   f.click('prerequisites');
-  check(profilePayload.Action==='CheckHostPrerequisites' && profilePayload.ResourceProfile==='performance' && profilePayload.IncludeProviderFacts===true && f.requests.length===2, 'Explicit profile action is bound and busy prevents duplicate reads');
+  check(profilePayload.Action==='CheckHostPrerequisites' && profilePayload.ResourceProfile==='performance' && profilePayload.IncludeKernelEvidence===true && f.requests.length===2, 'Explicit profile action is bound and busy prevents duplicate reads');
   await answer(f,prerequisites());
   check(f.elements.result.textContent.includes('fehlend pids') && f.elements.result.textContent.includes('unbekannt memory') && f.elements.result.textContent.includes('CAPACITY_INSUFFICIENT') && f.elements.result.textContent.includes('Keine Ausführungsfreigabe'), 'Direct profile result renders categories and preserves authority limits');
   check(f.elements.result.textContent.includes('Runtime-OS linux · cgroup 1 · Rootless nein') &&
     f.elements.result.textContent.includes('Benötigte cgroup-Version · 2'), 'Observed facts are separate from the selected requirements');
+  check(f.elements.result.textContent.includes('Linux-Kernelrelease des Providers · 6.6.87.2 · Microsoft-WSL2-Marker gemeldet') &&
+    f.elements.result.textContent.includes('WSL-Konflikte'), 'Kernel observation cannot prove WSL independence');
   f.click('prerequisites');const oldProfile=f.requests.at(-1);f.elements.profile.value='compact';f.elements.profile.events.change();await answer(f,prerequisites(),oldProfile);
   check(f.elements.result.textContent==='', 'Changing the profile discards a late observation');
   for (const change of [v=>v.ResourceProfile='compact',v=>v.ExecutionSupported=true,v=>v.ControllerStatus='PRIVATE_CANARY',v=>v.MemoryTotal=1,
     v=>v.UnknownControllers=['pids'],v=>v.UnknownControllers=['cpu'],v=>v.UnknownControllers=['PRIVATE_CANARY'],
     v=>v.ProviderFacts.Rootless='false',v=>v.ProviderFacts.OperatingSystem='PRIVATE_CANARY',v=>v.ProviderFacts.CgroupVersion=1,
-    v=>v.ProviderFacts.PrivateHostname='PRIVATE_CANARY',v=>v.ProviderFacts=null,v=>v.RequiredCgroupVersion='PRIVATE_CANARY']) {
+    v=>v.ProviderFacts.PrivateHostname='PRIVATE_CANARY',v=>v.ProviderFacts=null,v=>v.RequiredCgroupVersion='PRIVATE_CANARY',
+    v=>v.KernelEvidence.Version='6.6.87.2-PRIVATE_CANARY',v=>v.KernelEvidence.Flavor='PRIVATE_CANARY',
+    v=>v.KernelEvidence.Source='PRIVATE_CANARY',v=>v.ProviderFacts.OperatingSystem='windows']) {
     f=setup();await load(f);f.elements.profile.value='performance';f.click('prerequisites');const view=prerequisites();change(view);await answer(f,view);
     check(f.elements.result.textContent==='' && !f.elements.status.textContent.includes('PRIVATE_CANARY'), 'Wrong-profile, unsafe or malformed response is withheld');
   }
   f=setup();await load(f);f.elements.profile.value='performance';f.click('prerequisites');
   const unobserved={...prerequisites(),PrerequisiteStatus:'UNAVAILABLE',ReasonCodes:['PROVIDER_PROBE_TIMEOUT'],ControllerStatus:'NOT_CHECKED',
-    MissingControllers:[],UnknownControllers:[],MemoryStatus:'NOT_CHECKED',CpuStatus:'NOT_CHECKED',ProviderFacts:null};
+    MissingControllers:[],UnknownControllers:[],MemoryStatus:'NOT_CHECKED',CpuStatus:'NOT_CHECKED',ProviderFacts:null,KernelEvidence:null};
   await answer(f,unobserved);
   check(f.elements.result.textContent.includes('konnten für diese Auswahl nicht beobachtet werden'),
     'Unavailable provider facts have a bounded explicit presentation');

@@ -2779,8 +2779,9 @@ ist keine vollständige Launch- oder Sprachfreigabe. Der
 keine Zusage der übergeordneten Hostmatrix. Die öffentliche Detail-API kann
 dieselben Teilbefunde ausdrücklich mit `IncludeHostPrerequisites` (Version 1.2)
 abfragen. Die geführte Profilprüfung in Konsole und Browser ergänzt über
-`IncludeProviderFacts` (Version 1.3) Runtime-OS, cgroup-Version und Rootless-Modus
-aus derselben Antwort. Freie oder reservierte Ressourcen,
+`IncludeKernelEvidence` (Version 1.4) Runtime-OS, cgroup-Version, Rootless-Modus
+und numerische Linux-Kernelrelease aus derselben Antwort. Ein sichtbarer
+Microsoft-WSL2-Marker ist eine Providerangabe. Freie oder reservierte Ressourcen,
 Providerkernelbindung, WSL-Workloadkompatibilität und vollständige
 Launchbereitschaft bleiben ungeprüft.
 Unter WSL mit gespiegeltem Netzwerk überschreibt `WSLOUTPUT` außerdem die
