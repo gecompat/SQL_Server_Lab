@@ -813,25 +813,11 @@ function renderActiveLabs(items) {
   window.sqlServerLabConnectionClipboard?.mount($('#active-labs'));
 }
 
-function parseSqlConnectionHost(connectionString) {
-  const match = String(connectionString || '').match(/Data Source\s*=\s*([^;]+)/i);
-  if (!match) return '127.0.0.1';
-  const endpoint = String(match[1] || '').trim();
-  if (!endpoint) return '127.0.0.1';
-  return endpoint.split(',')[0].replace(/^\[(.+)\]$/, '$1');
-}
-
 function renderHyperVLabs(items) {
   $('#hyperv-labs').innerHTML = items.length ? items.map((item) => {
     const running = item.State === 'RUNNING' && item.VMState === 'Running';
     const isSqlLab = item.Workload !== 'windows';
     const sqlInstances = Array.isArray(item.SqlInstances) ? item.SqlInstances : (item.SqlInstances ? [item.SqlInstances] : []);
-    const primarySqlInstance = sqlInstances.find((instance) => instance.IsDefault) || sqlInstances[0] || null;
-    const sqlOperationInstanceId = primarySqlInstance && primarySqlInstance.InstanceId ? primarySqlInstance.InstanceId : item.InstanceId || 'primary';
-    const sqlOperationPort = primarySqlInstance && primarySqlInstance.TcpPort ? Number(primarySqlInstance.TcpPort) : 1433;
-    const sqlOperationHost = primarySqlInstance && primarySqlInstance.ConnectionString
-      ? parseSqlConnectionHost(primarySqlInstance.ConnectionString)
-      : parseSqlConnectionHost(item.ConnectionString);
     const sqlNeedsCompletion = isSqlLab && Boolean(item.ArtifactId) && item.SqlCompletionState === 'PENDING_COMPLETE_IMAGE';
     const slotInstallPending = item.SqlCompletionState === 'PENDING_SLOT_INSTALL';
     const runningSql = running && isSqlLab && !slotInstallPending;
@@ -858,9 +844,9 @@ function renderHyperVLabs(items) {
       sqlSlotInstall ? '<button class="button primary" data-sql-slot-install="' + escapeHtml(item.RunId) + '">' + (sqlSlotInstall.State === 'PLANNED' ? 'SQL-Ausbau starten' : 'SQL-Ausbau fortsetzen') + '</button>' : '',
       (runningSql && !sqlNeedsCompletion) ? '<button class="button primary" data-hyperv-action="EnableHyperVLabHostSqlAccess" data-run="' + escapeHtml(item.RunId) + '">Hostzugriff reparieren</button>' : '',
       runningSql ? '<button class="button secondary" data-hyperv-action="InspectHyperVLabSqlInstances" data-run="' + escapeHtml(item.RunId) + '">SQL-Instanzen prüfen</button>' : '',
-      runningSql ? '<button class="button secondary" data-container-operation="CreateHyperVLabDatabase" data-container-operation-kind="hyperv" data-run="' + escapeHtml(item.RunId) + '" data-container-operation-host="' + escapeHtml(sqlOperationHost) + '" data-instance="' + escapeHtml(sqlOperationInstanceId) + '" data-port="' + escapeHtml(String(sqlOperationPort)) + '">Datenbank anlegen</button>' : '',
       window.sqlServerLabHyperVLibraryRestore?.renderActions(item, runningSql) || '',
-      runningSql ? '<button class="button secondary" data-container-operation="ExecuteHyperVLabScript" data-container-operation-kind="hyperv" data-run="' + escapeHtml(item.RunId) + '" data-container-operation-host="' + escapeHtml(sqlOperationHost) + '" data-instance="' + escapeHtml(sqlOperationInstanceId) + '" data-port="' + escapeHtml(String(sqlOperationPort)) + '">SQL-Skript ausführen</button>' : '',
+      runningSql && window.sqlServerLabHyperVLibraryRestore?.getWindowsScriptTarget(item.RunId, item.InstanceId)
+        ? '<button class="button secondary" data-container-operation="ExecuteHyperVLabScript" data-container-operation-kind="hyperv" data-run="' + escapeHtml(item.RunId) + '" data-instance="' + escapeHtml(item.InstanceId) + '">SQL-Skript ausführen</button>' : '',
       '<button class="button secondary" data-hyperv-action="OpenHyperVConsole" data-run="' + escapeHtml(item.RunId) + '">VMConnect öffnen</button>',
       '<button class="button secondary" data-lab-rename="true" data-run="' + escapeHtml(item.RunId) + '" data-name="' + escapeHtml(item.Name || item.RunId) + '">Name ändern</button>',
       persistentStorageCandidatesForRun(item.RunId).length ? '<button class="button secondary" data-persistent-storage-removal-preview="true" data-run="' + escapeHtml(item.RunId) + '" data-name="' + escapeHtml(item.Name || item.RunId) + '">Retention prüfen</button>' : '',
@@ -1406,11 +1392,12 @@ function sqlOperationTargetSummary(runId, instanceId, operationKind) {
 
 function openContainerOperation(action, runId, port, instanceId, sqlVersion, kind, host) {
   const operationKind = kind === 'hyperv' ? 'hyperv' : 'container';
-  const isCreateAction = action === 'CreateContainerDatabase' || action === 'CreateHyperVLabDatabase';
+  const isCreateAction = action === 'CreateContainerDatabase';
   const isDependencyInventoryAction = action === 'InspectContainerDatabaseMigrationDependencies';
   const isExportAction = action === 'ExportContainerDatabasePackage';
   const isBackupAction = action === 'BackupLibraryDatabase';
   const isObservabilityAction = action === 'ReadSqlObservability';
+  const isHyperVScript = action === 'ExecuteHyperVLabScript' && operationKind === 'hyperv';
   const databaseAction = isCreateAction || isDependencyInventoryAction || isExportAction || isBackupAction;
   $('#container-operation-action').value = action;
   $('#container-operation-run').value = runId;
@@ -1418,13 +1405,17 @@ function openContainerOperation(action, runId, port, instanceId, sqlVersion, kin
   $('#container-operation-host').value = host || '127.0.0.1';
   $('#container-operation-kind').value = operationKind;
   $('#container-operation-badge').textContent = 'LAB-AKTION';
-  $('#container-operation-password-label').hidden = isExportAction;
-  $('#container-operation-password').required = !isExportAction;
+  $('#container-operation-password-label').hidden = isExportAction || isHyperVScript;
+  $('#container-operation-password').required = !isExportAction && !isHyperVScript;
   $('#container-operation-password-text').textContent = operationKind === 'hyperv' ? 'Gastpasswort' : 'SA-Passwort';
   $('#container-operation-password-note').hidden = isExportAction;
   $('#container-operation-password-note').textContent = operationKind === 'hyperv'
     ? 'Das Passwort dient für PowerShell Direct und den SQL-Zugriff auf die laufende Hyper-V-VM.'
     : 'Das Passwort wird nicht gespeichert oder im Log angezeigt.';
+  if (isHyperVScript) {
+    $('#container-operation-password').value = '';
+    $('#container-operation-password-note').textContent = 'Das Skript läuft mit Windows-Authentifizierung im gebundenen Gast.';
+  }
   $('#container-operation-instance').value = instanceId || 'primary';
   $('#container-operation-target').textContent = sqlOperationTargetSummary(runId, instanceId || 'primary', operationKind);
   const titles = {
@@ -2540,6 +2531,10 @@ $('#container-operation-form').addEventListener('submit', async (event) => {
     }, $('#container-operation-dialog'), () => { $('#container-operation-password').value = ''; });
     return;
   }
+  if (action === 'ExecuteHyperVLabScript' && operationKind === 'hyperv') {
+    window.sqlServerLabHyperVLibraryRestore?.confirmWindowsScript();
+    return;
+  }
   const targetPort = Number($('#container-operation-port').value);
   const operationPort = Number.isFinite(targetPort) ? Number(targetPort) : 0;
   const parameters = {
@@ -2564,7 +2559,7 @@ $('#container-operation-form').addEventListener('submit', async (event) => {
     showError(new Error(operationKind === 'hyperv' ? 'Bitte das Gastpasswort angeben.' : 'Bitte das SA-Passwort angeben.'));
     return;
   }
-  if (action === 'CreateContainerDatabase' || action === 'CreateHyperVLabDatabase') {
+  if (action === 'CreateContainerDatabase') {
     if (action === 'CreateContainerDatabase' && operationKind === 'container') {
       const backupSetId = $('#container-library-backup').value;
       const samples = [...$('#container-sample').selectedOptions].map((option) => option.value).filter(Boolean);
@@ -2607,18 +2602,6 @@ $('#container-operation-form').addEventListener('submit', async (event) => {
         }
         parameters.DatabaseName = databaseName;
       }
-    }
-    else {
-      const databaseName = $('#container-database-name').value.trim();
-      if (!databaseName) {
-        showError(new Error('Bitte einen Datenbanknamen für den Hyper-V-Vorgang eingeben.'));
-        return;
-      }
-      if (!/^[A-Za-z][A-Za-z0-9_]{0,127}$/.test(databaseName)) {
-        showError(new Error('Der Datenbankname ist ungültig. Erlaubt sind Buchstaben, Zahlen und Unterstrich; das erste Zeichen muss ein Buchstabe sein.'));
-        return;
-      }
-      parameters.DatabaseName = databaseName;
     }
   }
   else {

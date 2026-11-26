@@ -460,6 +460,7 @@ sources_of_truth:
   backup_library: Private/BackupLibrary.ps1
   hyperv_library_backup_guidance: Private/BackupLibrary.ps1, Private/SampleBaselineRuntime.ps1, Public/Backup-SqlServerLabDatabase.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/app.js, Ui/container-backup-library.js, Tests/Static/Invoke-BackupLibraryChecks.ps1, Tests/Static/Fixtures/WorkflowSqlTargetChecks.cjs
   hyperv_library_restore_guidance: Private/BackupLibrary.ps1, Public/Restore-SqlServerLabDatabase.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/app.js, Ui/container-backup-library.js, Tests/Static/Invoke-BackupLibraryChecks.ps1
+  hyperv_database_create_guidance: Public/New-SqlServerLabDatabase.ps1, Private/BackupLibrary.ps1, Public/Invoke-SqlServerLab.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/container-backup-library.js, Tests/Static/Invoke-DatabaseCommandChecks.ps1, Tests/Static/Invoke-BackupLibraryChecks.ps1, Tests/Static/Fixtures/WorkflowSqlTargetChecks.cjs
   backup_library_schema: Schemas/backup-library.schema.json
   validation_backup_library: Tests/Static/Invoke-BackupLibraryChecks.ps1
   acceptance_backup_library_cross_provider: Tests/Integration/Invoke-BackupLibraryCrossProviderAcceptance.ps1
@@ -540,6 +541,7 @@ sources_of_truth:
   acceptance_ssis_fixture_format: Tests/Integration/Invoke-SsisFixtureFormatAcceptance.ps1
   windows_sql_consumer_public: Public/Invoke-SqlServerLabScript.ps1
   windows_sql_consumer_core: Providers/HyperV/HyperVWindowsSqlScript.ps1
+  windows_sql_consumer_guidance: Public/Invoke-SqlServerLab.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/app.js, Ui/container-backup-library.js, Tests/Static/Invoke-WindowsSqlScriptChecks.ps1, Tests/Static/Fixtures/WorkflowSqlTargetChecks.cjs
   windows_sql_consumer_transport: Providers/HyperV/HyperVProvider.ps1
   windows_sql_consumer_binding: Private/SsisPrerequisite.ps1
   windows_sql_consumer_contract: Documentation/HowTo/SSIS_CONSUMER_WINDOWS_ACCESS.md
@@ -742,7 +744,7 @@ sources_of_truth:
   validation_hyperv_storage_reconcile_acceptance_static: Tests/Static/Invoke-HyperVStorageReconcileAcceptanceChecks.ps1
   hyperv_sql_storage_reconcile_contract: Private/HyperVSqlStorageReconcile.ps1
   validation_hyperv_sql_storage_reconcile: Tests/Static/Invoke-HyperVSqlStorageReconcileChecks.ps1
-  validation_hyperv_sql_storage_reconcile_acceptance: Tests/Integration/Invoke-HyperVSqlStorageReconcileAcceptance.ps1, .github/workflows/runtime-smoke-hyperv.yml # optional manual library-restore mode on trusted main
+  validation_hyperv_sql_storage_reconcile_acceptance: Tests/Integration/Invoke-HyperVSqlStorageReconcileAcceptance.ps1, .github/workflows/runtime-smoke-hyperv.yml # manual prepared library restore or guided database/script on trusted main
   validation_hyperv_sql_storage_reconcile_acceptance_static: Tests/Static/Invoke-HyperVSqlStorageReconcileAcceptanceChecks.ps1
   hyperv_sql_configuration_reconcile_contract: Private/HyperVSqlConfigurationReconcile.ps1
   hyperv_sql_configuration_ownership_schema: Schemas/hyperv-sql-configuration-ownership.schema.json

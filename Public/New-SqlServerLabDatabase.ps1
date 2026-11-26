@@ -181,14 +181,6 @@ function New-SqlServerLabDatabase {
         }
     }
 
-    $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword)
-    try {
-        $saPlain = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
-    }
-    finally {
-        [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
-    }
-
     try {
         if ($storageContext) {
             $storageContext = Start-LabStorageSqlOperation -Context $storageContext -OperationId $storageOperationId `
@@ -197,7 +189,7 @@ function New-SqlServerLabDatabase {
         $null = Invoke-SqlQuery `
             -HostName $HostName `
             -Port $Port `
-            -SaPlain $saPlain `
+            -ProductQueryPassword $SaPassword `
             -Query $sql `
             -TimeoutSeconds 60
 
@@ -205,7 +197,7 @@ function New-SqlServerLabDatabase {
             $null = Invoke-SqlQuery `
                 -HostName $HostName `
                 -Port $Port `
-                -SaPlain $saPlain `
+                -ProductQueryPassword $SaPassword `
                 -Query $alterStatement `
                 -TimeoutSeconds 30
         }
@@ -213,7 +205,7 @@ function New-SqlServerLabDatabase {
         if ($storageContext) {
             $verificationQuery = New-LabStorageMasterFilesVerificationQuery -DatabaseName $DatabaseName `
                 -FilePlan @($DataFiles + $LogFiles)
-            $null = Invoke-SqlQuery -HostName $HostName -Port $Port -SaPlain $saPlain `
+            $null = Invoke-SqlQuery -HostName $HostName -Port $Port -ProductQueryPassword $SaPassword `
                 -Query $verificationQuery -TimeoutSeconds 60
             $null = Complete-LabStorageSqlOperation -Context $storageContext -OperationId $storageOperationId `
                 -Kind create -DatabaseName $DatabaseName -Files @($DataFiles + $LogFiles)
@@ -237,7 +229,52 @@ function New-SqlServerLabDatabase {
         Write-LabError "Datenbank-Erstellung fehlgeschlagen: $($_.Exception.Message)"
         throw
     }
-    finally {
-        $saPlain = $null
+}
+
+function Invoke-LabGuidedHyperVDatabaseCreate {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$RunId,
+        [Parameter(Mandatory)][string]$InstanceId,
+        [Parameter(Mandatory)][string]$DatabaseName,
+        [Parameter(Mandatory)][string]$GuestUserName,
+        [Parameter(Mandatory)][SecureString]$GuestPassword,
+        [Parameter(Mandatory)][SecureString]$SaPassword
+    )
+
+    if (-not (Test-LabDiagnosticGuid $RunId) -or $InstanceId -cnotmatch '^[A-Za-z][A-Za-z0-9_-]{0,63}$' -or
+        $DatabaseName -cnotmatch '^[A-Za-z][A-Za-z0-9_]{0,127}$' -or
+        $GuestUserName -cnotmatch '^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$' -or -not $GuestPassword.Length -or -not $SaPassword.Length) {
+        throw 'HYPERV_DATABASE_CREATE_TARGET_INVALID'
     }
+    $guest = [PSCredential]::new($GuestUserName,$GuestPassword)
+    try {
+        $binding = Get-LabGuidedHyperVLibraryBinding -RunId $RunId -InstanceId $InstanceId -Guest $guest
+        $target = $binding.Target
+    } catch { throw 'HYPERV_DATABASE_CREATE_TARGET_NOT_READY' }
+
+    try {
+        $query = "SET NOCOUNT ON; SELECT CONVERT(int, CASE WHEN DB_ID(N'$DatabaseName') IS NULL THEN 0 ELSE 1 END);"
+        $check = Invoke-LabSqlcmdProgress -SqlPassword $SaPassword -ProcessTimeoutSeconds 25 -ArgumentList @(
+            '-S',"$($target.HostName),$($target.Port)",'-U','sa','-C','-b','-h','-1','-W','-l','8','-t','15','-Q',$query) 3>$null 4>$null 5>$null 6>$null
+        $count = (@($check.Output | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }) -join '').Trim()
+        if ($check.ExitCode -ne 0 -or $count -cnotin @('0','1')) { throw 'Invalid database collision check' }
+    } catch { throw 'HYPERV_DATABASE_CREATE_TARGET_CHECK_FAILED' }
+    if ($count -ceq '1') { throw 'HYPERV_DATABASE_CREATE_TARGET_EXISTS' }
+
+    try {
+        $current = Resolve-LabRunInstance -RunId $RunId -InstanceId $InstanceId -StateRoot $binding.Context.StateRoot
+        if ($current.Provider -cne 'hyperv' -or $current.VMId -cne $target.VMId -or
+            $current.HostName -cne $target.HostName -or $current.Port -ne $target.Port) { throw 'SQL target changed' }
+    } catch { throw 'HYPERV_DATABASE_CREATE_TARGET_NOT_READY' }
+
+    try {
+        $created = New-SqlServerLabDatabase -RunId $RunId -InstanceId $InstanceId -StateRoot $binding.Context.StateRoot `
+            -DatabaseName $DatabaseName -HostName $current.HostName -Port $current.Port -SaPassword $SaPassword `
+            -ErrorAction Stop 3>$null 4>$null 5>$null 6>$null
+    } catch { throw 'HYPERV_DATABASE_CREATE_UNCONFIRMED' }
+    if (-not $created.Success -or $created.DatabaseName -cne $DatabaseName -or -not (Test-LabDiagnosticGuid $created.StoragePlanId)) {
+        throw 'HYPERV_DATABASE_CREATE_UNCONFIRMED'
+    }
+    [pscustomobject]@{Status='CREATED';RunId=$RunId;InstanceId=$InstanceId;DatabaseName=$DatabaseName}
 }

@@ -484,14 +484,15 @@ try {
     $libraryRoute=$serverAst.Find({
         param($node)
         $node -is [Management.Automation.Language.IfStatementAst] -and
-            $node.Clauses[0].Item1.Extent.Text -ceq '$path -cin @(''/api/hyperv/library-restore'',''/api/hyperv/library-backup'')'
+            $node.Clauses[0].Item1.Extent.Text -ceq '$path -cin @(''/api/hyperv/library-restore'',''/api/hyperv/library-backup'',''/api/hyperv/database-create'')'
     },$true)
     if(-not $libraryRoute){throw 'BACKUP_HTTP_ROUTE_FIXTURE_MISSING'}
     $dispatchLibrary=[scriptblock]::Create($libraryRoute.Clauses[0].Item2.Extent.Text.Trim().Substring(1,$libraryRoute.Clauses[0].Item2.Extent.Text.Trim().Length-2))
     $routeFixture = {
-        param($Case,$RequestParser,$Dispatch)
+        param($Case,$RequestParser,$Dispatch,[switch]$Create)
         $url='http://127.0.0.1:18481/'
-        $path='/api/hyperv/library-backup'
+        $path=if($Create){'/api/hyperv/database-create'}else{'/api/hyperv/library-backup'}
+        $expectedAction=if($Create){'CreateHyperVLabDatabase'}else{'BackupHyperVLibraryDatabase'}
         $context=[pscustomobject]@{Request=[pscustomobject]@{
             HttpMethod='POST';Url=[uri]($url.TrimEnd('/')+$path);ContentType='application/json'
             Headers=@{Origin=$url.TrimEnd('/')}
@@ -507,6 +508,7 @@ try {
             GuestUserName='Administrator';GuestPassword='SyntheticGuest';SaPassword='SyntheticSql'
         }}
         if($Case -ceq 'foreign-root'){$request.parameters.DataRoot='PRIVATE_ROOT_CANARY'}
+        if($Case -ceq 'foreign-endpoint'){$request.parameters.HostName='192.0.2.8';$request.parameters.Port=1433}
         function Read-UiJsonRequestBody {
             param([Alias('Request')]$IncomingRequest,$MaxBytes)
             $probe.BodyReads++
@@ -520,7 +522,7 @@ try {
         }
         function Start-UiWorkflowJob {
             param($Action,$Parameters)
-            if($Action -cne 'BackupHyperVLibraryDatabase' -or $Parameters.SaPassword -isnot [SecureString] -or
+            if($Action -cne $expectedAction -or $Parameters.SaPassword -isnot [SecureString] -or
                 -not $Parameters.SaPassword.IsReadOnly() -or $Parameters.GuestPassword -isnot [SecureString]) {
                 throw 'BACKUP_HTTP_FIXTURE_JOB_BINDING_CHANGED'
             }
@@ -555,6 +557,13 @@ try {
         $occupied.Status -eq 409 -and $occupied.JobsStarted -eq 0 -and $occupied.Released -and $occupied.NoStore -and
         $accepted.Status -eq 202 -and $accepted.JobsStarted -eq 1 -and $accepted.NoStore -and
         $accepted.Response.action -ceq 'BackupHyperVLibraryDatabase' -and $accepted.Response.id -ceq 'synthetic')
+    $create=& $routeFixture 'accepted' $parseRequest $dispatchLibrary -Create
+    $foreignEndpoint=& $routeFixture 'foreign-endpoint' $parseRequest $dispatchLibrary -Create
+    $createOccupied=& $routeFixture 'occupied' $parseRequest $dispatchLibrary -Create
+    Add-CheckResult 'Hyper-V Datenbankanlage nimmt einen gebundenen Auftrag an und verweigert Hostwahl oder eine belegte Spur' (
+        $create.Status -eq 202 -and $create.JobsStarted -eq 1 -and $create.NoStore -and
+        $create.Response.action -ceq 'CreateHyperVLabDatabase' -and $foreignEndpoint.Status -eq 400 -and
+        $foreignEndpoint.JobsStarted -eq 0 -and $createOccupied.Status -eq 409 -and $createOccupied.Released)
 
 }
 finally {

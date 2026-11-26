@@ -52,6 +52,61 @@ function confirmContainerLibraryBackup(runId, instanceId, databaseName, password
   if (!document.getElementById?.('hyperv-library-restore-dialog')) return;
   const $ = selector => document.querySelector(selector);
   let hypervLibraryRestoreTarget = null;
+  const operations = {
+    restore: { title:'Bibliotheksbackup in Hyper-V wiederherstellen', database:'Neue Zieldatenbank',
+      confirm:'In diese neue Datenbank wiederherstellen', submit:'Wiederherstellung starten',
+      action:'RestoreHyperVLibraryBackup', path:'/api/hyperv/library-restore' },
+    backup: { title:'Verifiziertes Hyper-V-Backup erstellen', database:'Quelldatenbank',
+      confirm:'Geprüftes Backup in Lab_Data speichern', submit:'Backup erstellen',
+      action:'BackupHyperVLibraryDatabase', path:'/api/hyperv/library-backup' },
+    create: { title:'Hyper-V-Datenbank anlegen', database:'Name der neuen Datenbank',
+      confirm:'Datenbank auf der angezeigten Instanz mit verifiziertem Speicher anlegen', submit:'Datenbank anlegen',
+      action:'CreateHyperVLabDatabase', path:'/api/hyperv/database-create' }
+  };
+
+  function getHyperVWindowsScriptTarget(runId, instanceId) {
+    const matches = (workflow?.HyperVLabs || []).filter(item => item.RunId === runId && item.InstanceId === instanceId);
+    const target = matches.length === 1 ? matches[0] : null;
+    return target?.State === 'RUNNING' && target.VMState === 'Running' && target.Workload === 'sql' &&
+      target.SqlCompletionState === 'COMPLETE' && ['2019','2022','2025'].includes(String(target.SqlVersion)) ? target : null;
+  }
+
+  function confirmHyperVWindowsScript() {
+    const runId = $('#container-operation-run').value;
+    const instanceId = $('#container-operation-instance').value;
+    const scriptPath = $('#container-script-path').value.trim();
+    const database = $('#container-script-database').value.trim() || 'master';
+    if (!getHyperVWindowsScriptTarget(runId, instanceId)) {
+      showError(new Error('Die ausgewählte Hyper-V-SQL-Instanz ist nicht bereit. Öffne die Auswahl erneut.'));
+      return;
+    }
+    if (!/^[A-Za-z]:[\\/][^\r\n]+\.sql$/i.test(scriptPath) || !/^[A-Za-z][A-Za-z0-9_]{0,127}$/.test(database)) {
+      showError(new Error('Gib einen absoluten lokalen SQL-Dateipfad und einen gültigen Datenbanknamen ein.'));
+      return;
+    }
+    const commands = publicCommandCatalog.filter(command => command.Name === 'Invoke-SqlServerLabScript');
+    const command = commands.length === 1 ? commands[0] : null;
+    const sets = (command?.ParameterSets || []).filter(set => set.Name === 'RunWindows');
+    const parameterSet = sets.length === 1 ? sets[0] : null;
+    const descriptors = parameterSet?.Parameters || [];
+    const fields = [['RunId','System.String',true],['InstanceId','System.String',false],['ScriptPath','System.String',true],
+      ['Database','System.String',false],['WindowsAuthentication','System.Management.Automation.SwitchParameter',true]];
+    const bound = fields.every(([name,type,required]) => {
+      const matches = descriptors.filter(field => field.Name === name);
+      return matches.length === 1 && matches[0].TypeName === type && matches[0].Mandatory === required &&
+        matches[0].Sensitive === false && matches[0].IsCredential === false;
+    });
+    if (command?.RequiresConfirmation !== true || command.SupportsShouldProcess !== true || !bound ||
+        descriptors.filter(field => field.Mandatory === true).length !== 3) {
+      showError(new Error('Die gebundene Windows-Skriptausführung ist auf diesem Host nicht verfügbar.'));
+      return;
+    }
+    $('#container-operation-dialog').close();
+    openConfirmation('SQL-Skript im Hyper-V-Gast ausführen',
+      sqlOperationTargetSummary(runId, instanceId, 'hyperv') + ' · Datenbank: ' + database + ' · Datei: ' + scriptPath,
+      '__PublicCommand', { command, parameterSet, parameters: { RunId:runId, InstanceId:instanceId,
+        ScriptPath:scriptPath, Database:database, WindowsAuthentication:true } }, 'Skript ausführen');
+  }
 
   function getHyperVLibraryRestoreMajor(sqlVersion) {
     const year = String(sqlVersion || '').match(/^\d{4}(?=-|$)/)?.[0];
@@ -73,14 +128,15 @@ function confirmContainerLibraryBackup(runId, instanceId, databaseName, password
     if (dialog.open || !target) return;
     $('#hyperv-library-restore-form').reset();
     const restore = mode === 'restore';
+    const operation = operations[mode];
     hypervLibraryRestoreTarget = { RunId:runId, InstanceId:instanceId, VmName:target.VMName, SqlVersion:target.SqlVersion, mode };
-    $('#hyperv-library-restore-title').textContent = restore ? 'Bibliotheksbackup in Hyper-V wiederherstellen' : 'Verifiziertes Hyper-V-Backup erstellen';
+    $('#hyperv-library-restore-title').textContent = operation.title;
     $('#hyperv-library-restore-backup-row').hidden = !restore;
     $('#hyperv-library-restore-backup').required = restore;
     $('#hyperv-library-restore-backup').disabled = !restore;
-    $('#hyperv-library-restore-database-label').textContent = restore ? 'Neue Zieldatenbank' : 'Quelldatenbank';
-    $('#hyperv-library-restore-confirm-label').textContent = restore ? 'In diese neue Datenbank wiederherstellen' : 'Geprüftes Backup in Lab_Data speichern';
-    $('#hyperv-library-restore-submit').textContent = restore ? 'Wiederherstellung starten' : 'Backup erstellen';
+    $('#hyperv-library-restore-database-label').textContent = operation.database;
+    $('#hyperv-library-restore-confirm-label').textContent = operation.confirm;
+    $('#hyperv-library-restore-submit').textContent = operation.submit;
     const major = getHyperVLibraryRestoreMajor(target.SqlVersion);
     const choices = (restore ? workflow?.BackupLibrary || [] : []).filter(backup => backup.Availability === 'SELECTABLE' && backup.IsEncrypted !== true &&
       Number(backup.SourceSqlMajorVersion) >= 13 && Number(backup.SourceSqlMajorVersion) <= major);
@@ -129,27 +185,30 @@ function confirmContainerLibraryBackup(runId, instanceId, databaseName, password
     $('#hyperv-library-restore-guest-password').value = '';
     $('#hyperv-library-restore-sa-password').value = '';
     if (restore) parameters.BackupSetId = BackupSetId;
-    const action = restore ? 'RestoreHyperVLibraryBackup' : 'BackupHyperVLibraryDatabase';
-    const path = restore ? '/api/hyperv/library-restore' : '/api/hyperv/library-backup';
+    const { action, path } = operations[mode];
     submitUiAction(action, path, { parameters, confirmed:true }).catch(showError);
   });
 
   function renderActions(item, runningSql) {
     if (!runningSql || item.SqlCompletionState !== 'COMPLETE' || !item.InstanceId) return '';
     const target = ' data-run="' + escapeHtml(item.RunId) + '" data-instance="' + escapeHtml(item.InstanceId) + '"';
-    return '<button class="button secondary" data-hyperv-library-backup="true"' + target + '>Verifiziertes Backup erstellen</button>' +
+    return '<button class="button secondary" data-hyperv-database-create="true"' + target + '>Datenbank anlegen</button>' +
+      '<button class="button secondary" data-hyperv-library-backup="true"' + target + '>Verifiziertes Backup erstellen</button>' +
       '<button class="button secondary" data-hyperv-library-restore="true"' + target + '>Bibliotheksbackup wiederherstellen</button>';
   }
 
   function handleClick(element) {
-    const button = element.closest('[data-hyperv-library-backup], [data-hyperv-library-restore]');
+    const button = element.closest('[data-hyperv-database-create], [data-hyperv-library-backup], [data-hyperv-library-restore]');
     if (!button) return false;
-    const mode = button.dataset.hypervLibraryBackup === 'true' ? 'backup' : 'restore';
+    const mode = button.dataset.hypervDatabaseCreate === 'true' ? 'create' :
+      (button.dataset.hypervLibraryBackup === 'true' ? 'backup' : 'restore');
     openHyperVLibraryOperation(button.dataset.run, button.dataset.instance, mode);
     return true;
   }
 
   window.sqlServerLabHyperVLibraryRestore = Object.freeze({
+    getWindowsScriptTarget: getHyperVWindowsScriptTarget,
+    confirmWindowsScript: confirmHyperVWindowsScript,
     renderActions,
     handleClick,
     open: (runId, instanceId) => openHyperVLibraryOperation(runId, instanceId, 'restore'),

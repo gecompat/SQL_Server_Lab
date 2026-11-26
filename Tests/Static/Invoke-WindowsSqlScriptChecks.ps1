@@ -132,6 +132,61 @@ try {
         $null=Invoke-SqlServerLabScript -ScriptPath $sql -Port 1433 -SaPassword $secret -WhatIf
         Check 'Existing SQL dispatch is preserved and WhatIf cannot execute it' ($sqlCalls -eq 1)
     } finally {$secret.Dispose()}
+
+    $menuAst=[Management.Automation.Language.Parser]::ParseFile((Join-Path $repoRoot 'Public/Invoke-SqlServerLab.ps1'),[ref]$null,[ref]$null)
+    $scriptSwitch=$menuAst.Find({param($node) $node -is [Management.Automation.Language.SwitchStatementAst] -and
+        @($node.Clauses | Where-Object {$_.Item1.Extent.Text -ceq "'Script'" -and $_.Item2.Extent.Text -match 'Select-LabRun'}).Count -eq 1},$true)
+    if(-not $scriptSwitch){throw 'Synthetic console fixture could not bind the Script menu'}
+    $scriptClause=@($scriptSwitch.Clauses | Where-Object {$_.Item1.Extent.Text -ceq "'Script'"})[0].Item2.Extent.Text
+    $menuBlock=[scriptblock]::Create($scriptClause.Substring(1,$scriptClause.Length-2))
+    $menuProof=& {
+        param($Call)
+        $id='33333333-2222-4333-8444-555555555555'
+        $events=[pscustomobject]@{Confirmed=$false;Calls=0;Bound=$false}
+        function Get-LabRunsByRuntimeState {param($State) [pscustomobject]@{RunId=$id;State=$State}}
+        function Select-LabRun {param($Runs,$Prompt,[switch]$DisableAutomatedTestEnvironments,[switch]$DisableSystemServices)
+            if(-not $DisableAutomatedTestEnvironments -or -not $DisableSystemServices){throw 'Fixture requires protected target selection'}
+            $Runs[0].RunId
+        }
+        function Get-LabStateRoot {$directory}
+        function Get-Content {param($LiteralPath,[switch]$Raw,$Encoding,$ErrorAction) '{"instances":[{"id":"primary"}]}' }
+        function Resolve-LabRunInstance {param($RunId,$InstanceId,$StateRoot)
+            if($RunId -cne $id -or $InstanceId -cne 'primary' -or $StateRoot -cne $directory){throw 'Fixture target changed'}
+            [pscustomobject]@{Provider='hyperv'}
+        }
+        function Read-Host {param($Prompt,[switch]$AsSecureString)
+            if($AsSecureString){throw 'The menu must not prompt for credentials in Windows mode'}
+            if($Prompt -match 'Skript'){return $sql}
+            return 'SyntheticDb'
+        }
+        function Read-LabConfirm {param($Prompt,$Default) $events.Confirmed -and -not $Default}
+        function Invoke-SqlServerLabScript {
+            [CmdletBinding(SupportsShouldProcess)]
+            param($ScriptPath,$RunId,$InstanceId,$StateRoot,$Database,[switch]$WindowsAuthentication)
+            if (-not $PSCmdlet.ShouldProcess('Synthetic SQL target','Execute synthetic script')) { return }
+            $events.Calls++
+            $events.Bound=$RunId -ceq $id -and $InstanceId -ceq 'primary' -and $StateRoot -ceq $directory -and
+                $ScriptPath -ceq $sql -and $Database -ceq 'SyntheticDb' -and $WindowsAuthentication -and $PSBoundParameters.ContainsKey('Confirm') -and -not $PSBoundParameters.Confirm
+        }
+        & $Call
+        $cancelled=$events.Calls -eq 0
+        $events.Confirmed=$true
+        & $Call
+        $cancelled -and $events.Calls -eq 1 -and $events.Bound
+    } $menuBlock
+    Check 'Console Script menu confirms a bound Hyper-V target and uses Windows authentication' ([bool]$menuProof)
+
+    $serverAst=[Management.Automation.Language.Parser]::ParseFile((Join-Path $repoRoot 'Tools/Start-SqlServerLabUi.ps1'),[ref]$null,[ref]$null)
+    $workerCheck=$serverAst.Find({param($node) $node -is [Management.Automation.Language.IfStatementAst] -and
+        $node.Clauses[0].Item1.Extent.Text -match '\$JobParameterSetName -ceq ''RunWindows''' -and
+        $node.Clauses[0].Item1.Extent.Text -match '\$receipt\.Result\[0\]\.Outcome'},$true)
+    if(-not $workerCheck){throw 'Browser Windows script completion guard missing'}
+    $proveWorker = [scriptblock]::Create($workerCheck.Extent.Text)
+    $JobCommandName='Invoke-SqlServerLabScript';$JobParameterSetName='RunWindows'
+    $receipt=[pscustomobject]@{Result=@([pscustomobject]@{Success=$false;Outcome='FAILED_UNCONFIRMED'})}
+    $denied=Denied $proveWorker
+    $receipt.Result[0].Success=$true;$receipt.Result[0].Outcome='SUCCEEDED'
+    Check 'Browser job refuses an unconfirmed SQL outcome even when the worker returned a receipt' ($denied -and -not (Denied $proveWorker))
     Write-Host "Ergebnis: $passed PASS, 0 FAIL"
 } finally {
     # Exact, unique test root under ignored repository artifacts.
