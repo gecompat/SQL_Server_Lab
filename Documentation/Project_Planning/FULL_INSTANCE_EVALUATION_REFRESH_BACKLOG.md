@@ -147,8 +147,22 @@ gestarteten Quelle, aber noch keine Anlage der Testdatenbank. Beide eigenen
 VMs liefen gleichzeitig und wurden anschließend samt Disks bereinigt.
 Der VM-Laufstatus bestätigt nur den Start der VM. Der Runner prüft deshalb
 vor der Ausgangsgrößenmessung die SQL-Identität der gebundenen Quell-VM
-schreibgeschützt mit einer begrenzten Wartezeit. Ein erfolgreicher
-kombinierter Vergleich bleibt offen.
+schreibgeschützt mit einer begrenzten Wartezeit.
+
+Der [native Key18-Lauf 45742408943](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45742408943)
+auf `6979d649` bestand den kombinierten Vergleich. SQL war nach dem
+erneuten Start der Quelle erreichbar. Beide eigenen VMs liefen
+gleichzeitig. Das Fixture legte ausschließlich auf der Quelle eine
+synthetische Datenbank an. Die Quellsummen stiegen exakt um deren Daten-
+und Logdateigrößen. Der Vergleich übernahm je Zielvolume die gebundenen
+freien Bytes und zählte gemeinsam genutzte Volumes einmal. Vorlage,
+fertige Run- und Verbindungsmetadaten blieben unverändert. Beide eigenen
+Runs, VMs und Datenträger wurden entfernt.
+
+Die Abnahme belegt den Speichervergleich mit einer SQL-2025-Developer-Vorlage.
+Der gesamte Refreshplan bleibt `BLOCKED` mit `TransferAuthority=NONE`.
+Backup- und Wachstumskapazität, der Datentransfer, die Gleichwertigkeit und
+der Rückfall brauchen eigene Nachweise.
 
 Key18 bestätigte die Windows-Lizenz der separaten Ziel-VM mit zwei eigenen
 SQL-2025-Developer-Runs. Die Quelle wurde vor dem Zielstart gestoppt.
