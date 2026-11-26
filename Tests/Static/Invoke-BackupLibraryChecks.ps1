@@ -480,6 +480,82 @@ try {
     $request.parameters.DataRoot='SYNTHETIC_OVERRIDE'
     $rootDenied=try { $null=& $parseRequest -Body ($request|ConvertTo-Json -Compress) -Backup; $false } catch { $_.Exception.Message -ceq 'HYPERV_LIBRARY_BACKUP_INPUT_INVALID' }
     Add-CheckResult 'Hyper-V Backup-Parser verwirft vom Browser vorgegebene Speicherwurzeln' $rootDenied
+
+    $libraryRoute=$serverAst.Find({
+        param($node)
+        $node -is [Management.Automation.Language.IfStatementAst] -and
+            $node.Clauses[0].Item1.Extent.Text -ceq '$path -cin @(''/api/hyperv/library-restore'',''/api/hyperv/library-backup'')'
+    },$true)
+    if(-not $libraryRoute){throw 'BACKUP_HTTP_ROUTE_FIXTURE_MISSING'}
+    $dispatchLibrary=[scriptblock]::Create($libraryRoute.Clauses[0].Item2.Extent.Text.Trim().Substring(1,$libraryRoute.Clauses[0].Item2.Extent.Text.Trim().Length-2))
+    $routeFixture = {
+        param($Case,$RequestParser,$Dispatch)
+        $url='http://127.0.0.1:18481/'
+        $path='/api/hyperv/library-backup'
+        $context=[pscustomobject]@{Request=[pscustomobject]@{
+            HttpMethod='POST';Url=[uri]($url.TrimEnd('/')+$path);ContentType='application/json'
+            Headers=@{Origin=$url.TrimEnd('/')}
+        }}
+        $probe=[pscustomobject]@{BodyReads=0;JobsStarted=0;Status=0;NoStore=$false;Response=$null;Parsed=$null}
+        $jobs=@{}
+        if($Case -ceq 'occupied'){
+            $jobs['existing']=[pscustomobject]@{Action='RestoreHyperVLibraryBackup';Job=[pscustomobject]@{State='Running'}}
+        }
+        if($Case -ceq 'wrong-origin'){$context.Request.Headers.Origin='http://127.0.0.1:1'}
+        $request = @{confirmed=($Case -cne 'not-confirmed');parameters=@{
+            RunId='43434343-2222-4333-8444-555555555555';InstanceId='primary';DatabaseName='Synthetic'
+            GuestUserName='Administrator';GuestPassword='SyntheticGuest';SaPassword='SyntheticSql'
+        }}
+        if($Case -ceq 'foreign-root'){$request.parameters.DataRoot='PRIVATE_ROOT_CANARY'}
+        function Read-UiJsonRequestBody {
+            param([Alias('Request')]$IncomingRequest,$MaxBytes)
+            $probe.BodyReads++
+            if($MaxBytes -ne 8192){throw 'BACKUP_HTTP_FIXTURE_WRONG_TRANSPORT_LIMIT'}
+            [pscustomobject]@{Allowed=$true;Body=($request|ConvertTo-Json -Compress)}
+        }
+        function Get-UiHyperVLibraryRequest {
+            param($Body,[switch]$Backup)
+            $probe.Parsed=& $RequestParser -Body $Body -Backup:$Backup
+            $probe.Parsed
+        }
+        function Start-UiWorkflowJob {
+            param($Action,$Parameters)
+            if($Action -cne 'BackupHyperVLibraryDatabase' -or $Parameters.SaPassword -isnot [SecureString] -or
+                -not $Parameters.SaPassword.IsReadOnly() -or $Parameters.GuestPassword -isnot [SecureString]) {
+                throw 'BACKUP_HTTP_FIXTURE_JOB_BINDING_CHANGED'
+            }
+            $probe.JobsStarted++
+            [pscustomobject]@{Id='synthetic';Action=$Action;Job=[pscustomobject]@{State='Running'}}
+        }
+        function Write-UiResponse {
+            param($Context,$Body,$ContentType,$StatusCode,[switch]$NoStore)
+            $probe.Status=$StatusCode
+            $probe.NoStore=$NoStore.IsPresent
+            $probe.Response=$Body|ConvertFrom-Json
+        }
+        foreach($iteration in 1){ . $Dispatch }
+        $released=$false
+        if($probe.Parsed){
+            try { $copy=$probe.Parsed.SaPassword.Copy();$copy.Dispose() } catch { $released=$true }
+            if(-not $released){$probe.Parsed.SaPassword.Dispose();$probe.Parsed.GuestPassword.Dispose()}
+        }
+        [pscustomobject]@{BodyReads=$probe.BodyReads;JobsStarted=$probe.JobsStarted;Status=$probe.Status
+            NoStore=$probe.NoStore;Response=$probe.Response;Released=$released}
+    }
+    $invalidOrigin=& $routeFixture 'wrong-origin' $parseRequest $dispatchLibrary
+    $noConfirmation=& $routeFixture 'not-confirmed' $parseRequest $dispatchLibrary
+    $foreignRoot=& $routeFixture 'foreign-root' $parseRequest $dispatchLibrary
+    $occupied=& $routeFixture 'occupied' $parseRequest $dispatchLibrary
+    $accepted=& $routeFixture 'accepted' $parseRequest $dispatchLibrary
+    Add-CheckResult 'Hyper-V Backup-HTTP-Boundary weist falsche Origin vor Body, fehlende Bestätigung und fremde Wurzeln vor Jobannahme ab' (
+        $invalidOrigin.Status -eq 400 -and $invalidOrigin.BodyReads -eq 0 -and $invalidOrigin.JobsStarted -eq 0 -and
+        $noConfirmation.Status -eq 400 -and $noConfirmation.JobsStarted -eq 0 -and
+        $foreignRoot.Status -eq 400 -and $foreignRoot.JobsStarted -eq 0)
+    Add-CheckResult 'Hyper-V Backup-HTTP-Boundary teilt die Bibliotheksspur, entsorgt abgewiesene Zugänge und bestätigt genau einen typisierten Job' (
+        $occupied.Status -eq 409 -and $occupied.JobsStarted -eq 0 -and $occupied.Released -and $occupied.NoStore -and
+        $accepted.Status -eq 202 -and $accepted.JobsStarted -eq 1 -and $accepted.NoStore -and
+        $accepted.Response.action -ceq 'BackupHyperVLibraryDatabase' -and $accepted.Response.id -ceq 'synthetic')
+
 }
 finally {
     $env:SQL_SERVER_LAB_DATA_ROOT=$previousDataRoot

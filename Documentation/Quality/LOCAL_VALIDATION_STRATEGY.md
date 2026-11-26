@@ -2155,8 +2155,11 @@ Storage-Guard. Die synthetischen Backup-Checks prüfen den dedizierten
 Request, den erneuten Zielabgleich, fest gebundene Speicherwurzeln,
 ausgeblendete Rohpfade und den Fehlercode für unbestätigte Bereinigung.
 Der Browser-Fixture prüft die eigenständige Bestätigung, den Moduswechsel
-und das Leeren beider Passwortfelder. Ein echter Browser-Backup-Lauf ist
-damit noch offen.
+und das Leeren beider Passwortfelder. Acht gerenderte Headless-Prüfungen
+auf `754c3cd0` bestätigten die echte Dialogdarstellung, Abbruch, Änderung
+der Bestätigung, Zieldrift und genau einen synthetischen Auftrag. Der
+HTTP-Handler wurde mit synthetischem Request und Job getestet. Die
+Storage-Mutation auf einem echten Hyper-V-Gast bleibt separat.
 
 Der vorbereitete manuelle Main-Modus `sql-storage-library-restore-acceptance`
 nutzt ein bereits vorhandenes Host-Only-Netz. Als Quelle verwendet er
