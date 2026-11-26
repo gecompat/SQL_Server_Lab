@@ -1022,6 +1022,20 @@ verworfen. Nichtinteraktiv bleibt der unveränderte öffentliche Aufruf möglich
 Get-SqlServerLabEvaluationWatch -WarningDaysRemaining 30 -CriticalDaysRemaining 7
 ```
 
+## Verifiziertes Hyper-V-Backup erstellen
+
+Wähle unter **Lab verwalten** bei der laufenden, vollständig eingerichteten
+Hyper-V-SQL-Instanz **Verifiziertes Backup erstellen**. Gib den Namen der
+Quelldatenbank, den lokalen Gast-Administrator und die beiden Passwörter ein.
+Bestätige die Sicherung in der konfigurierten Lab_Data-Bibliothek. Unter
+**Vorgänge** erscheint bei Erfolg die BackupSetId.
+
+Der Worker prüft den bestätigten Backup-Speicher, die VM und den aktuell
+gebundenen SQL-Endpunkt. Bei `HYPERV_LIBRARY_BACKUP_CLEANUP_REQUIRED`
+prüfe den gebundenen Gast und den offenen Sicherungsvorgang vor einer
+Wiederholung. Der CLI-Pfad ist **Lab-Umgebungen → Datenbanken, Samples
+und Skripte → Datenbank sichern**.
+
 ## Bibliotheksbackup in Hyper-V wiederherstellen
 
 Wähle unter **Lab verwalten** bei einer laufenden, fertig eingerichteten
@@ -1239,8 +1253,11 @@ und Zuordnung**.
 
 **Vollständigen Wartungsplan lesen** prüft zusätzlich den Speicherbestand
 und vorhandene Cleanup-Befunde. Die Übersicht zeigt Zähler für verwaltete
-Vorlagen, Provider-Datenspeicher und Hyper-V-Befunde. Im Browser läuft die
-Inventur im Hintergrund und das Ergebnis erscheint im Auftragsprotokoll.
+Vorlagen, Provider-Datenspeicher und Hyper-V-Befunde. Sie zählt bewusst
+behaltene Ressourcen, unerwartete Reste, Fälle mit Recovery-Bedarf und
+nicht verifizierbare Befunde getrennt. Für die Prüfung einzelner Objekte
+öffne das **Cleanup-Audit** im Konsolenmenü. Im Browser erscheint die
+Übersicht nach der Inventur im Auftragsprotokoll.
 Der vollständige Scan kann länger dauern. Er speichert keinen Auditbericht
 und führt keine der vorgeschlagenen Aktionen aus.
 

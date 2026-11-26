@@ -290,9 +290,18 @@ function Get-LabRuntimeMaintenancePreview {
     }
     if ($Mode -eq 'Full') {
         $audit = $plan.FullAudit.Summary
-        if (-not $audit) { throw 'FULL_MAINTENANCE_AUDIT_UNAVAILABLE' }
-        $view | Add-Member -NotePropertyName FullAudit -NotePropertyValue ($audit |
-            Select-Object ResidualCount, UnverifiableProviders, ManagedImages, RuntimeBackingStores, HyperVProtectionIssues, HyperVUntrackedFiles)
+        $findings = $plan.FullAudit.Findings.Summary
+        if (-not $audit -or -not $findings) { throw 'FULL_MAINTENANCE_AUDIT_UNAVAILABLE' }
+        $categories = [ordered]@{}
+        foreach ($name in @('Retained', 'UnexpectedResiduals', 'RecoveryRequired', 'Unverifiable')) {
+            $count = $findings.$name
+            if ($count -isnot [int] -or $count -lt 0) { throw 'FULL_MAINTENANCE_AUDIT_UNAVAILABLE' }
+            $categories[$name] = $count
+        }
+        $fullAudit = $audit | Select-Object ResidualCount, UnverifiableProviders, ManagedImages,
+            RuntimeBackingStores, HyperVProtectionIssues, HyperVUntrackedFiles
+        $fullAudit | Add-Member -NotePropertyName Findings -NotePropertyValue ([pscustomobject]$categories)
+        $view | Add-Member -NotePropertyName FullAudit -NotePropertyValue $fullAudit
     }
     return $view
 }
@@ -306,6 +315,9 @@ function Format-LabFullMaintenancePreview {
     }
     'Vorgeschlagene Aktionen: {0}' -f $View.Summary.Actions
     'Befunde im Speicher- und Cleanup-Audit: {0}' -f $View.FullAudit.ResidualCount
+    $findings = $View.FullAudit.Findings
+    'Bewusst behalten: {0} · Unerwartete Reste: {1}' -f $findings.Retained, $findings.UnexpectedResiduals
+    'Recovery erforderlich: {0} · Nicht verifizierbar: {1}' -f $findings.RecoveryRequired, $findings.Unverifiable
     'Verwaltete Vorlagen: {0} · Provider-Datenspeicher: {1}' -f $View.FullAudit.ManagedImages, $View.FullAudit.RuntimeBackingStores
     'Hyper-V-Schutzbefunde: {0} · Nicht zugeordnete Dateien: {1}' -f $View.FullAudit.HyperVProtectionIssues, $View.FullAudit.HyperVUntrackedFiles
     'Nicht verifizierbare Provider: {0}' -f $View.FullAudit.UnverifiableProviders

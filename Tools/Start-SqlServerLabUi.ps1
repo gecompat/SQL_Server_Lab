@@ -195,14 +195,16 @@ function Get-UiJobSnapshot {
         # Die UI-Meldungen sind Information-Records, damit sie nicht in der
         # Ergebnisvariable eines langen Fachbefehls verschwinden. Hier werden
         # sie bewusst in den Snapshot aufgenommen.
-        if ($isExternalModelSqlJob -or $Record.Action -ceq 'RestoreHyperVLibraryBackup') {
+        if ($isExternalModelSqlJob -or $Record.Action -cin @('RestoreHyperVLibraryBackup','BackupHyperVLibraryDatabase')) {
             $output = @(Receive-Job -Job $Record.Job -Keep -ErrorAction SilentlyContinue 2>$null 6>$null)
         } else {
             $output = @(Receive-Job -Job $Record.Job -Keep -ErrorAction SilentlyContinue 2>&1 6>&1)
         }
     }
     catch {
-        $output = if ($Record.Action -ceq 'RestoreHyperVLibraryBackup') {
+        $output = if ($Record.Action -ceq 'BackupHyperVLibraryDatabase') {
+            @('[FEHLER] HYPERV_LIBRARY_BACKUP_UNCONFIRMED')
+        } elseif ($Record.Action -ceq 'RestoreHyperVLibraryBackup') {
             @('[FEHLER] HYPERV_LIBRARY_RESTORE_UNCONFIRMED')
         } elseif ($isExternalModelSqlJob) {
             @('[FEHLER] AI_EXTERNAL_MODEL_SQL_PREFLIGHT_UNCONFIRMED')
@@ -259,8 +261,10 @@ function Get-UiJobSnapshot {
     $view
 }
 
-function Get-UiHyperVLibraryRestoreRequest {
-    param([string]$Body)
+function Get-UiHyperVLibraryRequest {
+    param([string]$Body,[switch]$Backup)
+
+    $inputError = if ($Backup) { 'HYPERV_LIBRARY_BACKUP_INPUT_INVALID' } else { 'HYPERV_LIBRARY_RESTORE_INPUT_INVALID' }
 
     $options = [Text.Json.JsonDocumentOptions]::new()
     $options.MaxDepth = 4
@@ -270,24 +274,25 @@ function Get-UiHyperVLibraryRestoreRequest {
         if ($root.ValueKind -ne [Text.Json.JsonValueKind]::Object -or
             @($root.EnumerateObject()).Count -ne 2 -or
             @($root.EnumerateObject() | Where-Object Name -CNotIn @('parameters','confirmed')).Count -or
-            $root.GetProperty('confirmed').ValueKind -ne [Text.Json.JsonValueKind]::True) { throw 'HYPERV_LIBRARY_RESTORE_INPUT_INVALID' }
+            $root.GetProperty('confirmed').ValueKind -ne [Text.Json.JsonValueKind]::True) { throw $inputError }
         $parameters = $root.GetProperty('parameters')
-        if ($parameters.ValueKind -ne [Text.Json.JsonValueKind]::Object) { throw 'HYPERV_LIBRARY_RESTORE_INPUT_INVALID' }
-        $limits = @{RunId=36;InstanceId=64;BackupSetId=36;DatabaseName=128;GuestUserName=64;GuestPassword=512;SaPassword=512}
+        if ($parameters.ValueKind -ne [Text.Json.JsonValueKind]::Object) { throw $inputError }
+        $limits = @{RunId=36;InstanceId=64;DatabaseName=128;GuestUserName=64;GuestPassword=512;SaPassword=512}
+        if (-not $Backup) { $limits.BackupSetId = 36 }
         $result = @{}
         foreach ($field in $parameters.EnumerateObject()) {
             if ($field.Name -cnotin $limits.Keys -or $result.ContainsKey($field.Name) -or
-                $field.Value.ValueKind -ne [Text.Json.JsonValueKind]::String) { throw 'HYPERV_LIBRARY_RESTORE_INPUT_INVALID' }
+                $field.Value.ValueKind -ne [Text.Json.JsonValueKind]::String) { throw $inputError }
             $value = $field.Value.GetString()
             if ([string]::IsNullOrEmpty($value) -or $value.Length -gt $limits[$field.Name] -or $value.Contains([char]0)) {
-                throw 'HYPERV_LIBRARY_RESTORE_INPUT_INVALID'
+                throw $inputError
             }
             $result[$field.Name] = $value
         }
         if ($result.Count -ne $limits.Count -or $result.RunId -cnotmatch '^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$' -or
-            $result.BackupSetId -cnotmatch '^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$' -or
+            (-not $Backup -and $result.BackupSetId -cnotmatch '^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$') -or
             $result.InstanceId -cnotmatch '^[A-Za-z][A-Za-z0-9_-]{0,63}$' -or $result.DatabaseName -cnotmatch '^[A-Za-z][A-Za-z0-9_]{0,127}$' -or
-            $result.GuestUserName -cnotmatch '^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$') { throw 'HYPERV_LIBRARY_RESTORE_INPUT_INVALID' }
+            $result.GuestUserName -cnotmatch '^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$') { throw $inputError }
         try {
             foreach ($name in @('GuestPassword','SaPassword')) {
                 $secure = [SecureString]::new()
@@ -305,7 +310,7 @@ function Get-UiHyperVLibraryRestoreRequest {
             foreach ($name in @('GuestPassword','SaPassword')) {
                 if ($result[$name] -is [SecureString]) { $result[$name].Dispose() }
             }
-            throw 'HYPERV_LIBRARY_RESTORE_INPUT_INVALID'
+            throw $inputError
         }
     } finally { $document.Dispose() }
 }
@@ -352,6 +357,15 @@ function Start-UiWorkflowJob {
                 }
                 Write-Output ([pscustomobject]@{UiExternalModelSqlReceipt=$receipt})
                 Write-Output '[OK] SQL-Auftrag bestätigt.'
+                return
+            }
+            if ($JobAction -ceq 'BackupHyperVLibraryDatabase') {
+                $backup = & (Get-Module SqlServerLab) {
+                    param($Arguments)
+                    Invoke-LabGuidedHyperVLibraryBackup @Arguments
+                } $invokeParameters
+                Write-Output ('[ERGEBNIS] ' + ($backup | ConvertTo-Json -Depth 5 -Compress))
+                Write-Output '[OK] Verifiziertes Backup in der Bibliothek veröffentlicht.'
                 return
             }
             if ($JobAction -ceq 'RestoreHyperVLibraryBackup') {
@@ -463,6 +477,13 @@ function Start-UiWorkflowJob {
             Write-Output '[OK] Aktion erfolgreich abgeschlossen. Die Workflow-Ansicht wird aktualisiert.'
         }
         catch {
+            if ($JobAction -ceq 'BackupHyperVLibraryDatabase') {
+                $code = $_.Exception.Message
+                if ($code -cnotin @('HYPERV_LIBRARY_BACKUP_SOURCE_INVALID','HYPERV_LIBRARY_BACKUP_SOURCE_NOT_READY',
+                    'HYPERV_LIBRARY_BACKUP_CLEANUP_REQUIRED')) { $code = 'HYPERV_LIBRARY_BACKUP_UNCONFIRMED' }
+                Write-Output ('[FEHLER] ' + $code)
+                throw $code
+            }
             if ($JobAction -ceq 'RestoreHyperVLibraryBackup') {
                 $code = $_.Exception.Message
                 if ($code -cnotin @('HYPERV_LIBRARY_RESTORE_TARGET_INVALID','HYPERV_LIBRARY_RESTORE_TARGET_NOT_READY',
@@ -492,7 +513,7 @@ function Start-UiWorkflowJob {
         finally {
             if ($JobAction -ceq 'ApplyExternalModelSql') {
                 $JobParameters.CredentialSecret.Dispose()
-            } elseif ($JobAction -ceq 'RestoreHyperVLibraryBackup') {
+            } elseif ($JobAction -cin @('RestoreHyperVLibraryBackup','BackupHyperVLibraryDatabase')) {
                 foreach ($name in @('GuestPassword','SaPassword')) {
                     if ($JobParameters[$name] -is [SecureString]) { $JobParameters[$name].Dispose() }
                 }
@@ -1728,22 +1749,24 @@ try {
                 }
                 continue
             }
-            if ($path -ceq '/api/hyperv/library-restore') {
+            if ($path -cin @('/api/hyperv/library-restore','/api/hyperv/library-backup')) {
+                $backup = $path -ceq '/api/hyperv/library-backup'
+                $action = if ($backup) { 'BackupHyperVLibraryDatabase' } else { 'RestoreHyperVLibraryBackup' }
+                $codePrefix = if ($backup) { 'HYPERV_LIBRARY_BACKUP' } else { 'HYPERV_LIBRARY_RESTORE' }
                 $parameters = $null
                 $submitted = $false
                 try {
                     if ($context.Request.HttpMethod -cne 'POST' -or $context.Request.Url.Query -or
                         $context.Request.ContentType -notmatch '^application/json(?:\s*;|$)' -or
-                        [string]$context.Request.Headers['Origin'] -cne $url.TrimEnd('/')) { throw 'HYPERV_LIBRARY_RESTORE_INPUT_INVALID' }
+                        [string]$context.Request.Headers['Origin'] -cne $url.TrimEnd('/')) { throw ($codePrefix+'_INPUT_INVALID') }
                     $bodyRead = Read-UiJsonRequestBody -Request $context.Request -MaxBytes 8192
                     if (-not $bodyRead.Allowed) {
                         Write-UiResponse -Context $context -Body $bodyRead.Code -StatusCode $bodyRead.StatusCode -NoStore
                         continue
                     }
-                    $parameters = Get-UiHyperVLibraryRestoreRequest -Body $bodyRead.Body
-                    $action = 'RestoreHyperVLibraryBackup'
-                    if (@($jobs.Values | Where-Object { $_.Action -ceq $action -and $_.Job.State -in @('NotStarted','Running','Blocked') }).Count) {
-                        Write-UiResponse -Context $context -Body '{"Code":"HYPERV_LIBRARY_RESTORE_ALREADY_RUNNING"}' -ContentType 'application/json; charset=utf-8' -StatusCode 409 -NoStore
+                    $parameters = Get-UiHyperVLibraryRequest -Body $bodyRead.Body -Backup:$backup
+                    if (@($jobs.Values | Where-Object { $_.Action -cin @('RestoreHyperVLibraryBackup','BackupHyperVLibraryDatabase') -and $_.Job.State -in @('NotStarted','Running','Blocked') }).Count) {
+                        Write-UiResponse -Context $context -Body (@{Code=$codePrefix+'_ALREADY_RUNNING'} | ConvertTo-Json -Compress) -ContentType 'application/json; charset=utf-8' -StatusCode 409 -NoStore
                         continue
                     }
                     $record = Start-UiWorkflowJob -Action $action -Parameters $parameters
@@ -1751,7 +1774,7 @@ try {
                     $jobs[$record.Id] = $record
                     Write-UiResponse -Context $context -Body (@{id=$record.Id;action=$action} | ConvertTo-Json -Compress) -ContentType 'application/json; charset=utf-8' -StatusCode 202 -NoStore
                 } catch {
-                    Write-UiResponse -Context $context -Body '{"Code":"HYPERV_LIBRARY_RESTORE_REQUEST_UNCONFIRMED"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400 -NoStore
+                    Write-UiResponse -Context $context -Body (@{Code=$codePrefix+'_REQUEST_UNCONFIRMED'} | ConvertTo-Json -Compress) -ContentType 'application/json; charset=utf-8' -StatusCode 400 -NoStore
                 } finally {
                     if ($parameters -and -not $submitted) {
                         $parameters.GuestPassword.Dispose()
@@ -2131,6 +2154,7 @@ try {
                     throw 'AI_EXTERNAL_MODEL_SQL_BROWSER_DIRECT_ENDPOINT_REQUIRED'
                 }
                 if ($action -eq 'RestoreHyperVLibraryBackup') { throw 'HYPERV_LIBRARY_RESTORE_DIRECT_ENDPOINT_REQUIRED' }
+                if ($action -eq 'BackupHyperVLibraryDatabase') { throw 'HYPERV_LIBRARY_BACKUP_DIRECT_ENDPOINT_REQUIRED' }
                 if ($action -in @('InitializeCms','AdoptCms')) {
                     try { & (Get-Module SqlServerLab) { param($json,$name) Assert-LabCmsManagementWorkflowJsonShape -Json $json -Action $name } $body $action }
                     catch { throw 'CMS_MANAGEMENT_REQUEST_INVALID' }

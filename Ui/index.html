@@ -730,15 +730,15 @@
     <h2 id="hyperv-library-restore-title">Bibliotheksbackup in Hyper-V wiederherstellen</h2>
     <p id="hyperv-library-restore-target"></p>
     <form id="hyperv-library-restore-form">
-      <label>Verifiziertes Backup<select id="hyperv-library-restore-backup" required></select></label>
-      <label>Neue Zieldatenbank<input id="hyperv-library-restore-database" required maxlength="128" pattern="[A-Za-z][A-Za-z0-9_]{0,127}"></label>
+      <label id="hyperv-library-restore-backup-row">Verifiziertes Backup<select id="hyperv-library-restore-backup" required></select></label>
+      <label><span id="hyperv-library-restore-database-label">Neue Zieldatenbank</span><input id="hyperv-library-restore-database" required maxlength="128" pattern="[A-Za-z][A-Za-z0-9_]{0,127}"></label>
       <label>Lokaler Gast-Administrator<input id="hyperv-library-restore-user" value="Administrator" maxlength="64" pattern="[A-Za-z0-9][A-Za-z0-9_.\-]{0,63}" required></label>
       <label>Gastpasswort<input id="hyperv-library-restore-guest-password" type="password" autocomplete="off" maxlength="512" required></label>
       <label>SA-Passwort<input id="hyperv-library-restore-sa-password" type="password" autocomplete="off" maxlength="512" required></label>
-      <label><input id="hyperv-library-restore-confirm" type="checkbox" required> In diese neue Datenbank wiederherstellen</label>
+      <label><input id="hyperv-library-restore-confirm" type="checkbox" required> <span id="hyperv-library-restore-confirm-label">In diese neue Datenbank wiederherstellen</span></label>
       <p id="hyperv-library-restore-status" role="status"></p>
       <div class="build-actions">
-        <button class="button" type="submit">Wiederherstellung starten</button>
+        <button id="hyperv-library-restore-submit" class="button" type="submit">Wiederherstellung starten</button>
         <button class="button secondary" type="button" id="hyperv-library-restore-close">Abbrechen</button>
       </div>
     </form>

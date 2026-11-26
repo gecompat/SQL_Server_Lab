@@ -111,6 +111,15 @@ Wiederherstellung an den öffentlichen Restore. Für diesen Pfad ist
 `WITH REPLACE` ausgeschlossen. Der Browser erhält eine reduzierte
 Quittung nach bestätigter Kopienbereinigung oder einen festen Fehlercode.
 
+Die Route `/api/hyperv/library-backup` verwendet denselben Origin-,
+Operator- und Größenvertrag. Sie akzeptiert Run und Instanz, den Namen der
+Quelldatenbank und die flüchtigen Zugänge. Storage-Root, Endpunkt und Pfade
+werden serverseitig gebunden. Beide Bibliotheksrouten nutzen denselben
+Hintergrundjob-Slot. Das Backup veröffentlicht nur eine reduzierte Quittung
+nach verifizierter Sicherung und bestätigter Entfernung der temporären
+Gastdatei. Die Fehlerprojektion kennzeichnet unbestätigte Bereinigung
+gesondert.
+
 ## Acht interne Fachreader
 
 CMS-Inspection, Initial Setup, Slotreserve, Resource Watch, llama.cpp-Installer,

@@ -186,10 +186,11 @@ und dem [Gruppenvertrag](../Architecture/LAB_ENVIRONMENT_GROUPS.md).
 | Eigene llama.cpp-Sitzung starten (`Start-SqlServerLabLlamaCppRuntime`) | Host-Dienste und Modelle → Eigene llama.cpp-Sitzung geführt starten | Host-Dienste und Modelle → llama.cpp: eigene Sitzung starten | `GUIDED_BOTH`. Eingabe und Bestätigung führen zum bestehenden öffentlichen Start. CLI- und Browser-Vertragssuiten. | Synthetische Fälle. Native Abnahme des geführten Starts `NOT_EXECUTED`. |
 | Eigene llama.cpp-Sitzung stoppen (`Stop-SqlServerLabLlamaCppRuntime`) | Host-Dienste und Modelle → Eigene llama.cpp-Sitzung auswählen und stoppen | Host-Dienste und Modelle → Eigene llama.cpp-Sitzung stoppen | `GUIDED_BOTH`. Beide Dialoge bestätigen eine gebundene Stop-Vorschau und nutzen denselben Core wie das Cmdlet. Geschützte Verbraucher sperren den geführten Stopp. `Invoke-LlamaCppSessionGuidanceChecks.ps1`. | Nativer Prozess- und Cleanup-Nachweis am 30.09.2026 im dokumentierten Scope. SQL- und Modellbetrieb sind separat. |
 
-## Verifizierte Bibliotheksbackups wiederherstellen
+## Verifizierte Bibliotheksbackups erstellen und wiederherstellen
 
 | Operation | Menüpfad | Nachweis |
 | --- | --- | --- |
+| Bibliotheksbackup auf Hyper-V erstellen | CLI **Lab-Umgebungen → Datenbanken, Samples und Skripte → Datenbank sichern**, Browser **Lab verwalten → laufende SQL-Instanz → Verifiziertes Backup erstellen** | `GUIDED_BOTH`. Die Oberfläche bindet eine laufende SQL-Instanz und den Namen der Quelldatenbank. Die synthetischen Tests prüfen Bestätigung, Drift, den Storage-Vertrag, die bereinigte Quittung und die Behandlung unbestätigter Bereinigung. Die native Abnahme des geführten Browserpfads steht aus. |
 | Bibliotheksbackup auf Hyper-V wiederherstellen | CLI **Lab-Umgebungen → Datenbanken, Samples und Skripte → Datenbank wiederherstellen**, Browser **Lab verwalten → laufende SQL-Instanz → Bibliotheksbackup wiederherstellen** | Der Browser bindet verifiziertes Backup, Zielinstanz und neue Zieldatenbank. Das Ziel muss über den verifizierten Storage-Vertrag verfügen. Windows-Gast- und SA-Zugang bleiben flüchtig. Die Tests decken den Dialog, die Bindung und Konfliktfälle synthetisch ab. Die native Abnahme des geführten Browserpfads steht aus. |
 
 ## Geprüfte Operationen: Volltext und FILESTREAM
@@ -198,6 +199,12 @@ und dem [Gruppenvertrag](../Architecture/LAB_ENVIRONMENT_GROUPS.md).
 |---|---|---|---|---|
 | Volltext nachinstallieren oder deaktivieren (`Set-SqlServerLabFeature`) | Lab-Umgebungen → bestehende Umgebung auswählen → Volltextsuche ändern | Lab verwalten → Volltextsuche ändern an der laufenden SQL-Instanz, unter Hyper-V Volltextsuche / FILESTREAM | `GUIDED_BOTH`. CLI-Fixture und Browser-Fixture prüfen Auswahl, Zielbindung und die Übergabe von Ein/Aus. | Der bestehende Core wurde nativ unter Docker, Podman und Hyper-V geprüft. Die neuen Bedienpfade sind synthetisch abgenommen. [Provider- und Versionsgrenzen](KNOWN_LIMITATIONS.md#optionale-volltextsuche-und-filestream). |
 | FILESTREAM ändern (`Set-SqlServerLabFeature`) | Lab-Umgebungen → Datenbanken, Samples und Skripte → Volltext und FILESTREAM ändern | Lab verwalten → Volltextsuche / FILESTREAM an der laufenden Hyper-V-Instanz | `GUIDED_BOTH` für bestätigte Änderungen über Hyper-V. | Native Abnahme für den bestehenden Core auf SQL Server 2025 RTM. |
+
+Die gerenderte Chromium-Prüfung auf `79689800` bestätigte den Volltextdialog
+für synthetische Docker-, Podman- und Hyper-V-Ziele. Bei fehlender Auswahl
+und beim Abbrechen ging kein Auftrag ab. Beide Zielzustände erzeugten je
+genau einen Auftrag mit ausgewählter Run-ID, Instanz-ID und booleschem Wert.
+Der lokale Testserver simulierte die Auftragsantworten.
 
 ## Geprüfte Operationen: Container-Autostart
 
@@ -249,13 +256,20 @@ und dem [Gruppenvertrag](../Architecture/LAB_ENVIRONMENT_GROUPS.md).
 | Run-State-Format prüfen (`Get-SqlServerLabRunStateUpgradePlan`) | Wartung, Aufräumen und Recovery → Format eines Run-States prüfen | Wartung → Format eines Run-States prüfen | `GUIDED_BOTH` für die lesende Vorschau eines registrierten Runs. Der getrennte Upgrade-Befehl bleibt auf synthetische Legacy-States begrenzt. |
 | Registrierte Hyper-V-Zielpfade und Kapazität lesen (`Get-SqlServerLabHyperVResourcePreview`) | Hyper-V: Vorlagen und Slots → Hyper-V-Zielpfade und freien Speicher anzeigen | Derselbe Bereich und dieselbe Aktion | `GUIDED_BOTH` für das registrierte Standardziel. Der Browser prüft keine frei eingegebenen Pfade. Vertrags- und Browserprüfungen verwenden einen isolierten lokalen Speicherkatalog. |
 | Windows-Slot-Pool vorbereiten (`New-SqlServerLabWindowsSlotPool`) | Hyper-V: Vorlagen und Slots → Windows-OS-Slot-Pool automatisch erstellen | Hyper-V: Vorlagen und Slots → Windows-OS-Slot-Pool vorbereiten | `GUIDED_BOTH` für automatisch erzeugte, geschützte Passwörter. Browser-Fixtures prüfen Baseline-Auswahl, Ressourcenwerte und Bestätigung. Der Browser-Pfad legt im Test keine nativen VMs an. |
-| Wartungsplan lesen (`Get-SqlServerLabMaintenancePlan`) | Wartung, Aufräumen und Recovery → Schnellen oder vollständigen Wartungsplan lesen | Derselbe Bereich und dieselben Aktionen | `GUIDED_BOTH` für Providerstatus und Zähler. Der vollständige Plan ergänzt Zähler aus dem lesenden Speicher- und Cleanup-Audit. Beide Ansichten lassen Objekt- und Pfaddaten aus. Apply ist eine separate PowerShell-Operation. |
+| Wartungsplan lesen (`Get-SqlServerLabMaintenancePlan`) | Wartung, Aufräumen und Recovery → Schnellen oder vollständigen Wartungsplan lesen | Derselbe Bereich und dieselben Aktionen | `GUIDED_BOTH` für Providerstatus und Zähler. Der vollständige Plan ergänzt Zähler aus dem lesenden Speicher- und Cleanup-Audit einschließlich bewusst behaltener Ressourcen, unerwarteter Reste, Recovery und unverifizierbarer Befunde. Beide Ansichten lassen Objekt- und Pfaddaten aus. Apply ist eine separate PowerShell-Operation. |
 
 Am 21.11.2026 bestand der Menüpfad in einer nummerierten PowerShell-Konsole
 mit einem eigenen lokalen Speicherfixture. Der Katalog blieb unverändert.
 Ein Headless-Edge-Test mit vollständiger Produktseite und synthetischem
 Endpunkt bestätigte Navigation, Klassenausgabe, Fehleranzeige und Schließen.
 Die Vorschau erfordert für diese Prüfung keinen Start einer Hyper-V-VM.
+
+Die gerenderte Chromium-Prüfung auf `44cba591` bestätigte den ausdrücklichen
+Start beider Wartungsvorschauen. Der schnelle Plan zeigte den nicht
+erreichbaren Anbieter. Im Auftragsprotokoll des vollständigen Plans waren
+die vier getrennten Kategorien und ein separater Fehlerlauf sichtbar.
+Der Testserver lieferte synthetische Befunde über den produktiven Formatter.
+Die Prüfung löste keine Runtime-Aktionen aus.
 
 ## Geprüfte Operationen: Manifest, Registrierungen und Containerwerkzeuge
 

@@ -67,21 +67,29 @@ function confirmContainerLibraryBackup(runId, instanceId, databaseName, password
     return target;
   }
 
-  function openHyperVLibraryRestore(runId, instanceId) {
+  function openHyperVLibraryOperation(runId, instanceId, mode) {
     const target = getHyperVLibraryRestoreTarget(runId, instanceId);
     const dialog = $('#hyperv-library-restore-dialog');
     if (dialog.open || !target) return;
     $('#hyperv-library-restore-form').reset();
-    hypervLibraryRestoreTarget = { RunId:runId, InstanceId:instanceId, VmName:target.VMName, SqlVersion:target.SqlVersion };
+    const restore = mode === 'restore';
+    hypervLibraryRestoreTarget = { RunId:runId, InstanceId:instanceId, VmName:target.VMName, SqlVersion:target.SqlVersion, mode };
+    $('#hyperv-library-restore-title').textContent = restore ? 'Bibliotheksbackup in Hyper-V wiederherstellen' : 'Verifiziertes Hyper-V-Backup erstellen';
+    $('#hyperv-library-restore-backup-row').hidden = !restore;
+    $('#hyperv-library-restore-backup').required = restore;
+    $('#hyperv-library-restore-backup').disabled = !restore;
+    $('#hyperv-library-restore-database-label').textContent = restore ? 'Neue Zieldatenbank' : 'Quelldatenbank';
+    $('#hyperv-library-restore-confirm-label').textContent = restore ? 'In diese neue Datenbank wiederherstellen' : 'Geprüftes Backup in Lab_Data speichern';
+    $('#hyperv-library-restore-submit').textContent = restore ? 'Wiederherstellung starten' : 'Backup erstellen';
     const major = getHyperVLibraryRestoreMajor(target.SqlVersion);
-    const choices = (workflow?.BackupLibrary || []).filter(backup => backup.Availability === 'SELECTABLE' && backup.IsEncrypted !== true &&
+    const choices = (restore ? workflow?.BackupLibrary || [] : []).filter(backup => backup.Availability === 'SELECTABLE' && backup.IsEncrypted !== true &&
       Number(backup.SourceSqlMajorVersion) >= 13 && Number(backup.SourceSqlMajorVersion) <= major);
     const select = $('#hyperv-library-restore-backup');
     select.replaceChildren(new Option('Backup auswählen',''));
     for (const backup of choices) select.add(new Option(
       backup.DatabaseName + ' · ' + backup.SourceProvider + ' · SQL ' + backup.SourceSqlMajorVersion, backup.BackupSetId));
     $('#hyperv-library-restore-target').textContent = sqlOperationTargetSummary(runId, instanceId, 'hyperv');
-    $('#hyperv-library-restore-status').textContent = choices.length ? '' : 'Kein auswählbares Backup für diese SQL-Version.';
+    $('#hyperv-library-restore-status').textContent = restore && !choices.length ? 'Kein auswählbares Backup für diese SQL-Version.' : '';
     dialog.showModal();
   }
 
@@ -102,25 +110,49 @@ function confirmContainerLibraryBackup(runId, instanceId, databaseName, password
     const form = event.currentTarget || $('#hyperv-library-restore-form');
     const dialog = $('#hyperv-library-restore-dialog');
     if (!dialog.open || !hypervLibraryRestoreTarget || !form.reportValidity() || !$('#hyperv-library-restore-confirm').checked) return;
-    const { RunId, InstanceId, VmName, SqlVersion } = hypervLibraryRestoreTarget;
+    const { RunId, InstanceId, VmName, SqlVersion, mode } = hypervLibraryRestoreTarget;
+    const restore = mode === 'restore';
     const target = getHyperVLibraryRestoreTarget(RunId, InstanceId);
     const BackupSetId = $('#hyperv-library-restore-backup').value;
     const major = getHyperVLibraryRestoreMajor(SqlVersion);
     const backups = (workflow?.BackupLibrary || []).filter(backup =>
       backup.BackupSetId === BackupSetId && backup.Availability === 'SELECTABLE' && backup.IsEncrypted !== true &&
       Number(backup.SourceSqlMajorVersion) >= 13 && Number(backup.SourceSqlMajorVersion) <= major);
-    if (!target || target.VMName !== VmName || target.SqlVersion !== SqlVersion || backups.length !== 1) {
+    if (!target || target.VMName !== VmName || target.SqlVersion !== SqlVersion || (restore && backups.length !== 1)) {
       $('#hyperv-library-restore-status').textContent = 'Ziel oder Backup hat sich geändert. Öffne die Auswahl erneut.';
       return;
     }
-    const parameters = { RunId, InstanceId, BackupSetId, DatabaseName:$('#hyperv-library-restore-database').value.trim(),
+    const parameters = { RunId, InstanceId, DatabaseName:$('#hyperv-library-restore-database').value.trim(),
       GuestUserName:$('#hyperv-library-restore-user').value.trim(),
       GuestPassword:$('#hyperv-library-restore-guest-password').value, SaPassword:$('#hyperv-library-restore-sa-password').value };
     dialog.close();
     $('#hyperv-library-restore-guest-password').value = '';
     $('#hyperv-library-restore-sa-password').value = '';
-    submitUiAction('RestoreHyperVLibraryBackup', '/api/hyperv/library-restore', { parameters, confirmed:true }).catch(showError);
+    if (restore) parameters.BackupSetId = BackupSetId;
+    const action = restore ? 'RestoreHyperVLibraryBackup' : 'BackupHyperVLibraryDatabase';
+    const path = restore ? '/api/hyperv/library-restore' : '/api/hyperv/library-backup';
+    submitUiAction(action, path, { parameters, confirmed:true }).catch(showError);
   });
 
-  window.sqlServerLabHyperVLibraryRestore = Object.freeze({ open:openHyperVLibraryRestore });
+  function renderActions(item, runningSql) {
+    if (!runningSql || item.SqlCompletionState !== 'COMPLETE' || !item.InstanceId) return '';
+    const target = ' data-run="' + escapeHtml(item.RunId) + '" data-instance="' + escapeHtml(item.InstanceId) + '"';
+    return '<button class="button secondary" data-hyperv-library-backup="true"' + target + '>Verifiziertes Backup erstellen</button>' +
+      '<button class="button secondary" data-hyperv-library-restore="true"' + target + '>Bibliotheksbackup wiederherstellen</button>';
+  }
+
+  function handleClick(element) {
+    const button = element.closest('[data-hyperv-library-backup], [data-hyperv-library-restore]');
+    if (!button) return false;
+    const mode = button.dataset.hypervLibraryBackup === 'true' ? 'backup' : 'restore';
+    openHyperVLibraryOperation(button.dataset.run, button.dataset.instance, mode);
+    return true;
+  }
+
+  window.sqlServerLabHyperVLibraryRestore = Object.freeze({
+    renderActions,
+    handleClick,
+    open: (runId, instanceId) => openHyperVLibraryOperation(runId, instanceId, 'restore'),
+    openBackup: (runId, instanceId) => openHyperVLibraryOperation(runId, instanceId, 'backup')
+  });
 })();

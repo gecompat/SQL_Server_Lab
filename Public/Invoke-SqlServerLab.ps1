@@ -1363,7 +1363,7 @@ function Invoke-LabDatabaseBackupInteractive {
     Write-LabStatus -Label 'Datenbank' -Value $DatabaseName
     Write-LabStatus -Label 'Ziel' -Value 'registrierte Lab_Data-Backup-Bibliothek'
     Write-LabInfo 'Vor Veröffentlichung werden BACKUP CHECKSUM, RESTORE VERIFYONLY WITH CHECKSUM und SHA-256 geprüft.'
-    Write-LabInfo 'Temporäre Exportdateien werden auch bei Fehlern bereinigt; ein fehlgeschlagener Katalogcommit quarantänisiert das Artefakt.'
+    Write-LabInfo 'Die Bibliothek erhält nur vollständig geprüfte Artefakte. Ein fehlgeschlagener Katalogcommit quarantänisiert das Artefakt.'
     if (-not (Read-LabConfirm -Prompt '  Verifiziertes Backup jetzt erstellen und in Lab_Data veröffentlichen?' -Default $false)) { return }
     if ($selection) {
         try { $null = Resolve-LabBackupSelectionTarget -Selection $selection }
@@ -1376,7 +1376,15 @@ function Invoke-LabDatabaseBackupInteractive {
     }
     if ($GuestCredential) { $arguments.GuestCredential = $GuestCredential }
     try { $result = Backup-SqlServerLabDatabase @arguments }
-    catch { Write-LabError "Datenbankbackup fehlgeschlagen: $($_.Exception.Message)"; return }
+    catch {
+        Write-LabError "Datenbankbackup fehlgeschlagen: $($_.Exception.Message)"
+        $backupRecoveryFile = $_.Exception.Data['SqlServerLab.BackupRuntimeFileName']
+        if ($_.Exception.Data['SqlServerLab.BackupRuntimeCleanupStatus'] -ceq 'RECOVERY_REQUIRED' -and
+            $backupRecoveryFile -cmatch '^backup-[0-9a-f]{32}\.bak$') {
+            Write-LabWarning "Die Bereinigung der Gastdatei $backupRecoveryFile ist unbestätigt. Prüfe die gewählte Hyper-V-Umgebung vor einer Wiederholung."
+        }
+        return
+    }
     if ([string]$result.Status -ne 'BACKUP_REUSABLE') {
         Write-LabWarning "Backup wurde nicht veröffentlicht: $($result.Status)"
         return
