@@ -298,6 +298,23 @@ try {
     Add-CheckResult 'Restore ergibt ohne bestätigte Kopienbereinigung keinen grünen Abschluss im Browser' (
         $browserRestore.Cleanup -ceq 'HYPERV_LIBRARY_RESTORE_CLEANUP_REQUIRED' -and $browserRestore.Success.CleanupStatus -ceq 'CONFIRMED')
 
+    $backupPreflight = & $module {
+        param($Password,$Root)
+        $reads = [Runtime.CompilerServices.StrongBox[int]]::new(0)
+        function Get-LabDatabaseBackupMetadata {
+            $reads.Value++
+            throw 'SYNTHETIC_UNEXPECTED_SQL_READ'
+        }
+        function Initialize-LabSampleBaselineBackupTarget { throw 'SAMPLE_BASELINE_HYPERV_VERIFIED_RECEIPT_REQUIRED' }
+        $arguments = @{Port=14333;SaPassword=$Password;Provider='hyperv'
+            RunId='43434343-2222-4333-8444-555555555555';InstanceId='primary';DatabaseName='BackupEvidence'
+            GuestCredential=[pscredential]::new('Administrator',$Password);DataRoot=$Root}
+        $code = try { $null=New-LabDatabaseLibraryBackup @arguments; 'UNEXPECTED_SUCCESS' } catch { $_.Exception.Message }
+        [pscustomobject]@{SqlReads=$reads.Value;Code=$code}
+    } $password $testRoot
+    Add-CheckResult 'Hyper-V-Backup prüft den bestätigten Speicher vor dem ersten SQL-Zugriff' (
+        $backupPreflight.Code -ceq 'SAMPLE_BASELINE_HYPERV_VERIFIED_RECEIPT_REQUIRED' -and $backupPreflight.SqlReads -eq 0)
+
     $cleanupProof=& $module {
         param($Password)
         $guest=[PSCredential]::new('Administrator',$Password)

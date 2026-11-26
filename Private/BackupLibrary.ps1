@@ -471,6 +471,9 @@ function New-LabDatabaseLibraryBackup {
             $relative.StartsWith('..'+[IO.Path]::DirectorySeparatorChar)) { throw 'OWNED_HOST_BACKUP_DATA_ROOT_OUTSIDE_ROOT' }
         $workingParent = $ownedPolicy.StateRoot
     }
+    $targetArguments = @{ Port=$Port; ContainerName=$ContainerName; RunId=$RunId; InstanceId=$InstanceId; GuestCredential=$GuestCredential; StateRoot=$StateRoot }
+    if ($Provider) { $targetArguments.Provider=$Provider }
+    $target = if ($Provider -eq 'hyperv') { Initialize-LabSampleBaselineBackupTarget @targetArguments }
     $workingDirectory = Join-Path $workingParent "sql-server-lab-backup-$([Guid]::NewGuid().ToString('N'))"
     $backupFileName = "backup-$([Guid]::NewGuid().ToString('N')).bak"
     $hostBackupPath = Join-Path $workingDirectory $backupFileName
@@ -487,9 +490,7 @@ function New-LabDatabaseLibraryBackup {
         if ([bool]$metadata.IsEncrypted) {
             throw 'BACKUP_LIBRARY_TDE_DEPENDENCY_UNSUPPORTED: Verschlüsselte Datenbanken werden ohne separaten Zertifikat- und Recovery-Vertrag nicht als wiederverwendbar veröffentlicht.'
         }
-        $targetArguments = @{ Port=$Port; ContainerName=$ContainerName; RunId=$RunId; InstanceId=$InstanceId; GuestCredential=$GuestCredential; StateRoot=$StateRoot }
-        if ($Provider) { $targetArguments.Provider=$Provider }
-        $target = Initialize-LabSampleBaselineBackupTarget @targetArguments
+        if (-not $target) { $target = Initialize-LabSampleBaselineBackupTarget @targetArguments }
         $runtimeBackupPath = if ([string]$target.Provider -eq 'hyperv') {
             Get-LabStorageGuestChildPath -Root ([string]$target.BackupRoot) -Child $backupFileName
         } else { "/var/opt/mssql/backup/$backupFileName" }
