@@ -2476,7 +2476,7 @@ liefern nur die synthetische Quelle. Die Prüfung beweist keine Lizenzprüfung,
 SQL-Readiness, Providerfunktion oder Migration; Diff-Auswahl und CI bleiben
 separate Verpflichtungen.
 
-Die Prüfhinweise zu SQL-Übernahmeabhängigkeiten verwenden elf aggregierte
+Die Prüfhinweise zu SQL-Übernahmeabhängigkeiten verwenden 14 aggregierte
 Zähler. Die Suite unterscheidet positive Zähler, Nullwerte und verworfene
 Beobachtungen. Sie prüft die fachlichen Obergrenzen für FILESTREAM-Dateityp
 und SSISDB-Kandidat sowie den weiterhin blockierten Transferstatus. Die
@@ -2484,6 +2484,9 @@ CLI- und HTTP-Fixtures prüfen die Ausgabe der festen Codes. Der
 [gezielte native Key18-Lauf](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45418884558) auf e4cdc1ac prüfte die elf
 typisierten Zähler im eigenen SQL-2025-Developer-Gast, unveränderte
 Run-/Connection-Metadaten und Vorlage sowie vollständigen eigenen Cleanup.
+Die drei ergänzten Zähler für Rollenmitgliedschaften, explizite
+Serverberechtigungen und Agent-Zeitpläne sind Teil der statischen
+Planprüfung und des erweiterten nativen Abnahmeskripts.
 
 Die optionale Vorschau eines SQL-2025-Ziellabs verwendet zwei registrierte
 synthetische Hyper-V-Bindungen. Plan-, CLI-, HTTP- und Browserfixtures prüfen

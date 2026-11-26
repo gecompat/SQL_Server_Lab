@@ -87,7 +87,8 @@ function Get-LabEvaluationSqlSourceInventory {
     if (-not $observed) { return $unavailable }
 
     $categories = @('UserDatabases','NonOnlineUserDatabases','EncryptedUserDatabases','DatabaseSnapshots',
-        'FilestreamFileDatabases','SsisCatalogCandidateDatabases','ServerPrincipals','Credentials','LinkedServers','AgentJobs','AgentProxies')
+        'FilestreamFileDatabases','SsisCatalogCandidateDatabases','ServerPrincipals','ServerRoleMemberships',
+        'ExplicitServerPermissions','Credentials','LinkedServers','AgentJobs','AgentSchedules','AgentProxies')
     $counts = $observed.SourceInventory
     if (-not $counts -or @($counts.PSObject.Properties).Count -ne $categories.Count) {
         return $unavailable
@@ -109,9 +110,12 @@ function Get-LabEvaluationSqlSourceInventory {
         DatabaseSnapshots='DATABASE_SNAPSHOT_DISPOSITION_REQUIRED'
         FilestreamFileDatabases='FILESTREAM_STORAGE_REVIEW_REQUIRED'
         SsisCatalogCandidateDatabases='SSIS_CATALOG_REVIEW_REQUIRED'
+        ServerRoleMemberships='SERVER_ROLE_MEMBERSHIP_INVENTORY_REQUIRED'
+        ExplicitServerPermissions='SERVER_PERMISSION_INVENTORY_REQUIRED'
         Credentials='CREDENTIAL_REBIND_REQUIRED'
         LinkedServers='LINKED_SERVER_REBIND_REQUIRED'
         AgentJobs='SQL_AGENT_JOB_INVENTORY_REQUIRED'
+        AgentSchedules='SQL_AGENT_SCHEDULE_INVENTORY_REQUIRED'
         AgentProxies='SQL_AGENT_PROXY_REBIND_REQUIRED'
     }
     $findings = @(foreach ($entry in $dependencyCodes.GetEnumerator()) {

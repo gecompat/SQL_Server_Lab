@@ -71,6 +71,12 @@ Root ausdrücklich lesen, gebundene Instanz und Entscheidungsart auswählen,
 dann Vorschau lesen. Eingaben bleiben im RAM; Abbruch und verworfene späte
 Antworten erzeugen keine Jobs, Events oder Transferaktionen.
 
+Im Modus **Instanzzustand migrieren** liest die Aktion **SQL-Quellzähler im
+Gast lesen** nach ausdrücklicher Auswahl die laufende Quelle. Die Vorschau
+zeigt unter anderem Rollenmitgliedschaften, explizite Serverberechtigungseinträge
+und Agent-Zeitpläne als Zähler mit Prüfhinweisen. Objektidentitäten
+und wirksame Berechtigungen erfordern eine eigene Inventur.
+
 `CORE-102`: **Lab erstellen → Python / R / Java: Katalog und Hostvoraussetzungen**
 ist der geführte Browserconsumer des bestehenden prospektiven Public-Entscheids.
 Explizite Docker-/Podman-Linux-Anforderung, Katalogvarianten mit Sperrgründen,
