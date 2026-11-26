@@ -195,7 +195,7 @@ function Get-UiJobSnapshot {
         # Die UI-Meldungen sind Information-Records, damit sie nicht in der
         # Ergebnisvariable eines langen Fachbefehls verschwinden. Hier werden
         # sie bewusst in den Snapshot aufgenommen.
-        if ($isExternalModelSqlJob -or $Record.Action -cin @('RestoreHyperVLibraryBackup','BackupHyperVLibraryDatabase')) {
+        if ($isExternalModelSqlJob -or $Record.Action -cin @('RestoreHyperVLibraryBackup','BackupHyperVLibraryDatabase','CreateHyperVLabDatabase')) {
             $output = @(Receive-Job -Job $Record.Job -Keep -ErrorAction SilentlyContinue 2>$null 6>$null)
         } else {
             $output = @(Receive-Job -Job $Record.Job -Keep -ErrorAction SilentlyContinue 2>&1 6>&1)
@@ -206,6 +206,8 @@ function Get-UiJobSnapshot {
             @('[FEHLER] HYPERV_LIBRARY_BACKUP_UNCONFIRMED')
         } elseif ($Record.Action -ceq 'RestoreHyperVLibraryBackup') {
             @('[FEHLER] HYPERV_LIBRARY_RESTORE_UNCONFIRMED')
+        } elseif ($Record.Action -ceq 'CreateHyperVLabDatabase') {
+            @('[FEHLER] HYPERV_DATABASE_CREATE_UNCONFIRMED')
         } elseif ($isExternalModelSqlJob) {
             @('[FEHLER] AI_EXTERNAL_MODEL_SQL_PREFLIGHT_UNCONFIRMED')
         } else { @($_) }
@@ -377,6 +379,15 @@ function Start-UiWorkflowJob {
                 Write-Output '[OK] Bibliotheksbackup auf der gebundenen Hyper-V-Instanz wiederhergestellt.'
                 return
             }
+            if ($JobAction -ceq 'CreateHyperVLabDatabase') {
+                $created = & (Get-Module SqlServerLab) {
+                    param($Arguments)
+                    Invoke-LabGuidedHyperVDatabaseCreate @Arguments
+                } $invokeParameters
+                Write-Output ('[ERGEBNIS] ' + ($created | ConvertTo-Json -Depth 5 -Compress))
+                Write-Output '[OK] Datenbank auf der gebundenen Hyper-V-Instanz erstellt.'
+                return
+            }
             $result = Invoke-SqlServerLabWorkflowAction -Action $JobAction @invokeParameters
             if ($JobAction -eq 'ReadFullMaintenancePreview') {
                 & (Get-Module SqlServerLab) { param($View) Format-LabFullMaintenancePreview -View $View } $result.Result
@@ -501,6 +512,15 @@ function Start-UiWorkflowJob {
                 Write-Output ('[FEHLER] ' + $code)
                 throw $code
             }
+            if ($JobAction -ceq 'CreateHyperVLabDatabase') {
+                $code = $_.Exception.Message
+                if ($code -cnotin @('HYPERV_DATABASE_CREATE_TARGET_INVALID','HYPERV_DATABASE_CREATE_TARGET_NOT_READY',
+                    'HYPERV_DATABASE_CREATE_TARGET_CHECK_FAILED','HYPERV_DATABASE_CREATE_TARGET_EXISTS')) {
+                    $code = 'HYPERV_DATABASE_CREATE_UNCONFIRMED'
+                }
+                Write-Output ('[FEHLER] ' + $code)
+                throw $code
+            }
             if ($JobAction -ceq 'ReadExternalModelSqlPreflight') {
                 $code = 'AI_EXTERNAL_MODEL_SQL_PREFLIGHT_UNCONFIRMED'
                 $module = Get-Module SqlServerLab
@@ -520,7 +540,7 @@ function Start-UiWorkflowJob {
         finally {
             if ($JobAction -ceq 'ApplyExternalModelSql') {
                 $JobParameters.CredentialSecret.Dispose()
-            } elseif ($JobAction -cin @('RestoreHyperVLibraryBackup','BackupHyperVLibraryDatabase')) {
+            } elseif ($JobAction -cin @('RestoreHyperVLibraryBackup','BackupHyperVLibraryDatabase','CreateHyperVLabDatabase')) {
                 foreach ($name in @('GuestPassword','SaPassword')) {
                     if ($JobParameters[$name] -is [SecureString]) { $JobParameters[$name].Dispose() }
                 }
@@ -1756,10 +1776,14 @@ try {
                 }
                 continue
             }
-            if ($path -cin @('/api/hyperv/library-restore','/api/hyperv/library-backup')) {
-                $backup = $path -ceq '/api/hyperv/library-backup'
-                $action = if ($backup) { 'BackupHyperVLibraryDatabase' } else { 'RestoreHyperVLibraryBackup' }
-                $codePrefix = if ($backup) { 'HYPERV_LIBRARY_BACKUP' } else { 'HYPERV_LIBRARY_RESTORE' }
+            if ($path -cin @('/api/hyperv/library-restore','/api/hyperv/library-backup','/api/hyperv/database-create')) {
+                $route = switch -CaseSensitive ($path) {
+                    '/api/hyperv/library-restore' { @{Action='RestoreHyperVLibraryBackup';Code='HYPERV_LIBRARY_RESTORE'} }
+                    '/api/hyperv/library-backup' { @{Action='BackupHyperVLibraryDatabase';Code='HYPERV_LIBRARY_BACKUP'} }
+                    '/api/hyperv/database-create' { @{Action='CreateHyperVLabDatabase';Code='HYPERV_DATABASE_CREATE'} }
+                }
+                $action = $route.Action
+                $codePrefix = $route.Code
                 $parameters = $null
                 $submitted = $false
                 try {
@@ -1771,8 +1795,8 @@ try {
                         Write-UiResponse -Context $context -Body $bodyRead.Code -StatusCode $bodyRead.StatusCode -NoStore
                         continue
                     }
-                    $parameters = Get-UiHyperVLibraryRequest -Body $bodyRead.Body -Backup:$backup
-                    if (@($jobs.Values | Where-Object { $_.Action -cin @('RestoreHyperVLibraryBackup','BackupHyperVLibraryDatabase') -and $_.Job.State -in @('NotStarted','Running','Blocked') }).Count) {
+                    $parameters = Get-UiHyperVLibraryRequest -Body $bodyRead.Body -Backup:($action -cne 'RestoreHyperVLibraryBackup')
+                    if (@($jobs.Values | Where-Object { $_.Action -cin @('RestoreHyperVLibraryBackup','BackupHyperVLibraryDatabase','CreateHyperVLabDatabase') -and $_.Job.State -in @('NotStarted','Running','Blocked') }).Count) {
                         Write-UiResponse -Context $context -Body (@{Code=$codePrefix+'_ALREADY_RUNNING'} | ConvertTo-Json -Compress) -ContentType 'application/json; charset=utf-8' -StatusCode 409 -NoStore
                         continue
                     }
@@ -2162,6 +2186,7 @@ try {
                 }
                 if ($action -eq 'RestoreHyperVLibraryBackup') { throw 'HYPERV_LIBRARY_RESTORE_DIRECT_ENDPOINT_REQUIRED' }
                 if ($action -eq 'BackupHyperVLibraryDatabase') { throw 'HYPERV_LIBRARY_BACKUP_DIRECT_ENDPOINT_REQUIRED' }
+                if ($action -eq 'CreateHyperVLabDatabase') { throw 'HYPERV_DATABASE_CREATE_DIRECT_ENDPOINT_REQUIRED' }
                 if ($action -in @('InitializeCms','AdoptCms')) {
                     try { & (Get-Module SqlServerLab) { param($json,$name) Assert-LabCmsManagementWorkflowJsonShape -Json $json -Action $name } $body $action }
                     catch { throw 'CMS_MANAGEMENT_REQUEST_INVALID' }

@@ -393,7 +393,7 @@ Bibliotheks-Recovery blockiert den erneuten Export ausdrücklich.
 
 | Cmdlet | Kurzbeschreibung | Konsolenmenü | Browser-GUI |
 |---|---|---|---|
-| [`New-SqlServerLabDatabase`](../../Public/New-SqlServerLabDatabase.ps1) | Erstellt eine Datenbank mit konfigurierbaren Dateien und SQL-Pfaden. | Lab-Umgebungen → Datenbanken, Samples und Skripte → Datenbank anlegen | über Adapter: `CreateContainerDatabase`; Hyper-V-Schaltfläche siehe Abweichungen |
+| [`New-SqlServerLabDatabase`](../../Public/New-SqlServerLabDatabase.ps1) | Erstellt eine Datenbank mit konfigurierbaren Dateien und SQL-Pfaden. | Lab-Umgebungen → Datenbanken, Samples und Skripte → Datenbank anlegen | Docker und Podman über `CreateContainerDatabase`, Hyper-V unter **Lab verwalten → Datenbank anlegen** mit verifiziertem Speicher. |
 | [`Backup-SqlServerLabDatabase`](../../Public/Backup-SqlServerLabDatabase.ps1) | Veröffentlicht ein providerneutrales Backup erst nach `CHECKSUM`, `RESTORE VERIFYONLY` und Host-Hash. Hyper-V prüft den bestätigten Backup-Speicher vor dem ersten SQL-Zugriff. | Lab-Umgebungen → Datenbanken, Samples und Skripte → Datenbank sichern | Lab-Umgebungen → laufende Docker-/Podman-Instanz → Verifiziertes Backup erstellen. Hyper-V unter **Lab verwalten → Verifiziertes Backup erstellen**. |
 | [`Restore-SqlServerLabDatabase`](../../Public/Restore-SqlServerLabDatabase.ps1) | Stellt ein verifiziertes Bibliotheksbackup oder eine direkte `.bak`-Datei mit Trust- und Cache-Schutz wieder her. | Lab-Umgebungen → Datenbanken, Samples und Skripte → Datenbank wiederherstellen | Docker/Podman unter **Datenbank anlegen oder wiederherstellen**. Hyper-V unter **Lab verwalten → Bibliotheksbackup wiederherstellen** für eine neue Datenbank mit gebundenen Gast- und SQL-Zugängen. |
 | [`Invoke-SqlServerLabScript`](../../Public/Invoke-SqlServerLabScript.ps1) | T-SQL mit `GO`-Batchtrennung; `RunWindows` verwendet mit `-WindowsAuthentication` die geschützte Gastanmeldung. [SSIS-Consumeranleitung](../HowTo/SSIS_CONSUMER_WINDOWS_ACCESS.md). | SQL-Skript ausführen; Windows-Modus über Alle öffentlichen Befehle → RunWindows | generischer Exportkatalog; über Adapter weiterhin `ExecuteContainerScript` |
@@ -520,20 +520,11 @@ Das Root-README führt beide derzeit im Abschnitt „Öffentliche Cmdlets“. F�
 öffentliche API bleibt bis zu einer bewussten Export- oder
 Dokumentationskorrektur ausschließlich `SqlServerLab.psd1` maßgeblich.
 
-### Browseraktionen ohne akzeptierten Workflow-Backendnamen
+### Hyper-V-Skriptausführung im Browser
 
-`Ui/app.js` erzeugt aktuell zwei Aktionsnamen, die nicht im `ValidateSet` von
-`Invoke-SqlServerLabWorkflowAction` enthalten sind:
-
-| Browseraktion | Sichtbare Funktion | Aktueller Effekt |
-|---|---|---|
-| `CreateHyperVLabDatabase` | Datenbank in einem laufenden Hyper-V-SQL-Lab anlegen | Der Request wird vom Workflow-Adapter bei der Parameterbindung abgelehnt. |
-| `ExecuteHyperVLabScript` | T-SQL-Skript in einem Hyper-V-SQL-Lab ausführen | Der Request wird vom Workflow-Adapter bei der Parameterbindung abgelehnt. |
-
-Die entsprechenden öffentlichen Cmdlets `New-SqlServerLabDatabase` und
-`Invoke-SqlServerLabScript` funktionieren weiterhin direkt über die
-PowerShell-CLI. Diese Übersicht wertet die beiden Browserpfade bis zu einer
-separaten Korrektur nicht als funktionierende GUI-Verwendung.
+`ExecuteHyperVLabScript` wird vom Workflow-Adapter bei der Parameterbindung
+abgelehnt. Das öffentliche Cmdlet `Invoke-SqlServerLabScript` unterstützt die
+direkte Ausführung mit gebundener Run- und Instanz-ID.
 
 ## Reproduzierbarer Abgleich
 

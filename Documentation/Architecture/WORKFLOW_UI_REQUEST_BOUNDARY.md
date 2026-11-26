@@ -114,11 +114,17 @@ Quittung nach bestätigter Kopienbereinigung oder einen festen Fehlercode.
 Die Route `/api/hyperv/library-backup` verwendet denselben Origin-,
 Operator- und Größenvertrag. Sie akzeptiert Run und Instanz, den Namen der
 Quelldatenbank und die flüchtigen Zugänge. Storage-Root, Endpunkt und Pfade
-werden serverseitig gebunden. Beide Bibliotheksrouten nutzen denselben
-Hintergrundjob-Slot. Das Backup veröffentlicht nur eine reduzierte Quittung
+werden serverseitig gebunden. Das Backup veröffentlicht eine reduzierte Quittung
 nach verifizierter Sicherung und bestätigter Entfernung der temporären
 Gastdatei. Die Fehlerprojektion kennzeichnet unbestätigte Bereinigung
 gesondert.
+
+`/api/hyperv/database-create` verwendet denselben HTTP- und Secret-Vertrag
+für die Anlage einer neuen Datenbank. Die Route akzeptiert bestätigte Run-
+und Instanz-IDs, den Namen und beide flüchtigen Zugänge. Der Worker prüft
+die gebundene VM und den Speicher, weist eine vorhandene Datenbank ab und
+liefert nach bestätigter Dateiplatzierung eine reduzierte Quittung. Die drei
+Hyper-V-Datenbankrouten teilen sich denselben Hintergrundjob-Slot.
 
 ## Acht interne Fachreader
 

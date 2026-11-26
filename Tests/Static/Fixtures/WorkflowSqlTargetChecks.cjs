@@ -503,6 +503,33 @@ async function main() {
     assert.equal(restoreField('sa-password').value, '');
     assert.equal(restoreField('dialog').open, false);
   });
+  run('window.sqlServerLabHyperVLibraryRestore.handleClick({closest: () => ({dataset:{hypervDatabaseCreate:"true",run:' + JSON.stringify(restoreRun) + ',instance:"primary"}})})');
+  check('Hyper-V database creation opens the dedicated bound dialog without a backup selector', () => {
+    assert.match(node('hyperv-labs').innerHTML, /data-hyperv-database-create="true"/);
+    assert.doesNotMatch(node('hyperv-labs').innerHTML, /data-container-operation="CreateHyperVLabDatabase"/);
+    assert.equal(restoreField('dialog').open, true);
+    assert.equal(restoreField('backup').disabled, true);
+    assert.match(restoreField('title').textContent, /Datenbank anlegen/);
+  });
+  restoreField('database').value = 'CreatedFixture';
+  restoreField('guest-password').value = 'SyntheticGuest';
+  restoreField('sa-password').value = 'SyntheticSa';
+  submitRestore();
+  check('Hyper-V database creation requires a separate confirmation', () => assert.equal(context.restoreDispatches.length, 2));
+  restoreField('confirm').checked = true;
+  submitRestore();
+  check('Confirmed Hyper-V database creation does not send a host or backup selector and clears its secrets', () => {
+    assert.equal(context.restoreDispatches.length, 3);
+    const result = context.restoreDispatches[2];
+    assert.equal(result.url, '/api/hyperv/database-create');
+    assert.equal(result.action, 'CreateHyperVLabDatabase');
+    assert.equal(result.payload.confirmed, true);
+    assert.deepEqual(Object.keys(result.payload.parameters).sort(), ['DatabaseName','GuestPassword','GuestUserName','InstanceId','RunId','SaPassword']);
+    assert.equal(result.payload.parameters.RunId, restoreRun);
+    assert.equal(result.payload.parameters.DatabaseName, 'CreatedFixture');
+    assert.equal(restoreField('guest-password').value, '');
+    assert.equal(restoreField('sa-password').value, '');
+  });
   run('submitUiAction = originalRestoreSubmit;');
   const backupRun = '22222222-2222-4222-8222-222222222222';
   const backupRoot = 'C:/synthetic/Lab_Data';

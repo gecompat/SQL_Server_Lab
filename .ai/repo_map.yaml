@@ -460,6 +460,7 @@ sources_of_truth:
   backup_library: Private/BackupLibrary.ps1
   hyperv_library_backup_guidance: Private/BackupLibrary.ps1, Private/SampleBaselineRuntime.ps1, Public/Backup-SqlServerLabDatabase.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/app.js, Ui/container-backup-library.js, Tests/Static/Invoke-BackupLibraryChecks.ps1, Tests/Static/Fixtures/WorkflowSqlTargetChecks.cjs
   hyperv_library_restore_guidance: Private/BackupLibrary.ps1, Public/Restore-SqlServerLabDatabase.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/app.js, Ui/container-backup-library.js, Tests/Static/Invoke-BackupLibraryChecks.ps1
+  hyperv_database_create_guidance: Public/New-SqlServerLabDatabase.ps1, Private/BackupLibrary.ps1, Public/Invoke-SqlServerLab.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/container-backup-library.js, Tests/Static/Invoke-DatabaseCommandChecks.ps1, Tests/Static/Invoke-BackupLibraryChecks.ps1, Tests/Static/Fixtures/WorkflowSqlTargetChecks.cjs
   backup_library_schema: Schemas/backup-library.schema.json
   validation_backup_library: Tests/Static/Invoke-BackupLibraryChecks.ps1
   acceptance_backup_library_cross_provider: Tests/Integration/Invoke-BackupLibraryCrossProviderAcceptance.ps1

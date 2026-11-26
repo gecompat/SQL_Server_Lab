@@ -2036,14 +2036,33 @@ function Invoke-LabAction {
             $dbName = Read-Host "  Datenbankname"
             if (-not $dbName) { return }
 
+            if ($target.Provider -eq 'hyperv') {
+                if ($dbName -cnotmatch '^[A-Za-z][A-Za-z0-9_]{0,127}$') {
+                    Write-LabError 'Bitte einen gültigen Datenbanknamen eingeben.'
+                    return
+                }
+                if (-not (Read-LabConfirm -Prompt "  Datenbank $dbName in Run $runId / Instanz $instanceId anlegen?" -Default $false)) { return }
+                $guestName = Read-Host '  Lokaler Gast-Administrator [Administrator]'
+                if (-not $guestName) { $guestName = 'Administrator' }
+                $guestPassword = $null
+                $sqlPassword = $null
+                try {
+                    $guestPassword = Read-Host '  Gastpasswort' -AsSecureString
+                    $sqlPassword = Read-Host '  SA-Passwort' -AsSecureString
+                    Invoke-LabGuidedHyperVDatabaseCreate -RunId $runId -InstanceId $instanceId -DatabaseName $dbName `
+                        -GuestUserName $guestName -GuestPassword $guestPassword -SaPassword $sqlPassword
+                } catch { Write-LabError $_.Exception.Message }
+                finally {
+                    if ($guestPassword) { $guestPassword.Dispose() }
+                    if ($sqlPassword) { $sqlPassword.Dispose() }
+                }
+                return
+            }
+
             $pw = Read-Host "  SA-Passwort" -AsSecureString
             $databaseArguments = @{
                 HostName=$target.HostName; Port=$target.Port; SaPassword=$pw
                 DatabaseName=$dbName
-            }
-            if ([string]$target.Provider -eq 'hyperv') {
-                $databaseArguments.RunId=$runId; $databaseArguments.InstanceId=$instanceId
-                $databaseArguments.StateRoot=$stateRoot
             }
             New-SqlServerLabDatabase @databaseArguments
         }

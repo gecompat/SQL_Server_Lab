@@ -77,6 +77,55 @@ try {
     Assert-DatabaseContract ($boundQueries -match 'LAB_STORAGE_SQL_MASTER_FILES_POSTCONDITION_FAILED' -and
         $completedOperations -eq 1 -and $boundResult.StoragePlanId -eq '11111111-1111-1111-1111-111111111111') 'CREATE-Erfolg wird erst nach master_files-Postcondition quittiert'
     Assert-DatabaseContract ($boundQueries -match 'ALTER DATABASE \[BoundDatabase\] SET QUERY_STORE = ON') 'CREATE, Optionen und Dateipfadprüfung verwenden dasselbe SecureString-Credential'
+
+    $guided = & $module {
+        param([securestring]$Credential)
+        $run = '33333333-2222-4333-8444-555555555555'
+        $target = [pscustomobject]@{Provider='hyperv';VMId='44444444-2222-4333-8444-555555555555';HostName='192.0.2.12';Port=1438}
+        $probe = [pscustomobject]@{Mode='create';Calls=0;Checks=0;Bound=$false}
+        function Get-LabGuidedHyperVLibraryBinding {
+            param($RunId,$InstanceId,$Guest)
+            if ($probe.Mode -ceq 'unready' -or $RunId -cne $run -or $InstanceId -cne 'primary' -or
+                $Guest.UserName -cne 'Administrator' -or -not [object]::ReferenceEquals($Guest.Password,$Credential)) { throw 'SYNTHETIC_UNBOUND' }
+            [pscustomobject]@{Target=$target;Context=[pscustomobject]@{StateRoot='synthetic-state'}}
+        }
+        function Invoke-LabSqlcmdProgress {
+            param($SqlPassword,$ProcessTimeoutSeconds,$ArgumentList)
+            $probe.Checks++
+            if (-not [object]::ReferenceEquals($SqlPassword,$Credential) -or $ArgumentList -ccontains '-P' -or
+                $ArgumentList -cnotcontains '192.0.2.12,1438') { throw 'SYNTHETIC_QUERY_BINDING_CHANGED' }
+            [pscustomobject]@{ExitCode=0;Output=@($(if($probe.Mode -ceq 'exists'){'1'}else{'0'}))}
+        }
+        function Resolve-LabRunInstance {
+            param($RunId,$InstanceId,$StateRoot)
+            if ($RunId -cne $run -or $InstanceId -cne 'primary' -or $StateRoot -cne 'synthetic-state') { throw 'SYNTHETIC_UNBOUND' }
+            if ($probe.Mode -ceq 'drift') {
+                [pscustomobject]@{Provider='hyperv';VMId=$target.VMId;HostName=$target.HostName;Port=1439}
+            } else { $target }
+        }
+        function New-SqlServerLabDatabase {
+            [CmdletBinding()]param($RunId,$InstanceId,$StateRoot,$DatabaseName,$HostName,$Port,$SaPassword)
+            $probe.Calls++
+            $probe.Bound = $RunId -ceq $run -and $InstanceId -ceq 'primary' -and $StateRoot -ceq 'synthetic-state' -and
+                $DatabaseName -ceq 'GuidedFixture' -and $HostName -ceq $target.HostName -and $Port -eq $target.Port -and
+                [object]::ReferenceEquals($SaPassword,$Credential)
+            [pscustomobject]@{Success=$true;DatabaseName=$DatabaseName;StoragePlanId='66666666-2222-4333-8444-555555555555';PrivatePath='private-canary'}
+        }
+        $arguments = @{RunId=$run;InstanceId='primary';DatabaseName='GuidedFixture';GuestUserName='Administrator';GuestPassword=$Credential;SaPassword=$Credential}
+        $blocked = @{}
+        foreach ($case in @('exists','drift','unready')) {
+            $probe.Mode = $case
+            $blocked[$case] = try { $null = Invoke-LabGuidedHyperVDatabaseCreate @arguments; '' } catch { $_.Exception.Message }
+        }
+        $blockedCalls = $probe.Calls
+        $probe.Mode = 'create'
+        $created = Invoke-LabGuidedHyperVDatabaseCreate @arguments
+        [pscustomobject]@{Blocked=$blocked;BlockedCalls=$blockedCalls;Calls=$probe.Calls;Bound=$probe.Bound;Created=$created}
+    } $password
+    Assert-DatabaseContract ($guided.BlockedCalls -eq 0 -and $guided.Blocked.exists -ceq 'HYPERV_DATABASE_CREATE_TARGET_EXISTS' -and
+        $guided.Blocked.drift -ceq 'HYPERV_DATABASE_CREATE_TARGET_NOT_READY' -and $guided.Blocked.unready -ceq 'HYPERV_DATABASE_CREATE_TARGET_NOT_READY') 'Hyper-V-Fachaktion sperrt Namenskonflikt und Zieldrift vor CREATE'
+    Assert-DatabaseContract ($guided.Calls -eq 1 -and $guided.Bound -and $guided.Created.Status -ceq 'CREATED' -and
+        -not $guided.Created.PSObject.Properties['PrivatePath']) 'Hyper-V-Fachaktion bindet registriertes Laufzeitziel und gibt eine pfadfreie Quittung aus'
 }
 finally {
     & $module {

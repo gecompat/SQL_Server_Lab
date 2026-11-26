@@ -1030,6 +1030,16 @@ verworfen. Nichtinteraktiv bleibt der unveränderte öffentliche Aufruf möglich
 Get-SqlServerLabEvaluationWatch -WarningDaysRemaining 30 -CriticalDaysRemaining 7
 ```
 
+## Datenbank in einem Hyper-V-Lab anlegen
+
+Öffne **Lab verwalten → Datenbank anlegen** an der laufenden SQL-Instanz.
+Gib den neuen Datenbanknamen und getrennte Zugänge für den Gast und SQL
+Server ein. Prüfe die angezeigte Umgebung und Instanz und bestätige die
+Anlage. Der Auftrag prüft die VM, den erreichbaren SQL-Endpunkt und die
+verifizierte Speicherbindung. Für einen bereits belegten Namen meldet er
+einen Konflikt. Nach der Anlage prüft der Auftrag die tatsächlichen
+SQL-Dateipfade. Die Quittung steht unter **Vorgänge**.
+
 ## Verifiziertes Hyper-V-Backup erstellen
 
 Wähle unter **Lab verwalten** bei der laufenden, vollständig eingerichteten
