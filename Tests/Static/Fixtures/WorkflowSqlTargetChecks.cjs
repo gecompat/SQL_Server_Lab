@@ -471,6 +471,38 @@ async function main() {
     assert.equal(restoreField('sa-password').value, '');
     assert.equal(restoreField('dialog').open, false);
   });
+  run('window.sqlServerLabHyperVLibraryRestore.openBackup(' + JSON.stringify(restoreRun) + ', "primary")');
+  check('Hyper-V backup is available only for the running bound SQL instance', () => {
+    assert.match(node('hyperv-labs').innerHTML, /data-hyperv-library-backup="true"/);
+    assert.equal(restoreField('backup-row').hidden, true);
+    assert.equal(restoreField('backup').disabled, true);
+    assert.equal(restoreField('dialog').open, true);
+    assert.match(restoreField('title').textContent, /Backup erstellen/);
+  });
+  restoreField('database').value = 'SourceFixture';
+  restoreField('guest-password').value = 'SyntheticGuest';
+  restoreField('sa-password').value = 'SyntheticSa';
+  submitRestore();
+  check('Hyper-V backup requires confirmation independently of restore', () => assert.equal(context.restoreDispatches.length, 1));
+  restoreField('confirm').checked = true;
+  run('workflow.HyperVLabs[0].SqlCompletionState = "REBOOT_REQUIRED"');
+  submitRestore();
+  check('Hyper-V backup refuses target drift before submission', () => assert.equal(context.restoreDispatches.length, 1));
+  setWorkflow(restoreInventory);
+  submitRestore();
+  check('Confirmed Hyper-V backup sends only source fields to the dedicated route and clears both passwords', () => {
+    assert.equal(context.restoreDispatches.length, 2);
+    const result = context.restoreDispatches[1];
+    assert.equal(result.url, '/api/hyperv/library-backup');
+    assert.equal(result.action, 'BackupHyperVLibraryDatabase');
+    assert.equal(result.payload.confirmed, true);
+    assert.deepEqual(Object.keys(result.payload.parameters).sort(), ['DatabaseName','GuestPassword','GuestUserName','InstanceId','RunId','SaPassword']);
+    assert.equal(result.payload.parameters.RunId, restoreRun);
+    assert.equal(result.payload.parameters.DatabaseName, 'SourceFixture');
+    assert.equal(restoreField('guest-password').value, '');
+    assert.equal(restoreField('sa-password').value, '');
+    assert.equal(restoreField('dialog').open, false);
+  });
   run('submitUiAction = originalRestoreSubmit;');
   const backupRun = '22222222-2222-4222-8222-222222222222';
   const backupRoot = 'C:/synthetic/Lab_Data';

@@ -2150,6 +2150,17 @@ der installierte ODBC-sqlcmd und ein eigener Loopback-Listener mit
 SQL-Argument und erzeugter SQL-Datei geprüft. Das bestätigt den
 Verbindungsaufbau ohne Passwortprompt oder Passwortausgabe. Ein echter
 Hyper-V-Restore über den gerenderten Browser ist damit nicht nachgewiesen.
+Die Hyper-V-Backupführung verwendet den gemeinsamen VM-, IP-, Port- und
+Storage-Guard. Die synthetischen Backup-Checks prüfen den dedizierten
+Request, den erneuten Zielabgleich, fest gebundene Speicherwurzeln,
+ausgeblendete Rohpfade und den Fehlercode für unbestätigte Bereinigung.
+Der Browser-Fixture prüft die eigenständige Bestätigung, den Moduswechsel
+und das Leeren beider Passwortfelder. Acht gerenderte Headless-Prüfungen
+auf `754c3cd0` bestätigten die echte Dialogdarstellung, Abbruch, Änderung
+der Bestätigung, Zieldrift und genau einen synthetischen Auftrag. Der
+HTTP-Handler wurde mit synthetischem Request und Job getestet. Die
+Storage-Mutation auf einem echten Hyper-V-Gast bleibt separat.
+
 Der vorbereitete manuelle Main-Modus `sql-storage-library-restore-acceptance`
 nutzt ein bereits vorhandenes Host-Only-Netz. Als Quelle verwendet er
 entweder den operationseigenen Clone aus einem ausdrücklich ausgewählten
@@ -2165,10 +2176,21 @@ startete die vorbereitete SQL-VM. Die damalige Fixture hatte die
 Storage-Absicht aus dem Startmanifest entfernt. Die Speicherplanung
 brach vor Backup und Restore ab. Der eigene Run wurde bereinigt.
 Der Workflow weist gemischte Eingaben vor dem Arrange ab. Er legt eine
-synthetische Datenbank an, sichert sie in einer isolierten temporären
-Backup-Bibliothek und prüft anschließend den tatsächlichen Worker-Einstieg,
-die identischen Zielinhalte und die Kopienbereinigung. Der native Lauf
-dieses Modus steht aus.
+synthetische Datenbank an und sichert sie über die geführte Fachaktion in
+einer isolierten temporären Backup-Bibliothek. Die Abnahme verlangt einen
+wiederverwendbaren Sicherungssatz und genau einen an VM und Storage-Plan
+gebundenen Beleg für die Bereinigung der Backup-Gastdatei. Anschließend
+prüft sie den geführten Restore, identische Zielinhalte und die
+Kopienbereinigung. Der native Nachweis des erweiterten Backup-Pfads steht aus.
+
+Der [Key18-Lauf 45773328285](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45773328285)
+bestätigte den verifizierten Speicher, die SQL-Bereitschaft und den Cleanup
+des eigenen Runs. Der Restore scheiterte nach dem Backup. Mit dem Plan
+dieses Runs ließ sich der Bindungsfehler lokal reproduzieren. Die frühere
+Fixture ersetzte den Host-Speicherkatalog durch den Bibliotheksordner.
+Die korrigierte Fixture leitet ausschließlich die Bibliotheksdateien in
+ihren temporären Ordner. Die Prüfungen für registrierte Wurzeln, VM und
+verifizierte Speicherbindung verwenden den regulären Host-Katalog.
 
 ## Getrennte AutoStart-Browservorschau
 

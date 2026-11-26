@@ -367,6 +367,35 @@ function Add-LabDatabaseBackupRestoreVerification {
     }
 }
 
+function Get-LabGuidedHyperVLibraryBinding {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$RunId,
+        [Parameter(Mandatory)][string]$InstanceId,
+        [Parameter(Mandatory)][PSCredential]$Guest
+    )
+    $context = Get-LabHyperVStorageReconcileContext -RunId $RunId -InstanceId $InstanceId
+    $target = Resolve-LabRunInstance -RunId $RunId -InstanceId $InstanceId -StateRoot $context.StateRoot
+    $null = Assert-LabWindowsPoolMutationAllowed -RunId $RunId -StateRoot $context.StateRoot
+    if ([string](Get-LabConnectionCenterCmsConfiguration).RunId -ceq $RunId) { throw 'System service is protected' }
+    if ($context.Run.state -cne 'RUNNING' -or $context.VM.State -ne 'Running' -or $target.Provider -cne 'hyperv' -or
+        -not $target.VMId -or $context.VM.Id -ne [guid]$target.VMId) { throw 'Invalid target binding' }
+    $storage = Get-LabVerifiedStorageRuntimeContext -RunId $RunId -InstanceId $InstanceId -StateRoot $context.StateRoot
+    if ($storage.Receipt.Status -cne 'VERIFIED') { throw 'Storage is not verified' }
+    $address = $null
+    $adapters = @(Get-VMNetworkAdapter -VM $context.VM -ErrorAction Stop)
+    if (-not [Net.IPAddress]::TryParse($target.HostName,[ref]$address) -or
+        [Net.IPAddress]::IsLoopback($address) -or $target.HostName -cnotin @($adapters | ForEach-Object IPAddresses)) {
+        throw 'Host endpoint is not assigned to the bound VM'
+    }
+    $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $context.StateRoot -ExpectedVmId ([guid]$target.VMId) -NoWrite
+    if ([string]$lab.Instance.id -cne $InstanceId) { throw 'Guest SQL instance selection changed' }
+    $receipt = Get-HyperVLabSqlInstanceReceipt -Lab $lab -Credential $guest -ExpectedVmId ([guid]$target.VMId)
+    $listeners = @($receipt.instances | Where-Object { $_.serviceStatus -ceq 'Running' -and [int]$_.tcpPort -eq $target.Port })
+    if ($listeners.Count -ne 1) { throw 'Guest SQL listener is not bound' }
+    [pscustomobject]@{Context=$context;Target=$target}
+}
+
 function Invoke-LabGuidedHyperVLibraryRestore {
     [CmdletBinding()]
     param(
@@ -388,25 +417,9 @@ function Invoke-LabGuidedHyperVLibraryRestore {
     }
     $guest = [PSCredential]::new($GuestUserName,$GuestPassword)
     try {
-        $context = Get-LabHyperVStorageReconcileContext -RunId $RunId -InstanceId $InstanceId
-        $target = Resolve-LabRunInstance -RunId $RunId -InstanceId $InstanceId -StateRoot $context.StateRoot
-        Assert-LabWindowsPoolMutationAllowed -RunId $RunId -StateRoot $context.StateRoot
-        if ([string](Get-LabConnectionCenterCmsConfiguration).RunId -ceq $RunId) { throw 'System service is protected' }
-        if ($context.Run.state -cne 'RUNNING' -or $context.VM.State -ne 'Running' -or $target.Provider -cne 'hyperv' -or
-            -not $target.VMId -or $context.VM.Id -ne [guid]$target.VMId) { throw 'Invalid target binding' }
-        $storage = Get-LabVerifiedStorageRuntimeContext -RunId $RunId -InstanceId $InstanceId -StateRoot $context.StateRoot
-        if ($storage.Receipt.Status -cne 'VERIFIED') { throw 'Storage is not verified' }
-        $address = $null
-        $adapters = @(Get-VMNetworkAdapter -VM $context.VM -ErrorAction Stop)
-        if (-not [Net.IPAddress]::TryParse($target.HostName,[ref]$address) -or
-            [Net.IPAddress]::IsLoopback($address) -or $target.HostName -cnotin @($adapters | ForEach-Object IPAddresses)) {
-            throw 'Host endpoint is not assigned to the bound VM'
-        }
-        $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $context.StateRoot -ExpectedVmId ([guid]$target.VMId) -NoWrite
-        if ([string]$lab.Instance.id -cne $InstanceId) { throw 'Guest SQL instance selection changed' }
-        $receipt = Get-HyperVLabSqlInstanceReceipt -Lab $lab -Credential $guest -ExpectedVmId ([guid]$target.VMId)
-        $listeners = @($receipt.instances | Where-Object { $_.serviceStatus -ceq 'Running' -and [int]$_.tcpPort -eq $target.Port })
-        if ($listeners.Count -ne 1) { throw 'Guest SQL listener is not bound' }
+        $binding = Get-LabGuidedHyperVLibraryBinding -RunId $RunId -InstanceId $InstanceId -Guest $guest
+        $context = $binding.Context
+        $target = $binding.Target
     } catch { throw 'HYPERV_LIBRARY_RESTORE_TARGET_NOT_READY' }
 
     try {
@@ -444,6 +457,94 @@ function Invoke-LabGuidedHyperVLibraryRestore {
         CleanupStatus='CONFIRMED'}
 }
 
+function Invoke-LabGuidedHyperVLibraryBackup {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$RunId,
+        [Parameter(Mandatory)][string]$InstanceId,
+        [Parameter(Mandatory)][string]$DatabaseName,
+        [Parameter(Mandatory)][string]$GuestUserName,
+        [Parameter(Mandatory)][SecureString]$GuestPassword,
+        [Parameter(Mandatory)][SecureString]$SaPassword
+    )
+
+    if (-not (Test-LabDiagnosticGuid $RunId) -or $InstanceId -cnotmatch '^[A-Za-z][A-Za-z0-9_-]{0,63}$' -or
+        $DatabaseName -cnotmatch '^[A-Za-z][A-Za-z0-9_]{0,127}$' -or
+        $GuestUserName -cnotmatch '^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$' -or -not $GuestPassword.Length -or -not $SaPassword.Length) {
+        throw 'HYPERV_LIBRARY_BACKUP_SOURCE_INVALID'
+    }
+    $guest = [PSCredential]::new($GuestUserName,$GuestPassword)
+    try {
+        $binding = Get-LabGuidedHyperVLibraryBinding -RunId $RunId -InstanceId $InstanceId -Guest $guest
+        $context = $binding.Context
+        $target = $binding.Target
+        $dataRoot = Resolve-LabDataRootForUse -DataRoot (Get-LabDataRootDefault)
+        $current = Resolve-LabRunInstance -RunId $RunId -InstanceId $InstanceId -StateRoot $context.StateRoot
+        if ($current.Provider -cne 'hyperv' -or $current.VMId -cne $target.VMId -or
+            $current.HostName -cne $target.HostName -or $current.Port -ne $target.Port) { throw 'SQL endpoint changed' }
+    } catch { throw 'HYPERV_LIBRARY_BACKUP_SOURCE_NOT_READY' }
+
+    try {
+        $backup = Backup-SqlServerLabDatabase -RunId $RunId -InstanceId $InstanceId -DatabaseName $DatabaseName `
+            -SaPassword $SaPassword -GuestCredential $guest -StateRoot $context.StateRoot -DataRoot $dataRoot `
+            -Confirm:$false 3>$null 4>$null 5>$null 6>$null
+    } catch {
+        if ($_.Exception.Data['SqlServerLab.BackupRuntimeCleanupStatus'] -ceq 'RECOVERY_REQUIRED' -or
+            $_.Exception.Data['SqlServerLab.BackupCleanupStatus'] -ceq 'RECOVERY_REQUIRED') {
+            throw 'HYPERV_LIBRARY_BACKUP_CLEANUP_REQUIRED'
+        }
+        throw 'HYPERV_LIBRARY_BACKUP_UNCONFIRMED'
+    }
+    if ($backup.Status -cne 'BACKUP_REUSABLE' -or $backup.Provider -cne 'hyperv' -or $backup.DatabaseName -cne $DatabaseName -or
+        -not (Test-LabDiagnosticGuid ([string]$backup.BackupSetId)) -or $backup.Bytes -isnot [long] -or $backup.Bytes -le 0) {
+        throw 'HYPERV_LIBRARY_BACKUP_UNCONFIRMED'
+    }
+    [pscustomobject]@{Status='BACKUP_REUSABLE';RunId=$RunId;InstanceId=$InstanceId;DatabaseName=$DatabaseName
+        BackupSetId=[string]$backup.BackupSetId;Bytes=$backup.Bytes}
+}
+
+function New-LabHyperVLibraryBackupIntent {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Target,
+        [Parameter(Mandatory)][ValidatePattern('^backup-[0-9a-f]{32}\.bak$')][string]$FileName
+    )
+
+    $lab = Get-HyperVLabWorkflowRun -RunId $Target.RunId -StateRoot $Target.StateRoot -NoWrite
+    if ([string]$lab.Run.runId -cne [string]$Target.RunId -or $lab.Run.state -cne 'RUNNING' -or
+        [string]$lab.Instance.id -cne [string]$Target.InstanceId -or -not (Test-LabDiagnosticGuid ([string]$lab.Run.scopeId)) -or
+        -not (Test-LabDiagnosticGuid ([string]$Target.StoragePlanId))) {
+        throw 'HYPERV_BACKUP_INTENT_BINDING_INVALID'
+    }
+    $managed = Get-HyperVManagedVM -VMName ([string]$lab.Instance.vmName) -ExpectedRunId $Target.RunId -ExpectedScopeId $lab.Run.scopeId
+    if (-not $managed -or $managed.VM.State -ne 'Running' -or -not (Test-LabDiagnosticGuid ([string]$managed.VM.Id)) -or
+        ([string]$lab.Instance.vmId -and [string]$lab.Instance.vmId -ne [string]$managed.VM.Id)) {
+        throw 'HYPERV_BACKUP_INTENT_BINDING_INVALID'
+    }
+
+    $operationKey = $FileName.Substring(7,32)
+    $path = Join-Path $lab.RunDirectory ('backup-library-'+$operationKey+'.local.journal.json')
+    $expectedRunDirectory = Join-Path (Join-Path $Target.StateRoot 'runs') $Target.RunId
+    if ([IO.Path]::GetFullPath($lab.RunDirectory) -ne [IO.Path]::GetFullPath($expectedRunDirectory) -or
+        -not (Test-LabPathWithinRoot -Root $Target.StateRoot -Path $path).Valid -or
+        -not (Test-Path -LiteralPath $lab.RunDirectory -PathType Container) -or (Test-Path -LiteralPath $path)) {
+        throw 'HYPERV_BACKUP_INTENT_PATH_INVALID'
+    }
+    $record = [pscustomobject][ordered]@{
+        Contract='SqlServerLab.HyperVLibraryBackupIntent/1.0'; Status='GUEST_FILE_UNCONFIRMED'
+        OperationKey=$operationKey; RunId=[string]$Target.RunId; ScopeId=[string]$lab.Run.scopeId
+        InstanceId=[string]$Target.InstanceId; VMId=([guid]$managed.VM.Id).ToString('D')
+        StoragePlanId=[string]$Target.StoragePlanId; FileName=$FileName; UpdatedAt=Get-LabTimestamp
+    }
+    $bytes = [Text.Encoding]::UTF8.GetBytes(($record | ConvertTo-Json -Compress))
+    $stream = [IO.File]::Open($path,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
+    try {
+        $stream.Write($bytes)
+        $stream.Flush($true)
+    } finally { $stream.Dispose() }
+    [pscustomobject]@{Path=$path;Record=$record;Sha256=[Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($bytes))}
+}
+
 function New-LabDatabaseLibraryBackup {
     [CmdletBinding()]
     param(
@@ -471,6 +572,9 @@ function New-LabDatabaseLibraryBackup {
             $relative.StartsWith('..'+[IO.Path]::DirectorySeparatorChar)) { throw 'OWNED_HOST_BACKUP_DATA_ROOT_OUTSIDE_ROOT' }
         $workingParent = $ownedPolicy.StateRoot
     }
+    $targetArguments = @{ Port=$Port; ContainerName=$ContainerName; RunId=$RunId; InstanceId=$InstanceId; GuestCredential=$GuestCredential; StateRoot=$StateRoot }
+    if ($Provider) { $targetArguments.Provider=$Provider }
+    $target = if ($Provider -eq 'hyperv') { Initialize-LabSampleBaselineBackupTarget @targetArguments }
     $workingDirectory = Join-Path $workingParent "sql-server-lab-backup-$([Guid]::NewGuid().ToString('N'))"
     $backupFileName = "backup-$([Guid]::NewGuid().ToString('N')).bak"
     $hostBackupPath = Join-Path $workingDirectory $backupFileName
@@ -480,6 +584,8 @@ function New-LabDatabaseLibraryBackup {
     }
     else { New-Item -ItemType Directory -Path $workingDirectory -Force | Out-Null }
     $primaryError = $null
+    $guestBackupUnconfirmed = $false
+    $intent = $null
     try {
         $metadata = Get-LabDatabaseBackupMetadata -HostName $HostName -Port $Port -SaPassword $SaPassword -DatabaseName $DatabaseName
         $dependencyInventory = Get-LabDatabaseMigrationDependencyInventory -HostName $HostName -Port $Port -SaPassword $SaPassword `
@@ -487,19 +593,32 @@ function New-LabDatabaseLibraryBackup {
         if ([bool]$metadata.IsEncrypted) {
             throw 'BACKUP_LIBRARY_TDE_DEPENDENCY_UNSUPPORTED: Verschlüsselte Datenbanken werden ohne separaten Zertifikat- und Recovery-Vertrag nicht als wiederverwendbar veröffentlicht.'
         }
-        $targetArguments = @{ Port=$Port; ContainerName=$ContainerName; RunId=$RunId; InstanceId=$InstanceId; GuestCredential=$GuestCredential; StateRoot=$StateRoot }
-        if ($Provider) { $targetArguments.Provider=$Provider }
-        $target = Initialize-LabSampleBaselineBackupTarget @targetArguments
+        if (-not $target) { $target = Initialize-LabSampleBaselineBackupTarget @targetArguments }
         $runtimeBackupPath = if ([string]$target.Provider -eq 'hyperv') {
             Get-LabStorageGuestChildPath -Root ([string]$target.BackupRoot) -Child $backupFileName
         } else { "/var/opt/mssql/backup/$backupFileName" }
         $escapedDatabase = $DatabaseName.Replace(']',']]')
         $escapedPath = $runtimeBackupPath.Replace("'","''")
+        if ([string]$target.Provider -ceq 'hyperv') {
+            $intent = New-LabHyperVLibraryBackupIntent -Target $target -FileName $backupFileName
+            $guestBackupUnconfirmed = $true
+        }
         $null = Invoke-SqlQuery -HostName $HostName -Port $Port -ProductQueryPassword $SaPassword -TimeoutSeconds 600 -Query @"
 BACKUP DATABASE [$escapedDatabase] TO DISK = N'$escapedPath' WITH COPY_ONLY, INIT, CHECKSUM;
 RESTORE VERIFYONLY FROM DISK = N'$escapedPath' WITH CHECKSUM;
 "@
         $export = Export-LabSampleBaselineBackup -Target $target -RuntimeBackupPath $runtimeBackupPath -DestinationPath $hostBackupPath -Port $Port
+        $guestBackupUnconfirmed = $false
+        if ($intent) {
+            if (-not (Test-LabPathWithinRoot -Root $target.StateRoot -Path $intent.Path).Valid -or
+                -not (Test-Path -LiteralPath $intent.Path -PathType Leaf) -or
+                (Get-FileHash -LiteralPath $intent.Path -Algorithm SHA256).Hash -cne $intent.Sha256) {
+                throw 'HYPERV_BACKUP_INTENT_PATH_INVALID'
+            }
+            $intent.Record.Status = 'GUEST_FILE_REMOVED'
+            $intent.Record.UpdatedAt = Get-LabTimestamp
+            Write-LabArtifactJsonAtomic -Path $intent.Path -InputObject $intent.Record
+        }
         $registered = Register-LabDatabaseBackupArtifact -BackupPath $hostBackupPath -DatabaseName $DatabaseName `
             -Provider ([string]$export.Provider) -Metadata $metadata -MigrationDependencyInventory $dependencyInventory -RunId $RunId -InstanceId $InstanceId -DataRoot $DataRoot
         [PSCustomObject]@{
@@ -511,7 +630,14 @@ RESTORE VERIFYONLY FROM DISK = N'$escapedPath' WITH CHECKSUM;
             RegistryPath=[string]$registered.RegistryPath; PersistentStorageId=[string]$registered.PersistentStorageId
         }
     }
-    catch { $primaryError = $_; throw }
+    catch {
+        $primaryError = $_
+        if ($guestBackupUnconfirmed) {
+            $primaryError.Exception.Data['SqlServerLab.BackupRuntimeCleanupStatus'] = 'RECOVERY_REQUIRED'
+            $primaryError.Exception.Data['SqlServerLab.BackupRuntimeFileName'] = $backupFileName
+        }
+        throw
+    }
     finally {
         try {
             $cleanupParent = [IO.Path]::GetFullPath($workingParent).TrimEnd('\','/')

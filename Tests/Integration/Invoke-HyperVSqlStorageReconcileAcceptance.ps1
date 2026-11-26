@@ -9,7 +9,7 @@
     Fault/resume injection remains in the synthetic contract; this runner does
     not add a production fault-injection seam.
 .PARAMETER VerifyLibraryRestore
-    Uses the same owned clone to verify a library backup and the guided
+    Uses the same owned clone to verify a guided library backup and the guided
     restore into a new synthetic database. The library is test-local.
 .PARAMETER PreparedArtifactId
     Optional sealed SQL 2025 Developer artifact for library restore acceptance.
@@ -111,38 +111,71 @@ function New-PreparedLibraryRestoreAcceptanceRun {
 function Invoke-StorageLibraryRestoreAcceptance {
     param(
         [Parameter(Mandatory)]$Context,
-        [Parameter(Mandatory)][PSCredential]$GuestCredential
+        [Parameter(Mandatory)][PSCredential]$GuestCredential,
+        [Parameter(Mandatory)][guid]$ExpectedVmId,
+        [Parameter(Mandatory)][guid]$ExpectedStoragePlanId
     )
 
     $runId = [string]$Context.Run.runId
     $owned = Invoke-Private { param($Op,$Root) Get-LabOperationOwnedRun -OperationId $Op -StateRoot $Root } @($OperationId,$StateRoot)
     if (-not $owned -or $owned.runId -cne $runId -or $owned.scopeId -cne $Context.Run.scopeId -or
         -not (Test-ScopedTemporaryRoot $testRoot)) { throw 'HYPERV_LIBRARY_RESTORE_ACCEPTANCE_SCOPE_CHANGED' }
-    $libraryRoot = Join-Path $testRoot 'Lab_Data'
+    $libraryRoot = Join-Path $testRoot 'Backups'
     if (Test-Path -LiteralPath $libraryRoot) { throw 'HYPERV_LIBRARY_RESTORE_ACCEPTANCE_LIBRARY_ALREADY_EXISTS' }
 
-    $previous = $env:SQL_SERVER_LAB_DATA_ROOT
     $phase = 'FIXTURE'
     try {
         $null = Invoke-SqlRows $Context ("IF DB_ID(N'LabRestoreSeedFixture') IS NOT NULL OR DB_ID(N'LabRestoredFixture') IS NOT NULL " +
             "THROW 51011, 'SYNTHETIC_DATABASE_COLLISION', 1; EXEC(N'CREATE DATABASE [LabRestoreSeedFixture];'); SELECT CAST(1 AS int) AS Ready;")
         $null = Invoke-SqlRows $Context ('CREATE TABLE [LabRestoreSeedFixture].dbo.Fixture (Id int NOT NULL PRIMARY KEY, Value nvarchar(20) NOT NULL); ' +
             'INSERT INTO [LabRestoreSeedFixture].dbo.Fixture VALUES (1,N''alpha''),(2,N''beta''); SELECT CAST(1 AS int) AS Ready;')
-        $phase = 'LIBRARY'
-        $null = Invoke-Private { param($Root) Initialize-LabManagedDataRoot -DataRoot $Root -Confirm:$false } @($libraryRoot)
-        [Environment]::SetEnvironmentVariable('SQL_SERVER_LAB_DATA_ROOT',$libraryRoot,'Process')
-        $backup = Backup-SqlServerLabDatabase -RunId $runId -InstanceId primary -DatabaseName LabRestoreSeedFixture `
-            -SaPassword $script:saPassword -GuestCredential $GuestCredential -DataRoot $libraryRoot -StateRoot $StateRoot `
-            -Confirm:$false 3>$null 4>$null 5>$null 6>$null
-        if (-not $backup.BackupSetId) { throw 'Backup did not yield a reusable set' }
-        $phase = 'RESTORE'
-        $restored = Invoke-Private {
-            param($Id,$Set,$Credential,$Sa)
-            Invoke-LabGuidedHyperVLibraryRestore -RunId $Id -InstanceId primary -BackupSetId $Set -DatabaseName LabRestoredFixture `
+        $phase = 'BACKUP_RESTORE'
+        $execution = Invoke-Private {
+            param($Id,$Credential,$Sa,$TestRoot,$LibraryRoot,$RunDirectory,$ScopeId,$VmId,$PlanId)
+            $registeredDataRoot = Resolve-LabDataRootForUse -DataRoot (Get-LabDataRootDefault)
+            if (-not (Test-LabPathWithinRoot -Root $TestRoot -Path $LibraryRoot).Valid -or
+                (Test-Path -LiteralPath $LibraryRoot)) { throw 'HYPERV_LIBRARY_RESTORE_ACCEPTANCE_LIBRARY_SCOPE_INVALID' }
+
+            # Redirect only the fixture library files inside this module call.
+            # The real registered data-root and runtime storage guards still run.
+            function Get-LabBackupLibraryPaths {
+                param([Parameter(Mandatory)][string]$DataRoot)
+
+                $root = Resolve-LabDataRootForUse -DataRoot $DataRoot
+                if ($root -ine $registeredDataRoot) { throw 'HYPERV_LIBRARY_RESTORE_ACCEPTANCE_LIBRARY_SCOPE_INVALID' }
+                [pscustomobject]@{
+                    DataRoot = $root
+                    LibraryRoot = $LibraryRoot
+                    ObjectsRoot = Join-Path $LibraryRoot 'Objects'
+                    RegistryPath = Join-Path $LibraryRoot 'backup-library.json'
+                }
+            }
+
+            $priorIntents = @(Get-ChildItem -LiteralPath $RunDirectory -File -Filter 'backup-library-*.local.journal.json')
+            if ($priorIntents.Count) { throw 'HYPERV_LIBRARY_BACKUP_ACCEPTANCE_UNEXPECTED_INTENT' }
+            $backup = Invoke-LabGuidedHyperVLibraryBackup -RunId $Id -InstanceId primary -DatabaseName LabRestoreSeedFixture `
                 -GuestUserName $Credential.UserName -GuestPassword $Credential.Password -SaPassword $Sa
-        } @($runId,[string]$backup.BackupSetId,$GuestCredential,$script:saPassword)
+            if ($backup.Status -cne 'BACKUP_REUSABLE' -or $backup.RunId -cne $Id -or $backup.InstanceId -cne 'primary' -or
+                $backup.DatabaseName -cne 'LabRestoreSeedFixture' -or -not $backup.BackupSetId -or $backup.Bytes -le 0) {
+                throw 'HYPERV_LIBRARY_BACKUP_ACCEPTANCE_RECEIPT_INVALID'
+            }
+            $intents = @(Get-ChildItem -LiteralPath $RunDirectory -File -Filter 'backup-library-*.local.journal.json')
+            if ($intents.Count -ne 1) { throw 'HYPERV_LIBRARY_BACKUP_ACCEPTANCE_INTENT_NOT_UNIQUE' }
+            $intent = Get-Content -LiteralPath $intents[0].FullName -Raw -Encoding utf8 | ConvertFrom-Json
+            if ($intent.Contract -cne 'SqlServerLab.HyperVLibraryBackupIntent/1.0' -or $intent.Status -cne 'GUEST_FILE_REMOVED' -or
+                $intent.RunId -cne $Id -or $intent.ScopeId -cne $ScopeId -or $intent.InstanceId -cne 'primary' -or
+                $intent.FileName -cnotmatch '^backup-[0-9a-f]{32}\.bak$' -or [guid]$intent.VMId -ne $VmId -or
+                [guid]$intent.StoragePlanId -ne $PlanId) { throw 'HYPERV_LIBRARY_BACKUP_ACCEPTANCE_INTENT_INVALID' }
+            Write-Host 'PASS: Geführtes Backup liefert einen gebundenen Sicherungssatz mit bestätigter Gastdateibereinigung' -ForegroundColor Green
+
+            $restored = Invoke-LabGuidedHyperVLibraryRestore -RunId $Id -InstanceId primary -BackupSetId $backup.BackupSetId `
+                -DatabaseName LabRestoredFixture -GuestUserName $Credential.UserName -GuestPassword $Credential.Password -SaPassword $Sa
+            [pscustomobject]@{BackupSetId = [string]$backup.BackupSetId; Restored = $restored}
+        } @($runId,$GuestCredential,$script:saPassword,$testRoot,$libraryRoot,$Context.RunDirectory,
+            [string]$Context.Run.scopeId,$ExpectedVmId,$ExpectedStoragePlanId)
+        $restored = $execution.Restored
         Assert-HyperVSqlStorageAcceptance ($restored.Status -ceq 'RESTORED' -and $restored.CleanupStatus -ceq 'CONFIRMED' -and
-            $restored.RunId -ceq $runId -and $restored.InstanceId -ceq 'primary' -and $restored.BackupSetId -ceq $backup.BackupSetId -and
+            $restored.RunId -ceq $runId -and $restored.InstanceId -ceq 'primary' -and $restored.BackupSetId -ceq $execution.BackupSetId -and
             $restored.DatabaseName -ceq 'LabRestoredFixture') 'Geführter Restore bindet das verifizierte Backup und bestätigt die Bereinigung der Gastkopie'
         $phase = 'CONTENT'
         $sourceRows = @(Invoke-SqlRows $Context 'SELECT Id,Value FROM [LabRestoreSeedFixture].dbo.Fixture ORDER BY Id;')
@@ -150,9 +183,12 @@ function Invoke-StorageLibraryRestoreAcceptance {
         Assert-HyperVSqlStorageAcceptance ($sourceRows.Count -eq 2 -and $targetRows.Count -eq 2 -and
             ($sourceRows | ConvertTo-Json -Compress) -ceq ($targetRows | ConvertTo-Json -Compress)) 'Neue Zieldatenbank enthält die exakten synthetischen Daten'
     } catch {
-        throw ('HYPERV_LIBRARY_RESTORE_ACCEPTANCE_UNCONFIRMED · '+$phase)
-    } finally {
-        [Environment]::SetEnvironmentVariable('SQL_SERVER_LAB_DATA_ROOT',$previous,'Process')
+        $code = $_.Exception.Message
+        if ($code -cnotmatch '^HYPERV_LIBRARY_RESTORE_(?:TARGET_(?:INVALID|NOT_READY|CHECK_FAILED|EXISTS)|BACKUP_NOT_SELECTABLE|UNCONFIRMED|CLEANUP_REQUIRED|ACCEPTANCE_LIBRARY_SCOPE_INVALID)$' -and
+            $code -cnotmatch '^HYPERV_LIBRARY_BACKUP_(?:SOURCE_(?:INVALID|NOT_READY)|UNCONFIRMED|CLEANUP_REQUIRED|ACCEPTANCE_(?:RECEIPT_INVALID|UNEXPECTED_INTENT|INTENT_NOT_UNIQUE|INTENT_INVALID))$') {
+            $code = 'UNCLASSIFIED'
+        }
+        throw ('HYPERV_LIBRARY_RESTORE_ACCEPTANCE_UNCONFIRMED · '+$phase+' · '+$code)
     }
 }
 
@@ -188,7 +224,7 @@ try {
         } @($context.RunDirectory)
         try {
             $guestCredential = [PSCredential]::new('Administrator',$guestPassword)
-            Invoke-StorageLibraryRestoreAcceptance -Context $context -GuestCredential $guestCredential
+            Invoke-StorageLibraryRestoreAcceptance -Context $context -GuestCredential $guestCredential -ExpectedVmId $managed.VM.Id -ExpectedStoragePlanId $storage.Receipt.PlanId
         } finally {
             if ($guestPassword) { $guestPassword.Dispose() }
         }
@@ -240,7 +276,7 @@ try {
         Assert-HyperVSqlStorageAcceptance ($resultOk -and $receiptResultOk -and $receiptOk -and $defaultsOk -and $tempOk -and $sqlRestarted -and $guestBootUnchanged -and $vmRunning) "Receipt, SQL-Defaults und TempDB konvergieren nach SQL-Dienstrestart ohne VM-Neustart: $convergenceEvidence"
         $noOp=Get-SqlServerLabReconcilePlan -RunId $lab.RunId -HyperVSqlStorage -InstanceId primary -StateRoot $StateRoot
         Assert-HyperVSqlStorageAcceptance ($noOp.IsNoOp -and @($noOp.Actions).Count -eq 0) 'Wiederholter HV-603A-Plan ist No-op'
-        if ($VerifyLibraryRestore) { Invoke-StorageLibraryRestoreAcceptance -Context $context -GuestCredential $guestCredential }
+        if ($VerifyLibraryRestore) { Invoke-StorageLibraryRestoreAcceptance -Context $context -GuestCredential $guestCredential -ExpectedVmId $managed.VM.Id -ExpectedStoragePlanId $receiptAfter.PlanId }
     }
     $cleanup=Remove-SqlServerLab -RunId $lab.RunId -StateRoot $StateRoot -Force -Confirm:$false;Assert-HyperVSqlStorageAcceptance ([string]$cleanup.Status -in @('REMOVED','COMPLETED')) 'Operationseigener Run wurde scopegebunden entfernt';$lab=$null;foreach($path in $ownedPaths){Assert-HyperVSqlStorageAcceptance (-not(Test-Path -LiteralPath $path)) 'Run-eigene VHDX wurde entfernt'};$completed=$true
 }

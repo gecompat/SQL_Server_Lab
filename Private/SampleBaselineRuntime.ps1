@@ -191,7 +191,7 @@ function Initialize-LabSampleBaselineBackupTarget {
             Provider='hyperv'; RunId=$RunId; InstanceId=$InstanceId
             GuestCredential=$GuestCredential
             BackupRoot=[string]$backupBindings[0].SqlPhysicalPath
-            StateRoot=$context.StateRoot; ContainerName=$null
+            StateRoot=$context.StateRoot; ContainerName=$null; StoragePlanId=[string]$context.Plan.PlanId
         }
     }
 
