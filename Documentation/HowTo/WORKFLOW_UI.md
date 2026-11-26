@@ -1586,7 +1586,17 @@ Bei Hyper-V muss die registrierte Gast-IP aktuell zur gewählten VM gehören.
 Die Prüfung verwendet den verwalteten SQL-Zugang und liest Datenbankzustand,
 Database Master Key, Rechte und freie Objektnamen. Im Browser erscheint die
 Quittung unter **Vorgänge**. Sie belegt die Vorprüfung für genau die gewählte
-Instanz und Datenbank. Objektanlage und Embedding bleiben getrennte Schritte.
+Instanz und Datenbank.
+
+Im Browser öffnest du **Host-Dienste und Modelle → SQL-Objekte für den
+Modellplan verwalten** und wählst die erfolgreiche Vorprüfung dieser Sitzung.
+Erst zur bestätigten Erstellung fordert der Dialog das Credential-Secret an.
+Für die Embeddingprobe und das Entfernen eigener SQL-Objekte wählst du
+anschließend die bestätigte Erstellungsquittung. Der Dialog zeigt Datenbank,
+Run und Instanz und verlangt für jede Aktion eine eigene Bestätigung.
+Ergebnisse erscheinen unter **Vorgänge**. Bei unbestätigtem Ausgang prüfe
+den ursprünglichen Vorgang. Hinweise zur Wiederaufnahme stehen im
+[SQL-External-Model-Leitfaden](../User/SQL_AI_LOCAL_ACCELERATION.md).
 
 ### Vorhandene llama.cpp-Pakete prüfen
 

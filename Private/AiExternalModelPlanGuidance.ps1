@@ -205,6 +205,69 @@ function Get-LabGuidedExternalModelSqlPreflightRequest {
     } finally { $document.Dispose() }
 }
 
+function Invoke-LabGuidedExternalModelSqlLifecycleInteractive {
+    param($Plan,$PreflightReceipt,$Selection)
+
+    if ($PreflightReceipt.Status -cne 'SQL_PREFLIGHT_VERIFIED' -or $PreflightReceipt.SqlPlanKey -cne $Plan.SqlPlanKey -or
+        $PreflightReceipt.RunId -cne $Selection.RunId -or $PreflightReceipt.InstanceId -cne $Selection.InstanceId) {
+        throw 'AI_EXTERNAL_MODEL_SQL_PREFLIGHT_UNCONFIRMED'
+    }
+    $target = 'Datenbank {0} · Run {1} · Instanz {2}' -f $Plan.DatabaseName,$Selection.RunId,$Selection.InstanceId
+    $choice = Select-LabConsoleDataItem -ScreenId 'external-model-sql-apply' -Title 'Geprüftes SQL-Ziel' -Subtitle $target -SelectedId 'return' -Items @(
+        New-LabConsoleItem -Id return -Label 'Zurück' -Data return
+        New-LabConsoleItem -Id apply -Label 'External Model und Credential erstellen' -Data apply
+    )
+    if ($choice -cne 'apply' -or -not (Read-LabConfirm -Prompt "SQL-Objekte für $target erstellen?" -Default $false)) { return }
+
+    $arguments = @{SqlPlan=$Plan;RunId=$Selection.RunId;InstanceId=$Selection.InstanceId}
+    $entry = Read-LabConsoleTextInput -Prompt 'Geheimnis für das Database Scoped Credential' -AsSecureString
+    if ($entry.Value -isnot [SecureString]) { return }
+    try {
+        if ($entry.Status -cne 'Confirmed' -or -not $entry.Value.Length) { return }
+        try {
+            $applied = Invoke-SqlServerLabAiExternalModelSqlApply @arguments -PreflightReceipt $PreflightReceipt -CredentialSecret $entry.Value -Confirm:$false
+        } catch [Management.Automation.PipelineStoppedException] { throw }
+        catch {
+            Write-LabWarning 'SQL-Erstellung unbestätigt. Prüfe die gebundene Operation vor einer erneuten Ausführung.'
+            return
+        }
+    } finally { $entry.Value.Dispose() }
+    if ($applied.Status -cne 'SQL_EXTERNAL_MODEL_APPLIED' -or $applied.SqlPlanKey -cne $Plan.SqlPlanKey -or
+        $applied.RunId -cne $Selection.RunId -or $applied.InstanceId -cne $Selection.InstanceId) {
+        Write-LabWarning 'SQL-Erstellung unbestätigt. Die gebundene Apply-Quittung fehlt.'
+        return
+    }
+
+    Write-LabInfo ($applied | ConvertTo-Json -Depth 8)
+    while ($true) {
+        $choice = Select-LabConsoleDataItem -ScreenId 'external-model-sql-follow-up' -Title 'Angewendetes SQL External Model' -Subtitle $target -SelectedId 'return' -Items @(
+            New-LabConsoleItem -Id return -Label 'Zurück' -Data return
+            New-LabConsoleItem -Id embedding -Label 'Synthetisches Embedding prüfen' -Data embedding
+            New-LabConsoleItem -Id cleanup -Label 'Eigene SQL-Objekte entfernen' -Data cleanup
+        )
+        switch -CaseSensitive ($choice) {
+            'embedding' {
+                if (-not (Read-LabConfirm -Prompt "Synthetisches Embedding für $target prüfen?" -Default $false)) { break }
+                try {
+                    $embedding = Test-SqlServerLabAiExternalModelSqlEmbedding @arguments -ApplyReceipt $applied
+                    Write-LabInfo ($embedding | ConvertTo-Json -Depth 8)
+                } catch [Management.Automation.PipelineStoppedException] { throw }
+                catch { Write-LabWarning 'Embeddingprüfung unbestätigt. Prüfe Modell und Endpunkt vor einer Wiederholung.' }
+            }
+            'cleanup' {
+                if (-not (Read-LabConfirm -Prompt "Eigene SQL-Objekte in $target entfernen?" -Default $false)) { break }
+                try {
+                    $cleanup = Remove-SqlServerLabAiExternalModelSql @arguments -ApplyReceipt $applied -Confirm:$false
+                    Write-LabInfo ($cleanup | ConvertTo-Json -Depth 8)
+                } catch [Management.Automation.PipelineStoppedException] { throw }
+                catch { Write-LabWarning 'Bereinigung unbestätigt. Prüfe die gebundene Operation vor einer Wiederholung.' }
+                return
+            }
+            default { return }
+        }
+    }
+}
+
 function Invoke-LabGuidedExternalModelSqlPreflightInteractive {
     param($PreparedSqlPlan)
 
@@ -227,6 +290,7 @@ function Invoke-LabGuidedExternalModelSqlPreflightInteractive {
         $receipt = Test-SqlServerLabAiExternalModelSqlPreflight -SqlPlan $plan -RunId $selection.RunId -InstanceId $selection.InstanceId
         Write-LabInfo ($receipt | ConvertTo-Json -Depth 8)
         Write-LabInfo 'Die Quittung belegt die SQL-Vorprüfung. Die Objekterstellung ist ein eigener Schritt.'
+        Invoke-LabGuidedExternalModelSqlLifecycleInteractive -Plan $plan -PreflightReceipt $receipt -Selection $selection
     } catch [Management.Automation.PipelineStoppedException] { throw }
     catch { Write-LabWarning ('SQL-Zielprüfung unbestätigt · ' + (Get-LabGuidedExternalModelSqlPreflightCode -Message $_.Exception.Message)) }
     $null = Wait-LabConsoleAcknowledgement

@@ -1001,3 +1001,113 @@
     }
   });
 })();
+
+(function () {
+  'use strict';
+  const element = name => document.querySelector('#external-model-sql-lifecycle-' + name);
+  const dialog = element('dialog');
+  if (!dialog || !element('open')) return;
+  const form = element('form');
+  const source = element('source');
+  const stage = element('stage');
+  const secret = element('secret');
+  const consent = element('confirm');
+  const status = element('status');
+  const submit = element('submit');
+  let busy = false;
+
+  function readSource(id) {
+    const job = observedJobs.get(id);
+    if (!/^[a-f0-9]{32}$/.test(id) || job?.State !== 'Completed' || job.ExternalModelSqlMutationSubmitted) return null;
+    const preflight = job.Action === 'ReadExternalModelSqlPreflight';
+    if (!preflight && job.Action !== 'ApplyExternalModelSql') return null;
+    const receipt = job.ExternalModelSqlReceipt;
+    const kind = preflight ? 'Preflight' : 'Apply';
+    if (receipt?.Contract?.Name !== 'SqlServerLab.AiExternalModelSql' + kind + 'Receipt' ||
+        receipt.Contract.Version !== '1.0' ||
+        receipt.Status !== (preflight ? 'SQL_PREFLIGHT_VERIFIED' : 'SQL_EXTERNAL_MODEL_APPLIED') ||
+        !/^[a-f0-9]{64}$/.test(receipt.SqlPlanKey) ||
+        !/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/.test(receipt.RunId) ||
+        !/^[A-Za-z][A-Za-z0-9_-]{0,63}$/.test(receipt.InstanceId) ||
+        !/^[A-Za-z_][A-Za-z0-9_]{0,127}$/.test(receipt.DatabaseName)) return null;
+    const expires = Date.parse(receipt.VerifiedAtUtc) + 300000;
+    if (preflight && !(Date.now() < expires)) return null;
+    return {preflight, receipt};
+  }
+
+  function resetAction() {
+    consent.checked = false;
+    secret.value = '';
+    secret.disabled = stage.value !== 'apply';
+    secret.required = !secret.disabled;
+    element('secret-label').hidden = secret.disabled;
+    submit.disabled = busy || !stage.value;
+  }
+
+  function chooseSource() {
+    const current = readSource(source.value);
+    stage.replaceChildren(new Option('Aktion auswählen', ''));
+    if (current?.preflight) stage.add(new Option('External Model und Credential erstellen', 'apply'));
+    else if (current) {
+      stage.add(new Option('Synthetisches Embedding prüfen', 'embedding'));
+      stage.add(new Option('Eigene SQL-Objekte entfernen', 'cleanup'));
+    }
+    resetAction();
+  }
+
+  element('open').addEventListener('click', () => {
+    if (busy || dialog.open) return;
+    form.reset();
+    source.replaceChildren(new Option('Quittung auswählen', ''));
+    for (const id of observedJobs.keys()) {
+      const current = readSource(id);
+      if (!current) continue;
+      const {DatabaseName, RunId, InstanceId} = current.receipt;
+      const state = current.preflight ? 'Vorprüfung' : 'Erstellt';
+      source.add(new Option(state + ' · ' + DatabaseName + ' · Run ' + RunId + ' · ' + InstanceId, id));
+    }
+    chooseSource();
+    status.textContent = source.options.length <= 1
+      ? 'Keine passende Quittung in dieser Sitzung. Prüfe zuerst das SQL-Ziel für den Modellplan.' : '';
+    dialog.showModal();
+  });
+  source.addEventListener('change', chooseSource);
+  stage.addEventListener('change', resetAction);
+  element('close').addEventListener('click', () => dialog.close());
+  dialog.addEventListener('close', () => { form.reset(); resetAction(); });
+  form.addEventListener('submit', async event => {
+    event.preventDefault();
+    if (busy || !dialog.open || !form.reportValidity() || !consent.checked) return;
+    const current = readSource(source.value);
+    const action = stage.value;
+    const allowed = current && (current.preflight ? action === 'apply' : ['embedding','cleanup'].includes(action));
+    if (!allowed) { status.textContent = 'Diese Quittung ist für die Aktion nicht mehr verfügbar.'; return; }
+    const request = {SourceJobId:source.value, Confirmed:true};
+    if (action === 'apply') {
+      if (!secret.value || secret.value.length > 4000) return;
+      request.CredentialSecret = secret.value;
+    }
+    busy = true;
+    resetAction();
+    try {
+      const pending = readUiJobResponse('/api/ai-external-model/sql-' + action, {
+        method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(request)
+      }, 15000);
+      delete request.CredentialSecret;
+      const accepted = await pending;
+      const expectedAction = {apply:'ApplyExternalModelSql',embedding:'ReadExternalModelSqlEmbedding',cleanup:'RemoveExternalModelSql'}[action];
+      if (!/^[a-f0-9]{32}$/.test(accepted?.id) || accepted.action !== expectedAction) throw new Error('UNCONFIRMED');
+      dialog.close();
+      showWorkspaceArea('messages');
+      refreshJobs().catch(() => {});
+    } catch {
+      status.textContent = 'Annahme unbestätigt. Prüfe die Vorgänge vor einer erneuten Wahl.';
+      source.value = '';
+      chooseSource();
+    } finally {
+      delete request.CredentialSecret;
+      busy = false;
+      resetAction();
+    }
+  });
+})();

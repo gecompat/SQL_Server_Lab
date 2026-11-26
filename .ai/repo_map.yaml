@@ -251,6 +251,7 @@ sources_of_truth:
   ai_external_model_sql_plan_guidance: Private/AiExternalModelPlanGuidance.ps1, Public/Get-SqlServerLabAiExternalModelSqlPlan.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/ai-shared-gateway-plan.js, Tests/Static/Invoke-AiExternalModelAccelerationChecks.ps1
   ai_external_model_sql_plan_api: Public/Get-SqlServerLabAiExternalModelSqlPlan.ps1
   ai_external_model_sql_preflight_api: Public/Test-SqlServerLabAiExternalModelSqlPreflight.ps1, Private/AiExternalModelPlanGuidance.ps1, Tools/Start-SqlServerLabUi.ps1, Ui/ai-shared-gateway-plan.js, Tests/Static/Invoke-AiExternalModelAccelerationChecks.ps1
+  ai_external_model_sql_lifecycle_guidance: "Private/AiExternalModelPlanGuidance.ps1, Tools/WorkflowUiExternalModelSql.ps1, Tools/Start-SqlServerLabUi.ps1 und Ui/ai-shared-gateway-plan.js binden die geführten Schritte an die unveränderte Preflight- und Apply-Quittung; getrennte Bestätigung, flüchtiges Credential und kein automatischer Retry. Invoke-AiExternalModelAccelerationChecks.ps1 enthält HTTP-, UI- und CLI-Fixtures."
   ai_ovms_https_gateway: Private/AiOvmsHttpsGateway.ps1
   ai_ovms_https_gateway_guidance: Private/AiOvmsGatewayGuidance.ps1, Ui/ai-shared-gateway-plan.js, Public/BatchConsole.ps1, Tools/Start-SqlServerLabUi.ps1
   ai_ovms_https_gateway_worker: Tools/Invoke-OvmsHttpsGatewayWorker.ps1

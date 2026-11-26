@@ -154,6 +154,7 @@
       <button id="external-model-endpoint-open" type="button" class="button secondary">Geplanten HTTPS-Modellendpunkt prüfen</button>
       <button id="external-model-sql-plan-open" type="button" class="button secondary">SQL-Plan für bestätigten Modellendpunkt erstellen</button>
       <button id="external-model-sql-preflight-open" type="button" class="button secondary">SQL-Ziel für den Modellplan prüfen</button>
+      <button id="external-model-sql-lifecycle-open" type="button" class="button secondary">SQL-Objekte für den Modellplan verwalten</button>
       <button id="ovms-gateway-open" type="button" class="button secondary">Eigene OVMS-HTTPS-Sitzungen verwalten</button>
       <button id="persistent-fixture-open" type="button" class="button secondary">Persistente Retrieval-Collections</button>
       <button id="ai-scenario-plan-open" type="button" class="button secondary">Vector-Core-Szenarioplan lesen</button>
@@ -1640,6 +1641,21 @@
       </div>
     </form>
   </dialog>
+  <dialog id="external-model-sql-lifecycle-dialog" aria-labelledby="external-model-sql-lifecycle-title">
+    <h2 id="external-model-sql-lifecycle-title">SQL-Objekte für den Modellplan verwalten</h2>
+    <form id="external-model-sql-lifecycle-form">
+      <label>SQL-Quittung dieser Sitzung<select id="external-model-sql-lifecycle-source" required></select></label>
+      <label>Aktion<select id="external-model-sql-lifecycle-stage" required></select></label>
+      <label id="external-model-sql-lifecycle-secret-label" hidden>Geheimnis für das Database Scoped Credential<input id="external-model-sql-lifecycle-secret" type="password" maxlength="4000" autocomplete="off" disabled></label>
+      <label><input id="external-model-sql-lifecycle-confirm" type="checkbox" required> Aktion für das angezeigte SQL-Ziel bestätigen</label>
+      <p id="external-model-sql-lifecycle-status" role="status"></p>
+      <div class="dialog-actions">
+        <button id="external-model-sql-lifecycle-submit" type="submit" class="button">Ausführen</button>
+        <button id="external-model-sql-lifecycle-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </form>
+  </dialog>
+
   <dialog id="external-model-sql-preflight-dialog" aria-labelledby="external-model-sql-preflight-title">
     <h2 id="external-model-sql-preflight-title">SQL-Ziel für den Modellplan prüfen</h2>
     <p>Die Prüfung liest Datenbankzustand, Rechte und Objektnamen über den verwalteten SQL-Zugang.</p>

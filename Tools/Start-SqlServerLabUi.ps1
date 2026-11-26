@@ -128,6 +128,7 @@ Import-UiSqlServerLabModule -ModulePath $modulePath
 . (Join-Path $PSScriptRoot 'WorkflowUiOperator.ps1')
 . (Join-Path $PSScriptRoot 'WorkflowUiJsonBody.ps1')
 . (Join-Path $PSScriptRoot 'WorkflowUiCommandGrants.ps1')
+. (Join-Path $PSScriptRoot 'WorkflowUiExternalModelSql.ps1')
 . (Join-Path $PSScriptRoot 'WorkflowUiTlsLiveQualification.ps1')
 . (Join-Path $PSScriptRoot 'WorkflowUiTlsCreation.ps1')
 . (Join-Path $PSScriptRoot '..\Private\EnvironmentGroupsBrowserHttp.ps1')
@@ -189,11 +190,12 @@ function Get-UiJobSnapshot {
     param([Parameter(Mandatory)]$Record)
 
     $output = @()
+    $isExternalModelSqlJob = $Record.Action -cmatch '^(ReadExternalModelSql(Preflight|Embedding)|ApplyExternalModelSql|RemoveExternalModelSql)$'
     try {
         # Die UI-Meldungen sind Information-Records, damit sie nicht in der
         # Ergebnisvariable eines langen Fachbefehls verschwinden. Hier werden
         # sie bewusst in den Snapshot aufgenommen.
-        if ($Record.Action -cin @('ReadExternalModelSqlPreflight','RestoreHyperVLibraryBackup','BackupHyperVLibraryDatabase')) {
+        if ($isExternalModelSqlJob -or $Record.Action -cin @('RestoreHyperVLibraryBackup','BackupHyperVLibraryDatabase')) {
             $output = @(Receive-Job -Job $Record.Job -Keep -ErrorAction SilentlyContinue 2>$null 6>$null)
         } else {
             $output = @(Receive-Job -Job $Record.Job -Keep -ErrorAction SilentlyContinue 2>&1 6>&1)
@@ -204,12 +206,15 @@ function Get-UiJobSnapshot {
             @('[FEHLER] HYPERV_LIBRARY_BACKUP_UNCONFIRMED')
         } elseif ($Record.Action -ceq 'RestoreHyperVLibraryBackup') {
             @('[FEHLER] HYPERV_LIBRARY_RESTORE_UNCONFIRMED')
-        } elseif ($Record.Action -ceq 'ReadExternalModelSqlPreflight') {
+        } elseif ($isExternalModelSqlJob) {
             @('[FEHLER] AI_EXTERNAL_MODEL_SQL_PREFLIGHT_UNCONFIRMED')
         } else { @($_) }
     }
     $lines = @($output | ForEach-Object {
-        $line = ($_ | Out-String).Trim()
+        $line = if ($isExternalModelSqlJob -and
+            $_.PSObject.Properties['UiExternalModelSqlReceipt']) {
+            '[ERGEBNIS] ' + ($_.UiExternalModelSqlReceipt | ConvertTo-Json -Depth 8 -Compress)
+        } else { ($_ | Out-String).Trim() }
         if ($line) { $line }
     })
     $burstLimit = [int]$JobLogBurstLimit
@@ -237,7 +242,7 @@ function Get-UiJobSnapshot {
         $Record.LastObservedLineCount = $lines.Count
         $Record.LastActivityAt = (Get-Date).ToUniversalTime().ToString('o')
     }
-    [PSCustomObject]@{
+    $view = [PSCustomObject]@{
         Id = $Record.Id
         Action = $Record.Action
         State = $state
@@ -246,6 +251,14 @@ function Get-UiJobSnapshot {
         LastActivityAt = $Record.LastActivityAt
         Lines = $newLines
     }
+    if ($state -eq 'Completed' -and $Record.Action -cin @('ReadExternalModelSqlPreflight','ApplyExternalModelSql')) {
+        $records = @($output | Where-Object { $_.PSObject.Properties['UiExternalModelSqlReceipt'] })
+        if ($records.Count -eq 1) {
+            $view | Add-Member -NotePropertyName ExternalModelSqlReceipt -NotePropertyValue $records[0].UiExternalModelSqlReceipt
+            $view | Add-Member -NotePropertyName ExternalModelSqlMutationSubmitted -NotePropertyValue ([bool]$Record.ExternalModelSqlMutationSubmitted)
+        }
+    }
+    $view
 }
 
 function Get-UiHyperVLibraryRequest {
@@ -335,10 +348,15 @@ function Start-UiWorkflowJob {
                 $invokeParameters['SaPassword'] = ConvertTo-SecureString -String $plainPassword -AsPlainText -Force
             }
             Write-Output "[START] $JobAction"
-            if ($JobAction -ceq 'ReadExternalModelSqlPreflight') {
-                $receipt = Test-SqlServerLabAiExternalModelSqlPreflight @invokeParameters
-                Write-Output ('[ERGEBNIS] ' + ($receipt | ConvertTo-Json -Depth 8 -Compress))
-                Write-Output '[OK] SQL-Zielprüfung bestätigt.'
+            if ($JobAction -cmatch '^(ReadExternalModelSql(Preflight|Embedding)|ApplyExternalModelSql|RemoveExternalModelSql)$') {
+                $receipt = switch -CaseSensitive ($JobAction) {
+                    'ReadExternalModelSqlPreflight' { Test-SqlServerLabAiExternalModelSqlPreflight @invokeParameters 3>$null 4>$null 5>$null 6>$null }
+                    'ApplyExternalModelSql' { Invoke-SqlServerLabAiExternalModelSqlApply @invokeParameters -Confirm:$false 3>$null 4>$null 5>$null 6>$null }
+                    'ReadExternalModelSqlEmbedding' { Test-SqlServerLabAiExternalModelSqlEmbedding @invokeParameters 3>$null 4>$null 5>$null 6>$null }
+                    'RemoveExternalModelSql' { Remove-SqlServerLabAiExternalModelSql @invokeParameters -Confirm:$false 3>$null 4>$null 5>$null 6>$null }
+                }
+                Write-Output ([pscustomobject]@{UiExternalModelSqlReceipt=$receipt})
+                Write-Output '[OK] SQL-Auftrag bestätigt.'
                 return
             }
             if ($JobAction -ceq 'BackupHyperVLibraryDatabase') {
@@ -485,11 +503,17 @@ function Start-UiWorkflowJob {
                 Write-Output ('[FEHLER] ' + $code)
                 throw $code
             }
+            if ($JobAction -cin @('ApplyExternalModelSql','ReadExternalModelSqlEmbedding','RemoveExternalModelSql')) {
+                Write-Output '[FEHLER] AI_EXTERNAL_MODEL_SQL_BROWSER_OUTCOME_UNCONFIRMED'
+                throw 'AI_EXTERNAL_MODEL_SQL_BROWSER_OUTCOME_UNCONFIRMED'
+            }
             Write-Output "[FEHLER] $($_.Exception.Message)"
             throw
         }
         finally {
-            if ($JobAction -cin @('RestoreHyperVLibraryBackup','BackupHyperVLibraryDatabase')) {
+            if ($JobAction -ceq 'ApplyExternalModelSql') {
+                $JobParameters.CredentialSecret.Dispose()
+            } elseif ($JobAction -cin @('RestoreHyperVLibraryBackup','BackupHyperVLibraryDatabase')) {
                 foreach ($name in @('GuestPassword','SaPassword')) {
                     if ($JobParameters[$name] -is [SecureString]) { $JobParameters[$name].Dispose() }
                 }
@@ -497,10 +521,20 @@ function Start-UiWorkflowJob {
             Remove-Variable -Name SqlServerLabUiCaptureOutput -Scope Global -ErrorAction SilentlyContinue
         }
     }
-    return [PSCustomObject]@{
+    $record = [pscustomobject]@{
         Id = $id; Action = $Action; StartedAt = (Get-Date).ToUniversalTime().ToString('o')
         LastActivityAt = (Get-Date).ToUniversalTime().ToString('o'); LastObservedLineCount = 0; Job = $job
     }
+    if ($Action -cin @('ReadExternalModelSqlPreflight','ApplyExternalModelSql')) {
+        $record | Add-Member -NotePropertyName ExternalModelSqlBinding -NotePropertyValue @{
+            SqlPlan=$Parameters.SqlPlan; RunId=$Parameters.RunId; InstanceId=$Parameters.InstanceId
+        }
+        $record | Add-Member -NotePropertyName ExternalModelSqlMutationSubmitted -NotePropertyValue $false
+        if ($Action -ceq 'ApplyExternalModelSql' -and $Parameters.ContainsKey('CredentialSecret')) {
+            $record | Add-Member -NotePropertyName ExternalModelSqlJobSecret -NotePropertyValue $Parameters.CredentialSecret
+        }
+    }
+    $record
 }
 
 function Start-UiPublicCommandJob {
@@ -1780,6 +1814,35 @@ try {
                 }
                 continue
             }
+            if ($path -cmatch '^/api/ai-external-model/sql-(apply|embedding|cleanup)$') {
+                $stage = $Matches[1]
+                try {
+                    if ($context.Request.HttpMethod -cne 'POST' -or $context.Request.Url.Query -or
+                        $context.Request.ContentType -notmatch '^application/json(?:\s*;|$)' -or
+                        [string]$context.Request.Headers['Origin'] -cne $url.TrimEnd('/')) {
+                        throw 'AI_EXTERNAL_MODEL_SQL_BROWSER_FORM_INVALID'
+                    }
+                    $bodyRead = Read-UiJsonRequestBody -Request $context.Request -MaxBytes 32768
+                    if (-not $bodyRead.Allowed) {
+                        Write-UiResponse -Context $context -Body $bodyRead.Code -StatusCode $bodyRead.StatusCode -NoStore
+                        continue
+                    }
+                    $lifecycleRequest = Get-UiExternalModelSqlLifecycleRequest -Body $bodyRead.Body -Stage $stage
+                    $bodyRead = $null
+                    $record = Start-UiExternalModelSqlLifecycle -Jobs $jobs -Stage $stage -Request $lifecycleRequest
+                    Write-UiResponse -Context $context -Body (@{id=$record.Id;action=$record.Action} | ConvertTo-Json -Compress) -ContentType 'application/json; charset=utf-8' -StatusCode 202 -NoStore
+                } catch {
+                    $code = [string]$_.Exception.Message
+                    $statusCode = if ($code -cin @('AI_EXTERNAL_MODEL_SQL_BROWSER_SOURCE_UNAVAILABLE','AI_EXTERNAL_MODEL_SQL_BROWSER_ACTIVE')) { 409 }
+                        else { $code = 'AI_EXTERNAL_MODEL_SQL_BROWSER_REQUEST_UNCONFIRMED'; 400 }
+                    Write-UiResponse -Context $context -Body (@{Code=$code} | ConvertTo-Json -Compress) -ContentType 'application/json; charset=utf-8' -StatusCode $statusCode -NoStore
+                } finally {
+                    if ($lifecycleRequest -and $lifecycleRequest.CredentialSecret) { $lifecycleRequest.CredentialSecret.Dispose() }
+                    $lifecycleRequest = $null
+                    $bodyRead = $null
+                }
+                continue
+            }
             if ($path -ceq '/api/ai-external-model/endpoint') {
                 try {
                     if ($context.Request.HttpMethod -cne 'POST' -or $context.Request.Url.Query -or
@@ -2087,6 +2150,9 @@ try {
                 $request = $body | ConvertFrom-Json -Depth 8
                 $action = [string]$request.action
                 if ($action -eq 'ReadExternalModelSqlPreflight') { throw 'AI_EXTERNAL_MODEL_SQL_PREFLIGHT_DIRECT_ENDPOINT_REQUIRED' }
+                if ($action -in @('ApplyExternalModelSql','ReadExternalModelSqlEmbedding','RemoveExternalModelSql')) {
+                    throw 'AI_EXTERNAL_MODEL_SQL_BROWSER_DIRECT_ENDPOINT_REQUIRED'
+                }
                 if ($action -eq 'RestoreHyperVLibraryBackup') { throw 'HYPERV_LIBRARY_RESTORE_DIRECT_ENDPOINT_REQUIRED' }
                 if ($action -eq 'BackupHyperVLibraryDatabase') { throw 'HYPERV_LIBRARY_BACKUP_DIRECT_ENDPOINT_REQUIRED' }
                 if ($action -in @('InitializeCms','AdoptCms')) {
@@ -2315,6 +2381,7 @@ finally {
             Write-Host "Job $($record.Id) ($($record.Action)) bereits abgeschlossen (Zustand '$state')." -ForegroundColor DarkGray
         }
         Remove-Job -Job $job -Force -ErrorAction SilentlyContinue
+        if ($record.PSObject.Properties['ExternalModelSqlJobSecret']) { $record.ExternalModelSqlJobSecret.Dispose() }
     }
     if ($jobs.Count -gt 0) { Write-Host 'UI-Job-Bereinigung abgeschlossen.' -ForegroundColor DarkGray }
     } finally {

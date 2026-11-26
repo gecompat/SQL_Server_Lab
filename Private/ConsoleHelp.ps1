@@ -204,6 +204,22 @@ function Get-LabConsoleHelpCatalog {
         }
         'resources-menu' = @{ Title = 'Ressourcen und Downloads'; Purpose = 'Vorhandene Fachabläufe auswählen. Nicht implementierte Abläufe sind deaktiviert und begründet.'; Effects = 'Die Bereichsauswahl ändert nichts. Zurück und Esc verlassen den Bereich.'; Command = 'Get-SqlServerLabResourcePlan' }
         'resource-plan-selection' = @{ Title = 'Lokaler Ressourcenbedarf'; Purpose = 'Die Prüfung auf Beispieldaten, Windows-/Hyper-V-Laufzeitmedien oder beide Arten eingrenzen.'; Effects = 'Die gewählte Prüfung liest die konfigurierten Ordner und zeigt den Beschaffungsbedarf. Sie lädt nichts herunter.'; Command = 'Get-SqlServerLabResourcePlan' }
+        'external-model-sql-apply' = @{
+            Title = 'Geprüftes SQL-Ziel'
+            Purpose = 'Zeigt Datenbank, Run und Instanz aus der bestätigten Vorprüfung.'
+            Effects = 'Erst die getrennte Bestätigung und die maskierte Eingabe erstellen das eigene External Model und Credential. Zurück beendet die Auswahl ohne Anlage.'
+            Command = 'Invoke-SqlServerLabAiExternalModelSqlApply'
+        }
+        'external-model-sql-follow-up' = @{
+            Title = 'Angewendetes SQL External Model'
+            Purpose = 'Prüft ein synthetisches Embedding oder entfernt die gebundenen eigenen SQL-Objekte.'
+            Effects = 'Jede Aktion verlangt eine eigene Bestätigung. Zurück lässt die Objekte bestehen. Bei unbestätigtem Ausgang den ursprünglichen Vorgang prüfen.'
+            Command = 'Test-SqlServerLabAiExternalModelSqlEmbedding'
+            Items = @{
+                embedding = @{ Purpose = 'Führt einen festen Embeddingaufruf aus.'; Command = 'Test-SqlServerLabAiExternalModelSqlEmbedding' }
+                cleanup = @{ Purpose = 'Entfernt die drei durch die Quittung gebundenen eigenen Objekte.'; Command = 'Remove-SqlServerLabAiExternalModelSql' }
+            }
+        }
         'hostmodels-menu' = @{ Title = 'Host-Dienste und Modelle'; Purpose = 'Vorhandene Fachabläufe auswählen, etwa installierte llama.cpp-Pakete prüfen oder eine eigene Sitzung stoppen.'; Effects = 'Die Paketübersicht liest Backend und Build aus lokalen Dateibefunden. Zurück und Esc verlassen den Bereich.'; Command = 'Get-SqlServerLabLlamaCppRuntime' }
         'ai-shared-gateway-plan-backend' = @{
             Title = 'Gemeinsamen Embedding-Gateway planen'
