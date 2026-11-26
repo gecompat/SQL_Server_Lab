@@ -216,6 +216,16 @@ try {
         if (-not $endpointUi.WaitForExit(15000)) { $endpointUi.Kill(); throw 'GUIDED_ENDPOINT_UI_TIMEOUT' }
         Add-CheckResult 'Browser-Endpunktdialog bestätigt und projiziert genau die passende Probe' ($endpointUi.ExitCode -eq 0)
     } finally { $endpointUi.Dispose() }
+    $lifecycleHttp = & (Join-Path $PSScriptRoot 'Fixtures/AiExternalModelSqlLifecycleHttpChecks.ps1') -RepositoryRoot $repoRoot
+    Add-CheckResult 'Geführte SQL-Änderungen binden einen bestätigten eigenen Browserauftrag' (
+        [string]$lifecycleHttp -ceq 'GUIDED EXTERNAL MODEL SQL HTTP: PASS (20 synthetic boundary cases)')
+    $start.ArgumentList.Clear()
+    $start.ArgumentList.Add((Join-Path $PSScriptRoot 'Fixtures/AiExternalModelSqlLifecycleUiChecks.cjs'))
+    $lifecycleUi = [Diagnostics.Process]::Start($start)
+    try {
+        if (-not $lifecycleUi.WaitForExit(15000)) { $lifecycleUi.Kill(); throw 'GUIDED_SQL_LIFECYCLE_UI_TIMEOUT' }
+        Add-CheckResult 'Browserdialog bindet Erstellung, Embedding und Bereinigung getrennt' ($lifecycleUi.ExitCode -eq 0)
+    } finally { $lifecycleUi.Dispose() }
     $receipt=& $module {param($p,$t)Invoke-LabAiExternalModelEndpointProbe -Plan $p -Transport $t} $probePlan $transport
     Add-CheckResult 'Read-only Probe sendet genau den festen OpenAI-Embeddingrequest' (
         $requestCapture.Value.Method -eq 'POST' -and $requestCapture.Value.Path -eq '/v1/embeddings' -and

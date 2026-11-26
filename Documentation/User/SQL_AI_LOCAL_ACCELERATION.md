@@ -158,6 +158,12 @@ erstellen**. Bestätige die angezeigte Datenbank, den Run und die Instanz, bevor
 du das Credential-Secret eingibst. Nach der bestätigten Erstellung kannst du in
 derselben Menüsitzung das synthetische Embedding prüfen oder die eigenen
 SQL-Objekte entfernen. Beide Aktionen verlangen eine eigene Bestätigung.
+Im Browser findest du dieselben Schritte unter **Host-Dienste und Modelle →
+SQL-Objekte für den Modellplan verwalten**. Wähle für die Erstellung die
+erfolgreiche Vorprüfung und für die Folgeaktionen die Erstellungsquittung dieser
+Sitzung. Der Browser verwendet die Quittung aus dem lokalen Vorgang. Bei einem
+unbestätigten Ergebnis prüfe den ursprünglichen Vorgang.
+
 Beim Verlassen des Menüs bleiben die erstellten Objekte bestehen. Für die
 Wiederaufnahme nach einer verlorenen Antwort gelten die unten beschriebenen
 Befehle und Quittungen.

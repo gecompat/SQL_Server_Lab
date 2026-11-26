@@ -88,6 +88,19 @@ vor Jobannahme gegen Schema und Hash geprüft und bindet im Worker die
 aktuelle Zielinstanz erneut. Der Worker veröffentlicht die Vorprüfquittung
 oder einen festen Fehlercode. Datenbankzugang bleibt serverseitig.
 
+Die Routen `/api/ai-external-model/sql-apply`,
+`/api/ai-external-model/sql-embedding` und `/api/ai-external-model/sql-cleanup`
+verlangen Operator-Capability, dieselbe Origin, JSON und eine ausdrückliche
+Bestätigung. Der Request übergibt die ID eines abgeschlossenen eigenen
+Browserauftrags. Plan, Quittung, Run und Instanz werden aus dessen gehaltenem
+Ergebnis übernommen und vom SQL-Befehl erneut geprüft. Die Anlage nimmt das
+Credential-Secret nur für den flüchtigen Job entgegen. Es wird als
+`SecureString` an den Worker gegeben und beim Beenden freigegeben.
+Anlage und Cleanup verbrauchen die Quittung für diese Browseraktion vor der
+Jobanlage. Bei unbestätigter Annahme bleibt der ursprüngliche Vorgang maßgeblich.
+Die allgemeine Workflow-Route weist diese drei Aktionen vor der Jobanlage ab.
+Die SQL-Befehle behalten ihre eigene Journal- und Recovery-Semantik.
+
 ## Acht interne Fachreader
 
 CMS-Inspection, Initial Setup, Slotreserve, Resource Watch, llama.cpp-Installer,
