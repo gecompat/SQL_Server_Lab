@@ -1288,7 +1288,7 @@ try {
                 }
                 continue
             }
-            if ($path -cin @('/api/ssis-execution-diagnostic', '/api/ssis-package-diagnostic')) {
+            if ($path -cin @('/api/ssis-execution-diagnostic', '/api/ssis-package-diagnostic', '/api/ssis-catalog-capability')) {
                 try {
                     $request = $context.Request
                     if ($request.HttpMethod -cne 'POST' -or $request.ContentType -cnotmatch '^application/json(?:;\s*charset=utf-8)?$' -or
@@ -1299,6 +1299,7 @@ try {
                     $view = & (Get-Module SqlServerLab) {
                         param($json, $route)
                         if ($route -ceq '/api/ssis-package-diagnostic') { Invoke-LabSsisPackageDiagnosticBrowser -Json $json }
+                        elseif ($route -ceq '/api/ssis-catalog-capability') { Invoke-LabSsisCatalogCapabilityBrowser -Json $json }
                         else { Invoke-LabSsisExecutionDiagnosticBrowser -Json $json }
                     } $body $path
                     Write-UiResponse -Context $context -Body ($view | ConvertTo-Json -Depth 4 -Compress) -ContentType 'application/json; charset=utf-8'

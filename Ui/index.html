@@ -1303,6 +1303,18 @@
       </div>
     </form>
   </dialog>
+  <dialog id="ssis-capability-dialog">
+    <form id="ssis-capability-form">
+      <h2>SSIS-Katalogvoraussetzungen</h2>
+      <p id="ssis-capability-target"></p>
+      <p>Liest SQL-Version, SSIS-Komponenten und SSISDB-Katalogstatus. Die Abnahme einer SSIS-Ausführung ist eine eigene Prüfung.</p>
+      <p id="ssis-capability-status" role="status"></p>
+      <div class="build-actions">
+        <button id="ssis-capability-read" type="submit" class="button primary">Voraussetzungen lesen</button>
+        <button id="ssis-capability-close" type="button" class="button secondary">Schließen</button>
+      </div>
+    </form>
+  </dialog>
   <script src="ssis-execution-diagnostic.js"></script>
   <dialog id="ssis-package-dialog">
     <form id="ssis-package-form" autocomplete="off">

@@ -61,18 +61,78 @@ function Write-LabSsisDiagnosticSummary {
     }
 }
 
+function ConvertTo-LabSsisCatalogCapabilitySummary {
+    param([Parameter(Mandatory)]$Result,[Parameter(Mandatory)][guid]$RunId,[Parameter(Mandatory)][string]$InstanceId)
+
+    if ($Result.ContractVersion -cne 'SqlServerLab.SsisCatalogCapability/1.0' -or $Result.ReadOnly -isnot [bool] -or -not $Result.ReadOnly -or
+        $Result.Target.RunId -cne $RunId.ToString() -or $Result.Target.InstanceId -cne $InstanceId -or
+        $Result.Status -cnotin @('READY_FOR_FIXTURE_IMPLEMENTATION','BLOCKED') -or
+        $Result.ReasonCode -cnotin @('NONE','WINDOWS_HOST_REQUIRED','TARGET_UNAVAILABLE','BINDING_CHANGED','PROBE_UNAVAILABLE') -or
+        $Result.Sql.Status -cnotin @('SQL_2019_OBSERVED','SQL_2022_OBSERVED','SQL_2025_OBSERVED','VERSION_UNSUPPORTED','UNKNOWN') -or
+        $Result.Ssis.DefaultPathComponents -cnotin @('OBSERVED','NOT_OBSERVED','UNKNOWN') -or
+        $Result.Ssis.Catalog -cnotin @('MISSING','NOT_ONLINE','ONLINE_UNVERIFIED','ONLINE_CATALOG_OBSERVED','UNKNOWN')) {
+        throw 'SSIS_DIAGNOSTIC_RESULT_INVALID'
+    }
+    [pscustomobject]@{
+        Status = $Result.Status
+        Reason = $Result.ReasonCode
+        Sql = $Result.Sql.Status
+        Components = $Result.Ssis.DefaultPathComponents
+        Catalog = $Result.Ssis.Catalog
+    }
+}
+
+function Invoke-LabSsisCatalogCapabilityInteractive {
+    $stateRoot = Get-LabStateRoot
+    $items = [Collections.Generic.List[object]]::new()
+    foreach ($run in @(Get-LabActiveRuns -StateRoot $stateRoot -NoWrite)) {
+        if ($run.state -cne 'RUNNING' -or $run.metadata.workflowKind -cne 'hyperv-lab') { continue }
+        try {
+            $runId = Assert-LabSsisDiagnosticGuid $run.runId
+            $connectionPath = Join-Path (Join-Path (Join-Path $stateRoot 'runs') $runId.ToString()) 'connection-info.json'
+            $connection = Read-LabDiagnosticJson -Path $connectionPath
+        } catch { continue }
+        foreach ($instance in @($connection.instances)) {
+            if ($instance.provider -cne 'hyperv' -or $instance.workload -cne 'sql' -or $instance.sqlVersion -cnotin @('2019','2022','2025') -or
+                $instance.id -cnotmatch '^[A-Za-z][A-Za-z0-9_-]{0,63}$') { continue }
+            $label = ([string]$run.metadata.name -replace '[\p{C}]','').Trim()
+            if (-not $label) { $label = 'Run '+$runId.ToString().Substring(0,8) }
+            $items.Add((New-LabConsoleItem -Id "$runId/$($instance.id)" -Label $label -Value "SQL $($instance.sqlVersion) · $($instance.id)" -Data @{
+                RunId=$runId; InstanceId=[string]$instance.id; StateRoot=$stateRoot
+            }))
+        }
+    }
+    if (-not $items.Count) { Write-LabWarning 'Keine laufende registrierte Hyper-V-SQL-Instanz gefunden.'; return }
+    $items.Add((New-LabConsoleItem -Id back -Label 'Zurück / Abbrechen' -Shortcut 0))
+    $selected = Invoke-LabConsoleMenu -ScreenId 'ssis-catalog-capability-target' -Title 'SSIS-Katalogvoraussetzungen' -Items $items.ToArray()
+    if ($selected.Status -cne 'Selected' -or $selected.SelectedItem.Id -ceq 'back') { return }
+    $target = $selected.SelectedItem.Data
+    if (-not (Read-LabConfirm -Prompt "SSIS-Katalogvoraussetzungen für $($selected.SelectedItem.Label) / $($target.InstanceId) lesen?" -Default $false)) { return }
+    $observed = Get-SqlServerLabSsisCatalogCapability @target
+    $view = ConvertTo-LabSsisCatalogCapabilitySummary -Result $observed -RunId $target.RunId -InstanceId $target.InstanceId
+    Write-LabInfo ("SSIS-Katalog: {0} · SQL: {1} · Komponenten: {2} · Katalogstatus: {3}" -f $view.Status,$view.Sql,$view.Components,$view.Catalog)
+    if ($view.Reason -cne 'NONE') { Write-LabWarning $view.Reason }
+    Write-LabInfo 'Gelesen werden die Voraussetzungen. Die Abnahme einer SSIS-Ausführung ist eine eigene Prüfung.'
+}
+
 function Invoke-LabSsisDiagnosticsInteractive {
     [CmdletBinding()]
     param()
     $arguments=@{}
     try{
         $kindChoice=Invoke-LabConsoleMenu -ScreenId 'ssis-diagnostic-kind' -Title 'SSIS-Diagnose am bestehenden Windows-Lab' `
-            -Subtitle 'Nur eigene laufende Hyper-V-Runs. Beide Wege beobachten; sie starten oder reparieren nichts.' -Items @(
+            -Subtitle 'Nur eigene laufende Hyper-V-Runs. Wähle die benötigte SSIS-Beobachtung.' -Items @(
+                New-LabConsoleItem -Id Capability -Label 'SSIS-Katalogvoraussetzungen prüfen'
                 New-LabConsoleItem -Id Package -Label 'Eigenes DTSX/ISPAC im Gast laden und Komponenten beobachten'
                 New-LabConsoleItem -Id Execution -Label 'Bestehende SQL-2025-SSISDB-Ausführung read-only beobachten'
                 New-LabConsoleItem -Id back -Label 'Zurück / Abbrechen' -Shortcut 0
             )
         if($kindChoice.Status-cne'Selected'-or$kindChoice.SelectedItem.Id-ceq'back'){return}
+        if ($kindChoice.SelectedItem.Id -ceq 'Capability') {
+            Invoke-LabSsisCatalogCapabilityInteractive
+            $null = Wait-LabConsoleAcknowledgement
+            return
+        }
         if($kindChoice.SelectedItem.Id-cnotin@('Package','Execution')){throw 'SSIS_DIAGNOSTIC_INPUT_INVALID'}
         $kind=[string]$kindChoice.SelectedItem.Id
         $runId=Assert-LabSsisDiagnosticGuid (Read-LabSsisDiagnosticText -Prompt 'RunId des bereits laufenden eigenen Windows-/Hyper-V-Labs')

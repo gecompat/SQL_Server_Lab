@@ -845,6 +845,7 @@ function renderHyperVLabs(items) {
       (runningSql && !sqlNeedsCompletion) ? '<button class="button primary" data-hyperv-action="EnableHyperVLabHostSqlAccess" data-run="' + escapeHtml(item.RunId) + '">Hostzugriff reparieren</button>' : '',
       runningSql ? '<button class="button secondary" data-hyperv-action="InspectHyperVLabSqlInstances" data-run="' + escapeHtml(item.RunId) + '">SQL-Instanzen prüfen</button>' : '',
       window.sqlServerLabHyperVLibraryRestore?.renderActions(item, runningSql) || '',
+      window.sqlServerLabSsisCapability?.renderAction(item, runningSql) || '',
       runningSql && window.sqlServerLabHyperVLibraryRestore?.getWindowsScriptTarget(item.RunId, item.InstanceId)
         ? '<button class="button secondary" data-container-operation="ExecuteHyperVLabScript" data-container-operation-kind="hyperv" data-run="' + escapeHtml(item.RunId) + '" data-instance="' + escapeHtml(item.InstanceId) + '">SQL-Skript ausführen</button>' : '',
       '<button class="button secondary" data-hyperv-action="OpenHyperVConsole" data-run="' + escapeHtml(item.RunId) + '">VMConnect öffnen</button>',

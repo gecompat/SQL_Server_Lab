@@ -27,7 +27,7 @@ function Reset-SsisConsole([string[]]$Menus,[object[]]$Texts,[bool[]]$Confirmati
     $script:confirmAnswers=[Collections.Generic.Queue[bool]]::new();foreach($value in $Confirmations){$script:confirmAnswers.Enqueue($value)}
     $script:seenScreens.Clear();$script:messages.Clear();$script:dispatches.Clear();$script:maskFlags.Clear()
 }
-function New-LabConsoleItem {param($Id,$Label,$Value,$Shortcut,$Disabled,$DisabledReason,$Help);[pscustomobject]@{Id=$Id;Label=$Label;Value=$Value;Shortcut=$Shortcut;Disabled=$Disabled;DisabledReason=$DisabledReason;Help=$Help}}
+function New-LabConsoleItem {param($Id,$Label,$Value,$Shortcut,$Disabled,$DisabledReason,$Help,$Data);[pscustomobject]@{Data=$Data;Id=$Id;Label=$Label;Value=$Value;Shortcut=$Shortcut;Disabled=$Disabled;DisabledReason=$DisabledReason;Help=$Help}}
 function Invoke-LabConsoleMenu {param($ScreenId,$Title,$Subtitle,$Items);$script:seenScreens.Add($ScreenId);$answer=$script:menuAnswers.Dequeue();$item=@($Items|Where-Object Id -CEQ $answer)[0];[pscustomobject]@{Status='Selected';SelectedItem=$item}}
 function Read-LabConsoleTextInput {param($Prompt,[string]$Default,[switch]$MaskInput);$script:maskFlags.Add([bool]$MaskInput);$value=$script:textAnswers.Dequeue();[pscustomobject]@{Status='Confirmed';Value=$value}}
 function Read-LabConfirm {param($Prompt,[bool]$Default);$script:confirmAnswers.Dequeue()}
@@ -35,6 +35,32 @@ function Write-LabInfo {param($Message);$script:messages.Add([string]$Message)}
 function Write-LabWarning {param($Message);$script:messages.Add([string]$Message)}
 function Get-SqlServerLabSsisPackageDiagnostic {param($RunId,$InstanceId,$IspacPath,$PackageName,$PackagePath,$ExpectedSha256,$TimeoutSeconds);$script:dispatches.Add([pscustomobject]@{Kind='Package';Args=$PSBoundParameters});[pscustomobject]@{Status='OBSERVED';ReasonCode='NONE';Observation=[pscustomobject]@{Runtime=[pscustomobject]@{FileVersion='17.0.1000.7'};LoadStatus='RETURNED';Events=@([pscustomobject]@{Kind='WARNING';Code=123})}}}
 function Get-SqlServerLabSsisExecutionDiagnostic {param($RunId,$InstanceId,$ExecutionId,$ExpectedProjectLsn,$ExpectedCatalogDatabaseGuid,$TimeoutSeconds);$script:dispatches.Add([pscustomobject]@{Kind='Execution';Args=$PSBoundParameters});[pscustomobject]@{Status='OBSERVED';ReasonCode='NONE';Observation=[pscustomobject]@{Snapshot=[pscustomobject]@{ObservedExecutionStatus=7};Worker=[pscustomobject]@{Status='NOT_REPORTED'};ErrorCodes=@()}}}
+function Get-LabStateRoot { [IO.Path]::GetTempPath() }
+function Get-LabActiveRuns {
+    param($StateRoot,[switch]$NoWrite)
+    if (-not $NoWrite) { throw 'Fixture expected a read-only list' }
+    [pscustomobject]@{runId='11111111-1111-1111-1111-111111111111';state='RUNNING';metadata=@{workflowKind='hyperv-lab';name='Synthetic lab'}}
+    [pscustomobject]@{runId='22222222-2222-2222-2222-222222222222';state='STOPPED';metadata=@{workflowKind='hyperv-lab';name='Stopped'}}
+}
+function Read-LabDiagnosticJson {
+    param($Path)
+    if ($Path -notmatch '11111111-1111-1111-1111-111111111111'){throw 'Fixture target changed'}
+    [pscustomobject]@{instances=@(
+        [pscustomobject]@{provider='hyperv';workload='sql';sqlVersion='2025';id='primary'}
+        [pscustomobject]@{provider='hyperv';workload='windows';sqlVersion='2025';id='windows'}
+    )}
+}
+function Get-SqlServerLabSsisCatalogCapability {
+    [CmdletBinding()]
+    param($RunId,$InstanceId,$StateRoot)
+    $script:dispatches.Add([pscustomobject]@{Kind='Capability';Args=$PSBoundParameters})
+    [pscustomobject]@{
+        ContractVersion='SqlServerLab.SsisCatalogCapability/1.0';ReadOnly=$true
+        Target=@{RunId=$RunId.ToString();InstanceId=$InstanceId};Status='READY_FOR_FIXTURE_IMPLEMENTATION';ReasonCode='NONE'
+        Sql=@{Status='SQL_2025_OBSERVED'};Ssis=@{DefaultPathComponents='OBSERVED';Catalog='ONLINE_CATALOG_OBSERVED'}
+        PrivateDetail='PRIVATE_CANARY'
+    }
+}
 function Wait-LabConsoleAcknowledgement {}
 function Get-CommandInfo {param($Name);$null}
 function Get-LabConsoleTextInput {param($Prompt,$Default,[switch]$MaskInput);$null}
@@ -68,6 +94,16 @@ try{
     Invoke-LabSsisDiagnosticsInteractive
     Assert-SsisConsole ($dispatches.Count-eq0) 'Declining the package trust confirmation performs no diagnostic call'
 
+    $catalogTarget='11111111-1111-1111-1111-111111111111/primary'
+    Reset-SsisConsole @('Capability',$catalogTarget) @() @($false)
+    Invoke-LabSsisDiagnosticsInteractive
+    Assert-SsisConsole ($dispatches.Count -eq 0) 'Cancelled capability selection performs no guest observation'
+    Reset-SsisConsole @('Capability',$catalogTarget) @() @($true)
+    Invoke-LabSsisDiagnosticsInteractive
+    Assert-SsisConsole ($dispatches.Count -eq 1 -and $dispatches[0].Kind -ceq 'Capability' -and $dispatches[0].Args.InstanceId -ceq 'primary' -and
+        $dispatches[0].Args.RunId -eq [guid]'11111111-1111-1111-1111-111111111111' -and $dispatches[0].Args.StateRoot -ceq (Get-LabStateRoot) -and
+        ($messages -join ' ') -match 'ONLINE_CATALOG_OBSERVED') 'Capability menu observes the exact registered SQL target and reports the catalog status'
+
     function Show-LabSubMenu {param($ScreenId,$Title,$Subtitle,$Items);$Items}
     Import-SsisConsoleFunction 'Public/BatchConsole.ps1' 'Show-LabWorkspaceMenu'
     $workspace=@(Show-LabWorkspaceMenu)
@@ -86,6 +122,16 @@ try{
     Invoke-SqlServerLab -Action SsisDiagnostics -ConsoleMode Fallback
     Assert-SsisConsole ($routed-eq2) 'Direct CLI action opens the guided SSIS flow'
     . (Join-Path $repo 'Private/SsisDiagnosticsBrowser.ps1')
+    $dispatches.Clear()
+    $capabilityJson='{"RunId":"11111111-1111-1111-1111-111111111111","InstanceId":"primary"}'
+    $capability = Invoke-LabSsisCatalogCapabilityBrowser -Json $capabilityJson
+    Assert-SsisConsole ($dispatches.Count -eq 1 -and $capability.Catalog -ceq 'ONLINE_CATALOG_OBSERVED' -and
+        -not $dispatches[0].Args.ContainsKey('StateRoot') -and @($capability.PSObject.Properties.Name).Count -eq 5 -and
+        ($capability | ConvertTo-Json -Compress) -notmatch 'PRIVATE_CANARY|11111111') 'Capability browser projects a narrow status summary from the exact registered target'
+    $rejected=$false
+    try { $null=Invoke-LabSsisCatalogCapabilityBrowser -Json $capabilityJson.Replace('"primary"','"primary","StateRoot":"private"') } catch { $rejected=$true }
+    Assert-SsisConsole ($rejected -and $dispatches.Count -eq 1) 'Capability browser rejects a supplied state root before dispatch'
+
     $inputJson='{"RunId":"11111111-1111-1111-1111-111111111111","InstanceId":"primary","ExecutionId":"9007199254740993","ProjectLsn":"9007199254740995","CatalogDatabaseGuid":"22222222-2222-2222-2222-222222222222"}'
     $dispatches.Clear()
     $view=Invoke-LabSsisExecutionDiagnosticBrowser -Json $inputJson
