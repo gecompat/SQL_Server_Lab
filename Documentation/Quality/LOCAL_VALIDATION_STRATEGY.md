@@ -3302,6 +3302,19 @@ manipulierte Pläne besitzen getrennte Negativfälle.
 mit synthetischen Adapterdaten. Eine fremde oder fehlende Gastadresse, ein
 Hostname, Loopback, ein ungültiger Port und ein Adapter-Lesefehler blockieren
 den Verbindungsaufbau vor der Abfrage des SA-Secrets.
+
+Die Präflight-Quittung verwendet kanonische Kleinbuchstaben für SQL-
+Datenbank-GUIDs. Die fokussierte Fixture gibt die GUID absichtlich in
+Großbuchstaben zurück und prüft den Quittungshash und das Schema. Der lokale
+Docker-Lauf auf `7c7eaa61` prüfte den öffentlichen SQL-Preflight auf einer
+eigenen SQL-Server-2025-CU9-Testdatenbank: fehlender Master Key wird abgewiesen,
+nach dessen Anlage ist die Quittung gültig, die Datenbank enthält weiter
+weder External Model noch Database Scoped Credential. SQL und Cleanup wurden
+wirklich ausgeführt. Das Modell-Endpunktergebnis kam aus einer synthetischen
+Fixture. Der Vorlauf blieb wegen fehlgeschlagener positiver Quittungsprüfung
+ein FAIL. Beide eigenen Docker-Labs wurden mit Container und Volume
+bereinigt. Ein Modellserver sowie SQL-Preflight auf Podman und Hyper-V
+bleiben außerhalb dieses Nachweises.
 Der anschließende Apply-Executor wird mit injiziertem SQL-Transport auf
 transaktionale Reihenfolge, geheimnisfreies Vorjournal, exakte SQL-Postcondition,
 `WhatIf`, idempotente Beobachtung mit `-Resume`, verlorene Antworten,
