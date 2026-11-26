@@ -11,18 +11,24 @@
 .PARAMETER VerifyLibraryRestore
     Uses the same owned clone to verify a library backup and the guided
     restore into a new synthetic database. The library is test-local.
+.PARAMETER PreparedArtifactId
+    Optional sealed SQL 2025 Developer artifact for library restore acceptance.
+    Uses one owned prepared run on an existing Host-Only network with activation
+    egress denied. This option does not use a pre-existing Windows slot or media.
 #>
-[CmdletBinding()]
+[CmdletBinding(DefaultParameterSetName='Clone')]
 param(
-    [Parameter(Mandatory)][string]$CloneSourceRunId,
-    [Parameter(Mandatory)][string]$MediaRoot,
-    [ValidateSet('Enterprise','Standard','Eval')][string]$MediaEdition='Enterprise',
+    [Parameter(Mandatory,ParameterSetName='Clone')][string]$CloneSourceRunId,
+    [Parameter(Mandatory,ParameterSetName='Clone')][string]$MediaRoot,
+    [Parameter(ParameterSetName='Clone')][ValidateSet('Enterprise','Standard','Eval')][string]$MediaEdition='Enterprise',
+    [Parameter(Mandatory,ParameterSetName='Prepared')][ValidatePattern('^hyperv-sql-prepared-sealed-[a-f0-9]{64}$')][string]$PreparedArtifactId,
     [string]$StateRoot,
     [string]$OperationId=('local-hv-sql-storage-'+[guid]::NewGuid().ToString('N')),
     [switch]$KeepOnFailure,
     [switch]$VerifyLibraryRestore
 )
 $ErrorActionPreference='Stop'
+if ($PreparedArtifactId -and -not $VerifyLibraryRestore) { throw 'HYPERV_LIBRARY_RESTORE_ACCEPTANCE_PREPARED_SCOPE_REQUIRED' }
 $repoRoot=(Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $modulePath=Join-Path $repoRoot 'SqlServerLab.psd1'
 $testRoot=Join-Path ([IO.Path]::GetTempPath()) ('sql-lab-hv-sql-storage-'+[guid]::NewGuid().ToString('N'))
@@ -63,6 +69,44 @@ function New-OwnedRun {
         New-HyperVResourceAcceptanceSlotClone -SourceRunId $Source -ManifestPath $Path -OperationId $Op `
             -MediaRoot $Media -MediaEdition $Edition -SqlPassword $Sql -StateRoot $Root -RequireExistingNetwork:$ExistingNetwork
     } @($helper,$CloneSourceRunId,$ManifestPath,$OperationId,$MediaRoot,$MediaEdition,$SqlPassword,$StateRoot,$VerifyLibraryRestore.IsPresent)
+}
+
+function New-PreparedLibraryRestoreAcceptanceRun {
+    param([string]$ManifestPath,[securestring]$SqlPassword)
+
+    $artifact = Invoke-Private {
+        param($Id,$Root) Get-HyperVImageArtifact -ArtifactId $Id -StateRoot $Root
+    } @($PreparedArtifactId,$StateRoot)
+    if (@($artifact).Count -ne 1 -or $artifact.artifactState -cne 'SQL_PREPARED_SEALED' -or
+        $artifact.operatingSystem.version -cne '2025' -or $artifact.sql.version -cne '2025' -or
+        $artifact.sql.edition -notmatch 'Developer' -or $artifact.integrityVerification.status -cnotin @('VERIFIED_HASH','VERIFIED_CACHE')) {
+        throw 'HYPERV_LIBRARY_RESTORE_ACCEPTANCE_PREPARED_ARTIFACT_UNVERIFIED'
+    }
+    $network = Invoke-Private { Resolve-LabHyperVNetworkBoundPlan -Intent hostOnly }
+    if ($network.Status -cne 'READY' -or $network.Intent -cne 'hostOnly' -or @($network.Actions).Count -ne 0 -or -not $network.Name) {
+        throw 'HYPERV_LIBRARY_RESTORE_ACCEPTANCE_EXISTING_NETWORK_REQUIRED'
+    }
+    $manifest = Get-Content -LiteralPath $ManifestPath -Raw -Encoding utf8 | ConvertFrom-Json -AsHashtable -Depth 30
+    $instance = $manifest.instances[0]
+    $instance.Remove('storageIntent')
+    $instance.hyperv.preparedImageId = $PreparedArtifactId
+    $instance.hyperv.switchName = [string]$network.Name
+    $instance.windowsActivation.Strategy = 'NotRequested'
+    $preparedPath = Join-Path $testRoot 'library-restore-prepared.json'
+    $manifest | ConvertTo-Json -Depth 30 | Set-Content -LiteralPath $preparedPath -Encoding utf8
+    Assert-HyperVSqlStorageAcceptance (Test-SqlServerLabManifest -Path $preparedPath).IsValid 'Manifest bindet die Prepared-Vorlage und das bestehende Host-Only-Netz'
+    $guestPassword = Invoke-Private { New-HyperVSqlUnattendedPassword }
+    try {
+        Invoke-Private {
+            param($Path,$Guest,$Sql,$Root,$Op)
+            Invoke-WithLabWorkflowOperationContext -OperationId $Op -ScriptBlock {
+                param($Path,$Guest,$Sql,$Root)
+                New-SqlServerLab -Manifest $Path -GuestPassword $Guest -SqlSaPassword $Sql -StateRoot $Root -NonInteractive -RequireExistingHyperVNetwork
+            } -ArgumentList @($Path,$Guest,$Sql,$Root)
+        } @($preparedPath,$guestPassword,$SqlPassword,$StateRoot,$OperationId)
+    } finally {
+        $guestPassword.Dispose()
+    }
 }
 
 function Invoke-StorageLibraryRestoreAcceptance {
@@ -123,8 +167,10 @@ try {
     $ownsOperation=$true
     $manifestPath=Join-Path $testRoot 'sql-storage.json';New-StorageManifest $manifestPath ('hv-sql-storage-'+[guid]::NewGuid().ToString('N').Substring(0,8))
     Assert-HyperVSqlStorageAcceptance (Test-SqlServerLabManifest -Path $manifestPath).IsValid 'VerifyOnly-Manifest mit gebundenem Storage-Intent ist gueltig'
-    $script:saPassword=Invoke-Private {New-HyperVSqlUnattendedPassword};$lab=New-OwnedRun $manifestPath $script:saPassword
-    Assert-HyperVSqlStorageAcceptance ([string]$lab.State -eq 'RUNNING') 'Operationseigener SQL-2025-Clone ist bereit'
+    $script:saPassword = Invoke-Private { New-HyperVSqlUnattendedPassword }
+    $lab = if ($PreparedArtifactId) { New-PreparedLibraryRestoreAcceptanceRun $manifestPath $script:saPassword }
+        else { New-OwnedRun $manifestPath $script:saPassword }
+    Assert-HyperVSqlStorageAcceptance ([string]$lab.State -eq 'RUNNING') 'Operationseigener SQL-2025-Run ist bereit'
     $context=Get-Context $lab.RunId;$managed=Get-OwnedManagedVm $context
     Assert-HyperVSqlStorageAcceptance (@($managed.Identity.additionalDrives).Count -eq 0) 'Clone beginnt ohne run-eigene Storage-Lanes'
     $intent=(Get-Content -LiteralPath $manifestPath -Raw -Encoding utf8|ConvertFrom-Json -Depth 30).instances[0].storageIntent
