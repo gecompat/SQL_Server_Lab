@@ -10,7 +10,8 @@ function Sync-SqlServerLabRuntimeState {
         und Run-Verzeichnisse werden weder gelöscht noch neu erstellt.
 
         PARTIAL, UNAVAILABLE und UNKNOWN bleiben reine Diagnosezustände, weil
-        daraus keine sichere Mutation abgeleitet werden kann.
+        daraus keine sichere Mutation abgeleitet werden kann. Mit WhatIf
+        bleiben auch die gespeicherten Hyper-V-Verbindungsdaten unverändert.
     .PARAMETER RunId
         Optionale Run-ID. Ohne Angabe werden alle aktiven Runs geprüft.
     .PARAMETER StateRoot
@@ -30,9 +31,11 @@ function Sync-SqlServerLabRuntimeState {
 
     if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
     $runs = if ($RunId) { @(Get-LabRunState -RunId $RunId -StateRoot $StateRoot) }
-        else { @(Get-LabActiveRuns -StateRoot $StateRoot) }
+        else { @(Get-LabActiveRuns -StateRoot $StateRoot -NoWrite:$WhatIfPreference) }
     foreach ($run in $runs) {
-        $runtime = Get-LabRunRuntimeStatus -Run $run -StateRoot $StateRoot
+        # Observe before ShouldProcess. The Hyper-V reader can otherwise repair
+        # the saved VM name before the user has accepted the state change.
+        $runtime = Get-LabRunRuntimeStatus -Run $run -StateRoot $StateRoot -NoWrite
         $previousState = [string]$run.state
         $changed = $false
         $action = 'NO_CHANGE'

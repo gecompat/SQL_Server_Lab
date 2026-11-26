@@ -1253,8 +1253,11 @@ und Zuordnung**.
 
 **Vollständigen Wartungsplan lesen** prüft zusätzlich den Speicherbestand
 und vorhandene Cleanup-Befunde. Die Übersicht zeigt Zähler für verwaltete
-Vorlagen, Provider-Datenspeicher und Hyper-V-Befunde. Im Browser läuft die
-Inventur im Hintergrund und das Ergebnis erscheint im Auftragsprotokoll.
+Vorlagen, Provider-Datenspeicher und Hyper-V-Befunde. Sie zählt bewusst
+behaltene Ressourcen, unerwartete Reste, Fälle mit Recovery-Bedarf und
+nicht verifizierbare Befunde getrennt. Für die Prüfung einzelner Objekte
+öffne das **Cleanup-Audit** im Konsolenmenü. Im Browser erscheint die
+Übersicht nach der Inventur im Auftragsprotokoll.
 Der vollständige Scan kann länger dauern. Er speichert keinen Auditbericht
 und führt keine der vorgeschlagenen Aktionen aus.
 
@@ -1579,6 +1582,7 @@ Wähle **Zur SQL-Zielprüfung** nach der SQL-Planung oder öffne
 den gebundenen SQL-Plan ein. Im geführten CLI-Menü kannst du ihn direkt
 übernehmen oder aus einer lokalen JSON-Datei einlesen. Wähle eine laufende
 registrierte SQL-2025-Instanz und bestätige die Prüfung für diese Auswahl.
+Bei Hyper-V muss die registrierte Gast-IP aktuell zur gewählten VM gehören.
 Die Prüfung verwendet den verwalteten SQL-Zugang und liest Datenbankzustand,
 Database Master Key, Rechte und freie Objektnamen. Im Browser erscheint die
 Quittung unter **Vorgänge**. Sie belegt die Vorprüfung für genau die gewählte
