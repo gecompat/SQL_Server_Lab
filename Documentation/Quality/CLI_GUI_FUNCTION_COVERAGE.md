@@ -198,6 +198,12 @@ und dem [Gruppenvertrag](../Architecture/LAB_ENVIRONMENT_GROUPS.md).
 | Volltext nachinstallieren oder deaktivieren (`Set-SqlServerLabFeature`) | Lab-Umgebungen → bestehende Umgebung auswählen → Volltextsuche ändern | Lab verwalten → Volltextsuche ändern an der laufenden SQL-Instanz, unter Hyper-V Volltextsuche / FILESTREAM | `GUIDED_BOTH`. CLI-Fixture und Browser-Fixture prüfen Auswahl, Zielbindung und die Übergabe von Ein/Aus. | Der bestehende Core wurde nativ unter Docker, Podman und Hyper-V geprüft. Die neuen Bedienpfade sind synthetisch abgenommen. [Provider- und Versionsgrenzen](KNOWN_LIMITATIONS.md#optionale-volltextsuche-und-filestream). |
 | FILESTREAM ändern (`Set-SqlServerLabFeature`) | Lab-Umgebungen → Datenbanken, Samples und Skripte → Volltext und FILESTREAM ändern | Lab verwalten → Volltextsuche / FILESTREAM an der laufenden Hyper-V-Instanz | `GUIDED_BOTH` für bestätigte Änderungen über Hyper-V. | Native Abnahme für den bestehenden Core auf SQL Server 2025 RTM. |
 
+Die gerenderte Chromium-Prüfung auf `79689800` bestätigte den Volltextdialog
+für synthetische Docker-, Podman- und Hyper-V-Ziele. Bei fehlender Auswahl
+und beim Abbrechen ging kein Auftrag ab. Beide Zielzustände erzeugten je
+genau einen Auftrag mit ausgewählter Run-ID, Instanz-ID und booleschem Wert.
+Der lokale Testserver simulierte die Auftragsantworten.
+
 ## Geprüfte Operationen: Container-Autostart
 
 | Operation | Geführter CLI-Pfad | Geführter GUI-Pfad | Vertrag und Nachweis | Provider-/Versions-Evidence |
@@ -255,6 +261,13 @@ mit einem eigenen lokalen Speicherfixture. Der Katalog blieb unverändert.
 Ein Headless-Edge-Test mit vollständiger Produktseite und synthetischem
 Endpunkt bestätigte Navigation, Klassenausgabe, Fehleranzeige und Schließen.
 Die Vorschau erfordert für diese Prüfung keinen Start einer Hyper-V-VM.
+
+Die gerenderte Chromium-Prüfung auf `44cba591` bestätigte den ausdrücklichen
+Start beider Wartungsvorschauen. Der schnelle Plan zeigte den nicht
+erreichbaren Anbieter. Im Auftragsprotokoll des vollständigen Plans waren
+die vier getrennten Kategorien und ein separater Fehlerlauf sichtbar.
+Der Testserver lieferte synthetische Befunde über den produktiven Formatter.
+Die Prüfung löste keine Runtime-Aktionen aus.
 
 ## Geprüfte Operationen: Manifest, Registrierungen und Containerwerkzeuge
 
