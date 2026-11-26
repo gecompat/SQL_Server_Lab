@@ -1,9 +1,20 @@
 # Opt-in composition of the existing typed native-host reducer, no new registry.
+function ConvertTo-LabExternalRuntimeKernelEvidence {
+    param([string]$OperatingSystem,$Release)
+
+    if ($OperatingSystem -cne 'linux' -or $Release -isnot [string] -or $Release.Length -gt 128) { return }
+    $match = [regex]::Match($Release,'\A(?<Version>[0-9]{1,5}(?:\.[0-9]{1,5}){2,3})(?<Suffix>[-+][A-Za-z0-9][A-Za-z0-9+._-]{0,96}|\+)?\z')
+    if (-not $match.Success) { return }
+    $marker = $match.Groups['Suffix'].Value -match '\A-microsoft-standard-wsl2(?:[.+-][a-z0-9][a-z0-9+._-]*)?\z'
+    [pscustomobject]@{Version=$match.Groups['Version'].Value;Flavor=if($marker){'MICROSOFT_WSL2_MARKER'}else{'OTHER_OR_UNMARKED'}}
+}
+
 function ConvertTo-LabExternalRuntimePrerequisiteObservation {
-    param([string]$Provider,$Value)
+    param([string]$Provider,$Value,[switch]$IncludeKernelEvidence)
     if($Value -isnot [pscustomobject] -or $Provider -cnotin @('docker','podman')){throw 'PROVIDER_RESPONSE_INVALID'}
     $allowed=if($Provider -ceq 'docker'){@('OperatingSystem','CgroupVersion','SecurityOptions','MemoryLimit','PidsLimit','MemTotal','NCPU')}
         else{@('OperatingSystem','CgroupVersion','CgroupsVersion','Rootless','Controllers','MemTotal','Cpus')}
+    if ($IncludeKernelEvidence) { $allowed += 'KernelRelease' }
     if(@($Value.PSObject.Properties.Name|Where-Object {$_ -cnotin $allowed}).Count){throw 'PROVIDER_RESPONSE_INVALID'}
     $base=if($Provider -ceq 'docker'){
         [pscustomobject]@{OperatingSystem=$Value.OperatingSystem;CgroupVersion=$Value.CgroupVersion;SecurityOptions=$Value.SecurityOptions}
@@ -29,11 +40,16 @@ function ConvertTo-LabExternalRuntimePrerequisiteObservation {
         [pscustomobject]@{host=[pscustomobject]@{os=$facts.OperatingSystem;cgroupVersion=$facts.CgroupVersion;
             security=[pscustomobject]@{rootless=$facts.Rootless};cgroupControllers=$optional.Controllers;memTotal=$optional.MemTotal;cpus=$optional.Cpus}}
     }
-    [pscustomobject]@{Facts=$facts;RuntimeInfo=$runtime}
+    $result = [pscustomobject]@{Facts=$facts;RuntimeInfo=$runtime}
+    if ($IncludeKernelEvidence) {
+        $evidence = ConvertTo-LabExternalRuntimeKernelEvidence -OperatingSystem $facts.OperatingSystem -Release $optional.KernelRelease
+        $result | Add-Member -NotePropertyName KernelEvidence -NotePropertyValue $evidence
+    }
+    return $result
 }
 
 function Add-LabExternalRuntimeHostPrerequisites {
-    param($Decision,[string]$ResourceProfile,$Requirements,$HostObservation,[switch]$IncludeProviderFacts)
+    param($Decision,[string]$ResourceProfile,$Requirements,$HostObservation,[switch]$IncludeProviderFacts,[switch]$IncludeKernelEvidence)
     $status='NOT_CHECKED';$reasons=@('READINESS_NOT_REQUESTED');$controllers=$null;$capacity=$null
     $shared=$null;$observed=$null
     # The same reducer used by the native Plan is loaded only for this opt-in.
@@ -55,7 +71,7 @@ function Add-LabExternalRuntimeHostPrerequisites {
             $reasons=@('PROVIDER_RESPONSE_INVALID');$Decision.CurrentReadiness.Status='BLOCKED';$Decision.CurrentReadiness.ReasonCode='PROVIDER_RESPONSE_INVALID'
         }
     }
-    $Decision.Contract.Version=if ($IncludeProviderFacts) { '1.3' } else { '1.2' }
+    $Decision.Contract.Version=if ($IncludeKernelEvidence) { '1.4' } elseif ($IncludeProviderFacts) { '1.3' } else { '1.2' }
     $Decision.CurrentReadiness|Add-Member -NotePropertyName Scope -NotePropertyValue 'OS_CGROUP_ROOTFUL_CONTROLLERS_PROFILE_TOTAL_CAPACITY'
     $Decision|Add-Member -NotePropertyName HostPrerequisites -NotePropertyValue ([pscustomobject]@{
         Status=$status;ReasonCodes=$reasons;ResourceProfile=$ResourceProfile;Controllers=$controllers;ResourceCapacity=$capacity;
@@ -71,6 +87,10 @@ function Add-LabExternalRuntimeHostPrerequisites {
             }
         }
         $Decision.HostPrerequisites | Add-Member -NotePropertyName ProviderFacts -NotePropertyValue $reported
+    }
+    if ($IncludeKernelEvidence) {
+        $kernel = if ($observed) { $HostObservation.KernelEvidence }
+        $Decision.HostPrerequisites | Add-Member -NotePropertyName KernelEvidence -NotePropertyValue $kernel
     }
     if([Text.Encoding]::UTF8.GetByteCount(($Decision|ConvertTo-Json -Depth 30 -Compress)) -gt 262144){throw 'EXTERNAL_RUNTIME_CAPABILITY_OUTPUT_LIMIT'}
     $Decision

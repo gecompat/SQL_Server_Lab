@@ -5,8 +5,9 @@
 .DESCRIPTION
     Erstellt zwei eigene Labs aus demselben expliziten Developer-Prepared-Image.
     Die Quelle wird vor dem Start des Ziels gestoppt. Beide Bindungen bleiben
-    bis zum Ende erhalten. Die Probe führt keinen SQL-Transfer und keine
-    Lizenzänderung aus. Cleanup entfernt ausschließlich die eigenen Runs.
+    bis zum Ende erhalten. Die Bereitstellung darf die Windows-Evaluation der
+    eigenen VMs mit vorübergehender Netzfreigabe aktivieren. Die Gastprüfungen
+    lesen den aktuellen Zustand. Cleanup entfernt ausschließlich eigene Runs.
 .PARAMETER CompareFileAllocation
     Startet die eigene Quelle nach der Zielprüfung erneut, legt eine
     synthetische Quelldatenbank an und prüft die gebundene Speichervorschau,
@@ -19,6 +20,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot '../Common/SqlGuestAllocationAcceptanceFixture.ps1')
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 $testRoot = Join-Path $repo ('.artifacts/test-runs/evaluation-target-license-' + [guid]::NewGuid().ToString('N'))
 $sourceOperation = [guid]::NewGuid().ToString('D')
@@ -35,6 +37,53 @@ function Assert-TargetLicenseAcceptance {
     param([bool]$Condition, [string]$Name)
     if (-not $Condition) { throw ('EVALUATION_TARGET_LICENSE_ASSERTION_FAILED: ' + $Name) }
     Write-Host "PASS: $Name"
+}
+
+function Wait-TargetLicenseAcceptanceSourceSql {
+    param($Module,[guid]$RunId,[guid]$ScopeId,[guid]$VmId,[string]$StateRoot)
+    & $Module {
+        param($Id,$Scope,$Vm,$Root)
+        $deadline = [datetime]::UtcNow.AddSeconds(180)
+        do {
+            $context = Get-LabSqlGuestCaptureContext -RunId $Id -StateRoot $Root
+            if ([guid]$context.Run.scopeId -ne $Scope -or [guid]$context.Instance.vmId -ne $Vm -or
+                $context.Instance.id -cne 'primary') {
+                throw 'EVALUATION_TARGET_LICENSE_SOURCE_OWNERSHIP_CHANGED'
+            }
+            $remaining = [int][Math]::Ceiling(($deadline - [datetime]::UtcNow).TotalSeconds)
+            if ($remaining -lt 1) { break }
+            try {
+                $observed = Invoke-LabSqlGuestCaptureProbe -Context $context -TimeoutSeconds ([Math]::Min(30,$remaining))
+                if ($observed.MajorVersion -ne 17 -or $observed.InstanceName -cne $context.Instance.sqlReadiness.instanceName -or
+                    $observed.Edition -cne $context.Instance.sqlReadiness.edition) {
+                    throw 'EVALUATION_TARGET_LICENSE_SOURCE_SQL_IDENTITY_MISMATCH'
+                }
+                return
+            } catch {
+                if ($_.Exception.Message -cnotin @('SQL_GUEST_CAPTURE_PROBE_FAILED','GUEST_JOB_OPERATION_TIMEOUT')) { throw }
+            }
+            if ([datetime]::UtcNow -lt $deadline) { Start-Sleep -Milliseconds 750 }
+        } while ([datetime]::UtcNow -lt $deadline)
+        throw 'EVALUATION_TARGET_LICENSE_SOURCE_SQL_TIMEOUT'
+    } $RunId $ScopeId $VmId $StateRoot
+}
+
+function Get-TargetLicenseActivationFailure {
+    param([string]$Message)
+
+    $match = [regex]::Match($Message,'\AHYPERV_WINDOWS_ACTIVATION_FAILED: (?<Code>[A-Z0-9_]{1,90})(?: \[(?<Details>[^\r\n]{1,160})\])?\z')
+    if (-not $match.Success) { return }
+    $code = $match.Groups['Code'].Value
+    if ($code -cnotin @('WINDOWS_ACTIVATION_NETWORK_CONFIGURATION_FAILED','WINDOWS_ACTIVATION_NETWORK_NOT_READY','WINDOWS_ACTIVATION_GUEST_ADAPTER_NOT_FOUND',
+        'WINDOWS_ACTIVATION_LICENSE_DISCOVERY_FAILED','WINDOWS_ACTIVATION_REQUEST_FAILED','WINDOWS_ACTIVATION_VERIFICATION_FAILED',
+        'WINDOWS_ACTIVATION_GUEST_OPERATION_FAILED','WINDOWS_EVALUATION_EDITION_REQUIRED','WINDOWS_ACTIVATION_PRODUCT_NOT_FOUND',
+        'HYPERV_WINDOWS_ACTIVATION_GUEST_RECEIPT_INVALID','HYPERV_WINDOWS_ACTIVATION_VERIFICATION_FAILED',
+        'HYPERV_WINDOWS_ACTIVATION_OPERATION_FAILED')) { return }
+    $details = $match.Groups['Details'].Value
+    if ($details -cnotmatch '\Adns=(?:not_checked|resolved|unresolved);ipv4=(?:not_checked|present|missing);route=(?:not_checked|present|missing)(?:;(?:apiReturn|hresult)=0x[0-9A-F]{8}|;api=exception)?\z') {
+        $details = $null
+    }
+    [pscustomobject]@{Code=$code;Details=$details}
 }
 
 function New-TargetLicenseAcceptanceRun {
@@ -74,7 +123,7 @@ function Remove-TargetLicenseAcceptanceRun {
     $owned = & $module { param($Id,$Root) Get-LabOperationOwnedRun -OperationId $Id -StateRoot $Root } $Operation $stateRoot
     if (-not $owned) {
         if ($ObservedRun) { throw 'EVALUATION_TARGET_LICENSE_OWNERSHIP_MISSING' }
-        return
+        return 'NO_OWNED_RUN'
     }
     if ($ObservedRun -and [string]$owned.runId -cne [string]$ObservedRun.RunId) { throw 'EVALUATION_TARGET_LICENSE_OWNERSHIP_CHANGED' }
     $resources = @(& $module {
@@ -95,6 +144,7 @@ function Remove-TargetLicenseAcceptanceRun {
             if ($path -and (Test-Path -LiteralPath $path -ErrorAction Stop)) { throw 'EVALUATION_TARGET_LICENSE_DISK_REMAINS' }
         }
     }
+    return 'REMOVED'
 }
 
 $mutex = [Threading.Mutex]::new($false,'Global\SQL_Server_Lab_Runtime_Smoke')
@@ -122,12 +172,13 @@ try {
     if ([string]$ownedSource.runId -cne [string]$source.RunId) { throw 'EVALUATION_TARGET_LICENSE_SOURCE_OWNERSHIP_CHANGED' }
     $null = Stop-SqlServerLab -RunId $source.RunId -StateRoot $stateRoot -SkipHostMemoryRelease -Force -Confirm:$false 3>$null 4>$null 5>$null 6>$null
     $sourceState = & $module { param($Id,$Root) Get-LabRunState -RunId $Id -StateRoot $Root } $source.RunId $stateRoot
-    $sourceVmState = & $module {
+    $stoppedSourceVm = & $module {
         param($Id,$Data)
         $snapshot = Read-LabEvaluationRefreshSnapshot -RunId $Id -InstanceId primary -DataRoot $Data
-        [string]((Get-VM -Id ([guid]$snapshot.Instance.vmId) -ErrorAction Stop).State)
+        $vm = Get-VM -Id ([guid]$snapshot.Instance.vmId) -ErrorAction Stop
+        [pscustomobject]@{Id=[guid]$vm.Id;State=[string]$vm.State}
     } $source.RunId $dataRoot
-    Assert-TargetLicenseAcceptance ($sourceState.state -ceq 'STOPPED' -and $sourceVmState -ceq 'Off') 'Eigene Quelle vor dem Zielstart gestoppt'
+    Assert-TargetLicenseAcceptance ($sourceState.state -ceq 'STOPPED' -and $stoppedSourceVm.State -ceq 'Off') 'Eigene Quelle vor dem Zielstart gestoppt'
 
     $phase = 'TARGET_ARRANGE'
     $target = New-TargetLicenseAcceptanceRun -Role target -Operation $targetOperation
@@ -186,15 +237,57 @@ try {
         $null = Start-SqlServerLab -RunId $source.RunId -StateRoot $stateRoot -TimeoutSeconds 180 3>$null 4>$null 5>$null 6>$null
         $runningSource = & $module { param($Id,$Root) Get-LabRunState -RunId $Id -StateRoot $Root } $source.RunId $stateRoot
         Assert-TargetLicenseAcceptance ($runningSource.state -ceq 'RUNNING') 'Eigene Quelle läuft neben dem eigenen Ziellab'
-        $fixtureSql = Join-Path $testRoot 'owned-allocation-fixture.sql'
-        [IO.File]::WriteAllText($fixtureSql,'CREATE DATABASE [SqlLabAllocationComparisonFixture];')
-        $scriptParameters = @{RunId=$source.RunId;InstanceId='primary';StateRoot=$stateRoot;ScriptPath=$fixtureSql
-            WindowsAuthentication=$true;TimeoutSeconds=60;Confirm=$false}
-        $null = Invoke-SqlServerLabScript @scriptParameters 3>$null 4>$null 5>$null 6>$null
+        $phase = 'COMPARE_SOURCE_SQL_READY'
+        Wait-TargetLicenseAcceptanceSourceSql -Module $module -RunId $source.RunId -ScopeId $ownedSource.scopeId `
+            -VmId $stoppedSourceVm.Id -StateRoot $stateRoot
+        Write-Host 'PASS: SQL Server der erneut gestarteten eigenen Quelle ist erreichbar'
+        $phase = 'COMPARE_SOURCE_BASELINE'
+        $beforeSource = Get-SqlServerLabEvaluationRefreshPlan @request -Mode STATEFUL_MIGRATION -ObserveSqlSource
+        if ($beforeSource.SqlSourceInventory.Status -ceq 'NOT_OBSERVED') {
+            throw 'EVALUATION_TARGET_LICENSE_SOURCE_INVENTORY_UNCONFIRMED'
+        }
+        $beforeAllocation = $beforeSource.SqlSourceInventory.AllocatedFileStorage
+        Assert-TargetLicenseAcceptance ($beforeAllocation.Status -ceq 'OBSERVED' -and
+            $beforeAllocation.DataBytes -is [long] -and $beforeAllocation.LogBytes -is [long]) 'Dateizuweisung der laufenden Quelle vor der Fixture beobachtet'
+
+        $phase = 'COMPARE_SOURCE_FIXTURE'
+        $sourceContext = & $module {
+            param($Id,$Root) Get-LabSqlGuestCaptureContext -RunId $Id -StateRoot $Root
+        } $source.RunId $stateRoot
+        if ($sourceContext.Run.scopeId -cne $ownedSource.scopeId -or $sourceContext.Instance.id -cne 'primary') {
+            throw 'EVALUATION_TARGET_LICENSE_SOURCE_OWNERSHIP_CHANGED'
+        }
+        $credentials = & $module {
+            param($Context)
+            $guestCredential = $null
+            $sqlPassword = $null
+            try {
+                $guestCredential = Get-LabSecret -Path $Context.RunDirectory -Name 'guest-administrator-password'
+                $sqlPassword = Get-LabSecret -Path $Context.RunDirectory -Name 'generated-sql-sa-password'
+                if (-not $sqlPassword) { $sqlPassword = Get-LabSecret -Path $Context.RunDirectory -Name 'sa-password' }
+                if (-not $guestCredential -or -not $sqlPassword) { throw 'SQL_GUEST_ALLOCATION_FIXTURE_CREDENTIAL_REQUIRED' }
+                [pscustomobject]@{Guest=$guestCredential;Sql=$sqlPassword}
+            } catch {
+                if ($guestCredential) { $guestCredential.Dispose() }
+                if ($sqlPassword) { $sqlPassword.Dispose() }
+                throw
+            }
+        } $sourceContext
+        try {
+            $fixtureArgs = @{Module=$module;Context=$sourceContext;GuestPassword=$credentials.Guest;SqlPassword=$credentials.Sql
+                DatabaseName='SqlLabAllocationComparisonFixture'}
+            $fixturePages = New-SqlGuestAllocationAcceptanceFixture @fixtureArgs
+        } finally {
+            $credentials.Guest.Dispose()
+            $credentials.Sql.Dispose()
+        }
+        Write-Host 'PASS: Eigene SQL-Testdatenbank hat bestätigte Daten- und Logseiten'
+        $phase = 'COMPARE_SOURCE_ALLOCATION'
         $sourcePlan = Get-SqlServerLabEvaluationRefreshPlan @request -Mode STATEFUL_MIGRATION -ObserveSqlSource
         $sourceAllocation = $sourcePlan.SqlSourceInventory.AllocatedFileStorage
         Assert-TargetLicenseAcceptance ($sourceAllocation.Status -ceq 'OBSERVED' -and
-            $sourceAllocation.DataBytes -gt 0 -and $sourceAllocation.LogBytes -gt 0) 'Positive Dateizuweisung der eigenen Quelle beobachtet'
+            $sourceAllocation.DataBytes -eq ($beforeAllocation.DataBytes + 8KB * [decimal]$fixturePages.DataPages) -and
+            $sourceAllocation.LogBytes -eq ($beforeAllocation.LogBytes + 8KB * [decimal]$fixturePages.LogPages)) 'Quellsummen enthalten exakt die Dateigrößen der eigenen Testdatenbank'
         $operationRequest.ExpectedPlanKey = $sourcePlan.ObservedContentSha256
         $operationRequest.ExpectedTargetPlanKey = $sourcePlan.TargetAssessment.ObservedContentSha256
         $compareBefore = @($paths | ForEach-Object { (Get-FileHash -LiteralPath $_ -Algorithm SHA256).Hash })
@@ -229,11 +322,20 @@ try {
     $failure = [regex]::Match([string]$_.Exception.Message,'^[A-Z][A-Z0-9_]{2,100}(?=:|$)')
     $code = if ($failure.Success) { $failure.Value } else { 'UNCLASSIFIED_ERROR' }
     if ($code -ceq 'EVALUATION_TARGET_LICENSE_ASSERTION_FAILED') { Write-Host $_.Exception.Message }
+    if ($code -ceq 'HYPERV_WINDOWS_ACTIVATION_FAILED') {
+        $activation = Get-TargetLicenseActivationFailure -Message $_.Exception.Message
+        if ($activation) {
+            Write-Host ('Windows activation {0} {1}' -f $activation.Code,$activation.Details)
+        }
+    }
     throw "EVALUATION_TARGET_LICENSE_FAILED: $phase / $code"
 } finally {
     if ($module -and $acquired -and $stateRoot) {
-        foreach ($entry in @(@{Operation=$targetOperation;Run=$target},@{Operation=$sourceOperation;Run=$source})) {
-            try { Remove-TargetLicenseAcceptanceRun -Operation $entry.Operation -ObservedRun $entry.Run }
+        foreach ($entry in @(@{Role='target';Operation=$targetOperation;Run=$target},@{Role='source';Operation=$sourceOperation;Run=$source})) {
+            try {
+                $cleanup = Remove-TargetLicenseAcceptanceRun -Operation $entry.Operation -ObservedRun $entry.Run
+                Write-Host ('Own run cleanup {0} {1}' -f $entry.Role,$cleanup)
+            }
             catch { $cleanupFailed = $true; Write-Host 'RECOVERY_REQUIRED: Eigener Acceptance-Run benötigt scopegebundene Prüfung.' }
         }
     }

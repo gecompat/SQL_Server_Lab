@@ -31,13 +31,17 @@ function Get-SqlServerLabExternalRuntimeCapability {
         Opt-in Version 1.3. Ergänzt die Voraussetzungen um beobachtetes Runtime-OS, cgroup-Version
         und Rootless-Modus, sofern sie aus demselben Providerbefund vorliegen.
         Ohne CheckProviderReadiness findet weiterhin keine Abfrage statt.
+    .PARAMETER IncludeKernelEvidence
+        Opt-in Version 1.4. Liest die numerische Linux-Kernelrelease des Providers
+        und meldet einen sichtbaren Microsoft-WSL2-Marker. Das ist ein Providerbefund.
+        Kernelidentität, gemeinsamer Kernel und WSL-Konflikte bleiben unbewertet.
     .PARAMETER ResourceProfile
         Vorhandenes Katalogprofil, nur mit IncludeHostPrerequisites ausgewertet; Default standard.
     .EXAMPLE
         Get-SqlServerLabExternalRuntimeCapability -SqlVersion 2022 -Provider docker -OperatingSystem linux -SoftwareId sql-python -RuntimeVersion 3.10 -VariantId sql2022-python310-ubuntu2204-derived
     .OUTPUTS
         SqlServerLab.ExternalRuntimeCapability/1.0; mit IncludeRecordedEvidence 1.1;
-        mit IncludeHostPrerequisites 1.2, mit IncludeProviderFacts 1.3.
+        mit IncludeHostPrerequisites 1.2, mit IncludeProviderFacts 1.3, mit IncludeKernelEvidence 1.4.
         Vollstaendige Antwort maximal 256 KiB UTF-8.
     #>
     [CmdletBinding()]
@@ -52,8 +56,10 @@ function Get-SqlServerLabExternalRuntimeCapability {
         [switch]$IncludeRecordedEvidence,
         [switch]$IncludeHostPrerequisites,
         [switch]$IncludeProviderFacts,
+        [switch]$IncludeKernelEvidence,
         [ValidatePattern('^[a-z][a-z0-9-]{0,31}$')][string]$ResourceProfile='standard'
     )
+    if ($IncludeKernelEvidence) { $IncludeProviderFacts = $true }
     if ($IncludeProviderFacts) { $IncludeHostPrerequisites = $true }
     # Validate/catalog-resolve before optional native observation, never echo raw inputs/errors.
     $decision=New-LabExternalRuntimeCapabilityDecision -SqlVersion $SqlVersion -Provider $Provider -OperatingSystem $OperatingSystem `
@@ -64,14 +70,14 @@ function Get-SqlServerLabExternalRuntimeCapability {
         $ResourceProfile=$ResourceProfile.ToLowerInvariant()
     }
     if($CheckProviderReadiness -and $decision.CatalogDecision.Status -ceq 'DECLARED_SUPPORTED') {
-        $observation=if($IncludeHostPrerequisites){Read-LabExternalRuntimeHostFacts -Provider $Provider -IncludeHostPrerequisites}
+        $observation=if($IncludeHostPrerequisites){Read-LabExternalRuntimeHostFacts -Provider $Provider -IncludeHostPrerequisites -IncludeKernelEvidence:$IncludeKernelEvidence}
             else{Read-LabExternalRuntimeHostFacts -Provider $Provider}
         $decision=New-LabExternalRuntimeCapabilityDecision -SqlVersion $SqlVersion -Provider $Provider -OperatingSystem $OperatingSystem `
             -SoftwareId $SoftwareId -RuntimeVersion $RuntimeVersion -VariantId $VariantId -IncludeRecordedEvidence:$IncludeRecordedEvidence -HostObservation $observation
     }
     if($IncludeHostPrerequisites){
         return Add-LabExternalRuntimeHostPrerequisites -Decision $decision -ResourceProfile $ResourceProfile `
-            -Requirements $requirements -HostObservation $observation -IncludeProviderFacts:$IncludeProviderFacts
+            -Requirements $requirements -HostObservation $observation -IncludeProviderFacts:$IncludeProviderFacts -IncludeKernelEvidence:$IncludeKernelEvidence
     }
     return $decision
 }

@@ -35,7 +35,7 @@
     if (action === 'ReadRecordedEvidence') Object.assign(payload,{SoftwareId:choice.SoftwareId,RuntimeVersion:choice.RuntimeVersion,VariantId:choice.VariantId});
     if (action === 'CheckHostPrerequisites') {
       if (!profiles.includes(profile)) return;
-      Object.assign(payload, {SoftwareId: choice.SoftwareId, RuntimeVersion: choice.RuntimeVersion, VariantId: choice.VariantId, ResourceProfile: profile, IncludeProviderFacts: true});
+      Object.assign(payload, {SoftwareId: choice.SoftwareId, RuntimeVersion: choice.RuntimeVersion, VariantId: choice.VariantId, ResourceProfile: profile, IncludeKernelEvidence: true});
     }
     const current = ++revision; busy = true; element('result').textContent = ''; element('history-result').textContent = ''; controls();
     try {
@@ -44,7 +44,7 @@
       if (!response.ok) throw new Error('INVALID');
       const view = await response.json();
       if (current !== revision || !element('dialog').open) return;
-      const version = {ReadRecordedEvidence: '1.1', CheckHostPrerequisites: '1.4'}[action] || '1.0';
+      const version = {ReadRecordedEvidence: '1.1', CheckHostPrerequisites: '1.5'}[action] || '1.0';
       if (view.ContractVersion !== 'SqlServerLab.ExternalRuntimeCapabilityBrowser/' + version) throw new Error('INVALID');
       if (action === 'ReadOptions') {
         if (!shape(view,['ContractVersion','Status','Options']) || view.Status !== 'OPTIONS' || !Array.isArray(view.Options) || view.Options.length > 128 || view.Options.some(o => !shape(o,['SoftwareId','Language','VariantId','RuntimeVersion','Decision']) || !identity(o) || !decision(o.Decision) || o.Decision.Provider !== provider || o.Decision.CurrentReadiness.Status !== 'NOT_CHECKED' || (o.Decision.Identity && (o.Decision.Identity.VariantId !== o.VariantId || o.Decision.Identity.SoftwareId !== o.SoftwareId || o.Decision.Identity.RuntimeVersion !== o.RuntimeVersion || o.Decision.Identity.SqlVersion !== sql)))) throw new Error('INVALID');
@@ -63,7 +63,7 @@
       } else if (action === 'CheckHostPrerequisites') {
         const fields = ['ContractVersion','Status','Provider','Identity','ResourceProfile','PrerequisiteStatus','ReasonCodes',
           'ControllerStatus','MissingControllers','UnknownControllers','MemoryStatus','CpuStatus','FullLaunchReadiness',
-          'ExecutionSupported','MutationAllowed','ProviderFacts','RequiredCgroupVersion'];
+          'ExecutionSupported','MutationAllowed','ProviderFacts','RequiredCgroupVersion','KernelEvidence'];
         const capacity = ['NOT_CHECKED','CAPACITY_SUFFICIENT','CAPACITY_INSUFFICIENT','UNKNOWN'];
         const controllerNames = provider === 'docker' ? ['memory','pids'] : ['cpu','memory','pids'];
         const target = view.Identity;
@@ -95,11 +95,18 @@
         if (hasObservation ? (!shape(observed, ['OperatingSystem','CgroupVersion','Rootless']) ||
           !['linux','windows'].includes(observed.OperatingSystem) || !['1','2'].includes(observed.CgroupVersion) ||
           typeof observed.Rootless !== 'boolean') : observed !== null) throw new Error('INVALID');
+        const kernel = view.KernelEvidence;
+        if (kernel !== null && (!hasObservation || observed.OperatingSystem !== 'linux' || !shape(kernel, ['Version','Flavor']) ||
+          typeof kernel.Version !== 'string' || !/^[0-9]{1,5}(?:\.[0-9]{1,5}){2,3}$/.test(kernel.Version) ||
+          !['MICROSOFT_WSL2_MARKER','OTHER_OR_UNMARKED'].includes(kernel.Flavor))) throw new Error('INVALID');
         element('result').textContent = [
           'Profil ' + profile + ' · ' + view.PrerequisiteStatus + ' · ' + view.ReasonCodes.join(', '),
           'Benötigte cgroup-Version · ' + (view.RequiredCgroupVersion ?? 'nicht ermittelt'),
           observed ? 'Provider meldet · Runtime-OS ' + observed.OperatingSystem + ' · cgroup ' + observed.CgroupVersion + ' · Rootless ' +
             (observed.Rootless ? 'ja' : 'nein') : 'Runtime-OS, cgroup-Version und Rootless-Modus konnten für diese Auswahl nicht beobachtet werden.',
+          kernel ? 'Linux-Kernelrelease des Providers · ' + kernel.Version + ' · ' +
+            (kernel.Flavor === 'MICROSOFT_WSL2_MARKER' ? 'Microsoft-WSL2-Marker gemeldet' : 'Microsoft-WSL2-Marker nicht gemeldet') :
+            'Linux-Kernelrelease des Providers unbeobachtet.',
           'Controller ' + view.ControllerStatus + (view.MissingControllers.length ? ' · fehlend ' + view.MissingControllers.join(', ') : '') +
             (view.UnknownControllers.length ? ' · unbekannt ' + view.UnknownControllers.join(', ') : ''),
           'Gesamtkapazität · RAM ' + view.MemoryStatus + ' · vCPU ' + view.CpuStatus,

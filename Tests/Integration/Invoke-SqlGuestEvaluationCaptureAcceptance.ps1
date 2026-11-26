@@ -15,6 +15,7 @@
 [CmdletBinding()]
 param([Parameter(Mandatory)][ValidatePattern('^hyperv-sql-prepared-sealed-[a-f0-9]{64}$')][string]$ArtifactId,[string]$StateRoot)
 $ErrorActionPreference='Stop'
+. (Join-Path $PSScriptRoot '../Common/SqlGuestAllocationAcceptanceFixture.ps1')
 $repoRoot=(Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 $operation=[guid]::NewGuid().ToString();$module=$null;$run=$null;$owned=$null;$guest=$null;$sa=$null;$mutex=$null;$acquired=$false;$passed=$false;$cleanupFailed=$false
 $testRoot=Join-Path $repoRoot ('.artifacts/test-runs/sql-guest-capture-'+[guid]::NewGuid().ToString('N'))
@@ -78,42 +79,10 @@ try {
         $pages.DataPages -ge 0 -and $pages.LogPages -ge 0 -and
         ($inventory.SourceInventory.UserDatabases -gt 0 -or ($pages.DataPages -eq 0 -and $pages.LogPages -eq 0))) 'Zugewiesene Datenseiten und Logseiten der Benutzerdatenbanken im eigenen Gast gelesen'
     # One temporary database in the owned VM gives an independent positive size delta.
-    $fixturePages = & $module {
-        param($BoundContext,[securestring]$GuestPassword,[securestring]$SqlPassword)
-        Invoke-HyperVPowerShellDirect -VMName $BoundContext.Instance.vmName -ExpectedRunId $BoundContext.Run.runId `
-            -ExpectedScopeId $BoundContext.Run.scopeId -ExpectedVmId ([guid]$BoundContext.Instance.vmId) `
-            -Credential ([pscredential]::new('Administrator',$GuestPassword)) -TimeoutSeconds 90 `
-            -ArgumentList @($SqlPassword,[int]$BoundContext.Instance.port) -ScriptBlock {
-                param([securestring]$Password,[int]$Port)
-                $ErrorActionPreference='Stop'
-                Add-Type -AssemblyName System.Data
-                $secret=$Password.Copy()
-                $secret.MakeReadOnly()
-                $connection=$null;$command=$null;$reader=$null
-                try {
-                    $builder=[Data.SqlClient.SqlConnectionStringBuilder]::new()
-                    $builder['Data Source']="tcp:127.0.0.1,$Port";$builder['Initial Catalog']='master'
-                    $builder['Encrypt']=$true;$builder['TrustServerCertificate']=$true;$builder['Pooling']=$false
-                    $builder['Persist Security Info']=$false;$builder['Connect Timeout']=15
-                    $connection=[Data.SqlClient.SqlConnection]::new($builder.ConnectionString,[Data.SqlClient.SqlCredential]::new('sa',$secret))
-                    $connection.Open()
-                    $command=$connection.CreateCommand();$command.CommandTimeout=45
-                    $command.CommandText='CREATE DATABASE [SqlLabGuestAllocatedPages];'
-                    $null=$command.ExecuteNonQuery()
-                    $command.CommandText='SELECT SUM(CASE WHEN type=0 THEN CONVERT(bigint,size) END), SUM(CASE WHEN type=1 THEN CONVERT(bigint,size) END) FROM [SqlLabGuestAllocatedPages].sys.database_files WHERE type IN (0,1);'
-                    $reader=$command.ExecuteReader()
-                    if (-not $reader.Read()) {throw 'SQL_GUEST_SIZE_FIXTURE_UNAVAILABLE'}
-                    [pscustomobject]@{DataPages=$reader.GetInt64(0);LogPages=$reader.GetInt64(1)}
-                } finally {
-                    if($reader){$reader.Dispose()}
-                    if($command){$command.Dispose()}
-                    if($connection){$connection.Dispose()}
-                    $secret.Dispose()
-                }
-            }
-    } $context $guest $sa
-    Assert-CaptureAcceptance ($fixturePages.DataPages -is [long] -and $fixturePages.LogPages -is [long] -and
-        $fixturePages.DataPages -gt 0 -and $fixturePages.LogPages -gt 0) 'Eigene SQL-Testdatenbank liefert positive Daten- und Logseitengrößen'
+    $fixtureArgs = @{Module=$module;Context=$context;GuestPassword=$guest;SqlPassword=$sa
+        DatabaseName='SqlLabGuestAllocatedPages'}
+    $fixturePages = New-SqlGuestAllocationAcceptanceFixture @fixtureArgs
+    Write-Host 'PASS: Eigene SQL-Testdatenbank liefert positive Daten- und Logseitengrößen'
     $afterFixture = & $module {
         param($BoundContext)
         Invoke-LabSqlGuestCaptureProbe -Context $BoundContext -TimeoutSeconds 60 -IncludeSourceInventory
