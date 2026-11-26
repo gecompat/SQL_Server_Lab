@@ -2150,6 +2150,14 @@ der installierte ODBC-sqlcmd und ein eigener Loopback-Listener mit
 SQL-Argument und erzeugter SQL-Datei geprüft. Das bestätigt den
 Verbindungsaufbau ohne Passwortprompt oder Passwortausgabe. Ein echter
 Hyper-V-Restore über den gerenderten Browser ist damit nicht nachgewiesen.
+Die Hyper-V-Backupführung verwendet den gemeinsamen VM-, IP-, Port- und
+Storage-Guard. Die synthetischen Backup-Checks prüfen den dedizierten
+Request, den erneuten Zielabgleich, fest gebundene Speicherwurzeln,
+ausgeblendete Rohpfade und den Fehlercode für unbestätigte Bereinigung.
+Der Browser-Fixture prüft die eigenständige Bestätigung, den Moduswechsel
+und das Leeren beider Passwortfelder. Ein echter Browser-Backup-Lauf ist
+damit noch offen.
+
 Der vorbereitete manuelle Main-Modus `sql-storage-library-restore-acceptance`
 nutzt ein bereits vorhandenes Host-Only-Netz. Als Quelle verwendet er
 entweder den operationseigenen Clone aus einem ausdrücklich ausgewählten

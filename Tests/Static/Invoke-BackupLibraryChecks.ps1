@@ -260,6 +260,21 @@ try {
                 $GuestCredential.UserName -ceq 'Administrator' -and [object]::ReferenceEquals($SaPassword,$Password)
             [pscustomobject]@{Success=$true;Provider='hyperv';BackupSetId=$BackupSetId;DatabaseName=$DatabaseName;PrivatePath='fixture-private';CleanupStatus=$fixture.Cleanup}
         }
+        $backupProbe=[pscustomobject]@{Calls=0;Bound=$false;Recovery=$false}
+        function Backup-SqlServerLabDatabase {
+            param($RunId,$InstanceId,$DatabaseName,$SaPassword,$GuestCredential,$StateRoot,$DataRoot,[switch]$Confirm)
+            $backupProbe.Calls++
+            $backupProbe.Bound=$RunId -ceq $run -and $InstanceId -ceq 'primary' -and $StateRoot -ceq 'synthetic-root' -and
+                $DataRoot -ceq 'synthetic-data-root' -and -not $Confirm -and [object]::ReferenceEquals($SaPassword,$Password) -and
+                $GuestCredential.UserName -ceq 'Administrator' -and $DatabaseName -ceq 'SourceFixture'
+            if($backupProbe.Recovery) {
+                $errorToReport=[InvalidOperationException]::new('RAW_SQL_PATH_CANARY')
+                $errorToReport.Data['SqlServerLab.BackupRuntimeCleanupStatus']='RECOVERY_REQUIRED'
+                throw $errorToReport
+            }
+            [pscustomobject]@{Status='BACKUP_REUSABLE';Provider='hyperv';DatabaseName=$DatabaseName
+                BackupSetId=$backup;Bytes=[long]64;Path='CANARY_PRIVATE_BACKUP_PATH'}
+        }
         $argsRestore=@{RunId=$run;InstanceId='primary';BackupSetId=$backup;DatabaseName='NewRestoreDb'
             GuestUserName='Administrator';GuestPassword=$Password;SaPassword=$Password}
         $success=Invoke-LabGuidedHyperVLibraryRestore @argsRestore
@@ -283,8 +298,26 @@ try {
         $fixture.Drift=$false
         $fixture.Cleanup='RECOVERY_REQUIRED'
         $cleanup=try { $null=Invoke-LabGuidedHyperVLibraryRestore @argsRestore; '' } catch { $_.Exception.Message }
+        $backupArguments = $argsRestore.Clone()
+        $backupArguments.Remove('BackupSetId')
+        $backupArguments.DatabaseName='SourceFixture'
+        $fixture.ObservedAddress='192.0.2.99'
+        $backupForeign=try { $null=Invoke-LabGuidedHyperVLibraryBackup @backupArguments; 'UNEXPECTED_SUCCESS' } catch { $_.Exception.Message }
+        $fixture.ObservedAddress=$fixture.Address
+        $fixture.Storage='UNVERIFIED'
+        $backupUnverified=try { $null=Invoke-LabGuidedHyperVLibraryBackup @backupArguments; 'UNEXPECTED_SUCCESS' } catch { $_.Exception.Message }
+        $fixture.Storage='VERIFIED'
+        $fixture.Reads=0;$fixture.Drift=$true
+        $backupDrift=try { $null=Invoke-LabGuidedHyperVLibraryBackup @backupArguments; 'UNEXPECTED_SUCCESS' } catch { $_.Exception.Message }
+        $fixture.Drift=$false
+        $backupBefore=$backupProbe.Calls
+        $backupResult=Invoke-LabGuidedHyperVLibraryBackup @backupArguments
+        $backupProbe.Recovery=$true
+        $backupCleanup=try { $null=Invoke-LabGuidedHyperVLibraryBackup @backupArguments; 'UNEXPECTED_SUCCESS' } catch { $_.Exception.Message }
         [pscustomobject]@{Success=$success;Exists=$exists;ForeignIp=$foreignIp;IpBlockedBeforeSql=$ipBlockedBeforeSql
-            Drift=$drift;NewerBackup=$newerBackup;VersionBlockedBeforeSql=$versionBlockedBeforeSql;Calls=$guardedCalls;Bound=$fixture.Bound;Cleanup=$cleanup}
+            Drift=$drift;NewerBackup=$newerBackup;VersionBlockedBeforeSql=$versionBlockedBeforeSql;Calls=$guardedCalls;Bound=$fixture.Bound;Cleanup=$cleanup
+            BackupResult=$backupResult;BackupBefore=$backupBefore;BackupCalls=$backupProbe.Calls;BackupBound=$backupProbe.Bound
+            BackupForeign=$backupForeign;BackupDrift=$backupDrift;BackupUnverified=$backupUnverified;BackupCleanup=$backupCleanup}
     } $password
     Add-CheckResult 'Hyper-V Browser-Restore bindet die verifizierte Library an genau ein Ziel ohne Replace und projiziert nur die Quittung' (
         $browserRestore.Calls -eq 1 -and $browserRestore.Bound -and $browserRestore.Success.Status -ceq 'RESTORED' -and
@@ -297,6 +330,16 @@ try {
 
     Add-CheckResult 'Restore ergibt ohne bestätigte Kopienbereinigung keinen grünen Abschluss im Browser' (
         $browserRestore.Cleanup -ceq 'HYPERV_LIBRARY_RESTORE_CLEANUP_REQUIRED' -and $browserRestore.Success.CleanupStatus -ceq 'CONFIRMED')
+
+    Add-CheckResult 'Hyper-V Browser-Backup bindet Gast, Instanz und konfigurierte Bibliothek und blendet Rohpfade aus' (
+        $browserRestore.BackupBound -and $browserRestore.BackupResult.Status -ceq 'BACKUP_REUSABLE' -and
+        $browserRestore.BackupResult.Bytes -ceq [long]64 -and -not $browserRestore.BackupResult.PSObject.Properties['Path'])
+    Add-CheckResult 'Hyper-V Browser-Backup unterbindet fremde IP, Speicherdrift und Portwechsel und projiziert Recovery separat' (
+        $browserRestore.BackupBefore -eq 0 -and $browserRestore.BackupCalls -eq 2 -and
+        $browserRestore.BackupForeign -ceq 'HYPERV_LIBRARY_BACKUP_SOURCE_NOT_READY' -and
+        $browserRestore.BackupDrift -ceq 'HYPERV_LIBRARY_BACKUP_SOURCE_NOT_READY' -and
+        $browserRestore.BackupUnverified -ceq 'HYPERV_LIBRARY_BACKUP_SOURCE_NOT_READY' -and
+        $browserRestore.BackupCleanup -ceq 'HYPERV_LIBRARY_BACKUP_CLEANUP_REQUIRED')
 
     $backupPreflight = & $module {
         param($Password,$Root)
@@ -410,7 +453,7 @@ try {
 
     $serverAst=[Management.Automation.Language.Parser]::ParseFile((Join-Path $repoRoot 'Tools/Start-SqlServerLabUi.ps1'),[ref]$null,[ref]$null)
     $parser=$serverAst.Find({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and
-        $node.Name -ceq 'Get-UiHyperVLibraryRestoreRequest'},$true)
+        $node.Name -ceq 'Get-UiHyperVLibraryRequest'},$true)
     $parseRequest=[scriptblock]::Create($parser.Body.Extent.Text.Trim().Substring(1,$parser.Body.Extent.Text.Trim().Length-2))
     $request=@{parameters=@{RunId='43434343-2222-4333-8444-555555555555';InstanceId='primary';BackupSetId='51515151-2222-4333-8444-555555555555';
         DatabaseName='NewRestoreDb';GuestUserName='Administrator';GuestPassword='SyntheticGuest';SaPassword='SyntheticSa'};confirmed=$true}
@@ -426,6 +469,17 @@ try {
     $request.confirmed=$false
     $unconfirmedDenied=try { $null=& $parseRequest -Body ($request|ConvertTo-Json -Compress);$false } catch { $_.Exception.Message -ceq 'HYPERV_LIBRARY_RESTORE_INPUT_INVALID' }
     Add-CheckResult 'Hyper-V Restore-Parser verwirft Replace und fehlende Bestätigung vor jeder Jobanlage' ($replaceDenied -and $unconfirmedDenied)
+    $request.confirmed=$true
+    $setDenied=try { $null=& $parseRequest -Body ($request|ConvertTo-Json -Compress) -Backup; $false } catch { $_.Exception.Message -ceq 'HYPERV_LIBRARY_BACKUP_INPUT_INVALID' }
+    $request.parameters.Remove('BackupSetId')
+    $backupRequest=& $parseRequest -Body ($request|ConvertTo-Json -Compress) -Backup
+    try {
+        Add-CheckResult 'Hyper-V Backup-Parser akzeptiert keine Restore-ID oder freie Pfade und bindet flüchtige Zugangsdaten' (
+            $setDenied -and $backupRequest.Count -eq 6 -and $backupRequest.SaPassword.IsReadOnly() -and $backupRequest.GuestPassword.IsReadOnly())
+    } finally { $backupRequest.GuestPassword.Dispose();$backupRequest.SaPassword.Dispose() }
+    $request.parameters.DataRoot='SYNTHETIC_OVERRIDE'
+    $rootDenied=try { $null=& $parseRequest -Body ($request|ConvertTo-Json -Compress) -Backup; $false } catch { $_.Exception.Message -ceq 'HYPERV_LIBRARY_BACKUP_INPUT_INVALID' }
+    Add-CheckResult 'Hyper-V Backup-Parser verwirft vom Browser vorgegebene Speicherwurzeln' $rootDenied
 }
 finally {
     $env:SQL_SERVER_LAB_DATA_ROOT=$previousDataRoot

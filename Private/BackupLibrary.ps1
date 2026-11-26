@@ -367,6 +367,35 @@ function Add-LabDatabaseBackupRestoreVerification {
     }
 }
 
+function Get-LabGuidedHyperVLibraryBinding {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$RunId,
+        [Parameter(Mandatory)][string]$InstanceId,
+        [Parameter(Mandatory)][PSCredential]$Guest
+    )
+    $context = Get-LabHyperVStorageReconcileContext -RunId $RunId -InstanceId $InstanceId
+    $target = Resolve-LabRunInstance -RunId $RunId -InstanceId $InstanceId -StateRoot $context.StateRoot
+    $null = Assert-LabWindowsPoolMutationAllowed -RunId $RunId -StateRoot $context.StateRoot
+    if ([string](Get-LabConnectionCenterCmsConfiguration).RunId -ceq $RunId) { throw 'System service is protected' }
+    if ($context.Run.state -cne 'RUNNING' -or $context.VM.State -ne 'Running' -or $target.Provider -cne 'hyperv' -or
+        -not $target.VMId -or $context.VM.Id -ne [guid]$target.VMId) { throw 'Invalid target binding' }
+    $storage = Get-LabVerifiedStorageRuntimeContext -RunId $RunId -InstanceId $InstanceId -StateRoot $context.StateRoot
+    if ($storage.Receipt.Status -cne 'VERIFIED') { throw 'Storage is not verified' }
+    $address = $null
+    $adapters = @(Get-VMNetworkAdapter -VM $context.VM -ErrorAction Stop)
+    if (-not [Net.IPAddress]::TryParse($target.HostName,[ref]$address) -or
+        [Net.IPAddress]::IsLoopback($address) -or $target.HostName -cnotin @($adapters | ForEach-Object IPAddresses)) {
+        throw 'Host endpoint is not assigned to the bound VM'
+    }
+    $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $context.StateRoot -ExpectedVmId ([guid]$target.VMId) -NoWrite
+    if ([string]$lab.Instance.id -cne $InstanceId) { throw 'Guest SQL instance selection changed' }
+    $receipt = Get-HyperVLabSqlInstanceReceipt -Lab $lab -Credential $guest -ExpectedVmId ([guid]$target.VMId)
+    $listeners = @($receipt.instances | Where-Object { $_.serviceStatus -ceq 'Running' -and [int]$_.tcpPort -eq $target.Port })
+    if ($listeners.Count -ne 1) { throw 'Guest SQL listener is not bound' }
+    [pscustomobject]@{Context=$context;Target=$target}
+}
+
 function Invoke-LabGuidedHyperVLibraryRestore {
     [CmdletBinding()]
     param(
@@ -388,25 +417,9 @@ function Invoke-LabGuidedHyperVLibraryRestore {
     }
     $guest = [PSCredential]::new($GuestUserName,$GuestPassword)
     try {
-        $context = Get-LabHyperVStorageReconcileContext -RunId $RunId -InstanceId $InstanceId
-        $target = Resolve-LabRunInstance -RunId $RunId -InstanceId $InstanceId -StateRoot $context.StateRoot
-        Assert-LabWindowsPoolMutationAllowed -RunId $RunId -StateRoot $context.StateRoot
-        if ([string](Get-LabConnectionCenterCmsConfiguration).RunId -ceq $RunId) { throw 'System service is protected' }
-        if ($context.Run.state -cne 'RUNNING' -or $context.VM.State -ne 'Running' -or $target.Provider -cne 'hyperv' -or
-            -not $target.VMId -or $context.VM.Id -ne [guid]$target.VMId) { throw 'Invalid target binding' }
-        $storage = Get-LabVerifiedStorageRuntimeContext -RunId $RunId -InstanceId $InstanceId -StateRoot $context.StateRoot
-        if ($storage.Receipt.Status -cne 'VERIFIED') { throw 'Storage is not verified' }
-        $address = $null
-        $adapters = @(Get-VMNetworkAdapter -VM $context.VM -ErrorAction Stop)
-        if (-not [Net.IPAddress]::TryParse($target.HostName,[ref]$address) -or
-            [Net.IPAddress]::IsLoopback($address) -or $target.HostName -cnotin @($adapters | ForEach-Object IPAddresses)) {
-            throw 'Host endpoint is not assigned to the bound VM'
-        }
-        $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $context.StateRoot -ExpectedVmId ([guid]$target.VMId) -NoWrite
-        if ([string]$lab.Instance.id -cne $InstanceId) { throw 'Guest SQL instance selection changed' }
-        $receipt = Get-HyperVLabSqlInstanceReceipt -Lab $lab -Credential $guest -ExpectedVmId ([guid]$target.VMId)
-        $listeners = @($receipt.instances | Where-Object { $_.serviceStatus -ceq 'Running' -and [int]$_.tcpPort -eq $target.Port })
-        if ($listeners.Count -ne 1) { throw 'Guest SQL listener is not bound' }
+        $binding = Get-LabGuidedHyperVLibraryBinding -RunId $RunId -InstanceId $InstanceId -Guest $guest
+        $context = $binding.Context
+        $target = $binding.Target
     } catch { throw 'HYPERV_LIBRARY_RESTORE_TARGET_NOT_READY' }
 
     try {
@@ -442,6 +455,52 @@ function Invoke-LabGuidedHyperVLibraryRestore {
     if ($restored.CleanupStatus -cne 'CONFIRMED') { throw 'HYPERV_LIBRARY_RESTORE_CLEANUP_REQUIRED' }
     [pscustomobject]@{Status='RESTORED';RunId=$RunId;InstanceId=$InstanceId;BackupSetId=$BackupSetId;DatabaseName=$DatabaseName
         CleanupStatus='CONFIRMED'}
+}
+
+function Invoke-LabGuidedHyperVLibraryBackup {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$RunId,
+        [Parameter(Mandatory)][string]$InstanceId,
+        [Parameter(Mandatory)][string]$DatabaseName,
+        [Parameter(Mandatory)][string]$GuestUserName,
+        [Parameter(Mandatory)][SecureString]$GuestPassword,
+        [Parameter(Mandatory)][SecureString]$SaPassword
+    )
+
+    if (-not (Test-LabDiagnosticGuid $RunId) -or $InstanceId -cnotmatch '^[A-Za-z][A-Za-z0-9_-]{0,63}$' -or
+        $DatabaseName -cnotmatch '^[A-Za-z][A-Za-z0-9_]{0,127}$' -or
+        $GuestUserName -cnotmatch '^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$' -or -not $GuestPassword.Length -or -not $SaPassword.Length) {
+        throw 'HYPERV_LIBRARY_BACKUP_SOURCE_INVALID'
+    }
+    $guest = [PSCredential]::new($GuestUserName,$GuestPassword)
+    try {
+        $binding = Get-LabGuidedHyperVLibraryBinding -RunId $RunId -InstanceId $InstanceId -Guest $guest
+        $context = $binding.Context
+        $target = $binding.Target
+        $dataRoot = Resolve-LabDataRootForUse -DataRoot (Get-LabDataRootDefault)
+        $current = Resolve-LabRunInstance -RunId $RunId -InstanceId $InstanceId -StateRoot $context.StateRoot
+        if ($current.Provider -cne 'hyperv' -or $current.VMId -cne $target.VMId -or
+            $current.HostName -cne $target.HostName -or $current.Port -ne $target.Port) { throw 'SQL endpoint changed' }
+    } catch { throw 'HYPERV_LIBRARY_BACKUP_SOURCE_NOT_READY' }
+
+    try {
+        $backup = Backup-SqlServerLabDatabase -RunId $RunId -InstanceId $InstanceId -DatabaseName $DatabaseName `
+            -SaPassword $SaPassword -GuestCredential $guest -StateRoot $context.StateRoot -DataRoot $dataRoot `
+            -Confirm:$false 3>$null 4>$null 5>$null 6>$null
+    } catch {
+        if ($_.Exception.Data['SqlServerLab.BackupRuntimeCleanupStatus'] -ceq 'RECOVERY_REQUIRED' -or
+            $_.Exception.Data['SqlServerLab.BackupCleanupStatus'] -ceq 'RECOVERY_REQUIRED') {
+            throw 'HYPERV_LIBRARY_BACKUP_CLEANUP_REQUIRED'
+        }
+        throw 'HYPERV_LIBRARY_BACKUP_UNCONFIRMED'
+    }
+    if ($backup.Status -cne 'BACKUP_REUSABLE' -or $backup.Provider -cne 'hyperv' -or $backup.DatabaseName -cne $DatabaseName -or
+        -not (Test-LabDiagnosticGuid ([string]$backup.BackupSetId)) -or $backup.Bytes -isnot [long] -or $backup.Bytes -le 0) {
+        throw 'HYPERV_LIBRARY_BACKUP_UNCONFIRMED'
+    }
+    [pscustomobject]@{Status='BACKUP_REUSABLE';RunId=$RunId;InstanceId=$InstanceId;DatabaseName=$DatabaseName
+        BackupSetId=[string]$backup.BackupSetId;Bytes=$backup.Bytes}
 }
 
 function New-LabHyperVLibraryBackupIntent {
