@@ -181,14 +181,6 @@ function New-SqlServerLabDatabase {
         }
     }
 
-    $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword)
-    try {
-        $saPlain = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
-    }
-    finally {
-        [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
-    }
-
     try {
         if ($storageContext) {
             $storageContext = Start-LabStorageSqlOperation -Context $storageContext -OperationId $storageOperationId `
@@ -197,7 +189,7 @@ function New-SqlServerLabDatabase {
         $null = Invoke-SqlQuery `
             -HostName $HostName `
             -Port $Port `
-            -SaPlain $saPlain `
+            -ProductQueryPassword $SaPassword `
             -Query $sql `
             -TimeoutSeconds 60
 
@@ -205,7 +197,7 @@ function New-SqlServerLabDatabase {
             $null = Invoke-SqlQuery `
                 -HostName $HostName `
                 -Port $Port `
-                -SaPlain $saPlain `
+                -ProductQueryPassword $SaPassword `
                 -Query $alterStatement `
                 -TimeoutSeconds 30
         }
@@ -213,7 +205,7 @@ function New-SqlServerLabDatabase {
         if ($storageContext) {
             $verificationQuery = New-LabStorageMasterFilesVerificationQuery -DatabaseName $DatabaseName `
                 -FilePlan @($DataFiles + $LogFiles)
-            $null = Invoke-SqlQuery -HostName $HostName -Port $Port -SaPlain $saPlain `
+            $null = Invoke-SqlQuery -HostName $HostName -Port $Port -ProductQueryPassword $SaPassword `
                 -Query $verificationQuery -TimeoutSeconds 60
             $null = Complete-LabStorageSqlOperation -Context $storageContext -OperationId $storageOperationId `
                 -Kind create -DatabaseName $DatabaseName -Files @($DataFiles + $LogFiles)
@@ -236,8 +228,5 @@ function New-SqlServerLabDatabase {
         }
         Write-LabError "Datenbank-Erstellung fehlgeschlagen: $($_.Exception.Message)"
         throw
-    }
-    finally {
-        $saPlain = $null
     }
 }

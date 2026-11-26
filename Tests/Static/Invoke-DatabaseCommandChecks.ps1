@@ -17,13 +17,18 @@ function Assert-DatabaseContract {
 
 try {
     & $module {
+        param([securestring]$ExpectedPassword)
         $script:DatabaseCommandQueries = @()
+        $script:DatabaseCommandPassword = $ExpectedPassword
         $script:DatabaseCommandOriginalQuery = (Get-Command Invoke-SqlQuery -ErrorAction Stop).ScriptBlock
         Set-Item Function:Invoke-SqlQuery -Value {
-            param($HostName,$Port,$SaPlain,$Query,$TimeoutSeconds)
+            param($HostName,$Port,$SaPlain,$ProductQueryPassword,$Query,$TimeoutSeconds)
+            if ($SaPlain -or -not [object]::ReferenceEquals($ProductQueryPassword,$script:DatabaseCommandPassword)) {
+                throw 'DATABASE_COMMAND_PASSWORD_BOUNDARY_CHANGED'
+            }
             $script:DatabaseCommandQueries += [string]$Query
         }
-    }
+    } $password
 
     New-SqlServerLabDatabase -HostName 127.0.0.1 -Port 1433 -SaPassword $password -DatabaseName WindowsPathContract `
         -DataFiles @([PSCustomObject]@{ name='WindowsPath_Data'; path='E:\SQLData\WindowsPath_Data.mdf'; sizeMB=8; filegrowthMB=8 }) `
@@ -63,13 +68,15 @@ try {
     }
     $beforeBoundQueryCount = @(& $module { $script:DatabaseCommandQueries }).Count
     $boundResult = New-SqlServerLabDatabase -HostName 172.28.0.42 -Port 1433 -SaPassword $password `
-        -DatabaseName BoundDatabase -RunId '22222222-2222-2222-2222-222222222222' -InstanceId primary
+        -DatabaseName BoundDatabase -RunId '22222222-2222-2222-2222-222222222222' -InstanceId primary `
+        -Options @{queryStore=$true}
     $boundQueries = @(& $module { $script:DatabaseCommandQueries })[$beforeBoundQueryCount..(@(& $module { $script:DatabaseCommandQueries }).Count - 1)] -join "`n"
     $completedOperations = & $module { $script:DatabaseCommandCompletedOperations }
     Assert-DatabaseContract ($boundQueries -match [regex]::Escape('T:\SQLLab\Data\Bound_Data.mdf') -and
         $boundQueries -match [regex]::Escape('U:\SQLLab\Log\Bound_Log.ldf')) 'Run-basierte CREATE-Datenbank verwendet ausschließlich dateigenaue Runtime-Bindings'
     Assert-DatabaseContract ($boundQueries -match 'LAB_STORAGE_SQL_MASTER_FILES_POSTCONDITION_FAILED' -and
         $completedOperations -eq 1 -and $boundResult.StoragePlanId -eq '11111111-1111-1111-1111-111111111111') 'CREATE-Erfolg wird erst nach master_files-Postcondition quittiert'
+    Assert-DatabaseContract ($boundQueries -match 'ALTER DATABASE \[BoundDatabase\] SET QUERY_STORE = ON') 'CREATE, Optionen und Dateipfadprüfung verwenden dasselbe SecureString-Credential'
 }
 finally {
     & $module {
@@ -79,8 +86,9 @@ finally {
         if ($script:DatabaseCommandStorageOriginals) {
             foreach ($entry in $script:DatabaseCommandStorageOriginals.GetEnumerator()) { Set-Item "Function:$($entry.Key)" -Value $entry.Value }
         }
-        Remove-Variable DatabaseCommandQueries,DatabaseCommandOriginalQuery,DatabaseCommandStorageOriginals,DatabaseCommandCompletedOperations -Scope Script -ErrorAction SilentlyContinue
+        Remove-Variable DatabaseCommandQueries,DatabaseCommandPassword,DatabaseCommandOriginalQuery,DatabaseCommandStorageOriginals,DatabaseCommandCompletedOperations -Scope Script -ErrorAction SilentlyContinue
     }
+    $password.Dispose()
 }
 
 Write-Host 'DATABASE COMMAND CHECKS: PASS' -ForegroundColor Green
