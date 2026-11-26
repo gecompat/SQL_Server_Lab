@@ -2571,8 +2571,15 @@ Die Browser-Fixtures prüfen Auswahlwechsel, geschlossene Eingaben und die
 Weitergabe unter der gebundenen SQL-Quellaktion. Sieben gerenderte
 Chromium-Fälle prüfen das Formular mit synthetischen Quellen und
 abgefangenem Auftrag. Der native Hyper-V-Harness prüft den neuen Befund mit
-seiner eigenen Testdatenbank. Ein erfolgreicher nativer Lauf für diesen
-Zusatz steht aus.
+seiner eigenen Testdatenbank. Der
+[Key18-Lauf 45824625641](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45824625641)
+bestand am 26.11.2026 auf Main-Commit `0bdb68dd`. Er bestätigte die
+benannte SQL-2025-Developer-Quelldatenbank, Run-, Instanz- und Providerbindung
+sowie den beobachteten SQL-Agent-Befund ohne Jobs für diese Testdatenbank.
+Zwei eigene Hyper-V-Labs liefen gleichzeitig. Vorlage und Laufmetadaten
+blieben unverändert. Der Harness meldete beide Runs als `REMOVED` und
+prüfte die Abwesenheit ihrer VMs und Laufwerke. Der Plan behielt
+`TransferAuthority=NONE`.
 
 ## Prospektiver External-Languages-Capability-Entscheid
 
