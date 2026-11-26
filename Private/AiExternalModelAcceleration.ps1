@@ -815,7 +815,10 @@ function Get-LabAiExternalModelSqlBinding {
     $run=Get-LabRunState -RunId $RunId -StateRoot $StateRoot
     if([string]$run.state -ne 'RUNNING'){throw 'AI_EXTERNAL_MODEL_SQL_RUN_NOT_RUNNING'}
     $target=Resolve-LabRunInstance -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot
-    if([string]$target.Version -cne '2025'){throw 'AI_EXTERNAL_MODEL_SQL_VERSION_UNSUPPORTED'}
+    $versionId = [string]$target.Version
+    if (-not $versionId -or [string](Get-SqlServerVersion -VersionId $versionId).id -cne '2025') {
+        throw 'AI_EXTERNAL_MODEL_SQL_VERSION_UNSUPPORTED'
+    }
     if([string]$target.Provider -in @('docker','podman')){
         return Get-LabTransferBinding -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot
     }

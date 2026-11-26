@@ -86,6 +86,17 @@ try {
         ($embeddingReceipt|ConvertTo-Json -Depth 12|Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/ai-external-model-sql-embedding-receipt.schema.json')) -and
         ($cleanupReceipt|ConvertTo-Json -Depth 12|Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/ai-external-model-sql-cleanup-receipt.schema.json')))
 
+    & $module { $script:aiHyperVBindingFixture.Version='2025-CU9' }
+    $cuBinding = $null
+    try {
+        $cuBinding = & $module {param($Run)Get-LabAiExternalModelSqlBinding -RunId $Run -InstanceId primary -StateRoot synthetic-state} $runId
+    } catch {
+        if ($_.Exception.Message -cne 'AI_EXTERNAL_MODEL_SQL_VERSION_UNSUPPORTED') { throw }
+    } finally {
+        & $module { $script:aiHyperVBindingFixture.Version='2025' }
+    }
+    Add-CheckResult 'Hyper-V-SQL-Bindung akzeptiert dieselbe SQL-2025-Familie mit explizitem CU' ($cuBinding.VMId -ceq $vmId)
+
     $cases=@(
         @{Name='gestoppten Run';Property='RunState';Value='STOPPED';Code='AI_EXTERNAL_MODEL_SQL_RUN_NOT_RUNNING'},
         @{Name='SQL-Version vor 2025';Property='Version';Value='2022';Code='AI_EXTERNAL_MODEL_SQL_VERSION_UNSUPPORTED'},
