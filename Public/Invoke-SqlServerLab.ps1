@@ -2076,23 +2076,37 @@ function Invoke-LabAction {
             $runId = Select-LabRun -Runs $runs -Prompt "Skript ausfuehren auf" -DisableAutomatedTestEnvironments -DisableSystemServices
             if (-not $runId) { return }
 
-            # Port aus connection-info lesen
             $stateRoot = Get-LabStateRoot
             $connInfoPath = Join-Path $stateRoot "runs/$runId/connection-info.json"
-            $connInfo = Get-Content $connInfoPath -Raw | ConvertFrom-Json
-            $port = $connInfo.instances[0].port
-
-            $scriptPath = Read-Host "  Skript-Pfad"
-            if (-not $scriptPath -or -not (Test-Path $scriptPath)) {
-                Write-LabError "Skript nicht gefunden: $scriptPath"
+            try {
+                $connInfo = Get-Content -LiteralPath $connInfoPath -Raw -Encoding utf8 -ErrorAction Stop | ConvertFrom-Json
+                $instanceId = [string](@($connInfo.instances | Select-Object -First 1)[0].id)
+                $target = Resolve-LabRunInstance -RunId $runId -InstanceId $instanceId -StateRoot $stateRoot
+            } catch {
+                Write-LabError 'Die registrierte SQL-Instanz konnte nicht gebunden werden.'
                 return
             }
+
+            $scriptPath = Read-Host "  Skript-Pfad"
+            if (-not $scriptPath -or -not (Test-Path -LiteralPath $scriptPath -PathType Leaf)) {
+                Write-LabError 'Die lokale Skriptdatei wurde nicht gefunden.'
+                return
+            }
+            $scriptPath = (Resolve-Path -LiteralPath $scriptPath).Path
 
             $db = Read-Host "  Datenbank [master]"
             if (-not $db) { $db = 'master' }
 
-            $pw = Read-Host "  SA-Passwort" -AsSecureString
-            Invoke-SqlServerLabScript -ScriptPath $scriptPath -Port $port -SaPassword $pw -Database $db
+            if ($db -cnotmatch '^[A-Za-z][A-Za-z0-9_]{0,127}$') { Write-LabError 'Bitte einen gültigen Datenbanknamen eingeben.'; return }
+            if (-not (Read-LabConfirm -Prompt "  Skript $scriptPath in Run $runId / Instanz $instanceId / Datenbank $db ausführen?" -Default $false)) { return }
+            $arguments = @{ScriptPath=$scriptPath;RunId=$runId;InstanceId=$instanceId;StateRoot=$stateRoot;Database=$db;Confirm=$false}
+            if ($target.Provider -eq 'hyperv') {
+                Invoke-SqlServerLabScript @arguments -WindowsAuthentication
+                return
+            }
+            $pw = Read-Host '  SA-Passwort' -AsSecureString
+            try { Invoke-SqlServerLabScript @arguments -SaPassword $pw }
+            finally { if ($pw) { $pw.Dispose() } }
         }
 
         'Image' {

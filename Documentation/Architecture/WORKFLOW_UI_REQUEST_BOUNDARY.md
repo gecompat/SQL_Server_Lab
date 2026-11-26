@@ -126,6 +126,13 @@ die gebundene VM und den Speicher, weist eine vorhandene Datenbank ab und
 liefert nach bestätigter Dateiplatzierung eine reduzierte Quittung. Die drei
 Hyper-V-Datenbankrouten teilen sich denselben Hintergrundjob-Slot.
 
+Die geführte Hyper-V-Skriptausführung verwendet die einmalige
+Befehlsbestätigung für `Invoke-SqlServerLabScript` im Parametersatz
+`RunWindows`. Der Dialog sendet nur Run, Instanz, lokalen Skriptpfad,
+Datenbank und die gewählte Windows-Authentifizierung. Der Fachbefehl
+bindet die VM erneut und verwendet den geschützten lokalen Gastzugang.
+Ein unbestätigtes SQL-Ergebnis führt zu einem fehlgeschlagenen Browserauftrag.
+
 ## Acht interne Fachreader
 
 CMS-Inspection, Initial Setup, Slotreserve, Resource Watch, llama.cpp-Installer,

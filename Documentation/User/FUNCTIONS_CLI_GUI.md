@@ -396,7 +396,7 @@ Bibliotheks-Recovery blockiert den erneuten Export ausdrücklich.
 | [`New-SqlServerLabDatabase`](../../Public/New-SqlServerLabDatabase.ps1) | Erstellt eine Datenbank mit konfigurierbaren Dateien und SQL-Pfaden. | Lab-Umgebungen → Datenbanken, Samples und Skripte → Datenbank anlegen | Docker und Podman über `CreateContainerDatabase`, Hyper-V unter **Lab verwalten → Datenbank anlegen** mit verifiziertem Speicher. |
 | [`Backup-SqlServerLabDatabase`](../../Public/Backup-SqlServerLabDatabase.ps1) | Veröffentlicht ein providerneutrales Backup erst nach `CHECKSUM`, `RESTORE VERIFYONLY` und Host-Hash. Hyper-V prüft den bestätigten Backup-Speicher vor dem ersten SQL-Zugriff. | Lab-Umgebungen → Datenbanken, Samples und Skripte → Datenbank sichern | Lab-Umgebungen → laufende Docker-/Podman-Instanz → Verifiziertes Backup erstellen. Hyper-V unter **Lab verwalten → Verifiziertes Backup erstellen**. |
 | [`Restore-SqlServerLabDatabase`](../../Public/Restore-SqlServerLabDatabase.ps1) | Stellt ein verifiziertes Bibliotheksbackup oder eine direkte `.bak`-Datei mit Trust- und Cache-Schutz wieder her. | Lab-Umgebungen → Datenbanken, Samples und Skripte → Datenbank wiederherstellen | Docker/Podman unter **Datenbank anlegen oder wiederherstellen**. Hyper-V unter **Lab verwalten → Bibliotheksbackup wiederherstellen** für eine neue Datenbank mit gebundenen Gast- und SQL-Zugängen. |
-| [`Invoke-SqlServerLabScript`](../../Public/Invoke-SqlServerLabScript.ps1) | T-SQL mit `GO`-Batchtrennung; `RunWindows` verwendet mit `-WindowsAuthentication` die geschützte Gastanmeldung. [SSIS-Consumeranleitung](../HowTo/SSIS_CONSUMER_WINDOWS_ACCESS.md). | SQL-Skript ausführen; Windows-Modus über Alle öffentlichen Befehle → RunWindows | generischer Exportkatalog; über Adapter weiterhin `ExecuteContainerScript` |
+| [`Invoke-SqlServerLabScript`](../../Public/Invoke-SqlServerLabScript.ps1) | T-SQL mit `GO`-Batchtrennung. Für Hyper-V bindet `RunWindows` die geschützte Gastanmeldung und Windows-Authentifizierung. [SSIS-Consumeranleitung](../HowTo/SSIS_CONSUMER_WINDOWS_ACCESS.md). | Lab-Umgebungen → Datenbanken, Samples und Skripte → SQL-Skript ausführen | Hyper-V unter **Lab verwalten → SQL-Skript ausführen**, Docker und Podman über `ExecuteContainerScript`. |
 | [`Invoke-SqlServerLabAiScenario`](../../Public/Invoke-SqlServerLabAiScenario.ps1) | Führt ein deklariertes, hashgebundenes SQL-KI-Szenario journalisiert mit No-op-, `WhatIf`- und Cleanup-Pfad aus. | Lab-Umgebungen → Datenbanken, Samples und Skripte → SQL Server 2025 KI → Szenario ausführen / Geführte KI-Demos → Vector-Core | – |
 | [`Invoke-SqlServerLabAiModel`](../../Public/Invoke-SqlServerLabAiModel.ps1) | Ruft ein katalogisiertes Ollama-Modell mit deklarierter Datenklasse und begrenztem Budget auf. Die Cloud-Variante benötigt eine explizite Egress-Freigabe. | Host-Dienste und Modelle → Vorhandenes Ollama-Modell aufrufen | Host-Dienste und Modelle → Lokales Ollama-Modell aufrufen oder Ollama-Cloud-Modell aufrufen. Die Cloud-Bestätigung zeigt Modell, Ziel und Datenklasse. |
 | [`Measure-SqlServerLabAiRetrieval`](../../Public/Measure-SqlServerLabAiRetrieval.ps1) | Bewertet manuelle Retrieval-IDs oder ein hashgebundenes, tatsächlich ausgeführtes Golden-RAG deterministisch mit Recall@k, Precision@k, MRR und nDCG. | Lab-Umgebungen → Datenbanken, Samples und Skripte → SQL Server 2025 KI → Retrieval bewerten / Golden-RAG / Geführte KI-Demos → Retrieval-Metriken | – |
@@ -519,12 +519,6 @@ in `FunctionsToExport` und sind deshalb nach einem normalen Modulimport keine
 Das Root-README führt beide derzeit im Abschnitt „Öffentliche Cmdlets“. Für die
 öffentliche API bleibt bis zu einer bewussten Export- oder
 Dokumentationskorrektur ausschließlich `SqlServerLab.psd1` maßgeblich.
-
-### Hyper-V-Skriptausführung im Browser
-
-`ExecuteHyperVLabScript` wird vom Workflow-Adapter bei der Parameterbindung
-abgelehnt. Das öffentliche Cmdlet `Invoke-SqlServerLabScript` unterstützt die
-direkte Ausführung mit gebundener Run- und Instanz-ID.
 
 ## Reproduzierbarer Abgleich
 

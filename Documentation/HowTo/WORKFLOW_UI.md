@@ -1040,6 +1040,16 @@ verifizierte Speicherbindung. Für einen bereits belegten Namen meldet er
 einen Konflikt. Nach der Anlage prüft der Auftrag die tatsächlichen
 SQL-Dateipfade. Die Quittung steht unter **Vorgänge**.
 
+## SQL-Skript im Hyper-V-Gast ausführen
+
+Öffne **Lab verwalten → SQL-Skript ausführen** an einem laufenden Hyper-V-Lab
+mit SQL Server 2019, 2022 oder 2025. Gib den absoluten Pfad einer lokalen
+`.sql`-Datei und die Zieldatenbank ein. Prüfe Run, Instanz, Datenbank und
+Datei in der Bestätigung. Der Auftrag verwendet den gespeicherten,
+geschützten Gastzugang und Windows-Authentifizierung im gebundenen Gast.
+Das Ergebnis steht unter **Vorgänge**. Prüfe den Zustand der
+betroffenen SQL-Objekte, falls das Ergebnis unbestätigt ist.
+
 ## Verifiziertes Hyper-V-Backup erstellen
 
 Wähle unter **Lab verwalten** bei der laufenden, vollständig eingerichteten

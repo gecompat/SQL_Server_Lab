@@ -587,9 +587,18 @@ function Start-UiPublicCommandJob {
                 Invoke-LabPublicCommandWebRequest -CommandName $CommandName -ParameterSetName $ParameterSetName -Parameters $Parameters -Confirmed:$Confirmed
             } $JobCommandName $JobParameterSetName $JobParameters $JobConfirmed
             Write-Output ('[ERGEBNIS] ' + ($receipt | ConvertTo-Json -Depth 30 -Compress))
+            if ($JobCommandName -ceq 'Invoke-SqlServerLabScript' -and $JobParameterSetName -ceq 'RunWindows' -and
+                (@($receipt.Result).Count -ne 1 -or $receipt.Result[0].Success -isnot [bool] -or
+                    -not $receipt.Result[0].Success -or $receipt.Result[0].Outcome -cne 'SUCCEEDED')) {
+                throw 'WINDOWS_SQL_BROWSER_UNCONFIRMED'
+            }
             Write-Output '[OK] Befehl erfolgreich abgeschlossen.'
         }
         catch {
+            if ($JobCommandName -ceq 'Invoke-SqlServerLabScript' -and $JobParameterSetName -ceq 'RunWindows') {
+                Write-Output '[FEHLER] WINDOWS_SQL_BROWSER_UNCONFIRMED'
+                throw 'WINDOWS_SQL_BROWSER_UNCONFIRMED'
+            }
             if ($JobCommandName -ceq 'Get-SqlServerLabCatalog') {
                 Write-Output '[FEHLER] LAB_CATALOG_EXPORT_UNCONFIRMED'
                 throw 'LAB_CATALOG_EXPORT_UNCONFIRMED'

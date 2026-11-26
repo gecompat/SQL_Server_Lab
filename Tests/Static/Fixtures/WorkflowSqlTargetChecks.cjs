@@ -250,7 +250,7 @@ const fixture = {
     { Id: 'primary', Provider: 'docker', SqlVersion: '2019-latest', Port: 14331 },
     { Id: 'analytics', Provider: 'podman', SqlVersion: '2022-latest', Port: 14332 }
   ] }],
-  HyperVLabs: [{ RunId: 'run-vm', Name: 'Windows-Lab', InstanceId: 'primary', SqlVersion: '2025', State: 'RUNNING', VMState: 'Running', Workload: 'sql',
+  HyperVLabs: [{ RunId: 'run-vm', Name: 'Windows-Lab', InstanceId: 'primary', SqlVersion: '2025', State: 'RUNNING', VMState: 'Running', Workload: 'sql', SqlCompletionState: 'COMPLETE',
     SqlInstances: [{ InstanceId: 'primary', Name: 'MSSQLSERVER', IsDefault: true },
       { InstanceId: 'named', Name: 'REPORTING', IsDefault: false }] }]
 };
@@ -397,18 +397,39 @@ async function main() {
   });
   open('named', 'hyperv', 'run-vm');
   await node('container-operation-form').events.get('submit')[0]({ submitter: { value: 'default' }, preventDefault() {} });
-  check('Actual Hyper-V submit preserves instance and guest credential parameter', () => {
-    assert.equal(context.queued.length, 2);
-    assert.deepEqual(JSON.parse(JSON.stringify(context.queued[1])), { action: 'ExecuteHyperVLabScript', parameters: {
-      BuildId: 'run-vm', InstanceId: 'named', HostName: '127.0.0.1', Port: 14332,
-      GuestPassword: 'synthetic-value', ScriptPath: 'synthetic.sql', Database: 'master'
-    } });
+  check('Hyper-V script refuses an unbound named instance', () => assert.equal(context.queued.length, 1));
+  const windowsScriptParameters = [
+    ['RunId','System.String',true], ['InstanceId','System.String',false], ['ScriptPath','System.String',true],
+    ['Database','System.String',false], ['WindowsAuthentication','System.Management.Automation.SwitchParameter',true]
+  ].map(([Name,TypeName,Mandatory]) => ({Name,TypeName,Mandatory,Sensitive:false,IsCredential:false}));
+  run('publicCommandCatalog = ' + JSON.stringify([{Name:'Invoke-SqlServerLabScript',RequiresConfirmation:true,
+    SupportsShouldProcess:true,ParameterSets:[{Name:'RunWindows',Parameters:windowsScriptParameters}]}]));
+  context.windowsScriptCalls = [];
+  run('const originalScriptStart = startPublicCommand; startPublicCommand = (command, set, parameters, confirmed) => windowsScriptCalls.push({name:command.Name,set:set.Name,parameters,confirmed});');
+  open('primary', 'hyperv', 'run-vm');
+  node('container-script-path').value = 'C:\\synthetic\\fixture.sql';
+  node('container-script-database').value = 'SyntheticDb';
+  await node('container-operation-form').events.get('submit')[0]({ submitter: { value: 'default' }, preventDefault() {} });
+  check('Bound Hyper-V script asks for confirmation without a guest or SQL password', () => {
+    assert.equal(node('container-operation-password').required, false);
+    assert.equal(node('container-operation-password').value, '');
+    assert.match(node('confirmation-message').textContent, /MSSQLSERVER.*Datenbank: SyntheticDb.*fixture\.sql/);
+    assert.equal(context.windowsScriptCalls.length, 0);
   });
+  await node('confirmation-form').events.get('submit')[0]({preventDefault(){}});
+  check('Hyper-V confirmation uses only the existing RunWindows one-shot command', () => {
+    assert.deepEqual(JSON.parse(JSON.stringify(context.windowsScriptCalls)), [{
+      name:'Invoke-SqlServerLabScript',set:'RunWindows',confirmed:true,
+      parameters:{RunId:'run-vm',InstanceId:'primary',ScriptPath:'C:\\synthetic\\fixture.sql',Database:'SyntheticDb',WindowsAuthentication:true}
+    }]);
+    assert.equal(context.queued.length, 1);
+  });
+  run('startPublicCommand = originalScriptStart; publicCommandCatalog = [];');
   check('Escape clears credentials, closes the dialog and submits nothing', () => {
     for (const handler of documentEvents.get('keydown')) handler({ key: 'Escape', preventDefault() {} });
     assert.equal(node('container-operation-password').value, '');
     assert.equal(node('container-operation-dialog').open, false);
-    assert.equal(context.queued.length, 2);
+    assert.equal(context.queued.length, 1);
   });
   const restoreRun = '43434343-2222-4333-8444-555555555555';
   const restoreBackup = '51515151-2222-4333-8444-555555555555';
@@ -652,10 +673,11 @@ async function main() {
   const openEvaluation = () => node('evaluation-watch-open').events.get('click')[0]();
   const readEvaluation = () => node('evaluation-watch-read').events.get('click')[0]();
   const escape = () => { for (const handler of documentEvents.get('keydown')) handler({ key: 'Escape', preventDefault() {} }); };
+  const queuedBeforeEvaluation = context.queued.length;
   openEvaluation(); escape();
   check('Evaluation dialog open and cancel neither reads nor starts any action', () => {
     assert.equal(evaluationFetches.length, 0);
-    assert.equal(context.queued.length, 2);
+    assert.equal(context.queued.length, queuedBeforeEvaluation);
     assert.equal(node('evaluation-watch-dialog').open, false);
   });
   openEvaluation(); await readEvaluation();
@@ -704,7 +726,7 @@ async function main() {
   check('Cancelled evaluation response cannot overwrite a newly opened dialog', () => {
     assert.ok(node('evaluation-watch-status').textContent.startsWith('Noch nicht gelesen'));
     assert.equal(node('evaluation-watch-read').disabled, false);
-    assert.equal(context.queued.length, 2);
+    assert.equal(context.queued.length, queuedBeforeEvaluation);
   });
   escape();
   run('queueBackgroundAction = actualQueueBackgroundAction; showWorkspaceArea("labs")');
