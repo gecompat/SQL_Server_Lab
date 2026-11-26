@@ -1,7 +1,7 @@
 #Requires -Version 7.2
 [CmdletBinding()]param()
 $ErrorActionPreference='Stop';$repoRoot=(Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
-$path=Join-Path $repoRoot 'Tests/Integration/Invoke-HyperVSqlStorageReconcileAcceptance.ps1';$workflow=Join-Path $repoRoot '.github/workflows/runtime-smoke-hyperv.yml';$source=Get-Content $path -Raw -Encoding utf8;$errors=$null;$null=[Management.Automation.Language.Parser]::ParseFile($path,[ref]$null,[ref]$errors)
+$path=Join-Path $repoRoot 'Tests/Integration/Invoke-HyperVSqlStorageReconcileAcceptance.ps1';$workflow=Join-Path $repoRoot '.github/workflows/runtime-smoke-hyperv.yml';$source=Get-Content $path -Raw -Encoding utf8;$errors=$null;$runnerAst=[Management.Automation.Language.Parser]::ParseFile($path,[ref]$null,[ref]$errors)
 # Execute only the runner's pure comparison block; never bootstrap Hyper-V here.
 $comparisonStart=$source.IndexOf('    $expected=@($receiptAfter.FileBindings)')
 $comparisonEnd=$source.IndexOf('    $resultOk=', $comparisonStart)
@@ -53,8 +53,55 @@ function Test-StorageAcceptanceDispatch {
 }
 $artifact='hyperv-sql-prepared-sealed-'+('a'*64)
 $preparedArguments=Test-StorageAcceptanceDispatch -Prepared $artifact -Restore $true
+$defaultMedia=[regex]::Match($workflowSource,'(?ms)^  workflow_dispatch:\r?\n.*?^      media_root:\r?\n.*?^        default: (?<Default>[^\r\n]+)')
+if (-not $defaultMedia.Success) { throw 'Prepared workflow dispatch default missing' }
+$preparedDefaultArguments=Test-StorageAcceptanceDispatch -Prepared $artifact -Media $defaultMedia.Groups['Default'].Value -Restore $true
 $cloneArguments=Test-StorageAcceptanceDispatch -Clone synthetic-slot -Media synthetic-media -Restore $false
+# Run the actual prepared-manifest transformation without touching a VM or a file.
+$manifestStart = $source.IndexOf('    $manifest = Get-Content -LiteralPath $ManifestPath')
+$manifestEnd = $source.IndexOf('    $preparedPath = Join-Path $testRoot', $manifestStart)
+if ($manifestStart -lt 0 -or $manifestEnd -le $manifestStart) { throw 'Prepared manifest transformation not found' }
+$prepareManifest = [scriptblock]::Create($source.Substring($manifestStart,$manifestEnd-$manifestStart) + '$manifest')
+$preparedManifest = & {
+    $ManifestPath = 'synthetic-manifest.json'
+    $PreparedArtifactId = $artifact
+    $network = [pscustomobject]@{Name='synthetic-switch'}
+    function Get-Content {
+        param([string]$LiteralPath,[switch]$Raw,[string]$Encoding)
+        if ($LiteralPath -cne $ManifestPath -or -not $Raw -or $Encoding -cne 'utf8') { throw 'Synthetic manifest binding changed' }
+        '{"instances":[{"storageIntent":{"placementPolicy":"logical-only","roles":{"backup":{"selector":"default"}}},"hyperv":{},"windowsActivation":{"Strategy":"VerifyOnly","EgressPolicy":"Denied"}}]}'
+    }
+    & $prepareManifest
+}
+$preparedInstance = $preparedManifest.instances[0]
+$libraryLocator = $runnerAst.Find({ param($node)
+    $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -ceq 'Get-LabBackupLibraryPaths'
+}, $true)
+if (-not $libraryLocator) { throw 'Scoped fixture library locator not found' }
+$testModule = New-Module -ScriptBlock {
+    function Resolve-LabDataRootForUse { param([string]$DataRoot) "resolved-$DataRoot" }
+    function Get-LabBackupLibraryPaths { 'original-locator' }
+    function Read-ScopedBackupPaths { param([string]$DataRoot) Get-LabBackupLibraryPaths -DataRoot $DataRoot }
+}
+$libraryScope = & $testModule {
+    param([scriptblock]$Locator)
+    $registeredDataRoot = 'resolved-current'
+    $libraryRoot = Join-Path ([IO.Path]::GetTempPath()) 'synthetic-restore-library'
+    . $Locator
+    $paths = Read-ScopedBackupPaths -DataRoot current
+    $rejected = try { $null = Read-ScopedBackupPaths -DataRoot another; $false }
+        catch { $_.Exception.Message -ceq 'HYPERV_LIBRARY_RESTORE_ACCEPTANCE_LIBRARY_SCOPE_INVALID' }
+    $rejected -and $paths.DataRoot -ceq $registeredDataRoot -and $paths.LibraryRoot -ceq $libraryRoot -and
+        $paths.RegistryPath -ceq (Join-Path $libraryRoot 'backup-library.json') -and
+        $paths.ObjectsRoot -ceq (Join-Path $libraryRoot 'Objects')
+} ([scriptblock]::Create($libraryLocator.Extent.Text))
+$locatorRestored = (& $testModule { Read-ScopedBackupPaths -DataRoot current }) -ceq 'original-locator'
 $checks=[ordered]@{
+ 'Fixture uses only the private backup path while preserving registered-root validation and the original locator'=($libraryScope -and $locatorRestored -and $source -notmatch 'SQL_SERVER_LAB_DATA_ROOT')
+ 'Prepared manifest preserves backup storage intent and binds only the approved artifact and network'=($preparedInstance.storageIntent.roles.backup.selector -ceq 'default' -and
+    $preparedInstance.storageIntent.placementPolicy -ceq 'logical-only' -and $preparedInstance.hyperv.preparedImageId -ceq $artifact -and
+    $preparedInstance.hyperv.switchName -ceq 'synthetic-switch' -and $preparedInstance.windowsActivation.Strategy -ceq 'NotRequested' -and
+    $preparedInstance.windowsActivation.EgressPolicy -ceq 'Denied')
  'Early clone failure recovers only this operation; unowned, absent and ambiguous runs remain fail-closed'=(Test-HyperVStorageAcceptanceRecovery -RunnerPath $path)
  'Directory delimiters and case do not reject converged SQL paths'=($valid.Defaults -and $valid.TempDb)
  'Different and empty default directories remain rejected'=(-not (Test-ComparisonCase 'WrongDefault').Defaults -and -not (Test-ComparisonCase 'EmptyDefault').Defaults)
@@ -69,6 +116,7 @@ $checks=[ordered]@{
  'Synthetic fault resume remains separate and no production injection seam is introduced'=($source -match 'Fault/resume injection remains in the synthetic contract' -and $source -match 'does\s+not add a production fault-injection seam' -and $source -notmatch 'Resize-VHD')
  'Prepared restore uses a verified SQL-2025 artifact on the existing host-only network with activation denied'=($source -match "Parameter\(Mandatory,ParameterSetName='Prepared'\)" -and $source -match 'HYPERV_LIBRARY_RESTORE_ACCEPTANCE_PREPARED_SCOPE_REQUIRED' -and $source -match 'Get-HyperVImageArtifact -ArtifactId \$Id' -and $source -match "'SQL_PREPARED_SEALED'" -and $source -match 'VERIFIED_HASH' -and $source -match 'HYPERV_LIBRARY_RESTORE_ACCEPTANCE_EXISTING_NETWORK_REQUIRED' -and $source -match "Strategy = 'NotRequested'" -and $source -match 'Invoke-WithLabWorkflowOperationContext -OperationId \$Op' -and $source -match 'NonInteractive -RequireExistingHyperVNetwork')
  'Prepared and clone dispatch pass only their own argument sets'=($preparedArguments.Count -eq 2 -and $preparedArguments.VerifyLibraryRestore -eq $true -and $preparedArguments.PreparedArtifactId -ceq $artifact -and $cloneArguments.Count -eq 4 -and $cloneArguments.CloneSourceRunId -ceq 'synthetic-slot' -and $cloneArguments.MediaRoot -ceq 'synthetic-media' -and -not $cloneArguments.VerifyLibraryRestore)
+ 'Prepared dispatch ignores the inherited workflow media default without opening a media or clone path'=($preparedDefaultArguments.Count -eq 2 -and $preparedDefaultArguments.VerifyLibraryRestore -eq $true -and $preparedDefaultArguments.PreparedArtifactId -ceq $artifact -and -not $preparedDefaultArguments.ContainsKey('MediaRoot') -and -not $preparedDefaultArguments.ContainsKey('CloneSourceRunId'))
  'Prepared dispatch refuses mixed source inputs and unrelated modes'=((Test-StorageAcceptanceDispatch -Prepared $artifact -Clone synthetic-slot -Restore $true) -ceq 'HYPERV_LIBRARY_RESTORE_CI_PREPARED_INPUT_CONFLICT' -and (Test-StorageAcceptanceDispatch -Prepared $artifact -Media synthetic-media -Restore $true) -ceq 'HYPERV_LIBRARY_RESTORE_CI_PREPARED_INPUT_CONFLICT' -and (Test-StorageAcceptanceDispatch -Prepared $artifact -Restore $false) -ceq 'HYPERV_LIBRARY_RESTORE_CI_PREPARED_INPUT_CONFLICT')
  'Workflow exposes the acceptance only through manual main dispatch with a clone source'=((Get-Content $workflow -Raw -Encoding utf8) -match '(?m)^\s*- sql-storage-reconcile-acceptance\s*$' -and (Get-Content $workflow -Raw -Encoding utf8) -match 'HYPERV_SQL_STORAGE_RECONCILE_CI_MANUAL_MAIN_REQUIRED' -and (Get-Content $workflow -Raw -Encoding utf8) -match 'HYPERV_SQL_STORAGE_RECONCILE_CI_CLONE_SOURCE_REQUIRED' -and (Get-Content $workflow -Raw -Encoding utf8) -match 'Invoke-HyperVSqlStorageReconcileAcceptance\.ps1 @arguments')
 }
