@@ -26,6 +26,21 @@ function New-RefreshTargetFixture($DataRoot,$SourceRun,$SourceConnection,$State=
 }
 try {
     foreach($source in @('Private/DiagnosticBundleReader.ps1','Private/SqlGuestEvaluationEvidence.ps1','Private/SqlGuestEvaluationCapture.ps1','Private/EvaluationRefreshPlan.ps1','Private/VersionCatalog.ps1','Private/PathSafety.ps1','Public/Get-SqlServerLabEvaluationRefreshPlan.ps1','Public/Get-SqlServerLabEvaluationWatch.ps1','Public/Invoke-SqlServerLabWorkflowAction.ps1')){Import-RefreshFunctions $source}
+    $script:VersionCatalog=Get-Content (Join-Path $repo Catalogs/sql-server-versions.json) -Raw|ConvertFrom-Json
+    $script:SchemasPath=Join-Path $repo Schemas
+    foreach($forbidden in @('Get-LabStateRoot','Get-LabStorageConfiguration','Get-LabSecret','Get-LabHostToolInvocation','Get-ContainerRuntime','Get-VM','Invoke-Sqlcmd','Get-LabDatabaseMigrationDependencyInventory','Invoke-LabArtifactStoreLock','New-SqlServerLab','Stop-SqlServerLab','Remove-SqlServerLab')){Set-Item ('Function:script:'+$forbidden) ([scriptblock]::Create("throw 'FORBIDDEN_REFRESH_BOUNDARY'"))}
+    $runId=[guid]::NewGuid().ToString('D');$scope=[guid]::NewGuid().ToString('D');$controller=[guid]::NewGuid().ToString('D')
+    $stateRoot=Join-Path $root State;$runDirectory=Join-Path $stateRoot ('runs/'+$runId)
+    Write-Refresh (Join-Path $root '.sql-server-lab-root.json') @{ContractVersion='SqlServerLab.DataRoot/2.0';ManagedBy='SQL_Server_Lab';ControllerId=$controller;VolumeId='CANARY_PRIVATE_VOLUME';DataRoot=$root}
+    Write-Refresh (Join-Path $root 'Catalog/storage-locations.json') @{ContractVersion='SqlServerLab.Storage/2.0';ControllerId=$controller;LabDataLocations=@(@{LocationId=[guid]::NewGuid().ToString('D');ControllerId=$controller;VolumeId='CANARY_PRIVATE_VOLUME';LabDataRoot=$root})}
+    $run=@{contractVersion='SqlServerLab.RunState/1.0';runId=$runId;scopeId=$scope;state='RUNNING';instances=@();stateHistory=@();errors=@();providerSubRuns=@(@{provider='hyperv';state='RUNNING';instanceIds=@('primary')});metadata=@{persistentData=$false;workflowKind='hyperv-lab';workload='sql';imageArtifactId='hyperv-sql-prepared-sealed-'+('a'*64);desiredState=@{Contract=@{Name='SqlServerLab.RunDesiredState';Version='1.0'};PersistentData=$false;ProvisioningMode='adhoc';Instances=@(@{Id='primary';Provider='hyperv';Version='2025'})}}}
+    $runPath=Join-Path $runDirectory run-state.json;Write-Refresh $runPath $run
+    Write-Refresh (Join-Path $stateRoot ('scope-markers/'+$scope+'.json')) @{runId=$runId;scopeId=$scope}
+    $connection=@{schemaVersion=1;instances=@(@{id='primary';provider='hyperv';workload='sql';vmId=[guid]::NewGuid().ToString('D');vmName='CANARY_PRIVATE_VM';host='CANARY_PRIVATE_HOST';imageArtifactId=$run.metadata.imageArtifactId;sqlVersion='2025';sqlEdition='Evaluation';sqlReadiness=@{status='SQL_READY_RUN';instanceName='MSSQLSERVER';majorVersion=17;edition='Enterprise Evaluation Edition'};windowsActivation=@{state='EVALUATION_ACTIVE';edition='ServerStandardEval';evaluationExpiresAt=[datetime]::UtcNow.AddDays(3).ToString('o')}})}
+    $connectionPath=Join-Path $runDirectory connection-info.json;Write-Refresh $connectionPath $connection
+    $argsForPlan=@{RunId=$runId;InstanceId='primary';DataRoot=$root;Mode='STATEFUL_MIGRATION'}
+    $before=Get-RefreshHashes
+    # Supplemental native-harness assertions use independent synthetic modules.
     Import-RefreshFunctions 'Tests/Integration/Invoke-HyperVEvaluationTargetWindowsLicenseAcceptance.ps1'
     $reason = 'HYPERV_WINDOWS_ACTIVATION_FAILED: WINDOWS_ACTIVATION_REQUEST_FAILED'
     $flags = 'dns=resolved;ipv4=present;route=present;hresult=0x80004005'
@@ -132,20 +147,7 @@ try {
             Assert-Refresh ($fixtureCode -ceq 'SQL_GUEST_ALLOCATION_FIXTURE_RECEIPT_INVALID') ('Native fixture rejects page evidence: '+$mode)
         }
     } finally { $fixtureCredential.Dispose() }
-    $script:VersionCatalog=Get-Content (Join-Path $repo Catalogs/sql-server-versions.json) -Raw|ConvertFrom-Json
-    $script:SchemasPath=Join-Path $repo Schemas
-    foreach($forbidden in @('Get-LabStateRoot','Get-LabStorageConfiguration','Get-LabSecret','Get-LabHostToolInvocation','Get-ContainerRuntime','Get-VM','Invoke-Sqlcmd','Get-LabDatabaseMigrationDependencyInventory','Invoke-LabArtifactStoreLock','New-SqlServerLab','Stop-SqlServerLab','Remove-SqlServerLab')){Set-Item ('Function:script:'+$forbidden) ([scriptblock]::Create("throw 'FORBIDDEN_REFRESH_BOUNDARY'"))}
-    $runId=[guid]::NewGuid().ToString('D');$scope=[guid]::NewGuid().ToString('D');$controller=[guid]::NewGuid().ToString('D')
-    $stateRoot=Join-Path $root State;$runDirectory=Join-Path $stateRoot ('runs/'+$runId)
-    Write-Refresh (Join-Path $root '.sql-server-lab-root.json') @{ContractVersion='SqlServerLab.DataRoot/2.0';ManagedBy='SQL_Server_Lab';ControllerId=$controller;VolumeId='CANARY_PRIVATE_VOLUME';DataRoot=$root}
-    Write-Refresh (Join-Path $root 'Catalog/storage-locations.json') @{ContractVersion='SqlServerLab.Storage/2.0';ControllerId=$controller;LabDataLocations=@(@{LocationId=[guid]::NewGuid().ToString('D');ControllerId=$controller;VolumeId='CANARY_PRIVATE_VOLUME';LabDataRoot=$root})}
-    $run=@{contractVersion='SqlServerLab.RunState/1.0';runId=$runId;scopeId=$scope;state='RUNNING';instances=@();stateHistory=@();errors=@();providerSubRuns=@(@{provider='hyperv';state='RUNNING';instanceIds=@('primary')});metadata=@{persistentData=$false;workflowKind='hyperv-lab';workload='sql';imageArtifactId='hyperv-sql-prepared-sealed-'+('a'*64);desiredState=@{Contract=@{Name='SqlServerLab.RunDesiredState';Version='1.0'};PersistentData=$false;ProvisioningMode='adhoc';Instances=@(@{Id='primary';Provider='hyperv';Version='2025'})}}}
-    $runPath=Join-Path $runDirectory run-state.json;Write-Refresh $runPath $run
-    Write-Refresh (Join-Path $stateRoot ('scope-markers/'+$scope+'.json')) @{runId=$runId;scopeId=$scope}
-    $connection=@{schemaVersion=1;instances=@(@{id='primary';provider='hyperv';workload='sql';vmId=[guid]::NewGuid().ToString('D');vmName='CANARY_PRIVATE_VM';host='CANARY_PRIVATE_HOST';imageArtifactId=$run.metadata.imageArtifactId;sqlVersion='2025';sqlEdition='Evaluation';sqlReadiness=@{status='SQL_READY_RUN';instanceName='MSSQLSERVER';majorVersion=17;edition='Enterprise Evaluation Edition'};windowsActivation=@{state='EVALUATION_ACTIVE';edition='ServerStandardEval';evaluationExpiresAt=[datetime]::UtcNow.AddDays(3).ToString('o')}})}
-    $connectionPath=Join-Path $runDirectory connection-info.json;Write-Refresh $connectionPath $connection
-    $argsForPlan=@{RunId=$runId;InstanceId='primary';DataRoot=$root;Mode='STATEFUL_MIGRATION'}
-    $before=Get-RefreshHashes
+
     $missing=Get-SqlServerLabEvaluationRefreshPlan @argsForPlan
     Assert-Refresh ($missing.Evaluations[1].EvidenceStatus-ceq'EVIDENCE_MISSING') 'Actual guest reader reports missing SQL evidence without acquisition'
     Assert-Refresh ($missing.Evaluations[0].Status-ceq'CRITICAL'-and-not$missing.Evaluations[0].FreshLicenseProof) 'Stored Windows deadline uses Watch classification without fresh license claim'
