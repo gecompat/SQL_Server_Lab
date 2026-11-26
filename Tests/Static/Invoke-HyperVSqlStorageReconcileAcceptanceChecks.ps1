@@ -29,19 +29,47 @@ function Test-ComparisonCase {
 }
 $valid=Test-ComparisonCase 'Valid'
 . (Join-Path $PSScriptRoot '../Common/HyperVStorageAcceptanceRecoveryFixture.ps1')
+$workflowSource=Get-Content -LiteralPath $workflow -Raw -Encoding utf8
+$dispatchStart=$workflowSource.IndexOf('$libraryRestore = $env:SQL_SERVER_LAB_CI_VERIFY_LIBRARY_RESTORE')
+$dispatchEnd=$workflowSource.IndexOf('.\Tests\Integration\Invoke-HyperVSqlStorageReconcileAcceptance.ps1 @arguments',$dispatchStart)
+if($dispatchStart -lt 0 -or $dispatchEnd -le $dispatchStart){throw 'Library restore dispatch input binding missing'}
+$dispatch=[scriptblock]::Create($workflowSource.Substring($dispatchStart,$dispatchEnd-$dispatchStart)+[Environment]::NewLine+'$arguments')
+function Test-StorageAcceptanceDispatch {
+    param([string]$Prepared,[string]$Clone,[string]$Media,[bool]$Restore)
+    $values=[ordered]@{PREPARED_ARTIFACT_ID=$Prepared;CLONE_SOURCE_RUN_ID=$Clone;MEDIA_ROOT=$Media;MEDIA_EDITION='Enterprise';VERIFY_LIBRARY_RESTORE=$Restore.ToString().ToLowerInvariant()}
+    $previous=@{}
+    try {
+        foreach($entry in $values.GetEnumerator()){
+            $name='SQL_SERVER_LAB_CI_'+$entry.Key
+            $previous[$name]=[Environment]::GetEnvironmentVariable($name,'Process')
+            [Environment]::SetEnvironmentVariable($name,$entry.Value,'Process')
+        }
+        return & $dispatch
+    } catch {
+        return $_.Exception.Message
+    } finally {
+        foreach($name in $previous.Keys){[Environment]::SetEnvironmentVariable($name,$previous[$name],'Process')}
+    }
+}
+$artifact='hyperv-sql-prepared-sealed-'+('a'*64)
+$preparedArguments=Test-StorageAcceptanceDispatch -Prepared $artifact -Restore $true
+$cloneArguments=Test-StorageAcceptanceDispatch -Clone synthetic-slot -Media synthetic-media -Restore $false
 $checks=[ordered]@{
  'Early clone failure recovers only this operation; unowned, absent and ambiguous runs remain fail-closed'=(Test-HyperVStorageAcceptanceRecovery -RunnerPath $path)
  'Directory delimiters and case do not reject converged SQL paths'=($valid.Defaults -and $valid.TempDb)
  'Different and empty default directories remain rejected'=(-not (Test-ComparisonCase 'WrongDefault').Defaults -and -not (Test-ComparisonCase 'EmptyDefault').Defaults)
  'Missing duplicate and misplaced TempDB files remain rejected'=(-not (Test-ComparisonCase 'MissingTempDb').TempDb -and -not (Test-ComparisonCase 'DuplicateTempDb').TempDb -and -not (Test-ComparisonCase 'WrongTempDb').TempDb)
  'Native SQL storage acceptance is syntactically valid'=($errors.Count -eq 0)
- 'Acceptance requires an operation-owned Windows 2025 clone with verified SQL media and denied egress'=($source -match 'Parameter\(Mandatory\)\]\[string\]\$CloneSourceRunId' -and $source -match 'Parameter\(Mandatory\)\]\[string\]\$MediaRoot' -and $source -match 'New-HyperVResourceAcceptanceSlotClone' -and $source -match "Strategy='VerifyOnly'" -and $source -match "EgressPolicy='Denied'")
+ 'Acceptance requires an operation-owned Windows 2025 clone with verified SQL media and denied egress'=($source -match 'Parameter\(Mandatory,ParameterSetName=''Clone''\)\]\[string\]\$CloneSourceRunId' -and $source -match 'Parameter\(Mandatory,ParameterSetName=''Clone''\)\]\[string\]\$MediaRoot' -and $source -match 'New-HyperVResourceAcceptanceSlotClone' -and $source -match "Strategy='VerifyOnly'" -and $source -match "EgressPolicy='Denied'")
  'Host storage is reconciled from a schema-valid bound storage intent and no-op before SQL storage mutation'=($source -match "placementPolicy='logical-only'" -and $source -match "dataFileCount=4" -and $source -match "defaultData=\[ordered\]@\{selector='default'\}" -and $source -match "defaultLog=\[ordered\]@\{selector='default'\}" -and $source -match 'New-LabStorageBoundPlan' -and $source -match 'storage-bound-plan\.json' -and $source -match '\$hostReasonCodes' -and $source -match "HighestChangeClass -in @\('live','restart'\)" -and $source -match 'Actions\[0\]\.Operation' -and $source -match 'Start-VM -VM \$VM' -and $source -match 'HV-603 ist vor SQL-Mutation No-op' -and $source -match 'RepairHyperVSqlStorage')
  'SQL paths are verified solely through the runtime receipt produced after SQL reconciliation'=($source -match 'storage-runtime-receipt\.json' -and $source -match 'HV-603 persistiert noch keinen SQL-Runtime-Receipt' -and $source -match 'receiptAfter\.FileBindings' -and $source -match 'Get-SqlStorageObservation')
  'Applied SQL reconciliation inspects the public execution-plan result'=($source -match 'result\.ExecutionPlan\[0\]\.Result\.ReceiptStatus' -and $source -notmatch 'result\.Actions\[0\]\.Result\.ReceiptStatus')
  'Failed convergence reports component-level evidence without SQL paths'=($source -match '\$convergenceEvidence' -and $source -match 'result=\$resultOk' -and $source -match 'tempdb=\$tempOk' -and $source -match 'defaultsDetail=' -and $source -match 'tempdbDetail=' -and $source -notmatch 'SqlPhysicalPath.*convergenceEvidence')
  'WhatIf, service-only restart, no-op and scope-bound cleanup are explicit'=($source -match 'RepairHyperVSqlStorage.*-WhatIf' -and $source -match 'SqlStartTime -ne' -and $source -match 'bootAfter -eq \$bootBefore' -and $source -match 'Wiederholter HV-603A-Plan ist No-op' -and $source -match 'Remove-SqlServerLab')
  'Synthetic fault resume remains separate and no production injection seam is introduced'=($source -match 'Fault/resume injection remains in the synthetic contract' -and $source -match 'does\s+not add a production fault-injection seam' -and $source -notmatch 'Resize-VHD')
+ 'Prepared restore uses a verified SQL-2025 artifact on the existing host-only network with activation denied'=($source -match "Parameter\(Mandatory,ParameterSetName='Prepared'\)" -and $source -match 'HYPERV_LIBRARY_RESTORE_ACCEPTANCE_PREPARED_SCOPE_REQUIRED' -and $source -match 'Get-HyperVImageArtifact -ArtifactId \$Id' -and $source -match "'SQL_PREPARED_SEALED'" -and $source -match 'VERIFIED_HASH' -and $source -match 'HYPERV_LIBRARY_RESTORE_ACCEPTANCE_EXISTING_NETWORK_REQUIRED' -and $source -match "Strategy = 'NotRequested'" -and $source -match 'Invoke-WithLabWorkflowOperationContext -OperationId \$Op' -and $source -match 'NonInteractive -RequireExistingHyperVNetwork')
+ 'Prepared and clone dispatch pass only their own argument sets'=($preparedArguments.Count -eq 2 -and $preparedArguments.VerifyLibraryRestore -eq $true -and $preparedArguments.PreparedArtifactId -ceq $artifact -and $cloneArguments.Count -eq 4 -and $cloneArguments.CloneSourceRunId -ceq 'synthetic-slot' -and $cloneArguments.MediaRoot -ceq 'synthetic-media' -and -not $cloneArguments.VerifyLibraryRestore)
+ 'Prepared dispatch refuses mixed source inputs and unrelated modes'=((Test-StorageAcceptanceDispatch -Prepared $artifact -Clone synthetic-slot -Restore $true) -ceq 'HYPERV_LIBRARY_RESTORE_CI_PREPARED_INPUT_CONFLICT' -and (Test-StorageAcceptanceDispatch -Prepared $artifact -Media synthetic-media -Restore $true) -ceq 'HYPERV_LIBRARY_RESTORE_CI_PREPARED_INPUT_CONFLICT' -and (Test-StorageAcceptanceDispatch -Prepared $artifact -Restore $false) -ceq 'HYPERV_LIBRARY_RESTORE_CI_PREPARED_INPUT_CONFLICT')
  'Workflow exposes the acceptance only through manual main dispatch with a clone source'=((Get-Content $workflow -Raw -Encoding utf8) -match '(?m)^\s*- sql-storage-reconcile-acceptance\s*$' -and (Get-Content $workflow -Raw -Encoding utf8) -match 'HYPERV_SQL_STORAGE_RECONCILE_CI_MANUAL_MAIN_REQUIRED' -and (Get-Content $workflow -Raw -Encoding utf8) -match 'HYPERV_SQL_STORAGE_RECONCILE_CI_CLONE_SOURCE_REQUIRED' -and (Get-Content $workflow -Raw -Encoding utf8) -match 'Invoke-HyperVSqlStorageReconcileAcceptance\.ps1 @arguments')
 }
 $failed=@($checks.GetEnumerator()|Where-Object{-not $_.Value});if($failed){throw "Hyper-V SQL storage reconcile acceptance checks failed: $($failed.Key -join ', ')"};Write-Host "Hyper-V SQL Storage Reconcile Acceptance Checks: $($checks.Count) PASS, 0 FAIL" -ForegroundColor Green

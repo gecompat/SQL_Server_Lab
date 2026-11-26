@@ -526,15 +526,23 @@ jobs:
           SQL_SERVER_LAB_CI_CLONE_SOURCE_RUN_ID: ${{ inputs.clone_source_run_id }}
           SQL_SERVER_LAB_CI_MEDIA_ROOT: ${{ inputs.media_root }}
           SQL_SERVER_LAB_CI_MEDIA_EDITION: ${{ inputs.media_edition }}
+          SQL_SERVER_LAB_CI_PREPARED_ARTIFACT_ID: ${{ inputs.image_artifact_id }}
           SQL_SERVER_LAB_CI_VERIFY_LIBRARY_RESTORE: ${{ inputs.mode == 'sql-storage-library-restore-acceptance' }}
         run: |
           $ErrorActionPreference = 'Stop'
-          $arguments = @{}
-          if ([string]::IsNullOrWhiteSpace([string]$env:SQL_SERVER_LAB_CI_CLONE_SOURCE_RUN_ID)) { throw 'HYPERV_SQL_STORAGE_RECONCILE_CI_CLONE_SOURCE_REQUIRED' }
-          $arguments.CloneSourceRunId = [string]$env:SQL_SERVER_LAB_CI_CLONE_SOURCE_RUN_ID
-          $arguments.MediaRoot = [string]$env:SQL_SERVER_LAB_CI_MEDIA_ROOT
-          $arguments.MediaEdition = [string]$env:SQL_SERVER_LAB_CI_MEDIA_EDITION
-          if ($env:SQL_SERVER_LAB_CI_VERIFY_LIBRARY_RESTORE -ceq 'true') { $arguments.VerifyLibraryRestore = $true }
+          $libraryRestore = $env:SQL_SERVER_LAB_CI_VERIFY_LIBRARY_RESTORE -ceq 'true'
+          $arguments = @{ VerifyLibraryRestore=$libraryRestore }
+          if ($env:SQL_SERVER_LAB_CI_PREPARED_ARTIFACT_ID) {
+            if (-not $libraryRestore -or $env:SQL_SERVER_LAB_CI_CLONE_SOURCE_RUN_ID -or $env:SQL_SERVER_LAB_CI_MEDIA_ROOT) {
+              throw 'HYPERV_LIBRARY_RESTORE_CI_PREPARED_INPUT_CONFLICT'
+            }
+            $arguments.PreparedArtifactId = [string]$env:SQL_SERVER_LAB_CI_PREPARED_ARTIFACT_ID
+          } else {
+            if ([string]::IsNullOrWhiteSpace([string]$env:SQL_SERVER_LAB_CI_CLONE_SOURCE_RUN_ID)) { throw 'HYPERV_SQL_STORAGE_RECONCILE_CI_CLONE_SOURCE_REQUIRED' }
+            $arguments.CloneSourceRunId = [string]$env:SQL_SERVER_LAB_CI_CLONE_SOURCE_RUN_ID
+            $arguments.MediaRoot = [string]$env:SQL_SERVER_LAB_CI_MEDIA_ROOT
+            $arguments.MediaEdition = [string]$env:SQL_SERVER_LAB_CI_MEDIA_EDITION
+          }
           .\Tests\Integration\Invoke-HyperVSqlStorageReconcileAcceptance.ps1 @arguments
 
       - name: Hyper-V SQL port reconcile acceptance

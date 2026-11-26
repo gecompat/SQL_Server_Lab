@@ -2151,8 +2151,13 @@ SQL-Argument und erzeugter SQL-Datei geprüft. Das bestätigt den
 Verbindungsaufbau ohne Passwortprompt oder Passwortausgabe. Ein echter
 Hyper-V-Restore über den gerenderten Browser ist damit nicht nachgewiesen.
 Der vorbereitete manuelle Main-Modus `sql-storage-library-restore-acceptance`
-nutzt den operationseigenen Clone der Storage-Reconcile-Abnahme und ein
-bereits vorhandenes Host-only-Netz. Er legt eine
+nutzt ein bereits vorhandenes Host-Only-Netz. Als Quelle verwendet er
+entweder den operationseigenen Clone aus einem ausdrücklich ausgewählten
+Windows-Slot mit registriertem SQL-Medium oder ein ausdrücklich ausgewähltes,
+verifiziertes SQL-2025-Developer-Prepared-Artifact. Der Prepared-Pfad
+erstellt einen eigenen SQL-Run, lässt die Windows-Aktivierung unverändert
+und benötigt keine Zugangsdaten oder Datenträger eines vorhandenen Slots.
+Der Workflow weist gemischte Eingaben vor dem Arrange ab. Er legt eine
 synthetische Datenbank an, sichert sie in einer isolierten temporären
 Backup-Bibliothek und prüft anschließend den tatsächlichen Worker-Einstieg,
 die identischen Zielinhalte und die Kopienbereinigung. Der native Lauf
