@@ -437,5 +437,15 @@ function Remove-LabHyperVGuestFile {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$RunId,[Parameter(Mandatory)][string]$Path,[Parameter(Mandatory)][PSCredential]$Credential,[string]$StateRoot)
     $lab=Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
-    $null=Invoke-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $Credential -ArgumentList @($Path) -ScriptBlock { param($Target) if(Test-Path -LiteralPath $Target -PathType Leaf){Remove-Item -LiteralPath $Target -Force -ErrorAction Stop}; [PSCustomObject]@{Removed=(-not(Test-Path -LiteralPath $Target))} }
+    $result = @(Invoke-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) -ExpectedRunId $lab.Run.runId `
+        -ExpectedScopeId $lab.Run.scopeId -Credential $Credential -ArgumentList @($Path) -ScriptBlock {
+            param($Target)
+            if (Test-Path -LiteralPath $Target -PathType Leaf -ErrorAction Stop) {
+                Remove-Item -LiteralPath $Target -Force -ErrorAction Stop
+            }
+            [pscustomobject]@{Removed=(-not (Test-Path -LiteralPath $Target -ErrorAction Stop))}
+        })
+    if ($result.Count -ne 1 -or $result[0].Removed -isnot [bool] -or -not $result[0].Removed) {
+        throw 'HYPERV_GUEST_FILE_CLEANUP_UNCONFIRMED'
+    }
 }

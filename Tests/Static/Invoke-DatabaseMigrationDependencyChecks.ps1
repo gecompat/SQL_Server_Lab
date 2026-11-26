@@ -12,8 +12,15 @@ $module=Import-Module (Join-Path $repoRoot 'SqlServerLab.psd1') -Force -PassThru
 try {
     $result=& $module {
         $script:capturedQuery=$null
+        $password=[SecureString]::new()
+        foreach($character in 'ephemeral-test-value'.ToCharArray()){$password.AppendChar($character)}
+        $password.MakeReadOnly()
+        $script:dependencyProofPassword = $password
         Set-Item Function:script:Invoke-SqlQuery -Value {
-            param($Query)
+            param($Query,$ProductQueryPassword,$SaPlain)
+            if (-not [object]::ReferenceEquals($ProductQueryPassword,$script:dependencyProofPassword) -or $SaPlain) {
+                throw 'SYNTHETIC_DEPENDENCY_REQUIRES_SECURE_QUERY'
+            }
             $script:capturedQuery=[string]$Query
             @(
                 'PSR010_META|17|NONE|1|3|CERTIFICATE',
@@ -23,12 +30,9 @@ try {
                 'PSR010_COUNT|LINKED_SERVER|1'
             )
         }
-        $observation=Get-LabDatabaseMigrationDependencySqlObservation -Port 14330 -SaPlain 'ephemeral-test-value' -DatabaseName Evidence
+        $observation=Get-LabDatabaseMigrationDependencySqlObservation -Port 14330 -SaPassword $password -DatabaseName Evidence
         $blocked=New-LabDatabaseMigrationDependencyInventory -DatabaseName Evidence -Provider hyperv -RunId 'sanitized-run' -InstanceId primary -Observation $observation
         $review=New-LabDatabaseMigrationDependencyInventory -DatabaseName Evidence -Provider hyperv -Observation $observation -TdeRecoveryEvidenceVerified $true
-        $password=[SecureString]::new()
-        foreach($character in 'ephemeral-test-value'.ToCharArray()){$password.AppendChar($character)}
-        $password.MakeReadOnly()
         $publicDirect=Get-SqlServerLabDatabaseMigrationDependency -HostName 127.0.0.1 -Port 14330 `
             -Provider external -SaPassword $password -DatabaseName Evidence -TdeRecoveryEvidenceVerified
         Set-Item Function:script:Resolve-LabRunInstance -Value {
@@ -44,7 +48,7 @@ try {
         try{$null=Test-LabDatabaseMigrationDependencyInventory -Inventory $invalid}catch{$duplicate=$_.Exception.Message -match 'CATEGORY_DUPLICATE'}
         $missing=$false
         Set-Item Function:script:Invoke-SqlQuery -Value { @('PSR010_META|17|NONE|0|0|NONE','PSR010_COUNT|SERVER_LOGIN_MAPPING|0') }
-        try{$null=Get-LabDatabaseMigrationDependencySqlObservation -Port 14330 -SaPlain 'ephemeral-test-value' -DatabaseName Evidence}catch{$missing=$_.Exception.Message -match 'COUNT_MISSING'}
+        try{$null=Get-LabDatabaseMigrationDependencySqlObservation -Port 14330 -SaPassword $password -DatabaseName Evidence}catch{$missing=$_.Exception.Message -match 'COUNT_MISSING'}
         [PSCustomObject]@{
             Observation=$observation;Blocked=$blocked;Review=$review
             PublicDirect=$publicDirect;PublicRun=$publicRun;Boundary=$boundary

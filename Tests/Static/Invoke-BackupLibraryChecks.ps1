@@ -35,7 +35,14 @@ try {
         Set-Item Function:script:Initialize-LabSampleBaselineBackupTarget -Value {
             [PSCustomObject]@{Provider='docker';ContainerName='sanitized-at-runtime';BackupRoot='/var/opt/mssql/backup'}
         }
-        Set-Item Function:script:Invoke-SqlQuery -Value { param($Query) $script:backupSql.Add([string]$Query); @('ok') }
+        $script:backupProofPassword = $Password
+        Set-Item Function:script:Invoke-SqlQuery -Value {
+            param($Query,$ProductQueryPassword,$SaPlain)
+            if (-not [object]::ReferenceEquals($ProductQueryPassword,$script:backupProofPassword) -or $SaPlain) {
+                throw 'SYNTHETIC_BACKUP_REQUIRES_SECURE_QUERY'
+            }
+            $script:backupSql.Add([string]$Query); @('ok')
+        }
         Set-Item Function:script:Export-LabSampleBaselineBackup -Value {
             param($DestinationPath) Copy-Item -LiteralPath $Fixture -Destination $DestinationPath
             [PSCustomObject]@{Provider='docker';ContainerName='not-persisted';RunId=$null;InstanceId=$null}
@@ -197,6 +204,135 @@ try {
     Add-CheckResult 'Restore-Ergebnis benennt Recovery nach SQL-Teilfehler und Core bereinigt Containerkopien' (
         $restoreText -match "Recovery\s+= 'VERIFY_OR_REMOVE_PARTIAL_TARGET'" -and
         $restoreText -match 'rm -f -- \$runtimeBackupPath')
+
+    Add-CheckResult 'Restore-Statements verwenden prozessgebundenes SA-Passwort und sperren vorhandene Ziele ohne Replace' (
+        $restoreText -cnotmatch 'PtrToStringBSTR|\$saPlain|''-P''' -and
+        @([regex]::Matches($restoreText,'-SqlPassword \$SaPassword')).Count -eq 2 -and
+        @([regex]::Matches($restoreText,'-ProductQueryPassword \$SaPassword')).Count -eq 3 -and
+        $restoreText -match '(?s)\$targetGuard = if \(-not \$Replace\).+DB_ID.+RESTORE_TARGET_DATABASE_EXISTS.+RESTORE DATABASE')
+
+    $browserRestore=& $module {
+        param($Password)
+        $run='43434343-2222-4333-8444-555555555555'
+        $backup='51515151-2222-4333-8444-555555555555'
+        $vm=[guid]'61616161-2222-4333-8444-555555555555'
+        $fixture=[pscustomobject]@{Address='192.0.2.23';ObservedAddress='192.0.2.23';RestoreCalls=0;Checks=0;Exists=$false;Drift=$false;Reads=0;Bound=$false;Storage='VERIFIED';BackupVersion=17;Cleanup='CONFIRMED'}
+        function Get-LabHyperVStorageReconcileContext {
+            param($RunId,$InstanceId)
+            [pscustomobject]@{StateRoot='synthetic-root';Run=[pscustomobject]@{state='RUNNING'};VM=[pscustomobject]@{Id=$vm;State='Running'}}
+        }
+        function Resolve-LabRunInstance {
+            param($RunId,$InstanceId,$StateRoot)
+            $fixture.Reads++
+            [pscustomobject]@{Provider='hyperv';VMId=$vm.ToString('D');HostName=$fixture.Address;Version='2025'
+                Port=if($fixture.Drift -and $fixture.Reads -eq 2){1435}else{1433}}
+        }
+        function Assert-LabWindowsPoolMutationAllowed {}
+        function Get-LabConnectionCenterCmsConfiguration {}
+        function Get-LabDataRootDefault { 'synthetic-data-root' }
+        function Resolve-LabDataRootForUse { param($DataRoot) $DataRoot }
+        function Get-LabDatabaseBackupSelection { [pscustomobject]@{BackupSetId=$backup;Availability='SELECTABLE';SourceSqlMajorVersion=$fixture.BackupVersion;IsEncrypted=$false} }
+        function Get-LabVerifiedStorageRuntimeContext {
+            [pscustomobject]@{Receipt=[pscustomobject]@{Status=$fixture.Storage}}
+        }
+        function Get-VMNetworkAdapter { param($VM,$ErrorAction) [pscustomobject]@{IPAddresses=@($fixture.ObservedAddress)} }
+        function Get-HyperVLabWorkflowRun {
+            param($RunId,$StateRoot,$ExpectedVmId,[switch]$NoWrite)
+            if ($ExpectedVmId -ne $vm -or -not $NoWrite) { throw 'WRONG_PROBE_BINDING' }
+            [pscustomobject]@{Instance=[pscustomobject]@{id='primary'}}
+        }
+        function Get-HyperVLabSqlInstanceReceipt {
+            param($Lab,$Credential,$ExpectedVmId)
+            if ($ExpectedVmId -ne $vm -or $Credential.UserName -cne 'Administrator') { throw 'WRONG_GUEST_AUTHORITY' }
+            [pscustomobject]@{instances=@([pscustomobject]@{serviceStatus='Running';tcpPort=1433})}
+        }
+        function Invoke-LabSqlcmdProgress {
+            param($SqlPassword,$ProcessTimeoutSeconds,$ArgumentList)
+            $fixture.Checks++
+            if (-not [object]::ReferenceEquals($SqlPassword,$Password) -or $ArgumentList -ccontains '-P') { throw 'WRONG_SQL_SECRET' }
+            [pscustomobject]@{ExitCode=0;Output=@($(if($fixture.Exists){'1'}else{'0'}))}
+        }
+        function Restore-SqlServerLabDatabase {
+            param($RunId,$InstanceId,$BackupSetId,$DatabaseName,$SaPassword,$GuestCredential,$StateRoot,$DataRoot,[switch]$NonInteractive,[switch]$Confirm,[switch]$Replace)
+            $fixture.RestoreCalls++
+            $fixture.Bound=$RunId -ceq $run -and $InstanceId -ceq 'primary' -and $BackupSetId -ceq $backup -and
+                $DatabaseName -ceq 'NewRestoreDb' -and $DataRoot -ceq 'synthetic-data-root' -and $NonInteractive -and -not $Confirm -and -not $Replace -and
+                $GuestCredential.UserName -ceq 'Administrator' -and [object]::ReferenceEquals($SaPassword,$Password)
+            [pscustomobject]@{Success=$true;Provider='hyperv';BackupSetId=$BackupSetId;DatabaseName=$DatabaseName;PrivatePath='fixture-private';CleanupStatus=$fixture.Cleanup}
+        }
+        $argsRestore=@{RunId=$run;InstanceId='primary';BackupSetId=$backup;DatabaseName='NewRestoreDb'
+            GuestUserName='Administrator';GuestPassword=$Password;SaPassword=$Password}
+        $success=Invoke-LabGuidedHyperVLibraryRestore @argsRestore
+        $fixture.Exists=$true
+        $exists=try { $null=Invoke-LabGuidedHyperVLibraryRestore @argsRestore; '' } catch { $_.Exception.Message }
+        $fixture.Exists=$false
+        $fixture.ObservedAddress='192.0.2.99'
+        $before=$fixture.Checks
+        $foreignIp=try { $null=Invoke-LabGuidedHyperVLibraryRestore @argsRestore; '' } catch { $_.Exception.Message }
+        $ipBlockedBeforeSql=$before -eq $fixture.Checks
+        $fixture.ObservedAddress=$fixture.Address
+        $fixture.BackupVersion=18
+        $before=$fixture.Checks
+        $newerBackup=try { $null=Invoke-LabGuidedHyperVLibraryRestore @argsRestore; '' } catch { $_.Exception.Message }
+        $versionBlockedBeforeSql=$before -eq $fixture.Checks
+        $fixture.BackupVersion=17
+        $fixture.Reads=0
+        $fixture.Drift=$true
+        $drift=try { $null=Invoke-LabGuidedHyperVLibraryRestore @argsRestore; '' } catch { $_.Exception.Message }
+        $guardedCalls=$fixture.RestoreCalls
+        $fixture.Drift=$false
+        $fixture.Cleanup='RECOVERY_REQUIRED'
+        $cleanup=try { $null=Invoke-LabGuidedHyperVLibraryRestore @argsRestore; '' } catch { $_.Exception.Message }
+        [pscustomobject]@{Success=$success;Exists=$exists;ForeignIp=$foreignIp;IpBlockedBeforeSql=$ipBlockedBeforeSql
+            Drift=$drift;NewerBackup=$newerBackup;VersionBlockedBeforeSql=$versionBlockedBeforeSql;Calls=$guardedCalls;Bound=$fixture.Bound;Cleanup=$cleanup}
+    } $password
+    Add-CheckResult 'Hyper-V Browser-Restore bindet die verifizierte Library an genau ein Ziel ohne Replace und projiziert nur die Quittung' (
+        $browserRestore.Calls -eq 1 -and $browserRestore.Bound -and $browserRestore.Success.Status -ceq 'RESTORED' -and
+        -not $browserRestore.Success.PSObject.Properties['PrivatePath'])
+    Add-CheckResult 'Vorhandenes Ziel, fremde Gast-IP und spätere Endpunktdrift sperren Hyper-V Browser-Restore' (
+        $browserRestore.Exists -ceq 'HYPERV_LIBRARY_RESTORE_TARGET_EXISTS' -and
+        $browserRestore.ForeignIp -ceq 'HYPERV_LIBRARY_RESTORE_TARGET_NOT_READY' -and $browserRestore.IpBlockedBeforeSql -and
+        $browserRestore.Drift -ceq 'HYPERV_LIBRARY_RESTORE_TARGET_NOT_READY' -and
+        $browserRestore.NewerBackup -ceq 'HYPERV_LIBRARY_RESTORE_BACKUP_NOT_SELECTABLE' -and $browserRestore.VersionBlockedBeforeSql)
+
+    Add-CheckResult 'Restore ergibt ohne bestätigte Kopienbereinigung keinen grünen Abschluss im Browser' (
+        $browserRestore.Cleanup -ceq 'HYPERV_LIBRARY_RESTORE_CLEANUP_REQUIRED' -and $browserRestore.Success.CleanupStatus -ceq 'CONFIRMED')
+
+    $cleanupProof=& $module {
+        param($Password)
+        $guest=[PSCredential]::new('Administrator',$Password)
+        function Get-HyperVLabWorkflowRun {
+            [pscustomobject]@{Run=[pscustomobject]@{runId='43434343-2222-4333-8444-555555555555';scopeId='61616161-2222-4333-8444-555555555555'}
+                Instance=[pscustomobject]@{vmName='synthetic-vm'}}
+        }
+        $reply=[pscustomobject]@{Removed=$false}
+        function Invoke-HyperVPowerShellDirect { $reply }
+        $restoreCleanup=@{RunId='43434343-2222-4333-8444-555555555555';Path='C:\Synthetic\owned-copy.bak';Credential=$guest;StateRoot='synthetic-state'}
+        $falseDenied=try { Remove-LabHyperVGuestFile @restoreCleanup; $false } catch { $_.Exception.Message -ceq 'HYPERV_GUEST_FILE_CLEANUP_UNCONFIRMED' }
+        $reply.Removed=$true
+        $null=Remove-LabHyperVGuestFile @restoreCleanup
+        $falseDenied
+    } $password
+    Add-CheckResult 'Hyper-V-Kopienbereinigung verlangt explizit die bestätigte Abwesenheit im gebundenen Gast' ([bool]$cleanupProof)
+
+    $serverAst=[Management.Automation.Language.Parser]::ParseFile((Join-Path $repoRoot 'Tools/Start-SqlServerLabUi.ps1'),[ref]$null,[ref]$null)
+    $parser=$serverAst.Find({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and
+        $node.Name -ceq 'Get-UiHyperVLibraryRestoreRequest'},$true)
+    $parseRequest=[scriptblock]::Create($parser.Body.Extent.Text.Trim().Substring(1,$parser.Body.Extent.Text.Trim().Length-2))
+    $request=@{parameters=@{RunId='43434343-2222-4333-8444-555555555555';InstanceId='primary';BackupSetId='51515151-2222-4333-8444-555555555555';
+        DatabaseName='NewRestoreDb';GuestUserName='Administrator';GuestPassword='SyntheticGuest';SaPassword='SyntheticSa'};confirmed=$true}
+    $typed=& $parseRequest -Body ($request|ConvertTo-Json -Compress)
+    try {
+        Add-CheckResult 'Hyper-V Restore-Parser bindet beide Zugänge als nur lesbare SecureStrings vor dem flüchtigen Job' (
+            $typed.GuestPassword -is [SecureString] -and $typed.GuestPassword.IsReadOnly() -and
+            $typed.SaPassword -is [SecureString] -and $typed.SaPassword.IsReadOnly() -and $typed.Count -eq 7)
+    } finally { $typed.GuestPassword.Dispose();$typed.SaPassword.Dispose() }
+    $request.parameters['Replace']=$true
+    $replaceDenied=try { $null=& $parseRequest -Body ($request|ConvertTo-Json -Compress);$false } catch { $_.Exception.Message -ceq 'HYPERV_LIBRARY_RESTORE_INPUT_INVALID' }
+    $null=$request.parameters.Remove('Replace')
+    $request.confirmed=$false
+    $unconfirmedDenied=try { $null=& $parseRequest -Body ($request|ConvertTo-Json -Compress);$false } catch { $_.Exception.Message -ceq 'HYPERV_LIBRARY_RESTORE_INPUT_INVALID' }
+    Add-CheckResult 'Hyper-V Restore-Parser verwirft Replace und fehlende Bestätigung vor jeder Jobanlage' ($replaceDenied -and $unconfirmedDenied)
 }
 finally {
     $env:SQL_SERVER_LAB_DATA_ROOT=$previousDataRoot

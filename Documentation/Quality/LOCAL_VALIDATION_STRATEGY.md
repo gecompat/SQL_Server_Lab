@@ -2138,6 +2138,31 @@ Die [bekannten Grenzen](KNOWN_LIMITATIONS.md#container-autostart-nur-vorprüfen)
 bleiben maßgeblich für nicht geprüfte oder nicht ausführbare Fähigkeiten.
 
 
+## Geführter Hyper-V-Bibliotheksrestore
+
+Die Backup-Library-Suite prüft synthetisch die Hyper-V-Zielbindung,
+Gast-IP, den beobachteten SQL-Port, den Backup-Kompatibilitätscheck und
+vorhandene Zieldatenbanken. Der Browser-Fixture prüft Auswahl und
+Bestätigung sowie das Leeren beider Passwortfelder. Die SQL-Progress-
+Suite prüft den prozessgebundenen Passworttransport mit einem echten
+Kindprozess und synthetischem Passwort. Unter Windows wurden zusätzlich
+der installierte ODBC-sqlcmd und ein eigener Loopback-Listener mit
+SQL-Argument und erzeugter SQL-Datei geprüft. Das bestätigt den
+Verbindungsaufbau ohne Passwortprompt oder Passwortausgabe. Ein echter
+Hyper-V-Restore über den gerenderten Browser ist damit nicht nachgewiesen.
+Der vorbereitete manuelle Main-Modus `sql-storage-library-restore-acceptance`
+nutzt ein bereits vorhandenes Host-Only-Netz. Als Quelle verwendet er
+entweder den operationseigenen Clone aus einem ausdrücklich ausgewählten
+Windows-Slot mit registriertem SQL-Medium oder ein ausdrücklich ausgewähltes,
+verifiziertes SQL-2025-Developer-Prepared-Artifact. Der Prepared-Pfad
+erstellt einen eigenen SQL-Run, lässt die Windows-Aktivierung unverändert
+und benötigt keine Zugangsdaten oder Datenträger eines vorhandenen Slots.
+Der Workflow weist gemischte Eingaben vor dem Arrange ab. Er legt eine
+synthetische Datenbank an, sichert sie in einer isolierten temporären
+Backup-Bibliothek und prüft anschließend den tatsächlichen Worker-Einstieg,
+die identischen Zielinhalte und die Kopienbereinigung. Der native Lauf
+dieses Modus steht aus.
+
 ## Getrennte AutoStart-Browservorschau
 
 Der additive Testmodus `Invoke-ContainerAutoStartPreviewAcceptance.ps1 -BrowserOnly`
@@ -4099,6 +4124,10 @@ bleiben unter der bestehenden Providerverwaltung; der Test fuehrt kein Prune aus
 `Tests/Static/Invoke-SqlActionProgressChecks.ps1` prüft unveränderte
 synthetische Passwortwerte einschließlich Minus, Leerzeichen, Anführungszeichen,
 Backslash und Unicode über Query, Readiness und KeepConnection.
+Die Bibliothekssicherung übergibt das Kennwort für Metadaten,
+Abhängigkeitsinventur und Backup per Prozessumgebung an sqlcmd. Die
+betroffenen Argument- und Workflowprüfungen prüfen, dass der SecureString
+auf diesem Weg erhalten bleibt und kein Kennwort in den Argumenten steht.
 `Invoke-ReadinessContractChecks.ps1` bindet beide Provider-Healthchecks und
 den gemeinsamen Container-Reconcile an denselben Shellargumentvertrag.
 `Tests/Integration/Invoke-SqlcmdPasswordParserAcceptance.ps1` reproduziert

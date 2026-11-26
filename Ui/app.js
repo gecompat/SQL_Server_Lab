@@ -859,6 +859,7 @@ function renderHyperVLabs(items) {
       (runningSql && !sqlNeedsCompletion) ? '<button class="button primary" data-hyperv-action="EnableHyperVLabHostSqlAccess" data-run="' + escapeHtml(item.RunId) + '">Hostzugriff reparieren</button>' : '',
       runningSql ? '<button class="button secondary" data-hyperv-action="InspectHyperVLabSqlInstances" data-run="' + escapeHtml(item.RunId) + '">SQL-Instanzen prüfen</button>' : '',
       runningSql ? '<button class="button secondary" data-container-operation="CreateHyperVLabDatabase" data-container-operation-kind="hyperv" data-run="' + escapeHtml(item.RunId) + '" data-container-operation-host="' + escapeHtml(sqlOperationHost) + '" data-instance="' + escapeHtml(sqlOperationInstanceId) + '" data-port="' + escapeHtml(String(sqlOperationPort)) + '">Datenbank anlegen</button>' : '',
+      runningSql && item.SqlCompletionState === 'COMPLETE' && item.InstanceId ? '<button class="button secondary" data-hyperv-library-restore="true" data-run="' + escapeHtml(item.RunId) + '" data-instance="' + escapeHtml(item.InstanceId) + '">Bibliotheksbackup wiederherstellen</button>' : '',
       runningSql ? '<button class="button secondary" data-container-operation="ExecuteHyperVLabScript" data-container-operation-kind="hyperv" data-run="' + escapeHtml(item.RunId) + '" data-container-operation-host="' + escapeHtml(sqlOperationHost) + '" data-instance="' + escapeHtml(sqlOperationInstanceId) + '" data-port="' + escapeHtml(String(sqlOperationPort)) + '">SQL-Skript ausführen</button>' : '',
       '<button class="button secondary" data-hyperv-action="OpenHyperVConsole" data-run="' + escapeHtml(item.RunId) + '">VMConnect öffnen</button>',
       '<button class="button secondary" data-lab-rename="true" data-run="' + escapeHtml(item.RunId) + '" data-name="' + escapeHtml(item.Name || item.RunId) + '">Name ändern</button>',
@@ -1790,6 +1791,11 @@ document.addEventListener('click', async (event) => {
     const detail = 'SQL Server ' + plan.SqlVersion + ' (' + plan.MediaEdition + '), ' + features + '.';
     openConfirmation(label, 'Gespeicherten SQL-Ausbau für „' + (target.Name || target.RunId) + '“ ausführen? ' + detail,
       'InstallHyperVLabSqlSlot', { RunId: target.RunId, ExpectedPlanKey: plan.PlanKey }, label);
+    return;
+  }
+  const hypervLibraryRestore = event.target.closest('[data-hyperv-library-restore]');
+  if (hypervLibraryRestore) {
+    window.sqlServerLabHyperVLibraryRestore?.open(hypervLibraryRestore.dataset.run, hypervLibraryRestore.dataset.instance);
     return;
   }
   const hypervAction = event.target.closest('[data-hyperv-action]');

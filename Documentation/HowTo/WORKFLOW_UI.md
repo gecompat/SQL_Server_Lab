@@ -1022,6 +1022,25 @@ verworfen. Nichtinteraktiv bleibt der unveränderte öffentliche Aufruf möglich
 Get-SqlServerLabEvaluationWatch -WarningDaysRemaining 30 -CriticalDaysRemaining 7
 ```
 
+## Bibliotheksbackup in Hyper-V wiederherstellen
+
+Wähle unter **Lab verwalten** bei einer laufenden, fertig eingerichteten
+Hyper-V-SQL-Instanz **Bibliotheksbackup wiederherstellen**. Wähle das
+verifizierte kompatible Backup und trage den Namen der neuen Datenbank ein.
+Gib den lokalen Gast-Administrator und die beiden Passwörter ein. Nach
+Bestätigung erscheint der Auftrag unter **Vorgänge**.
+
+Die VM muss über den gespeicherten Storage-Vertrag sowie einen aktuell
+gebundenen und erreichbaren SQL-Endpunkt verfügen. Die Prüfung weist
+bereits vorhandene Zieldatenbanken ab. Wenn der Auftrag nach dem Start
+unbestätigt bleibt, prüfe die Zieldatenbank, bevor du erneut bestätigst.
+Bei `HYPERV_LIBRARY_RESTORE_CLEANUP_REQUIRED` wurde der SQL-Restore
+bestätigt und die temporäre Gastkopie braucht eine separate Prüfung.
+Für die CLI steht derselbe Restore unter **Lab-Umgebungen → Datenbanken,
+Samples und Skripte → Datenbank wiederherstellen** bereit. Der Vorgang
+überträgt die ausgewählte Datenbank. Serverweite Logins, Jobs und andere
+Instanzobjekte werden separat behandelt.
+
 ## Container und Bereinigung
 
 Container-Labs lassen sich ad hoc, aus einem gespeicherten Manifest oder über

@@ -14,6 +14,7 @@ $repoRoot=Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 $calls=[Collections.Generic.List[object]]::new()
 $behavior=[pscustomobject]@{ExitCode=0;Output=@('synthetic-result');Failure='';Available=$true}
 $commandResolver=Get-Command Get-Command
+$nativeProcessInvoker=${function:Invoke-LabProgressNativeCommand}
 function Write-LabInfo { param($Message) }
 function Write-LabSuccess { param($Message) }
 function sqlcmd { throw 'DIRECT_SQLCMD_BYPASSES_BOUNDED_RUNNER' }
@@ -24,12 +25,13 @@ function Get-Command {
     & $commandResolver @PSBoundParameters
 }
 function Invoke-LabProgressNativeCommand {
-    param($FilePath,$ArgumentList,$Phase,$Progress,$TimeoutSeconds)
+    param($FilePath,$ArgumentList,$Phase,$Progress,$TimeoutSeconds,$SqlPassword)
     $inputIndex=[array]::IndexOf($ArgumentList,'-i')
     $inputPath=if($inputIndex -ge 0) { $ArgumentList[$inputIndex+1] } else { $null }
     $outputPath=$ArgumentList[[array]::IndexOf($ArgumentList,'-o')+1]
     $calls.Add([pscustomobject]@{
         Args=@($ArgumentList);Phase=$Phase;Timeout=$TimeoutSeconds;Progress=$Progress;InputPath=$inputPath;OutputPath=$outputPath
+        SameSecret=[object]::ReferenceEquals($SqlPassword,$credential)
         InputBytes=$(if($inputPath) { [IO.File]::ReadAllBytes($inputPath) } else { $null })
     })
     if($behavior.Failure) { throw $behavior.Failure }
@@ -48,10 +50,11 @@ $credential.AppendChar([char]83)
 try {
     $synthetic = '-OnlySynthetic A1!"\ä$;'
     $behavior.Output=@('16|2|0|0|0')
-    $metadata=Get-LabDatabaseBackupMetadata -Port 1433 -SaPlain $synthetic -DatabaseName SyntheticBackup
+    $metadata=Get-LabDatabaseBackupMetadata -Port 1433 -SaPassword $credential -DatabaseName SyntheticBackup
     $metadataCall=$calls[-1]
     Assert-SqlProgress ($metadata.SqlMajorVersion -eq '16' -and $metadata.FileCount -eq 2 -and -not $metadata.IsEncrypted) 'Backup-Metadaten behalten ihren strukturierten Ergebnisvertrag'
-    Assert-SqlProgress ($metadataCall.Args -ccontains ('-P'+$synthetic) -and $metadataCall.Args -cnotcontains '-P') 'Backup-Metadaten binden fuehrendes Minus und Sonderzeichen unveraendert'
+    Assert-SqlProgress ($metadataCall.SameSecret -and $metadataCall.Args -ccontains '-x' -and
+        @($metadataCall.Args.Where({ $_ -cmatch '^-(?:P|X)' })).Count -eq 0) 'Backup-Metadaten verwenden nur die Prozessumgebung für das Kennwort'
     Assert-SqlProgress ($metadataCall.Timeout -eq 60 -and $metadataCall.Args[[array]::IndexOf($metadataCall.Args,'-l')+1] -eq '15' -and $metadataCall.Args[[array]::IndexOf($metadataCall.Args,'-t')+1] -eq '45') 'Backup-Metadaten begrenzen Login, Query und Prozess'
     foreach($failureCase in @(
         @{Exit=9;Output=@('synthetic failure');Failure='';Expected='BACKUP_METADATA_QUERY_FAILED'},
@@ -61,7 +64,7 @@ try {
     )) {
         $behavior.ExitCode=$failureCase.Exit; $behavior.Output=$failureCase.Output; $behavior.Failure=$failureCase.Failure
         $rejected=$false
-        try { $null=Get-LabDatabaseBackupMetadata -Port 1433 -SaPlain $synthetic -DatabaseName SyntheticBackup }
+        try { $null=Get-LabDatabaseBackupMetadata -Port 1433 -SaPassword $credential -DatabaseName SyntheticBackup }
         catch { $rejected=$_.Exception.Message.StartsWith($failureCase.Expected) }
         Assert-SqlProgress ($rejected -and -not [IO.File]::Exists($calls[-1].OutputPath)) 'Backup-Metadaten bewahren Fehler und entfernen die Ergebnisdatei'
     }
@@ -75,6 +78,43 @@ try {
     }
     $null=Invoke-SqlQuery -Port 1433 -SaPlain $synthetic -Query 'SELECT 1;'
     Assert-SqlProgress ($calls[-1].Args -ccontains ('-P'+$synthetic) -and $calls[-1].Args -cnotcontains '-P') 'Query bewahrt Sonderzeichen ohne Shell-Escaping'
+    $null=Invoke-SqlQuery -Port 1433 -ProductQueryPassword $credential -Query 'SELECT 1;'
+    Assert-SqlProgress ($calls[-1].SameSecret -and $calls[-1].Args -ccontains '-x' -and
+        @($calls[-1].Args.Where({ $_ -cmatch '^-(?:P|X)' -or $_ -ceq $synthetic })).Count -eq 0) 'Product query uses the same secure password through the child environment only'
+    foreach($blocked in @("SELECT 1;`n:CONNECT forbidden","SELECT 1;`n!! forbidden","SELECT 1;`nGO")) {
+        $before=$calls.Count
+        $rejected=try { $null=Invoke-SqlQuery -Port 1433 -ProductQueryPassword $credential -Query $blocked; $false }
+        catch { $_.Exception.Message -ceq 'SQLCMD_PRODUCT_QUERY_SINGLE_BATCH_REQUIRED' }
+        Assert-SqlProgress ($rejected -and $calls.Count -eq $before) 'Product query rejects sqlcmd commands before starting a process'
+    }
+    if ($IsWindows) {
+        $null=Invoke-SqlQuery -Port 1433 -ProductQueryPassword $credential -Query ('SELECT 1; --'+('x'*7100))
+        Assert-SqlProgress ($calls[-1].SameSecret -and $calls[-1].Args -ccontains '-i' -and
+            $calls[-1].Args -ccontains '-x' -and $calls[-1].Args -cnotcontains '-X1' -and
+            -not [IO.File]::Exists($calls[-1].InputPath)) 'Large product query uses a temporary UTF-8 file and secure child authentication'
+    }
+    foreach($badFlag in @('-P','-Psynthetic','-X1')) {
+        $before=$calls.Count
+        $rejected=try { $null=Invoke-LabSqlcmdProgress -SqlPassword $credential -ArgumentList @($badFlag,'-Q','SELECT 1;');$false }
+        catch { $_.Exception.Message -ceq 'SQLCMD_PROCESS_PASSWORD_ARGUMENTS_INVALID' }
+        Assert-SqlProgress ($rejected -and $calls.Count -eq $before) 'Child password rejects competing arguments and incompatible sqlcmd mode'
+    }
+    $parentPassword=[Environment]::GetEnvironmentVariable('SQLCMDPASSWORD')
+    $parentStartup=[Environment]::GetEnvironmentVariable('SQLCMDINI')
+    try {
+        [Environment]::SetEnvironmentVariable('SQLCMDPASSWORD','synthetic-parent-only')
+        [Environment]::SetEnvironmentVariable('SQLCMDINI','synthetic-startup-ignored')
+        $passwordHash=[Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($synthetic)))
+        $childCheck='$hash=[Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($env:SQLCMDPASSWORD))); if ($hash -ceq ''__HASH__'' -and -not $env:SQLCMDINI) { ''CHILD_ENVIRONMENT_BOUND'' } else { exit 1 }'
+        $encoded=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($childCheck.Replace('__HASH__',$passwordHash)))
+        $shell=Join-Path $PSHOME $(if($IsWindows){'pwsh.exe'}else{'pwsh'})
+        $actual=& $nativeProcessInvoker -FilePath $shell -ArgumentList @('-NoProfile','-EncodedCommand',$encoded) -Phase SqlQuery -TimeoutSeconds 10 -SqlPassword $credential
+        Assert-SqlProgress ($actual.ExitCode -eq 0 -and $actual.Output -ceq 'CHILD_ENVIRONMENT_BOUND' -and
+            $env:SQLCMDPASSWORD -ceq 'synthetic-parent-only' -and $env:SQLCMDINI -ceq 'synthetic-startup-ignored') 'Actual child receives only the scoped credential without changing the parent environment'
+    } finally {
+        [Environment]::SetEnvironmentVariable('SQLCMDPASSWORD',$parentPassword)
+        [Environment]::SetEnvironmentVariable('SQLCMDINI',$parentStartup)
+    }
     $behavior.Output=@('17')
     $ready=Wait-SqlReady -Port 1433 -SaPassword $credential -TimeoutSeconds 5 -StabilitySeconds 1 -PollIntervalMilliseconds 100 -ExpectedMajorVersion 17
     Assert-SqlProgress ($ready.Ready -and $calls[-1].Args -ccontains ('-P'+$synthetic)) 'Echte Readiness-Schleife nutzt gebundenes Passwort'

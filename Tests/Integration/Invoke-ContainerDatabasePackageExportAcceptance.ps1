@@ -84,7 +84,7 @@ try {
         $script:packageNativeCopyFault=$false
         function Invoke-LabProgressNativeCommand {
             [CmdletBinding()]
-            param([string]$FilePath,[string[]]$ArgumentList,[string]$Phase='ImageBuild',[int]$TimeoutSeconds=3600,$Progress)
+            param([string]$FilePath,[string[]]$ArgumentList,[string]$Phase='ImageBuild',[int]$TimeoutSeconds=3600,$Progress,[SecureString]$SqlPassword)
             if($ArgumentList[0] -eq 'cp'){$script:packageNativeCopyFault=$true;return [pscustomobject]@{ExitCode=1;Output=@()}}
             & $originalNative @PSBoundParameters
         }
@@ -108,7 +108,10 @@ try {
         }
         $failed=$false
         try{$null=Export-SqlServerLabDatabasePackage -RunId $Run -InstanceId primary -DatabaseName $Name -DataRoot $Root -StateRoot $State -Confirm:$false}
-        catch{$failed=$_.Exception.Message -match 'CONTAINER_DATABASE_PACKAGE_COPY_FAILED'}
+        catch {
+            if ($_.Exception.Message -notmatch 'CONTAINER_DATABASE_PACKAGE_COPY_FAILED') { throw }
+            $failed = $true
+        }
         $context=Get-LabContainerReconcileContext -RunId $Run -InstanceId primary -StateRoot $State
         $secret=Get-LabSecret -Path $context.RunDirectory -Name 'sa-password'
         $plain=ConvertFrom-LabSecureString -SecureString $secret

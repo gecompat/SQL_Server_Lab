@@ -376,6 +376,7 @@ function Restore-SqlServerLabDatabase {
     $guestBackupPath = $null
     $runtimeInvocation = $null
     $runtimeBackupCopied = $false
+    $restoreResult = $null
     if ($Provider -eq 'hyperv') {
         if (-not $RunId -or -not $GuestCredential) { throw 'HYPERV_STORAGE_RESTORE_RUN_AND_GUEST_CREDENTIAL_REQUIRED' }
         $storageContext = Get-LabVerifiedStorageRuntimeContext -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot
@@ -415,18 +416,10 @@ function Restore-SqlServerLabDatabase {
             if ($copyResult.ExitCode -ne 0) { throw "Backup-Kopie in den $runtime-Container ist fehlgeschlagen." }
         }
 
-    $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword)
-    try {
-        $saPlain = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
-    }
-    finally {
-        [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
-    }
-
         $escapedContainerBackupPath = $runtimeBackupPath.Replace("'", "''")
         Write-LabInfo 'Pruefe Backup mit RESTORE VERIFYONLY und CHECKSUM...'
         try {
-            $null = Invoke-SqlQuery -HostName $HostName -Port $Port -SaPlain $saPlain -TimeoutSeconds 600 -ProgressPhase Restore `
+            $null = Invoke-SqlQuery -HostName $HostName -Port $Port -ProductQueryPassword $SaPassword -TimeoutSeconds 600 -ProgressPhase Restore `
                 -Query "RESTORE VERIFYONLY FROM DISK = N'$escapedContainerBackupPath' WITH CHECKSUM;"
         }
         catch {
@@ -435,14 +428,14 @@ function Restore-SqlServerLabDatabase {
             }
 
             Write-LabWarning 'Backup enthaelt keine SQL-Backup-CHECKSUM; pruefe mit RESTORE VERIFYONLY ohne CHECKSUM.'
-            $null = Invoke-SqlQuery -HostName $HostName -Port $Port -SaPlain $saPlain -TimeoutSeconds 600 -ProgressPhase Restore `
+            $null = Invoke-SqlQuery -HostName $HostName -Port $Port -ProductQueryPassword $SaPassword -TimeoutSeconds 600 -ProgressPhase Restore `
                 -Query "RESTORE VERIFYONLY FROM DISK = N'$escapedContainerBackupPath';"
         }
 
         Write-LabInfo 'Lese Backup-Metadaten mit RESTORE FILELISTONLY...'
         $fileListQuery = "RESTORE FILELISTONLY FROM DISK = N'$escapedContainerBackupPath';"
-        $fileListNative = Invoke-LabSqlcmdProgress -Phase Restore -ArgumentList @(
-            '-S',"$HostName,$Port",'-U','sa','-P',$saPlain,'-C','-b','-Q',$fileListQuery,'-s','|','-W','-h','-1')
+        $fileListNative = Invoke-LabSqlcmdProgress -Phase Restore -SqlPassword $SaPassword -ArgumentList @(
+            '-S',"$HostName,$Port",'-U','sa','-C','-b','-Q',$fileListQuery,'-s','|','-W','-h','-1')
         $fileListOutput = @($fileListNative.Output)
         $fileListExitCode = $fileListNative.ExitCode
         $fileListText = ($fileListOutput | ForEach-Object { [string]$_ }) -join "`n"
@@ -480,7 +473,11 @@ function Restore-SqlServerLabDatabase {
         $escapedDatabaseName = $DatabaseName.Replace(']', ']]')
         $moveClauses = $moveStatements -join ",`n        "
         $replaceClause = if ($Replace) { ', REPLACE' } else { '' }
+        $targetGuard = if (-not $Replace) {
+            "IF DB_ID(N'$escapedDatabaseName') IS NOT NULL THROW 51012, 'RESTORE_TARGET_DATABASE_EXISTS', 1;"
+        } else { '' }
         $restoreQuery = @"
+$targetGuard
 RESTORE DATABASE [$escapedDatabaseName]
     FROM DISK = N'$escapedContainerBackupPath'
     WITH $moveClauses$replaceClause;
@@ -488,8 +485,8 @@ RESTORE DATABASE [$escapedDatabaseName]
 
         Write-LabInfo "RESTORE DATABASE [$DatabaseName]..."
         $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
-        $restoreNative = Invoke-LabSqlcmdProgress -Phase Restore -ArgumentList @(
-            '-S',"$HostName,$Port",'-U','sa','-P',$saPlain,'-C','-b','-Q',$restoreQuery)
+        $restoreNative = Invoke-LabSqlcmdProgress -Phase Restore -SqlPassword $SaPassword -ArgumentList @(
+            '-S',"$HostName,$Port",'-U','sa','-C','-b','-Q',$restoreQuery)
         $restoreOutput = @($restoreNative.Output)
         $restoreExitCode = $restoreNative.ExitCode
         $stopwatch.Stop()
@@ -499,7 +496,7 @@ RESTORE DATABASE [$escapedDatabaseName]
             if ($storageContext) {
                 $null = Fail-LabStorageSqlOperation -Context $storageContext -OperationId $storageOperationId -ErrorMessage 'SQL_STORAGE_RESTORE_EXECUTION_FAILED'
             }
-            return [PSCustomObject]@{
+            $restoreResult = [PSCustomObject]@{
                 Success      = $false
                 DatabaseName = $DatabaseName
                 Provider     = $runtime
@@ -511,29 +508,28 @@ RESTORE DATABASE [$escapedDatabaseName]
                 Duration     = $stopwatch.Elapsed
                 Files        = $moveStatements.Count
             }
-        }
+        } else {
+            if ($storageContext) {
+                $verificationQuery = New-LabStorageMasterFilesVerificationQuery -DatabaseName $DatabaseName -FilePlan $restoreFilePlan
+                $null = Invoke-SqlQuery -HostName $HostName -Port $Port -ProductQueryPassword $SaPassword -Query $verificationQuery -TimeoutSeconds 60
+                $null = Complete-LabStorageSqlOperation -Context $storageContext -OperationId $storageOperationId `
+                    -Kind restore -DatabaseName $DatabaseName -Files $restoreFilePlan
+            }
 
-        if ($storageContext) {
-            $verificationQuery = New-LabStorageMasterFilesVerificationQuery -DatabaseName $DatabaseName -FilePlan $restoreFilePlan
-            $null = Invoke-SqlQuery -HostName $HostName -Port $Port -SaPlain $saPlain -Query $verificationQuery -TimeoutSeconds 60
-            $null = Complete-LabStorageSqlOperation -Context $storageContext -OperationId $storageOperationId `
-                -Kind restore -DatabaseName $DatabaseName -Files $restoreFilePlan
-        }
-
-        Write-LabSuccess "Datenbank wiederhergestellt: $DatabaseName ($($moveStatements.Count) Dateien, $($stopwatch.Elapsed.TotalSeconds.ToString('F1'))s)"
-        return [PSCustomObject]@{
-            Success       = $true
-            DatabaseName  = $DatabaseName
-            Provider      = $runtime
-            ContainerName = $ContainerName
-            Message       = 'RESTORE erfolgreich'
-            Recovery      = 'NOT_REQUIRED'
-            Duration      = $stopwatch.Elapsed
-            Files         = $moveStatements.Count
-            Artifact      = $artifactResolution
-            BackupSetId    = if ($librarySelection) { [string]$librarySelection.Record.BackupSetId } else { $null }
-            BackupSourceKind = $backupSourceKind
-            StoragePlanId = if ($storageContext) { [string]$storageContext.Plan.PlanId } else { $null }
+            $restoreResult = [PSCustomObject]@{
+                Success       = $true
+                DatabaseName  = $DatabaseName
+                Provider      = $runtime
+                ContainerName = $ContainerName
+                Message       = 'RESTORE erfolgreich'
+                Recovery      = 'NOT_REQUIRED'
+                Duration      = $stopwatch.Elapsed
+                Files         = $moveStatements.Count
+                Artifact      = $artifactResolution
+                BackupSetId    = if ($librarySelection) { [string]$librarySelection.Record.BackupSetId } else { $null }
+                BackupSourceKind = $backupSourceKind
+                StoragePlanId = if ($storageContext) { [string]$storageContext.Plan.PlanId } else { $null }
+            }
         }
     }
     catch {
@@ -543,16 +539,27 @@ RESTORE DATABASE [$escapedDatabaseName]
         throw
     }
     finally {
-        $saPlain = $null
+        $cleanupStatus = 'NOT_REQUIRED'
         if ($guestBackupPath) {
-            try { Remove-LabHyperVGuestFile -RunId $RunId -Path $guestBackupPath -Credential $GuestCredential -StateRoot $StateRoot }
-            catch { Write-LabWarning 'Temporäre Hyper-V-Backupkopie konnte nicht automatisch entfernt werden; Cleanup/Recovery bleibt erforderlich.' }
+            try {
+                Remove-LabHyperVGuestFile -RunId $RunId -Path $guestBackupPath -Credential $GuestCredential -StateRoot $StateRoot
+                $cleanupStatus = 'CONFIRMED'
+            } catch {
+                $cleanupStatus = 'RECOVERY_REQUIRED'
+                Write-LabWarning 'Temporäre Hyper-V-Backupkopie konnte nicht automatisch entfernt werden; Cleanup/Recovery bleibt erforderlich.'
+            }
         }
         elseif ($runtimeBackupCopied -and $runtimeInvocation -and $ContainerName -and $runtimeBackupPath) {
             $(if ($StateRoot -and (((Test-Path (Join-Path $StateRoot 'owned-host-required')) -or (Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json'))))) { Invoke-LabContainerRuntimeCommand -Provider $runtime -StateRoot $StateRoot -Invocation $runtimeInvocation -ArgumentList @('exec', $ContainerName, 'rm', '-f', '--', $runtimeBackupPath) } else { & $runtimeInvocation exec $ContainerName rm -f -- $runtimeBackupPath }) 1>$null 2>$null
-            if ($LASTEXITCODE -ne 0) {
+            $cleanupStatus = if ($LASTEXITCODE -eq 0) { 'CONFIRMED' } else { 'RECOVERY_REQUIRED' }
+            if ($cleanupStatus -ceq 'RECOVERY_REQUIRED') {
                 Write-LabWarning 'Temporäre Container-Backupkopie konnte nicht automatisch entfernt werden; Cleanup bleibt erforderlich.'
             }
         }
+        if ($restoreResult) { $restoreResult | Add-Member -NotePropertyName CleanupStatus -NotePropertyValue $cleanupStatus }
     }
+    if ($restoreResult.Success -and $restoreResult.CleanupStatus -cne 'RECOVERY_REQUIRED') {
+        Write-LabSuccess "Datenbank wiederhergestellt: $DatabaseName ($($moveStatements.Count) Dateien, $($stopwatch.Elapsed.TotalSeconds.ToString('F1'))s)"
+    }
+    return $restoreResult
 }

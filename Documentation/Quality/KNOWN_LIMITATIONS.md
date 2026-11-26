@@ -2192,6 +2192,14 @@ Ein HTTP(S)-Restore ohne `restore.sha256` kann im interaktiven Trust-Pfad
 verwendet werden, beendet einen unbeaufsichtigten Manifestlauf jedoch mit
 `TRUST_REQUIRED`.
 
+Der geführte Hyper-V-Restore im Browser setzt einen verifizierten
+Storage-Vertrag, eine überprüfbare Gast-IP sowie den SQL-TCP-Port im
+gebundenen laufenden Gast voraus. Er stellt Bibliotheksbackups in eine neue
+Datenbank wieder her. Ein Wiederherstellungsergebnis kann einen separaten
+Bereinigungsbedarf ausweisen, wenn die temporäre Gastkopie noch vorhanden
+ist oder ihre Entfernung unbestätigt bleibt. Dieser Schritt ersetzt keine
+Instanzmigration.
+
 ## Automatisierte Manifeste und Vorlagenpool
 
 `automation.mode: unattended` ist der Manifeststandard. Passwörter dürfen nur
