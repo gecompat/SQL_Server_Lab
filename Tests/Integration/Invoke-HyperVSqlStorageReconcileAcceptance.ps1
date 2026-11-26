@@ -118,31 +118,51 @@ function Invoke-StorageLibraryRestoreAcceptance {
     $owned = Invoke-Private { param($Op,$Root) Get-LabOperationOwnedRun -OperationId $Op -StateRoot $Root } @($OperationId,$StateRoot)
     if (-not $owned -or $owned.runId -cne $runId -or $owned.scopeId -cne $Context.Run.scopeId -or
         -not (Test-ScopedTemporaryRoot $testRoot)) { throw 'HYPERV_LIBRARY_RESTORE_ACCEPTANCE_SCOPE_CHANGED' }
-    $libraryRoot = Join-Path $testRoot 'Lab_Data'
+    $libraryRoot = Join-Path $testRoot 'Backups'
     if (Test-Path -LiteralPath $libraryRoot) { throw 'HYPERV_LIBRARY_RESTORE_ACCEPTANCE_LIBRARY_ALREADY_EXISTS' }
 
-    $previous = $env:SQL_SERVER_LAB_DATA_ROOT
     $phase = 'FIXTURE'
     try {
         $null = Invoke-SqlRows $Context ("IF DB_ID(N'LabRestoreSeedFixture') IS NOT NULL OR DB_ID(N'LabRestoredFixture') IS NOT NULL " +
             "THROW 51011, 'SYNTHETIC_DATABASE_COLLISION', 1; EXEC(N'CREATE DATABASE [LabRestoreSeedFixture];'); SELECT CAST(1 AS int) AS Ready;")
         $null = Invoke-SqlRows $Context ('CREATE TABLE [LabRestoreSeedFixture].dbo.Fixture (Id int NOT NULL PRIMARY KEY, Value nvarchar(20) NOT NULL); ' +
             'INSERT INTO [LabRestoreSeedFixture].dbo.Fixture VALUES (1,N''alpha''),(2,N''beta''); SELECT CAST(1 AS int) AS Ready;')
-        $phase = 'LIBRARY'
-        $null = Invoke-Private { param($Root) Initialize-LabManagedDataRoot -DataRoot $Root -Confirm:$false } @($libraryRoot)
-        [Environment]::SetEnvironmentVariable('SQL_SERVER_LAB_DATA_ROOT',$libraryRoot,'Process')
-        $backup = Backup-SqlServerLabDatabase -RunId $runId -InstanceId primary -DatabaseName LabRestoreSeedFixture `
-            -SaPassword $script:saPassword -GuestCredential $GuestCredential -DataRoot $libraryRoot -StateRoot $StateRoot `
-            -Confirm:$false 3>$null 4>$null 5>$null 6>$null
-        if (-not $backup.BackupSetId) { throw 'Backup did not yield a reusable set' }
-        $phase = 'RESTORE'
-        $restored = Invoke-Private {
-            param($Id,$Set,$Credential,$Sa)
-            Invoke-LabGuidedHyperVLibraryRestore -RunId $Id -InstanceId primary -BackupSetId $Set -DatabaseName LabRestoredFixture `
-                -GuestUserName $Credential.UserName -GuestPassword $Credential.Password -SaPassword $Sa
-        } @($runId,[string]$backup.BackupSetId,$GuestCredential,$script:saPassword)
+        $phase = 'BACKUP_RESTORE'
+        $execution = Invoke-Private {
+            param($Id,$Credential,$Sa,$TestRoot,$LibraryRoot,$Root)
+            $registeredDataRoot = Resolve-LabDataRootForUse -DataRoot (Get-LabDataRootDefault)
+            if (-not (Test-LabPathWithinRoot -Root $TestRoot -Path $LibraryRoot).Valid -or
+                (Test-Path -LiteralPath $LibraryRoot)) { throw 'HYPERV_LIBRARY_RESTORE_ACCEPTANCE_LIBRARY_SCOPE_INVALID' }
+
+            # Redirect only the fixture library files inside this module call.
+            # The real registered data-root and runtime storage guards still run.
+            function Get-LabBackupLibraryPaths {
+                param([Parameter(Mandatory)][string]$DataRoot)
+
+                $root = Resolve-LabDataRootForUse -DataRoot $DataRoot
+                if ($root -ine $registeredDataRoot) { throw 'HYPERV_LIBRARY_RESTORE_ACCEPTANCE_LIBRARY_SCOPE_INVALID' }
+                [pscustomobject]@{
+                    DataRoot = $root
+                    LibraryRoot = $LibraryRoot
+                    ObjectsRoot = Join-Path $LibraryRoot 'Objects'
+                    RegistryPath = Join-Path $LibraryRoot 'backup-library.json'
+                }
+            }
+
+            try {
+                $backup = Backup-SqlServerLabDatabase -RunId $Id -InstanceId primary -DatabaseName LabRestoreSeedFixture `
+                    -SaPassword $Sa -GuestCredential $Credential -DataRoot $registeredDataRoot -StateRoot $Root `
+                    -Confirm:$false 3>$null 4>$null 5>$null 6>$null
+                if (-not $backup.BackupSetId) { throw 'Backup did not yield a reusable set' }
+            } catch { throw 'HYPERV_LIBRARY_RESTORE_ACCEPTANCE_SEED_BACKUP_FAILED' }
+
+            $restored = Invoke-LabGuidedHyperVLibraryRestore -RunId $Id -InstanceId primary -BackupSetId $backup.BackupSetId `
+                -DatabaseName LabRestoredFixture -GuestUserName $Credential.UserName -GuestPassword $Credential.Password -SaPassword $Sa
+            [pscustomobject]@{BackupSetId = [string]$backup.BackupSetId; Restored = $restored}
+        } @($runId,$GuestCredential,$script:saPassword,$testRoot,$libraryRoot,$StateRoot)
+        $restored = $execution.Restored
         Assert-HyperVSqlStorageAcceptance ($restored.Status -ceq 'RESTORED' -and $restored.CleanupStatus -ceq 'CONFIRMED' -and
-            $restored.RunId -ceq $runId -and $restored.InstanceId -ceq 'primary' -and $restored.BackupSetId -ceq $backup.BackupSetId -and
+            $restored.RunId -ceq $runId -and $restored.InstanceId -ceq 'primary' -and $restored.BackupSetId -ceq $execution.BackupSetId -and
             $restored.DatabaseName -ceq 'LabRestoredFixture') 'Geführter Restore bindet das verifizierte Backup und bestätigt die Bereinigung der Gastkopie'
         $phase = 'CONTENT'
         $sourceRows = @(Invoke-SqlRows $Context 'SELECT Id,Value FROM [LabRestoreSeedFixture].dbo.Fixture ORDER BY Id;')
@@ -150,9 +170,11 @@ function Invoke-StorageLibraryRestoreAcceptance {
         Assert-HyperVSqlStorageAcceptance ($sourceRows.Count -eq 2 -and $targetRows.Count -eq 2 -and
             ($sourceRows | ConvertTo-Json -Compress) -ceq ($targetRows | ConvertTo-Json -Compress)) 'Neue Zieldatenbank enthält die exakten synthetischen Daten'
     } catch {
-        throw ('HYPERV_LIBRARY_RESTORE_ACCEPTANCE_UNCONFIRMED · '+$phase)
-    } finally {
-        [Environment]::SetEnvironmentVariable('SQL_SERVER_LAB_DATA_ROOT',$previous,'Process')
+        $code = $_.Exception.Message
+        if ($code -cnotmatch '^HYPERV_LIBRARY_RESTORE_(?:TARGET_(?:INVALID|NOT_READY|CHECK_FAILED|EXISTS)|BACKUP_NOT_SELECTABLE|UNCONFIRMED|CLEANUP_REQUIRED|ACCEPTANCE_(?:LIBRARY_SCOPE_INVALID|SEED_BACKUP_FAILED))$') {
+            $code = 'UNCLASSIFIED'
+        }
+        throw ('HYPERV_LIBRARY_RESTORE_ACCEPTANCE_UNCONFIRMED · '+$phase+' · '+$code)
     }
 }
 

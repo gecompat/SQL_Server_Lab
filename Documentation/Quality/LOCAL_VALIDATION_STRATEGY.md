@@ -2170,6 +2170,15 @@ Backup-Bibliothek und prüft anschließend den tatsächlichen Worker-Einstieg,
 die identischen Zielinhalte und die Kopienbereinigung. Der native Lauf
 dieses Modus steht aus.
 
+Der [Key18-Lauf 45773328285](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45773328285)
+bestätigte den verifizierten Speicher, die SQL-Bereitschaft und den Cleanup
+des eigenen Runs. Der Restore scheiterte nach dem Backup. Mit dem Plan
+dieses Runs ließ sich der Bindungsfehler lokal reproduzieren. Die frühere
+Fixture ersetzte den Host-Speicherkatalog durch den Bibliotheksordner.
+Die korrigierte Fixture leitet ausschließlich die Bibliotheksdateien in
+ihren temporären Ordner. Die Prüfungen für registrierte Wurzeln, VM und
+verifizierte Speicherbindung verwenden den regulären Host-Katalog.
+
 ## Getrennte AutoStart-Browservorschau
 
 Der additive Testmodus `Invoke-ContainerAutoStartPreviewAcceptance.ps1 -BrowserOnly`
