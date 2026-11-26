@@ -444,6 +444,48 @@ function Invoke-LabGuidedHyperVLibraryRestore {
         CleanupStatus='CONFIRMED'}
 }
 
+function New-LabHyperVLibraryBackupIntent {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Target,
+        [Parameter(Mandatory)][ValidatePattern('^backup-[0-9a-f]{32}\.bak$')][string]$FileName
+    )
+
+    $lab = Get-HyperVLabWorkflowRun -RunId $Target.RunId -StateRoot $Target.StateRoot -NoWrite
+    if ([string]$lab.Run.runId -cne [string]$Target.RunId -or $lab.Run.state -cne 'RUNNING' -or
+        [string]$lab.Instance.id -cne [string]$Target.InstanceId -or -not (Test-LabDiagnosticGuid ([string]$lab.Run.scopeId)) -or
+        -not (Test-LabDiagnosticGuid ([string]$Target.StoragePlanId))) {
+        throw 'HYPERV_BACKUP_INTENT_BINDING_INVALID'
+    }
+    $managed = Get-HyperVManagedVM -VMName ([string]$lab.Instance.vmName) -ExpectedRunId $Target.RunId -ExpectedScopeId $lab.Run.scopeId
+    if (-not $managed -or $managed.VM.State -ne 'Running' -or -not (Test-LabDiagnosticGuid ([string]$managed.VM.Id)) -or
+        ([string]$lab.Instance.vmId -and [string]$lab.Instance.vmId -ne [string]$managed.VM.Id)) {
+        throw 'HYPERV_BACKUP_INTENT_BINDING_INVALID'
+    }
+
+    $operationKey = $FileName.Substring(7,32)
+    $path = Join-Path $lab.RunDirectory ('backup-library-'+$operationKey+'.local.journal.json')
+    $expectedRunDirectory = Join-Path (Join-Path $Target.StateRoot 'runs') $Target.RunId
+    if ([IO.Path]::GetFullPath($lab.RunDirectory) -ne [IO.Path]::GetFullPath($expectedRunDirectory) -or
+        -not (Test-LabPathWithinRoot -Root $Target.StateRoot -Path $path).Valid -or
+        -not (Test-Path -LiteralPath $lab.RunDirectory -PathType Container) -or (Test-Path -LiteralPath $path)) {
+        throw 'HYPERV_BACKUP_INTENT_PATH_INVALID'
+    }
+    $record = [pscustomobject][ordered]@{
+        Contract='SqlServerLab.HyperVLibraryBackupIntent/1.0'; Status='GUEST_FILE_UNCONFIRMED'
+        OperationKey=$operationKey; RunId=[string]$Target.RunId; ScopeId=[string]$lab.Run.scopeId
+        InstanceId=[string]$Target.InstanceId; VMId=([guid]$managed.VM.Id).ToString('D')
+        StoragePlanId=[string]$Target.StoragePlanId; FileName=$FileName; UpdatedAt=Get-LabTimestamp
+    }
+    $bytes = [Text.Encoding]::UTF8.GetBytes(($record | ConvertTo-Json -Compress))
+    $stream = [IO.File]::Open($path,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
+    try {
+        $stream.Write($bytes)
+        $stream.Flush($true)
+    } finally { $stream.Dispose() }
+    [pscustomobject]@{Path=$path;Record=$record;Sha256=[Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($bytes))}
+}
+
 function New-LabDatabaseLibraryBackup {
     [CmdletBinding()]
     param(
@@ -484,6 +526,7 @@ function New-LabDatabaseLibraryBackup {
     else { New-Item -ItemType Directory -Path $workingDirectory -Force | Out-Null }
     $primaryError = $null
     $guestBackupUnconfirmed = $false
+    $intent = $null
     try {
         $metadata = Get-LabDatabaseBackupMetadata -HostName $HostName -Port $Port -SaPassword $SaPassword -DatabaseName $DatabaseName
         $dependencyInventory = Get-LabDatabaseMigrationDependencyInventory -HostName $HostName -Port $Port -SaPassword $SaPassword `
@@ -497,13 +540,26 @@ function New-LabDatabaseLibraryBackup {
         } else { "/var/opt/mssql/backup/$backupFileName" }
         $escapedDatabase = $DatabaseName.Replace(']',']]')
         $escapedPath = $runtimeBackupPath.Replace("'","''")
-        $guestBackupUnconfirmed = [string]$target.Provider -ceq 'hyperv'
+        if ([string]$target.Provider -ceq 'hyperv') {
+            $intent = New-LabHyperVLibraryBackupIntent -Target $target -FileName $backupFileName
+            $guestBackupUnconfirmed = $true
+        }
         $null = Invoke-SqlQuery -HostName $HostName -Port $Port -ProductQueryPassword $SaPassword -TimeoutSeconds 600 -Query @"
 BACKUP DATABASE [$escapedDatabase] TO DISK = N'$escapedPath' WITH COPY_ONLY, INIT, CHECKSUM;
 RESTORE VERIFYONLY FROM DISK = N'$escapedPath' WITH CHECKSUM;
 "@
         $export = Export-LabSampleBaselineBackup -Target $target -RuntimeBackupPath $runtimeBackupPath -DestinationPath $hostBackupPath -Port $Port
         $guestBackupUnconfirmed = $false
+        if ($intent) {
+            if (-not (Test-LabPathWithinRoot -Root $target.StateRoot -Path $intent.Path).Valid -or
+                -not (Test-Path -LiteralPath $intent.Path -PathType Leaf) -or
+                (Get-FileHash -LiteralPath $intent.Path -Algorithm SHA256).Hash -cne $intent.Sha256) {
+                throw 'HYPERV_BACKUP_INTENT_PATH_INVALID'
+            }
+            $intent.Record.Status = 'GUEST_FILE_REMOVED'
+            $intent.Record.UpdatedAt = Get-LabTimestamp
+            Write-LabArtifactJsonAtomic -Path $intent.Path -InputObject $intent.Record
+        }
         $registered = Register-LabDatabaseBackupArtifact -BackupPath $hostBackupPath -DatabaseName $DatabaseName `
             -Provider ([string]$export.Provider) -Metadata $metadata -MigrationDependencyInventory $dependencyInventory -RunId $RunId -InstanceId $InstanceId -DataRoot $DataRoot
         [PSCustomObject]@{

@@ -315,29 +315,81 @@ try {
     Add-CheckResult 'Hyper-V-Backup prüft den bestätigten Speicher vor dem ersten SQL-Zugriff' (
         $backupPreflight.Code -ceq 'SAMPLE_BASELINE_HYPERV_VERIFIED_RECEIPT_REQUIRED' -and $backupPreflight.SqlReads -eq 0)
 
-    $backupFailure = & $module {
+    $backupIntent = & $module {
         param($Password,$Root)
-        $calls = [Runtime.CompilerServices.StrongBox[int]]::new(0)
+        $runId = '43434343-2222-4333-8444-555555555555'
+        $scopeId = '51515151-2222-4333-8444-555555555555'
+        $vmId = '61616161-2222-4333-8444-555555555555'
+        $storagePlanId = '71717171-2222-4333-8444-555555555555'
+        $state = Join-Path $Root 'hyperv-intent'
+        $runDirectory = Join-Path $state ('runs/'+$runId)
+        $null = New-Item -ItemType Directory -Path $runDirectory
+        $calls = [pscustomobject]@{Exports=0;Before=$null;RecordPath=$null;ForeignVM=$false}
         function Initialize-LabSampleBaselineBackupTarget {
-            [pscustomobject]@{Provider='hyperv';BackupRoot='C:\Synthetic\Backup'}
+            [pscustomobject]@{Provider='hyperv';BackupRoot='C:\Synthetic\Backup';RunId=$runId
+                InstanceId='primary';StateRoot=$state;StoragePlanId=$storagePlanId}
+        }
+        function Get-HyperVLabWorkflowRun {
+            [pscustomobject]@{Run=[pscustomobject]@{runId=$runId;scopeId=$scopeId;state='RUNNING'}
+                Instance=[pscustomobject]@{id='primary';vmName='synthetic-guest';vmId=$vmId};RunDirectory=$runDirectory}
+        }
+        function Get-HyperVManagedVM {
+            $observedId = if ($calls.ForeignVM) { '81818181-2222-4333-8444-555555555555' } else { $vmId }
+            [pscustomobject]@{VM=[pscustomobject]@{Id=$observedId;State='Running'}}
         }
         function Get-LabDatabaseBackupMetadata { [pscustomobject]@{IsEncrypted=$false} }
         function Get-LabDatabaseMigrationDependencyInventory { [pscustomobject]@{Status='SYNTHETIC'} }
-        function Invoke-SqlQuery { throw 'SYNTHETIC_BACKUP_SQL_INTERRUPTED' }
-        function Export-LabSampleBaselineBackup { $calls.Value++ }
-        $arguments = @{Port=14333;SaPassword=$Password;Provider='hyperv'
-            RunId='43434343-2222-4333-8444-555555555555';InstanceId='primary';DatabaseName='BackupEvidence'
-            GuestCredential=[pscredential]::new('Administrator',$Password);DataRoot=$Root}
-        try { $null=New-LabDatabaseLibraryBackup @arguments }
-        catch {
-            [pscustomobject]@{Code=$_.Exception.Message;Exports=$calls.Value
-                Recovery=$_.Exception.Data['SqlServerLab.BackupRuntimeCleanupStatus']
-                File=$_.Exception.Data['SqlServerLab.BackupRuntimeFileName']}
+        function Invoke-SqlQuery {
+            param($Query)
+            if ($Query -cnotmatch 'backup-(?<Key>[0-9a-f]{32})\.bak') { throw 'SYNTHETIC_BACKUP_PATH_UNBOUND' }
+            $calls.RecordPath=Join-Path $runDirectory ('backup-library-'+$Matches.Key+'.local.journal.json')
+            $calls.Before=Get-Content -LiteralPath $calls.RecordPath -Raw | ConvertFrom-Json
+            if ($mode -ceq 'failure') { throw 'SYNTHETIC_BACKUP_SQL_INTERRUPTED' }
         }
+        function Export-LabSampleBaselineBackup {
+            $calls.Exports++
+            if ($mode -ceq 'record-drift') { [IO.File]::WriteAllText($calls.RecordPath,'FOREIGN_RECORD_CANARY') }
+            [pscustomobject]@{Provider='hyperv'}
+        }
+        function Register-LabDatabaseBackupArtifact {
+            [pscustomobject]@{Record=[pscustomobject]@{BackupSetId=$storagePlanId;Artifact=[pscustomobject]@{Sha256=('a'*64);Bytes=64}
+                DatabaseMetadata=[pscustomobject]@{HasFileStream=$false;MigrationBoundary='SYNTHETIC'}}}
+        }
+        $arguments = @{Port=14333;SaPassword=$Password;Provider='hyperv'
+            RunId=$runId;InstanceId='primary';DatabaseName='BackupEvidence'
+            GuestCredential=[pscredential]::new('Administrator',$Password);DataRoot=$Root}
+        $mode='failure'
+        $failure=try { $null=New-LabDatabaseLibraryBackup @arguments; throw 'UNEXPECTED_SUCCESS' } catch { $_.Exception }
+        $pending=Get-Content -LiteralPath $calls.RecordPath -Raw | ConvertFrom-Json
+        $exportsAfterFailure=$calls.Exports
+        $calls.ForeignVM=$true
+        $drift=try { $null=New-LabDatabaseLibraryBackup @arguments; 'UNEXPECTED_SUCCESS' } catch { $_.Exception.Message }
+        $calls.ForeignVM=$false
+        $mode='success'
+        $completed=New-LabDatabaseLibraryBackup @arguments
+        $receipt=Get-Content -LiteralPath $calls.RecordPath -Raw | ConvertFrom-Json
+        $before=$calls.Before
+        $exportsBeforeDrift=$calls.Exports
+        $mode='record-drift'
+        $recordDrift=try { $null=New-LabDatabaseLibraryBackup @arguments; 'UNEXPECTED_SUCCESS' } catch { $_.Exception.Message }
+        [pscustomobject]@{Failure=$failure.Message;ExportsAfterFailure=$exportsAfterFailure
+            Recovery=$failure.Data['SqlServerLab.BackupRuntimeCleanupStatus'];File=$failure.Data['SqlServerLab.BackupRuntimeFileName']
+            Pending=$pending;Drift=$drift;Before=$before;Receipt=$receipt;Success=$completed.Status;Exports=$exportsBeforeDrift
+            RecordDrift=$recordDrift;DriftBytes=[IO.File]::ReadAllText($calls.RecordPath)}
     } $password $testRoot
-    Add-CheckResult 'Hyper-V-Backup trennt SQL-Unterbruch von ungeklärtem Gast-Cleanup ohne Exportversuch' (
-        $backupFailure.Code -ceq 'SYNTHETIC_BACKUP_SQL_INTERRUPTED' -and $backupFailure.Exports -eq 0 -and
-        $backupFailure.Recovery -ceq 'RECOVERY_REQUIRED' -and $backupFailure.File -cmatch '^backup-[0-9a-f]{32}\.bak$')
+    Add-CheckResult 'Hyper-V Backup-Intent bleibt bei SQL-Unterbruch offen und getrennt vom Primärfehler' (
+        $backupIntent.Failure -ceq 'SYNTHETIC_BACKUP_SQL_INTERRUPTED' -and $backupIntent.ExportsAfterFailure -eq 0 -and
+        $backupIntent.Recovery -ceq 'RECOVERY_REQUIRED' -and $backupIntent.File -cmatch '^backup-[0-9a-f]{32}\.bak$' -and
+        $backupIntent.Pending.Status -ceq 'GUEST_FILE_UNCONFIRMED' -and $backupIntent.Pending.FileName -ceq $backupIntent.File)
+    Add-CheckResult 'Hyper-V Backup-Intent bindet die VM vor SQL und bestätigt erst nach dem Export die Gastdatei-Abwesenheit' (
+        $backupIntent.Drift -ceq 'HYPERV_BACKUP_INTENT_BINDING_INVALID' -and $backupIntent.Exports -eq 1 -and
+        $backupIntent.Before.Status -ceq 'GUEST_FILE_UNCONFIRMED' -and $backupIntent.Receipt.Status -ceq 'GUEST_FILE_REMOVED' -and
+        $backupIntent.Before.OperationKey -ceq $backupIntent.Receipt.OperationKey -and
+        $backupIntent.Receipt.VMId -ceq '61616161-2222-4333-8444-555555555555' -and $backupIntent.Success -ceq 'BACKUP_REUSABLE')
+
+    Add-CheckResult 'Hyper-V Backup-Intent überschreibt keinen inzwischen ersetzten Datensatz' (
+        $backupIntent.RecordDrift -ceq 'HYPERV_BACKUP_INTENT_PATH_INVALID' -and
+        $backupIntent.DriftBytes -ceq 'FOREIGN_RECORD_CANARY')
 
     $cleanupProof=& $module {
         param($Password)
