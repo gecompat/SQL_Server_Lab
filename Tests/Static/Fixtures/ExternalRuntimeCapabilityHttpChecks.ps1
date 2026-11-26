@@ -27,6 +27,9 @@ $module=New-Module -ArgumentList $root -ScriptBlock {
                 $facts | Add-Member -NotePropertyMembers @{MemTotal=1GB;NCPU=16;MemoryLimit=$true;PidsLimit=$false}
             }
         }
+        if ($StartInfo.ArgumentList[2].Contains('"KernelRelease"')) {
+            $facts | Add-Member -NotePropertyName KernelRelease -NotePropertyValue '6.6.87.2-microsoft-standard-WSL2-PRIVATE_CANARY'
+        }
         if($script:mode -ceq 'unknownController') {$facts.MemoryLimit=$null}
         if($script:mode -ceq 'malformedFacts') {
             if($StartInfo.FileName -match 'podman') {$facts.Rootless='false'}else{$facts.SecurityOptions=$null}
@@ -124,6 +127,19 @@ $module=New-Module -ArgumentList $root -ScriptBlock {
     $prerequisites.IncludeProviderFacts='true'
     Reject-Request (New-Request ($prerequisites|ConvertTo-Json -Compress)) 'Profile facts opt-in requires a real boolean'
     $prerequisites.Remove('IncludeProviderFacts')
+    $prerequisites.IncludeKernelEvidence=$true
+    $before=$script:transports
+    $kernelView=Send-Request $prerequisites
+    Assert-Case ($kernelView.ContractVersion -ceq 'SqlServerLab.ExternalRuntimeCapabilityBrowser/1.5' -and
+        $kernelView.KernelEvidence.Version -ceq '6.6.87.2' -and $kernelView.KernelEvidence.Flavor -ceq 'MICROSOFT_WSL2_MARKER' -and
+        $kernelView.ProviderFacts.OperatingSystem -ceq 'linux' -and $script:transports -eq $before+1 -and
+        ($kernelView | ConvertTo-Json -Depth 6 -Compress) -cnotmatch 'PRIVATE_CANARY|KernelRelease') 'Kernel opt-in projects only safe fields from the same observation'
+    $script:mode='timeout'
+    $kernelView=Send-Request $prerequisites
+    Assert-Case ($null -eq $kernelView.KernelEvidence -and $null -eq $kernelView.ProviderFacts) 'Timed-out kernel opt-in keeps every observation null'
+    $prerequisites.IncludeKernelEvidence='true'
+    Reject-Request (New-Request ($prerequisites|ConvertTo-Json -Compress)) 'Kernel opt-in requires a real boolean'
+    $prerequisites.Remove('IncludeKernelEvidence')
     $script:mode='ready'
     $prerequisites.ResourceProfile='CUSTOM_PRIVATE_CANARY'
     Reject-Request (New-Request ($prerequisites|ConvertTo-Json -Compress)) 'Unknown profile blocks before any provider query'
