@@ -36,6 +36,57 @@ try {
     $activation = Get-TargetLicenseActivationFailure 'HYPERV_WINDOWS_ACTIVATION_FAILED: WINDOWS_ACTIVATION_GUEST_ADAPTER_NOT_FOUND [dns=not_checked;ipv4=not_checked;route=not_checked]'
     Assert-Refresh ($activation.Code -ceq 'WINDOWS_ACTIVATION_GUEST_ADAPTER_NOT_FOUND' -and $activation.Details -ceq 'dns=not_checked;ipv4=not_checked;route=not_checked') 'Native fixture preserves the known guest adapter failure'
     Assert-Refresh ($null -eq (Get-TargetLicenseActivationFailure 'HYPERV_WINDOWS_ACTIVATION_FAILED: WINDOWS_CANARY_PRIVATE_DETAIL')) 'Native fixture discards unknown codes'
+    Import-RefreshFunctions 'Tests/Common/SqlGuestAllocationAcceptanceFixture.ps1'
+    $fixtureModule = New-Module -Name 'SqlGuestAllocationReceiptFixture' -ScriptBlock {
+        $script:FixtureMode = 'valid'
+        function Invoke-HyperVPowerShellDirect {
+            [CmdletBinding()]
+            param($VMName,$ExpectedRunId,$ExpectedScopeId,$ExpectedVmId,$Credential,[switch]$NoRetry,
+                $TimeoutSeconds,$ArgumentList,$ScriptBlock)
+            if ($VMName -cne 'fixture-vm' -or $ExpectedRunId -cne '11111111-1111-4111-8111-111111111111' -or
+                $ExpectedScopeId -cne '22222222-2222-4222-8222-222222222222' -or
+                $ExpectedVmId -ne [guid]'33333333-3333-4333-8333-333333333333') {
+                throw 'REFRESH_FIXTURE_GUEST_ID_CHANGED'
+            }
+            if (-not $NoRetry) { throw 'REFRESH_FIXTURE_GUEST_RETRY_CHANGED' }
+            if ($TimeoutSeconds -ne 90) { throw 'REFRESH_FIXTURE_GUEST_TIMEOUT_CHANGED' }
+            if ($Credential.UserName -cne 'Administrator') { throw 'REFRESH_FIXTURE_GUEST_USERNAME_CHANGED' }
+            if ($ScriptBlock -isnot [scriptblock]) { throw 'REFRESH_FIXTURE_GUEST_SCRIPT_CHANGED' }
+            if ($ArgumentList.Count -ne 4) { throw 'REFRESH_FIXTURE_GUEST_ARGUMENT_COUNT_CHANGED' }
+            if ($ArgumentList[0] -isnot [securestring]) { throw 'REFRESH_FIXTURE_GUEST_SECRET_TYPE_CHANGED' }
+            if ($ArgumentList[1] -ne 1433 -or $ArgumentList[2] -cne 'MSSQLSERVER' -or
+                $ArgumentList[3] -cne 'SqlLabAllocationComparisonFixture') { throw 'REFRESH_FIXTURE_GUEST_TARGET_CHANGED' }
+            switch ($script:FixtureMode) {
+                'missing' { return }
+                'nonpositive' { [pscustomobject]@{DataPages=[long]0;LogPages=[long]2}; return }
+                'wrongType' { [pscustomobject]@{DataPages=[int]3;LogPages=[long]2}; return }
+                'extra' { [pscustomobject]@{DataPages=[long]3;LogPages=[long]2}; [pscustomobject]@{DataPages=[long]3;LogPages=[long]2}; return }
+            }
+            [pscustomobject]@{DataPages=[long]3;LogPages=[long]2;Private='CANARY_PRIVATE_FIXTURE_RECEIPT'}
+        }
+    }
+    $fixtureCredential = [securestring]::new()
+    $fixtureCredential.AppendChar([char]120)
+    $fixtureCredential.MakeReadOnly()
+    try {
+        $fixtureContext = [pscustomobject]@{
+            Run=[pscustomobject]@{runId='11111111-1111-4111-8111-111111111111';scopeId='22222222-2222-4222-8222-222222222222'}
+            Instance=[pscustomobject]@{vmName='fixture-vm';vmId='33333333-3333-4333-8333-333333333333';port=1433
+                sqlReadiness=[pscustomobject]@{instanceName='MSSQLSERVER'}}
+        }
+        $fixtureParameters = @{Module=$fixtureModule;Context=$fixtureContext;GuestPassword=$fixtureCredential
+            SqlPassword=$fixtureCredential;DatabaseName='SqlLabAllocationComparisonFixture'}
+        $fixtureReceipt = New-SqlGuestAllocationAcceptanceFixture @fixtureParameters
+        Assert-Refresh ($fixtureReceipt.DataPages -ceq [long]3 -and $fixtureReceipt.LogPages -ceq [long]2 -and
+            @($fixtureReceipt.PSObject.Properties).Count -eq 2) 'Native fixture binds the guest once without retry and projects only the two typed sizes'
+        foreach ($mode in @('missing','nonpositive','wrongType','extra')) {
+            & $fixtureModule {param($Mode) $script:FixtureMode=$Mode} $mode
+            $fixtureCode = $null
+            try { $null = New-SqlGuestAllocationAcceptanceFixture @fixtureParameters }
+            catch { $fixtureCode = $_.Exception.Message }
+            Assert-Refresh ($fixtureCode -ceq 'SQL_GUEST_ALLOCATION_FIXTURE_RECEIPT_INVALID') ('Native fixture rejects page evidence: '+$mode)
+        }
+    } finally { $fixtureCredential.Dispose() }
     $script:VersionCatalog=Get-Content (Join-Path $repo Catalogs/sql-server-versions.json) -Raw|ConvertFrom-Json
     $script:SchemasPath=Join-Path $repo Schemas
     foreach($forbidden in @('Get-LabStateRoot','Get-LabStorageConfiguration','Get-LabSecret','Get-LabHostToolInvocation','Get-ContainerRuntime','Get-VM','Invoke-Sqlcmd','Get-LabDatabaseMigrationDependencyInventory','Invoke-LabArtifactStoreLock','New-SqlServerLab','Stop-SqlServerLab','Remove-SqlServerLab')){Set-Item ('Function:script:'+$forbidden) ([scriptblock]::Create("throw 'FORBIDDEN_REFRESH_BOUNDARY'"))}
