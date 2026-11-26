@@ -1565,6 +1565,7 @@ Wähle **Zur SQL-Zielprüfung** nach der SQL-Planung oder öffne
 den gebundenen SQL-Plan ein. Im geführten CLI-Menü kannst du ihn direkt
 übernehmen oder aus einer lokalen JSON-Datei einlesen. Wähle eine laufende
 registrierte SQL-2025-Instanz und bestätige die Prüfung für diese Auswahl.
+Bei Hyper-V muss die registrierte Gast-IP aktuell zur gewählten VM gehören.
 Die Prüfung verwendet den verwalteten SQL-Zugang und liest Datenbankzustand,
 Database Master Key, Rechte und freie Objektnamen. Im Browser erscheint die
 Quittung unter **Vorgänge**. Sie belegt die Vorprüfung für genau die gewählte
