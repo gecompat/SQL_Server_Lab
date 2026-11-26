@@ -2166,8 +2166,15 @@ nutzt ein bereits vorhandenes Host-Only-Netz. Als Quelle verwendet er
 entweder den operationseigenen Clone aus einem ausdrücklich ausgewählten
 Windows-Slot mit registriertem SQL-Medium oder ein ausdrücklich ausgewähltes,
 verifiziertes SQL-2025-Developer-Prepared-Artifact. Der Prepared-Pfad
-erstellt einen eigenen SQL-Run, lässt die Windows-Aktivierung unverändert
-und benötigt keine Zugangsdaten oder Datenträger eines vorhandenen Slots.
+erstellt einen eigenen SQL-Run mit deklarierter Storage-Absicht, lässt die
+Windows-Aktivierung unverändert und benötigt keine Zugangsdaten oder
+Datenträger eines vorhandenen Slots. Er prüft den von der regulären
+Provisionierung ausgestellten Storage-Receipt vor Backup und Restore. Der
+separate Clone-Pfad prüft weiterhin die nachträgliche Host- und
+SQL-Speicherreparatur. Beim [Key18-Lauf 45770266785](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45770266785)
+startete die vorbereitete SQL-VM. Die damalige Fixture hatte die
+Storage-Absicht aus dem Startmanifest entfernt. Die Speicherplanung
+brach vor Backup und Restore ab. Der eigene Run wurde bereinigt.
 Der Workflow weist gemischte Eingaben vor dem Arrange ab. Er legt eine
 synthetische Datenbank an und sichert sie über die geführte Fachaktion in
 einer isolierten temporären Backup-Bibliothek. Die Abnahme verlangt einen
