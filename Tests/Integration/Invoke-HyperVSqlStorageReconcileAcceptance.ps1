@@ -88,7 +88,6 @@ function New-PreparedLibraryRestoreAcceptanceRun {
     }
     $manifest = Get-Content -LiteralPath $ManifestPath -Raw -Encoding utf8 | ConvertFrom-Json -AsHashtable -Depth 30
     $instance = $manifest.instances[0]
-    $instance.Remove('storageIntent')
     $instance.hyperv.preparedImageId = $PreparedArtifactId
     $instance.hyperv.switchName = [string]$network.Name
     $instance.windowsActivation.Strategy = 'NotRequested'
@@ -172,54 +171,77 @@ try {
         else { New-OwnedRun $manifestPath $script:saPassword }
     Assert-HyperVSqlStorageAcceptance ([string]$lab.State -eq 'RUNNING') 'Operationseigener SQL-2025-Run ist bereit'
     $context=Get-Context $lab.RunId;$managed=Get-OwnedManagedVm $context
-    Assert-HyperVSqlStorageAcceptance (@($managed.Identity.additionalDrives).Count -eq 0) 'Clone beginnt ohne run-eigene Storage-Lanes'
-    $intent=(Get-Content -LiteralPath $manifestPath -Raw -Encoding utf8|ConvertFrom-Json -Depth 30).instances[0].storageIntent
-    $bound=Invoke-Private {param($Intent,$RunId,$Name)New-LabStorageBoundPlan -StorageIntent $Intent -RunId $RunId -LabName $Name -InstanceId primary -Provider hyperv} @($intent,[string]$lab.RunId,[string]$lab.RunId)
-    Assert-HyperVSqlStorageAcceptance ([string]$bound.Status -eq 'READY') 'Storage-Intent ist für den operationseigenen Run gebunden'
-    Invoke-Private {param($Path,$Plan)Write-LabArtifactJsonAtomic -Path $Path -InputObject $Plan} @((Join-Path $context.RunDirectory 'storage-bound-plan.json'),$bound)
-    $hostJournal=Join-Path $context.RunDirectory 'hyperv-storage-reconcile.local.journal.json'
-    $hostPlan=Get-SqlServerLabReconcilePlan -RunId $lab.RunId -HyperVStorage -InstanceId primary -StateRoot $StateRoot
-    $hostReasonCodes=@($hostPlan.ReasonCodes|Where-Object{$_}) -join ','
-    Assert-HyperVSqlStorageAcceptance ([string]$hostPlan.HighestChangeClass -in @('live','restart') -and @($hostPlan.Actions).Count -eq 1 -and [string]$hostPlan.Actions[0].Operation -eq 'RepairHyperVStorage' -and @($hostPlan.Diff).Count -ge 1) "HV-603 plant die gebundene Storage-Lane eigentumsgeprueft: $hostReasonCodes"
-    $hostWhatIf=Invoke-SqlServerLabReconcileAction -RunId $lab.RunId -RepairHyperVStorage -InstanceId primary -StateRoot $StateRoot -WhatIf
-    Assert-HyperVSqlStorageAcceptance ([string]$hostWhatIf.ExecutionSummary.Status -eq 'WOULD_EXECUTE' -and -not(Test-Path -LiteralPath $hostJournal)) 'HV-603-WhatIf schreibt weder VHDX noch Journal'
-    $hostResult=Invoke-SqlServerLabReconcileAction -RunId $lab.RunId -RepairHyperVStorage -InstanceId primary -StateRoot $StateRoot -Confirm:$false
-    Assert-HyperVSqlStorageAcceptance ([string]$hostResult.ExecutionSummary.Status -eq 'SUCCEEDED') 'HV-603 erstellt die operationseigenen Storage-Lanes'
-    $context=Get-Context $lab.RunId;$managed=Get-OwnedManagedVm $context;$ownedPaths=@([string]$managed.Identity.childVhdxPath)+@($managed.Identity.additionalDrives|ForEach-Object{[string]$_.path})
-    $hostNoOp=Get-SqlServerLabReconcilePlan -RunId $lab.RunId -HyperVStorage -InstanceId primary -StateRoot $StateRoot
-    Assert-HyperVSqlStorageAcceptance ($hostNoOp.IsNoOp -and @($hostNoOp.Actions).Count -eq 0 -and @($managed.Identity.guestDriveInitialization).Count -eq 1) 'HV-603 ist vor SQL-Mutation No-op und besitzt den gebundenen Gast-Receipt'
-    if([string]$managed.VM.State -eq 'Off'){
-        Invoke-Private {param($VM)Start-VM -VM $VM -ErrorAction Stop} @($managed.VM)
-        $context=Get-Context $lab.RunId
+    if ($PreparedArtifactId) {
+        # Prepared provision already applies the declared storage intent and verifies the SQL receipt.
+        $ownedPaths = @([string]$managed.Identity.childVhdxPath) +
+            @($managed.Identity.additionalDrives | ForEach-Object { [string]$_.path })
+        $storage = Invoke-Private {
+            param($Id,$Root)
+            Get-LabVerifiedStorageRuntimeContext -RunId $Id -InstanceId primary -StateRoot $Root
+        } @([string]$lab.RunId,$StateRoot)
+        Assert-HyperVSqlStorageAcceptance ($ownedPaths.Count -gt 1 -and $storage.Receipt.Provider -ceq 'hyperv' -and
+            $storage.Receipt.Status -ceq 'VERIFIED') 'Prepared-Provisionierung hat den gebundenen SQL-Speicher verifiziert'
+        Assert-HyperVSqlStorageAcceptance (Wait-StorageSqlReady $context) 'SQL ist nach Prepared-Provisionierung bereit'
+        $guestPassword = Invoke-Private {
+            param($RunDirectory)
+            Get-LabSecret -Path $RunDirectory -Name 'guest-administrator-password'
+        } @($context.RunDirectory)
+        try {
+            $guestCredential = [PSCredential]::new('Administrator',$guestPassword)
+            Invoke-StorageLibraryRestoreAcceptance -Context $context -GuestCredential $guestCredential
+        } finally {
+            if ($guestPassword) { $guestPassword.Dispose() }
+        }
+    } else {
+        Assert-HyperVSqlStorageAcceptance (@($managed.Identity.additionalDrives).Count -eq 0) 'Clone beginnt ohne run-eigene Storage-Lanes'
+        $intent=(Get-Content -LiteralPath $manifestPath -Raw -Encoding utf8|ConvertFrom-Json -Depth 30).instances[0].storageIntent
+        $bound=Invoke-Private {param($Intent,$RunId,$Name)New-LabStorageBoundPlan -StorageIntent $Intent -RunId $RunId -LabName $Name -InstanceId primary -Provider hyperv} @($intent,[string]$lab.RunId,[string]$lab.RunId)
+        Assert-HyperVSqlStorageAcceptance ([string]$bound.Status -eq 'READY') 'Storage-Intent ist für den operationseigenen Run gebunden'
+        Invoke-Private {param($Path,$Plan)Write-LabArtifactJsonAtomic -Path $Path -InputObject $Plan} @((Join-Path $context.RunDirectory 'storage-bound-plan.json'),$bound)
+        $hostJournal=Join-Path $context.RunDirectory 'hyperv-storage-reconcile.local.journal.json'
+        $hostPlan=Get-SqlServerLabReconcilePlan -RunId $lab.RunId -HyperVStorage -InstanceId primary -StateRoot $StateRoot
+        $hostReasonCodes=@($hostPlan.ReasonCodes|Where-Object{$_}) -join ','
+        Assert-HyperVSqlStorageAcceptance ([string]$hostPlan.HighestChangeClass -in @('live','restart') -and @($hostPlan.Actions).Count -eq 1 -and [string]$hostPlan.Actions[0].Operation -eq 'RepairHyperVStorage' -and @($hostPlan.Diff).Count -ge 1) "HV-603 plant die gebundene Storage-Lane eigentumsgeprueft: $hostReasonCodes"
+        $hostWhatIf=Invoke-SqlServerLabReconcileAction -RunId $lab.RunId -RepairHyperVStorage -InstanceId primary -StateRoot $StateRoot -WhatIf
+        Assert-HyperVSqlStorageAcceptance ([string]$hostWhatIf.ExecutionSummary.Status -eq 'WOULD_EXECUTE' -and -not(Test-Path -LiteralPath $hostJournal)) 'HV-603-WhatIf schreibt weder VHDX noch Journal'
+        $hostResult=Invoke-SqlServerLabReconcileAction -RunId $lab.RunId -RepairHyperVStorage -InstanceId primary -StateRoot $StateRoot -Confirm:$false
+        Assert-HyperVSqlStorageAcceptance ([string]$hostResult.ExecutionSummary.Status -eq 'SUCCEEDED') 'HV-603 erstellt die operationseigenen Storage-Lanes'
+        $context=Get-Context $lab.RunId;$managed=Get-OwnedManagedVm $context;$ownedPaths=@([string]$managed.Identity.childVhdxPath)+@($managed.Identity.additionalDrives|ForEach-Object{[string]$_.path})
+        $hostNoOp=Get-SqlServerLabReconcilePlan -RunId $lab.RunId -HyperVStorage -InstanceId primary -StateRoot $StateRoot
+        Assert-HyperVSqlStorageAcceptance ($hostNoOp.IsNoOp -and @($hostNoOp.Actions).Count -eq 0 -and @($managed.Identity.guestDriveInitialization).Count -eq 1) 'HV-603 ist vor SQL-Mutation No-op und besitzt den gebundenen Gast-Receipt'
+        if([string]$managed.VM.State -eq 'Off'){
+            Invoke-Private {param($VM)Start-VM -VM $VM -ErrorAction Stop} @($managed.VM)
+            $context=Get-Context $lab.RunId
+        }
+        Assert-HyperVSqlStorageAcceptance (Wait-StorageSqlReady $context) 'SQL ist nach Host-Storage-Reconcile bereit'
+        $receiptPath=Join-Path $context.RunDirectory 'storage-runtime-receipt.json'
+        Assert-HyperVSqlStorageAcceptance (-not(Test-Path -LiteralPath $receiptPath -PathType Leaf)) 'HV-603 persistiert noch keinen SQL-Runtime-Receipt'
+        $before=Get-SqlStorageObservation $context;$sqlPlan=Get-SqlServerLabReconcilePlan -RunId $lab.RunId -HyperVSqlStorage -InstanceId primary -StateRoot $StateRoot
+        Assert-HyperVSqlStorageAcceptance ([string]$sqlPlan.HighestChangeClass -eq 'restart' -and @($sqlPlan.Actions).Count -eq 1 -and $sqlPlan.Actions[0].RequiresSqlServiceRestart -and -not $sqlPlan.MutationAllowed) 'HV-603A plant receiptgebundene SQL-Pfad-Reparatur als SQL-Dienstrestart'
+        Assert-HyperVSqlStorageAcceptance (($sqlPlan|ConvertTo-Json -Depth 30) -notmatch 'SQLData|SQLLog|private-|\.vhdx') 'Oeffentlicher SQL-Storage-Plan bleibt hostwertfrei'
+        $sqlWhatIf=Invoke-SqlServerLabReconcileAction -RunId $lab.RunId -RepairHyperVSqlStorage -InstanceId primary -StateRoot $StateRoot -WhatIf;$afterWhatIf=Get-SqlStorageObservation $context
+        Assert-HyperVSqlStorageAcceptance ([string]$sqlWhatIf.ExecutionSummary.Status -eq 'WOULD_EXECUTE' -and -not(Test-Path -LiteralPath $receiptPath -PathType Leaf) -and $afterWhatIf.Defaults.SqlStartTime -eq $before.Defaults.SqlStartTime) 'HV-603A-WhatIf veraendert weder SQL noch Runtime-Receipt'
+        $guestCredential=[PSCredential]::new('Administrator',(Invoke-Private {param($RunDirectory)(Get-LabSecret -Path $RunDirectory -Name 'guest-administrator-password')} @($context.RunDirectory)))
+        $bootBefore=Get-GuestBootTime $context $guestCredential;$sqlStartBefore=$before.Defaults.SqlStartTime
+        $result=Invoke-SqlServerLabReconcileAction -RunId $lab.RunId -RepairHyperVSqlStorage -InstanceId primary -StateRoot $StateRoot -Confirm:$false
+        $after=Get-SqlStorageObservation $context;$bootAfter=Get-GuestBootTime $context $guestCredential;$receiptAfter=Get-Content -LiteralPath $receiptPath -Raw -Encoding utf8|ConvertFrom-Json -Depth 40
+        $expected=@($receiptAfter.FileBindings);$normalizePath={param([string]$Path) ([string]$Path).Trim().TrimEnd('\','/')}
+        $defaultSource=@(
+            [pscustomobject]@{Role='default-data';Expected=[string](@($expected|Where-Object Role -eq 'default-data')[0].SqlPhysicalPath);Actual=[string]$after.Defaults.DefaultData}
+            [pscustomobject]@{Role='default-log';Expected=[string](@($expected|Where-Object Role -eq 'default-log')[0].SqlPhysicalPath);Actual=[string]$after.Defaults.DefaultLog}
+            [pscustomobject]@{Role='backup';Expected=[string](@($expected|Where-Object Role -eq 'backup')[0].SqlPhysicalPath);Actual=[string]$after.Defaults.BackupDirectory}
+        )
+        $defaultEvidence=@($defaultSource|ForEach-Object{[pscustomobject]@{Role=$_.Role;Exact=([string]$_.Expected).Equals([string]$_.Actual,[StringComparison]::OrdinalIgnoreCase);Normalized=((&$normalizePath $_.Expected).Equals((&$normalizePath $_.Actual),[StringComparison]::OrdinalIgnoreCase));ExpectedLength=$_.Expected.Length;ActualLength=$_.Actual.Length}})
+        $tempEvidence=@($expected|Where-Object Role -in @('tempdb-data','tempdb-log')|ForEach-Object{$expectedFile=$_;$actual=@($after.TempDb|Where-Object { [string]$_.LogicalName -eq [string]$expectedFile.LogicalName });$actualPath=if($actual.Count -eq 1){[string]$actual[0].SqlPhysicalPath}else{''};[pscustomobject]@{LogicalName=[string]$expectedFile.LogicalName;Count=$actual.Count;Exact=($actual.Count -eq 1 -and $actualPath.Equals([string]$expectedFile.SqlPhysicalPath,[StringComparison]::OrdinalIgnoreCase));Normalized=($actual.Count -eq 1 -and (&$normalizePath $actualPath).Equals((&$normalizePath ([string]$expectedFile.SqlPhysicalPath)),[StringComparison]::OrdinalIgnoreCase));ExpectedLength=([string]$expectedFile.SqlPhysicalPath).Length;ActualLength=$actualPath.Length}})
+        # SQL directory properties can include a trailing separator; file paths stay exact.
+        $defaultsOk=@($defaultEvidence|Where-Object { $_.Normalized -and $_.ExpectedLength -gt 0 -and $_.ActualLength -gt 0 }).Count -eq $defaultEvidence.Count;$tempOk=@($tempEvidence|Where-Object Exact).Count -eq $tempEvidence.Count
+        $resultOk=[string]$result.ExecutionSummary.Status -eq 'SUCCEEDED';$receiptResultOk=[string]$result.ExecutionPlan[0].Result.ReceiptStatus -eq 'VERIFIED';$receiptOk=[string]$receiptAfter.Status -eq 'VERIFIED';$sqlRestarted=$after.Defaults.SqlStartTime -ne $sqlStartBefore;$guestBootUnchanged=$bootAfter -eq $bootBefore;$vmRunning=[string]((Get-OwnedManagedVm $context).VM.State) -eq 'Running'
+        $convergenceEvidence="result=$resultOk receiptResult=$receiptResultOk receipt=$receiptOk defaults=$defaultsOk tempdb=$tempOk sqlRestarted=$sqlRestarted guestBootUnchanged=$guestBootUnchanged vmRunning=$vmRunning expectedFiles=$(@($expected).Count) observedTempDb=$(@($after.TempDb).Count) defaultsDetail=$((@($defaultEvidence|ForEach-Object{"$($_.Role):exact=$($_.Exact),normalized=$($_.Normalized),length=$($_.ExpectedLength)/$($_.ActualLength)"}) -join ';')) tempdbDetail=$((@($tempEvidence|ForEach-Object{"$($_.LogicalName):count=$($_.Count),exact=$($_.Exact),normalized=$($_.Normalized),length=$($_.ExpectedLength)/$($_.ActualLength)"}) -join ';'))"
+        Assert-HyperVSqlStorageAcceptance ($resultOk -and $receiptResultOk -and $receiptOk -and $defaultsOk -and $tempOk -and $sqlRestarted -and $guestBootUnchanged -and $vmRunning) "Receipt, SQL-Defaults und TempDB konvergieren nach SQL-Dienstrestart ohne VM-Neustart: $convergenceEvidence"
+        $noOp=Get-SqlServerLabReconcilePlan -RunId $lab.RunId -HyperVSqlStorage -InstanceId primary -StateRoot $StateRoot
+        Assert-HyperVSqlStorageAcceptance ($noOp.IsNoOp -and @($noOp.Actions).Count -eq 0) 'Wiederholter HV-603A-Plan ist No-op'
+        if ($VerifyLibraryRestore) { Invoke-StorageLibraryRestoreAcceptance -Context $context -GuestCredential $guestCredential }
     }
-    Assert-HyperVSqlStorageAcceptance (Wait-StorageSqlReady $context) 'SQL ist nach Host-Storage-Reconcile bereit'
-    $receiptPath=Join-Path $context.RunDirectory 'storage-runtime-receipt.json'
-    Assert-HyperVSqlStorageAcceptance (-not(Test-Path -LiteralPath $receiptPath -PathType Leaf)) 'HV-603 persistiert noch keinen SQL-Runtime-Receipt'
-    $before=Get-SqlStorageObservation $context;$sqlPlan=Get-SqlServerLabReconcilePlan -RunId $lab.RunId -HyperVSqlStorage -InstanceId primary -StateRoot $StateRoot
-    Assert-HyperVSqlStorageAcceptance ([string]$sqlPlan.HighestChangeClass -eq 'restart' -and @($sqlPlan.Actions).Count -eq 1 -and $sqlPlan.Actions[0].RequiresSqlServiceRestart -and -not $sqlPlan.MutationAllowed) 'HV-603A plant receiptgebundene SQL-Pfad-Reparatur als SQL-Dienstrestart'
-    Assert-HyperVSqlStorageAcceptance (($sqlPlan|ConvertTo-Json -Depth 30) -notmatch 'SQLData|SQLLog|private-|\.vhdx') 'Oeffentlicher SQL-Storage-Plan bleibt hostwertfrei'
-    $sqlWhatIf=Invoke-SqlServerLabReconcileAction -RunId $lab.RunId -RepairHyperVSqlStorage -InstanceId primary -StateRoot $StateRoot -WhatIf;$afterWhatIf=Get-SqlStorageObservation $context
-    Assert-HyperVSqlStorageAcceptance ([string]$sqlWhatIf.ExecutionSummary.Status -eq 'WOULD_EXECUTE' -and -not(Test-Path -LiteralPath $receiptPath -PathType Leaf) -and $afterWhatIf.Defaults.SqlStartTime -eq $before.Defaults.SqlStartTime) 'HV-603A-WhatIf veraendert weder SQL noch Runtime-Receipt'
-    $guestCredential=[PSCredential]::new('Administrator',(Invoke-Private {param($RunDirectory)(Get-LabSecret -Path $RunDirectory -Name 'guest-administrator-password')} @($context.RunDirectory)))
-    $bootBefore=Get-GuestBootTime $context $guestCredential;$sqlStartBefore=$before.Defaults.SqlStartTime
-    $result=Invoke-SqlServerLabReconcileAction -RunId $lab.RunId -RepairHyperVSqlStorage -InstanceId primary -StateRoot $StateRoot -Confirm:$false
-    $after=Get-SqlStorageObservation $context;$bootAfter=Get-GuestBootTime $context $guestCredential;$receiptAfter=Get-Content -LiteralPath $receiptPath -Raw -Encoding utf8|ConvertFrom-Json -Depth 40
-    $expected=@($receiptAfter.FileBindings);$normalizePath={param([string]$Path) ([string]$Path).Trim().TrimEnd('\','/')}
-    $defaultSource=@(
-        [pscustomobject]@{Role='default-data';Expected=[string](@($expected|Where-Object Role -eq 'default-data')[0].SqlPhysicalPath);Actual=[string]$after.Defaults.DefaultData}
-        [pscustomobject]@{Role='default-log';Expected=[string](@($expected|Where-Object Role -eq 'default-log')[0].SqlPhysicalPath);Actual=[string]$after.Defaults.DefaultLog}
-        [pscustomobject]@{Role='backup';Expected=[string](@($expected|Where-Object Role -eq 'backup')[0].SqlPhysicalPath);Actual=[string]$after.Defaults.BackupDirectory}
-    )
-    $defaultEvidence=@($defaultSource|ForEach-Object{[pscustomobject]@{Role=$_.Role;Exact=([string]$_.Expected).Equals([string]$_.Actual,[StringComparison]::OrdinalIgnoreCase);Normalized=((&$normalizePath $_.Expected).Equals((&$normalizePath $_.Actual),[StringComparison]::OrdinalIgnoreCase));ExpectedLength=$_.Expected.Length;ActualLength=$_.Actual.Length}})
-    $tempEvidence=@($expected|Where-Object Role -in @('tempdb-data','tempdb-log')|ForEach-Object{$expectedFile=$_;$actual=@($after.TempDb|Where-Object { [string]$_.LogicalName -eq [string]$expectedFile.LogicalName });$actualPath=if($actual.Count -eq 1){[string]$actual[0].SqlPhysicalPath}else{''};[pscustomobject]@{LogicalName=[string]$expectedFile.LogicalName;Count=$actual.Count;Exact=($actual.Count -eq 1 -and $actualPath.Equals([string]$expectedFile.SqlPhysicalPath,[StringComparison]::OrdinalIgnoreCase));Normalized=($actual.Count -eq 1 -and (&$normalizePath $actualPath).Equals((&$normalizePath ([string]$expectedFile.SqlPhysicalPath)),[StringComparison]::OrdinalIgnoreCase));ExpectedLength=([string]$expectedFile.SqlPhysicalPath).Length;ActualLength=$actualPath.Length}})
-    # SQL directory properties can include a trailing separator; file paths stay exact.
-    $defaultsOk=@($defaultEvidence|Where-Object { $_.Normalized -and $_.ExpectedLength -gt 0 -and $_.ActualLength -gt 0 }).Count -eq $defaultEvidence.Count;$tempOk=@($tempEvidence|Where-Object Exact).Count -eq $tempEvidence.Count
-    $resultOk=[string]$result.ExecutionSummary.Status -eq 'SUCCEEDED';$receiptResultOk=[string]$result.ExecutionPlan[0].Result.ReceiptStatus -eq 'VERIFIED';$receiptOk=[string]$receiptAfter.Status -eq 'VERIFIED';$sqlRestarted=$after.Defaults.SqlStartTime -ne $sqlStartBefore;$guestBootUnchanged=$bootAfter -eq $bootBefore;$vmRunning=[string]((Get-OwnedManagedVm $context).VM.State) -eq 'Running'
-    $convergenceEvidence="result=$resultOk receiptResult=$receiptResultOk receipt=$receiptOk defaults=$defaultsOk tempdb=$tempOk sqlRestarted=$sqlRestarted guestBootUnchanged=$guestBootUnchanged vmRunning=$vmRunning expectedFiles=$(@($expected).Count) observedTempDb=$(@($after.TempDb).Count) defaultsDetail=$((@($defaultEvidence|ForEach-Object{"$($_.Role):exact=$($_.Exact),normalized=$($_.Normalized),length=$($_.ExpectedLength)/$($_.ActualLength)"}) -join ';')) tempdbDetail=$((@($tempEvidence|ForEach-Object{"$($_.LogicalName):count=$($_.Count),exact=$($_.Exact),normalized=$($_.Normalized),length=$($_.ExpectedLength)/$($_.ActualLength)"}) -join ';'))"
-    Assert-HyperVSqlStorageAcceptance ($resultOk -and $receiptResultOk -and $receiptOk -and $defaultsOk -and $tempOk -and $sqlRestarted -and $guestBootUnchanged -and $vmRunning) "Receipt, SQL-Defaults und TempDB konvergieren nach SQL-Dienstrestart ohne VM-Neustart: $convergenceEvidence"
-    $noOp=Get-SqlServerLabReconcilePlan -RunId $lab.RunId -HyperVSqlStorage -InstanceId primary -StateRoot $StateRoot
-    Assert-HyperVSqlStorageAcceptance ($noOp.IsNoOp -and @($noOp.Actions).Count -eq 0) 'Wiederholter HV-603A-Plan ist No-op'
-    if ($VerifyLibraryRestore) { Invoke-StorageLibraryRestoreAcceptance -Context $context -GuestCredential $guestCredential }
     $cleanup=Remove-SqlServerLab -RunId $lab.RunId -StateRoot $StateRoot -Force -Confirm:$false;Assert-HyperVSqlStorageAcceptance ([string]$cleanup.Status -in @('REMOVED','COMPLETED')) 'Operationseigener Run wurde scopegebunden entfernt';$lab=$null;foreach($path in $ownedPaths){Assert-HyperVSqlStorageAcceptance (-not(Test-Path -LiteralPath $path)) 'Run-eigene VHDX wurde entfernt'};$completed=$true
 }
 catch {

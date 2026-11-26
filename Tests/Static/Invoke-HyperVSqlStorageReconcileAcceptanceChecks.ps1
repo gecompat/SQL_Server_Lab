@@ -57,7 +57,28 @@ $defaultMedia=[regex]::Match($workflowSource,'(?ms)^  workflow_dispatch:\r?\n.*?
 if (-not $defaultMedia.Success) { throw 'Prepared workflow dispatch default missing' }
 $preparedDefaultArguments=Test-StorageAcceptanceDispatch -Prepared $artifact -Media $defaultMedia.Groups['Default'].Value -Restore $true
 $cloneArguments=Test-StorageAcceptanceDispatch -Clone synthetic-slot -Media synthetic-media -Restore $false
+# Run the actual prepared-manifest transformation without touching a VM or a file.
+$manifestStart = $source.IndexOf('    $manifest = Get-Content -LiteralPath $ManifestPath')
+$manifestEnd = $source.IndexOf('    $preparedPath = Join-Path $testRoot', $manifestStart)
+if ($manifestStart -lt 0 -or $manifestEnd -le $manifestStart) { throw 'Prepared manifest transformation not found' }
+$prepareManifest = [scriptblock]::Create($source.Substring($manifestStart,$manifestEnd-$manifestStart) + '$manifest')
+$preparedManifest = & {
+    $ManifestPath = 'synthetic-manifest.json'
+    $PreparedArtifactId = $artifact
+    $network = [pscustomobject]@{Name='synthetic-switch'}
+    function Get-Content {
+        param([string]$LiteralPath,[switch]$Raw,[string]$Encoding)
+        if ($LiteralPath -cne $ManifestPath -or -not $Raw -or $Encoding -cne 'utf8') { throw 'Synthetic manifest binding changed' }
+        '{"instances":[{"storageIntent":{"placementPolicy":"logical-only","roles":{"backup":{"selector":"default"}}},"hyperv":{},"windowsActivation":{"Strategy":"VerifyOnly","EgressPolicy":"Denied"}}]}'
+    }
+    & $prepareManifest
+}
+$preparedInstance = $preparedManifest.instances[0]
 $checks=[ordered]@{
+ 'Prepared manifest preserves backup storage intent and binds only the approved artifact and network'=($preparedInstance.storageIntent.roles.backup.selector -ceq 'default' -and
+    $preparedInstance.storageIntent.placementPolicy -ceq 'logical-only' -and $preparedInstance.hyperv.preparedImageId -ceq $artifact -and
+    $preparedInstance.hyperv.switchName -ceq 'synthetic-switch' -and $preparedInstance.windowsActivation.Strategy -ceq 'NotRequested' -and
+    $preparedInstance.windowsActivation.EgressPolicy -ceq 'Denied')
  'Early clone failure recovers only this operation; unowned, absent and ambiguous runs remain fail-closed'=(Test-HyperVStorageAcceptanceRecovery -RunnerPath $path)
  'Directory delimiters and case do not reject converged SQL paths'=($valid.Defaults -and $valid.TempDb)
  'Different and empty default directories remain rejected'=(-not (Test-ComparisonCase 'WrongDefault').Defaults -and -not (Test-ComparisonCase 'EmptyDefault').Defaults)
