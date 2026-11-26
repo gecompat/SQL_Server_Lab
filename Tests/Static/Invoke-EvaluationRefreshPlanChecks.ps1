@@ -36,6 +36,51 @@ try {
     $activation = Get-TargetLicenseActivationFailure 'HYPERV_WINDOWS_ACTIVATION_FAILED: WINDOWS_ACTIVATION_GUEST_ADAPTER_NOT_FOUND [dns=not_checked;ipv4=not_checked;route=not_checked]'
     Assert-Refresh ($activation.Code -ceq 'WINDOWS_ACTIVATION_GUEST_ADAPTER_NOT_FOUND' -and $activation.Details -ceq 'dns=not_checked;ipv4=not_checked;route=not_checked') 'Native fixture preserves the known guest adapter failure'
     Assert-Refresh ($null -eq (Get-TargetLicenseActivationFailure 'HYPERV_WINDOWS_ACTIVATION_FAILED: WINDOWS_CANARY_PRIVATE_DETAIL')) 'Native fixture discards unknown codes'
+    $readyModule = New-Module -Name 'EvaluationSourceSqlReadinessFixture' -ScriptBlock {
+        $script:ProbeCalls = 0
+        $script:ProbeMode = 'boot'
+        $script:SleepCalls = 0
+        function Start-Sleep {
+            param($Milliseconds)
+            if ($Milliseconds -ne 750) { throw 'REFRESH_FIXTURE_WAIT_CHANGED' }
+            $script:SleepCalls++
+        }
+        function Get-LabSqlGuestCaptureContext {
+            param($RunId,$StateRoot)
+            if ($RunId -ne [guid]'11111111-1111-4111-8111-111111111111' -or $StateRoot -cne 'synthetic-state') {
+                throw 'REFRESH_FIXTURE_GUEST_ID_CHANGED'
+            }
+            [pscustomobject]@{
+                Run=[pscustomobject]@{scopeId='22222222-2222-4222-8222-222222222222'}
+                Instance=[pscustomobject]@{vmId='33333333-3333-4333-8333-333333333333';id='primary'
+                    sqlReadiness=[pscustomobject]@{instanceName='MSSQLSERVER';edition='Developer'}}
+            }
+        }
+        function Invoke-LabSqlGuestCaptureProbe {
+            param($Context,$TimeoutSeconds)
+            if ($TimeoutSeconds -lt 1 -or $TimeoutSeconds -gt 30 -or $Context.Instance.id -cne 'primary') {
+                throw 'REFRESH_FIXTURE_GUEST_BOUNDARY_CHANGED'
+            }
+            $script:ProbeCalls++
+            if ($script:ProbeMode -ceq 'boot' -and $script:ProbeCalls -eq 1) { throw 'SQL_GUEST_CAPTURE_PROBE_FAILED' }
+            $major = if ($script:ProbeMode -ceq 'identity') { 16 } else { 17 }
+            [pscustomobject]@{MajorVersion=$major;InstanceName='MSSQLSERVER';Edition='Developer'}
+        }
+    }
+    $readinessArgs = @{Module=$readyModule;RunId='11111111-1111-4111-8111-111111111111'
+        ScopeId='22222222-2222-4222-8222-222222222222';VmId='33333333-3333-4333-8333-333333333333';StateRoot='synthetic-state'}
+    Wait-TargetLicenseAcceptanceSourceSql @readinessArgs
+    Assert-Refresh ((& $readyModule { $script:ProbeCalls }) -eq 2 -and
+        (& $readyModule { $script:SleepCalls }) -eq 1) 'Source readiness waits for its read-only SQL endpoint after VM start'
+    & $readyModule { $script:ProbeMode='identity' }
+    $readyCode = try { Wait-TargetLicenseAcceptanceSourceSql @readinessArgs; 'UNEXPECTED_SUCCESS' } catch { $_.Exception.Message }
+    Assert-Refresh ($readyCode -ceq 'EVALUATION_TARGET_LICENSE_SOURCE_SQL_IDENTITY_MISMATCH' -and
+        (& $readyModule { $script:ProbeCalls }) -eq 3 -and (& $readyModule { $script:SleepCalls }) -eq 1) 'Source readiness rejects changed SQL identity without retry'
+    $readinessArgs.VmId = '44444444-4444-4444-8444-444444444444'
+    $readyCode = try { Wait-TargetLicenseAcceptanceSourceSql @readinessArgs; 'UNEXPECTED_SUCCESS' } catch { $_.Exception.Message }
+    Assert-Refresh ($readyCode -ceq 'EVALUATION_TARGET_LICENSE_SOURCE_OWNERSHIP_CHANGED' -and
+        (& $readyModule { $script:ProbeCalls }) -eq 3) 'Source readiness refuses a replaced VM before probing SQL'
+
     Import-RefreshFunctions 'Tests/Common/SqlGuestAllocationAcceptanceFixture.ps1'
     $fixtureModule = New-Module -Name 'SqlGuestAllocationReceiptFixture' -ScriptBlock {
         $script:FixtureMode = 'valid'
