@@ -532,8 +532,11 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $libraryRestore = $env:SQL_SERVER_LAB_CI_VERIFY_LIBRARY_RESTORE -ceq 'true'
           $arguments = @{ VerifyLibraryRestore=$libraryRestore }
+          $mediaRoot = [string]$env:SQL_SERVER_LAB_CI_MEDIA_ROOT
           if ($env:SQL_SERVER_LAB_CI_PREPARED_ARTIFACT_ID) {
-            if (-not $libraryRestore -or $env:SQL_SERVER_LAB_CI_CLONE_SOURCE_RUN_ID -or $env:SQL_SERVER_LAB_CI_MEDIA_ROOT) {
+            # The workflow default is inherited even when a dispatch sends an empty media_root.
+            $customMediaRoot = $mediaRoot -cnotin @('', 'D:\Lab_Base')
+            if (-not $libraryRestore -or $env:SQL_SERVER_LAB_CI_CLONE_SOURCE_RUN_ID -or $customMediaRoot) {
               throw 'HYPERV_LIBRARY_RESTORE_CI_PREPARED_INPUT_CONFLICT'
             }
             $arguments.PreparedArtifactId = [string]$env:SQL_SERVER_LAB_CI_PREPARED_ARTIFACT_ID
