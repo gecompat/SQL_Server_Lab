@@ -107,6 +107,7 @@ try {
     Add-CheckResult -Name 'Geführte Wartungsvorschau meldet Ergebnis oder Fehler ohne Sitzungsjournal und wartet auf Bestätigung' -Success $guidedConsole
     $fullPreview = & $module {
         param($SyntheticPlan)
+        $omitFindingCount = $false
         function Get-SqlServerLabMaintenancePlan {
             [CmdletBinding()] param($Mode)
             if ($Mode -cne 'Full') { throw 'FULL_MODE_REQUIRED' }
@@ -114,6 +115,14 @@ try {
                 Summary = [pscustomobject]@{
                     ResidualCount = 3; UnverifiableProviders = 1; ManagedImages = 2; RuntimeBackingStores = 1
                     HyperVProtectionIssues = 2; HyperVUntrackedFiles = 1; RawPath = 'synthetic-private-audit-path'
+                }
+                Findings = [pscustomobject]@{
+                    Retained = @('synthetic-private-audit-retained')
+                    Summary = [pscustomobject]@{
+                        Retained = 4; UnexpectedResiduals = 2; RecoveryRequired = 1
+                        Unverifiable = if (-not $omitFindingCount) { 0 }
+                        RawPath = 'synthetic-private-audit-category-path'
+                    }
                 }
                 Items = @('synthetic-private-audit-row')
             }
@@ -128,7 +137,16 @@ try {
         $rejected = $false
         try { $null = Invoke-SqlServerLabWorkflowAction -Action ReadFullMaintenancePreview -Provider docker }
         catch { $rejected = $_.Exception.Message -ceq 'FULL_MAINTENANCE_PREVIEW_ARGUMENTS_INVALID' }
-        return $rejected -and $action.Result.FullAudit.ResidualCount -eq 3 -and
+        $omitFindingCount = $true
+        $incompleteRejected = $false
+        try { $null = Invoke-SqlServerLabWorkflowAction -Action ReadFullMaintenancePreview -ErrorAction Stop }
+        catch { $incompleteRejected = $_.Exception.Message -ceq 'FULL_MAINTENANCE_PREVIEW_UNAVAILABLE' }
+        $findings = $action.Result.FullAudit.Findings
+        return $rejected -and $incompleteRejected -and $action.Result.FullAudit.ResidualCount -eq 3 -and
+            $findings.Retained -eq 4 -and $findings.UnexpectedResiduals -eq 2 -and
+            $findings.RecoveryRequired -eq 1 -and $findings.Unverifiable -eq 0 -and
+            $console -match 'Bewusst behalten: 4 · Unerwartete Reste: 2' -and
+            $console -match 'Recovery erforderlich: 1 · Nicht verifizierbar: 0' -and
             $console -match 'Befunde im Speicher- und Cleanup-Audit: 3' -and $console -match 'ACKNOWLEDGED' -and
             ($action | ConvertTo-Json -Depth 7 -Compress) -notmatch 'synthetic-private-audit|ResourceId|RunId'
     } $plan

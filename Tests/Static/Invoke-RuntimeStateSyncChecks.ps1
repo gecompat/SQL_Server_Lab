@@ -17,18 +17,32 @@ try {
         $script:syncRuntimeState = 'MISSING'
         $script:syncErrors = 0
         function Get-LabRunState { $script:syncRun }
-        function Get-LabActiveRuns { @($script:syncRun) }
+        $script:previewWrites = 0
+        $script:syncCalls = 0
+        function Get-LabActiveRuns {
+            param($StateRoot,[switch]$NoWrite)
+            if (-not $NoWrite) { $script:previewWrites++ }
+            @($script:syncRun)
+        }
         function Get-LabRunRuntimeStatus {
+            param($Run,$StateRoot,[switch]$NoWrite)
+            if (-not $NoWrite) { $script:previewWrites++ }
+            $provider = if ($script:syncRuntimeState -eq 'STOPPED') { 'hyperv' } else { 'docker' }
             [PSCustomObject]@{
                 State=$script:syncRuntimeState
-                Instances=@([PSCustomObject]@{ Provider='docker'; State=$script:syncRuntimeState; InstanceId='primary' })
+                Instances=@([PSCustomObject]@{ Provider=$provider; State=$script:syncRuntimeState; InstanceId='primary' })
             }
         }
         function Get-LabProviderSubRuns { @($script:syncSubRun) }
         function Set-LabProviderSubRunState { param($RunId,$Provider,$NewState,$Reason,$StateRoot) $script:syncSubRun.state=$NewState }
         function Set-LabRunState { param($RunId,$NewState,$Reason,$StateRoot) $script:syncRun.state=$NewState; $script:syncRun }
         function Add-LabRunError { $script:syncErrors++ }
-        function Sync-LabRunRuntimeState { throw 'unexpected-running-sync' }
+        function Sync-LabRunRuntimeState {
+            param($Run,$StateRoot)
+            $script:syncCalls++
+            $script:syncRun.state = $script:syncRuntimeState
+            [pscustomobject]@{ Run=$script:syncRun; Synchronized=$true }
+        }
 
         $missing = Sync-SqlServerLabRuntimeState -RunId runtime-sync-run -StateRoot 'X:\state' -Confirm:$false
         $missingState = [string]$script:syncRun.state
@@ -41,9 +55,19 @@ try {
 
         $script:syncRuntimeState = 'UNAVAILABLE'
         $unavailable = Sync-SqlServerLabRuntimeState -RunId runtime-sync-run -StateRoot 'X:\state' -Confirm:$false
+        $unavailableState = [string]$script:syncRun.state
+        $script:syncRuntimeState = 'STOPPED'
+        $script:previewWrites = 0
+        $preview = Sync-SqlServerLabRuntimeState -StateRoot 'X:\state' -WhatIf
+        $stayedRunning = $script:syncRun.state -eq 'RUNNING'
+        $previewWrites = $script:previewWrites
+        $previewSyncCalls = $script:syncCalls
+        $applied = Sync-SqlServerLabRuntimeState -RunId runtime-sync-run -StateRoot 'X:\state' -Confirm:$false
         [PSCustomObject]@{
             Missing=$missing; MissingState=$missingState; MissingSubState=$missingSubState; MissingErrors=$missingErrors
-            WhatIf=$whatIf; WhatIfState=$whatIfState; Unavailable=$unavailable; UnavailableState=[string]$script:syncRun.state
+            WhatIf=$whatIf; WhatIfState=$whatIfState; Unavailable=$unavailable; UnavailableState=$unavailableState
+            Preview=$preview; StayedRunning=$stayedRunning; PreviewWrites=$previewWrites; PreviewSyncCalls=$previewSyncCalls
+            Applied=$applied; SyncCalls=$script:syncCalls
         }
     }
 
@@ -57,6 +81,13 @@ try {
     Add-CheckResult -Name 'Nicht erreichbare Runtime bleibt Diagnose und wird nicht als Löschung verbucht' -Success (
         $behavior.Unavailable.Action -eq 'DIAGNOSTIC_ONLY' -and -not $behavior.Unavailable.Changed -and
         $behavior.UnavailableState -eq 'RUNNING')
+
+    Add-CheckResult -Name 'WhatIf liest auch bei abweichender Hyper-V-Laufzeit ohne Metadatenreparatur oder Logging' -Success (
+        $behavior.StayedRunning -and $behavior.PreviewWrites -eq 0 -and $behavior.PreviewSyncCalls -eq 0 -and
+        $behavior.Preview.Action -eq 'STATE_SYNCHRONIZE_PLANNED' -and -not $behavior.Preview.Changed)
+    Add-CheckResult -Name 'Bestätigter Statusabgleich erreicht den Schreibpfad genau einmal' -Success (
+        $behavior.Applied.Action -eq 'STATE_SYNCHRONIZED' -and $behavior.Applied.Changed -and
+        $behavior.Applied.State -eq 'STOPPED' -and $behavior.SyncCalls -eq 1)
 
     $getSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public\Get-SqlServerLab.ps1') -Raw -Encoding utf8
     $dockerSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Providers\Docker\DockerProvider.ps1') -Raw -Encoding utf8
