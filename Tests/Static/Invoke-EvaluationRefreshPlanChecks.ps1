@@ -291,8 +291,9 @@ try {
         }
     }
     function Invoke-LabSqlGuestCaptureProbe {
-        param($Context,$TimeoutSeconds,[switch]$IncludeSourceInventory,[switch]$IncludeTargetStorage)
+        param($Context,$TimeoutSeconds,[switch]$IncludeSourceInventory,[switch]$IncludeTargetStorage,[string]$MigrationDatabaseName)
         $script:observationCalls++
+        $script:observedMigrationDatabaseName = $MigrationDatabaseName
         $isTarget = $script:expectedSqlTarget -and (-not $script:compareStorage -or $Context.Run.runId -ceq $script:expectedSqlTarget.RunId)
         if ($IncludeSourceInventory.IsPresent -eq [bool]$isTarget -or $TimeoutSeconds -ne 60 -or
             $IncludeTargetStorage.IsPresent -ne ($script:expectStorage -and $isTarget)) {
@@ -301,6 +302,7 @@ try {
         [pscustomobject]@{
             MajorVersion=17; InstanceName='MSSQLSERVER'; SourceInventory=$script:guestCounts; Private='CANARY_PRIVATE_DO_NOT_RETURN'
             SourceAllocatedFilePages=$script:guestFilePages
+            DatabaseDependencyRows=if ($MigrationDatabaseName) { ,$script:databaseDependencyRows } else { $null }
             TargetStorage=if ($IncludeTargetStorage) { ,$script:storageVolumes } else { $null }
             EditionId=$script:editionId
             Edition=if ($script:wrongSqlEdition) { 'Different edition' } else { 'Enterprise Evaluation Edition' }
@@ -422,6 +424,37 @@ try {
         Assert-Refresh ($script:observationCalls -eq 2 -and $job.Result.Status -ceq 'PARTIALLY_OBSERVED' -and $job.Result.DependencyFindings.Count -eq 3 -and
             $job.Result.AllocatedFileStorage.DataBytes -eq 1MB -and
             ($job | ConvertTo-Json -Depth 10) -cnotmatch 'CANARY_PRIVATE|MSSQLSERVER|ScopeId|DataPages|LogPages') 'The browser job returns only the aggregate source result'
+        Import-RefreshFunctions 'Private/DatabaseMigrationDependency.ps1'
+        $callsBeforeDatabase = $script:observationCalls
+        Assert-Refresh (-not $job.Result.PSObject.Properties['DatabaseDependencies']) 'Aggregate browser request does not add a per-database result'
+        Assert-RefreshReject 'A database name alone cannot start a SQL observation' {
+            Get-SqlServerLabEvaluationRefreshPlan @argsForPlan -SourceDatabaseName MigrationFixture
+        } EVALUATION_REFRESH_SOURCE_DATABASE_INPUT_INVALID
+        Assert-RefreshReject 'Invalid database name cannot start the workflow query' {
+            Invoke-SqlServerLabWorkflowAction @jobParams -DatabaseName 'invalid-name'
+        } EVALUATION_REFRESH_SOURCE_DATABASE_INPUT_INVALID
+        Assert-Refresh ($script:observationCalls -eq $callsBeforeDatabase) 'Invalid database requests open no guest connection'
+        $sqlQuery = Get-LabDatabaseMigrationDependencySqlQuery -DatabaseName MigrationFixture -RegularUserDatabaseOnly
+        Assert-Refresh ($sqlQuery.Contains("DB_ID(N'MigrationFixture') <= 4") -and $sqlQuery.Contains('source_database_id IS NOT NULL') -and
+            $sqlQuery.Contains('USE [MigrationFixture]')) 'Guest query rejects system databases and snapshots before reading dependencies'
+        $script:databaseDependencyRows = @('PSR010_META|17|NONE|0|0|NONE','PSR010_COUNT|SERVER_LOGIN_MAPPING|2',
+            'PSR010_COUNT|SQL_AGENT_JOB|1','PSR010_COUNT|CREDENTIAL_OR_PROXY|0','PSR010_COUNT|LINKED_SERVER|0')
+        $dbPlan = Get-SqlServerLabEvaluationRefreshPlan @argsForPlan -ObserveSqlSource -SourceDatabaseName MigrationFixture
+        $db = $dbPlan.SqlSourceInventory.DatabaseDependencies
+        Assert-Refresh ($script:observationCalls -eq $callsBeforeDatabase+1 -and $script:observedMigrationDatabaseName -ceq 'MigrationFixture' -and
+            $db.Status -ceq 'OBSERVED' -and $db.Inventory.Source.RunId -ceq $runId -and
+            ($db.Inventory.Dependencies | Where-Object Category -CEQ 'SERVER_LOGIN_MAPPING').Count -eq 2 -and
+            $db.Inventory.MigrationBoundary.PortableRestoreStatus -ceq 'MANUAL_REVIEW' -and $dbPlan.TransferAuthority -ceq 'NONE' -and
+            -not $dbPlan.MutationAllowed -and ($dbPlan | ConvertTo-Json -Depth 20) -cnotmatch 'PSR010_|CANARY_PRIVATE') 'Exact database guest read projects only scoped migration facts'
+        $dbJob = Invoke-SqlServerLabWorkflowAction @jobParams -DatabaseName MigrationFixture
+        Assert-Refresh ($script:observationCalls -eq $callsBeforeDatabase+2 -and
+            $dbJob.Result.DatabaseDependencies.DatabaseName -ceq 'MigrationFixture' -and
+            $dbJob.Result.DatabaseDependencies.Inventory.Source.Provider -ceq 'hyperv') 'Transient workflow retains the selected database identity'
+        $script:databaseDependencyRows[0] = 'PSR010_META|16|NONE|0|0|NONE'
+        $missingDatabase = Get-SqlServerLabEvaluationRefreshPlan @argsForPlan -ObserveSqlSource -SourceDatabaseName MigrationFixture
+        Assert-Refresh ($missingDatabase.SqlSourceInventory.Status -ceq 'PARTIALLY_OBSERVED' -and
+            $missingDatabase.SqlSourceInventory.DatabaseDependencies.Status -ceq 'NOT_OBSERVED' -and
+            -not $missingDatabase.SqlSourceInventory.DatabaseDependencies.Inventory) 'Foreign SQL version does not discard valid aggregate evidence or manufacture database counts'
         $script:guestFilePages.DataPages = [long]::MaxValue
         $overflow = Get-SqlServerLabEvaluationRefreshPlan @argsForPlan -ObserveSqlSource
         Assert-Refresh ($overflow.SqlSourceInventory.Status -ceq 'PARTIALLY_OBSERVED' -and

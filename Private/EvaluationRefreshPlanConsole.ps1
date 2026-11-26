@@ -52,6 +52,7 @@ function Invoke-LabEvaluationRefreshPlanInteractive {
             }
             if ($mode -ceq 'STATEFUL_MIGRATION' -and $selected.State -ceq 'RUNNING') {
                 New-LabConsoleItem -Id observe -Label 'SQL-Quellzähler im laufenden Gast lesen'
+                New-LabConsoleItem -Id observe-source-database -Label 'Migrationsabhängigkeiten einer Quelldatenbank lesen'
             }
             if ($mode -ceq 'STATEFUL_MIGRATION' -and $targetCandidates.Count) {
                 New-LabConsoleItem -Id target -Label 'Registriertes Ziellab vorprüfen'
@@ -75,6 +76,12 @@ function Invoke-LabEvaluationRefreshPlanInteractive {
             Mode=$mode; ExpectedSnapshotDigest=$selected.Digest
         }
         if ($review.SelectedItem.Id -ceq 'observe') { $planArgs.ObserveSqlSource = $true }
+        if ($review.SelectedItem.Id -ceq 'observe-source-database') {
+            $database = Read-LabConsoleTextInput -Prompt 'Name der regulären Benutzerdatenbank in der gewählten Quelle'
+            if ($database.Status -cne 'Confirmed') { return }
+            $planArgs.SourceDatabaseName = [string]$database.Value
+            $planArgs.ObserveSqlSource = $true
+        }
         if ($review.SelectedItem.Id -ceq 'observe-windows') { $planArgs.ObserveWindowsLicense = $true }
         if ($review.SelectedItem.Id -cin @('target','observe-target-windows','observe-target-sql','observe-target-storage','compare-file-allocation')) {
             $readTargetWindows = $review.SelectedItem.Id -ceq 'observe-target-windows'
@@ -121,6 +128,9 @@ function Invoke-LabEvaluationRefreshPlanInteractive {
             } else { Write-LabInfo 'SQL-Quelldateigrößen konnten nicht bestimmt werden.' }
             foreach ($finding in $plan.SqlSourceInventory.DependencyFindings) {
                 Write-LabInfo ("Vor Übernahme prüfen: {0} · {1} ({2})" -f $finding.Code,$finding.Category,$finding.Count)
+            }
+            foreach ($line in Format-LabEvaluationRefreshDatabaseDependencies -Observation $plan.SqlSourceInventory.PSObject.Properties['DatabaseDependencies']?.Value) {
+                Write-LabInfo $line
             }
         }
         if ($plan.TargetAssessment) {

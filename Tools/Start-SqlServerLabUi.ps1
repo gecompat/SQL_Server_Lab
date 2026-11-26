@@ -393,6 +393,13 @@ function Start-UiWorkflowJob {
                 foreach ($finding in $source.DependencyFindings) {
                     Write-Output ('[INVENTAR] Vor Übernahme prüfen: {0} · {1} ({2})' -f $finding.Code, $finding.Category, $finding.Count)
                 }
+                $databaseDependencies = $source.PSObject.Properties['DatabaseDependencies']?.Value
+                if ($databaseDependencies) {
+                    & (Get-Module SqlServerLab) {
+                        param($Observation)
+                        Format-LabEvaluationRefreshDatabaseDependencies -Observation $Observation
+                    } $databaseDependencies | ForEach-Object { Write-Output ('[INVENTAR] ' + $_) }
+                }
                 Write-Output '[INFO] Der Ersatzentscheid bleibt BLOCKED. Vollständige Inventur und Transfer benötigen weitere Nachweise.'
             }
             if ($JobAction -ceq 'ReadHyperVEvaluationWindowsLicense') {
@@ -2205,6 +2212,12 @@ try {
                 if ($action -in @('ReadHyperVEvaluationSqlSource', 'ReadHyperVEvaluationWindowsLicense', 'ReadHyperVEvaluationTargetSqlReadiness',
                     'ReadHyperVEvaluationTargetStorage', 'ReadHyperVEvaluationFileAllocationComparison')) {
                     $evaluationReadKeys = @('RunId', 'InstanceId', 'DataRoot', 'ExpectedPlanKey')
+                    if ($action -ceq 'ReadHyperVEvaluationSqlSource' -and $parameters.ContainsKey('DatabaseName')) {
+                        if ($parameters['DatabaseName'] -isnot [string] -or $parameters['DatabaseName'] -cnotmatch '^[A-Za-z][A-Za-z0-9_]{0,127}$') {
+                            throw 'EVALUATION_REFRESH_SOURCE_DATABASE_INPUT_INVALID'
+                        }
+                        $evaluationReadKeys += 'DatabaseName'
+                    }
                     if ($action -cin @('ReadHyperVEvaluationTargetSqlReadiness', 'ReadHyperVEvaluationTargetStorage',
                         'ReadHyperVEvaluationFileAllocationComparison') -or
                         ($action -ceq 'ReadHyperVEvaluationWindowsLicense' -and $parameters.Count -eq 7)) {

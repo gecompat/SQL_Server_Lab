@@ -261,6 +261,13 @@ ordnet jedes Element genau einer der folgenden Klassen zu:
 
 ### Quellinventar und Wiederherstellbarkeit
 
+Der Ersatzentscheid kann nach ausdrücklicher Auswahl eine reguläre
+Benutzerdatenbank der gebundenen laufenden SQL-2025-Quelle lesend prüfen.
+CLI und Browser übernehmen denselben Datenbanknamen. Der Gast liefert
+Kategorien und Zähler für Login-Mappings, Agent-Jobs, Proxies,
+Linked Server und Verschlüsselungsabhängigkeiten. Externe Komponenten und
+die vollständige Instanzinventur bleiben getrennte Aufgaben.
+
 - Das Quellinventar vor jedem Export versionsgebunden und read-only erzeugen.
 - Datenbank-, Instanz-, OS-/VM- und externe Abhängigkeiten getrennt erfassen.
 - Secrets nur als lokale `SecretRef` oder erforderliche Operatoraktion führen;

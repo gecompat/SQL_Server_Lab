@@ -20,6 +20,10 @@
     Erfasst bei STATEFUL_MIGRATION aggregierte SQL-Quellzähler und die laut
     Katalog zugewiesenen Daten- und Logdateigrößen regulärer Benutzerdatenbanken
     einer laufenden, gebundenen SQL-2025-Prepared-Instanz. Keine Persistenz.
+.PARAMETER SourceDatabaseName
+    Optionale reguläre Benutzerdatenbank für die ausdrücklich gewählte
+    SQL-Quellbeobachtung. Liest gebundene Abhängigkeiten über den Gast
+    und projiziert nur Kategorien, Zähler und Migrationsgrenzen.
 .PARAMETER ObserveWindowsLicense
     Liest zusätzlich den Windows-Lizenzstatus der laufenden gebundenen VM.
     Die registrierte Historie bleibt getrennt. Die Abfrage aktiviert und
@@ -61,6 +65,7 @@ function Get-SqlServerLabEvaluationRefreshPlan {
         [Parameter(Mandatory)][ValidateLength(1,2048)][string]$DataRoot,
         [Parameter(Mandatory)][ValidateSet('FREE_SLOT_REPLACEMENT','RECONSTRUCT_LAB','STATEFUL_MIGRATION')][string]$Mode,
         [switch]$ObserveSqlSource,
+        [ValidatePattern('^[A-Za-z][A-Za-z0-9_]{0,127}$')][string]$SourceDatabaseName,
         [switch]$ObserveWindowsLicense,
         [ValidatePattern('^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$')][string]$TargetRunId,
         [ValidatePattern('^[A-Za-z][A-Za-z0-9_-]{0,63}$')][string]$TargetInstanceId,
