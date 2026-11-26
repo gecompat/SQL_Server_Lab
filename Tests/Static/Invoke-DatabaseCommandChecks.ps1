@@ -126,6 +126,44 @@ try {
         $guided.Blocked.drift -ceq 'HYPERV_DATABASE_CREATE_TARGET_NOT_READY' -and $guided.Blocked.unready -ceq 'HYPERV_DATABASE_CREATE_TARGET_NOT_READY') 'Hyper-V-Fachaktion sperrt Namenskonflikt und Zieldrift vor CREATE'
     Assert-DatabaseContract ($guided.Calls -eq 1 -and $guided.Bound -and $guided.Created.Status -ceq 'CREATED' -and
         -not $guided.Created.PSObject.Properties['PrivatePath']) 'Hyper-V-Fachaktion bindet registriertes Laufzeitziel und gibt eine pfadfreie Quittung aus'
+
+    $consoleAst = [Management.Automation.Language.Parser]::ParseFile((Join-Path $repoRoot 'Public/Invoke-SqlServerLab.ps1'),[ref]$null,[ref]$null)
+    $menuBranch = $consoleAst.Find({param($node) $node -is [Management.Automation.Language.IfStatementAst] -and
+        $node.Clauses[0].Item1.Extent.Text -ceq '$target.Provider -eq ''hyperv''' -and
+        $node.Extent.Text -match 'Invoke-LabGuidedHyperVDatabaseCreate'},$true)
+    if (-not $menuBranch) { throw 'Hyper-V database menu fixture could not bind the real branch' }
+    $menuProof = & {
+        param([scriptblock]$Branch)
+        $target = [pscustomobject]@{Provider='hyperv'}
+        $runId = '33333333-2222-4333-8444-555555555555'
+        $instanceId = 'primary'
+        $dbName = 'GuidedFixture'
+        $events = [pscustomobject]@{Confirmed=$false;Prompts=0;Calls=0;Bound=$false;Secrets=@()}
+        function Read-LabConfirm {param($Prompt,$Default) $events.Confirmed -and -not $Default -and $Prompt.Contains($runId) -and $Prompt.Contains($dbName) }
+        function Read-Host {param($Prompt,[switch]$AsSecureString)
+            $events.Prompts++
+            if (-not $AsSecureString) { return '' }
+            $secret = [securestring]::new()
+            $secret.AppendChar([char]'x')
+            $events.Secrets += $secret
+            return $secret
+        }
+        function Invoke-LabGuidedHyperVDatabaseCreate {param($RunId,$InstanceId,$DatabaseName,$GuestUserName,$GuestPassword,$SaPassword)
+            $events.Calls++
+            $events.Bound = $RunId -ceq '33333333-2222-4333-8444-555555555555' -and $InstanceId -ceq 'primary' -and
+                $DatabaseName -ceq 'GuidedFixture' -and $GuestUserName -ceq 'Administrator' -and
+                [object]::ReferenceEquals($GuestPassword,$events.Secrets[0]) -and [object]::ReferenceEquals($SaPassword,$events.Secrets[1])
+        }
+        & $Branch
+        $cancelled = $events.Calls -eq 0 -and $events.Prompts -eq 0
+        $events.Confirmed = $true
+        & $Branch
+        $disposed = @(foreach ($secret in $events.Secrets) {
+            try { $copy = $secret.Copy(); $copy.Dispose() } catch { $true }
+        }).Count
+        $cancelled -and $events.Calls -eq 1 -and $events.Bound -and $disposed -eq 2
+    } ([scriptblock]::Create($menuBranch.Extent.Text))
+    Assert-DatabaseContract $menuProof 'Hyper-V-Menü verlangt Bindung und Bestätigung vor Zugangsdaten und gibt beide Secrets danach frei'
 }
 finally {
     & $module {
