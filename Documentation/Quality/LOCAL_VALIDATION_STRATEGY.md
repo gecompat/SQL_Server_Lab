@@ -5749,7 +5749,14 @@ Die anschließende geführte Fachabfrage muss genau diese SQL-Version,
 Die drei Run-Dateien bleiben bytegleich. Das bestehende Cleanup prüft
 die Abwesenheit der eigenen VM und ihrer Laufwerke. Dieser Modus prüft
 den nativen Fehlbestand. Eine SSISDB-Ausführung hat einen eigenen Nachweis.
-Der neue native Lauf steht aus.
+Der [Key18-Lauf 45859971827](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45859971827)
+bestand am 26.11.2026 auf Main-Commit `116f5431`. Eine separate
+SQL-Abfrage bestätigte die Abwesenheit von SSISDB. Die geführte
+Fachabfrage beobachtete SQL Server 2025 und meldete `MISSING` sowie
+`BLOCKED`. Alle drei Run-Dateien blieben bytegleich.
+Die unabhängige Bestandsprüfung bestätigte `REMOVED` und die
+Abwesenheit der eigenen VM und ihrer beiden Laufwerke. Browserdialog
+und CLI-Auswahl sind separat synthetisch geprüft.
 
 ### Ein-Datenbank-Containertransfer
 
