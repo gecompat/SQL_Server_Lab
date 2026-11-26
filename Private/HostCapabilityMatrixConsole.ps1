@@ -20,7 +20,7 @@ function Show-LabHostMatrixLaunchDetailsInteractive {
         New-LabConsoleItem -Id 'catalog' -Label 'Katalog- und Launchdeklaration ohne Hostabfrage' -Shortcut '1' -Data ([pscustomobject]@{Probe=$false; Prerequisites=$false; History=$false})
         New-LabConsoleItem -Id 'probe' -Label 'Container-Grundlagen bewusst lesend prüfen' -Value 'Linux · cgroup-Version · Rootful · bis zu 20 Sekunden' -Shortcut '2' -Data ([pscustomobject]@{Probe=$true; Prerequisites=$false; History=$false})
         New-LabConsoleItem -Id 'prerequisites' -Label 'Voraussetzungen für ein Ressourcenprofil lesend prüfen' `
-            -Value 'Zusätzlich Controller und Gesamtkapazität des Providers' -Shortcut '3' -Data ([pscustomobject]@{Probe=$true; Prerequisites=$true; History=$false})
+            -Value 'Controller, Kernelrelease und Gesamtkapazität des Providers' -Shortcut '3' -Data ([pscustomobject]@{Probe=$true; Prerequisites=$true; History=$false})
         New-LabConsoleItem -Id 'history' -Label 'Historische Nachweise für diese Variante lesen' `
             -Value 'Gespeicherten Index ohne Hostabfrage lesen' -Shortcut '4' -Data ([pscustomobject]@{Probe=$false; Prerequisites=$false; History=$true})
     )
@@ -38,7 +38,7 @@ function Show-LabHostMatrixLaunchDetailsInteractive {
             -Subtitle 'Die Auswahl löst genau eine lesende Providerabfrage aus.' -Items @($profiles) -SelectedId 'standard'
         if (-not $profileName) { return }
         $arguments.IncludeHostPrerequisites = $true
-        $arguments.IncludeProviderFacts = $true
+        $arguments.IncludeKernelEvidence = $true
         $arguments.ResourceProfile = $profileName
     }
     $decision=Get-SqlServerLabExternalRuntimeCapability -SqlVersion $Matrix.SqlVersion -Provider $selected.Provider -OperatingSystem linux `
@@ -71,6 +71,13 @@ function Show-LabHostMatrixLaunchDetailsInteractive {
                 $facts.ProviderFacts.OperatingSystem,$facts.ProviderFacts.CgroupVersion,$rootless)
         } else {
             Write-Host 'Runtime-OS, cgroup-Version und Rootless-Modus konnten für diese Auswahl nicht beobachtet werden.'
+        }
+        if ($facts.KernelEvidence) {
+            $kernelMarker = if ($facts.KernelEvidence.Flavor -ceq 'MICROSOFT_WSL2_MARKER') { 'Microsoft-WSL2-Marker gemeldet' }
+                else { 'Microsoft-WSL2-Marker nicht gemeldet' }
+            Write-Host ("Linux-Kernelrelease des Providers · {0} · {1}" -f $facts.KernelEvidence.Version,$kernelMarker)
+        } else {
+            Write-Host 'Linux-Kernelrelease des Providers unbeobachtet.'
         }
         if ($facts.Controllers) {
             Write-Host ("Controller {0} · fehlend {1} · unbekannt {2}" -f $facts.Controllers.Status,
