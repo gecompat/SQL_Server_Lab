@@ -2485,6 +2485,20 @@ Prepared-Vorlage und den vollständigen Cleanup beider eigener Runs samt
 VMs und Disks. Für SQL-Readiness und Transfer stehen eigene Nachweise aus.
 [Nativer Key18-Lauf](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45463261705)
 
+### Nativer kombinierter Vergleich von Dateizuweisung und Zielspeicher
+
+Auf `6979d649440de9bc5dabd7cce44b81764a5a1a8d` bestand der
+[Key18-Lauf 45742408943](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45742408943)
+den manuellen Modus `evaluation-target-file-allocation-acceptance`.
+Die gebundene SQL-Quelle war nach dem erneuten Start erreichbar. Eine
+synthetische Datenbank erhöhte die Quellsummen exakt um ihre Daten- und
+Logdateigrößen. Die Zielseite übernahm die gemessenen freien Bytes je
+Volume, gemeinsam genutzte Volumes genau einmal. Beide VMs liefen
+gleichzeitig. Der Lauf bestätigte unveränderte Vorlage, Run- und
+Verbindungsmetadaten sowie `REMOVED` für beide eigenen Runs samt VMs
+und Disks. Backupbedarf, Übernahme und Gleichwertigkeit liegen außerhalb
+dieses Nachweises.
+
 ## Prospektiver External-Languages-Capability-Entscheid
 
 `Invoke-ExternalRuntimeCapabilityBrowserChecks.ps1` prüft die extrahierte echte
