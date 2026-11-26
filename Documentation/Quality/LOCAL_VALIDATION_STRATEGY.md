@@ -2166,13 +2166,31 @@ nutzt ein bereits vorhandenes Host-Only-Netz. Als Quelle verwendet er
 entweder den operationseigenen Clone aus einem ausdrücklich ausgewählten
 Windows-Slot mit registriertem SQL-Medium oder ein ausdrücklich ausgewähltes,
 verifiziertes SQL-2025-Developer-Prepared-Artifact. Der Prepared-Pfad
-erstellt einen eigenen SQL-Run, lässt die Windows-Aktivierung unverändert
-und benötigt keine Zugangsdaten oder Datenträger eines vorhandenen Slots.
+erstellt einen eigenen SQL-Run mit deklarierter Storage-Absicht, lässt die
+Windows-Aktivierung unverändert und benötigt keine Zugangsdaten oder
+Datenträger eines vorhandenen Slots. Er prüft den von der regulären
+Provisionierung ausgestellten Storage-Receipt vor Backup und Restore. Der
+separate Clone-Pfad prüft weiterhin die nachträgliche Host- und
+SQL-Speicherreparatur. Beim [Key18-Lauf 45770266785](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45770266785)
+startete die vorbereitete SQL-VM. Die damalige Fixture hatte die
+Storage-Absicht aus dem Startmanifest entfernt. Die Speicherplanung
+brach vor Backup und Restore ab. Der eigene Run wurde bereinigt.
 Der Workflow weist gemischte Eingaben vor dem Arrange ab. Er legt eine
-synthetische Datenbank an, sichert sie in einer isolierten temporären
-Backup-Bibliothek und prüft anschließend den tatsächlichen Worker-Einstieg,
-die identischen Zielinhalte und die Kopienbereinigung. Der native Lauf
-dieses Modus steht aus.
+synthetische Datenbank an und sichert sie über die geführte Fachaktion in
+einer isolierten temporären Backup-Bibliothek. Die Abnahme verlangt einen
+wiederverwendbaren Sicherungssatz und genau einen an VM und Storage-Plan
+gebundenen Beleg für die Bereinigung der Backup-Gastdatei. Anschließend
+prüft sie den geführten Restore, identische Zielinhalte und die
+Kopienbereinigung. Der native Nachweis des erweiterten Backup-Pfads steht aus.
+
+Der [Key18-Lauf 45773328285](https://github.com/gecompat/SQL_Server_Lab/actions/runs/45773328285)
+bestätigte den verifizierten Speicher, die SQL-Bereitschaft und den Cleanup
+des eigenen Runs. Der Restore scheiterte nach dem Backup. Mit dem Plan
+dieses Runs ließ sich der Bindungsfehler lokal reproduzieren. Die frühere
+Fixture ersetzte den Host-Speicherkatalog durch den Bibliotheksordner.
+Die korrigierte Fixture leitet ausschließlich die Bibliotheksdateien in
+ihren temporären Ordner. Die Prüfungen für registrierte Wurzeln, VM und
+verifizierte Speicherbindung verwenden den regulären Host-Katalog.
 
 ## Getrennte AutoStart-Browservorschau
 
