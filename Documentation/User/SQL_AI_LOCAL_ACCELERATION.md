@@ -152,6 +152,16 @@ verwaltete VM-Identität und der laufende VM-Zustand vor dem SQL-Zugriff geprüf
 Die registrierte Gast-IP muss aktuell auf einem Netzwerkadapter dieser VM
 gemeldet werden. Fehlt die Zuordnung, bleibt die SQL-Verbindung gesperrt.
 
+Im CLI-Menü **Host-Dienste und Modelle → SQL-Ziel für den Modellplan prüfen**
+erscheint nach erfolgreicher Prüfung die Aktion **External Model und Credential
+erstellen**. Bestätige die angezeigte Datenbank, den Run und die Instanz, bevor
+du das Credential-Secret eingibst. Nach der bestätigten Erstellung kannst du in
+derselben Menüsitzung das synthetische Embedding prüfen oder die eigenen
+SQL-Objekte entfernen. Beide Aktionen verlangen eine eigene Bestätigung.
+Beim Verlassen des Menüs bleiben die erstellten Objekte bestehen. Für die
+Wiederaufnahme nach einer verlorenen Antwort gelten die unten beschriebenen
+Befehle und Quittungen.
+
 Der anschließende Apply-Befehl revalidiert Plan, Preflight-Receipt, den laufenden
 Docker-/Podman-Container beziehungsweise die Hyper-V-VMId und die Datenbank-GUID. Vor der ersten SQL-Mutation
 schreibt er ein geheimnisfreies, atomisches Journal. Eine einzelne
